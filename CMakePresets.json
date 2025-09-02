@@ -1,0 +1,86 @@
+{
+  "version": 5,
+  "cmakeMinimumRequired": { "major": 3, "minor": 24, "patch": 0 },
+
+  "configurePresets": [
+    {
+      "name": "base-unix-makefiles",
+      "hidden": true,
+      "generator": "Unix Makefiles",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": {
+        "EIGEN3_DIR": "../eigen"
+      }
+    },
+    {
+      "name": "linux-gcc-base",
+      "hidden": true,
+      "inherits": "base-unix-makefiles",
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "gcc",
+        "CMAKE_CXX_COMPILER": "g++"
+      }
+    },
+    {
+      "name": "macos-gcc-base",
+      "hidden": true,
+      "inherits": "base-unix-makefiles",
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "/opt/homebrew/bin/gcc-13",
+        "CMAKE_CXX_COMPILER": "/opt/homebrew/bin/g++-13",
+        "CMAKE_OSX_DEPLOYMENT_TARGET": "13.0"
+      }
+    },
+    {
+      "name": "riscv32-gcc-base",
+      "hidden": true,
+      "inherits": "base-unix-makefiles",
+      "toolchainFile": "${sourceDir}/riscv32-toolchain.cmake"
+    },
+    {
+      "name": "linux-gcc-debug",
+      "displayName": "Linux GCC Debug",
+      "inherits": "linux-gcc-base",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug" }
+    },
+    {
+      "name": "linux-gcc-release",
+      "displayName": "Linux GCC Release",
+      "inherits": "linux-gcc-base",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release" }
+    },
+    {
+      "name": "macos-gcc-debug",
+      "displayName": "macOS GCC Debug",
+      "inherits": "macos-gcc-base",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug" }
+    },
+    {
+      "name": "macos-gcc-release",
+      "displayName": "macOS GCC Release",
+      "inherits": "macos-gcc-base",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release" }
+    },
+    {
+      "name": "riscv32-gcc-debug",
+      "displayName": "RISC-V GCC Debug",
+      "inherits": "riscv32-gcc-base",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug" }
+    },
+    {
+      "name": "riscv32-gcc-release",
+      "displayName": "RISC-V GCC Release",
+      "inherits": "riscv32-gcc-base",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release" }
+    }
+  ],
+
+  "buildPresets": [
+    { "name": "linux-gcc-debug",     "configurePreset": "linux-gcc-debug",     "verbose": true },
+    { "name": "linux-gcc-release",   "configurePreset": "linux-gcc-release",   "verbose": true },
+    { "name": "macos-gcc-debug",     "configurePreset": "macos-gcc-debug",     "verbose": true },
+    { "name": "macos-gcc-release",   "configurePreset": "macos-gcc-release",   "verbose": true },
+    { "name": "riscv32-gcc-debug",   "configurePreset": "riscv32-gcc-debug",   "verbose": true },
+    { "name": "riscv32-gcc-release", "configurePreset": "riscv32-gcc-release", "verbose": true }
+  ]
+}
