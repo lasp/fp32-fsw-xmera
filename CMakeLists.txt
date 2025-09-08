@@ -6,6 +6,15 @@ macro(add_algorithm name)
   file(GLOB source_files
        "${PROJECT_SOURCE_DIR}/algorithms/${name}/*Algorithm.cpp"
        "${PROJECT_SOURCE_DIR}/algorithms/${name}/*Algorithm_c.cpp")
+  
+  # Add minimal utils for RISC-V cross-compilation
+  if(CMAKE_CROSSCOMPILING)
+    file(GLOB riscv_utils "${PROJECT_SOURCE_DIR}/algorithms/${name}/riscv_utils.cpp")
+    if(riscv_utils)
+      list(APPEND source_files ${riscv_utils})
+    endif()
+  endif()
+  
   set(target_name "${name}")
 
   add_library(${target_name} OBJECT ${source_files})
@@ -89,6 +98,20 @@ else()
   endif()
 endif()
 
+# 6) Add utilities library for architecture utilities (only for native builds, not RISC-V)
+if(NOT CMAKE_CROSSCOMPILING)
+  file(GLOB utilities_sources
+       "${PROJECT_SOURCE_DIR}/architecture/utilities/*.cpp")
+
+  add_library(utilities OBJECT ${utilities_sources})
+  target_include_directories(utilities PRIVATE ${PROJECT_SOURCE_DIR}/architecture/utilities)
+  target_include_directories(utilities PRIVATE ${PROJECT_SOURCE_DIR})
+  target_include_directories(utilities PRIVATE ${EIGEN3_DIR})
+  # Override freestanding mode for utilities - they need standard library functions
+  target_compile_options(utilities PRIVATE -fno-freestanding)
+  set_target_properties(utilities PROPERTIES ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib)
+endif()
+
 #set(algorithms "attTrackingError" "rateDamp")
 set(algorithms "attTrackingError")
 foreach(algorithm_name IN LISTS algorithms)
@@ -100,6 +123,11 @@ set(combined_objects)
 foreach(lib ${algorithms})
     list(APPEND combined_objects $<TARGET_OBJECTS:${lib}>)
 endforeach()
+
+# Include utilities objects in the static library (only for native builds)
+if(NOT CMAKE_CROSSCOMPILING)
+  list(APPEND combined_objects $<TARGET_OBJECTS:utilities>)
+endif()
 
 add_library(gncAlgorithms STATIC ${combined_objects})
 
