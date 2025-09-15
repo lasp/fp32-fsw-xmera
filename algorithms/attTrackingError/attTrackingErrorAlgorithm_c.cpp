@@ -3,8 +3,8 @@
  Copyright (c) 2025, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
  */
 
-#include "AttTrackingErrorAlgorithm_c.h"
-#include "AttTrackingErrorAlgorithm.h"  // the original C++ class
+#include "attTrackingErrorAlgorithm_c.h"
+#include "attTrackingErrorAlgorithm.h"  // the original C++ class
 #include <Eigen/Core>
 
 AttTrackingErrorAlgorithm*
