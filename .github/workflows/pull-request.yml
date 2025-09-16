@@ -78,6 +78,7 @@ jobs:
           path: basilisk
 
       - name: Set up Python ${{ matrix.python-version }}
+        id: setup-py
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
@@ -88,6 +89,14 @@ jobs:
             **/requirements.txt
             **/pyproject.toml
             **/requirements*.txt
+
+      # NEW: Pin the exact interpreter path for this matrix leg
+      - name: Pin matrix Python interpreter
+        run: |
+          PY="$(python -c 'import sys; print(sys.executable)')"
+          echo "PYTHON_EXE=$PY" >> "$GITHUB_ENV"
+          echo "Pinned Python: $PY"
+          "$PY" -V
 
       # ---- System toolchains + GCC 13 (Linux only) ----
       - name: Install system dependencies (Linux)
@@ -121,6 +130,28 @@ jobs:
           gcc-13 -dumpfullversion
           g++-13 -dumpfullversion
 
+      # Ensure a consistent Ninja on Linux and force generator + make program
+      - name: Normalize Ninja on Linux
+        if: runner.os == 'Linux'
+        run: |
+          set -euo pipefail
+          sudo apt-get install -y ninja-build
+          echo "Before:"
+          which -a ninja || true
+          ls -l /usr/bin/ninja || true
+          ls -l /usr/local/bin/ninja || true
+          if [[ -x /usr/local/bin/ninja && "$(readlink -f /usr/local/bin/ninja || echo '')" != "/usr/bin/ninja" ]]; then
+            echo "Removing shadowing /usr/local/bin/ninja"
+            sudo rm -f /usr/local/bin/ninja
+          fi
+          echo "/usr/bin" >> "$GITHUB_PATH"
+          echo "CMAKE_GENERATOR=Ninja"              >> "$GITHUB_ENV"
+          echo "CMAKE_MAKE_PROGRAM=/usr/bin/ninja"  >> "$GITHUB_ENV"
+          echo "NINJA_STATUS=[%f/%t %o/sec] "       >> "$GITHUB_ENV"
+          echo "After:"
+          command -v ninja
+          ninja --version
+
       # ---- System toolchains (macOS uses AppleClang) ----
       - name: Install system dependencies (macOS)
         if: runner.os == 'macOS'
@@ -128,16 +159,10 @@ jobs:
           HOMEBREW_NO_AUTO_UPDATE: 1
           HOMEBREW_NO_ANALYTICS: 1
         run: |
-          # Ensure Homebrew bin is on PATH for subsequent steps
           echo "/opt/homebrew/bin" >> "$GITHUB_PATH"
-
-          # Do NOT use "|| true" here—fail if install fails
           brew install ninja swig pkg-config mono ccache
-
-          # Sanity checks
           which ninja && ninja --version
           which cmake && cmake --version
-          # Use AppleClang — do not export CC/CXX here
           xcrun --show-sdk-path
           clang --version
           clang++ --version
@@ -149,31 +174,74 @@ jobs:
           echo "RUNNER_OS=${RUNNER_OS}"
           echo "CC=${CC:-(default)}"
           echo "CXX=${CXX:-(default)}"
-          which cc      && cc --version      | head -n1 || true
-          which c++     && c++ --version     | head -n1 || true
-          which clang   && clang --version   | head -n1 || true
-          which clang++ && clang++ --version | head -n1 || true
+          echo "CMAKE_GENERATOR=${CMAKE_GENERATOR:-(default)}"
+          echo "CMAKE_MAKE_PROGRAM=${CMAKE_MAKE_PROGRAM:-(default)}"
+          echo "PYTHON_EXE=${PYTHON_EXE:-(unset)}"
+          which python && python -V
+          "$PYTHON_EXE" -V
           which gcc-13  && gcc-13 -dumpfullversion || true
           which g++-13  && g++-13 -dumpfullversion || true
           which ninja   && ninja --version   || true
+
+      # -------- ccache: configure + restore cache --------
+      - name: Configure ccache
+        run: |
+          echo "CCACHE_DIR=$HOME/.ccache" >> "$GITHUB_ENV"
+          echo "CCACHE_COMPRESS=1"        >> "$GITHUB_ENV"
+          echo "CCACHE_MAXSIZE=1G"        >> "$GITHUB_ENV"
+          echo "CCACHE_BASEDIR=$GITHUB_WORKSPACE" >> "$GITHUB_ENV"
+          mkdir -p "$HOME/.ccache"
+          ccache --set-config=verbose=true || true
+          ccache --zero-stats || true
+
+      - name: Compute ccache key suffix
+        id: ccache_keys
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${RUNNER_OS}" == "Linux" ]]; then
+            ver="$(gcc-13 -dumpfullversion || gcc -dumpfullversion || echo unknown)"
+            echo "suffix=linux-gcc-${ver}" >> "$GITHUB_OUTPUT"
+          else
+            ver="$(clang --version | head -n1 | sed 's/ /-/g')"
+            echo "suffix=macos-${ver}" >> "$GITHUB_OUTPUT"
+          fi
+          echo "suffix=${suffix:-unset}"
+
+      - name: Restore ccache cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.ccache
+          key: ccache-${{ runner.os }}-${{ steps.ccache_keys.outputs.suffix }}-${{ hashFiles('basilisk/src/vcpkg.json', 'basilisk/src/vcpkg-configuration.json') }}
+          restore-keys: |
+            ccache-${{ runner.os }}-${{ steps.ccache_keys.outputs.suffix }}-
+            ccache-${{ runner.os }}-
+
+      # -----------------------------------------------
 
       - name: Enable ccache for CMake
         run: |
           echo "CMAKE_C_COMPILER_LAUNCHER=ccache"   >> $GITHUB_ENV
           echo "CMAKE_CXX_COMPILER_LAUNCHER=ccache" >> $GITHUB_ENV
 
-      - name: Setup CMake 3.28.3
+      - name: Setup CMake 3.25.2
         uses: jwlawson/actions-setup-cmake@v2
         with:
-          cmake-version: '3.28.3'
+          cmake-version: '3.25.2'
 
-      # Note: CC/CXX are already exported; run-vcpkg will pick them up.
+      # vcpkg uses the same generator/make program and policy workaround
       - name: Install vcpkg
         uses: lukka/run-vcpkg@v11
         with:
           vcpkgDirectory: ${{ github.workspace }}/b/vcpkg
           vcpkgJsonGlob: "basilisk/src/vcpkg.json"
           vcpkgConfigurationJsonGlob: "basilisk/src/vcpkg-configuration.json"
+        env:
+          VCPKG_KEEP_ENV_VARS: CC;CXX;CMAKE_GENERATOR;CMAKE_MAKE_PROGRAM;NINJA_STATUS
+          VCPKG_MAX_CONCURRENCY: "1"
+          CMAKE_GENERATOR: Ninja
+          CMAKE_MAKE_PROGRAM: /usr/bin/ninja
+          VCPKG_CMAKE_CONFIGURE_OPTIONS: "-DCMAKE_POLICY_VERSION_MINIMUM=3.5"
 
       - name: Cache vcpkg build artifacts
         uses: actions/cache@v4
@@ -196,20 +264,18 @@ jobs:
             NUGET_CMD=("$NUGET")
           fi
           echo "Using NuGet CLI: ${NUGET_CMD[*]}"
-
           "${NUGET_CMD[@]}" sources add \
             -Source "${FEED_URL}" \
             -StorePasswordInClearText \
             -Name GitHubPackages \
             -UserName "${USERNAME}" \
             -Password "${{ secrets.GITHUB_TOKEN }}"
-
-          "${NUGET_CMD[@]}" setapikey "${{ secrets.GITHUB_TOKEN }}" \
-            -Source "${FEED_URL}"
+          "${NUGET_CMD[@]}" setapikey "${{ secrets.GITHUB_TOKEN }}" -Source "${FEED_URL}"
 
       - name: Create virtual environment
         run: |
-          python -m venv .venv
+          # Use the pinned matrix interpreter for this venv
+          "$PYTHON_EXE" -m venv .venv
           source .venv/bin/activate
           python -m pip install --upgrade pip
           python -V
@@ -227,7 +293,6 @@ jobs:
         env:
           VCPKG_BINARY_SOURCES: "clear;nuget,${{ env.FEED_URL }},readwrite"
         run: |
-          # CC/CXX already exported; CMake will honor them.
           cmake --preset ci-test -DEXTERNAL_MODULES_PATH="${GITHUB_WORKSPACE}/algorithms"
 
       - name: Build Basilisk + modules
@@ -257,3 +322,7 @@ jobs:
           name: pytest-${{ matrix.os }}-py${{ matrix.python-version }}
           path: junit/test-results-${{ matrix.python-version }}.xml
           retention-days: 7
+
+      - name: Show ccache stats
+        if: always()
+        run: ccache --show-stats || true
