@@ -1,0 +1,259 @@
+name: "Pull Request Test"
+
+on:
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash --noprofile --norc -euo pipefail {0}
+
+env:
+  USERNAME: ${{ github.repository_owner }}
+  FEED_URL: https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json
+  VCPKG_BINARY_SOURCES: "clear;nuget,https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json,readwrite"
+  VCPKG_FEATURE_FLAGS: "manifests,registries,binarycaching"
+  CMAKE_BUILD_PARALLEL_LEVEL: 4
+  CTEST_PARALLEL_LEVEL: 4
+  CTEST_OUTPUT_ON_FAILURE: 1
+
+jobs:
+  pre-commit:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: .pre-commit-config.yaml
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
+
+      - name: Install clang-format (Linux static binary)
+        run: |
+          sudo wget -qO /usr/local/bin/clang-format https://github.com/cpp-linter/clang-tools-static-binaries/releases/latest/download/clang-format-20_linux-amd64
+          sudo chmod a+x /usr/local/bin/clang-format
+          clang-format --version
+
+      - id: file_changes
+        uses: tj-actions/changed-files@v46
+
+      - name: Run pre-commit (changed files)
+        uses: pre-commit/action@v3.0.1
+        with:
+          extra_args: --color always --files ${{ steps.file_changes.outputs.all_changed_files }}
+
+  build-test:
+    name: Build & Test (${{ matrix.os }} / py${{ matrix.python-version }})
+    runs-on: ${{ matrix.os }}
+    if: ${{ github.event.pull_request.draft == false }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-14]
+        python-version: ["3.9", "3.10", "3.11"]
+    permissions:
+      contents: read
+      packages: write
+      actions: read
+      security-events: write
+    steps:
+      - name: Checkout fp32-fsw-ximera
+        uses: actions/checkout@v4
+
+      - name: Checkout Basilisk core
+        uses: actions/checkout@v4
+        with:
+          repository: lasp/basilisk
+          path: basilisk
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+          cache-dependency-path: |
+            basilisk/**/requirements.txt
+            basilisk/**/pyproject.toml
+            **/requirements.txt
+            **/pyproject.toml
+            **/requirements*.txt
+
+      # ---- System toolchains + GCC 13 (Linux only) ----
+      - name: Install system dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            ninja-build build-essential \
+            pkg-config autoconf automake libtool \
+            zip unzip \
+            bison swig \
+            libdrm-dev \
+            libx11-dev libxkbcommon-x11-dev libx11-xcb-dev \
+            libxft-dev libxext-dev libgles2-mesa-dev \
+            libxi-dev libxtst-dev libxrandr-dev libltdl-dev \
+            libgtk2.0-dev \
+            python3-setuptools python3-jinja2 python3-tk \
+            mono-complete \
+            ccache \
+            gcc-13 g++-13
+          ccache --version
+          ninja --version
+
+      - name: Select GCC 13 (Linux only)
+        if: runner.os == 'Linux'
+        run: |
+          echo "CC=gcc-13"  >> "$GITHUB_ENV"
+          echo "CXX=g++-13" >> "$GITHUB_ENV"
+          echo "CMAKE_C_COMPILER_LAUNCHER=ccache"   >> "$GITHUB_ENV"
+          echo "CMAKE_CXX_COMPILER_LAUNCHER=ccache" >> "$GITHUB_ENV"
+          gcc-13 -dumpfullversion
+          g++-13 -dumpfullversion
+
+      # ---- System toolchains (macOS uses AppleClang) ----
+      - name: Install system dependencies (macOS)
+        if: runner.os == 'macOS'
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: 1
+          HOMEBREW_NO_ANALYTICS: 1
+        run: |
+          # Ensure Homebrew bin is on PATH for subsequent steps
+          echo "/opt/homebrew/bin" >> "$GITHUB_PATH"
+
+          # Do NOT use "|| true" here—fail if install fails
+          brew install ninja swig pkg-config mono ccache
+
+          # Sanity checks
+          which ninja && ninja --version
+          which cmake && cmake --version
+          # Use AppleClang — do not export CC/CXX here
+          xcrun --show-sdk-path
+          clang --version
+          clang++ --version
+          ccache --version
+
+      # Optional: print what CMake will see before vcpkg/cmake configure
+      - name: Toolchain sanity check
+        run: |
+          echo "RUNNER_OS=${RUNNER_OS}"
+          echo "CC=${CC:-(default)}"
+          echo "CXX=${CXX:-(default)}"
+          which cc      && cc --version      | head -n1 || true
+          which c++     && c++ --version     | head -n1 || true
+          which clang   && clang --version   | head -n1 || true
+          which clang++ && clang++ --version | head -n1 || true
+          which gcc-13  && gcc-13 -dumpfullversion || true
+          which g++-13  && g++-13 -dumpfullversion || true
+          which ninja   && ninja --version   || true
+
+      - name: Enable ccache for CMake
+        run: |
+          echo "CMAKE_C_COMPILER_LAUNCHER=ccache"   >> $GITHUB_ENV
+          echo "CMAKE_CXX_COMPILER_LAUNCHER=ccache" >> $GITHUB_ENV
+
+      - name: Setup CMake 3.28.3
+        uses: jwlawson/actions-setup-cmake@v2
+        with:
+          cmake-version: '3.28.3'
+
+      # Note: CC/CXX are already exported; run-vcpkg will pick them up.
+      - name: Install vcpkg
+        uses: lukka/run-vcpkg@v11
+        with:
+          vcpkgDirectory: ${{ github.workspace }}/b/vcpkg
+          vcpkgJsonGlob: "basilisk/src/vcpkg.json"
+          vcpkgConfigurationJsonGlob: "basilisk/src/vcpkg-configuration.json"
+
+      - name: Cache vcpkg build artifacts
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ github.workspace }}/b/vcpkg/installed
+            ${{ github.workspace }}/b/vcpkg/packages
+            ${{ github.workspace }}/b/vcpkg/buildtrees
+          key: vcpkg-${{ runner.os }}-${{ hashFiles('basilisk/src/vcpkg.json', 'basilisk/src/vcpkg-configuration.json') }}
+
+      - name: Add NuGet sources for vcpkg binary cache (portable)
+        env:
+          VCPKG_EXE: ${{ github.workspace }}/b/vcpkg/vcpkg
+        run: |
+          set -euo pipefail
+          NUGET="$(${VCPKG_EXE} fetch nuget | tail -n 1)"
+          if [[ "$NUGET" == *.exe ]]; then
+            NUGET_CMD=(mono "$NUGET")
+          else
+            NUGET_CMD=("$NUGET")
+          fi
+          echo "Using NuGet CLI: ${NUGET_CMD[*]}"
+
+          "${NUGET_CMD[@]}" sources add \
+            -Source "${FEED_URL}" \
+            -StorePasswordInClearText \
+            -Name GitHubPackages \
+            -UserName "${USERNAME}" \
+            -Password "${{ secrets.GITHUB_TOKEN }}"
+
+          "${NUGET_CMD[@]}" setapikey "${{ secrets.GITHUB_TOKEN }}" \
+            -Source "${FEED_URL}"
+
+      - name: Create virtual environment
+        run: |
+          python -m venv .venv
+          source .venv/bin/activate
+          python -m pip install --upgrade pip
+          python -V
+          pip -V
+
+      - name: Install Python deps (from basilisk into fp32-fsw-ximera venv)
+        run: |
+          if [[ -f "$GITHUB_WORKSPACE/basilisk/requirements.txt" ]]; then
+            ./.venv/bin/python -m pip install -r "$GITHUB_WORKSPACE/basilisk/requirements.txt"
+          fi
+          ./.venv/bin/python -m pip list
+
+      - name: Configure Basilisk (with external modules)
+        working-directory: basilisk/src
+        env:
+          VCPKG_BINARY_SOURCES: "clear;nuget,${{ env.FEED_URL }},readwrite"
+        run: |
+          # CC/CXX already exported; CMake will honor them.
+          cmake --preset ci-test -DEXTERNAL_MODULES_PATH="${GITHUB_WORKSPACE}/algorithms"
+
+      - name: Build Basilisk + modules
+        working-directory: basilisk/src
+        run: cmake --build ../dist3/ --parallel
+
+      - name: Install Basilisk (editable)
+        run: |
+          source .venv/bin/activate
+          python -m pip install -e basilisk
+
+      - name: Install fp32-fsw-ximera (editable, if package)
+        run: |
+          source .venv/bin/activate
+          if [[ -f pyproject.toml || -f setup.py ]]; then python -m pip install -e .; fi
+
+      - name: Run fp32-fsw-ximera tests
+        run: |
+          source .venv/bin/activate
+          mkdir -p junit
+          cd algorithms && pytest -n auto --junitxml=junit/test-results-${{ matrix.python-version }}.xml
+
+      - name: Upload pytest test results
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-${{ matrix.os }}-py${{ matrix.python-version }}
+          path: junit/test-results-${{ matrix.python-version }}.xml
+          retention-days: 7
