@@ -77,6 +77,58 @@ jobs:
           repository: lasp/basilisk
           path: basilisk
 
+      - name: Add Release overlay preset for Basilisk base
+        working-directory: basilisk/src
+        run: |
+          python <<'PY'
+          import json
+          from pathlib import Path
+
+          preset_name = "base"
+          overlay_name = "base-release"
+
+          src_path = Path("CMakePresets.json")
+          if not src_path.exists():
+            raise SystemExit("CMakePresets.json not found in basilisk/src")
+
+          with src_path.open("r", encoding="utf-8") as fh:
+            data = json.load(fh)
+
+          names = {p["name"] for p in data.get("configurePresets", [])}
+          if preset_name not in names:
+            raise SystemExit(f"Preset '{preset_name}' not present in CMakePresets.json")
+
+          user_path = Path("CMakeUserPresets.json")
+          if user_path.exists():
+            with user_path.open("r", encoding="utf-8") as fh:
+              user_data = json.load(fh)
+          else:
+            user_data = {"version": data.get("version", 5)}
+
+          user_cfg = user_data.setdefault("configurePresets", [])
+          user_cfg = [p for p in user_cfg if p.get("name") != overlay_name]
+          user_cfg.append({
+              "name": overlay_name,
+              "inherits": preset_name,
+              "cacheVariables": {
+                  "CMAKE_BUILD_TYPE": "Release"
+              }
+          })
+          user_data["configurePresets"] = user_cfg
+
+          user_build = user_data.setdefault("buildPresets", [])
+          user_build = [p for p in user_build if p.get("name") != overlay_name]
+          user_build.append({
+              "name": overlay_name,
+              "configurePreset": overlay_name
+          })
+          user_data["buildPresets"] = user_build
+
+          with user_path.open("w", encoding="utf-8") as fh:
+            json.dump(user_data, fh, indent=2)
+            fh.write("\n")
+          PY
+
       - name: Set up Python ${{ matrix.python-version }}
         id: setup-py
         uses: actions/setup-python@v5
@@ -286,6 +338,7 @@ jobs:
           if [[ -f "$GITHUB_WORKSPACE/basilisk/requirements.txt" ]]; then
             ./.venv/bin/python -m pip install -r "$GITHUB_WORKSPACE/basilisk/requirements.txt"
           fi
+          ./.venv/bin/python -m pip install --upgrade gcovr
           ./.venv/bin/python -m pip list
 
       - name: Configure Basilisk (with external modules)
@@ -293,11 +346,24 @@ jobs:
         env:
           VCPKG_BINARY_SOURCES: "clear;nuget,${{ env.FEED_URL }},readwrite"
         run: |
-          cmake --preset ci-test -DEXTERNAL_MODULES_PATH="${GITHUB_WORKSPACE}/algorithms"
+          args=(
+            --preset base-release
+            "-DEXTERNAL_MODULES_PATH=${GITHUB_WORKSPACE}/algorithms"
+          )
+          if [[ "${{ runner.os }}" == "Linux" && "${{ matrix.python-version }}" == "3.11" ]]; then
+            args+=(
+              "-DCMAKE_BUILD_TYPE=Debug"
+              "-DCMAKE_C_FLAGS=--coverage"
+              "-DCMAKE_CXX_FLAGS=--coverage"
+              "-DCMAKE_EXE_LINKER_FLAGS=--coverage"
+              "-DCMAKE_SHARED_LINKER_FLAGS=--coverage"
+            )
+          fi
+          cmake "${args[@]}"
 
       - name: Build Basilisk + modules
         working-directory: basilisk/src
-        run: cmake --build ../dist3/ --parallel
+        run: cmake --build --preset base-release --parallel
 
       - name: Install Basilisk (editable)
         run: |
@@ -312,8 +378,199 @@ jobs:
       - name: Run fp32-fsw-ximera tests
         run: |
           source .venv/bin/activate
-          mkdir -p junit
-          cd algorithms && pytest -n auto --junitxml=junit/test-results-${{ matrix.python-version }}.xml
+          mkdir -p junit coverage
+          cd algorithms
+          pytest -n auto \
+            --junitxml="../junit/test-results-${{ matrix.python-version }}.xml"
+          cd ..
+
+      - name: Generate external module coverage (Linux / py3.11 only)
+        if: ${{ runner.os == 'Linux' && matrix.python-version == '3.11' }}
+        run: |
+          source .venv/bin/activate
+          mkdir -p coverage
+          GCOV_BIN="$(command -v gcov-13 || command -v gcov)"
+          echo "Using gcov executable: ${GCOV_BIN}"
+          common_args=(
+            --root "${GITHUB_WORKSPACE}/algorithms"
+            --filter "${GITHUB_WORKSPACE}/algorithms"
+            --object-directory "${GITHUB_WORKSPACE}/basilisk/dist3"
+            --exclude ".*_tests/.*"
+            --gcov-executable "${GCOV_BIN}"
+            --gcov-ignore-errors no_working_dir_found
+            --gcov-ignore-errors source_not_found
+          )
+          gcovr "${common_args[@]}" \
+            --xml-pretty \
+            --output coverage/external-modules-coverage.xml
+          gcovr "${common_args[@]}" \
+            --html-details \
+            --output coverage/external-modules-coverage.html
+          gcovr "${common_args[@]}" \
+            --txt \
+            --output coverage/external-modules-coverage.txt
+          gcovr "${common_args[@]}" \
+            --json \
+            --output coverage/external-modules-coverage.json
+          {
+            echo '### External Modules Coverage (gcovr)';
+            echo;
+            echo '```text';
+            cat coverage/external-modules-coverage.txt;
+            echo '```';
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Detect changed source files (Linux / py3.11 only)
+        id: changed_ext_modules
+        if: ${{ runner.os == 'Linux' && matrix.python-version == '3.11' }}
+        uses: tj-actions/changed-files@v46
+        with:
+          files: |
+            algorithms/**/*.c
+            algorithms/**/*.cc
+            algorithms/**/*.cxx
+            algorithms/**/*.cpp
+
+      - name: Enforce coverage threshold on touched files (Linux / py3.11 only)
+        if: ${{ runner.os == 'Linux' && matrix.python-version == '3.11' }}
+        env:
+          COVERAGE_THRESHOLD: '0.8'
+          CHANGED_FILES: ${{ steps.changed_ext_modules.outputs.all_changed_files }}
+        run: |
+          source .venv/bin/activate
+          python <<'PY'
+          import json
+          import os
+          import sys
+          from pathlib import Path
+
+          workspace = Path(os.environ["GITHUB_WORKSPACE"]).resolve()
+          threshold = float(os.environ.get("COVERAGE_THRESHOLD", "0.8")) * 100.0
+
+          summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+
+          def append_summary(lines):
+              if not summary_path:
+                  return
+              with open(summary_path, "a", encoding="utf-8") as fh:
+                  fh.write("\n".join(lines) + "\n")
+
+          append_summary(["### Coverage Threshold Check", ""])
+
+          touched_raw = os.environ.get("CHANGED_FILES", "").strip()
+          touched = [
+              line.strip().replace("\\", "/")
+              for line in touched_raw.splitlines()
+              if line.strip()
+          ]
+
+          tracked_suffixes = (".c", ".cc", ".cxx", ".cpp")
+          touched_sources = [
+              path for path in touched
+              if path.startswith("algorithms/") and path.endswith(tracked_suffixes)
+          ]
+
+          if not touched_sources:
+              msg = "No touched source files under algorithms/; skipping coverage gate."
+              print(msg)
+              append_summary([msg, ""])
+              sys.exit(0)
+
+          coverage_path = workspace / "coverage" / "external-modules-coverage.json"
+          if not coverage_path.exists():
+              msg = f"Coverage report '{coverage_path}' not found; cannot enforce threshold."
+              print(msg)
+              append_summary([msg, ""])
+              sys.exit(0)
+
+          with coverage_path.open("r", encoding="utf-8") as fh:
+              data = json.load(fh)
+
+          file_entries = {}
+          for entry in data.get("files", []):
+              raw = entry.get("file", "")
+              if not raw:
+                  continue
+              path = Path(raw)
+              candidates = set()
+              candidates.add(path.as_posix())
+              try:
+                  candidates.add(path.resolve().relative_to(workspace).as_posix())
+              except Exception:
+                  try:
+                      candidates.add(path.resolve().as_posix())
+                  except Exception:
+                      pass
+              if not path.is_absolute():
+                  candidates.add((workspace / path).resolve().relative_to(workspace).as_posix())
+              for candidate in candidates:
+                  file_entries[candidate] = entry
+
+          def percent(entry):
+              lines = entry.get("lines", {}) if isinstance(entry, dict) else {}
+              total = lines.get("count") or lines.get("total") or 0
+              covered = lines.get("covered") or 0
+              pct = lines.get("percent")
+              if pct is None:
+                  rate = lines.get("rate") or lines.get("line_rate")
+                  if rate is not None:
+                      pct = float(rate) * 100.0
+              if pct is not None:
+                  return float(pct)
+              if total == 0:
+                  return 100.0
+              return (covered / total) * 100.0
+
+          report_lines = ["| File | Line % |", "| --- | ---: |"]
+          failures = []
+          for rel in touched_sources:
+              key = rel
+              entry = file_entries.get(key)
+              if entry is None:
+                  abs_candidates = [
+                      Path(rel).resolve().as_posix(),
+                      (workspace / rel).resolve().as_posix(),
+                  ]
+                  for candidate in abs_candidates:
+                      entry = file_entries.get(candidate)
+                      if entry:
+                          break
+
+              pct = percent(entry) if entry else 0.0
+              report_lines.append(f"| {rel} | {pct:.2f}% |")
+              if pct + 1e-9 < threshold:
+                  failures.append((rel, pct))
+
+          print("\n".join(report_lines))
+          append_summary(report_lines + [""])
+
+          if failures:
+              fail_lines = [
+                  "Touched files below threshold ({}%):".format(threshold),
+              ] + [
+                  f"- {rel}: {pct:.2f}%"
+                  for rel, pct in failures
+              ]
+              print("\n".join(fail_lines))
+              append_summary(fail_lines + [""])
+              sys.exit(1)
+
+          success_msg = "All touched files meet the {:.0f}% coverage threshold.".format(threshold)
+          print(success_msg)
+          append_summary([success_msg, ""])
+          PY
+
+      - name: Upload coverage artifacts (Linux / py3.11 only)
+        if: ${{ runner.os == 'Linux' && matrix.python-version == '3.11' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: external-modules-coverage
+          path: |
+            coverage/external-modules-coverage.xml
+            coverage/external-modules-coverage.html
+            coverage/external-modules-coverage.txt
+            coverage/external-modules-coverage.json
+          retention-days: 14
 
       - name: Upload pytest test results
         if: ${{ always() }}
