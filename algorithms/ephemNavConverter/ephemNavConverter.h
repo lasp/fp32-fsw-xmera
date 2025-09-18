@@ -1,0 +1,34 @@
+/*
+ MIT License
+
+ Copyright (c) 2025, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
+*/
+
+#ifndef F32XIMERA_EPHEM_NAV_CONVERTER_H
+#define F32XIMERA_EPHEM_NAV_CONVERTER_H
+
+#include <stdexcept>
+
+#include "architecture/_GeneralModuleFiles/sys_model.h"
+#include "architecture/messaging/messaging.h"
+#include "ephemNavConverterAlgorithm.h"
+#include "msgPayloadDef/EphemerisMsgF32Payload.h"
+#include "msgPayloadDef/NavTransMsgF32Payload.h"
+
+/*! @brief The ephemNavConverter class.*/
+class EphemNavConverter : public SysModel {
+   public:
+    EphemNavConverter() = default;
+    ~EphemNavConverter() = default;
+
+    void reset(uint64_t callTime) override;
+    void updateState(uint64_t callTime) override;
+
+    Message<NavTransMsgF32Payload> stateOutMsg;    //!< [-] output navigation message for pos/vel
+    ReadFunctor<EphemerisMsgF32Payload> ephInMsg;  //!< ephemeris input message
+
+   private:
+    EphemNavConverterAlgorithm algorithm{};  //!< Algorithm for ephemNavConverter control logic (BSK-agnostic)
+};
+
+#endif
