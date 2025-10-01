@@ -19,8 +19,6 @@
 
 #include "avsEigenSupport.h"
 
-#include <math.h>
-
 #include "architecture/utilities/rigidBodyKinematics.hpp"
 
 /*! This function provides a general conversion between an Eigen matrix and
@@ -212,8 +210,8 @@ Eigen::Matrix3d eigenM2(double angle) {
 
     mOut.setIdentity();
 
-    mOut(0, 0) = cos(angle);
-    mOut(0, 2) = -sin(angle);
+    mOut(0, 0) = std::cos(angle);
+    mOut(0, 2) = -std::sin(angle);
     mOut(2, 0) = -mOut(0, 2);
     mOut(2, 2) = mOut(0, 0);
 
@@ -231,8 +229,8 @@ Eigen::Matrix3d eigenM3(double angle) {
 
     mOut.setIdentity();
 
-    mOut(0, 0) = cos(angle);
-    mOut(0, 1) = sin(angle);
+    mOut(0, 0) = std::cos(angle);
+    mOut(0, 1) = std::sin(angle);
     mOut(1, 0) = -mOut(0, 1);
     mOut(1, 1) = mOut(0, 0);
 
