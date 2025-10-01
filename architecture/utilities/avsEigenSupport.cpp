@@ -29,7 +29,7 @@ in a lot of cases.
 @param inMat The source Eigen matrix that we are converting
 @param outArray The destination array (sized by the user!) we copy into
 */
-void eigenMatrixXd2CArray(Eigen::MatrixXd inMat, double *outArray) {
+void eigenMatrixXd2CArray(Eigen::MatrixXd inMat, double* outArray) {
     Eigen::MatrixXd tempMat = inMat.transpose();
     memcpy(outArray, tempMat.data(), inMat.rows() * inMat.cols() * sizeof(double));
 }
@@ -42,7 +42,7 @@ in a lot of cases.
 @param inMat The source Eigen matrix that we are converting
 @param outArray The destination array (sized by the user!) we copy into
 */
-void eigenMatrixXi2CArray(Eigen::MatrixXi inMat, int *outArray) {
+void eigenMatrixXi2CArray(Eigen::MatrixXi inMat, int* outArray) {
     Eigen::MatrixXi tempMat = inMat.transpose();
     memcpy(outArray, tempMat.data(), inMat.rows() * inMat.cols() * sizeof(int));
 }
@@ -54,7 +54,7 @@ and the transpose that would have been performed by the general case.
 @param inMat The source Eigen matrix that we are converting
 @param outArray The destination array we copy into
 */
-void eigenVector3d2CArray(Eigen::Vector3d &inMat, double *outArray) {
+void eigenVector3d2CArray(Eigen::Vector3d& inMat, double* outArray) {
     memcpy(outArray, inMat.data(), 3 * sizeof(double));
 }
 
@@ -66,7 +66,7 @@ and the transpose that would have been performed by the general case.
 @param outArray The destination array we copy into
 */
 
-void eigenVector3f2CArray(Eigen::Vector3f &inMat, float *outArray) {
+void eigenVector3f2CArray(Eigen::Vector3f& inMat, float* outArray) {
     memcpy(outArray, inMat.data(), 3 * sizeof(float));
 }
 
@@ -77,7 +77,7 @@ and the transpose that would have been performed by the general case.
 @param inMat The source Eigen matrix that we are converting
 @param outArray The destination array we copy into
 */
-void eigenVector4d2CArray(Eigen::Vector4d &inMat, double *outArray) {
+void eigenVector4d2CArray(Eigen::Vector4d& inMat, double* outArray) {
     memcpy(outArray, inMat.data(), 4 * sizeof(double));
 }
 
@@ -88,7 +88,7 @@ and the transpose that would have been performed by the general case.
 @param inMat The source Eigen MRP that we are converting
 @param outArray The destination array we copy into
 */
-void eigenMRPd2CArray(Eigen::Vector3d &inMat, double *outArray) { memcpy(outArray, inMat.data(), 3 * sizeof(double)); }
+void eigenMRPd2CArray(Eigen::Vector3d& inMat, double* outArray) { memcpy(outArray, inMat.data(), 3 * sizeof(double)); }
 
 /*! This function provides a direct conversion between a 3x3 matrix and an
 output C array. We are providing this function to save on the inline conversion
@@ -97,7 +97,7 @@ that would have been performed by the general case.
 @param inMat The source Eigen matrix that we are converting
 @param outArray The destination array we copy into
 */
-void eigenMatrix3d2CArray(Eigen::Matrix3d &inMat, double *outArray) {
+void eigenMatrix3d2CArray(Eigen::Matrix3d& inMat, double* outArray) {
     Eigen::MatrixXd tempMat = inMat.transpose();
     memcpy(outArray, tempMat.data(), 9 * sizeof(double));
 }
@@ -111,7 +111,7 @@ information to ingest the C array.
 @param nRows
 @param nCols
 */
-Eigen::MatrixXd cArray2EigenMatrixXd(double *inArray, int nRows, int nCols) {
+Eigen::MatrixXd cArray2EigenMatrixXd(double* inArray, int nRows, int nCols) {
     Eigen::MatrixXd outMat;
     outMat.resize(nRows, nCols);
     outMat = Eigen::Map<Eigen::MatrixXd>(inArray, outMat.rows(), outMat.cols());
@@ -124,7 +124,7 @@ in order to save an unnecessary conversion between types.
 @return Eigen::Vector3d
 @param inArray The input array (row-major)
 */
-Eigen::Vector3d cArray2EigenVector3d(double *inArray) { return Eigen::Map<Eigen::Vector3d>(inArray, 3, 1); }
+Eigen::Vector3d cArray2EigenVector3d(double* inArray) { return Eigen::Map<Eigen::Vector3d>(inArray, 3, 1); }
 
 /*! This function performs the conversion between an input C array
 3-float-vector and an output Eigen vector3f. This function is provided
@@ -132,7 +132,7 @@ in order to save an unnecessary conversion between types.
 @return Eigen::Vector3f
 @param inArray The input float array (row-major)
 */
-Eigen::Vector3f cArray2EigenVector3f(float *inArray) { return Eigen::Map<Eigen::Vector3f>(inArray, 3, 1); }
+Eigen::Vector3f cArray2EigenVector3f(float* inArray) { return Eigen::Map<Eigen::Vector3f>(inArray, 3, 1); }
 
 /*! This function performs the conversion between an input C array
 4-vector and an output Eigen vector4d. This function is provided
@@ -140,7 +140,7 @@ in order to save an unnecessary conversion between types.
 @return Eigen::Vector4d
 @param inArray The input array (row-major)
 */
-Eigen::Vector4d cArray2EigenVector4d(double *inArray) { return Eigen::Map<Eigen::Vector4d>(inArray, 4, 1); }
+Eigen::Vector4d cArray2EigenVector4d(double* inArray) { return Eigen::Map<Eigen::Vector4d>(inArray, 4, 1); }
 
 /*! This function performs the conversion between an input C array
 3-vector and an output Eigen MRPd. This function is provided
@@ -148,7 +148,7 @@ in order to save an unnecessary conversion between types.
 @return Eigen::MRPd
 @param inArray The input array (row-major)
 */
-Eigen::MRPd cArray2EigenMRPd(double *inArray) {
+Eigen::MRPd cArray2EigenMRPd(double* inArray) {
     Eigen::MRPd sigma_Eigen;
     sigma_Eigen = cArray2EigenVector3d(inArray);
 
@@ -161,7 +161,7 @@ in order to save an unnecessary conversion between types.
 @return Eigen::Matrix3d
 @param inArray The input array (row-major)
 */
-Eigen::Matrix3d cArray2EigenMatrix3d(double *inArray) { return Eigen::Map<Eigen::Matrix3d>(inArray, 3, 3).transpose(); }
+Eigen::Matrix3d cArray2EigenMatrix3d(double* inArray) { return Eigen::Map<Eigen::Matrix3d>(inArray, 3, 3).transpose(); }
 
 /*! This function performs the conversion between an input C 3x3
 2D-array and an output Eigen vector3d. This function is provided
