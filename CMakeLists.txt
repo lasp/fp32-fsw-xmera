@@ -93,7 +93,6 @@ if(NOT IS_DIRECTORY "${EIGEN3_DIR}/Eigen")
   message(FATAL_ERROR "Eigen not found under ${EIGEN3_DIR}")
 endif()
 
-#set(algorithms "attTrackingError" "rateDamp")
 set(algorithms "attTrackingError")
 foreach(algorithm_name IN LISTS algorithms)
   add_algorithm(${algorithm_name})
@@ -111,6 +110,9 @@ add_library(gncAlgorithms STATIC ${combined_objects})
 set_target_properties(gncAlgorithms PROPERTIES
   ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib
 )
+
+add_subdirectory("architecture/utilities")
+target_link_libraries(gncAlgorithms PUBLIC utilities)
 
 # 8) Generate Ada bindings (always, for both Linux and RISC-V)
 set(BINDINGS_DIR "${PROJECT_BINARY_DIR}/bindings")
