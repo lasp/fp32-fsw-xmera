@@ -80,13 +80,17 @@ if(NOT CMAKE_CROSSCOMPILING)
 endif()
 
 # 4) Eigen include (always /home/user/eigen) and project headers
-if (DEFINED CACHE{EIGEN3_DIR})
-  set(EIGEN3_DIR $ENV{EIGEN3_DIR})
-else()
-  set(EIGEN3_DIR "/home/user/eigen")
-  if(NOT EXISTS "${EIGEN3_DIR}/Eigen")
-    message(FATAL_ERROR "Eigen not found under ${EIGEN3_DIR}")
-  endif()
+# Let user override via -DEIGEN3_DIR=... or environment
+set(EIGEN3_DIR "$ENV{EIGEN3_DIR}" CACHE PATH "Path to Eigen root (directory containing 'Eigen/')")
+# Fallback default if not provided
+if(NOT EIGEN3_DIR)
+  set(EIGEN3_DIR "/home/user/eigen" CACHE PATH "Path to Eigen root" FORCE)
+endif()
+# Normalize to absolute so generators don’t see it as relative
+get_filename_component(EIGEN3_DIR "${EIGEN3_DIR}" ABSOLUTE)
+# Sanity check
+if(NOT IS_DIRECTORY "${EIGEN3_DIR}/Eigen")
+  message(FATAL_ERROR "Eigen not found under ${EIGEN3_DIR}")
 endif()
 
 #set(algorithms "attTrackingError" "rateDamp")
