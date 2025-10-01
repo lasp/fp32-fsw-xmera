@@ -6,6 +6,8 @@
 
 #include "rateControlAlgorithm.h"
 
+#include "../freestandingInvalidArgument.h"
+
 /*! This function performs the conversion between an input C array
 3-vector and an output Eigen vector3f. This function is provided
 in order to save an unnecessary conversion between types.
@@ -77,7 +79,7 @@ void RateControlAlgorithm::setSpacecraftInertia(VehicleConfigMsgF32Payload vehic
 */
 void RateControlAlgorithm::setDerivativeGainP(const float P) {
     if (P < 0.0) {
-        throw std::invalid_argument("Feedback gain P must not be negative");
+        FS_THROW_INVALID_ARGUMENT("Feedback gain P must not be negative");
     }
     this->P = P;
 }
