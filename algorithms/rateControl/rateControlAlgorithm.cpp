@@ -17,15 +17,15 @@ the reference frame angular rates and acceleration, and computes the required co
  @return torqueCmdOut
  @param attGuidIn Attitude guidance input
 */
-CmdTorqueBodyMsgF32Payload RateControlAlgorithm::update(AttGuidMsgF32Payload attGuidIn) {
+CmdTorqueBodyMsgF32Payload RateControlAlgorithm::update(AttGuidMsgF32Payload attGuidIn) const {
     CmdTorqueBodyMsgF32Payload torqueCmdOut{};
 
     // Compute required attitude control torque vector
-    Eigen::Vector3f omega_BR_B = cArrayAsEigenVector(attGuidIn.omega_BR_B);
-    Eigen::Vector3f omega_RN_B = cArrayAsEigenVector(attGuidIn.omega_RN_B);
-    Eigen::Vector3f omega_BN_B = omega_BR_B + omega_RN_B;
-    Eigen::Vector3f domega_RN_B = cArrayAsEigenVector(attGuidIn.domega_RN_B);
-    Eigen::Vector3f Lr = -this->P * omega_BR_B + omega_RN_B.cross(this->ISCPntB_B * omega_BN_B) +
+    const Eigen::Vector3f omega_BR_B = cArrayAsEigenVector(attGuidIn.omega_BR_B);
+    const Eigen::Vector3f omega_RN_B = cArrayAsEigenVector(attGuidIn.omega_RN_B);
+    const Eigen::Vector3f omega_BN_B = omega_BR_B + omega_RN_B;
+    const Eigen::Vector3f domega_RN_B = cArrayAsEigenVector(attGuidIn.domega_RN_B);
+    const Eigen::Vector3f Lr = -this->P * omega_BR_B + omega_RN_B.cross(this->ISCPntB_B * omega_BN_B) +
                          this->ISCPntB_B * (domega_RN_B - omega_BN_B.cross(omega_RN_B)) -
                          this->knownTorquePntB_B;  // [Nm]
 

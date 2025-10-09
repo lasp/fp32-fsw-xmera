@@ -21,9 +21,9 @@ void SunlineEphem::reset(uint64_t callTime) {
 }
 
 void SunlineEphem::updateState(uint64_t callTime) {
-    EphemerisMsgF32Payload sunPos = this->sunPositionInMsg();
-    NavTransMsgF32Payload scPos = this->scPositionInMsg();
-    NavAttMsgF32Payload scAtt = this->scAttitudeInMsg();
+    const EphemerisMsgF32Payload sunPos = this->sunPositionInMsg();
+    const NavTransMsgF32Payload scPos = this->scPositionInMsg();
+    const NavAttMsgF32Payload scAtt = this->scAttitudeInMsg();
     auto outputSunline = this->algorithm.updateState(sunPos, scPos, scAtt);
     this->navStateOutMsg.write(&outputSunline, this->moduleID, callTime);
 }
