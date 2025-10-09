@@ -1,5 +1,5 @@
 file(GLOB source_files
-     "${CMAKE_CURRENT_SOURCE_DIR}/avsEigenSupport.cpp"
+     "${CMAKE_CURRENT_SOURCE_DIR}/eigenSupport.h"
      "${CMAKE_CURRENT_SOURCE_DIR}/rigidBodyKinematics.hpp"
      "${CMAKE_CURRENT_SOURCE_DIR}/messageConversationHelpers.cpp")
 

@@ -8,40 +8,7 @@
 
 #include "../freestandingInvalidArgument.h"
 
-/*! This function performs the conversion between an input C array
-3-vector and an output Eigen vector3f. This function is provided
-in order to save an unnecessary conversion between types.
-@return Eigen::Vector3f
-@param inArray The input array (row-major)
-*/
-static Eigen::Vector3f cArray2EigenVector3f(float *inArray) { return Eigen::Map<Eigen::Vector3f>(inArray, 3, 1); }
-
-/*! This function provides a direct conversion between a 3-vector and an
-output C array. We are providing this function to save on the  inline conversion
-and the transpose that would have been performed by the general case.
-@return void
-@param inMat The source Eigen matrix that we are converting
-@param outArray The destination array we copy into
-*/
-static void eigenVector3f2CArray(Eigen::Vector3f &inMat, float *outArray) {
-    memcpy(outArray, inMat.data(), 3 * sizeof(float));
-}
-
-/*! This function performs the general conversion between an input C array
-and an Eigen matrix. Note that to use this function the user MUST size
-the Eigen matrix ahead of time so that the internal map call has enough
-information to ingest the C array.
-@return Eigen::MatrixXf
-@param inArray The input array (row-major)
-@param nRows
-@param nCols
-*/
-static Eigen::MatrixXf cArray2EigenMatrixXf(float *inArray, int nRows, int nCols) {
-    Eigen::MatrixXf outMat;
-    outMat.resize(nRows, nCols);
-    outMat = Eigen::Map<Eigen::MatrixXf>(inArray, outMat.rows(), outMat.cols());
-    return outMat;
-}
+#include "architecture/utilities/eigenSupport.h"
 
 /*! This method takes the attitude and rate errors relative to the reference frame, as well as
 the reference frame angular rates and acceleration, and computes the required control torque Lr.
@@ -52,15 +19,15 @@ CmdTorqueBodyMsgF32Payload RateControlAlgorithm::update(AttGuidMsgF32Payload att
     CmdTorqueBodyMsgF32Payload torqueCmdOut{};
 
     // Compute required attitude control torque vector
-    Eigen::Vector3f omega_BR_B = cArray2EigenVector3f(attGuidIn.omega_BR_B);
-    Eigen::Vector3f omega_RN_B = cArray2EigenVector3f(attGuidIn.omega_RN_B);
+    Eigen::Vector3f omega_BR_B = cArrayAsEigenVector(attGuidIn.omega_BR_B);
+    Eigen::Vector3f omega_RN_B = cArrayAsEigenVector(attGuidIn.omega_RN_B);
     Eigen::Vector3f omega_BN_B = omega_BR_B + omega_RN_B;
-    Eigen::Vector3f domega_RN_B = cArray2EigenVector3f(attGuidIn.domega_RN_B);
+    Eigen::Vector3f domega_RN_B = cArrayAsEigenVector(attGuidIn.domega_RN_B);
     Eigen::Vector3f Lr = -this->P * omega_BR_B + omega_RN_B.cross(this->ISCPntB_B * omega_BN_B) +
                          this->ISCPntB_B * (domega_RN_B - omega_BN_B.cross(omega_RN_B)) -
                          this->knownTorquePntB_B;  // [Nm]
 
-    eigenVector3f2CArray(Lr, torqueCmdOut.torqueRequestBody);
+    eigenVectorToCArray(Lr, torqueCmdOut.torqueRequestBody);
 
     return torqueCmdOut;
 }
@@ -70,7 +37,7 @@ CmdTorqueBodyMsgF32Payload RateControlAlgorithm::update(AttGuidMsgF32Payload att
  @param vehicleConfigIn Vehicle config input
 */
 void RateControlAlgorithm::setSpacecraftInertia(VehicleConfigMsgF32Payload vehicleConfigIn) {
-    this->ISCPntB_B = cArray2EigenMatrixXf(vehicleConfigIn.ISCPntB_B, 3, 3);
+    this->ISCPntB_B = cArrayAsEigenMatrix3(vehicleConfigIn.ISCPntB_B);
 }
 
 /*! Setter method for the derivative gain P.

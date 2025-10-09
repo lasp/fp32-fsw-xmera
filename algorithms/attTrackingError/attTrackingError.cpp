@@ -6,7 +6,7 @@
 
 #include "attTrackingError.h"
 
-#include "architecture/utilities/avsEigenSupport.h"
+#include "architecture/utilities/eigenSupport.h"
 #include "architecture/utilities/rigidBodyKinematics.hpp"
 
 #include "../../architecture/utilities/messageConversionHelpers.hpp"
