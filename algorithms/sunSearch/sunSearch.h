@@ -7,12 +7,12 @@
 #ifndef F32XIMERA_SUN_SEARCH_H
 #define F32XIMERA_SUN_SEARCH_H
 
-#include <architecture/_GeneralModuleFiles/sys_model.h>
-#include <architecture/messaging/messaging.h>
 #include "msgPayloadDef/AttGuidMsgF32Payload.h"
 #include "msgPayloadDef/NavAttMsgF32Payload.h"
 #include "msgPayloadDef/VehicleConfigMsgF32Payload.h"
 #include "sunSearchAlgorithm.h"
+#include <architecture/_GeneralModuleFiles/sys_model.h>
+#include <architecture/messaging/messaging.h>
 
 class SunSearch : public SysModel {
    public:

@@ -36,7 +36,7 @@ void SunSearchAlgorithm::reset(const uint64_t currentSimNanos, const VehicleConf
  @param navAttIn Navigation attitude message
  */
 AttGuidMsgF32Payload SunSearchAlgorithm::update(const uint64_t currentSimNanos,
-												const NavAttMsgF32Payload& navAttIn) const {
+                                                const NavAttMsgF32Payload& navAttIn) const {
     AttGuidMsgF32Payload attGuidOut{};
     ReferenceMotionOutput referenceMotion{};
 
@@ -54,7 +54,8 @@ AttGuidMsgF32Payload SunSearchAlgorithm::update(const uint64_t currentSimNanos,
         }
     }
 
-    const Eigen::Vector3f omega_BR_B = Eigen::Map<const Eigen::Vector3f>(navAttIn.omega_BN_B) - referenceMotion.omega_RN_B;
+    const Eigen::Vector3f omega_BR_B =
+        Eigen::Map<const Eigen::Vector3f>(navAttIn.omega_BN_B) - referenceMotion.omega_RN_B;
 
     eigenVectorToCArray(referenceMotion.omega_RN_B, attGuidOut.omega_RN_B);
     eigenVectorToCArray(omega_BR_B, attGuidOut.omega_BR_B);
@@ -105,7 +106,7 @@ void SunSearchAlgorithm::computeKinematicProperties(const uint32_t index) {
     @return ReferenceMotionOutput
     */
 ReferenceMotionOutput SunSearchAlgorithm::computeReferenceMotion(const uint64_t currentSimNanos,
-																 const uint32_t index) const {
+                                                                 const uint32_t index) const {
     float zeroTime = 0;
     for (uint32_t i = 0; i < index; ++i) {
         zeroTime += this->kinematicProperties[i].slewTotalTime;

@@ -53,4 +53,6 @@ void SunSearch::modifySlewProperties(const SlewProperties& slewPropertiesInput, 
  * @param index index of the slew maneuver
  * @return SlewProperties the properties of the slew maneuver
  */
-SlewProperties SunSearch::getSlewProperties(const uint32_t index) const { return this->algorithm.getSlewProperties(index); }
+SlewProperties SunSearch::getSlewProperties(const uint32_t index) const {
+    return this->algorithm.getSlewProperties(index);
+}

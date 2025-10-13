@@ -21,11 +21,11 @@ struct SlewProperties {
     float slewAngle;      //!< [rad] total angle sweep around one axis
     float slewMaxRate;    //!< [rad/s] maximum spacecraft body rate norm
     float slewMaxTorque;  //!< [Nm] maximum torque for slew
-    int slewRotAxis;       //!< [-] axes about which to perform the Sun search
+    int slewRotAxis;      //!< [-] axes about which to perform the Sun search
 };
 
 struct KinematicProperties {
-    int slewRotAxis;        //!< [-] axes about which to perform the Sun search
+    int slewRotAxis;       //!< [-] axes about which to perform the Sun search
     float slewAngAcc;      //!< [rad/s^2] angular accelerations about each rotation axis
     float slewOmegaMax;    //!< [rad/s] highes angular rate about each rotation axis
     float slewThrustTime;  //!< [s] control time of each rotation
