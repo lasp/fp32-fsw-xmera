@@ -23,7 +23,7 @@
 #include <fswAlgorithms/fswUtilities/fswDefinitions.h>
 
 #include <math.h>
-#include <stdexcept>
+#include "../freestandingInvalidArgument.h"
 
 /*! This method performs a complete reset of the module.  Local module variables that retain
  time varying states between function calls are reset to their default values.
@@ -137,7 +137,7 @@ CmdTorqueBodyMsgF32Payload RateServoFullNonlinearAlgorithm::update(uint64_t call
 */
 void RateServoFullNonlinearAlgorithm::setP(const float gain) {
     if (gain < 0.0) {
-        throw std::invalid_argument("Feedback gain P must not be negative");
+        FS_THROW_INVALID_ARGUMENT("Feedback gain P must not be negative");
     }
     this->P = gain;
 }
