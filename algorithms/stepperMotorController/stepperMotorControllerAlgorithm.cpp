@@ -19,7 +19,7 @@
 
 #include "stepperMotorControllerAlgorithm.h"
 #include <architecture/utilities/macroDefinitions.h>
-#include <stdexcept>
+#include "../freestandingInvalidArgument.h"
 
 /*! This method performs a complete reset of the module. The input message is checked to ensure it is linked.
  @return void
@@ -162,7 +162,7 @@ float StepperMotorControllerAlgorithm::getThetaMin() const { return this->thetaM
 */
 void StepperMotorControllerAlgorithm::setStepAngle(const float stepAngle) {
     if (stepAngle <= 0.0) {
-        throw std::invalid_argument("StepAngle must be positive");
+        FS_THROW_INVALID_ARGUMENT("StepAngle must be positive");
     }
     this->stepAngle = stepAngle;
 }
@@ -178,7 +178,7 @@ float StepperMotorControllerAlgorithm::getStepAngle() const { return this->stepA
 */
 void StepperMotorControllerAlgorithm::setStepTime(const float stepTime) {
     if (stepTime <= 0.0) {
-        throw std::invalid_argument("stepTime must be positive");
+        FS_THROW_INVALID_ARGUMENT("stepTime must be positive");
     }
     this->stepTime = stepTime;
 }
