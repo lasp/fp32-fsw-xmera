@@ -17,7 +17,7 @@ class EphemNavConverterAlgorithm {
     EphemNavConverterAlgorithm() = default;   //!< Constructor
     ~EphemNavConverterAlgorithm() = default;  //!< Destructor
 
-    NavTransMsgF32Payload update(uint64_t callTime, const EphemerisMsgF32Payload &ephemerisInMsg) const;
+    NavTransMsgF32Payload update(uint64_t callTime, const EphemerisMsgF32Payload& ephemerisInMsg) const;
 };
 
 #endif

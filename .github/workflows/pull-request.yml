@@ -255,25 +255,25 @@ jobs:
           set -euo pipefail
 
           NUGET="$("${VCPKG_EXE}" fetch nuget | awk 'NF{last=$0} END{print last}')"
-          
+
           declare -a NUGET_CMD=()   # <-- make it exist to appease `set -u`
-          
+
           if [[ "$NUGET" == *.exe ]]; then
             NUGET_CMD=(mono "$NUGET")
           else
             NUGET_CMD=("$NUGET")
           fi
-          
+
           # Print robustly
           printf 'Using NuGet CLI: %q\n' "${NUGET_CMD[@]}"
-          
+
           "${NUGET_CMD[@]}" sources add \
             -Source "${FEED_URL}" \
             -StorePasswordInClearText \
             -Name GitHubPackages \
             -UserName "${USERNAME}" \
             -Password "${{ secrets.FP32_XMERA_GH_VCPKG_PACKAGES_TOKEN }}"
-          
+
           "${NUGET_CMD[@]}" setapikey "${{ secrets.FP32_XMERA_GH_VCPKG_PACKAGES_TOKEN }}" -Source "${FEED_URL}"
 
       - name: Create virtual environment

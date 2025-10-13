@@ -15,7 +15,6 @@
 
 #include <stdint.h>
 
-
 /*! structure containing the attitude navigation message name, ID and local buffer*/
 typedef struct {
     ReadFunctor<NavAttMsgF32Payload> navAttInMsg; /*!< attitude navigation input message*/
