@@ -43,8 +43,8 @@ class StepperMotorControllerAlgorithm {
     float stepAngle{1.0 * M_PI / 180.0};  //!< [rad] Step angle the motor rotates through for a single step (constant)
     float thetaMax{2.0 * M_PI};           //!< [rad] Motor upper hard stop actuation limit
     float thetaMin{-2.0 * M_PI};          //!< [rad] Motor lower hard stop actuation limit
-    int stepsCommanded{};                  //!< [steps] Number of steps needed to reach the desired angle (output)
-    int stepCount{};                       //!< [steps] Current motor step count (number of steps taken)
+    int stepsCommanded{};                 //!< [steps] Number of steps needed to reach the desired angle (output)
+    int stepCount{};                      //!< [steps] Current motor step count (number of steps taken)
     float stepTime{1.0};              //!< [s] Time required for the motor to actuate through a single step (constant)
     float previousWrittenTime{-1.0};  //!< [ns] Time the last motor reference input message was written
 };

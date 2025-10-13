@@ -7,11 +7,11 @@
 #ifndef F32XIMERA_STEPPER_MOTOR_CONTROLLER_H
 #define F32XIMERA_STEPPER_MOTOR_CONTROLLER_H
 
+#include "msgPayloadDef/HingedRigidBodyMsgF32Payload.h"
+#include "stepperMotorControllerAlgorithm.h"
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
-#include "msgPayloadDef/HingedRigidBodyMsgF32Payload.h"
 #include <architecture/msgPayloadDef/MotorStepCommandMsgPayload.h>
-#include "stepperMotorControllerAlgorithm.h"
 
 /*! @brief Stepper Motor Controller Class */
 class StepperMotorController : public SysModel {
@@ -32,7 +32,7 @@ class StepperMotorController : public SysModel {
     void setStepTime(float stepTime);
     float getStepTime() const;
 
-    ReadFunctor<HingedRigidBodyMsgF32Payload> motorRefAngleInMsg;   //!< Intput msg for the motor reference angle message
+    ReadFunctor<HingedRigidBodyMsgF32Payload> motorRefAngleInMsg;  //!< Intput msg for the motor reference angle message
     Message<MotorStepCommandMsgPayload> motorStepCommandOutMsg;  //!< Output msg for the number of commanded motor steps
 
    private:

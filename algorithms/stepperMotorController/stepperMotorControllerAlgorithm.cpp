@@ -5,8 +5,8 @@
 */
 
 #include "stepperMotorControllerAlgorithm.h"
-#include <architecture/utilities/macroDefinitions.h>
 #include "../freestandingInvalidArgument.h"
+#include <architecture/utilities/macroDefinitions.h>
 
 /*! This method performs a complete reset of the module. The input message is checked to ensure it is linked.
  @return void
@@ -25,9 +25,10 @@ void StepperMotorControllerAlgorithm::reset() {
  @param hingedRigidBodyMsgTimeWritten [s] Time the motor reference angle message was written
  @param motorRefAngleIn [-] Motor reference angle message
 */
-StepperMotorControllerOutput StepperMotorControllerAlgorithm::update(const uint64_t callTime,
-                                                                     const float hingedRigidBodyMsgTimeWritten,
-                                                                     const HingedRigidBodyMsgF32Payload& motorRefAngleIn) {
+StepperMotorControllerOutput StepperMotorControllerAlgorithm::update(
+    const uint64_t callTime,
+    const float hingedRigidBodyMsgTimeWritten,
+    const HingedRigidBodyMsgF32Payload& motorRefAngleIn) {
     StepperMotorControllerOutput stepperMotorControllerOutput{};
 
     // Each time a new motor reference message is written to this module, the required motor steps commanded to achieve
