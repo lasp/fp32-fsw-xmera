@@ -25,7 +25,7 @@
 #include "msgPayloadDef/AttGuidMsgF32Payload.h"
 #include "msgPayloadDef/NavAttMsgF32Payload.h"
 #include "msgPayloadDef/VehicleConfigMsgF32Payload.h"
-#include <Eigen/Dense>
+#include <Eigen/Core>
 
 #define NUM_SLEWS 3
 
