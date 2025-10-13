@@ -19,6 +19,8 @@
 
 #include "celestialTwoBodyPoint.h"
 
+#include <stdexcept>
+
 void CelestialTwoBodyPoint::reset(uint64_t callTime) {
     this->secCelBodyIsLinked = this->secCelBodyInMsg.isLinked();
 

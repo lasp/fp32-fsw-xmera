@@ -21,7 +21,6 @@
 #define F32XIMERA_CELESTIAL_BODY_POINT_H
 
 #include <stdint.h>
-#include <stdexcept>
 
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
