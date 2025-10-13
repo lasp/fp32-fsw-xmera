@@ -29,7 +29,7 @@ class Inertial3DAlgorithm {
    public:
     AttRefMsgF32Payload update();
     void setSigmaR0N(const Eigen::Vector3f& sigma_RN);
-    const Eigen::Vector3f& getSigmaR0N() const;
+    Eigen::Vector3f getSigmaR0N() const;
 
    private:
     Eigen::Vector3f sigma_R0N{Eigen::Vector3f::Zero()};  //!<  MRP from inertial frame N to corrected reference frame R

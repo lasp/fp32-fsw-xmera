@@ -37,6 +37,6 @@ void Inertial3D::updateState(uint64_t callTime) {
 void Inertial3D::setSigmaR0N(const Eigen::Vector3f& sigma_RN) { this->algorithm.setSigmaR0N(sigma_RN); }
 
 /*! Getter method for the MRP from frame N to frame R.
- @return const Eigen::Vector3f
+ @return Eigen::Vector3f
 */
-const Eigen::Vector3f& Inertial3D::getSigmaR0N() const { return this->algorithm.getSigmaR0N(); }
+Eigen::Vector3f Inertial3D::getSigmaR0N() const { return this->algorithm.getSigmaR0N(); }

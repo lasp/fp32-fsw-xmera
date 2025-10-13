@@ -38,6 +38,6 @@ AttRefMsgF32Payload Inertial3DAlgorithm::update() {
 void Inertial3DAlgorithm::setSigmaR0N(const Eigen::Vector3f& sigma_RN) { this->sigma_R0N = sigma_RN; }
 
 /*! Getter method for the MRP from frame N to frame R.
- @return const Eigen::Vector3f
+ @return Eigen::Vector3f
 */
-const Eigen::Vector3f& Inertial3DAlgorithm::getSigmaR0N() const { return this->sigma_R0N; }
+Eigen::Vector3f Inertial3DAlgorithm::getSigmaR0N() const { return this->sigma_R0N; }

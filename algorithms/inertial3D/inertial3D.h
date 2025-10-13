@@ -36,7 +36,7 @@ class Inertial3D : public SysModel {
 
     void updateState(uint64_t callTime) override;
     void setSigmaR0N(const Eigen::Vector3f& sigma_RN);
-    const Eigen::Vector3f& getSigmaR0N() const;
+    Eigen::Vector3f getSigmaR0N() const;
 
     Message<AttRefMsgF32Payload> attRefOutMsg;  //!< reference attitude output message
 
