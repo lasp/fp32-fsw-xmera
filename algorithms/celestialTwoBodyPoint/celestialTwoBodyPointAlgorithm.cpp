@@ -21,6 +21,7 @@
 #include "architecture/utilities/eigenSupport.h"
 #include "architecture/utilities/rigidBodyKinematics.hpp"
 #include <architecture/utilities/safeMath.h>
+#include "../freestandingInvalidArgument.h"
 
 #include <math.h>
 
@@ -121,7 +122,7 @@ AttRefMsgF32Payload CelestialTwoBodyPointAlgorithm::update(EphemerisMsgF32Payloa
  */
 void CelestialTwoBodyPointAlgorithm::setSingularityThresh(float thresh) {
     if (thresh < 0.0) {
-        throw std::invalid_argument("Singularity threshold must not be negative");
+        FS_THROW_INVALID_ARGUMENT("Singularity threshold must not be negative");
     }
     this->singularityThresh = thresh;
 }
