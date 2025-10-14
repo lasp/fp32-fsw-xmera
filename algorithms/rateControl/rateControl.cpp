@@ -6,6 +6,10 @@
 
 #include "rateControl.h"
 
+#include <stdint.h>
+#include <stdexcept>
+
+
 /*! This method performs a complete reset of the module.  Local module variables that retain
  time varying states between function calls are reset to their default values.
  @return void

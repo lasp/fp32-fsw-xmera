@@ -6,6 +6,7 @@
 
 #include "navAggregate.h"
 
+#include <array>
 #include <stdexcept>
 
 /*! This resets the module to original states.

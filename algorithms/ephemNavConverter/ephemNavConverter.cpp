@@ -6,6 +6,8 @@
 
 #include "ephemNavConverter.h"
 
+#include <stdexcept>
+
 /*! Reset method for the module adapter interface.
  @return void
  @param callTime The clock time at which the function was called (nanoseconds)

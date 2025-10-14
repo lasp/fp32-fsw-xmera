@@ -7,17 +7,15 @@
 #ifndef F32XIMERA_RATE_CONTROL_H
 #define F32XIMERA_RATE_CONTROL_H
 
-#include <stdint.h>
-#include <stdexcept>
-
-#include <Eigen/Dense>
+#include "rateControlAlgorithm.h"
 
 #include "architecture/_GeneralModuleFiles/sys_model.h"
 #include "architecture/messaging/messaging.h"
 #include "msgPayloadDef/AttGuidMsgF32Payload.h"
 #include "msgPayloadDef/CmdTorqueBodyMsgF32Payload.h"
 #include "msgPayloadDef/VehicleConfigMsgF32Payload.h"
-#include "rateControlAlgorithm.h"
+
+#include <Eigen/Core>
 
 class RateControl : public SysModel {
    public:

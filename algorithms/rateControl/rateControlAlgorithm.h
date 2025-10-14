@@ -7,11 +7,11 @@
 #ifndef F32XIMERA_RATE_CONTROL_ALGORITHM_H
 #define F32XIMERA_RATE_CONTROL_ALGORITHM_H
 
-#include <Eigen/Dense>
-
 #include "msgPayloadDef/AttGuidMsgF32Payload.h"
 #include "msgPayloadDef/CmdTorqueBodyMsgF32Payload.h"
 #include "msgPayloadDef/VehicleConfigMsgF32Payload.h"
+
+#include <Eigen/Core>
 
 class RateControlAlgorithm {
    public:

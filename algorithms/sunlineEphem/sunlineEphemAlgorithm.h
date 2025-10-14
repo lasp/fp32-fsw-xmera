@@ -7,11 +7,6 @@
 #ifndef F32XIMERA_SUNLINE_EPHEM_ALGORITHM_H
 #define F32XIMERA_SUNLINE_EPHEM_ALGORITHM_H
 
-#include <assert.h>
-#include <stdint.h>
-#include <Eigen/Core>
-
-#include "architecture/utilities/rigidBodyKinematics.hpp"
 #include "msgPayloadDef/EphemerisMsgF32Payload.h"
 #include "msgPayloadDef/NavAttMsgF32Payload.h"
 #include "msgPayloadDef/NavTransMsgF32Payload.h"

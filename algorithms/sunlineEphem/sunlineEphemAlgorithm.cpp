@@ -6,6 +6,10 @@
 
 #include "sunlineEphemAlgorithm.h"
 
+#include "architecture/utilities/rigidBodyKinematics.hpp"
+
+#include <Eigen/Core>
+
 NavAttMsgF32Payload SunlineEphemAlgorithm::updateState(const EphemerisMsgF32Payload &sunPos,
                                                        const NavTransMsgF32Payload &scPos,
                                                        const NavAttMsgF32Payload &scAtt) const {
