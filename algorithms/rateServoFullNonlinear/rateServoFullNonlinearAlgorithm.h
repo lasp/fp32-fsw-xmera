@@ -12,19 +12,17 @@
 #include "msgPayloadDef/AttGuidMsgF32Payload.h"
 #include "msgPayloadDef/CmdTorqueBodyMsgF32Payload.h"
 #include "msgPayloadDef/RWArrayConfigMsgF32Payload.h"
-#include <architecture/msgPayloadDef/RWAvailabilityMsgPayload.h>
 #include "msgPayloadDef/RWSpeedMsgF32Payload.h"
 #include "msgPayloadDef/RateCmdMsgF32Payload.h"
 #include "msgPayloadDef/VehicleConfigMsgF32Payload.h"
+#include <architecture/msgPayloadDef/RWAvailabilityMsgPayload.h>
 
 #include <Eigen/Core>
 
 /*! @brief The configuration structure for the rateServoFullNonlinear module.  */
 class RateServoFullNonlinearAlgorithm {
    public:
-    void reset(VehicleConfigMsgF32Payload vehConfigMsg,
-               RWArrayConfigMsgF32Payload rwConfigMsg,
-               bool rwIsLinked);
+    void reset(VehicleConfigMsgF32Payload vehConfigMsg, RWArrayConfigMsgF32Payload rwConfigMsg, bool rwIsLinked);
     CmdTorqueBodyMsgF32Payload update(uint64_t callTime,
                                       AttGuidMsgF32Payload guidCmd,
                                       RateCmdMsgF32Payload rateCmd,

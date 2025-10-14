@@ -9,8 +9,8 @@
 #include <architecture/utilities/macroDefinitions.h>
 #include <fswAlgorithms/fswUtilities/fswDefinitions.h>
 
-#include <math.h>
 #include "../freestandingInvalidArgument.h"
+#include <math.h>
 
 /*! This method performs a complete reset of the module.  Local module variables that retain
  time varying states between function calls are reset to their default values.

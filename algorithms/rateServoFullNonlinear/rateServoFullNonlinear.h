@@ -9,16 +9,16 @@
 
 #include <stdint.h>
 
-#include <architecture/_GeneralModuleFiles/sys_model.h>
-#include <architecture/messaging/messaging.h>
 #include "msgPayloadDef/AttGuidMsgF32Payload.h"
 #include "msgPayloadDef/CmdTorqueBodyMsgF32Payload.h"
 #include "msgPayloadDef/RWArrayConfigMsgF32Payload.h"
-#include <architecture/msgPayloadDef/RWAvailabilityMsgPayload.h>
 #include "msgPayloadDef/RWSpeedMsgF32Payload.h"
 #include "msgPayloadDef/RateCmdMsgF32Payload.h"
 #include "msgPayloadDef/VehicleConfigMsgF32Payload.h"
 #include "rateServoFullNonlinearAlgorithm.h"
+#include <architecture/_GeneralModuleFiles/sys_model.h>
+#include <architecture/messaging/messaging.h>
+#include <architecture/msgPayloadDef/RWAvailabilityMsgPayload.h>
 
 #include <Eigen/Core>
 
@@ -42,7 +42,7 @@ class RateServoFullNonlinear : public SysModel {
     ReadFunctor<AttGuidMsgF32Payload> guidInMsg;             //!< attitude guidance input message
     ReadFunctor<VehicleConfigMsgF32Payload> vehConfigInMsg;  //!< vehicle configuration input message
     ReadFunctor<RWSpeedMsgF32Payload> rwSpeedsInMsg;         //!< (optional) RW speed input message
-    ReadFunctor<RWAvailabilityMsgPayload> rwAvailInMsg;   //!< (optional) RW availability input message
+    ReadFunctor<RWAvailabilityMsgPayload> rwAvailInMsg;      //!< (optional) RW availability input message
     ReadFunctor<RWArrayConfigMsgF32Payload> rwParamsInMsg;   //!< (optional) RW configuration parameter input message
     ReadFunctor<RateCmdMsgF32Payload> rateSteeringInMsg;     //!< commanded rate input message
 

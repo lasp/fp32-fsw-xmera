@@ -54,10 +54,10 @@ void RateServoFullNonlinear::reset(const uint64_t callTime) {
  @param callTime The clock time at which the function was called (nanoseconds)
  */
 void RateServoFullNonlinear::updateState(const uint64_t callTime) {
-    const AttGuidMsgF32Payload guidCmd = this->guidInMsg();              /*!< Guidance input Message */
-    const RateCmdMsgF32Payload rateGuid = this->rateSteeringInMsg();     /*!< rate steering law message input message */
-    RWSpeedMsgF32Payload wheelSpeeds{};               /*!< Reaction wheel speed estimates input message */
-    RWAvailabilityMsgPayload wheelsAvailability{};    /*!< Reaction wheel availability input message */
+    const AttGuidMsgF32Payload guidCmd = this->guidInMsg();          /*!< Guidance input Message */
+    const RateCmdMsgF32Payload rateGuid = this->rateSteeringInMsg(); /*!< rate steering law message input message */
+    RWSpeedMsgF32Payload wheelSpeeds{};            /*!< Reaction wheel speed estimates input message */
+    RWAvailabilityMsgPayload wheelsAvailability{}; /*!< Reaction wheel availability input message */
 
     if (this->numRW > 0) {
         wheelSpeeds = this->rwSpeedsInMsg();
@@ -66,7 +66,8 @@ void RateServoFullNonlinear::updateState(const uint64_t callTime) {
         }
     }
 
-    CmdTorqueBodyMsgF32Payload controlOut = algorithm.update(callTime, guidCmd, rateGuid, wheelSpeeds, wheelsAvailability);
+    CmdTorqueBodyMsgF32Payload controlOut =
+        algorithm.update(callTime, guidCmd, rateGuid, wheelSpeeds, wheelsAvailability);
 
     this->cmdTorqueOutMsg.write(&controlOut, moduleID, callTime);
 }
