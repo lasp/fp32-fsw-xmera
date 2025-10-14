@@ -4,7 +4,7 @@
  Copyright (c) 2025, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
 */
 
-#include "rateControl.h"
+#include "rateControlAlgorithm.h"
 
 /*! This function performs the conversion between an input C array
 3-vector and an output Eigen vector3f. This function is provided

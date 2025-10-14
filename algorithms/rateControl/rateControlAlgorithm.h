@@ -7,8 +7,6 @@
 #ifndef F32XIMERA_RATE_CONTROL_ALGORITHM_H
 #define F32XIMERA_RATE_CONTROL_ALGORITHM_H
 
-#include <stdexcept>
-
 #include <Eigen/Dense>
 
 #include "msgPayloadDef/AttGuidMsgF32Payload.h"
