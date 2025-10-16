@@ -6,8 +6,7 @@
 
 #include "attTrackingError.h"
 
-#include "architecture/utilities/avsEigenSupport.h"
-#include "architecture/utilities/rigidBodyKinematics.hpp"
+#include "architecture/utilities/eigenSupport.h"
 
 #include "../../architecture/utilities/messageConversionHelpers.hpp"
 
@@ -41,7 +40,7 @@ void AttTrackingError::updateState(uint64_t callTime) {
     convert(this->attNavInMsg(), navF32);
 
     AttGuidMsgPayload attGuidOut{};
-    AttGuidMsgF32Payload attGuidOutF32 = this->algorithm.update(callTime, refF32, navF32);
+    const AttGuidMsgF32Payload attGuidOutF32 = this->algorithm.update(callTime, refF32, navF32);
     convert(attGuidOutF32, attGuidOut);
 
     this->attGuidOutMsg.write(&attGuidOut, this->moduleID, callTime);
@@ -51,11 +50,11 @@ void AttTrackingError::updateState(uint64_t callTime) {
  @return void
  @param sigma_R0R
 */
-void AttTrackingError::setSigma_R0R(const Eigen::Vector3d &sigma_R0R) {
+void AttTrackingError::setSigma_R0R(const Eigen::Vector3d& sigma_R0R) {
     this->algorithm.setSigma_R0R(sigma_R0R.cast<float>());
 }
 
 /*! Getter method for sigma_R0R.
  @return const Eigen::Vector3d
 */
-const Eigen::Vector3d AttTrackingError::getSigma_R0R() const { return this->algorithm.getSigma_R0R().cast<double>();}
+const Eigen::Vector3d AttTrackingError::getSigma_R0R() const { return this->algorithm.getSigma_R0R().cast<double>(); }

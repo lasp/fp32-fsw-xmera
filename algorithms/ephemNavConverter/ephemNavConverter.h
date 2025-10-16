@@ -7,11 +7,10 @@
 #ifndef F32XIMERA_EPHEM_NAV_CONVERTER_H
 #define F32XIMERA_EPHEM_NAV_CONVERTER_H
 
-#include <stdexcept>
+#include "ephemNavConverterAlgorithm.h"
 
 #include "architecture/_GeneralModuleFiles/sys_model.h"
 #include "architecture/messaging/messaging.h"
-#include "ephemNavConverterAlgorithm.h"
 #include "msgPayloadDef/EphemerisMsgF32Payload.h"
 #include "msgPayloadDef/NavTransMsgF32Payload.h"
 

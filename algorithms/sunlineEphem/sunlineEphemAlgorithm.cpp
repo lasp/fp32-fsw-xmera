@@ -6,9 +6,13 @@
 
 #include "sunlineEphemAlgorithm.h"
 
-NavAttMsgF32Payload SunlineEphemAlgorithm::updateState(const EphemerisMsgF32Payload &sunPos,
-                                                       const NavTransMsgF32Payload &scPos,
-                                                       const NavAttMsgF32Payload &scAtt) const {
+#include "architecture/utilities/rigidBodyKinematics.hpp"
+
+#include <Eigen/Core>
+
+NavAttMsgF32Payload SunlineEphemAlgorithm::updateState(const EphemerisMsgF32Payload& sunPos,
+                                                       const NavTransMsgF32Payload& scPos,
+                                                       const NavAttMsgF32Payload& scAtt) const {
     // Get sun position
     const Eigen::Vector3f rSun(sunPos.r_BdyZero_N[0], sunPos.r_BdyZero_N[1], sunPos.r_BdyZero_N[2]);
     const Eigen::Vector3f rSc(scPos.r_BN_N[0], scPos.r_BN_N[1], scPos.r_BN_N[2]);

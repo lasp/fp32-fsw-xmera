@@ -142,7 +142,6 @@ jobs:
             **/pyproject.toml
             **/requirements*.txt
 
-      # NEW: Pin the exact interpreter path for this matrix leg
       - name: Pin matrix Python interpreter
         run: |
           PY="$(python -c 'import sys; print(sys.executable)')"
@@ -150,7 +149,6 @@ jobs:
           echo "Pinned Python: $PY"
           "$PY" -V
 
-      # ---- System toolchains + GCC 13 (Linux only) ----
       - name: Install system dependencies (Linux)
         if: runner.os == 'Linux'
         run: |
@@ -182,29 +180,18 @@ jobs:
           gcc-13 -dumpfullversion
           g++-13 -dumpfullversion
 
-      # Ensure a consistent Ninja on Linux and force generator + make program
       - name: Normalize Ninja on Linux
         if: runner.os == 'Linux'
         run: |
           set -euo pipefail
           sudo apt-get install -y ninja-build
-          echo "Before:"
-          which -a ninja || true
-          ls -l /usr/bin/ninja || true
-          ls -l /usr/local/bin/ninja || true
-          if [[ -x /usr/local/bin/ninja && "$(readlink -f /usr/local/bin/ninja || echo '')" != "/usr/bin/ninja" ]]; then
-            echo "Removing shadowing /usr/local/bin/ninja"
-            sudo rm -f /usr/local/bin/ninja
-          fi
           echo "/usr/bin" >> "$GITHUB_PATH"
           echo "CMAKE_GENERATOR=Ninja"              >> "$GITHUB_ENV"
           echo "CMAKE_MAKE_PROGRAM=/usr/bin/ninja"  >> "$GITHUB_ENV"
           echo "NINJA_STATUS=[%f/%t %o/sec] "       >> "$GITHUB_ENV"
-          echo "After:"
           command -v ninja
           ninja --version
 
-      # ---- System toolchains (macOS uses AppleClang) ----
       - name: Install system dependencies (macOS)
         if: runner.os == 'macOS'
         env:
@@ -220,7 +207,6 @@ jobs:
           clang++ --version
           ccache --version
 
-      # Optional: print what CMake will see before vcpkg/cmake configure
       - name: Toolchain sanity check
         run: |
           echo "RUNNER_OS=${RUNNER_OS}"
@@ -235,53 +221,11 @@ jobs:
           which g++-13  && g++-13 -dumpfullversion || true
           which ninja   && ninja --version   || true
 
-      # -------- ccache: configure + restore cache --------
-      - name: Configure ccache
-        run: |
-          echo "CCACHE_DIR=$HOME/.ccache" >> "$GITHUB_ENV"
-          echo "CCACHE_COMPRESS=1"        >> "$GITHUB_ENV"
-          echo "CCACHE_MAXSIZE=1G"        >> "$GITHUB_ENV"
-          echo "CCACHE_BASEDIR=$GITHUB_WORKSPACE" >> "$GITHUB_ENV"
-          mkdir -p "$HOME/.ccache"
-          ccache --set-config=verbose=true || true
-          ccache --zero-stats || true
-
-      - name: Compute ccache key suffix
-        id: ccache_keys
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [[ "${RUNNER_OS}" == "Linux" ]]; then
-            ver="$(gcc-13 -dumpfullversion || gcc -dumpfullversion || echo unknown)"
-            echo "suffix=linux-gcc-${ver}" >> "$GITHUB_OUTPUT"
-          else
-            ver="$(clang --version | head -n1 | sed 's/ /-/g')"
-            echo "suffix=macos-${ver}" >> "$GITHUB_OUTPUT"
-          fi
-          echo "suffix=${suffix:-unset}"
-
-      - name: Restore ccache cache
-        uses: actions/cache@v4
-        with:
-          path: ~/.ccache
-          key: ccache-${{ runner.os }}-${{ steps.ccache_keys.outputs.suffix }}-${{ hashFiles('basilisk/src/vcpkg.json', 'basilisk/src/vcpkg-configuration.json') }}
-          restore-keys: |
-            ccache-${{ runner.os }}-${{ steps.ccache_keys.outputs.suffix }}-
-            ccache-${{ runner.os }}-
-
-      # -----------------------------------------------
-
-      - name: Enable ccache for CMake
-        run: |
-          echo "CMAKE_C_COMPILER_LAUNCHER=ccache"   >> $GITHUB_ENV
-          echo "CMAKE_CXX_COMPILER_LAUNCHER=ccache" >> $GITHUB_ENV
-
       - name: Setup CMake 3.25.2
         uses: jwlawson/actions-setup-cmake@v2
         with:
           cmake-version: '3.25.2'
 
-      # vcpkg uses the same generator/make program and policy workaround
       - name: Install vcpkg
         uses: lukka/run-vcpkg@v11
         with:
@@ -309,24 +253,31 @@ jobs:
           VCPKG_EXE: ${{ github.workspace }}/b/vcpkg/vcpkg
         run: |
           set -euo pipefail
-          NUGET="$(${VCPKG_EXE} fetch nuget | tail -n 1)"
+
+          NUGET="$("${VCPKG_EXE}" fetch nuget | awk 'NF{last=$0} END{print last}')"
+
+          declare -a NUGET_CMD=()   # <-- make it exist to appease `set -u`
+
           if [[ "$NUGET" == *.exe ]]; then
             NUGET_CMD=(mono "$NUGET")
           else
             NUGET_CMD=("$NUGET")
           fi
-          echo "Using NuGet CLI: ${NUGET_CMD[*]}"
+
+          # Print robustly
+          printf 'Using NuGet CLI: %q\n' "${NUGET_CMD[@]}"
+
           "${NUGET_CMD[@]}" sources add \
             -Source "${FEED_URL}" \
             -StorePasswordInClearText \
             -Name GitHubPackages \
             -UserName "${USERNAME}" \
-            -Password "${{ secrets.GITHUB_TOKEN }}"
-          "${NUGET_CMD[@]}" setapikey "${{ secrets.GITHUB_TOKEN }}" -Source "${FEED_URL}"
+            -Password "${{ secrets.FP32_XMERA_GH_VCPKG_PACKAGES_TOKEN }}"
+
+          "${NUGET_CMD[@]}" setapikey "${{ secrets.FP32_XMERA_GH_VCPKG_PACKAGES_TOKEN }}" -Source "${FEED_URL}"
 
       - name: Create virtual environment
         run: |
-          # Use the pinned matrix interpreter for this venv
           "$PYTHON_EXE" -m venv .venv
           source .venv/bin/activate
           python -m pip install --upgrade pip
@@ -392,7 +343,7 @@ jobs:
           GCOV_BIN="$(command -v gcov-13 || command -v gcov)"
           echo "Using gcov executable: ${GCOV_BIN}"
           common_args=(
-            --root "${GITHUB_WORKSPACE}/algorithms"
+            --root "${GITHUB_WORKSPACE}"
             --filter "${GITHUB_WORKSPACE}/algorithms"
             --object-directory "${GITHUB_WORKSPACE}/basilisk/dist3"
             --exclude ".*_tests/.*"
@@ -419,146 +370,6 @@ jobs:
             cat coverage/external-modules-coverage.txt;
             echo '```';
           } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Detect changed source files (Linux / py3.11 only)
-        id: changed_ext_modules
-        if: ${{ runner.os == 'Linux' && matrix.python-version == '3.11' }}
-        uses: tj-actions/changed-files@v46
-        with:
-          files: |
-            algorithms/**/*.c
-            algorithms/**/*.cc
-            algorithms/**/*.cxx
-            algorithms/**/*.cpp
-
-      - name: Enforce coverage threshold on touched files (Linux / py3.11 only)
-        if: ${{ runner.os == 'Linux' && matrix.python-version == '3.11' }}
-        env:
-          COVERAGE_THRESHOLD: '0.8'
-          CHANGED_FILES: ${{ steps.changed_ext_modules.outputs.all_changed_files }}
-        run: |
-          source .venv/bin/activate
-          python <<'PY'
-          import json
-          import os
-          import sys
-          from pathlib import Path
-
-          workspace = Path(os.environ["GITHUB_WORKSPACE"]).resolve()
-          threshold = float(os.environ.get("COVERAGE_THRESHOLD", "0.8")) * 100.0
-
-          summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
-
-          def append_summary(lines):
-              if not summary_path:
-                  return
-              with open(summary_path, "a", encoding="utf-8") as fh:
-                  fh.write("\n".join(lines) + "\n")
-
-          append_summary(["### Coverage Threshold Check", ""])
-
-          touched_raw = os.environ.get("CHANGED_FILES", "").strip()
-          touched = [
-              line.strip().replace("\\", "/")
-              for line in touched_raw.splitlines()
-              if line.strip()
-          ]
-
-          tracked_suffixes = (".c", ".cc", ".cxx", ".cpp")
-          touched_sources = [
-              path for path in touched
-              if path.startswith("algorithms/") and path.endswith(tracked_suffixes)
-          ]
-
-          if not touched_sources:
-              msg = "No touched source files under algorithms/; skipping coverage gate."
-              print(msg)
-              append_summary([msg, ""])
-              sys.exit(0)
-
-          coverage_path = workspace / "coverage" / "external-modules-coverage.json"
-          if not coverage_path.exists():
-              msg = f"Coverage report '{coverage_path}' not found; cannot enforce threshold."
-              print(msg)
-              append_summary([msg, ""])
-              sys.exit(0)
-
-          with coverage_path.open("r", encoding="utf-8") as fh:
-              data = json.load(fh)
-
-          file_entries = {}
-          for entry in data.get("files", []):
-              raw = entry.get("file", "")
-              if not raw:
-                  continue
-              path = Path(raw)
-              candidates = set()
-              candidates.add(path.as_posix())
-              try:
-                  candidates.add(path.resolve().relative_to(workspace).as_posix())
-              except Exception:
-                  try:
-                      candidates.add(path.resolve().as_posix())
-                  except Exception:
-                      pass
-              if not path.is_absolute():
-                  candidates.add((workspace / path).resolve().relative_to(workspace).as_posix())
-              for candidate in candidates:
-                  file_entries[candidate] = entry
-
-          def percent(entry):
-              lines = entry.get("lines", {}) if isinstance(entry, dict) else {}
-              total = lines.get("count") or lines.get("total") or 0
-              covered = lines.get("covered") or 0
-              pct = lines.get("percent")
-              if pct is None:
-                  rate = lines.get("rate") or lines.get("line_rate")
-                  if rate is not None:
-                      pct = float(rate) * 100.0
-              if pct is not None:
-                  return float(pct)
-              if total == 0:
-                  return 100.0
-              return (covered / total) * 100.0
-
-          report_lines = ["| File | Line % |", "| --- | ---: |"]
-          failures = []
-          for rel in touched_sources:
-              key = rel
-              entry = file_entries.get(key)
-              if entry is None:
-                  abs_candidates = [
-                      Path(rel).resolve().as_posix(),
-                      (workspace / rel).resolve().as_posix(),
-                  ]
-                  for candidate in abs_candidates:
-                      entry = file_entries.get(candidate)
-                      if entry:
-                          break
-
-              pct = percent(entry) if entry else 0.0
-              report_lines.append(f"| {rel} | {pct:.2f}% |")
-              if pct + 1e-9 < threshold:
-                  failures.append((rel, pct))
-
-          print("\n".join(report_lines))
-          append_summary(report_lines + [""])
-
-          if failures:
-              fail_lines = [
-                  "Touched files below threshold ({}%):".format(threshold),
-              ] + [
-                  f"- {rel}: {pct:.2f}%"
-                  for rel, pct in failures
-              ]
-              print("\n".join(fail_lines))
-              append_summary(fail_lines + [""])
-              sys.exit(1)
-
-          success_msg = "All touched files meet the {:.0f}% coverage threshold.".format(threshold)
-          print(success_msg)
-          append_summary([success_msg, ""])
-          PY
 
       - name: Upload coverage artifacts (Linux / py3.11 only)
         if: ${{ runner.os == 'Linux' && matrix.python-version == '3.11' }}

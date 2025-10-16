@@ -8,8 +8,6 @@
 #define F32XIMERA_NAV_AGGREGATE_ALGORITHM_H
 
 #include <stdint.h>
-#include <stdexcept>
-#include <string>
 
 #include <array>
 

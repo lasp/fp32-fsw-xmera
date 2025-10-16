@@ -4,7 +4,8 @@
  */
 
 #include "attTrackingErrorAlgorithm_c.h"
-#include "attTrackingErrorAlgorithm.h"  // the original C++ class
+#include "attTrackingErrorAlgorithm.h"
+
 #include <Eigen/Core>
 
 AttTrackingErrorAlgorithm* AttTrackingErrorAlgorithm_create(void) {

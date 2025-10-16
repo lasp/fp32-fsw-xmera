@@ -7,17 +7,15 @@
 #ifndef F32XIMERA_RATE_CONTROL_ALGORITHM_H
 #define F32XIMERA_RATE_CONTROL_ALGORITHM_H
 
-#include <stdexcept>
-
-#include <Eigen/Dense>
-
 #include "msgPayloadDef/AttGuidMsgF32Payload.h"
 #include "msgPayloadDef/CmdTorqueBodyMsgF32Payload.h"
 #include "msgPayloadDef/VehicleConfigMsgF32Payload.h"
 
+#include <Eigen/Core>
+
 class RateControlAlgorithm {
    public:
-    CmdTorqueBodyMsgF32Payload update(AttGuidMsgF32Payload attGuidIn);
+    CmdTorqueBodyMsgF32Payload update(AttGuidMsgF32Payload attGuidIn) const;
     void setSpacecraftInertia(VehicleConfigMsgF32Payload vehicleConfigIn);
     void setDerivativeGainP(float P);
     float getDerivativeGainP() const;

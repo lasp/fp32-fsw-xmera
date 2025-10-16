@@ -18,9 +18,9 @@ class AttTrackingErrorAlgorithm {
     void reset(uint64_t callTime);  //!< Method for algorithm reset
     AttGuidMsgF32Payload update(uint64_t callTime,
                                 AttRefMsgF32Payload& attRefInMsg,
-                                NavAttMsgF32Payload& attNavInMsg);  //!< Algorithm update method
-    void setSigma_R0R(const Eigen::Vector3f& sigma_R0R);      //!< Setter for sigma_R0R variable
-    const Eigen::Vector3f& getSigma_R0R() const;              //!< Getter for sigma_R0R variable
+                                NavAttMsgF32Payload& attNavInMsg) const;  //!< Algorithm update method
+    void setSigma_R0R(const Eigen::Vector3f& sigma_R0R);                  //!< Setter for sigma_R0R variable
+    const Eigen::Vector3f& getSigma_R0R() const;                          //!< Getter for sigma_R0R variable
 
    private:
     Eigen::Vector3f sigma_R0R{};  //!< MRP from corrected reference frame to original reference frame R0.

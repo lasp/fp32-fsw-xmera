@@ -6,6 +6,9 @@
 
 #include "navAggregate.h"
 
+#include <array>
+#include <stdexcept>
+
 /*! This resets the module to original states.
  @return void
  @param callTime The clock time at which the function was called (nanoseconds)

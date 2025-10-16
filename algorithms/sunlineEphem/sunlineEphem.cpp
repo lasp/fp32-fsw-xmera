@@ -6,16 +6,24 @@
 
 #include "sunlineEphem.h"
 
+#include <stdexcept>
+
 void SunlineEphem::reset(uint64_t callTime) {
-    assert(this->sunPositionInMsg.isLinked());
-    assert(this->scPositionInMsg.isLinked());
-    assert(this->scAttitudeInMsg.isLinked());
+    if (!this->sunPositionInMsg.isLinked()) {
+        throw std::invalid_argument("SunlineEphem.sunPositionInMsg is unlinked");
+    }
+    if (!this->scPositionInMsg.isLinked()) {
+        throw std::invalid_argument("SunlineEphem.scPositionInMsg is unlinked");
+    }
+    if (!this->scAttitudeInMsg.isLinked()) {
+        throw std::invalid_argument("SunlineEphem.scAttitudeInMsg is unlinked");
+    }
 }
 
 void SunlineEphem::updateState(uint64_t callTime) {
-    EphemerisMsgF32Payload sunPos = this->sunPositionInMsg();
-    NavTransMsgF32Payload scPos = this->scPositionInMsg();
-    NavAttMsgF32Payload scAtt = this->scAttitudeInMsg();
+    const EphemerisMsgF32Payload sunPos = this->sunPositionInMsg();
+    const NavTransMsgF32Payload scPos = this->scPositionInMsg();
+    const NavAttMsgF32Payload scAtt = this->scAttitudeInMsg();
     auto outputSunline = this->algorithm.updateState(sunPos, scPos, scAtt);
     this->navStateOutMsg.write(&outputSunline, this->moduleID, callTime);
 }

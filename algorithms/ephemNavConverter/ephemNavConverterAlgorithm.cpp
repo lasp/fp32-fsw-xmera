@@ -18,7 +18,8 @@ static void v3Copy(float const v[3], float result[3]) {
  @param callTime [ns] Time the method is called
  @param ephemerisInMsg Ephemeris message
  */
-NavTransMsgF32Payload EphemNavConverterAlgorithm::update(uint64_t callTime, EphemerisMsgF32Payload ephemerisInMsg) {
+NavTransMsgF32Payload EphemNavConverterAlgorithm::update(uint64_t callTime,
+                                                         const EphemerisMsgF32Payload& ephemerisInMsg) const {
     // Create the output message
     auto navTransMsgBuffer = NavTransMsgF32Payload{};
 
