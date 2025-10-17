@@ -17,6 +17,7 @@
 */
 
 #include "ephemeridesRecenterAlgorithm.h"
+#include "../freestandingInvalidArgument.h"
 
 /*! @brief Subtract two C-array vectors
  @param v1 double[3] : vector 1
@@ -114,7 +115,7 @@ std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES> EphemeridesRecenterAlgor
  */
 bool EphemeridesRecenterAlgorithm::findMoonOfBody(const BodyEphemerisPayload& celestialBody, size_t* index) const {
     if (this->celestialBodyCount == 0) {
-        throw std::invalid_argument("Requesting a body index but the current celestial body count is 0");
+        FS_THROW_INVALID_ARGUMENT("Requesting a body index but the current celestial body count is 0");
     }
     for (size_t i = 0; i < this->celestialBodyCount; ++i) {
         if (this->celestialBodies[i].originalCentralBodyName == celestialBody.bodySpiceName) {
@@ -131,14 +132,14 @@ bool EphemeridesRecenterAlgorithm::findMoonOfBody(const BodyEphemerisPayload& ce
  */
 size_t EphemeridesRecenterAlgorithm::getBodyIndexFromName(const std::string& celestialBodyName) const {
     if (this->celestialBodyCount == 0) {
-        throw std::invalid_argument("Requesting a body index but the current celestial body count is 0");
+        FS_THROW_INVALID_ARGUMENT("Requesting a body index but the current celestial body count is 0");
     }
     for (size_t i = 0; i < this->celestialBodyCount; ++i) {
         if (this->bodyNames[i] == celestialBodyName) {
             return i;
         }
     }
-    throw std::invalid_argument("Requesting a body index but the current celestial body count is 0");
+    FS_THROW_INVALID_ARGUMENT("Requesting a body index but the current celestial body count is 0");
 }
 
 /*! @brief Set the new zero base body type by name
@@ -154,7 +155,7 @@ void EphemeridesRecenterAlgorithm::setNewZeroBaseName(const std::string& bodyNam
 size_t EphemeridesRecenterAlgorithm::findNewZeroBaseIndex(const std::string& bodyName) {
     if (auto indexOfNewZeroBase = std::find(this->bodyNames.begin(), this->bodyNames.end(), bodyName);
         indexOfNewZeroBase == this->bodyNames.end()) {
-        throw std::invalid_argument("New zero base body was not in the list of existing bodies");
+        FS_THROW_INVALID_ARGUMENT("New zero base body was not in the list of existing bodies");
     } else {
         return std::distance(this->bodyNames.begin(), indexOfNewZeroBase);
     }
@@ -171,7 +172,7 @@ std::string EphemeridesRecenterAlgorithm::getNewZeroBase() const { return this->
 void EphemeridesRecenterAlgorithm::setPreviousCommonZeroBase(const std::string& bodyName) {
     if (auto indexOfPreviousZeroBase = std::find(this->bodyNames.begin(), this->bodyNames.end(), bodyName);
         indexOfPreviousZeroBase == this->bodyNames.end()) {
-        throw std::invalid_argument("Previous zero base body was not in the list of existing bodies");
+        FS_THROW_INVALID_ARGUMENT("Previous zero base body was not in the list of existing bodies");
     }
 
     this->previousCentralBodyName = bodyName;
@@ -192,7 +193,7 @@ size_t EphemeridesRecenterAlgorithm::getNumberOfBodies() const { return this->ce
  */
 std::array<std::string, MAX_NUM_CHANGE_BODIES> EphemeridesRecenterAlgorithm::getAllNames() const {
     if (this->celestialBodyCount == 0) {
-        throw std::invalid_argument("Requesting all body names but the current celestial body count is 0");
+        FS_THROW_INVALID_ARGUMENT("Requesting all body names but the current celestial body count is 0");
     }
     std::array<std::string, MAX_NUM_CHANGE_BODIES> names{};
     for (size_t i = 0; i < this->celestialBodyCount; ++i) {
@@ -208,11 +209,11 @@ std::array<std::string, MAX_NUM_CHANGE_BODIES> EphemeridesRecenterAlgorithm::get
  */
 void EphemeridesRecenterAlgorithm::addBodyEphemerisToRecenter(const std::string& bodyName) {
     if (this->celestialBodyCount + 1 > MAX_NUM_CHANGE_BODIES) {
-        throw std::invalid_argument("Adding one body too many to the list");
+        FS_THROW_INVALID_ARGUMENT("Adding one body too many to the list");
     }
     if (auto indexInList = std::find(this->bodyNames.begin(), this->bodyNames.end(), bodyName);
         indexInList != this->bodyNames.end()) {
-        throw std::invalid_argument("Body already added to list");
+        FS_THROW_INVALID_ARGUMENT("Body already added to list");
     }
     this->bodyNames[this->celestialBodyCount] = bodyName;
     this->celestialBodyCount += 1;
