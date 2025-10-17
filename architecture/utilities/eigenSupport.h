@@ -23,7 +23,6 @@
 #include "eigenMRP.h"
 
 #include <Eigen/Core>
-#include <cstring>
 #include <exception>
 
 template <class Derived>
