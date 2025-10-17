@@ -18,6 +18,7 @@
 
 #include "ephemeridesRecenterAlgorithm.h"
 #include "../freestandingInvalidArgument.h"
+#include <algorithm>
 
 /*! @brief Subtract two C-array vectors
  @param v1 double[3] : vector 1

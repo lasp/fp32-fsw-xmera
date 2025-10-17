@@ -23,7 +23,6 @@
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
 #include "ephemeridesRecenterAlgorithm.h"
-#include <assert.h>
 #include <Eigen/Core>
 #include <array>
 

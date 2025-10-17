@@ -18,6 +18,7 @@
  */
 
 #include "ephemeridesRecenter.h"
+#include <stdexcept>
 
 /*! @brief This method resets the module.
  @return void

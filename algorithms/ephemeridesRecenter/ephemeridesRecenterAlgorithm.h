@@ -20,8 +20,8 @@
 #define F32XIMERA_EPHEM_RECENTER_ALGORITHM_H
 
 #include "msgPayloadDef/EphemerisMsgF32Payload.h"
-#include <Eigen/Core>
 #include <array>
+#include <string>
 
 inline constexpr int MAX_NUM_CHANGE_BODIES = 20;
 
