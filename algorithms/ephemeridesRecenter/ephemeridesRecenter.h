@@ -7,9 +7,9 @@
 #ifndef F32XIMERA_EPHEM_RECENTER_H
 #define F32XIMERA_EPHEM_RECENTER_H
 
+#include "ephemeridesRecenterAlgorithm.h"
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
-#include "ephemeridesRecenterAlgorithm.h"
 #include <Eigen/Core>
 #include <array>
 

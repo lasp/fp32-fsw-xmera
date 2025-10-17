@@ -8,6 +8,7 @@
 #define F32XIMERA_EPHEM_RECENTER_ALGORITHM_H
 
 #include "msgPayloadDef/EphemerisMsgF32Payload.h"
+#include <architecture/messaging/messaging.h>
 #include <array>
 #include <string>
 
@@ -18,11 +19,12 @@ inline constexpr int MAX_NUM_CHANGE_BODIES = 20;
  */
 class BodyEphemerisPayload {
    public:
-    std::string bodySpiceName;                                          //!< SPICE name of the body
-    std::string originalCentralBodyName;                                //!< Original reference body for ephemeris data
-    bool isMoon{false};                                                 //!< Body is moon of another body in the list
-    EphemerisMsgF32Payload inputEphemerisPayload{EphemerisMsgF32Payload{}};   //!< Input ephemeris message
-    EphemerisMsgF32Payload outputEphemerisPayload{EphemerisMsgF32Payload{}};  //!< Output ephemeris message after recentering
+    std::string bodySpiceName;            //!< SPICE name of the body
+    std::string originalCentralBodyName;  //!< Original reference body for ephemeris data
+    bool isMoon{false};                   //!< Body is moon of another body in the list
+    EphemerisMsgF32Payload inputEphemerisPayload{EphemerisMsgF32Payload{}};  //!< Input ephemeris message
+    EphemerisMsgF32Payload outputEphemerisPayload{
+        EphemerisMsgF32Payload{}};  //!< Output ephemeris message after recentering
 };
 
 /**
