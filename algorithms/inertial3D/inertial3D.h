@@ -22,7 +22,7 @@
 
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
-#include <architecture/msgPayloadDef/AttRefMsgPayload.h>
+#include "msgPayloadDef/AttRefMsgF32Payload.h"
 #include "inertial3DAlgorithm.h"
 #include <stdint.h>
 #include <Eigen/Core>
@@ -35,10 +35,10 @@ class Inertial3D : public SysModel {
     ~Inertial3D() final = default;
 
     void updateState(uint64_t callTime) override;
-    void setSigmaR0N(const Eigen::Vector3d& sigma_RN);
-    const Eigen::Vector3d& getSigmaR0N() const;
+    void setSigmaR0N(const Eigen::Vector3f& sigma_RN);
+    const Eigen::Vector3f& getSigmaR0N() const;
 
-    Message<AttRefMsgPayload> attRefOutMsg;  //!< reference attitude output message
+    Message<AttRefMsgF32Payload> attRefOutMsg;  //!< reference attitude output message
 
    private:
     Inertial3DAlgorithm algorithm{};

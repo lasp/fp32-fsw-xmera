@@ -28,4 +28,4 @@
 %include "inertial3D.h"
 %include "inertial3DAlgorithm.h"
 
-%include <architecture/msgPayloadDef/AttRefMsgPayload.h>
+%include "msgPayloadDef/AttRefMsgF32Payload.h"

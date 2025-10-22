@@ -20,19 +20,19 @@
 #ifndef F32XIMERA_INERTIAL3D_ALGORITHM_H
 #define F32XIMERA_INERTIAL3D_ALGORITHM_H
 
-#include <architecture/msgPayloadDef/AttRefMsgPayload.h>
+#include "msgPayloadDef/AttRefMsgF32Payload.h"
 #include <Eigen/Core>
 
 /*!@brief Data structure for module to compute the Inertial-3D pointing navigation solution.
  */
 class Inertial3DAlgorithm {
    public:
-    AttRefMsgPayload update();
-    void setSigmaR0N(const Eigen::Vector3d& sigma_RN);
-    const Eigen::Vector3d& getSigmaR0N() const;
+    AttRefMsgF32Payload update();
+    void setSigmaR0N(const Eigen::Vector3f& sigma_RN);
+    const Eigen::Vector3f& getSigmaR0N() const;
 
    private:
-    Eigen::Vector3d sigma_R0N{Eigen::Vector3d::Zero()};  //!<  MRP from inertial frame N to corrected reference frame R
+    Eigen::Vector3f sigma_R0N{Eigen::Vector3f::Zero()};  //!<  MRP from inertial frame N to corrected reference frame R
 };
 
 #endif

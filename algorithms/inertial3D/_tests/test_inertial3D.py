@@ -78,7 +78,7 @@ def test_inertial3D(show_plots, set_SigmaRN):
     domega_RN_N_truth = [[0.0, 0.0, 0.0]] * 3
 
     # compare the module results to the truth values
-    accuracy = 1e-12
+    accuracy = 1e-6
 
     np.testing.assert_allclose(sigma_RN, sigma_RN_truth, rtol=0, atol=accuracy, verbose=True)
     np.testing.assert_allclose(omega_RN_N, omega_RN_N_truth, rtol=0, atol=accuracy, verbose=True)

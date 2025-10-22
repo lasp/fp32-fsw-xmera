@@ -22,10 +22,10 @@
 
 /*! This method creates a fixed attitude reference message.  The desired orientation is
     defined within the module.
- @return AttRefMsgPayload
+ @return AttRefMsgF32Payload
  */
-AttRefMsgPayload Inertial3DAlgorithm::update() {
-    AttRefMsgPayload attRefOut{};
+AttRefMsgF32Payload Inertial3DAlgorithm::update() {
+    AttRefMsgF32Payload attRefOut{};
     eigenVectorToCArray(this->sigma_R0N, attRefOut.sigma_RN);
 
     return attRefOut;
@@ -35,9 +35,9 @@ AttRefMsgPayload Inertial3DAlgorithm::update() {
  @return void
  @param sigma_RN [-] MRP from frame N to frame R
 */
-void Inertial3DAlgorithm::setSigmaR0N(const Eigen::Vector3d& sigma_RN) { this->sigma_R0N = sigma_RN; }
+void Inertial3DAlgorithm::setSigmaR0N(const Eigen::Vector3f& sigma_RN) { this->sigma_R0N = sigma_RN; }
 
 /*! Getter method for the MRP from frame N to frame R.
- @return const Eigen::Vector3d
+ @return const Eigen::Vector3f
 */
-const Eigen::Vector3d& Inertial3DAlgorithm::getSigmaR0N() const { return this->sigma_R0N; }
+const Eigen::Vector3f& Inertial3DAlgorithm::getSigmaR0N() const { return this->sigma_R0N; }
