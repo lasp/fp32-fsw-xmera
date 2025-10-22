@@ -77,7 +77,7 @@ RwMotorVoltageMsgF32Payload RwMotorVoltageAlgorithm::update(const uint64_t callT
             const float dt = (callTime - this->priorTime) * NANO2SEC; /*!< [s]   control update period */
             Eigen::Vector<float, RW_EFF_CNT> OmegaDot{};
             OmegaDot.setZero();
-            for (int i = 0; i < this->rwConfigParams.numRW; i++) {
+            for (uint32_t i = 0; i < this->rwConfigParams.numRW; i++) {
                 if (rwAvailability.wheelAvailability[i] == AVAILABLE && this->resetFlag == false) {
                     OmegaDot[i] = (rwSpeed.wheelSpeeds[i] - this->rwSpeedOld[i]) / dt;
                     torqueCmd.motorTorque[i] -=
@@ -91,7 +91,7 @@ RwMotorVoltageMsgF32Payload RwMotorVoltageAlgorithm::update(const uint64_t callT
     }
 
     /* evaluate the feedforward mapping of torque into voltage */
-    for (int i = 0; i < this->rwConfigParams.numRW; ++i) {
+    for (uint32_t i = 0; i < this->rwConfigParams.numRW; ++i) {
         if (rwAvailability.wheelAvailability[i] == AVAILABLE) {
             voltage[i] =
                 (this->voltageMax - this->voltageMin) / this->rwConfigParams.uMax[i] * torqueCmd.motorTorque[i];
