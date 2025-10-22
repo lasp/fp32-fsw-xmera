@@ -28,7 +28,7 @@ path = os.path.dirname(os.path.abspath(filename))
 # Import all of the modules that we are going to be called in this simulation
 from Basilisk.utilities import SimulationBaseClass
 from Basilisk.utilities import unitTestSupport                  # general support file with common unit test functions
-from Basilisk.fswAlgorithms import inertial3D                   # import the module that is to be tested
+from Basilisk.fp32 import inertial3DF32                   # import the module that is to be tested
 from Basilisk.utilities import macros
 from Basilisk.architecture import messaging
 
@@ -47,7 +47,7 @@ def test_inertial3D(show_plots, set_SigmaRN):
     testProc.addTask(unitTestSim.CreateNewTask(unitTaskName, testProcessRate))
 
     # Construct algorithm and associated C++ container
-    module = inertial3D.Inertial3D()
+    module = inertial3DF32.Inertial3D()
     module.modelTag = "inertial3D"
 
     if set_SigmaRN:

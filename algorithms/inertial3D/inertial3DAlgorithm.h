@@ -17,8 +17,8 @@
 
  */
 
-#ifndef INERTIAL3DALGORITHM_H
-#define INERTIAL3DALGORITHM_H
+#ifndef F32XIMERA_INERTIAL3D_ALGORITHM_H
+#define F32XIMERA_INERTIAL3D_ALGORITHM_H
 
 #include <architecture/msgPayloadDef/AttRefMsgPayload.h>
 #include <Eigen/Core>

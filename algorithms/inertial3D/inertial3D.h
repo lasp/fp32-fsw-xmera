@@ -17,8 +17,8 @@
 
  */
 
-#ifndef INERTIAL3D_H
-#define INERTIAL3D_H
+#ifndef F32XIMERA_INERTIAL3D_H
+#define F32XIMERA_INERTIAL3D_H
 
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>

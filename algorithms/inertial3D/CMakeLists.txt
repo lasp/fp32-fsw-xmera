@@ -1,4 +1,4 @@
-set(module "fswAlgorithms.attGuidance.inertial3D")
+set(module "fp32.inertial3DF32")
 xmera_is_module_enabled("${module}" _is_enabled)
 if(NOT _is_enabled)
   return()

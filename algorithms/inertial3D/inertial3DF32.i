@@ -16,7 +16,7 @@
  OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
  */
-%module inertial3D
+%module inertial3DF32
 %{
    #include "inertial3D.h"
 %}
