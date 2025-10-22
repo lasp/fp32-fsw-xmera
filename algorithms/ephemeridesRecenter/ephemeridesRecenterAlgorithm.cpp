@@ -53,7 +53,7 @@ std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES> EphemeridesRecenterAlgor
     const std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES>& newBodies) {
     this->celestialBodies = newBodies;
 
-    auto newCentralBody = this->celestialBodies[this->newCentralIndex];
+    const auto newCentralBody = this->celestialBodies[this->newCentralIndex];
     EphemerisMsgF32Payload newCentralBodyPayload = newCentralBody.inputEphemerisPayload;
     /* - If the new central body is a moon (its original central body is not the common central body but another body in
      * the list) first re-center the moon around the common central body so that every body is relative to the common
