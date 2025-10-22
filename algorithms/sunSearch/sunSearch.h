@@ -34,8 +34,8 @@ class SunSearch : public SysModel {
 
     void reset(uint64_t currentSimNanos);
     void updateState(uint64_t currentSimNanos);
-    void setSlewProperties(SlewProperties slewPropertiesInput);
-    void modifySlewProperties(SlewProperties slewPropertiesInput, uint32_t index);
+    void setSlewProperties(const SlewProperties& slewPropertiesInput);
+    void modifySlewProperties(const SlewProperties& slewPropertiesInput, uint32_t index);
     SlewProperties getSlewProperties(uint32_t index) const;
 
     ReadFunctor<NavAttMsgF32Payload> attNavInMsg;            //!< input msg measured attitude

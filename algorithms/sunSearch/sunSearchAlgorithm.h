@@ -55,15 +55,15 @@ class SunSearchAlgorithm {
     SunSearchAlgorithm() = default;
     ~SunSearchAlgorithm() = default;
 
-    void reset(uint64_t currentSimNanos, VehicleConfigMsgF32Payload const& vehicleConfigIn);
-    AttGuidMsgF32Payload update(uint64_t currentSimNanos, NavAttMsgF32Payload& navAttIn);
-    void setSlewProperties(SlewProperties slewPropertiesInput);
-    void modifySlewProperties(SlewProperties slewPropertiesInput, uint32_t index);
+    void reset(uint64_t currentSimNanos, const VehicleConfigMsgF32Payload& vehicleConfigIn);
+    AttGuidMsgF32Payload update(uint64_t currentSimNanos, const NavAttMsgF32Payload& navAttIn) const;
+    void setSlewProperties(const SlewProperties& slewPropertiesInput);
+    void modifySlewProperties(const SlewProperties& slewPropertiesInput, uint32_t index);
     SlewProperties getSlewProperties(uint32_t index) const;
 
    private:
-    void computeKinematicProperties(uint32_t const index);
-    ReferenceMotionOutput computeReferenceMotion(uint64_t const currentSimNanos, uint32_t const index);
+    void computeKinematicProperties(uint32_t index);
+    ReferenceMotionOutput computeReferenceMotion(uint64_t currentSimNanos, uint32_t index) const;
 
     SlewProperties slewProperties[NUM_SLEWS];
     KinematicProperties kinematicProperties[NUM_SLEWS];

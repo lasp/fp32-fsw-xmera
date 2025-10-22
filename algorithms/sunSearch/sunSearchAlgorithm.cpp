@@ -27,7 +27,7 @@
  @param currentSimNanos The current simulation time for system
  @param vehicleConfigIn Vehicle configuration message
  */
-void SunSearchAlgorithm::reset(uint64_t currentSimNanos, VehicleConfigMsgF32Payload const& vehicleConfigIn) {
+void SunSearchAlgorithm::reset(const uint64_t currentSimNanos, const VehicleConfigMsgF32Payload& vehicleConfigIn) {
     if (this->numberOfSlews != NUM_SLEWS) {
         throw std::invalid_argument("The number of specified slew maneuvers must be equal to 3");
     }
@@ -48,11 +48,12 @@ void SunSearchAlgorithm::reset(uint64_t currentSimNanos, VehicleConfigMsgF32Payl
  @param currentSimNanos The current simulation time for system
  @param navAttIn Navigation attitude message
  */
-AttGuidMsgF32Payload SunSearchAlgorithm::update(uint64_t currentSimNanos, NavAttMsgF32Payload& navAttIn) {
+AttGuidMsgF32Payload SunSearchAlgorithm::update(const uint64_t currentSimNanos,
+												const NavAttMsgF32Payload& navAttIn) const {
     AttGuidMsgF32Payload attGuidOut{};
     ReferenceMotionOutput referenceMotion{};
 
-    float CurrentSimSeconds = (currentSimNanos - this->resetTime) * NANO2SEC;
+    const float CurrentSimSeconds = (currentSimNanos - this->resetTime) * NANO2SEC;
 
     float timeInf = 0;
     float timeSup = this->kinematicProperties[0].slewTotalTime;
@@ -66,7 +67,7 @@ AttGuidMsgF32Payload SunSearchAlgorithm::update(uint64_t currentSimNanos, NavAtt
         }
     }
 
-    Eigen::Vector3f omega_BR_B = Eigen::Map<const Eigen::Vector3f>(navAttIn.omega_BN_B) - referenceMotion.omega_RN_B;
+    const Eigen::Vector3f omega_BR_B = Eigen::Map<const Eigen::Vector3f>(navAttIn.omega_BN_B) - referenceMotion.omega_RN_B;
 
     eigenVectorToCArray(referenceMotion.omega_RN_B, attGuidOut.omega_RN_B);
     eigenVectorToCArray(omega_BR_B, attGuidOut.omega_BR_B);
@@ -78,10 +79,10 @@ AttGuidMsgF32Payload SunSearchAlgorithm::update(uint64_t currentSimNanos, NavAtt
 /*! Define this method to compute the kinematic properties of each slew
     @return void
     */
-void SunSearchAlgorithm::computeKinematicProperties(uint32_t const index) {
-    SlewProperties* SP = &this->slewProperties[index];
-    uint32_t axis = SP->slewRotAxis - 1;
-    float maxAcc = SP->slewMaxTorque / this->principleInertias[axis];
+void SunSearchAlgorithm::computeKinematicProperties(const uint32_t index) {
+    const SlewProperties* SP = &this->slewProperties[index];
+    const uint32_t axis = SP->slewRotAxis - 1;
+    const float maxAcc = SP->slewMaxTorque / this->principleInertias[axis];
 
     /*! Computing fastest bang-bang slew with no coasting arc */
     float alpha = 4 * SP->slewAngle / (SP->slewTime * SP->slewTime);
@@ -116,15 +117,16 @@ void SunSearchAlgorithm::computeKinematicProperties(uint32_t const index) {
 /*! Define this method to compute the rate and acceleration as function of time
     @return ReferenceMotionOutput
     */
-ReferenceMotionOutput SunSearchAlgorithm::computeReferenceMotion(uint64_t const currentSimNanos, uint32_t const index) {
+ReferenceMotionOutput SunSearchAlgorithm::computeReferenceMotion(const uint64_t currentSimNanos,
+																 const uint32_t index) const {
     float zeroTime = 0;
     for (uint32_t i = 0; i < index; ++i) {
         zeroTime += this->kinematicProperties[i].slewTotalTime;
     }
-    float localSimSeconds = (currentSimNanos - this->resetTime) * NANO2SEC - zeroTime;
+    const float localSimSeconds = (currentSimNanos - this->resetTime) * NANO2SEC - zeroTime;
 
-    KinematicProperties KP = this->kinematicProperties[index];
-    uint32_t axis = KP.slewRotAxis - 1;
+    const KinematicProperties KP = this->kinematicProperties[index];
+    const uint32_t axis = KP.slewRotAxis - 1;
 
     Eigen::Vector3f omega_RN{Eigen::Vector3f::Zero()};
     Eigen::Vector3f domega_RN{Eigen::Vector3f::Zero()};
@@ -150,7 +152,7 @@ ReferenceMotionOutput SunSearchAlgorithm::computeReferenceMotion(uint64_t const 
  * @brief Set the properties of a slew maneuver
  * @param slewPropertiesInput the properties of the slew maneuver
  */
-void SunSearchAlgorithm::setSlewProperties(SlewProperties slewPropertiesInput) {
+void SunSearchAlgorithm::setSlewProperties(const SlewProperties& slewPropertiesInput) {
     this->slewProperties[this->numberOfSlews] = slewPropertiesInput;
     this->numberOfSlews += 1;
 }
@@ -160,7 +162,7 @@ void SunSearchAlgorithm::setSlewProperties(SlewProperties slewPropertiesInput) {
  * @param slewPropertiesInput the properties of the slew maneuver
  * @param index index of the slew maneuver
  */
-void SunSearchAlgorithm::modifySlewProperties(SlewProperties slewPropertiesInput, uint32_t index) {
+void SunSearchAlgorithm::modifySlewProperties(const SlewProperties& slewPropertiesInput, const uint32_t index) {
     this->slewProperties[index] = slewPropertiesInput;
 }
 
@@ -169,4 +171,4 @@ void SunSearchAlgorithm::modifySlewProperties(SlewProperties slewPropertiesInput
  * @param index index of the slew maneuver
  * @return SlewProperties the properties of the slew maneuver
  */
-SlewProperties SunSearchAlgorithm::getSlewProperties(uint32_t index) const { return this->slewProperties[index]; }
+SlewProperties SunSearchAlgorithm::getSlewProperties(const uint32_t index) const { return this->slewProperties[index]; }

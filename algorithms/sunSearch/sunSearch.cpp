@@ -22,7 +22,7 @@
 /*! This method is used to reset the module.
  @return void
  */
-void SunSearch::reset(uint64_t currentSimNanos) {
+void SunSearch::reset(const uint64_t currentSimNanos) {
     if (!this->attNavInMsg.isLinked()) {
         throw std::invalid_argument("SunSearch.attNavInMsg wasn't connected.");
     }
@@ -37,8 +37,8 @@ void SunSearch::reset(uint64_t currentSimNanos) {
  @return void
  @param currentSimNanos The current simulation time for system
  */
-void SunSearch::updateState(uint64_t currentSimNanos) {
-    NavAttMsgF32Payload navAttIn = this->attNavInMsg();
+void SunSearch::updateState(const uint64_t currentSimNanos) {
+    const NavAttMsgF32Payload navAttIn = this->attNavInMsg();
     AttGuidMsgF32Payload attGuidOut = this->algorithm.update(currentSimNanos, navAttIn);
 
     this->attGuidOutMsg.write(&attGuidOut, this->moduleID, currentSimNanos);
@@ -48,7 +48,7 @@ void SunSearch::updateState(uint64_t currentSimNanos) {
  * @brief Set the properties of a slew maneuver
  * @param slewPropertiesInput the properties of the slew maneuver
  */
-void SunSearch::setSlewProperties(SlewProperties slewPropertiesInput) {
+void SunSearch::setSlewProperties(const SlewProperties& slewPropertiesInput) {
     this->algorithm.setSlewProperties(slewPropertiesInput);
 }
 
@@ -57,7 +57,7 @@ void SunSearch::setSlewProperties(SlewProperties slewPropertiesInput) {
  * @param slewPropertiesInput the properties of the slew maneuver
  * @param index index of the slew maneuver
  */
-void SunSearch::modifySlewProperties(SlewProperties slewPropertiesInput, uint32_t index) {
+void SunSearch::modifySlewProperties(const SlewProperties& slewPropertiesInput, const uint32_t index) {
     this->algorithm.modifySlewProperties(slewPropertiesInput, index);
 }
 
@@ -66,4 +66,4 @@ void SunSearch::modifySlewProperties(SlewProperties slewPropertiesInput, uint32_
  * @param index index of the slew maneuver
  * @return SlewProperties the properties of the slew maneuver
  */
-SlewProperties SunSearch::getSlewProperties(uint32_t index) const { return this->algorithm.getSlewProperties(index); }
+SlewProperties SunSearch::getSlewProperties(const uint32_t index) const { return this->algorithm.getSlewProperties(index); }
