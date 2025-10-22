@@ -22,7 +22,7 @@ import os
 import numpy as np
 import pytest
 from Basilisk.architecture import messaging
-from Basilisk.fswAlgorithms import stepperMotorController
+from Basilisk.fp32 import stepperMotorControllerF32
 from Basilisk.utilities import SimulationBaseClass
 from Basilisk.utilities import macros
 
@@ -73,7 +73,7 @@ def test_stepper_motor_controller_nominal(show_plots, motor_step_angle, motor_st
     test_proc.addTask(unit_test_sim.CreateNewTask(unit_task_name, test_process_rate))
 
     # Create the stepperMotorController module
-    motor_controller = stepperMotorController.StepperMotorController()
+    motor_controller = stepperMotorControllerF32.StepperMotorController()
     motor_controller.modelTag = "stepperMotorController"
     motor_controller.setStepAngle(motor_step_angle)  # [rad]
     motor_controller.setStepTime(motor_step_time)  # [s]
@@ -151,7 +151,7 @@ def test_stepper_motor_controller_invalid(show_plots, motor_theta_ref):
     test_proc.addTask(unit_test_sim.CreateNewTask(unit_task_name, test_process_rate))
 
     # Create the stepperMotorController module
-    motor_controller = stepperMotorController.StepperMotorController()
+    motor_controller = stepperMotorControllerF32.StepperMotorController()
     motor_controller.modelTag = "stepperMotorController"
     motor_controller.setThetaMin(180.0 * macros.D2R)  # [rad]
     motor_controller.setThetaMin(0.0)  # [rad]
@@ -223,7 +223,7 @@ def test_stepper_motor_controller_interrupt(show_plots, motor_theta_ref1, motor_
     motor_step_angle = 1.0 * macros.D2R  # [rad]
     motor_step_time = 1.0  # [s]
     motor_theta_init = 0.0  # [rad]
-    motor_controller = stepperMotorController.StepperMotorController()
+    motor_controller = stepperMotorControllerF32.StepperMotorController()
     motor_controller.modelTag = "stepperMotorController"
     motor_controller.setStepAngle(motor_step_angle)  # [rad]
     motor_controller.setStepTime(motor_step_time)  # [s]

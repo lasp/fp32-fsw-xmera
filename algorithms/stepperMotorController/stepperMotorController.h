@@ -16,8 +16,8 @@
  OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#ifndef STEPPERMOTORCONTROLLER_H
-#define STEPPERMOTORCONTROLLER_H
+#ifndef F32XIMERA_STEPPER_MOTOR_CONTROLLER_H
+#define F32XIMERA_STEPPER_MOTOR_CONTROLLER_H
 
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>

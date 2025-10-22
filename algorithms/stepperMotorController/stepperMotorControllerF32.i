@@ -16,7 +16,7 @@
  OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
  */
-%module stepperMotorController
+%module stepperMotorControllerF32
 %{
    #include "stepperMotorController.h"
 %}
