@@ -33,19 +33,19 @@
 /*! @brief module configuration message */
 class RwMotorVoltageAlgorithm {
    public:
-    RwMotorVoltageAlgorithm(const float minVoltageMagnitude, const float maxVoltageMagnitude);
+    RwMotorVoltageAlgorithm(float minVoltageMagnitude, float maxVoltageMagnitude);
     ~RwMotorVoltageAlgorithm() = default;
 
-    void reset(RWArrayConfigMsgF32Payload& rwParamsInMsg);
+    void reset(const RWArrayConfigMsgF32Payload& rwParamsInMsg);
     RwMotorVoltageMsgF32Payload update(uint64_t callTime,
-                                    RwMotorTorqueMsgF32Payload& torqueCmd,
-                                    RWAvailabilityMsgPayload& rwAvailability,
-                                    RWSpeedMsgF32Payload& rwSpeed,
-                                    bool rwSpeedMsgIsLinked);
+                                       RwMotorTorqueMsgF32Payload& torqueCmd,
+                                       const RWAvailabilityMsgPayload& rwAvailability,
+                                       const RWSpeedMsgF32Payload& rwSpeed,
+                                       bool rwSpeedMsgIsLinked);
 
-    void setVoltageRange(const float minVoltageMagnitude, const float maxVoltageMagnitude);
+    void setVoltageRange(float minVoltageMagnitude, float maxVoltageMagnitude);
     Eigen::Vector2f getVoltageRange() const;
-    void setGainK(const float gain);
+    void setGainK(float gain);
     float getGainK() const;
 
    private:

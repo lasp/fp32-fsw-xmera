@@ -35,15 +35,15 @@
 
 class RwMotorVoltage : public SysModel {
    public:
-    RwMotorVoltage(const float minVoltageMagnitude, const float maxVoltageMagnitude);
+    RwMotorVoltage(float minVoltageMagnitude, float maxVoltageMagnitude);
     ~RwMotorVoltage() final = default;
 
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
 
-    void setVoltageRange(const float minVoltageMagnitude, const float maxVoltageMagnitude);
+    void setVoltageRange(float minVoltageMagnitude, float maxVoltageMagnitude);
     Eigen::Vector2f getVoltageRange() const;
-    void setGainK(const float gain);
+    void setGainK(float gain);
     float getGainK() const;
 
     /* declare module IO interfaces */

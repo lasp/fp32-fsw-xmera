@@ -37,7 +37,7 @@ RwMotorVoltageAlgorithm::RwMotorVoltageAlgorithm(const float minVoltageMagnitude
  @return void
  @param rwParamsInMsg struct to store message containing RW config parameters
  */
-void RwMotorVoltageAlgorithm::reset(RWArrayConfigMsgF32Payload& rwParamsInMsg) {
+void RwMotorVoltageAlgorithm::reset(const RWArrayConfigMsgF32Payload& rwParamsInMsg) {
     /*! - Read static RW config data message and store it in module variables*/
     this->rwConfigParams = rwParamsInMsg;
 
@@ -59,11 +59,11 @@ void RwMotorVoltageAlgorithm::reset(RWArrayConfigMsgF32Payload& rwParamsInMsg) {
  @param rwSpeed RW speed message
  @param rwSpeedMsgIsLinked boolean indicating whether RW speed message is linked
  */
-RwMotorVoltageMsgF32Payload RwMotorVoltageAlgorithm::update(uint64_t callTime,
-                                                         RwMotorTorqueMsgF32Payload& torqueCmd,
-                                                         RWAvailabilityMsgPayload& rwAvailability,
-                                                         RWSpeedMsgF32Payload& rwSpeed,
-                                                         bool rwSpeedMsgIsLinked) {
+RwMotorVoltageMsgF32Payload RwMotorVoltageAlgorithm::update(const uint64_t callTime,
+                                                            RwMotorTorqueMsgF32Payload& torqueCmd,
+                                                            const RWAvailabilityMsgPayload& rwAvailability,
+                                                            const RWSpeedMsgF32Payload& rwSpeed,
+                                                            const bool rwSpeedMsgIsLinked) {
     RwMotorVoltageMsgF32Payload voltageOut{};
 
     /* zero the output voltage vector */
@@ -74,7 +74,7 @@ RwMotorVoltageMsgF32Payload RwMotorVoltageAlgorithm::update(uint64_t callTime,
     if (rwSpeedMsgIsLinked) {
         /* make sure the clock didn't just initialize, or the module was recently reset */
         if (this->priorTime != 0) {
-            float dt = (callTime - this->priorTime) * NANO2SEC; /*!< [s]   control update period */
+            const float dt = (callTime - this->priorTime) * NANO2SEC; /*!< [s]   control update period */
             Eigen::Vector<float, RW_EFF_CNT> OmegaDot{};
             OmegaDot.setZero();
             for (int i = 0; i < this->rwConfigParams.numRW; i++) {

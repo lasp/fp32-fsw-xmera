@@ -43,7 +43,7 @@ void RwMotorVoltage::reset(uint64_t callTime) {
         throw std::invalid_argument("rwMotorVoltage.torqueInMsg wasn't connected.");
     }
 
-    RWArrayConfigMsgF32Payload rwParams = this->rwParamsInMsg();
+    const RWArrayConfigMsgF32Payload rwParams = this->rwParamsInMsg();
 
     this->algorithm.reset(rwParams);
 }
