@@ -38,9 +38,9 @@ void StepperMotorControllerAlgorithm::reset() {
  @param hingedRigidBodyMsgTimeWritten [s] Time the motor reference angle message was written
  @param motorRefAngleIn [-] Motor reference angle message
 */
-StepperMotorControllerOutput StepperMotorControllerAlgorithm::update(uint64_t callTime,
-                                                                     float hingedRigidBodyMsgTimeWritten,
-                                                                     HingedRigidBodyMsgF32Payload& motorRefAngleIn) {
+StepperMotorControllerOutput StepperMotorControllerAlgorithm::update(const uint64_t callTime,
+                                                                     const float hingedRigidBodyMsgTimeWritten,
+                                                                     const HingedRigidBodyMsgF32Payload& motorRefAngleIn) {
     StepperMotorControllerOutput stepperMotorControllerOutput{};
 
     // Each time a new motor reference message is written to this module, the required motor steps commanded to achieve
@@ -73,7 +73,7 @@ StepperMotorControllerOutput StepperMotorControllerAlgorithm::update(uint64_t ca
 
             // Calculate the integer number of steps the motor must take to reach the reference angle
             // The exact value is first stored as a float and rounded to the nearest integer step
-            float tempStepsCommanded = deltaTheta / this->stepAngle;
+            const float tempStepsCommanded = deltaTheta / this->stepAngle;
             if ((std::ceil(tempStepsCommanded) - tempStepsCommanded) >
                 (tempStepsCommanded - std::floor(tempStepsCommanded))) {
                 this->stepsCommanded = std::floor(tempStepsCommanded);
@@ -96,7 +96,7 @@ StepperMotorControllerOutput StepperMotorControllerAlgorithm::update(uint64_t ca
     }
 
     // Calculate the time elapsed since the last motor reference input message was written
-    float deltaSimTime = (NANO2SEC * callTime) - this->previousWrittenTime;
+    const float deltaSimTime = (NANO2SEC * callTime) - this->previousWrittenTime;
 
     // Update the motor information if steps were commanded
     if (this->stepsCommanded > 0) {

@@ -25,7 +25,7 @@
  @return void
  @param callTime [ns] Time the method is called
 */
-void StepperMotorController::reset(uint64_t callTime) {
+void StepperMotorController::reset(const uint64_t callTime) {
     if (!this->motorRefAngleInMsg.isLinked()) {
         throw std::invalid_argument("StepperMotorController.motorRefAngleInMsg wasn't connected.");
     }
@@ -39,7 +39,7 @@ void StepperMotorController::reset(uint64_t callTime) {
  @return void
  @param callTime [ns] Time the method is called
 */
-void StepperMotorController::updateState(uint64_t callTime) {
+void StepperMotorController::updateState(const uint64_t callTime) {
     HingedRigidBodyMsgF32Payload motorRefAngleIn{};
     float hingedRigidBodyMsgTimeWritten{};
     if (this->motorRefAngleInMsg.isWritten()) {

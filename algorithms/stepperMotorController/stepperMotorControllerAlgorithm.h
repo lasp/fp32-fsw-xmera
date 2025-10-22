@@ -36,16 +36,16 @@ class StepperMotorControllerAlgorithm {
     void reset();
     StepperMotorControllerOutput update(uint64_t callTime,
                                         float hingedRigidBodyMsgTimeWritten,
-                                        HingedRigidBodyMsgF32Payload& motorRefAngleIn);
-    void setThetaInit(const float thetaInit);
+                                        const HingedRigidBodyMsgF32Payload& motorRefAngleIn);
+    void setThetaInit(float thetaInit);
     float getThetaInit() const;
-    void setThetaMax(const float thetaMax);
+    void setThetaMax(float thetaMax);
     float getThetaMax() const;
-    void setThetaMin(const float thetaMin);
+    void setThetaMin(float thetaMin);
     float getThetaMin() const;
-    void setStepAngle(const float stepAngle);
+    void setStepAngle(float stepAngle);
     float getStepAngle() const;
-    void setStepTime(const float stepTime);
+    void setStepTime(float stepTime);
     float getStepTime() const;
 
    private:
