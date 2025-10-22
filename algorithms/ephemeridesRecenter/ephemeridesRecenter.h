@@ -32,8 +32,8 @@ class BodyEphemeris {
    public:
     std::string bodySpiceName;
     std::string originalCentralBodyName;
-    ReadFunctor<EphemerisMsgPayload> inputEphemerisMsg{};
-    Message<EphemerisMsgPayload> outputEphemerisMsg{};
+    ReadFunctor<EphemerisMsgF32Payload> inputEphemerisMsg{};
+    Message<EphemerisMsgF32Payload> outputEphemerisMsg{};
 };
 
 /*! @brief Ephemerides Recenter Basilisk Model */
@@ -51,7 +51,7 @@ class EphemeridesRecenter : public SysModel {
     size_t getBodyIndexFromName(const std::string& celestialBodyName) const;
     size_t getNumberOfBodies() const;
     void clearAllBodies();
-    std::vector<Message<EphemerisMsgPayload>*> recenteredEphemerisOutputMsgs{};
+    std::vector<Message<EphemerisMsgF32Payload>*> recenteredEphemerisOutputMsgs{};
 
    private:
     size_t ephemeridesNumber{};

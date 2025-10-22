@@ -20,7 +20,7 @@
 #define F32XIMERA_EPHEM_RECENTER_ALGORITHM_H
 
 #include <architecture/messaging/messaging.h>
-#include <architecture/msgPayloadDef/EphemerisMsgPayload.h>
+#include "msgPayloadDef/EphemerisMsgF32Payload.h"
 #include <Eigen/Core>
 #include <array>
 
@@ -34,8 +34,8 @@ class BodyEphemerisPayload {
     std::string bodySpiceName;                                          //!< SPICE name of the body
     std::string originalCentralBodyName;                                //!< Original reference body for ephemeris data
     bool isMoon{false};                                                 //!< Body is moon of another body in the list
-    EphemerisMsgPayload inputEphemerisPayload{EphemerisMsgPayload{}};   //!< Input ephemeris message
-    EphemerisMsgPayload outputEphemerisPayload{EphemerisMsgPayload{}};  //!< Output ephemeris message after recentering
+    EphemerisMsgF32Payload inputEphemerisPayload{EphemerisMsgF32Payload{}};   //!< Input ephemeris message
+    EphemerisMsgF32Payload outputEphemerisPayload{EphemerisMsgF32Payload{}};  //!< Output ephemeris message after recentering
 };
 
 /**
@@ -60,7 +60,7 @@ class EphemeridesRecenterAlgorithm {
     void addBodyEphemerisToRecenter(const std::string& bodyName);
     void clearAllBodies();
 
-    ReadFunctor<EphemerisMsgPayload> ephBaseInMsg;  //!< Base ephemeris input message
+    ReadFunctor<EphemerisMsgF32Payload> ephBaseInMsg;  //!< Base ephemeris input message
 
    private:
     bool findMoonOfBody(const BodyEphemerisPayload& celestialBody, size_t* index) const;

@@ -54,13 +54,13 @@ def mars_central_body():
     list_of_bodies = []
     # Create bodies to add to the module
     sunBody = ephemeridesRecenterF32.BodyEphemeris()
-    sunInputPayload = messaging.EphemerisMsgPayload()
+    sunInputPayload = messaging.EphemerisMsgF32Payload()
     position = [0,0,0]
     velocity = [0,0,0]
     sunInputPayload.r_BdyZero_N = position
     sunInputPayload.v_BdyZero_N = velocity
     sunInputPayload.timeTag = 1234.0
-    sunInputMessage = messaging.EphemerisMsg().write(sunInputPayload)
+    sunInputMessage = messaging.EphemerisMsgF32().write(sunInputPayload)
     sunBody.inputEphemerisMsg.subscribeTo(sunInputMessage)
     sunBody.bodySpiceName = "sun"
     sunBody.originalCentralBodyName = "sun"
@@ -68,39 +68,39 @@ def mars_central_body():
 
     # Set this message
     earthBody = ephemeridesRecenterF32.BodyEphemeris()
-    earthInputPayload = messaging.EphemerisMsgPayload()
+    earthInputPayload = messaging.EphemerisMsgF32Payload()
     position = [1000, -200, 100]
     velocity = [10, 0, -8]
     earthInputPayload.r_BdyZero_N = position
     earthInputPayload.v_BdyZero_N = velocity
     earthInputPayload.timeTag = 1234.0
-    earthInputMessage = messaging.EphemerisMsg().write(earthInputPayload)
+    earthInputMessage = messaging.EphemerisMsgF32().write(earthInputPayload)
     earthBody.inputEphemerisMsg.subscribeTo(earthInputMessage)
     earthBody.bodySpiceName = "earth"
     earthBody.originalCentralBodyName = "sun"
     list_of_bodies.append(earthBody)
 
     marsBody = ephemeridesRecenterF32.BodyEphemeris()
-    marsInputPayload = messaging.EphemerisMsgPayload()
+    marsInputPayload = messaging.EphemerisMsgF32Payload()
     position = [-4000, 3000, 10000]
     velocity = [-1, -2, 1]
     marsInputPayload.r_BdyZero_N = position
     marsInputPayload.v_BdyZero_N = velocity
     marsInputPayload.timeTag = 1234.0
-    marsInputMessage = messaging.EphemerisMsg().write(marsInputPayload)
+    marsInputMessage = messaging.EphemerisMsgF32().write(marsInputPayload)
     marsBody.inputEphemerisMsg.subscribeTo(marsInputMessage)
     marsBody.bodySpiceName = "mars"
     marsBody.originalCentralBodyName = "sun"
     list_of_bodies.append(marsBody)
 
     moonBody = ephemeridesRecenterF32.BodyEphemeris()
-    moonInputPayload = messaging.EphemerisMsgPayload()
+    moonInputPayload = messaging.EphemerisMsgF32Payload()
     position = [-50, 30, 100]
     velocity = [-0.5, -0.2, 0.1]
     moonInputPayload.r_BdyZero_N = position
     moonInputPayload.v_BdyZero_N = velocity
     moonInputPayload.timeTag = 1234.0
-    moonInputMessage = messaging.EphemerisMsg().write(moonInputPayload)
+    moonInputMessage = messaging.EphemerisMsgF32().write(moonInputPayload)
     moonBody.inputEphemerisMsg.subscribeTo(moonInputMessage)
     moonBody.bodySpiceName = "moon"
     moonBody.originalCentralBodyName = "earth"
@@ -192,13 +192,13 @@ def moon_central_body():
     list_of_bodies = []
     # Create bodies to add to the module
     sunBody = ephemeridesRecenterF32.BodyEphemeris()
-    sunInputPayload = messaging.EphemerisMsgPayload()
+    sunInputPayload = messaging.EphemerisMsgF32Payload()
     position = [80000, 10000, -9000]
     velocity = [-5, 2, -0.9]
     sunInputPayload.r_BdyZero_N = position
     sunInputPayload.v_BdyZero_N = velocity
     sunInputPayload.timeTag = 1234.0
-    sunInputMessage = messaging.EphemerisMsg().write(sunInputPayload)
+    sunInputMessage = messaging.EphemerisMsgF32().write(sunInputPayload)
     sunBody.inputEphemerisMsg.subscribeTo(sunInputMessage)
     sunBody.bodySpiceName = "sun"
     sunBody.originalCentralBodyName = "saturn"
@@ -206,52 +206,52 @@ def moon_central_body():
 
     # Set this message
     earthBody = ephemeridesRecenterF32.BodyEphemeris()
-    earthInputPayload = messaging.EphemerisMsgPayload()
+    earthInputPayload = messaging.EphemerisMsgF32Payload()
     position = [1000, -200, 100]
     velocity = [10, 0, -8]
     earthInputPayload.r_BdyZero_N = position
     earthInputPayload.v_BdyZero_N = velocity
     earthInputPayload.timeTag = 1234.0
-    earthInputMessage = messaging.EphemerisMsg().write(earthInputPayload)
+    earthInputMessage = messaging.EphemerisMsgF32().write(earthInputPayload)
     earthBody.inputEphemerisMsg.subscribeTo(earthInputMessage)
     earthBody.bodySpiceName = "earth"
     earthBody.originalCentralBodyName = "saturn"
     list_of_bodies.append(earthBody)
 
     marsBody = ephemeridesRecenterF32.BodyEphemeris()
-    marsInputPayload = messaging.EphemerisMsgPayload()
+    marsInputPayload = messaging.EphemerisMsgF32Payload()
     position = [-4000, 3000, 10000]
     velocity = [-1, -2, 1]
     marsInputPayload.r_BdyZero_N = position
     marsInputPayload.v_BdyZero_N = velocity
     marsInputPayload.timeTag = 1234.0
-    marsInputMessage = messaging.EphemerisMsg().write(marsInputPayload)
+    marsInputMessage = messaging.EphemerisMsgF32().write(marsInputPayload)
     marsBody.inputEphemerisMsg.subscribeTo(marsInputMessage)
     marsBody.bodySpiceName = "mars"
     marsBody.originalCentralBodyName = "saturn"
     list_of_bodies.append(marsBody)
 
     moonBody = ephemeridesRecenterF32.BodyEphemeris()
-    moonInputPayload = messaging.EphemerisMsgPayload()
+    moonInputPayload = messaging.EphemerisMsgF32Payload()
     position = [-50, 30, 100]
     velocity = [-0.5, -0.2, 0.1]
     moonInputPayload.r_BdyZero_N = position
     moonInputPayload.v_BdyZero_N = velocity
     moonInputPayload.timeTag = 1234.0
-    moonInputMessage = messaging.EphemerisMsg().write(moonInputPayload)
+    moonInputMessage = messaging.EphemerisMsgF32().write(moonInputPayload)
     moonBody.inputEphemerisMsg.subscribeTo(moonInputMessage)
     moonBody.bodySpiceName = "moon"
     moonBody.originalCentralBodyName = "earth"
     list_of_bodies.append(moonBody)
 
     saturnBody = ephemeridesRecenterF32.BodyEphemeris()
-    saturnInputPayload = messaging.EphemerisMsgPayload()
+    saturnInputPayload = messaging.EphemerisMsgF32Payload()
     position = [0,0,0]
     velocity = [0,0,0]
     saturnInputPayload.r_BdyZero_N = position
     saturnInputPayload.v_BdyZero_N = velocity
     saturnInputPayload.timeTag = 1234.0
-    saturnInputMessage = messaging.EphemerisMsg().write(saturnInputPayload)
+    saturnInputMessage = messaging.EphemerisMsgF32().write(saturnInputPayload)
     saturnBody.inputEphemerisMsg.subscribeTo(saturnInputMessage)
     saturnBody.bodySpiceName = "saturn"
     saturnBody.originalCentralBodyName = "saturn"
@@ -343,13 +343,13 @@ def clearing_values():
     list_of_bodies = []
     # Create bodies to add to the module
     sunBody = ephemeridesRecenterF32.BodyEphemeris()
-    sunInputPayload = messaging.EphemerisMsgPayload()
+    sunInputPayload = messaging.EphemerisMsgF32Payload()
     position = [0,0,0]
     velocity = [0,0,0]
     sunInputPayload.r_BdyZero_N = position
     sunInputPayload.v_BdyZero_N = velocity
     sunInputPayload.timeTag = 1234.0
-    sunInputMessage = messaging.EphemerisMsg().write(sunInputPayload)
+    sunInputMessage = messaging.EphemerisMsgF32().write(sunInputPayload)
     sunBody.inputEphemerisMsg.subscribeTo(sunInputMessage)
     sunBody.bodySpiceName = "sun"
     sunBody.originalCentralBodyName = "sun"
@@ -357,39 +357,39 @@ def clearing_values():
 
     # Set this message
     earthBody = ephemeridesRecenterF32.BodyEphemeris()
-    earthInputPayload = messaging.EphemerisMsgPayload()
+    earthInputPayload = messaging.EphemerisMsgF32Payload()
     position = [1000, -200, 100]
     velocity = [10, 0, -8]
     earthInputPayload.r_BdyZero_N = position
     earthInputPayload.v_BdyZero_N = velocity
     earthInputPayload.timeTag = 1234.0
-    earthInputMessage = messaging.EphemerisMsg().write(earthInputPayload)
+    earthInputMessage = messaging.EphemerisMsgF32().write(earthInputPayload)
     earthBody.inputEphemerisMsg.subscribeTo(earthInputMessage)
     earthBody.bodySpiceName = "earth"
     earthBody.originalCentralBodyName = "sun"
     list_of_bodies.append(earthBody)
 
     marsBody = ephemeridesRecenterF32.BodyEphemeris()
-    marsInputPayload = messaging.EphemerisMsgPayload()
+    marsInputPayload = messaging.EphemerisMsgF32Payload()
     position = [-4000, 3000, 10000]
     velocity = [-1, -2, 1]
     marsInputPayload.r_BdyZero_N = position
     marsInputPayload.v_BdyZero_N = velocity
     marsInputPayload.timeTag = 1234.0
-    marsInputMessage = messaging.EphemerisMsg().write(marsInputPayload)
+    marsInputMessage = messaging.EphemerisMsgF32().write(marsInputPayload)
     marsBody.inputEphemerisMsg.subscribeTo(marsInputMessage)
     marsBody.bodySpiceName = "mars"
     marsBody.originalCentralBodyName = "sun"
     list_of_bodies.append(marsBody)
 
     moonBody = ephemeridesRecenterF32.BodyEphemeris()
-    moonInputPayload = messaging.EphemerisMsgPayload()
+    moonInputPayload = messaging.EphemerisMsgF32Payload()
     position = [-50, 30, 100]
     velocity = [-0.5, -0.2, 0.1]
     moonInputPayload.r_BdyZero_N = position
     moonInputPayload.v_BdyZero_N = velocity
     moonInputPayload.timeTag = 1234.0
-    moonInputMessage = messaging.EphemerisMsg().write(moonInputPayload)
+    moonInputMessage = messaging.EphemerisMsgF32().write(moonInputPayload)
     moonBody.inputEphemerisMsg.subscribeTo(moonInputMessage)
     moonBody.bodySpiceName = "moon"
     moonBody.originalCentralBodyName = "earth"

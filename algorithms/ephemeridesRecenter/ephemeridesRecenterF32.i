@@ -29,4 +29,4 @@
 %template(StringArray10) std::array<std::string, MAX_NUM_CHANGE_BODIES>;
 
 %include "ephemeridesRecenter.h"
-%include <architecture/msgPayloadDef/EphemerisMsgPayload.h>
+%include "msgPayloadDef/EphemerisMsgF32Payload.h"

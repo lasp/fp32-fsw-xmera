@@ -53,7 +53,7 @@ std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES> EphemeridesRecenterAlgor
     this->celestialBodies = newBodies;
 
     auto newCentralBody = this->celestialBodies[this->newCentralIndex];
-    EphemerisMsgPayload newCentralBodyPayload = newCentralBody.inputEphemerisPayload;
+    EphemerisMsgF32Payload newCentralBodyPayload = newCentralBody.inputEphemerisPayload;
     /* - If the new central body is a moon (its original central body is not the common central body but another body in
      * the list) first re-center the moon around the common central body so that every body is relative to the common
      * center*/
@@ -71,7 +71,7 @@ std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES> EphemeridesRecenterAlgor
         /* Moons get re-centered along with their central body and shouldn't be re-centered in this main loop */
         if (!recenteredBodies[i].isMoon) {
             recenteredBodies[i] = BodyEphemerisPayload{};
-            EphemerisMsgPayload newEphemerisToRecenterPayload = newBodies[i].inputEphemerisPayload;
+            EphemerisMsgF32Payload newEphemerisToRecenterPayload = newBodies[i].inputEphemerisPayload;
             if (this->celestialBodies[i].originalCentralBodyName != newCentralBody.bodySpiceName &&
                 this->celestialBodies[i].originalCentralBodyName == this->previousCentralBodyName) {
                 vectorSubtraction(newEphemerisToRecenterPayload.r_BdyZero_N,
@@ -83,7 +83,7 @@ std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES> EphemeridesRecenterAlgor
 
                 if (size_t moonIndex{}; this->findMoonOfBody(this->celestialBodies[i], &moonIndex) &&
                                         this->celestialBodies[i].bodySpiceName != this->previousCentralBodyName) {
-                    EphemerisMsgPayload moonOfBodyPayload = this->celestialBodies[moonIndex].inputEphemerisPayload;
+                    EphemerisMsgF32Payload moonOfBodyPayload = this->celestialBodies[moonIndex].inputEphemerisPayload;
                     vectorAddition(newEphemerisToRecenterPayload.r_BdyZero_N,
                                    moonOfBodyPayload.r_BdyZero_N,
                                    moonOfBodyPayload.r_BdyZero_N);

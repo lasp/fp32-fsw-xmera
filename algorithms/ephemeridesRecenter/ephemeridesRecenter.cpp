@@ -66,7 +66,7 @@ void EphemeridesRecenter::addBodyEphemerisToRecenter(const BodyEphemeris& epheme
     if (this->ephemeridesNumber + 1 > MAX_NUM_CHANGE_BODIES) {
         throw std::invalid_argument("Adding one body too many to the list");
     }
-    this->recenteredEphemerisOutputMsgs.push_back(new Message<EphemerisMsgPayload>);
+    this->recenteredEphemerisOutputMsgs.push_back(new Message<EphemerisMsgF32Payload>);
     this->ephemerides[this->ephemeridesNumber] = ephemerisBody;
     this->ephemeridesNumber += 1;
     this->algorithm.addBodyEphemerisToRecenter(ephemerisBody.bodySpiceName);
