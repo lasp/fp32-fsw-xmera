@@ -27,7 +27,7 @@
  @param currentSimNanos The current simulation time for system
  @param vehicleConfigIn Vehicle configuration message
  */
-void SunSearchAlgorithm::reset(uint64_t currentSimNanos, VehicleConfigMsgPayload const& vehicleConfigIn) {
+void SunSearchAlgorithm::reset(uint64_t currentSimNanos, VehicleConfigMsgF32Payload const& vehicleConfigIn) {
     if (this->numberOfSlews != NUM_SLEWS) {
         throw std::invalid_argument("The number of specified slew maneuvers must be equal to 3");
     }
@@ -44,18 +44,18 @@ void SunSearchAlgorithm::reset(uint64_t currentSimNanos, VehicleConfigMsgPayload
 }
 
 /*! This method is the main carrier for the computation of the guidance message
- @return AttGuidMsgPayload
+ @return AttGuidMsgF32Payload
  @param currentSimNanos The current simulation time for system
  @param navAttIn Navigation attitude message
  */
-AttGuidMsgPayload SunSearchAlgorithm::update(uint64_t currentSimNanos, NavAttMsgPayload& navAttIn) {
-    AttGuidMsgPayload attGuidOut{};
+AttGuidMsgF32Payload SunSearchAlgorithm::update(uint64_t currentSimNanos, NavAttMsgF32Payload& navAttIn) {
+    AttGuidMsgF32Payload attGuidOut{};
     ReferenceMotionOutput referenceMotion{};
 
-    double CurrentSimSeconds = (currentSimNanos - this->resetTime) * NANO2SEC;
+    float CurrentSimSeconds = (currentSimNanos - this->resetTime) * NANO2SEC;
 
-    double timeInf = 0;
-    double timeSup = this->kinematicProperties[0].slewTotalTime;
+    float timeInf = 0;
+    float timeSup = this->kinematicProperties[0].slewTotalTime;
     for (uint32_t index = 0; index < NUM_SLEWS; ++index) {
         if (CurrentSimSeconds >= timeInf && CurrentSimSeconds < timeSup) {
             referenceMotion = this->computeReferenceMotion(currentSimNanos, index);
@@ -66,7 +66,7 @@ AttGuidMsgPayload SunSearchAlgorithm::update(uint64_t currentSimNanos, NavAttMsg
         }
     }
 
-    Eigen::Vector3d omega_BR_B = Eigen::Map<const Eigen::Vector3d>(navAttIn.omega_BN_B) - referenceMotion.omega_RN_B;
+    Eigen::Vector3f omega_BR_B = Eigen::Map<const Eigen::Vector3f>(navAttIn.omega_BN_B) - referenceMotion.omega_RN_B;
 
     eigenVectorToCArray(referenceMotion.omega_RN_B, attGuidOut.omega_RN_B);
     eigenVectorToCArray(omega_BR_B, attGuidOut.omega_BR_B);
@@ -81,13 +81,13 @@ AttGuidMsgPayload SunSearchAlgorithm::update(uint64_t currentSimNanos, NavAttMsg
 void SunSearchAlgorithm::computeKinematicProperties(uint32_t const index) {
     SlewProperties* SP = &this->slewProperties[index];
     uint32_t axis = SP->slewRotAxis - 1;
-    double maxAcc = SP->slewMaxTorque / this->principleInertias[axis];
+    float maxAcc = SP->slewMaxTorque / this->principleInertias[axis];
 
     /*! Computing fastest bang-bang slew with no coasting arc */
-    double alpha = 4 * SP->slewAngle / (SP->slewTime * SP->slewTime);
-    double omegaMax = 2 * SP->slewAngle / SP->slewTime;
-    double totalTime = SP->slewTime;
-    double thrustTime = totalTime / 2;
+    float alpha = 4 * SP->slewAngle / (SP->slewTime * SP->slewTime);
+    float omegaMax = 2 * SP->slewAngle / SP->slewTime;
+    float totalTime = SP->slewTime;
+    float thrustTime = totalTime / 2;
 
     /*! If angular acceleration exceeds limit, decrease acceleration and increase slew time */
     if (alpha > maxAcc) {
@@ -117,17 +117,17 @@ void SunSearchAlgorithm::computeKinematicProperties(uint32_t const index) {
     @return ReferenceMotionOutput
     */
 ReferenceMotionOutput SunSearchAlgorithm::computeReferenceMotion(uint64_t const currentSimNanos, uint32_t const index) {
-    double zeroTime = 0;
+    float zeroTime = 0;
     for (uint32_t i = 0; i < index; ++i) {
         zeroTime += this->kinematicProperties[i].slewTotalTime;
     }
-    double localSimSeconds = (currentSimNanos - this->resetTime) * NANO2SEC - zeroTime;
+    float localSimSeconds = (currentSimNanos - this->resetTime) * NANO2SEC - zeroTime;
 
     KinematicProperties KP = this->kinematicProperties[index];
     uint32_t axis = KP.slewRotAxis - 1;
 
-    Eigen::Vector3d omega_RN{Eigen::Vector3d::Zero()};
-    Eigen::Vector3d domega_RN{Eigen::Vector3d::Zero()};
+    Eigen::Vector3f omega_RN{Eigen::Vector3f::Zero()};
+    Eigen::Vector3f domega_RN{Eigen::Vector3f::Zero()};
 
     if (localSimSeconds <= KP.slewThrustTime) {
         omega_RN[axis] = KP.slewOmegaMax * localSimSeconds / KP.slewThrustTime;

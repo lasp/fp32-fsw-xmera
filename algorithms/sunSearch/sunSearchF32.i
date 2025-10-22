@@ -32,6 +32,6 @@ STRUCTASLIST(SlewProperties)
 %include "sunSearch.h"
 %include "sunSearchAlgorithm.h"
 
-%include <architecture/msgPayloadDef/NavAttMsgPayload.h>
-%include <architecture/msgPayloadDef/VehicleConfigMsgPayload.h>
-%include <architecture/msgPayloadDef/AttGuidMsgPayload.h>
+%include "msgPayloadDef/NavAttMsgF32Payload.h"
+%include "msgPayloadDef/VehicleConfigMsgF32Payload.h"
+%include "msgPayloadDef/AttGuidMsgF32Payload.h"

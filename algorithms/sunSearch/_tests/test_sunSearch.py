@@ -120,19 +120,19 @@ def test_sunSearch(show_plots, axis1, axis2, axis3, omega_BN_B):
     # These will eventually become input messages
 
     # Create input navigation message
-    NavAttMessageData = messaging.NavAttMsgPayload()
+    NavAttMessageData = messaging.NavAttMsgF32Payload()
     NavAttMessageData.omega_BN_B = omega_BN_B
-    NavAttMsg = messaging.NavAttMsg().write(NavAttMessageData)
+    NavAttMsg = messaging.NavAttMsgF32().write(NavAttMessageData)
     attGuidance.attNavInMsg.subscribeTo(NavAttMsg)
 
     I = [100, 200, 300]
 
     # Create input vehicle configuration message
-    VehConfMessageData = messaging.VehicleConfigMsgPayload()
+    VehConfMessageData = messaging.VehicleConfigMsgF32Payload()
     VehConfMessageData.ISCPntB_B = [I[0],  0.0,  0.0,
                                      0.0, I[1],  0.0,
                                      0.0,  0.0, I[2]]
-    VehConfMessage = messaging.VehicleConfigMsg().write(VehConfMessageData)
+    VehConfMessage = messaging.VehicleConfigMsgF32().write(VehConfMessageData)
     attGuidance.vehConfigInMsg.subscribeTo(VehConfMessage)
 
     # Setup logging on the test module output message so that we get all the writes to it
@@ -193,7 +193,7 @@ def test_sunSearch(show_plots, axis1, axis2, axis3, omega_BN_B):
             omegaDot_RN_B_truth[i, axis3-1] = -alpha3
         omega_BR_B_truth[i] = omega_BN_B - omega_RN_B_truth[i]
 
-    accuracy = 1e-12
+    accuracy = 1e-6
 
     # set the filtered output truth states
     np.testing.assert_allclose(omega_BR_B, omega_BR_B_truth, rtol=0, atol=accuracy, verbose=True)

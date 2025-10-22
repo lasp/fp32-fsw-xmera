@@ -22,9 +22,9 @@
 
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
-#include <architecture/msgPayloadDef/AttGuidMsgPayload.h>
-#include <architecture/msgPayloadDef/NavAttMsgPayload.h>
-#include <architecture/msgPayloadDef/VehicleConfigMsgPayload.h>
+#include "msgPayloadDef/AttGuidMsgF32Payload.h"
+#include "msgPayloadDef/NavAttMsgF32Payload.h"
+#include "msgPayloadDef/VehicleConfigMsgF32Payload.h"
 #include "sunSearchAlgorithm.h"
 
 class SunSearch : public SysModel {
@@ -38,9 +38,9 @@ class SunSearch : public SysModel {
     void modifySlewProperties(SlewProperties slewPropertiesInput, uint32_t index);
     SlewProperties getSlewProperties(uint32_t index) const;
 
-    ReadFunctor<NavAttMsgPayload> attNavInMsg;            //!< input msg measured attitude
-    ReadFunctor<VehicleConfigMsgPayload> vehConfigInMsg;  //!< input veh config msg
-    Message<AttGuidMsgPayload> attGuidOutMsg;             //!< Attitude reference output message
+    ReadFunctor<NavAttMsgF32Payload> attNavInMsg;            //!< input msg measured attitude
+    ReadFunctor<VehicleConfigMsgF32Payload> vehConfigInMsg;  //!< input veh config msg
+    Message<AttGuidMsgF32Payload> attGuidOutMsg;             //!< Attitude reference output message
 
    private:
     SunSearchAlgorithm algorithm{};

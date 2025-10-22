@@ -5,10 +5,13 @@ if(NOT _is_enabled)
 endif()
 
 xmera_add_swig_module("${module}")
+
 target_sources("${module}" PRIVATE
   sunSearch.cpp
   sunSearchAlgorithm.cpp
 )
+
+target_include_directories("${module}" PUBLIC "..")
 
 target_link_libraries("${module}" PRIVATE
   Eigen3::Eigen

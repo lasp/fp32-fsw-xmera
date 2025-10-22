@@ -38,8 +38,8 @@ void SunSearch::reset(uint64_t currentSimNanos) {
  @param currentSimNanos The current simulation time for system
  */
 void SunSearch::updateState(uint64_t currentSimNanos) {
-    NavAttMsgPayload navAttIn = this->attNavInMsg();
-    AttGuidMsgPayload attGuidOut = this->algorithm.update(currentSimNanos, navAttIn);
+    NavAttMsgF32Payload navAttIn = this->attNavInMsg();
+    AttGuidMsgF32Payload attGuidOut = this->algorithm.update(currentSimNanos, navAttIn);
 
     this->attGuidOutMsg.write(&attGuidOut, this->moduleID, currentSimNanos);
 }
