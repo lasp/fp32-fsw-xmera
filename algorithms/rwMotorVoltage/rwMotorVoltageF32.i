@@ -16,7 +16,7 @@
  OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
  */
-%module rwMotorVoltage
+%module rwMotorVoltageF32
 %{
    #include "rwMotorVoltage.h"
 %}

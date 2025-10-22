@@ -22,7 +22,7 @@ import pytest
 
 # Import all of the modules that we are going to be called in this simulation
 from xmera.utilities import SimulationBaseClass
-from xmera.fswAlgorithms import rwMotorVoltage
+from xmera.fp32 import rwMotorVoltageF32
 from xmera.utilities import fswSetupRW
 from xmera.utilities import macros
 from xmera.architecture import messaging
@@ -46,7 +46,7 @@ def test_rw_motor_voltage(show_plots, use_large_voltage, use_availability, use_t
     test_proc.addTask(unit_test_sim.CreateNewTask(unit_task_name, test_process_rate))
 
     # Construct algorithm and associated C++ container
-    module = rwMotorVoltage.RwMotorVoltage(1.0, 10.0)
+    module = rwMotorVoltageF32.RwMotorVoltage(1.0, 10.0)
     module.modelTag = "rwMotorVoltage"
     unit_test_sim.AddModelToTask(unit_task_name, module)
 

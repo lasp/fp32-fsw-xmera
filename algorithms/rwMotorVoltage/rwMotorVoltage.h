@@ -17,8 +17,8 @@
 
  */
 
-#ifndef RW_MOTOR_VOLTAGE_H
-#define RW_MOTOR_VOLTAGE_H
+#ifndef F32XIMERA_RW_MOTOR_VOLTAGE_H
+#define F32XIMERA_RW_MOTOR_VOLTAGE_H
 
 #include <stdint.h>
 
