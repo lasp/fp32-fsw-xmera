@@ -41,11 +41,11 @@ class RateServoFullNonlinear : public SysModel {
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
 
-    void setP(const float gain);
+    void setP(float gain);
     float getP() const;
-    void setKi(const float gain);
+    void setKi(float gain);
     float getKi() const;
-    void setIntegralLimit(const float limit);
+    void setIntegralLimit(float limit);
     float getIntegralLimit() const;
     void setKnownTorquePntB_B(const Eigen::Vector3f &knownTorquePntB_B);
     Eigen::Vector3f getKnownTorquePntB_B() const;

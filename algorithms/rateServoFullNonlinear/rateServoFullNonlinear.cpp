@@ -26,7 +26,7 @@
  @return void
  @param callTime The clock time at which the function was called (nanoseconds)
  */
-void RateServoFullNonlinear::reset(uint64_t callTime) {
+void RateServoFullNonlinear::reset(const uint64_t callTime) {
     /* make sure option msg connections are correctly done */
     if (this->rwParamsInMsg.isLinked()) {
         if (!this->rwSpeedsInMsg.isLinked()) {
@@ -48,7 +48,7 @@ void RateServoFullNonlinear::reset(uint64_t callTime) {
         throw std::invalid_argument("rateServoFullNonlinear.rateSteeringInMsg wasn't connected.");
     }
 
-    VehicleConfigMsgF32Payload sc = this->vehConfigInMsg();
+    const VehicleConfigMsgF32Payload sc = this->vehConfigInMsg();
     RWArrayConfigMsgF32Payload rwConfigParams{};
     bool rwParamsIsLinked{};
 
@@ -66,14 +66,11 @@ void RateServoFullNonlinear::reset(uint64_t callTime) {
  @return void
  @param callTime The clock time at which the function was called (nanoseconds)
  */
-void RateServoFullNonlinear::updateState(uint64_t callTime) {
-    AttGuidMsgF32Payload guidCmd{};                   /*!< Guidance input Message */
+void RateServoFullNonlinear::updateState(const uint64_t callTime) {
+    const AttGuidMsgF32Payload guidCmd = this->guidInMsg();              /*!< Guidance input Message */
+    const RateCmdMsgF32Payload rateGuid = this->rateSteeringInMsg();     /*!< rate steering law message input message */
     RWSpeedMsgF32Payload wheelSpeeds{};               /*!< Reaction wheel speed estimates input message */
     RWAvailabilityMsgPayload wheelsAvailability{};    /*!< Reaction wheel availability input message */
-    RateCmdMsgF32Payload rateGuid{};                  /*!< rate steering law message input message */
-
-    guidCmd = this->guidInMsg();
-    rateGuid = this->rateSteeringInMsg();
 
     if (this->numRW > 0) {
         wheelSpeeds = this->rwSpeedsInMsg();

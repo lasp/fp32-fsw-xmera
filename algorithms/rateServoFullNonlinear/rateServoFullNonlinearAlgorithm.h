@@ -35,18 +35,20 @@
 /*! @brief The configuration structure for the rateServoFullNonlinear module.  */
 class RateServoFullNonlinearAlgorithm {
    public:
-    void reset(VehicleConfigMsgF32Payload vehConfigMsg, RWArrayConfigMsgF32Payload rwConfigMsg, bool rwIsLinked);
+    void reset(VehicleConfigMsgF32Payload vehConfigMsg,
+               RWArrayConfigMsgF32Payload rwConfigMsg,
+               bool rwIsLinked);
     CmdTorqueBodyMsgF32Payload update(uint64_t callTime,
                                       AttGuidMsgF32Payload guidCmd,
                                       RateCmdMsgF32Payload rateCmd,
                                       RWSpeedMsgF32Payload wheelSpeeds,
                                       RWAvailabilityMsgPayload wheelsAvailability);
 
-    void setP(const float gain);
+    void setP(float gain);
     float getP() const;
-    void setKi(const float gain);
+    void setKi(float gain);
     float getKi() const;
-    void setIntegralLimit(const float limit);
+    void setIntegralLimit(float limit);
     float getIntegralLimit() const;
     void setKnownTorquePntB_B(const Eigen::Vector3f &knownTorquePntB_B);
     Eigen::Vector3f getKnownTorquePntB_B() const;

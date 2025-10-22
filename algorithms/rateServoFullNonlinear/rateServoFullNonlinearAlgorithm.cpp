@@ -33,8 +33,8 @@
  @param rwIsLinked boolean indicating whether reaction wheel config message is linked
  */
 void RateServoFullNonlinearAlgorithm::reset(VehicleConfigMsgF32Payload vehConfigMsg,
-                                            RWArrayConfigMsgF32Payload rwConfigMsg,
-                                            bool rwIsLinked) {
+                                            const RWArrayConfigMsgF32Payload rwConfigMsg,
+                                            const bool rwIsLinked) {
     this->ISCPntB_B = cArrayAsEigenMatrix3(vehConfigMsg.ISCPntB_B);
 
     this->rwConfigParams.numRW = 0;
@@ -59,11 +59,11 @@ void RateServoFullNonlinearAlgorithm::reset(VehicleConfigMsgF32Payload vehConfig
  @param wheelSpeeds Reaction wheel speed message
  @param wheelsAvailability Reaction wheel availability message
  */
-CmdTorqueBodyMsgF32Payload RateServoFullNonlinearAlgorithm::update(uint64_t callTime,
-                                                                   AttGuidMsgF32Payload guidCmd,
-                                                                   RateCmdMsgF32Payload rateCmd,
-                                                                   RWSpeedMsgF32Payload wheelSpeeds,
-                                                                   RWAvailabilityMsgPayload wheelsAvailability) {
+CmdTorqueBodyMsgF32Payload RateServoFullNonlinearAlgorithm::update(const uint64_t callTime,
+                                                                   const AttGuidMsgF32Payload guidCmd,
+                                                                   const RateCmdMsgF32Payload rateCmd,
+                                                                   const RWSpeedMsgF32Payload wheelSpeeds,
+                                                                   const RWAvailabilityMsgPayload wheelsAvailability) {
     CmdTorqueBodyMsgF32Payload controlOut{}; /*!< commanded torque output message */
 
     /*! - compute control update time */
@@ -75,25 +75,25 @@ CmdTorqueBodyMsgF32Payload RateServoFullNonlinearAlgorithm::update(uint64_t call
     }
     this->priorTime = callTime;
 
-    Eigen::Vector3f omega_BR_B = Eigen::Map<const Eigen::Vector3f>(guidCmd.omega_BR_B);
-    Eigen::Vector3f omega_RN_B = Eigen::Map<const Eigen::Vector3f>(guidCmd.omega_RN_B);
-    Eigen::Vector3f domega_RN_B = Eigen::Map<const Eigen::Vector3f>(guidCmd.domega_RN_B);
+    const Eigen::Vector3f omega_BR_B = Eigen::Map<const Eigen::Vector3f>(guidCmd.omega_BR_B);
+    const Eigen::Vector3f omega_RN_B = Eigen::Map<const Eigen::Vector3f>(guidCmd.omega_RN_B);
+    const Eigen::Vector3f domega_RN_B = Eigen::Map<const Eigen::Vector3f>(guidCmd.domega_RN_B);
 
-    Eigen::Vector3f omega_BastR_B = Eigen::Map<const Eigen::Vector3f>(rateCmd.omega_BastR_B);
-    Eigen::Vector3f omegap_BastR_B = Eigen::Map<const Eigen::Vector3f>(rateCmd.omegap_BastR_B);
+    const Eigen::Vector3f omega_BastR_B = Eigen::Map<const Eigen::Vector3f>(rateCmd.omega_BastR_B);
+    const Eigen::Vector3f omegap_BastR_B = Eigen::Map<const Eigen::Vector3f>(rateCmd.omegap_BastR_B);
 
     /*! - compute body rate */
-    Eigen::Vector3f omega_BN_B = omega_BR_B + omega_RN_B;
+    const Eigen::Vector3f omega_BN_B = omega_BR_B + omega_RN_B;
 
     /*! - compute the rate tracking error */
-    Eigen::Vector3f omega_BastN_B = omega_BastR_B + omega_RN_B;
-    Eigen::Vector3f omega_BBast_B = omega_BN_B - omega_BastN_B;
+    const Eigen::Vector3f omega_BastN_B = omega_BastR_B + omega_RN_B;
+    const Eigen::Vector3f omega_BBast_B = omega_BN_B - omega_BastN_B;
 
     /*! - integrate rate tracking error  */
     if (this->Ki > 0) { /* check if integral feedback is turned on  */
         this->z += omega_BBast_B * dt;
         for (uint32_t i = 0; i < 3; i++) {
-            float intLimCheck = fabs(this->z[i]);
+            const float intLimCheck = fabs(this->z[i]);
             if (intLimCheck > this->integralLimit) {
                 this->z[i] *= this->integralLimit / intLimCheck;
             }
@@ -106,14 +106,14 @@ CmdTorqueBodyMsgF32Payload RateServoFullNonlinearAlgorithm::update(uint64_t call
     /*! - evaluate required attitude control torque Lr */
     Eigen::Vector3f Lr = this->P * omega_BBast_B + this->Ki * this->z;
 
-    Eigen::Matrix<float, 3, RW_EFF_CNT> G_s_B =
+    const Eigen::Matrix<float, 3, RW_EFF_CNT> G_s_B =
         cArrayAsEigenMatrix<float, 3, RW_EFF_CNT>(this->rwConfigParams.GsMatrix_B);
 
     Eigen::Vector3f H_B = this->ISCPntB_B * omega_BN_B;
     for (uint32_t i = 0; i < this->rwConfigParams.numRW; i++) {
         if (wheelsAvailability.wheelAvailability[i] == AVAILABLE) { /* check if wheel is available */
-            Eigen::Vector3f G_s_B_i = G_s_B.col(i);
-            Eigen::Vector3f h_s_i =
+            const Eigen::Vector3f G_s_B_i = G_s_B.col(i);
+            const Eigen::Vector3f h_s_i =
                 this->rwConfigParams.JsList[i] * (omega_BN_B.dot(G_s_B_i) + wheelSpeeds.wheelSpeeds[i]) * G_s_B_i;
             H_B += h_s_i;
         }
@@ -123,7 +123,7 @@ CmdTorqueBodyMsgF32Payload RateServoFullNonlinearAlgorithm::update(uint64_t call
     Lr += -this->ISCPntB_B * (omegap_BastR_B + domega_RN_B - omega_BN_B.cross(omega_RN_B)) + this->knownTorquePntB_B;
 
     /* Change sign to compute the net positive control torque onto the spacecraft */
-    Eigen::Vector3f u_s = -Lr;
+    const Eigen::Vector3f u_s = -Lr;
 
     /*! - Set output message and pass it to the message bus */
     eigenVectorToCArray(u_s, controlOut.torqueRequestBody);
