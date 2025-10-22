@@ -21,7 +21,7 @@
 #include <architecture/utilities/macroDefinitions.h>
 
 #include <ranges>
-#include <stdexcept>
+#include "../freestandingInvalidArgument.h"
 
 /**
  * @brief Construct RwMotorVoltageAlgorithm
@@ -114,13 +114,13 @@ RwMotorVoltageMsgF32Payload RwMotorVoltageAlgorithm::update(uint64_t callTime,
  */
 void RwMotorVoltageAlgorithm::setVoltageRange(const float minVoltageMagnitude, const float maxVoltageMagnitude) {
     if (minVoltageMagnitude < 0.0) {
-        throw std::invalid_argument("minVoltageMagnitude must not be negative.");
+        FS_THROW_INVALID_ARGUMENT("minVoltageMagnitude must not be negative.");
     }
     if (maxVoltageMagnitude < 0.0) {
-        throw std::invalid_argument("maxVoltageMagnitude must not be negative.");
+        FS_THROW_INVALID_ARGUMENT("maxVoltageMagnitude must not be negative.");
     }
     if (maxVoltageMagnitude <= minVoltageMagnitude) {
-        throw std::invalid_argument("maxVoltageMagnitude must be greater than minVoltageMagnitude.");
+        FS_THROW_INVALID_ARGUMENT("maxVoltageMagnitude must be greater than minVoltageMagnitude.");
     }
     this->voltageMin = minVoltageMagnitude;
     this->voltageMax = maxVoltageMagnitude;
@@ -140,7 +140,7 @@ Eigen::Vector2f RwMotorVoltageAlgorithm::getVoltageRange() const {
  */
 void RwMotorVoltageAlgorithm::setGainK(const float gain) {
     if (gain < 0.0) {
-        throw std::invalid_argument("Feedback gain must not be negative");
+        FS_THROW_INVALID_ARGUMENT("Feedback gain must not be negative");
     }
     this->K = gain;
 }
