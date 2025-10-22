@@ -54,34 +54,36 @@ def test_rw_motor_voltage(show_plots, use_large_voltage, use_availability, use_t
 
     if use_torque_loop:
         module.setGainK(1.5)
-        rw_speed_message = messaging.RWSpeedMsgPayload()
+        rw_speed_message = messaging.RWSpeedMsgF32Payload()
         rw_speed_message.wheelSpeeds = [1.0, 2.0, 1.5, -3.0]      # rad/sec Omega's
-        rw_speed_in_msg = messaging.RWSpeedMsg().write(rw_speed_message)
+        rw_speed_in_msg = messaging.RWSpeedMsgF32().write(rw_speed_message)
         module.rwSpeedInMsg.subscribeTo(rw_speed_in_msg)
 
     # Create RW configuration parameter input message
+    rw_config_params = messaging.RWArrayConfigMsgF32Payload()
+    num_rw = 4
+    js_list = [0.1, 0.1, 0.1, 0.1]
+    u_max = [0.2, 0.2, 0.2, 0.2]
     G_s_B = [
-        [1.0, 0.0, 0.0],
-        [0.0, 1.0, 0.0],
-        [0.0, 0.0, 1.0],
-        [1.0, 1.0, 1.0]
-    ]  # the create routine below normalizes these vectors
-    fswSetupRW.clearSetup()
-    for i in range(4):
-        fswSetupRW.create(G_s_B[i],    #           spin axis
-                          0.1,              # kg*m^2    J2
-                          0.2)              # Nm        uMax
-    rw_config_in_msg = fswSetupRW.writeConfigMessage()
+        1.0, 0.0, 0.0,
+        0.0, 1.0, 0.0,
+        0.0, 0.0, 1.0,
+        0.5773502691896258, 0.5773502691896258, 0.5773502691896258
+    ]
+    rw_config_params.GsMatrix_B = G_s_B
+    rw_config_params.JsList = js_list
+    rw_config_params.uMax = u_max
+    rw_config_params.numRW = num_rw
+    rw_config_in_msg = messaging.RWArrayConfigMsgF32().write(rw_config_params)
     module.rwParamsInMsg.subscribeTo(rw_config_in_msg)
-    num_rw = fswSetupRW.getNumOfDevices()
 
     # Create RW motor torque input message
-    rw_torque_msg = messaging.RwMotorTorqueMsgPayload()
+    rw_torque_msg = messaging.RwMotorTorqueMsgF32Payload()
     if use_large_voltage:
         rw_torque_msg.motorTorque = [0.5, 0.0, -0.15, -0.5]           # [Nm] RW motor torque cmds
     else:
         rw_torque_msg.motorTorque = [0.05, 0.0, -0.15, -0.2]  # [Nm] RW motor torque cmds
-    rw_motor_torque_in_msg = messaging.RwMotorTorqueMsg().write(rw_torque_msg)
+    rw_motor_torque_in_msg = messaging.RwMotorTorqueMsgF32().write(rw_torque_msg)
     module.torqueInMsg.subscribeTo(rw_motor_torque_in_msg)
 
     # create RW availability message
@@ -163,7 +165,7 @@ def test_rw_motor_voltage(show_plots, use_large_voltage, use_availability, use_t
                    ]
 
     # compare the module results to the truth values
-    accuracy = 1e-10
+    accuracy = 1e-5
 
     np.testing.assert_allclose(voltage, voltage_true, atol=accuracy, rtol=0, verbose=True)
 

@@ -28,11 +28,11 @@
 %include "rwMotorVoltage.h"
 %include "rwMotorVoltageAlgorithm.h"
 
-%include <architecture/msgPayloadDef/RwMotorTorqueMsgPayload.h>
+%include "msgPayloadDef/RwMotorTorqueMsgF32Payload.h"
 %include <architecture/msgPayloadDef/RWAvailabilityMsgPayload.h>
-%include <architecture/msgPayloadDef/RWArrayConfigMsgPayload.h>
-%include <architecture/msgPayloadDef/RWSpeedMsgPayload.h>
-%include <architecture/msgPayloadDef/RwMotorVoltageMsgPayload.h>
+%include "msgPayloadDef/RWArrayConfigMsgF32Payload.h"
+%include "msgPayloadDef/RWSpeedMsgF32Payload.h"
+%include "msgPayloadDef/RwMotorVoltageMsgF32Payload.h"
 
 %include <fswAlgorithms/fswUtilities/fswDefinitions.h>
 %include <architecture/utilities/macroDefinitions.h>

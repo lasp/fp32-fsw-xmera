@@ -26,7 +26,7 @@
  * @param minVoltageMagnitude minimum voltage below which the torque is zero.
  * @param maxVoltageMagnitude maximum output voltage
  */
-RwMotorVoltage::RwMotorVoltage(const double minVoltageMagnitude, const double maxVoltageMagnitude)
+RwMotorVoltage::RwMotorVoltage(const float minVoltageMagnitude, const float maxVoltageMagnitude)
     : algorithm(minVoltageMagnitude, maxVoltageMagnitude) {}
 
 /*! This method performs a reset of the module as far as closed loop control is concerned.  Local module variables that
@@ -43,7 +43,7 @@ void RwMotorVoltage::reset(uint64_t callTime) {
         throw std::invalid_argument("rwMotorVoltage.torqueInMsg wasn't connected.");
     }
 
-    RWArrayConfigMsgPayload rwParams = this->rwParamsInMsg();
+    RWArrayConfigMsgF32Payload rwParams = this->rwParamsInMsg();
 
     this->algorithm.reset(rwParams);
 }
@@ -55,8 +55,8 @@ void RwMotorVoltage::reset(uint64_t callTime) {
  */
 void RwMotorVoltage::updateState(uint64_t callTime) {
     /* - Read the input messages */
-    RwMotorTorqueMsgPayload torqueCmd = this->torqueInMsg(); /*!< copy of RW motor torque input message*/
-    RWSpeedMsgPayload rwSpeed{};                             /*!< [r/s] Reaction wheel speed estimates */
+    RwMotorTorqueMsgF32Payload torqueCmd = this->torqueInMsg(); /*!< copy of RW motor torque input message*/
+    RWSpeedMsgF32Payload rwSpeed{};                             /*!< [r/s] Reaction wheel speed estimates */
     RWAvailabilityMsgPayload rwAvailability{};
 
     bool rwSpeedMsgIsLinked{};
@@ -68,7 +68,7 @@ void RwMotorVoltage::updateState(uint64_t callTime) {
         rwAvailability = this->rwAvailInMsg();
     }
 
-    RwMotorVoltageMsgPayload voltageOut =
+    RwMotorVoltageMsgF32Payload voltageOut =
         this->algorithm.update(callTime, torqueCmd, rwAvailability, rwSpeed, rwSpeedMsgIsLinked);
 
     this->voltageOutMsg.write(&voltageOut, this->moduleID, callTime);
@@ -79,24 +79,24 @@ void RwMotorVoltage::updateState(uint64_t callTime) {
  * @param minVoltageMagnitude minimum voltage below which the torque is zero.
  * @param maxVoltageMagnitude maximum output voltage
  */
-void RwMotorVoltage::setVoltageRange(const double minVoltageMagnitude, const double maxVoltageMagnitude) {
+void RwMotorVoltage::setVoltageRange(const float minVoltageMagnitude, const float maxVoltageMagnitude) {
     this->algorithm.setVoltageRange(minVoltageMagnitude, maxVoltageMagnitude);
 }
 
 /**
  * @brief Get the minimum and maximum voltage.
- * @return Eigen::Vector2d minimum and maximum voltage
+ * @return Eigen::Vector2f minimum and maximum voltage
  */
-Eigen::Vector2d RwMotorVoltage::getVoltageRange() const { return this->algorithm.getVoltageRange(); }
+Eigen::Vector2f RwMotorVoltage::getVoltageRange() const { return this->algorithm.getVoltageRange(); }
 
 /**
  * @brief Set the feedback gain.
  * @param gain feedback gain.
  */
-void RwMotorVoltage::setGainK(const double gain) { this->algorithm.setGainK(gain); }
+void RwMotorVoltage::setGainK(const float gain) { this->algorithm.setGainK(gain); }
 
 /**
  * @brief Get the feedback gain.
- * @return double feedback gain.
+ * @return float feedback gain.
  */
-double RwMotorVoltage::getGainK() const { return this->algorithm.getGainK(); }
+float RwMotorVoltage::getGainK() const { return this->algorithm.getGainK(); }

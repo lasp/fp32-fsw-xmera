@@ -22,40 +22,40 @@
 
 #include <stdint.h>
 
-#include <architecture/msgPayloadDef/RWArrayConfigMsgPayload.h>
+#include "msgPayloadDef/RWArrayConfigMsgF32Payload.h"
 #include <architecture/msgPayloadDef/RWAvailabilityMsgPayload.h>
-#include <architecture/msgPayloadDef/RWSpeedMsgPayload.h>
-#include <architecture/msgPayloadDef/RwMotorTorqueMsgPayload.h>
-#include <architecture/msgPayloadDef/RwMotorVoltageMsgPayload.h>
+#include "msgPayloadDef/RWSpeedMsgF32Payload.h"
+#include "msgPayloadDef/RwMotorTorqueMsgF32Payload.h"
+#include "msgPayloadDef/RwMotorVoltageMsgF32Payload.h"
 
 #include <Eigen/Core>
 
 /*! @brief module configuration message */
 class RwMotorVoltageAlgorithm {
    public:
-    RwMotorVoltageAlgorithm(const double minVoltageMagnitude, const double maxVoltageMagnitude);
+    RwMotorVoltageAlgorithm(const float minVoltageMagnitude, const float maxVoltageMagnitude);
     ~RwMotorVoltageAlgorithm() = default;
 
-    void reset(RWArrayConfigMsgPayload& rwParamsInMsg);
-    RwMotorVoltageMsgPayload update(uint64_t callTime,
-                                    RwMotorTorqueMsgPayload& torqueCmd,
+    void reset(RWArrayConfigMsgF32Payload& rwParamsInMsg);
+    RwMotorVoltageMsgF32Payload update(uint64_t callTime,
+                                    RwMotorTorqueMsgF32Payload& torqueCmd,
                                     RWAvailabilityMsgPayload& rwAvailability,
-                                    RWSpeedMsgPayload& rwSpeed,
+                                    RWSpeedMsgF32Payload& rwSpeed,
                                     bool rwSpeedMsgIsLinked);
 
-    void setVoltageRange(const double minVoltageMagnitude, const double maxVoltageMagnitude);
-    Eigen::Vector2d getVoltageRange() const;
-    void setGainK(const double gain);
-    double getGainK() const;
+    void setVoltageRange(const float minVoltageMagnitude, const float maxVoltageMagnitude);
+    Eigen::Vector2f getVoltageRange() const;
+    void setGainK(const float gain);
+    float getGainK() const;
 
    private:
-    double voltageMin{};                            /*!< [V]    minimum voltage below which the torque is zero */
-    double voltageMax{};                            /*!< [V]    maximum output voltage */
-    double K{};                                     /*!< [V/Nm] torque tracking gain for closed loop control.*/
-    Eigen::Vector<double, RW_EFF_CNT> rwSpeedOld{}; /*!< [r/s]  the RW spin rates from the prior control step */
+    float voltageMin{};                            /*!< [V]    minimum voltage below which the torque is zero */
+    float voltageMax{};                            /*!< [V]    maximum output voltage */
+    float K{};                                     /*!< [V/Nm] torque tracking gain for closed loop control.*/
+    Eigen::Vector<float, RW_EFF_CNT> rwSpeedOld{}; /*!< [r/s]  the RW spin rates from the prior control step */
     uint64_t priorTime{};                           /*!< [ns]   Last time the module control was called */
     bool resetFlag{};                               /*!< []     Flag indicating that a module reset occurred */
-    RWArrayConfigMsgPayload
+    RWArrayConfigMsgF32Payload
         rwConfigParams{}; /*!< [-] struct to store message containing RW config parameters in body B frame */
 };
 

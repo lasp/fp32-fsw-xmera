@@ -28,7 +28,7 @@
  * @param minVoltageMagnitude minimum voltage below which the torque is zero.
  * @param maxVoltageMagnitude maximum output voltage
  */
-RwMotorVoltageAlgorithm::RwMotorVoltageAlgorithm(const double minVoltageMagnitude, const double maxVoltageMagnitude) {
+RwMotorVoltageAlgorithm::RwMotorVoltageAlgorithm(const float minVoltageMagnitude, const float maxVoltageMagnitude) {
     this->setVoltageRange(minVoltageMagnitude, maxVoltageMagnitude);
 }
 
@@ -37,7 +37,7 @@ RwMotorVoltageAlgorithm::RwMotorVoltageAlgorithm(const double minVoltageMagnitud
  @return void
  @param rwParamsInMsg struct to store message containing RW config parameters
  */
-void RwMotorVoltageAlgorithm::reset(RWArrayConfigMsgPayload& rwParamsInMsg) {
+void RwMotorVoltageAlgorithm::reset(RWArrayConfigMsgF32Payload& rwParamsInMsg) {
     /*! - Read static RW config data message and store it in module variables*/
     this->rwConfigParams = rwParamsInMsg;
 
@@ -59,23 +59,23 @@ void RwMotorVoltageAlgorithm::reset(RWArrayConfigMsgPayload& rwParamsInMsg) {
  @param rwSpeed RW speed message
  @param rwSpeedMsgIsLinked boolean indicating whether RW speed message is linked
  */
-RwMotorVoltageMsgPayload RwMotorVoltageAlgorithm::update(uint64_t callTime,
-                                                         RwMotorTorqueMsgPayload& torqueCmd,
+RwMotorVoltageMsgF32Payload RwMotorVoltageAlgorithm::update(uint64_t callTime,
+                                                         RwMotorTorqueMsgF32Payload& torqueCmd,
                                                          RWAvailabilityMsgPayload& rwAvailability,
-                                                         RWSpeedMsgPayload& rwSpeed,
+                                                         RWSpeedMsgF32Payload& rwSpeed,
                                                          bool rwSpeedMsgIsLinked) {
-    RwMotorVoltageMsgPayload voltageOut{};
+    RwMotorVoltageMsgF32Payload voltageOut{};
 
     /* zero the output voltage vector */
-    Eigen::Vector<double, RW_EFF_CNT> voltage{};
+    Eigen::Vector<float, RW_EFF_CNT> voltage{};
     voltage.setZero();
 
     /* if the torque closed-loop is on, evaluate the feedback term */
     if (rwSpeedMsgIsLinked) {
         /* make sure the clock didn't just initialize, or the module was recently reset */
         if (this->priorTime != 0) {
-            double dt = (callTime - this->priorTime) * NANO2SEC; /*!< [s]   control update period */
-            Eigen::Vector<double, RW_EFF_CNT> OmegaDot{};
+            float dt = (callTime - this->priorTime) * NANO2SEC; /*!< [s]   control update period */
+            Eigen::Vector<float, RW_EFF_CNT> OmegaDot{};
             OmegaDot.setZero();
             for (int i = 0; i < this->rwConfigParams.numRW; i++) {
                 if (rwAvailability.wheelAvailability[i] == AVAILABLE && this->resetFlag == false) {
@@ -112,7 +112,7 @@ RwMotorVoltageMsgPayload RwMotorVoltageAlgorithm::update(uint64_t callTime,
  * @param minVoltageMagnitude minimum voltage below which the torque is zero.
  * @param maxVoltageMagnitude maximum output voltage
  */
-void RwMotorVoltageAlgorithm::setVoltageRange(const double minVoltageMagnitude, const double maxVoltageMagnitude) {
+void RwMotorVoltageAlgorithm::setVoltageRange(const float minVoltageMagnitude, const float maxVoltageMagnitude) {
     if (minVoltageMagnitude < 0.0) {
         throw std::invalid_argument("minVoltageMagnitude must not be negative.");
     }
@@ -128,17 +128,17 @@ void RwMotorVoltageAlgorithm::setVoltageRange(const double minVoltageMagnitude, 
 
 /**
  * @brief Get the minimum and maximum voltage.
- * @return Eigen::Vector2d minimum and maximum voltage
+ * @return Eigen::Vector2f minimum and maximum voltage
  */
-Eigen::Vector2d RwMotorVoltageAlgorithm::getVoltageRange() const {
-    return Eigen::Vector2d{this->voltageMin, this->voltageMax};
+Eigen::Vector2f RwMotorVoltageAlgorithm::getVoltageRange() const {
+    return Eigen::Vector2f{this->voltageMin, this->voltageMax};
 }
 
 /**
  * @brief Set the feedback gain.
  * @param gain feedback gain.
  */
-void RwMotorVoltageAlgorithm::setGainK(const double gain) {
+void RwMotorVoltageAlgorithm::setGainK(const float gain) {
     if (gain < 0.0) {
         throw std::invalid_argument("Feedback gain must not be negative");
     }
@@ -147,6 +147,6 @@ void RwMotorVoltageAlgorithm::setGainK(const double gain) {
 
 /**
  * @brief Get the feedback gain.
- * @return double feedback gain.
+ * @return float feedback gain.
  */
-double RwMotorVoltageAlgorithm::getGainK() const { return this->K; }
+float RwMotorVoltageAlgorithm::getGainK() const { return this->K; }
