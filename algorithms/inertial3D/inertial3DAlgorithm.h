@@ -27,7 +27,7 @@
  */
 class Inertial3DAlgorithm {
    public:
-    AttRefMsgF32Payload update();
+    AttRefMsgF32Payload update() const;
     void setSigmaR0N(const Eigen::Vector3f& sigma_RN);
     Eigen::Vector3f getSigmaR0N() const;
 

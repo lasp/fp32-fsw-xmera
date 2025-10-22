@@ -24,7 +24,7 @@
     defined within the module.
  @return AttRefMsgF32Payload
  */
-AttRefMsgF32Payload Inertial3DAlgorithm::update() {
+AttRefMsgF32Payload Inertial3DAlgorithm::update() const {
     AttRefMsgF32Payload attRefOut{};
     eigenVectorToCArray(this->sigma_R0N, attRefOut.sigma_RN);
 

@@ -24,7 +24,7 @@
  @return void
  @param callTime The clock time at which the function was called (nanoseconds)
  */
-void Inertial3D::updateState(uint64_t callTime) {
+void Inertial3D::updateState(const uint64_t callTime) {
     AttRefMsgF32Payload attRefOut = algorithm.update();
 
     this->attRefOutMsg.write(&attRefOut, this->moduleID, callTime);
