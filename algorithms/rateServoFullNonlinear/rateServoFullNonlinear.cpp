@@ -48,8 +48,8 @@ void RateServoFullNonlinear::reset(uint64_t callTime) {
         throw std::invalid_argument("rateServoFullNonlinear.rateSteeringInMsg wasn't connected.");
     }
 
-    VehicleConfigMsgPayload sc = this->vehConfigInMsg();
-    RWArrayConfigMsgPayload rwConfigParams{};
+    VehicleConfigMsgF32Payload sc = this->vehConfigInMsg();
+    RWArrayConfigMsgF32Payload rwConfigParams{};
     bool rwParamsIsLinked{};
 
     if (this->rwParamsInMsg.isLinked()) {
@@ -67,10 +67,10 @@ void RateServoFullNonlinear::reset(uint64_t callTime) {
  @param callTime The clock time at which the function was called (nanoseconds)
  */
 void RateServoFullNonlinear::updateState(uint64_t callTime) {
-    AttGuidMsgPayload guidCmd{};                   /*!< Guidance input Message */
-    RWSpeedMsgPayload wheelSpeeds{};               /*!< Reaction wheel speed estimates input message */
-    RWAvailabilityMsgPayload wheelsAvailability{}; /*!< Reaction wheel availability input message */
-    RateCmdMsgPayload rateGuid{};                  /*!< rate steering law message input message */
+    AttGuidMsgF32Payload guidCmd{};                   /*!< Guidance input Message */
+    RWSpeedMsgF32Payload wheelSpeeds{};               /*!< Reaction wheel speed estimates input message */
+    RWAvailabilityMsgPayload wheelsAvailability{};    /*!< Reaction wheel availability input message */
+    RateCmdMsgF32Payload rateGuid{};                  /*!< rate steering law message input message */
 
     guidCmd = this->guidInMsg();
     rateGuid = this->rateSteeringInMsg();
@@ -82,7 +82,7 @@ void RateServoFullNonlinear::updateState(uint64_t callTime) {
         }
     }
 
-    CmdTorqueBodyMsgPayload controlOut = algorithm.update(callTime, guidCmd, rateGuid, wheelSpeeds, wheelsAvailability);
+    CmdTorqueBodyMsgF32Payload controlOut = algorithm.update(callTime, guidCmd, rateGuid, wheelSpeeds, wheelsAvailability);
 
     this->cmdTorqueOutMsg.write(&controlOut, moduleID, callTime);
 }
@@ -91,44 +91,44 @@ void RateServoFullNonlinear::updateState(uint64_t callTime) {
  @return void
  @param gain [N*m*s] Rate error feedback gain
 */
-void RateServoFullNonlinear::setP(const double gain) { this->algorithm.setP(gain); }
+void RateServoFullNonlinear::setP(const float gain) { this->algorithm.setP(gain); }
 
 /*! Getter method for the gain P.
- @return const double
+ @return const float
 */
-double RateServoFullNonlinear::getP() const { return this->algorithm.getP(); }
+float RateServoFullNonlinear::getP() const { return this->algorithm.getP(); }
 
 /*! Setter method for the gain Ki.
  @return void
  @param gain [N*m] Integral feedback gain
 */
-void RateServoFullNonlinear::setKi(const double gain) { this->algorithm.setKi(gain); }
+void RateServoFullNonlinear::setKi(const float gain) { this->algorithm.setKi(gain); }
 
 /*! Getter method for the gain Ki.
- @return const double
+ @return const float
 */
-double RateServoFullNonlinear::getKi() const { return this->algorithm.getKi(); }
+float RateServoFullNonlinear::getKi() const { return this->algorithm.getKi(); }
 
 /*! Setter method for the integral limit.
  @return void
  @param limit [N*m*s] Integral limit
 */
-void RateServoFullNonlinear::setIntegralLimit(const double limit) { this->algorithm.setIntegralLimit(limit); }
+void RateServoFullNonlinear::setIntegralLimit(const float limit) { this->algorithm.setIntegralLimit(limit); }
 
 /*! Getter method for the integral limit.
- @return const double
+ @return const float
 */
-double RateServoFullNonlinear::getIntegralLimit() const { return this->algorithm.getIntegralLimit(); }
+float RateServoFullNonlinear::getIntegralLimit() const { return this->algorithm.getIntegralLimit(); }
 
 /*! Setter method for the known external torque about point B.
  @return void
  @param knownTorquePntB_B [N*m] Known external torque expressed in body frame components
 */
-void RateServoFullNonlinear::setKnownTorquePntB_B(const Eigen::Vector3d& knownTorquePntB_B) {
+void RateServoFullNonlinear::setKnownTorquePntB_B(const Eigen::Vector3f& knownTorquePntB_B) {
     this->algorithm.setKnownTorquePntB_B(knownTorquePntB_B);
 }
 
 /*! Getter method for the known torque about point B.
- @return const Eigen::Vector3d
+ @return const Eigen::Vector3f
 */
-Eigen::Vector3d RateServoFullNonlinear::getKnownTorquePntB_B() const { return this->algorithm.getKnownTorquePntB_B(); }
+Eigen::Vector3f RateServoFullNonlinear::getKnownTorquePntB_B() const { return this->algorithm.getKnownTorquePntB_B(); }

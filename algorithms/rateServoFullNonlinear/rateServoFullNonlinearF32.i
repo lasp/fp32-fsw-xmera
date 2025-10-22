@@ -28,10 +28,10 @@
 %include "rateServoFullNonlinear.h"
 %include "rateServoFullNonlinearAlgorithm.h"
 
-%include <architecture/msgPayloadDef/AttGuidMsgPayload.h>
-%include <architecture/msgPayloadDef/VehicleConfigMsgPayload.h>
-%include <architecture/msgPayloadDef/CmdTorqueBodyMsgPayload.h>
-%include <architecture/msgPayloadDef/RWArrayConfigMsgPayload.h>
-%include <architecture/msgPayloadDef/RWSpeedMsgPayload.h>
+%include "msgPayloadDef/AttGuidMsgF32Payload.h"
+%include "msgPayloadDef/VehicleConfigMsgF32Payload.h"
+%include "msgPayloadDef/CmdTorqueBodyMsgF32Payload.h"
+%include "msgPayloadDef/RWArrayConfigMsgF32Payload.h"
+%include "msgPayloadDef/RWSpeedMsgF32Payload.h"
 %include <architecture/msgPayloadDef/RWAvailabilityMsgPayload.h>
-%include <architecture/msgPayloadDef/RateCmdMsgPayload.h>
+%include "msgPayloadDef/RateCmdMsgF32Payload.h"

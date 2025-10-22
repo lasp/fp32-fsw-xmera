@@ -59,7 +59,7 @@ def test_rate_servo_full_nonlinear(show_plots, rw_num, int_gain, omegap_BastR_B,
     #   Create input message and size it because the regular creator of that message
     #   is not part of the test.
     #   attGuidOut Message:
-    guid_cmd_data = messaging.AttGuidMsgPayload()  # Create a structure for the input message
+    guid_cmd_data = messaging.AttGuidMsgF32Payload()  # Create a structure for the input message
     sigma_BR = np.array([0.3, -0.5, 0.7])
     guid_cmd_data.sigma_BR = sigma_BR
     omega_BR_B = np.array([0.010, -0.020, 0.015])
@@ -68,24 +68,24 @@ def test_rate_servo_full_nonlinear(show_plots, rw_num, int_gain, omegap_BastR_B,
     guid_cmd_data.omega_RN_B = omega_RN_B
     domega_RN_B = np.array([0.0002, 0.0003, 0.0001])
     guid_cmd_data.domega_RN_B = domega_RN_B
-    guid_in_msg = messaging.AttGuidMsg().write(guid_cmd_data)
+    guid_in_msg = messaging.AttGuidMsgF32().write(guid_cmd_data)
 
     # vehicleConfigData Message:
-    vehicle_config_out = messaging.VehicleConfigMsgPayload()
+    vehicle_config_out = messaging.VehicleConfigMsgF32Payload()
     I = [1000., 0., 0.,
          0., 800., 0.,
          0., 0., 800.]
     vehicle_config_out.ISCPntB_B = I
-    vc_in_msg = messaging.VehicleConfigMsg().write(vehicle_config_out)
+    vc_in_msg = messaging.VehicleConfigMsgF32().write(vehicle_config_out)
 
     # wheelSpeeds Message
-    rw_speed_message = messaging.RWSpeedMsgPayload()
+    rw_speed_message = messaging.RWSpeedMsgF32Payload()
     Omega = [10.0, 25.0, 50.0, 100.0]
     rw_speed_message.wheelSpeeds = Omega
-    rw_speed_in_msg = messaging.RWSpeedMsg().write(rw_speed_message)
+    rw_speed_in_msg = messaging.RWSpeedMsgF32().write(rw_speed_message)
 
     # wheelConfigData message
-    rw_config_params = messaging.RWArrayConfigMsgPayload()
+    rw_config_params = messaging.RWArrayConfigMsgF32Payload()
     js_list = [0.1, 0.1, 0.1, 0.1]
     G_s_B = [
         1.0, 0.0, 0.0,
@@ -96,7 +96,7 @@ def test_rate_servo_full_nonlinear(show_plots, rw_num, int_gain, omegap_BastR_B,
     rw_config_params.GsMatrix_B = G_s_B
     rw_config_params.JsList = js_list
     rw_config_params.numRW = rw_num
-    rw_param_in_msg = messaging.RWArrayConfigMsg().write((rw_config_params))
+    rw_param_in_msg = messaging.RWArrayConfigMsgF32().write((rw_config_params))
 
     # wheelAvailability message
     rw_availability_message = messaging.RWAvailabilityMsgPayload()
@@ -116,10 +116,10 @@ def test_rate_servo_full_nonlinear(show_plots, rw_num, int_gain, omegap_BastR_B,
                                                    messaging.AVAILABLE, messaging.AVAILABLE]
 
     # rateSteering message
-    rate_steering_msg = messaging.RateCmdMsgPayload()
+    rate_steering_msg = messaging.RateCmdMsgF32Payload()
     rate_steering_msg.omega_BastR_B = omega_BastR_B
     rate_steering_msg.omegap_BastR_B = omegap_BastR_B
-    rate_cmd_in_msg = messaging.RateCmdMsg().write(rate_steering_msg)
+    rate_cmd_in_msg = messaging.RateCmdMsgF32().write(rate_steering_msg)
 
     # Setup logging on the test module output message so that we get all the writes to it
     data_log = module.cmdTorqueOutMsg.recorder()
@@ -154,7 +154,7 @@ def test_rate_servo_full_nonlinear(show_plots, rw_num, int_gain, omegap_BastR_B,
     Lr = data_log.torqueRequestBody
 
     # compare the module results to the truth values
-    accuracy = 1e-8
+    accuracy = 1e-6
     np.testing.assert_allclose(Lr, Lr_true, atol=accuracy, rtol=0, verbose=True)
 
 

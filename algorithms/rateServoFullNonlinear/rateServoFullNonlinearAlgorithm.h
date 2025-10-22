@@ -22,45 +22,45 @@
 
 #include <stdint.h>
 
-#include <architecture/msgPayloadDef/AttGuidMsgPayload.h>
-#include <architecture/msgPayloadDef/CmdTorqueBodyMsgPayload.h>
-#include <architecture/msgPayloadDef/RWArrayConfigMsgPayload.h>
+#include "msgPayloadDef/AttGuidMsgF32Payload.h"
+#include "msgPayloadDef/CmdTorqueBodyMsgF32Payload.h"
+#include "msgPayloadDef/RWArrayConfigMsgF32Payload.h"
 #include <architecture/msgPayloadDef/RWAvailabilityMsgPayload.h>
-#include <architecture/msgPayloadDef/RWSpeedMsgPayload.h>
-#include <architecture/msgPayloadDef/RateCmdMsgPayload.h>
-#include <architecture/msgPayloadDef/VehicleConfigMsgPayload.h>
+#include "msgPayloadDef/RWSpeedMsgF32Payload.h"
+#include "msgPayloadDef/RateCmdMsgF32Payload.h"
+#include "msgPayloadDef/VehicleConfigMsgF32Payload.h"
 
 #include <Eigen/Core>
 
 /*! @brief The configuration structure for the rateServoFullNonlinear module.  */
 class RateServoFullNonlinearAlgorithm {
    public:
-    void reset(VehicleConfigMsgPayload vehConfigMsg, RWArrayConfigMsgPayload rwConfigMsg, bool rwIsLinked);
-    CmdTorqueBodyMsgPayload update(uint64_t callTime,
-                                   AttGuidMsgPayload guidCmd,
-                                   RateCmdMsgPayload rateCmd,
-                                   RWSpeedMsgPayload wheelSpeeds,
-                                   RWAvailabilityMsgPayload wheelsAvailability);
+    void reset(VehicleConfigMsgF32Payload vehConfigMsg, RWArrayConfigMsgF32Payload rwConfigMsg, bool rwIsLinked);
+    CmdTorqueBodyMsgF32Payload update(uint64_t callTime,
+                                      AttGuidMsgF32Payload guidCmd,
+                                      RateCmdMsgF32Payload rateCmd,
+                                      RWSpeedMsgF32Payload wheelSpeeds,
+                                      RWAvailabilityMsgPayload wheelsAvailability);
 
-    void setP(const double gain);
-    double getP() const;
-    void setKi(const double gain);
-    double getKi() const;
-    void setIntegralLimit(const double limit);
-    double getIntegralLimit() const;
-    void setKnownTorquePntB_B(const Eigen::Vector3d& knownTorquePntB_B);
-    Eigen::Vector3d getKnownTorquePntB_B() const;
+    void setP(const float gain);
+    float getP() const;
+    void setKi(const float gain);
+    float getKi() const;
+    void setIntegralLimit(const float limit);
+    float getIntegralLimit() const;
+    void setKnownTorquePntB_B(const Eigen::Vector3f &knownTorquePntB_B);
+    Eigen::Vector3f getKnownTorquePntB_B() const;
 
    private:
-    double P{};              //!< [N*m*s]   Rate error feedback gain applied
-    double Ki{};             //!< [N*m]     Integration feedback error on rate error
-    double integralLimit{};  //!< [N*m]     Integration limit to avoid wind-up issue
-    Eigen::Vector3d knownTorquePntB_B{
-        Eigen::Vector3d::Zero()};  //!< [N*m]     known external torque in body frame vector components
+    float P{};              //!< [N*m*s]   Rate error feedback gain applied
+    float Ki{};             //!< [N*m]     Integration feedback error on rate error
+    float integralLimit{};  //!< [N*m]     Integration limit to avoid wind-up issue
+    Eigen::Vector3f knownTorquePntB_B{
+        Eigen::Vector3f::Zero()};  //!< [N*m]     known external torque in body frame vector components
     uint64_t priorTime{};          //!< [ns]      Last time the attitude control is called
-    Eigen::Vector3d z{};           //!< [rad]     integral state of delta_omega
-    Eigen::Matrix3d ISCPntB_B{};   //!< [kg m^2] Spacecraft Inertia
-    RWArrayConfigMsgPayload
+    Eigen::Vector3f z{};           //!< [rad]     integral state of delta_omega
+    Eigen::Matrix3f ISCPntB_B{};   //!< [kg m^2] Spacecraft Inertia
+    RWArrayConfigMsgF32Payload
         rwConfigParams{};  //!< [-] struct to store message containing RW config parameters in body B frame
 };
 
