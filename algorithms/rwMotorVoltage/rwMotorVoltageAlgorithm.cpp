@@ -7,8 +7,8 @@
 #include "rwMotorVoltageAlgorithm.h"
 #include <architecture/utilities/macroDefinitions.h>
 
-#include <ranges>
 #include "../freestandingInvalidArgument.h"
+#include <ranges>
 
 /**
  * @brief Construct RwMotorVoltageAlgorithm

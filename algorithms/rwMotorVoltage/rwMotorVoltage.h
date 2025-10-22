@@ -9,14 +9,14 @@
 
 #include <stdint.h>
 
-#include <architecture/_GeneralModuleFiles/sys_model.h>
-#include <architecture/messaging/messaging.h>
 #include "msgPayloadDef/RWArrayConfigMsgF32Payload.h"
-#include <architecture/msgPayloadDef/RWAvailabilityMsgPayload.h>
 #include "msgPayloadDef/RWSpeedMsgF32Payload.h"
 #include "msgPayloadDef/RwMotorTorqueMsgF32Payload.h"
 #include "msgPayloadDef/RwMotorVoltageMsgF32Payload.h"
 #include "rwMotorVoltageAlgorithm.h"
+#include <architecture/_GeneralModuleFiles/sys_model.h>
+#include <architecture/messaging/messaging.h>
+#include <architecture/msgPayloadDef/RWAvailabilityMsgPayload.h>
 
 #include <Eigen/Core>
 
@@ -37,8 +37,8 @@ class RwMotorVoltage : public SysModel {
     Message<RwMotorVoltageMsgF32Payload> voltageOutMsg;    /*!< voltage output message*/
     ReadFunctor<RwMotorTorqueMsgF32Payload> torqueInMsg;   /*!< Input torque message*/
     ReadFunctor<RWArrayConfigMsgF32Payload> rwParamsInMsg; /*!< RW array input message*/
-    ReadFunctor<RWSpeedMsgF32Payload> rwSpeedInMsg;        /*!< [] The name for the reaction wheel speeds message. Must be
-                                                           provided to enable speed tracking loop */
+    ReadFunctor<RWSpeedMsgF32Payload> rwSpeedInMsg;     /*!< [] The name for the reaction wheel speeds message. Must be
+                                                        provided to enable speed tracking loop */
     ReadFunctor<RWAvailabilityMsgPayload> rwAvailInMsg; /*!< [-] The name of the RWs availability message*/
 
    private:

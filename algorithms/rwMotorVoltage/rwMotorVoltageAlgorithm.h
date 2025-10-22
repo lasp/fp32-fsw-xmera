@@ -10,10 +10,10 @@
 #include <stdint.h>
 
 #include "msgPayloadDef/RWArrayConfigMsgF32Payload.h"
-#include <architecture/msgPayloadDef/RWAvailabilityMsgPayload.h>
 #include "msgPayloadDef/RWSpeedMsgF32Payload.h"
 #include "msgPayloadDef/RwMotorTorqueMsgF32Payload.h"
 #include "msgPayloadDef/RwMotorVoltageMsgF32Payload.h"
+#include <architecture/msgPayloadDef/RWAvailabilityMsgPayload.h>
 
 #include <Eigen/Core>
 
@@ -40,8 +40,8 @@ class RwMotorVoltageAlgorithm {
     float voltageMax{};                            /*!< [V]    maximum output voltage */
     float K{};                                     /*!< [V/Nm] torque tracking gain for closed loop control.*/
     Eigen::Vector<float, RW_EFF_CNT> rwSpeedOld{}; /*!< [r/s]  the RW spin rates from the prior control step */
-    uint64_t priorTime{};                           /*!< [ns]   Last time the module control was called */
-    bool resetFlag{};                               /*!< []     Flag indicating that a module reset occurred */
+    uint64_t priorTime{};                          /*!< [ns]   Last time the module control was called */
+    bool resetFlag{};                              /*!< []     Flag indicating that a module reset occurred */
     RWArrayConfigMsgF32Payload
         rwConfigParams{}; /*!< [-] struct to store message containing RW config parameters in body B frame */
 };
