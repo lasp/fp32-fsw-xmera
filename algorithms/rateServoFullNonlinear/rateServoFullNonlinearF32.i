@@ -16,7 +16,7 @@
  OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
  */
-%module rateServoFullNonlinear
+%module rateServoFullNonlinearF32
 %{
    #include "rateServoFullNonlinear.h"
 %}

@@ -19,7 +19,7 @@
 import numpy as np
 import pytest
 from xmera.architecture import messaging
-from xmera.fswAlgorithms import rateServoFullNonlinear  # import the module that is to be tested
+from xmera.fp32 import rateServoFullNonlinearF32  # import the module that is to be tested
 from xmera.utilities import SimulationBaseClass
 from xmera.utilities import macros
 
@@ -44,7 +44,7 @@ def test_rate_servo_full_nonlinear(show_plots, rw_num, int_gain, omegap_BastR_B,
     test_proc.addTask(unit_test_sim.CreateNewTask(unit_task_name, test_process_rate))
 
     # Construct algorithm and associated C++ container
-    module = rateServoFullNonlinear.RateServoFullNonlinear()
+    module = rateServoFullNonlinearF32.RateServoFullNonlinear()
     module.modelTag = "rate_servo"
 
     # Add test module to runtime call list
