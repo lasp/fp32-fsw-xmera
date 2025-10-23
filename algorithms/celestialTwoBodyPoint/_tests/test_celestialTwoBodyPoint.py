@@ -107,16 +107,16 @@ def test_celestial_two_body_point_test_function(secondary_body):
     celVelocityVec = v
 
     # Navigation Input Message
-    NavStateOutData = messaging.NavTransMsgPayload()  # Create a structure for the input message
+    NavStateOutData = messaging.NavTransMsgF32Payload()  # Create a structure for the input message
     NavStateOutData.r_BN_N = r_BN_N
     NavStateOutData.v_BN_N = v_BN_N
-    navMsg = messaging.NavTransMsg().write(NavStateOutData)
+    navMsg = messaging.NavTransMsgF32().write(NavStateOutData)
 
     # Spice Input Message of Primary Body
-    CelBodyData = messaging.EphemerisMsgPayload()
+    CelBodyData = messaging.EphemerisMsgF32Payload()
     CelBodyData.r_BdyZero_N = celPositionVec
     CelBodyData.v_BdyZero_N = celVelocityVec
-    celBodyMsg = messaging.EphemerisMsg().write(CelBodyData)
+    celBodyMsg = messaging.EphemerisMsgF32().write(CelBodyData)
 
     dataLog = module.attRefOutMsg.recorder()
     unitTestSim.AddModelToTask(unitTaskName, dataLog)
@@ -124,12 +124,12 @@ def test_celestial_two_body_point_test_function(secondary_body):
     module.transNavInMsg.subscribeTo(navMsg)
     module.celBodyInMsg.subscribeTo(celBodyMsg)
     if secondary_body:
-        SecBodyData = messaging.EphemerisMsgPayload()
+        SecBodyData = messaging.EphemerisMsgF32Payload()
         secPositionVec = [500., 500., 500.]
         SecBodyData.r_BdyZero_N = secPositionVec
         secVelocityVec = [100., -10., 20.]
         SecBodyData.v_BdyZero_N = secVelocityVec
-        cel2ndBodyMsg = messaging.EphemerisMsg().write(SecBodyData)
+        cel2ndBodyMsg = messaging.EphemerisMsgF32().write(SecBodyData)
 
         module.secCelBodyInMsg.subscribeTo(cel2ndBodyMsg)
 
@@ -174,7 +174,7 @@ def test_celestial_two_body_point_test_function(secondary_body):
     domega_RN_N = dataLog.domega_RN_N
 
     # compare the module results to the truth values
-    accuracy = 1e-12
+    accuracy = 1e-6
 
     np.testing.assert_allclose(sigma_RN, true_sigma_RN, rtol=0, atol=accuracy, err_msg='sigma_RN', verbose=True)
     np.testing.assert_allclose(omega_RN_N, true_omega_RN_N, rtol=0, atol=accuracy, err_msg='omega_RN_N', verbose=True)

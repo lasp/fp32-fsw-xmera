@@ -41,14 +41,14 @@ void CelestialTwoBodyPoint::reset(uint64_t callTime) {
  @param callTime The clock time at which the function was called (nanoseconds)
  */
 void CelestialTwoBodyPoint::updateState(uint64_t callTime) {
-    NavTransMsgPayload transNavIn = this->transNavInMsg();
-    EphemerisMsgPayload celBodyIn = this->celBodyInMsg();
-    EphemerisMsgPayload secCelBodyIn{};
+    NavTransMsgF32Payload transNavIn = this->transNavInMsg();
+    EphemerisMsgF32Payload celBodyIn = this->celBodyInMsg();
+    EphemerisMsgF32Payload secCelBodyIn{};
     if (this->secCelBodyIsLinked) {
         secCelBodyIn = this->secCelBodyInMsg();
     }
 
-    AttRefMsgPayload attRefOut = this->algorithm.update(celBodyIn, secCelBodyIn, transNavIn);
+    AttRefMsgF32Payload attRefOut = this->algorithm.update(celBodyIn, secCelBodyIn, transNavIn);
 
     /*! - Write the output message */
     this->attRefOutMsg.write(&attRefOut, this->moduleID, callTime);
@@ -58,10 +58,10 @@ void CelestialTwoBodyPoint::updateState(uint64_t callTime) {
  * @brief Set the singularity threshold
  * @param thresh singularity threshold
  */
-void CelestialTwoBodyPoint::setSingularityThresh(double thresh) { this->algorithm.setSingularityThresh(thresh); }
+void CelestialTwoBodyPoint::setSingularityThresh(float thresh) { this->algorithm.setSingularityThresh(thresh); }
 
 /**
  * @brief Get the singularity threshold
- * @return double singularity threshold
+ * @return float singularity threshold
  */
-double CelestialTwoBodyPoint::getSingularityThresh() const { return this->algorithm.getSingularityThresh(); }
+float CelestialTwoBodyPoint::getSingularityThresh() const { return this->algorithm.getSingularityThresh(); }

@@ -25,9 +25,9 @@
 
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
-#include <architecture/msgPayloadDef/AttRefMsgPayload.h>
-#include <architecture/msgPayloadDef/EphemerisMsgPayload.h>
-#include <architecture/msgPayloadDef/NavTransMsgPayload.h>
+#include "msgPayloadDef/AttRefMsgF32Payload.h"
+#include "msgPayloadDef/EphemerisMsgF32Payload.h"
+#include "msgPayloadDef/NavTransMsgF32Payload.h"
 #include "celestialTwoBodyPointAlgorithm.h"
 
 /*!@brief Data structure for module to compute the two-body celestial pointing navigation solution.
@@ -39,13 +39,13 @@ class CelestialTwoBodyPoint : public SysModel {
 
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
-    void setSingularityThresh(double thresh);
-    double getSingularityThresh() const;
+    void setSingularityThresh(float thresh);
+    float getSingularityThresh() const;
 
-    Message<AttRefMsgPayload> attRefOutMsg;            //!< The name of the output message*/
-    ReadFunctor<EphemerisMsgPayload> celBodyInMsg;     //!< The name of the celestial body message*/
-    ReadFunctor<EphemerisMsgPayload> secCelBodyInMsg;  //!< The name of the secondary body to constrain point*/
-    ReadFunctor<NavTransMsgPayload> transNavInMsg;     //!< The name of the incoming attitude command*/
+    Message<AttRefMsgF32Payload> attRefOutMsg;            //!< The name of the output message*/
+    ReadFunctor<EphemerisMsgF32Payload> celBodyInMsg;     //!< The name of the celestial body message*/
+    ReadFunctor<EphemerisMsgF32Payload> secCelBodyInMsg;  //!< The name of the secondary body to constrain point*/
+    ReadFunctor<NavTransMsgF32Payload> transNavInMsg;     //!< The name of the incoming attitude command*/
 
    private:
     bool secCelBodyIsLinked{};
