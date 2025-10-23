@@ -37,8 +37,8 @@ class CelestialTwoBodyPointAlgorithm {
     float getSingularityThresh() const;
 
    private:
-    float singularityThresh;  //!< [rad] Threshold for when to fix constraint axis*/
-    bool secCelBodyIsLinked;   //!< flag to indicate if the optional 2nd celestial body message is linked
+    float singularityThresh{};  //!< [rad] Threshold for when to fix constraint axis*/
+    bool secCelBodyIsLinked{};  //!< flag to indicate if the optional 2nd celestial body message is linked
 };
 
 #endif
