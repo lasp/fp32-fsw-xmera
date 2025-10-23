@@ -27,6 +27,9 @@
 %include "rwNullSpace.h"
 %include "rwNullSpaceAlgorithm.h"
 
-%include <architecture/msgPayloadDef/RwMotorTorqueMsgPayload.h>
-%include <architecture/msgPayloadDef/RWSpeedMsgPayload.h>
-%include <architecture/msgPayloadDef/RWConstellationMsgPayload.h>
+%include "msgPayloadDef/RwMotorTorqueMsgF32Payload.h"
+%include "msgPayloadDef/RWSpeedMsgF32Payload.h"
+%include "msgPayloadDef/RWConstellationMsgF32Payload.h"
+%include "msgPayloadDef/RWConfigElementMsgF32Payload.h"
+
+STRUCTASLIST(RWConfigElementMsgF32Payload)

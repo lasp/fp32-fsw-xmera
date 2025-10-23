@@ -39,7 +39,7 @@ void RwNullSpace::reset(uint64_t callTime) {
     }
 
     /* read in the RW spin axis headings */
-    RWConstellationMsgPayload localRWData = this->rwConfigInMsg(); /* local copy of RW configuration data */
+    RWConstellationMsgF32Payload localRWData = this->rwConfigInMsg(); /* local copy of RW configuration data */
 
     /* create the 3xN [Gs] RW spin axis projection matrix */
     uint32_t numWheels = (uint32_t)localRWData.numRW;
@@ -57,16 +57,16 @@ void RwNullSpace::reset(uint64_t callTime) {
  @param callTime The clock time at which the function was called (nanoseconds)
  */
 void RwNullSpace::updateState(uint64_t callTime) {
-    RwMotorTorqueMsgPayload controlRequest =
+    RwMotorTorqueMsgF32Payload controlRequest =
         this->rwMotorTorqueInMsg();                     /* [Nm]  array of the RW motor torque solution */
-    RWSpeedMsgPayload rwSpeeds = this->rwSpeedsInMsg(); /* [r/s] array of RW speeds */
-    RWSpeedMsgPayload rwDesiredSpeeds{};                /* [r/s] array of RW speeds */
+    RWSpeedMsgF32Payload rwSpeeds = this->rwSpeedsInMsg(); /* [r/s] array of RW speeds */
+    RWSpeedMsgF32Payload rwDesiredSpeeds{};                /* [r/s] array of RW speeds */
 
     if (this->rwDesiredSpeedsInMsg.isLinked()) {
         rwDesiredSpeeds = this->rwDesiredSpeedsInMsg();
     }
 
-    RwMotorTorqueMsgPayload finalControl = this->algorithm.update(controlRequest, rwSpeeds, rwDesiredSpeeds);
+    RwMotorTorqueMsgF32Payload finalControl = this->algorithm.update(controlRequest, rwSpeeds, rwDesiredSpeeds);
 
     /* write the final RW torque solution to the output message */
     this->rwMotorTorqueOutMsg.write(&finalControl, this->moduleID, callTime);
@@ -76,10 +76,10 @@ void RwNullSpace::updateState(uint64_t callTime) {
  * @brief Set the gain used for the wheel speed difference.
  * @param gain The gain used for the wheel speed difference.
  */
-void RwNullSpace::setOmegaGain(const double gain) { this->algorithm.setOmegaGain(gain); }
+void RwNullSpace::setOmegaGain(const float gain) { this->algorithm.setOmegaGain(gain); }
 
 /**
  * @brief Get the gain used for the wheel speed difference.
- * @return double The gain used for the wheel speed difference.
+ * @return float The gain used for the wheel speed difference.
  */
-double RwNullSpace::getOmegaGain() const { return this->algorithm.getOmegaGain(); }
+float RwNullSpace::getOmegaGain() const { return this->algorithm.getOmegaGain(); }

@@ -22,9 +22,9 @@
 
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
-#include <architecture/msgPayloadDef/RWConstellationMsgPayload.h>
-#include <architecture/msgPayloadDef/RWSpeedMsgPayload.h>
-#include <architecture/msgPayloadDef/RwMotorTorqueMsgPayload.h>
+#include "msgPayloadDef/RWConstellationMsgF32Payload.h"
+#include "msgPayloadDef/RWSpeedMsgF32Payload.h"
+#include "msgPayloadDef/RwMotorTorqueMsgF32Payload.h"
 #include "rwNullSpaceAlgorithm.h"
 
 #include <stdint.h>
@@ -38,14 +38,14 @@ class RwNullSpace : public SysModel {
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
 
-    void setOmegaGain(const double gain);
-    double getOmegaGain() const;
+    void setOmegaGain(const float gain);
+    float getOmegaGain() const;
 
-    ReadFunctor<RwMotorTorqueMsgPayload> rwMotorTorqueInMsg;  //!< [-] The name of the Input message
-    ReadFunctor<RWSpeedMsgPayload> rwSpeedsInMsg;             //!< [-] The name of the input RW speeds
-    ReadFunctor<RWSpeedMsgPayload> rwDesiredSpeedsInMsg;      //!< [-] (optional) The name of the desired RW speeds
-    ReadFunctor<RWConstellationMsgPayload> rwConfigInMsg;     //!< [-] The name of the RWA configuration message
-    Message<RwMotorTorqueMsgPayload> rwMotorTorqueOutMsg;     //!< [-] The name of the output message
+    ReadFunctor<RwMotorTorqueMsgF32Payload> rwMotorTorqueInMsg;  //!< [-] The name of the Input message
+    ReadFunctor<RWSpeedMsgF32Payload> rwSpeedsInMsg;             //!< [-] The name of the input RW speeds
+    ReadFunctor<RWSpeedMsgF32Payload> rwDesiredSpeedsInMsg;      //!< [-] (optional) The name of the desired RW speeds
+    ReadFunctor<RWConstellationMsgF32Payload> rwConfigInMsg;     //!< [-] The name of the RWA configuration message
+    Message<RwMotorTorqueMsgF32Payload> rwMotorTorqueOutMsg;     //!< [-] The name of the output message
 
    private:
     RwNullSpaceAlgorithm algorithm{};

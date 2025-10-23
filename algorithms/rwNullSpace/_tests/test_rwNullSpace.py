@@ -54,17 +54,17 @@ def test_rw_null_space(num_wheels, default_desired):
 
     num_rw = num_wheels
 
-    input_rw_constellation_msg = messaging.RWConstellationMsgPayload()
+    input_rw_constellation_msg = messaging.RWConstellationMsgF32Payload()
     input_rw_constellation_msg.numRW = num_rw
 
     # Initialize the msg that gives the speed of the reaction wheels
-    input_speed_msg = messaging.RWSpeedMsgPayload()
+    input_speed_msg = messaging.RWSpeedMsgF32Payload()
 
     if default_desired:
         desired_omega = [0]*num_rw
     else:
         desired_omega = [5]*num_rw
-        input_desired_speed_msg = messaging.RWSpeedMsgPayload()
+        input_desired_speed_msg = messaging.RWSpeedMsgF32Payload()
         input_desired_speed_msg.wheelSpeeds = desired_omega
 
     gs_hat = [[1, 0, 0], [0,1,0], [0, 0, 1]]
@@ -76,7 +76,7 @@ def test_rw_null_space(num_wheels, default_desired):
     # Iterate over all of the reaction wheels, create a rwConfigElementFswMsg, and add them to the rwConstellationFswMsg
     rw_config_element_list = list()
     for rw in range(num_rw):
-        rw_config_element_msg = messaging.RWConfigElementMsgPayload()
+        rw_config_element_msg = messaging.RWConfigElementMsgF32Payload()
         rw_config_element_msg.gsHat_B = gs_hat[rw] # Spin axis unit vector of the wheel in structure
         rw_config_element_msg.Js = 0.08 # Spin axis inertia of wheel [kgm2]
         rw_config_element_msg.uMax = 0.2 # maximum RW motor torque [Nm]
@@ -92,16 +92,16 @@ def test_rw_null_space(num_wheels, default_desired):
     # Set the array of the reaction wheels in RWConstellationFswMsg to the list created above
     input_rw_constellation_msg.reactionWheels = rw_config_element_list
 
-    input_rw_cmd_msg = messaging.RwMotorTorqueMsgPayload()
+    input_rw_cmd_msg = messaging.RwMotorTorqueMsgF32Payload()
     us_control = [0.1, 0.2, 0.15] # [Nm] RW motor torque array
     if num_wheels == 4:
         us_control.append(-0.2) # [Nm]
     input_rw_cmd_msg.motorTorque = us_control
 
     # Set these messages
-    rw_speed_msg = messaging.RWSpeedMsg().write(input_speed_msg)
-    rw_config_msg = messaging.RWConstellationMsg().write(input_rw_constellation_msg)
-    rw_cmd_msg = messaging.RwMotorTorqueMsg().write(input_rw_cmd_msg)
+    rw_speed_msg = messaging.RWSpeedMsgF32().write(input_speed_msg)
+    rw_config_msg = messaging.RWConstellationMsgF32().write(input_rw_constellation_msg)
+    rw_cmd_msg = messaging.RwMotorTorqueMsgF32().write(input_rw_cmd_msg)
 
     data_log = module.rwMotorTorqueOutMsg.recorder()
     unit_test_sim.AddModelToTask(unit_task_name, data_log)
@@ -111,7 +111,7 @@ def test_rw_null_space(num_wheels, default_desired):
     module.rwSpeedsInMsg.subscribeTo(rw_speed_msg)
     module.rwConfigInMsg.subscribeTo(rw_config_msg)
     if not default_desired:
-        rw_desired_msg = messaging.RWSpeedMsg().write(input_desired_speed_msg)
+        rw_desired_msg = messaging.RWSpeedMsgF32().write(input_desired_speed_msg)
         module.rwDesiredSpeedsInMsg.subscribeTo(rw_desired_msg)
 
     # Initialize the simulation
@@ -141,7 +141,7 @@ def test_rw_null_space(num_wheels, default_desired):
 
     motor_torque_true = true_vector * 5
 
-    accuracy = 1e-12
+    accuracy = 1e-5
     np.testing.assert_allclose(motor_torque, motor_torque_true, atol=accuracy, rtol=0, verbose=True)
 
 

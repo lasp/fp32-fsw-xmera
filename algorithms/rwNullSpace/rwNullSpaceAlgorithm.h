@@ -20,9 +20,9 @@
 #ifndef F32XIMERA_RW_NULL_SPACE_ALGORITHM_H
 #define F32XIMERA_RW_NULL_SPACE_ALGORITHM_H
 
-#include <architecture/msgPayloadDef/RWConstellationMsgPayload.h>
-#include <architecture/msgPayloadDef/RWSpeedMsgPayload.h>
-#include <architecture/msgPayloadDef/RwMotorTorqueMsgPayload.h>
+#include "msgPayloadDef/RWConstellationMsgF32Payload.h"
+#include "msgPayloadDef/RWSpeedMsgF32Payload.h"
+#include "msgPayloadDef/RwMotorTorqueMsgF32Payload.h"
 
 #include <Eigen/Core>
 
@@ -32,17 +32,17 @@
 /*! @brief The configuration structure for the rwNullSpace module.  */
 class RwNullSpaceAlgorithm {
    public:
-    void reset(RWConstellationMsgPayload& rwConfigInMsg);
-    RwMotorTorqueMsgPayload update(RwMotorTorqueMsgPayload& controlRequest,
-                                   RWSpeedMsgPayload& rwSpeeds,
-                                   RWSpeedMsgPayload& rwDesiredSpeeds);
+    void reset(RWConstellationMsgF32Payload& rwConfigInMsg);
+    RwMotorTorqueMsgF32Payload update(RwMotorTorqueMsgF32Payload& controlRequest,
+                                      RWSpeedMsgF32Payload& rwSpeeds,
+                                      RWSpeedMsgF32Payload& rwDesiredSpeeds);
 
-    void setOmegaGain(const double gain);
-    double getOmegaGain() const;
+    void setOmegaGain(const float gain);
+    float getOmegaGain() const;
 
    private:
-    double omegaGain{};                                   //!< [-] The gain factor applied to the RW speeds
-    Eigen::Matrix<double, RW_EFF_CNT, RW_EFF_CNT> tau{};  //!< [-] RW nullspace project matrix
+    float omegaGain{};                                    //!< [-] The gain factor applied to the RW speeds
+    Eigen::Matrix<float, RW_EFF_CNT, RW_EFF_CNT> tau{};   //!< [-] RW nullspace project matrix
     uint32_t numWheels{};                                 //!< [-] The number of reaction wheels we have
 };
 
