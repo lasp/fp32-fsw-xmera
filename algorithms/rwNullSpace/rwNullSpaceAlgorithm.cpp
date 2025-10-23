@@ -20,7 +20,7 @@
 #include "rwNullSpaceAlgorithm.h"
 #include "architecture/utilities/eigenSupport.h"
 
-#include <stdexcept>
+#include "../freestandingInvalidArgument.h"
 
 /*! @brief This resets the module to original states by reading in the RW configuration messages and recreating any
    module specific variables.  The output message is reset to zero.
@@ -77,7 +77,7 @@ RwMotorTorqueMsgF32Payload RwNullSpaceAlgorithm::update(RwMotorTorqueMsgF32Paylo
  */
 void RwNullSpaceAlgorithm::setOmegaGain(const float gain) {
     if (gain < 0.0) {
-        throw std::invalid_argument("Feedback gain must not be negative");
+        FS_THROW_INVALID_ARGUMENT("Feedback gain must not be negative");
     }
     this->omegaGain = gain;
 }
