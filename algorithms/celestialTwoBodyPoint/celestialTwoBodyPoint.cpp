@@ -21,7 +21,7 @@
 
 #include <stdexcept>
 
-void CelestialTwoBodyPoint::reset(uint64_t callTime) {
+void CelestialTwoBodyPoint::reset(const uint64_t callTime) {
     this->secCelBodyIsLinked = this->secCelBodyInMsg.isLinked();
 
     // check if required input messages have been included
@@ -42,7 +42,7 @@ void CelestialTwoBodyPoint::reset(uint64_t callTime) {
  @return void
  @param callTime The clock time at which the function was called (nanoseconds)
  */
-void CelestialTwoBodyPoint::updateState(uint64_t callTime) {
+void CelestialTwoBodyPoint::updateState(const uint64_t callTime) {
     NavTransMsgF32Payload transNavIn = this->transNavInMsg();
     EphemerisMsgF32Payload celBodyIn = this->celBodyInMsg();
     EphemerisMsgF32Payload secCelBodyIn{};
@@ -60,7 +60,7 @@ void CelestialTwoBodyPoint::updateState(uint64_t callTime) {
  * @brief Set the singularity threshold
  * @param thresh singularity threshold
  */
-void CelestialTwoBodyPoint::setSingularityThresh(float thresh) { this->algorithm.setSingularityThresh(thresh); }
+void CelestialTwoBodyPoint::setSingularityThresh(const float thresh) { this->algorithm.setSingularityThresh(thresh); }
 
 /**
  * @brief Get the singularity threshold

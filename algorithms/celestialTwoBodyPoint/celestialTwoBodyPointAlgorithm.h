@@ -31,8 +31,8 @@ class CelestialTwoBodyPointAlgorithm {
    public:
     void reset(bool secCelBodyIsLinked);
     AttRefMsgF32Payload update(EphemerisMsgF32Payload& celBodyIn,
-                            EphemerisMsgF32Payload& secCelBodyIn,
-                            NavTransMsgF32Payload& transNavIn);
+                               EphemerisMsgF32Payload& secCelBodyIn,
+                               NavTransMsgF32Payload& transNavIn) const;
     void setSingularityThresh(float thresh);
     float getSingularityThresh() const;
 
