@@ -7,6 +7,10 @@ xmera_add_swig_message(NavAttMsgF32Payload)
 xmera_add_swig_message(NavTransMsgF32Payload)
 xmera_add_swig_message(RateCmdMsgF32Payload)
 xmera_add_swig_message(RWArrayConfigMsgF32Payload)
+xmera_add_swig_message(RWConfigElementMsgF32Payload)
+xmera_add_swig_message(RWConstellationMsgF32Payload
+                       TEMPLATE
+                       "${CMAKE_CURRENT_SOURCE_DIR}/RWConstellationMsgF32Payload.i")
 xmera_add_swig_message(RwMotorTorqueMsgF32Payload)
 xmera_add_swig_message(RwMotorVoltageMsgF32Payload)
 xmera_add_swig_message(RWSpeedMsgF32Payload)
