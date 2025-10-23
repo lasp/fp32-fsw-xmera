@@ -42,7 +42,7 @@ void RwNullSpace::reset(const uint64_t callTime) {
     RWConstellationMsgF32Payload localRWData = this->rwConfigInMsg(); /* local copy of RW configuration data */
 
     /* create the 3xN [Gs] RW spin axis projection matrix */
-    const uint32_t numWheels = (uint32_t)localRWData.numRW;
+    const uint32_t numWheels = static_cast<uint32_t>(localRWData.numRW);
     if (numWheels > RW_EFF_CNT) {
         throw std::invalid_argument("rwNullSpace.numWheels is larger than max effector count.");
     }

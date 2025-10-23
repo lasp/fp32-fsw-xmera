@@ -28,7 +28,7 @@
     @param rwConfigInMsg Reaction Wheel constellation input message
  */
 void RwNullSpaceAlgorithm::reset(RWConstellationMsgF32Payload& rwConfigInMsg) {
-    this->numWheels = (uint32_t)rwConfigInMsg.numRW;
+    this->numWheels = static_cast<uint32_t>(rwConfigInMsg.numRW);
 
     Eigen::Matrix<float, 3, RW_EFF_CNT> G_s_B{};
     G_s_B.setZero();
