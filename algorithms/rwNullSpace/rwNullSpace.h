@@ -17,8 +17,8 @@
 
  */
 
-#ifndef RW_NULL_SPACE_H
-#define RW_NULL_SPACE_H
+#ifndef F32XIMERA_RW_NULL_SPACE_H
+#define F32XIMERA_RW_NULL_SPACE_H
 
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>

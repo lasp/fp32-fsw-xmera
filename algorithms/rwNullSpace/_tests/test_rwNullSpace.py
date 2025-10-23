@@ -22,7 +22,7 @@ import os
 import numpy as np
 import pytest
 from xmera.architecture import messaging
-from xmera.fswAlgorithms import rwNullSpace
+from xmera.fp32 import rwNullSpaceF32
 from xmera.utilities import SimulationBaseClass, macros
 from numpy.linalg import inv
 
@@ -47,7 +47,7 @@ def test_rw_null_space(num_wheels, default_desired):
     test_proc.addTask(unit_test_sim.CreateNewTask(unit_task_name, test_process_rate))  # Add a new task to the process
 
     # Construct the rwNullSpace module
-    module = rwNullSpace.RwNullSpace()
+    module = rwNullSpaceF32.RwNullSpace()
     module.setOmegaGain(.5) # The feedback gain value applied for the RW despin control law
     module.modelTag = "rwNullSpace"
     unit_test_sim.AddModelToTask(unit_task_name, module)

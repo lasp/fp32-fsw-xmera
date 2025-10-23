@@ -17,8 +17,8 @@
 
  */
 
-#ifndef RW_NULL_SPACE_ALGORITHM_H
-#define RW_NULL_SPACE_ALGORITHM_H
+#ifndef F32XIMERA_RW_NULL_SPACE_ALGORITHM_H
+#define F32XIMERA_RW_NULL_SPACE_ALGORITHM_H
 
 #include <architecture/msgPayloadDef/RWConstellationMsgPayload.h>
 #include <architecture/msgPayloadDef/RWSpeedMsgPayload.h>

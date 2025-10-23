@@ -18,7 +18,7 @@
  */
 
 #include "rwNullSpaceAlgorithm.h"
-#include <architecture/utilities/eigenSupport.h>
+#include "architecture/utilities/eigenSupport.h"
 
 #include <stdexcept>
 
