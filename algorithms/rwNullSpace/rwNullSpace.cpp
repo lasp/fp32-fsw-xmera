@@ -26,7 +26,7 @@
     @return void
     @param callTime The clock time at which the function was called (nanoseconds)
  */
-void RwNullSpace::reset(uint64_t callTime) {
+void RwNullSpace::reset(const uint64_t callTime) {
     // check if the required input messages are included
     if (!this->rwConfigInMsg.isLinked()) {
         throw std::invalid_argument("rwNullSpace.rwConfigInMsg wasn't connected.");
@@ -42,7 +42,7 @@ void RwNullSpace::reset(uint64_t callTime) {
     RWConstellationMsgF32Payload localRWData = this->rwConfigInMsg(); /* local copy of RW configuration data */
 
     /* create the 3xN [Gs] RW spin axis projection matrix */
-    uint32_t numWheels = (uint32_t)localRWData.numRW;
+    const uint32_t numWheels = (uint32_t)localRWData.numRW;
     if (numWheels > RW_EFF_CNT) {
         throw std::invalid_argument("rwNullSpace.numWheels is larger than max effector count.");
     }
@@ -56,7 +56,7 @@ void RwNullSpace::reset(uint64_t callTime) {
  @return void
  @param callTime The clock time at which the function was called (nanoseconds)
  */
-void RwNullSpace::updateState(uint64_t callTime) {
+void RwNullSpace::updateState(const uint64_t callTime) {
     RwMotorTorqueMsgF32Payload controlRequest =
         this->rwMotorTorqueInMsg();                     /* [Nm]  array of the RW motor torque solution */
     RWSpeedMsgF32Payload rwSpeeds = this->rwSpeedsInMsg(); /* [r/s] array of RW speeds */

@@ -35,9 +35,9 @@ class RwNullSpaceAlgorithm {
     void reset(RWConstellationMsgF32Payload& rwConfigInMsg);
     RwMotorTorqueMsgF32Payload update(RwMotorTorqueMsgF32Payload& controlRequest,
                                       RWSpeedMsgF32Payload& rwSpeeds,
-                                      RWSpeedMsgF32Payload& rwDesiredSpeeds);
+                                      RWSpeedMsgF32Payload& rwDesiredSpeeds) const;
 
-    void setOmegaGain(const float gain);
+    void setOmegaGain(float gain);
     float getOmegaGain() const;
 
    private:

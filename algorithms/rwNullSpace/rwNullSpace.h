@@ -38,7 +38,7 @@ class RwNullSpace : public SysModel {
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
 
-    void setOmegaGain(const float gain);
+    void setOmegaGain(float gain);
     float getOmegaGain() const;
 
     ReadFunctor<RwMotorTorqueMsgF32Payload> rwMotorTorqueInMsg;  //!< [-] The name of the Input message
