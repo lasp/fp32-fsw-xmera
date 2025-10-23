@@ -5,14 +5,16 @@
 */
 
 #include "celestialTwoBodyPointAlgorithm.h"
+#include "../freestandingInvalidArgument.h"
 #include "architecture/utilities/eigenSupport.h"
 #include "architecture/utilities/rigidBodyKinematics.hpp"
 #include <architecture/utilities/safeMath.h>
-#include "../freestandingInvalidArgument.h"
 
 #include <math.h>
 
-void CelestialTwoBodyPointAlgorithm::reset(const bool secCelBodyIsLinked) { this->secCelBodyIsLinked = secCelBodyIsLinked; }
+void CelestialTwoBodyPointAlgorithm::reset(const bool secCelBodyIsLinked) {
+    this->secCelBodyIsLinked = secCelBodyIsLinked;
+}
 
 /*! This method takes the spacecraft and points a specified axis at a named
  celestial body specified in the configuration data.  It generates the
@@ -72,7 +74,8 @@ AttRefMsgF32Payload CelestialTwoBodyPointAlgorithm::update(EphemerisMsgF32Payloa
     /* - Reference base-vectors first time-derivative */
     const Eigen::Vector3f dr1_N_hat =
         (Eigen::Matrix3f::Identity() - r1_N_hat * r1_N_hat.transpose()) * (v_P1B_N / R_P1B_N.norm()).cast<float>();
-    const Eigen::Vector3f dr3_N_hat = (Eigen::Matrix3f::Identity() - r3_N_hat * r3_N_hat.transpose()) * (v_N / R_N.norm()).cast<float>();
+    const Eigen::Vector3f dr3_N_hat =
+        (Eigen::Matrix3f::Identity() - r3_N_hat * r3_N_hat.transpose()) * (v_N / R_N.norm()).cast<float>();
     const Eigen::Vector3f dr2_N_hat = dr3_N_hat.cross(r1_N_hat) + r3_N_hat.cross(dr1_N_hat);
 
     /* - Angular velocity computation */
@@ -84,11 +87,12 @@ AttRefMsgF32Payload CelestialTwoBodyPointAlgorithm::update(EphemerisMsgF32Payloa
     eigenVectorToCArray(omega_RN_N, attRefOut.omega_RN_N);
 
     /* - Reference base-vectors second time-derivative */
-    const Eigen::Vector3f ddr1_N_hat =
-        -(2 * dr1_N_hat * r1_N_hat.transpose() + r1_N_hat * dr1_N_hat.transpose()) * (v_P1B_N / R_P1B_N.norm()).cast<float>();
-    const Eigen::Vector3f ddr3_N_hat = ((Eigen::Matrix3f::Identity() - r3_N_hat * r3_N_hat.transpose()) * a_N.cast<float>() -
-                                  (2 * dr3_N_hat * r3_N_hat.transpose() + r3_N_hat * dr3_N_hat.transpose()) * v_N.cast<float>()) /
-                                 R_N.norm();
+    const Eigen::Vector3f ddr1_N_hat = -(2 * dr1_N_hat * r1_N_hat.transpose() + r1_N_hat * dr1_N_hat.transpose()) *
+                                       (v_P1B_N / R_P1B_N.norm()).cast<float>();
+    const Eigen::Vector3f ddr3_N_hat =
+        ((Eigen::Matrix3f::Identity() - r3_N_hat * r3_N_hat.transpose()) * a_N.cast<float>() -
+         (2 * dr3_N_hat * r3_N_hat.transpose() + r3_N_hat * dr3_N_hat.transpose()) * v_N.cast<float>()) /
+        R_N.norm();
     const Eigen::Vector3f ddr2_N_hat =
         ddr3_N_hat.cross(r1_N_hat) + r3_N_hat.cross(ddr1_N_hat) + 2 * dr3_N_hat.cross(dr1_N_hat);
 

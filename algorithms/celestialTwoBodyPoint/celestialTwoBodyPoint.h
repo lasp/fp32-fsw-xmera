@@ -9,12 +9,12 @@
 
 #include <stdint.h>
 
-#include <architecture/_GeneralModuleFiles/sys_model.h>
-#include <architecture/messaging/messaging.h>
+#include "celestialTwoBodyPointAlgorithm.h"
 #include "msgPayloadDef/AttRefMsgF32Payload.h"
 #include "msgPayloadDef/EphemerisMsgF32Payload.h"
 #include "msgPayloadDef/NavTransMsgF32Payload.h"
-#include "celestialTwoBodyPointAlgorithm.h"
+#include <architecture/_GeneralModuleFiles/sys_model.h>
+#include <architecture/messaging/messaging.h>
 
 /*!@brief Data structure for module to compute the two-body celestial pointing navigation solution.
  */
