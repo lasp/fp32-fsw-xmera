@@ -12,18 +12,16 @@
 %pythoncode %{
 from Basilisk.architecture.swig_common_model import *
 %}
-%include "std_string.i"
-%include "swig_conly_data.i"
-%include "swig_eigen.i"
+%include <std_string.i>
+%include <architecture/_GeneralModuleFiles/swig_conly_data.i>
+%include <architecture/_GeneralModuleFiles/swig_eigen.i>
+%include <architecture/_GeneralModuleFiles/sys_model.i>
 
-%include "sys_model.i"
 %include "rateControl.h"
 %include "rateControlAlgorithm.h"
 
 %include "msgPayloadDef/AttGuidMsgF32Payload.h"
-
 %include "msgPayloadDef/VehicleConfigMsgF32Payload.h"
-
 %include "msgPayloadDef/CmdTorqueBodyMsgF32Payload.h"
 
 %pythoncode %{

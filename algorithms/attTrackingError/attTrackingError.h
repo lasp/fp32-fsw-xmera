@@ -7,15 +7,15 @@
 #ifndef F32XIMERA_ATT_TRACKING_ERROR_H
 #define F32XIMERA_ATT_TRACKING_ERROR_H
 
-#include "architecture/_GeneralModuleFiles/sys_model.h"
-#include "architecture/messaging/messaging.h"
-#include "architecture/msgPayloadDef/AttGuidMsgPayload.h"
+#include <architecture/_GeneralModuleFiles/sys_model.h>
+#include <architecture/messaging/messaging.h>
+#include <architecture/msgPayloadDef/AttGuidMsgPayload.h>
 #include "msgPayloadDef/AttGuidMsgF32Payload.h"
-#include "architecture/msgPayloadDef/AttRefMsgPayload.h"
+#include <architecture/msgPayloadDef/AttRefMsgPayload.h>
 #include "msgPayloadDef/AttGuidMsgF32Payload.h"
-#include "architecture/msgPayloadDef/NavAttMsgPayload.h"
+#include <architecture/msgPayloadDef/NavAttMsgPayload.h>
 #include "msgPayloadDef/NavAttMsgF32Payload.h"
-#include "architecture/utilities/bskLogging.h"
+#include <architecture/utilities/bskLogging.h>
 
 #include "attTrackingErrorAlgorithm.h"
 

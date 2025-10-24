@@ -7,7 +7,6 @@
 #include "attTrackingError.h"
 
 #include "architecture/utilities/eigenSupport.h"
-
 #include "../../architecture/utilities/messageConversionHelpers.hpp"
 
 /*! This method performs a complete reset of the module. Local module variables that retain time varying states between
