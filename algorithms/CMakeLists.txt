@@ -1,0 +1,7 @@
+add_subdirectory(msgPayloadDef)
+
+add_subdirectory(attTrackingError)
+add_subdirectory(ephemNavConverter)
+add_subdirectory(navAggregate)
+add_subdirectory(rateControl)
+add_subdirectory(sunlineEphem)

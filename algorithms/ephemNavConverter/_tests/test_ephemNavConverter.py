@@ -8,7 +8,7 @@ import os
 import numpy as np
 
 from Basilisk.architecture import messaging
-from Basilisk.ExternalModules import ephemNavConverterF32
+from Basilisk.fp32 import ephemNavConverterF32
 from Basilisk.utilities import SimulationBaseClass, unitTestSupport, macros
 from Basilisk.utilities import astroFunctions
 

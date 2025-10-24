@@ -1,0 +1,7 @@
+xmera_add_swig_message(AttGuidMsgF32Payload)
+xmera_add_swig_message(AttRefMsgF32Payload)
+xmera_add_swig_message(CmdTorqueBodyMsgF32Payload)
+xmera_add_swig_message(EphemerisMsgF32Payload)
+xmera_add_swig_message(NavAttMsgF32Payload)
+xmera_add_swig_message(NavTransMsgF32Payload)
+xmera_add_swig_message(VehicleConfigMsgF32Payload)

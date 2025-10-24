@@ -9,9 +9,6 @@
    #include "rateControl.h"
 %}
 
-%pythoncode %{
-from Basilisk.architecture.swig_common_model import *
-%}
 %include <std_string.i>
 %include <architecture/_GeneralModuleFiles/swig_conly_data.i>
 %include <architecture/_GeneralModuleFiles/swig_eigen.i>
@@ -23,8 +20,3 @@ from Basilisk.architecture.swig_common_model import *
 %include "msgPayloadDef/AttGuidMsgF32Payload.h"
 %include "msgPayloadDef/VehicleConfigMsgF32Payload.h"
 %include "msgPayloadDef/CmdTorqueBodyMsgF32Payload.h"
-
-%pythoncode %{
-import sys
-protectAllClasses(sys.modules[__name__])
-%}

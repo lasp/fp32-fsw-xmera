@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 
 from Basilisk.utilities import SimulationBaseClass
-from Basilisk.ExternalModules import rateControlF32
+from Basilisk.fp32 import rateControlF32
 from Basilisk.utilities import macros
 from Basilisk.architecture import messaging
 

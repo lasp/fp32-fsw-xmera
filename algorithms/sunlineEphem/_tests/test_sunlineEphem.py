@@ -5,7 +5,7 @@
 import numpy as np
 
 from Basilisk.architecture import messaging
-from Basilisk.ExternalModules import sunlineEphemF32
+from Basilisk.fp32 import sunlineEphemF32
 from Basilisk.utilities import SimulationBaseClass
 from Basilisk.utilities import macros
 
