@@ -221,10 +221,10 @@ jobs:
           which g++-13  && g++-13 -dumpfullversion || true
           which ninja   && ninja --version   || true
 
-      - name: Setup CMake 3.25.2
+      - name: Setup CMake 3.28.3
         uses: jwlawson/actions-setup-cmake@v2
         with:
-          cmake-version: '3.25.2'
+          cmake-version: '3.28.3'
 
       - name: Install vcpkg
         uses: lukka/run-vcpkg@v11
