@@ -297,9 +297,11 @@ jobs:
         env:
           VCPKG_BINARY_SOURCES: "clear;nuget,${{ env.FEED_URL }},readwrite"
         run: |
+          ln -s "${GITHUB_WORKSPACE}" .
           args=(
             --preset base-release
-            "-DEXTERNAL_MODULES_PATH=${GITHUB_WORKSPACE}/algorithms"
+            "-DXMERA_MODULE_ROOTS=${GITHUB_WORKSPACE}/basilisk/src/fswAlgorithms/;${GITHUB_WORKSPACE}/basilisk/src/simulation/;${GITHUB_WORKSPACE}/basilisk/src/moduleTemplates/;${GITHUB_WORKSPACE}/basilisk/src/fp32-fsw-xmera/algorithms"
+            "-DXMERA_ENABLE_GROUPS=simulation;fswAlgorithms;moduleTemplates;fp32"
           )
           if [[ "${{ runner.os }}" == "Linux" && "${{ matrix.python-version }}" == "3.11" ]]; then
             args+=(
@@ -314,12 +316,14 @@ jobs:
 
       - name: Build Basilisk + modules
         working-directory: basilisk/src
-        run: cmake --build --preset base-release --parallel
+        run: cmake --build ../build --parallel
 
       - name: Install Basilisk (editable)
         run: |
           source .venv/bin/activate
-          python -m pip install -e basilisk
+          cd basilisk
+          cmake --install build --prefix $(pwd)/dist
+          python -m pip install -e .
 
       - name: Install fp32-fsw-ximera (editable, if package)
         run: |
@@ -345,7 +349,7 @@ jobs:
           common_args=(
             --root "${GITHUB_WORKSPACE}"
             --filter "${GITHUB_WORKSPACE}/algorithms"
-            --object-directory "${GITHUB_WORKSPACE}/basilisk/dist3"
+            --object-directory "${GITHUB_WORKSPACE}/basilisk/build"
             --exclude ".*_tests/.*"
             --gcov-executable "${GCOV_BIN}"
             --gcov-ignore-errors no_working_dir_found
