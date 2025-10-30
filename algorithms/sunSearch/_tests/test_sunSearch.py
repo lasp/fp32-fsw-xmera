@@ -27,7 +27,7 @@ path = os.path.dirname(os.path.abspath(filename))
 
 
 from Basilisk.utilities import SimulationBaseClass
-from Basilisk.fswAlgorithms import sunSearch
+from Basilisk.fp32 import sunSearchF32
 from Basilisk.utilities import macros
 from Basilisk.architecture import messaging
 from Basilisk.architecture import sim_model
@@ -85,24 +85,24 @@ def test_sunSearch(show_plots, axis1, axis2, axis3, omega_BN_B):
     omega_M = np.pi / 18
 
     # Construct algorithm and associated C++ container
-    attGuidance = sunSearch.SunSearch()
+    attGuidance = sunSearchF32.SunSearch()
     attGuidance.modelTag = "sunSearch"
 
-    slewProp1 = sunSearch.SlewProperties()
+    slewProp1 = sunSearchF32.SlewProperties()
     slewProp1.slewTime = T_R
     slewProp1.slewAngle = theta1
     slewProp1.slewMaxRate = omega_M
     slewProp1.slewMaxTorque = u_M
     slewProp1.slewRotAxis = axis1
 
-    slewProp2 = sunSearch.SlewProperties()
+    slewProp2 = sunSearchF32.SlewProperties()
     slewProp2.slewTime = T_R
     slewProp2.slewAngle = theta2
     slewProp2.slewMaxRate = omega_M
     slewProp2.slewMaxTorque = u_M
     slewProp2.slewRotAxis = axis2
 
-    slewProp3 = sunSearch.SlewProperties()
+    slewProp3 = sunSearchF32.SlewProperties()
     slewProp3.slewTime = T_R
     slewProp3.slewAngle = theta3
     slewProp3.slewMaxRate = omega_M

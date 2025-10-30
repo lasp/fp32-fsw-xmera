@@ -17,8 +17,8 @@
 
  */
 
-#ifndef SUN_SEARCH_ALGORITHM_H
-#define SUN_SEARCH_ALGORITHM_H
+#ifndef F32XIMERA_SUN_SEARCH_ALGORITHM_H
+#define F32XIMERA_SUN_SEARCH_ALGORITHM_H
 
 #include <stdexcept>
 

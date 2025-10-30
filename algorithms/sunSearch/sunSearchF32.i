@@ -16,7 +16,7 @@
  OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
  */
-%module sunSearch
+%module sunSearchF32
 %{
    #include "sunSearch.h"
 %}

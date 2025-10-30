@@ -1,4 +1,4 @@
-set(module "fswAlgorithms.attGuidance.sunSearch")
+set(module "fp32.sunSearchF32")
 xmera_is_module_enabled("${module}" _is_enabled)
 if(NOT _is_enabled)
   return()

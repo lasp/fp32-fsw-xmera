@@ -17,8 +17,8 @@
 
  */
 
-#ifndef SUN_SEARCH_H
-#define SUN_SEARCH_H
+#ifndef F32XIMERA_SUN_SEARCH_H
+#define F32XIMERA_SUN_SEARCH_H
 
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
