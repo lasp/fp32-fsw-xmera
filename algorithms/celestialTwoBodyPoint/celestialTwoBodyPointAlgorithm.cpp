@@ -18,8 +18,8 @@
  */
 
 #include "celestialTwoBodyPointAlgorithm.h"
-#include <architecture/utilities/eigenSupport.h>
-#include <architecture/utilities/rigidBodyKinematics.hpp>
+#include "architecture/utilities/eigenSupport.h"
+#include "architecture/utilities/rigidBodyKinematics.hpp"
 #include <architecture/utilities/safeMath.h>
 
 #include <math.h>

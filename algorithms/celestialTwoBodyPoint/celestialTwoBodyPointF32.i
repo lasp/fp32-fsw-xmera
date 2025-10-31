@@ -16,7 +16,7 @@
  OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
  */
-%module celestialTwoBodyPoint
+%module celestialTwoBodyPointF32
 %{
    #include "celestialTwoBodyPoint.h"
 %}

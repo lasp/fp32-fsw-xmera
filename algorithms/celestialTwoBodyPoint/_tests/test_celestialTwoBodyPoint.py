@@ -19,7 +19,7 @@
 import numpy as np
 import pytest
 from xmera.architecture import messaging
-from xmera.fswAlgorithms import celestialTwoBodyPoint  # module that is to be tested
+from xmera.fp32 import celestialTwoBodyPointF32  # module that is to be tested
 from xmera.utilities import RigidBodyKinematics as rbk
 # Import all of the modules that we are going to be called in this simulation
 from xmera.utilities import SimulationBaseClass
@@ -88,7 +88,7 @@ def test_celestial_two_body_point_test_function(secondary_body):
     testProc = unitTestSim.CreateNewProcess(unitProcessName)
     testProc.addTask(unitTestSim.CreateNewTask(unitTaskName, testProcessRate))
 
-    module = celestialTwoBodyPoint.CelestialTwoBodyPoint()
+    module = celestialTwoBodyPointF32.CelestialTwoBodyPoint()
     module.modelTag = "celestialTwoBodyPoint"
     module.setSingularityThresh(1.0 * af.D2R)
     unitTestSim.AddModelToTask(unitTaskName, module)

@@ -17,8 +17,8 @@
 
  */
 
-#ifndef CELESTIAL_BODY_POINT_ALGORITHM_H
-#define CELESTIAL_BODY_POINT_ALGORITHM_H
+#ifndef F32XIMERA_CELESTIAL_BODY_POINT_ALGORITHM_H
+#define F32XIMERA_CELESTIAL_BODY_POINT_ALGORITHM_H
 
 #include <architecture/msgPayloadDef/AttRefMsgPayload.h>
 #include <architecture/msgPayloadDef/EphemerisMsgPayload.h>

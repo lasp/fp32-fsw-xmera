@@ -17,8 +17,8 @@
 
  */
 
-#ifndef CELESTIAL_BODY_POINT_H
-#define CELESTIAL_BODY_POINT_H
+#ifndef F32XIMERA_CELESTIAL_BODY_POINT_H
+#define F32XIMERA_CELESTIAL_BODY_POINT_H
 
 #include <stdint.h>
 #include <stdexcept>
