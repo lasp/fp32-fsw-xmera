@@ -31,10 +31,13 @@ path = os.path.dirname(os.path.abspath(filename))
 bskName = 'Basilisk'
 splitPath = path.split(bskName)
 
-@pytest.mark.parametrize("motor_step_angle", [0.008 * macros.D2R, 0.01 * macros.D2R, 0.5 * macros.D2R])
+# the inputs are rounded to single precision such that the module and python use the same precision for the inputs.
+# Otherwise, the ceiling/floor function with a division input may result in a difference of 1,
+# thus exceeding the accuracy of the tests.
+@pytest.mark.parametrize("motor_step_angle", np.round([0.008 * macros.D2R, 0.01 * macros.D2R, 0.5 * macros.D2R], 7))
 @pytest.mark.parametrize("motor_step_time", [0.008, 0.1, 0.5])
-@pytest.mark.parametrize("motor_theta_init", [-5.0 * macros.D2R, 0.0, 60.0 * macros.D2R])
-@pytest.mark.parametrize("motor_theta_ref", [0.0, 10.6 * macros.D2R, 60.0051 * macros.D2R])
+@pytest.mark.parametrize("motor_theta_init", np.round([-5.0 * macros.D2R, 0.0, 60.0 * macros.D2R], 7))
+@pytest.mark.parametrize("motor_theta_ref", np.round([0.0, 10.6 * macros.D2R, 60.0051 * macros.D2R], 7))
 def test_stepper_motor_controller_nominal(show_plots, motor_step_angle, motor_step_time, motor_theta_init,
                                           motor_theta_ref):
     r"""
@@ -81,9 +84,9 @@ def test_stepper_motor_controller_nominal(show_plots, motor_step_angle, motor_st
     unit_test_sim.AddModelToTask(unit_task_name, motor_controller)
 
     # Create the stepperMotorController input message
-    hinged_rigid_body_message_data = messaging.HingedRigidBodyMsgPayload()
+    hinged_rigid_body_message_data = messaging.HingedRigidBodyMsgF32Payload()
     hinged_rigid_body_message_data.theta = motor_theta_ref  # [rad]
-    hinged_rigid_body_message = messaging.HingedRigidBodyMsg().write(hinged_rigid_body_message_data)
+    hinged_rigid_body_message = messaging.HingedRigidBodyMsgF32().write(hinged_rigid_body_message_data)
     motor_controller.motorRefAngleInMsg.subscribeTo(hinged_rigid_body_message)
 
     # Set up data logging
@@ -117,7 +120,7 @@ def test_stepper_motor_controller_nominal(show_plots, motor_step_angle, motor_st
     steps_commanded_sim = motor_step_command_log.stepsCommanded
 
     # Check that the correct number of steps was calculated
-    accuracy = 1e-12
+    accuracy = 1e-6
     np.testing.assert_allclose(steps_commanded_sim[0],
                                steps_commanded_truth,
                                atol=accuracy,
@@ -158,9 +161,9 @@ def test_stepper_motor_controller_invalid(show_plots, motor_theta_ref):
     unit_test_sim.AddModelToTask(unit_task_name, motor_controller)
 
     # Create the stepperMotorController input message
-    hinged_rigid_body_message_data = messaging.HingedRigidBodyMsgPayload()
+    hinged_rigid_body_message_data = messaging.HingedRigidBodyMsgF32Payload()
     hinged_rigid_body_message_data.theta = motor_theta_ref  # [rad]
-    hinged_rigid_body_message = messaging.HingedRigidBodyMsg().write(hinged_rigid_body_message_data)
+    hinged_rigid_body_message = messaging.HingedRigidBodyMsgF32().write(hinged_rigid_body_message_data)
     motor_controller.motorRefAngleInMsg.subscribeTo(hinged_rigid_body_message)
 
     # Set up data logging
@@ -176,7 +179,7 @@ def test_stepper_motor_controller_invalid(show_plots, motor_theta_ref):
     steps_commanded_sim = motor_step_command_log.stepsCommanded
 
     # Check that the correct number of steps was calculated
-    accuracy = 1e-12
+    accuracy = 1e-6
     np.testing.assert_allclose(steps_commanded_sim[0],
                                0,
                                atol=accuracy,
@@ -231,9 +234,9 @@ def test_stepper_motor_controller_interrupt(show_plots, motor_theta_ref1, motor_
     unit_test_sim.AddModelToTask(unit_task_name, motor_controller)
 
     # Create the stepperMotorController input message
-    hinged_rigid_body_message_data = messaging.HingedRigidBodyMsgPayload()
+    hinged_rigid_body_message_data = messaging.HingedRigidBodyMsgF32Payload()
     hinged_rigid_body_message_data.theta = motor_theta_ref1  # [rad]
-    hinged_rigid_body_message = messaging.HingedRigidBodyMsg().write(hinged_rigid_body_message_data)
+    hinged_rigid_body_message = messaging.HingedRigidBodyMsgF32().write(hinged_rigid_body_message_data)
     motor_controller.motorRefAngleInMsg.subscribeTo(hinged_rigid_body_message)
 
     # Set up data logging
@@ -266,9 +269,9 @@ def test_stepper_motor_controller_interrupt(show_plots, motor_theta_ref1, motor_
     unit_test_sim.ExecuteSimulation()
 
     # Create a new motor angle reference message (This message interrupts and overwrites the first reference message)
-    hinged_rigid_body_message_data = messaging.HingedRigidBodyMsgPayload()
+    hinged_rigid_body_message_data = messaging.HingedRigidBodyMsgF32Payload()
     hinged_rigid_body_message_data.theta = motor_theta_ref2  # [rad]
-    hinged_rigid_body_message = messaging.HingedRigidBodyMsg().write(hinged_rigid_body_message_data, unit_test_sim.TotalSim.getCurrentNanos())
+    hinged_rigid_body_message = messaging.HingedRigidBodyMsgF32().write(hinged_rigid_body_message_data, unit_test_sim.TotalSim.getCurrentNanos())
     motor_controller.motorRefAngleInMsg.subscribeTo(hinged_rigid_body_message)
 
     # Calculate number of steps to actuate from interrupted motor position to the second reference motor angle
@@ -305,7 +308,7 @@ def test_stepper_motor_controller_interrupt(show_plots, motor_theta_ref1, motor_
     steps_commanded = motor_step_command_log.stepsCommanded
 
     # Check that the correct number of steps was calculated for both simulation chunks
-    accuracy = 1e-12
+    accuracy = 1e-6
     np.testing.assert_allclose(steps_commanded[0],
                                steps_commanded_truth1,
                                atol=accuracy,
