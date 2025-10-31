@@ -7,7 +7,6 @@
 #include "rateControlAlgorithm.h"
 
 #include "../freestandingInvalidArgument.h"
-
 #include "architecture/utilities/eigenSupport.h"
 
 #include <Eigen/Geometry>

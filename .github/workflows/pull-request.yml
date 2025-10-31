@@ -68,17 +68,17 @@ jobs:
       actions: read
       security-events: write
     steps:
-      - name: Checkout fp32-fsw-ximera
+      - name: Checkout fp32-fsw-xmera
         uses: actions/checkout@v4
 
-      - name: Checkout Basilisk core
+      - name: Checkout Xmera core
         uses: actions/checkout@v4
         with:
           repository: lasp/basilisk
-          path: basilisk
+          path: xmera
 
-      - name: Add Release overlay preset for Basilisk base
-        working-directory: basilisk/src
+      - name: Add Release overlay preset for Xmera base
+        working-directory: xmera/src
         run: |
           python <<'PY'
           import json
@@ -89,7 +89,7 @@ jobs:
 
           src_path = Path("CMakePresets.json")
           if not src_path.exists():
-            raise SystemExit("CMakePresets.json not found in basilisk/src")
+            raise SystemExit("CMakePresets.json not found in xmera/src")
 
           with src_path.open("r", encoding="utf-8") as fh:
             data = json.load(fh)
@@ -136,8 +136,8 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: 'pip'
           cache-dependency-path: |
-            basilisk/**/requirements.txt
-            basilisk/**/pyproject.toml
+            xmera/**/requirements.txt
+            xmera/**/pyproject.toml
             **/requirements.txt
             **/pyproject.toml
             **/requirements*.txt
@@ -221,17 +221,17 @@ jobs:
           which g++-13  && g++-13 -dumpfullversion || true
           which ninja   && ninja --version   || true
 
-      - name: Setup CMake 3.25.2
+      - name: Setup CMake 3.28.3
         uses: jwlawson/actions-setup-cmake@v2
         with:
-          cmake-version: '3.25.2'
+          cmake-version: '3.28.3'
 
       - name: Install vcpkg
         uses: lukka/run-vcpkg@v11
         with:
           vcpkgDirectory: ${{ github.workspace }}/b/vcpkg
-          vcpkgJsonGlob: "basilisk/src/vcpkg.json"
-          vcpkgConfigurationJsonGlob: "basilisk/src/vcpkg-configuration.json"
+          vcpkgJsonGlob: "xmera/src/vcpkg.json"
+          vcpkgConfigurationJsonGlob: "xmera/src/vcpkg-configuration.json"
         env:
           VCPKG_KEEP_ENV_VARS: CC;CXX;CMAKE_GENERATOR;CMAKE_MAKE_PROGRAM;NINJA_STATUS
           VCPKG_MAX_CONCURRENCY: "1"
@@ -246,7 +246,7 @@ jobs:
             ${{ github.workspace }}/b/vcpkg/installed
             ${{ github.workspace }}/b/vcpkg/packages
             ${{ github.workspace }}/b/vcpkg/buildtrees
-          key: vcpkg-${{ runner.os }}-${{ hashFiles('basilisk/src/vcpkg.json', 'basilisk/src/vcpkg-configuration.json') }}
+          key: vcpkg-${{ runner.os }}-${{ hashFiles('xmera/src/vcpkg.json', 'xmera/src/vcpkg-configuration.json') }}
 
       - name: Add NuGet sources for vcpkg binary cache (portable)
         env:
@@ -284,22 +284,24 @@ jobs:
           python -V
           pip -V
 
-      - name: Install Python deps (from basilisk into fp32-fsw-ximera venv)
+      - name: Install Python deps (from xmera into fp32-fsw-xmera venv)
         run: |
-          if [[ -f "$GITHUB_WORKSPACE/basilisk/requirements.txt" ]]; then
-            ./.venv/bin/python -m pip install -r "$GITHUB_WORKSPACE/basilisk/requirements.txt"
+          if [[ -f "$GITHUB_WORKSPACE/xmera/requirements.txt" ]]; then
+            ./.venv/bin/python -m pip install -r "$GITHUB_WORKSPACE/xmera/requirements.txt"
           fi
           ./.venv/bin/python -m pip install --upgrade gcovr
           ./.venv/bin/python -m pip list
 
-      - name: Configure Basilisk (with external modules)
-        working-directory: basilisk/src
+      - name: Configure Xmera (with external modules)
+        working-directory: xmera/src
         env:
           VCPKG_BINARY_SOURCES: "clear;nuget,${{ env.FEED_URL }},readwrite"
         run: |
+          ln -s "${GITHUB_WORKSPACE}" .
           args=(
             --preset base-release
-            "-DEXTERNAL_MODULES_PATH=${GITHUB_WORKSPACE}/algorithms"
+            "-DXMERA_MODULE_ROOTS=${GITHUB_WORKSPACE}/xmera/src/fswAlgorithms/;${GITHUB_WORKSPACE}/xmera/src/simulation/;${GITHUB_WORKSPACE}/xmera/src/moduleTemplates/;${GITHUB_WORKSPACE}/xmera/src/fp32-fsw-xmera/algorithms"
+            "-DXMERA_ENABLE_GROUPS=simulation;fswAlgorithms;moduleTemplates;fp32"
           )
           if [[ "${{ runner.os }}" == "Linux" && "${{ matrix.python-version }}" == "3.11" ]]; then
             args+=(
@@ -312,21 +314,23 @@ jobs:
           fi
           cmake "${args[@]}"
 
-      - name: Build Basilisk + modules
-        working-directory: basilisk/src
-        run: cmake --build --preset base-release --parallel
+      - name: Build Xmera + modules
+        working-directory: xmera/src
+        run: cmake --build ../build --parallel
 
-      - name: Install Basilisk (editable)
+      - name: Install Xmera (editable)
         run: |
           source .venv/bin/activate
-          python -m pip install -e basilisk
+          cd xmera
+          cmake --install build --prefix $(pwd)/dist
+          python -m pip install -e .
 
-      - name: Install fp32-fsw-ximera (editable, if package)
+      - name: Install fp32-fsw-xmera (editable, if package)
         run: |
           source .venv/bin/activate
           if [[ -f pyproject.toml || -f setup.py ]]; then python -m pip install -e .; fi
 
-      - name: Run fp32-fsw-ximera tests
+      - name: Run fp32-fsw-xmera tests
         run: |
           source .venv/bin/activate
           mkdir -p junit coverage
@@ -345,7 +349,7 @@ jobs:
           common_args=(
             --root "${GITHUB_WORKSPACE}"
             --filter "${GITHUB_WORKSPACE}/algorithms"
-            --object-directory "${GITHUB_WORKSPACE}/basilisk/dist3"
+            --object-directory "${GITHUB_WORKSPACE}/xmera/build"
             --exclude ".*_tests/.*"
             --gcov-executable "${GCOV_BIN}"
             --gcov-ignore-errors no_working_dir_found

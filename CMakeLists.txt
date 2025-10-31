@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.24)
+cmake_minimum_required(VERSION 3.27)
 project(fp32-ximera-fsw-algorithms)
 
 macro(add_algorithm name)
