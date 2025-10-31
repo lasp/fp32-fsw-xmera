@@ -14,4 +14,5 @@ xmera_add_swig_message(RWConstellationMsgF32Payload
 xmera_add_swig_message(RwMotorTorqueMsgF32Payload)
 xmera_add_swig_message(RwMotorVoltageMsgF32Payload)
 xmera_add_swig_message(RWSpeedMsgF32Payload)
+xmera_add_swig_message(TDBVehicleClockCorrelationMsgF32Payload)
 xmera_add_swig_message(VehicleConfigMsgF32Payload)
