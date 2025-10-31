@@ -41,11 +41,11 @@ void OEStateEphem::updateState(const uint64_t callTime) {
     this->stateFitOutMsg.write(&tmpOutputState, moduleID, callTime);
 }
 
-void OEStateEphem::setCentralBodyGravitationalParameter(const double mu) {
+void OEStateEphem::setCentralBodyGravitationalParameter(const float mu) {
     this->algorithm.setCentralBodyGravitationalParameter(mu);
 };
 
-double OEStateEphem::getCentralBodyGravitationalParameter() const {
+float OEStateEphem::getCentralBodyGravitationalParameter() const {
     return this->algorithm.getCentralBodyGravitationalParameter();
 };
 
@@ -92,46 +92,46 @@ std::array<double, MAX_OE_COEFF> OEStateEphem::getArcRadiusPeriapsisCoefficients
 };
 
 void OEStateEphem::setArcEccentricityCoefficients(const unsigned int arcNumber,
-                                                  const std::array<double, MAX_OE_COEFF>& eccentricityCoefficients) {
+                                                  const std::array<float, MAX_OE_COEFF> &eccentricityCoefficients) {
     this->algorithm.setArcEccentricityCoefficients(arcNumber, eccentricityCoefficients);
 };
 
-std::array<double, MAX_OE_COEFF> OEStateEphem::getArcEccentricityCoefficients(const unsigned int arcNumber) {
+std::array<float, MAX_OE_COEFF> OEStateEphem::getArcEccentricityCoefficients(const unsigned int arcNumber) {
     return this->algorithm.getArcEccentricityCoefficients(arcNumber);
 };
 
 void OEStateEphem::setArcInclinationCoefficients(const unsigned int arcNumber,
-                                                 const std::array<double, MAX_OE_COEFF>& inclinationCoefficients) {
+                                                 const std::array<float, MAX_OE_COEFF> &inclinationCoefficients) {
     this->algorithm.setArcInclinationCoefficients(arcNumber, inclinationCoefficients);
 };
 
-std::array<double, MAX_OE_COEFF> OEStateEphem::getArcInclinationCoefficients(const unsigned int arcNumber) {
+std::array<float, MAX_OE_COEFF> OEStateEphem::getArcInclinationCoefficients(const unsigned int arcNumber) {
     return this->algorithm.getArcInclinationCoefficients(arcNumber);
 };
 
 void OEStateEphem::setArcArgPeriapsisCoefficients(const unsigned int arcNumber,
-                                                  const std::array<double, MAX_OE_COEFF>& argPeriapsisCoefficients) {
+                                                  const std::array<float, MAX_OE_COEFF> &argPeriapsisCoefficients) {
     this->algorithm.setArcArgPeriapsisCoefficients(arcNumber, argPeriapsisCoefficients);
 };
 
-std::array<double, MAX_OE_COEFF> OEStateEphem::getArcArgPeriapsisCoefficients(const unsigned int arcNumber) {
+std::array<float, MAX_OE_COEFF> OEStateEphem::getArcArgPeriapsisCoefficients(const unsigned int arcNumber) {
     return this->algorithm.getArcArgPeriapsisCoefficients(arcNumber);
 };
 
 void OEStateEphem::setArcRaanCoefficients(const unsigned int arcNumber,
-                                          const std::array<double, MAX_OE_COEFF>& raanCoefficients) {
+                                          const std::array<float, MAX_OE_COEFF> &raanCoefficients) {
     this->algorithm.setArcRaanCoefficients(arcNumber, raanCoefficients);
 };
 
-std::array<double, MAX_OE_COEFF> OEStateEphem::getArcRaanCoefficients(const unsigned int arcNumber) {
+std::array<float, MAX_OE_COEFF> OEStateEphem::getArcRaanCoefficients(const unsigned int arcNumber) {
     return this->algorithm.getArcRaanCoefficients(arcNumber);
 };
 
 void OEStateEphem::setArcTrueAnomalyCoefficients(const unsigned int arcNumber,
-                                                 const std::array<double, MAX_OE_COEFF>& trueAnomalyCoefficients) {
+                                                 const std::array<float, MAX_OE_COEFF> &trueAnomalyCoefficients) {
     this->algorithm.setArcTrueAnomalyCoefficients(arcNumber, trueAnomalyCoefficients);
 };
 
-std::array<double, MAX_OE_COEFF> OEStateEphem::getArcTrueAnomalyCoefficients(const unsigned int arcNumber) {
+std::array<float, MAX_OE_COEFF> OEStateEphem::getArcTrueAnomalyCoefficients(const unsigned int arcNumber) {
     return this->algorithm.getArcTrueAnomalyCoefficients(arcNumber);
 };

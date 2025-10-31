@@ -10,7 +10,8 @@ target_sources("${module}" PRIVATE
   oeStateEphemAlgorithm.cpp
 )
 
+target_include_directories("${module}" PUBLIC "..")
+
 target_link_libraries("${module}" PRIVATE
-  ArchitectureUtilities
-  fswAlgorithmsTransDeterminationCommon
+  AlgorithmUtilities
 )

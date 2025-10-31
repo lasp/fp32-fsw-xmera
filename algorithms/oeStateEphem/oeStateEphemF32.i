@@ -24,7 +24,8 @@
 %include <architecture/_GeneralModuleFiles/sys_model.i>
 %include <std_array.i>
 %template(DoubleArray20) std::array<double, 20>;
+%template(FloatArray20) std::array<float, 20>;
 %include "oeStateEphem.h"
 
-%include <architecture/msgPayloadDef/TDBVehicleClockCorrelationMsgPayload.h>
-%include <architecture/msgPayloadDef/EphemerisMsgPayload.h>
+%include "msgPayloadDef/TDBVehicleClockCorrelationMsgF32Payload.h"
+%include "msgPayloadDef/EphemerisMsgF32Payload.h"
