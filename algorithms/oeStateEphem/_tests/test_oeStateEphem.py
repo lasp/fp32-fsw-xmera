@@ -25,7 +25,7 @@ import numpy as np
 import pytest
 import spiceypy
 from xmera.architecture import messaging
-from xmera.fswAlgorithms import oeStateEphem
+from xmera.fp32 import oeStateEphemF32
 from xmera.utilities import SimulationBaseClass
 from xmera.utilities import macros
 from xmera.utilities import orbitalMotion
@@ -62,7 +62,7 @@ def test_zero_inputs(show_plots):
     # create the dynamics task and specify the integration update time
     test_process.addTask(sim.CreateNewTask(task_name, macros.sec2nano(1)))
 
-    oe_ephemeris_module = oeStateEphem.OEStateEphem()
+    oe_ephemeris_module = oeStateEphemF32.OEStateEphem()
     oe_ephemeris_module.modelTag = "oe_ephemeris_module"
     sim.AddModelToTask(task_name, oe_ephemeris_module)
 
@@ -175,7 +175,7 @@ def cheby_fit(show_plots, valid_curve, anomay_flag):
     # create the dynamics task and specify the integration update time
     test_process.addTask(sim.CreateNewTask(task_name, macros.sec2nano(log_rate)))
 
-    oe_ephemeris_module = oeStateEphem.OEStateEphem()
+    oe_ephemeris_module = oeStateEphemF32.OEStateEphem()
     oe_ephemeris_module.modelTag = "oe_ephemeris_module"
     sim.AddModelToTask(task_name, oe_ephemeris_module)
 

@@ -17,8 +17,8 @@
 
  */
 
-#ifndef _OE_STATE_EPHEM_H_
-#define _OE_STATE_EPHEM_H_
+#ifndef F32XIMERA_OE_STATE_EPHEM_H
+#define F32XIMERA_OE_STATE_EPHEM_H
 
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>

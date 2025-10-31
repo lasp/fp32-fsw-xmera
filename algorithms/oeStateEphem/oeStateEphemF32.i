@@ -16,7 +16,7 @@
  OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
  */
-%module oeStateEphem
+%module oeStateEphemF32
 %{
    #include "oeStateEphem.h"
 %}

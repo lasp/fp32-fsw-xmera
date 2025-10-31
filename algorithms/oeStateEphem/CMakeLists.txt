@@ -1,4 +1,4 @@
-set(module "fswAlgorithms.transDetermination.oeStateEphem")
+set(module "fp32.oeStateEphemF32")
 xmera_is_module_enabled("${module}" _is_enabled)
 if(NOT _is_enabled)
   return()
