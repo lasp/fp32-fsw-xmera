@@ -1,0 +1,195 @@
+# MIT License
+#
+# Copyright (c) 2025, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
+
+import inspect
+import os
+
+import numpy as np
+import pytest
+import matplotlib.pyplot as plt
+
+filename = inspect.getframeinfo(inspect.currentframe()).filename
+path = os.path.dirname(os.path.abspath(filename))
+
+
+from Basilisk.utilities import SimulationBaseClass
+from Basilisk.fp32 import sunSearchF32
+from Basilisk.utilities import macros
+from Basilisk.architecture import messaging
+from Basilisk.architecture import sim_model
+
+
+def computeKinematicProperties(theta_R, T_R, u_M, I, omega_M):
+
+    alpha_M = u_M / I
+
+    # Computing the fastest bang-bang slew with no coasting arc
+    alpha = 4 * theta_R / T_R**2
+    omega = 2 * theta_R / T_R
+    T = T_R
+    t_c = T_R / 2
+
+    # If angular acceleration exceeds limit, decrease acceleration and increase slew time
+    if alpha > alpha_M:
+        alpha = alpha_M
+        T = 2 * (theta_R / alpha)**0.5
+        t_c = T / 2
+        omega = alpha * t_c
+
+    # If angular rate exceeds limit, increase slew time adding a coasting arc
+    if omega > omega_M:
+        omega = omega_M
+        T = theta_R / omega + omega / alpha
+        t_c = omega / alpha
+
+    return alpha, omega, T, t_c
+
+
+@pytest.mark.parametrize("axis1", [1, 2, 3])
+@pytest.mark.parametrize("axis2", [1, 2, 3])
+@pytest.mark.parametrize("axis3", [1, 2, 3])
+@pytest.mark.parametrize("omega_BN_B", [[0, 0, 0], [0.01, -0.02, 0.03]])
+def test_sunSearch(show_plots, axis1, axis2, axis3, omega_BN_B):
+
+    unitTaskName = "unitTask"
+    unitProcessName = "TestProcess"
+    sim_model.setDefaultLogLevel(sim_model.BSK_WARNING)
+
+    # Create a sim module as an empty container
+    unitTestSim = SimulationBaseClass.SimBaseClass()
+
+    # Create test thread
+    testProcessRate = macros.sec2nano(1.1)
+    testProc = unitTestSim.CreateNewProcess(unitProcessName)
+    testProc.addTask(unitTestSim.CreateNewTask(unitTaskName, testProcessRate))
+
+    theta1 = np.pi/2
+    theta2 = np.pi
+    theta3 = 2*np.pi
+    T_R = 1
+    u_M = 1
+    omega_M = np.pi / 18
+
+    # Construct algorithm and associated C++ container
+    attGuidance = sunSearchF32.SunSearch()
+    attGuidance.modelTag = "sunSearch"
+
+    slewProp1 = sunSearchF32.SlewProperties()
+    slewProp1.slewTime = T_R
+    slewProp1.slewAngle = theta1
+    slewProp1.slewMaxRate = omega_M
+    slewProp1.slewMaxTorque = u_M
+    slewProp1.slewRotAxis = axis1
+
+    slewProp2 = sunSearchF32.SlewProperties()
+    slewProp2.slewTime = T_R
+    slewProp2.slewAngle = theta2
+    slewProp2.slewMaxRate = omega_M
+    slewProp2.slewMaxTorque = u_M
+    slewProp2.slewRotAxis = axis2
+
+    slewProp3 = sunSearchF32.SlewProperties()
+    slewProp3.slewTime = T_R
+    slewProp3.slewAngle = theta3
+    slewProp3.slewMaxRate = omega_M
+    slewProp3.slewMaxTorque = u_M
+    slewProp3.slewRotAxis = axis3
+
+    attGuidance.setSlewProperties(slewProp1)
+    attGuidance.setSlewProperties(slewProp2)
+    attGuidance.setSlewProperties(slewProp3)
+
+    # Add test module to runtime call list
+    unitTestSim.AddModelToTask(unitTaskName, attGuidance)
+
+    # Initialize the test module configuration data
+    # These will eventually become input messages
+
+    # Create input navigation message
+    NavAttMessageData = messaging.NavAttMsgF32Payload()
+    NavAttMessageData.omega_BN_B = omega_BN_B
+    NavAttMsg = messaging.NavAttMsgF32().write(NavAttMessageData)
+    attGuidance.attNavInMsg.subscribeTo(NavAttMsg)
+
+    I = [100, 200, 300]
+
+    # Create input vehicle configuration message
+    VehConfMessageData = messaging.VehicleConfigMsgF32Payload()
+    VehConfMessageData.ISCPntB_B = [I[0],  0.0,  0.0,
+                                     0.0, I[1],  0.0,
+                                     0.0,  0.0, I[2]]
+    VehConfMessage = messaging.VehicleConfigMsgF32().write(VehConfMessageData)
+    attGuidance.vehConfigInMsg.subscribeTo(VehConfMessage)
+
+    # Setup logging on the test module output message so that we get all the writes to it
+    dataLog = attGuidance.attGuidOutMsg.recorder()
+    unitTestSim.AddModelToTask(unitTaskName, dataLog)
+
+    alpha1, omega1, T1, tc1 = computeKinematicProperties(theta1, T_R, u_M, I[axis1-1], omega_M)
+    alpha2, omega2, T2, tc2 = computeKinematicProperties(theta2, T_R, u_M, I[axis2-1], omega_M)
+    alpha3, omega3, T3, tc3 = computeKinematicProperties(theta3, T_R, u_M, I[axis3-1], omega_M)
+
+    # Need to call the self-init and cross-init methods
+    unitTestSim.InitializeSimulation()
+
+    # Set the simulation time.
+    # NOTE: the total simulation time may be longer than this value. The
+    # simulation is stopped at the next logging event on or after the
+    # simulation end time.
+    unitTestSim.ConfigureStopTime(macros.sec2nano(T1+T2+T3))
+
+    # Begin the simulation time run set above
+    unitTestSim.ExecuteSimulation()
+
+    time = dataLog.times() * macros.NANO2SEC
+    omega_BR_B = dataLog.omega_BR_B
+    omega_RN_B = dataLog.omega_RN_B
+    omegaDot_RN_B = dataLog.domega_RN_B
+
+    timeVector = [0, tc1, T1-tc1, T1, T1+tc2, T1+T2-tc2, T1+T2, T1+T2+tc3, T1+T2+T3-tc3, T1+T2+T3]
+
+    omega_BR_B_truth = np.zeros((len(time), 3))
+    omega_RN_B_truth = np.zeros((len(time), 3))
+    omegaDot_RN_B_truth = np.zeros((len(time), 3))
+    for i in range(len(time)):
+        t = time[i]
+        if t < timeVector[1]:
+            omega_RN_B_truth[i, axis1-1] = omega1 * t / tc1
+            omegaDot_RN_B_truth[i, axis1-1] = alpha1
+        elif t < timeVector[2]:
+            omega_RN_B_truth[i, axis1-1] = omega1
+        elif t < timeVector[3]:
+            omega_RN_B_truth[i, axis1-1] = omega1 * (T1-t) / tc1
+            omegaDot_RN_B_truth[i, axis1-1] = -alpha1
+        elif t < timeVector[4]:
+            omega_RN_B_truth[i, axis2-1] = omega2 * (t-T1) / tc2
+            omegaDot_RN_B_truth[i, axis2-1] = alpha2
+        elif t < timeVector[5]:
+            omega_RN_B_truth[i, axis2-1] = omega2
+        elif t < timeVector[6]:
+            omega_RN_B_truth[i, axis2-1] = omega2 * (T1+T2-t) / tc2
+            omegaDot_RN_B_truth[i, axis2-1] = -alpha2
+        elif t < timeVector[7]:
+            omega_RN_B_truth[i, axis3-1] = omega3 * (t-T1-T2) / tc3
+            omegaDot_RN_B_truth[i, axis3-1] = alpha3
+        elif t < timeVector[8]:
+            omega_RN_B_truth[i, axis3-1] = omega3
+        elif t < timeVector[9]:
+            omega_RN_B_truth[i, axis3-1] = omega3 * (T1+T2+T3-t) / tc3
+            omegaDot_RN_B_truth[i, axis3-1] = -alpha3
+        omega_BR_B_truth[i] = omega_BN_B - omega_RN_B_truth[i]
+
+    accuracy = 1e-6
+
+    # set the filtered output truth states
+    np.testing.assert_allclose(omega_BR_B, omega_BR_B_truth, rtol=0, atol=accuracy, verbose=True)
+    np.testing.assert_allclose(omega_RN_B, omega_RN_B_truth, rtol=0, atol=accuracy, verbose=True)
+    np.testing.assert_allclose(omegaDot_RN_B, omegaDot_RN_B_truth, rtol=0, atol=accuracy, verbose=True)
+
+    return
+
+
+
+if __name__ == "__main__":
+    test_sunSearch(False, 1, 2, 3, [0, 0, 0])
