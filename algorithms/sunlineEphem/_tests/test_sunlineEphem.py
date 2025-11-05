@@ -4,10 +4,10 @@
 
 import numpy as np
 
-from Basilisk.architecture import messaging
-from Basilisk.fp32 import sunlineEphemF32
-from Basilisk.utilities import SimulationBaseClass
-from Basilisk.utilities import macros
+from xmera.architecture import messaging
+from xmera.fp32 import sunlineEphemF32
+from xmera.utilities import SimulationBaseClass
+from xmera.utilities import macros
 
 def test_sunlineEphem():
     unitTaskName = "unitTask"               # arbitrary name (don't change)

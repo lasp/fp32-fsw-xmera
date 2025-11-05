@@ -4,11 +4,11 @@
 
 import numpy as np
 
-from Basilisk.utilities import SimulationBaseClass
-from Basilisk.fp32 import attTrackingErrorF32
-from Basilisk.utilities import macros
-from Basilisk.utilities import RigidBodyKinematics as rbk
-from Basilisk.architecture import messaging
+from xmera.utilities import SimulationBaseClass
+from xmera.fp32 import attTrackingErrorF32
+from xmera.utilities import macros
+from xmera.utilities import RigidBodyKinematics as rbk
+from xmera.architecture import messaging
 
 def test_attTrackingError():
     unitTaskName = "unitTask"

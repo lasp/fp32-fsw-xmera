@@ -11,16 +11,16 @@ import pytest
 
 filename = inspect.getframeinfo(inspect.currentframe()).filename
 path = os.path.dirname(os.path.abspath(filename))
-bskName = 'Basilisk'
-splitPath = path.split(bskName)
+xmeraName = 'xmera'
+splitPath = path.split(xmeraName)
 
 
 # Import all of the modules that we are going to be called in this simulation
-from Basilisk.utilities import SimulationBaseClass
-from Basilisk.utilities import unitTestSupport
-from Basilisk.fp32 import navAggregateF32
-from Basilisk.utilities import macros
-from Basilisk.architecture import messaging
+from xmera.utilities import SimulationBaseClass
+from xmera.utilities import unitTestSupport
+from xmera.fp32 import navAggregateF32
+from xmera.utilities import macros
+from xmera.architecture import messaging
 
 # Uncomment this line is this test is to be skipped in the global unit test run, adjust message as needed.
 # @pytest.mark.skipif(conditionstring)

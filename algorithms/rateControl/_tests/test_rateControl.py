@@ -5,10 +5,10 @@
 import numpy as np
 import pytest
 
-from Basilisk.utilities import SimulationBaseClass
-from Basilisk.fp32 import rateControlF32
-from Basilisk.utilities import macros
-from Basilisk.architecture import messaging
+from xmera.utilities import SimulationBaseClass
+from xmera.fp32 import rateControlF32
+from xmera.utilities import macros
+from xmera.architecture import messaging
 
 @pytest.mark.parametrize("setExtTorque", [False, True])
 
