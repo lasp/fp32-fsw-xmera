@@ -70,7 +70,7 @@ unsigned int OEStateEphem::getArcAnomalyFlag(unsigned int arcNumber) const {
 
 void OEStateEphem::setArcRadiusPeriapsisCoefficients(
     const unsigned int arcNumber,
-    const std::array<double, MAX_OE_COEFF>& radiusPeriapsisCoefficients) {
+    const std::array<double, MAX_OE_COEFF> &radiusPeriapsisCoefficients) {
     this->algorithm.setArcRadiusPeriapsisCoefficients(arcNumber, radiusPeriapsisCoefficients);
 };
 

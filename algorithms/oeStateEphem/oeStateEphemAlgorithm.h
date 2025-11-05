@@ -26,9 +26,8 @@ class ChebyshevFitArc {
     double ephemerisTimeRadius{};           //!< [s] "Radius" of time that curve is valid for (half of total range)
     std::array<double, MAX_OE_COEFF>
         radiusPeriapsisCoefficients{};  //!< [-] Set of chebyshev coefficients for radius at periapses
-    std::array<float, MAX_OE_COEFF>
-        eccentricityCoefficients{};                              //!< [-] Set of chebyshev coefficients for eccentricity
-    std::array<float, MAX_OE_COEFF> inclinationCoefficients{};  //!< [-] Set of chebyshev coefficients for inclination
+    std::array<float, MAX_OE_COEFF> eccentricityCoefficients{};  //!< [-] Set of chebyshev coefficients for eccentricity
+    std::array<float, MAX_OE_COEFF> inclinationCoefficients{};   //!< [-] Set of chebyshev coefficients for inclination
     std::array<float, MAX_OE_COEFF>
         argPeriapsisCoefficients{};  //!< [-] Set of chebyshev coefficients for argument of periapses
     std::array<float, MAX_OE_COEFF>
@@ -64,7 +63,7 @@ class OEStateEphemAlgorithm {
     unsigned int getArcAnomalyFlag(unsigned int arcNumber) const;
 
     void setArcRadiusPeriapsisCoefficients(const unsigned int arcNumber,
-                                           const std::array<double, MAX_OE_COEFF>& radiusPeriapsisCoefficients);
+                                           const std::array<double, MAX_OE_COEFF> &radiusPeriapsisCoefficients);
     std::array<double, MAX_OE_COEFF> getArcRadiusPeriapsisCoefficients(const unsigned int arcNumber);
     void setArcEccentricityCoefficients(const unsigned int arcNumber,
                                         const std::array<float, MAX_OE_COEFF> &eccentricityCoefficients);
@@ -83,8 +82,8 @@ class OEStateEphemAlgorithm {
 
    private:
     ChebyshevFitArc findCurrentArc(uint64_t callTime, const TDBVehicleClockCorrelationMsgF32Payload &localTime);
-    double scaleEphemerisTime(const ChebyshevFitArc& arc) const;
-    static ClassicalElementsF32 evaluateCoefficients(const double currentScaledValue, const ChebyshevFitArc& arc);
+    double scaleEphemerisTime(const ChebyshevFitArc &arc) const;
+    static ClassicalElementsF32 evaluateCoefficients(const double currentScaledValue, const ChebyshevFitArc &arc);
     double currentEphTime{};
     double gravitationalParameter{};  //!< [m3/s^2] Gravitational parameter for center of orbital elements
     std::array<ChebyshevFitArc, MAX_OE_RECORDS> fitCoefficients{};  //!< [-] Array of Chebyshev records for ephemeris

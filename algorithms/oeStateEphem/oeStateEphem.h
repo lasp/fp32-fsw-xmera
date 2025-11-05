@@ -7,11 +7,11 @@
 #ifndef F32XIMERA_OE_STATE_EPHEM_H
 #define F32XIMERA_OE_STATE_EPHEM_H
 
-#include <architecture/_GeneralModuleFiles/sys_model.h>
-#include <architecture/messaging/messaging.h>
 #include "msgPayloadDef/EphemerisMsgF32Payload.h"
 #include "msgPayloadDef/TDBVehicleClockCorrelationMsgF32Payload.h"
 #include "oeStateEphemAlgorithm.h"
+#include <architecture/_GeneralModuleFiles/sys_model.h>
+#include <architecture/messaging/messaging.h>
 
 #define MAX_OE_RECORDS 10
 #define MAX_OE_COEFF 20
@@ -48,7 +48,7 @@ class OEStateEphem : public SysModel {
     unsigned int getArcAnomalyFlag(unsigned int arcNumber) const;
 
     void setArcRadiusPeriapsisCoefficients(unsigned int arcNumber,
-                                           const std::array<double, MAX_OE_COEFF>& radiusPeriapsisCoefficients);
+                                           const std::array<double, MAX_OE_COEFF> &radiusPeriapsisCoefficients);
     std::array<double, MAX_OE_COEFF> getArcRadiusPeriapsisCoefficients(unsigned int arcNumber);
     void setArcEccentricityCoefficients(unsigned int arcNumber,
                                         const std::array<float, MAX_OE_COEFF> &eccentricityCoefficients);

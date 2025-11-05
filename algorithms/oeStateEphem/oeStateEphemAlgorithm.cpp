@@ -5,9 +5,9 @@
  */
 
 #include "oeStateEphemAlgorithm.h"
+#include "../freestandingInvalidArgument.h"
 #include "architecture/utilities/eigenSupport.h"
 #include "utilities/ephemerisUtilities.h"
-#include "../freestandingInvalidArgument.h"
 
 void OEStateEphemAlgorithm::reset(uint64_t callTime, const TDBVehicleClockCorrelationMsgF32Payload& timePayload) {
     this->spacecraftTime = timePayload;
