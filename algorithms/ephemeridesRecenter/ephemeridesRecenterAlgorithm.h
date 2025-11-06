@@ -16,6 +16,9 @@
  OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 */
 
+#ifndef F32XIMERA_EPHEM_RECENTER_ALGORITHM_H
+#define F32XIMERA_EPHEM_RECENTER_ALGORITHM_H
+
 #include <architecture/messaging/messaging.h>
 #include <architecture/msgPayloadDef/EphemerisMsgPayload.h>
 #include <Eigen/Core>
@@ -70,3 +73,5 @@ class EphemeridesRecenterAlgorithm {
     BodyEphemerisPayload previousCentralBody{};                                 //!< Previous reference body
     std::string previousCentralBodyName{};
 };
+
+#endif

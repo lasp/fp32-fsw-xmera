@@ -17,8 +17,8 @@
 
  */
 
-#ifndef _EPHEM_RECENTER_H_
-#define _EPHEM_RECENTER_H_
+#ifndef F32XIMERA_EPHEM_RECENTER_H
+#define F32XIMERA_EPHEM_RECENTER_H
 
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>

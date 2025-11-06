@@ -22,7 +22,7 @@ filename = inspect.getframeinfo(inspect.currentframe()).filename
 path = os.path.dirname(os.path.abspath(filename))
 
 from xmera.utilities import SimulationBaseClass
-from xmera.fswAlgorithms import ephemeridesRecenter
+from xmera.fp32 import ephemeridesRecenterF32
 from xmera.architecture import messaging
 
 def test_body_recenter():
@@ -47,13 +47,13 @@ def mars_central_body():
     testProc = unitTestSim.CreateNewProcess(unitProcessName)
     testProc.addTask(unitTestSim.CreateNewTask(unitTaskName,  int(0.5e9)))
 
-    ephemRecenter = ephemeridesRecenter.EphemeridesRecenter()
+    ephemRecenter = ephemeridesRecenterF32.EphemeridesRecenter()
     ephemRecenter.modelTag = "ephemeridesRecenter"
     unitTestSim.AddModelToTask(unitTaskName, ephemRecenter)
 
     list_of_bodies = []
     # Create bodies to add to the module
-    sunBody = ephemeridesRecenter.BodyEphemeris()
+    sunBody = ephemeridesRecenterF32.BodyEphemeris()
     sunInputPayload = messaging.EphemerisMsgPayload()
     position = [0,0,0]
     velocity = [0,0,0]
@@ -67,7 +67,7 @@ def mars_central_body():
     list_of_bodies.append(sunBody)
 
     # Set this message
-    earthBody = ephemeridesRecenter.BodyEphemeris()
+    earthBody = ephemeridesRecenterF32.BodyEphemeris()
     earthInputPayload = messaging.EphemerisMsgPayload()
     position = [1000, -200, 100]
     velocity = [10, 0, -8]
@@ -80,7 +80,7 @@ def mars_central_body():
     earthBody.originalCentralBodyName = "sun"
     list_of_bodies.append(earthBody)
 
-    marsBody = ephemeridesRecenter.BodyEphemeris()
+    marsBody = ephemeridesRecenterF32.BodyEphemeris()
     marsInputPayload = messaging.EphemerisMsgPayload()
     position = [-4000, 3000, 10000]
     velocity = [-1, -2, 1]
@@ -93,7 +93,7 @@ def mars_central_body():
     marsBody.originalCentralBodyName = "sun"
     list_of_bodies.append(marsBody)
 
-    moonBody = ephemeridesRecenter.BodyEphemeris()
+    moonBody = ephemeridesRecenterF32.BodyEphemeris()
     moonInputPayload = messaging.EphemerisMsgPayload()
     position = [-50, 30, 100]
     velocity = [-0.5, -0.2, 0.1]
@@ -185,13 +185,13 @@ def moon_central_body():
     testProc = unitTestSim.CreateNewProcess(unitProcessName)
     testProc.addTask(unitTestSim.CreateNewTask(unitTaskName,  int(0.5e9)))
 
-    ephemRecenter = ephemeridesRecenter.EphemeridesRecenter()
+    ephemRecenter = ephemeridesRecenterF32.EphemeridesRecenter()
     ephemRecenter.modelTag = "ephemeridesRecenter"
     unitTestSim.AddModelToTask(unitTaskName, ephemRecenter)
 
     list_of_bodies = []
     # Create bodies to add to the module
-    sunBody = ephemeridesRecenter.BodyEphemeris()
+    sunBody = ephemeridesRecenterF32.BodyEphemeris()
     sunInputPayload = messaging.EphemerisMsgPayload()
     position = [80000, 10000, -9000]
     velocity = [-5, 2, -0.9]
@@ -205,7 +205,7 @@ def moon_central_body():
     list_of_bodies.append(sunBody)
 
     # Set this message
-    earthBody = ephemeridesRecenter.BodyEphemeris()
+    earthBody = ephemeridesRecenterF32.BodyEphemeris()
     earthInputPayload = messaging.EphemerisMsgPayload()
     position = [1000, -200, 100]
     velocity = [10, 0, -8]
@@ -218,7 +218,7 @@ def moon_central_body():
     earthBody.originalCentralBodyName = "saturn"
     list_of_bodies.append(earthBody)
 
-    marsBody = ephemeridesRecenter.BodyEphemeris()
+    marsBody = ephemeridesRecenterF32.BodyEphemeris()
     marsInputPayload = messaging.EphemerisMsgPayload()
     position = [-4000, 3000, 10000]
     velocity = [-1, -2, 1]
@@ -231,7 +231,7 @@ def moon_central_body():
     marsBody.originalCentralBodyName = "saturn"
     list_of_bodies.append(marsBody)
 
-    moonBody = ephemeridesRecenter.BodyEphemeris()
+    moonBody = ephemeridesRecenterF32.BodyEphemeris()
     moonInputPayload = messaging.EphemerisMsgPayload()
     position = [-50, 30, 100]
     velocity = [-0.5, -0.2, 0.1]
@@ -244,7 +244,7 @@ def moon_central_body():
     moonBody.originalCentralBodyName = "earth"
     list_of_bodies.append(moonBody)
 
-    saturnBody = ephemeridesRecenter.BodyEphemeris()
+    saturnBody = ephemeridesRecenterF32.BodyEphemeris()
     saturnInputPayload = messaging.EphemerisMsgPayload()
     position = [0,0,0]
     velocity = [0,0,0]
@@ -336,13 +336,13 @@ def clearing_values():
     testProc = unitTestSim.CreateNewProcess(unitProcessName)
     testProc.addTask(unitTestSim.CreateNewTask(unitTaskName,  int(0.5e9)))
 
-    ephemRecenter = ephemeridesRecenter.EphemeridesRecenter()
+    ephemRecenter = ephemeridesRecenterF32.EphemeridesRecenter()
     ephemRecenter.modelTag = "ephemeridesRecenter"
     unitTestSim.AddModelToTask(unitTaskName, ephemRecenter)
 
     list_of_bodies = []
     # Create bodies to add to the module
-    sunBody = ephemeridesRecenter.BodyEphemeris()
+    sunBody = ephemeridesRecenterF32.BodyEphemeris()
     sunInputPayload = messaging.EphemerisMsgPayload()
     position = [0,0,0]
     velocity = [0,0,0]
@@ -356,7 +356,7 @@ def clearing_values():
     list_of_bodies.append(sunBody)
 
     # Set this message
-    earthBody = ephemeridesRecenter.BodyEphemeris()
+    earthBody = ephemeridesRecenterF32.BodyEphemeris()
     earthInputPayload = messaging.EphemerisMsgPayload()
     position = [1000, -200, 100]
     velocity = [10, 0, -8]
@@ -369,7 +369,7 @@ def clearing_values():
     earthBody.originalCentralBodyName = "sun"
     list_of_bodies.append(earthBody)
 
-    marsBody = ephemeridesRecenter.BodyEphemeris()
+    marsBody = ephemeridesRecenterF32.BodyEphemeris()
     marsInputPayload = messaging.EphemerisMsgPayload()
     position = [-4000, 3000, 10000]
     velocity = [-1, -2, 1]
@@ -382,7 +382,7 @@ def clearing_values():
     marsBody.originalCentralBodyName = "sun"
     list_of_bodies.append(marsBody)
 
-    moonBody = ephemeridesRecenter.BodyEphemeris()
+    moonBody = ephemeridesRecenterF32.BodyEphemeris()
     moonInputPayload = messaging.EphemerisMsgPayload()
     position = [-50, 30, 100]
     velocity = [-0.5, -0.2, 0.1]

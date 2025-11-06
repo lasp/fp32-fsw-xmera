@@ -16,7 +16,7 @@
  OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
  */
-%module ephemeridesRecenter
+%module ephemeridesRecenterF32
 %{
    #include "ephemeridesRecenter.h"
 %}
