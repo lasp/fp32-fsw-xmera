@@ -19,7 +19,7 @@
 import numpy as np
 import pytest
 from xmera.architecture import messaging
-from xmera.fswAlgorithms import mrpSteering  # import the module that is to be tested
+from xmera.fp32 import mrpSteeringF32  # import the module that is to be tested
 from xmera.utilities import RigidBodyKinematics
 from xmera.utilities import SimulationBaseClass
 from xmera.utilities import macros
@@ -41,7 +41,7 @@ def test_mrp_steering_tracking(show_plots, K1, K3, omega_max, ignore_feed_forwar
     test_proc = unit_test_sim.CreateNewProcess(unit_process_name)
     test_proc.addTask(unit_test_sim.CreateNewTask(unit_task_name, test_process_rate))
 
-    module = mrpSteering.MrpSteering()
+    module = mrpSteeringF32.MrpSteering()
     module.modelTag = "mrpSteering"
     unit_test_sim.AddModelToTask(unit_task_name, module)
 

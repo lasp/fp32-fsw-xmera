@@ -1,4 +1,4 @@
-set(module "fswAlgorithms.attControl.mrpSteering")
+set(module "fp32.mrpSteeringF32")
 xmera_is_module_enabled("${module}" _is_enabled)
 if(NOT _is_enabled)
   return()

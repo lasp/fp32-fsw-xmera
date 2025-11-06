@@ -16,7 +16,7 @@
  OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
  */
-%module mrpSteering
+%module mrpSteeringF32
 %{
    #include "mrpSteering.h"
 %}

@@ -17,8 +17,8 @@
 
  */
 
-#ifndef MRP_STEERING_ALGORITHM_H
-#define MRP_STEERING_ALGORITHM_H
+#ifndef F32XMERA_MRP_STEERING_ALGORITHM_H
+#define F32XMERA_MRP_STEERING_ALGORITHM_H
 
 #include <architecture/msgPayloadDef/AttGuidMsgPayload.h>
 #include <architecture/msgPayloadDef/RateCmdMsgPayload.h>

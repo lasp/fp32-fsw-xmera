@@ -17,8 +17,8 @@
 
  */
 
-#ifndef MRP_STEERING_H
-#define MRP_STEERING_H
+#ifndef F32XMERA_MRP_STEERING_H
+#define F32XMERA_MRP_STEERING_H
 
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
