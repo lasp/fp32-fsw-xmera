@@ -1,0 +1,64 @@
+/*
+ MIT License
+
+ Copyright (c) 2025, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
+ */
+
+#ifndef F32XIMERA_EPHEM_RECENTER_ALGORITHM_H
+#define F32XIMERA_EPHEM_RECENTER_ALGORITHM_H
+
+#include "msgPayloadDef/EphemerisMsgF32Payload.h"
+#include <architecture/messaging/messaging.h>
+#include <array>
+#include <string>
+
+inline constexpr int MAX_NUM_CHANGE_BODIES = 20;
+
+/**
+ * @brief Container for input/output ephemeris messages used in recentering.
+ */
+class BodyEphemerisPayload {
+   public:
+    std::string bodySpiceName;            //!< SPICE name of the body
+    std::string originalCentralBodyName;  //!< Original reference body for ephemeris data
+    bool isMoon{false};                   //!< Body is moon of another body in the list
+    EphemerisMsgF32Payload inputEphemerisPayload{EphemerisMsgF32Payload{}};  //!< Input ephemeris message
+    EphemerisMsgF32Payload outputEphemerisPayload{
+        EphemerisMsgF32Payload{}};  //!< Output ephemeris message after recentering
+};
+
+/**
+ * @brief Basilisk model to recenter ephemeris data from one central body to another.
+ *
+ * This class processes a set of body ephemerides and recomputes their
+ * positions and velocities relative to a new central body.
+ */
+class EphemeridesRecenterAlgorithm {
+   public:
+    void reset();
+    std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES> updateState(
+        const std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES>& newBody);
+    size_t getBodyIndexFromName(const std::string& celestialBodyName) const;
+    void setNewZeroBaseName(const std::string& bodyName);
+    size_t findNewZeroBaseIndex(const std::string& bodyName);
+    std::string getNewZeroBase() const;
+    void setPreviousCommonZeroBase(const std::string& bodyName);
+    std::string getPreviousCommonZeroBase() const;
+    size_t getNumberOfBodies() const;
+    std::array<std::string, MAX_NUM_CHANGE_BODIES> getAllNames() const;
+    void addBodyEphemerisToRecenter(const std::string& bodyName);
+    void clearAllBodies();
+
+   private:
+    bool findMoonOfBody(const BodyEphemerisPayload& celestialBody, size_t* index) const;
+
+    std::string newCentralBodyName{};
+    std::array<std::string, MAX_NUM_CHANGE_BODIES> bodyNames{};
+    size_t celestialBodyCount{};  //!< Number of primary bodies
+    size_t newCentralIndex{};
+    std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES> celestialBodies{};  //!< All celestial bodies involved
+    BodyEphemerisPayload previousCentralBody{};                                 //!< Previous reference body
+    std::string previousCentralBodyName{};
+};
+
+#endif

@@ -7,15 +7,15 @@ import os
 
 import numpy as np
 import pytest
-from Basilisk.architecture import messaging
-from Basilisk.fp32 import stepperMotorControllerF32
-from Basilisk.utilities import SimulationBaseClass
-from Basilisk.utilities import macros
+from xmera.architecture import messaging
+from xmera.fp32 import stepperMotorControllerF32
+from xmera.utilities import SimulationBaseClass
+from xmera.utilities import macros
 
 filename = inspect.getframeinfo(inspect.currentframe()).filename
 path = os.path.dirname(os.path.abspath(filename))
-bskName = 'Basilisk'
-splitPath = path.split(bskName)
+xmeraName = 'xmera'
+splitPath = path.split(xmeraName)
 
 # the inputs are rounded to single precision such that the module and python use the same precision for the inputs.
 # Otherwise, the ceiling/floor function with a division input may result in a difference of 1,

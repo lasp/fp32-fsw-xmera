@@ -6,7 +6,13 @@
 
 #include "ephemNavConverterAlgorithm.h"
 
-static void v3Copy(float const v[3], float result[3]) {
+/**
+ * @brief Copy a 3x1 vector.
+ * @param v The vector to be copied.
+ * @param result The vector copy.
+ */
+template <typename ScalarT>
+static void v3Copy(ScalarT const v[3], ScalarT result[3]) {
     result[0] = v[0];
     result[1] = v[1];
     result[2] = v[2];

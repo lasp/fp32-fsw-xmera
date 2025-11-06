@@ -10,16 +10,15 @@
 #include <stdio.h>
 
 /**
- * @brief Copy a 3x1 float vector.
+ * @brief Copy a 3x1 vector.
  * @param v The vector to be copied.
  * @param result The vector copy.
  */
-static void v3Copy(float v[3], float result[3]) {
-    size_t dim = 3;
-    size_t i;
-    for (i = 0; i < dim; i++) {
-        result[i] = v[i];
-    }
+template <typename ScalarT>
+static void v3Copy(ScalarT const v[3], ScalarT result[3]) {
+    result[0] = v[0];
+    result[1] = v[1];
+    result[2] = v[2];
 }
 
 /*! This method takes the navigation message snippets created by the various

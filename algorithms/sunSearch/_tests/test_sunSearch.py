@@ -13,11 +13,11 @@ filename = inspect.getframeinfo(inspect.currentframe()).filename
 path = os.path.dirname(os.path.abspath(filename))
 
 
-from Basilisk.utilities import SimulationBaseClass
-from Basilisk.fp32 import sunSearchF32
-from Basilisk.utilities import macros
-from Basilisk.architecture import messaging
-from Basilisk.architecture import sim_model
+from xmera.utilities import SimulationBaseClass
+from xmera.fp32 import sunSearchF32
+from xmera.utilities import macros
+from xmera.architecture import messaging
+from xmera.architecture import sim_model
 
 
 def computeKinematicProperties(theta_R, T_R, u_M, I, omega_M):

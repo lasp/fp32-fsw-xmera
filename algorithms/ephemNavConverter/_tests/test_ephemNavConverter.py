@@ -7,10 +7,10 @@ import os
 
 import numpy as np
 
-from Basilisk.architecture import messaging
-from Basilisk.fp32 import ephemNavConverterF32
-from Basilisk.utilities import SimulationBaseClass, unitTestSupport, macros
-from Basilisk.utilities import astroFunctions
+from xmera.architecture import messaging
+from xmera.fp32 import ephemNavConverterF32
+from xmera.utilities import SimulationBaseClass, unitTestSupport, macros
+from xmera.utilities import astroFunctions
 
 filename = inspect.getframeinfo(inspect.currentframe()).filename
 path = os.path.dirname(os.path.abspath(filename))
