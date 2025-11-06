@@ -1,4 +1,5 @@
 add_subdirectory(msgPayloadDef)
+add_subdirectory(utilities)
 
 add_subdirectory(attTrackingError)
 add_subdirectory(celestialTwoBodyPoint)
