@@ -20,7 +20,7 @@
 #include "mrpSteeringAlgorithm.h"
 #include "architecture/utilities/eigenSupport.h"
 #include "architecture/utilities/rigidBodyKinematics.hpp"
-#include <math.h>
+#include <numbers>
 #include <stdint.h>
 #include <Eigen/Core>
 #include "../freestandingInvalidArgument.h"
@@ -39,7 +39,7 @@ RateCmdMsgF32Payload MrpSteeringAlgorithm::update(AttGuidMsgF32Payload& guidInMs
     for (uint32_t i = 0; i < 3; ++i) {
         const float sigma_i = sigma_BR[i];
         const float f_i =
-            atan(M_PI_2 / this->omegaMax * (this->K1 * sigma_i + this->K3 * pow(sigma_i, 3))) / M_PI_2 * this->omegaMax;
+            atan(std::numbers::pi / 2 / this->omegaMax * (this->K1 * sigma_i + this->K3 * pow(sigma_i, 3))) / (std::numbers::pi / 2) * this->omegaMax;
         omega_ast[i] = -f_i;
     }
     if (!this->ignoreOuterLoopFeedforward) {
@@ -49,7 +49,7 @@ RateCmdMsgF32Payload MrpSteeringAlgorithm::update(AttGuidMsgF32Payload& guidInMs
         for (uint32_t i = 0; i < 3; ++i) {
             const float sigma_i = sigma_BR[i];
             const float f_i = (3 * this->K3 * pow(sigma_i, 2) + this->K1) /
-                         (pow(M_PI_2 / this->omegaMax * (this->K1 * sigma_i + this->K3 * pow(sigma_i, 3)), 2) + 1);
+                         (pow(std::numbers::pi / 2 / this->omegaMax * (this->K1 * sigma_i + this->K3 * pow(sigma_i, 3)), 2) + 1);
             omega_ast_p[i] = -f_i * sigmaDot_BR[i];
         }
     }
