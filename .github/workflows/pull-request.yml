@@ -273,11 +273,6 @@ jobs:
           cmake --install build --prefix $(pwd)/dist
           python -m pip install -e .
 
-      - name: Install fp32-fsw-xmera (editable, if package)
-        run: |
-          source .venv/bin/activate
-          if [[ -f pyproject.toml || -f setup.py ]]; then python -m pip install -e .; fi
-
       - name: Run fp32-fsw-xmera tests
         run: |
           source .venv/bin/activate
