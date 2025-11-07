@@ -23,7 +23,7 @@
 #include <math.h>
 #include <stdint.h>
 #include <Eigen/Core>
-#include <stdexcept>
+#include "../freestandingInvalidArgument.h"
 
 /*! This method takes the attitude and rate errors relative to the Reference frame, as well as
     the reference frame angular rates and acceleration
@@ -67,7 +67,7 @@ RateCmdMsgF32Payload MrpSteeringAlgorithm::update(AttGuidMsgF32Payload& guidInMs
 */
 void MrpSteeringAlgorithm::setK1(const float gain) {
     if (gain < 0.0) {
-        throw std::invalid_argument("mrpSteering feedback gain K1 must not be negative");
+        FS_THROW_INVALID_ARGUMENT("mrpSteering feedback gain K1 must not be negative");
     }
     this->K1 = gain;
 }
@@ -83,7 +83,7 @@ float MrpSteeringAlgorithm::getK1() const { return this->K1; }
 */
 void MrpSteeringAlgorithm::setK3(const float gain) {
     if (gain < 0.0) {
-        throw std::invalid_argument("mrpSteering feedback gain K3 must not be negative");
+        FS_THROW_INVALID_ARGUMENT("mrpSteering feedback gain K3 must not be negative");
     }
     this->K3 = gain;
 }
@@ -99,7 +99,7 @@ float MrpSteeringAlgorithm::getK3() const { return this->K3; }
 */
 void MrpSteeringAlgorithm::setOmegaMax(const float omega) {
     if (omega <= 0.0) {
-        throw std::invalid_argument("mrpSteering maximum rate omegaMax must be positive");
+        FS_THROW_INVALID_ARGUMENT("mrpSteering maximum rate omegaMax must be positive");
     }
     this->omegaMax = omega;
 }
