@@ -36,13 +36,13 @@ class MrpSteering : public SysModel {
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
 
-    void setK1(const float gain);
+    void setK1(float gain);
     float getK1() const;
-    void setK3(const float gain);
+    void setK3(float gain);
     float getK3() const;
-    void setOmegaMax(const float omega);
+    void setOmegaMax(float omega);
     float getOmegaMax() const;
-    void setIgnoreFeedforward(const bool ignore);
+    void setIgnoreFeedforward(bool ignore);
     bool getIgnoreFeedforward() const;
 
     Message<RateCmdMsgF32Payload> rateCmdOutMsg;  //!< rate command output message
