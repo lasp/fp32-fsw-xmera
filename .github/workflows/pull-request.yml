@@ -77,58 +77,6 @@ jobs:
           repository: lasp/basilisk
           path: xmera
 
-      - name: Add Release overlay preset for Xmera base
-        working-directory: xmera/src
-        run: |
-          python <<'PY'
-          import json
-          from pathlib import Path
-
-          preset_name = "base"
-          overlay_name = "base-release"
-
-          src_path = Path("CMakePresets.json")
-          if not src_path.exists():
-            raise SystemExit("CMakePresets.json not found in xmera/src")
-
-          with src_path.open("r", encoding="utf-8") as fh:
-            data = json.load(fh)
-
-          names = {p["name"] for p in data.get("configurePresets", [])}
-          if preset_name not in names:
-            raise SystemExit(f"Preset '{preset_name}' not present in CMakePresets.json")
-
-          user_path = Path("CMakeUserPresets.json")
-          if user_path.exists():
-            with user_path.open("r", encoding="utf-8") as fh:
-              user_data = json.load(fh)
-          else:
-            user_data = {"version": data.get("version", 5)}
-
-          user_cfg = user_data.setdefault("configurePresets", [])
-          user_cfg = [p for p in user_cfg if p.get("name") != overlay_name]
-          user_cfg.append({
-              "name": overlay_name,
-              "inherits": preset_name,
-              "cacheVariables": {
-                  "CMAKE_BUILD_TYPE": "Release"
-              }
-          })
-          user_data["configurePresets"] = user_cfg
-
-          user_build = user_data.setdefault("buildPresets", [])
-          user_build = [p for p in user_build if p.get("name") != overlay_name]
-          user_build.append({
-              "name": overlay_name,
-              "configurePreset": overlay_name
-          })
-          user_data["buildPresets"] = user_build
-
-          with user_path.open("w", encoding="utf-8") as fh:
-            json.dump(user_data, fh, indent=2)
-            fh.write("\n")
-          PY
-
       - name: Set up Python ${{ matrix.python-version }}
         id: setup-py
         uses: actions/setup-python@v5
@@ -299,7 +247,7 @@ jobs:
         run: |
           ln -s "${GITHUB_WORKSPACE}" .
           args=(
-            --preset base-release
+            --preset ci-test
             "-DXMERA_MODULE_ROOTS=${GITHUB_WORKSPACE}/xmera/src/fswAlgorithms/;${GITHUB_WORKSPACE}/xmera/src/simulation/;${GITHUB_WORKSPACE}/xmera/src/moduleTemplates/;${GITHUB_WORKSPACE}/xmera/src/fp32-fsw-xmera/algorithms"
             "-DXMERA_ENABLE_GROUPS=simulation;fswAlgorithms;moduleTemplates;fp32"
           )
