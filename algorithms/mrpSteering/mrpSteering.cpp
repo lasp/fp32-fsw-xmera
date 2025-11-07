@@ -38,9 +38,9 @@ void MrpSteering::reset(uint64_t callTime) {
  @param callTime The clock time at which the function was called (nanoseconds)
  */
 void MrpSteering::updateState(uint64_t callTime) {
-    AttGuidMsgPayload guidCmd = this->guidInMsg();
+    AttGuidMsgF32Payload guidCmd = this->guidInMsg();
 
-    RateCmdMsgPayload outMsg = this->algorithm.update(guidCmd);
+    RateCmdMsgF32Payload outMsg = this->algorithm.update(guidCmd);
 
     this->rateCmdOutMsg.write(&outMsg, moduleID, callTime);
 }
@@ -49,34 +49,34 @@ void MrpSteering::updateState(uint64_t callTime) {
  @return void
  @param gain [-] linear feedback gain K1
 */
-void MrpSteering::setK1(const double gain) { this->algorithm.setK1(gain); }
+void MrpSteering::setK1(const float gain) { this->algorithm.setK1(gain); }
 
 /*! Get the linear feedback gain K1
- @return double
+ @return float
 */
-double MrpSteering::getK1() const { return this->algorithm.getK1(); }
+float MrpSteering::getK1() const { return this->algorithm.getK1(); }
 
 /*! Set the cubic feedback gain K3
  @return void
  @param gain [-] cubic feedback gain K3
 */
-void MrpSteering::setK3(const double gain) { this->algorithm.setK3(gain); }
+void MrpSteering::setK3(const float gain) { this->algorithm.setK3(gain); }
 
 /*! Get the cubic feedback gain K3
- @return double
+ @return float
 */
-double MrpSteering::getK3() const { return this->algorithm.getK3(); }
+float MrpSteering::getK3() const { return this->algorithm.getK3(); }
 
 /*! Set the maximum rate command of steering control
  @return void
  @param omega [-] maximum rate command of steering control
 */
-void MrpSteering::setOmegaMax(const double omega) { this->algorithm.setOmegaMax(omega); }
+void MrpSteering::setOmegaMax(const float omega) { this->algorithm.setOmegaMax(omega); }
 
 /*! Get the maximum rate command of steering control
- @return double
+ @return float
 */
-double MrpSteering::getOmegaMax() const { return this->algorithm.getOmegaMax(); }
+float MrpSteering::getOmegaMax() const { return this->algorithm.getOmegaMax(); }
 
 /*! Set whether the outer loop feed-forward is ignored
  @return void

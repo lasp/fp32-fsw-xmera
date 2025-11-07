@@ -27,33 +27,33 @@
 
 /*! This method takes the attitude and rate errors relative to the Reference frame, as well as
     the reference frame angular rates and acceleration
- @return RateCmdMsgPayload
+ @return RateCmdMsgF32Payload
  @param guidInMsg attitude guidance input message
  */
-RateCmdMsgPayload MrpSteeringAlgorithm::update(AttGuidMsgPayload& guidInMsg) const {
-    Eigen::Vector3d sigma_BR = Eigen::Map<const Eigen::Vector3d>(guidInMsg.sigma_BR);
+RateCmdMsgF32Payload MrpSteeringAlgorithm::update(AttGuidMsgF32Payload& guidInMsg) const {
+    Eigen::Vector3f sigma_BR = Eigen::Map<const Eigen::Vector3f>(guidInMsg.sigma_BR);
 
-    Eigen::Vector3d omega_ast{};
-    Eigen::Vector3d omega_ast_p{Eigen::Vector3d::Zero()};
+    Eigen::Vector3f omega_ast{};
+    Eigen::Vector3f omega_ast_p{Eigen::Vector3f::Zero()};
 
     for (uint32_t i = 0; i < 3; ++i) {
-        double sigma_i = sigma_BR[i];
-        double f_i =
+        float sigma_i = sigma_BR[i];
+        float f_i =
             atan(M_PI_2 / this->omegaMax * (this->K1 * sigma_i + this->K3 * pow(sigma_i, 3))) / M_PI_2 * this->omegaMax;
         omega_ast[i] = -f_i;
     }
     if (!this->ignoreOuterLoopFeedforward) {
-        Eigen::Matrix3d B = bmatMrp(sigma_BR);
-        Eigen::Vector3d sigmaDot_BR = 0.25 * B * omega_ast;
+        Eigen::Matrix3f B = bmatMrp(sigma_BR);
+        Eigen::Vector3f sigmaDot_BR = 0.25 * B * omega_ast;
 
         for (uint32_t i = 0; i < 3; ++i) {
-            double sigma_i = sigma_BR[i];
-            double f_i = (3 * this->K3 * pow(sigma_i, 2) + this->K1) /
+            float sigma_i = sigma_BR[i];
+            float f_i = (3 * this->K3 * pow(sigma_i, 2) + this->K1) /
                          (pow(M_PI_2 / this->omegaMax * (this->K1 * sigma_i + this->K3 * pow(sigma_i, 3)), 2) + 1);
             omega_ast_p[i] = -f_i * sigmaDot_BR[i];
         }
     }
-    RateCmdMsgPayload outMsg{};
+    RateCmdMsgF32Payload outMsg{};
 
     eigenVectorToCArray(omega_ast, outMsg.omega_BastR_B);
     eigenVectorToCArray(omega_ast_p, outMsg.omegap_BastR_B);
@@ -65,7 +65,7 @@ RateCmdMsgPayload MrpSteeringAlgorithm::update(AttGuidMsgPayload& guidInMsg) con
  @return void
  @param gain [-] linear feedback gain K1
 */
-void MrpSteeringAlgorithm::setK1(const double gain) {
+void MrpSteeringAlgorithm::setK1(const float gain) {
     if (gain < 0.0) {
         throw std::invalid_argument("mrpSteering feedback gain K1 must not be negative");
     }
@@ -73,15 +73,15 @@ void MrpSteeringAlgorithm::setK1(const double gain) {
 }
 
 /*! Get the linear feedback gain K1
- @return double
+ @return float
 */
-double MrpSteeringAlgorithm::getK1() const { return this->K1; }
+float MrpSteeringAlgorithm::getK1() const { return this->K1; }
 
 /*! Set the cubic feedback gain K3
  @return void
  @param gain [-] cubic feedback gain K3
 */
-void MrpSteeringAlgorithm::setK3(const double gain) {
+void MrpSteeringAlgorithm::setK3(const float gain) {
     if (gain < 0.0) {
         throw std::invalid_argument("mrpSteering feedback gain K3 must not be negative");
     }
@@ -89,15 +89,15 @@ void MrpSteeringAlgorithm::setK3(const double gain) {
 }
 
 /*! Get the cubic feedback gain K3
- @return double
+ @return float
 */
-double MrpSteeringAlgorithm::getK3() const { return this->K3; }
+float MrpSteeringAlgorithm::getK3() const { return this->K3; }
 
 /*! Set the maximum rate command of steering control
  @return void
  @param omega [-] maximum rate command of steering control
 */
-void MrpSteeringAlgorithm::setOmegaMax(const double omega) {
+void MrpSteeringAlgorithm::setOmegaMax(const float omega) {
     if (omega <= 0.0) {
         throw std::invalid_argument("mrpSteering maximum rate omegaMax must be positive");
     }
@@ -105,9 +105,9 @@ void MrpSteeringAlgorithm::setOmegaMax(const double omega) {
 }
 
 /*! Get the maximum rate command of steering control
- @return double
+ @return float
 */
-double MrpSteeringAlgorithm::getOmegaMax() const { return this->omegaMax; }
+float MrpSteeringAlgorithm::getOmegaMax() const { return this->omegaMax; }
 
 /*! Set whether the outer loop feed-forward is ignored
  @return void

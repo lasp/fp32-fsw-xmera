@@ -27,5 +27,5 @@
 %include "mrpSteering.h"
 %include "mrpSteeringAlgorithm.h"
 
-%include <architecture/msgPayloadDef/AttGuidMsgPayload.h>
-%include <architecture/msgPayloadDef/RateCmdMsgPayload.h>
+%include "msgPayloadDef/AttGuidMsgF32Payload.h"
+%include "msgPayloadDef/RateCmdMsgF32Payload.h"

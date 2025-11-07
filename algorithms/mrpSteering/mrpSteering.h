@@ -22,8 +22,8 @@
 
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
-#include <architecture/msgPayloadDef/AttGuidMsgPayload.h>
-#include <architecture/msgPayloadDef/RateCmdMsgPayload.h>
+#include "msgPayloadDef/AttGuidMsgF32Payload.h"
+#include "msgPayloadDef/RateCmdMsgF32Payload.h"
 #include "mrpSteeringAlgorithm.h"
 #include <stdint.h>
 
@@ -36,17 +36,17 @@ class MrpSteering : public SysModel {
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
 
-    void setK1(const double gain);
-    double getK1() const;
-    void setK3(const double gain);
-    double getK3() const;
-    void setOmegaMax(const double omega);
-    double getOmegaMax() const;
+    void setK1(const float gain);
+    float getK1() const;
+    void setK3(const float gain);
+    float getK3() const;
+    void setOmegaMax(const float omega);
+    float getOmegaMax() const;
     void setIgnoreFeedforward(const bool ignore);
     bool getIgnoreFeedforward() const;
 
-    Message<RateCmdMsgPayload> rateCmdOutMsg;  //!< rate command output message
-    ReadFunctor<AttGuidMsgPayload> guidInMsg;  //!< attitude guidance input message
+    Message<RateCmdMsgF32Payload> rateCmdOutMsg;  //!< rate command output message
+    ReadFunctor<AttGuidMsgF32Payload> guidInMsg;  //!< attitude guidance input message
 
    private:
     MrpSteeringAlgorithm algorithm{};

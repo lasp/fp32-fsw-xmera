@@ -62,29 +62,29 @@ def test_mrp_steering_tracking_integrated(show_plots, K1, K3, omega_max, ignore_
     servo.setKnownTorquePntB_B([0., 0., 0.])
 
     # attGuidOut Message:
-    guid_cmd_data = messaging.AttGuidMsgPayload()  # Create a structure for the input message
+    guid_cmd_data = messaging.AttGuidMsgF32Payload()  # Create a structure for the input message
     guid_cmd_data.sigma_BR = [0.3, -0.5, 0.7]
     guid_cmd_data.omega_BR_B = [0.010, -0.020, 0.015]
     guid_cmd_data.omega_RN_B = [-0.02, -0.01, 0.005]
     guid_cmd_data.domega_RN_B = [0.0002, 0.0003, 0.0001]
-    guid_in_msg = messaging.AttGuidMsg().write(guid_cmd_data)
+    guid_in_msg = messaging.AttGuidMsgF32().write(guid_cmd_data)
 
     # vehicleConfigData Message:
-    vehicle_config_out = messaging.VehicleConfigMsgPayload()
+    vehicle_config_out = messaging.VehicleConfigMsgF32Payload()
     I = [1000., 0., 0.,
          0., 800., 0.,
          0., 0., 800.]
     vehicle_config_out.ISCPntB_B = I
-    vc_in_msg = messaging.VehicleConfigMsg().write(vehicle_config_out)
+    vc_in_msg = messaging.VehicleConfigMsgF32().write(vehicle_config_out)
 
     # wheelSpeeds Message
-    rw_speed_message = messaging.RWSpeedMsgPayload()
+    rw_speed_message = messaging.RWSpeedMsgF32Payload()
     omega = [10.0, 25.0, 50.0, 100.0]
     rw_speed_message.wheelSpeeds = omega
-    rw_in_msg = messaging.RWSpeedMsg().write(rw_speed_message)
+    rw_in_msg = messaging.RWSpeedMsgF32().write(rw_speed_message)
 
     # wheelConfigData message
-    rw_config_params = messaging.RWArrayConfigMsgPayload()
+    rw_config_params = messaging.RWArrayConfigMsgF32Payload()
     rw_config_params.GsMatrix_B = [
         1.0, 0.0, 0.0,
         0.0, 1.0, 0.0,
@@ -93,7 +93,7 @@ def test_mrp_steering_tracking_integrated(show_plots, K1, K3, omega_max, ignore_
     ]
     rw_config_params.JsList = [0.1, 0.1, 0.1, 0.1]
     rw_config_params.numRW = 4
-    rw_param_in_msg = messaging.RWArrayConfigMsg().write(rw_config_params)
+    rw_param_in_msg = messaging.RWArrayConfigMsgF32().write(rw_config_params)
 
     # wheelAvailability message
     rw_avail_list = []
@@ -130,9 +130,9 @@ def test_mrp_steering_tracking_integrated(show_plots, K1, K3, omega_max, ignore_
     true_vals = find_true_torques(module, servo, guid_cmd_data, rw_speed_message, vehicle_config_out, rw_avail_list, rw_config_params)
 
     # compare the module results to the truth values
-    accuracy = 1e-12
+    accuracy = 1e-6
 
-    np.testing.assert_allclose(data_log.torqueRequestBody, true_vals, atol=accuracy, rtol=0, verbose=True)
+    np.testing.assert_allclose(data_log.torqueRequestBody, true_vals, atol=accuracy, rtol=accuracy, verbose=True)
 
 
 def find_true_values(guid_cmd_data, module):

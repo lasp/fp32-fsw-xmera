@@ -50,7 +50,7 @@ def test_mrp_steering_tracking(show_plots, K1, K3, omega_max, ignore_feed_forwar
     module.setOmegaMax(omega_max)
     module.setIgnoreFeedforward(ignore_feed_forward)
 
-    guid_cmd_data = messaging.AttGuidMsgPayload()  # Create a structure for the input message
+    guid_cmd_data = messaging.AttGuidMsgF32Payload()  # Create a structure for the input message
     sigma_BR = np.array([0.3, -0.5, 0.7])
     guid_cmd_data.sigma_BR = sigma_BR
     omega_BR_B = np.array([0.010, -0.020, 0.015])
@@ -59,7 +59,7 @@ def test_mrp_steering_tracking(show_plots, K1, K3, omega_max, ignore_feed_forwar
     guid_cmd_data.omega_RN_B = omega_RN_B
     domega_RN_B = np.array([0.0002, 0.0003, 0.0001])
     guid_cmd_data.domega_RN_B = domega_RN_B
-    guid_in_msg = messaging.AttGuidMsg().write(guid_cmd_data)
+    guid_in_msg = messaging.AttGuidMsgF32().write(guid_cmd_data)
 
     # Setup logging on the test module output message so that we get all the writes to it
     data_log = module.rateCmdOutMsg.recorder()
@@ -76,10 +76,10 @@ def test_mrp_steering_tracking(show_plots, K1, K3, omega_max, ignore_feed_forwar
     omega_ast_true, omega_ast_p_true = find_true_values(guid_cmd_data, module)
 
     # compare the module results to the truth values
-    accuracy = 1e-12
+    accuracy = 1e-6
 
-    np.testing.assert_allclose(data_log.omega_BastR_B, omega_ast_true, atol=accuracy, rtol=0, verbose=True)
-    np.testing.assert_allclose(data_log.omegap_BastR_B, omega_ast_p_true, atol=accuracy, rtol=0, verbose=True)
+    np.testing.assert_allclose(data_log.omega_BastR_B, omega_ast_true, atol=accuracy, rtol=accuracy, verbose=True)
+    np.testing.assert_allclose(data_log.omegap_BastR_B, omega_ast_p_true, atol=accuracy, rtol=accuracy, verbose=True)
 
 
 def find_true_values(guid_cmd_data, module):
