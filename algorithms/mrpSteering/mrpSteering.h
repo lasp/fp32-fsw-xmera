@@ -7,11 +7,11 @@
 #ifndef F32XMERA_MRP_STEERING_H
 #define F32XMERA_MRP_STEERING_H
 
-#include <architecture/_GeneralModuleFiles/sys_model.h>
-#include <architecture/messaging/messaging.h>
+#include "mrpSteeringAlgorithm.h"
 #include "msgPayloadDef/AttGuidMsgF32Payload.h"
 #include "msgPayloadDef/RateCmdMsgF32Payload.h"
-#include "mrpSteeringAlgorithm.h"
+#include <architecture/_GeneralModuleFiles/sys_model.h>
+#include <architecture/messaging/messaging.h>
 #include <stdint.h>
 
 /*! @brief Data structure for the MRP feedback attitude control routine. */
