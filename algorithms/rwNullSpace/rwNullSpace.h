@@ -7,12 +7,12 @@
 #ifndef F32XIMERA_RW_NULL_SPACE_H
 #define F32XIMERA_RW_NULL_SPACE_H
 
-#include <architecture/_GeneralModuleFiles/sys_model.h>
-#include <architecture/messaging/messaging.h>
 #include "msgPayloadDef/RWConstellationMsgF32Payload.h"
 #include "msgPayloadDef/RWSpeedMsgF32Payload.h"
 #include "msgPayloadDef/RwMotorTorqueMsgF32Payload.h"
 #include "rwNullSpaceAlgorithm.h"
+#include <architecture/_GeneralModuleFiles/sys_model.h>
+#include <architecture/messaging/messaging.h>
 
 #include <stdint.h>
 

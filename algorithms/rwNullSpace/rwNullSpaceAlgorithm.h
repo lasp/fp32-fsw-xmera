@@ -28,9 +28,9 @@ class RwNullSpaceAlgorithm {
     float getOmegaGain() const;
 
    private:
-    float omegaGain{};                                    //!< [-] The gain factor applied to the RW speeds
-    Eigen::Matrix<float, RW_EFF_CNT, RW_EFF_CNT> tau{};   //!< [-] RW nullspace project matrix
-    uint32_t numWheels{};                                 //!< [-] The number of reaction wheels we have
+    float omegaGain{};                                   //!< [-] The gain factor applied to the RW speeds
+    Eigen::Matrix<float, RW_EFF_CNT, RW_EFF_CNT> tau{};  //!< [-] RW nullspace project matrix
+    uint32_t numWheels{};                                //!< [-] The number of reaction wheels we have
 };
 
 #endif

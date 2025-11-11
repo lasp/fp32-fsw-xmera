@@ -45,7 +45,7 @@ void RwNullSpace::reset(const uint64_t callTime) {
  */
 void RwNullSpace::updateState(const uint64_t callTime) {
     RwMotorTorqueMsgF32Payload controlRequest =
-        this->rwMotorTorqueInMsg();                     /* [Nm]  array of the RW motor torque solution */
+        this->rwMotorTorqueInMsg();                        /* [Nm]  array of the RW motor torque solution */
     RWSpeedMsgF32Payload rwSpeeds = this->rwSpeedsInMsg(); /* [r/s] array of RW speeds */
     RWSpeedMsgF32Payload rwDesiredSpeeds{};                /* [r/s] array of RW speeds */
 

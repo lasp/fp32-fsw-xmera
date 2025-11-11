@@ -44,7 +44,7 @@ RwMotorTorqueMsgF32Payload RwNullSpaceAlgorithm::update(RwMotorTorqueMsgF32Paylo
 
     /* compute the wheel speed control vector d = -K.DeltaOmega */
     const Eigen::Vector<float, MAX_EFF_CNT> d = -this->omegaGain * (cArrayAsEigenVector(rwSpeeds.wheelSpeeds) -
-                                                               cArrayAsEigenVector(rwDesiredSpeeds.wheelSpeeds));
+                                                                    cArrayAsEigenVector(rwDesiredSpeeds.wheelSpeeds));
 
     /* compute the RW null space motor torque solution to reduce the wheel speeds */
     const Eigen::Vector<float, MAX_EFF_CNT> motorTorqueNullSpace = this->tau * d;
