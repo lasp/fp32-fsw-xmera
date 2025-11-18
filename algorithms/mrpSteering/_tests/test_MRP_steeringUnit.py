@@ -67,6 +67,12 @@ def test_mrp_steering_tracking(show_plots, K1, K3, omega_max, ignore_feed_forwar
     np.testing.assert_allclose(data_log.omega_BastR_B, omega_ast_true, atol=accuracy, rtol=accuracy, verbose=True)
     np.testing.assert_allclose(data_log.omegap_BastR_B, omega_ast_p_true, atol=accuracy, rtol=accuracy, verbose=True)
 
+    # test setters and getters
+    np.testing.assert_allclose(module.K1, K1, atol=accuracy, rtol=accuracy, verbose=True)
+    np.testing.assert_allclose(module.K3, K3, atol=accuracy, rtol=accuracy, verbose=True)
+    np.testing.assert_allclose(module.omegaMax, omega_max, atol=accuracy, rtol=accuracy, verbose=True)
+    np.testing.assert_allclose(module.ignoreOuterLoopFeedforward, ignore_feed_forward, atol=accuracy, rtol=accuracy, verbose=True)
+
 
 def find_true_values(guid_cmd_data, module):
 
