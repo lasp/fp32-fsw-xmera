@@ -19,8 +19,28 @@ from xmera.utilities import macros
 from xmera.architecture import messaging
 
 
-@pytest.mark.parametrize("set_SigmaRN", [True, False])
-def test_inertial3D(show_plots, set_SigmaRN):
+def test_set_reference():
+    # Randomize the input to inertial 3D. MRPs can be a set of 3 numbers where those 3 numbers can be any real numbers
+    sigma_input_RN = np.random.rand(3)
+
+    # Construct algorithm and associated C++ container
+    module = inertial3DF32.Inertial3D()
+    module.modelTag = "inertial3D"
+
+    module.sigma_RN = sigma_input_RN
+
+    run_test(module, sigma_input_RN)
+
+def test_unset_reference():
+    sigma_input_RN = [0.0, 0.0, 0.0]
+
+    # Construct algorithm and associated C++ container
+    module = inertial3DF32.Inertial3D()
+    module.modelTag = "inertial3D"
+
+    run_test(module, sigma_input_RN)
+
+def run_test(module, sigma_input_RN):
     unit_task_name = "unitTask"
     unit_process_name = "TestProcess"
 
@@ -31,16 +51,6 @@ def test_inertial3D(show_plots, set_SigmaRN):
     test_process_rate = macros.sec2nano(0.5)     # update process rate update time
     test_proc = unit_test_sim.CreateNewProcess(unit_process_name)
     test_proc.addTask(unit_test_sim.CreateNewTask(unit_task_name, test_process_rate))
-
-    # Construct algorithm and associated C++ container
-    module = inertial3DF32.Inertial3D()
-    module.modelTag = "inertial3D"
-
-    if set_SigmaRN:
-        vector = np.random.rand(3)
-        module.sigma_RN = vector
-    else:
-        vector = [0.0, 0.0, 0.0]
 
     # Add test module to runtime call list
     unit_test_sim.AddModelToTask(unit_task_name, module)
@@ -59,7 +69,7 @@ def test_inertial3D(show_plots, set_SigmaRN):
     domega_RN_N = dataLog.domega_RN_N
 
     # set the filtered output truth states
-    sigma_truth_RN = [vector] * 3
+    sigma_truth_RN = [sigma_input_RN] * 3
     omega_truth_RN_N = [[0.0, 0.0, 0.0]] * 3
     domega_truth_RN_N = [[0.0, 0.0, 0.0]] * 3
 
@@ -72,4 +82,4 @@ def test_inertial3D(show_plots, set_SigmaRN):
 
 
 if __name__ == "__main__":
-    test_inertial3D(False, False)
+    test_set_reference()
