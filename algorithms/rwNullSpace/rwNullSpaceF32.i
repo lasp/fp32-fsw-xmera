@@ -1,0 +1,23 @@
+/*
+ MIT License
+
+ Copyright (c) 2025, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
+ */
+
+%module rwNullSpaceF32
+%{
+   #include "rwNullSpace.h"
+%}
+
+%include <architecture/_GeneralModuleFiles/sys_model.i>
+%include <architecture/_GeneralModuleFiles/swig_conly_data.i>
+
+%include "rwNullSpace.h"
+%include "rwNullSpaceAlgorithm.h"
+
+%include "msgPayloadDef/RwMotorTorqueMsgF32Payload.h"
+%include "msgPayloadDef/RWSpeedMsgF32Payload.h"
+%include "msgPayloadDef/RWConstellationMsgF32Payload.h"
+%include "msgPayloadDef/RWConfigElementMsgF32Payload.h"
+
+STRUCTASLIST(RWConfigElementMsgF32Payload)
