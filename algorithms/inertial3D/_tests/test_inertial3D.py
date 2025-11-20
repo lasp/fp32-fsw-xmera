@@ -21,16 +21,16 @@ from xmera.architecture import messaging
 
 @pytest.mark.parametrize("set_SigmaRN", [True, False])
 def test_inertial3D(show_plots, set_SigmaRN):
-    unitTaskName = "unitTask"
-    unitProcessName = "TestProcess"
+    unit_task_name = "unitTask"
+    unit_process_name = "TestProcess"
 
     # Create a sim module as an empty container
-    unitTestSim = SimulationBaseClass.SimBaseClass()
+    unit_test_sim = SimulationBaseClass.SimBaseClass()
 
     # Create test thread
-    testProcessRate = macros.sec2nano(0.5)     # update process rate update time
-    testProc = unitTestSim.CreateNewProcess(unitProcessName)
-    testProc.addTask(unitTestSim.CreateNewTask(unitTaskName, testProcessRate))
+    test_process_rate = macros.sec2nano(0.5)     # update process rate update time
+    test_proc = unit_test_sim.CreateNewProcess(unit_process_name)
+    test_proc.addTask(unit_test_sim.CreateNewTask(unit_task_name, test_process_rate))
 
     # Construct algorithm and associated C++ container
     module = inertial3DF32.Inertial3D()
@@ -43,15 +43,15 @@ def test_inertial3D(show_plots, set_SigmaRN):
         vector = [0.0, 0.0, 0.0]
 
     # Add test module to runtime call list
-    unitTestSim.AddModelToTask(unitTaskName, module)
+    unit_test_sim.AddModelToTask(unit_task_name, module)
 
     # Setup logging on the test module output message so that we get all the writes to it
     dataLog = module.attRefOutMsg.recorder()
-    unitTestSim.AddModelToTask(unitTaskName, dataLog)
+    unit_test_sim.AddModelToTask(unit_task_name, dataLog)
 
-    unitTestSim.InitializeSimulation()
-    unitTestSim.ConfigureStopTime(macros.sec2nano(1.))        # seconds to stop simulation
-    unitTestSim.ExecuteSimulation()
+    unit_test_sim.InitializeSimulation()
+    unit_test_sim.ConfigureStopTime(macros.sec2nano(1.))        # seconds to stop simulation
+    unit_test_sim.ExecuteSimulation()
 
     # retrieve the module output
     sigma_RN = dataLog.sigma_RN
