@@ -6,14 +6,12 @@ import inspect
 import os
 
 import numpy as np
-import pytest
 
 filename = inspect.getframeinfo(inspect.currentframe()).filename
 path = os.path.dirname(os.path.abspath(filename))
 
 # Import all of the modules that we are going to be called in this simulation
 from xmera.utilities import SimulationBaseClass
-from xmera.utilities import unitTestSupport                  # general support file with common unit test functions
 from xmera.fp32 import inertial3DF32                   # import the module that is to be tested
 from xmera.utilities import macros
 from xmera.architecture import messaging
