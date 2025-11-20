@@ -76,6 +76,10 @@ def run_test(module, sigma_input_RN):
     # compare the module results to the truth values
     accuracy = 1e-6
 
+    # Test the getter method
+    np.testing.assert_allclose(np.array(module.sigma_RN).flatten(), sigma_input_RN, rtol=0, atol=accuracy, verbose=True)
+
+    # Test the outputs of the module
     np.testing.assert_allclose(sigma_RN, sigma_truth_RN, rtol=0, atol=accuracy, verbose=True)
     np.testing.assert_allclose(omega_RN_N, omega_truth_RN_N, rtol=0, atol=accuracy, verbose=True)
     np.testing.assert_allclose(domega_RN_N, domega_truth_RN_N, rtol=0, atol=accuracy, verbose=True)
