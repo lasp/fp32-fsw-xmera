@@ -72,4 +72,4 @@ def test_inertial3D(show_plots, set_SigmaRN):
 
 
 if __name__ == "__main__":
-    test_inertial3D(False)
+    test_inertial3D(False, False)
