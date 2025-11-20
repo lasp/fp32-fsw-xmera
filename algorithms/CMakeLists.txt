@@ -1,6 +1,7 @@
 add_subdirectory(msgPayloadDef)
 
 add_subdirectory(attTrackingError)
+add_subdirectory(celestialTwoBodyPoint)
 add_subdirectory(ephemeridesRecenter)
 add_subdirectory(ephemNavConverter)
 add_subdirectory(inertial3D)
