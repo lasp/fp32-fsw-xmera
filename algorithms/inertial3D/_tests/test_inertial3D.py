@@ -38,7 +38,7 @@ def test_inertial3D(show_plots, set_SigmaRN):
 
     if set_SigmaRN:
         vector = np.random.rand(3)
-        module.setSigmaR0N(vector)
+        module.sigma_RN = vector
     else:
         vector = [0.0, 0.0, 0.0]
 
