@@ -59,16 +59,16 @@ def test_inertial3D(show_plots, set_SigmaRN):
     domega_RN_N = dataLog.domega_RN_N
 
     # set the filtered output truth states
-    sigma_RN_truth = [vector] * 3
-    omega_RN_N_truth = [[0.0, 0.0, 0.0]] * 3
-    domega_RN_N_truth = [[0.0, 0.0, 0.0]] * 3
+    sigma_truth_RN = [vector] * 3
+    omega_truth_RN_N = [[0.0, 0.0, 0.0]] * 3
+    domega_truth_RN_N = [[0.0, 0.0, 0.0]] * 3
 
     # compare the module results to the truth values
     accuracy = 1e-6
 
-    np.testing.assert_allclose(sigma_RN, sigma_RN_truth, rtol=0, atol=accuracy, verbose=True)
-    np.testing.assert_allclose(omega_RN_N, omega_RN_N_truth, rtol=0, atol=accuracy, verbose=True)
-    np.testing.assert_allclose(domega_RN_N, domega_RN_N_truth, rtol=0, atol=accuracy, verbose=True)
+    np.testing.assert_allclose(sigma_RN, sigma_truth_RN, rtol=0, atol=accuracy, verbose=True)
+    np.testing.assert_allclose(omega_RN_N, omega_truth_RN_N, rtol=0, atol=accuracy, verbose=True)
+    np.testing.assert_allclose(domega_RN_N, domega_truth_RN_N, rtol=0, atol=accuracy, verbose=True)
 
 
 if __name__ == "__main__":
