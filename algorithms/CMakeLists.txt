@@ -1,4 +1,5 @@
 add_subdirectory(msgPayloadDef)
+add_subdirectory(utilities)
 
 add_subdirectory(attTrackingError)
 add_subdirectory(celestialTwoBodyPoint)
@@ -7,6 +8,7 @@ add_subdirectory(ephemNavConverter)
 add_subdirectory(inertial3D)
 add_subdirectory(mrpSteering)
 add_subdirectory(navAggregate)
+add_subdirectory(oeStateEphem)
 add_subdirectory(rateControl)
 add_subdirectory(rateServoFullNonlinear)
 add_subdirectory(rwMotorVoltage)
