@@ -12,7 +12,7 @@
 
 /*!@brief Data structure for module to compute the Inertial-3D pointing navigation solution.
  */
-class Inertial3DAlgorithm {
+class Inertial3DAlgorithm final {
    public:
     AttRefMsgF32Payload update() const;
     void setSigmaRN(const Eigen::Vector3f& sigmaInput_RN);
