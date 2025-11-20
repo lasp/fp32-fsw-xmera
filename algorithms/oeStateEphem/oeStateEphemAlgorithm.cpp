@@ -20,6 +20,7 @@
 #include "oeStateEphemAlgorithm.h"
 #include "architecture/utilities/eigenSupport.h"
 #include "utilities/ephemerisUtilities.h"
+#include "../freestandingInvalidArgument.h"
 
 void OEStateEphemAlgorithm::reset(uint64_t callTime, const TDBVehicleClockCorrelationMsgF32Payload& timePayload) {
     this->spacecraftTime = timePayload;
@@ -126,7 +127,7 @@ EphemerisMsgF32Payload OEStateEphemAlgorithm::updateState(const uint64_t callTim
 
 void OEStateEphemAlgorithm::setCentralBodyGravitationalParameter(const float mu) {
     if (mu < 0) {
-        throw std::invalid_argument("GravitationalParameter in OEStateEphemAlgorithm must be positive.");
+        FS_THROW_INVALID_ARGUMENT("GravitationalParameter in OEStateEphemAlgorithm must be positive.");
     }
     this->gravitationalParameter = mu;
 };
