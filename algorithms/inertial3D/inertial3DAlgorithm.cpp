@@ -7,8 +7,7 @@
 #include "architecture/utilities/eigenSupport.h"
 #include "inertial3D.h"
 
-/*! This method creates a fixed attitude reference message.  The desired orientation is
-    defined within the module.
+/*! This method creates a fixed attitude reference message.  The desired orientation is defined within the module.
  @return AttRefMsgF32Payload
  */
 AttRefMsgF32Payload Inertial3DAlgorithm::update() const {
