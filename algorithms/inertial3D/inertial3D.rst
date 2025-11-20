@@ -1,6 +1,6 @@
 Executive Summary
 -----------------
-This attitude guidance module create a reference attitude message that points in fixed inertial direction.
+This attitude guidance module create a reference attitude message that points in a fixed inertial direction.
 
 Message Connection Descriptions
 -------------------------------
@@ -22,17 +22,17 @@ provides information on what this message is used for.
 
 Reference Frame Generation
 --------------------------
-The modules requires the desired reference orientation in terms of the MRP set :math:`\mathbf{\sigma}_{R_0 N}`.
+The modules requires the desired reference orientation in terms of the MRP set :math:`\mathbf{\sigma}_{R N}`.
 This input is only set once and does not have to be changed. Let us designate :math:`\mathcal{R}` as the output
 generated reference frame. Since the fixed-pointing is inertial:
 
 .. math::
-    \mathbf{\sigma}_{RN} = \mathbf{\sigma}_{R_0 N} \\
+    \mathbf{\sigma}_{RN} = \mathbf{\sigma}_{R N} \\
     \mathbf{\omega}_{RN} = \dot{\mathbf{\omega}}_{RN} = 0
 
 User Guide
 ----------
 The required module configuration is::
 
-    attGuid = inertial3D.inertial3D()
-    attGuid.setSigmaR0N(sigma_R0N)
+    module = inertial3DF32.Inertial3D()
+    module.sigma_RN = sigma_input_RN
