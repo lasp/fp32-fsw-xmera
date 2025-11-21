@@ -18,7 +18,8 @@ from xmera.architecture import messaging
 
 def test_set_reference():
     # Randomize the input to inertial 3D. MRPs can be a set of 3 numbers where those 3 numbers can be any real numbers
-    sigma_input_RN = np.random.rand(3)
+    rng = np.random.default_rng()
+    sigma_input_RN = rng.normal(loc=0.0, scale=1e9, size=3)
 
     # Construct algorithm and associated C++ container
     module = inertial3DF32.Inertial3D()
@@ -71,15 +72,15 @@ def run_test(module, sigma_input_RN):
     domega_truth_RN_N = [[0.0, 0.0, 0.0]] * 3
 
     # compare the module results to the truth values
-    accuracy = 1e-6
+    accuracy = 1e-7
 
     # Test the getter method
-    np.testing.assert_allclose(np.array(module.sigma_RN).flatten(), sigma_input_RN, rtol=0, atol=accuracy, verbose=True)
+    np.testing.assert_allclose(np.array(module.sigma_RN).flatten(), sigma_input_RN, rtol=accuracy, verbose=True)
 
     # Test the outputs of the module
-    np.testing.assert_allclose(sigma_RN, sigma_truth_RN, rtol=0, atol=accuracy, verbose=True)
-    np.testing.assert_allclose(omega_RN_N, omega_truth_RN_N, rtol=0, atol=accuracy, verbose=True)
-    np.testing.assert_allclose(domega_RN_N, domega_truth_RN_N, rtol=0, atol=accuracy, verbose=True)
+    np.testing.assert_allclose(sigma_RN, sigma_truth_RN, rtol=accuracy, verbose=True)
+    np.testing.assert_allclose(omega_RN_N, omega_truth_RN_N, rtol=accuracy, verbose=True)
+    np.testing.assert_allclose(domega_RN_N, domega_truth_RN_N, rtol=accuracy, verbose=True)
 
 
 if __name__ == "__main__":
