@@ -4,8 +4,8 @@
  Copyright (c) 2025, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
  */
 
-#ifndef F32XIMERA_INERTIAL3D_ALGORITHM_H
-#define F32XIMERA_INERTIAL3D_ALGORITHM_H
+#ifndef F32XMERA_INERTIAL3D_ALGORITHM_H
+#define F32XMERA_INERTIAL3D_ALGORITHM_H
 
 #include "msgPayloadDef/AttRefMsgF32Payload.h"
 #include <Eigen/Core>
