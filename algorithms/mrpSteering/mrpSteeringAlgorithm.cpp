@@ -19,7 +19,7 @@
  @param guidInMsg attitude guidance input message
  */
 RateCmdMsgF32Payload MrpSteeringAlgorithm::update(AttGuidMsgF32Payload&guidInMsg) const {
-    const Eigen::Vector3f sigma_BR = Eigen::Map<const Eigen::Vector3f>(guidInMsg.sigma_BR);
+    const Eigen::Vector3f sigma_BR = cArrayAsEigenVector(guidInMsg.sigma_BR);
 
     Eigen::Vector3f omega_ast{};
     Eigen::Vector3f omega_ast_p{Eigen::Vector3f::Zero()};
