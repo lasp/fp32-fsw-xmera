@@ -8,16 +8,16 @@
 #include "../freestandingInvalidArgument.h"
 #include "architecture/utilities/eigenSupport.h"
 #include "architecture/utilities/rigidBodyKinematics.hpp"
+#include <math.h>
 #include <Eigen/Core>
 #include <numbers>
-#include <math.h>
 
 /*! This method takes the attitude and rate errors relative to the Reference frame, as well as
     the reference frame angular rates and acceleration
  @return RateCmdMsgF32Payload
  @param guidInMsg attitude guidance input message
  */
-RateCmdMsgF32Payload MrpSteeringAlgorithm::update(AttGuidMsgF32Payload&guidInMsg) const {
+RateCmdMsgF32Payload MrpSteeringAlgorithm::update(AttGuidMsgF32Payload& guidInMsg) const {
     const Eigen::Vector3f sigma_BR = cArrayAsEigenVector(guidInMsg.sigma_BR);
 
     Eigen::Vector3f omega_ast{};
@@ -27,9 +27,8 @@ RateCmdMsgF32Payload MrpSteeringAlgorithm::update(AttGuidMsgF32Payload&guidInMsg
 
     for (Eigen::Index i = 0; i < 3; ++i) {
         const float sigma_i = sigma_BR[i];
-        const float f_i =
-            atanf(kPiOver2 / this->omegaMax * (this->K1 * sigma_i + this->K3 * powf(sigma_i, 3.0F))) /
-            kPiOver2 * this->omegaMax;
+        const float f_i = atanf(kPiOver2 / this->omegaMax * (this->K1 * sigma_i + this->K3 * powf(sigma_i, 3.0F))) /
+                          kPiOver2 * this->omegaMax;
         omega_ast[i] = -f_i;
     }
     if (!this->ignoreOuterLoopFeedforward) {

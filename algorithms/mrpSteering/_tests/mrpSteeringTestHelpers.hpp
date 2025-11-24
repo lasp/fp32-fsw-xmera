@@ -1,15 +1,15 @@
 #ifndef TEST_MRPSTEERING_H
 #define TEST_MRPSTEERING_H
 
-#include "mrpSteeringAlgorithm.h"
 #include "../freestandingInvalidArgument.h"
-#include "msgPayloadDef/AttGuidMsgF32Payload.h"
-#include "msgPayloadDef/RateCmdMsgF32Payload.h"
 #include "architecture/utilities/eigenSupport.h"
 #include "architecture/utilities/rigidBodyKinematics.hpp"
+#include "mrpSteeringAlgorithm.h"
+#include "msgPayloadDef/AttGuidMsgF32Payload.h"
+#include "msgPayloadDef/RateCmdMsgF32Payload.h"
 #include <gtest/gtest.h>
-#include <Eigen/Core>
 #include <math.h>
+#include <Eigen/Core>
 #include <numbers>
 #include <vector>
 
@@ -22,7 +22,7 @@ RateCmdMsgF32Payload referenceUpdate(const MrpSteeringAlgorithm& alg, AttGuidMsg
     for (int i = 0; i < 3; ++i) {
         const float sigma_i = sigma_BR[i];
         const float f_i = atanf(static_cast<float>(std::numbers::pi) / 2 / alg.getOmegaMax() *
-                                    (alg.getK1() * sigma_i + alg.getK3() * powf(sigma_i, 3))) /
+                                (alg.getK1() * sigma_i + alg.getK3() * powf(sigma_i, 3))) /
                           (static_cast<float>(std::numbers::pi) / 2) * alg.getOmegaMax();
         omega_ast[i] = -f_i;
     }
@@ -36,8 +36,8 @@ RateCmdMsgF32Payload referenceUpdate(const MrpSteeringAlgorithm& alg, AttGuidMsg
             const float sigma_i = sigma_BR[i];
             const float f_i = (3 * alg.getK3() * powf(sigma_i, 2) + alg.getK1()) /
                               (powf(static_cast<float>(std::numbers::pi / 2) / alg.getOmegaMax() *
-                                            (alg.getK1() * sigma_i + alg.getK3() * powf(sigma_i, 3)),
-                                        2) +
+                                        (alg.getK1() * sigma_i + alg.getK3() * powf(sigma_i, 3)),
+                                    2) +
                                1);
             omega_ast_p[i] = -f_i * sigmaDot_BR[i];
         }
@@ -114,4 +114,4 @@ inline void testMrpSteering(std::vector<float> sigma, float K1, float K3, float 
     ASSERT_LT(omegaMag1, omegaMag2 + 1e-6);
 }
 
-#endif //TEST_MRPSTEERING_H
+#endif  // TEST_MRPSTEERING_H
