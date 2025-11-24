@@ -11,8 +11,8 @@
 #include "msgPayloadDef/AttRefMsgF32Payload.h"
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
-#include <stdint.h>
 #include <Eigen/Core>
+#include <cstdint>
 
 /*!@brief Data structure for module to compute the Inertial-3D pointing navigation solution.
  */

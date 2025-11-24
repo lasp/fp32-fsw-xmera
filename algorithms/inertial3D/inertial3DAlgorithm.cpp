@@ -4,8 +4,10 @@
  Copyright (c) 2025, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
  */
 
+#include "inertial3DAlgorithm.h"
 #include "architecture/utilities/eigenSupport.h"
-#include "inertial3D.h"
+#include "msgPayloadDef/AttRefMsgF32Payload.h"
+#include <Eigen/Core>
 
 /*! This method creates a fixed attitude reference message.  The desired orientation is defined within the module.
  @return AttRefMsgF32Payload
