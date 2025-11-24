@@ -68,7 +68,9 @@ jobs:
 
       - name: Install system dependencies
         run: |
+          wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
           sudo apt-get update
+          sudo add-apt-repository "deb http://apt.llvm.org/noble/ llvm-toolchain-noble-21 main"
           sudo apt-get install -y \
             ninja-build build-essential \
             pkg-config autoconf automake libtool \
@@ -83,11 +85,11 @@ jobs:
             mono-complete \
             ccache \
             gcc-13 g++-13 \
-            clang clang-tidy jq
+            clang-21 clang-tidy-21 clang-tools-21 jq
           ccache --version
           ninja --version
-          clang --version
-          clang-tidy --version
+          clang-21 --version
+          clang-tidy-21 --version
 
       - name: Select GCC 13
         run: |
