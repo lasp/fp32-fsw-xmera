@@ -8,7 +8,6 @@
 #include "../freestandingInvalidArgument.h"
 #include "architecture/utilities/eigenSupport.h"
 #include "architecture/utilities/rigidBodyKinematics.hpp"
-#include <stdint.h>
 #include <Eigen/Core>
 #include <numbers>
 #include <math.h>
@@ -24,12 +23,12 @@ RateCmdMsgF32Payload MrpSteeringAlgorithm::update(AttGuidMsgF32Payload&guidInMsg
     Eigen::Vector3f omega_ast{};
     Eigen::Vector3f omega_ast_p{Eigen::Vector3f::Zero()};
 
-    constexpr auto kPiOver2 = static_cast<float>(std::numbers::pi / 2.0);
+    constexpr auto kPiOver2 = static_cast<float>(std::numbers::pi / 2.0F);
 
-    for (uint32_t i = 0; i < 3; ++i) {
+    for (Eigen::Index i = 0; i < 3; ++i) {
         const float sigma_i = sigma_BR[i];
         const float f_i =
-            atanf(kPiOver2 / this->omegaMax * (this->K1 * sigma_i + this->K3 * powf(sigma_i, 3))) /
+            atanf(kPiOver2 / this->omegaMax * (this->K1 * sigma_i + this->K3 * powf(sigma_i, 3.0F))) /
             kPiOver2 * this->omegaMax;
         omega_ast[i] = -f_i;
     }
@@ -37,11 +36,11 @@ RateCmdMsgF32Payload MrpSteeringAlgorithm::update(AttGuidMsgF32Payload&guidInMsg
         const Eigen::Matrix3f B = bmatMrp(sigma_BR);
         const Eigen::Vector3f sigmaDot_BR = 0.25 * B * omega_ast;
 
-        for (uint32_t i = 0; i < 3; ++i) {
+        for (Eigen::Index i = 0; i < 3; ++i) {
             const float sigma_i = sigma_BR[i];
             const float f_i =
-                (3 * this->K3 * powf(sigma_i, 2) + this->K1) /
-                (powf(kPiOver2 / this->omegaMax * (this->K1 * sigma_i + this->K3 * powf(sigma_i, 3)), 2) + 1);
+                (3.0F * this->K3 * powf(sigma_i, 2.0F) + this->K1) /
+                (powf(kPiOver2 / this->omegaMax * (this->K1 * sigma_i + this->K3 * powf(sigma_i, 3.0F)), 2.0F) + 1.0F);
             omega_ast_p[i] = -f_i * sigmaDot_BR[i];
         }
     }
