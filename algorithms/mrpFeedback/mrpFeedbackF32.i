@@ -1,4 +1,4 @@
-%module mrpFeedback
+%module mrpFeedbackF32
 %{
    #include "mrpFeedback.h"
 %}

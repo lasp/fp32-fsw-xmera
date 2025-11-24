@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 from xmera.architecture import messaging
-from xmera.fswAlgorithms import mrpFeedback
+from xmera.fp32 import mrpFeedbackF32
 from xmera.utilities import SimulationBaseClass
 from xmera.utilities import macros
 
@@ -24,7 +24,7 @@ def test_mrp_feedback(show_plots, int_gain, rw_num, integral_limit, ctrl_law, us
     test_proc.addTask(unit_test_sim.CreateNewTask(unit_task_name, test_process_rate))
 
     #   Construct algorithm and associated C++ container
-    module = mrpFeedback.MrpFeedback()
+    module = mrpFeedbackF32.MrpFeedback()
     module.modelTag = "mrpFeedback"
 
     #   Add test module to runtime call list
