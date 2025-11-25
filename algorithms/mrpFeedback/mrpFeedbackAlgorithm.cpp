@@ -13,8 +13,8 @@
  @param rwIsLinked boolean indicating whether reaction wheel config message is linked
 */
 void MrpFeedbackAlgorithm::reset(VehicleConfigMsgF32Payload vehConfigMsg,
-                                 RWArrayConfigMsgF32Payload rwConfigMsg,
-                                 bool rwIsLinked) {
+                                 const RWArrayConfigMsgF32Payload rwConfigMsg,
+                                 const bool rwIsLinked) {
     /*! - copy over spacecraft inertia tensor */
     this->ISCPntB_B = cArrayToEigenMatrix3(vehConfigMsg.ISCPntB_B);
 
@@ -59,13 +59,13 @@ MrpFeedbackOutput MrpFeedbackAlgorithm::update(uint64_t callTime,
     }
     this->priorTime = callTime;
 
-    Eigen::Vector3f sigma_BR = cArrayToEigenVector(guidCmd.sigma_BR);
-    Eigen::Vector3f omega_BR_B = cArrayToEigenVector(guidCmd.omega_BR_B);
-    Eigen::Vector3f omega_RN_B = cArrayToEigenVector(guidCmd.omega_RN_B);
-    Eigen::Vector3f domega_RN_B = cArrayToEigenVector(guidCmd.domega_RN_B);
+    const Eigen::Vector3f sigma_BR = cArrayToEigenVector(guidCmd.sigma_BR);
+    const Eigen::Vector3f omega_BR_B = cArrayToEigenVector(guidCmd.omega_BR_B);
+    const Eigen::Vector3f omega_RN_B = cArrayToEigenVector(guidCmd.omega_RN_B);
+    const Eigen::Vector3f domega_RN_B = cArrayToEigenVector(guidCmd.domega_RN_B);
 
     /*! - compute body rate */
-    Eigen::Vector3f omega_BN_B = omega_BR_B + omega_RN_B;
+    const Eigen::Vector3f omega_BN_B = omega_BR_B + omega_RN_B;
 
     /*! - evaluate integral term */
     Eigen::Vector3f z{Eigen::Vector3f::Zero()};
@@ -74,7 +74,7 @@ MrpFeedbackOutput MrpFeedbackAlgorithm::update(uint64_t callTime,
 
         /* keep int_sigma less than integralLimit */
         for (uint32_t i = 0; i < 3; i++) {
-            float intCheck = fabs(this->int_sigma[i]);
+            const float intCheck = fabs(this->int_sigma[i]);
             if (intCheck > this->integralLimit) {
                 this->int_sigma[i] *= this->integralLimit / intCheck;
             }
@@ -85,14 +85,14 @@ MrpFeedbackOutput MrpFeedbackAlgorithm::update(uint64_t callTime,
     /*! - evaluate required attitude control torque Lr */
     Eigen::Vector3f Lr = this->K * sigma_BR + this->P * omega_BR_B + this->P * this->Ki * z;
 
-    Eigen::Matrix<float, 3, RW_EFF_CNT> G_s_B =
+    const Eigen::Matrix<float, 3, RW_EFF_CNT> G_s_B =
         cArrayToEigenMatrix<float, 3, RW_EFF_CNT>(this->rwConfigParams.GsMatrix_B);
 
     Eigen::Vector3f H_B = this->ISCPntB_B * omega_BN_B;
     for (uint32_t i = 0; i < this->rwConfigParams.numRW; i++) {
         if (wheelsAvailability.wheelAvailability[i] == AVAILABLE) { /* check if wheel is available */
-            Eigen::Vector3f G_s_B_i = G_s_B.col(i);
-            Eigen::Vector3f h_s_i =
+            const Eigen::Vector3f G_s_B_i = G_s_B.col(i);
+            const Eigen::Vector3f h_s_i =
                 this->rwConfigParams.JsList[i] * (omega_BN_B.dot(G_s_B_i) + wheelSpeeds.wheelSpeeds[i]) * G_s_B_i;
             H_B += h_s_i;
         }
@@ -106,8 +106,8 @@ MrpFeedbackOutput MrpFeedbackAlgorithm::update(uint64_t callTime,
 
     Lr += this->ISCPntB_B * (omega_BN_B.cross(omega_RN_B) - domega_RN_B) + this->knownTorquePntB_B;
 
-    Eigen::Vector3f u_s = -Lr;
-    Eigen::Vector3f u_integral = -(this->P * this->Ki * z);
+    const Eigen::Vector3f u_s = -Lr;
+    const Eigen::Vector3f u_integral = -(this->P * this->Ki * z);
 
     eigenVectorToCArray(u_s, controlOut.torqueRequestBody);
     eigenVectorToCArray(u_integral, intFeedbackOut.torqueRequestBody);

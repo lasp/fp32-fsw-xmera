@@ -7,7 +7,7 @@
  @return void
  @param callTime The clock time at which the function was called (nanoseconds)
 */
-void MrpFeedback::reset(uint64_t callTime) {
+void MrpFeedback::reset(const uint64_t callTime) {
     /* check that optional messages are correct connected */
     if (this->rwParamsInMsg.isLinked()) {
         if (!this->rwSpeedsInMsg.isLinked()) {
@@ -24,7 +24,7 @@ void MrpFeedback::reset(uint64_t callTime) {
         throw std::invalid_argument("MrpFeedback.vehConfigInMsg wasn't connected.");
     }
 
-    VehicleConfigMsgF32Payload sc = this->vehConfigInMsg();
+    const VehicleConfigMsgF32Payload sc = this->vehConfigInMsg();
     RWArrayConfigMsgF32Payload rwConfigParams{};
     bool rwParamsIsLinked{};
 
@@ -43,7 +43,7 @@ void MrpFeedback::reset(uint64_t callTime) {
  @return void
  @param callTime The clock time at which the function was called (nanoseconds)
 */
-void MrpFeedback::updateState(uint64_t callTime) {
+void MrpFeedback::updateState(const uint64_t callTime) {
     AttGuidMsgF32Payload guidCmd{};                   /* attitude tracking error message */
     RWSpeedMsgF32Payload wheelSpeeds{};               /* Reaction wheel speed message */
     RWAvailabilityMsgPayload wheelsAvailability{};    /* Reaction wheel availability message */

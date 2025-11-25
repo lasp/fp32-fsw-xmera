@@ -27,15 +27,15 @@ class MrpFeedbackAlgorithm {
                              RWSpeedMsgF32Payload wheelSpeeds,
                              RWAvailabilityMsgPayload wheelsAvailability);
 
-    void setK(const float gain);
+    void setK(float gain);
     float getK() const;
-    void setP(const float gain);
+    void setP(float gain);
     float getP() const;
-    void setKi(const float gain);
+    void setKi(float gain);
     float getKi() const;
-    void setIntegralLimit(const float limit);
+    void setIntegralLimit(float limit);
     float getIntegralLimit() const;
-    void setControlLawType(const int type);
+    void setControlLawType(int type);
     int getControlLawType() const;
     void setKnownTorquePntB_B(const Eigen::Vector3f& knownTorquePntB_B);
     Eigen::Vector3f getKnownTorquePntB_B() const;
