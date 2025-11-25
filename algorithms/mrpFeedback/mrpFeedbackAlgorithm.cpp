@@ -47,9 +47,6 @@ MrpFeedbackOutput MrpFeedbackAlgorithm::update(uint64_t callTime,
                                                AttGuidMsgF32Payload guidCmd,
                                                RWSpeedMsgF32Payload wheelSpeeds,
                                                RWAvailabilityMsgPayload wheelsAvailability) {
-    CmdTorqueBodyMsgF32Payload controlOut{};     /* output message */
-    CmdTorqueBodyMsgF32Payload intFeedbackOut{}; /* output int feedback msg */
-
     /*! - compute control update time */
     float dt; /* [s] control update period */
     if (this->priorTime == 0) {
@@ -108,6 +105,9 @@ MrpFeedbackOutput MrpFeedbackAlgorithm::update(uint64_t callTime,
 
     const Eigen::Vector3f u_s = -Lr;
     const Eigen::Vector3f u_integral = -(this->P * this->Ki * z);
+
+    CmdTorqueBodyMsgF32Payload controlOut{};
+    CmdTorqueBodyMsgF32Payload intFeedbackOut{};
 
     eigenVectorToCArray(u_s, controlOut.torqueRequestBody);
     eigenVectorToCArray(u_integral, intFeedbackOut.torqueRequestBody);
