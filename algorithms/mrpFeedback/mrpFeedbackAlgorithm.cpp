@@ -32,7 +32,7 @@ void MrpFeedbackAlgorithm::reset(VehicleConfigMsgF32Payload vehConfigMsg,
 
     /*! - Reset the prior time flag state.
      If zero, control time step not evaluated on the first function call */
-    this->priorTime = 0;
+    this->priorTime = 0U;
 }
 
 /*! This method takes the attitude and rate errors relative to the Reference frame, as well as
@@ -49,10 +49,10 @@ MrpFeedbackOutput MrpFeedbackAlgorithm::update(uint64_t callTime,
                                                RWAvailabilityMsgPayload wheelsAvailability) {
     /*! - compute control update time */
     float dt; /* [s] control update period */
-    if (this->priorTime == 0) {
-        dt = 0.0;
+    if (this->priorTime == 0U) {
+        dt = 0.0F;
     } else {
-        dt = (callTime - this->priorTime) * NANO2SEC;
+        dt = static_cast<float>(static_cast<double>(callTime - this->priorTime) * NANO2SEC);
     }
     this->priorTime = callTime;
 
@@ -66,11 +66,11 @@ MrpFeedbackOutput MrpFeedbackAlgorithm::update(uint64_t callTime,
 
     /*! - evaluate integral term */
     Eigen::Vector3f z{Eigen::Vector3f::Zero()};
-    if (this->Ki > 0) { /* check if integral feedback is turned on  */
+    if (this->Ki > 0.0F) { /* check if integral feedback is turned on  */
         this->int_sigma += this->K * dt * sigma_BR;
 
         /* keep int_sigma less than integralLimit */
-        for (uint32_t i = 0; i < 3; i++) {
+        for (Eigen::Index i = 0; i < 3; i++) {
             const float intCheck = fabs(this->int_sigma[i]);
             if (intCheck > this->integralLimit) {
                 this->int_sigma[i] *= this->integralLimit / intCheck;
@@ -86,7 +86,7 @@ MrpFeedbackOutput MrpFeedbackAlgorithm::update(uint64_t callTime,
         cArrayToEigenMatrix<float, 3, RW_EFF_CNT>(this->rwConfigParams.GsMatrix_B);
 
     Eigen::Vector3f H_B = this->ISCPntB_B * omega_BN_B;
-    for (uint32_t i = 0; i < this->rwConfigParams.numRW; i++) {
+    for (Eigen::Index i = 0; i < this->rwConfigParams.numRW; i++) {
         if (wheelsAvailability.wheelAvailability[i] == AVAILABLE) { /* check if wheel is available */
             const Eigen::Vector3f G_s_B_i = G_s_B.col(i);
             const Eigen::Vector3f h_s_i =

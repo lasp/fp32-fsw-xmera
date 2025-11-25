@@ -30,7 +30,7 @@ void MrpFeedback::reset(const uint64_t callTime) {
         rwConfigParams = this->rwParamsInMsg();
         rwParamsIsLinked = true;
     }
-    this->numRW = rwConfigParams.numRW;
+    this->numRW = static_cast<uint32_t>(rwConfigParams.numRW);
 
     this->algorithm.reset(sc, rwConfigParams, rwParamsIsLinked);
 }
@@ -49,7 +49,7 @@ void MrpFeedback::updateState(const uint64_t callTime) {
     guidCmd = this->guidInMsg();
 
     /*! - read in optional RW speed and availability message */
-    if (this->numRW > 0) {
+    if (this->numRW > 0U) {
         wheelSpeeds = this->rwSpeedsInMsg();
         if (this->rwAvailInMsg.isLinked()) {
             wheelsAvailability = this->rwAvailInMsg();
