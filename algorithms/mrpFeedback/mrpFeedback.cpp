@@ -41,12 +41,9 @@ void MrpFeedback::reset(const uint64_t callTime) {
  @param callTime The clock time at which the function was called (nanoseconds)
 */
 void MrpFeedback::updateState(const uint64_t callTime) {
-    AttGuidMsgF32Payload guidCmd{};                   /* attitude tracking error message */
-    RWSpeedMsgF32Payload wheelSpeeds{};               /* Reaction wheel speed message */
-    RWAvailabilityMsgPayload wheelsAvailability{};    /* Reaction wheel availability message */
-
-    /*! - Read the attitude tracking error message */
-    guidCmd = this->guidInMsg();
+    AttGuidMsgF32Payload guidCmd = this->guidInMsg();  /* attitude tracking error message */
+    RWSpeedMsgF32Payload wheelSpeeds{};                /* Reaction wheel speed message */
+    RWAvailabilityMsgPayload wheelsAvailability{};     /* Reaction wheel availability message */
 
     /*! - read in optional RW speed and availability message */
     if (this->numRW > 0U) {
