@@ -9,11 +9,8 @@
 */
 void MrpFeedback::reset(const uint64_t callTime) {
     /* check that optional messages are correct connected */
-    if (this->rwParamsInMsg.isLinked()) {
-        if (!this->rwSpeedsInMsg.isLinked()) {
-            throw std::invalid_argument(
-                "MrpFeedback.rwSpeedsInMsg wasn't connected while rwParamsInMsg was connected.");
-        }
+    if (this->rwParamsInMsg.isLinked() && !this->rwSpeedsInMsg.isLinked()) {
+        throw std::invalid_argument("MrpFeedback.rwSpeedsInMsg wasn't connected while rwParamsInMsg was connected.");
     }
 
     // check if the required message has not been connected
