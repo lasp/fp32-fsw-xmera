@@ -40,7 +40,7 @@ def test_mrp_feedback(show_plots, int_gain, rw_num, integral_limit, ctrl_law, us
 
     # create input messages
     #   AttGuidFswMsg Message:
-    guid_cmd_data = messaging.AttGuidMsgPayload()
+    guid_cmd_data = messaging.AttGuidMsgF32Payload()
     sigma_BR = [0.3, -0.5, 0.7]
     guid_cmd_data.sigma_BR = sigma_BR
     omega_BR_B = [0.010, -0.020, 0.015]
@@ -49,27 +49,27 @@ def test_mrp_feedback(show_plots, int_gain, rw_num, integral_limit, ctrl_law, us
     guid_cmd_data.omega_RN_B = omega_RN_B
     domega_RN_B = [0.0002, 0.0003, 0.0001]
     guid_cmd_data.domega_RN_B = domega_RN_B
-    guid_in_msg = messaging.AttGuidMsg().write(guid_cmd_data)
+    guid_in_msg = messaging.AttGuidMsgF32().write(guid_cmd_data)
 
     # vehicleConfigData Message:
-    vehicle_config = messaging.VehicleConfigMsgPayload()
+    vehicle_config = messaging.VehicleConfigMsgF32Payload()
     I = [1000., 0., 0.,
          0., 800., 0.,
          0., 0., 800.]
     vehicle_config.ISCPntB_B = I
-    vc_in_msg = messaging.VehicleConfigMsg().write(vehicle_config)
+    vc_in_msg = messaging.VehicleConfigMsgF32().write(vehicle_config)
 
     # wheelSpeeds Message
-    rw_speed_message = messaging.RWSpeedMsgPayload()
+    rw_speed_message = messaging.RWSpeedMsgF32Payload()
     Omega = [10.0, 25.0, 50.0, 100.0]  # rad/sec
     rw_speed_message.wheelSpeeds = Omega
-    rw_speed_in_msg = messaging.RWSpeedMsg().write(rw_speed_message)
+    rw_speed_in_msg = messaging.RWSpeedMsgF32().write(rw_speed_message)
 
     # wheelConfigData message
     js_list = []
     G_s_B = []
     if rw_num > 0:
-        rw_config_params = messaging.RWArrayConfigMsgPayload()
+        rw_config_params = messaging.RWArrayConfigMsgF32Payload()
 
         G_s_B = [
             1.0, 0.0, 0.0,
@@ -81,7 +81,7 @@ def test_mrp_feedback(show_plots, int_gain, rw_num, integral_limit, ctrl_law, us
         rw_config_params.GsMatrix_B = G_s_B
         rw_config_params.JsList = js_list
         rw_config_params.numRW = rw_num
-        rw_param_in_msg = messaging.RWArrayConfigMsg().write(rw_config_params)
+        rw_param_in_msg = messaging.RWArrayConfigMsgF32().write(rw_config_params)
 
     # wheelAvailability message
     rw_availability_message = messaging.RWAvailabilityMsgPayload()
@@ -131,8 +131,8 @@ def test_mrp_feedback(show_plots, int_gain, rw_num, integral_limit, ctrl_law, us
     Lr = data_log.torqueRequestBody
 
     # compare the module results to the truth values
-    accuracy = 1e-8
-    np.testing.assert_allclose(Lr, Lr_true, atol=accuracy, rtol=0, verbose=True)
+    accuracy = 1e-6
+    np.testing.assert_allclose(Lr, Lr_true, atol=accuracy, rtol=accuracy, verbose=True)
 
 
 def find_true_torques(module, guid_cmd_data, rw_speed_message, vehicle_config_out, js_list, num_rw, G_s_B, rw_avail_msg, ctrl_law):

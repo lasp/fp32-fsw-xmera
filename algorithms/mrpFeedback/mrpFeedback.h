@@ -5,12 +5,12 @@
 
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
-#include <architecture/msgPayloadDef/AttGuidMsgPayload.h>
-#include <architecture/msgPayloadDef/CmdTorqueBodyMsgPayload.h>
-#include <architecture/msgPayloadDef/RWArrayConfigMsgPayload.h>
+#include "msgPayloadDef/AttGuidMsgF32Payload.h"
+#include "msgPayloadDef/CmdTorqueBodyMsgF32Payload.h"
+#include "msgPayloadDef/RWArrayConfigMsgF32Payload.h"
 #include <architecture/msgPayloadDef/RWAvailabilityMsgPayload.h>
-#include <architecture/msgPayloadDef/RWSpeedMsgPayload.h>
-#include <architecture/msgPayloadDef/VehicleConfigMsgPayload.h>
+#include "msgPayloadDef/RWSpeedMsgF32Payload.h"
+#include "msgPayloadDef/VehicleConfigMsgF32Payload.h"
 #include "mrpFeedbackAlgorithm.h"
 
 #include <Eigen/Core>
@@ -24,28 +24,28 @@ class MrpFeedback : public SysModel {
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
 
-    void setK(const double gain);
-    double getK() const;
-    void setP(const double gain);
-    double getP() const;
-    void setKi(const double gain);
-    double getKi() const;
-    void setIntegralLimit(const double limit);
-    double getIntegralLimit() const;
+    void setK(const float gain);
+    float getK() const;
+    void setP(const float gain);
+    float getP() const;
+    void setKi(const float gain);
+    float getKi() const;
+    void setIntegralLimit(const float limit);
+    float getIntegralLimit() const;
     void setControlLawType(const int type);
     int getControlLawType() const;
-    void setKnownTorquePntB_B(const Eigen::Vector3d& knownTorquePntB_B);
-    Eigen::Vector3d getKnownTorquePntB_B() const;
+    void setKnownTorquePntB_B(const Eigen::Vector3f& knownTorquePntB_B);
+    Eigen::Vector3f getKnownTorquePntB_B() const;
 
     /* declare module IO interfaces */
-    ReadFunctor<RWSpeedMsgPayload> rwSpeedsInMsg;        //!< RW speed input message (Optional)
+    ReadFunctor<RWSpeedMsgF32Payload> rwSpeedsInMsg;        //!< RW speed input message (Optional)
     ReadFunctor<RWAvailabilityMsgPayload> rwAvailInMsg;  //!< RW availability input message (Optional)
-    ReadFunctor<RWArrayConfigMsgPayload> rwParamsInMsg;  //!< RW parameter input message.  (Optional)
-    Message<CmdTorqueBodyMsgPayload> cmdTorqueOutMsg;  //!< commanded spacecraft external control torque output message
-    Message<CmdTorqueBodyMsgPayload>
+    ReadFunctor<RWArrayConfigMsgF32Payload> rwParamsInMsg;  //!< RW parameter input message.  (Optional)
+    Message<CmdTorqueBodyMsgF32Payload> cmdTorqueOutMsg;  //!< commanded spacecraft external control torque output message
+    Message<CmdTorqueBodyMsgF32Payload>
         intFeedbackTorqueOutMsg;                          //!< commanded integral feedback control torque output message
-    ReadFunctor<AttGuidMsgPayload> guidInMsg;             //!< attitude guidance input message
-    ReadFunctor<VehicleConfigMsgPayload> vehConfigInMsg;  //!< vehicle configuration input message
+    ReadFunctor<AttGuidMsgF32Payload> guidInMsg;             //!< attitude guidance input message
+    ReadFunctor<VehicleConfigMsgF32Payload> vehConfigInMsg;  //!< vehicle configuration input message
 
    private:
     MrpFeedbackAlgorithm algorithm{};

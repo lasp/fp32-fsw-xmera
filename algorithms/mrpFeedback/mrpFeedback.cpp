@@ -24,8 +24,8 @@ void MrpFeedback::reset(uint64_t callTime) {
         throw std::invalid_argument("MrpFeedback.vehConfigInMsg wasn't connected.");
     }
 
-    VehicleConfigMsgPayload sc = this->vehConfigInMsg();
-    RWArrayConfigMsgPayload rwConfigParams{};
+    VehicleConfigMsgF32Payload sc = this->vehConfigInMsg();
+    RWArrayConfigMsgF32Payload rwConfigParams{};
     bool rwParamsIsLinked{};
 
     /*! - check if RW configuration message exists */
@@ -44,9 +44,9 @@ void MrpFeedback::reset(uint64_t callTime) {
  @param callTime The clock time at which the function was called (nanoseconds)
 */
 void MrpFeedback::updateState(uint64_t callTime) {
-    AttGuidMsgPayload guidCmd{};                   /* attitude tracking error message */
-    RWSpeedMsgPayload wheelSpeeds{};               /* Reaction wheel speed message */
-    RWAvailabilityMsgPayload wheelsAvailability{}; /* Reaction wheel availability message */
+    AttGuidMsgF32Payload guidCmd{};                   /* attitude tracking error message */
+    RWSpeedMsgF32Payload wheelSpeeds{};               /* Reaction wheel speed message */
+    RWAvailabilityMsgPayload wheelsAvailability{};    /* Reaction wheel availability message */
 
     /*! - Read the attitude tracking error message */
     guidCmd = this->guidInMsg();
@@ -69,45 +69,45 @@ void MrpFeedback::updateState(uint64_t callTime) {
  @return void
  @param gain [N*m] Attitude error feedback gain
 */
-void MrpFeedback::setK(const double gain) { this->algorithm.setK(gain); }
+void MrpFeedback::setK(const float gain) { this->algorithm.setK(gain); }
 
 /*! Getter method for the gain K.
- @return const double
+ @return const float
 */
-double MrpFeedback::getK() const { return this->algorithm.getK(); }
+float MrpFeedback::getK() const { return this->algorithm.getK(); }
 
 /*! Setter method for the gain P.
  @return void
  @param gain [N*m*s] Rate error feedback gain
 */
-void MrpFeedback::setP(const double gain) { this->algorithm.setP(gain); }
+void MrpFeedback::setP(const float gain) { this->algorithm.setP(gain); }
 
 /*! Getter method for the gain P.
- @return const double
+ @return const float
 */
-double MrpFeedback::getP() const { return this->algorithm.getP(); }
+float MrpFeedback::getP() const { return this->algorithm.getP(); }
 
 /*! Setter method for the gain Ki.
  @return void
  @param gain [N*m] Integral feedback gain
 */
-void MrpFeedback::setKi(const double gain) { this->algorithm.setKi(gain); }
+void MrpFeedback::setKi(const float gain) { this->algorithm.setKi(gain); }
 
 /*! Getter method for the gain Ki.
- @return const double
+ @return const float
 */
-double MrpFeedback::getKi() const { return this->algorithm.getKi(); }
+float MrpFeedback::getKi() const { return this->algorithm.getKi(); }
 
 /*! Setter method for the integral limit.
  @return void
  @param limit [N*m*s] Integral limit
 */
-void MrpFeedback::setIntegralLimit(const double limit) { this->algorithm.setIntegralLimit(limit); }
+void MrpFeedback::setIntegralLimit(const float limit) { this->algorithm.setIntegralLimit(limit); }
 
 /*! Getter method for the integral limit.
- @return const double
+ @return const float
 */
-double MrpFeedback::getIntegralLimit() const { return this->algorithm.getIntegralLimit(); }
+float MrpFeedback::getIntegralLimit() const { return this->algorithm.getIntegralLimit(); }
 
 /*! Setter method for the control law type.
  @return void
@@ -124,11 +124,11 @@ int MrpFeedback::getControlLawType() const { return this->algorithm.getControlLa
  @return void
  @param knownTorquePntB_B [N*m] Known external torque expressed in body frame components
 */
-void MrpFeedback::setKnownTorquePntB_B(const Eigen::Vector3d& knownTorquePntB_B) {
+void MrpFeedback::setKnownTorquePntB_B(const Eigen::Vector3f& knownTorquePntB_B) {
     this->algorithm.setKnownTorquePntB_B(knownTorquePntB_B);
 }
 
 /*! Getter method for the known torque about point B.
- @return const Eigen::Vector3d
+ @return const Eigen::Vector3f
 */
-Eigen::Vector3d MrpFeedback::getKnownTorquePntB_B() const { return this->algorithm.getKnownTorquePntB_B(); }
+Eigen::Vector3f MrpFeedback::getKnownTorquePntB_B() const { return this->algorithm.getKnownTorquePntB_B(); }
