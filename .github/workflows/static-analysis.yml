@@ -42,6 +42,9 @@ jobs:
           files: |
             algorithms/**
             architecture/**
+          files_ignore: |
+            **/_tests/**
+            **/_test/**
 
       - name: Report change detection
         run: |
