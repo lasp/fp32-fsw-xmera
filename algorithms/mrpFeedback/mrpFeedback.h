@@ -16,10 +16,10 @@
 #include <Eigen/Core>
 
 /*! @brief Data configuration structure for the MRP feedback attitude control routine. */
-class MrpFeedback : public SysModel {
+class MrpFeedback final : public SysModel {
    public:
     MrpFeedback() = default;
-    ~MrpFeedback() final = default;
+    ~MrpFeedback() override = default;
 
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;

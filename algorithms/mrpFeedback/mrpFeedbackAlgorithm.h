@@ -19,7 +19,7 @@ typedef struct {
 } MrpFeedbackOutput;
 
 /*! @brief Data configuration structure for the MRP feedback attitude control routine. */
-class MrpFeedbackAlgorithm {
+class MrpFeedbackAlgorithm final {
    public:
     void reset(VehicleConfigMsgF32Payload vehConfigMsg, RWArrayConfigMsgF32Payload rwConfigMsg, bool rwIsLinked);
     MrpFeedbackOutput update(uint64_t callTime,
