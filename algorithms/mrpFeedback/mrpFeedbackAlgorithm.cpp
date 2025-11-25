@@ -48,7 +48,7 @@ MrpFeedbackOutput MrpFeedbackAlgorithm::update(uint64_t callTime,
                                                RWSpeedMsgF32Payload wheelSpeeds,
                                                RWAvailabilityMsgPayload wheelsAvailability) {
     /*! - compute control update time */
-    float dt; /* [s] control update period */
+    float dt{}; /* [s] control update period */
     if (this->priorTime == 0U) {
         dt = 0.0F;
     } else {
