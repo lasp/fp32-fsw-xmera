@@ -13,7 +13,7 @@
  @param rwIsLinked boolean indicating whether reaction wheel config message is linked
 */
 void MrpFeedbackAlgorithm::reset(VehicleConfigMsgF32Payload vehConfigMsg,
-                                 const RWArrayConfigMsgF32Payload rwConfigMsg,
+                                 const RWArrayConfigMsgF32Payload& rwConfigMsg,
                                  const bool rwIsLinked) {
     /*! - copy over spacecraft inertia tensor */
     this->ISCPntB_B = cArrayToEigenMatrix3(vehConfigMsg.ISCPntB_B);
@@ -44,9 +44,9 @@ void MrpFeedbackAlgorithm::reset(VehicleConfigMsgF32Payload vehConfigMsg,
  @param wheelsAvailability Reaction wheel availability message
 */
 MrpFeedbackOutput MrpFeedbackAlgorithm::update(uint64_t callTime,
-                                               AttGuidMsgF32Payload guidCmd,
-                                               RWSpeedMsgF32Payload wheelSpeeds,
-                                               RWAvailabilityMsgPayload wheelsAvailability) {
+                                               AttGuidMsgF32Payload& guidCmd,
+                                               const RWSpeedMsgF32Payload& wheelSpeeds,
+                                               const RWAvailabilityMsgPayload& wheelsAvailability) {
     /*! - compute control update time */
     float dt{}; /* [s] control update period */
     if (this->priorTime == 0U) {

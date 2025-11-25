@@ -21,11 +21,11 @@ typedef struct {
 /*! @brief Data configuration structure for the MRP feedback attitude control routine. */
 class MrpFeedbackAlgorithm final {
    public:
-    void reset(VehicleConfigMsgF32Payload vehConfigMsg, RWArrayConfigMsgF32Payload rwConfigMsg, bool rwIsLinked);
+    void reset(VehicleConfigMsgF32Payload vehConfigMsg, const RWArrayConfigMsgF32Payload& rwConfigMsg, bool rwIsLinked);
     MrpFeedbackOutput update(uint64_t callTime,
-                             AttGuidMsgF32Payload guidCmd,
-                             RWSpeedMsgF32Payload wheelSpeeds,
-                             RWAvailabilityMsgPayload wheelsAvailability);
+                             AttGuidMsgF32Payload& guidCmd,
+                             const RWSpeedMsgF32Payload& wheelSpeeds,
+                             const RWAvailabilityMsgPayload& wheelsAvailability);
 
     void setK(float gain);
     float getK() const;
