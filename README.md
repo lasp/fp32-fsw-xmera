@@ -16,7 +16,7 @@ The build Ximera build path is controlled by the Ximera build system. It expects
   - alg2/
     - etc.
 
-The flight software build path is controlled by the CMake build system and associated cmake files in this repository. 
+The flight software build path is controlled by the CMake build system and associated cmake files in this repository.
 This build path is described below.
 
 ### Dependencies:
@@ -46,7 +46,7 @@ sudo update-alternatives --config g++
 ### Mac OS
 1. Install [homebrew](https://docs.brew.sh/Installation)
 2. Install GCC 13.3.1 with `brew install gcc@13`
-3. Test GCC with `gcc --version` - this command should output information about the installed GCC compiler, including 
+3. Test GCC with `gcc --version` - this command should output information about the installed GCC compiler, including
 its version number.
 
 ### Using Build.sh
@@ -98,6 +98,11 @@ E.g.
 }
 ```
 
-## Agent Instructions
+## Static Analysis
 
-For AI agents, please refer to [AGENTS.md](AGENTS.md) for direction on using project conventions and workflows.
+This repository contains a `.clang-tidy` file which can be used within an IDE and is also used in the continuous
+integration checks. It is also recommended to configure the MISRA checks in your IDE. Below is a list of excluded
+MISRA rules.
+MISRA 7-3-1: The global namespace shall only contain main, namespace declarations and extern "C" declarations
+MISRA 6.0.3: The only declarations in the global namespace should be main, namespace declarations and extern "C"
+declarations

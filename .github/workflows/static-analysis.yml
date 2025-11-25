@@ -21,11 +21,14 @@ env:
   CTEST_OUTPUT_ON_FAILURE: 1
 
 jobs:
-  clang-tidy:
+  detect-changes:
     runs-on: ubuntu-24.04
     permissions:
       contents: read
       pull-requests: write
+    outputs:
+      any_changed: ${{ steps.changed-files.outputs.any_changed }}
+      all_changed_files: ${{ steps.changed-files.outputs.all_changed_files }}
     steps:
       - name: Checkout fp32-fsw-xmera
         uses: actions/checkout@v4
@@ -39,6 +42,27 @@ jobs:
           files: |
             algorithms/**
             architecture/**
+
+      - name: Report change detection
+        run: |
+          if [[ "${{ steps.changed-files.outputs.any_changed }}" == 'true' ]]; then
+            echo "Algorithms/architecture changes detected; running clang-tidy."
+          else
+            echo "No algorithms/architecture changes detected; clang-tidy job will be skipped."
+          fi
+
+  clang-tidy:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.any_changed == 'true'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout fp32-fsw-xmera
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Checkout Xmera core
         uses: actions/checkout@v4
@@ -68,7 +92,9 @@ jobs:
 
       - name: Install system dependencies
         run: |
+          wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
           sudo apt-get update
+          sudo add-apt-repository "deb http://apt.llvm.org/noble/ llvm-toolchain-noble-21 main"
           sudo apt-get install -y \
             ninja-build build-essential \
             pkg-config autoconf automake libtool \
@@ -83,11 +109,11 @@ jobs:
             mono-complete \
             ccache \
             gcc-13 g++-13 \
-            clang clang-tidy jq
+            clang-21 clang-tidy-21 clang-tools-21 jq
           ccache --version
           ninja --version
-          clang --version
-          clang-tidy --version
+          clang-21 --version
+          clang-tidy-21 --version
 
       - name: Select GCC 13
         run: |
@@ -212,6 +238,7 @@ jobs:
         run: cmake --build ../build --parallel
 
       - name: Run clang-tidy
+        if: steps.changed-files.outputs.any_changed == 'true'
         run: |
           mkdir -p reports
           echo "CLANG_TIDY_STATUS=0" >> "$GITHUB_ENV"
@@ -222,7 +249,7 @@ jobs:
           fi
 
           # Build the list of changed algorithm/architecture files (split on whitespace/newlines)
-          changed_rel_paths=(${{ steps.changed-files.outputs.all_changed_files }})
+          changed_rel_paths=(${{ needs.detect-changes.outputs.all_changed_files }})
 
           if [ "${#changed_rel_paths[@]}" -eq 0 ]; then
             echo "No algorithms/architecture files changed in this PR; skipping clang-tidy."
@@ -266,8 +293,17 @@ jobs:
             : > reports/clang-tidy.log
           else
             echo "Analyzing ${#files[@]} tracked files in algorithms/ + architecture/ (excluding generated .cxx)."
+            RUN_CLANG_TIDY_BIN="run-clang-tidy"
+            CLANG_TIDY_BIN="clang-tidy-21"
+            if command -v run-clang-tidy-21 >/dev/null 2>&1; then
+              RUN_CLANG_TIDY_BIN="run-clang-tidy-21"
+            fi
+            if ! command -v "${CLANG_TIDY_BIN}" >/dev/null 2>&1; then
+              echo "clang-tidy-21 not found; falling back to clang-tidy"
+              CLANG_TIDY_BIN="clang-tidy"
+            fi
             set +e
-            run-clang-tidy -p xmera/build -j"$(nproc)" "${files[@]}" 2>&1 | tee reports/clang-tidy.log
+            "${RUN_CLANG_TIDY_BIN}" -clang-tidy-binary "${CLANG_TIDY_BIN}" -p xmera/build -j"$(nproc)" "${files[@]}" 2>&1 | tee reports/clang-tidy.log
             clang_tidy_status="${PIPESTATUS[0]}"
             set -e
             echo "CLANG_TIDY_STATUS=${clang_tidy_status}" >> "$GITHUB_ENV"
@@ -289,7 +325,7 @@ jobs:
             -reporter=github-pr-check \
             -filter-mode=diff_context \
             -level=warning \
-            -fail-on-error=true
+            -fail-level=any
 
       - name: Fail when clang-tidy reports issues
         if: env.CLANG_TIDY_STATUS != '0'
