@@ -34,7 +34,7 @@ class MrpFeedback final : public SysModel {
     float getIntegralLimit() const;
     void setControlLawType(int type);
     int getControlLawType() const;
-    void setKnownTorquePntB_B(const Eigen::Vector3f& knownTorquePntB_B);
+    void setKnownTorquePntB_B(const Eigen::Vector3f& torque);
     Eigen::Vector3f getKnownTorquePntB_B() const;
 
     /* declare module IO interfaces */
