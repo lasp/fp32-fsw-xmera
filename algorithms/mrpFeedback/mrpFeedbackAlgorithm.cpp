@@ -3,7 +3,7 @@
 #include <architecture/utilities/macroDefinitions.h>
 
 #include <math.h>
-#include <stdexcept>
+#include "../freestandingInvalidArgument.h"
 
 /*! This method performs a complete reset of the module.  Local module variables that retain
  time varying states between function calls are reset to their default values.
@@ -125,7 +125,7 @@ MrpFeedbackOutput MrpFeedbackAlgorithm::update(uint64_t callTime,
 */
 void MrpFeedbackAlgorithm::setK(const float gain) {
     if (gain < 0.0) {
-        throw std::invalid_argument("Feedback gain K must not be negative");
+        FS_THROW_INVALID_ARGUMENT("Feedback gain K must not be negative");
     }
     this->K = gain;
 }
@@ -141,7 +141,7 @@ float MrpFeedbackAlgorithm::getK() const { return this->K; }
 */
 void MrpFeedbackAlgorithm::setP(const float gain) {
     if (gain < 0.0) {
-        throw std::invalid_argument("Feedback gain P must not be negative");
+        FS_THROW_INVALID_ARGUMENT("Feedback gain P must not be negative");
     }
     this->P = gain;
 }
