@@ -103,6 +103,7 @@ E.g.
 This repository contains a `.clang-tidy` file which can be used within an IDE and is also used in the continuous
 integration checks. It is also recommended to configure the MISRA checks in your IDE. Below is a list of excluded
 MISRA rules.
-MISRA 7-3-1: The global namespace shall only contain main, namespace declarations and extern "C" declarations
-MISRA 6.0.3: The only declarations in the global namespace should be main, namespace declarations and extern "C"
+- MISRA 5.10.1: A macro identifier shall additionally only be formed using characters in the ranges [A-Z], [0-9] and _
+- MISRA 6.0.3: The only declarations in the global namespace should be main, namespace declarations and extern "C"
 declarations
+- MISRA 7-3-1: The global namespace shall only contain main, namespace declarations and extern "C" declarations
