@@ -41,7 +41,7 @@ void RateServoFullNonlinear::reset(const uint64_t callTime) {
         rwConfigParams = this->rwParamsInMsg();
         rwParamsIsLinked = true;
     }
-    this->numRW = rwConfigParams.numRW;
+    this->numRW = static_cast<uint32_t>(rwConfigParams.numRW);
 
     this->algorithm.reset(sc, rwConfigParams, rwParamsIsLinked);
 }
@@ -57,7 +57,7 @@ void RateServoFullNonlinear::updateState(const uint64_t callTime) {
     RWSpeedMsgF32Payload wheelSpeeds{};            /*!< Reaction wheel speed estimates input message */
     RWAvailabilityMsgPayload wheelsAvailability{}; /*!< Reaction wheel availability input message */
 
-    if (this->numRW > 0) {
+    if (this->numRW > 0U) {
         wheelSpeeds = this->rwSpeedsInMsg();
         if (this->rwAvailInMsg.isLinked()) {
             wheelsAvailability = this->rwAvailInMsg();

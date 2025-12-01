@@ -34,7 +34,7 @@ void RateServoFullNonlinearAlgorithm::reset(VehicleConfigMsgF32Payload vehConfig
 
     /* Reset the prior time flag state.
      If zero, control time step not evaluated on the first function call */
-    this->priorTime = 0;
+    this->priorTime = 0U;
 }
 
 /*! This method takes and rate errors relative to the Reference frame, as well as
@@ -55,8 +55,8 @@ CmdTorqueBodyMsgF32Payload RateServoFullNonlinearAlgorithm::update(const uint64_
 
     /*! - compute control update time */
     float dt{}; /* [s] control update period */
-    if (this->priorTime == 0) {
-        dt = 0.0;
+    if (this->priorTime == 0U) {
+        dt = 0.0F;
     } else {
         dt = static_cast<float>(callTime - this->priorTime) * static_cast<float>(NANO2SEC);
     }
@@ -77,9 +77,9 @@ CmdTorqueBodyMsgF32Payload RateServoFullNonlinearAlgorithm::update(const uint64_
     const Eigen::Vector3f omega_BBast_B = omega_BN_B - omega_BastN_B;
 
     /*! - integrate rate tracking error  */
-    if (this->Ki > 0) { /* check if integral feedback is turned on  */
+    if (this->Ki > 0.0F) { /* check if integral feedback is turned on  */
         this->z += omega_BBast_B * dt;
-        for (uint32_t i = 0; i < 3; i++) {
+        for (Eigen::Index i = 0; i < 3; i++) {
             const float intLimCheck = fabs(this->z[i]);
             if (intLimCheck > this->integralLimit) {
                 this->z[i] *= this->integralLimit / intLimCheck;
