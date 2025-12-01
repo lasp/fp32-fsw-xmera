@@ -35,7 +35,7 @@ class RateServoFullNonlinearAlgorithm final {
     float getKi() const;
     void setIntegralLimit(float limit);
     float getIntegralLimit() const;
-    void setKnownTorquePntB_B(const Eigen::Vector3f &knownTorquePntB_B);
+    void setKnownTorquePntB_B(const Eigen::Vector3f &torque);
     Eigen::Vector3f getKnownTorquePntB_B() const;
 
    private:

@@ -158,10 +158,10 @@ float RateServoFullNonlinearAlgorithm::getIntegralLimit() const { return this->i
 
 /*! Setter method for the known external torque about point B.
  @return void
- @param knownTorquePntB_B [N*m] Known external torque expressed in body frame components
+ @param torque [N*m] Known external torque expressed in body frame components
 */
-void RateServoFullNonlinearAlgorithm::setKnownTorquePntB_B(const Eigen::Vector3f& knownTorquePntB_B) {
-    this->knownTorquePntB_B = knownTorquePntB_B;
+void RateServoFullNonlinearAlgorithm::setKnownTorquePntB_B(const Eigen::Vector3f& torque) {
+    this->knownTorquePntB_B = torque;
 }
 
 /*! Getter method for the known torque about point B.
