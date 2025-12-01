@@ -20,7 +20,7 @@
 #include <Eigen/Core>
 
 /*! @brief The configuration structure for the rateServoFullNonlinear module.  */
-class RateServoFullNonlinearAlgorithm {
+class RateServoFullNonlinearAlgorithm final {
    public:
     void reset(VehicleConfigMsgF32Payload vehConfigMsg, RWArrayConfigMsgF32Payload rwConfigMsg, bool rwIsLinked);
     CmdTorqueBodyMsgF32Payload update(uint64_t callTime,

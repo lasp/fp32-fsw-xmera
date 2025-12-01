@@ -23,7 +23,7 @@
 #include <Eigen/Core>
 
 /*! @brief The configuration structure for the rateServoFullNonlinear module.  */
-class RateServoFullNonlinear : public SysModel {
+class RateServoFullNonlinear final : public SysModel {
    public:
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
