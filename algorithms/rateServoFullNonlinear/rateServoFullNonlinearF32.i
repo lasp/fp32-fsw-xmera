@@ -9,6 +9,12 @@
    #include "rateServoFullNonlinear.h"
 %}
 
+%include <attribute.i>
+%attribute(RateServoFullNonlinear, float, P, getP, setP)
+%attribute(RateServoFullNonlinear, float, Ki, getKi, setKi)
+%attribute(RateServoFullNonlinear, float, integralLimit, getIntegralLimit, setIntegralLimit)
+%attribute(RateServoFullNonlinear, Eigen::Vector3f, knownTorquePntB_B, getKnownTorquePntB_B, setKnownTorquePntB_B)
+
 %include <architecture/_GeneralModuleFiles/sys_model.i>
 %include <architecture/_GeneralModuleFiles/swig_conly_data.i>
 %include <architecture/_GeneralModuleFiles/swig_eigen.i>

@@ -37,10 +37,10 @@ def test_rate_servo_full_nonlinear(show_plots, rw_num, int_gain, omegap_BastR_B,
     unit_test_sim.AddModelToTask(unit_task_name, module)
 
     # configure module parameters
-    module.setKi(int_gain)
-    module.setP(150.0)
-    module.setIntegralLimit(integral_limit)
-    module.setKnownTorquePntB_B([1,1,1])
+    module.Ki = int_gain
+    module.P = 150.0
+    module.integralLimit = integral_limit
+    module.knownTorquePntB_B = [1,1,1]
 
     #   Create input message and size it because the regular creator of that message
     #   is not part of the test.
@@ -148,7 +148,7 @@ def find_true_torques(module, guid_cmd_data, rw_speed_message, vehicle_config_ou
     Lr = []
 
     #Read in variables
-    L = np.asarray(module.getKnownTorquePntB_B()).flatten()
+    L = np.asarray(module.knownTorquePntB_B).flatten()
     steps = [0, 0, .5, 0, .5]
     omega_BR_B = np.asarray(guid_cmd_data.omega_BR_B)
     omega_RN_B = np.asarray(guid_cmd_data.omega_RN_B)
@@ -161,8 +161,8 @@ def find_true_torques(module, guid_cmd_data, rw_speed_message, vehicle_config_ou
 
     Isc = np.asarray(vehicle_config_out.ISCPntB_B)
     Isc = np.reshape(Isc, (3, 3))
-    Ki = module.getKi()
-    P = module.getP()
+    Ki = module.Ki
+    P = module.P
     js_vec = js_list
     G_s_B_array = np.asarray(G_s_B)
     G_s_B_array = np.reshape(G_s_B_array[0:num_rw * 3], (num_rw, 3))
@@ -174,12 +174,12 @@ def find_true_torques(module, guid_cmd_data, rw_speed_message, vehicle_config_ou
             z_vec = np.asarray([0, 0, 0])
 
         #evaluate integral term
-        if Ki > 0 and abs(module.getIntegralLimit()) > 0: #if integral feedback is on
+        if Ki > 0 and abs(module.integralLimit) > 0: #if integral feedback is on
             z_vec = dt * omega_BBast_B + z_vec  # z = integral(del_omega)
             # Make sure each component is less than the integral limit
             for i in range(3):
-                if z_vec[i] > module.getIntegralLimit():
-                        z_vec[i] = z_vec[i]/abs(z_vec[i])*module.getIntegralLimit()
+                if z_vec[i] > module.integralLimit:
+                        z_vec[i] = z_vec[i]/abs(z_vec[i])*module.integralLimit
 
         else: #integral gain turned off/negative setting
             z_vec = np.asarray([0, 0, 0])
