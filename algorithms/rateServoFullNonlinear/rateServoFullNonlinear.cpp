@@ -15,11 +15,9 @@
  */
 void RateServoFullNonlinear::reset(const uint64_t callTime) {
     /* make sure option msg connections are correctly done */
-    if (this->rwParamsInMsg.isLinked()) {
-        if (!this->rwSpeedsInMsg.isLinked()) {
-            throw std::invalid_argument(
+    if (this->rwParamsInMsg.isLinked() && !this->rwSpeedsInMsg.isLinked()) {
+        throw std::invalid_argument(
                 "rateServoFullNonlinear.rwSpeedsInMsg wasn't connected while rwParamsInMsg was connected.");
-        }
     }
 
     // check if essential messages are connected
