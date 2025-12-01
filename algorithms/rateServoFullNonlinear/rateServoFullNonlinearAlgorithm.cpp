@@ -20,7 +20,7 @@
  @param rwIsLinked boolean indicating whether reaction wheel config message is linked
  */
 void RateServoFullNonlinearAlgorithm::reset(VehicleConfigMsgF32Payload vehConfigMsg,
-                                            const RWArrayConfigMsgF32Payload rwConfigMsg,
+                                            const RWArrayConfigMsgF32Payload& rwConfigMsg,
                                             const bool rwIsLinked) {
     this->ISCPntB_B = cArrayToEigenMatrix3(vehConfigMsg.ISCPntB_B);
 
@@ -47,10 +47,10 @@ void RateServoFullNonlinearAlgorithm::reset(VehicleConfigMsgF32Payload vehConfig
  @param wheelsAvailability Reaction wheel availability message
  */
 CmdTorqueBodyMsgF32Payload RateServoFullNonlinearAlgorithm::update(const uint64_t callTime,
-                                                                   const AttGuidMsgF32Payload guidCmd,
-                                                                   const RateCmdMsgF32Payload rateCmd,
-                                                                   const RWSpeedMsgF32Payload wheelSpeeds,
-                                                                   const RWAvailabilityMsgPayload wheelsAvailability) {
+                                                                   AttGuidMsgF32Payload guidCmd,
+                                                                   RateCmdMsgF32Payload rateCmd,
+                                                                   const RWSpeedMsgF32Payload& wheelSpeeds,
+                                                                   const RWAvailabilityMsgPayload& wheelsAvailability) {
     CmdTorqueBodyMsgF32Payload controlOut{}; /*!< commanded torque output message */
 
     /*! - compute control update time */

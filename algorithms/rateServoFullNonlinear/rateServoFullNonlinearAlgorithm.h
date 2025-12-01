@@ -22,12 +22,12 @@
 /*! @brief The configuration structure for the rateServoFullNonlinear module.  */
 class RateServoFullNonlinearAlgorithm final {
    public:
-    void reset(VehicleConfigMsgF32Payload vehConfigMsg, RWArrayConfigMsgF32Payload rwConfigMsg, bool rwIsLinked);
+    void reset(VehicleConfigMsgF32Payload vehConfigMsg, const RWArrayConfigMsgF32Payload& rwConfigMsg, bool rwIsLinked);
     CmdTorqueBodyMsgF32Payload update(uint64_t callTime,
                                       AttGuidMsgF32Payload guidCmd,
                                       RateCmdMsgF32Payload rateCmd,
-                                      RWSpeedMsgF32Payload wheelSpeeds,
-                                      RWAvailabilityMsgPayload wheelsAvailability);
+                                      const RWSpeedMsgF32Payload& wheelSpeeds,
+                                      const RWAvailabilityMsgPayload& wheelsAvailability);
 
     void setP(float gain);
     float getP() const;
