@@ -11,6 +11,7 @@
 #include <stdint.h>
 #include <Eigen/Core>
 #include <numbers>
+#include <math.h>
 
 /*! This method takes the attitude and rate errors relative to the Reference frame, as well as
     the reference frame angular rates and acceleration
