@@ -149,7 +149,12 @@ float RateServoFullNonlinearAlgorithm::getKi() const { return this->Ki; }
  @return void
  @param limit [N*m*s] Integral limit
 */
-void RateServoFullNonlinearAlgorithm::setIntegralLimit(const float limit) { this->integralLimit = limit; }
+void RateServoFullNonlinearAlgorithm::setIntegralLimit(const float limit) {
+    if (limit < 0.0) {
+        FS_THROW_INVALID_ARGUMENT("Integral limit must not be negative");
+    }
+    this->integralLimit = limit;
+}
 
 /*! Getter method for the integral limit.
  @return const float
