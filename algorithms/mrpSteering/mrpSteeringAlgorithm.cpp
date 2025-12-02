@@ -17,17 +17,19 @@
  @return RateCmdMsgF32Payload
  @param guidInMsg attitude guidance input message
  */
-RateCmdMsgF32Payload MrpSteeringAlgorithm::update(AttGuidMsgF32Payload& guidInMsg) const {
+RateCmdMsgF32Payload MrpSteeringAlgorithm::update(AttGuidMsgF32Payload&guidInMsg) const {
     const Eigen::Vector3f sigma_BR = Eigen::Map<const Eigen::Vector3f>(guidInMsg.sigma_BR);
 
     Eigen::Vector3f omega_ast{};
     Eigen::Vector3f omega_ast_p{Eigen::Vector3f::Zero()};
 
+    constexpr auto kPiOver2 = static_cast<float>(std::numbers::pi / 2.0);
+
     for (uint32_t i = 0; i < 3; ++i) {
         const float sigma_i = sigma_BR[i];
         const float f_i =
-            atan(std::numbers::pi / 2 / this->omegaMax * (this->K1 * sigma_i + this->K3 * pow(sigma_i, 3))) /
-            (std::numbers::pi / 2) * this->omegaMax;
+            atanf(kPiOver2 / this->omegaMax * (this->K1 * sigma_i + this->K3 * powf(sigma_i, 3))) /
+            kPiOver2 * this->omegaMax;
         omega_ast[i] = -f_i;
     }
     if (!this->ignoreOuterLoopFeedforward) {
@@ -37,8 +39,8 @@ RateCmdMsgF32Payload MrpSteeringAlgorithm::update(AttGuidMsgF32Payload& guidInMs
         for (uint32_t i = 0; i < 3; ++i) {
             const float sigma_i = sigma_BR[i];
             const float f_i =
-                (3 * this->K3 * pow(sigma_i, 2) + this->K1) /
-                (pow(std::numbers::pi / 2 / this->omegaMax * (this->K1 * sigma_i + this->K3 * pow(sigma_i, 3)), 2) + 1);
+                (3 * this->K3 * powf(sigma_i, 2) + this->K1) /
+                (powf(kPiOver2 / this->omegaMax * (this->K1 * sigma_i + this->K3 * powf(sigma_i, 3)), 2) + 1);
             omega_ast_p[i] = -f_i * sigmaDot_BR[i];
         }
     }
