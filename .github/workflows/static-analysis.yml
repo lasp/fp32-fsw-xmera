@@ -236,7 +236,6 @@ jobs:
         run: cmake --build ../build --parallel
 
       - name: Run clang-tidy
-        if: steps.changed-files.outputs.any_changed == 'true'
         run: |
           mkdir -p reports
           echo "CLANG_TIDY_STATUS=0" >> "$GITHUB_ENV"
