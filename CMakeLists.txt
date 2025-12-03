@@ -102,6 +102,7 @@ set(algorithms
     "ephemeridesRecenter"
     "ephemNavConverter"
     "inertial3D"
+    "mimuMajorityVote"
     "mrpSteering"
     "navAggregate"
     "oeStateEphem"
