@@ -305,6 +305,8 @@ jobs:
             set -e
             echo "CLANG_TIDY_STATUS=${clang_tidy_status}" >> "$GITHUB_ENV"
           fi
+          # Ensure log exists even if no files were analyzed
+          touch reports/clang-tidy.log
 
       - name: Setup reviewdog
         uses: reviewdog/action-setup@v1
