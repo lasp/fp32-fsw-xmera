@@ -97,6 +97,7 @@ endif()
 set(algorithms
     "attTrackingError"
     "averageMimuData"
+    "bodyRateMiscompare"
     "celestialTwoBodyPoint"
     "ephemeridesRecenter"
     "ephemNavConverter"
