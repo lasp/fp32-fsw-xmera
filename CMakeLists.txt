@@ -93,7 +93,7 @@ if(NOT IS_DIRECTORY "${EIGEN3_DIR}/Eigen")
   message(FATAL_ERROR "Eigen not found under ${EIGEN3_DIR}")
 endif()
 
-set(algorithms "attTrackingError")
+set(algorithms "attTrackingError" "averageMimuData")
 foreach(algorithm_name IN LISTS algorithms)
   add_algorithm(${algorithm_name})
 endforeach()

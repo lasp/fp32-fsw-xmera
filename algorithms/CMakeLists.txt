@@ -2,6 +2,7 @@ add_subdirectory(msgPayloadDef)
 add_subdirectory(utilities)
 
 add_subdirectory(attTrackingError)
+add_subdirectory(averageMimuData)
 add_subdirectory(celestialTwoBodyPoint)
 add_subdirectory(ephemeridesRecenter)
 add_subdirectory(ephemNavConverter)
