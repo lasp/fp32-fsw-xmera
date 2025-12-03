@@ -75,7 +75,7 @@ jobs:
       - name: Checkout Xmera core
         uses: actions/checkout@v4
         with:
-          repository: lasp/basilisk
+          repository: lasp/xmera
           path: xmera
 
       - name: Set up Python ${{ matrix.python-version }}
