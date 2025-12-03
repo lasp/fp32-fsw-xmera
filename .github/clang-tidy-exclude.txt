@@ -3,6 +3,8 @@
 
 algorithms/attTrackingError/attTrackingError.h
 algorithms/attTrackingError/attTrackingError.cpp
+algorithms/averageMimuData/averageMimuData.h
+algorithms/averageMimuData/averageMimuData.cpp
 algorithms/celestialTwoBodyPoint/celestialTwoBodyPoint.h
 algorithms/celestialTwoBodyPoint/celestialTwoBodyPoint.cpp
 algorithms/ephemNavConverter/ephemNavConverter.h

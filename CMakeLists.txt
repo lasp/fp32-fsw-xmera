@@ -96,6 +96,7 @@ endif()
 # "rateServoFullNonlinear" "rwMotorVoltage" "stepperMotorController"
 set(algorithms
     "attTrackingError"
+    "averageMimuData"
     "celestialTwoBodyPoint"
     "ephemeridesRecenter"
     "ephemNavConverter"
