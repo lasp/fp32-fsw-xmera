@@ -4,7 +4,7 @@ This repository contains the GNC FSW algorithms.
 ## Getting Started
 This repository has two primary usages and therefore two build paths:
 1. To compile the FSW algorithms as modules for the Ximera simulation tool.
-2. To compile the FSW algorithms for the GNC target platform.
+2. To compile the FSW algorithms for the GNC target platform.q
 
 The build Ximera build path is controlled by the Ximera build system. It expects the directory structure:
 - algorithms/
