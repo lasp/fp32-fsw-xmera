@@ -13,7 +13,7 @@
 #include <numbers>
 
 /*! This method takes the attitude and rate errors relative to the Reference frame, as well as
-    the reference frame angular rates and accelerationt
+    the reference frame angular rates and acceleration
  @return RateCmdMsgF32Payload
  @param guidInMsg attitude guidance input message
  */
