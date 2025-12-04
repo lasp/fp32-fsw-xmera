@@ -9,6 +9,9 @@
    #include "inertial3D.h"
 %}
 
+%include <attribute.i>
+%attribute(Inertial3D, Eigen::Vector3f, sigma_RN, getSigmaRN, setSigmaRN)
+
 %include <architecture/_GeneralModuleFiles/sys_model.i>
 %include <architecture/_GeneralModuleFiles/swig_conly_data.i>
 %include <architecture/_GeneralModuleFiles/swig_eigen.i>
