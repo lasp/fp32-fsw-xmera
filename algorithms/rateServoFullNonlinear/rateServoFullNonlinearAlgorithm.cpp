@@ -90,8 +90,8 @@ CmdTorqueBodyMsgF32Payload RateServoFullNonlinearAlgorithm::update(const uint64_
         this->z = Eigen::Vector3f::Zero();
     }
 
-    /*! - evaluate required attitude control torque Lr */
-    Eigen::Vector3f Lr = this->P * omega_BBast_B + this->Ki * this->z;
+    /*! - evaluate required attitude control torque Lc */
+    Eigen::Vector3f Lc = this->P * omega_BBast_B + this->Ki * this->z;
 
     const Eigen::Matrix<float, 3, RW_EFF_CNT> G_s_B =
         cArrayToEigenMatrix<float, 3, RW_EFF_CNT>(this->rwConfigParams.GsMatrix_B);
@@ -105,15 +105,15 @@ CmdTorqueBodyMsgF32Payload RateServoFullNonlinearAlgorithm::update(const uint64_
             H_B += h_s_i;
         }
     }
-    Lr -= omega_BastN_B.cross(H_B);
+    Lc -= omega_BastN_B.cross(H_B);
 
-    Lr += -this->ISCPntB_B * (omegap_BastR_B + domega_RN_B - omega_BN_B.cross(omega_RN_B)) + this->knownTorquePntB_B;
+    Lc += -this->ISCPntB_B * (omegap_BastR_B + domega_RN_B - omega_BN_B.cross(omega_RN_B)) + this->knownTorquePntB_B;
 
     /* Change sign to compute the net positive control torque onto the spacecraft */
-    const Eigen::Vector3f u_s = -Lr;
+    const Eigen::Vector3f Lr = -Lc;
 
     /*! - Set output message and pass it to the message bus */
-    eigenVectorToCArray(u_s, controlOut.torqueRequestBody);
+    eigenVectorToCArray(Lr, controlOut.torqueRequestBody);
 
     return controlOut;
 }
