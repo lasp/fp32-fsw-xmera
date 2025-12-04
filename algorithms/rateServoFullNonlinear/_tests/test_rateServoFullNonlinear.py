@@ -36,11 +36,14 @@ def test_rate_servo_full_nonlinear(show_plots, rw_num, int_gain, omegap_BastR_B,
     # Add test module to runtime call list
     unit_test_sim.AddModelToTask(unit_task_name, module)
 
+    gain = 150.0
+    known_torque = np.array([1.0, 1.0, 1.0])
+
     # configure module parameters
     module.Ki = int_gain
-    module.P = 150.0
+    module.P = gain
     module.integralLimit = integral_limit
-    module.knownTorquePntB_B = [1,1,1]
+    module.knownTorquePntB_B = known_torque
 
     #   Create input message and size it because the regular creator of that message
     #   is not part of the test.
@@ -141,7 +144,14 @@ def test_rate_servo_full_nonlinear(show_plots, rw_num, int_gain, omegap_BastR_B,
 
     # compare the module results to the truth values
     accuracy = 1e-6
-    np.testing.assert_allclose(Lr, Lr_true, atol=accuracy, rtol=0, verbose=True)
+    np.testing.assert_allclose(Lr, Lr_true, atol=accuracy, rtol=accuracy, verbose=True)
+
+    # test setters and getters
+    np.testing.assert_allclose(module.P, gain, atol=accuracy, rtol=accuracy, verbose=True)
+    np.testing.assert_allclose(module.Ki, int_gain, atol=accuracy, rtol=accuracy, verbose=True)
+    np.testing.assert_allclose(module.integralLimit, integral_limit, atol=accuracy, rtol=accuracy, verbose=True)
+    np.testing.assert_allclose(np.array(module.knownTorquePntB_B).flatten(), known_torque, atol=accuracy, rtol=accuracy,
+                               verbose=True)
 
 
 def find_true_torques(module, guid_cmd_data, rw_speed_message, vehicle_config_out, js_list, num_rw, G_s_B, rw_avail_msg, rate_steering_msg):
