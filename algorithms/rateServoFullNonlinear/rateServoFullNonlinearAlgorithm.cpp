@@ -79,7 +79,7 @@ CmdTorqueBodyMsgF32Payload RateServoFullNonlinearAlgorithm::update(const uint64_
     /*! - integrate rate tracking error  */
     if (this->Ki > 0.0F) { /* check if integral feedback is turned on  */
         this->z += omega_BBast_B * dt;
-        for (Eigen::Index i = 0; i < 3; i++) {
+        for (Eigen::Index i = 0; i < 3; ++i) {
             const float intLimCheck = fabsf(this->z[i]);
             if (intLimCheck > this->integralLimit) {
                 this->z[i] *= this->integralLimit / intLimCheck;
