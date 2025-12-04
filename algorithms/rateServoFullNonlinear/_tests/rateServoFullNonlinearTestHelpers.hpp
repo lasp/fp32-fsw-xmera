@@ -4,13 +4,13 @@
 #include "../freestandingInvalidArgument.h"
 #include "architecture/utilities/eigenSupport.h"
 #include "architecture/utilities/rigidBodyKinematics.hpp"
-#include "rateServoFullNonlinearAlgorithm.h"
 #include "msgPayloadDef/AttGuidMsgF32Payload.h"
 #include "msgPayloadDef/CmdTorqueBodyMsgF32Payload.h"
 #include "msgPayloadDef/RWArrayConfigMsgF32Payload.h"
 #include "msgPayloadDef/RWSpeedMsgF32Payload.h"
 #include "msgPayloadDef/RateCmdMsgF32Payload.h"
 #include "msgPayloadDef/VehicleConfigMsgF32Payload.h"
+#include "rateServoFullNonlinearAlgorithm.h"
 #include <architecture/msgPayloadDef/RWAvailabilityMsgPayload.h>
 #include <architecture/utilities/macroDefinitions.h>
 #include <fswAlgorithms/fswUtilities/fswDefinitions.h>
@@ -191,11 +191,7 @@ inline void testRateServoFullNonlinear(float P,
         // Reference
         CmdTorqueBodyMsgF32Payload out{};
         ReferenceOutput refOutput{};
-        EXPECT_NO_THROW(out = alg.update(callTime,
-                                         guidCmdMsg,
-                                         rateCmdMsg,
-                                         wheelSpeedsMsg,
-                                         wheelsAvailabilityMsg));
+        EXPECT_NO_THROW(out = alg.update(callTime, guidCmdMsg, rateCmdMsg, wheelSpeedsMsg, wheelsAvailabilityMsg));
         EXPECT_NO_THROW(refOutput = referenceUpdate(alg,
                                                     rwConfigMsg,
                                                     ISC_B,

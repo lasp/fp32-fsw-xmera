@@ -15,8 +15,8 @@
 #include "msgPayloadDef/VehicleConfigMsgF32Payload.h"
 #include <architecture/msgPayloadDef/RWAvailabilityMsgPayload.h>
 
-#include <Eigen/Core>
 #include <stdint.h>
+#include <Eigen/Core>
 
 /*! @brief The configuration structure for the rateServoFullNonlinear module.  */
 class RateServoFullNonlinearAlgorithm final {
@@ -36,7 +36,7 @@ class RateServoFullNonlinearAlgorithm final {
     float getKi() const;
     void setIntegralLimit(float limit);
     float getIntegralLimit() const;
-    void setKnownTorquePntB_B(const Eigen::Vector3f &torque);
+    void setKnownTorquePntB_B(const Eigen::Vector3f& torque);
     Eigen::Vector3f getKnownTorquePntB_B() const;
 
    private:
@@ -49,8 +49,8 @@ class RateServoFullNonlinearAlgorithm final {
     Eigen::Vector3f z{};           //!< [rad]     integral state of delta_omega
     Eigen::Matrix3f ISCPntB_B{};   //!< [kg m^2] Spacecraft Inertia
     RWArrayConfigMsgF32Payload
-        rwConfigParams{};  //!< [-] struct to store message containing RW config parameters in body B frame
-    bool rwIsConfigured{}; //!< [-] indicates whether reaction wheels are configured through the rwConfigMsg
+        rwConfigParams{};   //!< [-] struct to store message containing RW config parameters in body B frame
+    bool rwIsConfigured{};  //!< [-] indicates whether reaction wheels are configured through the rwConfigMsg
 };
 
 #endif

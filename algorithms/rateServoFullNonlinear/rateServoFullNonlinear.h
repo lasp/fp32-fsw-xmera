@@ -18,8 +18,8 @@
 #include <architecture/messaging/messaging.h>
 #include <architecture/msgPayloadDef/RWAvailabilityMsgPayload.h>
 
-#include <Eigen/Core>
 #include <stdint.h>
+#include <Eigen/Core>
 
 /*! @brief The configuration structure for the rateServoFullNonlinear module.  */
 class RateServoFullNonlinear final : public SysModel {
