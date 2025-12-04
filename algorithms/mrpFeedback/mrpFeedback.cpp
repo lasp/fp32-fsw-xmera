@@ -41,9 +41,9 @@ void MrpFeedback::reset(const uint64_t callTime) {
  @param callTime The clock time at which the function was called (nanoseconds)
 */
 void MrpFeedback::updateState(const uint64_t callTime) {
-    AttGuidMsgF32Payload guidCmd = this->guidInMsg();  /* attitude tracking error message */
-    RWSpeedMsgF32Payload wheelSpeeds{};                /* Reaction wheel speed message */
-    RWAvailabilityMsgPayload wheelsAvailability{};     /* Reaction wheel availability message */
+    AttGuidMsgF32Payload guidCmd = this->guidInMsg(); /* attitude tracking error message */
+    RWSpeedMsgF32Payload wheelSpeeds{};               /* Reaction wheel speed message */
+    RWAvailabilityMsgPayload wheelsAvailability{};    /* Reaction wheel availability message */
 
     /*! - read in optional RW speed and availability message */
     if (this->numRW > 0U) {
@@ -118,9 +118,7 @@ int MrpFeedback::getControlLawType() const { return this->algorithm.getControlLa
  @return void
  @param torque [N*m] Known external torque expressed in body frame components
 */
-void MrpFeedback::setKnownTorquePntB_B(const Eigen::Vector3f& torque) {
-    this->algorithm.setKnownTorquePntB_B(torque);
-}
+void MrpFeedback::setKnownTorquePntB_B(const Eigen::Vector3f& torque) { this->algorithm.setKnownTorquePntB_B(torque); }
 
 /*! Getter method for the known torque about point B.
  @return const Eigen::Vector3f

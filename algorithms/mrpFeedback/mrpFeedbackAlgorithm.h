@@ -6,9 +6,9 @@
 #include "msgPayloadDef/AttGuidMsgF32Payload.h"
 #include "msgPayloadDef/CmdTorqueBodyMsgF32Payload.h"
 #include "msgPayloadDef/RWArrayConfigMsgF32Payload.h"
-#include <architecture/msgPayloadDef/RWAvailabilityMsgPayload.h>
 #include "msgPayloadDef/RWSpeedMsgF32Payload.h"
 #include "msgPayloadDef/VehicleConfigMsgF32Payload.h"
+#include <architecture/msgPayloadDef/RWAvailabilityMsgPayload.h>
 
 #include <Eigen/Core>
 
@@ -45,7 +45,7 @@ class MrpFeedbackAlgorithm final {
     float P{};              //!< [N*m*s]   Rate error feedback gain applied
     float Ki{};             //!< [N*m]     Integration feedback error on rate error
     float integralLimit{};  //!< [N*m]     Integration limit to avoid wind-up issue
-    int controlLawType{};    //!<           Flag to choose between the two control laws available
+    int controlLawType{};   //!<           Flag to choose between the two control laws available
     Eigen::Vector3f knownTorquePntB_B{
         Eigen::Vector3f::Zero()};  //!< [N*m]     known external torque in body frame vector components
     uint64_t priorTime{};          //!< [ns]      Last time the attitude control is called

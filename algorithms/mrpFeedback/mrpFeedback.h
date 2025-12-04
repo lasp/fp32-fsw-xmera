@@ -3,15 +3,15 @@
 
 #include <stdint.h>
 
-#include <architecture/_GeneralModuleFiles/sys_model.h>
-#include <architecture/messaging/messaging.h>
+#include "mrpFeedbackAlgorithm.h"
 #include "msgPayloadDef/AttGuidMsgF32Payload.h"
 #include "msgPayloadDef/CmdTorqueBodyMsgF32Payload.h"
 #include "msgPayloadDef/RWArrayConfigMsgF32Payload.h"
-#include <architecture/msgPayloadDef/RWAvailabilityMsgPayload.h>
 #include "msgPayloadDef/RWSpeedMsgF32Payload.h"
 #include "msgPayloadDef/VehicleConfigMsgF32Payload.h"
-#include "mrpFeedbackAlgorithm.h"
+#include <architecture/_GeneralModuleFiles/sys_model.h>
+#include <architecture/messaging/messaging.h>
+#include <architecture/msgPayloadDef/RWAvailabilityMsgPayload.h>
 
 #include <Eigen/Core>
 
@@ -39,12 +39,13 @@ class MrpFeedback final : public SysModel {
 
     /* declare module IO interfaces */
     ReadFunctor<RWSpeedMsgF32Payload> rwSpeedsInMsg;        //!< RW speed input message (Optional)
-    ReadFunctor<RWAvailabilityMsgPayload> rwAvailInMsg;  //!< RW availability input message (Optional)
+    ReadFunctor<RWAvailabilityMsgPayload> rwAvailInMsg;     //!< RW availability input message (Optional)
     ReadFunctor<RWArrayConfigMsgF32Payload> rwParamsInMsg;  //!< RW parameter input message.  (Optional)
-    Message<CmdTorqueBodyMsgF32Payload> cmdTorqueOutMsg;  //!< commanded spacecraft external control torque output message
     Message<CmdTorqueBodyMsgF32Payload>
-        intFeedbackTorqueOutMsg;                          //!< commanded integral feedback control torque output message
-    ReadFunctor<AttGuidMsgF32Payload> guidInMsg;             //!< attitude guidance input message
+        cmdTorqueOutMsg;  //!< commanded spacecraft external control torque output message
+    Message<CmdTorqueBodyMsgF32Payload>
+        intFeedbackTorqueOutMsg;                  //!< commanded integral feedback control torque output message
+    ReadFunctor<AttGuidMsgF32Payload> guidInMsg;  //!< attitude guidance input message
     ReadFunctor<VehicleConfigMsgF32Payload> vehConfigInMsg;  //!< vehicle configuration input message
 
    private:

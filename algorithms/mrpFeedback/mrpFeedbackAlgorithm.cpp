@@ -2,8 +2,8 @@
 #include "architecture/utilities/eigenSupport.h"
 #include <architecture/utilities/macroDefinitions.h>
 
-#include <math.h>
 #include "../freestandingInvalidArgument.h"
+#include <math.h>
 
 /*! This method performs a complete reset of the module.  Local module variables that retain
  time varying states between function calls are reset to their default values.
@@ -100,10 +100,10 @@ MrpFeedbackOutput MrpFeedbackAlgorithm::update(uint64_t callTime,
     }
 
     /*! - evaluate required attitude control torque Lc */
-    const Eigen::Vector3f Lc = this->K * sigma_BR + this->P * omega_BR_B + this->P * this->Ki * z
-                               - momentumContribution + this->ISCPntB_B * (omega_BN_B.cross(omega_RN_B) - domega_RN_B)
-                               + this->knownTorquePntB_B;
-    
+    const Eigen::Vector3f Lc = this->K * sigma_BR + this->P * omega_BR_B + this->P * this->Ki * z -
+                               momentumContribution + this->ISCPntB_B * (omega_BN_B.cross(omega_RN_B) - domega_RN_B) +
+                               this->knownTorquePntB_B;
+
     const Eigen::Vector3f Lr = -Lc;
     const Eigen::Vector3f Li = -(this->P * this->Ki * z);
 
@@ -189,9 +189,7 @@ int MrpFeedbackAlgorithm::getControlLawType() const { return this->controlLawTyp
  @return void
  @param torque [N*m] Known external torque expressed in body frame components
 */
-void MrpFeedbackAlgorithm::setKnownTorquePntB_B(const Eigen::Vector3f& torque) {
-    this->knownTorquePntB_B = torque;
-}
+void MrpFeedbackAlgorithm::setKnownTorquePntB_B(const Eigen::Vector3f& torque) { this->knownTorquePntB_B = torque; }
 
 /*! Getter method for the known torque about point B.
  @return const Eigen::Vector3f
