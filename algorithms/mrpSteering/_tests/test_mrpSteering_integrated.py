@@ -37,10 +37,10 @@ def test_mrp_steering_tracking_integrated(show_plots, K1, K3, omega_max, ignore_
     unit_test_sim.AddModelToTask(unit_task_name, module)
     unit_test_sim.AddModelToTask(unit_task_name, servo)
 
-    module.setK1(K1)
-    module.setK3(K3)
-    module.setOmegaMax(omega_max)
-    module.setIgnoreFeedforward(ignore_feed_forward)
+    module.K1 = K1
+    module.K3 = K3
+    module.omegaMax = omega_max
+    module.ignoreOuterLoopFeedforward = ignore_feed_forward
 
     servo.setKi(0.01)
     servo.setP(150.0)
@@ -123,10 +123,10 @@ def test_mrp_steering_tracking_integrated(show_plots, K1, K3, omega_max, ignore_
 
 def find_true_values(guid_cmd_data, module):
 
-    omega_max = module.getOmegaMax()
+    omega_max = module.omegaMax
     sigma = np.asarray(guid_cmd_data.sigma_BR)
-    K1 = np.asarray(module.getK1())
-    K3 = np.asarray(module.getK3())
+    K1 = np.asarray(module.K1)
+    K3 = np.asarray(module.K3)
     B = RigidBodyKinematics.BmatMRP(sigma)
     omega_ast = []
     omega_ast_p = []
@@ -135,7 +135,7 @@ def find_true_values(guid_cmd_data, module):
         steer_rate = -1*(2*omega_max/np.pi)*np.arctan((K1*sigma[i]+K3*sigma[i]*sigma[i]*sigma[i])*np.pi/(2*omega_max))
         omega_ast.append(steer_rate)
 
-    if not module.getIgnoreFeedforward():
+    if not module.ignoreOuterLoopFeedforward:
         sigma_p = 0.25*B.dot(omega_ast)
         for i in range(len(sigma)):
             omega_ast_rate = (K1+3*K3*sigma[i]**2)/(1+((K1*sigma[i]+K3*sigma[i]**3)**2)*(np.pi/(2*omega_max))**2)*sigma_p[i]

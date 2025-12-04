@@ -8,7 +8,7 @@
 #include "../freestandingInvalidArgument.h"
 #include "architecture/utilities/eigenSupport.h"
 #include "architecture/utilities/rigidBodyKinematics.hpp"
-#include <stdint.h>
+#include <math.h>
 #include <Eigen/Core>
 #include <numbers>
 
@@ -18,27 +18,28 @@
  @param guidInMsg attitude guidance input message
  */
 RateCmdMsgF32Payload MrpSteeringAlgorithm::update(AttGuidMsgF32Payload& guidInMsg) const {
-    const Eigen::Vector3f sigma_BR = Eigen::Map<const Eigen::Vector3f>(guidInMsg.sigma_BR);
+    const Eigen::Vector3f sigma_BR = cArrayAsEigenVector(guidInMsg.sigma_BR);
 
     Eigen::Vector3f omega_ast{};
     Eigen::Vector3f omega_ast_p{Eigen::Vector3f::Zero()};
 
-    for (uint32_t i = 0; i < 3; ++i) {
+    constexpr auto kPiOver2 = static_cast<float>(std::numbers::pi / 2.0F);
+
+    for (Eigen::Index i = 0; i < 3; ++i) {
         const float sigma_i = sigma_BR[i];
-        const float f_i =
-            atan(std::numbers::pi / 2 / this->omegaMax * (this->K1 * sigma_i + this->K3 * pow(sigma_i, 3))) /
-            (std::numbers::pi / 2) * this->omegaMax;
+        const float f_i = atanf(kPiOver2 / this->omegaMax * (this->K1 * sigma_i + this->K3 * powf(sigma_i, 3.0F))) /
+                          kPiOver2 * this->omegaMax;
         omega_ast[i] = -f_i;
     }
     if (!this->ignoreOuterLoopFeedforward) {
         const Eigen::Matrix3f B = bmatMrp(sigma_BR);
         const Eigen::Vector3f sigmaDot_BR = 0.25 * B * omega_ast;
 
-        for (uint32_t i = 0; i < 3; ++i) {
+        for (Eigen::Index i = 0; i < 3; ++i) {
             const float sigma_i = sigma_BR[i];
             const float f_i =
-                (3 * this->K3 * pow(sigma_i, 2) + this->K1) /
-                (pow(std::numbers::pi / 2 / this->omegaMax * (this->K1 * sigma_i + this->K3 * pow(sigma_i, 3)), 2) + 1);
+                (3.0F * this->K3 * powf(sigma_i, 2.0F) + this->K1) /
+                (powf(kPiOver2 / this->omegaMax * (this->K1 * sigma_i + this->K3 * powf(sigma_i, 3.0F)), 2.0F) + 1.0F);
             omega_ast_p[i] = -f_i * sigmaDot_BR[i];
         }
     }

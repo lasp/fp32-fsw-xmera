@@ -3,6 +3,8 @@ Checks: >
   ,clang-analyzer-*
   ,clang-diagnostic-*
   ,cppcoreguidelines-*
+  ,-cppcoreguidelines-avoid-non-const-global-variables
+  ,-cppcoreguidelines-pro-bounds-array-to-pointer-decay
   ,cert-dcl21-cpp
   ,cert-dcl58-cpp
   ,cert-err34-c
@@ -16,15 +18,34 @@ Checks: >
   ,google-explicit-constructor
   ,google-runtime-operator
   ,hicpp-*
+  ,-hicpp-no-array-decay
   ,misc-*
+  ,-misc-include-cleaner
   ,mpi-buffer-deref
   ,mpi-type-mismatch
   ,modernize-*
+  ,-modernize-use-trailing-return-type
   ,openmp-use-default-none
   ,performance-*
   ,portability-simd-intrinsics
   ,readability-*
-  ,-cppcoreguidelines-avoid-non-const-global-variables
+  ,-readability-identifier-length
+  ,-*-deprecated-headers
+
+# Justifications for exceptions:
+#
+# -cppcoreguidelines-pro-bounds-array-to-pointer-decay
+#   temporarily disabled (to allow for eigenSupport mappings. Need to update eigenSupport)
+# -hicpp-no-array-decay
+#   temporarily disabled (to allow for eigenSupport mappings. Need to update eigenSupport)
+# -misc-include-cleaner
+#   because there are a lot of false complaints for includes (math, Eigen, ...)
+# -modernize-use-trailing-return-type
+#   because this is a style change we are not ready to implement across the code base, no degradation of code quality
+# -readability-identifier-length
+#   because we have good use cases like K1, K2 etc. for control gains
+# -*-deprecated-headers (both hicpp- and modernize-)
+#   because we have to use some of the "deprecated" headers in the freestanding environment
 
 WarningsAsErrors: '*'
 CheckOptions:

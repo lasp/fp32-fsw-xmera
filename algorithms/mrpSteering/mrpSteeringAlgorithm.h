@@ -11,7 +11,7 @@
 #include "msgPayloadDef/RateCmdMsgF32Payload.h"
 
 /*! @brief Data structure for the MRP feedback attitude control routine. */
-class MrpSteeringAlgorithm {
+class MrpSteeringAlgorithm final {
    public:
     RateCmdMsgF32Payload update(AttGuidMsgF32Payload& guidInMsg) const;
 
