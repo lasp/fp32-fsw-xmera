@@ -170,6 +170,7 @@ jobs:
           CMAKE_GENERATOR: Ninja
           CMAKE_MAKE_PROGRAM: /usr/bin/ninja
           VCPKG_CMAKE_CONFIGURE_OPTIONS: "-DCMAKE_POLICY_VERSION_MINIMUM=3.5"
+          VCPKG_INSTALL_OPTIONS: "--debug"
 
       - name: Add NuGet sources for vcpkg binary cache (read-only)
         env:
@@ -235,7 +236,6 @@ jobs:
       - name: Configure Xmera (with external modules)
         working-directory: xmera/src
         run: |
-          export VCPKG_INSTALL_OPTIONS="--debug"
           ln -s "${GITHUB_WORKSPACE}" .
           args=(
             --preset ci-test
