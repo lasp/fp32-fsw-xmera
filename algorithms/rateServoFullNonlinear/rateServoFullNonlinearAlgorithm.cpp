@@ -138,7 +138,12 @@ float RateServoFullNonlinearAlgorithm::getP() const { return this->P; }
  @return void
  @param gain [N*m] Integral feedback gain
 */
-void RateServoFullNonlinearAlgorithm::setKi(const float gain) { this->Ki = gain; }
+void RateServoFullNonlinearAlgorithm::setKi(const float gain) {
+    if (gain < 0.0) {
+        FS_THROW_INVALID_ARGUMENT("Integral feedback gain Ki must not be negative");
+    }
+    this->Ki = gain;
+}
 
 /*! Getter method for the gain Ki.
  @return const float
