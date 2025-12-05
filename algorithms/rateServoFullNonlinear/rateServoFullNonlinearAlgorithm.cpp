@@ -17,16 +17,16 @@
  @return void
  @param vehConfigMsg vehicle config message
  @param rwConfigMsg reaction wheel config message
- @param rwIsLinked boolean indicating whether reaction wheel config message is linked
+ @param rwIsConfigured boolean indicating whether reaction wheels are configured through the rwConfigMsg
  */
 void RateServoFullNonlinearAlgorithm::reset(VehicleConfigMsgF32Payload vehConfigMsg,
                                             const RWArrayConfigMsgF32Payload& rwConfigMsg,
-                                            const bool rwIsLinked) {
+                                            const bool rwIsConfigured) {
     this->ISCPntB_B = cArrayToEigenMatrix3(vehConfigMsg.ISCPntB_B);
 
-    this->rwConfigParams.numRW = 0;
-    if (rwIsLinked) {
+    if (rwIsConfigured) {
         this->rwConfigParams = rwConfigMsg;
+        this->rwIsConfigured = rwIsConfigured;
     }
 
     /* Reset the integral measure of the rate tracking error */
@@ -91,16 +91,19 @@ CmdTorqueBodyMsgF32Payload RateServoFullNonlinearAlgorithm::update(const uint64_
     }
 
     /*! - compute momentum  */
-    const Eigen::Matrix<float, 3, RW_EFF_CNT> G_s_B =
-        cArrayToEigenMatrix<float, 3, RW_EFF_CNT>(this->rwConfigParams.GsMatrix_B);
-
     Eigen::Vector3f H_B = this->ISCPntB_B * omega_BN_B;
-    for (int i = 0; i < this->rwConfigParams.numRW; i++) {
-        if (wheelsAvailability.wheelAvailability[i] == AVAILABLE) { /* check if wheel is available */
-            const Eigen::Vector3f G_s_B_i = G_s_B.col(i);
-            const Eigen::Vector3f h_s_i =
-                this->rwConfigParams.JsList[i] * (omega_BN_B.dot(G_s_B_i) + wheelSpeeds.wheelSpeeds[i]) * G_s_B_i;
-            H_B += h_s_i;
+
+    if (this->rwIsConfigured) {
+        const Eigen::Matrix<float, 3, RW_EFF_CNT> G_s_B =
+            cArrayToEigenMatrix<float, 3, RW_EFF_CNT>(this->rwConfigParams.GsMatrix_B);
+
+        for (Eigen::Index i = 0; i < this->rwConfigParams.numRW; ++i) {
+            if (wheelsAvailability.wheelAvailability[i] == AVAILABLE) { /* check if wheel is available */
+                const Eigen::Vector3f G_s_B_i = G_s_B.col(i);
+                const Eigen::Vector3f h_s_i =
+                    this->rwConfigParams.JsList[i] * (omega_BN_B.dot(G_s_B_i) + wheelSpeeds.wheelSpeeds[i]) * G_s_B_i;
+                H_B += h_s_i;
+            }
         }
     }
 

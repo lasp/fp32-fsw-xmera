@@ -47,7 +47,6 @@ class RateServoFullNonlinear final : public SysModel {
 
    private:
     RateServoFullNonlinearAlgorithm algorithm{};
-    uint32_t numRW{};  //!< number of reaction wheels
 };
 
 #endif

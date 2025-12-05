@@ -21,7 +21,9 @@
 /*! @brief The configuration structure for the rateServoFullNonlinear module.  */
 class RateServoFullNonlinearAlgorithm final {
    public:
-    void reset(VehicleConfigMsgF32Payload vehConfigMsg, const RWArrayConfigMsgF32Payload& rwConfigMsg, bool rwIsLinked);
+    void reset(VehicleConfigMsgF32Payload vehConfigMsg,
+               const RWArrayConfigMsgF32Payload& rwConfigMsg,
+               bool rwIsConfigured);
     CmdTorqueBodyMsgF32Payload update(uint64_t callTime,
                                       AttGuidMsgF32Payload guidCmd,
                                       RateCmdMsgF32Payload rateCmd,
@@ -48,6 +50,7 @@ class RateServoFullNonlinearAlgorithm final {
     Eigen::Matrix3f ISCPntB_B{};   //!< [kg m^2] Spacecraft Inertia
     RWArrayConfigMsgF32Payload
         rwConfigParams{};  //!< [-] struct to store message containing RW config parameters in body B frame
+    bool rwIsConfigured{}; //!< [-] indicates whether reaction wheels are configured through the rwConfigMsg
 };
 
 #endif
