@@ -90,9 +90,7 @@ CmdTorqueBodyMsgF32Payload RateServoFullNonlinearAlgorithm::update(const uint64_
         this->z = Eigen::Vector3f::Zero();
     }
 
-    /*! - evaluate required attitude control torque Lc */
-    Eigen::Vector3f Lc = this->P * omega_BBast_B + this->Ki * this->z;
-
+    /*! - compute momentum  */
     const Eigen::Matrix<float, 3, RW_EFF_CNT> G_s_B =
         cArrayToEigenMatrix<float, 3, RW_EFF_CNT>(this->rwConfigParams.GsMatrix_B);
 
@@ -105,9 +103,11 @@ CmdTorqueBodyMsgF32Payload RateServoFullNonlinearAlgorithm::update(const uint64_
             H_B += h_s_i;
         }
     }
-    Lc -= omega_BastN_B.cross(H_B);
 
-    Lc += -this->ISCPntB_B * (omegap_BastR_B + domega_RN_B - omega_BN_B.cross(omega_RN_B)) + this->knownTorquePntB_B;
+    /*! - evaluate required attitude control torque Lc */
+    const Eigen::Vector3f Lc = this->P * omega_BBast_B + this->Ki * this->z - omega_BastN_B.cross(H_B)
+                               - this->ISCPntB_B * (omegap_BastR_B + domega_RN_B - omega_BN_B.cross(omega_RN_B))
+                               + this->knownTorquePntB_B;
 
     /* Change sign to compute the net positive control torque onto the spacecraft */
     const Eigen::Vector3f Lr = -Lc;
