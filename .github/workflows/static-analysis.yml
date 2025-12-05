@@ -227,7 +227,9 @@ jobs:
 
       - name: Build Xmera + modules
         working-directory: xmera/src
-        run: cmake --build ../build --parallel
+        run: |
+          export VCPKG_INSTALL_OPTIONS="--debug"
+          cmake --build ../build --parallel
 
       - name: Run clang-tidy
         run: |
