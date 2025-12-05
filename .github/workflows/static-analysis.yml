@@ -217,6 +217,14 @@ jobs:
           printf 'Using NuGet CLI: %q\n' "${NUGET_CMD[@]}"
           "${NUGET_CMD[@]}" sources list
 
+      - name: vcpkg manifest install (debug echo)
+        working-directory: xmera/src
+        env:
+          VCPKG_ROOT: ${{ github.workspace }}/b/vcpkg
+        run: |
+          set -euo pipefail
+          "${VCPKG_ROOT}/vcpkg" install --debug
+
       - name: Create virtual environment
         run: |
           "$PYTHON_EXE" -m venv .venv
