@@ -7,8 +7,6 @@
 #ifndef F32XIMERA_RATE_SERVO_FULL_NONLINEAR_H
 #define F32XIMERA_RATE_SERVO_FULL_NONLINEAR_H
 
-#include <stdint.h>
-
 #include "msgPayloadDef/AttGuidMsgF32Payload.h"
 #include "msgPayloadDef/CmdTorqueBodyMsgF32Payload.h"
 #include "msgPayloadDef/RWArrayConfigMsgF32Payload.h"
@@ -21,6 +19,7 @@
 #include <architecture/msgPayloadDef/RWAvailabilityMsgPayload.h>
 
 #include <Eigen/Core>
+#include <stdint.h>
 
 /*! @brief The configuration structure for the rateServoFullNonlinear module.  */
 class RateServoFullNonlinear final : public SysModel {
