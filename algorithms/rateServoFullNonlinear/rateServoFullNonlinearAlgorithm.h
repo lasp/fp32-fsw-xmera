@@ -4,8 +4,8 @@
  Copyright (c) 2025, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
  */
 
-#ifndef F32XIMERA_RATE_SERVO_FULL_NONLINEAR_ALGORITHM_H
-#define F32XIMERA_RATE_SERVO_FULL_NONLINEAR_ALGORITHM_H
+#ifndef F32XMERA_RATE_SERVO_FULL_NONLINEAR_ALGORITHM_H
+#define F32XMERA_RATE_SERVO_FULL_NONLINEAR_ALGORITHM_H
 
 #include "msgPayloadDef/AttGuidMsgF32Payload.h"
 #include "msgPayloadDef/CmdTorqueBodyMsgF32Payload.h"
