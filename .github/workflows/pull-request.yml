@@ -239,7 +239,7 @@ jobs:
         run: |
           ln -s "${GITHUB_WORKSPACE}" .
           args=(
-            --preset ci-test
+            --preset fuzz-smoke-test
             "-DXMERA_MODULE_ROOTS=${GITHUB_WORKSPACE}/xmera/src/fswAlgorithms/;${GITHUB_WORKSPACE}/xmera/src/simulation/;${GITHUB_WORKSPACE}/xmera/src/moduleTemplates/;${GITHUB_WORKSPACE}/xmera/src/fp32-fsw-xmera/algorithms"
             "-DXMERA_ENABLE_GROUPS=simulation;fswAlgorithms;moduleTemplates;fp32"
           )
