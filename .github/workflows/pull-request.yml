@@ -265,7 +265,13 @@ jobs:
           cmake --install build --prefix $(pwd)/dist
           python -m pip install -e .
 
-      - name: Run fp32-fsw-xmera tests
+      - name: Run CTest (C/C++ tests)
+        working-directory: xmera/build
+        run: |
+          mkdir -p "${GITHUB_WORKSPACE}/junit"
+          ctest --output-on-failure --output-junit "${GITHUB_WORKSPACE}/junit/ctest-${{ matrix.os }}-py${{ matrix.python-version }}.xml"
+
+      - name: Run Python Tests
         run: |
           source .venv/bin/activate
           mkdir -p junit coverage
@@ -328,6 +334,15 @@ jobs:
         with:
           name: pytest-${{ matrix.os }}-py${{ matrix.python-version }}
           path: junit/test-results-${{ matrix.python-version }}.xml
+          retention-days: 7
+
+      - name: Upload CTest results
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ctest-${{ matrix.os }}-py${{ matrix.python-version }}
+          path: junit/ctest-${{ matrix.os }}-py${{ matrix.python-version }}.xml
+          if-no-files-found: warn
           retention-days: 7
 
       - name: Show ccache stats
