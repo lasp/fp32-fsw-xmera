@@ -164,13 +164,13 @@ jobs:
           vcpkgDirectory: ${{ github.workspace }}/b/vcpkg
           vcpkgJsonGlob: "xmera/src/vcpkg.json"
           vcpkgConfigurationJsonGlob: "xmera/src/vcpkg-configuration.json"
+          vcpkgArguments: "--debug"
         env:
           VCPKG_KEEP_ENV_VARS: CC;CXX;CMAKE_GENERATOR;CMAKE_MAKE_PROGRAM;NINJA_STATUS
           VCPKG_MAX_CONCURRENCY: "1"
           CMAKE_GENERATOR: Ninja
           CMAKE_MAKE_PROGRAM: /usr/bin/ninja
           VCPKG_CMAKE_CONFIGURE_OPTIONS: "-DCMAKE_POLICY_VERSION_MINIMUM=3.5"
-          VCPKG_INSTALL_OPTIONS: "--debug"
 
       - name: Add NuGet sources for vcpkg binary cache (read-only)
         env:
