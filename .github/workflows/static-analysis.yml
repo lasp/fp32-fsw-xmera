@@ -71,7 +71,7 @@ jobs:
       - name: Checkout Xmera core
         uses: actions/checkout@v4
         with:
-          repository: lasp/basilisk
+          repository: lasp/xmera
           path: xmera
 
       - name: Set up Python
@@ -195,9 +195,9 @@ jobs:
             -StorePasswordInClearText \
             -Name GitHubPackages \
             -UserName "${USERNAME}" \
-            -Password "${{ github.token }}"
+            -Password "${{ secrets.FP32_XMERA_GH_VCPKG_PACKAGES_TOKEN_READ_ONLY }}"
 
-          "${NUGET_CMD[@]}" setapikey "${{ github.token }}" -Source "${FEED_URL}"
+          "${NUGET_CMD[@]}" setapikey "${{ secrets.FP32_XMERA_GH_VCPKG_PACKAGES_TOKEN_READ_ONLY }}" -Source "${FEED_URL}"
 
       - name: Show vcpkg binary cache configuration
         env:
