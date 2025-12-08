@@ -267,17 +267,48 @@ jobs:
             changed["${canon}"]=1
           done
 
+          # Load exclusion list (repository-relative paths, no globs)
+          exclude_file="${git_root}/.github/clang-tidy-exclude.txt"
+          exclude_paths=()
+          if [[ -f "$exclude_file" ]]; then
+            echo "Loading clang-tidy exclusions from ${exclude_file}:"
+            while IFS= read -r line; do
+              [[ -z "$line" || "$line" =~ ^# ]] && continue
+              path="$(realpath -m "${git_root}/${line}")"
+              exclude_paths+=("$path")
+            done < "$exclude_file"
+            if [ "${#exclude_paths[@]}" -gt 0 ]; then
+              printf '  - %s\n' "${exclude_paths[@]}"
+            else
+              echo "  (exclusion file is empty)"
+            fi
+          else
+            echo "No exclusion file found at ${exclude_file}; analyzing all changed files."
+          fi
+
           # Gather algorithm + architecture sources that are tracked and skip *.cxx
           files=()
+          excluded_files=()
           while IFS= read -r path; do
             [[ -z "$path" ]] && continue
             canon="$(realpath -m "$path")"
             if [[ -n "${tracked[$canon]:-}" && -n "${changed[$canon]:-}" ]]; then
+              for excluded in "${exclude_paths[@]}"; do
+                if [[ "$canon" == "$excluded" ]]; then
+                  excluded_files+=("$path")
+                  continue 2
+                fi
+              done
               files+=("$path")
             fi
           done < <(jq -r '.[].file' xmera/build/compile_commands.json \
             | grep -E '(^|/)(algorithms|architecture)/' \
             | grep -vE '\.cxx$' || true)
+
+          if [ "${#excluded_files[@]}" -gt 0 ]; then
+            echo "Skipping files listed in the clang-tidy exclusion file:"
+            printf '  - %s\n' "${excluded_files[@]}"
+          fi
 
           if [ "${#files[@]}" -eq 0 ]; then
             echo "No tracked source files (algorithms/architecture) to analyze after filtering generated outputs."

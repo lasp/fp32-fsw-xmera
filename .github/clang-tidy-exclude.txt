@@ -1,0 +1,33 @@
+# List of repository-relative paths to skip during the static-analysis clang-tidy run.
+# Lines starting with '#' or blank lines are ignored. One literal path per line.
+
+algorithms/attTrackingError/attTrackingError.h
+algorithms/attTrackingError/attTrackingError.cpp
+algorithms/celestialTwoBodyPoint/celestialTwoBodyPoint.h
+algorithms/celestialTwoBodyPoint/celestialTwoBodyPoint.cpp
+algorithms/ephemNavConverter/ephemNavConverter.h
+algorithms/ephemNavConverter/ephemNavConverter.cpp
+algorithms/ephemeridesRecenter/ephemeridesRecenter.h
+algorithms/ephemeridesRecenter/ephemeridesRecenter.cpp
+algorithms/inertial3D/inertial3D.h
+algorithms/inertial3D/inertial3D.cpp
+algorithms/mrpSteering/mrpSteering.h
+algorithms/mrpSteering/mrpSteering.cpp
+algorithms/navAggregate/navAggregate.h
+algorithms/navAggregate/navAggregate.cpp
+algorithms/oeStateEphem/oeStateEphem.h
+algorithms/oeStateEphem/oeStateEphem.cpp
+algorithms/rateControl/rateControl.h
+algorithms/rateControl/rateControl.cpp
+algorithms/rateServoFullNonlinear/rateServoFullNonlinear.h
+algorithms/rateServoFullNonlinear/rateServoFullNonlinear.cpp
+algorithms/rwMotorVoltage/rwMotorVoltage.h
+algorithms/rwMotorVoltage/rwMotorVoltage.cpp
+algorithms/rwNullSpace/rwNullSpace.h
+algorithms/rwNullSpace/rwNullSpace.cpp
+algorithms/stepperMotorController/stepperMotorController.h
+algorithms/stepperMotorController/stepperMotorController.cpp
+algorithms/sunSearch/sunSearch.h
+algorithms/sunSearch/sunSearch.cpp
+algorithms/sunlineEphem/sunlineEphem.h
+algorithms/sunlineEphem/sunlineEphem.cpp
