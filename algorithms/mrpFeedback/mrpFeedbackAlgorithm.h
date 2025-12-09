@@ -1,7 +1,7 @@
 #ifndef F32XMERA_MRP_FEEDBACK_ALGORITHM_H
 #define F32XMERA_MRP_FEEDBACK_ALGORITHM_H
 
-#include <stdint.h>
+#include <cstdint>
 
 #include "msgPayloadDef/AttGuidMsgF32Payload.h"
 #include "msgPayloadDef/CmdTorqueBodyMsgF32Payload.h"
