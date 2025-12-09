@@ -70,7 +70,7 @@ MrpFeedbackOutput MrpFeedbackAlgorithm::update(uint64_t callTime,
         this->int_sigma += this->K * dt * sigma_BR;
 
         /* keep int_sigma less than integralLimit */
-        for (Eigen::Index i = 0; i < 3; i++) {
+        for (Eigen::Index i = 0; i < 3; ++i) {
             const float intCheck = fabsf(this->int_sigma[i]);
             if (intCheck > this->integralLimit) {
                 this->int_sigma[i] *= this->integralLimit / intCheck;
@@ -86,7 +86,7 @@ MrpFeedbackOutput MrpFeedbackAlgorithm::update(uint64_t callTime,
         cArrayToEigenMatrix<float, 3, RW_EFF_CNT>(this->rwConfigParams.GsMatrix_B);
 
     Eigen::Vector3f H_B = this->ISCPntB_B * omega_BN_B;
-    for (Eigen::Index i = 0; i < this->rwConfigParams.numRW; i++) {
+    for (Eigen::Index i = 0; i < this->rwConfigParams.numRW; ++i) {
         if (wheelsAvailability.wheelAvailability[i] == AVAILABLE) { /* check if wheel is available */
             const Eigen::Vector3f G_s_B_i = G_s_B.col(i);
             const Eigen::Vector3f h_s_i =
