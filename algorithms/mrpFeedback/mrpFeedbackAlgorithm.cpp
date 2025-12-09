@@ -79,8 +79,8 @@ MrpFeedbackOutput MrpFeedbackAlgorithm::update(uint64_t callTime,
         z = this->int_sigma + this->ISCPntB_B * omega_BR_B;
     }
 
-    /*! - evaluate required attitude control torque Lr */
-    Eigen::Vector3f Lr = this->K * sigma_BR + this->P * omega_BR_B + this->P * this->Ki * z;
+    /*! - evaluate required attitude control torque Lc */
+    Eigen::Vector3f Lc = this->K * sigma_BR + this->P * omega_BR_B + this->P * this->Ki * z;
 
     const Eigen::Matrix<float, 3, RW_EFF_CNT> G_s_B =
         cArrayToEigenMatrix<float, 3, RW_EFF_CNT>(this->rwConfigParams.GsMatrix_B);
@@ -96,21 +96,21 @@ MrpFeedbackOutput MrpFeedbackAlgorithm::update(uint64_t callTime,
     }
 
     if (this->controlLawType == 0) {
-        Lr -= (omega_RN_B + this->Ki * z).cross(H_B);
+        Lc -= (omega_RN_B + this->Ki * z).cross(H_B);
     } else {
-        Lr -= omega_BN_B.cross(H_B);
+        Lc -= omega_BN_B.cross(H_B);
     }
 
-    Lr += this->ISCPntB_B * (omega_BN_B.cross(omega_RN_B) - domega_RN_B) + this->knownTorquePntB_B;
+    Lc += this->ISCPntB_B * (omega_BN_B.cross(omega_RN_B) - domega_RN_B) + this->knownTorquePntB_B;
 
-    const Eigen::Vector3f u_s = -Lr;
-    const Eigen::Vector3f u_integral = -(this->P * this->Ki * z);
+    const Eigen::Vector3f Lr = -Lc;
+    const Eigen::Vector3f Li = -(this->P * this->Ki * z);
 
     CmdTorqueBodyMsgF32Payload controlOut{};
     CmdTorqueBodyMsgF32Payload intFeedbackOut{};
 
-    eigenVectorToCArray(u_s, controlOut.torqueRequestBody);
-    eigenVectorToCArray(u_integral, intFeedbackOut.torqueRequestBody);
+    eigenVectorToCArray(Lr, controlOut.torqueRequestBody);
+    eigenVectorToCArray(Li, intFeedbackOut.torqueRequestBody);
 
     MrpFeedbackOutput mrpFeedbackOutput{};
     mrpFeedbackOutput.controlOut = controlOut;
