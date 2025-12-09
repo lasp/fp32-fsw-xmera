@@ -71,7 +71,7 @@ MrpFeedbackOutput MrpFeedbackAlgorithm::update(uint64_t callTime,
 
         /* keep int_sigma less than integralLimit */
         for (Eigen::Index i = 0; i < 3; i++) {
-            const float intCheck = fabs(this->int_sigma[i]);
+            const float intCheck = fabsf(this->int_sigma[i]);
             if (intCheck > this->integralLimit) {
                 this->int_sigma[i] *= this->integralLimit / intCheck;
             }
