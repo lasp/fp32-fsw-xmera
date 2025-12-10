@@ -11,9 +11,10 @@
 #include <architecture/utilities/macroDefinitions.h>
 #include "thrFiringSchmittAlgorithm.h"
 
-class ThrFiringSchmitt : public SysModel {
+class ThrFiringSchmitt final : public SysModel {
    public:
-    ThrFiringSchmitt();
+    ThrFiringSchmitt() = default;
+    ~ThrFiringSchmitt() override = default;
 
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
@@ -32,7 +33,7 @@ class ThrFiringSchmitt : public SysModel {
     ReadFunctor<THRArrayConfigMsgF32Payload> thrConfInMsg;     //!< The name of the thruster cluster Input message
 
    private:
-    ThrFiringSchmittAlgorithm algorithm;
+    ThrFiringSchmittAlgorithm algorithm{};
 };
 
 #endif  // F32XMERA_THR_FIRING_SCHMITT_H

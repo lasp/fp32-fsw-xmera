@@ -12,7 +12,7 @@
 
 enum class PulsingRegime { ONPULSING = 0, OFFPULSING = 1 };
 
-class ThrFiringSchmittAlgorithm {
+class ThrFiringSchmittAlgorithm final {
    public:
     void reset(uint64_t callTime, THRArrayConfigMsgF32Payload const& thrusterConfigPayload);
     THRArrayOnTimeCmdMsgF32Payload update(uint64_t callTime, THRArrayCmdForceMsgF32Payload& thrForceIn);
