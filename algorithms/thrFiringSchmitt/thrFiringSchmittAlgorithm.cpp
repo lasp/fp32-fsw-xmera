@@ -14,7 +14,7 @@ void ThrFiringSchmittAlgorithm::reset(THRArrayConfigMsgF32Payload const& thruste
     this->numThrusters = thrusterConfigPayload.numThrusters;
     this->lastThrustState.fill(false);
     /*! - loop over all thrusters and for each copy over maximum thrust, set last state to off */
-    for (uint32_t i = 0U; i < this->numThrusters; i++) {
+    for (uint32_t i = 0U; i < this->numThrusters; ++i) {
         this->maxThrust[i] = thrusterConfigPayload.thrusters[i].maxThrust;
     }
 }
@@ -32,7 +32,7 @@ THRArrayOnTimeCmdMsgF32Payload ThrFiringSchmittAlgorithm::update(uint64_t callTi
     if (this->prevCallTime == 0U) {
         this->prevCallTime = callTime;
 
-        for (uint32_t i = 0U; i < this->numThrusters; i++) {
+        for (uint32_t i = 0U; i < this->numThrusters; ++i) {
             thrOnTimeOut.OnTimeRequest[i] = static_cast<float>(this->baseThrustState) * 2.0;
         }
 
@@ -45,7 +45,7 @@ THRArrayOnTimeCmdMsgF32Payload ThrFiringSchmittAlgorithm::update(uint64_t callTi
 
     std::array<float, MAX_EFF_CNT> onTime{}; /* [s] array of commanded on time for thrusters */
                                               /*! - Loop through thrusters */
-    for (uint32_t i = 0U; i < this->numThrusters; i++) {
+    for (uint32_t i = 0U; i < this->numThrusters; ++i) {
         /*! - Correct for off-pulsing if necessary.  Here the requested force is negative, and the maximum thrust
          needs to be added.  If not control force is requested in off-pulsing mode, then the thruster force should
          be set to the maximum thrust value */
