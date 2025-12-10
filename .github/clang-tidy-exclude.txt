@@ -41,3 +41,5 @@ algorithms/sunSearch/sunSearch.h
 algorithms/sunSearch/sunSearch.cpp
 algorithms/sunlineEphem/sunlineEphem.h
 algorithms/sunlineEphem/sunlineEphem.cpp
+algorithms/thrFiringSchmitt/thrFiringSchmitt.h
+algorithms/thrFiringSchmitt/thrFiringSchmitt.cpp
