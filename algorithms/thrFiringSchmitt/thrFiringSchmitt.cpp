@@ -15,7 +15,7 @@ void ThrFiringSchmitt::reset(uint64_t callTime) {
         throw std::invalid_argument("thrFiringSchmitt.thrForceInMsg wasn't connected.");
     }
 
-    this->algorithm.reset(callTime, this->thrConfInMsg());
+    this->algorithm.reset(this->thrConfInMsg());
 }
 
 /*! This method maps the input thruster command forces into thruster on times using a remainder tracking logic.

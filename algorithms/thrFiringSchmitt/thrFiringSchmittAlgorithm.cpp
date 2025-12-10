@@ -5,9 +5,9 @@
 /*! This method performs a complete reset of the module.  Local module variables that retain
  time varying states between function calls are reset to their default values.
  @return void
- @param callTime The clock time at which the function was called (nanoseconds)
+ @param thrusterConfigPayload thruster config message payload
  */
-void ThrFiringSchmittAlgorithm::reset(uint64_t callTime, THRArrayConfigMsgF32Payload const& thrusterConfigPayload) {
+void ThrFiringSchmittAlgorithm::reset(THRArrayConfigMsgF32Payload const& thrusterConfigPayload) {
     this->prevCallTime = 0;
 
     /*! - store the number of installed thrusters */
