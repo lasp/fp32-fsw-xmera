@@ -3,9 +3,14 @@ import pytest
 from xmera.architecture import messaging
 from xmera.fp32 import thrFiringSchmittF32
 from xmera.utilities import SimulationBaseClass
-from xmera.utilities import fswSetupThrusters
 from xmera.utilities import macros
-from xmera.utilities import unitTestSupport
+
+import sys
+import os
+file_path = os.path.dirname(os.path.abspath(__file__))
+abs_path = os.path.abspath(os.path.join(file_path, "../../utilities"))
+sys.path.insert(0, abs_path)
+import fswSetupThrusters
 
 
 @pytest.mark.parametrize("resetCheck, dvOn", [
@@ -72,8 +77,8 @@ def test_thrFiringSchmitt(show_plots, resetCheck, dvOn):
     module.thrConfInMsg.subscribeTo(thrConfMsg)
 
     # setup thruster impulse request message
-    inputMessageData = messaging.THRArrayCmdForceMsgPayload()
-    thrCmdMsg = messaging.THRArrayCmdForceMsg()
+    inputMessageData = messaging.THRArrayCmdForceMsgF32Payload()
+    thrCmdMsg = messaging.THRArrayCmdForceMsgF32()
     module.thrForceInMsg.subscribeTo(thrCmdMsg)
 
     # Setup logging on the test module output message so that we get all the writes to it

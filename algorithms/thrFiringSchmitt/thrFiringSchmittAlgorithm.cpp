@@ -7,7 +7,7 @@
  @return void
  @param callTime The clock time at which the function was called (nanoseconds)
  */
-void ThrFiringSchmittAlgorithm::reset(uint64_t callTime, THRArrayConfigMsgPayload const& thrusterConfigPayload) {
+void ThrFiringSchmittAlgorithm::reset(uint64_t callTime, THRArrayConfigMsgF32Payload const& thrusterConfigPayload) {
     this->prevCallTime = 0;
 
     /*! - store the number of installed thrusters */
@@ -23,9 +23,9 @@ void ThrFiringSchmittAlgorithm::reset(uint64_t callTime, THRArrayConfigMsgPayloa
  @return void
  @param callTime The clock time at which the function was called (nanoseconds)
  */
-THRArrayOnTimeCmdMsgPayload ThrFiringSchmittAlgorithm::update(uint64_t callTime,
-                                                              THRArrayCmdForceMsgPayload& thrForceIn) {
-    THRArrayOnTimeCmdMsgPayload thrOnTimeOut{}; /* -- thruster on-time output payload */
+THRArrayOnTimeCmdMsgF32Payload ThrFiringSchmittAlgorithm::update(uint64_t callTime,
+                                                              THRArrayCmdForceMsgF32Payload& thrForceIn) {
+    THRArrayOnTimeCmdMsgF32Payload thrOnTimeOut{}; /* -- thruster on-time output payload */
 
     /*! - the first time update() is called there is no information on the time step.  Here
      return either all thrusters off or on depending on the baseThrustState state */
@@ -33,17 +33,17 @@ THRArrayOnTimeCmdMsgPayload ThrFiringSchmittAlgorithm::update(uint64_t callTime,
         this->prevCallTime = callTime;
 
         for (uint32_t i = 0; i < this->numThrusters; i++) {
-            thrOnTimeOut.OnTimeRequest[i] = (double)(this->baseThrustState) * 2.0;
+            thrOnTimeOut.OnTimeRequest[i] = (float)(this->baseThrustState) * 2.0;
         }
 
         return thrOnTimeOut;
     }
 
     /*! - compute control time period Delta_t */
-    double controlPeriod = ((double)(callTime - this->prevCallTime)) * NANO2SEC; /* [s] control period */
+    float controlPeriod = ((float)(callTime - this->prevCallTime)) * NANO2SEC; /* [s] control period */
     this->prevCallTime = callTime;
 
-    std::array<double, MAX_EFF_CNT> onTime{}; /* [s] array of commanded on time for thrusters */
+    std::array<float, MAX_EFF_CNT> onTime{}; /* [s] array of commanded on time for thrusters */
                                               /*! - Loop through thrusters */
     for (uint32_t i = 0; i < this->numThrusters; i++) {
         /*! - Correct for off-pulsing if necessary.  Here the requested force is negative, and the maximum thrust
@@ -63,7 +63,7 @@ THRArrayOnTimeCmdMsgPayload ThrFiringSchmittAlgorithm::update(uint64_t callTime,
         /*! - Apply Schmitt trigger logic */
         if (onTime[i] < this->thrMinFireTime) {
             /*! - Request is less than minimum fire time */
-            double level = onTime[i] / this->thrMinFireTime; /* [-] duty cycle fraction */
+            float level = onTime[i] / this->thrMinFireTime; /* [-] duty cycle fraction */
             if (level >= this->levelOn) {
                 this->lastThrustState[i] = true;
                 onTime[i] = this->thrMinFireTime;
@@ -93,39 +93,39 @@ THRArrayOnTimeCmdMsgPayload ThrFiringSchmittAlgorithm::update(uint64_t callTime,
 
 /**
  * @brief Get the ON duty cycle fraction.
- * @return double The current ON duty cycle fraction.
+ * @return float The current ON duty cycle fraction.
  */
-double ThrFiringSchmittAlgorithm::getLevelOn() const { return this->levelOn; }
+float ThrFiringSchmittAlgorithm::getLevelOn() const { return this->levelOn; }
 
 /**
  * @brief Set the ON duty cycle fraction.
  * @param level The new ON duty cycle fraction to set.
  */
-void ThrFiringSchmittAlgorithm::setLevelOn(double level) { this->levelOn = level; }
+void ThrFiringSchmittAlgorithm::setLevelOn(float level) { this->levelOn = level; }
 
 /**
  * @brief Get the OFF duty cycle fraction.
- * @return double The current OFF duty cycle fraction.
+ * @return float The current OFF duty cycle fraction.
  */
-double ThrFiringSchmittAlgorithm::getLevelOff() const { return this->levelOff; }
+float ThrFiringSchmittAlgorithm::getLevelOff() const { return this->levelOff; }
 
 /**
  * @brief Set the OFF duty cycle fraction.
  * @param level The new OFF duty cycle fraction to set.
  */
-void ThrFiringSchmittAlgorithm::setLevelOff(double level) { this->levelOff = level; }
+void ThrFiringSchmittAlgorithm::setLevelOff(float level) { this->levelOff = level; }
 
 /**
  * @brief Get the minimum ON time for thrusters.
- * @return double The current minimum ON time in seconds.
+ * @return float The current minimum ON time in seconds.
  */
-double ThrFiringSchmittAlgorithm::getThrMinFireTime() const { return this->thrMinFireTime; }
+float ThrFiringSchmittAlgorithm::getThrMinFireTime() const { return this->thrMinFireTime; }
 
 /**
  * @brief Set the minimum ON time for thrusters.
  * @param time The new minimum ON time in seconds to set.
  */
-void ThrFiringSchmittAlgorithm::setThrMinFireTime(double time) { this->thrMinFireTime = time; }
+void ThrFiringSchmittAlgorithm::setThrMinFireTime(float time) { this->thrMinFireTime = time; }
 
 /**
  * @brief Get the base thrust state.

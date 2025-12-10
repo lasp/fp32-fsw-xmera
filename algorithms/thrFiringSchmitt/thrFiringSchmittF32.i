@@ -8,6 +8,6 @@
 
 %include "thrFiringSchmitt.h"
 
-%include <architecture/msgPayloadDef/THRArrayConfigMsgPayload.h>
-%include <architecture/msgPayloadDef/THRArrayCmdForceMsgPayload.h>
-%include <architecture/msgPayloadDef/THRArrayOnTimeCmdMsgPayload.h>
+%include "msgPayloadDef/THRArrayConfigMsgF32Payload.h"
+%include "msgPayloadDef/THRArrayCmdForceMsgF32Payload.h"
+%include "msgPayloadDef/THRArrayOnTimeCmdMsgF32Payload.h"

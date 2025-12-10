@@ -24,46 +24,46 @@ void ThrFiringSchmitt::reset(uint64_t callTime) {
  @param callTime The clock time at which the function was called (nanoseconds)
  */
 void ThrFiringSchmitt::updateState(uint64_t callTime) {
-    THRArrayCmdForceMsgPayload thrForceIn = this->thrForceInMsg();
-    THRArrayOnTimeCmdMsgPayload thrOnTimeOut = this->algorithm.update(callTime, thrForceIn);
+    THRArrayCmdForceMsgF32Payload thrForceIn = this->thrForceInMsg();
+    THRArrayOnTimeCmdMsgF32Payload thrOnTimeOut = this->algorithm.update(callTime, thrForceIn);
     this->onTimeOutMsg.write(&thrOnTimeOut, this->moduleID, callTime);
 }
 
 /**
  * @brief Get the ON duty cycle fraction.
- * @return double The current ON duty cycle fraction.
+ * @return float The current ON duty cycle fraction.
  */
-double ThrFiringSchmitt::getLevelOn() const { return this->algorithm.getLevelOn(); }
+float ThrFiringSchmitt::getLevelOn() const { return this->algorithm.getLevelOn(); }
 
 /**
  * @brief Set the ON duty cycle fraction.
  * @param level The new ON duty cycle fraction to set.
  */
-void ThrFiringSchmitt::setLevelOn(double level) { this->algorithm.setLevelOn(level); }
+void ThrFiringSchmitt::setLevelOn(float level) { this->algorithm.setLevelOn(level); }
 
 /**
  * @brief Get the OFF duty cycle fraction.
- * @return double The current OFF duty cycle fraction.
+ * @return float The current OFF duty cycle fraction.
  */
-double ThrFiringSchmitt::getLevelOff() const { return this->algorithm.getLevelOff(); }
+float ThrFiringSchmitt::getLevelOff() const { return this->algorithm.getLevelOff(); }
 
 /**
  * @brief Set the OFF duty cycle fraction.
  * @param level The new OFF duty cycle fraction to set.
  */
-void ThrFiringSchmitt::setLevelOff(double level) { this->algorithm.setLevelOff(level); }
+void ThrFiringSchmitt::setLevelOff(float level) { this->algorithm.setLevelOff(level); }
 
 /**
  * @brief Get the minimum ON time for thrusters.
- * @return double The current minimum ON time in seconds.
+ * @return float The current minimum ON time in seconds.
  */
-double ThrFiringSchmitt::getThrMinFireTime() const { return this->algorithm.getThrMinFireTime(); }
+float ThrFiringSchmitt::getThrMinFireTime() const { return this->algorithm.getThrMinFireTime(); }
 
 /**
  * @brief Set the minimum ON time for thrusters.
  * @param time The new minimum ON time in seconds to set.
  */
-void ThrFiringSchmitt::setThrMinFireTime(double time) { this->algorithm.setThrMinFireTime(time); }
+void ThrFiringSchmitt::setThrMinFireTime(float time) { this->algorithm.setThrMinFireTime(time); }
 
 /**
  * @brief Get the base thrust state.
