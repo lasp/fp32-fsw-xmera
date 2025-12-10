@@ -1,4 +1,5 @@
 #include "thrFiringSchmitt.h"
+#include <stdexcept>
 
 ThrFiringSchmitt::ThrFiringSchmitt() { this->algorithm = ThrFiringSchmittAlgorithm(); }
 
@@ -10,10 +11,10 @@ ThrFiringSchmitt::ThrFiringSchmitt() { this->algorithm = ThrFiringSchmittAlgorit
 void ThrFiringSchmitt::reset(uint64_t callTime) {
     // check if the required input messages are included
     if (!this->thrConfInMsg.isLinked()) {
-        this->bskLogger.bskLog(BSK_ERROR, "Error: thrFiringSchmitt.thrConfInMsg wasn't connected.");
+        throw std::invalid_argument("thrFiringSchmitt.thrConfInMsg wasn't connected.");
     }
     if (!this->thrForceInMsg.isLinked()) {
-        this->bskLogger.bskLog(BSK_ERROR, "Error: thrFiringSchmitt.thrForceInMsg wasn't connected.");
+        throw std::invalid_argument("thrFiringSchmitt.thrForceInMsg wasn't connected.");
     }
 
     this->algorithm.reset(callTime, this->thrConfInMsg());

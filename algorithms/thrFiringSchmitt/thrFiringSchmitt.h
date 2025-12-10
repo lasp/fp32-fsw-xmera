@@ -8,7 +8,6 @@
 #include "msgPayloadDef/THRArrayCmdForceMsgF32Payload.h"
 #include "msgPayloadDef/THRArrayConfigMsgF32Payload.h"
 #include "msgPayloadDef/THRArrayOnTimeCmdMsgF32Payload.h"
-#include <architecture/utilities/bskLogging.h>
 #include <architecture/utilities/macroDefinitions.h>
 #include "thrFiringSchmittAlgorithm.h"
 
@@ -31,8 +30,6 @@ class ThrFiringSchmitt : public SysModel {
     ReadFunctor<THRArrayCmdForceMsgF32Payload> thrForceInMsg;  //!< The name of the Input message
     Message<THRArrayOnTimeCmdMsgF32Payload> onTimeOutMsg;      //!< The name of the output message*, onTimeOutMsg
     ReadFunctor<THRArrayConfigMsgF32Payload> thrConfInMsg;     //!< The name of the thruster cluster Input message
-
-    BSKLogger bskLogger = {};  //!< BSK Logging
 
    private:
     ThrFiringSchmittAlgorithm algorithm;
