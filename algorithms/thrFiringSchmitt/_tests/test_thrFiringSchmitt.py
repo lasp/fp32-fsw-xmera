@@ -1,7 +1,7 @@
 import numpy
 import pytest
 from xmera.architecture import messaging
-from xmera.fswAlgorithms import thrFiringSchmitt
+from xmera.fp32 import thrFiringSchmittF32
 from xmera.utilities import SimulationBaseClass
 from xmera.utilities import fswSetupThrusters
 from xmera.utilities import macros
@@ -26,7 +26,7 @@ def test_thrFiringSchmitt(show_plots, resetCheck, dvOn):
     testProc = unitTestSim.CreateNewProcess(unitProcessName)
     testProc.addTask(unitTestSim.CreateNewTask(unitTaskName, testProcessRate))
 
-    module = thrFiringSchmitt.ThrFiringSchmitt()
+    module = thrFiringSchmittF32.ThrFiringSchmitt()
     module.modelTag = "thrFiringSchmitt"
 
     # Add test module to runtime call list

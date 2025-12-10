@@ -1,5 +1,5 @@
-#ifndef XMERA_THRFIRINGSCHMITT_H
-#define XMERA_THRFIRINGSCHMITT_H
+#ifndef F32XMERA_THR_FIRING_SCHMITT_H
+#define F32XMERA_THR_FIRING_SCHMITT_H
 
 #include <cstdint>
 
@@ -38,4 +38,4 @@ class ThrFiringSchmitt : public SysModel {
     ThrFiringSchmittAlgorithm algorithm;
 };
 
-#endif  // XMERA_THRFIRINGSCHMITT_H
+#endif  // F32XMERA_THR_FIRING_SCHMITT_H

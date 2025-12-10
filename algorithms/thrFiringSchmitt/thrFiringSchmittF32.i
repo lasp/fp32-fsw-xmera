@@ -1,4 +1,4 @@
-%module thrFiringSchmitt
+%module thrFiringSchmittF32
 %{
    #include "thrFiringSchmitt.h"
 %}
