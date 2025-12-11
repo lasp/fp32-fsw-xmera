@@ -22,8 +22,8 @@ class ThrFiringSchmittAlgorithm final {
     void setLevelOff(float level);
     float getThrMinFireTime() const;
     void setThrMinFireTime(float time);
-    PulsingRegime getPulsingRegime() const;
-    void setPulsingRegime(PulsingRegime state);
+    PulsingRegime getBaseThrustState() const;
+    void setBaseThrustState(PulsingRegime state);
 
    private:
     float levelOn{};                                 //!< [-] ON duty cycle fraction
