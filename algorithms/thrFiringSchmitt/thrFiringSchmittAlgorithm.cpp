@@ -42,7 +42,7 @@ THRArrayOnTimeCmdMsgF32Payload ThrFiringSchmittAlgorithm::update(uint64_t callTi
         }
     } else {
         /*! - compute control time period Delta_t */
-        float controlPeriod = static_cast<float>(static_cast<double>(callTime - this->prevCallTime) * NANO2SEC);
+        const auto controlPeriod = static_cast<float>(static_cast<double>(callTime - this->prevCallTime) * NANO2SEC);
         this->prevCallTime = callTime;
 
         std::array<float, MAX_EFF_CNT> onTime{}; /* [s] array of commanded on time for thrusters */
@@ -65,7 +65,7 @@ THRArrayOnTimeCmdMsgF32Payload ThrFiringSchmittAlgorithm::update(uint64_t callTi
             /*! - Apply Schmitt trigger logic */
             if (onTime[i] < this->thrMinFireTime) {
                 /*! - Request is less than minimum fire time */
-                float level = onTime[i] / this->thrMinFireTime; /* [-] duty cycle fraction */
+                const float level = onTime[i] / this->thrMinFireTime; /* [-] duty cycle fraction */
                 if (level >= this->levelOn) {
                     this->lastThrustState[i] = true;
                     onTime[i] = this->thrMinFireTime;
