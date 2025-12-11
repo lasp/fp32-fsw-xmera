@@ -1,5 +1,5 @@
 #include "thrFiringSchmittAlgorithm.h"
-
+#include "../freestandingInvalidArgument.h"
 #include <architecture/utilities/macroDefinitions.h>
 
 /*! This method performs a complete reset of the module.  Local module variables that retain
@@ -8,6 +8,10 @@
  @param thrusterConfigPayload thruster config message payload
  */
 void ThrFiringSchmittAlgorithm::reset(THRArrayConfigMsgF32Payload const& thrusterConfigPayload) {
+    if (this->levelOn < this->levelOff) {
+        FS_THROW_INVALID_ARGUMENT("ThrFiringSchmitt.levelOn must not be less than ThrFiringSchmitt.levelOff.");
+    }
+
     this->prevCallTime = 0U;
 
     /*! - store the number of installed thrusters */
@@ -99,7 +103,12 @@ float ThrFiringSchmittAlgorithm::getLevelOn() const { return this->levelOn; }
  * @brief Set the ON duty cycle fraction.
  * @param level The new ON duty cycle fraction to set.
  */
-void ThrFiringSchmittAlgorithm::setLevelOn(float level) { this->levelOn = level; }
+void ThrFiringSchmittAlgorithm::setLevelOn(float level) {
+    if (level <= 0.0 || level > 1.0) {
+        FS_THROW_INVALID_ARGUMENT("ThrFiringSchmitt.levelOn must be within the bounds 0.0 < levelOn <= 1.0.");
+    }
+    this->levelOn = level;
+}
 
 /**
  * @brief Get the OFF duty cycle fraction.
@@ -111,7 +120,12 @@ float ThrFiringSchmittAlgorithm::getLevelOff() const { return this->levelOff; }
  * @brief Set the OFF duty cycle fraction.
  * @param level The new OFF duty cycle fraction to set.
  */
-void ThrFiringSchmittAlgorithm::setLevelOff(float level) { this->levelOff = level; }
+void ThrFiringSchmittAlgorithm::setLevelOff(float level) {
+    if (level < 0.0 || level >= 1.0) {
+        FS_THROW_INVALID_ARGUMENT("ThrFiringSchmitt.levelOff must be within the bounds 0.0 <= levelOff < 1.0.");
+    }
+    this->levelOff = level;
+}
 
 /**
  * @brief Get the minimum ON time for thrusters.
@@ -123,7 +137,12 @@ float ThrFiringSchmittAlgorithm::getThrMinFireTime() const { return this->thrMin
  * @brief Set the minimum ON time for thrusters.
  * @param time The new minimum ON time in seconds to set.
  */
-void ThrFiringSchmittAlgorithm::setThrMinFireTime(float time) { this->thrMinFireTime = time; }
+void ThrFiringSchmittAlgorithm::setThrMinFireTime(float time) {
+    if (time <= 0.0) {
+        FS_THROW_INVALID_ARGUMENT("ThrFiringSchmitt.thrMinFireTime must be positive.");
+    }
+    this->thrMinFireTime = time;
+}
 
 /**
  * @brief Get the base thrust state.
