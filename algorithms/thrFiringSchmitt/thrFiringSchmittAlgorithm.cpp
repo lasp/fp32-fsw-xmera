@@ -35,59 +35,56 @@ THRArrayOnTimeCmdMsgF32Payload ThrFiringSchmittAlgorithm::update(uint64_t callTi
         for (uint32_t i = 0U; i < this->numThrusters; ++i) {
             thrOnTimeOut.OnTimeRequest[i] = static_cast<float>(this->baseThrustState) * 2.0;
         }
+    } else {
+        /*! - compute control time period Delta_t */
+        float controlPeriod = static_cast<float>(static_cast<double>(callTime - this->prevCallTime) * NANO2SEC); /* [s] control period */
+        this->prevCallTime = callTime;
 
-        return thrOnTimeOut;
-    }
-
-    /*! - compute control time period Delta_t */
-    float controlPeriod = static_cast<float>(static_cast<double>(callTime - this->prevCallTime) * NANO2SEC); /* [s] control period */
-    this->prevCallTime = callTime;
-
-    std::array<float, MAX_EFF_CNT> onTime{}; /* [s] array of commanded on time for thrusters */
-                                              /*! - Loop through thrusters */
-    for (uint32_t i = 0U; i < this->numThrusters; ++i) {
-        /*! - Correct for off-pulsing if necessary.  Here the requested force is negative, and the maximum thrust
-         needs to be added.  If not control force is requested in off-pulsing mode, then the thruster force should
-         be set to the maximum thrust value */
-        if (this->baseThrustState == PulsingRegime::OFFPULSING) {
-            thrForceIn.thrForce[i] += this->maxThrust[i];
-        }
-
-        /*! - Do not allow thrust requests less than zero */
-        if (thrForceIn.thrForce[i] < 0.0) {
-            thrForceIn.thrForce[i] = 0.0;
-        }
-        /*! - Compute T_on from thrust request, max thrust, and control period */
-        onTime[i] = thrForceIn.thrForce[i] / this->maxThrust[i] * controlPeriod;
-
-        /*! - Apply Schmitt trigger logic */
-        if (onTime[i] < this->thrMinFireTime) {
-            /*! - Request is less than minimum fire time */
-            float level = onTime[i] / this->thrMinFireTime; /* [-] duty cycle fraction */
-            if (level >= this->levelOn) {
-                this->lastThrustState[i] = true;
-                onTime[i] = this->thrMinFireTime;
-            } else if (level <= this->levelOff) {
-                this->lastThrustState[i] = false;
-                onTime[i] = 0.0F;
-            } else if (this->lastThrustState[i]) {
-                onTime[i] = this->thrMinFireTime;
-            } else {
-                onTime[i] = 0.0F;
+        std::array<float, MAX_EFF_CNT> onTime{}; /* [s] array of commanded on time for thrusters */
+                                                  /*! - Loop through thrusters */
+        for (uint32_t i = 0U; i < this->numThrusters; ++i) {
+            /*! - Correct for off-pulsing if necessary.  Here the requested force is negative, and the maximum thrust
+             needs to be added.  If not control force is requested in off-pulsing mode, then the thruster force should
+             be set to the maximum thrust value */
+            if (this->baseThrustState == PulsingRegime::OFFPULSING) {
+                thrForceIn.thrForce[i] += this->maxThrust[i];
             }
-        } else if (onTime[i] >= controlPeriod) {
-            /*! - Request is greater than control period then oversaturate onTime */
-            this->lastThrustState[i] = true;
-            onTime[i] = 1.1 * controlPeriod;  // oversaturate to avoid numerical error
-        } else {
-            /*! - Request is greater than minimum fire time and less than control period */
-            this->lastThrustState[i] = true;
+
+            /*! - Do not allow thrust requests less than zero */
+            if (thrForceIn.thrForce[i] < 0.0) {
+                thrForceIn.thrForce[i] = 0.0;
+            }
+            /*! - Compute T_on from thrust request, max thrust, and control period */
+            onTime[i] = thrForceIn.thrForce[i] / this->maxThrust[i] * controlPeriod;
+
+            /*! - Apply Schmitt trigger logic */
+            if (onTime[i] < this->thrMinFireTime) {
+                /*! - Request is less than minimum fire time */
+                float level = onTime[i] / this->thrMinFireTime; /* [-] duty cycle fraction */
+                if (level >= this->levelOn) {
+                    this->lastThrustState[i] = true;
+                    onTime[i] = this->thrMinFireTime;
+                } else if (level <= this->levelOff) {
+                    this->lastThrustState[i] = false;
+                    onTime[i] = 0.0F;
+                } else if (this->lastThrustState[i]) {
+                    onTime[i] = this->thrMinFireTime;
+                } else {
+                    onTime[i] = 0.0F;
+                }
+            } else if (onTime[i] >= controlPeriod) {
+                /*! - Request is greater than control period then oversaturate onTime */
+                this->lastThrustState[i] = true;
+                onTime[i] = 1.1 * controlPeriod;  // oversaturate to avoid numerical error
+            } else {
+                /*! - Request is greater than minimum fire time and less than control period */
+                this->lastThrustState[i] = true;
+            }
+
+            /*! Set the output data */
+            thrOnTimeOut.OnTimeRequest[i] = onTime[i];
         }
-
-        /*! Set the output data */
-        thrOnTimeOut.OnTimeRequest[i] = onTime[i];
     }
-
     return thrOnTimeOut;
 }
 
