@@ -22,9 +22,10 @@ void ThrFiringSchmittAlgorithm::reset(THRArrayConfigMsgF32Payload const& thruste
 /*! This method maps the input thruster command forces into thruster on times using a remainder tracking logic.
  @return void
  @param callTime The clock time at which the function was called (nanoseconds)
+ @param thrForceIn Thruster array commanded force message payload
  */
 THRArrayOnTimeCmdMsgF32Payload ThrFiringSchmittAlgorithm::update(uint64_t callTime,
-                                                              THRArrayCmdForceMsgF32Payload& thrForceIn) {
+                                                                 THRArrayCmdForceMsgF32Payload& thrForceIn) {
     THRArrayOnTimeCmdMsgF32Payload thrOnTimeOut{}; /* -- thruster on-time output payload */
 
     /*! - the first time update() is called there is no information on the time step.  Here
@@ -37,11 +38,11 @@ THRArrayOnTimeCmdMsgF32Payload ThrFiringSchmittAlgorithm::update(uint64_t callTi
         }
     } else {
         /*! - compute control time period Delta_t */
-        float controlPeriod = static_cast<float>(static_cast<double>(callTime - this->prevCallTime) * NANO2SEC); /* [s] control period */
+        float controlPeriod = static_cast<float>(static_cast<double>(callTime - this->prevCallTime) * NANO2SEC);
         this->prevCallTime = callTime;
 
         std::array<float, MAX_EFF_CNT> onTime{}; /* [s] array of commanded on time for thrusters */
-                                                  /*! - Loop through thrusters */
+        /*! - Loop through thrusters */
         for (uint32_t i = 0U; i < this->numThrusters; ++i) {
             /*! - Correct for off-pulsing if necessary.  Here the requested force is negative, and the maximum thrust
              needs to be added.  If not control force is requested in off-pulsing mode, then the thruster force should
