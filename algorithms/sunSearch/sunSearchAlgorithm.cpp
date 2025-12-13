@@ -5,11 +5,11 @@
 */
 
 #include "sunSearchAlgorithm.h"
+
 #include "architecture/utilities/eigenSupport.h"
 #include "architecture/utilities/macroDefinitions.h"
+#include "freestandingInvalidArgument.h"
 #include <math.h>
-
-#include "../freestandingInvalidArgument.h"
 
 /*! This method is used to reset the module.
  @return void
