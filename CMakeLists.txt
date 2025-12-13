@@ -93,7 +93,21 @@ if(NOT IS_DIRECTORY "${EIGEN3_DIR}/Eigen")
   message(FATAL_ERROR "Eigen not found under ${EIGEN3_DIR}")
 endif()
 
-set(algorithms "attTrackingError")
+# "rateServoFullNonlinear" "rwMotorVoltage" "stepperMotorController"
+set(algorithms
+    "attTrackingError"
+    "celestialTwoBodyPoint"
+    "ephemeridesRecenter"
+    "ephemNavConverter"
+    "inertial3D"
+    "mrpSteering"
+    "navAggregate"
+    "oeStateEphem"
+    "rateControl"
+    "rwNullSpace"
+    "sunlineEphem"
+    "sunSearch"
+)
 foreach(algorithm_name IN LISTS algorithms)
   add_algorithm(${algorithm_name})
 endforeach()
