@@ -9,7 +9,6 @@
 #include "architecture/utilities/eigenSupport.h"
 #include "architecture/utilities/macroDefinitions.h"
 #include "freestandingInvalidArgument.h"
-#include <math.h>
 
 /*! This method is used to reset the module.
  @return void
@@ -84,7 +83,7 @@ void SunSearchAlgorithm::computeKinematicProperties(const uint32_t index) {
     /*! If angular acceleration exceeds limit, decrease acceleration and increase slew time */
     if (alpha > maxAcc) {
         alpha = maxAcc;
-        totalTime = 2 * sqrt(SP->slewAngle / alpha);
+        totalTime = 2 * sqrtf(SP->slewAngle / alpha);
         thrustTime = totalTime / 2;
         omegaMax = alpha * thrustTime;
     }
