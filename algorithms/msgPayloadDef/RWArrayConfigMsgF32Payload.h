@@ -7,7 +7,7 @@
 #ifndef RW_CONFIG_MESSAGE_F32_H
 #define RW_CONFIG_MESSAGE_F32_H
 
-#include "architecture/msgPayloadDef/definitions.h"
+#include "definitions.h"
 #include <stdint.h>
 
 /*! @brief RW array configuration FSW msg */
