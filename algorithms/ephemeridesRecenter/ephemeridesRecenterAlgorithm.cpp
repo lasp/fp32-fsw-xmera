@@ -119,7 +119,7 @@ bool EphemeridesRecenterAlgorithm::findMoonOfBody(const BodyEphemerisPayload& ce
  @param celestialBodyName std::string : celestial body name
  @return size_t : index
  */
-size_t EphemeridesRecenterAlgorithm::getBodyIndexFromName(const std::string& celestialBodyName) const {
+size_t EphemeridesRecenterAlgorithm::getBodyIndexFromName(const BodyName& celestialBodyName) const {
     if (this->celestialBodyCount == 0) {
         FS_THROW_INVALID_ARGUMENT("Requesting a body index but the current celestial body count is 0");
     }
@@ -134,32 +134,29 @@ size_t EphemeridesRecenterAlgorithm::getBodyIndexFromName(const std::string& cel
 /*! @brief Set the new zero base body type by name
  @param bodyName std::string : the new zero base
  */
-void EphemeridesRecenterAlgorithm::setNewZeroBaseName(const std::string& bodyName) {
-    this->newCentralBodyName = bodyName;
-}
+void EphemeridesRecenterAlgorithm::setNewZeroBaseName(const BodyName& bodyName) { this->newCentralBodyName = bodyName; }
 
 /*! @brief Find the new zero base body type by name
- @param bodyName std::string : the new zero base
+ @param bodyName BodyName : the new zero base
  */
-size_t EphemeridesRecenterAlgorithm::findNewZeroBaseIndex(const std::string& bodyName) {
-    if (auto indexOfNewZeroBase = std::find(this->bodyNames.begin(), this->bodyNames.end(), bodyName);
-        indexOfNewZeroBase == this->bodyNames.end()) {
+size_t EphemeridesRecenterAlgorithm::findNewZeroBaseIndex(const BodyName& bodyName) {
+    auto* indexOfNewZeroBase = std::ranges::find(this->bodyNames, bodyName);
+    if (indexOfNewZeroBase == this->bodyNames.end()) {
         FS_THROW_INVALID_ARGUMENT("New zero base body was not in the list of existing bodies");
-    } else {
-        return std::distance(this->bodyNames.begin(), indexOfNewZeroBase);
     }
+    return std::distance(this->bodyNames.begin(), indexOfNewZeroBase);
 }
 
 /*! @brief Get the new celestial body center by name
- @return std::string : the new zero base
+ @return BodyName : the new zero base
  */
-std::string EphemeridesRecenterAlgorithm::getNewZeroBase() const { return this->newCentralBodyName; }
+BodyName EphemeridesRecenterAlgorithm::getNewZeroBase() const { return this->newCentralBodyName; }
 
 /*! @brief Set the previous common zero base of all the celestial bodies entered
- @param bodyName std::string : the new zero base
+ @param bodyName BodyName : the new zero base
  */
-void EphemeridesRecenterAlgorithm::setPreviousCommonZeroBase(const std::string& bodyName) {
-    if (auto indexOfPreviousZeroBase = std::find(this->bodyNames.begin(), this->bodyNames.end(), bodyName);
+void EphemeridesRecenterAlgorithm::setPreviousCommonZeroBase(const BodyName& bodyName) {
+    if (const auto* indexOfPreviousZeroBase = std::ranges::find(this->bodyNames, bodyName);
         indexOfPreviousZeroBase == this->bodyNames.end()) {
         FS_THROW_INVALID_ARGUMENT("Previous zero base body was not in the list of existing bodies");
     }
@@ -168,9 +165,9 @@ void EphemeridesRecenterAlgorithm::setPreviousCommonZeroBase(const std::string& 
 }
 
 /*! @brief Get the previous common zero base of all the celestial bodies entered
- @return std::string : the new zero base
+ @return BodyName : the new zero base
  */
-std::string EphemeridesRecenterAlgorithm::getPreviousCommonZeroBase() const { return this->previousCentralBodyName; }
+BodyName EphemeridesRecenterAlgorithm::getPreviousCommonZeroBase() const { return this->previousCentralBodyName; }
 
 /*! @brief Get the number of bodies that were entered into the module
  @return size_t : the number of bodies
@@ -178,13 +175,13 @@ std::string EphemeridesRecenterAlgorithm::getPreviousCommonZeroBase() const { re
 size_t EphemeridesRecenterAlgorithm::getNumberOfBodies() const { return this->celestialBodyCount; }
 
 /*! @brief Get all the names of the bodies entered
- @return std::array<std::string, MAX_NUM_CHANGE_BODIES> : an array of names
+ @return std::array<BodyName, MAX_NUM_CHANGE_BODIES> : an array of names
  */
-std::array<std::string, MAX_NUM_CHANGE_BODIES> EphemeridesRecenterAlgorithm::getAllNames() const {
+std::array<BodyName, MAX_NUM_CHANGE_BODIES> EphemeridesRecenterAlgorithm::getAllNames() const {
     if (this->celestialBodyCount == 0) {
         FS_THROW_INVALID_ARGUMENT("Requesting all body names but the current celestial body count is 0");
     }
-    std::array<std::string, MAX_NUM_CHANGE_BODIES> names{};
+    std::array<BodyName, MAX_NUM_CHANGE_BODIES> names{};
     for (size_t i = 0; i < this->celestialBodyCount; ++i) {
         if (!this->bodyNames[i].empty()) {
             names[i] = this->bodyNames[i];
@@ -194,14 +191,13 @@ std::array<std::string, MAX_NUM_CHANGE_BODIES> EphemeridesRecenterAlgorithm::get
 }
 
 /*! @brief Add celestial body by name
- @param bodyName std::string : the body name to add
+ @param bodyName BodyName : the body name to add
  */
-void EphemeridesRecenterAlgorithm::addBodyEphemerisToRecenter(const std::string& bodyName) {
+void EphemeridesRecenterAlgorithm::addBodyEphemerisToRecenter(const BodyName& bodyName) {
     if (this->celestialBodyCount + 1 > MAX_NUM_CHANGE_BODIES) {
         FS_THROW_INVALID_ARGUMENT("Adding one body too many to the list");
     }
-    if (auto indexInList = std::find(this->bodyNames.begin(), this->bodyNames.end(), bodyName);
-        indexInList != this->bodyNames.end()) {
+    if (const auto* indexInList = std::ranges::find(this->bodyNames, bodyName); indexInList != this->bodyNames.end()) {
         FS_THROW_INVALID_ARGUMENT("Body already added to list");
     }
     this->bodyNames[this->celestialBodyCount] = bodyName;
@@ -211,9 +207,7 @@ void EphemeridesRecenterAlgorithm::addBodyEphemerisToRecenter(const std::string&
 /*! @brief Clear all the bodies from the current list
  */
 void EphemeridesRecenterAlgorithm::clearAllBodies() {
-    BodyEphemerisPayload emptyBody{};
-    const std::string emptyString{};
-    std::fill(this->celestialBodies.begin(), this->celestialBodies.end(), emptyBody);
-    std::fill(this->bodyNames.begin(), this->bodyNames.end(), emptyString);
+    this->celestialBodies.fill(BodyEphemerisPayload{});
+    this->bodyNames.fill(BodyName{});
     this->celestialBodyCount = 0;
 }
