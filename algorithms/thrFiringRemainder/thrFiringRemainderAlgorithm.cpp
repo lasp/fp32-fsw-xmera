@@ -25,7 +25,7 @@ void ThrFiringRemainderAlgorithm::reset(const THRArrayConfigMsgF32Payload& thrCo
 
     /*! - loop over all thrusters and for each copy over maximum thrust, zero the impulse remainder */
     for (int i = 0; i < this->numThrusters; i++) {
-        this->maxThrust[i] = thrConfigInMsgPayload.thrusters[i].maxThrust;
+        this->maxThrust.at(i) = thrConfigInMsgPayload.thrusters[i].maxThrust;
     }
 
     /*! - use default value of 2 seconds for control period of first call if not specified.
@@ -62,7 +62,7 @@ THRArrayOnTimeCmdMsgF32Payload ThrFiringRemainderAlgorithm::update(const uint64_
          needs to be added.  If not control force is requested in off-pulsing mode, then the thruster force should
          be set to the maximum thrust value */
         if (this->thrustPulsingRegime == ThrustPulsingRegime::OFF_PULSING) {
-            thrForceInMsgPayload.thrForce[i] += this->maxThrust[i];
+            thrForceInMsgPayload.thrForce[i] += this->maxThrust.at(i);
         }
 
         /*! - Do not allow thrust requests less than zero */
@@ -71,24 +71,24 @@ THRArrayOnTimeCmdMsgF32Payload ThrFiringRemainderAlgorithm::update(const uint64_
         }
 
         /*! - Compute T_on from thrust request, max thrust, and control period */
-        onTime[i] = thrForceInMsgPayload.thrForce[i] / this->maxThrust[i] * controlPeriod;
+        onTime.at(i) = thrForceInMsgPayload.thrForce[i] / this->maxThrust.at(i) * controlPeriod;
         /*! - Add in remainder from the last control step */
-        onTime[i] += this->pulseRemainder[i] * this->thrMinFireTime;
+        onTime.at(i) += this->pulseRemainder.at(i) * this->thrMinFireTime;
         /*! - Set pulse remainder to zero. Remainder now stored in onTime */
-        this->pulseRemainder[i] = 0.0;
+        this->pulseRemainder.at(i) = 0.0;
 
         /* Pulse remainder logic */
-        if (onTime[i] < this->thrMinFireTime) {
+        if (onTime.at(i) < this->thrMinFireTime) {
             /*! - If request is less than minimum pulse time zero onTime an store remainder */
-            this->pulseRemainder[i] = onTime[i] / this->thrMinFireTime;
-            onTime[i] = 0.0;
-        } else if (onTime[i] >= controlPeriod) {
+            this->pulseRemainder.at(i) = onTime.at(i) / this->thrMinFireTime;
+            onTime.at(i) = 0.0;
+        } else if (onTime.at(i) >= controlPeriod) {
             /*! - If request is greater than control period then oversaturate onTime */
-            onTime[i] = 1.1 * controlPeriod;
+            onTime.at(i) = 1.1 * controlPeriod;
         }
 
         /*! - Set the output data for each thruster */
-        thrOnTimeOut.OnTimeRequest[i] = onTime[i];
+        thrOnTimeOut.OnTimeRequest[i] = onTime.at(i);
     }
 
     return thrOnTimeOut;
