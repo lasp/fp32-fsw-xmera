@@ -21,11 +21,11 @@ void ThrFiringRemainderAlgorithm::reset(const THRArrayConfigMsgF32Payload& thrCo
     this->prevCallTime = 0;
     /*! - store the number of installed thrusters */
     this->numThrusters = thrConfigInMsgPayload.numThrusters;
+    this->pulseRemainder = {0.0};
 
     /*! - loop over all thrusters and for each copy over maximum thrust, zero the impulse remainder */
     for (int i = 0; i < this->numThrusters; i++) {
         this->maxThrust[i] = thrConfigInMsgPayload.thrusters[i].maxThrust;
-        this->pulseRemainder[i] = 0.0;
     }
 
     /*! - use default value of 2 seconds for control period of first call if not specified.
