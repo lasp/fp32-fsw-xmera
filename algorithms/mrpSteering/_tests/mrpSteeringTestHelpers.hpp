@@ -15,7 +15,7 @@
 
 // Reference computation for update
 RateCmdMsgF32Payload referenceUpdate(const MrpSteeringAlgorithm& alg, AttGuidMsgF32Payload& msg) {
-    const Eigen::Vector3f sigma_BR = cArrayAsEigenVector(msg.sigma_BR);
+    const Eigen::Vector3f sigma_BR = cArrayToEigenVector(msg.sigma_BR);
     Eigen::Vector3f omega_ast{};
     Eigen::Vector3f omega_ast_p{Eigen::Vector3f::Zero()};
 
@@ -103,13 +103,13 @@ inline void testMrpSteering(std::vector<float> sigma, float K1, float K3, float 
     AttGuidMsgF32Payload msg1{};
     eigenVectorToCArray(sigma1_BR, msg1.sigma_BR);
     RateCmdMsgF32Payload out1 = alg.update(msg1);
-    float omegaMag1 = cArrayAsEigenVector(out1.omega_BastR_B).norm();
+    float omegaMag1 = cArrayToEigenVector(out1.omega_BastR_B).norm();
 
     Eigen::Vector3f sigma2_BR = 0.1 * sigma_BR;
     AttGuidMsgF32Payload msg2{};
     eigenVectorToCArray(sigma2_BR, msg2.sigma_BR);
     RateCmdMsgF32Payload out2 = alg.update(msg2);
-    float omegaMag2 = cArrayAsEigenVector(out2.omega_BastR_B).norm();
+    float omegaMag2 = cArrayToEigenVector(out2.omega_BastR_B).norm();
 
     ASSERT_LT(omegaMag1, omegaMag2 + 1e-6);
 }
