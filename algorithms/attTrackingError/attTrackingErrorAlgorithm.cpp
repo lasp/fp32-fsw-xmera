@@ -22,8 +22,7 @@ void AttTrackingErrorAlgorithm::reset(uint64_t callTime) {
  @return void
  @param callTime The clock time at which the function was called (nanoseconds)
  */
-AttGuidMsgF32Payload AttTrackingErrorAlgorithm::update(uint64_t callTime,
-                                                       AttRefMsgF32Payload& attRefInMsg,
+AttGuidMsgF32Payload AttTrackingErrorAlgorithm::update(AttRefMsgF32Payload& attRefInMsg,
                                                        NavAttMsgF32Payload& attNavInMsg) const {
     // Compute MRP from the original reference frame R0 to the corrected reference frame R
     const Eigen::Vector3f sigma_RR0 = -1.0 * this->sigma_R0R;
