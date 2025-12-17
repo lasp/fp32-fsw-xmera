@@ -18,10 +18,10 @@
  @param thrConfigInMsgPayload The thruster configuration data
  */
 void ThrFiringRemainderAlgorithm::reset(const THRArrayConfigMsgF32Payload& thrConfigInMsgPayload) {
-    this->prevCallTime = 0;
+    this->prevCallTime = 0U;
     /*! - store the number of installed thrusters */
     this->numThrusters = thrConfigInMsgPayload.numThrusters;
-    this->pulseRemainder = {0.0};
+    this->pulseRemainder = {0.0F};
 
     /*! - loop over all thrusters and for each copy over maximum thrust, zero the impulse remainder */
     for (int i = 0; i < this->numThrusters; i++) {
@@ -31,7 +31,7 @@ void ThrFiringRemainderAlgorithm::reset(const THRArrayConfigMsgF32Payload& thrCo
     /*! - use default value of 2 seconds for control period of first call if not specified.
      * Control period (FSW rate) is computed dynamically for any subsequent calls.
      */
-    this->defaultControlPeriod = 0.0 == this->defaultControlPeriod ? 2.0 : this->defaultControlPeriod;
+    this->defaultControlPeriod = 0.0F == this->defaultControlPeriod ? 2.0F : this->defaultControlPeriod;
 }
 
 /*! This method maps the input thruster command forces into thruster on times using a remainder tracking logic.
@@ -47,7 +47,7 @@ THRArrayOnTimeCmdMsgF32Payload ThrFiringRemainderAlgorithm::update(const uint64_
     THRArrayOnTimeCmdMsgF32Payload thrOnTimeOut = {}; /* [-] copy of the thruster on-time output message */
     /*! - The first time update() is called there is no information on the time step.
      *    Pick 2 seconds for the control period */
-    if (this->prevCallTime == 0) {
+    if (this->prevCallTime == 0U) {
         controlPeriod = this->defaultControlPeriod;
     } else {
         /*! - compute control time period Delta_t */
@@ -66,8 +66,8 @@ THRArrayOnTimeCmdMsgF32Payload ThrFiringRemainderAlgorithm::update(const uint64_
         }
 
         /*! - Do not allow thrust requests less than zero */
-        if (thrForceInMsgPayload.thrForce[i] < 0.0) {
-            thrForceInMsgPayload.thrForce[i] = 0.0;
+        if (thrForceInMsgPayload.thrForce[i] < 0.0F) {
+            thrForceInMsgPayload.thrForce[i] = 0.0F;
         }
 
         /*! - Compute T_on from thrust request, max thrust, and control period */
@@ -75,16 +75,16 @@ THRArrayOnTimeCmdMsgF32Payload ThrFiringRemainderAlgorithm::update(const uint64_
         /*! - Add in remainder from the last control step */
         onTime.at(i) += this->pulseRemainder.at(i) * this->thrMinFireTime;
         /*! - Set pulse remainder to zero. Remainder now stored in onTime */
-        this->pulseRemainder.at(i) = 0.0;
+        this->pulseRemainder.at(i) = 0.0F;
 
         /* Pulse remainder logic */
         if (onTime.at(i) < this->thrMinFireTime) {
             /*! - If request is less than minimum pulse time zero onTime an store remainder */
             this->pulseRemainder.at(i) = onTime.at(i) / this->thrMinFireTime;
-            onTime.at(i) = 0.0;
+            onTime.at(i) = 0.0F;
         } else if (onTime.at(i) >= controlPeriod) {
             /*! - If request is greater than control period then oversaturate onTime */
-            onTime.at(i) = 1.1 * controlPeriod;
+            onTime.at(i) = 1.1F * controlPeriod;
         }
 
         /*! - Set the output data for each thruster */
