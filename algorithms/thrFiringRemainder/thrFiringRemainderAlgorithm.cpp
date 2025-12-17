@@ -8,9 +8,9 @@
 #include "thrFiringRemainderTypes.h"
 
 #include "architecture/utilities/macroDefinitions.h"
+#include "freestandingInvalidArgument.h"
 
 #include <array>
-#include <stdexcept>
 
 /*! This method performs a complete reset of the algorithm.  All algorithm variables that retain
  time varying states between function calls are reset to their default values.
@@ -100,7 +100,7 @@ THRArrayOnTimeCmdMsgF32Payload ThrFiringRemainderAlgorithm::update(const uint64_
 */
 void ThrFiringRemainderAlgorithm::setThrMinFireTime(const float thrMinFireTime) {
     if (thrMinFireTime < 0.0) {
-        throw std::invalid_argument("ThrFiringRemainderAlgorithm::thrMinFireTime cannot be < 0.0");
+        FS_THROW_INVALID_ARGUMENT("ThrFiringRemainderAlgorithm::thrMinFireTime cannot be < 0.0");
     }
     this->thrMinFireTime = thrMinFireTime;
 }
