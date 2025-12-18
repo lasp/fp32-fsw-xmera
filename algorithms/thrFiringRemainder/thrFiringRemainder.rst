@@ -130,4 +130,4 @@ Module vs. Algorithm Usage
   ``onTimeOutMsg``.
 - Algorithm (``ThrFiringRemainderAlgorithm``): use when you have direct payloads and timing. Call
   ``reset(configPayload)``, set ``thrMinFireTime``, ``controlPeriod``, and ``thrustPulsingRegime`` via setters,
-  then call ``update(callTime, forcePayload)`` with monotonically increasing nanosecond timestamps.
+  then call ``update(forcePayload)``.
