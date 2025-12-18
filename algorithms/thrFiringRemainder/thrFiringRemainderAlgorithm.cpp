@@ -85,6 +85,8 @@ THRArrayOnTimeCmdMsgF32Payload ThrFiringRemainderAlgorithm::update(const uint64_
         } else if (onTime.at(i) >= controlPeriod) {
             /*! - If request is greater than control period then oversaturate onTime */
             onTime.at(i) = 1.1F * controlPeriod;
+        } else {
+            /* no action required. else clause included for MISRA */
         }
 
         /*! - Set the output data for each thruster */
