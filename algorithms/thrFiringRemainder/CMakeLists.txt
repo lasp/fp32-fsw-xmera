@@ -12,3 +12,5 @@ target_sources("${module}" PRIVATE
   thrFiringRemainder.cpp
   thrFiringRemainderAlgorithm.cpp
 )
+
+add_subdirectory(_tests)
