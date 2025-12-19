@@ -54,7 +54,7 @@ CmdTorqueBodyMsgF32Payload RateServoFullNonlinearAlgorithm::update(const uint64_
     CmdTorqueBodyMsgF32Payload controlOut{}; /*!< commanded torque output message */
 
     /*! - compute control update time */
-    float dt; /* [s] control update period */
+    float dt{}; /* [s] control update period */
     if (this->priorTime == 0) {
         dt = 0.0;
     } else {
