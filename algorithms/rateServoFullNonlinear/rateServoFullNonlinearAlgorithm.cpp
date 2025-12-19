@@ -58,7 +58,7 @@ CmdTorqueBodyMsgF32Payload RateServoFullNonlinearAlgorithm::update(const uint64_
     if (this->priorTime == 0) {
         dt = 0.0;
     } else {
-        dt = (callTime - this->priorTime) * NANO2SEC;
+        dt = static_cast<float>(callTime - this->priorTime) * static_cast<float>(NANO2SEC);
     }
     this->priorTime = callTime;
 
