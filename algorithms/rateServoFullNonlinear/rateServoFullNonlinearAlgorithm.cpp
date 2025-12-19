@@ -97,7 +97,7 @@ CmdTorqueBodyMsgF32Payload RateServoFullNonlinearAlgorithm::update(const uint64_
         cArrayToEigenMatrix<float, 3, RW_EFF_CNT>(this->rwConfigParams.GsMatrix_B);
 
     Eigen::Vector3f H_B = this->ISCPntB_B * omega_BN_B;
-    for (uint32_t i = 0; i < this->rwConfigParams.numRW; i++) {
+    for (int i = 0; i < this->rwConfigParams.numRW; i++) {
         if (wheelsAvailability.wheelAvailability[i] == AVAILABLE) { /* check if wheel is available */
             const Eigen::Vector3f G_s_B_i = G_s_B.col(i);
             const Eigen::Vector3f h_s_i =
