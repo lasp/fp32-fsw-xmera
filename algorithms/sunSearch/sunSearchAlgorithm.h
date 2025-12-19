@@ -7,8 +7,6 @@
 #ifndef F32XIMERA_SUN_SEARCH_ALGORITHM_H
 #define F32XIMERA_SUN_SEARCH_ALGORITHM_H
 
-#include <stdexcept>
-
 #include "msgPayloadDef/AttGuidMsgF32Payload.h"
 #include "msgPayloadDef/NavAttMsgF32Payload.h"
 #include "msgPayloadDef/VehicleConfigMsgF32Payload.h"

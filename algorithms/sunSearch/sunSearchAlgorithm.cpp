@@ -6,8 +6,10 @@
 
 #include "sunSearchAlgorithm.h"
 #include "architecture/utilities/eigenSupport.h"
-#include <architecture/utilities/macroDefinitions.h>
-#include <cmath>
+#include "architecture/utilities/macroDefinitions.h"
+#include <math.h>
+
+#include "../freestandingInvalidArgument.h"
 
 /*! This method is used to reset the module.
  @return void
@@ -16,7 +18,7 @@
  */
 void SunSearchAlgorithm::reset(const uint64_t currentSimNanos, const VehicleConfigMsgF32Payload& vehicleConfigIn) {
     if (this->numberOfSlews != NUM_SLEWS) {
-        throw std::invalid_argument("The number of specified slew maneuvers must be equal to 3");
+        FS_THROW_INVALID_ARGUMENT("The number of specified slew maneuvers must be equal to 3");
     }
 
     this->principleInertias[0] = vehicleConfigIn.ISCPntB_B[0];
