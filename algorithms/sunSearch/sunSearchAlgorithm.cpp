@@ -42,7 +42,8 @@ AttGuidMsgF32Payload SunSearchAlgorithm::update(const uint64_t currentSimNanos,
     AttGuidMsgF32Payload attGuidOut{};
     ReferenceMotionOutput referenceMotion{};
 
-    const float CurrentSimSeconds = (currentSimNanos - this->resetTime) * NANO2SEC;
+    const float CurrentSimSeconds =
+        static_cast<float>(currentSimNanos - this->resetTime) * static_cast<float>(NANO2SEC);
 
     float timeInf = 0;
     float timeSup = this->kinematicProperties[0].slewTotalTime;
@@ -113,7 +114,8 @@ ReferenceMotionOutput SunSearchAlgorithm::computeReferenceMotion(const uint64_t 
     for (uint32_t i = 0; i < index; ++i) {
         zeroTime += this->kinematicProperties[i].slewTotalTime;
     }
-    const float localSimSeconds = (currentSimNanos - this->resetTime) * NANO2SEC - zeroTime;
+    const float localSimSeconds =
+        static_cast<float>(currentSimNanos - this->resetTime) * static_cast<float>(NANO2SEC) - zeroTime;
 
     const KinematicProperties KP = this->kinematicProperties[index];
     const uint32_t axis = KP.slewRotAxis - 1;
