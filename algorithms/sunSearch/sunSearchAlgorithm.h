@@ -50,7 +50,7 @@ class SunSearchAlgorithm {
     SunSearchAlgorithm() = default;
     ~SunSearchAlgorithm() = default;
 
-    void reset(uint64_t currentSimNanos, const VehicleConfigMsgF32Payload& vehicleConfigIn);
+    void reset(uint64_t currentSimNanos, PrincipleInertias principleInertia);
     AttGuidMsgF32Payload update(uint64_t currentSimNanos, const NavAttMsgF32Payload& navAttIn) const;
     void setSlewProperties(const SlewProperties& slewPropertiesInput);
     void modifySlewProperties(const SlewProperties& slewPropertiesInput, uint32_t index);

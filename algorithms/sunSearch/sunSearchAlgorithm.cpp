@@ -14,16 +14,15 @@
 /*! This method is used to reset the module.
  @return void
  @param currentSimNanos The current simulation time for system
- @param vehicleConfigIn Vehicle configuration message
+ @param principleInertias principle vehicle inertia terms (about point B in frame B (body)
  */
-void SunSearchAlgorithm::reset(const uint64_t currentSimNanos, const VehicleConfigMsgF32Payload& vehicleConfigIn) {
+void SunSearchAlgorithm::reset(const uint64_t currentSimNanos, const PrincipleInertias principleInertias) {
     if (this->numberOfSlews != NUM_SLEWS) {
         FS_THROW_INVALID_ARGUMENT("The number of specified slew maneuvers must be equal to 3");
     }
 
-    this->principleInertias[0] = vehicleConfigIn.ISCPntB_B[0];
-    this->principleInertias[1] = vehicleConfigIn.ISCPntB_B[4];
-    this->principleInertias[2] = vehicleConfigIn.ISCPntB_B[8];
+    this->principleInertias =
+        Eigen::Vector3f(principleInertias.IxxPntB_B, principleInertias.IyyPntB_B, principleInertias.IzzPntB_B);
 
     for (uint32_t index = 0; index < NUM_SLEWS; index++) {
         this->computeKinematicProperties(index);
