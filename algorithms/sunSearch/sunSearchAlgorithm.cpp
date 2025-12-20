@@ -47,9 +47,9 @@ AttGuidMsgF32Payload SunSearchAlgorithm::update(const uint64_t currentSimNanos,
 
     float timeInf = 0;
     float timeSup = this->kinematicProperties[0].slewTotalTime;
-    for (uint32_t index = 0; index < NUM_SLEWS; ++index) {
+    for (int32_t index = 0; index < NUM_SLEWS; ++index) {
         if (CurrentSimSeconds >= timeInf && CurrentSimSeconds < timeSup) {
-            referenceMotion = this->computeReferenceMotion(currentSimNanos, index);
+            referenceMotion = this->computeReferenceMotion(currentSimNanos, {index});
             break;
         }
         if (CurrentSimSeconds >= timeSup && index != NUM_SLEWS - 1) {
@@ -110,15 +110,15 @@ void SunSearchAlgorithm::computeKinematicProperties(const uint32_t index) {
     @return ReferenceMotionOutput
     */
 ReferenceMotionOutput SunSearchAlgorithm::computeReferenceMotion(const uint64_t currentSimNanos,
-                                                                 const uint32_t index) const {
+                                                                 const SlewIndex slewIndex) const {
     float zeroTime = 0;
-    for (uint32_t i = 0; i < index; ++i) {
+    for (int32_t i = 0; i < slewIndex.index; ++i) {
         zeroTime += this->kinematicProperties[i].slewTotalTime;
     }
     const float localSimSeconds =
         (static_cast<float>(currentSimNanos - this->resetTime) * static_cast<float>(NANO2SEC)) - zeroTime;
 
-    const KinematicProperties KP = this->kinematicProperties[index];
+    const KinematicProperties KP = this->kinematicProperties[slewIndex.index];
     const uint32_t axis = KP.slewRotAxis - 1;
 
     Eigen::Vector3f omega_RN{Eigen::Vector3f::Zero()};

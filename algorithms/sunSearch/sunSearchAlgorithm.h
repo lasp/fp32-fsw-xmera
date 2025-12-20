@@ -14,6 +14,16 @@
 
 #define NUM_SLEWS 3
 
+struct PrincipleInertias {
+    float IxxPntB_B;  //!< IxxPntB_B principle vehicle inertia term (0, 0) (about point B in frame B (body)
+    float IyyPntB_B;  //!< IyyPntB_B principle vehicle inertia term (1, 1) (about point B in frame B (body)
+    float IzzPntB_B;  //!< IzzPntB_B principle vehicle inertia term (2, 2) (about point B in frame B (body)
+};
+
+struct SlewIndex {
+    int32_t index;
+};
+
 struct SlewProperties {
     float slewTime;       //!< [s] total time for the three-axes maneuver
     float slewAngle;      //!< [rad] total angle sweep around one axis
@@ -48,7 +58,7 @@ class SunSearchAlgorithm {
 
    private:
     void computeKinematicProperties(uint32_t index);
-    ReferenceMotionOutput computeReferenceMotion(uint64_t currentSimNanos, uint32_t index) const;
+    ReferenceMotionOutput computeReferenceMotion(uint64_t currentSimNanos, SlewIndex slewIndex) const;
 
     SlewProperties slewProperties[NUM_SLEWS];
     KinematicProperties kinematicProperties[NUM_SLEWS];
