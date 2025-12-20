@@ -51,7 +51,8 @@ AttGuidMsgF32Payload SunSearchAlgorithm::update(const uint64_t currentSimNanos,
         if (CurrentSimSeconds >= timeInf && CurrentSimSeconds < timeSup) {
             referenceMotion = this->computeReferenceMotion(currentSimNanos, index);
             break;
-        } else if (CurrentSimSeconds >= timeSup && index != NUM_SLEWS - 1) {
+        }
+        if (CurrentSimSeconds >= timeSup && index != NUM_SLEWS - 1) {
             timeInf += this->kinematicProperties[index].slewTotalTime;
             timeSup += this->kinematicProperties[index + 1].slewTotalTime;
         }
