@@ -93,7 +93,7 @@ void SunSearchAlgorithm::computeKinematicProperties(const uint32_t index) {
     /*! If angular rate exceeds limit, increase slew time adding a coasting arc */
     if (omegaMax > SP->slewMaxRate) {
         omegaMax = SP->slewMaxRate;
-        totalTime = SP->slewAngle / omegaMax + omegaMax / alpha;
+        totalTime = (SP->slewAngle / omegaMax) + (omegaMax / alpha);
         thrustTime = omegaMax / alpha;
     }
 
@@ -116,7 +116,7 @@ ReferenceMotionOutput SunSearchAlgorithm::computeReferenceMotion(const uint64_t 
         zeroTime += this->kinematicProperties[i].slewTotalTime;
     }
     const float localSimSeconds =
-        static_cast<float>(currentSimNanos - this->resetTime) * static_cast<float>(NANO2SEC) - zeroTime;
+        (static_cast<float>(currentSimNanos - this->resetTime) * static_cast<float>(NANO2SEC)) - zeroTime;
 
     const KinematicProperties KP = this->kinematicProperties[index];
     const uint32_t axis = KP.slewRotAxis - 1;
