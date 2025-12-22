@@ -1,3 +1,7 @@
+.. raw:: latex
+
+    {\LARGE \textbf{thrFiringSchmitt}}
+
 Executive Summary
 -----------------
 
@@ -17,7 +21,7 @@ user from python.  The msg type contains a link to the message structure definit
 provides information on what this message is used for.
 
 .. list-table:: Module I/O Messages
-    :widths: 25 25 50
+    :widths: 25 35 50
     :header-rows: 1
 
     * - Msg Variable Name
@@ -33,8 +37,69 @@ provides information on what this message is used for.
       - :ref:`THRArrayConfigMsgPayload`
       - Thruster array configuration input message
 
-Model Description
-=================
+Module Parameters
+-------------------------------
+The following table lists all the module parameters than can be set. The parameters are optional unless indicated
+(if not specified default is used).
+
+.. list-table:: Module Parameters
+    :widths: 30 30 10 10 30 30
+    :header-rows: 1
+
+    * - Parameter Name
+      - Type
+      - Units
+      - Default
+      - Description
+      - Bounds
+    * - levelOn (required)
+      - float
+      - [-]
+      - 0
+      - ON duty cycle fraction
+      - 0.0 < levelOn :math:`\le` 1.0 (checked in setter)
+    * - levelOff
+      - float
+      - [-]
+      - 0
+      - OFF duty cycle fraction
+      - 0.0 :math:`\le` levelOff < 1.0 (checked in setter)
+    * - thrMinFireTime (required)
+      - float
+      - [s]
+      - 0
+      - [s] Minimum ON time for thrusters
+      - Must be greater than zero (checked in setter)
+    * - baseThrustState
+      - enum PulsingRegime
+      - [-]
+      - 0
+      - Indicates on-pulsing (0) or off-pulsing (1)
+      - N/A
+
+Additionally, it is checked that ``levelOn`` is greater than ``levelOff``.
+
+Module Assumptions and Limitations
+----------------------------------
+
+The module assumes that the incoming forces :math:`F_{i}` can be both
+positive or negative, depending if an on- or off-pulsing mode is being
+implemented. The particular mode is set through ``baseThrustState``.
+It is also assumed that ``thrMinFireTime`` is less than the control period.
+
+Initialization
+--------------
+The module is configured by::
+
+    module = thrFiringSchmitt.ThrFiringSchmitt()
+    module.modelTag = "thrFiringSchmitt"
+    module.levelOn = 0.75
+    module.levelOff = 0.25
+    module.thrMinFireTime = 0.02
+    module.baseThrustState = 0  # on-pulsing
+
+Detailed Module Description
+---------------------------
 
 This module implements a Schmitt trigger thruster firing logic. Here if the minimum desired on-time
 :math:`t_{\text{min}}` is specified. If the commanded on-time
@@ -85,7 +150,7 @@ reset() Functionality
   thrusters is stored in the module variable ``numThrusters``. The
   maximum force per thruster is stored in ``maxThrust``.
 
-- The last thruster state variable ``lastThrustState`` is set to off
+- The previous thruster state variable ``prevThrustState`` is set to off
   (i.e. false)
 
 Update() Functionality
@@ -161,23 +226,3 @@ Module Functions
 - **Convert thruster force requested into an on-time request**: Knowing
   how strong the thruster is, the on-time is scaled such that the
   effectively applied force is equal to the requested force.
-
-Module Assumptions and Limitations
-==================================
-
-The module assumes that the incoming forces :math:`F_{i}` can be both
-positive or negative, depending if an on- or off-pulsing mode is being
-implemented. The particular mode is set through ``baseThrustState``.
-
-User Guide
-==========
-
-The module is configured by::
-
-    module = thrFiringSchmitt.ThrFiringSchmitt()
-    module.modelTag = "thrFiringSchmitt"
-    module.setLevelOn(0.75)
-    module.setLevelOff(0.25)
-    module.thrMinFireTime(0.02)
-    module.baseThrustState(0)  # on-pulsing
-
