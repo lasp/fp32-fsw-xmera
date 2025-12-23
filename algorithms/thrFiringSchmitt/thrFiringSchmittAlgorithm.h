@@ -11,6 +11,7 @@
 #include <architecture/msgPayloadDef/definitions.h>
 
 enum class PulsingRegime { ONPULSING = 0, OFFPULSING = 1 };
+enum class ThrusterState { OFF = 0, ON = 1 };
 
 class ThrFiringSchmittAlgorithm final {
    public:
@@ -30,7 +31,7 @@ class ThrFiringSchmittAlgorithm final {
     PulsingRegime baseThrustState{};                  //!< [-] Indicates on-pulsing (0) or off-pulsing (1)
     uint32_t numThrusters{};                          //!< [-] The number of thrusters available on vehicle
     std::array<float, MAX_EFF_CNT> maxThrust{};      //!< [N] Max thrust
-    std::array<bool, MAX_EFF_CNT> prevThrustState{};  //!< [-] ON/OFF state of thrusters from previous call
+    std::array<ThrusterState, MAX_EFF_CNT> prevThrustState{};  //!< [-] ON/OFF state of thrusters from previous call
     uint64_t prevCallTime{};                          //!< callTime from previous function call
 };
 

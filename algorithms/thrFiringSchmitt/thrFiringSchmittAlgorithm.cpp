@@ -12,7 +12,7 @@ void ThrFiringSchmittAlgorithm::reset(THRArrayConfigMsgF32Payload const& thruste
 
     /*! - store the number of installed thrusters */
     this->numThrusters = thrusterConfigPayload.numThrusters;
-    this->prevThrustState.fill(false);
+    this->prevThrustState.fill(ThrusterState::OFF);
     /*! - loop over all thrusters and for each copy over maximum thrust, set last state to off */
     for (uint32_t i = 0U; i < this->numThrusters; ++i) {
         this->maxThrust[i] = thrusterConfigPayload.thrusters[i].maxThrust;
@@ -63,23 +63,23 @@ THRArrayOnTimeCmdMsgF32Payload ThrFiringSchmittAlgorithm::update(uint64_t callTi
                 /*! - Request is less than minimum fire time */
                 const float level = onTime[i] / this->thrMinFireTime; /* [-] duty cycle fraction */
                 if (level >= this->levelOn) {
-                    this->prevThrustState[i] = true;
+                    this->prevThrustState[i] = ThrusterState::ON;
                     onTime[i] = this->thrMinFireTime;
                 } else if (level <= this->levelOff) {
-                    this->prevThrustState[i] = false;
+                    this->prevThrustState[i] = ThrusterState::OFF;
                     onTime[i] = 0.0F;
-                } else if (this->prevThrustState[i]) {
+                } else if (this->prevThrustState[i] == ThrusterState::ON) {
                     onTime[i] = this->thrMinFireTime;
                 } else {
                     onTime[i] = 0.0F;
                 }
             } else if (onTime[i] >= controlPeriod) {
                 /*! - Request is greater than control period then oversaturate onTime */
-                this->prevThrustState[i] = true;
+                this->prevThrustState[i] = ThrusterState::ON;
                 onTime[i] = 1.1 * controlPeriod;  // oversaturate to avoid numerical error
             } else {
                 /*! - Request is greater than minimum fire time and less than control period */
-                this->prevThrustState[i] = true;
+                this->prevThrustState[i] = ThrusterState::ON;
             }
 
             /*! Set the output data */
