@@ -15,6 +15,8 @@ void ThrFiringSchmitt::reset(uint64_t callTime) {
         throw std::invalid_argument("thrFiringSchmitt.thrForceInMsg wasn't connected.");
     }
 
+    this->algorithm.setLevelsOnOff(this->levelOn, this->levelOff);
+
     this->algorithm.reset(this->thrConfInMsg());
 }
 
@@ -32,25 +34,25 @@ void ThrFiringSchmitt::updateState(uint64_t callTime) {
  * @brief Get the ON duty cycle fraction.
  * @return float The current ON duty cycle fraction.
  */
-float ThrFiringSchmitt::getLevelOn() const { return this->algorithm.getLevelOn(); }
+float ThrFiringSchmitt::getLevelOn() const { return this->levelOn; }
 
 /**
  * @brief Set the ON duty cycle fraction.
  * @param level The new ON duty cycle fraction to set.
  */
-void ThrFiringSchmitt::setLevelOn(float level) { this->algorithm.setLevelOn(level); }
+void ThrFiringSchmitt::setLevelOn(float level) { this->levelOn = level; }
 
 /**
  * @brief Get the OFF duty cycle fraction.
  * @return float The current OFF duty cycle fraction.
  */
-float ThrFiringSchmitt::getLevelOff() const { return this->algorithm.getLevelOff(); }
+float ThrFiringSchmitt::getLevelOff() const { return this->levelOff; }
 
 /**
  * @brief Set the OFF duty cycle fraction.
  * @param level The new OFF duty cycle fraction to set.
  */
-void ThrFiringSchmitt::setLevelOff(float level) { this->algorithm.setLevelOff(level); }
+void ThrFiringSchmitt::setLevelOff(float level) { this->levelOff = level; }
 
 /**
  * @brief Get the minimum ON time for thrusters.

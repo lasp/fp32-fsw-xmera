@@ -28,8 +28,9 @@ ReferenceOutput referenceUpdate(const ThrFiringSchmittAlgorithm& alg,
                                 uint64_t prevCallTime,
                                 const uint64_t callTime,
                                 THRArrayCmdForceMsgF32Payload& thrForceIn) {
-    float levelOn = alg.getLevelOn();
-    float levelOff = alg.getLevelOff();
+    std::array<float, 2U> levelsOnOff = alg.getLevelsOnOff();
+    float levelOn = levelsOnOff.at(0U);
+    float levelOff = levelsOnOff.at(1U);
     float thrMinFireTime = alg.getThrMinFireTime();
     PulsingRegime baseThrustState = alg.getBaseThrustState();
 
@@ -109,21 +110,18 @@ inline void testThrFiringSchmittSetup() {
     // --- Test expected exceptions ---
 
     // levelOn out of bounds
-    EXPECT_THROW(alg.setLevelOn(-0.1), fs::invalid_argument);
-    EXPECT_THROW(alg.setLevelOn(0.0), fs::invalid_argument);
-    EXPECT_THROW(alg.setLevelOn(1.1), fs::invalid_argument);
+    EXPECT_THROW(alg.setLevelsOnOff(-0.1, 0.3), fs::invalid_argument);
+    EXPECT_THROW(alg.setLevelsOnOff(0.0, 0.3), fs::invalid_argument);
+    EXPECT_THROW(alg.setLevelsOnOff(1.1, 0.3), fs::invalid_argument);
     // levelOff out of bounds
-    EXPECT_THROW(alg.setLevelOff(-0.1), fs::invalid_argument);
-    EXPECT_THROW(alg.setLevelOff(1.0), fs::invalid_argument);
-    EXPECT_THROW(alg.setLevelOff(1.1), fs::invalid_argument);
+    EXPECT_THROW(alg.setLevelsOnOff(0.7, -0.1), fs::invalid_argument);
+    EXPECT_THROW(alg.setLevelsOnOff(0.7, 1.0), fs::invalid_argument);
+    EXPECT_THROW(alg.setLevelsOnOff(0.7, 1.1), fs::invalid_argument);
+    // levelOn less than levelOff
+    EXPECT_THROW(alg.setLevelsOnOff(0.1, 0.2), fs::invalid_argument);
     // Negative or zero thrMinFireTime
     EXPECT_THROW(alg.setThrMinFireTime(-0.1), fs::invalid_argument);
     EXPECT_THROW(alg.setThrMinFireTime(0.0), fs::invalid_argument);
-    // levelOn less than levelOff
-    alg.setLevelOn(0.1);
-    alg.setLevelOff(0.2);
-    THRArrayConfigMsgF32Payload thrusterConfigPayload{};
-    EXPECT_THROW(alg.reset(thrusterConfigPayload), fs::invalid_argument);
 }
 
 inline void testThrFiringSchmitt(float levelOn,
@@ -145,8 +143,11 @@ inline void testThrFiringSchmitt(float levelOn,
     std::copy_n(thrForceVec.begin(), numThrusters, thrForce.begin());
 
     // Set up module
-    alg.setLevelOn(levelOn);
-    alg.setLevelOff(levelOff);
+    if (levelOn < levelOff) {
+        EXPECT_THROW(alg.setLevelsOnOff(levelOn, levelOff), fs::invalid_argument);
+        return;
+    }
+    EXPECT_NO_THROW(alg.setLevelsOnOff(levelOn, levelOff));
     alg.setThrMinFireTime(thrMinFireTime);
     PulsingRegime baseThrustStatePulsingRegime{};
     if (baseThrustState == 0U) {baseThrustStatePulsingRegime = PulsingRegime::ONPULSING;} else {baseThrustStatePulsingRegime = PulsingRegime::OFFPULSING;}
@@ -167,11 +168,7 @@ inline void testThrFiringSchmitt(float levelOn,
     }
 
     // Reset module
-    if (levelOn < levelOff) {
-        EXPECT_THROW(alg.reset(thrusterConfigMsg), fs::invalid_argument);
-        return;
-    }
-    EXPECT_NO_THROW(alg.reset(thrusterConfigMsg));
+    alg.reset(thrusterConfigMsg);
 
     std::array<bool, MAX_EFF_CNT> lastThrustState{};
     lastThrustState.fill(false);

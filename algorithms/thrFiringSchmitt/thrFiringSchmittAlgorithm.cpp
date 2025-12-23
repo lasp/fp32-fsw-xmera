@@ -8,10 +8,6 @@
  @param thrusterConfigPayload thruster config message payload
  */
 void ThrFiringSchmittAlgorithm::reset(THRArrayConfigMsgF32Payload const& thrusterConfigPayload) {
-    if (this->levelOn < this->levelOff) {
-        FS_THROW_INVALID_ARGUMENT("ThrFiringSchmitt.levelOn must not be less than ThrFiringSchmitt.levelOff.");
-    }
-
     this->prevCallTime = 0U;
 
     /*! - store the number of installed thrusters */
@@ -94,37 +90,28 @@ THRArrayOnTimeCmdMsgF32Payload ThrFiringSchmittAlgorithm::update(uint64_t callTi
 }
 
 /**
- * @brief Get the ON duty cycle fraction.
- * @return float The current ON duty cycle fraction.
+ * @brief Get the ON and OFF duty cycle fractions.
+ * @return std::array<float, 2U> The current ON (1st element) and OFF (2nd element) duty cycle fraction.
  */
-float ThrFiringSchmittAlgorithm::getLevelOn() const { return this->levelOn; }
+std::array<float, 2U> ThrFiringSchmittAlgorithm::getLevelsOnOff() const { return {this->levelOn, this->levelOff}; }
 
 /**
- * @brief Set the ON duty cycle fraction.
- * @param level The new ON duty cycle fraction to set.
+ * @brief Set the ON and OFF duty cycle fractions.
+ * @param levelOn The new ON duty cycle fraction to set.
+ * @param levelOff The new OFF duty cycle fraction to set.
  */
-void ThrFiringSchmittAlgorithm::setLevelOn(float level) {
-    if (level <= 0.0 || level > 1.0) {
+void ThrFiringSchmittAlgorithm::setLevelsOnOff(const float levelOn, const float levelOff) {
+    if (levelOn <= 0.0 || levelOn > 1.0) {
         FS_THROW_INVALID_ARGUMENT("ThrFiringSchmitt.levelOn must be within the bounds 0.0 < levelOn <= 1.0.");
     }
-    this->levelOn = level;
-}
-
-/**
- * @brief Get the OFF duty cycle fraction.
- * @return float The current OFF duty cycle fraction.
- */
-float ThrFiringSchmittAlgorithm::getLevelOff() const { return this->levelOff; }
-
-/**
- * @brief Set the OFF duty cycle fraction.
- * @param level The new OFF duty cycle fraction to set.
- */
-void ThrFiringSchmittAlgorithm::setLevelOff(float level) {
-    if (level < 0.0 || level >= 1.0) {
+    if (levelOff < 0.0 || levelOff >= 1.0) {
         FS_THROW_INVALID_ARGUMENT("ThrFiringSchmitt.levelOff must be within the bounds 0.0 <= levelOff < 1.0.");
     }
-    this->levelOff = level;
+    if (levelOn < levelOff) {
+        FS_THROW_INVALID_ARGUMENT("ThrFiringSchmitt.levelOn must not be less than ThrFiringSchmitt.levelOff.");
+    }
+    this->levelOn = levelOn;
+    this->levelOff = levelOff;
 }
 
 /**

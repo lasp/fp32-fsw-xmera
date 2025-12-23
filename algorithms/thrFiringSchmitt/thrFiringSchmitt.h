@@ -34,6 +34,8 @@ class ThrFiringSchmitt final : public SysModel {
 
    private:
     ThrFiringSchmittAlgorithm algorithm{};
+    float levelOn{};
+    float levelOff{};
 };
 
 #endif  // F32XMERA_THR_FIRING_SCHMITT_H

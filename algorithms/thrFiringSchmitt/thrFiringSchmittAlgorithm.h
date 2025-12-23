@@ -16,10 +16,8 @@ class ThrFiringSchmittAlgorithm final {
    public:
     void reset(THRArrayConfigMsgF32Payload const& thrusterConfigPayload);
     THRArrayOnTimeCmdMsgF32Payload update(uint64_t callTime, THRArrayCmdForceMsgF32Payload& thrForceIn);
-    float getLevelOn() const;
-    void setLevelOn(float level);
-    float getLevelOff() const;
-    void setLevelOff(float level);
+    std::array<float, 2U> getLevelsOnOff() const;
+    void setLevelsOnOff(float levelOn, float levelOff);
     float getThrMinFireTime() const;
     void setThrMinFireTime(float time);
     PulsingRegime getBaseThrustState() const;
