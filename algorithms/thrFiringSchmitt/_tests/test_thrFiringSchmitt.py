@@ -134,7 +134,7 @@ def test_thrFiringSchmitt(show_plots, resetCheck, dvOn):
         unitTestSim.ExecuteSimulation()
 
     # This pulls the actual data log from the simulation run.
-    moduleOutput = dataLog.OnTimeRequest[:, :numThrusters]
+    moduleOutput = dataLog.onTimeRequest[:, :numThrusters]
 
     # set the filtered output truth states
     if resetCheck==1:
@@ -191,7 +191,7 @@ def test_thrFiringSchmitt(show_plots, resetCheck, dvOn):
                    [0.55, 0.0, 0.0, 0.0, 0.2, 0.2, 0.2, 0.0],
                    ]
 
-    numpy.testing.assert_allclose(moduleOutput, trueVector, atol=1e-12, err_msg="OnTimeRequest")
+    numpy.testing.assert_allclose(moduleOutput, trueVector, atol=1e-12, err_msg="onTimeRequest")
 
 
 #

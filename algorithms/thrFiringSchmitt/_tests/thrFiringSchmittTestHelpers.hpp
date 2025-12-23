@@ -42,7 +42,7 @@ ReferenceOutput referenceUpdate(const ThrFiringSchmittAlgorithm& alg,
         prevCallTime = callTime;
 
         for (uint32_t i = 0U; i < numThrusters; ++i) {
-            thrOnTimeOut.OnTimeRequest[i] = static_cast<float>(baseThrustState) * 2.0;
+            thrOnTimeOut.onTimeRequest[i] = static_cast<float>(baseThrustState) * 2.0;
         }
     } else {
         /*! - compute control time period Delta_t */
@@ -91,7 +91,7 @@ ReferenceOutput referenceUpdate(const ThrFiringSchmittAlgorithm& alg,
             }
 
             /*! Set the output data */
-            thrOnTimeOut.OnTimeRequest[i] = onTime[i];
+            thrOnTimeOut.onTimeRequest[i] = onTime[i];
         }
     }
 
@@ -199,16 +199,16 @@ inline void testThrFiringSchmitt(float levelOn,
             // --- General tests ---
 
             // Reference correctness
-            EXPECT_NEAR(out.OnTimeRequest[i], ref.OnTimeRequest[i], 1e-6);
+            EXPECT_NEAR(out.onTimeRequest[i], ref.onTimeRequest[i], 1e-6);
 
             // Finiteness
-            EXPECT_TRUE(std::isfinite(out.OnTimeRequest[i]));
+            EXPECT_TRUE(std::isfinite(out.onTimeRequest[i]));
 
             // --- Module specific tests ---
 
             // onTime greater or equal to thrMinFireTime (only if thruster is actually on)
             if (lastThrustState[i]) {
-                EXPECT_GE(out.OnTimeRequest[i], thrMinFireTime);
+                EXPECT_GE(out.onTimeRequest[i], thrMinFireTime);
             }
         }
     }
