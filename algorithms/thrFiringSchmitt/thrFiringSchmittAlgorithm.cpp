@@ -34,7 +34,7 @@ THRArrayOnTimeCmdMsgF32Payload ThrFiringSchmittAlgorithm::update(uint64_t callTi
         this->prevCallTime = callTime;
 
         for (uint32_t i = 0U; i < this->numThrusters; ++i) {
-            thrOnTimeOut.onTimeRequest[i] = static_cast<float>(this->baseThrustState) * 2.0;
+            thrOnTimeOut.onTimeRequest[i] = this->baseThrustState == PulsingRegime::ONPULSING ? 0.0F : 2.0F;
         }
     } else {
         /*! - compute control time period Delta_t */
