@@ -12,7 +12,7 @@ void ThrFiringSchmittAlgorithm::reset(THRArrayConfigMsgF32Payload const& thruste
 
     /*! - store the number of installed thrusters */
     this->numThrusters = thrusterConfigPayload.numThrusters;
-    this->lastThrustState.fill(false);
+    this->prevThrustState.fill(false);
     /*! - loop over all thrusters and for each copy over maximum thrust, set last state to off */
     for (uint32_t i = 0U; i < this->numThrusters; ++i) {
         this->maxThrust[i] = thrusterConfigPayload.thrusters[i].maxThrust;
@@ -63,23 +63,23 @@ THRArrayOnTimeCmdMsgF32Payload ThrFiringSchmittAlgorithm::update(uint64_t callTi
                 /*! - Request is less than minimum fire time */
                 const float level = onTime[i] / this->thrMinFireTime; /* [-] duty cycle fraction */
                 if (level >= this->levelOn) {
-                    this->lastThrustState[i] = true;
+                    this->prevThrustState[i] = true;
                     onTime[i] = this->thrMinFireTime;
                 } else if (level <= this->levelOff) {
-                    this->lastThrustState[i] = false;
+                    this->prevThrustState[i] = false;
                     onTime[i] = 0.0F;
-                } else if (this->lastThrustState[i]) {
+                } else if (this->prevThrustState[i]) {
                     onTime[i] = this->thrMinFireTime;
                 } else {
                     onTime[i] = 0.0F;
                 }
             } else if (onTime[i] >= controlPeriod) {
                 /*! - Request is greater than control period then oversaturate onTime */
-                this->lastThrustState[i] = true;
+                this->prevThrustState[i] = true;
                 onTime[i] = 1.1 * controlPeriod;  // oversaturate to avoid numerical error
             } else {
                 /*! - Request is greater than minimum fire time and less than control period */
-                this->lastThrustState[i] = true;
+                this->prevThrustState[i] = true;
             }
 
             /*! Set the output data */
