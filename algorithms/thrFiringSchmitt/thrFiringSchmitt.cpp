@@ -17,7 +17,8 @@ void ThrFiringSchmitt::reset(uint64_t callTime) {
 
     this->algorithm.setLevelsOnOff(this->levelOn, this->levelOff);
 
-    this->algorithm.reset(this->thrConfInMsg());
+    this->algorithm.configure(this->thrConfInMsg());
+    this->algorithm.reset();
 }
 
 /*! This method maps the input thruster command forces into thruster on times using a remainder tracking logic.

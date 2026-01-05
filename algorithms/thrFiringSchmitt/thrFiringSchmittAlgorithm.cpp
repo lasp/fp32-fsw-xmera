@@ -6,14 +6,19 @@
 /*! This method performs a complete reset of the module.  Local module variables that retain
  time varying states between function calls are reset to their default values.
  @return void
+ */
+void ThrFiringSchmittAlgorithm::reset() {
+    this->prevCallTime = 0U;
+    this->prevThrustState.fill(ThrusterState::OFF);
+}
+
+/*! This method configures the module by populating any necessary class members.
+ @return void
  @param thrusterConfigPayload thruster config message payload
  */
-void ThrFiringSchmittAlgorithm::reset(THRArrayConfigMsgF32Payload const& thrusterConfigPayload) {
-    this->prevCallTime = 0U;
-
+void ThrFiringSchmittAlgorithm::configure(THRArrayConfigMsgF32Payload const& thrusterConfigPayload) {
     /*! - store the number of installed thrusters */
     this->numThrusters = thrusterConfigPayload.numThrusters;
-    this->prevThrustState.fill(ThrusterState::OFF);
     /*! - loop over all thrusters and for each copy over maximum thrust, set last state to off */
     for (uint32_t i = 0U; i < this->numThrusters; ++i) {
         this->maxThrust[i] = thrusterConfigPayload.thrusters[i].maxThrust;
