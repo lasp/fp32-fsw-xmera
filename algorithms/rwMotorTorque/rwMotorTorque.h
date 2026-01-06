@@ -1,5 +1,5 @@
-#ifndef RW_MOTOR_TORQUE_H
-#define RW_MOTOR_TORQUE_H
+#ifndef F32XMERA_RW_MOTOR_TORQUE_H
+#define F32XMERA_RW_MOTOR_TORQUE_H
 
 #include <stdint.h>
 

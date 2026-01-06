@@ -13,7 +13,7 @@ path = os.path.dirname(os.path.abspath(filename))
 
 # Import all of the modules that we are going to be called in this simulation
 from xmera.utilities import SimulationBaseClass
-from xmera.fswAlgorithms import rwMotorTorque
+from xmera.fp32 import rwMotorTorqueF32
 from xmera.utilities import macros
 from xmera.architecture import messaging
 
@@ -42,7 +42,7 @@ def test_rw_motor_torque(show_plots, num_control_axes, num_wheels, num_input_cmd
     test_proc = unit_test_sim.CreateNewProcess(unit_process_name)
     test_proc.addTask(unit_test_sim.CreateNewTask(unit_task_name, test_process_rate))
 
-    module = rwMotorTorque.RwMotorTorque()
+    module = rwMotorTorqueF32.RwMotorTorque()
     module.modelTag = "rwMotorTorque"
 
     # Initialize module variables
@@ -117,7 +117,7 @@ def test_rw_motor_torque(show_plots, num_control_axes, num_wheels, num_input_cmd
         rw_avail_in_msg = messaging.RWAvailabilityMsg().write(rw_availability_message)
         module.rwAvailInMsg.subscribeTo(rw_avail_in_msg)
     else:
-        avail = [rwMotorTorque.AVAILABLE] * num_wheels  # this is used purely for the python level solution
+        avail = [rwMotorTorqueF32.AVAILABLE] * num_wheels  # this is used purely for the python level solution
 
     # Setup logging on the test module output message so that we get all the writes to it
     data_log = module.rwMotorTorqueOutMsg.recorder()

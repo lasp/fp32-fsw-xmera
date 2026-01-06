@@ -1,4 +1,4 @@
-%module rwMotorTorque
+%module rwMotorTorqueF32
 %{
    #include "rwMotorTorque.h"
 %}
