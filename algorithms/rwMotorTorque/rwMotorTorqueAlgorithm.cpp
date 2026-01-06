@@ -20,7 +20,7 @@
 #include "rwMotorTorqueAlgorithm.h"
 #include <architecture/utilities/eigenSupport.h>
 
-#include <stdexcept>
+#include "../freestandingInvalidArgument.h"
 
 /*! This method performs a complete reset of the module.  Local module variables that retain
  time varying states between function calls are reset to their default values.
@@ -35,7 +35,7 @@ void RwMotorTorqueAlgorithm::reset(RWArrayConfigMsgF32Payload& rwParamsInMsg, bo
     for (uint32_t i = 0; i < 3; ++i) {
         if (this->controlAxes_B.row(i).norm() > 0.0) {
             if (this->numControlAxes < i) {
-                throw std::invalid_argument(
+                FS_THROW_INVALID_ARGUMENT(
                     "rwMotorTorque: found empty control axis. "
                     "Make sure to fill controlAxes matrix from top to bottom, "
                     "with zero axes (no control) at the bottom.");
@@ -44,7 +44,7 @@ void RwMotorTorqueAlgorithm::reset(RWArrayConfigMsgF32Payload& rwParamsInMsg, bo
         }
     }
     if (this->numControlAxes == 0) {
-        throw std::invalid_argument("rwMotorTorque is not setup to control any axes.");
+        FS_THROW_INVALID_ARGUMENT("rwMotorTorque is not setup to control any axes.");
     }
 
     /*! - Read static RW config data message and store it in module variables */
