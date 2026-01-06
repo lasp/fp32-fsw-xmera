@@ -21,7 +21,7 @@ void RwMotorTorque::reset(uint64_t callTime) {
         throw std::invalid_argument("rwMotorTorque.vehControlInMsg wasn't connected.");
     }
 
-    RWArrayConfigMsgPayload rwParams = this->rwParamsInMsg();
+    RWArrayConfigMsgF32Payload rwParams = this->rwParamsInMsg();
     bool rwAvailIsLinked = this->rwAvailInMsg.isLinked();
 
     this->algorithm.reset(rwParams, rwAvailIsLinked);
@@ -32,8 +32,8 @@ void RwMotorTorque::reset(uint64_t callTime) {
  @param callTime The clock time at which the function was called (nanoseconds)
  */
 void RwMotorTorque::updateState(uint64_t callTime) {
-    CmdTorqueBodyMsgPayload LrInputMsg = this->vehControlInMsg(); /*!< Msg containing Lr control torque */
-    CmdTorqueBodyMsgPayload LrInput2Msg{};                        /*!< Msg containing optional Lr control torque */
+    CmdTorqueBodyMsgF32Payload LrInputMsg = this->vehControlInMsg(); /*!< Msg containing Lr control torque */
+    CmdTorqueBodyMsgF32Payload LrInput2Msg{};                        /*!< Msg containing optional Lr control torque */
     RWAvailabilityMsgPayload wheelsAvailability{};                /*!< Msg containing RW availability */
     bool cmdTorque2IsLinked{};
     bool rwAvailIsLinked{};
@@ -50,7 +50,7 @@ void RwMotorTorque::updateState(uint64_t callTime) {
         rwAvailIsLinked = true;
     }
 
-    RwMotorTorqueMsgPayload rwMotorTorques =
+    RwMotorTorqueMsgF32Payload rwMotorTorques =
         algorithm.update(LrInputMsg, LrInput2Msg, wheelsAvailability, cmdTorque2IsLinked, rwAvailIsLinked);
 
     this->rwMotorTorqueOutMsg.write(&rwMotorTorques, this->moduleID, callTime);
@@ -61,11 +61,11 @@ void RwMotorTorque::updateState(uint64_t callTime) {
  @return void
  @param controlMappingMatrix Known external torque expressed in body frame components
 */
-void RwMotorTorque::setControlAxes(const Eigen::Matrix3d& controlMappingMatrix) {
+void RwMotorTorque::setControlAxes(const Eigen::Matrix3f& controlMappingMatrix) {
     this->algorithm.setControlAxes(controlMappingMatrix);
 }
 
 /*! Getter method for the control axes mapping matrix CB.
- @return const Eigen::Matrix3d
+ @return const Eigen::Matrix3f
 */
-Eigen::Matrix3d RwMotorTorque::getControlAxes() const { return this->algorithm.getControlAxes(); }
+Eigen::Matrix3f RwMotorTorque::getControlAxes() const { return this->algorithm.getControlAxes(); }

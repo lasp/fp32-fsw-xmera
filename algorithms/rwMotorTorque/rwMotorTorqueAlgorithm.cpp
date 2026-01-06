@@ -28,7 +28,7 @@
  @param rwParamsInMsg struct to store message containing RW config parameters
  @param rwAvailIsLinked boolean indicating whether RWAvailabilityMsg is linked
  */
-void RwMotorTorqueAlgorithm::reset(RWArrayConfigMsgPayload& rwParamsInMsg, bool rwAvailIsLinked) {
+void RwMotorTorqueAlgorithm::reset(RWArrayConfigMsgF32Payload& rwParamsInMsg, bool rwAvailIsLinked) {
     /*!- configure the number of axes that are controlled.
      This is determined by checking for a zero row to determinate search */
     this->numControlAxes = 0;
@@ -54,29 +54,29 @@ void RwMotorTorqueAlgorithm::reset(RWArrayConfigMsgPayload& rwParamsInMsg, bool 
      and create the [Gs] projection matrix once */
     if (!rwAvailIsLinked) {
         this->numAvailRW = this->rwConfigParams.numRW;
-        this->G_s_B = cArrayToEigenMatrix<double, 3, RW_EFF_CNT>(this->rwConfigParams.GsMatrix_B);
+        this->G_s_B = cArrayToEigenMatrix<float, 3, RW_EFF_CNT>(this->rwConfigParams.GsMatrix_B);
     }
 }
 
 /*! Computes the reaction wheel torques given a commanded torque on the spacecraft
- @return RwMotorTorqueMsgPayload
+ @return RwMotorTorqueMsgF32Payload
  @param LrInputMsg commanded torque on spacecraft
  @param LrInput2Msg second commanded torque on spacecraft
  @param wheelsAvailability availability of reaction wheels
  @param cmdTorque2IsLinked boolean indicating whether a second CmdTorqueBodyMsg is linked
  @param rwAvailIsLinked boolean indicating whether RWAvailabilityMsg is linked
  */
-RwMotorTorqueMsgPayload RwMotorTorqueAlgorithm::update(CmdTorqueBodyMsgPayload& LrInputMsg,
-                                                       CmdTorqueBodyMsgPayload& LrInput2Msg,
+RwMotorTorqueMsgF32Payload RwMotorTorqueAlgorithm::update(CmdTorqueBodyMsgF32Payload& LrInputMsg,
+                                                       CmdTorqueBodyMsgF32Payload& LrInput2Msg,
                                                        RWAvailabilityMsgPayload& wheelsAvailability,
                                                        bool cmdTorque2IsLinked,
                                                        bool rwAvailIsLinked) {
     // wheelAvailability set to 0 (AVAILABLE) by default
 
     /*! - zero control torque and RW motor torque variables */
-    Eigen::Vector<double, RW_EFF_CNT> us = Eigen::Vector<double, RW_EFF_CNT>::Zero();
+    Eigen::Vector<float, RW_EFF_CNT> us = Eigen::Vector<float, RW_EFF_CNT>::Zero();
 
-    Eigen::Vector3d Lr_B = cArrayToEigenVector(LrInputMsg.torqueRequestBody);
+    Eigen::Vector3f Lr_B = cArrayToEigenVector(LrInputMsg.torqueRequestBody);
 
     /*! - Check if the optional second message is provided */
     if (cmdTorque2IsLinked) {
@@ -106,12 +106,12 @@ RwMotorTorqueMsgPayload RwMotorTorqueAlgorithm::update(CmdTorqueBodyMsgPayload& 
         uint32_t numRows = this->numControlAxes;
         uint32_t numCols = this->numAvailRW;
 
-        Eigen::Vector3d Lr_C{Eigen::Vector3d::Zero()};
+        Eigen::Vector3f Lr_C{Eigen::Vector3f::Zero()};
         Lr_C.head(numRows) = -this->controlAxes_B.topRows(numRows) * Lr_B;
 
-        Eigen::Matrix<double, 3, RW_EFF_CNT> CGs = this->controlAxes_B * this->G_s_B;
+        Eigen::Matrix<float, 3, RW_EFF_CNT> CGs = this->controlAxes_B * this->G_s_B;
 
-        Eigen::Vector<double, RW_EFF_CNT> us_avail{Eigen::Vector<double, RW_EFF_CNT>::Zero()};
+        Eigen::Vector<float, RW_EFF_CNT> us_avail{Eigen::Vector<float, RW_EFF_CNT>::Zero()};
         us_avail.topRows(numCols) =
             CGs.topLeftCorner(numRows, numCols).transpose() *
             (CGs.topLeftCorner(numRows, numCols) * CGs.topLeftCorner(numRows, numCols).transpose()).inverse() *
@@ -127,7 +127,7 @@ RwMotorTorqueMsgPayload RwMotorTorqueAlgorithm::update(CmdTorqueBodyMsgPayload& 
         }
     }
 
-    RwMotorTorqueMsgPayload rwMotorTorques{};
+    RwMotorTorqueMsgF32Payload rwMotorTorques{};
     eigenVectorToCArray(us, rwMotorTorques.motorTorque);
 
     return rwMotorTorques;
@@ -138,11 +138,11 @@ RwMotorTorqueMsgPayload RwMotorTorqueAlgorithm::update(CmdTorqueBodyMsgPayload& 
  @return void
  @param controlMappingMatrix Known external torque expressed in body frame components
 */
-void RwMotorTorqueAlgorithm::setControlAxes(const Eigen::Matrix3d& controlMappingMatrix) {
+void RwMotorTorqueAlgorithm::setControlAxes(const Eigen::Matrix3f& controlMappingMatrix) {
     this->controlAxes_B = controlMappingMatrix;
 }
 
 /*! Getter method for the control axes mapping matrix CB.
- @return const Eigen::Matrix3d
+ @return const Eigen::Matrix3f
 */
-Eigen::Matrix3d RwMotorTorqueAlgorithm::getControlAxes() const { return this->controlAxes_B; }
+Eigen::Matrix3f RwMotorTorqueAlgorithm::getControlAxes() const { return this->controlAxes_B; }

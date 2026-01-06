@@ -22,33 +22,33 @@
 
 #include <stdint.h>
 
-#include <architecture/msgPayloadDef/CmdTorqueBodyMsgPayload.h>
-#include <architecture/msgPayloadDef/RWArrayConfigMsgPayload.h>
+#include "msgPayloadDef/CmdTorqueBodyMsgF32Payload.h"
+#include "msgPayloadDef/RWArrayConfigMsgF32Payload.h"
 #include <architecture/msgPayloadDef/RWAvailabilityMsgPayload.h>
-#include <architecture/msgPayloadDef/RwMotorTorqueMsgPayload.h>
+#include "msgPayloadDef/RwMotorTorqueMsgF32Payload.h"
 
 #include <Eigen/Core>
 
 /*! @brief Top level structure for the sub-module routines. */
 class RwMotorTorqueAlgorithm {
    public:
-    void reset(RWArrayConfigMsgPayload& rwParamsInMsg, bool rwAvailIsLinked);
-    RwMotorTorqueMsgPayload update(CmdTorqueBodyMsgPayload& LrInputMsg,
-                                   CmdTorqueBodyMsgPayload& LrInput2Msg,
+    void reset(RWArrayConfigMsgF32Payload& rwParamsInMsg, bool rwAvailIsLinked);
+    RwMotorTorqueMsgF32Payload update(CmdTorqueBodyMsgF32Payload& LrInputMsg,
+                                   CmdTorqueBodyMsgF32Payload& LrInput2Msg,
                                    RWAvailabilityMsgPayload& wheelsAvailability,
                                    bool cmdTorque2IsLinked,
                                    bool rwAvailIsLinked);
 
-    void setControlAxes(const Eigen::Matrix3d& controlMappingMatrix);
-    Eigen::Matrix3d getControlAxes() const;
+    void setControlAxes(const Eigen::Matrix3f& controlMappingMatrix);
+    Eigen::Matrix3f getControlAxes() const;
 
    private:
-    Eigen::Matrix3d controlAxes_B{Eigen::Matrix3d::Zero()};  //!< [-] array of the control unit axes
+    Eigen::Matrix3f controlAxes_B{Eigen::Matrix3f::Zero()};  //!< [-] array of the control unit axes
     uint32_t numControlAxes{};  //!< [-] counter indicating how many orthogonal axes are controlled
     uint32_t numAvailRW{};      //!< [-] number of reaction wheels available
-    RWArrayConfigMsgPayload
+    RWArrayConfigMsgF32Payload
         rwConfigParams{};  //!< [-] struct to store message containing RW config parameters in body B frame
-    Eigen::Matrix<double, 3, RW_EFF_CNT> G_s_B{};  //!< [-] The RW spin axis matrix in body frame components
+    Eigen::Matrix<float, 3, RW_EFF_CNT> G_s_B{};  //!< [-] The RW spin axis matrix in body frame components
 };
 
 #endif

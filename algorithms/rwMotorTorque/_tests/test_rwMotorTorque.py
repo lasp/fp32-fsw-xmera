@@ -63,22 +63,22 @@ def test_rw_motor_torque(show_plots, num_control_axes, num_wheels, num_input_cmd
     torque = np.array([1.0, -0.5, 0.7])
 
     # attControl message
-    input_message_data = messaging.CmdTorqueBodyMsgPayload()
+    input_message_data = messaging.CmdTorqueBodyMsgF32Payload()
     requested_torque1 = torque
     input_message_data.torqueRequestBody = requested_torque1
-    cmd_torque_in_msg = messaging.CmdTorqueBodyMsg().write(input_message_data)
+    cmd_torque_in_msg = messaging.CmdTorqueBodyMsgF32().write(input_message_data)
 
     requested_torque = np.array(requested_torque1)
 
     if num_input_cmd_torques == 2:
-        input_message_data2 = messaging.CmdTorqueBodyMsgPayload()
+        input_message_data2 = messaging.CmdTorqueBodyMsgF32Payload()
         requested_torque2 = np.array([[1.1, -1.3, 2.0], [0.3, 0.9, -1.4], [2.2, 1.7, 0.6]]) @ torque
         input_message_data2.torqueRequestBody = requested_torque2
-        cmd_torque_in2_msg = messaging.CmdTorqueBodyMsg().write(input_message_data2)
+        cmd_torque_in2_msg = messaging.CmdTorqueBodyMsgF32().write(input_message_data2)
         requested_torque += np.array(requested_torque2)
 
     # wheelConfigData message
-    rw_config_params = messaging.RWArrayConfigMsgPayload()
+    rw_config_params = messaging.RWArrayConfigMsgF32Payload()
     RW_EFF_CNT = messaging.RW_EFF_CNT
 
     if num_wheels == 4:
@@ -100,7 +100,7 @@ def test_rw_motor_torque(show_plots, num_control_axes, num_wheels, num_input_cmd
 
     rw_config_params.JsList = [0.1] * num_wheels
     rw_config_params.numRW = num_wheels
-    rw_config_in_msg = messaging.RWArrayConfigMsg().write(rw_config_params)
+    rw_config_in_msg = messaging.RWArrayConfigMsgF32().write(rw_config_params)
 
     if rw_avail_msg != "NO":
         rw_availability_message = messaging.RWAvailabilityMsgPayload()
@@ -150,8 +150,8 @@ def test_rw_motor_torque(show_plots, num_control_axes, num_wheels, num_input_cmd
     true_motor_torque = [u_s] * 2
 
     # compare the module results to the truth values
-    accuracy = 1e-8
-    np.testing.assert_allclose(motor_torque, true_motor_torque, rtol=0, atol=accuracy, verbose=True)
+    accuracy = 1e-5
+    np.testing.assert_allclose(motor_torque, true_motor_torque, rtol=accuracy, atol=accuracy, verbose=True)
 
     G_s_B =np.array( rw_config_params.GsMatrix_B).reshape((3, RW_EFF_CNT), order='F')
     F = np.transpose(motor_torque[0])
@@ -160,7 +160,7 @@ def test_rw_motor_torque(show_plots, num_control_axes, num_wheels, num_input_cmd
     if num_wheels >= num_control_axes > 0:
         if (len(avail) - np.sum(avail)) > num_control_axes:
             np.testing.assert_allclose(received_torque[:num_control_axes], requested_torque[:num_control_axes],
-                                       rtol=0,
+                                       rtol=accuracy,
                                        atol=accuracy,
                                        verbose=True)
 
