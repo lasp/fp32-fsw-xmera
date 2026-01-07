@@ -10,6 +10,6 @@
 %include <architecture/_GeneralModuleFiles/sys_model.i>
 %include "mrpPD.h"
 
-%include <architecture/msgPayloadDef/AttGuidMsgPayload.h>
-%include <architecture/msgPayloadDef/VehicleConfigMsgPayload.h>
-%include <architecture/msgPayloadDef/CmdTorqueBodyMsgPayload.h>
+%include "msgPayloadDef/AttGuidMsgF32Payload.h"
+%include "msgPayloadDef/VehicleConfigMsgF32Payload.h"
+%include "msgPayloadDef/CmdTorqueBodyMsgF32Payload.h"

@@ -8,9 +8,9 @@
 
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
-#include <architecture/msgPayloadDef/AttGuidMsgPayload.h>
-#include <architecture/msgPayloadDef/CmdTorqueBodyMsgPayload.h>
-#include <architecture/msgPayloadDef/VehicleConfigMsgPayload.h>
+#include "msgPayloadDef/AttGuidMsgF32Payload.h"
+#include "msgPayloadDef/CmdTorqueBodyMsgF32Payload.h"
+#include "msgPayloadDef/VehicleConfigMsgF32Payload.h"
 #include "mrpPDAlgorithm.h"
 
 /*! @brief MRP PD control class. */
@@ -21,16 +21,16 @@ class MrpPD : public SysModel {
 
     void reset(uint64_t currentSimNanos) override;
     void updateState(uint64_t currentSimNanos) override;
-    void setDerivativeGainP(double P);
-    double getDerivativeGainP() const;
-    void setKnownTorquePntB_B(Eigen::Vector3d& knownTorquePntB_B);
-    const Eigen::Vector3d& getKnownTorquePntB_B() const;
-    void setProportionalGainK(double K);
-    double getProportionalGainK() const;
+    void setDerivativeGainP(float P);
+    float getDerivativeGainP() const;
+    void setKnownTorquePntB_B(Eigen::Vector3f& knownTorquePntB_B);
+    const Eigen::Vector3f& getKnownTorquePntB_B() const;
+    void setProportionalGainK(float K);
+    float getProportionalGainK() const;
 
-    ReadFunctor<AttGuidMsgPayload> guidInMsg;             //!< Attitude guidance input message
-    ReadFunctor<VehicleConfigMsgPayload> vehConfigInMsg;  //!< Vehicle configuration input message
-    Message<CmdTorqueBodyMsgPayload> cmdTorqueOutMsg;     //!< Commanded torque output message
+    ReadFunctor<AttGuidMsgF32Payload> guidInMsg;             //!< Attitude guidance input message
+    ReadFunctor<VehicleConfigMsgF32Payload> vehConfigInMsg;  //!< Vehicle configuration input message
+    Message<CmdTorqueBodyMsgF32Payload> cmdTorqueOutMsg;     //!< Commanded torque output message
 
    private:
     MrpPDAlgorithm algorithm{};  //!< Algorithm for mrpPD control logic (BSK-agnostic)

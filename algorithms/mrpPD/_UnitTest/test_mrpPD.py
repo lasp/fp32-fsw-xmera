@@ -49,19 +49,19 @@ def test_mrpPD(show_plots, setExtTorque):
     unitTestSim.AddModelToTask(unitTaskName, mrp_pd)
 
     # Create the mrpPD module attitude guidance input message
-    guidCmdData = messaging.AttGuidMsgPayload()
+    guidCmdData = messaging.AttGuidMsgF32Payload()
     guidCmdData.sigma_BR = np.array([0.3, -0.5, 0.7])
     guidCmdData.omega_BR_B = np.array([0.010, -0.020, 0.015])  # [rad/s]
     guidCmdData.omega_RN_B = np.array([-0.02, -0.01, 0.005])  # [rad/s]
     guidCmdData.domega_RN_B = np.array([0.0002, 0.0003, 0.0001])  # [rad/s^2]
-    guidInMsg = messaging.AttGuidMsg().write(guidCmdData)
+    guidInMsg = messaging.AttGuidMsgF32().write(guidCmdData)
     mrp_pd.guidInMsg.subscribeTo(guidInMsg)
 
     # Create the mrpPD module vehicle configuration input FSW message:
     ISCPntB_B = [1000., 0., 0., 0., 800., 0., 0., 0., 800.]  # [kg*m^2]
-    vehicleConfigIn = messaging.VehicleConfigMsgPayload()
+    vehicleConfigIn = messaging.VehicleConfigMsgF32Payload()
     vehicleConfigIn.ISCPntB_B = ISCPntB_B
-    vcInMsg = messaging.VehicleConfigMsg().write(vehicleConfigIn)
+    vcInMsg = messaging.VehicleConfigMsgF32().write(vehicleConfigIn)
     mrp_pd.vehConfigInMsg.subscribeTo(vcInMsg)
 
     # Set up data logging

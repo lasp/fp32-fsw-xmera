@@ -6,9 +6,9 @@
 
 #include <Eigen/Dense>
 
-#include <architecture/msgPayloadDef/AttGuidMsgPayload.h>
-#include <architecture/msgPayloadDef/CmdTorqueBodyMsgPayload.h>
-#include <architecture/msgPayloadDef/VehicleConfigMsgPayload.h>
+#include "msgPayloadDef/AttGuidMsgF32Payload.h"
+#include "msgPayloadDef/CmdTorqueBodyMsgF32Payload.h"
+#include "msgPayloadDef/VehicleConfigMsgF32Payload.h"
 
 /*! @brief MRP PD control algorithm class. */
 class MrpPDAlgorithm {
@@ -16,21 +16,21 @@ class MrpPDAlgorithm {
     MrpPDAlgorithm() = default;
     ~MrpPDAlgorithm() = default;
 
-    CmdTorqueBodyMsgPayload update(uint64_t currentSimNanos, AttGuidMsgPayload guidInMsg);
-    void setSpacecraftInertia(VehicleConfigMsgPayload vehConfigInMsg);
-    void setDerivativeGainP(double P);
-    double getDerivativeGainP() const;
-    void setKnownTorquePntB_B(Eigen::Vector3d& knownTorquePntB_B);
-    const Eigen::Vector3d& getKnownTorquePntB_B() const;
-    void setProportionalGainK(double K);
-    double getProportionalGainK() const;
+    CmdTorqueBodyMsgF32Payload update(uint64_t currentSimNanos, AttGuidMsgF32Payload guidInMsg);
+    void setSpacecraftInertia(VehicleConfigMsgF32Payload vehConfigInMsg);
+    void setDerivativeGainP(float P);
+    float getDerivativeGainP() const;
+    void setKnownTorquePntB_B(Eigen::Vector3f& knownTorquePntB_B);
+    const Eigen::Vector3f& getKnownTorquePntB_B() const;
+    void setProportionalGainK(float K);
+    float getProportionalGainK() const;
 
    private:
-    double K{};                           //!< [rad/s] Proportional gain applied to MRP errors
-    double P{};                           //!< [N*m*s] Rate error feedback gain applied
-    Eigen::Vector3d knownTorquePntB_B{};  //!< [N*m] Known external torque expressed in body frame components
-    Eigen::Matrix3d ISCPntB_B =
-        Eigen::Matrix3d::Identity();  //!< [kg*m^2] Spacecraft inertia about point B expressed in body frame components
+    float K{};                           //!< [rad/s] Proportional gain applied to MRP errors
+    float P{};                           //!< [N*m*s] Rate error feedback gain applied
+    Eigen::Vector3f knownTorquePntB_B{};  //!< [N*m] Known external torque expressed in body frame components
+    Eigen::Matrix3f ISCPntB_B =
+        Eigen::Matrix3f::Identity();  //!< [kg*m^2] Spacecraft inertia about point B expressed in body frame components
 };
 
 #endif

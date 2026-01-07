@@ -8,32 +8,32 @@
  @return void
  @param callTime [ns] Time the method is called
 */
-CmdTorqueBodyMsgPayload MrpPDAlgorithm::update(uint64_t callTime, AttGuidMsgPayload guidInMsg) {
+CmdTorqueBodyMsgF32Payload MrpPDAlgorithm::update(uint64_t callTime, AttGuidMsgF32Payload guidInMsg) {
     // Compute hub inertial angular velocity in B-frame components
-    Eigen::Vector3d omega_BR_B = cArrayToEigenVector(guidInMsg.omega_BR_B);
-    Eigen::Vector3d omega_RN_B = cArrayToEigenVector(guidInMsg.omega_RN_B);
-    Eigen::Vector3d omega_BN_B = omega_BR_B + omega_RN_B;
+    Eigen::Vector3f omega_BR_B = cArrayToEigenVector(guidInMsg.omega_BR_B);
+    Eigen::Vector3f omega_RN_B = cArrayToEigenVector(guidInMsg.omega_RN_B);
+    Eigen::Vector3f omega_BN_B = omega_BR_B + omega_RN_B;
 
-    Eigen::Vector3d sigma_BR = cArrayToEigenVector(guidInMsg.sigma_BR);
-    Eigen::Vector3d domega_RN_B = cArrayToEigenVector(guidInMsg.domega_RN_B);
+    Eigen::Vector3f sigma_BR = cArrayToEigenVector(guidInMsg.sigma_BR);
+    Eigen::Vector3f domega_RN_B = cArrayToEigenVector(guidInMsg.domega_RN_B);
 
     // Compute required attitude control torque vector
-    Eigen::Vector3d Lr = -this->K * sigma_BR - this->P * omega_BR_B + omega_RN_B.cross(this->ISCPntB_B * omega_BN_B) +
+    Eigen::Vector3f Lr = -this->K * sigma_BR - this->P * omega_BR_B + omega_RN_B.cross(this->ISCPntB_B * omega_BN_B) +
                          this->ISCPntB_B * (domega_RN_B - omega_BN_B.cross(omega_RN_B)) -
                          this->knownTorquePntB_B;  // [Nm]
 
     // Create the output message
-    auto torqueCmdMsgPayload = CmdTorqueBodyMsgPayload();
-    eigenVectorToCArray(Lr, torqueCmdMsgPayload.torqueRequestBody);
+    auto torqueCmdMsgF32Payload = CmdTorqueBodyMsgF32Payload();
+    eigenVectorToCArray(Lr, torqueCmdMsgF32Payload.torqueRequestBody);
 
-    return torqueCmdMsgPayload;
+    return torqueCmdMsgF32Payload;
 }
 
 /*! This method sets the spacecraft inertia according to the vehicle configuration input message
  @return void
  @param vehicleConfigIn Vehicle config input
 */
-void MrpPDAlgorithm::setSpacecraftInertia(VehicleConfigMsgPayload vehicleConfigIn) {
+void MrpPDAlgorithm::setSpacecraftInertia(VehicleConfigMsgF32Payload vehicleConfigIn) {
     this->ISCPntB_B = cArrayToEigenMatrix3(vehicleConfigIn.ISCPntB_B);
 }
 
@@ -41,7 +41,7 @@ void MrpPDAlgorithm::setSpacecraftInertia(VehicleConfigMsgPayload vehicleConfigI
  @return void
  @param P [N*m*s] Rate error feedback gain applied
 */
-void MrpPDAlgorithm::setDerivativeGainP(double P) {
+void MrpPDAlgorithm::setDerivativeGainP(float P) {
     if (P < 0.0) {
         throw std::invalid_argument("Feedback gain P must not be negative");
     }
@@ -49,28 +49,28 @@ void MrpPDAlgorithm::setDerivativeGainP(double P) {
 }
 
 /*! Getter method for the derivative gain P.
- @return double
+ @return float
 */
-double MrpPDAlgorithm::getDerivativeGainP() const { return this->P; }
+float MrpPDAlgorithm::getDerivativeGainP() const { return this->P; }
 
 /*! Setter method for the known external torque about point B.
  @return void
  @param knownTorquePntB_B [N*m] Known external torque expressed in body frame components
 */
-void MrpPDAlgorithm::setKnownTorquePntB_B(Eigen::Vector3d& knownTorquePntB_B) {
+void MrpPDAlgorithm::setKnownTorquePntB_B(Eigen::Vector3f& knownTorquePntB_B) {
     this->knownTorquePntB_B = knownTorquePntB_B;
 }
 
 /*! Getter method for the known torque about point B.
- @return const Eigen::Vector3d&
+ @return const Eigen::Vector3f&
 */
-const Eigen::Vector3d& MrpPDAlgorithm::getKnownTorquePntB_B() const { return this->knownTorquePntB_B; }
+const Eigen::Vector3f& MrpPDAlgorithm::getKnownTorquePntB_B() const { return this->knownTorquePntB_B; }
 
 /*! Setter method for the proportional gain K.
  @return void
  @param K [rad/s] Proportional gain applied to MRP errors
 */
-void MrpPDAlgorithm::setProportionalGainK(double K) {
+void MrpPDAlgorithm::setProportionalGainK(float K) {
     if (K < 0.0) {
         throw std::invalid_argument("Feedback gain K must not be negative");
     }
@@ -78,6 +78,6 @@ void MrpPDAlgorithm::setProportionalGainK(double K) {
 }
 
 /*! Getter method for the proportional gain K.
- @return double
+ @return float
 */
-double MrpPDAlgorithm::getProportionalGainK() const { return this->K; }
+float MrpPDAlgorithm::getProportionalGainK() const { return this->K; }
