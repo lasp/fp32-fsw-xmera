@@ -13,6 +13,8 @@ algorithms/inertial3D/inertial3D.h
 algorithms/inertial3D/inertial3D.cpp
 algorithms/mrpFeedback/mrpFeedback.h
 algorithms/mrpFeedback/mrpFeedback.cpp
+algorithms/mrpPD/mrpPD.h
+algorithms/mrpPD/mrpPD.cpp
 algorithms/mrpSteering/mrpSteering.h
 algorithms/mrpSteering/mrpSteering.cpp
 algorithms/navAggregate/navAggregate.h
