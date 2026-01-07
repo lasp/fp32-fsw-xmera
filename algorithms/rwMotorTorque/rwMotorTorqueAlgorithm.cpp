@@ -22,13 +22,12 @@
 #include <stdint.h>
 #include "../freestandingInvalidArgument.h"
 
-/*! This method performs a complete reset of the module.  Local module variables that retain
- time varying states between function calls are reset to their default values.
+/*! This method configures the module by populating any necessary class members.
  @return void
  @param rwParamsInMsg struct to store message containing RW config parameters
  @param rwAvailIsLinked boolean indicating whether RWAvailabilityMsg is linked
  */
-void RwMotorTorqueAlgorithm::reset(RWArrayConfigMsgF32Payload& rwParamsInMsg, bool rwAvailIsLinked) {
+void RwMotorTorqueAlgorithm::configure(RWArrayConfigMsgF32Payload& rwParamsInMsg, bool rwAvailIsLinked) {
     /*!- configure the number of axes that are controlled.
      This is determined by checking for a zero row to determinate search */
     this->numControlAxes = 0U;

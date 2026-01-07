@@ -32,7 +32,7 @@
 /*! @brief Top level structure for the sub-module routines. */
 class RwMotorTorqueAlgorithm {
    public:
-    void reset(RWArrayConfigMsgF32Payload& rwParamsInMsg, bool rwAvailIsLinked);
+    void configure(RWArrayConfigMsgF32Payload& rwParamsInMsg, bool rwAvailIsLinked);
     RwMotorTorqueMsgF32Payload update(CmdTorqueBodyMsgF32Payload& LrInputMsg,
                                    CmdTorqueBodyMsgF32Payload& LrInput2Msg,
                                    RWAvailabilityMsgPayload& wheelsAvailability,

@@ -24,7 +24,7 @@ void RwMotorTorque::reset(uint64_t callTime) {
     RWArrayConfigMsgF32Payload rwParams = this->rwParamsInMsg();
     bool rwAvailIsLinked = this->rwAvailInMsg.isLinked();
 
-    this->algorithm.reset(rwParams, rwAvailIsLinked);
+    this->algorithm.configure(rwParams, rwAvailIsLinked);
 }
 
 /*! Computes the reaction wheel torques given a commanded torque on the spacecraft
