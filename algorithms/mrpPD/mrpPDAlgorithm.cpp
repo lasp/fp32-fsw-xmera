@@ -18,7 +18,7 @@ CmdTorqueBodyMsgF32Payload MrpPDAlgorithm::update(uint64_t callTime, AttGuidMsgF
     Eigen::Vector3f domega_RN_B = cArrayToEigenVector(guidInMsg.domega_RN_B);
 
     // Compute required attitude control torque vector
-    Eigen::Vector3f Lr = -this->K * sigma_BR - this->P * omega_BR_B + omega_RN_B.cross(this->ISCPntB_B * omega_BN_B) +
+    Eigen::Vector3f Lr = -this->proportionalGain * sigma_BR - this->feedbackGain * omega_BR_B + omega_RN_B.cross(this->ISCPntB_B * omega_BN_B) +
                          this->ISCPntB_B * (domega_RN_B - omega_BN_B.cross(omega_RN_B)) -
                          this->knownTorquePntB_B;  // [Nm]
 
@@ -45,20 +45,20 @@ void MrpPDAlgorithm::setDerivativeGainP(float P) {
     if (P < 0.0) {
         FS_THROW_INVALID_ARGUMENT("Feedback gain P must not be negative");
     }
-    this->P = P;
+    this->feedbackGain = P;
 }
 
 /*! Getter method for the derivative gain P.
  @return float
 */
-float MrpPDAlgorithm::getDerivativeGainP() const { return this->P; }
+float MrpPDAlgorithm::getDerivativeGainP() const { return this->feedbackGain; }
 
 /*! Setter method for the known external torque about point B.
  @return void
- @param knownTorquePntB_B [N*m] Known external torque expressed in body frame components
+ @param knownTorque [N*m] Known external torque expressed in body frame components about point B
 */
-void MrpPDAlgorithm::setKnownTorquePntB_B(Eigen::Vector3f& knownTorquePntB_B) {
-    this->knownTorquePntB_B = knownTorquePntB_B;
+void MrpPDAlgorithm::setKnownTorquePntB_B(Eigen::Vector3f& knownTorque) {
+    this->knownTorquePntB_B = knownTorque;
 }
 
 /*! Getter method for the known torque about point B.
@@ -74,10 +74,10 @@ void MrpPDAlgorithm::setProportionalGainK(float K) {
     if (K < 0.0) {
         FS_THROW_INVALID_ARGUMENT("Feedback gain K must not be negative");
     }
-    this->K = K;
+    this->proportionalGain = K;
 }
 
 /*! Getter method for the proportional gain K.
  @return float
 */
-float MrpPDAlgorithm::getProportionalGainK() const { return this->K; }
+float MrpPDAlgorithm::getProportionalGainK() const { return this->proportionalGain; }
