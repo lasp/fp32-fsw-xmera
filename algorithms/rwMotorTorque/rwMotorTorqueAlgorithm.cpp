@@ -31,8 +31,8 @@
 void RwMotorTorqueAlgorithm::reset(RWArrayConfigMsgF32Payload& rwParamsInMsg, bool rwAvailIsLinked) {
     /*!- configure the number of axes that are controlled.
      This is determined by checking for a zero row to determinate search */
-    this->numControlAxes = 0;
-    for (uint32_t i = 0; i < 3; ++i) {
+    this->numControlAxes = 0U;
+    for (uint32_t i = 0U; i < 3U; ++i) {
         if (this->controlAxes_B.row(i).norm() > 0.0) {
             if (this->numControlAxes < i) {
                 FS_THROW_INVALID_ARGUMENT(
@@ -40,10 +40,10 @@ void RwMotorTorqueAlgorithm::reset(RWArrayConfigMsgF32Payload& rwParamsInMsg, bo
                     "Make sure to fill controlAxes matrix from top to bottom, "
                     "with zero axes (no control) at the bottom.");
             }
-            this->numControlAxes += 1;
+            this->numControlAxes += 1U;
         }
     }
-    if (this->numControlAxes == 0) {
+    if (this->numControlAxes == 0U) {
         FS_THROW_INVALID_ARGUMENT("rwMotorTorque is not setup to control any axes.");
     }
 
@@ -53,7 +53,7 @@ void RwMotorTorqueAlgorithm::reset(RWArrayConfigMsgF32Payload& rwParamsInMsg, bo
     /*! - If no info is provided about RW availability we'll assume that all are available
      and create the [Gs] projection matrix once */
     if (!rwAvailIsLinked) {
-        this->numAvailRW = this->rwConfigParams.numRW;
+        this->numAvailRW = static_cast<uint32_t>(this->rwConfigParams.numRW);
         this->G_s_B = cArrayToEigenMatrix<float, 3, RW_EFF_CNT>(this->rwConfigParams.GsMatrix_B);
     }
 }
@@ -85,14 +85,14 @@ RwMotorTorqueMsgF32Payload RwMotorTorqueAlgorithm::update(CmdTorqueBodyMsgF32Pay
 
     /*! - Check if RW availability message is available */
     if (rwAvailIsLinked) {
-        uint32_t numAvailWheels = 0;
+        uint32_t numAvailWheels = 0U;
         this->G_s_B.setZero();
 
         /*! - create the current [Gs] projection matrix with the available RWs */
-        for (uint32_t i = 0; i < this->rwConfigParams.numRW; ++i) {
+        for (Eigen::Index i = 0; i < this->rwConfigParams.numRW; ++i) {
             if (wheelsAvailability.wheelAvailability[i] == AVAILABLE) {
                 this->G_s_B.col(numAvailWheels) = cArrayToEigenVector3(&this->rwConfigParams.GsMatrix_B[i * 3]);
-                numAvailWheels += 1;
+                numAvailWheels += 1U;
             }
         }
         /*! - update the number of currently available RWs */
@@ -103,8 +103,8 @@ RwMotorTorqueMsgF32Payload RwMotorTorqueAlgorithm::update(CmdTorqueBodyMsgF32Pay
      Having at least the same # of RW as # of control axes is necessary condition to guarantee inverse matrix exists. If
      matrix to invert it not full rank, the control torque output is zero. */
     if (this->numAvailRW >= this->numControlAxes) {
-        uint32_t numRows = this->numControlAxes;
-        uint32_t numCols = this->numAvailRW;
+        const uint32_t numRows = this->numControlAxes;
+        const uint32_t numCols = this->numAvailRW;
 
         Eigen::Vector3f Lr_C{Eigen::Vector3f::Zero()};
         Lr_C.head(numRows) = -this->controlAxes_B.topRows(numRows) * Lr_B;
@@ -118,8 +118,8 @@ RwMotorTorqueMsgF32Payload RwMotorTorqueAlgorithm::update(CmdTorqueBodyMsgF32Pay
             Lr_C.topRows(numRows);
 
         /*! - map the desired RW motor torques to the available RWs */
-        uint32_t j = 0;
-        for (uint32_t i = 0; i < this->rwConfigParams.numRW; ++i) {
+        Eigen::Index j = 0;
+        for (Eigen::Index i = 0; i < this->rwConfigParams.numRW; ++i) {
             if (wheelsAvailability.wheelAvailability[i] == AVAILABLE) {
                 us[i] = us_avail[j];
                 j += 1;
