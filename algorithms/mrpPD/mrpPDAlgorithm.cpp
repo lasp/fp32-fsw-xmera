@@ -43,7 +43,7 @@ void MrpPDAlgorithm::setSpacecraftInertia(VehicleConfigMsgF32Payload vehicleConf
 */
 void MrpPDAlgorithm::setDerivativeGainP(float P) {
     if (P < 0.0) {
-        throw std::invalid_argument("Feedback gain P must not be negative");
+        FS_THROW_INVALID_ARGUMENT("Feedback gain P must not be negative");
     }
     this->P = P;
 }
@@ -72,7 +72,7 @@ const Eigen::Vector3f& MrpPDAlgorithm::getKnownTorquePntB_B() const { return thi
 */
 void MrpPDAlgorithm::setProportionalGainK(float K) {
     if (K < 0.0) {
-        throw std::invalid_argument("Feedback gain K must not be negative");
+        FS_THROW_INVALID_ARGUMENT("Feedback gain K must not be negative");
     }
     this->K = K;
 }

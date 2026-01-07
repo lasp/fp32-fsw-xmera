@@ -2,7 +2,7 @@
 #define XMERAF32_MRP_PD_ALGORITHM_H
 
 #include <stdint.h>
-#include <stdexcept>
+#include "../freestandingInvalidArgument.h"
 
 #include <Eigen/Dense>
 
