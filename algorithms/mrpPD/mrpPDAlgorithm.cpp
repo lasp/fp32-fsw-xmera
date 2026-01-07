@@ -7,6 +7,7 @@
  torque Lr.
  @return void
  @param callTime [ns] Time the method is called
+ @param guidInMsg [-] guidance message input
 */
 CmdTorqueBodyMsgF32Payload MrpPDAlgorithm::update(uint64_t callTime, AttGuidMsgF32Payload guidInMsg) {
     // Compute hub inertial angular velocity in B-frame components
