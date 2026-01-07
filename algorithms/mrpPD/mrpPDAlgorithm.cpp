@@ -1,5 +1,5 @@
 #include "mrpPDAlgorithm.h"
-#include <architecture/utilities/eigenSupport.h>
+#include "architecture/utilities/eigenSupport.h"
 #include <cmath>
 
 /*! Update method for mrpPD control algorithm. This method takes the attitude and rate errors relative to the

@@ -1,5 +1,5 @@
-#ifndef _MRP_PD_ALGORITHM_H_
-#define _MRP_PD_ALGORITHM_H_
+#ifndef XMERAF32_MRP_PD_ALGORITHM_H
+#define XMERAF32_MRP_PD_ALGORITHM_H
 
 #include <stdint.h>
 #include <stdexcept>

@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 
 from xmera.utilities import SimulationBaseClass
-from xmera.fswAlgorithms import mrpPD
+from xmera.fp32 import mrpPDF32
 from xmera.utilities import macros
 from xmera.architecture import messaging
 
@@ -38,7 +38,7 @@ def test_mrpPD(show_plots, setExtTorque):
     testProc.addTask(unitTestSim.CreateNewTask(unitTaskName, testProcessRate))
 
     # Create the mrpPD module
-    mrp_pd = mrpPD.MrpPD()
+    mrp_pd = mrpPDF32.MrpPD()
     mrp_pd.modelTag = "mrpPD"
     mrp_pd.setDerivativeGainP(150.0)
     mrp_pd.setProportionalGainK(0.15)

@@ -1,5 +1,5 @@
-#ifndef _XMERA_MRP_PD_
-#define _XMERA_MRP_PD_
+#ifndef XMERAF32_MRP_PD_H
+#define XMERAF32_MRP_PD_H
 
 #include <stdint.h>
 #include <stdexcept>

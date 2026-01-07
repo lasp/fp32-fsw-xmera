@@ -1,4 +1,4 @@
-%module mrpPD
+%module mrpPDF32
 %{
    #include "mrpPD.h"
 %}
