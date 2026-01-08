@@ -1,8 +1,8 @@
 #ifndef XMERAF32_MRP_PD_ALGORITHM_H
 #define XMERAF32_MRP_PD_ALGORITHM_H
 
-#include <stdint.h>
 #include "../freestandingInvalidArgument.h"
+#include <stdint.h>
 
 #include <Eigen/Dense>
 
@@ -16,8 +16,8 @@ class MrpPDAlgorithm {
     MrpPDAlgorithm() = default;
     ~MrpPDAlgorithm() = default;
 
-    CmdTorqueBodyMsgF32Payload update(uint64_t currentSimNanos, AttGuidMsgF32Payload guidInMsg) const;
-    void setSpacecraftInertia(VehicleConfigMsgF32Payload vehConfigInMsg);
+    CmdTorqueBodyMsgF32Payload update(AttGuidMsgF32Payload guidInMsg) const;
+    void setSpacecraftInertia(VehicleConfigMsgF32Payload vehicleConfigInMsg);
     void setDerivativeGainP(float P);
     float getDerivativeGainP() const;
     void setKnownTorquePntB_B(const Eigen::Vector3f& knownTorquePntB_B);
