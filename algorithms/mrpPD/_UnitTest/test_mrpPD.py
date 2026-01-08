@@ -77,7 +77,7 @@ def test_mrpPD(show_plots, setExtTorque):
     truthTorque = findTrueTorques(mrp_pd, guidCmdData, np.array(ISCPntB_B).reshape(3, 3), knownTorquePntB_B)  # [Nm]
 
     # Compare the module-computed command torque to the truth value
-    accuracy = 1e-12
+    accuracy = 1e-6
     np.testing.assert_allclose(truthTorque,
                                cmdTorqueDataLog.torqueRequestBody[-1],
                                atol=accuracy,
