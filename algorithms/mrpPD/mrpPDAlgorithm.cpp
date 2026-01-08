@@ -6,10 +6,9 @@
  reference frame, as well as the reference frame angular rates and acceleration, and computes the required control
  torque Lr.
  @return void
- @param callTime [ns] Time the method is called
  @param guidInMsg [-] guidance message input
 */
-CmdTorqueBodyMsgF32Payload MrpPDAlgorithm::update(uint64_t callTime, AttGuidMsgF32Payload guidInMsg) const {
+CmdTorqueBodyMsgF32Payload MrpPDAlgorithm::update(AttGuidMsgF32Payload guidInMsg) const {
     // Compute hub inertial angular velocity in B-frame components
     const Eigen::Vector3f omega_BR_B = cArrayToEigenVector(guidInMsg.omega_BR_B);
     const Eigen::Vector3f omega_RN_B = cArrayToEigenVector(guidInMsg.omega_RN_B);

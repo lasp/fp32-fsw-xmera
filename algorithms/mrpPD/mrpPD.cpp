@@ -29,7 +29,7 @@ void MrpPD::updateState(uint64_t callTime) {
     }
 
     // Call the algorithm update method
-    CmdTorqueBodyMsgF32Payload torqueCmdMsgF32Payload = this->algorithm.update(callTime, localGuidInMsg);
+    CmdTorqueBodyMsgF32Payload torqueCmdMsgF32Payload = this->algorithm.update(localGuidInMsg);
 
     this->cmdTorqueOutMsg.write(&torqueCmdMsgF32Payload, moduleID, callTime);
 }
