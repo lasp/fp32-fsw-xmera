@@ -16,11 +16,11 @@ class MrpPDAlgorithm {
     MrpPDAlgorithm() = default;
     ~MrpPDAlgorithm() = default;
 
-    CmdTorqueBodyMsgF32Payload update(uint64_t currentSimNanos, AttGuidMsgF32Payload guidInMsg);
+    CmdTorqueBodyMsgF32Payload update(uint64_t currentSimNanos, AttGuidMsgF32Payload guidInMsg) const;
     void setSpacecraftInertia(VehicleConfigMsgF32Payload vehConfigInMsg);
     void setDerivativeGainP(float P);
     float getDerivativeGainP() const;
-    void setKnownTorquePntB_B(Eigen::Vector3f& knownTorquePntB_B);
+    void setKnownTorquePntB_B(const Eigen::Vector3f& knownTorquePntB_B);
     const Eigen::Vector3f& getKnownTorquePntB_B() const;
     void setProportionalGainK(float K);
     float getProportionalGainK() const;

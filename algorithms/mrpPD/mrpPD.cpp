@@ -49,7 +49,7 @@ float MrpPD::getDerivativeGainP() const { return this->algorithm.getDerivativeGa
  @return void
  @param knownTorquePntB_B [N*m] Known external torque expressed in body frame components
 */
-void MrpPD::setKnownTorquePntB_B(Eigen::Vector3f& knownTorquePntB_B) {
+void MrpPD::setKnownTorquePntB_B(const Eigen::Vector3f& knownTorquePntB_B) {
     this->algorithm.setKnownTorquePntB_B(knownTorquePntB_B);
 }
 

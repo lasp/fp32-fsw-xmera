@@ -9,19 +9,20 @@
  @param callTime [ns] Time the method is called
  @param guidInMsg [-] guidance message input
 */
-CmdTorqueBodyMsgF32Payload MrpPDAlgorithm::update(uint64_t callTime, AttGuidMsgF32Payload guidInMsg) {
+CmdTorqueBodyMsgF32Payload MrpPDAlgorithm::update(uint64_t callTime, AttGuidMsgF32Payload guidInMsg) const {
     // Compute hub inertial angular velocity in B-frame components
-    Eigen::Vector3f omega_BR_B = cArrayToEigenVector(guidInMsg.omega_BR_B);
-    Eigen::Vector3f omega_RN_B = cArrayToEigenVector(guidInMsg.omega_RN_B);
-    Eigen::Vector3f omega_BN_B = omega_BR_B + omega_RN_B;
+    const Eigen::Vector3f omega_BR_B = cArrayToEigenVector(guidInMsg.omega_BR_B);
+    const Eigen::Vector3f omega_RN_B = cArrayToEigenVector(guidInMsg.omega_RN_B);
+    const Eigen::Vector3f omega_BN_B = omega_BR_B + omega_RN_B;
 
-    Eigen::Vector3f sigma_BR = cArrayToEigenVector(guidInMsg.sigma_BR);
-    Eigen::Vector3f domega_RN_B = cArrayToEigenVector(guidInMsg.domega_RN_B);
+    const Eigen::Vector3f sigma_BR = cArrayToEigenVector(guidInMsg.sigma_BR);
+    const Eigen::Vector3f domega_RN_B = cArrayToEigenVector(guidInMsg.domega_RN_B);
 
     // Compute required attitude control torque vector
-    Eigen::Vector3f Lr = -this->proportionalGain * sigma_BR - this->feedbackGain * omega_BR_B + omega_RN_B.cross(this->ISCPntB_B * omega_BN_B) +
-                         this->ISCPntB_B * (domega_RN_B - omega_BN_B.cross(omega_RN_B)) -
-                         this->knownTorquePntB_B;  // [Nm]
+    const Eigen::Vector3f Lr = -this->proportionalGain * sigma_BR - this->feedbackGain * omega_BR_B +
+                               omega_RN_B.cross(this->ISCPntB_B * omega_BN_B) +
+                               this->ISCPntB_B * (domega_RN_B - omega_BN_B.cross(omega_RN_B)) -
+                               this->knownTorquePntB_B;  // [Nm]
 
     // Create the output message
     auto torqueCmdMsgF32Payload = CmdTorqueBodyMsgF32Payload();
@@ -58,9 +59,7 @@ float MrpPDAlgorithm::getDerivativeGainP() const { return this->feedbackGain; }
  @return void
  @param knownTorque [N*m] Known external torque expressed in body frame components about point B
 */
-void MrpPDAlgorithm::setKnownTorquePntB_B(Eigen::Vector3f& knownTorque) {
-    this->knownTorquePntB_B = knownTorque;
-}
+void MrpPDAlgorithm::setKnownTorquePntB_B(const Eigen::Vector3f& knownTorque) { this->knownTorquePntB_B = knownTorque; }
 
 /*! Getter method for the known torque about point B.
  @return const Eigen::Vector3f&
