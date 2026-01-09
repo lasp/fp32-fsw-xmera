@@ -39,7 +39,7 @@ void AttTrackingError::updateState(uint64_t callTime) {
     convert(this->attNavInMsg(), navF32);
 
     AttGuidMsgPayload attGuidOut{};
-    const AttGuidMsgF32Payload attGuidOutF32 = this->algorithm.update(callTime, refF32, navF32);
+    const AttGuidMsgF32Payload attGuidOutF32 = this->algorithm.update(refF32, navF32);
     convert(attGuidOutF32, attGuidOut);
 
     this->attGuidOutMsg.write(&attGuidOut, this->moduleID, callTime);

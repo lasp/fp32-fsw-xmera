@@ -6,22 +6,23 @@
 
 #include "sunSearchAlgorithm.h"
 #include "architecture/utilities/eigenSupport.h"
-#include <architecture/utilities/macroDefinitions.h>
-#include <cmath>
+#include "architecture/utilities/macroDefinitions.h"
+#include <math.h>
+
+#include "../freestandingInvalidArgument.h"
 
 /*! This method is used to reset the module.
  @return void
  @param currentSimNanos The current simulation time for system
- @param vehicleConfigIn Vehicle configuration message
+ @param principleInertias principle vehicle inertia terms (about point B in frame B (body)
  */
-void SunSearchAlgorithm::reset(const uint64_t currentSimNanos, const VehicleConfigMsgF32Payload& vehicleConfigIn) {
+void SunSearchAlgorithm::reset(const uint64_t currentSimNanos, const PrincipleInertias principleInertias) {
     if (this->numberOfSlews != NUM_SLEWS) {
-        throw std::invalid_argument("The number of specified slew maneuvers must be equal to 3");
+        FS_THROW_INVALID_ARGUMENT("The number of specified slew maneuvers must be equal to 3");
     }
 
-    this->principleInertias[0] = vehicleConfigIn.ISCPntB_B[0];
-    this->principleInertias[1] = vehicleConfigIn.ISCPntB_B[4];
-    this->principleInertias[2] = vehicleConfigIn.ISCPntB_B[8];
+    this->principleInertias =
+        Eigen::Vector3f(principleInertias.IxxPntB_B, principleInertias.IyyPntB_B, principleInertias.IzzPntB_B);
 
     for (uint32_t index = 0; index < NUM_SLEWS; index++) {
         this->computeKinematicProperties(index);
@@ -40,15 +41,17 @@ AttGuidMsgF32Payload SunSearchAlgorithm::update(const uint64_t currentSimNanos,
     AttGuidMsgF32Payload attGuidOut{};
     ReferenceMotionOutput referenceMotion{};
 
-    const float CurrentSimSeconds = (currentSimNanos - this->resetTime) * NANO2SEC;
+    const float CurrentSimSeconds =
+        static_cast<float>(currentSimNanos - this->resetTime) * static_cast<float>(NANO2SEC);
 
     float timeInf = 0;
     float timeSup = this->kinematicProperties[0].slewTotalTime;
-    for (uint32_t index = 0; index < NUM_SLEWS; ++index) {
+    for (int32_t index = 0; index < NUM_SLEWS; ++index) {
         if (CurrentSimSeconds >= timeInf && CurrentSimSeconds < timeSup) {
-            referenceMotion = this->computeReferenceMotion(currentSimNanos, index);
+            referenceMotion = this->computeReferenceMotion(currentSimNanos, {index});
             break;
-        } else if (CurrentSimSeconds >= timeSup && index != NUM_SLEWS - 1) {
+        }
+        if (CurrentSimSeconds >= timeSup && index != NUM_SLEWS - 1) {
             timeInf += this->kinematicProperties[index].slewTotalTime;
             timeSup += this->kinematicProperties[index + 1].slewTotalTime;
         }
@@ -89,7 +92,7 @@ void SunSearchAlgorithm::computeKinematicProperties(const uint32_t index) {
     /*! If angular rate exceeds limit, increase slew time adding a coasting arc */
     if (omegaMax > SP->slewMaxRate) {
         omegaMax = SP->slewMaxRate;
-        totalTime = SP->slewAngle / omegaMax + omegaMax / alpha;
+        totalTime = (SP->slewAngle / omegaMax) + (omegaMax / alpha);
         thrustTime = omegaMax / alpha;
     }
 
@@ -106,14 +109,15 @@ void SunSearchAlgorithm::computeKinematicProperties(const uint32_t index) {
     @return ReferenceMotionOutput
     */
 ReferenceMotionOutput SunSearchAlgorithm::computeReferenceMotion(const uint64_t currentSimNanos,
-                                                                 const uint32_t index) const {
+                                                                 const SlewIndex slewIndex) const {
     float zeroTime = 0;
-    for (uint32_t i = 0; i < index; ++i) {
+    for (int32_t i = 0; i < slewIndex.index; ++i) {
         zeroTime += this->kinematicProperties[i].slewTotalTime;
     }
-    const float localSimSeconds = (currentSimNanos - this->resetTime) * NANO2SEC - zeroTime;
+    const float localSimSeconds =
+        (static_cast<float>(currentSimNanos - this->resetTime) * static_cast<float>(NANO2SEC)) - zeroTime;
 
-    const KinematicProperties KP = this->kinematicProperties[index];
+    const KinematicProperties KP = this->kinematicProperties[slewIndex.index];
     const uint32_t axis = KP.slewRotAxis - 1;
 
     Eigen::Vector3f omega_RN{Eigen::Vector3f::Zero()};

@@ -22,7 +22,7 @@
 void RateServoFullNonlinearAlgorithm::reset(VehicleConfigMsgF32Payload vehConfigMsg,
                                             const RWArrayConfigMsgF32Payload rwConfigMsg,
                                             const bool rwIsLinked) {
-    this->ISCPntB_B = cArrayAsEigenMatrix3(vehConfigMsg.ISCPntB_B);
+    this->ISCPntB_B = cArrayToEigenMatrix3(vehConfigMsg.ISCPntB_B);
 
     this->rwConfigParams.numRW = 0;
     if (rwIsLinked) {
@@ -54,11 +54,11 @@ CmdTorqueBodyMsgF32Payload RateServoFullNonlinearAlgorithm::update(const uint64_
     CmdTorqueBodyMsgF32Payload controlOut{}; /*!< commanded torque output message */
 
     /*! - compute control update time */
-    float dt; /* [s] control update period */
+    float dt{}; /* [s] control update period */
     if (this->priorTime == 0) {
         dt = 0.0;
     } else {
-        dt = (callTime - this->priorTime) * NANO2SEC;
+        dt = static_cast<float>(callTime - this->priorTime) * static_cast<float>(NANO2SEC);
     }
     this->priorTime = callTime;
 
@@ -94,10 +94,10 @@ CmdTorqueBodyMsgF32Payload RateServoFullNonlinearAlgorithm::update(const uint64_
     Eigen::Vector3f Lr = this->P * omega_BBast_B + this->Ki * this->z;
 
     const Eigen::Matrix<float, 3, RW_EFF_CNT> G_s_B =
-        cArrayAsEigenMatrix<float, 3, RW_EFF_CNT>(this->rwConfigParams.GsMatrix_B);
+        cArrayToEigenMatrix<float, 3, RW_EFF_CNT>(this->rwConfigParams.GsMatrix_B);
 
     Eigen::Vector3f H_B = this->ISCPntB_B * omega_BN_B;
-    for (uint32_t i = 0; i < this->rwConfigParams.numRW; i++) {
+    for (int i = 0; i < this->rwConfigParams.numRW; i++) {
         if (wheelsAvailability.wheelAvailability[i] == AVAILABLE) { /* check if wheel is available */
             const Eigen::Vector3f G_s_B_i = G_s_B.col(i);
             const Eigen::Vector3f h_s_i =

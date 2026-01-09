@@ -16,8 +16,8 @@ void SunSearch::reset(const uint64_t currentSimNanos) {
     if (!this->vehConfigInMsg.isLinked()) {
         throw std::invalid_argument("SunSearch.vehConfigInMsg wasn't connected.");
     }
-
-    this->algorithm.reset(currentSimNanos, this->vehConfigInMsg());
+    const float* iScPntB_B = this->vehConfigInMsg().ISCPntB_B;
+    this->algorithm.reset(currentSimNanos, {iScPntB_B[0], iScPntB_B[4], iScPntB_B[8]});
 }
 
 /*! This method is the main carrier for the computation of the guidance message

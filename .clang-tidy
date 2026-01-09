@@ -5,6 +5,7 @@ Checks: >
   ,cppcoreguidelines-*
   ,-cppcoreguidelines-avoid-non-const-global-variables
   ,-cppcoreguidelines-pro-bounds-array-to-pointer-decay
+  ,-cppcoreguidelines-pro-bounds-constant-array-index
   ,cert-dcl21-cpp
   ,cert-dcl58-cpp
   ,cert-err34-c
@@ -36,6 +37,8 @@ Checks: >
 #
 # -cppcoreguidelines-pro-bounds-array-to-pointer-decay
 #   temporarily disabled (to allow for eigenSupport mappings. Need to update eigenSupport)
+# -cppcoreguidelines-pro-bounds-constant-array-index
+#   temporarily disabled - to be reviewed upon the inclusion of the microsoft gsl library
 # -hicpp-no-array-decay
 #   temporarily disabled (to allow for eigenSupport mappings. Need to update eigenSupport)
 # -misc-include-cleaner

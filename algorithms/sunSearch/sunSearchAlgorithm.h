@@ -7,14 +7,22 @@
 #ifndef F32XIMERA_SUN_SEARCH_ALGORITHM_H
 #define F32XIMERA_SUN_SEARCH_ALGORITHM_H
 
-#include <stdexcept>
-
 #include "msgPayloadDef/AttGuidMsgF32Payload.h"
 #include "msgPayloadDef/NavAttMsgF32Payload.h"
 #include "msgPayloadDef/VehicleConfigMsgF32Payload.h"
 #include <Eigen/Core>
 
 #define NUM_SLEWS 3
+
+struct PrincipleInertias {
+    float IxxPntB_B;  //!< IxxPntB_B principle vehicle inertia term (0, 0) (about point B in frame B (body)
+    float IyyPntB_B;  //!< IyyPntB_B principle vehicle inertia term (1, 1) (about point B in frame B (body)
+    float IzzPntB_B;  //!< IzzPntB_B principle vehicle inertia term (2, 2) (about point B in frame B (body)
+};
+
+struct SlewIndex {
+    int32_t index;
+};
 
 struct SlewProperties {
     float slewTime;       //!< [s] total time for the three-axes maneuver
@@ -42,7 +50,7 @@ class SunSearchAlgorithm {
     SunSearchAlgorithm() = default;
     ~SunSearchAlgorithm() = default;
 
-    void reset(uint64_t currentSimNanos, const VehicleConfigMsgF32Payload& vehicleConfigIn);
+    void reset(uint64_t currentSimNanos, PrincipleInertias principleInertia);
     AttGuidMsgF32Payload update(uint64_t currentSimNanos, const NavAttMsgF32Payload& navAttIn) const;
     void setSlewProperties(const SlewProperties& slewPropertiesInput);
     void modifySlewProperties(const SlewProperties& slewPropertiesInput, uint32_t index);
@@ -50,7 +58,7 @@ class SunSearchAlgorithm {
 
    private:
     void computeKinematicProperties(uint32_t index);
-    ReferenceMotionOutput computeReferenceMotion(uint64_t currentSimNanos, uint32_t index) const;
+    ReferenceMotionOutput computeReferenceMotion(uint64_t currentSimNanos, SlewIndex slewIndex) const;
 
     SlewProperties slewProperties[NUM_SLEWS];
     KinematicProperties kinematicProperties[NUM_SLEWS];

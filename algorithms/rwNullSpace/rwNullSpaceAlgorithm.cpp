@@ -20,7 +20,7 @@ void RwNullSpaceAlgorithm::reset(RWConstellationMsgF32Payload& rwConfigInMsg) {
     Eigen::Matrix<float, 3, RW_EFF_CNT> G_s_B{};
     G_s_B.setZero();
     for (uint32_t i = 0; i < this->numWheels; i = i + 1) {
-        G_s_B.col(i) = cArrayAsEigenVector(rwConfigInMsg.reactionWheels[i].gsHat_B);
+        G_s_B.col(i) = cArrayToEigenVector(rwConfigInMsg.reactionWheels[i].gsHat_B);
     }
 
     /* find the [tau] null space projection matrix [tau] = ([I] - [Gs]^T.([Gs].[Gs]^T)^-1.[Gs]) */
@@ -43,15 +43,15 @@ RwMotorTorqueMsgF32Payload RwNullSpaceAlgorithm::update(RwMotorTorqueMsgF32Paylo
                                             the control and null motion torques */
 
     /* compute the wheel speed control vector d = -K.DeltaOmega */
-    const Eigen::Vector<float, MAX_EFF_CNT> d = -this->omegaGain * (cArrayAsEigenVector(rwSpeeds.wheelSpeeds) -
-                                                                    cArrayAsEigenVector(rwDesiredSpeeds.wheelSpeeds));
+    const Eigen::Vector<float, MAX_EFF_CNT> d = -this->omegaGain * (cArrayToEigenVector(rwSpeeds.wheelSpeeds) -
+                                                                    cArrayToEigenVector(rwDesiredSpeeds.wheelSpeeds));
 
     /* compute the RW null space motor torque solution to reduce the wheel speeds */
     const Eigen::Vector<float, MAX_EFF_CNT> motorTorqueNullSpace = this->tau * d;
 
     /* add the null motion RW torque solution to the RW feedback control torque solution */
     const Eigen::Vector<float, MAX_EFF_CNT> motorTorque =
-        motorTorqueNullSpace + cArrayAsEigenVector(controlRequest.motorTorque);
+        motorTorqueNullSpace + cArrayToEigenVector(controlRequest.motorTorque);
 
     eigenVectorToCArray(motorTorque, finalControl.motorTorque);
 
