@@ -1,26 +1,26 @@
-# Repository Name
+# Adamant-Xmera Flight Software Algorithms
 This repository contains the GNC FSW algorithms.
 
 ## Getting Started
 This repository has two primary usages and therefore two build paths:
-1. To compile the FSW algorithms as modules for the Ximera simulation tool.
-2. To compile the FSW algorithms for the GNC target platform.
+1. To compile the FSW algorithms as modules for the Xmera simulation tool.
+2. To compile the FSW algorithms as a single library for use within the Adamant system.
 
-The build Ximera build path is controlled by the Ximera build system. It expects the directory structure:
+The build Xmera build path is controlled by the Xmera build system. It has the directory structure:
 - algorithms/
-  - msgPayloadDef/
+  - CMakeLists.txt
   - alg1/
+    - CMakeLists.txt
     - module.i
     - module.h
     - module.cpp
   - alg2/
     - etc.
 
-The flight software build path is controlled by the CMake build system and associated cmake files in this repository.
-This build path is described below.
+The flight software build path is controlled by the CMake build system.
 
 ### Dependencies:
-- Eigen for freestanding C++ (it's assumed that the repo is at ../ relative to this repo)
+- Eigen for freestanding C++ (it's assumed that the Eigen repo is at ../ relative to this repo)
 
 ### Required Tooling:
 - GCC 13.3.1 or higher
@@ -49,23 +49,40 @@ sudo update-alternatives --config g++
 3. Test GCC with `gcc --version` - this command should output information about the installed GCC compiler, including
 its version number.
 
-### Using Build.sh
-```
-build.sh — drives builds via CMakePresets.json
+### Using CMake Presets
+
+This repository is driven by CMake presets in `CMakePresets.json`. Build directories are created under `build/<preset>`.
 
 Examples:
-  ./build.sh --list
-  ./build.sh linux-gcc-debug/release
-  ./build.sh macos-gcc-debug/release
-  ./build.sh riscv32-gcc-debug/release (this option only works on Linux with installed cross compiler)
-  ./build.sh --configure linux-gcc-debug --build linux-gcc-debug --fresh
-  ./build.sh macos-gcc-debug --archive lib/libgncAlgorithms.a
-
-Notes:
-- Uses your CMakePresets.json configure/build presets.
-- --fresh uses CMake's native reconfigure (CMake >= 3.24).
-- The script chooses a sensible default preset if none is provided.
 ```
+# List configure/build presets
+cmake --list-presets=configure
+cmake --list-presets=build
+
+# Configure + build debug on Linux
+cmake --preset linux-gcc-debug
+cmake --build --preset linux-gcc-debug
+
+# Configure + build release on macOS
+cmake --preset macos-gcc-release
+cmake --build --preset macos-gcc-release
+
+# RISC-V cross build (Linux only with the cross toolchain installed)
+cmake --preset riscv32-gcc-debug
+cmake --build --preset riscv32-gcc-debug
+
+# Clean rebuild using CMake's native reconfigure (CMake >= 3.24)
+cmake --preset linux-gcc-debug --fresh
+cmake --build --preset linux-gcc-debug
+
+# Build a specific target
+cmake --build --preset linux-gcc-debug --target gncAlgorithms
+
+# Build with extra parallelism
+cmake --build --preset linux-gcc-debug -- -j8
+```
+
+Note: `build_a.sh` and `build_all.sh` are legacy and not required when using CMake presets directly.
 
 One can add a user-defined preset to CMakeUserPresets.json which is not added to the repository.
 E.g.
