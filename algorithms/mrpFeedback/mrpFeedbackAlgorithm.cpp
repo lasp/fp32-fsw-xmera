@@ -59,10 +59,10 @@ MrpFeedbackOutput MrpFeedbackAlgorithm::update(uint64_t callTime,
     }
     this->priorTime = callTime;
 
-    Eigen::Vector3f sigma_BR = Eigen::Map<const Eigen::Vector3f>(guidCmd.sigma_BR);
-    Eigen::Vector3f omega_BR_B = Eigen::Map<const Eigen::Vector3f>(guidCmd.omega_BR_B);
-    Eigen::Vector3f omega_RN_B = Eigen::Map<const Eigen::Vector3f>(guidCmd.omega_RN_B);
-    Eigen::Vector3f domega_RN_B = Eigen::Map<const Eigen::Vector3f>(guidCmd.domega_RN_B);
+    Eigen::Vector3f sigma_BR = cArrayToEigenVector(guidCmd.sigma_BR);
+    Eigen::Vector3f omega_BR_B = cArrayToEigenVector(guidCmd.omega_BR_B);
+    Eigen::Vector3f omega_RN_B = cArrayToEigenVector(guidCmd.omega_RN_B);
+    Eigen::Vector3f domega_RN_B = cArrayToEigenVector(guidCmd.domega_RN_B);
 
     /*! - compute body rate */
     Eigen::Vector3f omega_BN_B = omega_BR_B + omega_RN_B;
