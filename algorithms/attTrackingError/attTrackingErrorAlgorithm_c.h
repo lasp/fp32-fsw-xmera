@@ -6,10 +6,10 @@
 #ifndef F32XIMERA_ATTTRACKINGERRORALGORITHM_C_H
 #define F32XIMERA_ATTTRACKINGERRORALGORITHM_C_H
 
-#include <stdint.h>
 #include "msgPayloadDef/AttGuidMsgF32Payload.h"
 #include "msgPayloadDef/AttRefMsgF32Payload.h"
 #include "msgPayloadDef/NavAttMsgF32Payload.h"
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -44,30 +44,24 @@ void AttTrackingErrorAlgorithm_destroy(AttTrackingErrorAlgorithm* self);
  * @param self     Pointer to the instance.
  * @param callTime Time stamp for reset.
  */
-void AttTrackingErrorAlgorithm_reset(AttTrackingErrorAlgorithm* self,
-                                     uint64_t callTime);
-
+void AttTrackingErrorAlgorithm_reset(AttTrackingErrorAlgorithm* self, uint64_t callTime);
 /**
  * @brief Run the update step.
  * @param self         Pointer to the instance.
- * @param callTime     Time stamp for update.
  * @param attRefInMsg  Pointer to reference-frame message payload.
  * @param attNavInMsg  Pointer to navigation attitude message payload.
  * @return AttGuidMsgPayload  The computed guidance message.
  */
-AttGuidMsgF32Payload
-AttTrackingErrorAlgorithm_update(AttTrackingErrorAlgorithm* self,
-                                 uint64_t callTime,
-                                 AttRefMsgF32Payload* attRefInMsg,
-                                 NavAttMsgF32Payload* attNavInMsg);
+AttGuidMsgF32Payload AttTrackingErrorAlgorithm_update(AttTrackingErrorAlgorithm* self,
+                                                      AttRefMsgF32Payload* attRefInMsg,
+                                                      NavAttMsgF32Payload* attNavInMsg);
 
 /**
  * @brief Set the σ_R0R three-vector.
  * @param self      Pointer to the instance.
  * @param sigma_R0R 3-vector in flattened POD format.
  */
-void AttTrackingErrorAlgorithm_setSigma_R0R(AttTrackingErrorAlgorithm* self,
-                                            Vector3f_c sigma_R0R);
+void AttTrackingErrorAlgorithm_setSigma_R0R(AttTrackingErrorAlgorithm* self, Vector3f_c sigma_R0R);
 
 /**
  * @brief Get the current σ_R0R three-vector.

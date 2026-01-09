@@ -21,10 +21,9 @@ void AttTrackingErrorAlgorithm_reset(AttTrackingErrorAlgorithm* self, uint64_t c
 }
 
 AttGuidMsgF32Payload AttTrackingErrorAlgorithm_update(AttTrackingErrorAlgorithm* self,
-                                                      uint64_t callTime,
                                                       AttRefMsgF32Payload* attRefInMsg,
                                                       NavAttMsgF32Payload* attNavInMsg) {
-    return reinterpret_cast<::AttTrackingErrorAlgorithm*>(self)->update(callTime, *attRefInMsg, *attNavInMsg);
+    return reinterpret_cast<::AttTrackingErrorAlgorithm*>(self)->update(*attRefInMsg, *attNavInMsg);
 }
 
 void AttTrackingErrorAlgorithm_setSigma_R0R(AttTrackingErrorAlgorithm* self, Vector3f_c sigma_R0R) {
