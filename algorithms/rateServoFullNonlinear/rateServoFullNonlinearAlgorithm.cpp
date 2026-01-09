@@ -62,12 +62,12 @@ CmdTorqueBodyMsgF32Payload RateServoFullNonlinearAlgorithm::update(const uint64_
     }
     this->priorTime = callTime;
 
-    const Eigen::Vector3f omega_BR_B = Eigen::Map<const Eigen::Vector3f>(guidCmd.omega_BR_B);
-    const Eigen::Vector3f omega_RN_B = Eigen::Map<const Eigen::Vector3f>(guidCmd.omega_RN_B);
-    const Eigen::Vector3f domega_RN_B = Eigen::Map<const Eigen::Vector3f>(guidCmd.domega_RN_B);
+    const Eigen::Vector3f omega_BR_B = cArrayToEigenVector(guidCmd.omega_BR_B);
+    const Eigen::Vector3f omega_RN_B = cArrayToEigenVector(guidCmd.omega_RN_B);
+    const Eigen::Vector3f domega_RN_B = cArrayToEigenVector(guidCmd.domega_RN_B);
 
-    const Eigen::Vector3f omega_BastR_B = Eigen::Map<const Eigen::Vector3f>(rateCmd.omega_BastR_B);
-    const Eigen::Vector3f omegap_BastR_B = Eigen::Map<const Eigen::Vector3f>(rateCmd.omegap_BastR_B);
+    const Eigen::Vector3f omega_BastR_B = cArrayToEigenVector(rateCmd.omega_BastR_B);
+    const Eigen::Vector3f omegap_BastR_B = cArrayToEigenVector(rateCmd.omegap_BastR_B);
 
     /*! - compute body rate */
     const Eigen::Vector3f omega_BN_B = omega_BR_B + omega_RN_B;
