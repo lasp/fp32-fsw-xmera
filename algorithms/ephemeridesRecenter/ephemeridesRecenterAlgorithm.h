@@ -9,10 +9,17 @@
 
 #include "msgPayloadDef/EphemerisMsgF32Payload.h"
 #include <array>
+#include <cstddef>
 
 inline constexpr int MAX_NUM_CHANGE_BODIES = 20;
 
 using BodyName = std::array<char, 256>;
+
+struct MoonIndexFound {
+    size_t index;
+    bool found;
+};
+
 /**
  * @brief Container for input/output ephemeris messages used in recentering.
  */
@@ -49,7 +56,7 @@ class EphemeridesRecenterAlgorithm {
     void clearAllBodies();
 
    private:
-    bool findMoonOfBody(const BodyEphemerisPayload& celestialBody, size_t* index) const;
+    MoonIndexFound findMoonOfBody(const BodyEphemerisPayload& celestialBody) const;
 
     BodyName newCentralBodyName{};
     std::array<BodyName, MAX_NUM_CHANGE_BODIES> bodyNames{};

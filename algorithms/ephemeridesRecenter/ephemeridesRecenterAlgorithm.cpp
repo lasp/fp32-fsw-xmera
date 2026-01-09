@@ -71,8 +71,8 @@ std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES> EphemeridesRecenterAlgor
                                   newCentralBodyPayload.v_BdyZero_N,
                                   newEphemerisToRecenterPayload.v_BdyZero_N);
 
-                if (size_t moonIndex{}; this->findMoonOfBody(this->celestialBodies[i], &moonIndex) &&
-                                        this->celestialBodies[i].bodySpiceName != this->previousCentralBodyName) {
+                if (auto [moonIndex, moonFound] = this->findMoonOfBody(this->celestialBodies[i]);
+                    moonFound &&  this->celestialBodies[i].bodySpiceName != this->previousCentralBodyName) {
                     EphemerisMsgF32Payload moonOfBodyPayload = this->celestialBodies[moonIndex].inputEphemerisPayload;
                     vectorAddition(newEphemerisToRecenterPayload.r_BdyZero_N,
                                    moonOfBodyPayload.r_BdyZero_N,
@@ -97,22 +97,22 @@ std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES> EphemeridesRecenterAlgor
     return recenteredBodies;
 }
 
-/*! @brief Find the moon index of a given body
- @param celestialBody std::string : celestial body name
- @param index size_t* : index
- @return bool : whether the index was found
+/*! @brief Find the moon index of a given body name
+ @param celestialBody - celestial body name
+ @return foundIndex - whether the moon name is found and the index to the body
  */
-bool EphemeridesRecenterAlgorithm::findMoonOfBody(const BodyEphemerisPayload& celestialBody, size_t* index) const {
+MoonIndexFound EphemeridesRecenterAlgorithm::findMoonOfBody(const BodyEphemerisPayload& celestialBody) const {
+    MoonIndexFound foundIndex{};
     if (this->celestialBodyCount == 0) {
         FS_THROW_INVALID_ARGUMENT("Requesting a body index but the current celestial body count is 0");
     }
     for (size_t i = 0; i < this->celestialBodyCount; ++i) {
         if (this->celestialBodies[i].originalCentralBodyName == celestialBody.bodySpiceName) {
-            *index = i;
-            return true;
+            foundIndex.index = i;
+            foundIndex.found = true;
         }
     }
-    return false;
+    return foundIndex;
 }
 
 /*! @brief Get the index of a body
