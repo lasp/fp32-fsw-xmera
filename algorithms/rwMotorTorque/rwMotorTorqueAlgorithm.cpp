@@ -19,7 +19,7 @@
 
 #include "rwMotorTorqueAlgorithm.h"
 #include <architecture/utilities/eigenSupport.h>
-
+#include <stdint.h>
 #include "../freestandingInvalidArgument.h"
 
 /*! This method performs a complete reset of the module.  Local module variables that retain
