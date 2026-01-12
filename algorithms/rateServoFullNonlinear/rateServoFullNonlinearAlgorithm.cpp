@@ -17,16 +17,16 @@
  @return void
  @param vehConfigMsg vehicle config message
  @param rwConfigMsg reaction wheel config message
- @param rwIsLinked boolean indicating whether reaction wheel config message is linked
+ @param rwIsConfigured boolean indicating whether reaction wheels are configured through the rwConfigMsg
  */
 void RateServoFullNonlinearAlgorithm::reset(VehicleConfigMsgF32Payload vehConfigMsg,
-                                            const RWArrayConfigMsgF32Payload rwConfigMsg,
-                                            const bool rwIsLinked) {
+                                            const RWArrayConfigMsgF32Payload& rwConfigMsg,
+                                            const bool rwIsConfigured) {
     this->ISCPntB_B = cArrayToEigenMatrix3(vehConfigMsg.ISCPntB_B);
 
-    this->rwConfigParams.numRW = 0;
-    if (rwIsLinked) {
+    if (rwIsConfigured) {
         this->rwConfigParams = rwConfigMsg;
+        this->rwIsConfigured = rwIsConfigured;
     }
 
     /* Reset the integral measure of the rate tracking error */
@@ -34,7 +34,7 @@ void RateServoFullNonlinearAlgorithm::reset(VehicleConfigMsgF32Payload vehConfig
 
     /* Reset the prior time flag state.
      If zero, control time step not evaluated on the first function call */
-    this->priorTime = 0;
+    this->priorTime = 0U;
 }
 
 /*! This method takes and rate errors relative to the Reference frame, as well as
@@ -47,27 +47,27 @@ void RateServoFullNonlinearAlgorithm::reset(VehicleConfigMsgF32Payload vehConfig
  @param wheelsAvailability Reaction wheel availability message
  */
 CmdTorqueBodyMsgF32Payload RateServoFullNonlinearAlgorithm::update(const uint64_t callTime,
-                                                                   const AttGuidMsgF32Payload guidCmd,
-                                                                   const RateCmdMsgF32Payload rateCmd,
-                                                                   const RWSpeedMsgF32Payload wheelSpeeds,
-                                                                   const RWAvailabilityMsgPayload wheelsAvailability) {
+                                                                   AttGuidMsgF32Payload guidCmd,
+                                                                   RateCmdMsgF32Payload rateCmd,
+                                                                   const RWSpeedMsgF32Payload& wheelSpeeds,
+                                                                   const RWAvailabilityMsgPayload& wheelsAvailability) {
     CmdTorqueBodyMsgF32Payload controlOut{}; /*!< commanded torque output message */
 
     /*! - compute control update time */
     float dt{}; /* [s] control update period */
-    if (this->priorTime == 0) {
-        dt = 0.0;
+    if (this->priorTime == 0U) {
+        dt = 0.0F;
     } else {
         dt = static_cast<float>(callTime - this->priorTime) * static_cast<float>(NANO2SEC);
     }
     this->priorTime = callTime;
 
-    const Eigen::Vector3f omega_BR_B = Eigen::Map<const Eigen::Vector3f>(guidCmd.omega_BR_B);
-    const Eigen::Vector3f omega_RN_B = Eigen::Map<const Eigen::Vector3f>(guidCmd.omega_RN_B);
-    const Eigen::Vector3f domega_RN_B = Eigen::Map<const Eigen::Vector3f>(guidCmd.domega_RN_B);
+    const Eigen::Vector3f omega_BR_B = cArrayToEigenVector(guidCmd.omega_BR_B);
+    const Eigen::Vector3f omega_RN_B = cArrayToEigenVector(guidCmd.omega_RN_B);
+    const Eigen::Vector3f domega_RN_B = cArrayToEigenVector(guidCmd.domega_RN_B);
 
-    const Eigen::Vector3f omega_BastR_B = Eigen::Map<const Eigen::Vector3f>(rateCmd.omega_BastR_B);
-    const Eigen::Vector3f omegap_BastR_B = Eigen::Map<const Eigen::Vector3f>(rateCmd.omegap_BastR_B);
+    const Eigen::Vector3f omega_BastR_B = cArrayToEigenVector(rateCmd.omega_BastR_B);
+    const Eigen::Vector3f omegap_BastR_B = cArrayToEigenVector(rateCmd.omegap_BastR_B);
 
     /*! - compute body rate */
     const Eigen::Vector3f omega_BN_B = omega_BR_B + omega_RN_B;
@@ -77,10 +77,10 @@ CmdTorqueBodyMsgF32Payload RateServoFullNonlinearAlgorithm::update(const uint64_
     const Eigen::Vector3f omega_BBast_B = omega_BN_B - omega_BastN_B;
 
     /*! - integrate rate tracking error  */
-    if (this->Ki > 0) { /* check if integral feedback is turned on  */
+    if (this->Ki > 0.0F) { /* check if integral feedback is turned on  */
         this->z += omega_BBast_B * dt;
-        for (uint32_t i = 0; i < 3; i++) {
-            const float intLimCheck = fabs(this->z[i]);
+        for (Eigen::Index i = 0; i < 3; ++i) {
+            const float intLimCheck = fabsf(this->z[i]);
             if (intLimCheck > this->integralLimit) {
                 this->z[i] *= this->integralLimit / intLimCheck;
             }
@@ -90,30 +90,33 @@ CmdTorqueBodyMsgF32Payload RateServoFullNonlinearAlgorithm::update(const uint64_
         this->z = Eigen::Vector3f::Zero();
     }
 
-    /*! - evaluate required attitude control torque Lr */
-    Eigen::Vector3f Lr = this->P * omega_BBast_B + this->Ki * this->z;
-
-    const Eigen::Matrix<float, 3, RW_EFF_CNT> G_s_B =
-        cArrayToEigenMatrix<float, 3, RW_EFF_CNT>(this->rwConfigParams.GsMatrix_B);
-
+    /*! - compute momentum  */
     Eigen::Vector3f H_B = this->ISCPntB_B * omega_BN_B;
-    for (int i = 0; i < this->rwConfigParams.numRW; i++) {
-        if (wheelsAvailability.wheelAvailability[i] == AVAILABLE) { /* check if wheel is available */
-            const Eigen::Vector3f G_s_B_i = G_s_B.col(i);
-            const Eigen::Vector3f h_s_i =
-                this->rwConfigParams.JsList[i] * (omega_BN_B.dot(G_s_B_i) + wheelSpeeds.wheelSpeeds[i]) * G_s_B_i;
-            H_B += h_s_i;
+
+    if (this->rwIsConfigured) {
+        const Eigen::Matrix<float, 3, RW_EFF_CNT> G_s_B =
+            cArrayToEigenMatrix<float, 3, RW_EFF_CNT>(this->rwConfigParams.GsMatrix_B);
+
+        for (Eigen::Index i = 0; i < this->rwConfigParams.numRW; ++i) {
+            if (wheelsAvailability.wheelAvailability[i] == AVAILABLE) { /* check if wheel is available */
+                const Eigen::Vector3f G_s_B_i = G_s_B.col(i);
+                const Eigen::Vector3f h_s_i =
+                    this->rwConfigParams.JsList[i] * (omega_BN_B.dot(G_s_B_i) + wheelSpeeds.wheelSpeeds[i]) * G_s_B_i;
+                H_B += h_s_i;
+            }
         }
     }
-    Lr -= omega_BastN_B.cross(H_B);
 
-    Lr += -this->ISCPntB_B * (omegap_BastR_B + domega_RN_B - omega_BN_B.cross(omega_RN_B)) + this->knownTorquePntB_B;
+    /*! - evaluate required attitude control torque Lc */
+    const Eigen::Vector3f Lc = this->P * omega_BBast_B + this->Ki * this->z - omega_BastN_B.cross(H_B) -
+                               this->ISCPntB_B * (omegap_BastR_B + domega_RN_B - omega_BN_B.cross(omega_RN_B)) +
+                               this->knownTorquePntB_B;
 
     /* Change sign to compute the net positive control torque onto the spacecraft */
-    const Eigen::Vector3f u_s = -Lr;
+    const Eigen::Vector3f Lr = -Lc;
 
     /*! - Set output message and pass it to the message bus */
-    eigenVectorToCArray(u_s, controlOut.torqueRequestBody);
+    eigenVectorToCArray(Lr, controlOut.torqueRequestBody);
 
     return controlOut;
 }
@@ -138,7 +141,12 @@ float RateServoFullNonlinearAlgorithm::getP() const { return this->P; }
  @return void
  @param gain [N*m] Integral feedback gain
 */
-void RateServoFullNonlinearAlgorithm::setKi(const float gain) { this->Ki = gain; }
+void RateServoFullNonlinearAlgorithm::setKi(const float gain) {
+    if (gain < 0.0) {
+        FS_THROW_INVALID_ARGUMENT("Integral feedback gain Ki must not be negative");
+    }
+    this->Ki = gain;
+}
 
 /*! Getter method for the gain Ki.
  @return const float
@@ -149,7 +157,12 @@ float RateServoFullNonlinearAlgorithm::getKi() const { return this->Ki; }
  @return void
  @param limit [N*m*s] Integral limit
 */
-void RateServoFullNonlinearAlgorithm::setIntegralLimit(const float limit) { this->integralLimit = limit; }
+void RateServoFullNonlinearAlgorithm::setIntegralLimit(const float limit) {
+    if (limit < 0.0) {
+        FS_THROW_INVALID_ARGUMENT("Integral limit must not be negative");
+    }
+    this->integralLimit = limit;
+}
 
 /*! Getter method for the integral limit.
  @return const float
@@ -158,10 +171,10 @@ float RateServoFullNonlinearAlgorithm::getIntegralLimit() const { return this->i
 
 /*! Setter method for the known external torque about point B.
  @return void
- @param knownTorquePntB_B [N*m] Known external torque expressed in body frame components
+ @param torque [N*m] Known external torque expressed in body frame components
 */
-void RateServoFullNonlinearAlgorithm::setKnownTorquePntB_B(const Eigen::Vector3f& knownTorquePntB_B) {
-    this->knownTorquePntB_B = knownTorquePntB_B;
+void RateServoFullNonlinearAlgorithm::setKnownTorquePntB_B(const Eigen::Vector3f& torque) {
+    this->knownTorquePntB_B = torque;
 }
 
 /*! Getter method for the known torque about point B.

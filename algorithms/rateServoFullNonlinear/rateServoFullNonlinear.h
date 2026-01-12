@@ -4,10 +4,8 @@
  Copyright (c) 2025, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
  */
 
-#ifndef F32XIMERA_RATE_SERVO_FULL_NONLINEAR_H
-#define F32XIMERA_RATE_SERVO_FULL_NONLINEAR_H
-
-#include <stdint.h>
+#ifndef F32XMERA_RATE_SERVO_FULL_NONLINEAR_H
+#define F32XMERA_RATE_SERVO_FULL_NONLINEAR_H
 
 #include "msgPayloadDef/AttGuidMsgF32Payload.h"
 #include "msgPayloadDef/CmdTorqueBodyMsgF32Payload.h"
@@ -20,10 +18,11 @@
 #include <architecture/messaging/messaging.h>
 #include <architecture/msgPayloadDef/RWAvailabilityMsgPayload.h>
 
+#include <stdint.h>
 #include <Eigen/Core>
 
 /*! @brief The configuration structure for the rateServoFullNonlinear module.  */
-class RateServoFullNonlinear : public SysModel {
+class RateServoFullNonlinear final : public SysModel {
    public:
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
@@ -34,7 +33,7 @@ class RateServoFullNonlinear : public SysModel {
     float getKi() const;
     void setIntegralLimit(float limit);
     float getIntegralLimit() const;
-    void setKnownTorquePntB_B(const Eigen::Vector3f &knownTorquePntB_B);
+    void setKnownTorquePntB_B(const Eigen::Vector3f &torque);
     Eigen::Vector3f getKnownTorquePntB_B() const;
 
     /* declare module IO interfaces */
@@ -48,7 +47,6 @@ class RateServoFullNonlinear : public SysModel {
 
    private:
     RateServoFullNonlinearAlgorithm algorithm{};
-    uint32_t numRW{};  //!< number of reaction wheels
 };
 
 #endif

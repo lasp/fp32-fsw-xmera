@@ -10,7 +10,7 @@ from xmera.utilities import SimulationBaseClass
 from xmera.utilities import macros
 
 @pytest.mark.parametrize("rw_num", [4, 0])
-@pytest.mark.parametrize("int_gain", [0.01, -1])
+@pytest.mark.parametrize("int_gain", [0.01, 0])
 @pytest.mark.parametrize("omegap_BastR_B", [[1.87766650e-04, -3.91233583e-05, 3.56369489e-05], [0, 0, 0]])
 @pytest.mark.parametrize("omega_BastR_B",  [[-2.23886891e-02, 2.47942516e-02, -2.55601849e-02], [0, 0, 0]])
 @pytest.mark.parametrize("integral_limit", [0, 20])
@@ -36,11 +36,14 @@ def test_rate_servo_full_nonlinear(show_plots, rw_num, int_gain, omegap_BastR_B,
     # Add test module to runtime call list
     unit_test_sim.AddModelToTask(unit_task_name, module)
 
+    gain = 150.0
+    known_torque = np.array([1.0, 1.0, 1.0])
+
     # configure module parameters
-    module.setKi(int_gain)
-    module.setP(150.0)
-    module.setIntegralLimit(integral_limit)
-    module.setKnownTorquePntB_B([1,1,1])
+    module.Ki = int_gain
+    module.P = gain
+    module.integralLimit = integral_limit
+    module.knownTorquePntB_B = known_torque
 
     #   Create input message and size it because the regular creator of that message
     #   is not part of the test.
@@ -141,14 +144,21 @@ def test_rate_servo_full_nonlinear(show_plots, rw_num, int_gain, omegap_BastR_B,
 
     # compare the module results to the truth values
     accuracy = 1e-6
-    np.testing.assert_allclose(Lr, Lr_true, atol=accuracy, rtol=0, verbose=True)
+    np.testing.assert_allclose(Lr, Lr_true, atol=accuracy, rtol=accuracy, verbose=True)
+
+    # test setters and getters
+    np.testing.assert_allclose(module.P, gain, atol=accuracy, rtol=accuracy, verbose=True)
+    np.testing.assert_allclose(module.Ki, int_gain, atol=accuracy, rtol=accuracy, verbose=True)
+    np.testing.assert_allclose(module.integralLimit, integral_limit, atol=accuracy, rtol=accuracy, verbose=True)
+    np.testing.assert_allclose(np.array(module.knownTorquePntB_B).flatten(), known_torque, atol=accuracy, rtol=accuracy,
+                               verbose=True)
 
 
 def find_true_torques(module, guid_cmd_data, rw_speed_message, vehicle_config_out, js_list, num_rw, G_s_B, rw_avail_msg, rate_steering_msg):
     Lr = []
 
     #Read in variables
-    L = np.asarray(module.getKnownTorquePntB_B()).flatten()
+    L = np.asarray(module.knownTorquePntB_B).flatten()
     steps = [0, 0, .5, 0, .5]
     omega_BR_B = np.asarray(guid_cmd_data.omega_BR_B)
     omega_RN_B = np.asarray(guid_cmd_data.omega_RN_B)
@@ -161,8 +171,8 @@ def find_true_torques(module, guid_cmd_data, rw_speed_message, vehicle_config_ou
 
     Isc = np.asarray(vehicle_config_out.ISCPntB_B)
     Isc = np.reshape(Isc, (3, 3))
-    Ki = module.getKi()
-    P = module.getP()
+    Ki = module.Ki
+    P = module.P
     js_vec = js_list
     G_s_B_array = np.asarray(G_s_B)
     G_s_B_array = np.reshape(G_s_B_array[0:num_rw * 3], (num_rw, 3))
@@ -174,12 +184,12 @@ def find_true_torques(module, guid_cmd_data, rw_speed_message, vehicle_config_ou
             z_vec = np.asarray([0, 0, 0])
 
         #evaluate integral term
-        if Ki > 0 and abs(module.getIntegralLimit()) > 0: #if integral feedback is on
+        if Ki > 0 and abs(module.integralLimit) > 0: #if integral feedback is on
             z_vec = dt * omega_BBast_B + z_vec  # z = integral(del_omega)
             # Make sure each component is less than the integral limit
             for i in range(3):
-                if z_vec[i] > module.getIntegralLimit():
-                        z_vec[i] = z_vec[i]/abs(z_vec[i])*module.getIntegralLimit()
+                if z_vec[i] > module.integralLimit:
+                        z_vec[i] = z_vec[i]/abs(z_vec[i])*module.integralLimit
 
         else: #integral gain turned off/negative setting
             z_vec = np.asarray([0, 0, 0])

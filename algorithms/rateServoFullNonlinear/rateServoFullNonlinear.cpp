@@ -15,11 +15,9 @@
  */
 void RateServoFullNonlinear::reset(const uint64_t callTime) {
     /* make sure option msg connections are correctly done */
-    if (this->rwParamsInMsg.isLinked()) {
-        if (!this->rwSpeedsInMsg.isLinked()) {
-            throw std::invalid_argument(
-                "rateServoFullNonlinear.rwSpeedsInMsg wasn't connected while rwParamsInMsg was connected.");
-        }
+    if (this->rwParamsInMsg.isLinked() && !this->rwSpeedsInMsg.isLinked()) {
+        throw std::invalid_argument(
+            "rateServoFullNonlinear.rwSpeedsInMsg wasn't connected while rwParamsInMsg was connected.");
     }
 
     // check if essential messages are connected
@@ -43,7 +41,6 @@ void RateServoFullNonlinear::reset(const uint64_t callTime) {
         rwConfigParams = this->rwParamsInMsg();
         rwParamsIsLinked = true;
     }
-    this->numRW = rwConfigParams.numRW;
 
     this->algorithm.reset(sc, rwConfigParams, rwParamsIsLinked);
 }
@@ -59,7 +56,7 @@ void RateServoFullNonlinear::updateState(const uint64_t callTime) {
     RWSpeedMsgF32Payload wheelSpeeds{};            /*!< Reaction wheel speed estimates input message */
     RWAvailabilityMsgPayload wheelsAvailability{}; /*!< Reaction wheel availability input message */
 
-    if (this->numRW > 0) {
+    if (this->rwParamsInMsg.isLinked()) {
         wheelSpeeds = this->rwSpeedsInMsg();
         if (this->rwAvailInMsg.isLinked()) {
             wheelsAvailability = this->rwAvailInMsg();
@@ -107,10 +104,10 @@ float RateServoFullNonlinear::getIntegralLimit() const { return this->algorithm.
 
 /*! Setter method for the known external torque about point B.
  @return void
- @param knownTorquePntB_B [N*m] Known external torque expressed in body frame components
+ @param torque [N*m] Known external torque expressed in body frame components
 */
-void RateServoFullNonlinear::setKnownTorquePntB_B(const Eigen::Vector3f& knownTorquePntB_B) {
-    this->algorithm.setKnownTorquePntB_B(knownTorquePntB_B);
+void RateServoFullNonlinear::setKnownTorquePntB_B(const Eigen::Vector3f& torque) {
+    this->algorithm.setKnownTorquePntB_B(torque);
 }
 
 /*! Getter method for the known torque about point B.

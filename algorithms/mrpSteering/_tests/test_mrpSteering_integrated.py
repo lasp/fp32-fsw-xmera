@@ -42,10 +42,10 @@ def test_mrp_steering_tracking_integrated(show_plots, K1, K3, omega_max, ignore_
     module.omegaMax = omega_max
     module.ignoreOuterLoopFeedforward = ignore_feed_forward
 
-    servo.setKi(0.01)
-    servo.setP(150.0)
-    servo.setIntegralLimit(2. / servo.getKi() * 0.1)
-    servo.setKnownTorquePntB_B([0., 0., 0.])
+    servo.Ki = 0.01
+    servo.P = 150.0
+    servo.integralLimit = 2. / servo.Ki * 0.1
+    servo.knownTorquePntB_B = [0., 0., 0.]
 
     # attGuidOut Message:
     guid_cmd_data = messaging.AttGuidMsgF32Payload()  # Create a structure for the input message
@@ -150,7 +150,7 @@ def find_true_torques(module, servo, guid_cmd_data, rw_speed_message, vehicle_co
 
     #Read in variables
     num_rw = rw_config_params.numRW
-    L = np.asarray(servo.getKnownTorquePntB_B()).flatten()
+    L = np.asarray(servo.knownTorquePntB_B).flatten()
     steps = [0, 0, .5, 0, .5]
     omega_BR_B = np.asarray(guid_cmd_data.omega_BR_B)
     omega_RN_B = np.asarray(guid_cmd_data.omega_RN_B)
@@ -164,8 +164,8 @@ def find_true_torques(module, servo, guid_cmd_data, rw_speed_message, vehicle_co
 
     Isc = np.asarray(vehicle_config_out.ISCPntB_B)
     Isc = np.reshape(Isc, (3, 3))
-    Ki = servo.getKi()
-    P = servo.getP()
+    Ki = servo.Ki
+    P = servo.P
     jsVec = rw_config_params.JsList[0:num_rw]
     GsMatrix = (rw_config_params.GsMatrix_B)
     GsMatrix_B_array = np.reshape(GsMatrix[0:num_rw * 3], (num_rw, 3))
@@ -177,12 +177,12 @@ def find_true_torques(module, servo, guid_cmd_data, rw_speed_message, vehicle_co
             zVec = np.asarray([0, 0, 0])
 
         #evaluate integral term
-        if Ki > 0 and abs(servo.getIntegralLimit()) > 0: #if integral feedback is on
+        if Ki > 0 and abs(servo.integralLimit) > 0: #if integral feedback is on
             zVec = dt * omega_BBast_B + zVec  # z = integral(del_omega)
             # Make sure each component is less than the integral limit
             for i in range(3):
-                if zVec[i] > servo.getIntegralLimit():
-                        zVec[i] = zVec[i]/abs(zVec[i])*servo.getIntegralLimit()
+                if zVec[i] > servo.integralLimit:
+                        zVec[i] = zVec[i]/abs(zVec[i])*servo.integralLimit
 
         else: # integral gain turned off/negative setting
             zVec = np.asarray([0, 0, 0])
