@@ -34,7 +34,8 @@ THRArrayOnTimeCmdMsgF32Payload ThrFiringSchmittAlgorithm::update(uint64_t callTi
         this->prevCallTime = callTime;
 
         for (uint32_t i = 0U; i < this->numThrusters; ++i) {
-            thrOnTimeOut.onTimeRequest[i] = this->baseThrustState == PulsingRegime::ONPULSING ? 0.0F : 2.0F;
+             constexpr float firstCallPulse = 2.0F;  // 2 seconds, needs to be greater than FSW update time step
+            thrOnTimeOut.onTimeRequest[i] = this->baseThrustState == PulsingRegime::ONPULSING ? 0.0F : firstCallPulse;
         }
     } else {
         /*! - compute control time period Delta_t */
@@ -76,7 +77,8 @@ THRArrayOnTimeCmdMsgF32Payload ThrFiringSchmittAlgorithm::update(uint64_t callTi
             } else if (onTime[i] >= controlPeriod) {
                 /*! - Request is greater than control period then oversaturate onTime */
                 this->prevThrustState[i] = ThrusterState::ON;
-                onTime[i] = 1.1 * controlPeriod;  // oversaturate to avoid numerical error
+                 constexpr float overSaturationFactor = 1.1F;  // oversaturate to avoid numerical error
+                onTime[i] = overSaturationFactor * controlPeriod;
             } else {
                 /*! - Request is greater than minimum fire time and less than control period */
                 this->prevThrustState[i] = ThrusterState::ON;
