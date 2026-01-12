@@ -1,6 +1,7 @@
 #include "thrFiringSchmittAlgorithm.h"
 #include "../freestandingInvalidArgument.h"
 #include <architecture/utilities/macroDefinitions.h>
+#include <algorithm>
 
 /*! This method performs a complete reset of the module.  Local module variables that retain
  time varying states between function calls are reset to their default values.
@@ -53,9 +54,7 @@ THRArrayOnTimeCmdMsgF32Payload ThrFiringSchmittAlgorithm::update(uint64_t callTi
             }
 
             /*! - Do not allow thrust requests less than zero */
-            if (thrForceIn.thrForce[i] < 0.0) {
-                thrForceIn.thrForce[i] = 0.0;
-            }
+            thrForceIn.thrForce[i] = std::max(thrForceIn.thrForce[i], 0.0F);
             /*! - Compute T_on from thrust request, max thrust, and control period */
             onTime[i] = thrForceIn.thrForce[i] / this->maxThrust[i] * controlPeriod;
 
