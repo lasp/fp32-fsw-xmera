@@ -11,6 +11,8 @@ algorithms/ephemeridesRecenter/ephemeridesRecenter.h
 algorithms/ephemeridesRecenter/ephemeridesRecenter.cpp
 algorithms/inertial3D/inertial3D.h
 algorithms/inertial3D/inertial3D.cpp
+algorithms/mrpFeedback/mrpFeedback.h
+algorithms/mrpFeedback/mrpFeedback.cpp
 algorithms/mrpSteering/mrpSteering.h
 algorithms/mrpSteering/mrpSteering.cpp
 algorithms/navAggregate/navAggregate.h
