@@ -4,6 +4,8 @@
 #include "THRConfigMsgF32Payload.h"
 #include <architecture/msgPayloadDef/definitions.h>
 
+#include <stdint.h>
+
 /*! @brief FSW message definition containing the thruster cluster information */
 typedef struct {
     uint32_t numThrusters;                       //!< [-] number of thrusters
