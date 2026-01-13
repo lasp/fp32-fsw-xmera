@@ -6,7 +6,6 @@ import numpy as np
 import pytest
 from xmera.architecture import messaging
 from xmera.fp32 import mrpSteeringF32  # import the module that is to be tested
-from xmera.fp32 import rateServoFullNonlinearF32
 from xmera.utilities import RigidBodyKinematics
 from xmera.utilities import SimulationBaseClass
 from xmera.utilities import macros
@@ -31,21 +30,17 @@ def test_mrp_steering_tracking_integrated(show_plots, K1, K3, omega_max, ignore_
     module = mrpSteeringF32.MrpSteering()
     module.modelTag = "mrpSteering"
 
-    servo = rateServoFullNonlinearF32.RateServoFullNonlinear()
-    servo.modelTag = "rate_servo"
-
     unit_test_sim.AddModelToTask(unit_task_name, module)
-    unit_test_sim.AddModelToTask(unit_task_name, servo)
 
     module.K1 = K1
     module.K3 = K3
     module.omegaMax = omega_max
     module.ignoreOuterLoopFeedforward = ignore_feed_forward
 
-    servo.Ki = 0.01
-    servo.P = 150.0
-    servo.integralLimit = 2. / servo.Ki * 0.1
-    servo.knownTorquePntB_B = [0., 0., 0.]
+    module.Ki = 0.01
+    module.P = 150.0
+    module.integralLimit = 2. / module.Ki * 0.1
+    module.knownTorquePntB_B = [0., 0., 0.]
 
     # attGuidOut Message:
     guid_cmd_data = messaging.AttGuidMsgF32Payload()  # Create a structure for the input message
@@ -90,30 +85,27 @@ def test_mrp_steering_tracking_integrated(show_plots, K1, K3, omega_max, ignore_
     rw_avail_list.append(rw_avail)
 
     # Setup logging on the test module output message so that we get all the writes to it
-    data_log = servo.cmdTorqueOutMsg.recorder()
+    data_log = module.cmdTorqueOutMsg.recorder()
     unit_test_sim.AddModelToTask(unit_task_name, data_log)
 
     # connect messages
     module.guidInMsg.subscribeTo(guid_in_msg)
-    servo.guidInMsg.subscribeTo(guid_in_msg)
-    servo.vehConfigInMsg.subscribeTo(vc_in_msg)
-    servo.rwParamsInMsg.subscribeTo(rw_param_in_msg)
-    servo.vehConfigInMsg.subscribeTo(vc_in_msg)
-    servo.rwSpeedsInMsg.subscribeTo(rw_in_msg)
-    servo.rateSteeringInMsg.subscribeTo(module.rateCmdOutMsg)
-    servo.rwAvailInMsg.subscribeTo(rw_avail_in_msg)
+    module.vehConfigInMsg.subscribeTo(vc_in_msg)
+    module.rwParamsInMsg.subscribeTo(rw_param_in_msg)
+    module.rwSpeedsInMsg.subscribeTo(rw_in_msg)
+    module.rwAvailInMsg.subscribeTo(rw_avail_in_msg)
 
     unit_test_sim.InitializeSimulation()
     unit_test_sim.ConfigureStopTime(macros.sec2nano(1.0))  # seconds to stop simulation
     unit_test_sim.ExecuteSimulation()
 
-    servo.reset(1)  # this module reset function needs a time input (in NanoSeconds)
+    module.reset(1)  # this module reset function needs a time input (in NanoSeconds)
 
     unit_test_sim.ConfigureStopTime(macros.sec2nano(2.0))  # seconds to stop simulation
     unit_test_sim.ExecuteSimulation()
 
     # Compute true values
-    true_vals = find_true_torques(module, servo, guid_cmd_data, rw_speed_message, vehicle_config_out, rw_avail_list, rw_config_params)
+    true_vals = find_true_torques(module, guid_cmd_data, rw_speed_message, vehicle_config_out, rw_avail_list, rw_config_params)
 
     # compare the module results to the truth values
     accuracy = 1e-6
@@ -145,12 +137,12 @@ def find_true_values(guid_cmd_data, module):
 
     return omega_ast, omega_ast_p
 
-def find_true_torques(module, servo, guid_cmd_data, rw_speed_message, vehicle_config_out, rw_avail_msg, rw_config_params):
+def find_true_torques(module, guid_cmd_data, rw_speed_message, vehicle_config_out, rw_avail_msg, rw_config_params):
     Lr = []
 
     #Read in variables
     num_rw = rw_config_params.numRW
-    L = np.asarray(servo.knownTorquePntB_B).flatten()
+    L = np.asarray(module.knownTorquePntB_B).flatten()
     steps = [0, 0, .5, 0, .5]
     omega_BR_B = np.asarray(guid_cmd_data.omega_BR_B)
     omega_RN_B = np.asarray(guid_cmd_data.omega_RN_B)
@@ -164,8 +156,8 @@ def find_true_torques(module, servo, guid_cmd_data, rw_speed_message, vehicle_co
 
     Isc = np.asarray(vehicle_config_out.ISCPntB_B)
     Isc = np.reshape(Isc, (3, 3))
-    Ki = servo.Ki
-    P = servo.P
+    Ki = module.Ki
+    P = module.P
     jsVec = rw_config_params.JsList[0:num_rw]
     GsMatrix = (rw_config_params.GsMatrix_B)
     GsMatrix_B_array = np.reshape(GsMatrix[0:num_rw * 3], (num_rw, 3))
@@ -177,12 +169,12 @@ def find_true_torques(module, servo, guid_cmd_data, rw_speed_message, vehicle_co
             zVec = np.asarray([0, 0, 0])
 
         #evaluate integral term
-        if Ki > 0 and abs(servo.integralLimit) > 0: #if integral feedback is on
+        if Ki > 0 and abs(module.integralLimit) > 0: #if integral feedback is on
             zVec = dt * omega_BBast_B + zVec  # z = integral(del_omega)
             # Make sure each component is less than the integral limit
             for i in range(3):
-                if zVec[i] > servo.integralLimit:
-                        zVec[i] = zVec[i]/abs(zVec[i])*servo.integralLimit
+                if zVec[i] > module.integralLimit:
+                        zVec[i] = zVec[i]/abs(zVec[i])*module.integralLimit
 
         else: # integral gain turned off/negative setting
             zVec = np.asarray([0, 0, 0])
