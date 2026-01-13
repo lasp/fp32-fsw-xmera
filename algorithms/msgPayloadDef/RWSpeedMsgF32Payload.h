@@ -7,7 +7,7 @@
 #ifndef RW_SPEED_MESSAGE_F32_H
 #define RW_SPEED_MESSAGE_F32_H
 
-#include "architecture/msgPayloadDef/definitions.h"
+#include "definitions.h"
 
 /*! @brief Structure used to define the output definition for reaction wheel speeds*/
 typedef struct {

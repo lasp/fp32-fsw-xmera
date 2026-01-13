@@ -6,11 +6,9 @@
 
 #include "celestialTwoBodyPointAlgorithm.h"
 #include "../freestandingInvalidArgument.h"
+#include "../utilities/safeMathFloat.h"
 #include "architecture/utilities/eigenSupport.h"
 #include "architecture/utilities/rigidBodyKinematics.hpp"
-#include <architecture/utilities/safeMath.h>
-
-#include <math.h>
 
 void CelestialTwoBodyPointAlgorithm::reset(const bool secCelBodyIsLinked) {
     this->secCelBodyIsLinked = secCelBodyIsLinked;
@@ -40,13 +38,16 @@ AttRefMsgF32Payload CelestialTwoBodyPointAlgorithm::update(EphemerisMsgF32Payloa
                   Eigen::Map<const Eigen::Vector3d>(transNavIn.r_BN_N);
         v_P2B_N = Eigen::Map<const Eigen::Vector3d>(secCelBodyIn.v_BdyZero_N) -
                   Eigen::Map<const Eigen::Vector3d>(transNavIn.v_BN_N);
-        const float dotProduct = R_P2B_N.normalized().dot(R_P1B_N.normalized());
-        platAngDiff = safeAcos(dotProduct);
+
+        Eigen::Vector3f const R_P2B_N_hat = R_P2B_N.normalized().cast<float>();
+        Eigen::Vector3f const R_P1B_N_hat = R_P1B_N.normalized().cast<float>();
+        const float dotProduct = R_P2B_N_hat.dot(R_P1B_N_hat);
+        platAngDiff = safeAcosf(dotProduct);
     }
 
     /*! - Cross the P1 states to get R_P2, v_p2 and a_P2 */
-    if (!this->secCelBodyIsLinked || fabs(platAngDiff) < this->singularityThresh ||
-        fabs(platAngDiff) > M_PI - this->singularityThresh) {
+    if (!this->secCelBodyIsLinked || fabsf(platAngDiff) < this->singularityThresh ||
+        fabsf(platAngDiff) > M_PI - this->singularityThresh) {
         R_P2B_N = R_P1B_N.cross(v_P1B_N);
         v_P2B_N = Eigen::Vector3d::Zero();
     }

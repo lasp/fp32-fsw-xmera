@@ -5,7 +5,15 @@
  */
 
 #include "ephemeridesRecenter.h"
+
+#include <algorithm>
 #include <stdexcept>
+
+static BodyName stringToBodyName(const std::string& bodyName) {
+    BodyName newBodyName{};
+    std::ranges::copy(bodyName.begin(), bodyName.end(), newBodyName.data());
+    return newBodyName;
+}
 
 /*! @brief This method resets the module.
  @return void
@@ -32,8 +40,9 @@ void EphemeridesRecenter::updateState(const uint64_t callTime) {
     std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES> bodyPayloads{};
     for (auto i = 0; i < this->ephemeridesNumber; ++i) {
         BodyEphemerisPayload newBodyPayload{};
-        newBodyPayload.bodySpiceName = this->ephemerides[i].bodySpiceName;
-        newBodyPayload.originalCentralBodyName = this->ephemerides[i].originalCentralBodyName;
+        newBodyPayload.bodySpiceName = stringToBodyName(this->ephemerides.at(i).bodySpiceName);
+        newBodyPayload.originalCentralBodyName = stringToBodyName(this->ephemerides.at(i).originalCentralBodyName);
+
         newBodyPayload.inputEphemerisPayload = this->ephemerides[i].inputEphemerisMsg();
         bodyPayloads[i] = newBodyPayload;
     }
@@ -57,32 +66,34 @@ void EphemeridesRecenter::addBodyEphemerisToRecenter(const BodyEphemeris& epheme
     this->recenteredEphemerisOutputMsgs.push_back(new Message<EphemerisMsgF32Payload>);
     this->ephemerides[this->ephemeridesNumber] = ephemerisBody;
     this->ephemeridesNumber += 1;
-    this->algorithm.addBodyEphemerisToRecenter(ephemerisBody.bodySpiceName);
+    this->algorithm.addBodyEphemerisToRecenter(stringToBodyName(ephemerisBody.bodySpiceName));
 }
 
 /*! @brief Set a new celestial body center by name
  @return void
  @param bodyName std::string : the new zero base
  */
-void EphemeridesRecenter::setNewZeroBase(const std::string& bodyName) { this->algorithm.setNewZeroBaseName(bodyName); }
+void EphemeridesRecenter::setNewZeroBase(const std::string& bodyName) {
+    this->algorithm.setNewZeroBaseName(stringToBodyName(bodyName));
+}
 
 /*! @brief Get the new celestial body center by name
  @return std::string : the new zero base
  */
-std::string EphemeridesRecenter::getNewZeroBase() const { return this->algorithm.getNewZeroBase(); }
+std::string EphemeridesRecenter::getNewZeroBase() const { return {this->algorithm.getNewZeroBase().data()}; }
 
 /*! @brief Set the previous common zero base of all the celestial bodies entered
  @param bodyName std::string : the new zero base
  */
 void EphemeridesRecenter::setPreviousCommonZeroBase(const std::string& bodyName) {
-    this->algorithm.setPreviousCommonZeroBase(bodyName);
+    this->algorithm.setPreviousCommonZeroBase(stringToBodyName(bodyName));
 }
 
 /*! @brief Get the previous common zero base of all the celestial bodies entered
  @return std::string : the new zero base
  */
 std::string EphemeridesRecenter::getPreviousCommonZeroBase() const {
-    return this->algorithm.getPreviousCommonZeroBase();
+    return {this->algorithm.getPreviousCommonZeroBase().data()};
 }
 
 /*! @brief Get the number of bodies that were entered into the module
@@ -95,21 +106,25 @@ size_t EphemeridesRecenter::getNumberOfBodies() const { return this->algorithm.g
  @return size_t : whether or not the index was found
  */
 size_t EphemeridesRecenter::getBodyIndexFromName(const std::string& celestialBodyName) const {
-    return this->algorithm.getBodyIndexFromName(celestialBodyName);
+    return this->algorithm.getBodyIndexFromName(stringToBodyName(celestialBodyName));
 }
 
 /*! @brief Get all the names of the bodies entered
  @return std::array<std::string, MAX_NUM_CHANGE_BODIES> : an array of names
  */
 std::array<std::string, MAX_NUM_CHANGE_BODIES> EphemeridesRecenter::getAllNames() const {
-    return this->algorithm.getAllNames();
+    auto bodyNames = this->algorithm.getAllNames();
+    std::array<std::string, MAX_NUM_CHANGE_BODIES> bodyNamesAsStrings{};
+    for (size_t i = 0; i < MAX_NUM_CHANGE_BODIES; ++i) {
+        bodyNamesAsStrings.at(i) = std::string(bodyNames.at(i).data());
+    }
+    return bodyNamesAsStrings;
 }
 
 /*! @brief Clear all the bodies from the current list
  */
 void EphemeridesRecenter::clearAllBodies() {
-    BodyEphemeris emptyBody{};
-    std::fill(this->ephemerides.begin(), this->ephemerides.end(), emptyBody);
+    std::ranges::fill(this->ephemerides, BodyEphemeris{});
     this->ephemeridesNumber = 0;
     this->algorithm.clearAllBodies();
 }

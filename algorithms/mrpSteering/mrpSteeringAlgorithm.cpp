@@ -8,7 +8,6 @@
 #include "../freestandingInvalidArgument.h"
 #include "architecture/utilities/eigenSupport.h"
 #include "architecture/utilities/rigidBodyKinematics.hpp"
-#include <math.h>
 #include <Eigen/Core>
 #include <numbers>
 

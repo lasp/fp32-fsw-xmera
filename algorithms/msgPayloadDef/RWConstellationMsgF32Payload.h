@@ -8,7 +8,7 @@
 #define RW_CONSTELLATION_MESSAGE_F32_H
 
 #include "RWConfigElementMsgF32Payload.h"
-#include <architecture/msgPayloadDef/definitions.h>
+#include "definitions.h"
 
 /*! @brief Message used to define an array of RW FSW configurations  */
 typedef struct {

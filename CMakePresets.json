@@ -9,7 +9,8 @@
       "generator": "Unix Makefiles",
       "binaryDir": "${sourceDir}/build/${presetName}",
       "cacheVariables": {
-        "EIGEN3_DIR": "../eigen"
+        "EIGEN3_DIR": "../eigen",
+        "GENERATE_ADA_BINDINGS": "OFF"
       }
     },
     {

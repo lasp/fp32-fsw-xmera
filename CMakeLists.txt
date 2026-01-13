@@ -93,7 +93,21 @@ if(NOT IS_DIRECTORY "${EIGEN3_DIR}/Eigen")
   message(FATAL_ERROR "Eigen not found under ${EIGEN3_DIR}")
 endif()
 
-set(algorithms "attTrackingError")
+# "rateServoFullNonlinear" "rwMotorVoltage" "stepperMotorController"
+set(algorithms
+    "attTrackingError"
+    "celestialTwoBodyPoint"
+    "ephemeridesRecenter"
+    "ephemNavConverter"
+    "inertial3D"
+    "mrpSteering"
+    "navAggregate"
+    "oeStateEphem"
+    "rateControl"
+    "rwNullSpace"
+    "sunlineEphem"
+    "sunSearch"
+)
 foreach(algorithm_name IN LISTS algorithms)
   add_algorithm(${algorithm_name})
 endforeach()
@@ -114,20 +128,21 @@ set_target_properties(gncAlgorithms PROPERTIES
 add_subdirectory("architecture/utilities")
 target_link_libraries(gncAlgorithms PUBLIC utilities)
 
-# 8) Generate Ada bindings (always, for both Linux and RISC-V)
-set(BINDINGS_DIR "${PROJECT_BINARY_DIR}/bindings")
-file(MAKE_DIRECTORY "${BINDINGS_DIR}")
+if(GENERATE_ADA_BINDINGS)
+  # 8) Generate Ada bindings (always, for both Linux and RISC-V)
+  set(BINDINGS_DIR "${PROJECT_BINARY_DIR}/bindings")
+  file(MAKE_DIRECTORY "${BINDINGS_DIR}")
 
-set(ada_specs "")
-foreach(module_name IN LISTS algorithms)
-  generate_ada_spec(${module_name} ada_specs)
-endforeach()
+  set(ada_specs "")
+  foreach(module_name IN LISTS algorithms)
+    generate_ada_spec(${module_name} ada_specs)
+  endforeach()
 
-add_custom_target(generate_ada_bindings ALL
-  DEPENDS ${ada_specs}
-)
-
-add_dependencies(gncAlgorithms generate_ada_bindings)
+  add_custom_target(generate_ada_bindings ALL
+    DEPENDS ${ada_specs}
+  )
+  add_dependencies(gncAlgorithms generate_ada_bindings)
+endif()
 
 # 9) Usage summary:
 # Native Linux (Debug):
