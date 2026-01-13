@@ -18,6 +18,7 @@ class MrpPDAlgorithm {
 
     CmdTorqueBodyMsgF32Payload update(AttGuidMsgF32Payload guidInMsg) const;
     void setSpacecraftInertia(VehicleConfigMsgF32Payload vehicleConfigInMsg);
+    Eigen::Matrix3f getSpacecraftInertia() const;
     void setDerivativeGainP(float P);
     float getDerivativeGainP() const;
     void setKnownTorquePntB_B(const Eigen::Vector3f& knownTorquePntB_B);

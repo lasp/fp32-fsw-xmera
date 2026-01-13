@@ -39,6 +39,11 @@ void MrpPDAlgorithm::setSpacecraftInertia(VehicleConfigMsgF32Payload vehicleConf
     this->ISCPntB_B = cArrayToEigenMatrix3(vehicleConfigInMsg.ISCPntB_B);
 }
 
+/*! This method gets the spacecraft inertia matrix
+ @return Eigen::Matrix3f
+*/
+Eigen::Matrix3f MrpPDAlgorithm::getSpacecraftInertia() const { return this->ISCPntB_B; }
+
 /*! Setter method for the derivative gain P.
  @return void
  @param P [N*m*s] Rate error feedback gain applied
