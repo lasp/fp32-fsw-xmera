@@ -43,7 +43,7 @@ class EphemeridesRecenterAlgorithm {
    public:
     void reset();
     std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES> updateState(
-        const std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES>& newBody);
+        const std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES>& newBodies);
     size_t getBodyIndexFromName(const BodyName& celestialBodyName) const;
     void setNewZeroBaseName(const BodyName& bodyName);
     size_t findNewZeroBaseIndex(const BodyName& bodyName);
