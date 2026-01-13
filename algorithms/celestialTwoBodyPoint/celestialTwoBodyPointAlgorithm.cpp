@@ -38,7 +38,10 @@ AttRefMsgF32Payload CelestialTwoBodyPointAlgorithm::update(EphemerisMsgF32Payloa
                   Eigen::Map<const Eigen::Vector3d>(transNavIn.r_BN_N);
         v_P2B_N = Eigen::Map<const Eigen::Vector3d>(secCelBodyIn.v_BdyZero_N) -
                   Eigen::Map<const Eigen::Vector3d>(transNavIn.v_BN_N);
-        const float dotProduct = R_P2B_N.normalized().dot(R_P1B_N.normalized());
+
+        Eigen::Vector3f const R_P2B_N_hat = R_P2B_N.normalized().cast<float>();
+        Eigen::Vector3f const R_P1B_N_hat = R_P1B_N.normalized().cast<float>();
+        const float dotProduct = R_P2B_N_hat.dot(R_P1B_N_hat);
         platAngDiff = safeAcosf(dotProduct);
     }
 
