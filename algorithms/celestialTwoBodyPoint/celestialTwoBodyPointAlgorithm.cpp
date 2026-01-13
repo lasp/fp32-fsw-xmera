@@ -46,8 +46,8 @@ AttRefMsgF32Payload CelestialTwoBodyPointAlgorithm::update(EphemerisMsgF32Payloa
     }
 
     /*! - Cross the P1 states to get R_P2, v_p2 and a_P2 */
-    if (!this->secCelBodyIsLinked || fabs(platAngDiff) < this->singularityThresh ||
-        fabs(platAngDiff) > M_PI - this->singularityThresh) {
+    if (!this->secCelBodyIsLinked || fabsf(platAngDiff) < this->singularityThresh ||
+        fabsf(platAngDiff) > M_PI - this->singularityThresh) {
         R_P2B_N = R_P1B_N.cross(v_P1B_N);
         v_P2B_N = Eigen::Vector3d::Zero();
     }
