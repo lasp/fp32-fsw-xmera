@@ -3,7 +3,6 @@ import pytest
 from xmera.architecture import messaging
 from xmera.fp32 import celestialTwoBodyPointF32  # module that is to be tested
 from xmera.utilities import RigidBodyKinematics as rbk
-# Import all of the modules that we are going to be called in this simulation
 from xmera.utilities import SimulationBaseClass
 from xmera.utilities import astroFunctions as af
 from xmera.utilities import macros
