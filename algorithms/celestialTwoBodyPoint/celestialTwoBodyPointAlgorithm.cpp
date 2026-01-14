@@ -17,8 +17,6 @@ void CelestialTwoBodyPointAlgorithm::reset(const bool secCelBodyIsLinked) {
 AttRefMsgF32Payload CelestialTwoBodyPointAlgorithm::update(EphemerisMsgF32Payload& celBodyIn,
                                                            EphemerisMsgF32Payload& secCelBodyIn,
                                                            NavTransMsgF32Payload& transNavIn) const {
-    float platAngDiff{}; /* Angle between r_P1 and r_P2 */
-
     const Eigen::Vector3d R_P1B_N =
         Eigen::Map<const Eigen::Vector3d>(celBodyIn.r_BdyZero_N) - Eigen::Map<const Eigen::Vector3d>(transNavIn.r_BN_N);
     const Eigen::Vector3d v_P1B_N =
@@ -27,6 +25,7 @@ AttRefMsgF32Payload CelestialTwoBodyPointAlgorithm::update(EphemerisMsgF32Payloa
     Eigen::Vector3d R_P2B_N{};
     Eigen::Vector3d v_P2B_N{};
 
+    float platAngDiff{}; /* Angle between r_PB_N and r_SB_N */
     if (this->secCelBodyIsLinked) {
         R_P2B_N = Eigen::Map<const Eigen::Vector3d>(secCelBodyIn.r_BdyZero_N) -
                   Eigen::Map<const Eigen::Vector3d>(transNavIn.r_BN_N);
