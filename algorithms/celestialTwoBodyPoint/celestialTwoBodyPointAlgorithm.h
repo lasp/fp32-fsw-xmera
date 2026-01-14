@@ -8,7 +8,7 @@
 
 /*!@brief Data structure for module to compute the two-body celestial pointing navigation solution.
  */
-class CelestialTwoBodyPointAlgorithm {
+class CelestialTwoBodyPointAlgorithm final {
    public:
     void reset(bool secCelBodyIsLinked);
     AttRefMsgF32Payload update(EphemerisMsgF32Payload& celBodyIn,

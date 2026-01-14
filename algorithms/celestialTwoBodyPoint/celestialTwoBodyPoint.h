@@ -12,7 +12,7 @@
 
 /*!@brief Data structure for module to compute the two-body celestial pointing navigation solution.
  */
-class CelestialTwoBodyPoint : public SysModel {
+class CelestialTwoBodyPoint final : public SysModel {
    public:
     CelestialTwoBodyPoint() = default;
     ~CelestialTwoBodyPoint() = default;
