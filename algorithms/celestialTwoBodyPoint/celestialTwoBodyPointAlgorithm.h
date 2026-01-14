@@ -14,6 +14,9 @@ class CelestialTwoBodyPointAlgorithm final {
     AttRefMsgF32Payload update(EphemerisMsgF32Payload& celBodyIn,
                                EphemerisMsgF32Payload& secCelBodyIn,
                                NavTransMsgF32Payload& transNavIn) const;
+
+    static AttRefMsgF32Payload rateAndAccelCalc(const Eigen::Vector3d &r_PB_N, const Eigen::Vector3d &v_PB_N,
+                                                const Eigen::Vector3d &r_SB_N, const Eigen::Vector3d &v_SB_N);
     void setSingularityThresh(float thresh);
     float getSingularityThresh() const;
 
