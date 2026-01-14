@@ -36,13 +36,25 @@ AttRefMsgF32Payload CelestialTwoBodyPointAlgorithm::update(EphemerisMsgF32Payloa
         platAngDiff = safeAcosf(dotProduct);
     }
 
-    /*! - Cross the first bodies' states to get R_SB and v_SB */
+    /*! - Cross the first bodies' states to get R_SB and v_SB if no secondary celestial body is included or
+     if the two bodies are close to parallel */
     if (!this->secCelBodyIsLinked || fabs(platAngDiff) < this->singularityThresh ||
         fabs(platAngDiff) > M_PI - this->singularityThresh) {
         r_SB_N = r_PB_N.cross(v_PB_N);
         v_SB_N = Eigen::Vector3d::Zero();
     }
 
+    const AttRefMsgF32Payload attRefOut = this->rateAndAccelCalc(r_PB_N, v_PB_N, r_SB_N, v_SB_N);
+
+
+
+    return attRefOut;
+}
+
+AttRefMsgF32Payload CelestialTwoBodyPointAlgorithm::rateAndAccelCalc(const Eigen::Vector3d &r_PB_N,
+                                                                     const Eigen::Vector3d &v_PB_N,
+                                                                     const Eigen::Vector3d &r_SB_N,
+                                                                     const Eigen::Vector3d &v_SB_N) {
     AttRefMsgF32Payload attRefOut{};
 
     /* - Initial computations: R_n, v_n, a_n */
