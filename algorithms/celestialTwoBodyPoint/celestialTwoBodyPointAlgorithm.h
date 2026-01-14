@@ -10,7 +10,7 @@
  */
 class CelestialTwoBodyPointAlgorithm final {
    public:
-    void reset(bool secCelBodyIsLinked);
+    void reset(bool secCelBodyIsLinkedIn);
     AttRefMsgF32Payload update(EphemerisMsgF32Payload& celBodyIn,
                                EphemerisMsgF32Payload& secCelBodyIn,
                                NavTransMsgF32Payload& transNavIn) const;

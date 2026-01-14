@@ -4,8 +4,8 @@
 #include "utilities/fsw/rigidBodyKinematics.hpp"
 #include "utilities/fsw/safeMath.h"
 
-void CelestialTwoBodyPointAlgorithm::reset(const bool secCelBodyIsLinked) {
-    this->secCelBodyIsLinked = secCelBodyIsLinked;
+void CelestialTwoBodyPointAlgorithm::reset(const bool secCelBodyIsLinkedIn) {
+    this->secCelBodyIsLinked = secCelBodyIsLinkedIn;
 }
 
 /*! This method takes the spacecraft and points a specified axis at a named
