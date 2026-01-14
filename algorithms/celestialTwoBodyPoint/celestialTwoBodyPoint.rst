@@ -71,22 +71,18 @@ to the spacecraft is obtained by simple subtraction:
 
 .. math::
 
-   \begin{align}
             \mathbf{R}_{P1} =\mathbf{R}_{P} - \mathbf{r}_{B/N} \\
             \mathbf{R}_{P2} =\mathbf{R}_{S} - \mathbf{r}_{B/N}
-       \end{align}
 
 In analogy, the inertial derivatives of these position vectors are
 obtained:
 
 .. math::
 
-   \begin{align}
             \mathbf{v}_{P1} &=\mathbf{v}_{P} - \mathbf{v}_{B/N} \\
             \mathbf{v}_{P2} &=\mathbf{v}_{S} - \mathbf{v}_{B/N} \\
             \mathbf{a}_{P1} &=\mathbf{a}_{P} - \mathbf{a}_{B/N} \\
             \mathbf{a}_{P2} &=\mathbf{a}_{S} - \mathbf{a}_{B/N}
-       \end{align}
 
 Note that, while the documentation includes the full derivation including the acceleration of the spacecraft with
 respect to the planets, the module assumes that :math:`\mathbf{a}_{P1} = \mathbf{a}_{P2} = 0`.
@@ -146,11 +142,9 @@ desired reference frame :math:`\mathcal{R}` are defined as following:
 
 .. math::
 
-   \begin{align}
            \hat{\mathbf r}_{1} &= \frac{{\mathbf R}_{P1}} {|{\mathbf R}_{P1}|} \\
            \hat{\mathbf r}_{3} &= \frac{{\mathbf R}_{n}}{|{\mathbf R}_{n}|} \\
-           \hat{\mathbf r}_{2} &=  \hat{\mathbf r}_{3} \times \hat{\mathbf r}_{1}
-       \end{align}
+           \hat{\mathbf r}_{2} &= \hat{\mathbf r}_{3} \times \hat{\mathbf r}_{1}
 
 Since the position vectors are given in terms of inertial
 :math:`\mathcal{N}`-frame components, the DCM from the inertial frame
@@ -175,15 +169,12 @@ Several lines of algebra lead to the following sets:
 
 .. math::
 
-   \begin{align}
            \dot{\hat{\mathbf{r}}}_1 &= ([I_{3\times3}] - {\hat{\mathbf{r}}_1}{\hat{\mathbf{r}}_1}^T)  \frac{{\mathbf V}_{P1}} {|{\mathbf R}_{P1}|} \\
            \dot{\hat{\mathbf{r}}}_3 &= ([I_{3\times3}] - \hat{\mathbf{r}}_3 \hat{\mathbf{r}}_3^T)  \frac{{\mathbf v}_{n}} {|{\mathbf R}_{n}|} \\
            \dot{\hat{\mathbf{r}}}_2 &= \dot{\hat{\mathbf{r}}}_3 \times \hat{\mathbf{r}}_1 +  \hat{\mathbf{r}}_3  \times \dot{\hat{\mathbf{r}}}_1
-       \end{align}
 
 .. math::
 
-   \begin{align}
            \ddot{\hat{\mathbf{r}}}_1 &= \frac{1}{|{\mathbf R}_{P1}|}
            (
            ([I_{3\times3}] - {\hat{\mathbf{r}}_1}{\hat{\mathbf{r}}_1}^T)  \mathbf{a}_{P1} -
@@ -197,7 +188,6 @@ Several lines of algebra lead to the following sets:
            \hat{\mathbf{r}}_3 (\dot{\hat{\mathbf{r}}}_3 \cdot \mathbf{v}_{n})
            ) \\
            \ddot{\hat{\mathbf{r}}}_2 &= \ddot{\hat{\mathbf{r}}}_3 \times \hat{\mathbf{r}}_1 +  \hat{\mathbf{r}}_3  \times \ddot{\hat{\mathbf{r}}}_1 + 2 \dot{\hat{\mathbf{r}}}_3 \times \dot{\hat{\mathbf{r}}}_1
-       \end{align}
 
 Angular Velocity and Acceleration Descriptions
 ==============================================
@@ -207,15 +197,12 @@ Developing some more mathematics, the following elegant expressions of
 
 .. math::
 
-   \begin{align}
            \mathbf\omega_{R/N} \cdot \hat{\mathbf r}_{1}  = \hat{\mathbf r}_{3} \cdot \dot{\hat{\mathbf r}}_{2}  \\
            \mathbf\omega_{R/N} \cdot \hat{\mathbf r}_{2} = \hat{\mathbf r}_{1} \cdot \dot{\hat{\mathbf r}}_{3}\\
            \mathbf\omega_{R/N} \cdot \hat{\mathbf r}_{3} = \hat{\mathbf r}_{2} \cdot \dot{\hat{\mathbf r}}_{1}
-       \end{align}
 
 .. math::
 
-   \begin{align}
            \dot{\mathbf\omega}_{R/N} \cdot \hat{\mathbf r}_{1} &=
            \dot{\hat{\mathbf r}}_{3} \cdot \dot{\hat{\mathbf r}}_{2} + \hat{\mathbf r}_{3} \cdot \ddot{\hat{\mathbf r}}_{2} -  \mathbf\omega_{R/N} \cdot \dot{\hat{\mathbf r}}_{1}
            \\
@@ -224,7 +211,6 @@ Developing some more mathematics, the following elegant expressions of
            \\
            \dot{\mathbf\omega}_{R/N} \cdot \hat{\mathbf r}_{3} &=
            \dot{\hat{\mathbf r}}_{2} \cdot \dot{\hat{\mathbf r}}_{1} + \hat{\mathbf r}_{2} \cdot \ddot{\hat{\mathbf r}}_{1} -  \mathbf\omega_{R/N} \cdot \dot{\hat{\mathbf r}}_{3}
-       \end{align}
 
 Note that :math:`\mathbf\omega_{R/N} \cdot \hat{\mathbf r}_{1}` is the first
 component of the angular velocity of the reference with respect to the
@@ -256,8 +242,6 @@ Eventually, in inertial frame components:
 
 .. math::
 
-   \begin{align}
            {}^{N} {\mathbf\omega_{R/N}} &= [RN] \textrm{ } {}^{R} {\mathbf\omega_{R/N}}
            \\
            {}^{N} {\mathbf{\dot\omega}_{R/N}} &= [RN]  \textrm{ } {}^{R} {\mathbf{\dot\omega}_{R/N}}
-       \end{align}
