@@ -18,19 +18,19 @@ AttRefMsgF32Payload CelestialTwoBodyPointAlgorithm::update(EphemerisMsgF32Payloa
                                                            EphemerisMsgF32Payload& secCelBodyIn,
                                                            NavTransMsgF32Payload& transNavIn) const {
     const Eigen::Vector3d r_PB_N =
-        Eigen::Map<const Eigen::Vector3d>(celBodyIn.r_BdyZero_N) - Eigen::Map<const Eigen::Vector3d>(transNavIn.r_BN_N);
+        cArrayToEigenVector3(celBodyIn.r_BdyZero_N) - cArrayToEigenVector3(transNavIn.r_BN_N);
     const Eigen::Vector3d v_PB_N =
-        Eigen::Map<const Eigen::Vector3d>(celBodyIn.v_BdyZero_N) - Eigen::Map<const Eigen::Vector3d>(transNavIn.v_BN_N);
+        cArrayToEigenVector3(celBodyIn.v_BdyZero_N) - cArrayToEigenVector3(transNavIn.v_BN_N);
 
     Eigen::Vector3d r_SB_N{};
     Eigen::Vector3d v_SB_N{};
 
     float platAngDiff{}; /* Angle between r_PB_N and r_SB_N */
     if (this->secCelBodyIsLinked) {
-        r_SB_N = Eigen::Map<const Eigen::Vector3d>(secCelBodyIn.r_BdyZero_N) -
-                  Eigen::Map<const Eigen::Vector3d>(transNavIn.r_BN_N);
-        v_SB_N = Eigen::Map<const Eigen::Vector3d>(secCelBodyIn.v_BdyZero_N) -
-                  Eigen::Map<const Eigen::Vector3d>(transNavIn.v_BN_N);
+        r_SB_N = cArrayToEigenVector3(secCelBodyIn.r_BdyZero_N) -
+                  cArrayToEigenVector3(transNavIn.r_BN_N);
+        v_SB_N = cArrayToEigenVector3(secCelBodyIn.v_BdyZero_N) -
+                  cArrayToEigenVector3(transNavIn.v_BN_N);
 
         const float dotProduct = r_SB_N.normalized().dot(r_PB_N.normalized());
         platAngDiff = safeAcosf(dotProduct);
