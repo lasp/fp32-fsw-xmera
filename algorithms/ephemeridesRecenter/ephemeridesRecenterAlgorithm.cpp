@@ -8,7 +8,7 @@
 #include "../freestandingInvalidArgument.h"
 #include <algorithm>
 
-#include "fp32-fsw-xmera/architecture/utilities/eigenSupport.h"
+#include "architecture/utilities/eigenSupport.h"
 #include <Eigen/Core>
 
 void EphemeridesRecenterAlgorithm::reset() {
