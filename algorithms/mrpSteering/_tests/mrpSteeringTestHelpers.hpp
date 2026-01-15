@@ -14,8 +14,8 @@
 #include <architecture/utilities/macroDefinitions.h>
 #include <fswAlgorithms/fswUtilities/fswDefinitions.h>
 #include <gtest/gtest.h>
-#include <cmath>
 #include <Eigen/Core>
+#include <cmath>
 #include <numbers>
 #include <vector>
 
@@ -35,7 +35,6 @@ ReferenceOutput referenceUpdate(const MrpSteeringAlgorithm& alg,
                                 AttGuidMsgF32Payload guidCmd,
                                 const RWSpeedMsgF32Payload& wheelSpeeds,
                                 const RWAvailabilityMsgPayload& wheelsAvailability) {
-
     const Eigen::Vector3f sigma_BR = cArrayToEigenVector(guidCmd.sigma_BR);
     Eigen::Vector3f omega_BastR_B{};
     Eigen::Vector3f omegap_BastR_B{Eigen::Vector3f::Zero()};
@@ -223,15 +222,9 @@ inline void testMrpSteering(std::vector<float> sigma,
         CmdTorqueBodyMsgF32Payload out{};
         ReferenceOutput refOutput{};
         EXPECT_NO_THROW(out = alg.update(callTime, guidCmdMsg, wheelSpeedsMsg, wheelsAvailabilityMsg));
-        EXPECT_NO_THROW(refOutput = referenceUpdate(alg,
-                                                    rwConfigMsg,
-                                                    ISC_B,
-                                                    z,
-                                                    priorTime,
-                                                    callTime,
-                                                    guidCmdMsg,
-                                                    wheelSpeedsMsg,
-                                                    wheelsAvailabilityMsg));
+        EXPECT_NO_THROW(
+            refOutput = referenceUpdate(
+                alg, rwConfigMsg, ISC_B, z, priorTime, callTime, guidCmdMsg, wheelSpeedsMsg, wheelsAvailabilityMsg));
         CmdTorqueBodyMsgF32Payload ref = refOutput.cmdTorqueBody;
         z = refOutput.z;
         priorTime = refOutput.priorTime;

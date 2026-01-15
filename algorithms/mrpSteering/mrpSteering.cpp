@@ -15,8 +15,7 @@
 void MrpSteering::reset(const uint64_t callTime) {
     // make sure optional msg connections are correctly done */
     if (this->rwParamsInMsg.isLinked() && !this->rwSpeedsInMsg.isLinked()) {
-        throw std::invalid_argument(
-            "mrpSteering.rwSpeedsInMsg wasn't connected while rwParamsInMsg was connected.");
+        throw std::invalid_argument("mrpSteering.rwSpeedsInMsg wasn't connected while rwParamsInMsg was connected.");
     }
     // check for required input message
     if (!this->guidInMsg.isLinked()) {
@@ -56,8 +55,7 @@ void MrpSteering::updateState(const uint64_t callTime) {
         }
     }
 
-    CmdTorqueBodyMsgF32Payload controlOut =
-        algorithm.update(callTime, guidCmd, wheelSpeeds, wheelsAvailability);
+    CmdTorqueBodyMsgF32Payload controlOut = algorithm.update(callTime, guidCmd, wheelSpeeds, wheelsAvailability);
 
     this->cmdTorqueOutMsg.write(&controlOut, moduleID, callTime);
 }
@@ -143,9 +141,7 @@ float MrpSteering::getIntegralLimit() const { return this->algorithm.getIntegral
  @return void
  @param torque [N*m] Known external torque expressed in body frame components
 */
-void MrpSteering::setKnownTorquePntB_B(const Eigen::Vector3f& torque) {
-    this->algorithm.setKnownTorquePntB_B(torque);
-}
+void MrpSteering::setKnownTorquePntB_B(const Eigen::Vector3f& torque) { this->algorithm.setKnownTorquePntB_B(torque); }
 
 /*! Getter method for the known torque about point B.
  @return const Eigen::Vector3f

@@ -23,4 +23,4 @@ FUZZ_TEST(MrpSteeringAlgorithmFuzz, testMrpSteering)
                  fuzztest::VectorOf(fuzztest::InRange(-1e6F, 1e6F)).WithSize(9U),               // ISCPntB_B
                  fuzztest::Arbitrary<bool>(),                                                   // rwIsLinked
                  fuzztest::InRange(1e-6F, 1e10F)                                                // dt
-                 );
+    );

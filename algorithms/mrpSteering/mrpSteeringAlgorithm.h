@@ -54,12 +54,12 @@ class MrpSteeringAlgorithm final {
     float Ki{};                         //!< [N*m]     Integration feedback error on rate error
     float integralLimit{};              //!< [N*m]     Integration limit to avoid wind-up issue
     Eigen::Vector3f knownTorquePntB_B{
-        Eigen::Vector3f::Zero()};     //!< [N*m]     known external torque in body frame vector components
-    uint64_t priorTime{};               //!< [ns]      Last time the attitude control is called
-    Eigen::Vector3f z{};                //!< [rad]     integral state of delta_omega
-    Eigen::Matrix3f ISCPntB_B{};        //!< [kg m^2] Spacecraft Inertia
+        Eigen::Vector3f::Zero()};  //!< [N*m]     known external torque in body frame vector components
+    uint64_t priorTime{};          //!< [ns]      Last time the attitude control is called
+    Eigen::Vector3f z{};           //!< [rad]     integral state of delta_omega
+    Eigen::Matrix3f ISCPntB_B{};   //!< [kg m^2] Spacecraft Inertia
     RWArrayConfigMsgF32Payload
-        rwConfigParams{};               //!< [-] struct to store message containing RW config parameters in body B frame
+        rwConfigParams{};   //!< [-] struct to store message containing RW config parameters in body B frame
     bool rwIsConfigured{};  //!< [-] indicates whether reaction wheels are configured through the rwConfigMsg
 };
 

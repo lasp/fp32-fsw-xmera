@@ -21,8 +21,8 @@
  @param rwIsConfigured boolean indicating whether reaction wheels are configured through the rwConfigMsg
  */
 void MrpSteeringAlgorithm::reset(VehicleConfigMsgF32Payload vehConfigMsg,
-                                            const RWArrayConfigMsgF32Payload& rwConfigMsg,
-                                            const bool rwIsConfigured) {
+                                 const RWArrayConfigMsgF32Payload& rwConfigMsg,
+                                 const bool rwIsConfigured) {
     this->ISCPntB_B = cArrayToEigenMatrix3(vehConfigMsg.ISCPntB_B);
 
     if (rwIsConfigured) {
@@ -254,9 +254,7 @@ float MrpSteeringAlgorithm::getIntegralLimit() const { return this->integralLimi
  @return void
  @param torque [N*m] Known external torque expressed in body frame components
 */
-void MrpSteeringAlgorithm::setKnownTorquePntB_B(const Eigen::Vector3f& torque) {
-    this->knownTorquePntB_B = torque;
-}
+void MrpSteeringAlgorithm::setKnownTorquePntB_B(const Eigen::Vector3f& torque) { this->knownTorquePntB_B = torque; }
 
 /*! Getter method for the known torque about point B.
  @return const Eigen::Vector3f
