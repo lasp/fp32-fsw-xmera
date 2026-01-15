@@ -69,7 +69,7 @@ ReferenceOutput referenceUpdate(const MrpSteeringAlgorithm& alg,
     if (priorTime == 0U) {
         dt = 0.0F;
     } else {
-        dt = static_cast<float>(static_cast<double>(callTime - priorTime) * NANO2SEC);
+        dt = static_cast<float>(callTime - priorTime) * static_cast<float>(NANO2SEC);
     }
     priorTime = callTime;
 
@@ -98,9 +98,6 @@ ReferenceOutput referenceUpdate(const MrpSteeringAlgorithm& alg,
         z = Eigen::Vector3f::Zero();
     }
 
-    /*! - evaluate required attitude control torque Lr */
-    Eigen::Vector3f Lr = alg.getP() * omega_BBast_B + alg.getKi() * z;
-
     const Eigen::Matrix<float, 3, RW_EFF_CNT> G_s_B =
         cArrayToEigenMatrix<float, 3, RW_EFF_CNT>(rwConfigParams.GsMatrix_B);
 
@@ -113,9 +110,11 @@ ReferenceOutput referenceUpdate(const MrpSteeringAlgorithm& alg,
             H_B += h_s_i;
         }
     }
-    Lr -= omega_BastN_B.cross(H_B);
 
-    Lr += -ISCPntB_B * (omegap_BastR_B + domega_RN_B - omega_BN_B.cross(omega_RN_B)) + alg.getKnownTorquePntB_B();
+    /*! - evaluate required attitude control torque Lc */
+    const Eigen::Vector3f Lr = alg.getP() * omega_BBast_B + alg.getKi() * z - omega_BastN_B.cross(H_B) -
+                               ISCPntB_B * (omegap_BastR_B + domega_RN_B - omega_BN_B.cross(omega_RN_B)) +
+                               alg.getKnownTorquePntB_B();
 
     /* Change sign to compute the net positive control torque onto the spacecraft */
     const Eigen::Vector3f u_s = -Lr;
