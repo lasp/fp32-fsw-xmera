@@ -34,6 +34,9 @@ ReferenceOutput referenceUpdate(const ThrFiringSchmittAlgorithm& alg,
     float thrMinFireTime = alg.getThrMinFireTime();
     PulsingRegime baseThrustState = alg.getBaseThrustState();
 
+    std::array<float, MAX_EFF_CNT> thrForce{};
+    std::ranges::copy(std::begin(thrForceIn.thrForce), std::end(thrForceIn.thrForce), std::begin(thrForce));
+
     THRArrayOnTimeCmdMsgF32Payload thrOnTimeOut{}; /* -- thruster on-time output payload */
 
     /*! - the first time update() is called there is no information on the time step.  Here
@@ -56,15 +59,15 @@ ReferenceOutput referenceUpdate(const ThrFiringSchmittAlgorithm& alg,
              needs to be added.  If not control force is requested in off-pulsing mode, then the thruster force should
              be set to the maximum thrust value */
             if (baseThrustState == PulsingRegime::OFFPULSING) {
-                thrForceIn.thrForce[i] += maxThrust[i];
+                thrForce[i] += maxThrust[i];
             }
 
             /*! - Do not allow thrust requests less than zero */
-            if (thrForceIn.thrForce[i] < 0.0) {
-                thrForceIn.thrForce[i] = 0.0;
+            if (thrForce[i] < 0.0) {
+                thrForce[i] = 0.0;
             }
             /*! - Compute T_on from thrust request, max thrust, and control period */
-            onTime[i] = thrForceIn.thrForce[i] / maxThrust[i] * controlPeriod;
+            onTime[i] = thrForce[i] / maxThrust[i] * controlPeriod;
 
             /*! - Apply Schmitt trigger logic */
             if (onTime[i] < thrMinFireTime) {

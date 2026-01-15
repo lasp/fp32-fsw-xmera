@@ -34,13 +34,16 @@ THRArrayOnTimeCmdMsgF32Payload ThrFiringSchmittAlgorithm::update(uint64_t callTi
                                                                  THRArrayCmdForceMsgF32Payload& thrForceIn) {
     THRArrayOnTimeCmdMsgF32Payload thrOnTimeOut{}; /* -- thruster on-time output payload */
 
+    std::array<float, MAX_EFF_CNT> thrForce{};
+    std::ranges::copy(std::begin(thrForceIn.thrForce), std::end(thrForceIn.thrForce), std::begin(thrForce));
+
     /*! - the first time update() is called there is no information on the time step.  Here
      return either all thrusters off or on depending on the baseThrustState state */
     if (this->prevCallTime == 0U) {
         this->prevCallTime = callTime;
 
         for (uint32_t i = 0U; i < this->numThrusters; ++i) {
-             constexpr float firstCallPulse = 2.0F;  // 2 seconds, needs to be greater than FSW update time step
+            constexpr float firstCallPulse = 2.0F;  // 2 seconds, needs to be greater than FSW update time step
             thrOnTimeOut.onTimeRequest[i] = this->baseThrustState == PulsingRegime::ONPULSING ? 0.0F : firstCallPulse;
         }
     } else {
@@ -55,13 +58,13 @@ THRArrayOnTimeCmdMsgF32Payload ThrFiringSchmittAlgorithm::update(uint64_t callTi
              needs to be added.  If not control force is requested in off-pulsing mode, then the thruster force should
              be set to the maximum thrust value */
             if (this->baseThrustState == PulsingRegime::OFFPULSING) {
-                thrForceIn.thrForce[i] += this->maxThrust[i];
+                thrForce[i] += this->maxThrust[i];
             }
 
             /*! - Do not allow thrust requests less than zero */
-            thrForceIn.thrForce[i] = std::max(thrForceIn.thrForce[i], 0.0F);
+            thrForce[i] = std::max(thrForce[i], 0.0F);
             /*! - Compute T_on from thrust request, max thrust, and control period */
-            onTime[i] = thrForceIn.thrForce[i] / this->maxThrust[i] * controlPeriod;
+            onTime[i] = thrForce[i] / this->maxThrust[i] * controlPeriod;
 
             /*! - Apply Schmitt trigger logic */
             if (onTime[i] < this->thrMinFireTime) {
@@ -81,7 +84,7 @@ THRArrayOnTimeCmdMsgF32Payload ThrFiringSchmittAlgorithm::update(uint64_t callTi
             } else if (onTime[i] >= controlPeriod) {
                 /*! - Request is greater than control period then oversaturate onTime */
                 this->prevThrustState[i] = ThrusterState::ON;
-                 constexpr float overSaturationFactor = 1.1F;  // oversaturate to avoid numerical error
+                constexpr float overSaturationFactor = 1.1F;  // oversaturate to avoid numerical error
                 onTime[i] = overSaturationFactor * controlPeriod;
             } else {
                 /*! - Request is greater than minimum fire time and less than control period */
