@@ -60,8 +60,6 @@ AttRefMsgF32Payload CelestialTwoBodyPointAlgorithm::rateAndAccelCalc(const Eigen
                                                                      const Eigen::Vector3d &v_PB_N,
                                                                      const Eigen::Vector3d &r_SB_N,
                                                                      const Eigen::Vector3d &v_SB_N) {
-    AttRefMsgF32Payload attRefOut{};
-
     /* - Initial computations: R_n, v_n, a_n */
     const Eigen::Vector3d R_N = r_PB_N.cross(r_SB_N);
     const Eigen::Vector3d v_N = v_PB_N.cross(r_SB_N) + r_PB_N.cross(v_SB_N);
@@ -76,7 +74,7 @@ AttRefMsgF32Payload CelestialTwoBodyPointAlgorithm::rateAndAccelCalc(const Eigen
     dcm_RN.row(1) = r2_N_hat;
     dcm_RN.row(2) = r3_N_hat;
 
-    /* - MRP computation */
+    AttRefMsgF32Payload attRefOut{};
     const Eigen::Vector3f sigma_RN = dcmToMrp(dcm_RN);
     eigenVectorToCArray(sigma_RN, attRefOut.sigma_RN);
 
