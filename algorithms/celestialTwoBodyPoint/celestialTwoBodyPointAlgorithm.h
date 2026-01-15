@@ -22,6 +22,7 @@ class CelestialTwoBodyPointAlgorithm final {
 
    private:
     float singularityThresh{};  //!< [rad] Threshold for when to fix constraint axis*/
+    float rateThreshold{};      //!< [rad/s] Rate threshold for when to fix constraint axis
     bool secCelBodyIsLinked{};  //!< flag to indicate if the optional 2nd celestial body message is linked
 };
 

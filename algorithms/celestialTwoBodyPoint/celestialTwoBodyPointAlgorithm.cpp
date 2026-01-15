@@ -44,9 +44,14 @@ AttRefMsgF32Payload CelestialTwoBodyPointAlgorithm::update(EphemerisMsgF32Payloa
         v_SB_N = Eigen::Vector3d::Zero();
     }
 
-    const AttRefMsgF32Payload attRefOut = this->rateAndAccelCalc(r_PB_N, v_PB_N, r_SB_N, v_SB_N);
+    AttRefMsgF32Payload attRefOut = this->rateAndAccelCalc(r_PB_N, v_PB_N, r_SB_N, v_SB_N);
 
-
+    /*! - Cross the first bodies' states to get R_SB and v_SB if the computed rate was higher than rate threshold */
+    if (cArrayToEigenVector3(attRefOut.omega_RN_N).norm() > this->rateThreshold) {
+        r_SB_N = r_PB_N.cross(v_PB_N);
+        v_SB_N = Eigen::Vector3d::Zero();
+        attRefOut = this->rateAndAccelCalc(r_PB_N, v_PB_N, r_SB_N, v_SB_N);
+    }
 
     return attRefOut;
 }
