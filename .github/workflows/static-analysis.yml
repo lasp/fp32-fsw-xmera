@@ -3,6 +3,9 @@ name: "Static Analysis"
 on:
   pull_request:
 
+permissions:
+  contents: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -14,7 +17,7 @@ defaults:
 env:
   USERNAME: ${{ github.repository_owner }}
   FEED_URL: https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json
-  VCPKG_BINARY_SOURCES: "clear;nuget,https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json,read"
+  VCPKG_BINARY_SOURCES: "clear"
   VCPKG_FEATURE_FLAGS: "manifests,registries,binarycaching"
   CMAKE_BUILD_PARALLEL_LEVEL: 4
   CTEST_PARALLEL_LEVEL: 4
@@ -33,7 +36,9 @@ jobs:
       - name: Checkout fp32-fsw-xmera
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Detect changed algorithms/architecture files
         id: changed-files
@@ -65,13 +70,26 @@ jobs:
       - name: Checkout fp32-fsw-xmera
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Checkout Xmera core
         uses: actions/checkout@v4
         with:
           repository: lasp/xmera
           path: xmera
+          persist-credentials: false
+
+      - name: Configure vcpkg cache (in-repo PRs)
+        if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+        run: |
+          echo "VCPKG_BINARY_SOURCES=clear;nuget,${FEED_URL},readwrite" >> "$GITHUB_ENV"
+
+      - name: Configure vcpkg cache (fork PRs)
+        if: ${{ github.event.pull_request.head.repo.full_name != github.repository }}
+        run: |
+          echo "VCPKG_BINARY_SOURCES=clear" >> "$GITHUB_ENV"
 
       - name: Set up Python
         id: setup-py
@@ -171,6 +189,7 @@ jobs:
           VCPKG_CMAKE_CONFIGURE_OPTIONS: "-DCMAKE_POLICY_VERSION_MINIMUM=3.5"
 
       - name: Add NuGet sources for vcpkg binary cache (read-only)
+        if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
         env:
           VCPKG_EXE: ${{ github.workspace }}/b/vcpkg/vcpkg
         run: |
@@ -339,6 +358,7 @@ jobs:
           reviewdog_version: latest
 
       - name: Annotate clang-tidy results
+        if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
         env:
           REVIEWDOG_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
