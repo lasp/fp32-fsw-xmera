@@ -19,8 +19,8 @@ class CelestialTwoBodyPoint final : public SysModel {
 
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
-    void setSingularityThresh(float thresh);
-    float getSingularityThresh() const;
+    void setSingularityThreshold(float threshold);
+    float getSingularityThreshold() const;
 
     Message<AttRefMsgF32Payload> attRefOutMsg;            //!< The name of the output message*/
     ReadFunctor<EphemerisMsgF32Payload> celBodyInMsg;     //!< The name of the celestial body message*/

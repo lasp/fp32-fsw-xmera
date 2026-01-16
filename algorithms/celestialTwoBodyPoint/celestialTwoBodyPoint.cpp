@@ -39,12 +39,14 @@ void CelestialTwoBodyPoint::updateState(const uint64_t callTime) {
 
 /**
  * @brief Set the singularity threshold
- * @param thresh singularity threshold
+ * @param threshold singularity threshold
  */
-void CelestialTwoBodyPoint::setSingularityThresh(const float thresh) { this->algorithm.setSingularityThresh(thresh); }
+void CelestialTwoBodyPoint::setSingularityThreshold(const float threshold) {
+    this->algorithm.setSingularityThreshold(threshold);
+}
 
 /**
  * @brief Get the singularity threshold
  * @return float singularity threshold
  */
-float CelestialTwoBodyPoint::getSingularityThresh() const { return this->algorithm.getSingularityThresh(); }
+float CelestialTwoBodyPoint::getSingularityThreshold() const { return this->algorithm.getSingularityThreshold(); }

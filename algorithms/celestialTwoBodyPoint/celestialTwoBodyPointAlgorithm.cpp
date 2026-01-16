@@ -38,8 +38,8 @@ AttRefMsgF32Payload CelestialTwoBodyPointAlgorithm::update(EphemerisMsgF32Payloa
 
     /*! - Cross the first bodies' states to get R_SB and v_SB if no secondary celestial body is included or
      if the two bodies are close to parallel */
-    if (!this->secCelBodyIsLinked || fabs(platAngDiff) < this->singularityThresh ||
-        fabs(platAngDiff) > M_PI - this->singularityThresh) {
+    if (!this->secCelBodyIsLinked || fabs(platAngDiff) < this->singularityThreshold ||
+        fabs(platAngDiff) > M_PI - this->singularityThreshold) {
         r_SB_N = r_PB_N.cross(v_PB_N);
         v_SB_N = Eigen::Vector3d::Zero();
     }
@@ -116,17 +116,17 @@ AttRefMsgF32Payload CelestialTwoBodyPointAlgorithm::rateAndAccelCalc(const Eigen
 
 /**
  * @brief Set the singularity threshold
- * @param thresh singularity threshold
+ * @param singularityThresholdIn singularity threshold
  */
-void CelestialTwoBodyPointAlgorithm::setSingularityThresh(const float thresh) {
-    if (thresh < 0.0) {
+void CelestialTwoBodyPointAlgorithm::setSingularityThreshold(const float singularityThresholdIn) {
+    if (singularityThresholdIn < 0.0) {
         FSW_THROW_INVALID_ARGUMENT("Singularity threshold must not be negative");
     }
-    this->singularityThresh = thresh;
+    this->singularityThreshold = singularityThresholdIn;
 }
 
 /**
  * @brief Get the singularity threshold
  * @return float singularity threshold
  */
-float CelestialTwoBodyPointAlgorithm::getSingularityThresh() const { return this->singularityThresh; }
+float CelestialTwoBodyPointAlgorithm::getSingularityThreshold() const { return this->singularityThreshold; }
