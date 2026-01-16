@@ -130,3 +130,20 @@ void CelestialTwoBodyPointAlgorithm::setSingularityThreshold(const float singula
  * @return float singularity threshold
  */
 float CelestialTwoBodyPointAlgorithm::getSingularityThreshold() const { return this->singularityThreshold; }
+
+/**
+ * @brief Set the rate threshold
+ * @param rateThresholdIn rate threshold
+ */
+void CelestialTwoBodyPointAlgorithm::setRateThreshold(const float rateThresholdIn) {
+    if (rateThresholdIn < 0.0) {
+        FS_THROW_INVALID_ARGUMENT("Rate threshold must not be negative");
+    }
+    this->rateThreshold = rateThresholdIn;
+}
+
+/**
+ * @brief Get the rate threshold
+ * @return float rate threshold
+ */
+float CelestialTwoBodyPointAlgorithm::getRateThreshold() const { return this->rateThreshold; }

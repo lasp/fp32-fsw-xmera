@@ -19,6 +19,8 @@ class CelestialTwoBodyPointAlgorithm final {
                                                 const Eigen::Vector3d &r_SB_N, const Eigen::Vector3d &v_SB_N);
     void setSingularityThreshold(float singularityThresholdIn);
     float getSingularityThreshold() const;
+    void setRateThreshold(float rateThresholdIn);
+    float getRateThreshold() const;
 
    private:
     float singularityThreshold{};  //!< [rad] Threshold for when to fix constraint axis*/
