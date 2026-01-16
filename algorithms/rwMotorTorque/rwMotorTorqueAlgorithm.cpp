@@ -19,6 +19,7 @@
 
 #include "rwMotorTorqueAlgorithm.h"
 #include <architecture/utilities/eigenSupport.h>
+#include <Eigen/LU>
 #include <stdint.h>
 #include "../freestandingInvalidArgument.h"
 
@@ -53,7 +54,7 @@ void RwMotorTorqueAlgorithm::configure(RWArrayConfigMsgF32Payload& rwParamsInMsg
      and create the [Gs] projection matrix once */
     if (!rwAvailIsLinked) {
         this->numAvailRW = static_cast<uint32_t>(this->rwConfigParams.numRW);
-        this->G_s_B = cArrayToEigenMatrix<float, 3, RW_EFF_CNT>(this->rwConfigParams.GsMatrix_B);
+        this->G_s_B.leftCols(this->numAvailRW) = cArrayToEigenMatrix<float, 3, RW_EFF_CNT>(this->rwConfigParams.GsMatrix_B).leftCols(this->numAvailRW);
     }
 }
 
@@ -98,17 +99,19 @@ RwMotorTorqueMsgF32Payload RwMotorTorqueAlgorithm::update(CmdTorqueBodyMsgF32Pay
         this->numAvailRW = numAvailWheels;
     }
 
+    Eigen::Matrix<float, 3, RW_EFF_CNT> CGs = this->controlAxes_B * this->G_s_B;
+    const Eigen::FullPivLU<Eigen::MatrixXf> lu_decomp(CGs);
+    auto rank = static_cast<uint32_t>(lu_decomp.rank());
+
     /*! - Compute minimum norm inverse for us = [CGs].T inv([CGs][CGs].T) [Lr_C]
      Having at least the same # of RW as # of control axes is necessary condition to guarantee inverse matrix exists. If
      matrix to invert it not full rank, the control torque output is zero. */
-    if (this->numAvailRW >= this->numControlAxes) {
+    if (rank >= this->numControlAxes) {
         const uint32_t numRows = this->numControlAxes;
         const uint32_t numCols = this->numAvailRW;
 
         Eigen::Vector3f Lr_C{Eigen::Vector3f::Zero()};
         Lr_C.head(numRows) = -this->controlAxes_B.topRows(numRows) * Lr_B;
-
-        Eigen::Matrix<float, 3, RW_EFF_CNT> CGs = this->controlAxes_B * this->G_s_B;
 
         Eigen::Vector<float, RW_EFF_CNT> us_avail{Eigen::Vector<float, RW_EFF_CNT>::Zero()};
         us_avail.topRows(numCols) =

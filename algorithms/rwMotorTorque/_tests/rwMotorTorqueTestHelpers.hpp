@@ -12,6 +12,7 @@
 #include <gtest/gtest.h>
 #include <math.h>
 #include <Eigen/Core>
+#include <Eigen/LU>
 #include <numbers>
 #include <vector>
 
@@ -54,17 +55,19 @@ RwMotorTorqueMsgF32Payload referenceUpdate(const RwMotorTorqueAlgorithm& alg,
         numAvailRW = numAvailWheels;
     }
 
+    Eigen::Matrix<float, 3, RW_EFF_CNT> CGs = controlAxes_B * G_s_B;
+    const Eigen::FullPivLU<Eigen::MatrixXf> lu_decomp(CGs);
+    auto rank = static_cast<uint32_t>(lu_decomp.rank());
+
     /*! - Compute minimum norm inverse for us = [CGs].T inv([CGs][CGs].T) [Lr_C]
      Having at least the same # of RW as # of control axes is necessary condition to guarantee inverse matrix exists. If
      matrix to invert it not full rank, the control torque output is zero. */
-    if (numAvailRW >= numControlAxes) {
+    if (rank >= numControlAxes) {
         uint32_t numRows = numControlAxes;
         uint32_t numCols = numAvailRW;
 
         Eigen::Vector3f Lr_C{Eigen::Vector3f::Zero()};
         Lr_C.head(numRows) = -controlAxes_B.topRows(numRows) * Lr_B;
-
-        Eigen::Matrix<float, 3, RW_EFF_CNT> CGs = controlAxes_B * G_s_B;
 
         Eigen::Vector<float, RW_EFF_CNT> us_avail{Eigen::Vector<float, RW_EFF_CNT>::Zero()};
         us_avail.topRows(numCols) =
@@ -149,10 +152,10 @@ inline void testRwMotorTorque(std::vector<float> Lr1_B,
 
     // Configure module
     uint32_t numAvailRW{};
-    Eigen::Matrix<float, 3, RW_EFF_CNT> G_s_B{};
+    Eigen::Matrix<float, 3, RW_EFF_CNT> G_s_B{Eigen::Matrix<float, 3, RW_EFF_CNT>::Zero()};
     if (!rwAvailIsLinked) {
         numAvailRW = rwConfigMsg.numRW;
-        G_s_B = cArrayToEigenMatrix<float, 3, RW_EFF_CNT>(rwConfigMsg.GsMatrix_B);
+        G_s_B.leftCols(numAvailRW) = cArrayToEigenMatrix<float, 3, RW_EFF_CNT>(rwConfigMsg.GsMatrix_B).leftCols(numAvailRW);
     }
 
     if (numControlAxes == 0) {

@@ -48,7 +48,7 @@ class RwMotorTorqueAlgorithm {
     uint32_t numAvailRW{};      //!< [-] number of reaction wheels available
     RWArrayConfigMsgF32Payload
         rwConfigParams{};  //!< [-] struct to store message containing RW config parameters in body B frame
-    Eigen::Matrix<float, 3, RW_EFF_CNT> G_s_B{};  //!< [-] The RW spin axis matrix in body frame components
+    Eigen::Matrix<float, 3, RW_EFF_CNT> G_s_B{Eigen::Matrix<float, 3, RW_EFF_CNT>::Zero()};  //!< [-] The RW spin axis matrix in body frame components
 };
 
 #endif
