@@ -50,3 +50,17 @@ void CelestialTwoBodyPoint::setSingularityThreshold(const float threshold) {
  * @return float singularity threshold
  */
 float CelestialTwoBodyPoint::getSingularityThreshold() const { return this->algorithm.getSingularityThreshold(); }
+
+/**
+ * @brief Set the rate threshold
+ * @param rateThreshold rate threshold
+ */
+void CelestialTwoBodyPoint::setRateThreshold(const float rateThreshold) {
+    this->algorithm.setRateThreshold(rateThreshold);
+}
+
+/**
+ * @brief Get the rate threshold
+ * @return float rate threshold
+ */
+float CelestialTwoBodyPoint::getRateThreshold() const { return this->algorithm.getRateThreshold(); }
