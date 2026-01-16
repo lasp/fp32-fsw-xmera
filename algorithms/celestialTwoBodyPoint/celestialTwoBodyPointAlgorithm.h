@@ -17,11 +17,11 @@ class CelestialTwoBodyPointAlgorithm final {
 
     static AttRefMsgF32Payload rateAndAccelCalc(const Eigen::Vector3d &r_PB_N, const Eigen::Vector3d &v_PB_N,
                                                 const Eigen::Vector3d &r_SB_N, const Eigen::Vector3d &v_SB_N);
-    void setSingularityThresh(float thresh);
-    float getSingularityThresh() const;
+    void setSingularityThreshold(float singularityThresholdIn);
+    float getSingularityThreshold() const;
 
    private:
-    float singularityThresh{};  //!< [rad] Threshold for when to fix constraint axis*/
+    float singularityThreshold{};  //!< [rad] Threshold for when to fix constraint axis*/
     float rateThreshold{};      //!< [rad/s] Rate threshold for when to fix constraint axis
     bool secCelBodyIsLinked{};  //!< flag to indicate if the optional 2nd celestial body message is linked
 };
