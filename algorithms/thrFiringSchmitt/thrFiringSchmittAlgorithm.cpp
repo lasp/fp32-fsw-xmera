@@ -8,13 +8,13 @@
  @param thrusterConfigPayload thruster config message payload
  */
 void ThrFiringSchmittAlgorithm::reset(THRArrayConfigMsgF32Payload const& thrusterConfigPayload) {
-    this->prevCallTime = 0;
+    this->prevCallTime = 0U;
 
     /*! - store the number of installed thrusters */
     this->numThrusters = thrusterConfigPayload.numThrusters;
     this->lastThrustState.fill(false);
     /*! - loop over all thrusters and for each copy over maximum thrust, set last state to off */
-    for (uint32_t i = 0; i < this->numThrusters; i++) {
+    for (uint32_t i = 0U; i < this->numThrusters; i++) {
         this->maxThrust[i] = thrusterConfigPayload.thrusters[i].maxThrust;
     }
 }
@@ -29,23 +29,23 @@ THRArrayOnTimeCmdMsgF32Payload ThrFiringSchmittAlgorithm::update(uint64_t callTi
 
     /*! - the first time update() is called there is no information on the time step.  Here
      return either all thrusters off or on depending on the baseThrustState state */
-    if (this->prevCallTime == 0) {
+    if (this->prevCallTime == 0U) {
         this->prevCallTime = callTime;
 
-        for (uint32_t i = 0; i < this->numThrusters; i++) {
-            thrOnTimeOut.OnTimeRequest[i] = (float)(this->baseThrustState) * 2.0;
+        for (uint32_t i = 0U; i < this->numThrusters; i++) {
+            thrOnTimeOut.OnTimeRequest[i] = static_cast<float>(this->baseThrustState) * 2.0;
         }
 
         return thrOnTimeOut;
     }
 
     /*! - compute control time period Delta_t */
-    float controlPeriod = ((float)(callTime - this->prevCallTime)) * NANO2SEC; /* [s] control period */
+    float controlPeriod = static_cast<float>(static_cast<double>(callTime - this->prevCallTime) * NANO2SEC); /* [s] control period */
     this->prevCallTime = callTime;
 
     std::array<float, MAX_EFF_CNT> onTime{}; /* [s] array of commanded on time for thrusters */
                                               /*! - Loop through thrusters */
-    for (uint32_t i = 0; i < this->numThrusters; i++) {
+    for (uint32_t i = 0U; i < this->numThrusters; i++) {
         /*! - Correct for off-pulsing if necessary.  Here the requested force is negative, and the maximum thrust
          needs to be added.  If not control force is requested in off-pulsing mode, then the thruster force should
          be set to the maximum thrust value */
@@ -69,11 +69,11 @@ THRArrayOnTimeCmdMsgF32Payload ThrFiringSchmittAlgorithm::update(uint64_t callTi
                 onTime[i] = this->thrMinFireTime;
             } else if (level <= this->levelOff) {
                 this->lastThrustState[i] = false;
-                onTime[i] = 0.0;
+                onTime[i] = 0.0F;
             } else if (this->lastThrustState[i]) {
                 onTime[i] = this->thrMinFireTime;
             } else {
-                onTime[i] = 0.0;
+                onTime[i] = 0.0F;
             }
         } else if (onTime[i] >= controlPeriod) {
             /*! - Request is greater than control period then oversaturate onTime */
