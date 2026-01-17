@@ -179,13 +179,13 @@ def test_navAggregate(show_plots, numAttNav, numTransNav):
         trueTransVel = [[0.0, 0.0, 0.0]]*3
         trueTransAccum = [[0.0, 0.0, 0.0]]*3
 
-    if numAttNav == 1 or numAttNav == 11:
+    if numAttNav == 1:
         trueAttTimeTag = [[navAtt1Msg.timeTag]]*3
         trueAttSigma = [navAtt1Msg.sigma_BN]*3
         trueAttOmega = [navAtt1Msg.omega_BN_B]*3
         trueAttSunVector = [navAtt1Msg.vehSunPntBdy]*3
 
-    if numTransNav == 1 or numTransNav == 11:
+    if numTransNav == 1:
         trueTransTimeTag = [[navTrans1Msg.timeTag]]*3
         trueTransPos = [navTrans1Msg.r_BN_N]*3
         trueTransVel = [navTrans1Msg.v_BN_N]*3
