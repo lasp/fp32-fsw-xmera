@@ -20,8 +20,8 @@ Module Overview
 
 The module is implemented in C++ and consists of:
 
-- ``BodyEphemeris``: A container representing a body and its ephemeris messages.
-- ``EphemeridesRecenter``: The module class
+- ``BodyEphemerisPayload``: A container representing a body and its ephemeris messages.
+- ``EphemeridesRecenterAlgorithm``: The module class
 
 When building a body with the BodyEphemeris class, use:
 
@@ -33,6 +33,12 @@ When setting up the module:
 
 - ``setNewZeroBase``: sets the zero base that the spacecraft is using and for all the other bodies to switch to
 - ``setPreviousCommonZeroBase``: identify the previous zero base
+
+Algorithm Logic
+-------------
+- Step 1: obtain the ephemeris of the requested new central body :math:`r_{New/C}`, where :math:`C` denotes the previous common central body. If the new central body is relative to an intermediate body (e.g., a moon is relative to its parent). Let :math:`r_{P/C}` be the parent vector relative to the previous common central body, and :math:`r_{New/P}` be the new central body vector relative to the parent body. The algorithm computes the vector of new central body relative to the previous common central body :math:`r_{New/C}=r_{New/P}+r_{P/C}`.
+- Step 2: for each non-moon body :math:`b_i` whose ephemeris is relative to the previous common central body, compute their ephemeris relative to the new central body :math:`r_{b_i/New}=r_{b_i/C} - r_{New/c}`.
+- Step 3: if a non-moon body :math:`b_i` has an associated moon :math:`m_i` whose input ephemeris is given relative to :math:`b_i`, then the moon is re-centered together with its parent.
 
 Usage Example
 -------------
