@@ -68,7 +68,10 @@ Model Assumptions and Limitations
 This code makes the following assumptions:
 
 - The rank of the control mapping matrix :math:`[CB][G_{s}]` (constructed using only the available wheels) must be equal
-  or greater than the number of control axes. If this is not the case a zero output motor torque message is produced.
+  or greater than the number of control axes. If this is not the case, an invalid argument exception is thrown. This is
+  checked during reset.
+- It is assumed that the availability of the reaction wheels is known at the time of reset, and does not change after
+  that.
 
 Initialization
 --------------

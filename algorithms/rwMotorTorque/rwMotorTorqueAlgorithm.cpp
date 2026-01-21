@@ -26,9 +26,14 @@
 /*! This method configures the module by populating any necessary class members.
  @return void
  @param rwParamsInMsg struct to store message containing RW config parameters
+ @param wheelsAvailability availability of reaction wheels
  @param rwAvailIsLinked boolean indicating whether RWAvailabilityMsg is linked
  */
-void RwMotorTorqueAlgorithm::configure(RWArrayConfigMsgF32Payload& rwParamsInMsg, bool rwAvailIsLinked) {
+void RwMotorTorqueAlgorithm::configure(RWArrayConfigMsgF32Payload& rwParamsInMsg,
+                                       RWAvailabilityMsgPayload& wheelsAvailability,
+                                       bool rwAvailIsLinked) {
+    // wheelAvailability set to 0 (AVAILABLE) by default
+
     /*!- configure the number of axes that are controlled.
      This is determined by checking for a zero row to determinate search */
     this->numControlAxes = 0U;
@@ -50,11 +55,33 @@ void RwMotorTorqueAlgorithm::configure(RWArrayConfigMsgF32Payload& rwParamsInMsg
     /*! - Read static RW config data message and store it in module variables */
     this->rwConfigParams = rwParamsInMsg;
 
-    /*! - If no info is provided about RW availability we'll assume that all are available
-     and create the [Gs] projection matrix once */
-    if (!rwAvailIsLinked) {
+    /*! - Check if RW availability message is available.
+     If no info is provided about RW availability we'll assume that all are available. */
+    Eigen::Matrix<float, 3, RW_EFF_CNT> G_s_B{Eigen::Matrix<float, 3, RW_EFF_CNT>::Zero()};
+    if (rwAvailIsLinked) {
+        uint32_t numAvailWheels = 0U;
+        std::ranges::copy(std::begin(wheelsAvailability.wheelAvailability), std::end(wheelsAvailability.wheelAvailability), std::begin(this->wheelsAvailability));
+
+        /*! - create the current [Gs] projection matrix with the available RWs */
+        for (Eigen::Index i = 0; i < this->rwConfigParams.numRW; ++i) {
+            if (this->wheelsAvailability[static_cast<uint32_t>(i)] == AVAILABLE) {
+                G_s_B.col(numAvailWheels) = cArrayToEigenVector3(&this->rwConfigParams.GsMatrix_B[i * 3]);
+                numAvailWheels += 1U;
+            }
+        }
+        /*! - update the number of currently available RWs */
+        this->numAvailRW = numAvailWheels;
+    } else {
         this->numAvailRW = static_cast<uint32_t>(this->rwConfigParams.numRW);
-        this->G_s_B.leftCols(this->numAvailRW) = cArrayToEigenMatrix<float, 3, RW_EFF_CNT>(this->rwConfigParams.GsMatrix_B).leftCols(this->numAvailRW);
+        G_s_B.leftCols(this->numAvailRW) = cArrayToEigenMatrix<float, 3, RW_EFF_CNT>(this->rwConfigParams.GsMatrix_B).leftCols(this->numAvailRW);
+    }
+
+    this->CGs = this->controlAxes_B * G_s_B;
+    const Eigen::FullPivLU<Eigen::MatrixXf> lu_decomp(CGs);
+    const auto controlMappingRank = static_cast<uint32_t>(lu_decomp.rank());
+
+    if (controlMappingRank < this->numControlAxes) {
+        FS_THROW_INVALID_ARGUMENT("rwMotorTorque: control mapping matrix [CB][G_s] is not full rank.");
     }
 }
 
@@ -62,17 +89,11 @@ void RwMotorTorqueAlgorithm::configure(RWArrayConfigMsgF32Payload& rwParamsInMsg
  @return RwMotorTorqueMsgF32Payload
  @param LrInputMsg commanded torque on spacecraft
  @param LrInput2Msg second commanded torque on spacecraft
- @param wheelsAvailability availability of reaction wheels
  @param cmdTorque2IsLinked boolean indicating whether a second CmdTorqueBodyMsg is linked
- @param rwAvailIsLinked boolean indicating whether RWAvailabilityMsg is linked
  */
 RwMotorTorqueMsgF32Payload RwMotorTorqueAlgorithm::update(CmdTorqueBodyMsgF32Payload& LrInputMsg,
-                                                       CmdTorqueBodyMsgF32Payload& LrInput2Msg,
-                                                       RWAvailabilityMsgPayload& wheelsAvailability,
-                                                       bool cmdTorque2IsLinked,
-                                                       bool rwAvailIsLinked) {
-    // wheelAvailability set to 0 (AVAILABLE) by default
-
+                                                          CmdTorqueBodyMsgF32Payload& LrInput2Msg,
+                                                          bool cmdTorque2IsLinked) {
     /*! - zero control torque and RW motor torque variables */
     Eigen::Vector<float, RW_EFF_CNT> us = Eigen::Vector<float, RW_EFF_CNT>::Zero();
 
@@ -83,49 +104,25 @@ RwMotorTorqueMsgF32Payload RwMotorTorqueAlgorithm::update(CmdTorqueBodyMsgF32Pay
         Lr_B += cArrayToEigenVector(LrInput2Msg.torqueRequestBody);
     }
 
-    /*! - Check if RW availability message is available */
-    if (rwAvailIsLinked) {
-        uint32_t numAvailWheels = 0U;
-        this->G_s_B.setZero();
+    /*! - Compute minimum norm inverse for us = [CGs].T inv([CGs][CGs].T) [Lr_C] */
+    const uint32_t numRows = this->numControlAxes;
+    const uint32_t numCols = this->numAvailRW;
 
-        /*! - create the current [Gs] projection matrix with the available RWs */
-        for (Eigen::Index i = 0; i < this->rwConfigParams.numRW; ++i) {
-            if (wheelsAvailability.wheelAvailability[i] == AVAILABLE) {
-                this->G_s_B.col(numAvailWheels) = cArrayToEigenVector3(&this->rwConfigParams.GsMatrix_B[i * 3]);
-                numAvailWheels += 1U;
-            }
-        }
-        /*! - update the number of currently available RWs */
-        this->numAvailRW = numAvailWheels;
-    }
+    Eigen::Vector3f Lr_C{Eigen::Vector3f::Zero()};
+    Lr_C.head(numRows) = -this->controlAxes_B.topRows(numRows) * Lr_B;
 
-    Eigen::Matrix<float, 3, RW_EFF_CNT> CGs = this->controlAxes_B * this->G_s_B;
-    const Eigen::FullPivLU<Eigen::MatrixXf> lu_decomp(CGs);
-    auto rank = static_cast<uint32_t>(lu_decomp.rank());
+    Eigen::Vector<float, RW_EFF_CNT> us_avail{Eigen::Vector<float, RW_EFF_CNT>::Zero()};
+    us_avail.topRows(numCols) =
+        this->CGs.topLeftCorner(numRows, numCols).transpose() *
+        (this->CGs.topLeftCorner(numRows, numCols) * this->CGs.topLeftCorner(numRows, numCols).transpose()).inverse() *
+        Lr_C.topRows(numRows);
 
-    /*! - Compute minimum norm inverse for us = [CGs].T inv([CGs][CGs].T) [Lr_C]
-     Having at least the same # of RW as # of control axes is necessary condition to guarantee inverse matrix exists. If
-     matrix to invert it not full rank, the control torque output is zero. */
-    if (rank >= this->numControlAxes) {
-        const uint32_t numRows = this->numControlAxes;
-        const uint32_t numCols = this->numAvailRW;
-
-        Eigen::Vector3f Lr_C{Eigen::Vector3f::Zero()};
-        Lr_C.head(numRows) = -this->controlAxes_B.topRows(numRows) * Lr_B;
-
-        Eigen::Vector<float, RW_EFF_CNT> us_avail{Eigen::Vector<float, RW_EFF_CNT>::Zero()};
-        us_avail.topRows(numCols) =
-            CGs.topLeftCorner(numRows, numCols).transpose() *
-            (CGs.topLeftCorner(numRows, numCols) * CGs.topLeftCorner(numRows, numCols).transpose()).inverse() *
-            Lr_C.topRows(numRows);
-
-        /*! - map the desired RW motor torques to the available RWs */
-        Eigen::Index j = 0;
-        for (Eigen::Index i = 0; i < this->rwConfigParams.numRW; ++i) {
-            if (wheelsAvailability.wheelAvailability[i] == AVAILABLE) {
-                us[i] = us_avail[j];
-                j += 1;
-            }
+    /*! - map the desired RW motor torques to the available RWs */
+    Eigen::Index j = 0;
+    for (Eigen::Index i = 0; i < this->rwConfigParams.numRW; ++i) {
+        if (this->wheelsAvailability[static_cast<uint32_t>(i)] == AVAILABLE) {
+            us[i] = us_avail[j];
+            j += 1;
         }
     }
 

@@ -32,12 +32,12 @@
 /*! @brief Top level structure for the sub-module routines. */
 class RwMotorTorqueAlgorithm {
    public:
-    void configure(RWArrayConfigMsgF32Payload& rwParamsInMsg, bool rwAvailIsLinked);
+    void configure(RWArrayConfigMsgF32Payload& rwParamsInMsg,
+                   RWAvailabilityMsgPayload& wheelsAvailability,
+                   bool rwAvailIsLinked);
     RwMotorTorqueMsgF32Payload update(CmdTorqueBodyMsgF32Payload& LrInputMsg,
-                                   CmdTorqueBodyMsgF32Payload& LrInput2Msg,
-                                   RWAvailabilityMsgPayload& wheelsAvailability,
-                                   bool cmdTorque2IsLinked,
-                                   bool rwAvailIsLinked);
+                                      CmdTorqueBodyMsgF32Payload& LrInput2Msg,
+                                      bool cmdTorque2IsLinked);
 
     void setControlAxes(const Eigen::Matrix3f& controlMappingMatrix);
     Eigen::Matrix3f getControlAxes() const;
@@ -48,7 +48,8 @@ class RwMotorTorqueAlgorithm {
     uint32_t numAvailRW{};      //!< [-] number of reaction wheels available
     RWArrayConfigMsgF32Payload
         rwConfigParams{};  //!< [-] struct to store message containing RW config parameters in body B frame
-    Eigen::Matrix<float, 3, RW_EFF_CNT> G_s_B{Eigen::Matrix<float, 3, RW_EFF_CNT>::Zero()};  //!< [-] The RW spin axis matrix in body frame components
+    Eigen::Matrix<float, 3, RW_EFF_CNT> CGs{Eigen::Matrix<float, 3, RW_EFF_CNT>::Zero()};  //!< [-] The control mapping matrix [CB][G_s]
+    std::array<FSWdeviceAvailability, RW_EFF_CNT> wheelsAvailability{};  //!< [-] Reaction wheel availability
 };
 
 #endif

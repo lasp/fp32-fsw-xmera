@@ -96,14 +96,25 @@ inline void testRwMotorTorqueSetup() {
 
     // --- Test expected exceptions ---
 
+    RWArrayConfigMsgF32Payload rwParams{};
+    RWAvailabilityMsgPayload wheelsAvailabilityMsg{};
+    Eigen::Matrix3f controlAxes_B{};
+
     // control axes matrix not properly set up (control axes not filled from top to bottom before any zero rows)
-    Eigen::Matrix3f controlAxes_B{Eigen::Matrix3f::Zero()};
+    controlAxes_B = Eigen::Matrix3f::Zero();
     controlAxes_B.row(0) = Eigen::Vector3f{1.0F, 0.0F, 0.0F};
     controlAxes_B.row(1) = Eigen::Vector3f{0.0F, 0.0F, 0.0F};
     controlAxes_B.row(2) = Eigen::Vector3f{0.0F, 0.0F, 1.0F};
     alg.setControlAxes(controlAxes_B);
-    RWArrayConfigMsgF32Payload rwParams{};
-    EXPECT_THROW(alg.configure(rwParams, false), fs::invalid_argument);
+    EXPECT_THROW(alg.configure(rwParams, wheelsAvailabilityMsg, false), fs::invalid_argument);
+
+    // control mapping matrix not full rank (to test, 3 control axes are specified but not a single reaction wheel)
+    controlAxes_B = Eigen::Matrix3f::Zero();
+    controlAxes_B.row(0) = Eigen::Vector3f{1.0F, 0.0F, 0.0F};
+    controlAxes_B.row(1) = Eigen::Vector3f{0.0F, 1.0F, 0.0F};
+    controlAxes_B.row(2) = Eigen::Vector3f{0.0F, 0.0F, 1.0F};
+    alg.setControlAxes(controlAxes_B);
+    EXPECT_THROW(alg.configure(rwParams, wheelsAvailabilityMsg, false), fs::invalid_argument);
 }
 
 inline void testRwMotorTorque(std::vector<float> Lr1_B,
@@ -153,25 +164,39 @@ inline void testRwMotorTorque(std::vector<float> Lr1_B,
     // Configure module
     uint32_t numAvailRW{};
     Eigen::Matrix<float, 3, RW_EFF_CNT> G_s_B{Eigen::Matrix<float, 3, RW_EFF_CNT>::Zero()};
-    if (!rwAvailIsLinked) {
-        numAvailRW = rwConfigMsg.numRW;
+    if (rwAvailIsLinked) {
+        uint32_t numAvailWheels = 0U;
+
+        /*! - create the current [Gs] projection matrix with the available RWs */
+        for (Eigen::Index i = 0; i < rwConfigMsg.numRW; ++i) {
+            if (wheelsAvailabilityMsg.wheelAvailability[i] == AVAILABLE) {
+                G_s_B.col(numAvailWheels) = cArrayToEigenVector3(&rwConfigMsg.GsMatrix_B[i * 3]);
+                numAvailWheels += 1U;
+            }
+        }
+        /*! - update the number of currently available RWs */
+        numAvailRW = numAvailWheels;
+    } else {
+        numAvailRW = static_cast<uint32_t>(rwConfigMsg.numRW);
         G_s_B.leftCols(numAvailRW) = cArrayToEigenMatrix<float, 3, RW_EFF_CNT>(rwConfigMsg.GsMatrix_B).leftCols(numAvailRW);
     }
 
-    if (numControlAxes == 0) {
-        EXPECT_THROW(alg.configure(rwConfigMsg, rwAvailIsLinked), fs::invalid_argument);
+    Eigen::Matrix<float, 3, RW_EFF_CNT> CGs = controlAxes_B * G_s_B;
+    const Eigen::FullPivLU<Eigen::MatrixXf> lu_decomp(CGs);
+    const auto controlMappingRank = static_cast<uint32_t>(lu_decomp.rank());
+
+    if (numControlAxes == 0 || controlMappingRank < numControlAxes) {
+        EXPECT_THROW(alg.configure(rwConfigMsg, wheelsAvailabilityMsg, rwAvailIsLinked), fs::invalid_argument);
         return;
     }
-    EXPECT_NO_THROW(alg.configure(rwConfigMsg, rwAvailIsLinked));
+    EXPECT_NO_THROW(alg.configure(rwConfigMsg, wheelsAvailabilityMsg, rwAvailIsLinked));
 
     // Reference
     RwMotorTorqueMsgF32Payload out{};
     RwMotorTorqueMsgF32Payload ref{};
     EXPECT_NO_THROW(out = alg.update(torqueInputMsg,
                                      torqueInput2Msg,
-                                     wheelsAvailabilityMsg,
-                                     cmdTorque2IsLinked,
-                                     rwAvailIsLinked));
+                                     cmdTorque2IsLinked));
     EXPECT_NO_THROW(ref = referenceUpdate(alg,
                                           numControlAxes,
                                           numAvailRW,

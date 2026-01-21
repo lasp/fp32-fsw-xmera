@@ -23,8 +23,14 @@ void RwMotorTorque::reset(uint64_t callTime) {
 
     RWArrayConfigMsgF32Payload rwParams = this->rwParamsInMsg();
     bool rwAvailIsLinked = this->rwAvailInMsg.isLinked();
+    RWAvailabilityMsgPayload wheelsAvailability{};
 
-    this->algorithm.configure(rwParams, rwAvailIsLinked);
+    /*! - Check if RW availability message is available */
+    if (rwAvailIsLinked) {
+        wheelsAvailability = this->rwAvailInMsg();
+    }
+
+    this->algorithm.configure(rwParams, wheelsAvailability, rwAvailIsLinked);
 }
 
 /*! Computes the reaction wheel torques given a commanded torque on the spacecraft
@@ -34,9 +40,7 @@ void RwMotorTorque::reset(uint64_t callTime) {
 void RwMotorTorque::updateState(uint64_t callTime) {
     CmdTorqueBodyMsgF32Payload LrInputMsg = this->vehControlInMsg(); /*!< Msg containing Lr control torque */
     CmdTorqueBodyMsgF32Payload LrInput2Msg{};                        /*!< Msg containing optional Lr control torque */
-    RWAvailabilityMsgPayload wheelsAvailability{};                /*!< Msg containing RW availability */
     bool cmdTorque2IsLinked{};
-    bool rwAvailIsLinked{};
 
     /*! - Check if the optional second message is provided */
     if (this->vehControlIn2Msg.isLinked()) {
@@ -44,14 +48,7 @@ void RwMotorTorque::updateState(uint64_t callTime) {
         cmdTorque2IsLinked = true;
     }
 
-    /*! - Check if RW availability message is available */
-    if (this->rwAvailInMsg.isLinked()) {
-        wheelsAvailability = this->rwAvailInMsg();
-        rwAvailIsLinked = true;
-    }
-
-    RwMotorTorqueMsgF32Payload rwMotorTorques =
-        algorithm.update(LrInputMsg, LrInput2Msg, wheelsAvailability, cmdTorque2IsLinked, rwAvailIsLinked);
+    RwMotorTorqueMsgF32Payload rwMotorTorques = this->algorithm.update(LrInputMsg, LrInput2Msg, cmdTorque2IsLinked);
 
     this->rwMotorTorqueOutMsg.write(&rwMotorTorques, this->moduleID, callTime);
 }

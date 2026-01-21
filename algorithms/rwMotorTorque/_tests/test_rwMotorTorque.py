@@ -128,6 +128,15 @@ def test_rw_motor_torque(show_plots, num_control_axes, num_wheels, num_input_cmd
     if num_input_cmd_torques == 2:
         module.vehControlIn2Msg.subscribeTo(cmd_torque_in2_msg)
     module.rwParamsInMsg.subscribeTo(rw_config_in_msg)
+    
+    # set the output truth states (needs to be computed before module reset because it also determines if test needs to
+    # be skipped due to control mapping matrix not being full rank
+    u_s = compute_true_torque(np.array(control_axes_B),
+                              np.array(rw_config_params.GsMatrix_B).reshape((3, RW_EFF_CNT), order='F'),
+                              requested_torque,
+                              avail)
+
+    true_motor_torque = [u_s] * 2
 
     unit_test_sim.InitializeSimulation()
     module.reset(0)
@@ -140,14 +149,6 @@ def test_rw_motor_torque(show_plots, num_control_axes, num_wheels, num_input_cmd
 
     # This pulls the actual data log from the simulation run.
     motor_torque = data_log.motorTorque
-
-    # set the output truth states
-    u_s = compute_true_torque(np.array(control_axes_B),
-                              np.array(rw_config_params.GsMatrix_B).reshape((3, RW_EFF_CNT), order='F'),
-                              requested_torque,
-                              avail)
-
-    true_motor_torque = [u_s] * 2
 
     # compare the module results to the truth values
     accuracy = 1e-5
@@ -180,12 +181,13 @@ def compute_true_torque(C, Gs_B, Lr, avail_msg):
         else:
             Gs_B[:,i] = [0.0, 0.0, 0.0]
 
-    # If fewer wheels than number of control axes, output no torque
-    if (num_wheels-non_avail_wheels) < num_control_axes:
-        return [0.0]*len(Gs_B[0])
-
     Lr_C = np.dot(C,Lr) # Project torque onto control axes
     CGs = np.dot(C, Gs_B) # Map the control axes onto the wheels
+
+    # If rank of control mapping matrix is less than number of control axes, skip test (would throw exception)
+    rank = np.linalg.matrix_rank(CGs)
+    if rank < num_control_axes:
+        pytest.skip("Control mapping matrix [CB][G_s] is not full rank.")
 
     # Build minimum norm framework
     M = np.dot(CGs, CGs.T)
