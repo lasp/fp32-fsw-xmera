@@ -25,6 +25,7 @@ Checks: >
   ,mpi-buffer-deref
   ,mpi-type-mismatch
   ,modernize-*
+  ,-modernize-use-nodiscard
   ,-modernize-use-trailing-return-type
   ,openmp-use-default-none
   ,performance-*
@@ -43,6 +44,8 @@ Checks: >
 #   temporarily disabled (to allow for eigenSupport mappings. Need to update eigenSupport)
 # -misc-include-cleaner
 #   because there are a lot of false complaints for includes (math, Eigen, ...)
+# -modernize-use-nodiscard
+#   no need to follow the nodiscard suggestion
 # -modernize-use-trailing-return-type
 #   because this is a style change we are not ready to implement across the code base, no degradation of code quality
 # -readability-identifier-length
