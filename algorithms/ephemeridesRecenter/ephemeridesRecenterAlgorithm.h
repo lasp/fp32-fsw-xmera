@@ -13,7 +13,8 @@
 
 inline constexpr int MAX_NUM_CHANGE_BODIES = 20;
 
-using BodyName = std::array<char, 256>;
+inline constexpr std::size_t kBodyNameMaxLen = 256U;
+using BodyName = std::array<char, kBodyNameMaxLen>;
 
 struct MoonIndexFound {
     size_t index;
