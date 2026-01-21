@@ -26,8 +26,8 @@ struct MoonIndexFound {
  */
 class BodyEphemerisPayload {
    public:
-    BodyName bodySpiceName;            //!< SPICE name of the body
-    BodyName originalCentralBodyName;  //!< Original reference body for ephemeris data
+    BodyName bodySpiceName{};            //!< SPICE name of the body
+    BodyName originalCentralBodyName{};  //!< Original reference body for ephemeris data
     bool isMoon{false};                //!< Body is moon of another body in the list
     EphemerisMsgF32Payload inputEphemerisPayload{EphemerisMsgF32Payload{}};  //!< Input ephemeris message
     EphemerisMsgF32Payload outputEphemerisPayload{
