@@ -42,44 +42,36 @@ std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES> EphemeridesRecenterAlgor
 
     std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES> recenteredBodies{};
     for (size_t i = 0; i < this->celestialBodyCount; ++i) {
+        if (recenteredBodies[i].isMoon){continue;}
+
         /* Moons get re-centered along with their central body and shouldn't be re-centered in this main loop */
-        if (!recenteredBodies[i].isMoon) {
-            recenteredBodies[i] = BodyEphemerisPayload{};
-            EphemerisMsgF32Payload newEphemerisToRecenterPayload = newBodies[i].inputEphemerisPayload;
-            if (this->celestialBodies[i].originalCentralBodyName != newCentralBody.bodySpiceName &&
-                this->celestialBodies[i].originalCentralBodyName == this->previousCentralBodyName) {
-                Eigen::Vector3d const relativePosition =
-                    cArrayToEigenVector3(newEphemerisToRecenterPayload.r_BdyZero_N) -
-                    cArrayToEigenVector3(newCentralBodyPayload.r_BdyZero_N);
-                eigenVectorToCArray(relativePosition, newEphemerisToRecenterPayload.r_BdyZero_N);
+        recenteredBodies[i] = BodyEphemerisPayload{};
+        EphemerisMsgF32Payload newEphemerisToRecenterPayload = newBodies[i].inputEphemerisPayload;
+        if (this->celestialBodies[i].originalCentralBodyName != newCentralBody.bodySpiceName && this->celestialBodies[i].originalCentralBodyName == this->previousCentralBodyName) {
+            Eigen::Vector3d const relativePosition = cArrayToEigenVector3(newEphemerisToRecenterPayload.r_BdyZero_N) -
+                cArrayToEigenVector3(newCentralBodyPayload.r_BdyZero_N);
+            eigenVectorToCArray(relativePosition, newEphemerisToRecenterPayload.r_BdyZero_N);
 
-                Eigen::Vector3d const relativeVelocity =
-                    cArrayToEigenVector3(newEphemerisToRecenterPayload.v_BdyZero_N) -
-                    cArrayToEigenVector3(newCentralBodyPayload.v_BdyZero_N);
-                eigenVectorToCArray(relativeVelocity, newEphemerisToRecenterPayload.v_BdyZero_N);
+            Eigen::Vector3d const relativeVelocity = cArrayToEigenVector3(newEphemerisToRecenterPayload.v_BdyZero_N) -
+                cArrayToEigenVector3(newCentralBodyPayload.v_BdyZero_N);
+            eigenVectorToCArray(relativeVelocity, newEphemerisToRecenterPayload.v_BdyZero_N);
 
-                if (auto [moonIndex, moonFound] = this->findMoonOfBody(this->celestialBodies[i]);
-                    moonFound && this->celestialBodies[i].bodySpiceName != this->previousCentralBodyName) {
-                    EphemerisMsgF32Payload moonOfBodyPayload = this->celestialBodies[moonIndex].inputEphemerisPayload;
+            if (auto [moonIndex, moonFound] = this->findMoonOfBody(this->celestialBodies[i]); moonFound && this->celestialBodies[i].bodySpiceName != this->previousCentralBodyName) {
+                EphemerisMsgF32Payload moonOfBodyPayload = this->celestialBodies[moonIndex].inputEphemerisPayload;
 
-                    Eigen::Vector3d const moonRelativePosition =
-                        cArrayToEigenVector3(newEphemerisToRecenterPayload.r_BdyZero_N) +
-                        cArrayToEigenVector3(moonOfBodyPayload.r_BdyZero_N);
-                    eigenVectorToCArray(moonRelativePosition, moonOfBodyPayload.r_BdyZero_N);
+                Eigen::Vector3d const moonRelativePosition = cArrayToEigenVector3(newEphemerisToRecenterPayload.r_BdyZero_N) +
+                    cArrayToEigenVector3(moonOfBodyPayload.r_BdyZero_N);
+                eigenVectorToCArray(moonRelativePosition, moonOfBodyPayload.r_BdyZero_N);
 
-                    Eigen::Vector3d const moonRelativeVelocity =
-                        cArrayToEigenVector3(newEphemerisToRecenterPayload.v_BdyZero_N) +
-                        cArrayToEigenVector3(moonOfBodyPayload.v_BdyZero_N);
-                    eigenVectorToCArray(moonRelativeVelocity, moonOfBodyPayload.v_BdyZero_N);
+                Eigen::Vector3d const moonRelativeVelocity = cArrayToEigenVector3(newEphemerisToRecenterPayload.v_BdyZero_N) +
+                    cArrayToEigenVector3(moonOfBodyPayload.v_BdyZero_N);
+                eigenVectorToCArray(moonRelativeVelocity, moonOfBodyPayload.v_BdyZero_N);
 
-                    recenteredBodies[moonIndex].bodySpiceName = this->celestialBodies[moonIndex].bodySpiceName;
-                    recenteredBodies[moonIndex].isMoon = true;
-                    recenteredBodies[moonIndex].originalCentralBodyName =
-                        this->celestialBodies[moonIndex].originalCentralBodyName;
-                    recenteredBodies[moonIndex].inputEphemerisPayload =
-                        this->celestialBodies[moonIndex].inputEphemerisPayload;
-                    recenteredBodies[moonIndex].outputEphemerisPayload = moonOfBodyPayload;
-                }
+                recenteredBodies[moonIndex].bodySpiceName = this->celestialBodies[moonIndex].bodySpiceName;
+                recenteredBodies[moonIndex].isMoon = true;
+                recenteredBodies[moonIndex].originalCentralBodyName = this->celestialBodies[moonIndex].originalCentralBodyName;
+                recenteredBodies[moonIndex].inputEphemerisPayload = this->celestialBodies[moonIndex].inputEphemerisPayload;
+                recenteredBodies[moonIndex].outputEphemerisPayload = moonOfBodyPayload;
             }
             recenteredBodies[i] = newBodies[i];
             recenteredBodies[i].outputEphemerisPayload = newEphemerisToRecenterPayload;
