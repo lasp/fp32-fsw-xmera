@@ -4,11 +4,11 @@
 #include "../freestandingInvalidArgument.h"
 #include "architecture/utilities/eigenSupport.h"
 #include "architecture/utilities/rigidBodyKinematics.hpp"
-#include "rwMotorTorqueAlgorithm.h"
 #include "msgPayloadDef/CmdTorqueBodyMsgF32Payload.h"
 #include "msgPayloadDef/RWArrayConfigMsgF32Payload.h"
-#include <architecture/msgPayloadDef/RWAvailabilityMsgPayload.h>
 #include "msgPayloadDef/RwMotorTorqueMsgF32Payload.h"
+#include "rwMotorTorqueAlgorithm.h"
+#include <architecture/msgPayloadDef/RWAvailabilityMsgPayload.h>
 #include <gtest/gtest.h>
 #include <math.h>
 #include <Eigen/Core>
@@ -130,14 +130,14 @@ inline void testRwMotorTorque(std::vector<float> Lr1_B,
     // Set up module
     Eigen::Matrix3f controlAxes_B{Eigen::Matrix3f::Zero()};
     if (numControlAxes == 3) {
-        controlAxes_B.row(0) = Eigen::Vector3f {1.0F, 0.0F, 0.0F};
-        controlAxes_B.row(1) = Eigen::Vector3f {0.0F, 1.0F, 0.0F};
-        controlAxes_B.row(2) = Eigen::Vector3f {0.0F, 0.0F, 1.0F};
+        controlAxes_B.row(0) = Eigen::Vector3f{1.0F, 0.0F, 0.0F};
+        controlAxes_B.row(1) = Eigen::Vector3f{0.0F, 1.0F, 0.0F};
+        controlAxes_B.row(2) = Eigen::Vector3f{0.0F, 0.0F, 1.0F};
     } else if (numControlAxes == 2) {
-        controlAxes_B.row(0) = Eigen::Vector3f {1.0F, 0.0F, 0.0F};
-        controlAxes_B.row(1) = Eigen::Vector3f {0.0F, 1.0F, 0.0F};
+        controlAxes_B.row(0) = Eigen::Vector3f{1.0F, 0.0F, 0.0F};
+        controlAxes_B.row(1) = Eigen::Vector3f{0.0F, 1.0F, 0.0F};
     } else if (numControlAxes == 1) {
-        controlAxes_B.row(0) = Eigen::Vector3f {1.0F, 0.0F, 0.0F};
+        controlAxes_B.row(0) = Eigen::Vector3f{1.0F, 0.0F, 0.0F};
     }
     alg.setControlAxes(controlAxes_B);
 
@@ -146,7 +146,9 @@ inline void testRwMotorTorque(std::vector<float> Lr1_B,
     std::copy(Lr1_B.begin(), Lr1_B.end(), torqueInputMsg.torqueRequestBody);
 
     CmdTorqueBodyMsgF32Payload torqueInput2Msg{};
-    if (cmdTorque2IsLinked) { std::copy(Lr2_B.begin(), Lr2_B.end(), torqueInput2Msg.torqueRequestBody); }
+    if (cmdTorque2IsLinked) {
+        std::copy(Lr2_B.begin(), Lr2_B.end(), torqueInput2Msg.torqueRequestBody);
+    }
 
     RWAvailabilityMsgPayload wheelsAvailabilityMsg{};
     if (rwAvailIsLinked) {
@@ -178,7 +180,8 @@ inline void testRwMotorTorque(std::vector<float> Lr1_B,
         numAvailRW = numAvailWheels;
     } else {
         numAvailRW = static_cast<uint32_t>(rwConfigMsg.numRW);
-        G_s_B.leftCols(numAvailRW) = cArrayToEigenMatrix<float, 3, RW_EFF_CNT>(rwConfigMsg.GsMatrix_B).leftCols(numAvailRW);
+        G_s_B.leftCols(numAvailRW) =
+            cArrayToEigenMatrix<float, 3, RW_EFF_CNT>(rwConfigMsg.GsMatrix_B).leftCols(numAvailRW);
     }
 
     Eigen::Matrix<float, 3, RW_EFF_CNT> CGs = controlAxes_B * G_s_B;
@@ -194,9 +197,7 @@ inline void testRwMotorTorque(std::vector<float> Lr1_B,
     // Reference
     RwMotorTorqueMsgF32Payload out{};
     RwMotorTorqueMsgF32Payload ref{};
-    EXPECT_NO_THROW(out = alg.update(torqueInputMsg,
-                                     torqueInput2Msg,
-                                     cmdTorque2IsLinked));
+    EXPECT_NO_THROW(out = alg.update(torqueInputMsg, torqueInput2Msg, cmdTorque2IsLinked));
     EXPECT_NO_THROW(ref = referenceUpdate(alg,
                                           numControlAxes,
                                           numAvailRW,

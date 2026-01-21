@@ -3,13 +3,13 @@
 
 #include <stdint.h>
 
-#include <architecture/_GeneralModuleFiles/sys_model.h>
-#include <architecture/messaging/messaging.h>
 #include "msgPayloadDef/CmdTorqueBodyMsgF32Payload.h"
 #include "msgPayloadDef/RWArrayConfigMsgF32Payload.h"
-#include <architecture/msgPayloadDef/RWAvailabilityMsgPayload.h>
 #include "msgPayloadDef/RwMotorTorqueMsgF32Payload.h"
 #include "rwMotorTorqueAlgorithm.h"
+#include <architecture/_GeneralModuleFiles/sys_model.h>
+#include <architecture/messaging/messaging.h>
+#include <architecture/msgPayloadDef/RWAvailabilityMsgPayload.h>
 
 #include <Eigen/Core>
 
@@ -30,7 +30,7 @@ class RwMotorTorque : public SysModel {
     ReadFunctor<CmdTorqueBodyMsgF32Payload> vehControlInMsg;   //!<  vehicle control (Lr) Input message
     ReadFunctor<CmdTorqueBodyMsgF32Payload> vehControlIn2Msg;  //!<  optional vehicle control input message
     ReadFunctor<RWArrayConfigMsgF32Payload> rwParamsInMsg;     //!<  RW Array input message
-    ReadFunctor<RWAvailabilityMsgPayload> rwAvailInMsg;     //!< optional RWs availability input message
+    ReadFunctor<RWAvailabilityMsgPayload> rwAvailInMsg;        //!< optional RWs availability input message
 
    private:
     RwMotorTorqueAlgorithm algorithm{};

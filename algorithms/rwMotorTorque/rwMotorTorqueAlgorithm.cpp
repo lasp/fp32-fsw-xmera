@@ -18,10 +18,10 @@
  */
 
 #include "rwMotorTorqueAlgorithm.h"
-#include <architecture/utilities/eigenSupport.h>
-#include <Eigen/LU>
-#include <stdint.h>
 #include "../freestandingInvalidArgument.h"
+#include <architecture/utilities/eigenSupport.h>
+#include <stdint.h>
+#include <Eigen/LU>
 
 /*! This method configures the module by populating any necessary class members.
  @return void
@@ -60,7 +60,9 @@ void RwMotorTorqueAlgorithm::configure(RWArrayConfigMsgF32Payload& rwParamsInMsg
     Eigen::Matrix<float, 3, RW_EFF_CNT> G_s_B{Eigen::Matrix<float, 3, RW_EFF_CNT>::Zero()};
     if (rwAvailIsLinked) {
         uint32_t numAvailWheels = 0U;
-        std::ranges::copy(std::begin(wheelsAvailability.wheelAvailability), std::end(wheelsAvailability.wheelAvailability), std::begin(this->wheelsAvailability));
+        std::ranges::copy(std::begin(wheelsAvailability.wheelAvailability),
+                          std::end(wheelsAvailability.wheelAvailability),
+                          std::begin(this->wheelsAvailability));
 
         /*! - create the current [Gs] projection matrix with the available RWs */
         for (Eigen::Index i = 0; i < this->rwConfigParams.numRW; ++i) {
@@ -73,7 +75,8 @@ void RwMotorTorqueAlgorithm::configure(RWArrayConfigMsgF32Payload& rwParamsInMsg
         this->numAvailRW = numAvailWheels;
     } else {
         this->numAvailRW = static_cast<uint32_t>(this->rwConfigParams.numRW);
-        G_s_B.leftCols(this->numAvailRW) = cArrayToEigenMatrix<float, 3, RW_EFF_CNT>(this->rwConfigParams.GsMatrix_B).leftCols(this->numAvailRW);
+        G_s_B.leftCols(this->numAvailRW) =
+            cArrayToEigenMatrix<float, 3, RW_EFF_CNT>(this->rwConfigParams.GsMatrix_B).leftCols(this->numAvailRW);
     }
 
     this->CGs = this->controlAxes_B * G_s_B;

@@ -128,7 +128,7 @@ def test_rw_motor_torque(show_plots, num_control_axes, num_wheels, num_input_cmd
     if num_input_cmd_torques == 2:
         module.vehControlIn2Msg.subscribeTo(cmd_torque_in2_msg)
     module.rwParamsInMsg.subscribeTo(rw_config_in_msg)
-    
+
     # set the output truth states (needs to be computed before module reset because it also determines if test needs to
     # be skipped due to control mapping matrix not being full rank
     u_s = compute_true_torque(np.array(control_axes_B),

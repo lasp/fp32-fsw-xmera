@@ -24,8 +24,8 @@
 
 #include "msgPayloadDef/CmdTorqueBodyMsgF32Payload.h"
 #include "msgPayloadDef/RWArrayConfigMsgF32Payload.h"
-#include <architecture/msgPayloadDef/RWAvailabilityMsgPayload.h>
 #include "msgPayloadDef/RwMotorTorqueMsgF32Payload.h"
+#include <architecture/msgPayloadDef/RWAvailabilityMsgPayload.h>
 
 #include <Eigen/Core>
 
@@ -48,7 +48,8 @@ class RwMotorTorqueAlgorithm {
     uint32_t numAvailRW{};      //!< [-] number of reaction wheels available
     RWArrayConfigMsgF32Payload
         rwConfigParams{};  //!< [-] struct to store message containing RW config parameters in body B frame
-    Eigen::Matrix<float, 3, RW_EFF_CNT> CGs{Eigen::Matrix<float, 3, RW_EFF_CNT>::Zero()};  //!< [-] The control mapping matrix [CB][G_s]
+    Eigen::Matrix<float, 3, RW_EFF_CNT> CGs{
+        Eigen::Matrix<float, 3, RW_EFF_CNT>::Zero()};                    //!< [-] The control mapping matrix [CB][G_s]
     std::array<FSWdeviceAvailability, RW_EFF_CNT> wheelsAvailability{};  //!< [-] Reaction wheel availability
 };
 
