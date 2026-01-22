@@ -26,6 +26,8 @@ class ThrFiringSchmitt final : public SysModel {
     void setThrMinFireTime(float time);
     uint32_t getBaseThrustState() const;
     void setBaseThrustState(uint32_t state);
+    float getFirstCallPulse() const;
+    void setFirstCallPulse(float time);
 
     /* declare module IO interfaces */
     ReadFunctor<THRArrayCmdForceMsgF32Payload> thrForceInMsg;  //!< The name of the Input message

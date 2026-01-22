@@ -43,8 +43,7 @@ THRArrayOnTimeCmdMsgF32Payload ThrFiringSchmittAlgorithm::update(uint64_t callTi
         this->prevCallTime = callTime;
 
         for (uint32_t i = 0U; i < this->numThrusters; ++i) {
-            constexpr float firstCallPulse = 2.0F;  // 2 seconds, needs to be greater than FSW update time step
-            thrOnTimeOut.onTimeRequest[i] = this->baseThrustState == PulsingRegime::ONPULSING ? 0.0F : firstCallPulse;
+            thrOnTimeOut.onTimeRequest[i] = this->baseThrustState == PulsingRegime::ONPULSING ? 0.0F : this->firstCallPulse;
         }
     } else {
         /*! - compute control time period Delta_t */
@@ -151,3 +150,20 @@ PulsingRegime ThrFiringSchmittAlgorithm::getBaseThrustState() const { return thi
  * @param state The new base thrust state to set (0 for off-pulsing, 1 for on-pulsing).
  */
 void ThrFiringSchmittAlgorithm::setBaseThrustState(PulsingRegime state) { this->baseThrustState = state; }
+
+/**
+ * @brief Get the first call pulse duration
+ * @return float The duration of the first call pulse. This should be at least the duration of the control period (1/fsw_rate)
+ */
+float ThrFiringSchmittAlgorithm::getFirstCallPulse() const { return this->firstCallPulse; }
+
+/**
+ * @brief Set the first call pulse duration
+ * @param time The duration of the first call pulse. This should be at least the duration of the control period (1/fsw_rate)
+ */
+void ThrFiringSchmittAlgorithm::setFirstCallPulse(float time) {
+    if (time <= 0.0) {
+        FS_THROW_INVALID_ARGUMENT("ThrFiringSchmitt.firstCallPulse must be positive.");
+    }
+    this->firstCallPulse = time;
+}

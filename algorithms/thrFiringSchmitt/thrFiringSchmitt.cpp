@@ -82,3 +82,15 @@ uint32_t ThrFiringSchmitt::getBaseThrustState() const {
 void ThrFiringSchmitt::setBaseThrustState(uint32_t state) {
     this->algorithm.setBaseThrustState(static_cast<PulsingRegime>(state));
 }
+
+/**
+ * @brief Get the first call pulse duration
+ * @return float The duration of the first call pulse. This should be at least the duration of the control period (1/fsw_rate)
+ */
+float ThrFiringSchmitt::getFirstCallPulse() const { return this->algorithm.getFirstCallPulse(); }
+
+/**
+ * @brief Set the first call pulse duration
+ * @param time The duration of the first call pulse. This should be at least the duration of the control period (1/fsw_rate)
+ */
+void ThrFiringSchmitt::setFirstCallPulse(float time) { this->algorithm.setFirstCallPulse(time); }

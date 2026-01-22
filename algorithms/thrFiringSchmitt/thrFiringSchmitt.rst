@@ -76,8 +76,17 @@ The following table lists all the module parameters than can be set. The paramet
       - 0
       - Indicates on-pulsing (0) or off-pulsing (1)
       - N/A
+    * - firstCallPulse (required)
+      - float
+      - [s]
+      - 0
+      - [s] Duration of first call pulse
+      - Must be greater than zero (checked in setter)
 
 Additionally, it is checked that ``levelOn`` is greater than ``levelOff``.
+The ``firstCallPulse`` is used for the first update call, because the time difference between two update calls is not
+yet known. Within the first call, if off-pulsing, the requested thruster on time will be set to this duration. Thus, it
+needs to be at least as long as the control period (1/fsw_rate).
 
 Module Assumptions and Limitations
 ----------------------------------
@@ -97,6 +106,7 @@ The module is configured by::
     module.levelOff = 0.25
     module.thrMinFireTime = 0.02
     module.baseThrustState = 0  # on-pulsing
+    module.firstCallPulse = 2.0
 
 Detailed Module Description
 ---------------------------

@@ -33,6 +33,7 @@ ReferenceOutput referenceUpdate(const ThrFiringSchmittAlgorithm& alg,
     float levelOff = levelsOnOff.at(1U);
     float thrMinFireTime = alg.getThrMinFireTime();
     PulsingRegime baseThrustState = alg.getBaseThrustState();
+    float firstCallPulse = alg.getFirstCallPulse();
 
     std::array<float, MAX_EFF_CNT> thrForce{};
     std::ranges::copy(std::begin(thrForceIn.thrForce), std::end(thrForceIn.thrForce), std::begin(thrForce));
@@ -45,7 +46,7 @@ ReferenceOutput referenceUpdate(const ThrFiringSchmittAlgorithm& alg,
         prevCallTime = callTime;
 
         for (uint32_t i = 0U; i < numThrusters; ++i) {
-            thrOnTimeOut.onTimeRequest[i] = static_cast<float>(baseThrustState) * 2.0;
+            thrOnTimeOut.onTimeRequest[i] = static_cast<float>(baseThrustState) * firstCallPulse;
         }
     } else {
         /*! - compute control time period Delta_t */
@@ -125,12 +126,16 @@ inline void testThrFiringSchmittSetup() {
     // Negative or zero thrMinFireTime
     EXPECT_THROW(alg.setThrMinFireTime(-0.1), fs::invalid_argument);
     EXPECT_THROW(alg.setThrMinFireTime(0.0), fs::invalid_argument);
+    // Negative or zero firstCallPulse
+    EXPECT_THROW(alg.setFirstCallPulse(-0.1), fs::invalid_argument);
+    EXPECT_THROW(alg.setFirstCallPulse(0.0), fs::invalid_argument);
 }
 
 inline void testThrFiringSchmitt(float levelOn,
                                  float levelOff,
                                  float thrMinFireTime,
                                  uint32_t baseThrustState,
+                                 float firstCallPulse,
                                  uint32_t numThrusters,
                                  std::vector<float> maxThrustVec,
                                  std::vector<float> thrForceVec,
@@ -155,6 +160,7 @@ inline void testThrFiringSchmitt(float levelOn,
     PulsingRegime baseThrustStatePulsingRegime{};
     if (baseThrustState == 0U) {baseThrustStatePulsingRegime = PulsingRegime::ONPULSING;} else {baseThrustStatePulsingRegime = PulsingRegime::OFFPULSING;}
     alg.setBaseThrustState(baseThrustStatePulsingRegime);
+    alg.setFirstCallPulse(firstCallPulse);
 
     // Populate messages
     THRArrayConfigMsgF32Payload thrusterConfigMsg{};

@@ -46,6 +46,7 @@ def test_thrFiringSchmitt(show_plots, resetCheck, dvOn):
 
     module.levelOn = .75
     module.levelOff = .25
+    module.firstCallPulse = 2.0
 
     # setup thruster cluster message
     fswSetupThrusters.clearSetup()
