@@ -152,9 +152,10 @@ on-criteria is reevaluated.
 reset() Functionality
 ---------------------
 
-- The control period is dynamically evaluated in the module by comparing
+- The control period is dynamically evaluated in the module adapter by comparing
   the current time with the prior call time. In ``reset()`` the
-  ``prevCallTime`` variable is reset to 0.
+  ``prevCallTime`` variable is reset to 0. The control period is then passed into
+  the ``update()`` method of the algorithm.
 
 - The thruster configuration message is read in and the number of
   thrusters is stored in the module variable ``numThrusters``. The

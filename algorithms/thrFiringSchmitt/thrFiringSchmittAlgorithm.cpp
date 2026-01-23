@@ -1,6 +1,5 @@
 #include "thrFiringSchmittAlgorithm.h"
 #include "../freestandingInvalidArgument.h"
-#include <architecture/utilities/macroDefinitions.h>
 #include <algorithm>
 
 /*! This method performs a complete reset of the module.  Local module variables that retain
@@ -8,7 +7,6 @@
  @return void
  */
 void ThrFiringSchmittAlgorithm::reset() {
-    this->prevCallTime = 0U;
     this->prevThrustState.fill(ThrusterState::OFF);
 }
 
@@ -27,10 +25,10 @@ void ThrFiringSchmittAlgorithm::configure(THRArrayConfigMsgF32Payload const& thr
 
 /*! This method maps the input thruster command forces into thruster on times using a remainder tracking logic.
  @return void
- @param callTime The clock time at which the function was called (nanoseconds)
+ @param controlPeriod The control time period in seconds (1/fsw_rate)
  @param thrForceIn Thruster array commanded force message payload
  */
-THRArrayOnTimeCmdMsgF32Payload ThrFiringSchmittAlgorithm::update(uint64_t callTime,
+THRArrayOnTimeCmdMsgF32Payload ThrFiringSchmittAlgorithm::update(const float controlPeriod,
                                                                  THRArrayCmdForceMsgF32Payload& thrForceIn) {
     THRArrayOnTimeCmdMsgF32Payload thrOnTimeOut{}; /* -- thruster on-time output payload */
 
@@ -39,17 +37,11 @@ THRArrayOnTimeCmdMsgF32Payload ThrFiringSchmittAlgorithm::update(uint64_t callTi
 
     /*! - the first time update() is called there is no information on the time step.  Here
      return either all thrusters off or on depending on the baseThrustState state */
-    if (this->prevCallTime == 0U) {
-        this->prevCallTime = callTime;
-
+    if (controlPeriod == 0.0F) {
         for (uint32_t i = 0U; i < this->numThrusters; ++i) {
             thrOnTimeOut.onTimeRequest[i] = this->baseThrustState == PulsingRegime::ONPULSING ? 0.0F : this->firstCallPulse;
         }
     } else {
-        /*! - compute control time period Delta_t */
-        const auto controlPeriod = static_cast<float>(static_cast<double>(callTime - this->prevCallTime) * NANO2SEC);
-        this->prevCallTime = callTime;
-
         std::array<float, MAX_EFF_CNT> onTime{}; /* [s] array of commanded on time for thrusters */
         /*! - Loop through thrusters */
         for (uint32_t i = 0U; i < this->numThrusters; ++i) {

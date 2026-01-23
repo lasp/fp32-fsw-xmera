@@ -1,4 +1,5 @@
 #include "thrFiringSchmitt.h"
+#include <architecture/utilities/macroDefinitions.h>
 #include <stdexcept>
 
 /*! This method performs a complete reset of the module.  Local module variables that retain
@@ -19,6 +20,8 @@ void ThrFiringSchmitt::reset(uint64_t callTime) {
 
     this->algorithm.configure(this->thrConfInMsg());
     this->algorithm.reset();
+
+    this->prevCallTime = 0U;
 }
 
 /*! This method maps the input thruster command forces into thruster on times using a remainder tracking logic.
@@ -26,8 +29,15 @@ void ThrFiringSchmitt::reset(uint64_t callTime) {
  @param callTime The clock time at which the function was called (nanoseconds)
  */
 void ThrFiringSchmitt::updateState(uint64_t callTime) {
+    /*! - compute control time period Delta_t */
+    float controlPeriod{};
+    if (this->prevCallTime != 0U) {
+        controlPeriod = static_cast<float>(static_cast<double>(callTime - this->prevCallTime) * NANO2SEC);
+    }
+    this->prevCallTime = callTime;
+
     THRArrayCmdForceMsgF32Payload thrForceIn = this->thrForceInMsg();
-    THRArrayOnTimeCmdMsgF32Payload thrOnTimeOut = this->algorithm.update(callTime, thrForceIn);
+    THRArrayOnTimeCmdMsgF32Payload thrOnTimeOut = this->algorithm.update(controlPeriod, thrForceIn);
     this->onTimeOutMsg.write(&thrOnTimeOut, this->moduleID, callTime);
 }
 

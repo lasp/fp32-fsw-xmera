@@ -8,7 +8,6 @@
 #include "msgPayloadDef/THRArrayCmdForceMsgF32Payload.h"
 #include "msgPayloadDef/THRArrayConfigMsgF32Payload.h"
 #include "msgPayloadDef/THRArrayOnTimeCmdMsgF32Payload.h"
-#include <architecture/utilities/macroDefinitions.h>
 #include "thrFiringSchmittAlgorithm.h"
 
 class ThrFiringSchmitt final : public SysModel {
@@ -36,8 +35,9 @@ class ThrFiringSchmitt final : public SysModel {
 
    private:
     ThrFiringSchmittAlgorithm algorithm{};
-    float levelOn{};
-    float levelOff{};
+    float levelOn{};                            //!< [-] ON duty cycle fraction
+    float levelOff{};                           //!< [-] OFF duty cycle fraction
+    uint64_t prevCallTime{};                    //!< [ns] callTime from previous function call
 };
 
 #endif  // F32XMERA_THR_FIRING_SCHMITT_H

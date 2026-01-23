@@ -17,7 +17,7 @@ class ThrFiringSchmittAlgorithm final {
    public:
     void reset();
     void configure(THRArrayConfigMsgF32Payload const& thrusterConfigPayload);
-    THRArrayOnTimeCmdMsgF32Payload update(uint64_t callTime, THRArrayCmdForceMsgF32Payload& thrForceIn);
+    THRArrayOnTimeCmdMsgF32Payload update(float controlPeriod, THRArrayCmdForceMsgF32Payload& thrForceIn);
     std::array<float, 2U> getLevelsOnOff() const;
     void setLevelsOnOff(float levelOn, float levelOff);
     float getThrMinFireTime() const;
@@ -36,7 +36,6 @@ class ThrFiringSchmittAlgorithm final {
     uint32_t numThrusters{};                          //!< [-] The number of thrusters available on vehicle
     std::array<float, MAX_EFF_CNT> maxThrust{};      //!< [N] Max thrust
     std::array<ThrusterState, MAX_EFF_CNT> prevThrustState{};  //!< [-] ON/OFF state of thrusters from previous call
-    uint64_t prevCallTime{};                          //!< callTime from previous function call
 };
 
 #endif
