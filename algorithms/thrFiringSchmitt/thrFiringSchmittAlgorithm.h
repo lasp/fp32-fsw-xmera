@@ -28,13 +28,14 @@ class ThrFiringSchmittAlgorithm final {
     void setFirstCallPulse(float time);
 
    private:
-    float levelOn{};                                 //!< [-] ON duty cycle fraction
-    float levelOff{};                                //!< [-] OFF duty cycle fraction
-    float thrMinFireTime{};                          //!< [s] Minimum ON time for thrusters
-    PulsingRegime baseThrustState{};                  //!< [-] Indicates on-pulsing (0) or off-pulsing (1)
-    float firstCallPulse{};                        //!< [s] Duration of first call pulse. This should be at least the duration of the control period (1/fsw_rate)
-    uint32_t numThrusters{};                          //!< [-] The number of thrusters available on vehicle
-    std::array<float, MAX_EFF_CNT> maxThrust{};      //!< [N] Max thrust
+    float levelOn{};                  //!< [-] ON duty cycle fraction
+    float levelOff{};                 //!< [-] OFF duty cycle fraction
+    float thrMinFireTime{};           //!< [s] Minimum ON time for thrusters
+    PulsingRegime baseThrustState{};  //!< [-] Indicates on-pulsing (0) or off-pulsing (1)
+    float firstCallPulse{};   //!< [s] Duration of first call pulse. This should be at least the duration of the control
+                              //!< period (1/fsw_rate)
+    uint32_t numThrusters{};  //!< [-] The number of thrusters available on vehicle
+    std::array<float, MAX_EFF_CNT> maxThrust{};                //!< [N] Max thrust
     std::array<ThrusterState, MAX_EFF_CNT> prevThrustState{};  //!< [-] ON/OFF state of thrusters from previous call
 };
 

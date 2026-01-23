@@ -8,7 +8,7 @@
 
 /*! @brief FSW message definition containing the thruster cluster information */
 typedef struct {
-    uint32_t numThrusters;                       //!< [-] number of thrusters
+    uint32_t numThrusters;                          //!< [-] number of thrusters
     THRConfigMsgF32Payload thrusters[MAX_EFF_CNT];  //!< [-] array of thruster configuration information
 } THRArrayConfigMsgF32Payload;
 

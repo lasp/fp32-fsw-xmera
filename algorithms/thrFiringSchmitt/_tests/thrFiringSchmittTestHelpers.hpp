@@ -143,7 +143,9 @@ inline void testThrFiringSchmitt(float levelOn,
     ThrFiringSchmittAlgorithm alg{};
 
     // module assumes that thrMinFireTime is less than control period dt
-    if (dt < thrMinFireTime) { return; }
+    if (dt < thrMinFireTime) {
+        return;
+    }
 
     std::array<float, MAX_EFF_CNT> maxThrust;
     std::copy_n(maxThrustVec.begin(), numThrusters, maxThrust.begin());
@@ -158,7 +160,11 @@ inline void testThrFiringSchmitt(float levelOn,
     EXPECT_NO_THROW(alg.setLevelsOnOff(levelOn, levelOff));
     alg.setThrMinFireTime(thrMinFireTime);
     PulsingRegime baseThrustStatePulsingRegime{};
-    if (baseThrustState == 0U) {baseThrustStatePulsingRegime = PulsingRegime::ONPULSING;} else {baseThrustStatePulsingRegime = PulsingRegime::OFFPULSING;}
+    if (baseThrustState == 0U) {
+        baseThrustStatePulsingRegime = PulsingRegime::ONPULSING;
+    } else {
+        baseThrustStatePulsingRegime = PulsingRegime::OFFPULSING;
+    }
     alg.setBaseThrustState(baseThrustStatePulsingRegime);
     alg.setFirstCallPulse(firstCallPulse);
 
@@ -198,13 +204,8 @@ inline void testThrFiringSchmitt(float levelOn,
         THRArrayOnTimeCmdMsgF32Payload out{};
         ReferenceOutput refOutput{};
         EXPECT_NO_THROW(out = alg.update(controlPeriod, thrForceMsg));
-        EXPECT_NO_THROW(refOutput = referenceUpdate(alg,
-                                                    numThrusters,
-                                                    maxThrust,
-                                                    lastThrustState,
-                                                    prevCallTime,
-                                                    callTime,
-                                                    thrForceMsg));
+        EXPECT_NO_THROW(refOutput = referenceUpdate(
+                            alg, numThrusters, maxThrust, lastThrustState, prevCallTime, callTime, thrForceMsg));
         THRArrayOnTimeCmdMsgF32Payload ref = refOutput.onTime;
         lastThrustState = refOutput.lastThrustState;
         prevCallTime = refOutput.prevCallTime;

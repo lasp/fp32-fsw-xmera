@@ -6,9 +6,7 @@
  time varying states between function calls are reset to their default values.
  @return void
  */
-void ThrFiringSchmittAlgorithm::reset() {
-    this->prevThrustState.fill(ThrusterState::OFF);
-}
+void ThrFiringSchmittAlgorithm::reset() { this->prevThrustState.fill(ThrusterState::OFF); }
 
 /*! This method configures the module by populating any necessary class members.
  @return void
@@ -39,7 +37,8 @@ THRArrayOnTimeCmdMsgF32Payload ThrFiringSchmittAlgorithm::update(const float con
      return either all thrusters off or on depending on the baseThrustState state */
     if (controlPeriod == 0.0F) {
         for (uint32_t i = 0U; i < this->numThrusters; ++i) {
-            thrOnTimeOut.onTimeRequest[i] = this->baseThrustState == PulsingRegime::ONPULSING ? 0.0F : this->firstCallPulse;
+            thrOnTimeOut.onTimeRequest[i] =
+                this->baseThrustState == PulsingRegime::ONPULSING ? 0.0F : this->firstCallPulse;
         }
     } else {
         std::array<float, MAX_EFF_CNT> onTime{}; /* [s] array of commanded on time for thrusters */
@@ -145,13 +144,15 @@ void ThrFiringSchmittAlgorithm::setBaseThrustState(PulsingRegime state) { this->
 
 /**
  * @brief Get the first call pulse duration
- * @return float The duration of the first call pulse. This should be at least the duration of the control period (1/fsw_rate)
+ * @return float The duration of the first call pulse. This should be at least the duration of the control period
+ * (1/fsw_rate)
  */
 float ThrFiringSchmittAlgorithm::getFirstCallPulse() const { return this->firstCallPulse; }
 
 /**
  * @brief Set the first call pulse duration
- * @param time The duration of the first call pulse. This should be at least the duration of the control period (1/fsw_rate)
+ * @param time The duration of the first call pulse. This should be at least the duration of the control period
+ * (1/fsw_rate)
  */
 void ThrFiringSchmittAlgorithm::setFirstCallPulse(float time) {
     if (time <= 0.0) {

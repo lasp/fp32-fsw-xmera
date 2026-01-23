@@ -3,12 +3,12 @@
 
 #include <cstdint>
 
-#include <architecture/_GeneralModuleFiles/sys_model.h>
-#include <architecture/messaging/messaging.h>
 #include "msgPayloadDef/THRArrayCmdForceMsgF32Payload.h"
 #include "msgPayloadDef/THRArrayConfigMsgF32Payload.h"
 #include "msgPayloadDef/THRArrayOnTimeCmdMsgF32Payload.h"
 #include "thrFiringSchmittAlgorithm.h"
+#include <architecture/_GeneralModuleFiles/sys_model.h>
+#include <architecture/messaging/messaging.h>
 
 class ThrFiringSchmitt final : public SysModel {
    public:
@@ -35,9 +35,9 @@ class ThrFiringSchmitt final : public SysModel {
 
    private:
     ThrFiringSchmittAlgorithm algorithm{};
-    float levelOn{};                            //!< [-] ON duty cycle fraction
-    float levelOff{};                           //!< [-] OFF duty cycle fraction
-    uint64_t prevCallTime{};                    //!< [ns] callTime from previous function call
+    float levelOn{};          //!< [-] ON duty cycle fraction
+    float levelOff{};         //!< [-] OFF duty cycle fraction
+    uint64_t prevCallTime{};  //!< [ns] callTime from previous function call
 };
 
 #endif  // F32XMERA_THR_FIRING_SCHMITT_H
