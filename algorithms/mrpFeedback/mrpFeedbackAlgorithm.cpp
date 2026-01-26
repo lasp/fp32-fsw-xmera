@@ -156,7 +156,12 @@ float MrpFeedbackAlgorithm::getP() const { return this->P; }
  @return void
  @param gain [N*m] Integral feedback gain
 */
-void MrpFeedbackAlgorithm::setKi(const float gain) { this->Ki = gain; }
+void MrpFeedbackAlgorithm::setKi(const float gain) {
+    if (gain < 0.0) {
+        FS_THROW_INVALID_ARGUMENT("Integral feedback gain Ki must not be negative");
+    }
+    this->Ki = gain;
+}
 
 /*! Getter method for the gain Ki.
  @return const float
@@ -167,7 +172,12 @@ float MrpFeedbackAlgorithm::getKi() const { return this->Ki; }
  @return void
  @param limit [N*m*s] Integral limit
 */
-void MrpFeedbackAlgorithm::setIntegralLimit(const float limit) { this->integralLimit = limit; }
+void MrpFeedbackAlgorithm::setIntegralLimit(const float limit) {
+    if (limit < 0.0) {
+        FS_THROW_INVALID_ARGUMENT("Integral limit must not be negative");
+    }
+    this->integralLimit = limit;
+}
 
 /*! Getter method for the integral limit.
  @return const float
