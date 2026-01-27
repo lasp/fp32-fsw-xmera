@@ -1,12 +1,11 @@
-%module sunTrackError
+%module sunTrackErrorF32
 %{
    #include "sunTrackError.h"
 %}
 
-%include <std_string.i>
-%include <swig_eigen.i>
-%include <swig_conly_data.i>
-%include <sys_model.i>
+%include <architecture/_GeneralModuleFiles/swig_eigen.i>
+%include <architecture/_GeneralModuleFiles/swig_conly_data.i>
+%include <architecture/_GeneralModuleFiles/sys_model.i>
 
 %include "sunTrackError.h"
 
