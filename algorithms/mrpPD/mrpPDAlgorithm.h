@@ -6,9 +6,15 @@
 
 #include <Eigen/Dense>
 
-#include "msgPayloadDef/AttGuidMsgF32Payload.h"
-#include "msgPayloadDef/CmdTorqueBodyMsgF32Payload.h"
 #include "msgPayloadDef/VehicleConfigMsgF32Payload.h"
+
+/*! Struct containing the guidance inputs needed by the algorithm. */
+struct InputGuidanceData {
+    Eigen::Vector3f sigma_BR = Eigen::Vector3f::Zero();
+    Eigen::Vector3f omega_BR_B = Eigen::Vector3f::Zero();
+    Eigen::Vector3f omega_RN_B = Eigen::Vector3f::Zero();
+    Eigen::Vector3f domega_RN_B = Eigen::Vector3f::Zero();
+};
 
 /*! @brief MRP PD control algorithm class. */
 class MrpPDAlgorithm {
@@ -16,7 +22,7 @@ class MrpPDAlgorithm {
     MrpPDAlgorithm() = default;
     ~MrpPDAlgorithm() = default;
 
-    CmdTorqueBodyMsgF32Payload update(AttGuidMsgF32Payload guidInMsg) const;
+    Eigen::Vector3f update(const InputGuidanceData& inputs) const;
     void setSpacecraftInertia(VehicleConfigMsgF32Payload vehicleConfigInMsg);
     Eigen::Matrix3f getSpacecraftInertia() const;
     void setDerivativeGainP(float P);

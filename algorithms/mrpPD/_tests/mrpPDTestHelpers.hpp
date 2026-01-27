@@ -14,11 +14,11 @@
 #include <vector>
 
 // Reference computation for update
-CmdTorqueBodyMsgF32Payload referenceUpdate(const MrpPDAlgorithm& alg, AttGuidMsgF32Payload& msg) {
-    const Eigen::Vector3f sigma_BR = cArrayToEigenVector(msg.sigma_BR);
-    const Eigen::Vector3f omega_BR_B = cArrayToEigenVector(msg.omega_BR_B);
-    const Eigen::Vector3f omega_RN_B = cArrayToEigenVector(msg.omega_RN_B);
-    const Eigen::Vector3f domega_RN_B = cArrayToEigenVector(msg.domega_RN_B);
+inline Eigen::Vector3f referenceUpdate(const MrpPDAlgorithm& alg, const InputGuidanceData& msg) {
+    const Eigen::Vector3f sigma_BR = msg.sigma_BR;
+    const Eigen::Vector3f omega_BR_B = msg.omega_BR_B;
+    const Eigen::Vector3f omega_RN_B = msg.omega_RN_B;
+    const Eigen::Vector3f domega_RN_B = msg.domega_RN_B;
     const Eigen::Vector3f omega_BN_B = omega_BR_B + omega_RN_B;
 
     const Eigen::Vector3f Lr = -alg.getProportionalGainK() * sigma_BR - alg.getDerivativeGainP() * omega_BR_B +
@@ -26,9 +26,7 @@ CmdTorqueBodyMsgF32Payload referenceUpdate(const MrpPDAlgorithm& alg, AttGuidMsg
                                alg.getSpacecraftInertia() * (domega_RN_B - omega_BN_B.cross(omega_RN_B)) -
                                alg.getKnownTorquePntB_B();
 
-    CmdTorqueBodyMsgF32Payload out{};
-    eigenVectorToCArray(Lr, out.torqueRequestBody);
-    return out;
+    return Lr;
 }
 
 inline void testMrpPDSetup() {
@@ -70,29 +68,24 @@ inline void regressionTestMrpPD(float K,
     alg.setDerivativeGainP(P);
     alg.setKnownTorquePntB_B(Eigen::Map<Eigen::Vector3f>(torque.data()));
 
-    Eigen::Vector3f sigma_BR_input(sigma_BR.data());
-    Eigen::Vector3f omega_BR_B_input(omega_BR_B.data());
-    Eigen::Vector3f omega_RN_B_input(omega_RN_B.data());
-    Eigen::Vector3f domega_RN_B_input(domega_RN_B.data());
-
-    AttGuidMsgF32Payload msg{};
-    eigenVectorToCArray(sigma_BR_input, msg.sigma_BR);
-    eigenVectorToCArray(omega_BR_B_input, msg.omega_BR_B);
-    eigenVectorToCArray(omega_RN_B_input, msg.omega_RN_B);
-    eigenVectorToCArray(domega_RN_B_input, msg.domega_RN_B);
+    InputGuidanceData inputs{};
+    inputs.sigma_BR(sigma_BR.data());
+    inputs.omega_BR_B(omega_BR_B.data());
+    inputs.omega_RN_B(omega_RN_B.data());
+    inputs.domega_RN_B(domega_RN_B.data());
 
     // Reference
-    CmdTorqueBodyMsgF32Payload out{};
-    CmdTorqueBodyMsgF32Payload ref{};
-    EXPECT_NO_THROW(out = alg.update(msg));
-    EXPECT_NO_THROW(ref = referenceUpdate(alg, msg));
+    Eigen::Vector3f outputTorque{};
+    Eigen::Vector3f referenceTorque{};
+    EXPECT_NO_THROW(outputTorque = alg.update(inputs));
+    EXPECT_NO_THROW(referenceTorque = referenceUpdate(alg, inputs));
 
     for (int i = 0; i < 3; ++i) {
         // Reference correctness
-        EXPECT_NEAR(out.torqueRequestBody[i], ref.torqueRequestBody[i], 1e-6);
+        EXPECT_NEAR(outputTorque[i], referenceTorque[i], 1e-6);
 
         // Finiteness
-        EXPECT_TRUE(std::isfinite(out.torqueRequestBody[i]));
+        EXPECT_TRUE(std::isfinite(outputTorque[i]));
     }
 }
 
@@ -103,66 +96,50 @@ inline void propertyTestMrpPD() {
     alg.setDerivativeGainP(200);
 
     Eigen::Vector3f torque = Eigen::Vector3f::Zero();
-    Eigen::Vector3f sigma_BR = Eigen::Vector3f::Zero();
-    Eigen::Vector3f omega_BR_B = Eigen::Vector3f::Zero();
-    Eigen::Vector3f omega_RN_B = Eigen::Vector3f::Zero();
-    Eigen::Vector3f domega_RN_B = Eigen::Vector3f::Zero();
-
-    AttGuidMsgF32Payload msg{};
-    eigenVectorToCArray(sigma_BR, msg.sigma_BR);
-    eigenVectorToCArray(omega_BR_B, msg.omega_BR_B);
-    eigenVectorToCArray(omega_RN_B, msg.omega_RN_B);
-    eigenVectorToCArray(domega_RN_B, msg.domega_RN_B);
+    InputGuidanceData inputs{};
 
     // All inputs are zeros except external torque should return external torque
     torque << 1, 2, 3;
     alg.setKnownTorquePntB_B(torque);
-    CmdTorqueBodyMsgF32Payload out{};
-    EXPECT_NO_THROW(out = alg.update(msg));
+    Eigen::Vector3f outputTorque{};
+    EXPECT_NO_THROW(outputTorque = alg.update(inputs));
     for (int i = 0; i < 3; ++i) {
-        EXPECT_NEAR(out.torqueRequestBody[i], -torque[i], 1e-6);
+        EXPECT_NEAR(outputTorque[i], -torque[i], 1e-6);
     }
 
     // If input rates and accelerations are null, the torque is the input mrp scaled by proportional gain
     torque << 0, 0, 0;
     alg.setKnownTorquePntB_B(torque);
-    sigma_BR << 0.5, 0.2, 0.1;
-    eigenVectorToCArray(sigma_BR, msg.sigma_BR);
-    EXPECT_NO_THROW(out = alg.update(msg));
+    inputs.sigma_BR << 0.5, 0.2, 0.1;
+    EXPECT_NO_THROW(outputTorque = alg.update(inputs));
     for (int i = 0; i < 3; ++i) {
-        EXPECT_NEAR(out.torqueRequestBody[i], -alg.getProportionalGainK() * sigma_BR[i], 1e-6);
+        EXPECT_NEAR(outputTorque[i], -alg.getProportionalGainK() * inputs.sigma_BR[i], 1e-6);
     }
 
     // If input rates and accelerations are null, with Identity inertia matrix, the torque is the domega term
-    sigma_BR << 0, 0, 0;
-    eigenVectorToCArray(sigma_BR, msg.sigma_BR);
-    domega_RN_B << 0.5, 0.2, 0.1;
-    eigenVectorToCArray(domega_RN_B, msg.domega_RN_B);
-    EXPECT_NO_THROW(out = alg.update(msg));
+    inputs.sigma_BR << 0, 0, 0;
+    inputs.domega_RN_B << 0.5, 0.2, 0.1;
+    EXPECT_NO_THROW(outputTorque = alg.update(inputs));
     for (int i = 0; i < 3; ++i) {
-        EXPECT_NEAR(out.torqueRequestBody[i], domega_RN_B[i], 1e-6);
+        EXPECT_NEAR(outputTorque[i], inputs.domega_RN_B[i], 1e-6);
     }
 
     // If all but omega_BR_B null, the torque is omega_BR_B scaled by derivative gain
-    domega_RN_B << 0, 0, 0;
-    eigenVectorToCArray(domega_RN_B, msg.domega_RN_B);
-    omega_BR_B << -0.3, 0.1, -0.8;
-    eigenVectorToCArray(omega_BR_B, msg.omega_BR_B);
-    EXPECT_NO_THROW(out = alg.update(msg));
+    inputs.domega_RN_B << 0, 0, 0;
+    inputs.omega_BR_B << -0.3, 0.1, -0.8;
+    EXPECT_NO_THROW(outputTorque = alg.update(inputs));
     for (int i = 0; i < 3; ++i) {
-        EXPECT_NEAR(out.torqueRequestBody[i], -alg.getDerivativeGainP() * omega_BR_B[i], 1e-6);
+        EXPECT_NEAR(outputTorque[i], -alg.getDerivativeGainP() * inputs.omega_BR_B[i], 1e-6);
     }
 
     // If everything is zero except omega_BR_B and omega_RN_B, the torque is twice the cross product of their sum
     alg.setDerivativeGainP(0);
-    omega_BR_B << 0.0, 0.9, -0.2;
-    eigenVectorToCArray(omega_BR_B, msg.omega_BR_B);
-    omega_RN_B << 1.2, 0, 0;
-    eigenVectorToCArray(omega_RN_B, msg.omega_RN_B);
-    EXPECT_NO_THROW(out = alg.update(msg));
-    Eigen::Vector3f omega_BN_B = omega_BR_B + omega_RN_B;
+    inputs.omega_BR_B << 0.0, 0.9, -0.2;
+    inputs.omega_RN_B << 1.2, 0, 0;
+    EXPECT_NO_THROW(outputTorque = alg.update(inputs));
+    Eigen::Vector3f omega_BN_B = inputs.omega_BR_B + inputs.omega_RN_B;
     for (int i = 0; i < 3; ++i) {
-        EXPECT_NEAR(out.torqueRequestBody[i], 2 * omega_RN_B.cross(omega_BN_B)[i], 1e-6);
+        EXPECT_NEAR(outputTorque[i], 2 * inputs.omega_RN_B.cross(omega_BN_B)[i], 1e-6);
     }
 }
 

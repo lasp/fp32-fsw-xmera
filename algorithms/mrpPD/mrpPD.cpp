@@ -23,13 +23,20 @@ void MrpPD::reset(uint64_t callTime) {
  @param callTime [ns] Time the method is called
 */
 void MrpPD::updateState(uint64_t callTime) {
-    auto localGuidInMsg = AttGuidMsgF32Payload();
+    auto torqueCmdMsgF32Payload = CmdTorqueBodyMsgF32Payload();
     if (this->guidInMsg.isWritten()) {
+        auto localGuidInMsg = AttGuidMsgF32Payload();
+        InputGuidanceData inputData{};
         localGuidInMsg = this->guidInMsg();
-    }
+        inputData.sigma_BR = cArrayToEigenVector(localGuidInMsg.sigma_BR);
+        inputData.omega_BR_B = cArrayToEigenVector(localGuidInMsg.omega_BR_B);
+        inputData.omega_RN_B = cArrayToEigenVector(localGuidInMsg.omega_RN_B);
+        inputData.domega_RN_B = cArrayToEigenVector(localGuidInMsg.domega_RN_B);
 
-    // Call the algorithm update method
-    CmdTorqueBodyMsgF32Payload torqueCmdMsgF32Payload = this->algorithm.update(localGuidInMsg);
+        // Call the algorithm update method
+        const auto torque = this->algorithm.update(inputData);
+        eigenVectorToCArray(torque, torqueCmdMsgF32Payload.torqueRequestBody);
+    }
 
     this->cmdTorqueOutMsg.write(&torqueCmdMsgF32Payload, moduleID, callTime);
 }

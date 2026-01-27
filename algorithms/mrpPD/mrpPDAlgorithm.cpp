@@ -5,29 +5,20 @@
 /*! Update method for mrpPD control algorithm. This method takes the attitude and rate errors relative to the
  reference frame, as well as the reference frame angular rates and acceleration, and computes the required control
  torque Lr.
- @return void
- @param guidInMsg [-] guidance message input
+ @return Eigen::Vector3f
+ @param inputs [InputGuidanceData] struct containing guidance data required for torque computations
 */
-CmdTorqueBodyMsgF32Payload MrpPDAlgorithm::update(AttGuidMsgF32Payload guidInMsg) const {
+Eigen::Vector3f MrpPDAlgorithm::update(const InputGuidanceData& inputs) const {
     // Compute hub inertial angular velocity in B-frame components
-    const Eigen::Vector3f omega_BR_B = cArrayToEigenVector(guidInMsg.omega_BR_B);
-    const Eigen::Vector3f omega_RN_B = cArrayToEigenVector(guidInMsg.omega_RN_B);
-    const Eigen::Vector3f omega_BN_B = omega_BR_B + omega_RN_B;
-
-    const Eigen::Vector3f sigma_BR = cArrayToEigenVector(guidInMsg.sigma_BR);
-    const Eigen::Vector3f domega_RN_B = cArrayToEigenVector(guidInMsg.domega_RN_B);
+    const Eigen::Vector3f omega_BN_B = inputs.omega_BR_B + inputs.omega_RN_B;
 
     // Compute required attitude control torque vector
-    const Eigen::Vector3f Lr = -this->proportionalGain * sigma_BR - this->feedbackGain * omega_BR_B +
-                               omega_RN_B.cross(this->ISCPntB_B * omega_BN_B) +
-                               this->ISCPntB_B * (domega_RN_B - omega_BN_B.cross(omega_RN_B)) -
-                               this->knownTorquePntB_B;  // [Nm]
+    const auto Lr = -this->proportionalGain * inputs.sigma_BR - this->feedbackGain * inputs.omega_BR_B +
+                         inputs.omega_RN_B.cross(this->ISCPntB_B * omega_BN_B) +
+                         this->ISCPntB_B * (inputs.domega_RN_B - omega_BN_B.cross(inputs.omega_RN_B)) -
+                         this->knownTorquePntB_B;  // [Nm]
 
-    // Create the output message
-    auto torqueCmdMsgF32Payload = CmdTorqueBodyMsgF32Payload();
-    eigenVectorToCArray(Lr, torqueCmdMsgF32Payload.torqueRequestBody);
-
-    return torqueCmdMsgF32Payload;
+    return Lr;
 }
 
 /*! This method sets the spacecraft inertia according to the vehicle configuration input message
