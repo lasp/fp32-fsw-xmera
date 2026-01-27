@@ -9,6 +9,8 @@
 #include "architecture/utilities/macroDefinitions.h"
 #include "architecture/utilities/rigidBodyKinematics.hpp"
 
+#include <stdexcept>
+
 // For localized cast using NANO2SEC macro
 inline double nsToSec(const long long& ns) { return (double)(ns * NANO2SEC); }
 
@@ -19,10 +21,10 @@ inline double nsToSec(const long long& ns) { return (double)(ns * NANO2SEC); }
 void SunTrackError::reset(uint64_t callTime) {
     // check if the required input messages are included
     if (!this->attRefInMsg.isLinked()) {
-        this->bskLogger.bskLog(BSK_ERROR, "Error: sunTrackError.attRefInMsg wasn't connected.");
+        throw std::invalid_argument("sunTrackError.attRefInMsg wasn't connected.");
     }
     if (!this->attNavInMsg.isLinked()) {
-        this->bskLogger.bskLog(BSK_ERROR, "Error: sunTrackError.attNavInMsg wasn't connected.");
+        throw std::invalid_argument("sunTrackError.attNavInMsg wasn't connected.");
     }
 
     this->maneuverInitialized = 0;

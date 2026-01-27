@@ -12,7 +12,6 @@
 #include <architecture/msgPayloadDef/EphemerisMsgPayload.h>
 #include <architecture/msgPayloadDef/NavAttMsgPayload.h>
 #include <architecture/msgPayloadDef/NavTransMsgPayload.h>
-#include <architecture/utilities/bskLogging.h>
 
 /*!@brief Module to compute the attitude tracking error for sun avoidance.
  */
@@ -41,7 +40,6 @@ class SunTrackError : public SysModel {
     uint64_t mnvrStartTime;      //!< [ns] Time at which the maneuver was begun*/
 
     AttGuidMsgPayload attGuid;
-    BSKLogger bskLogger = {};
 
     void computeSunTrackError(double sigma_BN[3],
                               double omega_BN_B[3],
