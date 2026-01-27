@@ -17,11 +17,12 @@
  */
 class SunTrackError : public SysModel {
    public:
-    Eigen::Vector3d sigma_R0R;       /*!< MRP from corrected reference frame to original frame R0
-                                    This is the same as [BcB] going from primary body frame B
-                                    to the corrected body frame Bc */
-    Eigen::Vector3d sensitiveHat_B;  //!< [-] Vehicle body vector to exclude from sun*/
-    double angleRate;                //!< [r/s] The rate at which we maneuver to Sun point*/
+    void setSigma_R0R(const Eigen::Vector3d& sigma);
+    Eigen::Vector3d getSigma_R0R() const;
+    void setSensitiveHat_B(const Eigen::Vector3d& sensitiveDirection);
+    Eigen::Vector3d getSensitiveHat_B() const;
+    void setAngleRate(double rate);
+    double getAngleRate() const;
 
     ReadFunctor<NavAttMsgPayload> attNavInMsg;        //!< input msg measured attitude
     ReadFunctor<AttRefMsgPayload> attRefInMsg;        //!< input msg of reference attitude
@@ -34,6 +35,11 @@ class SunTrackError : public SysModel {
     void updateState(uint64_t callTime) override;
 
    private:
+    Eigen::Vector3d sigma_R0R;       /*!< MRP from corrected reference frame to original frame R0
+                                    This is the same as [BcB] going from primary body frame B
+                                    to the corrected body frame Bc */
+    Eigen::Vector3d sensitiveHat_B;  //!< [-] Vehicle body vector to exclude from sun*/
+    double angleRate;                //!< [r/s] The rate at which we maneuver to Sun point*/
     Eigen::Vector3d mnvrAxis_B;  //!< [-] Eigen axis that we are maneuvering on*/
     double angleStart;           //!< [r] The angle remaining in the attitude maneuver*/
     int maneuverInitialized;     //!< [-] Flag indicating if maneuver has been set*/

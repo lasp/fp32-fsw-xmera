@@ -167,3 +167,42 @@ void SunTrackError::computeSunTrackError(double sigma_BN[3],
     Eigen::Vector3d domegaLocal_RN_B = dcm_BN * domegaLocal_RN_N;
     eigenVectorToCArray(domegaLocal_RN_B, domega_RN_B);  //!< compute reference d(omega)/dt in body frame components
 }
+
+/*! Set the MRP from corrected reference frame to original frame R0.
+ @return void
+ @param sigma [-] The MRP from corrected reference frame to original frame R0
+*/
+void SunTrackError::setSigma_R0R(const Eigen::Vector3d& sigma) {
+    this->sigma_R0R = sigma;
+}
+
+/*! Get the MRP from corrected reference frame to original frame R0.
+ @return const Eigen::Vector3d
+*/
+Eigen::Vector3d SunTrackError::getSigma_R0R() const { return this->sigma_R0R; }
+
+/*! Set the direction to exclude from the Sun in body frame components.
+ @return void
+ @param sensitiveDirection [-] The direction to exclude from the Sun in body frame components
+*/
+void SunTrackError::setSensitiveHat_B(const Eigen::Vector3d& sensitiveDirection) {
+    this->sensitiveHat_B = sensitiveDirection;
+}
+
+/*! Get the direction to exclude from the Sun in body frame components.
+ @return const Eigen::Vector3d
+*/
+Eigen::Vector3d SunTrackError::getSensitiveHat_B() const { return this->sensitiveHat_B; }
+
+/*! Set the rate at which we maneuver to Sun point.
+ @return void
+ @param rate [rad/s] The rate at which we maneuver to Sun point
+*/
+void SunTrackError::setAngleRate(const double rate) {
+    this->angleRate = rate;
+}
+
+/*! Get the rate at which we maneuver to Sun point.
+ @return const double
+*/
+double SunTrackError::getAngleRate() const { return this->angleRate; }
