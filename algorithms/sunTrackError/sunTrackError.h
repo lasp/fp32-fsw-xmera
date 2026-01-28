@@ -45,18 +45,9 @@ class SunTrackError : public SysModel {
     int maneuverInitialized;     //!< [-] Flag indicating if maneuver has been set*/
     uint64_t mnvrStartTime;      //!< [ns] Time at which the maneuver was begun*/
 
-    AttGuidMsgPayload attGuid;
-
-    void computeSunTrackError(double sigma_BN[3],
-                              double omega_BN_B[3],
-                              double sigma_R0N[3],
-                              double omega_RN_N[3],
-                              double domega_RN_N[3],
-                              double sigma_BR[3],
-                              double omega_BR_B[3],
-                              double omega_RN_B[3],
-                              double domega_RN_B[3],
-                              uint64_t callTime);
+    AttGuidMsgPayload computeSunTrackError(NavAttMsgPayload& nav,
+                                           AttRefMsgPayload& ref,
+                                           uint64_t callTime) const;
 };
 
 #endif

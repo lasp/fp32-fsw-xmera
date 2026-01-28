@@ -94,38 +94,22 @@ void SunTrackError::updateState(uint64_t callTime) {
         this->maneuverInitialized = 1;
     }
 
-    computeSunTrackError(nav.sigma_BN,
-                         nav.omega_BN_B,
-                         ref.sigma_RN,
-                         ref.omega_RN_N,
-                         ref.domega_RN_N,
-                         this->attGuid.sigma_BR,
-                         this->attGuid.omega_BR_B,
-                         this->attGuid.omega_RN_B,
-                         this->attGuid.domega_RN_B,
-                         callTime);
+    AttGuidMsgPayload attGuid = computeSunTrackError(nav, ref, callTime);
 
     /*! write output message */
-    this->attGuidOutMsg.write(&this->attGuid, this->moduleID, callTime);
+    this->attGuidOutMsg.write(&attGuid, this->moduleID, callTime);
 }
 
-void SunTrackError::computeSunTrackError(double sigma_BN[3],
-                                         double omega_BN_B[3],
-                                         double sigma_R0N[3],
-                                         double omega_RN_N[3],
-                                         double domega_RN_N[3],
-                                         double sigma_BR[3],
-                                         double omega_BR_B[3],
-                                         double omega_RN_B[3],
-                                         double domega_RN_B[3],
-                                         uint64_t callTime) {
+AttGuidMsgPayload SunTrackError::computeSunTrackError(NavAttMsgPayload& nav,
+                                                      AttRefMsgPayload& ref,
+                                                      const uint64_t callTime) const {
     // Convert inputs to Eigen
-    Eigen::MRPd sigmaLocal_BN((Eigen::Vector3d)sigma_BN);
-    Eigen::Vector3d omegaLocal_BN_B((Eigen::Vector3d)omega_BN_B);
-    Eigen::MRPd sigmaLocal_R0N((Eigen::Vector3d)sigma_R0N);
-    Eigen::Vector3d omegaLocal_RN_N((Eigen::Vector3d)omega_RN_N);
-    Eigen::Vector3d domegaLocal_RN_N((Eigen::Vector3d)domega_RN_N);
-    Eigen::MRPd sigmaLocal_R0R((Eigen::MRPd)this->sigma_R0R);
+    Eigen::MRPd sigmaLocal_BN = cArrayToEigenMrp(nav.sigma_BN);
+    Eigen::Vector3d omegaLocal_BN_B = cArrayToEigenVector3(nav.omega_BN_B);
+    Eigen::MRPd sigmaLocal_R0N = cArrayToEigenMrp(ref.sigma_RN);
+    Eigen::Vector3d omegaLocal_RN_N = cArrayToEigenVector3(ref.omega_RN_N);
+    Eigen::Vector3d domegaLocal_RN_N = cArrayToEigenVector3(ref.domega_RN_N);
+    Eigen::MRPd sigmaLocal_R0R(this->sigma_R0R);
 
     // Convert mrps to dcms
     Eigen::Matrix3d dcm_BN = sigmaLocal_BN.toRotationMatrix().transpose();
@@ -142,30 +126,34 @@ void SunTrackError::computeSunTrackError(double sigma_BN[3],
 
     relativeAngleCurr = relativeAngleCurr < 0.0 ? 0.0 : relativeAngleCurr;
 
+    AttGuidMsgPayload attGuidOut{};
+
     // This calculation can be seen in attitude tracking documentation
     Eigen::Vector3d prv_BR = relativeAngleCurr * this->mnvrAxis_B;
     Eigen::Matrix3d dcmCmd_BR = prvToDcm(prv_BR);
     Eigen::Matrix3d dcm_BR = dcm_BN * (dcmCmd_BR * dcm_RN).transpose();
     Eigen::Vector3d sigmaLocal_BR = dcmToMrp(dcm_BR);
-    eigenVectorToCArray(sigmaLocal_BR, sigma_BR);
+    eigenVectorToCArray(sigmaLocal_BR, attGuidOut.sigma_BR);
 
     // This calculation can be seen in attitude tracking documentation
     Eigen::Vector3d omegaLocal_RN_B = dcm_BN * omegaLocal_RN_N;
-    eigenVectorToCArray(omegaLocal_RN_B, omega_RN_B);
+    eigenVectorToCArray(omegaLocal_RN_B, attGuidOut.omega_RN_B);
 
     Eigen::Vector3d omegaCatchup_BN_B = -this->angleRate * this->mnvrAxis_B;
     // Logic to provide the feedforward rate
     if (relativeAngleCurr > 0.0) {
         omegaLocal_RN_B = omegaLocal_RN_B + omegaCatchup_BN_B;
-        eigenVectorToCArray(omegaLocal_RN_B, omega_RN_B);
+        eigenVectorToCArray(omegaLocal_RN_B, attGuidOut.omega_RN_B);
     }
 
     // Perform remaining attitude tracking calculations
     Eigen::Vector3d omegaLocal_BR_B = omegaLocal_BN_B - omegaLocal_RN_B;
-    eigenVectorToCArray(omegaLocal_BR_B, omega_BR_B);
+    eigenVectorToCArray(omegaLocal_BR_B, attGuidOut.omega_BR_B);
 
     Eigen::Vector3d domegaLocal_RN_B = dcm_BN * domegaLocal_RN_N;
-    eigenVectorToCArray(domegaLocal_RN_B, domega_RN_B);  //!< compute reference d(omega)/dt in body frame components
+    eigenVectorToCArray(domegaLocal_RN_B, attGuidOut.domega_RN_B);  //!< compute reference d(omega)/dt in body frame components
+
+    return attGuidOut;
 }
 
 /*! Set the MRP from corrected reference frame to original frame R0.
