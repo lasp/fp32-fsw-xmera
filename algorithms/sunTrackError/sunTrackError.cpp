@@ -1,18 +1,9 @@
-/*
-    Attitude Tracking Error Module for Sun Avoidance
- */
-
 #include "sunTrackError.h"
-
 #include "architecture/utilities/eigenMRP.h"
 #include "architecture/utilities/eigenSupport.h"
 #include "architecture/utilities/macroDefinitions.h"
 #include "architecture/utilities/rigidBodyKinematics.hpp"
-
 #include <stdexcept>
-
-// For localized cast using NANO2SEC macro
-inline double nsToSec(const long long& ns) { return (double)(ns * NANO2SEC); }
 
 /*! This method performs a complete reset of the module.  Local module variables that retain
  time varying states between function calls are reset to their default values.
@@ -119,7 +110,7 @@ AttGuidMsgPayload SunTrackError::computeSunTrackError(NavAttMsgPayload& nav,
     // This calculation can be seen in attitude tracking documentation
     const Eigen::Matrix3d dcm_RN = (dcm_R0N.transpose() * dcm_R0R).transpose();
 
-    const double dtSeconds = nsToSec(callTime - this->mnvrStartTime);
+    const double dtSeconds = static_cast<double>(callTime - this->mnvrStartTime) * NANO2SEC;
 
     // Integrate the angle to provide a feed forward rate
     double relativeAngleCurr = this->angleStart - this->angleRate * dtSeconds;
