@@ -13,6 +13,7 @@
 %include <architecture/_GeneralModuleFiles/sys_model.i>
 
 %include "sunTrackError.h"
+%include "sunTrackErrorAlgorithm.h"
 
 %include <architecture/msgPayloadDef/NavAttMsgPayload.h>
 %include <architecture/msgPayloadDef/AttGuidMsgPayload.h>
