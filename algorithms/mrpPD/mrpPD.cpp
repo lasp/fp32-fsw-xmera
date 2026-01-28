@@ -32,7 +32,6 @@ void MrpPD::updateState(uint64_t callTime) {
         localGuidInMsg = this->guidInMsg();
         inputData.sigma_BR = cArrayToEigenVector(localGuidInMsg.sigma_BR);
         inputData.omega_BR_B = cArrayToEigenVector(localGuidInMsg.omega_BR_B);
-        inputData.omega_RN_B = cArrayToEigenVector(localGuidInMsg.omega_RN_B);
         inputData.domega_RN_B = cArrayToEigenVector(localGuidInMsg.domega_RN_B);
 
         // Call the algorithm update method

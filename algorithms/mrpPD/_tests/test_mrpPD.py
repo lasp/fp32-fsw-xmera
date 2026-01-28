@@ -87,8 +87,6 @@ def test_mrpPD(show_plots, set_external_torque):
 def compute_true_torque(mrp_pd, guidance_cmd_data, ISCPntB_B, knownTorquePntB_B):
     # Compute hub inertial angular velocity in B-frame components
     omega_BR_B = np.array(guidance_cmd_data.omega_BR_B)
-    omega_RN_B = np.array(guidance_cmd_data.omega_RN_B)
-    omega_BN_B = omega_BR_B + omega_RN_B
 
     K = mrp_pd.K
     P = mrp_pd.P
@@ -96,8 +94,7 @@ def compute_true_torque(mrp_pd, guidance_cmd_data, ISCPntB_B, knownTorquePntB_B)
     domega_RN_B = np.array(guidance_cmd_data.domega_RN_B)
 
     # Compute required attitude control torque
-    Lr = (- K * sigma_BR - P * omega_BR_B + np.cross(omega_RN_B, ISCPntB_B @ omega_BN_B)
-          + ISCPntB_B @ (domega_RN_B - np.cross(omega_BN_B, omega_RN_B)) - knownTorquePntB_B)  # [Nm]
+    Lr = - K * sigma_BR - P * omega_BR_B + ISCPntB_B @ domega_RN_B  - knownTorquePntB_B  # [Nm]
 
     return Lr
 

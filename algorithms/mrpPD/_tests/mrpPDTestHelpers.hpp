@@ -22,7 +22,6 @@ inline Eigen::Vector3f referenceUpdate(const MrpPDAlgorithm& alg, const InputGui
     const Eigen::Vector3f omega_BN_B = omega_BR_B + omega_RN_B;
 
     const Eigen::Vector3f Lr = -alg.getProportionalGainK() * sigma_BR - alg.getDerivativeGainP() * omega_BR_B +
-                               omega_RN_B.cross(alg.getSpacecraftInertia() * omega_BN_B) +
                                alg.getSpacecraftInertia() * (domega_RN_B - omega_BN_B.cross(omega_RN_B)) -
                                alg.getKnownTorquePntB_B();
 
@@ -140,14 +139,14 @@ inline void propertyTestMrpPD() {
         EXPECT_NEAR(outputTorque[i], -alg.getDerivativeGainP() * inputs.omega_BR_B[i], 1e-6);
     }
 
-    // If everything is zero except omega_BR_B and omega_RN_B, the torque is twice the cross product of their sum
+    // If everything is zero except omega_BR_B and omega_RN_B, the torque is the cross product of their sum
     alg.setDerivativeGainP(0);
     inputs.omega_BR_B << 0.0, 0.9, -0.2;
     inputs.omega_RN_B << 1.2, 0, 0;
     EXPECT_NO_THROW(outputTorque = alg.update(inputs));
     Eigen::Vector3f omega_BN_B = inputs.omega_BR_B + inputs.omega_RN_B;
     for (int i = 0; i < 3; ++i) {
-        EXPECT_NEAR(outputTorque[i], 2 * inputs.omega_RN_B.cross(omega_BN_B)[i], 1e-6);
+        EXPECT_NEAR(outputTorque[i], inputs.omega_RN_B.cross(omega_BN_B)[i], 1e-6);
     }
 }
 

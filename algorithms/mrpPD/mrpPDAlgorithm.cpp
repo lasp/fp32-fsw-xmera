@@ -9,14 +9,10 @@
  @param inputs [InputGuidanceData] struct containing guidance data required for torque computations
 */
 Eigen::Vector3f MrpPDAlgorithm::update(const InputGuidanceData& inputs) const {
-    // Compute hub inertial angular velocity in B-frame components
-    const Eigen::Vector3f omega_BN_B = inputs.omega_BR_B + inputs.omega_RN_B;
-
     // Compute required attitude control torque vector
     const auto Lr = -this->proportionalGain * inputs.sigma_BR - this->feedbackGain * inputs.omega_BR_B +
-                         inputs.omega_RN_B.cross(this->ISCPntB_B * omega_BN_B) +
-                         this->ISCPntB_B * (inputs.domega_RN_B - omega_BN_B.cross(inputs.omega_RN_B)) -
-                         this->knownTorquePntB_B;  // [Nm]
+                               this->ISCPntB_B * inputs.domega_RN_B -
+                               this->knownTorquePntB_B;  // [Nm]
 
     return Lr;
 }
