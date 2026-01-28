@@ -38,6 +38,14 @@ inline void testMrpPDSetup() {
     EXPECT_THROW(alg.setProportionalGainK(-0.1), fs::invalid_argument);
     EXPECT_THROW(alg.setDerivativeGainP(-0.1), fs::invalid_argument);
 
+    Eigen::Matrix3f badInertia{};
+    badInertia << 1, 0, 0, 0, 1, 0, 0, 0, 0;
+    EXPECT_THROW(alg.setSpacecraftInertia(badInertia), fs::invalid_argument);
+    badInertia << 1, 0, 0, 0, 1, 0, 0, 1, 1;
+    EXPECT_THROW(alg.setSpacecraftInertia(badInertia), fs::invalid_argument);
+    badInertia << 3, 0, 0, 0, 1, 0, 0, 0, 1;
+    EXPECT_THROW(alg.setSpacecraftInertia(badInertia), fs::invalid_argument);
+
     float K = 100;
     float P = 10;
     Eigen::Vector3f torque = Eigen::Vector3f(1., 2, 3);
