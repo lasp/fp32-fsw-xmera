@@ -2,19 +2,10 @@
 #define XMERAF32_MRP_PD_ALGORITHM_H
 
 #include "../freestandingInvalidArgument.h"
-#include "../validInertiaCheck.h"
-
+#include "utilities/validInertiaCheck.h"
 #include <stdint.h>
+#include <Eigen/Core>
 
-#include <Eigen/Dense>
-
-/*! Struct containing the guidance inputs needed by the algorithm. */
-struct InputGuidanceData {
-    Eigen::Vector3f sigma_BR = Eigen::Vector3f::Zero();
-    Eigen::Vector3f omega_BR_B = Eigen::Vector3f::Zero();
-    Eigen::Vector3f omega_RN_B = Eigen::Vector3f::Zero();
-    Eigen::Vector3f domega_RN_B = Eigen::Vector3f::Zero();
-};
 
 /*! @brief MRP PD control algorithm class. */
 class MrpPDAlgorithm {
