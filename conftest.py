@@ -9,8 +9,10 @@ print(path)
 
 
 def pytest_addoption(parser):
-    parser.addoption("--show_plots", action="store_true",
-                     help="test(s) shall display plots")
+    try:
+        parser.addoption("--show_plots", action="store_true", help="test(s) shall display plots")
+    except ValueError as e:
+        print("option --show_plots already added")
 
 
 @pytest.fixture(scope="module")
