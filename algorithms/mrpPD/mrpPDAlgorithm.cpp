@@ -23,10 +23,10 @@ Eigen::Vector3f MrpPDAlgorithm::update(const InputGuidanceData& inputs) const {
 
 /*! This method sets the spacecraft inertia according to the vehicle configuration input message
  @return void
- @param vehicleConfigInMsg Vehicle config input
+ @param inertia Inertia matrix
 */
-void MrpPDAlgorithm::setSpacecraftInertia(VehicleConfigMsgF32Payload vehicleConfigInMsg) {
-    this->ISCPntB_B = cArrayToEigenMatrix3(vehicleConfigInMsg.ISCPntB_B);
+void MrpPDAlgorithm::setSpacecraftInertia(const Eigen::Matrix3f& inertia) {
+    this->ISCPntB_B = inertia;
 }
 
 /*! This method gets the spacecraft inertia matrix

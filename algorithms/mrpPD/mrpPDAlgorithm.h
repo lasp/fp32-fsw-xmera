@@ -6,8 +6,6 @@
 
 #include <Eigen/Dense>
 
-#include "msgPayloadDef/VehicleConfigMsgF32Payload.h"
-
 /*! Struct containing the guidance inputs needed by the algorithm. */
 struct InputGuidanceData {
     Eigen::Vector3f sigma_BR = Eigen::Vector3f::Zero();
@@ -23,7 +21,7 @@ class MrpPDAlgorithm {
     ~MrpPDAlgorithm() = default;
 
     Eigen::Vector3f update(const InputGuidanceData& inputs) const;
-    void setSpacecraftInertia(VehicleConfigMsgF32Payload vehicleConfigInMsg);
+    void setSpacecraftInertia(const Eigen::Matrix3f& inertia);
     Eigen::Matrix3f getSpacecraftInertia() const;
     void setDerivativeGainP(float P);
     float getDerivativeGainP() const;

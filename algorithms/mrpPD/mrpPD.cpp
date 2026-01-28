@@ -14,7 +14,9 @@ void MrpPD::reset(uint64_t callTime) {
     }
 
     if (this->vehConfigInMsg.isWritten()) {
-        this->algorithm.setSpacecraftInertia(this->vehConfigInMsg());
+        auto vehicleConfigInMsg = this->vehConfigInMsg();
+        auto inertia = cArrayToEigenMatrix3(vehicleConfigInMsg.ISCPntB_B);
+        this->algorithm.setSpacecraftInertia(inertia);
     }
 }
 
