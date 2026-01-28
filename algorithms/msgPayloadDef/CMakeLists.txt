@@ -1,8 +1,16 @@
+xmera_add_swig_message(AccDataMsgF32Payload
+                       TEMPLATE
+                       "${CMAKE_CURRENT_SOURCE_DIR}/AccDataMsgF32Payload.i"
+)
+xmera_add_swig_message(AccPktDataMsgF32Payload)
 xmera_add_swig_message(AttGuidMsgF32Payload)
 xmera_add_swig_message(AttRefMsgF32Payload)
+xmera_add_swig_message(BodyRateFaultMsgPayload)
 xmera_add_swig_message(CmdTorqueBodyMsgF32Payload)
 xmera_add_swig_message(EphemerisMsgF32Payload)
 xmera_add_swig_message(HingedRigidBodyMsgF32Payload)
+xmera_add_swig_message(IMUSensorBodyMsgF32Payload)
+xmera_add_swig_message(MimuFaultMsgPayload)
 xmera_add_swig_message(NavAttMsgF32Payload)
 xmera_add_swig_message(NavTransMsgF32Payload)
 xmera_add_swig_message(RateCmdMsgF32Payload)
@@ -14,5 +22,6 @@ xmera_add_swig_message(RWConstellationMsgF32Payload
 xmera_add_swig_message(RwMotorTorqueMsgF32Payload)
 xmera_add_swig_message(RwMotorVoltageMsgF32Payload)
 xmera_add_swig_message(RWSpeedMsgF32Payload)
+xmera_add_swig_message(STAttMsgF32Payload)
 xmera_add_swig_message(TDBVehicleClockCorrelationMsgF32Payload)
 xmera_add_swig_message(VehicleConfigMsgF32Payload)

@@ -96,10 +96,13 @@ endif()
 # "rateServoFullNonlinear" "rwMotorVoltage" "stepperMotorController"
 set(algorithms
     "attTrackingError"
+    "averageMimuData"
+    "bodyRateMiscompare"
     "celestialTwoBodyPoint"
     "ephemeridesRecenter"
     "ephemNavConverter"
     "inertial3D"
+    "mimuMajorityVote"
     "mrpSteering"
     "navAggregate"
     "oeStateEphem"

@@ -3,6 +3,10 @@
 
 algorithms/attTrackingError/attTrackingError.h
 algorithms/attTrackingError/attTrackingError.cpp
+algorithms/averageMimuData/averageMimuData.h
+algorithms/averageMimuData/averageMimuData.cpp
+algorithms/bodyRateMiscompare/bodyRateMiscompare.h
+algorithms/bodyRateMiscompare/bodyRateMiscompare.cpp
 algorithms/celestialTwoBodyPoint/celestialTwoBodyPoint.h
 algorithms/celestialTwoBodyPoint/celestialTwoBodyPoint.cpp
 algorithms/ephemNavConverter/ephemNavConverter.h
@@ -11,6 +15,8 @@ algorithms/ephemeridesRecenter/ephemeridesRecenter.h
 algorithms/ephemeridesRecenter/ephemeridesRecenter.cpp
 algorithms/inertial3D/inertial3D.h
 algorithms/inertial3D/inertial3D.cpp
+algorithms/mimuMajorityVote/mimuMajorityVote.h
+algorithms/mimuMajorityVote/mimuMajorityVote.cpp
 algorithms/mrpFeedback/mrpFeedback.h
 algorithms/mrpFeedback/mrpFeedback.cpp
 algorithms/mrpPD/mrpPD.h
