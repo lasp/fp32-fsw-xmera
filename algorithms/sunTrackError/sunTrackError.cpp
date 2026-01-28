@@ -40,14 +40,14 @@ void SunTrackError::updateState(uint64_t callTime) {
 
     if (this->maneuverInitialized != 1) {
         if (this->transNavInMsg.isLinked() && this->ephemerisInMsg.isLinked()) {
-            Eigen::MRPd sigma_BN((Eigen::Vector3d)nav.sigma_BN);
-            Eigen::MRPd sigma_R0N((Eigen::Vector3d)ref.sigma_RN);
-            Eigen::MRPd sigmaLocal_R0R((Eigen::MRPd)this->sigma_R0R);
+            Eigen::MRPd sigma_BN = cArrayToEigenMrp(nav.sigma_BN);
+            Eigen::MRPd sigma_R0N = cArrayToEigenMrp(ref.sigma_RN);
+            Eigen::MRPd sigmaLocal_R0R(this->sigma_R0R);
 
             NavTransMsgPayload navTrans = this->transNavInMsg();    //!< Get access to the spacecraft position
             EphemerisMsgPayload celState = this->ephemerisInMsg();  //!< Get access to the sun position
 
-            Eigen::Vector3d sHat_N = ((Eigen::Vector3d)celState.r_BdyZero_N - (Eigen::Vector3d)navTrans.r_BN_N)
+            Eigen::Vector3d sHat_N = (cArrayToEigenVector(celState.r_BdyZero_N) - cArrayToEigenVector(navTrans.r_BN_N))
                                          .normalized();  //!< inertial sun direction
 
             Eigen::Matrix3d dcm_BN = sigma_BN.toRotationMatrix().transpose();
