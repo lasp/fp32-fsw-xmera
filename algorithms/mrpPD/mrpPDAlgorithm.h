@@ -2,6 +2,8 @@
 #define XMERAF32_MRP_PD_ALGORITHM_H
 
 #include "../freestandingInvalidArgument.h"
+#include "../validInertiaCheck.h"
+
 #include <stdint.h>
 
 #include <Eigen/Dense>

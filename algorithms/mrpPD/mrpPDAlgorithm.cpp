@@ -26,6 +26,9 @@ Eigen::Vector3f MrpPDAlgorithm::update(const InputGuidanceData& inputs) const {
  @param inertia Inertia matrix
 */
 void MrpPDAlgorithm::setSpacecraftInertia(const Eigen::Matrix3f& inertia) {
+    if (!inertiaIsValid(inertia)) {
+        FS_THROW_INVALID_ARGUMENT("Matrix inertia did not pass validity checks");
+    }
     this->ISCPntB_B = inertia;
 }
 
