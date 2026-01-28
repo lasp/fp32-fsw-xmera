@@ -42,7 +42,7 @@ class SunTrackError : public SysModel {
     double angleRate;                //!< [r/s] The rate at which we maneuver to Sun point*/
     Eigen::Vector3d mnvrAxis_B;  //!< [-] Eigen axis that we are maneuvering on*/
     double angleStart;           //!< [r] The angle remaining in the attitude maneuver*/
-    int maneuverInitialized;     //!< [-] Flag indicating if maneuver has been set*/
+    bool maneuverInitialized;     //!< [-] Flag indicating if maneuver has been set*/
     uint64_t mnvrStartTime;      //!< [ns] Time at which the maneuver was begun*/
 
     AttGuidMsgPayload computeSunTrackError(NavAttMsgPayload& nav,

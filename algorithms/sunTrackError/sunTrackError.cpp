@@ -27,7 +27,7 @@ void SunTrackError::reset(uint64_t callTime) {
         throw std::invalid_argument("sunTrackError.attNavInMsg wasn't connected.");
     }
 
-    this->maneuverInitialized = 0;
+    this->maneuverInitialized = false;
 }
 
 /*! Add a description of what this main Update() routine does for this module
@@ -38,7 +38,7 @@ void SunTrackError::updateState(uint64_t callTime) {
     AttRefMsgPayload ref = this->attRefInMsg();  //!< reference guidance message
     NavAttMsgPayload nav = this->attNavInMsg();  //!< attitude navigation message
 
-    if (this->maneuverInitialized != 1) {
+    if (!this->maneuverInitialized) {
         if (this->transNavInMsg.isLinked() && this->ephemerisInMsg.isLinked()) {
             const Eigen::MRPd sigma_BN = cArrayToEigenMrp(nav.sigma_BN);
             const Eigen::MRPd sigma_R0N = cArrayToEigenMrp(ref.sigma_RN);
@@ -91,7 +91,7 @@ void SunTrackError::updateState(uint64_t callTime) {
         }
         this->mnvrStartTime = callTime;
 
-        this->maneuverInitialized = 1;
+        this->maneuverInitialized = true;
     }
 
     AttGuidMsgPayload attGuid = computeSunTrackError(nav, ref, callTime);
