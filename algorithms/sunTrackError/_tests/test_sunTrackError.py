@@ -49,24 +49,24 @@ def test_sunTrackError(sunAvoidance, rateCatchUp):
     #
     # Navigation Message
     #
-    NavStateOutData = messaging.NavAttMsgPayload()  # Create a structure for the input message
+    NavStateOutData = messaging.NavAttMsgF32Payload()  # Create a structure for the input message
     sigma_BN = [0.25, -0.45, 0.75]
     NavStateOutData.sigma_BN = sigma_BN
     omega_BN_B = [-0.015, -0.012, 0.005]
     NavStateOutData.omega_BN_B = omega_BN_B
-    navStateInMsg = messaging.NavAttMsg().write(NavStateOutData)
+    navStateInMsg = messaging.NavAttMsgF32().write(NavStateOutData)
 
     #
     # Reference Frame Message
     #
-    RefStateOutData = messaging.AttRefMsgPayload()  # Create a structure for the input message
+    RefStateOutData = messaging.AttRefMsgF32Payload()  # Create a structure for the input message
     sigma_RN = [0.35, -0.25, 0.15]
     RefStateOutData.sigma_RN = sigma_RN
     omega_RN_N = [0.018, -0.032, 0.015]
     RefStateOutData.omega_RN_N = omega_RN_N
     domega_RN_N = [0.048, -0.022, 0.025]
     RefStateOutData.domega_RN_N = domega_RN_N
-    refInMsg = messaging.AttRefMsg().write(RefStateOutData)
+    refInMsg = messaging.AttRefMsgF32().write(RefStateOutData)
 
     if sunAvoidance:
         # Set maneuver rate and sensitive surface
@@ -74,13 +74,13 @@ def test_sunTrackError(sunAvoidance, rateCatchUp):
         module.sensitiveHat_B = [[0.0], [-1.0], [0.0]]
 
         # Initialize ephemeris and celestial body information
-        transNavData = messaging.NavTransMsgPayload()
+        transNavData = messaging.NavTransMsgF32Payload()
         transNavData.r_BN_N = [-30, 20, -50]
-        transNavMsg = messaging.NavTransMsg().write(transNavData)
+        transNavMsg = messaging.NavTransMsgF32().write(transNavData)
         module.transNavInMsg.subscribeTo(transNavMsg)
-        ephemerisData = messaging.EphemerisMsgPayload()
+        ephemerisData = messaging.EphemerisMsgF32Payload()
         ephemerisData.r_BdyZero_N = np.array([1, 2, 3])
-        ephemerisMsg = messaging.EphemerisMsg().write(ephemerisData)
+        ephemerisMsg = messaging.EphemerisMsgF32().write(ephemerisData)
         module.ephemerisInMsg.subscribeTo(ephemerisMsg)
 
     # Setup logging on the test module output message so that we get all the writes to it
@@ -113,6 +113,8 @@ def test_sunTrackError(sunAvoidance, rateCatchUp):
     #
     moduleOutput = dataLog.sigma_BR[-1]
 
+    tolerance = 1e-6
+
     sigma_RN2 = rbk.addMRP(np.array(sigma_RN), -np.array(sigmaTest_R0R))
     RN = rbk.MRP2C(sigma_RN2)
     BN = rbk.MRP2C(np.array(sigma_BN))
@@ -127,7 +129,7 @@ def test_sunTrackError(sunAvoidance, rateCatchUp):
         trueVector = rbk.C2MRP(BR)
 
     # compare the module results to the truth values
-    np.testing.assert_allclose(moduleOutput, trueVector, rtol=0, atol=1e-8, verbose=True)
+    np.testing.assert_allclose(moduleOutput, trueVector, rtol=tolerance, atol=tolerance, verbose=True)
 
     #
     # check omega_BR_B
@@ -144,7 +146,7 @@ def test_sunTrackError(sunAvoidance, rateCatchUp):
         trueVector = np.array(omega_BN_B) - np.dot(BN, np.array(omega_RN_N))
 
     # compare the module results to the truth values
-    np.testing.assert_allclose(moduleOutput, trueVector, rtol=0, atol=1e-8, verbose=True)
+    np.testing.assert_allclose(moduleOutput, trueVector, rtol=tolerance, atol=tolerance, verbose=True)
 
     #
     # check omega_RN_B
@@ -162,7 +164,7 @@ def test_sunTrackError(sunAvoidance, rateCatchUp):
         trueVector = np.dot(BN, np.array(omega_RN_N))
 
     # compare the module results to the truth values
-    np.testing.assert_allclose(moduleOutput, trueVector, rtol=0, atol=1e-8, verbose=True)
+    np.testing.assert_allclose(moduleOutput, trueVector, rtol=tolerance, atol=tolerance, verbose=True)
 
     #
     # check domega_RN_B
@@ -173,7 +175,7 @@ def test_sunTrackError(sunAvoidance, rateCatchUp):
     trueVector = np.dot(BN, np.array(domega_RN_N))
 
     # compare the module results to the truth values
-    np.testing.assert_allclose(moduleOutput, trueVector, rtol=0, atol=1e-8, verbose=True)
+    np.testing.assert_allclose(moduleOutput, trueVector, rtol=tolerance, atol=tolerance, verbose=True)
 
 
 #

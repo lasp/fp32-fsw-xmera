@@ -22,10 +22,10 @@ void SunTrackError::reset(uint64_t callTime) {
  @param callTime The clock time at which the function was called (nanoseconds)
  */
 void SunTrackError::updateState(uint64_t callTime) {
-    AttRefMsgPayload ref = this->attRefInMsg();  //!< reference guidance message
-    NavAttMsgPayload nav = this->attNavInMsg();  //!< attitude navigation message
-    NavTransMsgPayload navTrans{};    //!< spacecraft position
-    EphemerisMsgPayload celState{};  //!< sun position
+    AttRefMsgF32Payload ref = this->attRefInMsg();  //!< reference guidance message
+    NavAttMsgF32Payload nav = this->attNavInMsg();  //!< attitude navigation message
+    NavTransMsgF32Payload navTrans{};    //!< spacecraft position
+    EphemerisMsgF32Payload celState{};  //!< sun position
     bool navTransIsLinked{};
     bool ephemerisIsLinked{};
 
@@ -36,13 +36,13 @@ void SunTrackError::updateState(uint64_t callTime) {
         celState = this->ephemerisInMsg();
     }
 
-    AttGuidMsgPayload attGuid = this->algorithm.update(ref,
-                                                       nav,
-                                                       navTrans,
-                                                       celState,
-                                                       navTransIsLinked,
-                                                       ephemerisIsLinked,
-                                                       callTime);
+    AttGuidMsgF32Payload attGuid = this->algorithm.update(ref,
+                                                          nav,
+                                                          navTrans,
+                                                          celState,
+                                                          navTransIsLinked,
+                                                          ephemerisIsLinked,
+                                                          callTime);
 
     /*! write output message */
     this->attGuidOutMsg.write(&attGuid, this->moduleID, callTime);
@@ -52,33 +52,33 @@ void SunTrackError::updateState(uint64_t callTime) {
  @return void
  @param sigma [-] The MRP from corrected reference frame to original frame R0
 */
-void SunTrackError::setSigma_R0R(const Eigen::Vector3d& sigma) { this->algorithm.setSigma_R0R(sigma); }
+void SunTrackError::setSigma_R0R(const Eigen::Vector3f& sigma) { this->algorithm.setSigma_R0R(sigma); }
 
 /*! Get the MRP from corrected reference frame to original frame R0.
- @return const Eigen::Vector3d
+ @return const Eigen::Vector3f
 */
-Eigen::Vector3d SunTrackError::getSigma_R0R() const { return this->algorithm.getSigma_R0R(); }
+Eigen::Vector3f SunTrackError::getSigma_R0R() const { return this->algorithm.getSigma_R0R(); }
 
 /*! Set the direction to exclude from the Sun in body frame components.
  @return void
  @param sensitiveDirection [-] The direction to exclude from the Sun in body frame components
 */
-void SunTrackError::setSensitiveHat_B(const Eigen::Vector3d& sensitiveDirection) {
+void SunTrackError::setSensitiveHat_B(const Eigen::Vector3f& sensitiveDirection) {
     this->algorithm.setSensitiveHat_B(sensitiveDirection);
 }
 
 /*! Get the direction to exclude from the Sun in body frame components.
- @return const Eigen::Vector3d
+ @return const Eigen::Vector3f
 */
-Eigen::Vector3d SunTrackError::getSensitiveHat_B() const { return this->algorithm.getSensitiveHat_B(); }
+Eigen::Vector3f SunTrackError::getSensitiveHat_B() const { return this->algorithm.getSensitiveHat_B(); }
 
 /*! Set the rate at which we maneuver to Sun point.
  @return void
  @param rate [rad/s] The rate at which we maneuver to Sun point
 */
-void SunTrackError::setAngleRate(const double rate) { this->algorithm.setAngleRate(rate); }
+void SunTrackError::setAngleRate(const float rate) { this->algorithm.setAngleRate(rate); }
 
 /*! Get the rate at which we maneuver to Sun point.
- @return const double
+ @return const float
 */
-double SunTrackError::getAngleRate() const { return this->algorithm.getAngleRate(); }
+float SunTrackError::getAngleRate() const { return this->algorithm.getAngleRate(); }
