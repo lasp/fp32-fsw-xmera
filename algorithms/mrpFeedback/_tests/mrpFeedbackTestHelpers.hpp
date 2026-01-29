@@ -95,9 +95,8 @@ ReferenceOutput referenceUpdate(const MrpFeedbackAlgorithm& alg,
     }
 
     /*! - evaluate required attitude control torque Lc */
-    const Eigen::Vector3f Lc = K * sigma_BR + P * omega_BR_B + P * Ki * z -
-                               momentumContribution + ISCPntB_B * (omega_BN_B.cross(omega_RN_B) - domega_RN_B) +
-                               knownTorquePntB_B;
+    const Eigen::Vector3f Lc = K * sigma_BR + P * omega_BR_B + P * Ki * z - momentumContribution +
+                               ISCPntB_B * (omega_BN_B.cross(omega_RN_B) - domega_RN_B) + knownTorquePntB_B;
 
     const Eigen::Vector3f Lr = -Lc;
     const Eigen::Vector3f Li = -(P * Ki * z);
@@ -206,9 +205,15 @@ inline void testMrpFeedback(std::vector<float> sigma,
         MrpFeedbackOutput out{};
         ReferenceOutput refOutput{};
         EXPECT_NO_THROW(out = alg.update(callTime, guidCmdMsg, wheelSpeedsMsg, wheelsAvailabilityMsg));
-        EXPECT_NO_THROW(
-            refOutput = referenceUpdate(
-                alg, rwConfigMsg, ISC_B, int_sigma, priorTime, callTime, guidCmdMsg, wheelSpeedsMsg, wheelsAvailabilityMsg));
+        EXPECT_NO_THROW(refOutput = referenceUpdate(alg,
+                                                    rwConfigMsg,
+                                                    ISC_B,
+                                                    int_sigma,
+                                                    priorTime,
+                                                    callTime,
+                                                    guidCmdMsg,
+                                                    wheelSpeedsMsg,
+                                                    wheelsAvailabilityMsg));
         MrpFeedbackOutput ref = refOutput.mrpFeedbackOut;
         int_sigma = refOutput.int_sigma;
         priorTime = refOutput.priorTime;

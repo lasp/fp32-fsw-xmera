@@ -43,11 +43,11 @@ class MrpFeedbackAlgorithm final {
     Eigen::Vector3f getKnownTorquePntB_B() const;
 
    private:
-    float K{};              //!< [rad/sec] Proportional gain applied to MRP errors
-    float P{};              //!< [N*m*s]   Rate error feedback gain applied
-    float Ki{};             //!< [N*m]     Integration feedback error on rate error
-    float integralLimit{};  //!< [N*m]     Integration limit to avoid wind-up issue
-    ControlLawType controlLawType{};   //!<           Flag to choose between the two control laws available
+    float K{};                        //!< [rad/sec] Proportional gain applied to MRP errors
+    float P{};                        //!< [N*m*s]   Rate error feedback gain applied
+    float Ki{};                       //!< [N*m]     Integration feedback error on rate error
+    float integralLimit{};            //!< [N*m]     Integration limit to avoid wind-up issue
+    ControlLawType controlLawType{};  //!<           Flag to choose between the two control laws available
     Eigen::Vector3f knownTorquePntB_B{
         Eigen::Vector3f::Zero()};  //!< [N*m]     known external torque in body frame vector components
     uint64_t priorTime{};          //!< [ns]      Last time the attitude control is called

@@ -20,5 +20,5 @@ FUZZ_TEST(MrpFeedbackAlgorithmFuzz, testMrpFeedback)
                  fuzztest::VectorOf(fuzztest::InRange(-1e0F, 1e0F)).WithSize(RW_EFF_CNT * 3U),  // GsMatrix_B
                  fuzztest::VectorOf(fuzztest::InRange(-1e3F, 1e3F)).WithSize(9U),               // ISCPntB_B
                  fuzztest::Arbitrary<bool>(),                                                   // rwIsLinked
-                 fuzztest::InRange(1e-6F, 1e1F)                                                // dt
+                 fuzztest::InRange(1e-6F, 1e1F)                                                 // dt
     );
