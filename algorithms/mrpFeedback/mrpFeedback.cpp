@@ -107,12 +107,14 @@ float MrpFeedback::getIntegralLimit() const { return this->algorithm.getIntegral
  @return void
  @param type control law type
 */
-void MrpFeedback::setControlLawType(const int type) { this->algorithm.setControlLawType(type); }
+void MrpFeedback::setControlLawType(const int type) {
+    this->algorithm.setControlLawType(static_cast<ControlLawType>(type));
+}
 
 /*! Getter method for the control law type.
  @return const int
 */
-int MrpFeedback::getControlLawType() const { return this->algorithm.getControlLawType(); }
+int MrpFeedback::getControlLawType() const { return static_cast<int>(this->algorithm.getControlLawType()); }
 
 /*! Setter method for the known external torque about point B.
  @return void

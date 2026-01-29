@@ -93,7 +93,7 @@ MrpFeedbackOutput MrpFeedbackAlgorithm::update(uint64_t callTime,
     }
 
     Eigen::Vector3f momentumContribution{};
-    if (this->controlLawType == 0) {
+    if (this->controlLawType == ControlLawType::NORMAL) {
         momentumContribution = (omega_RN_B + this->Ki * z).cross(H_B);
     } else {
         momentumContribution = omega_BN_B.cross(H_B);
@@ -188,12 +188,12 @@ float MrpFeedbackAlgorithm::getIntegralLimit() const { return this->integralLimi
  @return void
  @param type control law type
 */
-void MrpFeedbackAlgorithm::setControlLawType(const int type) { this->controlLawType = type; }
+void MrpFeedbackAlgorithm::setControlLawType(const ControlLawType type) { this->controlLawType = type; }
 
 /*! Getter method for the control law type.
- @return const int
+ @return const ControlLawType
 */
-int MrpFeedbackAlgorithm::getControlLawType() const { return this->controlLawType; }
+ControlLawType MrpFeedbackAlgorithm::getControlLawType() const { return this->controlLawType; }
 
 /*! Setter method for the known external torque about point B.
  @return void

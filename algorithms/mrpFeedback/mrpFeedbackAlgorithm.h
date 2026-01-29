@@ -18,6 +18,8 @@ typedef struct {
     CmdTorqueBodyMsgF32Payload intFeedbackOut; /*!< integral feedback torque output */
 } MrpFeedbackOutput;
 
+enum class ControlLawType { NORMAL = 0, SIMPLE_INTEGRAL = 1 };
+
 /*! @brief Data configuration structure for the MRP feedback attitude control routine. */
 class MrpFeedbackAlgorithm final {
    public:
@@ -35,8 +37,8 @@ class MrpFeedbackAlgorithm final {
     float getKi() const;
     void setIntegralLimit(float limit);
     float getIntegralLimit() const;
-    void setControlLawType(int type);
-    int getControlLawType() const;
+    void setControlLawType(ControlLawType type);
+    ControlLawType getControlLawType() const;
     void setKnownTorquePntB_B(const Eigen::Vector3f& torque);
     Eigen::Vector3f getKnownTorquePntB_B() const;
 
@@ -45,7 +47,7 @@ class MrpFeedbackAlgorithm final {
     float P{};              //!< [N*m*s]   Rate error feedback gain applied
     float Ki{};             //!< [N*m]     Integration feedback error on rate error
     float integralLimit{};  //!< [N*m]     Integration limit to avoid wind-up issue
-    int controlLawType{};   //!<           Flag to choose between the two control laws available
+    ControlLawType controlLawType{};   //!<           Flag to choose between the two control laws available
     Eigen::Vector3f knownTorquePntB_B{
         Eigen::Vector3f::Zero()};  //!< [N*m]     known external torque in body frame vector components
     uint64_t priorTime{};          //!< [ns]      Last time the attitude control is called
