@@ -63,7 +63,7 @@ AttGuidMsgF32Payload SunTrackErrorAlgorithm::update(AttRefMsgF32Payload& ref,
             this->angleStart = prv_BR.norm();        //!< Find the principal rotation angle
             this->mnvrAxis_B = prv_BR.normalized();  //!< Find the principal rotation axis
 
-            const Eigen::Vector3f sensToSunAxis_N = senstiveInitial_N.cross(sHat_N);  //!< This should be normalized, correct?
+            const Eigen::Vector3f sensToSunAxis_N = (senstiveInitial_N.cross(sHat_N)).normalized();
             const Eigen::Vector3f mnvrAxis_N = dcm_BN.transpose() * this->mnvrAxis_B;
             // Define dot product between the angle between how close the sun could move to the sensitive surface
             const float finalCelAngle = sensToSunAxis_N.dot(mnvrAxis_N);
