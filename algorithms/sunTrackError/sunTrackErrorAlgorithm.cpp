@@ -70,13 +70,13 @@ AttGuidMsgF32Payload SunTrackErrorAlgorithm::update(AttRefMsgF32Payload& ref,
             const float finalCelAngle = sensToSunAxis_N.dot(mnvrAxis_N);
 
             // Logic to go the short or long rotation depending on sun avoidance
-            if (finalCelAngle < 0.0 && initCelAngle < initMnvrAngle) {
-                this->angleStart = 2.0 * M_PI - this->angleStart;
+            if (finalCelAngle < 0.0F && initCelAngle < initMnvrAngle) {
+                this->angleStart = 2.0F * static_cast<float>(M_PI) - this->angleStart;
                 this->mnvrAxis_B = -this->mnvrAxis_B;
             }
 
         } else {
-            this->angleStart = 0.0;
+            this->angleStart = 0.0F;
         }
         this->mnvrStartTime = callTime;
 
@@ -118,7 +118,7 @@ AttGuidMsgF32Payload SunTrackErrorAlgorithm::computeSunTrackError(NavAttMsgF32Pa
     // Integrate the angle to provide a feed forward rate
     float relativeAngleCurr = this->angleStart - this->angleRate * dtSeconds;
 
-    relativeAngleCurr = relativeAngleCurr < 0.0 ? 0.0 : relativeAngleCurr;
+    relativeAngleCurr = relativeAngleCurr < 0.0F ? 0.0F : relativeAngleCurr;
 
     AttGuidMsgF32Payload attGuidOut{};
 
@@ -135,7 +135,7 @@ AttGuidMsgF32Payload SunTrackErrorAlgorithm::computeSunTrackError(NavAttMsgF32Pa
 
     const Eigen::Vector3f omegaCatchup_BN_B = -this->angleRate * this->mnvrAxis_B;
     // Logic to provide the feedforward rate
-    if (relativeAngleCurr > 0.0) {
+    if (relativeAngleCurr > 0.0F) {
         omegaLocal_RN_B = omegaLocal_RN_B + omegaCatchup_BN_B;
         eigenVectorToCArray(omegaLocal_RN_B, attGuidOut.omega_RN_B);
     }
