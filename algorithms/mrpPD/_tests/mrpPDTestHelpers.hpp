@@ -76,10 +76,10 @@ inline void regressionTestMrpPD(float K,
     alg.setKnownTorquePntB_B(Eigen::Map<Eigen::Vector3f>(torque.data()));
 
     InputGuidanceData inputs{};
-    inputs.sigma_BR(sigma_BR.data());
-    inputs.omega_BR_B(omega_BR_B.data());
-    inputs.omega_RN_B(omega_RN_B.data());
-    inputs.domega_RN_B(domega_RN_B.data());
+    inputs.sigma_BR = Eigen::Map<Eigen::Vector3f>(sigma_BR.data());
+    inputs.omega_BR_B = Eigen::Map<Eigen::Vector3f>(omega_BR_B.data());
+    inputs.omega_RN_B = Eigen::Map<Eigen::Vector3f>(omega_RN_B.data());
+    inputs.domega_RN_B = Eigen::Map<Eigen::Vector3f>(domega_RN_B.data());
 
     // Reference
     Eigen::Vector3f outputTorque{};
