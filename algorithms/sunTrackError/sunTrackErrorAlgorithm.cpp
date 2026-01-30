@@ -132,14 +132,13 @@ AttGuidMsgF32Payload SunTrackErrorAlgorithm::computeSunTrackError(NavAttMsgF32Pa
 
     // This calculation can be seen in attitude tracking documentation
     Eigen::Vector3f omegaLocal_RN_B = dcm_BN * omegaLocal_RN_N;
-    eigenVectorToCArray(omegaLocal_RN_B, attGuidOut.omega_RN_B);
 
     const Eigen::Vector3f omegaCatchup_BN_B = -this->angleRate * this->mnvrAxis_B;
     // Logic to provide the feedforward rate
     if (relativeAngleCurr > 0.0F) {
-        omegaLocal_RN_B = omegaLocal_RN_B + omegaCatchup_BN_B;
-        eigenVectorToCArray(omegaLocal_RN_B, attGuidOut.omega_RN_B);
+        omegaLocal_RN_B += omegaCatchup_BN_B;
     }
+    eigenVectorToCArray(omegaLocal_RN_B, attGuidOut.omega_RN_B);
 
     // Perform remaining attitude tracking calculations
     const Eigen::Vector3f omegaLocal_BR_B = omegaLocal_BN_B - omegaLocal_RN_B;
