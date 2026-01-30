@@ -169,7 +169,7 @@ Eigen::Vector3f SunTrackErrorAlgorithm::getSigma_R0R() const { return this->sigm
  @param sensitiveDirection [-] The direction to exclude from the Sun in body frame components
 */
 void SunTrackErrorAlgorithm::setSensitiveHat_B(const Eigen::Vector3f& sensitiveDirection) {
-    this->sensitiveHat_B = sensitiveDirection;
+    this->sensitiveHat_B = sensitiveDirection.normalized();
 }
 
 /*! Get the direction to exclude from the Sun in body frame components.
