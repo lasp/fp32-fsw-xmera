@@ -94,9 +94,6 @@ std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES> EphemeridesRecenterAlgor
  */
 MoonIndexFound EphemeridesRecenterAlgorithm::findMoonOfBody(const BodyEphemerisPayload& celestialBody) const {
     MoonIndexFound foundIndex{};
-    if (this->celestialBodyCount == 0U) {
-        FS_THROW_INVALID_ARGUMENT("Requesting a body index but the current celestial body count is 0");
-    }
     for (size_t i = 0U; i < this->celestialBodyCount; ++i) {
         if (this->celestialBodies[i].originalCentralBodyName == celestialBody.bodySpiceName) {
             foundIndex.index = i;
