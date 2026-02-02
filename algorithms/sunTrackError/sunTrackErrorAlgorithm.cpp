@@ -72,7 +72,7 @@ AttGuidMsgF32Payload SunTrackErrorAlgorithm::update(AttRefMsgF32Payload& ref,
 
             // Logic to go the short or long rotation depending on sun avoidance
             if (finalCelAngle < 0.0F && initCelAngle < initMnvrAngle) {
-                this->angleStart = 2.0F * std::numbers::pi_v<float> - this->angleStart;
+                this->angleStart = (2.0F * std::numbers::pi_v<float>) - this->angleStart;
                 this->mnvrAxis_B = -this->mnvrAxis_B;
             }
 
@@ -117,7 +117,7 @@ AttGuidMsgF32Payload SunTrackErrorAlgorithm::computeSunTrackError(NavAttMsgF32Pa
     const float dtSeconds = static_cast<float>(callTime - this->mnvrStartTime) * static_cast<float>(NANO2SEC);
 
     // Integrate the angle to provide a feed forward rate
-    float relativeAngleCurr = this->angleStart - this->angleRate * dtSeconds;
+    float relativeAngleCurr = this->angleStart - (this->angleRate * dtSeconds);
 
     relativeAngleCurr = relativeAngleCurr < 0.0F ? 0.0F : relativeAngleCurr;
 
