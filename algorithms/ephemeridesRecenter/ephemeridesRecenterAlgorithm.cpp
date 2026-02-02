@@ -49,8 +49,7 @@ std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES> EphemeridesRecenterAlgor
         /* Moons get re-centered along with their central body and shouldn't be re-centered in this main loop */
         recenteredBodies[i] = BodyEphemerisPayload{};
         EphemerisMsgF32Payload newEphemerisToRecenterPayload = newBodies[i].inputEphemerisPayload;
-        if (this->celestialBodies[i].originalCentralBodyName != newCentralBody.bodySpiceName &&
-            this->celestialBodies[i].originalCentralBodyName == this->previousCentralBodyName) {
+        if (this->celestialBodies[i].originalCentralBodyName == this->previousCentralBodyName) {
             Eigen::Vector3d const relativePosition = cArrayToEigenVector3(newEphemerisToRecenterPayload.r_BdyZero_N) -
                                                      cArrayToEigenVector3(newCentralBodyPayload.r_BdyZero_N);
             eigenVectorToCArray(relativePosition, newEphemerisToRecenterPayload.r_BdyZero_N);
