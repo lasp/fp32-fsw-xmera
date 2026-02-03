@@ -11,64 +11,64 @@ from xmera.utilities import astroFunctions
 filename = inspect.getframeinfo(inspect.currentframe()).filename
 path = os.path.dirname(os.path.abspath(filename))
 
-def test_ephemNavConverter():
-    unitTaskName = "unitTask"  # arbitrary name (don't change)
-    unitProcessName = "TestProcess"  # arbitrary name (don't change)
+def test_ephem_nav_converter():
+    unit_task_name = "unitTask"  # arbitrary name (don't change)
+    unit_process_name = "TestProcess"  # arbitrary name (don't change)
 
     # Create a sim module as an empty container
-    unitTestSim = SimulationBaseClass.SimBaseClass()
+    unit_test_sim = SimulationBaseClass.SimBaseClass()
 
     # Create test thread
-    testProcessRate = macros.sec2nano(0.5)  # update process rate update time
-    testProc = unitTestSim.CreateNewProcess(unitProcessName)
-    testProc.addTask(unitTestSim.CreateNewTask(unitTaskName, testProcessRate))  # Add a new task to the process
+    test_process_rate = macros.sec2nano(0.5)  # update process rate update time
+    test_proc = unit_test_sim.CreateNewProcess(unit_process_name)
+    test_proc.addTask(unit_test_sim.CreateNewTask(unit_task_name, test_process_rate))  # Add a new task to the process
 
     # Construct the ephemNavConverter module
     # Set the names for the input messages
-    ephemNav = ephemNavConverterF32.EphemNavConverter()
+    ephem_nav = ephemNavConverterF32.EphemNavConverter()
 
     # This calls the algContain to setup the selfInit, update, and reset
-    ephemNav.modelTag = "ephemNavConverter"
+    ephem_nav.modelTag = "ephemNavConverter"
 
     # Add the module to the task
-    unitTestSim.AddModelToTask(unitTaskName, ephemNav)
+    unit_test_sim.AddModelToTask(unit_task_name, ephem_nav)
 
     # Create the input message.
-    inputEphem = messaging.EphemerisMsgF32Payload()
+    input_ephem = messaging.EphemerisMsgF32Payload()
 
     # Get the Earth's position and velocity
     position, velocity = astroFunctions.Earth_RV(astroFunctions.JulianDate([2018, 10, 16]))
-    inputEphem.r_BdyZero_N = position
-    inputEphem.v_BdyZero_N = velocity
-    inputEphem.timeTag = 1.0  # sec
-    inMsg = messaging.EphemerisMsgF32().write(inputEphem)
-    ephemNav.ephInMsg.subscribeTo(inMsg)
+    input_ephem.r_BdyZero_N = position
+    input_ephem.v_BdyZero_N = velocity
+    input_ephem.timeTag = 1.0  # sec
+    in_msg = messaging.EphemerisMsgF32().write(input_ephem)
+    ephem_nav.ephInMsg.subscribeTo(in_msg)
 
-    dataLog = ephemNav.stateOutMsg.recorder()
-    unitTestSim.AddModelToTask(unitTaskName, dataLog)
+    data_log = ephem_nav.stateOutMsg.recorder()
+    unit_test_sim.AddModelToTask(unit_task_name, data_log)
 
     # Initialize the simulation
-    unitTestSim.InitializeSimulation()
+    unit_test_sim.InitializeSimulation()
 
     # The result isn't going to change with more time. The module will continue to produce the same result
-    unitTestSim.ConfigureStopTime(testProcessRate)  # seconds to stop simulation
-    unitTestSim.ExecuteSimulation()
+    unit_test_sim.ConfigureStopTime(test_process_rate)  # seconds to stop simulation
+    unit_test_sim.ExecuteSimulation()
 
-    outputR = dataLog.r_BN_N
-    outputV = dataLog.v_BN_N
-    outputTime = dataLog.timeTag
+    output_r = data_log.r_BN_N
+    output_v = data_log.v_BN_N
+    output_time = data_log.timeTag
 
-    trueR = [position, position]
-    trueV = [velocity, velocity]
-    trueTime = [inputEphem.timeTag, inputEphem.timeTag]
+    true_r = [position, position]
+    true_v = [velocity, velocity]
+    true_time = [input_ephem.timeTag, input_ephem.timeTag]
 
-    posAccuracy = 1e1
-    velAccuracy = 1e-4
+    pos_accuracy = 1e1
+    vel_accuracy = 1e-4
 
-    np.testing.assert_allclose(outputR, trueR, atol=posAccuracy, rtol=0, err_msg="ephemNavConverter output Position")
-    np.testing.assert_allclose(outputV, trueV, atol=velAccuracy, rtol=0, err_msg="ephemNavConverter output Velocity")
-    np.testing.assert_allclose(outputTime, trueTime, atol=velAccuracy, rtol=0, err_msg="ephemNavConverter output Time")
+    np.testing.assert_allclose(output_r, true_r, atol=pos_accuracy, rtol=0, err_msg="ephemNavConverter output Position")
+    np.testing.assert_allclose(output_v, true_v, atol=vel_accuracy, rtol=0, err_msg="ephemNavConverter output Velocity")
+    np.testing.assert_allclose(output_time, true_time, atol=vel_accuracy, rtol=0, err_msg="ephemNavConverter output Time")
 
 
 if __name__ == '__main__':
-    test_ephemNavConverter()
+    test_ephem_nav_converter()
