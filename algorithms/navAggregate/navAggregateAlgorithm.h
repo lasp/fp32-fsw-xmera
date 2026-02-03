@@ -6,7 +6,7 @@
 #include <array>
 #include "navAggregateOutput.h"
 
-#define MAX_AGG_NAV_MSG 10
+#define MAX_AGG_NAV_MSG 10U
 
 class NavAggregateAlgorithm {
    public:
