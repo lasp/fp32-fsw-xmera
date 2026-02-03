@@ -17,7 +17,7 @@ static void v3Copy(ScalarT const v[3], ScalarT result[3]) {
  @return NavTransMsgF32Payload Translational navigation message
  @param ephemerisInMsg Ephemeris message
  */
-NavTransMsgF32Payload EphemNavConverterAlgorithm::update(const EphemerisMsgF32Payload& ephemerisInMsg) const {
+NavTransMsgF32Payload EphemNavConverterAlgorithm::update(const EphemerisMsgF32Payload& ephemerisInMsg) {
     // Create the output message
     auto navTransMsgBuffer = NavTransMsgF32Payload{};
 

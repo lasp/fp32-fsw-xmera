@@ -10,7 +10,7 @@ class EphemNavConverterAlgorithm {
     EphemNavConverterAlgorithm() = default;   //!< Constructor
     ~EphemNavConverterAlgorithm() = default;  //!< Destructor
 
-    NavTransMsgF32Payload update(const EphemerisMsgF32Payload& ephemerisInMsg) const;
+    static NavTransMsgF32Payload update(const EphemerisMsgF32Payload& ephemerisInMsg);
 };
 
 #endif
