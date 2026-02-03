@@ -1,5 +1,5 @@
-#ifndef F32XIMERA_NAV_AGGREGATE_H
-#define F32XIMERA_NAV_AGGREGATE_H
+#ifndef F32XMERA_NAV_AGGREGATE_H
+#define F32XMERA_NAV_AGGREGATE_H
 
 #include "msgPayloadDef/NavAttMsgF32Payload.h"
 #include "msgPayloadDef/NavTransMsgF32Payload.h"

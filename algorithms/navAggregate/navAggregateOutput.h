@@ -1,5 +1,5 @@
-#ifndef F32XIMERA_NAV_AGGREGATE_OUTPUT_H
-#define F32XIMERA_NAV_AGGREGATE_OUTPUT_H
+#ifndef F32XMERA_NAV_AGGREGATE_OUTPUT_H
+#define F32XMERA_NAV_AGGREGATE_OUTPUT_H
 
 #include "msgPayloadDef/NavAttMsgF32Payload.h"
 #include "msgPayloadDef/NavTransMsgF32Payload.h"
@@ -18,4 +18,4 @@ typedef struct {
 }  // extern "C"
 #endif
 
-#endif  // F32XIMERA_NAV_AGGREGATE_OUTPUT_H
+#endif  // F32XMERA_NAV_AGGREGATE_OUTPUT_H
