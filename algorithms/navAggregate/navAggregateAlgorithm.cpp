@@ -23,7 +23,7 @@ static void v3Copy(ScalarT const v[3], ScalarT result[3]) {
  @param transMsgsPayloads Aggregated translational navigation messages
  */
 AggregateOutput NavAggregateAlgorithm::update(std::array<NavAttMsgF32Payload, MAX_AGG_NAV_MSG> attMsgsPayloads,
-                                              std::array<NavTransMsgF32Payload, MAX_AGG_NAV_MSG> transMsgsPayloads) {
+                                              std::array<NavTransMsgF32Payload, MAX_AGG_NAV_MSG> transMsgsPayloads) const {
     NavAttMsgF32Payload navAttOutMsgPayload{}; /* [-] local storage of the outgoing attitude navigation message data*/
     NavTransMsgF32Payload
         navTransOutMsgPayload{}; /* [-] local storage of the outgoing translation navigation message data*/

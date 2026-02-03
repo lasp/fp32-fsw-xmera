@@ -14,7 +14,7 @@
 class NavAggregateAlgorithm {
    public:
     AggregateOutput update(std::array<NavAttMsgF32Payload, MAX_AGG_NAV_MSG> attMsgsPayloads,
-                           std::array<NavTransMsgF32Payload, MAX_AGG_NAV_MSG> transMsgsPayloads);
+                           std::array<NavTransMsgF32Payload, MAX_AGG_NAV_MSG> transMsgsPayloads) const;
     void setAttTimeIdx(uint32_t idx);
     uint32_t getAttTimeIdx() const;
     void setTransTimeIdx(uint32_t idx);
