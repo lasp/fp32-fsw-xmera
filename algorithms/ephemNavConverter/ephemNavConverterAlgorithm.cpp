@@ -15,11 +15,9 @@ static void v3Copy(ScalarT const v[3], ScalarT result[3]) {
 /*! Update method for the ephemNavConverter algorithm. This method reads in the ephemeris messages and copies the
  translation ephemeris to the navigation translation interface message.
  @return NavTransMsgF32Payload Translational navigation message
- @param callTime [ns] Time the method is called
  @param ephemerisInMsg Ephemeris message
  */
-NavTransMsgF32Payload EphemNavConverterAlgorithm::update(uint64_t callTime,
-                                                         const EphemerisMsgF32Payload& ephemerisInMsg) const {
+NavTransMsgF32Payload EphemNavConverterAlgorithm::update(const EphemerisMsgF32Payload& ephemerisInMsg) const {
     // Create the output message
     auto navTransMsgBuffer = NavTransMsgF32Payload{};
 

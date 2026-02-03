@@ -3,7 +3,6 @@
 
 #include "msgPayloadDef/EphemerisMsgF32Payload.h"
 #include "msgPayloadDef/NavTransMsgF32Payload.h"
-#include <stdint.h>
 
 /*! @brief The ephemNavConverter algorithm class.*/
 class EphemNavConverterAlgorithm {
@@ -11,7 +10,7 @@ class EphemNavConverterAlgorithm {
     EphemNavConverterAlgorithm() = default;   //!< Constructor
     ~EphemNavConverterAlgorithm() = default;  //!< Destructor
 
-    NavTransMsgF32Payload update(uint64_t callTime, const EphemerisMsgF32Payload& ephemerisInMsg) const;
+    NavTransMsgF32Payload update(const EphemerisMsgF32Payload& ephemerisInMsg) const;
 };
 
 #endif
