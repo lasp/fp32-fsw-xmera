@@ -46,7 +46,7 @@ AggregateOutput NavAggregateAlgorithm::update(
  * @brief Set the attitude time index.
  * @param idx The new attitude time index to set.
  */
-void NavAggregateAlgorithm::setAttTimeIdx(uint32_t idx) {
+void NavAggregateAlgorithm::setAttTimeIdx(const uint32_t idx) {
     if (idx >= MAX_AGG_NAV_MSG) {
         char msg[128];
         snprintf(msg,
@@ -70,7 +70,7 @@ uint32_t NavAggregateAlgorithm::getAttTimeIdx() const { return this->attTimeIdx;
  * @brief Set the translation time index.
  * @param idx The new translation time index to set.
  */
-void NavAggregateAlgorithm::setTransTimeIdx(uint32_t idx) {
+void NavAggregateAlgorithm::setTransTimeIdx(const uint32_t idx) {
     if (idx >= MAX_AGG_NAV_MSG) {
         char msg[128];
         snprintf(msg,
@@ -94,7 +94,7 @@ uint32_t NavAggregateAlgorithm::getTransTimeIdx() const { return this->transTime
  * @brief Set the attitude index.
  * @param idx The new attitude index to set.
  */
-void NavAggregateAlgorithm::setAttIdx(uint32_t idx) {
+void NavAggregateAlgorithm::setAttIdx(const uint32_t idx) {
     if (idx >= MAX_AGG_NAV_MSG) {
         char msg[128];
         snprintf(msg,
@@ -118,7 +118,7 @@ uint32_t NavAggregateAlgorithm::getAttIdx() const { return this->attIdx; }
  * @brief Set the rate index.
  * @param idx The new rate index to set.
  */
-void NavAggregateAlgorithm::setRateIdx(uint32_t idx) {
+void NavAggregateAlgorithm::setRateIdx(const uint32_t idx) {
     if (idx >= MAX_AGG_NAV_MSG) {
         char msg[128];
         snprintf(msg,
@@ -142,7 +142,7 @@ uint32_t NavAggregateAlgorithm::getRateIdx() const { return this->rateIdx; }
  * @brief Set the position index.
  * @param idx The new position index to set.
  */
-void NavAggregateAlgorithm::setPosIdx(uint32_t idx) {
+void NavAggregateAlgorithm::setPosIdx(const uint32_t idx) {
     if (idx >= MAX_AGG_NAV_MSG) {
         char msg[128];
         snprintf(msg,
@@ -166,7 +166,7 @@ uint32_t NavAggregateAlgorithm::getPosIdx() const { return this->posIdx; }
  * @brief Set the velocity index.
  * @param idx The new velocity index to set.
  */
-void NavAggregateAlgorithm::setVelIdx(uint32_t idx) {
+void NavAggregateAlgorithm::setVelIdx(const uint32_t idx) {
     if (idx >= MAX_AGG_NAV_MSG) {
         char msg[128];
         snprintf(msg,
@@ -190,7 +190,7 @@ uint32_t NavAggregateAlgorithm::getVelIdx() const { return this->velIdx; }
  * @brief Set the accumulated DV index.
  * @param idx The new accumulated DV index to set.
  */
-void NavAggregateAlgorithm::setDvIdx(uint32_t idx) {
+void NavAggregateAlgorithm::setDvIdx(const uint32_t idx) {
     if (idx >= MAX_AGG_NAV_MSG) {
         char msg[128];
         snprintf(msg,
@@ -214,7 +214,7 @@ uint32_t NavAggregateAlgorithm::getDvIdx() const { return this->dvIdx; }
  * @brief Set the sun index.
  * @param idx The new sun index to set.
  */
-void NavAggregateAlgorithm::setSunIdx(uint32_t idx) {
+void NavAggregateAlgorithm::setSunIdx(const uint32_t idx) {
     if (idx >= MAX_AGG_NAV_MSG) {
         char msg[128];
         snprintf(msg,
@@ -238,7 +238,7 @@ uint32_t NavAggregateAlgorithm::getSunIdx() const { return this->sunIdx; }
  * @brief Set the attitude message count.
  * @param msgCount The new attitude message count to set.
  */
-void NavAggregateAlgorithm::setAttMsgCount(uint32_t msgCount) {
+void NavAggregateAlgorithm::setAttMsgCount(const uint32_t msgCount) {
     if (msgCount > MAX_AGG_NAV_MSG) {
         char msg[128];
         snprintf(msg,
@@ -262,7 +262,7 @@ uint32_t NavAggregateAlgorithm::getAttMsgCount() const { return this->attMsgCoun
  * @brief Set the translational message count.
  * @param msgCount The new translational message count to set.
  */
-void NavAggregateAlgorithm::setTransMsgCount(uint32_t msgCount) {
+void NavAggregateAlgorithm::setTransMsgCount(const uint32_t msgCount) {
     if (msgCount > MAX_AGG_NAV_MSG) {
         char msg[128];
         snprintf(msg,
