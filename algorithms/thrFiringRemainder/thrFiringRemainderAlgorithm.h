@@ -19,7 +19,7 @@
 class ThrFiringRemainderAlgorithm {
    public:
     void reset(const THRArrayConfigMsgF32Payload& thrConfigInMsgPayload);
-    THRArrayOnTimeCmdMsgF32Payload update(uint64_t callTime, THRArrayCmdForceMsgF32Payload thrForceInMsgPayload);
+    THRArrayOnTimeCmdMsgF32Payload update(THRArrayCmdForceMsgF32Payload thrForceInMsgPayload);
 
     void setThrMinFireTime(float thrMinFireTime);
     float getThrMinFireTime() const;
@@ -31,12 +31,11 @@ class ThrFiringRemainderAlgorithm {
     float getControlPeriod() const;
 
    private:
-    uint64_t prevCallTime{};                           //!< callTime from previous function call
     std::array<float, MAX_EFF_CNT> pulseRemainder{};  //!< [-] Unimplemented thrust pulses (number of minimum pulses)
     float thrMinFireTime{};                           //!< [s] Minimum fire time
     uint32_t numThrusters{};                          //!< [-] The number of thrusters available on vehicle
     std::array<float, MAX_EFF_CNT> maxThrust{};       //!< [N] Max thrust
-    ThrustPulsingRegime thrustPulsingRegime{};         //!< [-] Indicates on-pulsing or off-pulsing
+    ThrustPulsingRegime thrustPulsingRegime{};        //!< [-] Indicates on-pulsing or off-pulsing
     float controlPeriod{};  //!< [s] Default control period used for first call //Setter and Getter
 };
 

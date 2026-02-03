@@ -29,10 +29,10 @@ void ThrFiringRemainder::reset(uint64_t callTime) {
  @return void
  @param callTime The clock time at which the function was called (nanoseconds)
  */
-void ThrFiringRemainder::updateState(uint64_t callTime) {
+void ThrFiringRemainder::updateState(const uint64_t callTime) {
     THRArrayCmdForceMsgF32Payload const thrForceIn = this->thrForceInMsg();
 
-    THRArrayOnTimeCmdMsgF32Payload thrOnTimeOut = this->algorithm.update(callTime, thrForceIn);
+    THRArrayOnTimeCmdMsgF32Payload thrOnTimeOut = this->algorithm.update(thrForceIn);
     this->onTimeOutMsg.write(&thrOnTimeOut, this->moduleID, callTime);
 }
 

@@ -18,7 +18,6 @@
  @param thrConfigInMsgPayload The thruster configuration data
  */
 void ThrFiringRemainderAlgorithm::reset(const THRArrayConfigMsgF32Payload& thrConfigInMsgPayload) {
-    this->prevCallTime = 0U;
     /*! - store the number of installed thrusters */
     this->numThrusters = thrConfigInMsgPayload.numThrusters;
     this->pulseRemainder = {0.0F};
@@ -31,13 +30,10 @@ void ThrFiringRemainderAlgorithm::reset(const THRArrayConfigMsgF32Payload& thrCo
 
 /*! This method maps the input thruster command forces into thruster on times using a remainder tracking logic.
  @return void
- @param callTime The clock time at which the function was called (nanoseconds)
  @param thrForceInMsgPayload The commanded thruster forces
  */
-THRArrayOnTimeCmdMsgF32Payload ThrFiringRemainderAlgorithm::update(const uint64_t callTime,
-                                                                THRArrayCmdForceMsgF32Payload thrForceInMsgPayload)
-{
-    std::array<float, MAX_EFF_CNT> onTime{};      /* [s] array of commanded on time for thrusters */
+THRArrayOnTimeCmdMsgF32Payload ThrFiringRemainderAlgorithm::update(THRArrayCmdForceMsgF32Payload thrForceInMsgPayload) {
+    std::array<float, MAX_EFF_CNT> onTime{}; /* [s] array of commanded on time for thrusters */
     THRArrayOnTimeCmdMsgF32Payload thrOnTimeOut = {}; /* [-] copy of the thruster on-time output message */
 
     /*! - Loop through thrusters */
