@@ -1,30 +1,17 @@
 #include "ephemNavConverterAlgorithm.h"
 
-/**
- * @brief Copy a 3x1 vector.
- * @param v The vector to be copied.
- * @param result The vector copy.
- */
-template <typename ScalarT>
-static void v3Copy(ScalarT const v[3], ScalarT result[3]) {
-    result[0] = v[0];
-    result[1] = v[1];
-    result[2] = v[2];
-}
-
 /*! Update method for the ephemNavConverter algorithm. This method reads in the ephemeris messages and copies the
  translation ephemeris to the navigation translation interface message.
- @return NavTransMsgF32Payload Translational navigation message
- @param ephemerisInMsg Ephemeris message
+ @return OutputNavTransData Translational navigation output
+ @param ephemerisInput Ephemeris input
  */
-NavTransMsgF32Payload EphemNavConverterAlgorithm::update(const EphemerisMsgF32Payload& ephemerisInMsg) {
-    // Create the output message
-    auto navTransMsgBuffer = NavTransMsgF32Payload{};
+OutputNavTransData EphemNavConverterAlgorithm::update(const InputEphemerisData& ephemerisInput) {
+    OutputNavTransData navTransOutput{};
 
-    // Map timeTag, position and velocity vector to output message
-    navTransMsgBuffer.timeTag = ephemerisInMsg.timeTag;
-    v3Copy(ephemerisInMsg.r_BdyZero_N, navTransMsgBuffer.r_BN_N);
-    v3Copy(ephemerisInMsg.v_BdyZero_N, navTransMsgBuffer.v_BN_N);
+    // Map timeTag, position and velocity vector to translational navigation output struct
+    navTransOutput.timeTag = ephemerisInput.timeTag;
+    navTransOutput.r_BN_N = ephemerisInput.r_BdyZero_N;
+    navTransOutput.v_BN_N = ephemerisInput.v_BdyZero_N;
 
-    return navTransMsgBuffer;
+    return navTransOutput;
 }
