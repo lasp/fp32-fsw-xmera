@@ -18,7 +18,7 @@ AggregateOutput NavAggregateAlgorithm::update(
     InputNavTransData navTransOutput{};  /* [-] local storage of the outgoing translation navigation data*/
 
     /*! - check that attitude navigation messages are present */
-    if (this->attMsgCount) {
+    if (this->attMsgCount > 0U) {
         /*! - Copy out each part of the attitude source message into the target output message*/
         navAttOutput.timeTag = attInputs.at(this->attTimeIdx).timeTag;
         navAttOutput.sigma_BN = attInputs.at(this->attIdx).sigma_BN;
@@ -27,7 +27,7 @@ AggregateOutput NavAggregateAlgorithm::update(
     }
 
     /*! - check that translation navigation messages are present */
-    if (this->transMsgCount) {
+    if (this->transMsgCount > 0U) {
         /*! - Copy out each part of the translation source message into the target output message*/
         navTransOutput.timeTag = transInputs.at(this->transTimeIdx).timeTag;
         navTransOutput.r_BN_N = transInputs.at(this->posIdx).r_BN_N;
