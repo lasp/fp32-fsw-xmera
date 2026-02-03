@@ -78,13 +78,13 @@ THRArrayOnTimeCmdMsgF32Payload ThrFiringRemainderAlgorithm::update(THRArrayCmdFo
 
 /*! Setter method for thrMinFireTime.
  @return void
- @param thrMinFireTime
+ @param minFireTime
 */
-void ThrFiringRemainderAlgorithm::setThrMinFireTime(const float thrMinFireTime) {
-    if (thrMinFireTime < 0.0) {
+void ThrFiringRemainderAlgorithm::setThrMinFireTime(const float minFireTime) {
+    if (minFireTime < 0.0) {
         FS_THROW_INVALID_ARGUMENT("ThrFiringRemainderAlgorithm::thrMinFireTime cannot be < 0.0");
     }
-    this->thrMinFireTime = thrMinFireTime;
+    this->thrMinFireTime = minFireTime;
 }
 
 /*! Getter method for thrMinFireTime.
@@ -94,10 +94,10 @@ float ThrFiringRemainderAlgorithm::getThrMinFireTime() const { return this->thrM
 
 /*! Setter method for thrustPulsingRegime.
  @return void
- @param thrustPulsingRegime
+ @param pulsingRegime
 */
-void ThrFiringRemainderAlgorithm::setThrustPulsingRegime(const ThrustPulsingRegime thrustPulsingRegime) {
-    this->thrustPulsingRegime = thrustPulsingRegime;
+void ThrFiringRemainderAlgorithm::setThrustPulsingRegime(const ThrustPulsingRegime pulsingRegime) {
+    this->thrustPulsingRegime = pulsingRegime;
 }
 
 /*! Getter method for thrustPulsingRegime.

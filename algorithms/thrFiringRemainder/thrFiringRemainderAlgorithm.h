@@ -21,10 +21,10 @@ class ThrFiringRemainderAlgorithm {
     void reset(const THRArrayConfigMsgF32Payload& thrConfigInMsgPayload);
     THRArrayOnTimeCmdMsgF32Payload update(THRArrayCmdForceMsgF32Payload thrForceInMsgPayload);
 
-    void setThrMinFireTime(float thrMinFireTime);
+    void setThrMinFireTime(float minFireTime);
     float getThrMinFireTime() const;
 
-    void setThrustPulsingRegime(ThrustPulsingRegime thrustPulsingRegime);
+    void setThrustPulsingRegime(ThrustPulsingRegime pulsingRegime);
     ThrustPulsingRegime getThrustPulsingRegime() const;
 
     void setControlPeriod(float period);
