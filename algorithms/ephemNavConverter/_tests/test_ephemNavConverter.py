@@ -62,8 +62,8 @@ def test_ephem_nav_converter():
     true_v = [velocity, velocity]
     true_time = [input_ephem.timeTag, input_ephem.timeTag]
 
-    pos_accuracy = 1e1
-    vel_accuracy = 1e-4
+    pos_accuracy = 1e-6
+    vel_accuracy = 1e-6
 
     np.testing.assert_allclose(output_r, true_r, atol=pos_accuracy, rtol=0, err_msg="ephemNavConverter output Position")
     np.testing.assert_allclose(output_v, true_v, atol=vel_accuracy, rtol=0, err_msg="ephemNavConverter output Velocity")
