@@ -2,7 +2,6 @@
 
 #include "../freestandingInvalidArgument.h"
 #include <algorithm>
-#include <stdio.h>
 
 /*! This method takes the navigation message snippets created by the various
     navigation components in the FSW and aggregates them into a single complete
@@ -48,14 +47,7 @@ AggregateOutput NavAggregateAlgorithm::update(
  */
 void NavAggregateAlgorithm::setAttTimeIdx(const uint32_t idx) {
     if (idx >= MAX_AGG_NAV_MSG) {
-        char msg[128];
-        snprintf(msg,
-                 128,
-                 "attTimeIdx (%u) must be less than maximum navAggregate "
-                 "message size (%d)",
-                 idx,
-                 MAX_AGG_NAV_MSG);
-        FS_THROW_INVALID_ARGUMENT(msg);
+        FS_THROW_INVALID_ARGUMENT("attTimeIdx must be less than maximum navAggregate message count.");
     }
     this->attTimeIdx = idx;
 }
@@ -72,14 +64,7 @@ uint32_t NavAggregateAlgorithm::getAttTimeIdx() const { return this->attTimeIdx;
  */
 void NavAggregateAlgorithm::setTransTimeIdx(const uint32_t idx) {
     if (idx >= MAX_AGG_NAV_MSG) {
-        char msg[128];
-        snprintf(msg,
-                 128,
-                 "transTimeIdx (%u) must be less than maximum navAggregate "
-                 "message size (%d)",
-                 idx,
-                 MAX_AGG_NAV_MSG);
-        FS_THROW_INVALID_ARGUMENT(msg);
+        FS_THROW_INVALID_ARGUMENT("transTimeIdx must be less than maximum navAggregate message count.");
     }
     this->transTimeIdx = idx;
 }
@@ -96,14 +81,7 @@ uint32_t NavAggregateAlgorithm::getTransTimeIdx() const { return this->transTime
  */
 void NavAggregateAlgorithm::setAttIdx(const uint32_t idx) {
     if (idx >= MAX_AGG_NAV_MSG) {
-        char msg[128];
-        snprintf(msg,
-                 128,
-                 "attIdx (%u) must be less than maximum navAggregate "
-                 "message size (%d)",
-                 idx,
-                 MAX_AGG_NAV_MSG);
-        FS_THROW_INVALID_ARGUMENT(msg);
+        FS_THROW_INVALID_ARGUMENT("attIdx must be less than maximum navAggregate message count.");
     }
     this->attIdx = idx;
 }
@@ -120,14 +98,7 @@ uint32_t NavAggregateAlgorithm::getAttIdx() const { return this->attIdx; }
  */
 void NavAggregateAlgorithm::setRateIdx(const uint32_t idx) {
     if (idx >= MAX_AGG_NAV_MSG) {
-        char msg[128];
-        snprintf(msg,
-                 128,
-                 "rateIdx (%u) must be less than maximum navAggregate "
-                 "message size (%d)",
-                 idx,
-                 MAX_AGG_NAV_MSG);
-        FS_THROW_INVALID_ARGUMENT(msg);
+        FS_THROW_INVALID_ARGUMENT("rateIdx must be less than maximum navAggregate message count.");
     }
     this->rateIdx = idx;
 }
@@ -144,14 +115,7 @@ uint32_t NavAggregateAlgorithm::getRateIdx() const { return this->rateIdx; }
  */
 void NavAggregateAlgorithm::setPosIdx(const uint32_t idx) {
     if (idx >= MAX_AGG_NAV_MSG) {
-        char msg[128];
-        snprintf(msg,
-                 128,
-                 "posIdx (%u) must be less than maximum navAggregate "
-                 "message size (%d)",
-                 idx,
-                 MAX_AGG_NAV_MSG);
-        FS_THROW_INVALID_ARGUMENT(msg);
+        FS_THROW_INVALID_ARGUMENT("posIdx must be less than maximum navAggregate message count.");
     }
     this->posIdx = idx;
 }
@@ -168,14 +132,7 @@ uint32_t NavAggregateAlgorithm::getPosIdx() const { return this->posIdx; }
  */
 void NavAggregateAlgorithm::setVelIdx(const uint32_t idx) {
     if (idx >= MAX_AGG_NAV_MSG) {
-        char msg[128];
-        snprintf(msg,
-                 128,
-                 "velIdx (%u) must be less than maximum navAggregate "
-                 "message size (%d)",
-                 idx,
-                 MAX_AGG_NAV_MSG);
-        FS_THROW_INVALID_ARGUMENT(msg);
+        FS_THROW_INVALID_ARGUMENT("velIdx must be less than maximum navAggregate message count.");
     }
     this->velIdx = idx;
 }
@@ -192,14 +149,7 @@ uint32_t NavAggregateAlgorithm::getVelIdx() const { return this->velIdx; }
  */
 void NavAggregateAlgorithm::setDvIdx(const uint32_t idx) {
     if (idx >= MAX_AGG_NAV_MSG) {
-        char msg[128];
-        snprintf(msg,
-                 128,
-                 "dvIdx (%u) must be less than maximum navAggregate "
-                 "message size (%d)",
-                 idx,
-                 MAX_AGG_NAV_MSG);
-        FS_THROW_INVALID_ARGUMENT(msg);
+        FS_THROW_INVALID_ARGUMENT("dvIdx must be less than maximum navAggregate message count.");
     }
     this->dvIdx = idx;
 }
@@ -216,14 +166,7 @@ uint32_t NavAggregateAlgorithm::getDvIdx() const { return this->dvIdx; }
  */
 void NavAggregateAlgorithm::setSunIdx(const uint32_t idx) {
     if (idx >= MAX_AGG_NAV_MSG) {
-        char msg[128];
-        snprintf(msg,
-                 128,
-                 "attMsgCount (%u) must be less than maximum navAggregate "
-                 "message size (%d)",
-                 idx,
-                 MAX_AGG_NAV_MSG);
-        FS_THROW_INVALID_ARGUMENT(msg);
+        FS_THROW_INVALID_ARGUMENT("sunIdx must be less than maximum navAggregate message count.");
     }
     this->sunIdx = idx;
 }
@@ -240,14 +183,7 @@ uint32_t NavAggregateAlgorithm::getSunIdx() const { return this->sunIdx; }
  */
 void NavAggregateAlgorithm::setAttMsgCount(const uint32_t msgCount) {
     if (msgCount > MAX_AGG_NAV_MSG) {
-        char msg[128];
-        snprintf(msg,
-                 128,
-                 "attMsgCount (%u) must be less than maximum navAggregate "
-                 "message size (%d)",
-                 msgCount,
-                 MAX_AGG_NAV_MSG);
-        FS_THROW_INVALID_ARGUMENT(msg);
+        FS_THROW_INVALID_ARGUMENT("attMsgCount must be less than or equal to maximum navAggregate message count.");
     }
     this->attMsgCount = msgCount;
 }
@@ -264,14 +200,7 @@ uint32_t NavAggregateAlgorithm::getAttMsgCount() const { return this->attMsgCoun
  */
 void NavAggregateAlgorithm::setTransMsgCount(const uint32_t msgCount) {
     if (msgCount > MAX_AGG_NAV_MSG) {
-        char msg[128];
-        snprintf(msg,
-                 128,
-                 "transMsgCount (%u) must be less than maximum navAggregate "
-                 "message size (%d)",
-                 msgCount,
-                 MAX_AGG_NAV_MSG);
-        FS_THROW_INVALID_ARGUMENT(msg);
+        FS_THROW_INVALID_ARGUMENT("transMsgCount must be less than or equal to maximum navAggregate message count.");
     }
     this->transMsgCount = msgCount;
 }
