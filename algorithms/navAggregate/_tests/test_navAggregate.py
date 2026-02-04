@@ -12,18 +12,10 @@ splitPath = path.split(xmeraName)
 
 # Import all of the modules that we are going to be called in this simulation
 from xmera.utilities import SimulationBaseClass
-from xmera.utilities import unitTestSupport
 from xmera.fp32 import navAggregateF32
 from xmera.utilities import macros
 from xmera.architecture import messaging
 
-# Uncomment this line is this test is to be skipped in the global unit test run, adjust message as needed.
-# @pytest.mark.skipif(conditionstring)
-# Uncomment this line if this test has an expected failure, adjust message as needed.
-# @pytest.mark.xfail(conditionstring)
-# Provide a unique test method name, starting with 'test_'.
-# The following 'parametrize' function decorator provides the parameters and expected results for each
-#   of the multiple test runs for this test.
 @pytest.mark.parametrize("num_att_nav, num_trans_nav", [
       (0, 0)
     , (1, 1)
@@ -43,7 +35,6 @@ from xmera.architecture import messaging
     , (0, 3)
 ])
 
-# update "module" in this function name to reflect the module name
 def test_nav_aggregate(show_plots, num_att_nav, num_trans_nav):
     unit_task_name = "unitTask"               # arbitrary name (don't change)
     unit_process_name = "TestProcess"         # arbitrary name (don't change)
