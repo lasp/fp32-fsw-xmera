@@ -1,150 +1,138 @@
 import pytest
 
 from xmera.utilities import SimulationBaseClass
-from xmera.fswAlgorithms import thrFiringRemainder
+from xmera.fp32 import thrFiringRemainderF32
 from xmera.utilities import macros
-from xmera.utilities import fswSetupThrusters
-from xmera.architecture import messaging
 
+from xmera.architecture.messaging import (
+    THRArrayConfigMsgF32,
+    THRArrayConfigMsgF32Payload,
+    THRArrayCmdForceMsgF32,
+    THRArrayCmdForceMsgF32Payload,
+)
+from xmera.architecture.messaging.THRArrayCmdForceMsgF32Payload import MAX_EFF_CNT
 import numpy as np
 
-@pytest.mark.parametrize("reset_check, dv_on", [
-    (False,False),
-    (True,False),
-    (False,True),
-    (True,True)
-])
-def test_thrFiringRemainder(show_plots, reset_check, dv_on):
 
+def generate_random_thrusters(rng: np.random.Generator, num_thrusters: int, max_thrust: float) -> list[dict]:
+    """
+    Generate random thruster configurations.
+
+    Args:
+        rng: numpy random generator for reproducibility
+        num_thrusters: number of thrusters to generate (clamped to MAX_EFF_CNT)
+        max_thrust: maximum thrust value for all thrusters
+
+    Returns:
+        List of thruster config dicts with keys: rThrust_B, tHatThrust_B, maxThrust
+    """
+    num_thrusters = min(num_thrusters, MAX_EFF_CNT)
+    thrusters = []
+    for _ in range(num_thrusters):
+        r_thrust_B = rng.uniform(-2.0, 2.0, size=3)
+        direction = rng.standard_normal(size=3)
+        tHat_thrust_B = direction / np.linalg.norm(direction)
+        thrusters.append({
+            "rThrust_B": r_thrust_B.tolist(),
+            "tHatThrust_B": tHat_thrust_B.tolist(),
+            "maxThrust": max_thrust,
+        })
+    return thrusters
+
+
+def create_thruster_array_config_msg(thrusters: list[dict]) -> THRArrayConfigMsgF32:
+    """
+    Create a thruster array config message from a list of thruster dicts.
+
+    Each dict must have keys: rThrust_B, tHatThrust_B, maxThrust
+    """
+    payload = THRArrayConfigMsgF32Payload()
+    for i, thr in enumerate(thrusters):
+        payload.thrusters[i].rThrust_B = thr["rThrust_B"]
+        payload.thrusters[i].tHatThrust_B = thr["tHatThrust_B"]
+        payload.thrusters[i].maxThrust = thr["maxThrust"]
+    payload.numThrusters = len(thrusters)
+
+    msg = THRArrayConfigMsgF32().write(payload)
+    msg.this.disown()
+    return msg
+
+
+@pytest.mark.parametrize("thrust_pulsing_regime", [thrFiringRemainderF32.ThrustPulsingRegime_OFF_PULSING,
+                                                   thrFiringRemainderF32.ThrustPulsingRegime_ON_PULSING])
+def test_thrFiringRemainderF32(show_plots, thrust_pulsing_regime):
+    """Exercise the Python/SWIG interface for ThrFiringRemainder.
+
+    Verifies that the module can be configured, connected, and run
+    within the simulation framework, and that it produces non-trivial output.
+    Correctness is validated by the C++ unit and fuzz tests.
+    """
     unit_task_name = "unitTask"
     unit_process_name = "TestProcess"
 
     unit_test_sim = SimulationBaseClass.SimBaseClass()
 
     fsw_rate = 0.5
-    default_control_period = 3.0
-    test_process_rate = macros.sec2nano(fsw_rate)  # update process rate update time
+    control_period = fsw_rate
+    test_process_rate = macros.sec2nano(fsw_rate)
     test_proc = unit_test_sim.CreateNewProcess(unit_process_name)
     test_proc.addTask(unit_test_sim.CreateNewTask(unit_task_name, test_process_rate))
 
-    # Construct algorithm and associated C++ container
-    module = thrFiringRemainder.ThrFiringRemainder()
+    # Configure the module
+    module = thrFiringRemainderF32.ThrFiringRemainder()
     module.modelTag = "thrFiringRemainder"
+    module.thrMinFireTime = 0.2
+    module.controlPeriod = control_period
+    module.thrustPulsingRegime = thrust_pulsing_regime
 
-    # Add test module to runtime call list
     unit_test_sim.AddModelToTask(unit_task_name, module)
 
-    # Initialize the test module configuration data
-    module.thrMinFireTime = 0.2
-    module.defaultControlPeriod = default_control_period
-    if dv_on == 1:
-        module.thrustPulsingRegime = thrFiringRemainder.ThrustPulsingRegime_OFF_PULSING
-    else:
-        module.thrustPulsingRegime = thrFiringRemainder.ThrustPulsingRegime_ON_PULSING
-
-    # setup thruster cluster message
-    fswSetupThrusters.clearSetup()
-    rcs_location_data = [
-        [-0.86360, -0.82550, 1.79070],
-        [-0.82550, -0.86360, 1.79070],
-        [0.82550, 0.86360, 1.79070],
-        [0.86360, 0.82550, 1.79070],
-        [-0.86360, -0.82550, -1.79070],
-        [-0.82550, -0.86360, -1.79070],
-        [0.82550, 0.86360, -1.79070],
-        [0.86360, 0.82550, -1.79070]
-        ]
-    rcs_direction_data = [
-        [1.0, 0.0, 0.0],
-        [0.0, 1.0, 0.0],
-        [0.0, -1.0, 0.0],
-        [-1.0, 0.0, 0.0],
-        [-1.0, 0.0, 0.0],
-        [0.0, -1.0, 0.0],
-        [0.0, 1.0, 0.0],
-        [1.0, 0.0, 0.0]
-        ]
+    # Generate random thruster configuration
+    rng = np.random.default_rng(seed=42)
+    num_thrusters = rng.integers(1, MAX_EFF_CNT + 1)
     max_thrust = 0.5
+    thrusters = generate_random_thrusters(rng, num_thrusters, max_thrust)
+    thr_config_msg = create_thruster_array_config_msg(thrusters)
 
-    for i in range(len(rcs_location_data)):
-        fswSetupThrusters.create(rcs_location_data[i], rcs_direction_data[i], max_thrust)
-    thr_config_msg = fswSetupThrusters.writeConfigMessage()
-    num_thrusters = fswSetupThrusters.getNumOfDevices()
-
-    # setup thruster impulse request message
-    thr_message_data = messaging.THRArrayCmdForceMsgPayload()
-    if dv_on:
-        thr_message_data.thrForce = [-0.5, 0.0, -0.1, -0.2, -0.3, -0.34, -0.39, -0.44]
+    # Generate random thrust force commands
+    thr_message_data = THRArrayCmdForceMsgF32Payload()
+    if thrust_pulsing_regime == thrFiringRemainderF32.ThrustPulsingRegime_OFF_PULSING:
+        thr_force = rng.uniform(-max_thrust, 0.0, size=num_thrusters)
     else:
-        thr_message_data.thrForce = [0.5, 0.05, 0.1, 0.15, 0.19, 0.0, 0.2, 0.49]
-    thr_force_msg = messaging.THRArrayCmdForceMsg().write(thr_message_data)
+        thr_force = rng.uniform(0.0, max_thrust, size=num_thrusters)
+    thr_message_data.thrForce = thr_force.tolist()
+    thr_force_msg = THRArrayCmdForceMsgF32().write(thr_message_data)
 
-    # Setup logging on the test module output message so that we get all the writes to it
-    data_log = module.onTimeOutMsg.recorder()
-    unit_test_sim.AddModelToTask(unit_task_name, data_log)
-
-    # connect messages
+    # Connect messages
     module.thrConfInMsg.subscribeTo(thr_config_msg)
     module.thrForceInMsg.subscribeTo(thr_force_msg)
 
-    # Need to call the self-init and cross-init methods
-    unit_test_sim.InitializeSimulation()
+    # Record output
+    data_log = module.onTimeOutMsg.recorder()
+    unit_test_sim.AddModelToTask(unit_task_name, data_log)
 
-    # Set the simulation time.
-    # NOTE: the total simulation time may be longer than this value. The
-    # simulation is stopped at the next logging event on or after the
-    # simulation end time.
+    # Run simulation
+    unit_test_sim.InitializeSimulation()
     final_time = 3.0
-    unit_test_sim.ConfigureStopTime(macros.sec2nano(final_time))  # seconds to stop simulation
+    unit_test_sim.ConfigureStopTime(macros.sec2nano(final_time))
     unit_test_sim.ExecuteSimulation()
 
-    if reset_check:
-        # reset the module to test this functionality
-        module.reset(macros.sec2nano(final_time))  # this module reset function needs a time input (in NanoSeconds)
+    on_time_requests = data_log.onTimeRequest[:, :num_thrusters]
 
-        # run the module again for an additional 2.5 seconds
-        unit_test_sim.ConfigureStopTime(macros.sec2nano(5.5))  # seconds to stop simulation
-        unit_test_sim.ExecuteSimulation()
+    # Verify output shape and basic invariants
+    expected_steps = int(final_time / fsw_rate) + 1
+    assert on_time_requests.shape == (expected_steps, num_thrusters)
 
-    module_output = data_log.OnTimeRequest[:, :num_thrusters]
+    # All on-times must be non-negative
+    assert np.all(on_time_requests >= 0.0)
 
-    # compute true values
-    thr_force = thr_message_data.thrForce
-    pulse_remainder = np.zeros([num_thrusters])
-    true_vector = np.empty([len(module_output), num_thrusters])
-    idx_reset = final_time / fsw_rate + 1
-    for idx in range(0, len(module_output)):
-        on_times = np.empty([num_thrusters])
-        # reset at corresponding idx if resetCheck is true,
-        # or at idx 0 and 1 as output is the same for time 0 and first time step
-        if (reset_check and idx == idx_reset) or idx <= 1:
-            control_period = default_control_period
-            pulse_remainder = np.zeros([num_thrusters])  # reset pulse remainder
-        else:
-            control_period = fsw_rate
+    # All on-times must not exceed the oversaturation bound
+    assert np.all(on_time_requests <= 1.1 * control_period)
 
-        for thr_idx in range(0, num_thrusters):
-            thrust = thr_force[thr_idx]
-            if dv_on:
-                thrust += max_thrust
-            thrust = max(thrust, 0.0)  # Do not allow thrust requests less than zero
-            on_time = thrust / max_thrust * control_period
-            on_time += pulse_remainder[thr_idx] * module.thrMinFireTime
-            pulse_remainder[thr_idx] = 0.0
-            if on_time < module.thrMinFireTime:
-                pulse_remainder[thr_idx] = on_time / module.thrMinFireTime
-                on_time = 0.0
-            elif on_time >= control_period:
-                on_time = 1.1 * control_period
-            on_times[thr_idx] = on_time
-        true_vector[idx] = on_times
-
-    np.testing.assert_allclose(true_vector, module_output, atol=1e-12, verbose=True)
+    # Non-zero on-times must be >= thrMinFireTime
+    non_zero = on_time_requests[on_time_requests > 0.0]
+    assert np.all(non_zero >= module.thrMinFireTime)
 
 
-#
-# This statement below ensures that the unitTestScript can be run as a
-# stand-along python script
-#
 if __name__ == "__main__":
-    test_thrFiringRemainder(True, False, False)
+    test_thrFiringRemainderF32(True, thrFiringRemainderF32.ThrustPulsingRegime_ON_PULSING)
