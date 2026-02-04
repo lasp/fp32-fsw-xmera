@@ -41,45 +41,44 @@ std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES> EphemeridesRecenterAlgor
     }
 
     std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES> recenteredBodies{};
-    for (size_t i = 0; i < this->celestialBodyCount; ++i) {
+    for (size_t i = 0U; i < this->celestialBodyCount; ++i) {
+        if (recenteredBodies[i].isMoon) {
+            continue;
+        }
+
         /* Moons get re-centered along with their central body and shouldn't be re-centered in this main loop */
-        if (!recenteredBodies[i].isMoon) {
-            recenteredBodies[i] = BodyEphemerisPayload{};
-            EphemerisMsgF32Payload newEphemerisToRecenterPayload = newBodies[i].inputEphemerisPayload;
-            if (this->celestialBodies[i].originalCentralBodyName != newCentralBody.bodySpiceName &&
-                this->celestialBodies[i].originalCentralBodyName == this->previousCentralBodyName) {
-                Eigen::Vector3d const relativePosition =
-                    cArrayToEigenVector3(newEphemerisToRecenterPayload.r_BdyZero_N) -
-                    cArrayToEigenVector3(newCentralBodyPayload.r_BdyZero_N);
-                eigenVectorToCArray(relativePosition, newEphemerisToRecenterPayload.r_BdyZero_N);
+        recenteredBodies[i] = BodyEphemerisPayload{};
+        EphemerisMsgF32Payload newEphemerisToRecenterPayload = newBodies[i].inputEphemerisPayload;
+        if (this->celestialBodies[i].originalCentralBodyName == this->previousCentralBodyName) {
+            Eigen::Vector3d const relativePosition = cArrayToEigenVector3(newEphemerisToRecenterPayload.r_BdyZero_N) -
+                                                     cArrayToEigenVector3(newCentralBodyPayload.r_BdyZero_N);
+            eigenVectorToCArray(relativePosition, newEphemerisToRecenterPayload.r_BdyZero_N);
 
-                Eigen::Vector3d const relativeVelocity =
-                    cArrayToEigenVector3(newEphemerisToRecenterPayload.v_BdyZero_N) -
-                    cArrayToEigenVector3(newCentralBodyPayload.v_BdyZero_N);
-                eigenVectorToCArray(relativeVelocity, newEphemerisToRecenterPayload.v_BdyZero_N);
+            Eigen::Vector3d const relativeVelocity = cArrayToEigenVector3(newEphemerisToRecenterPayload.v_BdyZero_N) -
+                                                     cArrayToEigenVector3(newCentralBodyPayload.v_BdyZero_N);
+            eigenVectorToCArray(relativeVelocity, newEphemerisToRecenterPayload.v_BdyZero_N);
 
-                if (auto [moonIndex, moonFound] = this->findMoonOfBody(this->celestialBodies[i]);
-                    moonFound && this->celestialBodies[i].bodySpiceName != this->previousCentralBodyName) {
-                    EphemerisMsgF32Payload moonOfBodyPayload = this->celestialBodies[moonIndex].inputEphemerisPayload;
+            if (auto [moonIndex, moonFound] = this->findMoonOfBody(this->celestialBodies[i]);
+                moonFound && this->celestialBodies[i].bodySpiceName != this->previousCentralBodyName) {
+                EphemerisMsgF32Payload moonOfBodyPayload = this->celestialBodies[moonIndex].inputEphemerisPayload;
 
-                    Eigen::Vector3d const moonRelativePosition =
-                        cArrayToEigenVector3(newEphemerisToRecenterPayload.r_BdyZero_N) +
-                        cArrayToEigenVector3(moonOfBodyPayload.r_BdyZero_N);
-                    eigenVectorToCArray(moonRelativePosition, moonOfBodyPayload.r_BdyZero_N);
+                Eigen::Vector3d const moonRelativePosition =
+                    cArrayToEigenVector3(newEphemerisToRecenterPayload.r_BdyZero_N) +
+                    cArrayToEigenVector3(moonOfBodyPayload.r_BdyZero_N);
+                eigenVectorToCArray(moonRelativePosition, moonOfBodyPayload.r_BdyZero_N);
 
-                    Eigen::Vector3d const moonRelativeVelocity =
-                        cArrayToEigenVector3(newEphemerisToRecenterPayload.v_BdyZero_N) +
-                        cArrayToEigenVector3(moonOfBodyPayload.v_BdyZero_N);
-                    eigenVectorToCArray(moonRelativeVelocity, moonOfBodyPayload.v_BdyZero_N);
+                Eigen::Vector3d const moonRelativeVelocity =
+                    cArrayToEigenVector3(newEphemerisToRecenterPayload.v_BdyZero_N) +
+                    cArrayToEigenVector3(moonOfBodyPayload.v_BdyZero_N);
+                eigenVectorToCArray(moonRelativeVelocity, moonOfBodyPayload.v_BdyZero_N);
 
-                    recenteredBodies[moonIndex].bodySpiceName = this->celestialBodies[moonIndex].bodySpiceName;
-                    recenteredBodies[moonIndex].isMoon = true;
-                    recenteredBodies[moonIndex].originalCentralBodyName =
-                        this->celestialBodies[moonIndex].originalCentralBodyName;
-                    recenteredBodies[moonIndex].inputEphemerisPayload =
-                        this->celestialBodies[moonIndex].inputEphemerisPayload;
-                    recenteredBodies[moonIndex].outputEphemerisPayload = moonOfBodyPayload;
-                }
+                recenteredBodies[moonIndex].bodySpiceName = this->celestialBodies[moonIndex].bodySpiceName;
+                recenteredBodies[moonIndex].isMoon = true;
+                recenteredBodies[moonIndex].originalCentralBodyName =
+                    this->celestialBodies[moonIndex].originalCentralBodyName;
+                recenteredBodies[moonIndex].inputEphemerisPayload =
+                    this->celestialBodies[moonIndex].inputEphemerisPayload;
+                recenteredBodies[moonIndex].outputEphemerisPayload = moonOfBodyPayload;
             }
             recenteredBodies[i] = newBodies[i];
             recenteredBodies[i].outputEphemerisPayload = newEphemerisToRecenterPayload;
@@ -94,10 +93,7 @@ std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES> EphemeridesRecenterAlgor
  */
 MoonIndexFound EphemeridesRecenterAlgorithm::findMoonOfBody(const BodyEphemerisPayload& celestialBody) const {
     MoonIndexFound foundIndex{};
-    if (this->celestialBodyCount == 0) {
-        FS_THROW_INVALID_ARGUMENT("Requesting a body index but the current celestial body count is 0");
-    }
-    for (size_t i = 0; i < this->celestialBodyCount; ++i) {
+    for (size_t i = 0U; i < this->celestialBodyCount; ++i) {
         if (this->celestialBodies[i].originalCentralBodyName == celestialBody.bodySpiceName) {
             foundIndex.index = i;
             foundIndex.found = true;
@@ -111,15 +107,22 @@ MoonIndexFound EphemeridesRecenterAlgorithm::findMoonOfBody(const BodyEphemerisP
  @return size_t : index
  */
 size_t EphemeridesRecenterAlgorithm::getBodyIndexFromName(const BodyName& celestialBodyName) const {
-    if (this->celestialBodyCount == 0) {
+    if (this->celestialBodyCount == 0U) {
         FS_THROW_INVALID_ARGUMENT("Requesting a body index but the current celestial body count is 0");
     }
-    for (size_t i = 0; i < this->celestialBodyCount; ++i) {
+
+    size_t foundIndex = 0U;
+    bool isFound = false;
+    for (size_t i = 0U; i < this->celestialBodyCount; ++i) {
         if (this->bodyNames[i] == celestialBodyName) {
-            return i;
+            foundIndex = i;
+            isFound = true;
         }
     }
-    FS_THROW_INVALID_ARGUMENT("Requesting a body index but the current celestial body count is 0");
+    if (!isFound) {
+        FS_THROW_INVALID_ARGUMENT("Requesting a body index but the body is not found");
+    }
+    return foundIndex;
 }
 
 /*! @brief Set the new zero base body type by name
@@ -135,7 +138,7 @@ size_t EphemeridesRecenterAlgorithm::findNewZeroBaseIndex(const BodyName& bodyNa
     if (indexOfNewZeroBase == this->bodyNames.end()) {
         FS_THROW_INVALID_ARGUMENT("New zero base body was not in the list of existing bodies");
     }
-    return std::distance(this->bodyNames.begin(), indexOfNewZeroBase);
+    return static_cast<std::size_t>(std::distance(this->bodyNames.begin(), indexOfNewZeroBase));
 }
 
 /*! @brief Get the new celestial body center by name
@@ -169,11 +172,11 @@ size_t EphemeridesRecenterAlgorithm::getNumberOfBodies() const { return this->ce
  @return std::array<BodyName, MAX_NUM_CHANGE_BODIES> : an array of names
  */
 std::array<BodyName, MAX_NUM_CHANGE_BODIES> EphemeridesRecenterAlgorithm::getAllNames() const {
-    if (this->celestialBodyCount == 0) {
+    if (this->celestialBodyCount == 0U) {
         FS_THROW_INVALID_ARGUMENT("Requesting all body names but the current celestial body count is 0");
     }
     std::array<BodyName, MAX_NUM_CHANGE_BODIES> names{};
-    for (size_t i = 0; i < this->celestialBodyCount; ++i) {
+    for (size_t i = 0U; i < this->celestialBodyCount; ++i) {
         if (!this->bodyNames[i].empty()) {
             names[i] = this->bodyNames[i];
         }
@@ -185,14 +188,14 @@ std::array<BodyName, MAX_NUM_CHANGE_BODIES> EphemeridesRecenterAlgorithm::getAll
  @param bodyName BodyName : the body name to add
  */
 void EphemeridesRecenterAlgorithm::addBodyEphemerisToRecenter(const BodyName& bodyName) {
-    if (this->celestialBodyCount + 1 > MAX_NUM_CHANGE_BODIES) {
+    if (this->celestialBodyCount + 1U > MAX_NUM_CHANGE_BODIES) {
         FS_THROW_INVALID_ARGUMENT("Adding one body too many to the list");
     }
     if (const auto* indexInList = std::ranges::find(this->bodyNames, bodyName); indexInList != this->bodyNames.end()) {
         FS_THROW_INVALID_ARGUMENT("Body already added to list");
     }
     this->bodyNames[this->celestialBodyCount] = bodyName;
-    this->celestialBodyCount += 1;
+    this->celestialBodyCount += 1U;
 }
 
 /*! @brief Clear all the bodies from the current list
@@ -200,5 +203,5 @@ void EphemeridesRecenterAlgorithm::addBodyEphemerisToRecenter(const BodyName& bo
 void EphemeridesRecenterAlgorithm::clearAllBodies() {
     this->celestialBodies.fill(BodyEphemerisPayload{});
     this->bodyNames.fill(BodyName{});
-    this->celestialBodyCount = 0;
+    this->celestialBodyCount = 0U;
 }
