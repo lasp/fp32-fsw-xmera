@@ -6,31 +6,51 @@
 #include "architecture/utilities/rigidBodyKinematics.hpp"
 #include "mrpSteeringAlgorithm.h"
 #include "msgPayloadDef/AttGuidMsgF32Payload.h"
-#include "msgPayloadDef/RateCmdMsgF32Payload.h"
+#include "msgPayloadDef/CmdTorqueBodyMsgF32Payload.h"
+#include "msgPayloadDef/RWArrayConfigMsgF32Payload.h"
+#include "msgPayloadDef/RWSpeedMsgF32Payload.h"
+#include "msgPayloadDef/VehicleConfigMsgF32Payload.h"
+#include <architecture/msgPayloadDef/RWAvailabilityMsgPayload.h>
+#include <architecture/utilities/macroDefinitions.h>
+#include <fswAlgorithms/fswUtilities/fswDefinitions.h>
 #include <gtest/gtest.h>
-#include <math.h>
 #include <Eigen/Core>
+#include <cmath>
 #include <numbers>
 #include <vector>
 
+typedef struct {
+    CmdTorqueBodyMsgF32Payload cmdTorqueBody;
+    Eigen::Vector3f z;
+    uint64_t priorTime;
+} ReferenceOutput;
+
 // Reference computation for update
-RateCmdMsgF32Payload referenceUpdate(const MrpSteeringAlgorithm& alg, AttGuidMsgF32Payload& msg) {
-    const Eigen::Vector3f sigma_BR = cArrayToEigenVector(msg.sigma_BR);
-    Eigen::Vector3f omega_ast{};
-    Eigen::Vector3f omega_ast_p{Eigen::Vector3f::Zero()};
+ReferenceOutput referenceUpdate(const MrpSteeringAlgorithm& alg,
+                                RWArrayConfigMsgF32Payload rwConfigParams,
+                                const Eigen::Matrix3f& ISCPntB_B,
+                                Eigen::Vector3f z,
+                                uint64_t priorTime,
+                                const uint64_t callTime,
+                                AttGuidMsgF32Payload guidCmd,
+                                const RWSpeedMsgF32Payload& wheelSpeeds,
+                                const RWAvailabilityMsgPayload& wheelsAvailability) {
+    const Eigen::Vector3f sigma_BR = cArrayToEigenVector(guidCmd.sigma_BR);
+    Eigen::Vector3f omega_BastR_B{};
+    Eigen::Vector3f omegap_BastR_B{Eigen::Vector3f::Zero()};
 
     for (int i = 0; i < 3; ++i) {
         const float sigma_i = sigma_BR[i];
         const float f_i = atanf(static_cast<float>(std::numbers::pi) / 2 / alg.getOmegaMax() *
                                 (alg.getK1() * sigma_i + alg.getK3() * powf(sigma_i, 3))) /
                           (static_cast<float>(std::numbers::pi) / 2) * alg.getOmegaMax();
-        omega_ast[i] = -f_i;
+        omega_BastR_B[i] = -f_i;
     }
 
     if (!alg.getIgnoreFeedforward()) {
         Eigen::Matrix3f B = bmatMrp(sigma_BR);
 
-        Eigen::Vector3f sigmaDot_BR = 0.25 * B * omega_ast;
+        Eigen::Vector3f sigmaDot_BR = 0.25 * B * omega_BastR_B;
 
         for (int i = 0; i < 3; ++i) {
             const float sigma_i = sigma_BR[i];
@@ -39,13 +59,71 @@ RateCmdMsgF32Payload referenceUpdate(const MrpSteeringAlgorithm& alg, AttGuidMsg
                                         (alg.getK1() * sigma_i + alg.getK3() * powf(sigma_i, 3)),
                                     2) +
                                1);
-            omega_ast_p[i] = -f_i * sigmaDot_BR[i];
+            omegap_BastR_B[i] = -f_i * sigmaDot_BR[i];
         }
     }
 
-    RateCmdMsgF32Payload out{};
-    eigenVectorToCArray(omega_ast, out.omega_BastR_B);
-    eigenVectorToCArray(omega_ast_p, out.omegap_BastR_B);
+    /*! - compute control update time */
+    float dt{}; /* [s] control update period */
+    if (priorTime == 0U) {
+        dt = 0.0F;
+    } else {
+        dt = static_cast<float>(callTime - priorTime) * static_cast<float>(NANO2SEC);
+    }
+    priorTime = callTime;
+
+    const Eigen::Vector3f omega_BR_B = cArrayToEigenVector(guidCmd.omega_BR_B);
+    const Eigen::Vector3f omega_RN_B = cArrayToEigenVector(guidCmd.omega_RN_B);
+    const Eigen::Vector3f domega_RN_B = cArrayToEigenVector(guidCmd.domega_RN_B);
+
+    /*! - compute body rate */
+    const Eigen::Vector3f omega_BN_B = omega_BR_B + omega_RN_B;
+
+    /*! - compute the rate tracking error */
+    const Eigen::Vector3f omega_BastN_B = omega_BastR_B + omega_RN_B;
+    const Eigen::Vector3f omega_BBast_B = omega_BN_B - omega_BastN_B;
+
+    /*! - integrate rate tracking error  */
+    if (alg.getKi() > 0.0F) { /* check if integral feedback is turned on  */
+        z += omega_BBast_B * dt;
+        for (Eigen::Index i = 0; i < 3; ++i) {
+            const float intLimCheck = fabs(z[i]);
+            if (intLimCheck > alg.getIntegralLimit()) {
+                z[i] *= alg.getIntegralLimit() / intLimCheck;
+            }
+        }
+    } else {
+        /* integral feedback is turned off through a negative gain setting */
+        z = Eigen::Vector3f::Zero();
+    }
+
+    const Eigen::Matrix<float, 3, RW_EFF_CNT> G_s_B =
+        cArrayToEigenMatrix<float, 3, RW_EFF_CNT>(rwConfigParams.GsMatrix_B);
+
+    Eigen::Vector3f H_B = ISCPntB_B * omega_BN_B;
+    for (Eigen::Index i = 0; i < rwConfigParams.numRW; ++i) {
+        if (wheelsAvailability.wheelAvailability[i] == AVAILABLE) { /* check if wheel is available */
+            const Eigen::Vector3f G_s_B_i = G_s_B.col(i);
+            const Eigen::Vector3f h_s_i =
+                rwConfigParams.JsList[i] * (omega_BN_B.dot(G_s_B_i) + wheelSpeeds.wheelSpeeds[i]) * G_s_B_i;
+            H_B += h_s_i;
+        }
+    }
+
+    /*! - evaluate required attitude control torque Lc */
+    const Eigen::Vector3f Lr = alg.getP() * omega_BBast_B + alg.getKi() * z - omega_BastN_B.cross(H_B) -
+                               ISCPntB_B * (omegap_BastR_B + domega_RN_B - omega_BN_B.cross(omega_RN_B)) +
+                               alg.getKnownTorquePntB_B();
+
+    /* Change sign to compute the net positive control torque onto the spacecraft */
+    const Eigen::Vector3f u_s = -Lr;
+
+    ReferenceOutput out{};
+
+    eigenVectorToCArray(u_s, out.cmdTorqueBody.torqueRequestBody);
+    out.z = z;
+    out.priorTime = priorTime;
+
     return out;
 }
 
@@ -54,64 +132,113 @@ inline void testMrpSteeringSetup() {
 
     // --- Test expected exceptions ---
 
-    // Negative feedback gains
+    // Negative feedback gains or integral limit
     EXPECT_THROW(alg.setK1(-0.1), fs::invalid_argument);
     EXPECT_THROW(alg.setK3(-0.1), fs::invalid_argument);
+    EXPECT_THROW(alg.setP(-0.1), fs::invalid_argument);
+    EXPECT_THROW(alg.setKi(-0.1), fs::invalid_argument);
+    EXPECT_THROW(alg.setIntegralLimit(-0.1), fs::invalid_argument);
     // Non-positive maximum rate
     EXPECT_THROW(alg.setOmegaMax(0.0), fs::invalid_argument);
     EXPECT_THROW(alg.setOmegaMax(-0.1), fs::invalid_argument);
 }
 
-inline void testMrpSteering(std::vector<float> sigma, float K1, float K3, float omegaMax, bool ignoreFF) {
+inline void testMrpSteering(std::vector<float> sigma,
+                            float K1,
+                            float K3,
+                            float omegaMax,
+                            bool ignoreFF,
+                            float P,
+                            float Ki,
+                            float integralLimit,
+                            std::vector<float> knownTorquePntB_B,
+                            std::vector<float> omega_BR_B,
+                            std::vector<float> omega_RN_B,
+                            std::vector<float> domega_RN_B,
+                            std::vector<float> wheelSpeeds,
+                            std::vector<bool> wheelAvailabilityBool,
+                            int numRW,
+                            std::vector<float> uMax,
+                            std::vector<float> JsList,
+                            std::vector<float> GsMatrix_B,
+                            std::vector<float> ISCPntB_B,
+                            bool rwIsLinked,
+                            float dt) {
     MrpSteeringAlgorithm alg{};
 
     alg.setK1(K1);
     alg.setK3(K3);
     alg.setOmegaMax(omegaMax);
     alg.setIgnoreFeedforward(ignoreFF);
+    alg.setP(P);
+    alg.setKi(Ki);
+    alg.setIntegralLimit(integralLimit);
+    alg.setKnownTorquePntB_B(cArrayToEigenVector3(knownTorquePntB_B.data()));
 
-    Eigen::Vector3f sigma_BR = Eigen::Map<Eigen::Vector3f>(sigma.data());
+    // Populate messages
+    AttGuidMsgF32Payload guidCmdMsg{};
+    std::copy(sigma.begin(), sigma.end(), guidCmdMsg.sigma_BR);
+    std::copy(omega_BR_B.begin(), omega_BR_B.end(), guidCmdMsg.omega_BR_B);
+    std::copy(omega_RN_B.begin(), omega_RN_B.end(), guidCmdMsg.omega_RN_B);
+    std::copy(domega_RN_B.begin(), domega_RN_B.end(), guidCmdMsg.domega_RN_B);
 
-    AttGuidMsgF32Payload msg{};
-    eigenVectorToCArray(sigma_BR, msg.sigma_BR);
+    RWSpeedMsgF32Payload wheelSpeedsMsg{};
+    std::copy(wheelSpeeds.begin(), wheelSpeeds.end(), wheelSpeedsMsg.wheelSpeeds);
 
-    // Reference
-    RateCmdMsgF32Payload out{};
-    RateCmdMsgF32Payload ref{};
-    EXPECT_NO_THROW(out = alg.update(msg));
-    EXPECT_NO_THROW(ref = referenceUpdate(alg, msg));
-
-    for (int i = 0; i < 3; ++i) {
-        // --- General tests ---
-
-        // Reference correctness
-        EXPECT_NEAR(out.omega_BastR_B[i], ref.omega_BastR_B[i], 1e-6);
-        EXPECT_NEAR(out.omegap_BastR_B[i], ref.omegap_BastR_B[i], 1e-6);
-
-        // Finiteness
-        EXPECT_TRUE(std::isfinite(out.omega_BastR_B[i]));
-        EXPECT_TRUE(std::isfinite(out.omegap_BastR_B[i]));
-
-        // --- Module specific tests ---
-
-        // Omega smaller than specified max omega
-        EXPECT_LE(std::abs(out.omega_BastR_B[i]), omegaMax + 1e-6);
+    RWAvailabilityMsgPayload wheelsAvailabilityMsg{};
+    for (uint32_t i = 0U; i < wheelAvailabilityBool.size(); ++i) {
+        if (wheelAvailabilityBool[i]) {
+            wheelsAvailabilityMsg.wheelAvailability[i] = UNAVAILABLE;
+        }
     }
 
-    // Linearity
-    Eigen::Vector3f sigma1_BR = 0.01 * sigma_BR;
-    AttGuidMsgF32Payload msg1{};
-    eigenVectorToCArray(sigma1_BR, msg1.sigma_BR);
-    RateCmdMsgF32Payload out1 = alg.update(msg1);
-    float omegaMag1 = cArrayToEigenVector(out1.omega_BastR_B).norm();
+    RWArrayConfigMsgF32Payload rwConfigMsg{};
+    if (rwIsLinked) {
+        rwConfigMsg.numRW = numRW;
+        std::copy(uMax.begin(), uMax.end(), rwConfigMsg.uMax);
+        std::copy(JsList.begin(), JsList.end(), rwConfigMsg.JsList);
+        std::copy(GsMatrix_B.begin(), GsMatrix_B.end(), rwConfigMsg.GsMatrix_B);
+    }
 
-    Eigen::Vector3f sigma2_BR = 0.1 * sigma_BR;
-    AttGuidMsgF32Payload msg2{};
-    eigenVectorToCArray(sigma2_BR, msg2.sigma_BR);
-    RateCmdMsgF32Payload out2 = alg.update(msg2);
-    float omegaMag2 = cArrayToEigenVector(out2.omega_BastR_B).norm();
+    VehicleConfigMsgF32Payload vehConfigMsg{};
+    std::copy(ISCPntB_B.begin(), ISCPntB_B.end(), vehConfigMsg.ISCPntB_B);
 
-    ASSERT_LT(omegaMag1, omegaMag2 + 1e-6);
+    // Remaining variables needed by module
+    Eigen::Matrix3f ISC_B = cArrayToEigenMatrix3(ISCPntB_B.data());
+
+    // Reset module
+    EXPECT_NO_THROW(alg.reset(vehConfigMsg, rwConfigMsg, rwIsLinked));
+
+    Eigen::Vector3f z{Eigen::Vector3f::Zero()};
+    uint64_t priorTime{};
+
+    // Test over a few time steps
+    int numSteps = 5;
+
+    for (int step = 0; step < numSteps; ++step) {
+        uint64_t callTime = priorTime + static_cast<uint64_t>(dt / NANO2SEC);
+
+        // Reference
+        CmdTorqueBodyMsgF32Payload out{};
+        ReferenceOutput refOutput{};
+        EXPECT_NO_THROW(out = alg.update(callTime, guidCmdMsg, wheelSpeedsMsg, wheelsAvailabilityMsg));
+        EXPECT_NO_THROW(
+            refOutput = referenceUpdate(
+                alg, rwConfigMsg, ISC_B, z, priorTime, callTime, guidCmdMsg, wheelSpeedsMsg, wheelsAvailabilityMsg));
+        CmdTorqueBodyMsgF32Payload ref = refOutput.cmdTorqueBody;
+        z = refOutput.z;
+        priorTime = refOutput.priorTime;
+
+        for (int i = 0; i < 3; ++i) {
+            // --- General tests ---
+
+            // Reference correctness
+            EXPECT_NEAR(out.torqueRequestBody[i], ref.torqueRequestBody[i], 1e-6);
+
+            // Finiteness
+            EXPECT_TRUE(std::isfinite(out.torqueRequestBody[i]));
+        }
+    }
 }
 
 #endif  // TEST_MRPSTEERING_H

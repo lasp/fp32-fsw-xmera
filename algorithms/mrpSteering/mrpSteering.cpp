@@ -13,10 +13,29 @@
  @param callTime The clock time at which the function was called (nanoseconds)
 */
 void MrpSteering::reset(const uint64_t callTime) {
+    // make sure optional msg connections are correctly done */
+    if (this->rwParamsInMsg.isLinked() && !this->rwSpeedsInMsg.isLinked()) {
+        throw std::invalid_argument("mrpSteering.rwSpeedsInMsg wasn't connected while rwParamsInMsg was connected.");
+    }
     // check for required input message
     if (!this->guidInMsg.isLinked()) {
         throw std::invalid_argument("mrpSteering.guidInMsg wasn't connected.");
     }
+    if (!this->vehConfigInMsg.isLinked()) {
+        throw std::invalid_argument("mrpSteering.vehConfigInMsg wasn't connected.");
+    }
+
+    const VehicleConfigMsgF32Payload sc = this->vehConfigInMsg();
+    RWArrayConfigMsgF32Payload rwConfigParams{};
+    bool rwParamsIsLinked{};
+
+    /*! - check if RW configuration message exists */
+    if (this->rwParamsInMsg.isLinked()) {
+        rwConfigParams = this->rwParamsInMsg();
+        rwParamsIsLinked = true;
+    }
+
+    this->algorithm.reset(sc, rwConfigParams, rwParamsIsLinked);
 }
 
 /*! This method takes the attitude and rate errors relative to the Reference frame, as well as
@@ -26,10 +45,19 @@ void MrpSteering::reset(const uint64_t callTime) {
  */
 void MrpSteering::updateState(const uint64_t callTime) {
     AttGuidMsgF32Payload guidCmd = this->guidInMsg();
+    RWSpeedMsgF32Payload wheelSpeeds{};            /*!< Reaction wheel speed estimates input message */
+    RWAvailabilityMsgPayload wheelsAvailability{}; /*!< Reaction wheel availability input message */
 
-    RateCmdMsgF32Payload outMsg = this->algorithm.update(guidCmd);
+    if (this->rwParamsInMsg.isLinked()) {
+        wheelSpeeds = this->rwSpeedsInMsg();
+        if (this->rwAvailInMsg.isLinked()) {
+            wheelsAvailability = this->rwAvailInMsg();
+        }
+    }
 
-    this->rateCmdOutMsg.write(&outMsg, moduleID, callTime);
+    CmdTorqueBodyMsgF32Payload controlOut = algorithm.update(callTime, guidCmd, wheelSpeeds, wheelsAvailability);
+
+    this->cmdTorqueOutMsg.write(&controlOut, moduleID, callTime);
 }
 
 /*! Set the linear feedback gain K1
@@ -75,3 +103,47 @@ void MrpSteering::setIgnoreFeedforward(const bool ignore) { this->algorithm.setI
  @return bool
 */
 bool MrpSteering::getIgnoreFeedforward() const { return this->algorithm.getIgnoreFeedforward(); }
+
+/*! Setter method for the gain P.
+ @return void
+ @param gain [N*m*s] Rate error feedback gain
+*/
+void MrpSteering::setP(const float gain) { this->algorithm.setP(gain); }
+
+/*! Getter method for the gain P.
+ @return const float
+*/
+float MrpSteering::getP() const { return this->algorithm.getP(); }
+
+/*! Setter method for the gain Ki.
+ @return void
+ @param gain [N*m] Integral feedback gain
+*/
+void MrpSteering::setKi(const float gain) { this->algorithm.setKi(gain); }
+
+/*! Getter method for the gain Ki.
+ @return const float
+*/
+float MrpSteering::getKi() const { return this->algorithm.getKi(); }
+
+/*! Setter method for the integral limit.
+ @return void
+ @param limit [N*m*s] Integral limit
+*/
+void MrpSteering::setIntegralLimit(const float limit) { this->algorithm.setIntegralLimit(limit); }
+
+/*! Getter method for the integral limit.
+ @return const float
+*/
+float MrpSteering::getIntegralLimit() const { return this->algorithm.getIntegralLimit(); }
+
+/*! Setter method for the known external torque about point B.
+ @return void
+ @param torque [N*m] Known external torque expressed in body frame components
+*/
+void MrpSteering::setKnownTorquePntB_B(const Eigen::Vector3f& torque) { this->algorithm.setKnownTorquePntB_B(torque); }
+
+/*! Getter method for the known torque about point B.
+ @return const Eigen::Vector3f
+*/
+Eigen::Vector3f MrpSteering::getKnownTorquePntB_B() const { return this->algorithm.getKnownTorquePntB_B(); }

@@ -29,8 +29,6 @@ algorithms/oeStateEphem/oeStateEphem.h
 algorithms/oeStateEphem/oeStateEphem.cpp
 algorithms/rateControl/rateControl.h
 algorithms/rateControl/rateControl.cpp
-algorithms/rateServoFullNonlinear/rateServoFullNonlinear.h
-algorithms/rateServoFullNonlinear/rateServoFullNonlinear.cpp
 algorithms/rwMotorTorque/rwMotorTorque.h
 algorithms/rwMotorTorque/rwMotorTorque.cpp
 algorithms/rwMotorVoltage/rwMotorVoltage.h
