@@ -10,8 +10,8 @@
 */
 Eigen::Vector3f MrpPDAlgorithm::update(const InputGuidanceData& inputs) const {
     // Compute required attitude control torque vector
-    const auto Lr = -this->proportionalGain * inputs.sigma_BR - this->feedbackGain * inputs.omega_BR_B +
-                               this->ISCPntB_B * inputs.domega_RN_B -
+    const Eigen::Vector3f Lr = -this->proportionalGain * sigma_BR - this->feedbackGain * omega_BR_B +
+                               this->ISCPntB_B * domega_RN_B -
                                this->knownTorquePntB_B;  // [Nm]
 
     return Lr;
