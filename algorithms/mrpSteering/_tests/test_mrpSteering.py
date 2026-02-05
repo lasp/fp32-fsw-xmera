@@ -27,7 +27,7 @@ def test_mrp_steering_tracking(show_plots, K1, K3, omega_max, ignore_feed_forwar
     test_proc = unit_test_sim.CreateNewProcess(unit_process_name)
     test_proc.addTask(unit_test_sim.CreateNewTask(unit_task_name, test_process_rate))
 
-    module = mrpSteeringF32.MrpSteering()
+    module = mrpSteeringF32.MrpSteering(K1, K3, omega_max, ignore_feed_forward)
     module.modelTag = "mrpSteering"
     unit_test_sim.AddModelToTask(unit_task_name, module)
 

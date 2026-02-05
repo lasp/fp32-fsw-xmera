@@ -7,6 +7,11 @@
 #include "mrpSteering.h"
 #include <stdexcept>
 
+class XmeraLifecycleException : public std::runtime_error {
+public:
+    using runtime_error::runtime_error;
+};
+
 /*! This method performs a complete reset of the module.  Local module variables that retain
  time varying states between function calls are reset to their default values.
  @return void
@@ -17,6 +22,8 @@ void MrpSteering::reset(const uint64_t callTime) {
     if (!this->guidInMsg.isLinked()) {
         throw std::invalid_argument("mrpSteering.guidInMsg wasn't connected.");
     }
+    auto config = MrpSteeringConfig::create(this->K1, this->K3, this->omegaMax, this->ignoreOuterLoopFeedforward);
+    this->algorithm = std::make_unique<MrpSteeringAlgorithm>(config);
 }
 
 /*! This method takes the attitude and rate errors relative to the Reference frame, as well as
@@ -25,53 +32,13 @@ void MrpSteering::reset(const uint64_t callTime) {
  @param callTime The clock time at which the function was called (nanoseconds)
  */
 void MrpSteering::updateState(const uint64_t callTime) {
+    if (!this->algorithm) {
+        throw XmeraLifecycleException("MrpSteering reset() has not been called.");
+    }
+
     AttGuidMsgF32Payload guidCmd = this->guidInMsg();
 
-    RateCmdMsgF32Payload outMsg = this->algorithm.update(guidCmd);
+    RateCmdMsgF32Payload outMsg = this->algorithm->update(guidCmd);
 
     this->rateCmdOutMsg.write(&outMsg, moduleID, callTime);
 }
-
-/*! Set the linear feedback gain K1
- @return void
- @param gain [-] linear feedback gain K1
-*/
-void MrpSteering::setK1(const float gain) { this->algorithm.setK1(gain); }
-
-/*! Get the linear feedback gain K1
- @return float
-*/
-float MrpSteering::getK1() const { return this->algorithm.getK1(); }
-
-/*! Set the cubic feedback gain K3
- @return void
- @param gain [-] cubic feedback gain K3
-*/
-void MrpSteering::setK3(const float gain) { this->algorithm.setK3(gain); }
-
-/*! Get the cubic feedback gain K3
- @return float
-*/
-float MrpSteering::getK3() const { return this->algorithm.getK3(); }
-
-/*! Set the maximum rate command of steering control
- @return void
- @param omega [-] maximum rate command of steering control
-*/
-void MrpSteering::setOmegaMax(const float omega) { this->algorithm.setOmegaMax(omega); }
-
-/*! Get the maximum rate command of steering control
- @return float
-*/
-float MrpSteering::getOmegaMax() const { return this->algorithm.getOmegaMax(); }
-
-/*! Set whether the outer loop feed-forward is ignored
- @return void
- @param ignore boolean whether the outer loop feed-forward should be ignored
-*/
-void MrpSteering::setIgnoreFeedforward(const bool ignore) { this->algorithm.setIgnoreFeedforward(ignore); }
-
-/*! Get whether the outer loop feed-forward is ignored
- @return bool
-*/
-bool MrpSteering::getIgnoreFeedforward() const { return this->algorithm.getIgnoreFeedforward(); }

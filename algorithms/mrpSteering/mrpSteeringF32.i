@@ -9,12 +9,6 @@
    #include "mrpSteering.h"
 %}
 
-%include <attribute.i>
-%attribute(MrpSteering, float, K1, getK1, setK1)
-%attribute(MrpSteering, float, K3, getK3, setK3)
-%attribute(MrpSteering, float, omegaMax, getOmegaMax, setOmegaMax)
-%attribute(MrpSteering, bool, ignoreOuterLoopFeedforward, getIgnoreFeedforward, setIgnoreFeedforward)
-
 %include <architecture/_GeneralModuleFiles/sys_model.i>
 %include <architecture/_GeneralModuleFiles/swig_conly_data.i>
 

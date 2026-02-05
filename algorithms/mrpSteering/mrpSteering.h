@@ -17,26 +17,19 @@
 /*! @brief Data structure for the MRP feedback attitude control routine. */
 class MrpSteering final : public SysModel {
    public:
-    MrpSteering() = default;
-    ~MrpSteering() override = default;
-
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
-
-    void setK1(float gain);
-    float getK1() const;
-    void setK3(float gain);
-    float getK3() const;
-    void setOmegaMax(float omega);
-    float getOmegaMax() const;
-    void setIgnoreFeedforward(bool ignore);
-    bool getIgnoreFeedforward() const;
 
     Message<RateCmdMsgF32Payload> rateCmdOutMsg;  //!< rate command output message
     ReadFunctor<AttGuidMsgF32Payload> guidInMsg;  //!< attitude guidance input message
 
+    float K1=0.0F;
+    float K3=0.0F;
+    float omegaMax=0.0F;
+    bool ignoreOuterLoopFeedforward=false;
+
    private:
-    MrpSteeringAlgorithm algorithm{};
+    std::unique_ptr<MrpSteeringAlgorithm> algorithm = nullptr;
 };
 
 #endif
