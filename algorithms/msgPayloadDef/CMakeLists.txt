@@ -24,4 +24,10 @@ xmera_add_swig_message(RwMotorVoltageMsgF32Payload)
 xmera_add_swig_message(RWSpeedMsgF32Payload)
 xmera_add_swig_message(STAttMsgF32Payload)
 xmera_add_swig_message(TDBVehicleClockCorrelationMsgF32Payload)
+xmera_add_swig_message(THRArrayCmdForceMsgF32Payload)
+xmera_add_swig_message(THRArrayConfigMsgF32Payload
+                       TEMPLATE
+                       "${CMAKE_CURRENT_SOURCE_DIR}/THRArrayConfigMsgF32Payload.i")
+xmera_add_swig_message(THRArrayOnTimeCmdMsgF32Payload)
+xmera_add_swig_message(THRConfigMsgF32Payload)
 xmera_add_swig_message(VehicleConfigMsgF32Payload)
