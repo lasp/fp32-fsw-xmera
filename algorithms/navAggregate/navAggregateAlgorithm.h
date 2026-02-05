@@ -13,14 +13,9 @@
 
 #include "msgPayloadDef/NavAttMsgF32Payload.h"
 #include "msgPayloadDef/NavTransMsgF32Payload.h"
+#include "navAggregateOutput.h"
 
 #define MAX_AGG_NAV_MSG 10
-
-/*! structure containing the attitude and translational navigation out messages */
-typedef struct {
-    NavAttMsgF32Payload navAttOut;     /*!< attitude navigation out message payload */
-    NavTransMsgF32Payload navTransOut; /*!< translation navigation out message payload */
-} AggregateOutput;
 
 class NavAggregateAlgorithm {
    public:
