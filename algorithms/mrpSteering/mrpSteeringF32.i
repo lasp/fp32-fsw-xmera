@@ -18,6 +18,7 @@
 %attribute(MrpSteering, float, Ki, getKi, setKi)
 %attribute(MrpSteering, float, integralLimit, getIntegralLimit, setIntegralLimit)
 %attribute(MrpSteering, Eigen::Vector3f, knownTorquePntB_B, getKnownTorquePntB_B, setKnownTorquePntB_B)
+%attribute(MrpSteering, float, controlPeriod, getControlPeriod, setControlPeriod)
 
 %include <architecture/_GeneralModuleFiles/sys_model.i>
 %include <architecture/_GeneralModuleFiles/swig_conly_data.i>

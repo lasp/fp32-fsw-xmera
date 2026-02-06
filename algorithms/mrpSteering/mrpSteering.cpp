@@ -55,7 +55,7 @@ void MrpSteering::updateState(const uint64_t callTime) {
         }
     }
 
-    CmdTorqueBodyMsgF32Payload controlOut = algorithm.update(callTime, guidCmd, wheelSpeeds, wheelsAvailability);
+    CmdTorqueBodyMsgF32Payload controlOut = algorithm.update(guidCmd, wheelSpeeds, wheelsAvailability);
 
     this->cmdTorqueOutMsg.write(&controlOut, moduleID, callTime);
 }
@@ -147,3 +147,16 @@ void MrpSteering::setKnownTorquePntB_B(const Eigen::Vector3f& torque) { this->al
  @return const Eigen::Vector3f
 */
 Eigen::Vector3f MrpSteering::getKnownTorquePntB_B() const { return this->algorithm.getKnownTorquePntB_B(); }
+
+/*! Setter method for controlPeriod.
+ @return void
+ @param period [s] control period (time between two algorithm update calls)
+ */
+void MrpSteering::setControlPeriod(const float period) {
+    this->algorithm.setControlPeriod(period);
+}
+
+/*! Getter method for controlPeriod.
+ @return const float
+*/
+float MrpSteering::getControlPeriod() const { return this->algorithm.getControlPeriod(); }

@@ -84,6 +84,10 @@ The following table lists all the module parameters than can be set. The paramet
       - [0, 0, 0]
       - Known external torque in body frame components
       - None
+    * - controlPeriod
+      - 0
+      - control period (1/fsw_rate)
+      - Must be greater than 0
 
 Module Assumptions and Limitations
 ----------------------------------

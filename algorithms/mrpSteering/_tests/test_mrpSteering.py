@@ -23,7 +23,8 @@ def test_mrp_steering_tracking_integrated(show_plots, K1, K3, omega_max, ignore_
     unit_test_sim = SimulationBaseClass.SimBaseClass()
 
     # Create test thread
-    test_process_rate = macros.sec2nano(0.5)  # update process rate update time
+    rate = 0.5
+    test_process_rate = macros.sec2nano(rate)  # update process rate update time
     test_proc = unit_test_sim.CreateNewProcess(unit_process_name)
     test_proc.addTask(unit_test_sim.CreateNewTask(unit_task_name, test_process_rate))
 
@@ -36,11 +37,11 @@ def test_mrp_steering_tracking_integrated(show_plots, K1, K3, omega_max, ignore_
     module.K3 = K3
     module.omegaMax = omega_max
     module.ignoreOuterLoopFeedforward = ignore_feed_forward
-
     module.Ki = 0.01
     module.P = 150.0
     module.integralLimit = 2. / module.Ki * 0.1
     module.knownTorquePntB_B = [0., 0., 0.]
+    module.controlPeriod = rate
 
     # attGuidOut Message:
     guid_cmd_data = messaging.AttGuidMsgF32Payload()  # Create a structure for the input message
@@ -143,7 +144,8 @@ def find_true_torques(module, guid_cmd_data, rw_speed_message, vehicle_config_ou
     #Read in variables
     num_rw = rw_config_params.numRW
     L = np.asarray(module.knownTorquePntB_B).flatten()
-    steps = [0, 0, .5, 0, .5]
+    dt = module.controlPeriod
+    steps = [dt] * 5
     omega_BR_B = np.asarray(guid_cmd_data.omega_BR_B)
     omega_RN_B = np.asarray(guid_cmd_data.omega_RN_B)
     omega_BN_B = omega_BR_B + omega_RN_B #find body rate
@@ -164,8 +166,7 @@ def find_true_torques(module, guid_cmd_data, rw_speed_message, vehicle_config_ou
 
     # Compute toruqes
     for i in range(len(steps)):
-        dt = steps[i]
-        if dt == 0:
+        if i == 0 or i == 3:  # at beginning of sim and after reset, zVec is zero
             zVec = np.asarray([0, 0, 0])
 
         #evaluate integral term

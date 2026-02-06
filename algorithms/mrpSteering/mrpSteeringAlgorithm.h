@@ -23,8 +23,7 @@ class MrpSteeringAlgorithm final {
     void reset(VehicleConfigMsgF32Payload vehConfigMsg,
                const RWArrayConfigMsgF32Payload& rwConfigMsg,
                bool rwIsConfigured);
-    CmdTorqueBodyMsgF32Payload update(uint64_t callTime,
-                                      AttGuidMsgF32Payload guidCmd,
+    CmdTorqueBodyMsgF32Payload update(AttGuidMsgF32Payload guidCmd,
                                       const RWSpeedMsgF32Payload& wheelSpeeds,
                                       const RWAvailabilityMsgPayload& wheelsAvailability);
 
@@ -44,6 +43,8 @@ class MrpSteeringAlgorithm final {
     float getIntegralLimit() const;
     void setKnownTorquePntB_B(const Eigen::Vector3f& torque);
     Eigen::Vector3f getKnownTorquePntB_B() const;
+    void setControlPeriod(float period);
+    float getControlPeriod() const;
 
    private:
     float K1{};                         //!< [rad/sec] Proportional gain applied to MRP errors
@@ -55,7 +56,7 @@ class MrpSteeringAlgorithm final {
     float integralLimit{};              //!< [N*m]     Integration limit to avoid wind-up issue
     Eigen::Vector3f knownTorquePntB_B{
         Eigen::Vector3f::Zero()};  //!< [N*m]     known external torque in body frame vector components
-    uint64_t priorTime{};          //!< [ns]      Last time the attitude control is called
+    float controlPeriod{};  //!< [s] time between two algorithm update calls
     Eigen::Vector3f z{};           //!< [rad]     integral state of delta_omega
     Eigen::Matrix3f ISCPntB_B{};   //!< [kg m^2] Spacecraft Inertia
     RWArrayConfigMsgF32Payload

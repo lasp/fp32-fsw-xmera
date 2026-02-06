@@ -8,7 +8,6 @@
 #include "../freestandingInvalidArgument.h"
 #include "architecture/utilities/eigenSupport.h"
 #include "architecture/utilities/rigidBodyKinematics.hpp"
-#include <architecture/utilities/macroDefinitions.h>
 #include <fswAlgorithms/fswUtilities/fswDefinitions.h>
 #include <Eigen/Core>
 #include <numbers>
@@ -32,22 +31,16 @@ void MrpSteeringAlgorithm::reset(VehicleConfigMsgF32Payload vehConfigMsg,
 
     /* Reset the integral measure of the rate tracking error */
     this->z = Eigen::Vector3f::Zero();
-
-    /* Reset the prior time flag state.
-     If zero, control time step not evaluated on the first function call */
-    this->priorTime = 0U;
 }
 
 /*! This method takes and rate errors relative to the Reference frame, as well as
     the reference frame angular rates and acceleration, and computes the required control torque Lr.
  @return void
- @param callTime The clock time at which the function was called (nanoseconds)
  @param guidCmd Attitude tracking error message
  @param wheelSpeeds Reaction wheel speed message
  @param wheelsAvailability Reaction wheel availability message
  */
-CmdTorqueBodyMsgF32Payload MrpSteeringAlgorithm::update(const uint64_t callTime,
-                                                        AttGuidMsgF32Payload guidCmd,
+CmdTorqueBodyMsgF32Payload MrpSteeringAlgorithm::update(AttGuidMsgF32Payload guidCmd,
                                                         const RWSpeedMsgF32Payload& wheelSpeeds,
                                                         const RWAvailabilityMsgPayload& wheelsAvailability) {
     const Eigen::Vector3f sigma_BR = cArrayToEigenVector(guidCmd.sigma_BR);
@@ -76,15 +69,6 @@ CmdTorqueBodyMsgF32Payload MrpSteeringAlgorithm::update(const uint64_t callTime,
         }
     }
 
-    /*! - compute control update time */
-    float dt{}; /* [s] control update period */
-    if (this->priorTime == 0U) {
-        dt = 0.0F;
-    } else {
-        dt = static_cast<float>(callTime - this->priorTime) * static_cast<float>(NANO2SEC);
-    }
-    this->priorTime = callTime;
-
     const Eigen::Vector3f omega_BR_B = cArrayToEigenVector(guidCmd.omega_BR_B);
     const Eigen::Vector3f omega_RN_B = cArrayToEigenVector(guidCmd.omega_RN_B);
     const Eigen::Vector3f domega_RN_B = cArrayToEigenVector(guidCmd.domega_RN_B);
@@ -98,7 +82,7 @@ CmdTorqueBodyMsgF32Payload MrpSteeringAlgorithm::update(const uint64_t callTime,
 
     /*! - integrate rate tracking error  */
     if (this->Ki > 0.0F) { /* check if integral feedback is turned on  */
-        this->z += omega_BBast_B * dt;
+        this->z += omega_BBast_B * this->controlPeriod;
         for (Eigen::Index i = 0; i < 3; ++i) {
             const float intLimCheck = fabsf(this->z[i]);
             if (intLimCheck > this->integralLimit) {
@@ -260,3 +244,19 @@ void MrpSteeringAlgorithm::setKnownTorquePntB_B(const Eigen::Vector3f& torque) {
  @return const Eigen::Vector3f
 */
 Eigen::Vector3f MrpSteeringAlgorithm::getKnownTorquePntB_B() const { return this->knownTorquePntB_B; }
+
+/*! Setter method for controlPeriod.
+ @return void
+ @param period [s] control period (time between two algorithm update calls)
+ */
+void MrpSteeringAlgorithm::setControlPeriod(const float period) {
+    if (period <= 0.0) {
+        FS_THROW_INVALID_ARGUMENT("controlPeriod must be > 0.0");
+    }
+    this->controlPeriod = period;
+}
+
+/*! Getter method for controlPeriod.
+ @return const float
+*/
+float MrpSteeringAlgorithm::getControlPeriod() const { return this->controlPeriod; }

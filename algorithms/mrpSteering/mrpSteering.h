@@ -44,6 +44,8 @@ class MrpSteering final : public SysModel {
     float getIntegralLimit() const;
     void setKnownTorquePntB_B(const Eigen::Vector3f &torque);
     Eigen::Vector3f getKnownTorquePntB_B() const;
+    void setControlPeriod(float period);
+    float getControlPeriod() const;
 
     Message<CmdTorqueBodyMsgF32Payload> cmdTorqueOutMsg;     //!< commanded torque output message
     ReadFunctor<AttGuidMsgF32Payload> guidInMsg;             //!< attitude guidance input message

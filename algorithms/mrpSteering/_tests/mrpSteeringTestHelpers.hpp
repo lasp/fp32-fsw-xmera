@@ -11,7 +11,6 @@
 #include "msgPayloadDef/RWSpeedMsgF32Payload.h"
 #include "msgPayloadDef/VehicleConfigMsgF32Payload.h"
 #include <architecture/msgPayloadDef/RWAvailabilityMsgPayload.h>
-#include <architecture/utilities/macroDefinitions.h>
 #include <fswAlgorithms/fswUtilities/fswDefinitions.h>
 #include <gtest/gtest.h>
 #include <Eigen/Core>
@@ -22,7 +21,6 @@
 typedef struct {
     CmdTorqueBodyMsgF32Payload cmdTorqueBody;
     Eigen::Vector3f z;
-    uint64_t priorTime;
 } ReferenceOutput;
 
 // Reference computation for update
@@ -30,8 +28,7 @@ ReferenceOutput referenceUpdate(const MrpSteeringAlgorithm& alg,
                                 RWArrayConfigMsgF32Payload rwConfigParams,
                                 const Eigen::Matrix3f& ISCPntB_B,
                                 Eigen::Vector3f z,
-                                uint64_t priorTime,
-                                const uint64_t callTime,
+                                const float dt,
                                 AttGuidMsgF32Payload guidCmd,
                                 const RWSpeedMsgF32Payload& wheelSpeeds,
                                 const RWAvailabilityMsgPayload& wheelsAvailability) {
@@ -62,15 +59,6 @@ ReferenceOutput referenceUpdate(const MrpSteeringAlgorithm& alg,
             omegap_BastR_B[i] = -f_i * sigmaDot_BR[i];
         }
     }
-
-    /*! - compute control update time */
-    float dt{}; /* [s] control update period */
-    if (priorTime == 0U) {
-        dt = 0.0F;
-    } else {
-        dt = static_cast<float>(callTime - priorTime) * static_cast<float>(NANO2SEC);
-    }
-    priorTime = callTime;
 
     const Eigen::Vector3f omega_BR_B = cArrayToEigenVector(guidCmd.omega_BR_B);
     const Eigen::Vector3f omega_RN_B = cArrayToEigenVector(guidCmd.omega_RN_B);
@@ -122,7 +110,6 @@ ReferenceOutput referenceUpdate(const MrpSteeringAlgorithm& alg,
 
     eigenVectorToCArray(u_s, out.cmdTorqueBody.torqueRequestBody);
     out.z = z;
-    out.priorTime = priorTime;
 
     return out;
 }
@@ -141,6 +128,8 @@ inline void testMrpSteeringSetup() {
     // Non-positive maximum rate
     EXPECT_THROW(alg.setOmegaMax(0.0), fs::invalid_argument);
     EXPECT_THROW(alg.setOmegaMax(-0.1), fs::invalid_argument);
+    //Non-positive control period
+    EXPECT_THROW(alg.setControlPeriod(-0.1), fs::invalid_argument);
 }
 
 inline void testMrpSteering(std::vector<float> sigma,
@@ -174,6 +163,7 @@ inline void testMrpSteering(std::vector<float> sigma,
     alg.setKi(Ki);
     alg.setIntegralLimit(integralLimit);
     alg.setKnownTorquePntB_B(cArrayToEigenVector3(knownTorquePntB_B.data()));
+    alg.setControlPeriod(dt);
 
     // Populate messages
     AttGuidMsgF32Payload guidCmdMsg{};
@@ -210,24 +200,20 @@ inline void testMrpSteering(std::vector<float> sigma,
     EXPECT_NO_THROW(alg.reset(vehConfigMsg, rwConfigMsg, rwIsLinked));
 
     Eigen::Vector3f z{Eigen::Vector3f::Zero()};
-    uint64_t priorTime{};
 
     // Test over a few time steps
     int numSteps = 5;
 
     for (int step = 0; step < numSteps; ++step) {
-        uint64_t callTime = priorTime + static_cast<uint64_t>(dt / NANO2SEC);
-
         // Reference
         CmdTorqueBodyMsgF32Payload out{};
         ReferenceOutput refOutput{};
-        EXPECT_NO_THROW(out = alg.update(callTime, guidCmdMsg, wheelSpeedsMsg, wheelsAvailabilityMsg));
+        EXPECT_NO_THROW(out = alg.update(guidCmdMsg, wheelSpeedsMsg, wheelsAvailabilityMsg));
         EXPECT_NO_THROW(
             refOutput = referenceUpdate(
-                alg, rwConfigMsg, ISC_B, z, priorTime, callTime, guidCmdMsg, wheelSpeedsMsg, wheelsAvailabilityMsg));
+                alg, rwConfigMsg, ISC_B, z, dt, guidCmdMsg, wheelSpeedsMsg, wheelsAvailabilityMsg));
         CmdTorqueBodyMsgF32Payload ref = refOutput.cmdTorqueBody;
         z = refOutput.z;
-        priorTime = refOutput.priorTime;
 
         for (int i = 0; i < 3; ++i) {
             // --- General tests ---
