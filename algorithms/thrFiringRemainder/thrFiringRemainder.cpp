@@ -98,3 +98,16 @@ void ThrFiringRemainder::setControlPeriod(const double controlPeriod) {
  @return const double
 */
 double ThrFiringRemainder::getControlPeriod() const { return this->algorithm.getControlPeriod(); }
+
+/*! Setter method for onTimeSaturationFactor.
+ @return void
+ @param factor [-] Factor to multiply the control period by when ontime is saturated
+*/
+void ThrFiringRemainder::setOnTimeSaturationFactor(const double factor) {
+    this->algorithm.setOnTimeSaturationFactor(static_cast<float>(factor));
+}
+
+/*! Getter method for onTimeSaturationFactor.
+ @return const double
+*/
+double ThrFiringRemainder::getOnTimeSaturationFactor() const { return this->algorithm.getOnTimeSaturationFactor(); }

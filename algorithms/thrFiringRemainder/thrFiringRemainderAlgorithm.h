@@ -26,6 +26,9 @@ class ThrFiringRemainderAlgorithm {
     void setControlPeriod(float period);
     float getControlPeriod() const;
 
+    void setOnTimeSaturationFactor(float factor);
+    float getOnTimeSaturationFactor() const;
+
    private:
     std::array<float, kMaxThrusterCount>
         pulseRemainder{};                              //!< [-] Unimplemented thrust pulses (number of minimum pulses)
@@ -34,6 +37,7 @@ class ThrFiringRemainderAlgorithm {
     std::array<float, kMaxThrusterCount> maxThrust{};  //!< [N] Max thrust
     ThrustPulsingRegime thrustPulsingRegime{};         //!< [-] Indicates on-pulsing or off-pulsing
     float controlPeriod{};                             //!< [s] Default control period used for first call
+    float onTimeSaturationFactor{};  //!< [-] Factor to multiply the control period by when ontime is saturated
 };
 
 #endif

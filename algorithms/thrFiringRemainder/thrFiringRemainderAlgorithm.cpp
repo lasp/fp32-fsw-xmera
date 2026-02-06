@@ -63,7 +63,7 @@ ThrusterOnTimeCmd ThrFiringRemainderAlgorithm::update(ThrusterForceCmd thrusterF
             onTime = 0.0F;
         } else if (onTime >= this->controlPeriod) {
             /*! - If request is greater than control period then oversaturate onTime */
-            onTime = 1.1F * this->controlPeriod;
+            onTime = this->onTimeSaturationFactor * this->controlPeriod;
         } else {
             /* no action required. else clause included for MISRA */
         }
@@ -119,3 +119,16 @@ void ThrFiringRemainderAlgorithm::setControlPeriod(const float period) {
  @return const float
 */
 float ThrFiringRemainderAlgorithm::getControlPeriod() const { return this->controlPeriod; }
+
+/*! Setter method for onTimeSaturationFactor.
+ @return void
+ @param factor
+*/
+void ThrFiringRemainderAlgorithm::setOnTimeSaturationFactor(const float factor) {
+    this->onTimeSaturationFactor = factor;
+}
+
+/*! Getter method for onTimeSaturationFactor.
+ @return factor
+*/
+float ThrFiringRemainderAlgorithm::getOnTimeSaturationFactor() const { return this->onTimeSaturationFactor; }

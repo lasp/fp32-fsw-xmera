@@ -81,6 +81,7 @@ std::vector<std::vector<float>> computeExpectedOutputs(const std::vector<Thruste
                                                        ThrustPulsingRegime regime,
                                                        float controlPeriod,
                                                        float thrMinFireTime,
+                                                       float onTimeSaturationFactor,
                                                        size_t totalSteps) {
     const size_t numThrusters = thrusters.size();
     std::vector<float> pulseRemainder(numThrusters, 0.0F);
@@ -103,7 +104,7 @@ std::vector<std::vector<float>> computeExpectedOutputs(const std::vector<Thruste
                 pulseRemainder[thrIdx] = onTime / thrMinFireTime;
                 onTime = 0.0F;
             } else if (onTime >= controlPeriod) {
-                onTime = kOnTimeOversaturationFactor * controlPeriod;
+                onTime = onTimeSaturationFactor * controlPeriod;
             }
             expected[idx][thrIdx] = onTime;
         }
@@ -128,14 +129,15 @@ TEST_P(ThrFiringRemainderTest, ComputesCorrectOnTimes) {
     const auto thrForce = createThrusterForceCmd(rng, numThrusters, kMaxThrust, regime);
 
     // Compute expected outputs
-    const auto expected =
-        computeExpectedOutputs(thrusters, thrForce, regime, kControlPeriod, kThrMinFireTime, kTotalSteps);
+    const auto expected = computeExpectedOutputs(
+        thrusters, thrForce, regime, kControlPeriod, kThrMinFireTime, kOnTimeOversaturationFactor, kTotalSteps);
 
     // Configure and run algorithm
     ThrFiringRemainderAlgorithm algorithm{};
     algorithm.setThrMinFireTime(kThrMinFireTime);
     algorithm.setControlPeriod(kControlPeriod);
     algorithm.setThrustPulsingRegime(regime);
+    algorithm.setOnTimeSaturationFactor(kOnTimeOversaturationFactor);
     algorithm.reset(thrConfig);
 
     // Run algorithm and collect outputs

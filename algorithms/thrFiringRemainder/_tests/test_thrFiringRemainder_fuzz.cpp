@@ -77,6 +77,7 @@ void OutputsAreWithinBounds(const ThrusterConfigTuple& configTuple,
     algorithm.setThrMinFireTime(thrMinFireTime);
     algorithm.setControlPeriod(controlPeriod);
     algorithm.setThrustPulsingRegime(regime);
+    algorithm.setOnTimeSaturationFactor(kOnTimeOversaturationFactor);
     algorithm.reset(config);
 
     const auto output = algorithm.update(thrForceCmd);
@@ -112,6 +113,7 @@ void NonZeroOutputsExceedMinFireTime(const ThrusterConfigTuple& configTuple,
     algorithm.setThrMinFireTime(thrMinFireTime);
     algorithm.setControlPeriod(controlPeriod);
     algorithm.setThrustPulsingRegime(regime);
+    algorithm.setOnTimeSaturationFactor(kOnTimeOversaturationFactor);
     algorithm.reset(config);
 
     const auto [onTimeRequest] = algorithm.update(thrForceCmd);
@@ -158,6 +160,7 @@ void SaturatedInputsProduceOversaturatedOutput(const ThrusterConfigTuple& config
     algorithm.setThrMinFireTime(thrMinFireTime);
     algorithm.setControlPeriod(controlPeriod);
     algorithm.setThrustPulsingRegime(regime);
+    algorithm.setOnTimeSaturationFactor(kOnTimeOversaturationFactor);
     algorithm.reset(config);
 
     const auto [onTimeRequest] = algorithm.update(thrForceCmd);
@@ -200,6 +203,7 @@ void ZeroForceProducesZeroOutput(const ThrusterConfigTuple& configTuple,
     algorithm.setThrMinFireTime(thrMinFireTime);
     algorithm.setControlPeriod(controlPeriod);
     algorithm.setThrustPulsingRegime(ThrustPulsingRegime::ON_PULSING);
+    algorithm.setOnTimeSaturationFactor(kOnTimeOversaturationFactor);
     algorithm.reset(config);
 
     const auto [onTimeRequest] = algorithm.update(thrForceCmd);
@@ -239,6 +243,7 @@ void NegativeEffectiveForceProducesZeroOutput(const ThrusterConfigTuple& configT
     algorithm.setThrMinFireTime(thrMinFireTime);
     algorithm.setControlPeriod(controlPeriod);
     algorithm.setThrustPulsingRegime(regime);
+    algorithm.setOnTimeSaturationFactor(kOnTimeOversaturationFactor);
     algorithm.reset(config);
 
     const auto [onTimeRequest] = algorithm.update(thrForceCmd);
@@ -271,6 +276,7 @@ void ResetClearsState(const ThrusterConfigTuple& configTuple,
     algorithm.setThrMinFireTime(thrMinFireTime);
     algorithm.setControlPeriod(controlPeriod);
     algorithm.setThrustPulsingRegime(regime);
+    algorithm.setOnTimeSaturationFactor(kOnTimeOversaturationFactor);
 
     // First run
     algorithm.reset(config);
@@ -319,6 +325,7 @@ void SmallRequestsEventuallyFire(const ThrusterConfigTuple& configTuple,
     algorithm.setThrMinFireTime(thrMinFireTime);
     algorithm.setControlPeriod(controlPeriod);
     algorithm.setThrustPulsingRegime(ThrustPulsingRegime::ON_PULSING);
+    algorithm.setOnTimeSaturationFactor(kOnTimeOversaturationFactor);
     algorithm.reset(config);
 
     // Run multiple updates - remainder should accumulate and eventually fire

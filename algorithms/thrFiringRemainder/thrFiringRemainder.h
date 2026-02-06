@@ -35,6 +35,9 @@ class ThrFiringRemainder : public SysModel {
     void setControlPeriod(double controlPeriod);  //!< Setter for controlPeriod variable
     double getControlPeriod() const;              //!< Getter for controlPeriod variable
 
+    void setOnTimeSaturationFactor(double factor);  //!< Setter for onTimeSaturationFactor variable
+    double getOnTimeSaturationFactor() const;       //!< Getter for onTimeSaturationFactor variable
+
     /* declare module IO interfaces */
     ReadFunctor<THRArrayCmdForceMsgF32Payload> thrForceInMsg;  //!< The name of the Input message
     Message<THRArrayOnTimeCmdMsgF32Payload> onTimeOutMsg;      //!< The name of the output message, onTimeOutMsg
