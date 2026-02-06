@@ -6,13 +6,16 @@
  reference frame, as well as the reference frame angular rates and acceleration, and computes the required control
  torque Lr.
  @return Eigen::Vector3f
- @param inputs [InputGuidanceData] struct containing guidance data required for torque computations
+ @param sigma_BR Body to reference MRP
+ @param omega_BR_B Body to reference rate
+ @param domega_RN_B Body to reference acceleration
 */
-Eigen::Vector3f MrpPDAlgorithm::update(const InputGuidanceData& inputs) const {
+Eigen::Vector3f MrpPDAlgorithm::update(const Eigen::Vector3f& sigma_BR,
+                                       const Eigen::Vector3f& omega_BR_B,
+                                       const Eigen::Vector3f& domega_RN_B) const {
     // Compute required attitude control torque vector
     const Eigen::Vector3f Lr = -this->proportionalGain * sigma_BR - this->feedbackGain * omega_BR_B +
-                               this->ISCPntB_B * domega_RN_B -
-                               this->knownTorquePntB_B;  // [Nm]
+                               this->ISCPntB_B * domega_RN_B - this->knownTorquePntB_B;  // [Nm]
 
     return Lr;
 }

@@ -6,14 +6,15 @@
 #include <stdint.h>
 #include <Eigen/Core>
 
-
 /*! @brief MRP PD control algorithm class. */
 class MrpPDAlgorithm {
    public:
     MrpPDAlgorithm() = default;
     ~MrpPDAlgorithm() = default;
 
-    Eigen::Vector3f update(const InputGuidanceData& inputs) const;
+    Eigen::Vector3f update(const Eigen::Vector3f& sigma_BR,
+                           const Eigen::Vector3f& omega_BR_B,
+                           const Eigen::Vector3f& domega_RN_B) const;
     void setSpacecraftInertia(const Eigen::Matrix3f& inertia);
     Eigen::Matrix3f getSpacecraftInertia() const;
     void setDerivativeGainP(float P);

@@ -14,16 +14,12 @@
 #include <vector>
 
 // Reference computation for update
-inline Eigen::Vector3f referenceUpdate(const MrpPDAlgorithm& alg, const InputGuidanceData& msg) {
-    const Eigen::Vector3f sigma_BR = msg.sigma_BR;
-    const Eigen::Vector3f omega_BR_B = msg.omega_BR_B;
-    const Eigen::Vector3f omega_RN_B = msg.omega_RN_B;
-    const Eigen::Vector3f domega_RN_B = msg.domega_RN_B;
-    const Eigen::Vector3f omega_BN_B = omega_BR_B + omega_RN_B;
-
+inline Eigen::Vector3f referenceUpdate(const MrpPDAlgorithm& alg,
+                                       const Eigen::Vector3f& sigma_BR,
+                                       const Eigen::Vector3f& omega_BR_B,
+                                       const Eigen::Vector3f& domega_RN_B) {
     const Eigen::Vector3f Lr = -alg.getProportionalGainK() * sigma_BR - alg.getDerivativeGainP() * omega_BR_B +
-                               alg.getSpacecraftInertia() * (domega_RN_B - omega_BN_B.cross(omega_RN_B)) -
-                               alg.getKnownTorquePntB_B();
+                               alg.getSpacecraftInertia() * domega_RN_B - alg.getKnownTorquePntB_B();
 
     return Lr;
 }
@@ -33,7 +29,6 @@ inline void regressionTestMrpPD(float K,
                                 std::vector<float> torque,
                                 std::vector<float> sigma_BR,
                                 std::vector<float> omega_BR_B,
-                                std::vector<float> omega_RN_B,
                                 std::vector<float> domega_RN_B) {
     // --- Regression test using expected update algorithm ---
 
@@ -43,17 +38,16 @@ inline void regressionTestMrpPD(float K,
     alg.setDerivativeGainP(P);
     alg.setKnownTorquePntB_B(Eigen::Map<Eigen::Vector3f>(torque.data()));
 
-    InputGuidanceData inputs{};
-    inputs.sigma_BR = Eigen::Map<Eigen::Vector3f>(sigma_BR.data());
-    inputs.omega_BR_B = Eigen::Map<Eigen::Vector3f>(omega_BR_B.data());
-    inputs.omega_RN_B = Eigen::Map<Eigen::Vector3f>(omega_RN_B.data());
-    inputs.domega_RN_B = Eigen::Map<Eigen::Vector3f>(domega_RN_B.data());
-
     // Reference
     Eigen::Vector3f outputTorque = Eigen::Vector3f::Zero();
     Eigen::Vector3f referenceTorque = Eigen::Vector3f::Zero();
-    EXPECT_NO_THROW(outputTorque = alg.update(inputs));
-    EXPECT_NO_THROW(referenceTorque = referenceUpdate(alg, inputs));
+    EXPECT_NO_THROW(outputTorque = alg.update(Eigen::Map<Eigen::Vector3f>(sigma_BR.data()),
+                                              Eigen::Map<Eigen::Vector3f>(omega_BR_B.data()),
+                                              Eigen::Map<Eigen::Vector3f>(domega_RN_B.data())));
+    EXPECT_NO_THROW(referenceTorque = referenceUpdate(alg,
+                                                      Eigen::Map<Eigen::Vector3f>(sigma_BR.data()),
+                                                      Eigen::Map<Eigen::Vector3f>(omega_BR_B.data()),
+                                                      Eigen::Map<Eigen::Vector3f>(domega_RN_B.data())));
 
     for (int i = 0; i < 3; ++i) {
         // Reference correctness
