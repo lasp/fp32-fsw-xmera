@@ -23,7 +23,7 @@ void ThrFiringRemainderAlgorithm::reset(const ThrusterArrayConfig& thrusterConfi
     this->pulseRemainder = {0.0F};
 
     /*! - loop over all thrusters and for each copy over maximum thrust, zero the impulse remainder */
-    for (std::uint32_t i = 0; i < this->numThrusters; i++) {
+    for (std::uint32_t i = 0; i < this->numThrusters; ++i) {
         this->maxThrust.at(i) = thrusterConfig.thrusters.at(i).maxThrust;
     }
 }
@@ -36,7 +36,7 @@ ThrusterOnTimeCmd ThrFiringRemainderAlgorithm::update(ThrusterForceCmd thrusterF
     ThrusterOnTimeCmd thrOnTimeOut{};
 
     /*! - Loop through thrusters */
-    for (std::uint32_t i = 0; i < this->numThrusters; i++) {
+    for (std::uint32_t i = 0; i < this->numThrusters; ++i) {
         /*! - Correct for off-pulsing if necessary.  Here the requested force is negative, and the maximum thrust
          needs to be added.  If not control force is requested in off-pulsing mode, then the thruster force should
          be set to the maximum thrust value */
