@@ -6,6 +6,11 @@
 
 #include "thrFiringRemainder.h"
 
+#include "msgPayloadDef/THRArrayCmdForceMsgF32Payload.h"
+#include "msgPayloadDef/THRArrayConfigMsgF32Payload.h"
+
+#include <algorithm>
+
 /*! This method performs a complete reset of the module.  Local module variables that retain
  time varying states between function calls are reset to their default values.
  @return void
@@ -20,9 +25,18 @@ void ThrFiringRemainder::reset(uint64_t callTime) {
         this->bskLogger.bskLog(BSK_ERROR, "Error: thrFiringRemainder.thrForceInMsg wasn't connected.");
     }
 
-    /*! - read in the support messages */
-    const THRArrayConfigMsgF32Payload localThrusterData = this->thrConfInMsg();
-    this->algorithm.reset(localThrusterData);
+    /*! - read in the support messages and map to freestanding type */
+    const auto [numThrusters, thrusters] = this->thrConfInMsg();
+    ThrusterArrayConfig thrusterConfig{};
+    thrusterConfig.numThrusters = numThrusters;
+    for (std::uint32_t i = 0; i < numThrusters; ++i) {
+        thrusterConfig.thrusters.at(i).rThrust_B = {
+            thrusters[i].rThrust_B[0], thrusters[i].rThrust_B[1], thrusters[i].rThrust_B[2]};
+        thrusterConfig.thrusters.at(i).tHatThrust_B = {
+            thrusters[i].tHatThrust_B[0], thrusters[i].tHatThrust_B[1], thrusters[i].tHatThrust_B[2]};
+        thrusterConfig.thrusters.at(i).maxThrust = thrusters[i].maxThrust;
+    }
+    this->algorithm.reset(thrusterConfig);
 }
 
 /*! This method maps the input thruster command forces into thruster on times using a remainder tracking logic.
@@ -30,10 +44,18 @@ void ThrFiringRemainder::reset(uint64_t callTime) {
  @param callTime The clock time at which the function was called (nanoseconds)
  */
 void ThrFiringRemainder::updateState(const uint64_t callTime) {
-    THRArrayCmdForceMsgF32Payload const thrForceIn = this->thrForceInMsg();
+    /*! - read in the force command message and map to freestanding type */
+    const auto [thrForce] = this->thrForceInMsg();
+    ThrusterForceCmd thrusterForceCmd{};
+    std::ranges::copy(thrForce, thrusterForceCmd.thrForce.begin());
 
-    THRArrayOnTimeCmdMsgF32Payload thrOnTimeOut = this->algorithm.update(thrForceIn);
-    this->onTimeOutMsg.write(&thrOnTimeOut, this->moduleID, callTime);
+    /*! - call algorithm update */
+    const auto [onTimeRequest] = this->algorithm.update(thrusterForceCmd);
+
+    /*! - map freestanding type back to message payload and write */
+    THRArrayOnTimeCmdMsgF32Payload onTimeMsgOut{};
+    std::ranges::copy(onTimeRequest, onTimeMsgOut.onTimeRequest);
+    this->onTimeOutMsg.write(&onTimeMsgOut, this->moduleID, callTime);
 }
 
 /*! Setter method for thrMinFireTime.

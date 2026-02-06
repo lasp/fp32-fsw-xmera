@@ -22,12 +22,6 @@ constexpr size_t kTotalSteps = static_cast<size_t>(kFinalTime / kControlPeriod) 
 constexpr float kOnTimeOversaturationFactor = 1.1F;
 constexpr unsigned int kRandomSeed = 42U;
 
-struct ThrusterConfig {
-    std::array<float, 3> rThrust_B;
-    std::array<float, 3> tHatThrust_B;
-    float maxThrust;
-};
-
 std::vector<ThrusterConfig> generateRandomThrusters(std::mt19937& rng, const size_t numThrusters, float maxThrust) {
     std::uniform_real_distribution positionDist(-2.0F, 2.0F);
     std::normal_distribution directionDist(0.0F, 1.0F);
@@ -50,25 +44,24 @@ std::vector<ThrusterConfig> generateRandomThrusters(std::mt19937& rng, const siz
     return thrusters;
 }
 
-THRArrayConfigMsgF32Payload createThrusterArrayConfigMsg(const std::vector<ThrusterConfig>& thrusters) {
-    THRArrayConfigMsgF32Payload config{};
+ThrusterArrayConfig createThrusterArrayConfig(const std::vector<ThrusterConfig>& thrusters) {
+    ThrusterArrayConfig config{};
     config.numThrusters = static_cast<uint32_t>(thrusters.size());
     for (size_t i = 0; i < thrusters.size(); ++i) {
-        std::copy(
-            thrusters[i].rThrust_B.begin(), thrusters[i].rThrust_B.end(), std::begin(config.thrusters[i].rThrust_B));
+        std::copy(thrusters[i].rThrust_B.begin(), thrusters[i].rThrust_B.end(), config.thrusters[i].rThrust_B.begin());
         std::copy(thrusters[i].tHatThrust_B.begin(),
                   thrusters[i].tHatThrust_B.end(),
-                  std::begin(config.thrusters[i].tHatThrust_B));
+                  config.thrusters[i].tHatThrust_B.begin());
         config.thrusters[i].maxThrust = thrusters[i].maxThrust;
     }
     return config;
 }
 
-THRArrayCmdForceMsgF32Payload createThrusterForceMsg(std::mt19937& rng,
-                                                     const size_t numThrusters,
-                                                     float maxThrust,
-                                                     ThrustPulsingRegime regime) {
-    THRArrayCmdForceMsgF32Payload forces{};
+ThrusterForceCmd createThrusterForceCmd(std::mt19937& rng,
+                                        const size_t numThrusters,
+                                        float maxThrust,
+                                        ThrustPulsingRegime regime) {
+    ThrusterForceCmd forces{};
     if (regime == ThrustPulsingRegime::OFF_PULSING) {
         std::uniform_real_distribution<float> forceDist(-maxThrust, 0.0F);
         for (size_t i = 0; i < numThrusters; ++i) {
@@ -84,7 +77,7 @@ THRArrayCmdForceMsgF32Payload createThrusterForceMsg(std::mt19937& rng,
 }
 
 std::vector<std::vector<float>> computeExpectedOutputs(const std::vector<ThrusterConfig>& thrusters,
-                                                       const THRArrayCmdForceMsgF32Payload& thrForce,
+                                                       const ThrusterForceCmd& thrForce,
                                                        ThrustPulsingRegime regime,
                                                        float controlPeriod,
                                                        float thrMinFireTime,
@@ -131,8 +124,8 @@ TEST_P(ThrFiringRemainderTest, ComputesCorrectOnTimes) {
 
     // Generate random thruster configuration and forces
     const auto thrusters = generateRandomThrusters(rng, numThrusters, kMaxThrust);
-    const auto thrConfig = createThrusterArrayConfigMsg(thrusters);
-    const auto thrForce = createThrusterForceMsg(rng, numThrusters, kMaxThrust, regime);
+    const auto thrConfig = createThrusterArrayConfig(thrusters);
+    const auto thrForce = createThrusterForceCmd(rng, numThrusters, kMaxThrust, regime);
 
     // Compute expected outputs
     const auto expected =
