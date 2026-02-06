@@ -10,6 +10,7 @@
 #include "architecture/utilities/macroDefinitions.h"
 #include "freestandingInvalidArgument.h"
 
+#include <algorithm>
 #include <array>
 
 /*! This method performs a complete reset of the algorithm.  All algorithm variables that retain
@@ -45,9 +46,7 @@ ThrusterOnTimeCmd ThrFiringRemainderAlgorithm::update(ThrusterForceCmd thrusterF
         }
 
         /*! - Do not allow thrust requests less than zero */
-        if (thrusterForceCmd.thrForce.at(i) < 0.0F) {
-            thrusterForceCmd.thrForce.at(i) = 0.0F;
-        }
+        thrusterForceCmd.thrForce.at(i) = std::max(thrusterForceCmd.thrForce.at(i), 0.0F);
 
         /*! - Compute T_on from thrust request, max thrust, and control period */
         float onTime = thrusterForceCmd.thrForce.at(i) / this->maxThrust.at(i) * this->controlPeriod;
