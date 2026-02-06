@@ -45,46 +45,66 @@ The following table lists all the module parameters than can be set. The paramet
 (if not specified default is used).
 
 .. list-table:: Module Parameters
-    :widths: 60 30 30 30
+    :widths: 40 20 10 10 30 30
     :header-rows: 1
 
     * - Parameter Name
+      - Type
+      - Units
       - Default
       - Description
       - Bounds
     * - K1
+      - float
+      - [rad/s]
       - 0
       - Proportional gain applied to MRP errors
       - Must not be negative (checked in setter)
     * - K3
+      - float
+      - [rad/s]
       - 0
       - Cubic gain applied to MRP errors
       - Must not be negative (checked in setter)
     * - omegaMax (required)
+      - float
+      - [rad/s]
       - 0
       - Maximum rate command of steering control
       - Must be greater than zero (checked in setter)
     * - ignoreOuterLoopFeedforward
+      - bool
+      - [-]
       - false
       - Indicates if feedforward term should be included
       - N/A
     * - P
+      - float
+      - [N m s]
       - 0
       - Rate error feedback gain
       - Must not be negative (checked in setter)
     * - Ki
+      - float
+      - [N m]
       - 0
       - Integral feedback gain
       - Must not be negative (checked in setter). If 0, no integral feedback is applied and the corresponding computation is skipped
     * - integralLimit
+      - float
+      - [rad]
       - 0
       - Limit for integral feedback term (term will be capped by integralLimit)
       - Must not be negative (checked in setter)
     * - knownTorquePntB_B
+      - Eigen::Vector3f
+      - [N m]
       - [0, 0, 0]
       - Known external torque in body frame components
       - None
     * - controlPeriod
+      - float
+      - [s]
       - 0
       - control period (1/fsw_rate)
       - Must be greater than 0
