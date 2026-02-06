@@ -142,7 +142,7 @@ Eigen::Matrix3f MrpSteeringAlgorithm::getSpacecraftInertia() const { return this
 
 /*! Set the linear feedback gain K1
  @return void
- @param gain [-] linear feedback gain K1
+ @param gain [rad/s] linear feedback gain K1
 */
 void MrpSteeringAlgorithm::setK1(const float gain) {
     if (gain < 0.0) {
@@ -158,7 +158,7 @@ float MrpSteeringAlgorithm::getK1() const { return this->K1; }
 
 /*! Set the cubic feedback gain K3
  @return void
- @param gain [-] cubic feedback gain K3
+ @param gain [rad/s] cubic feedback gain K3
 */
 void MrpSteeringAlgorithm::setK3(const float gain) {
     if (gain < 0.0) {
@@ -174,7 +174,7 @@ float MrpSteeringAlgorithm::getK3() const { return this->K3; }
 
 /*! Set the maximum rate command of steering control
  @return void
- @param omega [-] maximum rate command of steering control
+ @param omega [rad/s] maximum rate command of steering control
 */
 void MrpSteeringAlgorithm::setOmegaMax(const float omega) {
     if (omega <= 0.0) {
@@ -233,7 +233,7 @@ float MrpSteeringAlgorithm::getKi() const { return this->Ki; }
 
 /*! Setter method for the integral limit.
  @return void
- @param limit [N*m*s] Integral limit
+ @param limit [rad] Integral limit
 */
 void MrpSteeringAlgorithm::setIntegralLimit(const float limit) {
     if (limit < 0.0) {

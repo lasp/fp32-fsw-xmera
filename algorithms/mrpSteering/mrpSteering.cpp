@@ -66,7 +66,7 @@ void MrpSteering::updateState(const uint64_t callTime) {
 
 /*! Set the linear feedback gain K1
  @return void
- @param gain [-] linear feedback gain K1
+ @param gain [rad/s] linear feedback gain K1
 */
 void MrpSteering::setK1(const float gain) { this->algorithm.setK1(gain); }
 
@@ -77,7 +77,7 @@ float MrpSteering::getK1() const { return this->algorithm.getK1(); }
 
 /*! Set the cubic feedback gain K3
  @return void
- @param gain [-] cubic feedback gain K3
+ @param gain [rad/s] cubic feedback gain K3
 */
 void MrpSteering::setK3(const float gain) { this->algorithm.setK3(gain); }
 
@@ -88,7 +88,7 @@ float MrpSteering::getK3() const { return this->algorithm.getK3(); }
 
 /*! Set the maximum rate command of steering control
  @return void
- @param omega [-] maximum rate command of steering control
+ @param omega [rad/s] maximum rate command of steering control
 */
 void MrpSteering::setOmegaMax(const float omega) { this->algorithm.setOmegaMax(omega); }
 
@@ -132,7 +132,7 @@ float MrpSteering::getKi() const { return this->algorithm.getKi(); }
 
 /*! Setter method for the integral limit.
  @return void
- @param limit [N*m*s] Integral limit
+ @param limit [rad] Integral limit
 */
 void MrpSteering::setIntegralLimit(const float limit) { this->algorithm.setIntegralLimit(limit); }
 
