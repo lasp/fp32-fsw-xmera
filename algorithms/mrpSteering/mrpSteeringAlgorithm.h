@@ -11,7 +11,6 @@
 #include "msgPayloadDef/CmdTorqueBodyMsgF32Payload.h"
 #include "msgPayloadDef/RWArrayConfigMsgF32Payload.h"
 #include "msgPayloadDef/RWSpeedMsgF32Payload.h"
-#include "msgPayloadDef/VehicleConfigMsgF32Payload.h"
 #include <architecture/msgPayloadDef/RWAvailabilityMsgPayload.h>
 
 #include <stdint.h>
@@ -20,13 +19,14 @@
 /*! @brief Data structure for the MRP feedback attitude control routine. */
 class MrpSteeringAlgorithm final {
    public:
-    void reset(VehicleConfigMsgF32Payload vehConfigMsg,
-               const RWArrayConfigMsgF32Payload& rwConfigMsg,
+    void reset(const RWArrayConfigMsgF32Payload& rwConfigMsg,
                bool rwIsConfigured);
     CmdTorqueBodyMsgF32Payload update(AttGuidMsgF32Payload guidCmd,
                                       const RWSpeedMsgF32Payload& wheelSpeeds,
                                       const RWAvailabilityMsgPayload& wheelsAvailability);
 
+    void setSpacecraftInertia(const Eigen::Matrix3f& inertia);
+    Eigen::Matrix3f getSpacecraftInertia() const;
     void setK1(float gain);
     float getK1() const;
     void setK3(float gain);

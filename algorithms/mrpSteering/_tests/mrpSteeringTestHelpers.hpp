@@ -130,6 +130,14 @@ inline void testMrpSteeringSetup() {
     EXPECT_THROW(alg.setOmegaMax(-0.1), fs::invalid_argument);
     //Non-positive control period
     EXPECT_THROW(alg.setControlPeriod(-0.1), fs::invalid_argument);
+    // Invalid inertia matrix
+    Eigen::Matrix3f badInertia{};
+    badInertia << 1, 0, 0, 0, 1, 0, 0, 0, 0;
+    EXPECT_THROW(alg.setSpacecraftInertia(badInertia), fs::invalid_argument);
+    badInertia << 1, 0, 0, 0, 1, 0, 0, 1, 1;
+    EXPECT_THROW(alg.setSpacecraftInertia(badInertia), fs::invalid_argument);
+    badInertia << 3, 0, 0, 0, 1, 0, 0, 0, 1;
+    EXPECT_THROW(alg.setSpacecraftInertia(badInertia), fs::invalid_argument);
 }
 
 inline void testMrpSteering(std::vector<float> sigma,
@@ -165,6 +173,15 @@ inline void testMrpSteering(std::vector<float> sigma,
     alg.setKnownTorquePntB_B(cArrayToEigenVector3(knownTorquePntB_B.data()));
     alg.setControlPeriod(dt);
 
+    Eigen::Matrix3f ISC_B = cArrayToEigenMatrix3(ISCPntB_B.data());
+    // Try setting inertia matrix. If invalid, skip test.
+    try {
+        alg.setSpacecraftInertia(ISC_B);
+    }
+    catch (fs::invalid_argument) {
+        return;
+    }
+
     // Populate messages
     AttGuidMsgF32Payload guidCmdMsg{};
     std::copy(sigma.begin(), sigma.end(), guidCmdMsg.sigma_BR);
@@ -193,11 +210,8 @@ inline void testMrpSteering(std::vector<float> sigma,
     VehicleConfigMsgF32Payload vehConfigMsg{};
     std::copy(ISCPntB_B.begin(), ISCPntB_B.end(), vehConfigMsg.ISCPntB_B);
 
-    // Remaining variables needed by module
-    Eigen::Matrix3f ISC_B = cArrayToEigenMatrix3(ISCPntB_B.data());
-
     // Reset module
-    EXPECT_NO_THROW(alg.reset(vehConfigMsg, rwConfigMsg, rwIsLinked));
+    EXPECT_NO_THROW(alg.reset(rwConfigMsg, rwIsLinked));
 
     Eigen::Vector3f z{Eigen::Vector3f::Zero()};
 

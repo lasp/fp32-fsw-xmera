@@ -6,6 +6,7 @@
 
 #include "mrpSteeringAlgorithm.h"
 #include "../freestandingInvalidArgument.h"
+#include "../utilities/validInertiaCheck.h"
 #include "architecture/utilities/eigenSupport.h"
 #include "architecture/utilities/rigidBodyKinematics.hpp"
 #include <fswAlgorithms/fswUtilities/fswDefinitions.h>
@@ -15,15 +16,11 @@
 /*! This method performs a complete reset of the module.  Local module variables that retain
  time varying states between function calls are reset to their default values.
  @return void
- @param vehConfigMsg vehicle config message
  @param rwConfigMsg reaction wheel config message
  @param rwIsConfigured boolean indicating whether reaction wheels are configured through the rwConfigMsg
  */
-void MrpSteeringAlgorithm::reset(VehicleConfigMsgF32Payload vehConfigMsg,
-                                 const RWArrayConfigMsgF32Payload& rwConfigMsg,
+void MrpSteeringAlgorithm::reset(const RWArrayConfigMsgF32Payload& rwConfigMsg,
                                  const bool rwIsConfigured) {
-    this->ISCPntB_B = cArrayToEigenMatrix3(vehConfigMsg.ISCPntB_B);
-
     if (rwIsConfigured) {
         this->rwConfigParams = rwConfigMsg;
         this->rwIsConfigured = rwIsConfigured;
@@ -126,6 +123,22 @@ CmdTorqueBodyMsgF32Payload MrpSteeringAlgorithm::update(AttGuidMsgF32Payload gui
 
     return controlOut;
 }
+
+/*! This method sets the spacecraft inertia according to the vehicle configuration input message
+ @return void
+ @param inertia Inertia matrix
+*/
+void MrpSteeringAlgorithm::setSpacecraftInertia(const Eigen::Matrix3f& inertia) {
+    if (!inertiaIsValid(inertia)) {
+        FS_THROW_INVALID_ARGUMENT("Matrix inertia did not pass validity checks");
+    }
+    this->ISCPntB_B = inertia;
+}
+
+/*! This method gets the spacecraft inertia matrix
+ @return Eigen::Matrix3f
+*/
+Eigen::Matrix3f MrpSteeringAlgorithm::getSpacecraftInertia() const { return this->ISCPntB_B; }
 
 /*! Set the linear feedback gain K1
  @return void

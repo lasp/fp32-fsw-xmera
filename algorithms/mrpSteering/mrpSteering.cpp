@@ -5,6 +5,7 @@
  */
 
 #include "mrpSteering.h"
+#include "architecture/utilities/eigenSupport.h"
 #include <stdexcept>
 
 /*! This method performs a complete reset of the module.  Local module variables that retain
@@ -25,7 +26,10 @@ void MrpSteering::reset(const uint64_t callTime) {
         throw std::invalid_argument("mrpSteering.vehConfigInMsg wasn't connected.");
     }
 
-    const VehicleConfigMsgF32Payload sc = this->vehConfigInMsg();
+    auto vehicleConfigInMsg = this->vehConfigInMsg();
+    const Eigen::Matrix3f inertia = cArrayToEigenMatrix3(vehicleConfigInMsg.ISCPntB_B);
+    this->algorithm.setSpacecraftInertia(inertia);
+
     RWArrayConfigMsgF32Payload rwConfigParams{};
     bool rwParamsIsLinked{};
 
@@ -35,7 +39,7 @@ void MrpSteering::reset(const uint64_t callTime) {
         rwParamsIsLinked = true;
     }
 
-    this->algorithm.reset(sc, rwConfigParams, rwParamsIsLinked);
+    this->algorithm.reset(rwConfigParams, rwParamsIsLinked);
 }
 
 /*! This method takes the attitude and rate errors relative to the Reference frame, as well as
