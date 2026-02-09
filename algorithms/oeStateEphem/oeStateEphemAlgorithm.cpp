@@ -44,21 +44,20 @@ double OEStateEphemAlgorithm::scaleEphemerisTime(const ChebyshevFitArc& arc) con
 ClassicalElementsF32 OEStateEphemAlgorithm::evaluateCoefficients(const double currentScaledValue,
                                                                  const ChebyshevFitArc& arc) {
     /* - determine orbit elements from chebychev polynominals */
-    float anomalyAngle{}; /* [r] general anomaly angle variable */
     ClassicalElementsF32 elements{};
     const double radiusPeriapsis =
-        calculateChebyValue(arc.radiusPeriapsisCoefficients.data(), arc.numberChebCoefficients, currentScaledValue) *
+        calculateChebyValue(arc.radiusPeriapsisCoefficients, arc.numberChebCoefficients, currentScaledValue) *
         1e3;  // coefficients are in km but module operates in meters
     elements.inclination =
-        calculateChebyValueF32(arc.inclinationCoefficients.data(), arc.numberChebCoefficients, currentScaledValue);
+        calculateChebyValueF32(arc.inclinationCoefficients, arc.numberChebCoefficients, currentScaledValue);
     elements.eccentricity =
-        calculateChebyValueF32(arc.eccentricityCoefficients.data(), arc.numberChebCoefficients, currentScaledValue);
+        calculateChebyValueF32(arc.eccentricityCoefficients, arc.numberChebCoefficients, currentScaledValue);
     elements.argPeriapsis =
-        calculateChebyValueF32(arc.argPeriapsisCoefficients.data(), arc.numberChebCoefficients, currentScaledValue);
+        calculateChebyValueF32(arc.argPeriapsisCoefficients, arc.numberChebCoefficients, currentScaledValue);
     elements.rightAscensionAscendingNode =
-        calculateChebyValueF32(arc.raanCoefficients.data(), arc.numberChebCoefficients, currentScaledValue);
-    anomalyAngle =
-        calculateChebyValueF32(arc.trueAnomalyCoefficients.data(), arc.numberChebCoefficients, currentScaledValue);
+        calculateChebyValueF32(arc.raanCoefficients, arc.numberChebCoefficients, currentScaledValue);
+    float const anomalyAngle =
+        calculateChebyValueF32(arc.trueAnomalyCoefficients, arc.numberChebCoefficients, currentScaledValue);
 
     /*! - determine the true anomaly angle */
     if (arc.anomalyFlag == 0) {
