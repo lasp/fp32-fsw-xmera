@@ -17,20 +17,53 @@
 
  */
 
-#ifndef _EPHEMERIS_UTILITIES_H_
-#define _EPHEMERIS_UTILITIES_H_
+#ifndef _EPHEMERIS_UTILITIES_FP32_H_
+#define _EPHEMERIS_UTILITIES_FP32_H_
 
-#include <stdint.h>
+#include "msgPayloadDef/definitions.h"
+#include <array>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
 /*! Calculate Chebychev Polynominal */
-double calculateChebyValue(const double *chebyCoeff, const signed int nCoeff, const double evalValue);
-float calculateChebyValueF32(const float *chebyCoeff, const signed int nCoeff, const double evalValue);
+inline double calculateChebyValue(const std::array<double, MAX_OE_COEFF>& coefficients,
+                                  const unsigned int numberOfCoefficients,
+                                  const double evaluationPoint) {
+    double chebyPrev = 1.0;
+    double chebyNow = evaluationPoint;
+    const double valueMult = 2 * evaluationPoint;
 
-#ifdef __cplusplus
+    double estValue = coefficients.at(0) * chebyPrev;
+    if (numberOfCoefficients > 1) {
+        estValue += coefficients.at(1) * chebyNow;
+        for (auto i = 2; i < numberOfCoefficients; ++i) {
+            const double chebyLocalPrev = chebyNow;
+            chebyNow = (valueMult * chebyNow) - chebyPrev;
+            chebyPrev = chebyLocalPrev;
+            estValue += coefficients.at(i) * chebyNow;
+        }
+    }
+    return estValue;
+};
+
+inline float calculateChebyValueF32(const std::array<float, MAX_OE_COEFF>& coefficients,
+                                    const unsigned int numberOfCoefficients,
+                                    const float evaluationPoint) {
+    float chebyPrev = 1.0;
+    float chebyNow = evaluationPoint;
+    const float valueMult = 2.0 * evaluationPoint;
+
+    float estValue = coefficients.at(0) * chebyPrev;
+    if (numberOfCoefficients <= 1) {
+        return estValue;
+    }
+    estValue += coefficients.at(1) * chebyNow;
+    for (int i = 2; i < numberOfCoefficients; ++i) {
+        const float chebyLocalPrev = chebyNow;
+        chebyNow = (valueMult * chebyNow) - chebyPrev;
+        chebyPrev = chebyLocalPrev;
+        estValue += coefficients.at(i) * chebyNow;
+    }
+
+    return estValue;
 }
-#endif
 
 #endif
