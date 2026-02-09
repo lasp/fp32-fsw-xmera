@@ -18,8 +18,7 @@
            basically the set of coefficients for the ephemeris elements and
            the time factors associated with those coefficients
 */
-class ChebyshevFitArc {
-   public:
+struct ChebyshevFitArc {
     unsigned int numberChebCoefficients{};  //!< [-] Number chebyshev coefficients loaded into record
     double ephemerisTimeMiddle{};           //!< [s] Ephemeris time (TDB) associated with the mid-point of the curve
     double ephemerisTimeRadius{};           //!< [s] "Radius" of time that curve is valid for (half of total range)
