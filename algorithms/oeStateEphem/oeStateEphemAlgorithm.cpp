@@ -42,7 +42,7 @@ ChebyshevFitArc OEStateEphemAlgorithm::findCurrentArc(const uint64_t callTime) {
 */
 double OEStateEphemAlgorithm::scaleEphemerisTime(const ChebyshevFitArc& arc) const {
     double currentScaledValue = (this->currentEphTime - arc.ephemerisTimeMiddle) / arc.ephemerisTimeRadius;
-    if (fabs(currentScaledValue) > 1.0) {
+    if (fabs(currentScaledValue) > 1) {
         currentScaledValue = currentScaledValue / fabs(currentScaledValue);
     }
     return currentScaledValue;
