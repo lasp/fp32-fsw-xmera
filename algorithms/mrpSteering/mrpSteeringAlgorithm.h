@@ -7,23 +7,34 @@
 #ifndef F32XMERA_MRP_STEERING_ALGORITHM_H
 #define F32XMERA_MRP_STEERING_ALGORITHM_H
 
-#include "msgPayloadDef/AttGuidMsgF32Payload.h"
-#include "msgPayloadDef/CmdTorqueBodyMsgF32Payload.h"
-#include "msgPayloadDef/RWArrayConfigMsgF32Payload.h"
-#include "msgPayloadDef/RWSpeedMsgF32Payload.h"
-#include <architecture/msgPayloadDef/RWAvailabilityMsgPayload.h>
+#include "../msgPayloadDef/definitions.h"
+#include "fswAlgorithms/fswUtilities/fswDefinitions.h"
 
 #include <stdint.h>
 #include <Eigen/Core>
 
+/*! Struct containing the reaction wheel inputs needed by the algorithm. */
+struct InputRwData{
+    Eigen::Matrix<float, 3, RW_EFF_CNT> GsMatrix_B = Eigen::Matrix<float, 3, RW_EFF_CNT>::Zero();
+    std::array<float, RW_EFF_CNT> JsList{};
+    uint32_t numRW{};
+};
+
+/*! Struct containing the guidance inputs needed by the algorithm. */
+struct InputGuidanceData {
+    Eigen::Vector3f sigma_BR = Eigen::Vector3f::Zero();
+    Eigen::Vector3f omega_BR_B = Eigen::Vector3f::Zero();
+    Eigen::Vector3f omega_RN_B = Eigen::Vector3f::Zero();
+    Eigen::Vector3f domega_RN_B = Eigen::Vector3f::Zero();
+};
+
 /*! @brief Data structure for the MRP feedback attitude control routine. */
 class MrpSteeringAlgorithm final {
    public:
-    void reset(const RWArrayConfigMsgF32Payload& rwConfigMsg,
-               bool rwIsConfigured);
-    CmdTorqueBodyMsgF32Payload update(AttGuidMsgF32Payload guidCmd,
-                                      const RWSpeedMsgF32Payload& wheelSpeeds,
-                                      const RWAvailabilityMsgPayload& wheelsAvailability);
+    void reset(const InputRwData& rwInput, bool rwIsConfigured);
+    Eigen::Vector3f update(const InputGuidanceData& attGuidInput,
+                           const std::array<float, RW_EFF_CNT>& wheelSpeeds,
+                           const std::array<FSWdeviceAvailability, RW_EFF_CNT>& wheelAvailability);
 
     void setSpacecraftInertia(const Eigen::Matrix3f& inertia);
     Eigen::Matrix3f getSpacecraftInertia() const;
@@ -59,8 +70,7 @@ class MrpSteeringAlgorithm final {
     float controlPeriod{};  //!< [s] time between two algorithm update calls
     Eigen::Vector3f z{};           //!< [rad]     integral state of delta_omega
     Eigen::Matrix3f ISCPntB_B{};   //!< [kg m^2] Spacecraft Inertia
-    RWArrayConfigMsgF32Payload
-        rwConfigParams{};   //!< [-] struct to store message containing RW config parameters in body B frame
+    InputRwData rwConfigParams{};   //!< [-] struct containing the reaction wheel inputs needed by the algorithm
     bool rwIsConfigured{};  //!< [-] indicates whether reaction wheels are configured through the rwConfigMsg
 };
 

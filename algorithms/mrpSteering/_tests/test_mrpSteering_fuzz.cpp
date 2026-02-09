@@ -17,7 +17,6 @@ FUZZ_TEST(MrpSteeringAlgorithmFuzz, testMrpSteering)
                  fuzztest::VectorOf(fuzztest::InRange(-1e6F, 1e6F)).WithSize(RW_EFF_CNT),       // wheelSpeeds
                  fuzztest::VectorOf(fuzztest::Arbitrary<bool>()).WithSize(RW_EFF_CNT),          // wheelAvailabilityBool
                  fuzztest::InRange(0, RW_EFF_CNT),                                              // numRW
-                 fuzztest::VectorOf(fuzztest::InRange(-1e6F, 1e6F)).WithSize(RW_EFF_CNT),       // uMax
                  fuzztest::VectorOf(fuzztest::InRange(-1e6F, 1e6F)).WithSize(RW_EFF_CNT),       // JsList
                  fuzztest::VectorOf(fuzztest::InRange(-1e6F, 1e6F)).WithSize(RW_EFF_CNT * 3U),  // GsMatrix_B
                  fuzztest::VectorOf(fuzztest::InRange(-1e6F, 1e6F)).WithSize(9U),               // ISCPntB_B

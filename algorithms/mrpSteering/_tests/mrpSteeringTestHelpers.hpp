@@ -19,7 +19,7 @@
 #include <vector>
 
 typedef struct {
-    CmdTorqueBodyMsgF32Payload cmdTorqueBody;
+    Eigen::Vector3f Lr;
     Eigen::Vector3f z;
 } ReferenceOutput;
 
@@ -99,16 +99,16 @@ ReferenceOutput referenceUpdate(const MrpSteeringAlgorithm& alg,
     }
 
     /*! - evaluate required attitude control torque Lc */
-    const Eigen::Vector3f Lr = alg.getP() * omega_BBast_B + alg.getKi() * z - omega_BastN_B.cross(H_B) -
+    const Eigen::Vector3f Lc = alg.getP() * omega_BBast_B + alg.getKi() * z - omega_BastN_B.cross(H_B) -
                                ISCPntB_B * (omegap_BastR_B + domega_RN_B - omega_BN_B.cross(omega_RN_B)) +
                                alg.getKnownTorquePntB_B();
 
     /* Change sign to compute the net positive control torque onto the spacecraft */
-    const Eigen::Vector3f u_s = -Lr;
+    const Eigen::Vector3f Lr = -Lc;
 
     ReferenceOutput out{};
 
-    eigenVectorToCArray(u_s, out.cmdTorqueBody.torqueRequestBody);
+    out.Lr = Lr;
     out.z = z;
 
     return out;
@@ -152,10 +152,9 @@ inline void testMrpSteering(std::vector<float> sigma,
                             std::vector<float> omega_BR_B,
                             std::vector<float> omega_RN_B,
                             std::vector<float> domega_RN_B,
-                            std::vector<float> wheelSpeeds,
+                            std::vector<float> wheelSpeedsVec,
                             std::vector<bool> wheelAvailabilityBool,
                             int numRW,
-                            std::vector<float> uMax,
                             std::vector<float> JsList,
                             std::vector<float> GsMatrix_B,
                             std::vector<float> ISCPntB_B,
@@ -190,7 +189,7 @@ inline void testMrpSteering(std::vector<float> sigma,
     std::copy(domega_RN_B.begin(), domega_RN_B.end(), guidCmdMsg.domega_RN_B);
 
     RWSpeedMsgF32Payload wheelSpeedsMsg{};
-    std::copy(wheelSpeeds.begin(), wheelSpeeds.end(), wheelSpeedsMsg.wheelSpeeds);
+    std::copy(wheelSpeedsVec.begin(), wheelSpeedsVec.end(), wheelSpeedsMsg.wheelSpeeds);
 
     RWAvailabilityMsgPayload wheelsAvailabilityMsg{};
     for (uint32_t i = 0U; i < wheelAvailabilityBool.size(); ++i) {
@@ -202,7 +201,6 @@ inline void testMrpSteering(std::vector<float> sigma,
     RWArrayConfigMsgF32Payload rwConfigMsg{};
     if (rwIsLinked) {
         rwConfigMsg.numRW = numRW;
-        std::copy(uMax.begin(), uMax.end(), rwConfigMsg.uMax);
         std::copy(JsList.begin(), JsList.end(), rwConfigMsg.JsList);
         std::copy(GsMatrix_B.begin(), GsMatrix_B.end(), rwConfigMsg.GsMatrix_B);
     }
@@ -210,8 +208,32 @@ inline void testMrpSteering(std::vector<float> sigma,
     VehicleConfigMsgF32Payload vehConfigMsg{};
     std::copy(ISCPntB_B.begin(), ISCPntB_B.end(), vehConfigMsg.ISCPntB_B);
 
+    // populate module input structs
+    InputGuidanceData attGuidInputData{};
+    attGuidInputData.sigma_BR = Eigen::Map<Eigen::Vector3f>(sigma.data());
+    attGuidInputData.omega_BR_B = Eigen::Map<Eigen::Vector3f>(omega_BR_B.data());
+    attGuidInputData.omega_RN_B = Eigen::Map<Eigen::Vector3f>(omega_RN_B.data());
+    attGuidInputData.domega_RN_B = Eigen::Map<Eigen::Vector3f>(domega_RN_B.data());
+
+    std::array<float, RW_EFF_CNT> wheelSpeeds{};
+    std::copy(wheelSpeedsVec.begin(), wheelSpeedsVec.end(), wheelSpeeds.begin());
+
+    std::array<FSWdeviceAvailability, RW_EFF_CNT> wheelAvailability{};
+    for (uint32_t i = 0U; i < wheelAvailabilityBool.size(); ++i) {
+        if (wheelAvailabilityBool[i]) {
+            wheelAvailability[i] = UNAVAILABLE;
+        }
+    }
+
+    InputRwData rwInputData{};
+    rwInputData.GsMatrix_B = Eigen::Map<Eigen::Matrix<float, 3, RW_EFF_CNT>>(GsMatrix_B.data());
+    std::copy(std::begin(JsList),
+              std::end(JsList),
+              std::begin(rwInputData.JsList));
+    rwInputData.numRW = static_cast<uint32_t>(numRW);
+
     // Reset module
-    EXPECT_NO_THROW(alg.reset(rwConfigMsg, rwIsLinked));
+    EXPECT_NO_THROW(alg.reset(rwInputData, rwIsLinked));
 
     Eigen::Vector3f z{Eigen::Vector3f::Zero()};
 
@@ -220,23 +242,23 @@ inline void testMrpSteering(std::vector<float> sigma,
 
     for (int step = 0; step < numSteps; ++step) {
         // Reference
-        CmdTorqueBodyMsgF32Payload out{};
+        Eigen::Vector3f out{};
         ReferenceOutput refOutput{};
-        EXPECT_NO_THROW(out = alg.update(guidCmdMsg, wheelSpeedsMsg, wheelsAvailabilityMsg));
+        EXPECT_NO_THROW(out = alg.update(attGuidInputData, wheelSpeeds, wheelAvailability));
         EXPECT_NO_THROW(
             refOutput = referenceUpdate(
                 alg, rwConfigMsg, ISC_B, z, dt, guidCmdMsg, wheelSpeedsMsg, wheelsAvailabilityMsg));
-        CmdTorqueBodyMsgF32Payload ref = refOutput.cmdTorqueBody;
+        Eigen::Vector3f ref = refOutput.Lr;
         z = refOutput.z;
 
         for (int i = 0; i < 3; ++i) {
             // --- General tests ---
 
             // Reference correctness
-            EXPECT_NEAR(out.torqueRequestBody[i], ref.torqueRequestBody[i], 1e-6);
+            EXPECT_NEAR(out[i], ref[i], 1e-6);
 
             // Finiteness
-            EXPECT_TRUE(std::isfinite(out.torqueRequestBody[i]));
+            EXPECT_TRUE(std::isfinite(out[i]));
         }
     }
 }

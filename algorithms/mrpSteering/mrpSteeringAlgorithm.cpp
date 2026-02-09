@@ -16,13 +16,12 @@
 /*! This method performs a complete reset of the module.  Local module variables that retain
  time varying states between function calls are reset to their default values.
  @return void
- @param rwConfigMsg reaction wheel config message
+ @param rwInput reaction wheel config
  @param rwIsConfigured boolean indicating whether reaction wheels are configured through the rwConfigMsg
  */
-void MrpSteeringAlgorithm::reset(const RWArrayConfigMsgF32Payload& rwConfigMsg,
-                                 const bool rwIsConfigured) {
+void MrpSteeringAlgorithm::reset(const InputRwData& rwInput, const bool rwIsConfigured) {
     if (rwIsConfigured) {
-        this->rwConfigParams = rwConfigMsg;
+        this->rwConfigParams = rwInput;
         this->rwIsConfigured = rwIsConfigured;
     }
 
@@ -32,15 +31,15 @@ void MrpSteeringAlgorithm::reset(const RWArrayConfigMsgF32Payload& rwConfigMsg,
 
 /*! This method takes and rate errors relative to the Reference frame, as well as
     the reference frame angular rates and acceleration, and computes the required control torque Lr.
- @return void
- @param guidCmd Attitude tracking error message
+ @return Eigen::Vector3f
+ @param attGuidInput Attitude guidance input
  @param wheelSpeeds Reaction wheel speed message
- @param wheelsAvailability Reaction wheel availability message
+ @param wheelAvailability Reaction wheel availability message
  */
-CmdTorqueBodyMsgF32Payload MrpSteeringAlgorithm::update(AttGuidMsgF32Payload guidCmd,
-                                                        const RWSpeedMsgF32Payload& wheelSpeeds,
-                                                        const RWAvailabilityMsgPayload& wheelsAvailability) {
-    const Eigen::Vector3f sigma_BR = cArrayToEigenVector(guidCmd.sigma_BR);
+Eigen::Vector3f MrpSteeringAlgorithm::update(const InputGuidanceData& attGuidInput,
+                                             const std::array<float, RW_EFF_CNT>& wheelSpeeds,
+                                             const std::array<FSWdeviceAvailability, RW_EFF_CNT>& wheelAvailability) {
+    const Eigen::Vector3f sigma_BR = attGuidInput.sigma_BR;
 
     Eigen::Vector3f omega_BastR_B{};
     Eigen::Vector3f omegap_BastR_B{Eigen::Vector3f::Zero()};
@@ -66,9 +65,9 @@ CmdTorqueBodyMsgF32Payload MrpSteeringAlgorithm::update(AttGuidMsgF32Payload gui
         }
     }
 
-    const Eigen::Vector3f omega_BR_B = cArrayToEigenVector(guidCmd.omega_BR_B);
-    const Eigen::Vector3f omega_RN_B = cArrayToEigenVector(guidCmd.omega_RN_B);
-    const Eigen::Vector3f domega_RN_B = cArrayToEigenVector(guidCmd.domega_RN_B);
+    const Eigen::Vector3f omega_BR_B = attGuidInput.omega_BR_B;
+    const Eigen::Vector3f omega_RN_B = attGuidInput.omega_RN_B;
+    const Eigen::Vector3f domega_RN_B = attGuidInput.domega_RN_B;
 
     /*! - compute body rate */
     const Eigen::Vector3f omega_BN_B = omega_BR_B + omega_RN_B;
@@ -95,14 +94,11 @@ CmdTorqueBodyMsgF32Payload MrpSteeringAlgorithm::update(AttGuidMsgF32Payload gui
     Eigen::Vector3f H_B = this->ISCPntB_B * omega_BN_B;
 
     if (this->rwIsConfigured) {
-        const Eigen::Matrix<float, 3, RW_EFF_CNT> G_s_B =
-            cArrayToEigenMatrix<float, 3, RW_EFF_CNT>(this->rwConfigParams.GsMatrix_B);
-
-        for (Eigen::Index i = 0; i < this->rwConfigParams.numRW; ++i) {
-            if (wheelsAvailability.wheelAvailability[i] == AVAILABLE) { /* check if wheel is available */
-                const Eigen::Vector3f G_s_B_i = G_s_B.col(i);
+        for (uint32_t i = 0U; i < this->rwConfigParams.numRW; ++i) {
+            if (wheelAvailability[i] == AVAILABLE) { /* check if wheel is available */
+                const Eigen::Vector3f G_s_B_i = this->rwConfigParams.GsMatrix_B.col(i);
                 const Eigen::Vector3f h_s_i =
-                    this->rwConfigParams.JsList[i] * (omega_BN_B.dot(G_s_B_i) + wheelSpeeds.wheelSpeeds[i]) * G_s_B_i;
+                    this->rwConfigParams.JsList[i] * (omega_BN_B.dot(G_s_B_i) + wheelSpeeds[i]) * G_s_B_i;
                 H_B += h_s_i;
             }
         }
@@ -116,12 +112,7 @@ CmdTorqueBodyMsgF32Payload MrpSteeringAlgorithm::update(AttGuidMsgF32Payload gui
     /* Change sign to compute the net positive control torque onto the spacecraft */
     const Eigen::Vector3f Lr = -Lc;
 
-    CmdTorqueBodyMsgF32Payload controlOut{}; /*!< commanded torque output message */
-
-    /*! - Set output message and pass it to the message bus */
-    eigenVectorToCArray(Lr, controlOut.torqueRequestBody);
-
-    return controlOut;
+    return Lr;
 }
 
 /*! This method sets the spacecraft inertia according to the vehicle configuration input message

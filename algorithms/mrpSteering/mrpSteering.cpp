@@ -6,6 +6,7 @@
 
 #include "mrpSteering.h"
 #include "architecture/utilities/eigenSupport.h"
+#include <algorithm>
 #include <stdexcept>
 
 /*! This method performs a complete reset of the module.  Local module variables that retain
@@ -30,16 +31,21 @@ void MrpSteering::reset(const uint64_t callTime) {
     const Eigen::Matrix3f inertia = cArrayToEigenMatrix3(vehicleConfigInMsg.ISCPntB_B);
     this->algorithm.setSpacecraftInertia(inertia);
 
-    RWArrayConfigMsgF32Payload rwConfigParams{};
+    InputRwData rwInputData{};
     bool rwParamsIsLinked{};
 
     /*! - check if RW configuration message exists */
     if (this->rwParamsInMsg.isLinked()) {
-        rwConfigParams = this->rwParamsInMsg();
+        RWArrayConfigMsgF32Payload rwConfigParams = this->rwParamsInMsg();
+        rwInputData.GsMatrix_B = cArrayToEigenMatrix<float, 3, RW_EFF_CNT>(rwConfigParams.GsMatrix_B);
+        std::copy(std::begin(rwConfigParams.JsList),
+                  std::end(rwConfigParams.JsList),
+                  std::begin(rwInputData.JsList));
+        rwInputData.numRW = static_cast<uint32_t>(rwConfigParams.numRW);
         rwParamsIsLinked = true;
     }
 
-    this->algorithm.reset(rwConfigParams, rwParamsIsLinked);
+    this->algorithm.reset(rwInputData, rwParamsIsLinked);
 }
 
 /*! This method takes the attitude and rate errors relative to the Reference frame, as well as
@@ -48,18 +54,34 @@ void MrpSteering::reset(const uint64_t callTime) {
  @param callTime The clock time at which the function was called (nanoseconds)
  */
 void MrpSteering::updateState(const uint64_t callTime) {
-    AttGuidMsgF32Payload guidCmd = this->guidInMsg();
-    RWSpeedMsgF32Payload wheelSpeeds{};            /*!< Reaction wheel speed estimates input message */
-    RWAvailabilityMsgPayload wheelsAvailability{}; /*!< Reaction wheel availability input message */
+    AttGuidMsgF32Payload guidCmdMsg = this->guidInMsg();
+    InputGuidanceData attGuidInputData{};
+    attGuidInputData.sigma_BR = cArrayToEigenVector(guidCmdMsg.sigma_BR);
+    attGuidInputData.omega_BR_B = cArrayToEigenVector(guidCmdMsg.omega_BR_B);
+    attGuidInputData.omega_RN_B = cArrayToEigenVector(guidCmdMsg.omega_RN_B);
+    attGuidInputData.domega_RN_B = cArrayToEigenVector(guidCmdMsg.domega_RN_B);
 
+    std::array<float, RW_EFF_CNT> wheelSpeeds{};
+    std::array<FSWdeviceAvailability, RW_EFF_CNT> wheelAvailability{};
     if (this->rwParamsInMsg.isLinked()) {
-        wheelSpeeds = this->rwSpeedsInMsg();
+        RWSpeedMsgF32Payload wheelSpeedsMsg = this->rwSpeedsInMsg();
+        std::copy(std::begin(wheelSpeedsMsg.wheelSpeeds),
+                  std::end(wheelSpeedsMsg.wheelSpeeds),
+                  std::begin(wheelSpeeds));
         if (this->rwAvailInMsg.isLinked()) {
-            wheelsAvailability = this->rwAvailInMsg();
+            RWAvailabilityMsgPayload wheelAvailabilityMsg = this->rwAvailInMsg();
+            std::copy(std::begin(wheelAvailabilityMsg.wheelAvailability),
+                      std::end(wheelAvailabilityMsg.wheelAvailability),
+                      std::begin(wheelAvailability));
         }
     }
 
-    CmdTorqueBodyMsgF32Payload controlOut = algorithm.update(guidCmd, wheelSpeeds, wheelsAvailability);
+    const Eigen::Vector3f Lr = algorithm.update(attGuidInputData, wheelSpeeds, wheelAvailability);
+
+    CmdTorqueBodyMsgF32Payload controlOut{}; /*!< commanded torque output message */
+
+    /*! - Set output message and pass it to the message bus */
+    eigenVectorToCArray(Lr, controlOut.torqueRequestBody);
 
     this->cmdTorqueOutMsg.write(&controlOut, moduleID, callTime);
 }
