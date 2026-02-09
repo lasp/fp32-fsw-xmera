@@ -41,7 +41,7 @@ ClassicalElementsF32 OEStateEphemAlgorithm::evaluateCoefficients(const double cu
     ClassicalElementsF32 elements{};
     const double radiusPeriapsis =
         calculateChebyValue(arc.radiusPeriapsisCoefficients.data(), arc.numberChebCoefficients, currentScaledValue) *
-        1e3;  // coefficients are in km but module operates in meters
+        kmToMeters;  // coefficients are in km but module operates in meters
     elements.inclination =
         calculateChebyValueF32(arc.inclinationCoefficients.data(), arc.numberChebCoefficients, currentScaledValue);
     elements.eccentricity =
@@ -66,7 +66,7 @@ ClassicalElementsF32 OEStateEphemAlgorithm::evaluateCoefficients(const double cu
     }
 
     /*! - determine semi-major axis */
-    if (fabs(elements.eccentricity - 1.0) > 1e-6) {
+    if (fabs(elements.eccentricity - 1.0) > tolerance) {
         /* elliptic or hyperbolic case */
         elements.semiMajorAxis = radiusPeriapsis / (1.0 - elements.eccentricity);
     } else {
