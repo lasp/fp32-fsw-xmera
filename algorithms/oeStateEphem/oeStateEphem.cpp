@@ -28,8 +28,7 @@ void OEStateEphem::updateState(const uint64_t callTime) {
 
     if (this->clockCorrInMsg.isWritten()) {
         auto const timePayload = this->clockCorrInMsg();
-        this->algorithm.setEphemerisTimeJ2000(timePayload.ephemerisTime);
-        this->algorithm.setVehicleTime(timePayload.vehicleClockTime);
+        this->algorithm.setModuleTime(timePayload.ephemerisTime, timePayload.vehicleClockTime);
     }
 
     auto tmpOutputState = this->algorithm.update(callTime);

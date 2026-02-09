@@ -44,6 +44,9 @@ class OEStateEphemAlgorithm {
 
     void setCentralBodyGravitationalParameter(float gravitationalParameter);
     float getCentralBodyGravitationalParameter() const;
+    void setModuleTime(double ephemerisJ2000, double vehicleTime);
+    double getEphemerisTimeJ2000() const;
+    double getVehicleTime() const;
 
     void setArcNumberOfCoefficients(unsigned int arcNumber, unsigned int numberOfCoefficients);
     unsigned int getArcNumberOfCoefficients(unsigned int arcNumber) const;
