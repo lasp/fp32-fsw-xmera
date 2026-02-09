@@ -31,7 +31,7 @@ constexpr double tolerance = 1e-9;
  */
 float OrbitalMotion::eccentricToTrueAnomalyF32(float const E, float const e) {
     assert((e >= 0.0 || e < 1.0) && "Eccentricity out of bounds (0 <= e < 1)");
-    return 2.0 * std::atan2(std::sqrt(1 + e) * std::sin(E / 2), std::sqrt(1 - e) * std::cos(E / 2));
+    return 2 * std::atan2(std::sqrt(1 + e) * std::sin(E / 2), std::sqrt(1 - e) * std::cos(E / 2));
 }
 
 /**
@@ -42,7 +42,7 @@ float OrbitalMotion::eccentricToTrueAnomalyF32(float const E, float const e) {
  */
 float OrbitalMotion::eccentricToMeanAnomalyF32(float const E, float const e) {
     assert((e >= 0.0 || e < 1.0) && "Eccentricity out of bounds (0 <= e < 1)");
-    return E - e * std::sin(E);
+    return E - (e * std::sin(E));
 }
 
 /**
@@ -53,7 +53,7 @@ float OrbitalMotion::eccentricToMeanAnomalyF32(float const E, float const e) {
  */
 float OrbitalMotion::trueToEccentricAnomalyF32(float const f, float const e) {
     assert((e >= 0.0 || e < 1.0) && "Eccentricity out of bounds (0 <= e < 1)");
-    return 2.0 * std::atan2(std::sqrt(1 - e) * std::sin(f / 2), std::sqrt(1 + e) * std::cos(f / 2));
+    return 2 * std::atan2(std::sqrt(1 - e) * std::sin(f / 2), std::sqrt(1 + e) * std::cos(f / 2));
 }
 
 /**
@@ -76,7 +76,7 @@ float OrbitalMotion::trueToMeanAnomalyF32(float const f, float const e) {
  */
 float OrbitalMotion::trueToHyperbolicAnomalyF32(float const f, float const e) {
     assert(e > 1.0 && "Eccentricity must be > 1 for hyperbolic orbits");
-    return 2.0 * std::atanh(std::sqrt((e - 1) / (e + 1)) * std::tan(f / 2));
+    return 2 * std::atanh(std::sqrt((e - 1) / (e + 1)) * std::tan(f / 2));
 }
 
 /**
@@ -87,7 +87,7 @@ float OrbitalMotion::trueToHyperbolicAnomalyF32(float const f, float const e) {
  */
 float OrbitalMotion::hyperbolicToTrueAnomalyF32(float const H, float const e) {
     assert(e > 1.0 && "Eccentricity must be > 1 for hyperbolic orbits");
-    return 2.0 * std::atan(std::sqrt((e + 1) / (e - 1)) * std::tanh(H / 2));
+    return 2 * std::atan(std::sqrt((e + 1) / (e - 1)) * std::tanh(H / 2));
 }
 
 /**
@@ -98,7 +98,7 @@ float OrbitalMotion::hyperbolicToTrueAnomalyF32(float const H, float const e) {
  */
 float OrbitalMotion::hyperbolicToMeanAnomalyF32(float const H, float const e) {
     assert(e > 1.0 && "Eccentricity must be > 1 for hyperbolic orbits");
-    return e * std::sinh(H) - H;
+    return (e * std::sinh(H)) - H;
 }
 
 /**
@@ -111,7 +111,7 @@ float OrbitalMotion::meanToEccentricAnomalyF32(float M, float e) {
     assert((e >= 0.0 || e < 1.0) && "Eccentricity out of bounds (0 <= e < 1)");
     float E = M;
     for (int i = 0; i < 200; ++i) {
-        float dE = (E - e * std::sin(E) - M) / (1 - e * std::cos(E));
+        float const dE = (E - e * std::sin(E) - M) / (1 - e * std::cos(E));
         E -= dE;
         if (std::abs(dE) < toleranceF32) {
             break;
@@ -140,7 +140,7 @@ float OrbitalMotion::meanToTrueAnomalyF32(float const M, float const e) {
  */
 float OrbitalMotion::meanToHyperbolicAnomalyF32(const float N, const float e) {
     assert(e > 1.0 && "Eccentricity must be > 1");
-    float H = std::abs(N) > 7.0 ? 7.0 * (N > 0 ? 1 : -1) : N;
+    float H = std::abs(N) > 7 ? 7 * (N > 0 ? 1 : -1) : N;
     for (int i = 0; i < 200; ++i) {
         const float dH = (e * std::sinh(H) - H - N) / (e * std::cosh(H) - 1);
         H -= dH;
@@ -214,15 +214,15 @@ ClassicalElementsF32 OrbitalMotion::cartesianStateToElementsF32(const double mu,
     const Eigen::Vector3d hVec = rVec.cross(vVec);
     const double h = hVec.norm();
     const Eigen::Vector3d nVec = Eigen::Vector3d::UnitZ().cross(hVec);
-    const Eigen::Vector3d eVec = ((v * v - mu / r) * rVec - (rVec.dot(vVec)) * vVec) / mu;
+    const Eigen::Vector3d eVec = (((v * v) - (mu / r)) * rVec - (rVec.dot(vVec)) * vVec) / mu;
 
     ClassicalElementsF32 elements{};
 
     elements.radiusMagnitude = r;
-    elements.alpha = 2.0 / r - v * v / mu;
-    elements.semiMajorAxis = std::abs(elements.alpha) > 1e-10 ? 1.0 / elements.alpha : 0.0;
     elements.eccentricity = static_cast<float>(eVec.norm());
     elements.inclination = static_cast<float>(std::acos(hVec(2) / h));
+    elements.alpha = (2 / r) - (v * v / mu);
+    elements.semiMajorAxis = std::abs(elements.alpha) > tolerance ? 1 / elements.alpha : 0.0;
 
     auto Omega = static_cast<float>(std::atan2(nVec(1), nVec(0)));
     elements.rightAscensionAscendingNode = Omega < 0 ? static_cast<float>(Omega + 2 * std::numbers::pi) : Omega;
