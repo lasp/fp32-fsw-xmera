@@ -99,9 +99,9 @@ def run_test(
     module.imuSensorBodyInMsg.subscribeTo(in_msg)
     module.stBodyInMsg.subscribeTo(st_msg)
 
-    rate_data_log = module.navAttMsg.recorder()
+    rate_data_log = module.navAttOutMsg.recorder()
     unit_test_sim.AddModelToTask(unit_task_name, rate_data_log)
-    fault_data_log = module.rateFaultMsg.recorder()
+    fault_data_log = module.rateFaultOutMsg.recorder()
     unit_test_sim.AddModelToTask(unit_task_name, fault_data_log)
 
     unit_test_sim.InitializeSimulation()
