@@ -8,13 +8,12 @@
 /*!@brief Module to compare the imu and star tracker rates and fall back to the imu solution if they disagree */
 class BodyRateMiscompareAlgorithm {
    public:
-    BodyRateMiscompareOutput update(const Eigen::Vector3f& imuOmega_BN_B, const Eigen::Vector3f& stOmega_BN_B);
+    BodyRateMiscompareOutput update(const Eigen::Vector3f& imuOmega_BN_B, const Eigen::Vector3f& stOmega_BN_B) const;
     void setBodyRateThreshold(float bodyRateThresholdIn);  //!< Setter method for bodyRateThreshold
     float getBodyRateThreshold() const;                    //!< Getter method for bodyRateThreshold
 
    private:
     float bodyRateThreshold = 1.0F;  // Default setting should allow this module to run
-    bool faultDetected = false;
 };
 
 #endif
