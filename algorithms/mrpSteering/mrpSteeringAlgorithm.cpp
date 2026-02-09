@@ -95,10 +95,10 @@ Eigen::Vector3f MrpSteeringAlgorithm::update(const InputGuidanceData& attGuidInp
 
     if (this->rwIsConfigured) {
         for (uint32_t i = 0U; i < this->rwConfigParams.numRW; ++i) {
-            if (wheelAvailability[i] == AVAILABLE) { /* check if wheel is available */
-                const Eigen::Vector3f G_s_B_i = this->rwConfigParams.GsMatrix_B.col(i);
+            if (wheelAvailability.at(i) == AVAILABLE) { /* check if wheel is available */
+                const Eigen::Vector3f G_s_B_i = this->rwConfigParams.GsMatrix_B.col(static_cast<int>(i));
                 const Eigen::Vector3f h_s_i =
-                    this->rwConfigParams.JsList[i] * (omega_BN_B.dot(G_s_B_i) + wheelSpeeds[i]) * G_s_B_i;
+                    this->rwConfigParams.JsList.at(i) * (omega_BN_B.dot(G_s_B_i) + wheelSpeeds.at(i)) * G_s_B_i;
                 H_B += h_s_i;
             }
         }
