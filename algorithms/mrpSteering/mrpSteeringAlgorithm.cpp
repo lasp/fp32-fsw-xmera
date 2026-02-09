@@ -1,9 +1,3 @@
-/*
- MIT License
-
- Copyright (c) 2025, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
- */
-
 #include "mrpSteeringAlgorithm.h"
 #include "../freestandingInvalidArgument.h"
 #include "../utilities/validInertiaCheck.h"
