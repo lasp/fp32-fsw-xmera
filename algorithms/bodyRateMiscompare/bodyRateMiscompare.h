@@ -1,15 +1,14 @@
 #ifndef BODY_RATE_MISCOMPARE
 #define BODY_RATE_MISCOMPARE
 
-#include <Eigen/Core>
-#include <cstdint>
-
 #include "architecture/messaging/messaging.h"
-#include "architecture/msgPayloadDef/NavAttMsgPayload.h"
 #include "architecture/msgPayloadDef/STAttMsgPayload.h"
 #include "bodyRateMiscompareAlgorithm.h"
 #include "msgPayloadDef/BodyRateFaultMsgPayload.h"
 #include "msgPayloadDef/IMUSensorBodyMsgF32Payload.h"
+#include "msgPayloadDef/NavAttMsgF32Payload.h"
+
+#include <cstdint>
 
 /*!@brief Module to call the bodyRateMisompare algorithm */
 class BodyRateMiscompare : public SysModel {
@@ -21,8 +20,8 @@ class BodyRateMiscompare : public SysModel {
 
     ReadFunctor<IMUSensorBodyMsgF32Payload> imuSensorBodyInMsg;  //!< imu input message
     ReadFunctor<STAttMsgPayload> stBodyInMsg;                    //!< star tracker input message
-    Message<NavAttMsgPayload> navAttMsg;                         //!< The navAttMsg output that holds the body rate
-    Message<BodyRateFaultMsgPayload> rateFaultMsg;               //!< The rate fault output message
+    Message<NavAttMsgF32Payload> navAttOutMsg;                   //!< The navAttMsg output that holds the body rate
+    Message<BodyRateFaultMsgPayload> rateFaultOutMsg;            //!< The rate fault output message
 
    private:
     BodyRateMiscompareAlgorithm algorithm{};

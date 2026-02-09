@@ -2,24 +2,13 @@
 #define BODY_RATE_MISCOMPARE_ALGORITHM
 
 #include <Eigen/Core>
-#include <cstdint>
 
-#include "msgPayloadDef/BodyRateFaultMsgPayload.h"
-#include "msgPayloadDef/IMUSensorBodyMsgF32Payload.h"
-#include "msgPayloadDef/NavAttMsgF32Payload.h"
-#include "msgPayloadDef/STAttMsgF32Payload.h"
-
-struct BodyRateMiscompareOutput {
-    NavAttMsgF32Payload navAttMsgF32Payload;
-    BodyRateFaultMsgPayload bodyRateFaultMsgPayload;
-};
+#include "bodyRateMiscompareTypes.h"
 
 /*!@brief Module to compare the imu and star tracker rates and fall back to the imu solution if they disagree */
 class BodyRateMiscompareAlgorithm {
    public:
-    BodyRateMiscompareOutput update(uint64_t callTime,
-                                    IMUSensorBodyMsgF32Payload const& imuBodyPayload,
-                                    STAttMsgF32Payload const& stBodyPayload);
+    BodyRateMiscompareOutput update(const Eigen::Vector3f& imuOmega_BN_B, const Eigen::Vector3f& stOmega_BN_B);
     void setBodyRateThreshold(float bodyRateThresholdIn);  //!< Setter method for bodyRateThreshold
     float getBodyRateThreshold() const;                    //!< Getter method for bodyRateThreshold
 

@@ -1,6 +1,8 @@
 #include "bodyRateMiscompare.h"
 
+#include "architecture/utilities/eigenSupport.h"
 #include "architecture/utilities/macroDefinitions.h"
+#include "msgPayloadDef/NavAttMsgF32Payload.h"
 #include "msgPayloadDef/STAttMsgF32Payload.h"
 
 template <size_t N>
@@ -38,18 +40,24 @@ void BodyRateMiscompare::reset(uint64_t const callTime) {
 
 void BodyRateMiscompare::updateState(uint64_t const callTime) {
     // Retrieve the updated messages from the imuPayload and star tracker
-    const IMUSensorBodyMsgF32Payload imuPayload = this->imuSensorBodyInMsg();
+    IMUSensorBodyMsgF32Payload imuPayload = this->imuSensorBodyInMsg();
+
     STAttMsgF32Payload stAttMsgF32Payload{};
     convert(this->stBodyInMsg(), stAttMsgF32Payload);
 
     // Call the algorithm to get the measured body rates
-    auto [navAttMsgF32Payload, bodyRateFaultMsgPayload] =
-        this->algorithm.update(callTime, imuPayload, stAttMsgF32Payload);
+    auto [omega_BN_B, bodyRateFaultDetected] = this->algorithm.update(
+        Eigen::Map<Eigen::Vector3f>(imuPayload.AngVelBody), Eigen::Map<Eigen::Vector3f>(stAttMsgF32Payload.omega_BN_B));
 
-    NavAttMsgPayload navAttMsgPayload{};
-    convert(navAttMsgF32Payload, navAttMsgPayload);
-    this->navAttMsg.write(&navAttMsgPayload, this->moduleID, callTime);
-    this->rateFaultMsg.write(&bodyRateFaultMsgPayload, this->moduleID, callTime);
+    NavAttMsgF32Payload navAttMsgPayload{};
+    eigenVectorToCArray(omega_BN_B, navAttMsgPayload.omega_BN_B);
+    navAttMsgPayload.timeTag = static_cast<double>(callTime) * NANO2SEC;
+
+    BodyRateFaultMsgPayload bodyRateFaultPayload{};
+    bodyRateFaultPayload.faultDetected = bodyRateFaultDetected;
+
+    this->navAttOutMsg.write(&navAttMsgPayload, this->moduleID, callTime);
+    this->rateFaultOutMsg.write(&bodyRateFaultPayload, this->moduleID, callTime);
 }
 
 void BodyRateMiscompare::setBodyRateThreshold(double const bodyRateThreshold) {
