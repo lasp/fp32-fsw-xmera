@@ -5,8 +5,10 @@
 #include "msgPayloadDef/STAttMsgF32Payload.h"
 
 template <size_t N>
-void convertArray(const double (&src)[N], float (&dst)[N]) {
-    for (size_t i = 0; i < N; ++i) dst[i] = static_cast<float>(src[i]);
+static void convertArray(const double (&src)[N], float (&dst)[N]) {
+    for (size_t i = 0; i < N; ++i) {
+        dst[i] = static_cast<float>(src[i]);
+    }
 }
 
 inline void convert(const STAttMsgPayload& src, STAttMsgF32Payload& dst) {
