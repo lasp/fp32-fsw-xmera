@@ -28,7 +28,7 @@ constexpr double tolerance = 1e-8;
  * @param e Orbital eccentricity.
  * @return True anomaly in radians.
  */
-float OrbitalMotion::eccentricToTrueAnomalyF32(float E, float e) {
+float OrbitalMotion::eccentricToTrueAnomalyF32(float const E, float const e) {
     assert((e >= 0.0 || e < 1.0) && "Eccentricity out of bounds (0 <= e < 1)");
     return 2.0 * std::atan2(std::sqrt(1 + e) * std::sin(E / 2), std::sqrt(1 - e) * std::cos(E / 2));
 }
@@ -39,7 +39,7 @@ float OrbitalMotion::eccentricToTrueAnomalyF32(float E, float e) {
  * @param e Orbital eccentricity.
  * @return Mean anomaly in radians.
  */
-float OrbitalMotion::eccentricToMeanAnomalyF32(float E, float e) {
+float OrbitalMotion::eccentricToMeanAnomalyF32(float const E, float const e) {
     assert((e >= 0.0 || e < 1.0) && "Eccentricity out of bounds (0 <= e < 1)");
     return E - e * std::sin(E);
 }
@@ -50,7 +50,7 @@ float OrbitalMotion::eccentricToMeanAnomalyF32(float E, float e) {
  * @param e Orbital eccentricity.
  * @return Eccentric anomaly in radians.
  */
-float OrbitalMotion::trueToEccentricAnomalyF32(float f, float e) {
+float OrbitalMotion::trueToEccentricAnomalyF32(float const f, float const e) {
     assert((e >= 0.0 || e < 1.0) && "Eccentricity out of bounds (0 <= e < 1)");
     return 2.0 * std::atan2(std::sqrt(1 - e) * std::sin(f / 2), std::sqrt(1 + e) * std::cos(f / 2));
 }
@@ -61,9 +61,9 @@ float OrbitalMotion::trueToEccentricAnomalyF32(float f, float e) {
  * @param e Orbital eccentricity (0 <= e < 1).
  * @return Mean anomaly in radians.
  */
-float OrbitalMotion::trueToMeanAnomalyF32(float f, float e) {
+float OrbitalMotion::trueToMeanAnomalyF32(float const f, float const e) {
     assert((e >= 0.0 || e < 1.0) && "Eccentricity out of bounds (0 <= e < 1)");
-    float eccentric = trueToEccentricAnomalyF32(f, e);
+    float const eccentric = trueToEccentricAnomalyF32(f, e);
     return eccentricToMeanAnomalyF32(eccentric, e);
 }
 
@@ -73,7 +73,7 @@ float OrbitalMotion::trueToMeanAnomalyF32(float f, float e) {
  * @param e Orbital eccentricity (> 1).
  * @return Hyperbolic anomaly in radians.
  */
-float OrbitalMotion::trueToHyperbolicAnomalyF32(float f, float e) {
+float OrbitalMotion::trueToHyperbolicAnomalyF32(float const f, float const e) {
     assert(e > 1.0 && "Eccentricity must be > 1 for hyperbolic orbits");
     return 2.0 * std::atanh(std::sqrt((e - 1) / (e + 1)) * std::tan(f / 2));
 }
@@ -84,7 +84,7 @@ float OrbitalMotion::trueToHyperbolicAnomalyF32(float f, float e) {
  * @param e Orbital eccentricity (> 1).
  * @return True anomaly in radians.
  */
-float OrbitalMotion::hyperbolicToTrueAnomalyF32(float H, float e) {
+float OrbitalMotion::hyperbolicToTrueAnomalyF32(float const H, float const e) {
     assert(e > 1.0 && "Eccentricity must be > 1 for hyperbolic orbits");
     return 2.0 * std::atan(std::sqrt((e + 1) / (e - 1)) * std::tanh(H / 2));
 }
@@ -95,7 +95,7 @@ float OrbitalMotion::hyperbolicToTrueAnomalyF32(float H, float e) {
  * @param e Orbital eccentricity (> 1).
  * @return Mean hyperbolic anomaly in radians.
  */
-float OrbitalMotion::hyperbolicToMeanAnomalyF32(float H, float e) {
+float OrbitalMotion::hyperbolicToMeanAnomalyF32(float const H, float const e) {
     assert(e > 1.0 && "Eccentricity must be > 1 for hyperbolic orbits");
     return e * std::sinh(H) - H;
 }
@@ -123,9 +123,9 @@ float OrbitalMotion::meanToEccentricAnomalyF32(float M, float e) {
  * @param e Orbital eccentricity (0 <= e < 1).
  * @return True anomaly in radians.
  */
-float OrbitalMotion::meanToTrueAnomalyF32(float M, float e) {
+float OrbitalMotion::meanToTrueAnomalyF32(float const M, float const e) {
     assert((e >= 0.0 || e < 1.0) && "Eccentricity out of bounds (0 <= e < 1)");
-    float eccentric = meanToEccentricAnomalyF32(M, e);
+    float const eccentric = meanToEccentricAnomalyF32(M, e);
     return eccentricToTrueAnomalyF32(eccentric, e);
 }
 
@@ -135,11 +135,11 @@ float OrbitalMotion::meanToTrueAnomalyF32(float M, float e) {
  * @param e Orbital eccentricity (> 1).
  * @return Hyperbolic anomaly in radians.
  */
-float OrbitalMotion::meanToHyperbolicAnomalyF32(float N, float e) {
+float OrbitalMotion::meanToHyperbolicAnomalyF32(const float N, const float e) {
     assert(e > 1.0 && "Eccentricity must be > 1");
     float H = std::abs(N) > 7.0 ? 7.0 * (N > 0 ? 1 : -1) : N;
     for (int i = 0; i < 200; ++i) {
-        float dH = (e * std::sinh(H) - H - N) / (e * std::cosh(H) - 1);
+        const float dH = (e * std::sinh(H) - H - N) / (e * std::cosh(H) - 1);
         H -= dH;
         if (std::abs(dH) < tolerance) break;
     }
@@ -152,29 +152,29 @@ float OrbitalMotion::meanToHyperbolicAnomalyF32(float N, float e) {
  * @param elements Classical orbital elements (a, e, i, Omega, omega, f).
  * @param CartesianState Output: position and velocity vectors in km and km/s.
  */
-CartesianState OrbitalMotion::elementsToCartesianStateF32(double mu, const ClassicalElementsF32& elements) {
-    double a = elements.semiMajorAxis;
-    float e = elements.eccentricity;
-    float i = elements.inclination;
-    float Omega = elements.rightAscensionAscendingNode;
-    float omega = elements.argPeriapsis;
-    float f = elements.trueAnomaly;
+CartesianState OrbitalMotion::elementsToCartesianStateF32(double const mu, const ClassicalElementsF32& elements) {
+    double const a = elements.semiMajorAxis;
+    float const e = elements.eccentricity;
+    float const i = elements.inclination;
+    float const Omega = elements.rightAscensionAscendingNode;
+    float const omega = elements.argPeriapsis;
+    float const f = elements.trueAnomaly;
 
-    double p = a * (1 - e * e);
-    double r = p / (1 + e * std::cos(f));
-    double h = std::sqrt(mu * p);
+    double const p = a * (1 - e * e);
+    double const r = p / (1 + e * std::cos(f));
+    double const h = std::sqrt(mu * p);
 
-    float cos_O = std::cos(Omega);
-    float sin_O = std::sin(Omega);
-    float cos_o = std::cos(omega);
-    float sin_o = std::sin(omega);
-    float cos_i = std::cos(i);
-    float sin_i = std::sin(i);
-    float cos_f = std::cos(f);
-    float sin_f = std::sin(f);
+    float const cos_O = std::cos(Omega);
+    float const sin_O = std::sin(Omega);
+    float const cos_o = std::cos(omega);
+    float const sin_o = std::sin(omega);
+    float const cos_i = std::cos(i);
+    float const sin_i = std::sin(i);
+    float const cos_f = std::cos(f);
+    float const sin_f = std::sin(f);
 
-    float cos_theta = cos_o * cos_f - sin_o * sin_f;
-    float sin_theta = sin_o * cos_f + cos_o * sin_f;
+    float const cos_theta = (cos_o * cos_f) - (sin_o * sin_f);
+    float const sin_theta = (sin_o * cos_f) + (cos_o * sin_f);
 
     Eigen::Vector3d rVec{};
     rVec(0) = r * (cos_O * cos_theta - sin_O * sin_theta * cos_i);
@@ -201,13 +201,13 @@ CartesianState OrbitalMotion::elementsToCartesianStateF32(double mu, const Class
  * @param vVec Velocity vector in km/s.
  * @return elements : classical orbital elements (a, e, i, Omega, omega, f).
  */
-ClassicalElementsF32 OrbitalMotion::cartesianStateToElementsF32(double mu,
+ClassicalElementsF32 OrbitalMotion::cartesianStateToElementsF32(const double mu,
                                                                 const Eigen::Vector3d& rVec,
                                                                 const Eigen::Vector3d& vVec) {
-    double r = rVec.norm();
-    double v = vVec.norm();
+    const double r = rVec.norm();
+    const double v = vVec.norm();
     const Eigen::Vector3d hVec = rVec.cross(vVec);
-    double h = hVec.norm();
+    const double h = hVec.norm();
     const Eigen::Vector3d nVec = Eigen::Vector3d::UnitZ().cross(hVec);
     const Eigen::Vector3d eVec = ((v * v - mu / r) * rVec - (rVec.dot(vVec)) * vVec) / mu;
 
