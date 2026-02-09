@@ -6,17 +6,10 @@
 
 #include "oeStateEphemAlgorithm.h"
 #include "../freestandingInvalidArgument.h"
-#include "architecture/utilities/eigenSupport.h"
 #include "utilities/ephemerisUtilities.h"
-
-void OEStateEphemAlgorithm::reset(uint64_t callTime, const TDBVehicleClockCorrelationMsgF32Payload& timePayload) {
-    this->spacecraftTime = timePayload;
-}
-
-ChebyshevFitArc OEStateEphemAlgorithm::findCurrentArc(uint64_t callTime,
-                                                      const TDBVehicleClockCorrelationMsgF32Payload& localTime) {
+ChebyshevFitArc OEStateEphemAlgorithm::findCurrentArc(const uint64_t callTime) {
     /*! - compute time for fitting interval */
-    this->currentEphTime = callTime * 1e-9 + localTime.ephemerisTime - localTime.vehicleClockTime;
+    this->currentEphTime = (callTime * nanoToSeconds) + this->ephemerisTime - this->vehicleTime;
 
     /*! - select the fitting coefficients for the nearest fit interval */
     uint32_t nearestArc = 0;
@@ -92,23 +85,23 @@ EphemerisMsgF32Payload OEStateEphemAlgorithm::updateState(const uint64_t callTim
     auto ephmerisMessageOutput = EphemerisMsgF32Payload{};
     /*! - Write the output message time */
     ephmerisMessageOutput.timeTag = callTime * 1e-9;
+CartesianState OEStateEphemAlgorithm::update(const uint64_t callTime) {
     /*! If all of the radius of periapsis components are zero, this is the central body and should return all zeros*/
-    if (std::all_of(this->fitCoefficients[0].radiusPeriapsisCoefficients.begin(),
-                    this->fitCoefficients[0].radiusPeriapsisCoefficients.end(),
-                    [](double val) { return std::abs(val) < 1e-10; })) {
-        return ephmerisMessageOutput;
+    if (std::ranges::all_of(this->fitCoefficients.at(0).radiusPeriapsisCoefficients.begin(),
+                            this->fitCoefficients.at(0).radiusPeriapsisCoefficients.end(),
+                            [](float val) { return std::abs(val) < tolerance; })) {
+        CartesianState outputCartesianState{};
+        return outputCartesianState;
     }
 
-    auto currentArc = this->findCurrentArc(callTime, this->spacecraftTime);
-    auto currentScaledValue = this->scaleEphemerisTime(currentArc);
-    auto orbitalElements = this->evaluateCoefficients(currentScaledValue, currentArc);
+    const auto currentArc = this->findCurrentArc(callTime);
+    const auto currentScaledValue = this->scaleEphemerisTime(currentArc);
+    const auto orbitalElements = evaluateCoefficients(currentScaledValue, currentArc);
 
     /*! - Determine position and velocity vectors */
-    auto carteisianState = OrbitalMotion::elementsToCartesianStateF32(this->gravitationalParameter, orbitalElements);
-    eigenVectorToCArray(carteisianState.position, ephmerisMessageOutput.r_BdyZero_N);
-    eigenVectorToCArray(carteisianState.velocity, ephmerisMessageOutput.v_BdyZero_N);
+    auto cartesianState = OrbitalMotion::elementsToCartesianStateF32(this->gravitationalParameter, orbitalElements);
 
-    return ephmerisMessageOutput;
+    return cartesianState;
 }
 
 void OEStateEphemAlgorithm::setCentralBodyGravitationalParameter(const float mu) {
