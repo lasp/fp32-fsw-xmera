@@ -22,7 +22,7 @@
 class OEStateEphem : public SysModel {
    public:
     OEStateEphem() = default;
-    ~OEStateEphem() final = default;
+    ~OEStateEphem() override = default;
 
     void updateState(uint64_t callTime) override;
     void reset(uint64_t callTime) override;
