@@ -20,6 +20,7 @@
 #ifndef ORBITAL_MOTION_FP32_HPP
 #define ORBITAL_MOTION_FP32_HPP
 
+#include "safeMathFloat.h"
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 
