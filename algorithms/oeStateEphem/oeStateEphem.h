@@ -13,9 +13,6 @@
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
 
-#define MAX_OE_RECORDS 10
-#define MAX_OE_COEFF 20
-
 /*! @brief Top level structure for the Chebyshev position ephemeris
            fit system.  Allows the user to specify a set of chebyshev
            coefficients and then use the input time to determine where
