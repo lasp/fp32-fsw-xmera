@@ -65,7 +65,7 @@ ClassicalElementsF32 OEStateEphemAlgorithm::evaluateCoefficients(const double cu
     }
 
     /*! - determine semi-major axis */
-    if (fabs(elements.eccentricity - 1.0) > 1e-6) {
+    if (fabs(elements.eccentricity - 1.0) > tolerance) {
         /* elliptic or hyperbolic case */
         elements.semiMajorAxis = radiusPeriapsis / (1.0 - elements.eccentricity);
     } else {

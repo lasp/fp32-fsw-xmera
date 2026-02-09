@@ -12,6 +12,8 @@
 #include "utilities/orbitalMotion.hpp"
 #include <array>
 
+constexpr float nanoToSeconds = 1e-9;
+constexpr float tolerance = 1e-10;
 
 /*! @brief Structure that defines the layout of an Ephemeris "record."  This is
            basically the set of coefficients for the ephemeris elements and
