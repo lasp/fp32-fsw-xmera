@@ -20,7 +20,8 @@
 #include "orbitalMotion.hpp"
 #include <numbers>
 
-constexpr double tolerance = 1e-8;
+constexpr double toleranceF32 = 1e-6;
+constexpr double tolerance = 1e-9;
 
 /**
  * @brief Converts eccentric anomaly to true anomaly.
@@ -112,7 +113,9 @@ float OrbitalMotion::meanToEccentricAnomalyF32(float M, float e) {
     for (int i = 0; i < 200; ++i) {
         float dE = (E - e * std::sin(E) - M) / (1 - e * std::cos(E));
         E -= dE;
-        if (std::abs(dE) < tolerance) break;
+        if (std::abs(dE) < toleranceF32) {
+            break;
+        }
     }
     return E;
 }
@@ -141,7 +144,9 @@ float OrbitalMotion::meanToHyperbolicAnomalyF32(const float N, const float e) {
     for (int i = 0; i < 200; ++i) {
         const float dH = (e * std::sinh(H) - H - N) / (e * std::cosh(H) - 1);
         H -= dH;
-        if (std::abs(dH) < tolerance) break;
+        if (std::abs(dH) < toleranceF32) {
+            break;
+        }
     }
     return H;
 }
