@@ -2,7 +2,6 @@
 #define MIMU_MAJORITY_VOTE
 
 #include <Eigen/Core>
-#include <algorithm>
 #include <cstdint>
 
 #include "architecture/messaging/messaging.h"
