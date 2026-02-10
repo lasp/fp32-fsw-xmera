@@ -3,7 +3,7 @@
 #include "architecture/utilities/eigenSupport.h"
 #include "freestandingInvalidArgument.h"
 
-MimuMajorityVoteOutput MimuMajorityVoteAlgorithm::update(std::array<MimuInput, MAX_IMU_VEH_COUNT> imuInputs,
+MimuMajorityVoteOutput MimuMajorityVoteAlgorithm::update(const std::array<MimuInput, MAX_IMU_VEH_COUNT> &imuInputs,
                                                          size_t const numberOfImus) {
     // Zero the angular velocity to calculate the average
     Eigen::Vector3f omegaAverage_BN_B{Eigen::Vector3f::Zero()};

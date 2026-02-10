@@ -10,7 +10,7 @@
 /*!@brief Module to compute the majority vote of the mimus. */
 class MimuMajorityVoteAlgorithm {
    public:
-    MimuMajorityVoteOutput update(std::array<MimuInput, MAX_IMU_VEH_COUNT> imuInputs, size_t numberOfImus);
+    MimuMajorityVoteOutput update(const std::array<MimuInput, MAX_IMU_VEH_COUNT> &imuInputs, size_t numberOfImus);
     void setOmegaThreshold(float omegaThresholdIn);  //!< Setter method for omegaThreshold
     float getOmegaThreshold() const;                 //!< Getter method for omegaThreshold
 
