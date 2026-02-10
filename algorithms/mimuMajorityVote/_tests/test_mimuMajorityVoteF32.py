@@ -109,7 +109,7 @@ def run_test(
     module = mimuMajorityVoteF32.MimuMajorityVote()
     module.modelTag = "mimuMajorityVote"
 
-    module.setOmegaThreshold(omega_threshold_rad_per_sec)
+    module.omegaThreshold = omega_threshold_rad_per_sec
 
     unit_test_sim.AddModelToTask(unit_task_name, module)
 
@@ -157,7 +157,7 @@ def run_test(
     )
     np.testing.assert_allclose(module_output_fault[-1], expected_output_fault, verbose=True)
     np.testing.assert_allclose(module_output_fault_index[-1], expected_output_fault_index, verbose=True)
-    np.testing.assert_allclose(module.getOmegaThreshold(), omega_threshold_rad_per_sec, rtol=0, atol=1e-7, verbose=True)
+    np.testing.assert_allclose(module.omegaThreshold, omega_threshold_rad_per_sec, rtol=0, atol=1e-7, verbose=True)
 
 
 if __name__ == "__main__":
