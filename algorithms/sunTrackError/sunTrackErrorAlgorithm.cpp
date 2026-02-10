@@ -35,8 +35,10 @@ AttGuidMsgF32Payload SunTrackErrorAlgorithm::update(AttRefMsgF32Payload& ref,
             const Eigen::MRPf sigma_R0N = cArrayToEigenMrp(ref.sigma_RN);
             const Eigen::MRPf sigmaLocal_R0R(this->sigma_R0R);
 
-            const Eigen::Vector3f sHat_N = (cArrayToEigenVector(celState.r_BdyZero_N) - cArrayToEigenVector(navTrans.r_BN_N))
-                                         .normalized().cast<float>();  //!< inertial sun direction
+            const Eigen::Vector3f sHat_N =
+                (cArrayToEigenVector(celState.r_BdyZero_N) - cArrayToEigenVector(navTrans.r_BN_N))
+                    .normalized()
+                    .cast<float>();  //!< inertial sun direction
 
             const Eigen::Matrix3f dcm_BN = sigma_BN.toRotationMatrix().transpose();
             // Define initial sensitive sun direction
@@ -70,7 +72,7 @@ AttGuidMsgF32Payload SunTrackErrorAlgorithm::update(AttRefMsgF32Payload& ref,
 
             // Logic to go the short or long rotation depending on sun avoidance
             if (finalCelAngle < 0.0F && initCelAngle < initMnvrAngle) {
-                this->angleStart = (2.0F * std::numbers::pi_v<float>) - this->angleStart;
+                this->angleStart = (2.0F * std::numbers::pi_v<float>)-this->angleStart;
                 this->mnvrAxis_B = -this->mnvrAxis_B;
             }
 
@@ -143,7 +145,8 @@ AttGuidMsgF32Payload SunTrackErrorAlgorithm::computeSunTrackError(NavAttMsgF32Pa
     eigenVectorToCArray(omegaLocal_BR_B, attGuidOut.omega_BR_B);
 
     const Eigen::Vector3f domegaLocal_RN_B = dcm_BN * domegaLocal_RN_N;
-    eigenVectorToCArray(domegaLocal_RN_B, attGuidOut.domega_RN_B);  //!< compute reference d(omega)/dt in body frame components
+    eigenVectorToCArray(domegaLocal_RN_B,
+                        attGuidOut.domega_RN_B);  //!< compute reference d(omega)/dt in body frame components
 
     return attGuidOut;
 }
@@ -152,9 +155,7 @@ AttGuidMsgF32Payload SunTrackErrorAlgorithm::computeSunTrackError(NavAttMsgF32Pa
  @return void
  @param sigma [-] The MRP from corrected reference frame to original frame R0
 */
-void SunTrackErrorAlgorithm::setSigma_R0R(const Eigen::Vector3f& sigma) {
-    this->sigma_R0R = sigma;
-}
+void SunTrackErrorAlgorithm::setSigma_R0R(const Eigen::Vector3f& sigma) { this->sigma_R0R = sigma; }
 
 /*! Get the MRP from corrected reference frame to original frame R0.
  @return const Eigen::Vector3f
@@ -178,9 +179,7 @@ Eigen::Vector3f SunTrackErrorAlgorithm::getSensitiveHat_B() const { return this-
  @return void
  @param rate [rad/s] The rate at which we maneuver to Sun point
 */
-void SunTrackErrorAlgorithm::setAngleRate(const float rate) {
-    this->angleRate = rate;
-}
+void SunTrackErrorAlgorithm::setAngleRate(const float rate) { this->angleRate = rate; }
 
 /*! Get the rate at which we maneuver to Sun point.
  @return const float

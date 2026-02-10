@@ -26,19 +26,15 @@ void SunTrackError::reset(uint64_t callTime) {
 void SunTrackError::updateState(uint64_t callTime) {
     AttRefMsgF32Payload ref = this->attRefInMsg();  //!< reference guidance message
     NavAttMsgF32Payload nav = this->attNavInMsg();  //!< attitude navigation message
-    NavTransMsgF32Payload navTrans{};    //!< spacecraft position
-    EphemerisMsgF32Payload celState{};  //!< sun position
+    NavTransMsgF32Payload navTrans{};               //!< spacecraft position
+    EphemerisMsgF32Payload celState{};              //!< sun position
 
     if (this->transNavInMsg.isLinked() && this->ephemerisInMsg.isLinked()) {
         navTrans = this->transNavInMsg();
         celState = this->ephemerisInMsg();
     }
 
-    AttGuidMsgF32Payload attGuid = this->algorithm.update(ref,
-                                                          nav,
-                                                          navTrans,
-                                                          celState,
-                                                          callTime);
+    AttGuidMsgF32Payload attGuid = this->algorithm.update(ref, nav, navTrans, celState, callTime);
 
     /*! write output message */
     this->attGuidOutMsg.write(&attGuid, this->moduleID, callTime);

@@ -6,8 +6,8 @@
 #include "msgPayloadDef/EphemerisMsgF32Payload.h"
 #include "msgPayloadDef/NavAttMsgF32Payload.h"
 #include "msgPayloadDef/NavTransMsgF32Payload.h"
-#include <Eigen/Core>
 #include <stdint.h>
+#include <Eigen/Core>
 
 /*!@brief Module to compute the attitude tracking error for sun avoidance.
  */
@@ -31,15 +31,15 @@ class SunTrackErrorAlgorithm final {
     float getAngleRate() const;
 
    private:
-    Eigen::Vector3f sigma_R0R{Eigen::Vector3f::Zero()};  /*!< MRP from corrected reference frame to original frame R0
-                                                            This is the same as [BcB] going from primary body frame B
-                                                            to the corrected body frame Bc */
+    Eigen::Vector3f sigma_R0R{Eigen::Vector3f::Zero()}; /*!< MRP from corrected reference frame to original frame R0
+                                                           This is the same as [BcB] going from primary body frame B
+                                                           to the corrected body frame Bc */
     Eigen::Vector3f sensitiveHat_B{Eigen::Vector3f::Zero()};  //!< [-] Vehicle body vector to exclude from sun*/
-    float angleRate{};                //!< [r/s] The rate at which we maneuver to Sun point*/
-    Eigen::Vector3f mnvrAxis_B{Eigen::Vector3f::Zero()};  //!< [-] Eigen axis that we are maneuvering on*/
-    float angleStart{};           //!< [r] The angle remaining in the attitude maneuver*/
-    bool maneuverInitialized{};     //!< [-] Flag indicating if maneuver has been set*/
-    uint64_t mnvrStartTime{};      //!< [ns] Time at which the maneuver was begun*/
+    float angleRate{};                                        //!< [r/s] The rate at which we maneuver to Sun point*/
+    Eigen::Vector3f mnvrAxis_B{Eigen::Vector3f::Zero()};      //!< [-] Eigen axis that we are maneuvering on*/
+    float angleStart{};                                       //!< [r] The angle remaining in the attitude maneuver*/
+    bool maneuverInitialized{};                               //!< [-] Flag indicating if maneuver has been set*/
+    uint64_t mnvrStartTime{};                                 //!< [ns] Time at which the maneuver was begun*/
     bool computeAngleStart{};                                 /*!< [-] indicator whether angleStart should be computed
                                                                (if NavTransMsg and EphemerisMsg is linked)
                                                                or assumed to be 0 */

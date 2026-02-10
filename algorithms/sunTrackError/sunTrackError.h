@@ -1,15 +1,15 @@
 #ifndef F32XMERA_SUN_TRACK_ERROR_H
 #define F32XMERA_SUN_TRACK_ERROR_H
 
-#include "sunTrackErrorAlgorithm.h"
-#include <architecture/messaging/messaging.h>
 #include "msgPayloadDef/AttGuidMsgF32Payload.h"
 #include "msgPayloadDef/AttRefMsgF32Payload.h"
 #include "msgPayloadDef/EphemerisMsgF32Payload.h"
 #include "msgPayloadDef/NavAttMsgF32Payload.h"
 #include "msgPayloadDef/NavTransMsgF32Payload.h"
-#include <Eigen/Core>
+#include "sunTrackErrorAlgorithm.h"
+#include <architecture/messaging/messaging.h>
 #include <stdint.h>
+#include <Eigen/Core>
 
 /*!@brief Module to compute the attitude tracking error for sun avoidance.
  */
