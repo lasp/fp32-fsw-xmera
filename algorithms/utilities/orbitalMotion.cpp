@@ -186,9 +186,9 @@ CartesianState OrbitalMotion::elementsToCartesianStateF32(double const mu, const
     rVec(1) = r * (sin_O * cos_theta + cos_O * sin_theta * cos_i);
     rVec(2) = r * (sin_theta * sin_i);
 
-    double vx = -mu / h * (cos_O * (sin_theta + e * sin_o) + sin_O * (cos_theta + e * cos_o) * cos_i);
-    double vy = -mu / h * (sin_O * (sin_theta + e * sin_o) - cos_O * (cos_theta + e * cos_o) * cos_i);
-    double vz = mu / h * (cos_theta + e * cos_o) * sin_i;
+    double const vx = -mu / h * (cos_O * (sin_theta + e * sin_o) + sin_O * (cos_theta + e * cos_o) * cos_i);
+    double const vy = -mu / h * (sin_O * (sin_theta + e * sin_o) - cos_O * (cos_theta + e * cos_o) * cos_i);
+    double const vz = mu / h * (cos_theta + e * cos_o) * sin_i;
 
     const Eigen::Vector3d vVec = Eigen::Vector3d(vx, vy, vz);
 
