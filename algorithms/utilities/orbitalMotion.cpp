@@ -228,13 +228,13 @@ ClassicalElementsF32 OrbitalMotion::cartesianStateToElementsF32(const double mu,
     elements.semiMajorAxis = std::abs(elements.alpha) > tolerance ? 1 / elements.alpha : 0.0;
 
     auto Omega = static_cast<float>(std::atan2(nVec(1), nVec(0)));
-    elements.rightAscensionAscendingNode = Omega < 0 ? static_cast<float>(Omega + 2 * std::numbers::pi) : Omega;
+    elements.rightAscensionAscendingNode = Omega < 0 ? static_cast<float>(Omega + (2 * std::numbers::pi)) : Omega;
 
     auto omega = static_cast<float>(std::atan2(nVec.cross(eVec).dot(hVec.normalized()), nVec.dot(eVec)));
-    elements.argPeriapsis = omega < 0 ? static_cast<float>(omega + 2 * std::numbers::pi) : omega;
+    elements.argPeriapsis = omega < 0 ? static_cast<float>(omega + (2 * std::numbers::pi)) : omega;
 
     auto f = static_cast<float>(std::atan2(eVec.cross(rVec).dot(hVec.normalized()), eVec.dot(rVec)));
-    elements.trueAnomaly = f < 0 ? static_cast<float>(f + 2 * std::numbers::pi) : f;
+    elements.trueAnomaly = f < 0 ? static_cast<float>(f + (2 * std::numbers::pi)) : f;
 
     elements.radiusPeriapsis = h * h / mu / (1 + elements.eccentricity);
     elements.radiusApoapsis = h * h / mu / (1 - elements.eccentricity);
