@@ -47,8 +47,8 @@ class OEStateEphemAlgorithm {
    public:
     CartesianState update(uint64_t callTime);
 
-    void setCentralBodyGravitationalParameter(float gravitationalParameter);
-    float getCentralBodyGravitationalParameter() const;
+    void setCentralBodyGravitationalParameter(double gravitationalParameter);
+    double getCentralBodyGravitationalParameter() const;
     void setEphemerisTimeJ2000(double time);
     double getEphemerisTimeJ2000() const;
 
@@ -90,7 +90,7 @@ class OEStateEphemAlgorithm {
     double scaleEphemerisTime(const ChebyshevFitArc &arc) const;
     static ClassicalElementsF32 evaluateCoefficients(double currentScaledValue, const ChebyshevFitArc &arc);
     double currentEphTime{};
-    double gravitationalParameter{};  //!< [m3/s^2] Gravitational parameter for center of orbital elements
+    double mu{};  //!< [m3/s^2] Gravitational parameter for center of orbital elements
     std::array<ChebyshevFitArc, MAX_OE_RECORDS> fitCoefficients{};  //!< [-] Array of Chebyshev records for ephemeris
     double ephemerisTime{};
     double vehicleTime{};
