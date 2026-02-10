@@ -8,13 +8,29 @@
 #define F32XIMERA_EPHEM_RECENTER_ALGORITHM_H
 
 #include "msgPayloadDef/EphemerisMsgF32Payload.h"
+#include <algorithm>
+#include <Eigen/Dense>
 #include <array>
 #include <cstddef>
 
 inline constexpr std::size_t MAX_NUM_CHANGE_BODIES = 20U;
 
 inline constexpr std::size_t kBodyNameMaxLen = 256U;
-using BodyName = std::array<char, kBodyNameMaxLen>;
+
+struct BodyName {
+   public:
+    constexpr BodyName() = default;
+
+    char* data() noexcept { return buf_.data(); }
+
+    bool empty() const noexcept { return buf_[0] == '\0'; }
+
+    friend bool operator==(const BodyName& a, const BodyName& b) noexcept { return a.buf_ == b.buf_; }
+    friend bool operator!=(const BodyName& a, const BodyName& b) noexcept { return !(a == b); }
+
+   private:
+    std::array<char, kBodyNameMaxLen> buf_{};
+};
 
 struct MoonIndexFound {
     size_t index;
