@@ -15,7 +15,6 @@ class MimuMajorityVoteAlgorithm {
     float getOmegaThreshold() const;                 //!< Getter method for omegaThreshold
 
    private:
-    bool faultDetected = false;
     float omegaThreshold = 1.0F;  // The threshold in which we will determine one of the mimus is faulted (rad/s)
     std::array<float, MAX_IMU_VEH_COUNT - 1U> omegaDifferencesMag = {};
 };
