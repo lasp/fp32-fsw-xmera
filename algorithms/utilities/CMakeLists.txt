@@ -9,3 +9,5 @@ target_sources(AlgorithmUtilities INTERFACE
 target_link_libraries(AlgorithmUtilities INTERFACE
   Eigen3::Eigen
 )
+
+add_subdirectory(tests)

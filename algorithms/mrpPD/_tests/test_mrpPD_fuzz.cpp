@@ -7,5 +7,4 @@ FUZZ_TEST(MrpPDAlgorithmFuzz, regressionTestMrpPD)
                  fuzztest::VectorOf(fuzztest::InRange(-1e6F, 1e6F)).WithSize(3),
                  fuzztest::VectorOf(fuzztest::InRange(-1e6F, 1e6F)).WithSize(3),
                  fuzztest::VectorOf(fuzztest::InRange(-1e6F, 1e6F)).WithSize(3),
-                 fuzztest::VectorOf(fuzztest::InRange(-1e6F, 1e6F)).WithSize(3),
                  fuzztest::VectorOf(fuzztest::InRange(-1e6F, 1e6F)).WithSize(3));

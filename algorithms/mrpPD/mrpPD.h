@@ -2,7 +2,6 @@
 #define XMERAF32_MRP_PD_H
 
 #include <stdint.h>
-#include <stdexcept>
 
 #include <Eigen/Dense>
 

@@ -31,17 +31,16 @@ Detailed Module Description
 This attitude feedback module using the MRP feedback control related to the control in section 8.4.1 in `Analytical Mechanics of Space Systems <http://dx.doi.org/10.2514/4.105210>`_:
 
 .. math::
-    {\mathbf L}_{r} =  -K \mathbf\sigma - [P] \delta\mathbf\omega   + [I](\dot{\mathbf\omega}_{r} - [\tilde{\mathbf\omega}]\mathbf\omega_{r})
-			+[\tilde{\mathbf \omega}_{r}] ]
-			[I]\mathbf\omega   - \mathbf L
+    {\mathbf L}_{r} =  -K \mathbf\sigma - [P] \delta\mathbf\omega   + [I]\dot{\mathbf\omega}_{r}
+            - \mathbf L
 
 Note that this control solution creates an external control torque which must be produced with a cluster of thrusters.  No reaction wheel information is used here.  Further, the feedback control component is a simple proportional and derivative feedback formulation.  As shown in `Analytical Mechanics of Space Systems <http://dx.doi.org/10.2514/4.105210>`_, this control can asymptotically track a general reference trajectory given by the reference frame :math:`\mathcal R`.
-
+The torque provided does not compute gyroscopic terms.
 
 Module Assumptions and Limitations
 ----------------------------------
 This control assumes the spacecraft is rigid and that the inertia tensor does not vary with time.
-
+The module does not add gyroscopic terms to the output torque.
 
 User Guide
 ----------

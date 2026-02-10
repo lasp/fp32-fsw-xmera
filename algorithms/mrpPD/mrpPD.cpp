@@ -14,7 +14,9 @@ void MrpPD::reset(uint64_t callTime) {
     }
 
     if (this->vehConfigInMsg.isWritten()) {
-        this->algorithm.setSpacecraftInertia(this->vehConfigInMsg());
+        auto vehicleConfigInMsg = this->vehConfigInMsg();
+        auto inertia = cArrayToEigenMatrix3(vehicleConfigInMsg.ISCPntB_B);
+        this->algorithm.setSpacecraftInertia(inertia);
     }
 }
 
@@ -23,13 +25,17 @@ void MrpPD::reset(uint64_t callTime) {
  @param callTime [ns] Time the method is called
 */
 void MrpPD::updateState(uint64_t callTime) {
-    auto localGuidInMsg = AttGuidMsgF32Payload();
+    auto torqueCmdMsgF32Payload = CmdTorqueBodyMsgF32Payload();
     if (this->guidInMsg.isWritten()) {
-        localGuidInMsg = this->guidInMsg();
-    }
+        auto localGuidInMsg = this->guidInMsg();
+        Eigen::Vector3f const sigma_BR = cArrayToEigenVector(localGuidInMsg.sigma_BR);
+        Eigen::Vector3f const omega_BR_B = cArrayToEigenVector(localGuidInMsg.omega_BR_B);
+        Eigen::Vector3f const domega_RN_B = cArrayToEigenVector(localGuidInMsg.domega_RN_B);
 
-    // Call the algorithm update method
-    CmdTorqueBodyMsgF32Payload torqueCmdMsgF32Payload = this->algorithm.update(localGuidInMsg);
+        // Call the algorithm update method
+        const auto torque = this->algorithm.update(sigma_BR, omega_BR_B, domega_RN_B);
+        eigenVectorToCArray(torque, torqueCmdMsgF32Payload.torqueRequestBody);
+    }
 
     this->cmdTorqueOutMsg.write(&torqueCmdMsgF32Payload, moduleID, callTime);
 }

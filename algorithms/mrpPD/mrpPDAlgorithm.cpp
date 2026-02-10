@@ -1,41 +1,34 @@
 #include "mrpPDAlgorithm.h"
-#include "architecture/utilities/eigenSupport.h"
-#include <cmath>
+#include "../freestandingInvalidArgument.h"
+#include "../utilities/validInertiaCheck.h"
 
 /*! Update method for mrpPD control algorithm. This method takes the attitude and rate errors relative to the
  reference frame, as well as the reference frame angular rates and acceleration, and computes the required control
  torque Lr.
- @return void
- @param guidInMsg [-] guidance message input
+ @return Eigen::Vector3f
+ @param sigma_BR Body to reference MRP
+ @param omega_BR_B Body to reference rate
+ @param domega_RN_B Body to reference acceleration
 */
-CmdTorqueBodyMsgF32Payload MrpPDAlgorithm::update(AttGuidMsgF32Payload guidInMsg) const {
-    // Compute hub inertial angular velocity in B-frame components
-    const Eigen::Vector3f omega_BR_B = cArrayToEigenVector(guidInMsg.omega_BR_B);
-    const Eigen::Vector3f omega_RN_B = cArrayToEigenVector(guidInMsg.omega_RN_B);
-    const Eigen::Vector3f omega_BN_B = omega_BR_B + omega_RN_B;
-
-    const Eigen::Vector3f sigma_BR = cArrayToEigenVector(guidInMsg.sigma_BR);
-    const Eigen::Vector3f domega_RN_B = cArrayToEigenVector(guidInMsg.domega_RN_B);
-
+Eigen::Vector3f MrpPDAlgorithm::update(const Eigen::Vector3f& sigma_BR,
+                                       const Eigen::Vector3f& omega_BR_B,
+                                       const Eigen::Vector3f& domega_RN_B) const {
     // Compute required attitude control torque vector
     const Eigen::Vector3f Lr = -this->proportionalGain * sigma_BR - this->feedbackGain * omega_BR_B +
-                               omega_RN_B.cross(this->ISCPntB_B * omega_BN_B) +
-                               this->ISCPntB_B * (domega_RN_B - omega_BN_B.cross(omega_RN_B)) -
-                               this->knownTorquePntB_B;  // [Nm]
+                               this->ISCPntB_B * domega_RN_B - this->knownTorquePntB_B;  // [Nm]
 
-    // Create the output message
-    auto torqueCmdMsgF32Payload = CmdTorqueBodyMsgF32Payload();
-    eigenVectorToCArray(Lr, torqueCmdMsgF32Payload.torqueRequestBody);
-
-    return torqueCmdMsgF32Payload;
+    return Lr;
 }
 
 /*! This method sets the spacecraft inertia according to the vehicle configuration input message
  @return void
- @param vehicleConfigInMsg Vehicle config input
+ @param inertia Inertia matrix
 */
-void MrpPDAlgorithm::setSpacecraftInertia(VehicleConfigMsgF32Payload vehicleConfigInMsg) {
-    this->ISCPntB_B = cArrayToEigenMatrix3(vehicleConfigInMsg.ISCPntB_B);
+void MrpPDAlgorithm::setSpacecraftInertia(const Eigen::Matrix3f& inertia) {
+    if (!inertiaIsValid(inertia)) {
+        FS_THROW_INVALID_ARGUMENT("Matrix inertia did not pass validity checks");
+    }
+    this->ISCPntB_B = inertia;
 }
 
 /*! This method gets the spacecraft inertia matrix
