@@ -142,8 +142,8 @@ float OrbitalMotion::meanToTrueAnomalyF32(float const M, float const e) {
  */
 float OrbitalMotion::meanToHyperbolicAnomalyF32(const float N, const float e) {
     assert(e > 1.0 && "Eccentricity must be > 1");
-    const float signN = (N > 0 ? 1 : -1);
-    float H = std::abs(N) > clamp ? clamp * signN : N;
+    const int signN = (N > 0 ? 1 : -1);
+    float H = std::abs(N) > clamp ? clamp * static_cast<float>(signN) : N;
     for (int i = 0; i < maxNumberOfIterations; ++i) {
         const float dH = (e * std::sinh(H) - H - N) / (e * std::cosh(H) - 1);
         H -= dH;
