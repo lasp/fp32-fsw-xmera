@@ -2,6 +2,7 @@
 #define MIMU_MAJORITY_VOTE
 
 #include <Eigen/Core>
+#include <algorithm>
 #include <cstdint>
 
 #include "architecture/messaging/messaging.h"
@@ -31,7 +32,6 @@ class MimuMajorityVote : public SysModel {
     size_t numberOfImus = 0U;
     MimuMajorityVoteAlgorithm algorithm{};
     std::array<ImuMessage, MAX_IMU_VEH_COUNT> imuMessages;
-    std::array<IMUSensorBodyMsgF32Payload, MAX_IMU_VEH_COUNT> imuPayloads = {};
 };
 
 #endif

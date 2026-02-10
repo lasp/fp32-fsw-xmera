@@ -1,24 +1,16 @@
 #ifndef MIMU_MAJORITY_VOTE_ALGORITHM
 #define MIMU_MAJORITY_VOTE_ALGORITHM
 
-#include "msgPayloadDef/IMUSensorBodyMsgF32Payload.h"
-#include "msgPayloadDef/MimuFaultMsgPayload.h"
-
 #include <Eigen/Core>
+#include <array>
 #include <cstdint>
 
-constexpr uint32_t MAX_IMU_VEH_COUNT = 4U;
-
-struct MimuMajorityVoteOutput {
-    IMUSensorBodyMsgF32Payload imuSensorBodyMsgF32Payload;
-    MimuFaultMsgPayload mimuFaultMsgPayload;
-};
+#include "mimuMajorityVoteTypes.h"
 
 /*!@brief Module to compute the majority vote of the mimus. */
 class MimuMajorityVoteAlgorithm {
    public:
-    MimuMajorityVoteOutput update(std::array<IMUSensorBodyMsgF32Payload, MAX_IMU_VEH_COUNT> imuPayloads,
-                                  size_t numberOfImus);
+    MimuMajorityVoteOutput update(std::array<MimuInput, MAX_IMU_VEH_COUNT> imuInputs, size_t numberOfImus);
     void setOmegaThreshold(float omegaThresholdIn);  //!< Setter method for omegaThreshold
     float getOmegaThreshold() const;                 //!< Getter method for omegaThreshold
 

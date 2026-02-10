@@ -1,5 +1,7 @@
 #include "mimuMajorityVote.h"
 
+#include "architecture/utilities/eigenSupport.h"
+
 void MimuMajorityVote::reset(uint64_t const callTime) {
     // check if at least 3 imus have been connected
     if (this->numberOfImus < 3U) {
@@ -8,16 +10,23 @@ void MimuMajorityVote::reset(uint64_t const callTime) {
 }
 
 void MimuMajorityVote::updateState(uint64_t const callTime) {
+    // Convert message payloads to algorithm input type
+    std::array<MimuInput, MAX_IMU_VEH_COUNT> imuInputs = {};
     for (size_t index = 0U; index < this->numberOfImus; ++index) {
-        // Unpack the messages into an array of message payloads
-        this->imuPayloads.at(index) = this->imuMessages.at(index).imuSensorBodyInMsg();
+        auto payload = this->imuMessages.at(index).imuSensorBodyInMsg();
+        imuInputs.at(index).angVelBody = cArrayToEigenVector(payload.AngVelBody);
     }
 
-    auto [imuSensorBodyMsgF32Payload, mimuFaultMsgPayload] =
-        this->algorithm.update(this->imuPayloads, this->numberOfImus);
+    auto [avgAngVelBody, faultDetected, mimuIndexFaulted] = this->algorithm.update(imuInputs, this->numberOfImus);
 
-    this->imuSensorBodyOutMsg.write(&imuSensorBodyMsgF32Payload, this->moduleID, callTime);
-    this->mimuFaultMsg.write(&mimuFaultMsgPayload, this->moduleID, callTime);
+    // Convert algorithm output to message payloads
+    IMUSensorBodyMsgF32Payload imuOutPayload{};
+    eigenVectorToCArray(avgAngVelBody, imuOutPayload.AngVelBody);
+
+    MimuFaultMsgPayload faultPayload{.faultDetected = faultDetected, .mimuIndexFaulted = mimuIndexFaulted};
+
+    this->imuSensorBodyOutMsg.write(&imuOutPayload, this->moduleID, callTime);
+    this->mimuFaultMsg.write(&faultPayload, this->moduleID, callTime);
 }
 
 // Add imu to the majority vote module
