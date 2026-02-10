@@ -17,14 +17,14 @@
 */
 ChebyshevFitArc OEStateEphemAlgorithm::findCurrentArc(const uint64_t callTime) {
     /*! - compute time for fitting interval */
-    this->currentEphTime = (callTime * nanoToSeconds) + this->ephemerisTime - this->vehicleTime;
+    this->currentEphTime =  (static_cast<double>(callTime) * nanoToSeconds) + this->ephemerisTime - this->vehicleTime;
 
     /*! - select the fitting coefficients for the nearest fit interval */
     uint32_t nearestArc = 0;
-    float smallestTimeDifference = fabs(this->currentEphTime - this->fitCoefficients.at(0).ephemerisTimeMiddle);
+    double smallestTimeDifference = fabs(this->currentEphTime - this->fitCoefficients.at(0).ephemerisTimeMiddle);
     for (auto i = 1; i < MAX_OE_RECORDS; ++i) {
-        const float timeDifference = fabs(this->currentEphTime - this->fitCoefficients.at(i).ephemerisTimeMiddle);
-        if (timeDifference < smallestTimeDifference) {
+        if (const double timeDifference = fabs(this->currentEphTime - this->fitCoefficients.at(i).ephemerisTimeMiddle);
+            timeDifference < smallestTimeDifference) {
             nearestArc = i;
             smallestTimeDifference = timeDifference;
         }
@@ -65,15 +65,15 @@ ClassicalElementsF32 OEStateEphemAlgorithm::evaluateCoefficients(const double cu
         calculateChebyValue(arc.radiusPeriapsisCoefficients, arc.numberChebCoefficients, currentScaledValue) *
         1e3;  // coefficients are in km but module operates in meters
     elements.inclination =
-        calculateChebyValueF32(arc.inclinationCoefficients, arc.numberChebCoefficients, currentScaledValue);
+        calculateChebyValueF32(arc.inclinationCoefficients, arc.numberChebCoefficients, static_cast<float>(currentScaledValue));
     elements.eccentricity =
-        calculateChebyValueF32(arc.eccentricityCoefficients, arc.numberChebCoefficients, currentScaledValue);
+        calculateChebyValueF32(arc.eccentricityCoefficients, arc.numberChebCoefficients, static_cast<float>(currentScaledValue));
     elements.argPeriapsis =
-        calculateChebyValueF32(arc.argPeriapsisCoefficients, arc.numberChebCoefficients, currentScaledValue);
+        calculateChebyValueF32(arc.argPeriapsisCoefficients, arc.numberChebCoefficients, static_cast<float>(currentScaledValue));
     elements.rightAscensionAscendingNode =
-        calculateChebyValueF32(arc.raanCoefficients, arc.numberChebCoefficients, currentScaledValue);
+        calculateChebyValueF32(arc.raanCoefficients, arc.numberChebCoefficients, static_cast<float>(currentScaledValue));
     float const anomalyAngle =
-        calculateChebyValueF32(arc.trueAnomalyCoefficients, arc.numberChebCoefficients, currentScaledValue);
+        calculateChebyValueF32(arc.trueAnomalyCoefficients, arc.numberChebCoefficients, static_cast<float>(currentScaledValue));
 
     /*! - determine the true anomaly angle */
     if (arc.anomalyFlag == 0) {
@@ -120,7 +120,7 @@ CartesianState OEStateEphemAlgorithm::update(const uint64_t callTime) {
     const auto orbitalElements = evaluateCoefficients(currentScaledValue, currentArc);
 
     /*! - Determine position and velocity vectors */
-    auto cartesianState = OrbitalMotion::elementsToCartesianStateF32(this->gravitationalParameter, orbitalElements);
+    auto cartesianState = OrbitalMotion::elementsToCartesianStateF32(static_cast<float>(this->mu), orbitalElements);
 
     return cartesianState;
 }
