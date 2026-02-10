@@ -32,9 +32,7 @@ void MrpSteering::reset(const uint64_t callTime) {
     if (this->rwParamsInMsg.isLinked()) {
         RWArrayConfigMsgF32Payload rwConfigParams = this->rwParamsInMsg();
         rwInputData.GsMatrix_B = cArrayToEigenMatrix<float, 3, RW_EFF_CNT>(rwConfigParams.GsMatrix_B);
-        std::copy(std::begin(rwConfigParams.JsList),
-                  std::end(rwConfigParams.JsList),
-                  std::begin(rwInputData.JsList));
+        std::copy(std::begin(rwConfigParams.JsList), std::end(rwConfigParams.JsList), std::begin(rwInputData.JsList));
         rwInputData.numRW = static_cast<uint32_t>(rwConfigParams.numRW);
         rwParamsIsLinked = true;
     }
@@ -59,9 +57,8 @@ void MrpSteering::updateState(const uint64_t callTime) {
     std::array<FSWdeviceAvailability, RW_EFF_CNT> wheelAvailability{};
     if (this->rwParamsInMsg.isLinked()) {
         RWSpeedMsgF32Payload wheelSpeedsMsg = this->rwSpeedsInMsg();
-        std::copy(std::begin(wheelSpeedsMsg.wheelSpeeds),
-                  std::end(wheelSpeedsMsg.wheelSpeeds),
-                  std::begin(wheelSpeeds));
+        std::copy(
+            std::begin(wheelSpeedsMsg.wheelSpeeds), std::end(wheelSpeedsMsg.wheelSpeeds), std::begin(wheelSpeeds));
         if (this->rwAvailInMsg.isLinked()) {
             RWAvailabilityMsgPayload wheelAvailabilityMsg = this->rwAvailInMsg();
             std::copy(std::begin(wheelAvailabilityMsg.wheelAvailability),
@@ -172,9 +169,7 @@ Eigen::Vector3f MrpSteering::getKnownTorquePntB_B() const { return this->algorit
  @return void
  @param period [s] control period (time between two algorithm update calls)
  */
-void MrpSteering::setControlPeriod(const float period) {
-    this->algorithm.setControlPeriod(period);
-}
+void MrpSteering::setControlPeriod(const float period) { this->algorithm.setControlPeriod(period); }
 
 /*! Getter method for controlPeriod.
  @return const float

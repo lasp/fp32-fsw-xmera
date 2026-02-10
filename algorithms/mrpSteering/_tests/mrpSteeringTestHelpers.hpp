@@ -128,7 +128,7 @@ inline void testMrpSteeringSetup() {
     // Non-positive maximum rate
     EXPECT_THROW(alg.setOmegaMax(0.0), fs::invalid_argument);
     EXPECT_THROW(alg.setOmegaMax(-0.1), fs::invalid_argument);
-    //Non-positive control period
+    // Non-positive control period
     EXPECT_THROW(alg.setControlPeriod(-0.1), fs::invalid_argument);
     // Invalid inertia matrix
     Eigen::Matrix3f badInertia{};
@@ -176,8 +176,7 @@ inline void testMrpSteering(std::vector<float> sigma,
     // Try setting inertia matrix. If invalid, skip test.
     try {
         alg.setSpacecraftInertia(ISC_B);
-    }
-    catch (fs::invalid_argument) {
+    } catch (fs::invalid_argument) {
         return;
     }
 
@@ -227,9 +226,7 @@ inline void testMrpSteering(std::vector<float> sigma,
 
     InputRwData rwInputData{};
     rwInputData.GsMatrix_B = Eigen::Map<Eigen::Matrix<float, 3, RW_EFF_CNT>>(GsMatrix_B.data());
-    std::copy(std::begin(JsList),
-              std::end(JsList),
-              std::begin(rwInputData.JsList));
+    std::copy(std::begin(JsList), std::end(JsList), std::begin(rwInputData.JsList));
     rwInputData.numRW = static_cast<uint32_t>(numRW);
 
     // Reset module
@@ -245,9 +242,8 @@ inline void testMrpSteering(std::vector<float> sigma,
         Eigen::Vector3f out{};
         ReferenceOutput refOutput{};
         EXPECT_NO_THROW(out = alg.update(attGuidInputData, wheelSpeeds, wheelAvailability));
-        EXPECT_NO_THROW(
-            refOutput = referenceUpdate(
-                alg, rwConfigMsg, ISC_B, z, dt, guidCmdMsg, wheelSpeedsMsg, wheelsAvailabilityMsg));
+        EXPECT_NO_THROW(refOutput = referenceUpdate(
+                            alg, rwConfigMsg, ISC_B, z, dt, guidCmdMsg, wheelSpeedsMsg, wheelsAvailabilityMsg));
         Eigen::Vector3f ref = refOutput.Lr;
         z = refOutput.z;
 

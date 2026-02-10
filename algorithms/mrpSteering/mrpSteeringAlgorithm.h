@@ -8,7 +8,7 @@
 #include <Eigen/Core>
 
 /*! Struct containing the reaction wheel inputs needed by the algorithm. */
-struct InputRwData{
+struct InputRwData {
     Eigen::Matrix<float, 3, RW_EFF_CNT> GsMatrix_B = Eigen::Matrix<float, 3, RW_EFF_CNT>::Zero();
     std::array<float, RW_EFF_CNT> JsList{};
     uint32_t numRW{};
@@ -61,11 +61,11 @@ class MrpSteeringAlgorithm final {
     float integralLimit{};              //!< [N*m]     Integration limit to avoid wind-up issue
     Eigen::Vector3f knownTorquePntB_B{
         Eigen::Vector3f::Zero()};  //!< [N*m]     known external torque in body frame vector components
-    float controlPeriod{};  //!< [s] time between two algorithm update calls
+    float controlPeriod{};         //!< [s] time between two algorithm update calls
     Eigen::Vector3f z{};           //!< [rad]     integral state of delta_omega
     Eigen::Matrix3f ISCPntB_B{};   //!< [kg m^2] Spacecraft Inertia
-    InputRwData rwConfigParams{};   //!< [-] struct containing the reaction wheel inputs needed by the algorithm
-    bool rwIsConfigured{};  //!< [-] indicates whether reaction wheels are configured through the rwConfigMsg
+    InputRwData rwConfigParams{};  //!< [-] struct containing the reaction wheel inputs needed by the algorithm
+    bool rwIsConfigured{};         //!< [-] indicates whether reaction wheels are configured through the rwConfigMsg
 };
 
 #endif
