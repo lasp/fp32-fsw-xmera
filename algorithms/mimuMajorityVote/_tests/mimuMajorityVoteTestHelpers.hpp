@@ -49,9 +49,10 @@ MimuMajorityVoteOutput referenceUpdate(const MimuMajorityVoteAlgorithm& alg,
 }
 
 inline void regressionTestMimuMajorityVote(float omegaThreshold,
-                                            std::vector<float> angVel1,
-                                            std::vector<float> angVel2,
-                                            std::vector<float> angVel3) {
+                                           const std::vector<float>& angVel1,
+                                           const std::vector<float>& angVel2,
+                                           const std::vector<float>& angVel3) {
+    constexpr size_t kNumImus = 3U;
     MimuMajorityVoteAlgorithm alg{};
     alg.setOmegaThreshold(omegaThreshold);
 
