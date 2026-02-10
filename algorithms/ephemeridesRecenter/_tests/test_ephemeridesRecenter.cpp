@@ -32,4 +32,8 @@ TEST(EphemeridesRecenterTest, RegressionTest) {
 
 TEST(EphemeridesRecenterTest, SetupTest) { testEphemeridesRecenterSetup(); }
 
-TEST(EphemeridesRecenterTest, PropertyTest) { propertyTestEphemeridesRecenter(); }
+TEST(EphemeridesRecenterTest, RecenterTest) { testRecenterEphemeridesRecenter(); }
+
+TEST(EphemeridesRecenterTest, RecenterMoonTest) { testRecenterMoonEphemeridesRecenter(); }
+
+TEST(EphemeridesRecenterTest, RecenterPreCommonTest) { testRecenterPreCommonEphemeridesRecenter(); }
