@@ -12,24 +12,24 @@ MimuMajorityVoteOutput MimuMajorityVoteAlgorithm::update(std::array<MimuInput, M
     }
     omegaAverage_BN_B /= static_cast<float>(numberOfImus);
 
-    this->faultDetected = false;
+    bool faultDetected = false;
     // Find the difference and difference magnitude for each mimu with respect to the average
     size_t maxOmegaDifferenceIndex = 0U;
     for (size_t index = 0U; index < numberOfImus; ++index) {
         Eigen::Vector3f const omegaDifference = imuInputs.at(index).angVelBody - omegaAverage_BN_B;
         this->omegaDifferencesMag.at(index) = omegaDifference.norm();
         if (this->omegaDifferencesMag.at(index) >= this->omegaThreshold) {
-            this->faultDetected = true;
+            faultDetected = true;
         }
         if (this->omegaDifferencesMag.at(index) > this->omegaDifferencesMag.at(maxOmegaDifferenceIndex)) {
             maxOmegaDifferenceIndex = index;
         }
     }
 
-    MimuMajorityVoteOutput mimuMajorityVoteOutput{.faultDetected = this->faultDetected, .mimuIndexFaulted = -1};
+    MimuMajorityVoteOutput mimuMajorityVoteOutput{.faultDetected = faultDetected, .mimuIndexFaulted = -1};
 
     // If a fault has been detected, subtract outlier from average and indicate which mimu has been faulted
-    if (this->faultDetected) {
+    if (faultDetected) {
         omegaAverage_BN_B = (3 * omegaAverage_BN_B - imuInputs.at(maxOmegaDifferenceIndex).angVelBody) / 2;
         mimuMajorityVoteOutput.mimuIndexFaulted = static_cast<int>(maxOmegaDifferenceIndex);
     }
