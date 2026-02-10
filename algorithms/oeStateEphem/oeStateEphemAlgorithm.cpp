@@ -335,7 +335,7 @@ std::array<float, MAX_OE_COEFF> OEStateEphemAlgorithm::getArcTrueAnomalyCoeffici
     @return void
     @param time The ephemeris time offset (seconds)
 */
-void OEStateEphemAlgorithm::setEphemerisTimeJ2000(double time) { this->ephemerisTime = time; }
+void OEStateEphemAlgorithm::setEphemerisTimeJ2000(const double time) { this->ephemerisTime = time; }
 
 /*! This method retrieves the ephemeris time offset referenced to J2000 epoch.
     @return double The ephemeris time offset (seconds)
@@ -346,7 +346,7 @@ double OEStateEphemAlgorithm::getEphemerisTimeJ2000() const { return this->ephem
     @return void
     @param time The vehicle time offset (seconds)
 */
-void OEStateEphemAlgorithm::setVehicleTime(double time) { this->vehicleTime = time; }
+void OEStateEphemAlgorithm::setVehicleTime(const double time) { this->vehicleTime = time; }
 
 /*! This method retrieves the vehicle time offset used in ephemeris calculations.
     @return double The vehicle time offset (seconds)
