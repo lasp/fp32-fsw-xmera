@@ -4,6 +4,9 @@
    #include "utilities/timeConstants.h"
 %}
 
+%include <attribute.i>
+%attribute(MimuMajorityVote, float, omegaThreshold, getOmegaThreshold, setOmegaThreshold)
+
 %include <std_string.i>
 %include <swig_conly_data.i>
 %include <sys_model.i>
