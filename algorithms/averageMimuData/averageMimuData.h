@@ -3,6 +3,7 @@
 // NOLINTBEGIN
 #include "architecture/messaging/messaging.h"
 #include "averageMimuDataAlgorithm.h"
+#include "msgPayloadDef/IMUSensorBodyMsgF32Payload.h"
 
 #include <cstdint>
 
