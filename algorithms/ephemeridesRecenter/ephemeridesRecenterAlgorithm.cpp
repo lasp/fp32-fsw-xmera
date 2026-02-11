@@ -3,15 +3,9 @@
 
  Copyright (c) 2025, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
  */
-
 #include "ephemeridesRecenterAlgorithm.h"
 #include "../freestandingInvalidArgument.h"
-#include "architecture/utilities/eigenSupport.h"
-#include <Eigen/Core>
 #include <algorithm>
-
-#include "architecture/utilities/eigenSupport.h"
-#include <Eigen/Core>
 
 void EphemeridesRecenterAlgorithm::reset() {
     this->newCentralIndex = this->findNewZeroBaseIndex(this->newCentralBodyName);
@@ -60,7 +54,6 @@ std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES> EphemeridesRecenterAlgor
                 Eigen::Vector3d const moonOfBody_input_r = this->celestialBodies[moonIndex].input_r;
                 Eigen::Vector3d const moonOfBody_input_v = this->celestialBodies[moonIndex].input_v;
                 Eigen::Vector3d const moonRelativePosition = relativePosition + moonOfBody_input_r;
-
                 Eigen::Vector3d const moonRelativeVelocity = relativeVelocity + moonOfBody_input_v;
 
                 recenteredBodies[moonIndex].bodySpiceName = this->celestialBodies[moonIndex].bodySpiceName;

@@ -94,8 +94,8 @@ std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES> referenceUpdate(
                 recenteredBodies[moonIndex].isMoon = true;
                 recenteredBodies[moonIndex].originalCentralBodyName =
                     celestialBodies[moonIndex].originalCentralBodyName;
-                recenteredBodies[moonIndex].output_r =moonRelativePosition;
-                recenteredBodies[moonIndex].output_v =moonRelativeVelocity;
+                recenteredBodies[moonIndex].output_r = moonRelativePosition;
+                recenteredBodies[moonIndex].output_v = moonRelativeVelocity;
             }
 
             recenteredBodies[i] = newBodies[i];
@@ -189,10 +189,8 @@ inline void regressionTestEphemeridesRecenter(
     const size_t N = alg.getNumberOfBodies();
     for (size_t i = 0U; i < N; ++i) {
         for (int k = 0; k < 3; ++k) {
-            EXPECT_NEAR(
-                out[i].output_r[k], ref[i].output_r[k], 1e-6);
-            EXPECT_NEAR(
-                out[i].output_v[k], ref[i].output_v[k], 1e-6);
+            EXPECT_NEAR(out[i].output_r[k], ref[i].output_r[k], 1e-6);
+            EXPECT_NEAR(out[i].output_v[k], ref[i].output_v[k], 1e-6);
 
             EXPECT_TRUE(std::isfinite(out[i].output_r[k]));
             EXPECT_TRUE(std::isfinite(out[i].output_v[k]));
@@ -352,8 +350,8 @@ inline void testRecenterEphemeridesRecenter() {
         }
         // TITAN'
         for (size_t i = 0U; i < 3U; ++i) {
-            EXPECT_NEAR(out[4].output_r[i], r_titan[i] + (r_saturn[i]-r_earth[i]), 1e-6);
-            EXPECT_NEAR(out[4].output_v[i], v_titan[i] + (v_saturn[i]-v_earth[i]), 1e-6);
+            EXPECT_NEAR(out[4].output_r[i], r_titan[i] + (r_saturn[i] - r_earth[i]), 1e-6);
+            EXPECT_NEAR(out[4].output_v[i], v_titan[i] + (v_saturn[i] - v_earth[i]), 1e-6);
         }
     }
 }
@@ -448,8 +446,8 @@ inline void testRecenterMoonEphemeridesRecenter() {
         }
         // TITAN'
         for (size_t i = 0U; i < 3U; ++i) {
-            EXPECT_NEAR(out[4].output_r[i], r_titan[i] + (r_saturn[i]-(r_moon_to_earth[i] + r_earth[i])), 1e-6);
-            EXPECT_NEAR(out[4].output_v[i], v_titan[i] + (v_saturn[i]-(v_moon_to_earth[i] + v_earth[i])), 1e-6);
+            EXPECT_NEAR(out[4].output_r[i], r_titan[i] + (r_saturn[i] - (r_moon_to_earth[i] + r_earth[i])), 1e-6);
+            EXPECT_NEAR(out[4].output_v[i], v_titan[i] + (v_saturn[i] - (v_moon_to_earth[i] + v_earth[i])), 1e-6);
         }
     }
 }

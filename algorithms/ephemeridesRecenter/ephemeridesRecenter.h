@@ -8,6 +8,7 @@
 #define F32XIMERA_EPHEM_RECENTER_H
 
 #include "ephemeridesRecenterAlgorithm.h"
+#include "msgPayloadDef/EphemerisMsgF32Payload.h"
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
 #include <Eigen/Core>

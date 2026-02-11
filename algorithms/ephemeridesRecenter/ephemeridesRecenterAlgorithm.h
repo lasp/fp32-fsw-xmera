@@ -7,12 +7,9 @@
 #ifndef F32XIMERA_EPHEM_RECENTER_ALGORITHM_H
 #define F32XIMERA_EPHEM_RECENTER_ALGORITHM_H
 
-#include "msgPayloadDef/EphemerisMsgF32Payload.h"
-#include <algorithm>
 #include <Eigen/Dense>
 #include <array>
 #include <cstddef>
-#include <Eigen/Dense>
 
 inline constexpr std::size_t MAX_NUM_CHANGE_BODIES = 20U;
 
@@ -43,9 +40,9 @@ struct MoonIndexFound {
  */
 class BodyEphemerisPayload {
    public:
-    BodyName bodySpiceName{};            //!< SPICE name of the body
-    BodyName originalCentralBodyName{};  //!< Original reference body for ephemeris data
-    bool isMoon{false};                  //!< Body is moon of another body in the list
+    BodyName bodySpiceName;            //!< SPICE name of the body
+    BodyName originalCentralBodyName;  //!< Original reference body for ephemeris data
+    bool isMoon{false};                //!< Body is moon of another body in the list
     Eigen::Vector3d input_r = Eigen::Vector3d::Zero();
     Eigen::Vector3d input_v = Eigen::Vector3d::Zero();
     Eigen::Vector3d output_r = Eigen::Vector3d::Zero();
@@ -77,13 +74,13 @@ class EphemeridesRecenterAlgorithm {
    private:
     MoonIndexFound findMoonOfBody(const BodyEphemerisPayload& celestialBody) const;
 
-    BodyName newCentralBodyName{};
+    BodyName newCentralBodyName;
     std::array<BodyName, MAX_NUM_CHANGE_BODIES> bodyNames{};
     size_t celestialBodyCount{};  //!< Number of primary bodies
     size_t newCentralIndex{};
     std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES> celestialBodies{};  //!< All celestial bodies involved
     BodyEphemerisPayload previousCentralBody{};                                 //!< Previous reference body
-    BodyName previousCentralBodyName{};
+    BodyName previousCentralBodyName;
 };
 
 #endif
