@@ -37,3 +37,5 @@ TEST(EphemeridesRecenterTest, RecenterTest) { testRecenterEphemeridesRecenter();
 TEST(EphemeridesRecenterTest, RecenterMoonTest) { testRecenterMoonEphemeridesRecenter(); }
 
 TEST(EphemeridesRecenterTest, RecenterPreCommonTest) { testRecenterPreCommonEphemeridesRecenter(); }
+
+TEST(EphemeridesRecenterTest, MultiMoonsTest) { testMultiMoonsRecenter(); }

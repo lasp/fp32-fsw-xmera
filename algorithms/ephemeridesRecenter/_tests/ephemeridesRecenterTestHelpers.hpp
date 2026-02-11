@@ -548,4 +548,74 @@ inline void testRecenterPreCommonEphemeridesRecenter() {
     }
 }
 
+inline void testMultiMoonsRecenter() {
+    const std::vector<BodyName> bodyListInOrder{
+        makeBodyName("SUN"),
+        makeBodyName("EARTH"),
+        makeBodyName("MOON"),
+        makeBodyName("SATURN"),
+        makeBodyName("TITAN"),
+    };
+
+    // --- Build newBodies from the inputs ---
+    std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES> newBodies{};
+    for (auto& b : newBodies) {
+        b = BodyEphemerisPayload{};
+    }
+
+    auto fillBody = [&](size_t idx,
+                        const BodyName& spiceName,
+                        const BodyName& originalCentral,
+                        const std::array<double, 3>& r,
+                        const std::array<double, 3>& v,
+                        bool isMoonFlag) {
+        newBodies[idx].bodySpiceName = spiceName;
+        newBodies[idx].originalCentralBodyName = originalCentral;
+        newBodies[idx].isMoon = isMoonFlag;
+        for (int k = 0; k < 3; ++k) {
+            newBodies[idx].input_r[k] = r[k];
+            newBodies[idx].input_v[k] = v[k];
+        }
+    };
+    const std::array<double, 3> r_sun = {0.0, 0.0, 0.0};
+    const std::array<double, 3> v_sun = {0.0, 0.0, 0.0};
+    const std::array<double, 3> r_earth = {10.0, -2.0, 3.0};
+    const std::array<double, 3> v_earth = {1.0, 0.5, -0.25};
+    const std::array<double, 3> r_moon_to_earth = {2.0, 1.0, 0.0};
+    const std::array<double, 3> v_moon_to_earth = {0.1, -0.2, 0.3};
+    const std::array<double, 3> r_saturn = {-7.0, 4.0, 9.0};
+    const std::array<double, 3> v_saturn = {0.0, 2.0, 1.0};
+    const std::array<double, 3> r_titan = {-7.0, 4.0, 9.0};
+    const std::array<double, 3> v_titan = {0.3, -0.2, 11.0};
+    fillBody(0, bodyListInOrder[0], bodyListInOrder[0], r_sun, v_sun, false);
+    fillBody(1, bodyListInOrder[1], bodyListInOrder[0], r_earth, v_earth, false);
+    fillBody(2, bodyListInOrder[2], bodyListInOrder[1], r_moon_to_earth, v_moon_to_earth, true);
+    fillBody(3, bodyListInOrder[3], bodyListInOrder[0], r_saturn, v_saturn, false);
+    fillBody(4, bodyListInOrder[4], bodyListInOrder[1], r_titan, v_titan, true);
+
+    // ------------------------------------------------------------
+    // newZeroBase = previousCommon
+    // ------------------------------------------------------------
+    {
+        EphemeridesRecenterAlgorithm alg{};
+        // empty body shall throw
+        EXPECT_THROW(alg.updateState(newBodies), fs::invalid_argument);
+        EXPECT_THROW(alg.getBodyIndexFromName(bodyListInOrder[0]), fs::invalid_argument);
+        EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter(bodyListInOrder[0]));
+        EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter(bodyListInOrder[1]));
+        EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter(bodyListInOrder[2]));
+
+        // get body that has not been added shall throw
+        EXPECT_THROW(alg.getBodyIndexFromName(bodyListInOrder[3]), fs::invalid_argument);
+        EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter(bodyListInOrder[3]));
+        EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter(bodyListInOrder[4]));
+
+        EXPECT_NO_THROW(alg.setPreviousCommonZeroBase(bodyListInOrder[0]));
+        EXPECT_NO_THROW(alg.setNewZeroBaseName(bodyListInOrder[0]));
+        EXPECT_NO_THROW(alg.reset());
+
+        EXPECT_THROW(alg.updateState(newBodies), fs::invalid_argument);
+    }
+}
+
 #endif  // TEST_EPHEMERIDESRECENTER_H

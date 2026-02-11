@@ -73,6 +73,8 @@ class EphemeridesRecenterAlgorithm {
 
    private:
     MoonIndexFound findMoonOfBody(const BodyEphemerisPayload& celestialBody) const;
+    static void validateNoMultipleMoons(const std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES>& bodies,
+                                        size_t count);
 
     BodyName newCentralBodyName;
     std::array<BodyName, MAX_NUM_CHANGE_BODIES> bodyNames{};

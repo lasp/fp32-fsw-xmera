@@ -18,6 +18,7 @@ void EphemeridesRecenterAlgorithm::reset() {
 std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES> EphemeridesRecenterAlgorithm::updateState(
     const std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES>& newBodies) {
     this->celestialBodies = newBodies;
+    validateNoMultipleMoons(this->celestialBodies, this->celestialBodyCount);
 
     const auto newCentralBody = this->celestialBodies[this->newCentralIndex];
     Eigen::Vector3d newCentral_input_r = newCentralBody.input_r;
@@ -188,4 +189,28 @@ void EphemeridesRecenterAlgorithm::clearAllBodies() {
     this->celestialBodies.fill(BodyEphemerisPayload{});
     this->bodyNames.fill(BodyName{});
     this->celestialBodyCount = 0U;
+}
+
+/*! @brief Check if any parent body (non-Moon body) has multiple moons
+ */
+void EphemeridesRecenterAlgorithm::validateNoMultipleMoons(
+    const std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES>& bodies,
+    size_t count) {
+    for (size_t i = 0U; i < count; ++i) {
+        if (!bodies[i].isMoon) {
+            continue;
+        }
+
+        const BodyName& parent = bodies[i].originalCentralBodyName;
+        size_t moonCountForParent = 0U;
+
+        for (size_t j = 0U; j < count; ++j) {
+            if (bodies[j].isMoon && bodies[j].originalCentralBodyName == parent) {
+                ++moonCountForParent;
+                if (moonCountForParent > 1U) {
+                    FS_THROW_INVALID_ARGUMENT("A parent body has multiple moons in the list");
+                }
+            }
+        }
+    }
 }
