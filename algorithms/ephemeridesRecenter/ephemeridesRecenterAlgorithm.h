@@ -12,6 +12,7 @@
 #include <Eigen/Dense>
 #include <array>
 #include <cstddef>
+#include <Eigen/Dense>
 
 inline constexpr std::size_t MAX_NUM_CHANGE_BODIES = 20U;
 
@@ -45,9 +46,10 @@ class BodyEphemerisPayload {
     BodyName bodySpiceName{};            //!< SPICE name of the body
     BodyName originalCentralBodyName{};  //!< Original reference body for ephemeris data
     bool isMoon{false};                  //!< Body is moon of another body in the list
-    EphemerisMsgF32Payload inputEphemerisPayload{EphemerisMsgF32Payload{}};  //!< Input ephemeris message
-    EphemerisMsgF32Payload outputEphemerisPayload{
-        EphemerisMsgF32Payload{}};  //!< Output ephemeris message after recentering
+    Eigen::Vector3d input_r = Eigen::Vector3d::Zero();
+    Eigen::Vector3d input_v = Eigen::Vector3d::Zero();
+    Eigen::Vector3d output_r = Eigen::Vector3d::Zero();
+    Eigen::Vector3d output_v = Eigen::Vector3d::Zero();
 };
 
 /**
