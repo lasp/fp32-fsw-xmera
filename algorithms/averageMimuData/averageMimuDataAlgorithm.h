@@ -2,9 +2,13 @@
 #define AVERAGE_MIMU_DATA_ALGORITHM_H
 
 #include "msgPayloadDef/AccDataMsgF32Payload.h"
-#include "msgPayloadDef/IMUSensorBodyMsgF32Payload.h"
 
 #include <Eigen/Core>
+
+struct OutData {
+    Eigen::Vector3f AccelBody = Eigen::Vector3f::Zero();
+    Eigen::Vector3f AngVelBody = Eigen::Vector3f::Zero();
+};
 
 class AverageMimuDataAlgorithm {
    public:
@@ -12,7 +16,7 @@ class AverageMimuDataAlgorithm {
     float getTimeDelta() const;                             //!< Getter method for timeDelta
     void setDcmPltfToBdy(Eigen::Matrix3f const& dcm_BPIn);  //!< Setter method for dcm from platform to body
     Eigen::Matrix3f getDcmPltfToBdy() const;                //!< Getter method for dcm from platform to body
-    IMUSensorBodyMsgF32Payload update(AccDataMsgF32Payload const& localPkts) const;
+    OutData update(AccDataMsgF32Payload const& localPkts) const;
 
    private:
     float timeDelta{0.0F};                                 //!< [s] Allowable time difference from "latest"
