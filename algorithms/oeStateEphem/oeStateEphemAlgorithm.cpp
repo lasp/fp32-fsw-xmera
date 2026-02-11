@@ -119,26 +119,26 @@ CartesianState OEStateEphemAlgorithm::update(const uint64_t callTime) {
     const auto orbitalElements = evaluateCoefficients(currentScaledValue, currentArc);
 
     /*! - Determine position and velocity vectors */
-    auto cartesianState = OrbitalMotion::elementsToCartesianStateF32(this->gravitationalParameter, orbitalElements);
+    auto cartesianState = OrbitalMotion::elementsToCartesianStateF32(this->mu, orbitalElements);
 
     return cartesianState;
 }
 
 /*! This method sets the gravitational parameter of the central body for the orbital calculations.
     @return void
-    @param mu The gravitational parameter (m^3/s^2), must be positive
+    @param gravitationalParameter The gravitational parameter (m^3/s^2), must be positive
 */
-void OEStateEphemAlgorithm::setCentralBodyGravitationalParameter(const float mu) {
-    if (mu < 0) {
+void OEStateEphemAlgorithm::setCentralBodyGravitationalParameter(const double gravitationalParameter) {
+    if (gravitationalParameter < 0) {
         FS_THROW_INVALID_ARGUMENT("GravitationalParameter in OEStateEphemAlgorithm must be positive.");
     }
-    this->gravitationalParameter = mu;
+    this->mu = gravitationalParameter;
 };
 
 /*! This method retrieves the gravitational parameter of the central body.
-    @return float The gravitational parameter (m^3/s^2)
+    @return double The gravitational parameter (m^3/s^2)
 */
-float OEStateEphemAlgorithm::getCentralBodyGravitationalParameter() const { return this->gravitationalParameter; };
+double OEStateEphemAlgorithm::getCentralBodyGravitationalParameter() const { return this->mu; };
 
 /*! This method sets the number of Chebyshev coefficients for a specified arc.
     @return void
