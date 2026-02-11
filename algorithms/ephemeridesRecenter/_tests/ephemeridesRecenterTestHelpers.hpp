@@ -213,6 +213,7 @@ inline void testEphemeridesRecenterSetup() {
     // Setting previous common zero base when body list is empty should throw
     EXPECT_THROW(alg.setPreviousCommonZeroBase(bodyListInOrder[0]), fs::invalid_argument);
     // Requesting info when empty should throw (per your getAllNames() / getBodyIndexFromName guards)
+    EXPECT_THROW(alg.getBodyIndexFromName(bodyListInOrder[0]), fs::invalid_argument);
     EXPECT_THROW(alg.getAllNames(), fs::invalid_argument);
 
     EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter(bodyListInOrder[0]));
