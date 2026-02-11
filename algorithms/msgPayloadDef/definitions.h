@@ -7,5 +7,7 @@
 #define MAX_EFF_CNT 36
 inline constexpr std::uint32_t kMaxThrusterCount = 36U;
 #define RW_EFF_CNT 36
+#define MAX_OE_RECORDS 10
+#define MAX_OE_COEFF 20
 
 #endif  // MSG_DEFINITIONS_H

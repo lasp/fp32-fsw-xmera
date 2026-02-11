@@ -9,11 +9,10 @@
 
 #include "msgPayloadDef/EphemerisMsgF32Payload.h"
 #include "msgPayloadDef/TDBVehicleClockCorrelationMsgF32Payload.h"
+#include "msgPayloadDef/definitions.h"
 #include "utilities/orbitalMotion.hpp"
 #include <array>
 
-#define MAX_OE_RECORDS 10
-#define MAX_OE_COEFF 20
 
 /*! @brief Structure that defines the layout of an Ephemeris "record."  This is
            basically the set of coefficients for the ephemeris elements and
