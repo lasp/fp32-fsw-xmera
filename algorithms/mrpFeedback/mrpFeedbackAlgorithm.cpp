@@ -93,7 +93,7 @@ MrpFeedbackOutput MrpFeedbackAlgorithm::update(uint64_t callTime,
     }
 
     Eigen::Vector3f momentumContribution{};
-    if (this->controlLawType == 0) {
+    if (this->controlLawType == ControlLawType::NORMAL) {
         momentumContribution = (omega_RN_B + this->Ki * z).cross(H_B);
     } else {
         momentumContribution = omega_BN_B.cross(H_B);
@@ -156,7 +156,12 @@ float MrpFeedbackAlgorithm::getP() const { return this->P; }
  @return void
  @param gain [N*m] Integral feedback gain
 */
-void MrpFeedbackAlgorithm::setKi(const float gain) { this->Ki = gain; }
+void MrpFeedbackAlgorithm::setKi(const float gain) {
+    if (gain < 0.0) {
+        FS_THROW_INVALID_ARGUMENT("Integral feedback gain Ki must not be negative");
+    }
+    this->Ki = gain;
+}
 
 /*! Getter method for the gain Ki.
  @return const float
@@ -167,7 +172,12 @@ float MrpFeedbackAlgorithm::getKi() const { return this->Ki; }
  @return void
  @param limit [N*m*s] Integral limit
 */
-void MrpFeedbackAlgorithm::setIntegralLimit(const float limit) { this->integralLimit = limit; }
+void MrpFeedbackAlgorithm::setIntegralLimit(const float limit) {
+    if (limit < 0.0) {
+        FS_THROW_INVALID_ARGUMENT("Integral limit must not be negative");
+    }
+    this->integralLimit = limit;
+}
 
 /*! Getter method for the integral limit.
  @return const float
@@ -178,12 +188,12 @@ float MrpFeedbackAlgorithm::getIntegralLimit() const { return this->integralLimi
  @return void
  @param type control law type
 */
-void MrpFeedbackAlgorithm::setControlLawType(const int type) { this->controlLawType = type; }
+void MrpFeedbackAlgorithm::setControlLawType(const ControlLawType type) { this->controlLawType = type; }
 
 /*! Getter method for the control law type.
- @return const int
+ @return const ControlLawType
 */
-int MrpFeedbackAlgorithm::getControlLawType() const { return this->controlLawType; }
+ControlLawType MrpFeedbackAlgorithm::getControlLawType() const { return this->controlLawType; }
 
 /*! Setter method for the known external torque about point B.
  @return void

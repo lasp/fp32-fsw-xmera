@@ -5,7 +5,7 @@ from xmera.fp32 import mrpFeedbackF32
 from xmera.utilities import SimulationBaseClass
 from xmera.utilities import macros
 
-@pytest.mark.parametrize("int_gain", [0.01, -1])
+@pytest.mark.parametrize("int_gain", [0.01, 0])
 @pytest.mark.parametrize("rw_num", [4, 0])
 @pytest.mark.parametrize("integral_limit", [0, 20])
 @pytest.mark.parametrize("ctrl_law", [0, 1])
