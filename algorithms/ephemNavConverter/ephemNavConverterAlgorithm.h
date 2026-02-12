@@ -1,15 +1,21 @@
-/*
- MIT License
+#ifndef F32XMERA_EPHEM_NAV_CONVERTER_ALGORITHM_H
+#define F32XMERA_EPHEM_NAV_CONVERTER_ALGORITHM_H
 
- Copyright (c) 2025, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
-*/
+#include <Eigen/Core>
 
-#ifndef F32XIMERA_EPHEM_NAV_CONVERTER_ALGORITHM_H
-#define F32XIMERA_EPHEM_NAV_CONVERTER_ALGORITHM_H
+/*! Struct containing the ephemeris inputs needed by the algorithm. */
+struct InputEphemerisData {
+    double timeTag{};
+    Eigen::Vector3d r_BdyZero_N = Eigen::Vector3d::Zero();
+    Eigen::Vector3d v_BdyZero_N = Eigen::Vector3d::Zero();
+};
 
-#include "msgPayloadDef/EphemerisMsgF32Payload.h"
-#include "msgPayloadDef/NavTransMsgF32Payload.h"
-#include <stdint.h>
+/*! Struct containing the translational navigation output produced by the algorithm. */
+struct OutputNavTransData {
+    double timeTag{};
+    Eigen::Vector3d r_BN_N = Eigen::Vector3d::Zero();
+    Eigen::Vector3d v_BN_N = Eigen::Vector3d::Zero();
+};
 
 /*! @brief The ephemNavConverter algorithm class.*/
 class EphemNavConverterAlgorithm {
@@ -17,7 +23,7 @@ class EphemNavConverterAlgorithm {
     EphemNavConverterAlgorithm() = default;   //!< Constructor
     ~EphemNavConverterAlgorithm() = default;  //!< Destructor
 
-    NavTransMsgF32Payload update(uint64_t callTime, const EphemerisMsgF32Payload& ephemerisInMsg) const;
+    static OutputNavTransData update(const InputEphemerisData& ephemerisInput);
 };
 
 #endif

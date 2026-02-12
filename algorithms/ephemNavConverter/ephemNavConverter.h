@@ -1,11 +1,5 @@
-/*
- MIT License
-
- Copyright (c) 2025, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
-*/
-
-#ifndef F32XIMERA_EPHEM_NAV_CONVERTER_H
-#define F32XIMERA_EPHEM_NAV_CONVERTER_H
+#ifndef F32XMERA_EPHEM_NAV_CONVERTER_H
+#define F32XMERA_EPHEM_NAV_CONVERTER_H
 
 #include "ephemNavConverterAlgorithm.h"
 

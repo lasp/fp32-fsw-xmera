@@ -1,10 +1,6 @@
-==============================
-Ephemeris to Navigation Converter
-==============================
+.. raw:: latex
 
-====================
-Module Description
-====================
+    {\LARGE \textbf{ephemNavConverter}}
 
 Introduction
 ============
@@ -30,6 +26,10 @@ provides information on what this message is used for.
     * - ``stateOutMsg``
       - :ref:`NavTransMsgF32Payload`
       - Output message containing the translation navigation data, including time tag, position, and velocity, all expressed in inertial frame.
+
+Module Parameters
+=================
+This module does not have any module parameters.
 
 Algorithm Flow
 ==============
@@ -68,14 +68,14 @@ Module Assumptions and Limitations
 
 - All the ephemeris data must be expressed in the inertial frame, as the module does not perform frame checks.
 - In the input message ``ephInMsg``, only translation fields are used and attitude navigation fields (e.g. ``sigma_BN``, ``omega_BN_B``) are ignored.
-- In the output message ``stateOutMsg``, the ``vehAccumDv`` is always zero as the input ephemeris message does not provide ∆V information.
+- In the output message ``stateOutMsg``, the ``vehAccumDv`` is always zero as the input ephemeris message does not provide :math:`\Delta V` information.
 
 
 Test Description and Success Criteria
 =====================================
-The ephemeris navigation converter unit test is located in ``algorithms/ephemNavConverter/_tests/test_ephemNavConverter.py``. This test verifies that the module works
+The python test verifies that the module works
 as expected by simply converting ephemeris input data into a translation navigation output.
 
 In this unit test, a built-in module ``astroFunctions`` is used to validate the module by comparing the values of Earth's position and velocity in the inertial frame with the output of the translation navigation message. The function converts Gregorian [2018, 10, 16] date to a Julian date and computes the Keplerian parameters. These parameters are converted to Earth's position and velocity in PQW frame and then rotate them to the inertial frame.
 
-For the success criteria, the output values of Earth's position and velocity must be identical within a tolerance of :math:`10` m for position and :math:`10^{-4}` m/s for velocity.
+For the success criteria, the output values of Earth's position and velocity must be identical within a tolerance of :math:`10^{-6}` m for position and :math:`10^{-6}` m/s for velocity.
