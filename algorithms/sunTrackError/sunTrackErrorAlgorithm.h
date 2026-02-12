@@ -13,13 +13,11 @@
  */
 class SunTrackErrorAlgorithm final {
    public:
-    void reset();
+    void reset(bool computeStartAngle);
     AttGuidMsgF32Payload update(AttRefMsgF32Payload& ref,
                                 NavAttMsgF32Payload& nav,
                                 NavTransMsgF32Payload& navTrans,
                                 EphemerisMsgF32Payload& celState,
-                                bool navTransIsLinked,
-                                bool ephemerisIsLinked,
                                 uint64_t callTime);
 
     AttGuidMsgF32Payload computeSunTrackError(NavAttMsgF32Payload& nav,
@@ -42,6 +40,9 @@ class SunTrackErrorAlgorithm final {
     float angleStart{};           //!< [r] The angle remaining in the attitude maneuver*/
     bool maneuverInitialized{};     //!< [-] Flag indicating if maneuver has been set*/
     uint64_t mnvrStartTime{};      //!< [ns] Time at which the maneuver was begun*/
+    bool computeAngleStart{};                                 /*!< [-] indicator whether angleStart should be computed
+                                                               (if NavTransMsg and EphemerisMsg is linked)
+                                                               or assumed to be 0 */
 };
 
 #endif

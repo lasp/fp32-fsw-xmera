@@ -9,9 +9,11 @@
 /*! This method performs a complete reset of the module.  Local module variables that retain
  time varying states between function calls are reset to their default values.
  @return void
+ @param computeStartAngle indicator whether angleStart should be computed
  */
-void SunTrackErrorAlgorithm::reset() {
+void SunTrackErrorAlgorithm::reset(const bool computeStartAngle) {
     this->maneuverInitialized = false;
+    this->computeAngleStart = computeStartAngle;
 }
 
 /*! This method computes the attitude tracking error for sun avoidance
@@ -20,19 +22,15 @@ void SunTrackErrorAlgorithm::reset() {
  @param nav attitude navigation message
  @param navTrans translational navigation message
  @param celState ephemeris message
- @param navTransIsLinked indicator whether translational navigation message is linked
- @param ephemerisIsLinked indicator whether ephemeris message is linked
  @param callTime The clock time at which the function was called (nanoseconds)
  */
 AttGuidMsgF32Payload SunTrackErrorAlgorithm::update(AttRefMsgF32Payload& ref,
                                                     NavAttMsgF32Payload& nav,
                                                     NavTransMsgF32Payload& navTrans,
                                                     EphemerisMsgF32Payload& celState,
-                                                    const bool navTransIsLinked,
-                                                    const bool ephemerisIsLinked,
                                                     const uint64_t callTime) {
     if (!this->maneuverInitialized) {
-        if (navTransIsLinked && ephemerisIsLinked) {
+        if (this->computeAngleStart) {
             const Eigen::MRPf sigma_BN = cArrayToEigenMrp(nav.sigma_BN);
             const Eigen::MRPf sigma_R0N = cArrayToEigenMrp(ref.sigma_RN);
             const Eigen::MRPf sigmaLocal_R0R(this->sigma_R0R);

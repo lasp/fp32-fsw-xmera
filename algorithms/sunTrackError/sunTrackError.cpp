@@ -14,7 +14,9 @@ void SunTrackError::reset(uint64_t callTime) {
         throw std::invalid_argument("sunTrackError.attNavInMsg wasn't connected.");
     }
 
-    this->algorithm.reset();
+    const bool computeStartAngle = this->transNavInMsg.isLinked() && this->ephemerisInMsg.isLinked();
+
+    this->algorithm.reset(computeStartAngle);
 }
 
 /*! This method computes the attitude tracking error for sun avoidance
@@ -26,12 +28,8 @@ void SunTrackError::updateState(uint64_t callTime) {
     NavAttMsgF32Payload nav = this->attNavInMsg();  //!< attitude navigation message
     NavTransMsgF32Payload navTrans{};    //!< spacecraft position
     EphemerisMsgF32Payload celState{};  //!< sun position
-    bool navTransIsLinked{};
-    bool ephemerisIsLinked{};
 
     if (this->transNavInMsg.isLinked() && this->ephemerisInMsg.isLinked()) {
-        navTransIsLinked = true;
-        ephemerisIsLinked = true;
         navTrans = this->transNavInMsg();
         celState = this->ephemerisInMsg();
     }
@@ -40,8 +38,6 @@ void SunTrackError::updateState(uint64_t callTime) {
                                                           nav,
                                                           navTrans,
                                                           celState,
-                                                          navTransIsLinked,
-                                                          ephemerisIsLinked,
                                                           callTime);
 
     /*! write output message */
