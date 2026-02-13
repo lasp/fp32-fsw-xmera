@@ -13,7 +13,13 @@ void AverageMimuDataAlgorithm_destroy(AverageMimuDataAlgorithm* self) {
 
 IMUSensorBodyMsgF32Payload AverageMimuDataAlgorithm_update(const AverageMimuDataAlgorithm* self,
                                                            const AccDataMsgF32Payload* accDataInMsg) {
-    return reinterpret_cast<const ::AverageMimuDataAlgorithm*>(self)->update(*accDataInMsg);
+    const OutData out = reinterpret_cast<const ::AverageMimuDataAlgorithm*>(self)->update(*accDataInMsg);
+    IMUSensorBodyMsgF32Payload result{};
+    for (int i = 0; i < 3; i++) {
+        result.AngVelBody[i] = out.AngVelBody[i];
+        result.AccelBody[i] = out.AccelBody[i];
+    }
+    return result;
 }
 
 void AverageMimuDataAlgorithm_setTimeDelta(AverageMimuDataAlgorithm* self, float timeDelta) {
