@@ -144,6 +144,7 @@ Below is a list of functions that this flight software module performs:
 Module Assumptions and Limitations
 ======================================
 
+- The module assumes that all upstream modules run at the same frequency as the navAggregate module, such that all messages have the same ``timeTag``.
 - The number of navigation message inputs should not exceed the value assigned for ``MAX_AGG_NAV_MSG``, which is 10 by default from the header file.
 - The user must correctly define the value of ``attMsgCount`` and ``transMsgCount`` to ensure a valid number of input messages.
 - The module does not account for the correctness of the input's reference frame. The user must ensure that all inputs are frame consistent before entering the ``navAggregate`` module.
