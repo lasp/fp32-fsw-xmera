@@ -114,12 +114,14 @@ ClassicalElementsF32 OEStateEphemAlgorithm::evaluateCoefficients(const double cu
     @param callTime The clock time at which the function was called (nanoseconds)
 */
 CartesianState OEStateEphemAlgorithm::update(const uint64_t callTime) {
+    CartesianState outputCartesianState{};
+    outputCartesianState.position = Eigen::Vector3d::Zero();
+    outputCartesianState.velocity = Eigen::Vector3d::Zero();
     /*! If all of the radius of periapsis components are zero, this is the central body and should return all zeros*/
     if (std::ranges::all_of(this->fitCoefficients, [](const ChebyshevFitArc& arc) {
             return std::ranges::all_of(arc.radiusPeriapsisCoefficients,
                                        [](double val) { return std::abs(val) < tolerance; });
         })) {
-        CartesianState outputCartesianState{};
         return outputCartesianState;
     }
 
@@ -128,9 +130,9 @@ CartesianState OEStateEphemAlgorithm::update(const uint64_t callTime) {
     const auto orbitalElements = evaluateCoefficients(currentScaledValue, currentArc);
 
     /*! - Determine position and velocity vectors */
-    auto cartesianState = OrbitalMotion::elementsToCartesianStateF32(this->mu, orbitalElements);
+    outputCartesianState = OrbitalMotion::elementsToCartesianStateF32(this->mu, orbitalElements);
 
-    return cartesianState;
+    return outputCartesianState;
 }
 
 /*! This method sets the gravitational parameter of the central body for the orbital calculations.
