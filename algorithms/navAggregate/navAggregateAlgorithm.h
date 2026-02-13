@@ -3,8 +3,8 @@
 
 #include <stdint.h>
 
-#include <array>
 #include "navAggregateOutput.h"
+#include <array>
 
 #define MAX_AGG_NAV_MSG 10U
 

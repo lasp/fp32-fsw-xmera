@@ -10,11 +10,10 @@
  @param attInputs Aggregated attitude navigation inputs
  @param transInputs Aggregated translational navigation inputs
  */
-AggregateOutput NavAggregateAlgorithm::update(
-    std::array<InputNavAttData, MAX_AGG_NAV_MSG> attInputs,
-    std::array<InputNavTransData, MAX_AGG_NAV_MSG> transInputs) const {
-    InputNavAttData navAttOutput{};      /* [-] local storage of the outgoing attitude navigation data*/
-    InputNavTransData navTransOutput{};  /* [-] local storage of the outgoing translation navigation data*/
+AggregateOutput NavAggregateAlgorithm::update(std::array<InputNavAttData, MAX_AGG_NAV_MSG> attInputs,
+                                              std::array<InputNavTransData, MAX_AGG_NAV_MSG> transInputs) const {
+    InputNavAttData navAttOutput{};     /* [-] local storage of the outgoing attitude navigation data*/
+    InputNavTransData navTransOutput{}; /* [-] local storage of the outgoing translation navigation data*/
 
     /*! - check that attitude navigation messages are present */
     if (this->attMsgCount > 0U) {

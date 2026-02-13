@@ -26,7 +26,7 @@ struct InputNavTransData {
 /*! structure containing the attitude and translational navigation outputs */
 typedef struct {
     InputNavAttData navAttOut;     /*!< attitude navigation output */
-    InputNavTransData navTransOut;   /*!< translation navigation output */
+    InputNavTransData navTransOut; /*!< translation navigation output */
 } AggregateOutput;
 
 #ifdef __cplusplus

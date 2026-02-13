@@ -3,8 +3,8 @@
 
 #include "../freestandingInvalidArgument.h"
 #include "navAggregateAlgorithm.h"
-#include <Eigen/Core>
 #include <gtest/gtest.h>
+#include <Eigen/Core>
 #include <algorithm>
 #include <cmath>
 #include <vector>
