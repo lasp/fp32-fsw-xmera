@@ -4,17 +4,14 @@
 #include <stdint.h>
 
 #include <array>
-
-#include "msgPayloadDef/NavAttMsgF32Payload.h"
-#include "msgPayloadDef/NavTransMsgF32Payload.h"
 #include "navAggregateOutput.h"
 
 #define MAX_AGG_NAV_MSG 10
 
 class NavAggregateAlgorithm {
    public:
-    AggregateOutput update(std::array<NavAttMsgF32Payload, MAX_AGG_NAV_MSG> attMsgsPayloads,
-                           std::array<NavTransMsgF32Payload, MAX_AGG_NAV_MSG> transMsgsPayloads) const;
+    AggregateOutput update(std::array<InputNavAttData, MAX_AGG_NAV_MSG> attInputs,
+                           std::array<InputNavTransData, MAX_AGG_NAV_MSG> transInputs) const;
     void setAttTimeIdx(uint32_t idx);
     uint32_t getAttTimeIdx() const;
     void setTransTimeIdx(uint32_t idx);

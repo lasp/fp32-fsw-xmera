@@ -1,54 +1,43 @@
 #include "navAggregateAlgorithm.h"
 
 #include "../freestandingInvalidArgument.h"
+#include <algorithm>
 #include <stdio.h>
-
-/**
- * @brief Copy a 3x1 vector.
- * @param v The vector to be copied.
- * @param result The vector copy.
- */
-template <typename ScalarT>
-static void v3Copy(ScalarT const v[3], ScalarT result[3]) {
-    result[0] = v[0];
-    result[1] = v[1];
-    result[2] = v[2];
-}
 
 /*! This method takes the navigation message snippets created by the various
     navigation components in the FSW and aggregates them into a single complete
     navigation message.
- @return void
- @param attMsgsPayloads Aggregated attitude navigation messages
- @param transMsgsPayloads Aggregated translational navigation messages
+ @return AggregateOutput attitude navigation and translation navigation output
+ @param attInputs Aggregated attitude navigation inputs
+ @param transInputs Aggregated translational navigation inputs
  */
-AggregateOutput NavAggregateAlgorithm::update(std::array<NavAttMsgF32Payload, MAX_AGG_NAV_MSG> attMsgsPayloads,
-                                              std::array<NavTransMsgF32Payload, MAX_AGG_NAV_MSG> transMsgsPayloads) const {
-    NavAttMsgF32Payload navAttOutMsgPayload{}; /* [-] local storage of the outgoing attitude navigation message data*/
-    NavTransMsgF32Payload
-        navTransOutMsgPayload{}; /* [-] local storage of the outgoing translation navigation message data*/
-    AggregateOutput navAggregateOut{};
+AggregateOutput NavAggregateAlgorithm::update(
+    std::array<InputNavAttData, MAX_AGG_NAV_MSG> attInputs,
+    std::array<InputNavTransData, MAX_AGG_NAV_MSG> transInputs) const {
+    InputNavAttData navAttOutput{};      /* [-] local storage of the outgoing attitude navigation data*/
+    InputNavTransData navTransOutput{};  /* [-] local storage of the outgoing translation navigation data*/
 
     /*! - check that attitude navigation messages are present */
     if (this->attMsgCount) {
         /*! - Copy out each part of the attitude source message into the target output message*/
-        navAttOutMsgPayload.timeTag = attMsgsPayloads[this->attTimeIdx].timeTag;
-        v3Copy(attMsgsPayloads[this->attIdx].sigma_BN, navAttOutMsgPayload.sigma_BN);
-        v3Copy(attMsgsPayloads[this->rateIdx].omega_BN_B, navAttOutMsgPayload.omega_BN_B);
-        v3Copy(attMsgsPayloads[this->sunIdx].vehSunPntBdy, navAttOutMsgPayload.vehSunPntBdy);
+        navAttOutput.timeTag = attInputs.at(this->attTimeIdx).timeTag;
+        navAttOutput.sigma_BN = attInputs.at(this->attIdx).sigma_BN;
+        navAttOutput.omega_BN_B = attInputs.at(this->rateIdx).omega_BN_B;
+        navAttOutput.vehSunPntBdy = attInputs.at(this->sunIdx).vehSunPntBdy;
     }
 
     /*! - check that translation navigation messages are present */
     if (this->transMsgCount) {
         /*! - Copy out each part of the translation source message into the target output message*/
-        navTransOutMsgPayload.timeTag = transMsgsPayloads[this->transTimeIdx].timeTag;
-        v3Copy(transMsgsPayloads[this->posIdx].r_BN_N, navTransOutMsgPayload.r_BN_N);
-        v3Copy(transMsgsPayloads[this->velIdx].v_BN_N, navTransOutMsgPayload.v_BN_N);
-        v3Copy(transMsgsPayloads[this->dvIdx].vehAccumDV, navTransOutMsgPayload.vehAccumDV);
+        navTransOutput.timeTag = transInputs.at(this->transTimeIdx).timeTag;
+        navTransOutput.r_BN_N = transInputs.at(this->posIdx).r_BN_N;
+        navTransOutput.v_BN_N = transInputs.at(this->velIdx).v_BN_N;
+        navTransOutput.vehAccumDV = transInputs.at(this->dvIdx).vehAccumDV;
     }
 
-    navAggregateOut.navAttOut = navAttOutMsgPayload;
-    navAggregateOut.navTransOut = navTransOutMsgPayload;
+    AggregateOutput navAggregateOut{};
+    navAggregateOut.navAttOut = navAttOutput;
+    navAggregateOut.navTransOut = navTransOutput;
 
     return navAggregateOut;
 }

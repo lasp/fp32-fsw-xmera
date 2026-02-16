@@ -1,5 +1,5 @@
 #include "navAggregate.h"
-
+#include "architecture/utilities/eigenSupport.h"
 #include <array>
 #include <stdexcept>
 
@@ -40,15 +40,22 @@ void NavAggregate::reset(uint64_t callTime) {
  */
 void NavAggregate::updateState(uint64_t callTime) {
     uint32_t i;
-    std::array<NavAttMsgF32Payload, MAX_AGG_NAV_MSG> attMsgsPayloads{};
-    std::array<NavTransMsgF32Payload, MAX_AGG_NAV_MSG> transMsgsPayloads{};
+    std::array<InputNavAttData, MAX_AGG_NAV_MSG> attInputs{};
+    std::array<InputNavTransData, MAX_AGG_NAV_MSG> transInputs{};
 
     /*! - check that attitude navigation messages are present */
     if (this->getAttMsgCount()) {
         /*! - Iterate through all of the attitude input messages, clear local Msg buffer and archive the new nav data */
         for (i = 0; i < this->getAttMsgCount(); i = i + 1) {
             this->attMsgs[i].msgStorage = this->attMsgs[i].navAttInMsg();
-            attMsgsPayloads[i] = this->attMsgs[i].navAttInMsg();
+            NavAttMsgF32Payload navAttMsgPayload = this->attMsgs[i].navAttInMsg();
+
+            InputNavAttData attInputData{};
+            attInputData.timeTag = navAttMsgPayload.timeTag;
+            attInputData.sigma_BN = cArrayToEigenVector(navAttMsgPayload.sigma_BN);
+            attInputData.omega_BN_B = cArrayToEigenVector(navAttMsgPayload.omega_BN_B);
+            attInputData.vehSunPntBdy = cArrayToEigenVector(navAttMsgPayload.vehSunPntBdy);
+            attInputs.at(i) = attInputData;
         }
     }
 
@@ -58,14 +65,33 @@ void NavAggregate::updateState(uint64_t callTime) {
          */
         for (i = 0; i < this->getTransMsgCount(); i = i + 1) {
             this->transMsgs[i].msgStorage = this->transMsgs[i].navTransInMsg();
-            transMsgsPayloads[i] = this->transMsgs[i].navTransInMsg();
+            NavTransMsgF32Payload navTransMsgPayload = this->transMsgs[i].navTransInMsg();
+
+            InputNavTransData transInputData{};
+            transInputData.timeTag = navTransMsgPayload.timeTag;
+            transInputData.r_BN_N = cArrayToEigenVector(navTransMsgPayload.r_BN_N);
+            transInputData.v_BN_N = cArrayToEigenVector(navTransMsgPayload.v_BN_N);
+            transInputData.vehAccumDV = cArrayToEigenVector(navTransMsgPayload.vehAccumDV);
+            transInputs.at(i) = transInputData;
         }
     }
 
-    AggregateOutput navAggregateOut = this->algorithm.update(attMsgsPayloads, transMsgsPayloads);
+    AggregateOutput navAggregateOut = this->algorithm.update(attInputs, transInputs);
 
-    this->navAttOutMsg.write(&navAggregateOut.navAttOut, this->moduleID, callTime);
-    this->navTransOutMsg.write(&navAggregateOut.navTransOut, this->moduleID, callTime);
+    NavAttMsgF32Payload navAttOutMsgPayload{};
+    navAttOutMsgPayload.timeTag = navAggregateOut.navAttOut.timeTag;
+    eigenVectorToCArray(navAggregateOut.navAttOut.sigma_BN, navAttOutMsgPayload.sigma_BN);
+    eigenVectorToCArray(navAggregateOut.navAttOut.omega_BN_B, navAttOutMsgPayload.omega_BN_B);
+    eigenVectorToCArray(navAggregateOut.navAttOut.vehSunPntBdy, navAttOutMsgPayload.vehSunPntBdy);
+
+    NavTransMsgF32Payload navTransOutMsgPayload{};
+    navTransOutMsgPayload.timeTag = navAggregateOut.navTransOut.timeTag;
+    eigenVectorToCArray(navAggregateOut.navTransOut.r_BN_N, navTransOutMsgPayload.r_BN_N);
+    eigenVectorToCArray(navAggregateOut.navTransOut.v_BN_N, navTransOutMsgPayload.v_BN_N);
+    eigenVectorToCArray(navAggregateOut.navTransOut.vehAccumDV, navTransOutMsgPayload.vehAccumDV);
+
+    this->navAttOutMsg.write(&navAttOutMsgPayload, this->moduleID, callTime);
+    this->navTransOutMsg.write(&navTransOutMsgPayload, this->moduleID, callTime);
 }
 
 /**
