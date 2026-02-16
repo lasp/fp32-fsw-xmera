@@ -7,8 +7,6 @@
 #include <architecture/messaging/messaging.h>
 #include <architecture/msgPayloadDef/CSSArraySensorMsgPayload.h>
 
-#include <architecture/utilities/bskLogging.h>
-
 /*! @brief Top level structure for the CSS sensor interface system.  Contains all parameters for the
  CSS interface*/
 class CssComm : public SysModel {
@@ -23,7 +21,6 @@ class CssComm : public SysModel {
     double maxSensorValue;                   //!< Scale factor to go from sensor values to cosine
     uint32_t chebyCount;                     //!< Count on the number of chebyshev polynominals we have
     double kellyCheby[MAX_NUM_CHEBY_POLYS];  //!< Chebyshev polynominals to fit output to cosine
-    BSKLogger bskLogger = {};                //!< BSK Logging
 };
 
 #endif

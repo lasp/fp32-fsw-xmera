@@ -2,6 +2,7 @@
 #include <architecture/utilities/linearAlgebra.h>
 #include <string.h>
 #include <stdio.h>
+#include <stdexcept>
 
 /*! This method performs a complete reset of the module.  Local module variables that retain
  time varying states between function calls are reset to their default values.
@@ -11,7 +12,7 @@
 void CssComm::reset(uint64_t callTime) {
     // check if the required message has not been connected
     if (!this->sensorListInMsg.isLinked()) {
-        this->bskLogger.bskLog(BSK_ERROR, "Error: cssComm.sensorListInMsg wasn't connected.");
+        throw std::invalid_argument("cssComm.sensorListInMsg wasn't connected.");
     }
 
     /*! - Check to make sure that number of sensors is less than the max and warn if none are set*/
@@ -23,16 +24,15 @@ void CssComm::reset(uint64_t callTime) {
                  "the max.",
                  this->numSensors,
                  MAX_NUM_CSS_SENSORS);
-        this->bskLogger.bskLog(BSK_WARNING, info);
+        throw std::invalid_argument(info);
         this->numSensors = MAX_NUM_CSS_SENSORS;
     } else if (this->numSensors == 0) {
-        this->bskLogger.bskLog(BSK_WARNING, "There are zero CSS configured!");
+        throw std::invalid_argument("There are zero CSS configured!");
     }
 
     if (this->maxSensorValue == 0) {
-        this->bskLogger.bskLog(BSK_WARNING,
-                               "Max CSS sensor value configured to zero! CSS sensor values will be normalized by zero, "
-                               "inducing faux saturation!");
+        throw std::invalid_argument("Max CSS sensor value configured to zero! CSS sensor values will be normalized by"
+                                    "zero, inducing faux saturation!");
     }
 
     return;

@@ -17,9 +17,8 @@ filename = inspect.getframeinfo(inspect.currentframe()).filename
 path = os.path.dirname(os.path.abspath(filename))
 
 @pytest.mark.parametrize("numSensors, sensorData", [
-    (4, [-100e-6, 200e-6, 600e-6, 300e-6, 200e-6]),  # Five data inputs used despite four sensors to ensure all reset conditions are tested.
-    pytest.param(0, [-100e-6, 200e-6, 600e-6, 300e-6]), # Zero sensor number to ensure all reset conditions are tested
-    pytest.param(messaging.MAX_NUM_CSS_SENSORS+1, [200e-6]*messaging.MAX_NUM_CSS_SENSORS)  # Indicate more sensor devices than is allowed.  The output should be clipped to the allowed length
+    (4, [-100e-6, 200e-6, 600e-6, 300e-6]),  # Five data inputs used despite four sensors to ensure all reset conditions are tested.
+    (messaging.MAX_NUM_CSS_SENSORS, [200e-6]*messaging.MAX_NUM_CSS_SENSORS)  # Indicate more sensor devices than is allowed.  The output should be clipped to the allowed length
 ])
 
 
@@ -94,7 +93,7 @@ def cssCommTestFunction(numSensors, sensorData):
     trueCssList= [0]*MAX_NUM_CSS_SENSORS
     if numSensors==4:
         trueCssList[0:4] = [0.0, 0.45791653042, 1.0, 0.615444781018]
-    if numSensors==MAX_NUM_CSS_SENSORS+1:
+    if numSensors==MAX_NUM_CSS_SENSORS:
         trueCssList = [0.45791653042]*32
 
     # Create the true array
