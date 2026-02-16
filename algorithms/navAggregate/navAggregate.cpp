@@ -9,7 +9,7 @@
  */
 void NavAggregate::reset(uint64_t callTime) {
     /*! - loop over the number of attitude input messages and make sure they are linked */
-    for (uint32_t i = 0; i < this->getAttMsgCount(); i = i + 1) {
+    for (uint32_t i = 0U; i < this->getAttMsgCount(); i = i + 1) {
         if (!this->attMsgs[i].navAttInMsg.isLinked()) {
             throw std::invalid_argument(
                 "An attitude input message name was not linked. "
@@ -17,7 +17,7 @@ void NavAggregate::reset(uint64_t callTime) {
         }
     }
     /*! - loop over the number of translational input messages and make sure they are linked */
-    for (uint32_t i = 0; i < this->getTransMsgCount(); i = i + 1) {
+    for (uint32_t i = 0U; i < this->getTransMsgCount(); i = i + 1) {
         if (!this->transMsgs[i].navTransInMsg.isLinked()) {
             throw std::invalid_argument(
                 "A translation input message name was not linked. "
@@ -26,7 +26,7 @@ void NavAggregate::reset(uint64_t callTime) {
     }
 
     //! - zero the arrays of input messages
-    for (uint32_t i = 0; i < MAX_AGG_NAV_MSG; i++) {
+    for (uint32_t i = 0U; i < MAX_AGG_NAV_MSG; i++) {
         this->attMsgs[i].msgStorage = NavAttMsgF32Payload();
         this->transMsgs[i].msgStorage = NavTransMsgF32Payload();
     }
@@ -39,14 +39,13 @@ void NavAggregate::reset(uint64_t callTime) {
  @param callTime The clock time at which the function was called (nanoseconds)
  */
 void NavAggregate::updateState(uint64_t callTime) {
-    uint32_t i;
     std::array<InputNavAttData, MAX_AGG_NAV_MSG> attInputs{};
     std::array<InputNavTransData, MAX_AGG_NAV_MSG> transInputs{};
 
     /*! - check that attitude navigation messages are present */
-    if (this->getAttMsgCount()) {
+    if (this->getAttMsgCount() > 0U) {
         /*! - Iterate through all of the attitude input messages, clear local Msg buffer and archive the new nav data */
-        for (i = 0; i < this->getAttMsgCount(); i = i + 1) {
+        for (uint32_t i = 0U; i < this->getAttMsgCount(); i = i + 1) {
             this->attMsgs[i].msgStorage = this->attMsgs[i].navAttInMsg();
             NavAttMsgF32Payload navAttMsgPayload = this->attMsgs[i].navAttInMsg();
 
@@ -60,10 +59,10 @@ void NavAggregate::updateState(uint64_t callTime) {
     }
 
     /*! - check that translation navigation messages are present */
-    if (this->getTransMsgCount()) {
+    if (this->getTransMsgCount() > 0U) {
         /*! - Iterate through all of the translation input messages, clear local Msg buffer and archive the new nav data
          */
-        for (i = 0; i < this->getTransMsgCount(); i = i + 1) {
+        for (uint32_t i = 0U; i < this->getTransMsgCount(); i = i + 1) {
             this->transMsgs[i].msgStorage = this->transMsgs[i].navTransInMsg();
             NavTransMsgF32Payload navTransMsgPayload = this->transMsgs[i].navTransInMsg();
 
