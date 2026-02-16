@@ -33,6 +33,7 @@ Checks: >
   ,readability-*
   ,-readability-identifier-length
   ,-*-deprecated-headers
+  ,-*-magic-numbers
 
 # Justifications for exceptions:
 #
@@ -52,6 +53,8 @@ Checks: >
 #   because we have good use cases like K1, K2 etc. for control gains
 # -*-deprecated-headers (both hicpp- and modernize-)
 #   because we have to use some of the "deprecated" headers in the freestanding environment
+# -*-magic-numbers (both cppcoreguidelines and readability)
+#   because we often have factors (like the 2 of 2*pi) that are interpreted as a "magic number"
 
 WarningsAsErrors: '*'
 CheckOptions:
