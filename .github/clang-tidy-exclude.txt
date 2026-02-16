@@ -45,3 +45,13 @@ algorithms/sunTrackError/sunTrackError.h
 algorithms/sunTrackError/sunTrackError.cpp
 algorithms/thrFiringSchmitt/thrFiringSchmitt.h
 algorithms/thrFiringSchmitt/thrFiringSchmitt.cpp
+
+// Remove the files below this line once the actual algorithms are added
+algorithms/sunlineSRuKF/sunlineSRuKF.cpp
+algorithms/sunlineSRuKF/sunlineSRuKF.h
+algorithms/sunlineSRuKF/sunlineSRuKFAlgorithm.cpp
+algorithms/sunlineSRuKF/sunlineSRuKFAlgorithm.h
+algorithms/inertialUKF/inertialUKF.cpp
+algorithms/inertialUKF/inertialUKF.h
+algorithms/inertialUKF/inertialUKFAlgorithm.cpp
+algorithms/inertialUKF/inertialUKFAlgorithm.h
