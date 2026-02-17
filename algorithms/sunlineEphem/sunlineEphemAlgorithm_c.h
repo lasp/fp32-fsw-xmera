@@ -1,5 +1,5 @@
-#ifndef F32XIMERA_SUNLINEEPHEMALGORITHM_C_H
-#define F32XIMERA_SUNLINEEPHEMALGORITHM_C_H
+#ifndef F32XMERA_SUNLINEEPHEMALGORITHM_C_H
+#define F32XMERA_SUNLINEEPHEMALGORITHM_C_H
 
 #include "msgPayloadDef/EphemerisMsgF32Payload.h"
 #include "msgPayloadDef/NavAttMsgF32Payload.h"
@@ -44,4 +44,4 @@ NavAttMsgF32Payload SunlineEphemAlgorithm_updateState(const SunlineEphemAlgorith
 }  // extern "C"
 #endif
 
-#endif  // F32XIMERA_SUNLINEEPHEMALGORITHM_C_H
+#endif  // F32XMERA_SUNLINEEPHEMALGORITHM_C_H

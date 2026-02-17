@@ -1,5 +1,5 @@
-#ifndef F32XIMERA_SUNLINE_EPHEM_ALGORITHM_H
-#define F32XIMERA_SUNLINE_EPHEM_ALGORITHM_H
+#ifndef F32XMERA_SUNLINE_EPHEM_ALGORITHM_H
+#define F32XMERA_SUNLINE_EPHEM_ALGORITHM_H
 
 #include "msgPayloadDef/EphemerisMsgF32Payload.h"
 #include "msgPayloadDef/NavAttMsgF32Payload.h"
