@@ -27,8 +27,8 @@ class ThrFiringRemainderAlgorithm {
     void setThrustPulsingRegime(ThrustPulsingRegime thrustPulsingRegime);
     ThrustPulsingRegime getThrustPulsingRegime() const;
 
-    void setDefaultControlPeriod(float defaultControlPeriod);
-    float getDefaultControlPeriod() const;
+    void setControlPeriod(float period);
+    float getControlPeriod() const;
 
    private:
     uint64_t prevCallTime{};                           //!< callTime from previous function call
@@ -37,7 +37,7 @@ class ThrFiringRemainderAlgorithm {
     uint32_t numThrusters{};                          //!< [-] The number of thrusters available on vehicle
     std::array<float, MAX_EFF_CNT> maxThrust{};       //!< [N] Max thrust
     ThrustPulsingRegime thrustPulsingRegime{};         //!< [-] Indicates on-pulsing or off-pulsing
-    float defaultControlPeriod{};  //!< [s] Default control period used for first call //Setter and Getter
+    float controlPeriod{};  //!< [s] Default control period used for first call //Setter and Getter
 };
 
 #endif

@@ -64,15 +64,15 @@ ThrustPulsingRegime ThrFiringRemainder::getThrustPulsingRegime() const {
     return this->algorithm.getThrustPulsingRegime();
 }
 
-/*! Setter method for defaultControlPeriod.
+/*! Setter method for controlPeriod.
  @return void
- @param defaultControlPeriod
+ @param controlPeriod
 */
-void ThrFiringRemainder::setDefaultControlPeriod(const double defaultControlPeriod) {
-    this->algorithm.setDefaultControlPeriod(static_cast<float>(defaultControlPeriod));
+void ThrFiringRemainder::setControlPeriod(const double controlPeriod) {
+    this->algorithm.setControlPeriod(static_cast<float>(controlPeriod));
 }
 
-/*! Getter method for defaultControlPeriod.
+/*! Getter method for controlPeriod.
  @return const double
 */
-double ThrFiringRemainder::getDefaultControlPeriod() const { return this->algorithm.getDefaultControlPeriod(); }
+double ThrFiringRemainder::getControlPeriod() const { return this->algorithm.getControlPeriod(); }

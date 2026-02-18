@@ -1,168 +1,133 @@
-Executive Summary
------------------
+Overview
+--------
+``thrFiringRemainder`` maps commanded thruster forces to thruster on-times while preserving sub-minimum pulses
+through a remainder accumulator. Forces that would normally fall below the minimum on-time are collected and
+re-issued once enough residual pulse time has been accumulated. Commands that saturate the control period are over-driven
+to 1.1 x the control period to guarantee thrust for the full-duration of the control period.
 
-A thruster force message is read in and converted to a thruster on-time output message. The module ensures the requested on-time is at least as large as the thruster's minimum on time.  If not then the on-time is zeroed, but the unimplemented thrust time is kept as a remainder calculation.  If these add up to reach the minimum on time, then a thruster pulse is requested.  If the thruster on time is larger than the control period, then an on-time that is 1.1 times the control period is requested. More information can be found in the
-:download:`PDF Description </../../src/fswAlgorithms/effectorInterfaces/thrFiringRemainder/_Documentation/Basilisk-thrFiringRemainder-2023-08-07.pdf>`.
-The paper `Steady-State Attitude and Control Effort Sensitivity Analysis of Discretized Thruster Implementations <https://doi.org/10.2514/1.A33709>`__ includes a detailed discussion on the Remainder Trigger algorithm and compares it to other thruster firing methods.
+For example, if the minimum on-time is 20 milli-seconds, an algorithm without a remainder accumulation
+calculation would create a deadband about the 20 milli-second control request. With the remainder accumulation logic,
+if 5 milli-second on-time requests are computed, these are accumulated such that every
+4\ :math:`^{\text{th}}` control step a 20 milli-second burn is
+requested. This reduces the deadband behavior of the thruster and
+achieves better pointing/precise actuation. In this example the 5 milli-second
+un-implemented on-times are accumulated in the variable
+:math:`\Delta t_{\text{partial}}`.
 
+The module layer (``ThrFiringRemainder``) implements the SysModel interface, wiring messages and managing module
+lifecycle. The algorithm (``ThrFiringRemainderAlgorithm``) contains the stateful remainder accumulation logic that
+can be used stand-alone when the caller provides configuration and timing.
 
-Message Connection Descriptions
--------------------------------
-The following table lists all the module input and output messages.  The module msg connection is set by the
-user from python.  The msg type contains a link to the message structure definition, while the description
-provides information on what this message is used for.
+The paper
+`Steady-State Attitude and Control Effort Sensitivity Analysis of Discretized Thruster Implementations
+<https://doi.org/10.2514/1.A33709>`__ details the remainder logic and compares it with alternative firing strategies.
 
-.. _ModuleIO_ThrFiringRemainder:
-.. figure:: /../../src/fswAlgorithms/effectorInterfaces/thrFiringRemainder/_Documentation/Images/moduleImgThrFiringRemainder.svg
-    :align: center
+Module Inputs and Outputs
+-------------------------
+Module inputs:
 
-    Figure 1: ``rwNullSpace()`` Module I/O Illustration
-
-
-.. list-table:: Module I/O Messages
+.. list-table:: Module Input Messages
     :widths: 25 25 50
     :header-rows: 1
 
     * - Msg Variable Name
       - Msg Type
       - Description
-    * - thrForceInMsg
-      - :ref:`THRArrayCmdForceMsgPayload`
-      - thruster force input message
-    * - onTimeOutMsg
-      - :ref:`THRArrayOnTimeCmdMsgPayload`
-      - thruster on-time output message
     * - thrConfInMsg
-      - :ref:`THRArrayConfigMsgPayload`
-      - Thruster array configuration input message
+      - :ref:`THRArrayConfigMsgF32Payload`
+      - Read in ``reset()``. Contains ``numThrusters`` and per-thruster max thrust. Max thrust must be > 0; the
+        algorithm clamps internally to the provided values.
+    * - thrForceInMsg
+      - :ref:`THRArrayCmdForceMsgF32Payload`
+      - Read every ``updateState()``. Provides commanded forces :math:`F_i`. Values may be negative in OFF_PULSING
+        mode; negative forces are clamped to zero after the pulsing adjustment.
 
+Module output:
 
-Module Description
-==================
+.. list-table:: Module Output Messages
+    :widths: 25 25 50
+    :header-rows: 1
 
-This module implements a remainder tracking thruster firing logic. More
-details can be found in Reference.
+    * - Msg Variable Name
+      - Msg Type
+      - Description
+    * - onTimeOutMsg
+      - :ref:`THRArrayOnTimeCmdMsgF32Payload`
+      - Thruster on-time requests :math:`t_i`. Values are non-negative, and may be set to ``1.1 *`` control period
+        when saturation is detected.
 
-Module Input and Output Messages
---------------------------------
+Algorithm Configuration
+-----------------------
+- ``thrMinFireTime`` the minimum thruster on-time (seconds). Must be :math:`\ge 0`; a negative value throws.
+- ``controlPeriod`` the control period duration (seconds). Must be :math:`\ge 0`; non-positive values throw.
+- ``thrustPulsingRegime`` must be one of ``ON_PULSING`` or ``OFF_PULSING``.
+  On-pulsing is assumes a thruster is nominally off and thrust is provided
+  by activating the thruster. This regime is commonly used when seeking to
+  achieve an attitude control torque onto the spacecraft. Off-pulsing assumes a
+  thruster is nominally on, and actuation is achieved by momentarily turning a
+  thruster off. This regime is commonly used when performing a delta-V maneuver,
+  and the attitude control is achieved by periodically off-pulsing thrusters.
+- Max thrust is taken from configuration; if the provided value is :math:`\le 0`, the algorithm still uses it but
+  downstream behavior is undefined—callers must provide positive thrust capability.
 
-As illustrated in Figure `[fig:moduleImg] <#fig:moduleImg>`__, the
-module reads in two messages. One message contains the thruster
-configuration message from which the maximum thrust force value for each
-thruster is extracted and stored in the module. This message is only
-read in on ``reset()``.
-
-The second message reads in an array of requested thruster force values
-with every ``Update()`` function call. These force values :math:`F_{i}`
-can be positive if on-pulsing is requested, or negative if off-pulsing
-is required. On-pulsing is used to achieve an attitude control torque
-onto the spacecraft by turning on a thruster. Off-pulsing assumes a
-thruster is nominally on, such as with doing an extended orbit
-correction maneuver, and the attitude control is achieved by doing
-periodic off-pulsing.
-
-The output of the module is a message containing an array of thruster
-on-time requests. If these on-times are larger than the control period,
-then the thruster remains on only for the control period upon which the
-on-criteria is reevaluated.
-
-reset() Functionality
+Algorithm Assumptions
 ---------------------
+- Remainders are tracked per-thruster and persist across calls until a pulse meets or exceeds the minimum on-time.
+- In OFF_PULSING mode, a negative commanded force indicates a “turn off” request; the algorithm shifts the force by
+  adding the thruster’s maximum thrust before applying clamps.
 
-- The control period is dynamically evaluated in the module by comparing
-  the current time with the prior call time. In ``reset()`` the
-  ``prevCallTime`` variable is reset to 0.
+Initialization
+--------------
+Module initialization:
 
-- The thruster configuration message is read in and the number of
-  thrusters is stored in the module variable ``numThrusters``. The
-  maximum force per thruster is stored in ``maxThrust``.
+- ``reset(callTime)`` checks message wiring, reads ``thrConfInMsg``, and forwards the payload into the algorithm’s
+  ``reset`` to initialize ``numThrusters``, per-thruster ``maxThrust``, ``pulseRemainder``, and ``prevCallTime``.
 
-- The on-time pulse remainder variable is reset for each thruster back
-  to 0.0.
+Algorithm initialization:
 
-Update() Functionality
-----------------------
+- ``reset(thrConfigPayload)`` sets ``numThrusters``, copies ``maxThrust[i]`` for each thruster,
+  zeros ``pulseRemainder``, and zeros ``prevCallTime``.
 
-The goal of the ``update()`` method is to read in the current attitude
-control thruster force message and map these into a thruster on-time
-output message. Let :math:`\Delta t_{\text{min}}` be the minimum on-time
-that can be implemented with a thruster. If the requested on-time is
-less than :math:`\Delta t_{\text{min}}`, then the requested thruster
-on-time is clipped to zero. In the following algorithm unimplemented
-fractional on-times less than :math:`\Delta t_{\text{min}}` are tracked
-and accumulated, providing additional pointing accuracy. For example, if
-the minimum on-time is 20 milli-seconds, an on-time algorithm without
-remainder calculation would create a deadband about the 20 milli-second
-control request. With the remainder logic, if 5 milli-second on-time
-requests are computed, these are accumulated such that every
-4\ :math:`^{\text{th}}` control step a 20 milli-second burn is
-requested. This reduces the deadband behavior of the thruster and
-achieves better pointing. In this example the 5 milli-second
-un-implemented on-times are accumulated in the variable
-:math:`\Delta t_{\text{partial}}`.
+Algorithm Description
+---------------------
+For thruster :math:`i` with commanded force :math:`F_i`, maximum thrust :math:`F_{\max,i}`, control period
+:math:`\Delta t`, minimum on-time :math:`\Delta t_{\min}`, and stored remainder :math:`r_i` (in multiples of
+:math:`\Delta t_{\min}`):
 
-If the ``update()`` method is called for the first time after reset,
-then there is no knowledge of the control period :math:`\Delta t`. In
-this case the control period is set to 2 seconds, unless the module
-parameter ``defaultControlPeiod`` is set to a different value. If this
-is a repeated call of the ``update()`` method then the control period
-:math:`\Delta t` is evaluated by differencing the current time with the
-prior call time. Next a loop goes over each installed thruster to map
-the requested force :math:`F_{i}` into an on-time :math:`t_{i}`. The
-following logic is used.
+#. OFF_PULSING adjustment (:math:`F_{i}\le 0`):
 
-- If off-pulsing is used then :math:`F_{i}\le 0` and we set
+   .. math:: F_i \leftarrow \begin{cases}
+      F_i + F_{\max,i}, & \text{if OFF\_PULSING}\\
+      F_i, & \text{if ON\_PULSING}
+      \end{cases}
 
-  .. math:: F_{i} += F_{\text{max}}
+#. Clamp negative force:
 
-  \ to a reduced thrust to achieve the negative :math:`F_{i}` force.
+   .. math:: F_i \leftarrow \max(F_i, 0)
 
-- Next, if :math:`F_{i} < 0` then it set to be equal to zero. This can
-  occur if an off-pulsing request is larger than the maximum thruster
-  force magnitude :math:`F_{\text{max}}`.
+#. Nominal on-time from force request:
 
-- The nominal thruster on-time is computed using
+   .. math:: t_i = \frac{F_i}{F_{\max,i}} \, \Delta t
 
-  .. math:: t_{i}  = \dfrac{F_{i}}{F_{\text{max}}} \Delta t
+#. Add accumulated remainder (stored as a fraction of :math:`\Delta t_{\min}`):
 
-  .
+   .. math:: t_i \leftarrow t_i + r_i \, \Delta t_{\min}, \quad r_i \leftarrow 0
 
-- If there un-implemented on-time requested
-  :math:`\Delta t_{\text{partial}}` from earlier ``update()`` method
-  calls, these are added to the current on-time request using
+#. Minimum pulse enforcement:
 
-  .. math:: t_{i} += \Delta t_{\text{partial}}
+   .. math:: \text{if } t_i < \Delta t_{\min} \text{ then } r_i \leftarrow \frac{t_i}{\Delta t_{\min}},\; t_i \leftarrow 0
 
-  \ After this step the variable :math:`\Delta t_{\text{partial}}` is
-  reset to 0 as the remainder calculation is stored in the on-time
-  variable :math:`t_{i}`.
+#. Saturation:
 
-- If :math:`t_{i} < \Delta t_{\text{partial}}` then on-time request is
-  set to zero and the remained is set to
-  :math:`\Delta t_{\text{partial}} = t_{i}`
+   .. math:: \text{if } t_i \ge \Delta t \text{ then } t_i \leftarrow 1.1 \, \Delta t
 
-- If :math:`t_{i} > \Delta` then the requested force is larger than
-  :math:`F_{\text{max}}` and the control is saturated. In this case the
-  on-time is set to 1.1\ :math:`\Delta t` such that the thruster remains
-  on through the control period.
+The output message stores :math:`t_i` in ``OnTimeRequest[i]``.
 
-- The final step is to store the thruster on-time into and write out
-  this output message
-
-Module Functions
-================
-
-- **Read in thruster configuration message**: This is used to determine
-  the number of installed thrusters and what the maximum force is for
-  each.
-
-- **Convert thruster force requested into an on-time request**: Knowing
-  how strong the thruster is, the on-time is scaled such that the
-  effectively applied force is equal to the requested force.
-
-Module Assumptions and Limitations
-==================================
-
-The module assumes that the incoming forces :math:`F_{i}` can be both
-positive or negative, depending if an on- or off-pulsing mode is being
-implemented. The particular mode is set through ``baseThrustState``.
+Module vs. Algorithm Usage
+--------------------------
+- Module (``ThrFiringRemainder``, SysModel): use when operating inside the messaging framework. Connect
+  ``thrConfInMsg`` and ``thrForceInMsg``, call ``InitializeSimulation()``/``ExecuteSimulation()``, and read
+  ``onTimeOutMsg``.
+- Algorithm (``ThrFiringRemainderAlgorithm``): use when you have direct payloads and timing. Call
+  ``reset(configPayload)``, set ``thrMinFireTime``, ``controlPeriod``, and ``thrustPulsingRegime`` via setters,
+  then call ``update(callTime, forcePayload)`` with monotonically increasing nanosecond timestamps.

@@ -27,11 +27,6 @@ void ThrFiringRemainderAlgorithm::reset(const THRArrayConfigMsgF32Payload& thrCo
     for (int i = 0; i < this->numThrusters; i++) {
         this->maxThrust.at(i) = thrConfigInMsgPayload.thrusters[i].maxThrust;
     }
-
-    /*! - use default value of 2 seconds for control period of first call if not specified.
-     * Control period (FSW rate) is computed dynamically for any subsequent calls.
-     */
-    this->defaultControlPeriod = 0.0F == this->defaultControlPeriod ? 2.0F : this->defaultControlPeriod;
 }
 
 /*! This method maps the input thruster command forces into thruster on times using a remainder tracking logic.
@@ -42,19 +37,8 @@ void ThrFiringRemainderAlgorithm::reset(const THRArrayConfigMsgF32Payload& thrCo
 THRArrayOnTimeCmdMsgF32Payload ThrFiringRemainderAlgorithm::update(const uint64_t callTime,
                                                                 THRArrayCmdForceMsgF32Payload thrForceInMsgPayload)
 {
-    float controlPeriod{};                        /* [s] control period */
     std::array<float, MAX_EFF_CNT> onTime{};      /* [s] array of commanded on time for thrusters */
     THRArrayOnTimeCmdMsgF32Payload thrOnTimeOut = {}; /* [-] copy of the thruster on-time output message */
-    /*! - The first time update() is called there is no information on the time step.
-     *    Pick 2 seconds for the control period */
-    if (this->prevCallTime == 0U) {
-        controlPeriod = this->defaultControlPeriod;
-    } else {
-        /*! - compute control time period Delta_t */
-        controlPeriod = static_cast<float>(callTime - this->prevCallTime) * NANO2SEC;
-    }
-
-    this->prevCallTime = callTime;
 
     /*! - Loop through thrusters */
     for (int i = 0; i < this->numThrusters; i++) {
@@ -71,7 +55,7 @@ THRArrayOnTimeCmdMsgF32Payload ThrFiringRemainderAlgorithm::update(const uint64_
         }
 
         /*! - Compute T_on from thrust request, max thrust, and control period */
-        onTime.at(i) = thrForceInMsgPayload.thrForce[i] / this->maxThrust.at(i) * controlPeriod;
+        onTime.at(i) = thrForceInMsgPayload.thrForce[i] / this->maxThrust.at(i) * this->controlPeriod;
         /*! - Add in remainder from the last control step */
         onTime.at(i) += this->pulseRemainder.at(i) * this->thrMinFireTime;
         /*! - Set pulse remainder to zero. Remainder now stored in onTime */
@@ -82,9 +66,9 @@ THRArrayOnTimeCmdMsgF32Payload ThrFiringRemainderAlgorithm::update(const uint64_
             /*! - If request is less than minimum pulse time zero onTime an store remainder */
             this->pulseRemainder.at(i) = onTime.at(i) / this->thrMinFireTime;
             onTime.at(i) = 0.0F;
-        } else if (onTime.at(i) >= controlPeriod) {
+        } else if (onTime.at(i) >= this->controlPeriod) {
             /*! - If request is greater than control period then oversaturate onTime */
-            onTime.at(i) = 1.1F * controlPeriod;
+            onTime.at(i) = 1.1F * this->controlPeriod;
         } else {
             /* no action required. else clause included for MISRA */
         }
@@ -125,18 +109,18 @@ void ThrFiringRemainderAlgorithm::setThrustPulsingRegime(const ThrustPulsingRegi
 */
 ThrustPulsingRegime ThrFiringRemainderAlgorithm::getThrustPulsingRegime() const { return this->thrustPulsingRegime; }
 
-/*! Setter method for defaultControlPeriod.
+/*! Setter method for controlPeriod.
  @return void
- @param defaultControlPeriod
+ @param period
 */
-void ThrFiringRemainderAlgorithm::setDefaultControlPeriod(const float defaultControlPeriod) {
-    if (defaultControlPeriod <= 0.0) {
-        FS_THROW_INVALID_ARGUMENT("ThrFiringRemainderAlgorithm::defaultControlPeriod must be > 0.0");
+void ThrFiringRemainderAlgorithm::setControlPeriod(const float period) {
+    if (period <= 0.0) {
+        FS_THROW_INVALID_ARGUMENT("ThrFiringRemainderAlgorithm::controlPeriod must be > 0.0");
     }
-    this->defaultControlPeriod = defaultControlPeriod;
+    this->controlPeriod = period;
 }
 
-/*! Getter method for defaultControlPeriod.
+/*! Getter method for controlPeriod.
  @return const float
 */
-float ThrFiringRemainderAlgorithm::getDefaultControlPeriod() const { return this->defaultControlPeriod; }
+float ThrFiringRemainderAlgorithm::getControlPeriod() const { return this->controlPeriod; }

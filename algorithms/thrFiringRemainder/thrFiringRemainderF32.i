@@ -9,7 +9,7 @@
 %include <attribute.i>
 %attribute(ThrFiringRemainder, double, thrMinFireTime, getThrMinFireTime, setThrMinFireTime)
 %attribute(ThrFiringRemainder, ThrustPulsingRegime, thrustPulsingRegime, getThrustPulsingRegime, setThrustPulsingRegime)
-%attribute(ThrFiringRemainder, double, defaultControlPeriod, getDefaultControlPeriod, setDefaultControlPeriod)
+%attribute(ThrFiringRemainder, double, controlPeriod, getControlPeriod, setControlPeriod)
 
 %include "thrFiringRemainder.h"
 %include "thrFiringRemainderTypes.h"
