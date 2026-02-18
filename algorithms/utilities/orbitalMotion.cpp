@@ -18,7 +18,9 @@
  */
 
 #include "orbitalMotion.hpp"
+#include <Eigen/Geometry>
 #include <numbers>
+#include "safeMathFloat.h"
 
 constexpr double toleranceF32 = 1e-6;
 constexpr double tolerance = 1e-9;
