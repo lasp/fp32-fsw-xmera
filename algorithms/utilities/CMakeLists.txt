@@ -3,7 +3,7 @@ add_library(AlgorithmUtilities INTERFACE)
 target_sources(AlgorithmUtilities INTERFACE
   chebyshevUtilities.h
   orbitalMotion.cpp
-  safeMathFloat.c
+  safeMathFloat.h
 )
 
 target_link_libraries(AlgorithmUtilities INTERFACE
