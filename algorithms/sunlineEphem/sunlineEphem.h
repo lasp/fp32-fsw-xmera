@@ -8,7 +8,7 @@
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
 
-class SunlineEphem : public SysModel {
+class SunlineEphem final : public SysModel {
    public:
     SunlineEphem() = default;
     ~SunlineEphem() = default;
