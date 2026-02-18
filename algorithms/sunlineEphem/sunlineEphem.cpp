@@ -16,17 +16,17 @@ void SunlineEphem::reset(uint64_t callTime) {
 }
 
 void SunlineEphem::updateState(uint64_t callTime) {
-    EphemerisMsgF32Payload sunPos = this->sunPositionInMsg();
-    NavTransMsgF32Payload scPos = this->scPositionInMsg();
-    NavAttMsgF32Payload scAtt = this->scAttitudeInMsg();
+    EphemerisMsgF32Payload sunPosition = this->sunPositionInMsg();
+    NavTransMsgF32Payload spacecraftPosition = this->scPositionInMsg();
+    NavAttMsgF32Payload spacecraftAttitude = this->scAttitudeInMsg();
 
-    const Eigen::Vector3d rSun = cArrayToEigenVector(sunPos.r_BdyZero_N);
-    const Eigen::Vector3d rSc = cArrayToEigenVector(scPos.r_BN_N);
-    const Eigen::Vector3f sigma_BN = cArrayToEigenVector(scAtt.sigma_BN);
+    const Eigen::Vector3d r_SN_N = cArrayToEigenVector(sunPosition.r_BdyZero_N);
+    const Eigen::Vector3d r_BN_N = cArrayToEigenVector(spacecraftPosition.r_BN_N);
+    const Eigen::Vector3f sigma_BN = cArrayToEigenVector(spacecraftAttitude.sigma_BN);
 
-    const Eigen::Vector3f vehSunPntBdy = this->algorithm.updateState(rSun, rSc, sigma_BN);
+    const Eigen::Vector3f rHat_SB_B = this->algorithm.update(r_SN_N, r_BN_N, sigma_BN);
 
     NavAttMsgF32Payload outputSunline{};
-    eigenVectorToCArray(vehSunPntBdy, outputSunline.vehSunPntBdy);
+    eigenVectorToCArray(rHat_SB_B, outputSunline.vehSunPntBdy);
     this->navStateOutMsg.write(&outputSunline, this->moduleID, callTime);
 }
