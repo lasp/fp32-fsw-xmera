@@ -138,7 +138,8 @@ TEST_P(ThrFiringRemainderTest, ComputesCorrectOnTimes) {
     algorithm.setControlPeriod(kControlPeriod);
     algorithm.setThrustPulsingRegime(regime);
     algorithm.setOnTimeSaturationFactor(kOnTimeOversaturationFactor);
-    algorithm.reset(thrConfig);
+    algorithm.setThrusters(thrConfig);
+    algorithm.reset();
 
     // Run algorithm and collect outputs
     std::vector<std::vector<float>> actual(kTotalSteps, std::vector<float>(numThrusters));

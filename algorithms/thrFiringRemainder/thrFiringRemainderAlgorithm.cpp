@@ -7,7 +7,6 @@
 #include "thrFiringRemainderAlgorithm.h"
 #include "thrFiringRemainderTypes.h"
 
-#include "architecture/utilities/macroDefinitions.h"
 #include "freestandingInvalidArgument.h"
 
 #include <algorithm>
@@ -16,18 +15,8 @@
 /*! This method performs a complete reset of the algorithm.  All algorithm variables that retain
  time varying states between function calls are reset to their default values.
  @return void
- @param thrusterConfig The thruster configuration data
  */
-void ThrFiringRemainderAlgorithm::reset(const ThrusterArrayConfig& thrusterConfig) {
-    /*! - store the number of installed thrusters */
-    this->numThrusters = thrusterConfig.numThrusters;
-    this->pulseRemainder = {0.0F};
-
-    /*! - loop over all thrusters and for each copy over maximum thrust, zero the impulse remainder */
-    for (std::uint32_t i = 0; i < this->numThrusters; ++i) {
-        this->maxThrust.at(i) = thrusterConfig.thrusters.at(i).maxThrust;
-    }
-}
+void ThrFiringRemainderAlgorithm::reset() { this->pulseRemainder = {0.0F}; }
 
 /*! This method maps the input thruster command forces into thruster on times using a remainder tracking logic.
  @return ThrusterOnTimeCmd
@@ -37,7 +26,7 @@ ThrusterOnTimeCmd ThrFiringRemainderAlgorithm::update(ThrusterForceCmd thrusterF
     ThrusterOnTimeCmd thrOnTimeOut{};
 
     /*! - Loop through thrusters */
-    for (std::uint32_t i = 0; i < this->numThrusters; ++i) {
+    for (std::uint32_t i = 0U; i < this->numThrusters; ++i) {
         /*! - Correct for off-pulsing if necessary.  Here the requested force is negative, and the maximum thrust
          needs to be added.  If not control force is requested in off-pulsing mode, then the thruster force should
          be set to the maximum thrust value */
@@ -72,6 +61,20 @@ ThrusterOnTimeCmd ThrFiringRemainderAlgorithm::update(ThrusterForceCmd thrusterF
     }
 
     return thrOnTimeOut;
+}
+
+/*! Setter method for thruster configurations.
+ @return void
+ @param thrusterConfig
+*/
+void ThrFiringRemainderAlgorithm::setThrusters(const ThrusterArrayConfig& thrusterConfig) {
+    /*! - store the number of installed thrusters */
+    this->numThrusters = thrusterConfig.numThrusters;
+
+    /*! - loop over all thrusters and for each copy over maximum thrust, zero the impulse remainder */
+    for (std::uint32_t i = 0U; i < this->numThrusters; ++i) {
+        this->maxThrust.at(i) = thrusterConfig.thrusters.at(i).maxThrust;
+    }
 }
 
 /*! Setter method for thrMinFireTime.

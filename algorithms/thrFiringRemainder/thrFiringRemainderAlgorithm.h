@@ -14,8 +14,10 @@
 
 class ThrFiringRemainderAlgorithm {
    public:
-    void reset(const ThrusterArrayConfig& thrusterConfig);
+    void reset();
     ThrusterOnTimeCmd update(ThrusterForceCmd thrusterForceCmd);
+
+    void setThrusters(const ThrusterArrayConfig& thrusterConfig);
 
     void setThrMinFireTime(float minFireTime);
     float getThrMinFireTime() const;

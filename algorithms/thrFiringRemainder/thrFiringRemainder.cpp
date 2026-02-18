@@ -36,7 +36,9 @@ void ThrFiringRemainder::reset(uint64_t callTime) {
             thrusters[i].tHatThrust_B[0], thrusters[i].tHatThrust_B[1], thrusters[i].tHatThrust_B[2]};
         thrusterConfig.thrusters.at(i).maxThrust = thrusters[i].maxThrust;
     }
-    this->algorithm.reset(thrusterConfig);
+
+    this->algorithm.setThrusters(thrusterConfig);
+    this->algorithm.reset();
 }
 
 /*! This method maps the input thruster command forces into thruster on times using a remainder tracking logic.
