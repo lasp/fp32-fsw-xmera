@@ -35,10 +35,10 @@ void SunlineEphemAlgorithm_destroy(SunlineEphemAlgorithm* self);
  * @param scAtt  Pointer to spacecraft attitude message payload.
  * @return NavAttMsgF32Payload  Navigation message containing sunline direction in body frame.
  */
-NavAttMsgF32Payload SunlineEphemAlgorithm_updateState(const SunlineEphemAlgorithm* self,
-                                                      const EphemerisMsgF32Payload* sunPos,
-                                                      const NavTransMsgF32Payload* scPos,
-                                                      const NavAttMsgF32Payload* scAtt);
+NavAttMsgF32Payload SunlineEphemAlgorithm_update(const SunlineEphemAlgorithm* self,
+                                                 const EphemerisMsgF32Payload* sunPos,
+                                                 const NavTransMsgF32Payload* scPos,
+                                                 const NavAttMsgF32Payload* scAtt);
 
 #ifdef __cplusplus
 }  // extern "C"

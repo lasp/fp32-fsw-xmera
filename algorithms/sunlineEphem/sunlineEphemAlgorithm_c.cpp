@@ -11,10 +11,10 @@ void SunlineEphemAlgorithm_destroy(SunlineEphemAlgorithm* self) {
     delete reinterpret_cast<::SunlineEphemAlgorithm*>(self);
 }
 
-NavAttMsgF32Payload SunlineEphemAlgorithm_updateState(const SunlineEphemAlgorithm* self,
-                                                      const EphemerisMsgF32Payload* sunPos,
-                                                      const NavTransMsgF32Payload* scPos,
-                                                      const NavAttMsgF32Payload* scAtt) {
+NavAttMsgF32Payload SunlineEphemAlgorithm_update(const SunlineEphemAlgorithm* self,
+                                                 const EphemerisMsgF32Payload* sunPos,
+                                                 const NavTransMsgF32Payload* scPos,
+                                                 const NavAttMsgF32Payload* scAtt) {
     Eigen::Vector3d r_SN_N;
     r_SN_N << sunPos->r_BdyZero_N[0], sunPos->r_BdyZero_N[1], sunPos->r_BdyZero_N[2];
 
@@ -25,7 +25,7 @@ NavAttMsgF32Payload SunlineEphemAlgorithm_updateState(const SunlineEphemAlgorith
     sigma_BN << scAtt->sigma_BN[0], scAtt->sigma_BN[1], scAtt->sigma_BN[2];
 
     const Eigen::Vector3f rHat_SB_B =
-        reinterpret_cast<const ::SunlineEphemAlgorithm*>(self)->updateState(r_SN_N, r_BN_N, sigma_BN);
+        reinterpret_cast<const ::SunlineEphemAlgorithm*>(self)->update(r_SN_N, r_BN_N, sigma_BN);
 
     NavAttMsgF32Payload out{};
     out.vehSunPntBdy[0] = rHat_SB_B[0];

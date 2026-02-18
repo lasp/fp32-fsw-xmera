@@ -4,9 +4,9 @@
 
 #include <Eigen/Core>
 
-Eigen::Vector3f SunlineEphemAlgorithm::updateState(const Eigen::Vector3d& r_SN_N,
-                                                    const Eigen::Vector3d& r_BN_N,
-                                                    const Eigen::Vector3f& sigma_BN) const {
+Eigen::Vector3f SunlineEphemAlgorithm::update(const Eigen::Vector3d& r_SN_N,
+                                              const Eigen::Vector3d& r_BN_N,
+                                              const Eigen::Vector3f& sigma_BN) const {
     // Subtract the two position vectors to find the position of the sun as seen from the body
     const Eigen::Vector3d r_SB_N = r_SN_N - r_BN_N;
     // Normalize this vector to find the sun direction as seen from the body
