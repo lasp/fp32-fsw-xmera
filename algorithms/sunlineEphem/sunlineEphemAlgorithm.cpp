@@ -4,21 +4,17 @@
 
 #include <Eigen/Core>
 
-NavAttMsgF32Payload SunlineEphemAlgorithm::updateState(const EphemerisMsgF32Payload& sunPos,
-                                                       const NavTransMsgF32Payload& scPos,
-                                                       const NavAttMsgF32Payload& scAtt) const {
-    // Get sun position
-    const Eigen::Vector3f rSun(sunPos.r_BdyZero_N[0], sunPos.r_BdyZero_N[1], sunPos.r_BdyZero_N[2]);
-    const Eigen::Vector3f rSc(scPos.r_BN_N[0], scPos.r_BN_N[1], scPos.r_BN_N[2]);
+Eigen::Vector3f SunlineEphemAlgorithm::updateState(const Eigen::Vector3d& rSun,
+                                                    const Eigen::Vector3d& rSc,
+                                                    const Eigen::Vector3f& sigma_BN) const {
     // Difference in inertial frame
-    const Eigen::Vector3f r_SB_N = rSun - rSc;
+    const Eigen::Vector3d r_SB_N = rSun - rSc;
     Eigen::Vector3f r_SB_N_hat = Eigen::Vector3f::Zero();
-    if (r_SB_N.norm() > std::numeric_limits<float>::epsilon()) {
-        r_SB_N_hat = r_SB_N;
+    if (r_SB_N.norm() > std::numeric_limits<double>::epsilon()) {
+        r_SB_N_hat = r_SB_N.cast<float>();
         r_SB_N_hat.normalize();  // in-place unit-length
     }
     // Build DCM from spacecraft attitude
-    const Eigen::Vector3f sigma_BN(scAtt.sigma_BN[0], scAtt.sigma_BN[1], scAtt.sigma_BN[2]);
     const Eigen::Matrix3f dcm_BN = mrpToDcm(sigma_BN);
 
     // Rotate into body frame
@@ -31,9 +27,5 @@ NavAttMsgF32Payload SunlineEphemAlgorithm::updateState(const EphemerisMsgF32Payl
         r_SB_B_hat.setZero();  // explicit zero
     }
 
-    auto outputSunline = NavAttMsgF32Payload{}; /* [-] Output sunline estimate data */
-    for (int i = 0; i < 3; i++) {
-        outputSunline.vehSunPntBdy[i] = r_SB_B_hat[i];
-    }
-    return outputSunline;
+    return r_SB_B_hat;
 }

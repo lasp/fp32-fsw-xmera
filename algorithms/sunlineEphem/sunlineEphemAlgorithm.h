@@ -1,15 +1,13 @@
 #ifndef F32XMERA_SUNLINE_EPHEM_ALGORITHM_H
 #define F32XMERA_SUNLINE_EPHEM_ALGORITHM_H
 
-#include "msgPayloadDef/EphemerisMsgF32Payload.h"
-#include "msgPayloadDef/NavAttMsgF32Payload.h"
-#include "msgPayloadDef/NavTransMsgF32Payload.h"
+#include <Eigen/Core>
 
 class SunlineEphemAlgorithm {
    public:
-    NavAttMsgF32Payload updateState(const EphemerisMsgF32Payload& sunPos,
-                                    const NavTransMsgF32Payload& scPos,
-                                    const NavAttMsgF32Payload& scAtt) const;
+    Eigen::Vector3f updateState(const Eigen::Vector3d& rSun,
+                                const Eigen::Vector3d& rSc,
+                                const Eigen::Vector3f& sigma_BN) const;
 };
 
 #endif
