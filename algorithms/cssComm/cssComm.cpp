@@ -1,5 +1,5 @@
 #include "cssComm.h"
-#include <architecture/utilities/linearAlgebra.h>
+#include <algorithm>
 #include <stdexcept>
 
 /*! This method performs a complete reset of the module.  Local module variables that retain
@@ -20,13 +20,12 @@ void CssComm::reset(uint64_t callTime) {
  @param callTime The clock time at which the function was called (nanoseconds)
  */
 void CssComm::updateState(uint64_t callTime) {
-    double inputValues[MAX_NUM_CSS_SENSORS]; /* [-] Current measured CSS value for the constellation of CSS sensor */
-
-    CSSArraySensorMsgPayload outputBuffer = {};
+    std::array<double, MAX_NUM_CSS_SENSORS> inputValues{}; /* [-] Current measured CSS value for the constellation of CSS sensors */
+    std::array<double, MAX_NUM_CSS_SENSORS> outputValues{};
 
     // read sensor list input msg
     CSSArraySensorMsgPayload inMsgBuffer = this->sensorListInMsg();
-    vCopy(inMsgBuffer.CosValue, MAX_NUM_CSS_SENSORS, inputValues);
+    std::ranges::copy(std::ranges::begin(inMsgBuffer.CosValue), std::ranges::end(inMsgBuffer.CosValue), inputValues.begin());
 
     /*! - Loop over the sensors and compute data
          -# Check appropriate range on sensor and calibrate
@@ -37,12 +36,12 @@ void CssComm::updateState(uint64_t callTime) {
          -# If sensor output range is incorrect, set output value to zero
      */
     for (uint32_t i = 0; i < this->numSensors; ++i) {
-        outputBuffer.CosValue[i] = (float)inputValues[i] / this->maxSensorValue; /* Scale Sensor Data */
+        outputValues[i] = (float)inputValues[i] / this->maxSensorValue; /* Scale Sensor Data */
 
         /* Seed the polynomial computations */
-        const double ValueMult = 2.0 * outputBuffer.CosValue[i];
+        const double ValueMult = 2.0 * outputValues[i];
         double ChebyPrev = 1.0;
-        double ChebyNow = outputBuffer.CosValue[i];
+        double ChebyNow = outputValues[i];
         double ChebyDiffFactor{};
         ChebyDiffFactor = this->chebyCount > 0 ? ChebyPrev * this->chebyPolynomials[0]
                                                : ChebyDiffFactor; /* if only first order correction */
@@ -57,14 +56,17 @@ void CssComm::updateState(uint64_t callTime) {
             ChebyDiffFactor += this->chebyPolynomials[j] * ChebyNow;
         }
 
-        outputBuffer.CosValue[i] = outputBuffer.CosValue[i] + ChebyDiffFactor;
+        outputValues[i] = outputValues[i] + ChebyDiffFactor;
 
-        if (outputBuffer.CosValue[i] > 1.0) {
-            outputBuffer.CosValue[i] = 1.0;
-        } else if (outputBuffer.CosValue[i] < 0.0) {
-            outputBuffer.CosValue[i] = 0.0;
+        if (outputValues[i] > 1.0) {
+            outputValues[i] = 1.0;
+        } else if (outputValues[i] < 0.0) {
+            outputValues[i] = 0.0;
         }
     }
+
+    CSSArraySensorMsgPayload outputBuffer{};
+    std::ranges::copy(outputValues, outputBuffer.CosValue);
 
     /*! - Write aggregate output into output message */
     this->cssArrayOutMsg.write(&outputBuffer, this->moduleID, callTime);
