@@ -39,7 +39,7 @@ void CssComm::updateState(uint64_t callTime) {
              - Output is base value plus the correction factor
          -# If sensor output range is incorrect, set output value to zero
      */
-    for (i = 0; i < this->numSensors; i++) {
+    for (i = 0; i < this->numSensors; ++i) {
         outputBuffer.CosValue[i] = (float)inputValues[i] / this->maxSensorValue; /* Scale Sensor Data */
 
         /* Seed the polynomial computations */
@@ -53,7 +53,7 @@ void CssComm::updateState(uint64_t callTime) {
                                                : ChebyDiffFactor; /* if higher order (> first) corrections */
 
         /* Loop over remaining polynomials and add in values */
-        for (j = 2; j < this->chebyCount; j = j + 1) {
+        for (j = 2; j < this->chebyCount; ++j) {
             ChebyLocalPrev = ChebyNow;
             ChebyNow = ValueMult * ChebyNow - ChebyPrev;
             ChebyPrev = ChebyLocalPrev;
