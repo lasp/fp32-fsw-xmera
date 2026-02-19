@@ -1,26 +1,17 @@
-/*
- MIT License
-
- Copyright (c) 2025, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
- */
-
-#ifndef F32XIMERA_NAV_AGGREGATE_ALGORITHM_H
-#define F32XIMERA_NAV_AGGREGATE_ALGORITHM_H
+#ifndef F32_XMERA_NAV_AGGREGATE_ALGORITHM_H
+#define F32_XMERA_NAV_AGGREGATE_ALGORITHM_H
 
 #include <stdint.h>
 
+#include "navAggregateOutput.h"
 #include <array>
 
-#include "msgPayloadDef/NavAttMsgF32Payload.h"
-#include "msgPayloadDef/NavTransMsgF32Payload.h"
-#include "navAggregateOutput.h"
-
-#define MAX_AGG_NAV_MSG 10
+#define MAX_AGG_NAV_MSG 10U
 
 class NavAggregateAlgorithm {
    public:
-    AggregateOutput update(std::array<NavAttMsgF32Payload, MAX_AGG_NAV_MSG> attMsgsPayloads,
-                           std::array<NavTransMsgF32Payload, MAX_AGG_NAV_MSG> transMsgsPayloads);
+    AggregateOutput update(std::array<InputNavAttData, MAX_AGG_NAV_MSG> attInputs,
+                           std::array<InputNavTransData, MAX_AGG_NAV_MSG> transInputs) const;
     void setAttTimeIdx(uint32_t idx);
     uint32_t getAttTimeIdx() const;
     void setTransTimeIdx(uint32_t idx);

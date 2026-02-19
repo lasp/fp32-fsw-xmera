@@ -1,60 +1,41 @@
-/*
- MIT License
-
- Copyright (c) 2025, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
- */
-
 #include "navAggregateAlgorithm.h"
 
 #include "../freestandingInvalidArgument.h"
-#include <stdio.h>
-
-/**
- * @brief Copy a 3x1 vector.
- * @param v The vector to be copied.
- * @param result The vector copy.
- */
-template <typename ScalarT>
-static void v3Copy(ScalarT const v[3], ScalarT result[3]) {
-    result[0] = v[0];
-    result[1] = v[1];
-    result[2] = v[2];
-}
+#include <algorithm>
 
 /*! This method takes the navigation message snippets created by the various
     navigation components in the FSW and aggregates them into a single complete
     navigation message.
- @return void
- @param attMsgsPayloads Aggregated attitude navigation messages
- @param transMsgsPayloads Aggregated translational navigation messages
+ @return AggregateOutput attitude navigation and translation navigation output
+ @param attInputs Aggregated attitude navigation inputs
+ @param transInputs Aggregated translational navigation inputs
  */
-AggregateOutput NavAggregateAlgorithm::update(std::array<NavAttMsgF32Payload, MAX_AGG_NAV_MSG> attMsgsPayloads,
-                                              std::array<NavTransMsgF32Payload, MAX_AGG_NAV_MSG> transMsgsPayloads) {
-    NavAttMsgF32Payload navAttOutMsgPayload{}; /* [-] local storage of the outgoing attitude navigation message data*/
-    NavTransMsgF32Payload
-        navTransOutMsgPayload{}; /* [-] local storage of the outgoing translation navigation message data*/
-    AggregateOutput navAggregateOut{};
+AggregateOutput NavAggregateAlgorithm::update(std::array<InputNavAttData, MAX_AGG_NAV_MSG> attInputs,
+                                              std::array<InputNavTransData, MAX_AGG_NAV_MSG> transInputs) const {
+    InputNavAttData navAttOutput{};     /* [-] local storage of the outgoing attitude navigation data*/
+    InputNavTransData navTransOutput{}; /* [-] local storage of the outgoing translation navigation data*/
 
     /*! - check that attitude navigation messages are present */
-    if (this->attMsgCount) {
+    if (this->attMsgCount > 0U) {
         /*! - Copy out each part of the attitude source message into the target output message*/
-        navAttOutMsgPayload.timeTag = attMsgsPayloads[this->attTimeIdx].timeTag;
-        v3Copy(attMsgsPayloads[this->attIdx].sigma_BN, navAttOutMsgPayload.sigma_BN);
-        v3Copy(attMsgsPayloads[this->rateIdx].omega_BN_B, navAttOutMsgPayload.omega_BN_B);
-        v3Copy(attMsgsPayloads[this->sunIdx].vehSunPntBdy, navAttOutMsgPayload.vehSunPntBdy);
+        navAttOutput.timeTag = attInputs.at(this->attTimeIdx).timeTag;
+        navAttOutput.sigma_BN = attInputs.at(this->attIdx).sigma_BN;
+        navAttOutput.omega_BN_B = attInputs.at(this->rateIdx).omega_BN_B;
+        navAttOutput.vehSunPntBdy = attInputs.at(this->sunIdx).vehSunPntBdy;
     }
 
     /*! - check that translation navigation messages are present */
-    if (this->transMsgCount) {
+    if (this->transMsgCount > 0U) {
         /*! - Copy out each part of the translation source message into the target output message*/
-        navTransOutMsgPayload.timeTag = transMsgsPayloads[this->transTimeIdx].timeTag;
-        v3Copy(transMsgsPayloads[this->posIdx].r_BN_N, navTransOutMsgPayload.r_BN_N);
-        v3Copy(transMsgsPayloads[this->velIdx].v_BN_N, navTransOutMsgPayload.v_BN_N);
-        v3Copy(transMsgsPayloads[this->dvIdx].vehAccumDV, navTransOutMsgPayload.vehAccumDV);
+        navTransOutput.timeTag = transInputs.at(this->transTimeIdx).timeTag;
+        navTransOutput.r_BN_N = transInputs.at(this->posIdx).r_BN_N;
+        navTransOutput.v_BN_N = transInputs.at(this->velIdx).v_BN_N;
+        navTransOutput.vehAccumDV = transInputs.at(this->dvIdx).vehAccumDV;
     }
 
-    navAggregateOut.navAttOut = navAttOutMsgPayload;
-    navAggregateOut.navTransOut = navTransOutMsgPayload;
+    AggregateOutput navAggregateOut{};
+    navAggregateOut.navAttOut = navAttOutput;
+    navAggregateOut.navTransOut = navTransOutput;
 
     return navAggregateOut;
 }
@@ -63,16 +44,9 @@ AggregateOutput NavAggregateAlgorithm::update(std::array<NavAttMsgF32Payload, MA
  * @brief Set the attitude time index.
  * @param idx The new attitude time index to set.
  */
-void NavAggregateAlgorithm::setAttTimeIdx(uint32_t idx) {
+void NavAggregateAlgorithm::setAttTimeIdx(const uint32_t idx) {
     if (idx >= MAX_AGG_NAV_MSG) {
-        char msg[128];
-        snprintf(msg,
-                 128,
-                 "attTimeIdx (%u) must be less than maximum navAggregate "
-                 "message size (%d)",
-                 idx,
-                 MAX_AGG_NAV_MSG);
-        FS_THROW_INVALID_ARGUMENT(msg);
+        FS_THROW_INVALID_ARGUMENT("attTimeIdx must be less than maximum navAggregate message count.");
     }
     this->attTimeIdx = idx;
 }
@@ -87,16 +61,9 @@ uint32_t NavAggregateAlgorithm::getAttTimeIdx() const { return this->attTimeIdx;
  * @brief Set the translation time index.
  * @param idx The new translation time index to set.
  */
-void NavAggregateAlgorithm::setTransTimeIdx(uint32_t idx) {
+void NavAggregateAlgorithm::setTransTimeIdx(const uint32_t idx) {
     if (idx >= MAX_AGG_NAV_MSG) {
-        char msg[128];
-        snprintf(msg,
-                 128,
-                 "transTimeIdx (%u) must be less than maximum navAggregate "
-                 "message size (%d)",
-                 idx,
-                 MAX_AGG_NAV_MSG);
-        FS_THROW_INVALID_ARGUMENT(msg);
+        FS_THROW_INVALID_ARGUMENT("transTimeIdx must be less than maximum navAggregate message count.");
     }
     this->transTimeIdx = idx;
 }
@@ -111,16 +78,9 @@ uint32_t NavAggregateAlgorithm::getTransTimeIdx() const { return this->transTime
  * @brief Set the attitude index.
  * @param idx The new attitude index to set.
  */
-void NavAggregateAlgorithm::setAttIdx(uint32_t idx) {
+void NavAggregateAlgorithm::setAttIdx(const uint32_t idx) {
     if (idx >= MAX_AGG_NAV_MSG) {
-        char msg[128];
-        snprintf(msg,
-                 128,
-                 "attIdx (%u) must be less than maximum navAggregate "
-                 "message size (%d)",
-                 idx,
-                 MAX_AGG_NAV_MSG);
-        FS_THROW_INVALID_ARGUMENT(msg);
+        FS_THROW_INVALID_ARGUMENT("attIdx must be less than maximum navAggregate message count.");
     }
     this->attIdx = idx;
 }
@@ -135,16 +95,9 @@ uint32_t NavAggregateAlgorithm::getAttIdx() const { return this->attIdx; }
  * @brief Set the rate index.
  * @param idx The new rate index to set.
  */
-void NavAggregateAlgorithm::setRateIdx(uint32_t idx) {
+void NavAggregateAlgorithm::setRateIdx(const uint32_t idx) {
     if (idx >= MAX_AGG_NAV_MSG) {
-        char msg[128];
-        snprintf(msg,
-                 128,
-                 "rateIdx (%u) must be less than maximum navAggregate "
-                 "message size (%d)",
-                 idx,
-                 MAX_AGG_NAV_MSG);
-        FS_THROW_INVALID_ARGUMENT(msg);
+        FS_THROW_INVALID_ARGUMENT("rateIdx must be less than maximum navAggregate message count.");
     }
     this->rateIdx = idx;
 }
@@ -159,16 +112,9 @@ uint32_t NavAggregateAlgorithm::getRateIdx() const { return this->rateIdx; }
  * @brief Set the position index.
  * @param idx The new position index to set.
  */
-void NavAggregateAlgorithm::setPosIdx(uint32_t idx) {
+void NavAggregateAlgorithm::setPosIdx(const uint32_t idx) {
     if (idx >= MAX_AGG_NAV_MSG) {
-        char msg[128];
-        snprintf(msg,
-                 128,
-                 "posIdx (%u) must be less than maximum navAggregate "
-                 "message size (%d)",
-                 idx,
-                 MAX_AGG_NAV_MSG);
-        FS_THROW_INVALID_ARGUMENT(msg);
+        FS_THROW_INVALID_ARGUMENT("posIdx must be less than maximum navAggregate message count.");
     }
     this->posIdx = idx;
 }
@@ -183,16 +129,9 @@ uint32_t NavAggregateAlgorithm::getPosIdx() const { return this->posIdx; }
  * @brief Set the velocity index.
  * @param idx The new velocity index to set.
  */
-void NavAggregateAlgorithm::setVelIdx(uint32_t idx) {
+void NavAggregateAlgorithm::setVelIdx(const uint32_t idx) {
     if (idx >= MAX_AGG_NAV_MSG) {
-        char msg[128];
-        snprintf(msg,
-                 128,
-                 "velIdx (%u) must be less than maximum navAggregate "
-                 "message size (%d)",
-                 idx,
-                 MAX_AGG_NAV_MSG);
-        FS_THROW_INVALID_ARGUMENT(msg);
+        FS_THROW_INVALID_ARGUMENT("velIdx must be less than maximum navAggregate message count.");
     }
     this->velIdx = idx;
 }
@@ -207,16 +146,9 @@ uint32_t NavAggregateAlgorithm::getVelIdx() const { return this->velIdx; }
  * @brief Set the accumulated DV index.
  * @param idx The new accumulated DV index to set.
  */
-void NavAggregateAlgorithm::setDvIdx(uint32_t idx) {
+void NavAggregateAlgorithm::setDvIdx(const uint32_t idx) {
     if (idx >= MAX_AGG_NAV_MSG) {
-        char msg[128];
-        snprintf(msg,
-                 128,
-                 "dvIdx (%u) must be less than maximum navAggregate "
-                 "message size (%d)",
-                 idx,
-                 MAX_AGG_NAV_MSG);
-        FS_THROW_INVALID_ARGUMENT(msg);
+        FS_THROW_INVALID_ARGUMENT("dvIdx must be less than maximum navAggregate message count.");
     }
     this->dvIdx = idx;
 }
@@ -231,16 +163,9 @@ uint32_t NavAggregateAlgorithm::getDvIdx() const { return this->dvIdx; }
  * @brief Set the sun index.
  * @param idx The new sun index to set.
  */
-void NavAggregateAlgorithm::setSunIdx(uint32_t idx) {
+void NavAggregateAlgorithm::setSunIdx(const uint32_t idx) {
     if (idx >= MAX_AGG_NAV_MSG) {
-        char msg[128];
-        snprintf(msg,
-                 128,
-                 "attMsgCount (%u) must be less than maximum navAggregate "
-                 "message size (%d)",
-                 idx,
-                 MAX_AGG_NAV_MSG);
-        FS_THROW_INVALID_ARGUMENT(msg);
+        FS_THROW_INVALID_ARGUMENT("sunIdx must be less than maximum navAggregate message count.");
     }
     this->sunIdx = idx;
 }
@@ -255,16 +180,9 @@ uint32_t NavAggregateAlgorithm::getSunIdx() const { return this->sunIdx; }
  * @brief Set the attitude message count.
  * @param msgCount The new attitude message count to set.
  */
-void NavAggregateAlgorithm::setAttMsgCount(uint32_t msgCount) {
+void NavAggregateAlgorithm::setAttMsgCount(const uint32_t msgCount) {
     if (msgCount > MAX_AGG_NAV_MSG) {
-        char msg[128];
-        snprintf(msg,
-                 128,
-                 "attMsgCount (%u) must be less than maximum navAggregate "
-                 "message size (%d)",
-                 msgCount,
-                 MAX_AGG_NAV_MSG);
-        FS_THROW_INVALID_ARGUMENT(msg);
+        FS_THROW_INVALID_ARGUMENT("attMsgCount must be less than or equal to maximum navAggregate message count.");
     }
     this->attMsgCount = msgCount;
 }
@@ -279,16 +197,9 @@ uint32_t NavAggregateAlgorithm::getAttMsgCount() const { return this->attMsgCoun
  * @brief Set the translational message count.
  * @param msgCount The new translational message count to set.
  */
-void NavAggregateAlgorithm::setTransMsgCount(uint32_t msgCount) {
+void NavAggregateAlgorithm::setTransMsgCount(const uint32_t msgCount) {
     if (msgCount > MAX_AGG_NAV_MSG) {
-        char msg[128];
-        snprintf(msg,
-                 128,
-                 "transMsgCount (%u) must be less than maximum navAggregate "
-                 "message size (%d)",
-                 msgCount,
-                 MAX_AGG_NAV_MSG);
-        FS_THROW_INVALID_ARGUMENT(msg);
+        FS_THROW_INVALID_ARGUMENT("transMsgCount must be less than or equal to maximum navAggregate message count.");
     }
     this->transMsgCount = msgCount;
 }

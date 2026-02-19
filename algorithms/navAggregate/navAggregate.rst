@@ -1,16 +1,12 @@
-==============================
-Navigation Aggregate
-==============================
+.. raw:: latex
 
-====================
-Module Description
-====================
+    {\LARGE \textbf{navAggregate}}
 
 Introduction
 ============
 The ``navAggregate`` flight software module combines multiple input navigation messages from different sources such as star trackers, EKF outputs, coarse sun sensors, and then combine them into a single attitude and translation navigation messages.
 
-Each navigation source can have a full or partial set of navigation input fields. For attitude navigation, the input fields are time tag, attitude state, angular rate, and sun direction vector, while the translation navigation includes inputs of time tag, position, velocity, and accumulated ΔV.
+Each navigation source can have a full or partial set of navigation input fields. For attitude navigation, the input fields are time tag, attitude state, angular rate, and sun direction vector, while the translation navigation includes inputs of time tag, position, velocity, and accumulated :math:`\Delta V`.
 
 Since different modules can produce similar navigation quantities, the user can choose which module is trusted the most for each field. This allows for a uniform solution that combines most reliable inputs of each field.
 
@@ -26,7 +22,7 @@ Module Input/Output Messages
 The following table lists all the module input and output messages. The module msg connection is set by the user from python. The msg type contains a link to the message structure definition, while the description provides information on what this message is used for.
 
 .. list-table:: Module I/O Messages
-   :widths: 15 30 60
+   :widths: 30 30 60
    :header-rows: 1
 
    * - **Msg Variable Name**
@@ -48,6 +44,84 @@ The following table lists all the module input and output messages. The module m
      - :ref:`NavTransMsgF32Payload`
      - Output message containing the blended translation navigation message.
 
+Module Parameters
+=================
+The following table lists all the module parameters than can be set. The parameters are optional unless indicated
+(if not specified default is used).
+
+.. list-table:: Module Parameters
+    :widths: 30 30 10 10 30 30
+    :header-rows: 1
+
+    * - Parameter Name
+      - Type
+      - Units
+      - Default
+      - Description
+      - Bounds
+    * - attTimeIdx
+      - uint32_t
+      - [-]
+      - 0
+      - index of message to use for attitude message time
+      - attTimeIdx < MAX_AGG_NAV_MSG (checked in setter)
+    * - transTimeIdx
+      - uint32_t
+      - [-]
+      - 0
+      - index of message to use for translation message time
+      - transTimeIdx < MAX_AGG_NAV_MSG (checked in setter)
+    * - attIdx
+      - uint32_t
+      - [-]
+      - 0
+      - index of message to use for inertial MRP ``sigma_BN``
+      - attIdx < MAX_AGG_NAV_MSG (checked in setter)
+    * - rateIdx
+      - uint32_t
+      - [-]
+      - 0
+      - index of message to use for attitude rate ``omega_BN_B``
+      - rateIdx < MAX_AGG_NAV_MSG (checked in setter)
+    * - posIdx
+      - uint32_t
+      - [-]
+      - 0
+      - index of message to use for inertial position ``r_BN_N``
+      - posIdx < MAX_AGG_NAV_MSG (checked in setter)
+    * - velIdx
+      - uint32_t
+      - [-]
+      - 0
+      - index of message to use for inertial velocity ``v_BN_N``
+      - velIdx < MAX_AGG_NAV_MSG (checked in setter)
+    * - dvIdx
+      - uint32_t
+      - [-]
+      - 0
+      - index of message to use for accumulated :math:`\Delta V`
+      - dvIdx < MAX_AGG_NAV_MSG (checked in setter)
+    * - sunIdx
+      - uint32_t
+      - [-]
+      - 0
+      - index of message to use for sun direction in body frame
+      - sunIdx < MAX_AGG_NAV_MSG (checked in setter)
+    * - attMsgCount
+      - uint32_t
+      - [-]
+      - 0
+      - total number of attitude messages available as inputs
+      - attMsgCount :math:`\le` MAX_AGG_NAV_MSG (checked in setter)
+    * - transMsgCount
+      - uint32_t
+      - [-]
+      - 0
+      - total number of translational messages available as inputs
+      - transMsgCount :math:`\le` MAX_AGG_NAV_MSG (checked in setter)
+
+Where ``MAX_AGG_NAV_MSG`` is equal to 10.
+
 Algorithm Flow
 ==============
 At every update cycle, the ``navAggregate`` module performs the following steps:
@@ -62,7 +136,7 @@ Controller Functions
 Below is a list of functions that this flight software module performs:
 - Store multiple attitude ``attMsgs[]`` and translational ``transMsgs[]`` navigation message inputs, such that the module can access them at every update cycle.
 - Read the latest data of both navigation messages and store them in a local array ``msgStorage``.
-- Assign for each navigation message field (time tag, MRPs, angular rate, sun vector, position, velocity, ΔV) which index will fulfill it based on what the user defined.
+- Assign for each navigation message field (time tag, MRPs, angular rate, sun vector, position, velocity, :math:`\Delta V`) which index will fulfill it based on what the user defined.
 - A single aggregated output message will be constructed for each of attitude and translational navigation messages.
 - The two blended navigation messages will then be written and sent to the output to be handled by the downstream FSW modules.
 - In case the ``attMsgCount`` or ``transMsgCount`` was set to zero by the user, the output navigation message will stay zero.
@@ -70,6 +144,7 @@ Below is a list of functions that this flight software module performs:
 Module Assumptions and Limitations
 ======================================
 
+- The module assumes that all upstream modules run at the same frequency as the navAggregate module, such that all messages have the same ``timeTag``.
 - The number of navigation message inputs should not exceed the value assigned for ``MAX_AGG_NAV_MSG``, which is 10 by default from the header file.
 - The user must correctly define the value of ``attMsgCount`` and ``transMsgCount`` to ensure a valid number of input messages.
 - The module does not account for the correctness of the input's reference frame. The user must ensure that all inputs are frame consistent before entering the ``navAggregate`` module.
