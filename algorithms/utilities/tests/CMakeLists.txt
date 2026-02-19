@@ -10,17 +10,17 @@ target_link_libraries(test_validateInertia PRIVATE
 
 gtest_discover_tests(test_validateInertia)
 
-add_executable(test_safeMathFloat
-  test_safeMathFloat.cpp
+add_executable(test_safeMath
+        test_safeMath.cpp
 )
 
-target_include_directories(test_safeMathFloat PRIVATE "..")
+target_include_directories(test_safeMath PRIVATE "..")
 
-target_link_libraries(test_safeMathFloat PRIVATE
+target_link_libraries(test_safeMath PRIVATE
     GTest::gtest_main
 )
 
-gtest_discover_tests(test_safeMathFloat)
+gtest_discover_tests(test_safeMath)
 
 add_executable(test_orbitalMotion_degenerate
   test_orbitalMotion_degenerate.cpp
@@ -55,18 +55,18 @@ if(XMERA_ENABLE_FUZZTESTS)
       LABELS "fuzz\;fuzz-smoke"
   )
 
-  add_executable(test_safeMathFloat_fuzz
-    test_safeMathFloat_fuzz.cpp
+  add_executable(test_safeMath_fuzz
+          test_safeMath_fuzz.cpp
   )
 
-  target_include_directories(test_safeMathFloat_fuzz PRIVATE "..")
+  target_include_directories(test_safeMath_fuzz PRIVATE "..")
 
-  target_link_libraries(test_safeMathFloat_fuzz PRIVATE
+  target_link_libraries(test_safeMath_fuzz PRIVATE
     fuzztest::fuzztest
     fuzztest::fuzztest_gtest_main
   )
 
-  gtest_discover_tests(test_safeMathFloat_fuzz
+  gtest_discover_tests(test_safeMath_fuzz
     PROPERTIES
       LABELS "fuzz\;fuzz-smoke"
   )
