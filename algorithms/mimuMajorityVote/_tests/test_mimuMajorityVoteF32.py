@@ -34,7 +34,7 @@ def test_mimu_majority_vote_nominal():
     expected_angular_velocity += angular_velocity_3
     expected_angular_velocity /= 3.0
     expected_output_fault = False
-    expected_output_fault_index = -1
+    expected_valid_imus = [True, True, True, False]
 
     run_test(
         angular_velocity_1,
@@ -43,7 +43,7 @@ def test_mimu_majority_vote_nominal():
         omega_threshold_rad_per_sec,
         expected_angular_velocity,
         expected_output_fault,
-        expected_output_fault_index,
+        expected_valid_imus,
     )
 
 
@@ -73,7 +73,7 @@ def test_mimu_majority_vote_off_nominal():
     expected_angular_velocity += angular_velocity_3
     expected_angular_velocity /= 2.0
     expected_output_fault = True
-    expected_output_fault_index = 1
+    expected_valid_imus = [True, False, True, False]
 
     run_test(
         angular_velocity_1,
@@ -82,7 +82,7 @@ def test_mimu_majority_vote_off_nominal():
         omega_threshold_rad_per_sec,
         expected_angular_velocity,
         expected_output_fault,
-        expected_output_fault_index,
+        expected_valid_imus,
     )
 
 
@@ -93,7 +93,7 @@ def run_test(
     omega_threshold_rad_per_sec,
     expected_angular_velocity,
     expected_output_fault,
-    expected_output_fault_index,
+    expected_valid_imus,
 ):
 
     unit_task_name = "unitTask"
@@ -110,6 +110,7 @@ def run_test(
     module.modelTag = "mimuMajorityVote"
 
     module.omegaThreshold = omega_threshold_rad_per_sec
+    module.numberOfImus = 3
 
     unit_test_sim.AddModelToTask(unit_task_name, module)
 
@@ -150,13 +151,13 @@ def run_test(
 
     module_output_angular_velocity = rate_data_log.AngVelBody
     module_output_fault = fault_data_log.faultDetected
-    module_output_fault_index = fault_data_log.mimuIndexFaulted
+    module_output_valid_imus = fault_data_log.validImus
 
     np.testing.assert_allclose(
         module_output_angular_velocity[-1], expected_angular_velocity, rtol=0, atol=1e-7, verbose=True
     )
     np.testing.assert_allclose(module_output_fault[-1], expected_output_fault, verbose=True)
-    np.testing.assert_allclose(module_output_fault_index[-1], expected_output_fault_index, verbose=True)
+    np.testing.assert_array_equal(module_output_valid_imus[-1], expected_valid_imus)
     np.testing.assert_allclose(module.omegaThreshold, omega_threshold_rad_per_sec, rtol=0, atol=1e-7, verbose=True)
 
 

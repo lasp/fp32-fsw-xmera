@@ -22,14 +22,18 @@ void MimuMajorityVote::updateState(uint64_t const callTime) {
         imuInputs.at(index).angVelBody = cArrayToEigenVector(payload.AngVelBody);
     }
 
-    auto output = this->algorithm.update(imuInputs);
+    MimuMajorityVoteOutput output = this->algorithm.update(imuInputs);
 
     // Convert algorithm output to message payloads
     IMUSensorBodyMsgF32Payload imuOutPayload{};
     eigenVectorToCArray(output.avgAngVelBody, imuOutPayload.AngVelBody);
 
-    MimuFaultMsgPayload faultPayload{.faultDetected = output.faultDetected,
-                                     .mimuIndexFaulted = output.mimuIndexFaulted};
+    MimuFaultMsgPayload faultPayload{};
+    faultPayload.faultDetected = output.faultDetected;
+    for (size_t i = 0U; i < static_cast<size_t>(MAX_IMU_VEH_COUNT); ++i) {
+        faultPayload.validImus[i] = output.validImus.at(i);
+        faultPayload.omegaDifferencesMag[i] = output.omegaDifferencesMag.at(i);
+    }
 
     this->imuSensorBodyOutMsg.write(&imuOutPayload, this->moduleID, callTime);
     this->mimuFaultMsg.write(&faultPayload, this->moduleID, callTime);
