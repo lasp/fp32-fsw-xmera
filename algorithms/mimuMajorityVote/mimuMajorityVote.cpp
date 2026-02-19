@@ -3,27 +3,33 @@
 #include "architecture/utilities/eigenSupport.h"
 
 void MimuMajorityVote::reset(uint64_t const callTime) {
-    // check if at least 3 imus have been connected
-    if (this->numberOfImus < 3U) {
-        throw std::invalid_argument("You need at least 3 imus for majority vote.");
+    if (this->algorithm.getNumberOfImus() == 0U) {
+        throw std::invalid_argument("Expected number of IMUs has not been configured; call setNumberOfImus().");
+    }
+    if (this->actualNumberOfImus != this->algorithm.getNumberOfImus()) {
+        throw std::invalid_argument(
+            "Number of connected IMU messages does not match the configured expected number of IMUs.");
     }
 }
 
 void MimuMajorityVote::updateState(uint64_t const callTime) {
+    size_t const numImus = this->algorithm.getNumberOfImus();
+
     // Convert message payloads to algorithm input type
     std::array<MimuInput, MAX_IMU_VEH_COUNT> imuInputs = {};
-    for (size_t index = 0U; index < this->numberOfImus; ++index) {
+    for (size_t index = 0U; index < numImus; ++index) {
         auto payload = this->imuMessages.at(index).imuSensorBodyInMsg();
         imuInputs.at(index).angVelBody = cArrayToEigenVector(payload.AngVelBody);
     }
 
-    auto [avgAngVelBody, faultDetected, mimuIndexFaulted] = this->algorithm.update(imuInputs, this->numberOfImus);
+    auto output = this->algorithm.update(imuInputs);
 
     // Convert algorithm output to message payloads
     IMUSensorBodyMsgF32Payload imuOutPayload{};
-    eigenVectorToCArray(avgAngVelBody, imuOutPayload.AngVelBody);
+    eigenVectorToCArray(output.avgAngVelBody, imuOutPayload.AngVelBody);
 
-    MimuFaultMsgPayload faultPayload{.faultDetected = faultDetected, .mimuIndexFaulted = mimuIndexFaulted};
+    MimuFaultMsgPayload faultPayload{.faultDetected = output.faultDetected,
+                                     .mimuIndexFaulted = output.mimuIndexFaulted};
 
     this->imuSensorBodyOutMsg.write(&imuOutPayload, this->moduleID, callTime);
     this->mimuFaultMsg.write(&faultPayload, this->moduleID, callTime);
@@ -31,8 +37,8 @@ void MimuMajorityVote::updateState(uint64_t const callTime) {
 
 // Add imu to the majority vote module
 void MimuMajorityVote::addImuInput(const ImuMessage& imu) {
-    this->imuMessages.at(this->numberOfImus) = imu;
-    this->numberOfImus++;
+    this->imuMessages.at(this->actualNumberOfImus) = imu;
+    this->actualNumberOfImus++;
 }
 
 void MimuMajorityVote::setOmegaThreshold(float const omegaThreshold) {
@@ -40,3 +46,7 @@ void MimuMajorityVote::setOmegaThreshold(float const omegaThreshold) {
 }
 
 float MimuMajorityVote::getOmegaThreshold() const { return this->algorithm.getOmegaThreshold(); }
+
+void MimuMajorityVote::setNumberOfImus(size_t const numberOfImusIn) { this->algorithm.setNumberOfImus(numberOfImusIn); }
+
+size_t MimuMajorityVote::getNumberOfImus() const { return this->algorithm.getNumberOfImus(); }

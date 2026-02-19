@@ -23,12 +23,14 @@ class MimuMajorityVote : public SysModel {
     void addImuInput(const ImuMessage& imu);       //!< Method to add imus to the computation
     void setOmegaThreshold(float omegaThreshold);  //!< Setter method for omegaThreshold
     float getOmegaThreshold() const;               //!< Getter method for omegaThreshold
+    void setNumberOfImus(size_t numberOfImusIn);   //!< Setter method for expected number of IMUs
+    size_t getNumberOfImus() const;                //!< Getter method for expected number of IMUs
 
     Message<IMUSensorBodyMsgF32Payload> imuSensorBodyOutMsg;
     Message<MimuFaultMsgPayload> mimuFaultMsg;
 
    private:
-    size_t numberOfImus = 0U;
+    size_t actualNumberOfImus = 0U;
     MimuMajorityVoteAlgorithm algorithm{};
     std::array<ImuMessage, MAX_IMU_VEH_COUNT> imuMessages;
 };
