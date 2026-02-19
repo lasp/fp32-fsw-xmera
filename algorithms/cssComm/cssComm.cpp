@@ -12,8 +12,6 @@ void CssComm::reset(uint64_t callTime) {
     if (!this->sensorListInMsg.isLinked()) {
         throw std::invalid_argument("cssComm.sensorListInMsg wasn't connected.");
     }
-
-    return;
 }
 
 /*! This method takes the raw sensor data from the coarse sun sensors and
@@ -73,8 +71,6 @@ void CssComm::updateState(uint64_t callTime) {
 
     /*! - Write aggregate output into output message */
     this->cssArrayOutMsg.write(&outputBuffer, this->moduleID, callTime);
-
-    return;
 }
 
 /*! Set the number of CSS sensors
