@@ -20,10 +20,7 @@ void CssComm::reset(uint64_t callTime) {
  @param callTime The clock time at which the function was called (nanoseconds)
  */
 void CssComm::updateState(uint64_t callTime) {
-    uint32_t i, j;
     double inputValues[MAX_NUM_CSS_SENSORS]; /* [-] Current measured CSS value for the constellation of CSS sensor */
-    double ChebyDiffFactor, ChebyPrev, ChebyNow, ChebyLocalPrev,
-        ValueMult; /* Parameters used for the Chebyshev Recursion Forumula */
 
     CSSArraySensorMsgPayload outputBuffer = {};
 
@@ -39,22 +36,22 @@ void CssComm::updateState(uint64_t callTime) {
              - Output is base value plus the correction factor
          -# If sensor output range is incorrect, set output value to zero
      */
-    for (i = 0; i < this->numSensors; ++i) {
+    for (uint32_t i = 0; i < this->numSensors; ++i) {
         outputBuffer.CosValue[i] = (float)inputValues[i] / this->maxSensorValue; /* Scale Sensor Data */
 
         /* Seed the polynomial computations */
-        ValueMult = 2.0 * outputBuffer.CosValue[i];
-        ChebyPrev = 1.0;
-        ChebyNow = outputBuffer.CosValue[i];
-        ChebyDiffFactor = 0.0;
+        const double ValueMult = 2.0 * outputBuffer.CosValue[i];
+        double ChebyPrev = 1.0;
+        double ChebyNow = outputBuffer.CosValue[i];
+        double ChebyDiffFactor{};
         ChebyDiffFactor = this->chebyCount > 0 ? ChebyPrev * this->chebyPolynomials[0]
                                                : ChebyDiffFactor; /* if only first order correction */
         ChebyDiffFactor = this->chebyCount > 1 ? ChebyNow * this->chebyPolynomials[1] + ChebyDiffFactor
                                                : ChebyDiffFactor; /* if higher order (> first) corrections */
 
         /* Loop over remaining polynomials and add in values */
-        for (j = 2; j < this->chebyCount; ++j) {
-            ChebyLocalPrev = ChebyNow;
+        for (uint32_t j = 2; j < this->chebyCount; ++j) {
+            double ChebyLocalPrev = ChebyNow;
             ChebyNow = ValueMult * ChebyNow - ChebyPrev;
             ChebyPrev = ChebyLocalPrev;
             ChebyDiffFactor += this->chebyPolynomials[j] * ChebyNow;
