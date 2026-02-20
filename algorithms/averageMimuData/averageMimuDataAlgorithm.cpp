@@ -2,6 +2,7 @@
 #include "../freestandingInvalidArgument.h"
 #include "architecture/utilities/eigenSupport.h"
 #include "utilities/timeConstants.h"
+#include "utilities/validDcmCheck.h"
 
 #include <algorithm>
 #include <cstdint>
@@ -54,6 +55,11 @@ void AverageMimuDataAlgorithm::setAveragingWindow(float const window) {
 
 float AverageMimuDataAlgorithm::getAveragingWindow() const { return this->averagingWindow; }
 
-void AverageMimuDataAlgorithm::setDcmPltfToBdy(Eigen::Matrix3f const& dcm_BPIn) { this->dcm_BP = dcm_BPIn; }
+void AverageMimuDataAlgorithm::setDcmPltfToBdy(Eigen::Matrix3f const& dcm_BPIn) {
+    if (!isValidDcm(dcm_BPIn)) {
+        FS_THROW_INVALID_ARGUMENT("dcm_BP must be orthonormal with det=+1.");
+    }
+    this->dcm_BP = dcm_BPIn;
+}
 
 Eigen::Matrix3f AverageMimuDataAlgorithm::getDcmPltfToBdy() const { return this->dcm_BP; }
