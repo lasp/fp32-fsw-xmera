@@ -1,7 +1,7 @@
 #include "averageMimuDataTestHelpers.hpp"
 #include <fuzztest/fuzztest.h>
 
-FUZZ_TEST(averageMimuDataFuzz, regressionTestaverageMimuData)
+FUZZ_TEST(averageMimuDataFuzz, regressionTestAverageMimuData)
     .WithDomains(
         fuzztest::InRange<std::size_t>(0U, MAX_ACC_BUF_PKT),
         fuzztest::InRange(0.0F, 1.0F),
