@@ -20,11 +20,11 @@ void AverageMimuData::updateState(uint64_t const callTime) {
     const AccDataMsgF32Payload localPkts = this->accDataInMsg();
 
     InputPktsData in{};
-    for (std::size_t i=0; i<MAX_BUF_PKT; i++){
+    for (std::size_t i = 0; i < MAX_BUF_PKT; i++) {
         const auto& p = localPkts.accPkts[i];
         in.measTime[i] = p.measTime;
-        in.gyro_P[i]   = Eigen::Vector3f(p.gyro_B[0],  p.gyro_B[1],  p.gyro_B[2]);
-        in.accel_P[i]  = Eigen::Vector3f(p.accel_B[0], p.accel_B[1], p.accel_B[2]);
+        in.gyro_P[i] = Eigen::Vector3f(p.gyro_B[0], p.gyro_B[1], p.gyro_B[2]);
+        in.accel_P[i] = Eigen::Vector3f(p.accel_B[0], p.accel_B[1], p.accel_B[2]);
     }
     OutputAverageAccelAnglevel out = this->algorithm.update(in);
     IMUSensorBodyMsgF32Payload localOutput{};
@@ -34,9 +34,9 @@ void AverageMimuData::updateState(uint64_t const callTime) {
     this->imuOutMsg.write(&localOutput, this->moduleID, callTime);
 }
 
-void AverageMimuData::setTimeDelta(float const timeDelta) { this->algorithm.setTimeDelta(timeDelta); }
+void AverageMimuData::setAveragingWindow(float const window) { this->algorithm.setAveragingWindow(window); }
 
-float AverageMimuData::getTimeDelta() const { return this->algorithm.getTimeDelta(); }
+float AverageMimuData::getAveragingWindow() const { return this->algorithm.getAveragingWindow(); }
 
 void AverageMimuData::setDcmPltfToBdy(Eigen::Matrix3f const& dcm_BP) { this->algorithm.setDcmPltfToBdy(dcm_BP); }
 
