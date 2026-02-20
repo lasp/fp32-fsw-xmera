@@ -11,7 +11,8 @@
  *  age is within `averagingWindow` seconds.
  *  @param localPkts AccDataMsgF32Payload : an array of AccPktDataMsgF32Payload, each AccPktDataMsgF32Payload contains
  * (measTime, gyro_P, accel_P).
- *  @return OutputAverageAccelAnglevel : body-frame average (AngVelBody, AccelBody). If no packets are in the window, returns zeros.
+ *  @return OutputAverageAccelAnglevel : body-frame average (AngVelBody, AccelBody). If no packets are in the window,
+ * returns zeros.
  */
 OutputAverageAccelAnglevel AverageMimuDataAlgorithm::update(InputPktsData const& localPkts) const {
     uint64_t maxTimeTag = 0U;
@@ -27,7 +28,7 @@ OutputAverageAccelAnglevel AverageMimuDataAlgorithm::update(InputPktsData const&
         const uint64_t measTime = localPkts.measTime[i];
         // Rolling average with averagingWindow as window width or the maximum buffer size
         if (static_cast<float>(maxTimeTag - measTime) * kNano2SecF <= this->averagingWindow) {
-            gyroSum_P  += localPkts.gyro_P[i];
+            gyroSum_P += localPkts.gyro_P[i];
             accelSum_P += localPkts.accel_P[i];
             measAvgCount++;
         }
@@ -47,7 +48,7 @@ OutputAverageAccelAnglevel AverageMimuDataAlgorithm::update(InputPktsData const&
 }
 
 void AverageMimuDataAlgorithm::setAveragingWindow(float const window) {
-    if(window < 0.0F){
+    if (window < 0.0F) {
         FS_THROW_INVALID_ARGUMENT("AveragingWindow cannot be smaller than 0.0");
     }
     this->averagingWindow = window;
@@ -57,8 +58,7 @@ float AverageMimuDataAlgorithm::getAveragingWindow() const { return this->averag
 
 void AverageMimuDataAlgorithm::setDcmPltfToBdy(Eigen::Matrix3f const& dcm_BPIn) {
     constexpr float tol = 1.0e-4F;
-    const bool ortho_ok =
-        (dcm_BPIn.transpose() * dcm_BPIn).isApprox(Eigen::Matrix3f::Identity(), tol);
+    const bool ortho_ok = (dcm_BPIn.transpose() * dcm_BPIn).isApprox(Eigen::Matrix3f::Identity(), tol);
     const bool det_ok = std::abs(dcm_BPIn.determinant() - 1.0F) <= tol;
     if (!ortho_ok || !det_ok) {
         FS_THROW_INVALID_ARGUMENT("dcm_BP must be orthonormal with det=+1.");

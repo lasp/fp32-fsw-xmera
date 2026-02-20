@@ -7,10 +7,7 @@
 #include <architecture/utilities/macroDefinitions.h>
 #include <gtest/gtest.h>
 
-
-OutputAverageAccelAnglevel referenceUpdate(InputPktsData const& localPkts,
-                        const AverageMimuDataAlgorithm& alg)
-{
+OutputAverageAccelAnglevel referenceUpdate(InputPktsData const& localPkts, const AverageMimuDataAlgorithm& alg) {
     uint64_t maxTimeTag = 0U;
     for (std::size_t i = 0; i < MAX_ACC_BUF_PKT; ++i) {
         maxTimeTag = std::max(localPkts.measTime[i], maxTimeTag);
@@ -25,7 +22,7 @@ OutputAverageAccelAnglevel referenceUpdate(InputPktsData const& localPkts,
 
         // Rolling average with averaging window as window width or the maximum buffer size
         if (static_cast<float>(maxTimeTag - measTime) * NANO2SEC <= alg.getAveragingWindow()) {
-            gyroSum_P  += localPkts.gyro_P[i];
+            gyroSum_P += localPkts.gyro_P[i];
             accelSum_P += localPkts.accel_P[i];
             measAvgCount++;
         }
@@ -56,8 +53,7 @@ struct InputData {
 
 inline void regressionTestAverageMimuData(std::size_t N,
                                           float window,
-                                          std::array<InputData, MAX_ACC_BUF_PKT> const& input)
-{
+                                          std::array<InputData, MAX_ACC_BUF_PKT> const& input) {
     AverageMimuDataAlgorithm alg;
     alg.setDcmPltfToBdy(Eigen::Matrix3f::Identity());
     alg.setAveragingWindow(window);
@@ -71,14 +67,14 @@ inline void regressionTestAverageMimuData(std::size_t N,
     InputPktsData in{};
     for (std::size_t i = 0; i < MAX_ACC_BUF_PKT; ++i) {
         in.measTime[i] = 0U;
-        in.gyro_P[i]   = Eigen::Vector3f::Zero();
-        in.accel_P[i]  = Eigen::Vector3f::Zero();
+        in.gyro_P[i] = Eigen::Vector3f::Zero();
+        in.accel_P[i] = Eigen::Vector3f::Zero();
     }
 
     for (std::size_t i = 0; i < N; ++i) {
         in.measTime[i] = input[i].measTime;
-        in.gyro_P[i]   = toVec3(input[i].gyro_P);
-        in.accel_P[i]  = toVec3(input[i].accel_P);
+        in.gyro_P[i] = toVec3(input[i].gyro_P);
+        in.accel_P[i] = toVec3(input[i].accel_P);
     }
 
     const OutputAverageAccelAnglevel out_alg = alg.update(in);
