@@ -8,35 +8,29 @@
 #include "../freestandingInvalidArgument.h"
 #include "architecture/utilities/eigenSupport.h"
 
-
 /*! This method takes the attitude and rate errors relative to the reference frame, as well as
 the reference frame angular rates and acceleration, and computes the required control torque Lr.
- @return torqueCmdOut
- @param attGuidIn Attitude guidance input
+ @return Eigen::Vector3d control torque Lr
+ @param InputGuidanceData Attitude guidance input
 */
-CmdTorqueBodyMsgF32Payload RateControlAlgorithm::update(AttGuidMsgF32Payload attGuidIn) const {
-    CmdTorqueBodyMsgF32Payload torqueCmdOut{};
-
+Eigen::Vector3f RateControlAlgorithm::update(const InputGuidanceData& attGuidIn) const {
     // Compute required attitude control torque vector
-    const Eigen::Vector3f omega_BR_B = cArrayToEigenVector(attGuidIn.omega_BR_B);
-    const Eigen::Vector3f omega_RN_B = cArrayToEigenVector(attGuidIn.omega_RN_B);
+    const Eigen::Vector3f omega_BR_B = attGuidIn.omega_BR_B;
+    const Eigen::Vector3f omega_RN_B = attGuidIn.omega_RN_B;
     const Eigen::Vector3f omega_BN_B = omega_BR_B + omega_RN_B;
-    const Eigen::Vector3f domega_RN_B = cArrayToEigenVector(attGuidIn.domega_RN_B);
+    const Eigen::Vector3f domega_RN_B = attGuidIn.domega_RN_B;
     const Eigen::Vector3f Lr = -this->P * omega_BR_B + omega_RN_B.cross(this->ISCPntB_B * omega_BN_B) +
                                this->ISCPntB_B * (domega_RN_B - omega_BN_B.cross(omega_RN_B)) -
                                this->knownTorquePntB_B;  // [Nm]
-
-    eigenVectorToCArray(Lr, torqueCmdOut.torqueRequestBody);
-
-    return torqueCmdOut;
+    return Lr;
 }
 
 /*! This method sets the spacecraft inertia according to the vehicle configuration input message
  @return void
- @param vehicleConfigIn Vehicle config input
+ @param spacecraftInertia spacecraft inertia
 */
-void RateControlAlgorithm::setSpacecraftInertia(VehicleConfigMsgF32Payload vehicleConfigIn) {
-    this->ISCPntB_B = cArrayToEigenMatrix3(vehicleConfigIn.ISCPntB_B);
+void RateControlAlgorithm::setSpacecraftInertia(const Eigen::Matrix3f& spacecraftInertia) {
+    this->ISCPntB_B = spacecraftInertia;
 }
 
 /*! Setter method for the derivative gain P.
