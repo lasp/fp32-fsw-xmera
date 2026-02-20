@@ -193,6 +193,7 @@ inline void testSetupaverageMimuData() {
     AverageMimuDataAlgorithm alg;
 
     // 1) Setters should not throw
+    EXPECT_THROW(alg.setTimeDelta(-0.1), fs::invalid_argument);
     EXPECT_NO_THROW(alg.setTimeDelta(0.25f));
     EXPECT_NO_THROW(alg.setDcmPltfToBdy(Eigen::Matrix3f::Identity()));
 

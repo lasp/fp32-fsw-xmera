@@ -1,5 +1,5 @@
 #include "averageMimuDataAlgorithm.h"
-
+#include "../freestandingInvalidArgument.h"
 #include "architecture/utilities/eigenSupport.h"
 #include "utilities/timeConstants.h"
 
@@ -46,7 +46,12 @@ OutputAverageAccelAnglevel AverageMimuDataAlgorithm::update(InputPktsData const&
     return out;
 }
 
-void AverageMimuDataAlgorithm::setTimeDelta(float const timeDeltaIn) { this->timeDelta = timeDeltaIn; }
+void AverageMimuDataAlgorithm::setWindowSec(float const windowSecIn) {
+    if(windowSecIn < 0.0F){
+        FS_THROW_INVALID_ARGUMENT("windowSec cannot be smaller than 0.0");
+    }
+    this->timeDelta = timeDeltaIn;
+}
 
 float AverageMimuDataAlgorithm::getTimeDelta() const { return this->timeDelta; }
 
