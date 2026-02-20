@@ -16,7 +16,7 @@ OutputAverageAccelAnglevel referenceUpdate(InputPktsData const& localPkts,
         maxTimeTag = std::max(localPkts.measTime[i], maxTimeTag);
     }
 
-    Eigen::Vector3f gyroSum_P  = Eigen::Vector3f::Zero();
+    Eigen::Vector3f gyroSum_P = Eigen::Vector3f::Zero();
     Eigen::Vector3f accelSum_P = Eigen::Vector3f::Zero();
     uint64_t measAvgCount = 0U;
 
@@ -33,13 +33,12 @@ OutputAverageAccelAnglevel referenceUpdate(InputPktsData const& localPkts,
 
     OutputAverageAccelAnglevel out{};
     if (measAvgCount > 0U) {
-        const float invCount = 1.0f / static_cast<float>(measAvgCount);
-
-        gyroSum_P *= invCount;
-        accelSum_P *= invCount;
-
-        out.anglevelBody = alg.getDcmPltfToBdy() * gyroSum_P;
-        out.accelBody  = alg.getDcmPltfToBdy() * accelSum_P;
+        gyroSum_P /= static_cast<float>(measAvgCount);
+        Eigen::Vector3f const gyroSum_B = alg.getDcmPltfToBdy() * gyroSum_P;
+        accelSum_P /= static_cast<float>(measAvgCount);
+        Eigen::Vector3f const accelSum_B = alg.getDcmPltfToBdy() * accelSum_P;
+        out.anglevelBody = gyroSum_B;
+        out.accelBody = accelSum_B;
     }
 
     return out;
@@ -103,11 +102,8 @@ inline void regressionTestaverageMimuData(float window,
 
     const OutputAverageAccelAnglevel out_alg = alg.update(in);
     const OutputAverageAccelAnglevel out_ref = referenceUpdate(in, alg);  // <-- update referenceUpdate signature too
-
-    // Use tolerant comparison for floats
-    constexpr float tol = 1e-5f;
-    EXPECT_TRUE(out_alg.anglevelBody.isApprox(out_ref.anglevelBody, tol));
-    EXPECT_TRUE(out_alg.accelBody.isApprox(out_ref.accelBody, tol));
+    EXPECT_EQ(out_alg.anglevelBody, out_ref.anglevelBody);
+    EXPECT_EQ(out_alg.accelBody, out_ref.accelBody);
 }
 
 inline void testKnownSolaverageMimuData() {
@@ -264,8 +260,8 @@ inline void testSetupaverageMimuData() {
     EXPECT_NO_THROW(alg.setDcmPltfToBdy(Eigen::Matrix3f::Identity()));
 
     // 2) Round-trip expectations
-    EXPECT_FLOAT_EQ(alg.getAveragingWindow(), 0.25f);
-    EXPECT_TRUE(alg.getDcmPltfToBdy().isApprox(Eigen::Matrix3f::Identity(), 0.0f));
+    EXPECT_EQ(alg.getAveragingWindow(), 0.25f);
+    EXPECT_EQ(alg.getDcmPltfToBdy(), Eigen::Matrix3f::Identity());
 
     // 3) update() should not throw for a basic input
     InputPktsData in{};
