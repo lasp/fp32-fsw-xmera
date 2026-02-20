@@ -5,11 +5,9 @@
 */
 
 #include "rateControlAlgorithm.h"
-
 #include "../freestandingInvalidArgument.h"
 #include "architecture/utilities/eigenSupport.h"
 
-#include <Eigen/Geometry>
 
 /*! This method takes the attitude and rate errors relative to the reference frame, as well as
 the reference frame angular rates and acceleration, and computes the required control torque Lr.
@@ -45,11 +43,11 @@ void RateControlAlgorithm::setSpacecraftInertia(VehicleConfigMsgF32Payload vehic
  @return void
  @param P [N*m*s] Rate error feedback gain applied
 */
-void RateControlAlgorithm::setDerivativeGainP(const float P) {
-    if (P < 0.0) {
+void RateControlAlgorithm::setDerivativeGainP(const float DerivativeGainP) {
+    if (DerivativeGainP < 0.0) {
         FS_THROW_INVALID_ARGUMENT("Feedback gain P must not be negative");
     }
-    this->P = P;
+    this->P = DerivativeGainP;
 }
 
 /*! Getter method for the derivative gain P.
@@ -61,8 +59,8 @@ float RateControlAlgorithm::getDerivativeGainP() const { return this->P; }
  @return void
  @param knownTorquePntB_B [N*m] Known external torque expressed in body frame components
 */
-void RateControlAlgorithm::setKnownTorquePntB_B(const Eigen::Vector3f& knownTorquePntB_B) {
-    this->knownTorquePntB_B = knownTorquePntB_B;
+void RateControlAlgorithm::setKnownTorquePntB_B(const Eigen::Vector3f& TorquePntB_B) {
+    this->knownTorquePntB_B = TorquePntB_B;
 }
 
 /*! Getter method for the known torque about point B.

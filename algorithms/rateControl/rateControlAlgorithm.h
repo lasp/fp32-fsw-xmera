@@ -17,9 +17,9 @@ class RateControlAlgorithm {
    public:
     CmdTorqueBodyMsgF32Payload update(AttGuidMsgF32Payload attGuidIn) const;
     void setSpacecraftInertia(VehicleConfigMsgF32Payload vehicleConfigIn);
-    void setDerivativeGainP(float P);
+    void setDerivativeGainP(float DerivativeGainP);
     float getDerivativeGainP() const;
-    void setKnownTorquePntB_B(const Eigen::Vector3f& knownTorquePntB_B);
+    void setKnownTorquePntB_B(const Eigen::Vector3f& TorquePntB_B);
     const Eigen::Vector3f& getKnownTorquePntB_B() const;
 
    private:
