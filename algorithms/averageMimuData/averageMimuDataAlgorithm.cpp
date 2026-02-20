@@ -10,24 +10,25 @@
  *  Uses the newest packet time as a reference, then averages all packets whose
  *  age is within `timeDelta` seconds.
  *  @param localPkts AccDataMsgF32Payload : an array of AccPktDataMsgF32Payload, each AccPktDataMsgF32Payload contains
- * (measTime, gyro_B, accel_B).
+ * (measTime, gyro_P, accel_P).
  *  @return OutData : body-frame average (AngVelBody, AccelBody). If no packets are in the window, returns zeros.
  */
-OutData AverageMimuDataAlgorithm::update(AccDataMsgF32Payload const& localPkts) const {
+OutData AverageMimuDataAlgorithm::update(InputPktsData const& localPkts) const {
     uint64_t maxTimeTag = 0U;
-    for (auto const& accPkt : localPkts.accPkts) {
-        maxTimeTag = std::max(accPkt.measTime, maxTimeTag);
+    for (std::size_t i = 0; i < MAX_ACC_BUF_PKT; ++i) {
+        maxTimeTag = std::max(localPkts.measTime[i], maxTimeTag);
     }
 
     Eigen::Vector3f gyroSum_P = Eigen::Vector3f::Zero();
     Eigen::Vector3f accelSum_P = Eigen::Vector3f::Zero();
     uint64_t measAvgCount = 0U;
 
-    for (const auto& [measTime, gyro_B, accel_B] : localPkts.accPkts) {
+    for (std::size_t i = 0; i < MAX_ACC_BUF_PKT; ++i) {
+        const uint64_t measTime = localPkts.measTime[i];
         // Rolling average with timeDelta as window width or the maximum buffer size
         if (static_cast<float>(maxTimeTag - measTime) * kNano2SecF < this->timeDelta) {
-            gyroSum_P += Eigen::Map<const Eigen::Vector3f>(gyro_B);
-            accelSum_P += Eigen::Map<const Eigen::Vector3f>(accel_B);
+            gyroSum_P  += localPkts.gyro_P[i];
+            accelSum_P += localPkts.accel_P[i];
             measAvgCount++;
         }
     }

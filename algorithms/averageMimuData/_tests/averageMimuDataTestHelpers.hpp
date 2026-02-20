@@ -7,50 +7,39 @@
 #include <architecture/utilities/macroDefinitions.h>
 #include <gtest/gtest.h>
 
-inline void pushPkt(AccDataMsgF32Payload& msg,
-                    std::size_t idx,
-                    uint64_t measTime_ns,
-                    Eigen::Vector3f const& gyro,
-                    Eigen::Vector3f const& accel) {
-    auto& pkt = msg.accPkts[idx];
-    pkt.measTime = measTime_ns;
 
-    // Assuming pkt.gyro_B and pkt.accel_B are float[3]
-    pkt.gyro_B[0] = gyro[0];
-    pkt.gyro_B[1] = gyro[1];
-    pkt.gyro_B[2] = gyro[2];
-    pkt.accel_B[0] = accel[0];
-    pkt.accel_B[1] = accel[1];
-    pkt.accel_B[2] = accel[2];
-}
-
-OutData referenceUpdate(AccDataMsgF32Payload const& localPkts, const AverageMimuDataAlgorithm& alg) {
+OutData referenceUpdate(InputPktsData const& localPkts,
+                        const AverageMimuDataAlgorithm& alg)
+{
     uint64_t maxTimeTag = 0U;
-    for (auto const& accPkt : localPkts.accPkts) {
-        maxTimeTag = std::max(accPkt.measTime, maxTimeTag);
+    for (std::size_t i = 0; i < MAX_ACC_BUF_PKT; ++i) {
+        maxTimeTag = std::max(localPkts.measTime[i], maxTimeTag);
     }
 
-    Eigen::Vector3f gyroSum_P = Eigen::Vector3f::Zero();
+    Eigen::Vector3f gyroSum_P  = Eigen::Vector3f::Zero();
     Eigen::Vector3f accelSum_P = Eigen::Vector3f::Zero();
     uint64_t measAvgCount = 0U;
 
-    for (const auto& [measTime, gyro_B, accel_B] : localPkts.accPkts) {
+    for (std::size_t i = 0; i < MAX_ACC_BUF_PKT; ++i) {
+        const uint64_t measTime = localPkts.measTime[i];
+
         // Rolling average with timeDelta as window width or the maximum buffer size
         if (static_cast<float>(maxTimeTag - measTime) * NANO2SEC < alg.getTimeDelta()) {
-            gyroSum_P += Eigen::Map<const Eigen::Vector3f>(gyro_B);
-            accelSum_P += Eigen::Map<const Eigen::Vector3f>(accel_B);
+            gyroSum_P  += localPkts.gyro_P[i];
+            accelSum_P += localPkts.accel_P[i];
             measAvgCount++;
         }
     }
 
     OutData out{};
     if (measAvgCount > 0U) {
-        gyroSum_P /= static_cast<float>(measAvgCount);
-        Eigen::Vector3f const gyroSum_B = alg.getDcmPltfToBdy() * gyroSum_P;
-        accelSum_P /= static_cast<float>(measAvgCount);
-        Eigen::Vector3f const accelSum_B = alg.getDcmPltfToBdy() * accelSum_P;
-        out.AngVelBody = gyroSum_B;
-        out.AccelBody = accelSum_B;
+        const float invCount = 1.0f / static_cast<float>(measAvgCount);
+
+        gyroSum_P *= invCount;
+        accelSum_P *= invCount;
+
+        out.AngVelBody = alg.getDcmPltfToBdy() * gyroSum_P;
+        out.AccelBody  = alg.getDcmPltfToBdy() * accelSum_P;
     }
 
     return out;
@@ -76,11 +65,11 @@ inline void regressionTestaverageMimuData(float timeDelta,
     alg.setDcmPltfToBdy(Eigen::Matrix3f::Identity());
     alg.setTimeDelta(timeDelta);
 
-    AccDataMsgF32Payload msg{};
-    for (auto& pkt : msg.accPkts) {
-        pkt.measTime = 0U;
-        pkt.gyro_B[0] = pkt.gyro_B[1] = pkt.gyro_B[2] = 0.0f;
-        pkt.accel_B[0] = pkt.accel_B[1] = pkt.accel_B[2] = 0.0f;
+    InputPktsData in{};
+    for (std::size_t i = 0; i < MAX_ACC_BUF_PKT; ++i) {
+        in.measTime[i] = 0U;
+        in.gyro_P[i]   = Eigen::Vector3f::Zero();
+        in.accel_P[i]  = Eigen::Vector3f::Zero();
     }
 
     constexpr uint64_t t_ref = SEC2NANO;
@@ -95,13 +84,25 @@ inline void regressionTestaverageMimuData(float timeDelta,
     const Eigen::Vector3f g3 = toVec3(gyro_3);
     const Eigen::Vector3f a3 = toVec3(accel_3);
 
-    pushPkt(msg, 0, t_ref, g0, a0);
-    pushPkt(msg, 1, t_ref - static_cast<uint64_t>(SEC2NANO * time_meas_factor_0), g1, a1);
-    pushPkt(msg, 2, t_ref - static_cast<uint64_t>(SEC2NANO * time_meas_factor_1), g2, a2);
-    pushPkt(msg, 3, t_ref - static_cast<uint64_t>(SEC2NANO * time_meas_factor_2), g3, a3);
+    // Directly assign the first 4 packets
+    in.measTime[0] = t_ref;
+    in.gyro_P[0]   = g0;
+    in.accel_P[0]  = a0;
 
-    const OutData out_alg = alg.update(msg);
-    const OutData out_ref = referenceUpdate(msg, alg);
+    in.measTime[1] = t_ref - static_cast<uint64_t>(SEC2NANO * time_meas_factor_0);
+    in.gyro_P[1]   = g1;
+    in.accel_P[1]  = a1;
+
+    in.measTime[2] = t_ref - static_cast<uint64_t>(SEC2NANO * time_meas_factor_1);
+    in.gyro_P[2]   = g2;
+    in.accel_P[2]  = a2;
+
+    in.measTime[3] = t_ref - static_cast<uint64_t>(SEC2NANO * time_meas_factor_2);
+    in.gyro_P[3]   = g3;
+    in.accel_P[3]  = a3;
+
+    const OutData out_alg = alg.update(in);
+    const OutData out_ref = referenceUpdate(in, alg);  // <-- update referenceUpdate signature too
 
     // Use tolerant comparison for floats
     constexpr float tol = 1e-5f;
@@ -129,14 +130,16 @@ inline void testKnownSolaverageMimuData() {
     constexpr float timeDelta = 0.26f;
     alg.setTimeDelta(timeDelta);
 
+        // -----------------------
+    // Fixed synthetic packets (DIRECT)
     // -----------------------
-    // Fixed synthetic packets
-    // -----------------------
-    AccDataMsgF32Payload msg{};
-    for (auto& pkt : msg.accPkts) {
-        pkt.measTime = 0U;
-        pkt.gyro_B[0] = pkt.gyro_B[1] = pkt.gyro_B[2] = 0.0f;
-        pkt.accel_B[0] = pkt.accel_B[1] = pkt.accel_B[2] = 0.0f;
+    InputPktsData in{};  // <-- directly build unpacked input
+
+    // zero everything (Eigen::Vector3f default in std::array is uninitialized)
+    for (std::size_t i = 0; i < MAX_ACC_BUF_PKT; ++i) {
+        in.measTime[i] = 0U;
+        in.gyro_P[i]   = Eigen::Vector3f::Zero();
+        in.accel_P[i]  = Eigen::Vector3f::Zero();
     }
 
     // Reference time = 1.0s (ns)
@@ -149,25 +152,26 @@ inline void testKnownSolaverageMimuData() {
     const uint64_t t3 = t_ref - static_cast<uint64_t>(SEC2NANO * 0.30f);
 
     // Choose easy vectors so the mean is simple.
-    const Eigen::Vector3f gyro0{1.f, 2.f, 3.f};
-    const Eigen::Vector3f gyro1{3.f, 2.f, 1.f};
+    const Eigen::Vector3f gyro0{ 1.f, 2.f, 3.f};
+    const Eigen::Vector3f gyro1{ 3.f, 2.f, 1.f};
     const Eigen::Vector3f gyro2{-1.f, 0.f, 2.f};
-    const Eigen::Vector3f gyro3{9.f, 9.f, 9.f};  // excluded by timeDelta
+    const Eigen::Vector3f gyro3{ 9.f, 9.f, 9.f};  // excluded by timeDelta
 
     const Eigen::Vector3f acc0{4.f, 0.f, 0.f};
     const Eigen::Vector3f acc1{0.f, 4.f, 0.f};
     const Eigen::Vector3f acc2{0.f, 0.f, 4.f};
-    const Eigen::Vector3f acc3{8.f, 8.f, 8.f};  // excluded by timeDelta
+    const Eigen::Vector3f acc3{8.f, 8.f, 8.f};    // excluded by timeDelta
 
-    pushPkt(msg, 0, t0, gyro0, acc0);
-    pushPkt(msg, 1, t1, gyro1, acc1);
-    pushPkt(msg, 2, t2, gyro2, acc2);
-    pushPkt(msg, 3, t3, gyro3, acc3);
+    // Put packets in the first few slots
+    in.measTime[0] = t0;  in.gyro_P[0] = gyro0;  in.accel_P[0] = acc0;
+    in.measTime[1] = t1;  in.gyro_P[1] = gyro1;  in.accel_P[1] = acc1;
+    in.measTime[2] = t2;  in.gyro_P[2] = gyro2;  in.accel_P[2] = acc2;
+    in.measTime[3] = t3;  in.gyro_P[3] = gyro3;  in.accel_P[3] = acc3;
 
     // -----------------------
     // Run algorithm under test
     // -----------------------
-    const OutData out_alg = alg.update(msg);
+    const OutData out_alg = alg.update(in);
 
     // -----------------------
     // True known solution:
@@ -197,23 +201,19 @@ inline void testSetupaverageMimuData() {
     EXPECT_TRUE(alg.getDcmPltfToBdy().isApprox(Eigen::Matrix3f::Identity(), 0.0f));
 
     // 3) update() should not throw for a basic input
-    AccDataMsgF32Payload msg{};
-    for (auto& pkt : msg.accPkts) {
-        pkt.measTime = 0U;
-        pkt.gyro_B[0] = pkt.gyro_B[1] = pkt.gyro_B[2] = 0.0f;
-        pkt.accel_B[0] = pkt.accel_B[1] = pkt.accel_B[2] = 0.0f;
+    InputPktsData in{};
+    for (std::size_t i = 0; i < MAX_ACC_BUF_PKT; ++i) {
+        in.measTime[i] = 0U;
+        in.gyro_P[i]   = Eigen::Vector3f::Zero();
+        in.accel_P[i]  = Eigen::Vector3f::Zero();
     }
 
     // Add one non-zero packet so we exercise the averaging path
-    msg.accPkts[0].measTime = SEC2NANO;
-    msg.accPkts[0].gyro_B[0] = 1.0f;
-    msg.accPkts[0].gyro_B[1] = 2.0f;
-    msg.accPkts[0].gyro_B[2] = 3.0f;
-    msg.accPkts[0].accel_B[0] = 4.0f;
-    msg.accPkts[0].accel_B[1] = 5.0f;
-    msg.accPkts[0].accel_B[2] = 6.0f;
+    in.measTime[0] = SEC2NANO;
+    in.gyro_P[0]   = Eigen::Vector3f(1.0f, 2.0f, 3.0f);
+    in.accel_P[0]  = Eigen::Vector3f(4.0f, 5.0f, 6.0f);
 
-    EXPECT_NO_THROW((void)alg.update(msg));
+    EXPECT_NO_THROW((void)alg.update(in));
 }
 
 #endif

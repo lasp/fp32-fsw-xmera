@@ -18,7 +18,15 @@ void AverageMimuData::updateState(uint64_t const callTime) {
     this->prevInMsgTime = writeTime;
 
     const AccDataMsgF32Payload localPkts = this->accDataInMsg();
-    OutData out = this->algorithm.update(localPkts);
+
+    InputPktsData in{};
+    for (std::size_t i=0; i<MAX_BUF_PKT; i++){
+        const auto& p = localPkts.accPkts[i];
+        in.measTime[i] = p.measTime;
+        in.gyro_P[i]   = Eigen::Vector3f(p.gyro_B[0],  p.gyro_B[1],  p.gyro_B[2]);
+        in.accel_P[i]  = Eigen::Vector3f(p.accel_B[0], p.accel_B[1], p.accel_B[2]);
+    }
+    OutData out = this->algorithm.update(in);
     IMUSensorBodyMsgF32Payload localOutput{};
     eigenVectorToCArray(out.AngVelBody, localOutput.AngVelBody);
     eigenVectorToCArray(out.AccelBody, localOutput.AccelBody);
