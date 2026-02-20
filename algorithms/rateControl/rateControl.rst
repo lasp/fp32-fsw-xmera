@@ -4,7 +4,7 @@ Rate Control Algorithm
 
 Introduction
 ============
-The rate control flight software module computes the required body frame control torque to achieve a desired angular velocity. Each time a new guidance message is written to the module,
+The rate control flight software module computes the required body frame control torque to achieve a desired angular velocity. Each time a new guidance data is written to the module,
 the torque vector is computed, taking into consideration the reference frame rotation, angular acceleration, and any known external disturbances.
 The module has a feedback term to stabilize the spacecraft by applying an opposite torque to damp the rotational rate error. It also has a coupling and feedforward terms to account for
 the gyroscopic effects and the natural motion of the rotating reference frame, respectively. The output torque is written in the body frame where it can be sent to the downstream actuator's module.
@@ -22,19 +22,16 @@ structure definition, while the description provides information on what this me
    * - **Msg Variable Name**
      - **Msg Type**
      - **Description**
-   * - ``guidInMsg``
-     - :ref:`AttGuidMsgF32Payload`
-     - Input message containing the attitude guidance message, including Modified Rodrigues Parameters (MRP), rate error, reference angular rate, and angular acceleration.
-   * - ``vehConfigInMsg``
-     - :ref:`VehicleConfigMsgF32Payload`
-     - Input message containing the spacecraft configuration, including its inertia tensor, mass and Center Of Mass (COM).
-   * - ``cmdTorqueOutMsg``
-     - :ref:`CmdTorqueBodyMsgF32Payload`
-     - Output message containing the commanded torque expressed in the body frame components.
+   * - ``InputGuidanceData``
+     - struct of Eigen::Vector3f
+     - Input message containing the attitude guidance data, including rate error ``omega_BR_B``, reference angular rate ``omega_RN_B``, and reference angular acceleration ``domega_RN_B``.
+   * - ``L_r``
+     - Eigen::Vector3f
+     - Output commanded torque expressed in the body frame components.
 
 Algorithm Flow
 ==============
-Each time a new attitude guidance message is read, the module computes the control torque
+Each time a new attitude guidance data is read, the module computes the control torque
 vector :math:`\mathbf{L}_r` expressed in the body frame. The control is similar to :ref:`mrpPD`,
 but it does not feed back on the orientation error, instead, it  purely damps the rate error and take
 into account the reference motion and any external torques.
@@ -77,7 +74,6 @@ Below is a list of functions that this flight software module performs:
 - Reads the incoming attitude guidance message that contains the rate error, reference angular rate, and angular acceleration.
 - Reads the vehicle configuration message that includes the spaceraft inertia tensor and mass properties.
 - Computes the control torque required to compensate for the rate error.
-- Writes the computed body frame control torque to the output message.
 
 
 Controller Assumptions and Limitations

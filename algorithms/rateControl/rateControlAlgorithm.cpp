@@ -10,7 +10,7 @@
 
 /*! This method takes the attitude and rate errors relative to the reference frame, as well as
 the reference frame angular rates and acceleration, and computes the required control torque Lr.
- @return Eigen::Vector3d control torque Lr
+ @return Eigen::Vector3d control torque
  @param InputGuidanceData Attitude guidance input
 */
 Eigen::Vector3f RateControlAlgorithm::update(const InputGuidanceData& attGuidIn) const {
@@ -35,7 +35,7 @@ void RateControlAlgorithm::setSpacecraftInertia(const Eigen::Matrix3f& spacecraf
 
 /*! Setter method for the derivative gain P.
  @return void
- @param P [N*m*s] Rate error feedback gain applied
+ @param DerivativeGainP [N*m*s] Rate error feedback gain applied
 */
 void RateControlAlgorithm::setDerivativeGainP(const float DerivativeGainP) {
     if (DerivativeGainP < 0.0) {
@@ -51,7 +51,7 @@ float RateControlAlgorithm::getDerivativeGainP() const { return this->P; }
 
 /*! Setter method for the known external torque about point B.
  @return void
- @param knownTorquePntB_B [N*m] Known external torque expressed in body frame components
+ @param TorquePntB_B [N*m] Known external torque expressed in body frame components
 */
 void RateControlAlgorithm::setKnownTorquePntB_B(const Eigen::Vector3f& TorquePntB_B) {
     this->knownTorquePntB_B = TorquePntB_B;
