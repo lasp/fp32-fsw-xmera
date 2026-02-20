@@ -48,22 +48,26 @@ using Vec3Arr = std::array<float, 3>;
 
 inline Eigen::Vector3f toVec3(Vec3Arr const& a) { return Eigen::Vector3f{a[0], a[1], a[2]}; }
 
-inline void regressionTestaverageMimuData(float window,
-                                          float time_meas_factor_0,
-                                          float time_meas_factor_1,
-                                          float time_meas_factor_2,
-                                          Vec3Arr const& gyro_0,
-                                          Vec3Arr const& accel_0,
-                                          Vec3Arr const& gyro_1,
-                                          Vec3Arr const& accel_1,
-                                          Vec3Arr const& gyro_2,
-                                          Vec3Arr const& accel_2,
-                                          Vec3Arr const& gyro_3,
-                                          Vec3Arr const& accel_3) {
+struct InputData {
+    uint64_t measTime = 0U;
+    Vec3Arr gyro_P{{0.0F, 0.0F, 0.0F}};
+    Vec3Arr accel_P{{0.0F, 0.0F, 0.0F}};
+};
+
+inline void regressionTestaverageMimuData(std::size_t N,
+                                          float window,
+                                          std::array<InputData, MAX_ACC_BUF_PKT> const& input)
+{
     AverageMimuDataAlgorithm alg;
     alg.setDcmPltfToBdy(Eigen::Matrix3f::Identity());
     alg.setAveragingWindow(window);
 
+    // Clamp N to valid range
+    if (N > MAX_ACC_BUF_PKT) {
+        N = MAX_ACC_BUF_PKT;
+    }
+    // Build the algorithm input buffer (max size), but only populate first N.
+    // The rest are neutral so they cannot affect maxTimeTag or the average.
     InputPktsData in{};
     for (std::size_t i = 0; i < MAX_ACC_BUF_PKT; ++i) {
         in.measTime[i] = 0U;
@@ -71,37 +75,15 @@ inline void regressionTestaverageMimuData(float window,
         in.accel_P[i]  = Eigen::Vector3f::Zero();
     }
 
-    constexpr uint64_t t_ref = SEC2NANO;
-
-    // Build Eigen vectors from arrays
-    const Eigen::Vector3f g0 = toVec3(gyro_0);
-    const Eigen::Vector3f a0 = toVec3(accel_0);
-    const Eigen::Vector3f g1 = toVec3(gyro_1);
-    const Eigen::Vector3f a1 = toVec3(accel_1);
-    const Eigen::Vector3f g2 = toVec3(gyro_2);
-    const Eigen::Vector3f a2 = toVec3(accel_2);
-    const Eigen::Vector3f g3 = toVec3(gyro_3);
-    const Eigen::Vector3f a3 = toVec3(accel_3);
-
-    // Directly assign the first 4 packets
-    in.measTime[0] = t_ref;
-    in.gyro_P[0]   = g0;
-    in.accel_P[0]  = a0;
-
-    in.measTime[1] = t_ref - static_cast<uint64_t>(SEC2NANO * time_meas_factor_0);
-    in.gyro_P[1]   = g1;
-    in.accel_P[1]  = a1;
-
-    in.measTime[2] = t_ref - static_cast<uint64_t>(SEC2NANO * time_meas_factor_1);
-    in.gyro_P[2]   = g2;
-    in.accel_P[2]  = a2;
-
-    in.measTime[3] = t_ref - static_cast<uint64_t>(SEC2NANO * time_meas_factor_2);
-    in.gyro_P[3]   = g3;
-    in.accel_P[3]  = a3;
+    for (std::size_t i = 0; i < N; ++i) {
+        in.measTime[i] = input[i].measTime;
+        in.gyro_P[i]   = toVec3(input[i].gyro_P);
+        in.accel_P[i]  = toVec3(input[i].accel_P);
+    }
 
     const OutputAverageAccelAnglevel out_alg = alg.update(in);
-    const OutputAverageAccelAnglevel out_ref = referenceUpdate(in, alg);  // <-- update referenceUpdate signature too
+    const OutputAverageAccelAnglevel out_ref = referenceUpdate(in, alg);
+
     EXPECT_EQ(out_alg.anglevelBody, out_ref.anglevelBody);
     EXPECT_EQ(out_alg.accelBody, out_ref.accelBody);
 }
