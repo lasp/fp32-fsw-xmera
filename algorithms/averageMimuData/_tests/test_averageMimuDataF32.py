@@ -30,8 +30,8 @@ def test_average_mimu_data():
     # Define parameters
     dcm_pltf_to_body = RigidBodyKinematics.euler3212C([0.01, -0.04, 0.06])
     module.setDcmPltfToBdy(dcm_pltf_to_body)
-    time_delta = 1.0e10
-    module.setTimeDelta(time_delta)
+    duration_window = 1.0e10
+    module.setAveragingWindow(duration_window)
 
     # Initialize message for message connection
     acc_data = messaging.AccDataMsgF32Payload()
@@ -83,7 +83,7 @@ def test_average_mimu_data():
         unit_test_sim.ExecuteSimulation()
 
     # Test the getters
-    np.testing.assert_allclose(time_delta, module.getTimeDelta(), rtol=1e-8, atol=1e-6, verbose=True)
+    np.testing.assert_allclose(duration_window, module.getAveragingWindow(), rtol=1e-8, atol=1e-6, verbose=True)
     np.testing.assert_allclose(dcm_pltf_to_body, module.getDcmPltfToBdy(), rtol=1e-8, atol=1e-6, verbose=True)
 
     # Pull logged data

@@ -48,12 +48,12 @@ IMUSensorBodyMsgF32Payload AverageMimuDataAlgorithm_update(const AverageMimuData
     return result;
 }
 
-void AverageMimuDataAlgorithm_setTimeDelta(AverageMimuDataAlgorithm* self, float timeDelta) {
-    reinterpret_cast<::AverageMimuDataAlgorithm*>(self)->setTimeDelta(timeDelta);
+void AverageMimuDataAlgorithm_setAveragingWindow(AverageMimuDataAlgorithm* self, float window) {
+    reinterpret_cast<::AverageMimuDataAlgorithm*>(self)->setAveragingWindow(window);
 }
 
-float AverageMimuDataAlgorithm_getTimeDelta(const AverageMimuDataAlgorithm* self) {
-    return reinterpret_cast<const ::AverageMimuDataAlgorithm*>(self)->getTimeDelta();
+float AverageMimuDataAlgorithm_getAveragingWindow(const AverageMimuDataAlgorithm* self) {
+    return reinterpret_cast<const ::AverageMimuDataAlgorithm*>(self)->getAveragingWindow();
 }
 
 void AverageMimuDataAlgorithm_setDcmPltfToBdy(AverageMimuDataAlgorithm* self, Matrix3f_c dcm_BP) {

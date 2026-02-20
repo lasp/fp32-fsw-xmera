@@ -7,7 +7,7 @@ Executive Summary
 -----------------
 The ``averageMimuData`` algorithm computes a rolling average of recent gyro and accelerometer samples from a MIMU
 packet buffer. It uses the newest packet timestamp as the reference time, selects all packets whose age is within a
-user-specified window (``timeDelta``), averages the selected measurements, and outputs the averaged values expressed in
+user-specified window (``averagingWindow``), averages the selected measurements, and outputs the averaged values expressed in
 the body frame using a user-provided direction cosine matrix (DCM) ``dcm_BP``.
 
 Message Connection Descriptions
@@ -44,12 +44,12 @@ The following table lists all parameters that can be set. Parameters are optiona
       - Default
       - Setter / Getter
       - Description
-    * - timeDelta
+    * - averagingWindow
       - float
       - [s]
       - 0.0
-      - ``setTimeDelta()`` / ``getTimeDelta()``
-      - Rolling-window width measured backward from the newest packet timestamp. Packets with age ``< timeDelta`` are included
+      - ``setAveragingWindow()`` / ``getAveragingWindow()``
+      - Rolling-window width measured backward from the newest packet timestamp. Packets with age ``< averagingWindow`` are included
     * - dcm_BP
       - Eigen::Matrix3f
       - [-]
@@ -60,8 +60,8 @@ The following table lists all parameters that can be set. Parameters are optiona
 Module Assumptions and Limitations
 ----------------------------------
 - The packet timestamps ``measTime`` are assumed to be in nanoseconds and converted using ``NANO2SEC``.
-- Packets are included if ``(maxTimeTag - measTime) * NANO2SEC < timeDelta`` (strict inequality).
-- If ``timeDelta`` is 0, no packets satisfy the strict inequality and the output is zero.
+- Packets are included if ``(maxTimeTag - measTime) * NANO2SEC < averagingWindow`` (strict inequality).
+- If ``averagingWindow`` is 0, no packets satisfy the strict inequality and the output is zero.
 - If no packets fall within the time window, the output vectors are zero.
 - The algorithm performs an unweighted arithmetic mean (no weighting, outlier rejection, or bias correction).
 
@@ -70,7 +70,7 @@ Initialization
 Configure the time window and the platform-to-body DCM::
 
     AverageMimuDataAlgorithm alg;
-    alg.setTimeDelta(0.05f);          // seconds
+    alg.setAveragingWindow(0.05f);          // seconds
     alg.setDcmPltfToBdy(dcm_BP);      // Eigen::Matrix3f (platform-to-body)
 
 Then call the update method each cycle::
@@ -85,7 +85,7 @@ Given an input packet buffer ``localPkts.accPkts``, the algorithm:
 
 1. Finds the newest packet time tag ``maxTimeTag`` across the buffer.
 2. Iterates over each packet and computes its age relative to ``maxTimeTag``.
-3. Includes packets whose age is strictly less than ``timeDelta`` seconds.
+3. Includes packets whose age is strictly less than ``averagingWindow`` seconds.
 4. Sums the selected gyro and accelerometer vectors (as 3-vectors).
 5. Divides by the number of selected packets to form the average in the platform frame.
 6. Transforms the averaged vectors to the body frame using ``dcm_BP`` and returns them.
@@ -96,7 +96,7 @@ Let :math:`t_{\max}` be the newest packet time in the buffer. A packet with time
 (relative to :math:`t_{\max}`) is within the time window:
 
 .. math::
-    (t_{\max} - t_i)\,\texttt{NANO2SEC} < \texttt{timeDelta}.
+    (t_{\max} - t_i)\,\texttt{NANO2SEC} < \texttt{averagingWindow}.
 
 Let :math:`\mathcal{I}` be the set of indices of all kept packets, and let :math:`M = |\mathcal{I}|` be the number of
 kept packets.
@@ -137,12 +137,12 @@ and then applies ``dcm_BP`` to express the averages in the body frame.
 
 Configuration
 ^^^^^^^^^^^^^
-1. Set ``timeDelta`` to define how far back (from the newest measurement) to include samples in the average.
+1. Set ``averagingWindow`` to define how far back (from the newest measurement) to include samples in the average.
 2. Set ``dcm_BP`` to map platform-frame vectors into the body frame.
 
 Recommended Practices
 ^^^^^^^^^^^^^^^^^^^^^
-- Choose ``timeDelta`` based on the expected packet update rate and desired smoothing. Larger values increase smoothing
+- Choose ``averagingWindow`` based on the expected packet update rate and desired smoothing. Larger values increase smoothing
   but introduce more latency.
 - Ensure ``dcm_BP`` is a proper DCM (orthonormal, right-handed) consistent with your frame definitions.
 
@@ -165,8 +165,8 @@ The algorithm is implemented by::
 
     class AverageMimuDataAlgorithm {
        public:
-        void setTimeDelta(float timeDeltaIn);
-        float getTimeDelta() const;
+        void setAveragingWindow(float window);
+        float getAveragingWindow() const;
 
         void setDcmPltfToBdy(Eigen::Matrix3f const& dcm_BPIn);
         Eigen::Matrix3f getDcmPltfToBdy() const;
@@ -186,5 +186,5 @@ The return type is::
 Notes
 -----
 - The averaging window is anchored to the newest timestamp present in the buffer, not to the current system time.
-- The output is deterministic given the input packet buffer, ``timeDelta``, and ``dcm_BP``.
+- The output is deterministic given the input packet buffer, ``averagingWindow``, and ``dcm_BP``.
 ```

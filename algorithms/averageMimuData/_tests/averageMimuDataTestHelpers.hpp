@@ -31,8 +31,8 @@ OutputAverageAccelAngleVel referenceUpdate(InputPktsData const& localPkts,
     for (std::size_t i = 0; i < MAX_ACC_BUF_PKT; ++i) {
         const uint64_t measTime = localPkts.measTime[i];
 
-        // Rolling average with timeDelta as window width or the maximum buffer size
-        if (static_cast<float>(maxTimeTag - measTime) * NANO2SEC <= alg.getTimeDelta()) {
+        // Rolling average with averaging window as window width or the maximum buffer size
+        if (static_cast<float>(maxTimeTag - measTime) * NANO2SEC <= alg.getAveragingWindow()) {
             gyroSum_P  += localPkts.gyro_P[i];
             accelSum_P += localPkts.accel_P[i];
             measAvgCount++;
@@ -57,7 +57,7 @@ using Vec3Arr = std::array<float, 3>;
 
 inline Eigen::Vector3f toVec3(Vec3Arr const& a) { return Eigen::Vector3f{a[0], a[1], a[2]}; }
 
-inline void regressionTestaverageMimuData(float timeDelta,
+inline void regressionTestaverageMimuData(float window,
                                           float time_meas_factor_0,
                                           float time_meas_factor_1,
                                           float time_meas_factor_2,
@@ -71,7 +71,7 @@ inline void regressionTestaverageMimuData(float timeDelta,
                                           Vec3Arr const& accel_3) {
     AverageMimuDataAlgorithm alg;
     alg.setDcmPltfToBdy(Eigen::Matrix3f::Identity());
-    alg.setTimeDelta(timeDelta);
+    alg.setAveragingWindow(window);
 
     InputPktsData in{};
     for (std::size_t i = 0; i < MAX_ACC_BUF_PKT; ++i) {
@@ -135,8 +135,8 @@ inline void testKnownSolaverageMimuData() {
 
     // Time window (seconds)
     // Choose 0.26 so ages 0.00, 0.05, 0.15 are included; 0.30 excluded
-    constexpr float timeDelta = 0.26f;
-    alg.setTimeDelta(timeDelta);
+    constexpr float window = 0.26f;
+    alg.setAveragingWindow(window);
 
     // -----------------------
     // Fixed synthetic packets (DIRECT)
@@ -163,12 +163,12 @@ inline void testKnownSolaverageMimuData() {
     const Eigen::Vector3f gyro0{ 1.f, 2.f, 3.f};
     const Eigen::Vector3f gyro1{ 3.f, 2.f, 1.f};
     const Eigen::Vector3f gyro2{-1.f, 0.f, 2.f};
-    const Eigen::Vector3f gyro3{ 9.f, 9.f, 9.f};  // excluded by timeDelta
+    const Eigen::Vector3f gyro3{ 9.f, 9.f, 9.f};  // excluded by averagingWindow
 
     const Eigen::Vector3f acc0{4.f, 0.f, 0.f};
     const Eigen::Vector3f acc1{0.f, 4.f, 0.f};
     const Eigen::Vector3f acc2{0.f, 0.f, 4.f};
-    const Eigen::Vector3f acc3{8.f, 8.f, 8.f};    // excluded by timeDelta
+    const Eigen::Vector3f acc3{8.f, 8.f, 8.f};    // excluded by averagingWindow
 
     // Put packets in the first few slots
     in.measTime[0] = t0;  in.gyro_P[0] = gyro0;  in.accel_P[0] = acc0;
@@ -196,7 +196,7 @@ inline void testKnownSolaverageMimuData() {
     EXPECT_EQ(out_alg.accel_B, accTrue_B);
 }
 
-inline void testZeroTimeDelta() {
+inline void testZeroAveragingWindow() {
     // -----------------------
     // Fixed algorithm settings
     // -----------------------
@@ -208,8 +208,8 @@ inline void testZeroTimeDelta() {
               0.f,  0.f, 1.f;
     alg.setDcmPltfToBdy(dcm_BP);
 
-    // timeDelta = 0 => should pick the packet(s) at maxTimeTag
-    alg.setTimeDelta(0.0f);
+    // averagingWindow = 0 => should pick the packet(s) at maxTimeTag
+    alg.setAveragingWindow(0.0f);
 
     // -----------------------
     // Fixed synthetic packets (DIRECT)
@@ -251,7 +251,7 @@ inline void testZeroTimeDelta() {
     const OutputAverageAccelAngleVel out_alg = alg.update(in);
 
     // -----------------------
-    // True known solution (timeDelta = 0):
+    // True known solution (averagingWindow = 0):
     // use ONLY the packet with maxTimeTag (packet 0 here)
     // out_B = dcm_BP * v0
     // -----------------------
@@ -266,12 +266,12 @@ inline void testSetupAverageMimuData() {
     AverageMimuDataAlgorithm alg;
 
     // 1) Setters should not throw
-    EXPECT_THROW(alg.setTimeDelta(-0.1), fs::invalid_argument);
-    EXPECT_NO_THROW(alg.setTimeDelta(0.25f));
+    EXPECT_THROW(alg.setAveragingWindow(-0.1), fs::invalid_argument);
+    EXPECT_NO_THROW(alg.setAveragingWindow(0.25f));
     EXPECT_NO_THROW(alg.setDcmPltfToBdy(Eigen::Matrix3f::Identity()));
 
     // 2) Round-trip expectations
-    EXPECT_FLOAT_EQ(alg.getTimeDelta(), 0.25f);
+    EXPECT_FLOAT_EQ(alg.getAveragingWindow(), 0.25f);
     EXPECT_TRUE(alg.getDcmPltfToBdy().isApprox(Eigen::Matrix3f::Identity(), 0.0f));
 
     // 3) update() should not throw for a basic input

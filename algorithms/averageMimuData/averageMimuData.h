@@ -11,8 +11,8 @@ class AverageMimuData : public SysModel {
    public:
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
-    void setTimeDelta(float timeDelta);                   //!< Setter method for timeDelta
-    float getTimeDelta() const;                           //!< Getter method for timeDelta
+    void setAveragingWindow(float window);                //!< [s] Setter method for averagingWindow
+    float getAveragingWindow() const;                     //!< [s] Getter method for averagingWindow
     void setDcmPltfToBdy(Eigen::Matrix3f const& dcm_BP);  //!< Setter method for dcm from platform to body
     Eigen::Matrix3f getDcmPltfToBdy() const;              //!< Getter method for dcm from platform to body
 

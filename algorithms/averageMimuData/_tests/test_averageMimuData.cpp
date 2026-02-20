@@ -18,6 +18,6 @@ TEST(averageMimuDataTest, RegressionTest) {
 
 TEST(averageMimuDataTest, PropertyKnownSolution) { testKnownSolaverageMimuData(); }
 
-TEST(averageMimuDataTest, PropertyZeroTimeDelta){ testZeroTimeDelta(); }
+TEST(averageMimuDataTest, PropertyZeroAveragingWindow){ testZeroAveragingWindow(); }
 
 TEST(averageMimuDataTest, SetupTest) { testSetupAverageMimuData(); }

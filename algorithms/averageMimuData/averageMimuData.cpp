@@ -33,9 +33,9 @@ void AverageMimuData::updateState(uint64_t const callTime) {
     this->imuOutMsg.write(&localOutput, this->moduleID, callTime);
 }
 
-void AverageMimuData::setTimeDelta(float const timeDelta) { this->algorithm.setTimeDelta(timeDelta); }
+void AverageMimuData::setAveragingWindow(float const window) { this->algorithm.setAveragingWindow(window); }
 
-float AverageMimuData::getTimeDelta() const { return this->algorithm.getTimeDelta(); }
+float AverageMimuData::getAveragingWindow() const { return this->algorithm.getAveragingWindow(); }
 
 void AverageMimuData::setDcmPltfToBdy(Eigen::Matrix3f const& dcm_BP) { this->algorithm.setDcmPltfToBdy(dcm_BP); }
 
