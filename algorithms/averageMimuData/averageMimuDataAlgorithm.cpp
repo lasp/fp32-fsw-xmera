@@ -26,7 +26,7 @@ OutputAverageAccelAnglevel AverageMimuDataAlgorithm::update(InputPktsData const&
     for (std::size_t i = 0; i < MAX_ACC_BUF_PKT; ++i) {
         const uint64_t measTime = localPkts.measTime[i];
         // Rolling average with timeDelta as window width or the maximum buffer size
-        if (static_cast<float>(maxTimeTag - measTime) * kNano2SecF < this->timeDelta) {
+        if (static_cast<float>(maxTimeTag - measTime) * kNano2SecF <= this->timeDelta) {
             gyroSum_P  += localPkts.gyro_P[i];
             accelSum_P += localPkts.accel_P[i];
             measAvgCount++;
