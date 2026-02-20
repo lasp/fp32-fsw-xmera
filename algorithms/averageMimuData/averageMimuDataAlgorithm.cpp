@@ -55,6 +55,15 @@ void AverageMimuDataAlgorithm::setAveragingWindow(float const window) {
 
 float AverageMimuDataAlgorithm::getAveragingWindow() const { return this->averagingWindow; }
 
-void AverageMimuDataAlgorithm::setDcmPltfToBdy(Eigen::Matrix3f const& dcm_BPIn) { this->dcm_BP = dcm_BPIn; }
+void AverageMimuDataAlgorithm::setDcmPltfToBdy(Eigen::Matrix3f const& dcm_BPIn) {
+    constexpr float tol = 1.0e-4F;
+    const bool ortho_ok =
+        (dcm_BPIn.transpose() * dcm_BPIn).isApprox(Eigen::Matrix3f::Identity(), tol);
+    const bool det_ok = std::abs(dcm_BPIn.determinant() - 1.0F) <= tol;
+    if (!ortho_ok || !det_ok) {
+        FS_THROW_INVALID_ARGUMENT("dcm_BP must be orthonormal with det=+1.");
+    }
+    this->dcm_BP = dcm_BPIn;
+}
 
 Eigen::Matrix3f AverageMimuDataAlgorithm::getDcmPltfToBdy() const { return this->dcm_BP; }
