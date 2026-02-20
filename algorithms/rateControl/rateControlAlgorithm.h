@@ -7,13 +7,15 @@
 #ifndef F32XIMERA_RATE_CONTROL_ALGORITHM_H
 #define F32XIMERA_RATE_CONTROL_ALGORITHM_H
 
-
 #include <Eigen/Core>
 
-struct InputGuidanceData{
-    Eigen::Vector3f omega_BR_B = Eigen::Vector3f::Zero();       //!< [r/s]  Current body error estimate of B relateive to R in B frame compoonents */
-    Eigen::Vector3f omega_RN_B = Eigen::Vector3f::Zero();       //!< [r/s]  Reference frame rate vector of the of R relative to N in B frame components */
-    Eigen::Vector3f domega_RN_B = Eigen::Vector3f::Zero();      //!< [r/s2] Reference frame inertial body acceleration of R relative to N in B frame components */
+struct InputGuidanceData {
+    Eigen::Vector3f omega_BR_B =
+        Eigen::Vector3f::Zero();  //!< [r/s]  Current body error estimate of B relateive to R in B frame compoonents */
+    Eigen::Vector3f omega_RN_B = Eigen::Vector3f::Zero();   //!< [r/s]  Reference frame rate vector of the of R relative
+                                                            //!< to N in B frame components */
+    Eigen::Vector3f domega_RN_B = Eigen::Vector3f::Zero();  //!< [r/s2] Reference frame inertial body acceleration of R
+                                                            //!< relative to N in B frame components */
 };
 
 class RateControlAlgorithm {

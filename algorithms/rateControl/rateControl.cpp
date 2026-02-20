@@ -24,7 +24,7 @@ void RateControl::reset(uint64_t callTime) {
 
     if (this->vehConfigInMsg.isWritten()) {
         const Eigen::Matrix3f spacecraftInertia =
-        Eigen::Map<const Eigen::Matrix<float,3,3,Eigen::RowMajor>>(this->vehConfigInMsg().ISCPntB_B);
+            Eigen::Map<const Eigen::Matrix<float, 3, 3, Eigen::RowMajor>>(this->vehConfigInMsg().ISCPntB_B);
         this->algorithm.setSpacecraftInertia(spacecraftInertia);
     }
 }
