@@ -1,0 +1,82 @@
+/* MIT License
+ *
+ Copyright (c) 2025, Laboratory for Atmospheric and Space Physics,
+ University of Colorado at Boulder
+ */
+
+#ifndef F32XIMERA_SUNLINESRUKFALGORITHM_C_H
+#define F32XIMERA_SUNLINESRUKFALGORITHM_C_H
+
+#include <stdint.h>
+
+#define SUNLINE_SRUKF_MAX_NUM_CSS 32
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/**
+ * @brief Opaque handle to the C++ SunlineSRuKFAlgorithm instance.
+ */
+typedef struct SunlineSRuKFAlgorithm SunlineSRuKFAlgorithm;
+
+/**
+ * @brief POD representation of a 3-vector (Eigen::Vector3f).
+ */
+typedef struct {
+    float data[3];
+} Vector3f_c;
+
+/**
+ * @brief C-compatible input structure for the sunline SRuKF algorithm.
+ */
+typedef struct {
+    double timeTag;                             /*!< [s] Time tag */
+    Vector3f_c sigma_BN;                        /*!< [-] Inertial-to-body MRP */
+    Vector3f_c omega_BN_B;                      /*!< [rad/s] Body rate in body frame */
+    Vector3f_c vehSunPntBdy;                    /*!< [-] Sun pointing vector in body frame */
+    uint32_t nCSS;                              /*!< [-] Number of coarse sun sensors */
+    float cosValues[SUNLINE_SRUKF_MAX_NUM_CSS]; /*!< [-] CSS cosine measurement values */
+} SunlineSRuKFInput_c;
+
+/**
+ * @brief C-compatible output structure for the sunline SRuKF algorithm.
+ */
+typedef struct {
+    double timeTag;          /*!< [s] Time tag */
+    Vector3f_c sigma_BN;     /*!< [-] Inertial-to-body MRP */
+    Vector3f_c omega_BN_B;   /*!< [rad/s] Body rate in body frame */
+    Vector3f_c vehSunPntBdy; /*!< [-] Sun pointing vector in body frame */
+} SunlineSRuKFOutput_c;
+
+/**
+ * @brief Get the maximum number of CSS sensors.
+ * @return The maximum CSS count (SUNLINE_SRUKF_MAX_NUM_CSS).
+ */
+uint32_t SunlineSRuKFAlgorithm_getMaxNumCss(void);
+
+/**
+ * @brief Construct a new SunlineSRuKFAlgorithm instance.
+ * @return Pointer to a new SunlineSRuKFAlgorithm (must be destroyed).
+ */
+SunlineSRuKFAlgorithm* SunlineSRuKFAlgorithm_create(void);
+
+/**
+ * @brief Destroy a previously created SunlineSRuKFAlgorithm.
+ * @param self Pointer to the instance to destroy.
+ */
+void SunlineSRuKFAlgorithm_destroy(SunlineSRuKFAlgorithm* self);
+
+/**
+ * @brief Run the sunline SRuKF update step.
+ * @param self  Pointer to the instance.
+ * @param input Pointer to the input structure (read-only).
+ * @return SunlineSRuKFOutput_c  The computed output.
+ */
+SunlineSRuKFOutput_c SunlineSRuKFAlgorithm_updateState(SunlineSRuKFAlgorithm* self, const SunlineSRuKFInput_c* input);
+
+#ifdef __cplusplus
+}  // extern "C"
+#endif
+
+#endif  // F32XIMERA_SUNLINESRUKFALGORITHM_C_H
