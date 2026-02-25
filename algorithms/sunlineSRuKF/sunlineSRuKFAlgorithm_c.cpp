@@ -11,17 +11,7 @@
 
 uint32_t SunlineSRuKFAlgorithm_getMaxNumCss(void) { return SUNLINE_SRUKF_MAX_NUM_CSS; }
 
-SunlineSRuKFAlgorithm* SunlineSRuKFAlgorithm_create(void) {
-    return reinterpret_cast<SunlineSRuKFAlgorithm*>(new ::SunlineSRuKFAlgorithm());
-}
-
-void SunlineSRuKFAlgorithm_destroy(SunlineSRuKFAlgorithm* self) {
-    delete reinterpret_cast<::SunlineSRuKFAlgorithm*>(self);
-}
-
-SunlineSRuKFOutput_c SunlineSRuKFAlgorithm_updateState(SunlineSRuKFAlgorithm* self, const SunlineSRuKFInput_c* input) {
-    (void)self;  // Static method - instance not used
-
+SunlineSRuKFOutput_c SunlineSRuKFAlgorithm_updateState(const SunlineSRuKFInput_c* input) {
     // Convert C POD input to C++ input
     SunlineSRuKFInput cppInput{};
     cppInput.timeTag = input->timeTag;

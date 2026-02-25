@@ -16,11 +16,6 @@ extern "C" {
 #endif
 
 /**
- * @brief Opaque handle to the C++ SunlineSRuKFAlgorithm instance.
- */
-typedef struct SunlineSRuKFAlgorithm SunlineSRuKFAlgorithm;
-
-/**
  * @brief POD representation of a 3-vector (Eigen::Vector3f).
  */
 typedef struct {
@@ -56,24 +51,11 @@ typedef struct {
 uint32_t SunlineSRuKFAlgorithm_getMaxNumCss(void);
 
 /**
- * @brief Construct a new SunlineSRuKFAlgorithm instance.
- * @return Pointer to a new SunlineSRuKFAlgorithm (must be destroyed).
- */
-SunlineSRuKFAlgorithm* SunlineSRuKFAlgorithm_create(void);
-
-/**
- * @brief Destroy a previously created SunlineSRuKFAlgorithm.
- * @param self Pointer to the instance to destroy.
- */
-void SunlineSRuKFAlgorithm_destroy(SunlineSRuKFAlgorithm* self);
-
-/**
- * @brief Run the sunline SRuKF update step.
- * @param self  Pointer to the instance.
+ * @brief Run the sunline SRuKF update step (stateless).
  * @param input Pointer to the input structure (read-only).
  * @return SunlineSRuKFOutput_c  The computed output.
  */
-SunlineSRuKFOutput_c SunlineSRuKFAlgorithm_updateState(SunlineSRuKFAlgorithm* self, const SunlineSRuKFInput_c* input);
+SunlineSRuKFOutput_c SunlineSRuKFAlgorithm_updateState(const SunlineSRuKFInput_c* input);
 
 #ifdef __cplusplus
 }  // extern "C"
