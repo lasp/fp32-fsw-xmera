@@ -5,6 +5,7 @@
  */
 
 #include "oeStateEphem.h"
+#include <architecture/utilities/eigenSupport.h>
 
 /*!
  @return void
@@ -14,7 +15,6 @@ void OEStateEphem::reset(uint64_t callTime) {
     if (!this->clockCorrInMsg.isLinked()) {
         throw std::invalid_argument("OEStateEphem.clockCorrInMsg wasn't connected.");
     }
-    this->algorithm.reset(callTime, this->clockCorrInMsg());
 }
 
 /*! This method takes the current time and computes the state of the object
@@ -24,8 +24,20 @@ void OEStateEphem::reset(uint64_t callTime) {
  @param callTime The clock time at which the function was called (nanoseconds)
  */
 void OEStateEphem::updateState(const uint64_t callTime) {
-    auto tmpOutputState = this->algorithm.updateState(callTime);
-    this->stateFitOutMsg.write(&tmpOutputState, moduleID, callTime);
+    EphemerisMsgF32Payload ephmerisMessageOutput{};
+
+    if (this->clockCorrInMsg.isWritten()) {
+        auto const timePayload = this->clockCorrInMsg();
+        this->algorithm.setEphemerisTimeJ2000(timePayload.ephemerisTime);
+        this->algorithm.setVehicleTime(timePayload.vehicleClockTime);
+    }
+
+    auto tmpOutputState = this->algorithm.update(callTime);
+
+    ephmerisMessageOutput.timeTag = callTime * nanoToSeconds;
+    eigenVectorToCArray(tmpOutputState.position, ephmerisMessageOutput.r_BdyZero_N);
+    eigenVectorToCArray(tmpOutputState.velocity, ephmerisMessageOutput.v_BdyZero_N);
+    this->stateFitOutMsg.write(&ephmerisMessageOutput, moduleID, callTime);
 }
 
 void OEStateEphem::setCentralBodyGravitationalParameter(const float mu) {

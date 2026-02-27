@@ -7,8 +7,6 @@
 #ifndef F32XIMERA_OE_STATE_EPHEM_ALGORITHM_H
 #define F32XIMERA_OE_STATE_EPHEM_ALGORITHM_H
 
-#include "msgPayloadDef/EphemerisMsgF32Payload.h"
-#include "msgPayloadDef/TDBVehicleClockCorrelationMsgF32Payload.h"
 #include "msgPayloadDef/definitions.h"
 #include "utilities/orbitalMotion.hpp"
 #include <array>
@@ -42,8 +40,7 @@ struct ChebyshevFitArc {
 */
 class OEStateEphemAlgorithm {
    public:
-    void reset(uint64_t callTime, const TDBVehicleClockCorrelationMsgF32Payload &vehicleTimePayload);
-    EphemerisMsgF32Payload updateState(uint64_t callTime);
+    CartesianState update(uint64_t callTime);
 
     void setCentralBodyGravitationalParameter(float gravitationalParameter);
     float getCentralBodyGravitationalParameter() const;
@@ -79,13 +76,14 @@ class OEStateEphemAlgorithm {
     std::array<float, MAX_OE_COEFF> getArcTrueAnomalyCoefficients(const unsigned int arcNumber);
 
    private:
-    ChebyshevFitArc findCurrentArc(uint64_t callTime, const TDBVehicleClockCorrelationMsgF32Payload &localTime);
+    ChebyshevFitArc findCurrentArc(uint64_t callTime);
     double scaleEphemerisTime(const ChebyshevFitArc &arc) const;
     static ClassicalElementsF32 evaluateCoefficients(const double currentScaledValue, const ChebyshevFitArc &arc);
     double currentEphTime{};
     double gravitationalParameter{};  //!< [m3/s^2] Gravitational parameter for center of orbital elements
     std::array<ChebyshevFitArc, MAX_OE_RECORDS> fitCoefficients{};  //!< [-] Array of Chebyshev records for ephemeris
-    TDBVehicleClockCorrelationMsgF32Payload spacecraftTime{};
+    double ephemerisTime{};
+    double vehicleTime{};
 };
 
 #endif
