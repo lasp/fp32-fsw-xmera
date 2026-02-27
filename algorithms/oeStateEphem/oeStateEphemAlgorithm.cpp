@@ -7,6 +7,7 @@
 #include "oeStateEphemAlgorithm.h"
 #include "../freestandingInvalidArgument.h"
 #include "utilities/ephemerisUtilities.h"
+#include <ranges>
 
 /*! This method finds the Chebyshev fit arc that is closest in time to the current ephemeris time.
     It computes the current ephemeris time from the call time, ephemeris time offset, and vehicle time,
@@ -108,10 +109,12 @@ ClassicalElementsF32 OEStateEphemAlgorithm::evaluateCoefficients(const double cu
 */
 CartesianState OEStateEphemAlgorithm::update(const uint64_t callTime) {
     /*! If all of the radius of periapsis components are zero, this is the central body and should return all zeros*/
-    if (std::all_of(this->fitCoefficients[0].radiusPeriapsisCoefficients.begin(),
-                    this->fitCoefficients[0].radiusPeriapsisCoefficients.end(),
-                    [](double val) { return std::abs(val) < 1e-10; })) {
-        return ephmerisMessageOutput;
+    if (std::ranges::all_of(this->fitCoefficients, [](const ChebyshevFitArc& arc) {
+            return std::ranges::all_of(arc.radiusPeriapsisCoefficients,
+                                       [](double val) { return std::abs(val) < tolerance; });
+        })) {
+        CartesianState outputCartesianState{};
+        return outputCartesianState;
     }
 
     const auto currentArc = this->findCurrentArc(callTime);
@@ -350,7 +353,6 @@ void OEStateEphemAlgorithm::setModuleTime(const double ephemerisJ2000, const dou
     @return double The ephemeris time offset (seconds)
 */
 double OEStateEphemAlgorithm::getEphemerisTimeJ2000() const { return this->ephemerisTime; }
-
 
 /*! This method retrieves the vehicle time offset used in ephemeris calculations.
     @return double The vehicle time offset (seconds)
