@@ -13,9 +13,9 @@ ChebyshevFitArc OEStateEphemAlgorithm::findCurrentArc(const uint64_t callTime) {
 
     /*! - select the fitting coefficients for the nearest fit interval */
     uint32_t nearestArc = 0;
-    double smallestTimeDifference = fabs(this->currentEphTime - this->fitCoefficients[0].ephemerisTimeMiddle);
+    double smallestTimeDifference = fabs(this->currentEphTime - this->fitCoefficients.at(0).ephemerisTimeMiddle);
     for (auto i = 1; i < MAX_OE_RECORDS; ++i) {
-        double timeDifference = fabs(this->currentEphTime - this->fitCoefficients[i].ephemerisTimeMiddle);
+        double timeDifference = fabs(this->currentEphTime - this->fitCoefficients.at(i).ephemerisTimeMiddle);
         if (timeDifference < smallestTimeDifference) {
             nearestArc = i;
             smallestTimeDifference = timeDifference;
@@ -23,7 +23,7 @@ ChebyshevFitArc OEStateEphemAlgorithm::findCurrentArc(const uint64_t callTime) {
     }
 
     /*! - determine the scaled fitting time */
-    return this->fitCoefficients[nearestArc];
+    return this->fitCoefficients.at(nearestArc);
 }
 
 double OEStateEphemAlgorithm::scaleEphemerisTime(const ChebyshevFitArc& arc) const {
@@ -115,95 +115,95 @@ float OEStateEphemAlgorithm::getCentralBodyGravitationalParameter() const { retu
 
 void OEStateEphemAlgorithm::setArcNumberOfCoefficients(const unsigned int arcNumber,
                                                        const unsigned int numberOfCoefficients) {
-    this->fitCoefficients[arcNumber].numberChebCoefficients = numberOfCoefficients;
+    this->fitCoefficients.at(arcNumber).numberChebCoefficients = numberOfCoefficients;
 };
 
 unsigned int OEStateEphemAlgorithm::getArcNumberOfCoefficients(const unsigned int arcNumber) const {
-    return this->fitCoefficients[arcNumber].numberChebCoefficients;
+    return this->fitCoefficients.at(arcNumber).numberChebCoefficients;
 };
 
 void OEStateEphemAlgorithm::setArcMiddleTime(const unsigned int arcNumber, const double timeMiddle) {
-    this->fitCoefficients[arcNumber].ephemerisTimeMiddle = timeMiddle;
+    this->fitCoefficients.at(arcNumber).ephemerisTimeMiddle = timeMiddle;
 };
 
 double OEStateEphemAlgorithm::getArcMiddleTime(const unsigned int arcNumber) const {
-    return this->fitCoefficients[arcNumber].ephemerisTimeMiddle;
+    return this->fitCoefficients.at(arcNumber).ephemerisTimeMiddle;
 };
 
 void OEStateEphemAlgorithm::setArcRadiusTime(const unsigned int arcNumber, const double timeRadius) {
-    this->fitCoefficients[arcNumber].ephemerisTimeRadius = timeRadius;
+    this->fitCoefficients.at(arcNumber).ephemerisTimeRadius = timeRadius;
 };
 
 double OEStateEphemAlgorithm::getArcRadiusTime(const unsigned int arcNumber) const {
-    return this->fitCoefficients[arcNumber].ephemerisTimeRadius;
+    return this->fitCoefficients.at(arcNumber).ephemerisTimeRadius;
 };
 
 void OEStateEphemAlgorithm::setArcAnomalyFlag(const unsigned int arcNumber, const unsigned int anomalyFlag) {
-    this->fitCoefficients[arcNumber].anomalyFlag = anomalyFlag;
+    this->fitCoefficients.at(arcNumber).anomalyFlag = anomalyFlag;
 };
 
 unsigned int OEStateEphemAlgorithm::getArcAnomalyFlag(unsigned int arcNumber) const {
-    return this->fitCoefficients[arcNumber].anomalyFlag;
+    return this->fitCoefficients.at(arcNumber).anomalyFlag;
 };
 
 void OEStateEphemAlgorithm::setArcRadiusPeriapsisCoefficients(
     const unsigned int arcNumber,
     const std::array<double, MAX_OE_COEFF>& radiusPeriapsisCoefficients) {
-    this->fitCoefficients[arcNumber].radiusPeriapsisCoefficients = radiusPeriapsisCoefficients;
+    this->fitCoefficients.at(arcNumber).radiusPeriapsisCoefficients = radiusPeriapsisCoefficients;
 };
 
 std::array<double, MAX_OE_COEFF> OEStateEphemAlgorithm::getArcRadiusPeriapsisCoefficients(
     const unsigned int arcNumber) {
-    return this->fitCoefficients[arcNumber].radiusPeriapsisCoefficients;
+    return this->fitCoefficients.at(arcNumber).radiusPeriapsisCoefficients;
 };
 
 void OEStateEphemAlgorithm::setArcEccentricityCoefficients(
     const unsigned int arcNumber,
     const std::array<float, MAX_OE_COEFF>& eccentricityCoefficients) {
-    this->fitCoefficients[arcNumber].eccentricityCoefficients = eccentricityCoefficients;
+    this->fitCoefficients.at(arcNumber).eccentricityCoefficients = eccentricityCoefficients;
 };
 
 std::array<float, MAX_OE_COEFF> OEStateEphemAlgorithm::getArcEccentricityCoefficients(const unsigned int arcNumber) {
-    return this->fitCoefficients[arcNumber].eccentricityCoefficients;
+    return this->fitCoefficients.at(arcNumber).eccentricityCoefficients;
 };
 
 void OEStateEphemAlgorithm::setArcInclinationCoefficients(
     const unsigned int arcNumber,
     const std::array<float, MAX_OE_COEFF>& inclinationCoefficients) {
-    this->fitCoefficients[arcNumber].inclinationCoefficients = inclinationCoefficients;
+    this->fitCoefficients.at(arcNumber).inclinationCoefficients = inclinationCoefficients;
 };
 
 std::array<float, MAX_OE_COEFF> OEStateEphemAlgorithm::getArcInclinationCoefficients(const unsigned int arcNumber) {
-    return this->fitCoefficients[arcNumber].inclinationCoefficients;
+    return this->fitCoefficients.at(arcNumber).inclinationCoefficients;
 };
 
 void OEStateEphemAlgorithm::setArcArgPeriapsisCoefficients(
     const unsigned int arcNumber,
     const std::array<float, MAX_OE_COEFF>& argPeriapsisCoefficients) {
-    this->fitCoefficients[arcNumber].argPeriapsisCoefficients = argPeriapsisCoefficients;
+    this->fitCoefficients.at(arcNumber).argPeriapsisCoefficients = argPeriapsisCoefficients;
 };
 
 std::array<float, MAX_OE_COEFF> OEStateEphemAlgorithm::getArcArgPeriapsisCoefficients(const unsigned int arcNumber) {
-    return this->fitCoefficients[arcNumber].argPeriapsisCoefficients;
+    return this->fitCoefficients.at(arcNumber).argPeriapsisCoefficients;
 };
 
 void OEStateEphemAlgorithm::setArcRaanCoefficients(const unsigned int arcNumber,
                                                    const std::array<float, MAX_OE_COEFF>& raanCoefficients) {
-    this->fitCoefficients[arcNumber].raanCoefficients = raanCoefficients;
+    this->fitCoefficients.at(arcNumber).raanCoefficients = raanCoefficients;
 };
 
 std::array<float, MAX_OE_COEFF> OEStateEphemAlgorithm::getArcRaanCoefficients(const unsigned int arcNumber) {
-    return this->fitCoefficients[arcNumber].raanCoefficients;
+    return this->fitCoefficients.at(arcNumber).raanCoefficients;
 };
 
 void OEStateEphemAlgorithm::setArcTrueAnomalyCoefficients(
     const unsigned int arcNumber,
     const std::array<float, MAX_OE_COEFF>& trueAnomalyCoefficients) {
-    this->fitCoefficients[arcNumber].trueAnomalyCoefficients = trueAnomalyCoefficients;
+    this->fitCoefficients.at(arcNumber).trueAnomalyCoefficients = trueAnomalyCoefficients;
 };
 
 std::array<float, MAX_OE_COEFF> OEStateEphemAlgorithm::getArcTrueAnomalyCoefficients(const unsigned int arcNumber) {
-    return this->fitCoefficients[arcNumber].trueAnomalyCoefficients;
+    return this->fitCoefficients.at(arcNumber).trueAnomalyCoefficients;
 };
 
 /*! This method sets the ephemeris and vehicle time offset referenced to J2000 epoch.
