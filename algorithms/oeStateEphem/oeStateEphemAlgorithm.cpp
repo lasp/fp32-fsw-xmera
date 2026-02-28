@@ -346,6 +346,7 @@ std::array<float, MAX_OE_COEFF> OEStateEphemAlgorithm::getArcTrueAnomalyCoeffici
     @param ephemerisJ2000 The ephemeris time offset (seconds)
     @param vehicleTimeOffset The vehicle time offset (seconds)
 */
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
 void OEStateEphemAlgorithm::setModuleTime(const double ephemerisJ2000, const double vehicleTimeOffset) {
     if (ephemerisJ2000 < 0) {
         FS_THROW_INVALID_ARGUMENT("EphemerisJ2000 time in OEStateEphemAlgorithm must be positive.");
