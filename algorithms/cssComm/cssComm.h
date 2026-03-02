@@ -1,18 +1,18 @@
 #ifndef F32XMERA_CSS_COMM_H
 #define F32XMERA_CSS_COMM_H
 
+#include "cssCommAlgorithm.h"
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
 #include <architecture/msgPayloadDef/CSSArraySensorMsgPayload.h>
-#include <array>
-#include <cstddef>
-
-inline constexpr std::size_t kMaxNumChebyPolys = 32;
 
 /*! @brief Top level structure for the CSS sensor interface system.  Contains all parameters for the
  CSS interface*/
 class CssComm : public SysModel {
    public:
+    CssComm() = default;
+    ~CssComm() override = default;
+
     void updateState(uint64_t callTime) override;
     void reset(uint64_t callTime) override;
 
@@ -29,10 +29,7 @@ class CssComm : public SysModel {
     Message<CSSArraySensorMsgPayload> cssArrayOutMsg;       //!< output message of corrected CSS data
 
    private:
-    uint32_t numSensors{};                                  //!< The number of sensors we are processing
-    double maxSensorValue{};                                //!< Scale factor to go from sensor values to cosine
-    uint32_t chebyCount{};                                  //!< Count on the number of chebyshev polynomials we have
-    std::array<double, kMaxNumChebyPolys> chebyPolynomials{};   //!< Chebyshev polynomials to fit output to cosine
+    CssCommAlgorithm algorithm{};
 };
 
 #endif

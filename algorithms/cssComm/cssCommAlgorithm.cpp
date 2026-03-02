@@ -1,0 +1,106 @@
+#include "cssCommAlgorithm.h"
+#include "utilities/chebyshevUtilities.h"
+#include "../freestandingInvalidArgument.h"
+#include <algorithm>
+
+/*! This method takes the raw sensor data from the coarse sun sensors and
+ converts that information to the format used by the CSS nav.
+ @return void
+ @param inputValues [-] Current measured CSS value for the constellation of CSS sensors
+ */
+std::array<double, MAX_NUM_CSS_SENSORS> CssCommAlgorithm::update(const std::array<double, MAX_NUM_CSS_SENSORS> inputValues) {
+    std::array<double, MAX_NUM_CSS_SENSORS> outputValues{};
+
+    /*! - Loop over the sensors and compute data
+         -# Check appropriate range on sensor and calibrate
+         -# If Chebyshev polynomials are configured:
+             - Seed polynominal computations
+             - Loop over polynominals to compute estimated correction factor
+             - Output is base value plus the correction factor
+         -# If sensor output range is incorrect, set output value to zero
+     */
+    for (uint32_t i = 0; i < this->numSensors; ++i) {
+        double measuredValue = inputValues[i] / this->maxSensorValue; /* Scale Sensor Data */
+
+        /* Calculate correction using Chebyshev polynomial */
+        double correction = calculateChebyValue(this->chebyPolynomials, this->chebyCount, measuredValue);
+
+        outputValues[i] = measuredValue + correction;
+
+        if (outputValues[i] > 1.0) {
+            outputValues[i] = 1.0;
+        } else if (outputValues[i] < 0.0) {
+            outputValues[i] = 0.0;
+        }
+    }
+
+    return outputValues;
+}
+
+/*! Set the number of CSS sensors
+ @return void
+ @param numberOfSensors [-] number of CSS sensors
+*/
+void CssCommAlgorithm::setNumSensors(const uint32_t numberOfSensors) {
+    if (numberOfSensors > MAX_NUM_CSS_SENSORS) {
+        FS_THROW_INVALID_ARGUMENT("The configured number of CSS sensors exceeds the maximum");
+    }
+    if (numberOfSensors <= 0) {
+        FS_THROW_INVALID_ARGUMENT("The number of configures CSS sensors must be positive.");
+    }
+    this->numSensors = numberOfSensors;
+}
+
+/*! Get the number of CSS sensors
+ @return uint32_t
+*/
+uint32_t CssCommAlgorithm::getNumSensors() const { return this->numSensors; }
+
+/*! Set the maximum sensor value
+ @return void
+ @param maxValue [-] maximum sensor value
+*/
+void CssCommAlgorithm::setMaxSensorValue(const double maxValue) {
+    if (maxValue <= 0) {
+        FS_THROW_INVALID_ARGUMENT("The maximum CSS sensor value must be positive. Otherwise, CSS sensor values "
+                                    "will be normalized by zero, inducing faux saturation!");
+    }
+    this->maxSensorValue = maxValue;
+}
+
+/*! Get the maximum sensor value
+ @return double
+*/
+double CssCommAlgorithm::getMaxSensorValue() const { return this->maxSensorValue; }
+
+/*! Set the cheby polynomial count
+ @return void
+ @param count [-] cheby polynomial count
+*/
+void CssCommAlgorithm::setChebyCount(const uint32_t count) {
+    if (count <= 0) {
+        FS_THROW_INVALID_ARGUMENT("The cheby polynomial count must be positive.");
+    }
+    if (count > kMaxNumChebyPolys) {
+        FS_THROW_INVALID_ARGUMENT("The cheby polynomial count exceeds the maximum allowed.");
+    }
+    this->chebyCount = count;
+}
+
+/*! Get the cheby polynomial count
+ @return uint32_t
+*/
+uint32_t CssCommAlgorithm::getChebyCount() const { return this->chebyCount; }
+
+/*! Set the cheby polynomials
+ @return void
+ @param polynomials [-] cheby polynomials
+*/
+void CssCommAlgorithm::setChebyPolynomials(const std::array<double, kMaxNumChebyPolys>& polynomials) {
+    this->chebyPolynomials = polynomials;
+}
+
+/*! Get the cheby polynomials
+ @return std::array<double, kMaxNumChebyPolys>
+*/
+std::array<double, kMaxNumChebyPolys> CssCommAlgorithm::getChebyPolynomials() const { return this->chebyPolynomials; }

@@ -15,6 +15,7 @@
 %attribute(CssComm, uint32_t, chebyCount, getChebyCount, setChebyCount)
 
 %include "cssComm.h"
+%include "cssCommAlgorithm.h"
 
 %extend CssComm {
 %pythoncode %{
