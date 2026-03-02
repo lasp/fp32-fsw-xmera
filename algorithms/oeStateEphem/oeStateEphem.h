@@ -10,11 +10,9 @@
 #include "msgPayloadDef/EphemerisMsgF32Payload.h"
 #include "msgPayloadDef/TDBVehicleClockCorrelationMsgF32Payload.h"
 #include "oeStateEphemAlgorithm.h"
+
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
-
-#define MAX_OE_RECORDS 10
-#define MAX_OE_COEFF 20
 
 /*! @brief Top level structure for the Chebyshev position ephemeris
            fit system.  Allows the user to specify a set of chebyshev
@@ -24,7 +22,7 @@
 class OEStateEphem : public SysModel {
    public:
     OEStateEphem() = default;
-    ~OEStateEphem() final = default;
+    ~OEStateEphem() override = default;
 
     void updateState(uint64_t callTime) override;
     void reset(uint64_t callTime) override;

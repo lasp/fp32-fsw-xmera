@@ -15,3 +15,5 @@ target_include_directories("${module}" PUBLIC "..")
 target_link_libraries("${module}" PRIVATE
   AlgorithmUtilities
 )
+
+add_subdirectory(_tests)

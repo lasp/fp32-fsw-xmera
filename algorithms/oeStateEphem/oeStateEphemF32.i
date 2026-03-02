@@ -13,6 +13,7 @@
 %include <std_array.i>
 %template(DoubleArray20) std::array<double, 20>;
 %template(FloatArray20) std::array<float, 20>;
+%include "msgPayloadDef/definitions.h"
 %include "oeStateEphem.h"
 
 %include "msgPayloadDef/TDBVehicleClockCorrelationMsgF32Payload.h"
