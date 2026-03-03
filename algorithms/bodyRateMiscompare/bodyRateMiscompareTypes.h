@@ -13,9 +13,9 @@
 extern "C" {
 #endif
 
-/*! @brief Structure containing the attitude navigation and body rate fault output messages */
+/*! @brief Structure containing the body frame anular rate and body rate fault output */
 typedef struct {
-    Eigen::Vector3f omega_BN_B; /*!< attitude navigation out message payload */
+    Eigen::Vector3f omega_BN_B; /*!< body frame anular rate */
     bool bodyRateFaultDetected; /*!< body rate fault */
 } BodyRateMiscompareOutput;
 
