@@ -30,9 +30,13 @@ void RwMotorVoltage::reset(uint64_t callTime) {
         throw std::invalid_argument("rwMotorVoltage.torqueInMsg wasn't connected.");
     }
 
-    const RWArrayConfigMsgF32Payload rwParams = this->rwParamsInMsg();
+    const RWArrayConfigMsgF32Payload rwParamsMsg = this->rwParamsInMsg();
+    RwMotorVoltageRWConfig rwConfig{};
+    std::ranges::copy(rwParamsMsg.JsList, std::begin(rwConfig.JsList));
+    std::ranges::copy(rwParamsMsg.uMax, std::begin(rwConfig.uMax));
+    rwConfig.numRW = rwParamsMsg.numRW;
 
-    this->algorithm.reset(rwParams);
+    this->algorithm.reset(rwConfig);
 }
 
 /*! Update performs the torque to voltage conversion. If a wheel speed message was provided, it also does closed loop
@@ -42,21 +46,28 @@ void RwMotorVoltage::reset(uint64_t callTime) {
  */
 void RwMotorVoltage::updateState(uint64_t callTime) {
     /* - Read the input messages */
-    RwMotorTorqueMsgF32Payload torqueCmd = this->torqueInMsg(); /*!< copy of RW motor torque input message*/
-    RWSpeedMsgF32Payload rwSpeed{};                             /*!< [r/s] Reaction wheel speed estimates */
-    RWAvailabilityMsgPayload rwAvailability{};
+    const auto [motorTorque] = this->torqueInMsg();
+    RwMotorVoltageTorqueInput torqueCmd{};
+    std::ranges::copy(motorTorque, std::begin(torqueCmd.motorTorque));
+
+    RwMotorVoltageSpeedInput rwSpeed{};
+    RwMotorVoltageAvailInput rwAvailability{};
 
     bool rwSpeedMsgIsLinked{};
     if (this->rwSpeedInMsg.isLinked()) {
-        rwSpeed = this->rwSpeedInMsg();
+        const auto [wheelSpeeds, wheelThetas] = this->rwSpeedInMsg();
+        std::ranges::copy(wheelSpeeds, std::begin(rwSpeed.wheelSpeeds));
         rwSpeedMsgIsLinked = true;
     }
     if (this->rwAvailInMsg.isLinked()) {
-        rwAvailability = this->rwAvailInMsg();
+        const auto [wheelAvailability] = this->rwAvailInMsg();
+        std::ranges::copy(wheelAvailability, std::begin(rwAvailability.wheelAvailability));
     }
 
-    RwMotorVoltageMsgF32Payload voltageOut =
-        this->algorithm.update(callTime, torqueCmd, rwAvailability, rwSpeed, rwSpeedMsgIsLinked);
+    const auto [voltage] = this->algorithm.update(callTime, torqueCmd, rwAvailability, rwSpeed, rwSpeedMsgIsLinked);
+
+    RwMotorVoltageMsgF32Payload voltageOut{};
+    std::ranges::copy(voltage, std::begin(voltageOut.voltage));
 
     this->voltageOutMsg.write(&voltageOut, this->moduleID, callTime);
 }
