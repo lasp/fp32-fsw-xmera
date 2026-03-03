@@ -107,6 +107,7 @@ set(algorithms
     "navAggregate"
     "oeStateEphem"
     "rateControl"
+    "rwMotorVoltage"
     "rwNullSpace"
     "sunlineEphem"
     "sunlineSRuKF"
