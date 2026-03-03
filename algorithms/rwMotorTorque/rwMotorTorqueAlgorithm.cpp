@@ -68,6 +68,7 @@ void RwMotorTorqueAlgorithm::configure(RWArrayConfigMsgF32Payload& rwParamsInMsg
         for (Eigen::Index i = 0; i < this->rwConfigParams.numRW; ++i) {
             if (this->wheelsAvailability[static_cast<uint32_t>(i)] == AVAILABLE) {
                 G_s_B.col(numAvailWheels) = cArrayToEigenVector3(&this->rwConfigParams.GsMatrix_B[i * 3]);
+                G_s_B.col(numAvailWheels).normalize();
                 numAvailWheels += 1U;
             }
         }
@@ -77,6 +78,9 @@ void RwMotorTorqueAlgorithm::configure(RWArrayConfigMsgF32Payload& rwParamsInMsg
         this->numAvailRW = static_cast<uint32_t>(this->rwConfigParams.numRW);
         G_s_B.leftCols(this->numAvailRW) =
             cArrayToEigenMatrix<float, 3, RW_EFF_CNT>(this->rwConfigParams.GsMatrix_B).leftCols(this->numAvailRW);
+        for (uint32_t i = 0U; i < this->numAvailRW; ++i) {
+            G_s_B.col(i).normalize();
+        }
     }
 
     this->CGs = this->controlAxes_B * G_s_B;
