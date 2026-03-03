@@ -111,6 +111,7 @@ set(algorithms
     "rwNullSpace"
     "sunlineEphem"
     "sunlineSRuKF"
+    "sunTrackError"
     "sunSearch"
 )
 foreach(algorithm_name IN LISTS algorithms)
