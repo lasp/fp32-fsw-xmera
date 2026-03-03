@@ -14,15 +14,15 @@ void NavAggregateAlgorithm_destroy(NavAggregateAlgorithm* self) {
 }
 
 AggregateOutput NavAggregateAlgorithm_update(NavAggregateAlgorithm* self,
-                                             const NavAttMsgF32Payload* attMsgsPayloads,
-                                             const NavTransMsgF32Payload* transMsgsPayloads) {
+                                             const InputNavAttData* attInputs,
+                                             const InputNavTransData* transInputs) {
     // Convert C arrays to std::array for C++ algorithm call
-    std::array<NavAttMsgF32Payload, MAX_AGG_NAV_MSG> attArray;
-    std::array<NavTransMsgF32Payload, MAX_AGG_NAV_MSG> transArray;
+    std::array<InputNavAttData, MAX_AGG_NAV_MSG> attArray;
+    std::array<InputNavTransData, MAX_AGG_NAV_MSG> transArray;
 
     for (uint32_t i = 0; i < MAX_AGG_NAV_MSG; ++i) {
-        attArray[i] = attMsgsPayloads[i];
-        transArray[i] = transMsgsPayloads[i];
+        attArray[i] = attInputs[i];
+        transArray[i] = transInputs[i];
     }
 
     return reinterpret_cast<::NavAggregateAlgorithm*>(self)->update(attArray, transArray);

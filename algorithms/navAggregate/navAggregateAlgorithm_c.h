@@ -35,14 +35,14 @@ void NavAggregateAlgorithm_destroy(NavAggregateAlgorithm* self);
 
 /**
  * @brief Run the update step.
- * @param self               Pointer to the instance.
- * @param attMsgsPayloads    Pointer to array of attitude navigation message payloads.
- * @param transMsgsPayloads  Pointer to array of translational navigation message payloads.
- * @return AggregateOutput   The computed output messages.
+ * @param self       Pointer to the instance.
+ * @param attInputs  Pointer to array of attitude navigation inputs.
+ * @param transInputs Pointer to array of translational navigation inputs.
+ * @return AggregateOutput The computed output.
  */
 AggregateOutput NavAggregateAlgorithm_update(NavAggregateAlgorithm* self,
-                                             const NavAttMsgF32Payload* attMsgsPayloads,
-                                             const NavTransMsgF32Payload* transMsgsPayloads);
+                                             const InputNavAttData* attInputs,
+                                             const InputNavTransData* transInputs);
 
 /**
  * @brief Set the attitude time index.
