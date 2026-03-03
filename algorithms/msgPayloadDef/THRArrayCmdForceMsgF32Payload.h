@@ -1,7 +1,7 @@
 #ifndef THR_ARRAY_CMD_FORCE_MESSAGE_F32_H
 #define THR_ARRAY_CMD_FORCE_MESSAGE_F32_H
 
-#include <architecture/msgPayloadDef/definitions.h>
+#include "definitions.h"
 
 /*! @brief Message used to define a vector of thruster force commands */
 typedef struct {

@@ -8,7 +8,7 @@
 #include "msgPayloadDef/THRArrayCmdForceMsgF32Payload.h"
 #include "msgPayloadDef/THRArrayConfigMsgF32Payload.h"
 #include "msgPayloadDef/THRArrayOnTimeCmdMsgF32Payload.h"
-#include <architecture/msgPayloadDef/definitions.h>
+#include "msgPayloadDef/definitions.h"
 
 enum class PulsingRegime { ONPULSING = 0, OFFPULSING = 1 };
 enum class ThrusterState { OFF = 0, ON = 1 };
