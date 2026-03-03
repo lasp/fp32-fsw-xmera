@@ -9,6 +9,8 @@
 
 /*! @brief Message structure used to write ephemeris states out to other modules*/
 typedef struct {
+    int spiceId;            //!< [-] ID of the target body
+    int centralBodyId;      //!< [-] ID of the target body's central body
     double r_BdyZero_N[3];  //!< [m] Position of orbital body
     double v_BdyZero_N[3];  //!< [m/s] Velocity of orbital body
     float sigma_BN[3];      //!< MRP attitude of the orbital body fixed frame relative to inertial
