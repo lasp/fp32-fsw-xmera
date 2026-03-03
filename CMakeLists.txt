@@ -109,6 +109,7 @@ set(algorithms
     "rateControl"
     "rwNullSpace"
     "sunlineEphem"
+    "sunlineSRuKF"
     "sunSearch"
 )
 foreach(algorithm_name IN LISTS algorithms)
