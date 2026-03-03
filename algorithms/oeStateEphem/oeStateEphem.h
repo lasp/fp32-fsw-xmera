@@ -33,6 +33,12 @@ class OEStateEphem : public SysModel {
     void setCentralBodyGravitationalParameter(float gravitationalParameter);
     float getCentralBodyGravitationalParameter() const;
 
+    void setSpiceBodyId(int spiceId);
+    int getSpiceBodyId() const;
+
+    void setCentralBodyId(int centralBody);
+    int getCentralBodyId() const;
+
     void setArcNumberOfCoefficients(unsigned int arcNumber, unsigned int numberOfCoefficients);
     unsigned int getArcNumberOfCoefficients(unsigned int arcNumber) const;
 
@@ -65,6 +71,8 @@ class OEStateEphem : public SysModel {
 
    private:
     OEStateEphemAlgorithm algorithm{};
+    int spiceBodyId{};
+    int centralBodyId{};
 };
 
 #endif

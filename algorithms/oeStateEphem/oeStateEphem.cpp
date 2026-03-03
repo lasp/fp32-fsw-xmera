@@ -47,6 +47,14 @@ float OEStateEphem::getCentralBodyGravitationalParameter() const {
     return this->algorithm.getCentralBodyGravitationalParameter();
 };
 
+void OEStateEphem::setSpiceBodyId(const int spiceId) { this->spiceBodyId = spiceId; };
+
+int OEStateEphem::getSpiceBodyId() const { return this->spiceBodyId; };
+
+void OEStateEphem::setCentralBodyId(const int centralBody) { this->centralBodyId = centralBody; };
+
+int OEStateEphem::getCentralBodyId() const { return this->centralBodyId; };
+
 void OEStateEphem::setArcNumberOfCoefficients(const unsigned int arcNumber, const unsigned int numberOfCoefficients) {
     this->algorithm.setArcNumberOfCoefficients(arcNumber, numberOfCoefficients);
 };
