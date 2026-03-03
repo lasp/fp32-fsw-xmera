@@ -34,6 +34,8 @@ void OEStateEphem::updateState(const uint64_t callTime) {
     auto tmpOutputState = this->algorithm.update(callTime);
 
     ephmerisMessageOutput.timeTag = callTime * nanoToSeconds;
+    ephmerisMessageOutput.spiceId = this->spiceBodyId;
+    ephmerisMessageOutput.centralBodyId = this->centralBodyId;
     eigenVectorToCArray(tmpOutputState.position, ephmerisMessageOutput.r_BdyZero_N);
     eigenVectorToCArray(tmpOutputState.velocity, ephmerisMessageOutput.v_BdyZero_N);
     this->stateFitOutMsg.write(&ephmerisMessageOutput, moduleID, callTime);
