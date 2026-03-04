@@ -8,7 +8,7 @@
  @return void
  @param inputValues [-] Current measured CSS value for the constellation of CSS sensors
  */
-std::array<float, MAX_NUM_CSS_SENSORS> CssCommAlgorithm::update(const std::array<float, MAX_NUM_CSS_SENSORS> inputValues) {
+std::array<float, MAX_NUM_CSS_SENSORS> CssCommAlgorithm::update(const std::array<float, MAX_NUM_CSS_SENSORS>& inputValues) const {
     std::array<float, MAX_NUM_CSS_SENSORS> outputValues{};
 
     /*! - Loop over the sensors and compute data
@@ -20,10 +20,10 @@ std::array<float, MAX_NUM_CSS_SENSORS> CssCommAlgorithm::update(const std::array
          -# If sensor output range is incorrect, set output value to zero
      */
     for (uint32_t i = 0; i < this->numSensors; ++i) {
-        float measuredValue = inputValues.at(i) / this->maxSensorValue; /* Scale Sensor Data */
+        float const measuredValue = inputValues.at(i) / this->maxSensorValue; /* Scale Sensor Data */
 
         /* Calculate correction using Chebyshev polynomial */
-        float correction = calculateChebyValue(this->chebyPolynomials, this->chebyCount, measuredValue);
+        float const correction = calculateChebyValue(this->chebyPolynomials, this->chebyCount, measuredValue);
 
         float correctedValue = measuredValue + correction;
 
