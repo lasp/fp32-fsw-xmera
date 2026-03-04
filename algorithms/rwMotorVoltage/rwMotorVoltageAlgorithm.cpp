@@ -83,8 +83,12 @@ RwMotorVoltageData RwMotorVoltageAlgorithm::update(const uint64_t callTime,
         if (rwAvailability.wheelAvailability[i] == RW_MOTOR_VOLTAGE_AVAILABLE) {
             voltage[i] =
                 (this->voltageMax - this->voltageMin) / this->rwConfigParams.uMax[i] * torqueCmd.motorTorque[i];
-            if (voltage[i] > 0.0) voltage[i] += this->voltageMin;
-            if (voltage[i] < 0.0) voltage[i] -= this->voltageMin;
+            if (voltage[i] > 0.0) {
+                voltage[i] += this->voltageMin;
+            }
+            if (voltage[i] < 0.0) {
+                voltage[i] -= this->voltageMin;
+            }
         }
         /* check for voltage saturation */
         voltage[i] = std::clamp(voltage[i], -this->voltageMax, this->voltageMax);
