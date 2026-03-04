@@ -2,7 +2,6 @@
 #include "architecture/utilities/eigenMRP.h"
 #include "architecture/utilities/eigenSupport.h"
 #include "architecture/utilities/rigidBodyKinematics.hpp"
-#include <cmath>
 #include "utilities/timeConstants.h"
 #include <numbers>
 
