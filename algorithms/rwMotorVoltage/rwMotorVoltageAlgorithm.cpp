@@ -67,11 +67,11 @@ RwMotorVoltageData RwMotorVoltageAlgorithm::update(const uint64_t callTime,
             OmegaDot.setZero();
             for (int32_t i = 0; i < this->rwConfigParams.numRW; i++) {
                 if (rwAvailability.wheelAvailability[i] == RW_MOTOR_VOLTAGE_AVAILABLE && !this->resetFlag) {
-                    OmegaDot[i] = (rwSpeed.wheelSpeeds[i] - this->rwSpeedOld[i]) / dt;
+                    OmegaDot(i) = (rwSpeed.wheelSpeeds[i] - this->rwSpeedOld(i)) / dt;
                     torqueCmd.motorTorque[i] -=
-                        this->K * (this->rwConfigParams.JsList[i] * OmegaDot[i] - torqueCmd.motorTorque[i]);
+                        this->K * (this->rwConfigParams.JsList[i] * OmegaDot(i) - torqueCmd.motorTorque[i]);
                 }
-                this->rwSpeedOld[i] = rwSpeed.wheelSpeeds[i];
+                this->rwSpeedOld(i) = rwSpeed.wheelSpeeds[i];
             }
             this->resetFlag = false;
         }
@@ -81,19 +81,19 @@ RwMotorVoltageData RwMotorVoltageAlgorithm::update(const uint64_t callTime,
     /* evaluate the feedforward mapping of torque into voltage */
     for (int32_t i = 0; i < this->rwConfigParams.numRW; ++i) {
         if (rwAvailability.wheelAvailability[i] == RW_MOTOR_VOLTAGE_AVAILABLE) {
-            voltage[i] =
+            voltage(i) =
                 (this->voltageMax - this->voltageMin) / this->rwConfigParams.uMax[i] * torqueCmd.motorTorque[i];
-            if (voltage[i] > 0.0) {
-                voltage[i] += this->voltageMin;
+            if (voltage(i) > 0.0) {
+                voltage(i) += this->voltageMin;
             }
-            if (voltage[i] < 0.0) {
-                voltage[i] -= this->voltageMin;
+            if (voltage(i) < 0.0) {
+                voltage(i) -= this->voltageMin;
             }
         }
         /* check for voltage saturation */
-        voltage[i] = std::clamp(voltage[i], -this->voltageMax, this->voltageMax);
+        voltage(i) = std::clamp(voltage(i), -this->voltageMax, this->voltageMax);
 
-        voltageOut.voltage[i] = voltage[i];
+        voltageOut.voltage[i] = voltage(i);
     }
 
     return voltageOut;
