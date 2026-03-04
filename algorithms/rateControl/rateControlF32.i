@@ -7,6 +7,7 @@
 %module rateControlF32
 %{
    #include "rateControl.h"
+   #include "utilities/timeConstants.h"
 %}
 
 %include <std_string.i>

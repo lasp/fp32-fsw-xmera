@@ -7,6 +7,7 @@
 %module rwMotorVoltageF32
 %{
    #include "rwMotorVoltage.h"
+   #include "utilities/timeConstants.h"
 %}
 
 %include <architecture/_GeneralModuleFiles/sys_model.i>
@@ -23,4 +24,4 @@
 %include "msgPayloadDef/RwMotorVoltageMsgF32Payload.h"
 
 %include "rwMotorVoltageTypes.h"
-%include <architecture/utilities/macroDefinitions.h>
+%include "utilities/timeConstants.h"

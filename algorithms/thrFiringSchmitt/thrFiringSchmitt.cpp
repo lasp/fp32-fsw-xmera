@@ -1,5 +1,5 @@
 #include "thrFiringSchmitt.h"
-#include <architecture/utilities/macroDefinitions.h>
+#include "utilities/timeConstants.h"
 #include <stdexcept>
 
 /*! This method performs a complete reset of the module.  Local module variables that retain
@@ -32,7 +32,7 @@ void ThrFiringSchmitt::updateState(uint64_t callTime) {
     /*! - compute control time period Delta_t */
     float controlPeriod{};
     if (this->prevCallTime != 0U) {
-        controlPeriod = static_cast<float>(static_cast<double>(callTime - this->prevCallTime) * NANO2SEC);
+        controlPeriod = static_cast<float>(static_cast<double>(callTime - this->prevCallTime) * kNano2Sec);
     }
     this->prevCallTime = callTime;
 

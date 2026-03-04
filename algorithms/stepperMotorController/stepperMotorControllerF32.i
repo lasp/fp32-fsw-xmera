@@ -7,6 +7,7 @@
 %module stepperMotorControllerF32
 %{
    #include "stepperMotorController.h"
+   #include "utilities/timeConstants.h"
 %}
 
 %include <std_string.i>

@@ -1,6 +1,7 @@
 %module thrFiringSchmittF32
 %{
    #include "thrFiringSchmitt.h"
+   #include "utilities/timeConstants.h"
 %}
 
 %include <attribute.i>

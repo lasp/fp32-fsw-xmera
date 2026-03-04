@@ -10,8 +10,8 @@
 #include "msgPayloadDef/RWArrayConfigMsgF32Payload.h"
 #include "msgPayloadDef/RWSpeedMsgF32Payload.h"
 #include "msgPayloadDef/VehicleConfigMsgF32Payload.h"
+#include "utilities/timeConstants.h"
 #include <architecture/msgPayloadDef/RWAvailabilityMsgPayload.h>
-#include <architecture/utilities/macroDefinitions.h>
 #include <fswAlgorithms/fswUtilities/fswDefinitions.h>
 #include <gtest/gtest.h>
 #include <Eigen/Core>
@@ -47,7 +47,7 @@ ReferenceOutput referenceUpdate(const MrpFeedbackAlgorithm& alg,
     if (priorTime == 0U) {
         dt = 0.0F;
     } else {
-        dt = static_cast<float>(static_cast<double>(callTime - priorTime) * NANO2SEC);
+        dt = static_cast<float>(static_cast<double>(callTime - priorTime) * kNano2Sec);
     }
     priorTime = callTime;
 
@@ -199,7 +199,7 @@ inline void testMrpFeedback(std::vector<float> sigma,
     int numSteps = 5;
 
     for (int step = 0; step < numSteps; ++step) {
-        uint64_t callTime = priorTime + static_cast<uint64_t>(dt / NANO2SEC);
+        uint64_t callTime = priorTime + static_cast<uint64_t>(dt / kNano2Sec);
 
         // Reference
         MrpFeedbackOutput out{};

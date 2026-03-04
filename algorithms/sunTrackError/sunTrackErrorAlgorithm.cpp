@@ -1,9 +1,9 @@
 #include "sunTrackErrorAlgorithm.h"
 #include "architecture/utilities/eigenMRP.h"
 #include "architecture/utilities/eigenSupport.h"
-#include "architecture/utilities/macroDefinitions.h"
 #include "architecture/utilities/rigidBodyKinematics.hpp"
 #include <cmath>
+#include "utilities/timeConstants.h"
 #include <numbers>
 
 /*! This method performs a complete reset of the module.  Local module variables that retain
@@ -114,7 +114,7 @@ AttGuidMsgF32Payload SunTrackErrorAlgorithm::computeSunTrackError(NavAttMsgF32Pa
     // This calculation can be seen in attitude tracking documentation
     const Eigen::Matrix3f dcm_RN = (dcm_R0N.transpose() * dcm_R0R).transpose();
 
-    const float dtSeconds = static_cast<float>(callTime - this->mnvrStartTime) * static_cast<float>(NANO2SEC);
+    const float dtSeconds = static_cast<float>(callTime - this->mnvrStartTime) * kNano2SecF;
 
     // Integrate the angle to provide a feed forward rate
     float relativeAngleCurr = this->angleStart - (this->angleRate * dtSeconds);

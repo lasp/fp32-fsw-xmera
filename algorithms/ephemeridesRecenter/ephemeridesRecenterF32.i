@@ -7,6 +7,7 @@
 %module ephemeridesRecenterF32
 %{
    #include "ephemeridesRecenter.h"
+   #include "utilities/timeConstants.h"
 %}
 
 %include <architecture/_GeneralModuleFiles/sys_model.i>

@@ -5,7 +5,7 @@
  */
 
 #include "rwMotorVoltageAlgorithm.h"
-#include <architecture/utilities/macroDefinitions.h>
+#include "utilities/timeConstants.h"
 
 #include "../freestandingInvalidArgument.h"
 #include <algorithm>
@@ -61,7 +61,8 @@ RwMotorVoltageData RwMotorVoltageAlgorithm::update(const uint64_t callTime,
     if (rwSpeedMsgIsLinked) {
         /* make sure the clock didn't just initialize, or the module was recently reset */
         if (this->priorTime != 0) {
-            const float dt = (callTime - this->priorTime) * NANO2SEC; /*!< [s]   control update period */
+            const float dt =
+                static_cast<float>(callTime - this->priorTime) * kNano2SecF; /*!< [s]   control update period */
             Eigen::Vector<float, RW_EFF_CNT> OmegaDot{};
             OmegaDot.setZero();
             for (int32_t i = 0; i < this->rwConfigParams.numRW; i++) {

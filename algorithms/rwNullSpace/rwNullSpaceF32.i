@@ -7,6 +7,7 @@
 %module rwNullSpaceF32
 %{
    #include "rwNullSpace.h"
+   #include "utilities/timeConstants.h"
 %}
 
 %include <architecture/_GeneralModuleFiles/sys_model.i>

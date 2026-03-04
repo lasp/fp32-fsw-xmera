@@ -7,6 +7,7 @@
 %module sunlineSRuKFF32
 %{
     #include "sunlineSRuKF.h"
+    #include "utilities/timeConstants.h"
 %}
 
 %include <architecture/_GeneralModuleFiles/sys_model.i>

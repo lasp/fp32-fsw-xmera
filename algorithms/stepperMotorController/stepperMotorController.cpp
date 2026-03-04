@@ -5,7 +5,7 @@
 */
 
 #include "stepperMotorController.h"
-#include <architecture/utilities/macroDefinitions.h>
+#include "utilities/timeConstants.h"
 #include <stdexcept>
 
 /*! This method performs a complete reset of the module. The input message is checked to ensure it is linked.
@@ -33,7 +33,7 @@ void StepperMotorController::updateState(const uint64_t callTime) {
         motorRefAngleIn = this->motorRefAngleInMsg();
 
         // Store the time the motor reference input message was written
-        hingedRigidBodyMsgTimeWritten = NANO2SEC * this->motorRefAngleInMsg.timeWritten();
+        hingedRigidBodyMsgTimeWritten = kNano2Sec * this->motorRefAngleInMsg.timeWritten();
     }
 
     StepperMotorControllerOutput stepperMotorControllerOutput =

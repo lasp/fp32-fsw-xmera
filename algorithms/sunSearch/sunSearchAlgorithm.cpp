@@ -7,8 +7,8 @@
 #include "sunSearchAlgorithm.h"
 
 #include "architecture/utilities/eigenSupport.h"
-#include "architecture/utilities/macroDefinitions.h"
 #include "freestandingInvalidArgument.h"
+#include "utilities/timeConstants.h"
 
 /*! This method is used to reset the module.
  @return void
@@ -40,8 +40,7 @@ AttGuidMsgF32Payload SunSearchAlgorithm::update(const uint64_t currentSimNanos,
     AttGuidMsgF32Payload attGuidOut{};
     ReferenceMotionOutput referenceMotion{};
 
-    const float CurrentSimSeconds =
-        static_cast<float>(currentSimNanos - this->resetTime) * static_cast<float>(NANO2SEC);
+    const float CurrentSimSeconds = static_cast<float>(currentSimNanos - this->resetTime) * kNano2SecF;
 
     float timeInf = 0;
     float timeSup = this->kinematicProperties[0].slewTotalTime;
@@ -113,8 +112,7 @@ ReferenceMotionOutput SunSearchAlgorithm::computeReferenceMotion(const uint64_t 
     for (int32_t i = 0; i < slewIndex.index; ++i) {
         zeroTime += this->kinematicProperties[i].slewTotalTime;
     }
-    const float localSimSeconds =
-        (static_cast<float>(currentSimNanos - this->resetTime) * static_cast<float>(NANO2SEC)) - zeroTime;
+    const float localSimSeconds = (static_cast<float>(currentSimNanos - this->resetTime) * kNano2SecF) - zeroTime;
 
     const KinematicProperties KP = this->kinematicProperties[slewIndex.index];
     const uint32_t axis = KP.slewRotAxis - 1;

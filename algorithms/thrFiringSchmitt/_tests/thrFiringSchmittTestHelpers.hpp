@@ -6,8 +6,8 @@
 #include "msgPayloadDef/THRArrayConfigMsgF32Payload.h"
 #include "msgPayloadDef/THRArrayOnTimeCmdMsgF32Payload.h"
 #include "thrFiringSchmittAlgorithm.h"
+#include "utilities/timeConstants.h"
 #include <architecture/msgPayloadDef/definitions.h>
-#include <architecture/utilities/macroDefinitions.h>
 #include <gtest/gtest.h>
 #include <math.h>
 #include <stdint.h>
@@ -50,7 +50,7 @@ ReferenceOutput referenceUpdate(const ThrFiringSchmittAlgorithm& alg,
         }
     } else {
         /*! - compute control time period Delta_t */
-        const float controlPeriod = static_cast<float>(static_cast<double>(callTime - prevCallTime) * NANO2SEC);
+        const float controlPeriod = static_cast<float>(static_cast<double>(callTime - prevCallTime) * kNano2Sec);
         prevCallTime = callTime;
 
         std::array<float, MAX_EFF_CNT> onTime{}; /* [s] array of commanded on time for thrusters */
@@ -197,7 +197,7 @@ inline void testThrFiringSchmitt(float levelOn,
     for (int step = 0; step < numSteps; ++step) {
         float controlPeriod{};
         if (prevCallTime != 0U) {
-            controlPeriod = static_cast<float>(static_cast<double>(callTime - prevCallTime) * NANO2SEC);
+            controlPeriod = static_cast<float>(static_cast<double>(callTime - prevCallTime) * kNano2Sec);
         }
 
         // Reference
@@ -226,7 +226,7 @@ inline void testThrFiringSchmitt(float levelOn,
                 EXPECT_GE(out.onTimeRequest[i], thrMinFireTime);
             }
         }
-        callTime += static_cast<uint64_t>(dt / NANO2SEC);
+        callTime += static_cast<uint64_t>(dt / kNano2Sec);
     }
 }
 
