@@ -79,7 +79,7 @@ RwMotorVoltageData RwMotorVoltageAlgorithm::update(const uint64_t callTime,
     }
 
     /* evaluate the feedforward mapping of torque into voltage */
-    for (uint32_t i = 0; i < this->rwConfigParams.numRW; ++i) {
+    for (int32_t i = 0; i < this->rwConfigParams.numRW; ++i) {
         if (rwAvailability.wheelAvailability[i] == RW_MOTOR_VOLTAGE_AVAILABLE) {
             voltage[i] =
                 (this->voltageMax - this->voltageMin) / this->rwConfigParams.uMax[i] * torqueCmd.motorTorque[i];
