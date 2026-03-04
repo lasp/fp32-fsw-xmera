@@ -103,7 +103,6 @@ set(algorithms
     "ephemNavConverter"
     "inertial3D"
     "mimuMajorityVote"
-    "mrpSteering"
     "navAggregate"
     "oeStateEphem"
     "rateControl"

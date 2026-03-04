@@ -13,9 +13,9 @@
 extern "C" {
 #endif
 
-/*! @brief Structure containing the body frame anular rate and body rate fault output */
+/*! @brief Structure containing the body frame angular rate and body rate fault output */
 typedef struct {
-    Eigen::Vector3f omega_BN_B; /*!< body frame anular rate */
+    Eigen::Vector3f omega_BN_B; /*!< body frame angular rate */
     bool bodyRateFaultDetected; /*!< body rate fault */
 } BodyRateMiscompareOutput;
 
