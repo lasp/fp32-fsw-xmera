@@ -1,10 +1,6 @@
-/*
- MIT License
-
- Copyright (c) 2025, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
- */
-
 #include "mrpSteering.h"
+#include "architecture/utilities/eigenSupport.h"
+#include <algorithm>
 #include <stdexcept>
 
 /*! This method performs a complete reset of the module.  Local module variables that retain
@@ -25,17 +21,23 @@ void MrpSteering::reset(const uint64_t callTime) {
         throw std::invalid_argument("mrpSteering.vehConfigInMsg wasn't connected.");
     }
 
-    const VehicleConfigMsgF32Payload sc = this->vehConfigInMsg();
-    RWArrayConfigMsgF32Payload rwConfigParams{};
+    auto vehicleConfigInMsg = this->vehConfigInMsg();
+    const Eigen::Matrix3f inertia = cArrayToEigenMatrix3(vehicleConfigInMsg.ISCPntB_B);
+    this->algorithm.setSpacecraftInertia(inertia);
+
+    InputRwData rwInputData{};
     bool rwParamsIsLinked{};
 
     /*! - check if RW configuration message exists */
     if (this->rwParamsInMsg.isLinked()) {
-        rwConfigParams = this->rwParamsInMsg();
+        RWArrayConfigMsgF32Payload rwConfigParams = this->rwParamsInMsg();
+        rwInputData.GsMatrix_B = cArrayToEigenMatrix<float, 3, RW_EFF_CNT>(rwConfigParams.GsMatrix_B);
+        std::copy(std::begin(rwConfigParams.JsList), std::end(rwConfigParams.JsList), std::begin(rwInputData.JsList));
+        rwInputData.numRW = static_cast<uint32_t>(rwConfigParams.numRW);
         rwParamsIsLinked = true;
     }
 
-    this->algorithm.reset(sc, rwConfigParams, rwParamsIsLinked);
+    this->algorithm.reset(rwInputData, rwParamsIsLinked);
 }
 
 /*! This method takes the attitude and rate errors relative to the Reference frame, as well as
@@ -44,25 +46,40 @@ void MrpSteering::reset(const uint64_t callTime) {
  @param callTime The clock time at which the function was called (nanoseconds)
  */
 void MrpSteering::updateState(const uint64_t callTime) {
-    AttGuidMsgF32Payload guidCmd = this->guidInMsg();
-    RWSpeedMsgF32Payload wheelSpeeds{};            /*!< Reaction wheel speed estimates input message */
-    RWAvailabilityMsgPayload wheelsAvailability{}; /*!< Reaction wheel availability input message */
+    AttGuidMsgF32Payload guidCmdMsg = this->guidInMsg();
+    InputGuidanceData attGuidInputData{};
+    attGuidInputData.sigma_BR = cArrayToEigenVector(guidCmdMsg.sigma_BR);
+    attGuidInputData.omega_BR_B = cArrayToEigenVector(guidCmdMsg.omega_BR_B);
+    attGuidInputData.omega_RN_B = cArrayToEigenVector(guidCmdMsg.omega_RN_B);
+    attGuidInputData.domega_RN_B = cArrayToEigenVector(guidCmdMsg.domega_RN_B);
 
+    std::array<float, RW_EFF_CNT> wheelSpeeds{};
+    std::array<FSWdeviceAvailability, RW_EFF_CNT> wheelAvailability{};
     if (this->rwParamsInMsg.isLinked()) {
-        wheelSpeeds = this->rwSpeedsInMsg();
+        RWSpeedMsgF32Payload wheelSpeedsMsg = this->rwSpeedsInMsg();
+        std::copy(
+            std::begin(wheelSpeedsMsg.wheelSpeeds), std::end(wheelSpeedsMsg.wheelSpeeds), std::begin(wheelSpeeds));
         if (this->rwAvailInMsg.isLinked()) {
-            wheelsAvailability = this->rwAvailInMsg();
+            RWAvailabilityMsgPayload wheelAvailabilityMsg = this->rwAvailInMsg();
+            std::copy(std::begin(wheelAvailabilityMsg.wheelAvailability),
+                      std::end(wheelAvailabilityMsg.wheelAvailability),
+                      std::begin(wheelAvailability));
         }
     }
 
-    CmdTorqueBodyMsgF32Payload controlOut = algorithm.update(callTime, guidCmd, wheelSpeeds, wheelsAvailability);
+    const Eigen::Vector3f Lr = algorithm.update(attGuidInputData, wheelSpeeds, wheelAvailability);
+
+    CmdTorqueBodyMsgF32Payload controlOut{}; /*!< commanded torque output message */
+
+    /*! - Set output message and pass it to the message bus */
+    eigenVectorToCArray(Lr, controlOut.torqueRequestBody);
 
     this->cmdTorqueOutMsg.write(&controlOut, moduleID, callTime);
 }
 
 /*! Set the linear feedback gain K1
  @return void
- @param gain [-] linear feedback gain K1
+ @param gain [rad/s] linear feedback gain K1
 */
 void MrpSteering::setK1(const float gain) { this->algorithm.setK1(gain); }
 
@@ -73,7 +90,7 @@ float MrpSteering::getK1() const { return this->algorithm.getK1(); }
 
 /*! Set the cubic feedback gain K3
  @return void
- @param gain [-] cubic feedback gain K3
+ @param gain [rad/s] cubic feedback gain K3
 */
 void MrpSteering::setK3(const float gain) { this->algorithm.setK3(gain); }
 
@@ -84,7 +101,7 @@ float MrpSteering::getK3() const { return this->algorithm.getK3(); }
 
 /*! Set the maximum rate command of steering control
  @return void
- @param omega [-] maximum rate command of steering control
+ @param omega [rad/s] maximum rate command of steering control
 */
 void MrpSteering::setOmegaMax(const float omega) { this->algorithm.setOmegaMax(omega); }
 
@@ -128,7 +145,7 @@ float MrpSteering::getKi() const { return this->algorithm.getKi(); }
 
 /*! Setter method for the integral limit.
  @return void
- @param limit [N*m*s] Integral limit
+ @param limit [rad] Integral limit
 */
 void MrpSteering::setIntegralLimit(const float limit) { this->algorithm.setIntegralLimit(limit); }
 
@@ -147,3 +164,14 @@ void MrpSteering::setKnownTorquePntB_B(const Eigen::Vector3f& torque) { this->al
  @return const Eigen::Vector3f
 */
 Eigen::Vector3f MrpSteering::getKnownTorquePntB_B() const { return this->algorithm.getKnownTorquePntB_B(); }
+
+/*! Setter method for controlPeriod.
+ @return void
+ @param period [s] control period (time between two algorithm update calls)
+ */
+void MrpSteering::setControlPeriod(const float period) { this->algorithm.setControlPeriod(period); }
+
+/*! Getter method for controlPeriod.
+ @return const float
+*/
+float MrpSteering::getControlPeriod() const { return this->algorithm.getControlPeriod(); }

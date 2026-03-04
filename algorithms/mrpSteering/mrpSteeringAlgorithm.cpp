@@ -1,14 +1,8 @@
-/*
- MIT License
-
- Copyright (c) 2025, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
- */
-
 #include "mrpSteeringAlgorithm.h"
 #include "../freestandingInvalidArgument.h"
+#include "../utilities/validInertiaCheck.h"
 #include "architecture/utilities/eigenSupport.h"
 #include "architecture/utilities/rigidBodyKinematics.hpp"
-#include <architecture/utilities/macroDefinitions.h>
 #include <fswAlgorithms/fswUtilities/fswDefinitions.h>
 #include <Eigen/Core>
 #include <numbers>
@@ -16,41 +10,30 @@
 /*! This method performs a complete reset of the module.  Local module variables that retain
  time varying states between function calls are reset to their default values.
  @return void
- @param vehConfigMsg vehicle config message
- @param rwConfigMsg reaction wheel config message
+ @param rwInput reaction wheel config
  @param rwIsConfigured boolean indicating whether reaction wheels are configured through the rwConfigMsg
  */
-void MrpSteeringAlgorithm::reset(VehicleConfigMsgF32Payload vehConfigMsg,
-                                 const RWArrayConfigMsgF32Payload& rwConfigMsg,
-                                 const bool rwIsConfigured) {
-    this->ISCPntB_B = cArrayToEigenMatrix3(vehConfigMsg.ISCPntB_B);
-
+void MrpSteeringAlgorithm::reset(const InputRwData& rwInput, const bool rwIsConfigured) {
     if (rwIsConfigured) {
-        this->rwConfigParams = rwConfigMsg;
+        this->rwConfigParams = rwInput;
         this->rwIsConfigured = rwIsConfigured;
     }
 
     /* Reset the integral measure of the rate tracking error */
     this->z = Eigen::Vector3f::Zero();
-
-    /* Reset the prior time flag state.
-     If zero, control time step not evaluated on the first function call */
-    this->priorTime = 0U;
 }
 
 /*! This method takes and rate errors relative to the Reference frame, as well as
     the reference frame angular rates and acceleration, and computes the required control torque Lr.
- @return void
- @param callTime The clock time at which the function was called (nanoseconds)
- @param guidCmd Attitude tracking error message
+ @return Eigen::Vector3f
+ @param attGuidInput Attitude guidance input
  @param wheelSpeeds Reaction wheel speed message
- @param wheelsAvailability Reaction wheel availability message
+ @param wheelAvailability Reaction wheel availability message
  */
-CmdTorqueBodyMsgF32Payload MrpSteeringAlgorithm::update(const uint64_t callTime,
-                                                        AttGuidMsgF32Payload guidCmd,
-                                                        const RWSpeedMsgF32Payload& wheelSpeeds,
-                                                        const RWAvailabilityMsgPayload& wheelsAvailability) {
-    const Eigen::Vector3f sigma_BR = cArrayToEigenVector(guidCmd.sigma_BR);
+Eigen::Vector3f MrpSteeringAlgorithm::update(const InputGuidanceData& attGuidInput,
+                                             const std::array<float, RW_EFF_CNT>& wheelSpeeds,
+                                             const std::array<FSWdeviceAvailability, RW_EFF_CNT>& wheelAvailability) {
+    const Eigen::Vector3f sigma_BR = attGuidInput.sigma_BR;
 
     Eigen::Vector3f omega_BastR_B{};
     Eigen::Vector3f omegap_BastR_B{Eigen::Vector3f::Zero()};
@@ -76,18 +59,9 @@ CmdTorqueBodyMsgF32Payload MrpSteeringAlgorithm::update(const uint64_t callTime,
         }
     }
 
-    /*! - compute control update time */
-    float dt{}; /* [s] control update period */
-    if (this->priorTime == 0U) {
-        dt = 0.0F;
-    } else {
-        dt = static_cast<float>(callTime - this->priorTime) * static_cast<float>(NANO2SEC);
-    }
-    this->priorTime = callTime;
-
-    const Eigen::Vector3f omega_BR_B = cArrayToEigenVector(guidCmd.omega_BR_B);
-    const Eigen::Vector3f omega_RN_B = cArrayToEigenVector(guidCmd.omega_RN_B);
-    const Eigen::Vector3f domega_RN_B = cArrayToEigenVector(guidCmd.domega_RN_B);
+    const Eigen::Vector3f omega_BR_B = attGuidInput.omega_BR_B;
+    const Eigen::Vector3f omega_RN_B = attGuidInput.omega_RN_B;
+    const Eigen::Vector3f domega_RN_B = attGuidInput.domega_RN_B;
 
     /*! - compute body rate */
     const Eigen::Vector3f omega_BN_B = omega_BR_B + omega_RN_B;
@@ -98,7 +72,7 @@ CmdTorqueBodyMsgF32Payload MrpSteeringAlgorithm::update(const uint64_t callTime,
 
     /*! - integrate rate tracking error  */
     if (this->Ki > 0.0F) { /* check if integral feedback is turned on  */
-        this->z += omega_BBast_B * dt;
+        this->z += omega_BBast_B * this->controlPeriod;
         for (Eigen::Index i = 0; i < 3; ++i) {
             const float intLimCheck = fabsf(this->z[i]);
             if (intLimCheck > this->integralLimit) {
@@ -114,14 +88,11 @@ CmdTorqueBodyMsgF32Payload MrpSteeringAlgorithm::update(const uint64_t callTime,
     Eigen::Vector3f H_B = this->ISCPntB_B * omega_BN_B;
 
     if (this->rwIsConfigured) {
-        const Eigen::Matrix<float, 3, RW_EFF_CNT> G_s_B =
-            cArrayToEigenMatrix<float, 3, RW_EFF_CNT>(this->rwConfigParams.GsMatrix_B);
-
-        for (Eigen::Index i = 0; i < this->rwConfigParams.numRW; ++i) {
-            if (wheelsAvailability.wheelAvailability[i] == AVAILABLE) { /* check if wheel is available */
-                const Eigen::Vector3f G_s_B_i = G_s_B.col(i);
+        for (uint32_t i = 0U; i < this->rwConfigParams.numRW; ++i) {
+            if (wheelAvailability.at(i) == AVAILABLE) { /* check if wheel is available */
+                const Eigen::Vector3f G_s_B_i = this->rwConfigParams.GsMatrix_B.col(static_cast<int>(i));
                 const Eigen::Vector3f h_s_i =
-                    this->rwConfigParams.JsList[i] * (omega_BN_B.dot(G_s_B_i) + wheelSpeeds.wheelSpeeds[i]) * G_s_B_i;
+                    this->rwConfigParams.JsList.at(i) * (omega_BN_B.dot(G_s_B_i) + wheelSpeeds.at(i)) * G_s_B_i;
                 H_B += h_s_i;
             }
         }
@@ -135,17 +106,28 @@ CmdTorqueBodyMsgF32Payload MrpSteeringAlgorithm::update(const uint64_t callTime,
     /* Change sign to compute the net positive control torque onto the spacecraft */
     const Eigen::Vector3f Lr = -Lc;
 
-    CmdTorqueBodyMsgF32Payload controlOut{}; /*!< commanded torque output message */
-
-    /*! - Set output message and pass it to the message bus */
-    eigenVectorToCArray(Lr, controlOut.torqueRequestBody);
-
-    return controlOut;
+    return Lr;
 }
+
+/*! This method sets the spacecraft inertia according to the vehicle configuration input message
+ @return void
+ @param inertia Inertia matrix
+*/
+void MrpSteeringAlgorithm::setSpacecraftInertia(const Eigen::Matrix3f& inertia) {
+    if (!inertiaIsValid(inertia)) {
+        FS_THROW_INVALID_ARGUMENT("Matrix inertia did not pass validity checks");
+    }
+    this->ISCPntB_B = inertia;
+}
+
+/*! This method gets the spacecraft inertia matrix
+ @return Eigen::Matrix3f
+*/
+Eigen::Matrix3f MrpSteeringAlgorithm::getSpacecraftInertia() const { return this->ISCPntB_B; }
 
 /*! Set the linear feedback gain K1
  @return void
- @param gain [-] linear feedback gain K1
+ @param gain [rad/s] linear feedback gain K1
 */
 void MrpSteeringAlgorithm::setK1(const float gain) {
     if (gain < 0.0) {
@@ -161,7 +143,7 @@ float MrpSteeringAlgorithm::getK1() const { return this->K1; }
 
 /*! Set the cubic feedback gain K3
  @return void
- @param gain [-] cubic feedback gain K3
+ @param gain [rad/s] cubic feedback gain K3
 */
 void MrpSteeringAlgorithm::setK3(const float gain) {
     if (gain < 0.0) {
@@ -177,7 +159,7 @@ float MrpSteeringAlgorithm::getK3() const { return this->K3; }
 
 /*! Set the maximum rate command of steering control
  @return void
- @param omega [-] maximum rate command of steering control
+ @param omega [rad/s] maximum rate command of steering control
 */
 void MrpSteeringAlgorithm::setOmegaMax(const float omega) {
     if (omega <= 0.0) {
@@ -236,7 +218,7 @@ float MrpSteeringAlgorithm::getKi() const { return this->Ki; }
 
 /*! Setter method for the integral limit.
  @return void
- @param limit [N*m*s] Integral limit
+ @param limit [rad] Integral limit
 */
 void MrpSteeringAlgorithm::setIntegralLimit(const float limit) {
     if (limit < 0.0) {
@@ -260,3 +242,19 @@ void MrpSteeringAlgorithm::setKnownTorquePntB_B(const Eigen::Vector3f& torque) {
  @return const Eigen::Vector3f
 */
 Eigen::Vector3f MrpSteeringAlgorithm::getKnownTorquePntB_B() const { return this->knownTorquePntB_B; }
+
+/*! Setter method for controlPeriod.
+ @return void
+ @param period [s] control period (time between two algorithm update calls)
+ */
+void MrpSteeringAlgorithm::setControlPeriod(const float period) {
+    if (period <= 0.0) {
+        FS_THROW_INVALID_ARGUMENT("controlPeriod must be > 0.0");
+    }
+    this->controlPeriod = period;
+}
+
+/*! Getter method for controlPeriod.
+ @return const float
+*/
+float MrpSteeringAlgorithm::getControlPeriod() const { return this->controlPeriod; }
