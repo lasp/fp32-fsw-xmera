@@ -1,6 +1,6 @@
 #include "mrpFeedbackAlgorithm.h"
 #include "architecture/utilities/eigenSupport.h"
-#include <architecture/utilities/macroDefinitions.h>
+#include "utilities/timeConstants.h"
 
 #include "../freestandingInvalidArgument.h"
 #include <math.h>
@@ -52,7 +52,7 @@ MrpFeedbackOutput MrpFeedbackAlgorithm::update(uint64_t callTime,
     if (this->priorTime == 0U) {
         dt = 0.0F;
     } else {
-        dt = static_cast<float>(static_cast<double>(callTime - this->priorTime) * NANO2SEC);
+        dt = static_cast<float>(static_cast<double>(callTime - this->priorTime) * kNano2Sec);
     }
     this->priorTime = callTime;
 

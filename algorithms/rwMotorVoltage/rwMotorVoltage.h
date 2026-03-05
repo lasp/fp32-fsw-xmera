@@ -10,13 +10,13 @@
 #include <stdint.h>
 
 #include "msgPayloadDef/RWArrayConfigMsgF32Payload.h"
+#include "msgPayloadDef/RWAvailabilityMsgPayload.h"
 #include "msgPayloadDef/RWSpeedMsgF32Payload.h"
 #include "msgPayloadDef/RwMotorTorqueMsgF32Payload.h"
 #include "msgPayloadDef/RwMotorVoltageMsgF32Payload.h"
 #include "rwMotorVoltageAlgorithm.h"
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
-#include <architecture/msgPayloadDef/RWAvailabilityMsgPayload.h>
 
 #include <Eigen/Core>
 

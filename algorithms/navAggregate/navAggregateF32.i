@@ -1,6 +1,7 @@
 %module navAggregateF32
 %{
    #include "navAggregate.h"
+   #include "utilities/timeConstants.h"
 %}
 
 %include <architecture/_GeneralModuleFiles/sys_model.i>

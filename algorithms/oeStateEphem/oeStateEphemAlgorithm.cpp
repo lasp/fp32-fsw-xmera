@@ -7,7 +7,6 @@
 #include "oeStateEphemAlgorithm.h"
 #include "../freestandingInvalidArgument.h"
 #include "utilities/ephemerisUtilities.h"
-#include <ranges>
 
 /*! This method finds the Chebyshev fit arc that is closest in time to the current ephemeris time.
     It computes the current ephemeris time from the call time, ephemeris time offset, and vehicle time,
@@ -118,10 +117,19 @@ CartesianState OEStateEphemAlgorithm::update(const uint64_t callTime) {
     outputCartesianState.position = Eigen::Vector3d::Zero();
     outputCartesianState.velocity = Eigen::Vector3d::Zero();
     /*! If all of the radius of periapsis components are zero, this is the central body and should return all zeros*/
-    if (std::ranges::all_of(this->fitCoefficients, [](const ChebyshevFitArc& arc) {
-            return std::ranges::all_of(arc.radiusPeriapsisCoefficients,
-                                       [](double val) { return std::abs(val) < tolerance; });
-        })) {
+    bool allZero = true;
+    for (const auto& arc : this->fitCoefficients) {
+        for (const auto& val : arc.radiusPeriapsisCoefficients) {
+            if (std::abs(val) >= tolerance) {
+                allZero = false;
+                break;
+            }
+        }
+        if (!allZero) {
+            break;
+        }
+    }
+    if (allZero) {
         return outputCartesianState;
     }
 

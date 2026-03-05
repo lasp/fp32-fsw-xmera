@@ -9,11 +9,7 @@
 
 #include <stdint.h>
 
-#include "msgPayloadDef/RWArrayConfigMsgF32Payload.h"
-#include "msgPayloadDef/RWSpeedMsgF32Payload.h"
-#include "msgPayloadDef/RwMotorTorqueMsgF32Payload.h"
-#include "msgPayloadDef/RwMotorVoltageMsgF32Payload.h"
-#include <architecture/msgPayloadDef/RWAvailabilityMsgPayload.h>
+#include "rwMotorVoltageTypes.h"
 
 #include <Eigen/Core>
 
@@ -23,12 +19,12 @@ class RwMotorVoltageAlgorithm {
     RwMotorVoltageAlgorithm(float minVoltageMagnitude, float maxVoltageMagnitude);
     ~RwMotorVoltageAlgorithm() = default;
 
-    void reset(const RWArrayConfigMsgF32Payload& rwParamsInMsg);
-    RwMotorVoltageMsgF32Payload update(uint64_t callTime,
-                                       RwMotorTorqueMsgF32Payload& torqueCmd,
-                                       const RWAvailabilityMsgPayload& rwAvailability,
-                                       const RWSpeedMsgF32Payload& rwSpeed,
-                                       bool rwSpeedMsgIsLinked);
+    void reset(const RwMotorVoltageRWConfig& rwConfig);
+    RwMotorVoltageData update(uint64_t callTime,
+                              RwMotorVoltageTorqueInput& torqueCmd,
+                              const RwMotorVoltageAvailInput& rwAvailability,
+                              const RwMotorVoltageSpeedInput& rwSpeed,
+                              bool rwSpeedMsgIsLinked);
 
     void setVoltageRange(float minVoltageMagnitude, float maxVoltageMagnitude);
     Eigen::Vector2f getVoltageRange() const;
@@ -42,7 +38,7 @@ class RwMotorVoltageAlgorithm {
     Eigen::Vector<float, RW_EFF_CNT> rwSpeedOld{}; /*!< [r/s]  the RW spin rates from the prior control step */
     uint64_t priorTime{};                          /*!< [ns]   Last time the module control was called */
     bool resetFlag{};                              /*!< []     Flag indicating that a module reset occurred */
-    RWArrayConfigMsgF32Payload
+    RwMotorVoltageRWConfig
         rwConfigParams{}; /*!< [-] struct to store message containing RW config parameters in body B frame */
 };
 

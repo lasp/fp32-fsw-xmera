@@ -1,8 +1,8 @@
 #include "bodyRateMiscompare.h"
 
 #include "architecture/utilities/eigenSupport.h"
-#include "architecture/utilities/macroDefinitions.h"
 #include "msgPayloadDef/STAttMsgF32Payload.h"
+#include "utilities/timeConstants.h"
 
 template <size_t N>
 static void convertArray(const double (&src)[N], float (&dst)[N]) {
@@ -40,7 +40,7 @@ void BodyRateMiscompare::updateState(uint64_t const callTime) {
 
     NavAttMsgF32Payload navAttMsgPayload{};
     eigenVectorToCArray(omega_BN_B, navAttMsgPayload.omega_BN_B);
-    navAttMsgPayload.timeTag = static_cast<double>(callTime) * NANO2SEC;
+    navAttMsgPayload.timeTag = static_cast<double>(callTime) * kNano2Sec;
 
     BodyRateFaultMsgPayload bodyRateFaultPayload{};
     bodyRateFaultPayload.faultDetected = bodyRateFaultDetected;

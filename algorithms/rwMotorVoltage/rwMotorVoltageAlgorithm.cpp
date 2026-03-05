@@ -5,10 +5,10 @@
  */
 
 #include "rwMotorVoltageAlgorithm.h"
-#include <architecture/utilities/macroDefinitions.h>
+#include "utilities/timeConstants.h"
 
 #include "../freestandingInvalidArgument.h"
-#include <ranges>
+#include <algorithm>
 
 /**
  * @brief Construct RwMotorVoltageAlgorithm
@@ -24,9 +24,9 @@ RwMotorVoltageAlgorithm::RwMotorVoltageAlgorithm(const float minVoltageMagnitude
  @return void
  @param rwParamsInMsg struct to store message containing RW config parameters
  */
-void RwMotorVoltageAlgorithm::reset(const RWArrayConfigMsgF32Payload& rwParamsInMsg) {
+void RwMotorVoltageAlgorithm::reset(const RwMotorVoltageRWConfig& rwConfig) {
     /*! - Read static RW config data message and store it in module variables*/
-    this->rwConfigParams = rwParamsInMsg;
+    this->rwConfigParams = rwConfig;
 
     /* reset variables */
     this->rwSpeedOld.setZero();
@@ -46,12 +46,12 @@ void RwMotorVoltageAlgorithm::reset(const RWArrayConfigMsgF32Payload& rwParamsIn
  @param rwSpeed RW speed message
  @param rwSpeedMsgIsLinked boolean indicating whether RW speed message is linked
  */
-RwMotorVoltageMsgF32Payload RwMotorVoltageAlgorithm::update(const uint64_t callTime,
-                                                            RwMotorTorqueMsgF32Payload& torqueCmd,
-                                                            const RWAvailabilityMsgPayload& rwAvailability,
-                                                            const RWSpeedMsgF32Payload& rwSpeed,
-                                                            const bool rwSpeedMsgIsLinked) {
-    RwMotorVoltageMsgF32Payload voltageOut{};
+RwMotorVoltageData RwMotorVoltageAlgorithm::update(const uint64_t callTime,
+                                                   RwMotorVoltageTorqueInput& torqueCmd,
+                                                   const RwMotorVoltageAvailInput& rwAvailability,
+                                                   const RwMotorVoltageSpeedInput& rwSpeed,
+                                                   const bool rwSpeedMsgIsLinked) {
+    RwMotorVoltageData voltageOut{};
 
     /* zero the output voltage vector */
     Eigen::Vector<float, RW_EFF_CNT> voltage{};
@@ -61,16 +61,17 @@ RwMotorVoltageMsgF32Payload RwMotorVoltageAlgorithm::update(const uint64_t callT
     if (rwSpeedMsgIsLinked) {
         /* make sure the clock didn't just initialize, or the module was recently reset */
         if (this->priorTime != 0) {
-            const float dt = (callTime - this->priorTime) * NANO2SEC; /*!< [s]   control update period */
+            const float dt =
+                static_cast<float>(callTime - this->priorTime) * kNano2SecF; /*!< [s]   control update period */
             Eigen::Vector<float, RW_EFF_CNT> OmegaDot{};
             OmegaDot.setZero();
-            for (uint32_t i = 0; i < this->rwConfigParams.numRW; i++) {
-                if (rwAvailability.wheelAvailability[i] == AVAILABLE && this->resetFlag == false) {
-                    OmegaDot[i] = (rwSpeed.wheelSpeeds[i] - this->rwSpeedOld[i]) / dt;
+            for (int32_t i = 0; i < this->rwConfigParams.numRW; i++) {
+                if (rwAvailability.wheelAvailability[i] == RW_MOTOR_VOLTAGE_AVAILABLE && !this->resetFlag) {
+                    OmegaDot(i) = (rwSpeed.wheelSpeeds[i] - this->rwSpeedOld(i)) / dt;
                     torqueCmd.motorTorque[i] -=
-                        this->K * (this->rwConfigParams.JsList[i] * OmegaDot[i] - torqueCmd.motorTorque[i]);
+                        this->K * (this->rwConfigParams.JsList[i] * OmegaDot(i) - torqueCmd.motorTorque[i]);
                 }
-                this->rwSpeedOld[i] = rwSpeed.wheelSpeeds[i];
+                this->rwSpeedOld(i) = rwSpeed.wheelSpeeds[i];
             }
             this->resetFlag = false;
         }
@@ -78,17 +79,21 @@ RwMotorVoltageMsgF32Payload RwMotorVoltageAlgorithm::update(const uint64_t callT
     }
 
     /* evaluate the feedforward mapping of torque into voltage */
-    for (uint32_t i = 0; i < this->rwConfigParams.numRW; ++i) {
-        if (rwAvailability.wheelAvailability[i] == AVAILABLE) {
-            voltage[i] =
+    for (int32_t i = 0; i < this->rwConfigParams.numRW; ++i) {
+        if (rwAvailability.wheelAvailability[i] == RW_MOTOR_VOLTAGE_AVAILABLE) {
+            voltage(i) =
                 (this->voltageMax - this->voltageMin) / this->rwConfigParams.uMax[i] * torqueCmd.motorTorque[i];
-            if (voltage[i] > 0.0) voltage[i] += this->voltageMin;
-            if (voltage[i] < 0.0) voltage[i] -= this->voltageMin;
+            if (voltage(i) > 0.0) {
+                voltage(i) += this->voltageMin;
+            }
+            if (voltage(i) < 0.0) {
+                voltage(i) -= this->voltageMin;
+            }
         }
         /* check for voltage saturation */
-        voltage[i] = std::ranges::clamp(voltage[i], -this->voltageMax, this->voltageMax);
+        voltage(i) = std::clamp(voltage(i), -this->voltageMax, this->voltageMax);
 
-        voltageOut.voltage[i] = voltage[i];
+        voltageOut.voltage[i] = voltage(i);
     }
 
     return voltageOut;

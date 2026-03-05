@@ -9,8 +9,7 @@ void EphemNavConverterAlgorithm_destroy(EphemNavConverterAlgorithm* self) {
     delete reinterpret_cast<::EphemNavConverterAlgorithm*>(self);
 }
 
-NavTransMsgF32Payload EphemNavConverterAlgorithm_update(EphemNavConverterAlgorithm* self,
-                                                        uint64_t callTime,
-                                                        const EphemerisMsgF32Payload* ephemerisInMsg) {
-    return reinterpret_cast<::EphemNavConverterAlgorithm*>(self)->update(callTime, *ephemerisInMsg);
+OutputNavTransData EphemNavConverterAlgorithm_update(EphemNavConverterAlgorithm* self,
+                                                     const InputEphemerisData* ephemerisInput) {
+    return reinterpret_cast<::EphemNavConverterAlgorithm*>(self)->update(*ephemerisInput);
 }

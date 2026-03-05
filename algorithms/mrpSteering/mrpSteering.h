@@ -36,7 +36,7 @@ class MrpSteering final : public SysModel {
     float getKi() const;
     void setIntegralLimit(float limit);
     float getIntegralLimit() const;
-    void setKnownTorquePntB_B(const Eigen::Vector3f &torque);
+    void setKnownTorquePntB_B(const Eigen::Vector3f& torque);
     Eigen::Vector3f getKnownTorquePntB_B() const;
     void setControlPeriod(float period);
     float getControlPeriod() const;

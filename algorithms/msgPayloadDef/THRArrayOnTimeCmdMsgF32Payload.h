@@ -1,7 +1,7 @@
 #ifndef THR_ON_TIME_MESSAGE_F32_H
 #define THR_ON_TIME_MESSAGE_F32_H
 
-#include <architecture/msgPayloadDef/definitions.h>
+#include "definitions.h"
 
 /*! @brief Structure used to define the output definition for vehicle effectors*/
 typedef struct {

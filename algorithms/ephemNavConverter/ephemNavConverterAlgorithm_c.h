@@ -1,8 +1,7 @@
 #ifndef F32XIMERA_EPHEMNAVCONVERTERALGORITHM_C_H
 #define F32XIMERA_EPHEMNAVCONVERTERALGORITHM_C_H
 
-#include "msgPayloadDef/EphemerisMsgF32Payload.h"
-#include "msgPayloadDef/NavTransMsgF32Payload.h"
+#include "ephemNavConverterTypes.h"
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -29,13 +28,11 @@ void EphemNavConverterAlgorithm_destroy(EphemNavConverterAlgorithm* self);
 /**
  * @brief Run the update step.
  * @param self           Pointer to the instance.
- * @param callTime       Time stamp for update.
- * @param ephemerisInMsg Pointer to ephemeris message payload.
- * @return NavTransMsgF32Payload  The computed navigation translation message.
+ * @param ephemerisInput Pointer to the position and velocity ephemeris inputs.
+ * @return OutputNavTransData  The computed translational navigation output.
  */
-NavTransMsgF32Payload EphemNavConverterAlgorithm_update(EphemNavConverterAlgorithm* self,
-                                                        uint64_t callTime,
-                                                        const EphemerisMsgF32Payload* ephemerisInMsg);
+OutputNavTransData EphemNavConverterAlgorithm_update(EphemNavConverterAlgorithm* self,
+                                                     const InputEphemerisData* ephemerisInput);
 
 #ifdef __cplusplus
 }  // extern "C"

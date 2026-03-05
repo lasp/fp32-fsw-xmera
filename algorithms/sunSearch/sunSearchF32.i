@@ -7,6 +7,7 @@
 %module sunSearchF32
 %{
    #include "sunSearch.h"
+   #include "utilities/timeConstants.h"
 %}
 
 %include <std_string.i>

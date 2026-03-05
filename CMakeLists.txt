@@ -103,14 +103,17 @@ set(algorithms
     "ephemNavConverter"
     "inertial3D"
     "mimuMajorityVote"
-    "mrpSteering"
     "navAggregate"
     "oeStateEphem"
     "rateControl"
+    "rwMotorVoltage"
     "rwNullSpace"
     "sunlineEphem"
     "sunlineSRuKF"
+    "sunTrackError"
     "sunSearch"
+    "thrFiringRemainder"
+    "thrFiringSchmitt"
 )
 foreach(algorithm_name IN LISTS algorithms)
   add_algorithm(${algorithm_name})

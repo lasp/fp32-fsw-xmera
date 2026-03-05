@@ -1,7 +1,7 @@
 #include "averageMimuDataAlgorithm.h"
 
 #include "architecture/utilities/eigenSupport.h"
-#include "architecture/utilities/macroDefinitions.h"
+#include "utilities/timeConstants.h"
 
 #include <algorithm>
 #include <cstdint>
@@ -18,7 +18,7 @@ IMUSensorBodyMsgF32Payload AverageMimuDataAlgorithm::update(AccDataMsgF32Payload
 
     for (const auto& [measTime, gyro_B, accel_B] : localPkts.accPkts) {
         // Rolling average with timeDelta as window width or the maximum buffer size
-        if (static_cast<float>(maxTimeTag - measTime) * NANO2SEC < this->timeDelta) {
+        if (static_cast<float>(maxTimeTag - measTime) * kNano2SecF < this->timeDelta) {
             gyroSum_P += Eigen::Map<const Eigen::Vector3f>(gyro_B);
             accelSum_P += Eigen::Map<const Eigen::Vector3f>(accel_B);
             measAvgCount++;

@@ -2,7 +2,7 @@
 #define THR_ARRAY_MESSAGE_F32_H
 
 #include "THRConfigMsgF32Payload.h"
-#include <architecture/msgPayloadDef/definitions.h>
+#include "definitions.h"
 
 #include <stdint.h>
 
