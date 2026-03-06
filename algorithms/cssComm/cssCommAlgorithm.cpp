@@ -11,14 +11,6 @@
 std::array<float, MAX_NUM_CSS_SENSORS> CssCommAlgorithm::update(const std::array<float, MAX_NUM_CSS_SENSORS>& inputValues) const {
     std::array<float, MAX_NUM_CSS_SENSORS> outputValues{};
 
-    /*! - Loop over the sensors and compute data
-         -# Check appropriate range on sensor and calibrate
-         -# If Chebyshev polynomials are configured:
-             - Seed polynominal computations
-             - Loop over polynominals to compute estimated correction factor
-             - Output is base value plus the correction factor
-         -# If sensor output range is incorrect, set output value to zero
-     */
     for (uint32_t i = 0; i < this->numSensors; ++i) {
         float const measuredValue = inputValues.at(i) / this->maxSensorValue; /* Scale Sensor Data */
 
