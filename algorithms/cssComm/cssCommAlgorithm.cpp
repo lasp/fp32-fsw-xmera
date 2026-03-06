@@ -20,7 +20,7 @@ std::array<float, MAX_NUM_CSS_SENSORS> CssCommAlgorithm::update(const std::array
          -# If sensor output range is incorrect, set output value to zero
      */
     for (uint32_t i = 0; i < this->numSensors; ++i) {
-        float measuredValue = inputValues[i] / this->maxSensorValue; /* Scale Sensor Data */
+        float measuredValue = inputValues.at(i) / this->maxSensorValue; /* Scale Sensor Data */
 
         /* Calculate correction using Chebyshev polynomial */
         float correction = calculateChebyValue(this->chebyPolynomials, this->chebyCount, measuredValue);
@@ -32,7 +32,7 @@ std::array<float, MAX_NUM_CSS_SENSORS> CssCommAlgorithm::update(const std::array
         } else if (correctedValue < 0.0) {
             correctedValue = 0.0;
         }
-        outputValues[i] = correctedValue;
+        outputValues.at(i) = correctedValue;
     }
 
     return outputValues;
