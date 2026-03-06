@@ -1,90 +1,98 @@
-==============================
-Sunline Ephemeris Algorithm
-==============================
+Overview
+--------
+``sunlineEphem`` computes the Sun direction unit vector relative to the spacecraft in the body frame based on
+ephemeris data. This direction vector can be used as a reference for downstream guidance and control modules.
 
-====================
-Module Description
-====================
+The module layer (``SunlineEphem``) implements the SysModel interface, wiring messages and managing module
+lifecycle. The algorithm (``SunlineEphemAlgorithm``) contains the stateless computation that can be used
+stand-alone when the caller provides position and attitude data directly.
 
-Introduction
-============
-The ``sunlineEphem`` flight software algorithm is a module that computes the Sun direction vector relative to the spacecraft in the body frame based on ephemeris data.
+Module Inputs and Outputs
+-------------------------
+Module inputs:
 
-The module uses the Sun and spacecraft position expressed in the inertial frame, in addition to the spacecraft attitude, to compute the Sun direction in the spacecraft body frame.
-
-This ephemeris-based Sun direction vector can later be used as a reference for other downstream guidance and control modules.
-
-Module Input/Output Messages
-============================
-The following table lists all the module input and output messages. The msg type contains a link to the message structure definition, while the description provides information on what this message is used for.
-
-.. list-table:: Module I/O Messages
-   :widths: 15 30 60
+.. list-table:: Module Input Messages
+   :widths: 25 25 50
    :header-rows: 1
 
-   * - **Msg Variable Name**
-     - **Msg Type**
-     - **Description**
+   * - Msg Variable Name
+     - Msg Type
+     - Description
+   * - sunPositionInMsg
+     - :ref:`EphemerisMsgF32Payload`
+     - Read every ``updateState()``. Contains the Sun's position expressed in the inertial frame.
+   * - scPositionInMsg
+     - :ref:`NavTransMsgF32Payload`
+     - Read every ``updateState()``. Contains the spacecraft's position expressed in the inertial frame.
+   * - scAttitudeInMsg
+     - :ref:`NavAttMsgF32Payload`
+     - Read every ``updateState()``. Contains the spacecraft's attitude (MRPs), used to rotate the Sun vector
+       from the inertial frame to body frame.
 
-   * - ``scAttitudeInMsg``
-     - :ref:`NavAttMsgPayload`
-     - Input message containing the spacecraft's attitude, where MRPs are used to rotate the Sun vector from the inertial frame to body frame.
+Module output:
 
-   * - ``sunPositionInMsg``
-     - :ref:`EphemerisMsgPayload`
-     - Input message containing the Sun's position expressed in the inertial frame.
+.. list-table:: Module Output Messages
+   :widths: 25 25 50
+   :header-rows: 1
 
-   * - ``scPositionInMsg``
-     - :ref:`NavTransMsgPayload`
-     - Input message containing the spacecraft's position expressed in the inertial frame.
+   * - Msg Variable Name
+     - Msg Type
+     - Description
+   * - navStateOutMsg
+     - :ref:`NavAttMsgF32Payload`
+     - Ephemeris-based Sun direction unit vector expressed in the body frame, written to ``vehSunPntBdy``.
 
-   * - ``navStateOutMsg``
-     - :ref:`NavAttMsgPayload`
-     - Output message containing the spacecraft's ephemeris-based Sun direction vector expressed in the body frame.
+Algorithm Assumptions
+---------------------
+- All input position vectors must be expressed in the same inertial reference frame.
+- The algorithm returns a unit direction vector for distinct positions. For colocated positions, the zero vector
+  is returned as a sentinel when no direction can be computed. Downstream consumers should check for this case.
 
-Algorithm Computation
-======================
-At every update cycle, the ``sunlineEphem`` module performs the following steps:
+Algorithm Description
+---------------------
+Given Sun position :math:`{}^{N}\boldsymbol{r}_{S/N}`, spacecraft position :math:`{}^{N}\boldsymbol{r}_{B/N}`, and
+spacecraft attitude MRPs :math:`\boldsymbol{\sigma}_{BN}`:
 
-- It reads the ephemeris-based Sun position expressed in inertial frame ``rSun`` from ``sunPositionInMsg``.
-- It reads the spacecraft position expressed in inertial frame ``rSc`` from ``scPositionInMsg``.
-- It then computes the Sun position vector relative to the spacecraft ``r_SB_N``, by subtracting the spacecraft position from the sun position:
+#. Compute the Sun position relative to the spacecraft in the inertial frame:
 
+   .. math:: {}^{N}\boldsymbol{r}_{S/B} = {}^{N}\boldsymbol{r}_{S/N} - {}^{N}\boldsymbol{r}_{B/N}
 
-  .. math::
+#. If :math:`\|{}^{N}\boldsymbol{r}_{S/B}\| \le \epsilon`, return the zero vector. Otherwise, normalize the
+   relative vector, build the DCM from the spacecraft attitude MRPs, and rotate the unit direction into the
+   body frame:
 
-    \boldsymbol{r}_{SB,N} = \boldsymbol{r}_{Sun,N} - \boldsymbol{r}_{SC,N}
+   .. math::
+
+      {}^{B}\boldsymbol{\hat r}_{S/B} =
+      \text{normalize}\left([BN] \, {}^{N}\boldsymbol{\hat r}_{S/B}\right)
 
 .. _ModuleIO_sunlineEphem_overview:
 .. figure:: /../../src/fswAlgorithms/attDetermination/sunlineEphem/_Documentation/Figures/sunlineEphem_rSB_N.jpeg
     :scale: 50 %
     :align: center
-    Figure 1: SunlineEphem computes the inertial-frame Sun direction vector :math:`\mathbf{r}_{SB}^{N}`.
 
+    Figure 1: SunlineEphem computes the inertial-frame Sun direction vector :math:`{}^{N}\boldsymbol{r}_{S/B}`.
 
-
-- The relative vector is normalized ``r_SB_N_hat`` to obtain the unit direction vector. If :math:`\|\boldsymbol{r}_{SB,N}\| \le \epsilon`, the ``r_SB_N_hat`` will remain a zero vector.
-- It later reads the current spacecraft attitude (MRPs) from ``scAttitudeInMsg`` to build a Direction Cosine Matrix (DCM) ``dcm_BN``.
-- Using this DCM, the Sun direction unit vector is rotated from inertial to body frame:
-
-
-  .. math::
-
-    \boldsymbol{\hat r}_{SB,B} =  \mathbf{C}_{BN}(\boldsymbol{\sigma}_{BN}) \, \boldsymbol{\hat r}_{SB,N}
-
-- The resulting vector is normalized ``r_SB_B_hat`` to ensure a unit length. If :math:`\|\boldsymbol{r}_{SB,B}\| \le \epsilon`, the vector will be explicitly set to zero.
-- At last, the algorithm writes the three elements of the unit body frame Sun direction vector into the ``vehSunPntBdy`` field of the output navigation message  ``navStateOutMsg``.
-
-Module Assumptions and Limitations
-==================================
-- It is the user's responsibility to ensure all input position vectors are expressed in the same inertial reference frame.
-- Any errors from the ephemeris or navigation data will affect the output accuracy.
+Module vs. Algorithm Usage
+--------------------------
+- Module (``SunlineEphem``, SysModel): use when operating inside the messaging framework. Connect
+  ``sunPositionInMsg``, ``scPositionInMsg``, and ``scAttitudeInMsg``, call
+  ``InitializeSimulation()``/``ExecuteSimulation()``, and read ``navStateOutMsg``.
+- Algorithm (``SunlineEphemAlgorithm``): use when you have position and attitude data directly. Call the
+  static ``update(r_SN_N, r_BN_N, sigma_BN)`` method, which returns the body-frame Sun direction vector.
 
 Test Description and Success Criteria
-=====================================
-The Sunline ephemeris unit test is located in ``fswAlgorithms/attDetermination/sunlineEphem/_UnitTest/test_sunlineEphem.py``. This test verifies that the module computes the correct Sun direction vector expressed in the body frame.
-In this unit test, the Sun inertial position is set at the origin by `sunData.r_BdyZero_N = [0.0, 0.0, 0.0]`. The spacecraft attitude is set to zero using `vehAttData.sigma_BN = [0.0, 0.0, 0.0]`, which corresponds to an identity rotation. This implies that the inertial and body frames are aligned.
-The spacecraft's inertial position is iterated through a set of unit length vectors, with a special case where the spacecraft and sun position vectors are identical.
+-------------------------------------
+The Python integration test is located in
+``fswAlgorithms/attDetermination/sunlineEphem/_UnitTest/test_sunlineEphem.py``. This test verifies that the
+module computes the correct Sun direction vector expressed in the body frame.
+In this unit test, the Sun inertial position is set at the origin by ``sunData.r_BdyZero_N = [0.0, 0.0, 0.0]``.
+The spacecraft attitude is set to zero using ``vehAttData.sigma_BN = [0.0, 0.0, 0.0]``, which corresponds to an
+identity rotation. This implies that the inertial and body frames are aligned.
+The spacecraft's inertial position is iterated through a set of unit length vectors, with a special case where
+the spacecraft and sun position vectors are identical.
 For each case, the simulation will execute and the Sun direction vector will be recorded.
 The truth vectors are defined in the python test, where they are compared with the estimated module output.
-The test is considered successful if all the output values of the estimated and truth values are identical within a tolerance of :math:`10^{-12}`, including outputting a zero vector for the special case where the relative vector magnitude is zero.
+The test is considered successful if all the output values of the estimated and truth values are identical within
+a tolerance of :math:`10^{-12}`, including outputting a zero vector for the special case where the relative
+vector magnitude is zero.
