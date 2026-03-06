@@ -25,13 +25,14 @@ std::array<float, MAX_NUM_CSS_SENSORS> CssCommAlgorithm::update(const std::array
         /* Calculate correction using Chebyshev polynomial */
         float correction = calculateChebyValue(this->chebyPolynomials, this->chebyCount, measuredValue);
 
-        outputValues[i] = measuredValue + correction;
+        float correctedValue = measuredValue + correction;
 
-        if (outputValues[i] > 1.0) {
-            outputValues[i] = 1.0;
-        } else if (outputValues[i] < 0.0) {
-            outputValues[i] = 0.0;
+        if (correctedValue > 1.0) {
+            correctedValue = 1.0;
+        } else if (correctedValue < 0.0) {
+            correctedValue = 0.0;
         }
+        outputValues[i] = correctedValue;
     }
 
     return outputValues;
