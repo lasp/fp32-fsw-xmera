@@ -1,11 +1,5 @@
-/*
- MIT License
-
- Copyright (c) 2025, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
- */
-
-#ifndef F32XIMERA_SUNLINE_EPHEM_H
-#define F32XIMERA_SUNLINE_EPHEM_H
+#ifndef F32XMERA_SUNLINE_EPHEM_H
+#define F32XMERA_SUNLINE_EPHEM_H
 
 #include "msgPayloadDef/EphemerisMsgF32Payload.h"
 #include "msgPayloadDef/NavAttMsgF32Payload.h"
@@ -14,7 +8,7 @@
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
 
-class SunlineEphem : public SysModel {
+class SunlineEphem final : public SysModel {
    public:
     SunlineEphem() = default;
     ~SunlineEphem() = default;

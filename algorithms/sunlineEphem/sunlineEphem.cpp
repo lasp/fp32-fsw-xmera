@@ -1,11 +1,6 @@
-/*
- MIT License
-
- Copyright (c) 2025, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
- */
-
 #include "sunlineEphem.h"
 
+#include <architecture/utilities/eigenSupport.h>
 #include <stdexcept>
 
 void SunlineEphem::reset(uint64_t callTime) {
@@ -21,9 +16,17 @@ void SunlineEphem::reset(uint64_t callTime) {
 }
 
 void SunlineEphem::updateState(uint64_t callTime) {
-    const EphemerisMsgF32Payload sunPos = this->sunPositionInMsg();
-    const NavTransMsgF32Payload scPos = this->scPositionInMsg();
-    const NavAttMsgF32Payload scAtt = this->scAttitudeInMsg();
-    auto outputSunline = this->algorithm.updateState(sunPos, scPos, scAtt);
+    EphemerisMsgF32Payload sunPosition = this->sunPositionInMsg();
+    NavTransMsgF32Payload spacecraftPosition = this->scPositionInMsg();
+    NavAttMsgF32Payload spacecraftAttitude = this->scAttitudeInMsg();
+
+    const Eigen::Vector3d r_SN_N = cArrayToEigenVector(sunPosition.r_BdyZero_N);
+    const Eigen::Vector3d r_BN_N = cArrayToEigenVector(spacecraftPosition.r_BN_N);
+    const Eigen::Vector3f sigma_BN = cArrayToEigenVector(spacecraftAttitude.sigma_BN);
+
+    const Eigen::Vector3f rHat_SB_B = this->algorithm.update(r_SN_N, r_BN_N, sigma_BN);
+
+    NavAttMsgF32Payload outputSunline{};
+    eigenVectorToCArray(rHat_SB_B, outputSunline.vehSunPntBdy);
     this->navStateOutMsg.write(&outputSunline, this->moduleID, callTime);
 }

@@ -1,7 +1,3 @@
-# MIT License
-#
-# Copyright (c) 2025, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
-
 import numpy as np
 
 from xmera.architecture import messaging
@@ -9,41 +5,38 @@ from xmera.fp32 import sunlineEphemF32
 from xmera.utilities import SimulationBaseClass
 from xmera.utilities import macros
 
-def test_sunlineEphem():
-    unitTaskName = "unitTask"               # arbitrary name (don't change)
-    unitProcessName = "TestProcess"         # arbitrary name (don't change)
+def test_sunline_ephem():
+    unit_task_name = "unitTask"               # arbitrary name (don't change)
+    unit_process_name = "TestProcess"         # arbitrary name (don't change)
 
     # Create a sim module as an empty container
-    unitTestSim = SimulationBaseClass.SimBaseClass()
+    unit_test_sim = SimulationBaseClass.SimBaseClass()
 
     # Create test thread
-    testProcessRate = macros.sec2nano(0.5)     # update process rate update time
-    testProc = unitTestSim.CreateNewProcess(unitProcessName)
-    testProc.addTask(unitTestSim.CreateNewTask(unitTaskName, testProcessRate))
+    test_process_rate = macros.sec2nano(0.5)     # update process rate update time
+    test_proc = unit_test_sim.CreateNewProcess(unit_process_name)
+    test_proc.addTask(unit_test_sim.CreateNewTask(unit_task_name, test_process_rate))
 
     # Construct algorithm and associated C++ container
-    sunlineEphemObj = sunlineEphemF32.SunlineEphem()
-    sunlineEphemObj.modelTag = "sunlineEphem"           # update python name of test module
+    sunline_ephem_obj = sunlineEphemF32.SunlineEphem()
+    sunline_ephem_obj.modelTag = "sunlineEphem"           # update python name of test module
 
     # Add test module to runtime call list
-    unitTestSim.AddModelToTask(unitTaskName, sunlineEphemObj)
+    unit_test_sim.AddModelToTask(unit_task_name, sunline_ephem_obj)
 
     # Create input message and size it because the regular creator of that message
     # is not part of the test.
-
-    vehAttData = messaging.NavAttMsgF32Payload()
-    vehPosData = messaging.NavTransMsgF32Payload()
-    sunData = messaging.EphemerisMsgF32Payload()
-
+    veh_att_data = messaging.NavAttMsgF32Payload()
+    veh_pos_data = messaging.NavTransMsgF32Payload()
+    sun_data = messaging.EphemerisMsgF32Payload()
 
     # Artificially put sun at the origin.
-    sunData.r_BdyZero_N = [0.0, 0.0, 0.0]
-    vehAttInMsg = messaging.NavAttMsgF32().write(vehAttData)
-
+    sun_data.r_BdyZero_N = [0.0, 0.0, 0.0]
+    veh_att_in_msg = messaging.NavAttMsgF32().write(veh_att_data)
 
     # Place spacecraft unit length away on each coordinate axis
-    vehAttData.sigma_BN = [0.0, 0.0, 0.0]
-    testVectors = [[-1.0, 0.0, 0.0],
+    veh_att_data.sigma_BN = [0.0, 0.0, 0.0]
+    test_vectors = [[-1.0, 0.0, 0.0],
                    [0.0, -1.0, 0.0],
                    [0.0, 0.0, -1.0],
                    [1.0, 0.0, 0.0],
@@ -51,34 +44,33 @@ def test_sunlineEphem():
                    [0.0, 0.0, 1.0],
                    [0.0, 0.0, 0.0]] # test if the space pos vector aligns with the sun pos vector
 
-    estVector = np.zeros((len(testVectors), 3))
+    est_vector = np.zeros((len(test_vectors), 3))
 
-    vehPosInMsg = messaging.NavTransMsgF32()
-    sunDataInMsg = messaging.EphemerisMsgF32().write(sunData)
-    sunlineEphemObj.sunPositionInMsg.subscribeTo(sunDataInMsg)
-    sunlineEphemObj.scPositionInMsg.subscribeTo(vehPosInMsg)
-    sunlineEphemObj.scAttitudeInMsg.subscribeTo(vehAttInMsg)
+    veh_pos_in_msg = messaging.NavTransMsgF32()
+    sun_data_in_msg = messaging.EphemerisMsgF32().write(sun_data)
+    sunline_ephem_obj.sunPositionInMsg.subscribeTo(sun_data_in_msg)
+    sunline_ephem_obj.scPositionInMsg.subscribeTo(veh_pos_in_msg)
+    sunline_ephem_obj.scAttitudeInMsg.subscribeTo(veh_att_in_msg)
 
-    dataLog = sunlineEphemObj.navStateOutMsg.recorder()
-    unitTestSim.AddModelToTask(unitTaskName, dataLog)
+    data_log = sunline_ephem_obj.navStateOutMsg.recorder()
+    unit_test_sim.AddModelToTask(unit_task_name, data_log)
 
-    for i in range(len(testVectors)):
-        testVec = testVectors[i]
-        vehPosData.r_BN_N = testVec
-        vehPosInMsg.write(vehPosData)
+    for i in range(len(test_vectors)):
+        test_vec = test_vectors[i]
+        veh_pos_data.r_BN_N = test_vec
+        veh_pos_in_msg.write(veh_pos_data)
 
         # Need to call the self-init and cross-init methods
-        unitTestSim.InitializeSimulation()
-        unitTestSim.ConfigureStopTime(macros.sec2nano(1.0))        # seconds to stop simulation
-        unitTestSim.ExecuteSimulation()
-        estVector[i] = dataLog.vehSunPntBdy[-1]
+        unit_test_sim.InitializeSimulation()
+        unit_test_sim.ConfigureStopTime(macros.sec2nano(1.0))        # seconds to stop simulation
+        unit_test_sim.ExecuteSimulation()
+        est_vector[i] = data_log.vehSunPntBdy[-1]
 
         # reset the module to test this functionality
-        sunlineEphemObj.reset(1)
-
+        sunline_ephem_obj.reset(1)
 
     # set the filtered output truth states
-    trueVector = [
+    true_vector = [
                 [1.0, 0.0, 0.0],
                 [0.0, 1.0, 0.0],
                 [0.0, 0.0, 1.0],
@@ -89,9 +81,9 @@ def test_sunlineEphem():
                 ]
 
     # one assert; on failure numpy.testing will show exactly where the mismatch is
-    for i in range(len(trueVector)):
-        np.testing.assert_almost_equal(estVector[i], trueVector[i], decimal=7, verbose=False)
+    for i in range(len(true_vector)):
+        np.testing.assert_almost_equal(est_vector[i], true_vector[i], decimal=7, verbose=False)
 
 
 if __name__ == "__main__":
-    test_sunlineEphem()
+    test_sunline_ephem()
