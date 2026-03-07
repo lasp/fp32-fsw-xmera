@@ -20,7 +20,6 @@
 #ifndef _EPHEMERIS_UTILITIES_FP32_H_
 #define _EPHEMERIS_UTILITIES_FP32_H_
 
-#include "msgPayloadDef/definitions.h"
 #include <array>
 #include <cstddef>
 

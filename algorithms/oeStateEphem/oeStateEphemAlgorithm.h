@@ -7,7 +7,6 @@
 #ifndef F32XIMERA_OE_STATE_EPHEM_ALGORITHM_H
 #define F32XIMERA_OE_STATE_EPHEM_ALGORITHM_H
 
-#include "msgPayloadDef/definitions.h"
 #include "utilities/orbitalMotion.hpp"
 #include <array>
 #include <cstddef>
