@@ -17,8 +17,8 @@
 
  */
 
-#ifndef _EPHEMERIS_UTILITIES_FP32_H_
-#define _EPHEMERIS_UTILITIES_FP32_H_
+#ifndef _CHEBYSHEV_UTILITIES_FP32_H_
+#define _CHEBYSHEV_UTILITIES_FP32_H_
 
 #include <array>
 #include <cstddef>

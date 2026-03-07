@@ -4,7 +4,7 @@
  Copyright (c) 2025, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
 */
 
-#include "../ephemerisUtilities.h"
+#include "../chebyshevUtilities.h"
 
 #include <fuzztest/fuzztest.h>
 #include <gtest/gtest.h>

@@ -1,7 +1,7 @@
 add_library(AlgorithmUtilities INTERFACE)
 
 target_sources(AlgorithmUtilities INTERFACE
-  ephemerisUtilities.h
+  chebyshevUtilities.h
   orbitalMotion.cpp
   safeMathFloat.c
 )

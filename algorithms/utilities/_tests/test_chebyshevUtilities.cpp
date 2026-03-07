@@ -4,7 +4,7 @@
  Copyright (c) 2025, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
 */
 
-#include "../ephemerisUtilities.h"
+#include "../chebyshevUtilities.h"
 
 #include <gtest/gtest.h>
 #include <array>
@@ -316,9 +316,8 @@ TEST(CalculateChebyValueF32, Linearity) {
     for (std::size_t i = 0; i < kTestCoeffCount; ++i) cab[i] = ca[i] + cb[i];
 
     for (const float x : {-0.5f, 0.0f, 0.6f}) {
-        EXPECT_NEAR(calculateChebyValue(cab, 5, x),
-                    calculateChebyValue(ca, 5, x) + calculateChebyValue(cb, 5, x),
-                    1e-5f);
+        EXPECT_NEAR(
+            calculateChebyValue(cab, 5, x), calculateChebyValue(ca, 5, x) + calculateChebyValue(cb, 5, x), 1e-5f);
     }
 }
 

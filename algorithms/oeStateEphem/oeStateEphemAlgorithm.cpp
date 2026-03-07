@@ -6,7 +6,7 @@
 
 #include "oeStateEphemAlgorithm.h"
 #include "../freestandingInvalidArgument.h"
-#include "utilities/ephemerisUtilities.h"
+#include "utilities/chebyshevUtilities.h"
 
 /*! This method finds the Chebyshev fit arc that is closest in time to the current ephemeris time.
     It computes the current ephemeris time from the call time, ephemeris time offset, and vehicle time,
@@ -61,23 +61,18 @@ ClassicalElementsF32 OEStateEphemAlgorithm::evaluateCoefficients(const double cu
     /* - determine orbit elements from chebychev polynominals */
     ClassicalElementsF32 elements{};
     const double radiusPeriapsis =
-        calculateChebyValue(
-            arc.radiusPeriapsisCoefficients, arc.numberChebCoefficients, currentScaledValue) *
+        calculateChebyValue(arc.radiusPeriapsisCoefficients, arc.numberChebCoefficients, currentScaledValue) *
         kmToMeters;  // coefficients are in km but module operates in meters
-    elements.inclination = calculateChebyValue(arc.inclinationCoefficients,
-                                                  arc.numberChebCoefficients,
-                                                  static_cast<float>(currentScaledValue));
-    elements.eccentricity = calculateChebyValue(arc.eccentricityCoefficients,
-                                                   arc.numberChebCoefficients,
-                                                   static_cast<float>(currentScaledValue));
-    elements.argPeriapsis = calculateChebyValue(arc.argPeriapsisCoefficients,
-                                                   arc.numberChebCoefficients,
-                                                   static_cast<float>(currentScaledValue));
-    elements.rightAscensionAscendingNode = calculateChebyValue(
-        arc.raanCoefficients, arc.numberChebCoefficients, static_cast<float>(currentScaledValue));
-    const float anomalyAngle = calculateChebyValue(arc.trueAnomalyCoefficients,
-                                                      arc.numberChebCoefficients,
-                                                      static_cast<float>(currentScaledValue));
+    elements.inclination = calculateChebyValue(
+        arc.inclinationCoefficients, arc.numberChebCoefficients, static_cast<float>(currentScaledValue));
+    elements.eccentricity = calculateChebyValue(
+        arc.eccentricityCoefficients, arc.numberChebCoefficients, static_cast<float>(currentScaledValue));
+    elements.argPeriapsis = calculateChebyValue(
+        arc.argPeriapsisCoefficients, arc.numberChebCoefficients, static_cast<float>(currentScaledValue));
+    elements.rightAscensionAscendingNode =
+        calculateChebyValue(arc.raanCoefficients, arc.numberChebCoefficients, static_cast<float>(currentScaledValue));
+    const float anomalyAngle = calculateChebyValue(
+        arc.trueAnomalyCoefficients, arc.numberChebCoefficients, static_cast<float>(currentScaledValue));
 
     /*! - determine the true anomaly angle */
     if (arc.anomalyFlag == 0) {

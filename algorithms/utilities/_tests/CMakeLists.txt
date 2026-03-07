@@ -10,18 +10,18 @@ target_link_libraries(test_validateInertia PRIVATE
 
 gtest_discover_tests(test_validateInertia)
 
-add_executable(test_ephemerisUtilities
-  test_ephemerisUtilities.cpp
+add_executable(test_chebyshevUtilities
+  test_chebyshevUtilities.cpp
 )
 
-target_include_directories(test_ephemerisUtilities PRIVATE "../..")
-target_include_directories(test_ephemerisUtilities PRIVATE "${CMAKE_SOURCE_DIR}")
+target_include_directories(test_chebyshevUtilities PRIVATE "../..")
+target_include_directories(test_chebyshevUtilities PRIVATE "${CMAKE_SOURCE_DIR}")
 
-target_link_libraries(test_ephemerisUtilities PRIVATE
+target_link_libraries(test_chebyshevUtilities PRIVATE
     GTest::gtest_main
 )
 
-gtest_discover_tests(test_ephemerisUtilities)
+gtest_discover_tests(test_chebyshevUtilities)
 
 if(XMERA_ENABLE_FUZZTESTS)
   fuzztest_setup_fuzzing_flags()
@@ -42,19 +42,19 @@ if(XMERA_ENABLE_FUZZTESTS)
       LABELS "fuzz\;fuzz-smoke"
   )
 
-  add_executable(test_ephemerisUtilities_fuzz
-    test_ephemerisUtilities_fuzz.cpp
+  add_executable(test_chebyshevUtilities_fuzz
+    test_chebyshevUtilities_fuzz.cpp
   )
 
-  target_include_directories(test_ephemerisUtilities_fuzz PRIVATE "../..")
-  target_include_directories(test_ephemerisUtilities_fuzz PRIVATE "${CMAKE_SOURCE_DIR}")
+  target_include_directories(test_chebyshevUtilities_fuzz PRIVATE "../..")
+  target_include_directories(test_chebyshevUtilities_fuzz PRIVATE "${CMAKE_SOURCE_DIR}")
 
-  target_link_libraries(test_ephemerisUtilities_fuzz PRIVATE
+  target_link_libraries(test_chebyshevUtilities_fuzz PRIVATE
     fuzztest::fuzztest
     fuzztest::fuzztest_gtest_main
   )
 
-  gtest_discover_tests(test_ephemerisUtilities_fuzz
+  gtest_discover_tests(test_chebyshevUtilities_fuzz
     PROPERTIES
       LABELS "fuzz\;fuzz-smoke"
   )
