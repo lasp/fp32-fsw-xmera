@@ -4,15 +4,16 @@
  Copyright (c) 2025, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
 */
 
-#define MAX_OE_COEFF 20
-
 #include "../ephemerisUtilities.h"
 
 #include <gtest/gtest.h>
 #include <array>
 #include <cmath>
+#include <cstddef>
 
 namespace {
+
+constexpr std::size_t kTestCoeffCount = 20;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -20,14 +21,14 @@ namespace {
 
 // Returns a coefficient array that is 1.0 at index `n` and 0 elsewhere.
 // Using this as the input selects the pure Chebyshev basis polynomial T_n.
-std::array<double, MAX_OE_COEFF> pureTd(int n) {
-    std::array<double, MAX_OE_COEFF> c{};
+std::array<double, kTestCoeffCount> pureTd(int n) {
+    std::array<double, kTestCoeffCount> c{};
     c[n] = 1.0;
     return c;
 }
 
-std::array<float, MAX_OE_COEFF> pureTf(int n) {
-    std::array<float, MAX_OE_COEFF> c{};
+std::array<float, kTestCoeffCount> pureTf(int n) {
+    std::array<float, kTestCoeffCount> c{};
     c[n] = 1.0f;
     return c;
 }
@@ -42,7 +43,7 @@ std::array<float, MAX_OE_COEFF> pureTf(int n) {
 
 TEST(CalculateChebyValue, SingleCoefficientReturnsConstant) {
     // T_0(x) = 1 for all x, so c0 * T_0(x) = c0 regardless of x.
-    std::array<double, MAX_OE_COEFF> c{};
+    std::array<double, kTestCoeffCount> c{};
     c[0] = 5.5;
     for (const double x : {-1.0, -0.5, 0.0, 0.5, 1.0}) {
         EXPECT_DOUBLE_EQ(calculateChebyValue(c, 1, x), 5.5);
@@ -51,7 +52,7 @@ TEST(CalculateChebyValue, SingleCoefficientReturnsConstant) {
 
 TEST(CalculateChebyValue, TwoCoefficientsLinear) {
     // c0*T_0(x) + c1*T_1(x) = c0 + c1*x
-    std::array<double, MAX_OE_COEFF> c{};
+    std::array<double, kTestCoeffCount> c{};
     c[0] = 2.0;
     c[1] = 3.0;
     for (const double x : {-1.0, -0.5, 0.0, 0.5, 1.0}) {
@@ -153,14 +154,14 @@ TEST(CalculateChebyValue, ThreeTermRecurrence) {
 
 // Linearity in coefficients: f(ca + cb, x) == f(ca, x) + f(cb, x)
 TEST(CalculateChebyValue, Linearity) {
-    std::array<double, MAX_OE_COEFF> ca{}, cb{}, cab{};
+    std::array<double, kTestCoeffCount> ca{}, cb{}, cab{};
     ca[0] = 1.5;
     ca[2] = -0.5;
     ca[4] = 0.3;
     cb[1] = 2.0;
     cb[3] = 1.0;
     cb[4] = 0.7;
-    for (int i = 0; i < MAX_OE_COEFF; ++i) cab[i] = ca[i] + cb[i];
+    for (std::size_t i = 0; i < kTestCoeffCount; ++i) cab[i] = ca[i] + cb[i];
 
     const unsigned int n = 5;
     for (const double x : {-0.8, 0.0, 0.6, 1.0}) {
@@ -173,8 +174,8 @@ TEST(CalculateChebyValue, Linearity) {
 TEST(CalculateChebyValue, Homogeneity) {
     const double k = 7.3;
     const auto c = pureTd(3);
-    std::array<double, MAX_OE_COEFF> kc{};
-    for (int i = 0; i < MAX_OE_COEFF; ++i) kc[i] = k * c[i];
+    std::array<double, kTestCoeffCount> kc{};
+    for (std::size_t i = 0; i < kTestCoeffCount; ++i) kc[i] = k * c[i];
 
     for (const double x : {-0.6, 0.0, 0.3, 0.9}) {
         EXPECT_NEAR(calculateChebyValue(kc, 4, x), k * calculateChebyValue(c, 4, x), 1e-14);
@@ -183,7 +184,7 @@ TEST(CalculateChebyValue, Homogeneity) {
 
 // Invariance: trailing zero coefficients do not affect the result
 TEST(CalculateChebyValue, TrailingZeroCoefficientsInvariant) {
-    std::array<double, MAX_OE_COEFF> c{};
+    std::array<double, kTestCoeffCount> c{};
     c[0] = 1.0;
     c[1] = -0.5;
     c[2] = 0.3;
@@ -196,7 +197,7 @@ TEST(CalculateChebyValue, TrailingZeroCoefficientsInvariant) {
 }
 
 // ============================================================================
-// calculateChebyValueF32 (float)
+// calculateChebyValue (float)
 // ============================================================================
 
 // ---------------------------------------------------------------------------
@@ -205,21 +206,20 @@ TEST(CalculateChebyValue, TrailingZeroCoefficientsInvariant) {
 
 TEST(CalculateChebyValueF32, SingleCoefficientReturnsConstant) {
     // T_0(x) = 1, so c0 * T_0 = c0 regardless of x.
-    // The F32 variant returns early when numberOfCoefficients <= 1.
-    std::array<float, MAX_OE_COEFF> c{};
+    std::array<float, kTestCoeffCount> c{};
     c[0] = 5.5f;
     for (const float x : {-1.0f, 0.0f, 0.5f, 1.0f}) {
-        EXPECT_FLOAT_EQ(calculateChebyValueF32(c, 1, x), 5.5f);
+        EXPECT_FLOAT_EQ(calculateChebyValue(c, 1, x), 5.5f);
     }
 }
 
 TEST(CalculateChebyValueF32, TwoCoefficientsLinear) {
     // c0 + c1*x
-    std::array<float, MAX_OE_COEFF> c{};
+    std::array<float, kTestCoeffCount> c{};
     c[0] = 2.0f;
     c[1] = 3.0f;
     for (const float x : {-1.0f, 0.0f, 0.5f, 1.0f}) {
-        EXPECT_NEAR(calculateChebyValueF32(c, 2, x), 2.0f + 3.0f * x, 1e-6f);
+        EXPECT_NEAR(calculateChebyValue(c, 2, x), 2.0f + 3.0f * x, 1e-6f);
     }
 }
 
@@ -227,7 +227,7 @@ TEST(CalculateChebyValueF32, PureT2Quadratic) {
     // T_2(x) = 2x^2 - 1
     const auto c = pureTf(2);
     for (const float x : {-1.0f, 0.0f, 0.5f, 0.7f, 1.0f}) {
-        EXPECT_NEAR(calculateChebyValueF32(c, 3, x), 2.0f * x * x - 1.0f, 1e-6f);
+        EXPECT_NEAR(calculateChebyValue(c, 3, x), 2.0f * x * x - 1.0f, 1e-6f);
     }
 }
 
@@ -235,7 +235,7 @@ TEST(CalculateChebyValueF32, PureT3Cubic) {
     // T_3(x) = 4x^3 - 3x
     const auto c = pureTf(3);
     for (const float x : {-1.0f, -0.5f, 0.0f, 0.5f, 0.7f}) {
-        EXPECT_NEAR(calculateChebyValueF32(c, 4, x), 4.0f * x * x * x - 3.0f * x, 1e-6f);
+        EXPECT_NEAR(calculateChebyValue(c, 4, x), 4.0f * x * x * x - 3.0f * x, 1e-6f);
     }
 }
 
@@ -246,7 +246,7 @@ TEST(CalculateChebyValueF32, PureT3Cubic) {
 // Property: T_n(1) = 1 for all n
 TEST(CalculateChebyValueF32, EndpointAtOneIsUnity) {
     for (int n = 0; n < 10; ++n) {
-        EXPECT_NEAR(calculateChebyValueF32(pureTf(n), n + 1, 1.0f), 1.0f, 1e-5f) << "T_" << n << "(1) should be 1";
+        EXPECT_NEAR(calculateChebyValue(pureTf(n), n + 1, 1.0f), 1.0f, 1e-5f) << "T_" << n << "(1) should be 1";
     }
 }
 
@@ -254,7 +254,7 @@ TEST(CalculateChebyValueF32, EndpointAtOneIsUnity) {
 TEST(CalculateChebyValueF32, EndpointAtMinusOne) {
     for (int n = 0; n < 10; ++n) {
         const float expected = (n % 2 == 0) ? 1.0f : -1.0f;
-        EXPECT_NEAR(calculateChebyValueF32(pureTf(n), n + 1, -1.0f), expected, 1e-5f)
+        EXPECT_NEAR(calculateChebyValue(pureTf(n), n + 1, -1.0f), expected, 1e-5f)
             << "T_" << n << "(-1) should be " << expected;
     }
 }
@@ -263,7 +263,7 @@ TEST(CalculateChebyValueF32, EndpointAtMinusOne) {
 TEST(CalculateChebyValueF32, ValueAtZero) {
     for (int n = 0; n < 10; ++n) {
         const float expected = (n % 2 != 0) ? 0.0f : ((n / 2) % 2 == 0 ? 1.0f : -1.0f);
-        EXPECT_NEAR(calculateChebyValueF32(pureTf(n), n + 1, 0.0f), expected, 1e-5f)
+        EXPECT_NEAR(calculateChebyValue(pureTf(n), n + 1, 0.0f), expected, 1e-5f)
             << "T_" << n << "(0) should be " << expected;
     }
 }
@@ -274,7 +274,7 @@ TEST(CalculateChebyValueF32, CosineIdentity) {
     for (const float theta : thetas) {
         const float x = std::cos(theta);
         for (int n = 0; n < 6; ++n) {
-            EXPECT_NEAR(calculateChebyValueF32(pureTf(n), n + 1, x), std::cos(static_cast<float>(n) * theta), 1e-4f)
+            EXPECT_NEAR(calculateChebyValue(pureTf(n), n + 1, x), std::cos(static_cast<float>(n) * theta), 1e-4f)
                 << "Cosine identity failed for T_" << n << " at theta=" << theta;
         }
     }
@@ -284,8 +284,8 @@ TEST(CalculateChebyValueF32, CosineIdentity) {
 TEST(CalculateChebyValueF32, ParitySymmetry) {
     for (const float x : {0.2f, 0.5f, 0.8f}) {
         for (int n = 0; n < 8; ++n) {
-            const float atPosX = calculateChebyValueF32(pureTf(n), n + 1, x);
-            const float atNegX = calculateChebyValueF32(pureTf(n), n + 1, -x);
+            const float atPosX = calculateChebyValue(pureTf(n), n + 1, x);
+            const float atNegX = calculateChebyValue(pureTf(n), n + 1, -x);
             const float sign = (n % 2 == 0) ? 1.0f : -1.0f;
             EXPECT_NEAR(atNegX, sign * atPosX, 1e-5f) << "Parity failed for T_" << n << " at x=" << x;
         }
@@ -296,9 +296,9 @@ TEST(CalculateChebyValueF32, ParitySymmetry) {
 TEST(CalculateChebyValueF32, ThreeTermRecurrence) {
     for (const float x : {-0.5f, 0.0f, 0.5f, 0.9f}) {
         for (int n = 2; n < 8; ++n) {
-            const float Tn_2 = calculateChebyValueF32(pureTf(n - 2), n - 1, x);
-            const float Tn_1 = calculateChebyValueF32(pureTf(n - 1), n, x);
-            const float Tn = calculateChebyValueF32(pureTf(n), n + 1, x);
+            const float Tn_2 = calculateChebyValue(pureTf(n - 2), n - 1, x);
+            const float Tn_1 = calculateChebyValue(pureTf(n - 1), n, x);
+            const float Tn = calculateChebyValue(pureTf(n), n + 1, x);
             EXPECT_NEAR(Tn, 2.0f * x * Tn_1 - Tn_2, 1e-5f) << "Recurrence failed for T_" << n << " at x=" << x;
         }
     }
@@ -306,32 +306,32 @@ TEST(CalculateChebyValueF32, ThreeTermRecurrence) {
 
 // Linearity in coefficients
 TEST(CalculateChebyValueF32, Linearity) {
-    std::array<float, MAX_OE_COEFF> ca{}, cb{}, cab{};
+    std::array<float, kTestCoeffCount> ca{}, cb{}, cab{};
     ca[0] = 1.5f;
     ca[2] = -0.5f;
     ca[4] = 0.3f;
     cb[1] = 2.0f;
     cb[3] = 1.0f;
     cb[4] = 0.7f;
-    for (int i = 0; i < MAX_OE_COEFF; ++i) cab[i] = ca[i] + cb[i];
+    for (std::size_t i = 0; i < kTestCoeffCount; ++i) cab[i] = ca[i] + cb[i];
 
     for (const float x : {-0.5f, 0.0f, 0.6f}) {
-        EXPECT_NEAR(calculateChebyValueF32(cab, 5, x),
-                    calculateChebyValueF32(ca, 5, x) + calculateChebyValueF32(cb, 5, x),
+        EXPECT_NEAR(calculateChebyValue(cab, 5, x),
+                    calculateChebyValue(ca, 5, x) + calculateChebyValue(cb, 5, x),
                     1e-5f);
     }
 }
 
 // Invariance: trailing zero coefficients do not affect the result
 TEST(CalculateChebyValueF32, TrailingZeroCoefficientsInvariant) {
-    std::array<float, MAX_OE_COEFF> c{};
+    std::array<float, kTestCoeffCount> c{};
     c[0] = 1.0f;
     c[1] = -0.5f;
     c[2] = 0.3f;
     for (const float x : {-0.7f, 0.0f, 0.8f}) {
-        const float base = calculateChebyValueF32(c, 3, x);
-        EXPECT_NEAR(calculateChebyValueF32(c, 4, x), base, 1e-6f);
-        EXPECT_NEAR(calculateChebyValueF32(c, 10, x), base, 1e-6f);
+        const float base = calculateChebyValue(c, 3, x);
+        EXPECT_NEAR(calculateChebyValue(c, 4, x), base, 1e-6f);
+        EXPECT_NEAR(calculateChebyValue(c, 10, x), base, 1e-6f);
     }
 }
 

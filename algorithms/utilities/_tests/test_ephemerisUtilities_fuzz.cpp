@@ -4,13 +4,14 @@
  Copyright (c) 2025, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
 */
 
-#define MAX_OE_COEFF 20
 #include "../ephemerisUtilities.h"
 
 #include <fuzztest/fuzztest.h>
 #include <gtest/gtest.h>
 #include <array>
+#include <cstddef>
 
+constexpr std::size_t kTestCoeffCount = 20;
 constexpr double doubleTolerance = 1e-15;
 constexpr float floatTolerance = 1e-6;
 
@@ -23,7 +24,7 @@ constexpr float floatTolerance = 1e-6;
 // equal the plain sum of the active coefficients.
 // ---------------------------------------------------------------------------
 
-void fuzzChebyEvalAtOne(const std::array<double, MAX_OE_COEFF>& c, unsigned int n) {
+void fuzzChebyEvalAtOne(const std::array<double, kTestCoeffCount>& c, unsigned int n) {
     const double result = calculateChebyValue(c, n, 1.0);
 
     double expected = 0.0;
@@ -35,11 +36,11 @@ void fuzzChebyEvalAtOne(const std::array<double, MAX_OE_COEFF>& c, unsigned int 
 }
 
 FUZZ_TEST(ChebyProperty, fuzzChebyEvalAtOne)
-    .WithDomains(fuzztest::ArrayOf<MAX_OE_COEFF>(fuzztest::InRange(-1e6, 1e6)),
-                 fuzztest::InRange(1u, static_cast<unsigned int>(MAX_OE_COEFF)));
+    .WithDomains(fuzztest::ArrayOf<kTestCoeffCount>(fuzztest::InRange(-1e6, 1e6)),
+                 fuzztest::InRange(1u, static_cast<unsigned int>(kTestCoeffCount)));
 
-void fuzzChebyEvalAtOneF32(const std::array<float, MAX_OE_COEFF>& c, unsigned int n) {
-    const float result = calculateChebyValueF32(c, n, 1.0f);
+void fuzzChebyEvalAtOneF32(const std::array<float, kTestCoeffCount>& c, unsigned int n) {
+    const float result = calculateChebyValue(c, n, 1.0f);
 
     float expected = 0.0f;
     for (unsigned int i = 0; i < n; ++i) {
@@ -50,8 +51,8 @@ void fuzzChebyEvalAtOneF32(const std::array<float, MAX_OE_COEFF>& c, unsigned in
 }
 
 FUZZ_TEST(ChebyPropertyF32, fuzzChebyEvalAtOneF32)
-    .WithDomains(fuzztest::ArrayOf<MAX_OE_COEFF>(fuzztest::InRange(-1e3f, 1e3f)),
-                 fuzztest::InRange(1u, static_cast<unsigned int>(MAX_OE_COEFF)));
+    .WithDomains(fuzztest::ArrayOf<kTestCoeffCount>(fuzztest::InRange(-1e3f, 1e3f)),
+                 fuzztest::InRange(1u, static_cast<unsigned int>(kTestCoeffCount)));
 
 // ---------------------------------------------------------------------------
 // Property 2 – Evaluation at x = -1  (T_n(-1) = (-1)^n)
@@ -61,7 +62,7 @@ FUZZ_TEST(ChebyPropertyF32, fuzzChebyEvalAtOneF32)
 // The Chebyshev basis alternates in sign at x = -1.
 // ---------------------------------------------------------------------------
 
-void fuzzChebyEvalAtMinusOne(const std::array<double, MAX_OE_COEFF>& c, unsigned int n) {
+void fuzzChebyEvalAtMinusOne(const std::array<double, kTestCoeffCount>& c, unsigned int n) {
     const double result = calculateChebyValue(c, n, -1.0);
 
     double expected = 0.0;
@@ -75,11 +76,11 @@ void fuzzChebyEvalAtMinusOne(const std::array<double, MAX_OE_COEFF>& c, unsigned
 }
 
 FUZZ_TEST(ChebyProperty, fuzzChebyEvalAtMinusOne)
-    .WithDomains(fuzztest::ArrayOf<MAX_OE_COEFF>(fuzztest::InRange(-1e6, 1e6)),
-                 fuzztest::InRange(1u, static_cast<unsigned int>(MAX_OE_COEFF)));
+    .WithDomains(fuzztest::ArrayOf<kTestCoeffCount>(fuzztest::InRange(-1e6, 1e6)),
+                 fuzztest::InRange(1u, static_cast<unsigned int>(kTestCoeffCount)));
 
-void fuzzChebyEvalAtMinusOneF32(const std::array<float, MAX_OE_COEFF>& c, unsigned int n) {
-    const float result = calculateChebyValueF32(c, n, -1.0f);
+void fuzzChebyEvalAtMinusOneF32(const std::array<float, kTestCoeffCount>& c, unsigned int n) {
+    const float result = calculateChebyValue(c, n, -1.0f);
 
     float expected = 0.0f;
     float sign = 1.0f;
@@ -92,8 +93,8 @@ void fuzzChebyEvalAtMinusOneF32(const std::array<float, MAX_OE_COEFF>& c, unsign
 }
 
 FUZZ_TEST(ChebyPropertyF32, fuzzChebyEvalAtMinusOneF32)
-    .WithDomains(fuzztest::ArrayOf<MAX_OE_COEFF>(fuzztest::InRange(-1e3f, 1e3f)),
-                 fuzztest::InRange(1u, static_cast<unsigned int>(MAX_OE_COEFF)));
+    .WithDomains(fuzztest::ArrayOf<kTestCoeffCount>(fuzztest::InRange(-1e3f, 1e3f)),
+                 fuzztest::InRange(1u, static_cast<unsigned int>(kTestCoeffCount)));
 
 // ---------------------------------------------------------------------------
 // Property 3 – Boundedness  (|T_n(x)| ≤ 1 for x ∈ [-1, 1])
@@ -104,7 +105,7 @@ FUZZ_TEST(ChebyPropertyF32, fuzzChebyEvalAtMinusOneF32)
 // linear combination is bounded by the L1-norm of the coefficient vector.
 // ---------------------------------------------------------------------------
 
-void fuzzChebyBoundedness(const std::array<double, MAX_OE_COEFF>& c, unsigned int n, double x) {
+void fuzzChebyBoundedness(const std::array<double, kTestCoeffCount>& c, unsigned int n, double x) {
     const double result = calculateChebyValue(c, n, x);
 
     double l1Norm = 0.0;
@@ -118,12 +119,12 @@ void fuzzChebyBoundedness(const std::array<double, MAX_OE_COEFF>& c, unsigned in
 }
 
 FUZZ_TEST(ChebyProperty, fuzzChebyBoundedness)
-    .WithDomains(fuzztest::ArrayOf<MAX_OE_COEFF>(fuzztest::InRange(-1e6, 1e6)),
-                 fuzztest::InRange(1u, static_cast<unsigned int>(MAX_OE_COEFF)),
+    .WithDomains(fuzztest::ArrayOf<kTestCoeffCount>(fuzztest::InRange(-1e6, 1e6)),
+                 fuzztest::InRange(1u, static_cast<unsigned int>(kTestCoeffCount)),
                  fuzztest::InRange(-1.0, 1.0));
 
-void fuzzChebyBoundednessF32(const std::array<float, MAX_OE_COEFF>& c, unsigned int n, float x) {
-    const float result = calculateChebyValueF32(c, n, x);
+void fuzzChebyBoundednessF32(const std::array<float, kTestCoeffCount>& c, unsigned int n, float x) {
+    const float result = calculateChebyValue(c, n, x);
 
     float l1Norm = 0.0f;
     for (unsigned int i = 0; i < n; ++i) {
@@ -135,8 +136,8 @@ void fuzzChebyBoundednessF32(const std::array<float, MAX_OE_COEFF>& c, unsigned 
 }
 
 FUZZ_TEST(ChebyPropertyF32, fuzzChebyBoundednessF32)
-    .WithDomains(fuzztest::ArrayOf<MAX_OE_COEFF>(fuzztest::InRange(-1e3f, 1e3f)),
-                 fuzztest::InRange(1u, static_cast<unsigned int>(MAX_OE_COEFF)),
+    .WithDomains(fuzztest::ArrayOf<kTestCoeffCount>(fuzztest::InRange(-1e3f, 1e3f)),
+                 fuzztest::InRange(1u, static_cast<unsigned int>(kTestCoeffCount)),
                  fuzztest::InRange(-1.0f, 1.0f));
 
 // ---------------------------------------------------------------------------
@@ -147,7 +148,7 @@ FUZZ_TEST(ChebyPropertyF32, fuzzChebyBoundednessF32)
 // ---------------------------------------------------------------------------
 
 void fuzzChebySingleCoeff(double c0, unsigned int n, double x) {
-    std::array<double, MAX_OE_COEFF> c{};
+    std::array<double, kTestCoeffCount> c{};
     c[0] = c0;
 
     const double result = calculateChebyValue(c, n, x);
@@ -156,20 +157,20 @@ void fuzzChebySingleCoeff(double c0, unsigned int n, double x) {
 
 FUZZ_TEST(ChebyProperty, fuzzChebySingleCoeff)
     .WithDomains(fuzztest::Finite<double>(),
-                 fuzztest::InRange(1u, static_cast<unsigned int>(MAX_OE_COEFF)),
+                 fuzztest::InRange(1u, static_cast<unsigned int>(kTestCoeffCount)),
                  fuzztest::InRange(-1.0, 1.0));
 
 void fuzzChebySingleCoeffF32(float c0, unsigned int n, float x) {
-    std::array<float, MAX_OE_COEFF> c{};
+    std::array<float, kTestCoeffCount> c{};
     c[0] = c0;
 
-    const float result = calculateChebyValueF32(c, n, x);
+    const float result = calculateChebyValue(c, n, x);
     EXPECT_FLOAT_EQ(result, c0);
 }
 
 FUZZ_TEST(ChebyPropertyF32, fuzzChebySingleCoeffF32)
     .WithDomains(fuzztest::Finite<float>(),
-                 fuzztest::InRange(1u, static_cast<unsigned int>(MAX_OE_COEFF)),
+                 fuzztest::InRange(1u, static_cast<unsigned int>(kTestCoeffCount)),
                  fuzztest::InRange(-1.0f, 1.0f));
 
 // ---------------------------------------------------------------------------
@@ -183,7 +184,7 @@ FUZZ_TEST(ChebyPropertyF32, fuzzChebySingleCoeffF32)
 
 void fuzzChebyRecurrence(unsigned int n, double x) {
     // Build unit-coefficient arrays for T_{n-2}, T_{n-1}, T_n
-    std::array<double, MAX_OE_COEFF> cn2{}, cn1{}, cn{};
+    std::array<double, kTestCoeffCount> cn2{}, cn1{}, cn{};
     cn2[n - 2] = 1.0;
     cn1[n - 1] = 1.0;
     cn[n] = 1.0;
@@ -196,20 +197,20 @@ void fuzzChebyRecurrence(unsigned int n, double x) {
 }
 
 FUZZ_TEST(ChebyProperty, fuzzChebyRecurrence)
-    .WithDomains(fuzztest::InRange(2u, static_cast<unsigned int>(MAX_OE_COEFF) - 1), fuzztest::InRange(-1.0, 1.0));
+    .WithDomains(fuzztest::InRange(2u, static_cast<unsigned int>(kTestCoeffCount) - 1), fuzztest::InRange(-1.0, 1.0));
 
 void fuzzChebyRecurrenceF32(unsigned int n, float x) {
-    std::array<float, MAX_OE_COEFF> cn2{}, cn1{}, cn{};
+    std::array<float, kTestCoeffCount> cn2{}, cn1{}, cn{};
     cn2[n - 2] = 1.0f;
     cn1[n - 1] = 1.0f;
     cn[n] = 1.0f;
 
-    const float Tn2 = calculateChebyValueF32(cn2, n - 1, x);
-    const float Tn1 = calculateChebyValueF32(cn1, n, x);
-    const float Tn = calculateChebyValueF32(cn, n + 1, x);
+    const float Tn2 = calculateChebyValue(cn2, n - 1, x);
+    const float Tn1 = calculateChebyValue(cn1, n, x);
+    const float Tn = calculateChebyValue(cn, n + 1, x);
 
     EXPECT_NEAR(Tn, 2.0f * x * Tn1 - Tn2, floatTolerance);
 }
 
 FUZZ_TEST(ChebyPropertyF32, fuzzChebyRecurrenceF32)
-    .WithDomains(fuzztest::InRange(2u, static_cast<unsigned int>(MAX_OE_COEFF) - 1), fuzztest::InRange(-1.0f, 1.0f));
+    .WithDomains(fuzztest::InRange(2u, static_cast<unsigned int>(kTestCoeffCount) - 1), fuzztest::InRange(-1.0f, 1.0f));
