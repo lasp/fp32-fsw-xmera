@@ -14,6 +14,8 @@
 namespace {
 
 constexpr std::size_t kTestCoeffCount = 20;
+inline constexpr double kDoubleTolerance = 1e-14;
+inline constexpr float kFloatTolerance = 1e-6f;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -64,7 +66,7 @@ TEST(CalculateChebyValue, PureT2Quadratic) {
     // T_2(x) = 2x^2 - 1
     const auto c = pureTd(2);
     for (const double x : {-1.0, -0.5, 0.0, 0.5, 0.7, 1.0}) {
-        EXPECT_NEAR(calculateChebyValue(c, 3, x), 2.0 * x * x - 1.0, 1e-14);
+        EXPECT_NEAR(calculateChebyValue(c, 3, x), 2.0 * x * x - 1.0, kDoubleTolerance);
     }
 }
 
@@ -72,7 +74,7 @@ TEST(CalculateChebyValue, PureT3Cubic) {
     // T_3(x) = 4x^3 - 3x
     const auto c = pureTd(3);
     for (const double x : {-1.0, -0.5, 0.0, 0.5, 0.7, 1.0}) {
-        EXPECT_NEAR(calculateChebyValue(c, 4, x), 4.0 * x * x * x - 3.0 * x, 1e-14);
+        EXPECT_NEAR(calculateChebyValue(c, 4, x), 4.0 * x * x * x - 3.0 * x, kDoubleTolerance);
     }
 }
 
@@ -81,7 +83,7 @@ TEST(CalculateChebyValue, PureT4Quartic) {
     const auto c = pureTd(4);
     for (const double x : {-1.0, -0.6, 0.0, 0.4, 1.0}) {
         const double expected = 8.0 * x * x * x * x - 8.0 * x * x + 1.0;
-        EXPECT_NEAR(calculateChebyValue(c, 5, x), expected, 1e-13);
+        EXPECT_NEAR(calculateChebyValue(c, 5, x), expected, kDoubleTolerance);
     }
 }
 
@@ -92,7 +94,8 @@ TEST(CalculateChebyValue, PureT4Quartic) {
 // Property: T_n(1) = 1 for all n >= 0
 TEST(CalculateChebyValue, EndpointAtOneIsUnity) {
     for (int n = 0; n < 10; ++n) {
-        EXPECT_NEAR(calculateChebyValue(pureTd(n), n + 1, 1.0), 1.0, 1e-14) << "T_" << n << "(1) should be 1";
+        EXPECT_NEAR(calculateChebyValue(pureTd(n), n + 1, 1.0), 1.0, kDoubleTolerance)
+            << "T_" << n << "(1) should be 1";
     }
 }
 
@@ -100,7 +103,7 @@ TEST(CalculateChebyValue, EndpointAtOneIsUnity) {
 TEST(CalculateChebyValue, EndpointAtMinusOne) {
     for (int n = 0; n < 10; ++n) {
         const double expected = (n % 2 == 0) ? 1.0 : -1.0;
-        EXPECT_NEAR(calculateChebyValue(pureTd(n), n + 1, -1.0), expected, 1e-14)
+        EXPECT_NEAR(calculateChebyValue(pureTd(n), n + 1, -1.0), expected, kDoubleTolerance)
             << "T_" << n << "(-1) should be " << expected;
     }
 }
@@ -109,7 +112,7 @@ TEST(CalculateChebyValue, EndpointAtMinusOne) {
 TEST(CalculateChebyValue, ValueAtZero) {
     for (int n = 0; n < 10; ++n) {
         const double expected = (n % 2 != 0) ? 0.0 : ((n / 2) % 2 == 0 ? 1.0 : -1.0);
-        EXPECT_NEAR(calculateChebyValue(pureTd(n), n + 1, 0.0), expected, 1e-14)
+        EXPECT_NEAR(calculateChebyValue(pureTd(n), n + 1, 0.0), expected, kDoubleTolerance)
             << "T_" << n << "(0) should be " << expected;
     }
 }
@@ -121,7 +124,8 @@ TEST(CalculateChebyValue, CosineIdentity) {
     for (const double theta : thetas) {
         const double x = std::cos(theta);
         for (int n = 0; n < 8; ++n) {
-            EXPECT_NEAR(calculateChebyValue(pureTd(n), n + 1, x), std::cos(static_cast<double>(n) * theta), 1e-12)
+            EXPECT_NEAR(
+                calculateChebyValue(pureTd(n), n + 1, x), std::cos(static_cast<double>(n) * theta), kDoubleTolerance)
                 << "Cosine identity failed for T_" << n << " at theta=" << theta;
         }
     }
@@ -134,7 +138,7 @@ TEST(CalculateChebyValue, ParitySymmetry) {
             const double atPosX = calculateChebyValue(pureTd(n), n + 1, x);
             const double atNegX = calculateChebyValue(pureTd(n), n + 1, -x);
             const double sign = (n % 2 == 0) ? 1.0 : -1.0;
-            EXPECT_NEAR(atNegX, sign * atPosX, 1e-14) << "Parity failed for T_" << n << " at x=" << x;
+            EXPECT_NEAR(atNegX, sign * atPosX, kDoubleTolerance) << "Parity failed for T_" << n << " at x=" << x;
         }
     }
 }
@@ -147,7 +151,8 @@ TEST(CalculateChebyValue, ThreeTermRecurrence) {
             const double Tn_2 = calculateChebyValue(pureTd(n - 2), n - 1, x);
             const double Tn_1 = calculateChebyValue(pureTd(n - 1), n, x);
             const double Tn = calculateChebyValue(pureTd(n), n + 1, x);
-            EXPECT_NEAR(Tn, 2.0 * x * Tn_1 - Tn_2, 1e-14) << "Recurrence failed for T_" << n << " at x=" << x;
+            EXPECT_NEAR(Tn, 2.0 * x * Tn_1 - Tn_2, kDoubleTolerance)
+                << "Recurrence failed for T_" << n << " at x=" << x;
         }
     }
 }
@@ -165,8 +170,9 @@ TEST(CalculateChebyValue, Linearity) {
 
     const unsigned int n = 5;
     for (const double x : {-0.8, 0.0, 0.6, 1.0}) {
-        EXPECT_NEAR(
-            calculateChebyValue(cab, n, x), calculateChebyValue(ca, n, x) + calculateChebyValue(cb, n, x), 1e-14);
+        EXPECT_NEAR(calculateChebyValue(cab, n, x),
+                    calculateChebyValue(ca, n, x) + calculateChebyValue(cb, n, x),
+                    kDoubleTolerance);
     }
 }
 
@@ -178,7 +184,7 @@ TEST(CalculateChebyValue, Homogeneity) {
     for (std::size_t i = 0; i < kTestCoeffCount; ++i) kc[i] = k * c[i];
 
     for (const double x : {-0.6, 0.0, 0.3, 0.9}) {
-        EXPECT_NEAR(calculateChebyValue(kc, 4, x), k * calculateChebyValue(c, 4, x), 1e-14);
+        EXPECT_NEAR(calculateChebyValue(kc, 4, x), k * calculateChebyValue(c, 4, x), kDoubleTolerance);
     }
 }
 
@@ -191,8 +197,8 @@ TEST(CalculateChebyValue, TrailingZeroCoefficientsInvariant) {
     // c[3..] are zero — extending numberOfCoefficients should not change result
     for (const double x : {-0.7, 0.0, 0.8}) {
         const double base = calculateChebyValue(c, 3, x);
-        EXPECT_NEAR(calculateChebyValue(c, 4, x), base, 1e-14);
-        EXPECT_NEAR(calculateChebyValue(c, 10, x), base, 1e-14);
+        EXPECT_NEAR(calculateChebyValue(c, 4, x), base, kDoubleTolerance);
+        EXPECT_NEAR(calculateChebyValue(c, 10, x), base, kDoubleTolerance);
     }
 }
 
@@ -219,7 +225,7 @@ TEST(CalculateChebyValueF32, TwoCoefficientsLinear) {
     c[0] = 2.0f;
     c[1] = 3.0f;
     for (const float x : {-1.0f, 0.0f, 0.5f, 1.0f}) {
-        EXPECT_NEAR(calculateChebyValue(c, 2, x), 2.0f + 3.0f * x, 1e-6f);
+        EXPECT_NEAR(calculateChebyValue(c, 2, x), 2.0f + 3.0f * x, kFloatTolerance);
     }
 }
 
@@ -227,7 +233,7 @@ TEST(CalculateChebyValueF32, PureT2Quadratic) {
     // T_2(x) = 2x^2 - 1
     const auto c = pureTf(2);
     for (const float x : {-1.0f, 0.0f, 0.5f, 0.7f, 1.0f}) {
-        EXPECT_NEAR(calculateChebyValue(c, 3, x), 2.0f * x * x - 1.0f, 1e-6f);
+        EXPECT_NEAR(calculateChebyValue(c, 3, x), 2.0f * x * x - 1.0f, kFloatTolerance);
     }
 }
 
@@ -235,7 +241,7 @@ TEST(CalculateChebyValueF32, PureT3Cubic) {
     // T_3(x) = 4x^3 - 3x
     const auto c = pureTf(3);
     for (const float x : {-1.0f, -0.5f, 0.0f, 0.5f, 0.7f}) {
-        EXPECT_NEAR(calculateChebyValue(c, 4, x), 4.0f * x * x * x - 3.0f * x, 1e-6f);
+        EXPECT_NEAR(calculateChebyValue(c, 4, x), 4.0f * x * x * x - 3.0f * x, kFloatTolerance);
     }
 }
 
@@ -246,7 +252,8 @@ TEST(CalculateChebyValueF32, PureT3Cubic) {
 // Property: T_n(1) = 1 for all n
 TEST(CalculateChebyValueF32, EndpointAtOneIsUnity) {
     for (int n = 0; n < 10; ++n) {
-        EXPECT_NEAR(calculateChebyValue(pureTf(n), n + 1, 1.0f), 1.0f, 1e-5f) << "T_" << n << "(1) should be 1";
+        EXPECT_NEAR(calculateChebyValue(pureTf(n), n + 1, 1.0f), 1.0f, kFloatTolerance)
+            << "T_" << n << "(1) should be 1";
     }
 }
 
@@ -254,7 +261,7 @@ TEST(CalculateChebyValueF32, EndpointAtOneIsUnity) {
 TEST(CalculateChebyValueF32, EndpointAtMinusOne) {
     for (int n = 0; n < 10; ++n) {
         const float expected = (n % 2 == 0) ? 1.0f : -1.0f;
-        EXPECT_NEAR(calculateChebyValue(pureTf(n), n + 1, -1.0f), expected, 1e-5f)
+        EXPECT_NEAR(calculateChebyValue(pureTf(n), n + 1, -1.0f), expected, kFloatTolerance)
             << "T_" << n << "(-1) should be " << expected;
     }
 }
@@ -263,7 +270,7 @@ TEST(CalculateChebyValueF32, EndpointAtMinusOne) {
 TEST(CalculateChebyValueF32, ValueAtZero) {
     for (int n = 0; n < 10; ++n) {
         const float expected = (n % 2 != 0) ? 0.0f : ((n / 2) % 2 == 0 ? 1.0f : -1.0f);
-        EXPECT_NEAR(calculateChebyValue(pureTf(n), n + 1, 0.0f), expected, 1e-5f)
+        EXPECT_NEAR(calculateChebyValue(pureTf(n), n + 1, 0.0f), expected, kFloatTolerance)
             << "T_" << n << "(0) should be " << expected;
     }
 }
@@ -274,7 +281,8 @@ TEST(CalculateChebyValueF32, CosineIdentity) {
     for (const float theta : thetas) {
         const float x = std::cos(theta);
         for (int n = 0; n < 6; ++n) {
-            EXPECT_NEAR(calculateChebyValue(pureTf(n), n + 1, x), std::cos(static_cast<float>(n) * theta), 1e-4f)
+            EXPECT_NEAR(
+                calculateChebyValue(pureTf(n), n + 1, x), std::cos(static_cast<float>(n) * theta), kFloatTolerance)
                 << "Cosine identity failed for T_" << n << " at theta=" << theta;
         }
     }
@@ -287,7 +295,7 @@ TEST(CalculateChebyValueF32, ParitySymmetry) {
             const float atPosX = calculateChebyValue(pureTf(n), n + 1, x);
             const float atNegX = calculateChebyValue(pureTf(n), n + 1, -x);
             const float sign = (n % 2 == 0) ? 1.0f : -1.0f;
-            EXPECT_NEAR(atNegX, sign * atPosX, 1e-5f) << "Parity failed for T_" << n << " at x=" << x;
+            EXPECT_NEAR(atNegX, sign * atPosX, kFloatTolerance) << "Parity failed for T_" << n << " at x=" << x;
         }
     }
 }
@@ -299,7 +307,8 @@ TEST(CalculateChebyValueF32, ThreeTermRecurrence) {
             const float Tn_2 = calculateChebyValue(pureTf(n - 2), n - 1, x);
             const float Tn_1 = calculateChebyValue(pureTf(n - 1), n, x);
             const float Tn = calculateChebyValue(pureTf(n), n + 1, x);
-            EXPECT_NEAR(Tn, 2.0f * x * Tn_1 - Tn_2, 1e-5f) << "Recurrence failed for T_" << n << " at x=" << x;
+            EXPECT_NEAR(Tn, 2.0f * x * Tn_1 - Tn_2, kFloatTolerance)
+                << "Recurrence failed for T_" << n << " at x=" << x;
         }
     }
 }
@@ -316,8 +325,9 @@ TEST(CalculateChebyValueF32, Linearity) {
     for (std::size_t i = 0; i < kTestCoeffCount; ++i) cab[i] = ca[i] + cb[i];
 
     for (const float x : {-0.5f, 0.0f, 0.6f}) {
-        EXPECT_NEAR(
-            calculateChebyValue(cab, 5, x), calculateChebyValue(ca, 5, x) + calculateChebyValue(cb, 5, x), 1e-5f);
+        EXPECT_NEAR(calculateChebyValue(cab, 5, x),
+                    calculateChebyValue(ca, 5, x) + calculateChebyValue(cb, 5, x),
+                    kFloatTolerance);
     }
 }
 
@@ -329,8 +339,8 @@ TEST(CalculateChebyValueF32, TrailingZeroCoefficientsInvariant) {
     c[2] = 0.3f;
     for (const float x : {-0.7f, 0.0f, 0.8f}) {
         const float base = calculateChebyValue(c, 3, x);
-        EXPECT_NEAR(calculateChebyValue(c, 4, x), base, 1e-6f);
-        EXPECT_NEAR(calculateChebyValue(c, 10, x), base, 1e-6f);
+        EXPECT_NEAR(calculateChebyValue(c, 4, x), base, kFloatTolerance);
+        EXPECT_NEAR(calculateChebyValue(c, 10, x), base, kFloatTolerance);
     }
 }
 
