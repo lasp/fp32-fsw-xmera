@@ -61,7 +61,7 @@ def cssCommTestFunction(numSensors, sensorData):
                      -8.704033370738143e+03, 1.816188108176300e+03,
                      -2.581556805090373e+02, 1.888418924282780e+01]
     module.chebyCount = len(ChebyList)
-    module.kellyCheby = ChebyList
+    module.kellyCheby = ChebyList + [0] * (32 - len(ChebyList))
 
     module.modelTag = "cssComm"
 

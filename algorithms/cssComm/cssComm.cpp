@@ -15,26 +15,6 @@ void CssComm::reset(uint64_t callTime) {
         throw std::invalid_argument("cssComm.sensorListInMsg wasn't connected.");
     }
 
-    /*! - Check to make sure that number of sensors is less than the max and warn if none are set*/
-    if (this->numSensors > MAX_NUM_CSS_SENSORS) {
-        char info[MAX_LOGGING_LENGTH];
-        snprintf(info,
-                 sizeof(info),
-                 "The configured number of CSS sensors exceeds the maximum, %d > %d! Changing the number of sensors to "
-                 "the max.",
-                 this->numSensors,
-                 MAX_NUM_CSS_SENSORS);
-        throw std::invalid_argument(info);
-        this->numSensors = MAX_NUM_CSS_SENSORS;
-    } else if (this->numSensors == 0) {
-        throw std::invalid_argument("There are zero CSS configured!");
-    }
-
-    if (this->maxSensorValue == 0) {
-        throw std::invalid_argument("Max CSS sensor value configured to zero! CSS sensor values will be normalized by"
-                                    "zero, inducing faux saturation!");
-    }
-
     return;
 }
 
@@ -98,3 +78,72 @@ void CssComm::updateState(uint64_t callTime) {
 
     return;
 }
+
+/*! Set the number of CSS sensors
+ @return void
+ @param numberOfSensors [-] number of CSS sensors
+*/
+void CssComm::setNumSensors(const uint32_t numberOfSensors) {
+    if (numberOfSensors > MAX_NUM_CSS_SENSORS) {
+        char info[MAX_LOGGING_LENGTH];
+        snprintf(info,
+                 sizeof(info),
+                 "The configured number of CSS sensors exceeds the maximum, %d > %d! Changing the number of sensors to "
+                 "the max.",
+                 numberOfSensors,
+                 MAX_NUM_CSS_SENSORS);
+        throw std::invalid_argument(info);
+    }
+    if (numberOfSensors == 0) {
+        throw std::invalid_argument("There are zero CSS configured!");
+    }
+    this->numSensors = numberOfSensors;
+}
+
+/*! Get the number of CSS sensors
+ @return uint32_t
+*/
+uint32_t CssComm::getNumSensors() const { return this->numSensors; }
+
+/*! Set the maximum sensor value
+ @return void
+ @param maxValue [-] maximum sensor value
+*/
+void CssComm::setMaxSensorValue(const double maxValue) {
+    if (maxValue == 0) {
+        throw std::invalid_argument("Max CSS sensor value configured to zero! CSS sensor values will be normalized by"
+                                    "zero, inducing faux saturation!");
+    }
+    this->maxSensorValue = maxValue;
+}
+
+/*! Get the maximum sensor value
+ @return double
+*/
+double CssComm::getMaxSensorValue() const { return this->maxSensorValue; }
+
+/*! Set the cheby polynomial count
+ @return void
+ @param count [-] cheby polynomial count
+*/
+void CssComm::setChebyCount(const uint32_t count) {
+    this->chebyCount = count;
+}
+
+/*! Get the cheby polynomial count
+ @return uint32_t
+*/
+uint32_t CssComm::getChebyCount() const { return this->chebyCount; }
+
+/*! Set the cheby polynomials
+ @return void
+ @param polynomials [-] cheby polynomials
+*/
+void CssComm::setChebyPolynomials(const std::array<double, kMaxNumChebyPolys>& polynomials) {
+    this->kellyCheby = polynomials;
+}
+
+/*! Get the cheby polynomials
+ @return std::array<double, kMaxNumChebyPolys>
+*/
+std::array<double, kMaxNumChebyPolys> CssComm::getChebyPolynomials() const { return this->kellyCheby; }
