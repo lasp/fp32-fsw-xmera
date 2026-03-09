@@ -187,4 +187,74 @@ TEST(SafeMathDouble, Atan2PassthroughInRange) {
     }
 }
 
+// ============================================================================
+// Float — finiteness for extreme values
+// ============================================================================
+
+TEST(SafeMathFloat, FiniteForExtremeInputs) {
+    for (const float x : {FLT_MAX, -FLT_MAX, 1e38f, -1e38f, 0.0f, -0.0f}) {
+        EXPECT_TRUE(std::isfinite(safeCosf(x))) << "cos, x=" << x;
+        EXPECT_TRUE(std::isfinite(safeSinf(x))) << "sin, x=" << x;
+        EXPECT_TRUE(std::isfinite(safeTanf(x))) << "tan, x=" << x;
+        EXPECT_TRUE(std::isfinite(safeAtanf(x))) << "atan, x=" << x;
+        EXPECT_TRUE(std::isfinite(safeTanHf(x))) << "tanh, x=" << x;
+        EXPECT_TRUE(std::isfinite(safeAtanHf(x))) << "atanh, x=" << x;
+        EXPECT_TRUE(std::isfinite(safeCosHf(x))) << "cosh, x=" << x;
+        EXPECT_TRUE(std::isfinite(safeSinHf(x))) << "sinh, x=" << x;
+        EXPECT_TRUE(std::isfinite(safeAcosf(x))) << "acos, x=" << x;
+        EXPECT_TRUE(std::isfinite(safeAsinf(x))) << "asin, x=" << x;
+        EXPECT_TRUE(std::isfinite(safeSqrtf(x))) << "sqrt, x=" << x;
+        EXPECT_TRUE(std::isfinite(safeAtan2f(x, 1.0f))) << "atan2(x,1), x=" << x;
+        EXPECT_TRUE(std::isfinite(safeAtan2f(1.0f, x))) << "atan2(1,x), x=" << x;
+        EXPECT_TRUE(std::isfinite(safeAtan2f(x, x))) << "atan2(x,x), x=" << x;
+    }
+}
+
+// ============================================================================
+// Double — finiteness for extreme values
+// ============================================================================
+
+TEST(SafeMathDouble, FiniteForExtremeInputs) {
+    for (const double x : {DBL_MAX, -DBL_MAX, 1e308, -1e308, 0.0, -0.0}) {
+        EXPECT_TRUE(std::isfinite(safeCos(x))) << "cos, x=" << x;
+        EXPECT_TRUE(std::isfinite(safeSin(x))) << "sin, x=" << x;
+        EXPECT_TRUE(std::isfinite(safeTan(x))) << "tan, x=" << x;
+        EXPECT_TRUE(std::isfinite(safeAtan(x))) << "atan, x=" << x;
+        EXPECT_TRUE(std::isfinite(safeTanH(x))) << "tanh, x=" << x;
+        EXPECT_TRUE(std::isfinite(safeAtanH(x))) << "atanh, x=" << x;
+        EXPECT_TRUE(std::isfinite(safeCosH(x))) << "cosh, x=" << x;
+        EXPECT_TRUE(std::isfinite(safeSinH(x))) << "sinh, x=" << x;
+        EXPECT_TRUE(std::isfinite(safeAcos(x))) << "acos, x=" << x;
+        EXPECT_TRUE(std::isfinite(safeAsin(x))) << "asin, x=" << x;
+        EXPECT_TRUE(std::isfinite(safeSqrt(x))) << "sqrt, x=" << x;
+        EXPECT_TRUE(std::isfinite(safeAtan2(x, 1.0))) << "atan2(x,1), x=" << x;
+        EXPECT_TRUE(std::isfinite(safeAtan2(1.0, x))) << "atan2(1,x), x=" << x;
+        EXPECT_TRUE(std::isfinite(safeAtan2(x, x))) << "atan2(x,x), x=" << x;
+    }
+}
+
+// ============================================================================
+// NaN pass-through documentation
+// ============================================================================
+
+// Safe functions protect against domain violations, not NaN propagation.
+// IEEE 754 comparisons with NaN are always false, so guards don't trigger.
+TEST(SafeMathFloat, NanPassesThrough) {
+    const float nan = std::numeric_limits<float>::quiet_NaN();
+    EXPECT_TRUE(std::isnan(safeCosf(nan)));
+    EXPECT_TRUE(std::isnan(safeSinf(nan)));
+    EXPECT_TRUE(std::isnan(safeTanf(nan)));
+    EXPECT_TRUE(std::isnan(safeAtanf(nan)));
+    EXPECT_TRUE(std::isnan(safeSqrtf(nan)));
+}
+
+TEST(SafeMathDouble, NanPassesThrough) {
+    const double nan = std::numeric_limits<double>::quiet_NaN();
+    EXPECT_TRUE(std::isnan(safeCos(nan)));
+    EXPECT_TRUE(std::isnan(safeSin(nan)));
+    EXPECT_TRUE(std::isnan(safeTan(nan)));
+    EXPECT_TRUE(std::isnan(safeAtan(nan)));
+    EXPECT_TRUE(std::isnan(safeSqrt(nan)));
+}
+
 }  // namespace
