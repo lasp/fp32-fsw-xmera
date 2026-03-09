@@ -49,9 +49,9 @@ void CssComm::updateState(uint64_t callTime) {
         ChebyPrev = 1.0;
         ChebyNow = outputBuffer.CosValue[i];
         ChebyDiffFactor = 0.0;
-        ChebyDiffFactor = this->chebyCount > 0 ? ChebyPrev * this->kellyCheby[0]
+        ChebyDiffFactor = this->chebyCount > 0 ? ChebyPrev * this->chebyPolynomials[0]
                                                : ChebyDiffFactor; /* if only first order correction */
-        ChebyDiffFactor = this->chebyCount > 1 ? ChebyNow * this->kellyCheby[1] + ChebyDiffFactor
+        ChebyDiffFactor = this->chebyCount > 1 ? ChebyNow * this->chebyPolynomials[1] + ChebyDiffFactor
                                                : ChebyDiffFactor; /* if higher order (> first) corrections */
 
         /* Loop over remaining polynomials and add in values */
@@ -59,7 +59,7 @@ void CssComm::updateState(uint64_t callTime) {
             ChebyLocalPrev = ChebyNow;
             ChebyNow = ValueMult * ChebyNow - ChebyPrev;
             ChebyPrev = ChebyLocalPrev;
-            ChebyDiffFactor += this->kellyCheby[j] * ChebyNow;
+            ChebyDiffFactor += this->chebyPolynomials[j] * ChebyNow;
         }
 
         outputBuffer.CosValue[i] = outputBuffer.CosValue[i] + ChebyDiffFactor;
@@ -137,10 +137,10 @@ uint32_t CssComm::getChebyCount() const { return this->chebyCount; }
  @param polynomials [-] cheby polynomials
 */
 void CssComm::setChebyPolynomials(const std::array<double, kMaxNumChebyPolys>& polynomials) {
-    this->kellyCheby = polynomials;
+    this->chebyPolynomials = polynomials;
 }
 
 /*! Get the cheby polynomials
  @return std::array<double, kMaxNumChebyPolys>
 */
-std::array<double, kMaxNumChebyPolys> CssComm::getChebyPolynomials() const { return this->kellyCheby; }
+std::array<double, kMaxNumChebyPolys> CssComm::getChebyPolynomials() const { return this->chebyPolynomials; }

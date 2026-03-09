@@ -32,7 +32,7 @@ class CssComm : public SysModel {
     uint32_t numSensors{};                                  //!< The number of sensors we are processing
     double maxSensorValue{};                                //!< Scale factor to go from sensor values to cosine
     uint32_t chebyCount{};                                  //!< Count on the number of chebyshev polynomials we have
-    std::array<double, kMaxNumChebyPolys> kellyCheby{};   //!< Chebyshev polynomials to fit output to cosine
+    std::array<double, kMaxNumChebyPolys> chebyPolynomials{};   //!< Chebyshev polynomials to fit output to cosine
 };
 
 #endif

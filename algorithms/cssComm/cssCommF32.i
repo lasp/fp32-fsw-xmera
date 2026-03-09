@@ -19,11 +19,11 @@
 %extend CssComm {
 %pythoncode %{
     @property
-    def kellyCheby(self):
+    def chebyPolynomials(self):
         return self.getChebyPolynomials()
 
-    @kellyCheby.setter
-    def kellyCheby(self, value):
+    @chebyPolynomials.setter
+    def chebyPolynomials(self, value):
         self.setChebyPolynomials(value)
 %}
 }
