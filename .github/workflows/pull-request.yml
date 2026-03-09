@@ -61,14 +61,13 @@ jobs:
           extra_args: --color always --files ${{ steps.file_changes.outputs.all_changed_files }}
 
   build-test:
-    name: Build & Test (${{ matrix.os }} / py${{ matrix.python-version }})
+    name: Build & Test (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     if: ${{ github.event.pull_request.draft == false }}
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-24.04, macos-14]
-        python-version: ["3.9", "3.10", "3.11"]
     permissions:
       contents: read
       packages: write
@@ -98,11 +97,11 @@ jobs:
         run: |
           echo "VCPKG_BINARY_SOURCES=clear" >> "$GITHUB_ENV"
 
-      - name: Set up Python ${{ matrix.python-version }}
+      - name: Set up Python 3.11
         id: setup-py
         uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: '3.11'
           cache: 'pip'
           cache-dependency-path: |
             xmera/**/requirements.txt
@@ -262,7 +261,7 @@ jobs:
             "-DXMERA_MODULE_ROOTS=${GITHUB_WORKSPACE}/xmera/src/fswAlgorithms/;${GITHUB_WORKSPACE}/xmera/src/simulation/;${GITHUB_WORKSPACE}/xmera/src/moduleTemplates/;${GITHUB_WORKSPACE}/xmera/src/fp32-fsw-xmera/algorithms"
             "-DXMERA_ENABLE_GROUPS=simulation;fswAlgorithms;moduleTemplates;fp32"
           )
-          if [[ "${{ runner.os }}" == "Linux" && "${{ matrix.python-version }}" == "3.11" ]]; then
+          if [[ "${{ runner.os }}" == "Linux" ]]; then
             args+=(
               "-DCMAKE_BUILD_TYPE=Debug"
               "-DCMAKE_C_FLAGS=--coverage"
@@ -288,7 +287,7 @@ jobs:
         working-directory: xmera/build
         run: |
           mkdir -p "${GITHUB_WORKSPACE}/junit"
-          ctest --output-on-failure --output-junit "${GITHUB_WORKSPACE}/junit/ctest-${{ matrix.os }}-py${{ matrix.python-version }}.xml"
+          ctest --output-on-failure --output-junit "${GITHUB_WORKSPACE}/junit/ctest-${{ matrix.os }}.xml"
 
       - name: Run Python Tests
         run: |
@@ -296,11 +295,11 @@ jobs:
           mkdir -p junit coverage
           cd algorithms
           pytest -n auto \
-            --junitxml="../junit/test-results-${{ matrix.python-version }}.xml"
+            --junitxml="../junit/test-results-${{ matrix.os }}.xml"
           cd ..
 
-      - name: Generate external module coverage (Linux / py3.11 only)
-        if: ${{ runner.os == 'Linux' && matrix.python-version == '3.11' }}
+      - name: Generate external module coverage (Linux only)
+        if: ${{ runner.os == 'Linux' }}
         run: |
           source .venv/bin/activate
           mkdir -p coverage
@@ -335,8 +334,8 @@ jobs:
             echo '```';
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Upload coverage artifacts (Linux / py3.11 only)
-        if: ${{ runner.os == 'Linux' && matrix.python-version == '3.11' }}
+      - name: Upload coverage artifacts (Linux only)
+        if: ${{ runner.os == 'Linux' }}
         uses: actions/upload-artifact@v4
         with:
           name: external-modules-coverage
@@ -351,16 +350,16 @@ jobs:
         if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
-          name: pytest-${{ matrix.os }}-py${{ matrix.python-version }}
-          path: junit/test-results-${{ matrix.python-version }}.xml
+          name: pytest-${{ matrix.os }}
+          path: junit/test-results-${{ matrix.os }}.xml
           retention-days: 7
 
       - name: Upload CTest results
         if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
-          name: ctest-${{ matrix.os }}-py${{ matrix.python-version }}
-          path: junit/ctest-${{ matrix.os }}-py${{ matrix.python-version }}.xml
+          name: ctest-${{ matrix.os }}
+          path: junit/ctest-${{ matrix.os }}.xml
           if-no-files-found: warn
           retention-days: 7
 
