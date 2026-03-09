@@ -8,7 +8,7 @@
  @return void
  @param callTime The clock time at which the function was called (nanoseconds)
  */
-void CSSComm::reset(uint64_t callTime) {
+void CssComm::reset(uint64_t callTime) {
     // check if the required message has not been connected
     if (!this->sensorListInMsg.isLinked()) {
         this->bskLogger.bskLog(BSK_ERROR, "Error: cssComm.sensorListInMsg wasn't connected.");
@@ -43,7 +43,7 @@ void CSSComm::reset(uint64_t callTime) {
  @return void
  @param callTime The clock time at which the function was called (nanoseconds)
  */
-void CSSComm::updateState(uint64_t callTime) {
+void CssComm::updateState(uint64_t callTime) {
     uint32_t i, j;
     double inputValues[MAX_NUM_CSS_SENSORS]; /* [-] Current measured CSS value for the constellation of CSS sensor */
     double ChebyDiffFactor, ChebyPrev, ChebyNow, ChebyLocalPrev,

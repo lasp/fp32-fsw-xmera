@@ -9,6 +9,8 @@ algorithms/bodyRateMiscompare/bodyRateMiscompare.h
 algorithms/bodyRateMiscompare/bodyRateMiscompare.cpp
 algorithms/celestialTwoBodyPoint/celestialTwoBodyPoint.h
 algorithms/celestialTwoBodyPoint/celestialTwoBodyPoint.cpp
+algorithms/cssComm/cssComm.h
+algorithms/cssComm/cssComm.cpp
 algorithms/ephemNavConverter/ephemNavConverter.h
 algorithms/ephemNavConverter/ephemNavConverter.cpp
 algorithms/ephemeridesRecenter/ephemeridesRecenter.h

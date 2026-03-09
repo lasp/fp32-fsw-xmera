@@ -1,4 +1,4 @@
-%module cssComm
+%module cssCommF32
 %{
    #include "cssComm.h"
 %}

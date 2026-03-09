@@ -1,5 +1,5 @@
-#ifndef _CSS_COMM_H_
-#define _CSS_COMM_H_
+#ifndef F32XMERA_CSS_COMM_H
+#define F32XMERA_CSS_COMM_H
 
 #define MAX_NUM_CHEBY_POLYS 32
 
@@ -11,7 +11,7 @@
 
 /*! @brief Top level structure for the CSS sensor interface system.  Contains all parameters for the
  CSS interface*/
-class CSSComm : public SysModel {
+class CssComm : public SysModel {
    public:
     void updateState(uint64_t callTime) override;
     void reset(uint64_t callTime) override;

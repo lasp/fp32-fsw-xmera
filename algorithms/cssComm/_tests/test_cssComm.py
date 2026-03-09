@@ -8,7 +8,7 @@ import os
 
 import pytest
 from xmera.architecture import messaging
-from xmera.fswAlgorithms import cssComm
+from xmera.fp32 import cssCommF32
 from xmera.utilities import SimulationBaseClass
 from xmera.utilities import macros
 from xmera.utilities import unitTestSupport  # general support file with common unit test functions
@@ -49,7 +49,7 @@ def cssCommTestFunction(numSensors, sensorData):
     testProc.addTask(unitTestSim.CreateNewTask(unitTaskName, testProcessRate)) # Add a new task to the process
 
     # Construct the cssComm module
-    module = cssComm.CSSComm()
+    module = cssCommF32.CssComm()
     # Populate the config
     module.numSensors = numSensors
     module.maxSensorValue = 500e-6
