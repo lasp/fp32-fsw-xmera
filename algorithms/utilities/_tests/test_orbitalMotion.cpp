@@ -1,4 +1,3 @@
-#include "../../../../../build/vcpkg_installed/arm64-osx/include/gtest/gtest.h"
 #include "../orbitalMotion.hpp"
 #include <gtest/gtest.h>
 #include <Eigen/Dense>
