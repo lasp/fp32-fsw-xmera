@@ -58,7 +58,7 @@ TEST_F(NearParabolicEllipticTest, NewtonSolver_SmallM_Converges) {
     const float E = OrbitalMotion::meanToEccentricAnomalyF32(0.005f, kE);
     EXPECT_TRUE(std::isfinite(E));
     // Verify it actually satisfies Kepler's equation to solver tolerance.
-    EXPECT_NEAR(E - kE * std::sinf(E), 0.005f, 1e-4f);
+    EXPECT_NEAR(E - kE * sinf(E), 0.005f, 1e-4f);
 }
 
 // elementsToCartesianStateF32 must produce a finite Cartesian state.
@@ -194,7 +194,7 @@ TEST(RectilinearOrbitTest, Eccentricity_IsOne) {
 }
 
 // Inclination, argPeriapsis, and trueAnomaly are undefined (NaN) when h = 0.
-TEST(RectilinearOrbitTest, AngularElements_AreNaN) {
+TEST(RectilinearOrbitTest, RectilinearDefaults) {
     const ClassicalElementsF32 el = OrbitalMotion::cartesianStateToElementsF32(kMuEarth, kRVecRadial, kVVecRadial);
     EXPECT_TRUE(el.inclination == 0.0F) << "expected 0 inclination for h=0";
     EXPECT_TRUE(el.argPeriapsis == 0.0F) << "expected 0 argPeriapsis for h=0";
