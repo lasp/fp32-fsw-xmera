@@ -1,4 +1,5 @@
 #include "cssComm.h"
+#include "utilities/chebyshevUtilities.h"
 #include <algorithm>
 #include <stdexcept>
 
@@ -36,27 +37,12 @@ void CssComm::updateState(uint64_t callTime) {
          -# If sensor output range is incorrect, set output value to zero
      */
     for (uint32_t i = 0; i < this->numSensors; ++i) {
-        outputValues[i] = (float)inputValues[i] / this->maxSensorValue; /* Scale Sensor Data */
+        double measuredValue = inputValues[i] / this->maxSensorValue; /* Scale Sensor Data */
 
-        /* Seed the polynomial computations */
-        const double ValueMult = 2.0 * outputValues[i];
-        double ChebyPrev = 1.0;
-        double ChebyNow = outputValues[i];
-        double ChebyDiffFactor{};
-        ChebyDiffFactor = this->chebyCount > 0 ? ChebyPrev * this->chebyPolynomials[0]
-                                               : ChebyDiffFactor; /* if only first order correction */
-        ChebyDiffFactor = this->chebyCount > 1 ? ChebyNow * this->chebyPolynomials[1] + ChebyDiffFactor
-                                               : ChebyDiffFactor; /* if higher order (> first) corrections */
+        /* Calculate correction using Chebyshev polynomial */
+        double correction = calculateChebyValue(this->chebyPolynomials, this->chebyCount, measuredValue);
 
-        /* Loop over remaining polynomials and add in values */
-        for (uint32_t j = 2; j < this->chebyCount; ++j) {
-            double ChebyLocalPrev = ChebyNow;
-            ChebyNow = ValueMult * ChebyNow - ChebyPrev;
-            ChebyPrev = ChebyLocalPrev;
-            ChebyDiffFactor += this->chebyPolynomials[j] * ChebyNow;
-        }
-
-        outputValues[i] = outputValues[i] + ChebyDiffFactor;
+        outputValues[i] = measuredValue + correction;
 
         if (outputValues[i] > 1.0) {
             outputValues[i] = 1.0;
