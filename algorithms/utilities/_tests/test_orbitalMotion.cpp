@@ -2,7 +2,6 @@
 #include <gtest/gtest.h>
 #include <Eigen/Dense>
 #include <cmath>
-#include <random>
 
 // Test constants
 const double muEarth = 3.986004418e14;  // m^3/s^2
