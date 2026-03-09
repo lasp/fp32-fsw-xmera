@@ -35,19 +35,19 @@ target_link_libraries(test_safeMath PRIVATE
 
 gtest_discover_tests(test_safeMath)
 
-add_executable(test_orbitalMotion
-  test_orbitalMotion.cpp
+add_executable(test_orbitalMotion_functions
+        test_orbitalMotion_functions.cpp
   ../orbitalMotion.cpp
 )
 
-target_include_directories(test_orbitalMotion PRIVATE "..")
+target_include_directories(test_orbitalMotion_functions PRIVATE "..")
 
-target_link_libraries(test_orbitalMotion PRIVATE
+target_link_libraries(test_orbitalMotion_functions PRIVATE
   Eigen3::Eigen
   GTest::gtest_main
 )
 
-gtest_discover_tests(test_orbitalMotion)
+gtest_discover_tests(test_orbitalMotion_functions)
 
 add_executable(test_orbitalMotion_degenerate
   test_orbitalMotion_degenerate.cpp
