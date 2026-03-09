@@ -20,15 +20,15 @@ void CssComm::reset(uint64_t callTime) {
  @param callTime The clock time at which the function was called (nanoseconds)
  */
 void CssComm::updateState(uint64_t callTime) {
-    std::array<double, MAX_NUM_CSS_SENSORS> inputValues{}; /* [-] Current measured CSS value for the constellation of CSS sensors */
+    std::array<float, MAX_NUM_CSS_SENSORS> inputValues{}; /* [-] Current measured CSS value for the constellation of CSS sensors */
 
     // read sensor list input msg
-    CSSArraySensorMsgPayload inMsgBuffer = this->sensorListInMsg();
+    CSSArraySensorMsgF32Payload inMsgBuffer = this->sensorListInMsg();
     std::ranges::copy(std::ranges::begin(inMsgBuffer.CosValue), std::ranges::end(inMsgBuffer.CosValue), inputValues.begin());
 
-    std::array<double, MAX_NUM_CSS_SENSORS> outputValues = this->algorithm.update(inputValues);
+    std::array<float, MAX_NUM_CSS_SENSORS> outputValues = this->algorithm.update(inputValues);
 
-    CSSArraySensorMsgPayload outputBuffer{};
+    CSSArraySensorMsgF32Payload outputBuffer{};
     std::ranges::copy(outputValues, outputBuffer.CosValue);
 
     /*! - Write aggregate output into output message */
@@ -50,12 +50,12 @@ uint32_t CssComm::getNumSensors() const { return this->algorithm.getNumSensors()
  @return void
  @param maxValue [-] maximum sensor value
 */
-void CssComm::setMaxSensorValue(const double maxValue) { this->algorithm.setMaxSensorValue(maxValue); }
+void CssComm::setMaxSensorValue(const float maxValue) { this->algorithm.setMaxSensorValue(maxValue); }
 
 /*! Get the maximum sensor value
- @return double
+ @return float
 */
-double CssComm::getMaxSensorValue() const { return this->algorithm.getMaxSensorValue(); }
+float CssComm::getMaxSensorValue() const { return this->algorithm.getMaxSensorValue(); }
 
 /*! Set the cheby polynomial count
  @return void
@@ -72,11 +72,11 @@ uint32_t CssComm::getChebyCount() const { return this->algorithm.getChebyCount()
  @return void
  @param polynomials [-] cheby polynomials
 */
-void CssComm::setChebyPolynomials(const std::array<double, kMaxNumChebyPolys>& polynomials) {
+void CssComm::setChebyPolynomials(const std::array<float, kMaxNumChebyPolys>& polynomials) {
     this->algorithm.setChebyPolynomials(polynomials);
 }
 
 /*! Get the cheby polynomials
- @return std::array<double, kMaxNumChebyPolys>
+ @return std::array<float, kMaxNumChebyPolys>
 */
-std::array<double, kMaxNumChebyPolys> CssComm::getChebyPolynomials() const { return this->algorithm.getChebyPolynomials(); }
+std::array<float, kMaxNumChebyPolys> CssComm::getChebyPolynomials() const { return this->algorithm.getChebyPolynomials(); }

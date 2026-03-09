@@ -60,11 +60,11 @@ def test_cssComm(numSensors, sensorData):
     unitTestSim.AddModelToTask(unitTaskName, module)
 
     # The cssComm module reads in from the sensor list, so create that message here
-    cssArrayMsg = messaging.CSSArraySensorMsgPayload()
+    cssArrayMsg = messaging.CSSArraySensorMsgF32Payload()
 
     # NOTE: This is nonsense. These are more or less random numbers
     cssArrayMsg.CosValue = sensorData
-    cssInMsg = messaging.CSSArraySensorMsg().write(cssArrayMsg)
+    cssInMsg = messaging.CSSArraySensorMsgF32().write(cssArrayMsg)
     module.sensorListInMsg.subscribeTo(cssInMsg)
 
     # Log the output message

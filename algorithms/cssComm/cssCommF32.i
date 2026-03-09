@@ -1,17 +1,17 @@
 %module cssCommF32
 %{
    #include "cssComm.h"
-   typedef std::array<double, kMaxNumChebyPolys> DoubleArray32;
+   typedef std::array<float, kMaxNumChebyPolys> FloatArray32;
 %}
 
 %include <architecture/_GeneralModuleFiles/sys_model.i>
 %include <std_array.i>
 
-%template(DoubleArray32) std::array<double, 32>;
+%template(FloatArray32) std::array<float, 32>;
 
 %include <attribute.i>
 %attribute(CssComm, uint32_t, numSensors, getNumSensors, setNumSensors)
-%attribute(CssComm, double, maxSensorValue, getMaxSensorValue, setMaxSensorValue)
+%attribute(CssComm, float, maxSensorValue, getMaxSensorValue, setMaxSensorValue)
 %attribute(CssComm, uint32_t, chebyCount, getChebyCount, setChebyCount)
 
 %include "cssComm.h"
@@ -29,4 +29,4 @@
 %}
 }
 
-%include <architecture/msgPayloadDef/CSSArraySensorMsgPayload.h>
+%include "msgPayloadDef/CSSArraySensorMsgF32Payload.h"
