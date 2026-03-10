@@ -117,7 +117,7 @@ float OrbitalMotion::meanToEccentricAnomalyF32(float M, float e) {
     for (int i = 0; i < kMaxNumberOfIterations; ++i) {
         float const dE = (E - e * std::sin(E) - M) / (1 - e * std::cos(E));
         E -= fmaxf(-0.5F, fminf(0.5F, dE));  // Clamp step size in case of near parabolic orbits
-        if (fabsf(dE) < kToleranceF32) {
+        if (std::abs(dE) < kToleranceF32) {
             break;
         }
     }
@@ -226,7 +226,7 @@ ClassicalElementsF32 OrbitalMotion::cartesianStateToElementsF32(const double mu,
     elements.radiusMagnitude = r;
     elements.eccentricity = static_cast<float>(eVec.norm());
     if (h < kTolerance) {
-        elements.inclination = 0.0F; // rectilinear orbit
+        elements.inclination = 0.0F;  // rectilinear orbit
     } else {
         elements.inclination = static_cast<float>(std::acos(hVec(2) / h));
     }
@@ -243,8 +243,8 @@ ClassicalElementsF32 OrbitalMotion::cartesianStateToElementsF32(const double mu,
     elements.trueAnomaly = f < 0 ? static_cast<float>(f + (2 * std::numbers::pi)) : f;
 
     elements.radiusPeriapsis = h * h / mu / (1 + elements.eccentricity);
-    if (fabsf(elements.eccentricity - 1) < kTolerance) {
-        elements.radiusApoapsis = 0.0F; // parabolic orbit
+    if (std::abs(elements.eccentricity - 1) < kTolerance) {
+        elements.radiusApoapsis = 0.0F;  // parabolic orbit
     } else {
         elements.radiusApoapsis = h * h / mu / (1 - elements.eccentricity);
     }
