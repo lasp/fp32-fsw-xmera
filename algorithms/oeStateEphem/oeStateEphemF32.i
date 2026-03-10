@@ -12,9 +12,12 @@
 
 %include <architecture/_GeneralModuleFiles/sys_model.i>
 %include <std_array.i>
+
+#define kMaxOeCoeff 20
+#define kMaxOeRecords 10
+
 %template(DoubleArray20) std::array<double, 20>;
 %template(FloatArray20) std::array<float, 20>;
-%include "msgPayloadDef/definitions.h"
 %include "oeStateEphem.h"
 
 %include "msgPayloadDef/TDBVehicleClockCorrelationMsgF32Payload.h"

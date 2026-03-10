@@ -1,7 +1,7 @@
 add_library(AlgorithmUtilities INTERFACE)
 
 target_sources(AlgorithmUtilities INTERFACE
-  ephemerisUtilities.cpp
+  chebyshevUtilities.h
   orbitalMotion.cpp
   safeMathFloat.c
 )
@@ -10,4 +10,4 @@ target_link_libraries(AlgorithmUtilities INTERFACE
   Eigen3::Eigen
 )
 
-add_subdirectory(tests)
+add_subdirectory(_tests)

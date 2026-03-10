@@ -66,9 +66,9 @@ inline void testOEStateEphemUpdate(double mu,
     unsigned int arcToPopulate = static_cast<unsigned int>(
         std::floor((ephemeris_time - vehicle_time + call_time_ns * nanoToSeconds) / arcSpacing));
 
-    // Clamp to valid range [0, MAX_OE_RECORDS-1]
-    if (arcToPopulate >= MAX_OE_RECORDS) {
-        arcToPopulate = MAX_OE_RECORDS - 1;
+    // Clamp to valid range [0, kMaxOeRecords-1]
+    if (arcToPopulate >= kMaxOeRecords) {
+        arcToPopulate = kMaxOeRecords - 1;
     }
 
     double const arcMiddleTimeToUse = arcToPopulate * arcSpacing;
@@ -80,27 +80,27 @@ inline void testOEStateEphemUpdate(double mu,
     algorithm.setArcAnomalyFlag(arcToPopulate, 0);  // true anomaly
 
     // Set constant coefficients (first one) of each orbital element
-    std::array<double, MAX_OE_COEFF> rpCoeffs{};
+    std::array<double, kMaxOeCoeff> rpCoeffs{};
     rpCoeffs[0] = r_p_km;
     algorithm.setArcRadiusPeriapsisCoefficients(arcToPopulate, rpCoeffs);
 
-    std::array<float, MAX_OE_COEFF> eCoeffs{};
+    std::array<float, kMaxOeCoeff> eCoeffs{};
     eCoeffs[0] = eccentricity;
     algorithm.setArcEccentricityCoefficients(arcToPopulate, eCoeffs);
 
-    std::array<float, MAX_OE_COEFF> iCoeffs{};
+    std::array<float, kMaxOeCoeff> iCoeffs{};
     iCoeffs[0] = inclination;
     algorithm.setArcInclinationCoefficients(arcToPopulate, iCoeffs);
 
-    std::array<float, MAX_OE_COEFF> omegaCoeffs{};
+    std::array<float, kMaxOeCoeff> omegaCoeffs{};
     omegaCoeffs[0] = arg_periapsis;
     algorithm.setArcArgPeriapsisCoefficients(arcToPopulate, omegaCoeffs);
 
-    std::array<float, MAX_OE_COEFF> raanCoeffs{};
+    std::array<float, kMaxOeCoeff> raanCoeffs{};
     raanCoeffs[0] = raan;
     algorithm.setArcRaanCoefficients(arcToPopulate, raanCoeffs);
 
-    std::array<float, MAX_OE_COEFF> nuCoeffs{};
+    std::array<float, kMaxOeCoeff> nuCoeffs{};
     nuCoeffs[0] = true_anomaly;
     algorithm.setArcTrueAnomalyCoefficients(arcToPopulate, nuCoeffs);
 
@@ -204,7 +204,7 @@ TEST_F(OEStateEphemAlgorithmTest, SetAndGetArcAnomalyFlag) {
 
 TEST_F(OEStateEphemAlgorithmTest, SetAndGetArcRadiusPeriapsisCoefficients) {
     const unsigned int arcNum = 0;
-    std::array<double, MAX_OE_COEFF> coeffs{};
+    std::array<double, kMaxOeCoeff> coeffs{};
     coeffs[0] = 7000.0;
     coeffs[1] = 0.1;
     algorithm.setArcRadiusPeriapsisCoefficients(arcNum, coeffs);
@@ -215,7 +215,7 @@ TEST_F(OEStateEphemAlgorithmTest, SetAndGetArcRadiusPeriapsisCoefficients) {
 
 TEST_F(OEStateEphemAlgorithmTest, SetAndGetArcEccentricityCoefficients) {
     const unsigned int arcNum = 0;
-    std::array<float, MAX_OE_COEFF> coeffs{};
+    std::array<float, kMaxOeCoeff> coeffs{};
     coeffs[0] = 0.1f;
     coeffs[1] = 0.01f;
     algorithm.setArcEccentricityCoefficients(arcNum, coeffs);
@@ -226,7 +226,7 @@ TEST_F(OEStateEphemAlgorithmTest, SetAndGetArcEccentricityCoefficients) {
 
 TEST_F(OEStateEphemAlgorithmTest, SetAndGetArcInclinationCoefficients) {
     const unsigned int arcNum = 0;
-    std::array<float, MAX_OE_COEFF> coeffs{};
+    std::array<float, kMaxOeCoeff> coeffs{};
     coeffs[0] = 0.5f;
     algorithm.setArcInclinationCoefficients(arcNum, coeffs);
     auto retrieved = algorithm.getArcInclinationCoefficients(arcNum);
@@ -235,7 +235,7 @@ TEST_F(OEStateEphemAlgorithmTest, SetAndGetArcInclinationCoefficients) {
 
 TEST_F(OEStateEphemAlgorithmTest, SetAndGetArcArgPeriapsisCoefficients) {
     const unsigned int arcNum = 0;
-    std::array<float, MAX_OE_COEFF> coeffs{};
+    std::array<float, kMaxOeCoeff> coeffs{};
     coeffs[0] = 1.0f;
     algorithm.setArcArgPeriapsisCoefficients(arcNum, coeffs);
     auto retrieved = algorithm.getArcArgPeriapsisCoefficients(arcNum);
@@ -244,7 +244,7 @@ TEST_F(OEStateEphemAlgorithmTest, SetAndGetArcArgPeriapsisCoefficients) {
 
 TEST_F(OEStateEphemAlgorithmTest, SetAndGetArcRaanCoefficients) {
     const unsigned int arcNum = 0;
-    std::array<float, MAX_OE_COEFF> coeffs{};
+    std::array<float, kMaxOeCoeff> coeffs{};
     coeffs[0] = 0.5f;
     algorithm.setArcRaanCoefficients(arcNum, coeffs);
     auto retrieved = algorithm.getArcRaanCoefficients(arcNum);
@@ -253,7 +253,7 @@ TEST_F(OEStateEphemAlgorithmTest, SetAndGetArcRaanCoefficients) {
 
 TEST_F(OEStateEphemAlgorithmTest, SetAndGetArcTrueAnomalyCoefficients) {
     const unsigned int arcNum = 0;
-    std::array<float, MAX_OE_COEFF> coeffs{};
+    std::array<float, kMaxOeCoeff> coeffs{};
     coeffs[0] = 0.0f;
     algorithm.setArcTrueAnomalyCoefficients(arcNum, coeffs);
     auto retrieved = algorithm.getArcTrueAnomalyCoefficients(arcNum);
@@ -280,11 +280,11 @@ TEST_F(OEStateEphemAlgorithmTest, CircularOrbitAtOrigin_ConstantCoefficients) {
     algorithm.setArcAnomalyFlag(0, 0);  // true anomaly
 
     // Constant orbital elements for circular equatorial orbit
-    std::array<double, MAX_OE_COEFF> rpCoeffs{};
+    std::array<double, kMaxOeCoeff> rpCoeffs{};
     rpCoeffs[0] = radius_km;  // r_p = a for circular orbit (e=0)
     algorithm.setArcRadiusPeriapsisCoefficients(0, rpCoeffs);
 
-    std::array<float, MAX_OE_COEFF> zeroCoeffs{};
+    std::array<float, kMaxOeCoeff> zeroCoeffs{};
     zeroCoeffs[0] = 0.0f;
 
     algorithm.setArcEccentricityCoefficients(0, zeroCoeffs);
@@ -323,18 +323,18 @@ TEST_F(OEStateEphemAlgorithmTest, CircularOrbitAt90Degrees_ConstantCoefficients)
     algorithm.setArcRadiusTime(0, 1000.0);
     algorithm.setArcAnomalyFlag(0, 0);
 
-    std::array<double, MAX_OE_COEFF> rpCoeffs{};
+    std::array<double, kMaxOeCoeff> rpCoeffs{};
     rpCoeffs[0] = radius_km;
     algorithm.setArcRadiusPeriapsisCoefficients(0, rpCoeffs);
 
-    std::array<float, MAX_OE_COEFF> zeroCoeffs{};
+    std::array<float, kMaxOeCoeff> zeroCoeffs{};
     zeroCoeffs[0] = 0.0f;
     algorithm.setArcEccentricityCoefficients(0, zeroCoeffs);
     algorithm.setArcInclinationCoefficients(0, zeroCoeffs);
     algorithm.setArcArgPeriapsisCoefficients(0, zeroCoeffs);
     algorithm.setArcRaanCoefficients(0, zeroCoeffs);
 
-    std::array<float, MAX_OE_COEFF> nuCoeffs{};
+    std::array<float, kMaxOeCoeff> nuCoeffs{};
     nuCoeffs[0] = static_cast<float>(M_PI / 2.0);
     algorithm.setArcTrueAnomalyCoefficients(0, nuCoeffs);
 
@@ -368,15 +368,15 @@ TEST_F(OEStateEphemAlgorithmTest, EllipticalOrbitAtPeriapsis_ConstantCoefficient
     algorithm.setArcRadiusTime(0, 1000.0);
     algorithm.setArcAnomalyFlag(0, 0);
 
-    std::array<double, MAX_OE_COEFF> rpCoeffs{};
+    std::array<double, kMaxOeCoeff> rpCoeffs{};
     rpCoeffs[0] = r_p_km;
     algorithm.setArcRadiusPeriapsisCoefficients(0, rpCoeffs);
 
-    std::array<float, MAX_OE_COEFF> eCoeffs{};
+    std::array<float, kMaxOeCoeff> eCoeffs{};
     eCoeffs[0] = static_cast<float>(eccentricity);
     algorithm.setArcEccentricityCoefficients(0, eCoeffs);
 
-    std::array<float, MAX_OE_COEFF> zeroCoeffs{};
+    std::array<float, kMaxOeCoeff> zeroCoeffs{};
     zeroCoeffs[0] = 0.0f;
     algorithm.setArcInclinationCoefficients(0, zeroCoeffs);
     algorithm.setArcArgPeriapsisCoefficients(0, zeroCoeffs);
@@ -406,7 +406,7 @@ TEST_F(OEStateEphemAlgorithmTest, CentralBodyReturnsZeroState) {
     algorithm.setArcMiddleTime(0, 0.0);
     algorithm.setArcRadiusTime(0, 1000.0);
 
-    std::array<double, MAX_OE_COEFF> zeroRpCoeffs{};
+    std::array<double, kMaxOeCoeff> zeroRpCoeffs{};
     // All zeros
     algorithm.setArcRadiusPeriapsisCoefficients(0, zeroRpCoeffs);
 
