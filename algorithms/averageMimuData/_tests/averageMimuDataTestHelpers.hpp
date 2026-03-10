@@ -8,7 +8,7 @@
 #include <gtest/gtest.h>
 
 
-OutData referenceUpdate(InputPktsData const& localPkts,
+OutputAverageAccelAnglevel referenceUpdate(InputPktsData const& localPkts,
                         const AverageMimuDataAlgorithm& alg)
 {
     uint64_t maxTimeTag = 0U;
@@ -31,15 +31,15 @@ OutData referenceUpdate(InputPktsData const& localPkts,
         }
     }
 
-    OutData out{};
+    OutputAverageAccelAnglevel out{};
     if (measAvgCount > 0U) {
         const float invCount = 1.0f / static_cast<float>(measAvgCount);
 
         gyroSum_P *= invCount;
         accelSum_P *= invCount;
 
-        out.AngVelBody = alg.getDcmPltfToBdy() * gyroSum_P;
-        out.AccelBody  = alg.getDcmPltfToBdy() * accelSum_P;
+        out.anglevelBody = alg.getDcmPltfToBdy() * gyroSum_P;
+        out.accelBody  = alg.getDcmPltfToBdy() * accelSum_P;
     }
 
     return out;
@@ -101,13 +101,13 @@ inline void regressionTestaverageMimuData(float timeDelta,
     in.gyro_P[3]   = g3;
     in.accel_P[3]  = a3;
 
-    const OutData out_alg = alg.update(in);
-    const OutData out_ref = referenceUpdate(in, alg);  // <-- update referenceUpdate signature too
+    const OutputAverageAccelAnglevel out_alg = alg.update(in);
+    const OutputAverageAccelAnglevel out_ref = referenceUpdate(in, alg);  // <-- update referenceUpdate signature too
 
     // Use tolerant comparison for floats
     constexpr float tol = 1e-5f;
-    EXPECT_TRUE(out_alg.AngVelBody.isApprox(out_ref.AngVelBody, tol));
-    EXPECT_TRUE(out_alg.AccelBody.isApprox(out_ref.AccelBody, tol));
+    EXPECT_TRUE(out_alg.anglevelBody.isApprox(out_ref.anglevelBody, tol));
+    EXPECT_TRUE(out_alg.accelBody.isApprox(out_ref.accelBody, tol));
 }
 
 inline void testKnownSolaverageMimuData() {
@@ -171,7 +171,7 @@ inline void testKnownSolaverageMimuData() {
     // -----------------------
     // Run algorithm under test
     // -----------------------
-    const OutData out_alg = alg.update(in);
+    const OutputAverageAccelAnglevel out_alg = alg.update(in);
 
     // -----------------------
     // True known solution:
@@ -185,8 +185,8 @@ inline void testKnownSolaverageMimuData() {
     const Eigen::Vector3f gyroTrue_B = dcm_BP * gyroMean_P;
     const Eigen::Vector3f accTrue_B = dcm_BP * accMean_P;
 
-    EXPECT_EQ(out_alg.AngVelBody, gyroTrue_B);
-    EXPECT_EQ(out_alg.AccelBody, accTrue_B);
+    EXPECT_EQ(out_alg.anglevelBody, gyroTrue_B);
+    EXPECT_EQ(out_alg.accelBody, accTrue_B);
 }
 
 inline void testSetupaverageMimuData() {
