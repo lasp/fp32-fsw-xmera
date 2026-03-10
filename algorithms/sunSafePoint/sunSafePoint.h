@@ -12,33 +12,29 @@
 /*! @brief Sun safe point attitude guidance class. */
 class SunSafePoint : public SysModel {
    public:
-    SunSafePoint() = default;   //!< Constructor
-    ~SunSafePoint() = default;  //!< Destructor
+    SunSafePoint() = default;
+    ~SunSafePoint() = default;
 
-    void reset(uint64_t currentSimNanos) override;        //!< Reset member function
-    void updateState(uint64_t currentSimNanos) override;  //!< Update member function
+    void reset(uint64_t currentSimNanos) override;
+    void updateState(uint64_t currentSimNanos) override;
 
-    float getMinUnitMag() const;       //!< Getter method for the minimally accepted sun body vector norm
-    float getSmallAngle() const;       //!< Getter method for the small alignment tolerance angle near 0 or 180 degrees
-    float getSunAxisSpinRate() const;  //!< Getter method for the desired constant spin rate about sun heading vector
-    Eigen::Vector3f getOmega_RN_B()
-        const;  //!< Getter method for the desired body rate vector if no sun direction is available
-    Eigen::Vector3f getSHatBdyCmd() const;        //!< Getter method for the desired body vector to point at the sun
-    void setMinUnitMag(const float minUnitMag);  //!< Setter method for the minimally accepted sun body vector norm
-    void setSmallAngle(
-        const float smallAngle);  //!< Setter method for the small alignment tolerance angle near 0 or 180 degrees
-    void setSunAxisSpinRate(
-        const float sunAxisSpinRate);  //!< Setter method for the desired constant spin rate about sun heading vector
-    void setOmega_RN_B(const Eigen::Vector3f& omega_RN_B);  //!< Setter method for the desired body rate vector if no
-                                                            //!< sun direction is available
-    void setSHatBdyCmd(Eigen::Vector3f& sHatBdyCmd);  //!< Setter method for the desired body vector to point at the sun
+    float getMinUnitMag() const;
+    float getSmallAngle() const;
+    float getSunAxisSpinRate() const;
+    Eigen::Vector3f getOmega_RN_B() const;
+    Eigen::Vector3f getSHatBdyCmd() const;
+    void setMinUnitMag(const float minUnitMag);
+    void setSmallAngle(const float smallAngle);
+    void setSunAxisSpinRate(const float sunAxisSpinRate);
+    void setOmega_RN_B(const Eigen::Vector3f& omega_RN_B);
+    void setSHatBdyCmd(Eigen::Vector3f& sHatBdyCmd);
 
     ReadFunctor<NavAttMsgF32Payload> imuInMsg;           //!< IMU attitude guidance input message
     ReadFunctor<NavAttMsgF32Payload> sunDirectionInMsg;  //!< Sun attitude guidance input message
     Message<AttGuidMsgF32Payload> attGuidanceOutMsg;     //!< Attitude guidance output message
 
    private:
-    SunSafePointAlgorithm algorithm{};  //!< Algorithm for sunSafePoint guidance logic (BSK-agnostic)
+    SunSafePointAlgorithm algorithm{};
 };
 
 #endif

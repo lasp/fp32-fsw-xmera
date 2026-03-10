@@ -9,36 +9,29 @@
 /*! @brief Sun safe point attitude guidance algorithm class. */
 class SunSafePointAlgorithm {
    public:
-    SunSafePointAlgorithm() = default;   //!< Constructor
-    ~SunSafePointAlgorithm() = default;  //!< Destructor
+    SunSafePointAlgorithm() = default;
+    ~SunSafePointAlgorithm() = default;
 
-    void reset(uint64_t currentSimNanos);  //!< Reset member function
+    void reset(uint64_t currentSimNanos);
     AttGuidMsgF32Payload update(uint64_t currentSimNanos,
                                 NavAttMsgF32Payload imuInMsg,
-                                NavAttMsgF32Payload sunDirectionInMsg);  //!< Update member function
+                                NavAttMsgF32Payload sunDirectionInMsg);
 
-    float getMinUnitMag() const;       //!< Getter method for the minimally accepted sun body vector norm
-    float getSmallAngle() const;       //!< Getter method for the small alignment tolerance angle near 0 or 180 degrees
-    float getSunAxisSpinRate() const;  //!< Getter method for the desired constant spin rate about sun heading vector
-    Eigen::Vector3f getOmega_RN_B()
-        const;  //!< Getter method for the desired body rate vector if no sun direction is available
-    Eigen::Vector3f getSHatBdyCmd() const;  //!< Getter method for the desired body vector to point at the sun
-    void setMinUnitMag(float minUnitMag);  //!< Setter method for the minimally accepted sun body vector norm
-    void setSmallAngle(
-        float smallAngle);  //!< Setter method for the small alignment tolerance angle near 0 or 180 degrees
-    void setSunAxisSpinRate(
-        const float sunAxisSpinRate);  //!< Setter method for the desired constant spin rate about sun heading vector
-    void setOmega_RN_B(const Eigen::Vector3f& omega_RN_B);  //!< Setter method for the desired body rate vector if no
-                                                            //!< sun direction is available
-    void setSHatBdyCmd(Eigen::Vector3f& sHatBdyCmd);  //!< Setter method for the desired body vector to point at the sun
+    float getMinUnitMag() const;
+    float getSmallAngle() const;
+    float getSunAxisSpinRate() const;
+    Eigen::Vector3f getOmega_RN_B() const;
+    Eigen::Vector3f getSHatBdyCmd() const;
+    void setMinUnitMag(float minUnitMag);
+    void setSmallAngle(float smallAngle);
+    void setSunAxisSpinRate(const float sunAxisSpinRate);
+    void setOmega_RN_B(const Eigen::Vector3f& omega_RN_B);
+    void setSHatBdyCmd(Eigen::Vector3f& sHatBdyCmd);
 
    private:
-    void computeAttGuidanceStates(float sHatNorm);  //!< Method for computing the attitude guidance states sigma_BR and
-                                                    //!< omega_RN_B if a valid sun direction vector is available
-    void computeHubAngularRateError(
-        NavAttMsgF32Payload imuInMsg);  //!< Method for computing the hub angular rate error omega_BR_B
-    bool sunDirectionIsAvailable(
-        const float sHatNorm) const;  //!< Method for determining if a valid sun direction vector is available
+    void computeAttGuidanceStates(float sHatNorm);
+    void computeHubAngularRateError(NavAttMsgF32Payload imuInMsg);
+    bool sunDirectionIsAvailable(const float sHatNorm) const;
 
     float minUnitMag{0.1f};        //!< The minimally acceptable norm of sun body vector (Must be positive)
     float smallAngle{};           //!< [rad] An angle value that specifies what is near 0 or 180 degrees (Must be >= 0)
