@@ -18,7 +18,7 @@
 */
 ChebyshevFitArc OEStateEphemAlgorithm::findCurrentArc(const uint64_t callTime) {
     /*! - compute time for fitting interval */
-    this->currentEphTime = (static_cast<double>(callTime) * nanoToSeconds) + this->ephemerisTime - this->vehicleTime;
+    this->currentEphTime = (static_cast<double>(callTime) * nanoToSeconds) + this->ephemerisTime - this->vehicleTimeOffset;
     this->currentEphTime = std::max<double>(this->currentEphTime, 0);
     /*! - select the fitting coefficients for the nearest fit interval */
     uint32_t nearestArc = 0;
@@ -354,21 +354,15 @@ std::array<float, kMaxOeCoeff> OEStateEphemAlgorithm::getArcTrueAnomalyCoefficie
     return this->fitCoefficients.at(arcNumber).trueAnomalyCoefficients;
 };
 
-/*! This method sets the ephemeris and vehicle time offset referenced to J2000 epoch.
+/*! This method sets the ephemeris time offset referenced to J2000 epoch.
     @return void
-    @param ephemerisJ2000 The ephemeris time offset (seconds)
-    @param vehicleTimeOffset The vehicle time offset (seconds)
+    @param ephemerisJ2000 The ephemeris time offset (seconds), must be positive
 */
-// NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
-void OEStateEphemAlgorithm::setModuleTime(const double ephemerisJ2000, const double vehicleTimeOffset) {
+void OEStateEphemAlgorithm::setEphemerisTimeJ2000(const double ephemerisJ2000) {
     if (ephemerisJ2000 < 0) {
         FS_THROW_INVALID_ARGUMENT("EphemerisJ2000 time in OEStateEphemAlgorithm must be positive.");
     }
-    if (vehicleTimeOffset > ephemerisJ2000) {
-        FS_THROW_INVALID_ARGUMENT("vehicleTime in OEStateEphemAlgorithm must be greater than ephemerisJ2000 time.");
-    }
     this->ephemerisTime = ephemerisJ2000;
-    this->vehicleTime = vehicleTimeOffset;
 }
 
 /*! This method retrieves the ephemeris time offset referenced to J2000 epoch.
@@ -376,7 +370,18 @@ void OEStateEphemAlgorithm::setModuleTime(const double ephemerisJ2000, const dou
 */
 double OEStateEphemAlgorithm::getEphemerisTimeJ2000() const { return this->ephemerisTime; }
 
+/*! This method sets the vehicle time offset used in ephemeris calculations.
+    @return void
+    @param timeOffset The vehicle time offset (seconds), must be positive
+*/
+void OEStateEphemAlgorithm::setVehicleTimeOffset(const double timeOffset) {
+    if (timeOffset < 0) {
+        FS_THROW_INVALID_ARGUMENT("vehicleTimeOffset in OEStateEphemAlgorithm must be positive.");
+    }
+    this->vehicleTimeOffset = timeOffset;
+}
+
 /*! This method retrieves the vehicle time offset used in ephemeris calculations.
     @return double The vehicle time offset (seconds)
 */
-double OEStateEphemAlgorithm::getVehicleTime() const { return this->vehicleTime; }
+double OEStateEphemAlgorithm::getVehicleTimeOffset() const { return this->vehicleTimeOffset; }

@@ -57,7 +57,8 @@ inline void testOEStateEphemUpdate(double mu,
     OEStateEphemAlgorithm algorithm;
 
     algorithm.setCentralBodyGravitationalParameter(mu);
-    algorithm.setModuleTime(ephemeris_time, vehicle_time);
+    algorithm.setEphemerisTimeJ2000(ephemeris_time);
+    algorithm.setVehicleTimeOffset(vehicle_time);
 
     const double arcSpacing = 2.0 * arc_radius_time;
 
@@ -159,19 +160,22 @@ TEST_F(OEStateEphemAlgorithmTest, SetGravitationalParameterNegativeThrows) {
 
 TEST_F(OEStateEphemAlgorithmTest, SetAndGetEphemerisTimeJ2000) {
     const double testEphemerisTime = 1000.0;
-    const double testVehicleTime = 500.0;
-    algorithm.setModuleTime(testEphemerisTime, testVehicleTime);
-
+    algorithm.setEphemerisTimeJ2000(testEphemerisTime);
     EXPECT_NEAR(testEphemerisTime, algorithm.getEphemerisTimeJ2000(), TEST_TOLERANCE);
-    EXPECT_NEAR(testVehicleTime, algorithm.getVehicleTime(), TEST_TOLERANCE);
+}
+
+TEST_F(OEStateEphemAlgorithmTest, SetAndGetVehicleTime) {
+    const double testVehicleTime = 500.0;
+    algorithm.setVehicleTimeOffset(testVehicleTime);
+    EXPECT_NEAR(testVehicleTime, algorithm.getVehicleTimeOffset(), TEST_TOLERANCE);
 }
 
 TEST_F(OEStateEphemAlgorithmTest, SetEphemerisTimeJ2000NegativeThrows) {
-    EXPECT_THROW(algorithm.setModuleTime(-1, -2), fs::invalid_argument);
+    EXPECT_THROW(algorithm.setEphemerisTimeJ2000(-1), fs::invalid_argument);
 }
 
-TEST_F(OEStateEphemAlgorithmTest, SetEphemerisTimeImproperlyOrderedThrows) {
-    EXPECT_THROW(algorithm.setModuleTime(1, 2), fs::invalid_argument);
+TEST_F(OEStateEphemAlgorithmTest, SetVehicleTimeNegativeThrows) {
+    EXPECT_THROW(algorithm.setVehicleTimeOffset(-1), fs::invalid_argument);
 }
 
 TEST_F(OEStateEphemAlgorithmTest, SetAndGetArcNumberOfCoefficients) {
@@ -271,7 +275,8 @@ TEST_F(OEStateEphemAlgorithmTest, CircularOrbitAtOrigin_ConstantCoefficients) {
     const double radius_m = radius_km * 1000.0;
 
     algorithm.setCentralBodyGravitationalParameter(EARTH_MU);
-    algorithm.setModuleTime(0.0, 0.0);
+    algorithm.setEphemerisTimeJ2000(0.0);
+    algorithm.setVehicleTimeOffset(0.0);
 
     // Setup arc 0 with constant coefficients (only first coefficient non-zero)
     algorithm.setArcNumberOfCoefficients(0, 1);
@@ -316,7 +321,8 @@ TEST_F(OEStateEphemAlgorithmTest, CircularOrbitAt90Degrees_ConstantCoefficients)
     const double radius_m = radius_km * 1000.0;
 
     algorithm.setCentralBodyGravitationalParameter(EARTH_MU);
-    algorithm.setModuleTime(0.0, 0.0);
+    algorithm.setEphemerisTimeJ2000(0.0);
+    algorithm.setVehicleTimeOffset(0.0);
 
     algorithm.setArcNumberOfCoefficients(0, 1);
     algorithm.setArcMiddleTime(0, 0.0);
@@ -361,7 +367,8 @@ TEST_F(OEStateEphemAlgorithmTest, EllipticalOrbitAtPeriapsis_ConstantCoefficient
     const double a_m = a_km * 1000.0;
 
     algorithm.setCentralBodyGravitationalParameter(EARTH_MU);
-    algorithm.setModuleTime(0.0, 0.0);
+    algorithm.setEphemerisTimeJ2000(0.0);
+    algorithm.setVehicleTimeOffset(0.0);
 
     algorithm.setArcNumberOfCoefficients(0, 1);
     algorithm.setArcMiddleTime(0, 0.0);
@@ -400,7 +407,8 @@ TEST_F(OEStateEphemAlgorithmTest, EllipticalOrbitAtPeriapsis_ConstantCoefficient
 TEST_F(OEStateEphemAlgorithmTest, CentralBodyReturnsZeroState) {
     // When all radius of periapsis coefficients are zero, should return zero state
     algorithm.setCentralBodyGravitationalParameter(EARTH_MU);
-    algorithm.setModuleTime(0.0, 0.0);
+    algorithm.setEphemerisTimeJ2000(0.0);
+    algorithm.setVehicleTimeOffset(0.0);
 
     algorithm.setArcNumberOfCoefficients(0, 1);
     algorithm.setArcMiddleTime(0, 0.0);
