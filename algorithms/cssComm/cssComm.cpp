@@ -1,7 +1,5 @@
 #include "cssComm.h"
 #include <architecture/utilities/linearAlgebra.h>
-#include <string.h>
-#include <stdio.h>
 #include <stdexcept>
 
 /*! This method performs a complete reset of the module.  Local module variables that retain
@@ -85,17 +83,10 @@ void CssComm::updateState(uint64_t callTime) {
 */
 void CssComm::setNumSensors(const uint32_t numberOfSensors) {
     if (numberOfSensors > MAX_NUM_CSS_SENSORS) {
-        char info[MAX_LOGGING_LENGTH];
-        snprintf(info,
-                 sizeof(info),
-                 "The configured number of CSS sensors exceeds the maximum, %d > %d! Changing the number of sensors to "
-                 "the max.",
-                 numberOfSensors,
-                 MAX_NUM_CSS_SENSORS);
-        throw std::invalid_argument(info);
+        throw std::invalid_argument("The configured number of CSS sensors exceeds the maximum");
     }
-    if (numberOfSensors == 0) {
-        throw std::invalid_argument("There are zero CSS configured!");
+    if (numberOfSensors <= 0) {
+        throw std::invalid_argument("The number of configures CSS sensors must be positive.");
     }
     this->numSensors = numberOfSensors;
 }
@@ -110,9 +101,9 @@ uint32_t CssComm::getNumSensors() const { return this->numSensors; }
  @param maxValue [-] maximum sensor value
 */
 void CssComm::setMaxSensorValue(const double maxValue) {
-    if (maxValue == 0) {
-        throw std::invalid_argument("Max CSS sensor value configured to zero! CSS sensor values will be normalized by"
-                                    "zero, inducing faux saturation!");
+    if (maxValue <= 0) {
+        throw std::invalid_argument("The maximum CSS sensor value must be positive. Otherwise, CSS sensor values "
+                                    "will be normalized by zero, inducing faux saturation!");
     }
     this->maxSensorValue = maxValue;
 }
@@ -127,6 +118,12 @@ double CssComm::getMaxSensorValue() const { return this->maxSensorValue; }
  @param count [-] cheby polynomial count
 */
 void CssComm::setChebyCount(const uint32_t count) {
+    if (count <= 0) {
+        throw std::invalid_argument("The cheby polynomial count must be positive.");
+    }
+    if (count > kMaxNumChebyPolys) {
+        throw std::invalid_argument("The cheby polynomial count exceeds the maximum allowed.");
+    }
     this->chebyCount = count;
 }
 
