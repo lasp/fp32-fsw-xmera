@@ -1,6 +1,13 @@
+/* MIT License
+ *
+ Copyright (c) 2025, Laboratory for Atmospheric and Space Physics,
+ University of Colorado at Boulder
+ */
+
 #include "navAggregateAlgorithm_c.h"
 #include "navAggregateAlgorithm.h"
 
+#include <Eigen/Core>
 #include <array>
 
 uint32_t NavAggregateAlgorithm_getMaxAggNavMsg(void) { return MAX_AGG_NAV_MSG; }
@@ -13,19 +20,41 @@ void NavAggregateAlgorithm_destroy(NavAggregateAlgorithm* self) {
     delete reinterpret_cast<::NavAggregateAlgorithm*>(self);
 }
 
-AggregateOutput NavAggregateAlgorithm_update(NavAggregateAlgorithm* self,
-                                             const InputNavAttData* attInputs,
-                                             const InputNavTransData* transInputs) {
-    // Convert C arrays to std::array for C++ algorithm call
-    std::array<InputNavAttData, MAX_AGG_NAV_MSG> attArray;
-    std::array<InputNavTransData, MAX_AGG_NAV_MSG> transArray;
+AggregateOutput_c NavAggregateAlgorithm_update(NavAggregateAlgorithm* self,
+                                               const NavAttMsgF32Payload* attMsgsPayloads,
+                                               const NavTransMsgF32Payload* transMsgsPayloads) {
+    /* Convert C payload arrays to Eigen-based internal types */
+    std::array<InputNavAttData, MAX_AGG_NAV_MSG> attArray{};
+    std::array<InputNavTransData, MAX_AGG_NAV_MSG> transArray{};
 
     for (uint32_t i = 0; i < MAX_AGG_NAV_MSG; ++i) {
-        attArray[i] = attInputs[i];
-        transArray[i] = transInputs[i];
+        attArray[i].timeTag = attMsgsPayloads[i].timeTag;
+        attArray[i].sigma_BN = Eigen::Map<const Eigen::Vector3f>(attMsgsPayloads[i].sigma_BN);
+        attArray[i].omega_BN_B = Eigen::Map<const Eigen::Vector3f>(attMsgsPayloads[i].omega_BN_B);
+        attArray[i].vehSunPntBdy = Eigen::Map<const Eigen::Vector3f>(attMsgsPayloads[i].vehSunPntBdy);
+
+        transArray[i].timeTag = transMsgsPayloads[i].timeTag;
+        transArray[i].r_BN_N = Eigen::Map<const Eigen::Vector3d>(transMsgsPayloads[i].r_BN_N);
+        transArray[i].v_BN_N = Eigen::Map<const Eigen::Vector3d>(transMsgsPayloads[i].v_BN_N);
+        transArray[i].vehAccumDV = Eigen::Map<const Eigen::Vector3f>(transMsgsPayloads[i].vehAccumDV);
     }
 
-    return reinterpret_cast<::NavAggregateAlgorithm*>(self)->update(attArray, transArray);
+    AggregateOutput result = reinterpret_cast<::NavAggregateAlgorithm*>(self)->update(attArray, transArray);
+
+    /* Convert Eigen-based output back to C-compatible POD types */
+    AggregateOutput_c out{};
+
+    out.navAttOut.timeTag = result.navAttOut.timeTag;
+    Eigen::Map<Eigen::Vector3f>(out.navAttOut.sigma_BN) = result.navAttOut.sigma_BN;
+    Eigen::Map<Eigen::Vector3f>(out.navAttOut.omega_BN_B) = result.navAttOut.omega_BN_B;
+    Eigen::Map<Eigen::Vector3f>(out.navAttOut.vehSunPntBdy) = result.navAttOut.vehSunPntBdy;
+
+    out.navTransOut.timeTag = result.navTransOut.timeTag;
+    Eigen::Map<Eigen::Vector3d>(out.navTransOut.r_BN_N) = result.navTransOut.r_BN_N;
+    Eigen::Map<Eigen::Vector3d>(out.navTransOut.v_BN_N) = result.navTransOut.v_BN_N;
+    Eigen::Map<Eigen::Vector3f>(out.navTransOut.vehAccumDV) = result.navTransOut.vehAccumDV;
+
+    return out;
 }
 
 void NavAggregateAlgorithm_setAttTimeIdx(NavAggregateAlgorithm* self, uint32_t idx) {
