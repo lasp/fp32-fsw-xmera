@@ -18,7 +18,9 @@
  */
 
 #include "orbitalMotion.hpp"
+#include <Eigen/Geometry>
 #include <numbers>
+#include "safeMathFloat.h"
 
 inline constexpr int kMaxNumberOfIterations = 200;
 inline constexpr float kClamp = 7;
