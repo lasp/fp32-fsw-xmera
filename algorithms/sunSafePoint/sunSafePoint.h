@@ -1,5 +1,5 @@
-#ifndef _XMERA_SUN_SAFE_POINT_H_
-#define _XMERA_SUN_SAFE_POINT_H_
+#ifndef F32XMERA_SUN_SAFE_POINT_H
+#define F32XMERA_SUN_SAFE_POINT_H
 
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>

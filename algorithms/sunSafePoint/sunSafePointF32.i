@@ -1,4 +1,4 @@
-%module sunSafePoint
+%module sunSafePointF32
 %{
    #include "sunSafePoint.h"
 %}

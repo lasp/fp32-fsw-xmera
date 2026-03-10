@@ -1,5 +1,5 @@
-#ifndef _SUN_SAFE_POINT_ALGORITHM_H_
-#define _SUN_SAFE_POINT_ALGORITHM_H_
+#ifndef F32XMERA_SUN_SAFE_POINT_ALGORITHM_H
+#define F32XMERA_SUN_SAFE_POINT_ALGORITHM_H
 
 #include <architecture/msgPayloadDef/AttGuidMsgPayload.h>
 #include <architecture/msgPayloadDef/NavAttMsgPayload.h>

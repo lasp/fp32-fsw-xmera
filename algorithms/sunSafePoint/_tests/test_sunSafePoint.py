@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 
 from xmera.utilities import SimulationBaseClass
-from xmera.fswAlgorithms import sunSafePoint
+from xmera.fp32 import sunSafePointF32
 from xmera.architecture import messaging
 from xmera.utilities import macros as mc
 
@@ -30,7 +30,7 @@ def test_sunSafePoint(show_plots, case):
     testProc.addTask(unitTestSim.CreateNewTask(unitTaskName, testProcessRate))
 
     # Create the sunSafePoint module
-    sun_safe_point = sunSafePoint.SunSafePoint()
+    sun_safe_point = sunSafePointF32.SunSafePoint()
     sun_safe_point.modelTag = "sunSafePoint"
     unitTestSim.AddModelToTask(unitTaskName, sun_safe_point)
 
