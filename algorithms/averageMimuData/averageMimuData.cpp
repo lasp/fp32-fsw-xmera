@@ -26,10 +26,10 @@ void AverageMimuData::updateState(uint64_t const callTime) {
         in.gyro_P[i]   = Eigen::Vector3f(p.gyro_B[0],  p.gyro_B[1],  p.gyro_B[2]);
         in.accel_P[i]  = Eigen::Vector3f(p.accel_B[0], p.accel_B[1], p.accel_B[2]);
     }
-    OutData out = this->algorithm.update(in);
+    OutputAverageAccelAnglevel out = this->algorithm.update(in);
     IMUSensorBodyMsgF32Payload localOutput{};
-    eigenVectorToCArray(out.AngVelBody, localOutput.AngVelBody);
-    eigenVectorToCArray(out.AccelBody, localOutput.AccelBody);
+    eigenVectorToCArray(out.anglevelBody, localOutput.AngVelBody);
+    eigenVectorToCArray(out.accelBody, localOutput.AccelBody);
 
     this->imuOutMsg.write(&localOutput, this->moduleID, callTime);
 }

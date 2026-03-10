@@ -11,9 +11,9 @@
  *  age is within `timeDelta` seconds.
  *  @param localPkts AccDataMsgF32Payload : an array of AccPktDataMsgF32Payload, each AccPktDataMsgF32Payload contains
  * (measTime, gyro_P, accel_P).
- *  @return OutData : body-frame average (AngVelBody, AccelBody). If no packets are in the window, returns zeros.
+ *  @return OutputAverageAccelAnglevel : body-frame average (AngVelBody, AccelBody). If no packets are in the window, returns zeros.
  */
-OutData AverageMimuDataAlgorithm::update(InputPktsData const& localPkts) const {
+OutputAverageAccelAnglevel AverageMimuDataAlgorithm::update(InputPktsData const& localPkts) const {
     uint64_t maxTimeTag = 0U;
     for (std::size_t i = 0; i < MAX_ACC_BUF_PKT; ++i) {
         maxTimeTag = std::max(localPkts.measTime[i], maxTimeTag);
@@ -33,14 +33,14 @@ OutData AverageMimuDataAlgorithm::update(InputPktsData const& localPkts) const {
         }
     }
 
-    OutData out{};
+    OutputAverageAccelAnglevel out{};
     if (measAvgCount > 0U) {
         gyroSum_P /= static_cast<float>(measAvgCount);
         Eigen::Vector3f const gyroSum_B = this->dcm_BP * gyroSum_P;
         accelSum_P /= static_cast<float>(measAvgCount);
         Eigen::Vector3f const accelSum_B = this->dcm_BP * accelSum_P;
-        out.AngVelBody = gyroSum_B;
-        out.AccelBody = accelSum_B;
+        out.anglevelBody = gyroSum_B;
+        out.accelBody = accelSum_B;
     }
 
     return out;
