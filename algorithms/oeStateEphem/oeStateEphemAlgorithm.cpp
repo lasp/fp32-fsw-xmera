@@ -162,6 +162,9 @@ double OEStateEphemAlgorithm::getCentralBodyGravitationalParameter() const { ret
 */
 void OEStateEphemAlgorithm::setArcNumberOfCoefficients(const unsigned int arcNumber,
                                                        const unsigned int numberOfCoefficients) {
+    if (numberOfCoefficients < 1) {
+        FS_THROW_INVALID_ARGUMENT("numberOfCoefficients in OEStateEphemAlgorithm must be positive.");
+    }
     this->fitCoefficients.at(arcNumber).numberChebCoefficients = numberOfCoefficients;
 };
 
@@ -179,6 +182,9 @@ unsigned int OEStateEphemAlgorithm::getArcNumberOfCoefficients(const unsigned in
     @param timeMiddle The ephemeris time at the arc's midpoint (seconds)
 */
 void OEStateEphemAlgorithm::setArcMiddleTime(const unsigned int arcNumber, const double timeMiddle) {
+    if (timeMiddle <= 0) {
+        FS_THROW_INVALID_ARGUMENT("arc middle time in OEStateEphemAlgorithm must be positive.");
+    }
     this->fitCoefficients.at(arcNumber).ephemerisTimeMiddle = timeMiddle;
 };
 
@@ -196,6 +202,9 @@ double OEStateEphemAlgorithm::getArcMiddleTime(const unsigned int arcNumber) con
     @param timeRadius The time radius for the arc (seconds)
 */
 void OEStateEphemAlgorithm::setArcRadiusTime(const unsigned int arcNumber, const double timeRadius) {
+    if (timeRadius <= 0) {
+        FS_THROW_INVALID_ARGUMENT("arc radius in OEStateEphemAlgorithm must be strictly positive.");
+    }
     this->fitCoefficients.at(arcNumber).ephemerisTimeRadius = timeRadius;
 };
 
