@@ -14,11 +14,12 @@
     It computes the current ephemeris time from the call time, ephemeris time offset, and vehicle time,
     then searches through all available arcs to find the one with the smallest time difference.
     @return ChebyshevFitArc The arc record with coefficients closest to the current time
-    @param callTime The clock time at which the function was called (nanoseconds)
+    @param spacecraftClockTime The clock time at which the function was called (nanoseconds)
 */
-ChebyshevFitArc OEStateEphemAlgorithm::findCurrentArc(const uint64_t callTime) {
+ChebyshevFitArc OEStateEphemAlgorithm::findCurrentArc(const uint64_t spacecraftClockTime) {
     /*! - compute time for fitting interval */
-    this->currentEphTime = (static_cast<double>(callTime) * nanoToSeconds) + this->ephemerisTime - this->vehicleTimeOffset;
+    this->currentEphTime =
+        (static_cast<double>(spacecraftClockTime) * nanoToSeconds) + this->ephemerisTime - this->vehicleTimeOffset;
     this->currentEphTime = std::max<double>(this->currentEphTime, 0);
     /*! - select the fitting coefficients for the nearest fit interval */
     uint32_t nearestArc = 0;

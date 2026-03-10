@@ -88,7 +88,7 @@ class OEStateEphemAlgorithm {
     std::array<float, kMaxOeCoeff> getArcTrueAnomalyCoefficients(unsigned int arcNumber) const;
 
    private:
-    ChebyshevFitArc findCurrentArc(uint64_t callTime);
+    ChebyshevFitArc findCurrentArc(uint64_t spacecraftClockTime);
     double scaleEphemerisTime(const ChebyshevFitArc &arc) const;
     static ClassicalElementsF32 evaluateCoefficients(double currentScaledValue, const ChebyshevFitArc &arc);
     bool allParametersNull() const;
