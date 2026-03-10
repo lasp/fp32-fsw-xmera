@@ -48,8 +48,8 @@ class OEStateEphem : public SysModel {
     void setArcRadiusTime(unsigned int arcNumber, double timeRadius);
     double getArcRadiusTime(unsigned int arcNumber) const;
 
-    void setArcAnomalyFlag(unsigned int arcNumber, unsigned int anomalyFlag);
-    unsigned int getArcAnomalyFlag(unsigned int arcNumber) const;
+    void setArcAnomalyFlag(unsigned int arcNumber, const AnomalyType &anomalyFlag);
+    AnomalyType getArcAnomalyFlag(unsigned int arcNumber) const;
 
     void setArcRadiusPeriapsisCoefficients(unsigned int arcNumber,
                                            const std::array<double, kMaxOeCoeff> &radiusPeriapsisCoefficients);

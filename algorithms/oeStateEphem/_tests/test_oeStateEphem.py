@@ -27,10 +27,9 @@ orbit_velocity_epsilon = 1.0
 colors = ['r','g','b']
 
 @pytest.mark.parametrize('valid_curve, anomay_flag', [
-    (True, 0),
-    (True, 1),
-    (True, -1),
-    (False, -1)
+    (True, oeStateEphemF32.AnomalyType_TRUE_ANOMALY),
+    (True, oeStateEphemF32.AnomalyType_MEAN_ANOMALY),
+    (False, oeStateEphemF32.AnomalyType_TRUE_ANOMALY)
 ])
 def test_cheby_fit(show_plots, valid_curve, anomay_flag):
     """Module Unit Test"""
@@ -63,7 +62,7 @@ def test_zero_inputs(show_plots):
     oe_ephemeris_module.setArcNumberOfCoefficients(0, 1)
     oe_ephemeris_module.setArcMiddleTime(0, 1)
     oe_ephemeris_module.setArcRadiusTime(0, 1/2.0)
-    oe_ephemeris_module.setArcAnomalyFlag(0, 0)
+    oe_ephemeris_module.setArcAnomalyFlag(0, oeStateEphemF32.AnomalyType_TRUE_ANOMALY)
 
     clock_correlation_data = messaging.TDBVehicleClockCorrelationMsgF32Payload()
     clock_correlation_data.vehicleClockTime = 0.0
@@ -133,7 +132,7 @@ def cheby_fit(show_plots, valid_curve, anomay_flag):
         inclination.append(orbital_elements.i)
         raan.append(orbital_elements.Omega)
         omega.append(orbital_elements.omega)
-        if anomay_flag == 1:
+        if anomay_flag == oeStateEphemF32.AnomalyType_MEAN_ANOMALY:
             current_anomaly = orbitalMotion.E2M(orbitalMotion.f2E(orbital_elements.f, orbital_elements.e), orbital_elements.e)
         else:
             current_anomaly = orbital_elements.f
@@ -179,7 +178,7 @@ def cheby_fit(show_plots, valid_curve, anomay_flag):
     oe_ephemeris_module.setArcMiddleTime(0, start_time_et + curve_duration_sec/2.0)
     oe_ephemeris_module.setArcRadiusTime(0, curve_duration_sec/2.0)
 
-    if not (anomay_flag == -1):
+    if anomay_flag is not None:
         oe_ephemeris_module.setArcAnomalyFlag(0, anomay_flag)
 
     clock_correlation_data = messaging.TDBVehicleClockCorrelationMsgF32Payload()
@@ -315,4 +314,4 @@ def cheby_fit(show_plots, valid_curve, anomay_flag):
 if __name__ == "__main__":
     cheby_fit(True,        # showPlots
                        True,        # valid_curve
-                       1)           # anomay_flag
+                       oeStateEphemF32.AnomalyType_MEAN_ANOMALY)  # anomay_flag

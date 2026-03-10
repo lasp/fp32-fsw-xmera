@@ -77,7 +77,7 @@ inline void testOEStateEphemUpdate(double mu,
     algorithm.setArcNumberOfCoefficients(arcToPopulate, 1);
     algorithm.setArcMiddleTime(arcToPopulate, arcMiddleTimeToUse);
     algorithm.setArcRadiusTime(arcToPopulate, arc_radius_time);
-    algorithm.setArcAnomalyFlag(arcToPopulate, 0);  // true anomaly
+    algorithm.setArcAnomalyFlag(arcToPopulate, AnomalyType::TRUE_ANOMALY);
 
     // Set constant coefficients (first one) of each orbital element
     std::array<double, kMaxOeCoeff> rpCoeffs{};
@@ -197,7 +197,7 @@ TEST_F(OEStateEphemAlgorithmTest, SetAndGetArcRadiusTime) {
 
 TEST_F(OEStateEphemAlgorithmTest, SetAndGetArcAnomalyFlag) {
     const unsigned int arcNum = 0;
-    const unsigned int anomalyFlag = 1;
+    const AnomalyType anomalyFlag = AnomalyType::MEAN_ANOMALY;
     algorithm.setArcAnomalyFlag(arcNum, anomalyFlag);
     EXPECT_EQ(anomalyFlag, algorithm.getArcAnomalyFlag(arcNum));
 }
@@ -277,7 +277,7 @@ TEST_F(OEStateEphemAlgorithmTest, CircularOrbitAtOrigin_ConstantCoefficients) {
     algorithm.setArcNumberOfCoefficients(0, 1);
     algorithm.setArcMiddleTime(0, 0.0);
     algorithm.setArcRadiusTime(0, 1000.0);
-    algorithm.setArcAnomalyFlag(0, 0);  // true anomaly
+    algorithm.setArcAnomalyFlag(0, AnomalyType::TRUE_ANOMALY);
 
     // Constant orbital elements for circular equatorial orbit
     std::array<double, kMaxOeCoeff> rpCoeffs{};
@@ -321,7 +321,7 @@ TEST_F(OEStateEphemAlgorithmTest, CircularOrbitAt90Degrees_ConstantCoefficients)
     algorithm.setArcNumberOfCoefficients(0, 1);
     algorithm.setArcMiddleTime(0, 0.0);
     algorithm.setArcRadiusTime(0, 1000.0);
-    algorithm.setArcAnomalyFlag(0, 0);
+    algorithm.setArcAnomalyFlag(0, AnomalyType::TRUE_ANOMALY);
 
     std::array<double, kMaxOeCoeff> rpCoeffs{};
     rpCoeffs[0] = radius_km;
@@ -366,7 +366,7 @@ TEST_F(OEStateEphemAlgorithmTest, EllipticalOrbitAtPeriapsis_ConstantCoefficient
     algorithm.setArcNumberOfCoefficients(0, 1);
     algorithm.setArcMiddleTime(0, 0.0);
     algorithm.setArcRadiusTime(0, 1000.0);
-    algorithm.setArcAnomalyFlag(0, 0);
+    algorithm.setArcAnomalyFlag(0, AnomalyType::TRUE_ANOMALY);
 
     std::array<double, kMaxOeCoeff> rpCoeffs{};
     rpCoeffs[0] = r_p_km;

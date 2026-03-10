@@ -81,11 +81,11 @@ double OEStateEphem::getArcRadiusTime(const unsigned int arcNumber) const {
     return this->algorithm.getArcRadiusTime(arcNumber);
 };
 
-void OEStateEphem::setArcAnomalyFlag(const unsigned int arcNumber, const unsigned int anomalyFlag) {
+void OEStateEphem::setArcAnomalyFlag(const unsigned int arcNumber, const AnomalyType &anomalyFlag) {
     this->algorithm.setArcAnomalyFlag(arcNumber, anomalyFlag);
 };
 
-unsigned int OEStateEphem::getArcAnomalyFlag(unsigned int arcNumber) const {
+AnomalyType OEStateEphem::getArcAnomalyFlag(const unsigned int arcNumber) const {
     return this->algorithm.getArcAnomalyFlag(arcNumber);
 };
 

@@ -18,6 +18,8 @@ inline constexpr float toleranceF32 = 1e-6;
 inline constexpr std::size_t kMaxOeCoeff = 20;
 inline constexpr std::size_t kMaxOeRecords = 10;
 
+#include "oeStateEphemTypes.h"
+
 /*! @brief Structure that defines the layout of an Ephemeris "record."  This is
            basically the set of coefficients for the ephemeris elements and
            the time factors associated with those coefficients
@@ -35,8 +37,8 @@ struct ChebyshevFitArc {
     std::array<float, kMaxOeCoeff>
         raanCoefficients{};  //!< [-] Set of chebyshev coefficients for right ascention of the ascending node
     std::array<float, kMaxOeCoeff>
-        trueAnomalyCoefficients{};  //!< [-] Set of chebyshev coefficients for true anomaly angle
-    unsigned int anomalyFlag{};     //!< [-] Flag indicating if the anomaly angle is true (0), mean (1)
+        trueAnomalyCoefficients{};                       //!< [-] Set of chebyshev coefficients for true anomaly angle
+    AnomalyType anomalyFlag{AnomalyType::TRUE_ANOMALY};  //!< [-] Flag indicating if the anomaly angle is true or mean
 };
 
 /*! @brief Top level structure for the Chebyshev position ephemeris
@@ -63,8 +65,8 @@ class OEStateEphemAlgorithm {
     void setArcRadiusTime(unsigned int arcNumber, double timeRadius);
     double getArcRadiusTime(unsigned int arcNumber) const;
 
-    void setArcAnomalyFlag(unsigned int arcNumber, unsigned int anomalyFlag);
-    unsigned int getArcAnomalyFlag(unsigned int arcNumber) const;
+    void setArcAnomalyFlag(unsigned int arcNumber, const AnomalyType &anomalyFlag);
+    AnomalyType getArcAnomalyFlag(unsigned int arcNumber) const;
 
     void setArcRadiusPeriapsisCoefficients(unsigned int arcNumber,
                                            const std::array<double, kMaxOeCoeff> &radiusPeriapsisCoefficients);

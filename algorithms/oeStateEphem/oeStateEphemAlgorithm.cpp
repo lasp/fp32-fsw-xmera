@@ -77,7 +77,7 @@ ClassicalElementsF32 OEStateEphemAlgorithm::evaluateCoefficients(const double cu
         arc.trueAnomalyCoefficients, arc.numberChebCoefficients, static_cast<float>(currentScaledValue));
 
     /*! - determine the true anomaly angle */
-    if (arc.anomalyFlag == 0) {
+    if (arc.anomalyFlag == AnomalyType::TRUE_ANOMALY) {
         elements.trueAnomaly = anomalyAngle;
     } else if (elements.eccentricity < 1.0) {
         /* input is mean elliptic anomaly angle */
@@ -217,20 +217,20 @@ double OEStateEphemAlgorithm::getArcRadiusTime(const unsigned int arcNumber) con
 };
 
 /*! This method sets the anomaly flag for a specified arc. The flag indicates whether the anomaly
-    angle is true anomaly (0) or mean anomaly (1).
+    angle is true anomaly or mean anomaly.
     @return void
     @param arcNumber The index of the arc to modify
-    @param anomalyFlag The anomaly type flag (0 = true anomaly, 1 = mean anomaly)
+    @param anomalyFlag The anomaly type (AnomalyType::TRUE_ANOMALY or AnomalyType::MEAN_ANOMALY)
 */
-void OEStateEphemAlgorithm::setArcAnomalyFlag(const unsigned int arcNumber, const unsigned int anomalyFlag) {
+void OEStateEphemAlgorithm::setArcAnomalyFlag(const unsigned int arcNumber, const AnomalyType& anomalyFlag) {
     this->fitCoefficients.at(arcNumber).anomalyFlag = anomalyFlag;
 };
 
 /*! This method retrieves the anomaly flag for a specified arc.
-    @return unsigned int The anomaly type flag (0 = true anomaly, 1 = mean anomaly)
+    @return AnomalyType The anomaly type (TRUE_ANOMALY or MEAN_ANOMALY)
     @param arcNumber The index of the arc to query
 */
-unsigned int OEStateEphemAlgorithm::getArcAnomalyFlag(const unsigned int arcNumber) const {
+AnomalyType OEStateEphemAlgorithm::getArcAnomalyFlag(const unsigned int arcNumber) const {
     return this->fitCoefficients.at(arcNumber).anomalyFlag;
 };
 

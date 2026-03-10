@@ -123,7 +123,7 @@ Module setup requires specifying the gravitational parameter and Chebyshev coeff
     ephemObject.nChebCoeff[arcIndex] = 5
     ephemObject.t_middle[arcIndex] = 1000.0  # seconds
     ephemObject.t_radius[arcIndex] = 500.0   # seconds
-    ephemObject.anomalyFlag[arcIndex] = 0    # 0: true anomaly, 1: mean anomaly
+    ephemObject.anomalyFlag[arcIndex] = AnomalyType.TRUE_ANOMALY    # or AnomalyType.MEAN_ANOMALY
 
     # Set Chebyshev coefficients (units: km for r_p, radians for angles)
     ephemObject.r_p_cheb[arcIndex] = [7000.0, 0.0, 0.0, 0.0, 0.0]
