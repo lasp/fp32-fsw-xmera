@@ -10,26 +10,11 @@
 #include "msgPayloadDef/AttGuidMsgF32Payload.h"
 #include "msgPayloadDef/NavAttMsgF32Payload.h"
 #include "msgPayloadDef/VehicleConfigMsgF32Payload.h"
+#include "sunSearchTypes.h"
 #include <Eigen/Core>
-
-#define NUM_SLEWS 3
-
-struct PrincipleInertias {
-    float IxxPntB_B;  //!< IxxPntB_B principle vehicle inertia term (0, 0) (about point B in frame B (body)
-    float IyyPntB_B;  //!< IyyPntB_B principle vehicle inertia term (1, 1) (about point B in frame B (body)
-    float IzzPntB_B;  //!< IzzPntB_B principle vehicle inertia term (2, 2) (about point B in frame B (body)
-};
 
 struct SlewIndex {
     int32_t index;
-};
-
-struct SlewProperties {
-    float slewTime;       //!< [s] total time for the three-axes maneuver
-    float slewAngle;      //!< [rad] total angle sweep around one axis
-    float slewMaxRate;    //!< [rad/s] maximum spacecraft body rate norm
-    float slewMaxTorque;  //!< [Nm] maximum torque for slew
-    int slewRotAxis;      //!< [-] axes about which to perform the Sun search
 };
 
 struct KinematicProperties {
