@@ -5,8 +5,10 @@
  */
 
 #include "oeStateEphemAlgorithm.h"
+
 #include "../freestandingInvalidArgument.h"
 #include "utilities/chebyshevUtilities.h"
+#include <algorithm>
 
 /*! This method finds the Chebyshev fit arc that is closest in time to the current ephemeris time.
     It computes the current ephemeris time from the call time, ephemeris time offset, and vehicle time,
@@ -17,7 +19,7 @@
 ChebyshevFitArc OEStateEphemAlgorithm::findCurrentArc(const uint64_t callTime) {
     /*! - compute time for fitting interval */
     this->currentEphTime = (static_cast<double>(callTime) * nanoToSeconds) + this->ephemerisTime - this->vehicleTime;
-
+    this->currentEphTime = std::max<double>(this->currentEphTime, 0);
     /*! - select the fitting coefficients for the nearest fit interval */
     uint32_t nearestArc = 0;
     double smallestTimeDifference = fabs(this->currentEphTime - this->fitCoefficients.at(0).ephemerisTimeMiddle);
