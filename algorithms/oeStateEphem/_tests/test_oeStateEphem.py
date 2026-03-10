@@ -22,8 +22,8 @@ splitPath = path.split('fswAlgorithms')
 from xmera import __path__
 bskPath = __path__[0]
 
-orbit_position_epsilon = 10000.0
-orbit_velocity_epsilon = 1.0
+orbit_position_epsilon = 1.0
+orbit_velocity_epsilon = 0.01
 colors = ['r','g','b']
 
 @pytest.mark.parametrize('valid_curve, anomay_flag', [
