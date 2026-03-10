@@ -12,9 +12,9 @@ ascension of the ascending node, and anomaly. Ephemeris time is computed as:
 
 .. math::
 
-   t_{eph} = (t_{call} \times 10^{-9}) + t_{eph} - t_{vehicle}
+   t_{eph, corr} = (t_{call} \times 10^{-9}) + t_{eph} - t_{vehicle}
 
-The module identifies the arc with minimum :math:`|t_{eph} - t_{arc,middle}|` and evaluates the corresponding
+The module identifies the arc with minimum :math:`|t_{eph, corr} - t_{arc,middle}|` and evaluates the corresponding
 coefficients. If the query time falls outside an arc's valid range, the scaled time is clamped to ±1, ensuring
 the module always returns a valid state.
 
