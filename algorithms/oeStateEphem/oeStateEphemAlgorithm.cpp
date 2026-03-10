@@ -99,6 +99,19 @@ ClassicalElementsF32 OEStateEphemAlgorithm::evaluateCoefficients(const double cu
     return elements;
 }
 
+/*! Check if all the elements in the radius of periapsis coefficients are zero.
+    @return bool
+*/
+bool OEStateEphemAlgorithm::allParametersNull() const {
+    bool allZero = true;
+    for (const auto& arc : this->fitCoefficients) {
+        if (std::abs(arc.radiusPeriapsisCoefficients.at(0)) >= tolerance) {
+            allZero = false;
+        }
+    }
+    return allZero;
+}
+
 /*! This method takes the current time and computes the state of the object
     using that time and the stored Chebyshev coefficients. If the time provided
     is outside the specified range, the position vectors rail high/low appropriately.
@@ -112,19 +125,7 @@ CartesianState OEStateEphemAlgorithm::update(const uint64_t callTime) {
     outputCartesianState.position = Eigen::Vector3d::Zero();
     outputCartesianState.velocity = Eigen::Vector3d::Zero();
     /*! If all of the radius of periapsis components are zero, this is the central body and should return all zeros*/
-    bool allZero = true;
-    for (const auto& arc : this->fitCoefficients) {
-        for (const auto& val : arc.radiusPeriapsisCoefficients) {
-            if (std::abs(val) >= tolerance) {
-                allZero = false;
-                break;
-            }
-        }
-        if (!allZero) {
-            break;
-        }
-    }
-    if (allZero) {
+    if (this->allParametersNull()) {
         return outputCartesianState;
     }
 

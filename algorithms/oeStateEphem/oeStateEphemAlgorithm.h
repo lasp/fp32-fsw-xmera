@@ -88,6 +88,7 @@ class OEStateEphemAlgorithm {
     ChebyshevFitArc findCurrentArc(uint64_t callTime);
     double scaleEphemerisTime(const ChebyshevFitArc &arc) const;
     static ClassicalElementsF32 evaluateCoefficients(double currentScaledValue, const ChebyshevFitArc &arc);
+    bool allParametersNull() const;
     double currentEphTime{};
     double mu{};  //!< [m3/s^2] Gravitational parameter for center of orbital elements
     std::array<ChebyshevFitArc, kMaxOeRecords> fitCoefficients{};  //!< [-] Array of Chebyshev records for ephemeris
