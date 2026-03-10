@@ -30,12 +30,9 @@ void fuzzOEStateEphemUpdate(double mu,
                             float arg_periapsis,
                             float raan,
                             float true_anomaly,
-                            double call_time_sec,
+                            uint64_t call_time_ns,
                             double ephemeris_time,
-                            double vehicle_time_ratio) {
-    // Convert call time to nanoseconds
-    uint64_t call_time_ns = static_cast<uint64_t>(call_time_sec * 1e9);
-
+                            double offset) {
     // Call the shared test function with fuzz tolerances
     EXPECT_NO_THROW(testOEStateEphemUpdate(mu,
                                            r_p_km,
@@ -46,23 +43,23 @@ void fuzzOEStateEphemUpdate(double mu,
                                            true_anomaly,
                                            call_time_ns,
                                            ephemeris_time,
-                                           ephemeris_time * vehicle_time_ratio,
+                                           offset,
                                            1000.0,  // arc_radius_time
                                            FUZZ_TOLERANCE_POSITION,
                                            FUZZ_TOLERANCE_VELOCITY));
 }
 
 FUZZ_TEST(OEStateEphemFuzz, fuzzOEStateEphemUpdate)
-    .WithDomains(fuzztest::InRange(1e1, 1e17),
-                 fuzztest::InRange(100.0, 1e6),
+    .WithDomains(fuzztest::InRange(1.0, 1e14),
+                 fuzztest::InRange(1.0, 1e14),
                  fuzztest::InRange(0.0f, 0.99f),
                  fuzztest::InRange(0.0f, static_cast<float>(M_PI)),
                  fuzztest::InRange(0.0f, static_cast<float>(2.0 * M_PI)),
                  fuzztest::InRange(0.0f, static_cast<float>(2.0 * M_PI)),
                  fuzztest::InRange(0.0f, static_cast<float>(2.0 * M_PI)),
-                 fuzztest::InRange(0.0, 1e6),
-                 fuzztest::InRange(0.0, 1e6),
-                 fuzztest::InRange(0.0, 0.9));
+                 fuzztest::InRange(static_cast<uint64_t>(0), static_cast<uint64_t>(1e19)),
+                 fuzztest::InRange(0.0, 1e14),
+                 fuzztest::InRange(0.0, 1e14));
 
 /*! @brief Fuzz test for edge cases and boundary conditions
  *
@@ -91,8 +88,8 @@ void fuzzOEStateEphemUpdateEdgeCases(double mu,
 }
 
 FUZZ_TEST(OEStateEphemFuzz, fuzzOEStateEphemUpdateEdgeCases)
-    .WithDomains(fuzztest::InRange(1e0, 5e14),
-                 fuzztest::InRange(10.0, 1000.0),
+    .WithDomains(fuzztest::InRange(1.0, 1e14),
+                 fuzztest::InRange(1.0, 1e14),
                  fuzztest::OneOf(fuzztest::InRange(0.0f, 0.01f),    // Near-circular
                                  fuzztest::InRange(0.95f, 0.999f),  // Near-parabolic
                                  fuzztest::InRange(0.4f, 0.6f)      // Moderate
@@ -111,14 +108,12 @@ FUZZ_TEST(OEStateEphemFuzz, fuzzOEStateEphemUpdateEdgeCases)
  *  various time configurations including very large values and different
  *  arc widths.
  */
-void fuzzOEStateEphemUpdateTimeEdgeCases(double call_time_sec,
+void fuzzOEStateEphemUpdateTimeEdgeCases(uint64_t call_time_ns,
                                          double ephemeris_time,
-                                         double vehicle_time_ratio,
+                                         double offset,
                                          double arc_radius_time) {
     const double mu = 3.986004418e14;
     const double r_p_km = 7000.0;
-
-    uint64_t call_time_ns = static_cast<uint64_t>(call_time_sec * 1e9);
 
     // Use the shared test function
     EXPECT_NO_THROW(testOEStateEphemUpdate(mu,
@@ -130,16 +125,16 @@ void fuzzOEStateEphemUpdateTimeEdgeCases(double call_time_sec,
                                            0.0f,  // true_anomaly
                                            call_time_ns,
                                            ephemeris_time,
-                                           ephemeris_time * vehicle_time_ratio,
+                                           offset,
                                            arc_radius_time,
                                            FUZZ_TOLERANCE_POSITION,
                                            FUZZ_TOLERANCE_VELOCITY));
 }
 
 FUZZ_TEST(OEStateEphemFuzz, fuzzOEStateEphemUpdateTimeEdgeCases)
-    .WithDomains(fuzztest::InRange(0.0, 1e8),
-                 fuzztest::InRange(0.0, 1e8),
-                 fuzztest::InRange(0.0, 0.99),
+    .WithDomains(fuzztest::InRange(static_cast<uint64_t>(0), static_cast<uint64_t>(1e19)),
+                 fuzztest::InRange(0.0, 1e14),
+                 fuzztest::InRange(0.0, 1e14),
                  fuzztest::OneOf(fuzztest::InRange(1.0, 100.0),      // Very narrow arc
                                  fuzztest::InRange(100.0, 10000.0),  // Normal arc
                                  fuzztest::InRange(10000.0, 1e6)     // Very wide arc
