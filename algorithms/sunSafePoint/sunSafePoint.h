@@ -5,7 +5,6 @@
 #include <architecture/messaging/messaging.h>
 #include "msgPayloadDef/AttGuidMsgF32Payload.h"
 #include "msgPayloadDef/NavAttMsgF32Payload.h"
-#include <architecture/utilities/bskLogging.h>
 #include "sunSafePointAlgorithm.h"
 #include <stdint.h>
 #include <Eigen/Dense>
@@ -37,8 +36,6 @@ class SunSafePoint : public SysModel {
     ReadFunctor<NavAttMsgF32Payload> imuInMsg;           //!< IMU attitude guidance input message
     ReadFunctor<NavAttMsgF32Payload> sunDirectionInMsg;  //!< Sun attitude guidance input message
     Message<AttGuidMsgF32Payload> attGuidanceOutMsg;     //!< Attitude guidance output message
-
-    BSKLogger* bskLogger;  //!< BSK Logging
 
    private:
     SunSafePointAlgorithm algorithm{};  //!< Algorithm for sunSafePoint guidance logic (BSK-agnostic)
