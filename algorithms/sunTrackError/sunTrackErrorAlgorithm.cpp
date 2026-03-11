@@ -2,6 +2,7 @@
 #include "architecture/utilities/eigenMRP.h"
 #include "architecture/utilities/eigenSupport.h"
 #include "architecture/utilities/rigidBodyKinematics.hpp"
+#include "utilities/safeMath.h"
 #include "utilities/timeConstants.h"
 #include <numbers>
 
@@ -55,9 +56,9 @@ AttGuidMsgF32Payload SunTrackErrorAlgorithm::update(AttRefMsgF32Payload& ref,
             const Eigen::Vector3f pHat_N = (sHat_N - (senstiveAxis_N.dot(sHat_N)) * senstiveAxis_N).normalized();
 
             // Define total angle between initial and final directions of senstive surface
-            const float initMnvrAngle = acosf(senstiveInitial_N.dot(senstiveFinal_N));
+            const float initMnvrAngle = safeAcosf(senstiveInitial_N.dot(senstiveFinal_N));
             // Define the angle between the sHatDirection not in the rotation axis and initial sensitive direction
-            const float initCelAngle = acosf(pHat_N.dot(senstiveInitial_N));
+            const float initCelAngle = safeAcosf(pHat_N.dot(senstiveInitial_N));
 
             const Eigen::Matrix3f dcm_BR = dcm_BN * dcm_BNFinal.transpose();
             const Eigen::Vector3f prv_BR = dcmToPrv(dcm_BR);

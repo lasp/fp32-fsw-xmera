@@ -1,5 +1,6 @@
 #include "mrpSteeringAlgorithm.h"
 #include "../freestandingInvalidArgument.h"
+#include "../utilities/safeMath.h"
 #include "../utilities/validInertiaCheck.h"
 #include "architecture/utilities/eigenSupport.h"
 #include "architecture/utilities/rigidBodyKinematics.hpp"
@@ -42,7 +43,7 @@ Eigen::Vector3f MrpSteeringAlgorithm::update(const InputGuidanceData& attGuidInp
 
     for (Eigen::Index i = 0; i < 3; ++i) {
         const float sigma_i = sigma_BR[i];
-        const float f_i = atanf(kPiOver2 / this->omegaMax * (this->K1 * sigma_i + this->K3 * powf(sigma_i, 3.0F))) /
+        const float f_i = safeAtanf(kPiOver2 / this->omegaMax * (this->K1 * sigma_i + this->K3 * powf(sigma_i, 3.0F))) /
                           kPiOver2 * this->omegaMax;
         omega_BastR_B[i] = -f_i;
     }
