@@ -1,5 +1,5 @@
 #include "averageMimuDataAlgorithm.h"
-
+#include "../freestandingInvalidArgument.h"
 #include "architecture/utilities/eigenSupport.h"
 #include "utilities/timeConstants.h"
 
@@ -26,8 +26,8 @@ OutputAverageAccelAngleVel AverageMimuDataAlgorithm::update(InputPktsData const&
     for (uint32_t i = 0; i < MAX_BUF_PKT; ++i) {
         // Rolling average with averagingWindow as window width or the maximum buffer size
         if (static_cast<float>(maxTimeTag - localPkts.measTime.at(i)) * kNano2SecF <= this->timeDelta) {
-            gyroSum_P += localPkts.gyro_P[i];
-            accelSum_P += localPkts.accel_P[i];
+            gyroSum_P += localPkts.gyro_P.at(i);
+            accelSum_P += localPkts.accel_P.at(i);
             measAvgCount++;
         }
     }
@@ -45,7 +45,12 @@ OutputAverageAccelAngleVel AverageMimuDataAlgorithm::update(InputPktsData const&
     return out;
 }
 
-void AverageMimuDataAlgorithm::setTimeDelta(float const timeDeltaIn) { this->timeDelta = timeDeltaIn; }
+void AverageMimuDataAlgorithm::setTimeDelta(float const timeDeltaIn) {
+    if(timeDeltaIn < 0.0F){
+        FS_THROW_INVALID_ARGUMENT("windowSec cannot be smaller than 0.0");
+    }
+    this->timeDelta = timeDeltaIn;
+}
 
 float AverageMimuDataAlgorithm::getTimeDelta() const { return this->timeDelta; }
 

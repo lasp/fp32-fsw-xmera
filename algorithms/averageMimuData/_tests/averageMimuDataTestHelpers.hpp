@@ -32,7 +32,7 @@ OutputAverageAccelAngleVel referenceUpdate(InputPktsData const& localPkts,
         const uint64_t measTime = localPkts.measTime[i];
 
         // Rolling average with timeDelta as window width or the maximum buffer size
-        if (static_cast<float>(maxTimeTag - measTime) * NANO2SEC < alg.getTimeDelta()) {
+        if (static_cast<float>(maxTimeTag - measTime) * NANO2SEC <= alg.getTimeDelta()) {
             gyroSum_P  += localPkts.gyro_P[i];
             accelSum_P += localPkts.accel_P[i];
             measAvgCount++;
@@ -196,10 +196,77 @@ inline void testKnownSolaverageMimuData() {
     EXPECT_EQ(out_alg.accel_B, accTrue_B);
 }
 
+inline void testZeroTimeDelta() {
+    // -----------------------
+    // Fixed algorithm settings
+    // -----------------------
+    AverageMimuDataAlgorithm alg;
+
+    Eigen::Matrix3f dcm_BP;
+    dcm_BP << 0.f, -1.f, 0.f,
+              1.f,  0.f, 0.f,
+              0.f,  0.f, 1.f;
+    alg.setDcmPltfToBdy(dcm_BP);
+
+    // timeDelta = 0 => should pick the packet(s) at maxTimeTag
+    alg.setTimeDelta(0.0f);
+
+    // -----------------------
+    // Fixed synthetic packets (DIRECT)
+    // -----------------------
+    InputPktsData in{};
+
+    for (std::size_t i = 0; i < MAX_ACC_BUF_PKT; ++i) {
+        in.measTime[i] = 0U;
+        in.gyro_P[i]   = Eigen::Vector3f::Zero();
+        in.accel_P[i]  = Eigen::Vector3f::Zero();
+    }
+
+    constexpr uint64_t t_ref = SEC2NANO;
+
+    // Make packet 0 the unique maxTimeTag
+    const uint64_t t0 = t_ref;                                    // max
+    const uint64_t t1 = t_ref - static_cast<uint64_t>(SEC2NANO * 0.05f);
+    const uint64_t t2 = t_ref - static_cast<uint64_t>(SEC2NANO * 0.15f);
+    const uint64_t t3 = t_ref - static_cast<uint64_t>(SEC2NANO * 0.30f);
+
+    const Eigen::Vector3f gyro0{ 1.f, 2.f, 3.f};
+    const Eigen::Vector3f gyro1{ 3.f, 2.f, 1.f};
+    const Eigen::Vector3f gyro2{-1.f, 0.f, 2.f};
+    const Eigen::Vector3f gyro3{ 9.f, 9.f, 9.f};
+
+    const Eigen::Vector3f acc0{4.f, 0.f, 0.f};
+    const Eigen::Vector3f acc1{0.f, 4.f, 0.f};
+    const Eigen::Vector3f acc2{0.f, 0.f, 4.f};
+    const Eigen::Vector3f acc3{8.f, 8.f, 8.f};
+
+    in.measTime[0] = t0;  in.gyro_P[0] = gyro0;  in.accel_P[0] = acc0;
+    in.measTime[1] = t1;  in.gyro_P[1] = gyro1;  in.accel_P[1] = acc1;
+    in.measTime[2] = t2;  in.gyro_P[2] = gyro2;  in.accel_P[2] = acc2;
+    in.measTime[3] = t3;  in.gyro_P[3] = gyro3;  in.accel_P[3] = acc3;
+
+    // -----------------------
+    // Run algorithm under test
+    // -----------------------
+    const OutputAverageAccelAngleVel out_alg = alg.update(in);
+
+    // -----------------------
+    // True known solution (timeDelta = 0):
+    // use ONLY the packet with maxTimeTag (packet 0 here)
+    // out_B = dcm_BP * v0
+    // -----------------------
+    const Eigen::Vector3f gyroTrue_B = dcm_BP * gyro0;
+    const Eigen::Vector3f accTrue_B  = dcm_BP * acc0;
+
+    EXPECT_EQ(out_alg.gyroOmega_B, gyroTrue_B);
+    EXPECT_EQ(out_alg.accel_B, accTrue_B);
+}
+
 inline void testSetupAverageMimuData() {
     AverageMimuDataAlgorithm alg;
 
     // 1) Setters should not throw
+    EXPECT_THROW(alg.setTimeDelta(-0.1), fs::invalid_argument);
     EXPECT_NO_THROW(alg.setTimeDelta(0.25f));
     EXPECT_NO_THROW(alg.setDcmPltfToBdy(Eigen::Matrix3f::Identity()));
 
