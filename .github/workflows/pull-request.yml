@@ -30,18 +30,18 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           persist-credentials: false
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.11'
           cache: 'pip'
           cache-dependency-path: .pre-commit-config.yaml
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@v5
         with:
           path: ~/.cache/pre-commit
           key: pre-commit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
@@ -75,13 +75,13 @@ jobs:
       security-events: write
     steps:
       - name: Checkout fp32-fsw-xmera
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           persist-credentials: false
 
       - name: Checkout Xmera core
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: lasp/xmera
           path: xmera
@@ -99,7 +99,7 @@ jobs:
 
       - name: Set up Python 3.11
         id: setup-py
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.11'
           cache: 'pip'
@@ -336,7 +336,7 @@ jobs:
 
       - name: Upload coverage artifacts (Linux only)
         if: ${{ runner.os == 'Linux' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: external-modules-coverage
           path: |
@@ -348,7 +348,7 @@ jobs:
 
       - name: Upload pytest test results
         if: ${{ always() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: pytest-${{ matrix.os }}
           path: junit/test-results-${{ matrix.os }}.xml
@@ -356,7 +356,7 @@ jobs:
 
       - name: Upload CTest results
         if: ${{ always() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ctest-${{ matrix.os }}
           path: junit/ctest-${{ matrix.os }}.xml
