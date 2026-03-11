@@ -6,7 +6,7 @@
 
 #include "celestialTwoBodyPointAlgorithm.h"
 #include "../freestandingInvalidArgument.h"
-#include "../utilities/safeMathFloat.h"
+#include "../utilities/safeMath.h"
 #include "architecture/utilities/eigenSupport.h"
 #include "architecture/utilities/rigidBodyKinematics.hpp"
 
@@ -42,7 +42,7 @@ AttRefMsgF32Payload CelestialTwoBodyPointAlgorithm::update(EphemerisMsgF32Payloa
         Eigen::Vector3f const R_P2B_N_hat = R_P2B_N.normalized().cast<float>();
         Eigen::Vector3f const R_P1B_N_hat = R_P1B_N.normalized().cast<float>();
         const float dotProduct = R_P2B_N_hat.dot(R_P1B_N_hat);
-        platAngDiff = safeAcosf(dotProduct);
+        platAngDiff = safeAcos(dotProduct);
     }
 
     /*! - Cross the P1 states to get R_P2, v_p2 and a_P2 */
