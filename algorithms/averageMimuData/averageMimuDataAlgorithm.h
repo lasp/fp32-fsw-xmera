@@ -7,8 +7,7 @@
 
 constexpr std::size_t MAX_BUF_PKT = 120;
 
-struct InputPktsData
-{
+struct InputPktsData {
     std::array<std::uint64_t, MAX_BUF_PKT> measTime{};
     std::array<Eigen::Vector3f, MAX_BUF_PKT> gyro_P{};
     std::array<Eigen::Vector3f, MAX_BUF_PKT> accel_P{};

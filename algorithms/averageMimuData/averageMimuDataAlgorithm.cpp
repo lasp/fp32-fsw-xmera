@@ -12,7 +12,8 @@
  *  age is within `averagingWindow` seconds.
  *  @param localPkts AccDataMsgF32Payload : an array of AccPktDataMsgF32Payload, each AccPktDataMsgF32Payload contains
  * (measTime, gyro_P, accel_P).
- *  @return OutputAverageAccelAngleVel : body-frame average (AngVelBody, AccelBody). If no packets are in the window, returns zeros.
+ *  @return OutputAverageAccelAngleVel : body-frame average (AngVelBody, AccelBody). If no packets are in the window,
+ * returns zeros.
  */
 OutputAverageAccelAngleVel AverageMimuDataAlgorithm::update(InputPktsData const& localPkts) const {
     uint64_t maxTimeTag = 0U;
@@ -47,7 +48,7 @@ OutputAverageAccelAngleVel AverageMimuDataAlgorithm::update(InputPktsData const&
 }
 
 void AverageMimuDataAlgorithm::setAveragingWindow(float const window) {
-    if(window < 0.0F){
+    if (window < 0.0F) {
         FS_THROW_INVALID_ARGUMENT("AveragingWindow cannot be smaller than 0.0");
     }
     this->averagingWindow = window;

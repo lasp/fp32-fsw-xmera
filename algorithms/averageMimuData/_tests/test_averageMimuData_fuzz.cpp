@@ -1,19 +1,10 @@
 #include "averageMimuDataTestHelpers.hpp"
 #include <fuzztest/fuzztest.h>
-#include <array>
-#include <vector>
 
-FUZZ_TEST(averageMimuDataFuzz, regressionTestaverageMimuData)
-    .WithDomains(fuzztest::InRange(0.0f, 1.0f),                         // timeDelta
-                 fuzztest::InRange(0.0f, 1.0f),                         // factor0
-                 fuzztest::InRange(0.0f, 1.0f),                         // factor1
-                 fuzztest::InRange(0.0f, 1.0f),                         // factor2
-                 fuzztest::ArrayOf<3>(fuzztest::InRange(-1e6f, 1e6f)),  // gyro0
-                 fuzztest::ArrayOf<3>(fuzztest::InRange(-1e6f, 1e6f)),  // accel0
-                 fuzztest::ArrayOf<3>(fuzztest::InRange(-1e6f, 1e6f)),  // gyro1
-                 fuzztest::ArrayOf<3>(fuzztest::InRange(-1e6f, 1e6f)),  // accel1
-                 fuzztest::ArrayOf<3>(fuzztest::InRange(-1e6f, 1e6f)),  // gyro2
-                 fuzztest::ArrayOf<3>(fuzztest::InRange(-1e6f, 1e6f)),  // accel2
-                 fuzztest::ArrayOf<3>(fuzztest::InRange(-1e6f, 1e6f)),  // gyro3
-                 fuzztest::ArrayOf<3>(fuzztest::InRange(-1e6f, 1e6f))   // accel3
-    );
+FUZZ_TEST(averageMimuDataFuzz, regressionTestAverageMimuData)
+    .WithDomains(fuzztest::InRange<std::size_t>(0U, MAX_ACC_BUF_PKT),
+                 fuzztest::InRange(0.0F, 1.0F),
+                 fuzztest::ArrayOf<MAX_ACC_BUF_PKT>(
+                     fuzztest::StructOf<InputData>(fuzztest::InRange<uint64_t>(0U, 10U * SEC2NANO),
+                                                   fuzztest::ArrayOf<3>(fuzztest::InRange(-1e6F, 1e6F)),
+                                                   fuzztest::ArrayOf<3>(fuzztest::InRange(-1e6F, 1e6F)))));
