@@ -1,8 +1,9 @@
 #ifndef AVERAGE_MIMU_DATA_H
 #define AVERAGE_MIMU_DATA_H
-// NOLINTBEGIN
+
 #include "architecture/messaging/messaging.h"
 #include "averageMimuDataAlgorithm.h"
+#include "msgPayloadDef/IMUSensorBodyMsgF32Payload.h"
 
 #include <cstdint>
 
@@ -24,5 +25,4 @@ class AverageMimuData : public SysModel {
 
     AverageMimuDataAlgorithm algorithm{};
 };
-// NOLINTEND
 #endif

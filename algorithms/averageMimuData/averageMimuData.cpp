@@ -1,4 +1,5 @@
 #include "averageMimuData.h"
+#include "architecture/utilities/eigenSupport.h"
 
 void AverageMimuData::reset(uint64_t const callTime) {
     // check if the required message has not been connected
@@ -17,7 +18,17 @@ void AverageMimuData::updateState(uint64_t const callTime) {
     this->prevInMsgTime = writeTime;
 
     const AccDataMsgF32Payload localPkts = this->accDataInMsg();
-    IMUSensorBodyMsgF32Payload localOutput = this->algorithm.update(localPkts);
+    InputPktsData in{};
+    for (std::size_t i = 0; i < MAX_BUF_PKT; ++i) {
+        const auto& [measTime, gyro_B, accel_B] = localPkts.accPkts[i];
+        in.measTime[i] = measTime;
+        in.gyro_P[i] = Eigen::Vector3f(gyro_B[0], gyro_B[1], gyro_B[2]);
+        in.accel_P[i] = Eigen::Vector3f(accel_B[0], accel_B[1], accel_B[2]);
+    }
+    const auto [accel_B, gyroOmega_B] = this->algorithm.update(in);
+    IMUSensorBodyMsgF32Payload localOutput{};
+    eigenVectorToCArray(gyroOmega_B, localOutput.AngVelBody);
+    eigenVectorToCArray(accel_B, localOutput.AccelBody);
 
     this->imuOutMsg.write(&localOutput, this->moduleID, callTime);
 }
