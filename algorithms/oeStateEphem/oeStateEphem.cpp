@@ -5,6 +5,7 @@
  */
 
 #include "oeStateEphem.h"
+#include "utilities/timeConstants.h"
 #include <architecture/utilities/eigenSupport.h>
 
 /*!
@@ -34,7 +35,7 @@ void OEStateEphem::updateState(const uint64_t callTime) {
 
     auto tmpOutputState = this->algorithm.update(callTime);
 
-    ephmerisMessageOutput.timeTag = callTime * nanoToSeconds;
+    ephmerisMessageOutput.timeTag = callTime * kNano2Sec;
     ephmerisMessageOutput.spiceId = this->spiceBodyId;
     ephmerisMessageOutput.centralBodyId = this->centralBodyId;
     eigenVectorToCArray(tmpOutputState.position, ephmerisMessageOutput.r_BdyZero_N);

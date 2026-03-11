@@ -65,7 +65,7 @@ inline void testOEStateEphemUpdate(double mu,
     // Determine which arc index the current eph time falls into
     // We center arc 0 at time 0, arc 1 at arcSpacing, arc 2 at 2*arcSpacing, etc.
     unsigned int arcToPopulate = static_cast<unsigned int>(
-        std::floor((ephemeris_time - vehicle_time + call_time_ns * nanoToSeconds) / arcSpacing));
+        std::floor((ephemeris_time - vehicle_time + call_time_ns * kNanoToSeconds) / arcSpacing));
 
     // Clamp to valid range [0, kMaxOeRecords-1]
     if (arcToPopulate >= kMaxOeRecords) {
@@ -111,7 +111,7 @@ inline void testOEStateEphemUpdate(double mu,
     // Compute expected state using orbital elements
     ClassicalElementsF32 elements;
     const double r_p_m = r_p_km * 1000.0;
-    if (std::abs(eccentricity - 1.0f) > toleranceF32) {
+    if (std::abs(eccentricity - 1.0f) > kToleranceF32) {
         elements.semiMajorAxis = r_p_m / (1.0 - eccentricity);
     } else {
         elements.semiMajorAxis = 0.0;

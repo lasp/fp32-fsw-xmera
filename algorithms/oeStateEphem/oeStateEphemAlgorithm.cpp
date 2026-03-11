@@ -8,6 +8,7 @@
 
 #include "../freestandingInvalidArgument.h"
 #include "utilities/chebyshevUtilities.h"
+#include "utilities/timeConstants.h"
 #include <algorithm>
 
 /*! This method finds the Chebyshev fit arc that is closest in time to the current ephemeris time.
@@ -19,7 +20,7 @@
 ChebyshevFitArc OEStateEphemAlgorithm::findCurrentArc(const uint64_t spacecraftClockTime) {
     /*! - compute time for fitting interval */
     this->currentEphTime =
-        (static_cast<double>(spacecraftClockTime) * nanoToSeconds) + this->ephemerisTime - this->vehicleTimeOffset;
+        (static_cast<double>(spacecraftClockTime) * kNano2Sec) + this->ephemerisTime - this->vehicleTimeOffset;
     this->currentEphTime = std::max<double>(this->currentEphTime, 0);
     /*! - select the fitting coefficients for the nearest fit interval */
     uint32_t nearestArc = 0;
@@ -65,7 +66,7 @@ ClassicalElementsF32 OEStateEphemAlgorithm::evaluateCoefficients(const double cu
     ClassicalElementsF32 elements{};
     const double radiusPeriapsis =
         calculateChebyValue(arc.radiusPeriapsisCoefficients, arc.numberChebCoefficients, currentScaledValue) *
-        kmToMeters;  // coefficients are in km but module operates in meters
+        kKmToMeters;  // coefficients are in km but module operates in meters
     elements.inclination = calculateChebyValue(
         arc.inclinationCoefficients, arc.numberChebCoefficients, static_cast<float>(currentScaledValue));
     elements.eccentricity = calculateChebyValue(
@@ -90,7 +91,7 @@ ClassicalElementsF32 OEStateEphemAlgorithm::evaluateCoefficients(const double cu
     }
 
     /*! - determine semi-major axis */
-    if (fabs(elements.eccentricity - 1.0) > tolerance) {
+    if (fabs(elements.eccentricity - 1.0) > kTolerance) {
         /* elliptic or hyperbolic case */
         elements.semiMajorAxis = radiusPeriapsis / (1.0 - elements.eccentricity);
     } else {
@@ -106,7 +107,7 @@ ClassicalElementsF32 OEStateEphemAlgorithm::evaluateCoefficients(const double cu
 bool OEStateEphemAlgorithm::allParametersNull() const {
     bool allZero = true;
     for (const auto& arc : this->fitCoefficients) {
-        if (std::abs(arc.radiusPeriapsisCoefficients.at(0)) >= tolerance) {
+        if (std::abs(arc.radiusPeriapsisCoefficients.at(0)) >= kTolerance) {
             allZero = false;
         }
     }

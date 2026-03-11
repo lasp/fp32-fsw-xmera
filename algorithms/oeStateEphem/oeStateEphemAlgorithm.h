@@ -11,10 +11,9 @@
 #include <array>
 #include <cstddef>
 
-inline constexpr double nanoToSeconds = 1e-9;
-inline constexpr double kmToMeters = 1e3;
-inline constexpr double tolerance = 1e-10;
-inline constexpr float toleranceF32 = 1e-6;
+inline constexpr double kKmToMeters = 1e3;
+inline constexpr double kTolerance = 1e-10;
+inline constexpr float kToleranceF32 = 1e-6;
 inline constexpr std::size_t kMaxOeCoeff = 20;
 inline constexpr std::size_t kMaxOeRecords = 10;
 
