@@ -17,7 +17,6 @@ from xmera.utilities import macros as mc
 ])
 
 def test_sun_safe_point(show_plots, case):
-
     unit_task_name = "unitTask"
     unit_process_name = "TestProcess"
 
@@ -38,8 +37,8 @@ def test_sun_safe_point(show_plots, case):
     sun_safe_point.minUnitMag = 0.1
     sun_safe_point.smallAngle = 0.01 * mc.D2R
 
-    sHat_cmd_B = []
-    sun_vec_B = []
+    omega_RN_B_Search = np.array([0.0, 0.0, 0.0])
+    sunAxisSpinRate = 0.0
     if case == 1:  # Sun visible, vectors not aligned
         sHat_cmd_B = np.array([0.0, 0.0, 1.0])
         sun_vec_B = np.array([1.0, 1.0, 0.0])
@@ -49,7 +48,6 @@ def test_sun_safe_point(show_plots, case):
         sun_vec_B = np.array([0.0, sun_safe_point.minUnitMag / 2, 0.0])
 
         omega_RN_B_Search = np.array([0.0, 0.0, 0.1])
-        sun_safe_point.omega_RN_B = omega_RN_B_Search
 
     elif case == 3:  # Sun visible, vectors aligned
         sHat_cmd_B = np.array([0.0, 0.0, 1.0])
@@ -71,10 +69,12 @@ def test_sun_safe_point(show_plots, case):
         sHat_cmd_B = np.array([0.0, 0.0, 1.0])
         sun_vec_B = np.array([1.0, 1.0, 0.0])
 
-        sun_safe_point.sunAxisSpinRate = 1.5*mc.D2R
-        omega_RN_B_Search = sun_vec_B/np.linalg.norm(sun_vec_B) * sun_safe_point.sunAxisSpinRate
+        sunAxisSpinRate = 1.5*mc.D2R
+        omega_RN_B_Search = sun_vec_B/np.linalg.norm(sun_vec_B) * sunAxisSpinRate
 
     sun_safe_point.sHatBdyCmd = sHat_cmd_B
+    sun_safe_point.omega_RN_B = omega_RN_B_Search
+    sun_safe_point.sunAxisSpinRate = sunAxisSpinRate
 
     # Create sunSafePoint sun direction input messages
     input_sun_vec_data = messaging.NavAttMsgF32Payload()
@@ -206,6 +206,12 @@ def test_sun_safe_point(show_plots, case):
                                rtol=tolerance,
                                atol=tolerance,
                                verbose=True)
+
+    np.testing.assert_allclose(sun_safe_point.minUnitMag, 0.1, rtol=tolerance, atol=tolerance)
+    np.testing.assert_allclose(sun_safe_point.smallAngle, 0.01 * mc.D2R, rtol=tolerance, atol=tolerance)
+    np.testing.assert_allclose(sun_safe_point.sunAxisSpinRate, sunAxisSpinRate, rtol=tolerance, atol=tolerance)
+    np.testing.assert_allclose(np.array(sun_safe_point.omega_RN_B).flatten(), omega_RN_B_Search, rtol=tolerance, atol=tolerance)
+    np.testing.assert_allclose(np.array(sun_safe_point.sHatBdyCmd).flatten(), sHat_cmd_B, rtol=tolerance, atol=tolerance)
 
 if __name__ == "__main__":
     test_sun_safe_point(False, 1)
