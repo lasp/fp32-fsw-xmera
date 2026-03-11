@@ -17,7 +17,10 @@ def test_average_mimu_data():
 
     # Create test thread
     fsw_frequency = 10  # Set fsw frequency to 10 Hz
-    mimu_frequency = 100  # Set mimu sensor frequency to 10 Hz
+    mimu_frequency = 100  # Set mimu sensor frequency to 100 Hz
+    num_fsw_steps = 12
+    samples_per_fsw = int(mimu_frequency / fsw_frequency)
+    max_acc_buf_pkt = 120  # matches MAX_ACC_BUF_PKT in C++
     delta_time_sim = 1 / fsw_frequency  # The averageMimuData module will run at the fsw frequency
     test_process_rate = macros.sec2nano(delta_time_sim)  # update process rate update time
     test_proc = unit_test_sim.CreateNewProcess(unit_process_name)
@@ -28,9 +31,9 @@ def test_average_mimu_data():
     module.modelTag = "averageMimuData"
 
     # Define parameters
-    dcm_pltf_to_body = RigidBodyKinematics.euler3212C([0.01, -0.04, 0.06])
+    dcm_pltf_to_body = RigidBodyKinematics.euler3212C([0.01, -0.04, 0.06]).astype(np.float32)
     module.setDcmPltfToBdy(dcm_pltf_to_body)
-    duration_window = 1.0e10
+    duration_window = 1.0e10 # make the time window so huge that average is taken over all packets
     module.setAveragingWindow(duration_window)
 
     # Initialize message for message connection
@@ -55,24 +58,24 @@ def test_average_mimu_data():
     meas_time = 0
     sim_time = 0
     counter = 0
-    gyro_sum = np.zeros(3)
-    accel_sum = np.zeros(3)
-    average_imu_output = np.zeros([12, 3])
-    average_acc_output = np.zeros([12, 3])
-    for index in range(12):
-        for _ in range(int(mimu_frequency / fsw_frequency)):
+    gyro_sum = np.zeros(3, dtype=np.float32)
+    accel_sum = np.zeros(3,dtype=np.float32)
+    average_imu_output = np.zeros([num_fsw_steps, 3], dtype=np.float32)
+    average_acc_output = np.zeros([num_fsw_steps, 3], dtype=np.float32)
+    for index in range(num_fsw_steps):
+        for _ in range(samples_per_fsw):
             meas_time += delta_time
             acc_data.accPkts[counter].measTime = macros.sec2nano(meas_time)
-            random_array = np.random.normal(loc=2, scale=1, size=3)
+            random_array = np.random.normal(loc=2, scale=1, size=3).astype(np.float32)
             gyro_sum += random_array
             acc_data.accPkts[counter].gyro_B = random_array.tolist()
-            random_array = np.random.normal(loc=2, scale=1, size=3)
+            random_array = np.random.normal(loc=2, scale=1, size=3).astype(np.float32)
             accel_sum += random_array
             acc_data.accPkts[counter].accel_B = random_array.tolist()
             counter += 1
-        gyro_average = gyro_sum / 120
+        gyro_average = gyro_sum / max_acc_buf_pkt
         gyro_average = np.dot(dcm_pltf_to_body, gyro_average)
-        accel_average = accel_sum / 120
+        accel_average = accel_sum / max_acc_buf_pkt
         accel_average = np.dot(dcm_pltf_to_body, accel_average)
         average_imu_output[index, :] = gyro_average
         average_acc_output[index, :] = accel_average
