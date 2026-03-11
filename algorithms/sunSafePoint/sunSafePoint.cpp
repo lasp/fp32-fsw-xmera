@@ -33,8 +33,17 @@ void SunSafePoint::updateState(uint64_t callTime) {
         sunDirectionMsgPayload = this->sunDirectionInMsg();
     }
 
+    Eigen::Vector3f const vehSunPntBdy = cArrayToEigenVector(sunDirectionMsgPayload.vehSunPntBdy);
+    Eigen::Vector3f const omega_BN_B = cArrayToEigenVector(imuMsgPayload.omega_BN_B);
+
     // Call the algorithm update method
-    AttGuidMsgF32Payload attGuidanceOutBuffer = this->algorithm.update(callTime, imuMsgPayload, sunDirectionMsgPayload);
+    SunSafePointOutput output = this->algorithm.update(vehSunPntBdy, omega_BN_B);
+
+    // Convert algorithm output to MsgPayload
+    AttGuidMsgF32Payload attGuidanceOutBuffer{};
+    eigenVectorToCArray(output.sigma_BR, attGuidanceOutBuffer.sigma_BR);
+    eigenVectorToCArray(output.omega_BR_B, attGuidanceOutBuffer.omega_BR_B);
+    eigenVectorToCArray(output.omega_RN_B, attGuidanceOutBuffer.omega_RN_B);
 
     this->attGuidanceOutMsg.write(&attGuidanceOutBuffer, moduleID, callTime);
 }

@@ -7,7 +7,7 @@
 #include "msgPayloadDef/NavAttMsgF32Payload.h"
 #include "sunSafePointAlgorithm.h"
 #include <stdint.h>
-#include <Eigen/Dense>
+#include <Eigen/Core>
 
 /*! @brief Sun safe point attitude guidance class. */
 class SunSafePoint : public SysModel {
