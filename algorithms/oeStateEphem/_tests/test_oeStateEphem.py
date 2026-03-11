@@ -26,14 +26,14 @@ orbit_position_epsilon = 1.0
 orbit_velocity_epsilon = 0.01
 colors = ['r','g','b']
 
-@pytest.mark.parametrize('valid_curve, anomay_flag', [
+@pytest.mark.parametrize('valid_curve, anomaly_flag', [
     (True, oeStateEphemF32.AnomalyType_TRUE_ANOMALY),
     (True, oeStateEphemF32.AnomalyType_MEAN_ANOMALY),
     (False, oeStateEphemF32.AnomalyType_TRUE_ANOMALY)
 ])
-def test_cheby_fit(show_plots, valid_curve, anomay_flag):
+def test_cheby_fit(show_plots, valid_curve, anomaly_flag):
     """Module Unit Test"""
-    cheby_fit(show_plots, valid_curve, anomay_flag)
+    cheby_fit(show_plots, valid_curve, anomaly_flag)
 
 def test_zero_inputs(show_plots):
     """Module Unit Test"""
@@ -86,7 +86,7 @@ def test_zero_inputs(show_plots):
     np.testing.assert_allclose(ephemeris_positions, 0, atol=accuracy, rtol=0, err_msg="position values should have been zero")
     np.testing.assert_allclose(ephemeris_velocities, 0, atol=accuracy, rtol=0, err_msg="velocity values should have been zero")
 
-def cheby_fit(show_plots, valid_curve, anomay_flag):
+def cheby_fit(show_plots, valid_curve, anomaly_flag):
     number_curve_points = 4*8640+1
     curve_duration_sec = 4*86400
     log_rate = curve_duration_sec // (number_curve_points - 1)
@@ -132,7 +132,7 @@ def cheby_fit(show_plots, valid_curve, anomay_flag):
         inclination.append(orbital_elements.i)
         raan.append(orbital_elements.Omega)
         omega.append(orbital_elements.omega)
-        if anomay_flag == oeStateEphemF32.AnomalyType_MEAN_ANOMALY:
+        if anomaly_flag == oeStateEphemF32.AnomalyType_MEAN_ANOMALY:
             current_anomaly = orbitalMotion.E2M(orbitalMotion.f2E(orbital_elements.f, orbital_elements.e), orbital_elements.e)
         else:
             current_anomaly = orbital_elements.f
@@ -178,8 +178,8 @@ def cheby_fit(show_plots, valid_curve, anomay_flag):
     oe_ephemeris_module.setArcMiddleTime(0, start_time_et + curve_duration_sec/2.0)
     oe_ephemeris_module.setArcRadiusTime(0, curve_duration_sec/2.0)
 
-    if anomay_flag is not None:
-        oe_ephemeris_module.setArcAnomalyFlag(0, anomay_flag)
+    if anomaly_flag is not None:
+        oe_ephemeris_module.setArcAnomalyFlag(0, anomaly_flag)
 
     clock_correlation_data = messaging.TDBVehicleClockCorrelationMsgF32Payload()
     clock_correlation_data.vehicleClockTime = 0.0
@@ -314,4 +314,4 @@ def cheby_fit(show_plots, valid_curve, anomay_flag):
 if __name__ == "__main__":
     cheby_fit(True,        # showPlots
                        True,        # valid_curve
-                       oeStateEphemF32.AnomalyType_MEAN_ANOMALY)  # anomay_flag
+                       oeStateEphemF32.AnomalyType_MEAN_ANOMALY)  # anomaly_flag
