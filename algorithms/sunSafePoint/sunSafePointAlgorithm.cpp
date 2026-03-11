@@ -36,8 +36,6 @@ SunSafePointOutput SunSafePointAlgorithm::update(const Eigen::Vector3f& vehSunPn
     if (sHatNorm > this->minUnitMag) {
         // Compute the current sun angle error
         float dotProductNormalized = this->sHatBdyCmd.dot(vehSunPntBdy) / sHatNorm;
-        dotProductNormalized = std::abs(dotProductNormalized) > 1.0f ? dotProductNormalized / std::abs(dotProductNormalized)
-                                                                     : dotProductNormalized;
         float sunAngleErr = safeAcosf(dotProductNormalized);
 
         Eigen::Vector3f sigma_BR;
