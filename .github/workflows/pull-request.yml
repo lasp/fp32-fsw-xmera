@@ -336,7 +336,7 @@ jobs:
 
       - name: Upload coverage artifacts (Linux only)
         if: ${{ runner.os == 'Linux' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: external-modules-coverage
           path: |
@@ -348,7 +348,7 @@ jobs:
 
       - name: Upload pytest test results
         if: ${{ always() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: pytest-${{ matrix.os }}
           path: junit/test-results-${{ matrix.os }}.xml
@@ -356,7 +356,7 @@ jobs:
 
       - name: Upload CTest results
         if: ${{ always() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ctest-${{ matrix.os }}
           path: junit/ctest-${{ matrix.os }}.xml
