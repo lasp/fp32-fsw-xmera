@@ -3,7 +3,8 @@
 #include "architecture/utilities/rigidBodyKinematics.hpp"
 #include "utilities/freestandingInvalidArgument.h"
 #include "../utilities/safeMath.h"
-#include <cmath>
+#include <math.h>
+#include <numbers>
 
 /*! Reset method for the sunSafePoint guidance algorithm.
  @return void
@@ -26,41 +27,36 @@ void SunSafePointAlgorithm::reset() {
  @param omega_BN_B Body angular velocity vector
 */
 SunSafePointOutput SunSafePointAlgorithm::update(const Eigen::Vector3f& vehSunPntBdy,
-                                                  const Eigen::Vector3f& omega_BN_B) {
+                                                  const Eigen::Vector3f& omega_BN_B) const {
     SunSafePointOutput output{};
 
-    // Determine norm of measured Sun-direction vector
-    const float sHatNorm = vehSunPntBdy.norm();
-
     // Computing the attitude guidance states sigma_BR and omega_RN_B if valid sun direction is available
-    if (sHatNorm > this->minUnitMag) {
+    if (vehSunPntBdy.norm() > this->minUnitMag) {
         // Compute the current sun angle error
-        float dotProductNormalized = this->sHatBdyCmd.dot(vehSunPntBdy) / sHatNorm;
-        float sunAngleErr = safeAcosf(dotProductNormalized);
-
-        Eigen::Vector3f sigma_BR;
+        float const sunAngleErr = safeAcosf(this->sHatBdyCmd.dot(vehSunPntBdy) / vehSunPntBdy.norm());
 
         // Compute the heading error relative to the sun direction vector
+        Eigen::Vector3f sigma_BR{};
         // Sun heading and desired body axis are essentially aligned. Set attitude error to zero.
         if (sunAngleErr < this->smallAngle) {
             sigma_BR = Eigen::Vector3f::Zero();
         } else {
-            Eigen::Vector3f e_hat;  // Eigen Axis
+            Eigen::Vector3f e_hat{};  // Eigen Axis
             // The commanded body vector nearly is opposite the sun heading
-            if (static_cast<float>(M_PI) - sunAngleErr < this->smallAngle) {
+            if (static_cast<float>(std::numbers::pi) - sunAngleErr < this->smallAngle) {
                 e_hat = this->eHat180_B;
-                // Normal case where sun and commanded body vectors are not aligned
+            // Normal case where sun and commanded body vectors are not aligned
             } else {
                 e_hat = vehSunPntBdy.cross(this->sHatBdyCmd);
             }
-            Eigen::Vector3f sunMnvrVec = e_hat / e_hat.norm();
+            Eigen::Vector3f const sunMnvrVec = e_hat / e_hat.norm();
             sigma_BR = std::tan(sunAngleErr * 0.25F) * sunMnvrVec;
             sigma_BR = mrpSwitch(sigma_BR, 1.0F);
         }
 
         output.sigma_BR = sigma_BR;
         // Rate tracking error is the body rate to bring spacecraft to rest
-        output.omega_RN_B = this->sunAxisSpinRate / sHatNorm * vehSunPntBdy;
+        output.omega_RN_B = this->sunAxisSpinRate / vehSunPntBdy.norm() * vehSunPntBdy;
     } else {
         output.sigma_BR = Eigen::Vector3f::Zero();
         output.omega_RN_B = this->omega_RN_B;
