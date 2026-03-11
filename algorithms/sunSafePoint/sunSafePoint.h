@@ -41,7 +41,7 @@ class SunSafePoint : public SysModel {
     BSKLogger* bskLogger;  //!< BSK Logging
 
    private:
-    SunSafePointAlgorithm algorithm;  //!< Algorithm for sunSafePoint guidance logic (BSK-agnostic)
+    SunSafePointAlgorithm algorithm{};  //!< Algorithm for sunSafePoint guidance logic (BSK-agnostic)
 };
 
 #endif
