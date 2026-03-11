@@ -37,14 +37,15 @@ class StepperMotorControllerAlgorithm {
     float getStepTime() const;
 
    private:
-    float thetaInit{};                    //!< [rad] Initial motor angle
-    float theta{};                        //!< [rad] Current motor angle
-    float thetaRef{};                     //!< [rad] Motor reference angle
-    float stepAngle{1.0 * std::numbers::pi / 180.0};  //!< [rad] Step angle the motor rotates through for a single step (constant)
-    float thetaMax{2.0 * std::numbers::pi};           //!< [rad] Motor upper hard stop actuation limit
-    float thetaMin{-2.0 * std::numbers::pi};          //!< [rad] Motor lower hard stop actuation limit
-    int stepsCommanded{};                 //!< [steps] Number of steps needed to reach the desired angle (output)
-    int stepCount{};                      //!< [steps] Current motor step count (number of steps taken)
+    float thetaInit{};  //!< [rad] Initial motor angle
+    float theta{};      //!< [rad] Current motor angle
+    float thetaRef{};   //!< [rad] Motor reference angle
+    float stepAngle{1.0 * std::numbers::pi /
+                    180.0};  //!< [rad] Step angle the motor rotates through for a single step (constant)
+    float thetaMax{2.0 * std::numbers::pi};   //!< [rad] Motor upper hard stop actuation limit
+    float thetaMin{-2.0 * std::numbers::pi};  //!< [rad] Motor lower hard stop actuation limit
+    int stepsCommanded{};                     //!< [steps] Number of steps needed to reach the desired angle (output)
+    int stepCount{};                          //!< [steps] Current motor step count (number of steps taken)
     float stepTime{1.0};              //!< [s] Time required for the motor to actuate through a single step (constant)
     float previousWrittenTime{-1.0};  //!< [ns] Time the last motor reference input message was written
 };

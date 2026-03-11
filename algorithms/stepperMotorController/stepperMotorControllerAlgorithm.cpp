@@ -63,8 +63,7 @@ StepperMotorControllerOutput StepperMotorControllerAlgorithm::update(
             // Calculate the integer number of steps the motor must take to reach the reference angle
             // The exact value is first stored as a float and rounded to the nearest integer step
             const float tempStepsCommanded = deltaTheta / this->stepAngle;
-            if ((ceilf(tempStepsCommanded) - tempStepsCommanded) >
-                (tempStepsCommanded - floorf(tempStepsCommanded))) {
+            if ((ceilf(tempStepsCommanded) - tempStepsCommanded) > (tempStepsCommanded - floorf(tempStepsCommanded))) {
                 this->stepsCommanded = floorf(tempStepsCommanded);
             } else {
                 this->stepsCommanded = ceilf(tempStepsCommanded);

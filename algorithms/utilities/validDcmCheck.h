@@ -1,8 +1,8 @@
 #ifndef FP32_XMERA_FSW_ALGORITHMS_VALID_DCM_H
 #define FP32_XMERA_FSW_ALGORITHMS_VALID_DCM_H
 
-#include <Eigen/Core>
 #include <math.h>
+#include <Eigen/Core>
 
 inline constexpr float kToleranceF = 1.0e-5F;
 
