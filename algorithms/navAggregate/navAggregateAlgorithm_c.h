@@ -1,10 +1,15 @@
+/* MIT License
+ *
+ Copyright (c) 2025, Laboratory for Atmospheric and Space Physics,
+ University of Colorado at Boulder
+ */
+
 #ifndef F32XIMERA_NAVAGGREGATEALGORITHM_C_H
 #define F32XIMERA_NAVAGGREGATEALGORITHM_C_H
 
-#include "navAggregateOutput.h"
+#include "msgPayloadDef/NavAttMsgF32Payload.h"
+#include "msgPayloadDef/NavTransMsgF32Payload.h"
 #include <stdint.h>
-
-#define MAX_AGG_NAV_MSG 10
 
 #ifdef __cplusplus
 extern "C" {
@@ -14,6 +19,15 @@ extern "C" {
  * @brief Opaque handle to the C++ NavAggregateAlgorithm instance.
  */
 typedef struct NavAggregateAlgorithm NavAggregateAlgorithm;
+
+/**
+ * @brief C-compatible aggregate output containing attitude and translational
+ *        navigation results.
+ */
+typedef struct {
+    NavAttMsgF32Payload navAttOut;     /*!< attitude navigation output */
+    NavTransMsgF32Payload navTransOut; /*!< translation navigation output */
+} AggregateOutput_c;
 
 /**
  * @brief Get the maximum aggregate navigation message count.
@@ -35,14 +49,14 @@ void NavAggregateAlgorithm_destroy(NavAggregateAlgorithm* self);
 
 /**
  * @brief Run the update step.
- * @param self       Pointer to the instance.
- * @param attInputs  Pointer to array of attitude navigation inputs.
- * @param transInputs Pointer to array of translational navigation inputs.
- * @return AggregateOutput The computed output.
+ * @param self               Pointer to the instance.
+ * @param attMsgsPayloads    Pointer to array of attitude navigation message payloads.
+ * @param transMsgsPayloads  Pointer to array of translational navigation message payloads.
+ * @return AggregateOutput_c The computed output messages.
  */
-AggregateOutput NavAggregateAlgorithm_update(NavAggregateAlgorithm* self,
-                                             const InputNavAttData* attInputs,
-                                             const InputNavTransData* transInputs);
+AggregateOutput_c NavAggregateAlgorithm_update(NavAggregateAlgorithm* self,
+                                               const NavAttMsgF32Payload* attMsgsPayloads,
+                                               const NavTransMsgF32Payload* transMsgsPayloads);
 
 /**
  * @brief Set the attitude time index.
