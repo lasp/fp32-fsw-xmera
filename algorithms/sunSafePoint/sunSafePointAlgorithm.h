@@ -26,10 +26,6 @@ class SunSafePointAlgorithm {
     void setSHatBdyCmd(Eigen::Vector3f& sHatBdyCmd);
 
    private:
-    Eigen::Vector3f computeAttGuidanceStates(const Eigen::Vector3f& vehSunPntBdy, float sHatNorm);
-    Eigen::Vector3f computeHubAngularRateError(const Eigen::Vector3f& omega_BN_B);
-    bool sunDirectionIsAvailable(float sHatNorm) const;
-
     float minUnitMag{0.1f};        //!< The minimally acceptable norm of sun body vector (Must be positive)
     float smallAngle{};           //!< [rad] An angle value that specifies what is near 0 or 180 degrees (Must be >= 0)
     float sunAxisSpinRate{};      //!< [rad/s] Desired constant spin rate about sun heading vector
