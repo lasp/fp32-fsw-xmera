@@ -35,8 +35,8 @@ def test_sunSafePoint(show_plots, case):
     unitTestSim.AddModelToTask(unitTaskName, sun_safe_point)
 
     # Initialize sunSafePoint module configuration data
-    sun_safe_point.setMinUnitMag(0.1)
-    sun_safe_point.setSmallAngle(0.01 * mc.D2R)
+    sun_safe_point.minUnitMag = 0.1
+    sun_safe_point.smallAngle = 0.01 * mc.D2R
 
     sHat_Cmd_B = []
     sunVec_B = []
@@ -46,10 +46,10 @@ def test_sunSafePoint(show_plots, case):
 
     elif case == 2:  # Sun not visible, search rate specified
         sHat_Cmd_B = np.array([0.0, 0.0, 1.0])
-        sunVec_B = np.array([0.0, sun_safe_point.getMinUnitMag() / 2, 0.0])
+        sunVec_B = np.array([0.0, sun_safe_point.minUnitMag / 2, 0.0])
 
         omega_RN_B_Search = np.array([0.0, 0.0, 0.1])
-        sun_safe_point.setOmega_RN_B(omega_RN_B_Search)
+        sun_safe_point.omega_RN_B = omega_RN_B_Search
 
     elif case == 3:  # Sun visible, vectors aligned
         sHat_Cmd_B = np.array([0.0, 0.0, 1.0])
@@ -65,16 +65,16 @@ def test_sunSafePoint(show_plots, case):
 
     elif case == 6:  # Sun not visible, no search rate specified
         sHat_Cmd_B = np.array([0.0, 0.0, 1.0])
-        sunVec_B = np.array([0.0, sun_safe_point.getMinUnitMag() / 2, 0.0])
+        sunVec_B = np.array([0.0, sun_safe_point.minUnitMag / 2, 0.0])
 
     else:  # Sun visible, spin rate about sun heading vector specified
         sHat_Cmd_B = np.array([0.0, 0.0, 1.0])
         sunVec_B = np.array([1.0, 1.0, 0.0])
 
-        sun_safe_point.setSunAxisSpinRate(1.5*mc.D2R)
-        omega_RN_B_Search = sunVec_B/np.linalg.norm(sunVec_B) * sun_safe_point.getSunAxisSpinRate()
+        sun_safe_point.sunAxisSpinRate = 1.5*mc.D2R
+        omega_RN_B_Search = sunVec_B/np.linalg.norm(sunVec_B) * sun_safe_point.sunAxisSpinRate
 
-    sun_safe_point.setSHatBdyCmd(sHat_Cmd_B)
+    sun_safe_point.sHatBdyCmd = sHat_Cmd_B
 
     # Create sunSafePoint sun direction input messages
     inputSunVecData = messaging.NavAttMsgF32Payload()
