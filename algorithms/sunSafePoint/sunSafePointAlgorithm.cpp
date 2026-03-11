@@ -118,8 +118,8 @@ void SunSafePointAlgorithm::setMinUnitMag(const float magnitude) {
  @param angle [rad] An angle value that specifies what is near 0 or 180 degrees (Must be positive)
 */
 void SunSafePointAlgorithm::setSmallAngle(const float angle) {
-    if (angle < 0.0f) {
-        FSW_THROW_INVALID_ARGUMENT("sunSafePoint: smallAngle must not be negative");
+    if (angle <= 0.0f) {
+        FSW_THROW_INVALID_ARGUMENT("sunSafePoint: smallAngle must be positive");
     }
     this->smallAngle = angle;
 }
