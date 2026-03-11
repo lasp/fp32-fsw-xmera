@@ -1,16 +1,18 @@
+#include "../validDcmCheck.h"
 #include "../validInertiaCheck.h"
+
 #include <gtest/gtest.h>
 #include <Eigen/Core>
 
 /* Function to generate a cross product operator from a vector */
-inline Eigen::Matrix3f tildeMatrix(const Eigen::Vector3f &vector) {
+inline Eigen::Matrix3f tildeMatrix(const Eigen::Vector3f& vector) {
     Eigen::Matrix3f tilde;
     tilde << 0.0F, -vector(2), vector(1), vector(2), 0.0F, -vector(0), -vector(1), vector(0), 0.0F;
     return tilde;
 }
 
 /* Function to generate a dcm from an mrp */
-inline Eigen::Matrix3f mrpToDcm(const Eigen::Vector3f &mrp) {
+inline Eigen::Matrix3f mrpToDcm(const Eigen::Vector3f& mrp) {
     const Eigen::Matrix3f t = tildeMatrix(mrp);
     const float denom = (1.0 + mrp.dot(mrp));
     const Eigen::Matrix3f dcm = (8.0 * t * t - 4.0 * (1.0 - mrp.dot(mrp)) * t) / (denom * denom);
@@ -53,4 +55,21 @@ inline void testInertiaValidity(float eigen1, float eigen2, float sigma1, float 
     const Eigen::Matrix3f inertia = GenerateValidInertiaMatrix(eigen1, eigen2, sigma1, sigma2, sigma3);
 
     EXPECT_TRUE(inertiaIsValid(inertia));
+}
+
+/* Function to generate a general inertia matrix */
+inline Eigen::Matrix3f generateValidDCM(float const sigma1, float const sigma2, float const sigma3) {
+    Eigen::Vector3f mrp(sigma1, sigma2, sigma3);
+    if (mrp.squaredNorm() > 1) {
+        mrp = -mrp / mrp.squaredNorm();
+    }
+    Eigen::Matrix3f dcm = mrpToDcm(mrp);
+
+    return dcm;
+}
+
+inline void testDcmValidity(float const sigma1, float const sigma2, float const sigma3) {
+    const Eigen::Matrix3f dcm = generateValidDCM(sigma1, sigma2, sigma3);
+
+    EXPECT_TRUE(isValidDcm(dcm));
 }

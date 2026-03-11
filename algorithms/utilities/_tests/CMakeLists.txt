@@ -1,3 +1,15 @@
+add_executable(test_validDcm
+               test_validDcm.cpp
+  utilitiesHelpers.hpp
+)
+
+target_link_libraries(test_validDcm PRIVATE
+    Eigen3::Eigen
+    GTest::gtest_main
+  )
+
+gtest_discover_tests(test_validDcm)
+
 add_executable(test_validateInertia
   test_validateInertia.cpp
   utilitiesHelpers.hpp
@@ -25,6 +37,21 @@ gtest_discover_tests(test_chebyshevUtilities)
 
 if(XMERA_ENABLE_FUZZTESTS)
   fuzztest_setup_fuzzing_flags()
+
+  add_executable(test_validDcm_fuzz
+                 test_validDcm_fuzz.cpp
+  )
+
+  target_link_libraries(test_validDcm_fuzz PRIVATE
+    Eigen3::Eigen
+    fuzztest::fuzztest
+    fuzztest::fuzztest_gtest_main
+  )
+
+  gtest_discover_tests(test_validDcm_fuzz
+    PROPERTIES
+      LABELS "fuzz\;fuzz-smoke"
+  )
 
   add_executable(test_validateInertia_fuzz
     utilitiesHelpers.hpp
