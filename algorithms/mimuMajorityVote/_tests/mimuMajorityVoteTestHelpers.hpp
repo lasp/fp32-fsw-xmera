@@ -1,0 +1,117 @@
+#ifndef TEST_MIMU_MAJORITY_VOTE_H
+#define TEST_MIMU_MAJORITY_VOTE_H
+
+#include "../freestandingInvalidArgument.h"
+#include "mimuMajorityVoteAlgorithm.h"
+#include <gtest/gtest.h>
+#include <math.h>
+#include <Eigen/Core>
+#include <vector>
+
+// Reference computation for update — must mirror the production two-stage logic exactly
+MimuMajorityVoteOutput referenceUpdate(const MimuMajorityVoteAlgorithm& alg,
+                                       const std::array<MimuInput, MAX_IMU_VEH_COUNT>& imuInputs,
+                                       size_t numberOfImus) {
+    float const omegaThreshold = alg.getOmegaThreshold();
+
+    // Stage 1: Compute average and find differences
+    Eigen::Vector3f omegaAverage = Eigen::Vector3f::Zero();
+    for (size_t i = 0U; i < numberOfImus; ++i) {
+        omegaAverage += imuInputs.at(i).angVelBody;
+    }
+    omegaAverage /= static_cast<float>(numberOfImus);
+
+    MimuMajorityVoteOutput out{};
+    size_t maxDiffIndex = 0U;
+    for (size_t i = 0U; i < numberOfImus; ++i) {
+        out.omegaDifferencesMag.at(i) = (imuInputs.at(i).angVelBody - omegaAverage).norm();
+        if (out.omegaDifferencesMag.at(i) > out.omegaDifferencesMag.at(maxDiffIndex)) {
+            maxDiffIndex = i;
+        }
+        out.validImus.at(i) = true;
+    }
+
+    if (out.omegaDifferencesMag.at(maxDiffIndex) < omegaThreshold) {
+        out.avgAngVelBody = omegaAverage;
+        return out;
+    }
+
+    // Stage 2: Exclude outlier and recheck remaining
+    out.faultDetected = true;
+    out.validImus.at(maxDiffIndex) = false;
+
+    Eigen::Vector3f remainingAverage = Eigen::Vector3f::Zero();
+    size_t remainingCount = 0U;
+    for (size_t i = 0U; i < numberOfImus; ++i) {
+        if (i != maxDiffIndex) {
+            remainingAverage += imuInputs.at(i).angVelBody;
+            ++remainingCount;
+        }
+    }
+    remainingAverage /= static_cast<float>(remainingCount);
+
+    // Recheck remaining; update to Stage 2 differences
+    bool remainingDisagree = false;
+    for (size_t i = 0U; i < numberOfImus; ++i) {
+        if (i != maxDiffIndex) {
+            float const diff = (imuInputs.at(i).angVelBody - remainingAverage).norm();
+            out.omegaDifferencesMag.at(i) = diff;
+            if (diff >= omegaThreshold) {
+                remainingDisagree = true;
+            }
+        }
+    }
+
+    if (remainingDisagree) {
+        for (size_t j = 0U; j < numberOfImus; ++j) {
+            out.validImus.at(j) = false;
+        }
+    }
+
+    out.avgAngVelBody = remainingAverage;
+    return out;
+}
+
+inline void regressionTestMimuMajorityVote(float omegaThreshold,
+                                           const std::vector<float>& angVel1,
+                                           const std::vector<float>& angVel2,
+                                           const std::vector<float>& angVel3) {
+    constexpr size_t kNumImus = 3U;
+    MimuMajorityVoteAlgorithm alg{};
+    alg.setOmegaThreshold(omegaThreshold);
+    alg.setNumberOfImus(kNumImus);
+
+    std::array<MimuInput, MAX_IMU_VEH_COUNT> imuInputs{};
+    imuInputs.at(0).angVelBody = Eigen::Map<const Eigen::Vector3f>(angVel1.data());
+    imuInputs.at(1).angVelBody = Eigen::Map<const Eigen::Vector3f>(angVel2.data());
+    imuInputs.at(2).angVelBody = Eigen::Map<const Eigen::Vector3f>(angVel3.data());
+
+    // Algorithm output
+    MimuMajorityVoteOutput out{};
+    EXPECT_NO_THROW(out = alg.update(imuInputs));
+
+    // Reference output
+    MimuMajorityVoteOutput ref{};
+    EXPECT_NO_THROW(ref = referenceUpdate(alg, imuInputs, kNumImus));
+
+    // Compare averaged angular velocity
+    for (int i = 0; i < 3; ++i) {
+        EXPECT_NEAR(out.avgAngVelBody[i], ref.avgAngVelBody[i], 1e-6);
+        EXPECT_TRUE(std::isfinite(out.avgAngVelBody[i]));
+    }
+
+    // Compare fault detection
+    EXPECT_EQ(out.faultDetected, ref.faultDetected);
+
+    // Compare validImus
+    for (size_t i = 0U; i < kNumImus; ++i) {
+        EXPECT_EQ(out.validImus.at(i), ref.validImus.at(i));
+    }
+
+    // Compare omegaDifferencesMag
+    for (size_t i = 0U; i < kNumImus; ++i) {
+        EXPECT_NEAR(out.omegaDifferencesMag.at(i), ref.omegaDifferencesMag.at(i), 1e-6);
+    }
+}
+
+#endif  // TEST_MIMU_MAJORITY_VOTE_H

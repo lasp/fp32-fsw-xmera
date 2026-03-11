@@ -4,45 +4,69 @@
 #include "freestandingInvalidArgument.h"
 
 MimuMajorityVoteOutput MimuMajorityVoteAlgorithm::update(
-    std::array<IMUSensorBodyMsgF32Payload, MAX_IMU_VEH_COUNT> imuPayloads,
-    size_t const numberOfImus) {
-    // Zero the angular velocity to calculate the average
-    Eigen::Vector3f omegaAverage_BN_B{Eigen::Vector3f::Zero()};
-    for (size_t index = 0U; index < numberOfImus; ++index) {
-        omegaAverage_BN_B += Eigen::Map<const Eigen::Vector3f>(imuPayloads.at(index).AngVelBody);
+    const std::array<MimuInput, MAX_IMU_VEH_COUNT>& imuInputs) const {
+    if (this->numberOfImus < 3U) {
+        FS_THROW_INVALID_ARGUMENT("numberOfImus is not configured; call setNumberOfImus() with a value >= 3");
     }
-    omegaAverage_BN_B /= static_cast<float>(numberOfImus);
 
-    this->faultDetected = false;
-    // Find the difference and difference magnitude for each mimu with respect to the average
-    size_t maxOmegaDifferenceIndex = 0U;
-    for (size_t index = 0U; index < numberOfImus; ++index) {
-        Eigen::Vector3f const omegaDifference =
-            Eigen::Map<const Eigen::Vector3f>(imuPayloads.at(index).AngVelBody) - omegaAverage_BN_B;
-        this->omegaDifferencesMag.at(index) = omegaDifference.norm();
-        if (this->omegaDifferencesMag.at(index) >= this->omegaThreshold) {
-            this->faultDetected = true;
+    // Stage 1: Compute average of all IMUs and find differences from average
+    Eigen::Vector3f omegaAverage_BN_B = Eigen::Vector3f::Zero();
+    for (size_t i = 0U; i < this->numberOfImus; ++i) {
+        omegaAverage_BN_B += imuInputs.at(i).angVelBody;
+    }
+    omegaAverage_BN_B /= static_cast<float>(this->numberOfImus);
+
+    MimuMajorityVoteOutput output{};
+    size_t maxDiffIndex = 0U;
+    for (size_t i = 0U; i < this->numberOfImus; ++i) {
+        output.omegaDifferencesMag.at(i) = (imuInputs.at(i).angVelBody - omegaAverage_BN_B).norm();
+        if (output.omegaDifferencesMag.at(i) > output.omegaDifferencesMag.at(maxDiffIndex)) {
+            maxDiffIndex = i;
         }
-        if (this->omegaDifferencesMag.at(index) > this->omegaDifferencesMag.at(maxOmegaDifferenceIndex)) {
-            maxOmegaDifferenceIndex = index;
+        output.validImus.at(i) = true;
+    }
+
+    if (output.omegaDifferencesMag.at(maxDiffIndex) < this->omegaThreshold) {
+        // No fault - all IMUs agree within threshold
+        output.avgAngVelBody = omegaAverage_BN_B;
+        return output;
+    }
+
+    // Stage 2: Outlier detected - exclude it and recheck remaining IMUs
+    output.faultDetected = true;
+    output.validImus.at(maxDiffIndex) = false;
+
+    Eigen::Vector3f remainingAverage_BN_B = Eigen::Vector3f::Zero();
+    size_t remainingCount = 0U;
+    for (size_t i = 0U; i < this->numberOfImus; ++i) {
+        if (i != maxDiffIndex) {
+            remainingAverage_BN_B += imuInputs.at(i).angVelBody;
+            ++remainingCount;
+        }
+    }
+    remainingAverage_BN_B /= static_cast<float>(remainingCount);
+
+    // Recheck each remaining IMU against the remaining-IMU average; update their Stage 2 differences
+    bool remainingDisagree = false;
+    for (size_t i = 0U; i < this->numberOfImus; ++i) {
+        if (i != maxDiffIndex) {
+            float const remainingDiff = (imuInputs.at(i).angVelBody - remainingAverage_BN_B).norm();
+            output.omegaDifferencesMag.at(i) = remainingDiff;
+            if (remainingDiff >= this->omegaThreshold) {
+                remainingDisagree = true;
+            }
         }
     }
 
-    MimuMajorityVoteOutput mimuMajorityVoteOutput{};
-    mimuMajorityVoteOutput.mimuFaultMsgPayload.faultDetected = this->faultDetected;
-    mimuMajorityVoteOutput.mimuFaultMsgPayload.mimuIndexFaulted = -1;
-
-    // If a fault has been detected, subtract outlier from average and indicate which mimu has been faulted
-    if (this->faultDetected) {
-        omegaAverage_BN_B = (3 * omegaAverage_BN_B -
-                             Eigen::Map<const Eigen::Vector3f>(imuPayloads.at(maxOmegaDifferenceIndex).AngVelBody)) /
-                            2;
-        mimuMajorityVoteOutput.mimuFaultMsgPayload.mimuIndexFaulted = static_cast<int>(maxOmegaDifferenceIndex);
+    if (remainingDisagree) {
+        // Remaining IMUs disagree - flag all as invalid; best estimate is still remainingAverage_BN_B
+        for (size_t j = 0U; j < this->numberOfImus; ++j) {
+            output.validImus.at(j) = false;
+        }
     }
 
-    eigenVectorToCArray(omegaAverage_BN_B, mimuMajorityVoteOutput.imuSensorBodyMsgF32Payload.AngVelBody);
-
-    return mimuMajorityVoteOutput;
+    output.avgAngVelBody = remainingAverage_BN_B;
+    return output;
 }
 
 void MimuMajorityVoteAlgorithm::setOmegaThreshold(const float omegaThresholdIn) {
@@ -53,3 +77,12 @@ void MimuMajorityVoteAlgorithm::setOmegaThreshold(const float omegaThresholdIn) 
 }
 
 float MimuMajorityVoteAlgorithm::getOmegaThreshold() const { return this->omegaThreshold; }
+
+void MimuMajorityVoteAlgorithm::setNumberOfImus(const size_t numberOfImusIn) {
+    if (numberOfImusIn < 3U || numberOfImusIn > static_cast<size_t>(MAX_IMU_VEH_COUNT)) {
+        FS_THROW_INVALID_ARGUMENT("numberOfImus must be between 3 and MAX_IMU_VEH_COUNT (inclusive)");
+    }
+    this->numberOfImus = numberOfImusIn;
+}
+
+size_t MimuMajorityVoteAlgorithm::getNumberOfImus() const { return this->numberOfImus; }
