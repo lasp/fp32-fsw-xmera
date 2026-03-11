@@ -104,47 +104,47 @@ Eigen::Vector3f SunSafePointAlgorithm::getSHatBdyCmd() const { return this->sHat
 
 /*! Setter method for the minimally accepted sun body vector norm.
  @return void
- @param minUnitMag The minimally acceptable norm of sun body vector (Must be positive)
+ @param magnitude The minimally acceptable norm of sun body vector (Must be positive)
 */
-void SunSafePointAlgorithm::setMinUnitMag(float minUnitMag) {
-    if (minUnitMag <= 0.0f) {
+void SunSafePointAlgorithm::setMinUnitMag(const float magnitude) {
+    if (magnitude <= 0.0f) {
         FSW_THROW_INVALID_ARGUMENT("sunSafePoint: minUnitMag must be positive");
     }
-    this->minUnitMag = minUnitMag;
+    this->minUnitMag = magnitude;
 }
 
 /*! Setter method for the small alignment tolerance angle near 0 or 180 degrees.
  @return void
- @param smallAngle [rad] An angle value that specifies what is near 0 or 180 degrees (Must be positive)
+ @param angle [rad] An angle value that specifies what is near 0 or 180 degrees (Must be positive)
 */
-void SunSafePointAlgorithm::setSmallAngle(float smallAngle) {
-    if (smallAngle < 0.0f) {
+void SunSafePointAlgorithm::setSmallAngle(const float angle) {
+    if (angle < 0.0f) {
         FSW_THROW_INVALID_ARGUMENT("sunSafePoint: smallAngle must not be negative");
     }
-    this->smallAngle = smallAngle;
+    this->smallAngle = angle;
 }
 
 /*! Setter method for the desired constant spin rate about sun heading vector.
  @return void
- @param sunAxisSpinRate [rad/s] Desired constant spin rate about sun heading vector
+ @param rate [rad/s] Desired constant spin rate about sun heading vector
 */
-void SunSafePointAlgorithm::setSunAxisSpinRate(const float sunAxisSpinRate) {
-    this->sunAxisSpinRate = sunAxisSpinRate;
+void SunSafePointAlgorithm::setSunAxisSpinRate(const float rate) {
+    this->sunAxisSpinRate = rate;
 }
 
 /*! Setter method for the desired body rate vector if no sun direction is available.
  @return void
- @param omega_RN_B [rad/s] Desired body rate vector if no sun direction is available
+ @param omega [rad/s] Desired body rate vector if no sun direction is available
 */
-void SunSafePointAlgorithm::setOmega_RN_B(const Eigen::Vector3f& omega_RN_B) { this->omega_RN_B = omega_RN_B; }
+void SunSafePointAlgorithm::setOmega_RN_B(const Eigen::Vector3f& omega) { this->omega_RN_B = omega; }
 
 /*! Setter method for the desired body vector to point at the sun.
  @return void
- @param sHatBdyCmd Desired body vector to point at the sun
+ @param sHat Desired body vector to point at the sun
 */
-void SunSafePointAlgorithm::setSHatBdyCmd(Eigen::Vector3f& sHatBdyCmd) {
-    if (sHatBdyCmd.norm() <= 1e-8f) {
+void SunSafePointAlgorithm::setSHatBdyCmd(const Eigen::Vector3f& sHat) {
+    if (sHat.norm() <= 1e-8f) {
         FSW_THROW_INVALID_ARGUMENT("sunSafePoint: sHatBdyCmd must be a non-zero vector");
     }
-    this->sHatBdyCmd = sHatBdyCmd.normalized();
+    this->sHatBdyCmd = sHat.normalized();
 }

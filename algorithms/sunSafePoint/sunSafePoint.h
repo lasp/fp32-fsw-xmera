@@ -23,11 +23,11 @@ class SunSafePoint : public SysModel {
     float getSunAxisSpinRate() const;
     Eigen::Vector3f getOmega_RN_B() const;
     Eigen::Vector3f getSHatBdyCmd() const;
-    void setMinUnitMag(const float minUnitMag);
-    void setSmallAngle(const float smallAngle);
-    void setSunAxisSpinRate(const float sunAxisSpinRate);
-    void setOmega_RN_B(const Eigen::Vector3f& omega_RN_B);
-    void setSHatBdyCmd(Eigen::Vector3f& sHatBdyCmd);
+    void setMinUnitMag(float magnitude);
+    void setSmallAngle(float angle);
+    void setSunAxisSpinRate(float rate);
+    void setOmega_RN_B(const Eigen::Vector3f& omega);
+    void setSHatBdyCmd(const Eigen::Vector3f& sHat);
 
     ReadFunctor<NavAttMsgF32Payload> imuInMsg;           //!< IMU attitude guidance input message
     ReadFunctor<NavAttMsgF32Payload> sunDirectionInMsg;  //!< Sun attitude guidance input message

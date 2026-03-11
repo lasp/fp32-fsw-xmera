@@ -75,32 +75,30 @@ Eigen::Vector3f SunSafePoint::getSHatBdyCmd() const { return this->algorithm.get
 
 /*! Setter method for the minimally accepted sun body vector norm.
  @return void
- @param minUnitMag The minimally acceptable norm of sun body vector
+ @param magnitude The minimally acceptable norm of sun body vector
 */
-void SunSafePoint::setMinUnitMag(const float minUnitMag) { this->algorithm.setMinUnitMag(minUnitMag); }
+void SunSafePoint::setMinUnitMag(const float magnitude) { this->algorithm.setMinUnitMag(magnitude); }
 
 /*! Setter method for the small alignment tolerance angle near 0 or 180 degrees.
  @return void
- @param smallAngle [rad] An angle value that specifies what is near 0 or 180 degrees
+ @param angle [rad] An angle value that specifies what is near 0 or 180 degrees
 */
-void SunSafePoint::setSmallAngle(const float smallAngle) { this->algorithm.setSmallAngle(smallAngle); }
+void SunSafePoint::setSmallAngle(const float angle) { this->algorithm.setSmallAngle(angle); }
 
 /*! Setter method for the desired constant spin rate about sun heading vector.
  @return void
- @param sunAxisSpinRate [rad/s] Desired constant spin rate about sun heading vector
+ @param rate [rad/s] Desired constant spin rate about sun heading vector
 */
-void SunSafePoint::setSunAxisSpinRate(const float sunAxisSpinRate) {
-    this->algorithm.setSunAxisSpinRate(sunAxisSpinRate);
-}
+void SunSafePoint::setSunAxisSpinRate(const float rate) { this->algorithm.setSunAxisSpinRate(rate); }
 
 /*! Setter method for the desired body rate vector if no sun direction is available.
  @return void
- @param omega_RN_B [rad/s] Desired body rate vector if no sun direction is available
+ @param omega [rad/s] Desired body rate vector if no sun direction is available
 */
-void SunSafePoint::setOmega_RN_B(const Eigen::Vector3f& omega_RN_B) { this->algorithm.setOmega_RN_B(omega_RN_B); }
+void SunSafePoint::setOmega_RN_B(const Eigen::Vector3f& omega) { this->algorithm.setOmega_RN_B(omega); }
 
 /*! Setter method for the desired body vector to point at the sun.
  @return void
- @param sHatBdyCmd Desired body vector to point at the sun
+ @param sHat Desired body vector to point at the sun
 */
-void SunSafePoint::setSHatBdyCmd(Eigen::Vector3f& sHatBdyCmd) { this->algorithm.setSHatBdyCmd(sHatBdyCmd); }
+void SunSafePoint::setSHatBdyCmd(const Eigen::Vector3f& sHat) { this->algorithm.setSHatBdyCmd(sHat); }
