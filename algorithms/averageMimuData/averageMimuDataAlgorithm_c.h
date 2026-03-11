@@ -87,16 +87,16 @@ IMUSensorBodyMsgF32Payload AverageMimuDataAlgorithm_update(const AverageMimuData
 /**
  * @brief Set the allowable time delta for averaging window.
  * @param self      Pointer to the instance.
- * @param timeDelta Time delta in seconds.
+ * @param window    Average window duration in seconds.
  */
-void AverageMimuDataAlgorithm_setTimeDelta(AverageMimuDataAlgorithm* self, float timeDelta);
+void AverageMimuDataAlgorithm_setAveragingWindow(AverageMimuDataAlgorithm* self, float window);
 
 /**
  * @brief Get the current time delta for averaging window.
  * @param self Pointer to the instance.
  * @return float  The current time delta in seconds.
  */
-float AverageMimuDataAlgorithm_getTimeDelta(const AverageMimuDataAlgorithm* self);
+float AverageMimuDataAlgorithm_getAveragingWindow(const AverageMimuDataAlgorithm* self);
 
 /**
  * @brief Set the DCM from platform frame to body frame.

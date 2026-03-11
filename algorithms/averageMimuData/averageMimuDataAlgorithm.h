@@ -2,20 +2,32 @@
 #define AVERAGE_MIMU_DATA_ALGORITHM_H
 
 #include "msgPayloadDef/AccDataMsgF32Payload.h"
-#include "msgPayloadDef/IMUSensorBodyMsgF32Payload.h"
 
 #include <Eigen/Core>
 
+constexpr std::size_t MAX_BUF_PKT = 120;
+
+struct InputPktsData {
+    std::array<std::uint64_t, MAX_BUF_PKT> measTime{};
+    std::array<Eigen::Vector3f, MAX_BUF_PKT> gyro_P{};
+    std::array<Eigen::Vector3f, MAX_BUF_PKT> accel_P{};
+};
+
+struct OutputAverageAccelAngleVel {
+    Eigen::Vector3f accel_B = Eigen::Vector3f::Zero();
+    Eigen::Vector3f gyroOmega_B = Eigen::Vector3f::Zero();
+};
+
 class AverageMimuDataAlgorithm {
    public:
-    void setTimeDelta(float timeDeltaIn);                   //!< Setter method for timeDelta
-    float getTimeDelta() const;                             //!< Getter method for timeDelta
+    void setAveragingWindow(float window);                  //!< [s] Setter method for windowSec
+    float getAveragingWindow() const;                       //!< [s] Getter method for windowSec
     void setDcmPltfToBdy(Eigen::Matrix3f const& dcm_BPIn);  //!< Setter method for dcm from platform to body
     Eigen::Matrix3f getDcmPltfToBdy() const;                //!< Getter method for dcm from platform to body
-    IMUSensorBodyMsgF32Payload update(AccDataMsgF32Payload const& localPkts) const;
+    OutputAverageAccelAngleVel update(InputPktsData const& localPkts) const;
 
    private:
-    float timeDelta{0.0F};                                 //!< [s] Allowable time difference from "latest"
+    float averagingWindow{0.0F};                           //!< [s] Allowable time difference from "latest"
     Eigen::Matrix3f dcm_BP = Eigen::Matrix3f::Identity();  //!< [-] Transformation from the platform frame to body
 };
 
