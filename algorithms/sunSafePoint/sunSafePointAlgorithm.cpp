@@ -7,9 +7,8 @@
 
 /*! Reset method for the sunSafePoint guidance algorithm.
  @return void
- @param callTime [ns] Time the method is called
 */
-void SunSafePointAlgorithm::reset(uint64_t callTime) {
+void SunSafePointAlgorithm::reset() {
     // Compute an Eigen axis orthogonal to sHatBdyCmd
     Eigen::Vector3f v1 = {1.0f, 0.0f, 0.0f};
     this->eHat180_B = this->sHatBdyCmd.cross(v1);

@@ -11,7 +11,7 @@ class SunSafePointAlgorithm {
     SunSafePointAlgorithm() = default;
     ~SunSafePointAlgorithm() = default;
 
-    void reset(uint64_t currentSimNanos);
+    void reset();
     SunSafePointOutput update(const Eigen::Vector3f& vehSunPntBdy, const Eigen::Vector3f& omega_BN_B);
 
     float getMinUnitMag() const;

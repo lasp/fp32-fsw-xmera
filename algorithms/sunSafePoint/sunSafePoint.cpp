@@ -16,7 +16,7 @@ void SunSafePoint::reset(uint64_t callTime) {
     }
 
     // Call the algorithm reset method
-    this->algorithm.reset(callTime);
+    this->algorithm.reset();
 }
 
 /*! Update method for the BSK module adapter interface. This method also calls the algorithm update method.
