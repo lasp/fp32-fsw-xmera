@@ -1,8 +1,12 @@
+/* MIT License
+ *
+ Copyright (c) 2025, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
+ */
+
 #ifndef F32XIMERA_AVERAGEMIMUDATAALGORITHM_C_H
 #define F32XIMERA_AVERAGEMIMUDATAALGORITHM_C_H
 
-#include "msgPayloadDef/IMUSensorBodyMsgF32Payload.h"
-
+#include <stddef.h>
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -14,6 +18,15 @@ extern "C" {
  */
 typedef struct AverageMimuDataAlgorithm AverageMimuDataAlgorithm;
 
+#define MAX_BUF_PKT_C 120
+
+/**
+ * @brief POD representation of a 3-vector (Eigen::Vector3f).
+ */
+typedef struct {
+    float data[3];
+} Vector3f_c;
+
 /**
  * @brief POD representation of a 3x3 matrix (Eigen::Matrix3f).
  *
@@ -24,37 +37,27 @@ typedef struct {
 } Matrix3f_c;
 
 /**
- * @brief Merged CHU measurement: calibrated/merged 4-IMU sensor XYZ values.
- *
- * Matches the Adamant Merged_Chu_Measurements.C.U_C layout.
+ * @brief POD equivalent of InputPktsData.
  */
 typedef struct {
-    int32_t x_measurement;
-    int32_t y_measurement;
-    int32_t z_measurement;
-} MergedChuMeasurements_c;
+    uint64_t measTime[MAX_BUF_PKT_C];
+    Vector3f_c gyro_P[MAX_BUF_PKT_C];
+    Vector3f_c accel_P[MAX_BUF_PKT_C];
+} InputPktsData_c;
 
 /**
- * @brief Single raw MIMU measurement sample from the DPU.
- *
- * Matches the Adamant Mimu_Data_Field_Sample.C.U_C layout.
+ * @brief POD equivalent of OutputAverageAccelAngleVel.
  */
 typedef struct {
-    MergedChuMeasurements_c merged_gyro_rates;
-    MergedChuMeasurements_c merged_accelerations;
-    uint16_t merge_info;
-} MimuDataFieldSample_c;
-
-#define MIMU_SAMPLES_PER_PACKET 10
+    Vector3f_c accel_B;
+    Vector3f_c gyroOmega_B;
+} OutputAverageAccelAngleVel_c;
 
 /**
- * @brief Array of 10 raw MIMU measurement samples (one DPU packet).
- *
- * Matches the Adamant Mimu_Data_Field_Sample_10.C.U_C layout.
+ * @brief Get the MAX_BUF_PKT constant for Ada validation.
+ * @return The maximum buffer packet count (MAX_BUF_PKT_C).
  */
-typedef struct {
-    MimuDataFieldSample_c samples[MIMU_SAMPLES_PER_PACKET];
-} MimuDataFieldSample10_c;
+uint32_t AverageMimuDataAlgorithm_getMaxBufPkt(void);
 
 /**
  * @brief Construct a new AverageMimuDataAlgorithm instance.
@@ -70,31 +73,24 @@ void AverageMimuDataAlgorithm_destroy(AverageMimuDataAlgorithm* self);
 
 /**
  * @brief Run the update step to compute averaged MIMU data.
- *
- * Converts raw I32 MIMU samples to physical-unit F32 values using ICD scale
- * factors, then averages within the configured time window and transforms to
- * the spacecraft body frame.
- *
- * @param self       Pointer to the instance.
- * @param baseTimeNs Base timestamp in nanoseconds (first sample time).
- * @param samples    Pointer to 10 raw MIMU measurement samples.
- * @return IMUSensorBodyMsgF32Payload  The computed IMU sensor body output.
+ * @param self      Pointer to the instance.
+ * @param input     Pointer to input packets data.
+ * @return OutputAverageAccelAngleVel_c  The computed body-frame averages.
  */
-IMUSensorBodyMsgF32Payload AverageMimuDataAlgorithm_update(const AverageMimuDataAlgorithm* self,
-                                                           uint64_t baseTimeNs,
-                                                           const MimuDataFieldSample10_c* samples);
+OutputAverageAccelAngleVel_c AverageMimuDataAlgorithm_update(const AverageMimuDataAlgorithm* self,
+                                                             const InputPktsData_c* input);
 
 /**
- * @brief Set the allowable time delta for averaging window.
- * @param self      Pointer to the instance.
- * @param window    Average window duration in seconds.
+ * @brief Set the averaging window duration.
+ * @param self   Pointer to the instance.
+ * @param window Averaging window duration in seconds.
  */
 void AverageMimuDataAlgorithm_setAveragingWindow(AverageMimuDataAlgorithm* self, float window);
 
 /**
- * @brief Get the current time delta for averaging window.
+ * @brief Get the current averaging window duration.
  * @param self Pointer to the instance.
- * @return float  The current time delta in seconds.
+ * @return float  The current averaging window in seconds.
  */
 float AverageMimuDataAlgorithm_getAveragingWindow(const AverageMimuDataAlgorithm* self);
 
