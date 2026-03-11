@@ -48,6 +48,7 @@ RwMotorTorqueMsgF32Payload referenceUpdate(const RwMotorTorqueAlgorithm& alg,
         for (Eigen::Index i = 0; i < rwConfigParams.numRW; ++i) {
             if (wheelsAvailability.wheelAvailability[i] == AVAILABLE) {
                 G_s_B.col(numAvailWheels) = cArrayToEigenVector3(&rwConfigParams.GsMatrix_B[i * 3]);
+                G_s_B.col(numAvailWheels).normalize();
                 numAvailWheels += 1U;
             }
         }
@@ -173,6 +174,7 @@ inline void testRwMotorTorque(std::vector<float> Lr1_B,
         for (Eigen::Index i = 0; i < rwConfigMsg.numRW; ++i) {
             if (wheelsAvailabilityMsg.wheelAvailability[i] == AVAILABLE) {
                 G_s_B.col(numAvailWheels) = cArrayToEigenVector3(&rwConfigMsg.GsMatrix_B[i * 3]);
+                G_s_B.col(numAvailWheels).normalize();
                 numAvailWheels += 1U;
             }
         }
@@ -182,6 +184,9 @@ inline void testRwMotorTorque(std::vector<float> Lr1_B,
         numAvailRW = static_cast<uint32_t>(rwConfigMsg.numRW);
         G_s_B.leftCols(numAvailRW) =
             cArrayToEigenMatrix<float, 3, RW_EFF_CNT>(rwConfigMsg.GsMatrix_B).leftCols(numAvailRW);
+        for (uint32_t i = 0U; i < numAvailRW; ++i) {
+            G_s_B.col(i).normalize();
+        }
     }
 
     Eigen::Matrix<float, 3, RW_EFF_CNT> CGs = controlAxes_B * G_s_B;

@@ -172,12 +172,16 @@ def compute_true_torque(C, Gs_B, Lr, avail_msg):
     num_wheels = len(avail_msg)
     non_avail_wheels = 0
 
-    # Remove wheels that are deemed unavailable
+    # Remove wheels that are deemed unavailable and normalize spin axes
     for i in range(len(Gs_B[0])): #
         if num_wheels > i:
             if avail_msg[i] != messaging.AVAILABLE:
                 Gs_B[:,i] = [0.0, 0.0, 0.0]
                 non_avail_wheels += 1
+            else:
+                col_norm = np.linalg.norm(Gs_B[:,i])
+                if col_norm > 0.0:
+                    Gs_B[:,i] /= col_norm
         else:
             Gs_B[:,i] = [0.0, 0.0, 0.0]
 
