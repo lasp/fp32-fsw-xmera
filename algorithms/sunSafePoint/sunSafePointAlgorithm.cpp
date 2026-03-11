@@ -60,19 +60,16 @@ SunSafePointOutput SunSafePointAlgorithm::update(const Eigen::Vector3f& vehSunPn
             sigma_BR = mrpSwitch(sigma_BR, 1.0f);
         }
 
-        // Rate tracking error is the body rate to bring spacecraft to rest
-        this->omega_RN_B = (this->sunAxisSpinRate / sHatNorm) * vehSunPntBdy;
-
         output.sigma_BR = sigma_BR;
+        // Rate tracking error is the body rate to bring spacecraft to rest
+        output.omega_RN_B = this->sunAxisSpinRate / sHatNorm * vehSunPntBdy;
     } else {
         output.sigma_BR = Eigen::Vector3f::Zero();
+        output.omega_RN_B = this->omega_RN_B;
     }
 
     // Compute the hub angular rate error omega_BR_B
-    output.omega_BR_B = omega_BN_B - this->omega_RN_B;
-
-    // Set the reference frame rate
-    output.omega_RN_B = this->omega_RN_B;
+    output.omega_BR_B = omega_BN_B - output.omega_RN_B;
 
     return output;
 }
