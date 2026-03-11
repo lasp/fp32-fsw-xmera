@@ -26,12 +26,12 @@ class SunSafePointAlgorithm {
     void setSHatBdyCmd(const Eigen::Vector3f& sHat);
 
    private:
-    float minUnitMag{0.1f};        //!< The minimally acceptable norm of sun body vector (Must be positive)
+    float minUnitMag{};        //!< The minimally acceptable norm of sun body vector (Must be positive)
     float smallAngle{};           //!< [rad] An angle value that specifies what is near 0 or 180 degrees (Must be >= 0)
     float sunAxisSpinRate{};      //!< [rad/s] Desired constant spin rate about sun heading vector
     Eigen::Vector3f omega_RN_B{};  //!< [rad/s] Desired body rate vector if no sun direction is available
-    Eigen::Vector3f sHatBdyCmd{0.0f, 0.0f, 1.0f};  //!< Desired body vector to point at the sun
-    Eigen::Vector3f eHat180_B{1.0f, 0.0f, 0.0f};   //!< Eigen axis to use if commanded axis is 180 from sun axis
+    Eigen::Vector3f sHatBdyCmd{};  //!< Desired body vector to point at the sun
+    Eigen::Vector3f eHat180_B{};   //!< Eigen axis to use if commanded axis is 180 from sun axis
 };
 
 #endif
