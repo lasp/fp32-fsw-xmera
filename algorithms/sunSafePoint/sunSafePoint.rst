@@ -1,41 +1,95 @@
+.. raw:: latex
+
+    {\LARGE \textbf{sunSafePoint}}
+
 Executive Summary
 -----------------
-
-This module provides the attitude guidance output for a sun pointing mode. This could be used for safe mode, or a power
-generation mode. The input is the sun direction vector which does not have to be normalized, as well as the body rate
-information. The output is the standard BSK attitude reference state message. The sun direction measurement is cross
-with the desired body axis that is to point at the sun to create a principle rotation vector. The dot product between
-these two vectors is used to extract the principal rotation angle. With these a tracking error MRP state is computer.
-The body rate tracking errors relative to the reference frame are set equal to the measured body rates to bring the
-vehicle to rest when pointing at the sun.Thus, the reference angular rate and acceleration vectors relative to the
-inertial frame are nominally set to zero. If the sun vector is not available, then the reference rate is set to a
-body-fixed value while the attitude tracking error is set to zero.
+This module computes the attitude guidance output for a sun-pointing mode, suitable for safe mode or power generation.
+Given the sun direction vector (not necessarily normalized) and the body angular velocity, the module produces attitude
+tracking errors as Modified Rodrigues Parameters (MRPs) and body rate tracking errors. The sun direction measurement is
+crossed with a commanded body-fixed axis to obtain a principal rotation vector, and the dot product yields the principal
+rotation angle. If the sun vector is not available (the zero vector), the attitude error is zeroed and a
+configurable body-fixed search rate is used instead. An optional constant spin rate about the sun heading axis can be
+specified.
 
 Message Connection Descriptions
 -------------------------------
-The following table lists all the module input and output messages. The module msg connection is set by the
-user from python. The msg type contains a link to the message structure definition, while the description
+The following table lists all the module input and output messages.  The module msg connection is set by the
+user from python.  The msg type contains a link to the message structure definition, while the description
 provides information on what this message is used for.
 
 .. list-table:: Module I/O Messages
-    :widths: 25 25 50
+    :widths: 20 30 50
     :header-rows: 1
 
     * - Msg Variable Name
       - Msg Type
       - Description
-    * - attGuidanceOutMsg
-      - :ref:`AttGuidMsgPayload`
-      - attitude guidance output message
     * - sunDirectionInMsg
-      - :ref:`NavAttMsgPayload`
-      - sun direction input message
+      - :ref:`NavAttMsgF32Payload`
+      - input message containing the sun direction vector :math:`\mathbf s` in body frame coordinates
     * - imuInMsg
-      - :ref:`NavAttMsgPayload`
-      - IMU input message
+      - :ref:`NavAttMsgF32Payload`
+      - input message containing the inertial body angular velocity :math:`\mathbf\omega_{B/N}`
+    * - attGuidanceOutMsg
+      - :ref:`AttGuidMsgF32Payload`
+      - output message of attitude tracking errors and reference frame states
 
-Model Description
-=================
+Module Parameters
+-------------------------------
+The following table lists all the module parameters that can be set. Required parameters must be
+configured before the module is used.
+
+.. list-table:: Module Parameters
+    :widths: 40 20 10 10 30 30
+    :header-rows: 1
+
+    * - Parameter Name
+      - Type
+      - Units
+      - Default
+      - Description
+      - Bounds
+    * - sHatBdyCmd (required)
+      - Eigen::Vector3f
+      - [-]
+      - zero
+      - Commanded body-fixed unit direction vector :math:`\hat{\mathbf s}_{c}` to align with the sun
+      - Norm must be within ``1e-3`` of 1.0 (checked in setter; vector is renormalized on storage)
+    * - sunAxisSpinRate
+      - float
+      - [rad/s]
+      - 0
+      - Desired constant spin rate :math:`\dot\theta` about the sun heading vector
+      - None
+    * - omega_RN_B
+      - Eigen::Vector3f
+      - [rad/s]
+      - zero
+      - Body-fixed reference rate :math:`\mathbf\omega_{R/N}` used when no sun direction is available
+      - None
+
+Module Assumptions and Limitations
+-----------------------------------
+- The input sun direction vector :math:`\mathbf s` can have any length. Only the exact zero vector is treated as
+  sun-not-available; any non-zero magnitude is accepted (normalization uses ``stableNormalized`` for numerical
+  robustness with small inputs).
+- The commanded body-relative unit direction vector :math:`\hat{\mathbf s}_{c}` is assumed to be fixed relative to the body.
+- The sun-pointing condition is under-determined (2 DOF): the rotation about :math:`\mathbf s` is arbitrary.
+  This is acceptable for power generation, which does not depend on orientation about the sun heading.
+
+Initialization
+--------------
+The module is configured by::
+
+    module = sunSafePointF32.SunSafePoint()
+    module.modelTag = "sunSafePoint"
+    module.sHatBdyCmd = [0.0, 0.0, 1.0]
+    module.sunAxisSpinRate = 0.0
+    module.omega_RN_B = [0.0, 0.0, 0.0]
+
+Detailed Module Description
+---------------------------
 
 .. figure:: ./_Documentation/Figures/sunHeading.pdf
    :width: 50%
@@ -43,81 +97,63 @@ Model Description
 
    Body Vector Illustrations
 
-Module Goal
------------
+Algorithm Flow
+^^^^^^^^^^^^^^
+At every update cycle, the ``sunSafePoint`` module performs the following steps:
 
-This attitude guidance module has the goal of aligning a commanded
-body-fixed spacecraft vector :math:`\hat{\bm s}_{c}` with another input
-vector :math:`\bm s`. If :math:`\hat{\bm s}_{c}` is for example the
-solar panel normal vector, and :math:`\bm s` is the current sun heading
-vector, this module will compute the attitude tracking errors to align
-the solar panels towards the sun, i.e. achieve sun pointing. Sun
-pointing is a mode for general recharging the spacecraft, but is also a
-common guidance scenario with Safe Mode.
+1. **Check sun visibility**: Normalize :math:`\mathbf s` using ``stableNormalized``. If the result is the zero
+   vector (i.e. the input was exactly zero), set :math:`\mathbf\sigma_{B/R} = \mathbf 0`, use the configured
+   ``omega_RN_B``, and skip to step 5.
 
-Besides :math:`\bm s`, the second input vector is the inertial body
-angular velocity vector :math:`\bm\omega_{B/N}`. The sun pointing frame
-is assumed to be at rest, thus the attitude rate tracking error is set
-either equal to the body rates to bring the body to rest, or difference
-with a specified rotation about the sun heading vector to achieve a
-final roll about this heading vector.
+2. **Compute the principal rotation angle** :math:`\Phi` between :math:`\mathbf s` and :math:`\hat{\mathbf s}_{c}`.
 
-As the desired sun pointing orientation is inertial, the inertial
-reference frame acceleration :math:`\dot{\bm\omega}_{R/N}` is set to
-zero, while the reference rate is either zero or the desired sun-heading
-roll vector.
+3. **Determine the eigen axis** :math:`\hat{\mathbf e}`:
 
-Note that this module does not establish a unique sun-pointing reference
-frame. Rather, the pointing condition, align :math:`\hat{\bm s}_{c}`
-with :math:`\bm s` is an under-determined 2 degree of freedom condition.
-Thus, the rotation angle about :math:`\bm s` is left to be arbitrary in
-this sun pointing module. For the sun pointing applications this is a
-very practical result as the power generation does not depend on the
-orientation about :math:`\bm s`.
+   - If :math:`\pi - \Phi < \epsilon` (with :math:`\epsilon = 10^{-3}\,\text{rad}`): use a fallback axis
+     :math:`\hat{\mathbf e}_{180}` orthogonal to :math:`\hat{\mathbf s}_{c}`, computed via Eigen's ``unitOrthogonal()``.
+   - Otherwise: :math:`\hat{\mathbf e} = \mathbf s \times \hat{\mathbf s}_{c}`, normalized via ``stableNormalized``
+     (which returns the zero vector when the cross product vanishes, so :math:`\Phi \approx 0` naturally yields
+     :math:`\mathbf\sigma_{B/R} = \mathbf 0`).
+
+4. **Compute attitude error MRP** :math:`\mathbf\sigma_{B/R} = \tan(\Phi/4)\,\hat{\mathbf e}` and the reference
+   rate :math:`\mathbf\omega_{R/N} = \dot\theta\,\hat{\mathbf s}`.
+
+5. **Compute rate tracking error** :math:`\mathbf\omega_{B/R} = \mathbf\omega_{B/N} - \mathbf\omega_{R/N}`.
 
 Equations
----------
+^^^^^^^^^
 
 Good Sun Direction Vector Case
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 In the following mathematical developments all vectors are assumed to be
-taken with respect to a body-fixed frame :math:`\cal B`. The attitude of
-the body :math:`\cal B` relative to the reference frame :math:`\cal R`
-is written as a principal rotation from :math:`\cal R` to
-:math:`\cal B`. Thus, the associated principal rotation vector
-:math:`\hat{\bm e}` is
+taken with respect to a body-fixed frame :math:`\mathcal B`. The attitude of
+the body :math:`\mathcal B` relative to the reference frame :math:`\mathcal R`
+is written as a principal rotation from :math:`\mathcal R` to
+:math:`\mathcal B`. Thus, the associated principal rotation vector
+:math:`\hat{\mathbf e}` is
 
 .. math::
 
-   \begin{equation}
-   	\label{eq:ssp:1}
-   	\hat{\bm e} = \frac{\bm s \times \hat{\bm s}_{c}}{|\bm s \times \hat{\bm s}_{c}|}
-   \end{equation}
+   \hat{\mathbf e} = \frac{\mathbf s \times \hat{\mathbf s}_{c}}{|\mathbf s \times \hat{\mathbf s}_{c}|}
 
-Note that the sun direction vector :math:`\bm s` does not have to be a
+Note that the sun direction vector :math:`\mathbf s` does not have to be a
 normalized input vector.
 
 The principal rotation angle between the two vectors is given through
 
 .. math::
 
-   \begin{equation}
-   	\label{eq:ssp:2}
-   	\Phi = \arccos \left( \frac{\bm s  \cdot \hat{\bm s}_{c} }{|\bm s|} \right)
-   \end{equation}
+   \Phi = \arccos \left( \frac{\mathbf s  \cdot \hat{\mathbf s}_{c} }{|\mathbf s|} \right)
 
-Next, this rotation from :math:`\cal R` to :math:`\cal B` is written as
+Next, this rotation from :math:`\mathcal R` to :math:`\mathcal B` is written as
 a set of MRPs through
 
 .. math::
 
-   \begin{equation}
-   	\label{eq:ssp:3}
-   	\bm\sigma_{B/R} = \tan\left(\frac{\Phi}{4}\right) \hat{\bm e}
-   \end{equation}
+   \mathbf\sigma_{B/R} = \tan\left(\frac{\Phi}{4}\right) \hat{\mathbf e}
 
-The set :math:`\bm\sigma_{B/R}` is the attitude error of the output
+The set :math:`\mathbf\sigma_{B/R}` is the attitude error of the output
 attitude guidance message.
 
 The module allows for a nominal spin rate about the sun heading axis by
@@ -127,27 +163,19 @@ given by
 
 .. math::
 
-   \begin{equation}
-
-   	{\vphantom{\bm\omega}}^{\mathcal{B}\!}{\bm\omega}
-   _{R/N} =
-   	{\vphantom{\hat{\bm s}}}^{\mathcal{B}\!}{\hat{\bm s}}
-    \dot\theta
-   \end{equation}
+   {}^{\mathcal{B}}{\mathbf\omega}_{R/N} =
+   {}^{\mathcal{B}}{\hat{\mathbf s}} \dot\theta
 
 Note that this constant nominal spin is only for the case where the sun
 is visible and the sun-heading vector measurement is available.
 
 If the spacecraft is to be brought to rest
-:math:`\bm\omega_{R/N} = \bm 0`, then :math:`\dot\theta` should be set
-to zero. The tracking error angular velocity vector is computed using.
+:math:`\mathbf\omega_{R/N} = \mathbf 0`, then :math:`\dot\theta` should be set
+to zero. The tracking error angular velocity vector is computed using
 
 .. math::
 
-   \begin{equation}
-   	\label{eq:ssp:4}
-   	\bm\omega_{B/R} = \bm\omega_{B/N} - \bm\omega_{R/N}
-   \end{equation}
+   \mathbf\omega_{B/R} = \mathbf\omega_{B/N} - \mathbf\omega_{R/N}
 
 Finally, the attitude guidance message must specify the inertial
 reference frame acceleration vector. This is set to zero as the roll
@@ -156,200 +184,65 @@ inertial heading.
 
 .. math::
 
-   \begin{equation}
-   	\dot{\bm \omega}_{R/N} = \bm 0
-   \end{equation}
+   \dot{\mathbf \omega}_{R/N} = \mathbf 0
 
 No Sun Direction Vector Case
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-If :math:`\Phi` is less then then module parameter ``minUnitMag``, then
-it is assumed that no good sun heading vector is available and the
-attitude tracking error :math:`\bm\sigma_{B/R}` is set to zero.
+If :math:`\mathbf s` is the zero vector, then it is assumed that no good sun
+heading vector is available and the attitude tracking error
+:math:`\mathbf\sigma_{B/R}` is set to zero. Any non-zero magnitude is treated
+as a valid sun direction; ``stableNormalized`` is used to handle small inputs
+robustly.
 
 Further, if the sun is not visible, the module allows for a non-zero
 body rate to be prescribed. This allows the spacecraft to engage in a
 constant rate tumble specified through the module configuration vector
-``omega_RN_B``. In this case the tracking error rate is evaluate through
+``omega_RN_B``. In this case the tracking error rate is evaluated through
 
 .. math::
 
-   \begin{equation}
-    	\label{eq:ssp:6}
-   	\bm\omega_{B/R} = \bm\omega_{B/N} - \bm\omega_{R/N}
-
-   \end{equation}
+   \mathbf\omega_{B/R} = \mathbf\omega_{B/N} - \mathbf\omega_{R/N}
 
 and the output message reference rate is set equal to the prescribed
-:math:`\bm\omega_{R/N}` while the reference acceleration vector
-:math:`\dot{\bm \omega}_{R/N}` is set to zero.
+:math:`\mathbf\omega_{R/N}` while the reference acceleration vector
+:math:`\dot{\mathbf \omega}_{R/N}` is set to zero.
 
 Collinear Commanded and Sun Heading Vectors
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-First consider the case where :math:`\bm s \approx \hat{\bm s}_{c}`. In
-this case the cross product in Eq. `[eq:ssp:1] <#eq:ssp:1>`__ is not
-well defined. Let :math:`\epsilon` be a pre-determined small angle.
-Then, if :math:`\Phi < \epsilon` the attitude tracking error is set to
+First consider the case where :math:`\mathbf s \approx \hat{\mathbf s}_{c}`. In
+this case the cross product :math:`\mathbf s \times \hat{\mathbf s}_{c}` vanishes
+and is not a well-defined rotation axis. The module relies on
+``stableNormalized``, which returns the zero vector when its input is too small
+to safely normalize. The MRP is then computed as
+:math:`\mathbf\sigma_{B/R} = \tan(\Phi/4)\,\hat{\mathbf e}`, where both factors
+approach zero as :math:`\Phi \to 0`, so the resulting attitude error is
+numerically zero without requiring an explicit small-angle branch.
 
-.. math:: \bm\sigma_{B/R} = \bm 0
-
-However, if :math:`\bm s \approx -\hat{\bm s}_{c}`, then an eigen-axis
-:math:`\hat{\bm e}` that is orthogonal to :math:`\hat{\bm s}_{c}` must
-be determined. Let the body frame be defined through
-:math:`{\uppercase{\mathcal B}} :\{ \hat{\lowercase{\bm B}}_{1}, \hat{\lowercase{\bm B}}_{2}, \hat{\lowercase{\bm B}}_{3}\}`.
-The eigen-axis is determined first by taking a cross product with
-:math:`\hat{\bm b}_{1}`:
-
-.. math::
-
-   \begin{equation}
-   	\label{eq:ssp:7}
-   	\hat{\bm e}_{180} = \frac{ \hat{\bm s}_{c} \times \hat{\bm b}_{1}}{| \hat{\bm s}_{c} \times \hat{\bm b}_{1}|}
-   \end{equation}
-
-If :math:`\hat{\bm s}_{c} \approx \hat{\bm b}_{1}`, then this
-:math:`\hat{\bm e}` vector will have a small norm. In this
-ill-determined case, the :math:`\hat{\bm e}` vector is determined using
+However, if :math:`\mathbf s \approx -\hat{\mathbf s}_{c}`, then the cross
+product is also near zero but :math:`\tan(\Phi/4)` is not, so a separate
+fallback is required. An eigen-axis :math:`\hat{\mathbf e}` that is orthogonal
+to :math:`\hat{\mathbf s}_{c}` must be determined. The choice of axis is
+arbitrary (any vector perpendicular to :math:`\hat{\mathbf s}_{c}` produces a
+valid 180° rotation), so the module delegates to Eigen's ``unitOrthogonal()``,
+which returns a unit vector perpendicular to :math:`\hat{\mathbf s}_{c}` using a
+numerically stable axis choice:
 
 .. math::
 
-   \begin{equation}
-   	\label{eq:ssp:8}
-   	\hat{\bm e}_{180} = \frac{ \hat{\bm s}_{c} \times \hat{\bm b}_{2}}{| \hat{\bm s}_{c} \times \hat{\bm b}_{2}|}
-   \end{equation}
+   \hat{\mathbf e}_{180} = \texttt{sHatBdyCmd.unitOrthogonal()}
 
-As :math:`\hat{\bm s}_{c}` cannot both be aligned with
-:math:`\hat{\bm b}_{1}` and :math:`\hat{\bm b}_{2}`, this algorithm
-determines a unique eigen axis :math:`\hat{\bm e}_{180}` for the case
-that the principal rotation angle is close to 180 degrees, or
-:math:`\pi - \Phi < \epsilon`. This special case eigen axis is only
-computed once in the module reset routine.
+This fallback axis is computed inline in ``update()`` only on iterations where
+:math:`\pi - \Phi < \epsilon`, with :math:`\epsilon = 10^{-3}\,\text{rad}`.
 
 In this scenario the angular velocity tracking error is evaluated using
-the same method as outlined in section `1.2.1 <#sec:withSun>`__.
+the same method as outlined in the Good Sun Direction Vector Case section.
 
-Module Functions
-================
-
-- **Compute the attitude tracking error**: Determines the shortest
-  rotation to align :math:`\bm s` and :math:`\hat{\bm s}_{c}`, and
-  computes the corresponding three-dimensional attitude difference
-
-- **Control spacecraft rotation**: The reference frame is assumed to be
-  non-accelerating and either zero (default) or a constant spin about
-  the sun heading axis.
-
-- **Robust to no sun heading information**: If the sun heading vector is
-  not available, then the attitude feedback is turned off by zeroing
-  :math:`\bm\sigma_{B/R}`. Instead of driving the body rates to zero,
-  the body rates are driven to a prescribed :math:`\bm\omega_{R/N}`
-  vector. This allow the spacecraft to search for the sun and covers the
-  case if some sun sensors are offline.
-
-- **Robust to collinear observation vector**: The module must handle the
-  cases where the commanded body relative vector and the sun direction
-  vectors are nearly collinear.
-
-Module Assumptions and Limitations
-==================================
-
-The module input vector :math:`\bm s` can be a vector of any length
-except for a zero-length vector. The commanded body-relative unit
-direction vector :math:`{\bm s}_{c}` is assumed to be fixed relative to
-the body.
-
-Test Description and Success Criteria
-=====================================
-
-The mathematics in this module are straight forward and can be tested in
-a series of input and output evaluation tests.
-
-Check 1
--------
-
-Here a check is performed where the sun vector measurement :math:`\bm s`
-has a non-zero length and is not aligned with :math:`\hat{\bm s}_{c}`.
-
-Check 2
--------
-
-The sun direction vector :math:`\bm s` is given a norm value that is
-less than ``minUnitMag``. In this case the attitude tracking
-:math:`\bm\sigma_{B/R}` should be set to zero. Further, the body rate
-errors are now evaluated relative to a fixed :math:`\bm\omega_{R/N}`
-vector.
-
-Check 3
--------
-
-The sun direction vector :math:`\bm s` aligned with
-:math:`\hat{\bm s}_{c}`. In this case the attitude tracking
-:math:`\bm\sigma_{B/R}` should be set to zero. Further, the body rate
-errors are simply the inertial body angular rates.
-
-Check 4
--------
-
-The sun direction vector :math:`\bm s \approx -\hat{\bm s}_{c}`. In this
-case the attitude tracking :math:`\bm\sigma_{B/R}` should be set to
-:math:`\hat{\bm e}_{180}`. Further, the body rate errors are simply the
-inertial body angular rates.
-
-.. _check-4-1:
-
-Check 4
--------
-
-The sun direction vector :math:`\bm s \approx -\hat{\bm s}_{c}`, but
-:math:`\hat{\bm s}_{c} = \hat{\bm b}_{1}`. In this case the attitude
-tracking :math:`\bm\sigma_{B/R}` should be set to
-:math:`\hat{\bm e}_{180}` that is evaluated with the cross product with
-:math:`\hat{\bm b}_{2}`. Further, the body rate errors are simply the
-inertial body angular rates.
-
-User Guide
-==========
-
-Input/Output Messages
----------------------
-
-The module has 2 required input messages, and 1 output message:
-
-- ``attGuidanceOutMsg`` – This output message, of type
-  ``AttGuidMsgPayload``, provide the attitude tracking errors and the
-  reference frame states.
-
-- ``sunDirectionInMsg`` – This input message, of type
-  ``NavAttMsgPayload``, receives the sun heading vector :math:`\bm s`
-
-- ``imuInMsg`` – This input message, of type
-  ``IMUSensorBodyMsgPayload``, receives the inertial angular body rates
-  :math:`\bm \omega_{B/N}`
-
-Module Parameters and States
-----------------------------
-
-The module has the following parameter that can be configured:
-
-- ``sHatBdyCmd`` – [REQUIRED] This 3x1 array contains the commanded
-  body-relative vector :math:`\hat{\bm s}_{c}` that is to be aligned
-  with the sun heading :math:`\bm s`
-
-- ``minUnitMag`` – This double contains the minimum norm value of
-  :math:`\bm s` such that a tracking error attitude solution
-  :math:`\bm\sigma_{B/R}` is still computed. If the norm is less than
-  this, then :math:`\bm\sigma_{B/R}` is set to zero. The default
-  ``minUnitMag`` value is zero.
-
-- ``omega_RN_B`` – This vectors specifies the body-fixed search rate to
-  rotate and search for the sun if no good sun direction vector is
-  visible. Default value is a zero vector.
-
-- ``smallAngle`` – This double specifies what is considered close for
-  :math:`\bm s` and :math:`\hat{\bm s}_{c}` to be collinear. Default
-  value is zero.
-
-- ``sunAxisSpinRate`` – Specifies the nominal spin rate about the sun
-  heading vector. This is only used if a sun heading solution is
-  available. Default value is zero bring the spacecraft to rest.
+Test Description
+-------------------------------
+The module is verified through regression tests against an independently coded reference implementation,
+property-based tests covering MRP norm bounds, zero-error conditions, and the rate identity
+:math:`\mathbf\omega_{B/R} = \mathbf\omega_{B/N} - \mathbf\omega_{R/N}`, as well as edge-case tests for collinear
+vectors, 180-degree rotations, the zero-vector sun-not-visible case, and the
+:math:`\hat{\mathbf e}_{180}` fallback axis.
