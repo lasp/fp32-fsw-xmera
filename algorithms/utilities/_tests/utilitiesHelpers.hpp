@@ -59,9 +59,3 @@ inline Eigen::Matrix3d generateValidDCM(double const sigma1, double const sigma2
 
     return dcm;
 }
-
-inline void testDcmValidity(float const sigma1, float const sigma2, float const sigma3) {
-    const Eigen::Matrix3f dcm = generateValidDCM(sigma1, sigma2, sigma3);
-
-    EXPECT_TRUE(isValidDcm(dcm));
-}
