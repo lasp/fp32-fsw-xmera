@@ -22,8 +22,7 @@ splitPath = path.split('fswAlgorithms')
 from xmera import __path__
 bskPath = __path__[0]
 
-orbit_position_epsilon = 1.0
-orbit_velocity_epsilon = 0.01
+relative_error = 0.001  # 0.1% relative error maximum
 colors = ['r','g','b']
 
 @pytest.mark.parametrize('valid_curve, anomaly_flag', [
@@ -215,15 +214,14 @@ def cheby_fit(show_plots, valid_curve, anomaly_flag):
         np.testing.assert_array_equal(second_last_velocity, last_velocity, "Expected Chebychev velocity to rail high or low")
 
     else:
-        mas_pox_vector_err = [abs(max(ephemeris_positions[:, 0] - true_positions_m[:, 0])),
-                     abs(max(ephemeris_positions[:, 1] - true_positions_m[:, 1])),
-                     abs(max(ephemeris_positions[:,2] - true_positions_m[:, 2]))]
-        max_vel_vector_err = [abs(max(ephemeris_velocities[:, 0] - true_velocities_mps[:, 0])),
-                        abs(max(ephemeris_velocities[:, 1] - true_velocities_mps[:, 1])),
-                        abs(max(ephemeris_velocities[:, 2] - true_velocities_mps[:, 2]))]
+        pox_vector_err = []
+        vel_vector_err = []
+        for i in range(len(ephemeris_positions[:, 0])):
+            pox_vector_err.append(np.linalg.norm(ephemeris_positions[i, :] - true_positions_m[i, :])/np.linalg.norm(true_positions_m[i, :]))
+            vel_vector_err.append(np.linalg.norm(ephemeris_velocities[i, :] - true_velocities_mps[i, :])/np.linalg.norm(true_velocities_mps[i, :]))
 
-        np.testing.assert_array_less(max(mas_pox_vector_err), orbit_position_epsilon, "mas_pox_vector_err >= orbit_position_epsilon")
-        np.testing.assert_array_less(max(max_vel_vector_err), orbit_velocity_epsilon, "max_vel_vector_err >= orbit_velocity_epsilon")
+        np.testing.assert_array_less(max(pox_vector_err), relative_error, "mas_pox_vector_err >= relative_error")
+        np.testing.assert_array_less(max(vel_vector_err), relative_error, "max_vel_vector_err >= relative_error")
 
         plt.close("all")
         # plot the fitted and actual position coordinates
@@ -273,11 +271,11 @@ def cheby_fit(show_plots, valid_curve, anomaly_flag):
                      linewidth=0.5,
                      label=r'$\Delta r_{' + str(idx) + '}$')
         plt.plot(ephemeris_log.times() * macros.NANO2HOUR,
-                 orbit_position_epsilon*np.ones(array_length),
+                 relative_error*np.ones(array_length),
                  color='r',
                  linewidth=1)
         plt.plot(ephemeris_log.times() * macros.NANO2HOUR,
-                 -orbit_position_epsilon * np.ones(array_length),
+                 -relative_error * np.ones(array_length),
                  color='r',
                  linewidth=1)
         plt.legend(loc='lower right')
@@ -294,11 +292,11 @@ def cheby_fit(show_plots, valid_curve, anomaly_flag):
                      linewidth=0.5,
                      label=r'$\Delta v_{' + str(idx) + '}$')
         plt.plot(ephemeris_log.times() * macros.NANO2HOUR,
-                 orbit_velocity_epsilon*np.ones(array_length),
+                 relative_error*np.ones(array_length),
                  color='r',
                  linewidth=1)
         plt.plot(ephemeris_log.times() * macros.NANO2HOUR,
-                 -orbit_velocity_epsilon * np.ones(array_length),
+                 -relative_error * np.ones(array_length),
                  color='r',
                  linewidth=1)
         plt.legend(loc='lower right')
