@@ -107,7 +107,7 @@ ClassicalElementsF32 OEStateEphemAlgorithm::evaluateCoefficients(const double cu
 bool OEStateEphemAlgorithm::allParametersNull() const {
     bool allZero = true;
     for (const auto& arc : this->fitCoefficients) {
-        if (std::abs(arc.radiusPeriapsisCoefficients.at(0)) >= kTolerance) {
+        if (fabs(arc.radiusPeriapsisCoefficients.at(0)) >= kTolerance) {
             allZero = false;
         }
     }
