@@ -7,36 +7,36 @@
 #include <gtest/gtest.h>
 #include <math.h>
 #include <Eigen/Core>
-#include <cstring>
 #include <numbers>
 #include <vector>
 
-static BodyName makeBodyName(const std::string& bodyName) {
-    BodyName newBodyName{};
-    std::ranges::copy(bodyName.begin(), bodyName.end(), newBodyName.data());
-    return newBodyName;
-}
+constexpr int SUN_SPICE_ID = 10;
+constexpr int EARTH_SPICE_ID = 399;
+constexpr int MOON_SPICE_ID = 301;
+constexpr int SATURN_SPICE_ID = 699;
+constexpr int TITAN_SPICE_ID = 606;
+constexpr int MARS_SPICE_ID = 499;
 
 // Reference computation for update
 std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES> referenceUpdate(
     const EphemeridesRecenterAlgorithm& alg,
     const std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES>& newBodies) {
     // Pull required "configuration state" from the algorithm via getters
-    const BodyName newCentralBodyName = alg.getNewZeroBase();
-    const BodyName previousCentralBodyName = alg.getPreviousCommonZeroBase();
+    const int newCentralBodyId = alg.getNewZeroBase();
+    const int previousCentralBodyId = alg.getPreviousCommonZeroBase();
     const size_t celestialBodyCount = alg.getNumberOfBodies();
-    const auto bodyNames = alg.getAllNames();
+    const auto bodyIds = alg.getAllIds();
 
     if (celestialBodyCount == 0U) {
         FS_THROW_INVALID_ARGUMENT("The current celestial body count is 0");
     }
 
-    // findNewZeroBaseIndex(newCentralBodyName) using the returned bodyNames ordering
-    auto* it = std::ranges::find(bodyNames, newCentralBodyName);
-    if (it == bodyNames.end()) {
+    // findNewZeroBaseIndex(newCentralBodyId) using the returned bodyIds ordering
+    auto* it = std::ranges::find(bodyIds, newCentralBodyId);
+    if (it == bodyIds.end()) {
         FS_THROW_INVALID_ARGUMENT("New zero base body was not in the list of existing bodies");
     }
-    const size_t newCentralIndex = static_cast<size_t>(std::distance(bodyNames.begin(), it));
+    const size_t newCentralIndex = static_cast<size_t>(std::distance(bodyIds.begin(), it));
 
     // Local copy of "celestialBodies" used by the algorithm
     std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES> celestialBodies = newBodies;
@@ -49,8 +49,8 @@ std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES> referenceUpdate(
     /* - If the new central body is a moon (its original central body is not the common central body but another body in
      * the list) first re-center the moon around the common central body so that every body is relative to the common
      * center*/
-    if (newCentralBody.originalCentralBodyName != previousCentralBodyName) {
-        const auto moonCentralBodyIndex = alg.getBodyIndexFromName(newCentralBody.originalCentralBodyName);
+    if (newCentralBody.originalCentralBodyId != previousCentralBodyId) {
+        const auto moonCentralBodyIndex = alg.getBodyIndexFromId(newCentralBody.originalCentralBodyId);
         Eigen::Vector3d moonCentral_input_r = celestialBodies[moonCentralBodyIndex].input_r;
         Eigen::Vector3d moonCentral_input_v = celestialBodies[moonCentralBodyIndex].input_v;
         newCentral_input_r = newCentral_input_r + moonCentral_input_r;
@@ -67,7 +67,7 @@ std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES> referenceUpdate(
         Eigen::Vector3d newEphemerisToRecenter_input_r = newBodies[i].input_r;
         Eigen::Vector3d newEphemerisToRecenter_input_v = newBodies[i].input_v;
 
-        if (celestialBodies[i].originalCentralBodyName == previousCentralBodyName) {
+        if (celestialBodies[i].originalCentralBodyId == previousCentralBodyId) {
             Eigen::Vector3d const relativePosition = newEphemerisToRecenter_input_r - newCentral_input_r;
 
             Eigen::Vector3d const relativeVelocity = newEphemerisToRecenter_input_v - newCentral_input_v;
@@ -76,24 +76,24 @@ std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES> referenceUpdate(
             size_t moonIndex = 0U;
             bool moonFound = false;
             for (size_t j = 0U; j < celestialBodyCount; ++j) {
-                if (celestialBodies[j].originalCentralBodyName == celestialBodies[i].bodySpiceName) {
+                if (celestialBodies[j].originalCentralBodyId == celestialBodies[i].bodySpiceId) {
                     moonIndex = j;
                     moonFound = true;
                     break;
                 }
             }
 
-            if (moonFound && celestialBodies[i].bodySpiceName != previousCentralBodyName) {
+            if (moonFound && celestialBodies[i].bodySpiceId != previousCentralBodyId) {
                 Eigen::Vector3d moonOfBody_input_r = celestialBodies[moonIndex].input_r;
                 Eigen::Vector3d moonOfBody_input_v = celestialBodies[moonIndex].input_v;
                 Eigen::Vector3d const moonRelativePosition = relativePosition + moonOfBody_input_r;
 
                 Eigen::Vector3d const moonRelativeVelocity = relativeVelocity + moonOfBody_input_v;
 
-                recenteredBodies[moonIndex].bodySpiceName = celestialBodies[moonIndex].bodySpiceName;
+                recenteredBodies[moonIndex].bodySpiceId = celestialBodies[moonIndex].bodySpiceId;
                 recenteredBodies[moonIndex].isMoon = true;
-                recenteredBodies[moonIndex].originalCentralBodyName =
-                    celestialBodies[moonIndex].originalCentralBodyName;
+                recenteredBodies[moonIndex].originalCentralBodyId =
+                    celestialBodies[moonIndex].originalCentralBodyId;
                 recenteredBodies[moonIndex].output_r = moonRelativePosition;
                 recenteredBodies[moonIndex].output_v = moonRelativeVelocity;
             }
@@ -109,9 +109,9 @@ std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES> referenceUpdate(
 
 // Assume a fixed body list SUN/EARTH/MOON/SATURN
 inline void regressionTestEphemeridesRecenter(
-    const std::vector<BodyName>& bodyListInOrder,  // must be {"SUN","EARTH","MOON","SATURN"}
-    int previousCommonIdx,                         // in {0,1,2,3}
-    int newZeroIdx,                                // in {0,1,2,3}
+    const std::vector<int>& bodyListInOrder,  // must be {SUN, EARTH, MOON, SATURN}
+    int previousCommonIdx,                    // in {0,1,2,3}
+    int newZeroIdx,                           // in {0,1,2,3}
     // Inputs aligned with bodyListInOrder indices: 0=SUN, 1=EARTH, 2=MOON, 3=SATURN
     const std::array<double, 3>& r0,
     const std::array<double, 3>& v0,
@@ -131,13 +131,13 @@ inline void regressionTestEphemeridesRecenter(
     ASSERT_LE(previousCommonIdx, 3);
     ASSERT_GE(newZeroIdx, 0);
     ASSERT_LE(newZeroIdx, 3);
-    const BodyName previousCommonZeroBaseName = bodyListInOrder[static_cast<size_t>(previousCommonIdx)];
-    const BodyName newZeroBaseName = bodyListInOrder[static_cast<size_t>(newZeroIdx)];
-    auto containsName = [&](const BodyName& name) -> bool {
-        return std::find(bodyListInOrder.begin(), bodyListInOrder.end(), name) != bodyListInOrder.end();
+    const int previousCommonZeroBaseId = bodyListInOrder[static_cast<size_t>(previousCommonIdx)];
+    const int newZeroBaseId = bodyListInOrder[static_cast<size_t>(newZeroIdx)];
+    auto containsId = [&](int id) -> bool {
+        return std::find(bodyListInOrder.begin(), bodyListInOrder.end(), id) != bodyListInOrder.end();
     };
-    ASSERT_TRUE(containsName(previousCommonZeroBaseName));
-    ASSERT_TRUE(containsName(newZeroBaseName));
+    ASSERT_TRUE(containsId(previousCommonZeroBaseId));
+    ASSERT_TRUE(containsId(newZeroBaseId));
     ASSERT_EQ(bodyListInOrder.size(), 4U);  // SUN/EARTH/MOON/SATURN only
 
     // --- Build newBodies from the inputs ---
@@ -147,13 +147,13 @@ inline void regressionTestEphemeridesRecenter(
     }
 
     auto fillBody = [&](size_t idx,
-                        const BodyName& spiceName,
-                        const BodyName& originalCentral,
+                        int spiceId,
+                        int originalCentralId,
                         const std::array<double, 3>& r,
                         const std::array<double, 3>& v,
                         bool isMoonFlag) {
-        newBodies[idx].bodySpiceName = spiceName;
-        newBodies[idx].originalCentralBodyName = originalCentral;
+        newBodies[idx].bodySpiceId = spiceId;
+        newBodies[idx].originalCentralBodyId = originalCentralId;
         newBodies[idx].isMoon = isMoonFlag;
         for (int k = 0; k < 3; ++k) {
             newBodies[idx].input_r[k] = r[k];
@@ -171,11 +171,11 @@ inline void regressionTestEphemeridesRecenter(
 
     // --- Configure algorithm ---
     EphemeridesRecenterAlgorithm alg{};
-    for (const auto& name : bodyListInOrder) {
-        EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter(name));
+    for (const auto& id : bodyListInOrder) {
+        EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter(id));
     }
-    EXPECT_NO_THROW(alg.setPreviousCommonZeroBase(previousCommonZeroBaseName));
-    EXPECT_NO_THROW(alg.setNewZeroBaseName(newZeroBaseName));
+    EXPECT_NO_THROW(alg.setPreviousCommonZeroBase(previousCommonZeroBaseId));
+    EXPECT_NO_THROW(alg.setNewZeroBaseId(newZeroBaseId));
     EXPECT_NO_THROW(alg.reset());
 
     // --- Run algorithm + reference ---
@@ -196,25 +196,25 @@ inline void regressionTestEphemeridesRecenter(
             EXPECT_TRUE(std::isfinite(out[i].output_v[k]));
         }
         EXPECT_EQ(out[i].isMoon, ref[i].isMoon);
-        EXPECT_EQ(out[i].bodySpiceName, ref[i].bodySpiceName);
-        EXPECT_EQ(out[i].originalCentralBodyName, ref[i].originalCentralBodyName);
+        EXPECT_EQ(out[i].bodySpiceId, ref[i].bodySpiceId);
+        EXPECT_EQ(out[i].originalCentralBodyId, ref[i].originalCentralBodyId);
     }
 }
 
 inline void testEphemeridesRecenterSetup() {
-    const std::vector<BodyName> bodyListInOrder{
-        makeBodyName("SUN"),
-        makeBodyName("EARTH"),
-        makeBodyName("MOON"),
-        makeBodyName("SATURN"),
+    const std::vector<int> bodyListInOrder{
+        SUN_SPICE_ID,
+        EARTH_SPICE_ID,
+        MOON_SPICE_ID,
+        SATURN_SPICE_ID,
     };
 
     EphemeridesRecenterAlgorithm alg{};
     // Setting previous common zero base when body list is empty should throw
     EXPECT_THROW(alg.setPreviousCommonZeroBase(bodyListInOrder[0]), fs::invalid_argument);
-    // Requesting info when empty should throw (per your getAllNames() / getBodyIndexFromName guards)
-    EXPECT_THROW(alg.getBodyIndexFromName(bodyListInOrder[0]), fs::invalid_argument);
-    EXPECT_THROW(alg.getAllNames(), fs::invalid_argument);
+    // Requesting info when empty should throw (per your getAllIds() / getBodyIndexFromId guards)
+    EXPECT_THROW(alg.getBodyIndexFromId(bodyListInOrder[0]), fs::invalid_argument);
+    EXPECT_THROW(alg.getAllIds(), fs::invalid_argument);
 
     EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter(bodyListInOrder[0]));
     EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter(bodyListInOrder[1]));
@@ -226,48 +226,46 @@ inline void testEphemeridesRecenterSetup() {
     // Basic getters after adding
     EXPECT_EQ(alg.getNumberOfBodies(), 3U);
 
-    const auto names = alg.getAllNames();
-    EXPECT_EQ(names[0], bodyListInOrder[0]);
-    EXPECT_EQ(names[1], bodyListInOrder[1]);
-    EXPECT_EQ(names[2], bodyListInOrder[2]);
+    const auto ids = alg.getAllIds();
+    EXPECT_EQ(ids[0], bodyListInOrder[0]);
+    EXPECT_EQ(ids[1], bodyListInOrder[1]);
+    EXPECT_EQ(ids[2], bodyListInOrder[2]);
 
     // Set and get the previous common zero base
     EXPECT_NO_THROW(alg.setPreviousCommonZeroBase(bodyListInOrder[0]));
     EXPECT_EQ(alg.getPreviousCommonZeroBase(), bodyListInOrder[0]);
 
-    // setNewZeroBaseName should not throw for any name, but reset() should validate it exists in list
-    EXPECT_NO_THROW(alg.setNewZeroBaseName(bodyListInOrder[1]));
+    // setNewZeroBaseId should not throw for any ID, but reset() should validate it exists in list
+    EXPECT_NO_THROW(alg.setNewZeroBaseId(bodyListInOrder[1]));
     EXPECT_EQ(alg.getNewZeroBase(), bodyListInOrder[1]);
 
     // test reset()
     EXPECT_NO_THROW(alg.reset());
 
     // If you set a zero base that is NOT in the list, reset() must throw
-    EXPECT_NO_THROW(alg.setNewZeroBaseName(bodyListInOrder[3]));
+    EXPECT_NO_THROW(alg.setNewZeroBaseId(bodyListInOrder[3]));
     EXPECT_THROW(alg.reset(), fs::invalid_argument);
 
     // Clear should reset internal list; then getters that require non-empty should throw again
     EXPECT_NO_THROW(alg.clearAllBodies());
     EXPECT_EQ(alg.getNumberOfBodies(), 0U);
-    EXPECT_THROW(alg.getAllNames(), fs::invalid_argument);
+    EXPECT_THROW(alg.getAllIds(), fs::invalid_argument);
 
-    // Add exactly MAX_NUM_CHANGE_BODIES bodies (unique names)
+    // Add exactly MAX_NUM_CHANGE_BODIES bodies (unique IDs)
     for (std::size_t i = 0; i < MAX_NUM_CHANGE_BODIES; ++i) {
-        // Make a unique name (fits BodyName max len)
-        const std::string name = "B" + std::to_string(i);
-        EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter(makeBodyName(name.c_str())));
+        EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter(100 + static_cast<int>(i)));
     }
     // One more should exceed the limit and throw
-    EXPECT_THROW(alg.addBodyEphemerisToRecenter(makeBodyName("B_TOO_MANY")), fs::invalid_argument);
+    EXPECT_THROW(alg.addBodyEphemerisToRecenter(999), fs::invalid_argument);
 }
 
 inline void testRecenterEphemeridesRecenter() {
-    const std::vector<BodyName> bodyListInOrder{
-        makeBodyName("SUN"),
-        makeBodyName("EARTH"),
-        makeBodyName("MOON"),
-        makeBodyName("SATURN"),
-        makeBodyName("TITAN"),
+    const std::vector<int> bodyListInOrder{
+        SUN_SPICE_ID,
+        EARTH_SPICE_ID,
+        MOON_SPICE_ID,
+        SATURN_SPICE_ID,
+        TITAN_SPICE_ID,
     };
 
     // --- Build newBodies from the inputs ---
@@ -277,13 +275,13 @@ inline void testRecenterEphemeridesRecenter() {
     }
 
     auto fillBody = [&](size_t idx,
-                        const BodyName& spiceName,
-                        const BodyName& originalCentral,
+                        int spiceId,
+                        int originalCentralId,
                         const std::array<double, 3>& r,
                         const std::array<double, 3>& v,
                         bool isMoonFlag) {
-        newBodies[idx].bodySpiceName = spiceName;
-        newBodies[idx].originalCentralBodyName = originalCentral;
+        newBodies[idx].bodySpiceId = spiceId;
+        newBodies[idx].originalCentralBodyId = originalCentralId;
         newBodies[idx].isMoon = isMoonFlag;
         for (int k = 0; k < 3; ++k) {
             newBodies[idx].input_r[k] = r[k];
@@ -313,18 +311,18 @@ inline void testRecenterEphemeridesRecenter() {
         EphemeridesRecenterAlgorithm alg{};
         // empty body shall throw
         EXPECT_THROW(alg.updateState(newBodies), fs::invalid_argument);
-        EXPECT_THROW(alg.getBodyIndexFromName(bodyListInOrder[0]), fs::invalid_argument);
+        EXPECT_THROW(alg.getBodyIndexFromId(bodyListInOrder[0]), fs::invalid_argument);
         EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter(bodyListInOrder[0]));
         EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter(bodyListInOrder[1]));
         EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter(bodyListInOrder[2]));
 
         // get body that has not been added shall throw
-        EXPECT_THROW(alg.getBodyIndexFromName(bodyListInOrder[3]), fs::invalid_argument);
+        EXPECT_THROW(alg.getBodyIndexFromId(bodyListInOrder[3]), fs::invalid_argument);
         EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter(bodyListInOrder[3]));
         EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter(bodyListInOrder[4]));
 
         EXPECT_NO_THROW(alg.setPreviousCommonZeroBase(bodyListInOrder[0]));
-        EXPECT_NO_THROW(alg.setNewZeroBaseName(bodyListInOrder[1]));
+        EXPECT_NO_THROW(alg.setNewZeroBaseId(bodyListInOrder[1]));
         EXPECT_NO_THROW(alg.reset());
 
         auto out = alg.updateState(newBodies);
@@ -358,12 +356,12 @@ inline void testRecenterEphemeridesRecenter() {
 }
 
 inline void testRecenterMoonEphemeridesRecenter() {
-    const std::vector<BodyName> bodyListInOrder{
-        makeBodyName("SUN"),
-        makeBodyName("EARTH"),
-        makeBodyName("MOON"),
-        makeBodyName("SATURN"),
-        makeBodyName("TITAN"),
+    const std::vector<int> bodyListInOrder{
+        SUN_SPICE_ID,
+        EARTH_SPICE_ID,
+        MOON_SPICE_ID,
+        SATURN_SPICE_ID,
+        TITAN_SPICE_ID,
     };
 
     // --- Build newBodies from the inputs ---
@@ -373,13 +371,13 @@ inline void testRecenterMoonEphemeridesRecenter() {
     }
 
     auto fillBody = [&](size_t idx,
-                        const BodyName& spiceName,
-                        const BodyName& originalCentral,
+                        int spiceId,
+                        int originalCentralId,
                         const std::array<double, 3>& r,
                         const std::array<double, 3>& v,
                         bool isMoonFlag) {
-        newBodies[idx].bodySpiceName = spiceName;
-        newBodies[idx].originalCentralBodyName = originalCentral;
+        newBodies[idx].bodySpiceId = spiceId;
+        newBodies[idx].originalCentralBodyId = originalCentralId;
         newBodies[idx].isMoon = isMoonFlag;
         for (int k = 0; k < 3; ++k) {
             newBodies[idx].input_r[k] = r[k];
@@ -409,18 +407,18 @@ inline void testRecenterMoonEphemeridesRecenter() {
         EphemeridesRecenterAlgorithm alg{};
         // empty body shall throw
         EXPECT_THROW(alg.updateState(newBodies), fs::invalid_argument);
-        EXPECT_THROW(alg.getBodyIndexFromName(bodyListInOrder[0]), fs::invalid_argument);
+        EXPECT_THROW(alg.getBodyIndexFromId(bodyListInOrder[0]), fs::invalid_argument);
         EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter(bodyListInOrder[0]));
         EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter(bodyListInOrder[1]));
         EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter(bodyListInOrder[2]));
 
         // get body that has not been added shall throw
-        EXPECT_THROW(alg.getBodyIndexFromName(bodyListInOrder[3]), fs::invalid_argument);
+        EXPECT_THROW(alg.getBodyIndexFromId(bodyListInOrder[3]), fs::invalid_argument);
         EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter(bodyListInOrder[3]));
         EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter(bodyListInOrder[4]));
 
         EXPECT_NO_THROW(alg.setPreviousCommonZeroBase(bodyListInOrder[0]));
-        EXPECT_NO_THROW(alg.setNewZeroBaseName(bodyListInOrder[2]));
+        EXPECT_NO_THROW(alg.setNewZeroBaseId(bodyListInOrder[2]));
         EXPECT_NO_THROW(alg.reset());
 
         auto out = alg.updateState(newBodies);
@@ -454,12 +452,12 @@ inline void testRecenterMoonEphemeridesRecenter() {
 }
 
 inline void testRecenterPreCommonEphemeridesRecenter() {
-    const std::vector<BodyName> bodyListInOrder{
-        makeBodyName("SUN"),
-        makeBodyName("EARTH"),
-        makeBodyName("MOON"),
-        makeBodyName("SATURN"),
-        makeBodyName("TITAN"),
+    const std::vector<int> bodyListInOrder{
+        SUN_SPICE_ID,
+        EARTH_SPICE_ID,
+        MOON_SPICE_ID,
+        SATURN_SPICE_ID,
+        TITAN_SPICE_ID,
     };
 
     // --- Build newBodies from the inputs ---
@@ -469,13 +467,13 @@ inline void testRecenterPreCommonEphemeridesRecenter() {
     }
 
     auto fillBody = [&](size_t idx,
-                        const BodyName& spiceName,
-                        const BodyName& originalCentral,
+                        int spiceId,
+                        int originalCentralId,
                         const std::array<double, 3>& r,
                         const std::array<double, 3>& v,
                         bool isMoonFlag) {
-        newBodies[idx].bodySpiceName = spiceName;
-        newBodies[idx].originalCentralBodyName = originalCentral;
+        newBodies[idx].bodySpiceId = spiceId;
+        newBodies[idx].originalCentralBodyId = originalCentralId;
         newBodies[idx].isMoon = isMoonFlag;
         for (int k = 0; k < 3; ++k) {
             newBodies[idx].input_r[k] = r[k];
@@ -505,18 +503,18 @@ inline void testRecenterPreCommonEphemeridesRecenter() {
         EphemeridesRecenterAlgorithm alg{};
         // empty body shall throw
         EXPECT_THROW(alg.updateState(newBodies), fs::invalid_argument);
-        EXPECT_THROW(alg.getBodyIndexFromName(bodyListInOrder[0]), fs::invalid_argument);
+        EXPECT_THROW(alg.getBodyIndexFromId(bodyListInOrder[0]), fs::invalid_argument);
         EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter(bodyListInOrder[0]));
         EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter(bodyListInOrder[1]));
         EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter(bodyListInOrder[2]));
 
         // get body that has not been added shall throw
-        EXPECT_THROW(alg.getBodyIndexFromName(bodyListInOrder[3]), fs::invalid_argument);
+        EXPECT_THROW(alg.getBodyIndexFromId(bodyListInOrder[3]), fs::invalid_argument);
         EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter(bodyListInOrder[3]));
         EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter(bodyListInOrder[4]));
 
         EXPECT_NO_THROW(alg.setPreviousCommonZeroBase(bodyListInOrder[0]));
-        EXPECT_NO_THROW(alg.setNewZeroBaseName(bodyListInOrder[0]));
+        EXPECT_NO_THROW(alg.setNewZeroBaseId(bodyListInOrder[0]));
         EXPECT_NO_THROW(alg.reset());
 
         auto out = alg.updateState(newBodies);
@@ -550,12 +548,12 @@ inline void testRecenterPreCommonEphemeridesRecenter() {
 }
 
 inline void testMultiMoonsRecenter() {
-    const std::vector<BodyName> bodyListInOrder{
-        makeBodyName("SUN"),
-        makeBodyName("EARTH"),
-        makeBodyName("MOON"),
-        makeBodyName("SATURN"),
-        makeBodyName("TITAN"),
+    const std::vector<int> bodyListInOrder{
+        SUN_SPICE_ID,
+        EARTH_SPICE_ID,
+        MOON_SPICE_ID,
+        SATURN_SPICE_ID,
+        TITAN_SPICE_ID,
     };
 
     // --- Build newBodies from the inputs ---
@@ -565,13 +563,13 @@ inline void testMultiMoonsRecenter() {
     }
 
     auto fillBody = [&](size_t idx,
-                        const BodyName& spiceName,
-                        const BodyName& originalCentral,
+                        int spiceId,
+                        int originalCentralId,
                         const std::array<double, 3>& r,
                         const std::array<double, 3>& v,
                         bool isMoonFlag) {
-        newBodies[idx].bodySpiceName = spiceName;
-        newBodies[idx].originalCentralBodyName = originalCentral;
+        newBodies[idx].bodySpiceId = spiceId;
+        newBodies[idx].originalCentralBodyId = originalCentralId;
         newBodies[idx].isMoon = isMoonFlag;
         for (int k = 0; k < 3; ++k) {
             newBodies[idx].input_r[k] = r[k];
@@ -601,18 +599,18 @@ inline void testMultiMoonsRecenter() {
         EphemeridesRecenterAlgorithm alg{};
         // empty body shall throw
         EXPECT_THROW(alg.updateState(newBodies), fs::invalid_argument);
-        EXPECT_THROW(alg.getBodyIndexFromName(bodyListInOrder[0]), fs::invalid_argument);
+        EXPECT_THROW(alg.getBodyIndexFromId(bodyListInOrder[0]), fs::invalid_argument);
         EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter(bodyListInOrder[0]));
         EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter(bodyListInOrder[1]));
         EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter(bodyListInOrder[2]));
 
         // get body that has not been added shall throw
-        EXPECT_THROW(alg.getBodyIndexFromName(bodyListInOrder[3]), fs::invalid_argument);
+        EXPECT_THROW(alg.getBodyIndexFromId(bodyListInOrder[3]), fs::invalid_argument);
         EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter(bodyListInOrder[3]));
         EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter(bodyListInOrder[4]));
 
         EXPECT_NO_THROW(alg.setPreviousCommonZeroBase(bodyListInOrder[0]));
-        EXPECT_NO_THROW(alg.setNewZeroBaseName(bodyListInOrder[0]));
+        EXPECT_NO_THROW(alg.setNewZeroBaseId(bodyListInOrder[0]));
         EXPECT_NO_THROW(alg.reset());
 
         EXPECT_THROW(alg.updateState(newBodies), fs::invalid_argument);

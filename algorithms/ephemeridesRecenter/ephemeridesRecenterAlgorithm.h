@@ -13,23 +13,6 @@
 
 inline constexpr std::size_t MAX_NUM_CHANGE_BODIES = 20U;
 
-inline constexpr std::size_t kBodyNameMaxLen = 256U;
-
-struct BodyName {
-   public:
-    constexpr BodyName() = default;
-
-    char* data() noexcept { return buf_.data(); }
-
-    bool empty() const noexcept { return buf_[0] == '\0'; }
-
-    friend bool operator==(const BodyName& a, const BodyName& b) noexcept { return a.buf_ == b.buf_; }
-    friend bool operator!=(const BodyName& a, const BodyName& b) noexcept { return !(a == b); }
-
-   private:
-    std::array<char, kBodyNameMaxLen> buf_{};
-};
-
 struct MoonIndexFound {
     size_t index;
     bool found;
@@ -40,9 +23,9 @@ struct MoonIndexFound {
  */
 class BodyEphemerisPayload {
    public:
-    BodyName bodySpiceName;            //!< SPICE name of the body
-    BodyName originalCentralBodyName;  //!< Original reference body for ephemeris data
-    bool isMoon{false};                //!< Body is moon of another body in the list
+    int bodySpiceId{};            //!< SPICE ID of the body
+    int originalCentralBodyId{};  //!< Original reference body SPICE ID for ephemeris data
+    bool isMoon{false};           //!< Body is moon of another body in the list
     Eigen::Vector3d input_r = Eigen::Vector3d::Zero();
     Eigen::Vector3d input_v = Eigen::Vector3d::Zero();
     Eigen::Vector3d output_r = Eigen::Vector3d::Zero();
@@ -60,15 +43,15 @@ class EphemeridesRecenterAlgorithm {
     void reset();
     std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES> updateState(
         const std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES>& newBodies);
-    size_t getBodyIndexFromName(const BodyName& celestialBodyName) const;
-    void setNewZeroBaseName(const BodyName& bodyName);
-    size_t findNewZeroBaseIndex(const BodyName& bodyName);
-    BodyName getNewZeroBase() const;
-    void setPreviousCommonZeroBase(const BodyName& bodyName);
-    BodyName getPreviousCommonZeroBase() const;
+    size_t getBodyIndexFromId(int bodySpiceId) const;
+    void setNewZeroBaseId(int bodySpiceId);
+    size_t findNewZeroBaseIndex(int bodySpiceId);
+    int getNewZeroBase() const;
+    void setPreviousCommonZeroBase(int bodySpiceId);
+    int getPreviousCommonZeroBase() const;
     size_t getNumberOfBodies() const;
-    std::array<BodyName, MAX_NUM_CHANGE_BODIES> getAllNames() const;
-    void addBodyEphemerisToRecenter(const BodyName& bodyName);
+    std::array<int, MAX_NUM_CHANGE_BODIES> getAllIds() const;
+    void addBodyEphemerisToRecenter(int bodySpiceId);
     void clearAllBodies();
 
    private:
@@ -76,13 +59,12 @@ class EphemeridesRecenterAlgorithm {
     static void validateNoMultipleMoons(const std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES>& bodies,
                                         size_t count);
 
-    BodyName newCentralBodyName;
-    std::array<BodyName, MAX_NUM_CHANGE_BODIES> bodyNames{};
+    int newCentralBodyId{};
+    std::array<int, MAX_NUM_CHANGE_BODIES> bodyIds{};
     size_t celestialBodyCount{};  //!< Number of primary bodies
     size_t newCentralIndex{};
     std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES> celestialBodies{};  //!< All celestial bodies involved
-    BodyEphemerisPayload previousCentralBody{};                                 //!< Previous reference body
-    BodyName previousCentralBodyName;
+    int previousCentralBodyId{};
 };
 
 #endif

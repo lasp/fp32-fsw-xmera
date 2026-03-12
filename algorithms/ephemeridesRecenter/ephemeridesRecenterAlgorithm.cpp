@@ -8,7 +8,7 @@
 #include <algorithm>
 
 void EphemeridesRecenterAlgorithm::reset() {
-    this->newCentralIndex = this->findNewZeroBaseIndex(this->newCentralBodyName);
+    this->newCentralIndex = this->findNewZeroBaseIndex(this->newCentralBodyId);
 }
 
 /*! @brief Recenter the ephemerides
@@ -27,8 +27,8 @@ std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES> EphemeridesRecenterAlgor
     /* - If the new central body is a moon (its original central body is not the common central body but another body in
      * the list) first re-center the moon around the common central body so that every body is relative to the common
      * center*/
-    if (newCentralBody.originalCentralBodyName != this->previousCentralBodyName) {
-        const auto moonCentralBodyIndex = this->getBodyIndexFromName(newCentralBody.originalCentralBodyName);
+    if (newCentralBody.originalCentralBodyId != this->previousCentralBodyId) {
+        const auto moonCentralBodyIndex = this->getBodyIndexFromId(newCentralBody.originalCentralBodyId);
         Eigen::Vector3d const moonCentral_input_r = this->celestialBodies[moonCentralBodyIndex].input_r;
         Eigen::Vector3d const moonCentral_input_v = this->celestialBodies[moonCentralBodyIndex].input_v;
         newCentral_input_r = newCentral_input_r + moonCentral_input_r;
@@ -45,22 +45,22 @@ std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES> EphemeridesRecenterAlgor
         recenteredBodies[i] = BodyEphemerisPayload{};
         Eigen::Vector3d const newEphemerisToRecenter_input_r = newBodies[i].input_r;
         Eigen::Vector3d const newEphemerisToRecenter_input_v = newBodies[i].input_v;
-        if (this->celestialBodies[i].originalCentralBodyName == this->previousCentralBodyName) {
+        if (this->celestialBodies[i].originalCentralBodyId == this->previousCentralBodyId) {
             Eigen::Vector3d const relativePosition = newEphemerisToRecenter_input_r - newCentral_input_r;
 
             Eigen::Vector3d const relativeVelocity = newEphemerisToRecenter_input_v - newCentral_input_v;
 
             if (auto [moonIndex, moonFound] = this->findMoonOfBody(this->celestialBodies[i]);
-                moonFound && this->celestialBodies[i].bodySpiceName != this->previousCentralBodyName) {
+                moonFound && this->celestialBodies[i].bodySpiceId != this->previousCentralBodyId) {
                 Eigen::Vector3d const moonOfBody_input_r = this->celestialBodies[moonIndex].input_r;
                 Eigen::Vector3d const moonOfBody_input_v = this->celestialBodies[moonIndex].input_v;
                 Eigen::Vector3d const moonRelativePosition = relativePosition + moonOfBody_input_r;
                 Eigen::Vector3d const moonRelativeVelocity = relativeVelocity + moonOfBody_input_v;
 
-                recenteredBodies[moonIndex].bodySpiceName = this->celestialBodies[moonIndex].bodySpiceName;
+                recenteredBodies[moonIndex].bodySpiceId = this->celestialBodies[moonIndex].bodySpiceId;
                 recenteredBodies[moonIndex].isMoon = true;
-                recenteredBodies[moonIndex].originalCentralBodyName =
-                    this->celestialBodies[moonIndex].originalCentralBodyName;
+                recenteredBodies[moonIndex].originalCentralBodyId =
+                    this->celestialBodies[moonIndex].originalCentralBodyId;
                 recenteredBodies[moonIndex].output_r = moonRelativePosition;
                 recenteredBodies[moonIndex].output_v = moonRelativeVelocity;
             }
@@ -72,14 +72,14 @@ std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES> EphemeridesRecenterAlgor
     return recenteredBodies;
 }
 
-/*! @brief Find the moon index of a given body name
- @param celestialBody - celestial body name
- @return foundIndex - whether the moon name is found and the index to the body
+/*! @brief Find the moon index of a given body
+ @param celestialBody - celestial body
+ @return foundIndex - whether the moon is found and the index to the body
  */
 MoonIndexFound EphemeridesRecenterAlgorithm::findMoonOfBody(const BodyEphemerisPayload& celestialBody) const {
     MoonIndexFound foundIndex{};
     for (size_t i = 0U; i < this->celestialBodyCount; ++i) {
-        if (this->celestialBodies[i].originalCentralBodyName == celestialBody.bodySpiceName) {
+        if (this->celestialBodies[i].originalCentralBodyId == celestialBody.bodySpiceId) {
             foundIndex.index = i;
             foundIndex.found = true;
         }
@@ -88,10 +88,10 @@ MoonIndexFound EphemeridesRecenterAlgorithm::findMoonOfBody(const BodyEphemerisP
 }
 
 /*! @brief Get the index of a body
- @param celestialBodyName std::string : celestial body name
+ @param bodySpiceId int : celestial body SPICE ID
  @return size_t : index
  */
-size_t EphemeridesRecenterAlgorithm::getBodyIndexFromName(const BodyName& celestialBodyName) const {
+size_t EphemeridesRecenterAlgorithm::getBodyIndexFromId(int bodySpiceId) const {
     if (this->celestialBodyCount == 0U) {
         FS_THROW_INVALID_ARGUMENT("Requesting a body index but the current celestial body count is 0");
     }
@@ -99,7 +99,7 @@ size_t EphemeridesRecenterAlgorithm::getBodyIndexFromName(const BodyName& celest
     size_t foundIndex = 0U;
     bool isFound = false;
     for (size_t i = 0U; i < this->celestialBodyCount; ++i) {
-        if (this->bodyNames[i] == celestialBodyName) {
+        if (this->bodyIds[i] == bodySpiceId) {
             foundIndex = i;
             isFound = true;
         }
@@ -110,76 +110,76 @@ size_t EphemeridesRecenterAlgorithm::getBodyIndexFromName(const BodyName& celest
     return foundIndex;
 }
 
-/*! @brief Set the new zero base body type by name
- @param bodyName std::string : the new zero base
+/*! @brief Set the new zero base body by SPICE ID
+ @param bodySpiceId int : the new zero base
  */
-void EphemeridesRecenterAlgorithm::setNewZeroBaseName(const BodyName& bodyName) { this->newCentralBodyName = bodyName; }
+void EphemeridesRecenterAlgorithm::setNewZeroBaseId(int bodySpiceId) { this->newCentralBodyId = bodySpiceId; }
 
-/*! @brief Find the new zero base body type by name
- @param bodyName BodyName : the new zero base
+/*! @brief Find the new zero base body by SPICE ID
+ @param bodySpiceId int : the new zero base
  */
-size_t EphemeridesRecenterAlgorithm::findNewZeroBaseIndex(const BodyName& bodyName) {
-    auto* indexOfNewZeroBase = std::ranges::find(this->bodyNames, bodyName);
-    if (indexOfNewZeroBase == this->bodyNames.end()) {
+size_t EphemeridesRecenterAlgorithm::findNewZeroBaseIndex(int bodySpiceId) {
+    auto* indexOfNewZeroBase = std::ranges::find(this->bodyIds, bodySpiceId);
+    if (indexOfNewZeroBase == this->bodyIds.end()) {
         FS_THROW_INVALID_ARGUMENT("New zero base body was not in the list of existing bodies");
     }
-    return static_cast<std::size_t>(std::distance(this->bodyNames.begin(), indexOfNewZeroBase));
+    return static_cast<std::size_t>(std::distance(this->bodyIds.begin(), indexOfNewZeroBase));
 }
 
-/*! @brief Get the new celestial body center by name
- @return BodyName : the new zero base
+/*! @brief Get the new celestial body center by SPICE ID
+ @return int : the new zero base
  */
-BodyName EphemeridesRecenterAlgorithm::getNewZeroBase() const { return this->newCentralBodyName; }
+int EphemeridesRecenterAlgorithm::getNewZeroBase() const { return this->newCentralBodyId; }
 
 /*! @brief Set the previous common zero base of all the celestial bodies entered
- @param bodyName BodyName : the new zero base
+ @param bodySpiceId int : the new zero base
  */
-void EphemeridesRecenterAlgorithm::setPreviousCommonZeroBase(const BodyName& bodyName) {
-    if (const auto* indexOfPreviousZeroBase = std::ranges::find(this->bodyNames, bodyName);
-        indexOfPreviousZeroBase == this->bodyNames.end()) {
+void EphemeridesRecenterAlgorithm::setPreviousCommonZeroBase(int bodySpiceId) {
+    if (const auto* indexOfPreviousZeroBase = std::ranges::find(this->bodyIds, bodySpiceId);
+        indexOfPreviousZeroBase == this->bodyIds.end()) {
         FS_THROW_INVALID_ARGUMENT("Previous zero base body was not in the list of existing bodies");
     }
 
-    this->previousCentralBodyName = bodyName;
+    this->previousCentralBodyId = bodySpiceId;
 }
 
 /*! @brief Get the previous common zero base of all the celestial bodies entered
- @return BodyName : the new zero base
+ @return int : the new zero base
  */
-BodyName EphemeridesRecenterAlgorithm::getPreviousCommonZeroBase() const { return this->previousCentralBodyName; }
+int EphemeridesRecenterAlgorithm::getPreviousCommonZeroBase() const { return this->previousCentralBodyId; }
 
 /*! @brief Get the number of bodies that were entered into the module
  @return size_t : the number of bodies
  */
 size_t EphemeridesRecenterAlgorithm::getNumberOfBodies() const { return this->celestialBodyCount; }
 
-/*! @brief Get all the names of the bodies entered
- @return std::array<BodyName, MAX_NUM_CHANGE_BODIES> : an array of names
+/*! @brief Get all the SPICE IDs of the bodies entered
+ @return std::array<int, MAX_NUM_CHANGE_BODIES> : an array of IDs
  */
-std::array<BodyName, MAX_NUM_CHANGE_BODIES> EphemeridesRecenterAlgorithm::getAllNames() const {
+std::array<int, MAX_NUM_CHANGE_BODIES> EphemeridesRecenterAlgorithm::getAllIds() const {
     if (this->celestialBodyCount == 0U) {
-        FS_THROW_INVALID_ARGUMENT("Requesting all body names but the current celestial body count is 0");
+        FS_THROW_INVALID_ARGUMENT("Requesting all body IDs but the current celestial body count is 0");
     }
-    std::array<BodyName, MAX_NUM_CHANGE_BODIES> names{};
+    std::array<int, MAX_NUM_CHANGE_BODIES> ids{};
     for (size_t i = 0U; i < this->celestialBodyCount; ++i) {
-        if (!this->bodyNames[i].empty()) {
-            names[i] = this->bodyNames[i];
+        if (this->bodyIds[i] != 0) {
+            ids[i] = this->bodyIds[i];
         }
     }
-    return names;
+    return ids;
 }
 
-/*! @brief Add celestial body by name
- @param bodyName BodyName : the body name to add
+/*! @brief Add celestial body by SPICE ID
+ @param bodySpiceId int : the body SPICE ID to add
  */
-void EphemeridesRecenterAlgorithm::addBodyEphemerisToRecenter(const BodyName& bodyName) {
+void EphemeridesRecenterAlgorithm::addBodyEphemerisToRecenter(int bodySpiceId) {
     if (this->celestialBodyCount + 1U > MAX_NUM_CHANGE_BODIES) {
         FS_THROW_INVALID_ARGUMENT("Adding one body too many to the list");
     }
-    if (const auto* indexInList = std::ranges::find(this->bodyNames, bodyName); indexInList != this->bodyNames.end()) {
+    if (const auto* indexInList = std::ranges::find(this->bodyIds, bodySpiceId); indexInList != this->bodyIds.end()) {
         FS_THROW_INVALID_ARGUMENT("Body already added to list");
     }
-    this->bodyNames[this->celestialBodyCount] = bodyName;
+    this->bodyIds[this->celestialBodyCount] = bodySpiceId;
     this->celestialBodyCount += 1U;
 }
 
@@ -187,7 +187,7 @@ void EphemeridesRecenterAlgorithm::addBodyEphemerisToRecenter(const BodyName& bo
  */
 void EphemeridesRecenterAlgorithm::clearAllBodies() {
     this->celestialBodies.fill(BodyEphemerisPayload{});
-    this->bodyNames.fill(BodyName{});
+    this->bodyIds.fill(0);
     this->celestialBodyCount = 0U;
 }
 
@@ -201,11 +201,11 @@ void EphemeridesRecenterAlgorithm::validateNoMultipleMoons(
             continue;
         }
 
-        const BodyName& parent = bodies[i].originalCentralBodyName;
+        const int parent = bodies[i].originalCentralBodyId;
         size_t moonCountForParent = 0U;
 
         for (size_t j = 0U; j < count; ++j) {
-            if (bodies[j].isMoon && bodies[j].originalCentralBodyName == parent) {
+            if (bodies[j].isMoon && bodies[j].originalCentralBodyId == parent) {
                 ++moonCountForParent;
                 if (moonCountForParent > 1U) {
                     FS_THROW_INVALID_ARGUMENT("A parent body has multiple moons in the list");

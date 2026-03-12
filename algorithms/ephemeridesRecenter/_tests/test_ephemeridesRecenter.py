@@ -5,6 +5,7 @@
 import inspect
 import os
 import numpy as np
+import spiceypy
 
 filename = inspect.getframeinfo(inspect.currentframe()).filename
 path = os.path.dirname(os.path.abspath(filename))
@@ -12,6 +13,12 @@ path = os.path.dirname(os.path.abspath(filename))
 from xmera.utilities import SimulationBaseClass
 from xmera.fp32 import ephemeridesRecenterF32
 from xmera.architecture import messaging
+
+SUN_ID = spiceypy.bodn2c("SUN")
+EARTH_ID = spiceypy.bodn2c("EARTH")
+MOON_ID = spiceypy.bodn2c("MOON")
+MARS_ID = spiceypy.bodn2c("MARS")
+SATURN_ID = spiceypy.bodn2c("SATURN")
 
 def test_body_recenter():
     """ Test ephemeridesRecenter. """
@@ -50,8 +57,8 @@ def mars_central_body():
     sunInputPayload.timeTag = 1234.0
     sunInputMessage = messaging.EphemerisMsgF32().write(sunInputPayload)
     sunBody.inputEphemerisMsg.subscribeTo(sunInputMessage)
-    sunBody.bodySpiceName = "sun"
-    sunBody.originalCentralBodyName = "sun"
+    sunBody.bodySpiceId = SUN_ID
+    sunBody.originalCentralBodyId = SUN_ID
     list_of_bodies.append(sunBody)
 
     # Set this message
@@ -64,8 +71,8 @@ def mars_central_body():
     earthInputPayload.timeTag = 1234.0
     earthInputMessage = messaging.EphemerisMsgF32().write(earthInputPayload)
     earthBody.inputEphemerisMsg.subscribeTo(earthInputMessage)
-    earthBody.bodySpiceName = "earth"
-    earthBody.originalCentralBodyName = "sun"
+    earthBody.bodySpiceId = EARTH_ID
+    earthBody.originalCentralBodyId = SUN_ID
     list_of_bodies.append(earthBody)
 
     marsBody = ephemeridesRecenterF32.BodyEphemeris()
@@ -77,8 +84,8 @@ def mars_central_body():
     marsInputPayload.timeTag = 1234.0
     marsInputMessage = messaging.EphemerisMsgF32().write(marsInputPayload)
     marsBody.inputEphemerisMsg.subscribeTo(marsInputMessage)
-    marsBody.bodySpiceName = "mars"
-    marsBody.originalCentralBodyName = "sun"
+    marsBody.bodySpiceId = MARS_ID
+    marsBody.originalCentralBodyId = SUN_ID
     list_of_bodies.append(marsBody)
 
     moonBody = ephemeridesRecenterF32.BodyEphemeris()
@@ -90,23 +97,23 @@ def mars_central_body():
     moonInputPayload.timeTag = 1234.0
     moonInputMessage = messaging.EphemerisMsgF32().write(moonInputPayload)
     moonBody.inputEphemerisMsg.subscribeTo(moonInputMessage)
-    moonBody.bodySpiceName = "moon"
-    moonBody.originalCentralBodyName = "earth"
+    moonBody.bodySpiceId = MOON_ID
+    moonBody.originalCentralBodyId = EARTH_ID
     list_of_bodies.append(moonBody)
 
     dataLogList = list()
     names = []
     for body in list_of_bodies:
         ephemRecenter.addBodyEphemerisToRecenter(body)
-        names.append(body.bodySpiceName)
+        names.append(body.bodySpiceId)
     for body in list_of_bodies:
-        index = ephemRecenter.getBodyIndexFromName(body.bodySpiceName)
+        index = ephemRecenter.getBodyIndexFromId(body.bodySpiceId)
         rec = ephemRecenter.recenteredEphemerisOutputMsgs[index].recorder()
         dataLogList.append(rec)
         unitTestSim.AddModelToTask(unitTaskName, rec)
 
-    ephemRecenter.setPreviousCommonZeroBase("sun")
-    ephemRecenter.setNewZeroBase("mars")
+    ephemRecenter.setPreviousCommonZeroBase(SUN_ID)
+    ephemRecenter.setNewZeroBase(MARS_ID)
     unitTestSim.InitializeSimulation()
     unitTestSim.ConfigureStopTime(0)
     unitTestSim.ExecuteSimulation()
@@ -188,8 +195,8 @@ def moon_central_body():
     sunInputPayload.timeTag = 1234.0
     sunInputMessage = messaging.EphemerisMsgF32().write(sunInputPayload)
     sunBody.inputEphemerisMsg.subscribeTo(sunInputMessage)
-    sunBody.bodySpiceName = "sun"
-    sunBody.originalCentralBodyName = "saturn"
+    sunBody.bodySpiceId = SUN_ID
+    sunBody.originalCentralBodyId = SATURN_ID
     list_of_bodies.append(sunBody)
 
     # Set this message
@@ -202,8 +209,8 @@ def moon_central_body():
     earthInputPayload.timeTag = 1234.0
     earthInputMessage = messaging.EphemerisMsgF32().write(earthInputPayload)
     earthBody.inputEphemerisMsg.subscribeTo(earthInputMessage)
-    earthBody.bodySpiceName = "earth"
-    earthBody.originalCentralBodyName = "saturn"
+    earthBody.bodySpiceId = EARTH_ID
+    earthBody.originalCentralBodyId = SATURN_ID
     list_of_bodies.append(earthBody)
 
     marsBody = ephemeridesRecenterF32.BodyEphemeris()
@@ -215,8 +222,8 @@ def moon_central_body():
     marsInputPayload.timeTag = 1234.0
     marsInputMessage = messaging.EphemerisMsgF32().write(marsInputPayload)
     marsBody.inputEphemerisMsg.subscribeTo(marsInputMessage)
-    marsBody.bodySpiceName = "mars"
-    marsBody.originalCentralBodyName = "saturn"
+    marsBody.bodySpiceId = MARS_ID
+    marsBody.originalCentralBodyId = SATURN_ID
     list_of_bodies.append(marsBody)
 
     moonBody = ephemeridesRecenterF32.BodyEphemeris()
@@ -228,8 +235,8 @@ def moon_central_body():
     moonInputPayload.timeTag = 1234.0
     moonInputMessage = messaging.EphemerisMsgF32().write(moonInputPayload)
     moonBody.inputEphemerisMsg.subscribeTo(moonInputMessage)
-    moonBody.bodySpiceName = "moon"
-    moonBody.originalCentralBodyName = "earth"
+    moonBody.bodySpiceId = MOON_ID
+    moonBody.originalCentralBodyId = EARTH_ID
     list_of_bodies.append(moonBody)
 
     saturnBody = ephemeridesRecenterF32.BodyEphemeris()
@@ -241,23 +248,23 @@ def moon_central_body():
     saturnInputPayload.timeTag = 1234.0
     saturnInputMessage = messaging.EphemerisMsgF32().write(saturnInputPayload)
     saturnBody.inputEphemerisMsg.subscribeTo(saturnInputMessage)
-    saturnBody.bodySpiceName = "saturn"
-    saturnBody.originalCentralBodyName = "saturn"
+    saturnBody.bodySpiceId = SATURN_ID
+    saturnBody.originalCentralBodyId = SATURN_ID
     list_of_bodies.append(saturnBody)
 
     dataLogList = list()
     names = []
     for body in list_of_bodies:
         ephemRecenter.addBodyEphemerisToRecenter(body)
-        names.append(body.bodySpiceName)
+        names.append(body.bodySpiceId)
     for body in list_of_bodies:
-        index = ephemRecenter.getBodyIndexFromName(body.bodySpiceName)
+        index = ephemRecenter.getBodyIndexFromId(body.bodySpiceId)
         rec = ephemRecenter.recenteredEphemerisOutputMsgs[index].recorder()
         dataLogList.append(rec)
         unitTestSim.AddModelToTask(unitTaskName, rec)
 
-    ephemRecenter.setPreviousCommonZeroBase("saturn")
-    ephemRecenter.setNewZeroBase("moon")
+    ephemRecenter.setPreviousCommonZeroBase(SATURN_ID)
+    ephemRecenter.setNewZeroBase(MOON_ID)
     unitTestSim.InitializeSimulation()
     unitTestSim.ConfigureStopTime(0)
     unitTestSim.ExecuteSimulation()
@@ -339,8 +346,8 @@ def clearing_values():
     sunInputPayload.timeTag = 1234.0
     sunInputMessage = messaging.EphemerisMsgF32().write(sunInputPayload)
     sunBody.inputEphemerisMsg.subscribeTo(sunInputMessage)
-    sunBody.bodySpiceName = "sun"
-    sunBody.originalCentralBodyName = "sun"
+    sunBody.bodySpiceId = SUN_ID
+    sunBody.originalCentralBodyId = SUN_ID
     list_of_bodies.append(sunBody)
 
     # Set this message
@@ -353,8 +360,8 @@ def clearing_values():
     earthInputPayload.timeTag = 1234.0
     earthInputMessage = messaging.EphemerisMsgF32().write(earthInputPayload)
     earthBody.inputEphemerisMsg.subscribeTo(earthInputMessage)
-    earthBody.bodySpiceName = "earth"
-    earthBody.originalCentralBodyName = "sun"
+    earthBody.bodySpiceId = EARTH_ID
+    earthBody.originalCentralBodyId = SUN_ID
     list_of_bodies.append(earthBody)
 
     marsBody = ephemeridesRecenterF32.BodyEphemeris()
@@ -366,8 +373,8 @@ def clearing_values():
     marsInputPayload.timeTag = 1234.0
     marsInputMessage = messaging.EphemerisMsgF32().write(marsInputPayload)
     marsBody.inputEphemerisMsg.subscribeTo(marsInputMessage)
-    marsBody.bodySpiceName = "mars"
-    marsBody.originalCentralBodyName = "sun"
+    marsBody.bodySpiceId = MARS_ID
+    marsBody.originalCentralBodyId = SUN_ID
     list_of_bodies.append(marsBody)
 
     moonBody = ephemeridesRecenterF32.BodyEphemeris()
@@ -379,23 +386,23 @@ def clearing_values():
     moonInputPayload.timeTag = 1234.0
     moonInputMessage = messaging.EphemerisMsgF32().write(moonInputPayload)
     moonBody.inputEphemerisMsg.subscribeTo(moonInputMessage)
-    moonBody.bodySpiceName = "moon"
-    moonBody.originalCentralBodyName = "earth"
+    moonBody.bodySpiceId = MOON_ID
+    moonBody.originalCentralBodyId = EARTH_ID
     list_of_bodies.append(moonBody)
 
     names = []
     for body in list_of_bodies:
         ephemRecenter.addBodyEphemerisToRecenter(body)
-        names.append(body.bodySpiceName)
+        names.append(body.bodySpiceId)
 
-    ephemRecenter.setPreviousCommonZeroBase("sun")
-    ephemRecenter.setNewZeroBase("mars")
+    ephemRecenter.setPreviousCommonZeroBase(SUN_ID)
+    ephemRecenter.setNewZeroBase(MARS_ID)
 
     np.testing.assert_equal(ephemRecenter.getNumberOfBodies(), len(list_of_bodies), "Wrong number of bodies")
-    np.testing.assert_equal(ephemRecenter.getAllNames()[:ephemRecenter.getNumberOfBodies()], names, "Wrong names for bodies")
+    np.testing.assert_equal(list(ephemRecenter.getAllIds()[:ephemRecenter.getNumberOfBodies()]), names, "Wrong IDs for bodies")
 
-    np.testing.assert_equal(ephemRecenter.getNewZeroBase(), "mars", "Wrong new zero base")
-    np.testing.assert_equal(ephemRecenter.getPreviousCommonZeroBase(), "sun", "Wrong previous zero base")
+    np.testing.assert_equal(ephemRecenter.getNewZeroBase(), MARS_ID, "Wrong new zero base")
+    np.testing.assert_equal(ephemRecenter.getPreviousCommonZeroBase(), SUN_ID, "Wrong previous zero base")
 
     ephemRecenter.clearAllBodies()
     np.testing.assert_equal(ephemRecenter.getNumberOfBodies(), 0, "Clear bodies did no work")
