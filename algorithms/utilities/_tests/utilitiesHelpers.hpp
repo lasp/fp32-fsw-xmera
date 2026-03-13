@@ -50,12 +50,12 @@ inline Eigen::Matrix3d generateValidInertiaMatrix(double const ev1,
 }
 
 /* Function to generate a general inertia matrix */
-inline Eigen::Matrix3f generateValidDCM(float const sigma1, float const sigma2, float const sigma3) {
-    Eigen::Vector3f mrp(sigma1, sigma2, sigma3);
+inline Eigen::Matrix3d generateValidDCM(double const sigma1, double const sigma2, double const sigma3) {
+    Eigen::Vector3d mrp(sigma1, sigma2, sigma3);
     if (mrp.squaredNorm() > 1) {
         mrp = -mrp / mrp.squaredNorm();
     }
-    Eigen::Matrix3f dcm = mrpToDcm(mrp);
+    Eigen::Matrix3d dcm = mrpToDcm(mrp);
 
     return dcm;
 }
