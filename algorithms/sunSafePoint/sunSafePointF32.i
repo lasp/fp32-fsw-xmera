@@ -10,6 +10,6 @@
 %include "sys_model.i"
 %include "sunSafePoint.h"
 
-%include "architecture/msgPayloadDef/NavAttMsgPayload.h"
-struct NavAttMsg_C;
-%include "architecture/msgPayloadDef/AttGuidMsgPayload.h"
+%include "msgPayloadDef/NavAttMsgF32Payload.h"
+struct NavAttMsgF32_C;
+%include "msgPayloadDef/AttGuidMsgF32Payload.h"

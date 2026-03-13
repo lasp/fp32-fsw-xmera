@@ -77,15 +77,15 @@ def test_sunSafePoint(show_plots, case):
     sun_safe_point.setSHatBdyCmd(sHat_Cmd_B)
 
     # Create sunSafePoint sun direction input messages
-    inputSunVecData = messaging.NavAttMsgPayload()
+    inputSunVecData = messaging.NavAttMsgF32Payload()
     inputSunVecData.vehSunPntBdy = sunVec_B
-    sunInMsg = messaging.NavAttMsg().write(inputSunVecData)
+    sunInMsg = messaging.NavAttMsgF32().write(inputSunVecData)
 
     # Create sunSafePoint IMU input message
-    inputIMUData = messaging.NavAttMsgPayload()
+    inputIMUData = messaging.NavAttMsgF32Payload()
     omega_BN_B = np.array([0.01, 0.50, -0.2])
     inputIMUData.omega_BN_B = omega_BN_B
-    imuInMsg = messaging.NavAttMsg().write(inputIMUData)
+    imuInMsg = messaging.NavAttMsgF32().write(inputIMUData)
 
     # Set up data logging
     attGuidOutMsgDataLog = sun_safe_point.attGuidanceOutMsg.recorder()
@@ -141,10 +141,11 @@ def test_sunSafePoint(show_plots, case):
         ]
 
     # Compare the module results to the truth values
-    accuracy = 1e-12
+    tolerance = 1e-6
     np.testing.assert_allclose(sigma_BRTruth,
                                attGuidOutMsgDataLog.sigma_BR,
-                               atol=accuracy,
+                               rtol=tolerance,
+                               atol=tolerance,
                                verbose=True)
 
     # Check omega_BR_B
@@ -165,7 +166,8 @@ def test_sunSafePoint(show_plots, case):
     # Compare the module results to the truth values
     np.testing.assert_allclose(omega_BR_BTruth,
                                attGuidOutMsgDataLog.omega_BR_B,
-                               atol=accuracy,
+                               rtol=tolerance,
+                               atol=tolerance,
                                verbose=True)
 
     # Check omega_RN_B
@@ -186,7 +188,8 @@ def test_sunSafePoint(show_plots, case):
     # Compare the module results to the truth values
     np.testing.assert_allclose(omega_RN_BTruth,
                                attGuidOutMsgDataLog.omega_RN_B,
-                               atol=accuracy,
+                               rtol=tolerance,
+                               atol=tolerance,
                                verbose=True)
 
     # Check domega_RN_B
@@ -200,7 +203,8 @@ def test_sunSafePoint(show_plots, case):
     # Compare the module results to the truth values
     np.testing.assert_allclose(domega_RN_BTruth,
                                attGuidOutMsgDataLog.domega_RN_B,
-                               atol=accuracy,
+                               rtol=tolerance,
+                               atol=tolerance,
                                verbose=True)
 
 if __name__ == "__main__":
