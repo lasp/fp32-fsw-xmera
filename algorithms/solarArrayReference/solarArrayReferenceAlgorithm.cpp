@@ -16,7 +16,7 @@
  @param theta current panel angular displacement [rad]
 */
 float SolarArrayReferenceAlgorithm::update(const Eigen::Vector3f& sigma_BN,
-                                                               const Eigen::Vector3f& sigma_RN,
+                                                               const Eigen::Vector3f& sigma_RN,  // NOLINT(bugprone-easily-swappable-parameters)
                                                                const Eigen::Vector3f& vehSunPntBdy,
                                                                const float theta) const {
 
