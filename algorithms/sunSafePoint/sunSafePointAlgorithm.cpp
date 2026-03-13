@@ -26,6 +26,7 @@ void SunSafePointAlgorithm::reset() {
  @param vehSunPntBdy Sun direction vector in body frame
  @param omega_BN_B Body angular velocity vector
 */
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
 SunSafePointOutput SunSafePointAlgorithm::update(const Eigen::Vector3f& vehSunPntBdy,
                                                   const Eigen::Vector3f& omega_BN_B) const {
     SunSafePointOutput output{};
