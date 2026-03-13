@@ -74,7 +74,7 @@ void CssCommAlgorithm::setChebyCount(const uint32_t count) {
     if (count <= 0) {
         FS_THROW_INVALID_ARGUMENT("The cheby polynomial count must be positive.");
     }
-    if (count > kMaxNumChebyPolys) {
+    if (count > static_cast<uint32_t>(kMaxNumChebyPolys)) {
         FS_THROW_INVALID_ARGUMENT("The cheby polynomial count exceeds the maximum allowed.");
     }
     this->chebyCount = count;
