@@ -4,6 +4,7 @@
 #include <architecture/msgPayloadDef/definitions.h>
 #include <array>
 #include <cstddef>
+#include <cstdint>
 
 inline constexpr std::size_t kMaxNumChebyPolys = 32;
 
