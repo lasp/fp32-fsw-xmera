@@ -7,6 +7,7 @@
 #include "stepperMotorControllerAlgorithm.h"
 #include "../freestandingInvalidArgument.h"
 #include <architecture/utilities/macroDefinitions.h>
+#include <math.h>
 
 /*! This method performs a complete reset of the module. The input message is checked to ensure it is linked.
  @return void
@@ -26,7 +27,7 @@ void StepperMotorControllerAlgorithm::reset() {
  @param motorRefAngleIn [-] Motor reference angle message
 */
 StepperMotorControllerOutput StepperMotorControllerAlgorithm::update(
-    const uint64_t callTime,
+    const uint64_t callTime,  // NOLINT(bugprone-easily-swappable-parameters)
     const float hingedRigidBodyMsgTimeWritten,
     const HingedRigidBodyMsgF32Payload& motorRefAngleIn) {
     StepperMotorControllerOutput stepperMotorControllerOutput{};
@@ -54,24 +55,23 @@ StepperMotorControllerOutput StepperMotorControllerAlgorithm::update(
             // deltaTheta.
             float deltaTheta{};
             if (this->theta > 0) {
-                deltaTheta = this->thetaRef - (std::ceil(this->theta / this->stepAngle) * this->stepAngle);
+                deltaTheta = this->thetaRef - (ceilf(this->theta / this->stepAngle) * this->stepAngle);
             } else {
-                deltaTheta = this->thetaRef - (std::floor(this->theta / this->stepAngle) * this->stepAngle);
+                deltaTheta = this->thetaRef - (floorf(this->theta / this->stepAngle) * this->stepAngle);
             }
 
             // Calculate the integer number of steps the motor must take to reach the reference angle
             // The exact value is first stored as a float and rounded to the nearest integer step
             const float tempStepsCommanded = deltaTheta / this->stepAngle;
-            if ((std::ceil(tempStepsCommanded) - tempStepsCommanded) >
-                (tempStepsCommanded - std::floor(tempStepsCommanded))) {
-                this->stepsCommanded = std::floor(tempStepsCommanded);
+            if ((ceilf(tempStepsCommanded) - tempStepsCommanded) > (tempStepsCommanded - floorf(tempStepsCommanded))) {
+                this->stepsCommanded = static_cast<int>(floorf(tempStepsCommanded));
             } else {
-                this->stepsCommanded = std::ceil(tempStepsCommanded);
+                this->stepsCommanded = static_cast<int>(ceilf(tempStepsCommanded));
             }
         }
 
         // Use the computed steps commanded to update the motor reference angle to the reachable value
-        this->thetaRef = this->theta + (this->stepsCommanded * this->stepAngle);
+        this->thetaRef = this->theta + (static_cast<float>(this->stepsCommanded) * this->stepAngle);
 
         // Zero the motor step count because a new reference has been commanded
         this->stepCount = 0;
@@ -84,20 +84,20 @@ StepperMotorControllerOutput StepperMotorControllerAlgorithm::update(
     }
 
     // Calculate the time elapsed since the last motor reference input message was written
-    const float deltaSimTime = (NANO2SEC * callTime) - this->previousWrittenTime;
+    const float deltaSimTime = static_cast<float>(NANO2SEC * static_cast<double>(callTime)) - this->previousWrittenTime;
 
     // Update the motor information if steps were commanded
     if (this->stepsCommanded > 0) {
-        this->stepCount = std::floor(deltaSimTime / this->stepTime);
-        this->theta = this->thetaInit + this->stepAngle * (deltaSimTime / this->stepTime);
+        this->stepCount = static_cast<int>(floorf(deltaSimTime / this->stepTime));
+        this->theta = this->thetaInit + (this->stepAngle * (deltaSimTime / this->stepTime));
         if (this->theta >= this->thetaRef) {
             this->stepCount = this->stepsCommanded;
             this->theta = this->thetaRef;
             this->thetaInit = this->thetaRef;
         }
     } else if (this->stepsCommanded < 0) {
-        this->stepCount = -std::floor(deltaSimTime / this->stepTime);
-        this->theta = this->thetaInit - this->stepAngle * (deltaSimTime / this->stepTime);
+        this->stepCount = -static_cast<int>(floorf(deltaSimTime / this->stepTime));
+        this->theta = this->thetaInit - (this->stepAngle * (deltaSimTime / this->stepTime));
         if (this->theta <= this->thetaRef) {
             this->stepCount = this->stepsCommanded;
             this->theta = this->thetaRef;

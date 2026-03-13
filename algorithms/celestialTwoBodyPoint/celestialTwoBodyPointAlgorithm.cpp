@@ -6,7 +6,7 @@
 
 #include "celestialTwoBodyPointAlgorithm.h"
 #include "../freestandingInvalidArgument.h"
-#include "../utilities/safeMathFloat.h"
+#include "../utilities/safeMath.h"
 #include "architecture/utilities/eigenSupport.h"
 #include "architecture/utilities/rigidBodyKinematics.hpp"
 

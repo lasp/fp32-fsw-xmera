@@ -35,6 +35,18 @@ target_link_libraries(test_chebyshevUtilities PRIVATE
 
 gtest_discover_tests(test_chebyshevUtilities)
 
+add_executable(test_safeMath
+  test_safeMath.cpp
+)
+
+target_include_directories(test_safeMath PRIVATE "..")
+
+target_link_libraries(test_safeMath PRIVATE
+    GTest::gtest_main
+)
+
+gtest_discover_tests(test_safeMath)
+
 if(XMERA_ENABLE_FUZZTESTS)
   fuzztest_setup_fuzzing_flags()
 
@@ -85,4 +97,21 @@ if(XMERA_ENABLE_FUZZTESTS)
     PROPERTIES
       LABELS "fuzz\;fuzz-smoke"
   )
+
+  add_executable(test_safeMath_fuzz
+    test_safeMath_fuzz.cpp
+  )
+
+  target_include_directories(test_safeMath_fuzz PRIVATE "..")
+
+  target_link_libraries(test_safeMath_fuzz PRIVATE
+    fuzztest::fuzztest
+    fuzztest::fuzztest_gtest_main
+  )
+
+  gtest_discover_tests(test_safeMath_fuzz
+    PROPERTIES
+      LABELS "fuzz\;fuzz-smoke"
+  )
+
 endif()
