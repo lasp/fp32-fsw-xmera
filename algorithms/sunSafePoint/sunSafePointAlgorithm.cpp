@@ -10,10 +10,10 @@
 */
 void SunSafePointAlgorithm::reset() {
     // Compute an Eigen axis orthogonal to sHatBdyCmd
-    Eigen::Vector3f v1 = {1.0f, 0.0f, 0.0f};
+    Eigen::Vector3f v1 = {1.0F, 0.0F, 0.0F};
     this->eHat180_B = this->sHatBdyCmd.cross(v1);
-    if (this->eHat180_B.norm() < 0.1f) {
-        v1 = {0.0f, 1.0f, 0.0f};
+    if (this->eHat180_B.norm() < 0.1F) {
+        v1 = {0.0F, 1.0F, 0.0F};
         this->eHat180_B = this->sHatBdyCmd.cross(v1);
     }
     this->eHat180_B.normalize();
@@ -54,8 +54,8 @@ SunSafePointOutput SunSafePointAlgorithm::update(const Eigen::Vector3f& vehSunPn
                 e_hat = vehSunPntBdy.cross(this->sHatBdyCmd);
             }
             Eigen::Vector3f sunMnvrVec = e_hat / e_hat.norm();
-            sigma_BR = std::tan(sunAngleErr * 0.25f) * sunMnvrVec;
-            sigma_BR = mrpSwitch(sigma_BR, 1.0f);
+            sigma_BR = std::tan(sunAngleErr * 0.25F) * sunMnvrVec;
+            sigma_BR = mrpSwitch(sigma_BR, 1.0F);
         }
 
         output.sigma_BR = sigma_BR;
@@ -102,7 +102,7 @@ Eigen::Vector3f SunSafePointAlgorithm::getSHatBdyCmd() const { return this->sHat
  @param magnitude The minimally acceptable norm of sun body vector (Must be positive)
 */
 void SunSafePointAlgorithm::setMinUnitMag(const float magnitude) {
-    if (magnitude <= 0.0f) {
+    if (magnitude <= 0.0F) {
         FSW_THROW_INVALID_ARGUMENT("sunSafePoint: minUnitMag must be positive");
     }
     this->minUnitMag = magnitude;
@@ -113,7 +113,7 @@ void SunSafePointAlgorithm::setMinUnitMag(const float magnitude) {
  @param angle [rad] An angle value that specifies what is near 0 or 180 degrees (Must be positive)
 */
 void SunSafePointAlgorithm::setSmallAngle(const float angle) {
-    if (angle <= 0.0f) {
+    if (angle <= 0.0F) {
         FSW_THROW_INVALID_ARGUMENT("sunSafePoint: smallAngle must be positive");
     }
     this->smallAngle = angle;
@@ -138,7 +138,7 @@ void SunSafePointAlgorithm::setOmega_RN_B(const Eigen::Vector3f& omega) { this->
  @param sHat Desired body vector to point at the sun
 */
 void SunSafePointAlgorithm::setSHatBdyCmd(const Eigen::Vector3f& sHat) {
-    if (sHat.norm() <= 1e-8f) {
+    if (sHat.norm() <= 1e-8F) {
         FSW_THROW_INVALID_ARGUMENT("sunSafePoint: sHatBdyCmd must be a non-zero vector");
     }
     this->sHatBdyCmd = sHat.normalized();
