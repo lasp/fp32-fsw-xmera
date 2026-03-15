@@ -138,6 +138,16 @@ TEST_F(OEStateEphemAlgorithmTest, SetAndGetArcTrueAnomalyCoefficients) {
     EXPECT_FLOAT_EQ(coeffs[0], retrieved[0]);
 }
 
+TEST_F(OEStateEphemAlgorithmTest, SetAndGetNumberOfArcs) {
+    const unsigned int numArcs = 3;
+    algorithm.setNumberOfArcs(numArcs);
+    EXPECT_EQ(numArcs, algorithm.getNumberOfArcs());
+}
+
+TEST_F(OEStateEphemAlgorithmTest, SetNumberOfArcsZeroThrows) {
+    EXPECT_THROW(algorithm.setNumberOfArcs(0), fs::invalid_argument);
+}
+
 // ============================================================================
 // ANALYTICAL TESTS WITH CONSTANT COEFFICIENTS
 // ============================================================================
@@ -152,6 +162,7 @@ TEST_F(OEStateEphemAlgorithmTest, CircularOrbitAtOrigin_ConstantCoefficients) {
     algorithm.setVehicleTimeOffset(0.0);
 
     // Setup arc 0 with constant coefficients (only first coefficient non-zero)
+    algorithm.setNumberOfArcs(1);
     algorithm.setArcNumberOfCoefficients(0, 1);
     algorithm.setArcMiddleTime(0, 1000.0);
     algorithm.setArcRadiusTime(0, 2000.0);
@@ -196,6 +207,7 @@ TEST_F(OEStateEphemAlgorithmTest, CircularOrbitAt90Degrees_ConstantCoefficients)
     algorithm.setEphemerisTimeJ2000(0.0);
     algorithm.setVehicleTimeOffset(0.0);
 
+    algorithm.setNumberOfArcs(1);
     algorithm.setArcNumberOfCoefficients(0, 1);
     algorithm.setArcMiddleTime(0, 1000.0);
     algorithm.setArcRadiusTime(0, 2000.0);
@@ -280,6 +292,7 @@ TEST_F(OEStateEphemAlgorithmTest, CentralBodyReturnsZeroState) {
     algorithm.setEphemerisTimeJ2000(0.0);
     algorithm.setVehicleTimeOffset(0.0);
 
+    algorithm.setNumberOfArcs(1);
     algorithm.setArcNumberOfCoefficients(0, 1);
     algorithm.setArcMiddleTime(0, 1000.0);
     algorithm.setArcRadiusTime(0, 2000.0);

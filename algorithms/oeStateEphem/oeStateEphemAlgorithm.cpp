@@ -159,6 +159,22 @@ void OEStateEphemAlgorithm::setCentralBodyGravitationalParameter(const double gr
 */
 double OEStateEphemAlgorithm::getCentralBodyGravitationalParameter() const { return this->mu; };
 
+/*! This method sets the number of orbital element coefficient arcs.
+    @return void
+    @param unsigned int The number of fit arcs to be populated
+*/
+void OEStateEphemAlgorithm::setNumberOfArcs(const unsigned int arcs) {
+    if (arcs < 1) {
+        FS_THROW_INVALID_ARGUMENT("Number of arcs in OEStateEphemAlgorithm must be strictly positive.");
+    }
+    this->numberOfArcs = arcs;
+};
+
+/*! This method retrieves the number of orbital element coefficient arcs.
+    @return unsigned int The number of fit arcs to be populated
+*/
+unsigned int OEStateEphemAlgorithm::getNumberOfArcs() const { return this->numberOfArcs; };
+
 /*! This method sets the number of Chebyshev coefficients for a specified arc.
     @return void
     @param arcNumber The index of the arc to modify
