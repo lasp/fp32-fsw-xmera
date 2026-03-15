@@ -44,7 +44,10 @@ ChebyshevFitArc OEStateEphemAlgorithm::findCurrentArc(const uint64_t spacecraftC
     @param arc The Chebyshev fit arc containing the time middle and radius parameters
 */
 double OEStateEphemAlgorithm::scaleEphemerisTime(const ChebyshevFitArc& arc) const {
-    double currentScaledValue = (this->currentEphTime - arc.ephemerisTimeMiddle) / arc.ephemerisTimeRadius;
+    double currentScaledValue = 0;
+    if (arc.ephemerisTimeRadius > kTolerance) {
+        currentScaledValue = (this->currentEphTime - arc.ephemerisTimeMiddle) / arc.ephemerisTimeRadius;
+    }
     if (fabs(currentScaledValue) > 1.0F) {
         currentScaledValue = currentScaledValue / fabs(currentScaledValue);
     }
