@@ -25,7 +25,7 @@ ChebyshevFitArc OEStateEphemAlgorithm::findCurrentArc(const uint64_t spacecraftC
     /*! - select the fitting coefficients for the nearest fit interval */
     uint32_t nearestArc = 0;
     double smallestTimeDifference = fabs(this->currentEphTime - this->fitCoefficients.at(0).ephemerisTimeMiddle);
-    for (unsigned int i = 1; i < kMaxOeRecords; ++i) {
+    for (unsigned int i = 1; i < this->numberOfArcs; ++i) {
         const double timeDifference = fabs(this->currentEphTime - this->fitCoefficients.at(i).ephemerisTimeMiddle);
         if (timeDifference < smallestTimeDifference) {
             nearestArc = i;
