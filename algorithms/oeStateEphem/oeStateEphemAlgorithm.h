@@ -11,7 +11,6 @@
 #include <array>
 #include <cstddef>
 
-inline constexpr double kKmToMeters = 1e3;
 inline constexpr double kTolerance = 1e-10;
 inline constexpr float kToleranceF32 = 1e-6;
 inline constexpr std::size_t kMaxOeCoeff = 20;

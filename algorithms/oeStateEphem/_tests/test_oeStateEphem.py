@@ -126,7 +126,7 @@ def cheby_fit(show_plots, valid_curve, anomaly_flag):
         orbital_elements = orbitalMotion.rv2elem(central_body_mu*1e-9, position, velocity)
         true_positions_m.append(position*1e3)
         true_velocities_mps.append(velocity*1e3)
-        radius_periapsis.append(orbital_elements.rPeriap)
+        radius_periapsis.append(orbital_elements.rPeriap * 1000.0)
         eccentricity.append(orbital_elements.e)
         inclination.append(orbital_elements.i)
         raan.append(orbital_elements.Omega)

@@ -83,7 +83,7 @@ TEST_F(OEStateEphemAlgorithmTest, SetAndGetArcAnomalyFlag) {
 TEST_F(OEStateEphemAlgorithmTest, SetAndGetArcRadiusPeriapsisCoefficients) {
     const unsigned int arcNum = 0;
     std::array<double, kMaxOeCoeff> coeffs{};
-    coeffs[0] = 7000.0;
+    coeffs[0] = 7000000.0;
     coeffs[1] = 0.1;
     algorithm.setArcRadiusPeriapsisCoefficients(arcNum, coeffs);
     auto retrieved = algorithm.getArcRadiusPeriapsisCoefficients(arcNum);
@@ -145,8 +145,7 @@ TEST_F(OEStateEphemAlgorithmTest, SetAndGetArcTrueAnomalyCoefficients) {
 TEST_F(OEStateEphemAlgorithmTest, CircularOrbitAtOrigin_ConstantCoefficients) {
     // Setup: Circular orbit in equatorial plane at true anomaly = 0
     // This gives a predictable position: (r, 0, 0)
-    const double radius_km = 7000.0;
-    const double radius_m = radius_km * 1000.0;
+    const double radius_m = 7000000.0;
 
     algorithm.setCentralBodyGravitationalParameter(EARTH_MU);
     algorithm.setEphemerisTimeJ2000(0.0);
@@ -160,7 +159,7 @@ TEST_F(OEStateEphemAlgorithmTest, CircularOrbitAtOrigin_ConstantCoefficients) {
 
     // Constant orbital elements for circular equatorial orbit
     std::array<double, kMaxOeCoeff> rpCoeffs{};
-    rpCoeffs[0] = radius_km;  // r_p = a for circular orbit (e=0)
+    rpCoeffs[0] = radius_m;  // r_p = a for circular orbit (e=0)
     algorithm.setArcRadiusPeriapsisCoefficients(0, rpCoeffs);
 
     std::array<float, kMaxOeCoeff> zeroCoeffs{};
@@ -191,8 +190,7 @@ TEST_F(OEStateEphemAlgorithmTest, CircularOrbitAtOrigin_ConstantCoefficients) {
 TEST_F(OEStateEphemAlgorithmTest, CircularOrbitAt90Degrees_ConstantCoefficients) {
     // Setup: Circular orbit with true anomaly = 90 degrees (pi/2)
     // This gives position: (0, r, 0)
-    const double radius_km = 7000.0;
-    const double radius_m = radius_km * 1000.0;
+    const double radius_m = 7000000.0;
 
     algorithm.setCentralBodyGravitationalParameter(EARTH_MU);
     algorithm.setEphemerisTimeJ2000(0.0);
@@ -204,7 +202,7 @@ TEST_F(OEStateEphemAlgorithmTest, CircularOrbitAt90Degrees_ConstantCoefficients)
     algorithm.setArcAnomalyFlag(0, AnomalyType::TRUE_ANOMALY);
 
     std::array<double, kMaxOeCoeff> rpCoeffs{};
-    rpCoeffs[0] = radius_km;
+    rpCoeffs[0] = radius_m;
     algorithm.setArcRadiusPeriapsisCoefficients(0, rpCoeffs);
 
     std::array<float, kMaxOeCoeff> zeroCoeffs{};
@@ -234,11 +232,9 @@ TEST_F(OEStateEphemAlgorithmTest, CircularOrbitAt90Degrees_ConstantCoefficients)
 
 TEST_F(OEStateEphemAlgorithmTest, EllipticalOrbitAtPeriapsis_ConstantCoefficients) {
     // Elliptical orbit at periapsis (nu = 0)
-    const double r_p_km = 7000.0;
+    const double r_p_m = 7000000.0;
     const double eccentricity = 0.1;
-    const double a_km = r_p_km / (1.0 - eccentricity);
-    const double r_p_m = r_p_km * 1000.0;
-    const double a_m = a_km * 1000.0;
+    const double a_m = r_p_m / (1.0 - eccentricity);
 
     algorithm.setCentralBodyGravitationalParameter(EARTH_MU);
     algorithm.setEphemerisTimeJ2000(0.0);
@@ -250,7 +246,7 @@ TEST_F(OEStateEphemAlgorithmTest, EllipticalOrbitAtPeriapsis_ConstantCoefficient
     algorithm.setArcAnomalyFlag(0, AnomalyType::TRUE_ANOMALY);
 
     std::array<double, kMaxOeCoeff> rpCoeffs{};
-    rpCoeffs[0] = r_p_km;
+    rpCoeffs[0] = r_p_m;
     algorithm.setArcRadiusPeriapsisCoefficients(0, rpCoeffs);
 
     std::array<float, kMaxOeCoeff> eCoeffs{};
@@ -304,17 +300,17 @@ TEST_F(OEStateEphemAlgorithmTest, CentralBodyReturnsZeroState) {
 
 TEST(OEStateEphemUpdateTest, CircularEquatorialOrbit) {
     // Circular orbit in equatorial plane at true anomaly = 0
-    EXPECT_NO_THROW(testOEStateEphemUpdate(EARTH_MU,  // mu
-                                           7000.0,    // r_p_km
-                                           0.0f,      // eccentricity (circular)
-                                           0.0f,      // inclination (equatorial)
-                                           0.0f,      // arg_periapsis
-                                           0.0f,      // raan
-                                           0.0f,      // true_anomaly (at periapsis)
-                                           0,         // call_time_ns
-                                           0.0,       // ephemeris_time
-                                           0.0,       // vehicle_time
-                                           1000.0,    // arc_radius_time
+    EXPECT_NO_THROW(testOEStateEphemUpdate(EARTH_MU,   // mu
+                                           7000000.0,  // r_p_m
+                                           0.0f,       // eccentricity (circular)
+                                           0.0f,       // inclination (equatorial)
+                                           0.0f,       // arg_periapsis
+                                           0.0f,       // raan
+                                           0.0f,       // true_anomaly (at periapsis)
+                                           0,          // call_time_ns
+                                           0.0,        // ephemeris_time
+                                           0.0,        // vehicle_time
+                                           1000.0,     // arc_radius_time
                                            TEST_TOLERANCE_POSITION,
                                            TEST_TOLERANCE_VELOCITY));
 }
@@ -322,7 +318,7 @@ TEST(OEStateEphemUpdateTest, CircularEquatorialOrbit) {
 TEST(OEStateEphemUpdateTest, CircularOrbitAt90Degrees) {
     // Circular orbit at 90 degrees true anomaly
     EXPECT_NO_THROW(testOEStateEphemUpdate(EARTH_MU,
-                                           7000.0,
+                                           7000000.0,
                                            0.0f,
                                            0.0f,
                                            0.0f,
@@ -339,7 +335,7 @@ TEST(OEStateEphemUpdateTest, CircularOrbitAt90Degrees) {
 TEST(OEStateEphemUpdateTest, EllipticalOrbitAtPeriapsis) {
     // Elliptical orbit (e=0.2) at periapsis
     EXPECT_NO_THROW(testOEStateEphemUpdate(EARTH_MU,
-                                           7000.0,
+                                           7000000.0,
                                            0.2f,  // eccentricity
                                            0.0f,
                                            0.0f,
@@ -356,7 +352,7 @@ TEST(OEStateEphemUpdateTest, EllipticalOrbitAtPeriapsis) {
 TEST(OEStateEphemUpdateTest, EllipticalOrbitAtApoapsis) {
     // Elliptical orbit (e=0.2) at apoapsis
     EXPECT_NO_THROW(testOEStateEphemUpdate(EARTH_MU,
-                                           7000.0,
+                                           7000000.0,
                                            0.2f,
                                            0.0f,
                                            0.0f,
@@ -373,7 +369,7 @@ TEST(OEStateEphemUpdateTest, EllipticalOrbitAtApoapsis) {
 TEST(OEStateEphemUpdateTest, PolarOrbit) {
     // Circular polar orbit
     EXPECT_NO_THROW(testOEStateEphemUpdate(EARTH_MU,
-                                           7000.0,
+                                           7000000.0,
                                            0.0f,
                                            static_cast<float>(M_PI / 2.0),  // 90 degrees inclination
                                            0.0f,
@@ -390,7 +386,7 @@ TEST(OEStateEphemUpdateTest, PolarOrbit) {
 TEST(OEStateEphemUpdateTest, InclinedEllipticalOrbit) {
     // Elliptical orbit with all elements non-zero
     EXPECT_NO_THROW(testOEStateEphemUpdate(EARTH_MU,
-                                           7000.0,
+                                           7000000.0,
                                            0.15f,                           // eccentricity
                                            static_cast<float>(M_PI / 4.0),  // 45 degree inclination
                                            static_cast<float>(M_PI / 6.0),  // 30 degree arg_periapsis
@@ -407,7 +403,7 @@ TEST(OEStateEphemUpdateTest, InclinedEllipticalOrbit) {
 TEST(OEStateEphemUpdateTest, HighEccentricityOrbit) {
     // Highly elliptical orbit (e=0.7)
     EXPECT_NO_THROW(testOEStateEphemUpdate(EARTH_MU,
-                                           7000.0,
+                                           7000000.0,
                                            0.7f,  // high eccentricity
                                            0.0f,
                                            0.0f,
@@ -423,8 +419,8 @@ TEST(OEStateEphemUpdateTest, HighEccentricityOrbit) {
 
 TEST(OEStateEphemUpdateTest, LunarOrbit) {
     // Circular orbit around the Moon
-    EXPECT_NO_THROW(testOEStateEphemUpdate(MOON_MU,  // Moon's gravitational parameter
-                                           2000.0,   // 2000 km altitude
+    EXPECT_NO_THROW(testOEStateEphemUpdate(MOON_MU,    // Moon's gravitational parameter
+                                           2000000.0,  // r_p_m
                                            0.0f,
                                            0.0f,
                                            0.0f,
@@ -441,7 +437,7 @@ TEST(OEStateEphemUpdateTest, LunarOrbit) {
 TEST(OEStateEphemUpdateTest, WithTimeOffsets) {
     // Test with non-zero time offsets
     EXPECT_NO_THROW(testOEStateEphemUpdate(EARTH_MU,
-                                           7000.0,
+                                           7000000.0,
                                            0.0f,
                                            0.0f,
                                            0.0f,

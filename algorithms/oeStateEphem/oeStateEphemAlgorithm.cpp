@@ -65,8 +65,7 @@ ClassicalElementsF32 OEStateEphemAlgorithm::evaluateCoefficients(const double cu
     /* - determine orbit elements from chebychev polynominals */
     ClassicalElementsF32 elements{};
     const double radiusPeriapsis =
-        calculateChebyValue(arc.radiusPeriapsisCoefficients, arc.numberChebCoefficients, currentScaledValue) *
-        kKmToMeters;  // coefficients are in km but module operates in meters
+        calculateChebyValue(arc.radiusPeriapsisCoefficients, arc.numberChebCoefficients, currentScaledValue);
     elements.inclination = calculateChebyValue(
         arc.inclinationCoefficients, arc.numberChebCoefficients, static_cast<float>(currentScaledValue));
     elements.eccentricity = calculateChebyValue(

@@ -20,7 +20,7 @@ constexpr double FUZZ_TOLERANCE_VELOCITY = 0.01;  // m/s
  *  Uses the shared testOEStateEphemUpdate() function for validation.
  */
 void fuzzOEStateEphemUpdate(double mu,
-                            double r_p_km,
+                            double r_p_m,
                             float eccentricity,
                             float inclination,
                             float arg_periapsis,
@@ -31,7 +31,7 @@ void fuzzOEStateEphemUpdate(double mu,
                             double offset) {
     // Call the shared test function with fuzz tolerances
     EXPECT_NO_THROW(testOEStateEphemUpdate(mu,
-                                           r_p_km,
+                                           r_p_m,
                                            eccentricity,
                                            inclination,
                                            arg_periapsis,
@@ -63,13 +63,13 @@ FUZZ_TEST(OEStateEphemFuzz, fuzzOEStateEphemUpdate)
  *  near-parabolic orbits, and special inclinations.
  */
 void fuzzOEStateEphemUpdateEdgeCases(double mu,
-                                     double r_p_km,
+                                     double r_p_m,
                                      float eccentricity,
                                      float inclination,
                                      float true_anomaly) {
     // Use the shared test function with default time values and fuzz tolerances
     EXPECT_NO_THROW(testOEStateEphemUpdate(mu,
-                                           r_p_km,
+                                           r_p_m,
                                            eccentricity,
                                            inclination,
                                            0.0f,  // arg_periapsis
@@ -109,11 +109,11 @@ void fuzzOEStateEphemUpdateTimeEdgeCases(uint64_t call_time_ns,
                                          double offset,
                                          double arc_radius_time) {
     const double mu = 3.986004418e14;
-    const double r_p_km = 7000.0;
+    const double r_p_m = 7000000.0;
 
     // Use the shared test function
     EXPECT_NO_THROW(testOEStateEphemUpdate(mu,
-                                           r_p_km,
+                                           r_p_m,
                                            0.0f,  // eccentricity (circular)
                                            0.0f,  // inclination
                                            0.0f,  // arg_periapsis
