@@ -223,7 +223,11 @@ ClassicalElementsF32 OrbitalMotion::cartesianStateToElementsF32(const double mu,
 
     elements.radiusMagnitude = r;
     elements.eccentricity = static_cast<float>(eVec.norm());
-    elements.inclination = static_cast<float>(std::acos(hVec(2) / h));
+    if (h < kTolerance) {
+        elements.inclination = 0.0F; // rectilinear orbit
+    } else {
+        elements.inclination = static_cast<float>(std::acos(hVec(2) / h));
+    }
     elements.alpha = (2 / r) - (v * v / mu);
     elements.semiMajorAxis = fabs(elements.alpha) > kTolerance ? 1 / elements.alpha : 0.0;
 
@@ -237,7 +241,10 @@ ClassicalElementsF32 OrbitalMotion::cartesianStateToElementsF32(const double mu,
     elements.trueAnomaly = f < 0 ? static_cast<float>(f + (2 * std::numbers::pi)) : f;
 
     elements.radiusPeriapsis = h * h / mu / (1 + elements.eccentricity);
-    elements.radiusApoapsis = h * h / mu / (1 - elements.eccentricity);
-
+    if (fabsf(elements.eccentricity - 1) < kTolerance) {
+        elements.radiusApoapsis = 0.0F; // parabolic orbit
+    } else {
+        elements.radiusApoapsis = h * h / mu / (1 - elements.eccentricity);
+    }
     return elements;
 }
