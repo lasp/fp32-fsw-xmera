@@ -10,10 +10,6 @@
 #include <fuzztest/fuzztest.h>
 #include <cmath>
 
-// Fuzz-specific tolerances (more relaxed than unit tests)
-constexpr double FUZZ_TOLERANCE_POSITION = 10.0;  // meters
-constexpr double FUZZ_TOLERANCE_VELOCITY = 0.01;  // m/s
-
 /*! @brief Main fuzz test for OEStateEphemAlgorithm
  *
  *  Tests the algorithm across a wide range of valid orbital parameters.
@@ -29,7 +25,7 @@ void fuzzOEStateEphemUpdate(double mu,
                             uint64_t call_time_ns,
                             double ephemeris_time,
                             double offset) {
-    // Call the shared test function with fuzz tolerances
+    // Call the shared test function
     EXPECT_NO_THROW(testOEStateEphemUpdate(mu,
                                            r_p_m,
                                            eccentricity,
@@ -40,10 +36,7 @@ void fuzzOEStateEphemUpdate(double mu,
                                            AnomalyType::TRUE_ANOMALY,
                                            call_time_ns,
                                            ephemeris_time,
-                                           offset,
-                                           1000.0,
-                                           FUZZ_TOLERANCE_POSITION,
-                                           FUZZ_TOLERANCE_VELOCITY));
+                                           offset));
 }
 
 FUZZ_TEST(OEStateEphemFuzz, fuzzOEStateEphemUpdate)
@@ -55,8 +48,8 @@ FUZZ_TEST(OEStateEphemFuzz, fuzzOEStateEphemUpdate)
                  fuzztest::InRange(0.0, 2.0 * M_PI),
                  fuzztest::InRange(0.0, 2.0 * M_PI),
                  fuzztest::InRange(static_cast<uint64_t>(0), static_cast<uint64_t>(1e19)),
-                 fuzztest::InRange(0.0, 1e14),
-                 fuzztest::InRange(0.0, 1e14));
+                 fuzztest::InRange(1.0, 1e14),
+                 fuzztest::InRange(1.0, 1e14));
 
 /*! @brief Fuzz test for edge cases and boundary conditions
  *
@@ -68,21 +61,8 @@ void fuzzOEStateEphemUpdateEdgeCases(double mu,
                                      double eccentricity,
                                      double inclination,
                                      double true_anomaly) {
-    // Use the shared test function with default time values and fuzz tolerances
-    EXPECT_NO_THROW(testOEStateEphemUpdate(mu,
-                                           r_p_m,
-                                           eccentricity,
-                                           inclination,
-                                           0.0,
-                                           0.0,
-                                           true_anomaly,
-                                           AnomalyType::TRUE_ANOMALY,
-                                           0,
-                                           0.0,
-                                           0.0,
-                                           1000.0,
-                                           FUZZ_TOLERANCE_POSITION,
-                                           FUZZ_TOLERANCE_VELOCITY));
+    // Use the shared test function with default time values
+    EXPECT_NO_THROW(testOEStateEphemUpdate(mu, r_p_m, eccentricity, inclination, 0.0, 0.0, true_anomaly));
 }
 
 FUZZ_TEST(OEStateEphemFuzz, fuzzOEStateEphemUpdateEdgeCases)
@@ -92,10 +72,10 @@ FUZZ_TEST(OEStateEphemFuzz, fuzzOEStateEphemUpdateEdgeCases)
                                  fuzztest::InRange(0.95, 0.999),  // Near-parabolic
                                  fuzztest::InRange(0.4, 0.6)      // Moderate
                                  ),
-                 fuzztest::OneOf(fuzztest::InRange(0.0, 0.01),                  // Near-equatorial
+                 fuzztest::OneOf(fuzztest::InRange(0.0, 0.01),  // Near-equatorial
                                  fuzztest::InRange(M_PI / 2 - 0.01,
-                                                   M_PI / 2 + 0.01),           // Near-polar
-                                 fuzztest::InRange(M_PI - 0.01, M_PI)          // Near-retrograde
+                                                   M_PI / 2 + 0.01),   // Near-polar
+                                 fuzztest::InRange(M_PI - 0.01, M_PI)  // Near-retrograde
                                  ),
                  fuzztest::InRange(0.0, 2.0 * M_PI));
 
@@ -124,9 +104,7 @@ void fuzzOEStateEphemUpdateTimeEdgeCases(uint64_t call_time_ns,
                                            call_time_ns,
                                            ephemeris_time,
                                            offset,
-                                           arc_radius_time,
-                                           FUZZ_TOLERANCE_POSITION,
-                                           FUZZ_TOLERANCE_VELOCITY));
+                                           arc_radius_time));
 }
 
 FUZZ_TEST(OEStateEphemFuzz, fuzzOEStateEphemUpdateTimeEdgeCases)
