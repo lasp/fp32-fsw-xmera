@@ -20,7 +20,10 @@
 #include "orbitalMotion.hpp"
 #include <numbers>
 
-constexpr double tolerance = 1e-8;
+inline constexpr int kMaxNumberOfIterations = 200;
+inline constexpr float kClamp = 7;
+inline constexpr float kToleranceF32 = 1e-6;
+inline constexpr double kTolerance = 1e-9;
 
 /**
  * @brief Converts eccentric anomaly to true anomaly.
@@ -109,10 +112,12 @@ float OrbitalMotion::hyperbolicToMeanAnomalyF32(float const H, float const e) {
 float OrbitalMotion::meanToEccentricAnomalyF32(float M, float e) {
     assert((e >= 0.0 || e < 1.0) && "Eccentricity out of bounds (0 <= e < 1)");
     float E = M;
-    for (int i = 0; i < 200; ++i) {
+    for (int i = 0; i < kMaxNumberOfIterations; ++i) {
         float const dE = (E - e * std::sin(E) - M) / (1 - e * std::cos(E));
-        E -= dE;
-        if (std::abs(dE) < tolerance) break;
+        E -= fmaxf(-0.5F, fminf(0.5F, dE));  // Clamp step size in case of near parabolic orbits
+        if (fabsf(dE) < kToleranceF32) {
+            break;
+        }
     }
     return E;
 }
@@ -137,11 +142,14 @@ float OrbitalMotion::meanToTrueAnomalyF32(float const M, float const e) {
  */
 float OrbitalMotion::meanToHyperbolicAnomalyF32(const float N, const float e) {
     assert(e > 1.0 && "Eccentricity must be > 1");
-    float H = std::abs(N) > 7 ? 7 * (N > 0 ? 1 : -1) : N;
-    for (int i = 0; i < 200; ++i) {
+    const int signN = (N > 0 ? 1 : -1);
+    float H = std::abs(N) > kClamp ? kClamp * static_cast<float>(signN) : N;
+    for (int i = 0; i < kMaxNumberOfIterations; ++i) {
         const float dH = (e * std::sinh(H) - H - N) / (e * std::cosh(H) - 1);
         H -= dH;
-        if (std::abs(dH) < tolerance) break;
+        if (std::abs(dH) < kToleranceF32) {
+            break;
+        }
     }
     return H;
 }
@@ -217,7 +225,7 @@ ClassicalElementsF32 OrbitalMotion::cartesianStateToElementsF32(const double mu,
     elements.eccentricity = static_cast<float>(eVec.norm());
     elements.inclination = static_cast<float>(std::acos(hVec(2) / h));
     elements.alpha = (2 / r) - (v * v / mu);
-    elements.semiMajorAxis = std::abs(elements.alpha) > tolerance ? 1 / elements.alpha : 0.0;
+    elements.semiMajorAxis = fabs(elements.alpha) > kTolerance ? 1 / elements.alpha : 0.0;
 
     auto Omega = static_cast<float>(std::atan2(nVec(1), nVec(0)));
     elements.rightAscensionAscendingNode = Omega < 0 ? static_cast<float>(Omega + (2 * std::numbers::pi)) : Omega;
