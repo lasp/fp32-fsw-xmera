@@ -26,11 +26,17 @@ inline Eigen::Matrix3f GenerateValidInertiaMatrix(float const ev1,
                                                   float const sigma1,
                                                   float const sigma2,
                                                   float const sigma3) {
-    /* Sort the first two eigenvalues so ev_min <= ev_max */
-    const float ev_min = std::min(ev1, ev2);
+    /* Sort the first two eigenvalues so ev_min <= ev_max,
+       and clamp the ratio to avoid float32 precision loss
+       in the R^T * D * R round-trip. */
+    constexpr float maxConditionNumber = 1e4f;
     const float ev_max = std::max(ev1, ev2);
-    const float ev3_min = (ev_max - ev_min > 1e-5f) ? ev_max - ev_min + 1e-5f : 1e-5f;
-    const float ev3_max = ev_max + ev_min - 1e-5f;
+    const float ev_min = std::max(std::min(ev1, ev2), ev_max / maxConditionNumber);
+    constexpr float triangleInequalityTolerance = 1e-5f;
+    const float ev3_min = (ev_max - ev_min > triangleInequalityTolerance)
+                              ? ev_max - ev_min + triangleInequalityTolerance
+                              : triangleInequalityTolerance;
+    const float ev3_max = ev_max + ev_min - triangleInequalityTolerance;
 
     const float ev3 = ev3_min + (0.5 * (ev3_max - ev3_min));
     const std::array<float, 3> eigenvalues = {ev_min, ev3, ev_max};
