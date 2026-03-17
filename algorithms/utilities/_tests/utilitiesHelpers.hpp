@@ -21,7 +21,7 @@ inline Eigen::Matrix3f mrpToDcm(const Eigen::Vector3f& mrp) {
 }
 
 /* Function to generate a general inertia matrix */
-inline Eigen::Matrix3f GenerateValidInertiaMatrix(float const ev1,
+inline Eigen::Matrix3f generateValidInertiaMatrix(float const ev1,
                                                   float const ev2,
                                                   float const sigma1,
                                                   float const sigma2,
@@ -58,7 +58,7 @@ inline Eigen::Matrix3f GenerateValidInertiaMatrix(float const ev1,
 
 /* Test validity against generated inertia matrix */
 inline void testInertiaValidity(float eigen1, float eigen2, float sigma1, float sigma2, float sigma3) {
-    const Eigen::Matrix3f inertia = GenerateValidInertiaMatrix(eigen1, eigen2, sigma1, sigma2, sigma3);
+    const Eigen::Matrix3f inertia = generateValidInertiaMatrix(eigen1, eigen2, sigma1, sigma2, sigma3);
 
     EXPECT_TRUE(inertiaIsValid(inertia));
 }
