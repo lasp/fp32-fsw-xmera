@@ -17,11 +17,10 @@
 
  */
 
-#ifndef ORBITAL_MOTION_HPP
-#define ORBITAL_MOTION_HPP
+#ifndef ORBITAL_MOTION_FP32_HPP
+#define ORBITAL_MOTION_FP32_HPP
 
 #include <Eigen/Core>
-#include <Eigen/Geometry>
 
 struct CartesianState {
     Eigen::Vector3d position;
