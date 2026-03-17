@@ -93,10 +93,9 @@ def test_rateControl(setExtTorque):
 
 def findTrueTorques(rateCntrl, attGuidanceMessageData, vehicleConfigOut, knownTorquePntB_B):
     P = rateCntrl.getDerivativeGainP()
-    sigma_BR = np.array(attGuidanceMessageData.sigma_BR)
-    omega_BR_B = np.array(attGuidanceMessageData.omega_BR_B)
-    omega_RN_B = np.array(attGuidanceMessageData.omega_RN_B)
-    domega_RN_B = np.array(attGuidanceMessageData.domega_RN_B)
+    omega_BR_B = np.array(attGuidanceMessageData.omega_BR_B, dtype=np.float32)
+    omega_RN_B = np.array(attGuidanceMessageData.omega_RN_B, dtype=np.float32)
+    domega_RN_B = np.array(attGuidanceMessageData.domega_RN_B, dtype=np.float32)
     omega_BN_B = omega_BR_B + omega_RN_B
 
     ISCPntB_B = np.identity(3)
