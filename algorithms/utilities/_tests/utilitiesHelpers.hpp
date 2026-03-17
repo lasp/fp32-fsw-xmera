@@ -21,16 +21,22 @@ inline Eigen::Matrix3f mrpToDcm(const Eigen::Vector3f& mrp) {
 }
 
 /* Function to generate a general inertia matrix */
-inline Eigen::Matrix3f GenerateValidInertiaMatrix(float const ev1,
+inline Eigen::Matrix3f generateValidInertiaMatrix(float const ev1,
                                                   float const ev2,
                                                   float const sigma1,
                                                   float const sigma2,
                                                   float const sigma3) {
-    /* Sort the first two eigenvalues so ev_min <= ev_max */
-    const float ev_min = std::min(ev1, ev2);
+    /* Sort the first two eigenvalues so ev_min <= ev_max,
+       and clamp the ratio to avoid float32 precision loss
+       in the R^T * D * R round-trip. */
+    constexpr float maxConditionNumber = 1e4f;
     const float ev_max = std::max(ev1, ev2);
-    const float ev3_min = (ev_max - ev_min > 1e-5f) ? ev_max - ev_min + 1e-5f : 1e-5f;
-    const float ev3_max = ev_max + ev_min - 1e-5f;
+    const float ev_min = std::max(std::min(ev1, ev2), ev_max / maxConditionNumber);
+    constexpr float triangleInequalityTolerance = 1e-5f;
+    const float ev3_min = (ev_max - ev_min > triangleInequalityTolerance)
+                              ? ev_max - ev_min + triangleInequalityTolerance
+                              : triangleInequalityTolerance;
+    const float ev3_max = ev_max + ev_min - triangleInequalityTolerance;
 
     const float ev3 = ev3_min + (0.5 * (ev3_max - ev3_min));
     const std::array<float, 3> eigenvalues = {ev_min, ev3, ev_max};
@@ -52,7 +58,7 @@ inline Eigen::Matrix3f GenerateValidInertiaMatrix(float const ev1,
 
 /* Test validity against generated inertia matrix */
 inline void testInertiaValidity(float eigen1, float eigen2, float sigma1, float sigma2, float sigma3) {
-    const Eigen::Matrix3f inertia = GenerateValidInertiaMatrix(eigen1, eigen2, sigma1, sigma2, sigma3);
+    const Eigen::Matrix3f inertia = generateValidInertiaMatrix(eigen1, eigen2, sigma1, sigma2, sigma3);
 
     EXPECT_TRUE(inertiaIsValid(inertia));
 }
