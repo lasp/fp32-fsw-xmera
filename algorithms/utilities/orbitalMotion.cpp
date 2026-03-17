@@ -19,9 +19,7 @@
 
 #include "orbitalMotion.hpp"
 #include "safeMath.h"
-#include <math.h>
 #include <Eigen/Geometry>
-#include <numbers>
 
 inline constexpr int kMaxNumberOfIterations = 200;
 inline constexpr float kClamp = 7;
@@ -235,13 +233,13 @@ ClassicalElementsF32 OrbitalMotion::cartesianStateToElementsF32(const double mu,
     elements.semiMajorAxis = fabs(elements.alpha) > kTolerance ? 1 / elements.alpha : 0.0;
 
     auto Omega = static_cast<float>(safeAtan2(nVec(1), nVec(0)));
-    elements.rightAscensionAscendingNode = Omega < 0 ? static_cast<float>(Omega + (2 * std::numbers::pi)) : Omega;
+    elements.rightAscensionAscendingNode = Omega < 0 ? static_cast<float>(Omega + (2 * kPi)) : Omega;
 
     auto omega = static_cast<float>(safeAtan2(nVec.cross(eVec).dot(hVec.normalized()), nVec.dot(eVec)));
-    elements.argPeriapsis = omega < 0 ? static_cast<float>(omega + (2 * std::numbers::pi)) : omega;
+    elements.argPeriapsis = omega < 0 ? static_cast<float>(omega + (2 * kPi)) : omega;
 
     auto f = static_cast<float>(safeAtan2(eVec.cross(rVec).dot(hVec.normalized()), eVec.dot(rVec)));
-    elements.trueAnomaly = f < 0 ? static_cast<float>(f + (2 * std::numbers::pi)) : f;
+    elements.trueAnomaly = f < 0 ? static_cast<float>(f + (2 * kPi)) : f;
 
     elements.radiusPeriapsis = h * h / mu / (1 + elements.eccentricity);
     if (fabsf(elements.eccentricity - 1) < kTolerance) {

@@ -6,7 +6,6 @@
 #include "architecture/utilities/rigidBodyKinematics.hpp"
 #include <fswAlgorithms/fswUtilities/fswDefinitions.h>
 #include <Eigen/Core>
-#include <numbers>
 
 /*! This method performs a complete reset of the module.  Local module variables that retain
  time varying states between function calls are reset to their default values.
@@ -39,7 +38,7 @@ Eigen::Vector3f MrpSteeringAlgorithm::update(const InputGuidanceData& attGuidInp
     Eigen::Vector3f omega_BastR_B{};
     Eigen::Vector3f omegap_BastR_B{Eigen::Vector3f::Zero()};
 
-    constexpr auto kPiOver2 = static_cast<float>(std::numbers::pi / 2.0F);
+    constexpr auto kPiOver2 = static_cast<float>(kPi / 2.0F);
 
     for (Eigen::Index i = 0; i < 3; ++i) {
         const float sigma_i = sigma_BR[i];

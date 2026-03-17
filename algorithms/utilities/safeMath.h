@@ -1,8 +1,11 @@
 #ifndef SAFE_MATH_H_
 #define SAFE_MATH_H_
 
-#include <math.h>
-#include <numbers>
+#include <limits>
+
+// Freestanding-safe pi constants (replace hosted-only <numbers>)
+inline constexpr float kPiF = 3.14159265358979323846F;
+inline constexpr double kPi = 3.14159265358979323846;
 
 /*! @brief Safe wrapper around tanf that clamps the input to
  *         [-π/2 + ε, π/2 - ε] to avoid the singularities
@@ -15,7 +18,7 @@ inline float safeTanf(float const x) {
         return 0.0F;
     }
     constexpr float eps = std::numeric_limits<float>::epsilon();
-    constexpr float halfPi = std::numbers::pi_v<float> / 2.0F;
+    constexpr float halfPi = kPiF / 2.0F;
     if (x < -halfPi + eps) {
         return -cosf(eps) / sinf(eps);
     }
@@ -36,7 +39,7 @@ inline double safeTan(double const x) {
         return 0.0;
     }
     constexpr double eps = std::numeric_limits<double>::epsilon();
-    constexpr double halfPi = std::numbers::pi / 2.0;
+    constexpr double halfPi = kPi / 2.0;
     if (x < -halfPi + eps) {
         return -cos(eps) / sin(eps);
     }
@@ -56,7 +59,7 @@ inline float safeAtanf(float const x) {
     if (isnan(x) || isinf(x)) {
         return 0.0F;
     }
-    constexpr float halfPi = std::numbers::pi_v<float> / 2.0F;
+    constexpr float halfPi = kPiF / 2.0F;
     float const atanx = atanf(x);
     if (atanx > halfPi) {
         return halfPi;
@@ -77,7 +80,7 @@ inline double safeAtan(double const x) {
     if (isnan(x) || isinf(x)) {
         return 0.0;
     }
-    constexpr double halfPi = std::numbers::pi / 2.0;
+    constexpr double halfPi = kPi / 2.0;
     double const atanx = atan(x);
     if (atanx > halfPi) {
         return halfPi;
@@ -334,7 +337,7 @@ inline float safeAcosf(float const x) {
         return 0.0F;
     }
     if (x < -1.0F) {
-        return std::numbers::pi_v<float>;
+        return kPiF;
     }
     if (x > 1.0F) {
         return 0.0F;
@@ -352,7 +355,7 @@ inline double safeAcos(double const x) {
         return 0.0;
     }
     if (x < -1.0) {
-        return std::numbers::pi;
+        return kPi;
     }
     if (x > 1.0) {
         return 0.0;
@@ -370,10 +373,10 @@ inline float safeAsinf(float const x) {
         return 0.0F;
     }
     if (x < -1.0F) {
-        return -std::numbers::pi_v<float> / 2.0F;
+        return -kPiF / 2.0F;
     }
     if (x > 1.0F) {
-        return std::numbers::pi_v<float> / 2.0F;
+        return kPiF / 2.0F;
     }
     return asinf(x);
 }
@@ -388,10 +391,10 @@ inline double safeAsin(double const x) {
         return 0.0;
     }
     if (x < -1.0) {
-        return -std::numbers::pi / 2.0;
+        return -kPi / 2.0;
     }
     if (x > 1.0) {
-        return std::numbers::pi / 2.0;
+        return kPi / 2.0;
     }
     return asin(x);
 }

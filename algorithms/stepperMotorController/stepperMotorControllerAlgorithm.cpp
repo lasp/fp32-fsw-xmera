@@ -7,7 +7,6 @@
 #include "stepperMotorControllerAlgorithm.h"
 #include "../freestandingInvalidArgument.h"
 #include <architecture/utilities/macroDefinitions.h>
-#include <math.h>
 
 /*! This method performs a complete reset of the module. The input message is checked to ensure it is linked.
  @return void

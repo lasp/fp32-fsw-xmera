@@ -4,7 +4,6 @@
 #include "architecture/utilities/rigidBodyKinematics.hpp"
 #include "utilities/safeMath.h"
 #include "utilities/timeConstants.h"
-#include <numbers>
 
 /*! This method performs a complete reset of the module.  Local module variables that retain
  time varying states between function calls are reset to their default values.
@@ -72,7 +71,7 @@ AttGuidMsgF32Payload SunTrackErrorAlgorithm::update(AttRefMsgF32Payload& ref,
 
             // Logic to go the short or long rotation depending on sun avoidance
             if (finalCelAngle < 0.0F && initCelAngle < initMnvrAngle) {
-                this->angleStart = (2.0F * std::numbers::pi_v<float>)-this->angleStart;
+                this->angleStart = (2.0F * kPiF)-this->angleStart;
                 this->mnvrAxis_B = -this->mnvrAxis_B;
             }
 

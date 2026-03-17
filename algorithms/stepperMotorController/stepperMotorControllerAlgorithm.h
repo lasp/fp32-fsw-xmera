@@ -10,7 +10,9 @@
 #include "msgPayloadDef/HingedRigidBodyMsgF32Payload.h"
 #include <architecture/msgPayloadDef/MotorStepCommandMsgPayload.h>
 #include <cstdint>
-#include <numbers>
+
+// Freestanding-safe pi constant (replace hosted-only <numbers>)
+inline constexpr double kStepperPi = 3.14159265358979323846;
 
 /*! structure containing the stepper motor controller algorithm output */
 typedef struct {
@@ -40,10 +42,10 @@ class StepperMotorControllerAlgorithm {
     float thetaInit{};  //!< [rad] Initial motor angle
     float theta{};      //!< [rad] Current motor angle
     float thetaRef{};   //!< [rad] Motor reference angle
-    float stepAngle{1.0 * std::numbers::pi /
+    float stepAngle{1.0 * kStepperPi /
                     180.0};  //!< [rad] Step angle the motor rotates through for a single step (constant)
-    float thetaMax{2.0 * std::numbers::pi};   //!< [rad] Motor upper hard stop actuation limit
-    float thetaMin{-2.0 * std::numbers::pi};  //!< [rad] Motor lower hard stop actuation limit
+    float thetaMax{2.0 * kStepperPi};   //!< [rad] Motor upper hard stop actuation limit
+    float thetaMin{-2.0 * kStepperPi};  //!< [rad] Motor lower hard stop actuation limit
     int stepsCommanded{};                     //!< [steps] Number of steps needed to reach the desired angle (output)
     int stepCount{};                          //!< [steps] Current motor step count (number of steps taken)
     float stepTime{1.0};              //!< [s] Time required for the motor to actuate through a single step (constant)
