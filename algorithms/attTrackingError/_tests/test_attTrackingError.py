@@ -3,7 +3,6 @@
 # Copyright (c) 2025, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
 
 import numpy as np
-
 from xmera.utilities import SimulationBaseClass
 from xmera.fp32 import attTrackingErrorF32
 from xmera.utilities import macros
@@ -26,8 +25,6 @@ def test_attTrackingError():
     attitudeTrackingError = attTrackingErrorF32.AttTrackingError()
     attitudeTrackingError.modelTag = "attTrackingError"
     unitTestSim.AddModelToTask(unitTaskName, attitudeTrackingError)
-    sigma_R0R = [0.01, 0.05, -0.55]
-    attitudeTrackingError.setSigma_R0R(sigma_R0R)
 
     # Create navigation message
     NavStateOutData = messaging.NavAttMsgPayload()
@@ -51,7 +48,7 @@ def test_attTrackingError():
     attGuidOutMsgLog = attitudeTrackingError.attGuidOutMsg.recorder()
     unitTestSim.AddModelToTask(unitTaskName, attGuidOutMsgLog)
 
-    # Connect messages
+    # Connect module input messages
     attitudeTrackingError.attNavInMsg.subscribeTo(navStateInMsg)
     attitudeTrackingError.attRefInMsg.subscribeTo(refInMsg)
 
@@ -60,15 +57,14 @@ def test_attTrackingError():
     unitTestSim.ConfigureStopTime(macros.sec2nano(0.3))
     unitTestSim.ExecuteSimulation()
 
-    # Extract logged data
+    # Extract module output data from the message logger
     sigma_BR = attGuidOutMsgLog.sigma_BR[0]
     omega_BR_B = attGuidOutMsgLog.omega_BR_B[0]
     omega_RN_B = attGuidOutMsgLog.omega_RN_B[0]
     domega_RN_B = attGuidOutMsgLog.domega_RN_B[0]
 
     # Compute truth values for test check
-    sigma_RN2 = rbk.addMRP(np.array(sigma_RN), -np.array(sigma_R0R))
-    dcm_RN = rbk.MRP2C(sigma_RN2)
+    dcm_RN = rbk.MRP2C(np.array(sigma_RN))
     dcm_BN = rbk.MRP2C(np.array(sigma_BN))
     dcm_BR = np.dot(dcm_BN, dcm_RN.T)
     sigma_BRTruth = rbk.C2MRP(dcm_BR)
@@ -76,7 +72,7 @@ def test_attTrackingError():
     omega_RN_BTruth = np.dot(dcm_BN, np.array(omega_RN_N))
     domega_RN_BTruth = np.dot(dcm_BN, np.array(domega_RN_N))
 
-    # Check truth values with module output
+    # Verify module outputs match computed truth values
     accuracy = 1e-7
     np.testing.assert_allclose(sigma_BRTruth, sigma_BR, atol=accuracy, verbose=True)
     np.testing.assert_allclose(omega_BR_BTruth, omega_BR_B, atol=accuracy, verbose=True)
@@ -85,4 +81,5 @@ def test_attTrackingError():
 
 
 if __name__ == "__main__":
+    test_attTrackingError_zero_error()
     test_attTrackingError()
