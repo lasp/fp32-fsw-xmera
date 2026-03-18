@@ -17,15 +17,11 @@
  */
 AttGuidMsgF32Payload AttTrackingErrorAlgorithm::update(AttRefMsgF32Payload& attRefInMsg,
                                                        NavAttMsgF32Payload& attNavInMsg) const {
-    // Compute MRP from the original reference frame R0 to the corrected reference frame R
-    const Eigen::Vector3f sigma_RR0 = -1.0 * this->sigma_R0R;
-
-    // Compute MRP from inertial to updated reference frame sigma_RN
-    Eigen::Vector3f sigma_RN = cArrayToEigenVector(attRefInMsg.sigma_RN);
-    sigma_RN = addMrp(sigma_RN, sigma_RR0);
-
-    // Compute attitude error sigma_BR
+    // Extract MRPs of reference and body frame, both defined relative to inertial frame
+    const Eigen::Vector3f sigma_RN = cArrayToEigenVector(attRefInMsg.sigma_RN);
     const Eigen::Vector3f sigma_BN = cArrayToEigenVector(attNavInMsg.sigma_BN);
+
+    // Compute attitude tracking error sigma_BR
     const Eigen::Vector3f sigma_BR = subMrp(sigma_BN, sigma_RN);
 
     // Compute angular velocity reference body frame components omega_RN_B
@@ -50,14 +46,3 @@ AttGuidMsgF32Payload AttTrackingErrorAlgorithm::update(AttRefMsgF32Payload& attR
 
     return attGuidOut;
 }
-
-/*! Setter method for sigma_R0R.
- @return void
- @param sigma_R0R
-*/
-void AttTrackingErrorAlgorithm::setSigma_R0R(const Eigen::Vector3f& sigma_R0R) { this->sigma_R0R = sigma_R0R; }
-
-/*! Getter method for sigma_R0R.
- @return const Eigen::Vector3d
-*/
-const Eigen::Vector3f& AttTrackingErrorAlgorithm::getSigma_R0R() const { return this->sigma_R0R; }

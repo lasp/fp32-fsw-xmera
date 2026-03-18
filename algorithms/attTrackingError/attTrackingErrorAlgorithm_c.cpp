@@ -21,18 +21,3 @@ AttGuidMsgF32Payload AttTrackingErrorAlgorithm_update(AttTrackingErrorAlgorithm*
                                                       NavAttMsgF32Payload* attNavInMsg) {
     return reinterpret_cast<::AttTrackingErrorAlgorithm*>(self)->update(*attRefInMsg, *attNavInMsg);
 }
-
-void AttTrackingErrorAlgorithm_setSigma_R0R(AttTrackingErrorAlgorithm* self, Vector3f_c sigma_R0R) {
-    Eigen::Vector3f vec;
-    vec << sigma_R0R.data[0], sigma_R0R.data[1], sigma_R0R.data[2];
-    reinterpret_cast<::AttTrackingErrorAlgorithm*>(self)->setSigma_R0R(vec);
-}
-
-Vector3f_c AttTrackingErrorAlgorithm_getSigma_R0R(AttTrackingErrorAlgorithm* self) {
-    Eigen::Vector3f vec = reinterpret_cast<::AttTrackingErrorAlgorithm*>(self)->getSigma_R0R();
-    Vector3f_c out;
-    out.data[0] = vec[0];
-    out.data[1] = vec[1];
-    out.data[2] = vec[2];
-    return out;
-}

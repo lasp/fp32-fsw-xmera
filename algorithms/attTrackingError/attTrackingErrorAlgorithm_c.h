@@ -21,13 +21,6 @@ extern "C" {
 typedef struct AttTrackingErrorAlgorithm AttTrackingErrorAlgorithm;
 
 /**
- * @brief POD representation of a 3-vector (Eigen::Vector3f).
- */
-typedef struct {
-    float data[3];
-} Vector3f_c;
-
-/**
  * @brief Construct a new AttTrackingErrorAlgorithm instance.
  * @return Pointer to a new AttTrackingErrorAlgorithm (must be destroyed).
  */
@@ -49,20 +42,6 @@ void AttTrackingErrorAlgorithm_destroy(AttTrackingErrorAlgorithm* self);
 AttGuidMsgF32Payload AttTrackingErrorAlgorithm_update(AttTrackingErrorAlgorithm* self,
                                                       AttRefMsgF32Payload* attRefInMsg,
                                                       NavAttMsgF32Payload* attNavInMsg);
-
-/**
- * @brief Set the σ_R0R three-vector.
- * @param self      Pointer to the instance.
- * @param sigma_R0R 3-vector in flattened POD format.
- */
-void AttTrackingErrorAlgorithm_setSigma_R0R(AttTrackingErrorAlgorithm* self, Vector3f_c sigma_R0R);
-
-/**
- * @brief Get the current σ_R0R three-vector.
- * @param self Pointer to the instance.
- * @return Vector3f_c  Flattened POD containing the vector.
- */
-Vector3f_c AttTrackingErrorAlgorithm_getSigma_R0R(AttTrackingErrorAlgorithm* self);
 
 #ifdef __cplusplus
 }  // extern "C"
