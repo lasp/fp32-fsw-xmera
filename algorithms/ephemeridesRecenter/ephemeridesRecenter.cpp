@@ -66,7 +66,7 @@ void EphemeridesRecenter::addBodyEphemerisToRecenter(const BodyEphemeris& epheme
     this->recenteredEphemerisOutputMsgs.push_back(new Message<EphemerisMsgF32Payload>);
     this->ephemerides[this->ephemeridesNumber] = ephemerisBody;
     this->ephemeridesNumber += 1;
-    this->algorithm.addBodyEphemerisToRecenter(ephemerisBody.bodySpiceId);
+    this->algorithm.addBodyEphemerisToRecenter({ephemerisBody.bodySpiceId, ephemerisBody.originalCentralBodyId});
 }
 
 /*! @brief Set a new celestial body center by SPICE ID

@@ -7,91 +7,58 @@
 #include "../freestandingInvalidArgument.h"
 #include <algorithm>
 
-void EphemeridesRecenterAlgorithm::reset() {
-    this->newCentralIndex = this->findNewZeroBaseIndex(this->newCentralBodyId);
-}
+void EphemeridesRecenterAlgorithm::reset() { this->checkConfiguration(); }
 
 /*! @brief Recenter the ephemerides
  @param newBodies std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES> : input bodies
  @return std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES> : re-centered bodies
  */
 std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES> EphemeridesRecenterAlgorithm::updateState(
-    const std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES>& newBodies) {
-    this->celestialBodies = newBodies;
-    validateNoMultipleMoons(this->celestialBodies, this->celestialBodyCount);
+    const std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES>& newBodies) const {
+    this->validateIncomingBodies(newBodies);
 
-    const auto newCentralBody = this->celestialBodies[this->newCentralIndex];
-    Eigen::Vector3d newCentral_input_r = newCentralBody.input_r;
-    Eigen::Vector3d newCentral_input_v = newCentralBody.input_v;
+    Eigen::Vector3d newCentral_input_r = newBodies.at(this->newCentralIndex).input_r;
+    Eigen::Vector3d newCentral_input_v = newBodies.at(this->newCentralIndex).input_v;
 
-    /* - If the new central body is a moon (its original central body is not the common central body but another body in
-     * the list) first re-center the moon around the common central body so that every body is relative to the common
-     * center*/
-    if (newCentralBody.originalCentralBodyId != this->previousCentralBodyId) {
-        const auto moonCentralBodyIndex = this->getBodyIndexFromId(newCentralBody.originalCentralBodyId);
-        Eigen::Vector3d const moonCentral_input_r = this->celestialBodies[moonCentralBodyIndex].input_r;
-        Eigen::Vector3d const moonCentral_input_v = this->celestialBodies[moonCentralBodyIndex].input_v;
-        newCentral_input_r = newCentral_input_r + moonCentral_input_r;
-        newCentral_input_v = newCentral_input_v + moonCentral_input_v;
+    /* If the new central body is a moon, first re-center it around the common
+     * central body so that every body is relative to the common center */
+    if (this->newCentralIsMoon) {
+        newCentral_input_r += newBodies.at(this->newCentralParentIndex).input_r;
+        newCentral_input_v += newBodies.at(this->newCentralParentIndex).input_v;
     }
 
     std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES> recenteredBodies{};
     for (size_t i = 0U; i < this->celestialBodyCount; ++i) {
-        if (recenteredBodies[i].isMoon) {
-            continue;
+        if (this->isMoonAtIndex.at(i)) {
+            continue;  // moons are re-centered along with their parent below
         }
 
-        /* Moons get re-centered along with their central body and shouldn't be re-centered in this main loop */
-        recenteredBodies[i] = BodyEphemerisPayload{};
-        Eigen::Vector3d const newEphemerisToRecenter_input_r = newBodies[i].input_r;
-        Eigen::Vector3d const newEphemerisToRecenter_input_v = newBodies[i].input_v;
-        if (this->celestialBodies[i].originalCentralBodyId == this->previousCentralBodyId) {
-            Eigen::Vector3d const relativePosition = newEphemerisToRecenter_input_r - newCentral_input_r;
+        recenteredBodies.at(i) = BodyEphemerisPayload{};
+        if (this->originalCentralBodyIds.at(i) == this->previousCentralBodyId) {
+            Eigen::Vector3d const relativePosition = newBodies.at(i).input_r - newCentral_input_r;
+            Eigen::Vector3d const relativeVelocity = newBodies.at(i).input_v - newCentral_input_v;
 
-            Eigen::Vector3d const relativeVelocity = newEphemerisToRecenter_input_v - newCentral_input_v;
-
-            if (auto [moonIndex, moonFound] = this->findMoonOfBody(this->celestialBodies[i]);
-                moonFound && this->celestialBodies[i].bodySpiceId != this->previousCentralBodyId) {
-                Eigen::Vector3d const moonOfBody_input_r = this->celestialBodies[moonIndex].input_r;
-                Eigen::Vector3d const moonOfBody_input_v = this->celestialBodies[moonIndex].input_v;
-                Eigen::Vector3d const moonRelativePosition = relativePosition + moonOfBody_input_r;
-                Eigen::Vector3d const moonRelativeVelocity = relativeVelocity + moonOfBody_input_v;
-
-                recenteredBodies[moonIndex].bodySpiceId = this->celestialBodies[moonIndex].bodySpiceId;
-                recenteredBodies[moonIndex].isMoon = true;
-                recenteredBodies[moonIndex].originalCentralBodyId =
-                    this->celestialBodies[moonIndex].originalCentralBodyId;
-                recenteredBodies[moonIndex].output_r = moonRelativePosition;
-                recenteredBodies[moonIndex].output_v = moonRelativeVelocity;
+            if (this->moonIndices.at(i).found && this->bodyIds.at(i) != this->previousCentralBodyId) {
+                const size_t moonIdx = this->moonIndices.at(i).index;
+                recenteredBodies.at(moonIdx).bodySpiceId = newBodies.at(moonIdx).bodySpiceId;
+                recenteredBodies.at(moonIdx).isMoon = true;
+                recenteredBodies.at(moonIdx).originalCentralBodyId = newBodies.at(moonIdx).originalCentralBodyId;
+                recenteredBodies.at(moonIdx).output_r = relativePosition + newBodies.at(moonIdx).input_r;
+                recenteredBodies.at(moonIdx).output_v = relativeVelocity + newBodies.at(moonIdx).input_v;
             }
-            recenteredBodies[i] = newBodies[i];
-            recenteredBodies[i].output_r = relativePosition;
-            recenteredBodies[i].output_v = relativeVelocity;
+            recenteredBodies.at(i) = newBodies.at(i);
+            recenteredBodies.at(i).output_r = relativePosition;
+            recenteredBodies.at(i).output_v = relativeVelocity;
         }
     }
     return recenteredBodies;
-}
-
-/*! @brief Find the moon index of a given body
- @param celestialBody - celestial body
- @return foundIndex - whether the moon is found and the index to the body
- */
-MoonIndexFound EphemeridesRecenterAlgorithm::findMoonOfBody(const BodyEphemerisPayload& celestialBody) const {
-    MoonIndexFound foundIndex{};
-    for (size_t i = 0U; i < this->celestialBodyCount; ++i) {
-        if (this->celestialBodies[i].originalCentralBodyId == celestialBody.bodySpiceId) {
-            foundIndex.index = i;
-            foundIndex.found = true;
-        }
-    }
-    return foundIndex;
 }
 
 /*! @brief Get the index of a body
  @param bodySpiceId int : celestial body SPICE ID
  @return size_t : index
  */
-size_t EphemeridesRecenterAlgorithm::getBodyIndexFromId(int bodySpiceId) const {
+size_t EphemeridesRecenterAlgorithm::getBodyIndexFromId(const int bodySpiceId) const {
     if (this->celestialBodyCount == 0U) {
         FS_THROW_INVALID_ARGUMENT("Requesting a body index but the current celestial body count is 0");
     }
@@ -99,7 +66,7 @@ size_t EphemeridesRecenterAlgorithm::getBodyIndexFromId(int bodySpiceId) const {
     size_t foundIndex = 0U;
     bool isFound = false;
     for (size_t i = 0U; i < this->celestialBodyCount; ++i) {
-        if (this->bodyIds[i] == bodySpiceId) {
+        if (this->bodyIds.at(i) == bodySpiceId) {
             foundIndex = i;
             isFound = true;
         }
@@ -113,12 +80,12 @@ size_t EphemeridesRecenterAlgorithm::getBodyIndexFromId(int bodySpiceId) const {
 /*! @brief Set the new zero base body by SPICE ID
  @param bodySpiceId int : the new zero base
  */
-void EphemeridesRecenterAlgorithm::setNewZeroBaseId(int bodySpiceId) { this->newCentralBodyId = bodySpiceId; }
+void EphemeridesRecenterAlgorithm::setNewZeroBaseId(const int bodySpiceId) { this->newCentralBodyId = bodySpiceId; }
 
 /*! @brief Find the new zero base body by SPICE ID
  @param bodySpiceId int : the new zero base
  */
-size_t EphemeridesRecenterAlgorithm::findNewZeroBaseIndex(int bodySpiceId) {
+size_t EphemeridesRecenterAlgorithm::findNewZeroBaseIndex(const int bodySpiceId) {
     auto* indexOfNewZeroBase = std::ranges::find(this->bodyIds, bodySpiceId);
     if (indexOfNewZeroBase == this->bodyIds.end()) {
         FS_THROW_INVALID_ARGUMENT("New zero base body was not in the list of existing bodies");
@@ -134,7 +101,7 @@ int EphemeridesRecenterAlgorithm::getNewZeroBase() const { return this->newCentr
 /*! @brief Set the previous common zero base of all the celestial bodies entered
  @param bodySpiceId int : the new zero base
  */
-void EphemeridesRecenterAlgorithm::setPreviousCommonZeroBase(int bodySpiceId) {
+void EphemeridesRecenterAlgorithm::setPreviousCommonZeroBase(const int bodySpiceId) {
     if (const auto* indexOfPreviousZeroBase = std::ranges::find(this->bodyIds, bodySpiceId);
         indexOfPreviousZeroBase == this->bodyIds.end()) {
         FS_THROW_INVALID_ARGUMENT("Previous zero base body was not in the list of existing bodies");
@@ -162,55 +129,123 @@ std::array<int, MAX_NUM_CHANGE_BODIES> EphemeridesRecenterAlgorithm::getAllIds()
     }
     std::array<int, MAX_NUM_CHANGE_BODIES> ids{};
     for (size_t i = 0U; i < this->celestialBodyCount; ++i) {
-        if (this->bodyIds[i] != 0) {
-            ids[i] = this->bodyIds[i];
+        if (this->bodyIds.at(i) != 0) {
+            ids.at(i) = this->bodyIds.at(i);
         }
     }
     return ids;
 }
 
-/*! @brief Add celestial body by SPICE ID
- @param bodySpiceId int : the body SPICE ID to add
+/*! @brief Add celestial body to be re-centered
+ @param body BodyToRecenter : the body SPICE ID and its original central body
  */
-void EphemeridesRecenterAlgorithm::addBodyEphemerisToRecenter(int bodySpiceId) {
+void EphemeridesRecenterAlgorithm::addBodyEphemerisToRecenter(const BodyToRecenter& body) {
     if (this->celestialBodyCount + 1U > MAX_NUM_CHANGE_BODIES) {
         FS_THROW_INVALID_ARGUMENT("Adding one body too many to the list");
     }
-    if (const auto* indexInList = std::ranges::find(this->bodyIds, bodySpiceId); indexInList != this->bodyIds.end()) {
+    if (const auto* indexInList = std::ranges::find(this->bodyIds, body.bodySpiceId);
+        indexInList != this->bodyIds.end()) {
         FS_THROW_INVALID_ARGUMENT("Body already added to list");
     }
-    this->bodyIds[this->celestialBodyCount] = bodySpiceId;
+    this->bodyIds.at(this->celestialBodyCount) = body.bodySpiceId;
+    this->originalCentralBodyIds.at(this->celestialBodyCount) = body.originalCentralBodyId;
     this->celestialBodyCount += 1U;
 }
 
 /*! @brief Clear all the bodies from the current list
  */
 void EphemeridesRecenterAlgorithm::clearAllBodies() {
-    this->celestialBodies.fill(BodyEphemerisPayload{});
     this->bodyIds.fill(0);
+    this->originalCentralBodyIds.fill(0);
     this->celestialBodyCount = 0U;
 }
 
-/*! @brief Check if any parent body (non-Moon body) has multiple moons
+/*! @brief Validate configuration and pre-compute moon hierarchy data.
+ *  Called from reset(). Throws on invalid configurations (orphan moon, moon-of-moon, multiple moons).
  */
-void EphemeridesRecenterAlgorithm::validateNoMultipleMoons(
-    const std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES>& bodies,
-    size_t count) {
-    for (size_t i = 0U; i < count; ++i) {
-        if (!bodies[i].isMoon) {
-            continue;
+void EphemeridesRecenterAlgorithm::checkConfiguration() {
+    // Find and validate the new central body index
+    this->newCentralIndex = this->findNewZeroBaseIndex(this->newCentralBodyId);
+
+    // Reset pre-computed arrays
+    this->isMoonAtIndex.fill(false);
+    this->moonIndices.fill(MoonIndexFound{});
+    this->newCentralIsMoon = false;
+
+    // Identify moons and validate topology
+    for (size_t i = 0U; i < this->celestialBodyCount; ++i) {
+        if (this->originalCentralBodyIds.at(i) == this->previousCentralBodyId) {
+            continue;  // primary body orbiting the common center — not a moon
         }
 
-        const int parent = bodies[i].originalCentralBodyId;
-        size_t moonCountForParent = 0U;
+        // Body is a moon (its originalCentralBodyId != previousCentralBodyId)
+        this->isMoonAtIndex.at(i) = true;
 
-        for (size_t j = 0U; j < count; ++j) {
-            if (bodies[j].isMoon && bodies[j].originalCentralBodyId == parent) {
-                ++moonCountForParent;
-                if (moonCountForParent > 1U) {
-                    FS_THROW_INVALID_ARGUMENT("A parent body has multiple moons in the list");
-                }
+        // Validate parent exists in the list (throws if not found)
+        const size_t parentIndex = this->getBodyIndexFromId(this->originalCentralBodyIds.at(i));
+
+        // Validate no moon-of-moon: parent must orbit the common center
+        if (this->originalCentralBodyIds.at(parentIndex) != this->previousCentralBodyId) {
+            FS_THROW_INVALID_ARGUMENT("A moon's parent is itself a moon (moon-of-moon not supported)");
+        }
+    }
+
+    // Validate no multiple moons per parent
+    for (size_t i = 0U; i < this->celestialBodyCount; ++i) {
+        if (!this->isMoonAtIndex.at(i)) {
+            continue;
+        }
+        const int parentId = this->originalCentralBodyIds.at(i);
+        for (size_t j = i + 1U; j < this->celestialBodyCount; ++j) {
+            if (this->isMoonAtIndex.at(j) && this->originalCentralBodyIds.at(j) == parentId) {
+                FS_THROW_INVALID_ARGUMENT("A parent body has multiple moons in the list");
             }
+        }
+    }
+
+    // Pre-compute new central moon status
+    this->newCentralIsMoon = (this->originalCentralBodyIds.at(this->newCentralIndex) != this->previousCentralBodyId);
+    if (this->newCentralIsMoon) {
+        this->newCentralParentIndex = this->getBodyIndexFromId(this->originalCentralBodyIds.at(this->newCentralIndex));
+    }
+
+    // Pre-compute moon-of-body lookup: for each primary body i, find its moon (if any)
+    for (size_t i = 0U; i < this->celestialBodyCount; ++i) {
+        if (this->isMoonAtIndex.at(i)) {
+            continue;  // only compute for primary bodies
+        }
+        for (size_t j = 0U; j < this->celestialBodyCount; ++j) {
+            if (this->originalCentralBodyIds.at(j) == this->bodyIds.at(i)) {
+                MoonIndexFound const moonStruct{.index = j, .found = true};
+                this->moonIndices.at(i) = moonStruct;
+                break;  // at most one moon per parent (validated above)
+            }
+        }
+    }
+}
+
+/*! @brief Validate that incoming body IDs match the configured set (order-independent).
+ @param newBodies std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES> : input bodies
+ */
+void EphemeridesRecenterAlgorithm::validateIncomingBodies(
+    const std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES>& newBodies) const {
+    for (size_t i = 0U; i < this->celestialBodyCount; ++i) {
+        const int expectedId = this->bodyIds.at(i);
+        bool found = false;
+        for (size_t j = 0U; j < this->celestialBodyCount; ++j) {
+            if (newBodies.at(j).bodySpiceId == expectedId) {
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            FS_THROW_INVALID_ARGUMENT("Expected body ID is missing from incoming bodies");
+        }
+    }
+    for (size_t i = 0U; i < this->celestialBodyCount; ++i) {
+        const int incomingId = newBodies.at(i).bodySpiceId;
+        if (std::ranges::find(this->bodyIds, incomingId) == this->bodyIds.end()) {
+            FS_THROW_INVALID_ARGUMENT("Unexpected body ID in incoming bodies");
         }
     }
 }

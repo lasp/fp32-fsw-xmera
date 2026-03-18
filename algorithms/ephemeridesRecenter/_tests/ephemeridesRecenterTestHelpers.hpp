@@ -92,8 +92,7 @@ std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES> referenceUpdate(
 
                 recenteredBodies[moonIndex].bodySpiceId = celestialBodies[moonIndex].bodySpiceId;
                 recenteredBodies[moonIndex].isMoon = true;
-                recenteredBodies[moonIndex].originalCentralBodyId =
-                    celestialBodies[moonIndex].originalCentralBodyId;
+                recenteredBodies[moonIndex].originalCentralBodyId = celestialBodies[moonIndex].originalCentralBodyId;
                 recenteredBodies[moonIndex].output_r = moonRelativePosition;
                 recenteredBodies[moonIndex].output_v = moonRelativeVelocity;
             }
@@ -171,8 +170,15 @@ inline void regressionTestEphemeridesRecenter(
 
     // --- Configure algorithm ---
     EphemeridesRecenterAlgorithm alg{};
-    for (const auto& id : bodyListInOrder) {
-        EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter(id));
+    const int previousCommonId = bodyListInOrder[static_cast<size_t>(previousCommonIdx)];
+    const std::array<int, 4> originalCentralIds = {
+        previousCommonId,
+        previousCommonId,
+        isMoon2 ? bodyListInOrder[1] : previousCommonId,
+        previousCommonId,
+    };
+    for (size_t idx = 0; idx < bodyListInOrder.size(); ++idx) {
+        EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter({bodyListInOrder[idx], originalCentralIds[idx]}));
     }
     EXPECT_NO_THROW(alg.setPreviousCommonZeroBase(previousCommonZeroBaseId));
     EXPECT_NO_THROW(alg.setNewZeroBaseId(newZeroBaseId));
@@ -216,12 +222,12 @@ inline void testEphemeridesRecenterSetup() {
     EXPECT_THROW(alg.getBodyIndexFromId(bodyListInOrder[0]), fs::invalid_argument);
     EXPECT_THROW(alg.getAllIds(), fs::invalid_argument);
 
-    EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter(bodyListInOrder[0]));
-    EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter(bodyListInOrder[1]));
-    EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter(bodyListInOrder[2]));
+    EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter({bodyListInOrder[0], bodyListInOrder[0]}));
+    EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter({bodyListInOrder[1], bodyListInOrder[0]}));
+    EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter({bodyListInOrder[2], bodyListInOrder[1]}));
 
     // Duplicate should throw
-    EXPECT_THROW(alg.addBodyEphemerisToRecenter(bodyListInOrder[2]), fs::invalid_argument);
+    EXPECT_THROW(alg.addBodyEphemerisToRecenter({bodyListInOrder[2], bodyListInOrder[1]}), fs::invalid_argument);
 
     // Basic getters after adding
     EXPECT_EQ(alg.getNumberOfBodies(), 3U);
@@ -253,10 +259,10 @@ inline void testEphemeridesRecenterSetup() {
 
     // Add exactly MAX_NUM_CHANGE_BODIES bodies (unique IDs)
     for (std::size_t i = 0; i < MAX_NUM_CHANGE_BODIES; ++i) {
-        EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter(100 + static_cast<int>(i)));
+        EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter({100 + static_cast<int>(i), 0}));
     }
     // One more should exceed the limit and throw
-    EXPECT_THROW(alg.addBodyEphemerisToRecenter(999), fs::invalid_argument);
+    EXPECT_THROW(alg.addBodyEphemerisToRecenter({999, 0}), fs::invalid_argument);
 }
 
 inline void testRecenterEphemeridesRecenter() {
@@ -310,16 +316,15 @@ inline void testRecenterEphemeridesRecenter() {
     {
         EphemeridesRecenterAlgorithm alg{};
         // empty body shall throw
-        EXPECT_THROW(alg.updateState(newBodies), fs::invalid_argument);
         EXPECT_THROW(alg.getBodyIndexFromId(bodyListInOrder[0]), fs::invalid_argument);
-        EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter(bodyListInOrder[0]));
-        EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter(bodyListInOrder[1]));
-        EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter(bodyListInOrder[2]));
+        EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter({bodyListInOrder[0], bodyListInOrder[0]}));
+        EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter({bodyListInOrder[1], bodyListInOrder[0]}));
+        EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter({bodyListInOrder[2], bodyListInOrder[1]}));
 
         // get body that has not been added shall throw
         EXPECT_THROW(alg.getBodyIndexFromId(bodyListInOrder[3]), fs::invalid_argument);
-        EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter(bodyListInOrder[3]));
-        EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter(bodyListInOrder[4]));
+        EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter({bodyListInOrder[3], bodyListInOrder[0]}));
+        EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter({bodyListInOrder[4], bodyListInOrder[3]}));
 
         EXPECT_NO_THROW(alg.setPreviousCommonZeroBase(bodyListInOrder[0]));
         EXPECT_NO_THROW(alg.setNewZeroBaseId(bodyListInOrder[1]));
@@ -406,16 +411,15 @@ inline void testRecenterMoonEphemeridesRecenter() {
     {
         EphemeridesRecenterAlgorithm alg{};
         // empty body shall throw
-        EXPECT_THROW(alg.updateState(newBodies), fs::invalid_argument);
         EXPECT_THROW(alg.getBodyIndexFromId(bodyListInOrder[0]), fs::invalid_argument);
-        EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter(bodyListInOrder[0]));
-        EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter(bodyListInOrder[1]));
-        EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter(bodyListInOrder[2]));
+        EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter({bodyListInOrder[0], bodyListInOrder[0]}));
+        EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter({bodyListInOrder[1], bodyListInOrder[0]}));
+        EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter({bodyListInOrder[2], bodyListInOrder[1]}));
 
         // get body that has not been added shall throw
         EXPECT_THROW(alg.getBodyIndexFromId(bodyListInOrder[3]), fs::invalid_argument);
-        EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter(bodyListInOrder[3]));
-        EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter(bodyListInOrder[4]));
+        EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter({bodyListInOrder[3], bodyListInOrder[0]}));
+        EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter({bodyListInOrder[4], bodyListInOrder[3]}));
 
         EXPECT_NO_THROW(alg.setPreviousCommonZeroBase(bodyListInOrder[0]));
         EXPECT_NO_THROW(alg.setNewZeroBaseId(bodyListInOrder[2]));
@@ -502,16 +506,15 @@ inline void testRecenterPreCommonEphemeridesRecenter() {
     {
         EphemeridesRecenterAlgorithm alg{};
         // empty body shall throw
-        EXPECT_THROW(alg.updateState(newBodies), fs::invalid_argument);
         EXPECT_THROW(alg.getBodyIndexFromId(bodyListInOrder[0]), fs::invalid_argument);
-        EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter(bodyListInOrder[0]));
-        EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter(bodyListInOrder[1]));
-        EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter(bodyListInOrder[2]));
+        EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter({bodyListInOrder[0], bodyListInOrder[0]}));
+        EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter({bodyListInOrder[1], bodyListInOrder[0]}));
+        EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter({bodyListInOrder[2], bodyListInOrder[1]}));
 
         // get body that has not been added shall throw
         EXPECT_THROW(alg.getBodyIndexFromId(bodyListInOrder[3]), fs::invalid_argument);
-        EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter(bodyListInOrder[3]));
-        EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter(bodyListInOrder[4]));
+        EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter({bodyListInOrder[3], bodyListInOrder[0]}));
+        EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter({bodyListInOrder[4], bodyListInOrder[3]}));
 
         EXPECT_NO_THROW(alg.setPreviousCommonZeroBase(bodyListInOrder[0]));
         EXPECT_NO_THROW(alg.setNewZeroBaseId(bodyListInOrder[0]));
@@ -598,23 +601,84 @@ inline void testMultiMoonsRecenter() {
     {
         EphemeridesRecenterAlgorithm alg{};
         // empty body shall throw
-        EXPECT_THROW(alg.updateState(newBodies), fs::invalid_argument);
         EXPECT_THROW(alg.getBodyIndexFromId(bodyListInOrder[0]), fs::invalid_argument);
-        EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter(bodyListInOrder[0]));
-        EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter(bodyListInOrder[1]));
-        EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter(bodyListInOrder[2]));
+        EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter({bodyListInOrder[0], bodyListInOrder[0]}));
+        EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter({bodyListInOrder[1], bodyListInOrder[0]}));
+        EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter({bodyListInOrder[2], bodyListInOrder[1]}));
 
         // get body that has not been added shall throw
         EXPECT_THROW(alg.getBodyIndexFromId(bodyListInOrder[3]), fs::invalid_argument);
-        EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter(bodyListInOrder[3]));
-        EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter(bodyListInOrder[4]));
+        EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter({bodyListInOrder[3], bodyListInOrder[0]}));
+        EXPECT_NO_THROW(
+            alg.addBodyEphemerisToRecenter({bodyListInOrder[4], bodyListInOrder[1]}));  // Titan→Earth (duplicate moon)
 
         EXPECT_NO_THROW(alg.setPreviousCommonZeroBase(bodyListInOrder[0]));
         EXPECT_NO_THROW(alg.setNewZeroBaseId(bodyListInOrder[0]));
-        EXPECT_NO_THROW(alg.reset());
-
-        EXPECT_THROW(alg.updateState(newBodies), fs::invalid_argument);
+        EXPECT_THROW(alg.reset(), fs::invalid_argument);  // multiple moons caught at configuration time
     }
+}
+
+inline void testMoonOfMoonRecenter() {
+    // A "sub-moon" whose parent is itself a moon should be rejected at reset()
+    constexpr int SUB_MOON_SPICE_ID = 30101;
+
+    EphemeridesRecenterAlgorithm alg{};
+    EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter({SUN_SPICE_ID, SUN_SPICE_ID}));
+    EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter({EARTH_SPICE_ID, SUN_SPICE_ID}));
+    EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter({MOON_SPICE_ID, EARTH_SPICE_ID}));
+    EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter({SUB_MOON_SPICE_ID, MOON_SPICE_ID}));  // moon-of-moon
+
+    EXPECT_NO_THROW(alg.setPreviousCommonZeroBase(SUN_SPICE_ID));
+    EXPECT_NO_THROW(alg.setNewZeroBaseId(EARTH_SPICE_ID));
+
+    EXPECT_THROW(alg.reset(), fs::invalid_argument);  // "moon-of-moon not supported"
+}
+
+inline void testOrphanMoonRecenter() {
+    // A moon whose parent is NOT in the body list should be rejected at reset()
+    EphemeridesRecenterAlgorithm alg{};
+    EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter({SUN_SPICE_ID, SUN_SPICE_ID}));
+    EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter({EARTH_SPICE_ID, SUN_SPICE_ID}));
+    EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter({MOON_SPICE_ID, MARS_SPICE_ID}));  // parent=Mars, not in list
+
+    EXPECT_NO_THROW(alg.setPreviousCommonZeroBase(SUN_SPICE_ID));
+    EXPECT_NO_THROW(alg.setNewZeroBaseId(EARTH_SPICE_ID));
+
+    EXPECT_THROW(alg.reset(), fs::invalid_argument);  // "body is not found" from getBodyIndexFromId
+}
+
+inline void testMismatchedBodyIdsRecenter() {
+    // updateState should throw if incoming body IDs don't match the configured IDs
+    EphemeridesRecenterAlgorithm alg{};
+    EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter({SUN_SPICE_ID, SUN_SPICE_ID}));
+    EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter({EARTH_SPICE_ID, SUN_SPICE_ID}));
+    EXPECT_NO_THROW(alg.setPreviousCommonZeroBase(SUN_SPICE_ID));
+    EXPECT_NO_THROW(alg.setNewZeroBaseId(EARTH_SPICE_ID));
+    EXPECT_NO_THROW(alg.reset());
+
+    // Correct IDs — should not throw
+    std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES> goodBodies{};
+    goodBodies.at(0).bodySpiceId = SUN_SPICE_ID;
+    goodBodies.at(1).bodySpiceId = EARTH_SPICE_ID;
+    EXPECT_NO_THROW(alg.updateState(goodBodies));
+
+    // Swapped order — all expected IDs present, just reordered — should not throw
+    std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES> swappedBodies{};
+    swappedBodies.at(0).bodySpiceId = EARTH_SPICE_ID;
+    swappedBodies.at(1).bodySpiceId = SUN_SPICE_ID;
+    EXPECT_NO_THROW(alg.updateState(swappedBodies));
+
+    // Unexpected body — Mars instead of Earth
+    std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES> unexpectedBody{};
+    unexpectedBody.at(0).bodySpiceId = SUN_SPICE_ID;
+    unexpectedBody.at(1).bodySpiceId = MARS_SPICE_ID;
+    EXPECT_THROW(alg.updateState(unexpectedBody), fs::invalid_argument);
+
+    // Missing body — Earth replaced with duplicate Sun
+    std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES> missingBody{};
+    missingBody.at(0).bodySpiceId = SUN_SPICE_ID;
+    missingBody.at(1).bodySpiceId = SUN_SPICE_ID;
+    EXPECT_THROW(alg.updateState(missingBody), fs::invalid_argument);
 }
 
 #endif  // TEST_EPHEMERIDESRECENTER_H

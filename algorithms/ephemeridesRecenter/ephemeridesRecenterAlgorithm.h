@@ -14,8 +14,13 @@
 inline constexpr std::size_t MAX_NUM_CHANGE_BODIES = 20U;
 
 struct MoonIndexFound {
-    size_t index;
-    bool found;
+    size_t index{};
+    bool found{false};
+};
+
+struct BodyToRecenter {
+    int bodySpiceId{};
+    int originalCentralBodyId{};
 };
 
 /**
@@ -42,7 +47,7 @@ class EphemeridesRecenterAlgorithm {
    public:
     void reset();
     std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES> updateState(
-        const std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES>& newBodies);
+        const std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES>& newBodies) const;
     size_t getBodyIndexFromId(int bodySpiceId) const;
     void setNewZeroBaseId(int bodySpiceId);
     size_t findNewZeroBaseIndex(int bodySpiceId);
@@ -51,19 +56,22 @@ class EphemeridesRecenterAlgorithm {
     int getPreviousCommonZeroBase() const;
     size_t getNumberOfBodies() const;
     std::array<int, MAX_NUM_CHANGE_BODIES> getAllIds() const;
-    void addBodyEphemerisToRecenter(int bodySpiceId);
+    void addBodyEphemerisToRecenter(const BodyToRecenter& body);
     void clearAllBodies();
 
    private:
-    MoonIndexFound findMoonOfBody(const BodyEphemerisPayload& celestialBody) const;
-    static void validateNoMultipleMoons(const std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES>& bodies,
-                                        size_t count);
+    void checkConfiguration();
+    void validateIncomingBodies(const std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES>& newBodies) const;
 
     int newCentralBodyId{};
     std::array<int, MAX_NUM_CHANGE_BODIES> bodyIds{};
+    std::array<int, MAX_NUM_CHANGE_BODIES> originalCentralBodyIds{};
     size_t celestialBodyCount{};  //!< Number of primary bodies
     size_t newCentralIndex{};
-    std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES> celestialBodies{};  //!< All celestial bodies involved
+    bool newCentralIsMoon{false};                                     //!< Whether the new central body is a moon
+    size_t newCentralParentIndex{};                                   //!< Index of new central's parent
+    std::array<MoonIndexFound, MAX_NUM_CHANGE_BODIES> moonIndices{};  //!< moonIndices[i] = moon of body i
+    std::array<bool, MAX_NUM_CHANGE_BODIES> isMoonAtIndex{};          //!< true if body at index i is a moon
     int previousCentralBodyId{};
 };
 
