@@ -7,6 +7,8 @@
 #include "thrFiringRemainderAlgorithm_c.h"
 #include "thrFiringRemainderAlgorithm.h"
 
+#include <algorithm>
+
 uint32_t ThrFiringRemainderAlgorithm_getMaxThrusterCount(void) { return THR_FIRING_REMAINDER_MAX_THRUSTER_COUNT; }
 
 ThrFiringRemainderAlgorithm* ThrFiringRemainderAlgorithm_create(void) {
@@ -24,12 +26,12 @@ void ThrFiringRemainderAlgorithm_reset(ThrFiringRemainderAlgorithm* self) {
 ThrFiringRemainderOnTimeCmd ThrFiringRemainderAlgorithm_update(ThrFiringRemainderAlgorithm* self,
                                                                const ThrFiringRemainderForceCmd* forceCmd) {
     ThrusterForceCmd cppCmd{};
-    memcpy(cppCmd.thrForce.data(), forceCmd->thrForce, sizeof(forceCmd->thrForce));
+    std::ranges::copy_n(forceCmd->thrForce, kMaxThrusterCount, cppCmd.thrForce.data());
 
-    ThrusterOnTimeCmd cppResult = reinterpret_cast<::ThrFiringRemainderAlgorithm*>(self)->update(cppCmd);
+    auto [onTimeRequest] = reinterpret_cast<::ThrFiringRemainderAlgorithm*>(self)->update(cppCmd);
 
     ThrFiringRemainderOnTimeCmd result{};
-    memcpy(result.onTimeRequest, cppResult.onTimeRequest.data(), sizeof(result.onTimeRequest));
+    std::ranges::copy_n(onTimeRequest.data(), kMaxThrusterCount, result.onTimeRequest);
     return result;
 }
 
@@ -38,12 +40,8 @@ void ThrFiringRemainderAlgorithm_setThrusters(ThrFiringRemainderAlgorithm* self,
     ThrusterArrayConfig cppConfig{};
     cppConfig.numThrusters = config->numThrusters;
     for (uint32_t i = 0; i < config->numThrusters; ++i) {
-        memcpy(cppConfig.thrusters[i].rThrust_B.data(),
-               config->thrusters[i].rThrust_B,
-               sizeof(config->thrusters[i].rThrust_B));
-        memcpy(cppConfig.thrusters[i].tHatThrust_B.data(),
-               config->thrusters[i].tHatThrust_B,
-               sizeof(config->thrusters[i].tHatThrust_B));
+        std::ranges::copy_n(config->thrusters[i].rThrust_B, 3, cppConfig.thrusters[i].rThrust_B.data());
+        std::ranges::copy_n(config->thrusters[i].tHatThrust_B, 3, cppConfig.thrusters[i].tHatThrust_B.data());
         cppConfig.thrusters[i].maxThrust = config->thrusters[i].maxThrust;
     }
     reinterpret_cast<::ThrFiringRemainderAlgorithm*>(self)->setThrusters(cppConfig);
