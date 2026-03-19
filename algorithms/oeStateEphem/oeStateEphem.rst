@@ -6,15 +6,18 @@ representations of classical orbital elements. The central body is defined by th
 Given a query time, the module selects the appropriate temporal arc, evaluates the polynomial coefficients for each
 orbital element, and converts the resulting elements to Cartesian coordinates.
 
+Although table fits which use spice trajectories are typically in km and km/s, all the inputs of this module are SI:
+meters for radius of periapsis, radians for angles, and m^3/s^2 for gravitational parameter.
+
 The module maintains multiple time-segmented arcs, each containing Chebyshev polynomial coefficients for the
 six classical orbital elements: radius of periapsis, eccentricity, inclination, argument of periapsis, right
 ascension of the ascending node, and anomaly. Ephemeris time is computed as:
 
 .. math::
 
-   t_{eph} = (t_{call} \times 10^{-9}) + t_{eph} - t_{vehicle}
+   t_{eph, corr} = (t_{call} \times 10^{-9}) + t_{eph} - t_{vehicle}
 
-The module identifies the arc with minimum :math:`|t_{eph} - t_{arc,middle}|` and evaluates the corresponding
+The module identifies the arc with minimum :math:`|t_{eph, corr} - t_{arc,middle}|` and evaluates the corresponding
 coefficients. If the query time falls outside an arc's valid range, the scaled time is clamped to ±1, ensuring
 the module always returns a valid state.
 
@@ -123,10 +126,10 @@ Module setup requires specifying the gravitational parameter and Chebyshev coeff
     ephemObject.nChebCoeff[arcIndex] = 5
     ephemObject.t_middle[arcIndex] = 1000.0  # seconds
     ephemObject.t_radius[arcIndex] = 500.0   # seconds
-    ephemObject.anomalyFlag[arcIndex] = 0    # 0: true anomaly, 1: mean anomaly
+    ephemObject.anomalyFlag[arcIndex] = AnomalyType.TRUE_ANOMALY    # or AnomalyType.MEAN_ANOMALY
 
-    # Set Chebyshev coefficients (units: km for r_p, radians for angles)
-    ephemObject.r_p_cheb[arcIndex] = [7000.0, 0.0, 0.0, 0.0, 0.0]
+    # Set Chebyshev coefficients (units: m for r_p, radians for angles)
+    ephemObject.r_p_cheb[arcIndex] = [7000000.0, 0.0, 0.0, 0.0, 0.0]
     ephemObject.e_cheb[arcIndex] = [0.001, 0.0, 0.0, 0.0, 0.0]
     ephemObject.i_cheb[arcIndex] = [0.5, 0.0, 0.0, 0.0, 0.0]
     ephemObject.omega_cheb[arcIndex] = [0.0, 0.0, 0.0, 0.0, 0.0]

@@ -5,23 +5,27 @@
  */
 
 #include "oeStateEphemAlgorithm.h"
+
 #include "../freestandingInvalidArgument.h"
 #include "utilities/chebyshevUtilities.h"
+#include "utilities/timeConstants.h"
+#include <algorithm>
 
 /*! This method finds the Chebyshev fit arc that is closest in time to the current ephemeris time.
     It computes the current ephemeris time from the call time, ephemeris time offset, and vehicle time,
     then searches through all available arcs to find the one with the smallest time difference.
     @return ChebyshevFitArc The arc record with coefficients closest to the current time
-    @param callTime The clock time at which the function was called (nanoseconds)
+    @param spacecraftClockTime The clock time at which the function was called (nanoseconds)
 */
-ChebyshevFitArc OEStateEphemAlgorithm::findCurrentArc(const uint64_t callTime) {
+ChebyshevFitArc OEStateEphemAlgorithm::findCurrentArc(const uint64_t spacecraftClockTime) {
     /*! - compute time for fitting interval */
-    this->currentEphTime = (static_cast<double>(callTime) * nanoToSeconds) + this->ephemerisTime - this->vehicleTime;
-
+    this->currentEphTime =
+        (static_cast<double>(spacecraftClockTime) * kNano2Sec) + this->ephemerisTime - this->vehicleTimeOffset;
+    this->currentEphTime = std::max<double>(this->currentEphTime, 0);
     /*! - select the fitting coefficients for the nearest fit interval */
     uint32_t nearestArc = 0;
     double smallestTimeDifference = fabs(this->currentEphTime - this->fitCoefficients.at(0).ephemerisTimeMiddle);
-    for (unsigned int i = 1; i < kMaxOeRecords; ++i) {
+    for (unsigned int i = 1; i < this->numberOfArcs; ++i) {
         const double timeDifference = fabs(this->currentEphTime - this->fitCoefficients.at(i).ephemerisTimeMiddle);
         if (timeDifference < smallestTimeDifference) {
             nearestArc = i;
@@ -40,7 +44,10 @@ ChebyshevFitArc OEStateEphemAlgorithm::findCurrentArc(const uint64_t callTime) {
     @param arc The Chebyshev fit arc containing the time middle and radius parameters
 */
 double OEStateEphemAlgorithm::scaleEphemerisTime(const ChebyshevFitArc& arc) const {
-    double currentScaledValue = (this->currentEphTime - arc.ephemerisTimeMiddle) / arc.ephemerisTimeRadius;
+    double currentScaledValue = 0;
+    if (arc.ephemerisTimeRadius > kTolerance) {
+        currentScaledValue = (this->currentEphTime - arc.ephemerisTimeMiddle) / arc.ephemerisTimeRadius;
+    }
     if (fabs(currentScaledValue) > 1.0F) {
         currentScaledValue = currentScaledValue / fabs(currentScaledValue);
     }
@@ -61,8 +68,7 @@ ClassicalElementsF32 OEStateEphemAlgorithm::evaluateCoefficients(const double cu
     /* - determine orbit elements from chebychev polynominals */
     ClassicalElementsF32 elements{};
     const double radiusPeriapsis =
-        calculateChebyValue(arc.radiusPeriapsisCoefficients, arc.numberChebCoefficients, currentScaledValue) *
-        kmToMeters;  // coefficients are in km but module operates in meters
+        calculateChebyValue(arc.radiusPeriapsisCoefficients, arc.numberChebCoefficients, currentScaledValue);
     elements.inclination = calculateChebyValue(
         arc.inclinationCoefficients, arc.numberChebCoefficients, static_cast<float>(currentScaledValue));
     elements.eccentricity = calculateChebyValue(
@@ -75,7 +81,7 @@ ClassicalElementsF32 OEStateEphemAlgorithm::evaluateCoefficients(const double cu
         arc.trueAnomalyCoefficients, arc.numberChebCoefficients, static_cast<float>(currentScaledValue));
 
     /*! - determine the true anomaly angle */
-    if (arc.anomalyFlag == 0) {
+    if (arc.anomalyFlag == AnomalyType::TRUE_ANOMALY) {
         elements.trueAnomaly = anomalyAngle;
     } else if (elements.eccentricity < 1.0) {
         /* input is mean elliptic anomaly angle */
@@ -87,7 +93,7 @@ ClassicalElementsF32 OEStateEphemAlgorithm::evaluateCoefficients(const double cu
     }
 
     /*! - determine semi-major axis */
-    if (fabs(elements.eccentricity - 1.0) > tolerance) {
+    if (fabs(elements.eccentricity - 1.0) > kTolerance) {
         /* elliptic or hyperbolic case */
         elements.semiMajorAxis = radiusPeriapsis / (1.0 - elements.eccentricity);
     } else {
@@ -95,6 +101,19 @@ ClassicalElementsF32 OEStateEphemAlgorithm::evaluateCoefficients(const double cu
         elements.semiMajorAxis = 0.0;
     }
     return elements;
+}
+
+/*! Check if all the elements in the radius of periapsis coefficients are zero.
+    @return bool
+*/
+bool OEStateEphemAlgorithm::allParametersNull() const {
+    bool allZero = true;
+    for (const auto& arc : this->fitCoefficients) {
+        if (fabs(arc.radiusPeriapsisCoefficients.at(0)) >= kTolerance) {
+            allZero = false;
+        }
+    }
+    return allZero;
 }
 
 /*! This method takes the current time and computes the state of the object
@@ -110,19 +129,7 @@ CartesianState OEStateEphemAlgorithm::update(const uint64_t callTime) {
     outputCartesianState.position = Eigen::Vector3d::Zero();
     outputCartesianState.velocity = Eigen::Vector3d::Zero();
     /*! If all of the radius of periapsis components are zero, this is the central body and should return all zeros*/
-    bool allZero = true;
-    for (const auto& arc : this->fitCoefficients) {
-        for (const auto& val : arc.radiusPeriapsisCoefficients) {
-            if (std::abs(val) >= tolerance) {
-                allZero = false;
-                break;
-            }
-        }
-        if (!allZero) {
-            break;
-        }
-    }
-    if (allZero) {
+    if (this->allParametersNull()) {
         return outputCartesianState;
     }
 
@@ -152,6 +159,22 @@ void OEStateEphemAlgorithm::setCentralBodyGravitationalParameter(const double gr
 */
 double OEStateEphemAlgorithm::getCentralBodyGravitationalParameter() const { return this->mu; };
 
+/*! This method sets the number of orbital element coefficient arcs.
+    @return void
+    @param unsigned int The number of fit arcs to be populated
+*/
+void OEStateEphemAlgorithm::setNumberOfArcs(const unsigned int arcs) {
+    if (arcs < 1) {
+        FS_THROW_INVALID_ARGUMENT("Number of arcs in OEStateEphemAlgorithm must be strictly positive.");
+    }
+    this->numberOfArcs = arcs;
+};
+
+/*! This method retrieves the number of orbital element coefficient arcs.
+    @return unsigned int The number of fit arcs to be populated
+*/
+unsigned int OEStateEphemAlgorithm::getNumberOfArcs() const { return this->numberOfArcs; };
+
 /*! This method sets the number of Chebyshev coefficients for a specified arc.
     @return void
     @param arcNumber The index of the arc to modify
@@ -159,6 +182,9 @@ double OEStateEphemAlgorithm::getCentralBodyGravitationalParameter() const { ret
 */
 void OEStateEphemAlgorithm::setArcNumberOfCoefficients(const unsigned int arcNumber,
                                                        const unsigned int numberOfCoefficients) {
+    if (numberOfCoefficients < 1) {
+        FS_THROW_INVALID_ARGUMENT("numberOfCoefficients in OEStateEphemAlgorithm must be positive.");
+    }
     this->fitCoefficients.at(arcNumber).numberChebCoefficients = numberOfCoefficients;
 };
 
@@ -176,6 +202,9 @@ unsigned int OEStateEphemAlgorithm::getArcNumberOfCoefficients(const unsigned in
     @param timeMiddle The ephemeris time at the arc's midpoint (seconds)
 */
 void OEStateEphemAlgorithm::setArcMiddleTime(const unsigned int arcNumber, const double timeMiddle) {
+    if (timeMiddle <= 0) {
+        FS_THROW_INVALID_ARGUMENT("arc middle time in OEStateEphemAlgorithm must be positive.");
+    }
     this->fitCoefficients.at(arcNumber).ephemerisTimeMiddle = timeMiddle;
 };
 
@@ -193,6 +222,9 @@ double OEStateEphemAlgorithm::getArcMiddleTime(const unsigned int arcNumber) con
     @param timeRadius The time radius for the arc (seconds)
 */
 void OEStateEphemAlgorithm::setArcRadiusTime(const unsigned int arcNumber, const double timeRadius) {
+    if (timeRadius <= 0) {
+        FS_THROW_INVALID_ARGUMENT("arc radius in OEStateEphemAlgorithm must be strictly positive.");
+    }
     this->fitCoefficients.at(arcNumber).ephemerisTimeRadius = timeRadius;
 };
 
@@ -205,20 +237,20 @@ double OEStateEphemAlgorithm::getArcRadiusTime(const unsigned int arcNumber) con
 };
 
 /*! This method sets the anomaly flag for a specified arc. The flag indicates whether the anomaly
-    angle is true anomaly (0) or mean anomaly (1).
+    angle is true anomaly or mean anomaly.
     @return void
     @param arcNumber The index of the arc to modify
-    @param anomalyFlag The anomaly type flag (0 = true anomaly, 1 = mean anomaly)
+    @param anomalyFlag The anomaly type (AnomalyType::TRUE_ANOMALY or AnomalyType::MEAN_ANOMALY)
 */
-void OEStateEphemAlgorithm::setArcAnomalyFlag(const unsigned int arcNumber, const unsigned int anomalyFlag) {
+void OEStateEphemAlgorithm::setArcAnomalyFlag(const unsigned int arcNumber, const AnomalyType& anomalyFlag) {
     this->fitCoefficients.at(arcNumber).anomalyFlag = anomalyFlag;
 };
 
 /*! This method retrieves the anomaly flag for a specified arc.
-    @return unsigned int The anomaly type flag (0 = true anomaly, 1 = mean anomaly)
+    @return AnomalyType The anomaly type (TRUE_ANOMALY or MEAN_ANOMALY)
     @param arcNumber The index of the arc to query
 */
-unsigned int OEStateEphemAlgorithm::getArcAnomalyFlag(const unsigned int arcNumber) const {
+AnomalyType OEStateEphemAlgorithm::getArcAnomalyFlag(const unsigned int arcNumber) const {
     return this->fitCoefficients.at(arcNumber).anomalyFlag;
 };
 
@@ -342,21 +374,15 @@ std::array<float, kMaxOeCoeff> OEStateEphemAlgorithm::getArcTrueAnomalyCoefficie
     return this->fitCoefficients.at(arcNumber).trueAnomalyCoefficients;
 };
 
-/*! This method sets the ephemeris and vehicle time offset referenced to J2000 epoch.
+/*! This method sets the ephemeris time offset referenced to J2000 epoch.
     @return void
-    @param ephemerisJ2000 The ephemeris time offset (seconds)
-    @param vehicleTimeOffset The vehicle time offset (seconds)
+    @param ephemerisJ2000 The ephemeris time offset (seconds), must be positive
 */
-// NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
-void OEStateEphemAlgorithm::setModuleTime(const double ephemerisJ2000, const double vehicleTimeOffset) {
+void OEStateEphemAlgorithm::setEphemerisTimeJ2000(const double ephemerisJ2000) {
     if (ephemerisJ2000 < 0) {
         FS_THROW_INVALID_ARGUMENT("EphemerisJ2000 time in OEStateEphemAlgorithm must be positive.");
     }
-    if (vehicleTimeOffset > ephemerisJ2000) {
-        FS_THROW_INVALID_ARGUMENT("vehicleTime in OEStateEphemAlgorithm must be greater than ephemerisJ2000 time.");
-    }
     this->ephemerisTime = ephemerisJ2000;
-    this->vehicleTime = vehicleTimeOffset;
 }
 
 /*! This method retrieves the ephemeris time offset referenced to J2000 epoch.
@@ -364,7 +390,18 @@ void OEStateEphemAlgorithm::setModuleTime(const double ephemerisJ2000, const dou
 */
 double OEStateEphemAlgorithm::getEphemerisTimeJ2000() const { return this->ephemerisTime; }
 
+/*! This method sets the vehicle time offset used in ephemeris calculations.
+    @return void
+    @param timeOffset The vehicle time offset (seconds), must be positive
+*/
+void OEStateEphemAlgorithm::setVehicleTimeOffset(const double timeOffset) {
+    if (timeOffset < 0) {
+        FS_THROW_INVALID_ARGUMENT("vehicleTimeOffset in OEStateEphemAlgorithm must be positive.");
+    }
+    this->vehicleTimeOffset = timeOffset;
+}
+
 /*! This method retrieves the vehicle time offset used in ephemeris calculations.
     @return double The vehicle time offset (seconds)
 */
-double OEStateEphemAlgorithm::getVehicleTime() const { return this->vehicleTime; }
+double OEStateEphemAlgorithm::getVehicleTimeOffset() const { return this->vehicleTimeOffset; }

@@ -16,6 +16,8 @@
 #define kMaxOeCoeff 20
 #define kMaxOeRecords 10
 
+%include "oeStateEphemTypes.h"
+
 %template(DoubleArray20) std::array<double, 20>;
 %template(FloatArray20) std::array<float, 20>;
 %include "oeStateEphem.h"

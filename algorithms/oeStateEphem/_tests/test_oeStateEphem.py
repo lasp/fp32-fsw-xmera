@@ -22,19 +22,17 @@ splitPath = path.split('fswAlgorithms')
 from xmera import __path__
 bskPath = __path__[0]
 
-orbit_position_epsilon = 10000.0
-orbit_velocity_epsilon = 1.0
+relative_error = 0.001  # 0.1% relative error maximum
 colors = ['r','g','b']
 
-@pytest.mark.parametrize('valid_curve, anomay_flag', [
-    (True, 0),
-    (True, 1),
-    (True, -1),
-    (False, -1)
+@pytest.mark.parametrize('valid_curve, anomaly_flag', [
+    (True, oeStateEphemF32.AnomalyType_TRUE_ANOMALY),
+    (True, oeStateEphemF32.AnomalyType_MEAN_ANOMALY),
+    (False, oeStateEphemF32.AnomalyType_TRUE_ANOMALY)
 ])
-def test_cheby_fit(show_plots, valid_curve, anomay_flag):
+def test_cheby_fit(show_plots, valid_curve, anomaly_flag):
     """Module Unit Test"""
-    cheby_fit(show_plots, valid_curve, anomay_flag)
+    cheby_fit(show_plots, valid_curve, anomaly_flag)
 
 def test_zero_inputs(show_plots):
     """Module Unit Test"""
@@ -63,7 +61,7 @@ def test_zero_inputs(show_plots):
     oe_ephemeris_module.setArcNumberOfCoefficients(0, 1)
     oe_ephemeris_module.setArcMiddleTime(0, 1)
     oe_ephemeris_module.setArcRadiusTime(0, 1/2.0)
-    oe_ephemeris_module.setArcAnomalyFlag(0, 0)
+    oe_ephemeris_module.setArcAnomalyFlag(0, oeStateEphemF32.AnomalyType_TRUE_ANOMALY)
 
     clock_correlation_data = messaging.TDBVehicleClockCorrelationMsgF32Payload()
     clock_correlation_data.vehicleClockTime = 0.0
@@ -87,7 +85,7 @@ def test_zero_inputs(show_plots):
     np.testing.assert_allclose(ephemeris_positions, 0, atol=accuracy, rtol=0, err_msg="position values should have been zero")
     np.testing.assert_allclose(ephemeris_velocities, 0, atol=accuracy, rtol=0, err_msg="velocity values should have been zero")
 
-def cheby_fit(show_plots, valid_curve, anomay_flag):
+def cheby_fit(show_plots, valid_curve, anomaly_flag):
     number_curve_points = 4*8640+1
     curve_duration_sec = 4*86400
     log_rate = curve_duration_sec // (number_curve_points - 1)
@@ -128,12 +126,12 @@ def cheby_fit(show_plots, valid_curve, anomay_flag):
         orbital_elements = orbitalMotion.rv2elem(central_body_mu*1e-9, position, velocity)
         true_positions_m.append(position*1e3)
         true_velocities_mps.append(velocity*1e3)
-        radius_periapsis.append(orbital_elements.rPeriap)
+        radius_periapsis.append(orbital_elements.rPeriap * 1000.0)
         eccentricity.append(orbital_elements.e)
         inclination.append(orbital_elements.i)
         raan.append(orbital_elements.Omega)
         omega.append(orbital_elements.omega)
-        if anomay_flag == 1:
+        if anomaly_flag == oeStateEphemF32.AnomalyType_MEAN_ANOMALY:
             current_anomaly = orbitalMotion.E2M(orbitalMotion.f2E(orbital_elements.f, orbital_elements.e), orbital_elements.e)
         else:
             current_anomaly = orbital_elements.f
@@ -179,8 +177,8 @@ def cheby_fit(show_plots, valid_curve, anomay_flag):
     oe_ephemeris_module.setArcMiddleTime(0, start_time_et + curve_duration_sec/2.0)
     oe_ephemeris_module.setArcRadiusTime(0, curve_duration_sec/2.0)
 
-    if not (anomay_flag == -1):
-        oe_ephemeris_module.setArcAnomalyFlag(0, anomay_flag)
+    if anomaly_flag is not None:
+        oe_ephemeris_module.setArcAnomalyFlag(0, anomaly_flag)
 
     clock_correlation_data = messaging.TDBVehicleClockCorrelationMsgF32Payload()
     clock_correlation_data.vehicleClockTime = 0.0
@@ -216,15 +214,14 @@ def cheby_fit(show_plots, valid_curve, anomay_flag):
         np.testing.assert_array_equal(second_last_velocity, last_velocity, "Expected Chebychev velocity to rail high or low")
 
     else:
-        mas_pox_vector_err = [abs(max(ephemeris_positions[:, 0] - true_positions_m[:, 0])),
-                     abs(max(ephemeris_positions[:, 1] - true_positions_m[:, 1])),
-                     abs(max(ephemeris_positions[:,2] - true_positions_m[:, 2]))]
-        max_vel_vector_err = [abs(max(ephemeris_velocities[:, 0] - true_velocities_mps[:, 0])),
-                        abs(max(ephemeris_velocities[:, 1] - true_velocities_mps[:, 1])),
-                        abs(max(ephemeris_velocities[:, 2] - true_velocities_mps[:, 2]))]
+        pox_vector_err = []
+        vel_vector_err = []
+        for i in range(len(ephemeris_positions[:, 0])):
+            pox_vector_err.append(np.linalg.norm(ephemeris_positions[i, :] - true_positions_m[i, :])/np.linalg.norm(true_positions_m[i, :]))
+            vel_vector_err.append(np.linalg.norm(ephemeris_velocities[i, :] - true_velocities_mps[i, :])/np.linalg.norm(true_velocities_mps[i, :]))
 
-        np.testing.assert_array_less(max(mas_pox_vector_err), orbit_position_epsilon, "mas_pox_vector_err >= orbit_position_epsilon")
-        np.testing.assert_array_less(max(max_vel_vector_err), orbit_velocity_epsilon, "max_vel_vector_err >= orbit_velocity_epsilon")
+        np.testing.assert_array_less(max(pox_vector_err), relative_error, "mas_pox_vector_err >= relative_error")
+        np.testing.assert_array_less(max(vel_vector_err), relative_error, "max_vel_vector_err >= relative_error")
 
         plt.close("all")
         # plot the fitted and actual position coordinates
@@ -274,11 +271,11 @@ def cheby_fit(show_plots, valid_curve, anomay_flag):
                      linewidth=0.5,
                      label=r'$\Delta r_{' + str(idx) + '}$')
         plt.plot(ephemeris_log.times() * macros.NANO2HOUR,
-                 orbit_position_epsilon*np.ones(array_length),
+                 relative_error*np.ones(array_length),
                  color='r',
                  linewidth=1)
         plt.plot(ephemeris_log.times() * macros.NANO2HOUR,
-                 -orbit_position_epsilon * np.ones(array_length),
+                 -relative_error * np.ones(array_length),
                  color='r',
                  linewidth=1)
         plt.legend(loc='lower right')
@@ -295,11 +292,11 @@ def cheby_fit(show_plots, valid_curve, anomay_flag):
                      linewidth=0.5,
                      label=r'$\Delta v_{' + str(idx) + '}$')
         plt.plot(ephemeris_log.times() * macros.NANO2HOUR,
-                 orbit_velocity_epsilon*np.ones(array_length),
+                 relative_error*np.ones(array_length),
                  color='r',
                  linewidth=1)
         plt.plot(ephemeris_log.times() * macros.NANO2HOUR,
-                 -orbit_velocity_epsilon * np.ones(array_length),
+                 -relative_error * np.ones(array_length),
                  color='r',
                  linewidth=1)
         plt.legend(loc='lower right')
@@ -315,4 +312,4 @@ def cheby_fit(show_plots, valid_curve, anomay_flag):
 if __name__ == "__main__":
     cheby_fit(True,        # showPlots
                        True,        # valid_curve
-                       1)           # anomay_flag
+                       oeStateEphemF32.AnomalyType_MEAN_ANOMALY)  # anomaly_flag

@@ -5,6 +5,7 @@
  */
 
 #include "oeStateEphem.h"
+#include "utilities/timeConstants.h"
 #include <architecture/utilities/eigenSupport.h>
 
 /*!
@@ -28,12 +29,15 @@ void OEStateEphem::updateState(const uint64_t callTime) {
 
     if (this->clockCorrInMsg.isWritten()) {
         auto const timePayload = this->clockCorrInMsg();
-        this->algorithm.setModuleTime(timePayload.ephemerisTime, timePayload.vehicleClockTime);
+        this->algorithm.setEphemerisTimeJ2000(timePayload.ephemerisTime);
+        this->algorithm.setVehicleTimeOffset(timePayload.vehicleClockTime);
     }
 
     auto tmpOutputState = this->algorithm.update(callTime);
 
-    ephmerisMessageOutput.timeTag = callTime * nanoToSeconds;
+    ephmerisMessageOutput.timeTag = callTime * kNano2Sec;
+    ephmerisMessageOutput.spiceId = this->spiceBodyId;
+    ephmerisMessageOutput.centralBodyId = this->centralBodyId;
     eigenVectorToCArray(tmpOutputState.position, ephmerisMessageOutput.r_BdyZero_N);
     eigenVectorToCArray(tmpOutputState.velocity, ephmerisMessageOutput.v_BdyZero_N);
     this->stateFitOutMsg.write(&ephmerisMessageOutput, moduleID, callTime);
@@ -46,6 +50,18 @@ void OEStateEphem::setCentralBodyGravitationalParameter(const float mu) {
 float OEStateEphem::getCentralBodyGravitationalParameter() const {
     return this->algorithm.getCentralBodyGravitationalParameter();
 };
+
+void OEStateEphem::setNumberOfArcs(const unsigned int arcs) { this->algorithm.setNumberOfArcs(arcs); };
+
+unsigned int OEStateEphem::getNumberOfArcs() const { return this->algorithm.getNumberOfArcs(); };
+
+void OEStateEphem::setSpiceBodyId(const int spiceId) { this->spiceBodyId = spiceId; };
+
+int OEStateEphem::getSpiceBodyId() const { return this->spiceBodyId; };
+
+void OEStateEphem::setCentralBodyId(const int centralBody) { this->centralBodyId = centralBody; };
+
+int OEStateEphem::getCentralBodyId() const { return this->centralBodyId; };
 
 void OEStateEphem::setArcNumberOfCoefficients(const unsigned int arcNumber, const unsigned int numberOfCoefficients) {
     this->algorithm.setArcNumberOfCoefficients(arcNumber, numberOfCoefficients);
@@ -71,11 +87,11 @@ double OEStateEphem::getArcRadiusTime(const unsigned int arcNumber) const {
     return this->algorithm.getArcRadiusTime(arcNumber);
 };
 
-void OEStateEphem::setArcAnomalyFlag(const unsigned int arcNumber, const unsigned int anomalyFlag) {
+void OEStateEphem::setArcAnomalyFlag(const unsigned int arcNumber, const AnomalyType &anomalyFlag) {
     this->algorithm.setArcAnomalyFlag(arcNumber, anomalyFlag);
 };
 
-unsigned int OEStateEphem::getArcAnomalyFlag(unsigned int arcNumber) const {
+AnomalyType OEStateEphem::getArcAnomalyFlag(const unsigned int arcNumber) const {
     return this->algorithm.getArcAnomalyFlag(arcNumber);
 };
 

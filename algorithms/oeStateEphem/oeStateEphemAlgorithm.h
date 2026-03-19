@@ -11,12 +11,12 @@
 #include <array>
 #include <cstddef>
 
-inline constexpr double nanoToSeconds = 1e-9;
-inline constexpr double kmToMeters = 1e3;
-inline constexpr double tolerance = 1e-10;
-inline constexpr float toleranceF32 = 1e-6;
+inline constexpr double kTolerance = 1e-10;
+inline constexpr float kToleranceF32 = 1e-6;
 inline constexpr std::size_t kMaxOeCoeff = 20;
 inline constexpr std::size_t kMaxOeRecords = 10;
+
+#include "oeStateEphemTypes.h"
 
 /*! @brief Structure that defines the layout of an Ephemeris "record."  This is
            basically the set of coefficients for the ephemeris elements and
@@ -35,8 +35,8 @@ struct ChebyshevFitArc {
     std::array<float, kMaxOeCoeff>
         raanCoefficients{};  //!< [-] Set of chebyshev coefficients for right ascention of the ascending node
     std::array<float, kMaxOeCoeff>
-        trueAnomalyCoefficients{};  //!< [-] Set of chebyshev coefficients for true anomaly angle
-    unsigned int anomalyFlag{};     //!< [-] Flag indicating if the anomaly angle is true (0), mean (1)
+        trueAnomalyCoefficients{};                       //!< [-] Set of chebyshev coefficients for true anomaly angle
+    AnomalyType anomalyFlag{AnomalyType::TRUE_ANOMALY};  //!< [-] Flag indicating if the anomaly angle is true or mean
 };
 
 /*! @brief Top level structure for the Chebyshev position ephemeris
@@ -50,9 +50,12 @@ class OEStateEphemAlgorithm {
 
     void setCentralBodyGravitationalParameter(double gravitationalParameter);
     double getCentralBodyGravitationalParameter() const;
-    void setModuleTime(double ephemerisJ2000, double vehicleTime);
+    void setNumberOfArcs(unsigned int arcs);
+    unsigned int getNumberOfArcs() const;
+    void setEphemerisTimeJ2000(double ephemerisJ2000);
     double getEphemerisTimeJ2000() const;
-    double getVehicleTime() const;
+    void setVehicleTimeOffset(double timeOffset);
+    double getVehicleTimeOffset() const;
 
     void setArcNumberOfCoefficients(unsigned int arcNumber, unsigned int numberOfCoefficients);
     unsigned int getArcNumberOfCoefficients(unsigned int arcNumber) const;
@@ -63,8 +66,8 @@ class OEStateEphemAlgorithm {
     void setArcRadiusTime(unsigned int arcNumber, double timeRadius);
     double getArcRadiusTime(unsigned int arcNumber) const;
 
-    void setArcAnomalyFlag(unsigned int arcNumber, unsigned int anomalyFlag);
-    unsigned int getArcAnomalyFlag(unsigned int arcNumber) const;
+    void setArcAnomalyFlag(unsigned int arcNumber, const AnomalyType &anomalyFlag);
+    AnomalyType getArcAnomalyFlag(unsigned int arcNumber) const;
 
     void setArcRadiusPeriapsisCoefficients(unsigned int arcNumber,
                                            const std::array<double, kMaxOeCoeff> &radiusPeriapsisCoefficients);
@@ -85,14 +88,16 @@ class OEStateEphemAlgorithm {
     std::array<float, kMaxOeCoeff> getArcTrueAnomalyCoefficients(unsigned int arcNumber) const;
 
    private:
-    ChebyshevFitArc findCurrentArc(uint64_t callTime);
+    ChebyshevFitArc findCurrentArc(uint64_t spacecraftClockTime);
     double scaleEphemerisTime(const ChebyshevFitArc &arc) const;
     static ClassicalElementsF32 evaluateCoefficients(double currentScaledValue, const ChebyshevFitArc &arc);
+    bool allParametersNull() const;
+    unsigned int numberOfArcs{};
     double currentEphTime{};
     double mu{};  //!< [m3/s^2] Gravitational parameter for center of orbital elements
     std::array<ChebyshevFitArc, kMaxOeRecords> fitCoefficients{};  //!< [-] Array of Chebyshev records for ephemeris
     double ephemerisTime{};
-    double vehicleTime{};
+    double vehicleTimeOffset{};
 };
 
 #endif
