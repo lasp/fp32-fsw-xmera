@@ -17,6 +17,11 @@
       "name": "linux-gcc-base",
       "hidden": true,
       "inherits": "base-unix-makefiles",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Linux"
+      },
       "cacheVariables": {
         "CMAKE_C_COMPILER": "gcc",
         "CMAKE_CXX_COMPILER": "g++"
@@ -26,6 +31,11 @@
       "name": "macos-gcc-base",
       "hidden": true,
       "inherits": "base-unix-makefiles",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Darwin"
+      },
       "cacheVariables": {
         "CMAKE_C_COMPILER": "/opt/homebrew/bin/gcc-13",
         "CMAKE_CXX_COMPILER": "/opt/homebrew/bin/g++-13",
