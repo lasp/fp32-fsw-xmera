@@ -6,12 +6,8 @@
  Fuzz tests for OEStateEphemAlgorithm class
  */
 
-#include "../../utilities/orbitalMotion.hpp"
-#include "../freestandingInvalidArgument.h"
-#include "gtest/gtest.h"
-#include "test_oeStateEphem.cpp"
+#include "test_oeStateEphem_helpers.h"
 #include <fuzztest/fuzztest.h>
-
 #include <cmath>
 
 // Fuzz-specific tolerances (more relaxed than unit tests)
