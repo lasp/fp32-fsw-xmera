@@ -12,7 +12,7 @@ Module Inputs and Outputs
 Module inputs:
 
 .. list-table:: Module Input Messages
-   :widths: 25 25 50
+   :widths: 25 35 40
    :header-rows: 1
 
    * - Msg Variable Name
@@ -32,7 +32,7 @@ Module inputs:
 Module output:
 
 .. list-table:: Module Output Messages
-   :widths: 25 25 50
+   :widths: 25 35 40
    :header-rows: 1
 
    * - Msg Variable Name
