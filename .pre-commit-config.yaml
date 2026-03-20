@@ -16,3 +16,13 @@ repos:
     hooks:
       -   id: clang-format
           args: [-i, -style=file]
+-   repo: local
+    hooks:
+      -   id: freestanding-includes
+          name: Check for banned hosted includes
+          language: script
+          entry: .github/scripts/check_freestanding_includes.sh
+          args: [algorithms/]
+          files: '\.(h|hpp|cpp)$'
+          exclude: '/_tests/'
+          pass_filenames: false
