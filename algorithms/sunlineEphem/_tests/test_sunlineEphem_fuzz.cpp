@@ -3,7 +3,10 @@
 #include <fuzztest/fuzztest.h>
 
 FUZZ_TEST(SunlineEphemFuzz, testSunlineEphem)
-    .WithDomains(fuzztest::VectorOf(fuzztest::InRange(-1e12, 1e12)).WithSize(3),  // sunPosition
-                 fuzztest::VectorOf(fuzztest::InRange(-1e12, 1e12)).WithSize(3),  // spacecraftPosition
-                 fuzztest::VectorOf(fuzztest::InRange(-1e6F, 1e6F)).WithSize(3)   // spacecraftAttitude
+    .WithDomains(
+        // Position of spacecraft and sun [m], bounded by heliosphere (~120 AU, ~1.8e13 m)
+        fuzztest::VectorOf(fuzztest::InRange(-2e13, 2e13)).WithSize(3),  // sunPosition
+        fuzztest::VectorOf(fuzztest::InRange(-2e13, 2e13)).WithSize(3),  // spacecraftPosition
+        // Within an order of magnitude of the overflow threshold (~4e9) of mrpToDcm
+        fuzztest::VectorOf(fuzztest::InRange(-1e9F, 1e9F)).WithSize(3)  // spacecraftAttitude
     );
