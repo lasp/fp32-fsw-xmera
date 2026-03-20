@@ -75,8 +75,6 @@ Algorithm output:
 Algorithm Assumptions
 ---------------------
 - All input position vectors must be expressed in the same inertial reference frame.
-- The algorithm returns a unit direction vector for distinct positions. For colocated positions, the zero vector
-  is returned as a sentinel when no direction can be computed. Downstream consumers should check for this case.
 
 Algorithm Description
 ---------------------
@@ -95,6 +93,9 @@ spacecraft attitude MRPs :math:`\boldsymbol{\sigma}_{BN}`:
 
       {}^{B}\boldsymbol{\hat r}_{S/B} =
       \text{normalize}\left([BN] \, {}^{N}\boldsymbol{\hat r}_{S/B}\right)
+
+The algorithm returns a unit direction vector for distinct positions. For colocated positions, the zero vector
+is returned as a sentinel when no direction can be computed. Downstream consumers should check for this case.
 
 .. _ModuleIO_sunlineEphem_overview:
 .. figure:: /../../src/fswAlgorithms/attDetermination/sunlineEphem/_Documentation/Figures/sunlineEphem_rSB_N.jpeg
