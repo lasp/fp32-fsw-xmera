@@ -42,6 +42,36 @@ Module output:
      - :ref:`NavAttMsgF32Payload`
      - Ephemeris-based Sun direction unit vector expressed in the body frame, written to ``vehSunPntBdy``.
 
+Algorithm Inputs and Outputs
+----------------------------
+Algorithm inputs:
+
+.. list-table::
+   :widths: 25 75
+   :header-rows: 1
+
+   * - Variable Name
+     - Description
+   * - r_SN_N
+     - Sun position vector expressed in the inertial frame :math:`{}^{N}\boldsymbol{r}_{S/N}`.
+   * - r_BN_N
+     - Spacecraft position vector expressed in the inertial frame :math:`{}^{N}\boldsymbol{r}_{B/N}`.
+   * - sigma_BN
+     - Spacecraft attitude MRPs :math:`\boldsymbol{\sigma}_{BN}`, used to rotate the Sun direction from
+       the inertial frame to the body frame.
+
+Algorithm output:
+
+.. list-table::
+   :widths: 25 75
+   :header-rows: 1
+
+   * - Variable Name
+     - Description
+   * - rHat_SB_B
+     - Sun direction unit vector expressed in the body frame :math:`{}^{B}\boldsymbol{\hat r}_{S/B}`.
+       Returns the zero vector if the spacecraft and Sun are colocated.
+
 Algorithm Assumptions
 ---------------------
 - All input position vectors must be expressed in the same inertial reference frame.
