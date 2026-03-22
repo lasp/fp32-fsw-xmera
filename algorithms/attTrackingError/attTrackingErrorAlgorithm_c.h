@@ -6,10 +6,6 @@
 #ifndef F32XMERA_ATTTRACKINGERRORALGORITHM_C_H
 #define F32XMERA_ATTTRACKINGERRORALGORITHM_C_H
 
-#include "msgPayloadDef/AttGuidMsgF32Payload.h"
-#include "msgPayloadDef/AttRefMsgF32Payload.h"
-#include "msgPayloadDef/NavAttMsgF32Payload.h"
-
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -20,6 +16,40 @@ extern "C" {
  * @brief Opaque handle to the C++ AttTrackingErrorAlgorithm instance.
  */
 typedef struct AttTrackingErrorAlgorithm AttTrackingErrorAlgorithm;
+
+/**
+ * @brief POD representation of a 3-vector (Eigen::Vector3f).
+ */
+typedef struct {
+    float data[3];
+} Vector3f_c;
+
+/**
+ * @brief C-compatible navigation attitude input.
+ */
+typedef struct {
+    Vector3f_c sigma_BN;
+    Vector3f_c omega_BN_B;
+} AttNavInput_c;
+
+/**
+ * @brief C-compatible reference attitude input.
+ */
+typedef struct {
+    Vector3f_c sigma_RN;
+    Vector3f_c omega_RN_N;
+    Vector3f_c domega_RN_N;
+} AttRefInput_c;
+
+/**
+ * @brief C-compatible attitude guidance output.
+ */
+typedef struct {
+    Vector3f_c sigma_BR;
+    Vector3f_c omega_BR_B;
+    Vector3f_c omega_RN_B;
+    Vector3f_c domega_RN_B;
+} AttGuidOutput_c;
 
 /**
  * @brief Construct a new AttTrackingErrorAlgorithm instance.
@@ -35,14 +65,14 @@ void AttTrackingErrorAlgorithm_destroy(AttTrackingErrorAlgorithm* self);
 
 /**
  * @brief Run the update step.
- * @param self         Pointer to the instance.
- * @param attRefInMsg  Pointer to reference-frame message payload.
- * @param attNavInMsg  Pointer to navigation attitude message payload.
- * @return AttGuidMsgPayload  The computed guidance message.
+ * @param self   Pointer to the instance.
+ * @param navIn  C-compatible navigation attitude input.
+ * @param refIn  C-compatible reference attitude input.
+ * @return AttGuidOutput_c  The computed guidance output.
  */
-AttGuidMsgF32Payload AttTrackingErrorAlgorithm_update(AttTrackingErrorAlgorithm* self,
-                                                      AttRefMsgF32Payload* attRefInMsg,
-                                                      NavAttMsgF32Payload* attNavInMsg);
+AttGuidOutput_c AttTrackingErrorAlgorithm_update(AttTrackingErrorAlgorithm* self,
+                                                 AttNavInput_c navIn,
+                                                 AttRefInput_c refIn);
 
 #ifdef __cplusplus
 }  // extern "C"
