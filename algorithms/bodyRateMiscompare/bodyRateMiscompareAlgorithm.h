@@ -1,5 +1,5 @@
-#ifndef BODY_RATE_MISCOMPARE_ALGORITHM
-#define BODY_RATE_MISCOMPARE_ALGORITHM
+#ifndef F32XMERA_BODY_RATE_MISCOMPARE_ALGORITHM
+#define F32XMERA_BODY_RATE_MISCOMPARE_ALGORITHM
 
 #include <Eigen/Core>
 
@@ -9,11 +9,11 @@
 class BodyRateMiscompareAlgorithm {
    public:
     BodyRateMiscompareOutput update(const Eigen::Vector3f& imuOmega_BN_B, const Eigen::Vector3f& stOmega_BN_B) const;
-    void setBodyRateThreshold(float bodyRateThresholdIn);  //!< Setter method for bodyRateThreshold
-    float getBodyRateThreshold() const;                    //!< Getter method for bodyRateThreshold
+    void setBodyRateThreshold(float bodyRateThresholdIn);
+    float getBodyRateThreshold() const;
 
    private:
-    float bodyRateThreshold = 1.0F;  // Default setting should allow this module to run
+    float bodyRateThreshold = 1.0F;  // rate threshold to trigger body rate miscompare fault
 };
 
 #endif

@@ -1,6 +1,5 @@
 #include "bodyRateMiscompareAlgorithm.h"
 
-#include "architecture/utilities/eigenSupport.h"
 #include "freestandingInvalidArgument.h"
 
 BodyRateMiscompareOutput BodyRateMiscompareAlgorithm::update(const Eigen::Vector3f& imuOmega_BN_B,
