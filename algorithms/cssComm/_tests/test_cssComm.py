@@ -50,11 +50,9 @@ def test_css_comm(num_sensors, sensor_data):
                      -2.816333294617512e+06, 2.163709942144332e+06,
                      -1.488025993860025e+06, 9.107359382775769e+05,
                      -4.919712500291216e+05, 2.318436583511218e+05,
-                     -9.376105045529010e+04, 3.177536873430168e+04,
-                     -8.704033370738143e+03, 1.816188108176300e+03,
-                     -2.581556805090373e+02, 1.888418924282780e+01]
+                     -9.376105045529010e+04, 3.177536873430168e+04]
     module.chebyCount = len(cheby_list)
-    module.chebyPolynomials = cheby_list + [0] * (32 - len(cheby_list))
+    module.chebyPolynomials = cheby_list
 
     # Add the module to the task
     unit_test_sim.AddModelToTask(unit_task_name, module)
@@ -100,7 +98,7 @@ def test_css_comm(num_sensors, sensor_data):
     np.testing.assert_allclose(module.numSensors, num_sensors, atol=accuracy, rtol=accuracy)
     np.testing.assert_allclose(module.maxSensorValue, 500e-6, atol=accuracy, rtol=accuracy)
     np.testing.assert_allclose(module.chebyCount, len(cheby_list), atol=accuracy, rtol=accuracy)
-    np.testing.assert_allclose(module.chebyPolynomials, cheby_list + [0] * (32 - len(cheby_list)), atol=accuracy, rtol=accuracy)
+    np.testing.assert_allclose(module.chebyPolynomials, cheby_list, atol=accuracy, rtol=accuracy)
 
 
 if __name__ == '__main__':

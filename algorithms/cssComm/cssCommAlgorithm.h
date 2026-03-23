@@ -6,7 +6,7 @@
 #include <cstddef>
 #include <cstdint>
 
-inline constexpr std::size_t kMaxNumChebyPolys = 32;
+inline constexpr std::size_t kMaxNumChebyPolys = 10;
 
 /*! @brief Top level structure for the CSS sensor interface system.  Contains all parameters for the
  CSS interface*/
