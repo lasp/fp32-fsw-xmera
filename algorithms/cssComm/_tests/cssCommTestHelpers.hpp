@@ -16,7 +16,6 @@ inline std::array<double, MAX_NUM_CSS_SENSORS> referenceUpdate(
     uint32_t chebyCount,
     const std::array<double, kMaxNumChebyPolys>& chebyPolynomials,
     const std::array<double, MAX_NUM_CSS_SENSORS>& inputValues) {
-
     uint32_t i, j;
     double ChebyDiffFactor, ChebyPrev, ChebyNow, ChebyLocalPrev,
         ValueMult; /* Parameters used for the Chebyshev Recursion Forumula */
@@ -39,10 +38,10 @@ inline std::array<double, MAX_NUM_CSS_SENSORS> referenceUpdate(
         ChebyPrev = 1.0;
         ChebyNow = output[i];
         ChebyDiffFactor = 0.0;
-        ChebyDiffFactor = chebyCount > 0 ? ChebyPrev * chebyPolynomials[0]
-                                               : ChebyDiffFactor; /* if only first order correction */
+        ChebyDiffFactor =
+            chebyCount > 0 ? ChebyPrev * chebyPolynomials[0] : ChebyDiffFactor; /* if only first order correction */
         ChebyDiffFactor = chebyCount > 1 ? ChebyNow * chebyPolynomials[1] + ChebyDiffFactor
-                                               : ChebyDiffFactor; /* if higher order (> first) corrections */
+                                         : ChebyDiffFactor; /* if higher order (> first) corrections */
 
         /* Loop over remaining polynomials and add in values */
         for (j = 2; j < chebyCount; j = j + 1) {

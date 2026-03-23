@@ -20,11 +20,13 @@ void CssComm::reset(uint64_t callTime) {
  @param callTime The clock time at which the function was called (nanoseconds)
  */
 void CssComm::updateState(uint64_t callTime) {
-    std::array<float, MAX_NUM_CSS_SENSORS> inputValues{}; /* [-] Current measured CSS value for the constellation of CSS sensors */
+    std::array<float, MAX_NUM_CSS_SENSORS>
+        inputValues{}; /* [-] Current measured CSS value for the constellation of CSS sensors */
 
     // read sensor list input msg
     CSSArraySensorMsgF32Payload inMsgBuffer = this->sensorListInMsg();
-    std::ranges::copy(std::ranges::begin(inMsgBuffer.CosValue), std::ranges::end(inMsgBuffer.CosValue), inputValues.begin());
+    std::ranges::copy(
+        std::ranges::begin(inMsgBuffer.CosValue), std::ranges::end(inMsgBuffer.CosValue), inputValues.begin());
 
     std::array<float, MAX_NUM_CSS_SENSORS> outputValues = this->algorithm.update(inputValues);
 
@@ -79,4 +81,6 @@ void CssComm::setChebyPolynomials(const std::array<float, kMaxNumChebyPolys>& po
 /*! Get the cheby polynomials
  @return std::array<float, kMaxNumChebyPolys>
 */
-std::array<float, kMaxNumChebyPolys> CssComm::getChebyPolynomials() const { return this->algorithm.getChebyPolynomials(); }
+std::array<float, kMaxNumChebyPolys> CssComm::getChebyPolynomials() const {
+    return this->algorithm.getChebyPolynomials();
+}

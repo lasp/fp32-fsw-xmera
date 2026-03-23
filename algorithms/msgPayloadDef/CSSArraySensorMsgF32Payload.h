@@ -8,7 +8,7 @@
 typedef struct {
     float timeTag;                        //!< [s]   Current vehicle time-tag associated with measurements
     float CosValue[MAX_NUM_CSS_SENSORS];  //!< Current measured CSS value (ideally a cosine value) for the
-                                           //!< constellation of CSS sensors
+                                          //!< constellation of CSS sensors
 } CSSArraySensorMsgF32Payload;
 
 #endif

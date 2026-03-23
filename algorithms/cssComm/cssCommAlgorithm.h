@@ -24,10 +24,10 @@ class CssCommAlgorithm final {
     std::array<float, kMaxNumChebyPolys> getChebyPolynomials() const;
 
    private:
-    uint32_t numSensors{};                                  //!< The number of sensors we are processing
-    float maxSensorValue{};                                //!< Scale factor to go from sensor values to cosine
-    uint32_t chebyCount{};                                  //!< Count on the number of chebyshev polynomials we have
-    std::array<float, kMaxNumChebyPolys> chebyPolynomials{};   //!< Chebyshev polynomials to fit output to cosine
+    uint32_t numSensors{};                                    //!< The number of sensors we are processing
+    float maxSensorValue{};                                   //!< Scale factor to go from sensor values to cosine
+    uint32_t chebyCount{};                                    //!< Count on the number of chebyshev polynomials we have
+    std::array<float, kMaxNumChebyPolys> chebyPolynomials{};  //!< Chebyshev polynomials to fit output to cosine
 };
 
 #endif

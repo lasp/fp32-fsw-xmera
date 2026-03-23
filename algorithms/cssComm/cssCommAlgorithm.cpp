@@ -1,6 +1,6 @@
 #include "cssCommAlgorithm.h"
-#include "utilities/chebyshevUtilities.h"
 #include "../freestandingInvalidArgument.h"
+#include "utilities/chebyshevUtilities.h"
 #include <algorithm>
 
 /*! This method takes the raw sensor data from the coarse sun sensors and
@@ -8,7 +8,8 @@
  @return void
  @param inputValues [-] Current measured CSS value for the constellation of CSS sensors
  */
-std::array<float, MAX_NUM_CSS_SENSORS> CssCommAlgorithm::update(const std::array<float, MAX_NUM_CSS_SENSORS>& inputValues) const {
+std::array<float, MAX_NUM_CSS_SENSORS> CssCommAlgorithm::update(
+    const std::array<float, MAX_NUM_CSS_SENSORS>& inputValues) const {
     std::array<float, MAX_NUM_CSS_SENSORS> outputValues{};
 
     for (uint32_t i = 0; i < this->numSensors; ++i) {
@@ -55,8 +56,9 @@ uint32_t CssCommAlgorithm::getNumSensors() const { return this->numSensors; }
 */
 void CssCommAlgorithm::setMaxSensorValue(const float maxValue) {
     if (maxValue <= 0) {
-        FS_THROW_INVALID_ARGUMENT("The maximum CSS sensor value must be positive. Otherwise, CSS sensor values "
-                                    "will be normalized by zero, inducing faux saturation!");
+        FS_THROW_INVALID_ARGUMENT(
+            "The maximum CSS sensor value must be positive. Otherwise, CSS sensor values "
+            "will be normalized by zero, inducing faux saturation!");
     }
     this->maxSensorValue = maxValue;
 }

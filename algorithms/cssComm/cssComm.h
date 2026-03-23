@@ -2,9 +2,9 @@
 #define F32XMERA_CSS_COMM_H
 
 #include "cssCommAlgorithm.h"
+#include "msgPayloadDef/CSSArraySensorMsgF32Payload.h"
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
-#include "msgPayloadDef/CSSArraySensorMsgF32Payload.h"
 
 /*! @brief Top level structure for the CSS sensor interface system.  Contains all parameters for the
  CSS interface*/

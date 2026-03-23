@@ -200,9 +200,9 @@ TEST(CssCommTest, SingleChebyCoefficient) {
     auto output = alg.update(input);
 
     // correction = 0.2 for all inputs, so output = clamp(scaled + 0.2, 0, 1)
-    EXPECT_NEAR(output[0], 0.2F, 1e-6F);   // 0.0 + 0.2
-    EXPECT_NEAR(output[1], 0.7F, 1e-6F);   // 0.5 + 0.2
-    EXPECT_NEAR(output[2], 1.0F, 1e-6F);   // 0.8 + 0.2 = 1.0
+    EXPECT_NEAR(output[0], 0.2F, 1e-6F);  // 0.0 + 0.2
+    EXPECT_NEAR(output[1], 0.7F, 1e-6F);  // 0.5 + 0.2
+    EXPECT_NEAR(output[2], 1.0F, 1e-6F);  // 0.8 + 0.2 = 1.0
 }
 
 // When input exactly equals maxSensorValue, scaled = 1.0.
