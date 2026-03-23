@@ -82,7 +82,7 @@ def run_test(
     module = bodyRateMiscompareF32.BodyRateMiscompare()
     module.modelTag = "bodyRateMiscompare"
 
-    module.setBodyRateThreshold(body_rate_threshold_rad_per_sec)
+    module.bodyRateThreshold = body_rate_threshold_rad_per_sec
 
     # Initialize Imu rate from majority vote
     input_message_data = messaging.IMUSensorBodyMsgF32Payload()
@@ -117,7 +117,7 @@ def run_test(
     )
     np.testing.assert_allclose(fault_data_log.faultDetected[-1], expected_output_fault)
     np.testing.assert_allclose(
-        module.getBodyRateThreshold(), body_rate_threshold_rad_per_sec, rtol=0, atol=1e-7, verbose=True
+        module.bodyRateThreshold, body_rate_threshold_rad_per_sec, rtol=0, atol=1e-7, verbose=True
     )
 
 

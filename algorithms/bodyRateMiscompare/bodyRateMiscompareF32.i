@@ -4,6 +4,9 @@
    #include "utilities/timeConstants.h"
 %}
 
+%include <attribute.i>
+%attribute(BodyRateMiscompare, double, bodyRateThreshold, getBodyRateThreshold, setBodyRateThreshold)
+
 %include <std_string.i>
 %include <swig_conly_data.i>
 %include <swig_eigen.i>
