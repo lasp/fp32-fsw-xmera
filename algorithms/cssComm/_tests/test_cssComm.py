@@ -7,11 +7,11 @@ import inspect
 import os
 
 import pytest
+import numpy as np
 from xmera.architecture import messaging
 from xmera.fp32 import cssCommF32
 from xmera.utilities import SimulationBaseClass
 from xmera.utilities import macros
-from xmera.utilities import unitTestSupport  # general support file with common unit test functions
 
 filename = inspect.getframeinfo(inspect.currentframe()).filename
 path = os.path.dirname(os.path.abspath(filename))
@@ -23,24 +23,17 @@ path = os.path.dirname(os.path.abspath(filename))
 
 
 def test_cssComm(numSensors, sensorData):
-    """Module Unit Test"""
-    [testResults, testMessage] = cssCommTestFunction(numSensors, sensorData)
-    assert testResults < 1, testMessage
+    """Exercise the Python/SWIG interface for CssComm.
 
-
-
-def cssCommTestFunction(numSensors, sensorData):
-    """ Test the cssComm module """
-    testFailCount = 0  # zero unit test result counter
-    testMessages = []  # create empty array to store test log messages
+    Verifies that the module can be configured, connected, and run
+    within the simulation framework, and that it produces sensible output.
+    Correctness is validated by the C++ unit and fuzz tests.
+    """
     unitTaskName = "unitTask"  # arbitrary name (don't change)
     unitProcessName = "TestProcess"  # arbitrary name (don't change)
 
     # Create a sim module as an empty container
     unitTestSim = SimulationBaseClass.SimBaseClass()
-
-    # This is needed if multiple unit test scripts are run
-    # This create a fresh and consistent simulation environment for each test run
 
     # Create test thread
     testProcessRate = macros.sec2nano(0.5)  # update process rate update time
@@ -49,7 +42,7 @@ def cssCommTestFunction(numSensors, sensorData):
 
     # Construct the cssComm module
     module = cssCommF32.CssComm()
-    # Populate the config
+    module.modelTag = "cssComm"
     module.numSensors = numSensors
     module.maxSensorValue = 500e-6
 
@@ -62,8 +55,6 @@ def cssCommTestFunction(numSensors, sensorData):
                      -2.581556805090373e+02, 1.888418924282780e+01]
     module.chebyCount = len(ChebyList)
     module.chebyPolynomials = ChebyList + [0] * (32 - len(ChebyList))
-
-    module.modelTag = "cssComm"
 
     # Add the module to the task
     unitTestSim.AddModelToTask(unitTaskName, module)
@@ -90,38 +81,23 @@ def cssCommTestFunction(numSensors, sensorData):
     MAX_NUM_CSS_SENSORS = messaging.MAX_NUM_CSS_SENSORS
     outputData = dataLog.CosValue
 
-    trueCssList= [0]*MAX_NUM_CSS_SENSORS
-    if numSensors==4:
-        trueCssList[0:4] = [0.0, 0.45791653042, 1.0, 0.615444781018]
-    if numSensors==MAX_NUM_CSS_SENSORS:
-        trueCssList = [0.45791653042]*32
+    # Verify output shape
+    assert outputData.shape == (2, MAX_NUM_CSS_SENSORS)
 
-    # Create the true array
-    trueCss = [
-        trueCssList,
-        trueCssList
-    ]
+    # All output values must be in [0, 1] (clamped cosine range)
+    assert np.all(outputData >= 0.0)
+    assert np.all(outputData <= 1.0)
 
-    accuracy = 1e-6
+    # All output values must be finite
+    assert np.all(np.isfinite(outputData))
 
-    testFailCount, testMessages = unitTestSupport.compareArrayND(trueCss, outputData, accuracy, "cosValues",
-                                                                 MAX_NUM_CSS_SENSORS, testFailCount, testMessages)
+    # Sensors beyond numSensors must be zero
+    assert np.all(outputData[:, numSensors:] == 0.0)
 
-    #   print out success message if no error were found
-    unitTestSupport.writeTeXSnippet('toleranceValue', str(accuracy), path)
-
-    snippentName = "passFail_"+str(numSensors)
-    if testFailCount == 0:
-        colorText = 'ForestGreen'
-        print("PASSED: " + module.modelTag)
-        passedText = r'\textcolor{' + colorText + '}{' + "PASSED" + '}'
-    else:
-        colorText = 'Red'
-        print("Failed: " + module.modelTag)
-        passedText = r'\textcolor{' + colorText + '}{' + "Failed" + '}'
-    unitTestSupport.writeTeXSnippet(snippentName, passedText, path)
-
-    return [testFailCount, ''.join(testMessages)]
+    # Getter/setter round-trips
+    np.testing.assert_allclose(module.numSensors, numSensors)
+    np.testing.assert_allclose(module.maxSensorValue, 500e-6, atol=1e-6)
+    np.testing.assert_allclose(module.chebyCount, len(ChebyList))
 
 
 if __name__ == '__main__':
