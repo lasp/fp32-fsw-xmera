@@ -68,5 +68,8 @@ TEST(BodyRateMiscompareTest, SetupTest) {
     alg.setFaultPersistenceLimit(5);
     EXPECT_EQ(alg.getFaultPersistenceLimit(), 5u);
 
+    EXPECT_THROW(alg.setBodyRateThreshold(0), fs::invalid_argument);
+    EXPECT_THROW(alg.setBodyRateThreshold(-0.1), fs::invalid_argument);
+
     EXPECT_THROW(alg.setFaultPersistenceLimit(0), fs::invalid_argument);
 }
