@@ -73,3 +73,28 @@ TEST(BodyRateMiscompareTest, SetupTest) {
 
     EXPECT_THROW(alg.setFaultPersistenceLimit(0), fs::invalid_argument);
 }
+
+// ---------------------------------------------------------------------------
+// Property tests
+// ---------------------------------------------------------------------------
+
+// Output omega_BN_B is always exactly one of the two inputs (source selection).
+TEST(BodyRateMiscompareTest, OutputIsAlwaysOneOfTheInputs) {
+    propertyOutputIsOneOfInputs({0.1F, -0.2F, 0.3F}, {1.0F, 0.5F, -0.5F});
+}
+
+// Fault flag and source selection are always consistent.
+TEST(BodyRateMiscompareTest, FaultFlagMatchesSourceSelection) {
+    propertyFaultFlagMatchesSource({0.0F, 0.0F, 0.0F}, {1.0F, 0.0F, 0.0F});
+}
+
+// When IMU == ST, difference norm is 0 — fault never triggers.
+TEST(BodyRateMiscompareTest, IdenticalInputsNeverFault) { propertyIdenticalInputsNeverFault({0.5F, -0.3F, 0.1F}); }
+
+// Once fault triggers, it stays triggered on all subsequent calls.
+TEST(BodyRateMiscompareTest, FaultIsSticky) { propertyFaultIsSticky({0.0F, 0.0F, 0.0F}, {1.0F, 0.0F, 0.0F}); }
+
+// All output components are finite for finite inputs.
+TEST(BodyRateMiscompareTest, OutputIsAlwaysFinite) {
+    propertyOutputIsFinite({1e10F, -1e10F, 1e10F}, {-1e10F, 1e10F, -1e10F});
+}
