@@ -5,7 +5,7 @@ import numpy as np
 
 from xmera.architecture import messaging
 from xmera.fp32 import ephemNavConverterF32
-from xmera.utilities import SimulationBaseClass, unitTestSupport, macros
+from xmera.utilities import SimulationBaseClass, macros
 from xmera.utilities import astroFunctions
 
 filename = inspect.getframeinfo(inspect.currentframe()).filename
@@ -62,12 +62,9 @@ def test_ephem_nav_converter():
     true_v = [velocity, velocity]
     true_time = [input_ephem.timeTag, input_ephem.timeTag]
 
-    pos_accuracy = 1e-6
-    vel_accuracy = 1e-6
-
-    np.testing.assert_allclose(output_r, true_r, atol=pos_accuracy, rtol=0, err_msg="ephemNavConverter output Position")
-    np.testing.assert_allclose(output_v, true_v, atol=vel_accuracy, rtol=0, err_msg="ephemNavConverter output Velocity")
-    np.testing.assert_allclose(output_time, true_time, atol=vel_accuracy, rtol=0, err_msg="ephemNavConverter output Time")
+    np.testing.assert_array_equal(output_r, true_r, err_msg="ephemNavConverter output Position")
+    np.testing.assert_array_equal(output_v, true_v, err_msg="ephemNavConverter output Velocity")
+    np.testing.assert_array_equal(output_time, true_time, err_msg="ephemNavConverter output Time")
 
 
 if __name__ == '__main__':
