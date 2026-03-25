@@ -1,7 +1,9 @@
 Executive Summary
 -----------------
 This module compares body rate estimates from an IMU and a star tracker. If the two rates differ by more than a
-configurable threshold, the module reports a fault and outputs the IMU rate. Otherwise it outputs the star tracker rate.
+configurable threshold for a configurable number of consecutive updates, the module reports a fault and outputs the IMU
+rate. Otherwise it outputs the star tracker rate. Once a fault is declared it is sticky and persists until the module is
+reset.
 
 Message Connection Descriptions
 -------------------------------
@@ -47,15 +49,22 @@ and compares its Euclidean norm to a positive threshold :math:`\tau`:
 
     \|\Delta \omega\| > \tau
 
-If the threshold is exceeded, the algorithm declares a fault and outputs the IMU rate. Otherwise, it outputs the star
-tracker rate. The output also includes a boolean flag indicating whether the fault was detected.
+If the threshold is exceeded, a persistence counter is incremented. If the threshold is not exceeded, the counter resets
+to zero. When the persistence counter reaches the configurable fault persistence limit :math:`N`, the algorithm declares
+a fault and outputs the IMU rate. Otherwise, it outputs the star tracker rate. The output also includes a boolean flag
+indicating whether the fault was detected.
+
+Once a fault has been declared, it is **sticky**: the algorithm continues to output the IMU rate and report a fault on
+all subsequent calls, regardless of the input values. The persistence counter is no longer evaluated after the fault
+becomes sticky.
 
 Algorithm Assumptions and Limitations
 -------------------------------------
 - The threshold :math:`\tau` must be strictly positive. A zero or negative threshold is invalid.
+- The fault persistence limit :math:`N` must be at least 1.
 - The two input rates must be expressed in the same frame and units.
-- The comparison is instantaneous and uses a strict greater-than check. There is no hysteresis, filtering,
-  or persistence logic.
+- The comparison uses a strict greater-than check (:math:`\|\Delta \omega\| > \tau`).
+- The fault is sticky: once declared, it cannot be cleared without resetting the algorithm.
 - The algorithm does not validate the physical plausibility of the input rates beyond finite arithmetic.
 
 Module Description (Xmera Usage)
@@ -83,9 +92,13 @@ Typical usage in Python is:
 
     module = bodyRateMiscompareF32.BodyRateMiscompare()
     module.modelTag = "bodyRateMiscompare"
-    module.setBodyRateThreshold(body_rate_threshold_rad_per_sec)
+    module.bodyRateThreshold = body_rate_threshold_rad_per_sec
+    module.faultPersistenceLimit = 3  # require 3 consecutive violations before declaring fault
 
     module.imuSensorBodyInMsg.subscribeTo(imu_msg)
     module.stBodyInMsg.subscribeTo(st_msg)
 
 The output body rate is available on `navAttMsg`, and the fault status is available on `rateFaultMsg`.
+
+The ``faultPersistenceLimit`` parameter (default 1) controls how many consecutive threshold violations are required
+before the fault is declared. Setting it to 1 means the fault triggers on the first violation.
