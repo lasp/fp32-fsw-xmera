@@ -19,8 +19,7 @@ BodyRateMiscompareOutput_c BodyRateMiscompareAlgorithm_update(BodyRateMiscompare
     Eigen::Vector3f stVec;
     stVec << stOmega.data[0], stOmega.data[1], stOmega.data[2];
 
-    BodyRateMiscompareOutput result =
-        reinterpret_cast<::BodyRateMiscompareAlgorithm*>(self)->update(imuVec, stVec);
+    BodyRateMiscompareOutput result = reinterpret_cast<::BodyRateMiscompareAlgorithm*>(self)->update(imuVec, stVec);
 
     BodyRateMiscompareOutput_c out;
     out.omega_BN_B[0] = result.omega_BN_B[0];
@@ -38,7 +37,8 @@ float BodyRateMiscompareAlgorithm_getBodyRateThreshold(const BodyRateMiscompareA
     return reinterpret_cast<const ::BodyRateMiscompareAlgorithm*>(self)->getBodyRateThreshold();
 }
 
-void BodyRateMiscompareAlgorithm_setFaultPersistenceLimit(BodyRateMiscompareAlgorithm* self, uint32_t faultPersistenceLimit) {
+void BodyRateMiscompareAlgorithm_setFaultPersistenceLimit(BodyRateMiscompareAlgorithm* self,
+                                                          uint32_t faultPersistenceLimit) {
     reinterpret_cast<::BodyRateMiscompareAlgorithm*>(self)->setFaultPersistenceLimit(faultPersistenceLimit);
 }
 

@@ -1,8 +1,8 @@
 #ifndef F32XMERA_BODYRATEMISCOMPAREALGORITHM_C_H
 #define F32XMERA_BODYRATEMISCOMPAREALGORITHM_C_H
 
-#include <cstdint>
 #include <stdbool.h>
+#include <cstdint>
 
 #ifdef __cplusplus
 extern "C" {
@@ -70,7 +70,8 @@ float BodyRateMiscompareAlgorithm_getBodyRateThreshold(const BodyRateMiscompareA
  * @param self              Pointer to the instance.
  * @param faultPersistenceLimit  Number of consecutive update calls needed to trigger the fault.
  */
-void BodyRateMiscompareAlgorithm_setFaultPersistenceLimit(BodyRateMiscompareAlgorithm* self, uint32_t faultPersistenceLimit);
+void BodyRateMiscompareAlgorithm_setFaultPersistenceLimit(BodyRateMiscompareAlgorithm* self,
+                                                          uint32_t faultPersistenceLimit);
 
 /**
  * @brief Get the current fault persistence count.

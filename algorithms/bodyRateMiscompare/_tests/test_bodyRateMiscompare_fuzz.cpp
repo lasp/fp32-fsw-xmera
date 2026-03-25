@@ -21,8 +21,8 @@ inline void fuzzPropertyBodyRateMiscompare(float threshold,
         EXPECT_NO_THROW(out = alg.update(imu, st));
 
         BodyRateMiscompareOutput ref{};
-        EXPECT_NO_THROW(
-            ref = referenceUpdate(threshold, faultPersistenceLimit, refFaultDetected, refFaultPersistenceCount, imu, st));
+        EXPECT_NO_THROW(ref = referenceUpdate(
+                            threshold, faultPersistenceLimit, refFaultDetected, refFaultPersistenceCount, imu, st));
 
         EXPECT_EQ(out.bodyRateFaultDetected, ref.bodyRateFaultDetected);
 

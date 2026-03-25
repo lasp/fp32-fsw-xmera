@@ -23,8 +23,8 @@ static void runRegressionCase(float threshold,
         BodyRateMiscompareOutput ref{};
 
         EXPECT_NO_THROW(out = alg.update(imu, st));
-        EXPECT_NO_THROW(
-            ref = referenceUpdate(threshold, faultPersistenceLimit, refFaultDetected, refFaultPersistenceCount, imu, st));
+        EXPECT_NO_THROW(ref = referenceUpdate(
+                            threshold, faultPersistenceLimit, refFaultDetected, refFaultPersistenceCount, imu, st));
 
         for (int i = 0; i < 3; ++i) {
             EXPECT_FLOAT_EQ(out.omega_BN_B[i], ref.omega_BN_B[i]);
@@ -153,7 +153,7 @@ TEST(BodyRateMiscompareTest, PersistenceCounterResetsOnGoodStep) {
     alg.setFaultPersistenceLimit(3);
 
     const Eigen::Vector3f imu(0.0F, 0.0F, 0.0F);
-    const Eigen::Vector3f stFar(1.0F, 0.0F, 0.0F);   // above threshold
+    const Eigen::Vector3f stFar(1.0F, 0.0F, 0.0F);    // above threshold
     const Eigen::Vector3f stClose(0.1F, 0.0F, 0.0F);  // below threshold
 
     // Pattern: far, close, far, close, far, close — counter never reaches 3
