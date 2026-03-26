@@ -201,21 +201,6 @@ TEST(BodyRateMiscompareTest, SingleAxisDifference) {
     EXPECT_EQ(out.omega_BN_B, imu);
 }
 
-// Default configuration (threshold=1.0, persistence=1) works without setter calls.
-TEST(BodyRateMiscompareTest, DefaultConfigurationValues) {
-    BodyRateMiscompareAlgorithm alg{};
-
-    EXPECT_FLOAT_EQ(alg.getBodyRateThreshold(), 1.0F);
-    EXPECT_EQ(alg.getFaultPersistenceLimit(), 1u);
-
-    // Difference < 1.0 → no fault
-    const Eigen::Vector3f imu(0.0F, 0.0F, 0.0F);
-    const Eigen::Vector3f st(0.5F, 0.0F, 0.0F);
-    auto out = alg.update(imu, st);
-    EXPECT_FALSE(out.bodyRateFaultDetected);
-    EXPECT_EQ(out.omega_BN_B, st);
-}
-
 // Very large but finite inputs produce finite output.
 TEST(BodyRateMiscompareTest, LargeInputValues) {
     BodyRateMiscompareAlgorithm alg{};

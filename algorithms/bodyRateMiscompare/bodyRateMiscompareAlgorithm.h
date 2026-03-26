@@ -16,7 +16,7 @@ class BodyRateMiscompareAlgorithm {
     uint32_t getFaultPersistenceLimit() const;
 
    private:
-    float bodyRateThreshold = 1.0F;       // rate threshold to trigger body rate miscompare fault
+    float bodyRateThreshold{};            // rate threshold to trigger body rate miscompare fault
     uint32_t faultPersistenceLimit = 1U;  // number of consecutive update calls needed to trigger the fault
 
     bool faultDetected{};

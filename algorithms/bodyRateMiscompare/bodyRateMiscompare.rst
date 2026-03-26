@@ -46,7 +46,7 @@ The following table lists all the module parameters that can be set.
     * - bodyRateThreshold
       - float
       - [rad/s]
-      - 1.0
+      - 0.0
       - Euclidean norm threshold for rate miscompare detection
       - Must be strictly positive (checked in setter)
     * - faultPersistenceLimit
