@@ -5,7 +5,6 @@
  */
 #include "ephemeridesRecenterAlgorithm.h"
 #include "../freestandingInvalidArgument.h"
-#include <algorithm>
 
 void EphemeridesRecenterAlgorithm::reset() { this->checkConfiguration(); }
 
@@ -51,7 +50,6 @@ std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES> EphemeridesRecenterAlgor
     }
     return recenteredBodies;
 }
-
 
 /*! @brief Set the new zero base body by SPICE ID
  @param bodySpiceId int : the new zero base
@@ -104,10 +102,7 @@ void EphemeridesRecenterAlgorithm::addBodyEphemerisToRecenter(const BodyToRecent
     if (this->celestialBodyCount + 1U > MAX_NUM_CHANGE_BODIES) {
         FS_THROW_INVALID_ARGUMENT("Adding one body too many to the list");
     }
-    if (const auto* indexInList = std::ranges::find(this->bodyIds, body.bodySpiceId);
-        indexInList != this->bodyIds.end()) {
-        FS_THROW_INVALID_ARGUMENT("Body already added to list");
-    }
+
     this->bodyIds.at(this->celestialBodyCount) = body.bodySpiceId;
     this->originalCentralBodyIds.at(this->celestialBodyCount) = body.originalCentralBodyId;
     this->celestialBodyCount += 1U;
