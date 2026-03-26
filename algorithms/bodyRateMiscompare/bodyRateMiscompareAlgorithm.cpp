@@ -40,7 +40,7 @@ void BodyRateMiscompareAlgorithm::setBodyRateThreshold(float const bodyRateThres
 float BodyRateMiscompareAlgorithm::getBodyRateThreshold() const { return this->bodyRateThreshold; }
 
 void BodyRateMiscompareAlgorithm::setFaultPersistenceLimit(uint32_t const faultPersistenceLimitIn) {
-    if (faultPersistenceLimitIn == 0U) {
+    if (faultPersistenceLimitIn <= 0U) {
         FS_THROW_INVALID_ARGUMENT("faultPersistenceLimit must be positive");
     }
     this->faultPersistenceLimit = faultPersistenceLimitIn;
