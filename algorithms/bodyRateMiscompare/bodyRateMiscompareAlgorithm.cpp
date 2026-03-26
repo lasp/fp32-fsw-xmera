@@ -2,6 +2,8 @@
 
 #include "freestandingInvalidArgument.h"
 
+void BodyRateMiscompareAlgorithm::reset() { this->faultPersistenceCount = 0U; }
+
 BodyRateMiscompareOutput BodyRateMiscompareAlgorithm::update(const Eigen::Vector3f& imuOmega_BN_B,
                                                              const Eigen::Vector3f& stOmega_BN_B) {
     if (!this->useImuRatesInternal) {

@@ -237,6 +237,55 @@ TEST(BodyRateMiscompareTest, UseImuRatesForceOutput) {
     }
 }
 
+// Reset clears the persistence counter, preventing fault from triggering.
+TEST(BodyRateMiscompareTest, ResetClearsPersistenceCounter) {
+    BodyRateMiscompareAlgorithm alg{};
+    alg.setBodyRateThreshold(0.5F);
+    alg.setFaultPersistenceLimit(3);
+
+    const Eigen::Vector3f imu(0.0F, 0.0F, 0.0F);
+    const Eigen::Vector3f stFar(1.0F, 0.0F, 0.0F);  // above threshold
+
+    // Accumulate 2 of 3 needed violations
+    alg.update(imu, stFar);
+    alg.update(imu, stFar);
+
+    // Reset clears the counter
+    alg.reset();
+
+    // Now need 3 more consecutive violations to trigger fault
+    auto out1 = alg.update(imu, stFar);
+    EXPECT_FALSE(out1.bodyRateFaultDetected);
+    auto out2 = alg.update(imu, stFar);
+    EXPECT_FALSE(out2.bodyRateFaultDetected);
+    auto out3 = alg.update(imu, stFar);
+    EXPECT_TRUE(out3.bodyRateFaultDetected);
+}
+
+// Reset does not clear the internal fault state — a detected fault persists after reset.
+TEST(BodyRateMiscompareTest, ResetDoesNotClearInternalFaultState) {
+    BodyRateMiscompareAlgorithm alg{};
+    alg.setBodyRateThreshold(0.5F);
+    alg.setFaultPersistenceLimit(1);
+
+    const Eigen::Vector3f imu(0.1F, 0.2F, 0.3F);
+    const Eigen::Vector3f stFar(10.0F, 0.0F, 0.0F);
+
+    // Trigger fault
+    auto out1 = alg.update(imu, stFar);
+    EXPECT_TRUE(out1.bodyRateFaultDetected);
+    EXPECT_FALSE(alg.getUseImuRates());  // settable parameter unchanged by update
+
+    // Reset only clears counter, not useImuRates
+    alg.reset();
+    EXPECT_FALSE(alg.getUseImuRates());
+
+    // Output still uses IMU (does not reset internal fault state)
+    auto out2 = alg.update(imu, imu);
+    EXPECT_TRUE(out2.bodyRateFaultDetected);
+    EXPECT_EQ(out2.omega_BN_B, imu);
+}
+
 // Very large but finite inputs produce finite output.
 TEST(BodyRateMiscompareTest, LargeInputValues) {
     BodyRateMiscompareAlgorithm alg{};

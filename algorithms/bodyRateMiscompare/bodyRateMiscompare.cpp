@@ -25,6 +25,8 @@ void BodyRateMiscompare::reset(uint64_t const callTime) {
     if (!this->stBodyInMsg.isLinked()) {
         throw std::invalid_argument("The stSensInMsg was not linked and is required for execution");
     }
+
+    this->algorithm.reset();
 }
 
 void BodyRateMiscompare::updateState(uint64_t const callTime) {

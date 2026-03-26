@@ -11,6 +11,10 @@ void BodyRateMiscompareAlgorithm_destroy(BodyRateMiscompareAlgorithm* self) {
     delete reinterpret_cast<::BodyRateMiscompareAlgorithm*>(self);
 }
 
+void BodyRateMiscompareAlgorithm_reset(BodyRateMiscompareAlgorithm* self) {
+    reinterpret_cast<::BodyRateMiscompareAlgorithm*>(self)->reset();
+}
+
 BodyRateMiscompareOutput_c BodyRateMiscompareAlgorithm_update(BodyRateMiscompareAlgorithm* self,
                                                               Vector3f_c imuOmega,
                                                               Vector3f_c stOmega) {

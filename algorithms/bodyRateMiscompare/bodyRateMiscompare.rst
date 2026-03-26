@@ -124,9 +124,14 @@ to zero. When the persistence counter reaches the configurable fault persistence
 a fault and outputs the IMU rate. Otherwise, it outputs the star tracker rate. The output also includes a boolean flag
 indicating whether the fault was detected.
 
-Once a fault has been declared, it persists: the algorithm continues to output the IMU rate and report a fault on
-all subsequent calls, regardless of the input values. The persistence counter is no longer evaluated after the fault
-is triggered.
+Once a fault has been declared, the algorithm continues to output the IMU rate on all subsequent calls. The persistence
+counter is no longer evaluated. Note that the settable ``useImuRates`` parameter is not modified by the algorithm
+internally; instead, an internal flag tracks the fault state. To fully recover from a detected fault, the caller must
+call ``reset()`` to clear the persistence counter and ``setUseImuRates(false)`` to clear the internal fault state and
+re-enable the miscompare logic.
+
+The ``reset()`` method sets the persistence counter back to zero but does not clear the internal fault state. This
+allows the user to reset the counter independently of the rate source selection.
 
 The ``useImuRates`` parameter can be set by the user to force the algorithm to output IMU rates without waiting for a
 fault to be detected. When set to true, the algorithm bypasses the miscompare logic and always outputs the IMU rate.
@@ -134,7 +139,7 @@ fault to be detected. When set to true, the algorithm bypasses the miscompare lo
 Algorithm Assumptions and Limitations
 -------------------------------------
 - The two input rates must be expressed in the same frame and units.
-- The fault persists: once declared, it cannot be cleared without resetting the algorithm.
+- A declared fault persists until both ``reset()`` and ``setUseImuRates(false)`` are called.
 - The algorithm does not validate the physical plausibility of the input rates beyond finite arithmetic.
 
 Module Description (Xmera Usage)

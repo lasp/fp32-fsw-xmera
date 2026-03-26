@@ -41,6 +41,12 @@ BodyRateMiscompareAlgorithm* BodyRateMiscompareAlgorithm_create(void);
 void BodyRateMiscompareAlgorithm_destroy(BodyRateMiscompareAlgorithm* self);
 
 /**
+ * @brief Reset the persistence counter to zero.
+ * @param self Pointer to the instance.
+ */
+void BodyRateMiscompareAlgorithm_reset(BodyRateMiscompareAlgorithm* self);
+
+/**
  * @brief Run the update step.
  * @param self      Pointer to the instance.
  * @param imuOmega  IMU body rate vector.
