@@ -1,6 +1,7 @@
 #ifndef F32XMERA_BODYRATEMISCOMPAREALGORITHM_C_H
 #define F32XMERA_BODYRATEMISCOMPAREALGORITHM_C_H
 
+#include <cstdint>
 #include <stdbool.h>
 
 #ifdef __cplusplus
@@ -46,7 +47,7 @@ void BodyRateMiscompareAlgorithm_destroy(BodyRateMiscompareAlgorithm* self);
  * @param stOmega   Star tracker body rate vector.
  * @return BodyRateMiscompareOutput_c  The computed output.
  */
-BodyRateMiscompareOutput_c BodyRateMiscompareAlgorithm_update(const BodyRateMiscompareAlgorithm* self,
+BodyRateMiscompareOutput_c BodyRateMiscompareAlgorithm_update(BodyRateMiscompareAlgorithm* self,
                                                               Vector3f_c imuOmega,
                                                               Vector3f_c stOmega);
 
@@ -63,6 +64,20 @@ void BodyRateMiscompareAlgorithm_setBodyRateThreshold(BodyRateMiscompareAlgorith
  * @return float  The current threshold value.
  */
 float BodyRateMiscompareAlgorithm_getBodyRateThreshold(const BodyRateMiscompareAlgorithm* self);
+
+/**
+ * @brief Set the fault persistence count.
+ * @param self              Pointer to the instance.
+ * @param faultPersistenceLimit  Number of consecutive update calls needed to trigger the fault.
+ */
+void BodyRateMiscompareAlgorithm_setFaultPersistenceLimit(BodyRateMiscompareAlgorithm* self, uint32_t faultPersistenceLimit);
+
+/**
+ * @brief Get the current fault persistence count.
+ * @param self Pointer to the instance.
+ * @return uint32_t  The current fault persistence value.
+ */
+uint32_t BodyRateMiscompareAlgorithm_getFaultPersistenceLimit(const BodyRateMiscompareAlgorithm* self);
 
 #ifdef __cplusplus
 }  // extern "C"

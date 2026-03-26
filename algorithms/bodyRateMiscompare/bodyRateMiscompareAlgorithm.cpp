@@ -3,19 +3,27 @@
 #include "freestandingInvalidArgument.h"
 
 BodyRateMiscompareOutput BodyRateMiscompareAlgorithm::update(const Eigen::Vector3f& imuOmega_BN_B,
-                                                             const Eigen::Vector3f& stOmega_BN_B) const {
-    bool faultDetected = false;
-    BodyRateMiscompareOutput bodyRateOut{};
-    // If the rates disagree set the imu rates as the body rate, if not, set the body rate as the star tracker rate
-    if (const Eigen::Vector3f bodyRateDifference = stOmega_BN_B - imuOmega_BN_B;
-        bodyRateDifference.norm() > this->bodyRateThreshold) {
-        bodyRateOut.omega_BN_B = imuOmega_BN_B;
-        faultDetected = true;
-    } else {
-        bodyRateOut.omega_BN_B = stOmega_BN_B;
+                                                             const Eigen::Vector3f& stOmega_BN_B) {
+    if (!this->faultDetected) {
+        if (const Eigen::Vector3f bodyRateDifference = stOmega_BN_B - imuOmega_BN_B;
+            bodyRateDifference.norm() > this->bodyRateThreshold) {
+            this->faultPersistenceCount += 1U;
+        } else {
+            this->faultPersistenceCount = 0U;
+        }
     }
 
-    bodyRateOut.bodyRateFaultDetected = faultDetected;
+    BodyRateMiscompareOutput bodyRateOut{};
+    // If the rates disagree for as many calls as the faultPersistenceLimit, set the imu rates as the body rate;
+    // if not, set the body rate as the star tracker rate.
+    if (this->faultPersistenceCount >= this->faultPersistenceLimit) {
+        bodyRateOut.omega_BN_B = imuOmega_BN_B;
+        bodyRateOut.bodyRateFaultDetected = true;
+        this->faultDetected = true;
+    } else {
+        bodyRateOut.omega_BN_B = stOmega_BN_B;
+        bodyRateOut.bodyRateFaultDetected = false;
+    }
 
     return bodyRateOut;
 }
@@ -28,3 +36,12 @@ void BodyRateMiscompareAlgorithm::setBodyRateThreshold(float const bodyRateThres
 }
 
 float BodyRateMiscompareAlgorithm::getBodyRateThreshold() const { return this->bodyRateThreshold; }
+
+void BodyRateMiscompareAlgorithm::setFaultPersistenceLimit(uint32_t const faultPersistenceLimitIn) {
+    if (faultPersistenceLimitIn == 0U) {
+        FS_THROW_INVALID_ARGUMENT("faultPersistenceLimit must be positive");
+    }
+    this->faultPersistenceLimit = faultPersistenceLimitIn;
+}
+
+uint32_t BodyRateMiscompareAlgorithm::getFaultPersistenceLimit() const { return this->faultPersistenceLimit; }

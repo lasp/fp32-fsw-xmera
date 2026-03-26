@@ -54,3 +54,9 @@ void BodyRateMiscompare::setBodyRateThreshold(double const bodyRateThreshold) {
 }
 
 double BodyRateMiscompare::getBodyRateThreshold() const { return this->algorithm.getBodyRateThreshold(); }
+
+void BodyRateMiscompare::setFaultPersistenceLimit(uint32_t const faultPersistenceLimit) {
+    this->algorithm.setFaultPersistenceLimit(faultPersistenceLimit);
+}
+
+uint32_t BodyRateMiscompare::getFaultPersistenceLimit() const { return this->algorithm.getFaultPersistenceLimit(); }

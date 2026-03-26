@@ -6,6 +6,7 @@
 
 %include <attribute.i>
 %attribute(BodyRateMiscompare, double, bodyRateThreshold, getBodyRateThreshold, setBodyRateThreshold)
+%attribute(BodyRateMiscompare, uint32_t, faultPersistenceLimit, getFaultPersistenceLimit, setFaultPersistenceLimit)
 
 %include <std_string.i>
 %include <swig_conly_data.i>
