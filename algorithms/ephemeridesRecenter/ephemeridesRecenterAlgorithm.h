@@ -48,9 +48,7 @@ class EphemeridesRecenterAlgorithm {
     void reset();
     std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES> updateState(
         const std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES>& newBodies) const;
-    size_t getBodyIndexFromId(int bodySpiceId) const;
     void setNewZeroBaseId(int bodySpiceId);
-    size_t findNewZeroBaseIndex(int bodySpiceId);
     int getNewZeroBase() const;
     void setPreviousCommonZeroBase(int bodySpiceId);
     int getPreviousCommonZeroBase() const;
@@ -58,6 +56,7 @@ class EphemeridesRecenterAlgorithm {
     std::array<int, MAX_NUM_CHANGE_BODIES> getAllIds() const;
     void addBodyEphemerisToRecenter(const BodyToRecenter& body);
     void clearAllBodies();
+    size_t findBodyIndex(int bodySpiceId) const;
 
    private:
     void checkConfiguration();

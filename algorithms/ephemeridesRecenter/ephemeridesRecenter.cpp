@@ -97,18 +97,16 @@ int EphemeridesRecenter::getPreviousCommonZeroBase() const { return this->algori
  */
 size_t EphemeridesRecenter::getNumberOfBodies() const { return this->algorithm.getNumberOfBodies(); }
 
-/*! @brief Get the index of a body
- @param bodySpiceId int : celestial body SPICE ID
- @return size_t : index
- */
-size_t EphemeridesRecenter::getBodyIndexFromId(int bodySpiceId) const {
-    return this->algorithm.getBodyIndexFromId(bodySpiceId);
-}
-
 /*! @brief Get all the SPICE IDs of the bodies entered
  @return std::array<int, MAX_NUM_CHANGE_BODIES> : an array of IDs
  */
 std::array<int, MAX_NUM_CHANGE_BODIES> EphemeridesRecenter::getAllIds() const { return this->algorithm.getAllIds(); }
+
+/*! @brief Find the index of a body by its SPICE ID
+ @return size_t : the index of the body
+ @param bodySpiceId int : the SPICE ID to look up
+ */
+size_t EphemeridesRecenter::findBodyIndex(int bodySpiceId) const { return this->algorithm.findBodyIndex(bodySpiceId); }
 
 /*! @brief Clear all the bodies from the current list
  */

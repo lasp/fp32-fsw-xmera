@@ -106,8 +106,7 @@ def mars_central_body():
     for body in list_of_bodies:
         ephemRecenter.addBodyEphemerisToRecenter(body)
         names.append(body.bodySpiceId)
-    for body in list_of_bodies:
-        index = ephemRecenter.getBodyIndexFromId(body.bodySpiceId)
+    for index, body in enumerate(list_of_bodies):
         rec = ephemRecenter.recenteredEphemerisOutputMsgs[index].recorder()
         dataLogList.append(rec)
         unitTestSim.AddModelToTask(unitTaskName, rec)
@@ -257,8 +256,7 @@ def moon_central_body():
     for body in list_of_bodies:
         ephemRecenter.addBodyEphemerisToRecenter(body)
         names.append(body.bodySpiceId)
-    for body in list_of_bodies:
-        index = ephemRecenter.getBodyIndexFromId(body.bodySpiceId)
+    for index, body in enumerate(list_of_bodies):
         rec = ephemRecenter.recenteredEphemerisOutputMsgs[index].recorder()
         dataLogList.append(rec)
         unitTestSim.AddModelToTask(unitTaskName, rec)

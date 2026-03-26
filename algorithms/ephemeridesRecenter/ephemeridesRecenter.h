@@ -35,9 +35,9 @@ class EphemeridesRecenter : public SysModel {
     void setPreviousCommonZeroBase(int bodySpiceId);
     int getPreviousCommonZeroBase() const;
     std::array<int, MAX_NUM_CHANGE_BODIES> getAllIds() const;
-    size_t getBodyIndexFromId(int bodySpiceId) const;
     size_t getNumberOfBodies() const;
     void clearAllBodies();
+    size_t findBodyIndex(int bodySpiceId) const;
     std::vector<Message<EphemerisMsgF32Payload>*> recenteredEphemerisOutputMsgs{};
 
    private:

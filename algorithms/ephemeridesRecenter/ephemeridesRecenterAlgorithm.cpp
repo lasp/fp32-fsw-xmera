@@ -54,44 +54,11 @@ std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES> EphemeridesRecenterAlgor
     return recenteredBodies;
 }
 
-/*! @brief Get the index of a body
- @param bodySpiceId int : celestial body SPICE ID
- @return size_t : index
- */
-size_t EphemeridesRecenterAlgorithm::getBodyIndexFromId(const int bodySpiceId) const {
-    if (this->celestialBodyCount == 0U) {
-        FS_THROW_INVALID_ARGUMENT("Requesting a body index but the current celestial body count is 0");
-    }
-
-    size_t foundIndex = 0U;
-    bool isFound = false;
-    for (size_t i = 0U; i < this->celestialBodyCount; ++i) {
-        if (this->bodyIds.at(i) == bodySpiceId) {
-            foundIndex = i;
-            isFound = true;
-        }
-    }
-    if (!isFound) {
-        FS_THROW_INVALID_ARGUMENT("Requesting a body index but the body is not found");
-    }
-    return foundIndex;
-}
 
 /*! @brief Set the new zero base body by SPICE ID
  @param bodySpiceId int : the new zero base
  */
 void EphemeridesRecenterAlgorithm::setNewZeroBaseId(const int bodySpiceId) { this->newCentralBodyId = bodySpiceId; }
-
-/*! @brief Find the new zero base body by SPICE ID
- @param bodySpiceId int : the new zero base
- */
-size_t EphemeridesRecenterAlgorithm::findNewZeroBaseIndex(const int bodySpiceId) {
-    auto* indexOfNewZeroBase = std::ranges::find(this->bodyIds, bodySpiceId);
-    if (indexOfNewZeroBase == this->bodyIds.end()) {
-        FS_THROW_INVALID_ARGUMENT("New zero base body was not in the list of existing bodies");
-    }
-    return static_cast<std::size_t>(std::distance(this->bodyIds.begin(), indexOfNewZeroBase));
-}
 
 /*! @brief Get the new celestial body center by SPICE ID
  @return int : the new zero base
@@ -102,11 +69,7 @@ int EphemeridesRecenterAlgorithm::getNewZeroBase() const { return this->newCentr
  @param bodySpiceId int : the new zero base
  */
 void EphemeridesRecenterAlgorithm::setPreviousCommonZeroBase(const int bodySpiceId) {
-    if (const auto* indexOfPreviousZeroBase = std::ranges::find(this->bodyIds, bodySpiceId);
-        indexOfPreviousZeroBase == this->bodyIds.end()) {
-        FS_THROW_INVALID_ARGUMENT("Previous zero base body was not in the list of existing bodies");
-    }
-
+    this->findBodyIndex(bodySpiceId);  // throws if not found
     this->previousCentralBodyId = bodySpiceId;
 }
 
@@ -165,7 +128,7 @@ void EphemeridesRecenterAlgorithm::clearAllBodies() {
  */
 void EphemeridesRecenterAlgorithm::checkConfiguration() {
     // Find and validate the new central body index
-    this->newCentralIndex = this->findNewZeroBaseIndex(this->newCentralBodyId);
+    this->newCentralIndex = this->findBodyIndex(this->newCentralBodyId);
 
     // Reset pre-computed arrays
     this->isMoonAtIndex.fill(false);
@@ -182,7 +145,7 @@ void EphemeridesRecenterAlgorithm::checkConfiguration() {
         this->isMoonAtIndex.at(i) = true;
 
         // Validate parent exists in the list (throws if not found)
-        const size_t parentIndex = this->getBodyIndexFromId(this->originalCentralBodyIds.at(i));
+        const size_t parentIndex = this->findBodyIndex(this->originalCentralBodyIds.at(i));
 
         // Validate no moon-of-moon: parent must orbit the common center
         if (this->originalCentralBodyIds.at(parentIndex) != this->previousCentralBodyId) {
@@ -206,7 +169,7 @@ void EphemeridesRecenterAlgorithm::checkConfiguration() {
     // Pre-compute new central moon status
     this->newCentralIsMoon = (this->originalCentralBodyIds.at(this->newCentralIndex) != this->previousCentralBodyId);
     if (this->newCentralIsMoon) {
-        this->newCentralParentIndex = this->getBodyIndexFromId(this->originalCentralBodyIds.at(this->newCentralIndex));
+        this->newCentralParentIndex = this->findBodyIndex(this->originalCentralBodyIds.at(this->newCentralIndex));
     }
 
     // Pre-compute moon-of-body lookup: for each primary body i, find its moon (if any)
@@ -242,10 +205,12 @@ void EphemeridesRecenterAlgorithm::validateIncomingBodies(
             FS_THROW_INVALID_ARGUMENT("Expected body ID is missing from incoming bodies");
         }
     }
+
+size_t EphemeridesRecenterAlgorithm::findBodyIndex(const int bodySpiceId) const {
     for (size_t i = 0U; i < this->celestialBodyCount; ++i) {
-        const int incomingId = newBodies.at(i).bodySpiceId;
-        if (std::ranges::find(this->bodyIds, incomingId) == this->bodyIds.end()) {
-            FS_THROW_INVALID_ARGUMENT("Unexpected body ID in incoming bodies");
+        if (this->bodyIds.at(i) == bodySpiceId) {
+            return i;
         }
     }
+    FS_THROW_INVALID_ARGUMENT("Body ID not found in configured body list");
 }
