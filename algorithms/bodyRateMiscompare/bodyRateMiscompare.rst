@@ -2,17 +2,15 @@ Executive Summary
 -----------------
 This module compares body rate estimates from an IMU and a star tracker. If the two rates differ by more than a
 configurable threshold for a configurable number of consecutive updates, the module reports a fault and outputs the IMU
-rate. Otherwise it outputs the star tracker rate. Once a fault is declared it is sticky and persists until the module is
-reset.
+rate. Otherwise it outputs the star tracker rate. Once a fault is declared it persists until the module is reset.
 
 Message Connection Descriptions
 -------------------------------
-The following table lists all the module input and output messages. The module msg variable name is set by the user
-from python. The msg type contains a link to the message structure definition, while the description provides
-information on what this message is used for.
+The following table lists all module input and output messages. Message connections are set by the
+user from Python.
 
 .. list-table:: Module I/O Messages
-    :widths: 25 25 50
+    :widths: 30 30 50
     :header-rows: 1
 
     * - Msg Variable Name
@@ -120,17 +118,14 @@ to zero. When the persistence counter reaches the configurable fault persistence
 a fault and outputs the IMU rate. Otherwise, it outputs the star tracker rate. The output also includes a boolean flag
 indicating whether the fault was detected.
 
-Once a fault has been declared, it is **sticky**: the algorithm continues to output the IMU rate and report a fault on
+Once a fault has been declared, it persists: the algorithm continues to output the IMU rate and report a fault on
 all subsequent calls, regardless of the input values. The persistence counter is no longer evaluated after the fault
-becomes sticky.
+is triggered.
 
 Algorithm Assumptions and Limitations
 -------------------------------------
-- The threshold :math:`\tau` must be strictly positive. A zero or negative threshold is invalid.
-- The fault persistence limit :math:`N` must be at least 1.
 - The two input rates must be expressed in the same frame and units.
-- The comparison uses a strict greater-than check (:math:`\|\Delta \omega\| > \tau`).
-- The fault is sticky: once declared, it cannot be cleared without resetting the algorithm.
+- The fault persists: once declared, it cannot be cleared without resetting the algorithm.
 - The algorithm does not validate the physical plausibility of the input rates beyond finite arithmetic.
 
 Module Description (Xmera Usage)
@@ -143,12 +138,6 @@ The `BodyRateMiscompare` simulation module provides the Xmera integration layer 
 - Writes `navAttMsg` with the selected body rate and `rateFaultMsg` with the fault flag.
 
 The module sets the output time tag using the simulation `callTime`.
-
-Module Assumptions and Limitations
-----------------------------------
-- Both input messages must be linked before `reset`. The module throws an error if either input is not connected.
-- The module only uses the body rate from the star tracker message and ignores other attitude fields.
-- The module does not perform unit conversions beyond the internal float conversion for the star tracker message.
 
 User Guide
 ----------
