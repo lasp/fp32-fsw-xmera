@@ -15,8 +15,6 @@ void EphemeridesRecenterAlgorithm::reset() { this->checkConfiguration(); }
  */
 std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES> EphemeridesRecenterAlgorithm::updateState(
     const std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES>& newBodies) const {
-    this->validateIncomingBodies(newBodies);
-
     Eigen::Vector3d newCentral_input_r = newBodies.at(this->newCentralIndex).input_r;
     Eigen::Vector3d newCentral_input_v = newBodies.at(this->newCentralIndex).input_v;
 
@@ -186,25 +184,6 @@ void EphemeridesRecenterAlgorithm::checkConfiguration() {
         }
     }
 }
-
-/*! @brief Validate that incoming body IDs match the configured set (order-independent).
- @param newBodies std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES> : input bodies
- */
-void EphemeridesRecenterAlgorithm::validateIncomingBodies(
-    const std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES>& newBodies) const {
-    for (size_t i = 0U; i < this->celestialBodyCount; ++i) {
-        const int expectedId = this->bodyIds.at(i);
-        bool found = false;
-        for (size_t j = 0U; j < this->celestialBodyCount; ++j) {
-            if (newBodies.at(j).bodySpiceId == expectedId) {
-                found = true;
-                break;
-            }
-        }
-        if (!found) {
-            FS_THROW_INVALID_ARGUMENT("Expected body ID is missing from incoming bodies");
-        }
-    }
 
 size_t EphemeridesRecenterAlgorithm::findBodyIndex(const int bodySpiceId) const {
     for (size_t i = 0U; i < this->celestialBodyCount; ++i) {

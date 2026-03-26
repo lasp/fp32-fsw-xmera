@@ -60,7 +60,6 @@ class EphemeridesRecenterAlgorithm {
 
    private:
     void checkConfiguration();
-    void validateIncomingBodies(const std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES>& newBodies) const;
 
     int newCentralBodyId{};
     std::array<int, MAX_NUM_CHANGE_BODIES> bodyIds{};

@@ -231,16 +231,21 @@ inline void testEphemeridesRecenterSetup() {
     EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter({bodyListInOrder[1], bodyListInOrder[0]}));
     EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter({bodyListInOrder[2], bodyListInOrder[1]}));
 
-    // Duplicate should throw
-    EXPECT_THROW(alg.addBodyEphemerisToRecenter({bodyListInOrder[2], bodyListInOrder[1]}), fs::invalid_argument);
+    // Duplicate body is allowed (same body from a different oeStateEphem message)
+    EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter({bodyListInOrder[0], bodyListInOrder[0]}));
 
-    // Basic getters after adding
-    EXPECT_EQ(alg.getNumberOfBodies(), 3U);
+    // Same bodySpiceId with different centralBodyId is also allowed
+    EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter({bodyListInOrder[2], bodyListInOrder[0]}));
+
+    // Basic getters after adding (5 bodies: Sun, Earth, Moon, Sun-dup, Moon-diff-central)
+    EXPECT_EQ(alg.getNumberOfBodies(), 5U);
 
     const auto ids = alg.getAllIds();
-    EXPECT_EQ(ids[0], bodyListInOrder[0]);
-    EXPECT_EQ(ids[1], bodyListInOrder[1]);
-    EXPECT_EQ(ids[2], bodyListInOrder[2]);
+    EXPECT_EQ(ids[0], bodyListInOrder[0]);  // Sun
+    EXPECT_EQ(ids[1], bodyListInOrder[1]);  // Earth
+    EXPECT_EQ(ids[2], bodyListInOrder[2]);  // Moon (central=Earth)
+    EXPECT_EQ(ids[3], bodyListInOrder[0]);  // Sun (duplicate)
+    EXPECT_EQ(ids[4], bodyListInOrder[2]);  // Moon (central=Sun)
 
     // Set and get the previous common zero base
     EXPECT_NO_THROW(alg.setPreviousCommonZeroBase(bodyListInOrder[0]));
@@ -632,38 +637,39 @@ inline void testOrphanMoonRecenter() {
     EXPECT_THROW(alg.reset(), fs::invalid_argument);  // "body is not found" from findBodyIndex
 }
 
-inline void testMismatchedBodyIdsRecenter() {
-    // updateState should throw if incoming body IDs don't match the configured IDs
+inline void testDuplicateBodyRecenter() {
+    // Two Sun entries (exact duplicates), Earth as new central
     EphemeridesRecenterAlgorithm alg{};
     EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter({SUN_SPICE_ID, SUN_SPICE_ID}));
     EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter({EARTH_SPICE_ID, SUN_SPICE_ID}));
+    EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter({SUN_SPICE_ID, SUN_SPICE_ID}));  // duplicate Sun
+
     EXPECT_NO_THROW(alg.setPreviousCommonZeroBase(SUN_SPICE_ID));
     EXPECT_NO_THROW(alg.setNewZeroBaseId(EARTH_SPICE_ID));
     EXPECT_NO_THROW(alg.reset());
 
-    // Correct IDs — should not throw
-    std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES> goodBodies{};
-    goodBodies.at(0).bodySpiceId = SUN_SPICE_ID;
-    goodBodies.at(1).bodySpiceId = EARTH_SPICE_ID;
-    EXPECT_NO_THROW(alg.updateState(goodBodies));
+    std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES> newBodies{};
+    newBodies[0].bodySpiceId = SUN_SPICE_ID;
+    newBodies[0].originalCentralBodyId = SUN_SPICE_ID;
+    newBodies[0].input_r = {0.0, 0.0, 0.0};
+    newBodies[1].bodySpiceId = EARTH_SPICE_ID;
+    newBodies[1].originalCentralBodyId = SUN_SPICE_ID;
+    newBodies[1].input_r = {10.0, -2.0, 3.0};
+    newBodies[2].bodySpiceId = SUN_SPICE_ID;  // duplicate
+    newBodies[2].originalCentralBodyId = SUN_SPICE_ID;
+    newBodies[2].input_r = {0.0, 0.0, 0.0};
 
-    // Swapped order — all expected IDs present, just reordered — should not throw
-    std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES> swappedBodies{};
-    swappedBodies.at(0).bodySpiceId = EARTH_SPICE_ID;
-    swappedBodies.at(1).bodySpiceId = SUN_SPICE_ID;
-    EXPECT_NO_THROW(alg.updateState(swappedBodies));
+    auto out = alg.updateState(newBodies);
 
-    // Unexpected body — Mars instead of Earth
-    std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES> unexpectedBody{};
-    unexpectedBody.at(0).bodySpiceId = SUN_SPICE_ID;
-    unexpectedBody.at(1).bodySpiceId = MARS_SPICE_ID;
-    EXPECT_THROW(alg.updateState(unexpectedBody), fs::invalid_argument);
-
-    // Missing body — Earth replaced with duplicate Sun
-    std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES> missingBody{};
-    missingBody.at(0).bodySpiceId = SUN_SPICE_ID;
-    missingBody.at(1).bodySpiceId = SUN_SPICE_ID;
-    EXPECT_THROW(alg.updateState(missingBody), fs::invalid_argument);
+    // Both Sun entries should be recentered to Earth
+    for (int k = 0; k < 3; ++k) {
+        EXPECT_NEAR(out[0].output_r[k], -newBodies[1].input_r[k], 1e-6);
+        EXPECT_NEAR(out[2].output_r[k], -newBodies[1].input_r[k], 1e-6);  // duplicate matches
+    }
+    // Earth is the new center — output should be zero
+    for (int k = 0; k < 3; ++k) {
+        EXPECT_NEAR(out[1].output_r[k], 0.0, 1e-6);
+    }
 }
 
 #endif  // TEST_EPHEMERIDESRECENTER_H

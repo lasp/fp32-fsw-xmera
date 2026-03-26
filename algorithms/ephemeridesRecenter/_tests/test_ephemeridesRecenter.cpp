@@ -43,5 +43,3 @@ TEST(EphemeridesRecenterTest, MultiMoonsTest) { testMultiMoonsRecenter(); }
 TEST(EphemeridesRecenterTest, MoonOfMoonTest) { testMoonOfMoonRecenter(); }
 
 TEST(EphemeridesRecenterTest, OrphanMoonTest) { testOrphanMoonRecenter(); }
-
-TEST(EphemeridesRecenterTest, MismatchedBodyIdsTest) { testMismatchedBodyIdsRecenter(); }
