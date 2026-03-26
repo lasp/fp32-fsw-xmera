@@ -47,9 +47,9 @@ double OEStateEphemAlgorithm::scaleEphemerisTime(const ChebyshevFitArc& arc) con
     double currentScaledValue = 0;
     if (arc.ephemerisTimeRadius > kTolerance) {
         currentScaledValue = (this->currentEphTime - arc.ephemerisTimeMiddle) / arc.ephemerisTimeRadius;
-    }
-    if (fabs(currentScaledValue) > 1.0F) {
-        currentScaledValue = currentScaledValue / fabs(currentScaledValue);
+        if (fabs(currentScaledValue) > 1.0F) {
+            currentScaledValue = currentScaledValue / fabs(currentScaledValue);
+        }
     }
     return currentScaledValue;
 }
