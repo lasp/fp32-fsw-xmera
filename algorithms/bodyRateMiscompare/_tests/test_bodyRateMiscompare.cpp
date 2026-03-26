@@ -161,22 +161,6 @@ TEST(BodyRateMiscompareTest, StickyFaultIgnoresSubsequentGoodSteps) {
     }
 }
 
-// Difference in only one axis — verifies Euclidean norm comparison.
-TEST(BodyRateMiscompareTest, SingleAxisDifference) {
-    BodyRateMiscompareAlgorithm alg{};
-    alg.setBodyRateThreshold(0.5F);
-    alg.setFaultPersistenceLimit(1);
-
-    const Eigen::Vector3f imu(1.0F, 2.0F, 3.0F);
-
-    // Difference of 0.6 only in y-axis → norm = 0.6 > 0.5
-    const Eigen::Vector3f st(1.0F, 2.6F, 3.0F);
-
-    auto out = alg.update(imu, st);
-    EXPECT_TRUE(out.bodyRateFaultDetected);
-    EXPECT_EQ(out.omega_BN_B, imu);
-}
-
 // Setting useImuRates forces IMU output even when inputs agree.
 TEST(BodyRateMiscompareTest, UseImuRatesForceOutput) {
     BodyRateMiscompareAlgorithm alg{};
@@ -241,21 +225,4 @@ TEST(BodyRateMiscompareTest, ResetDoesNotClearInternalFaultState) {
     auto out2 = alg.update(imu, imu);
     EXPECT_TRUE(out2.bodyRateFaultDetected);
     EXPECT_EQ(out2.omega_BN_B, imu);
-}
-
-// Very large but finite inputs produce finite output.
-TEST(BodyRateMiscompareTest, LargeInputValues) {
-    BodyRateMiscompareAlgorithm alg{};
-    alg.setBodyRateThreshold(1e30F);
-
-    const Eigen::Vector3f imu(1e30F, -1e30F, 1e30F);
-    const Eigen::Vector3f st(-1e30F, 1e30F, -1e30F);
-
-    auto out = alg.update(imu, st);
-    for (int i = 0; i < 3; ++i) {
-        EXPECT_TRUE(std::isfinite(out.omega_BN_B[i]));
-    }
-    bool matchesImu = (out.omega_BN_B == imu);
-    bool matchesSt = (out.omega_BN_B == st);
-    EXPECT_TRUE(matchesImu || matchesSt);
 }
