@@ -9,27 +9,15 @@
 #include <vector>
 
 // Reference computation for update
-Eigen::Vector3f referenceUpdate(const Eigen::Vector3d& r_SN_N,
+Eigen::Vector3d referenceUpdate(const Eigen::Vector3d& r_SN_N,
                                 const Eigen::Vector3d& r_BN_N,
-                                const Eigen::Vector3f& sigma_BN) {
+                                const Eigen::Vector3d& sigma_BN) {
     // Compute sun direction relative to body in inertial frame
     const Eigen::Vector3d r_SB_N = r_SN_N - r_BN_N;
 
-    Eigen::Vector3f rHat_SB_N = Eigen::Vector3f::Zero();
-    if (r_SB_N.norm() > std::numeric_limits<double>::epsilon()) {
-        rHat_SB_N = r_SB_N.normalized().cast<float>();
-    }
-
-    // Build DCM from MRP and rotate into body frame
-    const Eigen::Matrix3f dcm_BN = mrpToDcm(sigma_BN);
-    Eigen::Vector3f rHat_SB_B = dcm_BN * rHat_SB_N;
-
-    // Ensure unit length (or zero)
-    if (rHat_SB_B.norm() > std::numeric_limits<float>::epsilon()) {
-        rHat_SB_B.normalize();
-    } else {
-        rHat_SB_B.setZero();
-    }
+    // Normalize, rotate into body frame, and re-normalize (or zero if colocated)
+    const Eigen::Matrix3d dcm_BN = mrpToDcm(sigma_BN);
+    const Eigen::Vector3d rHat_SB_B = (dcm_BN * r_SB_N.stableNormalized()).stableNormalized();
 
     return rHat_SB_B;
 }
@@ -45,14 +33,14 @@ void testSunlineEphem(std::vector<double> sunPosition,
 
     Eigen::Vector3f out;
     EXPECT_NO_THROW(out = alg.update(r_SN_N, r_BN_N, sigma_BN));
-    Eigen::Vector3f ref;
-    EXPECT_NO_THROW(ref = referenceUpdate(r_SN_N, r_BN_N, sigma_BN));
+    Eigen::Vector3d ref;
+    EXPECT_NO_THROW(ref = referenceUpdate(r_SN_N, r_BN_N, sigma_BN.cast<double>()));
 
     for (int i = 0; i < 3; ++i) {
         // --- General tests ---
 
         // Reference correctness
-        EXPECT_NEAR(out[i], ref[i], 1e-6);
+        EXPECT_NEAR(out[i], static_cast<float>(ref[i]), 1e-6);
 
         // Safety invariants
         EXPECT_TRUE(std::isfinite(out[i]));

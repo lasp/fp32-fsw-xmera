@@ -85,17 +85,19 @@ spacecraft attitude MRPs :math:`\boldsymbol{\sigma}_{BN}`:
 
    .. math:: {}^{N}\boldsymbol{r}_{S/B} = {}^{N}\boldsymbol{r}_{S/N} - {}^{N}\boldsymbol{r}_{B/N}
 
-#. If :math:`\|{}^{N}\boldsymbol{r}_{S/B}\| \le \epsilon`, return the zero vector. Otherwise, normalize the
-   relative vector, build the DCM from the spacecraft attitude MRPs, and rotate the unit direction into the
-   body frame:
+#. Normalize the relative vector, build the DCM from the spacecraft attitude MRPs, and rotate the unit
+   direction into the body frame:
 
    .. math::
 
       {}^{B}\boldsymbol{\hat r}_{S/B} =
       \text{normalize}\left([BN] \, {}^{N}\boldsymbol{\hat r}_{S/B}\right)
 
-The algorithm returns a unit direction vector for distinct positions. For colocated positions, the zero vector
-is returned as a sentinel when no direction can be computed. Downstream consumers should check for this case.
+   Normalization uses a numerically stable algorithm, ``stableNormalized()``, that returns the zero vector if
+   :math:`{}^{N}\boldsymbol{r}_{S/B}` is zero.
+
+The algorithm returns a unit direction vector for distinct positions. For colocated positions (truly identical
+positions), the zero vector is returned as a sentinel. Downstream consumers should check for this case.
 
 .. _ModuleIO_sunlineEphem_overview:
 .. figure:: /../../src/fswAlgorithms/attDetermination/sunlineEphem/_Documentation/Figures/sunlineEphem_rSB_N.jpeg
