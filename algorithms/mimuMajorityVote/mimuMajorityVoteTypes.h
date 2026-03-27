@@ -1,5 +1,5 @@
-#ifndef F32XIMERA_MIMU_MAJORITY_VOTE_TYPES_H
-#define F32XIMERA_MIMU_MAJORITY_VOTE_TYPES_H
+#ifndef F32XMERA_MIMU_MAJORITY_VOTE_TYPES_H
+#define F32XMERA_MIMU_MAJORITY_VOTE_TYPES_H
 
 #include "msgPayloadDef/definitions.h"
 
@@ -20,4 +20,4 @@ struct MimuMajorityVoteOutput {
     std::array<bool, kMimuCount> validImus{}; /*!< Whether each IMU is considered valid */
 };
 
-#endif  // F32XIMERA_MIMU_MAJORITY_VOTE_TYPES_H
+#endif  // F32XMERA_MIMU_MAJORITY_VOTE_TYPES_H
