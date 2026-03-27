@@ -27,8 +27,12 @@ Eigen::Vector3f RateControlAlgorithm::update(const Eigen::Vector3f& omega_BR_B,
  @return void
  @param spacecraftInertia spacecraft inertia
 */
-void RateControlAlgorithm::setSpacecraftInertia(VehicleConfigMsgF32Payload vehicleConfigIn) {
-    this->ISCPntB_B = cArrayToEigenMatrix3(vehicleConfigIn.ISCPntB_B);
+void RateControlAlgorithm::setSpacecraftInertia(const Eigen::Matrix3f& spacecraftInertia) {
+    if (inertiaIsValid(spacecraftInertia)) {
+        this->ISCPntB_B = spacecraftInertia;
+    } else {
+        FS_THROW_INVALID_ARGUMENT("Invalid spacecraft inertia");
+    }
 }
 
 /*! Setter method for the derivative gain P.
