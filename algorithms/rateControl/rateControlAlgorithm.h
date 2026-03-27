@@ -4,22 +4,21 @@
  Copyright (c) 2025, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
 */
 
-#ifndef F32XIMERA_RATE_CONTROL_ALGORITHM_H
-#define F32XIMERA_RATE_CONTROL_ALGORITHM_H
-
-#include "msgPayloadDef/AttGuidMsgF32Payload.h"
-#include "msgPayloadDef/CmdTorqueBodyMsgF32Payload.h"
-#include "msgPayloadDef/VehicleConfigMsgF32Payload.h"
+#ifndef F32XMERA_RATE_CONTROL_ALGORITHM_H
+#define F32XMERA_RATE_CONTROL_ALGORITHM_H
 
 #include <Eigen/Core>
 
 class RateControlAlgorithm {
    public:
-    CmdTorqueBodyMsgF32Payload update(AttGuidMsgF32Payload attGuidIn) const;
-    void setSpacecraftInertia(VehicleConfigMsgF32Payload vehicleConfigIn);
-    void setDerivativeGainP(float P);
+    Eigen::Vector3f update(const Eigen::Vector3f& omega_BR_B,
+                           const Eigen::Vector3f& omega_RN_B,
+                           const Eigen::Vector3f& domega_RN_B) const;
+    void setSpacecraftInertia(const Eigen::Matrix3f& spacecraftInertia);
+    void setDerivativeGainP(float derivativeGainP);  //!< [-] non-negative derivative gain
     float getDerivativeGainP() const;
-    void setKnownTorquePntB_B(const Eigen::Vector3f& knownTorquePntB_B);
+    void setKnownTorquePntB_B(
+        const Eigen::Vector3f& torquePntB_B);  //!< [N*m] Known external torque expressed in body frame components
     const Eigen::Vector3f& getKnownTorquePntB_B() const;
 
    private:

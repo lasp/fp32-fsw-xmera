@@ -5,7 +5,7 @@
  */
 
 #include "rateControl.h"
-
+#include "architecture/utilities/eigenSupport.h"
 #include <stdint.h>
 #include <stdexcept>
 
@@ -23,7 +23,9 @@ void RateControl::reset(uint64_t callTime) {
     }
 
     if (this->vehConfigInMsg.isWritten()) {
-        this->algorithm.setSpacecraftInertia(this->vehConfigInMsg());
+        auto vehicleConfigPayload = this->vehConfigInMsg();
+        const Eigen::Matrix3f spacecraftInertia = cArrayToEigenMatrix3(vehicleConfigPayload.ISCPntB_B);
+        this->algorithm.setSpacecraftInertia(spacecraftInertia);
     }
 }
 
@@ -34,8 +36,13 @@ the reference frame angular rates and acceleration, and computes the required co
 */
 void RateControl::updateState(uint64_t callTime) {
     CmdTorqueBodyMsgF32Payload torqueCmdOut{};
+    auto inMsg = this->guidInMsg();
+    const Eigen::Vector3f omega_BR_B = cArrayToEigenVector3(inMsg.omega_BR_B);
+    const Eigen::Vector3f omega_RN_B = cArrayToEigenVector3(inMsg.omega_RN_B);
+    const Eigen::Vector3f domega_RN_B = cArrayToEigenVector3(inMsg.domega_RN_B);
     if (this->guidInMsg.isWritten()) {
-        torqueCmdOut = this->algorithm.update(this->guidInMsg());
+        Eigen::Vector3f const out = this->algorithm.update(omega_BR_B, omega_RN_B, domega_RN_B);
+        eigenVectorToCArray(out, torqueCmdOut.torqueRequestBody);
     }
 
     this->cmdTorqueOutMsg.write(&torqueCmdOut, moduleID, callTime);
