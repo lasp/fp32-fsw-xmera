@@ -24,6 +24,47 @@ TEST(SunlineEphemTest, Colocation) {
     }
 }
 
+TEST(SunlineEphemTest, TinyRelativePosition) {
+    // Scale reasonable positions by a tiny factor so the separation norm falls far below the
+    // squaring underflow threshold (~1e-154). Squaring the components underflows to zero, so
+    // regular norm() returns zero and normalized() produces NaN. stableNormalized() scales
+    // before squaring and should still return the same unit direction.
+    SunlineEphemAlgorithm alg{};
+
+    const Eigen::Vector3d r_SN_N_base(1.0, 2.0, 3.0);
+    const Eigen::Vector3d r_BN_N_base(4.0, 5.0, 6.0);
+    const Eigen::Vector3f sigma_BN = Eigen::Vector3f::Zero();
+    const Eigen::Vector3f expected = (r_SN_N_base - r_BN_N_base).normalized().cast<float>();
+
+    const double scale = 1.0e-200;
+    Eigen::Vector3f out;
+    EXPECT_NO_THROW(out = alg.update(scale * r_SN_N_base, scale * r_BN_N_base, sigma_BN));
+
+    for (int i = 0; i < 3; ++i) {
+        EXPECT_NEAR(out[i], expected[i], 1e-6f);
+    }
+}
+
+TEST(SunlineEphemTest, HugeRelativePosition) {
+    // Scale reasonable positions by a huge factor so squaring the components overflows to inf.
+    // Regular norm() returns inf and normalized() produces NaN.
+    // stableNormalized() scales by the max component first and should still return the same unit direction.
+    SunlineEphemAlgorithm alg{};
+
+    const Eigen::Vector3d r_SN_N_base(1.0, 2.0, 3.0);
+    const Eigen::Vector3d r_BN_N_base(4.0, 5.0, 6.0);
+    const Eigen::Vector3f sigma_BN = Eigen::Vector3f::Zero();
+    const Eigen::Vector3f expected = (r_SN_N_base - r_BN_N_base).normalized().cast<float>();
+
+    const double scale = 1.0e200;
+    Eigen::Vector3f out;
+    EXPECT_NO_THROW(out = alg.update(scale * r_SN_N_base, scale * r_BN_N_base, sigma_BN));
+
+    for (int i = 0; i < 3; ++i) {
+        EXPECT_NEAR(out[i], expected[i], 1e-6f);
+    }
+}
+
 TEST(SunlineEphemTest, IdentityAttitude) {
     // With identity attitude (sigma_BN = 0), DCM is identity,
     // so the body-frame output sun direction should equal the sun direction in inertial-frame components
