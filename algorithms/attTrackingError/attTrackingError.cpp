@@ -17,10 +17,10 @@
 void AttTrackingError::reset(uint64_t callTime) {
     // check if the required input messages are included
     if (!this->attRefInMsg.isLinked()) {
-        this->bskLogger.bskLog(BSK_ERROR, "Error: attTrackingError.attRefInMsg wasn't connected.");
+        throw std::invalid_argument("attTrackingError.attRefInMsg wasn't connected.");
     }
     if (!this->attNavInMsg.isLinked()) {
-        this->bskLogger.bskLog(BSK_ERROR, "Error: attTrackingError.attNavInMsg wasn't connected.");
+        throw std::invalid_argument("attTrackingError.attNavInMsg wasn't connected.");
     }
 }
 
