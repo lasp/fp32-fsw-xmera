@@ -9,18 +9,11 @@
 #include "architecture/utilities/eigenSupport.h"
 #include "architecture/utilities/rigidBodyKinematics.hpp"
 
-/*! This method performs a complete reset of the module.  Local module variables that retain
- time varying states between function calls are reset to their default values.
- @return void
- @param callTime The clock time at which the function was called (nanoseconds)
- */
-void AttTrackingErrorAlgorithm::reset(uint64_t callTime) {
-    // Reset the algorithm
-}
-
-/*! This method maps the input thruster command forces into thruster on times using a remainder tracking logic.
- @return void
- @param callTime The clock time at which the function was called (nanoseconds)
+/*! This method computes attitude and rate tracking errors between the navigation attitude and the reference attitude,
+ and outputs the corresponding guidance errors.
+ @return Attitude guidance message
+ @param attRefInMsg Input msg of reference attitude
+ @param attNavInMsg Input msg measured attitude
  */
 AttGuidMsgF32Payload AttTrackingErrorAlgorithm::update(AttRefMsgF32Payload& attRefInMsg,
                                                        NavAttMsgF32Payload& attNavInMsg) const {

@@ -40,12 +40,6 @@ AttTrackingErrorAlgorithm* AttTrackingErrorAlgorithm_create(void);
 void AttTrackingErrorAlgorithm_destroy(AttTrackingErrorAlgorithm* self);
 
 /**
- * @brief Reset the algorithm state.
- * @param self     Pointer to the instance.
- * @param callTime Time stamp for reset.
- */
-void AttTrackingErrorAlgorithm_reset(AttTrackingErrorAlgorithm* self, uint64_t callTime);
-/**
  * @brief Run the update step.
  * @param self         Pointer to the instance.
  * @param attRefInMsg  Pointer to reference-frame message payload.

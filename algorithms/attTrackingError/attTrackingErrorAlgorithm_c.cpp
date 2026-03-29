@@ -16,10 +16,6 @@ void AttTrackingErrorAlgorithm_destroy(AttTrackingErrorAlgorithm* self) {
     delete reinterpret_cast<::AttTrackingErrorAlgorithm*>(self);
 }
 
-void AttTrackingErrorAlgorithm_reset(AttTrackingErrorAlgorithm* self, uint64_t callTime) {
-    reinterpret_cast<::AttTrackingErrorAlgorithm*>(self)->reset(callTime);
-}
-
 AttGuidMsgF32Payload AttTrackingErrorAlgorithm_update(AttTrackingErrorAlgorithm* self,
                                                       AttRefMsgF32Payload* attRefInMsg,
                                                       NavAttMsgF32Payload* attNavInMsg) {

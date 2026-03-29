@@ -15,7 +15,6 @@
 
 class AttTrackingErrorAlgorithm {
    public:
-    void reset(uint64_t callTime);  //!< Method for algorithm reset
     AttGuidMsgF32Payload update(AttRefMsgF32Payload& attRefInMsg,
                                 NavAttMsgF32Payload& attNavInMsg) const;  //!< Algorithm update method
     void setSigma_R0R(const Eigen::Vector3f& sigma_R0R);                  //!< Setter for sigma_R0R variable
