@@ -14,7 +14,6 @@
 #include <architecture/msgPayloadDef/AttGuidMsgPayload.h>
 #include <architecture/msgPayloadDef/AttRefMsgPayload.h>
 #include <architecture/msgPayloadDef/NavAttMsgPayload.h>
-#include <architecture/utilities/bskLogging.h>
 
 #include "attTrackingErrorAlgorithm.h"
 
@@ -31,7 +30,7 @@ class AttTrackingError : public SysModel {
     ~AttTrackingError() = default;  //!< Destructor
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
-    void setSigma_R0R(const Eigen::Vector3d &sigma_R0R);
+    void setSigma_R0R(const Eigen::Vector3d& sigma_R0R);
     const Eigen::Vector3d getSigma_R0R() const;
 
     Message<AttGuidMsgPayload> attGuidOutMsg;        //!< Output attitude guidance message
@@ -39,7 +38,6 @@ class AttTrackingError : public SysModel {
 
     ReadFunctor<NavAttMsgPayload> attNavInMsg;  //!< Input msg measured attitude
     ReadFunctor<AttRefMsgPayload> attRefInMsg;  //!< Input msg of reference attitude
-    BSKLogger bskLogger = {};                   //!< BSK Logging
 
    private:
     AttTrackingErrorAlgorithm algorithm{};
