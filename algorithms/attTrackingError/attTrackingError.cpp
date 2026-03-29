@@ -22,8 +22,6 @@ void AttTrackingError::reset(uint64_t callTime) {
     if (!this->attNavInMsg.isLinked()) {
         this->bskLogger.bskLog(BSK_ERROR, "Error: attTrackingError.attNavInMsg wasn't connected.");
     }
-
-    this->algorithm.reset(callTime);
 }
 
 /*! The Update method performs reads the Navigation message (containing the spacecraft attitude information), and the
