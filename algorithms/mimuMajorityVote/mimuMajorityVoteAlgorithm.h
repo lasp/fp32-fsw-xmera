@@ -10,6 +10,7 @@
 class MimuMajorityVoteAlgorithm {
    public:
     MimuMajorityVoteOutput update(const std::array<MimuInput, kMimuCount>& imuInputs);
+    void reset();                                                     //!< Reset fault persistence counters to zero
     void setOmegaThreshold(float omegaThresholdIn);                   //!< Setter method for omegaThreshold
     float getOmegaThreshold() const;                                  //!< Getter method for omegaThreshold
     void setFaultPersistenceLimit(uint32_t faultPersistenceLimitIn);  //!< Setter method for faultPersistenceLimit

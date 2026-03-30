@@ -3,6 +3,8 @@
 #include "architecture/utilities/eigenSupport.h"
 #include "freestandingInvalidArgument.h"
 
+void MimuMajorityVoteAlgorithm::reset() { this->faultPersistenceCount.fill(0U); }
+
 MimuMajorityVoteOutput MimuMajorityVoteAlgorithm::update(const std::array<MimuInput, kMimuCount>& imuInputs) {
     // Stage 1: Compute average of all IMUs and find differences from average
     Eigen::Vector3f omegaAverage_BN_B = Eigen::Vector3f::Zero();

@@ -13,6 +13,10 @@ void MimuMajorityVoteAlgorithm_destroy(MimuMajorityVoteAlgorithm* self) {
     delete reinterpret_cast<::MimuMajorityVoteAlgorithm*>(self);
 }
 
+void MimuMajorityVoteAlgorithm_reset(MimuMajorityVoteAlgorithm* self) {
+    reinterpret_cast<::MimuMajorityVoteAlgorithm*>(self)->reset();
+}
+
 MimuMajorityVoteOutput_c MimuMajorityVoteAlgorithm_update(MimuMajorityVoteAlgorithm* self,
                                                           const Vector3f_c* imuInputs) {
     auto* alg = reinterpret_cast<::MimuMajorityVoteAlgorithm*>(self);

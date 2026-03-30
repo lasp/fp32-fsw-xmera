@@ -7,6 +7,7 @@ void MimuMajorityVote::reset(uint64_t const callTime) {
         throw std::invalid_argument(
             "Number of connected IMU messages must equal kMimuCount (3); call addImuInput() exactly 3 times.");
     }
+    this->algorithm.reset();
 }
 
 void MimuMajorityVote::updateState(uint64_t const callTime) {

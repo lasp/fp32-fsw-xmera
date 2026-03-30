@@ -57,6 +57,12 @@ MimuMajorityVoteAlgorithm* MimuMajorityVoteAlgorithm_create(void);
 void MimuMajorityVoteAlgorithm_destroy(MimuMajorityVoteAlgorithm* self);
 
 /**
+ * @brief Reset fault persistence counters to zero.
+ * @param self Pointer to the instance.
+ */
+void MimuMajorityVoteAlgorithm_reset(MimuMajorityVoteAlgorithm* self);
+
+/**
  * @brief Run the majority vote update step.
  * @param self      Pointer to the instance.
  * @param imuInputs Pointer to array of IMU angular velocity 3-vectors (MIMU_COUNT_C elements).
