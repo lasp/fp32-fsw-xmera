@@ -43,8 +43,9 @@ def test_thr_firing_schmitt(show_plots, reset_check, thrust_pulsing_regime):
     # Create a sim module as an empty container
     unit_test_sim = SimulationBaseClass.SimBaseClass()
 
+    fsw_rate = 0.5
     # Create test thread
-    test_process_rate = macros.sec2nano(0.5)     # update process rate update time
+    test_process_rate = macros.sec2nano(fsw_rate)     # update process rate update time
     test_proc = unit_test_sim.CreateNewProcess(unit_process_name)
     test_proc.addTask(unit_test_sim.CreateNewTask(unit_task_name, test_process_rate))
 
@@ -54,11 +55,16 @@ def test_thr_firing_schmitt(show_plots, reset_check, thrust_pulsing_regime):
     # Add test module to runtime call list
     unit_test_sim.AddModelToTask(unit_task_name, module)
 
+    control_period = fsw_rate
+    thr_min_fire_time = 0.2
+    level_on = 0.75
+    level_off = 0.25
+
     # Initialize the test module configuration data
-    module.thrMinFireTime = 0.2
+    module.thrMinFireTime = thr_min_fire_time
     module.thrustPulsingRegime = thrust_pulsing_regime
-    module.setLevelsOnOff(0.75, 0.25)
-    module.controlPeriod = 0.5
+    module.setLevelsOnOff(level_on, level_off)
+    module.controlPeriod = control_period
 
     # setup thruster cluster message
     thrusters = [
@@ -133,7 +139,7 @@ def test_thr_firing_schmitt(show_plots, reset_check, thrust_pulsing_regime):
         unit_test_sim.ExecuteSimulation()
 
     # This pulls the actual data log from the simulation run.
-    module_output = data_log.onTimeRequest[:, :num_thrusters]
+    on_time_requests = data_log.onTimeRequest[:, :num_thrusters]
 
     # set the filtered output truth states
     if reset_check:
@@ -190,7 +196,25 @@ def test_thr_firing_schmitt(show_plots, reset_check, thrust_pulsing_regime):
                    [0.55, 0.0, 0.0, 0.0, 0.2, 0.2, 0.2, 0.0],
                    ]
 
-    numpy.testing.assert_allclose(module_output, true_vector, atol=1e-12, err_msg="onTimeRequest")
+    numpy.testing.assert_allclose(on_time_requests, true_vector, atol=1e-12, err_msg="onTimeRequest")
+
+    # All on-times must be non-negative
+    assert numpy.all(on_time_requests >= 0.0)
+
+    # All on-times must not exceed the oversaturation bound
+    assert numpy.all(on_time_requests <= 1.1 * control_period + 1e-6)
+
+    # Non-zero on-times must be >= thrMinFireTime
+    non_zero = on_time_requests[on_time_requests > 0.0]
+    assert numpy.all(non_zero >= module.thrMinFireTime)
+
+    # Getter/Setter roundtrip checks
+    numpy.testing.assert_allclose(module.thrMinFireTime, thr_min_fire_time, atol=1e-6)
+    numpy.testing.assert_equal(module.thrustPulsingRegime, thrust_pulsing_regime)
+    numpy.testing.assert_allclose(module.controlPeriod, control_period, atol=1e-6)
+    levels = module.getLevelsOnOff()
+    numpy.testing.assert_allclose(levels[0], level_on, atol=1e-6)
+    numpy.testing.assert_allclose(levels[1], level_off, atol=1e-6)
 
 
 #
