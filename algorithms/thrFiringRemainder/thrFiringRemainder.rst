@@ -3,7 +3,8 @@ Overview
 ``thrFiringRemainder`` maps commanded thruster forces to thruster on-times while preserving sub-minimum pulses
 through a remainder accumulator. Forces that would normally fall below the minimum on-time are collected and
 re-issued once enough residual pulse time has been accumulated. Commands that saturate the control period are over-driven
-to 1.1 x the control period to guarantee thrust for the full-duration of the control period.
+by a configurable ``onTimeSaturationFactor`` (default 1.0) to guarantee thrust for the full-duration of the control
+period.
 
 For example, if the minimum on-time is 20 milli-seconds, an algorithm without a remainder accumulation
 calculation would create a deadband about the 20 milli-second control request. With the remainder accumulation logic,
@@ -53,13 +54,15 @@ Module output:
       - Description
     * - onTimeOutMsg
       - :ref:`THRArrayOnTimeCmdMsgF32Payload`
-      - Thruster on-time requests :math:`t_i`. Values are non-negative, and may be set to ``1.1 *`` control period
-        when saturation is detected.
+      - Thruster on-time requests :math:`t_i`. Values are non-negative, and may be set to
+        ``onTimeSaturationFactor *`` control period when saturation is detected.
 
 Algorithm Configuration
 -----------------------
 - ``thrMinFireTime`` the minimum thruster on-time (seconds). Must be :math:`\ge 0`; a negative value throws.
 - ``controlPeriod`` the control period duration (seconds). Must be :math:`\ge 0`; non-positive values throw.
+- ``onTimeSaturationFactor`` multiplier applied to the control period when on-time saturates (default 1.0).
+  Must be :math:`\ge 1.0`; values below 1.0 throw.
 - ``thrustPulsingRegime`` must be one of ``ON_PULSING`` or ``OFF_PULSING``.
   On-pulsing is assumes a thruster is nominally off and thrust is provided
   by activating the thruster. This regime is commonly used when seeking to
@@ -119,7 +122,9 @@ For thruster :math:`i` with commanded force :math:`F_i`, maximum thrust :math:`F
 
 #. Saturation:
 
-   .. math:: \text{if } t_i \ge \Delta t \text{ then } t_i \leftarrow 1.1 \, \Delta t
+   .. math:: \text{if } t_i \ge \Delta t \text{ then } t_i \leftarrow f_{\text{sat}} \, \Delta t
+
+   where :math:`f_{\text{sat}}` is the ``onTimeSaturationFactor`` (default 1.0).
 
 The output message stores :math:`t_i` in ``OnTimeRequest[i]``.
 

@@ -121,6 +121,9 @@ float ThrFiringRemainderAlgorithm::getControlPeriod() const { return this->contr
  @param factor
 */
 void ThrFiringRemainderAlgorithm::setOnTimeSaturationFactor(const float factor) {
+    if (factor < 1.0) {
+        FSW_THROW_INVALID_ARGUMENT("ThrFiringRemainderAlgorithm::onTimeSaturationFactor must be >= 1.0");
+    }
     this->onTimeSaturationFactor = factor;
 }
 
