@@ -8,9 +8,9 @@ Executive Summary
 
 The MIMU Majority Vote module combines the angular velocity measurements from exactly three
 Inertial Measurement Units (IMUs) into a single best-estimate body-frame angular velocity.
-It uses a two-stage outlier rejection algorithm: a single faulty sensor is first identified
-by comparing each measurement against the full-sensor average, then the remaining sensors are
-cross-checked against their own average to detect a second level of disagreement.
+It uses an outlier rejection algorithm: a single faulty sensor is identified by comparing
+each measurement against the full-sensor average, and the remaining two sensors are averaged
+to form the best estimate.
 The module outputs the best-estimate average, a per-IMU validity array, and the angular
 velocity difference magnitudes for every sensor — providing downstream fault management with
 the information needed to take further action.
@@ -48,10 +48,9 @@ Algorithm Description
 
 The voting algorithm operates on :math:`n = 3` IMU measurements
 :math:`\boldsymbol{\omega}_i \in \mathbb{R}^3` (body-frame angular velocity, rad/s)
-and a scalar threshold :math:`T > 0` (rad/s). It runs in two sequential stages every
-update cycle.
+and a scalar threshold :math:`T > 0` (rad/s).
 
-**Stage 1 — Full-average outlier detection**
+**Outlier detection and averaging**
 
 Compute the average of all :math:`n` measurements:
 
@@ -71,8 +70,8 @@ Identify the worst offender:
 
    k = \arg\max_i \; \delta_i
 
-If :math:`\delta_k \geq T`, IMU :math:`k` is flagged as invalid and removed.
-The average of the remaining :math:`n-1` sensors is recomputed:
+If :math:`\delta_k \geq T`, IMU :math:`k` is flagged as invalid and the average of the
+remaining :math:`n-1` sensors is returned:
 
 .. math::
 
@@ -81,32 +80,14 @@ The average of the remaining :math:`n-1` sensors is recomputed:
 If no measurement exceeds the threshold (:math:`\delta_k < T`), all sensors are
 considered valid and :math:`\bar{\boldsymbol{\omega}}` is returned directly.
 
-**Stage 2 — Reduced-average cross-check**
-
-After removing the outlier, the remaining sensors are re-checked against the new
-reduced average. For each remaining valid sensor :math:`i \neq k`:
-
-.. math::
-
-   \delta_i^{(2)} = \lVert \boldsymbol{\omega}_i - \bar{\boldsymbol{\omega}}_2 \rVert_2
-
-If any :math:`\delta_i^{(2)} \geq T`, the remaining sensors disagree with each other.
-All :math:`n` IMUs are marked invalid. The returned average is still
-:math:`\bar{\boldsymbol{\omega}}_2` (the best estimate obtainable), but the caller is
-informed via the validity array that no sensor can be trusted.
-
 **Difference magnitudes in the output**
 
-The ``omegaDifferencesMag`` array is always populated. After Stage 1 the excluded IMU
-retains its original Stage 1 difference :math:`\delta_k`; the remaining sensors are
-updated to their Stage 2 values :math:`\delta_i^{(2)}`. If no fault is detected all
-entries hold the Stage 1 values.
+The ``omegaDifferencesMag`` array is always populated with the Stage 1 values
+:math:`\delta_i` for all sensors.
 
 **Valid-count invariant**
 
-Because Stage 2 either leaves the count unchanged or marks all sensors invalid, the
-number of invalid IMUs for a 3-sensor configuration can only be **0, 1, or 3** — never
-exactly 2.
+The number of invalid IMUs can only be **0** (no fault) or **1** (single outlier).
 
 -----------------------------------
 Standalone Algorithm (C++ API)
@@ -141,7 +122,7 @@ Standalone Algorithm (C++ API)
       - ``Eigen::Vector3f``
       - Best-estimate body-frame angular velocity (rad/s). Equals
         :math:`\bar{\boldsymbol{\omega}}` when all agree, or
-        :math:`\bar{\boldsymbol{\omega}}_2` when one or more are invalid.
+        :math:`\bar{\boldsymbol{\omega}}_2` when one is invalid.
     * - ``faultDetected``
       - ``bool``
       - ``true`` if any IMU has been marked invalid.

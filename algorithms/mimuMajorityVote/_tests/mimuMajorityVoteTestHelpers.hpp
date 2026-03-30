@@ -35,7 +35,7 @@ MimuMajorityVoteOutput referenceUpdate(const MimuMajorityVoteAlgorithm& alg,
         return out;
     }
 
-    // Stage 2: Exclude outlier and recheck remaining
+    // Stage 2: Exclude outlier and average the remaining IMUs
     out.faultDetected = true;
     out.validImus.at(maxDiffIndex) = false;
 
@@ -48,24 +48,6 @@ MimuMajorityVoteOutput referenceUpdate(const MimuMajorityVoteAlgorithm& alg,
         }
     }
     remainingAverage /= static_cast<float>(remainingCount);
-
-    // Recheck remaining; update to Stage 2 differences
-    bool remainingDisagree = false;
-    for (size_t i = 0U; i < kMimuCount; ++i) {
-        if (i != maxDiffIndex) {
-            float const diff = (imuInputs.at(i).angVelBody - remainingAverage).norm();
-            out.omegaDifferencesMag.at(i) = diff;
-            if (diff >= omegaThreshold) {
-                remainingDisagree = true;
-            }
-        }
-    }
-
-    if (remainingDisagree) {
-        for (size_t j = 0U; j < kMimuCount; ++j) {
-            out.validImus.at(j) = false;
-        }
-    }
 
     out.avgAngVelBody = remainingAverage;
     return out;

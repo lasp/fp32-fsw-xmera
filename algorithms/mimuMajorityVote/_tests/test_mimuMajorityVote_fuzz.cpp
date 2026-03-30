@@ -52,8 +52,8 @@ void propertyFaultAndValidConsistency(const std::vector<float>& angVel1,
         }
     }
 
-    // Invalid count must be 0 (no fault), 1 (single outlier), or 3 (all invalid)
-    ASSERT_TRUE(invalidCount == 0U || invalidCount == 1U || invalidCount == kMimuCount);
+    // Invalid count must be 0 (no fault) or 1 (single outlier)
+    ASSERT_TRUE(invalidCount == 0U || invalidCount == 1U);
     // faultDetected must be consistent with validImus
     ASSERT_EQ(out.faultDetected, invalidCount > 0U);
 }
@@ -124,7 +124,6 @@ void propertyAverageIsCorrect(const std::vector<float>& angVel1,
         // Single outlier excluded: average of the remaining sensors
         expectSingleFaultAverage(out, imuInputs, kMimuCount);
     }
-    // All-invalid: average is ω̄₂ (Stage 1 outlier excluded); correctness covered by regression test
 }
 
 void propertyIdenticalIMUsNoFault(const std::vector<float>& angVel, float omegaThreshold) {

@@ -28,7 +28,7 @@ MimuMajorityVoteOutput MimuMajorityVoteAlgorithm::update(
         return output;
     }
 
-    // Stage 2: Outlier detected - exclude it and recheck remaining IMUs
+    // Stage 2: Outlier detected - exclude it and average the remaining IMUs
     output.faultDetected = true;
     output.validImus.at(maxDiffIndex) = false;
 
@@ -41,25 +41,6 @@ MimuMajorityVoteOutput MimuMajorityVoteAlgorithm::update(
         }
     }
     remainingAverage_BN_B /= static_cast<float>(remainingCount);
-
-    // Recheck each remaining IMU against the remaining-IMU average; update their Stage 2 differences
-    bool remainingDisagree = false;
-    for (size_t i = 0U; i < kMimuCount; ++i) {
-        if (i != maxDiffIndex) {
-            float const remainingDiff = (imuInputs.at(i).angVelBody - remainingAverage_BN_B).norm();
-            output.omegaDifferencesMag.at(i) = remainingDiff;
-            if (remainingDiff >= this->omegaThreshold) {
-                remainingDisagree = true;
-            }
-        }
-    }
-
-    if (remainingDisagree) {
-        // Remaining IMUs disagree - flag all as invalid; best estimate is still remainingAverage_BN_B
-        for (size_t j = 0U; j < kMimuCount; ++j) {
-            output.validImus.at(j) = false;
-        }
-    }
 
     output.avgAngVelBody = remainingAverage_BN_B;
     return output;
