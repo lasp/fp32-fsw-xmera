@@ -76,6 +76,12 @@ The following table lists all the module parameters than can be set. The paramet
       - 0
       - Control period (time between two update calls, i.e. 1/fsw_rate)
       - Must be greater than zero (checked in setter)
+    * - onTimeSaturationFactor
+      - float
+      - [-]
+      - 1.0
+      - Factor applied to control period when on-time saturates
+      - Must be >= 1.0 (checked in setter)
 
 The ``setLevelsOnOff`` setter validates that ``levelOn`` is greater than or equal to ``levelOff``.
 
@@ -190,8 +196,8 @@ A loop goes over each installed thruster using the following logic.
   set to :math:`t_{i}`
 
 - If :math:`t_{i} > \Delta t` then the thruster is saturated. In this
-  case the on-time is set to :math:`t_{i} = 1.1\Delta t` such that the
-  thruster remains on through the control period.
+  case the on-time is set to :math:`t_{i} = f_{\text{sat}}\,\Delta t` (where :math:`f_{\text{sat}}` is the
+  ``onTimeSaturationFactor``, default 1.0) such that the thruster remains on through the control period.
 
 - The Schmitt trigger logic occurs if :math:`t_{i} < t_{\text{min}}`. If
   :math:`l>l_{\text{on}}` then :math:`t_{i} = t_{\text{min}}`. This

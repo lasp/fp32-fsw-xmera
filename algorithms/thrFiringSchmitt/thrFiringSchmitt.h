@@ -26,6 +26,8 @@ class ThrFiringSchmitt final : public SysModel {
     void setThrustPulsingRegime(ThrustPulsingRegime pulsingRegime);
     float getControlPeriod() const;
     void setControlPeriod(float period);
+    float getOnTimeSaturationFactor() const;
+    void setOnTimeSaturationFactor(float factor);
 
     /* declare module IO interfaces */
     ReadFunctor<THRArrayCmdForceMsgF32Payload> thrForceInMsg;  //!< The name of the Input message

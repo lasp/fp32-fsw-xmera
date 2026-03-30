@@ -30,6 +30,7 @@ ReferenceOutput referenceUpdate(const ThrFiringSchmittAlgorithm& alg,
     float levelOn = levelsOnOff.at(0U);
     float levelOff = levelsOnOff.at(1U);
     float thrMinFireTime = alg.getThrMinFireTime();
+    float onTimeSaturationFactor = alg.getOnTimeSaturationFactor();
     ThrustPulsingRegime thrustPulsingRegime = alg.getThrustPulsingRegime();
 
     std::array<float, MAX_EFF_CNT> thrForce{};
@@ -72,7 +73,7 @@ ReferenceOutput referenceUpdate(const ThrFiringSchmittAlgorithm& alg,
         } else if (onTime[i] >= controlPeriod) {
             /*! - Request is greater than control period then oversaturate onTime */
             lastThrustState[i] = true;
-            onTime[i] = 1.1 * controlPeriod;  // oversaturate to avoid numerical error
+            onTime[i] = onTimeSaturationFactor * controlPeriod;
         } else {
             /*! - Request is greater than minimum fire time and less than control period */
             lastThrustState[i] = true;
@@ -111,6 +112,11 @@ inline void testThrFiringSchmittSetup() {
     // Negative or zero controlPeriod
     EXPECT_THROW(alg.setControlPeriod(-0.1), fsw::invalid_argument);
     EXPECT_THROW(alg.setControlPeriod(0.0), fsw::invalid_argument);
+    // onTimeSaturationFactor must be >= 1.0
+    EXPECT_THROW(alg.setOnTimeSaturationFactor(0.5), fsw::invalid_argument);
+    EXPECT_THROW(alg.setOnTimeSaturationFactor(0.99), fsw::invalid_argument);
+    EXPECT_NO_THROW(alg.setOnTimeSaturationFactor(1.0));
+    EXPECT_NO_THROW(alg.setOnTimeSaturationFactor(1.1));
 }
 
 inline void testThrFiringSchmitt(float levelOn,

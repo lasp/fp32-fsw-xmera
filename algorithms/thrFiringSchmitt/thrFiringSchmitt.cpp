@@ -80,3 +80,16 @@ float ThrFiringSchmitt::getControlPeriod() const { return this->algorithm.getCon
  @param period [s] control period (time between two algorithm update calls)
  */
 void ThrFiringSchmitt::setControlPeriod(const float period) { this->algorithm.setControlPeriod(period); }
+
+/*! Setter method for onTimeSaturationFactor.
+ @return void
+ @param factor [-] must be >= 1.0
+ */
+void ThrFiringSchmitt::setOnTimeSaturationFactor(const float factor) {
+    this->algorithm.setOnTimeSaturationFactor(factor);
+}
+
+/*! Getter method for onTimeSaturationFactor.
+ @return float
+ */
+float ThrFiringSchmitt::getOnTimeSaturationFactor() const { return this->algorithm.getOnTimeSaturationFactor(); }

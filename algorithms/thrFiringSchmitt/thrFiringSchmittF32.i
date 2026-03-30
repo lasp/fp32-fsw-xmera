@@ -8,6 +8,7 @@
 %attribute(ThrFiringSchmitt, float, thrMinFireTime, getThrMinFireTime, setThrMinFireTime)
 %attribute(ThrFiringSchmitt, ThrustPulsingRegime, thrustPulsingRegime, getThrustPulsingRegime, setThrustPulsingRegime)
 %attribute(ThrFiringSchmitt, float, controlPeriod, getControlPeriod, setControlPeriod)
+%attribute(ThrFiringSchmitt, float, onTimeSaturationFactor, getOnTimeSaturationFactor, setOnTimeSaturationFactor)
 
 %include <architecture/_GeneralModuleFiles/sys_model.i>
 %include <architecture/_GeneralModuleFiles/swig_conly_data.i>

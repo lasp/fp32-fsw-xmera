@@ -26,15 +26,18 @@ class ThrFiringSchmittAlgorithm final {
     void setThrustPulsingRegime(ThrustPulsingRegime pulsingRegime);
     float getControlPeriod() const;
     void setControlPeriod(float period);
+    float getOnTimeSaturationFactor() const;
+    void setOnTimeSaturationFactor(float factor);
 
    private:
-    float levelOn{};                                           //!< [-] ON duty cycle fraction
-    float levelOff{};                                          //!< [-] OFF duty cycle fraction
-    float thrMinFireTime{};                                    //!< [s] Minimum ON time for thrusters
-    ThrustPulsingRegime thrustPulsingRegime{};                 //!< [-] Indicates on-pulsing (0) or off-pulsing (1)
-    float controlPeriod{};                                     //!< [s] time between two algorithm update calls
-    uint32_t numThrusters{};                                   //!< [-] The number of thrusters available on vehicle
-    std::array<float, MAX_EFF_CNT> maxThrust{};                //!< [N] Max thrust
+    float levelOn{};                             //!< [-] ON duty cycle fraction
+    float levelOff{};                            //!< [-] OFF duty cycle fraction
+    float thrMinFireTime{};                      //!< [s] Minimum ON time for thrusters
+    ThrustPulsingRegime thrustPulsingRegime{};   //!< [-] Indicates on-pulsing (0) or off-pulsing (1)
+    float controlPeriod{};                       //!< [s] time between two algorithm update calls
+    float onTimeSaturationFactor{1.0F};          //!< [-] Factor applied to control period when on-time saturates
+    uint32_t numThrusters{};                     //!< [-] The number of thrusters available on vehicle
+    std::array<float, MAX_EFF_CNT> maxThrust{};  //!< [N] Max thrust
     std::array<ThrusterState, MAX_EFF_CNT> prevThrustState{};  //!< [-] ON/OFF state of thrusters from previous call
 };
 

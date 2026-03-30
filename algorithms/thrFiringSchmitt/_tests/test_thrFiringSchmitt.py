@@ -59,12 +59,14 @@ def test_thr_firing_schmitt(show_plots, reset_check, thrust_pulsing_regime):
     thr_min_fire_time = 0.2
     level_on = 0.75
     level_off = 0.25
+    on_time_saturation_factor = 1.1
 
     # Initialize the test module configuration data
     module.thrMinFireTime = thr_min_fire_time
     module.thrustPulsingRegime = thrust_pulsing_regime
     module.setLevelsOnOff(level_on, level_off)
     module.controlPeriod = control_period
+    module.onTimeSaturationFactor = on_time_saturation_factor
 
     # setup thruster cluster message
     thrusters = [
@@ -202,7 +204,7 @@ def test_thr_firing_schmitt(show_plots, reset_check, thrust_pulsing_regime):
     assert numpy.all(on_time_requests >= 0.0)
 
     # All on-times must not exceed the oversaturation bound
-    assert numpy.all(on_time_requests <= 1.1 * control_period + 1e-6)
+    assert numpy.all(on_time_requests <= module.onTimeSaturationFactor * control_period + 1e-6)
 
     # Non-zero on-times must be >= thrMinFireTime
     non_zero = on_time_requests[on_time_requests > 0.0]
@@ -212,6 +214,7 @@ def test_thr_firing_schmitt(show_plots, reset_check, thrust_pulsing_regime):
     numpy.testing.assert_allclose(module.thrMinFireTime, thr_min_fire_time, atol=1e-6)
     numpy.testing.assert_equal(module.thrustPulsingRegime, thrust_pulsing_regime)
     numpy.testing.assert_allclose(module.controlPeriod, control_period, atol=1e-6)
+    numpy.testing.assert_allclose(module.onTimeSaturationFactor, on_time_saturation_factor, atol=1e-6)
     levels = module.getLevelsOnOff()
     numpy.testing.assert_allclose(levels[0], level_on, atol=1e-6)
     numpy.testing.assert_allclose(levels[1], level_off, atol=1e-6)

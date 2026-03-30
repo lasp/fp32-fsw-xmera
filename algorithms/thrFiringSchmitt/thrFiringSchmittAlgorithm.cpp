@@ -64,8 +64,7 @@ THRArrayOnTimeCmdMsgF32Payload ThrFiringSchmittAlgorithm::update(THRArrayCmdForc
         } else if (onTime[i] >= this->controlPeriod) {
             /*! - Request is greater than control period then oversaturate onTime */
             this->prevThrustState[i] = ThrusterState::ON;
-            constexpr float overSaturationFactor = 1.1F;  // oversaturate to avoid numerical error
-            onTime[i] = overSaturationFactor * this->controlPeriod;
+            onTime[i] = this->onTimeSaturationFactor * this->controlPeriod;
         } else {
             /*! - Request is greater than minimum fire time and less than control period */
             this->prevThrustState[i] = ThrusterState::ON;
@@ -147,3 +146,19 @@ void ThrFiringSchmittAlgorithm::setControlPeriod(const float period) {
  @return const float
 */
 float ThrFiringSchmittAlgorithm::getControlPeriod() const { return this->controlPeriod; }
+
+/*! Setter method for onTimeSaturationFactor.
+ @return void
+ @param factor [-] must be >= 1.0
+ */
+void ThrFiringSchmittAlgorithm::setOnTimeSaturationFactor(const float factor) {
+    if (factor < 1.0) {
+        FSW_THROW_INVALID_ARGUMENT("ThrFiringSchmitt.onTimeSaturationFactor must be >= 1.0");
+    }
+    this->onTimeSaturationFactor = factor;
+}
+
+/*! Getter method for onTimeSaturationFactor.
+ @return float
+ */
+float ThrFiringSchmittAlgorithm::getOnTimeSaturationFactor() const { return this->onTimeSaturationFactor; }
