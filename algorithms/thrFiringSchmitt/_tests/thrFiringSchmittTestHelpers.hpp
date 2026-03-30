@@ -30,7 +30,7 @@ ReferenceOutput referenceUpdate(const ThrFiringSchmittAlgorithm& alg,
     float levelOn = levelsOnOff.at(0U);
     float levelOff = levelsOnOff.at(1U);
     float thrMinFireTime = alg.getThrMinFireTime();
-    PulsingRegime baseThrustState = alg.getBaseThrustState();
+    ThrustPulsingRegime thrustPulsingRegime = alg.getThrustPulsingRegime();
 
     std::array<float, MAX_EFF_CNT> thrForce{};
     std::ranges::copy(std::begin(thrForceIn.thrForce), std::end(thrForceIn.thrForce), std::begin(thrForce));
@@ -43,7 +43,7 @@ ReferenceOutput referenceUpdate(const ThrFiringSchmittAlgorithm& alg,
         /*! - Correct for off-pulsing if necessary.  Here the requested force is negative, and the maximum thrust
          needs to be added.  If not control force is requested in off-pulsing mode, then the thruster force should
          be set to the maximum thrust value */
-        if (baseThrustState == PulsingRegime::OFFPULSING) {
+        if (thrustPulsingRegime == ThrustPulsingRegime::OFF_PULSING) {
             thrForce[i] += maxThrust[i];
         }
 
@@ -116,7 +116,7 @@ inline void testThrFiringSchmittSetup() {
 inline void testThrFiringSchmitt(float levelOn,
                                  float levelOff,
                                  float thrMinFireTime,
-                                 uint32_t baseThrustState,
+                                 ThrustPulsingRegime thrustPulsingRegime,
                                  uint32_t numThrusters,
                                  std::vector<float> maxThrustVec,
                                  std::vector<float> thrForceVec,
@@ -140,13 +140,7 @@ inline void testThrFiringSchmitt(float levelOn,
     }
     EXPECT_NO_THROW(alg.setLevelsOnOff(levelOn, levelOff));
     alg.setThrMinFireTime(thrMinFireTime);
-    PulsingRegime baseThrustStatePulsingRegime{};
-    if (baseThrustState == 0U) {
-        baseThrustStatePulsingRegime = PulsingRegime::ONPULSING;
-    } else {
-        baseThrustStatePulsingRegime = PulsingRegime::OFFPULSING;
-    }
-    alg.setBaseThrustState(baseThrustStatePulsingRegime);
+    alg.setThrustPulsingRegime(thrustPulsingRegime);
     alg.setControlPeriod(dt);
 
     // Populate messages

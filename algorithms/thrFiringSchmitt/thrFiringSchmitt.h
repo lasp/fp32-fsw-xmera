@@ -22,8 +22,8 @@ class ThrFiringSchmitt final : public SysModel {
     std::array<float, 2> getLevelsOnOff() const;
     float getThrMinFireTime() const;
     void setThrMinFireTime(float time);
-    uint32_t getBaseThrustState() const;
-    void setBaseThrustState(uint32_t state);
+    ThrustPulsingRegime getThrustPulsingRegime() const;
+    void setThrustPulsingRegime(ThrustPulsingRegime pulsingRegime);
     float getControlPeriod() const;
     void setControlPeriod(float period);
 

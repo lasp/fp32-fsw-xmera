@@ -64,11 +64,11 @@ The following table lists all the module parameters than can be set. The paramet
       - 0
       - [s] Minimum ON time for thrusters
       - Must be greater than zero (checked in setter)
-    * - baseThrustState
-      - enum PulsingRegime
+    * - thrustPulsingRegime
+      - enum ThrustPulsingRegime
       - [-]
-      - 0
-      - Indicates on-pulsing (0) or off-pulsing (1)
+      - ON_PULSING (0)
+      - Indicates on-pulsing (``ON_PULSING``) or off-pulsing (``OFF_PULSING``)
       - N/A
     * - controlPeriod (required)
       - float
@@ -84,7 +84,7 @@ Module Assumptions and Limitations
 
 The module assumes that the incoming forces :math:`F_{i}` can be both
 positive or negative, depending if an on- or off-pulsing mode is being
-implemented. The particular mode is set through ``baseThrustState``.
+implemented. The particular mode is set through ``thrustPulsingRegime``.
 It is also assumed that ``thrMinFireTime`` is less than the control period.
 
 Initialization
@@ -95,7 +95,7 @@ The module is configured by::
     module.modelTag = "thrFiringSchmitt"
     module.setLevelsOnOff(0.75, 0.25)
     module.thrMinFireTime = 0.02
-    module.baseThrustState = 0  # on-pulsing
+    module.thrustPulsingRegime = thrFiringSchmittF32.ThrustPulsingRegime_ON_PULSING
     module.controlPeriod = 0.5
 
 Detailed Module Description

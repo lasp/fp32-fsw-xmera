@@ -6,7 +6,7 @@
 
 %include <attribute.i>
 %attribute(ThrFiringSchmitt, float, thrMinFireTime, getThrMinFireTime, setThrMinFireTime)
-%attribute(ThrFiringSchmitt, uint32_t, baseThrustState, getBaseThrustState, setBaseThrustState)
+%attribute(ThrFiringSchmitt, ThrustPulsingRegime, thrustPulsingRegime, getThrustPulsingRegime, setThrustPulsingRegime)
 %attribute(ThrFiringSchmitt, float, controlPeriod, getControlPeriod, setControlPeriod)
 
 %include <architecture/_GeneralModuleFiles/sys_model.i>
@@ -15,6 +15,7 @@
 %include <std_array.i>
 %template(FloatArray2) std::array<float, 2>;
 
+%include "thrFiringSchmittAlgorithm.h"
 %include "thrFiringSchmitt.h"
 
 %include "msgPayloadDef/THRArrayConfigMsgF32Payload.h"

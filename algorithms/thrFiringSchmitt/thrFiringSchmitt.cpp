@@ -55,20 +55,19 @@ float ThrFiringSchmitt::getThrMinFireTime() const { return this->algorithm.getTh
  */
 void ThrFiringSchmitt::setThrMinFireTime(float time) { this->algorithm.setThrMinFireTime(time); }
 
-/**
- * @brief Get the base thrust state.
- * @return int The current base thrust state (0 for off-pulsing, 1 for on-pulsing).
+/*! Getter method for thrustPulsingRegime.
+ @return ThrustPulsingRegime
  */
-uint32_t ThrFiringSchmitt::getBaseThrustState() const {
-    return static_cast<uint32_t>(this->algorithm.getBaseThrustState());
+ThrustPulsingRegime ThrFiringSchmitt::getThrustPulsingRegime() const {
+    return this->algorithm.getThrustPulsingRegime();
 }
 
-/**
- * @brief Set the base thrust state.
- * @param state The new base thrust state to set (0 for off-pulsing, 1 for on-pulsing).
+/*! Setter method for thrustPulsingRegime.
+ @return void
+ @param pulsingRegime the pulsing regime (ON_PULSING or OFF_PULSING)
  */
-void ThrFiringSchmitt::setBaseThrustState(uint32_t state) {
-    this->algorithm.setBaseThrustState(static_cast<PulsingRegime>(state));
+void ThrFiringSchmitt::setThrustPulsingRegime(const ThrustPulsingRegime pulsingRegime) {
+    this->algorithm.setThrustPulsingRegime(pulsingRegime);
 }
 
 /*! Getter method for controlPeriod.

@@ -10,7 +10,7 @@
 #include "msgPayloadDef/THRArrayOnTimeCmdMsgF32Payload.h"
 #include "msgPayloadDef/definitions.h"
 
-enum class PulsingRegime { ONPULSING = 0, OFFPULSING = 1 };
+enum class ThrustPulsingRegime : std::uint8_t { ON_PULSING = 0U, OFF_PULSING = 1U };
 enum class ThrusterState { OFF = 0, ON = 1 };
 
 class ThrFiringSchmittAlgorithm final {
@@ -22,8 +22,8 @@ class ThrFiringSchmittAlgorithm final {
     void setLevelsOnOff(float levelOn, float levelOff);
     float getThrMinFireTime() const;
     void setThrMinFireTime(float time);
-    PulsingRegime getBaseThrustState() const;
-    void setBaseThrustState(PulsingRegime state);
+    ThrustPulsingRegime getThrustPulsingRegime() const;
+    void setThrustPulsingRegime(ThrustPulsingRegime pulsingRegime);
     float getControlPeriod() const;
     void setControlPeriod(float period);
 
@@ -31,7 +31,7 @@ class ThrFiringSchmittAlgorithm final {
     float levelOn{};                                           //!< [-] ON duty cycle fraction
     float levelOff{};                                          //!< [-] OFF duty cycle fraction
     float thrMinFireTime{};                                    //!< [s] Minimum ON time for thrusters
-    PulsingRegime baseThrustState{};                           //!< [-] Indicates on-pulsing (0) or off-pulsing (1)
+    ThrustPulsingRegime thrustPulsingRegime{};                 //!< [-] Indicates on-pulsing (0) or off-pulsing (1)
     float controlPeriod{};                                     //!< [s] time between two algorithm update calls
     uint32_t numThrusters{};                                   //!< [-] The number of thrusters available on vehicle
     std::array<float, MAX_EFF_CNT> maxThrust{};                //!< [N] Max thrust

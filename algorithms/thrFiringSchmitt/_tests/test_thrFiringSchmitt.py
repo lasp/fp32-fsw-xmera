@@ -13,13 +13,13 @@ sys.path.insert(0, abs_path)
 import fswSetupThrusters
 
 
-@pytest.mark.parametrize("reset_check, dv_on", [
-    (False, False),
-    (True, False),
-    (False, True),
-    (True, True),
+@pytest.mark.parametrize("reset_check, thrust_pulsing_regime", [
+    (False, thrFiringSchmittF32.ThrustPulsingRegime_ON_PULSING),
+    (True, thrFiringSchmittF32.ThrustPulsingRegime_ON_PULSING),
+    (False, thrFiringSchmittF32.ThrustPulsingRegime_OFF_PULSING),
+    (True, thrFiringSchmittF32.ThrustPulsingRegime_OFF_PULSING),
 ])
-def test_thr_firing_schmitt(show_plots, reset_check, dv_on):
+def test_thr_firing_schmitt(show_plots, reset_check, thrust_pulsing_regime):
     unit_task_name = "unitTask"               # arbitrary name (don't change)
     unit_process_name = "TestProcess"         # arbitrary name (don't change)
 
@@ -39,11 +39,7 @@ def test_thr_firing_schmitt(show_plots, reset_check, dv_on):
 
     # Initialize the test module configuration data
     module.thrMinFireTime = 0.2
-    if dv_on == 1:
-        module.baseThrustState = 1
-    else:
-        module.baseThrustState = 0
-
+    module.thrustPulsingRegime = thrust_pulsing_regime
     module.setLevelsOnOff(0.75, 0.25)
     module.controlPeriod = 0.5
 
@@ -93,7 +89,7 @@ def test_thr_firing_schmitt(show_plots, reset_check, dv_on):
     # simulation is stopped at the next logging event on or after the
     # simulation end time.
 
-    if dv_on:
+    if thrust_pulsing_regime == thrFiringSchmittF32.ThrustPulsingRegime_OFF_PULSING:
         eff_req1 = [0.0, -0.1, -0.2, -0.3, -0.349, -0.351, -0.451, -0.5]
         eff_req2 = [0.0, -0.1, -0.2, -0.3, -0.351, -0.351, -0.451, -0.5]
         eff_req3 = [0.0, -0.1, -0.2, -0.3, -0.5, -0.351, -0.451, -0.5]
@@ -137,8 +133,8 @@ def test_thr_firing_schmitt(show_plots, reset_check, dv_on):
     module_output = data_log.onTimeRequest[:, :num_thrusters]
 
     # set the filtered output truth states
-    if reset_check==1:
-        if dv_on == 1:
+    if reset_check:
+        if thrust_pulsing_regime == thrFiringSchmittF32.ThrustPulsingRegime_OFF_PULSING:
             true_vector = [
                    [0.55, 0.4, 0.3, 0.2, 0.2, 0.0, 0.0, 0.0],
                    [0.55, 0.4, 0.3, 0.2, 0.2, 0.0, 0.0, 0.0],
@@ -170,7 +166,7 @@ def test_thr_firing_schmitt(show_plots, reset_check, dv_on):
                    ]
 
     else:
-        if dv_on == 1:
+        if thrust_pulsing_regime == thrFiringSchmittF32.ThrustPulsingRegime_OFF_PULSING:
             true_vector = [
                    [0.55, 0.4, 0.3, 0.2, 0.2, 0.0, 0.0, 0.0],
                    [0.55, 0.4, 0.3, 0.2, 0.2, 0.0, 0.0, 0.0],
@@ -199,4 +195,4 @@ def test_thr_firing_schmitt(show_plots, reset_check, dv_on):
 # stand-along python script
 #
 if __name__ == "__main__":
-    test_thr_firing_schmitt(False, True, False)
+    test_thr_firing_schmitt(False, True, thrFiringSchmittF32.ThrustPulsingRegime_ON_PULSING)
