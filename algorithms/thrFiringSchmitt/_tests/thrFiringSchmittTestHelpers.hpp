@@ -16,14 +16,14 @@
 
 typedef struct {
     THRArrayOnTimeCmdMsgF32Payload onTime;
-    std::array<bool, MAX_EFF_CNT> lastThrustState;
+    std::array<bool, kMaxThrusterCount> lastThrustState;
 } ReferenceOutput;
 
 // Reference computation for update
 ReferenceOutput referenceUpdate(const ThrFiringSchmittAlgorithm& alg,
                                 uint32_t numThrusters,
-                                std::array<float, MAX_EFF_CNT> maxThrust,
-                                std::array<bool, MAX_EFF_CNT> lastThrustState,
+                                std::array<float, kMaxThrusterCount> maxThrust,
+                                std::array<bool, kMaxThrusterCount> lastThrustState,
                                 float controlPeriod,
                                 THRArrayCmdForceMsgF32Payload& thrForceIn) {
     std::array<float, 2U> levelsOnOff = alg.getLevelsOnOff();
@@ -33,12 +33,12 @@ ReferenceOutput referenceUpdate(const ThrFiringSchmittAlgorithm& alg,
     float onTimeSaturationFactor = alg.getOnTimeSaturationFactor();
     ThrustPulsingRegime thrustPulsingRegime = alg.getThrustPulsingRegime();
 
-    std::array<float, MAX_EFF_CNT> thrForce{};
+    std::array<float, kMaxThrusterCount> thrForce{};
     std::ranges::copy(std::begin(thrForceIn.thrForce), std::end(thrForceIn.thrForce), std::begin(thrForce));
 
     THRArrayOnTimeCmdMsgF32Payload thrOnTimeOut{}; /* -- thruster on-time output payload */
 
-    std::array<float, MAX_EFF_CNT> onTime{}; /* [s] array of commanded on time for thrusters */
+    std::array<float, kMaxThrusterCount> onTime{}; /* [s] array of commanded on time for thrusters */
     /*! - Loop through thrusters */
     for (uint32_t i = 0U; i < numThrusters; ++i) {
         /*! - Correct for off-pulsing if necessary.  Here the requested force is negative, and the maximum thrust
@@ -134,9 +134,9 @@ inline void testThrFiringSchmitt(float levelOn,
         return;
     }
 
-    std::array<float, MAX_EFF_CNT> maxThrust;
+    std::array<float, kMaxThrusterCount> maxThrust;
     std::copy_n(maxThrustVec.begin(), numThrusters, maxThrust.begin());
-    std::array<float, MAX_EFF_CNT> thrForce;
+    std::array<float, kMaxThrusterCount> thrForce;
     std::copy_n(thrForceVec.begin(), numThrusters, thrForce.begin());
 
     // Set up module
@@ -167,7 +167,7 @@ inline void testThrFiringSchmitt(float levelOn,
     alg.configure(thrusterConfigMsg);
     alg.reset();
 
-    std::array<bool, MAX_EFF_CNT> lastThrustState{};
+    std::array<bool, kMaxThrusterCount> lastThrustState{};
     lastThrustState.fill(false);
 
     // Test over a few time steps

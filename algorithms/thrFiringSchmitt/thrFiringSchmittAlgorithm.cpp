@@ -28,10 +28,10 @@ void ThrFiringSchmittAlgorithm::configure(THRArrayConfigMsgF32Payload const& thr
 THRArrayOnTimeCmdMsgF32Payload ThrFiringSchmittAlgorithm::update(THRArrayCmdForceMsgF32Payload& thrForceIn) {
     THRArrayOnTimeCmdMsgF32Payload thrOnTimeOut{}; /* -- thruster on-time output payload */
 
-    std::array<float, MAX_EFF_CNT> thrForce{};
+    std::array<float, kMaxThrusterCount> thrForce{};
     std::ranges::copy(std::begin(thrForceIn.thrForce), std::end(thrForceIn.thrForce), std::begin(thrForce));
 
-    std::array<float, MAX_EFF_CNT> onTime{}; /* [s] array of commanded on time for thrusters */
+    std::array<float, kMaxThrusterCount> onTime{}; /* [s] array of commanded on time for thrusters */
     /*! - Loop through thrusters */
     for (uint32_t i = 0U; i < this->numThrusters; ++i) {
         /*! - Correct for off-pulsing if necessary.  Here the requested force is negative, and the maximum thrust
