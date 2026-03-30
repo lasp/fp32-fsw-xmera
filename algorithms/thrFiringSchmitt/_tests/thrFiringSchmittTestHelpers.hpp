@@ -164,7 +164,7 @@ inline void testThrFiringSchmitt(float levelOn,
     }
 
     // Configure and reset module
-    alg.configure(thrusterConfigMsg);
+    alg.setupThrusters(thrusterConfigMsg);
     alg.reset();
 
     std::array<bool, kMaxThrusterCount> lastThrustState{};

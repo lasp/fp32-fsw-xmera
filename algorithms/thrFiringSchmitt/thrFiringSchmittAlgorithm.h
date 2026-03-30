@@ -16,8 +16,8 @@ enum class ThrusterState { OFF = 0, ON = 1 };
 class ThrFiringSchmittAlgorithm final {
    public:
     void reset();
-    void configure(THRArrayConfigMsgF32Payload const& thrusterConfigPayload);
     THRArrayOnTimeCmdMsgF32Payload update(THRArrayCmdForceMsgF32Payload& thrForceIn);
+    void setupThrusters(THRArrayConfigMsgF32Payload const& thrusterConfigPayload);
     std::array<float, 2U> getLevelsOnOff() const;
     void setLevelsOnOff(float levelOn, float levelOff);
     float getThrMinFireTime() const;

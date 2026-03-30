@@ -8,19 +8,6 @@
  */
 void ThrFiringSchmittAlgorithm::reset() { this->prevThrustState.fill(ThrusterState::OFF); }
 
-/*! This method configures the module by populating any necessary class members.
- @return void
- @param thrusterConfigPayload thruster config message payload
- */
-void ThrFiringSchmittAlgorithm::configure(THRArrayConfigMsgF32Payload const& thrusterConfigPayload) {
-    /*! - store the number of installed thrusters */
-    this->numThrusters = thrusterConfigPayload.numThrusters;
-    /*! - loop over all thrusters and for each copy over maximum thrust, set last state to off */
-    for (uint32_t i = 0U; i < this->numThrusters; ++i) {
-        this->maxThrust[i] = thrusterConfigPayload.thrusters[i].maxThrust;
-    }
-}
-
 /*! This method maps the input thruster command forces into thruster on times using a remainder tracking logic.
  @return void
  @param thrForceIn Thruster array commanded force message payload
@@ -74,6 +61,19 @@ THRArrayOnTimeCmdMsgF32Payload ThrFiringSchmittAlgorithm::update(THRArrayCmdForc
         thrOnTimeOut.onTimeRequest[i] = onTime[i];
     }
     return thrOnTimeOut;
+}
+
+/*! Setter method for thruster configurations.
+ @return void
+ @param thrusterConfigPayload thruster config message payload
+ */
+void ThrFiringSchmittAlgorithm::setupThrusters(THRArrayConfigMsgF32Payload const& thrusterConfigPayload) {
+    /*! - store the number of installed thrusters */
+    this->numThrusters = thrusterConfigPayload.numThrusters;
+    /*! - loop over all thrusters and for each copy over maximum thrust, set last state to off */
+    for (uint32_t i = 0U; i < this->numThrusters; ++i) {
+        this->maxThrust[i] = thrusterConfigPayload.thrusters[i].maxThrust;
+    }
 }
 
 /**

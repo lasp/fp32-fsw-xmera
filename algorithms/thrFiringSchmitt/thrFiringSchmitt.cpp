@@ -15,7 +15,7 @@ void ThrFiringSchmitt::reset(uint64_t callTime) {
         throw std::invalid_argument("thrFiringSchmitt.thrForceInMsg wasn't connected.");
     }
 
-    this->algorithm.configure(this->thrConfInMsg());
+    this->algorithm.setupThrusters(this->thrConfInMsg());
     this->algorithm.reset();
 }
 
