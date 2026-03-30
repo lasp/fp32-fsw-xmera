@@ -20,9 +20,11 @@ class MimuMajorityVote : public SysModel {
    public:
     void reset(uint64_t callTime) final;
     void updateState(uint64_t callTime) final;
-    void addImuInput(const ImuMessage& imu);       //!< Method to add imus to the computation
-    void setOmegaThreshold(float omegaThreshold);  //!< Setter method for omegaThreshold
-    float getOmegaThreshold() const;               //!< Getter method for omegaThreshold
+    void addImuInput(const ImuMessage& imu);                        //!< Method to add imus to the computation
+    void setOmegaThreshold(float omegaThreshold);                   //!< Setter method for omegaThreshold
+    float getOmegaThreshold() const;                                //!< Getter method for omegaThreshold
+    void setFaultPersistenceLimit(uint32_t faultPersistenceLimit);  //!< Setter method for faultPersistenceLimit
+    uint32_t getFaultPersistenceLimit() const;                      //!< Getter method for faultPersistenceLimit
 
     Message<IMUSensorBodyMsgF32Payload> imuSensorBodyOutMsg;
     Message<MimuFaultMsgPayload> mimuFaultMsg;

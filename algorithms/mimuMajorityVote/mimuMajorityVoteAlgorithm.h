@@ -10,12 +10,17 @@
 /*!@brief Module to compute the majority vote of the mimus. */
 class MimuMajorityVoteAlgorithm {
    public:
-    MimuMajorityVoteOutput update(const std::array<MimuInput, kMimuCount>& imuInputs) const;
-    void setOmegaThreshold(float omegaThresholdIn);  //!< Setter method for omegaThreshold
-    float getOmegaThreshold() const;                 //!< Getter method for omegaThreshold
+    MimuMajorityVoteOutput update(const std::array<MimuInput, kMimuCount>& imuInputs);
+    void setOmegaThreshold(float omegaThresholdIn);                   //!< Setter method for omegaThreshold
+    float getOmegaThreshold() const;                                  //!< Getter method for omegaThreshold
+    void setFaultPersistenceLimit(uint32_t faultPersistenceLimitIn);  //!< Setter method for faultPersistenceLimit
+    uint32_t getFaultPersistenceLimit() const;                        //!< Getter method for faultPersistenceLimit
 
    private:
-    float omegaThreshold = 1.0F;  // The threshold in which we will determine one of the mimus is faulted (rad/s)
+    float omegaThreshold = 1.0F;          //!< Threshold to determine if a MIMU is faulted (rad/s)
+    uint32_t faultPersistenceLimit = 1U;  //!< Number of consecutive faults needed to trigger faultDetected
+
+    std::array<uint32_t, kMimuCount> faultPersistenceCount{};
 };
 
 #endif

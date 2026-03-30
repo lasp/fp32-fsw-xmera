@@ -62,8 +62,7 @@ void MimuMajorityVoteAlgorithm_destroy(MimuMajorityVoteAlgorithm* self);
  * @param imuInputs Pointer to array of IMU angular velocity 3-vectors (MIMU_COUNT_C elements).
  * @return MimuMajorityVoteOutput_c  The computed majority vote output.
  */
-MimuMajorityVoteOutput_c MimuMajorityVoteAlgorithm_update(MimuMajorityVoteAlgorithm* self,
-                                                          const Vector3f_c* imuInputs);
+MimuMajorityVoteOutput_c MimuMajorityVoteAlgorithm_update(MimuMajorityVoteAlgorithm* self, const Vector3f_c* imuInputs);
 
 /**
  * @brief Set the omega threshold for fault detection.
@@ -78,6 +77,20 @@ void MimuMajorityVoteAlgorithm_setOmegaThreshold(MimuMajorityVoteAlgorithm* self
  * @return float  The current omega threshold [rad/s].
  */
 float MimuMajorityVoteAlgorithm_getOmegaThreshold(const MimuMajorityVoteAlgorithm* self);
+
+/**
+ * @brief Set the fault persistence limit.
+ * @param self  Pointer to the instance.
+ * @param value The new fault persistence limit.
+ */
+void MimuMajorityVoteAlgorithm_setFaultPersistenceLimit(MimuMajorityVoteAlgorithm* self, uint32_t value);
+
+/**
+ * @brief Get the current fault persistence limit.
+ * @param self Pointer to the instance.
+ * @return uint32_t  The current fault persistence limit.
+ */
+uint32_t MimuMajorityVoteAlgorithm_getFaultPersistenceLimit(const MimuMajorityVoteAlgorithm* self);
 
 #ifdef __cplusplus
 }  // extern "C"

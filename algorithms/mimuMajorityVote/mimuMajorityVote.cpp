@@ -48,3 +48,9 @@ void MimuMajorityVote::setOmegaThreshold(float const omegaThreshold) {
 }
 
 float MimuMajorityVote::getOmegaThreshold() const { return this->algorithm.getOmegaThreshold(); }
+
+void MimuMajorityVote::setFaultPersistenceLimit(uint32_t const faultPersistenceLimit) {
+    this->algorithm.setFaultPersistenceLimit(faultPersistenceLimit);
+}
+
+uint32_t MimuMajorityVote::getFaultPersistenceLimit() const { return this->algorithm.getFaultPersistenceLimit(); }

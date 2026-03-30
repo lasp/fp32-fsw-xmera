@@ -54,3 +54,11 @@ void MimuMajorityVoteAlgorithm_setOmegaThreshold(MimuMajorityVoteAlgorithm* self
 float MimuMajorityVoteAlgorithm_getOmegaThreshold(const MimuMajorityVoteAlgorithm* self) {
     return reinterpret_cast<const ::MimuMajorityVoteAlgorithm*>(self)->getOmegaThreshold();
 }
+
+void MimuMajorityVoteAlgorithm_setFaultPersistenceLimit(MimuMajorityVoteAlgorithm* self, uint32_t value) {
+    reinterpret_cast<::MimuMajorityVoteAlgorithm*>(self)->setFaultPersistenceLimit(value);
+}
+
+uint32_t MimuMajorityVoteAlgorithm_getFaultPersistenceLimit(const MimuMajorityVoteAlgorithm* self) {
+    return reinterpret_cast<const ::MimuMajorityVoteAlgorithm*>(self)->getFaultPersistenceLimit();
+}

@@ -47,8 +47,9 @@ Algorithm Description
 ----------------------------
 
 The voting algorithm operates on :math:`n = 3` IMU measurements
-:math:`\boldsymbol{\omega}_i \in \mathbb{R}^3` (body-frame angular velocity, rad/s)
-and a scalar threshold :math:`T > 0` (rad/s).
+:math:`\boldsymbol{\omega}_i \in \mathbb{R}^3` (body-frame angular velocity, rad/s),
+a scalar threshold :math:`T > 0` (rad/s), and a persistence limit :math:`P \geq 1`
+(number of consecutive detections required to trigger a fault).
 
 **Outlier detection and averaging**
 
@@ -70,19 +71,25 @@ Identify the worst offender:
 
    k = \arg\max_i \; \delta_i
 
-If :math:`\delta_k \geq T`, IMU :math:`k` is flagged as invalid and the average of the
-remaining :math:`n-1` sensors is returned:
+**Fault persistence**
+
+Each IMU maintains an independent consecutive-detection counter :math:`c_i`. Each update:
+
+- If :math:`\delta_k \geq T`, increment :math:`c_k`; reset all other :math:`c_i` to zero.
+- If :math:`\delta_k < T`, reset all :math:`c_i` to zero.
+
+IMU :math:`i` is marked invalid when :math:`c_i \geq P`. Once marked invalid, it is
+excluded from the output average:
 
 .. math::
 
-   \bar{\boldsymbol{\omega}}_2 = \frac{1}{n-1} \sum_{i \neq k} \boldsymbol{\omega}_i
+   \bar{\boldsymbol{\omega}}_2 = \frac{1}{n-1} \sum_{i \,:\, c_i < P} \boldsymbol{\omega}_i
 
-If no measurement exceeds the threshold (:math:`\delta_k < T`), all sensors are
-considered valid and :math:`\bar{\boldsymbol{\omega}}` is returned directly.
+If no IMU is invalid, :math:`\bar{\boldsymbol{\omega}}` is returned directly.
 
 **Difference magnitudes in the output**
 
-The ``omegaDifferencesMag`` array is always populated with the Stage 1 values
+The ``omegaDifferencesMag`` array is always populated with the values
 :math:`\delta_i` for all sensors.
 
 **Valid-count invariant**
@@ -135,14 +142,18 @@ Standalone Algorithm (C++ API)
 
 **Configuration**
 
-The detection threshold is set via the ``setOmegaThreshold()`` / ``getOmegaThreshold()``
-accessor pair. The threshold must be strictly positive; a zero or negative value throws
-``fs::invalid_argument``.
+The detection threshold is set via ``setOmegaThreshold()`` / ``getOmegaThreshold()``.
+The threshold must be strictly positive; a zero or negative value throws ``fs::invalid_argument``.
+
+The fault persistence limit is set via ``setFaultPersistenceLimit()`` / ``getFaultPersistenceLimit()``.
+It must be at least 1 (default); zero throws ``fs::invalid_argument``. A value of 1
+triggers the fault immediately on first detection.
 
 .. code-block:: cpp
 
     MimuMajorityVoteAlgorithm alg{};
-    alg.setOmegaThreshold(0.05F);  // rad/s
+    alg.setOmegaThreshold(0.05F);        // rad/s
+    alg.setFaultPersistenceLimit(3U);    // require 3 consecutive detections
 
     std::array<MimuInput, kMimuCount> imuInputs{};
     imuInputs.at(0).angVelBody = omega0;

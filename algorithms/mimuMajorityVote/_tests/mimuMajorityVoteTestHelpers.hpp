@@ -8,10 +8,12 @@
 #include <Eigen/Core>
 #include <vector>
 
-// Reference computation for update — must mirror the production two-stage logic exactly
+// Reference computation for update — must mirror the production logic exactly
 MimuMajorityVoteOutput referenceUpdate(const MimuMajorityVoteAlgorithm& alg,
-                                       const std::array<MimuInput, kMimuCount>& imuInputs) {
+                                       const std::array<MimuInput, kMimuCount>& imuInputs,
+                                       std::array<uint32_t, kMimuCount>& persistenceCount) {
     float const omegaThreshold = alg.getOmegaThreshold();
+    uint32_t const persistenceLimit = alg.getFaultPersistenceLimit();
 
     // Stage 1: Compute average and find differences
     Eigen::Vector3f omegaAverage = Eigen::Vector3f::Zero();
@@ -30,26 +32,36 @@ MimuMajorityVoteOutput referenceUpdate(const MimuMajorityVoteAlgorithm& alg,
         out.validImus.at(i) = true;
     }
 
-    if (out.omegaDifferencesMag.at(maxDiffIndex) < omegaThreshold) {
+    // Update persistence counter for the worst outlier
+    bool faultDetected = false;
+    if (out.omegaDifferencesMag.at(maxDiffIndex) >= omegaThreshold) {
+        ++persistenceCount.at(maxDiffIndex);
+
+        // Determine if the outlier has persisted long enough to be faulted
+        if (persistenceCount.at(maxDiffIndex) >= persistenceLimit) {
+            faultDetected = true;
+            out.validImus.at(maxDiffIndex) = false;
+        }
+    } else {
+        persistenceCount.at(maxDiffIndex) = 0U;
+    }
+
+    // Reset counters for non-outlier IMUs
+    for (size_t i = 0U; i < kMimuCount; ++i) {
+        if (i != maxDiffIndex) {
+            persistenceCount.at(i) = 0U;
+        }
+    }
+
+    if (!faultDetected) {
         out.avgAngVelBody = omegaAverage;
         return out;
     }
 
-    // Stage 2: Exclude outlier and average the remaining IMUs
+    // Exclude outlier and average the remaining IMUs
     out.faultDetected = true;
-    out.validImus.at(maxDiffIndex) = false;
-
-    Eigen::Vector3f remainingAverage = Eigen::Vector3f::Zero();
-    size_t remainingCount = 0U;
-    for (size_t i = 0U; i < kMimuCount; ++i) {
-        if (i != maxDiffIndex) {
-            remainingAverage += imuInputs.at(i).angVelBody;
-            ++remainingCount;
-        }
-    }
-    remainingAverage /= static_cast<float>(remainingCount);
-
-    out.avgAngVelBody = remainingAverage;
+    out.avgAngVelBody = (omegaAverage * static_cast<float>(kMimuCount) - imuInputs.at(maxDiffIndex).angVelBody) /
+                        static_cast<float>(kMimuCount - 1U);
     return out;
 }
 
@@ -70,8 +82,9 @@ inline void regressionTestMimuMajorityVote(float omegaThreshold,
     EXPECT_NO_THROW(out = alg.update(imuInputs));
 
     // Reference output
+    std::array<uint32_t, kMimuCount> persistenceCount{};
     MimuMajorityVoteOutput ref{};
-    EXPECT_NO_THROW(ref = referenceUpdate(alg, imuInputs));
+    EXPECT_NO_THROW(ref = referenceUpdate(alg, imuInputs, persistenceCount));
 
     // Compare averaged angular velocity
     for (int i = 0; i < 3; ++i) {
