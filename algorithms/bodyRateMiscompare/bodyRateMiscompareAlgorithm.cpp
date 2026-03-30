@@ -4,22 +4,22 @@
 
 BodyRateMiscompareOutput BodyRateMiscompareAlgorithm::update(const Eigen::Vector3f& imuOmega_BN_B,
                                                              const Eigen::Vector3f& stOmega_BN_B) {
-    if (!this->faultDetected) {
+    if (!this->useImuRatesInternal) {
         if (const Eigen::Vector3f bodyRateDifference = stOmega_BN_B - imuOmega_BN_B;
             bodyRateDifference.norm() > this->bodyRateThreshold) {
             this->faultPersistenceCount += 1U;
         } else {
             this->faultPersistenceCount = 0U;
         }
+        this->useImuRatesInternal = this->faultPersistenceCount >= this->faultPersistenceLimit;
     }
 
     BodyRateMiscompareOutput bodyRateOut{};
     // If the rates disagree for as many calls as the faultPersistenceLimit, set the imu rates as the body rate;
     // if not, set the body rate as the star tracker rate.
-    if (this->faultPersistenceCount >= this->faultPersistenceLimit) {
+    if (this->useImuRatesInternal) {
         bodyRateOut.omega_BN_B = imuOmega_BN_B;
         bodyRateOut.bodyRateFaultDetected = true;
-        this->faultDetected = true;
     } else {
         bodyRateOut.omega_BN_B = stOmega_BN_B;
         bodyRateOut.bodyRateFaultDetected = false;
@@ -45,3 +45,10 @@ void BodyRateMiscompareAlgorithm::setFaultPersistenceLimit(uint32_t const faultP
 }
 
 uint32_t BodyRateMiscompareAlgorithm::getFaultPersistenceLimit() const { return this->faultPersistenceLimit; }
+
+void BodyRateMiscompareAlgorithm::setUseImuRates(bool const useImuRatesIn) {
+    this->useImuRates = useImuRatesIn;
+    this->useImuRatesInternal = this->useImuRates;
+}
+
+bool BodyRateMiscompareAlgorithm::getUseImuRates() const { return this->useImuRates; }

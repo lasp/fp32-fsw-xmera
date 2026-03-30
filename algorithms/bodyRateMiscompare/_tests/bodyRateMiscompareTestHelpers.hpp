@@ -23,13 +23,13 @@ inline BodyRateMiscompareOutput referenceUpdate(const float threshold,
         } else {
             faultPersistenceCount = 0U;
         }
+        faultDetected = faultPersistenceCount >= faultPersistenceLimit;
     }
 
     BodyRateMiscompareOutput out{};
-    if (faultPersistenceCount >= faultPersistenceLimit) {
+    if (faultDetected) {
         out.omega_BN_B = imuOmega_BN_B;
         out.bodyRateFaultDetected = true;
-        faultDetected = true;
     } else {
         out.omega_BN_B = stOmega_BN_B;
         out.bodyRateFaultDetected = false;
@@ -134,6 +134,23 @@ inline void propertyOutputIsFinite(std::vector<float> imuVec, std::vector<float>
         for (int i = 0; i < 3; ++i) {
             EXPECT_TRUE(std::isfinite(out.omega_BN_B[i]));
         }
+    }
+}
+
+// When useImuRates is set, output is always the IMU rate with fault flag true.
+inline void propertyUseImuRatesAlwaysOutputsImu(std::vector<float> imuVec, std::vector<float> stVec) {
+    const Eigen::Vector3f imu(imuVec[0], imuVec[1], imuVec[2]);
+    const Eigen::Vector3f st(stVec[0], stVec[1], stVec[2]);
+
+    BodyRateMiscompareAlgorithm alg{};
+    alg.setBodyRateThreshold(0.5F);
+    alg.setFaultPersistenceLimit(1);
+    alg.setUseImuRates(true);
+
+    for (int step = 0; step < 5; ++step) {
+        auto out = alg.update(imu, st);
+        EXPECT_TRUE(out.bodyRateFaultDetected);
+        EXPECT_EQ(out.omega_BN_B, imu);
     }
 }
 

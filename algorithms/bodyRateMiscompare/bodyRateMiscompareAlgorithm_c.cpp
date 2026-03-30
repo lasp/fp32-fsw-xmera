@@ -45,3 +45,11 @@ void BodyRateMiscompareAlgorithm_setFaultPersistenceLimit(BodyRateMiscompareAlgo
 uint32_t BodyRateMiscompareAlgorithm_getFaultPersistenceLimit(const BodyRateMiscompareAlgorithm* self) {
     return reinterpret_cast<const ::BodyRateMiscompareAlgorithm*>(self)->getFaultPersistenceLimit();
 }
+
+void BodyRateMiscompareAlgorithm_setUseImuRates(BodyRateMiscompareAlgorithm* self, bool useImuRates) {
+    reinterpret_cast<::BodyRateMiscompareAlgorithm*>(self)->setUseImuRates(useImuRates);
+}
+
+bool BodyRateMiscompareAlgorithm_getUseImuRates(const BodyRateMiscompareAlgorithm* self) {
+    return reinterpret_cast<const ::BodyRateMiscompareAlgorithm*>(self)->getUseImuRates();
+}

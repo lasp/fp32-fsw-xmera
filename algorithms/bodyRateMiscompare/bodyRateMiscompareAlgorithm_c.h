@@ -80,6 +80,20 @@ void BodyRateMiscompareAlgorithm_setFaultPersistenceLimit(BodyRateMiscompareAlgo
  */
 uint32_t BodyRateMiscompareAlgorithm_getFaultPersistenceLimit(const BodyRateMiscompareAlgorithm* self);
 
+/**
+ * @brief Set the useImuRates flag.
+ * @param self         Pointer to the instance.
+ * @param useImuRates  If true, always output IMU rates regardless of miscompare.
+ */
+void BodyRateMiscompareAlgorithm_setUseImuRates(BodyRateMiscompareAlgorithm* self, bool useImuRates);
+
+/**
+ * @brief Get the current useImuRates flag.
+ * @param self Pointer to the instance.
+ * @return bool  The current useImuRates value.
+ */
+bool BodyRateMiscompareAlgorithm_getUseImuRates(const BodyRateMiscompareAlgorithm* self);
+
 #ifdef __cplusplus
 }  // extern "C"
 #endif

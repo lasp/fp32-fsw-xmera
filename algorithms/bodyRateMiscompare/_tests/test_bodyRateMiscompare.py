@@ -91,6 +91,27 @@ def test_body_rate_miscompare_fault_with_persistence():
     )
 
 
+def test_body_rate_miscompare_use_imu_rates():
+    """Test that useImuRates forces IMU rate output even when inputs agree"""
+    body_rate_threshold_rad_per_sec = np.deg2rad(1.0)
+
+    angular_velocity_mimu = np.array([-0.1, 0.2, -0.3])
+    angular_velocity_star_tracker = np.array([-0.1, 0.2, -0.31])  # no miscompare
+
+    # With useImuRates=True, the module should output the IMU rate
+    expected_output_angular_velocity = angular_velocity_mimu
+    expected_output_fault = True
+
+    run_test(
+        body_rate_threshold_rad_per_sec,
+        angular_velocity_mimu,
+        angular_velocity_star_tracker,
+        expected_output_angular_velocity,
+        expected_output_fault,
+        use_imu_rates=True,
+    )
+
+
 def run_test(
     body_rate_threshold_rad_per_sec,
     angular_velocity_mimu,
@@ -99,6 +120,7 @@ def run_test(
     expected_output_fault,
     fault_persistence_limit=1,
     num_steps=1,
+    use_imu_rates=False,
 ):
     unit_task_name = "unitTask"
     unit_process_name = "TestProcess"
@@ -115,6 +137,7 @@ def run_test(
 
     module.bodyRateThreshold = body_rate_threshold_rad_per_sec
     module.faultPersistenceLimit = fault_persistence_limit
+    module.useImuRates = use_imu_rates
 
     # Initialize Imu rate from majority vote
     input_message_data = messaging.IMUSensorBodyMsgF32Payload()
@@ -152,6 +175,7 @@ def run_test(
         module.bodyRateThreshold, body_rate_threshold_rad_per_sec, rtol=0, atol=1e-7, verbose=True
     )
     np.testing.assert_equal(module.faultPersistenceLimit, fault_persistence_limit)
+    np.testing.assert_equal(module.useImuRates, use_imu_rates)
 
 
 if __name__ == "__main__":

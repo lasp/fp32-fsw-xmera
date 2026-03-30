@@ -14,13 +14,16 @@ class BodyRateMiscompareAlgorithm {
     float getBodyRateThreshold() const;
     void setFaultPersistenceLimit(uint32_t faultPersistenceLimitIn);
     uint32_t getFaultPersistenceLimit() const;
+    void setUseImuRates(bool useImuRatesIn);
+    bool getUseImuRates() const;
 
    private:
     float bodyRateThreshold{};            // rate threshold to trigger body rate miscompare fault
     uint32_t faultPersistenceLimit = 1U;  // number of consecutive update calls needed to trigger the fault
+    bool useImuRates{};                   // force to use IMU rates, even if rates agree and no fault is triggered
 
-    bool faultDetected{};
     uint32_t faultPersistenceCount{};
+    bool useImuRatesInternal{};  // this separate variable can change without changing the settable parameter
 };
 
 #endif

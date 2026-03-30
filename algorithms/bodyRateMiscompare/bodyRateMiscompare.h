@@ -23,6 +23,8 @@ class BodyRateMiscompare final : public SysModel {
     double getBodyRateThreshold() const;
     void setFaultPersistenceLimit(uint32_t faultPersistenceLimit);
     uint32_t getFaultPersistenceLimit() const;
+    void setUseImuRates(bool useImuRates);
+    bool getUseImuRates() const;
 
     ReadFunctor<IMUSensorBodyMsgF32Payload> imuSensorBodyInMsg;  //!< imu input message
     ReadFunctor<STAttMsgPayload> stBodyInMsg;                    //!< star tracker input message

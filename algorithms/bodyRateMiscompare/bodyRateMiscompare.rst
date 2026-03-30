@@ -55,6 +55,12 @@ The following table lists all the module parameters that can be set.
       - 1
       - Number of consecutive threshold violations required to declare a fault
       - Must be >= 1 (checked in setter)
+    * - useImuRates
+      - bool
+      - [-]
+      - false
+      - When true, always output IMU rates regardless of miscompare detection
+      - N/A
 
 Algorithm Input/Output
 -------------------------------
@@ -122,6 +128,9 @@ Once a fault has been declared, it persists: the algorithm continues to output t
 all subsequent calls, regardless of the input values. The persistence counter is no longer evaluated after the fault
 is triggered.
 
+The ``useImuRates`` parameter can be set by the user to force the algorithm to output IMU rates without waiting for a
+fault to be detected. When set to true, the algorithm bypasses the miscompare logic and always outputs the IMU rate.
+
 Algorithm Assumptions and Limitations
 -------------------------------------
 - The two input rates must be expressed in the same frame and units.
@@ -147,6 +156,7 @@ Typical usage in Python is::
     module.modelTag = "bodyRateMiscompare"
     module.bodyRateThreshold = body_rate_threshold_rad_per_sec
     module.faultPersistenceLimit = 3  # require 3 consecutive violations before declaring fault
+    module.useImuRates = True  # optionally force IMU rate output without waiting for a fault
 
     module.imuSensorBodyInMsg.subscribeTo(imu_msg)
     module.stBodyInMsg.subscribeTo(st_msg)

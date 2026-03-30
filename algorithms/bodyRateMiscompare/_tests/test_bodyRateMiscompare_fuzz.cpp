@@ -58,6 +58,10 @@ FUZZ_TEST(BodyRateMiscomparePropertyFuzz, propertyFaultIsSticky)
     .WithDomains(fuzztest::VectorOf(fuzztest::InRange(-1e6F, 1e6F)).WithSize(3),
                  fuzztest::VectorOf(fuzztest::InRange(-1e6F, 1e6F)).WithSize(3));
 
+FUZZ_TEST(BodyRateMiscomparePropertyFuzz, propertyUseImuRatesAlwaysOutputsImu)
+    .WithDomains(fuzztest::VectorOf(fuzztest::InRange(-1e6F, 1e6F)).WithSize(3),
+                 fuzztest::VectorOf(fuzztest::InRange(-1e6F, 1e6F)).WithSize(3));
+
 FUZZ_TEST(BodyRateMiscomparePropertyFuzz, propertyOutputIsFinite)
     .WithDomains(fuzztest::VectorOf(fuzztest::InRange(-1e6F, 1e6F)).WithSize(3),
                  fuzztest::VectorOf(fuzztest::InRange(-1e6F, 1e6F)).WithSize(3));

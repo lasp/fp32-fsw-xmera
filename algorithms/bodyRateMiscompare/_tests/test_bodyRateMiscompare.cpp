@@ -6,15 +6,17 @@
 static void runRegressionCase(float threshold,
                               uint32_t faultPersistenceLimit,
                               const std::array<float, 3>& imuVec,
-                              const std::array<float, 3>& stVec) {
+                              const std::array<float, 3>& stVec,
+                              bool useImuRates = false) {
     BodyRateMiscompareAlgorithm alg{};
     alg.setBodyRateThreshold(threshold);
     alg.setFaultPersistenceLimit(faultPersistenceLimit);
+    alg.setUseImuRates(useImuRates);
 
     const Eigen::Vector3f imu = toEigenVector(imuVec);
     const Eigen::Vector3f st = toEigenVector(stVec);
 
-    bool refFaultDetected = false;
+    bool refFaultDetected = useImuRates;
     uint32_t refFaultPersistenceCount = 0;
 
     int numSteps = 5;
@@ -60,6 +62,14 @@ TEST(BodyRateMiscompareTest, RegressionTestNoFaultWithPersistence) {
     runRegressionCase(1.0F, 3, {0.1F, -0.2F, 0.3F}, {0.2F, -0.1F, 0.1F});
 }
 
+TEST(BodyRateMiscompareTest, RegressionTestUseImuRatesTrue) {
+    runRegressionCase(1.0F, 1, {0.1F, -0.2F, 0.3F}, {0.2F, -0.1F, 0.1F}, true);
+}
+
+TEST(BodyRateMiscompareTest, RegressionTestUseImuRatesFalse) {
+    runRegressionCase(1.0F, 1, {0.1F, -0.2F, 0.3F}, {0.2F, -0.1F, 0.1F}, false);
+}
+
 TEST(BodyRateMiscompareTest, SetupTest) {
     BodyRateMiscompareAlgorithm alg{};
     alg.setBodyRateThreshold(0.25F);
@@ -72,6 +82,10 @@ TEST(BodyRateMiscompareTest, SetupTest) {
     EXPECT_THROW(alg.setBodyRateThreshold(-0.1), fs::invalid_argument);
 
     EXPECT_THROW(alg.setFaultPersistenceLimit(0), fs::invalid_argument);
+
+    EXPECT_FALSE(alg.getUseImuRates());
+    alg.setUseImuRates(true);
+    EXPECT_TRUE(alg.getUseImuRates());
 }
 
 // ---------------------------------------------------------------------------
@@ -93,6 +107,11 @@ TEST(BodyRateMiscompareTest, IdenticalInputsNeverFault) { propertyIdenticalInput
 
 // Once fault triggers, it stays triggered on all subsequent calls.
 TEST(BodyRateMiscompareTest, FaultIsSticky) { propertyFaultIsSticky({0.0F, 0.0F, 0.0F}, {1.0F, 0.0F, 0.0F}); }
+
+// When useImuRates is set, output is always IMU rate.
+TEST(BodyRateMiscompareTest, UseImuRatesAlwaysOutputsImu) {
+    propertyUseImuRatesAlwaysOutputsImu({0.1F, -0.2F, 0.3F}, {1.0F, 0.5F, -0.5F});
+}
 
 // All output components are finite for finite inputs.
 TEST(BodyRateMiscompareTest, OutputIsAlwaysFinite) {
@@ -199,6 +218,23 @@ TEST(BodyRateMiscompareTest, SingleAxisDifference) {
     auto out = alg.update(imu, st);
     EXPECT_TRUE(out.bodyRateFaultDetected);
     EXPECT_EQ(out.omega_BN_B, imu);
+}
+
+// Setting useImuRates forces IMU output even when inputs agree.
+TEST(BodyRateMiscompareTest, UseImuRatesForceOutput) {
+    BodyRateMiscompareAlgorithm alg{};
+    alg.setBodyRateThreshold(1.0F);
+    alg.setFaultPersistenceLimit(1);
+    alg.setUseImuRates(true);
+
+    const Eigen::Vector3f imu(0.1F, 0.2F, 0.3F);
+    const Eigen::Vector3f st(0.1F, 0.2F, 0.31F);  // no miscompare
+
+    for (int step = 0; step < 5; ++step) {
+        auto out = alg.update(imu, st);
+        EXPECT_TRUE(out.bodyRateFaultDetected);
+        EXPECT_EQ(out.omega_BN_B, imu);
+    }
 }
 
 // Very large but finite inputs produce finite output.

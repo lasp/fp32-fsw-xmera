@@ -60,3 +60,7 @@ void BodyRateMiscompare::setFaultPersistenceLimit(uint32_t const faultPersistenc
 }
 
 uint32_t BodyRateMiscompare::getFaultPersistenceLimit() const { return this->algorithm.getFaultPersistenceLimit(); }
+
+void BodyRateMiscompare::setUseImuRates(bool const useImuRates) { this->algorithm.setUseImuRates(useImuRates); }
+
+bool BodyRateMiscompare::getUseImuRates() const { return this->algorithm.getUseImuRates(); }
