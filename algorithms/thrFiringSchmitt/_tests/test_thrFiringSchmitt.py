@@ -1,16 +1,33 @@
 import numpy
 import pytest
-from xmera.architecture import messaging
 from xmera.fp32 import thrFiringSchmittF32
 from xmera.utilities import SimulationBaseClass
 from xmera.utilities import macros
 
-import sys
-import os
-file_path = os.path.dirname(os.path.abspath(__file__))
-abs_path = os.path.abspath(os.path.join(file_path, "../../utilities"))
-sys.path.insert(0, abs_path)
-import fswSetupThrusters
+from xmera.architecture.messaging import (
+    THRArrayConfigMsgF32,
+    THRArrayConfigMsgF32Payload,
+    THRArrayCmdForceMsgF32,
+    THRArrayCmdForceMsgF32Payload,
+)
+
+
+def create_thruster_array_config_msg(thrusters: list[dict]) -> THRArrayConfigMsgF32:
+    """
+    Create a thruster array config message from a list of thruster dicts.
+
+    Each dict must have keys: rThrust_B, tHatThrust_B, maxThrust
+    """
+    payload = THRArrayConfigMsgF32Payload()
+    for i, thr in enumerate(thrusters):
+        payload.thrusters[i].rThrust_B = thr["rThrust_B"]
+        payload.thrusters[i].tHatThrust_B = thr["tHatThrust_B"]
+        payload.thrusters[i].maxThrust = thr["maxThrust"]
+    payload.numThrusters = len(thrusters)
+
+    msg = THRArrayConfigMsgF32().write(payload)
+    msg.this.disown()
+    return msg
 
 
 @pytest.mark.parametrize("reset_check, thrust_pulsing_regime", [
@@ -44,37 +61,23 @@ def test_thr_firing_schmitt(show_plots, reset_check, thrust_pulsing_regime):
     module.controlPeriod = 0.5
 
     # setup thruster cluster message
-    fswSetupThrusters.clearSetup()
-    rcs_location_data = [
-        [-0.86360, -0.82550, 1.79070],
-        [-0.82550, -0.86360, 1.79070],
-        [0.82550, 0.86360, 1.79070],
-        [0.86360, 0.82550, 1.79070],
-        [-0.86360, -0.82550, -1.79070],
-        [-0.82550, -0.86360, -1.79070],
-        [0.82550, 0.86360, -1.79070],
-        [0.86360, 0.82550, -1.79070]
-        ]
-    rcs_direction_data = [
-        [1.0, 0.0, 0.0],
-        [0.0, 1.0, 0.0],
-        [0.0, -1.0, 0.0],
-        [-1.0, 0.0, 0.0],
-        [-1.0, 0.0, 0.0],
-        [0.0, -1.0, 0.0],
-        [0.0, 1.0, 0.0],
-        [1.0, 0.0, 0.0]
-        ]
-
-    for i in range(len(rcs_location_data)):
-        fswSetupThrusters.create(rcs_location_data[i], rcs_direction_data[i], 0.5)
-    thr_conf_msg = fswSetupThrusters.writeConfigMessage()
-    num_thrusters = fswSetupThrusters.getNumOfDevices()
+    thrusters = [
+        {"rThrust_B": [-0.86360, -0.82550,  1.79070], "tHatThrust_B": [ 1.0,  0.0, 0.0], "maxThrust": 0.5},
+        {"rThrust_B": [-0.82550, -0.86360,  1.79070], "tHatThrust_B": [ 0.0,  1.0, 0.0], "maxThrust": 0.5},
+        {"rThrust_B": [ 0.82550,  0.86360,  1.79070], "tHatThrust_B": [ 0.0, -1.0, 0.0], "maxThrust": 0.5},
+        {"rThrust_B": [ 0.86360,  0.82550,  1.79070], "tHatThrust_B": [-1.0,  0.0, 0.0], "maxThrust": 0.5},
+        {"rThrust_B": [-0.86360, -0.82550, -1.79070], "tHatThrust_B": [-1.0,  0.0, 0.0], "maxThrust": 0.5},
+        {"rThrust_B": [-0.82550, -0.86360, -1.79070], "tHatThrust_B": [ 0.0, -1.0, 0.0], "maxThrust": 0.5},
+        {"rThrust_B": [ 0.82550,  0.86360, -1.79070], "tHatThrust_B": [ 0.0,  1.0, 0.0], "maxThrust": 0.5},
+        {"rThrust_B": [ 0.86360,  0.82550, -1.79070], "tHatThrust_B": [ 1.0,  0.0, 0.0], "maxThrust": 0.5},
+    ]
+    num_thrusters = len(thrusters)
+    thr_conf_msg = create_thruster_array_config_msg(thrusters)
     module.thrConfInMsg.subscribeTo(thr_conf_msg)
 
     # setup thruster impulse request message
-    input_message_data = messaging.THRArrayCmdForceMsgF32Payload()
-    thr_cmd_msg = messaging.THRArrayCmdForceMsgF32()
+    input_message_data = THRArrayCmdForceMsgF32Payload()
+    thr_cmd_msg = THRArrayCmdForceMsgF32()
     module.thrForceInMsg.subscribeTo(thr_cmd_msg)
 
     # Setup logging on the test module output message so that we get all the writes to it
