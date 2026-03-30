@@ -1,6 +1,7 @@
 #ifndef F32XMERA_THR_FIRING_SCHMITT_H
 #define F32XMERA_THR_FIRING_SCHMITT_H
 
+#include <array>
 #include <cstdint>
 
 #include "msgPayloadDef/THRArrayCmdForceMsgF32Payload.h"
@@ -17,10 +18,8 @@ class ThrFiringSchmitt final : public SysModel {
 
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
-    float getLevelOn() const;
-    void setLevelOn(float level);
-    float getLevelOff() const;
-    void setLevelOff(float level);
+    void setLevelsOnOff(float levelOn, float levelOff);
+    std::array<float, 2> getLevelsOnOff() const;
     float getThrMinFireTime() const;
     void setThrMinFireTime(float time);
     uint32_t getBaseThrustState() const;
@@ -35,8 +34,6 @@ class ThrFiringSchmitt final : public SysModel {
 
    private:
     ThrFiringSchmittAlgorithm algorithm{};
-    float levelOn{};   //!< [-] ON duty cycle fraction
-    float levelOff{};  //!< [-] OFF duty cycle fraction
 };
 
 #endif  // F32XMERA_THR_FIRING_SCHMITT_H

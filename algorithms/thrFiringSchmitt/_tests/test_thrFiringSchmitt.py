@@ -44,8 +44,7 @@ def test_thr_firing_schmitt(show_plots, reset_check, dv_on):
     else:
         module.baseThrustState = 0
 
-    module.levelOn = .75
-    module.levelOff = .25
+    module.setLevelsOnOff(0.75, 0.25)
     module.controlPeriod = 0.5
 
     # setup thruster cluster message

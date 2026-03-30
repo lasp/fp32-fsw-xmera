@@ -52,18 +52,12 @@ The following table lists all the module parameters than can be set. The paramet
       - Default
       - Description
       - Bounds
-    * - levelOn (required)
-      - float
+    * - levelOn, levelOff (required, set together via ``setLevelsOnOff``)
+      - float, float
       - [-]
-      - 0
-      - ON duty cycle fraction
-      - 0.0 < levelOn :math:`\le` 1.0 (checked in setter)
-    * - levelOff
-      - float
-      - [-]
-      - 0
-      - OFF duty cycle fraction
-      - 0.0 :math:`\le` levelOff < 1.0 (checked in setter)
+      - 0, 0
+      - ON and OFF duty cycle fractions
+      - 0.0 < levelOn :math:`\le` 1.0, 0.0 :math:`\le` levelOff < 1.0, levelOn :math:`\ge` levelOff (checked in setter)
     * - thrMinFireTime (required)
       - float
       - [s]
@@ -83,7 +77,7 @@ The following table lists all the module parameters than can be set. The paramet
       - Control period (time between two update calls, i.e. 1/fsw_rate)
       - Must be greater than zero (checked in setter)
 
-Additionally, it is checked that ``levelOn`` is greater than ``levelOff``.
+The ``setLevelsOnOff`` setter validates that ``levelOn`` is greater than or equal to ``levelOff``.
 
 Module Assumptions and Limitations
 ----------------------------------
@@ -99,8 +93,7 @@ The module is configured by::
 
     module = thrFiringSchmitt.ThrFiringSchmitt()
     module.modelTag = "thrFiringSchmitt"
-    module.levelOn = 0.75
-    module.levelOff = 0.25
+    module.setLevelsOnOff(0.75, 0.25)
     module.thrMinFireTime = 0.02
     module.baseThrustState = 0  # on-pulsing
     module.controlPeriod = 0.5
