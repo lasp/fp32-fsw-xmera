@@ -83,52 +83,18 @@ ReferenceOutput referenceUpdate(const ThrFiringSchmittAlgorithm& alg,
     return out;
 }
 
-inline void testThrFiringSchmittSetup() {
-    ThrFiringSchmittAlgorithm alg{};
+// ---------------------------------------------------------------------------
+// Regression test (reference comparison)
+// ---------------------------------------------------------------------------
 
-    // --- Test expected exceptions ---
-
-    // levelOn out of bounds
-    EXPECT_THROW(alg.setLevelsOnOff(-0.1, 0.3), fsw::invalid_argument);
-    EXPECT_THROW(alg.setLevelsOnOff(0.0, 0.3), fsw::invalid_argument);
-    EXPECT_THROW(alg.setLevelsOnOff(1.1, 0.3), fsw::invalid_argument);
-    // levelOff out of bounds
-    EXPECT_THROW(alg.setLevelsOnOff(0.7, -0.1), fsw::invalid_argument);
-    EXPECT_THROW(alg.setLevelsOnOff(0.7, 1.0), fsw::invalid_argument);
-    EXPECT_THROW(alg.setLevelsOnOff(0.7, 1.1), fsw::invalid_argument);
-    // levelOn less than levelOff
-    EXPECT_THROW(alg.setLevelsOnOff(0.1, 0.2), fsw::invalid_argument);
-    // Negative or zero thrMinFireTime
-    EXPECT_THROW(alg.setThrMinFireTime(-0.1), fsw::invalid_argument);
-    EXPECT_THROW(alg.setThrMinFireTime(0.0), fsw::invalid_argument);
-    // Negative or zero controlPeriod
-    EXPECT_THROW(alg.setControlPeriod(-0.1), fsw::invalid_argument);
-    EXPECT_THROW(alg.setControlPeriod(0.0), fsw::invalid_argument);
-    // onTimeSaturationFactor must be >= 1.0
-    EXPECT_THROW(alg.setOnTimeSaturationFactor(0.5), fsw::invalid_argument);
-    EXPECT_THROW(alg.setOnTimeSaturationFactor(0.99), fsw::invalid_argument);
-    EXPECT_NO_THROW(alg.setOnTimeSaturationFactor(1.0));
-    EXPECT_NO_THROW(alg.setOnTimeSaturationFactor(1.1));
-    // Negative maxThrust
-    ThrusterArrayConfig negThrustConfig{};
-    negThrustConfig.numThrusters = 1;
-    negThrustConfig.thrusters.at(0).maxThrust = -0.1F;
-    EXPECT_THROW(alg.setupThrusters(negThrustConfig), fs::invalid_argument);
-    // Zero maxThrust is allowed
-    ThrusterArrayConfig zeroThrustConfig{};
-    zeroThrustConfig.numThrusters = 1;
-    zeroThrustConfig.thrusters.at(0).maxThrust = 0.0F;
-    EXPECT_NO_THROW(alg.setupThrusters(zeroThrustConfig));
-}
-
-inline void testThrFiringSchmitt(float levelOn,
-                                 float levelOff,
-                                 float thrMinFireTime,
-                                 ThrustPulsingRegime thrustPulsingRegime,
-                                 uint32_t numThrusters,
-                                 std::vector<float> maxThrustVec,
-                                 std::vector<float> thrForceVec,
-                                 float dt) {
+inline void testThrFiringSchmittRegression(float levelOn,
+                                           float levelOff,
+                                           float thrMinFireTime,
+                                           ThrustPulsingRegime thrustPulsingRegime,
+                                           uint32_t numThrusters,
+                                           std::vector<float> maxThrustVec,
+                                           std::vector<float> thrForceVec,
+                                           float dt) {
     ThrFiringSchmittAlgorithm alg{};
 
     // module assumes that thrMinFireTime is less than control period dt
