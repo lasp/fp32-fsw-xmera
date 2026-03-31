@@ -3,7 +3,6 @@
 
 #include <Eigen/Core>
 #include <array>
-#include <cstdint>
 
 #include "mimuMajorityVoteTypes.h"
 
