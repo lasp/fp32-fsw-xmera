@@ -20,11 +20,10 @@ TEST(MimuMajorityVoteTest, PropertyTestNominal) {
     MimuMajorityVoteAlgorithm alg{};
     float threshold = 1.0F;
     alg.setOmegaThreshold(threshold);
-    alg.setNumberOfImus(3U);
 
     Eigen::Vector3f baseRate(-0.1F, 0.25F, 0.3F);
 
-    std::array<MimuInput, MAX_IMU_VEH_COUNT> imuInputs{};
+    std::array<MimuInput, kMimuCount> imuInputs{};
     imuInputs.at(0).angVelBody = baseRate;
     imuInputs.at(1).angVelBody = baseRate + Eigen::Vector3f(0.01F, -0.01F, 0.005F);
     imuInputs.at(2).angVelBody = baseRate + Eigen::Vector3f(-0.005F, 0.01F, -0.01F);
@@ -48,12 +47,11 @@ TEST(MimuMajorityVoteTest, PropertyTestOffNominal) {
     MimuMajorityVoteAlgorithm alg{};
     float threshold = 0.05F;
     alg.setOmegaThreshold(threshold);
-    alg.setNumberOfImus(3U);
 
     Eigen::Vector3f baseRate(-0.1F, 0.25F, 0.3F);
     Eigen::Vector3f outlierRate = baseRate + Eigen::Vector3f(2.0F, 2.0F, 2.0F);
 
-    std::array<MimuInput, MAX_IMU_VEH_COUNT> imuInputs{};
+    std::array<MimuInput, kMimuCount> imuInputs{};
     imuInputs.at(0).angVelBody = baseRate;
     imuInputs.at(1).angVelBody = outlierRate;  // The outlier
     imuInputs.at(2).angVelBody = baseRate;
@@ -85,24 +83,4 @@ TEST(MimuMajorityVoteTest, SetupTest) {
     float threshold = 0.5F;
     EXPECT_NO_THROW(alg.setOmegaThreshold(threshold));
     EXPECT_NEAR(alg.getOmegaThreshold(), threshold, 1e-6);
-
-    // --- Test expected exceptions for numberOfImus ---
-
-    // Too few IMUs
-    EXPECT_THROW(alg.setNumberOfImus(0U), fs::invalid_argument);
-    EXPECT_THROW(alg.setNumberOfImus(2U), fs::invalid_argument);
-
-    // Too many IMUs
-    EXPECT_THROW(alg.setNumberOfImus(static_cast<size_t>(MAX_IMU_VEH_COUNT) + 1U), fs::invalid_argument);
-
-    // Valid counts
-    EXPECT_NO_THROW(alg.setNumberOfImus(3U));
-    EXPECT_EQ(alg.getNumberOfImus(), 3U);
-    EXPECT_NO_THROW(alg.setNumberOfImus(static_cast<size_t>(MAX_IMU_VEH_COUNT)));
-    EXPECT_EQ(alg.getNumberOfImus(), static_cast<size_t>(MAX_IMU_VEH_COUNT));
-
-    // --- Test update() guard when not configured ---
-    MimuMajorityVoteAlgorithm unconfigured{};
-    std::array<MimuInput, MAX_IMU_VEH_COUNT> imuInputs{};
-    EXPECT_THROW(unconfigured.update(imuInputs), fs::invalid_argument);
 }

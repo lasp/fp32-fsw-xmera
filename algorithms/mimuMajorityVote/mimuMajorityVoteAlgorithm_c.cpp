@@ -3,7 +3,7 @@
 
 #include <Eigen/Core>
 
-uint32_t MimuMajorityVoteAlgorithm_getMaxImuVehCount(void) { return MAX_IMU_VEH_COUNT; }
+uint32_t MimuMajorityVoteAlgorithm_getMimuCount(void) { return MIMU_COUNT_C; }
 
 MimuMajorityVoteAlgorithm* MimuMajorityVoteAlgorithm_create(void) {
     return reinterpret_cast<MimuMajorityVoteAlgorithm*>(new ::MimuMajorityVoteAlgorithm());
@@ -14,16 +14,12 @@ void MimuMajorityVoteAlgorithm_destroy(MimuMajorityVoteAlgorithm* self) {
 }
 
 MimuMajorityVoteOutput_c MimuMajorityVoteAlgorithm_update(MimuMajorityVoteAlgorithm* self,
-                                                          const Vector3f_c* imuInputs,
-                                                          uint32_t numberOfImus) {
+                                                          const Vector3f_c* imuInputs) {
     auto* alg = reinterpret_cast<::MimuMajorityVoteAlgorithm*>(self);
 
-    // Set the number of IMUs before calling update:
-    alg->setNumberOfImus(static_cast<size_t>(numberOfImus));
-
     // Convert POD Vector3f_c inputs to C++ MimuInput array:
-    std::array<MimuInput, MAX_IMU_VEH_COUNT> inputs{};
-    for (uint32_t i = 0; i < numberOfImus && i < MAX_IMU_VEH_COUNT; ++i) {
+    std::array<MimuInput, MIMU_COUNT_C> inputs{};
+    for (uint32_t i = 0; i < MIMU_COUNT_C; ++i) {
         inputs[i].angVelBody << imuInputs[i].data[0], imuInputs[i].data[1], imuInputs[i].data[2];
     }
 
@@ -40,7 +36,7 @@ MimuMajorityVoteOutput_c MimuMajorityVoteAlgorithm_update(MimuMajorityVoteAlgori
     // Reduce per-IMU validity to a single faulted index (-1 if no fault):
     out.mimuIndexFaulted = -1;
     if (cppOutput.faultDetected) {
-        for (uint32_t i = 0; i < numberOfImus && i < MAX_IMU_VEH_COUNT; ++i) {
+        for (uint32_t i = 0; i < MIMU_COUNT_C; ++i) {
             if (!cppOutput.validImus[i]) {
                 out.mimuIndexFaulted = static_cast<int32_t>(i);
                 break;

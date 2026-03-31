@@ -6,7 +6,7 @@ MIMU Majority Vote
 Executive Summary
 -----------------
 
-The MIMU Majority Vote module combines the angular velocity measurements from three or more
+The MIMU Majority Vote module combines the angular velocity measurements from exactly three
 Inertial Measurement Units (IMUs) into a single best-estimate body-frame angular velocity.
 It uses a two-stage outlier rejection algorithm: a single faulty sensor is first identified
 by comparing each measurement against the full-sensor average, then the remaining sensors are
@@ -39,14 +39,14 @@ The following table lists the Xmera message connections for the ``MimuMajorityVo
     * - ``mimuFaultMsg``
       - :ref:`MimuFaultMsgPayload`
       - Output message containing fault status, per-IMU validity flags
-        (``validImus[4]``), and per-IMU difference magnitudes
-        (``omegaDifferencesMag[4]``).
+        (``validImus[3]``), and per-IMU difference magnitudes
+        (``omegaDifferencesMag[3]``).
 
 ----------------------------
 Algorithm Description
 ----------------------------
 
-The voting algorithm operates on :math:`n \geq 3` IMU measurements
+The voting algorithm operates on :math:`n = 3` IMU measurements
 :math:`\boldsymbol{\omega}_i \in \mathbb{R}^3` (body-frame angular velocity, rad/s)
 and a scalar threshold :math:`T > 0` (rad/s). It runs in two sequential stages every
 update cycle.
@@ -124,13 +124,9 @@ Standalone Algorithm (C++ API)
       - Type
       - Description
     * - ``imuInputs``
-      - ``std::array<MimuInput, 4>``
-      - Array of IMU measurements. Only the first ``numberOfImus`` entries are used.
+      - ``std::array<MimuInput, kMimuCount>``
+      - Array of exactly 3 IMU measurements.
         Each entry contains ``angVelBody`` (:math:`\boldsymbol{\omega}_i`, rad/s).
-
-The number of active IMUs is fixed via ``setNumberOfImus()`` before the first
-``update()`` call. It must be in :math:`[3, \texttt{MAX\_IMU\_VEH\_COUNT}]`; a value
-outside this range throws ``fs::invalid_argument``.
 
 **Output** ``MimuMajorityVoteOutput``
 
@@ -150,12 +146,11 @@ outside this range throws ``fs::invalid_argument``.
       - ``bool``
       - ``true`` if any IMU has been marked invalid.
     * - ``omegaDifferencesMag``
-      - ``std::array<float, 4>``
+      - ``std::array<float, kMimuCount>``
       - Per-IMU difference magnitude (rad/s) as described above. Always populated.
     * - ``validImus``
-      - ``std::array<bool, 4>``
-      - Per-IMU validity flag. ``true`` means the sensor is trusted. Entries beyond
-        ``numberOfImus`` are ``false``.
+      - ``std::array<bool, kMimuCount>``
+      - Per-IMU validity flag. ``true`` means the sensor is trusted.
 
 **Configuration**
 
@@ -167,9 +162,8 @@ accessor pair. The threshold must be strictly positive; a zero or negative value
 
     MimuMajorityVoteAlgorithm alg{};
     alg.setOmegaThreshold(0.05F);  // rad/s
-    alg.setNumberOfImus(3U);       // fixed for the lifetime of the object
 
-    std::array<MimuInput, MAX_IMU_VEH_COUNT> imuInputs{};
+    std::array<MimuInput, kMimuCount> imuInputs{};
     imuInputs.at(0).angVelBody = omega0;
     imuInputs.at(1).angVelBody = omega1;
     imuInputs.at(2).angVelBody = omega2;
@@ -184,12 +178,9 @@ accessor pair. The threshold must be strictly positive; a zero or negative value
 Module Assumptions and Limitations
 -----------------------------------
 
-- ``setNumberOfImus()`` must be called before ``reset()``, with a value in
-  :math:`[3, \texttt{MAX\_IMU\_VEH\_COUNT}]`. The number of ``addImuInput()`` calls
-  must equal the configured value; a mismatch throws ``std::invalid_argument``.
-- The maximum number of connected IMUs is ``MAX_IMU_VEH_COUNT`` (currently 4).
-- The algorithm is designed for the 3-sensor case. With 4 sensors the same two-stage
-  logic applies: one outlier is removed and the remaining three are cross-checked.
+- Exactly ``kMimuCount`` (3) ``addImuInput()`` calls must be made before ``reset()``;
+  any other count throws ``std::invalid_argument``. Attempting to add more than
+  ``kMimuCount`` IMUs throws ``fs::invalid_argument``.
 - The threshold :math:`T` must be chosen to be meaningfully larger than the float32
   rounding error in the average computation (~3 × :math:`\varepsilon_\text{mach}` ×
   :math:`|\boldsymbol{\omega}|`). For angular rates up to 1000 rad/s this is
@@ -214,11 +205,8 @@ The Xmera module is instantiated and configured from Python as follows::
     # Set the detection threshold (rad/s)
     module.omegaThreshold = omegaThresholdRadPerSec
 
-    # Set the expected number of IMUs (must match the number of addImuInput() calls)
-    module.numberOfImus = len(imu_input_messages)
-
-    # Connect one ImuMessage per sensor
-    for imu_msg in imu_input_messages:
+    # Connect exactly 3 ImuMessage objects
+    for imu_msg in imu_input_messages:  # must have exactly 3 entries
         imu_entry = mimuMajorityVoteF32.ImuMessage()
         imu_entry.imuSensorBodyInMsg.subscribeTo(imu_msg)
         module.addImuInput(imu_entry)
@@ -229,6 +217,6 @@ The voted angular velocity is available on ``module.imuSensorBodyOutMsg`` and th
 fault status on ``module.mimuFaultMsg``. The ``mimuFaultMsg`` payload fields are:
 
 - ``faultDetected`` — ``bool``, mirrors ``MimuMajorityVoteOutput.faultDetected``.
-- ``validImus[4]`` — per-IMU validity flags; index matches the order sensors were
+- ``validImus[3]`` — per-IMU validity flags; index matches the order sensors were
   added via ``addImuInput()``.
-- ``omegaDifferencesMag[4]`` — per-IMU difference magnitude (rad/s); same ordering.
+- ``omegaDifferencesMag[3]`` — per-IMU difference magnitude (rad/s); same ordering.

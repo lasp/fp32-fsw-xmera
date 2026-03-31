@@ -1,11 +1,10 @@
 #ifndef F32XIMERA_MIMU_MAJORITY_VOTE_TYPES_H
 #define F32XIMERA_MIMU_MAJORITY_VOTE_TYPES_H
 
+#include "msgPayloadDef/definitions.h"
+
 #include <Eigen/Core>
 #include <array>
-#include <cstdint>
-
-constexpr uint32_t MAX_IMU_VEH_COUNT = 4U;
 
 /*! @brief Input angular velocity from a single IMU */
 struct MimuInput {
@@ -16,9 +15,9 @@ struct MimuInput {
 struct MimuMajorityVoteOutput {
     Eigen::Vector3f avgAngVelBody{}; /*!< [rad/s] Averaged angular velocity in body frame */
     bool faultDetected{};            /*!< Whether a MIMU fault was detected */
-    std::array<float, MAX_IMU_VEH_COUNT>
-        omegaDifferencesMag{}; /*!< [rad/s] Each IMU's difference magnitude from the 3-IMU average */
-    std::array<bool, MAX_IMU_VEH_COUNT> validImus{}; /*!< Whether each IMU is considered valid */
+    std::array<float, kMimuCount>
+        omegaDifferencesMag{};                /*!< [rad/s] Each IMU's difference magnitude from the 3-IMU average */
+    std::array<bool, kMimuCount> validImus{}; /*!< Whether each IMU is considered valid */
 };
 
 #endif  // F32XIMERA_MIMU_MAJORITY_VOTE_TYPES_H

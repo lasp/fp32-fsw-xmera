@@ -13,9 +13,9 @@ extern "C" {
 typedef struct MimuMajorityVoteAlgorithm MimuMajorityVoteAlgorithm;
 
 /**
- * @brief Maximum number of IMU vehicles.
+ * @brief Number of IMUs.
  */
-#define MAX_IMU_VEH_COUNT_C 4
+#define MIMU_COUNT_C 3
 
 /**
  * @brief POD representation of a 3-vector (Eigen::Vector3f).
@@ -39,10 +39,10 @@ typedef struct {
 } MimuMajorityVoteOutput_c;
 
 /**
- * @brief Get the MAX_IMU_VEH_COUNT constant for Ada validation.
- * @return The maximum IMU vehicle count (MAX_IMU_VEH_COUNT_C).
+ * @brief Get the kMimuCount constant for Ada validation.
+ * @return The IMU count (MIMU_COUNT_C).
  */
-uint32_t MimuMajorityVoteAlgorithm_getMaxImuVehCount(void);
+uint32_t MimuMajorityVoteAlgorithm_getMimuCount(void);
 
 /**
  * @brief Construct a new MimuMajorityVoteAlgorithm instance.
@@ -58,14 +58,12 @@ void MimuMajorityVoteAlgorithm_destroy(MimuMajorityVoteAlgorithm* self);
 
 /**
  * @brief Run the majority vote update step.
- * @param self         Pointer to the instance.
- * @param imuInputs    Pointer to array of IMU angular velocity 3-vectors (MAX_IMU_VEH_COUNT_C elements).
- * @param numberOfImus Number of valid IMU inputs in the array.
+ * @param self      Pointer to the instance.
+ * @param imuInputs Pointer to array of IMU angular velocity 3-vectors (MIMU_COUNT_C elements).
  * @return MimuMajorityVoteOutput_c  The computed majority vote output.
  */
 MimuMajorityVoteOutput_c MimuMajorityVoteAlgorithm_update(MimuMajorityVoteAlgorithm* self,
-                                                          const Vector3f_c* imuInputs,
-                                                          uint32_t numberOfImus);
+                                                          const Vector3f_c* imuInputs);
 
 /**
  * @brief Set the omega threshold for fault detection.

@@ -10,20 +10,19 @@
 
 // Reference computation for update — must mirror the production two-stage logic exactly
 MimuMajorityVoteOutput referenceUpdate(const MimuMajorityVoteAlgorithm& alg,
-                                       const std::array<MimuInput, MAX_IMU_VEH_COUNT>& imuInputs,
-                                       size_t numberOfImus) {
+                                       const std::array<MimuInput, kMimuCount>& imuInputs) {
     float const omegaThreshold = alg.getOmegaThreshold();
 
     // Stage 1: Compute average and find differences
     Eigen::Vector3f omegaAverage = Eigen::Vector3f::Zero();
-    for (size_t i = 0U; i < numberOfImus; ++i) {
+    for (size_t i = 0U; i < kMimuCount; ++i) {
         omegaAverage += imuInputs.at(i).angVelBody;
     }
-    omegaAverage /= static_cast<float>(numberOfImus);
+    omegaAverage /= static_cast<float>(kMimuCount);
 
     MimuMajorityVoteOutput out{};
     size_t maxDiffIndex = 0U;
-    for (size_t i = 0U; i < numberOfImus; ++i) {
+    for (size_t i = 0U; i < kMimuCount; ++i) {
         out.omegaDifferencesMag.at(i) = (imuInputs.at(i).angVelBody - omegaAverage).norm();
         if (out.omegaDifferencesMag.at(i) > out.omegaDifferencesMag.at(maxDiffIndex)) {
             maxDiffIndex = i;
@@ -42,7 +41,7 @@ MimuMajorityVoteOutput referenceUpdate(const MimuMajorityVoteAlgorithm& alg,
 
     Eigen::Vector3f remainingAverage = Eigen::Vector3f::Zero();
     size_t remainingCount = 0U;
-    for (size_t i = 0U; i < numberOfImus; ++i) {
+    for (size_t i = 0U; i < kMimuCount; ++i) {
         if (i != maxDiffIndex) {
             remainingAverage += imuInputs.at(i).angVelBody;
             ++remainingCount;
@@ -52,7 +51,7 @@ MimuMajorityVoteOutput referenceUpdate(const MimuMajorityVoteAlgorithm& alg,
 
     // Recheck remaining; update to Stage 2 differences
     bool remainingDisagree = false;
-    for (size_t i = 0U; i < numberOfImus; ++i) {
+    for (size_t i = 0U; i < kMimuCount; ++i) {
         if (i != maxDiffIndex) {
             float const diff = (imuInputs.at(i).angVelBody - remainingAverage).norm();
             out.omegaDifferencesMag.at(i) = diff;
@@ -63,7 +62,7 @@ MimuMajorityVoteOutput referenceUpdate(const MimuMajorityVoteAlgorithm& alg,
     }
 
     if (remainingDisagree) {
-        for (size_t j = 0U; j < numberOfImus; ++j) {
+        for (size_t j = 0U; j < kMimuCount; ++j) {
             out.validImus.at(j) = false;
         }
     }
@@ -76,12 +75,10 @@ inline void regressionTestMimuMajorityVote(float omegaThreshold,
                                            const std::vector<float>& angVel1,
                                            const std::vector<float>& angVel2,
                                            const std::vector<float>& angVel3) {
-    constexpr size_t kNumImus = 3U;
     MimuMajorityVoteAlgorithm alg{};
     alg.setOmegaThreshold(omegaThreshold);
-    alg.setNumberOfImus(kNumImus);
 
-    std::array<MimuInput, MAX_IMU_VEH_COUNT> imuInputs{};
+    std::array<MimuInput, kMimuCount> imuInputs{};
     imuInputs.at(0).angVelBody = Eigen::Map<const Eigen::Vector3f>(angVel1.data());
     imuInputs.at(1).angVelBody = Eigen::Map<const Eigen::Vector3f>(angVel2.data());
     imuInputs.at(2).angVelBody = Eigen::Map<const Eigen::Vector3f>(angVel3.data());
@@ -92,7 +89,7 @@ inline void regressionTestMimuMajorityVote(float omegaThreshold,
 
     // Reference output
     MimuMajorityVoteOutput ref{};
-    EXPECT_NO_THROW(ref = referenceUpdate(alg, imuInputs, kNumImus));
+    EXPECT_NO_THROW(ref = referenceUpdate(alg, imuInputs));
 
     // Compare averaged angular velocity
     for (int i = 0; i < 3; ++i) {
@@ -104,12 +101,12 @@ inline void regressionTestMimuMajorityVote(float omegaThreshold,
     EXPECT_EQ(out.faultDetected, ref.faultDetected);
 
     // Compare validImus
-    for (size_t i = 0U; i < kNumImus; ++i) {
+    for (size_t i = 0U; i < kMimuCount; ++i) {
         EXPECT_EQ(out.validImus.at(i), ref.validImus.at(i));
     }
 
     // Compare omegaDifferencesMag
-    for (size_t i = 0U; i < kNumImus; ++i) {
+    for (size_t i = 0U; i < kMimuCount; ++i) {
         EXPECT_NEAR(out.omegaDifferencesMag.at(i), ref.omegaDifferencesMag.at(i), 1e-6);
     }
 }

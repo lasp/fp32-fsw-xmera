@@ -34,7 +34,7 @@ def test_mimu_majority_vote_nominal():
     expected_angular_velocity += angular_velocity_3
     expected_angular_velocity /= 3.0
     expected_output_fault = False
-    expected_valid_imus = [True, True, True, False]
+    expected_valid_imus = [True, True, True]
 
     run_test(
         angular_velocity_1,
@@ -73,7 +73,7 @@ def test_mimu_majority_vote_off_nominal():
     expected_angular_velocity += angular_velocity_3
     expected_angular_velocity /= 2.0
     expected_output_fault = True
-    expected_valid_imus = [True, False, True, False]
+    expected_valid_imus = [True, False, True]
 
     run_test(
         angular_velocity_1,
@@ -110,7 +110,6 @@ def run_test(
     module.modelTag = "mimuMajorityVote"
 
     module.omegaThreshold = omega_threshold_rad_per_sec
-    module.numberOfImus = 3
 
     unit_test_sim.AddModelToTask(unit_task_name, module)
 
