@@ -109,6 +109,16 @@ inline void testThrFiringSchmittSetup() {
     EXPECT_THROW(alg.setOnTimeSaturationFactor(0.99), fsw::invalid_argument);
     EXPECT_NO_THROW(alg.setOnTimeSaturationFactor(1.0));
     EXPECT_NO_THROW(alg.setOnTimeSaturationFactor(1.1));
+    // Negative maxThrust
+    ThrusterArrayConfig negThrustConfig{};
+    negThrustConfig.numThrusters = 1;
+    negThrustConfig.thrusters.at(0).maxThrust = -0.1F;
+    EXPECT_THROW(alg.setupThrusters(negThrustConfig), fs::invalid_argument);
+    // Zero maxThrust is allowed
+    ThrusterArrayConfig zeroThrustConfig{};
+    zeroThrustConfig.numThrusters = 1;
+    zeroThrustConfig.thrusters.at(0).maxThrust = 0.0F;
+    EXPECT_NO_THROW(alg.setupThrusters(zeroThrustConfig));
 }
 
 inline void testThrFiringSchmitt(float levelOn,

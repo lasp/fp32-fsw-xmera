@@ -68,6 +68,9 @@ void ThrFiringSchmittAlgorithm::setupThrusters(ThrusterArrayConfig const& thrust
     this->numThrusters = thrusterConfig.numThrusters;
     /*! - loop over all thrusters and for each copy over maximum thrust */
     for (uint32_t i = 0U; i < this->numThrusters; ++i) {
+        if (thrusterConfig.thrusters.at(i).maxThrust < 0.0F) {
+            FSW_THROW_INVALID_ARGUMENT("ThrFiringSchmitt: maxThrust of each thruster must be >= 0.0");
+        }
         this->maxThrust.at(i) = thrusterConfig.thrusters.at(i).maxThrust;
     }
 }
