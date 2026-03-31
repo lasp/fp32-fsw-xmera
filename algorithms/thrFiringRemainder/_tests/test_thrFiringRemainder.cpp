@@ -170,6 +170,16 @@ TEST(ThrFiringRemainderTest, SetupTest) {
     EXPECT_THROW(alg.setOnTimeSaturationFactor(0.99), fsw::invalid_argument);
     EXPECT_NO_THROW(alg.setOnTimeSaturationFactor(1.0));
     EXPECT_NO_THROW(alg.setOnTimeSaturationFactor(1.1));
+    // Negative maxThrust
+    ThrusterArrayConfig negThrustConfig{};
+    negThrustConfig.numThrusters = 1;
+    negThrustConfig.thrusters.at(0).maxThrust = -0.1F;
+    EXPECT_THROW(alg.setThrusters(negThrustConfig), fsw::invalid_argument);
+    // Zero maxThrust is allowed
+    ThrusterArrayConfig zeroThrustConfig{};
+    zeroThrustConfig.numThrusters = 1;
+    zeroThrustConfig.thrusters.at(0).maxThrust = 0.0F;
+    EXPECT_NO_THROW(alg.setThrusters(zeroThrustConfig));
 }
 
 INSTANTIATE_TEST_SUITE_P(ThrFiringRemainder,

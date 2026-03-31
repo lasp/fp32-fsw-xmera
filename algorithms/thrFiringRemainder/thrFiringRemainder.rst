@@ -70,8 +70,7 @@ Algorithm Configuration
   thruster is nominally on, and actuation is achieved by momentarily turning a
   thruster off. This regime is commonly used when performing a delta-V maneuver,
   and the attitude control is achieved by periodically off-pulsing thrusters.
-- Max thrust is taken from configuration; if the provided value is :math:`\le 0`, the algorithm still uses it but
-  downstream behavior is undefined—callers must provide positive thrust capability.
+- Max thrust is taken from configuration; must be :math:`\ge 0` per thruster (negative values throw).
 
 Algorithm Assumptions
 ---------------------
