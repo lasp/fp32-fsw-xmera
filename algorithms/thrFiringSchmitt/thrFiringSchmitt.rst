@@ -10,7 +10,9 @@ A Schmitt trigger logic is implemented to map a desired thruster force value int
 The module reads in the attitude control thruster force values for both on- and off-pulsing scenarios, and then maps
 this into a time which specifies how long a thruster should be on. The thruster configuration data is read in through a
 separate input message in the reset method. The Schmitt trigger allows for an upper and lower bound where the thruster
-is either turned on or off. The paper `Steady-State Attitude and Control Effort Sensitivity Analysis of Discretized
+is either turned on or off. Commands that saturate the control period are over-driven by a configurable
+``onTimeSaturationFactor`` (default 1.0) to guarantee thrust for the full duration of the control period.
+The paper `Steady-State Attitude and Control Effort Sensitivity Analysis of Discretized
 Thruster Implementations <https://doi.org/10.2514/1.A33709>`__ includes a detailed discussion on the Schmitt Trigger
 and compares it to other thruster firing methods.
 
@@ -27,15 +29,17 @@ provides information on what this message is used for.
     * - Msg Variable Name
       - Msg Type
       - Description
-    * - thrForceInMsg
-      - :ref:`THRArrayCmdForceMsgPayload`
-      - thruster force input message
-    * - onTimeOutMsg
-      - :ref:`THRArrayOnTimeCmdMsgPayload`
-      - thruster on-time output message
     * - thrConfInMsg
-      - :ref:`THRArrayConfigMsgPayload`
-      - Thruster array configuration input message
+      - :ref:`THRArrayConfigMsgF32Payload`
+      - Read in ``reset()``. Contains ``numThrusters`` and per-thruster max thrust.
+    * - thrForceInMsg
+      - :ref:`THRArrayCmdForceMsgF32Payload`
+      - Read every ``updateState()``. Provides commanded forces :math:`F_i`. Values may be negative in
+        ``OFF_PULSING`` mode; negative forces are clamped to zero after the pulsing adjustment.
+    * - onTimeOutMsg
+      - :ref:`THRArrayOnTimeCmdMsgF32Payload`
+      - Thruster on-time requests :math:`t_i`. Values are non-negative, and may be set to
+        ``onTimeSaturationFactor *`` control period when saturation is detected.
 
 Module Parameters
 -------------------------------
@@ -62,7 +66,7 @@ The following table lists all the module parameters than can be set. The paramet
       - float
       - [s]
       - 0
-      - [s] Minimum ON time for thrusters
+      - Minimum ON time for thrusters
       - Must be greater than zero (checked in setter)
     * - thrustPulsingRegime
       - enum ThrustPulsingRegime
@@ -88,134 +92,65 @@ The ``setLevelsOnOff`` setter validates that ``levelOn`` is greater than or equa
 Module Assumptions and Limitations
 ----------------------------------
 
-The module assumes that the incoming forces :math:`F_{i}` can be both
-positive or negative, depending if an on- or off-pulsing mode is being
-implemented. The particular mode is set through ``thrustPulsingRegime``.
-It is also assumed that ``thrMinFireTime`` is less than the control period.
+- The incoming forces :math:`F_{i}` can be both positive or negative, depending if an on- or off-pulsing mode is being
+  implemented. The particular mode is set through ``thrustPulsingRegime``.
+- It is assumed that ``thrMinFireTime`` is less than the control period.
+- Max thrust is taken from configuration; must be :math:`\ge 0` per thruster (negative values throw).
 
 Initialization
 --------------
 The module is configured by::
 
-    module = thrFiringSchmitt.ThrFiringSchmitt()
+    module = thrFiringSchmittF32.ThrFiringSchmitt()
     module.modelTag = "thrFiringSchmitt"
     module.setLevelsOnOff(0.75, 0.25)
     module.thrMinFireTime = 0.02
     module.thrustPulsingRegime = thrFiringSchmittF32.ThrustPulsingRegime_ON_PULSING
     module.controlPeriod = 0.5
+    module.onTimeSaturationFactor = 1.1
 
 Detailed Module Description
 ---------------------------
 
-This module implements a Schmitt trigger thruster firing logic. Here if the minimum desired on-time
-:math:`t_{\text{min}}` is specified. If the commanded on-time
-:math:`t_{i}>t_{\text{min}}` then the thruster is turned off for the
-duration of :math:`t_{i}`. If :math:`t_{i}< t_{\text{min}}` then the
-Schmitt trigger logic is invoked. Let :math:`l` be the current thruster
-duty cycle relative to this minimum thruster firing time.
+This module implements a Schmitt trigger thruster firing logic. The minimum desired on-time
+:math:`\Delta t_{\text{min}}` is specified by the user. If the commanded on-time exceeds this minimum, the thruster
+fires for the computed duration. If the on-time falls below the minimum, the Schmitt trigger hysteresis logic
+determines whether the thruster should fire for the minimum duration or not fire at all.
 
-.. math:: l = \frac{t_{i}}{t_{\text{min}}}
+For thruster :math:`i` with commanded force :math:`F_i`, maximum thrust :math:`F_{\max,i}`, control period
+:math:`\Delta t`, and minimum on-time :math:`\Delta t_{\min}`:
 
-If :math:`l` is larger than a threshold :math:`l_{\text{on}}` then the
-thruster control time is set to :math:`t_{i} = t_{\text{min}}`. Once on,
-the thruster level must drop below a lower threshold
-:math:`l_{\text{off}}` to turn off again. The benefit of this logic is
-that it provides a good balance between fuel efficiency and pointing
-accuracy.
+#. ``OFF_PULSING`` adjustment (:math:`F_{i}\le 0`):
 
-Module Input and Output Messages
---------------------------------
+   .. math:: F_i = \begin{cases}
+      F_i + F_{\max,i}, & \text{if OFF\_PULSING}\\
+      F_i, & \text{if ON\_PULSING}
+      \end{cases}
 
-The module reads in two messages. One message contains the thruster
-configuration message from which the maximum thrust force value for each
-thruster is extracted and stored in the module. This message is only
-read in on ``reset()``.
+#. Clamp negative force:
 
-The second message reads in an array of requested thruster force values
-with every ``Update()`` function call. These force values :math:`F_{i}`
-can be positive if on-pulsing is requested, or negative if off-pulsing
-is required. On-pulsing is used to achieve an attitude control torque
-onto the spacecraft by turning on a thruster. Off-pulsing assumes a
-thruster is nominally on, such as with doing an extended orbit
-correction maneuver, and the attitude control is achieved by doing
-periodic off-pulsing.
+   .. math:: F_i = \max(F_i, 0)
 
-The output of the module is a message containing an array of thruster
-on-time requests. If these on-times are larger than the control period,
-then the thruster remains on only for the control period upon which the
-on-criteria is reevaluated.
+#. Nominal on-time from force request:
 
-reset() Functionality
----------------------
+   .. math:: t_i = \frac{F_i}{F_{\max,i}} \, \Delta t
 
-- The thruster configuration message is read in and the number of
-  thrusters is stored in the module variable ``numThrusters``. The
-  maximum force per thruster is stored in ``maxThrust``.
+#. Schmitt trigger logic (if :math:`t_i < \Delta t_{\min}`):
 
-- The previous thruster state variable ``prevThrustState`` is set to off
-  (i.e. false)
+   Compute the duty cycle :math:`l = t_i / \Delta t_{\min}`.
 
-Update() Functionality
-----------------------
+   - If :math:`l \ge l_{\text{on}}`: turn thruster on, :math:`t_i = \Delta t_{\min}`
+   - If :math:`l \le l_{\text{off}}`: turn thruster off, :math:`t_i = 0`
+   - Otherwise: maintain previous state (on :math:`\rightarrow \Delta t_{\min}`, off :math:`\rightarrow 0`)
 
-The goal of the ``update()`` method is to read in the current attitude
-control thruster force message and map these into a thruster on-time
-output message using the Schmitt trigger
-logic.:raw-latex:`\cite{Alcorn:2016rz}` The module sets a desired
-minimum thruster on time :math:`t_{\text{min}}`. This is typically not
-set to the lower limit of the thruster resolution, but rather to a value
-that provides a good duty cycle and avoids excessive short on-off
-switching. The cost naturally is a reduced pointing capability. Let the
-duty cycle :math:`l` be defined as the ratio between the commanded on
-time :math:`t_{i}` and :math:`t_{\text{min}}`. The thruster is turned on
-for a period :math:`t_{i} = t_{\text{min}}` if :math:`l` is larger than
-:math:`l_{\text{on}}`. The thruster then remains on until :math:`l`
-drops below a lower threshold :math:`l_{\text{off}}`. The benefit of
-this method is that it provides a good balance between fuel usage and
-pointing accuracy.:raw-latex:`\cite{Alcorn:2016rz}`
+#. Normal range (if :math:`\Delta t_{\min} \le t_i < \Delta t`):
 
-The configured control period :math:`\Delta t` is used directly to map
-the requested force :math:`F_{i}` into an on-time :math:`t_{i}`.
-A loop goes over each installed thruster using the following logic.
+   :math:`t_i` is used as-is. Thruster state is set to on.
 
-- If off-pulsing is used then :math:`F_{i}\le 0` and we set
+#. Saturation (if :math:`t_i \ge \Delta t`):
 
-  .. math:: F_{i} += F_{\text{max}}
+   .. math:: t_i = f_{\text{sat}} \, \Delta t
 
-  \ to a reduced thrust to achieve the negative :math:`F_{i}` force.
+   where :math:`f_{\text{sat}}` is the ``onTimeSaturationFactor`` (default 1.0).
 
-- Next, if :math:`F_{i} < 0` then it set to be equal to zero. This can
-  occur if an off-pulsing request is larger than the maximum thruster
-  force magnitude :math:`F_{\text{max}}`.
-
-- The nominal thruster on-time is computed using
-
-  .. math:: t_{i}  = \dfrac{F_{i}}{F_{\text{max}}} \Delta t
-
-- If :math:`\Delta t > t_{i} \ge t_{\text{min}}` the thruster on time is
-  set to :math:`t_{i}`
-
-- If :math:`t_{i} > \Delta t` then the thruster is saturated. In this
-  case the on-time is set to :math:`t_{i} = f_{\text{sat}}\,\Delta t` (where :math:`f_{\text{sat}}` is the
-  ``onTimeSaturationFactor``, default 1.0) such that the thruster remains on through the control period.
-
-- The Schmitt trigger logic occurs if :math:`t_{i} < t_{\text{min}}`. If
-  :math:`l>l_{\text{on}}` then :math:`t_{i} = t_{\text{min}}`. This
-  command of :math:`t_{i} = t_{\text{min}}` remains on as long as
-  :math:`l > l_{\text{off}}`. If :math:`l<l_{\text{off}}` then
-  :math:`t_{i} = 0` and the thruster is turned off again for the control
-  period.
-
-- The final step is to store the thruster on-time into and write out
-  this output message
-
-Module Functions
-================
-
-- **Read in thruster configuration message**: This is used to determine
-  the number of installed thrusters and what the maximum force is for
-  each.
-
-- **Convert thruster force requested into an on-time request**: Knowing
-  how strong the thruster is, the on-time is scaled such that the
-  effectively applied force is equal to the requested force.
+The output stores :math:`t_i` in ``onTimeRequest[i]``.
