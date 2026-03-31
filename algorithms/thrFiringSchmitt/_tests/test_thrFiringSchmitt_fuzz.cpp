@@ -1,5 +1,4 @@
 #include "thrFiringSchmittTestHelpers.hpp"
-#include <architecture/msgPayloadDef/definitions.h>
 #include <fuzztest/fuzztest.h>
 
 FUZZ_TEST(ThrFiringSchmittAlgorithmFuzz, testThrFiringSchmitt)

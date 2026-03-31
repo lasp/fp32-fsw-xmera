@@ -9,70 +9,66 @@
 void ThrFiringSchmittAlgorithm::reset() { this->prevThrustState.fill(ThrusterState::OFF); }
 
 /*! This method maps the input thruster command forces into thruster on times using a remainder tracking logic.
- @return void
- @param thrForceIn Thruster array commanded force message payload
+ @return ThrusterOnTimeCmd
+ @param thrusterForceCmd The commanded thruster forces
  */
-THRArrayOnTimeCmdMsgF32Payload ThrFiringSchmittAlgorithm::update(THRArrayCmdForceMsgF32Payload& thrForceIn) {
-    THRArrayOnTimeCmdMsgF32Payload thrOnTimeOut{}; /* -- thruster on-time output payload */
+ThrusterOnTimeCmd ThrFiringSchmittAlgorithm::update(ThrusterForceCmd thrusterForceCmd) {
+    ThrusterOnTimeCmd thrOnTimeOut{};
 
-    std::array<float, kMaxThrusterCount> thrForce{};
-    std::ranges::copy(std::begin(thrForceIn.thrForce), std::end(thrForceIn.thrForce), std::begin(thrForce));
-
-    std::array<float, kMaxThrusterCount> onTime{}; /* [s] array of commanded on time for thrusters */
     /*! - Loop through thrusters */
     for (uint32_t i = 0U; i < this->numThrusters; ++i) {
         /*! - Correct for off-pulsing if necessary.  Here the requested force is negative, and the maximum thrust
          needs to be added.  If not control force is requested in off-pulsing mode, then the thruster force should
          be set to the maximum thrust value */
         if (this->thrustPulsingRegime == ThrustPulsingRegime::OFF_PULSING) {
-            thrForce[i] += this->maxThrust[i];
+            thrusterForceCmd.thrForce.at(i) += this->maxThrust.at(i);
         }
 
         /*! - Do not allow thrust requests less than zero */
-        thrForce[i] = std::max(thrForce[i], 0.0F);
+        thrusterForceCmd.thrForce.at(i) = std::max(thrusterForceCmd.thrForce.at(i), 0.0F);
         /*! - Compute T_on from thrust request, max thrust, and control period */
-        onTime[i] = thrForce[i] / this->maxThrust[i] * this->controlPeriod;
+        float onTime = thrusterForceCmd.thrForce.at(i) / this->maxThrust.at(i) * this->controlPeriod;
 
         /*! - Apply Schmitt trigger logic */
-        if (onTime[i] < this->thrMinFireTime) {
+        if (onTime < this->thrMinFireTime) {
             /*! - Request is less than minimum fire time */
-            const float level = onTime[i] / this->thrMinFireTime; /* [-] duty cycle fraction */
+            const float level = onTime / this->thrMinFireTime; /* [-] duty cycle fraction */
             if (level >= this->levelOn) {
-                this->prevThrustState[i] = ThrusterState::ON;
-                onTime[i] = this->thrMinFireTime;
+                this->prevThrustState.at(i) = ThrusterState::ON;
+                onTime = this->thrMinFireTime;
             } else if (level <= this->levelOff) {
-                this->prevThrustState[i] = ThrusterState::OFF;
-                onTime[i] = 0.0F;
-            } else if (this->prevThrustState[i] == ThrusterState::ON) {
-                onTime[i] = this->thrMinFireTime;
+                this->prevThrustState.at(i) = ThrusterState::OFF;
+                onTime = 0.0F;
+            } else if (this->prevThrustState.at(i) == ThrusterState::ON) {
+                onTime = this->thrMinFireTime;
             } else {
-                onTime[i] = 0.0F;
+                onTime = 0.0F;
             }
-        } else if (onTime[i] >= this->controlPeriod) {
+        } else if (onTime >= this->controlPeriod) {
             /*! - Request is greater than control period then oversaturate onTime */
-            this->prevThrustState[i] = ThrusterState::ON;
-            onTime[i] = this->onTimeSaturationFactor * this->controlPeriod;
+            this->prevThrustState.at(i) = ThrusterState::ON;
+            onTime = this->onTimeSaturationFactor * this->controlPeriod;
         } else {
             /*! - Request is greater than minimum fire time and less than control period */
-            this->prevThrustState[i] = ThrusterState::ON;
+            this->prevThrustState.at(i) = ThrusterState::ON;
         }
 
         /*! Set the output data */
-        thrOnTimeOut.onTimeRequest[i] = onTime[i];
+        thrOnTimeOut.onTimeRequest.at(i) = onTime;
     }
     return thrOnTimeOut;
 }
 
 /*! Setter method for thruster configurations.
  @return void
- @param thrusterConfigPayload thruster config message payload
+ @param thrusterConfig thruster array configuration
  */
-void ThrFiringSchmittAlgorithm::setupThrusters(THRArrayConfigMsgF32Payload const& thrusterConfigPayload) {
+void ThrFiringSchmittAlgorithm::setupThrusters(ThrusterArrayConfig const& thrusterConfig) {
     /*! - store the number of installed thrusters */
-    this->numThrusters = thrusterConfigPayload.numThrusters;
-    /*! - loop over all thrusters and for each copy over maximum thrust, set last state to off */
+    this->numThrusters = thrusterConfig.numThrusters;
+    /*! - loop over all thrusters and for each copy over maximum thrust */
     for (uint32_t i = 0U; i < this->numThrusters; ++i) {
-        this->maxThrust[i] = thrusterConfigPayload.thrusters[i].maxThrust;
+        this->maxThrust.at(i) = thrusterConfig.thrusters.at(i).maxThrust;
     }
 }
 

@@ -1,23 +1,17 @@
 #ifndef F32XMERA_THR_FIRING_SCHMITT_ALGORITHM_H
 #define F32XMERA_THR_FIRING_SCHMITT_ALGORITHM_H
 
+#include "thrFiringSchmittTypes.h"
 #include <stdint.h>
-
 #include <array>
 
-#include "msgPayloadDef/THRArrayCmdForceMsgF32Payload.h"
-#include "msgPayloadDef/THRArrayConfigMsgF32Payload.h"
-#include "msgPayloadDef/THRArrayOnTimeCmdMsgF32Payload.h"
-#include "msgPayloadDef/definitions.h"
-
-enum class ThrustPulsingRegime : std::uint8_t { ON_PULSING = 0U, OFF_PULSING = 1U };
 enum class ThrusterState { OFF = 0, ON = 1 };
 
 class ThrFiringSchmittAlgorithm final {
    public:
     void reset();
-    THRArrayOnTimeCmdMsgF32Payload update(THRArrayCmdForceMsgF32Payload& thrForceIn);
-    void setupThrusters(THRArrayConfigMsgF32Payload const& thrusterConfigPayload);
+    ThrusterOnTimeCmd update(ThrusterForceCmd thrusterForceCmd);
+    void setupThrusters(ThrusterArrayConfig const& thrusterConfig);
     std::array<float, 2U> getLevelsOnOff() const;
     void setLevelsOnOff(float levelOn, float levelOff);
     float getThrMinFireTime() const;
