@@ -3,6 +3,8 @@
 #include "../freestandingInvalidArgument.h"
 #include <algorithm>
 
+using namespace f32;
+
 /*! This method takes the navigation message snippets created by the various
     navigation components in the FSW and aggregates them into a single complete
     navigation message.

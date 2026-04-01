@@ -9,6 +9,8 @@
 
 #include <stdint.h>
 
+namespace f32 {
+
 /*! structure containing the attitude navigation message name, ID and local buffer*/
 typedef struct {
     ReadFunctor<NavAttMsgF32Payload> navAttInMsg; /*!< attitude navigation input message*/
@@ -57,5 +59,7 @@ class NavAggregate : public SysModel {
    private:
     NavAggregateAlgorithm algorithm{};
 };
+
+}  // namespace f32
 
 #endif

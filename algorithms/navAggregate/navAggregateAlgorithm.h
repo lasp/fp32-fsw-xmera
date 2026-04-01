@@ -8,6 +8,8 @@
 
 #define MAX_AGG_NAV_MSG 10U
 
+namespace f32 {
+
 class NavAggregateAlgorithm {
    public:
     AggregateOutput update(std::array<InputNavAttData, MAX_AGG_NAV_MSG> attInputs,
@@ -45,5 +47,7 @@ class NavAggregateAlgorithm {
     uint32_t attMsgCount{};   /*!< [-] The total number of messages available as inputs */
     uint32_t transMsgCount{}; /*!< [-] The total number of messages available as inputs */
 };
+
+}  // namespace f32
 
 #endif
