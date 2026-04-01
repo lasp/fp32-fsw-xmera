@@ -1,20 +1,12 @@
-import inspect
-import os
-
 import numpy as np
 import pytest
-
-filename = inspect.getframeinfo(inspect.currentframe()).filename
-path = os.path.dirname(os.path.abspath(filename))
-xmeraName = 'xmera'
-splitPath = path.split(xmeraName)
-
 
 # Import all of the modules that we are going to be called in this simulation
 from xmera.utilities import SimulationBaseClass
 from xmera.fp32 import navAggregateF32
 from xmera.utilities import macros
 from xmera.architecture import messaging
+
 
 @pytest.mark.parametrize("num_att_nav, num_trans_nav", [
       (0, 0)

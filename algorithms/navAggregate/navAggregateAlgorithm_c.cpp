@@ -13,19 +13,19 @@
 uint32_t NavAggregateAlgorithm_getMaxAggNavMsg(void) { return MAX_AGG_NAV_MSG; }
 
 NavAggregateAlgorithm* NavAggregateAlgorithm_create(void) {
-    return reinterpret_cast<NavAggregateAlgorithm*>(new ::NavAggregateAlgorithm());
+    return reinterpret_cast<NavAggregateAlgorithm*>(new ::f32::NavAggregateAlgorithm());
 }
 
 void NavAggregateAlgorithm_destroy(NavAggregateAlgorithm* self) {
-    delete reinterpret_cast<::NavAggregateAlgorithm*>(self);
+    delete reinterpret_cast<::f32::NavAggregateAlgorithm*>(self);
 }
 
 AggregateOutput_c NavAggregateAlgorithm_update(NavAggregateAlgorithm* self,
                                                const NavAttMsgF32Payload* attMsgsPayloads,
                                                const NavTransMsgF32Payload* transMsgsPayloads) {
     /* Convert C payload arrays to Eigen-based internal types */
-    std::array<InputNavAttData, MAX_AGG_NAV_MSG> attArray{};
-    std::array<InputNavTransData, MAX_AGG_NAV_MSG> transArray{};
+    std::array<f32::InputNavAttData, MAX_AGG_NAV_MSG> attArray{};
+    std::array<f32::InputNavTransData, MAX_AGG_NAV_MSG> transArray{};
 
     for (uint32_t i = 0; i < MAX_AGG_NAV_MSG; ++i) {
         attArray[i].timeTag = attMsgsPayloads[i].timeTag;
@@ -39,7 +39,7 @@ AggregateOutput_c NavAggregateAlgorithm_update(NavAggregateAlgorithm* self,
         transArray[i].vehAccumDV = Eigen::Map<const Eigen::Vector3f>(transMsgsPayloads[i].vehAccumDV);
     }
 
-    AggregateOutput result = reinterpret_cast<::NavAggregateAlgorithm*>(self)->update(attArray, transArray);
+    f32::AggregateOutput result = reinterpret_cast<::f32::NavAggregateAlgorithm*>(self)->update(attArray, transArray);
 
     /* Convert Eigen-based output back to C-compatible POD types */
     AggregateOutput_c out{};
@@ -58,81 +58,81 @@ AggregateOutput_c NavAggregateAlgorithm_update(NavAggregateAlgorithm* self,
 }
 
 void NavAggregateAlgorithm_setAttTimeIdx(NavAggregateAlgorithm* self, uint32_t idx) {
-    reinterpret_cast<::NavAggregateAlgorithm*>(self)->setAttTimeIdx(idx);
+    reinterpret_cast<::f32::NavAggregateAlgorithm*>(self)->setAttTimeIdx(idx);
 }
 
 uint32_t NavAggregateAlgorithm_getAttTimeIdx(const NavAggregateAlgorithm* self) {
-    return reinterpret_cast<const ::NavAggregateAlgorithm*>(self)->getAttTimeIdx();
+    return reinterpret_cast<const ::f32::NavAggregateAlgorithm*>(self)->getAttTimeIdx();
 }
 
 void NavAggregateAlgorithm_setTransTimeIdx(NavAggregateAlgorithm* self, uint32_t idx) {
-    reinterpret_cast<::NavAggregateAlgorithm*>(self)->setTransTimeIdx(idx);
+    reinterpret_cast<::f32::NavAggregateAlgorithm*>(self)->setTransTimeIdx(idx);
 }
 
 uint32_t NavAggregateAlgorithm_getTransTimeIdx(const NavAggregateAlgorithm* self) {
-    return reinterpret_cast<const ::NavAggregateAlgorithm*>(self)->getTransTimeIdx();
+    return reinterpret_cast<const ::f32::NavAggregateAlgorithm*>(self)->getTransTimeIdx();
 }
 
 void NavAggregateAlgorithm_setAttIdx(NavAggregateAlgorithm* self, uint32_t idx) {
-    reinterpret_cast<::NavAggregateAlgorithm*>(self)->setAttIdx(idx);
+    reinterpret_cast<::f32::NavAggregateAlgorithm*>(self)->setAttIdx(idx);
 }
 
 uint32_t NavAggregateAlgorithm_getAttIdx(const NavAggregateAlgorithm* self) {
-    return reinterpret_cast<const ::NavAggregateAlgorithm*>(self)->getAttIdx();
+    return reinterpret_cast<const ::f32::NavAggregateAlgorithm*>(self)->getAttIdx();
 }
 
 void NavAggregateAlgorithm_setRateIdx(NavAggregateAlgorithm* self, uint32_t idx) {
-    reinterpret_cast<::NavAggregateAlgorithm*>(self)->setRateIdx(idx);
+    reinterpret_cast<::f32::NavAggregateAlgorithm*>(self)->setRateIdx(idx);
 }
 
 uint32_t NavAggregateAlgorithm_getRateIdx(const NavAggregateAlgorithm* self) {
-    return reinterpret_cast<const ::NavAggregateAlgorithm*>(self)->getRateIdx();
+    return reinterpret_cast<const ::f32::NavAggregateAlgorithm*>(self)->getRateIdx();
 }
 
 void NavAggregateAlgorithm_setPosIdx(NavAggregateAlgorithm* self, uint32_t idx) {
-    reinterpret_cast<::NavAggregateAlgorithm*>(self)->setPosIdx(idx);
+    reinterpret_cast<::f32::NavAggregateAlgorithm*>(self)->setPosIdx(idx);
 }
 
 uint32_t NavAggregateAlgorithm_getPosIdx(const NavAggregateAlgorithm* self) {
-    return reinterpret_cast<const ::NavAggregateAlgorithm*>(self)->getPosIdx();
+    return reinterpret_cast<const ::f32::NavAggregateAlgorithm*>(self)->getPosIdx();
 }
 
 void NavAggregateAlgorithm_setVelIdx(NavAggregateAlgorithm* self, uint32_t idx) {
-    reinterpret_cast<::NavAggregateAlgorithm*>(self)->setVelIdx(idx);
+    reinterpret_cast<::f32::NavAggregateAlgorithm*>(self)->setVelIdx(idx);
 }
 
 uint32_t NavAggregateAlgorithm_getVelIdx(const NavAggregateAlgorithm* self) {
-    return reinterpret_cast<const ::NavAggregateAlgorithm*>(self)->getVelIdx();
+    return reinterpret_cast<const ::f32::NavAggregateAlgorithm*>(self)->getVelIdx();
 }
 
 void NavAggregateAlgorithm_setDvIdx(NavAggregateAlgorithm* self, uint32_t idx) {
-    reinterpret_cast<::NavAggregateAlgorithm*>(self)->setDvIdx(idx);
+    reinterpret_cast<::f32::NavAggregateAlgorithm*>(self)->setDvIdx(idx);
 }
 
 uint32_t NavAggregateAlgorithm_getDvIdx(const NavAggregateAlgorithm* self) {
-    return reinterpret_cast<const ::NavAggregateAlgorithm*>(self)->getDvIdx();
+    return reinterpret_cast<const ::f32::NavAggregateAlgorithm*>(self)->getDvIdx();
 }
 
 void NavAggregateAlgorithm_setSunIdx(NavAggregateAlgorithm* self, uint32_t idx) {
-    reinterpret_cast<::NavAggregateAlgorithm*>(self)->setSunIdx(idx);
+    reinterpret_cast<::f32::NavAggregateAlgorithm*>(self)->setSunIdx(idx);
 }
 
 uint32_t NavAggregateAlgorithm_getSunIdx(const NavAggregateAlgorithm* self) {
-    return reinterpret_cast<const ::NavAggregateAlgorithm*>(self)->getSunIdx();
+    return reinterpret_cast<const ::f32::NavAggregateAlgorithm*>(self)->getSunIdx();
 }
 
 void NavAggregateAlgorithm_setAttMsgCount(NavAggregateAlgorithm* self, uint32_t msgCount) {
-    reinterpret_cast<::NavAggregateAlgorithm*>(self)->setAttMsgCount(msgCount);
+    reinterpret_cast<::f32::NavAggregateAlgorithm*>(self)->setAttMsgCount(msgCount);
 }
 
 uint32_t NavAggregateAlgorithm_getAttMsgCount(const NavAggregateAlgorithm* self) {
-    return reinterpret_cast<const ::NavAggregateAlgorithm*>(self)->getAttMsgCount();
+    return reinterpret_cast<const ::f32::NavAggregateAlgorithm*>(self)->getAttMsgCount();
 }
 
 void NavAggregateAlgorithm_setTransMsgCount(NavAggregateAlgorithm* self, uint32_t msgCount) {
-    reinterpret_cast<::NavAggregateAlgorithm*>(self)->setTransMsgCount(msgCount);
+    reinterpret_cast<::f32::NavAggregateAlgorithm*>(self)->setTransMsgCount(msgCount);
 }
 
 uint32_t NavAggregateAlgorithm_getTransMsgCount(const NavAggregateAlgorithm* self) {
-    return reinterpret_cast<const ::NavAggregateAlgorithm*>(self)->getTransMsgCount();
+    return reinterpret_cast<const ::f32::NavAggregateAlgorithm*>(self)->getTransMsgCount();
 }

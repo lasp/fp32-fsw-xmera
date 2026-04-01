@@ -9,6 +9,8 @@
 #include <cmath>
 #include <vector>
 
+using namespace f32;
+
 inline void testNavAggregate(double attTimeTag,
                              std::vector<float> sigma_BN,
                              std::vector<float> omega_BN_B,

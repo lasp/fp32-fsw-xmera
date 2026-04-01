@@ -3,9 +3,7 @@
 
 #include <Eigen/Core>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+namespace f32 {
 
 /*! Struct containing the attitude navigation input needed by the algorithm. */
 struct InputNavAttData {
@@ -29,8 +27,6 @@ typedef struct {
     InputNavTransData navTransOut; /*!< translation navigation output */
 } AggregateOutput;
 
-#ifdef __cplusplus
-}  // extern "C"
-#endif
+}  // namespace f32
 
 #endif  // F32XMERA_NAV_AGGREGATE_OUTPUT_H

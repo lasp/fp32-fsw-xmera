@@ -3,6 +3,8 @@
 #include <array>
 #include <stdexcept>
 
+using namespace f32;
+
 /*! This resets the module to original states.
  @return void
  @param callTime The clock time at which the function was called (nanoseconds)
