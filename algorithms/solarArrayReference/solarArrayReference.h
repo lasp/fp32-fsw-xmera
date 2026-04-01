@@ -1,5 +1,5 @@
-#ifndef _SOLAR_ARRAY_REFERENCE_
-#define _SOLAR_ARRAY_REFERENCE_
+#ifndef F32XMERA_SOLAR_ARRAY_REFERENCE_H
+#define F32XMERA_SOLAR_ARRAY_REFERENCE_H
 
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
@@ -37,4 +37,4 @@ class SolarArrayReference : public SysModel {
     BSKLogger bskLogger = {};  //!< BSK Logging
 };
 
-#endif
+#endif  // F32XMERA_SOLAR_ARRAY_REFERENCE_H

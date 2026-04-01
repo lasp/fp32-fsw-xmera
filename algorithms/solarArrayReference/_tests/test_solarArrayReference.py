@@ -10,7 +10,7 @@ import numpy as np
 # Import all of the modules that we are going to be called in this simulation
 from xmera.utilities import SimulationBaseClass
 from xmera.utilities import unitTestSupport                   # general support file with common unit test functions
-from xmera.fswAlgorithms import solarArrayReference           # import the module that is to be tested
+from xmera.fp32 import solarArrayReferenceF32           # import the module that is to be tested
 from xmera.utilities import macros
 from xmera.utilities import RigidBodyKinematics as rbk
 from xmera.architecture import messaging                      # import the message definitions
@@ -115,7 +115,7 @@ def solarArrayRotationTestFunction(show_plots, rHat_SB_N, sigma_BN, sigma_RN, at
     testProc.addTask(unitTestSim.CreateNewTask(unitTaskName, testProcessRate))
 
     # Construct tested module and associated C container
-    solarArray = solarArrayReference.SolarArrayReference()
+    solarArray = solarArrayReferenceF32.SolarArrayReference()
     solarArray.modelTag = "solarArrayReference"
 
     # Add test module to runtime call list

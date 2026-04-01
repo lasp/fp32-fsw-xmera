@@ -1,4 +1,4 @@
-%module solarArrayReference
+%module solarArrayReferenceF32
 %{
    #include "solarArrayReference.h"
 %}
