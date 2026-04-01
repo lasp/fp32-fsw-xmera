@@ -100,7 +100,6 @@ set(algorithms
     "bodyRateMiscompare"
     "celestialTwoBodyPoint"
     "ephemeridesRecenter"
-    "ephemNavConverter"
     "inertial3D"
     "inertialUKF"
     "mimuMajorityVote"
