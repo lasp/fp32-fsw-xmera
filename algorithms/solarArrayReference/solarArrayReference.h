@@ -17,14 +17,14 @@ class SolarArrayReference : public SysModel {
     void updateState(uint64_t callTime) override;
 
     /* declare these user-defined quantities */
-    double a1Hat_B[3];  //!< solar array drive axis in body frame coordinates
-    double a2Hat_B[3];  //!< solar array surface normal at zero rotation
-    int attitudeFrame;  //!< flag = 1: compute theta reference based on current attitude instead of attitude reference
+    double a1Hat_B[3]{};  //!< solar array drive axis in body frame coordinates
+    double a2Hat_B[3]{};  //!< solar array surface normal at zero rotation
+    int attitudeFrame{};  //!< flag = 1: compute theta reference based on current attitude instead of attitude reference
 
     /* declare these variables for internal computations */
-    int count;           //!< counter variable for finite differences
-    uint64_t priorT;     //!< prior call time for finite differences
-    double priorThetaR;  //!< prior output msg for finite differences
+    int count{};           //!< counter variable for finite differences
+    uint64_t priorT{};     //!< prior call time for finite differences
+    double priorThetaR{};  //!< prior output msg for finite differences
 
     /* declare module IO interfaces */
     ReadFunctor<NavAttMsgPayload> attNavInMsg;                    //!< input msg measured attitude
