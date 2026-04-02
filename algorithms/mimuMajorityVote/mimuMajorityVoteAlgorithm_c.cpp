@@ -24,7 +24,7 @@ MimuMajorityVoteOutput_c MimuMajorityVoteAlgorithm_update(MimuMajorityVoteAlgori
     // Convert POD Vector3f_c inputs to C++ MimuInput array:
     std::array<MimuInput, MIMU_COUNT_C> inputs{};
     for (uint32_t i = 0; i < MIMU_COUNT_C; ++i) {
-        inputs[i].angVelBody << imuInputs[i].data[0], imuInputs[i].data[1], imuInputs[i].data[2];
+        inputs[i].omega_BN_B << imuInputs[i].data[0], imuInputs[i].data[1], imuInputs[i].data[2];
     }
 
     // Call the C++ algorithm:
@@ -32,9 +32,9 @@ MimuMajorityVoteOutput_c MimuMajorityVoteAlgorithm_update(MimuMajorityVoteAlgori
 
     // Convert C++ output to POD:
     MimuMajorityVoteOutput_c out{};
-    out.avgAngVelBody.data[0] = cppOutput.avgAngVelBody[0];
-    out.avgAngVelBody.data[1] = cppOutput.avgAngVelBody[1];
-    out.avgAngVelBody.data[2] = cppOutput.avgAngVelBody[2];
+    out.avgOmega_BN_B.data[0] = cppOutput.avgOmega_BN_B[0];
+    out.avgOmega_BN_B.data[1] = cppOutput.avgOmega_BN_B[1];
+    out.avgOmega_BN_B.data[2] = cppOutput.avgOmega_BN_B[2];
     out.faultDetected = cppOutput.faultDetected ? 1U : 0U;
 
     // Reduce per-IMU validity to a single faulted index (-1 if no fault):

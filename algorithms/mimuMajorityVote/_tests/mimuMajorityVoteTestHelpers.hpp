@@ -18,14 +18,14 @@ MimuMajorityVoteOutput referenceUpdate(const MimuMajorityVoteAlgorithm& alg,
     // Stage 1: Compute average and find differences
     Eigen::Vector3f omegaAverage = Eigen::Vector3f::Zero();
     for (size_t i = 0U; i < kMimuCount; ++i) {
-        omegaAverage += imuInputs.at(i).angVelBody;
+        omegaAverage += imuInputs.at(i).omega_BN_B;
     }
     omegaAverage /= static_cast<float>(kMimuCount);
 
     MimuMajorityVoteOutput out{};
     size_t maxDiffIndex = 0U;
     for (size_t i = 0U; i < kMimuCount; ++i) {
-        out.omegaDifferencesMag.at(i) = (imuInputs.at(i).angVelBody - omegaAverage).norm();
+        out.omegaDifferencesMag.at(i) = (imuInputs.at(i).omega_BN_B - omegaAverage).norm();
         if (out.omegaDifferencesMag.at(i) > out.omegaDifferencesMag.at(maxDiffIndex)) {
             maxDiffIndex = i;
         }
@@ -54,13 +54,13 @@ MimuMajorityVoteOutput referenceUpdate(const MimuMajorityVoteAlgorithm& alg,
     }
 
     if (!faultDetected) {
-        out.avgAngVelBody = omegaAverage;
+        out.avgOmega_BN_B = omegaAverage;
         return out;
     }
 
     // Exclude outlier and average the remaining IMUs
     out.faultDetected = true;
-    out.avgAngVelBody = (omegaAverage * static_cast<float>(kMimuCount) - imuInputs.at(maxDiffIndex).angVelBody) /
+    out.avgOmega_BN_B = (omegaAverage * static_cast<float>(kMimuCount) - imuInputs.at(maxDiffIndex).omega_BN_B) /
                         static_cast<float>(kMimuCount - 1U);
     return out;
 }
@@ -73,9 +73,9 @@ inline void regressionTestMimuMajorityVote(float omegaThreshold,
     alg.setOmegaThreshold(omegaThreshold);
 
     std::array<MimuInput, kMimuCount> imuInputs{};
-    imuInputs.at(0).angVelBody = Eigen::Map<const Eigen::Vector3f>(angVel1.data());
-    imuInputs.at(1).angVelBody = Eigen::Map<const Eigen::Vector3f>(angVel2.data());
-    imuInputs.at(2).angVelBody = Eigen::Map<const Eigen::Vector3f>(angVel3.data());
+    imuInputs.at(0).omega_BN_B = Eigen::Map<const Eigen::Vector3f>(angVel1.data());
+    imuInputs.at(1).omega_BN_B = Eigen::Map<const Eigen::Vector3f>(angVel2.data());
+    imuInputs.at(2).omega_BN_B = Eigen::Map<const Eigen::Vector3f>(angVel3.data());
 
     // Algorithm output
     MimuMajorityVoteOutput out{};
@@ -88,8 +88,8 @@ inline void regressionTestMimuMajorityVote(float omegaThreshold,
 
     // Compare averaged angular velocity
     for (int i = 0; i < 3; ++i) {
-        EXPECT_NEAR(out.avgAngVelBody[i], ref.avgAngVelBody[i], 1e-6);
-        EXPECT_TRUE(std::isfinite(out.avgAngVelBody[i]));
+        EXPECT_NEAR(out.avgOmega_BN_B[i], ref.avgOmega_BN_B[i], 1e-6);
+        EXPECT_TRUE(std::isfinite(out.avgOmega_BN_B[i]));
     }
 
     // Compare fault detection

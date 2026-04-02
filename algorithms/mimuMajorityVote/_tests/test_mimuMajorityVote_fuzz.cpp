@@ -16,14 +16,14 @@ void propertyOutputAlwaysFinite(const std::vector<float>& angVel1,
     alg.setOmegaThreshold(omegaThreshold);
 
     std::array<MimuInput, kMimuCount> imuInputs{};
-    imuInputs.at(0).angVelBody = Eigen::Map<const Eigen::Vector3f>(angVel1.data());
-    imuInputs.at(1).angVelBody = Eigen::Map<const Eigen::Vector3f>(angVel2.data());
-    imuInputs.at(2).angVelBody = Eigen::Map<const Eigen::Vector3f>(angVel3.data());
+    imuInputs.at(0).omega_BN_B = Eigen::Map<const Eigen::Vector3f>(angVel1.data());
+    imuInputs.at(1).omega_BN_B = Eigen::Map<const Eigen::Vector3f>(angVel2.data());
+    imuInputs.at(2).omega_BN_B = Eigen::Map<const Eigen::Vector3f>(angVel3.data());
 
     auto const out = alg.update(imuInputs);
 
     for (int i = 0; i < 3; ++i) {
-        ASSERT_TRUE(std::isfinite(out.avgAngVelBody[i]));
+        ASSERT_TRUE(std::isfinite(out.avgOmega_BN_B[i]));
     }
     for (size_t i = 0U; i < kMimuCount; ++i) {
         ASSERT_GE(out.omegaDifferencesMag.at(i), 0.0F);
@@ -39,9 +39,9 @@ void propertyFaultAndValidConsistency(const std::vector<float>& angVel1,
     alg.setOmegaThreshold(omegaThreshold);
 
     std::array<MimuInput, kMimuCount> imuInputs{};
-    imuInputs.at(0).angVelBody = Eigen::Map<const Eigen::Vector3f>(angVel1.data());
-    imuInputs.at(1).angVelBody = Eigen::Map<const Eigen::Vector3f>(angVel2.data());
-    imuInputs.at(2).angVelBody = Eigen::Map<const Eigen::Vector3f>(angVel3.data());
+    imuInputs.at(0).omega_BN_B = Eigen::Map<const Eigen::Vector3f>(angVel1.data());
+    imuInputs.at(1).omega_BN_B = Eigen::Map<const Eigen::Vector3f>(angVel2.data());
+    imuInputs.at(2).omega_BN_B = Eigen::Map<const Eigen::Vector3f>(angVel3.data());
 
     auto const out = alg.update(imuInputs);
 
@@ -63,11 +63,11 @@ void expectNoFaultAverage(const MimuMajorityVoteOutput& out,
                           size_t numImus) {
     Eigen::Vector3f expectedAvg = Eigen::Vector3f::Zero();
     for (size_t i = 0U; i < numImus; ++i) {
-        expectedAvg += imuInputs.at(i).angVelBody;
+        expectedAvg += imuInputs.at(i).omega_BN_B;
     }
     expectedAvg /= static_cast<float>(numImus);
     for (int i = 0; i < 3; ++i) {
-        EXPECT_NEAR(out.avgAngVelBody[i], expectedAvg[i], kCompTol);
+        EXPECT_NEAR(out.avgOmega_BN_B[i], expectedAvg[i], kCompTol);
     }
 }
 
@@ -87,13 +87,13 @@ void expectSingleFaultAverage(const MimuMajorityVoteOutput& out,
     size_t count = 0U;
     for (size_t i = 0U; i < numImus; ++i) {
         if (i != faultedIndex) {
-            expectedAvg += imuInputs.at(i).angVelBody;
+            expectedAvg += imuInputs.at(i).omega_BN_B;
             ++count;
         }
     }
     expectedAvg /= static_cast<float>(count);
     for (int i = 0; i < 3; ++i) {
-        EXPECT_NEAR(out.avgAngVelBody[i], expectedAvg[i], kCompTol);
+        EXPECT_NEAR(out.avgOmega_BN_B[i], expectedAvg[i], kCompTol);
     }
 }
 
@@ -105,9 +105,9 @@ void propertyAverageIsCorrect(const std::vector<float>& angVel1,
     alg.setOmegaThreshold(omegaThreshold);
 
     std::array<MimuInput, kMimuCount> imuInputs{};
-    imuInputs.at(0).angVelBody = Eigen::Map<const Eigen::Vector3f>(angVel1.data());
-    imuInputs.at(1).angVelBody = Eigen::Map<const Eigen::Vector3f>(angVel2.data());
-    imuInputs.at(2).angVelBody = Eigen::Map<const Eigen::Vector3f>(angVel3.data());
+    imuInputs.at(0).omega_BN_B = Eigen::Map<const Eigen::Vector3f>(angVel1.data());
+    imuInputs.at(1).omega_BN_B = Eigen::Map<const Eigen::Vector3f>(angVel2.data());
+    imuInputs.at(2).omega_BN_B = Eigen::Map<const Eigen::Vector3f>(angVel3.data());
 
     auto const out = alg.update(imuInputs);
 
@@ -133,7 +133,7 @@ void propertyIdenticalIMUsNoFault(const std::vector<float>& angVel, float omegaT
     Eigen::Vector3f const v = Eigen::Map<const Eigen::Vector3f>(angVel.data());
     std::array<MimuInput, kMimuCount> imuInputs{};
     for (size_t i = 0U; i < kMimuCount; ++i) {
-        imuInputs.at(i).angVelBody = v;
+        imuInputs.at(i).omega_BN_B = v;
     }
 
     auto const out = alg.update(imuInputs);
@@ -144,7 +144,7 @@ void propertyIdenticalIMUsNoFault(const std::vector<float>& angVel, float omegaT
         ASSERT_NEAR(out.omegaDifferencesMag.at(i), 0.0F, kCompTol);
     }
     for (int i = 0; i < 3; ++i) {
-        ASSERT_NEAR(out.avgAngVelBody[i], v[i], kCompTol);
+        ASSERT_NEAR(out.avgOmega_BN_B[i], v[i], kCompTol);
     }
 }
 
@@ -157,10 +157,10 @@ void propertyClearSingleOutlier(const std::vector<float>& baseAngVel, size_t out
     Eigen::Vector3f const base = Eigen::Map<const Eigen::Vector3f>(baseAngVel.data());
     std::array<MimuInput, kMimuCount> imuInputs{};
     for (size_t i = 0U; i < kMimuCount; ++i) {
-        imuInputs.at(i).angVelBody = base;
+        imuInputs.at(i).omega_BN_B = base;
     }
     // Make outlier clearly separable: kOutlierFactor × threshold beyond the base pair
-    imuInputs.at(outlierIndex).angVelBody = base + kOutlierFactor * omegaThreshold * Eigen::Vector3f::Ones();
+    imuInputs.at(outlierIndex).omega_BN_B = base + kOutlierFactor * omegaThreshold * Eigen::Vector3f::Ones();
 
     auto const out = alg.update(imuInputs);
 
@@ -181,17 +181,17 @@ void propertyCyclicPermutationInvariant(const std::vector<float>& angVel1,
     alg.setOmegaThreshold(omegaThreshold);
 
     std::array<MimuInput, kMimuCount> imuInputs{};
-    imuInputs.at(0).angVelBody = Eigen::Map<const Eigen::Vector3f>(angVel1.data());
-    imuInputs.at(1).angVelBody = Eigen::Map<const Eigen::Vector3f>(angVel2.data());
-    imuInputs.at(2).angVelBody = Eigen::Map<const Eigen::Vector3f>(angVel3.data());
+    imuInputs.at(0).omega_BN_B = Eigen::Map<const Eigen::Vector3f>(angVel1.data());
+    imuInputs.at(1).omega_BN_B = Eigen::Map<const Eigen::Vector3f>(angVel2.data());
+    imuInputs.at(2).omega_BN_B = Eigen::Map<const Eigen::Vector3f>(angVel3.data());
 
     auto const out0 = alg.update(imuInputs);
 
     // Cyclic permutation: [v2, v3, v1]
     std::array<MimuInput, kMimuCount> imuInputs1{};
-    imuInputs1.at(0).angVelBody = imuInputs.at(1).angVelBody;
-    imuInputs1.at(1).angVelBody = imuInputs.at(2).angVelBody;
-    imuInputs1.at(2).angVelBody = imuInputs.at(0).angVelBody;
+    imuInputs1.at(0).omega_BN_B = imuInputs.at(1).omega_BN_B;
+    imuInputs1.at(1).omega_BN_B = imuInputs.at(2).omega_BN_B;
+    imuInputs1.at(2).omega_BN_B = imuInputs.at(0).omega_BN_B;
 
     auto const out1 = alg.update(imuInputs1);
 

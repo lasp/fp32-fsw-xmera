@@ -9,7 +9,7 @@ MimuMajorityVoteOutput MimuMajorityVoteAlgorithm::update(const std::array<MimuIn
     // Stage 1: Compute average of all IMUs and find differences from average
     Eigen::Vector3f omegaAverage_BN_B = Eigen::Vector3f::Zero();
     for (size_t i = 0U; i < kMimuCount; ++i) {
-        omegaAverage_BN_B += imuInputs.at(i).angVelBody;
+        omegaAverage_BN_B += imuInputs.at(i).omega_BN_B;
     }
     omegaAverage_BN_B /= static_cast<float>(kMimuCount);
 
@@ -17,7 +17,7 @@ MimuMajorityVoteOutput MimuMajorityVoteAlgorithm::update(const std::array<MimuIn
     output.validImus.fill(true);
     size_t maxDiffIndex = 0U;
     for (size_t i = 0U; i < kMimuCount; ++i) {
-        output.omegaDifferencesMag.at(i) = (imuInputs.at(i).angVelBody - omegaAverage_BN_B).norm();
+        output.omegaDifferencesMag.at(i) = (imuInputs.at(i).omega_BN_B - omegaAverage_BN_B).norm();
         if (output.omegaDifferencesMag.at(i) > output.omegaDifferencesMag.at(maxDiffIndex)) {
             maxDiffIndex = i;
         }
@@ -46,12 +46,12 @@ MimuMajorityVoteOutput MimuMajorityVoteAlgorithm::update(const std::array<MimuIn
 
     if (!faultDetected) {
         // No persisted fault - return full average
-        output.avgAngVelBody = omegaAverage_BN_B;
+        output.avgOmega_BN_B = omegaAverage_BN_B;
     } else {
         // Outlier persisted - exclude it and average the remaining IMUs
         output.faultDetected = true;
-        output.avgAngVelBody =
-            (omegaAverage_BN_B * static_cast<float>(kMimuCount) - imuInputs.at(maxDiffIndex).angVelBody) /
+        output.avgOmega_BN_B =
+            (omegaAverage_BN_B * static_cast<float>(kMimuCount) - imuInputs.at(maxDiffIndex).omega_BN_B) /
             static_cast<float>(kMimuCount - 1U);
     }
 

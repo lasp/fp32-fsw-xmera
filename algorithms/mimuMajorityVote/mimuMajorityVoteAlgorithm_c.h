@@ -33,7 +33,7 @@ typedef struct {
  *   Mimu_Index_Faulted : Integer_32  (-1 if no fault)
  */
 typedef struct {
-    Vector3f_c avgAngVelBody; /*!< [rad/s] Averaged angular velocity in body frame */
+    Vector3f_c avgOmega_BN_B; /*!< [rad/s] Averaged angular velocity in body frame */
     uint8_t faultDetected;    /*!< Whether a MIMU fault was detected */
     int32_t mimuIndexFaulted; /*!< Index of faulted MIMU (-1 if no fault) */
 } MimuMajorityVoteOutput_c;

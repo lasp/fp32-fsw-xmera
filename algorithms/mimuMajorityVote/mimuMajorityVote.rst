@@ -114,7 +114,7 @@ Standalone Algorithm (C++ API)
     * - ``imuInputs``
       - ``std::array<MimuInput, kMimuCount>``
       - Array of exactly 3 IMU measurements.
-        Each entry contains ``angVelBody`` (:math:`\boldsymbol{\omega}_i`, rad/s).
+        Each entry contains ``omega_BN_B`` (:math:`\boldsymbol{\omega}_i`, rad/s).
 
 **Output** ``MimuMajorityVoteOutput``
 
@@ -125,7 +125,7 @@ Standalone Algorithm (C++ API)
     * - Field
       - Type
       - Description
-    * - ``avgAngVelBody``
+    * - ``avgOmega_BN_B``
       - ``Eigen::Vector3f``
       - Best-estimate body-frame angular velocity (rad/s). Equals
         :math:`\bar{\boldsymbol{\omega}}` when all agree, or
@@ -156,12 +156,12 @@ triggers the fault immediately on first detection.
     alg.setFaultPersistenceLimit(3U);    // require 3 consecutive detections
 
     std::array<MimuInput, kMimuCount> imuInputs{};
-    imuInputs.at(0).angVelBody = omega0;
-    imuInputs.at(1).angVelBody = omega1;
-    imuInputs.at(2).angVelBody = omega2;
+    imuInputs.at(0).omega_BN_B = omega0;
+    imuInputs.at(1).omega_BN_B = omega1;
+    imuInputs.at(2).omega_BN_B = omega2;
 
     MimuMajorityVoteOutput out = alg.update(imuInputs);
-    // out.avgAngVelBody  — best-estimate rate
+    // out.avgOmega_BN_B  — best-estimate rate
     // out.faultDetected  — true if any IMU was rejected
     // out.validImus      — per-sensor validity flags
     // out.omegaDifferencesMag — per-sensor residuals

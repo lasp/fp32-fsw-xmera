@@ -15,14 +15,14 @@ void MimuMajorityVote::updateState(uint64_t const callTime) {
     std::array<MimuInput, kMimuCount> imuInputs = {};
     for (size_t index = 0U; index < kMimuCount; ++index) {
         auto payload = this->imuMessages.at(index).imuSensorBodyInMsg();
-        imuInputs.at(index).angVelBody = cArrayToEigenVector(payload.AngVelBody);
+        imuInputs.at(index).omega_BN_B = cArrayToEigenVector(payload.AngVelBody);
     }
 
     MimuMajorityVoteOutput output = this->algorithm.update(imuInputs);
 
     // Convert algorithm output to message payloads
     IMUSensorBodyMsgF32Payload imuOutPayload{};
-    eigenVectorToCArray(output.avgAngVelBody, imuOutPayload.AngVelBody);
+    eigenVectorToCArray(output.avgOmega_BN_B, imuOutPayload.AngVelBody);
 
     MimuFaultMsgPayload faultPayload{};
     faultPayload.faultDetected = output.faultDetected;
