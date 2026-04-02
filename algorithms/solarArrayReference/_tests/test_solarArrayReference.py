@@ -15,7 +15,7 @@ from xmera.architecture import sim_model
 
 
 # this python function computes the same reference angle as the tested module
-def computeRotationAngle(sigma_RN, rHat_SB_N, a1Hat_B, a2Hat_B, theta0):
+def compute_rotation_angle(sigma_RN, rHat_SB_N, a1Hat_B, a2Hat_B, theta0):
 
     RN = rbk.MRP2C(sigma_RN)
     rS_R = np.matmul(RN, rHat_SB_N)
@@ -81,75 +81,75 @@ def test_solarArrayReference(show_plots, rHat_SB_N, sigma_BN, sigma_RN, attitude
     thetaC = 0
     thetaDotC = 0
 
-    unitTaskName = "unitTask"
-    unitProcessName = "TestProcess"
+    unit_task_name = "unitTask"
+    unit_process_name = "TestProcess"
     sim_model.setDefaultLogLevel(sim_model.BSK_WARNING)
 
     # Create a sim module as an empty container
-    unitTestSim = SimulationBaseClass.SimBaseClass()
+    unit_test_sim = SimulationBaseClass.SimBaseClass()
 
     # Create test thread
-    testProcessRate = macros.sec2nano(1)
-    testProc = unitTestSim.CreateNewProcess(unitProcessName)
-    testProc.addTask(unitTestSim.CreateNewTask(unitTaskName, testProcessRate))
+    test_process_rate = macros.sec2nano(1)
+    test_proc = unit_test_sim.CreateNewProcess(unit_process_name)
+    test_proc.addTask(unit_test_sim.CreateNewTask(unit_task_name, test_process_rate))
 
     # Construct tested module and associated C container
-    solarArray = solarArrayReferenceF32.SolarArrayReference()
-    solarArray.modelTag = "solarArrayReference"
+    solar_array = solarArrayReferenceF32.SolarArrayReference()
+    solar_array.modelTag = "solarArrayReference"
 
     # Add test module to runtime call list
-    unitTestSim.AddModelToTask(unitTaskName, solarArray)
+    unit_test_sim.AddModelToTask(unit_task_name, solar_array)
 
     # Initialize the test module configuration data
-    solarArray.a1Hat_B = a1Hat_B
-    solarArray.a2Hat_B = a2Hat_B
-    solarArray.attitudeFrame = attitudeFrame
+    solar_array.a1Hat_B = a1Hat_B
+    solar_array.a2Hat_B = a2Hat_B
+    solar_array.attitudeFrame = attitudeFrame
 
     # Create input attitude navigation message
-    natAttInMsgData = messaging.NavAttMsgPayload()
-    natAttInMsgData.sigma_BN = sigma_BN
-    natAttInMsgData.vehSunPntBdy = rHat_SB_B
-    natAttInMsg = messaging.NavAttMsg().write(natAttInMsgData)
-    solarArray.attNavInMsg.subscribeTo(natAttInMsg)
+    nav_att_in_msg_data = messaging.NavAttMsgPayload()
+    nav_att_in_msg_data.sigma_BN = sigma_BN
+    nav_att_in_msg_data.vehSunPntBdy = rHat_SB_B
+    nav_att_in_msg = messaging.NavAttMsg().write(nav_att_in_msg_data)
+    solar_array.attNavInMsg.subscribeTo(nav_att_in_msg)
 
     # Create input attitude reference message
-    attRefInMsgData = messaging.AttRefMsgPayload()
-    attRefInMsgData.sigma_RN = sigma_RN
-    attRefInMsg = messaging.AttRefMsg().write(attRefInMsgData)
-    solarArray.attRefInMsg.subscribeTo(attRefInMsg)
+    att_ref_in_msg_data = messaging.AttRefMsgPayload()
+    att_ref_in_msg_data.sigma_RN = sigma_RN
+    att_ref_in_msg = messaging.AttRefMsg().write(att_ref_in_msg_data)
+    solar_array.attRefInMsg.subscribeTo(att_ref_in_msg)
 
     # Create input hinged rigid body body message
-    hingedRigidBodyInMsgData = messaging.HingedRigidBodyMsgPayload()
-    hingedRigidBodyInMsgData.theta = thetaC
-    hingedRigidBodyInMsgData.thetaDot = thetaDotC
-    hingedRigidBodyInMsg = messaging.HingedRigidBodyMsg().write(hingedRigidBodyInMsgData)
-    solarArray.hingedRigidBodyInMsg.subscribeTo(hingedRigidBodyInMsg)
+    hinged_rigid_body_in_msg_data = messaging.HingedRigidBodyMsgPayload()
+    hinged_rigid_body_in_msg_data.theta = thetaC
+    hinged_rigid_body_in_msg_data.thetaDot = thetaDotC
+    hinged_rigid_body_in_msg = messaging.HingedRigidBodyMsg().write(hinged_rigid_body_in_msg_data)
+    solar_array.hingedRigidBodyInMsg.subscribeTo(hinged_rigid_body_in_msg)
 
     # Setup logging on the test module output message so that we get all the writes to it
-    dataLog = solarArray.hingedRigidBodyRefOutMsg.recorder()
-    unitTestSim.AddModelToTask(unitTaskName, dataLog)
+    data_log = solar_array.hingedRigidBodyRefOutMsg.recorder()
+    unit_test_sim.AddModelToTask(unit_task_name, data_log)
 
     # Need to call the self-init and cross-init methods
-    unitTestSim.InitializeSimulation()
+    unit_test_sim.InitializeSimulation()
 
     # Set the simulation time.
-    unitTestSim.ConfigureStopTime(macros.sec2nano(0.5))
+    unit_test_sim.ConfigureStopTime(macros.sec2nano(0.5))
 
     # Begin the simulation time run set above
-    unitTestSim.ExecuteSimulation()
+    unit_test_sim.ExecuteSimulation()
 
     if attitudeFrame == 0:
-        thetaR = computeRotationAngle(sigma_RN, rHat_SB_N, a1Hat_B, a2Hat_B, thetaC)
+        thetaR = compute_rotation_angle(sigma_RN, rHat_SB_N, a1Hat_B, a2Hat_B, thetaC)
     else:
-        thetaR = computeRotationAngle(sigma_BN, rHat_SB_N, a1Hat_B, a2Hat_B, thetaC)
-    if thetaR-thetaC > np.pi:
+        thetaR = compute_rotation_angle(sigma_BN, rHat_SB_N, a1Hat_B, a2Hat_B, thetaC)
+    if thetaR - thetaC > np.pi:
         thetaR -= np.pi
-    elif thetaR-thetaC < -np.pi:
+    elif thetaR - thetaC < -np.pi:
         thetaR += np.pi
 
     # compare the module results to the truth values
-    np.testing.assert_allclose(dataLog.theta[0], thetaR, atol=accuracy, rtol=accuracy)
-    np.testing.assert_allclose(dataLog.thetaDot[0], 0, atol=accuracy, rtol=accuracy)
+    np.testing.assert_allclose(data_log.theta[0], thetaR, atol=accuracy, rtol=accuracy)
+    np.testing.assert_allclose(data_log.thetaDot[0], 0, atol=accuracy, rtol=accuracy)
 
 
 if __name__ == "__main__":
