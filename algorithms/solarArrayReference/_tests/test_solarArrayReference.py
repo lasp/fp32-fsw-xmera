@@ -3,13 +3,10 @@ Module Name:        solarArrayReference
 """
 
 import pytest
-import os, inspect, random
 import numpy as np
-
 
 # Import all of the modules that we are going to be called in this simulation
 from xmera.utilities import SimulationBaseClass
-from xmera.utilities import unitTestSupport                   # general support file with common unit test functions
 from xmera.fp32 import solarArrayReferenceF32           # import the module that is to be tested
 from xmera.utilities import macros
 from xmera.utilities import RigidBodyKinematics as rbk
@@ -40,26 +37,17 @@ def computeRotationAngle(sigma_RN, rHat_SB_N, a1Hat_B, a2Hat_B, theta0):
     return theta
 
 
-# Uncomment this line is this test is to be skipped in the global unit test run, adjust message as needed.
-# @pytest.mark.skipif(conditionstring)
-# Uncomment this line if this test has an expected failure, adjust message as needed.
-# @pytest.mark.xfail(conditionstring)
-# Provide a unique test method name, starting with 'test_'.
-# The following 'parametrize' function decorator provides the parameters and expected results for each
-# of the multiple test runs for this test.  Note that the order in that you add the parametrize method
-# matters for the documentation in that it impacts the order in which the test arguments are shown.
-# The first parametrize arguments are shown last in the pytest argument list
 @pytest.mark.parametrize("rHat_SB_N", [[1, 0, 0],
                                   [0, 0, 1]])
 @pytest.mark.parametrize("sigma_BN", [[0.1, 0.2, 0.3],
                                       [0.5, 0.4, 0.3]])
 @pytest.mark.parametrize("sigma_RN", [[0.3, 0.2, 0.1],
                                       [0.9, 0.7, 0.8]])
-@pytest.mark.parametrize("bodyFrame", [0, 1])
+@pytest.mark.parametrize("attitudeFrame", [0, 1])
 @pytest.mark.parametrize("accuracy", [1e-12])
 
 
-def test_solarArrayRotation(show_plots, rHat_SB_N, sigma_BN, sigma_RN, bodyFrame, accuracy):
+def test_solarArrayReference(show_plots, rHat_SB_N, sigma_BN, sigma_RN, attitudeFrame, accuracy):
     r"""
     **Validation Test Description**
 
@@ -74,7 +62,7 @@ def test_solarArrayRotation(show_plots, rHat_SB_N, sigma_BN, sigma_RN, bodyFrame
         rHat_SB_N[3] (double): Sun direction vector, in inertial frame components;
         sigma_BN[3] (double): spacecraft hub attitude with respect to the inertial frame, in MRP;
         sigma_RN[3] (double): reference frame attitude with respect to the inertial frame, in MRP;
-        bodyFrame (int): 0 to calculate reference rotation angle w.r.t. reference frame, 1 to calculate it w.r.t the current spacecraft attitude;
+        attitudeFrame (int): 0 to calculate reference rotation angle w.r.t. reference frame, 1 to calculate it w.r.t the current spacecraft attitude;
         accuracy (float): absolute accuracy value used in the validation tests.
 
     **Description of Variables Being Tested**
@@ -86,13 +74,6 @@ def test_solarArrayRotation(show_plots, rHat_SB_N, sigma_BN, sigma_RN, bodyFrame
     in all its parts. The reference angle ``theta`` is checked versus the value computed by a python function that computes the same angle.
     The reference angle derivative ``thetaDot`` is checked versus zero, as the module is run for only one Update call.
     """
-    # each test method requires a single assert method to be called
-    [testResults, testMessage] = solarArrayRotationTestFunction(show_plots, rHat_SB_N, sigma_BN, sigma_RN, bodyFrame, accuracy)
-    assert testResults < 1, testMessage
-
-
-def solarArrayRotationTestFunction(show_plots, rHat_SB_N, sigma_BN, sigma_RN, attitudeFrame, accuracy):
-
     a1Hat_B = np.array([1, 0, 0])
     a2Hat_B = np.array([0, 1, 0])
     BN = rbk.MRP2C(sigma_BN)
@@ -100,17 +81,15 @@ def solarArrayRotationTestFunction(show_plots, rHat_SB_N, sigma_BN, sigma_RN, at
     thetaC = 0
     thetaDotC = 0
 
-    testFailCount = 0                        # zero unit test result counter
-    testMessages = []                        # create empty array to store test log messages
-    unitTaskName = "unitTask"                # arbitrary name (don't change)
-    unitProcessName = "TestProcess"          # arbitrary name (don't change)
+    unitTaskName = "unitTask"
+    unitProcessName = "TestProcess"
     sim_model.setDefaultLogLevel(sim_model.BSK_WARNING)
 
     # Create a sim module as an empty container
     unitTestSim = SimulationBaseClass.SimBaseClass()
 
     # Create test thread
-    testProcessRate = macros.sec2nano(1)     # update process rate update time
+    testProcessRate = macros.sec2nano(1)
     testProc = unitTestSim.CreateNewProcess(unitProcessName)
     testProc.addTask(unitTestSim.CreateNewTask(unitTaskName, testProcessRate))
 
@@ -154,10 +133,7 @@ def solarArrayRotationTestFunction(show_plots, rHat_SB_N, sigma_BN, sigma_RN, at
     unitTestSim.InitializeSimulation()
 
     # Set the simulation time.
-    # NOTE: the total simulation time may be longer than this value. The
-    # simulation is stopped at the next logging event on or after the
-    # simulation end time.
-    unitTestSim.ConfigureStopTime(macros.sec2nano(0.5))        # seconds to stop simulation
+    unitTestSim.ConfigureStopTime(macros.sec2nano(0.5))
 
     # Begin the simulation time run set above
     unitTestSim.ExecuteSimulation()
@@ -170,33 +146,14 @@ def solarArrayRotationTestFunction(show_plots, rHat_SB_N, sigma_BN, sigma_RN, at
         thetaR -= np.pi
     elif thetaR-thetaC < -np.pi:
         thetaR += np.pi
+
     # compare the module results to the truth values
-    if not unitTestSupport.isDoubleEqual(dataLog.theta[0], thetaR, accuracy):
-        testFailCount += 1
-        testMessages.append("FAILED: "
-                    + solarArray.modelTag
-                    + "solarArrayRotation module failed unit test on thetaR for sigma_BN = [{},{},{}], "
-                      "sigma_RN = [{},{},{}] and attitudeFrame = {} \n".format(
-                        sigma_BN[0], sigma_BN[1], sigma_BN[2], sigma_RN[0], sigma_RN[1], sigma_RN[2], attitudeFrame))
-    if not unitTestSupport.isDoubleEqual(dataLog.thetaDot[0], 0, accuracy):
-        testFailCount += 1
-        testMessages.append("FAILED: "
-                    + solarArray.modelTag
-                    + "solarArrayRotation module failed unit test on thetaDotR for sigma_BN = [{},{},{}], "
-                      "sigma_RN = [{},{},{}] and attitudeFrame = {} \n".format(
-                        sigma_BN[0], sigma_BN[1], sigma_BN[2], sigma_RN[0], sigma_RN[1], sigma_RN[2], attitudeFrame))
-
-    # each test method requires a single assert method to be called
-    # this check below just makes sure no sub-test failures were found
-    return [testFailCount, ''.join(testMessages)]
+    np.testing.assert_allclose(dataLog.theta[0], thetaR, atol=accuracy, rtol=accuracy)
+    np.testing.assert_allclose(dataLog.thetaDot[0], 0, atol=accuracy, rtol=accuracy)
 
 
-#
-# This statement below ensures that the unitTestScript can be run as a
-# stand-along python script
-#
 if __name__ == "__main__":
-    test_solarArrayRotation(
+    test_solarArrayReference(
                  False,
                  np.array([1, 0, 0]),
                  np.array([0.1, 0.2, 0.3]),
