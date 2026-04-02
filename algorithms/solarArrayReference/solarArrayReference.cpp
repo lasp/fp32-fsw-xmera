@@ -18,18 +18,18 @@ void SolarArrayReference::reset(uint64_t callTime) {
 }
 
 void SolarArrayReference::updateState(uint64_t callTime) {
-    NavAttMsgPayload attNavIn = this->attNavInMsg();
-    AttRefMsgPayload attRefIn = this->attRefInMsg();
-    HingedRigidBodyMsgPayload hingedRigidBodyIn = this->hingedRigidBodyInMsg();
+    NavAttMsgF32Payload attNavIn = this->attNavInMsg();
+    AttRefMsgF32Payload attRefIn = this->attRefInMsg();
+    HingedRigidBodyMsgF32Payload hingedRigidBodyIn = this->hingedRigidBodyInMsg();
 
-    const Eigen::Vector3d sigma_BN = cArrayToEigenVector(attNavIn.sigma_BN);
-    const Eigen::Vector3d sigma_RN = cArrayToEigenVector(attRefIn.sigma_RN);
-    const Eigen::Vector3d vehSunPntBdy = cArrayToEigenVector(attNavIn.vehSunPntBdy);
+    const Eigen::Vector3f sigma_BN = cArrayToEigenVector(attNavIn.sigma_BN);
+    const Eigen::Vector3f sigma_RN = cArrayToEigenVector(attRefIn.sigma_RN);
+    const Eigen::Vector3f vehSunPntBdy = cArrayToEigenVector(attNavIn.vehSunPntBdy);
 
     const SolarArrayReferenceOutput output =
         this->algorithm.update(sigma_BN, sigma_RN, vehSunPntBdy, hingedRigidBodyIn.theta, callTime);
 
-    HingedRigidBodyMsgPayload hingedRigidBodyRefOut = {};
+    HingedRigidBodyMsgF32Payload hingedRigidBodyRefOut = {};
     hingedRigidBodyRefOut.theta = output.theta;
     hingedRigidBodyRefOut.thetaDot = output.thetaDot;
     this->hingedRigidBodyRefOutMsg.write(&hingedRigidBodyRefOut, this->moduleID, callTime);
@@ -38,22 +38,22 @@ void SolarArrayReference::updateState(uint64_t callTime) {
 /*! Set the solar array drive axis in body frame coordinates.
  *  @param axis [-] solar array drive axis in body frame coordinates
  */
-void SolarArrayReference::setA1Hat_B(const Eigen::Vector3d& axis) { this->algorithm.setA1Hat_B(axis); }
+void SolarArrayReference::setA1Hat_B(const Eigen::Vector3f& axis) { this->algorithm.setA1Hat_B(axis); }
 
 /*! Get the solar array drive axis in body frame coordinates.
- *  @return Eigen::Vector3d [-] solar array drive axis in body frame coordinates
+ *  @return Eigen::Vector3f [-] solar array drive axis in body frame coordinates
  */
-Eigen::Vector3d SolarArrayReference::getA1Hat_B() const { return this->algorithm.getA1Hat_B(); }
+Eigen::Vector3f SolarArrayReference::getA1Hat_B() const { return this->algorithm.getA1Hat_B(); }
 
 /*! Set the solar array surface normal at zero rotation.
  *  @param normal [-] solar array surface normal at zero rotation
  */
-void SolarArrayReference::setA2Hat_B(const Eigen::Vector3d& normal) { this->algorithm.setA2Hat_B(normal); }
+void SolarArrayReference::setA2Hat_B(const Eigen::Vector3f& normal) { this->algorithm.setA2Hat_B(normal); }
 
 /*! Get the solar array surface normal at zero rotation.
- *  @return Eigen::Vector3d [-] solar array surface normal at zero rotation
+ *  @return Eigen::Vector3f [-] solar array surface normal at zero rotation
  */
-Eigen::Vector3d SolarArrayReference::getA2Hat_B() const { return this->algorithm.getA2Hat_B(); }
+Eigen::Vector3f SolarArrayReference::getA2Hat_B() const { return this->algorithm.getA2Hat_B(); }
 
 /*! Set the attitude frame flag.
  *  @param frame attitude frame flag (0 = referenceFrame, 1 = bodyFrame)

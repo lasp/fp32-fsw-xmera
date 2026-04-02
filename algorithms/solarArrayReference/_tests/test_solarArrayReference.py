@@ -44,7 +44,7 @@ def compute_rotation_angle(sigma_RN, rHat_SB_N, a1Hat_B, a2Hat_B, theta0):
 @pytest.mark.parametrize("sigma_RN", [[0.3, 0.2, 0.1],
                                       [0.9, 0.7, 0.8]])
 @pytest.mark.parametrize("attitudeFrame", [0, 1])
-@pytest.mark.parametrize("accuracy", [1e-12])
+@pytest.mark.parametrize("accuracy", [1e-6])
 
 
 def test_solarArrayReference(show_plots, rHat_SB_N, sigma_BN, sigma_RN, attitudeFrame, accuracy):
@@ -106,23 +106,23 @@ def test_solarArrayReference(show_plots, rHat_SB_N, sigma_BN, sigma_RN, attitude
     solar_array.attitudeFrame = attitudeFrame
 
     # Create input attitude navigation message
-    nav_att_in_msg_data = messaging.NavAttMsgPayload()
+    nav_att_in_msg_data = messaging.NavAttMsgF32Payload()
     nav_att_in_msg_data.sigma_BN = sigma_BN
     nav_att_in_msg_data.vehSunPntBdy = rHat_SB_B
-    nav_att_in_msg = messaging.NavAttMsg().write(nav_att_in_msg_data)
+    nav_att_in_msg = messaging.NavAttMsgF32().write(nav_att_in_msg_data)
     solar_array.attNavInMsg.subscribeTo(nav_att_in_msg)
 
     # Create input attitude reference message
-    att_ref_in_msg_data = messaging.AttRefMsgPayload()
+    att_ref_in_msg_data = messaging.AttRefMsgF32Payload()
     att_ref_in_msg_data.sigma_RN = sigma_RN
-    att_ref_in_msg = messaging.AttRefMsg().write(att_ref_in_msg_data)
+    att_ref_in_msg = messaging.AttRefMsgF32().write(att_ref_in_msg_data)
     solar_array.attRefInMsg.subscribeTo(att_ref_in_msg)
 
     # Create input hinged rigid body body message
-    hinged_rigid_body_in_msg_data = messaging.HingedRigidBodyMsgPayload()
+    hinged_rigid_body_in_msg_data = messaging.HingedRigidBodyMsgF32Payload()
     hinged_rigid_body_in_msg_data.theta = thetaC
     hinged_rigid_body_in_msg_data.thetaDot = thetaDotC
-    hinged_rigid_body_in_msg = messaging.HingedRigidBodyMsg().write(hinged_rigid_body_in_msg_data)
+    hinged_rigid_body_in_msg = messaging.HingedRigidBodyMsgF32().write(hinged_rigid_body_in_msg_data)
     solar_array.hingedRigidBodyInMsg.subscribeTo(hinged_rigid_body_in_msg)
 
     # Setup logging on the test module output message so that we get all the writes to it
