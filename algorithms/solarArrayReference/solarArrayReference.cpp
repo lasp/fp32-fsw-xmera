@@ -3,10 +3,12 @@
 #include <stdexcept>
 #include <string.h>
 
-#include <architecture/utilities/astroConstants.h>
+#include "utilities/timeConstants.h"
+
 #include <architecture/utilities/linearAlgebra.h>
-#include <architecture/utilities/macroDefinitions.h>
 #include <architecture/utilities/rigidBodyKinematics.h>
+
+#include <numbers>
 
 const double epsilon = 1e-12;  // module tolerance for zero
 
@@ -98,10 +100,10 @@ void SolarArrayReference::updateState(uint64_t callTime) {
             thetaR = -thetaR;
         }
         // always make the absolute difference |thetaR-thetaC| smaller that 2*pi
-        if (thetaR - thetaC > MPI) {
-            hingedRigidBodyRefOut.theta = hingedRigidBodyIn.theta + thetaR - thetaC - 2 * MPI;
-        } else if (thetaR - thetaC < -MPI) {
-            hingedRigidBodyRefOut.theta = hingedRigidBodyIn.theta + thetaR - thetaC + 2 * MPI;
+        if (thetaR - thetaC > std::numbers::pi) {
+            hingedRigidBodyRefOut.theta = hingedRigidBodyIn.theta + thetaR - thetaC - 2 * std::numbers::pi;
+        } else if (thetaR - thetaC < -std::numbers::pi) {
+            hingedRigidBodyRefOut.theta = hingedRigidBodyIn.theta + thetaR - thetaC + 2 * std::numbers::pi;
         } else {
             hingedRigidBodyRefOut.theta = hingedRigidBodyIn.theta + thetaR - thetaC;
         }
@@ -112,7 +114,7 @@ void SolarArrayReference::updateState(uint64_t callTime) {
     if (this->count == 0) {
         hingedRigidBodyRefOut.thetaDot = 0;
     } else {
-        dt = (double)(callTime - this->priorT) * NANO2SEC;
+        dt = static_cast<double>(callTime - this->priorT) * kNano2Sec;
         hingedRigidBodyRefOut.thetaDot = (hingedRigidBodyRefOut.theta - this->priorThetaR) / dt;
     }
     // update stored variables

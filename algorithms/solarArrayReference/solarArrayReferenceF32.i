@@ -1,6 +1,7 @@
 %module solarArrayReferenceF32
 %{
    #include "solarArrayReference.h"
+   #include "utilities/timeConstants.h"
 %}
 
 %include <architecture/_GeneralModuleFiles/sys_model.i>
