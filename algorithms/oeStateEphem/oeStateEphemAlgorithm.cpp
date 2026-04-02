@@ -59,37 +59,37 @@ double OEStateEphemAlgorithm::scaleEphemerisTime(const ChebyshevFitArc& arc) con
     eccentricity, inclination, argument of periapsis, RAAN, and true anomaly) from the stored
     Chebyshev coefficients. The method handles different orbit types (elliptic, hyperbolic, parabolic)
     and converts mean anomaly to true anomaly when necessary.
-    @return ClassicalElementsF32 The computed classical orbital elements
+    @return ClassicalElements The computed classical orbital elements
     @param currentScaledValue The normalized time value in the range [-1, 1]
     @param arc The Chebyshev fit arc containing all coefficient arrays
 */
-ClassicalElementsF32 OEStateEphemAlgorithm::evaluateCoefficients(const double currentScaledValue,
-                                                                 const ChebyshevFitArc& arc) {
+ClassicalElements OEStateEphemAlgorithm::evaluateCoefficients(const double currentScaledValue,
+                                                              const ChebyshevFitArc& arc) {
     /* - determine orbit elements from chebychev polynominals */
-    ClassicalElementsF32 elements{};
+    ClassicalElements elements{};
     const double radiusPeriapsis =
         calculateChebyValue(arc.radiusPeriapsisCoefficients, arc.numberChebCoefficients, currentScaledValue);
-    elements.inclination = calculateChebyValue(
-        arc.inclinationCoefficients, arc.numberChebCoefficients, static_cast<float>(currentScaledValue));
-    elements.eccentricity = calculateChebyValue(
-        arc.eccentricityCoefficients, arc.numberChebCoefficients, static_cast<float>(currentScaledValue));
-    elements.argPeriapsis = calculateChebyValue(
-        arc.argPeriapsisCoefficients, arc.numberChebCoefficients, static_cast<float>(currentScaledValue));
+    elements.inclination =
+        calculateChebyValue(arc.inclinationCoefficients, arc.numberChebCoefficients, currentScaledValue);
+    elements.eccentricity =
+        calculateChebyValue(arc.eccentricityCoefficients, arc.numberChebCoefficients, currentScaledValue);
+    elements.argPeriapsis =
+        calculateChebyValue(arc.argPeriapsisCoefficients, arc.numberChebCoefficients, currentScaledValue);
     elements.rightAscensionAscendingNode =
-        calculateChebyValue(arc.raanCoefficients, arc.numberChebCoefficients, static_cast<float>(currentScaledValue));
-    const float anomalyAngle = calculateChebyValue(
-        arc.trueAnomalyCoefficients, arc.numberChebCoefficients, static_cast<float>(currentScaledValue));
+        calculateChebyValue(arc.raanCoefficients, arc.numberChebCoefficients, currentScaledValue);
+    const double anomalyAngle =
+        calculateChebyValue(arc.trueAnomalyCoefficients, arc.numberChebCoefficients, currentScaledValue);
 
     /*! - determine the true anomaly angle */
     if (arc.anomalyFlag == AnomalyType::TRUE_ANOMALY) {
         elements.trueAnomaly = anomalyAngle;
     } else if (elements.eccentricity < 1.0) {
         /* input is mean elliptic anomaly angle */
-        elements.trueAnomaly = OrbitalMotion::meanToTrueAnomalyF32(anomalyAngle, elements.eccentricity);
+        elements.trueAnomaly = OrbitalMotion::meanToTrueAnomaly(anomalyAngle, elements.eccentricity);
     } else {
         /* input is mean hyperbolic anomaly angle */
-        elements.trueAnomaly = OrbitalMotion::hyperbolicToTrueAnomalyF32(
-            OrbitalMotion::meanToHyperbolicAnomalyF32(anomalyAngle, elements.eccentricity), elements.eccentricity);
+        elements.trueAnomaly = OrbitalMotion::hyperbolicToTrueAnomaly(
+            OrbitalMotion::meanToHyperbolicAnomaly(anomalyAngle, elements.eccentricity), elements.eccentricity);
     }
 
     /*! - determine semi-major axis */
@@ -138,7 +138,7 @@ CartesianState OEStateEphemAlgorithm::update(const uint64_t callTime) {
     const auto orbitalElements = evaluateCoefficients(currentScaledValue, currentArc);
 
     /*! - Determine position and velocity vectors */
-    outputCartesianState = OrbitalMotion::elementsToCartesianStateF32(this->mu, orbitalElements);
+    outputCartesianState = OrbitalMotion::elementsToCartesianState(this->mu, orbitalElements);
 
     return outputCartesianState;
 }
@@ -210,7 +210,7 @@ void OEStateEphemAlgorithm::setArcMiddleTime(const unsigned int arcNumber, const
 
 double OEStateEphemAlgorithm::getArcMiddleTime(const unsigned int arcNumber) const {
     /*! This method retrieves the middle time for a specified arc.
-        @return float The ephemeris time at the arc's midpoint (seconds)
+        @return double The ephemeris time at the arc's midpoint (seconds)
         @param arcNumber The index of the arc to query
     */
     return this->fitCoefficients.at(arcNumber).ephemerisTimeMiddle;
@@ -230,7 +230,7 @@ void OEStateEphemAlgorithm::setArcRadiusTime(const unsigned int arcNumber, const
 
 double OEStateEphemAlgorithm::getArcRadiusTime(const unsigned int arcNumber) const {
     /*! This method retrieves the time radius for a specified arc.
-        @return float The time radius for the arc (seconds)
+        @return double The time radius for the arc (seconds)
         @param arcNumber The index of the arc to query
     */
     return this->fitCoefficients.at(arcNumber).ephemerisTimeRadius;
@@ -281,15 +281,15 @@ std::array<double, kMaxOeCoeff> OEStateEphemAlgorithm::getArcRadiusPeriapsisCoef
 */
 void OEStateEphemAlgorithm::setArcEccentricityCoefficients(
     const unsigned int arcNumber,
-    const std::array<float, kMaxOeCoeff>& eccentricityCoefficients) {
+    const std::array<double, kMaxOeCoeff>& eccentricityCoefficients) {
     this->fitCoefficients.at(arcNumber).eccentricityCoefficients = eccentricityCoefficients;
 };
 
 /*! This method retrieves the Chebyshev coefficients for eccentricity for a specified arc.
-    @return std::array<float, kMaxOeCoeff> Array of Chebyshev coefficients for eccentricity
+    @return std::array<double, kMaxOeCoeff> Array of Chebyshev coefficients for eccentricity
     @param arcNumber The index of the arc to query
 */
-std::array<float, kMaxOeCoeff> OEStateEphemAlgorithm::getArcEccentricityCoefficients(
+std::array<double, kMaxOeCoeff> OEStateEphemAlgorithm::getArcEccentricityCoefficients(
     const unsigned int arcNumber) const {
     return this->fitCoefficients.at(arcNumber).eccentricityCoefficients;
 };
@@ -301,15 +301,15 @@ std::array<float, kMaxOeCoeff> OEStateEphemAlgorithm::getArcEccentricityCoeffici
 */
 void OEStateEphemAlgorithm::setArcInclinationCoefficients(
     const unsigned int arcNumber,
-    const std::array<float, kMaxOeCoeff>& inclinationCoefficients) {
+    const std::array<double, kMaxOeCoeff>& inclinationCoefficients) {
     this->fitCoefficients.at(arcNumber).inclinationCoefficients = inclinationCoefficients;
 };
 
 /*! This method retrieves the Chebyshev coefficients for inclination for a specified arc.
-    @return std::array<float, kMaxOeCoeff> Array of Chebyshev coefficients for inclination
+    @return std::array<double, kMaxOeCoeff> Array of Chebyshev coefficients for inclination
     @param arcNumber The index of the arc to query
 */
-std::array<float, kMaxOeCoeff> OEStateEphemAlgorithm::getArcInclinationCoefficients(
+std::array<double, kMaxOeCoeff> OEStateEphemAlgorithm::getArcInclinationCoefficients(
     const unsigned int arcNumber) const {
     return this->fitCoefficients.at(arcNumber).inclinationCoefficients;
 };
@@ -321,15 +321,15 @@ std::array<float, kMaxOeCoeff> OEStateEphemAlgorithm::getArcInclinationCoefficie
 */
 void OEStateEphemAlgorithm::setArcArgPeriapsisCoefficients(
     const unsigned int arcNumber,
-    const std::array<float, kMaxOeCoeff>& argPeriapsisCoefficients) {
+    const std::array<double, kMaxOeCoeff>& argPeriapsisCoefficients) {
     this->fitCoefficients.at(arcNumber).argPeriapsisCoefficients = argPeriapsisCoefficients;
 };
 
 /*! This method retrieves the Chebyshev coefficients for argument of periapsis for a specified arc.
-    @return std::array<float, kMaxOeCoeff> Array of Chebyshev coefficients for argument of periapsis
+    @return std::array<double, kMaxOeCoeff> Array of Chebyshev coefficients for argument of periapsis
     @param arcNumber The index of the arc to query
 */
-std::array<float, kMaxOeCoeff> OEStateEphemAlgorithm::getArcArgPeriapsisCoefficients(
+std::array<double, kMaxOeCoeff> OEStateEphemAlgorithm::getArcArgPeriapsisCoefficients(
     const unsigned int arcNumber) const {
     return this->fitCoefficients.at(arcNumber).argPeriapsisCoefficients;
 };
@@ -341,16 +341,16 @@ std::array<float, kMaxOeCoeff> OEStateEphemAlgorithm::getArcArgPeriapsisCoeffici
     @param raanCoefficients Array of Chebyshev coefficients for RAAN
 */
 void OEStateEphemAlgorithm::setArcRaanCoefficients(const unsigned int arcNumber,
-                                                   const std::array<float, kMaxOeCoeff>& raanCoefficients) {
+                                                   const std::array<double, kMaxOeCoeff>& raanCoefficients) {
     this->fitCoefficients.at(arcNumber).raanCoefficients = raanCoefficients;
 };
 
 /*! This method retrieves the Chebyshev coefficients for right ascension of the ascending node (RAAN)
     for a specified arc.
-    @return std::array<float, kMaxOeCoeff> Array of Chebyshev coefficients for RAAN
+    @return std::array<double, kMaxOeCoeff> Array of Chebyshev coefficients for RAAN
     @param arcNumber The index of the arc to query
 */
-std::array<float, kMaxOeCoeff> OEStateEphemAlgorithm::getArcRaanCoefficients(const unsigned int arcNumber) const {
+std::array<double, kMaxOeCoeff> OEStateEphemAlgorithm::getArcRaanCoefficients(const unsigned int arcNumber) const {
     return this->fitCoefficients.at(arcNumber).raanCoefficients;
 };
 
@@ -361,15 +361,15 @@ std::array<float, kMaxOeCoeff> OEStateEphemAlgorithm::getArcRaanCoefficients(con
 */
 void OEStateEphemAlgorithm::setArcTrueAnomalyCoefficients(
     const unsigned int arcNumber,
-    const std::array<float, kMaxOeCoeff>& trueAnomalyCoefficients) {
+    const std::array<double, kMaxOeCoeff>& trueAnomalyCoefficients) {
     this->fitCoefficients.at(arcNumber).trueAnomalyCoefficients = trueAnomalyCoefficients;
 };
 
 /*! This method retrieves the Chebyshev coefficients for true anomaly for a specified arc.
-    @return std::array<float, kMaxOeCoeff> Array of Chebyshev coefficients for true anomaly
+    @return std::array<double, kMaxOeCoeff> Array of Chebyshev coefficients for true anomaly
     @param arcNumber The index of the arc to query
 */
-std::array<float, kMaxOeCoeff> OEStateEphemAlgorithm::getArcTrueAnomalyCoefficients(
+std::array<double, kMaxOeCoeff> OEStateEphemAlgorithm::getArcTrueAnomalyCoefficients(
     const unsigned int arcNumber) const {
     return this->fitCoefficients.at(arcNumber).trueAnomalyCoefficients;
 };

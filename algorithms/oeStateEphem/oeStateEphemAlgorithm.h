@@ -12,7 +12,6 @@
 #include <cstddef>
 
 inline constexpr double kTolerance = 1e-10;
-inline constexpr float kToleranceF32 = 1e-6;
 inline constexpr std::size_t kMaxOeCoeff = 20;
 inline constexpr std::size_t kMaxOeRecords = 10;
 
@@ -28,13 +27,13 @@ struct ChebyshevFitArc {
     double ephemerisTimeRadius{};           //!< [s] "Radius" of time that curve is valid for (half of total range)
     std::array<double, kMaxOeCoeff>
         radiusPeriapsisCoefficients{};  //!< [-] Set of chebyshev coefficients for radius at periapses
-    std::array<float, kMaxOeCoeff> eccentricityCoefficients{};  //!< [-] Set of chebyshev coefficients for eccentricity
-    std::array<float, kMaxOeCoeff> inclinationCoefficients{};   //!< [-] Set of chebyshev coefficients for inclination
-    std::array<float, kMaxOeCoeff>
+    std::array<double, kMaxOeCoeff> eccentricityCoefficients{};  //!< [-] Set of chebyshev coefficients for eccentricity
+    std::array<double, kMaxOeCoeff> inclinationCoefficients{};   //!< [-] Set of chebyshev coefficients for inclination
+    std::array<double, kMaxOeCoeff>
         argPeriapsisCoefficients{};  //!< [-] Set of chebyshev coefficients for argument of periapses
-    std::array<float, kMaxOeCoeff>
+    std::array<double, kMaxOeCoeff>
         raanCoefficients{};  //!< [-] Set of chebyshev coefficients for right ascention of the ascending node
-    std::array<float, kMaxOeCoeff>
+    std::array<double, kMaxOeCoeff>
         trueAnomalyCoefficients{};                       //!< [-] Set of chebyshev coefficients for true anomaly angle
     AnomalyType anomalyFlag{AnomalyType::TRUE_ANOMALY};  //!< [-] Flag indicating if the anomaly angle is true or mean
 };
@@ -73,24 +72,24 @@ class OEStateEphemAlgorithm {
                                            const std::array<double, kMaxOeCoeff> &radiusPeriapsisCoefficients);
     std::array<double, kMaxOeCoeff> getArcRadiusPeriapsisCoefficients(unsigned int arcNumber) const;
     void setArcEccentricityCoefficients(unsigned int arcNumber,
-                                        const std::array<float, kMaxOeCoeff> &eccentricityCoefficients);
-    std::array<float, kMaxOeCoeff> getArcEccentricityCoefficients(unsigned int arcNumber) const;
+                                        const std::array<double, kMaxOeCoeff> &eccentricityCoefficients);
+    std::array<double, kMaxOeCoeff> getArcEccentricityCoefficients(unsigned int arcNumber) const;
     void setArcInclinationCoefficients(unsigned int arcNumber,
-                                       const std::array<float, kMaxOeCoeff> &inclinationCoefficients);
-    std::array<float, kMaxOeCoeff> getArcInclinationCoefficients(unsigned int arcNumber) const;
+                                       const std::array<double, kMaxOeCoeff> &inclinationCoefficients);
+    std::array<double, kMaxOeCoeff> getArcInclinationCoefficients(unsigned int arcNumber) const;
     void setArcArgPeriapsisCoefficients(unsigned int arcNumber,
-                                        const std::array<float, kMaxOeCoeff> &argPeriapsisCoefficients);
-    std::array<float, kMaxOeCoeff> getArcArgPeriapsisCoefficients(unsigned int arcNumber) const;
-    void setArcRaanCoefficients(unsigned int arcNumber, const std::array<float, kMaxOeCoeff> &raanCoefficients);
-    std::array<float, kMaxOeCoeff> getArcRaanCoefficients(unsigned int arcNumber) const;
+                                        const std::array<double, kMaxOeCoeff> &argPeriapsisCoefficients);
+    std::array<double, kMaxOeCoeff> getArcArgPeriapsisCoefficients(unsigned int arcNumber) const;
+    void setArcRaanCoefficients(unsigned int arcNumber, const std::array<double, kMaxOeCoeff> &raanCoefficients);
+    std::array<double, kMaxOeCoeff> getArcRaanCoefficients(unsigned int arcNumber) const;
     void setArcTrueAnomalyCoefficients(unsigned int arcNumber,
-                                       const std::array<float, kMaxOeCoeff> &trueAnomalyCoefficients);
-    std::array<float, kMaxOeCoeff> getArcTrueAnomalyCoefficients(unsigned int arcNumber) const;
+                                       const std::array<double, kMaxOeCoeff> &trueAnomalyCoefficients);
+    std::array<double, kMaxOeCoeff> getArcTrueAnomalyCoefficients(unsigned int arcNumber) const;
 
    private:
     ChebyshevFitArc findCurrentArc(uint64_t spacecraftClockTime);
     double scaleEphemerisTime(const ChebyshevFitArc &arc) const;
-    static ClassicalElementsF32 evaluateCoefficients(double currentScaledValue, const ChebyshevFitArc &arc);
+    static ClassicalElements evaluateCoefficients(double currentScaledValue, const ChebyshevFitArc &arc);
     bool allParametersNull() const;
     unsigned int numberOfArcs{};
     double currentEphTime{};
