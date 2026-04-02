@@ -2,7 +2,7 @@
 
 TEST(CssCommTest, RegressionTest) {
     uint32_t numSensors = 4;
-    float maxSensorValue = 500e-6;
+    double maxSensorValue = 500e-6;
     uint32_t chebyCount = 3;
 
     std::vector chebyCoeffs = {0.1, -0.2, 0.05};
@@ -21,8 +21,8 @@ TEST(CssCommTest, SetupTest) {
     EXPECT_THROW(alg.setNumSensors(MAX_NUM_CSS_SENSORS + 1), fs::invalid_argument);
 
     // maxSensorValue: 0 and negative should throw
-    EXPECT_THROW(alg.setMaxSensorValue(0.0F), fs::invalid_argument);
-    EXPECT_THROW(alg.setMaxSensorValue(-1.0F), fs::invalid_argument);
+    EXPECT_THROW(alg.setMaxSensorValue(0.0), fs::invalid_argument);
+    EXPECT_THROW(alg.setMaxSensorValue(-1.0), fs::invalid_argument);
 
     // chebyCount: 0 and above-max should throw
     EXPECT_THROW(alg.setChebyCount(0), fs::invalid_argument);
@@ -32,19 +32,19 @@ TEST(CssCommTest, SetupTest) {
     alg.setNumSensors(4);
     EXPECT_EQ(alg.getNumSensors(), 4u);
 
-    alg.setMaxSensorValue(500e-6F);
-    EXPECT_FLOAT_EQ(alg.getMaxSensorValue(), 500e-6F);
+    alg.setMaxSensorValue(500e-6);
+    EXPECT_DOUBLE_EQ(alg.getMaxSensorValue(), 500e-6);
 
     alg.setChebyCount(3);
     EXPECT_EQ(alg.getChebyCount(), 3u);
 
-    std::array<float, kMaxNumChebyPolys> polys{};
-    polys[0] = 0.1F;
-    polys[1] = -0.2F;
+    std::array<double, kMaxNumChebyPolys> polys{};
+    polys[0] = 0.1;
+    polys[1] = -0.2;
     alg.setChebyPolynomials(polys);
     auto retrieved = alg.getChebyPolynomials();
     for (std::size_t i = 0; i < kMaxNumChebyPolys; ++i) {
-        EXPECT_FLOAT_EQ(retrieved[i], polys[i]);
+        EXPECT_DOUBLE_EQ(retrieved[i], polys[i]);
     }
 }
 
@@ -56,45 +56,45 @@ TEST(CssCommTest, SetupTest) {
 TEST(CssCommTest, SaturationClampingToOne) {
     CssCommAlgorithm alg{};
     alg.setNumSensors(1);
-    alg.setMaxSensorValue(1.0F);
+    alg.setMaxSensorValue(1.0);
     alg.setChebyCount(1);
 
     // With chebyPolynomials[0] = 2.0 and input = 1.0:
     // scaled = 1.0, correction = 2.0, corrected = 3.0 → clamped to 1.0
-    std::array<float, kMaxNumChebyPolys> polys{};
-    polys[0] = 2.0F;
+    std::array<double, kMaxNumChebyPolys> polys{};
+    polys[0] = 2.0;
     alg.setChebyPolynomials(polys);
 
-    std::array<float, MAX_NUM_CSS_SENSORS> input{};
-    input[0] = 1.0F;
+    std::array<double, MAX_NUM_CSS_SENSORS> input{};
+    input[0] = 1.0;
     auto output = alg.update(input);
 
-    EXPECT_FLOAT_EQ(output[0], 1.0F);
+    EXPECT_DOUBLE_EQ(output[0], 1.0);
 }
 
 // For any valid configuration and inputs, every output is in [0.0, 1.0].
 TEST(CssCommTest, OutputAlwaysInUnitRange) {
     CssCommAlgorithm alg{};
     alg.setNumSensors(MAX_NUM_CSS_SENSORS);
-    alg.setMaxSensorValue(100.0F);
+    alg.setMaxSensorValue(100.0);
     alg.setChebyCount(4);
 
-    std::array<float, kMaxNumChebyPolys> polys{};
-    polys[0] = 1e4F;
-    polys[1] = -5e3F;
-    polys[2] = 2e3F;
-    polys[3] = -1e3F;
+    std::array<double, kMaxNumChebyPolys> polys{};
+    polys[0] = 1e4;
+    polys[1] = -5e3;
+    polys[2] = 2e3;
+    polys[3] = -1e3;
     alg.setChebyPolynomials(polys);
 
-    std::array<float, MAX_NUM_CSS_SENSORS> input{};
+    std::array<double, MAX_NUM_CSS_SENSORS> input{};
     for (uint32_t i = 0; i < MAX_NUM_CSS_SENSORS; ++i) {
-        input[i] = static_cast<float>(i) * 20.0F - 200.0F;  // range of values including negatives
+        input[i] = static_cast<double>(i) * 20.0 - 200.0;  // range of values including negatives
     }
     auto output = alg.update(input);
 
     for (uint32_t i = 0; i < MAX_NUM_CSS_SENSORS; ++i) {
-        EXPECT_GE(output[i], 0.0F);
-        EXPECT_LE(output[i], 1.0F);
+        EXPECT_GE(output[i], 0.0);
+        EXPECT_LE(output[i], 1.0);
         EXPECT_TRUE(std::isfinite(output[i]));
     }
 }
@@ -103,26 +103,26 @@ TEST(CssCommTest, OutputAlwaysInUnitRange) {
 TEST(CssCommTest, UnusedSensorsRemainZero) {
     CssCommAlgorithm alg{};
     alg.setNumSensors(2);
-    alg.setMaxSensorValue(1.0F);
+    alg.setMaxSensorValue(1.0);
     alg.setChebyCount(1);
 
-    std::array<float, kMaxNumChebyPolys> polys{};
-    polys[0] = 0.5F;
+    std::array<double, kMaxNumChebyPolys> polys{};
+    polys[0] = 0.5;
     alg.setChebyPolynomials(polys);
 
-    std::array<float, MAX_NUM_CSS_SENSORS> input{};
+    std::array<double, MAX_NUM_CSS_SENSORS> input{};
     for (auto& v : input) {
-        v = 0.5F;  // fill all entries
+        v = 0.5;  // fill all entries
     }
     auto output = alg.update(input);
 
     // First 2 sensors should have non-trivial output
-    EXPECT_GT(output[0], 0.0F);
-    EXPECT_GT(output[1], 0.0F);
+    EXPECT_GT(output[0], 0.0);
+    EXPECT_GT(output[1], 0.0);
 
     // Remaining sensors must be zero
     for (uint32_t i = 2; i < MAX_NUM_CSS_SENSORS; ++i) {
-        EXPECT_FLOAT_EQ(output[i], 0.0F);
+        EXPECT_DOUBLE_EQ(output[i], 0.0);
     }
 }
 
@@ -131,23 +131,23 @@ TEST(CssCommTest, UnusedSensorsRemainZero) {
 TEST(CssCommTest, ZeroInputIsChebyCorrection) {
     CssCommAlgorithm alg{};
     alg.setNumSensors(4);
-    alg.setMaxSensorValue(1.0F);
+    alg.setMaxSensorValue(1.0);
     alg.setChebyCount(3);
 
-    std::array<float, kMaxNumChebyPolys> polys{};
-    polys[0] = 0.3F;
-    polys[1] = 0.1F;
-    polys[2] = 0.05F;
+    std::array<double, kMaxNumChebyPolys> polys{};
+    polys[0] = 0.3;
+    polys[1] = 0.1;
+    polys[2] = 0.05;
     alg.setChebyPolynomials(polys);
 
-    std::array<float, MAX_NUM_CSS_SENSORS> input{};  // all zeros
+    std::array<double, MAX_NUM_CSS_SENSORS> input{};  // all zeros
     auto output = alg.update(input);
 
-    float expectedCorrection = calculateChebyValue(polys, 3, 0.0F);
-    float expected = std::clamp(expectedCorrection, 0.0F, 1.0F);
+    double expectedCorrection = calculateChebyValue(polys, 3, 0.0);
+    double expected = std::clamp(expectedCorrection, 0.0, 1.0);
 
     for (uint32_t i = 0; i < 4; ++i) {
-        EXPECT_NEAR(output[i], expected, 1e-6F);
+        EXPECT_NEAR(output[i], expected, 1e-14);
     }
 }
 
@@ -156,25 +156,25 @@ TEST(CssCommTest, ZeroInputIsChebyCorrection) {
 TEST(CssCommTest, ZeroChebyIsIdentity) {
     CssCommAlgorithm alg{};
     alg.setNumSensors(5);
-    alg.setMaxSensorValue(100.0F);
+    alg.setMaxSensorValue(100.0);
     alg.setChebyCount(3);
 
-    std::array<float, kMaxNumChebyPolys> polys{};  // all zeros
+    std::array<double, kMaxNumChebyPolys> polys{};  // all zeros
     alg.setChebyPolynomials(polys);
 
-    std::array<float, MAX_NUM_CSS_SENSORS> input{};
-    input[0] = 50.0F;   // scaled = 0.5
-    input[1] = 0.0F;    // scaled = 0.0
-    input[2] = 100.0F;  // scaled = 1.0
-    input[3] = -10.0F;  // scaled = -0.1 → clamped to 0.0
-    input[4] = 110.0F;  // scaled = 1.1 → clamped to 1.0
+    std::array<double, MAX_NUM_CSS_SENSORS> input{};
+    input[0] = 50.0;   // scaled = 0.5
+    input[1] = 0.0;    // scaled = 0.0
+    input[2] = 100.0;  // scaled = 1.0
+    input[3] = -10.0;  // scaled = -0.1 → clamped to 0.0
+    input[4] = 110.0;  // scaled = 1.1 → clamped to 1.0
     auto output = alg.update(input);
 
-    EXPECT_NEAR(output[0], 0.5F, 1e-6F);
-    EXPECT_NEAR(output[1], 0.0F, 1e-6F);
-    EXPECT_NEAR(output[2], 1.0F, 1e-6F);
-    EXPECT_NEAR(output[3], 0.0F, 1e-6F);
-    EXPECT_NEAR(output[4], 1.0F, 1e-6F);
+    EXPECT_NEAR(output[0], 0.5, 1e-14);
+    EXPECT_NEAR(output[1], 0.0, 1e-14);
+    EXPECT_NEAR(output[2], 1.0, 1e-14);
+    EXPECT_NEAR(output[3], 0.0, 1e-14);
+    EXPECT_NEAR(output[4], 1.0, 1e-14);
 }
 
 // ---------------------------------------------------------------------------
@@ -186,66 +186,66 @@ TEST(CssCommTest, ZeroChebyIsIdentity) {
 TEST(CssCommTest, SingleChebyCoefficient) {
     CssCommAlgorithm alg{};
     alg.setNumSensors(3);
-    alg.setMaxSensorValue(1.0F);
+    alg.setMaxSensorValue(1.0);
     alg.setChebyCount(1);
 
-    std::array<float, kMaxNumChebyPolys> polys{};
-    polys[0] = 0.2F;
+    std::array<double, kMaxNumChebyPolys> polys{};
+    polys[0] = 0.2;
     alg.setChebyPolynomials(polys);
 
-    std::array<float, MAX_NUM_CSS_SENSORS> input{};
-    input[0] = 0.0F;
-    input[1] = 0.5F;
-    input[2] = 0.8F;
+    std::array<double, MAX_NUM_CSS_SENSORS> input{};
+    input[0] = 0.0;
+    input[1] = 0.5;
+    input[2] = 0.8;
     auto output = alg.update(input);
 
     // correction = 0.2 for all inputs, so output = clamp(scaled + 0.2, 0, 1)
-    EXPECT_NEAR(output[0], 0.2F, 1e-6F);  // 0.0 + 0.2
-    EXPECT_NEAR(output[1], 0.7F, 1e-6F);  // 0.5 + 0.2
-    EXPECT_NEAR(output[2], 1.0F, 1e-6F);  // 0.8 + 0.2 = 1.0
+    EXPECT_NEAR(output[0], 0.2, 1e-14);  // 0.0 + 0.2
+    EXPECT_NEAR(output[1], 0.7, 1e-14);  // 0.5 + 0.2
+    EXPECT_NEAR(output[2], 1.0, 1e-14);  // 0.8 + 0.2 = 1.0
 }
 
 // When input exactly equals maxSensorValue, scaled = 1.0.
 TEST(CssCommTest, InputEqualsMaxSensorValue) {
     CssCommAlgorithm alg{};
     alg.setNumSensors(1);
-    alg.setMaxSensorValue(500e-6F);
+    alg.setMaxSensorValue(500e-6);
     alg.setChebyCount(2);
 
-    std::array<float, kMaxNumChebyPolys> polys{};
-    polys[0] = -0.1F;
-    polys[1] = 0.05F;
+    std::array<double, kMaxNumChebyPolys> polys{};
+    polys[0] = -0.1;
+    polys[1] = 0.05;
     alg.setChebyPolynomials(polys);
 
-    std::array<float, MAX_NUM_CSS_SENSORS> input{};
-    input[0] = 500e-6F;  // scaled = 1.0 exactly
+    std::array<double, MAX_NUM_CSS_SENSORS> input{};
+    input[0] = 500e-6;  // scaled = 1.0 exactly
     auto output = alg.update(input);
 
-    float correction = calculateChebyValue(polys, 2, 1.0F);
-    float expected = std::clamp(1.0F + correction, 0.0F, 1.0F);
-    EXPECT_NEAR(output[0], expected, 1e-6F);
+    double correction = calculateChebyValue(polys, 2, 1.0);
+    double expected = std::clamp(1.0 + correction, 0.0, 1.0);
+    EXPECT_NEAR(output[0], expected, 1e-14);
 }
 
 // All active sensors with identical input should produce identical output.
 TEST(CssCommTest, IdenticalSensorsIdenticalOutput) {
     CssCommAlgorithm alg{};
     alg.setNumSensors(MAX_NUM_CSS_SENSORS);
-    alg.setMaxSensorValue(1.0F);
+    alg.setMaxSensorValue(1.0);
     alg.setChebyCount(3);
 
-    std::array<float, kMaxNumChebyPolys> polys{};
-    polys[0] = 0.1F;
-    polys[1] = -0.05F;
-    polys[2] = 0.02F;
+    std::array<double, kMaxNumChebyPolys> polys{};
+    polys[0] = 0.1;
+    polys[1] = -0.05;
+    polys[2] = 0.02;
     alg.setChebyPolynomials(polys);
 
-    std::array<float, MAX_NUM_CSS_SENSORS> input{};
+    std::array<double, MAX_NUM_CSS_SENSORS> input{};
     for (auto& v : input) {
-        v = 0.4F;
+        v = 0.4;
     }
     auto output = alg.update(input);
 
     for (uint32_t i = 1; i < MAX_NUM_CSS_SENSORS; ++i) {
-        EXPECT_FLOAT_EQ(output[i], output[0]);
+        EXPECT_DOUBLE_EQ(output[i], output[0]);
     }
 }

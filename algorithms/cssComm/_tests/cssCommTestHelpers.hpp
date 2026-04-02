@@ -74,30 +74,26 @@ inline void regressionTestCssComm(uint32_t numSensors,
     alg.setChebyCount(chebyCount);
 
     std::array<double, kMaxNumChebyPolys> polynomials{};
-    std::array<float, kMaxNumChebyPolys> polynomialsF32{};
     for (std::size_t i = 0; i < chebyCoeffs.size() && i < kMaxNumChebyPolys; ++i) {
         polynomials[i] = chebyCoeffs[i];
-        polynomialsF32[i] = static_cast<float>(chebyCoeffs[i]);
     }
-    alg.setChebyPolynomials(polynomialsF32);
+    alg.setChebyPolynomials(polynomials);
 
     std::array<double, MAX_NUM_CSS_SENSORS> inputValues{};
-    std::array<float, MAX_NUM_CSS_SENSORS> inputValuesF32{};
     for (std::size_t i = 0; i < sensorInputRatios.size() && i < MAX_NUM_CSS_SENSORS; ++i) {
         inputValues[i] = sensorInputRatios[i] * maxSensorValue;
-        inputValuesF32[i] = static_cast<float>(sensorInputRatios[i] * maxSensorValue);
     }
 
-    std::array<float, MAX_NUM_CSS_SENSORS> output{};
-    EXPECT_NO_THROW(output = alg.update(inputValuesF32));
+    std::array<double, MAX_NUM_CSS_SENSORS> output{};
+    EXPECT_NO_THROW(output = alg.update(inputValues));
 
     auto reference = referenceUpdate(numSensors, maxSensorValue, chebyCount, polynomials, inputValues);
 
     for (uint32_t i = 0; i < MAX_NUM_CSS_SENSORS; ++i) {
-        EXPECT_NEAR(output[i], reference[i], 1e-3F);
+        EXPECT_NEAR(output[i], reference[i], 1e-12);
         EXPECT_TRUE(std::isfinite(output[i]));
-        EXPECT_GE(output[i], 0.0F);
-        EXPECT_LE(output[i], 1.0F);
+        EXPECT_GE(output[i], 0.0);
+        EXPECT_LE(output[i], 1.0);
     }
 }
 
