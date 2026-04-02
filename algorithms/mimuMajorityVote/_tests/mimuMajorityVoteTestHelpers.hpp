@@ -9,12 +9,10 @@
 #include <vector>
 
 // Reference computation for update — must mirror the production logic exactly
-MimuMajorityVoteOutput referenceUpdate(const MimuMajorityVoteAlgorithm& alg,
+MimuMajorityVoteOutput referenceUpdate(float omegaThreshold,
+                                       uint32_t persistenceLimit,
                                        const std::array<MimuInput, kMimuCount>& imuInputs,
                                        std::array<uint32_t, kMimuCount>& persistenceCount) {
-    float const omegaThreshold = alg.getOmegaThreshold();
-    uint32_t const persistenceLimit = alg.getFaultPersistenceLimit();
-
     // Stage 1: Compute average and find differences
     Eigen::Vector3f omegaAverage = Eigen::Vector3f::Zero();
     for (size_t i = 0U; i < kMimuCount; ++i) {
@@ -84,7 +82,7 @@ inline void regressionTestMimuMajorityVote(float omegaThreshold,
     // Reference output
     std::array<uint32_t, kMimuCount> persistenceCount{};
     MimuMajorityVoteOutput ref{};
-    EXPECT_NO_THROW(ref = referenceUpdate(alg, imuInputs, persistenceCount));
+    EXPECT_NO_THROW(ref = referenceUpdate(omegaThreshold, alg.getFaultPersistenceLimit(), imuInputs, persistenceCount));
 
     // Compare averaged angular velocity
     for (int i = 0; i < 3; ++i) {
