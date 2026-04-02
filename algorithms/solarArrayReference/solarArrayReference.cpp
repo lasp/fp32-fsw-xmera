@@ -1,11 +1,12 @@
 #include "solarArrayReference.h"
-#include <string.h>
 #include <math.h>
+#include <stdexcept>
+#include <string.h>
 
-#include <architecture/utilities/linearAlgebra.h>
-#include <architecture/utilities/rigidBodyKinematics.h>
 #include <architecture/utilities/astroConstants.h>
+#include <architecture/utilities/linearAlgebra.h>
 #include <architecture/utilities/macroDefinitions.h>
+#include <architecture/utilities/rigidBodyKinematics.h>
 
 const double epsilon = 1e-12;  // module tolerance for zero
 
@@ -16,13 +17,13 @@ const double epsilon = 1e-12;  // module tolerance for zero
 */
 void SolarArrayReference::reset(uint64_t callTime) {
     if (!this->attNavInMsg.isLinked()) {
-        this->bskLogger.bskLog(BSK_ERROR, "solarArrayReference.attNavInMsg wasn't connected.");
+        throw std::invalid_argument("solarArrayReference.attNavInMsg wasn't connected.");
     }
     if (!this->attRefInMsg.isLinked()) {
-        this->bskLogger.bskLog(BSK_ERROR, "solarArrayReference.attRefInMsg wasn't connected.");
+        throw std::invalid_argument("solarArrayReference.attRefInMsg wasn't connected.");
     }
     if (!this->hingedRigidBodyInMsg.isLinked()) {
-        this->bskLogger.bskLog(BSK_ERROR, "solarArrayReference.hingedRigidBodyInMsg wasn't connected.");
+        throw std::invalid_argument("solarArrayReference.hingedRigidBodyInMsg wasn't connected.");
     }
     this->count = 0;
 }
@@ -59,7 +60,7 @@ void SolarArrayReference::updateState(uint64_t callTime) {
             break;
 
         default:
-            this->bskLogger.bskLog(BSK_ERROR, "solarArrayAngle.bodyFrame input can be either 0 or 1.");
+            throw std::invalid_argument("solarArrayReference.attitudeFrame input can be either 0 or 1.");
     }
 
     /*! compute solar array frame axes at zero rotation */

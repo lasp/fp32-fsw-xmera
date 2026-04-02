@@ -6,7 +6,6 @@
 #include <architecture/msgPayloadDef/AttRefMsgPayload.h>
 #include <architecture/msgPayloadDef/HingedRigidBodyMsgPayload.h>
 #include <architecture/msgPayloadDef/NavAttMsgPayload.h>
-#include <architecture/utilities/bskLogging.h>
 #include <stdint.h>
 
 enum attitudeFrame { referenceFrame = 0, bodyFrame = 1 };
@@ -33,8 +32,6 @@ class SolarArrayReference : public SysModel {
     ReadFunctor<HingedRigidBodyMsgPayload> hingedRigidBodyInMsg;  //!< input hinged rigid body message
     Message<HingedRigidBodyMsgPayload>
         hingedRigidBodyRefOutMsg;  //!< output msg containing hinged rigid body target angle and angle rate
-
-    BSKLogger bskLogger = {};  //!< BSK Logging
 };
 
 #endif  // F32XMERA_SOLAR_ARRAY_REFERENCE_H
