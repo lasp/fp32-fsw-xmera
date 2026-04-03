@@ -65,6 +65,7 @@ MimuMajorityVoteOutput referenceUpdate(float omegaThreshold,
 
 inline void regressionTestMimuMajorityVote(float omegaThreshold,
                                            uint32_t persistenceLimit,
+                                           uint32_t algCallCount,
                                            const std::vector<float>& angVel1,
                                            const std::vector<float>& angVel2,
                                            const std::vector<float>& angVel3) {
@@ -77,14 +78,14 @@ inline void regressionTestMimuMajorityVote(float omegaThreshold,
     imuInputs.at(1).omega_BN_B = Eigen::Map<const Eigen::Vector3f>(angVel2.data());
     imuInputs.at(2).omega_BN_B = Eigen::Map<const Eigen::Vector3f>(angVel3.data());
 
-    // Algorithm output
-    MimuMajorityVoteOutput out{};
-    EXPECT_NO_THROW(out = alg.update(imuInputs));
-
-    // Reference output
     std::array<uint32_t, kMimuCount> persistenceCount{};
+    MimuMajorityVoteOutput out{};
     MimuMajorityVoteOutput ref{};
-    EXPECT_NO_THROW(ref = referenceUpdate(omegaThreshold, persistenceLimit, imuInputs, persistenceCount));
+
+    for (uint32_t call = 0U; call < algCallCount; ++call) {
+        EXPECT_NO_THROW(out = alg.update(imuInputs));
+        EXPECT_NO_THROW(ref = referenceUpdate(omegaThreshold, persistenceLimit, imuInputs, persistenceCount));
+    }
 
     // Compare averaged angular velocity
     for (int i = 0; i < 3; ++i) {

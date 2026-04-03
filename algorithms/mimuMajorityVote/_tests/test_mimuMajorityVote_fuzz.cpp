@@ -214,7 +214,8 @@ void propertyCyclicPermutationInvariant(const std::vector<float>& angVel1,
 
 FUZZ_TEST(MimuMajorityVoteAlgorithmFuzz, regressionTestMimuMajorityVote)
     .WithDomains(fuzztest::InRange(1e-6F, 1e3F),                                   // omegaThreshold
-                 fuzztest::InRange<uint32_t>(1U, std::numeric_limits<uint32_t>::max()),  // persistenceLimit
+                 fuzztest::InRange<uint32_t>(1U, 200U),                            // persistenceLimit
+                 fuzztest::InRange<uint32_t>(1U, 100U),                            // algCallCount
                  fuzztest::VectorOf(fuzztest::InRange(-1e3F, 1e3F)).WithSize(3),   // angVel1
                  fuzztest::VectorOf(fuzztest::InRange(-1e3F, 1e3F)).WithSize(3),   // angVel2
                  fuzztest::VectorOf(fuzztest::InRange(-1e3F, 1e3F)).WithSize(3));  // angVel3
