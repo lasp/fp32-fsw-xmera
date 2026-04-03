@@ -155,6 +155,61 @@ TEST(MimuMajorityVoteTest, PersistenceFaultAndRecovery) {
     }
 }
 
+TEST(MimuMajorityVoteTest, ResetClearsPersistence) {
+    MimuMajorityVoteAlgorithm alg{};
+    alg.setOmegaThreshold(0.05F);
+    alg.setFaultPersistenceLimit(3U);
+
+    Eigen::Vector3f baseRate(-0.1F, 0.25F, 0.3F);
+    Eigen::Vector3f outlierRate = baseRate + Eigen::Vector3f(2.0F, 2.0F, 2.0F);
+
+    std::array<MimuInput, kMimuCount> imuInputs{};
+    imuInputs.at(0).omega_BN_B = baseRate;
+    imuInputs.at(1).omega_BN_B = outlierRate;
+    imuInputs.at(2).omega_BN_B = baseRate;
+
+    Eigen::Vector3f fullAvg =
+        (imuInputs.at(0).omega_BN_B + imuInputs.at(1).omega_BN_B + imuInputs.at(2).omega_BN_B) / 3.0F;
+    Eigen::Vector3f faultedAvg = (imuInputs.at(0).omega_BN_B + imuInputs.at(2).omega_BN_B) / 2.0F;
+
+    // Call twice to build up persistence (limit is 3, so no fault yet)
+    for (uint32_t call = 0U; call < 2U; ++call) {
+        auto out = alg.update(imuInputs);
+        EXPECT_FALSE(out.faultDetected);
+        for (size_t i = 0U; i < kMimuCount; ++i) {
+            EXPECT_TRUE(out.validImus.at(i));
+        }
+        for (int i = 0; i < 3; ++i) {
+            EXPECT_NEAR(out.avgOmega_BN_B[i], fullAvg[i], 1e-6);
+        }
+    }
+
+    // Reset clears persistence counters
+    alg.reset();
+
+    // Same outlier inputs — counter starts from zero again, no fault
+    for (uint32_t call = 0U; call < 2U; ++call) {
+        auto out = alg.update(imuInputs);
+        EXPECT_FALSE(out.faultDetected);
+        for (size_t i = 0U; i < kMimuCount; ++i) {
+            EXPECT_TRUE(out.validImus.at(i));
+        }
+        for (int i = 0; i < 3; ++i) {
+            EXPECT_NEAR(out.avgOmega_BN_B[i], fullAvg[i], 1e-6);
+        }
+    }
+
+    // Third call after reset — now fault triggers
+    auto out = alg.update(imuInputs);
+    EXPECT_TRUE(out.faultDetected);
+    EXPECT_TRUE(out.validImus.at(0));
+    EXPECT_FALSE(out.validImus.at(1));
+    EXPECT_TRUE(out.validImus.at(2));
+    for (int i = 0; i < 3; ++i) {
+        EXPECT_NEAR(out.avgOmega_BN_B[i], faultedAvg[i], 1e-6);
+    }
+}
+
 TEST(MimuMajorityVoteTest, SetupTest) {
     MimuMajorityVoteAlgorithm alg{};
 
