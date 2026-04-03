@@ -12,13 +12,13 @@ void MimuMajorityVote::reset(uint64_t const callTime) {
 
 void MimuMajorityVote::updateState(uint64_t const callTime) {
     // Convert message payloads to algorithm input type
-    std::array<MimuInput, kMimuCount> imuInputs = {};
+    std::array<Eigen::Vector3f, kMimuCount> imuOmegas_BN_B = {};
     for (size_t index = 0U; index < kMimuCount; ++index) {
         auto payload = this->imuMessages.at(index).imuSensorBodyInMsg();
-        imuInputs.at(index).omega_BN_B = cArrayToEigenVector(payload.AngVelBody);
+        imuOmegas_BN_B.at(index) = cArrayToEigenVector(payload.AngVelBody);
     }
 
-    MimuMajorityVoteOutput output = this->algorithm.update(imuInputs);
+    MimuMajorityVoteOutput output = this->algorithm.update(imuOmegas_BN_B);
 
     // Convert algorithm output to message payloads
     IMUSensorBodyMsgF32Payload imuOutPayload{};

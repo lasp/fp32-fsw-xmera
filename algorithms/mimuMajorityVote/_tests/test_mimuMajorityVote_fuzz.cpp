@@ -15,12 +15,12 @@ void propertyOutputAlwaysFinite(const std::vector<float>& angVel1,
     MimuMajorityVoteAlgorithm alg{};
     alg.setOmegaThreshold(omegaThreshold);
 
-    std::array<MimuInput, kMimuCount> imuInputs{};
-    imuInputs.at(0).omega_BN_B = Eigen::Map<const Eigen::Vector3f>(angVel1.data());
-    imuInputs.at(1).omega_BN_B = Eigen::Map<const Eigen::Vector3f>(angVel2.data());
-    imuInputs.at(2).omega_BN_B = Eigen::Map<const Eigen::Vector3f>(angVel3.data());
+    std::array<Eigen::Vector3f, kMimuCount> imuOmegas_BN_B{};
+    imuOmegas_BN_B.at(0) = Eigen::Map<const Eigen::Vector3f>(angVel1.data());
+    imuOmegas_BN_B.at(1) = Eigen::Map<const Eigen::Vector3f>(angVel2.data());
+    imuOmegas_BN_B.at(2) = Eigen::Map<const Eigen::Vector3f>(angVel3.data());
 
-    auto const out = alg.update(imuInputs);
+    auto const out = alg.update(imuOmegas_BN_B);
 
     for (int i = 0; i < 3; ++i) {
         ASSERT_TRUE(std::isfinite(out.avgOmega_BN_B[i]));
@@ -38,12 +38,12 @@ void propertyFaultAndValidConsistency(const std::vector<float>& angVel1,
     MimuMajorityVoteAlgorithm alg{};
     alg.setOmegaThreshold(omegaThreshold);
 
-    std::array<MimuInput, kMimuCount> imuInputs{};
-    imuInputs.at(0).omega_BN_B = Eigen::Map<const Eigen::Vector3f>(angVel1.data());
-    imuInputs.at(1).omega_BN_B = Eigen::Map<const Eigen::Vector3f>(angVel2.data());
-    imuInputs.at(2).omega_BN_B = Eigen::Map<const Eigen::Vector3f>(angVel3.data());
+    std::array<Eigen::Vector3f, kMimuCount> imuOmegas_BN_B{};
+    imuOmegas_BN_B.at(0) = Eigen::Map<const Eigen::Vector3f>(angVel1.data());
+    imuOmegas_BN_B.at(1) = Eigen::Map<const Eigen::Vector3f>(angVel2.data());
+    imuOmegas_BN_B.at(2) = Eigen::Map<const Eigen::Vector3f>(angVel3.data());
 
-    auto const out = alg.update(imuInputs);
+    auto const out = alg.update(imuOmegas_BN_B);
 
     size_t invalidCount = 0U;
     for (size_t i = 0U; i < kMimuCount; ++i) {
@@ -59,11 +59,11 @@ void propertyFaultAndValidConsistency(const std::vector<float>& angVel1,
 }
 
 void expectNoFaultAverage(const MimuMajorityVoteOutput& out,
-                          const std::array<MimuInput, kMimuCount>& imuInputs,
+                          const std::array<Eigen::Vector3f, kMimuCount>& imuOmegas_BN_B,
                           size_t numImus) {
     Eigen::Vector3f expectedAvg = Eigen::Vector3f::Zero();
     for (size_t i = 0U; i < numImus; ++i) {
-        expectedAvg += imuInputs.at(i).omega_BN_B;
+        expectedAvg += imuOmegas_BN_B.at(i);
     }
     expectedAvg /= static_cast<float>(numImus);
     for (int i = 0; i < 3; ++i) {
@@ -72,7 +72,7 @@ void expectNoFaultAverage(const MimuMajorityVoteOutput& out,
 }
 
 void expectSingleFaultAverage(const MimuMajorityVoteOutput& out,
-                              const std::array<MimuInput, kMimuCount>& imuInputs,
+                              const std::array<Eigen::Vector3f, kMimuCount>& imuOmegas_BN_B,
                               size_t numImus) {
     size_t faultedIndex = numImus;  // sentinel
     for (size_t i = 0U; i < numImus; ++i) {
@@ -87,7 +87,7 @@ void expectSingleFaultAverage(const MimuMajorityVoteOutput& out,
     size_t count = 0U;
     for (size_t i = 0U; i < numImus; ++i) {
         if (i != faultedIndex) {
-            expectedAvg += imuInputs.at(i).omega_BN_B;
+            expectedAvg += imuOmegas_BN_B.at(i);
             ++count;
         }
     }
@@ -104,12 +104,12 @@ void propertyAverageIsCorrect(const std::vector<float>& angVel1,
     MimuMajorityVoteAlgorithm alg{};
     alg.setOmegaThreshold(omegaThreshold);
 
-    std::array<MimuInput, kMimuCount> imuInputs{};
-    imuInputs.at(0).omega_BN_B = Eigen::Map<const Eigen::Vector3f>(angVel1.data());
-    imuInputs.at(1).omega_BN_B = Eigen::Map<const Eigen::Vector3f>(angVel2.data());
-    imuInputs.at(2).omega_BN_B = Eigen::Map<const Eigen::Vector3f>(angVel3.data());
+    std::array<Eigen::Vector3f, kMimuCount> imuOmegas_BN_B{};
+    imuOmegas_BN_B.at(0) = Eigen::Map<const Eigen::Vector3f>(angVel1.data());
+    imuOmegas_BN_B.at(1) = Eigen::Map<const Eigen::Vector3f>(angVel2.data());
+    imuOmegas_BN_B.at(2) = Eigen::Map<const Eigen::Vector3f>(angVel3.data());
 
-    auto const out = alg.update(imuInputs);
+    auto const out = alg.update(imuOmegas_BN_B);
 
     size_t invalidCount = 0U;
     for (size_t i = 0U; i < kMimuCount; ++i) {
@@ -119,10 +119,10 @@ void propertyAverageIsCorrect(const std::vector<float>& angVel1,
     }
 
     if (invalidCount == 0U) {
-        expectNoFaultAverage(out, imuInputs, kMimuCount);
+        expectNoFaultAverage(out, imuOmegas_BN_B, kMimuCount);
     } else if (invalidCount == 1U) {
         // Single outlier excluded: average of the remaining sensors
-        expectSingleFaultAverage(out, imuInputs, kMimuCount);
+        expectSingleFaultAverage(out, imuOmegas_BN_B, kMimuCount);
     }
 }
 
@@ -131,12 +131,12 @@ void propertyIdenticalIMUsNoFault(const std::vector<float>& angVel, float omegaT
     alg.setOmegaThreshold(omegaThreshold);
 
     Eigen::Vector3f const v = Eigen::Map<const Eigen::Vector3f>(angVel.data());
-    std::array<MimuInput, kMimuCount> imuInputs{};
+    std::array<Eigen::Vector3f, kMimuCount> imuOmegas_BN_B{};
     for (size_t i = 0U; i < kMimuCount; ++i) {
-        imuInputs.at(i).omega_BN_B = v;
+        imuOmegas_BN_B.at(i) = v;
     }
 
-    auto const out = alg.update(imuInputs);
+    auto const out = alg.update(imuOmegas_BN_B);
 
     ASSERT_FALSE(out.faultDetected);
     for (size_t i = 0U; i < kMimuCount; ++i) {
@@ -155,14 +155,14 @@ void propertyClearSingleOutlier(const std::vector<float>& baseAngVel, size_t out
     alg.setOmegaThreshold(omegaThreshold);
 
     Eigen::Vector3f const base = Eigen::Map<const Eigen::Vector3f>(baseAngVel.data());
-    std::array<MimuInput, kMimuCount> imuInputs{};
+    std::array<Eigen::Vector3f, kMimuCount> imuOmegas_BN_B{};
     for (size_t i = 0U; i < kMimuCount; ++i) {
-        imuInputs.at(i).omega_BN_B = base;
+        imuOmegas_BN_B.at(i) = base;
     }
     // Make outlier clearly separable: kOutlierFactor × threshold beyond the base pair
-    imuInputs.at(outlierIndex).omega_BN_B = base + kOutlierFactor * omegaThreshold * Eigen::Vector3f::Ones();
+    imuOmegas_BN_B.at(outlierIndex) = base + kOutlierFactor * omegaThreshold * Eigen::Vector3f::Ones();
 
-    auto const out = alg.update(imuInputs);
+    auto const out = alg.update(imuOmegas_BN_B);
 
     ASSERT_TRUE(out.faultDetected);
     ASSERT_FALSE(out.validImus.at(outlierIndex));
@@ -180,20 +180,20 @@ void propertyCyclicPermutationInvariant(const std::vector<float>& angVel1,
     MimuMajorityVoteAlgorithm alg{};
     alg.setOmegaThreshold(omegaThreshold);
 
-    std::array<MimuInput, kMimuCount> imuInputs{};
-    imuInputs.at(0).omega_BN_B = Eigen::Map<const Eigen::Vector3f>(angVel1.data());
-    imuInputs.at(1).omega_BN_B = Eigen::Map<const Eigen::Vector3f>(angVel2.data());
-    imuInputs.at(2).omega_BN_B = Eigen::Map<const Eigen::Vector3f>(angVel3.data());
+    std::array<Eigen::Vector3f, kMimuCount> imuOmegas_BN_B{};
+    imuOmegas_BN_B.at(0) = Eigen::Map<const Eigen::Vector3f>(angVel1.data());
+    imuOmegas_BN_B.at(1) = Eigen::Map<const Eigen::Vector3f>(angVel2.data());
+    imuOmegas_BN_B.at(2) = Eigen::Map<const Eigen::Vector3f>(angVel3.data());
 
-    auto const out0 = alg.update(imuInputs);
+    auto const out0 = alg.update(imuOmegas_BN_B);
 
     // Cyclic permutation: [v2, v3, v1]
-    std::array<MimuInput, kMimuCount> imuInputs1{};
-    imuInputs1.at(0).omega_BN_B = imuInputs.at(1).omega_BN_B;
-    imuInputs1.at(1).omega_BN_B = imuInputs.at(2).omega_BN_B;
-    imuInputs1.at(2).omega_BN_B = imuInputs.at(0).omega_BN_B;
+    std::array<Eigen::Vector3f, kMimuCount> imuOmegas_BN_B1{};
+    imuOmegas_BN_B1.at(0) = imuOmegas_BN_B.at(1);
+    imuOmegas_BN_B1.at(1) = imuOmegas_BN_B.at(2);
+    imuOmegas_BN_B1.at(2) = imuOmegas_BN_B.at(0);
 
-    auto const out1 = alg.update(imuInputs1);
+    auto const out1 = alg.update(imuOmegas_BN_B1);
 
     ASSERT_EQ(out0.faultDetected, out1.faultDetected);
 

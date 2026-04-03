@@ -6,11 +6,6 @@
 #include <Eigen/Core>
 #include <array>
 
-/*! @brief Input angular velocity from a single IMU */
-struct MimuInput {
-    Eigen::Vector3f omega_BN_B{}; /*!< [rad/s] Angular velocity in body frame */
-};
-
 /*! @brief Output from the MIMU majority vote algorithm */
 struct MimuMajorityVoteOutput {
     Eigen::Vector3f avgOmega_BN_B{}; /*!< [rad/s] Averaged angular velocity in body frame */

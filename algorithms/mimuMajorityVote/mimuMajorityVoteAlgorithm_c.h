@@ -65,10 +65,11 @@ void MimuMajorityVoteAlgorithm_reset(MimuMajorityVoteAlgorithm* self);
 /**
  * @brief Run the majority vote update step.
  * @param self      Pointer to the instance.
- * @param imuInputs Pointer to array of IMU angular velocity 3-vectors (MIMU_COUNT_C elements).
+ * @param imuOmegas_BN_B Pointer to array of IMU angular velocity 3-vectors (MIMU_COUNT_C elements).
  * @return MimuMajorityVoteOutput_c  The computed majority vote output.
  */
-MimuMajorityVoteOutput_c MimuMajorityVoteAlgorithm_update(MimuMajorityVoteAlgorithm* self, const Vector3f_c* imuInputs);
+MimuMajorityVoteOutput_c MimuMajorityVoteAlgorithm_update(MimuMajorityVoteAlgorithm* self,
+                                                          const Vector3f_c* imuOmegas_BN_B);
 
 /**
  * @brief Set the omega threshold for fault detection.

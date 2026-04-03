@@ -18,13 +18,13 @@ void MimuMajorityVoteAlgorithm_reset(MimuMajorityVoteAlgorithm* self) {
 }
 
 MimuMajorityVoteOutput_c MimuMajorityVoteAlgorithm_update(MimuMajorityVoteAlgorithm* self,
-                                                          const Vector3f_c* imuInputs) {
+                                                          const Vector3f_c* imuOmegas_BN_B) {
     auto* alg = reinterpret_cast<::MimuMajorityVoteAlgorithm*>(self);
 
-    // Convert POD Vector3f_c inputs to C++ MimuInput array:
-    std::array<MimuInput, MIMU_COUNT_C> inputs{};
+    // Convert POD Vector3f_c inputs to C++ Eigen array:
+    std::array<Eigen::Vector3f, MIMU_COUNT_C> inputs{};
     for (uint32_t i = 0; i < MIMU_COUNT_C; ++i) {
-        inputs[i].omega_BN_B << imuInputs[i].data[0], imuInputs[i].data[1], imuInputs[i].data[2];
+        inputs[i] << imuOmegas_BN_B[i].data[0], imuOmegas_BN_B[i].data[1], imuOmegas_BN_B[i].data[2];
     }
 
     // Call the C++ algorithm:

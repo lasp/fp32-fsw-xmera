@@ -11,19 +11,19 @@
 // Reference computation for update — must mirror the production logic exactly
 MimuMajorityVoteOutput referenceUpdate(float omegaThreshold,
                                        uint32_t persistenceLimit,
-                                       const std::array<MimuInput, kMimuCount>& imuInputs,
+                                       const std::array<Eigen::Vector3f, kMimuCount>& imuOmegas_BN_B,
                                        std::array<uint32_t, kMimuCount>& persistenceCount) {
     // Stage 1: Compute average and find differences
     Eigen::Vector3f omegaAverage = Eigen::Vector3f::Zero();
     for (size_t i = 0U; i < kMimuCount; ++i) {
-        omegaAverage += imuInputs.at(i).omega_BN_B;
+        omegaAverage += imuOmegas_BN_B.at(i);
     }
     omegaAverage /= static_cast<float>(kMimuCount);
 
     MimuMajorityVoteOutput out{};
     size_t maxDiffIndex = 0U;
     for (size_t i = 0U; i < kMimuCount; ++i) {
-        out.omegaDifferencesMag.at(i) = (imuInputs.at(i).omega_BN_B - omegaAverage).norm();
+        out.omegaDifferencesMag.at(i) = (imuOmegas_BN_B.at(i) - omegaAverage).norm();
         if (out.omegaDifferencesMag.at(i) > out.omegaDifferencesMag.at(maxDiffIndex)) {
             maxDiffIndex = i;
         }
@@ -58,7 +58,7 @@ MimuMajorityVoteOutput referenceUpdate(float omegaThreshold,
 
     // Exclude outlier and average the remaining IMUs
     out.faultDetected = true;
-    out.avgOmega_BN_B = (omegaAverage * static_cast<float>(kMimuCount) - imuInputs.at(maxDiffIndex).omega_BN_B) /
+    out.avgOmega_BN_B = (omegaAverage * static_cast<float>(kMimuCount) - imuOmegas_BN_B.at(maxDiffIndex)) /
                         static_cast<float>(kMimuCount - 1U);
     return out;
 }
@@ -73,18 +73,18 @@ inline void regressionTestMimuMajorityVote(float omegaThreshold,
     alg.setOmegaThreshold(omegaThreshold);
     alg.setFaultPersistenceLimit(persistenceLimit);
 
-    std::array<MimuInput, kMimuCount> imuInputs{};
-    imuInputs.at(0).omega_BN_B = Eigen::Map<const Eigen::Vector3f>(angVel1.data());
-    imuInputs.at(1).omega_BN_B = Eigen::Map<const Eigen::Vector3f>(angVel2.data());
-    imuInputs.at(2).omega_BN_B = Eigen::Map<const Eigen::Vector3f>(angVel3.data());
+    std::array<Eigen::Vector3f, kMimuCount> imuOmegas_BN_B{};
+    imuOmegas_BN_B.at(0) = Eigen::Map<const Eigen::Vector3f>(angVel1.data());
+    imuOmegas_BN_B.at(1) = Eigen::Map<const Eigen::Vector3f>(angVel2.data());
+    imuOmegas_BN_B.at(2) = Eigen::Map<const Eigen::Vector3f>(angVel3.data());
 
     std::array<uint32_t, kMimuCount> persistenceCount{};
     MimuMajorityVoteOutput out{};
     MimuMajorityVoteOutput ref{};
 
     for (uint32_t call = 0U; call < algCallCount; ++call) {
-        EXPECT_NO_THROW(out = alg.update(imuInputs));
-        EXPECT_NO_THROW(ref = referenceUpdate(omegaThreshold, persistenceLimit, imuInputs, persistenceCount));
+        EXPECT_NO_THROW(out = alg.update(imuOmegas_BN_B));
+        EXPECT_NO_THROW(ref = referenceUpdate(omegaThreshold, persistenceLimit, imuOmegas_BN_B, persistenceCount));
     }
 
     // Compare averaged angular velocity

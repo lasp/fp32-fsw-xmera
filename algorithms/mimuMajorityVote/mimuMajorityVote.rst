@@ -111,10 +111,10 @@ Standalone Algorithm (C++ API)
     * - Parameter
       - Type
       - Description
-    * - ``imuInputs``
-      - ``std::array<MimuInput, kMimuCount>``
-      - Array of exactly 3 IMU measurements.
-        Each entry contains ``omega_BN_B`` (:math:`\boldsymbol{\omega}_i`, rad/s).
+    * - ``imuOmegas_BN_B``
+      - ``std::array<Eigen::Vector3f, kMimuCount>``
+      - Array of exactly 3 IMU angular velocity measurements
+        (:math:`\boldsymbol{\omega}_i`, rad/s).
 
 **Output** ``MimuMajorityVoteOutput``
 
@@ -155,12 +155,12 @@ triggers the fault immediately on first detection.
     alg.setOmegaThreshold(0.05F);        // rad/s
     alg.setFaultPersistenceLimit(3U);    // require 3 consecutive detections
 
-    std::array<MimuInput, kMimuCount> imuInputs{};
-    imuInputs.at(0).omega_BN_B = omega0;
-    imuInputs.at(1).omega_BN_B = omega1;
-    imuInputs.at(2).omega_BN_B = omega2;
+    std::array<Eigen::Vector3f, kMimuCount> imuOmegas_BN_B{};
+    imuOmegas_BN_B.at(0) = omega0;
+    imuOmegas_BN_B.at(1) = omega1;
+    imuOmegas_BN_B.at(2) = omega2;
 
-    MimuMajorityVoteOutput out = alg.update(imuInputs);
+    MimuMajorityVoteOutput out = alg.update(imuOmegas_BN_B);
     // out.avgOmega_BN_B  — best-estimate rate
     // out.faultDetected  — true if any IMU was rejected
     // out.validImus      — per-sensor validity flags
