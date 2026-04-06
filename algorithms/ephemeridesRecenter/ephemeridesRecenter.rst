@@ -36,9 +36,17 @@ When setting up the module:
 
 Algorithm Logic
 -------------
-- Step 1: obtain the ephemeris of the requested new central body :math:`r_{New/C}`, where :math:`C` denotes the previous common central body. If the new central body is relative to an intermediate body (e.g., a moon is relative to its parent). Let :math:`r_{P/C}` be the parent vector relative to the previous common central body, and :math:`r_{New/P}` be the new central body vector relative to the parent body. The algorithm computes the vector of new central body relative to the previous common central body :math:`r_{New/C}=r_{New/P}+r_{P/C}`.
-- Step 2: for each non-moon body :math:`b_i` whose ephemeris is relative to the previous common central body, compute their ephemeris relative to the new central body :math:`r_{b_i/New}=r_{b_i/C} - r_{New/c}`.
-- Step 3: if a non-moon body :math:`b_i` has an associated moon :math:`m_i` whose input ephemeris is given relative to :math:`b_i`, then the moon is re-centered together with its parent.
+- Step 1: obtain the ephemeris of the requested new central body with respect to the previous common zero :math:`r_{newC/C}`. If the new central body is a moon :math:`r_{newC/C}=r_{newC/Parent}+r_{Parent/C}`.
+- Step 2: for each non-moon body :math:`b_i`, compute their ephemeris relative to the new central body :math:`r_{b_i/newC}=r_{b_i/C} - r_{newC/C}`.
+- Step 3: for each non-moon body :math:`b_i` that has a moon, compute its ephemeris relative to the new central body :math:`r_{m/newC}=r_{m/Parent}+r_{Parent/newC}`
+
+Illustration Figure
+-------------
+.. figure:: _static/doc_fig.png
+   :width: 90%
+   :alt: illustration figure of the algorithm logic
+
+   Illustrating the algorithm logic by Sun-Earth-Moon.
 
 Usage Example
 -------------

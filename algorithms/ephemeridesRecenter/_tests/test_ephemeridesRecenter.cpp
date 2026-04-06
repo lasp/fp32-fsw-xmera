@@ -2,11 +2,11 @@
 #include <gtest/gtest.h>
 
 TEST(EphemeridesRecenterTest, RegressionTest) {
-    const std::vector<BodyName> bodyListInOrder{
-        makeBodyName("SUN"),
-        makeBodyName("EARTH"),
-        makeBodyName("MOON"),
-        makeBodyName("SATURN"),
+    const std::vector<int> bodyListInOrder{
+        SUN_SPICE_ID,
+        EARTH_SPICE_ID,
+        MOON_SPICE_ID,
+        SATURN_SPICE_ID,
     };
 
     regressionTestEphemeridesRecenter(bodyListInOrder,
@@ -32,4 +32,16 @@ TEST(EphemeridesRecenterTest, RegressionTest) {
 
 TEST(EphemeridesRecenterTest, SetupTest) { testEphemeridesRecenterSetup(); }
 
-TEST(EphemeridesRecenterTest, PropertyTest) { propertyTestEphemeridesRecenter(); }
+TEST(EphemeridesRecenterTest, RecenterTest) { testRecenterEphemeridesRecenter(); }
+
+TEST(EphemeridesRecenterTest, RecenterMoonTest) { testRecenterMoonEphemeridesRecenter(); }
+
+TEST(EphemeridesRecenterTest, RecenterPreCommonTest) { testRecenterPreCommonEphemeridesRecenter(); }
+
+TEST(EphemeridesRecenterTest, MultiMoonsTest) { testMultiMoonsRecenter(); }
+
+TEST(EphemeridesRecenterTest, MoonOfMoonTest) { testMoonOfMoonRecenter(); }
+
+TEST(EphemeridesRecenterTest, OrphanMoonTest) { testOrphanMoonRecenter(); }
+
+TEST(EphemeridesRecenterTest, DuplicateBodyTest) { testDuplicateBodyRecenter(); }

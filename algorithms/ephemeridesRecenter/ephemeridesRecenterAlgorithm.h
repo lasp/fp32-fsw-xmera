@@ -7,18 +7,20 @@
 #ifndef F32XIMERA_EPHEM_RECENTER_ALGORITHM_H
 #define F32XIMERA_EPHEM_RECENTER_ALGORITHM_H
 
-#include "msgPayloadDef/EphemerisMsgF32Payload.h"
+#include <Eigen/Dense>
 #include <array>
 #include <cstddef>
 
 inline constexpr std::size_t MAX_NUM_CHANGE_BODIES = 20U;
 
-inline constexpr std::size_t kBodyNameMaxLen = 256U;
-using BodyName = std::array<char, kBodyNameMaxLen>;
-
 struct MoonIndexFound {
-    size_t index;
-    bool found;
+    size_t index{};
+    bool found{false};
+};
+
+struct BodyToRecenter {
+    int bodySpiceId{};
+    int originalCentralBodyId{};
 };
 
 /**
@@ -26,12 +28,13 @@ struct MoonIndexFound {
  */
 class BodyEphemerisPayload {
    public:
-    BodyName bodySpiceName{};            //!< SPICE name of the body
-    BodyName originalCentralBodyName{};  //!< Original reference body for ephemeris data
-    bool isMoon{false};                  //!< Body is moon of another body in the list
-    EphemerisMsgF32Payload inputEphemerisPayload{EphemerisMsgF32Payload{}};  //!< Input ephemeris message
-    EphemerisMsgF32Payload outputEphemerisPayload{
-        EphemerisMsgF32Payload{}};  //!< Output ephemeris message after recentering
+    int bodySpiceId{};            //!< SPICE ID of the body
+    int originalCentralBodyId{};  //!< Original reference body SPICE ID for ephemeris data
+    bool isMoon{false};           //!< Body is moon of another body in the list
+    Eigen::Vector3d input_r = Eigen::Vector3d::Zero();
+    Eigen::Vector3d input_v = Eigen::Vector3d::Zero();
+    Eigen::Vector3d output_r = Eigen::Vector3d::Zero();
+    Eigen::Vector3d output_v = Eigen::Vector3d::Zero();
 };
 
 /**
@@ -44,28 +47,30 @@ class EphemeridesRecenterAlgorithm {
    public:
     void reset();
     std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES> updateState(
-        const std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES>& newBodies);
-    size_t getBodyIndexFromName(const BodyName& celestialBodyName) const;
-    void setNewZeroBaseName(const BodyName& bodyName);
-    size_t findNewZeroBaseIndex(const BodyName& bodyName);
-    BodyName getNewZeroBase() const;
-    void setPreviousCommonZeroBase(const BodyName& bodyName);
-    BodyName getPreviousCommonZeroBase() const;
+        const std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES>& newBodies) const;
+    void setNewZeroBaseId(int bodySpiceId);
+    int getNewZeroBase() const;
+    void setPreviousCommonZeroBase(int bodySpiceId);
+    int getPreviousCommonZeroBase() const;
     size_t getNumberOfBodies() const;
-    std::array<BodyName, MAX_NUM_CHANGE_BODIES> getAllNames() const;
-    void addBodyEphemerisToRecenter(const BodyName& bodyName);
+    std::array<int, MAX_NUM_CHANGE_BODIES> getAllIds() const;
+    void addBodyEphemerisToRecenter(const BodyToRecenter& body);
     void clearAllBodies();
+    size_t findBodyIndex(int bodySpiceId) const;
 
    private:
-    MoonIndexFound findMoonOfBody(const BodyEphemerisPayload& celestialBody) const;
+    void checkConfiguration();
 
-    BodyName newCentralBodyName{};
-    std::array<BodyName, MAX_NUM_CHANGE_BODIES> bodyNames{};
+    int newCentralBodyId{};
+    std::array<int, MAX_NUM_CHANGE_BODIES> bodyIds{};
+    std::array<int, MAX_NUM_CHANGE_BODIES> originalCentralBodyIds{};
     size_t celestialBodyCount{};  //!< Number of primary bodies
     size_t newCentralIndex{};
-    std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES> celestialBodies{};  //!< All celestial bodies involved
-    BodyEphemerisPayload previousCentralBody{};                                 //!< Previous reference body
-    BodyName previousCentralBodyName{};
+    bool newCentralIsMoon{false};                                     //!< Whether the new central body is a moon
+    size_t newCentralParentIndex{};                                   //!< Index of new central's parent
+    std::array<MoonIndexFound, MAX_NUM_CHANGE_BODIES> moonIndices{};  //!< moonIndices[i] = moon of body i
+    std::array<bool, MAX_NUM_CHANGE_BODIES> isMoonAtIndex{};          //!< true if body at index i is a moon
+    int previousCentralBodyId{};
 };
 
 #endif
