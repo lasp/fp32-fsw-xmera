@@ -9,11 +9,11 @@
 #include "../utilities/validInertiaCheck.h"
 
 /*! Computes the required control torque Lr from the attitude rate error and the reference frame angular acceleration.
- @param omega_BR_B   Angular velocity of the body frame relative to the reference frame, expressed in body frame
- coordinates [rad/s]
- @param domega_RN_B  Time derivative of the reference frame angular velocity, expressed in body frame coordinates
- [rad/s^2]
- @return             Required control torque about point B [Nm]
+ @param omega_BR_B the angular velocity of the body frame relative to the reference frame,
+ expressed in body frame coordinates [rad/s]
+ @param domega_RN_B the time derivative of the reference frame angular velocity, expressed in body
+ frame coordinates [rad/s^2]
+ @return the required control torque, expressed in body frame coordinates [Nm]
 */
 Eigen::Vector3f RateControlAlgorithm::update(const Eigen::Vector3f& omega_BR_B,
                                              const Eigen::Vector3f& domega_RN_B) const {
@@ -22,8 +22,7 @@ Eigen::Vector3f RateControlAlgorithm::update(const Eigen::Vector3f& omega_BR_B,
 }
 
 /*! This method sets the spacecraft inertia according to the vehicle configuration input message
- @return void
- @param spacecraftInertia spacecraft inertia
+ @param spacecraftInertia the spacecraft inertia to set
 */
 void RateControlAlgorithm::setSpacecraftInertia(const Eigen::Matrix3f& spacecraftInertia) {
     if (inertiaIsValid(spacecraftInertia)) {
@@ -34,8 +33,7 @@ void RateControlAlgorithm::setSpacecraftInertia(const Eigen::Matrix3f& spacecraf
 }
 
 /*! Setter method for the derivative gain P.
- @return void
- @param derivativeGainP [N*m*s] Rate error feedback gain applied
+ @param derivativeGainP the derivative gain P
 */
 void RateControlAlgorithm::setDerivativeGainP(const float derivativeGainP) {
     if (derivativeGainP < 0.0) {
@@ -45,19 +43,18 @@ void RateControlAlgorithm::setDerivativeGainP(const float derivativeGainP) {
 }
 
 /*! Getter method for the derivative gain P.
- @return const float
+ @return the derivative gain P
 */
 float RateControlAlgorithm::getDerivativeGainP() const { return this->P; }
 
-/*! Setter method for the known external torque about point B.
- @return void
- @param torquePntB_B [N*m] Known external torque expressed in body frame components
+/*! Setter method for the known external torque.
+ @param torquePntB_B the known external torque [N*m] expressed in body frame coordinates
 */
 void RateControlAlgorithm::setKnownTorquePntB_B(const Eigen::Vector3f& torquePntB_B) {
     this->knownTorquePntB_B = torquePntB_B;
 }
 
 /*! Getter method for the known torque about point B.
- @return const Eigen::Vector3f
+ @return the known external torque [N*m] expressed in body frame coordinates
 */
 const Eigen::Vector3f& RateControlAlgorithm::getKnownTorquePntB_B() const { return this->knownTorquePntB_B; }
