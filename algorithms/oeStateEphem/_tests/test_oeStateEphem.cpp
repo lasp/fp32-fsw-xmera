@@ -93,7 +93,7 @@ TEST_F(OEStateEphemAlgorithmTest, SetAndGetArcRadiusPeriapsisCoefficients) {
 
 TEST_F(OEStateEphemAlgorithmTest, SetAndGetArcEccentricityCoefficients) {
     const unsigned int arcNum = 0;
-    std::array<float, kMaxOeCoeff> coeffs{};
+    std::array<double, kMaxOeCoeff> coeffs{};
     coeffs[0] = 0.1f;
     coeffs[1] = 0.01f;
     algorithm.setArcEccentricityCoefficients(arcNum, coeffs);
@@ -104,7 +104,7 @@ TEST_F(OEStateEphemAlgorithmTest, SetAndGetArcEccentricityCoefficients) {
 
 TEST_F(OEStateEphemAlgorithmTest, SetAndGetArcInclinationCoefficients) {
     const unsigned int arcNum = 0;
-    std::array<float, kMaxOeCoeff> coeffs{};
+    std::array<double, kMaxOeCoeff> coeffs{};
     coeffs[0] = 0.5f;
     algorithm.setArcInclinationCoefficients(arcNum, coeffs);
     auto retrieved = algorithm.getArcInclinationCoefficients(arcNum);
@@ -113,7 +113,7 @@ TEST_F(OEStateEphemAlgorithmTest, SetAndGetArcInclinationCoefficients) {
 
 TEST_F(OEStateEphemAlgorithmTest, SetAndGetArcArgPeriapsisCoefficients) {
     const unsigned int arcNum = 0;
-    std::array<float, kMaxOeCoeff> coeffs{};
+    std::array<double, kMaxOeCoeff> coeffs{};
     coeffs[0] = 1.0f;
     algorithm.setArcArgPeriapsisCoefficients(arcNum, coeffs);
     auto retrieved = algorithm.getArcArgPeriapsisCoefficients(arcNum);
@@ -122,7 +122,7 @@ TEST_F(OEStateEphemAlgorithmTest, SetAndGetArcArgPeriapsisCoefficients) {
 
 TEST_F(OEStateEphemAlgorithmTest, SetAndGetArcRaanCoefficients) {
     const unsigned int arcNum = 0;
-    std::array<float, kMaxOeCoeff> coeffs{};
+    std::array<double, kMaxOeCoeff> coeffs{};
     coeffs[0] = 0.5f;
     algorithm.setArcRaanCoefficients(arcNum, coeffs);
     auto retrieved = algorithm.getArcRaanCoefficients(arcNum);
@@ -131,7 +131,7 @@ TEST_F(OEStateEphemAlgorithmTest, SetAndGetArcRaanCoefficients) {
 
 TEST_F(OEStateEphemAlgorithmTest, SetAndGetArcTrueAnomalyCoefficients) {
     const unsigned int arcNum = 0;
-    std::array<float, kMaxOeCoeff> coeffs{};
+    std::array<double, kMaxOeCoeff> coeffs{};
     coeffs[0] = 0.0f;
     algorithm.setArcTrueAnomalyCoefficients(arcNum, coeffs);
     auto retrieved = algorithm.getArcTrueAnomalyCoefficients(arcNum);
@@ -173,7 +173,7 @@ TEST_F(OEStateEphemAlgorithmTest, CircularOrbitAtOrigin_ConstantCoefficients) {
     rpCoeffs[0] = radius_m;  // r_p = a for circular orbit (e=0)
     algorithm.setArcRadiusPeriapsisCoefficients(0, rpCoeffs);
 
-    std::array<float, kMaxOeCoeff> zeroCoeffs{};
+    std::array<double, kMaxOeCoeff> zeroCoeffs{};
     zeroCoeffs[0] = 0.0f;
 
     algorithm.setArcEccentricityCoefficients(0, zeroCoeffs);
@@ -217,15 +217,15 @@ TEST_F(OEStateEphemAlgorithmTest, CircularOrbitAt90Degrees_ConstantCoefficients)
     rpCoeffs[0] = radius_m;
     algorithm.setArcRadiusPeriapsisCoefficients(0, rpCoeffs);
 
-    std::array<float, kMaxOeCoeff> zeroCoeffs{};
+    std::array<double, kMaxOeCoeff> zeroCoeffs{};
     zeroCoeffs[0] = 0.0f;
     algorithm.setArcEccentricityCoefficients(0, zeroCoeffs);
     algorithm.setArcInclinationCoefficients(0, zeroCoeffs);
     algorithm.setArcArgPeriapsisCoefficients(0, zeroCoeffs);
     algorithm.setArcRaanCoefficients(0, zeroCoeffs);
 
-    std::array<float, kMaxOeCoeff> nuCoeffs{};
-    nuCoeffs[0] = static_cast<float>(M_PI / 2.0);
+    std::array<double, kMaxOeCoeff> nuCoeffs{};
+    nuCoeffs[0] = M_PI / 2.0;
     algorithm.setArcTrueAnomalyCoefficients(0, nuCoeffs);
 
     CartesianState state = algorithm.update(0);
@@ -261,11 +261,11 @@ TEST_F(OEStateEphemAlgorithmTest, EllipticalOrbitAtPeriapsis_ConstantCoefficient
     rpCoeffs[0] = r_p_m;
     algorithm.setArcRadiusPeriapsisCoefficients(0, rpCoeffs);
 
-    std::array<float, kMaxOeCoeff> eCoeffs{};
-    eCoeffs[0] = static_cast<float>(eccentricity);
+    std::array<double, kMaxOeCoeff> eCoeffs{};
+    eCoeffs[0] = eccentricity;
     algorithm.setArcEccentricityCoefficients(0, eCoeffs);
 
-    std::array<float, kMaxOeCoeff> zeroCoeffs{};
+    std::array<double, kMaxOeCoeff> zeroCoeffs{};
     zeroCoeffs[0] = 0.0f;
     algorithm.setArcInclinationCoefficients(0, zeroCoeffs);
     algorithm.setArcArgPeriapsisCoefficients(0, zeroCoeffs);

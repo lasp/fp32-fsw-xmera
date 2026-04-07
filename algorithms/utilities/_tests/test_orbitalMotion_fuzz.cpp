@@ -11,137 +11,133 @@
 #include <Eigen/Geometry>
 #include <cmath>
 
-// Earth's gravitational parameter (m³/s²)
+// Earth's gravitational parameter (m^3/s^2)
 constexpr double kMu = 3.986004418e14;
 
 // Semi-major axis used for Keplerian conserved-quantity tests (m).
 // Fixed so the fuzzer can vary the remaining orbital shape parameters freely.
 constexpr double kSemiMajorAxis = 7.0e6;
 
-inline constexpr float kAnomalyTol = 1e-5f;
-inline constexpr double kStateRelTol = 1e-3;
+inline constexpr double kAnomalyTol = 1e-8;
+inline constexpr double kStateRelTol = 1e-6;
 
 // ============================================================================
 // Elliptic anomaly identities
 // ============================================================================
 
-// Kepler's equation holds exactly: eccentricToMean(E, e) == E − e·sin(E).
-void fuzzKeplersEquation(float E, float e) {
-    const float result = OrbitalMotion::eccentricToMeanAnomalyF32(E, e);
+// Kepler's equation holds exactly: eccentricToMean(E, e) == E - e*sin(E).
+void fuzzKeplersEquation(double E, double e) {
+    const double result = OrbitalMotion::eccentricToMeanAnomaly(E, e);
     ASSERT_TRUE(std::isfinite(result));
-    EXPECT_FLOAT_EQ(result, E - e * sinf(E));
+    EXPECT_DOUBLE_EQ(result, E - e * sin(E));
 }
 FUZZ_TEST(OrbitalMotionFuzz, fuzzKeplersEquation)
-    .WithDomains(fuzztest::InRange(static_cast<float>(-M_PI), static_cast<float>(M_PI)),
-                 fuzztest::InRange(0.0f, 0.99f));
+    .WithDomains(fuzztest::InRange(-M_PI, M_PI), fuzztest::InRange(0.0, 0.99));
 
-// Mean anomaly is odd in eccentric anomaly: M(−E, e) = −M(E, e).
-void fuzzMeanAnomalyIsOdd(float E, float e) {
-    const float pos = OrbitalMotion::eccentricToMeanAnomalyF32(E, e);
-    const float neg = OrbitalMotion::eccentricToMeanAnomalyF32(-E, e);
+// Mean anomaly is odd in eccentric anomaly: M(-E, e) = -M(E, e).
+void fuzzMeanAnomalyIsOdd(double E, double e) {
+    const double pos = OrbitalMotion::eccentricToMeanAnomaly(E, e);
+    const double neg = OrbitalMotion::eccentricToMeanAnomaly(-E, e);
     ASSERT_TRUE(std::isfinite(pos));
     ASSERT_TRUE(std::isfinite(neg));
-    EXPECT_FLOAT_EQ(neg, -pos);
+    EXPECT_DOUBLE_EQ(neg, -pos);
 }
 FUZZ_TEST(OrbitalMotionFuzz, fuzzMeanAnomalyIsOdd)
-    .WithDomains(fuzztest::InRange(0.0f, static_cast<float>(M_PI)), fuzztest::InRange(0.0f, 0.99f));
+    .WithDomains(fuzztest::InRange(0.0, M_PI), fuzztest::InRange(0.0, 0.99));
 
-// The Newton-Raphson solver must return E satisfying E − e·sin(E) = M.
-void fuzzMeanToEccentricSolvesKepler(float M, float e) {
-    const float E = OrbitalMotion::meanToEccentricAnomalyF32(M, e);
+// The Newton-Raphson solver must return E satisfying E - e*sin(E) = M.
+void fuzzMeanToEccentricSolvesKepler(double M, double e) {
+    const double E = OrbitalMotion::meanToEccentricAnomaly(M, e);
     ASSERT_TRUE(std::isfinite(E));
-    EXPECT_NEAR(E - e * sinf(E), M, kAnomalyTol);
+    EXPECT_NEAR(E - e * sin(E), M, kAnomalyTol);
 }
 FUZZ_TEST(OrbitalMotionFuzz, fuzzMeanToEccentricSolvesKepler)
-    .WithDomains(fuzztest::InRange(static_cast<float>(-M_PI), static_cast<float>(M_PI)),
-                 fuzztest::InRange(0.0f, 0.99f));
+    .WithDomains(fuzztest::InRange(-M_PI, M_PI), fuzztest::InRange(0.0, 0.99));
 
-// E → f → E closed-form round-trip.
-void fuzzEccentricTrueRoundTrip(float E, float e) {
-    const float f = OrbitalMotion::eccentricToTrueAnomalyF32(E, e);
+// E -> f -> E closed-form round-trip.
+void fuzzEccentricTrueRoundTrip(double E, double e) {
+    const double f = OrbitalMotion::eccentricToTrueAnomaly(E, e);
     ASSERT_TRUE(std::isfinite(f));
-    const float E_back = OrbitalMotion::trueToEccentricAnomalyF32(f, e);
+    const double E_back = OrbitalMotion::trueToEccentricAnomaly(f, e);
     ASSERT_TRUE(std::isfinite(E_back));
     EXPECT_NEAR(E_back, E, kAnomalyTol);
 }
 FUZZ_TEST(OrbitalMotionFuzz, fuzzEccentricTrueRoundTrip)
-    .WithDomains(fuzztest::InRange(static_cast<float>(-M_PI), static_cast<float>(M_PI)),
-                 fuzztest::InRange(0.0f, 0.99f));
+    .WithDomains(fuzztest::InRange(-M_PI, M_PI), fuzztest::InRange(0.0, 0.99));
 
-// M → E → M round-trip: meanToEccentric then eccentricToMean must recover M.
-void fuzzMeanEccentricRoundTrip(float M, float e) {
-    const float E = OrbitalMotion::meanToEccentricAnomalyF32(M, e);
+// M -> E -> M round-trip: meanToEccentric then eccentricToMean must recover M.
+void fuzzMeanEccentricRoundTrip(double M, double e) {
+    const double E = OrbitalMotion::meanToEccentricAnomaly(M, e);
     ASSERT_TRUE(std::isfinite(E));
-    const float M_back = OrbitalMotion::eccentricToMeanAnomalyF32(E, e);
+    const double M_back = OrbitalMotion::eccentricToMeanAnomaly(E, e);
     ASSERT_TRUE(std::isfinite(M_back));
     EXPECT_NEAR(M_back, M, kAnomalyTol);
 }
 FUZZ_TEST(OrbitalMotionFuzz, fuzzMeanEccentricRoundTrip)
-    .WithDomains(fuzztest::InRange(static_cast<float>(-M_PI), static_cast<float>(M_PI)),
-                 fuzztest::InRange(0.0f, 0.99f));
+    .WithDomains(fuzztest::InRange(-M_PI, M_PI), fuzztest::InRange(0.0, 0.99));
 
 // ============================================================================
 // Hyperbolic anomaly identities
 // ============================================================================
 
-// Hyperbolic Kepler's equation: hyperbolicToMean(H, e) == e·sinh(H) − H.
-void fuzzHyperbolicKeplersEquation(float H, float e) {
-    const float result = OrbitalMotion::hyperbolicToMeanAnomalyF32(H, e);
+// Hyperbolic Kepler's equation: hyperbolicToMean(H, e) == e*sinh(H) - H.
+void fuzzHyperbolicKeplersEquation(double H, double e) {
+    const double result = OrbitalMotion::hyperbolicToMeanAnomaly(H, e);
     ASSERT_TRUE(std::isfinite(result));
-    EXPECT_FLOAT_EQ(result, e * sinhf(H) - H);
+    EXPECT_DOUBLE_EQ(result, e * sinh(H) - H);
 }
 FUZZ_TEST(OrbitalMotionFuzz, fuzzHyperbolicKeplersEquation)
-    .WithDomains(fuzztest::InRange(-3.0f, 3.0f), fuzztest::InRange(1.05f, 5.0f));
+    .WithDomains(fuzztest::InRange(-3.0, 3.0), fuzztest::InRange(1.05, 5.0));
 
-// Hyperbolic mean anomaly is odd: N(−H, e) = −N(H, e).
-void fuzzHyperbolicMeanIsOdd(float H, float e) {
-    const float pos = OrbitalMotion::hyperbolicToMeanAnomalyF32(H, e);
-    const float neg = OrbitalMotion::hyperbolicToMeanAnomalyF32(-H, e);
+// Hyperbolic mean anomaly is odd: N(-H, e) = -N(H, e).
+void fuzzHyperbolicMeanIsOdd(double H, double e) {
+    const double pos = OrbitalMotion::hyperbolicToMeanAnomaly(H, e);
+    const double neg = OrbitalMotion::hyperbolicToMeanAnomaly(-H, e);
     ASSERT_TRUE(std::isfinite(pos));
     ASSERT_TRUE(std::isfinite(neg));
-    EXPECT_FLOAT_EQ(neg, -pos);
+    EXPECT_DOUBLE_EQ(neg, -pos);
 }
 FUZZ_TEST(OrbitalMotionFuzz, fuzzHyperbolicMeanIsOdd)
-    .WithDomains(fuzztest::InRange(0.0f, 3.0f), fuzztest::InRange(1.05f, 5.0f));
+    .WithDomains(fuzztest::InRange(0.0, 3.0), fuzztest::InRange(1.05, 5.0));
 
-// The Newton-Raphson solver must return H satisfying e·sinh(H) − H = N.
-void fuzzMeanToHyperbolicSolvesKepler(float N, float e) {
-    const float H = OrbitalMotion::meanToHyperbolicAnomalyF32(N, e);
+// The Newton-Raphson solver must return H satisfying e*sinh(H) - H = N.
+void fuzzMeanToHyperbolicSolvesKepler(double N, double e) {
+    const double H = OrbitalMotion::meanToHyperbolicAnomaly(N, e);
     ASSERT_TRUE(std::isfinite(H));
-    EXPECT_NEAR(e * sinhf(H) - H, N, kAnomalyTol);
+    EXPECT_NEAR(e * sinh(H) - H, N, kAnomalyTol);
 }
 FUZZ_TEST(OrbitalMotionFuzz, fuzzMeanToHyperbolicSolvesKepler)
-    .WithDomains(fuzztest::InRange(-5.0f, 5.0f), fuzztest::InRange(1.01f, 10.0f));
+    .WithDomains(fuzztest::InRange(-5.0, 5.0), fuzztest::InRange(1.01, 10.0));
 
-// H → f → H closed-form round-trip.
-void fuzzHyperbolicTrueRoundTrip(float H, float e) {
-    const float f = OrbitalMotion::hyperbolicToTrueAnomalyF32(H, e);
+// H -> f -> H closed-form round-trip.
+void fuzzHyperbolicTrueRoundTrip(double H, double e) {
+    const double f = OrbitalMotion::hyperbolicToTrueAnomaly(H, e);
     ASSERT_TRUE(std::isfinite(f));
-    const float H_back = OrbitalMotion::trueToHyperbolicAnomalyF32(f, e);
+    const double H_back = OrbitalMotion::trueToHyperbolicAnomaly(f, e);
     ASSERT_TRUE(std::isfinite(H_back));
     EXPECT_NEAR(H_back, H, kAnomalyTol);
 }
 FUZZ_TEST(OrbitalMotionFuzz, fuzzHyperbolicTrueRoundTrip)
-    .WithDomains(fuzztest::InRange(-2.0f, 2.0f), fuzztest::InRange(1.01f, 10.0f));
+    .WithDomains(fuzztest::InRange(-2.0, 2.0), fuzztest::InRange(1.01, 10.0));
 
-// N → H → N round-trip: meanToHyperbolic then hyperbolicToMean must recover N.
-void fuzzHyperbolicMeanRoundTrip(float N, float e) {
-    const float H = OrbitalMotion::meanToHyperbolicAnomalyF32(N, e);
+// N -> H -> N round-trip: meanToHyperbolic then hyperbolicToMean must recover N.
+void fuzzHyperbolicMeanRoundTrip(double N, double e) {
+    const double H = OrbitalMotion::meanToHyperbolicAnomaly(N, e);
     ASSERT_TRUE(std::isfinite(H));
-    const float N_back = OrbitalMotion::hyperbolicToMeanAnomalyF32(H, e);
+    const double N_back = OrbitalMotion::hyperbolicToMeanAnomaly(H, e);
     ASSERT_TRUE(std::isfinite(N_back));
     EXPECT_NEAR(N_back, N, kAnomalyTol);
 }
 FUZZ_TEST(OrbitalMotionFuzz, fuzzHyperbolicMeanRoundTrip)
-    .WithDomains(fuzztest::InRange(-5.0f, 5.0f), fuzztest::InRange(1.01f, 10.0f));
+    .WithDomains(fuzztest::InRange(-5.0, 5.0), fuzztest::InRange(1.01, 10.0));
 
 // ============================================================================
 // Keplerian conserved quantities
 // ============================================================================
 
-// Vis-viva equation: v² = μ (2/r − 1/a)
-void fuzzVisViva(float e, float i, float Omega, float omega, float f) {
-    ClassicalElementsF32 el;
+// Vis-viva equation: v^2 = mu (2/r - 1/a)
+void fuzzVisViva(double e, double i, double Omega, double omega, double f) {
+    ClassicalElements el;
     el.semiMajorAxis = kSemiMajorAxis;
     el.eccentricity = e;
     el.inclination = i;
@@ -149,7 +145,7 @@ void fuzzVisViva(float e, float i, float Omega, float omega, float f) {
     el.argPeriapsis = omega;
     el.trueAnomaly = f;
 
-    const CartesianState state = OrbitalMotion::elementsToCartesianStateF32(kMu, el);
+    const CartesianState state = OrbitalMotion::elementsToCartesianState(kMu, el);
     const double r = state.position.norm();
     const double v2 = state.velocity.squaredNorm();
     ASSERT_TRUE(std::isfinite(r));
@@ -158,15 +154,15 @@ void fuzzVisViva(float e, float i, float Omega, float omega, float f) {
     EXPECT_NEAR(v2, v2_expected, v2_expected * kStateRelTol);
 }
 FUZZ_TEST(OrbitalMotionFuzz, fuzzVisViva)
-    .WithDomains(fuzztest::InRange(0.0f, 0.9f),
-                 fuzztest::InRange(0.0f, static_cast<float>(M_PI)),
-                 fuzztest::InRange(0.0f, static_cast<float>(2 * M_PI)),
-                 fuzztest::InRange(0.0f, static_cast<float>(2 * M_PI)),
-                 fuzztest::InRange(0.0f, static_cast<float>(2 * M_PI)));
+    .WithDomains(fuzztest::InRange(0.0, 0.9),
+                 fuzztest::InRange(0.0, M_PI),
+                 fuzztest::InRange(0.0, 2 * M_PI),
+                 fuzztest::InRange(0.0, 2 * M_PI),
+                 fuzztest::InRange(0.0, 2 * M_PI));
 
-// Specific orbital energy: v²/2 − μ/r = −μ/(2a)
-void fuzzSpecificEnergy(float e, float i, float Omega, float omega, float f) {
-    ClassicalElementsF32 el;
+// Specific orbital energy: v^2/2 - mu/r = -mu/(2a)
+void fuzzSpecificEnergy(double e, double i, double Omega, double omega, double f) {
+    ClassicalElements el;
     el.semiMajorAxis = kSemiMajorAxis;
     el.eccentricity = e;
     el.inclination = i;
@@ -174,7 +170,7 @@ void fuzzSpecificEnergy(float e, float i, float Omega, float omega, float f) {
     el.argPeriapsis = omega;
     el.trueAnomaly = f;
 
-    const CartesianState state = OrbitalMotion::elementsToCartesianStateF32(kMu, el);
+    const CartesianState state = OrbitalMotion::elementsToCartesianState(kMu, el);
     const double r = state.position.norm();
     const double energy = state.velocity.squaredNorm() / 2.0 - kMu / r;
     const double energy_expected = -kMu / (2.0 * kSemiMajorAxis);
@@ -182,15 +178,15 @@ void fuzzSpecificEnergy(float e, float i, float Omega, float omega, float f) {
     EXPECT_NEAR(energy, energy_expected, std::abs(energy_expected) * kStateRelTol);
 }
 FUZZ_TEST(OrbitalMotionFuzz, fuzzSpecificEnergy)
-    .WithDomains(fuzztest::InRange(0.0f, 0.9f),
-                 fuzztest::InRange(0.0f, static_cast<float>(M_PI)),
-                 fuzztest::InRange(0.0f, static_cast<float>(2 * M_PI)),
-                 fuzztest::InRange(0.0f, static_cast<float>(2 * M_PI)),
-                 fuzztest::InRange(0.0f, static_cast<float>(2 * M_PI)));
+    .WithDomains(fuzztest::InRange(0.0, 0.9),
+                 fuzztest::InRange(0.0, M_PI),
+                 fuzztest::InRange(0.0, 2 * M_PI),
+                 fuzztest::InRange(0.0, 2 * M_PI),
+                 fuzztest::InRange(0.0, 2 * M_PI));
 
-// Angular momentum magnitude: |r × v| = √(μ · a · (1 − e²))
-void fuzzAngularMomentum(float e, float i, float Omega, float omega, float f) {
-    ClassicalElementsF32 el;
+// Angular momentum magnitude: |r x v| = sqrt(mu * a * (1 - e^2))
+void fuzzAngularMomentum(double e, double i, double Omega, double omega, double f) {
+    ClassicalElements el;
     el.semiMajorAxis = kSemiMajorAxis;
     el.eccentricity = e;
     el.inclination = i;
@@ -198,22 +194,22 @@ void fuzzAngularMomentum(float e, float i, float Omega, float omega, float f) {
     el.argPeriapsis = omega;
     el.trueAnomaly = f;
 
-    const CartesianState state = OrbitalMotion::elementsToCartesianStateF32(kMu, el);
+    const CartesianState state = OrbitalMotion::elementsToCartesianState(kMu, el);
     const double h = state.position.cross(state.velocity).norm();
-    const double h_expected = std::sqrt(kMu * kSemiMajorAxis * (1.0 - static_cast<double>(e) * e));
+    const double h_expected = std::sqrt(kMu * kSemiMajorAxis * (1.0 - e * e));
     ASSERT_TRUE(std::isfinite(h));
     EXPECT_NEAR(h, h_expected, h_expected * kStateRelTol);
 }
 FUZZ_TEST(OrbitalMotionFuzz, fuzzAngularMomentum)
-    .WithDomains(fuzztest::InRange(0.0f, 0.9f),
-                 fuzztest::InRange(0.0f, static_cast<float>(M_PI)),
-                 fuzztest::InRange(0.0f, static_cast<float>(2 * M_PI)),
-                 fuzztest::InRange(0.0f, static_cast<float>(2 * M_PI)),
-                 fuzztest::InRange(0.0f, static_cast<float>(2 * M_PI)));
+    .WithDomains(fuzztest::InRange(0.0, 0.9),
+                 fuzztest::InRange(0.0, M_PI),
+                 fuzztest::InRange(0.0, 2 * M_PI),
+                 fuzztest::InRange(0.0, 2 * M_PI),
+                 fuzztest::InRange(0.0, 2 * M_PI));
 
-// Orbit equation: r = p / (1 + e·cos f)  where p = a(1 − e²).
-void fuzzOrbitEquation(float e, float i, float Omega, float omega, float f) {
-    ClassicalElementsF32 el;
+// Orbit equation: r = p / (1 + e*cos f)  where p = a(1 - e^2).
+void fuzzOrbitEquation(double e, double i, double Omega, double omega, double f) {
+    ClassicalElements el;
     el.semiMajorAxis = kSemiMajorAxis;
     el.eccentricity = e;
     el.inclination = i;
@@ -221,28 +217,28 @@ void fuzzOrbitEquation(float e, float i, float Omega, float omega, float f) {
     el.argPeriapsis = omega;
     el.trueAnomaly = f;
 
-    const CartesianState state = OrbitalMotion::elementsToCartesianStateF32(kMu, el);
+    const CartesianState state = OrbitalMotion::elementsToCartesianState(kMu, el);
     const double r = state.position.norm();
-    const double p = kSemiMajorAxis * (1.0 - static_cast<double>(e) * e);
-    const double r_expected = p / (1.0 + e * cosf(f));
+    const double p = kSemiMajorAxis * (1.0 - e * e);
+    const double r_expected = p / (1.0 + e * cos(f));
     ASSERT_TRUE(std::isfinite(r));
     EXPECT_NEAR(r, r_expected, r_expected * kStateRelTol);
 }
 FUZZ_TEST(OrbitalMotionFuzz, fuzzOrbitEquation)
-    .WithDomains(fuzztest::InRange(0.0f, 0.9f),
-                 fuzztest::InRange(0.0f, static_cast<float>(M_PI)),
-                 fuzztest::InRange(0.0f, static_cast<float>(2 * M_PI)),
-                 fuzztest::InRange(0.0f, static_cast<float>(2 * M_PI)),
-                 fuzztest::InRange(0.0f, static_cast<float>(2 * M_PI)));
+    .WithDomains(fuzztest::InRange(0.0, 0.9),
+                 fuzztest::InRange(0.0, M_PI),
+                 fuzztest::InRange(0.0, 2 * M_PI),
+                 fuzztest::InRange(0.0, 2 * M_PI),
+                 fuzztest::InRange(0.0, 2 * M_PI));
 
 // ============================================================================
-// Elements ↔ Cartesian round-trip
+// Elements <-> Cartesian round-trip
 // ============================================================================
 
-// elementsToCartesian → cartesianToElements must recover semi-major axis,
-// eccentricity, and inclination to within float precision.
-void fuzzElementsRoundTrip(float e, float i, float Omega, float omega, float f) {
-    ClassicalElementsF32 in;
+// elementsToCartesian -> cartesianToElements must recover semi-major axis,
+// eccentricity, and inclination to within double precision.
+void fuzzElementsRoundTrip(double e, double i, double Omega, double omega, double f) {
+    ClassicalElements in;
     in.semiMajorAxis = kSemiMajorAxis;
     in.eccentricity = e;
     in.inclination = i;
@@ -250,27 +246,27 @@ void fuzzElementsRoundTrip(float e, float i, float Omega, float omega, float f) 
     in.argPeriapsis = omega;
     in.trueAnomaly = f;
 
-    const CartesianState state = OrbitalMotion::elementsToCartesianStateF32(kMu, in);
-    const ClassicalElementsF32 out = OrbitalMotion::cartesianStateToElementsF32(kMu, state.position, state.velocity);
+    const CartesianState state = OrbitalMotion::elementsToCartesianState(kMu, in);
+    const ClassicalElements out = OrbitalMotion::cartesianStateToElements(kMu, state.position, state.velocity);
 
     EXPECT_NEAR(out.semiMajorAxis, in.semiMajorAxis, in.semiMajorAxis * kStateRelTol);
     EXPECT_NEAR(out.eccentricity, in.eccentricity, kStateRelTol);
     EXPECT_NEAR(out.inclination, in.inclination, kStateRelTol);
 }
 FUZZ_TEST(OrbitalMotionFuzz, fuzzElementsRoundTrip)
-    .WithDomains(fuzztest::InRange(0.01f, 0.9f),
-                 fuzztest::InRange(0.05f, static_cast<float>(M_PI) - 0.05f),
-                 fuzztest::InRange(0.0f, static_cast<float>(2 * M_PI)),
-                 fuzztest::InRange(0.0f, static_cast<float>(2 * M_PI)),
-                 fuzztest::InRange(0.0f, static_cast<float>(2 * M_PI)));
+    .WithDomains(fuzztest::InRange(0.01, 0.9),
+                 fuzztest::InRange(0.05, M_PI - 0.05),
+                 fuzztest::InRange(0.0, 2 * M_PI),
+                 fuzztest::InRange(0.0, 2 * M_PI),
+                 fuzztest::InRange(0.0, 2 * M_PI));
 
 // ============================================================================
 // Near-circular and equatorial round-trip singularity tests
 // ============================================================================
 
-// e ≈ 0: argPeriapsis is undefined, but a, e, i should round-trip.
-void fuzzNearCircularRoundTrip(float e, float i, float Omega, float omega, float f) {
-    ClassicalElementsF32 in;
+// e ~ 0: argPeriapsis is undefined, but a, e, i should round-trip.
+void fuzzNearCircularRoundTrip(double e, double i, double Omega, double omega, double f) {
+    ClassicalElements in;
     in.semiMajorAxis = kSemiMajorAxis;
     in.eccentricity = e;
     in.inclination = i;
@@ -278,23 +274,23 @@ void fuzzNearCircularRoundTrip(float e, float i, float Omega, float omega, float
     in.argPeriapsis = omega;
     in.trueAnomaly = f;
 
-    const CartesianState state = OrbitalMotion::elementsToCartesianStateF32(kMu, in);
-    const ClassicalElementsF32 out = OrbitalMotion::cartesianStateToElementsF32(kMu, state.position, state.velocity);
+    const CartesianState state = OrbitalMotion::elementsToCartesianState(kMu, in);
+    const ClassicalElements out = OrbitalMotion::cartesianStateToElements(kMu, state.position, state.velocity);
 
     EXPECT_NEAR(out.semiMajorAxis, in.semiMajorAxis, in.semiMajorAxis * kStateRelTol);
     EXPECT_NEAR(out.eccentricity, in.eccentricity, kStateRelTol);
     EXPECT_NEAR(out.inclination, in.inclination, kStateRelTol);
 }
 FUZZ_TEST(OrbitalMotionFuzz, fuzzNearCircularRoundTrip)
-    .WithDomains(fuzztest::InRange(0.0f, 0.001f),
-                 fuzztest::InRange(0.05f, static_cast<float>(M_PI) - 0.05f),
-                 fuzztest::InRange(0.0f, static_cast<float>(2 * M_PI)),
-                 fuzztest::InRange(0.0f, static_cast<float>(2 * M_PI)),
-                 fuzztest::InRange(0.0f, static_cast<float>(2 * M_PI)));
+    .WithDomains(fuzztest::InRange(0.0, 0.001),
+                 fuzztest::InRange(0.05, M_PI - 0.05),
+                 fuzztest::InRange(0.0, 2 * M_PI),
+                 fuzztest::InRange(0.0, 2 * M_PI),
+                 fuzztest::InRange(0.0, 2 * M_PI));
 
-// i ≈ 0: RAAN is undefined, but a, e, i should round-trip.
-void fuzzEquatorialRoundTrip(float e, float i, float Omega, float omega, float f) {
-    ClassicalElementsF32 in;
+// i ~ 0: RAAN is undefined, but a, e, i should round-trip.
+void fuzzEquatorialRoundTrip(double e, double i, double Omega, double omega, double f) {
+    ClassicalElements in;
     in.semiMajorAxis = kSemiMajorAxis;
     in.eccentricity = e;
     in.inclination = i;
@@ -302,97 +298,96 @@ void fuzzEquatorialRoundTrip(float e, float i, float Omega, float omega, float f
     in.argPeriapsis = omega;
     in.trueAnomaly = f;
 
-    const CartesianState state = OrbitalMotion::elementsToCartesianStateF32(kMu, in);
-    const ClassicalElementsF32 out = OrbitalMotion::cartesianStateToElementsF32(kMu, state.position, state.velocity);
+    const CartesianState state = OrbitalMotion::elementsToCartesianState(kMu, in);
+    const ClassicalElements out = OrbitalMotion::cartesianStateToElements(kMu, state.position, state.velocity);
 
     EXPECT_NEAR(out.semiMajorAxis, in.semiMajorAxis, in.semiMajorAxis * kStateRelTol);
     EXPECT_NEAR(out.eccentricity, in.eccentricity, kStateRelTol);
     EXPECT_NEAR(out.inclination, in.inclination, kStateRelTol);
 }
 FUZZ_TEST(OrbitalMotionFuzz, fuzzEquatorialRoundTrip)
-    .WithDomains(fuzztest::InRange(0.05f, 0.5f),
-                 fuzztest::InRange(0.0f, 0.001f),
-                 fuzztest::InRange(0.0f, static_cast<float>(2 * M_PI)),
-                 fuzztest::InRange(0.0f, static_cast<float>(2 * M_PI)),
-                 fuzztest::InRange(0.0f, static_cast<float>(2 * M_PI)));
+    .WithDomains(fuzztest::InRange(0.05, 0.5),
+                 fuzztest::InRange(0.0, 0.001),
+                 fuzztest::InRange(0.0, 2 * M_PI),
+                 fuzztest::InRange(0.0, 2 * M_PI),
+                 fuzztest::InRange(0.0, 2 * M_PI));
 
 // ============================================================================
 // All-anomaly finiteness
 // ============================================================================
 
 // Every anomaly conversion function must return finite for valid inputs.
-void fuzzAllAnomalyConversionsFinite(float e, float angle) {
-    if (e < 1.0f) {
-        EXPECT_TRUE(std::isfinite(OrbitalMotion::eccentricToTrueAnomalyF32(angle, e)));
-        EXPECT_TRUE(std::isfinite(OrbitalMotion::trueToEccentricAnomalyF32(angle, e)));
-        EXPECT_TRUE(std::isfinite(OrbitalMotion::eccentricToMeanAnomalyF32(angle, e)));
-        EXPECT_TRUE(std::isfinite(OrbitalMotion::trueToMeanAnomalyF32(angle, e)));
-        EXPECT_TRUE(std::isfinite(OrbitalMotion::meanToEccentricAnomalyF32(angle, e)));
-        EXPECT_TRUE(std::isfinite(OrbitalMotion::meanToTrueAnomalyF32(angle, e)));
+void fuzzAllAnomalyConversionsFinite(double e, double angle) {
+    if (e < 1.0) {
+        EXPECT_TRUE(std::isfinite(OrbitalMotion::eccentricToTrueAnomaly(angle, e)));
+        EXPECT_TRUE(std::isfinite(OrbitalMotion::trueToEccentricAnomaly(angle, e)));
+        EXPECT_TRUE(std::isfinite(OrbitalMotion::eccentricToMeanAnomaly(angle, e)));
+        EXPECT_TRUE(std::isfinite(OrbitalMotion::trueToMeanAnomaly(angle, e)));
+        EXPECT_TRUE(std::isfinite(OrbitalMotion::meanToEccentricAnomaly(angle, e)));
+        EXPECT_TRUE(std::isfinite(OrbitalMotion::meanToTrueAnomaly(angle, e)));
     } else {
-        EXPECT_TRUE(std::isfinite(OrbitalMotion::hyperbolicToTrueAnomalyF32(angle, e)));
-        EXPECT_TRUE(std::isfinite(OrbitalMotion::hyperbolicToMeanAnomalyF32(angle, e)));
-        EXPECT_TRUE(std::isfinite(OrbitalMotion::meanToHyperbolicAnomalyF32(angle, e)));
-        EXPECT_TRUE(std::isfinite(OrbitalMotion::trueToHyperbolicAnomalyF32(angle, e)));
+        EXPECT_TRUE(std::isfinite(OrbitalMotion::hyperbolicToTrueAnomaly(angle, e)));
+        EXPECT_TRUE(std::isfinite(OrbitalMotion::hyperbolicToMeanAnomaly(angle, e)));
+        EXPECT_TRUE(std::isfinite(OrbitalMotion::meanToHyperbolicAnomaly(angle, e)));
+        EXPECT_TRUE(std::isfinite(OrbitalMotion::trueToHyperbolicAnomaly(angle, e)));
     }
 }
 FUZZ_TEST(OrbitalMotionFuzz, fuzzAllAnomalyConversionsFinite)
-    .WithDomains(fuzztest::InRange(0.0f, 0.9999f),
-                 fuzztest::InRange(static_cast<float>(-M_PI), static_cast<float>(M_PI)));
+    .WithDomains(fuzztest::InRange(0.0, 0.9999), fuzztest::InRange(-M_PI, M_PI));
 
 // ============================================================================
 // Near-parabolic and near-rectilinear degenerate cases
 // ============================================================================
 
-// Closed-form anomaly functions must return finite values for e → 1⁻.
-void fuzzNearParabolicEllipticAnomalyFinite(float f, float e) {
-    const float E = OrbitalMotion::trueToEccentricAnomalyF32(f, e);
-    const float fb = OrbitalMotion::eccentricToTrueAnomalyF32(E, e);
-    const float M = OrbitalMotion::eccentricToMeanAnomalyF32(E, e);
-    const float M2 = OrbitalMotion::trueToMeanAnomalyF32(f, e);
+// Closed-form anomaly functions must return finite values for e -> 1-.
+void fuzzNearParabolicEllipticAnomalyFinite(double f, double e) {
+    const double E = OrbitalMotion::trueToEccentricAnomaly(f, e);
+    const double fb = OrbitalMotion::eccentricToTrueAnomaly(E, e);
+    const double M = OrbitalMotion::eccentricToMeanAnomaly(E, e);
+    const double M2 = OrbitalMotion::trueToMeanAnomaly(f, e);
     EXPECT_TRUE(std::isfinite(E)) << "trueToEccentric";
     EXPECT_TRUE(std::isfinite(fb)) << "eccentricToTrue";
     EXPECT_TRUE(std::isfinite(M)) << "eccentricToMean";
     EXPECT_TRUE(std::isfinite(M2)) << "trueToMean";
 }
 FUZZ_TEST(OrbitalMotionFuzz, fuzzNearParabolicEllipticAnomalyFinite)
-    .WithDomains(fuzztest::InRange(-0.8f, 0.8f), fuzztest::InRange(0.9f, 0.9999f));
+    .WithDomains(fuzztest::InRange(-0.8, 0.8), fuzztest::InRange(0.9, 0.9999));
 
-// elementsToCartesianStateF32 must return a finite Cartesian state for e → 1⁻.
-void fuzzNearParabolicCartesianFinite(float e, float f) {
-    ClassicalElementsF32 el;
+// elementsToCartesianState must return a finite Cartesian state for e -> 1-.
+void fuzzNearParabolicCartesianFinite(double e, double f) {
+    ClassicalElements el;
     el.semiMajorAxis = 7.0e6 / (1.0 - e);
     el.eccentricity = e;
-    el.inclination = 0.3f;
-    el.rightAscensionAscendingNode = 0.0f;
-    el.argPeriapsis = 0.0f;
+    el.inclination = 0.3;
+    el.rightAscensionAscendingNode = 0.0;
+    el.argPeriapsis = 0.0;
     el.trueAnomaly = f;
 
-    const CartesianState state = OrbitalMotion::elementsToCartesianStateF32(kMu, el);
+    const CartesianState state = OrbitalMotion::elementsToCartesianState(kMu, el);
     for (int i = 0; i < 3; ++i) {
         EXPECT_TRUE(std::isfinite(state.position[i])) << "position[" << i << ']';
         EXPECT_TRUE(std::isfinite(state.velocity[i])) << "velocity[" << i << ']';
     }
 }
 FUZZ_TEST(OrbitalMotionFuzz, fuzzNearParabolicCartesianFinite)
-    .WithDomains(fuzztest::InRange(0.9f, 0.9999f), fuzztest::InRange(0.0f, 1.0f));
+    .WithDomains(fuzztest::InRange(0.9, 0.9999), fuzztest::InRange(0.0, 1.0));
 
 // Hyperbolic anomaly functions must stay finite for e just above 1.
-void fuzzNearParabolicHyperbolicAnomalyFinite(float H, float e) {
-    const float N = OrbitalMotion::hyperbolicToMeanAnomalyF32(H, e);
-    const float f = OrbitalMotion::hyperbolicToTrueAnomalyF32(H, e);
+void fuzzNearParabolicHyperbolicAnomalyFinite(double H, double e) {
+    const double N = OrbitalMotion::hyperbolicToMeanAnomaly(H, e);
+    const double f = OrbitalMotion::hyperbolicToTrueAnomaly(H, e);
     EXPECT_TRUE(std::isfinite(N)) << "hyperbolicToMean";
     EXPECT_TRUE(std::isfinite(f)) << "hyperbolicToTrue";
 }
 FUZZ_TEST(OrbitalMotionFuzz, fuzzNearParabolicHyperbolicAnomalyFinite)
-    .WithDomains(fuzztest::InRange(-0.5f, 0.5f), fuzztest::InRange(1.0001f, 1.1f));
+    .WithDomains(fuzztest::InRange(-0.5, 0.5), fuzztest::InRange(1.0001, 1.1));
 
 // Rectilinear orbit: h=0 singularity. v_transverse = 0, all outputs must be finite.
 void fuzzRectilinearElementsFinite(double v_radial) {
     const Eigen::Vector3d r_vec(7.0e6, 0.0, 0.0);
     const Eigen::Vector3d v_vec(v_radial, 0.0, 0.0);
 
-    const ClassicalElementsF32 el = OrbitalMotion::cartesianStateToElementsF32(kMu, r_vec, v_vec);
+    const ClassicalElements el = OrbitalMotion::cartesianStateToElements(kMu, r_vec, v_vec);
 
     EXPECT_TRUE(std::isfinite(el.semiMajorAxis)) << "sma";
     EXPECT_TRUE(std::isfinite(el.eccentricity)) << "ecc";
@@ -408,7 +403,7 @@ void fuzzNearRectilinearElementsFinite(double v_radial, double v_transverse) {
     const Eigen::Vector3d r_vec(7.0e6, 0.0, 0.0);
     const Eigen::Vector3d v_vec(v_radial, 0.0, v_transverse);
 
-    const ClassicalElementsF32 el = OrbitalMotion::cartesianStateToElementsF32(kMu, r_vec, v_vec);
+    const ClassicalElements el = OrbitalMotion::cartesianStateToElements(kMu, r_vec, v_vec);
 
     EXPECT_TRUE(std::isfinite(el.semiMajorAxis)) << "sma";
     EXPECT_TRUE(std::isfinite(el.eccentricity)) << "ecc";
@@ -421,30 +416,30 @@ FUZZ_TEST(OrbitalMotionFuzz, fuzzNearRectilinearElementsFinite)
     .WithDomains(fuzztest::InRange(-8000.0, 8000.0), fuzztest::InRange(0.01, 100.0));
 
 // Parabolic boundary: e = 1.0 exactly. All closed-form anomaly functions finite.
-void fuzzParabolicAnomalyFinite(float angle) {
-    const float E = OrbitalMotion::trueToEccentricAnomalyF32(angle, 1.0f);
-    const float f = OrbitalMotion::eccentricToTrueAnomalyF32(angle, 1.0f);
-    const float M = OrbitalMotion::eccentricToMeanAnomalyF32(angle, 1.0f);
-    const float M2 = OrbitalMotion::trueToMeanAnomalyF32(angle, 1.0f);
+void fuzzParabolicAnomalyFinite(double angle) {
+    const double E = OrbitalMotion::trueToEccentricAnomaly(angle, 1.0);
+    const double f = OrbitalMotion::eccentricToTrueAnomaly(angle, 1.0);
+    const double M = OrbitalMotion::eccentricToMeanAnomaly(angle, 1.0);
+    const double M2 = OrbitalMotion::trueToMeanAnomaly(angle, 1.0);
     EXPECT_TRUE(std::isfinite(E)) << "trueToEccentric";
     EXPECT_TRUE(std::isfinite(f)) << "eccentricToTrue";
     EXPECT_TRUE(std::isfinite(M)) << "eccentricToMean";
     EXPECT_TRUE(std::isfinite(M2)) << "trueToMean";
 }
-FUZZ_TEST(OrbitalMotionFuzz, fuzzParabolicAnomalyFinite).WithDomains(fuzztest::InRange(-0.8f, 0.8f));
+FUZZ_TEST(OrbitalMotionFuzz, fuzzParabolicAnomalyFinite).WithDomains(fuzztest::InRange(-0.8, 0.8));
 
 // Straddles the elliptic/hyperbolic boundary: e in [0.999, 1.001].
-void fuzzParabolicHyperbolicBoundary(float e, float angle) {
-    if (e < 1.0f) {
-        EXPECT_TRUE(std::isfinite(OrbitalMotion::trueToEccentricAnomalyF32(angle, e)));
-        EXPECT_TRUE(std::isfinite(OrbitalMotion::eccentricToTrueAnomalyF32(angle, e)));
-        EXPECT_TRUE(std::isfinite(OrbitalMotion::eccentricToMeanAnomalyF32(angle, e)));
-        EXPECT_TRUE(std::isfinite(OrbitalMotion::trueToMeanAnomalyF32(angle, e)));
-    } else if (e > 1.0f) {
-        EXPECT_TRUE(std::isfinite(OrbitalMotion::hyperbolicToTrueAnomalyF32(angle, e)));
-        EXPECT_TRUE(std::isfinite(OrbitalMotion::hyperbolicToMeanAnomalyF32(angle, e)));
-        EXPECT_TRUE(std::isfinite(OrbitalMotion::trueToHyperbolicAnomalyF32(angle, e)));
+void fuzzParabolicHyperbolicBoundary(double e, double angle) {
+    if (e < 1.0) {
+        EXPECT_TRUE(std::isfinite(OrbitalMotion::trueToEccentricAnomaly(angle, e)));
+        EXPECT_TRUE(std::isfinite(OrbitalMotion::eccentricToTrueAnomaly(angle, e)));
+        EXPECT_TRUE(std::isfinite(OrbitalMotion::eccentricToMeanAnomaly(angle, e)));
+        EXPECT_TRUE(std::isfinite(OrbitalMotion::trueToMeanAnomaly(angle, e)));
+    } else if (e > 1.0) {
+        EXPECT_TRUE(std::isfinite(OrbitalMotion::hyperbolicToTrueAnomaly(angle, e)));
+        EXPECT_TRUE(std::isfinite(OrbitalMotion::hyperbolicToMeanAnomaly(angle, e)));
+        EXPECT_TRUE(std::isfinite(OrbitalMotion::trueToHyperbolicAnomaly(angle, e)));
     }
 }
 FUZZ_TEST(OrbitalMotionFuzz, fuzzParabolicHyperbolicBoundary)
-    .WithDomains(fuzztest::InRange(0.999f, 1.001f), fuzztest::InRange(-0.8f, 0.8f));
+    .WithDomains(fuzztest::InRange(0.999, 1.001), fuzztest::InRange(-0.8, 0.8));

@@ -24,8 +24,7 @@
 #include <numbers>
 
 inline constexpr int kMaxNumberOfIterations = 200;
-inline constexpr float kClamp = 7;
-inline constexpr float kToleranceF32 = 1e-6;
+inline constexpr double kClamp = 7;
 inline constexpr double kTolerance = 1e-9;
 
 /**
@@ -34,9 +33,9 @@ inline constexpr double kTolerance = 1e-9;
  * @param e Orbital eccentricity.
  * @return True anomaly in radians.
  */
-float OrbitalMotion::eccentricToTrueAnomalyF32(float const E, float const e) {
+double OrbitalMotion::eccentricToTrueAnomaly(double const E, double const e) {
     assert((e >= 0.0 || e < 1.0) && "Eccentricity out of bounds (0 <= e < 1)");
-    return 2 * safeAtan2f(safeSqrtf(1 + e) * safeSinf(E / 2), safeSqrtf(1 - e) * safeCosf(E / 2));
+    return 2 * safeAtan2(safeSqrt(1 + e) * safeSin(E / 2), safeSqrt(1 - e) * safeCos(E / 2));
 }
 
 /**
@@ -45,9 +44,9 @@ float OrbitalMotion::eccentricToTrueAnomalyF32(float const E, float const e) {
  * @param e Orbital eccentricity.
  * @return Mean anomaly in radians.
  */
-float OrbitalMotion::eccentricToMeanAnomalyF32(float const E, float const e) {
+double OrbitalMotion::eccentricToMeanAnomaly(double const E, double const e) {
     assert((e >= 0.0 || e < 1.0) && "Eccentricity out of bounds (0 <= e < 1)");
-    return E - (e * safeSinf(E));
+    return E - (e * safeSin(E));
 }
 
 /**
@@ -56,9 +55,9 @@ float OrbitalMotion::eccentricToMeanAnomalyF32(float const E, float const e) {
  * @param e Orbital eccentricity.
  * @return Eccentric anomaly in radians.
  */
-float OrbitalMotion::trueToEccentricAnomalyF32(float const f, float const e) {
+double OrbitalMotion::trueToEccentricAnomaly(double const f, double const e) {
     assert((e >= 0.0 || e < 1.0) && "Eccentricity out of bounds (0 <= e < 1)");
-    return 2 * safeAtan2f(safeSqrtf(1 - e) * safeSinf(f / 2), safeSqrtf(1 + e) * safeCosf(f / 2));
+    return 2 * safeAtan2(safeSqrt(1 - e) * safeSin(f / 2), safeSqrt(1 + e) * safeCos(f / 2));
 }
 
 /**
@@ -67,10 +66,10 @@ float OrbitalMotion::trueToEccentricAnomalyF32(float const f, float const e) {
  * @param e Orbital eccentricity (0 <= e < 1).
  * @return Mean anomaly in radians.
  */
-float OrbitalMotion::trueToMeanAnomalyF32(float const f, float const e) {
+double OrbitalMotion::trueToMeanAnomaly(double const f, double const e) {
     assert((e >= 0.0 || e < 1.0) && "Eccentricity out of bounds (0 <= e < 1)");
-    float const eccentric = trueToEccentricAnomalyF32(f, e);
-    return eccentricToMeanAnomalyF32(eccentric, e);
+    double const eccentric = trueToEccentricAnomaly(f, e);
+    return eccentricToMeanAnomaly(eccentric, e);
 }
 
 /**
@@ -79,9 +78,9 @@ float OrbitalMotion::trueToMeanAnomalyF32(float const f, float const e) {
  * @param e Orbital eccentricity (> 1).
  * @return Hyperbolic anomaly in radians.
  */
-float OrbitalMotion::trueToHyperbolicAnomalyF32(float const f, float const e) {
+double OrbitalMotion::trueToHyperbolicAnomaly(double const f, double const e) {
     assert(e > 1.0 && "Eccentricity must be > 1 for hyperbolic orbits");
-    return 2 * safeAtanHf(safeSqrtf((e - 1) / (e + 1)) * safeTanf(f / 2));
+    return 2 * safeAtanH(safeSqrt((e - 1) / (e + 1)) * safeTan(f / 2));
 }
 
 /**
@@ -90,9 +89,9 @@ float OrbitalMotion::trueToHyperbolicAnomalyF32(float const f, float const e) {
  * @param e Orbital eccentricity (> 1).
  * @return True anomaly in radians.
  */
-float OrbitalMotion::hyperbolicToTrueAnomalyF32(float const H, float const e) {
+double OrbitalMotion::hyperbolicToTrueAnomaly(double const H, double const e) {
     assert(e > 1.0 && "Eccentricity must be > 1 for hyperbolic orbits");
-    return 2 * safeAtanf(safeSqrtf((e + 1) / (e - 1)) * safeTanHf(H / 2));
+    return 2 * safeAtan(safeSqrt((e + 1) / (e - 1)) * safeTanH(H / 2));
 }
 
 /**
@@ -101,9 +100,9 @@ float OrbitalMotion::hyperbolicToTrueAnomalyF32(float const H, float const e) {
  * @param e Orbital eccentricity (> 1).
  * @return Mean hyperbolic anomaly in radians.
  */
-float OrbitalMotion::hyperbolicToMeanAnomalyF32(float const H, float const e) {
+double OrbitalMotion::hyperbolicToMeanAnomaly(double const H, double const e) {
     assert(e > 1.0 && "Eccentricity must be > 1 for hyperbolic orbits");
-    return (e * safeSinHf(H)) - H;
+    return (e * safeSinH(H)) - H;
 }
 
 /**
@@ -112,13 +111,13 @@ float OrbitalMotion::hyperbolicToMeanAnomalyF32(float const H, float const e) {
  * @param e Orbital eccentricity (0 <= e < 1).
  * @return Eccentric anomaly in radians.
  */
-float OrbitalMotion::meanToEccentricAnomalyF32(float M, float e) {
+double OrbitalMotion::meanToEccentricAnomaly(double M, double e) {
     assert((e >= 0.0 || e < 1.0) && "Eccentricity out of bounds (0 <= e < 1)");
-    float E = M;
+    double E = M;
     for (int i = 0; i < kMaxNumberOfIterations; ++i) {
-        float const dE = (E - e * safeSinf(E) - M) / (1 - e * safeCosf(E));
-        E -= fmaxf(-0.5F, fminf(0.5F, dE));  // Clamp step size in case of near parabolic orbits
-        if (fabsf(dE) < kToleranceF32) {
+        double const dE = (E - e * safeSin(E) - M) / (1 - e * safeCos(E));
+        E -= fmax(-0.5, fmin(0.5, dE));  // Clamp step size in case of near parabolic orbits
+        if (fabs(dE) < kTolerance) {
             break;
         }
     }
@@ -131,10 +130,10 @@ float OrbitalMotion::meanToEccentricAnomalyF32(float M, float e) {
  * @param e Orbital eccentricity (0 <= e < 1).
  * @return True anomaly in radians.
  */
-float OrbitalMotion::meanToTrueAnomalyF32(float const M, float const e) {
+double OrbitalMotion::meanToTrueAnomaly(double const M, double const e) {
     assert((e >= 0.0 || e < 1.0) && "Eccentricity out of bounds (0 <= e < 1)");
-    float const eccentric = meanToEccentricAnomalyF32(M, e);
-    return eccentricToTrueAnomalyF32(eccentric, e);
+    double const eccentric = meanToEccentricAnomaly(M, e);
+    return eccentricToTrueAnomaly(eccentric, e);
 }
 
 /**
@@ -143,14 +142,14 @@ float OrbitalMotion::meanToTrueAnomalyF32(float const M, float const e) {
  * @param e Orbital eccentricity (> 1).
  * @return Hyperbolic anomaly in radians.
  */
-float OrbitalMotion::meanToHyperbolicAnomalyF32(const float N, const float e) {
+double OrbitalMotion::meanToHyperbolicAnomaly(const double N, const double e) {
     assert(e > 1.0 && "Eccentricity must be > 1");
     const int signN = (N > 0 ? 1 : -1);
-    float H = fabsf(N) > kClamp ? kClamp * static_cast<float>(signN) : N;
+    double H = fabs(N) > kClamp ? kClamp * static_cast<double>(signN) : N;
     for (int i = 0; i < kMaxNumberOfIterations; ++i) {
-        const float dH = (e * safeSinHf(H) - H - N) / (e * safeCosHf(H) - 1);
+        const double dH = (e * safeSinH(H) - H - N) / (e * safeCosH(H) - 1);
         H -= dH;
-        if (fabsf(dH) < kToleranceF32) {
+        if (fabs(dH) < kTolerance) {
             break;
         }
     }
@@ -163,29 +162,29 @@ float OrbitalMotion::meanToHyperbolicAnomalyF32(const float N, const float e) {
  * @param elements Classical orbital elements (a, e, i, Omega, omega, f).
  * @param CartesianState Output: position and velocity vectors in km and km/s.
  */
-CartesianState OrbitalMotion::elementsToCartesianStateF32(double const mu, const ClassicalElementsF32& elements) {
+CartesianState OrbitalMotion::elementsToCartesianState(double const mu, const ClassicalElements& elements) {
     double const a = elements.semiMajorAxis;
-    float const e = elements.eccentricity;
-    float const i = elements.inclination;
-    float const Omega = elements.rightAscensionAscendingNode;
-    float const omega = elements.argPeriapsis;
-    float const f = elements.trueAnomaly;
+    double const e = elements.eccentricity;
+    double const i = elements.inclination;
+    double const Omega = elements.rightAscensionAscendingNode;
+    double const omega = elements.argPeriapsis;
+    double const f = elements.trueAnomaly;
 
     double const p = a * (1 - e * e);
-    double const r = p / (1 + e * safeCosf(f));
+    double const r = p / (1 + e * safeCos(f));
     double const h = safeSqrt(mu * p);
 
-    float const cos_O = safeCosf(Omega);
-    float const sin_O = safeSinf(Omega);
-    float const cos_o = safeCosf(omega);
-    float const sin_o = safeSinf(omega);
-    float const cos_i = safeCosf(i);
-    float const sin_i = safeSinf(i);
-    float const cos_f = safeCosf(f);
-    float const sin_f = safeSinf(f);
+    double const cos_O = safeCos(Omega);
+    double const sin_O = safeSin(Omega);
+    double const cos_o = safeCos(omega);
+    double const sin_o = safeSin(omega);
+    double const cos_i = safeCos(i);
+    double const sin_i = safeSin(i);
+    double const cos_f = safeCos(f);
+    double const sin_f = safeSin(f);
 
-    float const cos_theta = (cos_o * cos_f) - (sin_o * sin_f);
-    float const sin_theta = (sin_o * cos_f) + (cos_o * sin_f);
+    double const cos_theta = (cos_o * cos_f) - (sin_o * sin_f);
+    double const sin_theta = (sin_o * cos_f) + (cos_o * sin_f);
 
     Eigen::Vector3d rVec{};
     rVec(0) = r * (cos_O * cos_theta - sin_O * sin_theta * cos_i);
@@ -212,9 +211,9 @@ CartesianState OrbitalMotion::elementsToCartesianStateF32(double const mu, const
  * @param vVec Velocity vector in km/s.
  * @return elements : classical orbital elements (a, e, i, Omega, omega, f).
  */
-ClassicalElementsF32 OrbitalMotion::cartesianStateToElementsF32(const double mu,
-                                                                const Eigen::Vector3d& rVec,
-                                                                const Eigen::Vector3d& vVec) {
+ClassicalElements OrbitalMotion::cartesianStateToElements(const double mu,
+                                                          const Eigen::Vector3d& rVec,
+                                                          const Eigen::Vector3d& vVec) {
     const double r = rVec.norm();
     const double v = vVec.norm();
     const Eigen::Vector3d hVec = rVec.cross(vVec);
@@ -222,30 +221,30 @@ ClassicalElementsF32 OrbitalMotion::cartesianStateToElementsF32(const double mu,
     const Eigen::Vector3d nVec = Eigen::Vector3d::UnitZ().cross(hVec);
     const Eigen::Vector3d eVec = (((v * v) - (mu / r)) * rVec - (rVec.dot(vVec)) * vVec) / mu;
 
-    ClassicalElementsF32 elements{};
+    ClassicalElements elements{};
 
     elements.radiusMagnitude = r;
-    elements.eccentricity = static_cast<float>(eVec.norm());
+    elements.eccentricity = eVec.norm();
     if (h < kTolerance) {
-        elements.inclination = 0.0F;  // rectilinear orbit
+        elements.inclination = 0.0;  // rectilinear orbit
     } else {
-        elements.inclination = static_cast<float>(std::acos(hVec(2) / h));
+        elements.inclination = std::acos(hVec(2) / h);
     }
     elements.alpha = (2 / r) - (v * v / mu);
     elements.semiMajorAxis = fabs(elements.alpha) > kTolerance ? 1 / elements.alpha : 0.0;
 
-    auto Omega = static_cast<float>(safeAtan2(nVec(1), nVec(0)));
-    elements.rightAscensionAscendingNode = Omega < 0 ? static_cast<float>(Omega + (2 * std::numbers::pi)) : Omega;
+    const double Omega = safeAtan2(nVec(1), nVec(0));
+    elements.rightAscensionAscendingNode = Omega < 0 ? Omega + (2 * std::numbers::pi) : Omega;
 
-    auto omega = static_cast<float>(safeAtan2(nVec.cross(eVec).dot(hVec.normalized()), nVec.dot(eVec)));
-    elements.argPeriapsis = omega < 0 ? static_cast<float>(omega + (2 * std::numbers::pi)) : omega;
+    const double omega = safeAtan2(nVec.cross(eVec).dot(hVec.normalized()), nVec.dot(eVec));
+    elements.argPeriapsis = omega < 0 ? omega + (2 * std::numbers::pi) : omega;
 
-    auto f = static_cast<float>(safeAtan2(eVec.cross(rVec).dot(hVec.normalized()), eVec.dot(rVec)));
-    elements.trueAnomaly = f < 0 ? static_cast<float>(f + (2 * std::numbers::pi)) : f;
+    const double f = safeAtan2(eVec.cross(rVec).dot(hVec.normalized()), eVec.dot(rVec));
+    elements.trueAnomaly = f < 0 ? f + (2 * std::numbers::pi) : f;
 
     elements.radiusPeriapsis = h * h / mu / (1 + elements.eccentricity);
-    if (fabsf(elements.eccentricity - 1) < kTolerance) {
-        elements.radiusApoapsis = 0.0F;  // parabolic orbit
+    if (fabs(elements.eccentricity - 1) < kTolerance) {
+        elements.radiusApoapsis = 0.0;  // parabolic orbit
     } else {
         elements.radiusApoapsis = h * h / mu / (1 - elements.eccentricity);
     }

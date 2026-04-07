@@ -30,8 +30,8 @@ class OEStateEphem : public SysModel {
     Message<EphemerisMsgF32Payload> stateFitOutMsg;                       //!< [-] output navigation message for pos/vel
     ReadFunctor<TDBVehicleClockCorrelationMsgF32Payload> clockCorrInMsg;  //!< clock correlation input message
 
-    void setCentralBodyGravitationalParameter(float gravitationalParameter);
-    float getCentralBodyGravitationalParameter() const;
+    void setCentralBodyGravitationalParameter(double gravitationalParameter);
+    double getCentralBodyGravitationalParameter() const;
 
     void setNumberOfArcs(unsigned int arcs);
     unsigned int getNumberOfArcs() const;
@@ -58,19 +58,19 @@ class OEStateEphem : public SysModel {
                                            const std::array<double, kMaxOeCoeff> &radiusPeriapsisCoefficients);
     std::array<double, kMaxOeCoeff> getArcRadiusPeriapsisCoefficients(unsigned int arcNumber);
     void setArcEccentricityCoefficients(unsigned int arcNumber,
-                                        const std::array<float, kMaxOeCoeff> &eccentricityCoefficients);
-    std::array<float, kMaxOeCoeff> getArcEccentricityCoefficients(unsigned int arcNumber);
+                                        const std::array<double, kMaxOeCoeff> &eccentricityCoefficients);
+    std::array<double, kMaxOeCoeff> getArcEccentricityCoefficients(unsigned int arcNumber);
     void setArcInclinationCoefficients(unsigned int arcNumber,
-                                       const std::array<float, kMaxOeCoeff> &inclinationCoefficients);
-    std::array<float, kMaxOeCoeff> getArcInclinationCoefficients(unsigned int arcNumber);
+                                       const std::array<double, kMaxOeCoeff> &inclinationCoefficients);
+    std::array<double, kMaxOeCoeff> getArcInclinationCoefficients(unsigned int arcNumber);
     void setArcArgPeriapsisCoefficients(unsigned int arcNumber,
-                                        const std::array<float, kMaxOeCoeff> &argPeriapsisCoefficients);
-    std::array<float, kMaxOeCoeff> getArcArgPeriapsisCoefficients(unsigned int arcNumber);
-    void setArcRaanCoefficients(unsigned int arcNumber, const std::array<float, kMaxOeCoeff> &raanCoefficients);
-    std::array<float, kMaxOeCoeff> getArcRaanCoefficients(unsigned int arcNumber);
+                                        const std::array<double, kMaxOeCoeff> &argPeriapsisCoefficients);
+    std::array<double, kMaxOeCoeff> getArcArgPeriapsisCoefficients(unsigned int arcNumber);
+    void setArcRaanCoefficients(unsigned int arcNumber, const std::array<double, kMaxOeCoeff> &raanCoefficients);
+    std::array<double, kMaxOeCoeff> getArcRaanCoefficients(unsigned int arcNumber);
     void setArcTrueAnomalyCoefficients(unsigned int arcNumber,
-                                       const std::array<float, kMaxOeCoeff> &trueAnomalyCoefficients);
-    std::array<float, kMaxOeCoeff> getArcTrueAnomalyCoefficients(unsigned int arcNumber);
+                                       const std::array<double, kMaxOeCoeff> &trueAnomalyCoefficients);
+    std::array<double, kMaxOeCoeff> getArcTrueAnomalyCoefficients(unsigned int arcNumber);
 
    private:
     OEStateEphemAlgorithm algorithm{};

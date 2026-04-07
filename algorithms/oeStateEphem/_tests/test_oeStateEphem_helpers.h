@@ -11,6 +11,7 @@
 
 #include "oeStateEphemAlgorithm.h"
 #include "utilities/orbitalMotion.hpp"
+#include "utilities/safeMath.h"
 #include "utilities/timeConstants.h"
 #include <gtest/gtest.h>
 #include <cmath>
@@ -157,24 +158,24 @@ inline void testOEStateEphemUpdate(double mu,
         rpCoeffs[0] = r_p_m;
         algorithm.setArcRadiusPeriapsisCoefficients(arcIdx, rpCoeffs);
 
-        std::array<float, kMaxOeCoeff> eCoeffs{};
-        eCoeffs[0] = static_cast<float>(eccentricity);
+        std::array<double, kMaxOeCoeff> eCoeffs{};
+        eCoeffs[0] = eccentricity;
         algorithm.setArcEccentricityCoefficients(arcIdx, eCoeffs);
 
-        std::array<float, kMaxOeCoeff> iCoeffs{};
-        iCoeffs[0] = static_cast<float>(inclination);
+        std::array<double, kMaxOeCoeff> iCoeffs{};
+        iCoeffs[0] = inclination;
         algorithm.setArcInclinationCoefficients(arcIdx, iCoeffs);
 
-        std::array<float, kMaxOeCoeff> omegaCoeffs{};
-        omegaCoeffs[0] = static_cast<float>(arg_periapsis);
+        std::array<double, kMaxOeCoeff> omegaCoeffs{};
+        omegaCoeffs[0] = arg_periapsis;
         algorithm.setArcArgPeriapsisCoefficients(arcIdx, omegaCoeffs);
 
-        std::array<float, kMaxOeCoeff> raanCoeffs{};
-        raanCoeffs[0] = static_cast<float>(raan);
+        std::array<double, kMaxOeCoeff> raanCoeffs{};
+        raanCoeffs[0] = raan;
         algorithm.setArcRaanCoefficients(arcIdx, raanCoeffs);
 
-        std::array<float, kMaxOeCoeff> nuCoeffs{};
-        nuCoeffs[0] = static_cast<float>(anomaly_angle);
+        std::array<double, kMaxOeCoeff> nuCoeffs{};
+        nuCoeffs[0] = anomaly_angle;
         algorithm.setArcTrueAnomalyCoefficients(arcIdx, nuCoeffs);
     }
     // Call the update function
@@ -199,8 +200,8 @@ inline void testOEStateEphemUpdate(double mu,
         elementsToCartesianStateDouble(mu, a_d, eccentricity, inclination, raan, arg_periapsis, f_d);
 
     // Compare to 6 significant digits (relative tolerance 1e-6)
-    constexpr double relTol = 1e-4;
-    constexpr double absFloor = 1e-6;
+    constexpr double relTol = 1e-14;
+    constexpr double absFloor = 1e-14;
     constexpr double angleTol = 1e-6;
 
     double posTol = std::max(absFloor, expected_state.position.norm() * relTol);
@@ -212,7 +213,7 @@ inline void testOEStateEphemUpdate(double mu,
         EXPECT_NEAR(computed_state.position[idx], expected_state.position[idx], posTol);
         EXPECT_NEAR(computed_state.velocity[idx], expected_state.velocity[idx], velTol);
     }
-    EXPECT_GT(computed_state.position.normalized().dot(expected_state.position.normalized()), std::cos(angleTol));
+    EXPECT_LT(safeAcos(computed_state.position.normalized().dot(expected_state.position.normalized())), angleTol);
 }
 
 #endif  // TEST_OE_STATE_EPHEM_HELPERS_H

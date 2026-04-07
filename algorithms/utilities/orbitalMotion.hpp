@@ -17,8 +17,8 @@
 
  */
 
-#ifndef ORBITAL_MOTION_FP32_HPP
-#define ORBITAL_MOTION_FP32_HPP
+#ifndef ORBITAL_MOTION_HPP
+#define ORBITAL_MOTION_HPP
 
 #include <Eigen/Core>
 
@@ -27,14 +27,14 @@ struct CartesianState {
     Eigen::Vector3d velocity;
 };
 
-class ClassicalElementsF32 {
+class ClassicalElements {
    public:
     double semiMajorAxis = 0;
-    float eccentricity = 0;
-    float inclination = 0;
-    float rightAscensionAscendingNode = 0;
-    float argPeriapsis = 0;
-    float trueAnomaly = 0;
+    double eccentricity = 0;
+    double inclination = 0;
+    double rightAscensionAscendingNode = 0;
+    double argPeriapsis = 0;
+    double trueAnomaly = 0;
     double radiusMagnitude = 0;
     double alpha = 0;
     double radiusPeriapsis = 0;
@@ -43,20 +43,20 @@ class ClassicalElementsF32 {
 
 class OrbitalMotion {
    public:
-    static float eccentricToTrueAnomalyF32(float E, float e);
-    static float eccentricToMeanAnomalyF32(float E, float e);
-    static float trueToEccentricAnomalyF32(float f, float e);
-    static float trueToHyperbolicAnomalyF32(float f, float e);
-    static float trueToMeanAnomalyF32(float f, float e);
-    static float hyperbolicToTrueAnomalyF32(float H, float e);
-    static float hyperbolicToMeanAnomalyF32(float H, float e);
-    static float meanToEccentricAnomalyF32(float M, float e);
-    static float meanToTrueAnomalyF32(float M, float e);
-    static float meanToHyperbolicAnomalyF32(float N, float e);
-    static CartesianState elementsToCartesianStateF32(double mu, const ClassicalElementsF32& elements);
-    static ClassicalElementsF32 cartesianStateToElementsF32(double mu,
-                                                            const Eigen::Vector3d& rVec,
-                                                            const Eigen::Vector3d& vVec);
+    static double eccentricToTrueAnomaly(double E, double e);
+    static double eccentricToMeanAnomaly(double E, double e);
+    static double trueToEccentricAnomaly(double f, double e);
+    static double trueToHyperbolicAnomaly(double f, double e);
+    static double trueToMeanAnomaly(double f, double e);
+    static double hyperbolicToTrueAnomaly(double H, double e);
+    static double hyperbolicToMeanAnomaly(double H, double e);
+    static double meanToEccentricAnomaly(double M, double e);
+    static double meanToTrueAnomaly(double M, double e);
+    static double meanToHyperbolicAnomaly(double N, double e);
+    static CartesianState elementsToCartesianState(double mu, const ClassicalElements& elements);
+    static ClassicalElements cartesianStateToElements(double mu,
+                                                      const Eigen::Vector3d& rVec,
+                                                      const Eigen::Vector3d& vVec);
 };
 
 #endif

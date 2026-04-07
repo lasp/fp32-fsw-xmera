@@ -8,17 +8,17 @@
  @return void
  @param inputValues [-] Current measured CSS value for the constellation of CSS sensors
  */
-std::array<float, MAX_NUM_CSS_SENSORS> CssCommAlgorithm::update(
-    const std::array<float, MAX_NUM_CSS_SENSORS>& inputValues) const {
-    std::array<float, MAX_NUM_CSS_SENSORS> outputValues{};
+std::array<double, MAX_NUM_CSS_SENSORS> CssCommAlgorithm::update(
+    const std::array<double, MAX_NUM_CSS_SENSORS>& inputValues) const {
+    std::array<double, MAX_NUM_CSS_SENSORS> outputValues{};
 
     for (uint32_t i = 0; i < this->numSensors; ++i) {
-        float const measuredValue = inputValues.at(i) / this->maxSensorValue; /* Scale Sensor Data */
+        double const measuredValue = inputValues.at(i) / this->maxSensorValue; /* Scale Sensor Data */
 
         /* Calculate correction using Chebyshev polynomial */
-        float const correction = calculateChebyValue(this->chebyPolynomials, this->chebyCount, measuredValue);
+        double const correction = calculateChebyValue(this->chebyPolynomials, this->chebyCount, measuredValue);
 
-        float correctedValue = measuredValue + correction;
+        double correctedValue = measuredValue + correction;
 
         if (correctedValue > 1.0) {
             correctedValue = 1.0;
@@ -54,7 +54,7 @@ uint32_t CssCommAlgorithm::getNumSensors() const { return this->numSensors; }
  @return void
  @param maxValue [-] maximum sensor value
 */
-void CssCommAlgorithm::setMaxSensorValue(const float maxValue) {
+void CssCommAlgorithm::setMaxSensorValue(const double maxValue) {
     if (maxValue <= 0) {
         FS_THROW_INVALID_ARGUMENT(
             "The maximum CSS sensor value must be positive. Otherwise, CSS sensor values "
@@ -64,9 +64,9 @@ void CssCommAlgorithm::setMaxSensorValue(const float maxValue) {
 }
 
 /*! Get the maximum sensor value
- @return float
+ @return double
 */
-float CssCommAlgorithm::getMaxSensorValue() const { return this->maxSensorValue; }
+double CssCommAlgorithm::getMaxSensorValue() const { return this->maxSensorValue; }
 
 /*! Set the cheby polynomial count
  @return void
@@ -91,11 +91,11 @@ uint32_t CssCommAlgorithm::getChebyCount() const { return this->chebyCount; }
  @return void
  @param polynomials [-] cheby polynomials
 */
-void CssCommAlgorithm::setChebyPolynomials(const std::array<float, kMaxNumChebyPolys>& polynomials) {
+void CssCommAlgorithm::setChebyPolynomials(const std::array<double, kMaxNumChebyPolys>& polynomials) {
     this->chebyPolynomials = polynomials;
 }
 
 /*! Get the cheby polynomials
- @return std::array<float, kMaxNumChebyPolys>
+ @return std::array<double, kMaxNumChebyPolys>
 */
-std::array<float, kMaxNumChebyPolys> CssCommAlgorithm::getChebyPolynomials() const { return this->chebyPolynomials; }
+std::array<double, kMaxNumChebyPolys> CssCommAlgorithm::getChebyPolynomials() const { return this->chebyPolynomials; }

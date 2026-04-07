@@ -43,11 +43,11 @@ void OEStateEphem::updateState(const uint64_t callTime) {
     this->stateFitOutMsg.write(&ephmerisMessageOutput, moduleID, callTime);
 }
 
-void OEStateEphem::setCentralBodyGravitationalParameter(const float mu) {
+void OEStateEphem::setCentralBodyGravitationalParameter(const double mu) {
     this->algorithm.setCentralBodyGravitationalParameter(mu);
 };
 
-float OEStateEphem::getCentralBodyGravitationalParameter() const {
+double OEStateEphem::getCentralBodyGravitationalParameter() const {
     return this->algorithm.getCentralBodyGravitationalParameter();
 };
 
@@ -106,46 +106,46 @@ std::array<double, kMaxOeCoeff> OEStateEphem::getArcRadiusPeriapsisCoefficients(
 };
 
 void OEStateEphem::setArcEccentricityCoefficients(const unsigned int arcNumber,
-                                                  const std::array<float, kMaxOeCoeff> &eccentricityCoefficients) {
+                                                  const std::array<double, kMaxOeCoeff> &eccentricityCoefficients) {
     this->algorithm.setArcEccentricityCoefficients(arcNumber, eccentricityCoefficients);
 };
 
-std::array<float, kMaxOeCoeff> OEStateEphem::getArcEccentricityCoefficients(const unsigned int arcNumber) {
+std::array<double, kMaxOeCoeff> OEStateEphem::getArcEccentricityCoefficients(const unsigned int arcNumber) {
     return this->algorithm.getArcEccentricityCoefficients(arcNumber);
 };
 
 void OEStateEphem::setArcInclinationCoefficients(const unsigned int arcNumber,
-                                                 const std::array<float, kMaxOeCoeff> &inclinationCoefficients) {
+                                                 const std::array<double, kMaxOeCoeff> &inclinationCoefficients) {
     this->algorithm.setArcInclinationCoefficients(arcNumber, inclinationCoefficients);
 };
 
-std::array<float, kMaxOeCoeff> OEStateEphem::getArcInclinationCoefficients(const unsigned int arcNumber) {
+std::array<double, kMaxOeCoeff> OEStateEphem::getArcInclinationCoefficients(const unsigned int arcNumber) {
     return this->algorithm.getArcInclinationCoefficients(arcNumber);
 };
 
 void OEStateEphem::setArcArgPeriapsisCoefficients(const unsigned int arcNumber,
-                                                  const std::array<float, kMaxOeCoeff> &argPeriapsisCoefficients) {
+                                                  const std::array<double, kMaxOeCoeff> &argPeriapsisCoefficients) {
     this->algorithm.setArcArgPeriapsisCoefficients(arcNumber, argPeriapsisCoefficients);
 };
 
-std::array<float, kMaxOeCoeff> OEStateEphem::getArcArgPeriapsisCoefficients(const unsigned int arcNumber) {
+std::array<double, kMaxOeCoeff> OEStateEphem::getArcArgPeriapsisCoefficients(const unsigned int arcNumber) {
     return this->algorithm.getArcArgPeriapsisCoefficients(arcNumber);
 };
 
 void OEStateEphem::setArcRaanCoefficients(const unsigned int arcNumber,
-                                          const std::array<float, kMaxOeCoeff> &raanCoefficients) {
+                                          const std::array<double, kMaxOeCoeff> &raanCoefficients) {
     this->algorithm.setArcRaanCoefficients(arcNumber, raanCoefficients);
 };
 
-std::array<float, kMaxOeCoeff> OEStateEphem::getArcRaanCoefficients(const unsigned int arcNumber) {
+std::array<double, kMaxOeCoeff> OEStateEphem::getArcRaanCoefficients(const unsigned int arcNumber) {
     return this->algorithm.getArcRaanCoefficients(arcNumber);
 };
 
 void OEStateEphem::setArcTrueAnomalyCoefficients(const unsigned int arcNumber,
-                                                 const std::array<float, kMaxOeCoeff> &trueAnomalyCoefficients) {
+                                                 const std::array<double, kMaxOeCoeff> &trueAnomalyCoefficients) {
     this->algorithm.setArcTrueAnomalyCoefficients(arcNumber, trueAnomalyCoefficients);
 };
 
-std::array<float, kMaxOeCoeff> OEStateEphem::getArcTrueAnomalyCoefficients(const unsigned int arcNumber) {
+std::array<double, kMaxOeCoeff> OEStateEphem::getArcTrueAnomalyCoefficients(const unsigned int arcNumber) {
     return this->algorithm.getArcTrueAnomalyCoefficients(arcNumber);
 };

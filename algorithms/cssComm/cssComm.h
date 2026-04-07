@@ -18,12 +18,12 @@ class CssComm : public SysModel {
 
     void setNumSensors(uint32_t numberOfSensors);
     uint32_t getNumSensors() const;
-    void setMaxSensorValue(float maxValue);
-    float getMaxSensorValue() const;
+    void setMaxSensorValue(double maxValue);
+    double getMaxSensorValue() const;
     void setChebyCount(uint32_t count);
     uint32_t getChebyCount() const;
-    void setChebyPolynomials(const std::array<float, kMaxNumChebyPolys>& polynomials);
-    std::array<float, kMaxNumChebyPolys> getChebyPolynomials() const;
+    void setChebyPolynomials(const std::array<double, kMaxNumChebyPolys>& polynomials);
+    std::array<double, kMaxNumChebyPolys> getChebyPolynomials() const;
 
     ReadFunctor<CSSArraySensorMsgF32Payload> sensorListInMsg;  //!< input message that contains CSS data
     Message<CSSArraySensorMsgF32Payload> cssArrayOutMsg;       //!< output message of corrected CSS data
