@@ -32,23 +32,10 @@ SolarArrayReferenceOutput SolarArrayReferenceAlgorithm::update(const Eigen::Vect
 
     /*! read Sun direction in B frame and map it to R frame */
     const Eigen::Vector3f rHat_SB_B = vehSunPntBdy.normalized();
-    Eigen::Vector3f rHat_SB_R;
-    switch (this->attitudeFrame) {
-        case referenceFrame: {
-            const Eigen::Matrix3f dcm_BN = mrpToDcm(sigma_BN);
-            const Eigen::Matrix3f dcm_RN = mrpToDcm(sigma_RN);
-            const Eigen::Matrix3f dcm_RB = dcm_RN * dcm_BN.transpose();
-            rHat_SB_R = dcm_RB * rHat_SB_B;
-            break;
-        }
-
-        case bodyFrame:
-            rHat_SB_R = rHat_SB_B;
-            break;
-
-        default:
-            FSW_THROW_INVALID_ARGUMENT("solarArrayReference.attitudeFrame input can be either 0 or 1.");
-    }
+    const Eigen::Matrix3f dcm_BN = mrpToDcm(sigma_BN);
+    const Eigen::Matrix3f dcm_RN = mrpToDcm(sigma_RN);
+    const Eigen::Matrix3f dcm_RB = dcm_RN * dcm_BN.transpose();
+    Eigen::Vector3f rHat_SB_R = dcm_RB * rHat_SB_B;
 
     /*! compute solar array frame axes at zero rotation */
     const Eigen::Vector3f a1 = this->a1Hat_B.normalized();
@@ -134,19 +121,3 @@ void SolarArrayReferenceAlgorithm::setA2Hat_B(const Eigen::Vector3f& normal) {
  *  @return Eigen::Vector3f [-] solar array surface normal at zero rotation
  */
 Eigen::Vector3f SolarArrayReferenceAlgorithm::getA2Hat_B() const { return this->a2Hat_B; }
-
-/*! Set the attitude frame flag.
- *  Must be 0 (referenceFrame) or 1 (bodyFrame).
- *  @param frame attitude frame flag (0 or 1)
- */
-void SolarArrayReferenceAlgorithm::setAttitudeFrame(const int frame) {
-    if (frame != referenceFrame && frame != bodyFrame) {
-        FSW_THROW_INVALID_ARGUMENT("solarArrayReferenceAlgorithm.attitudeFrame must be 0 or 1.");
-    }
-    this->attitudeFrame = frame;
-}
-
-/*! Get the attitude frame flag.
- *  @return int attitude frame flag (0 = referenceFrame, 1 = bodyFrame)
- */
-int SolarArrayReferenceAlgorithm::getAttitudeFrame() const { return this->attitudeFrame; }

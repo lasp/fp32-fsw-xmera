@@ -43,11 +43,10 @@ def compute_rotation_angle(sigma_RN, rHat_SB_N, a1Hat_B, a2Hat_B, theta0):
                                       [0.5, 0.4, 0.3]])
 @pytest.mark.parametrize("sigma_RN", [[0.3, 0.2, 0.1],
                                       [0.9, 0.7, 0.8]])
-@pytest.mark.parametrize("attitudeFrame", [0, 1])
 @pytest.mark.parametrize("accuracy", [1e-6])
 
 
-def test_solarArrayReference(show_plots, rHat_SB_N, sigma_BN, sigma_RN, attitudeFrame, accuracy):
+def test_solarArrayReference(show_plots, rHat_SB_N, sigma_BN, sigma_RN, accuracy):
     r"""
     **Validation Test Description**
 
@@ -103,7 +102,6 @@ def test_solarArrayReference(show_plots, rHat_SB_N, sigma_BN, sigma_RN, attitude
     # Initialize the test module configuration data
     solar_array.a1Hat_B = a1Hat_B
     solar_array.a2Hat_B = a2Hat_B
-    solar_array.attitudeFrame = attitudeFrame
 
     # Create input attitude navigation message
     nav_att_in_msg_data = messaging.NavAttMsgF32Payload()
@@ -138,10 +136,7 @@ def test_solarArrayReference(show_plots, rHat_SB_N, sigma_BN, sigma_RN, attitude
     # Begin the simulation time run set above
     unit_test_sim.ExecuteSimulation()
 
-    if attitudeFrame == 0:
-        thetaR = compute_rotation_angle(sigma_RN, rHat_SB_N, a1Hat_B, a2Hat_B, thetaC)
-    else:
-        thetaR = compute_rotation_angle(sigma_BN, rHat_SB_N, a1Hat_B, a2Hat_B, thetaC)
+    thetaR = compute_rotation_angle(sigma_RN, rHat_SB_N, a1Hat_B, a2Hat_B, thetaC)
     if thetaR - thetaC > np.pi:
         thetaR -= np.pi
     elif thetaR - thetaC < -np.pi:

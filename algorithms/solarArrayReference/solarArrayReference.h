@@ -19,9 +19,6 @@ class SolarArrayReference : public SysModel {
     Eigen::Vector3f getA1Hat_B() const;
     void setA2Hat_B(const Eigen::Vector3f& normal);
     Eigen::Vector3f getA2Hat_B() const;
-    void setAttitudeFrame(int frame);
-    int getAttitudeFrame() const;
-
     /* declare module IO interfaces */
     ReadFunctor<NavAttMsgF32Payload> attNavInMsg;                    //!< input msg measured attitude
     ReadFunctor<AttRefMsgF32Payload> attRefInMsg;                    //!< input attitude reference message

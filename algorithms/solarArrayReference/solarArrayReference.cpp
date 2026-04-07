@@ -54,13 +54,3 @@ void SolarArrayReference::setA2Hat_B(const Eigen::Vector3f& normal) { this->algo
  *  @return Eigen::Vector3f [-] solar array surface normal at zero rotation
  */
 Eigen::Vector3f SolarArrayReference::getA2Hat_B() const { return this->algorithm.getA2Hat_B(); }
-
-/*! Set the attitude frame flag.
- *  @param frame attitude frame flag (0 = referenceFrame, 1 = bodyFrame)
- */
-void SolarArrayReference::setAttitudeFrame(const int frame) { this->algorithm.setAttitudeFrame(frame); }
-
-/*! Get the attitude frame flag.
- *  @return int attitude frame flag (0 = referenceFrame, 1 = bodyFrame)
- */
-int SolarArrayReference::getAttitudeFrame() const { return this->algorithm.getAttitudeFrame(); }
