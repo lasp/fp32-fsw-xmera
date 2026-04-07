@@ -13,8 +13,6 @@ void SolarArrayReference::reset(uint64_t callTime) {
     if (!this->hingedRigidBodyInMsg.isLinked()) {
         throw std::invalid_argument("solarArrayReference.hingedRigidBodyInMsg wasn't connected.");
     }
-
-    this->algorithm.reset();
 }
 
 void SolarArrayReference::updateState(uint64_t callTime) {
@@ -26,12 +24,10 @@ void SolarArrayReference::updateState(uint64_t callTime) {
     const Eigen::Vector3f sigma_RN = cArrayToEigenVector(attRefIn.sigma_RN);
     const Eigen::Vector3f vehSunPntBdy = cArrayToEigenVector(attNavIn.vehSunPntBdy);
 
-    const SolarArrayReferenceOutput output =
-        this->algorithm.update(sigma_BN, sigma_RN, vehSunPntBdy, hingedRigidBodyIn.theta, callTime);
+    const float thetaRef = this->algorithm.update(sigma_BN, sigma_RN, vehSunPntBdy, hingedRigidBodyIn.theta);
 
     HingedRigidBodyMsgF32Payload hingedRigidBodyRefOut = {};
-    hingedRigidBodyRefOut.theta = output.theta;
-    hingedRigidBodyRefOut.thetaDot = output.thetaDot;
+    hingedRigidBodyRefOut.theta = thetaRef;
     this->hingedRigidBodyRefOutMsg.write(&hingedRigidBodyRefOut, this->moduleID, callTime);
 }
 

@@ -4,31 +4,21 @@
 #include <numbers>
 
 #include "architecture/utilities/rigidBodyKinematics.hpp"
-#include "utilities/timeConstants.h"
 
 const float epsilon = 1e-6F;  // module tolerance for zero
 
-/*! This method performs a complete reset of the module.  Local module variables that retain
- time varying states between function calls are reset to their default values.
- @return void
-*/
-void SolarArrayReferenceAlgorithm::reset() { this->count = 0; }
-
 /*! This method computes the updated rotation angle reference based on current attitude, reference attitude, and current
  rotation angle
- @return SolarArrayReferenceOutput containing reference theta and thetaDot
+ @return float
  @param sigma_BN body attitude MRP with respect to inertial frame
  @param sigma_RN reference attitude MRP with respect to inertial frame
  @param vehSunPntBdy Sun pointing vector in body frame
  @param theta current panel angular displacement [rad]
- @param callTime The clock time at which the function was called (nanoseconds)
 */
-SolarArrayReferenceOutput SolarArrayReferenceAlgorithm::update(const Eigen::Vector3f& sigma_BN,
+float SolarArrayReferenceAlgorithm::update(const Eigen::Vector3f& sigma_BN,
                                                                const Eigen::Vector3f& sigma_RN,
                                                                const Eigen::Vector3f& vehSunPntBdy,
-                                                               float theta,
-                                                               uint64_t callTime) {
-    SolarArrayReferenceOutput output{};
+                                                               const float theta) const {
 
     /*! read Sun direction in B frame and map it to R frame */
     const Eigen::Vector3f rHat_SB_B = vehSunPntBdy.normalized();
@@ -53,10 +43,11 @@ SolarArrayReferenceOutput SolarArrayReferenceAlgorithm::update(const Eigen::Vect
     const float thetaC = atan2f(sinThetaC, cosThetaC);  // clip theta current between 0 and 2*pi
 
     /*! compute reference angle and store in output */
+    float thetaRefOut{};
     constexpr float pi = std::numbers::pi_v<float>;
     if (a2Hat_R_norm < epsilon) {
         // if norm(a2Hat_R) = 0, reference coincides with current angle
-        output.theta = theta;
+        thetaRefOut = theta;
     } else {
         a2Hat_R.normalize();
         const Eigen::Vector3f a1Hat_R = a2.cross(a2Hat_R);
@@ -67,27 +58,15 @@ SolarArrayReferenceOutput SolarArrayReferenceAlgorithm::update(const Eigen::Vect
         }
         // always make the absolute difference |thetaR-thetaC| smaller that 2*pi
         if (thetaR - thetaC > pi) {
-            output.theta = theta + thetaR - thetaC - 2 * pi;
+            thetaRefOut = theta + thetaR - thetaC - 2 * pi;
         } else if (thetaR - thetaC < -pi) {
-            output.theta = theta + thetaR - thetaC + 2 * pi;
+            thetaRefOut = theta + thetaR - thetaC + 2 * pi;
         } else {
-            output.theta = theta + thetaR - thetaC;
+            thetaRefOut = theta + thetaR - thetaC;
         }
     }
 
-    /*! implement finite differences to compute thetaDotR */
-    if (this->count == 0) {
-        output.thetaDot = 0;
-    } else {
-        const double dt = static_cast<double>(callTime - this->priorT) * kNano2Sec;
-        output.thetaDot = static_cast<float>((output.theta - this->priorThetaR) / dt);
-    }
-    // update stored variables
-    this->priorThetaR = output.theta;
-    this->priorT = callTime;
-    this->count += 1;
-
-    return output;
+    return thetaRefOut;
 }
 
 /*! Set the solar array drive axis in body frame coordinates.

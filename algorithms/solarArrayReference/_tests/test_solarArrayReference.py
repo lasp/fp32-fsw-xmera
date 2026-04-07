@@ -144,7 +144,6 @@ def test_solarArrayReference(show_plots, rHat_SB_N, sigma_BN, sigma_RN, accuracy
 
     # compare the module results to the truth values
     np.testing.assert_allclose(data_log.theta[0], thetaR, atol=accuracy, rtol=accuracy)
-    np.testing.assert_allclose(data_log.thetaDot[0], 0, atol=accuracy, rtol=accuracy)
 
 
 if __name__ == "__main__":
