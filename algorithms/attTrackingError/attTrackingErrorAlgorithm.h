@@ -1,11 +1,5 @@
-/*
- MIT License
-
- Copyright (c) 2025, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
- */
-
-#ifndef F32XIMERA_ATT_TRACKING_ERROR_ALGORITHM_H
-#define F32XIMERA_ATT_TRACKING_ERROR_ALGORITHM_H
+#ifndef F32XMERA_ATT_TRACKING_ERROR_ALGORITHM_H
+#define F32XMERA_ATT_TRACKING_ERROR_ALGORITHM_H
 
 #include "msgPayloadDef/AttGuidMsgF32Payload.h"
 #include "msgPayloadDef/AttRefMsgF32Payload.h"

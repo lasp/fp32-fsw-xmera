@@ -1,9 +1,3 @@
-/*
- MIT License
-
- Copyright (c) 2025, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
- */
-
 #include "attTrackingErrorAlgorithm.h"
 
 #include "architecture/utilities/eigenSupport.h"
@@ -24,20 +18,20 @@ AttGuidMsgF32Payload AttTrackingErrorAlgorithm::update(AttRefMsgF32Payload& attR
     // Compute attitude tracking error sigma_BR
     const Eigen::Vector3f sigma_BR = subMrp(sigma_BN, sigma_RN);
 
-    // Compute angular velocity reference body frame components omega_RN_B
+    // Transform reference angular velocity from inertial to body frame components omega_RN_B
     const Eigen::Matrix3f dcm_BN = mrpToDcm(sigma_BN);
     const Eigen::Vector3f omega_RN_N = cArrayToEigenVector(attRefInMsg.omega_RN_N);
     const Eigen::Vector3f omega_RN_B = dcm_BN * omega_RN_N;
 
-    // Compute angular velocity error omega_BR
+    // Compute angular velocity tracking error omega_BR_B
     const Eigen::Vector3f omega_BN_B = cArrayToEigenVector(attNavInMsg.omega_BN_B);
     const Eigen::Vector3f omega_BR_B = omega_BN_B - omega_RN_B;
 
-    // Compute reference angular velocity rate in body frame components domega_RN_B
+    // Transform reference angular acceleration from inertial to body frame components domega_RN_B
     const Eigen::Vector3f domega_RN_N = cArrayToEigenVector(attRefInMsg.domega_RN_N);
     const Eigen::Vector3f domega_RN_B = dcm_BN * domega_RN_N;
 
-    // Write attitude guidance output message
+    // Populate attitude guidance output message
     AttGuidMsgF32Payload attGuidOut{};
     eigenVectorToCArray(omega_RN_B, attGuidOut.omega_RN_B);
     eigenVectorToCArray(omega_BR_B, attGuidOut.omega_BR_B);

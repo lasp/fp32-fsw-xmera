@@ -3,12 +3,13 @@
  Copyright (c) 2025, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
  */
 
-#ifndef F32XIMERA_ATTTRACKINGERRORALGORITHM_C_H
-#define F32XIMERA_ATTTRACKINGERRORALGORITHM_C_H
+#ifndef F32XMERA_ATTTRACKINGERRORALGORITHM_C_H
+#define F32XMERA_ATTTRACKINGERRORALGORITHM_C_H
 
 #include "msgPayloadDef/AttGuidMsgF32Payload.h"
 #include "msgPayloadDef/AttRefMsgF32Payload.h"
 #include "msgPayloadDef/NavAttMsgF32Payload.h"
+
 #include <stdint.h>
 
 #ifdef __cplusplus

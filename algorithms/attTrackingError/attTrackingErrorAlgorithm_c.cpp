@@ -6,6 +6,7 @@
 #include "attTrackingErrorAlgorithm_c.h"
 #include "attTrackingErrorAlgorithm.h"
 
+#include "architecture/utilities/eigenSupport.h"
 #include <Eigen/Core>
 
 AttTrackingErrorAlgorithm* AttTrackingErrorAlgorithm_create(void) {
