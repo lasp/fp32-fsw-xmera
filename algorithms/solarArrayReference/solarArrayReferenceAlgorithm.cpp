@@ -32,7 +32,7 @@ float SolarArrayReferenceAlgorithm::update(const Eigen::Vector3f& sigma_BN,
     const Eigen::Vector3f a3 = (a1.cross(this->a2Hat_B)).normalized();
     const Eigen::Vector3f a2 = (a3.cross(a1)).normalized();
 
-    /*! compute solar array reference frame axes at zero rotation */
+    /*! required solar array surface normal direction to align surface normal with Sun direction as well as possible */
     const float dotP = a1.dot(rHat_SB_R);
     Eigen::Vector3f a2Hat_R = rHat_SB_R - dotP * a1;
     const float a2Hat_R_norm = a2Hat_R.norm();
@@ -40,13 +40,13 @@ float SolarArrayReferenceAlgorithm::update(const Eigen::Vector3f& sigma_BN,
     /*! compute current rotation angle thetaC from input msg */
     const float sinThetaC = sinf(theta);
     const float cosThetaC = cosf(theta);
-    const float thetaC = atan2f(sinThetaC, cosThetaC);  // clip theta current between 0 and 2*pi
+    const float thetaC = atan2f(sinThetaC, cosThetaC);  // wrap current theta between -pi and pi
 
     /*! compute reference angle and store in output */
     float thetaRefOut{};
     constexpr float pi = std::numbers::pi_v<float>;
     if (a2Hat_R_norm < epsilon) {
-        // if norm(a2Hat_R) = 0, reference coincides with current angle
+        // if norm(a2Hat_R) = 0, drive axis is aligned with sun direction, so no preferred angle and leave at current
         thetaRefOut = theta;
     } else {
         a2Hat_R.normalize();
@@ -56,7 +56,7 @@ float SolarArrayReferenceAlgorithm::update(const Eigen::Vector3f& sigma_BN,
         if (a1.dot(a1Hat_R) < 0) {
             thetaR = -thetaR;
         }
-        // always make the absolute difference |thetaR-thetaC| smaller that 2*pi
+        // always make the absolute difference |thetaR-thetaC| is smaller than pi
         if (thetaR - thetaC > pi) {
             thetaRefOut = theta + thetaR - thetaC - 2 * pi;
         } else if (thetaR - thetaC < -pi) {
