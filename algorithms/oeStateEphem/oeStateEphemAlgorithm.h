@@ -7,15 +7,14 @@
 #ifndef F32XIMERA_OE_STATE_EPHEM_ALGORITHM_H
 #define F32XIMERA_OE_STATE_EPHEM_ALGORITHM_H
 
+#include "oeStateEphemTypes.h"
 #include "utilities/orbitalMotion.hpp"
 #include <array>
 #include <cstddef>
 
 inline constexpr double kTolerance = 1e-10;
-inline constexpr std::size_t kMaxOeCoeff = 20;
-inline constexpr std::size_t kMaxOeRecords = 10;
-
-#include "oeStateEphemTypes.h"
+inline constexpr std::size_t kMaxOeCoeff = MAX_OE_COEFF;
+inline constexpr std::size_t kMaxOeRecords = MAX_OE_RECORDS;
 
 /*! @brief Structure that defines the layout of an Ephemeris "record."  This is
            basically the set of coefficients for the ephemeris elements and
@@ -88,9 +87,8 @@ class OEStateEphemAlgorithm {
 
    private:
     ChebyshevFitArc findCurrentArc(uint64_t spacecraftClockTime);
-    double scaleEphemerisTime(const ChebyshevFitArc &arc) const;
-    static orbitalMotion::ClassicalElements evaluateCoefficients(double currentScaledValue,
-                                                                 const ChebyshevFitArc &arc);
+    double scaleEphemerisTime(const ChebyshevFitArc& arc) const;
+    static orbitalMotion::ClassicalElements evaluateCoefficients(double currentScaledValue, const ChebyshevFitArc& arc);
     bool allParametersNull() const;
     unsigned int numberOfArcs{};
     double currentEphTime{};
