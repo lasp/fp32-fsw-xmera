@@ -8,18 +8,16 @@
 #include "../freestandingInvalidArgument.h"
 #include "../utilities/validInertiaCheck.h"
 
-/*! This method takes the attitude and rate errors relative to the reference frame, as well as
-the reference frame angular rates and acceleration, and computes the required control torque Lr.
- @return Eigen::Vector3d control torque
- @param InputGuidanceData Attitude guidance input
+/*! Computes the required control torque Lr from the attitude rate error and the reference frame angular acceleration.
+ @param omega_BR_B   Angular velocity of the body frame relative to the reference frame, expressed in body frame
+ coordinates [rad/s]
+ @param domega_RN_B  Time derivative of the reference frame angular velocity, expressed in body frame coordinates
+ [rad/s^2]
+ @return             Required control torque about point B [Nm]
 */
 Eigen::Vector3f RateControlAlgorithm::update(const Eigen::Vector3f& omega_BR_B,
-                                             const Eigen::Vector3f& omega_RN_B,
                                              const Eigen::Vector3f& domega_RN_B) const {
-    const Eigen::Vector3f omega_BN_B = omega_BR_B + omega_RN_B;
-    const Eigen::Vector3f Lr = -this->P * omega_BR_B + omega_RN_B.cross(this->ISCPntB_B * omega_BN_B) +
-                               this->ISCPntB_B * (domega_RN_B - omega_BN_B.cross(omega_RN_B)) -
-                               this->knownTorquePntB_B;  // [Nm]
+    const Eigen::Vector3f Lr = -this->P * omega_BR_B + this->ISCPntB_B * domega_RN_B - this->knownTorquePntB_B;  // [Nm]
     return Lr;
 }
 

@@ -11,9 +11,7 @@
 
 class RateControlAlgorithm {
    public:
-    Eigen::Vector3f update(const Eigen::Vector3f& omega_BR_B,
-                           const Eigen::Vector3f& omega_RN_B,
-                           const Eigen::Vector3f& domega_RN_B) const;
+    Eigen::Vector3f update(const Eigen::Vector3f& omega_BR_B, const Eigen::Vector3f& domega_RN_B) const;
     void setSpacecraftInertia(const Eigen::Matrix3f& spacecraftInertia);
     void setDerivativeGainP(float derivativeGainP);  //!< [-] non-negative derivative gain
     float getDerivativeGainP() const;
