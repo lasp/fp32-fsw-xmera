@@ -1,6 +1,6 @@
 #include "solarArrayReferenceAlgorithm.h"
 #include "utilities/freestandingInvalidArgument.h"
-#include <math.h>
+#include "utilities/safeMath.h"
 #include <numbers>
 
 #include "architecture/utilities/rigidBodyKinematics.hpp"
@@ -27,35 +27,24 @@ float SolarArrayReferenceAlgorithm::update(const Eigen::Vector3f& sigma_BN,
     const Eigen::Matrix3f dcm_RB = dcm_RN * dcm_BN.transpose();
     const Eigen::Vector3f rHat_SB_B = dcm_RB * rHat_SB_Bc;  // assume body frame B equals reference frame R (end of slew)
 
-    /*! compute solar array frame axes at zero rotation */
-    const Eigen::Vector3f a1 = this->a1Hat_B.normalized();
-    const Eigen::Vector3f a3 = (a1.cross(this->a2Hat_B)).normalized();
-    const Eigen::Vector3f a2 = (a3.cross(a1)).normalized();
-
     /*! required solar array surface normal direction to align surface normal with Sun direction as well as possible */
-    const float dotP = a1.dot(rHat_SB_B);
-    Eigen::Vector3f a2HatRef_B = rHat_SB_B - dotP * a1;
-    const float a2HatRef_B_norm = a2HatRef_B.norm();
-
-    /*! compute current rotation angle thetaC from input msg */
-    const float sinThetaC = sinf(theta);
-    const float cosThetaC = cosf(theta);
-    const float thetaC = atan2f(sinThetaC, cosThetaC);  // wrap current theta between -pi and pi
+    Eigen::Vector3f a2HatRef_B = rHat_SB_B - this->a1Hat_B.dot(rHat_SB_B) * this->a1Hat_B;
 
     /*! compute reference angle and store in output */
     float thetaRefOut{};
     constexpr float pi = std::numbers::pi_v<float>;
-    if (a2HatRef_B_norm < epsilon) {
+    if (a2HatRef_B.norm() < epsilon) {
         // if norm(a2HatRef_B) = 0, drive axis is aligned with sun direction, so no preferred angle and leave at current
         thetaRefOut = theta;
     } else {
         a2HatRef_B.normalize();
-        const Eigen::Vector3f a1HatRef_B = a2.cross(a2HatRef_B);
-        float thetaRef = acosf(fminf(fmaxf(a2.dot(a2HatRef_B), -1.0F), 1.0F));
-        // if a1 and a1HatRef_B are opposite, take the negative of thetaRef
-        if (a1.dot(a1HatRef_B) < 0) {
+        const Eigen::Vector3f a1HatRef_B = this->a2Hat_B.cross(a2HatRef_B);
+        float thetaRef = safeAcosf(this->a2Hat_B.dot(a2HatRef_B));
+        // if this->a1Hat_B and a1HatRef_B are opposite, take the negative of thetaRef
+        if (this->a1Hat_B.dot(a1HatRef_B) < 0) {
             thetaRef = -thetaRef;
         }
+        const float thetaC = safeAtan2f(safeSinf(theta), safeCosf(theta));  // wrap current theta between -pi and pi
         // always make the absolute difference |thetaR-thetaC| is smaller than pi
         if (thetaRef - thetaC > pi) {
             thetaRefOut = theta + thetaRef - thetaC - 2 * pi;
