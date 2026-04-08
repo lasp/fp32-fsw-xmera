@@ -103,4 +103,54 @@ inline void regressionTestSolarArrayReference(std::vector<float> sigma_BN_Vec,
     EXPECT_TRUE(std::isfinite(result));
 }
 
+// ---------------------------------------------------------------------------
+// Property test helper functions
+// ---------------------------------------------------------------------------
+
+// Output is always finite for valid inputs.
+inline void propertyOutputIsFinite(std::vector<float> sigma_BN_Vec,
+                                   std::vector<float> sigma_RN_Vec,
+                                   std::vector<float> vehSunPntBdy_Vec,
+                                   float theta) {
+    Eigen::Vector3f vehSunPntBdy_f(vehSunPntBdy_Vec[0], vehSunPntBdy_Vec[1], vehSunPntBdy_Vec[2]);
+    if (vehSunPntBdy_f.norm() < 1e-6F) {
+        return;
+    }
+
+    SolarArrayReferenceAlgorithm alg{};
+    alg.setSolarArrayAxes_B(Eigen::Vector3f{1.0F, 0.0F, 0.0F}, Eigen::Vector3f{0.0F, 1.0F, 0.0F});
+
+    Eigen::Vector3f sigma_BN(sigma_BN_Vec[0], sigma_BN_Vec[1], sigma_BN_Vec[2]);
+    Eigen::Vector3f sigma_RN(sigma_RN_Vec[0], sigma_RN_Vec[1], sigma_RN_Vec[2]);
+
+    float result = alg.update(sigma_BN, sigma_RN, vehSunPntBdy_f, theta);
+    EXPECT_TRUE(std::isfinite(result));
+}
+
+// When sun is aligned with drive axis, output equals input theta.
+inline void propertyAlignedSunReturnsCurrentTheta(std::vector<float> a1Hat_B_Vec, float theta) {
+    Eigen::Vector3f a1Hat_B_f(a1Hat_B_Vec[0], a1Hat_B_Vec[1], a1Hat_B_Vec[2]);
+    if (abs(a1Hat_B_f.norm() - 1.0F) > 1e-3F) {
+        return;
+    }
+
+    // Normalize input the same way the setter does, then construct orthogonal a2
+    Eigen::Vector3f a1 = a1Hat_B_f.stableNormalized();
+    Eigen::Vector3f candidate{1.0F, 0.0F, 0.0F};
+    if (std::abs(a1.dot(candidate)) > 0.9F) {
+        candidate = Eigen::Vector3f{0.0F, 1.0F, 0.0F};
+    }
+    Eigen::Vector3f a2 = (a1.cross(candidate)).normalized();
+
+    SolarArrayReferenceAlgorithm alg{};
+    alg.setSolarArrayAxes_B(a1Hat_B_f, a2);
+
+    // Sun direction exactly along drive axis (use getter to match what the algorithm stores)
+    const auto axes = alg.getSolarArrayAxes_B();
+    Eigen::Vector3f sunAligned = axes[0];
+
+    float result = alg.update(Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(), sunAligned, theta);
+    EXPECT_NEAR(result, atan2f(sinf(theta), cosf(theta)), 1e-5F);
+}
+
 #endif  // TEST_SOLARARRAYREFERENCE_H

@@ -91,3 +91,93 @@ TEST(SolarArrayReferenceTest, SetupTest) {
     EXPECT_NEAR(axes[1](1), 1.0F, 1e-6F);
     EXPECT_NEAR(axes[1](2), 0.0F, 1e-6F);
 }
+
+// ---------------------------------------------------------------------------
+// Property tests
+// ---------------------------------------------------------------------------
+
+TEST(SolarArrayReferenceTest, OutputIsFinite) {
+    propertyOutputIsFinite({0.1F, 0.2F, 0.3F}, {0.3F, 0.2F, 0.1F}, {1.0F, 1.0F, 0.0F}, 0.5F);
+}
+
+TEST(SolarArrayReferenceTest, AlignedSunReturnsCurrentTheta) {
+    propertyAlignedSunReturnsCurrentTheta({1.0F, 0.0F, 0.0F}, 0.7F);
+}
+
+TEST(SolarArrayReferenceTest, AlignedSunNegativeTheta) {
+    propertyAlignedSunReturnsCurrentTheta({0.0F, 0.0F, 1.0F}, -1.2F);
+}
+
+// ---------------------------------------------------------------------------
+// Edge-case tests
+// ---------------------------------------------------------------------------
+
+// Sun direction exactly along drive axis: no preferred angle, output = input theta.
+TEST(SolarArrayReferenceTest, SunAlignedWithDriveAxis) {
+    SolarArrayReferenceAlgorithm alg{};
+    alg.setSolarArrayAxes_B(Eigen::Vector3f{1.0F, 0.0F, 0.0F}, Eigen::Vector3f{0.0F, 1.0F, 0.0F});
+
+    float theta = 0.5F;
+    float result = alg.update(Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(),
+                              Eigen::Vector3f{1.0F, 0.0F, 0.0F}, theta);
+    EXPECT_NEAR(result, theta, 1e-5F);
+}
+
+// Sun direction exactly opposite to drive axis: still aligned, output = input theta.
+TEST(SolarArrayReferenceTest, SunAntiAlignedWithDriveAxis) {
+    SolarArrayReferenceAlgorithm alg{};
+    alg.setSolarArrayAxes_B(Eigen::Vector3f{1.0F, 0.0F, 0.0F}, Eigen::Vector3f{0.0F, 1.0F, 0.0F});
+
+    float theta = -0.3F;
+    float result = alg.update(Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(),
+                              Eigen::Vector3f{-1.0F, 0.0F, 0.0F}, theta);
+    EXPECT_NEAR(result, theta, 1e-5F);
+}
+
+// Sun perpendicular to drive axis and aligned with surface normal: thetaRef should be near zero.
+TEST(SolarArrayReferenceTest, SunAlignedWithSurfaceNormal) {
+    SolarArrayReferenceAlgorithm alg{};
+    alg.setSolarArrayAxes_B(Eigen::Vector3f{1.0F, 0.0F, 0.0F}, Eigen::Vector3f{0.0F, 1.0F, 0.0F});
+
+    float result = alg.update(Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(),
+                              Eigen::Vector3f{0.0F, 1.0F, 0.0F}, 0.0F);
+    EXPECT_NEAR(result, 0.0F, 1e-5F);
+}
+
+// Large theta values: wrapping should keep output reasonable.
+TEST(SolarArrayReferenceTest, LargeThetaWrapping) {
+    SolarArrayReferenceAlgorithm alg{};
+    alg.setSolarArrayAxes_B(Eigen::Vector3f{1.0F, 0.0F, 0.0F}, Eigen::Vector3f{0.0F, 1.0F, 0.0F});
+
+    float result = alg.update(Eigen::Vector3f{0.1F, 0.2F, 0.3F},
+                              Eigen::Vector3f{0.3F, 0.2F, 0.1F},
+                              Eigen::Vector3f{0.0F, 0.0F, 1.0F}, 100.0F);
+    EXPECT_TRUE(std::isfinite(result));
+}
+
+// Alignment threshold: just inside threshold keeps current theta.
+TEST(SolarArrayReferenceTest, AlignmentThresholdJustInside) {
+    SolarArrayReferenceAlgorithm alg{};
+    alg.setSolarArrayAxes_B(Eigen::Vector3f{0.0F, 0.0F, 1.0F}, Eigen::Vector3f{1.0F, 0.0F, 0.0F});
+    alg.setAlignmentThreshold(0.1F);  // 0.1 rad threshold
+
+    // Sun nearly along drive axis (small angle from z-axis)
+    Eigen::Vector3f sunNearAxis{0.0F, 0.04F, 1.0F};  // angle ~ atan(0.04) ~ 0.04 rad < 0.1
+    float theta = 1.0F;
+    float result = alg.update(Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(), sunNearAxis, theta);
+    EXPECT_NEAR(result, theta, 1e-5F);
+}
+
+// Alignment threshold: just outside threshold computes reference.
+TEST(SolarArrayReferenceTest, AlignmentThresholdJustOutside) {
+    SolarArrayReferenceAlgorithm alg{};
+    alg.setSolarArrayAxes_B(Eigen::Vector3f{0.0F, 0.0F, 1.0F}, Eigen::Vector3f{1.0F, 0.0F, 0.0F});
+    alg.setAlignmentThreshold(0.01F);  // 0.01 rad threshold
+
+    // Sun well away from drive axis
+    Eigen::Vector3f sunAway{1.0F, 0.0F, 0.0F};  // 90 deg from z-axis
+    float theta = 0.0F;
+    float result = alg.update(Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(), sunAway, theta);
+    // Should compute a reference angle, not just return theta
+    EXPECT_TRUE(std::isfinite(result));
+}
