@@ -1,0 +1,116 @@
+/*
+ MIT License
+
+ Copyright (c) 2026, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
+
+ Fuzz tests for ConvertStPlatformToBodyAlgorithm
+ */
+
+#include "test_convertStPlatformToBody_helpers.h"
+#include <fuzztest/fuzztest.h>
+#include <cmath>
+
+/*!
+ * @brief Build a unit quaternion from four arbitrary doubles, normalizing them.
+ *
+ * Handles the zero-vector case by returning the identity quaternion.
+ */
+static Eigen::Vector4d makeUnitQuaternion(double q0, double q1, double q2, double q3) {
+    Eigen::Vector4d ep(q0, q1, q2, q3);
+    double norm = ep.norm();
+    if (norm < 1e-12) {
+        return {1.0, 0.0, 0.0, 0.0};
+    }
+    ep /= norm;
+    // Enforce scalar-first positive convention
+    if (ep(0) < 0.0) {
+        ep = -ep;
+    }
+    return ep;
+}
+
+/*!
+ * @brief Build a proper rotation matrix from three Euler angles (3-2-1 sequence).
+ */
+static Eigen::Matrix3d makeDcm(double yaw, double pitch, double roll) {
+    Eigen::Matrix3d dcm;
+    dcm = Eigen::AngleAxisd(yaw, Eigen::Vector3d::UnitZ()) * Eigen::AngleAxisd(pitch, Eigen::Vector3d::UnitY()) *
+          Eigen::AngleAxisd(roll, Eigen::Vector3d::UnitX());
+    return dcm;
+}
+
+/*! @brief Fuzz the algorithm across a wide range of quaternions, angular velocities, and DCMs */
+void fuzzConvertStPlatformToBody(double q0,
+                                 double q1,
+                                 double q2,
+                                 double q3,
+                                 double wx,
+                                 double wy,
+                                 double wz,
+                                 double yaw,
+                                 double pitch,
+                                 double roll) {
+    Eigen::Vector4d ep_CN = makeUnitQuaternion(q0, q1, q2, q3);
+    Eigen::Vector3d omega_CN_C(wx, wy, wz);
+    Eigen::Matrix3d dcm_CB = makeDcm(yaw, pitch, roll);
+
+    EXPECT_NO_THROW(testConvertStPlatformToBody(ep_CN, omega_CN_C, dcm_CB));
+}
+
+FUZZ_TEST(ConvertStPlatformToBodyFuzz, fuzzConvertStPlatformToBody)
+    .WithDomains(fuzztest::InRange(-1.0, 1.0),                              // q0
+                 fuzztest::InRange(-1.0, 1.0),                              // q1
+                 fuzztest::InRange(-1.0, 1.0),                              // q2
+                 fuzztest::InRange(-1.0, 1.0),                              // q3
+                 fuzztest::InRange(-1.0, 1.0),                              // wx [rad/s]
+                 fuzztest::InRange(-1.0, 1.0),                              // wy
+                 fuzztest::InRange(-1.0, 1.0),                              // wz
+                 fuzztest::InRange(0.0, 2.0 * M_PI),                        // yaw
+                 fuzztest::InRange(-M_PI / 2.0 + 0.01, M_PI / 2.0 - 0.01),  // pitch (avoid gimbal lock)
+                 fuzztest::InRange(0.0, 2.0 * M_PI));                       // roll
+
+/*! @brief Fuzz with edge-case quaternions: near-identity and near-180-degree rotations */
+void fuzzConvertStPlatformToBodyEdgeCases(double angle,
+                                          double ax,
+                                          double ay,
+                                          double az,
+                                          double wx,
+                                          double wy,
+                                          double wz) {
+    Eigen::Vector3d axis(ax, ay, az);
+    if (axis.norm() < 1e-12) {
+        axis = Eigen::Vector3d::UnitZ();
+    }
+    Eigen::Vector4d ep_CN = axisAngleToEp(axis, angle);
+    Eigen::Vector3d omega_CN_C(wx, wy, wz);
+    Eigen::Matrix3d dcm_CB = Eigen::Matrix3d::Identity();
+
+    EXPECT_NO_THROW(testConvertStPlatformToBody(ep_CN, omega_CN_C, dcm_CB));
+}
+
+FUZZ_TEST(ConvertStPlatformToBodyFuzz, fuzzConvertStPlatformToBodyEdgeCases)
+    .WithDomains(fuzztest::OneOf(fuzztest::InRange(0.0, 0.01),          // Near-identity
+                                 fuzztest::InRange(M_PI - 0.01, M_PI),  // Near-180
+                                 fuzztest::InRange(0.0, 2.0 * M_PI)),   // General
+                 fuzztest::InRange(-1.0, 1.0),                          // axis x
+                 fuzztest::InRange(-1.0, 1.0),                          // axis y
+                 fuzztest::InRange(-1.0, 1.0),                          // axis z
+                 fuzztest::InRange(-0.5, 0.5),                          // wx
+                 fuzztest::InRange(-0.5, 0.5),                          // wy
+                 fuzztest::InRange(-0.5, 0.5));                         // wz
+
+/*! @brief Fuzz the DCM with extreme mounting rotations */
+void fuzzConvertStPlatformToBodyDcmEdges(double yaw, double pitch, double roll) {
+    Eigen::Vector4d ep_CN = axisAngleToEp(Eigen::Vector3d::UnitZ(), 0.5);
+    Eigen::Vector3d omega_CN_C(0.01, -0.02, 0.03);
+    Eigen::Matrix3d dcm_CB = makeDcm(yaw, pitch, roll);
+
+    EXPECT_NO_THROW(testConvertStPlatformToBody(ep_CN, omega_CN_C, dcm_CB));
+}
+
+FUZZ_TEST(ConvertStPlatformToBodyFuzz, fuzzConvertStPlatformToBodyDcmEdges)
+    .WithDomains(fuzztest::OneOf(fuzztest::InRange(0.0, 0.01),                           // Near-zero yaw
+                                 fuzztest::InRange(M_PI - 0.01, M_PI)),                  // Near-180 yaw
+                 fuzztest::OneOf(fuzztest::InRange(-0.01, 0.01),                         // Near-zero pitch
+                                 fuzztest::InRange(M_PI / 2 - 0.01, M_PI / 2 - 0.001)),  // Near-90 pitch
+                 fuzztest::InRange(0.0, 2.0 * M_PI));                                    // Full roll range
