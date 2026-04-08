@@ -99,6 +99,7 @@ set(algorithms
     "averageMimuData"
     "bodyRateMiscompare"
     "celestialTwoBodyPoint"
+    "convertStPlatformToBody"
     "ephemeridesRecenter"
     "inertial3D"
     "inertialUKF"
