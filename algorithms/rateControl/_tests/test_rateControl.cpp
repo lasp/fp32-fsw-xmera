@@ -5,8 +5,8 @@ TEST(rateControlTest, RegressionTest) {
     const Eigen::Matrix3f spacecraftInertia = Eigen::Matrix3f::Identity();
     const float derivativeGainP = 1.0F;
     const Eigen::Vector3f knownTorquePntB_B = Eigen::Vector3f::Ones();
-    const Eigen::Vector3f omega_BR_B{1.0f, 2.0f, -3.0f};
-    const Eigen::Vector3f domega_RN_B{11.0f, -2.6f, 0.9f};
+    const Eigen::Vector3f omega_BR_B{1.0F, 2.0F, -3.0F};
+    const Eigen::Vector3f domega_RN_B{11.0F, -2.6F, 0.9F};
     regressionTestRateControl(spacecraftInertia, derivativeGainP, knownTorquePntB_B, omega_BR_B, domega_RN_B);
 }
 

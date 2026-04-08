@@ -85,3 +85,87 @@ In both cases, the computed control torque is compared with the analytical contr
 
 The test runs for :math:`1` second with :math:`0.5` second time step. All the attitude guidance and spacecraft configuration parameters are defined and connected to the messages.
 The success criteria for this test is to have the commanded control torque match the analytical value with a tolerance of :math:`10^{-7}` [N·m] for both test cases.
+
+Fuzz Test Description
+=====================
+The fuzz test is located in ``algorithms/rateControl/_tests/test_rateControl_fuzz.cpp``. It uses
+`FuzzTest <https://github.com/google/fuzztest>`_ to generate a wide range of valid inputs and check
+that the single-precision algorithm output agrees with a double-precision reference computation
+evaluated on the same float-valued test case.
+
+Input Domains
+-------------
+The fuzzer drives ``fuzzAdapterRateControl`` with the following parameter ranges:
+
+.. list-table:: Fuzz Input Domains
+   :widths: 30 20 50
+   :header-rows: 1
+
+   * - **Parameter**
+     - **Type / Range**
+     - **Description**
+   * - ``ev1``, ``ev2``
+     - ``float`` [1, 1×10\ :sup:`6`]
+     - Eigenvalue magnitudes used to construct a valid positive-definite inertia matrix with ``generateValidInertiaMatrix``.
+   * - ``sigma1``, ``sigma2``, ``sigma3``
+     - ``float`` [1×10\ :sup:`-6`, 1]
+     - Off-diagonal shaping parameters for the inertia matrix.
+   * - ``DerivativeGainP``
+     - ``double`` [0, 1×10\ :sup:`6`]
+     - Derivative feedback gain :math:`P`.
+   * - ``knownTorque_a``
+     - ``double[3]`` [−1×10\ :sup:`6`, 1×10\ :sup:`6`]
+     - Known external disturbance torque :math:`\boldsymbol{L}_{\text{known}}` [N·m].
+   * - ``omega_BR_a``
+     - ``double[3]`` [−1×10\ :sup:`6`, 1×10\ :sup:`6`]
+     - Angular rate error :math:`\boldsymbol{\omega}_{BR,B}` [rad/s].
+   * - ``domega_RN_a``
+     - ``double[3]`` [−1×10\ :sup:`6`, 1×10\ :sup:`6`]
+     - Reference angular acceleration :math:`\dot{\boldsymbol{\omega}}_{RN,B}` [rad/s\ :sup:`2`].
+
+Test Method
+-----------
+The algorithm operates in single precision, so the fuzzed inputs are first converted to ``float`` to
+form the actual test case. The test then performs two computations:
+
+#. Run ``RateControlAlgorithm::update()`` in ``float``.
+#. Convert those same float values to ``double`` and evaluate the same formula with the independent
+   helper ``referenceUpdate()``.
+
+This checks whether the flight software implementation matches a higher-precision evaluation of the
+same float-valued inputs.
+
+.. code-block:: cpp
+
+    const Eigen::Vector3f out_alg = alg.update(omega_BR_B_f, domega_RN_B_f);
+
+    const Eigen::Vector3d out_ref_d =
+        referenceUpdate(spacecraftInertia_f.cast<double>(),
+                        static_cast<double>(derivativeGainP_f),
+                        knownTorquePntB_B_f.cast<double>(),
+                        omega_BR_B_f.cast<double>(),
+                        domega_RN_B_f.cast<double>());
+
+Comparison Tolerance
+--------------------
+The comparison uses ``EXPECT_NEAR`` with a small absolute tolerance based on the magnitudes of the
+terms in each torque component:
+
+.. math::
+
+    \text{tol}_i = 8 \, \varepsilon_{\text{float}}
+    \Bigl(
+    |P \omega_i|
+    + \sum_j |I_{ij}\dot{\omega}_j|
+    + |L_i|
+    \Bigr)
+    + \text{float\_min}
+
+This tolerance is used instead of ``EXPECT_FLOAT_EQ`` because large terms can nearly cancel, making
+the final result much smaller than the intermediate products. In that case, a fixed ULP-based check
+can be too strict, while the bound above correctly scales with the size of the contributing terms.
+Each torque component is formed from 4 float multiplications and about 4 float add/subtract operations.
+Since each rounded float operation contributes error on the order of machine epsilon times the magnitude of the terms involved, a factor of 8 is a simple conservative bound for the total accumulated roundoff.
+
+The fuzz test passes when every output component from the single-precision algorithm agrees with the
+double-precision reference within this tolerance.
