@@ -1,0 +1,73 @@
+name: "Freestanding Build"
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  push:
+    branches: [develop]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash --noprofile --norc -euo pipefail {0}
+
+env:
+  CMAKE_BUILD_PARALLEL_LEVEL: 4
+
+jobs:
+  build-freestanding:
+    name: Freestanding Build (linux-gcc-debug)
+    runs-on: ubuntu-24.04
+    if: ${{ github.event.pull_request.draft == false }}
+    steps:
+      - name: Checkout algorithms repo
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Checkout freestanding Eigen
+        uses: actions/checkout@v6
+        with:
+          repository: lasp/eigen
+          ref: feature/freestanding
+          path: eigen
+          persist-credentials: false
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential gcc-13 g++-13
+
+      - name: Setup CMake 3.28.3
+        uses: jwlawson/actions-setup-cmake@v2
+        with:
+          cmake-version: '3.28.3'
+
+      - name: Configure
+        run: |
+          cmake --preset linux-gcc-debug \
+            -DEIGEN3_DIR=${{ github.workspace }}/eigen
+
+      - name: Build
+        run: cmake --build --preset linux-gcc-debug
+
+      - name: Verify archive
+        run: |
+          ARCHIVE="build/linux-gcc-debug/lib/libgncAlgorithms.a"
+          if [[ ! -f "$ARCHIVE" ]]; then
+            echo "ERROR: $ARCHIVE not found"
+            exit 1
+          fi
+          echo "### Freestanding Build" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          file "$ARCHIVE" >> "$GITHUB_STEP_SUMMARY"
+          ar -t "$ARCHIVE" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
