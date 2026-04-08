@@ -20,12 +20,12 @@ float SolarArrayReferenceAlgorithm::update(const Eigen::Vector3f& sigma_BN,
                                                                const Eigen::Vector3f& vehSunPntBdy,
                                                                const float theta) const {
 
-    /*! read Sun direction in B frame and map it to R frame */
-    const Eigen::Vector3f rHat_SB_B = vehSunPntBdy.normalized();
+    /*! track Sun in reference frame R, i.e. in the body frame that will be obtained at the end of the slew */
+    const Eigen::Vector3f rHat_SB_Bc = vehSunPntBdy.normalized();  // Sun direction in current body frame Bc
     const Eigen::Matrix3f dcm_BN = mrpToDcm(sigma_BN);
     const Eigen::Matrix3f dcm_RN = mrpToDcm(sigma_RN);
     const Eigen::Matrix3f dcm_RB = dcm_RN * dcm_BN.transpose();
-    Eigen::Vector3f rHat_SB_R = dcm_RB * rHat_SB_B;
+    const Eigen::Vector3f rHat_SB_B = dcm_RB * rHat_SB_Bc;  // assume body frame B equals reference frame R (end of slew)
 
     /*! compute solar array frame axes at zero rotation */
     const Eigen::Vector3f a1 = this->a1Hat_B.normalized();
@@ -33,9 +33,9 @@ float SolarArrayReferenceAlgorithm::update(const Eigen::Vector3f& sigma_BN,
     const Eigen::Vector3f a2 = (a3.cross(a1)).normalized();
 
     /*! required solar array surface normal direction to align surface normal with Sun direction as well as possible */
-    const float dotP = a1.dot(rHat_SB_R);
-    Eigen::Vector3f a2Hat_R = rHat_SB_R - dotP * a1;
-    const float a2Hat_R_norm = a2Hat_R.norm();
+    const float dotP = a1.dot(rHat_SB_B);
+    Eigen::Vector3f a2HatRef_B = rHat_SB_B - dotP * a1;
+    const float a2HatRef_B_norm = a2HatRef_B.norm();
 
     /*! compute current rotation angle thetaC from input msg */
     const float sinThetaC = sinf(theta);
@@ -45,24 +45,24 @@ float SolarArrayReferenceAlgorithm::update(const Eigen::Vector3f& sigma_BN,
     /*! compute reference angle and store in output */
     float thetaRefOut{};
     constexpr float pi = std::numbers::pi_v<float>;
-    if (a2Hat_R_norm < epsilon) {
-        // if norm(a2Hat_R) = 0, drive axis is aligned with sun direction, so no preferred angle and leave at current
+    if (a2HatRef_B_norm < epsilon) {
+        // if norm(a2HatRef_B) = 0, drive axis is aligned with sun direction, so no preferred angle and leave at current
         thetaRefOut = theta;
     } else {
-        a2Hat_R.normalize();
-        const Eigen::Vector3f a1Hat_R = a2.cross(a2Hat_R);
-        float thetaR = acosf(fminf(fmaxf(a2.dot(a2Hat_R), -1.0F), 1.0F));
-        // if a1 and a1Hat_R are opposite, take the negative of thetaR
-        if (a1.dot(a1Hat_R) < 0) {
-            thetaR = -thetaR;
+        a2HatRef_B.normalize();
+        const Eigen::Vector3f a1HatRef_B = a2.cross(a2HatRef_B);
+        float thetaRef = acosf(fminf(fmaxf(a2.dot(a2HatRef_B), -1.0F), 1.0F));
+        // if a1 and a1HatRef_B are opposite, take the negative of thetaRef
+        if (a1.dot(a1HatRef_B) < 0) {
+            thetaRef = -thetaRef;
         }
         // always make the absolute difference |thetaR-thetaC| is smaller than pi
-        if (thetaR - thetaC > pi) {
-            thetaRefOut = theta + thetaR - thetaC - 2 * pi;
-        } else if (thetaR - thetaC < -pi) {
-            thetaRefOut = theta + thetaR - thetaC + 2 * pi;
+        if (thetaRef - thetaC > pi) {
+            thetaRefOut = theta + thetaRef - thetaC - 2 * pi;
+        } else if (thetaRef - thetaC < -pi) {
+            thetaRefOut = theta + thetaRef - thetaC + 2 * pi;
         } else {
-            thetaRefOut = theta + thetaR - thetaC;
+            thetaRefOut = theta + thetaRef - thetaC;
         }
     }
 
