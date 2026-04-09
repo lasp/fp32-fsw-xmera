@@ -21,11 +21,12 @@ float SolarArrayReferenceAlgorithm::update(const Eigen::Vector3f& sigma_BN,
                                                                const float theta) const {
 
     /*! track Sun in reference frame R, i.e. in the body frame that will be obtained at the end of the slew */
-    const Eigen::Vector3f rHat_SB_Bc = vehSunPntBdy.normalized();  // Sun direction in current body frame Bc
+    const Eigen::Vector3f rHat_SB_Bc = vehSunPntBdy.stableNormalized();  // Sun direction in current body frame Bc
     const Eigen::Matrix3f dcm_BN = mrpToDcm(sigma_BN);
     const Eigen::Matrix3f dcm_RN = mrpToDcm(sigma_RN);
     const Eigen::Matrix3f dcm_RB = dcm_RN * dcm_BN.transpose();
-    const Eigen::Vector3f rHat_SB_B = dcm_RB * rHat_SB_Bc;  // assume body frame B equals reference frame R (end of slew)
+    // assume body frame B equals reference frame R (end of slew)
+    const Eigen::Vector3f rHat_SB_B = (dcm_RB * rHat_SB_Bc).stableNormalized();
 
     /*! check if sun direction is nearly aligned with drive axis */
     const float sunDriveAngle = safeAcosf(fabsf(rHat_SB_B.dot(this->a1Hat_B)));
@@ -37,7 +38,7 @@ float SolarArrayReferenceAlgorithm::update(const Eigen::Vector3f& sigma_BN,
         thetaRef = safeAtan2f(safeSinf(theta), safeCosf(theta));  // wrap current theta between -pi and pi;
     } else {
         /*! required solar array surface normal direction to align with Sun as well as possible */
-        const Eigen::Vector3f a2HatRef_B = (rHat_SB_B - this->a1Hat_B.dot(rHat_SB_B) * this->a1Hat_B).normalized();
+        const Eigen::Vector3f a2HatRef_B = (rHat_SB_B - this->a1Hat_B.dot(rHat_SB_B) * this->a1Hat_B).stableNormalized();
         const Eigen::Vector3f a1HatRef_B = this->a2Hat_B.cross(a2HatRef_B);
         thetaRef = safeAcosf(this->a2Hat_B.dot(a2HatRef_B));
         // if this->a1Hat_B and a1HatRef_B are opposite, take the negative of thetaRef

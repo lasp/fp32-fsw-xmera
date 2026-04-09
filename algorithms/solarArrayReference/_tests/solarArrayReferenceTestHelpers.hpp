@@ -18,11 +18,11 @@ inline float referenceUpdate(const Eigen::Vector3f& sigma_BN,
                              float alignmentThreshold,
                              float theta) {
 
-    const Eigen::Vector3f rHat_SB_B = vehSunPntBdy.normalized();
+    const Eigen::Vector3f rHat_SB_Bc = vehSunPntBdy.stableNormalized();
     const Eigen::Matrix3f dcm_BN = mrpToDcm(sigma_BN);
     const Eigen::Matrix3f dcm_RN = mrpToDcm(sigma_RN);
     const Eigen::Matrix3f dcm_RB = dcm_RN * dcm_BN.transpose();
-    Eigen::Vector3f rHat_SB_R = dcm_RB * rHat_SB_B;
+    Eigen::Vector3f rHat_SB_R = (dcm_RB * rHat_SB_Bc).stableNormalized();
 
     // a1Hat_B and a2Hat_B are already normalized and orthogonalized by the setter — use directly
     const Eigen::Vector3f a1 = a1Hat_B;
@@ -38,7 +38,7 @@ inline float referenceUpdate(const Eigen::Vector3f& sigma_BN,
         // wrap current theta to [-pi, pi]
         thetaRef = atan2f(sinf(theta), cosf(theta));
     } else {
-        a2Hat_R.normalize();
+        a2Hat_R.stableNormalize();
         const Eigen::Vector3f a1Hat_R = a2.cross(a2Hat_R);
         // acosf returns [0, pi]; negating gives [-pi, 0], so output is naturally in [-pi, pi]
         thetaRef = acosf(fminf(fmaxf(a2.dot(a2Hat_R), -1.0F), 1.0F));
