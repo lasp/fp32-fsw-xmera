@@ -8,108 +8,101 @@
 #include <Eigen/Core>
 #include <vector>
 
-// Reference computation for update — must mirror the production two-stage logic exactly
-MimuMajorityVoteOutput referenceUpdate(const MimuMajorityVoteAlgorithm& alg,
-                                       const std::array<MimuInput, MAX_IMU_VEH_COUNT>& imuInputs,
-                                       size_t numberOfImus) {
-    float const omegaThreshold = alg.getOmegaThreshold();
-
+// Reference computation for update — must mirror the production logic exactly
+MimuMajorityVoteOutput referenceUpdate(float omegaThreshold,
+                                       uint32_t persistenceLimit,
+                                       const std::array<Eigen::Vector3f, kMimuCount>& imuOmegas_BN_B,
+                                       std::array<uint32_t, kMimuCount>& persistenceCount) {
     // Stage 1: Compute average and find differences
     Eigen::Vector3f omegaAverage = Eigen::Vector3f::Zero();
-    for (size_t i = 0U; i < numberOfImus; ++i) {
-        omegaAverage += imuInputs.at(i).angVelBody;
+    for (size_t i = 0U; i < kMimuCount; ++i) {
+        omegaAverage += imuOmegas_BN_B.at(i);
     }
-    omegaAverage /= static_cast<float>(numberOfImus);
+    omegaAverage /= static_cast<float>(kMimuCount);
 
     MimuMajorityVoteOutput out{};
     size_t maxDiffIndex = 0U;
-    for (size_t i = 0U; i < numberOfImus; ++i) {
-        out.omegaDifferencesMag.at(i) = (imuInputs.at(i).angVelBody - omegaAverage).norm();
+    for (size_t i = 0U; i < kMimuCount; ++i) {
+        out.omegaDifferencesMag.at(i) = (imuOmegas_BN_B.at(i) - omegaAverage).norm();
         if (out.omegaDifferencesMag.at(i) > out.omegaDifferencesMag.at(maxDiffIndex)) {
             maxDiffIndex = i;
         }
         out.validImus.at(i) = true;
     }
 
-    if (out.omegaDifferencesMag.at(maxDiffIndex) < omegaThreshold) {
-        out.avgAngVelBody = omegaAverage;
+    // Update persistence counter for the worst outlier
+    bool faultDetected = false;
+    if (out.omegaDifferencesMag.at(maxDiffIndex) >= omegaThreshold) {
+        ++persistenceCount.at(maxDiffIndex);
+
+        // Determine if the outlier has persisted long enough to be faulted
+        if (persistenceCount.at(maxDiffIndex) >= persistenceLimit) {
+            faultDetected = true;
+            out.validImus.at(maxDiffIndex) = false;
+        }
+    } else {
+        persistenceCount.at(maxDiffIndex) = 0U;
+    }
+
+    // Reset counters for non-outlier IMUs
+    for (size_t i = 0U; i < kMimuCount; ++i) {
+        if (i != maxDiffIndex) {
+            persistenceCount.at(i) = 0U;
+        }
+    }
+
+    if (!faultDetected) {
+        out.avgOmega_BN_B = omegaAverage;
         return out;
     }
 
-    // Stage 2: Exclude outlier and recheck remaining
+    // Exclude outlier and average the remaining IMUs
     out.faultDetected = true;
-    out.validImus.at(maxDiffIndex) = false;
-
-    Eigen::Vector3f remainingAverage = Eigen::Vector3f::Zero();
-    size_t remainingCount = 0U;
-    for (size_t i = 0U; i < numberOfImus; ++i) {
-        if (i != maxDiffIndex) {
-            remainingAverage += imuInputs.at(i).angVelBody;
-            ++remainingCount;
-        }
-    }
-    remainingAverage /= static_cast<float>(remainingCount);
-
-    // Recheck remaining; update to Stage 2 differences
-    bool remainingDisagree = false;
-    for (size_t i = 0U; i < numberOfImus; ++i) {
-        if (i != maxDiffIndex) {
-            float const diff = (imuInputs.at(i).angVelBody - remainingAverage).norm();
-            out.omegaDifferencesMag.at(i) = diff;
-            if (diff >= omegaThreshold) {
-                remainingDisagree = true;
-            }
-        }
-    }
-
-    if (remainingDisagree) {
-        for (size_t j = 0U; j < numberOfImus; ++j) {
-            out.validImus.at(j) = false;
-        }
-    }
-
-    out.avgAngVelBody = remainingAverage;
+    out.avgOmega_BN_B = (omegaAverage * static_cast<float>(kMimuCount) - imuOmegas_BN_B.at(maxDiffIndex)) /
+                        static_cast<float>(kMimuCount - 1U);
     return out;
 }
 
 inline void regressionTestMimuMajorityVote(float omegaThreshold,
+                                           uint32_t persistenceLimit,
+                                           uint32_t algCallCount,
                                            const std::vector<float>& angVel1,
                                            const std::vector<float>& angVel2,
                                            const std::vector<float>& angVel3) {
-    constexpr size_t kNumImus = 3U;
     MimuMajorityVoteAlgorithm alg{};
     alg.setOmegaThreshold(omegaThreshold);
-    alg.setNumberOfImus(kNumImus);
+    alg.setFaultPersistenceLimit(persistenceLimit);
 
-    std::array<MimuInput, MAX_IMU_VEH_COUNT> imuInputs{};
-    imuInputs.at(0).angVelBody = Eigen::Map<const Eigen::Vector3f>(angVel1.data());
-    imuInputs.at(1).angVelBody = Eigen::Map<const Eigen::Vector3f>(angVel2.data());
-    imuInputs.at(2).angVelBody = Eigen::Map<const Eigen::Vector3f>(angVel3.data());
+    std::array<Eigen::Vector3f, kMimuCount> imuOmegas_BN_B{};
+    imuOmegas_BN_B.at(0) = Eigen::Map<const Eigen::Vector3f>(angVel1.data());
+    imuOmegas_BN_B.at(1) = Eigen::Map<const Eigen::Vector3f>(angVel2.data());
+    imuOmegas_BN_B.at(2) = Eigen::Map<const Eigen::Vector3f>(angVel3.data());
 
-    // Algorithm output
+    std::array<uint32_t, kMimuCount> persistenceCount{};
     MimuMajorityVoteOutput out{};
-    EXPECT_NO_THROW(out = alg.update(imuInputs));
-
-    // Reference output
     MimuMajorityVoteOutput ref{};
-    EXPECT_NO_THROW(ref = referenceUpdate(alg, imuInputs, kNumImus));
+
+    for (uint32_t call = 0U; call < algCallCount; ++call) {
+        EXPECT_NO_THROW(out = alg.update(imuOmegas_BN_B));
+        EXPECT_NO_THROW(ref = referenceUpdate(omegaThreshold, persistenceLimit, imuOmegas_BN_B, persistenceCount));
+    }
 
     // Compare averaged angular velocity
     for (int i = 0; i < 3; ++i) {
-        EXPECT_NEAR(out.avgAngVelBody[i], ref.avgAngVelBody[i], 1e-6);
-        EXPECT_TRUE(std::isfinite(out.avgAngVelBody[i]));
+        EXPECT_NEAR(out.avgOmega_BN_B[i], ref.avgOmega_BN_B[i], 1e-6);
+        EXPECT_TRUE(std::isfinite(out.avgOmega_BN_B[i]));
     }
 
     // Compare fault detection
     EXPECT_EQ(out.faultDetected, ref.faultDetected);
 
     // Compare validImus
-    for (size_t i = 0U; i < kNumImus; ++i) {
+    for (size_t i = 0U; i < kMimuCount; ++i) {
         EXPECT_EQ(out.validImus.at(i), ref.validImus.at(i));
     }
 
     // Compare omegaDifferencesMag
-    for (size_t i = 0U; i < kNumImus; ++i) {
+    for (size_t i = 0U; i < kMimuCount; ++i) {
         EXPECT_NEAR(out.omegaDifferencesMag.at(i), ref.omegaDifferencesMag.at(i), 1e-6);
     }
 }

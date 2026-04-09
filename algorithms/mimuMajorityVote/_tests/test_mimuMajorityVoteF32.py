@@ -10,6 +10,7 @@ def test_mimu_majority_vote_nominal():
     """Nominal Unit Test"""
     omega_threshold_deg_per_sec = 1.0
     omega_threshold_rad_per_sec = np.deg2rad(omega_threshold_deg_per_sec)
+    fault_persistence_limit = 1
 
     angular_velocity_1 = np.array([-0.1, 0.25, 0.3])
 
@@ -34,13 +35,14 @@ def test_mimu_majority_vote_nominal():
     expected_angular_velocity += angular_velocity_3
     expected_angular_velocity /= 3.0
     expected_output_fault = False
-    expected_valid_imus = [True, True, True, False]
+    expected_valid_imus = [True, True, True]
 
     run_test(
         angular_velocity_1,
         angular_velocity_2,
         angular_velocity_3,
         omega_threshold_rad_per_sec,
+        fault_persistence_limit,
         expected_angular_velocity,
         expected_output_fault,
         expected_valid_imus,
@@ -51,6 +53,7 @@ def test_mimu_majority_vote_off_nominal():
     """Nominal Unit Test"""
     omega_threshold_deg_per_sec = 2.0  # Angular velocity threshold in deg per sec
     omega_threshold_rad_per_sec = np.deg2rad(omega_threshold_deg_per_sec)
+    fault_persistence_limit = 1
 
     angular_velocity_1 = np.array([-0.1, 0.25, 0.3])
     expected_angular_velocity = np.copy(angular_velocity_1)
@@ -73,13 +76,14 @@ def test_mimu_majority_vote_off_nominal():
     expected_angular_velocity += angular_velocity_3
     expected_angular_velocity /= 2.0
     expected_output_fault = True
-    expected_valid_imus = [True, False, True, False]
+    expected_valid_imus = [True, False, True]
 
     run_test(
         angular_velocity_1,
         angular_velocity_2,
         angular_velocity_3,
         omega_threshold_rad_per_sec,
+        fault_persistence_limit,
         expected_angular_velocity,
         expected_output_fault,
         expected_valid_imus,
@@ -91,6 +95,7 @@ def run_test(
     angular_velocity_2,
     angular_velocity_3,
     omega_threshold_rad_per_sec,
+    fault_persistence_limit,
     expected_angular_velocity,
     expected_output_fault,
     expected_valid_imus,
@@ -110,7 +115,7 @@ def run_test(
     module.modelTag = "mimuMajorityVote"
 
     module.omegaThreshold = omega_threshold_rad_per_sec
-    module.numberOfImus = 3
+    module.faultPersistenceLimit = fault_persistence_limit
 
     unit_test_sim.AddModelToTask(unit_task_name, module)
 
@@ -159,6 +164,7 @@ def run_test(
     np.testing.assert_allclose(module_output_fault[-1], expected_output_fault, verbose=True)
     np.testing.assert_array_equal(module_output_valid_imus[-1], expected_valid_imus)
     np.testing.assert_allclose(module.omegaThreshold, omega_threshold_rad_per_sec, rtol=0, atol=1e-7, verbose=True)
+    np.testing.assert_array_equal(module.faultPersistenceLimit, fault_persistence_limit)
 
 
 if __name__ == "__main__":

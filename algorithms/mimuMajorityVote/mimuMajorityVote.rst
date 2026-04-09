@@ -6,11 +6,11 @@ MIMU Majority Vote
 Executive Summary
 -----------------
 
-The MIMU Majority Vote module combines the angular velocity measurements from three or more
+The MIMU Majority Vote module combines the angular velocity measurements from exactly three
 Inertial Measurement Units (IMUs) into a single best-estimate body-frame angular velocity.
-It uses a two-stage outlier rejection algorithm: a single faulty sensor is first identified
-by comparing each measurement against the full-sensor average, then the remaining sensors are
-cross-checked against their own average to detect a second level of disagreement.
+It uses an outlier rejection algorithm: a single faulty sensor is identified by comparing
+each measurement against the full-sensor average, and the remaining two sensors are averaged
+to form the best estimate.
 The module outputs the best-estimate average, a per-IMU validity array, and the angular
 velocity difference magnitudes for every sensor — providing downstream fault management with
 the information needed to take further action.
@@ -39,19 +39,19 @@ The following table lists the Xmera message connections for the ``MimuMajorityVo
     * - ``mimuFaultMsg``
       - :ref:`MimuFaultMsgPayload`
       - Output message containing fault status, per-IMU validity flags
-        (``validImus[4]``), and per-IMU difference magnitudes
-        (``omegaDifferencesMag[4]``).
+        (``validImus[3]``), and per-IMU difference magnitudes
+        (``omegaDifferencesMag[3]``).
 
 ----------------------------
 Algorithm Description
 ----------------------------
 
-The voting algorithm operates on :math:`n \geq 3` IMU measurements
-:math:`\boldsymbol{\omega}_i \in \mathbb{R}^3` (body-frame angular velocity, rad/s)
-and a scalar threshold :math:`T > 0` (rad/s). It runs in two sequential stages every
-update cycle.
+The voting algorithm operates on :math:`n = 3` IMU measurements
+:math:`\boldsymbol{\omega}_i \in \mathbb{R}^3` (body-frame angular velocity, rad/s),
+a scalar threshold :math:`T > 0` (rad/s), and a persistence limit :math:`P \geq 1`
+(number of consecutive detections required to trigger a fault).
 
-**Stage 1 — Full-average outlier detection**
+**Outlier detection and averaging**
 
 Compute the average of all :math:`n` measurements:
 
@@ -71,42 +71,30 @@ Identify the worst offender:
 
    k = \arg\max_i \; \delta_i
 
-If :math:`\delta_k \geq T`, IMU :math:`k` is flagged as invalid and removed.
-The average of the remaining :math:`n-1` sensors is recomputed:
+**Fault persistence**
+
+Each IMU maintains an independent consecutive-detection counter :math:`c_i`. Each update:
+
+- If :math:`\delta_k \geq T`, increment :math:`c_k`; reset all other :math:`c_i` to zero.
+- If :math:`\delta_k < T`, reset all :math:`c_i` to zero.
+
+IMU :math:`i` is marked invalid when :math:`c_i \geq P`. Once marked invalid, it is
+excluded from the output average:
 
 .. math::
 
-   \bar{\boldsymbol{\omega}}_2 = \frac{1}{n-1} \sum_{i \neq k} \boldsymbol{\omega}_i
+   \bar{\boldsymbol{\omega}}_2 = \frac{1}{n-1} \sum_{i \,:\, c_i < P} \boldsymbol{\omega}_i
 
-If no measurement exceeds the threshold (:math:`\delta_k < T`), all sensors are
-considered valid and :math:`\bar{\boldsymbol{\omega}}` is returned directly.
-
-**Stage 2 — Reduced-average cross-check**
-
-After removing the outlier, the remaining sensors are re-checked against the new
-reduced average. For each remaining valid sensor :math:`i \neq k`:
-
-.. math::
-
-   \delta_i^{(2)} = \lVert \boldsymbol{\omega}_i - \bar{\boldsymbol{\omega}}_2 \rVert_2
-
-If any :math:`\delta_i^{(2)} \geq T`, the remaining sensors disagree with each other.
-All :math:`n` IMUs are marked invalid. The returned average is still
-:math:`\bar{\boldsymbol{\omega}}_2` (the best estimate obtainable), but the caller is
-informed via the validity array that no sensor can be trusted.
+If no IMU is invalid, :math:`\bar{\boldsymbol{\omega}}` is returned directly.
 
 **Difference magnitudes in the output**
 
-The ``omegaDifferencesMag`` array is always populated. After Stage 1 the excluded IMU
-retains its original Stage 1 difference :math:`\delta_k`; the remaining sensors are
-updated to their Stage 2 values :math:`\delta_i^{(2)}`. If no fault is detected all
-entries hold the Stage 1 values.
+The ``omegaDifferencesMag`` array is always populated with the values
+:math:`\delta_i` for all sensors.
 
 **Valid-count invariant**
 
-Because Stage 2 either leaves the count unchanged or marks all sensors invalid, the
-number of invalid IMUs for a 3-sensor configuration can only be **0, 1, or 3** — never
-exactly 2.
+The number of invalid IMUs can only be **0** (no fault) or **1** (single outlier).
 
 -----------------------------------
 Standalone Algorithm (C++ API)
@@ -123,14 +111,10 @@ Standalone Algorithm (C++ API)
     * - Parameter
       - Type
       - Description
-    * - ``imuInputs``
-      - ``std::array<MimuInput, 4>``
-      - Array of IMU measurements. Only the first ``numberOfImus`` entries are used.
-        Each entry contains ``angVelBody`` (:math:`\boldsymbol{\omega}_i`, rad/s).
-
-The number of active IMUs is fixed via ``setNumberOfImus()`` before the first
-``update()`` call. It must be in :math:`[3, \texttt{MAX\_IMU\_VEH\_COUNT}]`; a value
-outside this range throws ``fs::invalid_argument``.
+    * - ``imuOmegas_BN_B``
+      - ``std::array<Eigen::Vector3f, kMimuCount>``
+      - Array of exactly 3 IMU angular velocity measurements
+        (:math:`\boldsymbol{\omega}_i`, rad/s).
 
 **Output** ``MimuMajorityVoteOutput``
 
@@ -141,41 +125,43 @@ outside this range throws ``fs::invalid_argument``.
     * - Field
       - Type
       - Description
-    * - ``avgAngVelBody``
+    * - ``avgOmega_BN_B``
       - ``Eigen::Vector3f``
       - Best-estimate body-frame angular velocity (rad/s). Equals
         :math:`\bar{\boldsymbol{\omega}}` when all agree, or
-        :math:`\bar{\boldsymbol{\omega}}_2` when one or more are invalid.
+        :math:`\bar{\boldsymbol{\omega}}_2` when one is invalid.
     * - ``faultDetected``
       - ``bool``
       - ``true`` if any IMU has been marked invalid.
     * - ``omegaDifferencesMag``
-      - ``std::array<float, 4>``
+      - ``std::array<float, kMimuCount>``
       - Per-IMU difference magnitude (rad/s) as described above. Always populated.
     * - ``validImus``
-      - ``std::array<bool, 4>``
-      - Per-IMU validity flag. ``true`` means the sensor is trusted. Entries beyond
-        ``numberOfImus`` are ``false``.
+      - ``std::array<bool, kMimuCount>``
+      - Per-IMU validity flag. ``true`` means the sensor is trusted.
 
 **Configuration**
 
-The detection threshold is set via the ``setOmegaThreshold()`` / ``getOmegaThreshold()``
-accessor pair. The threshold must be strictly positive; a zero or negative value throws
-``fs::invalid_argument``.
+The detection threshold is set via ``setOmegaThreshold()`` / ``getOmegaThreshold()``.
+The threshold must be strictly positive; a zero or negative value throws ``fs::invalid_argument``.
+
+The fault persistence limit is set via ``setFaultPersistenceLimit()`` / ``getFaultPersistenceLimit()``.
+It must be at least 1 (default); zero throws ``fs::invalid_argument``. A value of 1
+triggers the fault immediately on first detection.
 
 .. code-block:: cpp
 
     MimuMajorityVoteAlgorithm alg{};
-    alg.setOmegaThreshold(0.05F);  // rad/s
-    alg.setNumberOfImus(3U);       // fixed for the lifetime of the object
+    alg.setOmegaThreshold(0.05F);        // rad/s
+    alg.setFaultPersistenceLimit(3U);    // require 3 consecutive detections
 
-    std::array<MimuInput, MAX_IMU_VEH_COUNT> imuInputs{};
-    imuInputs.at(0).angVelBody = omega0;
-    imuInputs.at(1).angVelBody = omega1;
-    imuInputs.at(2).angVelBody = omega2;
+    std::array<Eigen::Vector3f, kMimuCount> imuOmegas_BN_B{};
+    imuOmegas_BN_B.at(0) = omega0;
+    imuOmegas_BN_B.at(1) = omega1;
+    imuOmegas_BN_B.at(2) = omega2;
 
-    MimuMajorityVoteOutput out = alg.update(imuInputs);
-    // out.avgAngVelBody  — best-estimate rate
+    MimuMajorityVoteOutput out = alg.update(imuOmegas_BN_B);
+    // out.avgOmega_BN_B  — best-estimate rate
     // out.faultDetected  — true if any IMU was rejected
     // out.validImus      — per-sensor validity flags
     // out.omegaDifferencesMag — per-sensor residuals
@@ -184,12 +170,9 @@ accessor pair. The threshold must be strictly positive; a zero or negative value
 Module Assumptions and Limitations
 -----------------------------------
 
-- ``setNumberOfImus()`` must be called before ``reset()``, with a value in
-  :math:`[3, \texttt{MAX\_IMU\_VEH\_COUNT}]`. The number of ``addImuInput()`` calls
-  must equal the configured value; a mismatch throws ``std::invalid_argument``.
-- The maximum number of connected IMUs is ``MAX_IMU_VEH_COUNT`` (currently 4).
-- The algorithm is designed for the 3-sensor case. With 4 sensors the same two-stage
-  logic applies: one outlier is removed and the remaining three are cross-checked.
+- Exactly ``kMimuCount`` (3) ``addImuInput()`` calls must be made before ``reset()``;
+  any other count throws ``std::invalid_argument``. Attempting to add more than
+  ``kMimuCount`` IMUs throws ``fs::invalid_argument``.
 - The threshold :math:`T` must be chosen to be meaningfully larger than the float32
   rounding error in the average computation (~3 × :math:`\varepsilon_\text{mach}` ×
   :math:`|\boldsymbol{\omega}|`). For angular rates up to 1000 rad/s this is
@@ -214,11 +197,8 @@ The Xmera module is instantiated and configured from Python as follows::
     # Set the detection threshold (rad/s)
     module.omegaThreshold = omegaThresholdRadPerSec
 
-    # Set the expected number of IMUs (must match the number of addImuInput() calls)
-    module.numberOfImus = len(imu_input_messages)
-
-    # Connect one ImuMessage per sensor
-    for imu_msg in imu_input_messages:
+    # Connect exactly 3 ImuMessage objects
+    for imu_msg in imu_input_messages:  # must have exactly 3 entries
         imu_entry = mimuMajorityVoteF32.ImuMessage()
         imu_entry.imuSensorBodyInMsg.subscribeTo(imu_msg)
         module.addImuInput(imu_entry)
@@ -229,6 +209,6 @@ The voted angular velocity is available on ``module.imuSensorBodyOutMsg`` and th
 fault status on ``module.mimuFaultMsg``. The ``mimuFaultMsg`` payload fields are:
 
 - ``faultDetected`` — ``bool``, mirrors ``MimuMajorityVoteOutput.faultDetected``.
-- ``validImus[4]`` — per-IMU validity flags; index matches the order sensors were
+- ``validImus[3]`` — per-IMU validity flags; index matches the order sensors were
   added via ``addImuInput()``.
-- ``omegaDifferencesMag[4]`` — per-IMU difference magnitude (rad/s); same ordering.
+- ``omegaDifferencesMag[3]`` — per-IMU difference magnitude (rad/s); same ordering.

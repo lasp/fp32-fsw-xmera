@@ -1,10 +1,5 @@
-/* MIT License
- *
- Copyright (c) 2025, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
- */
-
-#ifndef F32XIMERA_MIMUMAJORITYVOTEALGORITHM_C_H
-#define F32XIMERA_MIMUMAJORITYVOTEALGORITHM_C_H
+#ifndef F32XMERA_MIMUMAJORITYVOTEALGORITHM_C_H
+#define F32XMERA_MIMUMAJORITYVOTEALGORITHM_C_H
 
 #include <stdint.h>
 
@@ -18,9 +13,9 @@ extern "C" {
 typedef struct MimuMajorityVoteAlgorithm MimuMajorityVoteAlgorithm;
 
 /**
- * @brief Maximum number of IMU vehicles.
+ * @brief Number of IMUs.
  */
-#define MAX_IMU_VEH_COUNT_C 4
+#define MIMU_COUNT_C 3
 
 /**
  * @brief POD representation of a 3-vector (Eigen::Vector3f).
@@ -38,16 +33,16 @@ typedef struct {
  *   Mimu_Index_Faulted : Integer_32  (-1 if no fault)
  */
 typedef struct {
-    Vector3f_c avgAngVelBody; /*!< [rad/s] Averaged angular velocity in body frame */
+    Vector3f_c avgOmega_BN_B; /*!< [rad/s] Averaged angular velocity in body frame */
     uint8_t faultDetected;    /*!< Whether a MIMU fault was detected */
     int32_t mimuIndexFaulted; /*!< Index of faulted MIMU (-1 if no fault) */
 } MimuMajorityVoteOutput_c;
 
 /**
- * @brief Get the MAX_IMU_VEH_COUNT constant for Ada validation.
- * @return The maximum IMU vehicle count (MAX_IMU_VEH_COUNT_C).
+ * @brief Get the kMimuCount constant for Ada validation.
+ * @return The IMU count (MIMU_COUNT_C).
  */
-uint32_t MimuMajorityVoteAlgorithm_getMaxImuVehCount(void);
+uint32_t MimuMajorityVoteAlgorithm_getMimuCount(void);
 
 /**
  * @brief Construct a new MimuMajorityVoteAlgorithm instance.
@@ -62,15 +57,19 @@ MimuMajorityVoteAlgorithm* MimuMajorityVoteAlgorithm_create(void);
 void MimuMajorityVoteAlgorithm_destroy(MimuMajorityVoteAlgorithm* self);
 
 /**
+ * @brief Reset fault persistence counters to zero.
+ * @param self Pointer to the instance.
+ */
+void MimuMajorityVoteAlgorithm_reset(MimuMajorityVoteAlgorithm* self);
+
+/**
  * @brief Run the majority vote update step.
- * @param self         Pointer to the instance.
- * @param imuInputs    Pointer to array of IMU angular velocity 3-vectors (MAX_IMU_VEH_COUNT_C elements).
- * @param numberOfImus Number of valid IMU inputs in the array.
+ * @param self      Pointer to the instance.
+ * @param imuOmegas_BN_B Pointer to array of IMU angular velocity 3-vectors (MIMU_COUNT_C elements).
  * @return MimuMajorityVoteOutput_c  The computed majority vote output.
  */
 MimuMajorityVoteOutput_c MimuMajorityVoteAlgorithm_update(MimuMajorityVoteAlgorithm* self,
-                                                          const Vector3f_c* imuInputs,
-                                                          uint32_t numberOfImus);
+                                                          const Vector3f_c* imuOmegas_BN_B);
 
 /**
  * @brief Set the omega threshold for fault detection.
@@ -86,8 +85,22 @@ void MimuMajorityVoteAlgorithm_setOmegaThreshold(MimuMajorityVoteAlgorithm* self
  */
 float MimuMajorityVoteAlgorithm_getOmegaThreshold(const MimuMajorityVoteAlgorithm* self);
 
+/**
+ * @brief Set the fault persistence limit.
+ * @param self  Pointer to the instance.
+ * @param value The new fault persistence limit.
+ */
+void MimuMajorityVoteAlgorithm_setFaultPersistenceLimit(MimuMajorityVoteAlgorithm* self, uint32_t value);
+
+/**
+ * @brief Get the current fault persistence limit.
+ * @param self Pointer to the instance.
+ * @return uint32_t  The current fault persistence limit.
+ */
+uint32_t MimuMajorityVoteAlgorithm_getFaultPersistenceLimit(const MimuMajorityVoteAlgorithm* self);
+
 #ifdef __cplusplus
 }  // extern "C"
 #endif
 
-#endif  // F32XIMERA_MIMUMAJORITYVOTEALGORITHM_C_H
+#endif  // F32XMERA_MIMUMAJORITYVOTEALGORITHM_C_H
