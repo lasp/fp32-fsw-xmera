@@ -34,7 +34,7 @@ inline float referenceUpdate(const Eigen::Vector3f& sigma_BN,
     const float sunDriveAngle = acosf(fminf(fmaxf(fabsf(rHat_SB_R.dot(a1)), -1.0F), 1.0F));
 
     float thetaRef{};
-    if (sunDriveAngle < alignmentThreshold) {
+    if (sunDriveAngle < alignmentThreshold || rHat_SB_R.stableNorm() == 0.0F) {
         // wrap current theta to [-pi, pi]
         thetaRef = atan2f(sinf(theta), cosf(theta));
     } else {

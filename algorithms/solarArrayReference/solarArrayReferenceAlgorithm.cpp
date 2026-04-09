@@ -33,7 +33,7 @@ float SolarArrayReferenceAlgorithm::update(const Eigen::Vector3f& sigma_BN,
 
     /*! compute reference angle and store in output */
     float thetaRef{};
-    if (sunDriveAngle < this->alignmentThreshold) {
+    if (sunDriveAngle < this->alignmentThreshold || rHat_SB_B.stableNorm() == 0.0F) {
         // sun direction is nearly parallel to drive axis, no preferred rotation angle so set reference to current angle
         thetaRef = safeAtan2f(safeSinf(theta), safeCosf(theta));  // wrap current theta between -pi and pi;
     } else {
