@@ -4,6 +4,7 @@
 #include <stdint.h>
 
 #include <Eigen/Core>
+#include <array>
 
 /*! @brief Pure algorithm for computing solar array rotation reference angles.
  *
@@ -17,10 +18,8 @@ class SolarArrayReferenceAlgorithm final {
                  const Eigen::Vector3f& vehSunPntBdy,
                  float theta) const;
 
-    void setA1Hat_B(const Eigen::Vector3f& axis);
-    Eigen::Vector3f getA1Hat_B() const;
-    void setA2Hat_B(const Eigen::Vector3f& normal);
-    Eigen::Vector3f getA2Hat_B() const;
+    void setSolarArrayAxes_B(const Eigen::Vector3f& driveAxis, const Eigen::Vector3f& surfaceNormal);
+    std::array<Eigen::Vector3f, 2> getSolarArrayAxes_B() const;
 
    private:
     Eigen::Vector3f a1Hat_B{Eigen::Vector3f::Zero()};  //!< solar array drive axis in body frame coordinates

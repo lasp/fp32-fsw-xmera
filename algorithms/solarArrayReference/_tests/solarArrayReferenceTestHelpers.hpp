@@ -26,9 +26,9 @@ inline float referenceUpdate(const Eigen::Vector3f& sigma_BN,
     const Eigen::Matrix3f dcm_RB = dcm_RN * dcm_BN.transpose();
     Eigen::Vector3f rHat_SB_R = dcm_RB * rHat_SB_B;
 
-    const Eigen::Vector3f a1 = a1Hat_B.normalized();
-    const Eigen::Vector3f a3 = (a1.cross(a2Hat_B)).normalized();
-    const Eigen::Vector3f a2 = (a3.cross(a1)).normalized();
+    // a1Hat_B and a2Hat_B are already normalized and orthogonalized by the setter — use directly
+    const Eigen::Vector3f a1 = a1Hat_B;
+    const Eigen::Vector3f a2 = a2Hat_B;
 
     const float dotP = a1.dot(rHat_SB_R);
     Eigen::Vector3f a2Hat_R = rHat_SB_R - dotP * a1;
@@ -70,11 +70,17 @@ inline void regressionTestSolarArrayReference(std::vector<float> sigma_BN_Vec,
                                               std::vector<float> a1Hat_B_Vec,
                                               std::vector<float> a2Hat_B_Vec,
                                               float theta) {
-    // Filter out near-zero axis vectors (invalid for the algorithm)
     Eigen::Vector3f a1Hat_B_f(a1Hat_B_Vec[0], a1Hat_B_Vec[1], a1Hat_B_Vec[2]);
     Eigen::Vector3f a2Hat_B_f(a2Hat_B_Vec[0], a2Hat_B_Vec[1], a2Hat_B_Vec[2]);
-    if (a1Hat_B_f.norm() < 1e-6F || a2Hat_B_f.norm() < 1e-6F) {
-        return;  // skip: axis vectors must be non-zero
+
+    // Filter: skip invalid inputs (axes must be near-unit and orthogonal)
+    constexpr float normTolerance = 1e-3F;
+    constexpr float maxDot = 1e-5F;
+    if (fabsf(a1Hat_B_f.norm() - 1.0F) > normTolerance || fabsf(a2Hat_B_f.norm() - 1.0F) > normTolerance) {
+        return;
+    }
+    if (fabsf(a1Hat_B_f.normalized().dot(a2Hat_B_f.normalized())) > maxDot) {
+        return;  // skip: not orthogonal
     }
 
     // Filter out near-zero sun vector
@@ -88,16 +94,15 @@ inline void regressionTestSolarArrayReference(std::vector<float> sigma_BN_Vec,
 
     // Set up algorithm 
     SolarArrayReferenceAlgorithm alg{};
-    alg.setA1Hat_B(a1Hat_B_f);
-    alg.setA2Hat_B(a2Hat_B_f);
+    alg.setSolarArrayAxes_B(a1Hat_B_f, a2Hat_B_f);
 
     // Call algorithm
     float result{};
     EXPECT_NO_THROW(result = alg.update(sigma_BN_f, sigma_RN_f, vehSunPntBdy_f, theta));
 
-    // Compute reference using the setter-normalized axes (matching what the algorithm stores internally)
-    float reference =
-        referenceUpdate(sigma_BN_f, sigma_RN_f, vehSunPntBdy_f, alg.getA1Hat_B(), alg.getA2Hat_B(), theta);
+    // Compute reference using the setter-orthogonalized axes (matching what the algorithm stores internally)
+    const auto axes = alg.getSolarArrayAxes_B();
+    float reference = referenceUpdate(sigma_BN_f, sigma_RN_f, vehSunPntBdy_f, axes[0], axes[1], theta);
 
     float tol = 1e-5F;
     float tolerance = tol + abs(reference) * tol;

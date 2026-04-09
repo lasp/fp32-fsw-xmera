@@ -7,6 +7,7 @@
 #include "solarArrayReferenceAlgorithm.h"
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
+#include <array>
 #include <stdint.h>
 
 /*! @brief adapter for the solar array reference algorithm. */
@@ -15,10 +16,9 @@ class SolarArrayReference : public SysModel {
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
 
-    void setA1Hat_B(const Eigen::Vector3f& axis);
-    Eigen::Vector3f getA1Hat_B() const;
-    void setA2Hat_B(const Eigen::Vector3f& normal);
-    Eigen::Vector3f getA2Hat_B() const;
+    void setSolarArrayAxes_B(const Eigen::Vector3f& driveAxis, const Eigen::Vector3f& surfaceNormal);
+    std::array<Eigen::Vector3f, 2> getSolarArrayAxes_B() const;
+
     /* declare module IO interfaces */
     ReadFunctor<NavAttMsgF32Payload> attNavInMsg;                    //!< input msg measured attitude
     ReadFunctor<AttRefMsgF32Payload> attRefInMsg;                    //!< input attitude reference message

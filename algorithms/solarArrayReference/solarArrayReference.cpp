@@ -31,22 +31,18 @@ void SolarArrayReference::updateState(uint64_t callTime) {
     this->hingedRigidBodyRefOutMsg.write(&hingedRigidBodyRefOut, this->moduleID, callTime);
 }
 
-/*! Set the solar array drive axis in body frame coordinates.
- *  @param axis [-] solar array drive axis in body frame coordinates
+/*! Set the solar array drive axis and surface normal in body frame coordinates.
+ *  @param driveAxis [-] solar array drive axis in body frame coordinates
+ *  @param surfaceNormal [-] solar array surface normal at zero rotation
  */
-void SolarArrayReference::setA1Hat_B(const Eigen::Vector3f& axis) { this->algorithm.setA1Hat_B(axis); }
+void SolarArrayReference::setSolarArrayAxes_B(const Eigen::Vector3f& driveAxis,
+                                              const Eigen::Vector3f& surfaceNormal) {
+    this->algorithm.setSolarArrayAxes_B(driveAxis, surfaceNormal);
+}
 
-/*! Get the solar array drive axis in body frame coordinates.
- *  @return Eigen::Vector3f [-] solar array drive axis in body frame coordinates
+/*! Get the solar array drive axis and surface normal in body frame coordinates.
+ *  @return std::array<Eigen::Vector3f, 2> [driveAxis, surfaceNormal]
  */
-Eigen::Vector3f SolarArrayReference::getA1Hat_B() const { return this->algorithm.getA1Hat_B(); }
-
-/*! Set the solar array surface normal at zero rotation.
- *  @param normal [-] solar array surface normal at zero rotation
- */
-void SolarArrayReference::setA2Hat_B(const Eigen::Vector3f& normal) { this->algorithm.setA2Hat_B(normal); }
-
-/*! Get the solar array surface normal at zero rotation.
- *  @return Eigen::Vector3f [-] solar array surface normal at zero rotation
- */
-Eigen::Vector3f SolarArrayReference::getA2Hat_B() const { return this->algorithm.getA2Hat_B(); }
+std::array<Eigen::Vector3f, 2> SolarArrayReference::getSolarArrayAxes_B() const {
+    return this->algorithm.getSolarArrayAxes_B();
+}

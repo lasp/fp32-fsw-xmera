@@ -69,34 +69,36 @@ float SolarArrayReferenceAlgorithm::update(const Eigen::Vector3f& sigma_BN,
     return thetaRefOut;
 }
 
-/*! Set the solar array drive axis in body frame coordinates.
- *  The vector must be non-zero; it is normalized before storing.
- *  @param axis [-] solar array drive axis in body frame coordinates
+/*! Set the solar array drive axis and surface normal in body frame coordinates.
+ *  Both vectors must have norm within 1e-3 to 1.0 and must be orthogonal (|dot| < 1e-5 after normalization).
+ *  Both are normalized before storing.
+ *  @param driveAxis [-] solar array drive axis in body frame coordinates
+ *  @param surfaceNormal [-] solar array surface normal at zero rotation
  */
-void SolarArrayReferenceAlgorithm::setA1Hat_B(const Eigen::Vector3f& axis) {
-    if (axis.norm() == 0) {
-        FSW_THROW_INVALID_ARGUMENT("solarArrayReferenceAlgorithm.a1Hat_B must be non-zero.");
+void SolarArrayReferenceAlgorithm::setSolarArrayAxes_B(const Eigen::Vector3f& driveAxis,
+                                                       const Eigen::Vector3f& surfaceNormal) {
+    constexpr float normTolerance = 1e-3F;
+    constexpr float maxDot = 1e-5F;
+    if (fabsf(driveAxis.stableNorm() - 1.0F) > normTolerance) {
+        FSW_THROW_INVALID_ARGUMENT("solarArrayReferenceAlgorithm: drive axis norm must be within 1e-3 to 1.0.");
     }
-    this->a1Hat_B = axis.normalized();
+    if (fabsf(surfaceNormal.stableNorm() - 1.0F) > normTolerance) {
+        FSW_THROW_INVALID_ARGUMENT("solarArrayReferenceAlgorithm: surface normal norm must be within 1e-3 to 1.0.");
+    }
+    const Eigen::Vector3f a1 = driveAxis.stableNormalized();
+    const Eigen::Vector3f a2 = surfaceNormal.stableNormalized();
+    if (fabsf(a1.dot(a2)) > maxDot) {
+        FSW_THROW_INVALID_ARGUMENT("solarArrayReferenceAlgorithm: drive axis and surface normal must be orthogonal.");
+    }
+    this->a1Hat_B = a1;
+    // Orthogonalize a2 against a1 to ensure exact orthogonality
+    const Eigen::Vector3f a3 = (a1.cross(a2)).stableNormalized();
+    this->a2Hat_B = (a3.cross(a1)).stableNormalized();
 }
 
-/*! Get the solar array drive axis in body frame coordinates.
- *  @return Eigen::Vector3f [-] solar array drive axis in body frame coordinates
+/*! Get the solar array drive axis and surface normal in body frame coordinates.
+ *  @return std::array<Eigen::Vector3f, 2> [driveAxis, surfaceNormal]
  */
-Eigen::Vector3f SolarArrayReferenceAlgorithm::getA1Hat_B() const { return this->a1Hat_B; }
-
-/*! Set the solar array surface normal at zero rotation.
- *  The vector must be non-zero; it is normalized before storing.
- *  @param normal [-] solar array surface normal at zero rotation
- */
-void SolarArrayReferenceAlgorithm::setA2Hat_B(const Eigen::Vector3f& normal) {
-    if (normal.norm() == 0) {
-        FSW_THROW_INVALID_ARGUMENT("solarArrayReferenceAlgorithm.a2Hat_B must be non-zero.");
-    }
-    this->a2Hat_B = normal.normalized();
+std::array<Eigen::Vector3f, 2> SolarArrayReferenceAlgorithm::getSolarArrayAxes_B() const {
+    return {this->a1Hat_B, this->a2Hat_B};
 }
-
-/*! Get the solar array surface normal at zero rotation.
- *  @return Eigen::Vector3f [-] solar array surface normal at zero rotation
- */
-Eigen::Vector3f SolarArrayReferenceAlgorithm::getA2Hat_B() const { return this->a2Hat_B; }

@@ -40,24 +40,38 @@ TEST(SolarArrayReferenceTest, RegressionTestArbitraryAxes) {
 
 TEST(SolarArrayReferenceTest, SetupTest) {
     SolarArrayReferenceAlgorithm alg{};
+    
+    // Zero drive axis should throw (norm far from 1.0)
+    EXPECT_THROW(alg.setSolarArrayAxes_B(Eigen::Vector3f::Zero(), Eigen::Vector3f{0.0F, 1.0F, 0.0F}),
+                 fsw::invalid_argument);
 
-    // a1Hat_B: zero vector should throw
-    EXPECT_THROW(alg.setA1Hat_B(Eigen::Vector3f::Zero()), fsw::invalid_argument);
+    // Zero surface normal should throw
+    EXPECT_THROW(alg.setSolarArrayAxes_B(Eigen::Vector3f{1.0F, 0.0F, 0.0F}, Eigen::Vector3f::Zero()),
+                 fsw::invalid_argument);
 
-    // a2Hat_B: zero vector should throw
-    EXPECT_THROW(alg.setA2Hat_B(Eigen::Vector3f::Zero()), fsw::invalid_argument);
+    // Non-unit drive axis (norm far from 1.0) should throw
+    EXPECT_THROW(alg.setSolarArrayAxes_B(Eigen::Vector3f{2.0F, 0.0F, 0.0F}, Eigen::Vector3f{0.0F, 1.0F, 0.0F}),
+                 fsw::invalid_argument);
 
-    // a1Hat_B: verify auto-normalization
-    alg.setA1Hat_B(Eigen::Vector3f{2.0F, 0.0F, 0.0F});
-    Eigen::Vector3f retrieved = alg.getA1Hat_B();
-    EXPECT_NEAR(retrieved(0), 1.0F, 1e-6F);
-    EXPECT_NEAR(retrieved(1), 0.0F, 1e-6F);
-    EXPECT_NEAR(retrieved(2), 0.0F, 1e-6F);
+    // Non-unit surface normal should throw
+    EXPECT_THROW(alg.setSolarArrayAxes_B(Eigen::Vector3f{1.0F, 0.0F, 0.0F}, Eigen::Vector3f{0.0F, 3.0F, 0.0F}),
+                 fsw::invalid_argument);
 
-    // a2Hat_B: verify auto-normalization
-    alg.setA2Hat_B(Eigen::Vector3f{3.0F, 4.0F, 0.0F});
-    retrieved = alg.getA2Hat_B();
-    EXPECT_NEAR(retrieved.norm(), 1.0F, 1e-6F);
-    EXPECT_NEAR(retrieved(0), 0.6F, 1e-6F);
-    EXPECT_NEAR(retrieved(1), 0.8F, 1e-6F);
+    // Non-orthogonal axes should throw
+    EXPECT_THROW(alg.setSolarArrayAxes_B(Eigen::Vector3f{1.0F, 0.0F, 0.0F},
+                                         Eigen::Vector3f{1.0F, 1.0F, 0.0F}.normalized()),
+                 fsw::invalid_argument);
+
+    // Valid orthogonal unit axes should not throw
+    EXPECT_NO_THROW(alg.setSolarArrayAxes_B(Eigen::Vector3f{1.0F, 0.0F, 0.0F}, Eigen::Vector3f{0.0F, 1.0F, 0.0F}));
+
+    // Getter round-trip
+    alg.setSolarArrayAxes_B(Eigen::Vector3f{1.0F, 0.0F, 0.0F}, Eigen::Vector3f{0.0F, 1.0F, 0.0F});
+    const auto axes = alg.getSolarArrayAxes_B();
+    EXPECT_NEAR(axes[0](0), 1.0F, 1e-6F);
+    EXPECT_NEAR(axes[0](1), 0.0F, 1e-6F);
+    EXPECT_NEAR(axes[0](2), 0.0F, 1e-6F);
+    EXPECT_NEAR(axes[1](0), 0.0F, 1e-6F);
+    EXPECT_NEAR(axes[1](1), 1.0F, 1e-6F);
+    EXPECT_NEAR(axes[1](2), 0.0F, 1e-6F);
 }
