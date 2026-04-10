@@ -51,7 +51,7 @@ SunSafePointOutput SunSafePointAlgorithm::update(const Eigen::Vector3f& vehSunPn
                 e_hat = vehSunPntBdy.cross(this->sHatBdyCmd);
             }
             Eigen::Vector3f const sunMnvrVec = e_hat / e_hat.norm();
-            sigma_BR = std::tan(sunAngleErr * 0.25F) * sunMnvrVec;
+            sigma_BR = safeTanf(sunAngleErr * 0.25F) * sunMnvrVec;
             sigma_BR = mrpSwitch(sigma_BR, 1.0F);
         }
 
