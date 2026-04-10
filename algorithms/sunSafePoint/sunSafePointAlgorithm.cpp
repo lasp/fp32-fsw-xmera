@@ -31,10 +31,12 @@ SunSafePointOutput SunSafePointAlgorithm::update(const Eigen::Vector3f& vehSunPn
                                                   const Eigen::Vector3f& omega_BN_B) const {
     SunSafePointOutput output{};
 
+    const Eigen::Vector3f rHat_SB_B = vehSunPntBdy.stableNormalized();
+
     // Computing the attitude guidance states sigma_BR and omega_RN_B if valid sun direction is available
-    if (vehSunPntBdy.norm() > this->minUnitMag) {
+    if (rHat_SB_B.stableNorm() > 0.0F) {
         // Compute the current sun angle error
-        float const sunAngleErr = safeAcosf(this->sHatBdyCmd.dot(vehSunPntBdy) / vehSunPntBdy.norm());
+        float const sunAngleErr = safeAcosf(this->sHatBdyCmd.dot(rHat_SB_B));
 
         // Compute the heading error relative to the sun direction vector
         Eigen::Vector3f sigma_BR{};
@@ -48,7 +50,7 @@ SunSafePointOutput SunSafePointAlgorithm::update(const Eigen::Vector3f& vehSunPn
                 e_hat = this->eHat180_B;
             // Normal case where sun and commanded body vectors are not aligned
             } else {
-                e_hat = vehSunPntBdy.cross(this->sHatBdyCmd);
+                e_hat = rHat_SB_B.cross(this->sHatBdyCmd);
             }
             Eigen::Vector3f const sunMnvrVec = e_hat / e_hat.norm();
             sigma_BR = safeTanf(sunAngleErr * 0.25F) * sunMnvrVec;
@@ -57,7 +59,7 @@ SunSafePointOutput SunSafePointAlgorithm::update(const Eigen::Vector3f& vehSunPn
 
         output.sigma_BR = sigma_BR;
         // Rate tracking error is the body rate to bring spacecraft to rest
-        output.omega_RN_B = this->sunAxisSpinRate / vehSunPntBdy.norm() * vehSunPntBdy;
+        output.omega_RN_B = this->sunAxisSpinRate * rHat_SB_B;
     } else {
         output.sigma_BR = Eigen::Vector3f::Zero();
         output.omega_RN_B = this->omega_RN_B;

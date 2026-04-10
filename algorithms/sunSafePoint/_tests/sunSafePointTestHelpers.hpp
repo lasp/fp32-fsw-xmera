@@ -20,11 +20,11 @@ inline SunSafePointOutput referenceUpdate(const Eigen::Vector3f& vehSunPntBdy,
                                           const Eigen::Vector3f& omega_RN_B_cfg,
                                           const Eigen::Vector3f& eHat180_B) {
     SunSafePointOutput output{};
-
-    float sunNorm = vehSunPntBdy.norm();
-    if (sunNorm > minUnitMag) {
+    
+    Eigen::Vector3f rHat_SB_B = vehSunPntBdy.stableNormalized();
+    if (rHat_SB_B.stableNorm() > 0.0F) {
         // Compute sun angle error
-        float cosAngle = sHatBdyCmd.dot(vehSunPntBdy) / sunNorm;
+        float cosAngle = sHatBdyCmd.dot(rHat_SB_B);
         cosAngle = std::clamp(cosAngle, -1.0f, 1.0f);
         float sunAngleErr = std::acos(cosAngle);
 
@@ -36,7 +36,7 @@ inline SunSafePointOutput referenceUpdate(const Eigen::Vector3f& vehSunPntBdy,
             if (static_cast<float>(M_PI) - sunAngleErr < smallAngle) {
                 e_hat = eHat180_B;
             } else {
-                e_hat = vehSunPntBdy.cross(sHatBdyCmd);
+                e_hat = rHat_SB_B.cross(sHatBdyCmd);
             }
             Eigen::Vector3f sunMnvrVec = e_hat / e_hat.norm();
             sigma_BR = std::tan(sunAngleErr * 0.25f) * sunMnvrVec;
@@ -44,7 +44,7 @@ inline SunSafePointOutput referenceUpdate(const Eigen::Vector3f& vehSunPntBdy,
         }
 
         output.sigma_BR = sigma_BR;
-        output.omega_RN_B = sunAxisSpinRate / sunNorm * vehSunPntBdy;
+        output.omega_RN_B = sunAxisSpinRate * rHat_SB_B;
     } else {
         output.sigma_BR = Eigen::Vector3f::Zero();
         output.omega_RN_B = omega_RN_B_cfg;
