@@ -25,6 +25,13 @@ typedef struct {
 } Vector3f_c;
 
 /**
+ * @brief Sized array of 3-vectors.
+ */
+typedef struct {
+    Vector3f_c vec[MIMU_COUNT_C];
+} Vector3fArray3_c;
+
+/**
  * @brief POD output from the MIMU majority vote algorithm.
  *
  * Layout must match the Adamant Mimu_Majority_Vote_Output packed record:
@@ -65,11 +72,11 @@ void MimuMajorityVoteAlgorithm_reset(MimuMajorityVoteAlgorithm* self);
 /**
  * @brief Run the majority vote update step.
  * @param self      Pointer to the instance.
- * @param imuOmegas_BN_B Pointer to array of IMU angular velocity 3-vectors (MIMU_COUNT_C elements).
+ * @param imuOmegas_BN_B IMU angular velocity 3-vectors.
  * @return MimuMajorityVoteOutput_c  The computed majority vote output.
  */
 MimuMajorityVoteOutput_c MimuMajorityVoteAlgorithm_update(MimuMajorityVoteAlgorithm* self,
-                                                          const Vector3f_c* imuOmegas_BN_B);
+                                                          const Vector3fArray3_c* imuOmegas_BN_B);
 
 /**
  * @brief Set the omega threshold for fault detection.
