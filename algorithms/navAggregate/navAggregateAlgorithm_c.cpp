@@ -21,22 +21,22 @@ void NavAggregateAlgorithm_destroy(NavAggregateAlgorithm* self) {
 }
 
 AggregateOutput_c NavAggregateAlgorithm_update(NavAggregateAlgorithm* self,
-                                               const NavAttMsgF32Payload* attMsgsPayloads,
-                                               const NavTransMsgF32Payload* transMsgsPayloads) {
+                                               const NavAttMsgF32PayloadArray10_c* attMsgsPayloads,
+                                               const NavTransMsgF32PayloadArray10_c* transMsgsPayloads) {
     /* Convert C payload arrays to Eigen-based internal types */
     std::array<f32::InputNavAttData, MAX_AGG_NAV_MSG> attArray{};
     std::array<f32::InputNavTransData, MAX_AGG_NAV_MSG> transArray{};
 
     for (uint32_t i = 0; i < MAX_AGG_NAV_MSG; ++i) {
-        attArray[i].timeTag = attMsgsPayloads[i].timeTag;
-        attArray[i].sigma_BN = Eigen::Map<const Eigen::Vector3f>(attMsgsPayloads[i].sigma_BN);
-        attArray[i].omega_BN_B = Eigen::Map<const Eigen::Vector3f>(attMsgsPayloads[i].omega_BN_B);
-        attArray[i].vehSunPntBdy = Eigen::Map<const Eigen::Vector3f>(attMsgsPayloads[i].vehSunPntBdy);
+        attArray[i].timeTag = attMsgsPayloads->msg[i].timeTag;
+        attArray[i].sigma_BN = Eigen::Map<const Eigen::Vector3f>(attMsgsPayloads->msg[i].sigma_BN);
+        attArray[i].omega_BN_B = Eigen::Map<const Eigen::Vector3f>(attMsgsPayloads->msg[i].omega_BN_B);
+        attArray[i].vehSunPntBdy = Eigen::Map<const Eigen::Vector3f>(attMsgsPayloads->msg[i].vehSunPntBdy);
 
-        transArray[i].timeTag = transMsgsPayloads[i].timeTag;
-        transArray[i].r_BN_N = Eigen::Map<const Eigen::Vector3d>(transMsgsPayloads[i].r_BN_N);
-        transArray[i].v_BN_N = Eigen::Map<const Eigen::Vector3d>(transMsgsPayloads[i].v_BN_N);
-        transArray[i].vehAccumDV = Eigen::Map<const Eigen::Vector3f>(transMsgsPayloads[i].vehAccumDV);
+        transArray[i].timeTag = transMsgsPayloads->msg[i].timeTag;
+        transArray[i].r_BN_N = Eigen::Map<const Eigen::Vector3d>(transMsgsPayloads->msg[i].r_BN_N);
+        transArray[i].v_BN_N = Eigen::Map<const Eigen::Vector3d>(transMsgsPayloads->msg[i].v_BN_N);
+        transArray[i].vehAccumDV = Eigen::Map<const Eigen::Vector3f>(transMsgsPayloads->msg[i].vehAccumDV);
     }
 
     f32::AggregateOutput result = reinterpret_cast<::f32::NavAggregateAlgorithm*>(self)->update(attArray, transArray);
