@@ -1,4 +1,3 @@
-```rst
 .. raw:: latex
 
     {\LARGE \textbf{averageMimuData}}
@@ -6,7 +5,7 @@
 Executive Summary
 -----------------
 The ``averageMimuData`` algorithm computes a rolling average of recent gyro and accelerometer samples from a MIMU
-packet buffer. It uses the newest packet timestamp as the reference time, selects all packets whose age is within a
+packet buffer. It uses the newest packet time tag as the reference time, selects all packets whose measurement timeTag with respect to the reference time is within a
 user-specified window (``averagingWindow``), averages the selected measurements, and outputs the averaged values expressed in
 the body frame using a user-provided direction cosine matrix (DCM) ``dcm_BP``.
 
@@ -23,11 +22,11 @@ time-tagged measurements, and the output is the averaged body-frame angular velo
       - Type
       - Description
     * - localPkts
-      - :ref:`AccDataMsgF32Payload`
-      - Input packet buffer containing samples ``(measTime, gyro_B, accel_B)``
+      - ``InputPktsData``
+      - Input packet buffer containing arrays of ``(measTime, gyro_P, accel_P)``.
     * - out
-      - ``OutData``
-      - Output averages in body frame: ``AngVelBody`` and ``AccelBody`` (both ``Eigen::Vector3f``)
+      - ``OutputAverageAccelAnglevel``
+      - Output averages in body frame: ``AccelBody`` and ``AngVelBody``
 
 Module Parameters
 -----------------
@@ -49,7 +48,7 @@ The following table lists all parameters that can be set. Parameters are optiona
       - [s]
       - 0.0
       - ``setAveragingWindow()`` / ``getAveragingWindow()``
-      - Rolling-window width measured backward from the newest packet timestamp. Packets with age ``< averagingWindow`` are included
+      - Rolling time-window.
     * - dcm_BP
       - Eigen::Matrix3f
       - [-]
@@ -59,9 +58,8 @@ The following table lists all parameters that can be set. Parameters are optiona
 
 Module Assumptions and Limitations
 ----------------------------------
-- The packet timestamps ``measTime`` are assumed to be in nanoseconds and converted using ``NANO2SEC``.
-- Packets are included if ``(maxTimeTag - measTime) * NANO2SEC < averagingWindow`` (strict inequality).
-- If ``averagingWindow`` is 0, no packets satisfy the strict inequality and the output is zero.
+- The packet time tags ``measTime`` are assumed to be in nanoseconds.
+- Packets are included if ``(maxTimeTag - measTime) * NANO2SEC <= averagingWindow``, where ``averagingWindow >= 0.0``.
 - If no packets fall within the time window, the output vectors are zero.
 - The algorithm performs an unweighted arithmetic mean (no weighting, outlier rejection, or bias correction).
 
@@ -79,72 +77,54 @@ Then call the update method each cycle::
 
 Detailed Module Description
 ---------------------------
-General Function
-^^^^^^^^^^^^^^^^
-Given an input packet buffer ``localPkts.accPkts``, the algorithm:
-
-1. Finds the newest packet time tag ``maxTimeTag`` across the buffer.
-2. Iterates over each packet and computes its age relative to ``maxTimeTag``.
-3. Includes packets whose age is strictly less than ``averagingWindow`` seconds.
-4. Sums the selected gyro and accelerometer vectors (as 3-vectors).
-5. Divides by the number of selected packets to form the average in the platform frame.
-6. Transforms the averaged vectors to the body frame using ``dcm_BP`` and returns them.
-
-Algorithm
-^^^^^^^^^
-Let :math:`t_{\max}` be the newest packet time in the buffer. A packet with timestamp :math:`t_i` is *kept* if its age
-(relative to :math:`t_{\max}`) is within the time window:
-
-.. math::
-    (t_{\max} - t_i)\,\texttt{NANO2SEC} < \texttt{averagingWindow}.
-
-Let :math:`\mathcal{I}` be the set of indices of all kept packets, and let :math:`M = |\mathcal{I}|` be the number of
-kept packets.
-
-If :math:`M = 0`, return zeros:
-
-.. math::
-    ^B\omega_{\text{avg}} = \mathbf{0}, \qquad ^Ba_{\text{avg}} = \mathbf{0}.
-
-Otherwise, average in the platform frame:
-
-.. math::
-    ^P\omega_{\text{avg}} = \frac{1}{M}\sum_{i\in\mathcal{I}}\, ^P\omega_i,
-    \qquad
-    ^Pa_{\text{avg}} = \frac{1}{M}\sum_{i\in\mathcal{I}}\, ^P a_i.
-
-Finally, rotate the averages into the body frame:
-
-.. math::
-    ^B\omega_{\text{avg}} = \texttt{dcm\_BP}\,^P\omega_{\text{avg}},
-    \qquad
-    ^Ba_{\text{avg}} = \texttt{dcm\_BP}\,^Pa_{\text{avg}}.
-
-
-User Guide
-----------
 Inputs
 ^^^^^^
 The input payload contains an array of packets. Each packet provides:
 
-- ``measTime``: measurement timestamp (assumed nanoseconds)
-- ``gyro_B``: 3-axis angular rate sample (stored as a 3-element array)
-- ``accel_B``: 3-axis acceleration sample (stored as a 3-element array)
+- ``measTime``: measurement time tag (assumed nanoseconds)
+- ``gyro_P``: 3-axis angular rate sample in platform frame (Eigen::Vector3f)
+- ``accel_P``: 3-axis acceleration sample in platform frame (Eigen::Vector3f)
 
-Although the packet fields are named with ``_B`` in the payload, this algorithm treats the raw packet vectors as being
-in the platform frame for averaging (consistent with the internal variable naming ``gyroSum_P`` and ``accelSum_P``),
-and then applies ``dcm_BP`` to express the averages in the body frame.
+The algorithm expects the inputs ``gyro_P`` and ``accel_P``, where the subscript P denotes the platform frame.
+At the module interface, however, these signals are read from ``AccPktDataMsgF32Payload``, whose field names use the legacy suffix B (``gyro_B`` and ``accel_B``).
+In this context, ``gyro_B`` and ``accel_B`` should therefore be interpreted as platform-frame quantities, despite the field naming.
 
 Configuration
 ^^^^^^^^^^^^^
 1. Set ``averagingWindow`` to define how far back (from the newest measurement) to include samples in the average.
 2. Set ``dcm_BP`` to map platform-frame vectors into the body frame.
 
+Algorithm
+^^^^^^^^^^^^^^^^
+Given an input packet buffer ``localPkts``, the algorithm:
+
+1. Finds the newest packet time tag ``maxTimeTag`` across the buffer.
+2. Includes i-th packet whose ``ΔT_i=(maxTimeTag-measTime_i)*NANO2SEC<=averagingWindow``
+3. Averages the selected gyro and accelerometer vectors (assumed to be in the platform frame).
+4. Transforms the averaged vectors to the body frame using ``dcm_BP`` and returns them.
+
+We use a simple example to illustrate steps 1 and 2 with three packets:
+
+.. code-block:: text
+
+    time  ------------------------------------------------------------->
+
+             |<-- averagingWindow -->|
+    t1            t2                 t3 = maxTimeTag          t_latest
+    o-------------o------------------o------------------------o
+    |<------------- ΔT1 ------------>|
+                  |<------ ΔT2 ----->|
+
+    1. maxTimeTag is the measurement time tag t3
+    2. packet at t1 is not included since ΔT1 > averagingWindow.
+       packet at t2 is included since ΔT2 <= averagingWindow.
+       packet at t3 is included since ΔT3 = 0 <= averagingWindow.
+
 Recommended Practices
 ^^^^^^^^^^^^^^^^^^^^^
 - Choose ``averagingWindow`` based on the expected packet update rate and desired smoothing. Larger values increase smoothing
   but introduce more latency.
-- Ensure ``dcm_BP`` is a proper DCM (orthonormal, right-handed) consistent with your frame definitions.
+- ``dcm_BP`` shall be a proper DCM (orthonormal, right-handed).
 
 Outputs
 ^^^^^^^
@@ -165,7 +145,7 @@ The algorithm is implemented by::
 
     class AverageMimuDataAlgorithm {
        public:
-        void setAveragingWindow(float window);
+        void setAveragingWindow(float averagingWindowIn);
         float getAveragingWindow() const;
 
         void setDcmPltfToBdy(Eigen::Matrix3f const& dcm_BPIn);
@@ -185,6 +165,5 @@ The return type is::
 
 Notes
 -----
-- The averaging window is anchored to the newest timestamp present in the buffer, not to the current system time.
+- The averaging window is anchored to the newest time tag present in the buffer, not to the current system time.
 - The output is deterministic given the input packet buffer, ``averagingWindow``, and ``dcm_BP``.
-```
