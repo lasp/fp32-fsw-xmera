@@ -7,7 +7,6 @@
 #include <gtest/gtest.h>
 #include <Eigen/Core>
 #include <cmath>
-#include <numbers>
 #include <vector>
 
 // Float-precision reference implementation
@@ -18,7 +17,6 @@ inline float referenceUpdate(const Eigen::Vector3f& sigma_BN,
                              const Eigen::Vector3f& a2Hat_B,
                              float theta) {
     constexpr float epsilon = 1e-6F;
-    constexpr float pi = std::numbers::pi_v<float>;
 
     const Eigen::Vector3f rHat_SB_B = vehSunPntBdy.normalized();
     const Eigen::Matrix3f dcm_BN = mrpToDcm(sigma_BN);
@@ -34,30 +32,21 @@ inline float referenceUpdate(const Eigen::Vector3f& sigma_BN,
     Eigen::Vector3f a2Hat_R = rHat_SB_R - dotP * a1;
     const float a2Hat_R_norm = a2Hat_R.norm();
 
-    const float sinThetaC = sinf(theta);
-    const float cosThetaC = cosf(theta);
-    const float thetaC = atan2f(sinThetaC, cosThetaC);
-
-    float thetaRefOut{};
+    float thetaRef{};
     if (a2Hat_R_norm < epsilon) {
-        thetaRefOut = theta;
+        // wrap current theta to [-pi, pi]
+        thetaRef = atan2f(sinf(theta), cosf(theta));
     } else {
         a2Hat_R.normalize();
         const Eigen::Vector3f a1Hat_R = a2.cross(a2Hat_R);
-        float thetaR = acosf(fminf(fmaxf(a2.dot(a2Hat_R), -1.0F), 1.0F));
+        // acosf returns [0, pi]; negating gives [-pi, 0], so output is naturally in [-pi, pi]
+        thetaRef = acosf(fminf(fmaxf(a2.dot(a2Hat_R), -1.0F), 1.0F));
         if (a1.dot(a1Hat_R) < 0) {
-            thetaR = -thetaR;
-        }
-        if (thetaR - thetaC > pi) {
-            thetaRefOut = theta + thetaR - thetaC - 2 * pi;
-        } else if (thetaR - thetaC < -pi) {
-            thetaRefOut = theta + thetaR - thetaC + 2 * pi;
-        } else {
-            thetaRefOut = theta + thetaR - thetaC;
+            thetaRef = -thetaRef;
         }
     }
 
-    return thetaRefOut;
+    return thetaRef;
 }
 
 // ---------------------------------------------------------------------------
@@ -106,7 +95,10 @@ inline void regressionTestSolarArrayReference(std::vector<float> sigma_BN_Vec,
 
     float tol = 1e-5F;
     float tolerance = tol + abs(reference) * tol;
-    EXPECT_NEAR(result, reference, tolerance);
+    // Wrap the difference into [-pi, pi] to handle equivalent angles differing by multiples of 2*pi
+    float diff = result - reference;
+    float wrappedDiff = atan2f(sinf(diff), cosf(diff));
+    EXPECT_NEAR(wrappedDiff, 0.0F, tolerance);
     EXPECT_TRUE(std::isfinite(result));
 }
 

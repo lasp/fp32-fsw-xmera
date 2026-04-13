@@ -28,11 +28,13 @@ def compute_rotation_angle(sigma_RN, rHat_SB_N, a1Hat_B, a2Hat_B, theta0):
     a2_R_norm = np.linalg.norm(a2_R)
     if a2_R_norm > 1e-6:
         a2_R = a2_R / a2_R_norm
+        # arccos returns [0, pi]; negating gives [-pi, 0], so output is naturally in [-pi, pi]
         theta = np.arccos(min(max(np.dot(a2Hat_B, a2_R),-1),1))
         if np.dot(a1Hat_B, np.cross(a2Hat_B, a2_R)) < 0:
             theta = -theta
     else:
-        theta = theta0
+        # wrap current theta0 to [-pi, pi]
+        theta = np.arctan2(np.sin(theta0), np.cos(theta0))
 
     return theta
 
@@ -136,10 +138,6 @@ def test_solarArrayReference(show_plots, rHat_SB_N, sigma_BN, sigma_RN, accuracy
     unit_test_sim.ExecuteSimulation()
 
     thetaR = compute_rotation_angle(sigma_RN, rHat_SB_N, a1Hat_B, a2Hat_B, thetaC)
-    if thetaR - thetaC > np.pi:
-        thetaR -= np.pi
-    elif thetaR - thetaC < -np.pi:
-        thetaR += np.pi
 
     # compare the module results to the truth values
     np.testing.assert_allclose(data_log.theta[0], thetaR, atol=accuracy, rtol=accuracy)

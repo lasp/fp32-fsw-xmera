@@ -1,7 +1,6 @@
 #include "solarArrayReferenceAlgorithm.h"
 #include "utilities/freestandingInvalidArgument.h"
 #include "utilities/safeMath.h"
-#include <numbers>
 
 #include "architecture/utilities/rigidBodyKinematics.hpp"
 
@@ -31,31 +30,21 @@ float SolarArrayReferenceAlgorithm::update(const Eigen::Vector3f& sigma_BN,
     Eigen::Vector3f a2HatRef_B = rHat_SB_B - this->a1Hat_B.dot(rHat_SB_B) * this->a1Hat_B;
 
     /*! compute reference angle and store in output */
-    float thetaRefOut{};
-    constexpr float pi = std::numbers::pi_v<float>;
+    float thetaRef{};
     if (a2HatRef_B.norm() < epsilon) {
         // if norm(a2HatRef_B) = 0, drive axis is aligned with sun direction, so no preferred angle and leave at current
-        thetaRefOut = theta;
+        thetaRef = safeAtan2f(safeSinf(theta), safeCosf(theta));  // wrap current theta between -pi and pi;
     } else {
         a2HatRef_B.normalize();
         const Eigen::Vector3f a1HatRef_B = this->a2Hat_B.cross(a2HatRef_B);
-        float thetaRef = safeAcosf(this->a2Hat_B.dot(a2HatRef_B));
+        thetaRef = safeAcosf(this->a2Hat_B.dot(a2HatRef_B));
         // if this->a1Hat_B and a1HatRef_B are opposite, take the negative of thetaRef
         if (this->a1Hat_B.dot(a1HatRef_B) < 0) {
             thetaRef = -thetaRef;
         }
-        const float thetaC = safeAtan2f(safeSinf(theta), safeCosf(theta));  // wrap current theta between -pi and pi
-        // always make the absolute difference |thetaR-thetaC| is smaller than pi
-        if (thetaRef - thetaC > pi) {
-            thetaRefOut = theta + thetaRef - thetaC - 2 * pi;
-        } else if (thetaRef - thetaC < -pi) {
-            thetaRefOut = theta + thetaRef - thetaC + 2 * pi;
-        } else {
-            thetaRefOut = theta + thetaRef - thetaC;
-        }
     }
 
-    return thetaRefOut;
+    return thetaRef;
 }
 
 /*! Set the solar array drive axis and surface normal in body frame coordinates.
