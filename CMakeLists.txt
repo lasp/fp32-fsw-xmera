@@ -100,6 +100,7 @@ set(algorithms
     "bodyRateMiscompare"
     "celestialTwoBodyPoint"
     "convertStPlatformToBody"
+    "cssComm"
     "ephemeridesRecenter"
     "hillPoint"
     "inertial3D"
