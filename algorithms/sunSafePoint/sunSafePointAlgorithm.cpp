@@ -39,11 +39,9 @@ SunSafePointOutput SunSafePointAlgorithm::update(const Eigen::Vector3f& vehSunPn
         float const sunAngleErr = safeAcosf(this->sHatBdyCmd.dot(rHat_SB_B));
 
         // Compute the heading error relative to the sun direction vector
-        Eigen::Vector3f sigma_BR{};
-        // Sun heading and desired body axis are essentially aligned. Set attitude error to zero.
-        if (sunAngleErr < this->smallAngle) {
-            sigma_BR = Eigen::Vector3f::Zero();
-        } else {
+        Eigen::Vector3f sigma_BR{Eigen::Vector3f::Zero()};
+        // If Sun heading and desired body axis are essentially aligned, set attitude error to zero.
+        if (sunAngleErr >= this->smallAngle) {
             Eigen::Vector3f e_hat{};  // Eigen Axis
             // The commanded body vector nearly is opposite the sun heading
             if (static_cast<float>(std::numbers::pi) - sunAngleErr < this->smallAngle) {
