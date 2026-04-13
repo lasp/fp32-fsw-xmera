@@ -1,8 +1,8 @@
 #ifndef F32XMERA_SOLAR_ARRAY_REFERENCE_ALGORITHM_H
 #define F32XMERA_SOLAR_ARRAY_REFERENCE_ALGORITHM_H
 
+#include "solarArrayReferenceTypes.h"
 #include <stdint.h>
-
 #include <Eigen/Core>
 #include <array>
 
@@ -22,11 +22,17 @@ class SolarArrayReferenceAlgorithm final {
     std::array<Eigen::Vector3f, 2> getSolarArrayAxes_B() const;
     void setAlignmentThreshold(float threshold);
     float getAlignmentThreshold() const;
+    void setTrackingMode(TrackingMode mode);
+    TrackingMode getTrackingMode() const;
+    void setSpecifiedArrayAngle(float angle);
+    float getSpecifiedArrayAngle() const;
 
    private:
     Eigen::Vector3f a1Hat_B{Eigen::Vector3f::Zero()};  //!< solar array drive axis in body frame coordinates
     Eigen::Vector3f a2Hat_B{Eigen::Vector3f::Zero()};  //!< solar array surface normal at zero rotation
     float alignmentThreshold{1e-3F};  //!< [rad] alignment threshold angle between sun direction and drive axis
+    TrackingMode trackingMode{TrackingMode::AUTO_TRACK};  //!< array tracking mode
+    float specifiedArrayAngle{};  //!< [rad] specified reference array angle if tracking mode is specified angle
 };
 
 #endif  // F32XMERA_SOLAR_ARRAY_REFERENCE_ALGORITHM_H

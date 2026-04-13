@@ -143,6 +143,62 @@ def test_solarArrayReference(show_plots, rHat_SB_N, sigma_BN, sigma_RN, accuracy
     np.testing.assert_allclose(data_log.theta[0], thetaR, atol=accuracy, rtol=accuracy)
 
 
+@pytest.mark.parametrize("specifiedAngle", [0.0, 0.5, -1.2, 3.0, -3.0])
+@pytest.mark.parametrize("accuracy", [1e-6])
+def test_solarArrayReference_specifiedAngle(show_plots, specifiedAngle, accuracy):
+    r"""
+    Verifies that in SPECIFIED_ANGLE tracking mode the output reference angle equals the
+    user-specified angle (wrapped to [-pi, pi]) regardless of attitude or sun direction inputs.
+    """
+    a1Hat_B = np.array([1, 0, 0])
+    a2Hat_B = np.array([0, 1, 0])
+
+    unit_task_name = "unitTask"
+    unit_process_name = "TestProcess"
+    sim_model.setDefaultLogLevel(sim_model.BSK_WARNING)
+
+    unit_test_sim = SimulationBaseClass.SimBaseClass()
+    test_process_rate = macros.sec2nano(1)
+    test_proc = unit_test_sim.CreateNewProcess(unit_process_name)
+    test_proc.addTask(unit_test_sim.CreateNewTask(unit_task_name, test_process_rate))
+
+    solar_array = solarArrayReferenceF32.SolarArrayReference()
+    solar_array.modelTag = "solarArrayReference"
+    unit_test_sim.AddModelToTask(unit_task_name, solar_array)
+
+    solar_array.setSolarArrayAxes_B(a1Hat_B, a2Hat_B)
+    solar_array.trackingMode = solarArrayReferenceF32.TrackingMode_SPECIFIED_ANGLE
+    solar_array.specifiedArrayAngle = specifiedAngle
+
+    # Inputs are arbitrary in this mode — the algorithm should ignore them.
+    nav_att_in_msg_data = messaging.NavAttMsgF32Payload()
+    nav_att_in_msg_data.sigma_BN = [0.1, 0.2, 0.3]
+    nav_att_in_msg_data.vehSunPntBdy = [1.0, 0.0, 0.0]
+    nav_att_in_msg = messaging.NavAttMsgF32().write(nav_att_in_msg_data)
+    solar_array.attNavInMsg.subscribeTo(nav_att_in_msg)
+
+    att_ref_in_msg_data = messaging.AttRefMsgF32Payload()
+    att_ref_in_msg_data.sigma_RN = [0.3, 0.2, 0.1]
+    att_ref_in_msg = messaging.AttRefMsgF32().write(att_ref_in_msg_data)
+    solar_array.attRefInMsg.subscribeTo(att_ref_in_msg)
+
+    hinged_rigid_body_in_msg_data = messaging.HingedRigidBodyMsgF32Payload()
+    hinged_rigid_body_in_msg_data.theta = 0.0
+    hinged_rigid_body_in_msg_data.thetaDot = 0.0
+    hinged_rigid_body_in_msg = messaging.HingedRigidBodyMsgF32().write(hinged_rigid_body_in_msg_data)
+    solar_array.hingedRigidBodyInMsg.subscribeTo(hinged_rigid_body_in_msg)
+
+    data_log = solar_array.hingedRigidBodyRefOutMsg.recorder()
+    unit_test_sim.AddModelToTask(unit_task_name, data_log)
+
+    unit_test_sim.InitializeSimulation()
+    unit_test_sim.ConfigureStopTime(macros.sec2nano(0.5))
+    unit_test_sim.ExecuteSimulation()
+
+    expected = np.arctan2(np.sin(specifiedAngle), np.cos(specifiedAngle))
+    np.testing.assert_allclose(data_log.theta[0], expected, atol=accuracy, rtol=accuracy)
+
+
 if __name__ == "__main__":
     test_solarArrayReference(
                  False,

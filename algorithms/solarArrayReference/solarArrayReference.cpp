@@ -58,3 +58,25 @@ void SolarArrayReference::setAlignmentThreshold(const float threshold) {
  *  @return float [rad] alignment threshold
  */
 float SolarArrayReference::getAlignmentThreshold() const { return this->algorithm.getAlignmentThreshold(); }
+
+/*! Set the tracking mode of the solar array.
+ *  @param mode tracking mode (AUTO_TRACK or SPECIFIED_ANGLE)
+ */
+void SolarArrayReference::setTrackingMode(const TrackingMode mode) { this->algorithm.setTrackingMode(mode); }
+
+/*! Get the tracking mode of the solar array.
+ *  @return TrackingMode current tracking mode
+ */
+TrackingMode SolarArrayReference::getTrackingMode() const { return this->algorithm.getTrackingMode(); }
+
+/*! Set the specified reference array angle (used when trackingMode is SPECIFIED_ANGLE).
+ *  @param angle [rad] specified reference array angle
+ */
+void SolarArrayReference::setSpecifiedArrayAngle(const float angle) {
+    this->algorithm.setSpecifiedArrayAngle(angle);
+}
+
+/*! Get the specified reference array angle.
+ *  @return float [rad] specified reference array angle
+ */
+float SolarArrayReference::getSpecifiedArrayAngle() const { return this->algorithm.getSpecifiedArrayAngle(); }

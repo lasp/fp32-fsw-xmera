@@ -9,7 +9,7 @@
 #include <cmath>
 #include <vector>
 
-// Float-precision reference implementation
+// Float-precision reference implementation (AUTO_TRACK mode)
 inline float referenceUpdate(const Eigen::Vector3f& sigma_BN,
                              const Eigen::Vector3f& sigma_RN,
                              const Eigen::Vector3f& vehSunPntBdy,
@@ -124,6 +124,29 @@ inline void propertyOutputIsFinite(std::vector<float> sigma_BN_Vec,
     Eigen::Vector3f sigma_RN(sigma_RN_Vec[0], sigma_RN_Vec[1], sigma_RN_Vec[2]);
 
     float result = alg.update(sigma_BN, sigma_RN, vehSunPntBdy_f, theta);
+    EXPECT_TRUE(std::isfinite(result));
+}
+
+// In SPECIFIED_ANGLE mode, output equals the specified angle wrapped to [-pi, pi], independent of attitude/sun inputs.
+inline void propertySpecifiedAngleReturnsAngle(std::vector<float> sigma_BN_Vec,
+                                               std::vector<float> sigma_RN_Vec,
+                                               std::vector<float> vehSunPntBdy_Vec,
+                                               float specifiedAngle,
+                                               float theta) {
+    Eigen::Vector3f sigma_BN(sigma_BN_Vec[0], sigma_BN_Vec[1], sigma_BN_Vec[2]);
+    Eigen::Vector3f sigma_RN(sigma_RN_Vec[0], sigma_RN_Vec[1], sigma_RN_Vec[2]);
+    Eigen::Vector3f vehSunPntBdy(vehSunPntBdy_Vec[0], vehSunPntBdy_Vec[1], vehSunPntBdy_Vec[2]);
+
+    SolarArrayReferenceAlgorithm alg{};
+    alg.setSolarArrayAxes_B(Eigen::Vector3f{1.0F, 0.0F, 0.0F}, Eigen::Vector3f{0.0F, 1.0F, 0.0F});
+    alg.setTrackingMode(TrackingMode::SPECIFIED_ANGLE);
+    alg.setSpecifiedArrayAngle(specifiedAngle);
+
+    float result = alg.update(sigma_BN, sigma_RN, vehSunPntBdy, theta);
+
+    // expected output is the specified angle wrapped to [-pi, pi]
+    float expected = atan2f(sinf(specifiedAngle), cosf(specifiedAngle));
+    EXPECT_NEAR(result, expected, 1e-5F);
     EXPECT_TRUE(std::isfinite(result));
 }
 

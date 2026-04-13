@@ -7,6 +7,8 @@
 
 %include <attribute.i>
 %attribute(SolarArrayReference, float, alignmentThreshold, getAlignmentThreshold, setAlignmentThreshold)
+%attribute(SolarArrayReference, float, specifiedArrayAngle, getSpecifiedArrayAngle, setSpecifiedArrayAngle)
+%attribute(SolarArrayReference, TrackingMode, trackingMode, getTrackingMode, setTrackingMode)
 
 %include <architecture/_GeneralModuleFiles/sys_model.i>
 %include <architecture/_GeneralModuleFiles/swig_conly_data.i>
@@ -15,6 +17,7 @@
 %include <std_array.i>
 %template(Vector3fArray2) std::array<Eigen::Vector3f, 2>;
 
+%include "solarArrayReferenceTypes.h"
 %include "solarArrayReference.h"
 
 %include "msgPayloadDef/NavAttMsgF32Payload.h"

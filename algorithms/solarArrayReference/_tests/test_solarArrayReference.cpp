@@ -90,6 +90,26 @@ TEST(SolarArrayReferenceTest, SetupTest) {
     EXPECT_NEAR(axes[1](0), 0.0F, 1e-6F);
     EXPECT_NEAR(axes[1](1), 1.0F, 1e-6F);
     EXPECT_NEAR(axes[1](2), 0.0F, 1e-6F);
+
+    // Tracking mode default is AUTO_TRACK
+    EXPECT_EQ(alg.getTrackingMode(), TrackingMode::AUTO_TRACK);
+
+    // Tracking mode round-trip for both values
+    alg.setTrackingMode(TrackingMode::SPECIFIED_ANGLE);
+    EXPECT_EQ(alg.getTrackingMode(), TrackingMode::SPECIFIED_ANGLE);
+    alg.setTrackingMode(TrackingMode::AUTO_TRACK);
+    EXPECT_EQ(alg.getTrackingMode(), TrackingMode::AUTO_TRACK);
+
+    // Specified array angle accepts any value (no setter validation; wrapped at update time)
+    EXPECT_NO_THROW(alg.setSpecifiedArrayAngle(0.0F));
+    EXPECT_NO_THROW(alg.setSpecifiedArrayAngle(-10.0F));
+    EXPECT_NO_THROW(alg.setSpecifiedArrayAngle(10.0F));
+
+    // Specified array angle round-trip stores the raw value
+    alg.setSpecifiedArrayAngle(0.5F);
+    EXPECT_FLOAT_EQ(alg.getSpecifiedArrayAngle(), 0.5F);
+    alg.setSpecifiedArrayAngle(-2.5F);
+    EXPECT_FLOAT_EQ(alg.getSpecifiedArrayAngle(), -2.5F);
 }
 
 // ---------------------------------------------------------------------------
@@ -106,6 +126,10 @@ TEST(SolarArrayReferenceTest, AlignedSunReturnsCurrentTheta) {
 
 TEST(SolarArrayReferenceTest, AlignedSunNegativeTheta) {
     propertyAlignedSunReturnsCurrentTheta({0.0F, 0.0F, 1.0F}, -1.2F);
+}
+
+TEST(SolarArrayReferenceTest, SpecifiedAngleReturnsAngle) {
+    propertySpecifiedAngleReturnsAngle({0.1F, 0.2F, 0.3F}, {0.3F, 0.2F, 0.1F}, {1.0F, 1.0F, 0.0F}, 0.5F, 0.7F);
 }
 
 // ---------------------------------------------------------------------------
@@ -180,4 +204,20 @@ TEST(SolarArrayReferenceTest, AlignmentThresholdJustOutside) {
     float result = alg.update(Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(), sunAway, theta);
     // Should compute a reference angle, not just return theta
     EXPECT_TRUE(std::isfinite(result));
+}
+
+// SPECIFIED_ANGLE mode ignores sun direction and attitudes — output depends only on the configured angle.
+TEST(SolarArrayReferenceTest, SpecifiedAngleModeIgnoresSun) {
+    SolarArrayReferenceAlgorithm alg{};
+    alg.setSolarArrayAxes_B(Eigen::Vector3f{1.0F, 0.0F, 0.0F}, Eigen::Vector3f{0.0F, 1.0F, 0.0F});
+    alg.setTrackingMode(TrackingMode::SPECIFIED_ANGLE);
+    alg.setSpecifiedArrayAngle(0.8F);
+
+    // Two very different sun vectors must produce identical output.
+    float resultA = alg.update(Eigen::Vector3f{0.1F, 0.2F, 0.3F}, Eigen::Vector3f::Zero(),
+                               Eigen::Vector3f{1.0F, 0.0F, 0.0F}, 0.0F);
+    float resultB = alg.update(Eigen::Vector3f{-0.5F, 0.4F, 0.1F}, Eigen::Vector3f{0.2F, 0.2F, 0.2F},
+                               Eigen::Vector3f{0.0F, 0.0F, 1.0F}, 1.5F);
+    EXPECT_FLOAT_EQ(resultA, resultB);
+    EXPECT_FLOAT_EQ(resultA, 0.8F);
 }

@@ -20,6 +20,10 @@ class SolarArrayReference : public SysModel {
     std::array<Eigen::Vector3f, 2> getSolarArrayAxes_B() const;
     void setAlignmentThreshold(float threshold);
     float getAlignmentThreshold() const;
+    void setTrackingMode(TrackingMode mode);
+    TrackingMode getTrackingMode() const;
+    void setSpecifiedArrayAngle(float angle);
+    float getSpecifiedArrayAngle() const;
 
     /* declare module IO interfaces */
     ReadFunctor<NavAttMsgF32Payload> attNavInMsg;                    //!< input msg measured attitude

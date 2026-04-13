@@ -20,30 +20,40 @@ float SolarArrayReferenceAlgorithm::update(const Eigen::Vector3f& sigma_BN,
                                                                const Eigen::Vector3f& vehSunPntBdy,
                                                                const float theta) const {
 
-    /*! track Sun in reference frame R, i.e. in the body frame that will be obtained at the end of the slew */
-    const Eigen::Vector3f rHat_SB_Bc = vehSunPntBdy.stableNormalized();  // Sun direction in current body frame Bc
-    const Eigen::Matrix3f dcm_BN = mrpToDcm(sigma_BN);
-    const Eigen::Matrix3f dcm_RN = mrpToDcm(sigma_RN);
-    const Eigen::Matrix3f dcm_RB = dcm_RN * dcm_BN.transpose();
-    // assume body frame B equals reference frame R (end of slew)
-    const Eigen::Vector3f rHat_SB_B = (dcm_RB * rHat_SB_Bc).stableNormalized();
-
-    /*! check if sun direction is nearly aligned with drive axis */
-    const float sunDriveAngle = safeAcosf(fabsf(rHat_SB_B.dot(this->a1Hat_B)));
-
-    /*! compute reference angle and store in output */
     float thetaRef{};
-    if (sunDriveAngle < this->alignmentThreshold || rHat_SB_B.stableNorm() == 0.0F) {
-        // sun direction is nearly parallel to drive axis, no preferred rotation angle so set reference to current angle
-        thetaRef = safeAtan2f(safeSinf(theta), safeCosf(theta));  // wrap current theta between -pi and pi;
-    } else {
-        /*! required solar array surface normal direction to align with Sun as well as possible */
-        const Eigen::Vector3f a2HatRef_B = (rHat_SB_B - this->a1Hat_B.dot(rHat_SB_B) * this->a1Hat_B).stableNormalized();
-        const Eigen::Vector3f a1HatRef_B = this->a2Hat_B.cross(a2HatRef_B);
-        thetaRef = safeAcosf(this->a2Hat_B.dot(a2HatRef_B));
-        // if this->a1Hat_B and a1HatRef_B are opposite, take the negative of thetaRef
-        if (this->a1Hat_B.dot(a1HatRef_B) < 0) {
-            thetaRef = -thetaRef;
+    switch (this->trackingMode) {
+        case TrackingMode::AUTO_TRACK: {
+            /*! track Sun in reference frame R, i.e. in the body frame that will be obtained at the end of the slew */
+            const Eigen::Vector3f rHat_SB_Bc = vehSunPntBdy.stableNormalized();  // Sun direction in current body frame Bc
+            const Eigen::Matrix3f dcm_BN = mrpToDcm(sigma_BN);
+            const Eigen::Matrix3f dcm_RN = mrpToDcm(sigma_RN);
+            const Eigen::Matrix3f dcm_RB = dcm_RN * dcm_BN.transpose();
+            // assume body frame B equals reference frame R (end of slew)
+            const Eigen::Vector3f rHat_SB_B = (dcm_RB * rHat_SB_Bc).stableNormalized();
+
+            /*! check if sun direction is nearly aligned with drive axis */
+            const float sunDriveAngle = safeAcosf(fabsf(rHat_SB_B.dot(this->a1Hat_B)));
+
+            /*! compute reference angle and store in output */
+            if (sunDriveAngle < this->alignmentThreshold || rHat_SB_B.stableNorm() == 0.0F) {
+                // sun direction is nearly parallel to drive axis, no preferred rotation angle so set reference to current angle
+                thetaRef = safeAtan2f(safeSinf(theta), safeCosf(theta));  // wrap current theta between -pi and pi;
+            } else {
+                /*! required solar array surface normal direction to align with Sun as well as possible */
+                const Eigen::Vector3f a2HatRef_B = (rHat_SB_B - this->a1Hat_B.dot(rHat_SB_B) * this->a1Hat_B).stableNormalized();
+                const Eigen::Vector3f a1HatRef_B = this->a2Hat_B.cross(a2HatRef_B);
+                thetaRef = safeAcosf(this->a2Hat_B.dot(a2HatRef_B));
+                // if this->a1Hat_B and a1HatRef_B are opposite, take the negative of thetaRef
+                if (this->a1Hat_B.dot(a1HatRef_B) < 0) {
+                    thetaRef = -thetaRef;
+                }
+            }
+            break;
+        }
+        case TrackingMode::SPECIFIED_ANGLE: {
+            // wrap specified angle to [-pi, pi]
+            thetaRef = safeAtan2f(safeSinf(this->specifiedArrayAngle), safeCosf(this->specifiedArrayAngle));
+            break;
         }
     }
 
@@ -98,3 +108,24 @@ void SolarArrayReferenceAlgorithm::setAlignmentThreshold(const float threshold) 
  *  @return float [rad] alignment threshold
  */
 float SolarArrayReferenceAlgorithm::getAlignmentThreshold() const { return this->alignmentThreshold; }
+
+/*! Set the tracking mode of the solar array.
+ *  @param mode tracking mode (AUTO_TRACK or SPECIFIED_ANGLE)
+ */
+void SolarArrayReferenceAlgorithm::setTrackingMode(const TrackingMode mode) { this->trackingMode = mode; }
+
+/*! Get the tracking mode of the solar array.
+ *  @return TrackingMode current tracking mode
+ */
+TrackingMode SolarArrayReferenceAlgorithm::getTrackingMode() const { return this->trackingMode; }
+
+/*! Set the specified reference array angle (used when trackingMode is SPECIFIED_ANGLE).
+ *  Any value is accepted; the update() method wraps it to [-pi, pi] when consumed.
+ *  @param angle [rad] specified reference array angle
+ */
+void SolarArrayReferenceAlgorithm::setSpecifiedArrayAngle(const float angle) { this->specifiedArrayAngle = angle; }
+
+/*! Get the specified reference array angle.
+ *  @return float [rad] specified reference array angle (as stored, not wrapped)
+ */
+float SolarArrayReferenceAlgorithm::getSpecifiedArrayAngle() const { return this->specifiedArrayAngle; }
