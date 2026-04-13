@@ -48,11 +48,6 @@ void SunSafePoint::updateState(uint64_t callTime) {
     this->attGuidanceOutMsg.write(&attGuidanceOutBuffer, moduleID, callTime);
 }
 
-/*! Getter method for the minimally accepted sun body vector norm.
- @return float
-*/
-float SunSafePoint::getMinUnitMag() const { return this->algorithm.getMinUnitMag(); }
-
 /*! Getter method for the small alignment tolerance angle near 0 or 180 degrees.
  @return float
 */
@@ -72,12 +67,6 @@ Eigen::Vector3f SunSafePoint::getOmega_RN_B() const { return this->algorithm.get
  @return Eigen::Vector3f
 */
 Eigen::Vector3f SunSafePoint::getSHatBdyCmd() const { return this->algorithm.getSHatBdyCmd(); }
-
-/*! Setter method for the minimally accepted sun body vector norm.
- @return void
- @param magnitude The minimally acceptable norm of sun body vector
-*/
-void SunSafePoint::setMinUnitMag(const float magnitude) { this->algorithm.setMinUnitMag(magnitude); }
 
 /*! Setter method for the small alignment tolerance angle near 0 or 180 degrees.
  @return void

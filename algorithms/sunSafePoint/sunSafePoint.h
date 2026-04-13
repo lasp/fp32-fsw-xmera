@@ -18,12 +18,10 @@ class SunSafePoint : public SysModel {
     void reset(uint64_t currentSimNanos) override;
     void updateState(uint64_t currentSimNanos) override;
 
-    float getMinUnitMag() const;
     float getSmallAngle() const;
     float getSunAxisSpinRate() const;
     Eigen::Vector3f getOmega_RN_B() const;
     Eigen::Vector3f getSHatBdyCmd() const;
-    void setMinUnitMag(float magnitude);
     void setSmallAngle(float angle);
     void setSunAxisSpinRate(float rate);
     void setOmega_RN_B(const Eigen::Vector3f& omega);

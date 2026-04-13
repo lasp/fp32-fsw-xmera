@@ -71,11 +71,6 @@ SunSafePointOutput SunSafePointAlgorithm::update(const Eigen::Vector3f& vehSunPn
     return output;
 }
 
-/*! Getter method for the minimally accepted sun body vector norm.
- @return float
-*/
-float SunSafePointAlgorithm::getMinUnitMag() const { return this->minUnitMag; }
-
 /*! Getter method for the small alignment tolerance angle near 0 or 180 degrees.
  @return float
 */
@@ -95,17 +90,6 @@ Eigen::Vector3f SunSafePointAlgorithm::getOmega_RN_B() const { return this->omeg
  @return Eigen::Vector3f
 */
 Eigen::Vector3f SunSafePointAlgorithm::getSHatBdyCmd() const { return this->sHatBdyCmd; }
-
-/*! Setter method for the minimally accepted sun body vector norm.
- @return void
- @param magnitude The minimally acceptable norm of sun body vector (Must be positive)
-*/
-void SunSafePointAlgorithm::setMinUnitMag(const float magnitude) {
-    if (magnitude <= 0.0F) {
-        FSW_THROW_INVALID_ARGUMENT("sunSafePoint: minUnitMag must be positive");
-    }
-    this->minUnitMag = magnitude;
-}
 
 /*! Setter method for the small alignment tolerance angle near 0 or 180 degrees.
  @return void

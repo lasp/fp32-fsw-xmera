@@ -34,7 +34,6 @@ def test_sun_safe_point(show_plots, case):
     unit_test_sim.AddModelToTask(unit_task_name, sun_safe_point)
 
     # Initialize sunSafePoint module configuration data
-    sun_safe_point.minUnitMag = 0.1
     sun_safe_point.smallAngle = 0.01 * mc.D2R
 
     omega_RN_B_Search = np.array([0.0, 0.0, 0.0])
@@ -45,7 +44,7 @@ def test_sun_safe_point(show_plots, case):
 
     elif case == 2:  # Sun not visible, search rate specified
         sHat_cmd_B = np.array([0.0, 0.0, 1.0])
-        sun_vec_B = np.array([0.0, sun_safe_point.minUnitMag / 2, 0.0])
+        sun_vec_B = np.array([0.0, 0.0, 0.0])
 
         omega_RN_B_Search = np.array([0.0, 0.0, 0.1])
 
@@ -63,7 +62,7 @@ def test_sun_safe_point(show_plots, case):
 
     elif case == 6:  # Sun not visible, no search rate specified
         sHat_cmd_B = np.array([0.0, 0.0, 1.0])
-        sun_vec_B = np.array([0.0, sun_safe_point.minUnitMag / 2, 0.0])
+        sun_vec_B = np.array([0.0, 0.0, 0.0])
 
     else:  # Sun visible, spin rate about sun heading vector specified
         sHat_cmd_B = np.array([0.0, 0.0, 1.0])
@@ -207,7 +206,6 @@ def test_sun_safe_point(show_plots, case):
                                atol=tolerance,
                                verbose=True)
 
-    np.testing.assert_allclose(sun_safe_point.minUnitMag, 0.1, rtol=tolerance, atol=tolerance)
     np.testing.assert_allclose(sun_safe_point.smallAngle, 0.01 * mc.D2R, rtol=tolerance, atol=tolerance)
     np.testing.assert_allclose(sun_safe_point.sunAxisSpinRate, sunAxisSpinRate, rtol=tolerance, atol=tolerance)
     np.testing.assert_allclose(np.array(sun_safe_point.omega_RN_B).flatten(), omega_RN_B_Search, rtol=tolerance, atol=tolerance)
