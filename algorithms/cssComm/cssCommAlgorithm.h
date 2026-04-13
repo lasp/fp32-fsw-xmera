@@ -1,7 +1,9 @@
 #ifndef F32XMERA_CSS_COMM_ALGORITHM_H
 #define F32XMERA_CSS_COMM_ALGORITHM_H
 
-#include <architecture/msgPayloadDef/definitions.h>
+#include "cssCommTypes.h"
+#include "msgPayloadDef/definitions.h"
+
 #include <array>
 #include <cstddef>
 #include <cstdint>
