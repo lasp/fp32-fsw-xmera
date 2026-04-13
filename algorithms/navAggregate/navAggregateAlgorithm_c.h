@@ -21,6 +21,25 @@ extern "C" {
 typedef struct NavAggregateAlgorithm NavAggregateAlgorithm;
 
 /**
+ * @brief Maximum number of aggregate navigation messages.
+ */
+#define MAX_AGG_NAV_MSG_C 10
+
+/**
+ * @brief Sized array of attitude navigation message payloads.
+ */
+typedef struct {
+    NavAttMsgF32Payload msg[MAX_AGG_NAV_MSG_C];
+} NavAttMsgF32PayloadArray10_c;
+
+/**
+ * @brief Sized array of translational navigation message payloads.
+ */
+typedef struct {
+    NavTransMsgF32Payload msg[MAX_AGG_NAV_MSG_C];
+} NavTransMsgF32PayloadArray10_c;
+
+/**
  * @brief C-compatible aggregate output containing attitude and translational
  *        navigation results.
  */
@@ -50,13 +69,13 @@ void NavAggregateAlgorithm_destroy(NavAggregateAlgorithm* self);
 /**
  * @brief Run the update step.
  * @param self               Pointer to the instance.
- * @param attMsgsPayloads    Pointer to array of attitude navigation message payloads.
- * @param transMsgsPayloads  Pointer to array of translational navigation message payloads.
+ * @param attMsgsPayloads    Attitude navigation message payloads.
+ * @param transMsgsPayloads  Translational navigation message payloads.
  * @return AggregateOutput_c The computed output messages.
  */
 AggregateOutput_c NavAggregateAlgorithm_update(NavAggregateAlgorithm* self,
-                                               const NavAttMsgF32Payload* attMsgsPayloads,
-                                               const NavTransMsgF32Payload* transMsgsPayloads);
+                                               const NavAttMsgF32PayloadArray10_c* attMsgsPayloads,
+                                               const NavTransMsgF32PayloadArray10_c* transMsgsPayloads);
 
 /**
  * @brief Set the attitude time index.
