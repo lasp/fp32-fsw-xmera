@@ -1,0 +1,8 @@
+//
+// Created by Patrick Kenneally on 4/13/26.
+//
+
+#ifndef ADD_CSS_COMM_SHIM_CSSCOMMTYPES_H
+#define ADD_CSS_COMM_SHIM_CSSCOMMTYPES_H
+
+#endif //ADD_CSS_COMM_SHIM_CSSCOMMTYPES_H

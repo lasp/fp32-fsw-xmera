@@ -14,7 +14,7 @@ inline constexpr std::size_t kMaxNumChebyPolys = 10;
  CSS interface*/
 class CssCommAlgorithm final {
    public:
-    std::array<double, MAX_NUM_CSS_SENSORS> update(const std::array<double, MAX_NUM_CSS_SENSORS>& inputValues) const;
+    std::array<double, kMaxNumCssSensors> update(const std::array<double, kMaxNumCssSensors>& inputValues) const;
 
     void setNumSensors(uint32_t numberOfSensors);
     uint32_t getNumSensors() const;

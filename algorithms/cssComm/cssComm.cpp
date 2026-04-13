@@ -20,7 +20,7 @@ void CssComm::reset(uint64_t callTime) {
  @param callTime The clock time at which the function was called (nanoseconds)
  */
 void CssComm::updateState(uint64_t callTime) {
-    std::array<double, MAX_NUM_CSS_SENSORS>
+    std::array<double, kMaxNumCssSensors>
         inputValues{}; /* [-] Current measured CSS value for the constellation of CSS sensors */
 
     // read sensor list input msg
@@ -28,7 +28,7 @@ void CssComm::updateState(uint64_t callTime) {
     std::ranges::copy(
         std::ranges::begin(inMsgBuffer.CosValue), std::ranges::end(inMsgBuffer.CosValue), inputValues.begin());
 
-    std::array<double, MAX_NUM_CSS_SENSORS> outputValues = this->algorithm.update(inputValues);
+    std::array<double, kMaxNumCssSensors> outputValues = this->algorithm.update(inputValues);
 
     CSSArraySensorMsgF32Payload outputBuffer{};
     std::ranges::copy(outputValues.begin(), outputValues.end(), std::ranges::begin(outputBuffer.CosValue));
