@@ -6,6 +6,19 @@ from xmera.fp32 import sunSafePointF32
 from xmera.architecture import messaging
 from xmera.utilities import macros as mc
 
+def unit_orthogonal(v):
+    """Replicates Eigen's unitOrthogonal() for 3D vectors (OrthoMethods.h)."""
+    x, y, z = float(v[0]), float(v[1]), float(v[2])
+    # Eigen uses isMuchSmallerThan with dummy_precision (1e-5 for float)
+    eps = 1e-5
+    if abs(x) > abs(z) * eps or abs(y) > abs(z) * eps:
+        invnm = 1.0 / np.sqrt(x**2 + y**2)
+        return np.array([-y * invnm, x * invnm, 0.0])
+    else:
+        invnm = 1.0 / np.sqrt(y**2 + z**2)
+        return np.array([0.0, -z * invnm, y * invnm])
+
+
 @pytest.mark.parametrize("case", [
      (1)        # sun is visible, vectors are not aligned
     ,(2)        # sun is not visible, vectors are not aligned
@@ -118,9 +131,8 @@ def test_sun_safe_point(show_plots, case):
             [0, 0, 0],
             [0, 0, 0]
         ]
-    if case == 4:
-        eHat = np.cross(sHat_cmd_B, np.array([1, 0, 0]))
-        eHat = eHat / np.linalg.norm(eHat)
+    if case == 4 or case == 5:
+        eHat = unit_orthogonal(sHat_cmd_B)
         phi = np.arccos(np.dot(sun_vec_B / np.linalg.norm(sun_vec_B), sHat_cmd_B))
         sigma_true = eHat * np.tan(phi / 4.0)
         sigma_BR_truth = [
@@ -128,16 +140,6 @@ def test_sun_safe_point(show_plots, case):
                     sigma_true.tolist(),
                     sigma_true.tolist()
                ]
-    if case == 5:
-        eHat = np.cross(sHat_cmd_B, np.array([0, 1, 0]))
-        eHat = eHat / np.linalg.norm(eHat)
-        phi = np.arccos(np.dot(sun_vec_B / np.linalg.norm(sun_vec_B), sHat_cmd_B))
-        sigma_true = eHat * np.tan(phi / 4.0)
-        sigma_BR_truth = [
-            sigma_true.tolist(),
-            sigma_true.tolist(),
-            sigma_true.tolist()
-        ]
 
     # Compare the module results to the truth values
     tolerance = 1e-6

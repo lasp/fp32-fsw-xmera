@@ -7,6 +7,7 @@
 #include "sunSafePointTypes.h"
 #include <gtest/gtest.h>
 #include <Eigen/Core>
+#include <Eigen/Geometry>
 #include <cmath>
 #include <vector>
 
@@ -16,10 +17,9 @@ inline SunSafePointOutput referenceUpdate(const Eigen::Vector3f& vehSunPntBdy,
                                           float smallAngle,
                                           float sunAxisSpinRate,
                                           const Eigen::Vector3f& sHatBdyCmd,
-                                          const Eigen::Vector3f& omega_RN_B_cfg,
-                                          const Eigen::Vector3f& eHat180_B) {
+                                          const Eigen::Vector3f& omega_RN_B_cfg) {
     SunSafePointOutput output{};
-    
+
     Eigen::Vector3f rHat_SB_B = vehSunPntBdy.stableNormalized();
     if (rHat_SB_B.stableNorm() > 0.0F) {
         // Compute sun angle error
@@ -33,7 +33,7 @@ inline SunSafePointOutput referenceUpdate(const Eigen::Vector3f& vehSunPntBdy,
         } else {
             Eigen::Vector3f e_hat{};
             if (static_cast<float>(M_PI) - sunAngleErr < smallAngle) {
-                e_hat = eHat180_B;
+                e_hat = sHatBdyCmd.unitOrthogonal();
             } else {
                 e_hat = rHat_SB_B.cross(sHatBdyCmd);
             }
@@ -52,18 +52,6 @@ inline SunSafePointOutput referenceUpdate(const Eigen::Vector3f& vehSunPntBdy,
     output.omega_BR_B = omega_BN_B - output.omega_RN_B;
 
     return output;
-}
-
-// Compute eHat180_B independently (replicates reset() logic)
-inline Eigen::Vector3f computeEHat180(const Eigen::Vector3f& sHatBdyCmd) {
-    Eigen::Vector3f v1 = {1.0f, 0.0f, 0.0f};
-    Eigen::Vector3f eHat180_B = sHatBdyCmd.cross(v1);
-    if (eHat180_B.norm() < 0.1f) {
-        v1 = {0.0f, 1.0f, 0.0f};
-        eHat180_B = sHatBdyCmd.cross(v1);
-    }
-    eHat180_B.normalize();
-    return eHat180_B;
 }
 
 // ---------------------------------------------------------------------------
@@ -94,15 +82,12 @@ inline void regressionTestSunSafePoint(std::vector<float> sunVector,
     alg.setOmega_RN_B(omega_RN_B_cfg);
 
     Eigen::Vector3f algSHat = alg.getSHatBdyCmd();
-    Eigen::Vector3f eHat180_B = computeEHat180(algSHat);
-
-    alg.reset();
 
     SunSafePointOutput output{};
     EXPECT_NO_THROW(output = alg.update(sunVec, omega_BN_B));
 
     auto reference =
-        referenceUpdate(sunVec, omega_BN_B, smallAngle, sunAxisSpinRate, algSHat, omega_RN_B_cfg, eHat180_B);
+        referenceUpdate(sunVec, omega_BN_B, smallAngle, sunAxisSpinRate, algSHat, omega_RN_B_cfg);
 
     // Compare MRPs nominal and shadow set
     Eigen::Vector3f sigmaOut = output.sigma_BR;
@@ -145,7 +130,6 @@ inline void propertySigmaBrNormBounded(std::vector<float> sunVector) {
     SunSafePointAlgorithm alg{};
     alg.setSmallAngle(0.001F);
     alg.setSHatBdyCmd(Eigen::Vector3f{0.0F, 0.0F, 1.0F});
-    alg.reset();
 
     Eigen::Vector3f omega_BN_B{0.01F, -0.02F, 0.03F};
     auto output = alg.update(sunVec, omega_BN_B);
@@ -162,7 +146,6 @@ inline void propertyOmegaBrIdentity(std::vector<float> sunVector, std::vector<fl
     alg.setSunAxisSpinRate(0.5F);
     alg.setSHatBdyCmd(Eigen::Vector3f{0.0F, 0.0F, 1.0F});
     alg.setOmega_RN_B(Eigen::Vector3f{0.1F, -0.2F, 0.3F});
-    alg.reset();
 
     auto output = alg.update(sunVec, omega_BN_B);
     Eigen::Vector3f expected = omega_BN_B - output.omega_RN_B;
@@ -180,7 +163,6 @@ inline void propertyOutputIsFinite(std::vector<float> sunVector) {
     alg.setSunAxisSpinRate(1.0F);
     alg.setSHatBdyCmd(Eigen::Vector3f{0.0F, 0.0F, 1.0F});
     alg.setOmega_RN_B(Eigen::Vector3f{0.1F, 0.2F, 0.3F});
-    alg.reset();
 
     Eigen::Vector3f omega_BN_B{5.0F, -3.0F, 1.0F};
     auto output = alg.update(sunVec, omega_BN_B);

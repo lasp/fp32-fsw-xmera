@@ -86,7 +86,6 @@ TEST(SunSafePointTest, SigmaBrZeroWhenSunNotVisible) {
     alg.setSmallAngle(0.01F);
     alg.setSHatBdyCmd(Eigen::Vector3f{0.0F, 0.0F, 1.0F});
     alg.setOmega_RN_B(Eigen::Vector3f{0.1F, 0.0F, 0.0F});
-    alg.reset();
 
     Eigen::Vector3f omega_BN_B{0.01F, -0.02F, 0.03F};
     auto output = alg.update(Eigen::Vector3f::Zero(), omega_BN_B);
@@ -98,7 +97,6 @@ TEST(SunSafePointTest, SigmaBrZeroWhenAligned) {
     SunSafePointAlgorithm alg{};
     alg.setSmallAngle(0.01F);
     alg.setSHatBdyCmd(Eigen::Vector3f{0.0F, 0.0F, 1.0F});
-    alg.reset();
 
     // Sun direction exactly along sHatBdyCmd
     Eigen::Vector3f sunVec{0.0F, 0.0F, 5.0F};
@@ -113,7 +111,6 @@ TEST(SunSafePointTest, SigmaBrOrthogonalToBothVectors) {
     SunSafePointAlgorithm alg{};
     alg.setSmallAngle(0.001F);
     alg.setSHatBdyCmd(Eigen::Vector3f{0.0F, 0.0F, 1.0F});
-    alg.reset();
 
     // Normal case: not aligned, not opposite
     Eigen::Vector3f sunVec{1.0F, 1.0F, 0.0F};
@@ -133,7 +130,6 @@ TEST(SunSafePointTest, OmegaRnParallelToSunVec) {
     alg.setSmallAngle(0.01F);
     alg.setSunAxisSpinRate(2.0F);
     alg.setSHatBdyCmd(Eigen::Vector3f{0.0F, 0.0F, 1.0F});
-    alg.reset();
 
     Eigen::Vector3f sunVec{1.0F, 2.0F, 3.0F};
     Eigen::Vector3f omega_BN_B = Eigen::Vector3f::Zero();
@@ -151,12 +147,11 @@ TEST(SunSafePointTest, OmegaRnParallelToSunVec) {
 // Edge-case tests
 // ---------------------------------------------------------------------------
 
-// Sun exactly at 180° from sHatBdyCmd uses eHat180_B fallback axis.
+// Sun exactly at 180° from sHatBdyCmd uses the unitOrthogonal() fallback axis.
 TEST(SunSafePointTest, SunOpposite180) {
     SunSafePointAlgorithm alg{};
     alg.setSmallAngle(0.01F);
     alg.setSHatBdyCmd(Eigen::Vector3f{0.0F, 0.0F, 1.0F});
-    alg.reset();
 
     Eigen::Vector3f sunVec{0.0F, 0.0F, -1.0F};
     Eigen::Vector3f omega_BN_B = Eigen::Vector3f::Zero();
@@ -168,8 +163,7 @@ TEST(SunSafePointTest, SunOpposite180) {
 
     // Verify against reference
     Eigen::Vector3f sHat = alg.getSHatBdyCmd();
-    Eigen::Vector3f eHat180_B = computeEHat180(sHat);
-    auto reference = referenceUpdate(sunVec, omega_BN_B, 0.01F, 0.0F, sHat, Eigen::Vector3f::Zero(), eHat180_B);
+    auto reference = referenceUpdate(sunVec, omega_BN_B, 0.01F, 0.0F, sHat, Eigen::Vector3f::Zero());
     for (int i = 0; i < 3; ++i) {
         EXPECT_NEAR(output.sigma_BR(i), reference.sigma_BR(i), 1e-5F);
     }
@@ -180,7 +174,6 @@ TEST(SunSafePointTest, SunExactlyAligned) {
     SunSafePointAlgorithm alg{};
     alg.setSmallAngle(0.01F);
     alg.setSHatBdyCmd(Eigen::Vector3f{0.0F, 0.0F, 1.0F});
-    alg.reset();
 
     Eigen::Vector3f sunVec{0.0F, 0.0F, 1.0F};
     Eigen::Vector3f omega_BN_B{0.01F, -0.02F, 0.03F};
@@ -197,7 +190,6 @@ TEST(SunSafePointTest, SmallNonZeroSunVectorIsVisible) {
     alg.setSmallAngle(0.01F);
     alg.setSHatBdyCmd(Eigen::Vector3f{0.0F, 0.0F, 1.0F});
     alg.setOmega_RN_B(Eigen::Vector3f{0.5F, 0.0F, 0.0F});
-    alg.reset();
 
     Eigen::Vector3f omega_BN_B{0.01F, -0.02F, 0.03F};
 
@@ -213,14 +205,13 @@ TEST(SunSafePointTest, SmallNonZeroSunVectorIsVisible) {
     EXPECT_FLOAT_EQ(outputZero.omega_RN_B(0), 0.5F);
 }
 
-// sHatBdyCmd along x-axis: tests eHat180_B fallback to cross with [0,1,0].
-TEST(SunSafePointTest, SHatAlongXAxisFallback) {
+// sHatBdyCmd along x-axis with sun at 180° opposition: produces a finite, non-zero sigma_BR.
+TEST(SunSafePointTest, SHatAlongXAxis180Opposition) {
     SunSafePointAlgorithm alg{};
     alg.setSmallAngle(0.01F);
     alg.setSHatBdyCmd(Eigen::Vector3f{1.0F, 0.0F, 0.0F});
-    alg.reset();
 
-    // Sun opposite to sHat (along -x): should use eHat180_B computed from cross([1,0,0], [0,1,0])
+    // Sun opposite to sHat (along -x): exercises the unitOrthogonal() fallback branch
     Eigen::Vector3f sunVec{-1.0F, 0.0F, 0.0F};
     Eigen::Vector3f omega_BN_B = Eigen::Vector3f::Zero();
     auto output = alg.update(sunVec, omega_BN_B);
@@ -230,10 +221,6 @@ TEST(SunSafePointTest, SHatAlongXAxisFallback) {
     EXPECT_TRUE(std::isfinite(output.sigma_BR(0)));
     EXPECT_TRUE(std::isfinite(output.sigma_BR(1)));
     EXPECT_TRUE(std::isfinite(output.sigma_BR(2)));
-
-    // Verify eHat180_B is orthogonal to sHat = [1,0,0]
-    Eigen::Vector3f eHat180 = computeEHat180(alg.getSHatBdyCmd());
-    EXPECT_NEAR(eHat180.dot(alg.getSHatBdyCmd()), 0.0F, 1e-6F);
 }
 
 // Large unnormalized sun vector should produce correct results.
@@ -241,7 +228,6 @@ TEST(SunSafePointTest, LargeUnnormalizedSunVector) {
     SunSafePointAlgorithm alg{};
     alg.setSmallAngle(0.001F);
     alg.setSHatBdyCmd(Eigen::Vector3f{0.0F, 0.0F, 1.0F});
-    alg.reset();
 
     Eigen::Vector3f sunVec{1000.0F, 1000.0F, 0.0F};
     Eigen::Vector3f omega_BN_B = Eigen::Vector3f::Zero();
@@ -262,7 +248,6 @@ TEST(SunSafePointTest, ZeroSpinRateZeroOmegaRn) {
     alg.setSmallAngle(0.01F);
     alg.setSunAxisSpinRate(0.0F);
     alg.setSHatBdyCmd(Eigen::Vector3f{0.0F, 0.0F, 1.0F});
-    alg.reset();
 
     Eigen::Vector3f sunVec{1.0F, 1.0F, 0.0F};
     Eigen::Vector3f omega_BN_B{0.5F, -0.3F, 0.1F};
@@ -284,7 +269,6 @@ TEST(SunSafePointTest, NegativeSpinRate) {
     alg.setSmallAngle(0.01F);
     alg.setSunAxisSpinRate(-2.0F);
     alg.setSHatBdyCmd(Eigen::Vector3f{0.0F, 0.0F, 1.0F});
-    alg.reset();
 
     Eigen::Vector3f sunVec{1.0F, 0.0F, 0.0F};
     Eigen::Vector3f omega_BN_B = Eigen::Vector3f::Zero();

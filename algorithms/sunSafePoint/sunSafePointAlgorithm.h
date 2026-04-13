@@ -10,7 +10,6 @@ class SunSafePointAlgorithm {
     SunSafePointAlgorithm() = default;
     ~SunSafePointAlgorithm() = default;
 
-    void reset();
     SunSafePointOutput update(const Eigen::Vector3f& vehSunPntBdy, const Eigen::Vector3f& omega_BN_B) const;
 
     float getSmallAngle() const;
@@ -27,8 +26,6 @@ class SunSafePointAlgorithm {
     float sunAxisSpinRate{};      //!< [rad/s] Desired constant spin rate about sun heading vector
     Eigen::Vector3f omega_RN_B{};  //!< [rad/s] Desired body rate vector if no sun direction is available
     Eigen::Vector3f sHatBdyCmd{};  //!< Desired body vector to point at the sun
-    
-    Eigen::Vector3f eHat180_B{};   //!< Eigen axis to use if commanded axis is 180 from sun axis
 };
 
 #endif

@@ -3,7 +3,8 @@
 #include <architecture/utilities/eigenSupport.h>
 #include <stdexcept>
 
-/*! Reset method for the BSK module adapter interface. This method also calls the algorithm reset method.
+/*! Reset method for the BSK module adapter interface. Validates that required input messages
+ are linked.
  @return void
  @param callTime [ns] Time the method is called
 */
@@ -14,9 +15,6 @@ void SunSafePoint::reset(uint64_t callTime) {
     if (!this->imuInMsg.isLinked()) {
         throw std::invalid_argument("sunSafePoint.imuInMsg wasn't connected.");
     }
-
-    // Call the algorithm reset method
-    this->algorithm.reset();
 }
 
 /*! Update method for the BSK module adapter interface. This method also calls the algorithm update method.

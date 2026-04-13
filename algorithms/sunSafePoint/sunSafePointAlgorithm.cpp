@@ -3,22 +3,9 @@
 #include "architecture/utilities/rigidBodyKinematics.hpp"
 #include "utilities/freestandingInvalidArgument.h"
 #include "../utilities/safeMath.h"
+#include <Eigen/Geometry>
 #include <math.h>
 #include <numbers>
-
-/*! Reset method for the sunSafePoint guidance algorithm.
- @return void
-*/
-void SunSafePointAlgorithm::reset() {
-    // Compute an Eigen axis orthogonal to sHatBdyCmd
-    Eigen::Vector3f v1 = {1.0F, 0.0F, 0.0F};
-    this->eHat180_B = this->sHatBdyCmd.cross(v1);
-    if (this->eHat180_B.norm() < 0.1F) {
-        v1 = {0.0F, 1.0F, 0.0F};
-        this->eHat180_B = this->sHatBdyCmd.cross(v1);
-    }
-    this->eHat180_B.normalize();
-}
 
 /*! Update method for the sunSafePoint guidance algorithm. This method takes the estimated body-observed sun vector
  and computes the current attitude/attitude rate errors to pass on to control.
@@ -45,7 +32,7 @@ SunSafePointOutput SunSafePointAlgorithm::update(const Eigen::Vector3f& vehSunPn
             Eigen::Vector3f e_hat{};  // Eigen Axis
             // The commanded body vector nearly is opposite the sun heading
             if (static_cast<float>(std::numbers::pi) - sunAngleErr < this->smallAngle) {
-                e_hat = this->eHat180_B;
+                e_hat = this->sHatBdyCmd.unitOrthogonal();  // find orthogonal unit vector to sHatBdyCmd
             // Normal case where sun and commanded body vectors are not aligned
             } else {
                 e_hat = rHat_SB_B.cross(this->sHatBdyCmd);
