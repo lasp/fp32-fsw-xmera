@@ -119,8 +119,9 @@ void SunSafePointAlgorithm::setOmega_RN_B(const Eigen::Vector3f& omega) { this->
  @param sHat Desired body vector to point at the sun
 */
 void SunSafePointAlgorithm::setSHatBdyCmd(const Eigen::Vector3f& sHat) {
-    if (sHat.norm() <= 1e-8F) {
-        FSW_THROW_INVALID_ARGUMENT("sunSafePoint: sHatBdyCmd must be a non-zero vector");
+    constexpr float normTolerance = 1e-3F;
+    if (fabsf(sHat.stableNorm() - 1.0F) > normTolerance) {
+        FSW_THROW_INVALID_ARGUMENT("sunSafePoint: sHatBdyCmd norm must be within 1e-3 to 1.0.");
     }
     this->sHatBdyCmd = sHat.normalized();
 }

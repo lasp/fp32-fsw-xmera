@@ -76,11 +76,12 @@ inline void regressionTestSunSafePoint(std::vector<float> sunVector,
                                         float sunAxisSpinRate,
                                         std::vector<float> sHatBdyCmdVec,
                                         std::vector<float> omega_RN_B_cfgVec) {
-    // Filter out near-zero sHatBdyCmd (invalid for the algorithm)
+    // The setter requires a (near-)unit vector; normalize the fuzz-generated input first.
     Eigen::Vector3f sHatBdyCmd(sHatBdyCmdVec[0], sHatBdyCmdVec[1], sHatBdyCmdVec[2]);
-    if (sHatBdyCmd.norm() < 1e-6f) {
-        return;  // skip: sHatBdyCmd must be non-zero
+    if (sHatBdyCmd.norm() < 1e-3f) {
+        return;
     }
+    Eigen::Vector3f normalizedSHat = sHatBdyCmd.normalized();
 
     Eigen::Vector3f sunVec(sunVector[0], sunVector[1], sunVector[2]);
     Eigen::Vector3f omega_BN_B(omega_BN_B_Vec[0], omega_BN_B_Vec[1], omega_BN_B_Vec[2]);
@@ -89,12 +90,11 @@ inline void regressionTestSunSafePoint(std::vector<float> sunVector,
     SunSafePointAlgorithm alg{};
     alg.setSmallAngle(smallAngle);
     alg.setSunAxisSpinRate(sunAxisSpinRate);
-    alg.setSHatBdyCmd(sHatBdyCmd);
+    alg.setSHatBdyCmd(normalizedSHat);
     alg.setOmega_RN_B(omega_RN_B_cfg);
 
-    // The setter normalizes sHatBdyCmd, so retrieve the normalized version for the reference
-    Eigen::Vector3f normalizedSHat = alg.getSHatBdyCmd();
-    Eigen::Vector3f eHat180_B = computeEHat180(normalizedSHat);
+    Eigen::Vector3f algSHat = alg.getSHatBdyCmd();
+    Eigen::Vector3f eHat180_B = computeEHat180(algSHat);
 
     alg.reset();
 
@@ -102,7 +102,7 @@ inline void regressionTestSunSafePoint(std::vector<float> sunVector,
     EXPECT_NO_THROW(output = alg.update(sunVec, omega_BN_B));
 
     auto reference =
-        referenceUpdate(sunVec, omega_BN_B, smallAngle, sunAxisSpinRate, normalizedSHat, omega_RN_B_cfg, eHat180_B);
+        referenceUpdate(sunVec, omega_BN_B, smallAngle, sunAxisSpinRate, algSHat, omega_RN_B_cfg, eHat180_B);
 
     // Compare MRPs nominal and shadow set
     Eigen::Vector3f sigmaOut = output.sigma_BR;

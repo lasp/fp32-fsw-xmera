@@ -26,8 +26,11 @@ TEST(SunSafePointTest, SetupTest) {
     EXPECT_THROW(alg.setSmallAngle(0.0F), fsw::invalid_argument);
     EXPECT_THROW(alg.setSmallAngle(-0.01F), fsw::invalid_argument);
 
-    // sHatBdyCmd: zero vector should throw
+    // sHatBdyCmd: norm must be within 1e-3 of 1.0
     EXPECT_THROW(alg.setSHatBdyCmd(Eigen::Vector3f::Zero()), fsw::invalid_argument);
+    EXPECT_THROW(alg.setSHatBdyCmd(Eigen::Vector3f{2.0F, 0.0F, 0.0F}), fsw::invalid_argument);
+    EXPECT_THROW(alg.setSHatBdyCmd(Eigen::Vector3f{3.0F, 4.0F, 0.0F}), fsw::invalid_argument);
+    EXPECT_THROW(alg.setSHatBdyCmd(Eigen::Vector3f{0.5F, 0.0F, 0.0F}), fsw::invalid_argument);
 
     // sunAxisSpinRate and omega_RN_B: no validation, should not throw
     EXPECT_NO_THROW(alg.setSunAxisSpinRate(-5.0F));
@@ -48,19 +51,14 @@ TEST(SunSafePointTest, SetupTest) {
         EXPECT_FLOAT_EQ(retrieved_omega(i), omega(i));
     }
 
-    // sHatBdyCmd: verify auto-normalization
-    alg.setSHatBdyCmd(Eigen::Vector3f{2.0F, 0.0F, 0.0F});
+    // sHatBdyCmd: unit vector accepted and round-trips
+    Eigen::Vector3f sHatUnit{0.6F, 0.8F, 0.0F};
+    EXPECT_NO_THROW(alg.setSHatBdyCmd(sHatUnit));
     Eigen::Vector3f retrieved_sHat = alg.getSHatBdyCmd();
-    EXPECT_NEAR(retrieved_sHat(0), 1.0F, 1e-6F);
-    EXPECT_NEAR(retrieved_sHat(1), 0.0F, 1e-6F);
-    EXPECT_NEAR(retrieved_sHat(2), 0.0F, 1e-6F);
-
-    // sHatBdyCmd: non-trivial normalization
-    alg.setSHatBdyCmd(Eigen::Vector3f{3.0F, 4.0F, 0.0F});
-    retrieved_sHat = alg.getSHatBdyCmd();
     EXPECT_NEAR(retrieved_sHat.norm(), 1.0F, 1e-6F);
     EXPECT_NEAR(retrieved_sHat(0), 0.6F, 1e-6F);
     EXPECT_NEAR(retrieved_sHat(1), 0.8F, 1e-6F);
+    EXPECT_NEAR(retrieved_sHat(2), 0.0F, 1e-6F);
 }
 
 // ---------------------------------------------------------------------------
