@@ -9,34 +9,42 @@
 #include <Eigen/Core>
 
 AttTrackingErrorAlgorithm* AttTrackingErrorAlgorithm_create(void) {
-    return reinterpret_cast<AttTrackingErrorAlgorithm*>(new ::AttTrackingErrorAlgorithm());
+    // clang-format off
+    return reinterpret_cast<AttTrackingErrorAlgorithm*>(new ::AttTrackingErrorAlgorithm());  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+    // clang-format on
 }
 
 void AttTrackingErrorAlgorithm_destroy(AttTrackingErrorAlgorithm* self) {
-    delete reinterpret_cast<::AttTrackingErrorAlgorithm*>(self);
+    // clang-format off
+    delete reinterpret_cast<::AttTrackingErrorAlgorithm*>(self);  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast, cppcoreguidelines-owning-memory)
+    // clang-format on
 }
 
-void AttTrackingErrorAlgorithm_reset(AttTrackingErrorAlgorithm* self, uint64_t callTime) {
-    reinterpret_cast<::AttTrackingErrorAlgorithm*>(self)->reset(callTime);
-}
+AttGuidOutput_c AttTrackingErrorAlgorithm_update(AttTrackingErrorAlgorithm* self,
+                                                 AttNavInput_c navIn,
+                                                 AttRefInput_c refIn) {
+    // Convert C navigation input to Eigen-based struct
+    AttNavInput nav{};
+    nav.sigma_BN << navIn.sigma_BN.data[0], navIn.sigma_BN.data[1], navIn.sigma_BN.data[2];
+    nav.omega_BN_B << navIn.omega_BN_B.data[0], navIn.omega_BN_B.data[1], navIn.omega_BN_B.data[2];
 
-AttGuidMsgF32Payload AttTrackingErrorAlgorithm_update(AttTrackingErrorAlgorithm* self,
-                                                      AttRefMsgF32Payload* attRefInMsg,
-                                                      NavAttMsgF32Payload* attNavInMsg) {
-    return reinterpret_cast<::AttTrackingErrorAlgorithm*>(self)->update(*attRefInMsg, *attNavInMsg);
-}
+    // Convert C reference input to Eigen-based struct
+    AttRefInput ref{};
+    ref.sigma_RN << refIn.sigma_RN.data[0], refIn.sigma_RN.data[1], refIn.sigma_RN.data[2];
+    ref.omega_RN_N << refIn.omega_RN_N.data[0], refIn.omega_RN_N.data[1], refIn.omega_RN_N.data[2];
+    ref.domega_RN_N << refIn.domega_RN_N.data[0], refIn.domega_RN_N.data[1], refIn.domega_RN_N.data[2];
 
-void AttTrackingErrorAlgorithm_setSigma_R0R(AttTrackingErrorAlgorithm* self, Vector3f_c sigma_R0R) {
-    Eigen::Vector3f vec;
-    vec << sigma_R0R.data[0], sigma_R0R.data[1], sigma_R0R.data[2];
-    reinterpret_cast<::AttTrackingErrorAlgorithm*>(self)->setSigma_R0R(vec);
-}
+    // Call the algorithm
+    // clang-format off
+    const AttGuidOutput output = reinterpret_cast<::AttTrackingErrorAlgorithm*>(self)->update(nav, ref);  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+    // clang-format on
 
-Vector3f_c AttTrackingErrorAlgorithm_getSigma_R0R(AttTrackingErrorAlgorithm* self) {
-    Eigen::Vector3f vec = reinterpret_cast<::AttTrackingErrorAlgorithm*>(self)->getSigma_R0R();
-    Vector3f_c out;
-    out.data[0] = vec[0];
-    out.data[1] = vec[1];
-    out.data[2] = vec[2];
+    // Convert Eigen output back to C-compatible struct
+    AttGuidOutput_c out{};
+    out.sigma_BR = {output.sigma_BR[0], output.sigma_BR[1], output.sigma_BR[2]};
+    out.omega_BR_B = {output.omega_BR_B[0], output.omega_BR_B[1], output.omega_BR_B[2]};
+    out.omega_RN_B = {output.omega_RN_B[0], output.omega_RN_B[1], output.omega_RN_B[2]};
+    out.domega_RN_B = {output.domega_RN_B[0], output.domega_RN_B[1], output.domega_RN_B[2]};
+
     return out;
 }

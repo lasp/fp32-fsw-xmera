@@ -3,12 +3,9 @@
  Copyright (c) 2025, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
  */
 
-#ifndef F32XIMERA_ATTTRACKINGERRORALGORITHM_C_H
-#define F32XIMERA_ATTTRACKINGERRORALGORITHM_C_H
+#ifndef F32XMERA_ATTTRACKINGERRORALGORITHM_C_H
+#define F32XMERA_ATTTRACKINGERRORALGORITHM_C_H
 
-#include "msgPayloadDef/AttGuidMsgF32Payload.h"
-#include "msgPayloadDef/AttRefMsgF32Payload.h"
-#include "msgPayloadDef/NavAttMsgF32Payload.h"
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -28,6 +25,33 @@ typedef struct {
 } Vector3f_c;
 
 /**
+ * @brief C-compatible navigation attitude input.
+ */
+typedef struct {
+    Vector3f_c sigma_BN;
+    Vector3f_c omega_BN_B;
+} AttNavInput_c;
+
+/**
+ * @brief C-compatible reference attitude input.
+ */
+typedef struct {
+    Vector3f_c sigma_RN;
+    Vector3f_c omega_RN_N;
+    Vector3f_c domega_RN_N;
+} AttRefInput_c;
+
+/**
+ * @brief C-compatible attitude guidance output.
+ */
+typedef struct {
+    Vector3f_c sigma_BR;
+    Vector3f_c omega_BR_B;
+    Vector3f_c omega_RN_B;
+    Vector3f_c domega_RN_B;
+} AttGuidOutput_c;
+
+/**
  * @brief Construct a new AttTrackingErrorAlgorithm instance.
  * @return Pointer to a new AttTrackingErrorAlgorithm (must be destroyed).
  */
@@ -40,35 +64,15 @@ AttTrackingErrorAlgorithm* AttTrackingErrorAlgorithm_create(void);
 void AttTrackingErrorAlgorithm_destroy(AttTrackingErrorAlgorithm* self);
 
 /**
- * @brief Reset the algorithm state.
- * @param self     Pointer to the instance.
- * @param callTime Time stamp for reset.
- */
-void AttTrackingErrorAlgorithm_reset(AttTrackingErrorAlgorithm* self, uint64_t callTime);
-/**
  * @brief Run the update step.
- * @param self         Pointer to the instance.
- * @param attRefInMsg  Pointer to reference-frame message payload.
- * @param attNavInMsg  Pointer to navigation attitude message payload.
- * @return AttGuidMsgPayload  The computed guidance message.
+ * @param self   Pointer to the instance.
+ * @param navIn  C-compatible navigation attitude input.
+ * @param refIn  C-compatible reference attitude input.
+ * @return AttGuidOutput_c  The computed guidance output.
  */
-AttGuidMsgF32Payload AttTrackingErrorAlgorithm_update(AttTrackingErrorAlgorithm* self,
-                                                      AttRefMsgF32Payload* attRefInMsg,
-                                                      NavAttMsgF32Payload* attNavInMsg);
-
-/**
- * @brief Set the σ_R0R three-vector.
- * @param self      Pointer to the instance.
- * @param sigma_R0R 3-vector in flattened POD format.
- */
-void AttTrackingErrorAlgorithm_setSigma_R0R(AttTrackingErrorAlgorithm* self, Vector3f_c sigma_R0R);
-
-/**
- * @brief Get the current σ_R0R three-vector.
- * @param self Pointer to the instance.
- * @return Vector3f_c  Flattened POD containing the vector.
- */
-Vector3f_c AttTrackingErrorAlgorithm_getSigma_R0R(AttTrackingErrorAlgorithm* self);
+AttGuidOutput_c AttTrackingErrorAlgorithm_update(AttTrackingErrorAlgorithm* self,
+                                                 AttNavInput_c navIn,
+                                                 AttRefInput_c refIn);
 
 #ifdef __cplusplus
 }  // extern "C"

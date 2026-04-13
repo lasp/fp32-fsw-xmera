@@ -3,86 +3,81 @@
 # Copyright (c) 2025, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
 
 import numpy as np
-
 from xmera.utilities import SimulationBaseClass
 from xmera.fp32 import attTrackingErrorF32
 from xmera.utilities import macros
 from xmera.utilities import RigidBodyKinematics as rbk
 from xmera.architecture import messaging
 
-def test_attTrackingError():
-    unitTaskName = "unitTask"
-    unitProcessName = "TestProcess"
+def test_att_tracking_error():
+    unit_task_name = "unitTask"
+    unit_process_name = "TestProcess"
 
     # Create a sim module as an empty container
-    unitTestSim = SimulationBaseClass.SimBaseClass()
+    unit_test_sim = SimulationBaseClass.SimBaseClass()
 
     # Create test thread
-    testProcessRate = macros.sec2nano(0.5)
-    testProc = unitTestSim.CreateNewProcess(unitProcessName)
-    testProc.addTask(unitTestSim.CreateNewTask(unitTaskName, testProcessRate))
+    test_process_rate = macros.sec2nano(0.5)
+    test_proc = unit_test_sim.CreateNewProcess(unit_process_name)
+    test_proc.addTask(unit_test_sim.CreateNewTask(unit_task_name, test_process_rate))
 
     # Create instance of attTrackingError
-    attitudeTrackingError = attTrackingErrorF32.AttTrackingError()
-    attitudeTrackingError.modelTag = "attTrackingError"
-    unitTestSim.AddModelToTask(unitTaskName, attitudeTrackingError)
-    sigma_R0R = [0.01, 0.05, -0.55]
-    attitudeTrackingError.setSigma_R0R(sigma_R0R)
+    attitude_tracking_error = attTrackingErrorF32.AttTrackingError()
+    attitude_tracking_error.modelTag = "attTrackingError"
+    unit_test_sim.AddModelToTask(unit_task_name, attitude_tracking_error)
 
     # Create navigation message
-    NavStateOutData = messaging.NavAttMsgPayload()
+    nav_state_out_data = messaging.NavAttMsgF32Payload()
     sigma_BN = [0.25, -0.45, 0.75]
-    NavStateOutData.sigma_BN = sigma_BN
+    nav_state_out_data.sigma_BN = sigma_BN
     omega_BN_B = [-0.015, -0.012, 0.005]
-    NavStateOutData.omega_BN_B = omega_BN_B
-    navStateInMsg = messaging.NavAttMsg().write(NavStateOutData)
+    nav_state_out_data.omega_BN_B = omega_BN_B
+    nav_state_in_msg = messaging.NavAttMsgF32().write(nav_state_out_data)
 
     # Create reference frame message
-    RefStateOutData = messaging.AttRefMsgPayload()
+    ref_state_out_data = messaging.AttRefMsgF32Payload()
     sigma_RN = [0.35, -0.25, 0.15]
-    RefStateOutData.sigma_RN = sigma_RN
+    ref_state_out_data.sigma_RN = sigma_RN
     omega_RN_N = [0.018, -0.032, 0.015]
-    RefStateOutData.omega_RN_N = omega_RN_N
+    ref_state_out_data.omega_RN_N = omega_RN_N
     domega_RN_N = [0.048, -0.022, 0.025]
-    RefStateOutData.domega_RN_N = domega_RN_N
-    refInMsg = messaging.AttRefMsg().write(RefStateOutData)
+    ref_state_out_data.domega_RN_N = domega_RN_N
+    ref_in_msg = messaging.AttRefMsgF32().write(ref_state_out_data)
 
     # Set up data logging
-    attGuidOutMsgLog = attitudeTrackingError.attGuidOutMsg.recorder()
-    unitTestSim.AddModelToTask(unitTaskName, attGuidOutMsgLog)
+    att_guid_out_msg_log = attitude_tracking_error.attGuidOutMsg.recorder()
+    unit_test_sim.AddModelToTask(unit_task_name, att_guid_out_msg_log)
 
-    # Connect messages
-    attitudeTrackingError.attNavInMsg.subscribeTo(navStateInMsg)
-    attitudeTrackingError.attRefInMsg.subscribeTo(refInMsg)
+    # Connect module input messages
+    attitude_tracking_error.attNavInMsg.subscribeTo(nav_state_in_msg)
+    attitude_tracking_error.attRefInMsg.subscribeTo(ref_in_msg)
 
     # Run the simulation
-    unitTestSim.InitializeSimulation()
-    unitTestSim.ConfigureStopTime(macros.sec2nano(0.3))
-    unitTestSim.ExecuteSimulation()
+    unit_test_sim.InitializeSimulation()
+    unit_test_sim.ConfigureStopTime(macros.sec2nano(0.3))
+    unit_test_sim.ExecuteSimulation()
 
-    # Extract logged data
-    sigma_BR = attGuidOutMsgLog.sigma_BR[0]
-    omega_BR_B = attGuidOutMsgLog.omega_BR_B[0]
-    omega_RN_B = attGuidOutMsgLog.omega_RN_B[0]
-    domega_RN_B = attGuidOutMsgLog.domega_RN_B[0]
+    # Extract module output data from the message logger
+    sigma_BR = att_guid_out_msg_log.sigma_BR[0]
+    omega_BR_B = att_guid_out_msg_log.omega_BR_B[0]
+    omega_RN_B = att_guid_out_msg_log.omega_RN_B[0]
+    domega_RN_B = att_guid_out_msg_log.domega_RN_B[0]
 
     # Compute truth values for test check
-    sigma_RN2 = rbk.addMRP(np.array(sigma_RN), -np.array(sigma_R0R))
-    dcm_RN = rbk.MRP2C(sigma_RN2)
+    dcm_RN = rbk.MRP2C(np.array(sigma_RN))
     dcm_BN = rbk.MRP2C(np.array(sigma_BN))
     dcm_BR = np.dot(dcm_BN, dcm_RN.T)
-    sigma_BRTruth = rbk.C2MRP(dcm_BR)
-    omega_BR_BTruth = np.array(omega_BN_B) - np.dot(dcm_BN, np.array(omega_RN_N))
-    omega_RN_BTruth = np.dot(dcm_BN, np.array(omega_RN_N))
-    domega_RN_BTruth = np.dot(dcm_BN, np.array(domega_RN_N))
+    sigma_BR_truth = rbk.C2MRP(dcm_BR)
+    omega_BR_B_truth = np.array(omega_BN_B) - np.dot(dcm_BN, np.array(omega_RN_N))
+    omega_RN_B_truth = np.dot(dcm_BN, np.array(omega_RN_N))
+    domega_RN_B_truth = np.dot(dcm_BN, np.array(domega_RN_N))
 
-    # Check truth values with module output
-    accuracy = 1e-7
-    np.testing.assert_allclose(sigma_BRTruth, sigma_BR, atol=accuracy, verbose=True)
-    np.testing.assert_allclose(omega_BR_BTruth, omega_BR_B, atol=accuracy, verbose=True)
-    np.testing.assert_allclose(omega_RN_BTruth, omega_RN_B, atol=accuracy, verbose=True)
-    np.testing.assert_allclose(domega_RN_BTruth, domega_RN_B, atol=accuracy, verbose=True)
-
+    # Verify module outputs match computed truth values
+    tolerance = 1e-5
+    np.testing.assert_allclose(sigma_BR_truth, sigma_BR, atol=tolerance, verbose=True)
+    np.testing.assert_allclose(omega_BR_B_truth, omega_BR_B, atol=tolerance, verbose=True)
+    np.testing.assert_allclose(omega_RN_B_truth, omega_RN_B, atol=tolerance, verbose=True)
+    np.testing.assert_allclose(domega_RN_B_truth, domega_RN_B, atol=tolerance, verbose=True)
 
 if __name__ == "__main__":
-    test_attTrackingError()
+    test_att_tracking_error()

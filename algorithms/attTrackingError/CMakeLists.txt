@@ -9,6 +9,7 @@ xmera_add_swig_module("${module}")
 target_sources("${module}" PRIVATE
   attTrackingError.cpp
   attTrackingErrorAlgorithm.cpp
+  attTrackingErrorAlgorithm_c.cpp
 )
 
 target_include_directories("${module}" PUBLIC "..")

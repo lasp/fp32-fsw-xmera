@@ -16,6 +16,6 @@
 
 %include "attTrackingError.h"
 
-%include <architecture/msgPayloadDef/NavAttMsgPayload.h>
-%include <architecture/msgPayloadDef/AttGuidMsgPayload.h>
-%include <architecture/msgPayloadDef/AttRefMsgPayload.h>
+%include <msgPayloadDef/NavAttMsgF32Payload.h>
+%include <msgPayloadDef/AttGuidMsgF32Payload.h>
+%include <msgPayloadDef/AttRefMsgF32Payload.h>
