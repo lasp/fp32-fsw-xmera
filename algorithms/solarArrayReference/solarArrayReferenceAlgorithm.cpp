@@ -37,7 +37,7 @@ float SolarArrayReferenceAlgorithm::update(const Eigen::Vector3f& sigma_BN,
             /*! compute reference angle and store in output */
             if (sunDriveAngle < this->alignmentThreshold || rHat_SB_B.stableNorm() == 0.0F) {
                 // sun direction is nearly parallel to drive axis, no preferred rotation angle so set reference to current angle
-                thetaRef = safeAtan2f(safeSinf(theta), safeCosf(theta));  // wrap current theta between -pi and pi;
+                thetaRef = theta;
             } else {
                 /*! required solar array surface normal direction to align with Sun as well as possible */
                 const Eigen::Vector3f a2HatRef_B = (rHat_SB_B - this->a1Hat_B.dot(rHat_SB_B) * this->a1Hat_B).stableNormalized();
@@ -51,13 +51,16 @@ float SolarArrayReferenceAlgorithm::update(const Eigen::Vector3f& sigma_BN,
             break;
         }
         case TrackingMode::SPECIFIED_ANGLE: {
-            // wrap specified angle to [-pi, pi]
-            thetaRef = safeAtan2f(safeSinf(this->specifiedArrayAngle), safeCosf(this->specifiedArrayAngle));
+            thetaRef = this->specifiedArrayAngle;
             break;
         }
     }
 
-    return thetaRef;
+    thetaRef += this->offsetAngle;
+
+    const float thetaRefOut = safeAtan2f(safeSinf(thetaRef), safeCosf(thetaRef));
+
+    return thetaRefOut;
 }
 
 /*! Set the solar array drive axis and surface normal in body frame coordinates.
@@ -129,3 +132,14 @@ void SolarArrayReferenceAlgorithm::setSpecifiedArrayAngle(const float angle) { t
  *  @return float [rad] specified reference array angle (as stored, not wrapped)
  */
 float SolarArrayReferenceAlgorithm::getSpecifiedArrayAngle() const { return this->specifiedArrayAngle; }
+
+/*! Set the offset angle added to the computed reference angle before wrapping.
+ *  Any value is accepted; the update() method wraps the sum to [-pi, pi].
+ *  @param angle [rad] offset angle
+ */
+void SolarArrayReferenceAlgorithm::setOffsetAngle(const float angle) { this->offsetAngle = angle; }
+
+/*! Get the offset angle.
+ *  @return float [rad] offset angle (as stored, not wrapped)
+ */
+float SolarArrayReferenceAlgorithm::getOffsetAngle() const { return this->offsetAngle; }

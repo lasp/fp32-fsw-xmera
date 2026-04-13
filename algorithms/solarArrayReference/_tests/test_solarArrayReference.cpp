@@ -110,6 +110,20 @@ TEST(SolarArrayReferenceTest, SetupTest) {
     EXPECT_FLOAT_EQ(alg.getSpecifiedArrayAngle(), 0.5F);
     alg.setSpecifiedArrayAngle(-2.5F);
     EXPECT_FLOAT_EQ(alg.getSpecifiedArrayAngle(), -2.5F);
+
+    // Offset angle: default is zero
+    EXPECT_FLOAT_EQ(alg.getOffsetAngle(), 0.0F);
+
+    // Offset angle accepts any value (no setter validation; wrapped at update time)
+    EXPECT_NO_THROW(alg.setOffsetAngle(0.0F));
+    EXPECT_NO_THROW(alg.setOffsetAngle(-10.0F));
+    EXPECT_NO_THROW(alg.setOffsetAngle(10.0F));
+
+    // Offset angle round-trip stores the raw value
+    alg.setOffsetAngle(0.3F);
+    EXPECT_FLOAT_EQ(alg.getOffsetAngle(), 0.3F);
+    alg.setOffsetAngle(-1.7F);
+    EXPECT_FLOAT_EQ(alg.getOffsetAngle(), -1.7F);
 }
 
 // ---------------------------------------------------------------------------
@@ -220,4 +234,49 @@ TEST(SolarArrayReferenceTest, SpecifiedAngleModeIgnoresSun) {
                                Eigen::Vector3f{0.0F, 0.0F, 1.0F}, 1.5F);
     EXPECT_FLOAT_EQ(resultA, resultB);
     EXPECT_FLOAT_EQ(resultA, 0.8F);
+}
+
+// Offset angle is added to the AUTO_TRACK reference angle (verified via wrapping equivalence).
+TEST(SolarArrayReferenceTest, OffsetAngleAppliedAutoTrack) {
+    SolarArrayReferenceAlgorithm alg{};
+    alg.setSolarArrayAxes_B(Eigen::Vector3f{1.0F, 0.0F, 0.0F}, Eigen::Vector3f{0.0F, 1.0F, 0.0F});
+
+    // No offset: sun aligned with surface normal -> thetaRef = 0
+    float resultNoOffset = alg.update(Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(),
+                                      Eigen::Vector3f{0.0F, 1.0F, 0.0F}, 0.0F);
+    EXPECT_NEAR(resultNoOffset, 0.0F, 1e-5F);
+
+    // With offset 0.4: same scenario shifts result by 0.4
+    alg.setOffsetAngle(0.4F);
+    float resultWithOffset = alg.update(Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(),
+                                        Eigen::Vector3f{0.0F, 1.0F, 0.0F}, 0.0F);
+    EXPECT_NEAR(resultWithOffset, 0.4F, 1e-5F);
+}
+
+// Offset angle is added to the SPECIFIED_ANGLE result and the sum is wrapped to [-pi, pi].
+TEST(SolarArrayReferenceTest, OffsetAngleAppliedSpecifiedAngle) {
+    SolarArrayReferenceAlgorithm alg{};
+    alg.setSolarArrayAxes_B(Eigen::Vector3f{1.0F, 0.0F, 0.0F}, Eigen::Vector3f{0.0F, 1.0F, 0.0F});
+    alg.setTrackingMode(TrackingMode::SPECIFIED_ANGLE);
+    alg.setSpecifiedArrayAngle(0.5F);
+    alg.setOffsetAngle(0.2F);
+
+    float result = alg.update(Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(),
+                              Eigen::Vector3f{1.0F, 0.0F, 0.0F}, 0.0F);
+    // Expected: wrap(0.5 + 0.2) = 0.7
+    EXPECT_NEAR(result, 0.7F, 1e-5F);
+}
+
+// Offset angle that pushes the sum past pi wraps correctly to the negative side.
+TEST(SolarArrayReferenceTest, OffsetAngleWrapsPastPi) {
+    SolarArrayReferenceAlgorithm alg{};
+    alg.setSolarArrayAxes_B(Eigen::Vector3f{1.0F, 0.0F, 0.0F}, Eigen::Vector3f{0.0F, 1.0F, 0.0F});
+    alg.setTrackingMode(TrackingMode::SPECIFIED_ANGLE);
+    alg.setSpecifiedArrayAngle(2.0F);
+    alg.setOffsetAngle(2.0F);  // 2.0 + 2.0 = 4.0, which wraps to 4.0 - 2*pi ≈ -2.283
+
+    float result = alg.update(Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(),
+                              Eigen::Vector3f{1.0F, 0.0F, 0.0F}, 0.0F);
+    constexpr float pi = std::numbers::pi_v<float>;
+    EXPECT_NEAR(result, 4.0F - 2.0F * pi, 1e-5F);
 }

@@ -9,6 +9,7 @@
 %attribute(SolarArrayReference, float, alignmentThreshold, getAlignmentThreshold, setAlignmentThreshold)
 %attribute(SolarArrayReference, float, specifiedArrayAngle, getSpecifiedArrayAngle, setSpecifiedArrayAngle)
 %attribute(SolarArrayReference, TrackingMode, trackingMode, getTrackingMode, setTrackingMode)
+%attribute(SolarArrayReference, float, offsetAngle, getOffsetAngle, setOffsetAngle)
 
 %include <architecture/_GeneralModuleFiles/sys_model.i>
 %include <architecture/_GeneralModuleFiles/swig_conly_data.i>

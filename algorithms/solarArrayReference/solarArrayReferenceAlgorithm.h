@@ -26,6 +26,8 @@ class SolarArrayReferenceAlgorithm final {
     TrackingMode getTrackingMode() const;
     void setSpecifiedArrayAngle(float angle);
     float getSpecifiedArrayAngle() const;
+    void setOffsetAngle(float angle);
+    float getOffsetAngle() const;
 
    private:
     Eigen::Vector3f a1Hat_B{Eigen::Vector3f::Zero()};  //!< solar array drive axis in body frame coordinates
@@ -33,6 +35,7 @@ class SolarArrayReferenceAlgorithm final {
     float alignmentThreshold{1e-3F};  //!< [rad] alignment threshold angle between sun direction and drive axis
     TrackingMode trackingMode{TrackingMode::AUTO_TRACK};  //!< array tracking mode
     float specifiedArrayAngle{};  //!< [rad] specified reference array angle if tracking mode is specified angle
+    float offsetAngle{};    //!< [rad] offset angle to be added to determined reference angle
 };
 
 #endif  // F32XMERA_SOLAR_ARRAY_REFERENCE_ALGORITHM_H

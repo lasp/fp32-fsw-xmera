@@ -24,6 +24,8 @@ class SolarArrayReference : public SysModel {
     TrackingMode getTrackingMode() const;
     void setSpecifiedArrayAngle(float angle);
     float getSpecifiedArrayAngle() const;
+    void setOffsetAngle(float angle);
+    float getOffsetAngle() const;
 
     /* declare module IO interfaces */
     ReadFunctor<NavAttMsgF32Payload> attNavInMsg;                    //!< input msg measured attitude

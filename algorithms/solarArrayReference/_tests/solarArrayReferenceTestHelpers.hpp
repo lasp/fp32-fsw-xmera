@@ -16,6 +16,7 @@ inline float referenceUpdate(const Eigen::Vector3f& sigma_BN,
                              const Eigen::Vector3f& a1Hat_B,
                              const Eigen::Vector3f& a2Hat_B,
                              float alignmentThreshold,
+                             float offsetAngle,
                              float theta) {
 
     const Eigen::Vector3f rHat_SB_Bc = vehSunPntBdy.stableNormalized();
@@ -35,8 +36,8 @@ inline float referenceUpdate(const Eigen::Vector3f& sigma_BN,
 
     float thetaRef{};
     if (sunDriveAngle < alignmentThreshold || rHat_SB_R.stableNorm() == 0.0F) {
-        // wrap current theta to [-pi, pi]
-        thetaRef = atan2f(sinf(theta), cosf(theta));
+        // sun aligned with drive axis: keep current angle (wrap happens below)
+        thetaRef = theta;
     } else {
         a2Hat_R.stableNormalize();
         const Eigen::Vector3f a1Hat_R = a2.cross(a2Hat_R);
@@ -47,7 +48,8 @@ inline float referenceUpdate(const Eigen::Vector3f& sigma_BN,
         }
     }
 
-    return thetaRef;
+    thetaRef += offsetAngle;
+    return atan2f(sinf(thetaRef), cosf(thetaRef));
 }
 
 // ---------------------------------------------------------------------------
@@ -92,7 +94,8 @@ inline void regressionTestSolarArrayReference(std::vector<float> sigma_BN_Vec,
 
     // Compute reference using the setter-orthogonalized axes (matching what the algorithm stores internally)
     const auto axes = alg.getSolarArrayAxes_B();
-    float reference = referenceUpdate(sigma_BN_f, sigma_RN_f, vehSunPntBdy_f, axes[0], axes[1], alg.getAlignmentThreshold(), theta);
+    float reference = referenceUpdate(sigma_BN_f, sigma_RN_f, vehSunPntBdy_f, axes[0], axes[1],
+                                      alg.getAlignmentThreshold(), alg.getOffsetAngle(), theta);
 
     float tol = 1e-5F;
     float tolerance = tol + abs(reference) * tol;

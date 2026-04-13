@@ -80,3 +80,13 @@ void SolarArrayReference::setSpecifiedArrayAngle(const float angle) {
  *  @return float [rad] specified reference array angle
  */
 float SolarArrayReference::getSpecifiedArrayAngle() const { return this->algorithm.getSpecifiedArrayAngle(); }
+
+/*! Set the offset angle added to the computed reference angle before wrapping.
+ *  @param angle [rad] offset angle
+ */
+void SolarArrayReference::setOffsetAngle(const float angle) { this->algorithm.setOffsetAngle(angle); }
+
+/*! Get the offset angle.
+ *  @return float [rad] offset angle
+ */
+float SolarArrayReference::getOffsetAngle() const { return this->algorithm.getOffsetAngle(); }

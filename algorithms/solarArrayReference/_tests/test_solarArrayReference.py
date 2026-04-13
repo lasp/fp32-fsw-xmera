@@ -143,12 +143,21 @@ def test_solarArrayReference(show_plots, rHat_SB_N, sigma_BN, sigma_RN, accuracy
     np.testing.assert_allclose(data_log.theta[0], thetaR, atol=accuracy, rtol=accuracy)
 
 
-@pytest.mark.parametrize("specifiedAngle", [0.0, 0.5, -1.2, 3.0, -3.0])
+@pytest.mark.parametrize("specifiedAngle, offsetAngle", [
+    (0.0, 0.0),
+    (0.5, 0.0),
+    (-1.2, 0.0),
+    (3.0, 0.0),
+    (-3.0, 0.0),
+    (0.5, 0.3),     # offset shifts result
+    (2.0, 2.0),     # sum past pi -> wraps to negative
+    (-2.0, -2.0),   # sum past -pi -> wraps to positive
+])
 @pytest.mark.parametrize("accuracy", [1e-6])
-def test_solarArrayReference_specifiedAngle(show_plots, specifiedAngle, accuracy):
+def test_solarArrayReference_specifiedAngle(show_plots, specifiedAngle, offsetAngle, accuracy):
     r"""
-    Verifies that in SPECIFIED_ANGLE tracking mode the output reference angle equals the
-    user-specified angle (wrapped to [-pi, pi]) regardless of attitude or sun direction inputs.
+    Verifies that in SPECIFIED_ANGLE tracking mode the output reference angle equals
+    (specifiedAngle + offsetAngle) wrapped to [-pi, pi], regardless of attitude or sun inputs.
     """
     a1Hat_B = np.array([1, 0, 0])
     a2Hat_B = np.array([0, 1, 0])
@@ -169,6 +178,7 @@ def test_solarArrayReference_specifiedAngle(show_plots, specifiedAngle, accuracy
     solar_array.setSolarArrayAxes_B(a1Hat_B, a2Hat_B)
     solar_array.trackingMode = solarArrayReferenceF32.TrackingMode_SPECIFIED_ANGLE
     solar_array.specifiedArrayAngle = specifiedAngle
+    solar_array.offsetAngle = offsetAngle
 
     # Inputs are arbitrary in this mode — the algorithm should ignore them.
     nav_att_in_msg_data = messaging.NavAttMsgF32Payload()
@@ -195,7 +205,8 @@ def test_solarArrayReference_specifiedAngle(show_plots, specifiedAngle, accuracy
     unit_test_sim.ConfigureStopTime(macros.sec2nano(0.5))
     unit_test_sim.ExecuteSimulation()
 
-    expected = np.arctan2(np.sin(specifiedAngle), np.cos(specifiedAngle))
+    summed = specifiedAngle + offsetAngle
+    expected = np.arctan2(np.sin(summed), np.cos(summed))
     np.testing.assert_allclose(data_log.theta[0], expected, atol=accuracy, rtol=accuracy)
 
 
