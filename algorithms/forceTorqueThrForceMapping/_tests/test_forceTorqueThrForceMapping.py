@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 from datetime import datetime
 from xmera.architecture import messaging
-from xmera.fswAlgorithms import forceTorqueThrForceMapping
+from xmera.fp32 import forceTorqueThrForceMappingF32
 from xmera.utilities import SimulationBaseClass
 from xmera.utilities import fswSetupThrusters
 from xmera.utilities import macros
@@ -98,7 +98,7 @@ def test_force_torque_thr_force_mapping(rcs_location, rcs_direction, requested_t
     test_proc.addTask(unit_test_sim.CreateNewTask(unit_task_name, test_process_rate))
 
     # setup module to be tested
-    module = forceTorqueThrForceMapping.ForceTorqueThrForceMapping()
+    module = forceTorqueThrForceMappingF32.ForceTorqueThrForceMapping()
     module.modelTag = "forceTorqueThrForceMappingTag"
     unit_test_sim.AddModelToTask(unit_task_name, module)
 

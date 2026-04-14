@@ -1,5 +1,5 @@
-#ifndef FORCE_TORQUE_THR_FORCE_MAPPING_H
-#define FORCE_TORQUE_THR_FORCE_MAPPING_H
+#ifndef F32XMERA_FORCE_TORQUE_THR_FORCE_MAPPING_H
+#define F32XMERA_FORCE_TORQUE_THR_FORCE_MAPPING_H
 
 #include <cstdint>
 #include <architecture/_GeneralModuleFiles/sys_model.h>
@@ -32,4 +32,4 @@ class ForceTorqueThrForceMapping : public SysModel {
     ForceTorqueThrForceMappingAlgorithm algorithm{};
 };
 
-#endif
+#endif  // F32XMERA_FORCE_TORQUE_THR_FORCE_MAPPING_H

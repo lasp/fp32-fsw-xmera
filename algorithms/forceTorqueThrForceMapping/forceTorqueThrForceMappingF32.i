@@ -1,4 +1,4 @@
-%module forceTorqueThrForceMapping
+%module forceTorqueThrForceMappingF32
 %{
     #include "forceTorqueThrForceMapping.h"
 %}
