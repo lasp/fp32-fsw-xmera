@@ -6,7 +6,6 @@
 
 #include "architecture/utilities/rigidBodyKinematics.hpp"
 
-
 /*! This method computes the updated rotation angle reference based on current attitude, reference attitude, and current
  rotation angle
  @return float
@@ -15,16 +14,17 @@
  @param vehSunPntBdy Sun pointing vector in body frame
  @param theta current panel angular displacement [rad]
 */
-float SolarArrayReferenceAlgorithm::update(const Eigen::Vector3f& sigma_BN,
-                                                               const Eigen::Vector3f& sigma_RN,  // NOLINT(bugprone-easily-swappable-parameters)
-                                                               const Eigen::Vector3f& vehSunPntBdy,
-                                                               const float theta) const {
-
+float SolarArrayReferenceAlgorithm::update(
+    const Eigen::Vector3f& sigma_BN,
+    const Eigen::Vector3f& sigma_RN,  // NOLINT(bugprone-easily-swappable-parameters)
+    const Eigen::Vector3f& vehSunPntBdy,
+    const float theta) const {
     float thetaRef{};
     switch (this->trackingMode) {
         case TrackingMode::AUTO_TRACK: {
             /*! track Sun in reference frame R, i.e. in the body frame that will be obtained at the end of the slew */
-            const Eigen::Vector3f rHat_SB_Bc = vehSunPntBdy.stableNormalized();  // Sun direction in current body frame Bc
+            const Eigen::Vector3f rHat_SB_Bc =
+                vehSunPntBdy.stableNormalized();  // Sun direction in current body frame Bc
             const Eigen::Matrix3f dcm_BN = mrpToDcm(sigma_BN);
             const Eigen::Matrix3f dcm_RN = mrpToDcm(sigma_RN);
             const Eigen::Matrix3f dcm_RB = dcm_RN * dcm_BN.transpose();
@@ -36,11 +36,13 @@ float SolarArrayReferenceAlgorithm::update(const Eigen::Vector3f& sigma_BN,
 
             /*! compute reference angle and store in output */
             if (sunDriveAngle < this->alignmentThreshold || rHat_SB_B.stableNorm() == 0.0F) {
-                // sun direction is nearly parallel to drive axis, no preferred rotation angle so set reference to current angle
+                // sun direction is nearly parallel to drive axis, no preferred rotation angle so set reference to
+                // current angle
                 thetaRef = theta;
             } else {
                 /*! required solar array surface normal direction to align with Sun as well as possible */
-                const Eigen::Vector3f a2HatRef_B = (rHat_SB_B - this->a1Hat_B.dot(rHat_SB_B) * this->a1Hat_B).stableNormalized();
+                const Eigen::Vector3f a2HatRef_B =
+                    (rHat_SB_B - this->a1Hat_B.dot(rHat_SB_B) * this->a1Hat_B).stableNormalized();
                 const Eigen::Vector3f a1HatRef_B = this->a2Hat_B.cross(a2HatRef_B);
                 thetaRef = safeAcosf(this->a2Hat_B.dot(a2HatRef_B));
                 // if this->a1Hat_B and a1HatRef_B are opposite, take the negative of thetaRef

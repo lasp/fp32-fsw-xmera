@@ -6,32 +6,32 @@
 // ---------------------------------------------------------------------------
 
 TEST(SolarArrayReferenceTest, RegressionTest) {
-    regressionTestSolarArrayReference({0.1F, 0.2F, 0.3F},    // sigma_BN
-                                      {0.3F, 0.2F, 0.1F},    // sigma_RN
-                                      {1.0F, 0.0F, 0.0F},    // vehSunPntBdy
-                                      {1.0F, 0.0F, 0.0F},    // a1Hat_B
-                                      {0.0F, 1.0F, 0.0F},    // a2Hat_B
-                                      0.0F                    // theta
+    regressionTestSolarArrayReference({0.1F, 0.2F, 0.3F},  // sigma_BN
+                                      {0.3F, 0.2F, 0.1F},  // sigma_RN
+                                      {1.0F, 0.0F, 0.0F},  // vehSunPntBdy
+                                      {1.0F, 0.0F, 0.0F},  // a1Hat_B
+                                      {0.0F, 1.0F, 0.0F},  // a2Hat_B
+                                      0.0F                 // theta
     );
 }
 
 TEST(SolarArrayReferenceTest, RegressionTestNonZeroTheta) {
-    regressionTestSolarArrayReference({0.5F, 0.4F, 0.3F},    // sigma_BN
-                                      {0.9F, 0.7F, 0.8F},    // sigma_RN
-                                      {0.0F, 0.0F, 1.0F},    // vehSunPntBdy
-                                      {1.0F, 0.0F, 0.0F},    // a1Hat_B
-                                      {0.0F, 1.0F, 0.0F},    // a2Hat_B
-                                      1.5F                    // theta
+    regressionTestSolarArrayReference({0.5F, 0.4F, 0.3F},  // sigma_BN
+                                      {0.9F, 0.7F, 0.8F},  // sigma_RN
+                                      {0.0F, 0.0F, 1.0F},  // vehSunPntBdy
+                                      {1.0F, 0.0F, 0.0F},  // a1Hat_B
+                                      {0.0F, 1.0F, 0.0F},  // a2Hat_B
+                                      1.5F                 // theta
     );
 }
 
 TEST(SolarArrayReferenceTest, RegressionTestArbitraryAxes) {
-    regressionTestSolarArrayReference({0.1F, -0.3F, 0.2F},   // sigma_BN
-                                      {0.2F, 0.1F, -0.1F},   // sigma_RN
-                                      {1.0F, 1.0F, 1.0F},    // vehSunPntBdy
-                                      {0.0F, 0.0F, 1.0F},    // a1Hat_B
-                                      {1.0F, 0.0F, 0.0F},    // a2Hat_B
-                                      -0.5F                   // theta
+    regressionTestSolarArrayReference({0.1F, -0.3F, 0.2F},  // sigma_BN
+                                      {0.2F, 0.1F, -0.1F},  // sigma_RN
+                                      {1.0F, 1.0F, 1.0F},   // vehSunPntBdy
+                                      {0.0F, 0.0F, 1.0F},   // a1Hat_B
+                                      {1.0F, 0.0F, 0.0F},   // a2Hat_B
+                                      -0.5F                 // theta
     );
 }
 
@@ -41,7 +41,7 @@ TEST(SolarArrayReferenceTest, RegressionTestArbitraryAxes) {
 
 TEST(SolarArrayReferenceTest, SetupTest) {
     SolarArrayReferenceAlgorithm alg{};
-    
+
     // Zero drive axis should throw (norm far from 1.0)
     EXPECT_THROW(alg.setSolarArrayAxes_B(Eigen::Vector3f::Zero(), Eigen::Vector3f{0.0F, 1.0F, 0.0F}),
                  fsw::invalid_argument);
@@ -59,9 +59,9 @@ TEST(SolarArrayReferenceTest, SetupTest) {
                  fsw::invalid_argument);
 
     // Non-orthogonal axes should throw
-    EXPECT_THROW(alg.setSolarArrayAxes_B(Eigen::Vector3f{1.0F, 0.0F, 0.0F},
-                                         Eigen::Vector3f{1.0F, 1.0F, 0.0F}.normalized()),
-                 fsw::invalid_argument);
+    EXPECT_THROW(
+        alg.setSolarArrayAxes_B(Eigen::Vector3f{1.0F, 0.0F, 0.0F}, Eigen::Vector3f{1.0F, 1.0F, 0.0F}.normalized()),
+        fsw::invalid_argument);
 
     // Alignment threshold: negative should throw
     EXPECT_THROW(alg.setAlignmentThreshold(-0.01F), fsw::invalid_argument);
@@ -156,8 +156,8 @@ TEST(SolarArrayReferenceTest, SunAlignedWithDriveAxis) {
     alg.setSolarArrayAxes_B(Eigen::Vector3f{1.0F, 0.0F, 0.0F}, Eigen::Vector3f{0.0F, 1.0F, 0.0F});
 
     float theta = 0.5F;
-    float result = alg.update(Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(),
-                              Eigen::Vector3f{1.0F, 0.0F, 0.0F}, theta);
+    float result =
+        alg.update(Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(), Eigen::Vector3f{1.0F, 0.0F, 0.0F}, theta);
     EXPECT_NEAR(result, theta, 1e-5F);
 }
 
@@ -167,8 +167,8 @@ TEST(SolarArrayReferenceTest, SunAntiAlignedWithDriveAxis) {
     alg.setSolarArrayAxes_B(Eigen::Vector3f{1.0F, 0.0F, 0.0F}, Eigen::Vector3f{0.0F, 1.0F, 0.0F});
 
     float theta = -0.3F;
-    float result = alg.update(Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(),
-                              Eigen::Vector3f{-1.0F, 0.0F, 0.0F}, theta);
+    float result =
+        alg.update(Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(), Eigen::Vector3f{-1.0F, 0.0F, 0.0F}, theta);
     EXPECT_NEAR(result, theta, 1e-5F);
 }
 
@@ -177,8 +177,8 @@ TEST(SolarArrayReferenceTest, SunAlignedWithSurfaceNormal) {
     SolarArrayReferenceAlgorithm alg{};
     alg.setSolarArrayAxes_B(Eigen::Vector3f{1.0F, 0.0F, 0.0F}, Eigen::Vector3f{0.0F, 1.0F, 0.0F});
 
-    float result = alg.update(Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(),
-                              Eigen::Vector3f{0.0F, 1.0F, 0.0F}, 0.0F);
+    float result =
+        alg.update(Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(), Eigen::Vector3f{0.0F, 1.0F, 0.0F}, 0.0F);
     EXPECT_NEAR(result, 0.0F, 1e-5F);
 }
 
@@ -189,7 +189,8 @@ TEST(SolarArrayReferenceTest, LargeThetaWrapping) {
 
     float result = alg.update(Eigen::Vector3f{0.1F, 0.2F, 0.3F},
                               Eigen::Vector3f{0.3F, 0.2F, 0.1F},
-                              Eigen::Vector3f{0.0F, 0.0F, 1.0F}, 100.0F);
+                              Eigen::Vector3f{0.0F, 0.0F, 1.0F},
+                              100.0F);
     EXPECT_TRUE(std::isfinite(result));
 }
 
@@ -228,10 +229,10 @@ TEST(SolarArrayReferenceTest, SpecifiedAngleModeIgnoresSun) {
     alg.setSpecifiedArrayAngle(0.8F);
 
     // Two very different sun vectors must produce identical output.
-    float resultA = alg.update(Eigen::Vector3f{0.1F, 0.2F, 0.3F}, Eigen::Vector3f::Zero(),
-                               Eigen::Vector3f{1.0F, 0.0F, 0.0F}, 0.0F);
-    float resultB = alg.update(Eigen::Vector3f{-0.5F, 0.4F, 0.1F}, Eigen::Vector3f{0.2F, 0.2F, 0.2F},
-                               Eigen::Vector3f{0.0F, 0.0F, 1.0F}, 1.5F);
+    float resultA =
+        alg.update(Eigen::Vector3f{0.1F, 0.2F, 0.3F}, Eigen::Vector3f::Zero(), Eigen::Vector3f{1.0F, 0.0F, 0.0F}, 0.0F);
+    float resultB = alg.update(
+        Eigen::Vector3f{-0.5F, 0.4F, 0.1F}, Eigen::Vector3f{0.2F, 0.2F, 0.2F}, Eigen::Vector3f{0.0F, 0.0F, 1.0F}, 1.5F);
     EXPECT_FLOAT_EQ(resultA, resultB);
     EXPECT_FLOAT_EQ(resultA, 0.8F);
 }
@@ -242,14 +243,14 @@ TEST(SolarArrayReferenceTest, OffsetAngleAppliedAutoTrack) {
     alg.setSolarArrayAxes_B(Eigen::Vector3f{1.0F, 0.0F, 0.0F}, Eigen::Vector3f{0.0F, 1.0F, 0.0F});
 
     // No offset: sun aligned with surface normal -> thetaRef = 0
-    float resultNoOffset = alg.update(Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(),
-                                      Eigen::Vector3f{0.0F, 1.0F, 0.0F}, 0.0F);
+    float resultNoOffset =
+        alg.update(Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(), Eigen::Vector3f{0.0F, 1.0F, 0.0F}, 0.0F);
     EXPECT_NEAR(resultNoOffset, 0.0F, 1e-5F);
 
     // With offset 0.4: same scenario shifts result by 0.4
     alg.setOffsetAngle(0.4F);
-    float resultWithOffset = alg.update(Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(),
-                                        Eigen::Vector3f{0.0F, 1.0F, 0.0F}, 0.0F);
+    float resultWithOffset =
+        alg.update(Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(), Eigen::Vector3f{0.0F, 1.0F, 0.0F}, 0.0F);
     EXPECT_NEAR(resultWithOffset, 0.4F, 1e-5F);
 }
 
@@ -261,8 +262,8 @@ TEST(SolarArrayReferenceTest, OffsetAngleAppliedSpecifiedAngle) {
     alg.setSpecifiedArrayAngle(0.5F);
     alg.setOffsetAngle(0.2F);
 
-    float result = alg.update(Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(),
-                              Eigen::Vector3f{1.0F, 0.0F, 0.0F}, 0.0F);
+    float result =
+        alg.update(Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(), Eigen::Vector3f{1.0F, 0.0F, 0.0F}, 0.0F);
     // Expected: wrap(0.5 + 0.2) = 0.7
     EXPECT_NEAR(result, 0.7F, 1e-5F);
 }
@@ -275,8 +276,8 @@ TEST(SolarArrayReferenceTest, OffsetAngleWrapsPastPi) {
     alg.setSpecifiedArrayAngle(2.0F);
     alg.setOffsetAngle(2.0F);  // 2.0 + 2.0 = 4.0, which wraps to 4.0 - 2*pi ≈ -2.283
 
-    float result = alg.update(Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(),
-                              Eigen::Vector3f{1.0F, 0.0F, 0.0F}, 0.0F);
+    float result =
+        alg.update(Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(), Eigen::Vector3f{1.0F, 0.0F, 0.0F}, 0.0F);
     constexpr float pi = std::numbers::pi_v<float>;
     EXPECT_NEAR(result, 4.0F - 2.0F * pi, 1e-5F);
 }

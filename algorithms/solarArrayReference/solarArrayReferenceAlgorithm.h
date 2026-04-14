@@ -35,7 +35,7 @@ class SolarArrayReferenceAlgorithm final {
     float alignmentThreshold{1e-3F};  //!< [rad] alignment threshold angle between sun direction and drive axis
     TrackingMode trackingMode{TrackingMode::AUTO_TRACK};  //!< array tracking mode
     float specifiedArrayAngle{};  //!< [rad] specified reference array angle if tracking mode is specified angle
-    float offsetAngle{};    //!< [rad] offset angle to be added to determined reference angle
+    float offsetAngle{};          //!< [rad] offset angle to be added to determined reference angle
 };
 
 #endif  // F32XMERA_SOLAR_ARRAY_REFERENCE_ALGORITHM_H

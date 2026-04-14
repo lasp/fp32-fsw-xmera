@@ -1,9 +1,9 @@
 #ifndef TEST_SOLARARRAYREFERENCE_H
 #define TEST_SOLARARRAYREFERENCE_H
 
-#include "utilities/freestandingInvalidArgument.h"
 #include "architecture/utilities/rigidBodyKinematics.hpp"
 #include "solarArrayReferenceAlgorithm.h"
+#include "utilities/freestandingInvalidArgument.h"
 #include <gtest/gtest.h>
 #include <Eigen/Core>
 #include <cmath>
@@ -18,7 +18,6 @@ inline float referenceUpdate(const Eigen::Vector3f& sigma_BN,
                              float alignmentThreshold,
                              float offsetAngle,
                              float theta) {
-
     const Eigen::Vector3f rHat_SB_Bc = vehSunPntBdy.stableNormalized();
     const Eigen::Matrix3f dcm_BN = mrpToDcm(sigma_BN);
     const Eigen::Matrix3f dcm_RN = mrpToDcm(sigma_RN);
@@ -84,7 +83,7 @@ inline void regressionTestSolarArrayReference(std::vector<float> sigma_BN_Vec,
     Eigen::Vector3f sigma_BN_f(sigma_BN_Vec[0], sigma_BN_Vec[1], sigma_BN_Vec[2]);
     Eigen::Vector3f sigma_RN_f(sigma_RN_Vec[0], sigma_RN_Vec[1], sigma_RN_Vec[2]);
 
-    // Set up algorithm 
+    // Set up algorithm
     SolarArrayReferenceAlgorithm alg{};
     alg.setSolarArrayAxes_B(a1Hat_B_f, a2Hat_B_f);
 
@@ -94,8 +93,14 @@ inline void regressionTestSolarArrayReference(std::vector<float> sigma_BN_Vec,
 
     // Compute reference using the setter-orthogonalized axes (matching what the algorithm stores internally)
     const auto axes = alg.getSolarArrayAxes_B();
-    float reference = referenceUpdate(sigma_BN_f, sigma_RN_f, vehSunPntBdy_f, axes[0], axes[1],
-                                      alg.getAlignmentThreshold(), alg.getOffsetAngle(), theta);
+    float reference = referenceUpdate(sigma_BN_f,
+                                      sigma_RN_f,
+                                      vehSunPntBdy_f,
+                                      axes[0],
+                                      axes[1],
+                                      alg.getAlignmentThreshold(),
+                                      alg.getOffsetAngle(),
+                                      theta);
 
     float tol = 1e-5F;
     float tolerance = tol + abs(reference) * tol;

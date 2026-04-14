@@ -7,8 +7,8 @@
 #include "solarArrayReferenceAlgorithm.h"
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
-#include <array>
 #include <stdint.h>
+#include <array>
 
 /*! @brief adapter for the solar array reference algorithm. */
 class SolarArrayReference : public SysModel {

@@ -35,8 +35,7 @@ void SolarArrayReference::updateState(uint64_t callTime) {
  *  @param driveAxis [-] solar array drive axis in body frame coordinates
  *  @param surfaceNormal [-] solar array surface normal at zero rotation
  */
-void SolarArrayReference::setSolarArrayAxes_B(const Eigen::Vector3f& driveAxis,
-                                              const Eigen::Vector3f& surfaceNormal) {
+void SolarArrayReference::setSolarArrayAxes_B(const Eigen::Vector3f& driveAxis, const Eigen::Vector3f& surfaceNormal) {
     this->algorithm.setSolarArrayAxes_B(driveAxis, surfaceNormal);
 }
 
@@ -72,9 +71,7 @@ TrackingMode SolarArrayReference::getTrackingMode() const { return this->algorit
 /*! Set the specified reference array angle (used when trackingMode is SPECIFIED_ANGLE).
  *  @param angle [rad] specified reference array angle
  */
-void SolarArrayReference::setSpecifiedArrayAngle(const float angle) {
-    this->algorithm.setSpecifiedArrayAngle(angle);
-}
+void SolarArrayReference::setSpecifiedArrayAngle(const float angle) { this->algorithm.setSpecifiedArrayAngle(angle); }
 
 /*! Get the specified reference array angle.
  *  @return float [rad] specified reference array angle
