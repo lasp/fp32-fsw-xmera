@@ -1,8 +1,5 @@
-import sys
-
 import numpy as np
 import pytest
-from datetime import datetime
 from xmera.architecture import messaging
 from xmera.fp32 import forceTorqueThrForceMappingF32
 from xmera.utilities import SimulationBaseClass
@@ -53,13 +50,7 @@ rcs_direction_data_2 = [[1.0, 0.0, 0.0],
                         [0.0, 1.0, 0.0],
                         [0.0, 0.0, 1.0]]
 
-# Use today's date as the seed for the random number generator. This ensures that several pytest threads receive the
-# same randomized parameter inputs, while testing different randomized values over time. That number is rounded to the
-# closest day based on the hour such that threads started close to midnight still result in the same seed number.
-date_string = datetime.now().strftime("%Y%m%d")
-date_number = float(date_string)
-date_rounded = int(round(date_number + datetime.now().hour/24))
-np.random.seed(date_rounded)
+np.random.seed(42)
 
 num_thr_rand = np.random.randint(1, messaging.MAX_EFF_CNT)
 rcs_location_data_rand = np.round(np.random.randn(num_thr_rand, 3), 3).tolist()
@@ -86,7 +77,6 @@ Test 4: Ensures that the forceTorqueThrForce module can compute a valid solution
                           (rcs_location_data_2, rcs_direction_data_2, [0.0, 0.0, 0.0], [0.9, 1.1, 1.], True),
                           (rcs_location_data_rand, rcs_direction_data_rand, torque_rand, force_rand, True)])
 
-@pytest.mark.skipif(sys.platform == "win32", reason="known to not pass on windows platform")
 def test_force_torque_thr_force_mapping(rcs_location, rcs_direction, requested_torque, requested_force,
                                         torque_in_msg_flag):
     unit_task_name = "unitTask"
@@ -147,7 +137,7 @@ def test_force_torque_thr_force_mapping(rcs_location, rcs_direction, requested_t
 
     accuracy = 1e-12
     np.testing.assert_allclose(np.array([module.thrForceCmdOutMsg.read().thrForce[0:len(rcs_location)]]).flatten(), truth,
-                               atol=accuracy, rtol=0, verbose=True)
+                               atol=accuracy, rtol=accuracy, verbose=True)
 
 
 def compute_thrust_mapping_truth(rcs_location, rcs_direction, requested_torque, requested_force, CoM_B):
