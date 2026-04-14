@@ -1,15 +1,13 @@
 #ifndef F32XIMERA_STEPPER_MOTOR_CONTROLLER_ALGORITHM_H
 #define F32XIMERA_STEPPER_MOTOR_CONTROLLER_ALGORITHM_H
 
-#include "msgPayloadDef/HingedRigidBodyMsgF32Payload.h"
-#include <architecture/msgPayloadDef/MotorStepCommandMsgPayload.h>
 #include <cstdint>
 #include <numbers>
 
 /*! structure containing the stepper motor controller algorithm output */
 typedef struct {
-    MotorStepCommandMsgPayload motorStepCommandOut; /*!< Output msg for the number of commanded motor steps */
-    bool writeOutputMessage;                        /*!< indicator whether or not output message should be written */
+    int stepsCommanded;        /*!< Number of commanded motor steps */
+    bool writeOutputMessage;   /*!< indicator whether or not output message should be written */
 } StepperMotorControllerOutput;
 
 /*! @brief Stepper Motor Controller Class */
@@ -18,7 +16,7 @@ class StepperMotorControllerAlgorithm {
     void reset();
     StepperMotorControllerOutput update(uint64_t callTime,
                                         float hingedRigidBodyMsgTimeWritten,
-                                        const HingedRigidBodyMsgF32Payload& motorRefAngleIn);
+                                        float motorRefAngleTheta);
     void setThetaInit(float thetaInit);
     float getThetaInit() const;
     void setThetaMax(float thetaMax);

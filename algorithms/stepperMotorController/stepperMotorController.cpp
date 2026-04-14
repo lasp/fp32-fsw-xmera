@@ -31,10 +31,12 @@ void StepperMotorController::updateState(const uint64_t callTime) {
     }
 
     StepperMotorControllerOutput stepperMotorControllerOutput =
-        this->algorithm.update(callTime, hingedRigidBodyMsgTimeWritten, motorRefAngleIn);
+        this->algorithm.update(callTime, hingedRigidBodyMsgTimeWritten, motorRefAngleIn.theta);
 
     if (stepperMotorControllerOutput.writeOutputMessage) {
-        this->motorStepCommandOutMsg.write(&stepperMotorControllerOutput.motorStepCommandOut, moduleID, callTime);
+        MotorStepCommandMsgPayload motorStepCommandOut{};
+        motorStepCommandOut.stepsCommanded = stepperMotorControllerOutput.stepsCommanded;
+        this->motorStepCommandOutMsg.write(&motorStepCommandOut, moduleID, callTime);
     }
 }
 

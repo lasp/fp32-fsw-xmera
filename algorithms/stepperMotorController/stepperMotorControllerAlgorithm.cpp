@@ -18,12 +18,12 @@ void StepperMotorControllerAlgorithm::reset() {
  @return StepperMotorControllerOutput
  @param callTime [ns] Time the method is called
  @param hingedRigidBodyMsgTimeWritten [s] Time the motor reference angle message was written
- @param motorRefAngleIn [-] Motor reference angle message
+ @param motorRefAngleTheta [-] Motor reference angle
 */
 StepperMotorControllerOutput StepperMotorControllerAlgorithm::update(
     const uint64_t callTime,  // NOLINT(bugprone-easily-swappable-parameters)
     const float hingedRigidBodyMsgTimeWritten,
-    const HingedRigidBodyMsgF32Payload& motorRefAngleIn) {
+    const float motorRefAngleTheta) {
     StepperMotorControllerOutput stepperMotorControllerOutput{};
 
     // Each time a new motor reference message is written to this module, the required motor steps commanded to achieve
@@ -34,7 +34,7 @@ StepperMotorControllerOutput StepperMotorControllerAlgorithm::update(
 
         // Set the motor reference angle using the input message
         // (Important: This angle may not be reachable if it is not a multiple of the motor step angle)
-        this->thetaRef = motorRefAngleIn.theta;
+        this->thetaRef = motorRefAngleTheta;
 
         // Check that the reference angle is within the actuation region of the motor
         if (this->thetaRef >= this->thetaMax || this->thetaRef <= this->thetaMin) {
@@ -70,10 +70,7 @@ StepperMotorControllerOutput StepperMotorControllerAlgorithm::update(
         // Zero the motor step count because a new reference has been commanded
         this->stepCount = 0;
 
-        MotorStepCommandMsgPayload motorStepCommandOut{};
-        motorStepCommandOut.stepsCommanded = this->stepsCommanded;
-
-        stepperMotorControllerOutput.motorStepCommandOut = motorStepCommandOut;
+        stepperMotorControllerOutput.stepsCommanded = this->stepsCommanded;
         stepperMotorControllerOutput.writeOutputMessage = true;
     }
 
