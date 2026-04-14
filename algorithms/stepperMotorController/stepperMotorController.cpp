@@ -1,8 +1,8 @@
 #include "stepperMotorController.h"
-#include "utilities/timeConstants.h"
+#include <math.h>
 #include <stdexcept>
 
-/*! This method performs a complete reset of the module. The input message is checked to ensure it is linked.
+/*! Reset the module. Checks that the input message is linked.
  @return void
  @param callTime [ns] Time the method is called
 */
@@ -11,86 +11,112 @@ void StepperMotorController::reset(const uint64_t callTime) {
         throw std::invalid_argument("StepperMotorController.motorRefAngleInMsg wasn't connected.");
     }
 
+    const int initialStep = this->algorithm.angleToSteps(this->initialAngle);
+    this->currentPosition = initialStep;
+    this->commandedPosition = initialStep;
+    this->stepAccumulator = 0.0F;
     this->algorithm.reset();
 }
 
-/*! The update method computes the required number of motor steps given a motor angle reference message. This method
- also tracks the motor actuation in time and includes logic for incoming reference commands that interrupt an unfinished
- motor actuation sequence.
+/*! Read input messages, run the state machine, and write output commands.
  @return void
  @param callTime [ns] Time the method is called
 */
 void StepperMotorController::updateState(const uint64_t callTime) {
-    HingedRigidBodyMsgF32Payload motorRefAngleIn{};
-    float hingedRigidBodyMsgTimeWritten{};
+    float referenceAngle{};
     if (this->motorRefAngleInMsg.isWritten()) {
-        motorRefAngleIn = this->motorRefAngleInMsg();
-
-        // Store the time the motor reference input message was written
-        hingedRigidBodyMsgTimeWritten = kNano2Sec * this->motorRefAngleInMsg.timeWritten();
+        const HingedRigidBodyMsgF32Payload motorRefAngleIn = this->motorRefAngleInMsg();
+        referenceAngle = motorRefAngleIn.theta;
     }
 
-    StepperMotorControllerOutput stepperMotorControllerOutput =
-        this->algorithm.update(callTime, hingedRigidBodyMsgTimeWritten, motorRefAngleIn.theta);
+    const StepperMotorControllerOutput output =
+        this->algorithm.update(this->currentPosition, referenceAngle, this->isMotorMoving);
 
-    if (stepperMotorControllerOutput.writeOutputMessage) {
+    if (output.commandType == StepperMotorCommandType::MOVE) {
+        this->commandedPosition = this->currentPosition + output.stepsToMove;
+        this->stepAccumulator = 0.0F;
         MotorStepCommandMsgPayload motorStepCommandOut{};
-        motorStepCommandOut.stepsCommanded = stepperMotorControllerOutput.stepsCommanded;
+        motorStepCommandOut.stepsCommanded = output.stepsToMove;
         this->motorStepCommandOutMsg.write(&motorStepCommandOut, moduleID, callTime);
+    } else if (output.commandType == StepperMotorCommandType::STOP) {
+        // Freeze the motor at its current position; ignore any remaining commanded steps
+        this->commandedPosition = this->currentPosition;
+    }
+
+    this->advanceMotor();
+}
+
+/*! Advance the tracked motor position toward the commanded target, respecting the motor/control
+ * frequency ratio via a fractional-step accumulator.
+ @return void
+*/
+void StepperMotorController::advanceMotor() {
+    if (this->currentPosition == this->commandedPosition) {
+        return;
+    }
+
+    // Accumulate fractional steps based on motor/control frequency ratio.
+    // E.g. if ratio is 1.5, steps per tick alternate 1, 2, 1, 2, ...
+    this->stepAccumulator += this->motorFrequency / this->controlFrequency;
+    const auto wholeSteps = static_cast<int>(this->stepAccumulator);
+    this->stepAccumulator -= static_cast<float>(wholeSteps);
+
+    const int remaining = abs(this->commandedPosition - this->currentPosition);
+    const int stepsToAdvance = (wholeSteps < remaining) ? wholeSteps : remaining;
+
+    if (this->currentPosition < this->commandedPosition) {
+        this->currentPosition += stepsToAdvance;
+    } else {
+        this->currentPosition -= stepsToAdvance;
     }
 }
 
-/*! Setter method for the initial motor angle.
- @return void
- @param thetaInit [rad] Initial motor angle
-*/
-void StepperMotorController::setThetaInit(const float thetaInit) { this->algorithm.setThetaInit(thetaInit); }
+void StepperMotorController::setStepsPerRevolution(const int stepsPerRevolutionIn) {
+    this->algorithm.setStepsPerRevolution(stepsPerRevolutionIn);
+}
 
-/*! Getter method for the initial motor angle.
- @return float
-*/
-float StepperMotorController::getThetaInit() const { return this->algorithm.getThetaInit(); }
+int StepperMotorController::getStepsPerRevolution() const { return this->algorithm.getStepsPerRevolution(); }
 
-/*! Setter method for the motor upper actuation limit.
- @return void
- @param thetaMax [rad] Motor upper actuation limit
-*/
-void StepperMotorController::setThetaMax(const float thetaMax) { this->algorithm.setThetaMax(thetaMax); }
+void StepperMotorController::setInitialAngle(const float initialAngleIn) { this->initialAngle = initialAngleIn; }
 
-/*! Getter method for the motor upper actuation limit.
- @return float
-*/
-float StepperMotorController::getThetaMax() const { return this->algorithm.getThetaMax(); }
+float StepperMotorController::getInitialAngle() const { return this->initialAngle; }
 
-/*! Setter method for the motor lower actuation limit.
- @return void
- @param thetaMin [rad] Motor lower actuation limit
-*/
-void StepperMotorController::setThetaMin(const float thetaMin) { this->algorithm.setThetaMin(thetaMin); }
+void StepperMotorController::setControlFrequency(const float controlFrequencyIn) {
+    if (controlFrequencyIn <= 0.0F) {
+        throw std::invalid_argument("controlFrequency must be positive");
+    }
+    this->controlFrequency = controlFrequencyIn;
+}
 
-/*! Getter method for the motor lower actuation limit.
- @return float
-*/
-float StepperMotorController::getThetaMin() const { return this->algorithm.getThetaMin(); }
+float StepperMotorController::getControlFrequency() const { return this->controlFrequency; }
 
-/*! Setter method for the motor step angle.
- @return void
- @param stepAngle [rad] Motor step angle
-*/
-void StepperMotorController::setStepAngle(const float stepAngle) { this->algorithm.setStepAngle(stepAngle); }
+void StepperMotorController::setMotorFrequency(const float motorFrequencyIn) {
+    if (motorFrequencyIn <= 0.0F) {
+        throw std::invalid_argument("motorFrequency must be positive");
+    }
+    this->motorFrequency = motorFrequencyIn;
+}
 
-/*! Getter method for the motor step angle.
- @return float
-*/
-float StepperMotorController::getStepAngle() const { return this->algorithm.getStepAngle(); }
+float StepperMotorController::getMotorFrequency() const { return this->motorFrequency; }
 
-/*! Setter method for the motor step time.
- @return void
- @param stepTime [s] Motor step time
-*/
-void StepperMotorController::setStepTime(const float stepTime) { this->algorithm.setStepTime(stepTime); }
+void StepperMotorController::setSettleCountMax(const int settleCountMaxIn) {
+    this->algorithm.setSettleCountMax(settleCountMaxIn);
+}
 
-/*! Getter method for the motor step time.
- @return float
-*/
-float StepperMotorController::getStepTime() const { return this->algorithm.getStepTime(); }
+int StepperMotorController::getSettleCountMax() const { return this->algorithm.getSettleCountMax(); }
+
+void StepperMotorController::setCurrentPositionTolerance(const int currentPositionToleranceIn) {
+    this->algorithm.setCurrentPositionTolerance(currentPositionToleranceIn);
+}
+
+int StepperMotorController::getCurrentPositionTolerance() const {
+    return this->algorithm.getCurrentPositionTolerance();
+}
+
+void StepperMotorController::setDesiredPositionTolerance(const int desiredPositionToleranceIn) {
+    this->algorithm.setDesiredPositionTolerance(desiredPositionToleranceIn);
+}
+
+int StepperMotorController::getDesiredPositionTolerance() const {
+    return this->algorithm.getDesiredPositionTolerance();
+}

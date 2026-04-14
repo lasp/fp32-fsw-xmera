@@ -1,45 +1,46 @@
 #ifndef F32XIMERA_STEPPER_MOTOR_CONTROLLER_ALGORITHM_H
 #define F32XIMERA_STEPPER_MOTOR_CONTROLLER_ALGORITHM_H
 
+#include "stepperMotorControllerTypes.h"
 #include <cstdint>
-#include <numbers>
 
-/*! structure containing the stepper motor controller algorithm output */
-typedef struct {
-    int stepsCommanded;        /*!< Number of commanded motor steps */
-    bool writeOutputMessage;   /*!< indicator whether or not output message should be written */
-} StepperMotorControllerOutput;
-
-/*! @brief Stepper Motor Controller Class */
+/*! @brief Stepper Motor Controller Algorithm
+ *
+ * State-machine-based controller that commands a stepper motor to a desired position.
+ * Operates in integer step counts internally; reference angles are converted using stepAngle.
+ * The current motor position is an input to update(); position tracking lives in the caller.
+ */
 class StepperMotorControllerAlgorithm {
    public:
     void reset();
-    StepperMotorControllerOutput update(uint64_t callTime,
-                                        float hingedRigidBodyMsgTimeWritten,
-                                        float motorRefAngleTheta);
-    void setThetaInit(float thetaInit);
-    float getThetaInit() const;
-    void setThetaMax(float thetaMax);
-    float getThetaMax() const;
-    void setThetaMin(float thetaMin);
-    float getThetaMin() const;
-    void setStepAngle(float stepAngle);
-    float getStepAngle() const;
-    void setStepTime(float stepTime);
-    float getStepTime() const;
+    StepperMotorControllerOutput update(int currentPosition, float referenceAngle, bool isMotorMoving);
+
+    void setStepsPerRevolution(int stepsPerRevolutionIn);
+    int getStepsPerRevolution() const;
+    void setSettleCountMax(int settleCountMaxIn);
+    int getSettleCountMax() const;
+    void setCurrentPositionTolerance(int currentPositionToleranceIn);
+    int getCurrentPositionTolerance() const;
+    void setDesiredPositionTolerance(int desiredPositionToleranceIn);
+    int getDesiredPositionTolerance() const;
+
+    int angleToSteps(float angle) const;
 
    private:
-    float thetaInit{};  //!< [rad] Initial motor angle
-    float theta{};      //!< [rad] Current motor angle
-    float thetaRef{};   //!< [rad] Motor reference angle
-    float stepAngle{1.0 * std::numbers::pi /
-                    180.0};  //!< [rad] Step angle the motor rotates through for a single step (constant)
-    float thetaMax{2.0 * std::numbers::pi};   //!< [rad] Motor upper hard stop actuation limit
-    float thetaMin{-2.0 * std::numbers::pi};  //!< [rad] Motor lower hard stop actuation limit
-    int stepsCommanded{};                     //!< [steps] Number of steps needed to reach the desired angle (output)
-    int stepCount{};                          //!< [steps] Current motor step count (number of steps taken)
-    float stepTime{1.0};              //!< [s] Time required for the motor to actuate through a single step (constant)
-    float previousWrittenTime{-1.0};  //!< [ns] Time the last motor reference input message was written
+    int wrapDelta(int delta) const;
+
+    // Parameters
+    int stepsPerRevolution{360};      //!< [steps] Number of motor steps per full revolution
+    int settleCountMax{10};           //!< [ticks] Settling duration after stop
+    int currentPositionTolerance{1};  //!< [steps] Tolerance between current and target position (IDLE/STOPPING checks)
+    int desiredPositionTolerance{
+        0};  //!< [steps] Tolerance between commanded and desired position (MOVING interrupt check)
+
+    // State
+    StepperMotorState state{StepperMotorState::IDLE};
+    int commandedPosition{};  //!< [steps] Target of the current move command
+    int desiredPosition{};    //!< [steps] Desired position from reference angle
+    int settleCount{};        //!< [ticks] Counter for settling phase
 };
 
 #endif

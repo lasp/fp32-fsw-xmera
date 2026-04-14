@@ -1,5 +1,5 @@
-#ifndef F32XIMERA_STEPPER_MOTOR_CONTROLLER_H
-#define F32XIMERA_STEPPER_MOTOR_CONTROLLER_H
+#ifndef F32XMERA_STEPPER_MOTOR_CONTROLLER_H
+#define F32XMERA_STEPPER_MOTOR_CONTROLLER_H
 
 #include "msgPayloadDef/HingedRigidBodyMsgF32Payload.h"
 #include "stepperMotorControllerAlgorithm.h"
@@ -7,7 +7,11 @@
 #include <architecture/messaging/messaging.h>
 #include <architecture/msgPayloadDef/MotorStepCommandMsgPayload.h>
 
-/*! @brief Stepper Motor Controller Class */
+/*! @brief Stepper Motor Controller Xmera Adapter
+ *
+ * Tracks the motor's current position and simulates its step-wise motion toward the commanded
+ * target, then delegates controller decisions to StepperMotorControllerAlgorithm.
+ */
 class StepperMotorController : public SysModel {
    public:
     StepperMotorController() = default;
@@ -15,22 +19,36 @@ class StepperMotorController : public SysModel {
 
     void reset(uint64_t currentSimNanos) override;
     void updateState(uint64_t currentSimNanos) override;
-    void setThetaInit(float thetaInit);
-    float getThetaInit() const;
-    void setThetaMax(float thetaMax);
-    float getThetaMax() const;
-    void setThetaMin(float thetaMin);
-    float getThetaMin() const;
-    void setStepAngle(float stepAngle);
-    float getStepAngle() const;
-    void setStepTime(float stepTime);
-    float getStepTime() const;
 
-    ReadFunctor<HingedRigidBodyMsgF32Payload> motorRefAngleInMsg;  //!< Intput msg for the motor reference angle message
-    Message<MotorStepCommandMsgPayload> motorStepCommandOutMsg;  //!< Output msg for the number of commanded motor steps
+    void setStepsPerRevolution(int stepsPerRevolutionIn);
+    int getStepsPerRevolution() const;
+    void setInitialAngle(float initialAngleIn);
+    float getInitialAngle() const;
+    void setControlFrequency(float controlFrequencyIn);
+    float getControlFrequency() const;
+    void setMotorFrequency(float motorFrequencyIn);
+    float getMotorFrequency() const;
+    void setSettleCountMax(int settleCountMaxIn);
+    int getSettleCountMax() const;
+    void setCurrentPositionTolerance(int currentPositionToleranceIn);
+    int getCurrentPositionTolerance() const;
+    void setDesiredPositionTolerance(int desiredPositionToleranceIn);
+    int getDesiredPositionTolerance() const;
+
+    ReadFunctor<HingedRigidBodyMsgF32Payload> motorRefAngleInMsg;  //!< Input msg for the motor reference angle
+    Message<MotorStepCommandMsgPayload> motorStepCommandOutMsg;    //!< Output msg for commanded motor steps
 
    private:
+    void advanceMotor();
+
     StepperMotorControllerAlgorithm algorithm{};
+    float initialAngle{};          //!< [rad] Initial motor angle
+    float controlFrequency{1.0F};  //!< [Hz] Rate at which updateState() is called
+    float motorFrequency{1.0F};    //!< [Hz] Motor step rate (steps per second)
+    int currentPosition{};         //!< [steps] Tracked current motor position
+    int commandedPosition{};       //!< [steps] Target the motor is currently driving toward
+    float stepAccumulator{};       //!< [steps] Fractional step accumulator for sub-tick motor advancement
+    bool isMotorMoving{false};     //!< True if the motor is currently moving (default false for xmera simulation)
 };
 
 #endif

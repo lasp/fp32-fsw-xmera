@@ -1,168 +1,167 @@
 #include "stepperMotorControllerAlgorithm.h"
 #include "utilities/freestandingInvalidArgument.h"
-#include <architecture/utilities/macroDefinitions.h>
 #include <math.h>
 
-/*! This method performs a complete reset of the module. The input message is checked to ensure it is linked.
+#include <numbers>
+
+/*! Reset the controller to its initial state.
  @return void
 */
 void StepperMotorControllerAlgorithm::reset() {
-    this->stepCount = 0;
-    this->stepsCommanded = 0;
-    this->previousWrittenTime = -1.0;
+    this->state = StepperMotorState::IDLE;
+    this->commandedPosition = 0;
+    this->desiredPosition = 0;
+    this->settleCount = 0;
 }
 
-/*! The update method computes the required number of motor steps given a motor angle reference message. This method
- also tracks the motor actuation in time and includes logic for incoming reference commands that interrupt an unfinished
- motor actuation sequence.
- @return StepperMotorControllerOutput
- @param callTime [ns] Time the method is called
- @param hingedRigidBodyMsgTimeWritten [s] Time the motor reference angle message was written
- @param motorRefAngleTheta [-] Motor reference angle
+/*! State-machine update.
+ @return StepperMotorControllerOutput stepper motor command (NONE, MOVE, STOP) and commanded steps
+ @param currentPosition [steps] current motor position, tracked by the caller
+ @param referenceAngle [rad] reference angle to go to (desired angle)
+ @param isMotorMoving indicator whether motor is moving
 */
 StepperMotorControllerOutput StepperMotorControllerAlgorithm::update(
-    const uint64_t callTime,  // NOLINT(bugprone-easily-swappable-parameters)
-    const float hingedRigidBodyMsgTimeWritten,
-    const float motorRefAngleTheta) {
-    StepperMotorControllerOutput stepperMotorControllerOutput{};
+    const int currentPosition,  // NOLINT(bugprone-easily-swappable-parameters)
+    const float referenceAngle,
+    const bool isMotorMoving) {
+    StepperMotorControllerOutput output{};
 
-    // Each time a new motor reference message is written to this module, the required motor steps commanded to achieve
-    // the incoming reference angle are calculated, updated, and output as a MotorStepCommandMsgF32Payload message
-    if (this->previousWrittenTime < hingedRigidBodyMsgTimeWritten) {
-        // Update the previous written time
-        this->previousWrittenTime = hingedRigidBodyMsgTimeWritten;
+    this->desiredPosition = this->angleToSteps(referenceAngle);
 
-        // Set the motor reference angle using the input message
-        // (Important: This angle may not be reachable if it is not a multiple of the motor step angle)
-        this->thetaRef = motorRefAngleTheta;
+    switch (this->state) {
+        case StepperMotorState::OFF:
+            break;
 
-        // Check that the reference angle is within the actuation region of the motor
-        if (this->thetaRef >= this->thetaMax || this->thetaRef <= this->thetaMin) {
-            this->thetaRef = this->theta;
-            this->stepsCommanded = 0;
-        } else {
-            // Calculate deltaTheta, the angle the motor must rotate through to achieve the reference angle.
-            // Important: The motor cannot stop actuating during a step. If the motor is currently actuating through a
-            // step and is interrupted by a new incoming reference message, the motor must complete its actuation
-            // through the current step before following the new reference command. Therefore, the motor angle must be
-            // rounded up to the nearest multiple of the motor step angle to compute the correct displacement
-            // deltaTheta.
-            float deltaTheta{};
-            if (this->theta > 0) {
-                deltaTheta = this->thetaRef - (ceilf(this->theta / this->stepAngle) * this->stepAngle);
-            } else {
-                deltaTheta = this->thetaRef - (floorf(this->theta / this->stepAngle) * this->stepAngle);
+        case StepperMotorState::MOVING: {
+            // Move completed (within current-position tolerance of commanded target)
+            if (abs(this->wrapDelta(this->commandedPosition - currentPosition)) <= this->currentPositionTolerance) {
+                this->state = StepperMotorState::STOPPING;
+            }
+            // Desired position changed beyond desired-position tolerance
+            if (abs(this->wrapDelta(this->commandedPosition - this->desiredPosition)) >
+                this->desiredPositionTolerance) {
+                output.commandType = StepperMotorCommandType::STOP;
+                this->state = StepperMotorState::STOPPING;
             }
 
-            // Calculate the integer number of steps the motor must take to reach the reference angle
-            // The exact value is first stored as a float and rounded to the nearest integer step
-            const float tempStepsCommanded = deltaTheta / this->stepAngle;
-            if ((ceilf(tempStepsCommanded) - tempStepsCommanded) > (tempStepsCommanded - floorf(tempStepsCommanded))) {
-                this->stepsCommanded = static_cast<int>(floorf(tempStepsCommanded));
-            } else {
-                this->stepsCommanded = static_cast<int>(ceilf(tempStepsCommanded));
+            break;
+        }
+
+        case StepperMotorState::STOPPING:
+            if (!isMotorMoving) {
+                this->state = StepperMotorState::SETTLING;
+                this->settleCount = 0;
             }
-        }
+            break;
 
-        // Use the computed steps commanded to update the motor reference angle to the reachable value
-        this->thetaRef = this->theta + (static_cast<float>(this->stepsCommanded) * this->stepAngle);
+        case StepperMotorState::SETTLING:
+            if (this->settleCount >= this->settleCountMax) {
+                this->state = StepperMotorState::IDLE;
+            } else {
+                this->settleCount++;
+            }
+            break;
 
-        // Zero the motor step count because a new reference has been commanded
-        this->stepCount = 0;
-
-        stepperMotorControllerOutput.stepsCommanded = this->stepsCommanded;
-        stepperMotorControllerOutput.writeOutputMessage = true;
-    }
-
-    // Calculate the time elapsed since the last motor reference input message was written
-    const float deltaSimTime = static_cast<float>(NANO2SEC * static_cast<double>(callTime)) - this->previousWrittenTime;
-
-    // Update the motor information if steps were commanded
-    if (this->stepsCommanded > 0) {
-        this->stepCount = static_cast<int>(floorf(deltaSimTime / this->stepTime));
-        this->theta = this->thetaInit + (this->stepAngle * (deltaSimTime / this->stepTime));
-        if (this->theta >= this->thetaRef) {
-            this->stepCount = this->stepsCommanded;
-            this->theta = this->thetaRef;
-            this->thetaInit = this->thetaRef;
-        }
-    } else if (this->stepsCommanded < 0) {
-        this->stepCount = -static_cast<int>(floorf(deltaSimTime / this->stepTime));
-        this->theta = this->thetaInit - (this->stepAngle * (deltaSimTime / this->stepTime));
-        if (this->theta <= this->thetaRef) {
-            this->stepCount = this->stepsCommanded;
-            this->theta = this->thetaRef;
-            this->thetaInit = this->thetaRef;
+        case StepperMotorState::IDLE: {
+            const int steps = this->wrapDelta(this->desiredPosition - currentPosition);
+            if (abs(steps) > this->currentPositionTolerance) {
+                output.commandType = StepperMotorCommandType::MOVE;
+                output.stepsToMove = steps;
+                this->commandedPosition = this->desiredPosition;
+                this->state = StepperMotorState::MOVING;
+            }
+            break;
         }
     }
 
-    return stepperMotorControllerOutput;
+    return output;
 }
 
-/*! Setter method for the initial motor angle.
- @return void
- @param thetaInit [rad] Initial motor angle
+/*! Convert a reference angle to an integer step position.
+ @return int step position
+ @param angle [rad] reference angle
 */
-void StepperMotorControllerAlgorithm::setThetaInit(const float thetaInit) {
-    this->thetaInit = thetaInit;
-    this->theta = thetaInit;
+int StepperMotorControllerAlgorithm::angleToSteps(const float angle) const {
+    constexpr float twoPi = 2.0F * static_cast<float>(std::numbers::pi);
+    return static_cast<int>(round(angle * static_cast<float>(this->stepsPerRevolution) / twoPi));
 }
 
-/*! Getter method for the initial motor angle.
- @return float
+/*! Wrap a step delta to the shortest path within [-stepsPerRevolution/2, +stepsPerRevolution/2].
+ @return int wrapped delta
+ @param delta [steps] unwrapped step difference
 */
-float StepperMotorControllerAlgorithm::getThetaInit() const { return this->thetaInit; }
-
-/*! Setter method for the motor upper actuation limit.
- @return void
- @param thetaMax [rad] Motor upper actuation limit
-*/
-void StepperMotorControllerAlgorithm::setThetaMax(const float thetaMax) { this->thetaMax = thetaMax; }
-
-/*! Getter method for the motor upper actuation limit.
- @return float
-*/
-float StepperMotorControllerAlgorithm::getThetaMax() const { return this->thetaMax; }
-
-/*! Setter method for the motor lower actuation limit.
- @return void
- @param thetaMin [rad] Motor lower actuation limit
-*/
-void StepperMotorControllerAlgorithm::setThetaMin(const float thetaMin) { this->thetaMin = thetaMin; }
-
-/*! Getter method for the motor lower actuation limit.
- @return float
-*/
-float StepperMotorControllerAlgorithm::getThetaMin() const { return this->thetaMin; }
-
-/*! Setter method for the motor step angle.
- @return void
- @param stepAngle [rad] Motor step angle
-*/
-void StepperMotorControllerAlgorithm::setStepAngle(const float stepAngle) {
-    if (stepAngle <= 0.0) {
-        FSW_THROW_INVALID_ARGUMENT("StepAngle must be positive");
+int StepperMotorControllerAlgorithm::wrapDelta(int delta) const {
+    const int half = this->stepsPerRevolution / 2;
+    delta = delta % this->stepsPerRevolution;
+    if (delta > half) {
+        delta -= this->stepsPerRevolution;
     }
-    this->stepAngle = stepAngle;
-}
-
-/*! Getter method for the motor step angle.
- @return float
-*/
-float StepperMotorControllerAlgorithm::getStepAngle() const { return this->stepAngle; }
-
-/*! Setter method for the motor step time.
- @return void
- @param stepTime [s] Motor step time
-*/
-void StepperMotorControllerAlgorithm::setStepTime(const float stepTime) {
-    if (stepTime <= 0.0) {
-        FSW_THROW_INVALID_ARGUMENT("stepTime must be positive");
+    if (delta < -half) {
+        delta += this->stepsPerRevolution;
     }
-    this->stepTime = stepTime;
+    return delta;
 }
 
-/*! Getter method for the motor step time.
- @return float
+/*! Setter for the number of motor steps per revolution.
+ @return void
+ @param stepsPerRevolutionIn [steps] steps per full revolution
 */
-float StepperMotorControllerAlgorithm::getStepTime() const { return this->stepTime; }
+void StepperMotorControllerAlgorithm::setStepsPerRevolution(const int stepsPerRevolutionIn) {
+    if (stepsPerRevolutionIn <= 0) {
+        FSW_THROW_INVALID_ARGUMENT("stepsPerRevolution must be positive");
+    }
+    this->stepsPerRevolution = stepsPerRevolutionIn;
+}
+
+/*! Getter for the number of motor steps per revolution.
+ @return int
+*/
+int StepperMotorControllerAlgorithm::getStepsPerRevolution() const { return this->stepsPerRevolution; }
+
+/*! Setter for the maximum settling tick count.
+ @return void
+ @param settleCountMaxIn [ticks] number of ticks to wait during settling
+*/
+void StepperMotorControllerAlgorithm::setSettleCountMax(const int settleCountMaxIn) {
+    if (settleCountMaxIn < 0) {
+        FSW_THROW_INVALID_ARGUMENT("settleCountMax must be non-negative");
+    }
+    this->settleCountMax = settleCountMaxIn;
+}
+
+/*! Getter for the maximum settling tick count.
+ @return int
+*/
+int StepperMotorControllerAlgorithm::getSettleCountMax() const { return this->settleCountMax; }
+
+/*! Setter for the current-position tolerance (used for IDLE move trigger and MOVING stop condition).
+ @return void
+ @param currentPositionToleranceIn [steps] tolerance between current position and target
+*/
+void StepperMotorControllerAlgorithm::setCurrentPositionTolerance(const int currentPositionToleranceIn) {
+    if (currentPositionToleranceIn < 0) {
+        FSW_THROW_INVALID_ARGUMENT("currentPositionTolerance must be non-negative");
+    }
+    this->currentPositionTolerance = currentPositionToleranceIn;
+}
+
+/*! Getter for the current-position tolerance.
+ @return int
+*/
+int StepperMotorControllerAlgorithm::getCurrentPositionTolerance() const { return this->currentPositionTolerance; }
+
+/*! Setter for the desired-position tolerance (used in MOVING state to detect a changed reference).
+ @return void
+ @param desiredPositionToleranceIn [steps] tolerance between commanded and desired position
+*/
+void StepperMotorControllerAlgorithm::setDesiredPositionTolerance(const int desiredPositionToleranceIn) {
+    if (desiredPositionToleranceIn < 0) {
+        FSW_THROW_INVALID_ARGUMENT("desiredPositionTolerance must be non-negative");
+    }
+    this->desiredPositionTolerance = desiredPositionToleranceIn;
+}
+
+/*! Getter for the desired-position tolerance.
+ @return int
+*/
+int StepperMotorControllerAlgorithm::getDesiredPositionTolerance() const { return this->desiredPositionTolerance; }
