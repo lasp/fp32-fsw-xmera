@@ -1,89 +1,217 @@
+.. raw:: latex
+
+    {\LARGE \textbf{solarArrayReference}}
+
 Executive Summary
 -----------------
-
-This module is used to calculate the required rotation angle for a solar array that is able to rotate about its drive axis. The degree of freedom associated with the rotation of the array about the drive axis makes it such that it is possible to improve the incidence angle between the sun and the array surface, thus ensuring maximum power generation.
-
+This module computes the reference rotation angle :math:`\theta_R` for a single-axis solar array drive. In the
+default ``AUTO_TRACK`` mode, :math:`\theta_R` is the angle that aligns the solar array surface normal with the Sun
+direction as well as possible (perfect incidence is achievable when the drive axis and the Sun direction are
+perpendicular). In ``SPECIFIED_ANGLE`` mode, the module ignores the Sun direction and outputs a user-supplied fixed
+angle. In both modes, an optional offset angle is added before the result is wrapped to :math:`[-\pi, \pi]`.
 
 Message Connection Descriptions
 -------------------------------
-The following table lists all the module input and output messages.  The module msg connection is set by the user from python.  The msg type contains a link to the message structure definition, while the description provides information on what this message is used for.
+The following table lists all the module input and output messages.  The module msg connection is set by the
+user from python.  The msg type contains a link to the message structure definition, while the description
+provides information on what this message is used for.
 
 .. list-table:: Module I/O Messages
-    :widths: 25 25 50
+    :widths: 30 30 50
     :header-rows: 1
 
     * - Msg Variable Name
       - Msg Type
       - Description
-    * - hingedRigidBodyRefOutMsg
-      - :ref:`HingedRigidBodyMsgPayload`
-      - Output Hinged Rigid Body Reference Message.
     * - attNavInMsg
-      - :ref:`NavAttMsgPayload`
-      - Input Attitude Navigation Message.
+      - :ref:`NavAttMsgF32Payload`
+      - input attitude navigation message containing :math:`\mathbf\sigma_{\mathcal{B}/\mathcal{N}}` and the Sun
+        direction in body-frame components
     * - attRefInMsg
-      - :ref:`AttRefMsgPayload`
-      - Input Attitude Reference Message.
+      - :ref:`AttRefMsgF32Payload`
+      - input attitude reference message containing :math:`\mathbf\sigma_{\mathcal{R}/\mathcal{N}}`
     * - hingedRigidBodyInMsg
-      - :ref:`HingedRigidBodyMsgPayload`
-      - Input Hinged Rigid Body Message Message.
+      - :ref:`HingedRigidBodyMsgF32Payload`
+      - input hinged rigid body message containing the current panel angle :math:`\theta_C`
+    * - hingedRigidBodyRefOutMsg
+      - :ref:`HingedRigidBodyMsgF32Payload`
+      - output hinged rigid body reference message containing the reference angle :math:`\theta_R`
 
+Module Parameters
+-------------------------------
+The following table lists all the module parameters than can be set. The parameters are optional unless indicated
+(if not specified default is used).
+
+.. list-table:: Module Parameters
+    :widths: 40 20 10 10 30 30
+    :header-rows: 1
+
+    * - Parameter Name
+      - Type
+      - Units
+      - Default
+      - Description
+      - Bounds
+    * - driveAxis (required)
+      - Eigen::Vector3f
+      - [-]
+      - zero
+      - Solar array drive axis :math:`{}^\mathcal{B}\hat{\mathbf a}_1` in body frame, set via
+        ``setSolarArrayAxes_B``
+      - Norm must be within ``1e-3`` of 1.0 (checked in setter; renormalized on storage)
+    * - surfaceNormal (required)
+      - Eigen::Vector3f
+      - [-]
+      - zero
+      - Solar array surface normal :math:`{}^\mathcal{B}\hat{\mathbf a}_2` at zero rotation, set via
+        ``setSolarArrayAxes_B``
+      - Norm must be within ``1e-3`` of 1.0 and orthogonal to ``driveAxis`` (absolute value of dot product
+        less than ``1e-5`` after normalization); re-orthogonalized against ``driveAxis`` on storage
+    * - alignmentThreshold
+      - float
+      - [rad]
+      - ``1e-3``
+      - Threshold angle :math:`\epsilon_a` between the Sun direction and the drive axis below which the Sun is
+        considered aligned with the drive axis (no preferred rotation)
+      - Must be in :math:`[0, \pi/2]` (checked in setter)
+    * - trackingMode
+      - TrackingMode
+      - [-]
+      - ``AUTO_TRACK``
+      - Selects between Sun-tracking (``AUTO_TRACK``) and fixed-angle (``SPECIFIED_ANGLE``) reference computation
+      - N/A
+    * - specifiedArrayAngle
+      - float
+      - [rad]
+      - 0
+      - Reference angle returned when ``trackingMode`` is ``SPECIFIED_ANGLE``
+      - Any value accepted (wrapped to :math:`[-\pi, \pi]` after the offset is applied)
+    * - offsetAngle
+      - float
+      - [rad]
+      - 0
+      - Offset added to the computed reference angle before wrapping
+      - Any value accepted (wrapped to :math:`[-\pi, \pi]` together with the base reference)
 
 Module Assumptions and Limitations
 ----------------------------------
-This module computes the rotation angle required to achieve the best incidence angle between the Sun direction and the solar array surface. This does not mean that
-perfect incidence (Sun direction perpendicular to array surface) is guaranteed. This module assumes that the solar array has only one surface that is able to generate power. This bounds the output reference angle :math:`\theta_R` between :math:`0` and :math:`2\pi`. Perfect incidence is achievable when the solar array drive direction and the Sun direction are perpendicular. Conversely, when they are parallel, no power generation is possible, and the reference angle is set to the current angle, to avoid pointless energy consumption attempting to rotate the array.
+This module computes the rotation angle required to achieve the best incidence angle between the Sun direction and
+the solar array surface. This does not mean that perfect incidence (Sun direction perpendicular to array surface)
+is guaranteed: perfect incidence is only achievable when the drive axis and the Sun direction are perpendicular.
+Conversely, when they are parallel, no power generation is possible, and in that case the reference is set to the
+current panel angle to avoid pointless rotation.
 
-The Sun direction in body-frame components is extracted from the ``attNavInMsg``. The output reference angle :math:`\theta_R`, however, can be computed either based on the reference attitude contained in ``attRefInMsg``, or the current spacecraft attitude contained also in ``attNavInMsg``. This depends on the frequency with which the arrays need to be actuated, in comparison with the frequency with which the motion of the spacecraft hub is controlled. The module input ``attitudeFrame`` allows the user to set whether to compute the reference angle based on the reference attitude or current spacecraft attitude.
+The drive axis :math:`\hat{\mathbf a}_1` and surface normal :math:`\hat{\mathbf a}_2` are assumed to be fixed in the
+body frame. The Sun direction in body-frame components is extracted from ``attNavInMsg`` and is mapped into the
+reference frame using the body and reference attitudes from ``attNavInMsg`` and ``attRefInMsg``, so the reference
+angle is computed in the frame that the spacecraft will occupy at the end of the active slew.
 
+The output reference angle :math:`\theta_R` is always wrapped to :math:`[-\pi, \pi]`.
+
+Initialization
+--------------
+The module is configured by::
+
+    module = solarArrayReferenceF32.SolarArrayReference()
+    module.modelTag = "solarArrayReference"
+    module.setSolarArrayAxes_B([1.0, 0.0, 0.0], [0.0, 1.0, 0.0])
+    module.alignmentThreshold = 1e-3
+    module.offsetAngle = 0.0
+
+For ``AUTO_TRACK`` mode (the default), no further configuration is required. To use ``SPECIFIED_ANGLE`` mode::
+
+    module.trackingMode = solarArrayReferenceF32.TrackingMode_SPECIFIED_ANGLE
+    module.specifiedArrayAngle = 0.5
 
 Detailed Module Description
 ---------------------------
-For this module to operate, the user needs to provide two unit directions as inputs:
+For this module to operate, the user provides two body-fixed unit directions:
 
-- :math:`{}^\mathcal{B}\boldsymbol{\hat{a}}_1`: direction of the solar array drive, about which the rotation happens;
-- :math:`{}^\mathcal{B}\boldsymbol{\hat{a}}_2`: direction perpendicular to the solar array surface, with the array at a zero rotation.
+- :math:`{}^\mathcal{B}\hat{\mathbf a}_1`: drive axis, about which the array rotates;
+- :math:`{}^\mathcal{B}\hat{\mathbf a}_2`: surface normal at zero rotation.
 
-To compute the reference rotation :math:`\theta_R`, the module computes the unit vector :math:`{}^\mathcal{R}\boldsymbol{\hat{a}}_2`, which is coplanar with
-:math:`{}^\mathcal{B}\boldsymbol{\hat{a}}_1` and the Sun direction :math:`{}^\mathcal{R}\boldsymbol{\hat{r}}_S`. This is obtained as:
+These vectors must be (near-)unit length and orthogonal. The setter ``setSolarArrayAxes_B`` validates the norms,
+verifies orthogonality, normalizes both inputs, and re-orthogonalizes :math:`\hat{\mathbf a}_2` against
+:math:`\hat{\mathbf a}_1` for exact orthogonality on storage.
+
+Algorithm Flow
+^^^^^^^^^^^^^^
+At every update cycle, the ``solarArrayReference`` module performs the following steps:
+
+1. **Select tracking mode**:
+
+   - If ``trackingMode`` is ``AUTO_TRACK``, compute :math:`\theta_R` from the Sun direction (steps 2-4).
+   - If ``trackingMode`` is ``SPECIFIED_ANGLE``, set :math:`\theta_R = \theta_{\text{specified}}` and skip to step 5.
+
+2. **Map Sun direction to reference frame**: normalize the body-frame Sun direction
+   :math:`{}^{\mathcal{B}_C}\hat{\mathbf r}_S` (using ``stableNormalized``), then map it into the reference frame
+   using the DCM :math:`[\mathcal{R}\mathcal{B}] = [\mathcal{R}\mathcal{N}][\mathcal{B}\mathcal{N}]^T`:
+
+   .. math::
+
+      {}^\mathcal{R}\hat{\mathbf r}_S = [\mathcal{R}\mathcal{B}]\, {}^{\mathcal{B}_C}\hat{\mathbf r}_S
+
+3. **Check Sun/drive-axis alignment**: compute the angle between the Sun direction and the drive axis,
+
+   .. math::
+
+      \alpha = \arccos\!\left( \left|\, {}^\mathcal{R}\hat{\mathbf r}_S \cdot \hat{\mathbf a}_1\, \right| \right)
+
+   If :math:`\alpha < \epsilon_a` (or the Sun direction is the zero vector), the Sun is aligned with the drive axis
+   and there is no preferred rotation: set :math:`\theta_R = \theta_C` (the current panel angle from
+   ``hingedRigidBodyInMsg``) and skip to step 5.
+
+4. **Compute reference angle** (Sun not aligned with drive axis):
+
+   - Project the Sun direction onto the rotation plane and normalize:
+
+     .. math::
+
+        {}^\mathcal{R}\hat{\mathbf a}_2^{\text{ref}} = \frac{
+          {}^\mathcal{R}\hat{\mathbf r}_S - \left( {}^\mathcal{R}\hat{\mathbf r}_S \cdot \hat{\mathbf a}_1 \right) \hat{\mathbf a}_1
+        }{
+          \left| {}^\mathcal{R}\hat{\mathbf r}_S - \left( {}^\mathcal{R}\hat{\mathbf r}_S \cdot \hat{\mathbf a}_1 \right) \hat{\mathbf a}_1 \right|
+        }
+
+   - The reference angle is the signed angle between :math:`\hat{\mathbf a}_2` and
+     :math:`{}^\mathcal{R}\hat{\mathbf a}_2^{\text{ref}}`:
+
+     .. math::
+
+        \theta_R = \pm \arccos \left( \hat{\mathbf a}_2 \cdot {}^\mathcal{R}\hat{\mathbf a}_2^{\text{ref}} \right)
+
+     The sign is determined by the orientation of
+     :math:`\hat{\mathbf a}_2 \times {}^\mathcal{R}\hat{\mathbf a}_2^{\text{ref}}` relative to the drive axis
+     :math:`\hat{\mathbf a}_1`: if the cross product is anti-parallel to :math:`\hat{\mathbf a}_1`, the sign is
+     negative.
+
+5. **Apply offset and wrap**: add the configured offset angle and wrap the result to :math:`[-\pi, \pi]`:
+
+   .. math::
+
+      \theta_R \leftarrow \operatorname{atan2}\!\left( \sin(\theta_R + \theta_{\text{offset}}),\, \cos(\theta_R + \theta_{\text{offset}}) \right)
+
+Wrapping and the Sun-Aligned Case
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The :math:`\arccos`-based computation in step 4 produces values in :math:`[0, \pi]`; the sign correction extends
+this to :math:`[-\pi, \pi]`. Adding the offset can push the sum outside this range, so the final
+:math:`\operatorname{atan2}(\sin(\cdot), \cos(\cdot))` step is what guarantees the output range is always
+:math:`[-\pi, \pi]`.
+
+When the Sun direction is (nearly) aligned with the drive axis, the projection in step 4 is degenerate. The module
+detects this via the ``alignmentThreshold`` check and falls back to returning the current panel angle
+:math:`\theta_C` plus the offset. Because the wrap is applied unconditionally at the end, this also normalizes
+:math:`\theta_C` (which the caller may have provided unwrapped) to :math:`[-\pi, \pi]`.
+
+Specified Angle Mode
+^^^^^^^^^^^^^^^^^^^^
+In ``SPECIFIED_ANGLE`` mode the module bypasses the Sun-tracking computation entirely and returns the
+user-supplied ``specifiedArrayAngle``. The offset angle and the final :math:`[-\pi, \pi]` wrap are still applied,
+so:
 
 .. math::
-    {}^\mathcal{R}\boldsymbol{a}_2 = {}^\mathcal{R}\boldsymbol{\hat{r}}_S - ({}^\mathcal{R}\boldsymbol{\hat{r}}_S \cdot {}^\mathcal{B}\boldsymbol{\hat{a}}_1) {}^\mathcal{B}\boldsymbol{\hat{a}}_1
 
-and then normalizing to obtain :math:`{}^\mathcal{R}\boldsymbol{\hat{a}}_2`. The reference angle :math:`\theta_R` is the angle between :math:`{}^\mathcal{B}\boldsymbol{\hat{a}}_2` and :math:`{}^\mathcal{R}\boldsymbol{\hat{a}}_2`:
+   \theta_R = \operatorname{atan2}\!\left( \sin(\theta_{\text{specified}} + \theta_{\text{offset}}),\, \cos(\theta_{\text{specified}} + \theta_{\text{offset}}) \right)
 
-.. math::
-    \theta_R = \arccos ({}^\mathcal{B}\boldsymbol{\hat{a}}_2 \cdot {}^\mathcal{R}\boldsymbol{\hat{a}}_2).
-
-The same math applies to the case where the body reference is used. In that case, the same vectors are expressed in body-frame coordinates. Note that the unit directions :math:`\boldsymbol{\hat{a}}_i` have the same components in both the body and reference frame, because they are body-fixed and rotate with the spacecraft hub.
-
-Some logic is implemented such that the computed reference angle :math:`\theta_R` and the current rotation angle :math:`\theta_C` received as input from the ``hingedRigidBodyInMsg`` are never more than 360 degrees apart.
-
-The derivative of the reference angle :math:`\dot{\theta}_R` is computed via finite differences.
-
-
-User Guide
-----------
-The required module configuration is::
-
-    solarArray = solarArrayRotation.solarArrayRotation()
-    solarArray.modelTag = "solarArrayRotation"
-    solarArray.a1Hat_B = [1, 0, 0]
-    solarArray.a2Hat_B = [0, 0, 1]
-    solarArray.attitudeFrame = 0
-    unitTestSim.AddModelToTask(unitTaskName, solarArray)
-
-The module is configurable with the following parameters:
-
-.. list-table:: Module Parameters
-   :widths: 34 66
-   :header-rows: 1
-
-   * - Parameter
-     - Description
-   * - ``a1Hat_B``
-     - solar array drive direction in B-frame coordinates
-   * - ``a2Hat_B``
-     - solar array zero-rotation direction, in B-frame coordinates
-   * - ``attitudeFrame``
-     - 0 for reference angle computed w.r.t reference frame; 1 for reference angle computed w.r.t. body frame; defaults to 0 if not specified
+This mode is useful for parking the array at a known orientation (e.g. during slews or eclipse) without depending
+on a valid Sun direction measurement.
