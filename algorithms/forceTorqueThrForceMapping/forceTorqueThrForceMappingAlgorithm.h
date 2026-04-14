@@ -20,7 +20,7 @@
 #ifndef F32XMERA_FORCE_TORQUE_THR_FORCE_MAPPING_ALGORITHM_H
 #define F32XMERA_FORCE_TORQUE_THR_FORCE_MAPPING_ALGORITHM_H
 
-#include <cstdint>
+#include <stdint.h>
 #include <architecture/msgPayloadDef/CmdForceBodyMsgPayload.h>
 #include <architecture/msgPayloadDef/CmdTorqueBodyMsgPayload.h>
 #include <architecture/msgPayloadDef/THRArrayCmdForceMsgPayload.h>

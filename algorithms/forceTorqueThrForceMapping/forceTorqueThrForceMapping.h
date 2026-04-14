@@ -1,7 +1,7 @@
 #ifndef F32XMERA_FORCE_TORQUE_THR_FORCE_MAPPING_H
 #define F32XMERA_FORCE_TORQUE_THR_FORCE_MAPPING_H
 
-#include <cstdint>
+#include <stdint.h>
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
 #include <architecture/msgPayloadDef/CmdForceBodyMsgPayload.h>
