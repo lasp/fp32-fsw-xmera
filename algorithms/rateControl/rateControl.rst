@@ -169,3 +169,62 @@ Since each rounded float operation contributes error on the order of machine eps
 
 The fuzz test passes when every output component from the single-precision algorithm agrees with the
 double-precision reference within this tolerance.
+
+Analysis of Gyroscopic Terms
+============================
+The control law omits two gyroscopic coupling terms that appear in the full Euler equation:
+
+.. math::
+
+    \boldsymbol{\tau}_{\text{gyro,1}} = \boldsymbol{\omega}_{RN,B} \times [I]\,\boldsymbol{\omega}_{BN,B}
+
+    \boldsymbol{\tau}_{\text{gyro,2}} = [I]\bigl(-\boldsymbol{\omega}_{BN,B} \times \boldsymbol{\omega}_{RN,B}\bigr)
+
+This section bounds their magnitude against the per-axis torque authority limits (25 N·m about X,
+14 N·m about Y and Z) to justify that omission.
+
+Inertia
+-------
+The spacecraft inertia about the centre of mass in the body frame is assembled from
+``spacecraft_props.yaml`` (deployed configuration, BOL propellant loading) by
+``dynamics.py::set_spacecraft_hub()``:
+
+.. list-table::
+   :widths: 20 20 20
+   :header-rows: 0
+
+   * - 2261.0
+     - −85.0
+     - 29.9
+   * - −85.0
+     - 4898.6
+     - 86.1
+   * - 29.9
+     - 86.1
+     - 4077.9
+
+Units: kg·m²
+
+The largest principal moment of inertia is :math:`I_{\max} = 4899` kg·m².
+
+Magnitude Bound
+---------------
+During rate damping, both :math:`\boldsymbol{\omega}_{BN,B}` and :math:`\boldsymbol{\omega}_{RN,B}`
+are assumed bounded by :math:`\omega_{\max} = 1` deg/s = 0.01745 rad/s.
+
+Using the vector-norm inequality :math:`\|\mathbf{a} \times \mathbf{b}\| \le \|\mathbf{a}\|\,\|\mathbf{b}\|`:
+
+.. math::
+
+    \|\boldsymbol{\tau}_{\text{gyro,1}}\| \le \|\boldsymbol{\omega}_{RN,B}\|\,\|[I]\,\boldsymbol{\omega}_{BN,B}\|
+    \le \omega_{\max} \cdot I_{\max} \cdot \omega_{\max}
+    = (0.01745)^2 \times 4899 \approx 1.49 \text{ N·m}
+
+    \|\boldsymbol{\tau}_{\text{gyro,2}}\| \le I_{\max}\,\|\boldsymbol{\omega}_{BN,B} \times \boldsymbol{\omega}_{RN,B}\|
+    \le I_{\max} \cdot \omega_{\max}^2
+    \approx 1.49 \text{ N·m}
+
+The combined worst-case magnitude is therefore **2.98 N·m**, which is:
+
+- 11.9 % of the 25 N·m X-axis torque limit
+- 21.3 % of the 14 N·m Y/Z-axis torque limit
