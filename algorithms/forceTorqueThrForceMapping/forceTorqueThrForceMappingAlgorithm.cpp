@@ -19,53 +19,42 @@
 
 #include "forceTorqueThrForceMappingAlgorithm.h"
 #include "utilities/freestandingInvalidArgument.h"
-#include <architecture/utilities/eigenSupport.h>
 
+#include <Eigen/Geometry>
 #include <Eigen/QR>
 
-/*! This method performs a complete reset of the module.  Local module variables that retain
-    time varying states between function calls are reset to their default values.
-    Check if required input messages are connected.
+/*! Store the thruster configuration for subsequent update() calls.
  @return void
- @param vehConfigMsg vehicle configuration message
- @param thrConfigMsg thruster configuration message
+ @param numThrusters number of active thrusters
+ @param CoM_B [m] center of mass in body frame
+ @param rThruster_B [m] thruster positions in body frame (one column per thruster)
+ @param gtThruster_B thruster force unit direction vectors (one column per thruster)
 */
-void ForceTorqueThrForceMappingAlgorithm::reset(VehicleConfigMsgPayload& vehConfigMsg,
-                                                THRArrayConfigMsgPayload& thrConfigMsg) {
-    /*! - copy the thruster position and thruster force heading information into the module configuration data */
-    this->numThrusters = thrConfigMsg.numThrusters;
-    this->CoM_B = cArrayToEigenVector(vehConfigMsg.CoM_B);
-    if (this->numThrusters > MAX_EFF_CNT) {
+void ForceTorqueThrForceMappingAlgorithm::reset(const uint32_t numThrusters,
+                                                const Eigen::Vector3d& CoM_B,
+                                                const Eigen::Matrix<double, 3, MAX_EFF_CNT>& rThruster_B,
+                                                const Eigen::Matrix<double, 3, MAX_EFF_CNT>& gtThruster_B) {
+    if (numThrusters > MAX_EFF_CNT) {
         FSW_THROW_INVALID_ARGUMENT(
-            "forceTorqueThrForceMapping thruster configuration input message has a number of "
-            "thrusters that is larger than MAX_EFF_CNT");
+            "forceTorqueThrForceMapping: numThrusters is larger than MAX_EFF_CNT");
     }
-
-    /*! - copy the thruster position and thruster force heading information into the module configuration data */
-    for (uint32_t i = 0; i < this->numThrusters; ++i) {
-        this->rThruster_B.col(i) = cArrayToEigenVector(thrConfigMsg.thrusters[i].rThrust_B);
-        this->gtThruster_B.col(i) = cArrayToEigenVector(thrConfigMsg.thrusters[i].tHatThrust_B);
-        if (thrConfigMsg.thrusters[i].maxThrust <= 0.0) {
-            FSW_THROW_INVALID_ARGUMENT(
-                "forceTorqueThrForceMapping: A configured thruster has a non-sensible "
-                "saturation limit of <= 0 N!");
-        }
-    }
+    this->numThrusters = numThrusters;
+    this->CoM_B = CoM_B;
+    this->rThruster_B = rThruster_B;
+    this->gtThruster_B = gtThruster_B;
 }
 
-/*! Add a description of what this main Update() routine does for this module
- @return void
- @param cmdTorqueMsg commanded torque message
- @param cmdForceMsg commanded force message
+/*! Compute thruster force commands from the requested torque and force vectors.
+ @return Eigen::Vector<double, MAX_EFF_CNT> thruster force commands (non-negative, shifted by min)
+ @param cmdTorque [Nm] requested control torque in body frame
+ @param cmdForce [N] requested control force in body frame
 */
-THRArrayCmdForceMsgPayload ForceTorqueThrForceMappingAlgorithm::update(CmdTorqueBodyMsgPayload& cmdTorqueMsg,
-                                                                       CmdForceBodyMsgPayload& cmdForceMsg) const {
-    THRArrayCmdForceMsgPayload thrForceCmdOutMsg{};
-
+Eigen::Vector<double, MAX_EFF_CNT> ForceTorqueThrForceMappingAlgorithm::update(
+    const Eigen::Vector3d& cmdTorque, const Eigen::Vector3d& cmdForce) const {
     /* Create the torque and force vector */
     Eigen::Vector<double, 6> forceTorque_B{};
-    forceTorque_B.head(3) = cArrayToEigenVector(cmdTorqueMsg.torqueRequestBody);
-    forceTorque_B.tail(3) = cArrayToEigenVector(cmdForceMsg.forceRequestBody);
+    forceTorque_B.head(3) = cmdTorque;
+    forceTorque_B.tail(3) = cmdForce;
 
     /* - compute thruster locations relative to COM */
     Eigen::Matrix<double, 3, MAX_EFF_CNT> rThrusterRelCOM_B{Eigen::Matrix<double, 3, MAX_EFF_CNT>::Zero()};
@@ -108,7 +97,5 @@ THRArrayCmdForceMsgPayload ForceTorqueThrForceMappingAlgorithm::update(CmdTorque
     Eigen::Vector<double, MAX_EFF_CNT> forceSubtracted_B{Eigen::Vector<double, MAX_EFF_CNT>::Zero()};
     forceSubtracted_B.topRows(this->numThrusters) = force_B.topRows(this->numThrusters).array() - minForce;
 
-    eigenVectorToCArray(forceSubtracted_B, thrForceCmdOutMsg.thrForce);
-
-    return thrForceCmdOutMsg;
+    return forceSubtracted_B;
 }

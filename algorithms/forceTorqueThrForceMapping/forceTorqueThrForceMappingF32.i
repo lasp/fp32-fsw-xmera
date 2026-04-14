@@ -7,7 +7,6 @@
 %include <architecture/_GeneralModuleFiles/swig_conly_data.i>
 
 %include "forceTorqueThrForceMapping.h"
-%include "forceTorqueThrForceMappingAlgorithm.h"
 
 %include <architecture/msgPayloadDef/CmdTorqueBodyMsgPayload.h>
 %include <architecture/msgPayloadDef/CmdForceBodyMsgPayload.h>
