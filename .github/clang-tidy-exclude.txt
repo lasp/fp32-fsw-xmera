@@ -73,6 +73,8 @@ algorithms/timeClosestApproach/timeClosestApproach.h
 algorithms/timeClosestApproach/timeClosestApproach.cpp
 algorithms/timeClosestApproach/timeClosestApproachAlgorithm_c.h
 algorithms/timeClosestApproach/timeClosestApproachAlgorithm_c.cpp
+algorithms/triad/triad.h
+algorithms/triad/triad.cpp
 
 // Remove the files below this line once the actual algorithms are added
 algorithms/sunlineSRuKF/sunlineSRuKF.cpp
