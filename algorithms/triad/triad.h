@@ -54,12 +54,12 @@ class Triad : public SysModel {
     const InertialAxisInput getInertialAxisInput() const;
 
    private:
-    Eigen::Vector3d a1Hat_B;
-    Eigen::Vector3d h1Hat_B;
-    Eigen::Vector3d hHat_N;
-    CelestialBody celestialBodyInput;
-    BodyAxisInput bodyAxisInput;
-    InertialAxisInput inertialAxisInput;
+    Eigen::Vector3d a1Hat_B = Eigen::Vector3d::Zero();
+    Eigen::Vector3d h1Hat_B = Eigen::Vector3d::Zero();
+    Eigen::Vector3d hHat_N = Eigen::Vector3d::Zero();
+    CelestialBody celestialBodyInput{};
+    BodyAxisInput bodyAxisInput{};
+    InertialAxisInput inertialAxisInput{};
 };
 
 #endif
