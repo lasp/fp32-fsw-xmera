@@ -4,6 +4,7 @@
 #include "triad.h"
 
 #include <math.h>
+#include <stdexcept>
 
 #include <Eigen/Core>
 
@@ -37,7 +38,7 @@ double SPE_angle(const Eigen::Vector3d& v1, const Eigen::Vector3d& v2) {
 */
 void Triad::reset(uint64_t callTime) {
     if (!this->attNavInMsg.isLinked()) {
-        this->bskLogger.bskLog(BSK_ERROR, " triad.attNavInMsg wasn't connected.");
+        throw std::invalid_argument("triad.attNavInMsg wasn't connected.");
     }
 
     // check how the input body heading is provided
@@ -46,31 +47,25 @@ void Triad::reset(uint64_t callTime) {
     } else if (this->h1Hat_B.norm() > epsilon) {
         this->bodyAxisInput = BodyAxisInput::inputBodyHeadingParameter;
     } else {
-        this->bskLogger.bskLog(BSK_ERROR,
-                               " triad.bodyHeadingInMsg wasn't connected and no body heading h1Hat_B was specified.");
+        throw std::invalid_argument(
+            "triad.bodyHeadingInMsg wasn't connected and no body heading h1Hat_B was specified.");
     }
 
     // check how the input inertial heading is provided
     if (this->inertialHeadingInMsg.isLinked()) {
         this->inertialAxisInput = InertialAxisInput::inputInertialHeadingMsg;
-        if (this->ephemerisInMsg.isLinked()) {
-            this->bskLogger.bskLog(BSK_WARNING,
-                                   " both triad.inertialHeadingInMsg and triad.ephemerisInMsg were linked. Inertial "
-                                   "heading is computed from triad.inertialHeadingInMsg");
-        }
     } else if (this->ephemerisInMsg.isLinked()) {
         if (!this->transNavInMsg.isLinked()) {
-            this->bskLogger.bskLog(BSK_ERROR, " triad.ephemerisInMsg was specified but triad.transNavInMsg was not.");
-        } else {
-            this->inertialAxisInput = InertialAxisInput::inputEphemerisMsg;
+            throw std::invalid_argument("triad.ephemerisInMsg was specified but triad.transNavInMsg was not.");
         }
+        this->inertialAxisInput = InertialAxisInput::inputEphemerisMsg;
     } else {
         if (this->hHat_N.norm() > epsilon) {
             this->inertialAxisInput = InertialAxisInput::inputInertialHeadingParameter;
         } else {
-            this->bskLogger.bskLog(BSK_ERROR,
-                                   " neither triad.inertialHeadingInMsg nor triad.ephemerisInMsg were "
-                                   "connected and no inertial heading h_N was specified.");
+            throw std::invalid_argument(
+                "neither triad.inertialHeadingInMsg nor triad.ephemerisInMsg were "
+                "connected and no inertial heading hHat_N was specified.");
         }
     }
 }
@@ -123,7 +118,7 @@ void Triad::updateState(uint64_t callTime) {
     rHat_SB_N = BN.transpose() * rHat_SB_B;
 
     if (double SPE = SPE_angle(rHat_SB_N, hReqHat_N); std::abs(SPE) < 0.5) {
-        this->bskLogger.bskLog(BSK_ERROR, " sun and earth reference vectors are parallel, Triad can not be used");
+        throw std::runtime_error("sun and earth reference vectors are parallel, Triad can not be used");
     }
 
     Eigen::Matrix3d BD;
