@@ -15,12 +15,10 @@
 
 const double epsilon = 1e-12;
 
-double SPE_angle(const Eigen::Vector3d& v1, const Eigen::Vector3d& v2) {
-    double dot = v1.dot(v2);
+static double SPE_angle(const Eigen::Vector3d& v1, const Eigen::Vector3d& v2) {
+    const double dot = v1.dot(v2);
+    const double cross = v1.x() * v2.y() - v1.y() * v2.x();
 
-    double cross = v1.x() * v2.y() - v1.y() * v2.x();
-
-    // Compute angle in radians and convert to degrees
     double angle = std::acos(std::clamp(dot / (v1.norm() * v2.norm()), -1.0, 1.0));
     angle = angle * 180.0 / M_PI;
 
@@ -31,7 +29,7 @@ double SPE_angle(const Eigen::Vector3d& v1, const Eigen::Vector3d& v2) {
     return angle;
 }
 
-void Triad::reset(uint64_t callTime) {
+void Triad::reset(const uint64_t callTime) {
     if (!this->attNavInMsg.isLinked()) {
         throw std::invalid_argument("triad.attNavInMsg wasn't connected.");
     }
@@ -65,20 +63,20 @@ void Triad::reset(uint64_t callTime) {
     }
 }
 
-void Triad::updateState(uint64_t callTime) {
+void Triad::updateState(const uint64_t callTime) {
     AttRefMsgPayload attRefOut = {};
 
-    NavAttMsgPayload attNavIn = this->attNavInMsg();
+    const NavAttMsgPayload attNavIn = this->attNavInMsg();
 
     Eigen::Vector3d hReqHat_N;
     if (this->inertialAxisInput == InertialAxisInput::inputInertialHeadingParameter) {
         hReqHat_N = this->hHat_N.normalized();
     } else if (this->inertialAxisInput == InertialAxisInput::inputInertialHeadingMsg) {
-        InertialHeadingMsgPayload inertialHeadingIn = this->inertialHeadingInMsg();
+        const InertialHeadingMsgPayload inertialHeadingIn = this->inertialHeadingInMsg();
         hReqHat_N = cArrayToEigenVector(inertialHeadingIn.rHat_XN_N).normalized();
     } else if (this->inertialAxisInput == InertialAxisInput::inputEphemerisMsg) {
-        EphemerisMsgPayload ephemerisIn = this->ephemerisInMsg();
-        NavTransMsgPayload transNavIn = this->transNavInMsg();
+        const EphemerisMsgPayload ephemerisIn = this->ephemerisInMsg();
+        const NavTransMsgPayload transNavIn = this->transNavInMsg();
         hReqHat_N =
             (cArrayToEigenVector(ephemerisIn.r_BdyZero_N) - cArrayToEigenVector(transNavIn.r_BN_N)).normalized();
     }
@@ -87,44 +85,39 @@ void Triad::updateState(uint64_t callTime) {
     if (this->bodyAxisInput == BodyAxisInput::inputBodyHeadingParameter) {
         hRefHat_B = this->h1Hat_B.normalized();
     } else if (this->bodyAxisInput == BodyAxisInput::inputBodyHeadingMsg) {
-        BodyHeadingMsgPayload bodyHeadingIn = this->bodyHeadingInMsg();
+        const BodyHeadingMsgPayload bodyHeadingIn = this->bodyHeadingInMsg();
         hRefHat_B = cArrayToEigenVector(bodyHeadingIn.rHat_XB_B).normalized();
     }
 
-    Eigen::MRPd sigma_BN(cArrayToEigenVector(attNavIn.sigma_BN));
-    Eigen::Matrix3d BN = sigma_BN.toRotationMatrix().transpose();
+    const Eigen::MRPd sigma_BN(cArrayToEigenVector(attNavIn.sigma_BN));
+    const Eigen::Matrix3d BN = sigma_BN.toRotationMatrix().transpose();
 
-    Eigen::Vector3d a1Hat_B = this->a1Hat_B.normalized();
-    Eigen::Vector3d rHat_SB_B = cArrayToEigenVector(attNavIn.vehSunPntBdy).normalized();
+    const Eigen::Vector3d a1Hat_B = this->a1Hat_B.normalized();
+    const Eigen::Vector3d rHat_SB_B = cArrayToEigenVector(attNavIn.vehSunPntBdy).normalized();
+    const Eigen::Vector3d rHat_SB_N = BN.transpose() * rHat_SB_B;
 
-    Eigen::Vector3d rHat_SB_N;
-    rHat_SB_N = BN.transpose() * rHat_SB_B;
-
-    if (double SPE = SPE_angle(rHat_SB_N, hReqHat_N); std::abs(SPE) < 0.5) {
+    if (const double SPE = SPE_angle(rHat_SB_N, hReqHat_N); std::abs(SPE) < 0.5) {
         throw std::runtime_error("sun and earth reference vectors are parallel, Triad can not be used");
     }
 
-    Eigen::Matrix3d BD;
     Eigen::Matrix3d RD;
-
-    Eigen::Vector3d r2 = hRefHat_B;
-    Eigen::Vector3d r3 = a1Hat_B.cross(hRefHat_B).normalized();
-
-    Eigen::Vector3d r1 = r2.cross(r3);
+    const Eigen::Vector3d r2 = hRefHat_B;
+    const Eigen::Vector3d r3 = a1Hat_B.cross(hRefHat_B).normalized();
+    const Eigen::Vector3d r1 = r2.cross(r3);
     RD.col(0) = r1;
     RD.col(1) = r2;
     RD.col(2) = r3;
 
-    Eigen::Vector3d n2 = hReqHat_N;
-    Eigen::Vector3d n1 = rHat_SB_N.cross(hReqHat_N).normalized();
-    Eigen::Vector3d n3 = n1.cross(n2);
+    Eigen::Matrix3d BD;
+    const Eigen::Vector3d n2 = hReqHat_N;
+    const Eigen::Vector3d n1 = rHat_SB_N.cross(hReqHat_N).normalized();
+    const Eigen::Vector3d n3 = n1.cross(n2);
     BD.col(0) = n1;
     BD.col(1) = n2;
     BD.col(2) = n3;
 
-    Eigen::Matrix3d RN = RD * BD.transpose();
-
-    Eigen::Vector3d sigma_RN = dcmToMrp(RN);
+    const Eigen::Matrix3d RN = RD * BD.transpose();
+    const Eigen::Vector3d sigma_RN = dcmToMrp(RN);
 
     double Sigma_RN[3];
     eigenVectorToCArray(sigma_RN, Sigma_RN);
