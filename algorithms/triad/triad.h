@@ -15,7 +15,7 @@
 #include <architecture/msgPayloadDef/InertialHeadingMsgPayload.h>
 #include <architecture/msgPayloadDef/NavAttMsgPayload.h>
 #include <architecture/msgPayloadDef/NavTransMsgPayload.h>
-#include <architecture/utilities/bskLogging.h>
+
 
 enum class CelestialBody { NotSun = 0, Sun = 1 };
 
@@ -36,7 +36,6 @@ class Triad : public SysModel {
     ReadFunctor<EphemerisMsgPayload> ephemerisInMsg;              //!< input ephemeris msg
     Message<AttRefMsgPayload> attRefOutMsg;                       //!< output attitude reference message
 
-    BSKLogger bskLogger{};                            //!< BSK Logging
     void setA1Hat_B(const Eigen::Vector3d& a1Hat_B);  //!< Setter for a1Hat_B variable
     const Eigen::Vector3d getA1Hat_B() const;         //!< Getter for a1Hat_B variable
 
