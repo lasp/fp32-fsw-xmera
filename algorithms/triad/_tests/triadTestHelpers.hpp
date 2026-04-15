@@ -3,6 +3,7 @@
 
 #include "triadAlgorithm.h"
 
+#include <architecture/utilities/rigidBodyKinematics.hpp>
 #include <gtest/gtest.h>
 #include <Eigen/Core>
 #include <architecture/utilities/rigidBodyKinematics.hpp>
