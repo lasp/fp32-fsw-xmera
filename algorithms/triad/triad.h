@@ -8,7 +8,6 @@
 #include <Eigen/Core>
 
 #include "triadAlgorithm.h"
-#include "triadTypes.h"
 #include "msgPayloadDef/AttRefMsgF32Payload.h"
 #include "msgPayloadDef/BodyHeadingMsgF32Payload.h"
 #include "msgPayloadDef/EphemerisMsgF32Payload.h"

@@ -16,7 +16,6 @@
 %include <architecture/_GeneralModuleFiles/swig_eigen.i>
 %include <architecture/_GeneralModuleFiles/swig_conly_data.i>
 
-%include "triadTypes.h"
 %include "triad.h"
 
 %include "msgPayloadDef/NavAttMsgF32Payload.h"
