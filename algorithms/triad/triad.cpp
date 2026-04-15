@@ -3,34 +3,14 @@
 
 #include "triad.h"
 
-#include <cmath>
-#include <numbers>
 #include <stdexcept>
 
 #include <Eigen/Core>
 
-#include <architecture/utilities/eigenMRP.h>
 #include <architecture/utilities/eigenSupport.h>
-#include <architecture/utilities/linearAlgebra.h>
 #include <architecture/utilities/rigidBodyKinematics.hpp>
 
 static constexpr double kNormEpsilon = 1e-12;
-static constexpr double kSpeParallelThresholdDeg = 0.5;
-static constexpr double kRadToDeg = 180.0 / std::numbers::pi;
-
-static double SPE_angle(const Eigen::Vector3d& v1, const Eigen::Vector3d& v2) {
-    const double dot = v1.dot(v2);
-    const double cross = v1.x() * v2.y() - v1.y() * v2.x();
-
-    double angle = std::acos(std::clamp(dot / (v1.norm() * v2.norm()), -1.0, 1.0));
-    angle = angle * kRadToDeg;
-
-    if (cross < 0) {
-        angle = -angle;
-    }
-
-    return angle;
-}
 
 void Triad::reset(const uint64_t callTime) {
     if (!this->attNavInMsg.isLinked()) {
@@ -68,9 +48,9 @@ void Triad::reset(const uint64_t callTime) {
 
 void Triad::updateState(const uint64_t callTime) {
     AttRefMsgPayload attRefOut = {};
-
     const NavAttMsgPayload attNavIn = this->attNavInMsg();
 
+    // Resolve inertial heading
     Eigen::Vector3d hReqHat_N;
     if (this->inertialAxisInput == InertialAxisInput::inputInertialHeadingParameter) {
         hReqHat_N = this->hHat_N.normalized();
@@ -84,6 +64,7 @@ void Triad::updateState(const uint64_t callTime) {
             (cArrayToEigenVector(ephemerisIn.r_BdyZero_N) - cArrayToEigenVector(transNavIn.r_BN_N)).normalized();
     }
 
+    // Resolve body heading
     Eigen::Vector3d hRefHat_B;
     if (this->bodyAxisInput == BodyAxisInput::inputBodyHeadingParameter) {
         hRefHat_B = this->h1Hat_B.normalized();
@@ -92,57 +73,28 @@ void Triad::updateState(const uint64_t callTime) {
         hRefHat_B = cArrayToEigenVector(bodyHeadingIn.rHat_XB_B).normalized();
     }
 
-    const Eigen::MRPd sigma_BN(cArrayToEigenVector(attNavIn.sigma_BN));
-    const Eigen::Matrix3d BN = sigma_BN.toRotationMatrix().transpose();
-
-    const Eigen::Vector3d a1Hat_B = this->a1Hat_B.normalized();
+    // Compute sun direction in inertial frame
+    const Eigen::Matrix3d BN = mrpToDcm(cArrayToEigenVector(attNavIn.sigma_BN));
     const Eigen::Vector3d rHat_SB_B = cArrayToEigenVector(attNavIn.vehSunPntBdy).normalized();
     const Eigen::Vector3d rHat_SB_N = BN.transpose() * rHat_SB_B;
 
-    if (const double SPE = SPE_angle(rHat_SB_N, hReqHat_N); std::abs(SPE) < kSpeParallelThresholdDeg) {
-        throw std::runtime_error("sun and earth reference vectors are parallel, Triad can not be used");
-    }
+    // Run algorithm
+    const Eigen::Vector3d sigma_RN = this->algorithm.update(rHat_SB_N, hReqHat_N, hRefHat_B);
 
-    Eigen::Matrix3d RD;
-    const Eigen::Vector3d r2 = hRefHat_B;
-    const Eigen::Vector3d r3 = a1Hat_B.cross(hRefHat_B).normalized();
-    const Eigen::Vector3d r1 = r2.cross(r3);
-    RD.col(0) = r1;
-    RD.col(1) = r2;
-    RD.col(2) = r3;
-
-    Eigen::Matrix3d BD;
-    const Eigen::Vector3d n2 = hReqHat_N;
-    const Eigen::Vector3d n1 = rHat_SB_N.cross(hReqHat_N).normalized();
-    const Eigen::Vector3d n3 = n1.cross(n2);
-    BD.col(0) = n1;
-    BD.col(1) = n2;
-    BD.col(2) = n3;
-
-    const Eigen::Matrix3d RN = RD * BD.transpose();
-    const Eigen::Vector3d sigma_RN = dcmToMrp(RN);
-
-    double Sigma_RN[3];
-    eigenVectorToCArray(sigma_RN, Sigma_RN);
-    v3Copy(Sigma_RN, attRefOut.sigma_RN);
-
+    eigenVectorToCArray(sigma_RN, attRefOut.sigma_RN);
     this->attRefOutMsg.write(&attRefOut, this->moduleID, callTime);
 }
 
-void Triad::setA1Hat_B(const Eigen::Vector3d& a1Hat_B) { this->a1Hat_B = a1Hat_B; }
+void Triad::setA1Hat_B(const Eigen::Vector3d& a1Hat_B) { this->algorithm.setA1Hat_B(a1Hat_B); }
+Eigen::Vector3d Triad::getA1Hat_B() const { return this->algorithm.getA1Hat_B(); }
+
 void Triad::setH1Hat_B(const Eigen::Vector3d& h1Hat_B) { this->h1Hat_B = h1Hat_B; }
+Eigen::Vector3d Triad::getH1Hat_B() const { return this->h1Hat_B; }
+
 void Triad::setHHat_N(const Eigen::Vector3d& hHat_N) { this->hHat_N = hHat_N; }
+Eigen::Vector3d Triad::getHHat_N() const { return this->hHat_N; }
+
 void Triad::setCelestialBodyInput(const CelestialBody& celestialBodyInput) {
     this->celestialBodyInput = celestialBodyInput;
 }
-void Triad::setBodyAxisInput(const BodyAxisInput& bodyAxisInput) { this->bodyAxisInput = bodyAxisInput; }
-void Triad::setInertialAxisInput(const InertialAxisInput& inertialAxisInput) {
-    this->inertialAxisInput = inertialAxisInput;
-}
-
-const Eigen::Vector3d Triad::getA1Hat_B() const { return this->a1Hat_B; }
-const Eigen::Vector3d Triad::getH1Hat_B() const { return this->h1Hat_B; }
-const Eigen::Vector3d Triad::getHHat_N() const { return this->hHat_N; }
-const CelestialBody Triad::getCelestialBodyInput() const { return this->celestialBodyInput; }
-const BodyAxisInput Triad::getBodyAxisInput() const { return this->bodyAxisInput; }
-const InertialAxisInput Triad::getInertialAxisInput() const { return this->inertialAxisInput; }
+CelestialBody Triad::getCelestialBodyInput() const { return this->celestialBodyInput; }
