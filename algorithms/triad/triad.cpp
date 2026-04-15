@@ -14,14 +14,16 @@
 #include <architecture/utilities/linearAlgebra.h>
 #include <architecture/utilities/rigidBodyKinematics.hpp>
 
-const double epsilon = 1e-12;
+static constexpr double kNormEpsilon = 1e-12;
+static constexpr double kSpeParallelThresholdDeg = 0.5;
+static constexpr double kRadToDeg = 180.0 / std::numbers::pi;
 
 static double SPE_angle(const Eigen::Vector3d& v1, const Eigen::Vector3d& v2) {
     const double dot = v1.dot(v2);
     const double cross = v1.x() * v2.y() - v1.y() * v2.x();
 
     double angle = std::acos(std::clamp(dot / (v1.norm() * v2.norm()), -1.0, 1.0));
-    angle = angle * 180.0 / std::numbers::pi;
+    angle = angle * kRadToDeg;
 
     if (cross < 0) {
         angle = -angle;
@@ -38,7 +40,7 @@ void Triad::reset(const uint64_t callTime) {
     // check how the input body heading is provided
     if (this->bodyHeadingInMsg.isLinked()) {
         this->bodyAxisInput = BodyAxisInput::inputBodyHeadingMsg;
-    } else if (this->h1Hat_B.norm() > epsilon) {
+    } else if (this->h1Hat_B.norm() > kNormEpsilon) {
         this->bodyAxisInput = BodyAxisInput::inputBodyHeadingParameter;
     } else {
         throw std::invalid_argument(
@@ -54,7 +56,7 @@ void Triad::reset(const uint64_t callTime) {
         }
         this->inertialAxisInput = InertialAxisInput::inputEphemerisMsg;
     } else {
-        if (this->hHat_N.norm() > epsilon) {
+        if (this->hHat_N.norm() > kNormEpsilon) {
             this->inertialAxisInput = InertialAxisInput::inputInertialHeadingParameter;
         } else {
             throw std::invalid_argument(
@@ -97,7 +99,7 @@ void Triad::updateState(const uint64_t callTime) {
     const Eigen::Vector3d rHat_SB_B = cArrayToEigenVector(attNavIn.vehSunPntBdy).normalized();
     const Eigen::Vector3d rHat_SB_N = BN.transpose() * rHat_SB_B;
 
-    if (const double SPE = SPE_angle(rHat_SB_N, hReqHat_N); std::abs(SPE) < 0.5) {
+    if (const double SPE = SPE_angle(rHat_SB_N, hReqHat_N); std::abs(SPE) < kSpeParallelThresholdDeg) {
         throw std::runtime_error("sun and earth reference vectors are parallel, Triad can not be used");
     }
 
