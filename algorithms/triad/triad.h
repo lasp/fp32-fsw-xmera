@@ -3,21 +3,20 @@
 
 #ifndef F32XMERA_TRIAD_H
 #define F32XMERA_TRIAD_H
-#include <stdint.h>
-
-#include <memory>
-
-#include <Eigen/Core>
-
-#include "triadAlgorithm.h"
 #include "msgPayloadDef/AttRefMsgF32Payload.h"
 #include "msgPayloadDef/BodyHeadingMsgF32Payload.h"
 #include "msgPayloadDef/EphemerisMsgF32Payload.h"
 #include "msgPayloadDef/InertialHeadingMsgF32Payload.h"
 #include "msgPayloadDef/NavAttMsgF32Payload.h"
 #include "msgPayloadDef/NavTransMsgF32Payload.h"
+#include "triadAlgorithm.h"
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
+
+#include <Eigen/Core>
+
+#include <stdint.h>
+#include <memory>
 
 enum class BodyAxisInput : uint8_t { inputBodyHeadingParameter = 0, inputBodyHeadingMsg = 1 };
 
