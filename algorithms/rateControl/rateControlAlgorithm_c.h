@@ -7,9 +7,7 @@
 #ifndef F32XIMERA_RATE_CONTROL_ALGORITHM_C_H
 #define F32XIMERA_RATE_CONTROL_ALGORITHM_C_H
 
-#include "msgPayloadDef/AttGuidMsgF32Payload.h"
-#include "msgPayloadDef/CmdTorqueBodyMsgF32Payload.h"
-#include "msgPayloadDef/VehicleConfigMsgF32Payload.h"
+#include <Eigen/Core>
 
 #ifdef __cplusplus
 extern "C" {
@@ -41,20 +39,21 @@ void RateControlAlgorithm_destroy(RateControlAlgorithm* self);
 
 /**
  * @brief Run the rate control update step.
- * @param self     Pointer to the instance.
- * @param attGuidIn Pointer to the attitude guidance input.
- * @return CmdTorqueBodyMsgF32Payload The computed torque command.
+ * @param self         Pointer to the instance.
+ * @param omega_BR_B   Angular velocity of body relative to reference frame in body frame components [rad/s].
+ * @param domega_RN_B  Time derivative of reference frame angular velocity in body frame components [rad/s^2].
+ * @return Eigen::Vector3f Required control torque about point B [Nm].
  */
-CmdTorqueBodyMsgF32Payload RateControlAlgorithm_update(const RateControlAlgorithm* self,
-                                                       const AttGuidMsgF32Payload* attGuidIn);
+Eigen::Vector3f RateControlAlgorithm_update(const RateControlAlgorithm* self,
+                                            const Eigen::Vector3f& omega_BR_B,
+                                            const Eigen::Vector3f& domega_RN_B);
 
 /**
  * @brief Set the spacecraft inertia configuration.
  * @param self Pointer to the instance.
  * @param vehicleConfigIn Pointer to the vehicle configuration payload.
  */
-void RateControlAlgorithm_setSpacecraftInertia(RateControlAlgorithm* self,
-                                               const VehicleConfigMsgF32Payload* vehicleConfigIn);
+void RateControlAlgorithm_setSpacecraftInertia(RateControlAlgorithm* self, const Eigen::Matrix3f& spacecraftInertia);
 
 /**
  * @brief Set the derivative gain P.
