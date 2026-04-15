@@ -10,7 +10,7 @@ import numpy as np
 # Import all the modules that we are going to be called in this simulation
 from xmera.utilities import SimulationBaseClass
 from xmera.utilities import RigidBodyKinematics as rbk
-from xmera.fswAlgorithms import triad
+from xmera.fp32 import triadF32 as triad
 from xmera.utilities import macros
 from xmera.architecture import messaging
 

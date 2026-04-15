@@ -137,6 +137,7 @@ set(algorithms
     "thrFiringSchmitt"
     "thrusterPlatformReference"
     "timeClosestApproach"
+    "triad"
 )
 foreach(algorithm_name IN LISTS algorithms)
   add_algorithm(${algorithm_name})

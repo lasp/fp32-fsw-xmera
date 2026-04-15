@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: ISC
 // Copyright (c) 2025, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
 
-#ifndef _TRIAD_METHOD_
-#define _TRIAD_METHOD_
+#ifndef F32XMERA_TRIAD_H
+#define F32XMERA_TRIAD_H
 #include <stdint.h>
 
 #include <Eigen/Core>
