@@ -23,49 +23,43 @@ enum class BodyAxisInput { inputBodyHeadingParameter = 0, inputBodyHeadingMsg = 
 
 enum class InertialAxisInput { inputInertialHeadingParameter = 0, inputInertialHeadingMsg = 1, inputEphemerisMsg = 2 };
 
-/*! @brief Top level structure for the sub-module routines. */
 class Triad : public SysModel {
    public:
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
 
-    ReadFunctor<NavAttMsgPayload> attNavInMsg;                    //!< input msg measured attitude
-    ReadFunctor<BodyHeadingMsgPayload> bodyHeadingInMsg;          //!< input body heading msg
-    ReadFunctor<InertialHeadingMsgPayload> inertialHeadingInMsg;  //!< input inertial heading msg
-    ReadFunctor<NavTransMsgPayload> transNavInMsg;                //!< input msg measured position
-    ReadFunctor<EphemerisMsgPayload> ephemerisInMsg;              //!< input ephemeris msg
-    Message<AttRefMsgPayload> attRefOutMsg;                       //!< output attitude reference message
+    ReadFunctor<NavAttMsgPayload> attNavInMsg;
+    ReadFunctor<BodyHeadingMsgPayload> bodyHeadingInMsg;
+    ReadFunctor<InertialHeadingMsgPayload> inertialHeadingInMsg;
+    ReadFunctor<NavTransMsgPayload> transNavInMsg;
+    ReadFunctor<EphemerisMsgPayload> ephemerisInMsg;
+    Message<AttRefMsgPayload> attRefOutMsg;
 
-    void setA1Hat_B(const Eigen::Vector3d& a1Hat_B);  //!< Setter for a1Hat_B variable
-    const Eigen::Vector3d getA1Hat_B() const;         //!< Getter for a1Hat_B variable
+    void setA1Hat_B(const Eigen::Vector3d& a1Hat_B);
+    const Eigen::Vector3d getA1Hat_B() const;
 
-    void setH1Hat_B(const Eigen::Vector3d& h1Hat_B);  //!< Setter for h1Hat_B variable
-    const Eigen::Vector3d getH1Hat_B() const;         //!< Getter for h1Hat_B variable
+    void setH1Hat_B(const Eigen::Vector3d& h1Hat_B);
+    const Eigen::Vector3d getH1Hat_B() const;
 
-    void setHHat_N(const Eigen::Vector3d& hHat_N);  //!< Setter for hHat_N variable
-    const Eigen::Vector3d getHHat_N() const;        //!< Getter for hHat_N variable
+    void setHHat_N(const Eigen::Vector3d& hHat_N);
+    const Eigen::Vector3d getHHat_N() const;
 
-    void setCelestialBodyInput(const CelestialBody& celestialBodyInput);  //!< Setter for celestialBodyInput variable
-    const CelestialBody getCelestialBodyInput() const;                    //!< Getter for celestialBodyInput variable
+    void setCelestialBodyInput(const CelestialBody& celestialBodyInput);
+    const CelestialBody getCelestialBodyInput() const;
 
-    void setBodyAxisInput(const BodyAxisInput& bodyAxisInput);  //!< Setter for bodyAxisInput variable
-    const BodyAxisInput getBodyAxisInput() const;               //!< Getter for bodyAxisInput variable
+    void setBodyAxisInput(const BodyAxisInput& bodyAxisInput);
+    const BodyAxisInput getBodyAxisInput() const;
 
-    void setInertialAxisInput(const InertialAxisInput& inertialAxisInput);  //!< Setter for inertialAxisInput variable
-    const InertialAxisInput getInertialAxisInput() const;                   //!< Getter for inertialAxisInput variable
+    void setInertialAxisInput(const InertialAxisInput& inertialAxisInput);
+    const InertialAxisInput getInertialAxisInput() const;
 
    private:
-    /*! declare these quantities that always must be specified as flight software parameters */
-    Eigen::Vector3d a1Hat_B;  //!< arrays axis direction in B frame (Solar array 1 body axis x+)
-
-    /*! declare these optional quantities */
-    Eigen::Vector3d h1Hat_B;  //!< main heading in B frame coordinates (HGA body Axis Y+)
-    Eigen::Vector3d hHat_N;   //!< main heading in N frame coordinates (For SEP)
+    Eigen::Vector3d a1Hat_B;
+    Eigen::Vector3d h1Hat_B;
+    Eigen::Vector3d hHat_N;
     CelestialBody celestialBodyInput;
-
-    /*! declare these internal variables that are used by the module and should not be declared by the user */
-    BodyAxisInput bodyAxisInput;          //!< flag variable to determine how the body axis input is specified
-    InertialAxisInput inertialAxisInput;  //!< flag variable to determine how the inertial axis input is specified
+    BodyAxisInput bodyAxisInput;
+    InertialAxisInput inertialAxisInput;
 };
 
 #endif

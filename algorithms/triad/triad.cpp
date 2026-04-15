@@ -31,11 +31,6 @@ double SPE_angle(const Eigen::Vector3d& v1, const Eigen::Vector3d& v2) {
     return angle;
 }
 
-/*! This method performs a complete reset of the module.  Local module variables that retain
- time varying states between function calls are reset to their default values.
- @return void
- @param callTime [ns] time the method is called
-*/
 void Triad::reset(uint64_t callTime) {
     if (!this->attNavInMsg.isLinked()) {
         throw std::invalid_argument("triad.attNavInMsg wasn't connected.");
@@ -70,18 +65,11 @@ void Triad::reset(uint64_t callTime) {
     }
 }
 
-/*! The Update() function computes the reference MRP attitude, reference angular rate and acceleration
- @return void
- @param callTime The clock time at which the function was called (nanoseconds)
-*/
 void Triad::updateState(uint64_t callTime) {
-    /*! create and zero the output message */
     AttRefMsgPayload attRefOut = {};
 
-    /*! read and allocate the attitude navigation message */
     NavAttMsgPayload attNavIn = this->attNavInMsg();
 
-    /*! get requested heading in inertial frame */
     Eigen::Vector3d hReqHat_N;
     if (this->inertialAxisInput == InertialAxisInput::inputInertialHeadingParameter) {
         hReqHat_N = this->hHat_N.normalized();
@@ -95,7 +83,6 @@ void Triad::updateState(uint64_t callTime) {
             (cArrayToEigenVector(ephemerisIn.r_BdyZero_N) - cArrayToEigenVector(transNavIn.r_BN_N)).normalized();
     }
 
-    /*! get body frame heading */
     Eigen::Vector3d hRefHat_B;
     if (this->bodyAxisInput == BodyAxisInput::inputBodyHeadingParameter) {
         hRefHat_B = this->h1Hat_B.normalized();
@@ -105,13 +92,9 @@ void Triad::updateState(uint64_t callTime) {
     }
 
     Eigen::MRPd sigma_BN(cArrayToEigenVector(attNavIn.sigma_BN));
-    /*! define the body frame orientation DCM BN */
     Eigen::Matrix3d BN = sigma_BN.toRotationMatrix().transpose();
 
-    /*! get the solar array drive direction in body frame coordinates */
     Eigen::Vector3d a1Hat_B = this->a1Hat_B.normalized();
-
-    /*! read Sun direction in B frame from the attNav message */
     Eigen::Vector3d rHat_SB_B = cArrayToEigenVector(attNavIn.vehSunPntBdy).normalized();
 
     Eigen::Vector3d rHat_SB_N;
@@ -141,74 +124,29 @@ void Triad::updateState(uint64_t callTime) {
 
     Eigen::Matrix3d RN = RD * BD.transpose();
 
-    /*! compute reference MRP */
-    Eigen::Vector3d sigma_RN;
-    sigma_RN = dcmToMrp(RN);
+    Eigen::Vector3d sigma_RN = dcmToMrp(RN);
 
     double Sigma_RN[3];
     eigenVectorToCArray(sigma_RN, Sigma_RN);
     v3Copy(Sigma_RN, attRefOut.sigma_RN);
 
-    /*! write output message */
     this->attRefOutMsg.write(&attRefOut, this->moduleID, callTime);
 }
 
-/*! Setter method for sigma_R0R.
- @return void
- @param a1Hat_B
-*/
 void Triad::setA1Hat_B(const Eigen::Vector3d& a1Hat_B) { this->a1Hat_B = a1Hat_B; }
-/*! Setter method for sigma_R0R.
- @return void
- @param h1Hat_B
-*/
 void Triad::setH1Hat_B(const Eigen::Vector3d& h1Hat_B) { this->h1Hat_B = h1Hat_B; }
-/*! Setter method for sigma_R0R.
- @return void
- @param hHat_N
-*/
 void Triad::setHHat_N(const Eigen::Vector3d& hHat_N) { this->hHat_N = hHat_N; }
-/*! Setter method for sigma_R0R.
- @return void
- @param celestialBodyInput
-*/
 void Triad::setCelestialBodyInput(const CelestialBody& celestialBodyInput) {
     this->celestialBodyInput = celestialBodyInput;
 }
-/*! Setter method for sigma_R0R.
- @return void
- @param bodyAxisInput
-*/
 void Triad::setBodyAxisInput(const BodyAxisInput& bodyAxisInput) { this->bodyAxisInput = bodyAxisInput; }
-/*! Setter method for sigma_R0R.
- @return void
- @param inertialAxisInput
-*/
 void Triad::setInertialAxisInput(const InertialAxisInput& inertialAxisInput) {
     this->inertialAxisInput = inertialAxisInput;
 }
 
-/*! Getter method for a1Hat_B.
-    @return const Eigen::Vector3d
-*/
 const Eigen::Vector3d Triad::getA1Hat_B() const { return this->a1Hat_B; }
-/*! Getter method for h1Hat_B.
-    @return const Eigen::Vector3d
-*/
 const Eigen::Vector3d Triad::getH1Hat_B() const { return this->h1Hat_B; }
-/*! Getter method for hHat_N.
-    @return const Eigen::Vector3d
-*/
 const Eigen::Vector3d Triad::getHHat_N() const { return this->hHat_N; }
-/*! Getter method for celestialBodyInput.
-    @return const CelestialBody
-*/
 const CelestialBody Triad::getCelestialBodyInput() const { return this->celestialBodyInput; }
-/*! Getter method for bodyAxisInput.
-    @return const BodyAxisInput
-*/
 const BodyAxisInput Triad::getBodyAxisInput() const { return this->bodyAxisInput; }
-/*! Getter method for inertialAxisInput.
-    @return const InertialAxisInput
-*/
 const InertialAxisInput Triad::getInertialAxisInput() const { return this->inertialAxisInput; }
