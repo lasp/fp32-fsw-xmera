@@ -12,6 +12,11 @@
 
 static constexpr float kNormEpsilon = 1e-6F;
 
+class XmeraLifecycleException : public std::runtime_error {
+   public:
+    using runtime_error::runtime_error;
+};
+
 void Triad::reset(const uint64_t callTime) {
     if (!this->attNavInMsg.isLinked()) {
         throw std::invalid_argument("triad.attNavInMsg wasn't connected.");
@@ -44,9 +49,17 @@ void Triad::reset(const uint64_t callTime) {
                 "connected and no inertial heading hHat_N was specified.");
         }
     }
+
+    // Phase 2: Validate config and create algorithm
+    auto config = TriadConfig::create(this->a1Hat_B, this->h1Hat_B, this->hHat_N, this->celestialBodyInput);
+    this->algorithm = std::make_unique<TriadAlgorithm>(config);
 }
 
 void Triad::updateState(const uint64_t callTime) {
+    if (!this->algorithm) {
+        throw XmeraLifecycleException("Triad reset() has not been called.");
+    }
+
     AttRefMsgF32Payload attRefOut = {};
     const NavAttMsgF32Payload attNavIn = this->attNavInMsg();
 
@@ -80,22 +93,8 @@ void Triad::updateState(const uint64_t callTime) {
     const Eigen::Vector3f rHat_SB_N = BN.transpose() * rHat_SB_B;
 
     // Run algorithm
-    const Eigen::Vector3f sigma_RN = this->algorithm.update(rHat_SB_N, hReqHat_N, hRefHat_B);
+    const Eigen::Vector3f sigma_RN = this->algorithm->update(rHat_SB_N, hReqHat_N, hRefHat_B);
 
     eigenVectorToCArray(sigma_RN, attRefOut.sigma_RN);
     this->attRefOutMsg.write(&attRefOut, this->moduleID, callTime);
 }
-
-void Triad::setA1Hat_B(const Eigen::Vector3f& a1Hat_B) { this->algorithm.setA1Hat_B(a1Hat_B); }
-Eigen::Vector3f Triad::getA1Hat_B() const { return this->algorithm.getA1Hat_B(); }
-
-void Triad::setH1Hat_B(const Eigen::Vector3f& h1Hat_B) { this->h1Hat_B = h1Hat_B; }
-Eigen::Vector3f Triad::getH1Hat_B() const { return this->h1Hat_B; }
-
-void Triad::setHHat_N(const Eigen::Vector3f& hHat_N) { this->hHat_N = hHat_N; }
-Eigen::Vector3f Triad::getHHat_N() const { return this->hHat_N; }
-
-void Triad::setCelestialBodyInput(const CelestialBody& celestialBodyInput) {
-    this->celestialBodyInput = celestialBodyInput;
-}
-CelestialBody Triad::getCelestialBodyInput() const { return this->celestialBodyInput; }

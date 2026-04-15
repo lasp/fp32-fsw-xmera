@@ -5,6 +5,8 @@
 #define F32XMERA_TRIAD_H
 #include <stdint.h>
 
+#include <memory>
+
 #include <Eigen/Core>
 
 #include "triadAlgorithm.h"
@@ -25,7 +27,7 @@ enum class InertialAxisInput : uint8_t {
     inputEphemerisMsg = 2
 };
 
-class Triad : public SysModel {
+class Triad final : public SysModel {
    public:
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
@@ -37,23 +39,14 @@ class Triad : public SysModel {
     ReadFunctor<EphemerisMsgF32Payload> ephemerisInMsg;
     Message<AttRefMsgF32Payload> attRefOutMsg;
 
-    void setA1Hat_B(const Eigen::Vector3f& a1Hat_B);
-    Eigen::Vector3f getA1Hat_B() const;
-
-    void setH1Hat_B(const Eigen::Vector3f& h1Hat_B);
-    Eigen::Vector3f getH1Hat_B() const;
-
-    void setHHat_N(const Eigen::Vector3f& hHat_N);
-    Eigen::Vector3f getHHat_N() const;
-
-    void setCelestialBodyInput(const CelestialBody& celestialBodyInput);
-    CelestialBody getCelestialBodyInput() const;
-
-   private:
-    TriadAlgorithm algorithm{};
+    // Phase 1: Public config properties — set before reset()
+    Eigen::Vector3f a1Hat_B = Eigen::Vector3f::Zero();
     Eigen::Vector3f h1Hat_B = Eigen::Vector3f::Zero();
     Eigen::Vector3f hHat_N = Eigen::Vector3f::Zero();
     CelestialBody celestialBodyInput{};
+
+   private:
+    std::unique_ptr<TriadAlgorithm> algorithm = nullptr;
     BodyAxisInput bodyAxisInput{};
     InertialAxisInput inertialAxisInput{};
 };
