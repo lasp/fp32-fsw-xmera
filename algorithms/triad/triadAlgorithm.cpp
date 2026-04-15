@@ -21,6 +21,13 @@ static float SPE_angle(const Eigen::Vector3f& v1, const Eigen::Vector3f& v2) {
     return angle;
 }
 
+TriadAlgorithm::TriadAlgorithm(const TriadConfig& config)
+    : cfg(config) {}
+
+void TriadAlgorithm::setConfig(const TriadConfig& config) {
+    this->cfg = config;
+}
+
 Eigen::Vector3f TriadAlgorithm::update(const Eigen::Vector3f& rHat_SB_N,
                                        const Eigen::Vector3f& hReqHat_N,
                                        const Eigen::Vector3f& hRefHat_B) const {
@@ -28,7 +35,7 @@ Eigen::Vector3f TriadAlgorithm::update(const Eigen::Vector3f& rHat_SB_N,
         throw std::runtime_error("sun and earth reference vectors are parallel, Triad can not be used");
     }
 
-    const Eigen::Vector3f a1 = this->a1Hat_B.normalized();
+    const Eigen::Vector3f a1 = this->cfg.getA1Hat_B().normalized();
 
     Eigen::Matrix3f RD;
     const Eigen::Vector3f r2 = hRefHat_B;
@@ -50,6 +57,3 @@ Eigen::Vector3f TriadAlgorithm::update(const Eigen::Vector3f& rHat_SB_N,
 
     return dcmToMrp(RN);
 }
-
-void TriadAlgorithm::setA1Hat_B(const Eigen::Vector3f& a1Hat_B) { this->a1Hat_B = a1Hat_B; }
-Eigen::Vector3f TriadAlgorithm::getA1Hat_B() const { return this->a1Hat_B; }
