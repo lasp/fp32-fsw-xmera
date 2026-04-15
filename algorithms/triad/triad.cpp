@@ -3,7 +3,8 @@
 
 #include "triad.h"
 
-#include <math.h>
+#include <cmath>
+#include <numbers>
 #include <stdexcept>
 
 #include <Eigen/Core>
@@ -20,7 +21,7 @@ static double SPE_angle(const Eigen::Vector3d& v1, const Eigen::Vector3d& v2) {
     const double cross = v1.x() * v2.y() - v1.y() * v2.x();
 
     double angle = std::acos(std::clamp(dot / (v1.norm() * v2.norm()), -1.0, 1.0));
-    angle = angle * 180.0 / M_PI;
+    angle = angle * 180.0 / std::numbers::pi;
 
     if (cross < 0) {
         angle = -angle;
