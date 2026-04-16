@@ -1,8 +1,10 @@
 #include "triadAlgorithm.h"
-#include "architecture/utilities/rigidBodyKinematics.hpp"
-#include <Eigen/Core>
+#include <math.h>
 #include <numbers>
 #include <stdexcept>
+#include <Eigen/Core>
+#include "utilities/fsw/rigidBodyKinematics.hpp"
+#include "utilities/fsw/safeMath.h"
 
 static constexpr float kSpeParallelThresholdDeg = 0.5F;
 static constexpr float kRadToDeg = 180.0F / std::numbers::pi_v<float>;
@@ -11,7 +13,7 @@ static float SPE_angle(const Eigen::Vector3f& v1, const Eigen::Vector3f& v2) {
     const float dot = v1.dot(v2);
     const float cross = v1.x() * v2.y() - v1.y() * v2.x();
 
-    float angle = acosf(std::clamp(dot / (v1.norm() * v2.norm()), -1.0F, 1.0F));
+    float angle = safeAcosf(dot / (v1.norm() * v2.norm()));
     angle = angle * kRadToDeg;
 
     if (cross < 0.0F) {

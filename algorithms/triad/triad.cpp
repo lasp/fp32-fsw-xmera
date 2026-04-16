@@ -8,7 +8,7 @@
 #include <Eigen/Core>
 
 #include <architecture/utilities/eigenSupport.h>
-#include <architecture/utilities/rigidBodyKinematics.hpp>
+#include "architecture/utilities/rigidBodyKinematics.hpp"
 
 static constexpr float kNormEpsilon = 1e-6F;
 
