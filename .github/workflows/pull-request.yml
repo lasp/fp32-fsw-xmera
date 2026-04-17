@@ -285,7 +285,7 @@ jobs:
           python -m pip install -e .
 
       - name: Run CTest (C/C++ tests)
-        working-directory: xmera/build
+        working-directory: xmera/build/fp32-fsw-xmera/algorithms
         run: |
           mkdir -p "${GITHUB_WORKSPACE}/junit"
           ctest --output-on-failure --output-junit "${GITHUB_WORKSPACE}/junit/ctest-${{ matrix.os }}.xml"
