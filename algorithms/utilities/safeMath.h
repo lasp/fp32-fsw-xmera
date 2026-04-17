@@ -2,6 +2,7 @@
 #define SAFE_MATH_H_
 
 #include <math.h>
+#include <limits>
 #include <numbers>
 
 /*! @brief Safe wrapper around tanf that clamps the input to
