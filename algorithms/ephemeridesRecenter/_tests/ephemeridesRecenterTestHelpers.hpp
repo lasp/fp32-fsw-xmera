@@ -32,7 +32,7 @@ std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES> referenceUpdate(
     }
 
     // Find the new central body index using the returned bodyIds ordering
-    auto* it = std::ranges::find(bodyIds, newCentralBodyId);
+    const auto it = std::ranges::find(bodyIds, newCentralBodyId);
     if (it == bodyIds.end()) {
         FS_THROW_INVALID_ARGUMENT("New zero base body was not in the list of existing bodies");
     }
