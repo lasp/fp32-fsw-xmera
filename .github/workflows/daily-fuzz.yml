@@ -165,14 +165,14 @@ jobs:
         run: cmake --build ../build --parallel
 
       - name: Run fuzz smoke tests (CTest)
-        working-directory: xmera/build
+        working-directory: xmera/build/fp32-fsw-xmera/algorithms
         env:
           XMERA_FUZZTEST_REPLAY_CORPUS: __ALL__
           XMERA_FUZZTEST_REPLAY_FOR: inf
         run: ctest --output-on-failure -L fuzz
 
       - name: Run extended fuzz sessions
-        working-directory: xmera/build
+        working-directory: xmera/build/fp32-fsw-xmera/algorithms
         env:
           ASAN_OPTIONS: detect_leaks=1:strict_string_checks=1:check_initialization_order=1
           UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1:suppressions=/dev/null
