@@ -1,16 +1,16 @@
 Executive Summary
 -----------------
 This module compares body rate estimates from an IMU and a star tracker. If the two rates differ by more than a
-configurable threshold, the module reports a fault and outputs the IMU rate. Otherwise it outputs the star tracker rate.
+configurable threshold for a configurable number of consecutive updates, the module reports a fault and outputs the IMU
+rate. Otherwise it outputs the star tracker rate. Once a fault is declared it persists until the module is reset.
 
 Message Connection Descriptions
 -------------------------------
-The following table lists all the module input and output messages. The module msg variable name is set by the user
-from python. The msg type contains a link to the message structure definition, while the description provides
-information on what this message is used for.
+The following table lists all module input and output messages. Message connections are set by the
+user from Python.
 
 .. list-table:: Module I/O Messages
-    :widths: 25 25 50
+    :widths: 30 30 50
     :header-rows: 1
 
     * - Msg Variable Name
@@ -28,6 +28,78 @@ information on what this message is used for.
     * - rateFaultMsg
       - :ref:`BodyRateFaultMsgPayload`
       - fault output message indicating IMU and star tracker miscompare
+
+Module Parameters
+-------------------------------
+The following table lists all the module parameters that can be set.
+
+.. list-table:: Module Parameters
+    :widths: 30 15 10 10 40 30
+    :header-rows: 1
+
+    * - Parameter Name
+      - Type
+      - Units
+      - Default
+      - Description
+      - Bounds
+    * - bodyRateThreshold
+      - float
+      - [rad/s]
+      - 0.0
+      - Euclidean norm threshold for rate miscompare detection
+      - Must be strictly positive (checked in setter)
+    * - faultPersistenceLimit
+      - uint32_t
+      - [-]
+      - 1
+      - Number of consecutive threshold violations required to declare a fault
+      - Must be >= 1 (checked in setter)
+    * - useImuRates
+      - bool
+      - [-]
+      - false
+      - When true, always output IMU rates regardless of miscompare detection
+      - N/A
+
+Algorithm Input/Output
+-------------------------------
+The following tables list the inputs and outputs of the pure algorithm ``update()`` method, independent of the Xmera
+messaging layer.
+
+.. list-table:: Algorithm Inputs
+    :widths: 25 25 10 40
+    :header-rows: 1
+
+    * - Variable
+      - Type
+      - Units
+      - Description
+    * - imuOmega_BN_B
+      - Eigen::Vector3f
+      - [rad/s]
+      - IMU body rate in body-frame components
+    * - stOmega_BN_B
+      - Eigen::Vector3f
+      - [rad/s]
+      - Star tracker body rate in body-frame components
+
+.. list-table:: Algorithm Outputs (BodyRateMiscompareOutput)
+    :widths: 25 25 10 40
+    :header-rows: 1
+
+    * - Variable
+      - Type
+      - Units
+      - Description
+    * - omega_BN_B
+      - Eigen::Vector3f
+      - [rad/s]
+      - Selected body rate (IMU if fault, star tracker otherwise)
+    * - bodyRateFaultDetected
+      - bool
+      - [-]
+      - True if fault persistence limit has been reached
 
 Algorithm Description
 ---------------------
@@ -47,15 +119,27 @@ and compares its Euclidean norm to a positive threshold :math:`\tau`:
 
     \|\Delta \omega\| > \tau
 
-If the threshold is exceeded, the algorithm declares a fault and outputs the IMU rate. Otherwise, it outputs the star
-tracker rate. The output also includes a boolean flag indicating whether the fault was detected.
+If the threshold is exceeded, a persistence counter is incremented. If the threshold is not exceeded, the counter resets
+to zero. When the persistence counter reaches the configurable fault persistence limit :math:`N`, the algorithm declares
+a fault and outputs the IMU rate. Otherwise, it outputs the star tracker rate. The output also includes a boolean flag
+indicating whether the fault was detected.
+
+Once a fault has been declared, the algorithm continues to output the IMU rate on all subsequent calls. The persistence
+counter is no longer evaluated. Note that the settable ``useImuRates`` parameter is not modified by the algorithm
+internally; instead, an internal flag tracks the fault state. To fully recover from a detected fault, the caller must
+call ``reset()`` to clear the persistence counter and ``setUseImuRates(false)`` to clear the internal fault state and
+re-enable the miscompare logic.
+
+The ``reset()`` method sets the persistence counter back to zero but does not clear the internal fault state. This
+allows the user to reset the counter independently of the rate source selection.
+
+The ``useImuRates`` parameter can be set by the user to force the algorithm to output IMU rates without waiting for a
+fault to be detected. When set to true, the algorithm bypasses the miscompare logic and always outputs the IMU rate.
 
 Algorithm Assumptions and Limitations
 -------------------------------------
-- The threshold :math:`\tau` must be strictly positive. A zero or negative threshold is invalid.
 - The two input rates must be expressed in the same frame and units.
-- The comparison is instantaneous and uses a strict greater-than check. There is no hysteresis, filtering,
-  or persistence logic.
+- A declared fault persists until both ``reset()`` and ``setUseImuRates(false)`` are called.
 - The algorithm does not validate the physical plausibility of the input rates beyond finite arithmetic.
 
 Module Description (Xmera Usage)
@@ -69,23 +153,20 @@ The `BodyRateMiscompare` simulation module provides the Xmera integration layer 
 
 The module sets the output time tag using the simulation `callTime`.
 
-Module Assumptions and Limitations
-----------------------------------
-- Both input messages must be linked before `reset`. The module throws an error if either input is not connected.
-- The module only uses the body rate from the star tracker message and ignores other attitude fields.
-- The module does not perform unit conversions beyond the internal float conversion for the star tracker message.
-
 User Guide
 ----------
-Typical usage in Python is:
-
-.. code-block:: python
+Typical usage in Python is::
 
     module = bodyRateMiscompareF32.BodyRateMiscompare()
     module.modelTag = "bodyRateMiscompare"
-    module.setBodyRateThreshold(body_rate_threshold_rad_per_sec)
+    module.bodyRateThreshold = body_rate_threshold_rad_per_sec
+    module.faultPersistenceLimit = 3  # require 3 consecutive violations before declaring fault
+    module.useImuRates = True  # optionally force IMU rate output without waiting for a fault
 
     module.imuSensorBodyInMsg.subscribeTo(imu_msg)
     module.stBodyInMsg.subscribeTo(st_msg)
 
 The output body rate is available on `navAttMsg`, and the fault status is available on `rateFaultMsg`.
+
+The ``faultPersistenceLimit`` parameter (default 1) controls how many consecutive threshold violations are required
+before the fault is declared. Setting it to 1 means the fault triggers on the first violation.
