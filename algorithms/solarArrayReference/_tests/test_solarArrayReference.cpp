@@ -202,6 +202,17 @@ TEST(SolarArrayReferenceTest, LargeThetaWrapping) {
     EXPECT_TRUE(std::isfinite(result));
 }
 
+// Zero sun direction vector falls back to current theta (no preferred rotation).
+TEST(SolarArrayReferenceTest, ZeroSunDirectionReturnsCurrentTheta) {
+    SolarArrayReferenceAlgorithm alg{};
+    alg.setSolarArrayAxes_B(Eigen::Vector3f{1.0F, 0.0F, 0.0F}, Eigen::Vector3f{0.0F, 1.0F, 0.0F});
+
+    float theta = 0.7F;
+    float result = alg.update(
+        Eigen::Vector3f{0.1F, 0.2F, 0.3F}, Eigen::Vector3f{0.3F, 0.2F, 0.1F}, Eigen::Vector3f::Zero(), theta);
+    EXPECT_FLOAT_EQ(result, theta);
+}
+
 // Alignment threshold: just inside threshold keeps current theta.
 TEST(SolarArrayReferenceTest, AlignmentThresholdJustInside) {
     SolarArrayReferenceAlgorithm alg{};
