@@ -60,6 +60,7 @@ inline void regressionTestSolarArrayReference(std::vector<float> sigma_BN_Vec,
                                               std::vector<float> vehSunPntBdy_Vec,
                                               std::vector<float> a1Hat_B_Vec,
                                               std::vector<float> a2Hat_B_Vec,
+                                              float alignmentThreshold,
                                               float theta) {
     Eigen::Vector3f a1Hat_B_f(a1Hat_B_Vec[0], a1Hat_B_Vec[1], a1Hat_B_Vec[2]);
     Eigen::Vector3f a2Hat_B_f(a2Hat_B_Vec[0], a2Hat_B_Vec[1], a2Hat_B_Vec[2]);
@@ -86,6 +87,7 @@ inline void regressionTestSolarArrayReference(std::vector<float> sigma_BN_Vec,
     // Set up algorithm
     SolarArrayReferenceAlgorithm alg{};
     alg.setSolarArrayAxes_B(a1Hat_B_f, a2Hat_B_f);
+    alg.setAlignmentThreshold(alignmentThreshold);
 
     // Call algorithm
     float result{};
@@ -119,6 +121,7 @@ inline void regressionTestSolarArrayReference(std::vector<float> sigma_BN_Vec,
 inline void propertyOutputIsFinite(std::vector<float> sigma_BN_Vec,
                                    std::vector<float> sigma_RN_Vec,
                                    std::vector<float> vehSunPntBdy_Vec,
+                                   float alignmentThreshold,
                                    float theta) {
     Eigen::Vector3f vehSunPntBdy_f(vehSunPntBdy_Vec[0], vehSunPntBdy_Vec[1], vehSunPntBdy_Vec[2]);
     if (vehSunPntBdy_f.norm() < 1e-6F) {
@@ -127,6 +130,7 @@ inline void propertyOutputIsFinite(std::vector<float> sigma_BN_Vec,
 
     SolarArrayReferenceAlgorithm alg{};
     alg.setSolarArrayAxes_B(Eigen::Vector3f{1.0F, 0.0F, 0.0F}, Eigen::Vector3f{0.0F, 1.0F, 0.0F});
+    alg.setAlignmentThreshold(alignmentThreshold);
 
     Eigen::Vector3f sigma_BN(sigma_BN_Vec[0], sigma_BN_Vec[1], sigma_BN_Vec[2]);
     Eigen::Vector3f sigma_RN(sigma_RN_Vec[0], sigma_RN_Vec[1], sigma_RN_Vec[2]);
@@ -159,7 +163,9 @@ inline void propertySpecifiedAngleReturnsAngle(std::vector<float> sigma_BN_Vec,
 }
 
 // When sun is aligned with drive axis, output equals input theta.
-inline void propertyAlignedSunReturnsCurrentTheta(std::vector<float> a1Hat_B_Vec, float theta) {
+inline void propertyAlignedSunReturnsCurrentTheta(std::vector<float> a1Hat_B_Vec,
+                                                  float alignmentThreshold,
+                                                  float theta) {
     Eigen::Vector3f a1Hat_B_f(a1Hat_B_Vec[0], a1Hat_B_Vec[1], a1Hat_B_Vec[2]);
     if (abs(a1Hat_B_f.norm() - 1.0F) > 1e-3F) {
         return;
@@ -175,6 +181,7 @@ inline void propertyAlignedSunReturnsCurrentTheta(std::vector<float> a1Hat_B_Vec
 
     SolarArrayReferenceAlgorithm alg{};
     alg.setSolarArrayAxes_B(a1Hat_B_f, a2);
+    alg.setAlignmentThreshold(alignmentThreshold);
 
     // Sun direction exactly along drive axis (use getter to match what the algorithm stores)
     const auto axes = alg.getSolarArrayAxes_B();

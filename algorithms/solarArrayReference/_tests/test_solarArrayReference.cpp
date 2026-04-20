@@ -11,6 +11,7 @@ TEST(SolarArrayReferenceTest, RegressionTest) {
                                       {1.0F, 0.0F, 0.0F},  // vehSunPntBdy
                                       {1.0F, 0.0F, 0.0F},  // a1Hat_B
                                       {0.0F, 1.0F, 0.0F},  // a2Hat_B
+                                      1e-3F,               // alignmentThreshold
                                       0.0F                 // theta
     );
 }
@@ -21,6 +22,7 @@ TEST(SolarArrayReferenceTest, RegressionTestNonZeroTheta) {
                                       {0.0F, 0.0F, 1.0F},  // vehSunPntBdy
                                       {1.0F, 0.0F, 0.0F},  // a1Hat_B
                                       {0.0F, 1.0F, 0.0F},  // a2Hat_B
+                                      1e-3F,               // alignmentThreshold
                                       1.5F                 // theta
     );
 }
@@ -31,6 +33,7 @@ TEST(SolarArrayReferenceTest, RegressionTestArbitraryAxes) {
                                       {1.0F, 1.0F, 1.0F},   // vehSunPntBdy
                                       {0.0F, 0.0F, 1.0F},   // a1Hat_B
                                       {1.0F, 0.0F, 0.0F},   // a2Hat_B
+                                      1e-3F,                // alignmentThreshold
                                       -0.5F                 // theta
     );
 }
@@ -139,15 +142,15 @@ TEST(SolarArrayReferenceTest, SetupTest) {
 // ---------------------------------------------------------------------------
 
 TEST(SolarArrayReferenceTest, OutputIsFinite) {
-    propertyOutputIsFinite({0.1F, 0.2F, 0.3F}, {0.3F, 0.2F, 0.1F}, {1.0F, 1.0F, 0.0F}, 0.5F);
+    propertyOutputIsFinite({0.1F, 0.2F, 0.3F}, {0.3F, 0.2F, 0.1F}, {1.0F, 1.0F, 0.0F}, 1e-3F, 0.5F);
 }
 
 TEST(SolarArrayReferenceTest, AlignedSunReturnsCurrentTheta) {
-    propertyAlignedSunReturnsCurrentTheta({1.0F, 0.0F, 0.0F}, 0.7F);
+    propertyAlignedSunReturnsCurrentTheta({1.0F, 0.0F, 0.0F}, 1e-3F, 0.7F);
 }
 
 TEST(SolarArrayReferenceTest, AlignedSunNegativeTheta) {
-    propertyAlignedSunReturnsCurrentTheta({0.0F, 0.0F, 1.0F}, -1.2F);
+    propertyAlignedSunReturnsCurrentTheta({0.0F, 0.0F, 1.0F}, 1e-3F, -1.2F);
 }
 
 TEST(SolarArrayReferenceTest, SpecifiedAngleReturnsAngle) {
