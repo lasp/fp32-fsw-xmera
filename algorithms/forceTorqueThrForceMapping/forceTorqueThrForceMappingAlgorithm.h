@@ -20,6 +20,7 @@
 #ifndef F32XMERA_FORCE_TORQUE_THR_FORCE_MAPPING_ALGORITHM_H
 #define F32XMERA_FORCE_TORQUE_THR_FORCE_MAPPING_ALGORITHM_H
 
+#include "forceTorqueThrForceMappingTypes.h"
 #include "msgPayloadDef/definitions.h"
 #include <stdint.h>
 #include <Eigen/Core>
@@ -28,13 +29,13 @@
  */
 class ForceTorqueThrForceMappingAlgorithm {
    public:
-    void reset(uint32_t numThrusters,
-               const Eigen::Vector3f& CoM_B,
-               const Eigen::Matrix<float, 3, MAX_EFF_CNT>& rThruster_B,
-               const Eigen::Matrix<float, 3, MAX_EFF_CNT>& gtThruster_B);
-
     Eigen::Vector<float, MAX_EFF_CNT> update(const Eigen::Vector3f& cmdTorque,
                                                const Eigen::Vector3f& cmdForce) const;
+
+    void setThrusters(const ThrusterArrayConfig& thrusterConfig);
+    ThrusterArrayConfig getThrusters() const;
+    void setCoM_B(const Eigen::Vector3f& centerOfMass);
+    Eigen::Vector3f getCoM_B() const;
 
    private:
     uint32_t numThrusters{};  //!< The number of thrusters available on vehicle

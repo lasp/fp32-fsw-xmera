@@ -20,21 +20,22 @@ void ForceTorqueThrForceMapping::reset(const uint64_t callTime) {
     VehicleConfigMsgF32Payload vehConfigIn = this->vehConfigInMsg();
     THRArrayConfigMsgF32Payload thrConfigIn = this->thrConfigInMsg();
 
-    const Eigen::Vector3f CoM_B = cArrayToEigenVector(vehConfigIn.CoM_B);
-
-    Eigen::Matrix<float, 3, MAX_EFF_CNT> rThruster_B{Eigen::Matrix<float, 3, MAX_EFF_CNT>::Zero()};
-    Eigen::Matrix<float, 3, MAX_EFF_CNT> gtThruster_B{Eigen::Matrix<float, 3, MAX_EFF_CNT>::Zero()};
+    ThrusterArrayConfig thrusterConfig{};
+    thrusterConfig.numThrusters = thrConfigIn.numThrusters;
     for (uint32_t i = 0; i < thrConfigIn.numThrusters; ++i) {
-        rThruster_B.col(i) = cArrayToEigenVector(thrConfigIn.thrusters[i].rThrust_B);
-        gtThruster_B.col(i) = cArrayToEigenVector(thrConfigIn.thrusters[i].tHatThrust_B);
         if (thrConfigIn.thrusters[i].maxThrust <= 0.0F) {
             throw std::invalid_argument(
                 "forceTorqueThrForceMapping: A configured thruster has a non-sensible "
                 "saturation limit of <= 0 N!");
         }
+        for (uint32_t j = 0; j < 3; ++j) {
+            thrusterConfig.thrusters.at(i).rThrust_B.at(j) = thrConfigIn.thrusters[i].rThrust_B[j];
+            thrusterConfig.thrusters.at(i).tHatThrust_B.at(j) = thrConfigIn.thrusters[i].tHatThrust_B[j];
+        }
     }
 
-    this->algorithm.reset(thrConfigIn.numThrusters, CoM_B, rThruster_B, gtThruster_B);
+    this->algorithm.setCoM_B(cArrayToEigenVector(vehConfigIn.CoM_B));
+    this->algorithm.setThrusters(thrusterConfig);
 }
 
 /*! Add a description of what this main Update() routine does for this module
