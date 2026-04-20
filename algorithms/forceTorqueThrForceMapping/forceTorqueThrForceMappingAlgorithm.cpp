@@ -31,9 +31,9 @@
  @param gtThruster_B thruster force unit direction vectors (one column per thruster)
 */
 void ForceTorqueThrForceMappingAlgorithm::reset(const uint32_t numThrusters,
-                                                const Eigen::Vector3d& CoM_B,
-                                                const Eigen::Matrix<double, 3, MAX_EFF_CNT>& rThruster_B,
-                                                const Eigen::Matrix<double, 3, MAX_EFF_CNT>& gtThruster_B) {
+                                                const Eigen::Vector3f& CoM_B,
+                                                const Eigen::Matrix<float, 3, MAX_EFF_CNT>& rThruster_B,
+                                                const Eigen::Matrix<float, 3, MAX_EFF_CNT>& gtThruster_B) {
     if (numThrusters > MAX_EFF_CNT) {
         FSW_THROW_INVALID_ARGUMENT(
             "forceTorqueThrForceMapping: numThrusters is larger than MAX_EFF_CNT");
@@ -45,36 +45,36 @@ void ForceTorqueThrForceMappingAlgorithm::reset(const uint32_t numThrusters,
 }
 
 /*! Compute thruster force commands from the requested torque and force vectors.
- @return Eigen::Vector<double, MAX_EFF_CNT> thruster force commands (non-negative, shifted by min)
+ @return Eigen::Vector<float, MAX_EFF_CNT> thruster force commands (non-negative, shifted by min)
  @param cmdTorque [Nm] requested control torque in body frame
  @param cmdForce [N] requested control force in body frame
 */
-Eigen::Vector<double, MAX_EFF_CNT> ForceTorqueThrForceMappingAlgorithm::update(
-    const Eigen::Vector3d& cmdTorque, const Eigen::Vector3d& cmdForce) const {
+Eigen::Vector<float, MAX_EFF_CNT> ForceTorqueThrForceMappingAlgorithm::update(
+    const Eigen::Vector3f& cmdTorque, const Eigen::Vector3f& cmdForce) const {
     /* Create the torque and force vector */
-    Eigen::Vector<double, 6> forceTorque_B{};
+    Eigen::Vector<float, 6> forceTorque_B{};
     forceTorque_B.head(3) = cmdTorque;
     forceTorque_B.tail(3) = cmdForce;
 
     /* - compute thruster locations relative to COM */
-    Eigen::Matrix<double, 3, MAX_EFF_CNT> rThrusterRelCOM_B{Eigen::Matrix<double, 3, MAX_EFF_CNT>::Zero()};
+    Eigen::Matrix<float, 3, MAX_EFF_CNT> rThrusterRelCOM_B{Eigen::Matrix<float, 3, MAX_EFF_CNT>::Zero()};
     rThrusterRelCOM_B.leftCols(this->numThrusters) =
         this->rThruster_B.leftCols(this->numThrusters).colwise() - this->CoM_B;
 
     /* Fill DG with thruster directions and moment arms */
-    Eigen::Matrix<double, 3, MAX_EFF_CNT> rCrossGt{Eigen::Matrix<double, 3, MAX_EFF_CNT>::Zero()};
+    Eigen::Matrix<float, 3, MAX_EFF_CNT> rCrossGt{Eigen::Matrix<float, 3, MAX_EFF_CNT>::Zero()};
     for (uint32_t i = 0; i < this->numThrusters; ++i) {
         rCrossGt.col(i) = rThrusterRelCOM_B.col(i).cross(this->gtThruster_B.col(i));
     }
-    Eigen::Matrix<double, 6, MAX_EFF_CNT> DG{};
+    Eigen::Matrix<float, 6, MAX_EFF_CNT> DG{};
     DG << rCrossGt, this->gtThruster_B;
 
     /* Create the DG w/ zero rows removed */
     uint32_t nonZeroRows = 0;
-    Eigen::Matrix<double, 6, MAX_EFF_CNT> DG_nonzero{Eigen::Matrix<double, 6, MAX_EFF_CNT>::Zero()};
-    Eigen::Vector<double, 6> forceTorque_B_nonzero{Eigen::Vector<double, 6>::Zero()};
+    Eigen::Matrix<float, 6, MAX_EFF_CNT> DG_nonzero{Eigen::Matrix<float, 6, MAX_EFF_CNT>::Zero()};
+    Eigen::Vector<float, 6> forceTorque_B_nonzero{Eigen::Vector<float, 6>::Zero()};
     for (uint32_t i = 0; i < 6; ++i) {
-        if ((DG.row(i).array().abs() > 1e-7).any()) {
+        if ((DG.row(i).array().abs() > 1e-4F).any()) {
             DG_nonzero.row(nonZeroRows) = DG.row(i);
             forceTorque_B_nonzero.row(nonZeroRows) = forceTorque_B.row(i);
             nonZeroRows += 1;
@@ -85,16 +85,16 @@ Eigen::Vector<double, MAX_EFF_CNT> ForceTorqueThrForceMappingAlgorithm::update(
     const uint32_t numRows = nonZeroRows;
     const uint32_t numCols = this->numThrusters;
 
-    Eigen::Vector<double, MAX_EFF_CNT> force_B{Eigen::Vector<double, MAX_EFF_CNT>::Zero()};
+    Eigen::Vector<float, MAX_EFF_CNT> force_B{Eigen::Vector<float, MAX_EFF_CNT>::Zero()};
     force_B.topRows(numCols) =
         DG_nonzero.topLeftCorner(numRows, numCols).completeOrthogonalDecomposition().pseudoInverse() *
         forceTorque_B_nonzero.topRows(numRows);
 
     /* Find the minimum force */
-    const double minForce = force_B.topRows(this->numThrusters).minCoeff();
+    const float minForce = force_B.topRows(this->numThrusters).minCoeff();
 
     /* Subtract the minimum force */
-    Eigen::Vector<double, MAX_EFF_CNT> forceSubtracted_B{Eigen::Vector<double, MAX_EFF_CNT>::Zero()};
+    Eigen::Vector<float, MAX_EFF_CNT> forceSubtracted_B{Eigen::Vector<float, MAX_EFF_CNT>::Zero()};
     forceSubtracted_B.topRows(this->numThrusters) = force_B.topRows(this->numThrusters).array() - minForce;
 
     return forceSubtracted_B;

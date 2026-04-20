@@ -29,20 +29,20 @@
 class ForceTorqueThrForceMappingAlgorithm {
    public:
     void reset(uint32_t numThrusters,
-               const Eigen::Vector3d& CoM_B,
-               const Eigen::Matrix<double, 3, MAX_EFF_CNT>& rThruster_B,
-               const Eigen::Matrix<double, 3, MAX_EFF_CNT>& gtThruster_B);
+               const Eigen::Vector3f& CoM_B,
+               const Eigen::Matrix<float, 3, MAX_EFF_CNT>& rThruster_B,
+               const Eigen::Matrix<float, 3, MAX_EFF_CNT>& gtThruster_B);
 
-    Eigen::Vector<double, MAX_EFF_CNT> update(const Eigen::Vector3d& cmdTorque,
-                                               const Eigen::Vector3d& cmdForce) const;
+    Eigen::Vector<float, MAX_EFF_CNT> update(const Eigen::Vector3f& cmdTorque,
+                                               const Eigen::Vector3f& cmdForce) const;
 
    private:
     uint32_t numThrusters{};  //!< The number of thrusters available on vehicle
-    Eigen::Vector3d CoM_B{};  //!< [m] Center of mass of the spacecraft
-    Eigen::Matrix<double, 3, MAX_EFF_CNT> rThruster_B{
-        Eigen::Matrix<double, 3, MAX_EFF_CNT>::Zero()};  //!< [m] Thruster locations in body frame
-    Eigen::Matrix<double, 3, MAX_EFF_CNT> gtThruster_B{
-        Eigen::Matrix<double, 3, MAX_EFF_CNT>::Zero()};  //!< Thruster force unit direction vectors
+    Eigen::Vector3f CoM_B{};  //!< [m] Center of mass of the spacecraft
+    Eigen::Matrix<float, 3, MAX_EFF_CNT> rThruster_B{
+        Eigen::Matrix<float, 3, MAX_EFF_CNT>::Zero()};  //!< [m] Thruster locations in body frame
+    Eigen::Matrix<float, 3, MAX_EFF_CNT> gtThruster_B{
+        Eigen::Matrix<float, 3, MAX_EFF_CNT>::Zero()};  //!< Thruster force unit direction vectors
 };
 
 #endif

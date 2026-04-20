@@ -1,9 +1,12 @@
 import numpy as np
 import pytest
 from xmera.architecture import messaging
+from xmera.architecture.messaging import (
+    THRArrayConfigMsgF32,
+    THRArrayConfigMsgF32Payload,
+)
 from xmera.fp32 import forceTorqueThrForceMappingF32
 from xmera.utilities import SimulationBaseClass
-from xmera.utilities import fswSetupThrusters
 from xmera.utilities import macros
 
 rcs_location_data_1 = [[-0.86360, -0.82550, 1.79070],
@@ -93,34 +96,30 @@ def test_force_torque_thr_force_mapping(rcs_location, rcs_direction, requested_t
     unit_test_sim.AddModelToTask(unit_task_name, module)
 
     # Configure blank module input messages
-    cmd_torque_in_msg_data = messaging.CmdTorqueBodyMsgPayload()
+    cmd_torque_in_msg_data = messaging.CmdTorqueBodyMsgF32Payload()
     cmd_torque_in_msg_data.torqueRequestBody = requested_torque
-    cmd_torque_in_msg = messaging.CmdTorqueBodyMsg().write(cmd_torque_in_msg_data)
+    cmd_torque_in_msg = messaging.CmdTorqueBodyMsgF32().write(cmd_torque_in_msg_data)
 
-    cmd_force_in_msg_data = messaging.CmdForceBodyMsgPayload()
+    cmd_force_in_msg_data = messaging.CmdForceBodyMsgF32Payload()
     cmd_force_in_msg_data.forceRequestBody = requested_force
-    cmd_force_in_msg = messaging.CmdForceBodyMsg().write(cmd_force_in_msg_data)
+    cmd_force_in_msg = messaging.CmdForceBodyMsgF32().write(cmd_force_in_msg_data)
 
     num_thrusters = len(rcs_location)
     max_thrust = 3.0  # N
-    MAX_EFF_CNT = messaging.MAX_EFF_CNT
-    rcs_location_data = np.zeros((MAX_EFF_CNT, 3))
-    rcs_direction_data = np.zeros((MAX_EFF_CNT, 3))
 
-    rcs_location_data[0:len(rcs_location)] = rcs_location
-
-    rcs_direction_data[0:len(rcs_location)] = rcs_direction
-
-    fswSetupThrusters.clearSetup()
+    thr_config_payload = THRArrayConfigMsgF32Payload()
+    thr_config_payload.numThrusters = num_thrusters
     for i in range(num_thrusters):
-        fswSetupThrusters.create(rcs_location_data[i], rcs_direction_data[i], max_thrust)
-    thr_config_in_msg = fswSetupThrusters.writeConfigMessage()
+        thr_config_payload.thrusters[i].rThrust_B = rcs_location[i]
+        thr_config_payload.thrusters[i].tHatThrust_B = rcs_direction[i]
+        thr_config_payload.thrusters[i].maxThrust = max_thrust
+    thr_config_in_msg = THRArrayConfigMsgF32().write(thr_config_payload)
 
     CoM_B = np.array([0.1, 0.1, 0.1])
 
-    veh_config_in_msg_data = messaging.VehicleConfigMsgPayload()
+    veh_config_in_msg_data = messaging.VehicleConfigMsgF32Payload()
     veh_config_in_msg_data.CoM_B = CoM_B
-    veh_config_in_msg = messaging.VehicleConfigMsg().write(veh_config_in_msg_data)
+    veh_config_in_msg = messaging.VehicleConfigMsgF32().write(veh_config_in_msg_data)
 
     # subscribe input messages to module
     if torque_in_msg_flag:
@@ -135,7 +134,7 @@ def test_force_torque_thr_force_mapping(rcs_location, rcs_direction, requested_t
 
     truth = compute_thrust_mapping_truth(rcs_location, rcs_direction, requested_torque, requested_force, CoM_B)
 
-    accuracy = 1e-12
+    accuracy = 1e-5
     np.testing.assert_allclose(np.array([module.thrForceCmdOutMsg.read().thrForce[0:len(rcs_location)]]).flatten(), truth,
                                atol=accuracy, rtol=accuracy, verbose=True)
 

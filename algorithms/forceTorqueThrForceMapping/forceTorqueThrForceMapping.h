@@ -1,15 +1,15 @@
 #ifndef F32XMERA_FORCE_TORQUE_THR_FORCE_MAPPING_H
 #define F32XMERA_FORCE_TORQUE_THR_FORCE_MAPPING_H
 
-#include <stdint.h>
+#include "forceTorqueThrForceMappingAlgorithm.h"
+#include "msgPayloadDef/CmdForceBodyMsgF32Payload.h"
+#include "msgPayloadDef/CmdTorqueBodyMsgF32Payload.h"
+#include "msgPayloadDef/THRArrayCmdForceMsgF32Payload.h"
+#include "msgPayloadDef/THRArrayConfigMsgF32Payload.h"
+#include "msgPayloadDef/VehicleConfigMsgF32Payload.h"
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
-#include <architecture/msgPayloadDef/CmdForceBodyMsgPayload.h>
-#include <architecture/msgPayloadDef/CmdTorqueBodyMsgPayload.h>
-#include <architecture/msgPayloadDef/THRArrayCmdForceMsgPayload.h>
-#include <architecture/msgPayloadDef/THRArrayConfigMsgPayload.h>
-#include <architecture/msgPayloadDef/VehicleConfigMsgPayload.h>
-#include "forceTorqueThrForceMappingAlgorithm.h"
+#include <stdint.h>
 
 /*! @brief This module maps thruster forces for arbitrary forces and torques
  */
@@ -22,11 +22,11 @@ class ForceTorqueThrForceMapping : public SysModel {
     void updateState(uint64_t callTime) override;
 
     /* declare module IO interfaces */
-    ReadFunctor<CmdTorqueBodyMsgPayload> cmdTorqueInMsg;    //!< (optional) vehicle control (Lr) input message
-    ReadFunctor<CmdForceBodyMsgPayload> cmdForceInMsg;      //!< (optional) vehicle control force input message
-    ReadFunctor<THRArrayConfigMsgPayload> thrConfigInMsg;   //!< thruster cluster configuration input message
-    ReadFunctor<VehicleConfigMsgPayload> vehConfigInMsg;    //!< vehicle config input message
-    Message<THRArrayCmdForceMsgPayload> thrForceCmdOutMsg;  //!< thruster force command output message
+    ReadFunctor<CmdTorqueBodyMsgF32Payload> cmdTorqueInMsg;    //!< (optional) vehicle control (Lr) input message
+    ReadFunctor<CmdForceBodyMsgF32Payload> cmdForceInMsg;      //!< (optional) vehicle control force input message
+    ReadFunctor<THRArrayConfigMsgF32Payload> thrConfigInMsg;   //!< thruster cluster configuration input message
+    ReadFunctor<VehicleConfigMsgF32Payload> vehConfigInMsg;    //!< vehicle config input message
+    Message<THRArrayCmdForceMsgF32Payload> thrForceCmdOutMsg;  //!< thruster force command output message
 
    private:
     ForceTorqueThrForceMappingAlgorithm algorithm{};

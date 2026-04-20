@@ -17,17 +17,17 @@ void ForceTorqueThrForceMapping::reset(const uint64_t callTime) {
         throw std::invalid_argument("forceTorqueThrForceMapping.vehConfigInMsg was not connected.");
     }
 
-    VehicleConfigMsgPayload vehConfigIn = this->vehConfigInMsg();
-    THRArrayConfigMsgPayload thrConfigIn = this->thrConfigInMsg();
+    VehicleConfigMsgF32Payload vehConfigIn = this->vehConfigInMsg();
+    THRArrayConfigMsgF32Payload thrConfigIn = this->thrConfigInMsg();
 
-    const Eigen::Vector3d CoM_B = cArrayToEigenVector(vehConfigIn.CoM_B);
+    const Eigen::Vector3f CoM_B = cArrayToEigenVector(vehConfigIn.CoM_B);
 
-    Eigen::Matrix<double, 3, MAX_EFF_CNT> rThruster_B{Eigen::Matrix<double, 3, MAX_EFF_CNT>::Zero()};
-    Eigen::Matrix<double, 3, MAX_EFF_CNT> gtThruster_B{Eigen::Matrix<double, 3, MAX_EFF_CNT>::Zero()};
+    Eigen::Matrix<float, 3, MAX_EFF_CNT> rThruster_B{Eigen::Matrix<float, 3, MAX_EFF_CNT>::Zero()};
+    Eigen::Matrix<float, 3, MAX_EFF_CNT> gtThruster_B{Eigen::Matrix<float, 3, MAX_EFF_CNT>::Zero()};
     for (uint32_t i = 0; i < thrConfigIn.numThrusters; ++i) {
         rThruster_B.col(i) = cArrayToEigenVector(thrConfigIn.thrusters[i].rThrust_B);
         gtThruster_B.col(i) = cArrayToEigenVector(thrConfigIn.thrusters[i].tHatThrust_B);
-        if (thrConfigIn.thrusters[i].maxThrust <= 0.0) {
+        if (thrConfigIn.thrusters[i].maxThrust <= 0.0F) {
             throw std::invalid_argument(
                 "forceTorqueThrForceMapping: A configured thruster has a non-sensible "
                 "saturation limit of <= 0 N!");
@@ -42,24 +42,24 @@ void ForceTorqueThrForceMapping::reset(const uint64_t callTime) {
  @param callTime The clock time at which the function was called (nanoseconds)
 */
 void ForceTorqueThrForceMapping::updateState(const uint64_t callTime) {
-    Eigen::Vector3d cmdTorque{Eigen::Vector3d::Zero()};
-    Eigen::Vector3d cmdForce{Eigen::Vector3d::Zero()};
+    Eigen::Vector3f cmdTorque{Eigen::Vector3f::Zero()};
+    Eigen::Vector3f cmdForce{Eigen::Vector3f::Zero()};
 
     /* Check if torque message is linked and read, zero out if not*/
     if (this->cmdTorqueInMsg.isLinked()) {
-        CmdTorqueBodyMsgPayload cmdTorqueIn = this->cmdTorqueInMsg();
+        CmdTorqueBodyMsgF32Payload cmdTorqueIn = this->cmdTorqueInMsg();
         cmdTorque = cArrayToEigenVector(cmdTorqueIn.torqueRequestBody);
     }
 
     /* Check if force message is linked and read, zero out if not*/
     if (this->cmdForceInMsg.isLinked()) {
-        CmdForceBodyMsgPayload cmdForceIn = this->cmdForceInMsg();
+        CmdForceBodyMsgF32Payload cmdForceIn = this->cmdForceInMsg();
         cmdForce = cArrayToEigenVector(cmdForceIn.forceRequestBody);
     }
 
-    const Eigen::Vector<double, MAX_EFF_CNT> thrForce = this->algorithm.update(cmdTorque, cmdForce);
+    const Eigen::Vector<float, MAX_EFF_CNT> thrForce = this->algorithm.update(cmdTorque, cmdForce);
 
-    THRArrayCmdForceMsgPayload thrForceCmdOut{};
+    THRArrayCmdForceMsgF32Payload thrForceCmdOut{};
     eigenVectorToCArray(thrForce, thrForceCmdOut.thrForce);
     this->thrForceCmdOutMsg.write(&thrForceCmdOut, this->moduleID, callTime);
 }

@@ -8,8 +8,8 @@
 
 %include "forceTorqueThrForceMapping.h"
 
-%include <architecture/msgPayloadDef/CmdTorqueBodyMsgPayload.h>
-%include <architecture/msgPayloadDef/CmdForceBodyMsgPayload.h>
-%include <architecture/msgPayloadDef/THRArrayConfigMsgPayload.h>
-%include <architecture/msgPayloadDef/VehicleConfigMsgPayload.h>
-%include <architecture/msgPayloadDef/THRArrayCmdForceMsgPayload.h>
+%include "msgPayloadDef/CmdTorqueBodyMsgF32Payload.h"
+%include "msgPayloadDef/CmdForceBodyMsgF32Payload.h"
+%include "msgPayloadDef/THRArrayConfigMsgF32Payload.h"
+%include "msgPayloadDef/VehicleConfigMsgF32Payload.h"
+%include "msgPayloadDef/THRArrayCmdForceMsgF32Payload.h"
