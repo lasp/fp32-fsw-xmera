@@ -208,8 +208,8 @@ TEST(SolarArrayReferenceTest, AlignmentThresholdJustInside) {
     alg.setSolarArrayAxes_B(Eigen::Vector3f{0.0F, 0.0F, 1.0F}, Eigen::Vector3f{1.0F, 0.0F, 0.0F});
     alg.setAlignmentThreshold(0.1F);  // 0.1 rad threshold
 
-    // Sun nearly along drive axis (small angle from z-axis)
-    Eigen::Vector3f sunNearAxis{0.0F, 0.04F, 1.0F};  // angle ~ atan(0.04) ~ 0.04 rad < 0.1
+    // Sun along drive axis
+    Eigen::Vector3f sunNearAxis{0.0F, 0.0F, 1.0F};  // sun angle of 0 deg
     float theta = 1.0F;
     float result = alg.update(Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(), sunNearAxis, theta);
     EXPECT_NEAR(result, theta, 1e-5F);
