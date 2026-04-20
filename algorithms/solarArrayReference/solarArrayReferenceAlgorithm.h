@@ -36,6 +36,8 @@ class SolarArrayReferenceAlgorithm final {
     TrackingMode trackingMode{TrackingMode::AUTO_TRACK};  //!< array tracking mode
     float specifiedArrayAngle{};  //!< [rad] specified reference array angle if tracking mode is specified angle
     float offsetAngle{};          //!< [rad] offset angle to be added to determined reference angle
+
+    Eigen::Vector3f a3Hat_B{Eigen::Vector3f::Zero()};  //!< a1Hat_B x a2Hat_B, completes the right-handed array frame
 };
 
 #endif  // F32XMERA_SOLAR_ARRAY_REFERENCE_ALGORITHM_H

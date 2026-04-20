@@ -41,14 +41,7 @@ float SolarArrayReferenceAlgorithm::update(
                 thetaRef = theta;
             } else {
                 /*! required solar array surface normal direction to align with Sun as well as possible */
-                const Eigen::Vector3f a2HatRef_B =
-                    (rHat_SB_B - this->a1Hat_B.dot(rHat_SB_B) * this->a1Hat_B).stableNormalized();
-                const Eigen::Vector3f a1HatRef_B = this->a2Hat_B.cross(a2HatRef_B);
-                thetaRef = safeAcosf(this->a2Hat_B.dot(a2HatRef_B));
-                // if this->a1Hat_B and a1HatRef_B are opposite, take the negative of thetaRef
-                if (this->a1Hat_B.dot(a1HatRef_B) < 0) {
-                    thetaRef = -thetaRef;
-                }
+                thetaRef = safeAtan2f(this->a3Hat_B.dot(rHat_SB_B), this->a2Hat_B.dot(rHat_SB_B));
             }
             break;
         }
@@ -88,8 +81,8 @@ void SolarArrayReferenceAlgorithm::setSolarArrayAxes_B(const Eigen::Vector3f& dr
     }
     this->a1Hat_B = a1;
     // Orthogonalize a2 against a1 to ensure exact orthogonality
-    const Eigen::Vector3f a3 = (a1.cross(a2)).stableNormalized();
-    this->a2Hat_B = (a3.cross(a1)).stableNormalized();
+    this->a3Hat_B = (a1.cross(a2)).stableNormalized();
+    this->a2Hat_B = (this->a3Hat_B.cross(a1)).stableNormalized();
 }
 
 /*! Get the solar array drive axis and surface normal in body frame coordinates.

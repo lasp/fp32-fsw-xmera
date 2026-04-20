@@ -165,29 +165,23 @@ At every update cycle, the ``solarArrayReference`` module performs the following
    and there is no preferred rotation: set :math:`\theta_R = \theta_C` (the current panel angle from
    ``hingedRigidBodyInMsg``) and skip to step 5.
 
-4. **Compute reference angle** (Sun not aligned with drive axis):
+4. **Compute reference angle** (Sun not aligned with drive axis): expressed in the body-fixed orthonormal frame
+   :math:`\{\hat{\mathbf a}_1,\, \hat{\mathbf a}_2,\, \hat{\mathbf a}_3\}` with
+   :math:`\hat{\mathbf a}_3 = \hat{\mathbf a}_1 \times \hat{\mathbf a}_2`, the signed rotation about
+   :math:`\hat{\mathbf a}_1` that carries :math:`\hat{\mathbf a}_2` toward the in-plane projection of the Sun
+   direction is
 
-   - Project the Sun direction onto the rotation plane and normalize:
+   .. math::
 
-     .. math::
+      \theta_R = \operatorname{atan2}\!\left(
+        \hat{\mathbf a}_3 \cdot {}^\mathcal{R}\hat{\mathbf r}_S,\;
+        \hat{\mathbf a}_2 \cdot {}^\mathcal{R}\hat{\mathbf r}_S
+      \right)
 
-        {}^\mathcal{R}\hat{\mathbf a}_2^{\text{ref}} = \frac{
-          {}^\mathcal{R}\hat{\mathbf r}_S - \left( {}^\mathcal{R}\hat{\mathbf r}_S \cdot \hat{\mathbf a}_1 \right) \hat{\mathbf a}_1
-        }{
-          \left| {}^\mathcal{R}\hat{\mathbf r}_S - \left( {}^\mathcal{R}\hat{\mathbf r}_S \cdot \hat{\mathbf a}_1 \right) \hat{\mathbf a}_1 \right|
-        }
-
-   - The reference angle is the signed angle between :math:`\hat{\mathbf a}_2` and
-     :math:`{}^\mathcal{R}\hat{\mathbf a}_2^{\text{ref}}`:
-
-     .. math::
-
-        \theta_R = \pm \arccos \left( \hat{\mathbf a}_2 \cdot {}^\mathcal{R}\hat{\mathbf a}_2^{\text{ref}} \right)
-
-     The sign is determined by the orientation of
-     :math:`\hat{\mathbf a}_2 \times {}^\mathcal{R}\hat{\mathbf a}_2^{\text{ref}}` relative to the drive axis
-     :math:`\hat{\mathbf a}_1`: if the cross product is anti-parallel to :math:`\hat{\mathbf a}_1`, the sign is
-     negative.
+   The :math:`\hat{\mathbf a}_1`-component of :math:`{}^\mathcal{R}\hat{\mathbf r}_S` drops out because
+   :math:`\hat{\mathbf a}_2` and :math:`\hat{\mathbf a}_3` are both perpendicular to :math:`\hat{\mathbf a}_1`,
+   so no explicit projection/normalization is required. :math:`\hat{\mathbf a}_3` is computed once in the setter
+   and cached.
 
 5. **Apply offset and wrap**: add the configured offset angle and wrap the result to :math:`[-\pi, \pi]`:
 
@@ -197,13 +191,14 @@ At every update cycle, the ``solarArrayReference`` module performs the following
 
 Wrapping and the Sun-Aligned Case
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-The :math:`\arccos`-based computation in step 4 produces values in :math:`[0, \pi]`; the sign correction extends
-this to :math:`[-\pi, \pi]`. Adding the offset can push the sum outside this range, so the final
-:math:`\operatorname{atan2}(\sin(\cdot), \cos(\cdot))` step is what guarantees the output range is always
+The :math:`\operatorname{atan2}` in step 4 produces values in :math:`[-\pi, \pi]` with the correct quadrant
+directly. Adding the offset can push the sum outside this range, so the final
+:math:`\operatorname{atan2}(\sin(\cdot), \cos(\cdot))` step guarantees the output range is always
 :math:`[-\pi, \pi]`.
 
-When the Sun direction is (nearly) aligned with the drive axis, the projection in step 4 is degenerate. The module
-detects this via the ``alignmentThreshold`` check and falls back to returning the current panel angle
+When the Sun direction is (nearly) aligned with the drive axis, its projection onto the :math:`(\hat{\mathbf a}_2,
+\hat{\mathbf a}_3)` plane vanishes and :math:`\theta_R` is undefined. The module detects this via the
+``alignmentThreshold`` check and falls back to returning the current panel angle
 :math:`\theta_C` plus the offset. Because the wrap is applied unconditionally at the end, this also normalizes
 :math:`\theta_C` (which the caller may have provided unwrapped) to :math:`[-\pi, \pi]`.
 
