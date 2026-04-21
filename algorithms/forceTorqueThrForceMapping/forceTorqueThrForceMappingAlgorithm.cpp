@@ -25,43 +25,26 @@
 
 /*! Compute thruster force commands from the requested torque and force vectors.
  @return Eigen::Vector<float, MAX_EFF_CNT> thruster force commands (non-negative, shifted by min)
- @param cmdTorque [Nm] requested control torque in body frame
- @param cmdForce [N] requested control force in body frame
+ @param cmdTorque_B [Nm] requested control torque in body frame
+ @param cmdForce_B [N] requested control force in body frame
 */
-Eigen::Vector<float, MAX_EFF_CNT> ForceTorqueThrForceMappingAlgorithm::update(
-    const Eigen::Vector3f& cmdTorque, const Eigen::Vector3f& cmdForce) const {
+Eigen::Vector<float, MAX_EFF_CNT> ForceTorqueThrForceMappingAlgorithm::update(const Eigen::Vector3f& cmdTorque_B,
+                                                                              const Eigen::Vector3f& cmdForce_B) const {
     /* Create the torque and force vector */
     Eigen::Vector<float, 6> forceTorque_B{};
-    forceTorque_B.head(3) = cmdTorque;
-    forceTorque_B.tail(3) = cmdForce;
+    forceTorque_B << cmdTorque_B, cmdForce_B;
 
-    /* Only use force/torque components that are controllable (corresponding DG matrix row is not all zeros) */
-    uint32_t numControllable{};
-    Eigen::Vector<float, 6> forceTorque_B_nonzero{Eigen::Vector<float, 6>::Zero()};
-    for (uint32_t i = 0; i < 6; ++i) {
-        if (this->nonZeroRowIndices.at(i)) {
-            forceTorque_B_nonzero.row(numControllable) = forceTorque_B.row(i);
-            ++numControllable;
-        }
-    }
+    Eigen::Vector<float, MAX_EFF_CNT> thrusterForces = this->pseudoInverseDG * forceTorque_B;
+    const float minForce = thrusterForces.head(this->numThrusters).minCoeff();
+    thrusterForces.head(this->numThrusters).array() -= minForce;
 
-    /* Compute the force for each thruster */
-    Eigen::Vector<float, MAX_EFF_CNT> force_B{Eigen::Vector<float, MAX_EFF_CNT>::Zero()};
-    force_B.topRows(this->numThrusters) = this->pseudoInverseDG * forceTorque_B_nonzero.topRows(numControllable);
-
-    /* Find the minimum force */
-    const float minForce = force_B.topRows(this->numThrusters).minCoeff();
-
-    /* Subtract the minimum force */
-    Eigen::Vector<float, MAX_EFF_CNT> forceSubtracted_B{Eigen::Vector<float, MAX_EFF_CNT>::Zero()};
-    forceSubtracted_B.topRows(this->numThrusters) = force_B.topRows(this->numThrusters).array() - minForce;
-
-    return forceSubtracted_B;
+    return thrusterForces;
 }
 
-/*! Compute the thruster mapping matrix
- @return void
-*/
+/*! Compute the thruster mapping matrix. The pseudo-inverse is taken on the full-rank sub-block
+ *  of DG (rows for uncontrollable axes removed), then pre-composed with a row selector so that
+ *  the stored operator accepts a full 6-vector directly at update time.
+ */
 void ForceTorqueThrForceMappingAlgorithm::computeThrusterMapping() {
     /* - compute thruster locations relative to COM */
     Eigen::Matrix<float, 3, MAX_EFF_CNT> rThrusterRelCOM_B{Eigen::Matrix<float, 3, MAX_EFF_CNT>::Zero()};
@@ -76,18 +59,23 @@ void ForceTorqueThrForceMappingAlgorithm::computeThrusterMapping() {
     Eigen::Matrix<float, 6, MAX_EFF_CNT> DGwithZeros{};
     DGwithZeros << rCrossGt, this->gtThruster_B;
 
-    /* Create the DG matrix with zero rows removed */
+    // Retain only controllable rows so the pseudo-inverse is computed on a full-rank block.
+    // `selector` is the (k x 6) matrix that picks those k rows out of any 6-D force/torque vector.
     uint32_t numControllable{};
     Eigen::Matrix<float, 6, MAX_EFF_CNT> DG{Eigen::Matrix<float, 6, MAX_EFF_CNT>::Zero()};
+    Eigen::Matrix<float, 6, 6> selector{Eigen::Matrix<float, 6, 6>::Zero()};
     for (uint32_t i = 0; i < 6; ++i) {
         if ((DGwithZeros.row(i).array().abs() > 1e-4F).any()) {
             DG.row(numControllable) = DGwithZeros.row(i);
-            this->nonZeroRowIndices.at(i) = true;
+            selector(numControllable, i) = 1.0F;
             ++numControllable;
         }
     }
 
-    this->pseudoInverseDG = DG.topLeftCorner(numControllable, this->numThrusters).completeOrthogonalDecomposition().pseudoInverse();
+    this->pseudoInverseDG.setZero();
+    this->pseudoInverseDG.topRows(this->numThrusters) =
+        DG.topLeftCorner(numControllable, this->numThrusters).completeOrthogonalDecomposition().pseudoInverse() *
+        selector.topRows(numControllable);
 }
 
 /*! Setter for the thruster array configuration. Validates the thruster count and that each active
