@@ -68,26 +68,40 @@ CRASH_COUNT=0
 while IFS= read -r fuzz_bin; do
   [[ -z "$fuzz_bin" ]] && continue
   fuzz_name="$(basename "$fuzz_bin")"
-  echo ">>> Running long fuzz session for ${fuzz_name}"
-  cmd=("$fuzz_bin")
-  if [[ -n "$FUZZ_DURATION" ]]; then
-    cmd+=("--fuzz_for=${FUZZ_DURATION}")
+
+  # Enumerate FUZZ_TESTs inside this binary. --list_fuzz_tests prints one line
+  # per test in the form "[*] Fuzz test: <Suite.Name>" and exits.
+  mapfile -t fuzz_tests < <("$fuzz_bin" --list_fuzz_tests 2>/dev/null \
+    | sed -n 's/^\[\*\] Fuzz test: //p')
+
+  if [[ ${#fuzz_tests[@]} -eq 0 ]]; then
+    echo "WARNING: No FUZZ_TESTs discovered in ${fuzz_name}; skipping." >&2
+    continue
   fi
-  env_vars=()
-  if [[ -n "$CORPUS_DIR" ]]; then
-    fuzz_corpus_dir="${CORPUS_DIR}/${fuzz_name}"
-    mkdir -p "$fuzz_corpus_dir"
-    env_vars+=(
-      "FUZZTEST_TESTSUITE_OUT_DIR=${fuzz_corpus_dir}"
-      "FUZZTEST_TESTSUITE_IN_DIR=${fuzz_corpus_dir}"
-    )
-  fi
-  if env "${env_vars[@]}" "${cmd[@]}" 2>&1 | tee "$LOG_DIR/${fuzz_name}.log"; then
-    echo ">>> ${fuzz_name}: OK"
-  else
-    echo ">>> ${fuzz_name}: FAILED (exit $?)"
-    CRASH_COUNT=$((CRASH_COUNT + 1))
-  fi
+
+  for test_name in "${fuzz_tests[@]}"; do
+    echo ">>> Running long fuzz session for ${fuzz_name} :: ${test_name}"
+    cmd=("$fuzz_bin" "--fuzz=${test_name}")
+    if [[ -n "$FUZZ_DURATION" ]]; then
+      cmd+=("--fuzz_for=${FUZZ_DURATION}")
+    fi
+    env_vars=()
+    if [[ -n "$CORPUS_DIR" ]]; then
+      fuzz_corpus_dir="${CORPUS_DIR}/${fuzz_name}/${test_name}"
+      mkdir -p "$fuzz_corpus_dir"
+      env_vars+=(
+        "FUZZTEST_TESTSUITE_OUT_DIR=${fuzz_corpus_dir}"
+        "FUZZTEST_TESTSUITE_IN_DIR=${fuzz_corpus_dir}"
+      )
+    fi
+    log_file="${LOG_DIR}/${fuzz_name}.${test_name}.log"
+    if env "${env_vars[@]}" "${cmd[@]}" 2>&1 | tee "$log_file"; then
+      echo ">>> ${fuzz_name} :: ${test_name}: OK"
+    else
+      echo ">>> ${fuzz_name} :: ${test_name}: FAILED (exit $?)"
+      CRASH_COUNT=$((CRASH_COUNT + 1))
+    fi
+  done
 done <<< "$FUZZ_BINS"
 
 if [[ $CRASH_COUNT -gt 0 ]]; then

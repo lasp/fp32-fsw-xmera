@@ -190,17 +190,22 @@ jobs:
           {
             echo "## Daily Fuzz Report — $(date -u +%Y-%m-%d)"
             echo ""
-            echo "| Target | Corpus Files | Status |"
-            echo "|--------|-------------|--------|"
+            echo "| Binary | Fuzz Test | Corpus Files | Status |"
+            echo "|--------|-----------|--------------|--------|"
 
             for log in fuzz-logs/*.log; do
               [[ -f "$log" ]] || continue
               name="$(basename "$log" .log)"
 
-              # Count corpus files for this target
+              # Log names are "<binary>.<Suite.TestName>"; split on the first dot.
+              binary="${name%%.*}"
+              test_name="${name#*.}"
+
+              # Count corpus files for this specific test
               corpus_count=0
-              if [[ -d ".fuzztest_corpus" ]]; then
-                corpus_count=$(find ".fuzztest_corpus" -type f -path "*${name}*" 2>/dev/null | wc -l || echo 0)
+              corpus_path=".fuzztest_corpus/${binary}/${test_name}"
+              if [[ -d "$corpus_path" ]]; then
+                corpus_count=$(find "$corpus_path" -type f 2>/dev/null | wc -l || echo 0)
               fi
 
               # Check for crash indicators in log
@@ -210,7 +215,7 @@ jobs:
                 status="OK"
               fi
 
-              echo "| ${name} | ${corpus_count} | ${status} |"
+              echo "| ${binary} | ${test_name} | ${corpus_count} | ${status} |"
             done
           } >> "$GITHUB_STEP_SUMMARY"
 
