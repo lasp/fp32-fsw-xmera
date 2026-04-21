@@ -22,6 +22,7 @@
 
 #include "forceTorqueThrForceMappingTypes.h"
 #include "msgPayloadDef/definitions.h"
+#include <array>
 #include <stdint.h>
 #include <Eigen/Core>
 
@@ -31,6 +32,8 @@ class ForceTorqueThrForceMappingAlgorithm {
    public:
     Eigen::Vector<float, MAX_EFF_CNT> update(const Eigen::Vector3f& cmdTorque,
                                                const Eigen::Vector3f& cmdForce) const;
+
+    void computeThrusterMapping();
 
     void setThrusters(const ThrusterArrayConfig& thrusterConfig);
     ThrusterArrayConfig getThrusters() const;
@@ -44,6 +47,9 @@ class ForceTorqueThrForceMappingAlgorithm {
         Eigen::Matrix<float, 3, MAX_EFF_CNT>::Zero()};  //!< [m] Thruster locations in body frame
     Eigen::Matrix<float, 3, MAX_EFF_CNT> gtThruster_B{
         Eigen::Matrix<float, 3, MAX_EFF_CNT>::Zero()};  //!< Thruster force unit direction vectors
+
+    Eigen::Matrix<float, MAX_EFF_CNT, 6> pseudoInverseDG{Eigen::Matrix<float, MAX_EFF_CNT, 6>::Zero()};
+    std::array<bool, 6> nonZeroRowIndices{};
 };
 
 #endif

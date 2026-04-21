@@ -36,6 +36,8 @@ void ForceTorqueThrForceMapping::reset(const uint64_t callTime) {
 
     this->algorithm.setCoM_B(cArrayToEigenVector(vehConfigIn.CoM_B));
     this->algorithm.setThrusters(thrusterConfig);
+
+    this->algorithm.computeThrusterMapping();
 }
 
 /*! Add a description of what this main Update() routine does for this module
