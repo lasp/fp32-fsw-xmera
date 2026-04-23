@@ -8,9 +8,18 @@
 #include <gtest/gtest.h>
 
 OutputAverageAccelAngleVel referenceUpdate(InputPktsData const& localPkts, const AverageMimuDataAlgorithm& alg) {
+    // Mirrors the algorithm's staleness rule: a slot is fresh only when
+    // isValid is true AND measTime is non-zero.
     uint64_t maxTimeTag = 0U;
     for (std::size_t i = 0; i < MAX_ACC_BUF_PKT; ++i) {
-        maxTimeTag = std::max(localPkts.measTime[i], maxTimeTag);
+        if (localPkts.isValid[i] && localPkts.measTime[i] != 0U) {
+            maxTimeTag = std::max(localPkts.measTime[i], maxTimeTag);
+        }
+    }
+
+    OutputAverageAccelAngleVel out{};
+    if (maxTimeTag == 0U) {
+        return out;
     }
 
     Eigen::Vector3f gyroSum_P = Eigen::Vector3f::Zero();
@@ -18,6 +27,9 @@ OutputAverageAccelAngleVel referenceUpdate(InputPktsData const& localPkts, const
     uint64_t measAvgCount = 0U;
 
     for (std::size_t i = 0; i < MAX_ACC_BUF_PKT; ++i) {
+        if (!localPkts.isValid[i] || localPkts.measTime[i] == 0U) {
+            continue;
+        }
         const uint64_t measTime = localPkts.measTime[i];
 
         // Rolling average with averaging window as window width or the maximum buffer size
@@ -28,7 +40,6 @@ OutputAverageAccelAngleVel referenceUpdate(InputPktsData const& localPkts, const
         }
     }
 
-    OutputAverageAccelAngleVel out{};
     if (measAvgCount > 0U) {
         gyroSum_P /= static_cast<float>(measAvgCount);
         Eigen::Vector3f const gyroSum_B = alg.getDcmPltfToBdy() * gyroSum_P;

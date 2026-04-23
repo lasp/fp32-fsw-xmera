@@ -15,9 +15,19 @@
  * returns zeros.
  */
 OutputAverageAccelAngleVel AverageMimuDataAlgorithm::update(InputPktsData const& localPkts) const {
+    // A slot is fresh only if the caller marked it valid and supplied a non-zero
+    // measurement time. Zero-initialized ring-buffer slots are skipped so the
+    // first few cycles after power-up do not pollute the average.
     uint64_t maxTimeTag = 0U;
-    for (auto const& time : localPkts.measTime) {
-        maxTimeTag = std::max(time, maxTimeTag);
+    for (uint32_t i = 0; i < MAX_BUF_PKT; ++i) {
+        if (localPkts.isValid.at(i) && localPkts.measTime.at(i) != 0U) {
+            maxTimeTag = std::max(localPkts.measTime.at(i), maxTimeTag);
+        }
+    }
+
+    OutputAverageAccelAngleVel out{};
+    if (maxTimeTag == 0U) {
+        return out;
     }
 
     Eigen::Vector3f gyroSum_P = Eigen::Vector3f::Zero();
@@ -25,6 +35,9 @@ OutputAverageAccelAngleVel AverageMimuDataAlgorithm::update(InputPktsData const&
     uint64_t measAvgCount = 0U;
 
     for (uint32_t i = 0; i < MAX_BUF_PKT; ++i) {
+        if (!localPkts.isValid.at(i) || localPkts.measTime.at(i) == 0U) {
+            continue;
+        }
         // Rolling average with averagingWindow as window width or the maximum buffer size
         if (static_cast<float>(maxTimeTag - localPkts.measTime.at(i)) * kNano2SecF <= this->averagingWindow) {
             gyroSum_P += localPkts.gyro_P.at(i);
@@ -33,7 +46,6 @@ OutputAverageAccelAngleVel AverageMimuDataAlgorithm::update(InputPktsData const&
         }
     }
 
-    OutputAverageAccelAngleVel out{};
     if (measAvgCount > 0U) {
         gyroSum_P /= static_cast<float>(measAvgCount);
         Eigen::Vector3f const gyroSum_B = this->dcm_BP * gyroSum_P;
