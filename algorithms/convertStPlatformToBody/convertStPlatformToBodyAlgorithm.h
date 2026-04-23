@@ -13,7 +13,8 @@
 
 class ConvertStPlatformToBodyAlgorithm {
    public:
-    StAttitudeOutput update(StSensorInput& stSensorIn) const;
+    StAttitudeOutput update(const PlatformAttitude& platformAttitude,
+                            const PlatformAngularVelocity& platformAngularRate) const;
     void setDcmCB(const Eigen::Matrix3f& dcm_CB);
     const Eigen::Matrix3f& getDcmCB() const;
 

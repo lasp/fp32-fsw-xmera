@@ -11,7 +11,7 @@ target_sources("${module}" PRIVATE
   convertStPlatformToBodyAlgorithm.cpp
 )
 
-target_include_directories("${module}" PUBLIC "..")
+target_include_directories("${module}" PUBLIC ".." "../..")
 
 target_link_libraries("${module}" PRIVATE Eigen3::Eigen)
 
