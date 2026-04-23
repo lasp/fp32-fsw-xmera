@@ -7,4 +7,5 @@ FUZZ_TEST(averageMimuDataFuzz, regressionTestAverageMimuData)
                  fuzztest::ArrayOf<MAX_ACC_BUF_PKT>(
                      fuzztest::StructOf<InputData>(fuzztest::Arbitrary<uint64_t>(),
                                                    fuzztest::ArrayOf<3>(fuzztest::InRange(-1e6F, 1e6F)),
-                                                   fuzztest::ArrayOf<3>(fuzztest::InRange(-1e6F, 1e6F)))));
+                                                   fuzztest::ArrayOf<3>(fuzztest::InRange(-1e6F, 1e6F)),
+                                                   fuzztest::Arbitrary<bool>())));

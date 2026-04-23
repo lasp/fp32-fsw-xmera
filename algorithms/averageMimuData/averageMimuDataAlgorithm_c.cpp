@@ -17,6 +17,7 @@ OutputAverageAccelAngleVel_c AverageMimuDataAlgorithm_update(const AverageMimuDa
                                                              const InputPktsData_c* input) {
     InputPktsData in{};
     for (size_t i = 0; i < MAX_BUF_PKT; i++) {
+        in.isValid[i] = input->isValid[i];
         in.measTime[i] = input->measTime[i];
         in.gyro_P[i] = Eigen::Vector3f(input->gyro_P[i].data[0], input->gyro_P[i].data[1], input->gyro_P[i].data[2]);
         in.accel_P[i] =

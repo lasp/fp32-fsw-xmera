@@ -49,6 +49,7 @@ struct InputData {
     uint64_t measTime = 0U;
     Vec3Arr gyro_P{{0.0F, 0.0F, 0.0F}};
     Vec3Arr accel_P{{0.0F, 0.0F, 0.0F}};
+    bool isValid = false;
 };
 
 inline void regressionTestAverageMimuData(std::size_t N,
@@ -66,12 +67,14 @@ inline void regressionTestAverageMimuData(std::size_t N,
     // The rest are neutral so they cannot affect maxTimeTag or the average.
     InputPktsData in{};
     for (std::size_t i = 0; i < MAX_ACC_BUF_PKT; ++i) {
+        in.isValid[i] = false;
         in.measTime[i] = 0U;
         in.gyro_P[i] = Eigen::Vector3f::Zero();
         in.accel_P[i] = Eigen::Vector3f::Zero();
     }
 
     for (std::size_t i = 0; i < N; ++i) {
+        in.isValid[i] = input[i].isValid;
         in.measTime[i] = input[i].measTime;
         in.gyro_P[i] = toVec3(input[i].gyro_P);
         in.accel_P[i] = toVec3(input[i].accel_P);

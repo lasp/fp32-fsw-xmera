@@ -8,21 +8,6 @@
 #include <array>
 #include <cstdint>
 
-constexpr std::size_t MAX_BUF_PKT = 120;
-
-/*! @brief Structure containing the InputPktsData*/
-struct InputPktsData {
-    std::array<std::uint64_t, MAX_BUF_PKT> measTime{};
-    std::array<Eigen::Vector3f, MAX_BUF_PKT> gyro_P{};
-    std::array<Eigen::Vector3f, MAX_BUF_PKT> accel_P{};
-};
-
-/*! @brief Structure containing the OutputAverageAccelAngleVel*/
-struct OutputAverageAccelAngleVel {
-    Eigen::Vector3f accel_B = Eigen::Vector3f::Zero();
-    Eigen::Vector3f gyroOmega_B = Eigen::Vector3f::Zero();
-};
-
 class AverageMimuDataAlgorithm {
    public:
     void setAveragingWindow(float window);                  //!< [s] Setter method for windowSec

@@ -21,6 +21,7 @@ void AverageMimuData::updateState(uint64_t const callTime) {
     InputPktsData in{};
     for (std::size_t i = 0; i < MAX_BUF_PKT; ++i) {
         const auto& [measTime, gyro_B, accel_B] = localPkts.accPkts[i];
+        in.isValid[i] = true;
         in.measTime[i] = measTime;
         in.gyro_P[i] = Eigen::Vector3f(gyro_B[0], gyro_B[1], gyro_B[2]);
         in.accel_P[i] = Eigen::Vector3f(accel_B[0], accel_B[1], accel_B[2]);

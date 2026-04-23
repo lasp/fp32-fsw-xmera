@@ -12,21 +12,25 @@ TEST(averageMimuDataTest, RegressionTest) {
     constexpr uint64_t t_ref = SEC2NANO;
 
     // Packet 0 (newest)
+    input[0].isValid = true;
     input[0].measTime = t_ref;
     input[0].gyro_P = Vec3Arr{0.1F, 0.3F, -0.1F};
     input[0].accel_P = Vec3Arr{0.5F, -0.2F, 2.0F};
 
     // Packet 1 (older by 0.6s)
+    input[1].isValid = true;
     input[1].measTime = t_ref - static_cast<uint64_t>(SEC2NANO * 0.6F);
     input[1].gyro_P = Vec3Arr{1.1F, 0.8F, 0.7F};
     input[1].accel_P = Vec3Arr{11.5F, -0.2F, 6.0F};
 
     // Packet 2 (older by 0.2s)
+    input[2].isValid = true;
     input[2].measTime = t_ref - static_cast<uint64_t>(SEC2NANO * 0.2F);
     input[2].gyro_P = Vec3Arr{-0.3F, -4.3F, -6.1F};
     input[2].accel_P = Vec3Arr{-0.9F, -0.2F, -2.4F};
 
     // Packet 3 (older by 0.3s)
+    input[3].isValid = true;
     input[3].measTime = t_ref - static_cast<uint64_t>(SEC2NANO * 0.3F);
     input[3].gyro_P = Vec3Arr{7.1F, -0.9F, -0.0F};
     input[3].accel_P = Vec3Arr{-80.5F, 0.4F, 2.8F};
@@ -61,6 +65,7 @@ TEST(averageMimuDataTest, PropertyKnownSolution) {
 
     // zero everything (Eigen::Vector3f default in std::array is uninitialized)
     for (std::size_t i = 0; i < MAX_ACC_BUF_PKT; ++i) {
+        in.isValid[i] = false;
         in.measTime[i] = 0U;
         in.gyro_P[i] = Eigen::Vector3f::Zero();
         in.accel_P[i] = Eigen::Vector3f::Zero();
@@ -87,15 +92,19 @@ TEST(averageMimuDataTest, PropertyKnownSolution) {
     const Eigen::Vector3f acc3{8.f, 8.f, 8.f};  // excluded by averagingWindow
 
     // Put packets in the first few slots
+    in.isValid[0] = true;
     in.measTime[0] = t0;
     in.gyro_P[0] = gyro0;
     in.accel_P[0] = acc0;
+    in.isValid[1] = true;
     in.measTime[1] = t1;
     in.gyro_P[1] = gyro1;
     in.accel_P[1] = acc1;
+    in.isValid[2] = true;
     in.measTime[2] = t2;
     in.gyro_P[2] = gyro2;
     in.accel_P[2] = acc2;
+    in.isValid[3] = true;
     in.measTime[3] = t3;
     in.gyro_P[3] = gyro3;
     in.accel_P[3] = acc3;
@@ -140,6 +149,7 @@ TEST(averageMimuDataTest, PropertyZeroAveragingWindow) {
     InputPktsData in{};
 
     for (std::size_t i = 0; i < MAX_ACC_BUF_PKT; ++i) {
+        in.isValid[i] = false;
         in.measTime[i] = 0U;
         in.gyro_P[i] = Eigen::Vector3f::Zero();
         in.accel_P[i] = Eigen::Vector3f::Zero();
@@ -163,15 +173,19 @@ TEST(averageMimuDataTest, PropertyZeroAveragingWindow) {
     const Eigen::Vector3f acc2{0.f, 0.f, 4.f};
     const Eigen::Vector3f acc3{8.f, 8.f, 8.f};
 
+    in.isValid[0] = true;
     in.measTime[0] = t0;
     in.gyro_P[0] = gyro0;
     in.accel_P[0] = acc0;
+    in.isValid[1] = true;
     in.measTime[1] = t1;
     in.gyro_P[1] = gyro1;
     in.accel_P[1] = acc1;
+    in.isValid[2] = true;
     in.measTime[2] = t2;
     in.gyro_P[2] = gyro2;
     in.accel_P[2] = acc2;
+    in.isValid[3] = true;
     in.measTime[3] = t3;
     in.gyro_P[3] = gyro3;
     in.accel_P[3] = acc3;
@@ -215,12 +229,14 @@ TEST(averageMimuDataTest, SetupTest) {
     // 3) update() should not throw for a basic input
     InputPktsData in{};
     for (std::size_t i = 0; i < MAX_ACC_BUF_PKT; ++i) {
+        in.isValid[i] = false;
         in.measTime[i] = 0U;
         in.gyro_P[i] = Eigen::Vector3f::Zero();
         in.accel_P[i] = Eigen::Vector3f::Zero();
     }
 
     // Add one non-zero packet so we exercise the averaging path
+    in.isValid[0] = true;
     in.measTime[0] = SEC2NANO;
     in.gyro_P[0] = Eigen::Vector3f(1.0f, 2.0f, 3.0f);
     in.accel_P[0] = Eigen::Vector3f(4.0f, 5.0f, 6.0f);

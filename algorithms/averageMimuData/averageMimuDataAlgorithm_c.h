@@ -3,6 +3,8 @@
 
 #include "utilities/fsw/plainCAlgorithmDataTypes.h"
 
+#include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -20,6 +22,7 @@ typedef struct AverageMimuDataAlgorithmHandle AverageMimuDataAlgorithmHandle;
  * @brief POD equivalent of InputPktsData.
  */
 typedef struct {
+    bool isValid[MAX_BUF_PKT_C];
     uint64_t measTime[MAX_BUF_PKT_C];
     Vector3f_c gyro_P[MAX_BUF_PKT_C];
     Vector3f_c accel_P[MAX_BUF_PKT_C];
