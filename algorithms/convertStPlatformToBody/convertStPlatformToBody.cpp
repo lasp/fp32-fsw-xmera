@@ -50,7 +50,7 @@ void ConvertStPlatformToBody::updateState(const uint64_t callTime) {
 
     STAttMsgPayload attOutMsg{};
     attOutMsg.timeTag = static_cast<double>(timeTag);
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < 3; ++i) {
         attOutMsg.MRP_BdyInrtl[i] = static_cast<double>(sigma_BN[i]);
         attOutMsg.omega_BN_B[i] = static_cast<double>(omega_BN_B[i]);
     }
