@@ -7,9 +7,11 @@ Executive Summary
 -----------------
 
 The ``convertStPlatformToBody`` module converts a star tracker attitude measurement from the sensor (case) frame into
-the spacecraft body frame. It takes the inertial-to-case attitude quaternion and case-frame angular velocity produced
+the spacecraft body frame. It takes the inertial-to-case attitude quaternion and case-frame delta quaternion produced
 by the star tracker and, using a configured body-to-case mounting DCM, outputs the inertial-to-body MRP and body-frame
-angular velocity suitable for downstream navigation and control modules.
+angular velocity suitable for downstream navigation and control modules. The adapter layer accepts the legacy
+angular-velocity field on ``STSensorMsgPayload`` and converts it to a delta quaternion before invoking the algorithm,
+so upstream producers may continue to publish angular velocity until the message layout is updated.
 
 
 -------------------------------
@@ -75,7 +77,10 @@ The adapter (``ConvertStPlatformToBody``) provides the Xmera-facing interface an
 - Logging an error condition if ``stSensorInMsg`` is not connected
 - Reading the input message ``stSensorInMsg``
 - Converting the sensor message data from ``double`` to ``float``
-- Packing the float data into the ``StSensorInput`` struct
+- Converting the message time tag from seconds (``double``) to nanoseconds (``uint64_t``)
+- Packing the float data into the ``PlatformAttitude`` and ``PlatformAngularVelocity`` structs
+- Converting the case-frame angular velocity on the incoming message to a delta quaternion
+  ``dq_CN`` before handing it to the algorithm
 - Calling the algorithm layer ``ConvertStPlatformToBodyAlgorithm::update``
 - Converting the ``StAttitudeOutput`` struct fields back to ``double``
 - Writing the ``stAttOutMsg`` output message
@@ -85,7 +90,9 @@ The adapter (``ConvertStPlatformToBody``) provides the Xmera-facing interface an
 
 The algorithm (``ConvertStPlatformToBodyAlgorithm``) performs the core mathematical computations and is fully decoupled
 from the Xmera framework. It operates exclusively on the float input and output structs defined in
-:ref:`convertStPlatformToBodyTypes.h` and has no dependency on ``SysModel``, message readers, or writers.
+:ref:`convertStPlatformToBodyTypes.h` — ``PlatformAttitude`` (inertial-to-case attitude), ``PlatformAngularVelocity``
+(case-frame delta quaternion), and ``StAttitudeOutput`` (inertial-to-body MRP and body-frame angular velocity) —
+and has no dependency on ``SysModel``, message readers, or writers.
 
 
 -------------------------------------
@@ -93,11 +100,15 @@ Input Constraints and Assumptions
 -------------------------------------
 
 - The star tracker case is rigidly mounted to the hub so that
-:math:`^{C}\boldsymbol{\omega}_{CN} = [CB]\, {}^{B}\boldsymbol{\omega}_{BN}`
-- ``qInrtl2Case`` is a unit quaternion representing the rotation from the inertial frame
-:math:`\mathcal{N}` to the case frame :math:`\mathcal{C}`
+  :math:`^{C}\boldsymbol{\omega}_{CN} = [CB]\, {}^{B}\boldsymbol{\omega}_{BN}`
+- ``q_CN`` is a unit quaternion representing the rotation from the inertial frame
+  :math:`\mathcal{N}` to the case frame :math:`\mathcal{C}`
 - ``dcm_CB`` is a proper orthogonal direction cosine matrix (det = +1)
-- Input angular velocity ``omega_CN_C`` is expressed in the case frame
+- ``dq_CN`` is a unit delta quaternion in scalar-last convention,
+  :math:`\delta \boldsymbol{q}_{CN} = [\sin(\theta/2)\,\hat{\boldsymbol{e}},\ \cos(\theta/2)]`,
+  representing a one-sample case-frame rotation about unit axis :math:`\hat{\boldsymbol{e}}` by angle :math:`\theta`
+- A zero vector part (:math:`\lVert[\delta q_0, \delta q_1, \delta q_2]\rVert = 0`) is treated as a zero rotation
+  and yields :math:`^{C}\boldsymbol{\omega}_{CN} = \boldsymbol{0}`
 
 
 -------------------------------
@@ -127,7 +138,23 @@ The inertial-to-body MRP is then computed by MRP addition:
 
 :math:`\boldsymbol{\sigma}_{BN} = \boldsymbol{\sigma}_{BC} \oplus \boldsymbol{\sigma}_{CN}`
 
-**3. Angular velocity transformation**
+**3. Delta quaternion to angular velocity**
+
+The case-frame angular velocity is recovered from the incoming unit delta quaternion by inverting the standard
+axis-angle-to-quaternion mapping. The four-quadrant arctangent is used in place of :math:`\arccos` so that
+near-identity rotations (where :math:`\delta q_3 \approx 1`) retain float32 precision:
+
+.. math::
+
+    {}^{C}\boldsymbol{\omega}_{CN} =
+    \dfrac{2\,\mathrm{atan2}\!\left(\lVert[\delta q_0, \delta q_1, \delta q_2]\rVert,\ \delta q_3\right)}
+          {\lVert[\delta q_0, \delta q_1, \delta q_2]\rVert}\,
+    [\delta q_0, \delta q_1, \delta q_2]^{T}
+
+When the vector part has zero norm the recovered angular velocity is taken to be
+:math:`\boldsymbol{0}`, avoiding a divide-by-zero at the identity rotation.
+
+**4. Angular velocity transformation**
 
 Because the sensor is rigidly mounted, the angular velocity in the body frame is obtained by rotating the
 case-frame measurement through the mounting DCM:
