@@ -62,4 +62,4 @@ void ConvertStPlatformToBody::setDcmCB(const Eigen::Matrix3d& dcm_CB) {
     this->algorithm.setDcmCB(dcm_CB.cast<float>());
 }
 
-const Eigen::Matrix3d ConvertStPlatformToBody::getDcmCB() const { return this->algorithm.getDcmCB().cast<double>(); }
+Eigen::Matrix3d ConvertStPlatformToBody::getDcmCB() const { return this->algorithm.getDcmCB().cast<double>(); }

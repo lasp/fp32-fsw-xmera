@@ -29,7 +29,7 @@ class ConvertStPlatformToBody : public SysModel {
     void updateState(uint64_t callTime) override;
 
     void setDcmCB(const Eigen::Matrix3d& dcm_CB);
-    const Eigen::Matrix3d getDcmCB() const;
+    Eigen::Matrix3d getDcmCB() const;
 
     ReadFunctor<STSensorMsgPayload> stSensorInMsg;  //!< Input msg
     Message<STAttMsgPayload> stAttOutMsg;           //!< Output msg
