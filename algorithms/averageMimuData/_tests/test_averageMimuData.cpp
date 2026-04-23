@@ -207,6 +207,74 @@ TEST(averageMimuDataTest, PropertyZeroAveragingWindow) {
     EXPECT_EQ(out_alg.accel_B, accTrue_B);
 }
 
+TEST(averageMimuDataTest, FirstFillZeroMeasTimeRegression) {
+    // Regression: before the staleness rule was introduced, unfilled ring-buffer
+    // slots (isValid=false, measTime=0) polluted the average because the
+    // algorithm iterated over every slot. With a single valid packet in slot 0,
+    // the output must equal dcm_BP * slot0 -- not slot0 divided by the buffer
+    // size.
+    AverageMimuDataAlgorithm alg;
+
+    Eigen::Matrix3f dcm_BP;
+    dcm_BP << 0.f, -1.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f;
+    alg.setDcmPltfToBdy(dcm_BP);
+    alg.setAveragingWindow(1.0f);  // wide enough that zero-measTime slots would
+                                   // otherwise slip through the window filter
+
+    InputPktsData in{};  // zero-init: all isValid=false, measTime=0
+
+    const Eigen::Vector3f gyro0{1.f, 2.f, 3.f};
+    const Eigen::Vector3f acc0{4.f, 5.f, 6.f};
+    in.isValid[0] = true;
+    in.measTime[0] = SEC2NANO;
+    in.gyro_P[0] = gyro0;
+    in.accel_P[0] = acc0;
+
+    const OutputAverageAccelAngleVel out = alg.update(in);
+
+    EXPECT_EQ(out.gyroOmega_B, dcm_BP * gyro0);
+    EXPECT_EQ(out.accel_B, dcm_BP * acc0);
+}
+
+TEST(averageMimuDataTest, NoValidPacketsReturnsZero) {
+    // All slots default-initialized (isValid=false, measTime=0) -> zero output.
+    AverageMimuDataAlgorithm alg;
+    alg.setAveragingWindow(0.5f);
+
+    InputPktsData const in{};
+    const auto [accel_B, gyroOmega_B] = alg.update(in);
+
+    EXPECT_EQ(gyroOmega_B, Eigen::Vector3f::Zero());
+    EXPECT_EQ(accel_B, Eigen::Vector3f::Zero());
+}
+
+TEST(averageMimuDataTest, ValidFlagButZeroMeasTimeIsStale) {
+    // A slot with isValid=true but measTime=0 is treated as stale (unfilled).
+    // The only fresh slot is slot 0, so the output must equal dcm_BP * slot0.
+    AverageMimuDataAlgorithm alg;
+    alg.setDcmPltfToBdy(Eigen::Matrix3f::Identity());
+    alg.setAveragingWindow(1.0f);
+
+    InputPktsData in{};
+    const Eigen::Vector3f gyro0{1.f, 0.f, 0.f};
+    const Eigen::Vector3f acc0{0.f, 1.f, 0.f};
+    in.isValid[0] = true;
+    in.measTime[0] = SEC2NANO;
+    in.gyro_P[0] = gyro0;
+    in.accel_P[0] = acc0;
+
+    // Slot 1: isValid=true but measTime=0 -> must be skipped.
+    in.isValid[1] = true;
+    in.measTime[1] = 0U;
+    in.gyro_P[1] = Eigen::Vector3f{9.f, 9.f, 9.f};
+    in.accel_P[1] = Eigen::Vector3f{9.f, 9.f, 9.f};
+
+    const OutputAverageAccelAngleVel out = alg.update(in);
+
+    EXPECT_EQ(out.gyroOmega_B, gyro0);
+    EXPECT_EQ(out.accel_B, acc0);
+}
+
 TEST(averageMimuDataTest, SetupTest) {
     AverageMimuDataAlgorithm alg;
     // 1) Setters should not throw
