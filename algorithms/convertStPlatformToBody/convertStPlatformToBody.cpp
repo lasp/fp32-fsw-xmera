@@ -25,16 +25,13 @@ void ConvertStPlatformToBody::updateState(const uint64_t callTime) {
         }
     }
 
-    const auto [timeTag, sigma_BN, omega_BN_B, dcm_CB] = this->algorithm.update(sensorIn);
+    const auto [timeTag, sigma_BN, omega_BN_B] = this->algorithm.update(attitude, angularVelocity);
 
     STAttMsgPayload attOutMsg{};
     attOutMsg.timeTag = static_cast<double>(timeTag);
     for (int i = 0; i < 3; i++) {
         attOutMsg.MRP_BdyInrtl[i] = static_cast<double>(sigma_BN[i]);
         attOutMsg.omega_BN_B[i] = static_cast<double>(omega_BN_B[i]);
-    }
-    for (int i = 0; i < 9; i++) {
-        attOutMsg.dcm_CB[i] = static_cast<double>(dcm_CB[i]);
     }
 
     this->stAttOutMsg.write(&attOutMsg, this->moduleID, callTime);

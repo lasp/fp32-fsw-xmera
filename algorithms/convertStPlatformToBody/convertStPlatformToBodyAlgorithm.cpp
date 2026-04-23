@@ -22,12 +22,10 @@ StAttitudeOutput ConvertStPlatformToBodyAlgorithm::update(StSensorInput& stSenso
     const Eigen::Vector3f omega_CN_C = cArrayToEigenVector3<float>(stSensorIn.omega_CN_C);
     const Eigen::Vector3f omega_BN_B = this->dcm_CB.transpose() * omega_CN_C;
 
-    // Build output
     StAttitudeOutput stAttOut{};
     stAttOut.timeTag = stSensorIn.timeTag;
     eigenVectorToCArray(sigma_BN, stAttOut.sigma_BN);
     eigenVectorToCArray(omega_BN_B, stAttOut.omega_BN_B);
-    eigenMatrixToCArray(this->dcm_CB, stAttOut.dcm_CB);
     return stAttOut;
 }
 
