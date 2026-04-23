@@ -39,12 +39,14 @@ void ConvertStPlatformToBodyAlgorithm_destroy(ConvertStPlatformToBodyAlgorithm* 
 
 /**
  * @brief Run the update step.
- * @param self        Pointer to the instance.
- * @param stSensorIn  Pointer to the star tracker sensor input.
+ * @param self               Pointer to the instance.
+ * @param platformAttitude   Pointer to the inertial-to-case attitude input.
+ * @param platformAngularRate Pointer to the case-frame delta quaternion input.
  * @return StAttitudeOutput  The computed star tracker attitude output.
  */
 StAttitudeOutput ConvertStPlatformToBodyAlgorithm_update(ConvertStPlatformToBodyAlgorithm* self,
-                                                         StSensorInput* stSensorIn);
+                                                         const PlatformAttitude* platformAttitude,
+                                                         const PlatformAngularVelocity* platformAngularRate);
 
 /**
  * @brief Set the DCM from body to star tracker case frame.

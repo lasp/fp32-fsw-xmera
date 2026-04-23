@@ -19,8 +19,9 @@ void ConvertStPlatformToBodyAlgorithm_destroy(ConvertStPlatformToBodyAlgorithm* 
 }
 
 StAttitudeOutput ConvertStPlatformToBodyAlgorithm_update(ConvertStPlatformToBodyAlgorithm* self,
-                                                         StSensorInput* stSensorIn) {
-    return reinterpret_cast<::ConvertStPlatformToBodyAlgorithm*>(self)->update(*stSensorIn);
+                                                         const PlatformAttitude* platformAttitude,
+                                                         const PlatformAngularVelocity* platformAngularRate) {
+    return reinterpret_cast<::ConvertStPlatformToBodyAlgorithm*>(self)->update(*platformAttitude, *platformAngularRate);
 }
 
 void ConvertStPlatformToBodyAlgorithm_setDcmCB(ConvertStPlatformToBodyAlgorithm* self, Matrix3f_c dcm_CB) {
