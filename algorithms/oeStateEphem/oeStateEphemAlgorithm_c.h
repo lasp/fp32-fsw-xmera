@@ -153,8 +153,8 @@ double OEStateEphemAlgorithm_getArcRadiusTime(const OEStateEphemAlgorithm* self,
  * @param anomalyFlag Anomaly type (TRUE_ANOMALY or MEAN_ANOMALY).
  */
 void OEStateEphemAlgorithm_setArcAnomalyFlag(OEStateEphemAlgorithm* self,
-                                              unsigned int arcNumber,
-                                              AnomalyType anomalyFlag);
+                                             unsigned int arcNumber,
+                                             AnomalyType anomalyFlag);
 
 /**
  * @brief Get the anomaly flag for a specified arc.
@@ -247,8 +247,8 @@ OeCoefficients OEStateEphemAlgorithm_getArcArgPeriapsisCoefficients(const OEStat
  * @param coefficients Pointer to the coefficients.
  */
 void OEStateEphemAlgorithm_setArcRaanCoefficients(OEStateEphemAlgorithm* self,
-                                                   unsigned int arcNumber,
-                                                   const OeCoefficients* coefficients);
+                                                  unsigned int arcNumber,
+                                                  const OeCoefficients* coefficients);
 
 /**
  * @brief Get the RAAN Chebyshev coefficients for a specified arc.
@@ -256,8 +256,7 @@ void OEStateEphemAlgorithm_setArcRaanCoefficients(OEStateEphemAlgorithm* self,
  * @param arcNumber Index of the arc.
  * @return OeCoefficients  The coefficients.
  */
-OeCoefficients OEStateEphemAlgorithm_getArcRaanCoefficients(const OEStateEphemAlgorithm* self,
-                                                            unsigned int arcNumber);
+OeCoefficients OEStateEphemAlgorithm_getArcRaanCoefficients(const OEStateEphemAlgorithm* self, unsigned int arcNumber);
 
 /**
  * @brief Set the true anomaly Chebyshev coefficients for a specified arc.
@@ -266,8 +265,8 @@ OeCoefficients OEStateEphemAlgorithm_getArcRaanCoefficients(const OEStateEphemAl
  * @param coefficients Pointer to the coefficients.
  */
 void OEStateEphemAlgorithm_setArcTrueAnomalyCoefficients(OEStateEphemAlgorithm* self,
-                                                          unsigned int arcNumber,
-                                                          const OeCoefficients* coefficients);
+                                                         unsigned int arcNumber,
+                                                         const OeCoefficients* coefficients);
 
 /**
  * @brief Get the true anomaly Chebyshev coefficients for a specified arc.
@@ -276,7 +275,7 @@ void OEStateEphemAlgorithm_setArcTrueAnomalyCoefficients(OEStateEphemAlgorithm* 
  * @return OeCoefficients  The coefficients.
  */
 OeCoefficients OEStateEphemAlgorithm_getArcTrueAnomalyCoefficients(const OEStateEphemAlgorithm* self,
-                                                                    unsigned int arcNumber);
+                                                                   unsigned int arcNumber);
 
 /**
  * @brief Get the MAX_OE_COEFF constant for Ada validation.

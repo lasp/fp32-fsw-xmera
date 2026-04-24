@@ -93,13 +93,12 @@ double OEStateEphemAlgorithm_getArcRadiusTime(const OEStateEphemAlgorithm* self,
 }
 
 void OEStateEphemAlgorithm_setArcAnomalyFlag(OEStateEphemAlgorithm* self,
-                                              const unsigned int arcNumber,
-                                              const AnomalyType anomalyFlag) {
+                                             const unsigned int arcNumber,
+                                             const AnomalyType anomalyFlag) {
     reinterpret_cast<::OEStateEphemAlgorithm*>(self)->setArcAnomalyFlag(arcNumber, anomalyFlag);
 }
 
-AnomalyType OEStateEphemAlgorithm_getArcAnomalyFlag(const OEStateEphemAlgorithm* self,
-                                                     const unsigned int arcNumber) {
+AnomalyType OEStateEphemAlgorithm_getArcAnomalyFlag(const OEStateEphemAlgorithm* self, const unsigned int arcNumber) {
     return reinterpret_cast<const ::OEStateEphemAlgorithm*>(self)->getArcAnomalyFlag(arcNumber);
 }
 
@@ -168,8 +167,8 @@ OeCoefficients OEStateEphemAlgorithm_getArcArgPeriapsisCoefficients(const OEStat
 }
 
 void OEStateEphemAlgorithm_setArcRaanCoefficients(OEStateEphemAlgorithm* self,
-                                                   const unsigned int arcNumber,
-                                                   const OeCoefficients* coefficients) {
+                                                  const unsigned int arcNumber,
+                                                  const OeCoefficients* coefficients) {
     std::array<double, kMaxOeCoeff> arr;
     std::copy(coefficients->data, coefficients->data + kMaxOeCoeff, arr.begin());
     reinterpret_cast<::OEStateEphemAlgorithm*>(self)->setArcRaanCoefficients(arcNumber, arr);
@@ -184,15 +183,15 @@ OeCoefficients OEStateEphemAlgorithm_getArcRaanCoefficients(const OEStateEphemAl
 }
 
 void OEStateEphemAlgorithm_setArcTrueAnomalyCoefficients(OEStateEphemAlgorithm* self,
-                                                          const unsigned int arcNumber,
-                                                          const OeCoefficients* coefficients) {
+                                                         const unsigned int arcNumber,
+                                                         const OeCoefficients* coefficients) {
     std::array<double, kMaxOeCoeff> arr;
     std::copy(coefficients->data, coefficients->data + kMaxOeCoeff, arr.begin());
     reinterpret_cast<::OEStateEphemAlgorithm*>(self)->setArcTrueAnomalyCoefficients(arcNumber, arr);
 }
 
 OeCoefficients OEStateEphemAlgorithm_getArcTrueAnomalyCoefficients(const OEStateEphemAlgorithm* self,
-                                                                    const unsigned int arcNumber) {
+                                                                   const unsigned int arcNumber) {
     auto arr = reinterpret_cast<const ::OEStateEphemAlgorithm*>(self)->getArcTrueAnomalyCoefficients(arcNumber);
     OeCoefficients out;
     std::copy(arr.begin(), arr.end(), out.data);

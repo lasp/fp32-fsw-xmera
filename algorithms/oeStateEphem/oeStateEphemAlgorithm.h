@@ -64,25 +64,25 @@ class OEStateEphemAlgorithm {
     void setArcRadiusTime(unsigned int arcNumber, double timeRadius);
     double getArcRadiusTime(unsigned int arcNumber) const;
 
-    void setArcAnomalyFlag(unsigned int arcNumber, const AnomalyType &anomalyFlag);
+    void setArcAnomalyFlag(unsigned int arcNumber, const AnomalyType& anomalyFlag);
     AnomalyType getArcAnomalyFlag(unsigned int arcNumber) const;
 
     void setArcRadiusPeriapsisCoefficients(unsigned int arcNumber,
-                                           const std::array<double, kMaxOeCoeff> &radiusPeriapsisCoefficients);
+                                           const std::array<double, kMaxOeCoeff>& radiusPeriapsisCoefficients);
     std::array<double, kMaxOeCoeff> getArcRadiusPeriapsisCoefficients(unsigned int arcNumber) const;
     void setArcEccentricityCoefficients(unsigned int arcNumber,
-                                        const std::array<double, kMaxOeCoeff> &eccentricityCoefficients);
+                                        const std::array<double, kMaxOeCoeff>& eccentricityCoefficients);
     std::array<double, kMaxOeCoeff> getArcEccentricityCoefficients(unsigned int arcNumber) const;
     void setArcInclinationCoefficients(unsigned int arcNumber,
-                                       const std::array<double, kMaxOeCoeff> &inclinationCoefficients);
+                                       const std::array<double, kMaxOeCoeff>& inclinationCoefficients);
     std::array<double, kMaxOeCoeff> getArcInclinationCoefficients(unsigned int arcNumber) const;
     void setArcArgPeriapsisCoefficients(unsigned int arcNumber,
-                                        const std::array<double, kMaxOeCoeff> &argPeriapsisCoefficients);
+                                        const std::array<double, kMaxOeCoeff>& argPeriapsisCoefficients);
     std::array<double, kMaxOeCoeff> getArcArgPeriapsisCoefficients(unsigned int arcNumber) const;
-    void setArcRaanCoefficients(unsigned int arcNumber, const std::array<double, kMaxOeCoeff> &raanCoefficients);
+    void setArcRaanCoefficients(unsigned int arcNumber, const std::array<double, kMaxOeCoeff>& raanCoefficients);
     std::array<double, kMaxOeCoeff> getArcRaanCoefficients(unsigned int arcNumber) const;
     void setArcTrueAnomalyCoefficients(unsigned int arcNumber,
-                                       const std::array<double, kMaxOeCoeff> &trueAnomalyCoefficients);
+                                       const std::array<double, kMaxOeCoeff>& trueAnomalyCoefficients);
     std::array<double, kMaxOeCoeff> getArcTrueAnomalyCoefficients(unsigned int arcNumber) const;
 
    private:
