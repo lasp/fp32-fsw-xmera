@@ -22,14 +22,8 @@ Eigen::Vector3d referenceUpdate(const Eigen::Vector3d& r_SN_N,
     return rHat_SB_B;
 }
 
-void testSunlineEphem(std::vector<double> sunPosition,
-                      std::vector<double> spacecraftPosition,
-                      std::vector<float> spacecraftAttitude) {
+void testSunlineEphem(const Eigen::Vector3d& r_SN_N, const Eigen::Vector3d& r_BN_N, const Eigen::Vector3f& sigma_BN) {
     SunlineEphemAlgorithm alg{};
-
-    Eigen::Vector3d r_SN_N = Eigen::Map<Eigen::Vector3d>(sunPosition.data());
-    Eigen::Vector3d r_BN_N = Eigen::Map<Eigen::Vector3d>(spacecraftPosition.data());
-    Eigen::Vector3f sigma_BN = Eigen::Map<Eigen::Vector3f>(spacecraftAttitude.data());
 
     Eigen::Vector3f out;
     EXPECT_NO_THROW(out = alg.update(r_SN_N, r_BN_N, sigma_BN));
