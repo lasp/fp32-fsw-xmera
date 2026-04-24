@@ -16,9 +16,8 @@ AttRefMsgF32Payload referenceUpdate(const Inertial3DAlgorithm& alg) {
     return out;
 }
 
-void testInertial3D(std::vector<float> sigma) {
+void testInertial3D(const Eigen::Vector3f& sigma_RN) {
     Inertial3DAlgorithm alg;
-    Eigen::Vector3f sigma_RN = Eigen::Map<Eigen::Vector3f>(sigma.data());
     alg.setSigmaRN(sigma_RN);
 
     AttRefMsgF32Payload out;
