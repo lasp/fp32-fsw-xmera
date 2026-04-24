@@ -118,8 +118,8 @@ inline void testRwMotorTorqueSetup() {
     EXPECT_THROW(alg.configure(rwParams, wheelsAvailabilityMsg, false), fs::invalid_argument);
 }
 
-inline void testRwMotorTorque(std::vector<float> Lr1_B,
-                              std::vector<float> Lr2_B,
+inline void testRwMotorTorque(const Eigen::Vector3f& Lr1_B,
+                              const Eigen::Vector3f& Lr2_B,
                               std::vector<bool> wheelAvailabilityBool,
                               bool cmdTorque2IsLinked,
                               bool rwAvailIsLinked,
@@ -144,11 +144,11 @@ inline void testRwMotorTorque(std::vector<float> Lr1_B,
 
     // Populate messages
     CmdTorqueBodyMsgF32Payload torqueInputMsg{};
-    std::copy(Lr1_B.begin(), Lr1_B.end(), torqueInputMsg.torqueRequestBody);
+    eigenVectorToCArray(Lr1_B, torqueInputMsg.torqueRequestBody);
 
     CmdTorqueBodyMsgF32Payload torqueInput2Msg{};
     if (cmdTorque2IsLinked) {
-        std::copy(Lr2_B.begin(), Lr2_B.end(), torqueInput2Msg.torqueRequestBody);
+        eigenVectorToCArray(Lr2_B, torqueInput2Msg.torqueRequestBody);
     }
 
     RWAvailabilityMsgPayload wheelsAvailabilityMsg{};

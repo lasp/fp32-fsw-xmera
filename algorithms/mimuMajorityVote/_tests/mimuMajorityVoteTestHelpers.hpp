@@ -66,17 +66,17 @@ MimuMajorityVoteOutput referenceUpdate(float omegaThreshold,
 inline void regressionTestMimuMajorityVote(float omegaThreshold,
                                            uint32_t persistenceLimit,
                                            uint32_t algCallCount,
-                                           const std::vector<float>& angVel1,
-                                           const std::vector<float>& angVel2,
-                                           const std::vector<float>& angVel3) {
+                                           const Eigen::Vector3f& angVel1,
+                                           const Eigen::Vector3f& angVel2,
+                                           const Eigen::Vector3f& angVel3) {
     MimuMajorityVoteAlgorithm alg{};
     alg.setOmegaThreshold(omegaThreshold);
     alg.setFaultPersistenceLimit(persistenceLimit);
 
     std::array<Eigen::Vector3f, kMimuCount> imuOmegas_BN_B{};
-    imuOmegas_BN_B.at(0) = Eigen::Map<const Eigen::Vector3f>(angVel1.data());
-    imuOmegas_BN_B.at(1) = Eigen::Map<const Eigen::Vector3f>(angVel2.data());
-    imuOmegas_BN_B.at(2) = Eigen::Map<const Eigen::Vector3f>(angVel3.data());
+    imuOmegas_BN_B.at(0) = angVel1;
+    imuOmegas_BN_B.at(1) = angVel2;
+    imuOmegas_BN_B.at(2) = angVel3;
 
     std::array<uint32_t, kMimuCount> persistenceCount{};
     MimuMajorityVoteOutput out{};

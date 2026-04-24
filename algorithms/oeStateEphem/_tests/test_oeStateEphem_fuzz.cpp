@@ -8,7 +8,6 @@
 
 #include "test_oeStateEphem_helpers.h"
 #include <fuzztest/fuzztest.h>
-#include <cmath>
 
 /*! @brief Main fuzz test for OEStateEphemAlgorithm
  *

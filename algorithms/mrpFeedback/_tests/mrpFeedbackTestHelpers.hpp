@@ -123,16 +123,16 @@ inline void testMrpFeedbackSetup() {
     EXPECT_THROW(alg.setIntegralLimit(-0.1), fs::invalid_argument);
 }
 
-inline void testMrpFeedback(std::vector<float> sigma,
+inline void testMrpFeedback(const Eigen::Vector3f& sigma,
                             float K,
                             float P,
                             float Ki,
                             float integralLimit,
                             int controlLawType,
-                            std::vector<float> knownTorquePntB_B,
-                            std::vector<float> omega_BR_B,
-                            std::vector<float> omega_RN_B,
-                            std::vector<float> domega_RN_B,
+                            const Eigen::Vector3f& knownTorquePntB_B,
+                            const Eigen::Vector3f& omega_BR_B,
+                            const Eigen::Vector3f& omega_RN_B,
+                            const Eigen::Vector3f& domega_RN_B,
                             std::vector<float> wheelSpeeds,
                             std::vector<bool> wheelAvailabilityBool,
                             int numRW,
@@ -156,14 +156,14 @@ inline void testMrpFeedback(std::vector<float> sigma,
     alg.setKi(Ki);
     alg.setIntegralLimit(integralLimit);
     alg.setControlLawType(controlLawTypeAlg);
-    alg.setKnownTorquePntB_B(cArrayToEigenVector3(knownTorquePntB_B.data()));
+    alg.setKnownTorquePntB_B(knownTorquePntB_B);
 
     // Populate messages
     AttGuidMsgF32Payload guidCmdMsg{};
-    std::copy(sigma.begin(), sigma.end(), guidCmdMsg.sigma_BR);
-    std::copy(omega_BR_B.begin(), omega_BR_B.end(), guidCmdMsg.omega_BR_B);
-    std::copy(omega_RN_B.begin(), omega_RN_B.end(), guidCmdMsg.omega_RN_B);
-    std::copy(domega_RN_B.begin(), domega_RN_B.end(), guidCmdMsg.domega_RN_B);
+    eigenVectorToCArray(sigma, guidCmdMsg.sigma_BR);
+    eigenVectorToCArray(omega_BR_B, guidCmdMsg.omega_BR_B);
+    eigenVectorToCArray(omega_RN_B, guidCmdMsg.omega_RN_B);
+    eigenVectorToCArray(domega_RN_B, guidCmdMsg.domega_RN_B);
 
     RWSpeedMsgF32Payload wheelSpeedsMsg{};
     std::copy(wheelSpeeds.begin(), wheelSpeeds.end(), wheelSpeedsMsg.wheelSpeeds);

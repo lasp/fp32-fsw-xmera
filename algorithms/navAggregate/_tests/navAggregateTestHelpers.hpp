@@ -5,20 +5,18 @@
 #include "navAggregateAlgorithm.h"
 #include <gtest/gtest.h>
 #include <Eigen/Core>
-#include <algorithm>
 #include <cmath>
-#include <vector>
 
 using namespace f32;
 
 inline void testNavAggregate(double attTimeTag,
-                             std::vector<float> sigma_BN,
-                             std::vector<float> omega_BN_B,
-                             std::vector<float> vehSunPntBdy,
+                             const Eigen::Vector3f& sigma_BN,
+                             const Eigen::Vector3f& omega_BN_B,
+                             const Eigen::Vector3f& vehSunPntBdy,
                              double transTimeTag,
-                             std::vector<double> r_BN_N,
-                             std::vector<double> v_BN_N,
-                             std::vector<float> vehAccumDV,
+                             const Eigen::Vector3d& r_BN_N,
+                             const Eigen::Vector3d& v_BN_N,
+                             const Eigen::Vector3f& vehAccumDV,
                              uint32_t attTimeIndex,
                              uint32_t transTimeIndex,
                              uint32_t attIdx,
@@ -51,13 +49,13 @@ inline void testNavAggregate(double attTimeTag,
             attInputData.timeTag = attTimeTag;
         }
         if (i == attIdx) {
-            attInputData.sigma_BN = Eigen::Map<Eigen::Vector3f>(sigma_BN.data());
+            attInputData.sigma_BN = sigma_BN;
         }
         if (i == rateIdx) {
-            attInputData.omega_BN_B = Eigen::Map<Eigen::Vector3f>(omega_BN_B.data());
+            attInputData.omega_BN_B = omega_BN_B;
         }
         if (i == sunIdx) {
-            attInputData.vehSunPntBdy = Eigen::Map<Eigen::Vector3f>(vehSunPntBdy.data());
+            attInputData.vehSunPntBdy = vehSunPntBdy;
         }
         attInputs.at(i) = attInputData;
     }
@@ -69,13 +67,13 @@ inline void testNavAggregate(double attTimeTag,
             transInputData.timeTag = transTimeTag;
         }
         if (i == posIdx) {
-            transInputData.r_BN_N = Eigen::Map<Eigen::Vector3d>(r_BN_N.data());
+            transInputData.r_BN_N = r_BN_N;
         }
         if (i == velIdx) {
-            transInputData.v_BN_N = Eigen::Map<Eigen::Vector3d>(v_BN_N.data());
+            transInputData.v_BN_N = v_BN_N;
         }
         if (i == dvIdx) {
-            transInputData.vehAccumDV = Eigen::Map<Eigen::Vector3f>(vehAccumDV.data());
+            transInputData.vehAccumDV = vehAccumDV;
         }
         transInputs.at(i) = transInputData;
     }
