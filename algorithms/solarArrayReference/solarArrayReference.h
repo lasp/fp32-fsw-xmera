@@ -8,6 +8,8 @@
 #include <architecture/msgPayloadDef/NavAttMsgPayload.h>
 #include <stdint.h>
 
+#include <Eigen/Core>
+
 enum attitudeFrame { referenceFrame = 0, bodyFrame = 1 };
 
 /*! @brief Top level structure for the sub-module routines. */
@@ -17,8 +19,8 @@ class SolarArrayReference : public SysModel {
     void updateState(uint64_t callTime) override;
 
     /* declare these user-defined quantities */
-    double a1Hat_B[3]{};  //!< solar array drive axis in body frame coordinates
-    double a2Hat_B[3]{};  //!< solar array surface normal at zero rotation
+    Eigen::Vector3d a1Hat_B{Eigen::Vector3d::Zero()};  //!< solar array drive axis in body frame coordinates
+    Eigen::Vector3d a2Hat_B{Eigen::Vector3d::Zero()};  //!< solar array surface normal at zero rotation
     int attitudeFrame{};  //!< flag = 1: compute theta reference based on current attitude instead of attitude reference
 
     /* declare these variables for internal computations */

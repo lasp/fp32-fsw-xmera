@@ -1,14 +1,13 @@
 #include "solarArrayReference.h"
 #include <math.h>
+#include <numbers>
 #include <stdexcept>
 #include <string.h>
 
 #include "utilities/timeConstants.h"
 
-#include <architecture/utilities/linearAlgebra.h>
-#include <architecture/utilities/rigidBodyKinematics.h>
-
-#include <numbers>
+#include <architecture/utilities/eigenSupport.h>
+#include <architecture/utilities/rigidBodyKinematics.hpp>
 
 const double epsilon = 1e-12;  // module tolerance for zero
 
@@ -43,22 +42,19 @@ void SolarArrayReference::updateState(uint64_t callTime) {
     HingedRigidBodyMsgPayload hingedRigidBodyRefOut = {};
 
     /*! read Sun direction in B frame from the attNav message and map it to R frame */
-    double rHat_SB_B[3];  // Sun direction in body-frame coordinates
-    double rHat_SB_R[3];  // Sun direction in reference-frame coordinates
-    double BN[3][3];      // inertial to body frame DCM
-    double RN[3][3];      // inertial to reference frame DCM
-    double RB[3][3];      // body to reference DCM
-    v3Normalize(attNavIn.vehSunPntBdy, rHat_SB_B);
+    const Eigen::Vector3d rHat_SB_B = cArrayToEigenVector(attNavIn.vehSunPntBdy).normalized();
+    Eigen::Vector3d rHat_SB_R;
     switch (this->attitudeFrame) {
-        case referenceFrame:
-            MRP2C(attNavIn.sigma_BN, BN);
-            MRP2C(attRefIn.sigma_RN, RN);
-            m33MultM33t(RN, BN, RB);
-            m33MultV3(RB, rHat_SB_B, rHat_SB_R);
+        case referenceFrame: {
+            const Eigen::Matrix3d dcm_BN = mrpToDcm(cArrayToEigenVector(attNavIn.sigma_BN));
+            const Eigen::Matrix3d dcm_RN = mrpToDcm(cArrayToEigenVector(attRefIn.sigma_RN));
+            const Eigen::Matrix3d dcm_RB = dcm_RN * dcm_BN.transpose();
+            rHat_SB_R = dcm_RB * rHat_SB_B;
             break;
+        }
 
         case bodyFrame:
-            v3Copy(rHat_SB_B, rHat_SB_R);
+            rHat_SB_R = rHat_SB_B;
             break;
 
         default:
@@ -66,37 +62,30 @@ void SolarArrayReference::updateState(uint64_t callTime) {
     }
 
     /*! compute solar array frame axes at zero rotation */
-    double a1Hat_B[3];  // solar array axis drive
-    double a2Hat_B[3];  // solar array axis surface normal
-    double a3Hat_B[3];  // third axis according to right-hand rule
-    v3Normalize(this->a1Hat_B, a1Hat_B);
-    v3Cross(a1Hat_B, this->a2Hat_B, a3Hat_B);
-    v3Normalize(a3Hat_B, a3Hat_B);
-    v3Cross(a3Hat_B, a1Hat_B, a2Hat_B);
+    const Eigen::Vector3d a1 = this->a1Hat_B.normalized();
+    const Eigen::Vector3d a3 = (a1.cross(this->a2Hat_B)).normalized();
+    const Eigen::Vector3d a2 = (a3.cross(a1)).normalized();
 
     /*! compute solar array reference frame axes at zero rotation */
-    double a1Hat_R[3];
-    double a2Hat_R[3];
-    double dotP = v3Dot(a1Hat_B, rHat_SB_R);
-    for (int n = 0; n < 3; n++) {
-        a2Hat_R[n] = rHat_SB_R[n] - dotP * a1Hat_B[n];
-    }
-    v3Normalize(a2Hat_R, a2Hat_R);
-    v3Cross(a2Hat_B, a2Hat_R, a1Hat_R);
+    const double dotP = a1.dot(rHat_SB_R);
+    Eigen::Vector3d a2Hat_R = rHat_SB_R - dotP * a1;
+    const double a2Hat_R_norm = a2Hat_R.norm();
 
     /*! compute current rotation angle thetaC from input msg */
-    double sinThetaC = sin(hingedRigidBodyIn.theta);
-    double cosThetaC = cos(hingedRigidBodyIn.theta);
-    double thetaC = atan2(sinThetaC, cosThetaC);  // clip theta current between 0 and 2*pi
+    const double sinThetaC = sin(hingedRigidBodyIn.theta);
+    const double cosThetaC = cos(hingedRigidBodyIn.theta);
+    const double thetaC = atan2(sinThetaC, cosThetaC);  // clip theta current between 0 and 2*pi
 
     /*! compute reference angle and store in buffer msg */
-    if (v3Norm(a2Hat_R) < epsilon) {
+    if (a2Hat_R_norm < epsilon) {
         // if norm(a2Hat_R) = 0, reference coincides with current angle
         hingedRigidBodyRefOut.theta = hingedRigidBodyIn.theta;
     } else {
-        double thetaR = acos(fmin(fmax(v3Dot(a2Hat_B, a2Hat_R), -1), 1));
-        // if a1Hat_B and a1Hat_R are opposite, take the negative of thetaR
-        if (v3Dot(a1Hat_B, a1Hat_R) < 0) {
+        a2Hat_R.normalize();
+        const Eigen::Vector3d a1Hat_R = a2.cross(a2Hat_R);
+        double thetaR = acos(fmin(fmax(a2.dot(a2Hat_R), -1.0), 1.0));
+        // if a1 and a1Hat_R are opposite, take the negative of thetaR
+        if (a1.dot(a1Hat_R) < 0) {
             thetaR = -thetaR;
         }
         // always make the absolute difference |thetaR-thetaC| smaller that 2*pi
