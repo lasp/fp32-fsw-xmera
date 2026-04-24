@@ -5,18 +5,18 @@ TEST(MimuMajorityVoteTest, RegressionTest) {
     regressionTestMimuMajorityVote(1.0F,
                                    1U,
                                    1U,
-                                   std::vector<float>{-0.1F, 0.25F, 0.3F},
-                                   std::vector<float>{-0.09F, 0.24F, 0.305F},
-                                   std::vector<float>{-0.105F, 0.26F, 0.295F});
+                                   Eigen::Vector3f{-0.1F, 0.25F, 0.3F},
+                                   Eigen::Vector3f{-0.09F, 0.24F, 0.305F},
+                                   Eigen::Vector3f{-0.105F, 0.26F, 0.295F});
 }
 
 TEST(MimuMajorityVoteTest, RegressionTestOffNominal) {
     regressionTestMimuMajorityVote(0.05F,
                                    1U,
                                    1U,
-                                   std::vector<float>{-0.1F, 0.25F, 0.3F},
-                                   std::vector<float>{1.9F, 2.25F, 2.3F},
-                                   std::vector<float>{-0.1F, 0.25F, 0.3F});
+                                   Eigen::Vector3f{-0.1F, 0.25F, 0.3F},
+                                   Eigen::Vector3f{1.9F, 2.25F, 2.3F},
+                                   Eigen::Vector3f{-0.1F, 0.25F, 0.3F});
 }
 
 TEST(MimuMajorityVoteTest, PropertyTestNominal) {

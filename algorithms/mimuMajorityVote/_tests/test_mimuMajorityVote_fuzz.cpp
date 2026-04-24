@@ -1,3 +1,4 @@
+#include "architecture/testUtilities/eigenFuzzDomains.hpp"
 #include "mimuMajorityVoteTestHelpers.hpp"
 #include <fuzztest/fuzztest.h>
 
@@ -8,17 +9,17 @@ constexpr float kMinThreshold = 1e-2F;
 constexpr float kMaxThreshold = 1e3F;
 constexpr float kCompTol = 1e-3F;
 
-void propertyOutputAlwaysFinite(const std::vector<float>& angVel1,
-                                const std::vector<float>& angVel2,
-                                const std::vector<float>& angVel3,
+void propertyOutputAlwaysFinite(const Eigen::Vector3f& angVel1,
+                                const Eigen::Vector3f& angVel2,
+                                const Eigen::Vector3f& angVel3,
                                 float omegaThreshold) {
     MimuMajorityVoteAlgorithm alg{};
     alg.setOmegaThreshold(omegaThreshold);
 
     std::array<Eigen::Vector3f, kMimuCount> imuOmegas_BN_B{};
-    imuOmegas_BN_B.at(0) = Eigen::Map<const Eigen::Vector3f>(angVel1.data());
-    imuOmegas_BN_B.at(1) = Eigen::Map<const Eigen::Vector3f>(angVel2.data());
-    imuOmegas_BN_B.at(2) = Eigen::Map<const Eigen::Vector3f>(angVel3.data());
+    imuOmegas_BN_B.at(0) = angVel1;
+    imuOmegas_BN_B.at(1) = angVel2;
+    imuOmegas_BN_B.at(2) = angVel3;
 
     auto const out = alg.update(imuOmegas_BN_B);
 
@@ -31,17 +32,17 @@ void propertyOutputAlwaysFinite(const std::vector<float>& angVel1,
     }
 }
 
-void propertyFaultAndValidConsistency(const std::vector<float>& angVel1,
-                                      const std::vector<float>& angVel2,
-                                      const std::vector<float>& angVel3,
+void propertyFaultAndValidConsistency(const Eigen::Vector3f& angVel1,
+                                      const Eigen::Vector3f& angVel2,
+                                      const Eigen::Vector3f& angVel3,
                                       float omegaThreshold) {
     MimuMajorityVoteAlgorithm alg{};
     alg.setOmegaThreshold(omegaThreshold);
 
     std::array<Eigen::Vector3f, kMimuCount> imuOmegas_BN_B{};
-    imuOmegas_BN_B.at(0) = Eigen::Map<const Eigen::Vector3f>(angVel1.data());
-    imuOmegas_BN_B.at(1) = Eigen::Map<const Eigen::Vector3f>(angVel2.data());
-    imuOmegas_BN_B.at(2) = Eigen::Map<const Eigen::Vector3f>(angVel3.data());
+    imuOmegas_BN_B.at(0) = angVel1;
+    imuOmegas_BN_B.at(1) = angVel2;
+    imuOmegas_BN_B.at(2) = angVel3;
 
     auto const out = alg.update(imuOmegas_BN_B);
 
@@ -97,17 +98,17 @@ void expectSingleFaultAverage(const MimuMajorityVoteOutput& out,
     }
 }
 
-void propertyAverageIsCorrect(const std::vector<float>& angVel1,
-                              const std::vector<float>& angVel2,
-                              const std::vector<float>& angVel3,
+void propertyAverageIsCorrect(const Eigen::Vector3f& angVel1,
+                              const Eigen::Vector3f& angVel2,
+                              const Eigen::Vector3f& angVel3,
                               float omegaThreshold) {
     MimuMajorityVoteAlgorithm alg{};
     alg.setOmegaThreshold(omegaThreshold);
 
     std::array<Eigen::Vector3f, kMimuCount> imuOmegas_BN_B{};
-    imuOmegas_BN_B.at(0) = Eigen::Map<const Eigen::Vector3f>(angVel1.data());
-    imuOmegas_BN_B.at(1) = Eigen::Map<const Eigen::Vector3f>(angVel2.data());
-    imuOmegas_BN_B.at(2) = Eigen::Map<const Eigen::Vector3f>(angVel3.data());
+    imuOmegas_BN_B.at(0) = angVel1;
+    imuOmegas_BN_B.at(1) = angVel2;
+    imuOmegas_BN_B.at(2) = angVel3;
 
     auto const out = alg.update(imuOmegas_BN_B);
 
@@ -126,14 +127,13 @@ void propertyAverageIsCorrect(const std::vector<float>& angVel1,
     }
 }
 
-void propertyIdenticalIMUsNoFault(const std::vector<float>& angVel, float omegaThreshold) {
+void propertyIdenticalIMUsNoFault(const Eigen::Vector3f& angVel, float omegaThreshold) {
     MimuMajorityVoteAlgorithm alg{};
     alg.setOmegaThreshold(omegaThreshold);
 
-    Eigen::Vector3f const v = Eigen::Map<const Eigen::Vector3f>(angVel.data());
     std::array<Eigen::Vector3f, kMimuCount> imuOmegas_BN_B{};
     for (size_t i = 0U; i < kMimuCount; ++i) {
-        imuOmegas_BN_B.at(i) = v;
+        imuOmegas_BN_B.at(i) = angVel;
     }
 
     auto const out = alg.update(imuOmegas_BN_B);
@@ -144,23 +144,22 @@ void propertyIdenticalIMUsNoFault(const std::vector<float>& angVel, float omegaT
         ASSERT_NEAR(out.omegaDifferencesMag.at(i), 0.0F, kCompTol);
     }
     for (int i = 0; i < 3; ++i) {
-        ASSERT_NEAR(out.avgOmega_BN_B[i], v[i], kCompTol);
+        ASSERT_NEAR(out.avgOmega_BN_B[i], angVel[i], kCompTol);
     }
 }
 
-void propertyClearSingleOutlier(const std::vector<float>& baseAngVel, size_t outlierIndex, float omegaThreshold) {
+void propertyClearSingleOutlier(const Eigen::Vector3f& baseAngVel, size_t outlierIndex, float omegaThreshold) {
     constexpr float kOutlierFactor = 10.0F;
 
     MimuMajorityVoteAlgorithm alg{};
     alg.setOmegaThreshold(omegaThreshold);
 
-    Eigen::Vector3f const base = Eigen::Map<const Eigen::Vector3f>(baseAngVel.data());
     std::array<Eigen::Vector3f, kMimuCount> imuOmegas_BN_B{};
     for (size_t i = 0U; i < kMimuCount; ++i) {
-        imuOmegas_BN_B.at(i) = base;
+        imuOmegas_BN_B.at(i) = baseAngVel;
     }
     // Make outlier clearly separable: kOutlierFactor × threshold beyond the base pair
-    imuOmegas_BN_B.at(outlierIndex) = base + kOutlierFactor * omegaThreshold * Eigen::Vector3f::Ones();
+    imuOmegas_BN_B.at(outlierIndex) = baseAngVel + kOutlierFactor * omegaThreshold * Eigen::Vector3f::Ones();
 
     auto const out = alg.update(imuOmegas_BN_B);
 
@@ -173,17 +172,17 @@ void propertyClearSingleOutlier(const std::vector<float>& baseAngVel, size_t out
     }
 }
 
-void propertyCyclicPermutationInvariant(const std::vector<float>& angVel1,
-                                        const std::vector<float>& angVel2,
-                                        const std::vector<float>& angVel3,
+void propertyCyclicPermutationInvariant(const Eigen::Vector3f& angVel1,
+                                        const Eigen::Vector3f& angVel2,
+                                        const Eigen::Vector3f& angVel3,
                                         float omegaThreshold) {
     MimuMajorityVoteAlgorithm alg{};
     alg.setOmegaThreshold(omegaThreshold);
 
     std::array<Eigen::Vector3f, kMimuCount> imuOmegas_BN_B{};
-    imuOmegas_BN_B.at(0) = Eigen::Map<const Eigen::Vector3f>(angVel1.data());
-    imuOmegas_BN_B.at(1) = Eigen::Map<const Eigen::Vector3f>(angVel2.data());
-    imuOmegas_BN_B.at(2) = Eigen::Map<const Eigen::Vector3f>(angVel3.data());
+    imuOmegas_BN_B.at(0) = angVel1;
+    imuOmegas_BN_B.at(1) = angVel2;
+    imuOmegas_BN_B.at(2) = angVel3;
 
     auto const out0 = alg.update(imuOmegas_BN_B);
 
@@ -213,42 +212,42 @@ void propertyCyclicPermutationInvariant(const std::vector<float>& angVel1,
 }  // namespace
 
 FUZZ_TEST(MimuMajorityVoteAlgorithmFuzz, regressionTestMimuMajorityVote)
-    .WithDomains(fuzztest::InRange(1e-6F, 1e3F),                                   // omegaThreshold
-                 fuzztest::InRange<uint32_t>(1U, 200U),                            // persistenceLimit
-                 fuzztest::InRange<uint32_t>(1U, 100U),                            // algCallCount
-                 fuzztest::VectorOf(fuzztest::InRange(-1e3F, 1e3F)).WithSize(3),   // angVel1
-                 fuzztest::VectorOf(fuzztest::InRange(-1e3F, 1e3F)).WithSize(3),   // angVel2
-                 fuzztest::VectorOf(fuzztest::InRange(-1e3F, 1e3F)).WithSize(3));  // angVel3
+    .WithDomains(fuzztest::InRange(1e-6F, 1e3F),              // omegaThreshold
+                 fuzztest::InRange<uint32_t>(1U, 200U),       // persistenceLimit
+                 fuzztest::InRange<uint32_t>(1U, 100U),       // algCallCount
+                 xmera::fuzz::Vector3fInRange(-1e3F, 1e3F),   // angVel1
+                 xmera::fuzz::Vector3fInRange(-1e3F, 1e3F),   // angVel2
+                 xmera::fuzz::Vector3fInRange(-1e3F, 1e3F));  // angVel3
 
 FUZZ_TEST(MimuMajorityVoteAlgorithmFuzz, propertyOutputAlwaysFinite)
-    .WithDomains(fuzztest::VectorOf(fuzztest::InRange(-kMaxAngVel, kMaxAngVel)).WithSize(3),  // angVel1
-                 fuzztest::VectorOf(fuzztest::InRange(-kMaxAngVel, kMaxAngVel)).WithSize(3),  // angVel2
-                 fuzztest::VectorOf(fuzztest::InRange(-kMaxAngVel, kMaxAngVel)).WithSize(3),  // angVel3
-                 fuzztest::InRange(kMinThreshold, kMaxThreshold));                            // omegaThreshold
+    .WithDomains(xmera::fuzz::Vector3fInRange(-kMaxAngVel, kMaxAngVel),  // angVel1
+                 xmera::fuzz::Vector3fInRange(-kMaxAngVel, kMaxAngVel),  // angVel2
+                 xmera::fuzz::Vector3fInRange(-kMaxAngVel, kMaxAngVel),  // angVel3
+                 fuzztest::InRange(kMinThreshold, kMaxThreshold));       // omegaThreshold
 
 FUZZ_TEST(MimuMajorityVoteAlgorithmFuzz, propertyFaultAndValidConsistency)
-    .WithDomains(fuzztest::VectorOf(fuzztest::InRange(-kMaxAngVel, kMaxAngVel)).WithSize(3),  // angVel1
-                 fuzztest::VectorOf(fuzztest::InRange(-kMaxAngVel, kMaxAngVel)).WithSize(3),  // angVel2
-                 fuzztest::VectorOf(fuzztest::InRange(-kMaxAngVel, kMaxAngVel)).WithSize(3),  // angVel3
-                 fuzztest::InRange(kMinThreshold, kMaxThreshold));                            // omegaThreshold
+    .WithDomains(xmera::fuzz::Vector3fInRange(-kMaxAngVel, kMaxAngVel),  // angVel1
+                 xmera::fuzz::Vector3fInRange(-kMaxAngVel, kMaxAngVel),  // angVel2
+                 xmera::fuzz::Vector3fInRange(-kMaxAngVel, kMaxAngVel),  // angVel3
+                 fuzztest::InRange(kMinThreshold, kMaxThreshold));       // omegaThreshold
 
 FUZZ_TEST(MimuMajorityVoteAlgorithmFuzz, propertyAverageIsCorrect)
-    .WithDomains(fuzztest::VectorOf(fuzztest::InRange(-kMaxAngVel, kMaxAngVel)).WithSize(3),  // angVel1
-                 fuzztest::VectorOf(fuzztest::InRange(-kMaxAngVel, kMaxAngVel)).WithSize(3),  // angVel2
-                 fuzztest::VectorOf(fuzztest::InRange(-kMaxAngVel, kMaxAngVel)).WithSize(3),  // angVel3
-                 fuzztest::InRange(kMinThreshold, kMaxThreshold));                            // omegaThreshold
+    .WithDomains(xmera::fuzz::Vector3fInRange(-kMaxAngVel, kMaxAngVel),  // angVel1
+                 xmera::fuzz::Vector3fInRange(-kMaxAngVel, kMaxAngVel),  // angVel2
+                 xmera::fuzz::Vector3fInRange(-kMaxAngVel, kMaxAngVel),  // angVel3
+                 fuzztest::InRange(kMinThreshold, kMaxThreshold));       // omegaThreshold
 
 FUZZ_TEST(MimuMajorityVoteAlgorithmFuzz, propertyIdenticalIMUsNoFault)
-    .WithDomains(fuzztest::VectorOf(fuzztest::InRange(-kMaxAngVel, kMaxAngVel)).WithSize(3),  // angVel
-                 fuzztest::InRange(kMinThreshold, kMaxThreshold));                            // omegaThreshold
+    .WithDomains(xmera::fuzz::Vector3fInRange(-kMaxAngVel, kMaxAngVel),  // angVel
+                 fuzztest::InRange(kMinThreshold, kMaxThreshold));       // omegaThreshold
 
 FUZZ_TEST(MimuMajorityVoteAlgorithmFuzz, propertyClearSingleOutlier)
-    .WithDomains(fuzztest::VectorOf(fuzztest::InRange(-kMaxAngVel, kMaxAngVel)).WithSize(3),  // baseAngVel
-                 fuzztest::InRange<size_t>(0, 2),                                             // outlierIndex
-                 fuzztest::InRange(kMinThreshold, kMaxThreshold));                            // omegaThreshold
+    .WithDomains(xmera::fuzz::Vector3fInRange(-kMaxAngVel, kMaxAngVel),  // baseAngVel
+                 fuzztest::InRange<size_t>(0, 2),                        // outlierIndex
+                 fuzztest::InRange(kMinThreshold, kMaxThreshold));       // omegaThreshold
 
 FUZZ_TEST(MimuMajorityVoteAlgorithmFuzz, propertyCyclicPermutationInvariant)
-    .WithDomains(fuzztest::VectorOf(fuzztest::InRange(-kMaxAngVel, kMaxAngVel)).WithSize(3),  // angVel1
-                 fuzztest::VectorOf(fuzztest::InRange(-kMaxAngVel, kMaxAngVel)).WithSize(3),  // angVel2
-                 fuzztest::VectorOf(fuzztest::InRange(-kMaxAngVel, kMaxAngVel)).WithSize(3),  // angVel3
-                 fuzztest::InRange(kMinThreshold, kMaxThreshold));                            // omegaThreshold
+    .WithDomains(xmera::fuzz::Vector3fInRange(-kMaxAngVel, kMaxAngVel),  // angVel1
+                 xmera::fuzz::Vector3fInRange(-kMaxAngVel, kMaxAngVel),  // angVel2
+                 xmera::fuzz::Vector3fInRange(-kMaxAngVel, kMaxAngVel),  // angVel3
+                 fuzztest::InRange(kMinThreshold, kMaxThreshold));       // omegaThreshold
