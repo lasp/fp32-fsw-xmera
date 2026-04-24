@@ -26,6 +26,7 @@ if(XMERA_ENABLE_FUZZTESTS)
 
   target_include_directories(test_mrpFeedback_fuzz PRIVATE "../..")
   target_include_directories(test_mrpFeedback_fuzz PRIVATE "..")
+  target_include_directories(test_mrpFeedback_fuzz PRIVATE "../../..")
   target_include_directories(test_mrpFeedback_fuzz PRIVATE "${CMAKE_SOURCE_DIR}")
 
   target_link_libraries(test_mrpFeedback_fuzz PRIVATE
