@@ -1,9 +1,10 @@
+#include "architecture/testUtilities/eigenFuzzDomains.hpp"
 #include "rwMotorTorqueTestHelpers.hpp"
 #include <fuzztest/fuzztest.h>
 
 FUZZ_TEST(RwMotorTorqueAlgorithmFuzz, testRwMotorTorque)
-    .WithDomains(fuzztest::VectorOf(fuzztest::InRange(-1e6F, 1e6F)).WithSize(3),
-                 fuzztest::VectorOf(fuzztest::InRange(-1e6F, 1e6F)).WithSize(3),
+    .WithDomains(xmera::fuzz::Vector3fInRange(-1e6F, 1e6F),
+                 xmera::fuzz::Vector3fInRange(-1e6F, 1e6F),
                  fuzztest::VectorOf(fuzztest::Arbitrary<bool>()).WithSize(RW_EFF_CNT),
                  fuzztest::Arbitrary<bool>(),
                  fuzztest::Arbitrary<bool>(),
