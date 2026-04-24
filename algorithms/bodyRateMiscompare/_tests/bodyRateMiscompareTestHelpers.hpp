@@ -4,12 +4,7 @@
 #include "bodyRateMiscompareAlgorithm.h"
 #include <gtest/gtest.h>
 #include <Eigen/Core>
-#include <array>
 #include <cmath>
-#include <cstdint>
-#include <vector>
-
-inline Eigen::Vector3f toEigenVector(const std::array<float, 3>& v) { return Eigen::Vector3f(v[0], v[1], v[2]); }
 
 inline BodyRateMiscompareOutput referenceUpdate(const float threshold,
                                                 const uint32_t faultPersistenceLimit,
@@ -39,16 +34,13 @@ inline BodyRateMiscompareOutput referenceUpdate(const float threshold,
 
 inline void runRegressionCase(float threshold,
                               uint32_t faultPersistenceLimit,
-                              const std::array<float, 3>& imuVec,
-                              const std::array<float, 3>& stVec,
+                              const Eigen::Vector3f& imu,
+                              const Eigen::Vector3f& st,
                               bool useImuRates = false) {
     BodyRateMiscompareAlgorithm alg{};
     alg.setBodyRateThreshold(threshold);
     alg.setFaultPersistenceLimit(faultPersistenceLimit);
     alg.setUseImuRates(useImuRates);
-
-    const Eigen::Vector3f imu = toEigenVector(imuVec);
-    const Eigen::Vector3f st = toEigenVector(stVec);
 
     bool refFaultDetected = useImuRates;
     uint32_t refFaultPersistenceCount = 0;
@@ -85,10 +77,7 @@ inline void runRegressionCase(float threshold,
 // ---------------------------------------------------------------------------
 
 // Output omega_BN_B is always exactly one of the two inputs (source selection).
-inline void propertyOutputIsOneOfInputs(std::vector<float> imuVec, std::vector<float> stVec) {
-    const Eigen::Vector3f imu(imuVec[0], imuVec[1], imuVec[2]);
-    const Eigen::Vector3f st(stVec[0], stVec[1], stVec[2]);
-
+inline void propertyOutputIsOneOfInputs(const Eigen::Vector3f& imu, const Eigen::Vector3f& st) {
     BodyRateMiscompareAlgorithm alg{};
     alg.setBodyRateThreshold(0.5F);
     alg.setFaultPersistenceLimit(2);
@@ -102,10 +91,7 @@ inline void propertyOutputIsOneOfInputs(std::vector<float> imuVec, std::vector<f
 }
 
 // Fault flag and source selection are always consistent.
-inline void propertyFaultFlagMatchesSource(std::vector<float> imuVec, std::vector<float> stVec) {
-    const Eigen::Vector3f imu(imuVec[0], imuVec[1], imuVec[2]);
-    const Eigen::Vector3f st(stVec[0], stVec[1], stVec[2]);
-
+inline void propertyFaultFlagMatchesSource(const Eigen::Vector3f& imu, const Eigen::Vector3f& st) {
     BodyRateMiscompareAlgorithm alg{};
     alg.setBodyRateThreshold(0.5F);
     alg.setFaultPersistenceLimit(1);
@@ -121,9 +107,7 @@ inline void propertyFaultFlagMatchesSource(std::vector<float> imuVec, std::vecto
 }
 
 // When IMU == ST, difference norm is 0 — fault never triggers.
-inline void propertyIdenticalInputsNeverFault(std::vector<float> rateVec) {
-    const Eigen::Vector3f rate(rateVec[0], rateVec[1], rateVec[2]);
-
+inline void propertyIdenticalInputsNeverFault(const Eigen::Vector3f& rate) {
     BodyRateMiscompareAlgorithm alg{};
     alg.setBodyRateThreshold(1e-6F);
     alg.setFaultPersistenceLimit(1);
@@ -136,10 +120,7 @@ inline void propertyIdenticalInputsNeverFault(std::vector<float> rateVec) {
 }
 
 // Once fault triggers, it stays triggered on all subsequent calls.
-inline void propertyFaultIsSticky(std::vector<float> imuVec, std::vector<float> stVec) {
-    const Eigen::Vector3f imu(imuVec[0], imuVec[1], imuVec[2]);
-    const Eigen::Vector3f st(stVec[0], stVec[1], stVec[2]);
-
+inline void propertyFaultIsSticky(const Eigen::Vector3f& imu, const Eigen::Vector3f& st) {
     constexpr float threshold = 0.1F;
 
     // Skip if the difference is not above threshold (can't trigger fault)
@@ -164,10 +145,7 @@ inline void propertyFaultIsSticky(std::vector<float> imuVec, std::vector<float> 
 }
 
 // All output components are finite for finite inputs.
-inline void propertyOutputIsFinite(std::vector<float> imuVec, std::vector<float> stVec) {
-    const Eigen::Vector3f imu(imuVec[0], imuVec[1], imuVec[2]);
-    const Eigen::Vector3f st(stVec[0], stVec[1], stVec[2]);
-
+inline void propertyOutputIsFinite(const Eigen::Vector3f& imu, const Eigen::Vector3f& st) {
     BodyRateMiscompareAlgorithm alg{};
     alg.setBodyRateThreshold(0.01F);
     alg.setFaultPersistenceLimit(3);
@@ -181,10 +159,7 @@ inline void propertyOutputIsFinite(std::vector<float> imuVec, std::vector<float>
 }
 
 // When useImuRates is set, output is always the IMU rate with fault flag true.
-inline void propertyUseImuRatesAlwaysOutputsImu(std::vector<float> imuVec, std::vector<float> stVec) {
-    const Eigen::Vector3f imu(imuVec[0], imuVec[1], imuVec[2]);
-    const Eigen::Vector3f st(stVec[0], stVec[1], stVec[2]);
-
+inline void propertyUseImuRatesAlwaysOutputsImu(const Eigen::Vector3f& imu, const Eigen::Vector3f& st) {
     BodyRateMiscompareAlgorithm alg{};
     alg.setBodyRateThreshold(0.5F);
     alg.setFaultPersistenceLimit(1);
