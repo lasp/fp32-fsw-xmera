@@ -1,192 +1,267 @@
-==============================
-Stepper Motor Controller
-==============================
+.. raw:: latex
 
-.. list-table::
-   :widths: 5 40 10 10
-   :header-rows: 0
+    {\LARGE \textbf{stepperMotorController}}
 
-   * - **Rev**
-     - **Change Description**
-     - **By**
-     - **Date**
-   * - 1.0
-     - Initial Draft
-     - L. Kiner
-     - 20250723
+Executive Summary
+-----------------
+This module drives a stepper motor toward a reference angle by issuing integer step commands. Internally the controller
+runs a small state machine (OFF / IDLE / MOVING / STOPPING / SETTLING) that decides when to command a new move, when a
+changed reference should interrupt the current move, and how long to wait after a stop before accepting new commands.
+The controller always commands the shortest path around a full revolution, so a reference on the opposite side of the
+motor is reached via the smaller of the two directions.
 
-
-====================
-Module Description
-====================
-
-Introduction
-============
-This stepper motor flight software module computes the number of motor steps required to actuate a stepper motor from
-its current angle to a specified reference motor angle. Each time a new motor reference message is written
-to this module, the required motor steps commanded to achieve the incoming reference angle are computed, updated, and
-output from the module. The module outputs zero steps commanded if the reference motor angle is outside of the
-motor actuation limits that are configurable by the user. Finally, this module also includes logic for handling incoming
-reference commands that interrupt an unfinished motor actuation sequence. Because the stepper motor is unable to stop
-actuating during a step, it must finish actuating through the current step before it can begin following
-a new reference command.
-
-Module Input/Output Messages
-============================
-The following table lists the module input and output messages.
+Message Connection Descriptions
+-------------------------------
+The following table lists all the module input and output messages. Message connections are set by the user from
+Python.
 
 .. list-table:: Module I/O Messages
-    :widths: 25 25 50
+    :widths: 30 30 50
     :header-rows: 1
 
     * - Msg Variable Name
       - Msg Type
       - Description
     * - motorRefAngleInMsg
-      - :ref:`HingedRigidBodyMsgPayload`
-      - Input message containing the stepper motor reference angle message
+      - :ref:`HingedRigidBodyMsgF32Payload`
+      - Reference motor angle input message (uses ``theta``, [rad])
     * - motorStepCommandOutMsg
       - :ref:`MotorStepCommandMsgPayload`
-      - Output message containing the number of commanded motor steps
+      - Commanded motor steps output message (uses ``stepsCommanded``). Written only when a new ``MOVE`` command is issued.
 
-Algorithm Flow
-==============
-Each time a new motor angle input reference message is read, this module computes the required number of
-integer motor steps :math:`n_s` to actuate to a reachable motor angle nearest to the specified
-reference angle :math:`\theta_{\text{ref}`. The reference angle is not reachable if it is not a multiple
-of the fixed motor step angle :math:`\Delta\theta`.
+Algorithm Parameters
+-------------------------------
+The following table lists the parameters on the pure algorithm (``StepperMotorControllerAlgorithm``). The Xmera
+adapter re-exposes all of these parameters through same-named setters/getters that forward to the algorithm.
 
-The integer number of motor steps commanded is calculated as
+.. list-table:: Algorithm Parameters
+    :widths: 32 15 10 10 40 30
+    :header-rows: 1
+
+    * - Parameter Name
+      - Type
+      - Units
+      - Default
+      - Description
+      - Bounds
+    * - stepsPerRevolution
+      - int
+      - [steps]
+      - 360
+      - Number of motor steps per full revolution
+      - Must be strictly positive (checked in setter)
+    * - settleCountMax
+      - int
+      - [ticks]
+      - 10
+      - Number of control ticks to remain in ``SETTLING`` before returning to ``IDLE``
+      - Must be non-negative (checked in setter)
+    * - currentPositionTolerance
+      - int
+      - [steps]
+      - 1
+      - Tolerance between the current and target position used for the ``IDLE`` move trigger and the ``MOVING`` move-complete check
+      - Must be non-negative (checked in setter)
+    * - desiredPositionTolerance
+      - int
+      - [steps]
+      - 0
+      - Tolerance between the commanded and desired position used in ``MOVING`` to detect a changed reference
+      - Must be non-negative (checked in setter)
+
+Module Parameters
+-------------------------------
+The following table lists the parameters that live only on the Xmera adapter (``StepperMotorController``) — they
+configure the motor-motion simulator and the initial conditions applied on ``reset()``. The adapter additionally
+re-exposes every algorithm parameter from the table above.
+
+.. list-table:: Module Parameters (Xmera adapter only)
+    :widths: 32 15 10 10 40 30
+    :header-rows: 1
+
+    * - Parameter Name
+      - Type
+      - Units
+      - Default
+      - Description
+      - Bounds
+    * - initialAngle
+      - float
+      - [rad]
+      - 0.0
+      - Initial motor angle, used to seed the tracked current position on reset
+      - N/A
+    * - controlFrequency
+      - float
+      - [Hz]
+      - 1.0
+      - Rate at which ``updateState()`` is called by the simulation task
+      - Must be strictly positive (checked in setter)
+    * - motorFrequency
+      - float
+      - [Hz]
+      - 1.0
+      - Maximum motor step rate (steps per second) used by the Xmera motor-motion simulator
+      - Must be strictly positive (checked in setter)
+
+Algorithm Input/Output
+-------------------------------
+The following tables list the inputs and outputs of the pure algorithm ``update()`` method, independent of the Xmera
+messaging layer and the motor-motion simulation.
+
+.. list-table:: Algorithm Inputs
+    :widths: 25 20 10 45
+    :header-rows: 1
+
+    * - Variable
+      - Type
+      - Units
+      - Description
+    * - currentPosition
+      - int
+      - [steps]
+      - Current motor step position, tracked by the caller
+    * - referenceAngle
+      - float
+      - [rad]
+      - Reference motor angle; converted to steps internally via ``angleToSteps()``
+    * - isMotorMoving
+      - bool
+      - [-]
+      - Indicates whether the motor is currently moving (used to gate the ``STOPPING`` → ``SETTLING`` transition)
+
+.. list-table:: Algorithm Outputs (StepperMotorControllerOutput)
+    :widths: 25 35 10 40
+    :header-rows: 1
+
+    * - Variable
+      - Type
+      - Units
+      - Description
+    * - commandType
+      - StepperMotorCommandType
+      - [-]
+      - ``NONE``, ``MOVE``, or ``STOP``
+    * - stepsToMove
+      - int
+      - [steps]
+      - Wrapped (shortest-path) step delta; valid only when ``commandType == MOVE``
+
+Algorithm Description
+---------------------
+The stepper motor controller operates in integer step counts. Angles are converted to steps using the motor's fixed
+step size,
 
 .. math::
 
-   n_s =
-   \begin{cases}
-   \left\lfloor \dfrac{\theta_{\text{ref}} - \theta}{\Delta\theta} \right\rfloor
-   & \text{if }
-   \left\lceil \dfrac{\theta_{\text{ref}} - \theta}{\Delta\theta} \right\rceil
-   - \dfrac{\theta_{\text{ref}} - \theta}{\Delta\theta}
-   >
-   \dfrac{\theta_{\text{ref}} - \theta}{\Delta\theta}
-   - \left\lfloor \dfrac{\theta_{\text{ref}} - \theta}{\Delta\theta} \right\rfloor \\
-   \left\lceil \dfrac{\theta_{\text{ref}} - \theta}{\Delta\theta} \right\rceil
-   & \text{if }
-   \left\lceil \dfrac{\theta_{\text{ref}} - \theta}{\Delta\theta} \right\rceil
-   - \dfrac{\theta_{\text{ref}} - \theta}{\Delta\theta}
-   <
-   \dfrac{\theta_{\text{ref}} - \theta}{\Delta\theta}
-   - \left\lfloor \dfrac{\theta_{\text{ref}} - \theta}{\Delta\theta} \right\rfloor
-   \end{cases}
+    n = \text{round}\!\left( \theta \, \frac{N}{2\pi} \right)
 
-where :math:`\theta` is the current motor angle.
+where :math:`\theta` is an angle in radians and :math:`N` is ``stepsPerRevolution``. The controller never reasons in
+radians internally: both the current and desired positions are integer step counts.
 
-.. important::
-    If the motor actuation is interrupted by a new reference message while actuating through a step,
-    the current motor angle is updated to the next multiple of the motor step angle. This is because
-    the motor must finish actuating through the current step before it can begin following a new reference command.
-
-For interrupting reference messages, the motor angle :math:`\theta` in the above equation is updated to the following
-in order to compute the number of steps commanded
+Shortest-Path Wrapping
+^^^^^^^^^^^^^^^^^^^^^^
+To always command the shortest rotation, step deltas are wrapped into the interval
+:math:`[-\tfrac{N}{2},\, +\tfrac{N}{2}]` via
 
 .. math::
-    \theta =
-    \begin{cases}
-    \left\lfloor \dfrac{\theta}{\Delta\theta} \right\rfloor \Delta\theta
-    & \text{if }
-    \theta
-    <
-    0 \\
-    \left\lceil \dfrac{\theta}{\Delta\theta} \right\rceil \Delta\theta
-    & \text{if }
-    \theta
-    >
-    0
+
+    \text{wrap}(\Delta) = \begin{cases}
+        \Delta - N & \text{if } \Delta > \tfrac{N}{2} \\
+        \Delta + N & \text{if } \Delta < -\tfrac{N}{2} \\
+        \Delta & \text{otherwise}
     \end{cases}
 
-The motor reference angle is updated to the reachable value after the number of steps is determined
+applied after taking :math:`\Delta \bmod N`. A motor at -170° asked to move to +170° therefore commands a 20° forward
+step, not 340° backward.
 
-.. math::
-    \theta_{\text{ref}} = \theta + n_s \Delta \theta
+State Machine
+^^^^^^^^^^^^^
+Let :math:`n_c` be the caller-supplied ``currentPosition``, :math:`n_d` the desired position (derived from the reference
+angle), and :math:`n_m` the position most recently commanded (stored internally). Let :math:`\tau_c` be the
+``currentPositionTolerance`` and :math:`\tau_d` the ``desiredPositionTolerance``.
 
-The module outputs the number of steps commanded only after a new motor angle reference input message is read.
-The motor step count is set to zero after a new reference command is read by the module.
+- ``OFF`` — no transitions; the algorithm stays in this state until the caller reassigns it (used to hold the motor
+  quiescent).
 
-This module also tracks the motor actuation in time for each command sequence by updating the
-current motor angle and step count at each time step.
+- ``IDLE`` — the motor is quiescent. If
+  :math:`\left| \text{wrap}(n_d - n_c) \right| > \tau_c`,
+  the algorithm emits a ``MOVE`` with ``stepsToMove = wrap(n_d - n_c)``, stores :math:`n_m := n_d`, and transitions to
+  ``MOVING``.
 
-.. important::
-    While this module tracks the motor step count and motor angle, these are meant to be completely internal to the
-    controller module and do not sufficiently represent the true motor parameters which are tracked in the stepper motor
-    simulation module. This module roughly tracks the motor angle in order to determine the number of steps
-    commanded. This module linearly tracks the motor angle for each step, which is not representative of the true
-    stepper motor profile for each step.
+- ``MOVING`` — the motor is executing a commanded move. Two conditions are checked each tick:
 
-With this in mind, the motor angle is updated in this module as
+  1. *Move complete.* If :math:`\left| \text{wrap}(n_m - n_c) \right| \le \tau_c`, the algorithm transitions to
+     ``STOPPING`` (no ``STOP`` command issued; the motor is already at target).
+  2. *Reference changed.* If :math:`\left| \text{wrap}(n_m - n_d) \right| > \tau_d`, the algorithm emits a ``STOP``
+     command and transitions to ``STOPPING``. The caller is expected to halt the motor at its current position; the
+     controller will re-plan from that position once it returns to ``IDLE``.
 
-.. math::
-    \theta = \theta_0 + \frac{\Delta t_{\text{sim}}}{\Delta t_{\text{step}}} \Delta \theta
+- ``STOPPING`` — the motor is decelerating. The algorithm transitions to ``SETTLING`` and resets the settle counter as
+  soon as the caller reports ``isMotorMoving == false``. In Xmera simulations the caller leaves ``isMotorMoving`` at
+  ``false``, so this transition is immediate.
 
-where :math:`\Delta t_{\text{step}}` is the motor step time and :math:`\Delta t_{\text{sim}}` is the time elapsed
-since the last motor reference input message was written (:math:`\Delta t_{\text{sim}} = t - t_{\text{prev}}`)
+- ``SETTLING`` — a counter runs for up to ``settleCountMax`` ticks. Once the counter reaches the limit the algorithm
+  returns to ``IDLE`` and is ready to issue the next move.
 
-The motor step count is updated as
+The two tolerances are deliberately separated:
 
-.. math::
-    c_s = \pm \left\lfloor \frac{\Delta t_{\text{sim}}}{\Delta t_{\text{step}}} \right\rfloor
+- ``currentPositionTolerance`` governs whether the caller's physical position is close enough to the target to count as
+  "at target" — tuned to the motor's step-level resolution and positioning repeatability.
+- ``desiredPositionTolerance`` governs whether a new reference is different enough from the currently-commanded target
+  to be worth interrupting the in-progress move — tuned to avoid interrupting on noise in the reference signal.
 
-Controller Functions
-====================
-Below is a list of functions that this flight software module performs
+Motor-Motion Simulation (Xmera Adapter)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The algorithm itself does not simulate the motor. The Xmera adapter advances the tracked current position toward the
+commanded position each tick using a fractional-step accumulator. Given ``motorFrequency`` :math:`f_m` and
+``controlFrequency`` :math:`f_c`, each tick adds :math:`f_m / f_c` to a running accumulator; the integer part is taken
+as the number of whole steps advanced that tick and the fractional remainder carries over. This produces the expected
+patterns for non-integer ratios (e.g. a 1.5 ratio alternates 1, 2, 1, 2, …). The advance never overshoots the commanded
+position.
 
-    - Reads the incoming motor reference angle message
-    - Computes the number of motor steps required to reach the reference angle
-    - Writes the output message for number of motor steps commanded
-    - Handles interruptions to motor actuation by resetting the motor actuation after the current step is complete
-    - Outputs zero steps commanded if the reference motor angle is outside of the motor actuation limits
+Algorithm Assumptions and Limitations
+-------------------------------------
+- Motor motion is assumed to be quantized at the step level; reference angles that fall between steps are rounded to
+  the nearest step.
+- The caller is responsible for tracking the motor's current position and passing it to ``update()`` each tick.
+- When a ``STOP`` is issued mid-move, the Xmera adapter freezes the commanded position at the current step; any
+  remaining steps from the prior ``MOVE`` are discarded.
+- The ``OFF`` state is entered only via caller intervention; there is no transition into ``OFF`` from within the
+  state machine.
 
-Controller Assumptions and Limitations
-======================================
-    - The motor step angle and step time are fixed parameters
-    - The motor cannot stop actuating in the middle of a step
-    - When motor actuation is interrupted by a new reference command, the motor completes the current step only, ignoring all other commanded steps and re-computes the new number of steps commanded to reach the new reference
-    - The motor has user-configurable upper and lower actuation bounds. The default bounds are :math:`(-2\pi, 2\pi)`
+Module Description (Xmera Usage)
+--------------------------------
+The ``StepperMotorController`` Xmera adapter provides the simulation integration layer for the algorithm. It:
 
-Test Description and Success Criteria
-=====================================
-There are three tests for this module. The tests are located in ``fswAlgorithms/effectorInterfaces/stepperMotorController/_UnitTest/test_stepperMotorController.py``
-The first test is a nominal test named ``test_stepperMotorController_nominal``. The second test named
-``test_stepperMotorController_invalid`` checks that zero steps commanded are output if the reference motor angle is
-outside of the specified motor actuation bounds. The third test is an interruption test named ``test_stepperMotorController_interrupt``.
-The success criteria for all tests is that the commanded number of steps computed and output from the controller module
-matches the value determined in the test.
+- Reads ``motorRefAngleInMsg`` to obtain the reference angle each tick.
+- Tracks the motor's current step position, the commanded position, and a fractional-step accumulator.
+- On ``reset()``, seeds the current and commanded positions from ``initialAngle`` (converted to steps).
+- On each ``updateState()``, calls the algorithm with the tracked current position and the reference angle.
+- On a ``MOVE`` output, writes ``motorStepCommandOutMsg`` with the commanded step delta and sets the new commanded
+  position.
+- On a ``STOP`` output, freezes the commanded position at the current position.
+- Advances the tracked current position toward the commanded position via the fractional-step accumulator.
 
-Note that while this module internally tracks the current motor angle and motor step count, these parameters are
-not checked in the unit test. As previously mentioned, the stepper motor simulation module located in
-``simulation/dynamics/stepperMotor`` precisely tracks these parameters.
+User Guide
+----------
+Typical usage in Python is::
 
-Nominal Test
-------------
-The nominal unit test ensures that the stepper motor controller module correctly determines the number of steps required to
-actuate from an initial angle to a final reference angle. The initial and reference motor angles are varied so that
-both positive and negative steps are required in this test. It must be noted that the motor angles are discretized
-by a constant motor step angle; therefore the motor cannot simply actuate to any desired angle.
-The reference motor angles are chosen in this test so that several cases require the reference to be adjusted
-to the nearest multiple of the motor step angle. In other words, this test checks cases where the exact number of
-motor steps required to reach the reference exactly is not an integer. For these cases, the final result for the
-number of commanded motor steps is rounded to the nearest integer step and the corresponding motor reference
-angle is updated to the reachable value.
+    module = stepperMotorControllerF32.StepperMotorController()
+    module.modelTag = "stepperMotorController"
+    module.stepsPerRevolution = 360
+    module.initialAngle = 0.0                        # [rad]
+    module.controlFrequency = 10.0                   # [Hz]
+    module.motorFrequency = 100.0                    # [Hz]
+    module.settleCountMax = 2
+    module.currentPositionTolerance = 0
+    module.desiredPositionTolerance = 0
 
-Invalid Test
-------------
-The invalid unit test ensures that the stepper motor controller module outputs zero steps commanded when the
-reference motor angle is outside the motor actuation bounds.
+    module.motorRefAngleInMsg.subscribeTo(ref_msg)
 
-Interruption Test
------------------
-The interruption unit test ensures that the stepper motor controller module correctly handles reference messages that
-interrupt an unfinished motor actuation sequence. The initial and reference motor angles are varied so that combinations
-of both positive and negative steps are taken. The time of step interruption is varied to ensure that once a step
-begins, it is completed regardless of when the interrupted message is written. Because the nominal unit test script
-checks the module functionality for various motor step angles and reference angles that are not
-multiples of the motor step angle, the step angle, step time, and reference angles chosen in this script are
-set to simple values.
+The commanded step delta is available on ``motorStepCommandOutMsg`` each time a new ``MOVE`` is issued.
+
+``currentPositionTolerance`` controls how close the motor must be to the target before the algorithm considers a move
+complete, and also how close an incoming reference must be to the current position before the algorithm declines to
+issue a move. ``desiredPositionTolerance`` separately controls how large a change in the reference angle must be,
+relative to the currently-commanded target, before the algorithm interrupts an in-progress move.
