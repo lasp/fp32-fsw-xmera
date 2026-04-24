@@ -4,10 +4,10 @@
 TEST(MrpPDTest, RegressionTest) {
     regressionTestMrpPD(10,
                         200,
-                        std::vector<float>{0.2, -0.1, -0.4},
-                        std::vector<float>{-0.1, -0.4, 0},
-                        std::vector<float>{0.009, 0.007, -0.006},
-                        std::vector<float>{0.08, -0.001, -0.003});
+                        Eigen::Vector3f{0.2, -0.1, -0.4},
+                        Eigen::Vector3f{-0.1, -0.4, 0},
+                        Eigen::Vector3f{0.009, 0.007, -0.006},
+                        Eigen::Vector3f{0.08, -0.001, -0.003});
 }
 
 TEST(MrpPDTest, PropertyTest) {
