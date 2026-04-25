@@ -83,5 +83,109 @@ def test_average_mimu_data():
     np.testing.assert_allclose(module_output_accel[1:, :], expected_accel, rtol=1e-8, atol=1e-6, verbose=True)
 
 
+def test_average_mimu_data_buffer_fill():
+    """Walk a 4-packet ring buffer from empty to full, then wrap.
+
+    Each packet carries MAX_MIMU_SAMPLES_PER_PKT individual samples. The
+    module should skip packets with isValid=False and skip samples with
+    measTime=0 within fresh packets. The averaged output should match the
+    hand-computed mean of the fresh samples at each cycle.
+    """
+    unit_task_name = "unitTask"
+    unit_process_name = "TestProcess"
+
+    unit_test_sim = SimulationBaseClass.SimBaseClass()
+
+    fsw_frequency = 10
+    max_mimu_pkt = 4
+    max_mimu_samples_per_pkt = 10
+    delta_time_sim = 1 / fsw_frequency
+    test_process_rate = macros.sec2nano(delta_time_sim)
+    test_proc = unit_test_sim.CreateNewProcess(unit_process_name)
+    test_proc.addTask(unit_test_sim.CreateNewTask(unit_task_name, test_process_rate))
+
+    module = averageMimuDataF32.AverageMimuData()
+    module.modelTag = "averageMimuData"
+
+    dcm_pltf_to_body = np.eye(3, dtype=np.float32)
+    module.setDcmPltfToBdy(dcm_pltf_to_body)
+    module.setAveragingWindow(1.0e10)  # wide window so only staleness matters
+
+    mimu_pkt = messaging.MimuPacketF32Payload()
+    mimu_pkt_msg = messaging.MimuPacketF32().write(mimu_pkt, time=0)
+
+    unit_test_sim.AddModelToTask(unit_task_name, module)
+    data_log = module.imuOutMsg.recorder()
+    unit_test_sim.AddModelToTask(unit_task_name, data_log)
+    module.mimuPacketInMsg.subscribeTo(mimu_pkt_msg)
+    unit_test_sim.InitializeSimulation()
+
+    # Deterministic per-(packet, sample) gyro/accel grid and timestamps.
+    gyros = np.zeros((max_mimu_pkt, max_mimu_samples_per_pkt, 3), dtype=np.float32)
+    accels = np.zeros((max_mimu_pkt, max_mimu_samples_per_pkt, 3), dtype=np.float32)
+    times_s = np.zeros((max_mimu_pkt, max_mimu_samples_per_pkt), dtype=np.float64)
+    for p in range(max_mimu_pkt):
+        for s in range(max_mimu_samples_per_pkt):
+            gyros[p, s] = np.array([float(p), float(s), float(p + s)], dtype=np.float32)
+            accels[p, s] = np.array([float(p + 1), float(s + 1), float(p - s)], dtype=np.float32)
+            # 1 ms spacing keeps samples ordered and within the wide window.
+            times_s[p, s] = 0.10 + 0.001 * (p * max_mimu_samples_per_pkt + s)
+
+    # Pre-load every packet with its samples once; cycles only flip isValid.
+    for p in range(max_mimu_pkt):
+        for s in range(max_mimu_samples_per_pkt):
+            mimu_pkt.packets[p].samples[s].measTime = macros.sec2nano(float(times_s[p, s]))
+            mimu_pkt.packets[p].samples[s].gyro_B = gyros[p, s].tolist()
+            mimu_pkt.packets[p].samples[s].accel_B = accels[p, s].tolist()
+
+    cycles = 6
+    expected_gyro = np.zeros((cycles, 3), dtype=np.float32)
+    expected_accel = np.zeros((cycles, 3), dtype=np.float32)
+    sim_time = 0.0
+    valid_flags = [False] * max_mimu_pkt
+
+    for cycle in range(cycles):
+        if cycle == 0:
+            # Empty buffer.
+            valid_flags = [False] * max_mimu_pkt
+            expected_gyro[cycle] = 0.0
+            expected_accel[cycle] = 0.0
+        elif cycle <= max_mimu_pkt:
+            # Mark the first `cycle` packets valid.
+            valid_flags = [i < cycle for i in range(max_mimu_pkt)]
+            valid_pkts = cycle
+            sample_count = valid_pkts * max_mimu_samples_per_pkt
+            expected_gyro[cycle] = gyros[:valid_pkts].reshape(-1, 3).sum(axis=0) / sample_count
+            expected_accel[cycle] = accels[:valid_pkts].reshape(-1, 3).sum(axis=0) / sample_count
+        else:
+            # Wrap: overwrite packet 0 sample 0 with a much newer sample. With
+            # the wide window, every fresh sample still qualifies; the mean
+            # simply swaps the old packet[0][0] for the new one.
+            new_gyro = np.array([-1.0, -2.0, -3.0], dtype=np.float32)
+            new_accel = np.array([-4.0, -5.0, -6.0], dtype=np.float32)
+            mimu_pkt.packets[0].samples[0].measTime = macros.sec2nano(1.0)
+            mimu_pkt.packets[0].samples[0].gyro_B = new_gyro.tolist()
+            mimu_pkt.packets[0].samples[0].accel_B = new_accel.tolist()
+            sample_count = max_mimu_pkt * max_mimu_samples_per_pkt
+            gyro_sum = gyros.reshape(-1, 3).sum(axis=0) - gyros[0, 0] + new_gyro
+            accel_sum = accels.reshape(-1, 3).sum(axis=0) - accels[0, 0] + new_accel
+            expected_gyro[cycle] = gyro_sum / sample_count
+            expected_accel[cycle] = accel_sum / sample_count
+
+        mimu_pkt.isValid = list(valid_flags)
+        sim_time += delta_time_sim
+        mimu_pkt_msg = messaging.MimuPacketF32().write(mimu_pkt, time=macros.sec2nano(sim_time))
+        module.mimuPacketInMsg.subscribeTo(mimu_pkt_msg)
+        unit_test_sim.ConfigureStopTime(macros.sec2nano(sim_time))
+        unit_test_sim.ExecuteSimulation()
+
+    module_output_gyro = data_log.AngVelBody[1:, :]
+    module_output_accel = data_log.AccelBody[1:, :]
+
+    np.testing.assert_allclose(module_output_gyro, expected_gyro, rtol=1e-6, atol=1e-6)
+    np.testing.assert_allclose(module_output_accel, expected_accel, rtol=1e-6, atol=1e-6)
+
+
 if __name__ == "__main__":
     test_average_mimu_data()
+    test_average_mimu_data_buffer_fill()
