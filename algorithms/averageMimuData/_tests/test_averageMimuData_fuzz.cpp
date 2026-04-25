@@ -1,4 +1,4 @@
-#include "architecture/testUtilities/eigenFuzzDomains.hpp"
+#include "../architecture/testUtilities/eigenFuzzDomains.hpp"
 #include "averageMimuDataTestHelpers.hpp"
 #include <fuzztest/fuzztest.h>
 
@@ -18,3 +18,6 @@ auto inputPktsDataDomain() {
 
 FUZZ_TEST(averageMimuDataFuzz, regressionTestAverageMimuData)
     .WithDomains(fuzztest::InRange(0.0F, 1e6F), inputPktsDataDomain());
+
+FUZZ_TEST(averageMimuDataFuzz, sequencedRegressionTestAverageMimuData)
+    .WithDomains(fuzztest::InRange(0.0F, 1e6F), fuzztest::VectorOf(inputPktsDataDomain()).WithSize(8));

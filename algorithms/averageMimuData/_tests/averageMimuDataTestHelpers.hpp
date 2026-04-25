@@ -7,6 +7,8 @@
 #include <architecture/utilities/macroDefinitions.h>
 #include <gtest/gtest.h>
 
+#include <vector>
+
 OutputAverageAccelAngleVel referenceUpdate(InputPktsData const& localPkts, const AverageMimuDataAlgorithm& alg) {
     // Mirrors the algorithm's staleness rule: a sample is fresh only when its
     // packet's isValid is true AND its measTime is non-zero.
@@ -70,6 +72,23 @@ inline void regressionTestAverageMimuData(float window, InputPktsData const& in)
 
     EXPECT_EQ(out_alg.gyroOmega_B, out_ref.gyroOmega_B);
     EXPECT_EQ(out_alg.accel_B, out_ref.accel_B);
+}
+
+/*! @brief Drives the algorithm across a sequence of ring-buffer snapshots.
+ *  For each snapshot, the algorithm output is compared against referenceUpdate
+ *  to catch any drift in the staleness / window-filter logic across cycles. */
+inline void sequencedRegressionTestAverageMimuData(float window, std::vector<InputPktsData> const& frames) {
+    AverageMimuDataAlgorithm alg;
+    alg.setDcmPltfToBdy(Eigen::Matrix3f::Identity());
+    alg.setAveragingWindow(window);
+
+    for (auto const& in : frames) {
+        const OutputAverageAccelAngleVel out_alg = alg.update(in);
+        const OutputAverageAccelAngleVel out_ref = referenceUpdate(in, alg);
+
+        EXPECT_EQ(out_alg.gyroOmega_B, out_ref.gyroOmega_B);
+        EXPECT_EQ(out_alg.accel_B, out_ref.accel_B);
+    }
 }
 
 #endif
