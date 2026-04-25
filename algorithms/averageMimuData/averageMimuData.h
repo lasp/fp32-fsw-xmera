@@ -4,8 +4,7 @@
 #include "architecture/messaging/messaging.h"
 #include "averageMimuDataAlgorithm.h"
 #include "msgPayloadDef/IMUSensorBodyMsgF32Payload.h"
-
-#include <cstdint>
+#include "msgPayloadDef/MimuPacketF32Payload.h"
 
 class AverageMimuData : public SysModel {
    public:
@@ -17,7 +16,7 @@ class AverageMimuData : public SysModel {
     Eigen::Matrix3f getDcmPltfToBdy() const;              //!< Getter method for dcm from platform to body
 
     Message<IMUSensorBodyMsgF32Payload> imuOutMsg;
-    ReadFunctor<AccDataMsgF32Payload> accDataInMsg;
+    ReadFunctor<MimuPacketF32Payload> mimuPacketInMsg;
 
    private:
     uint64_t prevInMsgTime = 0;  /*!< [ns] Measurement time of the previous message*/

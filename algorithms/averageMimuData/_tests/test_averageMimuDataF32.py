@@ -15,94 +15,73 @@ def test_average_mimu_data():
     # Create a sim module as an empty container
     unit_test_sim = SimulationBaseClass.SimBaseClass()
 
-    # Create test thread
     fsw_frequency = 10  # Set fsw frequency to 10 Hz
-    mimu_frequency = 100  # Set mimu sensor frequency to 100 Hz
     num_fsw_steps = 12
-    samples_per_fsw = int(mimu_frequency / fsw_frequency)
-    max_acc_buf_pkt = 120  # matches MAX_ACC_BUF_PKT in C++
-    delta_time_sim = 1 / fsw_frequency  # The averageMimuData module will run at the fsw frequency
-    test_process_rate = macros.sec2nano(delta_time_sim)  # update process rate update time
+    max_mimu_pkt = 4
+    max_mimu_samples_per_pkt = 10  # matches MAX_MIMU_SAMPLES_PER_PKT in C++
+    delta_time_sim = 1 / fsw_frequency
+    test_process_rate = macros.sec2nano(delta_time_sim)
     test_proc = unit_test_sim.CreateNewProcess(unit_process_name)
     test_proc.addTask(unit_test_sim.CreateNewTask(unit_task_name, test_process_rate))
 
-    # Construct algorithm and associated C++ container
     module = averageMimuDataF32.AverageMimuData()
     module.modelTag = "averageMimuData"
 
-    # Define parameters
     dcm_pltf_to_body = RigidBodyKinematics.euler3212C([0.01, -0.04, 0.06]).astype(np.float32)
     module.setDcmPltfToBdy(dcm_pltf_to_body)
-    duration_window = 1.0e10 # make the time window so huge that average is taken over all packets
+    duration_window = 1.0e10  # huge window so the average covers every fresh sample
     module.setAveragingWindow(duration_window)
 
-    # Initialize message for message connection
-    acc_data = messaging.AccDataMsgF32Payload()
-    acc_data_msg = messaging.AccDataMsgF32().write(acc_data, time=0)
+    mimu_pkt = messaging.MimuPacketF32Payload()
+    mimu_pkt_msg = messaging.MimuPacketF32().write(mimu_pkt, time=0)
 
-    # Add test module to runtime call list
     unit_test_sim.AddModelToTask(unit_task_name, module)
-
-    # Setup logging on the test module output message so that we get all the writes to it
     data_log = module.imuOutMsg.recorder()
     unit_test_sim.AddModelToTask(unit_task_name, data_log)
-
-    # Connect messages
-    module.accDataInMsg.subscribeTo(acc_data_msg)
-
-    # Initialize simulation
+    module.mimuPacketInMsg.subscribeTo(mimu_pkt_msg)
     unit_test_sim.InitializeSimulation()
 
-    # Write accData message
-    delta_time = delta_time_sim / 10
-    meas_time = 0
-    sim_time = 0
-    counter = 0
-    gyro_sum = np.zeros(3, dtype=np.float32)
-    accel_sum = np.zeros(3,dtype=np.float32)
-    average_imu_output = np.zeros([num_fsw_steps, 3], dtype=np.float32)
-    average_acc_output = np.zeros([num_fsw_steps, 3], dtype=np.float32)
+    total_samples_per_cycle = max_mimu_pkt * max_mimu_samples_per_pkt
+    delta_time = delta_time_sim / total_samples_per_cycle
+    meas_time = 0.0
+    sim_time = 0.0
+    expected_gyro = np.zeros([num_fsw_steps, 3], dtype=np.float32)
+    expected_accel = np.zeros([num_fsw_steps, 3], dtype=np.float32)
     for index in range(num_fsw_steps):
-        for _ in range(samples_per_fsw):
-            meas_time += delta_time
-            acc_data.accPkts[counter].measTime = macros.sec2nano(meas_time)
-            random_array = np.random.normal(loc=2, scale=1, size=3).astype(np.float32)
-            gyro_sum += random_array
-            acc_data.accPkts[counter].gyro_B = random_array.tolist()
-            random_array = np.random.normal(loc=2, scale=1, size=3).astype(np.float32)
-            accel_sum += random_array
-            acc_data.accPkts[counter].accel_B = random_array.tolist()
-            counter += 1
-        gyro_average = gyro_sum / max_acc_buf_pkt
-        gyro_average = np.dot(dcm_pltf_to_body, gyro_average)
-        accel_average = accel_sum / max_acc_buf_pkt
-        accel_average = np.dot(dcm_pltf_to_body, accel_average)
-        average_imu_output[index, :] = gyro_average
-        average_acc_output[index, :] = accel_average
+        gyro_sum = np.zeros(3, dtype=np.float32)
+        accel_sum = np.zeros(3, dtype=np.float32)
+        for p in range(max_mimu_pkt):
+            for s in range(max_mimu_samples_per_pkt):
+                meas_time += delta_time
+                mimu_pkt.packets[p].samples[s].measTime = macros.sec2nano(meas_time)
+                gyro_sample = np.random.normal(loc=2, scale=1, size=3).astype(np.float32)
+                gyro_sum += gyro_sample
+                mimu_pkt.packets[p].samples[s].gyro_B = gyro_sample.tolist()
+                accel_sample = np.random.normal(loc=2, scale=1, size=3).astype(np.float32)
+                accel_sum += accel_sample
+                mimu_pkt.packets[p].samples[s].accel_B = accel_sample.tolist()
+        mimu_pkt.isValid = [True] * max_mimu_pkt
+        gyro_average = np.dot(dcm_pltf_to_body, gyro_sum / total_samples_per_cycle)
+        accel_average = np.dot(dcm_pltf_to_body, accel_sum / total_samples_per_cycle)
+        expected_gyro[index, :] = gyro_average
+        expected_accel[index, :] = accel_average
         sim_time += 1 / fsw_frequency
-        acc_data_msg = messaging.AccDataMsgF32().write(acc_data, time=macros.sec2nano(sim_time))
-        module.accDataInMsg.subscribeTo(acc_data_msg)
+        mimu_pkt_msg = messaging.MimuPacketF32().write(mimu_pkt, time=macros.sec2nano(sim_time))
+        module.mimuPacketInMsg.subscribeTo(mimu_pkt_msg)
         unit_test_sim.ConfigureStopTime(macros.sec2nano(sim_time))
         unit_test_sim.ExecuteSimulation()
 
-    # Test the getters
     np.testing.assert_allclose(duration_window, module.getAveragingWindow(), rtol=1e-8, atol=1e-6, verbose=True)
     np.testing.assert_allclose(dcm_pltf_to_body, module.getDcmPltfToBdy(), rtol=1e-8, atol=1e-6, verbose=True)
 
-    # Pull logged data
     module_output_accel = data_log.AccelBody
     module_output_angular_velocity = data_log.AngVelBody
 
-    # compare the module results to the truth values
     np.testing.assert_allclose(
-        module_output_angular_velocity[1:, :], average_imu_output, rtol=1e-8, atol=1e-6, verbose=True
+        module_output_angular_velocity[1:, :], expected_gyro, rtol=1e-8, atol=1e-6, verbose=True
     )
-    np.testing.assert_allclose(module_output_accel[1:, :], average_acc_output, rtol=1e-8, atol=1e-6, verbose=True)
+    np.testing.assert_allclose(module_output_accel[1:, :], expected_accel, rtol=1e-8, atol=1e-6, verbose=True)
 
 
-#
-# This statement below ensures that the unitTestScript can be run as a
-# stand-along python script
-#
 if __name__ == "__main__":
     test_average_mimu_data()
