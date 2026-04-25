@@ -19,12 +19,19 @@ void AverageMimuData::updateState(uint64_t const callTime) {
 
     const AccDataMsgF32Payload localPkts = this->accDataInMsg();
     InputPktsData in{};
-    for (std::size_t i = 0; i < MAX_BUF_PKT; ++i) {
-        const auto& [measTime, gyro_B, accel_B] = localPkts.accPkts[i];
-        in.isValid[i] = true;
-        in.measTime[i] = measTime;
-        in.gyro_P[i] = Eigen::Vector3f(gyro_B[0], gyro_B[1], gyro_B[2]);
-        in.accel_P[i] = Eigen::Vector3f(accel_B[0], accel_B[1], accel_B[2]);
+    // Transition: source message still carries 120 single-measurement slots;
+    // partition the first MAX_MIMU_PKT * MAX_MIMU_SAMPLES_PER_PKT of them
+    // into the 4-packet x 10-sample grid expected by the algorithm. The
+    // module swaps to MimuPacketF32Payload in the following commit.
+    for (std::size_t p = 0; p < MAX_MIMU_PKT; ++p) {
+        in.isValid[p] = true;
+        for (std::size_t s = 0; s < MAX_MIMU_SAMPLES_PER_PKT; ++s) {
+            const std::size_t idx = (p * MAX_MIMU_SAMPLES_PER_PKT) + s;
+            const auto& [measTime, gyro_B, accel_B] = localPkts.accPkts[idx];
+            in.samples[p][s].measTime = measTime;
+            in.samples[p][s].gyro_P = Eigen::Vector3f(gyro_B[0], gyro_B[1], gyro_B[2]);
+            in.samples[p][s].accel_P = Eigen::Vector3f(accel_B[0], accel_B[1], accel_B[2]);
+        }
     }
     const auto [accel_B, gyroOmega_B] = this->algorithm.update(in);
     IMUSensorBodyMsgF32Payload localOutput{};

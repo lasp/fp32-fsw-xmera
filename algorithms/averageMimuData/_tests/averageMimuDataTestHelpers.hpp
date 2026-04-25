@@ -1,5 +1,5 @@
-#ifndef TEST_EPHEMERIDESRECENTER_H
-#define TEST_EPHEMERIDESRECENTER_H
+#ifndef TEST_AVERAGE_MIMU_DATA_HELPERS_H
+#define TEST_AVERAGE_MIMU_DATA_HELPERS_H
 
 #include "averageMimuDataAlgorithm.h"
 #include "utilities/fsw/eigenSupport.h"
@@ -8,12 +8,17 @@
 #include <gtest/gtest.h>
 
 OutputAverageAccelAngleVel referenceUpdate(InputPktsData const& localPkts, const AverageMimuDataAlgorithm& alg) {
-    // Mirrors the algorithm's staleness rule: a slot is fresh only when
-    // isValid is true AND measTime is non-zero.
+    // Mirrors the algorithm's staleness rule: a sample is fresh only when its
+    // packet's isValid is true AND its measTime is non-zero.
     uint64_t maxTimeTag = 0U;
-    for (std::size_t i = 0; i < MAX_ACC_BUF_PKT; ++i) {
-        if (localPkts.isValid[i] && localPkts.measTime[i] != 0U) {
-            maxTimeTag = std::max(localPkts.measTime[i], maxTimeTag);
+    for (std::size_t p = 0; p < MAX_MIMU_PKT; ++p) {
+        if (!localPkts.isValid[p]) {
+            continue;
+        }
+        for (std::size_t s = 0; s < MAX_MIMU_SAMPLES_PER_PKT; ++s) {
+            if (localPkts.samples[p][s].measTime != 0U) {
+                maxTimeTag = std::max(localPkts.samples[p][s].measTime, maxTimeTag);
+            }
         }
     }
 
@@ -26,17 +31,20 @@ OutputAverageAccelAngleVel referenceUpdate(InputPktsData const& localPkts, const
     Eigen::Vector3f accelSum_P = Eigen::Vector3f::Zero();
     uint64_t measAvgCount = 0U;
 
-    for (std::size_t i = 0; i < MAX_ACC_BUF_PKT; ++i) {
-        if (!localPkts.isValid[i] || localPkts.measTime[i] == 0U) {
+    for (std::size_t p = 0; p < MAX_MIMU_PKT; ++p) {
+        if (!localPkts.isValid[p]) {
             continue;
         }
-        const uint64_t measTime = localPkts.measTime[i];
-
-        // Rolling average with averaging window as window width or the maximum buffer size
-        if (static_cast<float>(maxTimeTag - measTime) * NANO2SEC <= alg.getAveragingWindow()) {
-            gyroSum_P += localPkts.gyro_P[i];
-            accelSum_P += localPkts.accel_P[i];
-            measAvgCount++;
+        for (std::size_t s = 0; s < MAX_MIMU_SAMPLES_PER_PKT; ++s) {
+            const auto& sample = localPkts.samples[p][s];
+            if (sample.measTime == 0U) {
+                continue;
+            }
+            if (static_cast<float>(maxTimeTag - sample.measTime) * NANO2SEC <= alg.getAveragingWindow()) {
+                gyroSum_P += sample.gyro_P;
+                accelSum_P += sample.accel_P;
+                measAvgCount++;
+            }
         }
     }
 
@@ -52,44 +60,10 @@ OutputAverageAccelAngleVel referenceUpdate(InputPktsData const& localPkts, const
     return out;
 }
 
-using Vec3Arr = std::array<float, 3>;
-
-inline Eigen::Vector3f toVec3(Vec3Arr const& a) { return Eigen::Vector3f{a[0], a[1], a[2]}; }
-
-struct InputData {
-    uint64_t measTime = 0U;
-    Vec3Arr gyro_P{{0.0F, 0.0F, 0.0F}};
-    Vec3Arr accel_P{{0.0F, 0.0F, 0.0F}};
-    bool isValid = false;
-};
-
-inline void regressionTestAverageMimuData(std::size_t N,
-                                          float window,
-                                          std::array<InputData, MAX_ACC_BUF_PKT> const& input) {
+inline void regressionTestAverageMimuData(float window, InputPktsData const& in) {
     AverageMimuDataAlgorithm alg;
     alg.setDcmPltfToBdy(Eigen::Matrix3f::Identity());
     alg.setAveragingWindow(window);
-
-    // Clamp N to valid range
-    if (N > MAX_ACC_BUF_PKT) {
-        N = MAX_ACC_BUF_PKT;
-    }
-    // Build the algorithm input buffer (max size), but only populate first N.
-    // The rest are neutral so they cannot affect maxTimeTag or the average.
-    InputPktsData in{};
-    for (std::size_t i = 0; i < MAX_ACC_BUF_PKT; ++i) {
-        in.isValid[i] = false;
-        in.measTime[i] = 0U;
-        in.gyro_P[i] = Eigen::Vector3f::Zero();
-        in.accel_P[i] = Eigen::Vector3f::Zero();
-    }
-
-    for (std::size_t i = 0; i < N; ++i) {
-        in.isValid[i] = input[i].isValid;
-        in.measTime[i] = input[i].measTime;
-        in.gyro_P[i] = toVec3(input[i].gyro_P);
-        in.accel_P[i] = toVec3(input[i].accel_P);
-    }
 
     const OutputAverageAccelAngleVel out_alg = alg.update(in);
     const OutputAverageAccelAngleVel out_ref = referenceUpdate(in, alg);

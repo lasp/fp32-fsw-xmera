@@ -3,84 +3,55 @@
 #include <gtest/gtest.h>
 
 TEST(averageMimuDataTest, RegressionTest) {
-    constexpr std::size_t N = 4U;
     constexpr float windowSec = 0.5F;
 
-    std::array<InputData, MAX_ACC_BUF_PKT> input{};
+    InputPktsData in{};
+    in.isValid[0] = true;
 
-    // Optional: set a reference time (like before)
     constexpr uint64_t t_ref = SEC2NANO;
 
-    // Packet 0 (newest)
-    input[0].isValid = true;
-    input[0].measTime = t_ref;
-    input[0].gyro_P = Vec3Arr{0.1F, 0.3F, -0.1F};
-    input[0].accel_P = Vec3Arr{0.5F, -0.2F, 2.0F};
+    // Four samples within packet 0 at four distinct timestamps.
+    in.samples[0][0].measTime = t_ref;
+    in.samples[0][0].gyro_P = Eigen::Vector3f{0.1F, 0.3F, -0.1F};
+    in.samples[0][0].accel_P = Eigen::Vector3f{0.5F, -0.2F, 2.0F};
 
-    // Packet 1 (older by 0.6s)
-    input[1].isValid = true;
-    input[1].measTime = t_ref - static_cast<uint64_t>(SEC2NANO * 0.6F);
-    input[1].gyro_P = Vec3Arr{1.1F, 0.8F, 0.7F};
-    input[1].accel_P = Vec3Arr{11.5F, -0.2F, 6.0F};
+    in.samples[0][1].measTime = t_ref - static_cast<uint64_t>(SEC2NANO * 0.6F);
+    in.samples[0][1].gyro_P = Eigen::Vector3f{1.1F, 0.8F, 0.7F};
+    in.samples[0][1].accel_P = Eigen::Vector3f{11.5F, -0.2F, 6.0F};
 
-    // Packet 2 (older by 0.2s)
-    input[2].isValid = true;
-    input[2].measTime = t_ref - static_cast<uint64_t>(SEC2NANO * 0.2F);
-    input[2].gyro_P = Vec3Arr{-0.3F, -4.3F, -6.1F};
-    input[2].accel_P = Vec3Arr{-0.9F, -0.2F, -2.4F};
+    in.samples[0][2].measTime = t_ref - static_cast<uint64_t>(SEC2NANO * 0.2F);
+    in.samples[0][2].gyro_P = Eigen::Vector3f{-0.3F, -4.3F, -6.1F};
+    in.samples[0][2].accel_P = Eigen::Vector3f{-0.9F, -0.2F, -2.4F};
 
-    // Packet 3 (older by 0.3s)
-    input[3].isValid = true;
-    input[3].measTime = t_ref - static_cast<uint64_t>(SEC2NANO * 0.3F);
-    input[3].gyro_P = Vec3Arr{7.1F, -0.9F, -0.0F};
-    input[3].accel_P = Vec3Arr{-80.5F, 0.4F, 2.8F};
+    in.samples[0][3].measTime = t_ref - static_cast<uint64_t>(SEC2NANO * 0.3F);
+    in.samples[0][3].gyro_P = Eigen::Vector3f{7.1F, -0.9F, -0.0F};
+    in.samples[0][3].accel_P = Eigen::Vector3f{-80.5F, 0.4F, 2.8F};
 
-    regressionTestAverageMimuData(N, windowSec, input);
+    regressionTestAverageMimuData(windowSec, in);
 }
 
 TEST(averageMimuDataTest, PropertyKnownSolution) {
-    // -----------------------
-    // Fixed algorithm settings
-    // -----------------------
     AverageMimuDataAlgorithm alg;
 
-    // 90 deg rotation about +Z:
-    // [ 0 -1  0
-    //   1  0  0
-    //   0  0  1 ]
+    // 90 deg rotation about +Z
     Eigen::Matrix3f dcm_BP;
     dcm_BP << 0.f, -1.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f;
 
     alg.setDcmPltfToBdy(dcm_BP);
 
-    // Time window (seconds)
-    // Choose 0.26 so ages 0.00, 0.05, 0.15 are included; 0.30 excluded
+    // Window 0.26s -> ages 0.00, 0.05, 0.15 included; 0.30 excluded.
     constexpr float window = 0.26f;
     alg.setAveragingWindow(window);
 
-    // -----------------------
-    // Fixed synthetic packets (DIRECT)
-    // -----------------------
-    InputPktsData in{};  // <-- directly build unpacked input
+    InputPktsData in{};
+    in.isValid[0] = true;
 
-    // zero everything (Eigen::Vector3f default in std::array is uninitialized)
-    for (std::size_t i = 0; i < MAX_ACC_BUF_PKT; ++i) {
-        in.isValid[i] = false;
-        in.measTime[i] = 0U;
-        in.gyro_P[i] = Eigen::Vector3f::Zero();
-        in.accel_P[i] = Eigen::Vector3f::Zero();
-    }
-
-    // Reference time = 1.0s (ns)
     constexpr uint64_t t_ref = SEC2NANO;
-
-    // Ages in seconds: 0.00, 0.05, 0.15, 0.30 (cleanly away from boundary)
     const uint64_t t0 = t_ref;
     const uint64_t t1 = t_ref - static_cast<uint64_t>(SEC2NANO * 0.05f);
     const uint64_t t2 = t_ref - static_cast<uint64_t>(SEC2NANO * 0.15f);
     const uint64_t t3 = t_ref - static_cast<uint64_t>(SEC2NANO * 0.30f);
 
-    // Choose easy vectors so the mean is simple.
     const Eigen::Vector3f gyro0{1.f, 2.f, 3.f};
     const Eigen::Vector3f gyro1{3.f, 2.f, 1.f};
     const Eigen::Vector3f gyro2{-1.f, 0.f, 2.f};
@@ -91,35 +62,22 @@ TEST(averageMimuDataTest, PropertyKnownSolution) {
     const Eigen::Vector3f acc2{0.f, 0.f, 4.f};
     const Eigen::Vector3f acc3{8.f, 8.f, 8.f};  // excluded by averagingWindow
 
-    // Put packets in the first few slots
-    in.isValid[0] = true;
-    in.measTime[0] = t0;
-    in.gyro_P[0] = gyro0;
-    in.accel_P[0] = acc0;
-    in.isValid[1] = true;
-    in.measTime[1] = t1;
-    in.gyro_P[1] = gyro1;
-    in.accel_P[1] = acc1;
-    in.isValid[2] = true;
-    in.measTime[2] = t2;
-    in.gyro_P[2] = gyro2;
-    in.accel_P[2] = acc2;
-    in.isValid[3] = true;
-    in.measTime[3] = t3;
-    in.gyro_P[3] = gyro3;
-    in.accel_P[3] = acc3;
+    // Four samples within packet 0; samples 4..9 left zero (stale, measTime=0).
+    in.samples[0][0].measTime = t0;
+    in.samples[0][0].gyro_P = gyro0;
+    in.samples[0][0].accel_P = acc0;
+    in.samples[0][1].measTime = t1;
+    in.samples[0][1].gyro_P = gyro1;
+    in.samples[0][1].accel_P = acc1;
+    in.samples[0][2].measTime = t2;
+    in.samples[0][2].gyro_P = gyro2;
+    in.samples[0][2].accel_P = acc2;
+    in.samples[0][3].measTime = t3;
+    in.samples[0][3].gyro_P = gyro3;
+    in.samples[0][3].accel_P = acc3;
 
-    // -----------------------
-    // Run algorithm under test
-    // -----------------------
     const OutputAverageAccelAngleVel out_alg = alg.update(in);
 
-    // -----------------------
-    // True known solution:
-    // include packets 0,1,2 only (ages 0, 0.05, 0.15 < 0.26)
-    // mean_P = (v0 + v1 + v2) / 3
-    // out_B = dcm_BP * mean_P
-    // -----------------------
     const Eigen::Vector3f gyroMean_P = (gyro0 + gyro1 + gyro2) / 3.f;
     const Eigen::Vector3f accMean_P = (acc0 + acc1 + acc2) / 3.f;
 
@@ -131,34 +89,20 @@ TEST(averageMimuDataTest, PropertyKnownSolution) {
 }
 
 TEST(averageMimuDataTest, PropertyZeroAveragingWindow) {
-    // -----------------------
-    // Fixed algorithm settings
-    // -----------------------
     AverageMimuDataAlgorithm alg;
 
     Eigen::Matrix3f dcm_BP;
     dcm_BP << 0.f, -1.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f;
     alg.setDcmPltfToBdy(dcm_BP);
 
-    // averagingWindow = 0 => should pick the packet(s) at maxTimeTag
+    // averagingWindow = 0 => only the sample(s) at maxTimeTag.
     alg.setAveragingWindow(0.0f);
 
-    // -----------------------
-    // Fixed synthetic packets (DIRECT)
-    // -----------------------
     InputPktsData in{};
-
-    for (std::size_t i = 0; i < MAX_ACC_BUF_PKT; ++i) {
-        in.isValid[i] = false;
-        in.measTime[i] = 0U;
-        in.gyro_P[i] = Eigen::Vector3f::Zero();
-        in.accel_P[i] = Eigen::Vector3f::Zero();
-    }
+    in.isValid[0] = true;
 
     constexpr uint64_t t_ref = SEC2NANO;
-
-    // Make packet 0 the unique maxTimeTag
-    const uint64_t t0 = t_ref;  // max
+    const uint64_t t0 = t_ref;  // unique max
     const uint64_t t1 = t_ref - static_cast<uint64_t>(SEC2NANO * 0.05f);
     const uint64_t t2 = t_ref - static_cast<uint64_t>(SEC2NANO * 0.15f);
     const uint64_t t3 = t_ref - static_cast<uint64_t>(SEC2NANO * 0.30f);
@@ -173,33 +117,21 @@ TEST(averageMimuDataTest, PropertyZeroAveragingWindow) {
     const Eigen::Vector3f acc2{0.f, 0.f, 4.f};
     const Eigen::Vector3f acc3{8.f, 8.f, 8.f};
 
-    in.isValid[0] = true;
-    in.measTime[0] = t0;
-    in.gyro_P[0] = gyro0;
-    in.accel_P[0] = acc0;
-    in.isValid[1] = true;
-    in.measTime[1] = t1;
-    in.gyro_P[1] = gyro1;
-    in.accel_P[1] = acc1;
-    in.isValid[2] = true;
-    in.measTime[2] = t2;
-    in.gyro_P[2] = gyro2;
-    in.accel_P[2] = acc2;
-    in.isValid[3] = true;
-    in.measTime[3] = t3;
-    in.gyro_P[3] = gyro3;
-    in.accel_P[3] = acc3;
+    in.samples[0][0].measTime = t0;
+    in.samples[0][0].gyro_P = gyro0;
+    in.samples[0][0].accel_P = acc0;
+    in.samples[0][1].measTime = t1;
+    in.samples[0][1].gyro_P = gyro1;
+    in.samples[0][1].accel_P = acc1;
+    in.samples[0][2].measTime = t2;
+    in.samples[0][2].gyro_P = gyro2;
+    in.samples[0][2].accel_P = acc2;
+    in.samples[0][3].measTime = t3;
+    in.samples[0][3].gyro_P = gyro3;
+    in.samples[0][3].accel_P = acc3;
 
-    // -----------------------
-    // Run algorithm under test
-    // -----------------------
     const OutputAverageAccelAngleVel out_alg = alg.update(in);
 
-    // -----------------------
-    // True known solution (averagingWindow = 0):
-    // use ONLY the packet with maxTimeTag (packet 0 here)
-    // out_B = dcm_BP * v0
-    // -----------------------
     const Eigen::Vector3f gyroTrue_B = dcm_BP * gyro0;
     const Eigen::Vector3f accTrue_B = dcm_BP * acc0;
 
@@ -208,27 +140,25 @@ TEST(averageMimuDataTest, PropertyZeroAveragingWindow) {
 }
 
 TEST(averageMimuDataTest, FirstFillZeroMeasTimeRegression) {
-    // Regression: before the staleness rule was introduced, unfilled ring-buffer
-    // slots (isValid=false, measTime=0) polluted the average because the
-    // algorithm iterated over every slot. With a single valid packet in slot 0,
-    // the output must equal dcm_BP * slot0 -- not slot0 divided by the buffer
-    // size.
+    // Regression: zero-init ring-buffer slots must not pollute the output.
+    // One valid sample in packet 0[0]; everything else is stale by either
+    // !isValid or measTime==0.
     AverageMimuDataAlgorithm alg;
 
     Eigen::Matrix3f dcm_BP;
     dcm_BP << 0.f, -1.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f;
     alg.setDcmPltfToBdy(dcm_BP);
-    alg.setAveragingWindow(1.0f);  // wide enough that zero-measTime slots would
-                                   // otherwise slip through the window filter
+    alg.setAveragingWindow(1.0f);  // wide window: stale slots would otherwise pass
 
-    InputPktsData in{};  // zero-init: all isValid=false, measTime=0
+    InputPktsData in{};
+    in.isValid[0] = true;
+    // Packets 1..3 left isValid=false; samples 0[1..9] left measTime=0.
 
     const Eigen::Vector3f gyro0{1.f, 2.f, 3.f};
     const Eigen::Vector3f acc0{4.f, 5.f, 6.f};
-    in.isValid[0] = true;
-    in.measTime[0] = SEC2NANO;
-    in.gyro_P[0] = gyro0;
-    in.accel_P[0] = acc0;
+    in.samples[0][0].measTime = SEC2NANO;
+    in.samples[0][0].gyro_P = gyro0;
+    in.samples[0][0].accel_P = acc0;
 
     const OutputAverageAccelAngleVel out = alg.update(in);
 
@@ -237,7 +167,6 @@ TEST(averageMimuDataTest, FirstFillZeroMeasTimeRegression) {
 }
 
 TEST(averageMimuDataTest, NoValidPacketsReturnsZero) {
-    // All slots default-initialized (isValid=false, measTime=0) -> zero output.
     AverageMimuDataAlgorithm alg;
     alg.setAveragingWindow(0.5f);
 
@@ -249,25 +178,24 @@ TEST(averageMimuDataTest, NoValidPacketsReturnsZero) {
 }
 
 TEST(averageMimuDataTest, ValidFlagButZeroMeasTimeIsStale) {
-    // A slot with isValid=true but measTime=0 is treated as stale (unfilled).
-    // The only fresh slot is slot 0, so the output must equal dcm_BP * slot0.
+    // A sample with measTime=0 within a fresh packet is treated as stale.
     AverageMimuDataAlgorithm alg;
     alg.setDcmPltfToBdy(Eigen::Matrix3f::Identity());
     alg.setAveragingWindow(1.0f);
 
     InputPktsData in{};
+    in.isValid[0] = true;
+
     const Eigen::Vector3f gyro0{1.f, 0.f, 0.f};
     const Eigen::Vector3f acc0{0.f, 1.f, 0.f};
-    in.isValid[0] = true;
-    in.measTime[0] = SEC2NANO;
-    in.gyro_P[0] = gyro0;
-    in.accel_P[0] = acc0;
+    in.samples[0][0].measTime = SEC2NANO;
+    in.samples[0][0].gyro_P = gyro0;
+    in.samples[0][0].accel_P = acc0;
 
-    // Slot 1: isValid=true but measTime=0 -> must be skipped.
-    in.isValid[1] = true;
-    in.measTime[1] = 0U;
-    in.gyro_P[1] = Eigen::Vector3f{9.f, 9.f, 9.f};
-    in.accel_P[1] = Eigen::Vector3f{9.f, 9.f, 9.f};
+    // Sample 0[1]: non-zero data but measTime=0 -> must be skipped.
+    in.samples[0][1].measTime = 0U;
+    in.samples[0][1].gyro_P = Eigen::Vector3f{9.f, 9.f, 9.f};
+    in.samples[0][1].accel_P = Eigen::Vector3f{9.f, 9.f, 9.f};
 
     const OutputAverageAccelAngleVel out = alg.update(in);
 
@@ -275,12 +203,79 @@ TEST(averageMimuDataTest, ValidFlagButZeroMeasTimeIsStale) {
     EXPECT_EQ(out.accel_B, acc0);
 }
 
+TEST(averageMimuDataTest, InvalidPacketSkipsAllItsSamples) {
+    // A packet with isValid=false must be skipped even if its samples have
+    // non-zero measTime. Only packet 1's samples should drive the output.
+    AverageMimuDataAlgorithm alg;
+    alg.setDcmPltfToBdy(Eigen::Matrix3f::Identity());
+    alg.setAveragingWindow(10.0f);
+
+    InputPktsData in{};
+    in.isValid[0] = false;  // valid samples but packet is invalid -> skipped
+    in.isValid[1] = true;
+
+    constexpr uint64_t t_ref = SEC2NANO;
+    in.samples[0][0].measTime = t_ref;
+    in.samples[0][0].gyro_P = Eigen::Vector3f{99.f, 99.f, 99.f};
+    in.samples[0][0].accel_P = Eigen::Vector3f{99.f, 99.f, 99.f};
+
+    const Eigen::Vector3f gyro_pkt1{1.f, 1.f, 1.f};
+    const Eigen::Vector3f acc_pkt1{2.f, 2.f, 2.f};
+    in.samples[1][0].measTime = t_ref + 100U;
+    in.samples[1][0].gyro_P = gyro_pkt1;
+    in.samples[1][0].accel_P = acc_pkt1;
+
+    const OutputAverageAccelAngleVel out = alg.update(in);
+
+    EXPECT_EQ(out.gyroOmega_B, gyro_pkt1);
+    EXPECT_EQ(out.accel_B, acc_pkt1);
+}
+
+TEST(averageMimuDataTest, AveragesAcrossMultiplePackets) {
+    // Three samples spread across two valid packets are averaged equally.
+    AverageMimuDataAlgorithm alg;
+    alg.setDcmPltfToBdy(Eigen::Matrix3f::Identity());
+    alg.setAveragingWindow(1.0f);  // wide window includes all
+
+    InputPktsData in{};
+    in.isValid[0] = true;
+    in.isValid[2] = true;
+
+    constexpr uint64_t t_ref = SEC2NANO;
+    const Eigen::Vector3f g_a{1.f, 0.f, 0.f};
+    const Eigen::Vector3f g_b{0.f, 1.f, 0.f};
+    const Eigen::Vector3f g_c{0.f, 0.f, 1.f};
+    const Eigen::Vector3f a_a{1.f, 1.f, 0.f};
+    const Eigen::Vector3f a_b{0.f, 1.f, 1.f};
+    const Eigen::Vector3f a_c{1.f, 0.f, 1.f};
+
+    in.samples[0][0].measTime = t_ref;
+    in.samples[0][0].gyro_P = g_a;
+    in.samples[0][0].accel_P = a_a;
+
+    in.samples[0][5].measTime = t_ref - static_cast<uint64_t>(SEC2NANO * 0.05f);
+    in.samples[0][5].gyro_P = g_b;
+    in.samples[0][5].accel_P = a_b;
+
+    in.samples[2][3].measTime = t_ref - static_cast<uint64_t>(SEC2NANO * 0.10f);
+    in.samples[2][3].gyro_P = g_c;
+    in.samples[2][3].accel_P = a_c;
+
+    const OutputAverageAccelAngleVel out = alg.update(in);
+
+    const Eigen::Vector3f gyroExpected = (g_a + g_b + g_c) / 3.f;
+    const Eigen::Vector3f accExpected = (a_a + a_b + a_c) / 3.f;
+    EXPECT_EQ(out.gyroOmega_B, gyroExpected);
+    EXPECT_EQ(out.accel_B, accExpected);
+}
+
 TEST(averageMimuDataTest, SetupTest) {
     AverageMimuDataAlgorithm alg;
+
     // 1) Setters should not throw
     EXPECT_THROW(alg.setAveragingWindow(-0.1), fsw::invalid_argument);
     EXPECT_NO_THROW(alg.setAveragingWindow(0.25f));
-    // Not orthonormal (scaling matrix), det != 1 as well
+
     Eigen::Matrix3f badOrtho = Eigen::Matrix3f::Identity();
     badOrtho(0, 0) = 2.0F;
     EXPECT_THROW(alg.setDcmPltfToBdy(badOrtho), fsw::invalid_argument);
@@ -290,24 +285,14 @@ TEST(averageMimuDataTest, SetupTest) {
     EXPECT_THROW(alg.setDcmPltfToBdy(badDet), fsw::invalid_argument);
     EXPECT_NO_THROW(alg.setDcmPltfToBdy(Eigen::Matrix3f::Identity()));
 
-    // 2) Round-trip expectations
     EXPECT_EQ(alg.getAveragingWindow(), 0.25f);
     EXPECT_EQ(alg.getDcmPltfToBdy(), Eigen::Matrix3f::Identity());
 
-    // 3) update() should not throw for a basic input
     InputPktsData in{};
-    for (std::size_t i = 0; i < MAX_ACC_BUF_PKT; ++i) {
-        in.isValid[i] = false;
-        in.measTime[i] = 0U;
-        in.gyro_P[i] = Eigen::Vector3f::Zero();
-        in.accel_P[i] = Eigen::Vector3f::Zero();
-    }
-
-    // Add one non-zero packet so we exercise the averaging path
     in.isValid[0] = true;
-    in.measTime[0] = SEC2NANO;
-    in.gyro_P[0] = Eigen::Vector3f(1.0f, 2.0f, 3.0f);
-    in.accel_P[0] = Eigen::Vector3f(4.0f, 5.0f, 6.0f);
+    in.samples[0][0].measTime = SEC2NANO;
+    in.samples[0][0].gyro_P = Eigen::Vector3f(1.0f, 2.0f, 3.0f);
+    in.samples[0][0].accel_P = Eigen::Vector3f(4.0f, 5.0f, 6.0f);
 
     EXPECT_NO_THROW((void)alg.update(in));
 }

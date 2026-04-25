@@ -3,7 +3,9 @@
 
 #include <Eigen/Core>
 
-uint32_t AverageMimuDataAlgorithm_getMaxBufPkt(void) { return MAX_BUF_PKT; }
+uint32_t AverageMimuDataAlgorithm_getMaxMimuPkt(void) { return MAX_MIMU_PKT; }
+
+uint32_t AverageMimuDataAlgorithm_getMaxMimuSamplesPerPkt(void) { return MAX_MIMU_SAMPLES_PER_PKT; }
 
 AverageMimuDataAlgorithmHandle* AverageMimuDataAlgorithm_create(void) {
     return reinterpret_cast<AverageMimuDataAlgorithmHandle*>(new ::AverageMimuDataAlgorithm());
@@ -16,12 +18,14 @@ void AverageMimuDataAlgorithm_destroy(AverageMimuDataAlgorithmHandle* self) {
 OutputAverageAccelAngleVel_c AverageMimuDataAlgorithm_update(const AverageMimuDataAlgorithmHandle* self,
                                                              const InputPktsData_c* input) {
     InputPktsData in{};
-    for (size_t i = 0; i < MAX_BUF_PKT; i++) {
-        in.isValid[i] = input->isValid[i];
-        in.measTime[i] = input->measTime[i];
-        in.gyro_P[i] = Eigen::Vector3f(input->gyro_P[i].data[0], input->gyro_P[i].data[1], input->gyro_P[i].data[2]);
-        in.accel_P[i] =
-            Eigen::Vector3f(input->accel_P[i].data[0], input->accel_P[i].data[1], input->accel_P[i].data[2]);
+    for (size_t p = 0; p < MAX_MIMU_PKT; p++) {
+        in.isValid[p] = input->isValid[p];
+        for (size_t s = 0; s < MAX_MIMU_SAMPLES_PER_PKT; s++) {
+            const Sample_c& src = input->samples[p][s];
+            in.samples[p][s].measTime = src.measTime;
+            in.samples[p][s].gyro_P = Eigen::Vector3f(src.gyro_P.data[0], src.gyro_P.data[1], src.gyro_P.data[2]);
+            in.samples[p][s].accel_P = Eigen::Vector3f(src.accel_P.data[0], src.accel_P.data[1], src.accel_P.data[2]);
+        }
     }
 
     const auto [accel_B, gyroOmega_B] = reinterpret_cast<const ::AverageMimuDataAlgorithm*>(self)->update(in);

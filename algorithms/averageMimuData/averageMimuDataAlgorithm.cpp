@@ -7,21 +7,28 @@
 #include <algorithm>
 
 /*! @brief Average recent gyro/accel samples and output them in the body frame.
- *  Uses the newest packet time as a reference, then averages all packets whose
- *  age is within `averagingWindow` seconds.
- *  @param localPkts AccDataMsgF32Payload : an array of AccPktDataMsgF32Payload, each AccPktDataMsgF32Payload contains
- * (measTime, gyro_P, accel_P).
- *  @return OutputAverageAccelAngleVel : body-frame average (AngVelBody, AccelBody). If no packets are in the window,
- * returns zeros.
+ *  Iterates the 4 packets; within each fresh packet (isValid=true), iterates
+ *  the MAX_MIMU_SAMPLES_PER_PKT samples and skips any with measTime == 0.
+ *  Uses the newest fresh sample's time as the reference and averages every
+ *  fresh sample whose age is within `averagingWindow` seconds. Each
+ *  contributing sample is weighted equally.
+ *  @param localPkts InputPktsData: 4-packet x 10-sample ring snapshot.
+ *  @return OutputAverageAccelAngleVel: body-frame average. If no sample is
+ * fresh and within the window, returns zeros.
  */
 OutputAverageAccelAngleVel AverageMimuDataAlgorithm::update(InputPktsData const& localPkts) const {
-    // A slot is fresh only if the caller marked it valid and supplied a non-zero
-    // measurement time. Zero-initialized ring-buffer slots are skipped so the
-    // first few cycles after power-up do not pollute the average.
+    // Find the newest measTime among samples in valid packets, ignoring
+    // unfilled (measTime == 0) samples. Zero-init ring-buffer slots therefore
+    // cannot pollute the output during warm-up.
     uint64_t maxTimeTag = 0U;
-    for (uint32_t i = 0; i < MAX_BUF_PKT; ++i) {
-        if (localPkts.isValid.at(i) && localPkts.measTime.at(i) != 0U) {
-            maxTimeTag = std::max(localPkts.measTime.at(i), maxTimeTag);
+    for (uint32_t p = 0; p < MAX_MIMU_PKT; ++p) {
+        if (!localPkts.isValid.at(p)) {
+            continue;
+        }
+        for (const auto& sample : localPkts.samples.at(p)) {
+            if (sample.measTime != 0U) {
+                maxTimeTag = std::max(sample.measTime, maxTimeTag);
+            }
         }
     }
 
@@ -34,15 +41,20 @@ OutputAverageAccelAngleVel AverageMimuDataAlgorithm::update(InputPktsData const&
     Eigen::Vector3f accelSum_P = Eigen::Vector3f::Zero();
     uint64_t measAvgCount = 0U;
 
-    for (uint32_t i = 0; i < MAX_BUF_PKT; ++i) {
-        if (!localPkts.isValid.at(i) || localPkts.measTime.at(i) == 0U) {
+    for (uint32_t p = 0; p < MAX_MIMU_PKT; ++p) {
+        if (!localPkts.isValid.at(p)) {
             continue;
         }
-        // Rolling average with averagingWindow as window width or the maximum buffer size
-        if (static_cast<float>(maxTimeTag - localPkts.measTime.at(i)) * kNano2SecF <= this->averagingWindow) {
-            gyroSum_P += localPkts.gyro_P.at(i);
-            accelSum_P += localPkts.accel_P.at(i);
-            measAvgCount++;
+        for (const auto& [measTime, gyro_P, accel_P] : localPkts.samples.at(p)) {
+            if (measTime == 0U) {
+                continue;
+            }
+            // Rolling average across all fresh samples within the window
+            if (static_cast<float>(maxTimeTag - measTime) * kNano2SecF <= this->averagingWindow) {
+                gyroSum_P += gyro_P;
+                accelSum_P += accel_P;
+                measAvgCount++;
+            }
         }
     }
 

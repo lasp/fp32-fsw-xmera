@@ -16,16 +16,28 @@ extern "C" {
  */
 typedef struct AverageMimuDataAlgorithmHandle AverageMimuDataAlgorithmHandle;
 
-#define MAX_BUF_PKT_C 120
+#define MAX_MIMU_PKT_C 4
+#define MAX_MIMU_SAMPLES_PER_PKT_C 10
+
+/**
+ * @brief POD equivalent of one MIMU sample (algorithm-internal `Sample`).
+ */
+typedef struct {
+    uint64_t measTime;
+    Vector3f_c gyro_P;
+    Vector3f_c accel_P;
+} Sample_c;
 
 /**
  * @brief POD equivalent of InputPktsData.
+ *
+ * 4 packets x 10 samples per packet. `isValid[p]` gates the whole packet;
+ * within a fresh packet, samples with samples[p][s].measTime == 0 are
+ * treated as unfilled and skipped.
  */
 typedef struct {
-    bool isValid[MAX_BUF_PKT_C];
-    uint64_t measTime[MAX_BUF_PKT_C];
-    Vector3f_c gyro_P[MAX_BUF_PKT_C];
-    Vector3f_c accel_P[MAX_BUF_PKT_C];
+    bool isValid[MAX_MIMU_PKT_C];
+    Sample_c samples[MAX_MIMU_PKT_C][MAX_MIMU_SAMPLES_PER_PKT_C];
 } InputPktsData_c;
 
 /**
@@ -37,10 +49,16 @@ typedef struct {
 } OutputAverageAccelAngleVel_c;
 
 /**
- * @brief Get the MAX_BUF_PKT constant for Ada validation.
- * @return The maximum buffer packet count (MAX_BUF_PKT_C).
+ * @brief Get the MAX_MIMU_PKT constant for Ada validation.
+ * @return The maximum mimu packet count (MAX_MIMU_PKT_C).
  */
-uint32_t AverageMimuDataAlgorithm_getMaxBufPkt(void);
+uint32_t AverageMimuDataAlgorithm_getMaxMimuPkt(void);
+
+/**
+ * @brief Get the MAX_MIMU_SAMPLES_PER_PKT constant for Ada validation.
+ * @return The maximum number of samples per packet (MAX_MIMU_SAMPLES_PER_PKT_C).
+ */
+uint32_t AverageMimuDataAlgorithm_getMaxMimuSamplesPerPkt(void);
 
 /**
  * @brief Construct a new AverageMimuDataAlgorithm instance.

@@ -2,7 +2,6 @@
 #define AVERAGE_MIMU_DATA_ALGORITHM_H
 
 #include "averageMimuDataTypes.h"
-#include "msgPayloadDef/AccDataMsgF32Payload.h"
 
 #include <Eigen/Core>
 #include <array>

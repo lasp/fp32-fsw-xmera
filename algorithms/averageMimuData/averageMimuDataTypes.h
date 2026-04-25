@@ -1,20 +1,30 @@
 #ifndef F32XIMERA_AVERAGE_MIMU_DATA_TYPES_H
 #define F32XIMERA_AVERAGE_MIMU_DATA_TYPES_H
 
+#include "msgPayloadDef/MimuPacketF32Payload.h"
+
 #include <Eigen/Core>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-constexpr std::size_t MAX_BUF_PKT = 120;
+/*! @brief One MIMU sample at the algorithm-internal layer: a time-tagged
+ *         gyro/accel pair in the platform frame. */
+struct Sample {
+    std::uint64_t measTime{0U};
+    Eigen::Vector3f gyro_P{Eigen::Vector3f::Zero()};
+    Eigen::Vector3f accel_P{Eigen::Vector3f::Zero()};
+};
 
-/*! @brief Structure containing the InputPktsData*/
+/*! @brief Algorithm-internal view of a MimuPacketF32Payload: 4 packets,
+ *         each holding up to MAX_MIMU_SAMPLES_PER_PKT time-tagged samples.
+ *         The per-packet isValid flag gates the whole packet; within a
+ *         fresh packet, a sample with measTime == 0 is treated as
+ *         unfilled. */
 struct InputPktsData {
-    std::array<bool, MAX_BUF_PKT> isValid{};
-    std::array<std::uint64_t, MAX_BUF_PKT> measTime{};
-    std::array<Eigen::Vector3f, MAX_BUF_PKT> gyro_P{};
-    std::array<Eigen::Vector3f, MAX_BUF_PKT> accel_P{};
+    std::array<bool, MAX_MIMU_PKT> isValid{};
+    std::array<std::array<Sample, MAX_MIMU_SAMPLES_PER_PKT>, MAX_MIMU_PKT> samples{};
 };
 
 /*! @brief Structure containing the OutputAverageAccelAngleVel*/

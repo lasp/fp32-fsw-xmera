@@ -1,11 +1,20 @@
+#include "architecture/testUtilities/eigenFuzzDomains.hpp"
 #include "averageMimuDataTestHelpers.hpp"
 #include <fuzztest/fuzztest.h>
 
+namespace {
+auto sampleDomain() {
+    return fuzztest::StructOf<Sample>(fuzztest::Arbitrary<uint64_t>(),
+                                      xmera::fuzz::Vector3fInRange(-1e6F, 1e6F),
+                                      xmera::fuzz::Vector3fInRange(-1e6F, 1e6F));
+}
+
+auto inputPktsDataDomain() {
+    return fuzztest::StructOf<InputPktsData>(
+        fuzztest::ArrayOf<MAX_MIMU_PKT>(fuzztest::Arbitrary<bool>()),
+        fuzztest::ArrayOf<MAX_MIMU_PKT>(fuzztest::ArrayOf<MAX_MIMU_SAMPLES_PER_PKT>(sampleDomain())));
+}
+}  // namespace
+
 FUZZ_TEST(averageMimuDataFuzz, regressionTestAverageMimuData)
-    .WithDomains(fuzztest::InRange<std::size_t>(0U, MAX_ACC_BUF_PKT),
-                 fuzztest::InRange(0.0F, 1e6F),
-                 fuzztest::ArrayOf<MAX_ACC_BUF_PKT>(
-                     fuzztest::StructOf<InputData>(fuzztest::Arbitrary<uint64_t>(),
-                                                   fuzztest::ArrayOf<3>(fuzztest::InRange(-1e6F, 1e6F)),
-                                                   fuzztest::ArrayOf<3>(fuzztest::InRange(-1e6F, 1e6F)),
-                                                   fuzztest::Arbitrary<bool>())));
+    .WithDomains(fuzztest::InRange(0.0F, 1e6F), inputPktsDataDomain());
