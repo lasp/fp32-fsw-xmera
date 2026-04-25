@@ -269,6 +269,87 @@ TEST(averageMimuDataTest, AveragesAcrossMultiplePackets) {
     EXPECT_EQ(out.accel_B, accExpected);
 }
 
+TEST(averageMimuDataTest, RingBufferFillSequence) {
+    // Drive the algorithm across multiple sequential update() calls the way a
+    // host ring buffer would: start empty, fill packet by packet, then wrap
+    // and tighten the window. Each step compares output against the
+    // hand-computed mean of the currently-fresh samples.
+    AverageMimuDataAlgorithm alg;
+    alg.setDcmPltfToBdy(Eigen::Matrix3f::Identity());
+    alg.setAveragingWindow(10.0f);  // wide window: every fresh sample qualifies
+
+    constexpr uint64_t t_ref = SEC2NANO;
+
+    // Pre-build a deterministic 4 x MAX_MIMU_SAMPLES_PER_PKT grid of samples.
+    std::array<std::array<Sample, MAX_MIMU_SAMPLES_PER_PKT>, MAX_MIMU_PKT> grid{};
+    for (std::size_t p = 0; p < MAX_MIMU_PKT; ++p) {
+        for (std::size_t s = 0; s < MAX_MIMU_SAMPLES_PER_PKT; ++s) {
+            const auto offsetNs =
+                static_cast<uint64_t>(SEC2NANO * 0.001f * static_cast<float>((p * MAX_MIMU_SAMPLES_PER_PKT) + s));
+            grid[p][s].measTime = t_ref + offsetNs;
+            const float fp = static_cast<float>(p);
+            const float fs = static_cast<float>(s);
+            grid[p][s].gyro_P = Eigen::Vector3f{fp, fs, fp + fs};
+            grid[p][s].accel_P = Eigen::Vector3f{fp + 1.f, fs + 1.f, fp - fs};
+        }
+    }
+
+    InputPktsData in{};
+
+    // Step 1: empty buffer -> zero output.
+    {
+        const OutputAverageAccelAngleVel out = alg.update(in);
+        EXPECT_EQ(out.gyroOmega_B, Eigen::Vector3f::Zero());
+        EXPECT_EQ(out.accel_B, Eigen::Vector3f::Zero());
+    }
+
+    // Step 2..5: mark packets valid one at a time and fill all their samples.
+    Eigen::Vector3f gyroSum = Eigen::Vector3f::Zero();
+    Eigen::Vector3f accelSum = Eigen::Vector3f::Zero();
+    std::size_t sampleCount = 0;
+    for (std::size_t p = 0; p < MAX_MIMU_PKT; ++p) {
+        in.isValid[p] = true;
+        for (std::size_t s = 0; s < MAX_MIMU_SAMPLES_PER_PKT; ++s) {
+            in.samples[p][s] = grid[p][s];
+            gyroSum += grid[p][s].gyro_P;
+            accelSum += grid[p][s].accel_P;
+            sampleCount++;
+        }
+        const Eigen::Vector3f gyroExpected = gyroSum / static_cast<float>(sampleCount);
+        const Eigen::Vector3f accelExpected = accelSum / static_cast<float>(sampleCount);
+        const OutputAverageAccelAngleVel out = alg.update(in);
+        EXPECT_EQ(out.gyroOmega_B, gyroExpected) << "after filling packet " << p;
+        EXPECT_EQ(out.accel_B, accelExpected) << "after filling packet " << p;
+    }
+
+    // Step 6: wrap. Overwrite packet 0[0] with a much newer sample. The new
+    // sample owns maxTimeTag; with the wide window every other fresh sample
+    // still qualifies, so the mean simply swaps the old packet 0[0] for the
+    // new one.
+    const uint64_t wrapTime = t_ref + static_cast<uint64_t>(SEC2NANO * 1.0f);
+    const Eigen::Vector3f wrapGyro{-1.f, -2.f, -3.f};
+    const Eigen::Vector3f wrapAccel{-4.f, -5.f, -6.f};
+    gyroSum = gyroSum - grid[0][0].gyro_P + wrapGyro;
+    accelSum = accelSum - grid[0][0].accel_P + wrapAccel;
+    in.samples[0][0].measTime = wrapTime;
+    in.samples[0][0].gyro_P = wrapGyro;
+    in.samples[0][0].accel_P = wrapAccel;
+    {
+        const OutputAverageAccelAngleVel out = alg.update(in);
+        EXPECT_EQ(out.gyroOmega_B, gyroSum / static_cast<float>(sampleCount));
+        EXPECT_EQ(out.accel_B, accelSum / static_cast<float>(sampleCount));
+    }
+
+    // Step 7: tighten the window so only packet 0[0] (age 0 from wrapTime)
+    // qualifies; every other sample is older by 1.0s+ which exceeds 0.1s.
+    alg.setAveragingWindow(0.1f);
+    {
+        const OutputAverageAccelAngleVel out = alg.update(in);
+        EXPECT_EQ(out.gyroOmega_B, wrapGyro);
+        EXPECT_EQ(out.accel_B, wrapAccel);
+    }
+}
+
 TEST(averageMimuDataTest, SetupTest) {
     AverageMimuDataAlgorithm alg;
 
