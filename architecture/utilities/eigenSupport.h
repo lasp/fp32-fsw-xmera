@@ -275,7 +275,12 @@ Eigen::MRP<ScalarT> cArrayToEigenMrp(ScalarT* inArray) {
  */
 template <typename ScalarT>
 Eigen::Matrix3<ScalarT> cArrayToEigenMatrix3(ScalarT* inArray) {
-    return Eigen::Map<Eigen::Matrix3<ScalarT>>(inArray, 3, 3).transpose();
+    // Use Eigen::Unaligned so the load works even when the caller's
+    // pointer doesn't satisfy Eigen's default packet alignment.
+    // On RISC-V (rv32imaf) hardware this matters: the CPU traps on
+    // misaligned float loads and Ada-side parameter buffers don't
+    // enforce 16-byte alignment.
+    return Eigen::Map<Eigen::Matrix3<ScalarT>, Eigen::Unaligned>(inArray, 3, 3).transpose();
 }
 
 /**
