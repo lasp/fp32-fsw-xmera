@@ -25,8 +25,8 @@ class ThrFiringSchmitt final : public SysModel {
     void setThrMinFireTime(float time);
     uint32_t getBaseThrustState() const;
     void setBaseThrustState(uint32_t state);
-    float getFirstCallPulse() const;
-    void setFirstCallPulse(float time);
+    float getControlPeriod() const;
+    void setControlPeriod(float period);
 
     /* declare module IO interfaces */
     ReadFunctor<THRArrayCmdForceMsgF32Payload> thrForceInMsg;  //!< The name of the Input message
@@ -35,9 +35,8 @@ class ThrFiringSchmitt final : public SysModel {
 
    private:
     ThrFiringSchmittAlgorithm algorithm{};
-    float levelOn{};          //!< [-] ON duty cycle fraction
-    float levelOff{};         //!< [-] OFF duty cycle fraction
-    uint64_t prevCallTime{};  //!< [ns] callTime from previous function call
+    float levelOn{};   //!< [-] ON duty cycle fraction
+    float levelOff{};  //!< [-] OFF duty cycle fraction
 };
 
 #endif  // F32XMERA_THR_FIRING_SCHMITT_H

@@ -23,67 +23,56 @@ void ThrFiringSchmittAlgorithm::configure(THRArrayConfigMsgF32Payload const& thr
 
 /*! This method maps the input thruster command forces into thruster on times using a remainder tracking logic.
  @return void
- @param controlPeriod The control time period in seconds (1/fsw_rate)
  @param thrForceIn Thruster array commanded force message payload
  */
-THRArrayOnTimeCmdMsgF32Payload ThrFiringSchmittAlgorithm::update(const float controlPeriod,
-                                                                 THRArrayCmdForceMsgF32Payload& thrForceIn) {
+THRArrayOnTimeCmdMsgF32Payload ThrFiringSchmittAlgorithm::update(THRArrayCmdForceMsgF32Payload& thrForceIn) {
     THRArrayOnTimeCmdMsgF32Payload thrOnTimeOut{}; /* -- thruster on-time output payload */
 
     std::array<float, MAX_EFF_CNT> thrForce{};
     std::ranges::copy(std::begin(thrForceIn.thrForce), std::end(thrForceIn.thrForce), std::begin(thrForce));
 
-    /*! - the first time update() is called there is no information on the time step.  Here
-     return either all thrusters off or on depending on the baseThrustState state */
-    if (controlPeriod == 0.0F) {
-        for (uint32_t i = 0U; i < this->numThrusters; ++i) {
-            thrOnTimeOut.onTimeRequest[i] =
-                this->baseThrustState == PulsingRegime::ONPULSING ? 0.0F : this->firstCallPulse;
+    std::array<float, MAX_EFF_CNT> onTime{}; /* [s] array of commanded on time for thrusters */
+    /*! - Loop through thrusters */
+    for (uint32_t i = 0U; i < this->numThrusters; ++i) {
+        /*! - Correct for off-pulsing if necessary.  Here the requested force is negative, and the maximum thrust
+         needs to be added.  If not control force is requested in off-pulsing mode, then the thruster force should
+         be set to the maximum thrust value */
+        if (this->baseThrustState == PulsingRegime::OFFPULSING) {
+            thrForce[i] += this->maxThrust[i];
         }
-    } else {
-        std::array<float, MAX_EFF_CNT> onTime{}; /* [s] array of commanded on time for thrusters */
-        /*! - Loop through thrusters */
-        for (uint32_t i = 0U; i < this->numThrusters; ++i) {
-            /*! - Correct for off-pulsing if necessary.  Here the requested force is negative, and the maximum thrust
-             needs to be added.  If not control force is requested in off-pulsing mode, then the thruster force should
-             be set to the maximum thrust value */
-            if (this->baseThrustState == PulsingRegime::OFFPULSING) {
-                thrForce[i] += this->maxThrust[i];
-            }
 
-            /*! - Do not allow thrust requests less than zero */
-            thrForce[i] = std::max(thrForce[i], 0.0F);
-            /*! - Compute T_on from thrust request, max thrust, and control period */
-            onTime[i] = thrForce[i] / this->maxThrust[i] * controlPeriod;
+        /*! - Do not allow thrust requests less than zero */
+        thrForce[i] = std::max(thrForce[i], 0.0F);
+        /*! - Compute T_on from thrust request, max thrust, and control period */
+        onTime[i] = thrForce[i] / this->maxThrust[i] * this->controlPeriod;
 
-            /*! - Apply Schmitt trigger logic */
-            if (onTime[i] < this->thrMinFireTime) {
-                /*! - Request is less than minimum fire time */
-                const float level = onTime[i] / this->thrMinFireTime; /* [-] duty cycle fraction */
-                if (level >= this->levelOn) {
-                    this->prevThrustState[i] = ThrusterState::ON;
-                    onTime[i] = this->thrMinFireTime;
-                } else if (level <= this->levelOff) {
-                    this->prevThrustState[i] = ThrusterState::OFF;
-                    onTime[i] = 0.0F;
-                } else if (this->prevThrustState[i] == ThrusterState::ON) {
-                    onTime[i] = this->thrMinFireTime;
-                } else {
-                    onTime[i] = 0.0F;
-                }
-            } else if (onTime[i] >= controlPeriod) {
-                /*! - Request is greater than control period then oversaturate onTime */
+        /*! - Apply Schmitt trigger logic */
+        if (onTime[i] < this->thrMinFireTime) {
+            /*! - Request is less than minimum fire time */
+            const float level = onTime[i] / this->thrMinFireTime; /* [-] duty cycle fraction */
+            if (level >= this->levelOn) {
                 this->prevThrustState[i] = ThrusterState::ON;
-                constexpr float overSaturationFactor = 1.1F;  // oversaturate to avoid numerical error
-                onTime[i] = overSaturationFactor * controlPeriod;
+                onTime[i] = this->thrMinFireTime;
+            } else if (level <= this->levelOff) {
+                this->prevThrustState[i] = ThrusterState::OFF;
+                onTime[i] = 0.0F;
+            } else if (this->prevThrustState[i] == ThrusterState::ON) {
+                onTime[i] = this->thrMinFireTime;
             } else {
-                /*! - Request is greater than minimum fire time and less than control period */
-                this->prevThrustState[i] = ThrusterState::ON;
+                onTime[i] = 0.0F;
             }
-
-            /*! Set the output data */
-            thrOnTimeOut.onTimeRequest[i] = onTime[i];
+        } else if (onTime[i] >= this->controlPeriod) {
+            /*! - Request is greater than control period then oversaturate onTime */
+            this->prevThrustState[i] = ThrusterState::ON;
+            constexpr float overSaturationFactor = 1.1F;  // oversaturate to avoid numerical error
+            onTime[i] = overSaturationFactor * this->controlPeriod;
+        } else {
+            /*! - Request is greater than minimum fire time and less than control period */
+            this->prevThrustState[i] = ThrusterState::ON;
         }
+
+        /*! Set the output data */
+        thrOnTimeOut.onTimeRequest[i] = onTime[i];
     }
     return thrOnTimeOut;
 }
@@ -142,21 +131,18 @@ PulsingRegime ThrFiringSchmittAlgorithm::getBaseThrustState() const { return thi
  */
 void ThrFiringSchmittAlgorithm::setBaseThrustState(PulsingRegime state) { this->baseThrustState = state; }
 
-/**
- * @brief Get the first call pulse duration
- * @return float The duration of the first call pulse. This should be at least the duration of the control period
- * (1/fsw_rate)
+/*! Setter method for controlPeriod.
+ @return void
+ @param period [s] control period (time between two algorithm update calls)
  */
-float ThrFiringSchmittAlgorithm::getFirstCallPulse() const { return this->firstCallPulse; }
-
-/**
- * @brief Set the first call pulse duration
- * @param time The duration of the first call pulse. This should be at least the duration of the control period
- * (1/fsw_rate)
- */
-void ThrFiringSchmittAlgorithm::setFirstCallPulse(float time) {
-    if (time <= 0.0) {
-        FSW_THROW_INVALID_ARGUMENT("ThrFiringSchmitt.firstCallPulse must be positive.");
+void ThrFiringSchmittAlgorithm::setControlPeriod(const float period) {
+    if (period <= 0.0) {
+        FSW_THROW_INVALID_ARGUMENT("ThrFiringSchmitt.controlPeriod must be > 0.0");
     }
-    this->firstCallPulse = time;
+    this->controlPeriod = period;
 }
+
+/*! Getter method for controlPeriod.
+ @return const float
+*/
+float ThrFiringSchmittAlgorithm::getControlPeriod() const { return this->controlPeriod; }

@@ -76,17 +76,14 @@ The following table lists all the module parameters than can be set. The paramet
       - 0
       - Indicates on-pulsing (0) or off-pulsing (1)
       - N/A
-    * - firstCallPulse (required)
+    * - controlPeriod (required)
       - float
       - [s]
       - 0
-      - [s] Duration of first call pulse
+      - Control period (time between two update calls, i.e. 1/fsw_rate)
       - Must be greater than zero (checked in setter)
 
 Additionally, it is checked that ``levelOn`` is greater than ``levelOff``.
-The ``firstCallPulse`` is used for the first update call, because the time difference between two update calls is not
-yet known. Within the first call, if off-pulsing, the requested thruster on time will be set to this duration. Thus, it
-needs to be at least as long as the control period (1/fsw_rate).
 
 Module Assumptions and Limitations
 ----------------------------------
@@ -106,7 +103,7 @@ The module is configured by::
     module.levelOff = 0.25
     module.thrMinFireTime = 0.02
     module.baseThrustState = 0  # on-pulsing
-    module.firstCallPulse = 2.0
+    module.controlPeriod = 0.5
 
 Detailed Module Description
 ---------------------------
@@ -152,11 +149,6 @@ on-criteria is reevaluated.
 reset() Functionality
 ---------------------
 
-- The control period is dynamically evaluated in the module adapter by comparing
-  the current time with the prior call time. In ``reset()`` the
-  ``prevCallTime`` variable is reset to 0. The control period is then passed into
-  the ``update()`` method of the algorithm.
-
 - The thruster configuration message is read in and the number of
   thrusters is stored in the module variable ``numThrusters``. The
   maximum force per thruster is stored in ``maxThrust``.
@@ -183,18 +175,9 @@ drops below a lower threshold :math:`l_{\text{off}}`. The benefit of
 this method is that it provides a good balance between fuel usage and
 pointing accuracy.:raw-latex:`\cite{Alcorn:2016rz}`
 
-If the ``update()`` method is called for the first time after reset,
-then there is no knowledge of the control period :math:`\Delta t`. In
-this case the thruster on-time values are set either to 0 (on-pulsing
-case) or 2 seconds (off-pulsing case). After writing out this message
-the module is exited. This logic is essence turns off the thruster-based
-attitude control for one control period.
-
-If this is a repeated call of the ``update()`` method then the control
-period :math:`\Delta t` is evaluated by differencing the current time
-with the prior call time. Next a loop goes over each installed thruster
-to map the requested force :math:`F_{i}` into an on-time :math:`t_{i}`.
-The following logic is used.
+The configured control period :math:`\Delta t` is used directly to map
+the requested force :math:`F_{i}` into an on-time :math:`t_{i}`.
+A loop goes over each installed thruster using the following logic.
 
 - If off-pulsing is used then :math:`F_{i}\le 0` and we set
 

@@ -1,5 +1,4 @@
 #include "thrFiringSchmitt.h"
-#include "utilities/timeConstants.h"
 #include <stdexcept>
 
 /*! This method performs a complete reset of the module.  Local module variables that retain
@@ -20,8 +19,6 @@ void ThrFiringSchmitt::reset(uint64_t callTime) {
 
     this->algorithm.configure(this->thrConfInMsg());
     this->algorithm.reset();
-
-    this->prevCallTime = 0U;
 }
 
 /*! This method maps the input thruster command forces into thruster on times using a remainder tracking logic.
@@ -29,15 +26,8 @@ void ThrFiringSchmitt::reset(uint64_t callTime) {
  @param callTime The clock time at which the function was called (nanoseconds)
  */
 void ThrFiringSchmitt::updateState(uint64_t callTime) {
-    /*! - compute control time period Delta_t */
-    float controlPeriod{};
-    if (this->prevCallTime != 0U) {
-        controlPeriod = static_cast<float>(static_cast<double>(callTime - this->prevCallTime) * kNano2Sec);
-    }
-    this->prevCallTime = callTime;
-
     THRArrayCmdForceMsgF32Payload thrForceIn = this->thrForceInMsg();
-    THRArrayOnTimeCmdMsgF32Payload thrOnTimeOut = this->algorithm.update(controlPeriod, thrForceIn);
+    THRArrayOnTimeCmdMsgF32Payload thrOnTimeOut = this->algorithm.update(thrForceIn);
     this->onTimeOutMsg.write(&thrOnTimeOut, this->moduleID, callTime);
 }
 
@@ -93,16 +83,13 @@ void ThrFiringSchmitt::setBaseThrustState(uint32_t state) {
     this->algorithm.setBaseThrustState(static_cast<PulsingRegime>(state));
 }
 
-/**
- * @brief Get the first call pulse duration
- * @return float The duration of the first call pulse. This should be at least the duration of the control period
- * (1/fsw_rate)
- */
-float ThrFiringSchmitt::getFirstCallPulse() const { return this->algorithm.getFirstCallPulse(); }
+/*! Getter method for controlPeriod.
+ @return const float
+*/
+float ThrFiringSchmitt::getControlPeriod() const { return this->algorithm.getControlPeriod(); }
 
-/**
- * @brief Set the first call pulse duration
- * @param time The duration of the first call pulse. This should be at least the duration of the control period
- * (1/fsw_rate)
+/*! Setter method for controlPeriod.
+ @return void
+ @param period [s] control period (time between two algorithm update calls)
  */
-void ThrFiringSchmitt::setFirstCallPulse(float time) { this->algorithm.setFirstCallPulse(time); }
+void ThrFiringSchmitt::setControlPeriod(const float period) { this->algorithm.setControlPeriod(period); }
