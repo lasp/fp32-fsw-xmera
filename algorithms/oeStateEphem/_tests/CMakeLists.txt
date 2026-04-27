@@ -1,6 +1,5 @@
 add_executable(test_oeStateEphem
   ../oeStateEphemAlgorithm.cpp
-  ../../utilities/orbitalMotion.cpp
   ../../utilities/chebyshevUtilities.h
   test_oeStateEphem.cpp
 )
@@ -21,7 +20,6 @@ if(XMERA_ENABLE_FUZZTESTS)
 
   add_executable(test_oeStateEphem_fuzz
     ../oeStateEphemAlgorithm.cpp
-    ../../utilities/orbitalMotion.cpp
     ../../utilities/chebyshevUtilities.h
     test_oeStateEphem_fuzz.cpp
   )

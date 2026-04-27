@@ -49,7 +49,6 @@ gtest_discover_tests(test_safeMath)
 
 add_executable(test_orbitalMotion_functions
         test_orbitalMotion_functions.cpp
-  ../orbitalMotion.cpp
 )
 
 target_include_directories(test_orbitalMotion_functions PRIVATE "..")
@@ -63,7 +62,6 @@ gtest_discover_tests(test_orbitalMotion_functions)
 
 add_executable(test_orbitalMotion_degenerate
   test_orbitalMotion_degenerate.cpp
-  ../orbitalMotion.cpp
 )
 
 target_include_directories(test_orbitalMotion_degenerate PRIVATE "..")
@@ -139,7 +137,6 @@ if(XMERA_ENABLE_FUZZTESTS)
 
   add_executable(test_orbitalMotion_fuzz
     test_orbitalMotion_fuzz.cpp
-    ../orbitalMotion.cpp
   )
 
   target_include_directories(test_orbitalMotion_fuzz PRIVATE "..")
