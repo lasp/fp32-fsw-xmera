@@ -98,10 +98,10 @@ jobs:
           PY="$(python -c 'import sys; print(sys.executable)')"
           echo "PYTHON_EXE=$PY" >> "$GITHUB_ENV"
 
-      - name: Setup CMake 3.28.3
+      - name: Setup CMake 3.31.12
         uses: jwlawson/actions-setup-cmake@v2
         with:
-          cmake-version: '3.28.3'
+          cmake-version: '3.31.12'
 
       - name: Install vcpkg
         uses: lukka/run-vcpkg@v11

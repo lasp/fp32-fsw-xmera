@@ -46,10 +46,10 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y build-essential gcc-13 g++-13
 
-      - name: Setup CMake 3.28.3
+      - name: Setup CMake 3.31.12
         uses: jwlawson/actions-setup-cmake@v2
         with:
-          cmake-version: '3.28.3'
+          cmake-version: '3.31.12'
 
       - name: Configure
         run: |
