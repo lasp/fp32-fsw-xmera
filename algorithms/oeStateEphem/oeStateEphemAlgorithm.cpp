@@ -63,10 +63,10 @@ double OEStateEphemAlgorithm::scaleEphemerisTime(const ChebyshevFitArc& arc) con
     @param currentScaledValue The normalized time value in the range [-1, 1]
     @param arc The Chebyshev fit arc containing all coefficient arrays
 */
-ClassicalElements OEStateEphemAlgorithm::evaluateCoefficients(const double currentScaledValue,
-                                                              const ChebyshevFitArc& arc) {
+orbitalMotion::ClassicalElements OEStateEphemAlgorithm::evaluateCoefficients(const double currentScaledValue,
+                                                                             const ChebyshevFitArc& arc) {
     /* - determine orbit elements from chebychev polynominals */
-    ClassicalElements elements{};
+    orbitalMotion::ClassicalElements elements{};
     const double radiusPeriapsis =
         calculateChebyValue(arc.radiusPeriapsisCoefficients, arc.numberChebCoefficients, currentScaledValue);
     elements.inclination =
@@ -85,11 +85,11 @@ ClassicalElements OEStateEphemAlgorithm::evaluateCoefficients(const double curre
         elements.trueAnomaly = anomalyAngle;
     } else if (elements.eccentricity < 1.0) {
         /* input is mean elliptic anomaly angle */
-        elements.trueAnomaly = OrbitalMotion::meanToTrueAnomaly(anomalyAngle, elements.eccentricity);
+        elements.trueAnomaly = orbitalMotion::meanToTrueAnomaly(anomalyAngle, elements.eccentricity);
     } else {
         /* input is mean hyperbolic anomaly angle */
-        elements.trueAnomaly = OrbitalMotion::hyperbolicToTrueAnomaly(
-            OrbitalMotion::meanToHyperbolicAnomaly(anomalyAngle, elements.eccentricity), elements.eccentricity);
+        elements.trueAnomaly = orbitalMotion::hyperbolicToTrueAnomaly(
+            orbitalMotion::meanToHyperbolicAnomaly(anomalyAngle, elements.eccentricity), elements.eccentricity);
     }
 
     /*! - determine semi-major axis */
@@ -124,8 +124,8 @@ bool OEStateEphemAlgorithm::allParametersNull() const {
     @return CartesianState The computed position and velocity vectors in Cartesian coordinates
     @param callTime The clock time at which the function was called (nanoseconds)
 */
-CartesianState OEStateEphemAlgorithm::update(const uint64_t callTime) {
-    CartesianState outputCartesianState{};
+orbitalMotion::CartesianState OEStateEphemAlgorithm::update(const uint64_t callTime) {
+    orbitalMotion::CartesianState outputCartesianState{};
     outputCartesianState.position = Eigen::Vector3d::Zero();
     outputCartesianState.velocity = Eigen::Vector3d::Zero();
     /*! If all of the radius of periapsis components are zero, this is the central body and should return all zeros*/
@@ -138,7 +138,7 @@ CartesianState OEStateEphemAlgorithm::update(const uint64_t callTime) {
     const auto orbitalElements = evaluateCoefficients(currentScaledValue, currentArc);
 
     /*! - Determine position and velocity vectors */
-    outputCartesianState = OrbitalMotion::elementsToCartesianState(this->mu, orbitalElements);
+    outputCartesianState = orbitalMotion::elementsToCartesianState(this->mu, orbitalElements);
 
     return outputCartesianState;
 }

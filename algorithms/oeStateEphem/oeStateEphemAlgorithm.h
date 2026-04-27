@@ -45,7 +45,7 @@ struct ChebyshevFitArc {
 */
 class OEStateEphemAlgorithm {
    public:
-    CartesianState update(uint64_t callTime);
+    orbitalMotion::CartesianState update(uint64_t callTime);
 
     void setCentralBodyGravitationalParameter(double gravitationalParameter);
     double getCentralBodyGravitationalParameter() const;
@@ -89,7 +89,8 @@ class OEStateEphemAlgorithm {
    private:
     ChebyshevFitArc findCurrentArc(uint64_t spacecraftClockTime);
     double scaleEphemerisTime(const ChebyshevFitArc &arc) const;
-    static ClassicalElements evaluateCoefficients(double currentScaledValue, const ChebyshevFitArc &arc);
+    static orbitalMotion::ClassicalElements evaluateCoefficients(double currentScaledValue,
+                                                                 const ChebyshevFitArc &arc);
     bool allParametersNull() const;
     unsigned int numberOfArcs{};
     double currentEphTime{};

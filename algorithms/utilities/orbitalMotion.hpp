@@ -21,19 +21,24 @@
 #define ORBITAL_MOTION_HPP
 
 #include "safeMath.h"
-#include <cassert>
 #include <math.h>
 #include <Eigen/Core>
 #include <Eigen/Geometry>
+#include <cassert>
 #include <numbers>
+
+namespace orbitalMotion {
+
+inline constexpr int kMaxNumberOfIterations = 200;
+inline constexpr double kClamp = 7;
+inline constexpr double kTolerance = 1e-9;
 
 struct CartesianState {
     Eigen::Vector3d position;
     Eigen::Vector3d velocity;
 };
 
-class ClassicalElements {
-   public:
+struct ClassicalElements {
     double semiMajorAxis = 0;
     double eccentricity = 0;
     double inclination = 0;
@@ -46,65 +51,43 @@ class ClassicalElements {
     double radiusApoapsis = 0;
 };
 
-class OrbitalMotion {
-   public:
-    static inline constexpr int kMaxNumberOfIterations = 200;
-    static inline constexpr double kClamp = 7;
-    static inline constexpr double kTolerance = 1e-9;
-
-    static double eccentricToTrueAnomaly(double E, double e);
-    static double eccentricToMeanAnomaly(double E, double e);
-    static double trueToEccentricAnomaly(double f, double e);
-    static double trueToHyperbolicAnomaly(double f, double e);
-    static double trueToMeanAnomaly(double f, double e);
-    static double hyperbolicToTrueAnomaly(double H, double e);
-    static double hyperbolicToMeanAnomaly(double H, double e);
-    static double meanToEccentricAnomaly(double M, double e);
-    static double meanToTrueAnomaly(double M, double e);
-    static double meanToHyperbolicAnomaly(double N, double e);
-    static CartesianState elementsToCartesianState(double mu, const ClassicalElements& elements);
-    static ClassicalElements cartesianStateToElements(double mu,
-                                                      const Eigen::Vector3d& rVec,
-                                                      const Eigen::Vector3d& vVec);
-};
-
-inline double OrbitalMotion::eccentricToTrueAnomaly(double const E, double const e) {
+inline double eccentricToTrueAnomaly(double const E, double const e) {
     assert((e >= 0.0 || e < 1.0) && "Eccentricity out of bounds (0 <= e < 1)");
     return 2 * safeAtan2(safeSqrt(1 + e) * safeSin(E / 2), safeSqrt(1 - e) * safeCos(E / 2));
 }
 
-inline double OrbitalMotion::eccentricToMeanAnomaly(double const E, double const e) {
+inline double eccentricToMeanAnomaly(double const E, double const e) {
     assert((e >= 0.0 || e < 1.0) && "Eccentricity out of bounds (0 <= e < 1)");
     return E - (e * safeSin(E));
 }
 
-inline double OrbitalMotion::trueToEccentricAnomaly(double const f, double const e) {
+inline double trueToEccentricAnomaly(double const f, double const e) {
     assert((e >= 0.0 || e < 1.0) && "Eccentricity out of bounds (0 <= e < 1)");
     return 2 * safeAtan2(safeSqrt(1 - e) * safeSin(f / 2), safeSqrt(1 + e) * safeCos(f / 2));
 }
 
-inline double OrbitalMotion::trueToMeanAnomaly(double const f, double const e) {
+inline double trueToMeanAnomaly(double const f, double const e) {
     assert((e >= 0.0 || e < 1.0) && "Eccentricity out of bounds (0 <= e < 1)");
     double const eccentric = trueToEccentricAnomaly(f, e);
     return eccentricToMeanAnomaly(eccentric, e);
 }
 
-inline double OrbitalMotion::trueToHyperbolicAnomaly(double const f, double const e) {
+inline double trueToHyperbolicAnomaly(double const f, double const e) {
     assert(e > 1.0 && "Eccentricity must be > 1 for hyperbolic orbits");
     return 2 * safeAtanH(safeSqrt((e - 1) / (e + 1)) * safeTan(f / 2));
 }
 
-inline double OrbitalMotion::hyperbolicToTrueAnomaly(double const H, double const e) {
+inline double hyperbolicToTrueAnomaly(double const H, double const e) {
     assert(e > 1.0 && "Eccentricity must be > 1 for hyperbolic orbits");
     return 2 * safeAtan(safeSqrt((e + 1) / (e - 1)) * safeTanH(H / 2));
 }
 
-inline double OrbitalMotion::hyperbolicToMeanAnomaly(double const H, double const e) {
+inline double hyperbolicToMeanAnomaly(double const H, double const e) {
     assert(e > 1.0 && "Eccentricity must be > 1 for hyperbolic orbits");
     return (e * safeSinH(H)) - H;
 }
 
-inline double OrbitalMotion::meanToEccentricAnomaly(double M, double e) {
+inline double meanToEccentricAnomaly(double M, double e) {
     assert((e >= 0.0 || e < 1.0) && "Eccentricity out of bounds (0 <= e < 1)");
     double E = M;
     for (int i = 0; i < kMaxNumberOfIterations; ++i) {
@@ -117,13 +100,13 @@ inline double OrbitalMotion::meanToEccentricAnomaly(double M, double e) {
     return E;
 }
 
-inline double OrbitalMotion::meanToTrueAnomaly(double const M, double const e) {
+inline double meanToTrueAnomaly(double const M, double const e) {
     assert((e >= 0.0 || e < 1.0) && "Eccentricity out of bounds (0 <= e < 1)");
     double const eccentric = meanToEccentricAnomaly(M, e);
     return eccentricToTrueAnomaly(eccentric, e);
 }
 
-inline double OrbitalMotion::meanToHyperbolicAnomaly(const double N, const double e) {
+inline double meanToHyperbolicAnomaly(const double N, const double e) {
     assert(e > 1.0 && "Eccentricity must be > 1");
     const int signN = (N > 0 ? 1 : -1);
     double H = fabs(N) > kClamp ? kClamp * static_cast<double>(signN) : N;
@@ -137,7 +120,7 @@ inline double OrbitalMotion::meanToHyperbolicAnomaly(const double N, const doubl
     return H;
 }
 
-inline CartesianState OrbitalMotion::elementsToCartesianState(double const mu, const ClassicalElements& elements) {
+inline CartesianState elementsToCartesianState(double const mu, const ClassicalElements& elements) {
     double const a = elements.semiMajorAxis;
     double const e = elements.eccentricity;
     double const i = elements.inclination;
@@ -179,9 +162,9 @@ inline CartesianState OrbitalMotion::elementsToCartesianState(double const mu, c
     return state;
 }
 
-inline ClassicalElements OrbitalMotion::cartesianStateToElements(const double mu,
-                                                                 const Eigen::Vector3d& rVec,
-                                                                 const Eigen::Vector3d& vVec) {
+inline ClassicalElements cartesianStateToElements(const double mu,
+                                                  const Eigen::Vector3d& rVec,
+                                                  const Eigen::Vector3d& vVec) {
     const double r = rVec.norm();
     const double v = vVec.norm();
     const Eigen::Vector3d hVec = rVec.cross(vVec);
@@ -218,5 +201,7 @@ inline ClassicalElements OrbitalMotion::cartesianStateToElements(const double mu
     }
     return elements;
 }
+
+}  // namespace orbitalMotion
 
 #endif
