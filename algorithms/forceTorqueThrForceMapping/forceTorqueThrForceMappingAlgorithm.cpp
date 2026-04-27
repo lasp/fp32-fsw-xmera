@@ -21,7 +21,8 @@
 #include "utilities/freestandingInvalidArgument.h"
 
 #include <Eigen/Geometry>
-#include <Eigen/QR>
+#include <Eigen/SVD>
+#include <limits>
 
 /*! Compute thruster force commands from the requested torque and force vectors.
  @return Eigen::Vector<float, MAX_EFF_CNT> thruster force commands (non-negative, shifted by min)
@@ -41,9 +42,9 @@ Eigen::Vector<float, MAX_EFF_CNT> ForceTorqueThrForceMappingAlgorithm::update(co
     return thrusterForces;
 }
 
-/*! Compute the thruster mapping matrix. The pseudo-inverse is taken on the full-rank sub-block
- *  of DG (rows for uncontrollable axes removed), then pre-composed with a row selector so that
- *  the stored operator accepts a full 6-vector directly at update time.
+/*! Compute the thruster mapping matrix via a truncated-SVD pseudo-inverse of DG. Singular values
+ *  below a relative tolerance (sigma_max * eps * max(m,n)) are treated as zero, which projects
+ *  uncontrollable directions in the 6-D command space out of the result.
  */
 void ForceTorqueThrForceMappingAlgorithm::computeThrusterMapping() {
     /* - compute thruster locations relative to COM */
@@ -51,7 +52,7 @@ void ForceTorqueThrForceMappingAlgorithm::computeThrusterMapping() {
     rThrusterRelCOM_B.leftCols(this->numThrusters) =
         this->rThruster_B.leftCols(this->numThrusters).colwise() - this->CoM_B;
 
-    /* Fill DG with thruster directions and moment arms */
+    /* Fill DG with moment arms (rows 0-2) and thruster directions (rows 3-5) */
     Eigen::Matrix<float, 3, MAX_EFF_CNT> rCrossGt{Eigen::Matrix<float, 3, MAX_EFF_CNT>::Zero()};
     for (uint32_t i = 0; i < this->numThrusters; ++i) {
         rCrossGt.col(i) = rThrusterRelCOM_B.col(i).cross(this->gtThruster_B.col(i));
@@ -59,23 +60,28 @@ void ForceTorqueThrForceMappingAlgorithm::computeThrusterMapping() {
     Eigen::Matrix<float, 6, MAX_EFF_CNT> DGwithZeros{};
     DGwithZeros << rCrossGt, this->gtThruster_B;
 
-    // Retain only controllable rows so the pseudo-inverse is computed on a full-rank block.
-    // `selector` is the (k x 6) matrix that picks those k rows out of any 6-D force/torque vector.
-    uint32_t numControllable{};
-    Eigen::Matrix<float, 6, MAX_EFF_CNT> DG{Eigen::Matrix<float, 6, MAX_EFF_CNT>::Zero()};
-    Eigen::Matrix<float, 6, 6> selector{Eigen::Matrix<float, 6, 6>::Zero()};
-    for (uint32_t i = 0; i < 6; ++i) {
-        if ((DGwithZeros.row(i).array().abs() > 1e-4F).any()) {
-            DG.row(numControllable) = DGwithZeros.row(i);
-            selector(numControllable, i) = 1.0F;
-            ++numControllable;
+    // SVD on the full DG (trailing columns are zero for unused thruster slots).
+    const Eigen::JacobiSVD<Eigen::Matrix<float, 6, MAX_EFF_CNT>> svd(DGwithZeros,
+                                                                     Eigen::ComputeFullU | Eigen::ComputeFullV);
+
+    const Eigen::Vector<float, 6>& sv = svd.singularValues();
+    constexpr int kMaxDim = (6 > MAX_EFF_CNT) ? 6 : MAX_EFF_CNT;
+    const float tol = sv(0) * std::numeric_limits<float>::epsilon() * static_cast<float>(kMaxDim);
+
+    Eigen::Vector<float, 6> invSv = Eigen::Vector<float, 6>::Zero();
+    for (int i = 0; i < 6; ++i) {
+        if (sv(i) > tol) {
+            invSv(i) = 1.0F / sv(i);
         }
     }
 
-    this->pseudoInverseDG.setZero();
-    this->pseudoInverseDG.topRows(this->numThrusters) =
-        DG.topLeftCorner(numControllable, this->numThrusters).completeOrthogonalDecomposition().pseudoInverse() *
-        selector.topRows(numControllable);
+    this->pseudoInverseDG.noalias() = svd.matrixV().leftCols<6>() * invSv.asDiagonal() * svd.matrixU().transpose();
+
+    // Trailing rows are zero in exact arithmetic but may carry fp32 noise. Clear them so the
+    // padding-is-zero contract holds bitwise.
+    if (this->numThrusters < MAX_EFF_CNT) {
+        this->pseudoInverseDG.bottomRows(MAX_EFF_CNT - this->numThrusters).setZero();
+    }
 }
 
 /*! Setter for the thruster array configuration. Validates the thruster count and that each active

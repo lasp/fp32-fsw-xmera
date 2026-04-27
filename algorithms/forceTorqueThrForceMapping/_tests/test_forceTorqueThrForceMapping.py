@@ -140,31 +140,37 @@ def test_force_torque_thr_force_mapping(rcs_location, rcs_direction, requested_t
 
 
 def compute_thrust_mapping_truth(rcs_location, rcs_direction, requested_torque, requested_force, CoM_B):
-    F = np.array([requested_torque, requested_force]).flatten()
+    """Independent fp64 truth that mirrors the algorithm's truncated-SVD pseudo-inverse exactly.
 
-    r_thr_B = np.array(rcs_location)
-    r_M_B = np.array(CoM_B)
-    r_thrM_B = r_thr_B - r_M_B
-    gt_thr_B = np.array(rcs_direction)
+    Two details must match the algorithm so the only remaining disagreement is fp32 round-off:
+      1. DG has the same shape (6 x MAX_EFF_CNT, trailing zero columns) as the algorithm's matrix,
+         so the SVD operates on the same operator.
+      2. The truncation cutoff uses fp32 epsilon scaled by max(6, MAX_EFF_CNT) — the algorithm's
+         noise floor — instead of fp64 epsilon. Otherwise the truth would keep singular values in
+         the [eps_d, eps_f] gap that the algorithm correctly drops as fp32 noise, and 1/sv would
+         blow up.
+    """
+    num_thrusters = len(rcs_location)
+    max_eff_cnt = messaging.MAX_EFF_CNT
+    ft = np.concatenate([requested_torque, requested_force]).astype(np.float64)
+    CoM_B = np.array(CoM_B, dtype=np.float64)
 
-    tau_B = np.cross(r_thrM_B, gt_thr_B, axis=1)
+    DG = np.zeros((6, max_eff_cnt), dtype=np.float64)
+    for i in range(num_thrusters):
+        r = np.array(rcs_location[i], dtype=np.float64)
+        g = np.array(rcs_direction[i], dtype=np.float64)
+        DG[0:3, i] = np.cross(r - CoM_B, g)
+        DG[3:6, i] = g
 
-    DG = np.vstack([tau_B.T, gt_thr_B.T])
+    U, sv, Vt = np.linalg.svd(DG, full_matrices=False)
+    eps_f = np.finfo(np.float32).eps
+    tol = sv[0] * eps_f * max(6, max_eff_cnt)
+    inv_sv = np.divide(1.0, sv, out=np.zeros_like(sv), where=sv > tol)
+    thr_forces = Vt.T @ np.diag(inv_sv) @ U.T @ ft
 
-    DG_nonzero = []
-    F_nonzero = []
-    for i in range(6):
-        if np.any(abs(DG[i]) > 1e-7):
-            DG_nonzero.append(DG[i].tolist())
-            F_nonzero.append(F[i].tolist())
-
-    DG_nonzero = np.array(DG_nonzero)
-    F_nonzero = np.array(F_nonzero)
-
-    thr_force = np.linalg.pinv(DG_nonzero) @ F_nonzero
-    thr_force -= np.min(thr_force)
-
-    return thr_force
+    # min-shift over the active head only, matching the algorithm.
+    thr_forces[0:num_thrusters] -= thr_forces[0:num_thrusters].min()
+    return thr_forces[0:num_thrusters]
 
 
 if __name__ == "__main__":
