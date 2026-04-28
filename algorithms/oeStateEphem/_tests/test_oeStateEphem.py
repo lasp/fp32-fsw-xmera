@@ -26,9 +26,9 @@ relative_error = 0.001  # 0.1% relative error maximum
 colors = ['r','g','b']
 
 @pytest.mark.parametrize('valid_curve, anomaly_flag', [
-    (True, oeStateEphemF32.AnomalyType_TRUE_ANOMALY),
-    (True, oeStateEphemF32.AnomalyType_MEAN_ANOMALY),
-    (False, oeStateEphemF32.AnomalyType_TRUE_ANOMALY)
+    (True, oeStateEphemF32.TRUE_ANOMALY),
+    (True, oeStateEphemF32.MEAN_ANOMALY),
+    (False, oeStateEphemF32.TRUE_ANOMALY)
 ])
 def test_cheby_fit(show_plots, valid_curve, anomaly_flag):
     """Module Unit Test"""
@@ -61,7 +61,7 @@ def test_zero_inputs(show_plots):
     oe_ephemeris_module.setArcNumberOfCoefficients(0, 1)
     oe_ephemeris_module.setArcMiddleTime(0, 1)
     oe_ephemeris_module.setArcRadiusTime(0, 1/2.0)
-    oe_ephemeris_module.setArcAnomalyFlag(0, oeStateEphemF32.AnomalyType_TRUE_ANOMALY)
+    oe_ephemeris_module.setArcAnomalyFlag(0, oeStateEphemF32.TRUE_ANOMALY)
 
     clock_correlation_data = messaging.TDBVehicleClockCorrelationMsgF32Payload()
     clock_correlation_data.vehicleClockTime = 0.0
@@ -131,7 +131,7 @@ def cheby_fit(show_plots, valid_curve, anomaly_flag):
         inclination.append(orbital_elements.i)
         raan.append(orbital_elements.Omega)
         omega.append(orbital_elements.omega)
-        if anomaly_flag == oeStateEphemF32.AnomalyType_MEAN_ANOMALY:
+        if anomaly_flag == oeStateEphemF32.MEAN_ANOMALY:
             current_anomaly = orbitalMotion.E2M(orbitalMotion.f2E(orbital_elements.f, orbital_elements.e), orbital_elements.e)
         else:
             current_anomaly = orbital_elements.f
@@ -312,4 +312,4 @@ def cheby_fit(show_plots, valid_curve, anomaly_flag):
 if __name__ == "__main__":
     cheby_fit(True,        # showPlots
                        True,        # valid_curve
-                       oeStateEphemF32.AnomalyType_MEAN_ANOMALY)  # anomaly_flag
+                       oeStateEphemF32.MEAN_ANOMALY)  # anomaly_flag

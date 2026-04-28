@@ -13,6 +13,9 @@
 #include "../orbitalMotion.hpp"
 
 #include <gtest/gtest.h>
+
+using orbitalMotion::CartesianState;
+using orbitalMotion::ClassicalElements;
 #include <Eigen/Geometry>
 #include <cmath>
 
@@ -37,16 +40,16 @@ class NearParabolicEllipticTest : public ::testing::Test {
 
 // All closed-form anomaly conversions must return finite values.
 TEST_F(NearParabolicEllipticTest, ClosedFormAnomalies_AllFinite) {
-    const double E = OrbitalMotion::trueToEccentricAnomaly(kF, kE);
+    const double E = orbitalMotion::trueToEccentricAnomaly(kF, kE);
     EXPECT_TRUE(std::isfinite(E)) << "trueToEccentric";
 
-    const double f_back = OrbitalMotion::eccentricToTrueAnomaly(kEc, kE);
+    const double f_back = orbitalMotion::eccentricToTrueAnomaly(kEc, kE);
     EXPECT_TRUE(std::isfinite(f_back)) << "eccentricToTrue";
 
-    const double M = OrbitalMotion::eccentricToMeanAnomaly(kEc, kE);
+    const double M = orbitalMotion::eccentricToMeanAnomaly(kEc, kE);
     EXPECT_TRUE(std::isfinite(M)) << "eccentricToMean";
 
-    const double M2 = OrbitalMotion::trueToMeanAnomaly(kF, kE);
+    const double M2 = orbitalMotion::trueToMeanAnomaly(kF, kE);
     EXPECT_TRUE(std::isfinite(M2)) << "trueToMean";
 }
 
@@ -55,7 +58,7 @@ TEST_F(NearParabolicEllipticTest, ClosedFormAnomalies_AllFinite) {
 // trig calls (safeSin, safeCos) are exact and the denominator
 // 1 - e*cos(E) stays well away from zero.
 TEST_F(NearParabolicEllipticTest, NewtonSolver_SmallM_Converges) {
-    const double E = OrbitalMotion::meanToEccentricAnomaly(0.005, kE);
+    const double E = orbitalMotion::meanToEccentricAnomaly(0.005, kE);
     EXPECT_TRUE(std::isfinite(E));
     // Verify it actually satisfies Kepler's equation to solver tolerance.
     EXPECT_NEAR(E - kE * sin(E), 0.005, 1e-7);
@@ -71,7 +74,7 @@ TEST_F(NearParabolicEllipticTest, ElementsToCartesian_AllFinite) {
     el.argPeriapsis = 0.0;
     el.trueAnomaly = kF;  // near periapsis
 
-    const CartesianState state = OrbitalMotion::elementsToCartesianState(kMuEarth, el);
+    const CartesianState state = orbitalMotion::elementsToCartesianState(kMuEarth, el);
 
     for (int i = 0; i < 3; ++i) {
         EXPECT_TRUE(std::isfinite(state.position[i])) << "position[" << i << ']';
@@ -89,7 +92,7 @@ TEST_F(NearParabolicEllipticTest, VisViva_AtPeriapsis) {
     el.argPeriapsis = 0.0;
     el.trueAnomaly = 0.0;  // periapsis: most stable
 
-    const CartesianState state = OrbitalMotion::elementsToCartesianState(kMuEarth, el);
+    const CartesianState state = orbitalMotion::elementsToCartesianState(kMuEarth, el);
     const double r = state.position.norm();
     const double v2 = state.velocity.squaredNorm();
     const double v2_expected = kMuEarth * (2.0 / r - 1.0 / el.semiMajorAxis);
@@ -115,14 +118,14 @@ TEST_F(NearParabolicEllipticTest, VisViva_AtPeriapsis) {
 TEST(ParabolicOrbitTest, TrueToEccentric_Finite) {
     // sqrt(1-1) = 0, cos_part = 0; atan2(y, 0) = +/-pi/2 (defined).
     for (const double f : {-0.7, -0.3, 0.0, 0.3, 0.7}) {
-        const double E = OrbitalMotion::trueToEccentricAnomaly(f, 1.0);
+        const double E = orbitalMotion::trueToEccentricAnomaly(f, 1.0);
         EXPECT_TRUE(std::isfinite(E)) << "f=" << f;
     }
 }
 
 TEST(ParabolicOrbitTest, EccentricToTrue_Finite) {
     for (const double E : {-0.7, -0.3, 0.0, 0.3, 0.7}) {
-        const double f = OrbitalMotion::eccentricToTrueAnomaly(E, 1.0);
+        const double f = orbitalMotion::eccentricToTrueAnomaly(E, 1.0);
         EXPECT_TRUE(std::isfinite(f)) << "E=" << E;
     }
 }
@@ -130,7 +133,7 @@ TEST(ParabolicOrbitTest, EccentricToTrue_Finite) {
 TEST(ParabolicOrbitTest, TrueToMean_Finite) {
     // Chains trueToEccentric (finite) then eccentricToMean (E - sin E, finite).
     for (const double f : {-0.7, -0.3, 0.0, 0.3, 0.7}) {
-        const double M = OrbitalMotion::trueToMeanAnomaly(f, 1.0);
+        const double M = orbitalMotion::trueToMeanAnomaly(f, 1.0);
         EXPECT_TRUE(std::isfinite(M)) << "f=" << f;
     }
 }
@@ -139,7 +142,7 @@ TEST(ParabolicOrbitTest, TrueToMean_Finite) {
 // so meanToEccentric(0, 1) is singular. Non-zero M starts the solver away
 // from E = 0, giving a finite (if not exact) result.
 TEST(ParabolicOrbitTest, MeanToEccentric_NonzeroM_Finite) {
-    const double E = OrbitalMotion::meanToEccentricAnomaly(0.5, 1.0);
+    const double E = orbitalMotion::meanToEccentricAnomaly(0.5, 1.0);
     EXPECT_TRUE(std::isfinite(E));
 }
 
@@ -159,7 +162,7 @@ TEST(ParabolicOrbitTest, ElementsToCartesian_ZeroSemiMajorAxis_VelocityInfinite)
     el.argPeriapsis = 0.0;
     el.trueAnomaly = 0.0;
 
-    const CartesianState state = OrbitalMotion::elementsToCartesianState(kMuEarth, el);
+    const CartesianState state = orbitalMotion::elementsToCartesianState(kMuEarth, el);
 
     // Position is zero (r = p/(1+cos f) = 0/2 = 0) -- finite but degenerate.
     for (int i = 0; i < 3; ++i) {
@@ -184,18 +187,18 @@ static const Eigen::Vector3d kRVecRadial(kRpM, 0.0, 0.0);
 static const Eigen::Vector3d kVVecRadial(1000.0, 0.0, 0.0);
 
 TEST(RectilinearOrbitTest, CartesianToElements_DoesNotCrash) {
-    EXPECT_NO_FATAL_FAILURE(OrbitalMotion::cartesianStateToElements(kMuEarth, kRVecRadial, kVVecRadial));
+    EXPECT_NO_FATAL_FAILURE(orbitalMotion::cartesianStateToElements(kMuEarth, kRVecRadial, kVVecRadial));
 }
 
 // For purely radial motion the eccentricity vector has magnitude 1.
 TEST(RectilinearOrbitTest, Eccentricity_IsOne) {
-    const ClassicalElements el = OrbitalMotion::cartesianStateToElements(kMuEarth, kRVecRadial, kVVecRadial);
+    const ClassicalElements el = orbitalMotion::cartesianStateToElements(kMuEarth, kRVecRadial, kVVecRadial);
     EXPECT_NEAR(el.eccentricity, 1.0, 1e-4);
 }
 
 // Inclination, argPeriapsis, and trueAnomaly are undefined (NaN) when h = 0.
 TEST(RectilinearOrbitTest, RectilinearDefaults) {
-    const ClassicalElements el = OrbitalMotion::cartesianStateToElements(kMuEarth, kRVecRadial, kVVecRadial);
+    const ClassicalElements el = orbitalMotion::cartesianStateToElements(kMuEarth, kRVecRadial, kVVecRadial);
     EXPECT_TRUE(el.inclination == 0.0) << "expected 0 inclination for h=0";
     EXPECT_TRUE(el.argPeriapsis == 0.0) << "expected 0 argPeriapsis for h=0";
     EXPECT_TRUE(el.trueAnomaly == M_PI) << "expected pi trueAnomaly for h=0";
@@ -219,7 +222,7 @@ class NearRectilinearTest : public ::testing::Test {
 
 TEST_F(NearRectilinearTest, AllElements_Finite) {
     for (const double vt : {10.0, 1.0, 0.1, 0.01}) {
-        const ClassicalElements el = OrbitalMotion::cartesianStateToElements(kMuEarth, kRVecRadial, makeVelocity(vt));
+        const ClassicalElements el = orbitalMotion::cartesianStateToElements(kMuEarth, kRVecRadial, makeVelocity(vt));
 
         EXPECT_TRUE(std::isfinite(el.semiMajorAxis)) << "sma,  vt=" << vt;
         EXPECT_TRUE(std::isfinite(el.eccentricity)) << "ecc,  vt=" << vt;
@@ -234,11 +237,11 @@ TEST_F(NearRectilinearTest, AllElements_Finite) {
 TEST_F(NearRectilinearTest, Eccentricity_ApproachesOne) {
     double prev_ecc = 0.0;
     for (const double vt : {100.0, 10.0, 1.0}) {
-        const ClassicalElements el = OrbitalMotion::cartesianStateToElements(kMuEarth, kRVecRadial, makeVelocity(vt));
+        const ClassicalElements el = orbitalMotion::cartesianStateToElements(kMuEarth, kRVecRadial, makeVelocity(vt));
         EXPECT_GT(el.eccentricity, prev_ecc) << "ecc should increase as vt decreases; vt=" << vt;
         prev_ecc = el.eccentricity;
     }
     // At vt = 0.1 m/s, eccentricity should be very close to 1.
-    const ClassicalElements el = OrbitalMotion::cartesianStateToElements(kMuEarth, kRVecRadial, makeVelocity(0.01));
+    const ClassicalElements el = orbitalMotion::cartesianStateToElements(kMuEarth, kRVecRadial, makeVelocity(0.01));
     EXPECT_NEAR(el.eccentricity, 1.0, 0.01);
 }

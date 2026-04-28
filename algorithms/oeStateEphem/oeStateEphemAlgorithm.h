@@ -7,15 +7,14 @@
 #ifndef F32XIMERA_OE_STATE_EPHEM_ALGORITHM_H
 #define F32XIMERA_OE_STATE_EPHEM_ALGORITHM_H
 
+#include "oeStateEphemTypes.h"
 #include "utilities/orbitalMotion.hpp"
 #include <array>
 #include <cstddef>
 
 inline constexpr double kTolerance = 1e-10;
-inline constexpr std::size_t kMaxOeCoeff = 20;
-inline constexpr std::size_t kMaxOeRecords = 10;
-
-#include "oeStateEphemTypes.h"
+inline constexpr std::size_t kMaxOeCoeff = MAX_OE_COEFF;
+inline constexpr std::size_t kMaxOeRecords = MAX_OE_RECORDS;
 
 /*! @brief Structure that defines the layout of an Ephemeris "record."  This is
            basically the set of coefficients for the ephemeris elements and
@@ -45,7 +44,7 @@ struct ChebyshevFitArc {
 */
 class OEStateEphemAlgorithm {
    public:
-    CartesianState update(uint64_t callTime);
+    orbitalMotion::CartesianState update(uint64_t callTime);
 
     void setCentralBodyGravitationalParameter(double gravitationalParameter);
     double getCentralBodyGravitationalParameter() const;
@@ -65,31 +64,31 @@ class OEStateEphemAlgorithm {
     void setArcRadiusTime(unsigned int arcNumber, double timeRadius);
     double getArcRadiusTime(unsigned int arcNumber) const;
 
-    void setArcAnomalyFlag(unsigned int arcNumber, const AnomalyType &anomalyFlag);
+    void setArcAnomalyFlag(unsigned int arcNumber, const AnomalyType& anomalyFlag);
     AnomalyType getArcAnomalyFlag(unsigned int arcNumber) const;
 
     void setArcRadiusPeriapsisCoefficients(unsigned int arcNumber,
-                                           const std::array<double, kMaxOeCoeff> &radiusPeriapsisCoefficients);
+                                           const std::array<double, kMaxOeCoeff>& radiusPeriapsisCoefficients);
     std::array<double, kMaxOeCoeff> getArcRadiusPeriapsisCoefficients(unsigned int arcNumber) const;
     void setArcEccentricityCoefficients(unsigned int arcNumber,
-                                        const std::array<double, kMaxOeCoeff> &eccentricityCoefficients);
+                                        const std::array<double, kMaxOeCoeff>& eccentricityCoefficients);
     std::array<double, kMaxOeCoeff> getArcEccentricityCoefficients(unsigned int arcNumber) const;
     void setArcInclinationCoefficients(unsigned int arcNumber,
-                                       const std::array<double, kMaxOeCoeff> &inclinationCoefficients);
+                                       const std::array<double, kMaxOeCoeff>& inclinationCoefficients);
     std::array<double, kMaxOeCoeff> getArcInclinationCoefficients(unsigned int arcNumber) const;
     void setArcArgPeriapsisCoefficients(unsigned int arcNumber,
-                                        const std::array<double, kMaxOeCoeff> &argPeriapsisCoefficients);
+                                        const std::array<double, kMaxOeCoeff>& argPeriapsisCoefficients);
     std::array<double, kMaxOeCoeff> getArcArgPeriapsisCoefficients(unsigned int arcNumber) const;
-    void setArcRaanCoefficients(unsigned int arcNumber, const std::array<double, kMaxOeCoeff> &raanCoefficients);
+    void setArcRaanCoefficients(unsigned int arcNumber, const std::array<double, kMaxOeCoeff>& raanCoefficients);
     std::array<double, kMaxOeCoeff> getArcRaanCoefficients(unsigned int arcNumber) const;
     void setArcTrueAnomalyCoefficients(unsigned int arcNumber,
-                                       const std::array<double, kMaxOeCoeff> &trueAnomalyCoefficients);
+                                       const std::array<double, kMaxOeCoeff>& trueAnomalyCoefficients);
     std::array<double, kMaxOeCoeff> getArcTrueAnomalyCoefficients(unsigned int arcNumber) const;
 
    private:
     ChebyshevFitArc findCurrentArc(uint64_t spacecraftClockTime);
-    double scaleEphemerisTime(const ChebyshevFitArc &arc) const;
-    static ClassicalElements evaluateCoefficients(double currentScaledValue, const ChebyshevFitArc &arc);
+    double scaleEphemerisTime(const ChebyshevFitArc& arc) const;
+    static orbitalMotion::ClassicalElements evaluateCoefficients(double currentScaledValue, const ChebyshevFitArc& arc);
     bool allParametersNull() const;
     unsigned int numberOfArcs{};
     double currentEphTime{};

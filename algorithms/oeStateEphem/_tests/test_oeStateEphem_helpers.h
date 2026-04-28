@@ -17,6 +17,8 @@
 #include <cmath>
 #include <numbers>
 
+using orbitalMotion::CartesianState;
+
 // Test constants
 constexpr double EARTH_MU = 3.986004418e14;  // m^3/s^2
 constexpr double MOON_MU = 4.902800118e12;   // m^3/s^2

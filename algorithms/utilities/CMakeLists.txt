@@ -2,7 +2,7 @@ add_library(AlgorithmUtilities INTERFACE)
 
 target_sources(AlgorithmUtilities INTERFACE
   chebyshevUtilities.h
-  orbitalMotion.cpp
+  orbitalMotion.hpp
   safeMath.h
 )
 
