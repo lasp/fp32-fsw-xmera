@@ -18,14 +18,14 @@ void RateControlAlgorithm_destroy(RateControlAlgorithm* self) {
     delete reinterpret_cast<::RateControlAlgorithm*>(self);
 }
 
-CmdTorqueBodyMsgF32Payload RateControlAlgorithm_update(const RateControlAlgorithm* self,
-                                                       const AttGuidMsgF32Payload* attGuidIn) {
-    return reinterpret_cast<const ::RateControlAlgorithm*>(self)->update(*attGuidIn);
+Eigen::Vector3f RateControlAlgorithm_update(const RateControlAlgorithm* self,
+                                            const Eigen::Vector3f& omega_BR_B,
+                                            const Eigen::Vector3f& domega_RN_B) {
+    return reinterpret_cast<const ::RateControlAlgorithm*>(self)->update(omega_BR_B, domega_RN_B);
 }
 
-void RateControlAlgorithm_setSpacecraftInertia(RateControlAlgorithm* self,
-                                               const VehicleConfigMsgF32Payload* vehicleConfigIn) {
-    reinterpret_cast<::RateControlAlgorithm*>(self)->setSpacecraftInertia(*vehicleConfigIn);
+void RateControlAlgorithm_setSpacecraftInertia(RateControlAlgorithm* self, const Eigen::Matrix3f& spacecraftInertia) {
+    reinterpret_cast<::RateControlAlgorithm*>(self)->setSpacecraftInertia(spacecraftInertia);
 }
 
 void RateControlAlgorithm_setDerivativeGainP(RateControlAlgorithm* self, float P) {
