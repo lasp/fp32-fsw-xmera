@@ -1,6 +1,6 @@
 #include "averageMimuDataAlgorithm.h"
-#include "../freestandingInvalidArgument.h"
 #include "architecture/utilities/eigenSupport.h"
+#include "utilities/freestandingInvalidArgument.h"
 #include "utilities/timeConstants.h"
 #include "utilities/validDcmCheck.h"
 

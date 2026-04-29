@@ -6,8 +6,8 @@
 
 #include "oeStateEphemAlgorithm.h"
 
-#include "../freestandingInvalidArgument.h"
 #include "utilities/chebyshevUtilities.h"
+#include "utilities/freestandingInvalidArgument.h"
 #include "utilities/timeConstants.h"
 #include <algorithm>
 

@@ -1,7 +1,6 @@
 #ifndef TEST_MRPSTEERING_H
 #define TEST_MRPSTEERING_H
 
-#include "../freestandingInvalidArgument.h"
 #include "architecture/utilities/eigenSupport.h"
 #include "architecture/utilities/rigidBodyKinematics.hpp"
 #include "mrpSteeringAlgorithm.h"
@@ -9,6 +8,7 @@
 #include "msgPayloadDef/RWArrayConfigMsgF32Payload.h"
 #include "msgPayloadDef/RWSpeedMsgF32Payload.h"
 #include "msgPayloadDef/VehicleConfigMsgF32Payload.h"
+#include "utilities/freestandingInvalidArgument.h"
 #include <architecture/msgPayloadDef/RWAvailabilityMsgPayload.h>
 #include <fswAlgorithms/fswUtilities/fswDefinitions.h>
 #include <gtest/gtest.h>

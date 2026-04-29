@@ -7,7 +7,7 @@
 #include "sunSearchAlgorithm.h"
 
 #include "architecture/utilities/eigenSupport.h"
-#include "freestandingInvalidArgument.h"
+#include "utilities/freestandingInvalidArgument.h"
 #include "utilities/safeMath.h"
 #include "utilities/timeConstants.h"
 

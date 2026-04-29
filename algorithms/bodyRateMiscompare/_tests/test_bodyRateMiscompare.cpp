@@ -1,5 +1,5 @@
 #include "bodyRateMiscompareTestHelpers.hpp"
-#include "freestandingInvalidArgument.h"
+#include "utilities/freestandingInvalidArgument.h"
 #include <gtest/gtest.h>
 #include <array>
 

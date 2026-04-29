@@ -1,10 +1,10 @@
 #ifndef TEST_RATECONTROL_H
 #define TEST_RATECONTROL_H
 
-#include "../freestandingInvalidArgument.h"
 #include "../utilities/_tests/utilitiesHelpers.hpp"
 #include "architecture/utilities/eigenSupport.h"
 #include "rateControlAlgorithm.h"
+#include "utilities/freestandingInvalidArgument.h"
 #include <architecture/utilities/macroDefinitions.h>
 #include <gtest/gtest.h>
 

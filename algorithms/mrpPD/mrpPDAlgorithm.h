@@ -1,7 +1,7 @@
 #ifndef XMERAF32_MRP_PD_ALGORITHM_H
 #define XMERAF32_MRP_PD_ALGORITHM_H
 
-#include "../freestandingInvalidArgument.h"
+#include "utilities/freestandingInvalidArgument.h"
 #include "utilities/validInertiaCheck.h"
 #include <stdint.h>
 #include <Eigen/Core>

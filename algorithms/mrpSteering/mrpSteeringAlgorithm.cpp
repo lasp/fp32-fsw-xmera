@@ -1,9 +1,9 @@
 #include "mrpSteeringAlgorithm.h"
-#include "../freestandingInvalidArgument.h"
 #include "../utilities/safeMath.h"
 #include "../utilities/validInertiaCheck.h"
 #include "architecture/utilities/eigenSupport.h"
 #include "architecture/utilities/rigidBodyKinematics.hpp"
+#include "utilities/freestandingInvalidArgument.h"
 #include <fswAlgorithms/fswUtilities/fswDefinitions.h>
 #include <Eigen/Core>
 #include <numbers>

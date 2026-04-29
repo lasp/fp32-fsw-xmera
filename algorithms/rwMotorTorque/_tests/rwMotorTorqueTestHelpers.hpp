@@ -1,13 +1,13 @@
 #ifndef TEST_RW_MOTOR_TORQUE_H
 #define TEST_RW_MOTOR_TORQUE_H
 
-#include "../freestandingInvalidArgument.h"
 #include "architecture/utilities/eigenSupport.h"
 #include "architecture/utilities/rigidBodyKinematics.hpp"
 #include "msgPayloadDef/CmdTorqueBodyMsgF32Payload.h"
 #include "msgPayloadDef/RWArrayConfigMsgF32Payload.h"
 #include "msgPayloadDef/RwMotorTorqueMsgF32Payload.h"
 #include "rwMotorTorqueAlgorithm.h"
+#include "utilities/freestandingInvalidArgument.h"
 #include <architecture/msgPayloadDef/RWAvailabilityMsgPayload.h>
 #include <gtest/gtest.h>
 #include <math.h>

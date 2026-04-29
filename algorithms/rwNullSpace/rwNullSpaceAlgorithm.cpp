@@ -7,7 +7,7 @@
 #include "rwNullSpaceAlgorithm.h"
 #include "architecture/utilities/eigenSupport.h"
 
-#include "../freestandingInvalidArgument.h"
+#include "utilities/freestandingInvalidArgument.h"
 
 /*! @brief This resets the module to original states by reading in the RW configuration messages and recreating any
    module specific variables.  The output message is reset to zero.

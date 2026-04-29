@@ -1,5 +1,5 @@
 #include "thrFiringSchmittAlgorithm.h"
-#include "../freestandingInvalidArgument.h"
+#include "utilities/freestandingInvalidArgument.h"
 #include <algorithm>
 
 /*! This method performs a complete reset of the module.  Local module variables that retain

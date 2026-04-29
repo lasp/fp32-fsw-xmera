@@ -5,7 +5,7 @@
 */
 
 #include "stepperMotorControllerAlgorithm.h"
-#include "../freestandingInvalidArgument.h"
+#include "utilities/freestandingInvalidArgument.h"
 #include <architecture/utilities/macroDefinitions.h>
 #include <math.h>
 

@@ -1,6 +1,6 @@
 #include "cssCommAlgorithm.h"
-#include "../freestandingInvalidArgument.h"
 #include "utilities/chebyshevUtilities.h"
+#include "utilities/freestandingInvalidArgument.h"
 #include <algorithm>
 
 /*! This method takes the raw sensor data from the coarse sun sensors and

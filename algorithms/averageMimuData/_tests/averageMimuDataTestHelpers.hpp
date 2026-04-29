@@ -1,9 +1,9 @@
 #ifndef TEST_EPHEMERIDESRECENTER_H
 #define TEST_EPHEMERIDESRECENTER_H
 
-#include "../freestandingInvalidArgument.h"
 #include "architecture/utilities/eigenSupport.h"
 #include "averageMimuDataAlgorithm.h"
+#include "utilities/freestandingInvalidArgument.h"
 #include <architecture/utilities/macroDefinitions.h>
 #include <gtest/gtest.h>
 

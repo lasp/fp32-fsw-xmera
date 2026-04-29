@@ -1,8 +1,8 @@
 #ifndef TEST_MIMU_MAJORITY_VOTE_H
 #define TEST_MIMU_MAJORITY_VOTE_H
 
-#include "../freestandingInvalidArgument.h"
 #include "mimuMajorityVoteAlgorithm.h"
+#include "utilities/freestandingInvalidArgument.h"
 #include <gtest/gtest.h>
 #include <math.h>
 #include <Eigen/Core>

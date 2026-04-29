@@ -1,6 +1,6 @@
 #include "mrpPDAlgorithm.h"
-#include "../freestandingInvalidArgument.h"
 #include "../utilities/validInertiaCheck.h"
+#include "utilities/freestandingInvalidArgument.h"
 
 /*! Update method for mrpPD control algorithm. This method takes the attitude and rate errors relative to the
  reference frame, as well as the reference frame angular rates and acceleration, and computes the required control

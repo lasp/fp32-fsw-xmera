@@ -1,6 +1,6 @@
 #include "bodyRateMiscompareAlgorithm.h"
 
-#include "freestandingInvalidArgument.h"
+#include "utilities/freestandingInvalidArgument.h"
 
 /*! This method resets the algorithm state. The persistence counter is reset to zero.
  @return void

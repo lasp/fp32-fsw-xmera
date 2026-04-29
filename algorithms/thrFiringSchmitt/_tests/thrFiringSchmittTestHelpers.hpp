@@ -1,11 +1,11 @@
 #ifndef TEST_THR_FIRING_SCHMITT_H
 #define TEST_THR_FIRING_SCHMITT_H
 
-#include "../freestandingInvalidArgument.h"
 #include "msgPayloadDef/THRArrayCmdForceMsgF32Payload.h"
 #include "msgPayloadDef/THRArrayConfigMsgF32Payload.h"
 #include "msgPayloadDef/THRArrayOnTimeCmdMsgF32Payload.h"
 #include "thrFiringSchmittAlgorithm.h"
+#include "utilities/freestandingInvalidArgument.h"
 #include "utilities/timeConstants.h"
 #include <architecture/msgPayloadDef/definitions.h>
 #include <gtest/gtest.h>

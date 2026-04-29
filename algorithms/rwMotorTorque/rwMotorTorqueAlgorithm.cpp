@@ -18,7 +18,7 @@
  */
 
 #include "rwMotorTorqueAlgorithm.h"
-#include "../freestandingInvalidArgument.h"
+#include "utilities/freestandingInvalidArgument.h"
 #include <architecture/utilities/eigenSupport.h>
 #include <stdint.h>
 #include <Eigen/LU>

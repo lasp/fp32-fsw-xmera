@@ -4,7 +4,7 @@
  Copyright (c) 2025, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
  */
 #include "ephemeridesRecenterAlgorithm.h"
-#include "../freestandingInvalidArgument.h"
+#include "utilities/freestandingInvalidArgument.h"
 
 void EphemeridesRecenterAlgorithm::reset() { this->checkConfiguration(); }
 

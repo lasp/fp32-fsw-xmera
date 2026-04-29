@@ -6,8 +6,8 @@
  Unit tests for OEStateEphemAlgorithm class
  */
 
-#include "../freestandingInvalidArgument.h"
 #include "test_oeStateEphem_helpers.h"
+#include "utilities/freestandingInvalidArgument.h"
 
 // ============================================================================
 // FIXTURE CLASS
