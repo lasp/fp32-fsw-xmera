@@ -82,12 +82,7 @@ class invalid_argument : public exception {
         __debugbreak();                     \
     } while (0)
 #else
-#define FSW_THROW_INVALID_ARGUMENT(msg_cstr) \
-    do {                                    \
-        (void)(msg_cstr);                   \
-        for (;;) {                          \
-        }                                   \
-    } while (0)
+#error "FSW_THROW_INVALID_ARGUMENT: unsupported compiler; add a trap intrinsic for this toolchain."
 #endif
 #endif
 
