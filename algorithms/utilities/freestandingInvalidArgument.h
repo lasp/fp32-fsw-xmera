@@ -23,15 +23,15 @@
 
 namespace fsw {
 
-class invalid_argument : public std::exception {
+class exception : public std::exception {
    public:
-    explicit invalid_argument(const char* msg) noexcept { safe_copy(this->message, FSW_EXC_MAX_MSG, msg); }
+    const char* what() const noexcept override { return this->message[0] ? this->message : "fsw::exception"; }
 
-    const char* what() const noexcept override { return this->message[0] ? this->message : "invalid argument"; }
-
-   private:
+   protected:
+    explicit exception(const char* msg) noexcept { safe_copy(this->message, FSW_EXC_MAX_MSG, msg); }
     char message[FSW_EXC_MAX_MSG];
 
+   private:
     static void safe_copy(char* dst, std::size_t cap, const char* src) noexcept {
         if (!dst || cap == 0) return;
         if (!src) {
@@ -45,6 +45,12 @@ class invalid_argument : public std::exception {
         }
         dst[i] = '\0';
     }
+};
+
+class invalid_argument : public exception {
+   public:
+    explicit invalid_argument(const char* msg) noexcept : exception(msg) {}
+    const char* what() const noexcept override { return this->message[0] ? this->message : "invalid argument"; }
 };
 
 }  // namespace fsw
