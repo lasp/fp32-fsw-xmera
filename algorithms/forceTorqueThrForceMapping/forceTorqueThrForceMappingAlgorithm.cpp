@@ -18,9 +18,9 @@
 */
 
 #include "forceTorqueThrForceMappingAlgorithm.h"
+#include "utilities/freestandingInvalidArgument.h"
 #include <architecture/utilities/eigenSupport.h>
 
-#include <stdexcept>
 #include <Eigen/QR>
 
 /*! This method performs a complete reset of the module.  Local module variables that retain
@@ -36,7 +36,7 @@ void ForceTorqueThrForceMappingAlgorithm::reset(VehicleConfigMsgPayload& vehConf
     this->numThrusters = thrConfigMsg.numThrusters;
     this->CoM_B = cArrayToEigenVector(vehConfigMsg.CoM_B);
     if (this->numThrusters > MAX_EFF_CNT) {
-        throw std::invalid_argument(
+        FSW_THROW_INVALID_ARGUMENT(
             "forceTorqueThrForceMapping thruster configuration input message has a number of "
             "thrusters that is larger than MAX_EFF_CNT");
     }
@@ -46,7 +46,7 @@ void ForceTorqueThrForceMappingAlgorithm::reset(VehicleConfigMsgPayload& vehConf
         this->rThruster_B.col(i) = cArrayToEigenVector(thrConfigMsg.thrusters[i].rThrust_B);
         this->gtThruster_B.col(i) = cArrayToEigenVector(thrConfigMsg.thrusters[i].tHatThrust_B);
         if (thrConfigMsg.thrusters[i].maxThrust <= 0.0) {
-            throw std::invalid_argument(
+            FSW_THROW_INVALID_ARGUMENT(
                 "forceTorqueThrForceMapping: A configured thruster has a non-sensible "
                 "saturation limit of <= 0 N!");
         }
