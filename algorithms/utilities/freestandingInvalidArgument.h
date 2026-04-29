@@ -17,8 +17,11 @@
 #include <cstddef>
 #include <exception>
 
-#ifndef FSW_EXC_MAX_MSG
-#define FSW_EXC_MAX_MSG 256  // override if you need longer messages
+// FSW_EXC_MAX_MSG must be a macro: it sizes a fixed-length char array, so it
+// must be a compile-time integer, AND it must be overridable from -D flags so
+// targets can pick a per-build buffer size without editing this header.
+#ifndef FSW_EXC_MAX_MSG  // NOLINT(cppcoreguidelines-macro-usage)
+#define FSW_EXC_MAX_MSG 256
 #endif
 
 namespace fsw {
@@ -55,8 +58,9 @@ class invalid_argument : public exception {
 
 }  // namespace fsw
 
-// Require exceptions if you want (set to 1), otherwise we'll still compile.
-#ifndef FSW_REQUIRE_EXCEPTIONS
+// FSW_REQUIRE_EXCEPTIONS must be a macro: it drives an #error directive,
+// which is preprocessor-only and cannot be expressed as a constexpr value.
+#ifndef FSW_REQUIRE_EXCEPTIONS  // NOLINT(cppcoreguidelines-macro-usage)
 #define FSW_REQUIRE_EXCEPTIONS 0
 #endif
 
@@ -64,22 +68,27 @@ class invalid_argument : public exception {
 #error "Exceptions are required for this target (define __cpp_exceptions)."
 #endif
 
+// FSW_THROW_INVALID_ARGUMENT must be a macro: it switches between `throw`
+// (which is rejected at parse time under -fno-exceptions, even in a dead
+// branch) and a trap intrinsic. A constexpr template function cannot do this.
 #if defined(__cpp_exceptions)
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define FSW_THROW_INVALID_ARGUMENT(msg_cstr) throw fsw::invalid_argument((msg_cstr))
 #else
-   // No <cstdio>/<cstdlib>. Use a trap so this stays freestanding.
 #if defined(__GNUC__) || defined(__clang__)
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define FSW_THROW_INVALID_ARGUMENT(msg_cstr) \
-    do {                                    \
-        (void)(msg_cstr);                   \
-        __builtin_trap();                   \
+    do {                                     \
+        (void)(msg_cstr);                    \
+        __builtin_trap();                    \
     } while (0)
 #elif defined(_MSC_VER)
 #include <intrin.h>
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define FSW_THROW_INVALID_ARGUMENT(msg_cstr) \
-    do {                                    \
-        (void)(msg_cstr);                   \
-        __debugbreak();                     \
+    do {                                     \
+        (void)(msg_cstr);                    \
+        __debugbreak();                      \
     } while (0)
 #else
 #error "FSW_THROW_INVALID_ARGUMENT: unsupported compiler; add a trap intrinsic for this toolchain."
