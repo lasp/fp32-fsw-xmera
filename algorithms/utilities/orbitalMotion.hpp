@@ -52,22 +52,22 @@ struct ClassicalElements {
 };
 
 inline double eccentricToTrueAnomaly(double const E, double const e) {
-    assert((e >= 0.0 || e < 1.0) && "Eccentricity out of bounds (0 <= e < 1)");
+    assert((e >= 0.0 && e < 1.0) && "Eccentricity out of bounds (0 <= e < 1)");
     return 2 * safeAtan2(safeSqrt(1 + e) * safeSin(E / 2), safeSqrt(1 - e) * safeCos(E / 2));
 }
 
 inline double eccentricToMeanAnomaly(double const E, double const e) {
-    assert((e >= 0.0 || e < 1.0) && "Eccentricity out of bounds (0 <= e < 1)");
+    assert((e >= 0.0 && e < 1.0) && "Eccentricity out of bounds (0 <= e < 1)");
     return E - (e * safeSin(E));
 }
 
 inline double trueToEccentricAnomaly(double const f, double const e) {
-    assert((e >= 0.0 || e < 1.0) && "Eccentricity out of bounds (0 <= e < 1)");
+    assert((e >= 0.0 && e < 1.0) && "Eccentricity out of bounds (0 <= e < 1)");
     return 2 * safeAtan2(safeSqrt(1 - e) * safeSin(f / 2), safeSqrt(1 + e) * safeCos(f / 2));
 }
 
 inline double trueToMeanAnomaly(double const f, double const e) {
-    assert((e >= 0.0 || e < 1.0) && "Eccentricity out of bounds (0 <= e < 1)");
+    assert((e >= 0.0 && e < 1.0) && "Eccentricity out of bounds (0 <= e < 1)");
     double const eccentric = trueToEccentricAnomaly(f, e);
     return eccentricToMeanAnomaly(eccentric, e);
 }
@@ -88,7 +88,7 @@ inline double hyperbolicToMeanAnomaly(double const H, double const e) {
 }
 
 inline double meanToEccentricAnomaly(double M, double e) {
-    assert((e >= 0.0 || e < 1.0) && "Eccentricity out of bounds (0 <= e < 1)");
+    assert((e >= 0.0 && e < 1.0) && "Eccentricity out of bounds (0 <= e < 1)");
     double E = M;
     for (int i = 0; i < kMaxNumberOfIterations; ++i) {
         double const dE = (E - e * safeSin(E) - M) / (1 - e * safeCos(E));
@@ -101,7 +101,7 @@ inline double meanToEccentricAnomaly(double M, double e) {
 }
 
 inline double meanToTrueAnomaly(double const M, double const e) {
-    assert((e >= 0.0 || e < 1.0) && "Eccentricity out of bounds (0 <= e < 1)");
+    assert((e >= 0.0 && e < 1.0) && "Eccentricity out of bounds (0 <= e < 1)");
     double const eccentric = meanToEccentricAnomaly(M, e);
     return eccentricToTrueAnomaly(eccentric, e);
 }
