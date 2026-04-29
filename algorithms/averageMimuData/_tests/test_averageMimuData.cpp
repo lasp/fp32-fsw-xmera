@@ -195,16 +195,16 @@ TEST(averageMimuDataTest, PropertyZeroAveragingWindow) {
 TEST(averageMimuDataTest, SetupTest) {
     AverageMimuDataAlgorithm alg;
     // 1) Setters should not throw
-    EXPECT_THROW(alg.setAveragingWindow(-0.1), fs::invalid_argument);
+    EXPECT_THROW(alg.setAveragingWindow(-0.1), fsw::invalid_argument);
     EXPECT_NO_THROW(alg.setAveragingWindow(0.25f));
     // Not orthonormal (scaling matrix), det != 1 as well
     Eigen::Matrix3f badOrtho = Eigen::Matrix3f::Identity();
     badOrtho(0, 0) = 2.0F;
-    EXPECT_THROW(alg.setDcmPltfToBdy(badOrtho), fs::invalid_argument);
+    EXPECT_THROW(alg.setDcmPltfToBdy(badOrtho), fsw::invalid_argument);
     // det = -1 (reflection), orthonormal but not a proper rotation
     Eigen::Matrix3f badDet = Eigen::Matrix3f::Identity();
     badDet(0, 0) = -1.0F;
-    EXPECT_THROW(alg.setDcmPltfToBdy(badDet), fs::invalid_argument);
+    EXPECT_THROW(alg.setDcmPltfToBdy(badDet), fsw::invalid_argument);
     EXPECT_NO_THROW(alg.setDcmPltfToBdy(Eigen::Matrix3f::Identity()));
 
     // 2) Round-trip expectations

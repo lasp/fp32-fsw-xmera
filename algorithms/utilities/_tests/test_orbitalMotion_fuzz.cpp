@@ -4,6 +4,7 @@
  Copyright (c) 2025, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
 */
 
+#include "../freestandingInvalidArgument.h"
 #include "../orbitalMotion.hpp"
 
 #include <fuzztest/fuzztest.h>
@@ -418,18 +419,17 @@ void fuzzNearRectilinearElementsFinite(double v_radial, double v_transverse) {
 FUZZ_TEST(OrbitalMotionFuzz, fuzzNearRectilinearElementsFinite)
     .WithDomains(fuzztest::InRange(-8000.0, 8000.0), fuzztest::InRange(0.01, 100.0));
 
-// Parabolic boundary: e = 1.0 exactly. All closed-form anomaly functions finite.
-void fuzzParabolicAnomalyFinite(double angle) {
-    const double E = orbitalMotion::trueToEccentricAnomaly(angle, 1.0);
-    const double f = orbitalMotion::eccentricToTrueAnomaly(angle, 1.0);
-    const double M = orbitalMotion::eccentricToMeanAnomaly(angle, 1.0);
-    const double M2 = orbitalMotion::trueToMeanAnomaly(angle, 1.0);
-    EXPECT_TRUE(std::isfinite(E)) << "trueToEccentric";
-    EXPECT_TRUE(std::isfinite(f)) << "eccentricToTrue";
-    EXPECT_TRUE(std::isfinite(M)) << "eccentricToMean";
-    EXPECT_TRUE(std::isfinite(M2)) << "trueToMean";
+// Parabolic boundary: e = 1.0 exactly. Closed-orbit anomaly conversions are
+// defined only on [0, 1) and reject e = 1.0 with fsw::domain_error rather than
+// extending to the limit via safeMath. Use parabolic-specific equations
+// (e.g. Barker's) for true parabolic input.
+void fuzzParabolicAnomalyRejected(double angle) {
+    EXPECT_THROW(orbitalMotion::trueToEccentricAnomaly(angle, 1.0), fsw::domain_error);
+    EXPECT_THROW(orbitalMotion::eccentricToTrueAnomaly(angle, 1.0), fsw::domain_error);
+    EXPECT_THROW(orbitalMotion::eccentricToMeanAnomaly(angle, 1.0), fsw::domain_error);
+    EXPECT_THROW(orbitalMotion::trueToMeanAnomaly(angle, 1.0), fsw::domain_error);
 }
-FUZZ_TEST(OrbitalMotionFuzz, fuzzParabolicAnomalyFinite).WithDomains(fuzztest::InRange(-0.8, 0.8));
+FUZZ_TEST(OrbitalMotionFuzz, fuzzParabolicAnomalyRejected).WithDomains(fuzztest::InRange(-0.8, 0.8));
 
 // Straddles the elliptic/hyperbolic boundary: e in [0.999, 1.001].
 void fuzzParabolicHyperbolicBoundary(double e, double angle) {

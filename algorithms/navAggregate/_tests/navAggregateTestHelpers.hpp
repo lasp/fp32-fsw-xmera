@@ -1,8 +1,8 @@
 #ifndef TEST_NAV_AGGREGATE_H
 #define TEST_NAV_AGGREGATE_H
 
-#include "../freestandingInvalidArgument.h"
 #include "navAggregateAlgorithm.h"
+#include "utilities/freestandingInvalidArgument.h"
 #include <gtest/gtest.h>
 #include <Eigen/Core>
 #include <cmath>

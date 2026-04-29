@@ -1,7 +1,6 @@
 #ifndef TEST_MRPFEEDBACK_H
 #define TEST_MRPFEEDBACK_H
 
-#include "../freestandingInvalidArgument.h"
 #include "architecture/utilities/eigenSupport.h"
 #include "architecture/utilities/rigidBodyKinematics.hpp"
 #include "mrpFeedbackAlgorithm.h"
@@ -10,6 +9,7 @@
 #include "msgPayloadDef/RWArrayConfigMsgF32Payload.h"
 #include "msgPayloadDef/RWSpeedMsgF32Payload.h"
 #include "msgPayloadDef/VehicleConfigMsgF32Payload.h"
+#include "utilities/freestandingInvalidArgument.h"
 #include "utilities/timeConstants.h"
 #include <architecture/msgPayloadDef/RWAvailabilityMsgPayload.h>
 #include <fswAlgorithms/fswUtilities/fswDefinitions.h>
@@ -117,10 +117,10 @@ inline void testMrpFeedbackSetup() {
     // --- Test expected exceptions ---
 
     // Negative feedback gains or integral limit
-    EXPECT_THROW(alg.setK(-0.1), fs::invalid_argument);
-    EXPECT_THROW(alg.setP(-0.1), fs::invalid_argument);
-    EXPECT_THROW(alg.setKi(-0.1), fs::invalid_argument);
-    EXPECT_THROW(alg.setIntegralLimit(-0.1), fs::invalid_argument);
+    EXPECT_THROW(alg.setK(-0.1), fsw::invalid_argument);
+    EXPECT_THROW(alg.setP(-0.1), fsw::invalid_argument);
+    EXPECT_THROW(alg.setKi(-0.1), fsw::invalid_argument);
+    EXPECT_THROW(alg.setIntegralLimit(-0.1), fsw::invalid_argument);
 }
 
 inline void testMrpFeedback(const Eigen::Vector3f& sigma,

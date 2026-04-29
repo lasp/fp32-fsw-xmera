@@ -7,7 +7,7 @@
 #include "rwMotorVoltageAlgorithm.h"
 #include "utilities/timeConstants.h"
 
-#include "../freestandingInvalidArgument.h"
+#include "utilities/freestandingInvalidArgument.h"
 #include <algorithm>
 
 /**
@@ -106,13 +106,13 @@ RwMotorVoltageData RwMotorVoltageAlgorithm::update(const uint64_t callTime,
  */
 void RwMotorVoltageAlgorithm::setVoltageRange(const float minVoltageMagnitude, const float maxVoltageMagnitude) {
     if (minVoltageMagnitude < 0.0) {
-        FS_THROW_INVALID_ARGUMENT("minVoltageMagnitude must not be negative.");
+        FSW_THROW_INVALID_ARGUMENT("minVoltageMagnitude must not be negative.");
     }
     if (maxVoltageMagnitude < 0.0) {
-        FS_THROW_INVALID_ARGUMENT("maxVoltageMagnitude must not be negative.");
+        FSW_THROW_INVALID_ARGUMENT("maxVoltageMagnitude must not be negative.");
     }
     if (maxVoltageMagnitude <= minVoltageMagnitude) {
-        FS_THROW_INVALID_ARGUMENT("maxVoltageMagnitude must be greater than minVoltageMagnitude.");
+        FSW_THROW_INVALID_ARGUMENT("maxVoltageMagnitude must be greater than minVoltageMagnitude.");
     }
     this->voltageMin = minVoltageMagnitude;
     this->voltageMax = maxVoltageMagnitude;
@@ -132,7 +132,7 @@ Eigen::Vector2f RwMotorVoltageAlgorithm::getVoltageRange() const {
  */
 void RwMotorVoltageAlgorithm::setGainK(const float gain) {
     if (gain < 0.0) {
-        FS_THROW_INVALID_ARGUMENT("Feedback gain must not be negative");
+        FSW_THROW_INVALID_ARGUMENT("Feedback gain must not be negative");
     }
     this->K = gain;
 }

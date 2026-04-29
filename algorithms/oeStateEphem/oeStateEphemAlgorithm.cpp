@@ -6,8 +6,8 @@
 
 #include "oeStateEphemAlgorithm.h"
 
-#include "../freestandingInvalidArgument.h"
 #include "utilities/chebyshevUtilities.h"
+#include "utilities/freestandingInvalidArgument.h"
 #include "utilities/timeConstants.h"
 #include <algorithm>
 
@@ -149,7 +149,7 @@ orbitalMotion::CartesianState OEStateEphemAlgorithm::update(const uint64_t callT
 */
 void OEStateEphemAlgorithm::setCentralBodyGravitationalParameter(const double gravitationalParameter) {
     if (gravitationalParameter < 0) {
-        FS_THROW_INVALID_ARGUMENT("GravitationalParameter in OEStateEphemAlgorithm must be positive.");
+        FSW_THROW_INVALID_ARGUMENT("GravitationalParameter in OEStateEphemAlgorithm must be positive.");
     }
     this->mu = gravitationalParameter;
 };
@@ -165,7 +165,7 @@ double OEStateEphemAlgorithm::getCentralBodyGravitationalParameter() const { ret
 */
 void OEStateEphemAlgorithm::setNumberOfArcs(const unsigned int arcs) {
     if (arcs < 1) {
-        FS_THROW_INVALID_ARGUMENT("Number of arcs in OEStateEphemAlgorithm must be strictly positive.");
+        FSW_THROW_INVALID_ARGUMENT("Number of arcs in OEStateEphemAlgorithm must be strictly positive.");
     }
     this->numberOfArcs = arcs;
 };
@@ -183,7 +183,7 @@ unsigned int OEStateEphemAlgorithm::getNumberOfArcs() const { return this->numbe
 void OEStateEphemAlgorithm::setArcNumberOfCoefficients(const unsigned int arcNumber,
                                                        const unsigned int numberOfCoefficients) {
     if (numberOfCoefficients < 1) {
-        FS_THROW_INVALID_ARGUMENT("numberOfCoefficients in OEStateEphemAlgorithm must be positive.");
+        FSW_THROW_INVALID_ARGUMENT("numberOfCoefficients in OEStateEphemAlgorithm must be positive.");
     }
     this->fitCoefficients.at(arcNumber).numberChebCoefficients = numberOfCoefficients;
 };
@@ -203,7 +203,7 @@ unsigned int OEStateEphemAlgorithm::getArcNumberOfCoefficients(const unsigned in
 */
 void OEStateEphemAlgorithm::setArcMiddleTime(const unsigned int arcNumber, const double timeMiddle) {
     if (timeMiddle <= 0) {
-        FS_THROW_INVALID_ARGUMENT("arc middle time in OEStateEphemAlgorithm must be positive.");
+        FSW_THROW_INVALID_ARGUMENT("arc middle time in OEStateEphemAlgorithm must be positive.");
     }
     this->fitCoefficients.at(arcNumber).ephemerisTimeMiddle = timeMiddle;
 };
@@ -223,7 +223,7 @@ double OEStateEphemAlgorithm::getArcMiddleTime(const unsigned int arcNumber) con
 */
 void OEStateEphemAlgorithm::setArcRadiusTime(const unsigned int arcNumber, const double timeRadius) {
     if (timeRadius <= 0) {
-        FS_THROW_INVALID_ARGUMENT("arc radius in OEStateEphemAlgorithm must be strictly positive.");
+        FSW_THROW_INVALID_ARGUMENT("arc radius in OEStateEphemAlgorithm must be strictly positive.");
     }
     this->fitCoefficients.at(arcNumber).ephemerisTimeRadius = timeRadius;
 };
@@ -380,7 +380,7 @@ std::array<double, kMaxOeCoeff> OEStateEphemAlgorithm::getArcTrueAnomalyCoeffici
 */
 void OEStateEphemAlgorithm::setEphemerisTimeJ2000(const double ephemerisJ2000) {
     if (ephemerisJ2000 < 0) {
-        FS_THROW_INVALID_ARGUMENT("EphemerisJ2000 time in OEStateEphemAlgorithm must be positive.");
+        FSW_THROW_INVALID_ARGUMENT("EphemerisJ2000 time in OEStateEphemAlgorithm must be positive.");
     }
     this->ephemerisTime = ephemerisJ2000;
 }
@@ -396,7 +396,7 @@ double OEStateEphemAlgorithm::getEphemerisTimeJ2000() const { return this->ephem
 */
 void OEStateEphemAlgorithm::setVehicleTimeOffset(const double timeOffset) {
     if (timeOffset < 0) {
-        FS_THROW_INVALID_ARGUMENT("vehicleTimeOffset in OEStateEphemAlgorithm must be positive.");
+        FSW_THROW_INVALID_ARGUMENT("vehicleTimeOffset in OEStateEphemAlgorithm must be positive.");
     }
     this->vehicleTimeOffset = timeOffset;
 }

@@ -1,9 +1,9 @@
 #ifndef TEST_EPHEMERIDESRECENTER_H
 #define TEST_EPHEMERIDESRECENTER_H
 
-#include "../freestandingInvalidArgument.h"
 #include "architecture/utilities/eigenSupport.h"
 #include "ephemeridesRecenterAlgorithm.h"
+#include "utilities/freestandingInvalidArgument.h"
 #include <gtest/gtest.h>
 #include <math.h>
 #include <Eigen/Core>
@@ -28,13 +28,13 @@ std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES> referenceUpdate(
     const auto bodyIds = alg.getAllIds();
 
     if (celestialBodyCount == 0U) {
-        FS_THROW_INVALID_ARGUMENT("The current celestial body count is 0");
+        FSW_THROW_INVALID_ARGUMENT("The current celestial body count is 0");
     }
 
     // Find the new central body index using the returned bodyIds ordering
     const auto it = std::ranges::find(bodyIds, newCentralBodyId);
     if (it == bodyIds.end()) {
-        FS_THROW_INVALID_ARGUMENT("New zero base body was not in the list of existing bodies");
+        FSW_THROW_INVALID_ARGUMENT("New zero base body was not in the list of existing bodies");
     }
     const size_t newCentralIndex = static_cast<size_t>(std::distance(bodyIds.begin(), it));
 
@@ -223,9 +223,9 @@ inline void testEphemeridesRecenterSetup() {
 
     EphemeridesRecenterAlgorithm alg{};
     // Setting previous common zero base when body list is empty should throw
-    EXPECT_THROW(alg.setPreviousCommonZeroBase(bodyListInOrder[0]), fs::invalid_argument);
+    EXPECT_THROW(alg.setPreviousCommonZeroBase(bodyListInOrder[0]), fsw::invalid_argument);
     // Requesting info when empty should throw
-    EXPECT_THROW(alg.getAllIds(), fs::invalid_argument);
+    EXPECT_THROW(alg.getAllIds(), fsw::invalid_argument);
 
     EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter({bodyListInOrder[0], bodyListInOrder[0]}));
     EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter({bodyListInOrder[1], bodyListInOrder[0]}));
@@ -260,19 +260,19 @@ inline void testEphemeridesRecenterSetup() {
 
     // If you set a zero base that is NOT in the list, reset() must throw
     EXPECT_NO_THROW(alg.setNewZeroBaseId(bodyListInOrder[3]));
-    EXPECT_THROW(alg.reset(), fs::invalid_argument);
+    EXPECT_THROW(alg.reset(), fsw::invalid_argument);
 
     // Clear should reset internal list; then getters that require non-empty should throw again
     EXPECT_NO_THROW(alg.clearAllBodies());
     EXPECT_EQ(alg.getNumberOfBodies(), 0U);
-    EXPECT_THROW(alg.getAllIds(), fs::invalid_argument);
+    EXPECT_THROW(alg.getAllIds(), fsw::invalid_argument);
 
     // Add exactly MAX_NUM_CHANGE_BODIES bodies (unique IDs)
     for (std::size_t i = 0; i < MAX_NUM_CHANGE_BODIES; ++i) {
         EXPECT_NO_THROW(alg.addBodyEphemerisToRecenter({100 + static_cast<int>(i), 0}));
     }
     // One more should exceed the limit and throw
-    EXPECT_THROW(alg.addBodyEphemerisToRecenter({999, 0}), fs::invalid_argument);
+    EXPECT_THROW(alg.addBodyEphemerisToRecenter({999, 0}), fsw::invalid_argument);
 }
 
 inline void testRecenterEphemeridesRecenter() {
@@ -604,7 +604,7 @@ inline void testMultiMoonsRecenter() {
 
         EXPECT_NO_THROW(alg.setPreviousCommonZeroBase(bodyListInOrder[0]));
         EXPECT_NO_THROW(alg.setNewZeroBaseId(bodyListInOrder[0]));
-        EXPECT_THROW(alg.reset(), fs::invalid_argument);  // multiple moons caught at configuration time
+        EXPECT_THROW(alg.reset(), fsw::invalid_argument);  // multiple moons caught at configuration time
     }
 }
 
@@ -621,7 +621,7 @@ inline void testMoonOfMoonRecenter() {
     EXPECT_NO_THROW(alg.setPreviousCommonZeroBase(SUN_SPICE_ID));
     EXPECT_NO_THROW(alg.setNewZeroBaseId(EARTH_SPICE_ID));
 
-    EXPECT_THROW(alg.reset(), fs::invalid_argument);  // "moon-of-moon not supported"
+    EXPECT_THROW(alg.reset(), fsw::invalid_argument);  // "moon-of-moon not supported"
 }
 
 inline void testOrphanMoonRecenter() {
@@ -634,7 +634,7 @@ inline void testOrphanMoonRecenter() {
     EXPECT_NO_THROW(alg.setPreviousCommonZeroBase(SUN_SPICE_ID));
     EXPECT_NO_THROW(alg.setNewZeroBaseId(EARTH_SPICE_ID));
 
-    EXPECT_THROW(alg.reset(), fs::invalid_argument);  // "body is not found" from findBodyIndex
+    EXPECT_THROW(alg.reset(), fsw::invalid_argument);  // "body is not found" from findBodyIndex
 }
 
 inline void testDuplicateBodyRecenter() {

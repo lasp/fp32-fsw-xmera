@@ -28,15 +28,15 @@ TEST(NavAggregateTest, SetupTest) {
     // --- Test expected exceptions ---
 
     // MsgIdx equal to or greater than max message count
-    EXPECT_THROW(alg.setAttTimeIdx(MAX_AGG_NAV_MSG), fs::invalid_argument);
-    EXPECT_THROW(alg.setTransTimeIdx(MAX_AGG_NAV_MSG), fs::invalid_argument);
-    EXPECT_THROW(alg.setAttIdx(MAX_AGG_NAV_MSG), fs::invalid_argument);
-    EXPECT_THROW(alg.setRateIdx(MAX_AGG_NAV_MSG), fs::invalid_argument);
-    EXPECT_THROW(alg.setPosIdx(MAX_AGG_NAV_MSG), fs::invalid_argument);
-    EXPECT_THROW(alg.setVelIdx(MAX_AGG_NAV_MSG), fs::invalid_argument);
-    EXPECT_THROW(alg.setDvIdx(MAX_AGG_NAV_MSG), fs::invalid_argument);
-    EXPECT_THROW(alg.setSunIdx(MAX_AGG_NAV_MSG), fs::invalid_argument);
+    EXPECT_THROW(alg.setAttTimeIdx(MAX_AGG_NAV_MSG), fsw::invalid_argument);
+    EXPECT_THROW(alg.setTransTimeIdx(MAX_AGG_NAV_MSG), fsw::invalid_argument);
+    EXPECT_THROW(alg.setAttIdx(MAX_AGG_NAV_MSG), fsw::invalid_argument);
+    EXPECT_THROW(alg.setRateIdx(MAX_AGG_NAV_MSG), fsw::invalid_argument);
+    EXPECT_THROW(alg.setPosIdx(MAX_AGG_NAV_MSG), fsw::invalid_argument);
+    EXPECT_THROW(alg.setVelIdx(MAX_AGG_NAV_MSG), fsw::invalid_argument);
+    EXPECT_THROW(alg.setDvIdx(MAX_AGG_NAV_MSG), fsw::invalid_argument);
+    EXPECT_THROW(alg.setSunIdx(MAX_AGG_NAV_MSG), fsw::invalid_argument);
     // MsgCount greater than max message count
-    EXPECT_THROW(alg.setAttMsgCount(MAX_AGG_NAV_MSG + 1), fs::invalid_argument);
-    EXPECT_THROW(alg.setTransMsgCount(MAX_AGG_NAV_MSG + 1), fs::invalid_argument);
+    EXPECT_THROW(alg.setAttMsgCount(MAX_AGG_NAV_MSG + 1), fsw::invalid_argument);
+    EXPECT_THROW(alg.setTransMsgCount(MAX_AGG_NAV_MSG + 1), fsw::invalid_argument);
 }

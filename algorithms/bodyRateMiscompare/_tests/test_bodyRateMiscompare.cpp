@@ -1,5 +1,5 @@
 #include "bodyRateMiscompareTestHelpers.hpp"
-#include "freestandingInvalidArgument.h"
+#include "utilities/freestandingInvalidArgument.h"
 #include <gtest/gtest.h>
 #include <array>
 
@@ -35,10 +35,10 @@ TEST(BodyRateMiscompareTest, SetupTest) {
     alg.setFaultPersistenceLimit(5);
     EXPECT_EQ(alg.getFaultPersistenceLimit(), 5u);
 
-    EXPECT_THROW(alg.setBodyRateThreshold(0), fs::invalid_argument);
-    EXPECT_THROW(alg.setBodyRateThreshold(-0.1), fs::invalid_argument);
+    EXPECT_THROW(alg.setBodyRateThreshold(0), fsw::invalid_argument);
+    EXPECT_THROW(alg.setBodyRateThreshold(-0.1), fsw::invalid_argument);
 
-    EXPECT_THROW(alg.setFaultPersistenceLimit(0), fs::invalid_argument);
+    EXPECT_THROW(alg.setFaultPersistenceLimit(0), fsw::invalid_argument);
 
     EXPECT_FALSE(alg.getUseImuRates());
     alg.setUseImuRates(true);

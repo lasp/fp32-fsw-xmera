@@ -1,6 +1,6 @@
 #include "mrpPDAlgorithm.h"
-#include "../freestandingInvalidArgument.h"
 #include "../utilities/validInertiaCheck.h"
+#include "utilities/freestandingInvalidArgument.h"
 
 /*! Update method for mrpPD control algorithm. This method takes the attitude and rate errors relative to the
  reference frame, as well as the reference frame angular rates and acceleration, and computes the required control
@@ -26,7 +26,7 @@ Eigen::Vector3f MrpPDAlgorithm::update(const Eigen::Vector3f& sigma_BR,
 */
 void MrpPDAlgorithm::setSpacecraftInertia(const Eigen::Matrix3f& inertia) {
     if (!inertiaIsValid(inertia)) {
-        FS_THROW_INVALID_ARGUMENT("Matrix inertia did not pass validity checks");
+        FSW_THROW_INVALID_ARGUMENT("Matrix inertia did not pass validity checks");
     }
     this->ISCPntB_B = inertia;
 }
@@ -42,7 +42,7 @@ Eigen::Matrix3f MrpPDAlgorithm::getSpacecraftInertia() const { return this->ISCP
 */
 void MrpPDAlgorithm::setDerivativeGainP(float P) {
     if (P < 0.0) {
-        FS_THROW_INVALID_ARGUMENT("Feedback gain P must not be negative");
+        FSW_THROW_INVALID_ARGUMENT("Feedback gain P must not be negative");
     }
     this->feedbackGain = P;
 }
@@ -69,7 +69,7 @@ const Eigen::Vector3f& MrpPDAlgorithm::getKnownTorquePntB_B() const { return thi
 */
 void MrpPDAlgorithm::setProportionalGainK(float K) {
     if (K < 0.0) {
-        FS_THROW_INVALID_ARGUMENT("Feedback gain K must not be negative");
+        FSW_THROW_INVALID_ARGUMENT("Feedback gain K must not be negative");
     }
     this->proportionalGain = K;
 }

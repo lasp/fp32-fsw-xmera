@@ -5,10 +5,10 @@
 */
 
 #include "celestialTwoBodyPointAlgorithm.h"
-#include "../freestandingInvalidArgument.h"
 #include "../utilities/safeMath.h"
 #include "architecture/utilities/eigenSupport.h"
 #include "architecture/utilities/rigidBodyKinematics.hpp"
+#include "utilities/freestandingInvalidArgument.h"
 
 void CelestialTwoBodyPointAlgorithm::reset(const bool secCelBodyIsLinked) {
     this->secCelBodyIsLinked = secCelBodyIsLinked;
@@ -114,7 +114,7 @@ AttRefMsgF32Payload CelestialTwoBodyPointAlgorithm::update(EphemerisMsgF32Payloa
  */
 void CelestialTwoBodyPointAlgorithm::setSingularityThresh(const float thresh) {
     if (thresh < 0.0) {
-        FS_THROW_INVALID_ARGUMENT("Singularity threshold must not be negative");
+        FSW_THROW_INVALID_ARGUMENT("Singularity threshold must not be negative");
     }
     this->singularityThresh = thresh;
 }

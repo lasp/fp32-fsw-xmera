@@ -18,7 +18,7 @@
  */
 
 #include "rwMotorTorqueAlgorithm.h"
-#include "../freestandingInvalidArgument.h"
+#include "utilities/freestandingInvalidArgument.h"
 #include <architecture/utilities/eigenSupport.h>
 #include <stdint.h>
 #include <Eigen/LU>
@@ -40,7 +40,7 @@ void RwMotorTorqueAlgorithm::configure(RWArrayConfigMsgF32Payload& rwParamsInMsg
     for (uint32_t i = 0U; i < 3U; ++i) {
         if (this->controlAxes_B.row(i).norm() > 0.0) {
             if (this->numControlAxes < i) {
-                FS_THROW_INVALID_ARGUMENT(
+                FSW_THROW_INVALID_ARGUMENT(
                     "rwMotorTorque: found empty control axis. "
                     "Make sure to fill controlAxes matrix from top to bottom, "
                     "with zero axes (no control) at the bottom.");
@@ -49,7 +49,7 @@ void RwMotorTorqueAlgorithm::configure(RWArrayConfigMsgF32Payload& rwParamsInMsg
         }
     }
     if (this->numControlAxes == 0U) {
-        FS_THROW_INVALID_ARGUMENT("rwMotorTorque is not setup to control any axes.");
+        FSW_THROW_INVALID_ARGUMENT("rwMotorTorque is not setup to control any axes.");
     }
 
     /*! - Read static RW config data message and store it in module variables */
@@ -88,7 +88,7 @@ void RwMotorTorqueAlgorithm::configure(RWArrayConfigMsgF32Payload& rwParamsInMsg
     const auto controlMappingRank = static_cast<uint32_t>(lu_decomp.rank());
 
     if (controlMappingRank < this->numControlAxes) {
-        FS_THROW_INVALID_ARGUMENT("rwMotorTorque: control mapping matrix [CB][G_s] is not full rank.");
+        FSW_THROW_INVALID_ARGUMENT("rwMotorTorque: control mapping matrix [CB][G_s] is not full rank.");
     }
 }
 

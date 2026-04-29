@@ -10,6 +10,7 @@
    - Near-rectilinear (h -> 0+)
 */
 
+#include "../freestandingInvalidArgument.h"
 #include "../orbitalMotion.hpp"
 
 #include <gtest/gtest.h>
@@ -104,46 +105,39 @@ TEST_F(NearParabolicEllipticTest, VisViva_AtPeriapsis) {
 // ============================================================================
 // Exactly parabolic (e = 1)
 //
-// Closed-form functions: sqrt(1-e) = 0, but atan2(y, 0) is well-defined,
-// so trueToEccentric, eccentricToTrue, and trueToMean all remain finite.
+// Closed-orbit anomaly conversions (eccentric, mean, true) are defined only
+// on [0, 1). Passing e = 1 is a domain error; the functions throw
+// fsw::domain_error rather than relying on safeMath's tolerance of the
+// limit. Callers needing parabolic behavior should use parabolic-specific
+// equations (e.g. Barker's equation), not these elliptic conversions.
 //
-// elementsToCartesianState: p = a(1-e^2) = 0 -> h = sqrt(mu*p) = 0 ->
-// velocity = mu/h * (...) = Inf. This is a genuine singularity; the tests
-// document it explicitly.
+// elementsToCartesianState has no eccentricity bound check; passing e = 1
+// produces an infinite velocity (h = 0) and the test below documents that.
 //
 // cartesianStateToElements: the eccentricity vector magnitude equals 1
 // for a parabolic / rectilinear trajectory.
 // ============================================================================
 
-TEST(ParabolicOrbitTest, TrueToEccentric_Finite) {
-    // sqrt(1-1) = 0, cos_part = 0; atan2(y, 0) = +/-pi/2 (defined).
+TEST(ParabolicOrbitTest, TrueToEccentric_RejectsParabolic) {
     for (const double f : {-0.7, -0.3, 0.0, 0.3, 0.7}) {
-        const double E = orbitalMotion::trueToEccentricAnomaly(f, 1.0);
-        EXPECT_TRUE(std::isfinite(E)) << "f=" << f;
+        EXPECT_THROW(orbitalMotion::trueToEccentricAnomaly(f, 1.0), fsw::domain_error) << "f=" << f;
     }
 }
 
-TEST(ParabolicOrbitTest, EccentricToTrue_Finite) {
+TEST(ParabolicOrbitTest, EccentricToTrue_RejectsParabolic) {
     for (const double E : {-0.7, -0.3, 0.0, 0.3, 0.7}) {
-        const double f = orbitalMotion::eccentricToTrueAnomaly(E, 1.0);
-        EXPECT_TRUE(std::isfinite(f)) << "E=" << E;
+        EXPECT_THROW(orbitalMotion::eccentricToTrueAnomaly(E, 1.0), fsw::domain_error) << "E=" << E;
     }
 }
 
-TEST(ParabolicOrbitTest, TrueToMean_Finite) {
-    // Chains trueToEccentric (finite) then eccentricToMean (E - sin E, finite).
+TEST(ParabolicOrbitTest, TrueToMean_RejectsParabolic) {
     for (const double f : {-0.7, -0.3, 0.0, 0.3, 0.7}) {
-        const double M = orbitalMotion::trueToMeanAnomaly(f, 1.0);
-        EXPECT_TRUE(std::isfinite(M)) << "f=" << f;
+        EXPECT_THROW(orbitalMotion::trueToMeanAnomaly(f, 1.0), fsw::domain_error) << "f=" << f;
     }
 }
 
-// The Newton solver denominator 1 - e*cos(E) is zero at E = 0 when e = 1,
-// so meanToEccentric(0, 1) is singular. Non-zero M starts the solver away
-// from E = 0, giving a finite (if not exact) result.
-TEST(ParabolicOrbitTest, MeanToEccentric_NonzeroM_Finite) {
-    const double E = orbitalMotion::meanToEccentricAnomaly(0.5, 1.0);
-    EXPECT_TRUE(std::isfinite(E));
+TEST(ParabolicOrbitTest, MeanToEccentric_RejectsParabolic) {
+    EXPECT_THROW(orbitalMotion::meanToEccentricAnomaly(0.5, 1.0), fsw::domain_error);
 }
 
 // elementsToCartesianState with a = r_p/(1-e): for e = 1 this is Inf,

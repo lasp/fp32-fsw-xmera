@@ -2,7 +2,7 @@
 #include "architecture/utilities/eigenSupport.h"
 #include "utilities/timeConstants.h"
 
-#include "../freestandingInvalidArgument.h"
+#include "utilities/freestandingInvalidArgument.h"
 #include <math.h>
 
 /*! This method performs a complete reset of the module.  Local module variables that retain
@@ -126,7 +126,7 @@ MrpFeedbackOutput MrpFeedbackAlgorithm::update(uint64_t callTime,
 */
 void MrpFeedbackAlgorithm::setK(const float gain) {
     if (gain < 0.0) {
-        FS_THROW_INVALID_ARGUMENT("Feedback gain K must not be negative");
+        FSW_THROW_INVALID_ARGUMENT("Feedback gain K must not be negative");
     }
     this->K = gain;
 }
@@ -142,7 +142,7 @@ float MrpFeedbackAlgorithm::getK() const { return this->K; }
 */
 void MrpFeedbackAlgorithm::setP(const float gain) {
     if (gain < 0.0) {
-        FS_THROW_INVALID_ARGUMENT("Feedback gain P must not be negative");
+        FSW_THROW_INVALID_ARGUMENT("Feedback gain P must not be negative");
     }
     this->P = gain;
 }
@@ -158,7 +158,7 @@ float MrpFeedbackAlgorithm::getP() const { return this->P; }
 */
 void MrpFeedbackAlgorithm::setKi(const float gain) {
     if (gain < 0.0) {
-        FS_THROW_INVALID_ARGUMENT("Integral feedback gain Ki must not be negative");
+        FSW_THROW_INVALID_ARGUMENT("Integral feedback gain Ki must not be negative");
     }
     this->Ki = gain;
 }
@@ -174,7 +174,7 @@ float MrpFeedbackAlgorithm::getKi() const { return this->Ki; }
 */
 void MrpFeedbackAlgorithm::setIntegralLimit(const float limit) {
     if (limit < 0.0) {
-        FS_THROW_INVALID_ARGUMENT("Integral limit must not be negative");
+        FSW_THROW_INVALID_ARGUMENT("Integral limit must not be negative");
     }
     this->integralLimit = limit;
 }

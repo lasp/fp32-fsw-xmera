@@ -17,16 +17,16 @@ TEST(CssCommTest, SetupTest) {
     CssCommAlgorithm alg{};
 
     // numSensors: 0 and above-max should throw
-    EXPECT_THROW(alg.setNumSensors(0), fs::invalid_argument);
-    EXPECT_THROW(alg.setNumSensors(MAX_NUM_CSS_SENSORS + 1), fs::invalid_argument);
+    EXPECT_THROW(alg.setNumSensors(0), fsw::invalid_argument);
+    EXPECT_THROW(alg.setNumSensors(MAX_NUM_CSS_SENSORS + 1), fsw::invalid_argument);
 
     // maxSensorValue: 0 and negative should throw
-    EXPECT_THROW(alg.setMaxSensorValue(0.0), fs::invalid_argument);
-    EXPECT_THROW(alg.setMaxSensorValue(-1.0), fs::invalid_argument);
+    EXPECT_THROW(alg.setMaxSensorValue(0.0), fsw::invalid_argument);
+    EXPECT_THROW(alg.setMaxSensorValue(-1.0), fsw::invalid_argument);
 
     // chebyCount: 0 and above-max should throw
-    EXPECT_THROW(alg.setChebyCount(0), fs::invalid_argument);
-    EXPECT_THROW(alg.setChebyCount(kMaxNumChebyPolys + 1), fs::invalid_argument);
+    EXPECT_THROW(alg.setChebyCount(0), fsw::invalid_argument);
+    EXPECT_THROW(alg.setChebyCount(kMaxNumChebyPolys + 1), fsw::invalid_argument);
 
     // Getter/setter round-trips
     alg.setNumSensors(4);

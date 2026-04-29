@@ -1,9 +1,9 @@
 #ifndef TEST_CSSCOMM_H
 #define TEST_CSSCOMM_H
 
-#include "../freestandingInvalidArgument.h"
 #include "cssCommAlgorithm.h"
 #include "utilities/chebyshevUtilities.h"
+#include "utilities/freestandingInvalidArgument.h"
 #include <gtest/gtest.h>
 #include <algorithm>
 #include <cmath>

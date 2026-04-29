@@ -1,11 +1,11 @@
 #ifndef TEST_THR_FIRING_SCHMITT_H
 #define TEST_THR_FIRING_SCHMITT_H
 
-#include "../freestandingInvalidArgument.h"
 #include "msgPayloadDef/THRArrayCmdForceMsgF32Payload.h"
 #include "msgPayloadDef/THRArrayConfigMsgF32Payload.h"
 #include "msgPayloadDef/THRArrayOnTimeCmdMsgF32Payload.h"
 #include "thrFiringSchmittAlgorithm.h"
+#include "utilities/freestandingInvalidArgument.h"
 #include "utilities/timeConstants.h"
 #include <architecture/msgPayloadDef/definitions.h>
 #include <gtest/gtest.h>
@@ -114,21 +114,21 @@ inline void testThrFiringSchmittSetup() {
     // --- Test expected exceptions ---
 
     // levelOn out of bounds
-    EXPECT_THROW(alg.setLevelsOnOff(-0.1, 0.3), fs::invalid_argument);
-    EXPECT_THROW(alg.setLevelsOnOff(0.0, 0.3), fs::invalid_argument);
-    EXPECT_THROW(alg.setLevelsOnOff(1.1, 0.3), fs::invalid_argument);
+    EXPECT_THROW(alg.setLevelsOnOff(-0.1, 0.3), fsw::invalid_argument);
+    EXPECT_THROW(alg.setLevelsOnOff(0.0, 0.3), fsw::invalid_argument);
+    EXPECT_THROW(alg.setLevelsOnOff(1.1, 0.3), fsw::invalid_argument);
     // levelOff out of bounds
-    EXPECT_THROW(alg.setLevelsOnOff(0.7, -0.1), fs::invalid_argument);
-    EXPECT_THROW(alg.setLevelsOnOff(0.7, 1.0), fs::invalid_argument);
-    EXPECT_THROW(alg.setLevelsOnOff(0.7, 1.1), fs::invalid_argument);
+    EXPECT_THROW(alg.setLevelsOnOff(0.7, -0.1), fsw::invalid_argument);
+    EXPECT_THROW(alg.setLevelsOnOff(0.7, 1.0), fsw::invalid_argument);
+    EXPECT_THROW(alg.setLevelsOnOff(0.7, 1.1), fsw::invalid_argument);
     // levelOn less than levelOff
-    EXPECT_THROW(alg.setLevelsOnOff(0.1, 0.2), fs::invalid_argument);
+    EXPECT_THROW(alg.setLevelsOnOff(0.1, 0.2), fsw::invalid_argument);
     // Negative or zero thrMinFireTime
-    EXPECT_THROW(alg.setThrMinFireTime(-0.1), fs::invalid_argument);
-    EXPECT_THROW(alg.setThrMinFireTime(0.0), fs::invalid_argument);
+    EXPECT_THROW(alg.setThrMinFireTime(-0.1), fsw::invalid_argument);
+    EXPECT_THROW(alg.setThrMinFireTime(0.0), fsw::invalid_argument);
     // Negative or zero firstCallPulse
-    EXPECT_THROW(alg.setFirstCallPulse(-0.1), fs::invalid_argument);
-    EXPECT_THROW(alg.setFirstCallPulse(0.0), fs::invalid_argument);
+    EXPECT_THROW(alg.setFirstCallPulse(-0.1), fsw::invalid_argument);
+    EXPECT_THROW(alg.setFirstCallPulse(0.0), fsw::invalid_argument);
 }
 
 inline void testThrFiringSchmitt(float levelOn,
@@ -154,7 +154,7 @@ inline void testThrFiringSchmitt(float levelOn,
 
     // Set up module
     if (levelOn < levelOff) {
-        EXPECT_THROW(alg.setLevelsOnOff(levelOn, levelOff), fs::invalid_argument);
+        EXPECT_THROW(alg.setLevelsOnOff(levelOn, levelOff), fsw::invalid_argument);
         return;
     }
     EXPECT_NO_THROW(alg.setLevelsOnOff(levelOn, levelOff));

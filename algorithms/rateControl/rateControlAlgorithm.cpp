@@ -5,8 +5,8 @@
 */
 
 #include "rateControlAlgorithm.h"
-#include "../freestandingInvalidArgument.h"
 #include "../utilities/validInertiaCheck.h"
+#include "utilities/freestandingInvalidArgument.h"
 
 /*! Computes the required control torque Lr from the attitude rate error and the reference frame angular acceleration.
  @param omega_BR_B the angular velocity of the body frame relative to the reference frame,
@@ -28,7 +28,7 @@ void RateControlAlgorithm::setSpacecraftInertia(const Eigen::Matrix3f& spacecraf
     if (inertiaIsValid(spacecraftInertia)) {
         this->ISCPntB_B = spacecraftInertia;
     } else {
-        FS_THROW_INVALID_ARGUMENT("Invalid spacecraft inertia");
+        FSW_THROW_INVALID_ARGUMENT("Invalid spacecraft inertia");
     }
 }
 
@@ -37,7 +37,7 @@ void RateControlAlgorithm::setSpacecraftInertia(const Eigen::Matrix3f& spacecraf
 */
 void RateControlAlgorithm::setDerivativeGainP(const float derivativeGainP) {
     if (derivativeGainP < 0.0) {
-        FS_THROW_INVALID_ARGUMENT("Feedback gain P must not be negative");
+        FSW_THROW_INVALID_ARGUMENT("Feedback gain P must not be negative");
     }
     this->P = derivativeGainP;
 }
