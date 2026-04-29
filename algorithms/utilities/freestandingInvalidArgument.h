@@ -4,8 +4,8 @@
  Copyright (c) 2025, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
  */
 
-#ifndef FP32_XIMERA_FSW_ALGORITHMS_CUSTOMEXCEPTIONS_H
-#define FP32_XIMERA_FSW_ALGORITHMS_CUSTOMEXCEPTIONS_H
+#ifndef FP32_XMERA_FSW_ALGORITHMS_CUSTOMEXCEPTIONS_H
+#define FP32_XMERA_FSW_ALGORITHMS_CUSTOMEXCEPTIONS_H
 
 // Give a clear compile-time error if <exception> isn't present (when supported).
 #if defined(__has_include)
@@ -85,4 +85,4 @@ class invalid_argument : public std::exception {
 #endif
 #endif
 
-#endif  // FP32_XIMERA_FSW_ALGORITHMS_CUSTOMEXCEPTIONS_H
+#endif  // FP32_XMERA_FSW_ALGORITHMS_CUSTOMEXCEPTIONS_H
