@@ -22,5 +22,5 @@
 %template(FloatArray20) std::array<float, 20>;
 %include "oeStateEphem.h"
 
-%include "msgPayloadDef/TDBVehicleClockCorrelationMsgF32Payload.h"
+%include <architecture/msgPayloadDef/TDBVehicleClockCorrelationMsgPayload.h>
 %include "msgPayloadDef/EphemerisMsgF32Payload.h"
