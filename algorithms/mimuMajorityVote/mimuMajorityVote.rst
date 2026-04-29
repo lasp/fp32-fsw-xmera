@@ -143,10 +143,10 @@ Standalone Algorithm (C++ API)
 **Configuration**
 
 The detection threshold is set via ``setOmegaThreshold()`` / ``getOmegaThreshold()``.
-The threshold must be strictly positive; a zero or negative value throws ``fs::invalid_argument``.
+The threshold must be strictly positive; a zero or negative value throws ``fsw::invalid_argument``.
 
 The fault persistence limit is set via ``setFaultPersistenceLimit()`` / ``getFaultPersistenceLimit()``.
-It must be at least 1 (default); zero throws ``fs::invalid_argument``. A value of 1
+It must be at least 1 (default); zero throws ``fsw::invalid_argument``. A value of 1
 triggers the fault immediately on first detection.
 
 .. code-block:: cpp
@@ -172,7 +172,7 @@ Module Assumptions and Limitations
 
 - Exactly ``kMimuCount`` (3) ``addImuInput()`` calls must be made before ``reset()``;
   any other count throws ``std::invalid_argument``. Attempting to add more than
-  ``kMimuCount`` IMUs throws ``fs::invalid_argument``.
+  ``kMimuCount`` IMUs throws ``fsw::invalid_argument``.
 - The threshold :math:`T` must be chosen to be meaningfully larger than the float32
   rounding error in the average computation (~3 × :math:`\varepsilon_\text{mach}` ×
   :math:`|\boldsymbol{\omega}|`). For angular rates up to 1000 rad/s this is

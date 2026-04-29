@@ -29,7 +29,7 @@ TEST_F(OEStateEphemAlgorithmTest, SetAndGetGravitationalParameter) {
 }
 
 TEST_F(OEStateEphemAlgorithmTest, SetGravitationalParameterNegativeThrows) {
-    EXPECT_THROW(algorithm.setCentralBodyGravitationalParameter(-1.0), fs::invalid_argument);
+    EXPECT_THROW(algorithm.setCentralBodyGravitationalParameter(-1.0), fsw::invalid_argument);
 }
 
 TEST_F(OEStateEphemAlgorithmTest, SetAndGetEphemerisTimeJ2000) {
@@ -45,11 +45,11 @@ TEST_F(OEStateEphemAlgorithmTest, SetAndGetVehicleTime) {
 }
 
 TEST_F(OEStateEphemAlgorithmTest, SetEphemerisTimeJ2000NegativeThrows) {
-    EXPECT_THROW(algorithm.setEphemerisTimeJ2000(-1), fs::invalid_argument);
+    EXPECT_THROW(algorithm.setEphemerisTimeJ2000(-1), fsw::invalid_argument);
 }
 
 TEST_F(OEStateEphemAlgorithmTest, SetVehicleTimeNegativeThrows) {
-    EXPECT_THROW(algorithm.setVehicleTimeOffset(-1), fs::invalid_argument);
+    EXPECT_THROW(algorithm.setVehicleTimeOffset(-1), fsw::invalid_argument);
 }
 
 TEST_F(OEStateEphemAlgorithmTest, SetAndGetArcNumberOfCoefficients) {
@@ -145,7 +145,7 @@ TEST_F(OEStateEphemAlgorithmTest, SetAndGetNumberOfArcs) {
 }
 
 TEST_F(OEStateEphemAlgorithmTest, SetNumberOfArcsZeroThrows) {
-    EXPECT_THROW(algorithm.setNumberOfArcs(0), fs::invalid_argument);
+    EXPECT_THROW(algorithm.setNumberOfArcs(0), fsw::invalid_argument);
 }
 
 // ============================================================================

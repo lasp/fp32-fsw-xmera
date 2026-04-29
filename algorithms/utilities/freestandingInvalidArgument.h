@@ -21,7 +21,7 @@
 #define FS_EXC_MAX_MSG 256  // override if you need longer messages
 #endif
 
-namespace fs {
+namespace fsw {
 
 class invalid_argument : public std::exception {
    public:
@@ -47,7 +47,7 @@ class invalid_argument : public std::exception {
     }
 };
 
-}  // namespace fs
+}  // namespace fsw
 
 // Require exceptions if you want (set to 1), otherwise we'll still compile.
 #ifndef FS_REQUIRE_EXCEPTIONS
@@ -59,7 +59,7 @@ class invalid_argument : public std::exception {
 #endif
 
 #if defined(__cpp_exceptions)
-#define FS_THROW_INVALID_ARGUMENT(msg_cstr) throw fs::invalid_argument((msg_cstr))
+#define FS_THROW_INVALID_ARGUMENT(msg_cstr) throw fsw::invalid_argument((msg_cstr))
 #else
    // No <cstdio>/<cstdlib>. Use a trap so this stays freestanding.
 #if defined(__GNUC__) || defined(__clang__)

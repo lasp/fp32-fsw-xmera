@@ -119,24 +119,24 @@ inline void testMrpSteeringSetup() {
     // --- Test expected exceptions ---
 
     // Negative feedback gains or integral limit
-    EXPECT_THROW(alg.setK1(-0.1), fs::invalid_argument);
-    EXPECT_THROW(alg.setK3(-0.1), fs::invalid_argument);
-    EXPECT_THROW(alg.setP(-0.1), fs::invalid_argument);
-    EXPECT_THROW(alg.setKi(-0.1), fs::invalid_argument);
-    EXPECT_THROW(alg.setIntegralLimit(-0.1), fs::invalid_argument);
+    EXPECT_THROW(alg.setK1(-0.1), fsw::invalid_argument);
+    EXPECT_THROW(alg.setK3(-0.1), fsw::invalid_argument);
+    EXPECT_THROW(alg.setP(-0.1), fsw::invalid_argument);
+    EXPECT_THROW(alg.setKi(-0.1), fsw::invalid_argument);
+    EXPECT_THROW(alg.setIntegralLimit(-0.1), fsw::invalid_argument);
     // Non-positive maximum rate
-    EXPECT_THROW(alg.setOmegaMax(0.0), fs::invalid_argument);
-    EXPECT_THROW(alg.setOmegaMax(-0.1), fs::invalid_argument);
+    EXPECT_THROW(alg.setOmegaMax(0.0), fsw::invalid_argument);
+    EXPECT_THROW(alg.setOmegaMax(-0.1), fsw::invalid_argument);
     // Non-positive control period
-    EXPECT_THROW(alg.setControlPeriod(-0.1), fs::invalid_argument);
+    EXPECT_THROW(alg.setControlPeriod(-0.1), fsw::invalid_argument);
     // Invalid inertia matrix
     Eigen::Matrix3f badInertia{};
     badInertia << 1, 0, 0, 0, 1, 0, 0, 0, 0;
-    EXPECT_THROW(alg.setSpacecraftInertia(badInertia), fs::invalid_argument);
+    EXPECT_THROW(alg.setSpacecraftInertia(badInertia), fsw::invalid_argument);
     badInertia << 1, 0, 0, 0, 1, 0, 0, 1, 1;
-    EXPECT_THROW(alg.setSpacecraftInertia(badInertia), fs::invalid_argument);
+    EXPECT_THROW(alg.setSpacecraftInertia(badInertia), fsw::invalid_argument);
     badInertia << 3, 0, 0, 0, 1, 0, 0, 0, 1;
-    EXPECT_THROW(alg.setSpacecraftInertia(badInertia), fs::invalid_argument);
+    EXPECT_THROW(alg.setSpacecraftInertia(badInertia), fsw::invalid_argument);
 }
 
 inline void testMrpSteering(const Eigen::Vector3f& sigma,
@@ -175,7 +175,7 @@ inline void testMrpSteering(const Eigen::Vector3f& sigma,
     // Try setting inertia matrix. If invalid, skip test.
     try {
         alg.setSpacecraftInertia(ISC_B);
-    } catch (fs::invalid_argument) {
+    } catch (fsw::invalid_argument) {
         return;
     }
 

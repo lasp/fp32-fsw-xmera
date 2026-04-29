@@ -212,8 +212,8 @@ TEST(MimuMajorityVoteTest, SetupTest) {
     // --- Test expected exceptions for omegaThreshold ---
 
     // Zero or negative omegaThreshold
-    EXPECT_THROW(alg.setOmegaThreshold(0.0F), fs::invalid_argument);
-    EXPECT_THROW(alg.setOmegaThreshold(-0.1F), fs::invalid_argument);
+    EXPECT_THROW(alg.setOmegaThreshold(0.0F), fsw::invalid_argument);
+    EXPECT_THROW(alg.setOmegaThreshold(-0.1F), fsw::invalid_argument);
 
     // Valid threshold
     float threshold = 0.5F;

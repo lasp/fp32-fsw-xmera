@@ -15,14 +15,14 @@ TEST(rateControlTest, SetupTest) {
 
     // 1) Set spacecraft inertia
     const Eigen::Matrix3f I_invalid = Eigen::Matrix3f{{2.0f, 0.0f, 0.0f}, {0.1f, 3.0f, 0.2f}, {0.0f, 0.2f, 4.0f}};
-    EXPECT_THROW(alg.setSpacecraftInertia(I_invalid), fs::invalid_argument);  // invalid inertia due to not symmetry
+    EXPECT_THROW(alg.setSpacecraftInertia(I_invalid), fsw::invalid_argument);  // invalid inertia due to not symmetry
     const Eigen::Matrix3f I = Eigen::Matrix3f{{2.0f, 0.1f, 0.0f}, {0.1f, 3.0f, 0.2f}, {0.0f, 0.2f, 4.0f}};
     EXPECT_NO_THROW(alg.setSpacecraftInertia(I));
 
     // 2) Derivative gain P: allow zero and positive, reject negative
     EXPECT_NO_THROW(alg.setDerivativeGainP(0.0f));
     EXPECT_EQ(alg.getDerivativeGainP(), 0.0f);
-    EXPECT_THROW(alg.setDerivativeGainP(-1.0f), fs::invalid_argument);
+    EXPECT_THROW(alg.setDerivativeGainP(-1.0f), fsw::invalid_argument);
     EXPECT_NO_THROW(alg.setDerivativeGainP(1.25f));
     EXPECT_EQ(alg.getDerivativeGainP(), 1.25f);
 

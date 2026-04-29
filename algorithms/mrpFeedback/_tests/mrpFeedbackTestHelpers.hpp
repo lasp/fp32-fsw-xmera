@@ -117,10 +117,10 @@ inline void testMrpFeedbackSetup() {
     // --- Test expected exceptions ---
 
     // Negative feedback gains or integral limit
-    EXPECT_THROW(alg.setK(-0.1), fs::invalid_argument);
-    EXPECT_THROW(alg.setP(-0.1), fs::invalid_argument);
-    EXPECT_THROW(alg.setKi(-0.1), fs::invalid_argument);
-    EXPECT_THROW(alg.setIntegralLimit(-0.1), fs::invalid_argument);
+    EXPECT_THROW(alg.setK(-0.1), fsw::invalid_argument);
+    EXPECT_THROW(alg.setP(-0.1), fsw::invalid_argument);
+    EXPECT_THROW(alg.setKi(-0.1), fsw::invalid_argument);
+    EXPECT_THROW(alg.setIntegralLimit(-0.1), fsw::invalid_argument);
 }
 
 inline void testMrpFeedback(const Eigen::Vector3f& sigma,
