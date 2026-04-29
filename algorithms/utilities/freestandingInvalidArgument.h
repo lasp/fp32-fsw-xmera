@@ -56,6 +56,12 @@ class invalid_argument : public exception {
     const char* what() const noexcept override { return this->message[0] ? this->message : "invalid argument"; }
 };
 
+class domain_error : public exception {
+   public:
+    explicit domain_error(const char* msg) noexcept : exception(msg) {}
+    const char* what() const noexcept override { return this->message[0] ? this->message : "domain error"; }
+};
+
 }  // namespace fsw
 
 // FSW_REQUIRE_EXCEPTIONS must be a macro: it drives an #error directive,
@@ -74,6 +80,8 @@ class invalid_argument : public exception {
 #if defined(__cpp_exceptions)
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define FSW_THROW_INVALID_ARGUMENT(msg_cstr) throw fsw::invalid_argument((msg_cstr))
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
+#define FSW_THROW_DOMAIN_ERROR(msg_cstr) throw fsw::domain_error((msg_cstr))
 #else
 #if defined(__GNUC__) || defined(__clang__)
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
@@ -82,6 +90,12 @@ class invalid_argument : public exception {
         (void)(msg_cstr);                    \
         __builtin_trap();                    \
     } while (0)
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
+#define FSW_THROW_DOMAIN_ERROR(msg_cstr) \
+    do {                                 \
+        (void)(msg_cstr);                \
+        __builtin_trap();                \
+    } while (0)
 #elif defined(_MSC_VER)
 #include <intrin.h>
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
@@ -89,6 +103,12 @@ class invalid_argument : public exception {
     do {                                     \
         (void)(msg_cstr);                    \
         __debugbreak();                      \
+    } while (0)
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
+#define FSW_THROW_DOMAIN_ERROR(msg_cstr) \
+    do {                                 \
+        (void)(msg_cstr);                \
+        __debugbreak();                  \
     } while (0)
 #else
 #error "FSW_THROW_INVALID_ARGUMENT: unsupported compiler; add a trap intrinsic for this toolchain."

@@ -20,11 +20,11 @@
 #ifndef ORBITAL_MOTION_HPP
 #define ORBITAL_MOTION_HPP
 
+#include "freestandingInvalidArgument.h"
 #include "safeMath.h"
 #include <math.h>
 #include <Eigen/Core>
 #include <Eigen/Geometry>
-#include <cassert>
 #include <numbers>
 
 namespace orbitalMotion {
@@ -52,43 +52,43 @@ struct ClassicalElements {
 };
 
 inline double eccentricToTrueAnomaly(double const E, double const e) {
-    assert((e >= 0.0 && e < 1.0) && "Eccentricity out of bounds (0 <= e < 1)");
+    if (!(e >= 0.0 && e < 1.0)) FSW_THROW_DOMAIN_ERROR("Eccentricity out of bounds (0 <= e < 1)");
     return 2 * safeAtan2(safeSqrt(1 + e) * safeSin(E / 2), safeSqrt(1 - e) * safeCos(E / 2));
 }
 
 inline double eccentricToMeanAnomaly(double const E, double const e) {
-    assert((e >= 0.0 && e < 1.0) && "Eccentricity out of bounds (0 <= e < 1)");
+    if (!(e >= 0.0 && e < 1.0)) FSW_THROW_DOMAIN_ERROR("Eccentricity out of bounds (0 <= e < 1)");
     return E - (e * safeSin(E));
 }
 
 inline double trueToEccentricAnomaly(double const f, double const e) {
-    assert((e >= 0.0 && e < 1.0) && "Eccentricity out of bounds (0 <= e < 1)");
+    if (!(e >= 0.0 && e < 1.0)) FSW_THROW_DOMAIN_ERROR("Eccentricity out of bounds (0 <= e < 1)");
     return 2 * safeAtan2(safeSqrt(1 - e) * safeSin(f / 2), safeSqrt(1 + e) * safeCos(f / 2));
 }
 
 inline double trueToMeanAnomaly(double const f, double const e) {
-    assert((e >= 0.0 && e < 1.0) && "Eccentricity out of bounds (0 <= e < 1)");
+    if (!(e >= 0.0 && e < 1.0)) FSW_THROW_DOMAIN_ERROR("Eccentricity out of bounds (0 <= e < 1)");
     double const eccentric = trueToEccentricAnomaly(f, e);
     return eccentricToMeanAnomaly(eccentric, e);
 }
 
 inline double trueToHyperbolicAnomaly(double const f, double const e) {
-    assert(e > 1.0 && "Eccentricity must be > 1 for hyperbolic orbits");
+    if (!(e > 1.0)) FSW_THROW_DOMAIN_ERROR("Eccentricity must be > 1 for hyperbolic orbits");
     return 2 * safeAtanH(safeSqrt((e - 1) / (e + 1)) * safeTan(f / 2));
 }
 
 inline double hyperbolicToTrueAnomaly(double const H, double const e) {
-    assert(e > 1.0 && "Eccentricity must be > 1 for hyperbolic orbits");
+    if (!(e > 1.0)) FSW_THROW_DOMAIN_ERROR("Eccentricity must be > 1 for hyperbolic orbits");
     return 2 * safeAtan(safeSqrt((e + 1) / (e - 1)) * safeTanH(H / 2));
 }
 
 inline double hyperbolicToMeanAnomaly(double const H, double const e) {
-    assert(e > 1.0 && "Eccentricity must be > 1 for hyperbolic orbits");
+    if (!(e > 1.0)) FSW_THROW_DOMAIN_ERROR("Eccentricity must be > 1 for hyperbolic orbits");
     return (e * safeSinH(H)) - H;
 }
 
 inline double meanToEccentricAnomaly(double M, double e) {
-    assert((e >= 0.0 && e < 1.0) && "Eccentricity out of bounds (0 <= e < 1)");
+    if (!(e >= 0.0 && e < 1.0)) FSW_THROW_DOMAIN_ERROR("Eccentricity out of bounds (0 <= e < 1)");
     double E = M;
     for (int i = 0; i < kMaxNumberOfIterations; ++i) {
         double const dE = (E - e * safeSin(E) - M) / (1 - e * safeCos(E));
@@ -101,13 +101,13 @@ inline double meanToEccentricAnomaly(double M, double e) {
 }
 
 inline double meanToTrueAnomaly(double const M, double const e) {
-    assert((e >= 0.0 && e < 1.0) && "Eccentricity out of bounds (0 <= e < 1)");
+    if (!(e >= 0.0 && e < 1.0)) FSW_THROW_DOMAIN_ERROR("Eccentricity out of bounds (0 <= e < 1)");
     double const eccentric = meanToEccentricAnomaly(M, e);
     return eccentricToTrueAnomaly(eccentric, e);
 }
 
 inline double meanToHyperbolicAnomaly(const double N, const double e) {
-    assert(e > 1.0 && "Eccentricity must be > 1");
+    if (!(e > 1.0)) FSW_THROW_DOMAIN_ERROR("Eccentricity must be > 1");
     const int signN = (N > 0 ? 1 : -1);
     double H = fabs(N) > kClamp ? kClamp * static_cast<double>(signN) : N;
     for (int i = 0; i < kMaxNumberOfIterations; ++i) {
