@@ -28,13 +28,13 @@ std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES> referenceUpdate(
     const auto bodyIds = alg.getAllIds();
 
     if (celestialBodyCount == 0U) {
-        FS_THROW_INVALID_ARGUMENT("The current celestial body count is 0");
+        FSW_THROW_INVALID_ARGUMENT("The current celestial body count is 0");
     }
 
     // Find the new central body index using the returned bodyIds ordering
     const auto it = std::ranges::find(bodyIds, newCentralBodyId);
     if (it == bodyIds.end()) {
-        FS_THROW_INVALID_ARGUMENT("New zero base body was not in the list of existing bodies");
+        FSW_THROW_INVALID_ARGUMENT("New zero base body was not in the list of existing bodies");
     }
     const size_t newCentralIndex = static_cast<size_t>(std::distance(bodyIds.begin(), it));
 

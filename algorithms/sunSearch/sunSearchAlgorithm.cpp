@@ -18,7 +18,7 @@
  */
 void SunSearchAlgorithm::reset(const uint64_t currentSimNanos, const PrincipleInertias principleInertias) {
     if (this->numberOfSlews != NUM_SLEWS) {
-        FS_THROW_INVALID_ARGUMENT("The number of specified slew maneuvers must be equal to 3");
+        FSW_THROW_INVALID_ARGUMENT("The number of specified slew maneuvers must be equal to 3");
     }
 
     this->principleInertias =

@@ -83,7 +83,7 @@ void ThrFiringRemainderAlgorithm::setThrusters(const ThrusterArrayConfig& thrust
 */
 void ThrFiringRemainderAlgorithm::setThrMinFireTime(const float minFireTime) {
     if (minFireTime < 0.0) {
-        FS_THROW_INVALID_ARGUMENT("ThrFiringRemainderAlgorithm::thrMinFireTime cannot be < 0.0");
+        FSW_THROW_INVALID_ARGUMENT("ThrFiringRemainderAlgorithm::thrMinFireTime cannot be < 0.0");
     }
     this->thrMinFireTime = minFireTime;
 }
@@ -112,7 +112,7 @@ ThrustPulsingRegime ThrFiringRemainderAlgorithm::getThrustPulsingRegime() const 
 */
 void ThrFiringRemainderAlgorithm::setControlPeriod(const float period) {
     if (period <= 0.0) {
-        FS_THROW_INVALID_ARGUMENT("ThrFiringRemainderAlgorithm::controlPeriod must be > 0.0");
+        FSW_THROW_INVALID_ARGUMENT("ThrFiringRemainderAlgorithm::controlPeriod must be > 0.0");
     }
     this->controlPeriod = period;
 }

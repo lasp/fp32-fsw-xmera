@@ -64,7 +64,7 @@ RwMotorTorqueMsgF32Payload RwNullSpaceAlgorithm::update(RwMotorTorqueMsgF32Paylo
  */
 void RwNullSpaceAlgorithm::setOmegaGain(const float gain) {
     if (gain < 0.0) {
-        FS_THROW_INVALID_ARGUMENT("Feedback gain must not be negative");
+        FSW_THROW_INVALID_ARGUMENT("Feedback gain must not be negative");
     }
     this->omegaGain = gain;
 }

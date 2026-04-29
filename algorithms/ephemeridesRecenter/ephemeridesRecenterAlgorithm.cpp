@@ -84,7 +84,7 @@ size_t EphemeridesRecenterAlgorithm::getNumberOfBodies() const { return this->ce
  */
 std::array<int, MAX_NUM_CHANGE_BODIES> EphemeridesRecenterAlgorithm::getAllIds() const {
     if (this->celestialBodyCount == 0U) {
-        FS_THROW_INVALID_ARGUMENT("Requesting all body IDs but the current celestial body count is 0");
+        FSW_THROW_INVALID_ARGUMENT("Requesting all body IDs but the current celestial body count is 0");
     }
     std::array<int, MAX_NUM_CHANGE_BODIES> ids{};
     for (size_t i = 0U; i < this->celestialBodyCount; ++i) {
@@ -100,7 +100,7 @@ std::array<int, MAX_NUM_CHANGE_BODIES> EphemeridesRecenterAlgorithm::getAllIds()
  */
 void EphemeridesRecenterAlgorithm::addBodyEphemerisToRecenter(const BodyToRecenter& body) {
     if (this->celestialBodyCount + 1U > MAX_NUM_CHANGE_BODIES) {
-        FS_THROW_INVALID_ARGUMENT("Adding one body too many to the list");
+        FSW_THROW_INVALID_ARGUMENT("Adding one body too many to the list");
     }
 
     this->bodyIds.at(this->celestialBodyCount) = body.bodySpiceId;
@@ -142,7 +142,7 @@ void EphemeridesRecenterAlgorithm::checkConfiguration() {
 
         // Validate no moon-of-moon: parent must orbit the common center
         if (this->originalCentralBodyIds.at(parentIndex) != this->previousCentralBodyId) {
-            FS_THROW_INVALID_ARGUMENT("A moon's parent is itself a moon (moon-of-moon not supported)");
+            FSW_THROW_INVALID_ARGUMENT("A moon's parent is itself a moon (moon-of-moon not supported)");
         }
     }
 
@@ -154,7 +154,7 @@ void EphemeridesRecenterAlgorithm::checkConfiguration() {
         const int parentId = this->originalCentralBodyIds.at(i);
         for (size_t j = i + 1U; j < this->celestialBodyCount; ++j) {
             if (this->isMoonAtIndex.at(j) && this->originalCentralBodyIds.at(j) == parentId) {
-                FS_THROW_INVALID_ARGUMENT("A parent body has multiple moons in the list");
+                FSW_THROW_INVALID_ARGUMENT("A parent body has multiple moons in the list");
             }
         }
     }
@@ -186,5 +186,5 @@ size_t EphemeridesRecenterAlgorithm::findBodyIndex(const int bodySpiceId) const 
             return i;
         }
     }
-    FS_THROW_INVALID_ARGUMENT("Body ID not found in configured body list");
+    FSW_THROW_INVALID_ARGUMENT("Body ID not found in configured body list");
 }

@@ -49,7 +49,7 @@ OutputAverageAccelAngleVel AverageMimuDataAlgorithm::update(InputPktsData const&
 
 void AverageMimuDataAlgorithm::setAveragingWindow(float const window) {
     if (window < 0.0F) {
-        FS_THROW_INVALID_ARGUMENT("AveragingWindow cannot be smaller than 0.0");
+        FSW_THROW_INVALID_ARGUMENT("AveragingWindow cannot be smaller than 0.0");
     }
     this->averagingWindow = window;
 }
@@ -58,7 +58,7 @@ float AverageMimuDataAlgorithm::getAveragingWindow() const { return this->averag
 
 void AverageMimuDataAlgorithm::setDcmPltfToBdy(Eigen::Matrix3f const& dcm_BPIn) {
     if (!isValidDcm(dcm_BPIn)) {
-        FS_THROW_INVALID_ARGUMENT("dcm_BP must be orthonormal with det=+1.");
+        FSW_THROW_INVALID_ARGUMENT("dcm_BP must be orthonormal with det=+1.");
     }
     this->dcm_BP = dcm_BPIn;
 }

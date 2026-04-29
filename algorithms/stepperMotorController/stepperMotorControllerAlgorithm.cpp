@@ -150,7 +150,7 @@ float StepperMotorControllerAlgorithm::getThetaMin() const { return this->thetaM
 */
 void StepperMotorControllerAlgorithm::setStepAngle(const float stepAngle) {
     if (stepAngle <= 0.0) {
-        FS_THROW_INVALID_ARGUMENT("StepAngle must be positive");
+        FSW_THROW_INVALID_ARGUMENT("StepAngle must be positive");
     }
     this->stepAngle = stepAngle;
 }
@@ -166,7 +166,7 @@ float StepperMotorControllerAlgorithm::getStepAngle() const { return this->stepA
 */
 void StepperMotorControllerAlgorithm::setStepTime(const float stepTime) {
     if (stepTime <= 0.0) {
-        FS_THROW_INVALID_ARGUMENT("stepTime must be positive");
+        FSW_THROW_INVALID_ARGUMENT("stepTime must be positive");
     }
     this->stepTime = stepTime;
 }

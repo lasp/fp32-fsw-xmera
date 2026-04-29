@@ -60,7 +60,7 @@ MimuMajorityVoteOutput MimuMajorityVoteAlgorithm::update(
 
 void MimuMajorityVoteAlgorithm::setOmegaThreshold(const float omegaThresholdIn) {
     if (omegaThresholdIn <= 0.0F) {
-        FS_THROW_INVALID_ARGUMENT("Zero or negative omegaThreshold is not valid");
+        FSW_THROW_INVALID_ARGUMENT("Zero or negative omegaThreshold is not valid");
     }
     this->omegaThreshold = omegaThresholdIn;
 }
@@ -69,7 +69,7 @@ float MimuMajorityVoteAlgorithm::getOmegaThreshold() const { return this->omegaT
 
 void MimuMajorityVoteAlgorithm::setFaultPersistenceLimit(const uint32_t faultPersistenceLimitIn) {
     if (faultPersistenceLimitIn <= 0U) {
-        FS_THROW_INVALID_ARGUMENT("faultPersistenceLimit must be at least 1");
+        FSW_THROW_INVALID_ARGUMENT("faultPersistenceLimit must be at least 1");
     }
     this->faultPersistenceLimit = faultPersistenceLimitIn;
 }

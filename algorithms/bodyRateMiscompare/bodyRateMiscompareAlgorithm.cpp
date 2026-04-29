@@ -44,7 +44,7 @@ BodyRateMiscompareOutput BodyRateMiscompareAlgorithm::update(const Eigen::Vector
  */
 void BodyRateMiscompareAlgorithm::setBodyRateThreshold(float const bodyRateThresholdIn) {
     if (bodyRateThresholdIn <= 0.0F) {
-        FS_THROW_INVALID_ARGUMENT("Zero or negative bodyRateThreshold is not valid");
+        FSW_THROW_INVALID_ARGUMENT("Zero or negative bodyRateThreshold is not valid");
     }
     this->bodyRateThreshold = bodyRateThresholdIn;
 }
@@ -60,7 +60,7 @@ float BodyRateMiscompareAlgorithm::getBodyRateThreshold() const { return this->b
  */
 void BodyRateMiscompareAlgorithm::setFaultPersistenceLimit(uint32_t const faultPersistenceLimitIn) {
     if (faultPersistenceLimitIn <= 0U) {
-        FS_THROW_INVALID_ARGUMENT("faultPersistenceLimit must be positive");
+        FSW_THROW_INVALID_ARGUMENT("faultPersistenceLimit must be positive");
     }
     this->faultPersistenceLimit = faultPersistenceLimitIn;
 }

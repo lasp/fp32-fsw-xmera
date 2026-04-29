@@ -116,7 +116,7 @@ Eigen::Vector3f MrpSteeringAlgorithm::update(const InputGuidanceData& attGuidInp
 */
 void MrpSteeringAlgorithm::setSpacecraftInertia(const Eigen::Matrix3f& inertia) {
     if (!inertiaIsValid(inertia)) {
-        FS_THROW_INVALID_ARGUMENT("Matrix inertia did not pass validity checks");
+        FSW_THROW_INVALID_ARGUMENT("Matrix inertia did not pass validity checks");
     }
     this->ISCPntB_B = inertia;
 }
@@ -132,7 +132,7 @@ Eigen::Matrix3f MrpSteeringAlgorithm::getSpacecraftInertia() const { return this
 */
 void MrpSteeringAlgorithm::setK1(const float gain) {
     if (gain < 0.0) {
-        FS_THROW_INVALID_ARGUMENT("mrpSteering feedback gain K1 must not be negative");
+        FSW_THROW_INVALID_ARGUMENT("mrpSteering feedback gain K1 must not be negative");
     }
     this->K1 = gain;
 }
@@ -148,7 +148,7 @@ float MrpSteeringAlgorithm::getK1() const { return this->K1; }
 */
 void MrpSteeringAlgorithm::setK3(const float gain) {
     if (gain < 0.0) {
-        FS_THROW_INVALID_ARGUMENT("mrpSteering feedback gain K3 must not be negative");
+        FSW_THROW_INVALID_ARGUMENT("mrpSteering feedback gain K3 must not be negative");
     }
     this->K3 = gain;
 }
@@ -164,7 +164,7 @@ float MrpSteeringAlgorithm::getK3() const { return this->K3; }
 */
 void MrpSteeringAlgorithm::setOmegaMax(const float omega) {
     if (omega <= 0.0) {
-        FS_THROW_INVALID_ARGUMENT("mrpSteering maximum rate omegaMax must be positive");
+        FSW_THROW_INVALID_ARGUMENT("mrpSteering maximum rate omegaMax must be positive");
     }
     this->omegaMax = omega;
 }
@@ -191,7 +191,7 @@ bool MrpSteeringAlgorithm::getIgnoreFeedforward() const { return this->ignoreOut
 */
 void MrpSteeringAlgorithm::setP(const float gain) {
     if (gain < 0.0) {
-        FS_THROW_INVALID_ARGUMENT("Feedback gain P must not be negative");
+        FSW_THROW_INVALID_ARGUMENT("Feedback gain P must not be negative");
     }
     this->P = gain;
 }
@@ -207,7 +207,7 @@ float MrpSteeringAlgorithm::getP() const { return this->P; }
 */
 void MrpSteeringAlgorithm::setKi(const float gain) {
     if (gain < 0.0) {
-        FS_THROW_INVALID_ARGUMENT("Integral feedback gain Ki must not be negative");
+        FSW_THROW_INVALID_ARGUMENT("Integral feedback gain Ki must not be negative");
     }
     this->Ki = gain;
 }
@@ -223,7 +223,7 @@ float MrpSteeringAlgorithm::getKi() const { return this->Ki; }
 */
 void MrpSteeringAlgorithm::setIntegralLimit(const float limit) {
     if (limit < 0.0) {
-        FS_THROW_INVALID_ARGUMENT("Integral limit must not be negative");
+        FSW_THROW_INVALID_ARGUMENT("Integral limit must not be negative");
     }
     this->integralLimit = limit;
 }
@@ -250,7 +250,7 @@ Eigen::Vector3f MrpSteeringAlgorithm::getKnownTorquePntB_B() const { return this
  */
 void MrpSteeringAlgorithm::setControlPeriod(const float period) {
     if (period <= 0.0) {
-        FS_THROW_INVALID_ARGUMENT("controlPeriod must be > 0.0");
+        FSW_THROW_INVALID_ARGUMENT("controlPeriod must be > 0.0");
     }
     this->controlPeriod = period;
 }

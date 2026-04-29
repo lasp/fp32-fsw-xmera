@@ -37,10 +37,10 @@ std::array<double, MAX_NUM_CSS_SENSORS> CssCommAlgorithm::update(
 */
 void CssCommAlgorithm::setNumSensors(const uint32_t numberOfSensors) {
     if (numberOfSensors > MAX_NUM_CSS_SENSORS) {
-        FS_THROW_INVALID_ARGUMENT("The configured number of CSS sensors exceeds the maximum");
+        FSW_THROW_INVALID_ARGUMENT("The configured number of CSS sensors exceeds the maximum");
     }
     if (numberOfSensors <= 0) {
-        FS_THROW_INVALID_ARGUMENT("The number of configures CSS sensors must be positive.");
+        FSW_THROW_INVALID_ARGUMENT("The number of configures CSS sensors must be positive.");
     }
     this->numSensors = numberOfSensors;
 }
@@ -56,7 +56,7 @@ uint32_t CssCommAlgorithm::getNumSensors() const { return this->numSensors; }
 */
 void CssCommAlgorithm::setMaxSensorValue(const double maxValue) {
     if (maxValue <= 0) {
-        FS_THROW_INVALID_ARGUMENT(
+        FSW_THROW_INVALID_ARGUMENT(
             "The maximum CSS sensor value must be positive. Otherwise, CSS sensor values "
             "will be normalized by zero, inducing faux saturation!");
     }
@@ -74,10 +74,10 @@ double CssCommAlgorithm::getMaxSensorValue() const { return this->maxSensorValue
 */
 void CssCommAlgorithm::setChebyCount(const uint32_t count) {
     if (count <= 0) {
-        FS_THROW_INVALID_ARGUMENT("The cheby polynomial count must be positive.");
+        FSW_THROW_INVALID_ARGUMENT("The cheby polynomial count must be positive.");
     }
     if (count > static_cast<uint32_t>(kMaxNumChebyPolys)) {
-        FS_THROW_INVALID_ARGUMENT("The cheby polynomial count exceeds the maximum allowed.");
+        FSW_THROW_INVALID_ARGUMENT("The cheby polynomial count exceeds the maximum allowed.");
     }
     this->chebyCount = count;
 }

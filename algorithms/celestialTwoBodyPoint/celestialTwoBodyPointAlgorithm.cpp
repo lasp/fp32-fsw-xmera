@@ -114,7 +114,7 @@ AttRefMsgF32Payload CelestialTwoBodyPointAlgorithm::update(EphemerisMsgF32Payloa
  */
 void CelestialTwoBodyPointAlgorithm::setSingularityThresh(const float thresh) {
     if (thresh < 0.0) {
-        FS_THROW_INVALID_ARGUMENT("Singularity threshold must not be negative");
+        FSW_THROW_INVALID_ARGUMENT("Singularity threshold must not be negative");
     }
     this->singularityThresh = thresh;
 }

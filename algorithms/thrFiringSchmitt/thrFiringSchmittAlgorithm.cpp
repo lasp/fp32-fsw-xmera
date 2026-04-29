@@ -101,13 +101,13 @@ std::array<float, 2U> ThrFiringSchmittAlgorithm::getLevelsOnOff() const { return
  */
 void ThrFiringSchmittAlgorithm::setLevelsOnOff(const float levelOn, const float levelOff) {
     if (levelOn <= 0.0 || levelOn > 1.0) {
-        FS_THROW_INVALID_ARGUMENT("ThrFiringSchmitt.levelOn must be within the bounds 0.0 < levelOn <= 1.0.");
+        FSW_THROW_INVALID_ARGUMENT("ThrFiringSchmitt.levelOn must be within the bounds 0.0 < levelOn <= 1.0.");
     }
     if (levelOff < 0.0 || levelOff >= 1.0) {
-        FS_THROW_INVALID_ARGUMENT("ThrFiringSchmitt.levelOff must be within the bounds 0.0 <= levelOff < 1.0.");
+        FSW_THROW_INVALID_ARGUMENT("ThrFiringSchmitt.levelOff must be within the bounds 0.0 <= levelOff < 1.0.");
     }
     if (levelOn < levelOff) {
-        FS_THROW_INVALID_ARGUMENT("ThrFiringSchmitt.levelOn must not be less than ThrFiringSchmitt.levelOff.");
+        FSW_THROW_INVALID_ARGUMENT("ThrFiringSchmitt.levelOn must not be less than ThrFiringSchmitt.levelOff.");
     }
     this->levelOn = levelOn;
     this->levelOff = levelOff;
@@ -125,7 +125,7 @@ float ThrFiringSchmittAlgorithm::getThrMinFireTime() const { return this->thrMin
  */
 void ThrFiringSchmittAlgorithm::setThrMinFireTime(float time) {
     if (time <= 0.0) {
-        FS_THROW_INVALID_ARGUMENT("ThrFiringSchmitt.thrMinFireTime must be positive.");
+        FSW_THROW_INVALID_ARGUMENT("ThrFiringSchmitt.thrMinFireTime must be positive.");
     }
     this->thrMinFireTime = time;
 }
@@ -156,7 +156,7 @@ float ThrFiringSchmittAlgorithm::getFirstCallPulse() const { return this->firstC
  */
 void ThrFiringSchmittAlgorithm::setFirstCallPulse(float time) {
     if (time <= 0.0) {
-        FS_THROW_INVALID_ARGUMENT("ThrFiringSchmitt.firstCallPulse must be positive.");
+        FSW_THROW_INVALID_ARGUMENT("ThrFiringSchmitt.firstCallPulse must be positive.");
     }
     this->firstCallPulse = time;
 }
