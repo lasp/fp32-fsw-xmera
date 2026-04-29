@@ -44,7 +44,8 @@ Eigen::Vector<float, MAX_EFF_CNT> ForceTorqueThrForceMappingAlgorithm::update(co
 
 /*! Compute the thruster mapping matrix via a truncated-SVD pseudo-inverse of DG. Singular values
  *  below a relative tolerance (sigma_max * eps * max(m,n)) are treated as zero, which projects
- *  uncontrollable directions in the 6-D command space out of the result.
+ *  uncontrollable directions in the 6-D command space out of the result. Throws if any axis flagged
+ *  in desiredControlAxes_B lies outside the column space of DG.
  */
 void ForceTorqueThrForceMappingAlgorithm::computeThrusterMapping() {
     /* - compute thruster locations relative to COM */
@@ -72,6 +73,26 @@ void ForceTorqueThrForceMappingAlgorithm::computeThrusterMapping() {
     for (int i = 0; i < 6; ++i) {
         if (sv(i) > tol) {
             invSv(i) = 1.0F / sv(i);
+        }
+    }
+
+    // Cross-check desiredControlAxes_B against the SVD
+    constexpr float kControllabilityResidualSqTol = 1e-6F;
+    const Eigen::Matrix<float, 6, 6>& U = svd.matrixU();
+    for (int axis = 0; axis < 6; ++axis) {
+        if (!this->desiredControlAxes_B.at(static_cast<std::size_t>(axis))) {
+            continue;
+        }
+        float residualSq = 0.0F;
+        for (int k = 0; k < 6; ++k) {
+            if (sv(k) <= tol) {
+                residualSq += U(axis, k) * U(axis, k);
+            }
+        }
+        if (residualSq > kControllabilityResidualSqTol) {
+            FSW_THROW_INVALID_ARGUMENT(
+                "forceTorqueThrForceMapping: an axis marked in desiredControlAxes_B is not "
+                "controllable by the configured thruster array");
         }
     }
 
@@ -140,3 +161,21 @@ void ForceTorqueThrForceMappingAlgorithm::setCoM_B(const Eigen::Vector3f& center
  @return Eigen::Vector3f [m]
 */
 Eigen::Vector3f ForceTorqueThrForceMappingAlgorithm::getCoM_B() const { return this->CoM_B; }
+
+/*! Setter for the desiredControlAxes_B assertion vector. The first three entries are the torque
+ *  components xyz in body frame B; the last three are the force components xyz in body frame B. A
+ *  true entry asserts that the corresponding axis must be controllable by the configured thruster
+ *  array; the assertion is checked against the SVD of DG inside computeThrusterMapping().
+ @return void
+ @param desiredControlAxes per-axis controllability assertions
+*/
+void ForceTorqueThrForceMappingAlgorithm::setDesiredControlAxes(const std::array<bool, 6>& desiredControlAxes) {
+    this->desiredControlAxes_B = desiredControlAxes;
+}
+
+/*! Getter for the desiredControlAxes_B assertion vector.
+ @return std::array<bool, 6>
+*/
+std::array<bool, 6> ForceTorqueThrForceMappingAlgorithm::getDesiredControlAxes() const {
+    return this->desiredControlAxes_B;
+}

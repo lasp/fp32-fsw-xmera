@@ -66,3 +66,19 @@ void ForceTorqueThrForceMapping::updateState(const uint64_t callTime) {
     eigenVectorToCArray(thrForce, thrForceCmdOut.thrForce);
     this->thrForceCmdOutMsg.write(&thrForceCmdOut, this->moduleID, callTime);
 }
+
+/*! Setter for the desiredControlAxes_B controllability assertion vector. See the algorithm class for
+ *  the layout (torque xyz then force xyz, all in body frame B).
+ @return void
+ @param desiredControlAxes per-axis controllability assertions
+*/
+void ForceTorqueThrForceMapping::setDesiredControlAxes(const std::array<bool, 6>& desiredControlAxes) {
+    this->algorithm.setDesiredControlAxes(desiredControlAxes);
+}
+
+/*! Getter for the desiredControlAxes_B controllability assertion vector.
+ @return std::array<bool, 6>
+*/
+std::array<bool, 6> ForceTorqueThrForceMapping::getDesiredControlAxes() const {
+    return this->algorithm.getDesiredControlAxes();
+}

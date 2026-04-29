@@ -73,15 +73,30 @@ Test 4: Ensures that the forceTorqueThrForce module can compute a valid solution
         each direction.
 """
 
-@pytest.mark.parametrize("rcs_location, rcs_direction, requested_torque, requested_force, torque_in_msg_flag",
-                         [(rcs_location_data_1, rcs_direction_data_1, [0.4, 0.2, 0.4], [0.9, 1.1, 0.], True),
-                          (rcs_location_data_1, rcs_direction_data_1, [0.0, 0.0, 0.0], [0.9, 1.1, 0.], True),
-                          (rcs_location_data_1, rcs_direction_data_1, [0.0, 0.0, 0.0], [0.9, 1.1, 0.], False),
-                          (rcs_location_data_2, rcs_direction_data_2, [0.0, 0.0, 0.0], [0.9, 1.1, 1.], True),
-                          (rcs_location_data_rand, rcs_direction_data_rand, torque_rand, force_rand, True)])
+# Per-layout controllability assertions for desiredControlAxes_B. Layout 1's directions all lie in
+# the body x-y plane, so torque xyz + force xy are controllable but force_z is not. Layout 2 is
+# full-rank. The random layout is left unasserted (all False) so the assertion stays decoupled from
+# the rng seed.
+desired_control_axes_layout_1 = [True, True, True, True, True, False]
+desired_control_axes_layout_2 = [True, True, True, True, True, True]
+desired_control_axes_unasserted = [False, False, False, False, False, False]
+
+
+@pytest.mark.parametrize("rcs_location, rcs_direction, requested_torque, requested_force, "
+                         "torque_in_msg_flag, desired_control_axes",
+                         [(rcs_location_data_1, rcs_direction_data_1, [0.4, 0.2, 0.4], [0.9, 1.1, 0.], True,
+                           desired_control_axes_layout_1),
+                          (rcs_location_data_1, rcs_direction_data_1, [0.0, 0.0, 0.0], [0.9, 1.1, 0.], True,
+                           desired_control_axes_layout_1),
+                          (rcs_location_data_1, rcs_direction_data_1, [0.0, 0.0, 0.0], [0.9, 1.1, 0.], False,
+                           desired_control_axes_layout_1),
+                          (rcs_location_data_2, rcs_direction_data_2, [0.0, 0.0, 0.0], [0.9, 1.1, 1.], True,
+                           desired_control_axes_layout_2),
+                          (rcs_location_data_rand, rcs_direction_data_rand, torque_rand, force_rand, True,
+                           desired_control_axes_unasserted)])
 
 def test_force_torque_thr_force_mapping(rcs_location, rcs_direction, requested_torque, requested_force,
-                                        torque_in_msg_flag):
+                                        torque_in_msg_flag, desired_control_axes):
     unit_task_name = "unitTask"
     unit_process_name = "TestProcess"
 
@@ -93,6 +108,7 @@ def test_force_torque_thr_force_mapping(rcs_location, rcs_direction, requested_t
     # setup module to be tested
     module = forceTorqueThrForceMappingF32.ForceTorqueThrForceMapping()
     module.modelTag = "forceTorqueThrForceMappingTag"
+    module.desiredControlAxes_B = desired_control_axes
     unit_test_sim.AddModelToTask(unit_task_name, module)
 
     # Configure blank module input messages
@@ -178,4 +194,5 @@ if __name__ == "__main__":
                                         rcs_direction_data_1,
                                         [0.4, 0.2, 0.4],
                                         [0.9, 1.1, 0.],
-                                        True)
+                                        True,
+                                        desired_control_axes_layout_1)

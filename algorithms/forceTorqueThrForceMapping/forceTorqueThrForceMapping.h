@@ -10,6 +10,7 @@
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
 #include <stdint.h>
+#include <array>
 
 /*! @brief This module maps thruster forces for arbitrary forces and torques
  */
@@ -20,6 +21,9 @@ class ForceTorqueThrForceMapping : public SysModel {
 
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
+
+    void setDesiredControlAxes(const std::array<bool, 6>& desiredControlAxes);
+    std::array<bool, 6> getDesiredControlAxes() const;
 
     /* declare module IO interfaces */
     ReadFunctor<CmdTorqueBodyMsgF32Payload> cmdTorqueInMsg;    //!< (optional) vehicle control (Lr) input message
