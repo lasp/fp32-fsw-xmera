@@ -8,7 +8,7 @@
 #define F32XIMERA_OE_STATE_EPHEM_H
 
 #include "msgPayloadDef/EphemerisMsgF32Payload.h"
-#include "msgPayloadDef/TDBVehicleClockCorrelationMsgF32Payload.h"
+#include <architecture/msgPayloadDef/TDBVehicleClockCorrelationMsgPayload.h>
 #include "oeStateEphemAlgorithm.h"
 
 #include <architecture/_GeneralModuleFiles/sys_model.h>
@@ -28,7 +28,7 @@ class OEStateEphem : public SysModel {
     void reset(uint64_t callTime) override;
 
     Message<EphemerisMsgF32Payload> stateFitOutMsg;                       //!< [-] output navigation message for pos/vel
-    ReadFunctor<TDBVehicleClockCorrelationMsgF32Payload> clockCorrInMsg;  //!< clock correlation input message
+    ReadFunctor<TDBVehicleClockCorrelationMsgPayload> clockCorrInMsg;  //!< clock correlation input message
 
     void setCentralBodyGravitationalParameter(double gravitationalParameter);
     double getCentralBodyGravitationalParameter() const;

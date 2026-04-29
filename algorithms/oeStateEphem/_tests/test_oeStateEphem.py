@@ -63,11 +63,11 @@ def test_zero_inputs(show_plots):
     oe_ephemeris_module.setArcRadiusTime(0, 1/2.0)
     oe_ephemeris_module.setArcAnomalyFlag(0, oeStateEphemF32.TRUE_ANOMALY)
 
-    clock_correlation_data = messaging.TDBVehicleClockCorrelationMsgF32Payload()
+    clock_correlation_data = messaging.TDBVehicleClockCorrelationMsgPayload()
     clock_correlation_data.vehicleClockTime = 0.0
     clock_correlation_data.ephemerisTime = oe_ephemeris_module.getArcMiddleTime(0) - oe_ephemeris_module.getArcRadiusTime(0)
 
-    clock_input_msg = messaging.TDBVehicleClockCorrelationMsgF32().write(clock_correlation_data)
+    clock_input_msg = messaging.TDBVehicleClockCorrelationMsg().write(clock_correlation_data)
     oe_ephemeris_module.clockCorrInMsg.subscribeTo(clock_input_msg)
 
     ephemeris_log = oe_ephemeris_module.stateFitOutMsg.recorder()
@@ -180,11 +180,11 @@ def cheby_fit(show_plots, valid_curve, anomaly_flag):
     if anomaly_flag is not None:
         oe_ephemeris_module.setArcAnomalyFlag(0, anomaly_flag)
 
-    clock_correlation_data = messaging.TDBVehicleClockCorrelationMsgF32Payload()
+    clock_correlation_data = messaging.TDBVehicleClockCorrelationMsgPayload()
     clock_correlation_data.vehicleClockTime = 0.0
     clock_correlation_data.ephemerisTime = oe_ephemeris_module.getArcMiddleTime(0) - oe_ephemeris_module.getArcRadiusTime(0)
 
-    clock_input_msg = messaging.TDBVehicleClockCorrelationMsgF32().write(clock_correlation_data)
+    clock_input_msg = messaging.TDBVehicleClockCorrelationMsg().write(clock_correlation_data)
     oe_ephemeris_module.clockCorrInMsg.subscribeTo(clock_input_msg)
 
     ephemeris_log = oe_ephemeris_module.stateFitOutMsg.recorder()
