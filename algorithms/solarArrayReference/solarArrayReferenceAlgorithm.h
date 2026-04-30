@@ -22,11 +22,18 @@ class SolarArrayReferenceAlgorithm final {
                                      double theta,
                                      uint64_t callTime);
 
+    void setA1Hat_B(const Eigen::Vector3d& axis);
+    Eigen::Vector3d getA1Hat_B() const;
+    void setA2Hat_B(const Eigen::Vector3d& normal);
+    Eigen::Vector3d getA2Hat_B() const;
+    void setAttitudeFrame(int frame);
+    int getAttitudeFrame() const;
+
+   private:
     Eigen::Vector3d a1Hat_B{Eigen::Vector3d::Zero()};  //!< solar array drive axis in body frame coordinates
     Eigen::Vector3d a2Hat_B{Eigen::Vector3d::Zero()};  //!< solar array surface normal at zero rotation
     int attitudeFrame{};  //!< flag = 1: compute theta reference based on current attitude instead of attitude reference
 
-   private:
     int count{};           //!< counter variable for finite differences
     uint64_t priorT{};     //!< prior call time for finite differences
     double priorThetaR{};  //!< prior output msg for finite differences

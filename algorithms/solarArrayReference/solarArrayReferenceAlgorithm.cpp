@@ -101,3 +101,51 @@ SolarArrayReferenceOutput SolarArrayReferenceAlgorithm::update(const Eigen::Vect
 
     return output;
 }
+
+/*! Set the solar array drive axis in body frame coordinates.
+ *  The vector must be non-zero; it is normalized before storing.
+ *  @param axis [-] solar array drive axis in body frame coordinates
+ */
+void SolarArrayReferenceAlgorithm::setA1Hat_B(const Eigen::Vector3d& axis) {
+    if (axis.norm() == 0) {
+        FSW_THROW_INVALID_ARGUMENT("solarArrayReferenceAlgorithm.a1Hat_B must be non-zero.");
+    }
+    this->a1Hat_B = axis.normalized();
+}
+
+/*! Get the solar array drive axis in body frame coordinates.
+ *  @return Eigen::Vector3d [-] solar array drive axis in body frame coordinates
+ */
+Eigen::Vector3d SolarArrayReferenceAlgorithm::getA1Hat_B() const { return this->a1Hat_B; }
+
+/*! Set the solar array surface normal at zero rotation.
+ *  The vector must be non-zero; it is normalized before storing.
+ *  @param normal [-] solar array surface normal at zero rotation
+ */
+void SolarArrayReferenceAlgorithm::setA2Hat_B(const Eigen::Vector3d& normal) {
+    if (normal.norm() == 0) {
+        FSW_THROW_INVALID_ARGUMENT("solarArrayReferenceAlgorithm.a2Hat_B must be non-zero.");
+    }
+    this->a2Hat_B = normal.normalized();
+}
+
+/*! Get the solar array surface normal at zero rotation.
+ *  @return Eigen::Vector3d [-] solar array surface normal at zero rotation
+ */
+Eigen::Vector3d SolarArrayReferenceAlgorithm::getA2Hat_B() const { return this->a2Hat_B; }
+
+/*! Set the attitude frame flag.
+ *  Must be 0 (referenceFrame) or 1 (bodyFrame).
+ *  @param frame attitude frame flag (0 or 1)
+ */
+void SolarArrayReferenceAlgorithm::setAttitudeFrame(const int frame) {
+    if (frame != referenceFrame && frame != bodyFrame) {
+        FSW_THROW_INVALID_ARGUMENT("solarArrayReferenceAlgorithm.attitudeFrame must be 0 or 1.");
+    }
+    this->attitudeFrame = frame;
+}
+
+/*! Get the attitude frame flag.
+ *  @return int attitude frame flag (0 = referenceFrame, 1 = bodyFrame)
+ */
+int SolarArrayReferenceAlgorithm::getAttitudeFrame() const { return this->attitudeFrame; }

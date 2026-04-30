@@ -15,10 +15,12 @@ class SolarArrayReference : public SysModel {
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
 
-    /* declare these user-defined quantities */
-    Eigen::Vector3d a1Hat_B{Eigen::Vector3d::Zero()};  //!< solar array drive axis in body frame coordinates
-    Eigen::Vector3d a2Hat_B{Eigen::Vector3d::Zero()};  //!< solar array surface normal at zero rotation
-    int attitudeFrame{};  //!< flag = 1: compute theta reference based on current attitude instead of attitude reference
+    void setA1Hat_B(const Eigen::Vector3d& axis);
+    Eigen::Vector3d getA1Hat_B() const;
+    void setA2Hat_B(const Eigen::Vector3d& normal);
+    Eigen::Vector3d getA2Hat_B() const;
+    void setAttitudeFrame(int frame);
+    int getAttitudeFrame() const;
 
     /* declare module IO interfaces */
     ReadFunctor<NavAttMsgPayload> attNavInMsg;                    //!< input msg measured attitude
