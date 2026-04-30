@@ -7,20 +7,14 @@
 #ifndef F32XIMERA_EPHEM_RECENTER_ALGORITHM_H
 #define F32XIMERA_EPHEM_RECENTER_ALGORITHM_H
 
+#include "ephemeridesRecenterTypes.h"
 #include <Eigen/Dense>
 #include <array>
 #include <cstddef>
 
-inline constexpr std::size_t MAX_NUM_CHANGE_BODIES = 20U;
-
 struct MoonIndexFound {
     size_t index{};
     bool found{false};
-};
-
-struct BodyToRecenter {
-    int bodySpiceId{};
-    int originalCentralBodyId{};
 };
 
 /**
