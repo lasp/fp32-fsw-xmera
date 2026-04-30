@@ -66,13 +66,21 @@ TEST(SolarArrayReferenceTest, SetupTest) {
     // Alignment threshold: negative should throw
     EXPECT_THROW(alg.setAlignmentThreshold(-0.01F), fsw::invalid_argument);
 
+    // Alignment threshold: zero should throw
+    EXPECT_THROW(alg.setAlignmentThreshold(0.0F), fsw::invalid_argument);
+
+    // Alignment threshold: below 1e-3 (fp32 precision floor) should throw
+    EXPECT_THROW(alg.setAlignmentThreshold(1e-4F), fsw::invalid_argument);
+
     // Alignment threshold: above pi/2 should throw
     constexpr float halfPi = std::numbers::pi_v<float> / 2.0F;
     EXPECT_THROW(alg.setAlignmentThreshold(halfPi + 0.01F), fsw::invalid_argument);
 
     // Valid alignment threshold should not throw
-    EXPECT_NO_THROW(alg.setAlignmentThreshold(0.0F));
     EXPECT_NO_THROW(alg.setAlignmentThreshold(halfPi));
+
+    // Lower bound exactly at 1e-3 should not throw
+    EXPECT_NO_THROW(alg.setAlignmentThreshold(1e-3F));
 
     // Alignment threshold round-trip
     alg.setAlignmentThreshold(0.05F);

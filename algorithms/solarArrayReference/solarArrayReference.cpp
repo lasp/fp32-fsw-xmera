@@ -47,7 +47,7 @@ std::array<Eigen::Vector3f, 2> SolarArrayReference::getSolarArrayAxes_B() const 
 }
 
 /*! Set the alignment threshold angle between sun direction and drive axis.
- *  @param threshold [rad] angle threshold in [0, pi/2]
+ *  @param threshold [rad] angle threshold in [1e-3, pi/2]
  */
 void SolarArrayReference::setAlignmentThreshold(const float threshold) {
     this->algorithm.setAlignmentThreshold(threshold);

@@ -100,11 +100,16 @@ std::array<Eigen::Vector3f, 2> SolarArrayReferenceAlgorithm::getSolarArrayAxes_B
 }
 
 /*! Set the alignment threshold angle between sun direction and drive axis.
- *  @param threshold [rad] angle threshold in [0, pi/2]
+ *  The lower bound of 1e-3 rad reflects the fp32 precision floor for the alignment check: with unit-vector
+ *  rounding of O(eps) ~ 1e-7, the dot product comes out 1 - O(1e-7), and acos amplifies this to
+ *  sqrt(2 * 1e-7) ~ 5e-4 rad. Any threshold smaller than ~1e-3 rad is below the noise floor and would make
+ *  the alignment check unreliable.
+ *  @param threshold [rad] angle threshold in [1e-3, pi/2]
  */
 void SolarArrayReferenceAlgorithm::setAlignmentThreshold(const float threshold) {
-    if (threshold < 0.0F || threshold > std::numbers::pi_v<float> / 2.0F) {
-        FSW_THROW_INVALID_ARGUMENT("solarArrayReferenceAlgorithm.alignmentThreshold must be in [0, pi/2].");
+    constexpr float minAlignmentThreshold = 1e-3F;
+    if (threshold < minAlignmentThreshold || threshold > std::numbers::pi_v<float> / 2.0F) {
+        FSW_THROW_INVALID_ARGUMENT("solarArrayReferenceAlgorithm.alignmentThreshold must be in [1e-3, pi/2].");
     }
     this->alignmentThreshold = threshold;
 }

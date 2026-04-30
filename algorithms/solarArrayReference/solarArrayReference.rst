@@ -73,7 +73,11 @@ The following table lists all the module parameters than can be set. The paramet
       - ``1e-3``
       - Threshold angle :math:`\epsilon_a` between the Sun direction and the drive axis below which the Sun is
         considered aligned with the drive axis (no preferred rotation)
-      - Must be in :math:`[0, \pi/2]` (checked in setter)
+      - Must be in :math:`[10^{-3},\, \pi/2]` (checked in setter). The lower bound matches the fp32 precision
+        floor of the alignment check: unit-vector rounding of :math:`\mathcal{O}(\varepsilon_{\text{f32}})
+        \approx 10^{-7}` produces a dot product :math:`1 - \mathcal{O}(10^{-7})`, and :math:`\arccos`
+        amplifies this to :math:`\sqrt{2\cdot 10^{-7}} \approx 5\times 10^{-4}` rad, so any threshold below
+        :math:`10^{-3}` rad is below the noise floor.
     * - trackingMode
       - TrackingMode
       - [-]
