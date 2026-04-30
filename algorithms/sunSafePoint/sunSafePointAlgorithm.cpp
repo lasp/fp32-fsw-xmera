@@ -2,8 +2,8 @@
 
 #include "architecture/utilities/eigenSupport.h"
 #include "architecture/utilities/rigidBodyKinematics.hpp"
+#include "utilities/freestandingInvalidArgument.h"
 #include "../utilities/safeMath.h"
-#include <cassert>
 #include <cmath>
 
 /*! Reset method for the sunSafePoint guidance algorithm.
@@ -141,8 +141,10 @@ Eigen::Vector3f SunSafePointAlgorithm::getSHatBdyCmd() const { return this->sHat
  @param minUnitMag The minimally acceptable norm of sun body vector (Must be positive)
 */
 void SunSafePointAlgorithm::setMinUnitMag(float minUnitMag) {
-    assert(minUnitMag > 0.0f);
-    this->minUnitMag = std::abs(minUnitMag);
+    if (minUnitMag <= 0.0f) {
+        FSW_THROW_INVALID_ARGUMENT("sunSafePoint: minUnitMag must be positive");
+    }
+    this->minUnitMag = minUnitMag;
 }
 
 /*! Setter method for the small alignment tolerance angle near 0 or 180 degrees.
@@ -150,8 +152,10 @@ void SunSafePointAlgorithm::setMinUnitMag(float minUnitMag) {
  @param smallAngle [rad] An angle value that specifies what is near 0 or 180 degrees (Must be positive)
 */
 void SunSafePointAlgorithm::setSmallAngle(float smallAngle) {
-    assert(smallAngle >= 0.0f);
-    this->smallAngle = std::abs(smallAngle);
+    if (smallAngle < 0.0f) {
+        FSW_THROW_INVALID_ARGUMENT("sunSafePoint: smallAngle must not be negative");
+    }
+    this->smallAngle = smallAngle;
 }
 
 /*! Setter method for the desired constant spin rate about sun heading vector.
@@ -173,6 +177,8 @@ void SunSafePointAlgorithm::setOmega_RN_B(const Eigen::Vector3f& omega_RN_B) { t
  @param sHatBdyCmd Desired body vector to point at the sun
 */
 void SunSafePointAlgorithm::setSHatBdyCmd(Eigen::Vector3f& sHatBdyCmd) {
-    assert(sHatBdyCmd.norm() > 1e-8f);
+    if (sHatBdyCmd.norm() <= 1e-8f) {
+        FSW_THROW_INVALID_ARGUMENT("sunSafePoint: sHatBdyCmd must be a non-zero vector");
+    }
     this->sHatBdyCmd = sHatBdyCmd.normalized();
 }

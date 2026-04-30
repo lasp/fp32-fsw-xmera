@@ -1,14 +1,19 @@
 #include "sunSafePoint.h"
 
 #include <architecture/utilities/eigenSupport.h>
-#include <cassert>
+#include <stdexcept>
 
 /*! Reset method for the BSK module adapter interface. This method also calls the algorithm reset method.
  @return void
  @param callTime [ns] Time the method is called
 */
 void SunSafePoint::reset(uint64_t callTime) {
-    assert(this->sunDirectionInMsg.isLinked() && this->imuInMsg.isLinked());
+    if (!this->sunDirectionInMsg.isLinked()) {
+        throw std::invalid_argument("sunSafePoint.sunDirectionInMsg wasn't connected.");
+    }
+    if (!this->imuInMsg.isLinked()) {
+        throw std::invalid_argument("sunSafePoint.imuInMsg wasn't connected.");
+    }
 
     // Call the algorithm reset method
     this->algorithm.reset(callTime);
