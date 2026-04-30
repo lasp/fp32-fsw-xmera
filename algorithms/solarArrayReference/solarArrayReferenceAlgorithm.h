@@ -20,10 +20,13 @@ class SolarArrayReferenceAlgorithm final {
 
     void setSolarArrayAxes_B(const Eigen::Vector3f& driveAxis, const Eigen::Vector3f& surfaceNormal);
     std::array<Eigen::Vector3f, 2> getSolarArrayAxes_B() const;
+    void setAlignmentThreshold(float threshold);
+    float getAlignmentThreshold() const;
 
    private:
     Eigen::Vector3f a1Hat_B{Eigen::Vector3f::Zero()};  //!< solar array drive axis in body frame coordinates
     Eigen::Vector3f a2Hat_B{Eigen::Vector3f::Zero()};  //!< solar array surface normal at zero rotation
+    float alignmentThreshold{1e-3F};  //!< [rad] alignment threshold angle between sun direction and drive axis
 };
 
 #endif  // F32XMERA_SOLAR_ARRAY_REFERENCE_ALGORITHM_H

@@ -15,8 +15,8 @@ inline float referenceUpdate(const Eigen::Vector3f& sigma_BN,
                              const Eigen::Vector3f& vehSunPntBdy,
                              const Eigen::Vector3f& a1Hat_B,
                              const Eigen::Vector3f& a2Hat_B,
+                             float alignmentThreshold,
                              float theta) {
-    constexpr float epsilon = 1e-6F;
 
     const Eigen::Vector3f rHat_SB_B = vehSunPntBdy.normalized();
     const Eigen::Matrix3f dcm_BN = mrpToDcm(sigma_BN);
@@ -30,10 +30,11 @@ inline float referenceUpdate(const Eigen::Vector3f& sigma_BN,
 
     const float dotP = a1.dot(rHat_SB_R);
     Eigen::Vector3f a2Hat_R = rHat_SB_R - dotP * a1;
-    const float a2Hat_R_norm = a2Hat_R.norm();
+
+    const float sunDriveAngle = acosf(fminf(fmaxf(fabsf(rHat_SB_R.dot(a1)), -1.0F), 1.0F));
 
     float thetaRef{};
-    if (a2Hat_R_norm < epsilon) {
+    if (sunDriveAngle < alignmentThreshold) {
         // wrap current theta to [-pi, pi]
         thetaRef = atan2f(sinf(theta), cosf(theta));
     } else {
@@ -91,7 +92,7 @@ inline void regressionTestSolarArrayReference(std::vector<float> sigma_BN_Vec,
 
     // Compute reference using the setter-orthogonalized axes (matching what the algorithm stores internally)
     const auto axes = alg.getSolarArrayAxes_B();
-    float reference = referenceUpdate(sigma_BN_f, sigma_RN_f, vehSunPntBdy_f, axes[0], axes[1], theta);
+    float reference = referenceUpdate(sigma_BN_f, sigma_RN_f, vehSunPntBdy_f, axes[0], axes[1], alg.getAlignmentThreshold(), theta);
 
     float tol = 1e-5F;
     float tolerance = tol + abs(reference) * tol;

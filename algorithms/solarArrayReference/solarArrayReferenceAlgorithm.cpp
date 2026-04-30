@@ -1,10 +1,11 @@
 #include "solarArrayReferenceAlgorithm.h"
 #include "utilities/freestandingInvalidArgument.h"
 #include "utilities/safeMath.h"
+#include <math.h>
+#include <numbers>
 
 #include "architecture/utilities/rigidBodyKinematics.hpp"
 
-const float epsilon = 1e-6F;  // module tolerance for zero
 
 /*! This method computes the updated rotation angle reference based on current attitude, reference attitude, and current
  rotation angle
@@ -26,16 +27,17 @@ float SolarArrayReferenceAlgorithm::update(const Eigen::Vector3f& sigma_BN,
     const Eigen::Matrix3f dcm_RB = dcm_RN * dcm_BN.transpose();
     const Eigen::Vector3f rHat_SB_B = dcm_RB * rHat_SB_Bc;  // assume body frame B equals reference frame R (end of slew)
 
-    /*! required solar array surface normal direction to align surface normal with Sun direction as well as possible */
-    Eigen::Vector3f a2HatRef_B = rHat_SB_B - this->a1Hat_B.dot(rHat_SB_B) * this->a1Hat_B;
+    /*! check if sun direction is nearly aligned with drive axis */
+    const float sunDriveAngle = safeAcosf(fabsf(rHat_SB_B.dot(this->a1Hat_B)));
 
     /*! compute reference angle and store in output */
     float thetaRef{};
-    if (a2HatRef_B.norm() < epsilon) {
-        // if norm(a2HatRef_B) = 0, drive axis is aligned with sun direction, so no preferred angle and leave at current
+    if (sunDriveAngle < this->alignmentThreshold) {
+        // sun direction is nearly parallel to drive axis, no preferred rotation angle so set reference to current angle
         thetaRef = safeAtan2f(safeSinf(theta), safeCosf(theta));  // wrap current theta between -pi and pi;
     } else {
-        a2HatRef_B.normalize();
+        /*! required solar array surface normal direction to align with Sun as well as possible */
+        const Eigen::Vector3f a2HatRef_B = (rHat_SB_B - this->a1Hat_B.dot(rHat_SB_B) * this->a1Hat_B).normalized();
         const Eigen::Vector3f a1HatRef_B = this->a2Hat_B.cross(a2HatRef_B);
         thetaRef = safeAcosf(this->a2Hat_B.dot(a2HatRef_B));
         // if this->a1Hat_B and a1HatRef_B are opposite, take the negative of thetaRef
@@ -80,3 +82,18 @@ void SolarArrayReferenceAlgorithm::setSolarArrayAxes_B(const Eigen::Vector3f& dr
 std::array<Eigen::Vector3f, 2> SolarArrayReferenceAlgorithm::getSolarArrayAxes_B() const {
     return {this->a1Hat_B, this->a2Hat_B};
 }
+
+/*! Set the alignment threshold angle between sun direction and drive axis.
+ *  @param threshold [rad] angle threshold in [0, pi/2]
+ */
+void SolarArrayReferenceAlgorithm::setAlignmentThreshold(const float threshold) {
+    if (threshold < 0.0F || threshold > std::numbers::pi_v<float> / 2.0F) {
+        FSW_THROW_INVALID_ARGUMENT("solarArrayReferenceAlgorithm.alignmentThreshold must be in [0, pi/2].");
+    }
+    this->alignmentThreshold = threshold;
+}
+
+/*! Get the alignment threshold angle between sun direction and drive axis.
+ *  @return float [rad] alignment threshold
+ */
+float SolarArrayReferenceAlgorithm::getAlignmentThreshold() const { return this->alignmentThreshold; }

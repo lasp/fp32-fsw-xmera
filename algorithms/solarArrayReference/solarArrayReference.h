@@ -18,6 +18,8 @@ class SolarArrayReference : public SysModel {
 
     void setSolarArrayAxes_B(const Eigen::Vector3f& driveAxis, const Eigen::Vector3f& surfaceNormal);
     std::array<Eigen::Vector3f, 2> getSolarArrayAxes_B() const;
+    void setAlignmentThreshold(float threshold);
+    float getAlignmentThreshold() const;
 
     /* declare module IO interfaces */
     ReadFunctor<NavAttMsgF32Payload> attNavInMsg;                    //!< input msg measured attitude

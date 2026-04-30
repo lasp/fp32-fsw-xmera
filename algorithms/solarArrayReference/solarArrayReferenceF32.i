@@ -5,6 +5,9 @@
    typedef std::array<Eigen::Vector3f, 2> Vector3fArray2;
 %}
 
+%include <attribute.i>
+%attribute(SolarArrayReference, float, alignmentThreshold, getAlignmentThreshold, setAlignmentThreshold)
+
 %include <architecture/_GeneralModuleFiles/sys_model.i>
 %include <architecture/_GeneralModuleFiles/swig_conly_data.i>
 %include <architecture/_GeneralModuleFiles/swig_eigen.i>

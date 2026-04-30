@@ -1,4 +1,5 @@
 #include "solarArrayReferenceTestHelpers.hpp"
+#include <numbers>
 
 // ---------------------------------------------------------------------------
 // Regression tests
@@ -61,6 +62,21 @@ TEST(SolarArrayReferenceTest, SetupTest) {
     EXPECT_THROW(alg.setSolarArrayAxes_B(Eigen::Vector3f{1.0F, 0.0F, 0.0F},
                                          Eigen::Vector3f{1.0F, 1.0F, 0.0F}.normalized()),
                  fsw::invalid_argument);
+
+    // Alignment threshold: negative should throw
+    EXPECT_THROW(alg.setAlignmentThreshold(-0.01F), fsw::invalid_argument);
+
+    // Alignment threshold: above pi/2 should throw
+    constexpr float halfPi = std::numbers::pi_v<float> / 2.0F;
+    EXPECT_THROW(alg.setAlignmentThreshold(halfPi + 0.01F), fsw::invalid_argument);
+
+    // Valid alignment threshold should not throw
+    EXPECT_NO_THROW(alg.setAlignmentThreshold(0.0F));
+    EXPECT_NO_THROW(alg.setAlignmentThreshold(halfPi));
+
+    // Alignment threshold round-trip
+    alg.setAlignmentThreshold(0.05F);
+    EXPECT_FLOAT_EQ(alg.getAlignmentThreshold(), 0.05F);
 
     // Valid orthogonal unit axes should not throw
     EXPECT_NO_THROW(alg.setSolarArrayAxes_B(Eigen::Vector3f{1.0F, 0.0F, 0.0F}, Eigen::Vector3f{0.0F, 1.0F, 0.0F}));
