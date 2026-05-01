@@ -1,36 +1,32 @@
 # SPDX-License-Identifier: ISC
 # Copyright (c) 2024, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
-#
 
 import numpy as np
 import pytest
+
 from xmera.architecture import messaging
-from xmera.fp32 import hillPointF32  # import the module that is to be tested
+from xmera.fp32 import hillPointF32
+from xmera.utilities import SimulationBaseClass
 from xmera.utilities import astroFunctions as af
 from xmera.utilities import macros
-from xmera.utilities import SimulationBaseClass
 
 
-@pytest.mark.parametrize("celMsgSet", [True, False])
-def test_hillPoint(show_plots, celMsgSet):
-    taskName = "unitTask"  # arbitrary name (don't change)
-    processName = "TestProcess"  # arbitrary name (don't change)
+@pytest.mark.parametrize("cel_msg_set", [True, False])
+def test_hill_point(cel_msg_set):
+    task_name = "unitTask"
+    process_name = "TestProcess"
 
-    # Create a sim module as an empty container
     sim = SimulationBaseClass.SimBaseClass()
 
-    # Create test thread
-    testProcessRate = macros.sec2nano(0.5)  # update process rate update time
-    testProc = sim.CreateNewProcess(processName)
-    testProc.addTask(sim.CreateNewTask(taskName, testProcessRate))
+    test_process_rate = macros.sec2nano(0.5)
+    test_proc = sim.CreateNewProcess(process_name)
+    test_proc.addTask(sim.CreateNewTask(task_name, test_process_rate))
 
     module = hillPointF32.HillPoint()
     module.modelTag = "hillPoint"
+    sim.AddModelToTask(task_name, module)
 
-    # Add test module to runtime call list
-    sim.AddModelToTask(taskName, module)
-
-    # Initialize the test module configuration data
+    # circular equatorial orbit at 2.8 Earth radii, true anomaly 60 deg
     a = af.E_radius * 2.8
     e = 0.0
     i = 0.0
@@ -38,76 +34,44 @@ def test_hillPoint(show_plots, celMsgSet):
     omega = 0.0
     f = 60 * af.D2R
     (r, v) = af.OE2RV(af.mu_E, a, e, i, Omega, omega, f)
-    r_BN_N = r
-    v_BN_N = v
-    planetPos = np.array([0.0, 0.0, 0.0])
-    planetVel = np.array([0.0, 0.0, 0.0])
 
-    # Navigation Input Message
-    navStateOutData = messaging.NavTransMsgPayload()  # Create a structure for the input message
-    navStateOutData.r_BN_N = r_BN_N
-    navStateOutData.v_BN_N = v_BN_N
-    navMsg = messaging.NavTransMsg().write(navStateOutData)
-    module.transNavInMsg.subscribeTo(navMsg)
+    nav_state_out_data = messaging.NavTransMsgF32Payload()
+    nav_state_out_data.r_BN_N = r
+    nav_state_out_data.v_BN_N = v
+    nav_msg = messaging.NavTransMsgF32().write(nav_state_out_data)
+    module.transNavInMsg.subscribeTo(nav_msg)
 
-    # Spice Input Message
-    if celMsgSet:
-        celBodyData = messaging.EphemerisMsgPayload()
-        celBodyData.r_BdyZero_N = planetPos
-        celBodyData.v_BdyZero_N = planetVel
-        celBodyMsg = messaging.EphemerisMsg().write(celBodyData)
-        module.celBodyInMsg.subscribeTo(celBodyMsg)
+    if cel_msg_set:
+        cel_body_data = messaging.EphemerisMsgF32Payload()
+        cel_body_data.r_BdyZero_N = np.array([0.0, 0.0, 0.0])
+        cel_body_data.v_BdyZero_N = np.array([0.0, 0.0, 0.0])
+        cel_body_msg = messaging.EphemerisMsgF32().write(cel_body_data)
+        module.celBodyInMsg.subscribeTo(cel_body_msg)
 
-    # Setup logging on the test module output message so that we get all the writes to it
-    dataLog = module.attRefOutMsg.recorder()
-    sim.AddModelToTask(taskName, dataLog)
+    data_log = module.attRefOutMsg.recorder()
+    sim.AddModelToTask(task_name, data_log)
 
     sim.InitializeSimulation()
-    sim.ConfigureStopTime(macros.sec2nano(1.0))  # seconds to stop simulation
+    sim.ConfigureStopTime(macros.sec2nano(1.0))
     sim.ExecuteSimulation()
 
-    moduleOutput = dataLog.sigma_RN
-    trueVector = [
-        [0.0, 0.0, 0.267949192431],
-        [0.0, 0.0, 0.267949192431],
-        [0.0, 0.0, 0.267949192431]
-    ]
-    accuracy = 1e-12
-    for i in range(0, len(trueVector)):
-        np.testing.assert_allclose(trueVector[i],
-                                   moduleOutput[i],
-                                   atol=accuracy,
-                                   verbose=True)
+    # FP32 tolerance: ~7 sig fig => 1e-6 absolute is comfortable for these magnitudes.
+    accuracy = 1e-6
 
-    moduleOutput = dataLog.omega_RN_N
-    trueVector = [
-        [0.0, 0.0, 0.000264539877],
-        [0.0, 0.0, 0.000264539877],
-        [0.0, 0.0, 0.000264539877]
-    ]
-    accuracy = 1e-12
-    for i in range(0, len(trueVector)):
-        np.testing.assert_allclose(trueVector[i],
-                                   moduleOutput[i],
-                                   atol=accuracy,
-                                   verbose=True)
+    sigma_truth = [0.0, 0.0, 0.267949192431]
+    for sample in data_log.sigma_RN:
+        np.testing.assert_allclose(sigma_truth, sample, atol=accuracy, verbose=True)
 
-    moduleOutput = dataLog.domega_RN_N
-    trueVector = [
-        [0.0, 0.0, 1.315647475046e-23],
-        [0.0, 0.0, 1.315647475046e-23],
-        [0.0, 0.0, 1.315647475046e-23]
-    ]
-    accuracy = 1e-12
-    for i in range(0, len(trueVector)):
-        np.testing.assert_allclose(trueVector[i],
-                                   moduleOutput[i],
-                                   atol=accuracy,
-                                   verbose=True)
+    omega_truth = [0.0, 0.0, 0.000264539877]
+    for sample in data_log.omega_RN_N:
+        np.testing.assert_allclose(omega_truth, sample, atol=accuracy, verbose=True)
 
-    sim.ConfigureStopTime(macros.sec2nano(0.6))
-    sim.ExecuteSimulation()
+    # for a circular orbit (e=0) the analytical d(omega)/dt is zero;
+    # any nonzero output is float-precision noise.
+    domega_truth = [0.0, 0.0, 0.0]
+    for sample in data_log.domega_RN_N:
+        np.testing.assert_allclose(domega_truth, sample, atol=accuracy, verbose=True)
 
 
 if __name__ == "__main__":
-    test_hillPoint(False, True)
+    test_hill_point(True)
