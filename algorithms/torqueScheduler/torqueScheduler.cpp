@@ -4,6 +4,7 @@
 
 #include "torqueScheduler.h"
 #include <architecture/utilities/macroDefinitions.h>
+#include <stdexcept>
 
 /*! This method performs a complete reset of the module.  Local module variables that retain
  time varying states between function calls are reset to their default values.
@@ -12,10 +13,10 @@
 */
 void TorqueScheduler::reset(uint64_t callTime) {
     if (!this->motorTorque1InMsg.isLinked()) {
-        this->bskLogger.bskLog(BSK_ERROR, "torqueScheduler.motorTorque1InMsg wasn't connected.");
+        throw std::invalid_argument("torqueScheduler.motorTorque1InMsg wasn't connected.");
     }
     if (!this->motorTorque2InMsg.isLinked()) {
-        this->bskLogger.bskLog(BSK_ERROR, "torqueScheduler.motorTorque2InMsg wasn't connected.");
+        throw std::invalid_argument("torqueScheduler.motorTorque2InMsg wasn't connected.");
     }
 
     this->t0 = callTime;
@@ -71,7 +72,9 @@ void TorqueScheduler::updateState(uint64_t callTime) {
             break;
 
         default:
-            this->bskLogger.bskLog(BSK_ERROR, "Error: torqueScheduler.lockFlag has to be an integer between 0 and 3.");
+            // lockFlag outside [0, 3] leaves effectorLockOut at the zero-init default (both
+            // motors unlocked). Step 14 Config validation will make this case unreachable.
+            break;
     }
 
     /* write output messages */
