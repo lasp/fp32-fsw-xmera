@@ -1,186 +1,85 @@
 # SPDX-License-Identifier: ISC
 # Copyright (c) 2022, Autonomous Vehicle System Lab, University of Colorado at Boulder
 # Copyright (c) 2025, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
-#
 
-"""
-Module Name:        torqueScheduler
-"""
+"""Module Name: torqueScheduler"""
 
+import numpy as np
 import pytest
-from xmera.architecture import sim_model
-from xmera.architecture import messaging  # import the message definitions
-from xmera.fp32 import torqueSchedulerF32  # import the module that is to be tested
-# Import all of the modules that we are going to be called in this simulation
+
+from xmera.architecture import messaging
+from xmera.fp32 import torqueSchedulerF32
 from xmera.utilities import SimulationBaseClass
 from xmera.utilities import macros
-from xmera.utilities import unitTestSupport  # general support file with common unit test functions
 
 
-# Uncomment this line is this test is to be skipped in the global unit test run, adjust message as needed.
-# @pytest.mark.skipif(conditionstring)
-# Uncomment this line if this test has an expected failure, adjust message as needed.
-# @pytest.mark.xfail(conditionstring)
-# Provide a unique test method name, starting with 'test_'.
-# The following 'parametrize' function decorator provides the parameters and expected results for each
-# of the multiple test runs for this test.  Note that the order in that you add the parametrize method
-# matters for the documentation in that it impacts the order in which the test arguments are shown.
-# The first parametrize arguments are shown last in the pytest argument list
-@pytest.mark.parametrize("lockFlag", [0, 1, 2, 3])
-@pytest.mark.parametrize("tSwitch", [3, 6])
-@pytest.mark.parametrize("accuracy", [1e-12])
+_LOCK_FLAG_FROM_INT = {
+    0: torqueSchedulerF32.LockFlag_BothFree,
+    1: torqueSchedulerF32.LockFlag_LockSecondThenFirst,
+    2: torqueSchedulerF32.LockFlag_LockFirstThenSecond,
+    3: torqueSchedulerF32.LockFlag_BothLocked,
+}
 
 
-def test_torqueScheduler(lockFlag, tSwitch, accuracy):
-    r"""
-    **Validation Test Description**
+@pytest.mark.parametrize("lock_flag", [0, 1, 2, 3])
+@pytest.mark.parametrize("t_switch", [3.0, 6.0])
+def test_torque_scheduler(lock_flag, t_switch):
+    """Verify motorTorqueOutMsg passes inputs through and effectorLockOutMsg matches the schedule."""
+    unit_task_name = "unitTask"
+    unit_process_name = "TestProcess"
 
-    This unit test verifies the correctness of the output motor torque :ref:`torqueScheduler`.
-    The inputs provided are the lock flag and the time at which thr control is switched from
-    one degree of freedom to the other.
+    sim = SimulationBaseClass.SimBaseClass()
 
-    **Test Parameters**
+    test_process_rate = macros.sec2nano(1)
+    test_proc = sim.CreateNewProcess(unit_process_name)
+    test_proc.addTask(sim.CreateNewTask(unit_task_name, test_process_rate))
 
-    Args:
-        lockFlag (int): flag to determine which torque to use first;
-        tSwitch (double): time at which torque is to be switched from one d.o.f. to the other;
-
-    **Description of Variables Being Tested**
-
-    This unit test checks the correctness of the output motor torque msg and the output effector lock msg:
-
-    - ``motorTorqueOutMsg``
-    - ``effectorLockOutMsg``.
-
-    The test checks that the output of ``motorTorqueOutMsg`` always matches the torques contained in the input msgs
-    and that the flags contained in ``effectorLockOutMsg`` are consistent with the schedule logic that the user is requesting.
-    """
-    # each test method requires a single assert method to be called
-    [testResults, testMessage] = torqueSchedulerTestFunction(lockFlag, tSwitch, accuracy)
-    assert testResults < 1, testMessage
-
-
-def torqueSchedulerTestFunction(lockFlag, tSwitch, accuracy):
-
-    testFailCount = 0                        # zero unit test result counter
-    testMessages = []                        # create empty array to store test log messages
-    unitTaskName = "unitTask"                # arbitrary name (don't change)
-    unitProcessName = "TestProcess"          # arbitrary name (don't change)
-    sim_model.setDefaultLogLevel(sim_model.BSK_WARNING)
-
-    # Create a sim module as an empty container
-    unitTestSim = SimulationBaseClass.SimBaseClass()
-
-    # Create test thread
-    testProcessRate = macros.sec2nano(1)     # update process rate update time
-    testProc = unitTestSim.CreateNewProcess(unitProcessName)
-    testProc.addTask(unitTestSim.CreateNewTask(unitTaskName, testProcessRate))
-
-    # Construct algorithm and associated C container
     scheduler = torqueSchedulerF32.TorqueScheduler()
     scheduler.modelTag = "torqueScheduler"
-    scheduler.lockFlag = lockFlag
-    scheduler.tSwitch = tSwitch
-    unitTestSim.AddModelToTask(unitTaskName, scheduler)
+    scheduler.lockFlag = _LOCK_FLAG_FROM_INT[lock_flag]
+    scheduler.tSwitch = t_switch
+    sim.AddModelToTask(unit_task_name, scheduler)
 
-    # Create input array motor torque msg #1
-    motorTorque1InMsgData = messaging.ArrayMotorTorqueMsgPayload()
-    motorTorque1InMsgData.motorTorque = [1]
-    motorTorque1InMsg = messaging.ArrayMotorTorqueMsg().write(motorTorque1InMsgData)
-    scheduler.motorTorque1InMsg.subscribeTo(motorTorque1InMsg)
+    motor_torque_1_in_data = messaging.ArrayMotorTorqueMsgF32Payload()
+    motor_torque_1_in_data.motorTorque = [1.0]
+    motor_torque_1_in_msg = messaging.ArrayMotorTorqueMsgF32().write(motor_torque_1_in_data)
+    scheduler.motorTorque1InMsg.subscribeTo(motor_torque_1_in_msg)
 
-    # Create input array motor torque msg #2
-    motorTorque2InMsgData = messaging.ArrayMotorTorqueMsgPayload()
-    motorTorque2InMsgData.motorTorque = [3]
-    motorTorque2InMsg = messaging.ArrayMotorTorqueMsg().write(motorTorque2InMsgData)
-    scheduler.motorTorque2InMsg.subscribeTo(motorTorque2InMsg)
+    motor_torque_2_in_data = messaging.ArrayMotorTorqueMsgF32Payload()
+    motor_torque_2_in_data.motorTorque = [3.0]
+    motor_torque_2_in_msg = messaging.ArrayMotorTorqueMsgF32().write(motor_torque_2_in_data)
+    scheduler.motorTorque2InMsg.subscribeTo(motor_torque_2_in_msg)
 
-    # Setup logging on the test module output messages so that we get all the writes to it
-    torqueLog = scheduler.motorTorqueOutMsg.recorder()
-    unitTestSim.AddModelToTask(unitTaskName, torqueLog)
-    lockLog = scheduler.effectorLockOutMsg.recorder()
-    unitTestSim.AddModelToTask(unitTaskName, lockLog)
+    torque_log = scheduler.motorTorqueOutMsg.recorder()
+    sim.AddModelToTask(unit_task_name, torque_log)
+    lock_log = scheduler.effectorLockOutMsg.recorder()
+    sim.AddModelToTask(unit_task_name, lock_log)
 
-    # Need to call the self-init and cross-init methods
-    unitTestSim.InitializeSimulation()
+    sim.InitializeSimulation()
+    sim.ConfigureStopTime(macros.sec2nano(10))
+    sim.ExecuteSimulation()
 
-    # Set the simulation time.
-    # NOTE: the total simulation time may be longer than this value. The
-    # simulation is stopped at the next logging event on or after the
-    # simulation end time.
-    unitTestSim.ConfigureStopTime(macros.sec2nano(10))        # seconds to stop simulation
+    times_s = torque_log.times() * macros.NANO2SEC
 
-    # Begin the simulation time run set above
-    unitTestSim.ExecuteSimulation()
+    # FP32 tolerance.
+    accuracy = 1e-6
 
-    # compare the module results to the truth values
-    time = torqueLog.times() * macros.NANO2SEC
+    for i, t in enumerate(times_s):
+        np.testing.assert_allclose(torque_log.motorTorque[i][0], 1.0, atol=accuracy)
+        np.testing.assert_allclose(torque_log.motorTorque[i][1], 3.0, atol=accuracy)
 
-    for i in range(len(time)):
-        if not unitTestSupport.isDoubleEqual(torqueLog.motorTorque[i][0], motorTorque1InMsgData.motorTorque[0], accuracy):
-            testFailCount += 1
-            testMessages.append("FAILED: " + scheduler.modelTag + " module failed at passing motor torque #1 value")
-        if not unitTestSupport.isDoubleEqual(torqueLog.motorTorque[i][1], motorTorque2InMsgData.motorTorque[0], accuracy):
-            testFailCount += 1
-            testMessages.append("FAILED: " + scheduler.modelTag + " module failed at passing motor torque #2 value")
-
-        if lockFlag == 0:
-            if not unitTestSupport.isDoubleEqual(lockLog.effectorLockFlag[i][0], 0, accuracy):
-                testFailCount += 1
-                testMessages.append("FAILED: " + scheduler.modelTag + " module failed at outputting effector flag #1")
-            if not unitTestSupport.isDoubleEqual(lockLog.effectorLockFlag[i][1], 0, accuracy):
-                testFailCount += 1
-                testMessages.append("FAILED: " + scheduler.modelTag + " module failed at outputting effector flag #2")
-        elif lockFlag == 1:
-            if time[i] > tSwitch:
-                if not unitTestSupport.isDoubleEqual(lockLog.effectorLockFlag[i][0], 1, accuracy):
-                    testFailCount += 1
-                    testMessages.append("FAILED: " + scheduler.modelTag + " module failed at outputting effector flag #1")
-                if not unitTestSupport.isDoubleEqual(lockLog.effectorLockFlag[i][1], 0, accuracy):
-                    testFailCount += 1
-                    testMessages.append("FAILED: " + scheduler.modelTag + " module failed at outputting effector flag #2")
-            else:
-                if not unitTestSupport.isDoubleEqual(lockLog.effectorLockFlag[i][0], 0, accuracy):
-                    testFailCount += 1
-                    testMessages.append("FAILED: " + scheduler.modelTag + " module failed at outputting effector flag #1")
-                if not unitTestSupport.isDoubleEqual(lockLog.effectorLockFlag[i][1], 1, accuracy):
-                    testFailCount += 1
-                    testMessages.append("FAILED: " + scheduler.modelTag + " module failed at outputting effector flag #2")
-        elif lockFlag == 2:
-            if time[i] > tSwitch:
-                if not unitTestSupport.isDoubleEqual(lockLog.effectorLockFlag[i][0], 0, accuracy):
-                    testFailCount += 1
-                    testMessages.append("FAILED: " + scheduler.modelTag + " module failed at outputting effector flag #1")
-                if not unitTestSupport.isDoubleEqual(lockLog.effectorLockFlag[i][1], 1, accuracy):
-                    testFailCount += 1
-                    testMessages.append("FAILED: " + scheduler.modelTag + " module failed at outputting effector flag #2")
-            else:
-                if not unitTestSupport.isDoubleEqual(lockLog.effectorLockFlag[i][0], 1, accuracy):
-                    testFailCount += 1
-                    testMessages.append("FAILED: " + scheduler.modelTag + " module failed at outputting effector flag #1")
-                if not unitTestSupport.isDoubleEqual(lockLog.effectorLockFlag[i][1], 0, accuracy):
-                    testFailCount += 1
-                    testMessages.append("FAILED: " + scheduler.modelTag + " module failed at outputting effector flag #2")
+        if lock_flag == 0:
+            expected = (0, 0)
+        elif lock_flag == 1:
+            expected = (1, 0) if t > t_switch else (0, 1)
+        elif lock_flag == 2:
+            expected = (0, 1) if t > t_switch else (1, 0)
         else:
-            if not unitTestSupport.isDoubleEqual(lockLog.effectorLockFlag[i][0], 1, accuracy):
-                testFailCount += 1
-                testMessages.append("FAILED: " + scheduler.modelTag + " module failed at outputting effector flag #1")
-            if not unitTestSupport.isDoubleEqual(lockLog.effectorLockFlag[i][1], 1, accuracy):
-                testFailCount += 1
-                testMessages.append("FAILED: " + scheduler.modelTag + " module failed at outputting effector flag #2")
+            expected = (1, 1)
 
-    # each test method requires a single assert method to be called
-    # this check below just makes sure no sub-test failures were found
-    return [testFailCount, ''.join(testMessages)]
+        assert lock_log.effectorLockFlag[i][0] == expected[0]
+        assert lock_log.effectorLockFlag[i][1] == expected[1]
 
 
-#
-# This statement below ensures that the unitTestScript can be run as a
-# stand-along python script
-#
 if __name__ == "__main__":
-    test_torqueScheduler(
-                 1,
-                 5,
-                 1e-12
-               )
+    test_torque_scheduler(1, 5.0)
