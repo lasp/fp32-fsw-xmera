@@ -8,7 +8,7 @@
 #include "msgPayloadDef/RWArrayConfigMsgF32Payload.h"
 #include "msgPayloadDef/RWSpeedMsgF32Payload.h"
 #include "msgPayloadDef/VehicleConfigMsgF32Payload.h"
-#include <architecture/msgPayloadDef/RWAvailabilityMsgPayload.h>
+#include "msgPayloadDef/RWAvailabilityMsgPayload.h"
 
 #include <Eigen/Core>
 

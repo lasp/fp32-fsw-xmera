@@ -11,7 +11,7 @@
 #include "msgPayloadDef/VehicleConfigMsgF32Payload.h"
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
-#include <architecture/msgPayloadDef/RWAvailabilityMsgPayload.h>
+#include "msgPayloadDef/RWAvailabilityMsgPayload.h"
 
 #include <Eigen/Core>
 
