@@ -104,6 +104,7 @@ set(algorithms
     "inertial3D"
     "inertialUKF"
     "mimuMajorityVote"
+    "mrpFeedback"
     "navAggregate"
     "oeStateEphem"
     "rateControl"
