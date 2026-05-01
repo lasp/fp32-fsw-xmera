@@ -10,7 +10,7 @@ Module Name:        torqueScheduler
 import pytest
 from xmera.architecture import sim_model
 from xmera.architecture import messaging  # import the message definitions
-from xmera.fswAlgorithms import torqueScheduler  # import the module that is to be tested
+from xmera.fp32 import torqueSchedulerF32  # import the module that is to be tested
 # Import all of the modules that we are going to be called in this simulation
 from xmera.utilities import SimulationBaseClass
 from xmera.utilities import macros
@@ -77,7 +77,7 @@ def torqueSchedulerTestFunction(lockFlag, tSwitch, accuracy):
     testProc.addTask(unitTestSim.CreateNewTask(unitTaskName, testProcessRate))
 
     # Construct algorithm and associated C container
-    scheduler = torqueScheduler.TorqueScheduler()
+    scheduler = torqueSchedulerF32.TorqueScheduler()
     scheduler.modelTag = "torqueScheduler"
     scheduler.lockFlag = lockFlag
     scheduler.tSwitch = tSwitch

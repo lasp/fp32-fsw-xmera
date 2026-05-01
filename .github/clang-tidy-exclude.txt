@@ -49,6 +49,8 @@ algorithms/thrFiringRemainder/thrFiringRemainder.h
 algorithms/thrFiringRemainder/thrFiringRemainder.cpp
 algorithms/thrFiringSchmitt/thrFiringSchmitt.h
 algorithms/thrFiringSchmitt/thrFiringSchmitt.cpp
+algorithms/torqueScheduler/torqueScheduler.h
+algorithms/torqueScheduler/torqueScheduler.cpp
 
 // Remove the files below this line once the actual algorithms are added
 algorithms/sunlineSRuKF/sunlineSRuKF.cpp

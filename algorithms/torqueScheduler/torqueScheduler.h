@@ -2,8 +2,8 @@
 // Copyright (c) 2023, Autonomous Vehicle System Lab, University of Colorado at Boulder
 // Copyright (c) 2025, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
 
-#ifndef _TORQUE_SCHEDULER_
-#define _TORQUE_SCHEDULER_
+#ifndef F32XMERA_TORQUE_SCHEDULER_H
+#define F32XMERA_TORQUE_SCHEDULER_H
 
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
