@@ -3,9 +3,13 @@
 
 #include "torqueSchedulerAlgorithm.h"
 
-TorqueSchedulerOutput TorqueSchedulerAlgorithm::update(const int lockFlag,
-                                                       const float tSwitch,
-                                                       const float t,
+#include <utility>
+
+TorqueSchedulerAlgorithm::TorqueSchedulerAlgorithm(TorqueSchedulerConfig config) : cfg(std::move(config)) {}
+
+void TorqueSchedulerAlgorithm::setConfig(const TorqueSchedulerConfig& config) { this->cfg = config; }
+
+TorqueSchedulerOutput TorqueSchedulerAlgorithm::update(const float t,
                                                        const ArrayMotorTorqueMsgF32Payload& motorTorque1,
                                                        const ArrayMotorTorqueMsgF32Payload& motorTorque2) const {
     TorqueSchedulerOutput out;
@@ -13,13 +17,15 @@ TorqueSchedulerOutput TorqueSchedulerAlgorithm::update(const int lockFlag,
     out.motorTorqueOut.motorTorque[0] = motorTorque1.motorTorque[0];
     out.motorTorqueOut.motorTorque[1] = motorTorque2.motorTorque[0];
 
-    switch (lockFlag) {
-        case 0:
+    const float tSwitch = this->cfg.getTSwitch();
+
+    switch (this->cfg.getLockFlag()) {
+        case LockFlag::BothFree:
             out.effectorLockOut.effectorLockFlag[0] = 0;
             out.effectorLockOut.effectorLockFlag[1] = 0;
             break;
 
-        case 1:
+        case LockFlag::LockSecondThenFirst:
             if (t > tSwitch) {
                 out.effectorLockOut.effectorLockFlag[0] = 1;
                 out.effectorLockOut.effectorLockFlag[1] = 0;
@@ -29,7 +35,7 @@ TorqueSchedulerOutput TorqueSchedulerAlgorithm::update(const int lockFlag,
             }
             break;
 
-        case 2:
+        case LockFlag::LockFirstThenSecond:
             if (t > tSwitch) {
                 out.effectorLockOut.effectorLockFlag[0] = 0;
                 out.effectorLockOut.effectorLockFlag[1] = 1;
@@ -39,15 +45,13 @@ TorqueSchedulerOutput TorqueSchedulerAlgorithm::update(const int lockFlag,
             }
             break;
 
-        case 3:
+        case LockFlag::BothLocked:
             out.effectorLockOut.effectorLockFlag[0] = 1;
             out.effectorLockOut.effectorLockFlag[1] = 1;
             break;
 
-        default:
-            // lockFlag outside [0, 3] leaves out.effectorLockOut at the zero-init default. Step 14
-            // Config validation will make this case unreachable.
-            break;
+            // No default: TorqueSchedulerConfig::create rejects any LockFlag value outside the
+            // four enumerators, so all reachable cases are handled above.
     }
 
     return out;

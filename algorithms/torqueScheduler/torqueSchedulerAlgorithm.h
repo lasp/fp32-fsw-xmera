@@ -8,11 +8,16 @@
 
 class TorqueSchedulerAlgorithm final {
    public:
-    TorqueSchedulerOutput update(int lockFlag,
-                                 float tSwitch,
-                                 float t,
+    explicit TorqueSchedulerAlgorithm(TorqueSchedulerConfig config);
+
+    void setConfig(const TorqueSchedulerConfig& config);
+
+    TorqueSchedulerOutput update(float t,
                                  const ArrayMotorTorqueMsgF32Payload& motorTorque1,
                                  const ArrayMotorTorqueMsgF32Payload& motorTorque2) const;
+
+   private:
+    TorqueSchedulerConfig cfg;
 };
 
 #endif
