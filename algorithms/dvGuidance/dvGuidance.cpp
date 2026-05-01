@@ -4,22 +4,30 @@
 
 #include "dvGuidance.h"
 #include "architecture/utilities/eigenSupport.h"
+#include "utilities/xmeraLifecycleException.h"
 
+#include <memory>
 #include <stdexcept>
 
 void DvGuidance::reset(const uint64_t callTime) {
     if (!this->burnDataInMsg.isLinked()) {
         throw std::invalid_argument("dvGuidance.burnDataInMsg wasn't connected.");
     }
+    auto config = DvGuidanceConfig::create();
+    this->algorithm = std::make_unique<DvGuidanceAlgorithm>(config);
 }
 
 void DvGuidance::updateState(const uint64_t callTime) {
+    if (!this->algorithm) {
+        throw XmeraLifecycleException("DvGuidance reset() has not been called.");
+    }
+
     const DvBurnCmdMsgF32Payload localBurnData = this->burnDataInMsg();
 
     const Eigen::Vector3f dvInrtlCmd = cArrayToEigenVector3<float>(localBurnData.dvInrtlCmd);
     const Eigen::Vector3f dvRotVecUnit = cArrayToEigenVector3<float>(localBurnData.dvRotVecUnit);
 
-    const DvGuidanceOutput out = this->algorithm.update(
+    const DvGuidanceOutput out = this->algorithm->update(
         dvInrtlCmd, dvRotVecUnit, localBurnData.dvRotVecMag, localBurnData.burnStartTime, callTime);
 
     AttRefMsgF32Payload attCmd = {};

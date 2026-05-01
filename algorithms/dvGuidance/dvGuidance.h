@@ -12,6 +12,7 @@
 #include <architecture/messaging/messaging.h>
 
 #include <stdint.h>
+#include <memory>
 
 /*! @brief Adapter for the delta-V guidance algorithm. */
 class DvGuidance final : public SysModel {
@@ -26,7 +27,7 @@ class DvGuidance final : public SysModel {
     ReadFunctor<DvBurnCmdMsgF32Payload> burnDataInMsg;
 
    private:
-    DvGuidanceAlgorithm algorithm{DvGuidanceConfig::create()};
+    std::unique_ptr<DvGuidanceAlgorithm> algorithm = nullptr;
 };
 
 #endif
