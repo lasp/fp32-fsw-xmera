@@ -6,6 +6,7 @@
 #include <architecture/utilities/linearAlgebra.h>
 #include <architecture/utilities/macroDefinitions.h>
 #include <architecture/utilities/rigidBodyKinematics.h>
+#include <stdexcept>
 
 /*! @brief This resets the module.
  @return void
@@ -14,7 +15,7 @@
 void DvGuidance::reset(uint64_t callTime) {
     // check if the required input messages are included
     if (!this->burnDataInMsg.isLinked()) {
-        this->bskLogger.bskLog(BSK_ERROR, "Error: dvGuidance.burnDataInMsg wasn't connected.");
+        throw std::invalid_argument("dvGuidance.burnDataInMsg wasn't connected.");
     }
     return;
 }
