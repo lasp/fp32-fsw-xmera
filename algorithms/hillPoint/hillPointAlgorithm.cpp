@@ -8,6 +8,11 @@ HillPointAlgorithm::HillPointAlgorithm(const HillPointConfig& config) : cfg(conf
 
 void HillPointAlgorithm::setConfig(const HillPointConfig& config) { this->cfg = config; }
 
+// NOLINTBEGIN(readability-convert-member-functions-to-static, bugprone-easily-swappable-parameters)
+// readability-convert-member-functions-to-static: HillPointConfig is intentionally empty for this
+// algorithm; the cfg member is held for API consistency with the standard two-phase-init pattern.
+// bugprone-easily-swappable-parameters: the Vector3d position/velocity inputs are documented in
+// the header and follow the standard (sc, planet) ordering.
 HillPointOutput HillPointAlgorithm::update(const Eigen::Vector3d& r_BN_N,
                                            const Eigen::Vector3d& v_BN_N,
                                            const Eigen::Vector3d& r_planet_N,
@@ -53,3 +58,4 @@ HillPointOutput HillPointAlgorithm::update(const Eigen::Vector3d& r_BN_N,
     out.domega_RN_N = dcm_RN.transpose() * domega_RN_R;
     return out;
 }
+// NOLINTEND(readability-convert-member-functions-to-static, bugprone-easily-swappable-parameters)

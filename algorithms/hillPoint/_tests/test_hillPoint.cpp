@@ -18,9 +18,9 @@ TEST(HillPointTest, ReferenceTestPlanetAtOrigin) {
 TEST(HillPointTest, ReferenceTestPlanetOffset) {
     // Spacecraft orbits a planet that itself has nonzero inertial state
     testHillPoint(Eigen::Vector3d{1.5e11 + 7.0e6, 0.0, 0.0},  // r_BN_N (heliocentric + LEO offset)
-                  Eigen::Vector3d{0.0, 7700.0, 0.0},           // v_BN_N (orbital + tiny ignored)
-                  Eigen::Vector3d{1.5e11, 0.0, 0.0},           // r_planet_N (Earth heliocentric)
-                  Eigen::Vector3d{0.0, 0.0, 0.0}               // v_planet_N (ignored for this test)
+                  Eigen::Vector3d{0.0, 7700.0, 0.0},          // v_BN_N (orbital + tiny ignored)
+                  Eigen::Vector3d{1.5e11, 0.0, 0.0},          // r_planet_N (Earth heliocentric)
+                  Eigen::Vector3d{0.0, 0.0, 0.0}              // v_planet_N (ignored for this test)
     );
 }
 
@@ -52,8 +52,8 @@ TEST(HillPointTest, BelowThresholdRadius) {
 TEST(HillPointTest, CircularEquatorialOrbit) {
     // Truth values match the Python regression test: a = 2.8 R_E, e = 0, i = 0, true anomaly 60 deg.
     // Expected sigma_RN_z = tan(theta/4) where theta = 60 deg => sigma = (0, 0, 2 - sqrt(3)).
-    constexpr double mu_E = 3.986004418e14;       // [m^3/s^2]
-    constexpr double earth_radius = 6.378136e6;   // [m]
+    constexpr double mu_E = 3.986004418e14;      // [m^3/s^2]
+    constexpr double earth_radius = 6.378136e6;  // [m]
     const double a = earth_radius * 2.8;
     const double speed = std::sqrt(mu_E / a);
     const double f_rad = 60.0 * M_PI / 180.0;
