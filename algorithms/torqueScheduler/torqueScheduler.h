@@ -11,26 +11,22 @@
 #include <architecture/msgPayloadDef/ArrayMotorTorqueMsgPayload.h>
 #include <stdint.h>
 
-/*! @brief Top level structure for the sub-module routines. */
+/*! @brief Routes two single-element motor-torque inputs into a paired output and emits a
+    time-scheduled effector-lock output. */
 class TorqueScheduler : public SysModel {
    public:
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
 
-    /* declare these user-defined inputs */
-    int lockFlag;    //!< flag to control the scheduler logic
-    double tSwitch;  //!< [s] time span after t0 at which controller switches to second angle
+    int lockFlag;    //!< schedule selector: 0 = both free, 1 = lock #2 then #1, 2 = lock #1 then #2, 3 = both locked
+    double tSwitch;  //!< [s] time span after reset at which the schedule transitions
 
-    /* declare this quantity that is a module internal variable */
-    uint64_t t0;  //!< [ns] epoch time where module is reset
+    uint64_t t0;  //!< [ns] epoch captured at reset()
 
-    /* declare module IO interfaces */
-    ReadFunctor<ArrayMotorTorqueMsgPayload> motorTorque1InMsg;  //!< input motor torque message #1
-    ReadFunctor<ArrayMotorTorqueMsgPayload> motorTorque2InMsg;  //!< input motor torque message #1
-    Message<ArrayMotorTorqueMsgPayload>
-        motorTorqueOutMsg;  //!< output msg containing the motor torque to the array drive
-    Message<ArrayEffectorLockMsgPayload>
-        effectorLockOutMsg;  //!< output msg containing the flag to actuate or lock the motor
+    ReadFunctor<ArrayMotorTorqueMsgPayload> motorTorque1InMsg;  //!< first motor-torque input
+    ReadFunctor<ArrayMotorTorqueMsgPayload> motorTorque2InMsg;  //!< second motor-torque input
+    Message<ArrayMotorTorqueMsgPayload> motorTorqueOutMsg;      //!< paired motor-torque output
+    Message<ArrayEffectorLockMsgPayload> effectorLockOutMsg;    //!< per-motor lock-flag output
 };
 
 #endif

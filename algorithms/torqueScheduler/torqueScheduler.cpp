@@ -6,11 +6,6 @@
 #include <architecture/utilities/macroDefinitions.h>
 #include <stdexcept>
 
-/*! This method performs a complete reset of the module.  Local module variables that retain
- time varying states between function calls are reset to their default values.
- @return void
- @param callTime [ns] time the method is called
-*/
 void TorqueScheduler::reset(uint64_t callTime) {
     if (!this->motorTorque1InMsg.isLinked()) {
         throw std::invalid_argument("torqueScheduler.motorTorque1InMsg wasn't connected.");
@@ -22,21 +17,15 @@ void TorqueScheduler::reset(uint64_t callTime) {
     this->t0 = callTime;
 }
 
-/*! This method computes the control torque to the solar array drive based on a PD control law
- @return void
- @param callTime The clock time at which the function was called (nanoseconds)
-*/
 void TorqueScheduler::updateState(uint64_t callTime) {
-    /*! - Create and assign buffer messages */
     ArrayMotorTorqueMsgPayload motorTorque1In = this->motorTorque1InMsg();
     ArrayMotorTorqueMsgPayload motorTorque2In = this->motorTorque2InMsg();
     ArrayMotorTorqueMsgPayload motorTorqueOut = {};
     ArrayEffectorLockMsgPayload effectorLockOut = {};
 
-    /*! compute current time from Reset call */
+    // Seconds elapsed since the most recent reset().
     double t = ((callTime - this->t0) * NANO2SEC);
 
-    /*! populate output torque msg */
     motorTorqueOut.motorTorque[0] = motorTorque1In.motorTorque[0];
     motorTorqueOut.motorTorque[1] = motorTorque2In.motorTorque[0];
 
@@ -77,7 +66,6 @@ void TorqueScheduler::updateState(uint64_t callTime) {
             break;
     }
 
-    /* write output messages */
     this->motorTorqueOutMsg.write(&motorTorqueOut, this->moduleID, callTime);
     this->effectorLockOutMsg.write(&effectorLockOut, this->moduleID, callTime);
 }
