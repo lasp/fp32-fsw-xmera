@@ -25,7 +25,7 @@ class HillPoint : public SysModel {
     Message<AttRefMsgPayload> attRefOutMsg;
 
    private:
-    int planetMsgIsLinked;
+    int planetMsgIsLinked{};
 
     static void computeHillPointingReference(Eigen::Vector3d r_BN_N,
                                              Eigen::Vector3d v_BN_N,
