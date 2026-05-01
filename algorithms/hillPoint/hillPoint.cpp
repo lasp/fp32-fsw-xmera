@@ -14,21 +14,21 @@ void HillPoint::reset(const uint64_t currentSimNanos) {
 
 /*! Computes a Hill-frame attitude reference from the spacecraft's inertial position and velocity. */
 void HillPoint::updateState(const uint64_t currentSimNanos) {
-    const NavTransMsgPayload navData = this->transNavInMsg();
+    const NavTransMsgF32Payload navData = this->transNavInMsg();
     const Eigen::Vector3d r_BN_N = cArrayToEigenVector3<double>(navData.r_BN_N);
     const Eigen::Vector3d v_BN_N = cArrayToEigenVector3<double>(navData.v_BN_N);
 
     Eigen::Vector3d r_planet_N = Eigen::Vector3d::Zero();
     Eigen::Vector3d v_planet_N = Eigen::Vector3d::Zero();
     if (this->planetMsgIsLinked) {
-        const EphemerisMsgPayload primPlanet = this->celBodyInMsg();
+        const EphemerisMsgF32Payload primPlanet = this->celBodyInMsg();
         r_planet_N = cArrayToEigenVector3<double>(primPlanet.r_BdyZero_N);
         v_planet_N = cArrayToEigenVector3<double>(primPlanet.v_BdyZero_N);
     }
 
     const HillPointOutput out = this->algorithm.update(r_BN_N, v_BN_N, r_planet_N, v_planet_N);
 
-    AttRefMsgPayload attRefOut = AttRefMsgPayload();
+    AttRefMsgF32Payload attRefOut = AttRefMsgF32Payload();
     eigenVectorToCArray(out.sigma_RN, attRefOut.sigma_RN);
     eigenVectorToCArray(out.omega_RN_N, attRefOut.omega_RN_N);
     eigenVectorToCArray(out.domega_RN_N, attRefOut.domega_RN_N);

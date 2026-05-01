@@ -7,9 +7,9 @@
 #include <Eigen/Core>
 
 struct HillPointOutput {
-    Eigen::Vector3d sigma_RN = Eigen::Vector3d::Zero();
-    Eigen::Vector3d omega_RN_N = Eigen::Vector3d::Zero();
-    Eigen::Vector3d domega_RN_N = Eigen::Vector3d::Zero();
+    Eigen::Vector3f sigma_RN = Eigen::Vector3f::Zero();
+    Eigen::Vector3f omega_RN_N = Eigen::Vector3f::Zero();
+    Eigen::Vector3f domega_RN_N = Eigen::Vector3f::Zero();
 };
 
 #endif

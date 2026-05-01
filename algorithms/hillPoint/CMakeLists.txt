@@ -10,6 +10,11 @@ target_sources("${module}" PRIVATE
   hillPointAlgorithm.cpp
 )
 
+target_include_directories("${module}" PUBLIC
+  ".."
+  "../.."
+)
+
 target_link_libraries("${module}" PRIVATE
   Eigen3::Eigen
 )

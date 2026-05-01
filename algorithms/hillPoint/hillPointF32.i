@@ -13,6 +13,6 @@
 %include "hillPoint.h"
 %include "hillPointAlgorithm.h"
 
-%include <architecture/msgPayloadDef/EphemerisMsgPayload.h>
-%include <architecture/msgPayloadDef/NavTransMsgPayload.h>
-%include <architecture/msgPayloadDef/AttRefMsgPayload.h>
+%include "msgPayloadDef/EphemerisMsgF32Payload.h"
+%include "msgPayloadDef/NavTransMsgF32Payload.h"
+%include "msgPayloadDef/AttRefMsgF32Payload.h"

@@ -5,11 +5,11 @@
 #define F32XMERA_HILL_POINT_H
 
 #include "hillPointAlgorithm.h"
+#include "msgPayloadDef/AttRefMsgF32Payload.h"
+#include "msgPayloadDef/EphemerisMsgF32Payload.h"
+#include "msgPayloadDef/NavTransMsgF32Payload.h"
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
-#include <architecture/msgPayloadDef/AttRefMsgPayload.h>
-#include <architecture/msgPayloadDef/EphemerisMsgPayload.h>
-#include <architecture/msgPayloadDef/NavTransMsgPayload.h>
 
 /*! @brief Hill Point attitude guidance adapter. */
 class HillPoint final : public SysModel {
@@ -20,9 +20,9 @@ class HillPoint final : public SysModel {
     void reset(uint64_t currentSimNanos) override;
     void updateState(uint64_t currentSimNanos) override;
 
-    ReadFunctor<NavTransMsgPayload> transNavInMsg;
-    ReadFunctor<EphemerisMsgPayload> celBodyInMsg;
-    Message<AttRefMsgPayload> attRefOutMsg;
+    ReadFunctor<NavTransMsgF32Payload> transNavInMsg;
+    ReadFunctor<EphemerisMsgF32Payload> celBodyInMsg;
+    Message<AttRefMsgF32Payload> attRefOutMsg;
 
    private:
     HillPointAlgorithm algorithm{};
