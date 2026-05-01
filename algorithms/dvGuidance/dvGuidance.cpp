@@ -8,7 +8,7 @@
 #include <architecture/utilities/rigidBodyKinematics.h>
 #include <stdexcept>
 
-void DvGuidance::reset(uint64_t callTime) {
+void DvGuidance::reset(const uint64_t callTime) {
     if (!this->burnDataInMsg.isLinked()) {
         throw std::invalid_argument("dvGuidance.burnDataInMsg wasn't connected.");
     }
@@ -16,17 +16,16 @@ void DvGuidance::reset(uint64_t callTime) {
 
 /*! Builds an attitude reference whose body axis tracks the commanded delta-V direction while spinning at a constant
     rate about that direction. */
-void DvGuidance::updateState(uint64_t callTime) {
+void DvGuidance::updateState(const uint64_t callTime) {
     double dcm_BubN[3][3];    // inertial -> base burn frame
     double dcm_ButN[3][3];    // inertial -> current burn frame
     double dcm_ButBub[3][3];  // base burn frame -> current burn frame
     double dvHat_N[3];        // commanded delta-V direction in the inertial frame
     double bu2_N[3];          // unnormalized 2nd basis vector of the base burn frame
     double rotPRV[3];         // principal rotation vector applied to the base burn frame
-    DvBurnCmdMsgPayload localBurnData;
     AttRefMsgPayload attCmd = {};
 
-    localBurnData = this->burnDataInMsg();
+    const DvBurnCmdMsgPayload localBurnData = this->burnDataInMsg();
 
     // base burn frame: 1st basis = dvHat_N, 2nd basis perpendicular to dvHat_N and dvRotVecUnit, 3rd from cross
     v3Normalize(localBurnData.dvInrtlCmd, dvHat_N);
@@ -36,7 +35,7 @@ void DvGuidance::updateState(uint64_t callTime) {
     v3Cross(dcm_BubN[0], dcm_BubN[1], dcm_BubN[2]);
     v3Normalize(dcm_BubN[2], dcm_BubN[2]);
 
-    double burnTime = ((int64_t)callTime - (int64_t)localBurnData.burnStartTime) * NANO2SEC;
+    const double burnTime = ((int64_t)callTime - (int64_t)localBurnData.burnStartTime) * NANO2SEC;
 
     // current burn frame is base burn frame rotated about its 3rd axis by dvRotVecMag * burnTime
     v3SetZero(rotPRV);
