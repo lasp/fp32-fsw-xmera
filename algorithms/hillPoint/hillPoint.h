@@ -14,18 +14,18 @@
 /*! @brief Hill Point attitude guidance class. */
 class HillPoint : public SysModel {
    public:
-    HillPoint() = default;            //!< Constructor
-    ~HillPoint() override = default;  //!< Destructor
+    HillPoint() = default;
+    ~HillPoint() override = default;
 
-    void reset(uint64_t currentSimNanos) override;        //!< Reset function
-    void updateState(uint64_t currentSimNanos) override;  //!< Update function
+    void reset(uint64_t currentSimNanos) override;
+    void updateState(uint64_t currentSimNanos) override;
 
-    ReadFunctor<NavTransMsgPayload> transNavInMsg;  //!< The name of the incoming attitude command
-    ReadFunctor<EphemerisMsgPayload> celBodyInMsg;  //!< The name of the celestial body message
-    Message<AttRefMsgPayload> attRefOutMsg;         //!< The name of the output message
+    ReadFunctor<NavTransMsgPayload> transNavInMsg;
+    ReadFunctor<EphemerisMsgPayload> celBodyInMsg;
+    Message<AttRefMsgPayload> attRefOutMsg;
 
    private:
-    int planetMsgIsLinked;  //!< flag if the planet message is linked
+    int planetMsgIsLinked;
 
     static void computeHillPointingReference(Eigen::Vector3d r_BN_N,
                                              Eigen::Vector3d v_BN_N,
