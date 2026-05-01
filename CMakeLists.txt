@@ -112,6 +112,7 @@ set(algorithms
     "sunlineEphem"
     "sunlineSRuKF"
     "sunTrackError"
+    "sunSafePoint"
     "sunSearch"
     "thrFiringRemainder"
     "thrFiringSchmitt"
