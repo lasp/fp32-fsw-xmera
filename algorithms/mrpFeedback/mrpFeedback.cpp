@@ -2,18 +2,10 @@
 
 #include <stdexcept>
 
-/*! This method performs a complete reset of the module.  Local module variables that retain
- time varying states between function calls are reset to their default values.
- @return void
- @param callTime The clock time at which the function was called (nanoseconds)
-*/
 void MrpFeedback::reset(const uint64_t callTime) {
-    /* check that optional messages are correct connected */
     if (this->rwParamsInMsg.isLinked() && !this->rwSpeedsInMsg.isLinked()) {
         throw std::invalid_argument("MrpFeedback.rwSpeedsInMsg wasn't connected while rwParamsInMsg was connected.");
     }
-
-    // check if the required message has not been connected
     if (!this->guidInMsg.isLinked()) {
         throw std::invalid_argument("MrpFeedback.guidInMsg wasn't connected.");
     }
@@ -24,28 +16,21 @@ void MrpFeedback::reset(const uint64_t callTime) {
     const VehicleConfigMsgF32Payload sc = this->vehConfigInMsg();
     RWArrayConfigMsgF32Payload rwConfigParams{};
     bool rwParamsIsLinked{};
-
-    /*! - check if RW configuration message exists */
     if (this->rwParamsInMsg.isLinked()) {
         rwConfigParams = this->rwParamsInMsg();
         rwParamsIsLinked = true;
     }
     this->numRW = static_cast<uint32_t>(rwConfigParams.numRW);
 
+    this->rebuildAlgorithmConfig();
     this->algorithm.reset(sc, rwConfigParams, rwParamsIsLinked);
 }
 
-/*! This method takes the attitude and rate errors relative to the Reference frame, as well as
-    the reference frame angular rates and acceleration, and computes the required control torque Lr.
- @return void
- @param callTime The clock time at which the function was called (nanoseconds)
-*/
 void MrpFeedback::updateState(const uint64_t callTime) {
-    AttGuidMsgF32Payload guidCmd = this->guidInMsg(); /* attitude tracking error message */
-    RWSpeedMsgF32Payload wheelSpeeds{};               /* Reaction wheel speed message */
-    RWAvailabilityMsgPayload wheelsAvailability{};    /* Reaction wheel availability message */
+    AttGuidMsgF32Payload guidCmd = this->guidInMsg();
+    RWSpeedMsgF32Payload wheelSpeeds{};
+    RWAvailabilityMsgPayload wheelsAvailability{};
 
-    /*! - read in optional RW speed and availability message */
     if (this->numRW > 0U) {
         wheelSpeeds = this->rwSpeedsInMsg();
         if (this->rwAvailInMsg.isLinked()) {
@@ -53,76 +38,62 @@ void MrpFeedback::updateState(const uint64_t callTime) {
         }
     }
 
-    MrpFeedbackOutput mrpFeedbackOutput = algorithm.update(callTime, guidCmd, wheelSpeeds, wheelsAvailability);
+    auto [controlOut, intFeedbackOut] = this->algorithm.update(callTime, guidCmd, wheelSpeeds, wheelsAvailability);
 
-    this->cmdTorqueOutMsg.write(&mrpFeedbackOutput.controlOut, moduleID, callTime);
-    this->intFeedbackTorqueOutMsg.write(&mrpFeedbackOutput.intFeedbackOut, this->moduleID, callTime);
+    this->cmdTorqueOutMsg.write(&controlOut, moduleID, callTime);
+    this->intFeedbackTorqueOutMsg.write(&intFeedbackOut, this->moduleID, callTime);
 }
 
-/*! Setter method for the gain K.
- @return void
- @param gain [N*m] Attitude error feedback gain
-*/
-void MrpFeedback::setK(const float gain) { this->algorithm.setK(gain); }
+void MrpFeedback::setK(const float gain) {
+    if (!MrpFeedbackConfig::isValidK(gain)) {
+        FSW_THROW_INVALID_ARGUMENT("Feedback gain K must not be negative");
+    }
+    this->K = gain;
+    this->rebuildAlgorithmConfig();
+}
+float MrpFeedback::getK() const { return this->K; }
 
-/*! Getter method for the gain K.
- @return const float
-*/
-float MrpFeedback::getK() const { return this->algorithm.getK(); }
+void MrpFeedback::setP(const float gain) {
+    if (!MrpFeedbackConfig::isValidP(gain)) {
+        FSW_THROW_INVALID_ARGUMENT("Feedback gain P must not be negative");
+    }
+    this->P = gain;
+    this->rebuildAlgorithmConfig();
+}
+float MrpFeedback::getP() const { return this->P; }
 
-/*! Setter method for the gain P.
- @return void
- @param gain [N*m*s] Rate error feedback gain
-*/
-void MrpFeedback::setP(const float gain) { this->algorithm.setP(gain); }
+void MrpFeedback::setKi(const float gain) {
+    if (!MrpFeedbackConfig::isValidKi(gain)) {
+        FSW_THROW_INVALID_ARGUMENT("Integral feedback gain Ki must not be negative");
+    }
+    this->Ki = gain;
+    this->rebuildAlgorithmConfig();
+}
+float MrpFeedback::getKi() const { return this->Ki; }
 
-/*! Getter method for the gain P.
- @return const float
-*/
-float MrpFeedback::getP() const { return this->algorithm.getP(); }
+void MrpFeedback::setIntegralLimit(const float limit) {
+    if (!MrpFeedbackConfig::isValidIntegralLimit(limit)) {
+        FSW_THROW_INVALID_ARGUMENT("Integral limit must not be negative");
+    }
+    this->integralLimit = limit;
+    this->rebuildAlgorithmConfig();
+}
+float MrpFeedback::getIntegralLimit() const { return this->integralLimit; }
 
-/*! Setter method for the gain Ki.
- @return void
- @param gain [N*m] Integral feedback gain
-*/
-void MrpFeedback::setKi(const float gain) { this->algorithm.setKi(gain); }
-
-/*! Getter method for the gain Ki.
- @return const float
-*/
-float MrpFeedback::getKi() const { return this->algorithm.getKi(); }
-
-/*! Setter method for the integral limit.
- @return void
- @param limit [N*m*s] Integral limit
-*/
-void MrpFeedback::setIntegralLimit(const float limit) { this->algorithm.setIntegralLimit(limit); }
-
-/*! Getter method for the integral limit.
- @return const float
-*/
-float MrpFeedback::getIntegralLimit() const { return this->algorithm.getIntegralLimit(); }
-
-/*! Setter method for the control law type.
- @return void
- @param type control law type
-*/
 void MrpFeedback::setControlLawType(const int type) {
-    this->algorithm.setControlLawType(static_cast<ControlLawType>(type));
+    this->controlLawType = static_cast<ControlLawType>(type);
+    this->rebuildAlgorithmConfig();
 }
+int MrpFeedback::getControlLawType() const { return static_cast<int>(this->controlLawType); }
 
-/*! Getter method for the control law type.
- @return const int
-*/
-int MrpFeedback::getControlLawType() const { return static_cast<int>(this->algorithm.getControlLawType()); }
+void MrpFeedback::setKnownTorquePntB_B(const Eigen::Vector3f& torque) {
+    this->knownTorquePntB_B = torque;
+    this->rebuildAlgorithmConfig();
+}
+Eigen::Vector3f MrpFeedback::getKnownTorquePntB_B() const { return this->knownTorquePntB_B; }
 
-/*! Setter method for the known external torque about point B.
- @return void
- @param torque [N*m] Known external torque expressed in body frame components
-*/
-void MrpFeedback::setKnownTorquePntB_B(const Eigen::Vector3f& torque) { this->algorithm.setKnownTorquePntB_B(torque); }
-
-/*! Getter method for the known torque about point B.
- @return const Eigen::Vector3f
-*/
-Eigen::Vector3f MrpFeedback::getKnownTorquePntB_B() const { return this->algorithm.getKnownTorquePntB_B(); }
+void MrpFeedback::rebuildAlgorithmConfig() {
+    const MrpFeedbackConfig cfg = MrpFeedbackConfig::create(
+        this->K, this->P, this->Ki, this->integralLimit, this->controlLawType, this->knownTorquePntB_B);
+    this->algorithm.setConfig(cfg);
+}

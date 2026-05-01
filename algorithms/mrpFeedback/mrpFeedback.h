@@ -7,11 +7,11 @@
 #include "msgPayloadDef/AttGuidMsgF32Payload.h"
 #include "msgPayloadDef/CmdTorqueBodyMsgF32Payload.h"
 #include "msgPayloadDef/RWArrayConfigMsgF32Payload.h"
+#include "msgPayloadDef/RWAvailabilityMsgPayload.h"
 #include "msgPayloadDef/RWSpeedMsgF32Payload.h"
 #include "msgPayloadDef/VehicleConfigMsgF32Payload.h"
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
-#include "msgPayloadDef/RWAvailabilityMsgPayload.h"
 
 #include <Eigen/Core>
 
@@ -49,7 +49,17 @@ class MrpFeedback final : public SysModel {
     ReadFunctor<VehicleConfigMsgF32Payload> vehConfigInMsg;  //!< vehicle configuration input message
 
    private:
-    MrpFeedbackAlgorithm algorithm{};
+    void rebuildAlgorithmConfig();
+
+    float K = 0.0F;
+    float P = 0.0F;
+    float Ki = 0.0F;
+    float integralLimit = 0.0F;
+    ControlLawType controlLawType = ControlLawType::NORMAL;
+    Eigen::Vector3f knownTorquePntB_B = Eigen::Vector3f::Zero();
+
+    MrpFeedbackAlgorithm algorithm{
+        MrpFeedbackConfig::create(0.0F, 0.0F, 0.0F, 0.0F, ControlLawType::NORMAL, Eigen::Vector3f::Zero())};
     uint32_t numRW{};  //!< number of reaction wheels
 };
 
