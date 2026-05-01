@@ -20,52 +20,13 @@ void TorqueScheduler::reset(const uint64_t callTime) {
 void TorqueScheduler::updateState(const uint64_t callTime) {
     const ArrayMotorTorqueMsgPayload motorTorque1In = this->motorTorque1InMsg();
     const ArrayMotorTorqueMsgPayload motorTorque2In = this->motorTorque2InMsg();
-    ArrayMotorTorqueMsgPayload motorTorqueOut = {};
-    ArrayEffectorLockMsgPayload effectorLockOut = {};
 
     // Seconds elapsed since the most recent reset().
     const double t = ((callTime - this->t0) * NANO2SEC);
 
-    motorTorqueOut.motorTorque[0] = motorTorque1In.motorTorque[0];
-    motorTorqueOut.motorTorque[1] = motorTorque2In.motorTorque[0];
+    const TorqueSchedulerOutput out =
+        this->algorithm.update(this->lockFlag, this->tSwitch, t, motorTorque1In, motorTorque2In);
 
-    switch (this->lockFlag) {
-        case 0:
-            effectorLockOut.effectorLockFlag[0] = 0;
-            effectorLockOut.effectorLockFlag[1] = 0;
-            break;
-
-        case 1:
-            if (t > this->tSwitch) {
-                effectorLockOut.effectorLockFlag[0] = 1;
-                effectorLockOut.effectorLockFlag[1] = 0;
-            } else {
-                effectorLockOut.effectorLockFlag[0] = 0;
-                effectorLockOut.effectorLockFlag[1] = 1;
-            }
-            break;
-
-        case 2:
-            if (t > this->tSwitch) {
-                effectorLockOut.effectorLockFlag[0] = 0;
-                effectorLockOut.effectorLockFlag[1] = 1;
-            } else {
-                effectorLockOut.effectorLockFlag[0] = 1;
-                effectorLockOut.effectorLockFlag[1] = 0;
-            }
-            break;
-
-        case 3:
-            effectorLockOut.effectorLockFlag[0] = 1;
-            effectorLockOut.effectorLockFlag[1] = 1;
-            break;
-
-        default:
-            // lockFlag outside [0, 3] leaves effectorLockOut at the zero-init default (both
-            // motors unlocked). Step 14 Config validation will make this case unreachable.
-            break;
-    }
-
-    this->motorTorqueOutMsg.write(&motorTorqueOut, this->moduleID, callTime);
-    this->effectorLockOutMsg.write(&effectorLockOut, this->moduleID, callTime);
+    this->motorTorqueOutMsg.write(&out.motorTorqueOut, this->moduleID, callTime);
+    this->effectorLockOutMsg.write(&out.effectorLockOut, this->moduleID, callTime);
 }
