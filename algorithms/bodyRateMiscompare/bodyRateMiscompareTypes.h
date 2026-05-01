@@ -1,9 +1,3 @@
-/*
- MIT License
-
- Copyright (c) 2025, University of Colorado at Boulder
- */
-
 #ifndef F32XIMERA_BODY_RATE_MISCOMPARE_OUTPUT_H
 #define F32XIMERA_BODY_RATE_MISCOMPARE_OUTPUT_H
 

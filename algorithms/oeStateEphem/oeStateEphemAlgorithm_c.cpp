@@ -1,8 +1,3 @@
-/* MIT License
- *
- Copyright (c) 2026, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
- */
-
 #include "oeStateEphemAlgorithm_c.h"
 #include "oeStateEphemAlgorithm.h"
 

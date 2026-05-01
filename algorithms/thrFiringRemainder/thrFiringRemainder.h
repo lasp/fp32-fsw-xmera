@@ -1,9 +1,3 @@
-/*
- MIT License
-
- Copyright (c) 2025, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
-*/
-
 #ifndef THR_FIRING_REMAINDER
 #define THR_FIRING_REMAINDER
 

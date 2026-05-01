@@ -1,8 +1,4 @@
 /*
- MIT License
-
- Copyright (c) 2025, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
-
  Tests for degenerate / singular orbital geometries:
    - Near-parabolic elliptic (e -> 1-)
    - Exactly parabolic (e = 1)

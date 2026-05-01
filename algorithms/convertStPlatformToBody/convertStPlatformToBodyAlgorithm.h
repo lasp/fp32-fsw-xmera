@@ -1,9 +1,3 @@
-/*
- MIT License
-
- Copyright (c) 2026, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
- */
-
 #ifndef F32XIMERA_CONVERT_ST_PLATFORM_TO_BODY_ALGORITHM_H
 #define F32XIMERA_CONVERT_ST_PLATFORM_TO_BODY_ALGORITHM_H
 

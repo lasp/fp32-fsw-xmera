@@ -1,9 +1,3 @@
-/* MIT License
- *
- Copyright (c) 2025, Laboratory for Atmospheric and Space Physics,
- University of Colorado at Boulder
- */
-
 #include "sunlineSRuKFAlgorithm_c.h"
 #include "sunlineSRuKFAlgorithm.h"
 

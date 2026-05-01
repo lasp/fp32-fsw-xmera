@@ -1,8 +1,3 @@
-/* MIT License
- *
- Copyright (c) 2025, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
- */
-
 #include "sunSearchAlgorithm_c.h"
 #include "sunSearchAlgorithm.h"
 

@@ -1,9 +1,3 @@
-/*
- MIT License
-
- Copyright (c) 2025, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
- */
-
 #ifndef FP32_XMERA_FSW_ALGORITHMS_CUSTOMEXCEPTIONS_H
 #define FP32_XMERA_FSW_ALGORITHMS_CUSTOMEXCEPTIONS_H
 

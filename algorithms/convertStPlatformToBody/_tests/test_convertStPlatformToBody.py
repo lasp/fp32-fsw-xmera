@@ -1,7 +1,3 @@
-# MIT License
-#
-# Copyright (c) 2026, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
-
 import numpy as np
 
 from xmera.utilities import SimulationBaseClass

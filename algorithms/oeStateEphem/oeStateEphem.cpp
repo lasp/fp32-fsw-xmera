@@ -1,9 +1,3 @@
-/*
- MIT License
-
- Copyright (c) 2025, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
- */
-
 #include "oeStateEphem.h"
 #include "utilities/timeConstants.h"
 #include <architecture/utilities/eigenSupport.h>

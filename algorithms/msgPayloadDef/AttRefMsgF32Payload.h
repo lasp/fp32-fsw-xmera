@@ -1,9 +1,3 @@
-/*
- MIT License
-
- Copyright (c) 2025, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
-*/
-
 #ifndef ATT_REF_MESSAGE_F32_H
 #define ATT_REF_MESSAGE_F32_H
 

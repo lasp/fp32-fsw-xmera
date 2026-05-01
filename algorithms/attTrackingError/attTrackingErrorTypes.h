@@ -1,9 +1,3 @@
-/*
- MIT License
-
- Copyright (c) 2025, University of Colorado at Boulder
- */
-
 #ifndef F32XMERA_ATT_TRACKING_ERROR_TYPES_H
 #define F32XMERA_ATT_TRACKING_ERROR_TYPES_H
 
