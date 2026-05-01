@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: ISC
 // Copyright (c) 2025, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
 
-%module hillPoint
+%module hillPointF32
 %{
    #include "hillPoint.h"
 %}

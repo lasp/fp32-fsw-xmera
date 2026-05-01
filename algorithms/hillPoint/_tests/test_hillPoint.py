@@ -5,7 +5,7 @@
 import numpy as np
 import pytest
 from xmera.architecture import messaging
-from xmera.fswAlgorithms import hillPoint  # import the module that is to be tested
+from xmera.fp32 import hillPointF32  # import the module that is to be tested
 from xmera.utilities import astroFunctions as af
 from xmera.utilities import macros
 from xmera.utilities import SimulationBaseClass
@@ -24,7 +24,7 @@ def test_hillPoint(show_plots, celMsgSet):
     testProc = sim.CreateNewProcess(processName)
     testProc.addTask(sim.CreateNewTask(taskName, testProcessRate))
 
-    module = hillPoint.HillPoint()
+    module = hillPointF32.HillPoint()
     module.modelTag = "hillPoint"
 
     # Add test module to runtime call list
