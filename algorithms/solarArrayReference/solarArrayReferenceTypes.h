@@ -1,8 +1,17 @@
-#ifndef SOLAR_ARRAY_REFERENCE_TYPES_H
-#define SOLAR_ARRAY_REFERENCE_TYPES_H
+#ifndef F32XMERA_SOLAR_ARRAY_REFERENCE_TYPES_H
+#define F32XMERA_SOLAR_ARRAY_REFERENCE_TYPES_H
 
 #include <stdint.h>
 
-enum class TrackingMode : uint8_t { AUTO_TRACK = 0U, SPECIFIED_ANGLE = 1U };
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-#endif  // SOLAR_ARRAY_REFERENCE_TYPES_H
+/*! @brief Solar array reference tracking modes. */
+typedef enum TrackingMode { AUTO_TRACK = 0, SPECIFIED_ANGLE = 1 } TrackingMode;
+
+#ifdef __cplusplus
+}  // extern "C"
+#endif
+
+#endif  // F32XMERA_SOLAR_ARRAY_REFERENCE_TYPES_H

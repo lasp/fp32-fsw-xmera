@@ -176,7 +176,7 @@ def test_solarArrayReference_specifiedAngle(show_plots, specifiedAngle, offsetAn
     unit_test_sim.AddModelToTask(unit_task_name, solar_array)
 
     solar_array.setSolarArrayAxes_B(a1Hat_B, a2Hat_B)
-    solar_array.trackingMode = solarArrayReferenceF32.TrackingMode_SPECIFIED_ANGLE
+    solar_array.trackingMode = solarArrayReferenceF32.SPECIFIED_ANGLE
     solar_array.specifiedArrayAngle = specifiedAngle
     solar_array.offsetAngle = offsetAngle
 
