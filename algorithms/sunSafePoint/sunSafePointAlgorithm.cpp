@@ -26,17 +26,17 @@ SunSafePointOutput SunSafePointAlgorithm::update(const Eigen::Vector3f& vehSunPn
         float const sunAngleErr = safeAcosf(this->sHatBdyCmd.dot(rHat_SB_B));
 
         // Compute the heading error relative to the sun direction vector
-        Eigen::Vector3f e_hat{};  // Eigen Axis
+        Eigen::Vector3f e_axis{};  // Eigen Axis
         constexpr float kSmallAngle = 1e-3F;
         // The commanded body vector is nearly opposite the sun heading
         if (static_cast<float>(std::numbers::pi) - sunAngleErr < kSmallAngle) {
-            e_hat = this->sHatBdyCmd.unitOrthogonal();  // find orthogonal unit vector to sHatBdyCmd
+            e_axis = this->sHatBdyCmd.unitOrthogonal();  // find orthogonal unit vector to sHatBdyCmd
         // Normal case where sun and commanded body vectors are not aligned
         } else {
-            e_hat = rHat_SB_B.cross(this->sHatBdyCmd);
+            e_axis = rHat_SB_B.cross(this->sHatBdyCmd);
         }
-        Eigen::Vector3f const sunMnvrVec = e_hat.stableNormalized();
-        Eigen::Vector3f sigma_BR = safeTanf(sunAngleErr * 0.25F) * sunMnvrVec;
+        Eigen::Vector3f const e_hat = e_axis.stableNormalized();
+        Eigen::Vector3f sigma_BR = safeTanf(sunAngleErr * 0.25F) * e_hat;
         sigma_BR = mrpSwitch(sigma_BR, 1.0F);
 
         output.sigma_BR = sigma_BR;
