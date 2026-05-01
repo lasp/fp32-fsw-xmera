@@ -9,7 +9,6 @@
 #include <architecture/msgPayloadDef/AttRefMsgPayload.h>
 #include <architecture/msgPayloadDef/EphemerisMsgPayload.h>
 #include <architecture/msgPayloadDef/NavTransMsgPayload.h>
-#include <architecture/utilities/bskLogging.h>
 #include <Eigen/Core>
 
 /*! @brief Hill Point attitude guidance class. */
@@ -24,8 +23,6 @@ class HillPoint : public SysModel {
     ReadFunctor<NavTransMsgPayload> transNavInMsg;  //!< The name of the incoming attitude command
     ReadFunctor<EphemerisMsgPayload> celBodyInMsg;  //!< The name of the celestial body message
     Message<AttRefMsgPayload> attRefOutMsg;         //!< The name of the output message
-
-    BSKLogger* bskLogger;  //!< BSK Logging
 
    private:
     int planetMsgIsLinked;  //!< flag if the planet message is linked

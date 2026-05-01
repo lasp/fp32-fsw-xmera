@@ -4,12 +4,13 @@
 #include "hillPoint.h"
 #include <architecture/utilities/eigenSupport.h>
 #include <architecture/utilities/rigidBodyKinematics.hpp>
+#include <stdexcept>
 
 /*! This method performs the module reset capability. */
 void HillPoint::reset(uint64_t currentSimNanos) {
     // Check if the required input messages are linked
     if (!this->transNavInMsg.isLinked()) {
-        this->bskLogger->bskLog(BSK_ERROR, "hillPoint.transNavInMsg wasn't connected.");
+        throw std::invalid_argument("hillPoint.transNavInMsg wasn't connected.");
     }
     this->planetMsgIsLinked = this->celBodyInMsg.isLinked();
 }
