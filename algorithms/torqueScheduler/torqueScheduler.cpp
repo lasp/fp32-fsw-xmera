@@ -4,6 +4,7 @@
 
 #include "torqueScheduler.h"
 #include "utilities/timeConstants.h"
+#include "utilities/xmeraLifecycleException.h"
 #include <stdexcept>
 
 void TorqueScheduler::reset(const uint64_t callTime) {
@@ -14,11 +15,16 @@ void TorqueScheduler::reset(const uint64_t callTime) {
         throw std::invalid_argument("torqueScheduler.motorTorque2InMsg wasn't connected.");
     }
 
-    this->algorithm.setConfig(TorqueSchedulerConfig::create(this->lockFlag, this->tSwitch));
+    auto config = TorqueSchedulerConfig::create(this->lockFlag, this->tSwitch);
+    this->algorithm = std::make_unique<TorqueSchedulerAlgorithm>(config);
     this->t0 = callTime;
 }
 
 void TorqueScheduler::updateState(const uint64_t callTime) {
+    if (!this->algorithm) {
+        throw XmeraLifecycleException("TorqueScheduler reset() has not been called.");
+    }
+
     const ArrayMotorTorqueMsgF32Payload motorTorque1In = this->motorTorque1InMsg();
     const ArrayMotorTorqueMsgF32Payload motorTorque2In = this->motorTorque2InMsg();
 
@@ -27,7 +33,7 @@ void TorqueScheduler::updateState(const uint64_t callTime) {
     // to float for the algorithm input.
     const float t = static_cast<float>(static_cast<double>(callTime - this->t0) * kNano2Sec);
 
-    const TorqueSchedulerOutput out = this->algorithm.update(t, motorTorque1In, motorTorque2In);
+    const TorqueSchedulerOutput out = this->algorithm->update(t, motorTorque1In, motorTorque2In);
 
     this->motorTorqueOutMsg.write(&out.motorTorqueOut, this->moduleID, callTime);
     this->effectorLockOutMsg.write(&out.effectorLockOut, this->moduleID, callTime);

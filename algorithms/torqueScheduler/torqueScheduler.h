@@ -11,14 +11,19 @@
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
 #include <stdint.h>
+#include <memory>
 
 /*! @brief Adapter routing two motor-torque inputs into a paired output and emitting a
     time-scheduled effector-lock output. */
-class TorqueScheduler : public SysModel {
+class TorqueScheduler final : public SysModel {
    public:
+    TorqueScheduler() = default;
+    ~TorqueScheduler() override = default;
+
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
 
+    // Phase 1: public config properties -- set before reset().
     LockFlag lockFlag = LockFlag::BothFree;  //!< schedule selector
     float tSwitch = 0.0F;                    //!< [s] time span after reset at which the schedule transitions
 
@@ -28,7 +33,7 @@ class TorqueScheduler : public SysModel {
     Message<ArrayEffectorLockMsgF32Payload> effectorLockOutMsg;    //!< per-motor lock-flag output
 
    private:
-    TorqueSchedulerAlgorithm algorithm{TorqueSchedulerConfig::create(LockFlag::BothFree, 0.0F)};
+    std::unique_ptr<TorqueSchedulerAlgorithm> algorithm = nullptr;
     uint64_t t0{};  //!< [ns] epoch captured at reset()
 };
 
