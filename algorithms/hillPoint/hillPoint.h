@@ -25,7 +25,7 @@ class HillPoint final : public SysModel {
     Message<AttRefMsgF32Payload> attRefOutMsg;
 
    private:
-    HillPointAlgorithm algorithm{};
+    HillPointAlgorithm algorithm{HillPointConfig::create()};
     bool planetMsgIsLinked{};
 };
 

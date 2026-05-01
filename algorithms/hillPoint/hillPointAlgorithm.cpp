@@ -4,6 +4,10 @@
 #include "hillPointAlgorithm.h"
 #include "architecture/utilities/rigidBodyKinematics.hpp"
 
+HillPointAlgorithm::HillPointAlgorithm(const HillPointConfig& config) : cfg(config) {}
+
+void HillPointAlgorithm::setConfig(const HillPointConfig& config) { this->cfg = config; }
+
 HillPointOutput HillPointAlgorithm::update(const Eigen::Vector3d& r_BN_N,
                                            const Eigen::Vector3d& v_BN_N,
                                            const Eigen::Vector3d& r_planet_N,

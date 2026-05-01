@@ -9,12 +9,17 @@
 
 class HillPointAlgorithm final {
    public:
-    HillPointAlgorithm() = default;
+    explicit HillPointAlgorithm(const HillPointConfig& config);
+
+    void setConfig(const HillPointConfig& config);
 
     HillPointOutput update(const Eigen::Vector3d& r_BN_N,
                            const Eigen::Vector3d& v_BN_N,
                            const Eigen::Vector3d& r_planet_N,
                            const Eigen::Vector3d& v_planet_N) const;
+
+   private:
+    HillPointConfig cfg;
 };
 
 #endif
