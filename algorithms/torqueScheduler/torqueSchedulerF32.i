@@ -14,5 +14,5 @@
 %include "torqueSchedulerAlgorithm.h"
 %include "torqueScheduler.h"
 
-%include <architecture/msgPayloadDef/ArrayMotorTorqueMsgPayload.h>
-%include <architecture/msgPayloadDef/ArrayEffectorLockMsgPayload.h>
+%include "msgPayloadDef/ArrayMotorTorqueMsgF32Payload.h"
+%include "msgPayloadDef/ArrayEffectorLockMsgF32Payload.h"

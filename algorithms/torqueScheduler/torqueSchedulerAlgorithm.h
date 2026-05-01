@@ -9,10 +9,10 @@
 class TorqueSchedulerAlgorithm final {
    public:
     TorqueSchedulerOutput update(int lockFlag,
-                                 double tSwitch,
-                                 double t,
-                                 const ArrayMotorTorqueMsgPayload& motorTorque1,
-                                 const ArrayMotorTorqueMsgPayload& motorTorque2) const;
+                                 float tSwitch,
+                                 float t,
+                                 const ArrayMotorTorqueMsgF32Payload& motorTorque1,
+                                 const ArrayMotorTorqueMsgF32Payload& motorTorque2) const;
 };
 
 #endif

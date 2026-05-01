@@ -3,7 +3,7 @@
 // Copyright (c) 2025, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
 
 #include "torqueScheduler.h"
-#include <architecture/utilities/macroDefinitions.h>
+#include "utilities/timeConstants.h"
 #include <stdexcept>
 
 void TorqueScheduler::reset(const uint64_t callTime) {
@@ -18,11 +18,13 @@ void TorqueScheduler::reset(const uint64_t callTime) {
 }
 
 void TorqueScheduler::updateState(const uint64_t callTime) {
-    const ArrayMotorTorqueMsgPayload motorTorque1In = this->motorTorque1InMsg();
-    const ArrayMotorTorqueMsgPayload motorTorque2In = this->motorTorque2InMsg();
+    const ArrayMotorTorqueMsgF32Payload motorTorque1In = this->motorTorque1InMsg();
+    const ArrayMotorTorqueMsgF32Payload motorTorque2In = this->motorTorque2InMsg();
 
-    // Seconds elapsed since the most recent reset().
-    const double t = ((callTime - this->t0) * NANO2SEC);
+    // Seconds elapsed since the most recent reset(). The subtraction is done in uint64 ns and the
+    // multiplication in double to avoid precision loss for long sim runs; the result is cast down
+    // to float for the algorithm input.
+    const float t = static_cast<float>(static_cast<double>(callTime - this->t0) * kNano2Sec);
 
     const TorqueSchedulerOutput out =
         this->algorithm.update(this->lockFlag, this->tSwitch, t, motorTorque1In, motorTorque2In);

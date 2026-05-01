@@ -115,6 +115,7 @@ set(algorithms
     "sunSearch"
     "thrFiringRemainder"
     "thrFiringSchmitt"
+    "torqueScheduler"
 )
 foreach(algorithm_name IN LISTS algorithms)
   add_algorithm(${algorithm_name})

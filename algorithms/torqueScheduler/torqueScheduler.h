@@ -5,11 +5,11 @@
 #ifndef F32XMERA_TORQUE_SCHEDULER_H
 #define F32XMERA_TORQUE_SCHEDULER_H
 
+#include "msgPayloadDef/ArrayEffectorLockMsgF32Payload.h"
+#include "msgPayloadDef/ArrayMotorTorqueMsgF32Payload.h"
 #include "torqueSchedulerAlgorithm.h"
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
-#include <architecture/msgPayloadDef/ArrayEffectorLockMsgPayload.h>
-#include <architecture/msgPayloadDef/ArrayMotorTorqueMsgPayload.h>
 #include <stdint.h>
 
 /*! @brief Adapter routing two motor-torque inputs into a paired output and emitting a
@@ -19,13 +19,13 @@ class TorqueScheduler : public SysModel {
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
 
-    int lockFlag{};    //!< schedule selector: 0 = both free, 1 = lock #2 then #1, 2 = lock #1 then #2, 3 = both locked
-    double tSwitch{};  //!< [s] time span after reset at which the schedule transitions
+    int lockFlag{};   //!< schedule selector: 0 = both free, 1 = lock #2 then #1, 2 = lock #1 then #2, 3 = both locked
+    float tSwitch{};  //!< [s] time span after reset at which the schedule transitions
 
-    ReadFunctor<ArrayMotorTorqueMsgPayload> motorTorque1InMsg;  //!< first motor-torque input
-    ReadFunctor<ArrayMotorTorqueMsgPayload> motorTorque2InMsg;  //!< second motor-torque input
-    Message<ArrayMotorTorqueMsgPayload> motorTorqueOutMsg;      //!< paired motor-torque output
-    Message<ArrayEffectorLockMsgPayload> effectorLockOutMsg;    //!< per-motor lock-flag output
+    ReadFunctor<ArrayMotorTorqueMsgF32Payload> motorTorque1InMsg;  //!< first motor-torque input
+    ReadFunctor<ArrayMotorTorqueMsgF32Payload> motorTorque2InMsg;  //!< second motor-torque input
+    Message<ArrayMotorTorqueMsgF32Payload> motorTorqueOutMsg;      //!< paired motor-torque output
+    Message<ArrayEffectorLockMsgF32Payload> effectorLockOutMsg;    //!< per-motor lock-flag output
 
    private:
     TorqueSchedulerAlgorithm algorithm{};

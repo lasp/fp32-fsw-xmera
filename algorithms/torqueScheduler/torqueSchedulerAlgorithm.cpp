@@ -4,10 +4,10 @@
 #include "torqueSchedulerAlgorithm.h"
 
 TorqueSchedulerOutput TorqueSchedulerAlgorithm::update(const int lockFlag,
-                                                       const double tSwitch,
-                                                       const double t,
-                                                       const ArrayMotorTorqueMsgPayload& motorTorque1,
-                                                       const ArrayMotorTorqueMsgPayload& motorTorque2) const {
+                                                       const float tSwitch,
+                                                       const float t,
+                                                       const ArrayMotorTorqueMsgF32Payload& motorTorque1,
+                                                       const ArrayMotorTorqueMsgF32Payload& motorTorque2) const {
     TorqueSchedulerOutput out;
 
     out.motorTorqueOut.motorTorque[0] = motorTorque1.motorTorque[0];

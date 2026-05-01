@@ -4,8 +4,8 @@
 #ifndef F32XMERA_TORQUE_SCHEDULER_TYPES_H
 #define F32XMERA_TORQUE_SCHEDULER_TYPES_H
 
-#include <architecture/msgPayloadDef/ArrayEffectorLockMsgPayload.h>
-#include <architecture/msgPayloadDef/ArrayMotorTorqueMsgPayload.h>
+#include "msgPayloadDef/ArrayEffectorLockMsgF32Payload.h"
+#include "msgPayloadDef/ArrayMotorTorqueMsgF32Payload.h"
 
 // Schedule selector for the two motors. Numeric values must stay in lockstep with the legacy
 // integer encoding (0..3) used by callers and any C-shim mirror.
@@ -17,8 +17,8 @@ enum class LockFlag {
 };
 
 struct TorqueSchedulerOutput {
-    ArrayMotorTorqueMsgPayload motorTorqueOut{};    //!< paired motor-torque output
-    ArrayEffectorLockMsgPayload effectorLockOut{};  //!< per-motor lock-flag output
+    ArrayMotorTorqueMsgF32Payload motorTorqueOut{};    //!< paired motor-torque output
+    ArrayEffectorLockMsgF32Payload effectorLockOut{};  //!< per-motor lock-flag output
 };
 
 #endif
