@@ -6,7 +6,7 @@
 #include <architecture/utilities/macroDefinitions.h>
 #include <stdexcept>
 
-void TorqueScheduler::reset(uint64_t callTime) {
+void TorqueScheduler::reset(const uint64_t callTime) {
     if (!this->motorTorque1InMsg.isLinked()) {
         throw std::invalid_argument("torqueScheduler.motorTorque1InMsg wasn't connected.");
     }
@@ -17,14 +17,14 @@ void TorqueScheduler::reset(uint64_t callTime) {
     this->t0 = callTime;
 }
 
-void TorqueScheduler::updateState(uint64_t callTime) {
-    ArrayMotorTorqueMsgPayload motorTorque1In = this->motorTorque1InMsg();
-    ArrayMotorTorqueMsgPayload motorTorque2In = this->motorTorque2InMsg();
+void TorqueScheduler::updateState(const uint64_t callTime) {
+    const ArrayMotorTorqueMsgPayload motorTorque1In = this->motorTorque1InMsg();
+    const ArrayMotorTorqueMsgPayload motorTorque2In = this->motorTorque2InMsg();
     ArrayMotorTorqueMsgPayload motorTorqueOut = {};
     ArrayEffectorLockMsgPayload effectorLockOut = {};
 
     // Seconds elapsed since the most recent reset().
-    double t = ((callTime - this->t0) * NANO2SEC);
+    const double t = ((callTime - this->t0) * NANO2SEC);
 
     motorTorqueOut.motorTorque[0] = motorTorque1In.motorTorque[0];
     motorTorqueOut.motorTorque[1] = motorTorque2In.motorTorque[0];
