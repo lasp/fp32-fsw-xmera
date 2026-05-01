@@ -11,7 +11,7 @@ import os
 
 import matplotlib.pyplot as plt
 from xmera.architecture import messaging
-from xmera.fswAlgorithms import dvGuidance
+from xmera.fp32 import dvGuidanceF32
 from xmera.utilities import SimulationBaseClass
 from xmera.utilities import macros
 from xmera.utilities import unitTestSupport  # general support file with common unit test functions
@@ -47,7 +47,7 @@ def dvGuidanceTestFunction(show_plots):
     testProc.addTask(unitTestSim.CreateNewTask(unitTaskName, testProcessRate))  # Add a new task to the process
 
     # Construct the dvGuidance module
-    module = dvGuidance.DvGuidance()
+    module = dvGuidanceF32.DvGuidance()
 
     # This calls the algContain to setup the selfInit, and update
     module.modelTag = "dvGuidance"

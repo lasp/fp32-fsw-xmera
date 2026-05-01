@@ -2,8 +2,8 @@
 // Copyright (c) 2016, Autonomous Vehicle System Lab, University of Colorado at Boulder
 // Copyright (c) 2025, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
 
-#ifndef _DV_GUIDANCE_POINT_H_
-#define _DV_GUIDANCE_POINT_H_
+#ifndef F32XMERA_DV_GUIDANCE_H
+#define F32XMERA_DV_GUIDANCE_H
 
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>

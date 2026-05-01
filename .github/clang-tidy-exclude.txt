@@ -13,6 +13,8 @@ algorithms/convertStPlatformToBody/convertStPlatformToBody.h
 algorithms/convertStPlatformToBody/convertStPlatformToBody.cpp
 algorithms/cssComm/cssComm.h
 algorithms/cssComm/cssComm.cpp
+algorithms/dvGuidance/dvGuidance.h
+algorithms/dvGuidance/dvGuidance.cpp
 algorithms/ephemeridesRecenter/ephemeridesRecenter.h
 algorithms/ephemeridesRecenter/ephemeridesRecenter.cpp
 algorithms/forceTorqueThrForceMapping/forceTorqueThrForceMapping.h
