@@ -3,9 +3,11 @@
 // Copyright (c) 2025, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
 
 #include "dvGuidance.h"
+#include "utilities/timeConstants.h"
+
 #include <architecture/utilities/linearAlgebra.h>
-#include <architecture/utilities/macroDefinitions.h>
 #include <architecture/utilities/rigidBodyKinematics.h>
+
 #include <stdexcept>
 
 void DvGuidance::reset(const uint64_t callTime) {
@@ -35,7 +37,9 @@ void DvGuidance::updateState(const uint64_t callTime) {
     v3Cross(dcm_BubN[0], dcm_BubN[1], dcm_BubN[2]);
     v3Normalize(dcm_BubN[2], dcm_BubN[2]);
 
-    const double burnTime = ((int64_t)callTime - (int64_t)localBurnData.burnStartTime) * NANO2SEC;
+    const double burnTime =
+        static_cast<double>(static_cast<int64_t>(callTime) - static_cast<int64_t>(localBurnData.burnStartTime)) *
+        kNano2Sec;
 
     // current burn frame is base burn frame rotated about its 3rd axis by dvRotVecMag * burnTime
     v3SetZero(rotPRV);
