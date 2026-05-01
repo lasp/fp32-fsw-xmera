@@ -20,7 +20,7 @@ class SunSafePointAlgorithm {
     void setSHatBdyCmd(const Eigen::Vector3f& sHat);
 
    private:
-    float sunAxisSpinRate{};      //!< [rad/s] Desired constant spin rate about sun heading vector
+    float sunAxisSpinRate{};       //!< [rad/s] Desired constant spin rate about sun heading vector
     Eigen::Vector3f omega_RN_B{};  //!< [rad/s] Desired body rate vector if no sun direction is available
     Eigen::Vector3f sHatBdyCmd{};  //!< Desired body vector to point at the sun
 };

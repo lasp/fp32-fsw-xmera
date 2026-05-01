@@ -5,12 +5,11 @@
 // ---------------------------------------------------------------------------
 
 TEST(SunSafePointTest, RegressionTest) {
-    regressionTestSunSafePoint(
-        {1.0F, 1.0F, 0.0F},    // sunVec
-        {0.01F, 0.50F, -0.2F}, // omega_BN_B
-        0.0F,                   // sunAxisSpinRate
-        {0.0F, 0.0F, 1.0F},   // sHatBdyCmd
-        {0.0F, 0.0F, 0.0F}    // omega_RN_B_cfg
+    regressionTestSunSafePoint({1.0F, 1.0F, 0.0F},     // sunVec
+                               {0.01F, 0.50F, -0.2F},  // omega_BN_B
+                               0.0F,                   // sunAxisSpinRate
+                               {0.0F, 0.0F, 1.0F},     // sHatBdyCmd
+                               {0.0F, 0.0F, 0.0F}      // omega_RN_B_cfg
     );
 }
 
@@ -58,19 +57,13 @@ TEST(SunSafePointTest, SetupTest) {
 // ---------------------------------------------------------------------------
 
 // sigma_BR norm is bounded by 1 (inner MRP set) for any visible sun vector.
-TEST(SunSafePointTest, SigmaBrNormBounded) {
-    propertySigmaBrNormBounded({1.0F, 1.0F, 0.0F});
-}
+TEST(SunSafePointTest, SigmaBrNormBounded) { propertySigmaBrNormBounded({1.0F, 1.0F, 0.0F}); }
 
 // omega_BR_B always equals omega_BN_B - omega_RN_B.
-TEST(SunSafePointTest, OmegaBrIdentity) {
-    propertyOmegaBrIdentity({1.0F, 1.0F, 0.0F}, {0.5F, -0.3F, 0.1F});
-}
+TEST(SunSafePointTest, OmegaBrIdentity) { propertyOmegaBrIdentity({1.0F, 1.0F, 0.0F}, {0.5F, -0.3F, 0.1F}); }
 
 // All output components are finite for valid inputs.
-TEST(SunSafePointTest, OutputIsFinite) {
-    propertyOutputIsFinite({1.0F, 0.0F, 0.0F});
-}
+TEST(SunSafePointTest, OutputIsFinite) { propertyOutputIsFinite({1.0F, 0.0F, 0.0F}); }
 
 // sigma_BR is zero when sun is not visible.
 TEST(SunSafePointTest, SigmaBrZeroWhenSunNotVisible) {

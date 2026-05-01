@@ -1,10 +1,10 @@
 #include "sunSafePointAlgorithm.h"
 
+#include "../utilities/safeMath.h"
 #include "architecture/utilities/rigidBodyKinematics.hpp"
 #include "utilities/freestandingInvalidArgument.h"
-#include "../utilities/safeMath.h"
-#include <Eigen/Geometry>
 #include <math.h>
+#include <Eigen/Geometry>
 #include <numbers>
 
 /*! Update method for the sunSafePoint guidance algorithm. This method takes the estimated body-observed sun vector
@@ -15,7 +15,7 @@
 */
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
 SunSafePointOutput SunSafePointAlgorithm::update(const Eigen::Vector3f& vehSunPntBdy,
-                                                  const Eigen::Vector3f& omega_BN_B) const {
+                                                 const Eigen::Vector3f& omega_BN_B) const {
     SunSafePointOutput output{};
 
     const Eigen::Vector3f rHat_SB_B = vehSunPntBdy.stableNormalized();
@@ -31,7 +31,7 @@ SunSafePointOutput SunSafePointAlgorithm::update(const Eigen::Vector3f& vehSunPn
         // The commanded body vector is nearly opposite the sun heading
         if (static_cast<float>(std::numbers::pi) - sunAngleErr < kSmallAngle) {
             e_axis = this->sHatBdyCmd.unitOrthogonal();  // find orthogonal unit vector to sHatBdyCmd
-        // Normal case where sun and commanded body vectors are not aligned
+            // Normal case where sun and commanded body vectors are not aligned
         } else {
             e_axis = rHat_SB_B.cross(this->sHatBdyCmd);
         }
@@ -72,9 +72,7 @@ Eigen::Vector3f SunSafePointAlgorithm::getSHatBdyCmd() const { return this->sHat
  @return void
  @param rate [rad/s] Desired constant spin rate about sun heading vector
 */
-void SunSafePointAlgorithm::setSunAxisSpinRate(const float rate) {
-    this->sunAxisSpinRate = rate;
-}
+void SunSafePointAlgorithm::setSunAxisSpinRate(const float rate) { this->sunAxisSpinRate = rate; }
 
 /*! Setter method for the desired body rate vector if no sun direction is available.
  @return void

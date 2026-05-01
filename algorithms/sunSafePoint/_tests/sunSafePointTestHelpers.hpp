@@ -1,10 +1,10 @@
 #ifndef TEST_SUNSAFEPOINT_H
 #define TEST_SUNSAFEPOINT_H
 
-#include "utilities/freestandingInvalidArgument.h"
 #include "architecture/utilities/rigidBodyKinematics.hpp"
 #include "sunSafePointAlgorithm.h"
 #include "sunSafePointTypes.h"
+#include "utilities/freestandingInvalidArgument.h"
 #include <gtest/gtest.h>
 #include <Eigen/Core>
 #include <Eigen/Geometry>
@@ -54,10 +54,10 @@ inline SunSafePointOutput referenceUpdate(const Eigen::Vector3f& vehSunPntBdy,
 // ---------------------------------------------------------------------------
 
 inline void regressionTestSunSafePoint(std::vector<float> sunVector,
-                                        std::vector<float> omega_BN_B_Vec,
-                                        float sunAxisSpinRate,
-                                        std::vector<float> sHatBdyCmdVec,
-                                        std::vector<float> omega_RN_B_cfgVec) {
+                                       std::vector<float> omega_BN_B_Vec,
+                                       float sunAxisSpinRate,
+                                       std::vector<float> sHatBdyCmdVec,
+                                       std::vector<float> omega_RN_B_cfgVec) {
     // The setter requires a (near-)unit vector; normalize the fuzz-generated input first.
     Eigen::Vector3f sHatBdyCmd(sHatBdyCmdVec[0], sHatBdyCmdVec[1], sHatBdyCmdVec[2]);
     if (sHatBdyCmd.norm() < 1e-3f) {
@@ -79,8 +79,7 @@ inline void regressionTestSunSafePoint(std::vector<float> sunVector,
     SunSafePointOutput output{};
     EXPECT_NO_THROW(output = alg.update(sunVec, omega_BN_B));
 
-    auto reference =
-        referenceUpdate(sunVec, omega_BN_B, sunAxisSpinRate, algSHat, omega_RN_B_cfg);
+    auto reference = referenceUpdate(sunVec, omega_BN_B, sunAxisSpinRate, algSHat, omega_RN_B_cfg);
 
     // Compare MRPs nominal and shadow set
     Eigen::Vector3f sigmaOut = output.sigma_BR;
