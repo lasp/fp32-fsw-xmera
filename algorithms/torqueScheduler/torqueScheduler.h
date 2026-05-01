@@ -18,10 +18,10 @@ class TorqueScheduler : public SysModel {
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
 
-    int lockFlag;    //!< schedule selector: 0 = both free, 1 = lock #2 then #1, 2 = lock #1 then #2, 3 = both locked
-    double tSwitch;  //!< [s] time span after reset at which the schedule transitions
+    int lockFlag{};    //!< schedule selector: 0 = both free, 1 = lock #2 then #1, 2 = lock #1 then #2, 3 = both locked
+    double tSwitch{};  //!< [s] time span after reset at which the schedule transitions
 
-    uint64_t t0;  //!< [ns] epoch captured at reset()
+    uint64_t t0{};  //!< [ns] epoch captured at reset()
 
     ReadFunctor<ArrayMotorTorqueMsgPayload> motorTorque1InMsg;  //!< first motor-torque input
     ReadFunctor<ArrayMotorTorqueMsgPayload> motorTorque2InMsg;  //!< second motor-torque input
