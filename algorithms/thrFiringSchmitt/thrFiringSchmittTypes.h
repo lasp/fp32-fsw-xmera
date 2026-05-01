@@ -1,10 +1,22 @@
-#ifndef THR_FIRING_SCHMITT_TYPES_H
-#define THR_FIRING_SCHMITT_TYPES_H
+#ifndef F32XMERA_THR_FIRING_SCHMITT_TYPES_H
+#define F32XMERA_THR_FIRING_SCHMITT_TYPES_H
 
+#include <stdint.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/*! @brief Thrust pulsing regime. */
+typedef enum ThrustPulsingRegime { ON_PULSING = 0, OFF_PULSING = 1 } ThrustPulsingRegime;
+
+#ifdef __cplusplus
+}  // extern "C"
+#endif
+
+#ifdef __cplusplus
 #include "../msgPayloadDef/definitions.h"
 #include <array>
-
-enum class ThrustPulsingRegime : std::uint8_t { ON_PULSING = 0U, OFF_PULSING = 1U };
 
 /*! @brief Single thruster configuration */
 struct ThrusterConfig {
@@ -28,5 +40,6 @@ struct ThrusterForceCmd {
 struct ThrusterOnTimeCmd {
     std::array<float, kMaxThrusterCount> onTimeRequest{};  //!< [s] array of on-time requests
 };
+#endif  // __cplusplus
 
-#endif  // THR_FIRING_SCHMITT_TYPES_H
+#endif  // F32XMERA_THR_FIRING_SCHMITT_TYPES_H
