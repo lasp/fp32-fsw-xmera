@@ -3,22 +3,14 @@
 
 #include <cstdint>
 
+#include "mrpFeedbackTypes.h"
 #include "msgPayloadDef/AttGuidMsgF32Payload.h"
-#include "msgPayloadDef/CmdTorqueBodyMsgF32Payload.h"
 #include "msgPayloadDef/RWArrayConfigMsgF32Payload.h"
+#include "msgPayloadDef/RWAvailabilityMsgPayload.h"
 #include "msgPayloadDef/RWSpeedMsgF32Payload.h"
 #include "msgPayloadDef/VehicleConfigMsgF32Payload.h"
-#include "msgPayloadDef/RWAvailabilityMsgPayload.h"
 
 #include <Eigen/Core>
-
-/*! structure containing the MRP feedback algorithm output */
-typedef struct {
-    CmdTorqueBodyMsgF32Payload controlOut;     /*!< control torque output */
-    CmdTorqueBodyMsgF32Payload intFeedbackOut; /*!< integral feedback torque output */
-} MrpFeedbackOutput;
-
-enum class ControlLawType { NORMAL = 0, SIMPLE_INTEGRAL = 1 };
 
 /*! @brief Data configuration structure for the MRP feedback attitude control routine. */
 class MrpFeedbackAlgorithm final {
