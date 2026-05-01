@@ -56,9 +56,13 @@ void HillPoint::computeHillPointingReference(const Eigen::Vector3d r_BN_N,
 
     const double orbitRadius = relPosVector.norm();
 
+    // Robustness threshold against divide-by-near-zero. Note the original Xmera comment claimed
+    // "1 km" but the value is 1.0 in the same units as r_BN_N, which is meters.
+    constexpr double minOrbitRadius_m = 1.0;
+
     double dfdt = 0.0;    // true anomaly rate
     double ddfdt2 = 0.0;  // true anomaly acceleration
-    if (orbitRadius > 1.0) {
+    if (orbitRadius > minOrbitRadius_m) {
         dfdt = orbitAngMomentum.norm() / (orbitRadius * orbitRadius);
         ddfdt2 = -2.0 * relVelVector.dot(dcm_RN.row(0)) / orbitRadius * dfdt;
     }
