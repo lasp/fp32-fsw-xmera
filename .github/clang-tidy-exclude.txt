@@ -39,6 +39,8 @@ algorithms/rwNullSpace/rwNullSpace.h
 algorithms/rwNullSpace/rwNullSpace.cpp
 algorithms/stepperMotorController/stepperMotorController.h
 algorithms/stepperMotorController/stepperMotorController.cpp
+algorithms/sunSafePoint/sunSafePoint.h
+algorithms/sunSafePoint/sunSafePoint.cpp
 algorithms/sunSearch/sunSearch.h
 algorithms/sunSearch/sunSearch.cpp
 algorithms/sunlineEphem/sunlineEphem.h
