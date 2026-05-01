@@ -8,7 +8,7 @@
 
 class TorqueSchedulerAlgorithm final {
    public:
-    explicit TorqueSchedulerAlgorithm(TorqueSchedulerConfig config);
+    explicit TorqueSchedulerAlgorithm(const TorqueSchedulerConfig& config);
 
     void setConfig(const TorqueSchedulerConfig& config);
 

@@ -3,9 +3,7 @@
 
 #include "torqueSchedulerAlgorithm.h"
 
-#include <utility>
-
-TorqueSchedulerAlgorithm::TorqueSchedulerAlgorithm(TorqueSchedulerConfig config) : cfg(std::move(config)) {}
+TorqueSchedulerAlgorithm::TorqueSchedulerAlgorithm(const TorqueSchedulerConfig& config) : cfg(config) {}
 
 void TorqueSchedulerAlgorithm::setConfig(const TorqueSchedulerConfig& config) { this->cfg = config; }
 
