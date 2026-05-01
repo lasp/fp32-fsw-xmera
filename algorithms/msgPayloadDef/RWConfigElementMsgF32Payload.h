@@ -1,9 +1,3 @@
-/*
- MIT License
-
- Copyright (c) 2025, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
- */
-
 #ifndef RW_CONFIG_ELEMENT_MESSAGE_F32_H
 #define RW_CONFIG_ELEMENT_MESSAGE_F32_H
 

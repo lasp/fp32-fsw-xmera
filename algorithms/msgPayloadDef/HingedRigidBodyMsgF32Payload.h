@@ -1,9 +1,3 @@
-/*
- MIT License
-
- Copyright (c) 2025, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
-*/
-
 #ifndef HINGED_RIGID_BODY_MESSAGE_F32_H
 #define HINGED_RIGID_BODY_MESSAGE_F32_H
 

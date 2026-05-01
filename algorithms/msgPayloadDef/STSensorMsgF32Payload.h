@@ -1,9 +1,3 @@
-/*
- MIT License
-
- Copyright (c) 2026, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
- */
-
 #ifndef ST_SENSOR_MESSAGE_F32_H
 #define ST_SENSOR_MESSAGE_F32_H
 

@@ -1,9 +1,3 @@
-/*
- MIT License
-
- Copyright (c) 2025, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
-*/
-
 #ifndef F32XMERA_RATE_CONTROL_ALGORITHM_H
 #define F32XMERA_RATE_CONTROL_ALGORITHM_H
 

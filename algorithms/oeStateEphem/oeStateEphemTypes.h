@@ -1,9 +1,3 @@
-/*
- MIT License
-
- Copyright (c) 2026, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
- */
-
 #ifndef F32XIMERA_OE_STATE_EPHEM_TYPES_H
 #define F32XIMERA_OE_STATE_EPHEM_TYPES_H
 

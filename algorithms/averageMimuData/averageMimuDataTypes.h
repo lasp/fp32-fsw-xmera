@@ -1,9 +1,3 @@
-/*
- MIT License
-
- Copyright (c) 2025, University of Colorado at Boulder
- */
-
 #ifndef F32XIMERA_AVERAGE_MIMU_DATA_TYPES_H
 #define F32XIMERA_AVERAGE_MIMU_DATA_TYPES_H
 

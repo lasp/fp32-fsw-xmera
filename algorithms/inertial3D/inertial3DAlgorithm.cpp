@@ -1,9 +1,3 @@
-/*
- MIT License
-
- Copyright (c) 2025, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
- */
-
 #include "inertial3DAlgorithm.h"
 #include "architecture/utilities/eigenSupport.h"
 #include "msgPayloadDef/AttRefMsgF32Payload.h"
