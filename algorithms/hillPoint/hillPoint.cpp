@@ -2,8 +2,7 @@
 // Copyright (c) 2024, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
 
 #include "hillPoint.h"
-#include <architecture/utilities/eigenSupport.h>
-#include <architecture/utilities/rigidBodyKinematics.hpp>
+#include "architecture/utilities/eigenSupport.h"
 #include <stdexcept>
 
 void HillPoint::reset(const uint64_t currentSimNanos) {
@@ -15,64 +14,24 @@ void HillPoint::reset(const uint64_t currentSimNanos) {
 
 /*! Computes a Hill-frame attitude reference from the spacecraft's inertial position and velocity. */
 void HillPoint::updateState(const uint64_t currentSimNanos) {
-    AttRefMsgPayload AttRefOutBuffer = AttRefMsgPayload();
-
-    // primary planet defaults to zero pos/vel when the celBody message isn't connected
-    EphemerisMsgPayload primPlanet = EphemerisMsgPayload();
-    if (this->planetMsgIsLinked) {
-        primPlanet = this->celBodyInMsg();
-    }
     const NavTransMsgPayload navData = this->transNavInMsg();
+    const Eigen::Vector3d r_BN_N = cArrayToEigenVector3<double>(navData.r_BN_N);
+    const Eigen::Vector3d v_BN_N = cArrayToEigenVector3<double>(navData.v_BN_N);
 
-    computeHillPointingReference((Eigen::Vector3d)navData.r_BN_N,
-                                 (Eigen::Vector3d)navData.v_BN_N,
-                                 (Eigen::Vector3d)primPlanet.r_BdyZero_N,
-                                 (Eigen::Vector3d)primPlanet.v_BdyZero_N,
-                                 &AttRefOutBuffer);
-
-    this->attRefOutMsg.write(&AttRefOutBuffer, moduleID, currentSimNanos);
-}
-
-void HillPoint::computeHillPointingReference(const Eigen::Vector3d r_BN_N,
-                                             const Eigen::Vector3d v_BN_N,
-                                             const Eigen::Vector3d celBdyPositonVector,
-                                             const Eigen::Vector3d celBdyVelocityVector,
-                                             AttRefMsgPayload* attRefOut) {
-    const Eigen::Vector3d relPosVector = r_BN_N - celBdyPositonVector;
-    const Eigen::Vector3d relVelVector = v_BN_N - celBdyVelocityVector;
-
-    // DCM from inertial frame N to Hill reference frame R
-    Eigen::Matrix3d dcm_RN;
-    // first row i_r: radial unit vector
-    dcm_RN.row(0) = relPosVector.normalized();
-    // third row i_h: orbit angular momentum unit vector
-    const Eigen::Vector3d orbitAngMomentum = relPosVector.cross(relVelVector);
-    dcm_RN.row(2) = orbitAngMomentum.normalized();
-    // second row i_theta = i_h x i_r completes the right-handed Hill frame
-    dcm_RN.row(1) = dcm_RN.row(2).cross(dcm_RN.row(0));
-
-    const Eigen::Vector3d sigma_RN = dcmToMrp(dcm_RN);
-    eigenVectorToCArray(sigma_RN, attRefOut->sigma_RN);
-
-    const double orbitRadius = relPosVector.norm();
-
-    // Robustness threshold against divide-by-near-zero. Note the original Xmera comment claimed
-    // "1 km" but the value is 1.0 in the same units as r_BN_N, which is meters.
-    constexpr double minOrbitRadius_m = 1.0;
-
-    double dfdt = 0.0;    // true anomaly rate
-    double ddfdt2 = 0.0;  // true anomaly acceleration
-    if (orbitRadius > minOrbitRadius_m) {
-        dfdt = orbitAngMomentum.norm() / (orbitRadius * orbitRadius);
-        ddfdt2 = -2.0 * relVelVector.dot(dcm_RN.row(0)) / orbitRadius * dfdt;
+    Eigen::Vector3d r_planet_N = Eigen::Vector3d::Zero();
+    Eigen::Vector3d v_planet_N = Eigen::Vector3d::Zero();
+    if (this->planetMsgIsLinked) {
+        const EphemerisMsgPayload primPlanet = this->celBodyInMsg();
+        r_planet_N = cArrayToEigenVector3<double>(primPlanet.r_BdyZero_N);
+        v_planet_N = cArrayToEigenVector3<double>(primPlanet.v_BdyZero_N);
     }
-    // else: degenerate geometry (radius below threshold) -- leave rates at zero rather than divide by ~0
 
-    const Eigen::Vector3d omega_RN_R = {0.0, 0.0, dfdt};
-    const Eigen::Vector3d domega_RN_R = {0.0, 0.0, ddfdt2};
+    const HillPointOutput out = this->algorithm.update(r_BN_N, v_BN_N, r_planet_N, v_planet_N);
 
-    const Eigen::Vector3d omega_RN_N = dcm_RN.transpose() * omega_RN_R;
-    eigenVectorToCArray(omega_RN_N, attRefOut->omega_RN_N);
-    const Eigen::Vector3d domega_RN_N = dcm_RN.transpose() * domega_RN_R;
-    eigenVectorToCArray(domega_RN_N, attRefOut->domega_RN_N);
+    AttRefMsgPayload attRefOut = AttRefMsgPayload();
+    eigenVectorToCArray(out.sigma_RN, attRefOut.sigma_RN);
+    eigenVectorToCArray(out.omega_RN_N, attRefOut.omega_RN_N);
+    eigenVectorToCArray(out.domega_RN_N, attRefOut.domega_RN_N);
+
+    this->attRefOutMsg.write(&attRefOut, moduleID, currentSimNanos);
 }

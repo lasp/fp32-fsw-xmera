@@ -11,6 +11,7 @@
 
 %include <architecture/_GeneralModuleFiles/sys_model.i>
 %include "hillPoint.h"
+%include "hillPointAlgorithm.h"
 
 %include <architecture/msgPayloadDef/EphemerisMsgPayload.h>
 %include <architecture/msgPayloadDef/NavTransMsgPayload.h>
