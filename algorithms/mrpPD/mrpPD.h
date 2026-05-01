@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// SPDX-FileCopyrightText: 2025 Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
+
 #ifndef XMERAF32_MRP_PD_H
 #define XMERAF32_MRP_PD_H
 
@@ -12,7 +15,6 @@
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
 
-/*! @brief MRP PD control class. */
 class MrpPD : public SysModel {
    public:
     MrpPD() = default;
@@ -20,19 +22,27 @@ class MrpPD : public SysModel {
 
     void reset(uint64_t currentSimNanos) override;
     void updateState(uint64_t currentSimNanos) override;
-    void setDerivativeGainP(float P);
-    float getDerivativeGainP() const;
+
+    void setK(float K);
+    float getK() const;
+    void setP(float P);
+    float getP() const;
     void setKnownTorquePntB_B(const Eigen::Vector3f& knownTorquePntB_B);
     const Eigen::Vector3f& getKnownTorquePntB_B() const;
-    void setProportionalGainK(float K);
-    float getProportionalGainK() const;
 
     ReadFunctor<AttGuidMsgF32Payload> guidInMsg;             //!< Attitude guidance input message
     ReadFunctor<VehicleConfigMsgF32Payload> vehConfigInMsg;  //!< Vehicle configuration input message
     Message<CmdTorqueBodyMsgF32Payload> cmdTorqueOutMsg;     //!< Commanded torque output message
 
    private:
-    MrpPDAlgorithm algorithm{};  //!< Algorithm for mrpPD control logic (BSK-agnostic)
+    void rebuildAlgorithmConfig();
+
+    float K = 0.0F;
+    float P = 0.0F;
+    Eigen::Vector3f knownTorquePntB_B = Eigen::Vector3f::Zero();
+    Eigen::Matrix3f spacecraftInertia = Eigen::Matrix3f::Identity();
+
+    MrpPDAlgorithm algorithm{MrpPDConfig::create(0.0F, 0.0F, Eigen::Vector3f::Zero(), Eigen::Matrix3f::Identity())};
 };
 
 #endif
