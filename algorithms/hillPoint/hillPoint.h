@@ -10,6 +10,7 @@
 #include "msgPayloadDef/NavTransMsgF32Payload.h"
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
+#include <memory>
 
 /*! @brief Hill Point attitude guidance adapter. */
 class HillPoint final : public SysModel {
@@ -25,7 +26,7 @@ class HillPoint final : public SysModel {
     Message<AttRefMsgF32Payload> attRefOutMsg;
 
    private:
-    HillPointAlgorithm algorithm{HillPointConfig::create()};
+    std::unique_ptr<HillPointAlgorithm> algorithm = nullptr;
     bool planetMsgIsLinked{};
 };
 
