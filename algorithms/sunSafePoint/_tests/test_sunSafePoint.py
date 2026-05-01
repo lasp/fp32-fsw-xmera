@@ -47,8 +47,6 @@ def test_sun_safe_point(show_plots, case):
     unit_test_sim.AddModelToTask(unit_task_name, sun_safe_point)
 
     # Initialize sunSafePoint module configuration data
-    sun_safe_point.smallAngle = 0.01 * mc.D2R
-
     omega_RN_B_Search = np.array([0.0, 0.0, 0.0])
     sunAxisSpinRate = 0.0
     if case == 1:  # Sun visible, vectors not aligned
@@ -208,7 +206,6 @@ def test_sun_safe_point(show_plots, case):
                                atol=tolerance,
                                verbose=True)
 
-    np.testing.assert_allclose(sun_safe_point.smallAngle, 0.01 * mc.D2R, rtol=tolerance, atol=tolerance)
     np.testing.assert_allclose(sun_safe_point.sunAxisSpinRate, sunAxisSpinRate, rtol=tolerance, atol=tolerance)
     np.testing.assert_allclose(np.array(sun_safe_point.omega_RN_B).flatten(), omega_RN_B_Search, rtol=tolerance, atol=tolerance)
     np.testing.assert_allclose(np.array(sun_safe_point.sHatBdyCmd).flatten(), sHat_cmd_B, rtol=tolerance, atol=tolerance)

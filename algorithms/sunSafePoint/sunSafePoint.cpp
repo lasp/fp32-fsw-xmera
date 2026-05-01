@@ -46,11 +46,6 @@ void SunSafePoint::updateState(uint64_t callTime) {
     this->attGuidanceOutMsg.write(&attGuidanceOutBuffer, moduleID, callTime);
 }
 
-/*! Getter method for the small alignment tolerance angle near 0 or 180 degrees.
- @return float
-*/
-float SunSafePoint::getSmallAngle() const { return this->algorithm.getSmallAngle(); }
-
 /*! Getter method for the desired constant spin rate about sun heading vector.
  @return float
 */
@@ -65,12 +60,6 @@ Eigen::Vector3f SunSafePoint::getOmega_RN_B() const { return this->algorithm.get
  @return Eigen::Vector3f
 */
 Eigen::Vector3f SunSafePoint::getSHatBdyCmd() const { return this->algorithm.getSHatBdyCmd(); }
-
-/*! Setter method for the small alignment tolerance angle near 0 or 180 degrees.
- @return void
- @param angle [rad] An angle value that specifies what is near 0 or 180 degrees
-*/
-void SunSafePoint::setSmallAngle(const float angle) { this->algorithm.setSmallAngle(angle); }
 
 /*! Setter method for the desired constant spin rate about sun heading vector.
  @return void

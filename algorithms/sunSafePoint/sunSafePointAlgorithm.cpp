@@ -26,21 +26,18 @@ SunSafePointOutput SunSafePointAlgorithm::update(const Eigen::Vector3f& vehSunPn
         float const sunAngleErr = safeAcosf(this->sHatBdyCmd.dot(rHat_SB_B));
 
         // Compute the heading error relative to the sun direction vector
-        Eigen::Vector3f sigma_BR{Eigen::Vector3f::Zero()};
-        // If Sun heading and desired body axis are essentially aligned, set attitude error to zero.
-        if (sunAngleErr >= this->smallAngle) {
-            Eigen::Vector3f e_hat{};  // Eigen Axis
-            // The commanded body vector nearly is opposite the sun heading
-            if (static_cast<float>(std::numbers::pi) - sunAngleErr < this->smallAngle) {
-                e_hat = this->sHatBdyCmd.unitOrthogonal();  // find orthogonal unit vector to sHatBdyCmd
-            // Normal case where sun and commanded body vectors are not aligned
-            } else {
-                e_hat = rHat_SB_B.cross(this->sHatBdyCmd);
-            }
-            Eigen::Vector3f const sunMnvrVec = e_hat / e_hat.norm();
-            sigma_BR = safeTanf(sunAngleErr * 0.25F) * sunMnvrVec;
-            sigma_BR = mrpSwitch(sigma_BR, 1.0F);
+        Eigen::Vector3f e_hat{};  // Eigen Axis
+        constexpr float kSmallAngle = 1e-3F;
+        // The commanded body vector is nearly opposite the sun heading
+        if (static_cast<float>(std::numbers::pi) - sunAngleErr < kSmallAngle) {
+            e_hat = this->sHatBdyCmd.unitOrthogonal();  // find orthogonal unit vector to sHatBdyCmd
+        // Normal case where sun and commanded body vectors are not aligned
+        } else {
+            e_hat = rHat_SB_B.cross(this->sHatBdyCmd);
         }
+        Eigen::Vector3f const sunMnvrVec = e_hat.stableNormalized();
+        Eigen::Vector3f sigma_BR = safeTanf(sunAngleErr * 0.25F) * sunMnvrVec;
+        sigma_BR = mrpSwitch(sigma_BR, 1.0F);
 
         output.sigma_BR = sigma_BR;
         // Rate tracking error is the body rate to bring spacecraft to rest
@@ -56,11 +53,6 @@ SunSafePointOutput SunSafePointAlgorithm::update(const Eigen::Vector3f& vehSunPn
     return output;
 }
 
-/*! Getter method for the small alignment tolerance angle near 0 or 180 degrees.
- @return float
-*/
-float SunSafePointAlgorithm::getSmallAngle() const { return this->smallAngle; }
-
 /*! Getter method for the desired constant spin rate about sun heading vector.
  @return float
 */
@@ -75,17 +67,6 @@ Eigen::Vector3f SunSafePointAlgorithm::getOmega_RN_B() const { return this->omeg
  @return Eigen::Vector3f
 */
 Eigen::Vector3f SunSafePointAlgorithm::getSHatBdyCmd() const { return this->sHatBdyCmd; }
-
-/*! Setter method for the small alignment tolerance angle near 0 or 180 degrees.
- @return void
- @param angle [rad] An angle value that specifies what is near 0 or 180 degrees (Must be positive)
-*/
-void SunSafePointAlgorithm::setSmallAngle(const float angle) {
-    if (angle <= 0.0F) {
-        FSW_THROW_INVALID_ARGUMENT("sunSafePoint: smallAngle must be positive");
-    }
-    this->smallAngle = angle;
-}
 
 /*! Setter method for the desired constant spin rate about sun heading vector.
  @return void

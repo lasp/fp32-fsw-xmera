@@ -8,7 +8,6 @@ TEST(SunSafePointTest, RegressionTest) {
     regressionTestSunSafePoint(
         {1.0F, 1.0F, 0.0F},    // sunVec
         {0.01F, 0.50F, -0.2F}, // omega_BN_B
-        0.01F,                  // smallAngle (~0.01 deg in rad)
         0.0F,                   // sunAxisSpinRate
         {0.0F, 0.0F, 1.0F},   // sHatBdyCmd
         {0.0F, 0.0F, 0.0F}    // omega_RN_B_cfg
@@ -22,10 +21,6 @@ TEST(SunSafePointTest, RegressionTest) {
 TEST(SunSafePointTest, SetupTest) {
     SunSafePointAlgorithm alg{};
 
-    // smallAngle: 0 and negative should throw
-    EXPECT_THROW(alg.setSmallAngle(0.0F), fsw::invalid_argument);
-    EXPECT_THROW(alg.setSmallAngle(-0.01F), fsw::invalid_argument);
-
     // sHatBdyCmd: norm must be within 1e-3 of 1.0
     EXPECT_THROW(alg.setSHatBdyCmd(Eigen::Vector3f::Zero()), fsw::invalid_argument);
     EXPECT_THROW(alg.setSHatBdyCmd(Eigen::Vector3f{2.0F, 0.0F, 0.0F}), fsw::invalid_argument);
@@ -38,9 +33,6 @@ TEST(SunSafePointTest, SetupTest) {
     EXPECT_NO_THROW(alg.setOmega_RN_B(Eigen::Vector3f{100.0F, -200.0F, 300.0F}));
 
     // Getter/setter round-trips
-    alg.setSmallAngle(0.02F);
-    EXPECT_FLOAT_EQ(alg.getSmallAngle(), 0.02F);
-
     alg.setSunAxisSpinRate(1.5F);
     EXPECT_FLOAT_EQ(alg.getSunAxisSpinRate(), 1.5F);
 
@@ -83,7 +75,6 @@ TEST(SunSafePointTest, OutputIsFinite) {
 // sigma_BR is zero when sun is not visible.
 TEST(SunSafePointTest, SigmaBrZeroWhenSunNotVisible) {
     SunSafePointAlgorithm alg{};
-    alg.setSmallAngle(0.01F);
     alg.setSHatBdyCmd(Eigen::Vector3f{0.0F, 0.0F, 1.0F});
     alg.setOmega_RN_B(Eigen::Vector3f{0.1F, 0.0F, 0.0F});
 
@@ -95,7 +86,6 @@ TEST(SunSafePointTest, SigmaBrZeroWhenSunNotVisible) {
 // sigma_BR is zero when sun direction is aligned with sHatBdyCmd.
 TEST(SunSafePointTest, SigmaBrZeroWhenAligned) {
     SunSafePointAlgorithm alg{};
-    alg.setSmallAngle(0.01F);
     alg.setSHatBdyCmd(Eigen::Vector3f{0.0F, 0.0F, 1.0F});
 
     // Sun direction exactly along sHatBdyCmd
@@ -109,7 +99,6 @@ TEST(SunSafePointTest, SigmaBrZeroWhenAligned) {
 // In the normal case, sigma_BR direction is orthogonal to both sunVec and sHatBdyCmd.
 TEST(SunSafePointTest, SigmaBrOrthogonalToBothVectors) {
     SunSafePointAlgorithm alg{};
-    alg.setSmallAngle(0.001F);
     alg.setSHatBdyCmd(Eigen::Vector3f{0.0F, 0.0F, 1.0F});
 
     // Normal case: not aligned, not opposite
@@ -127,7 +116,6 @@ TEST(SunSafePointTest, SigmaBrOrthogonalToBothVectors) {
 // When sunAxisSpinRate != 0 and sun is visible, omega_RN_B is parallel to vehSunPntBdy.
 TEST(SunSafePointTest, OmegaRnParallelToSunVec) {
     SunSafePointAlgorithm alg{};
-    alg.setSmallAngle(0.01F);
     alg.setSunAxisSpinRate(2.0F);
     alg.setSHatBdyCmd(Eigen::Vector3f{0.0F, 0.0F, 1.0F});
 
@@ -150,7 +138,6 @@ TEST(SunSafePointTest, OmegaRnParallelToSunVec) {
 // Sun exactly at 180° from sHatBdyCmd uses the unitOrthogonal() fallback axis.
 TEST(SunSafePointTest, SunOpposite180) {
     SunSafePointAlgorithm alg{};
-    alg.setSmallAngle(0.01F);
     alg.setSHatBdyCmd(Eigen::Vector3f{0.0F, 0.0F, 1.0F});
 
     Eigen::Vector3f sunVec{0.0F, 0.0F, -1.0F};
@@ -163,7 +150,7 @@ TEST(SunSafePointTest, SunOpposite180) {
 
     // Verify against reference
     Eigen::Vector3f sHat = alg.getSHatBdyCmd();
-    auto reference = referenceUpdate(sunVec, omega_BN_B, 0.01F, 0.0F, sHat, Eigen::Vector3f::Zero());
+    auto reference = referenceUpdate(sunVec, omega_BN_B, 0.0F, sHat, Eigen::Vector3f::Zero());
     for (int i = 0; i < 3; ++i) {
         EXPECT_NEAR(output.sigma_BR(i), reference.sigma_BR(i), 1e-5F);
     }
@@ -172,7 +159,6 @@ TEST(SunSafePointTest, SunOpposite180) {
 // Sun exactly aligned with sHatBdyCmd gives zero attitude error.
 TEST(SunSafePointTest, SunExactlyAligned) {
     SunSafePointAlgorithm alg{};
-    alg.setSmallAngle(0.01F);
     alg.setSHatBdyCmd(Eigen::Vector3f{0.0F, 0.0F, 1.0F});
 
     Eigen::Vector3f sunVec{0.0F, 0.0F, 1.0F};
@@ -187,7 +173,6 @@ TEST(SunSafePointTest, SunExactlyAligned) {
 // Very small non-zero sun vector is still visible, zero vector is not.
 TEST(SunSafePointTest, SmallNonZeroSunVectorIsVisible) {
     SunSafePointAlgorithm alg{};
-    alg.setSmallAngle(0.01F);
     alg.setSHatBdyCmd(Eigen::Vector3f{0.0F, 0.0F, 1.0F});
     alg.setOmega_RN_B(Eigen::Vector3f{0.5F, 0.0F, 0.0F});
 
@@ -208,7 +193,6 @@ TEST(SunSafePointTest, SmallNonZeroSunVectorIsVisible) {
 // sHatBdyCmd along x-axis with sun at 180° opposition: produces a finite, non-zero sigma_BR.
 TEST(SunSafePointTest, SHatAlongXAxis180Opposition) {
     SunSafePointAlgorithm alg{};
-    alg.setSmallAngle(0.01F);
     alg.setSHatBdyCmd(Eigen::Vector3f{1.0F, 0.0F, 0.0F});
 
     // Sun opposite to sHat (along -x): exercises the unitOrthogonal() fallback branch
@@ -226,7 +210,6 @@ TEST(SunSafePointTest, SHatAlongXAxis180Opposition) {
 // Large unnormalized sun vector should produce correct results.
 TEST(SunSafePointTest, LargeUnnormalizedSunVector) {
     SunSafePointAlgorithm alg{};
-    alg.setSmallAngle(0.001F);
     alg.setSHatBdyCmd(Eigen::Vector3f{0.0F, 0.0F, 1.0F});
 
     Eigen::Vector3f sunVec{1000.0F, 1000.0F, 0.0F};
@@ -245,7 +228,6 @@ TEST(SunSafePointTest, LargeUnnormalizedSunVector) {
 // Zero sunAxisSpinRate produces zero omega_RN_B when sun is visible.
 TEST(SunSafePointTest, ZeroSpinRateZeroOmegaRn) {
     SunSafePointAlgorithm alg{};
-    alg.setSmallAngle(0.01F);
     alg.setSunAxisSpinRate(0.0F);
     alg.setSHatBdyCmd(Eigen::Vector3f{0.0F, 0.0F, 1.0F});
 
@@ -266,7 +248,6 @@ TEST(SunSafePointTest, ZeroSpinRateZeroOmegaRn) {
 // Negative sunAxisSpinRate produces omega_RN_B anti-parallel to sun vector.
 TEST(SunSafePointTest, NegativeSpinRate) {
     SunSafePointAlgorithm alg{};
-    alg.setSmallAngle(0.01F);
     alg.setSunAxisSpinRate(-2.0F);
     alg.setSHatBdyCmd(Eigen::Vector3f{0.0F, 0.0F, 1.0F});
 
