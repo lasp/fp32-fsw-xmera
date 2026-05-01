@@ -14,15 +14,15 @@ void DvGuidance::reset(const uint64_t callTime) {
 }
 
 void DvGuidance::updateState(const uint64_t callTime) {
-    const DvBurnCmdMsgPayload localBurnData = this->burnDataInMsg();
+    const DvBurnCmdMsgF32Payload localBurnData = this->burnDataInMsg();
 
-    const Eigen::Vector3d dvInrtlCmd = cArrayToEigenVector3<double>(localBurnData.dvInrtlCmd);
-    const Eigen::Vector3d dvRotVecUnit = cArrayToEigenVector3<double>(localBurnData.dvRotVecUnit);
+    const Eigen::Vector3f dvInrtlCmd = cArrayToEigenVector3<float>(localBurnData.dvInrtlCmd);
+    const Eigen::Vector3f dvRotVecUnit = cArrayToEigenVector3<float>(localBurnData.dvRotVecUnit);
 
     const DvGuidanceOutput out = this->algorithm.update(
         dvInrtlCmd, dvRotVecUnit, localBurnData.dvRotVecMag, localBurnData.burnStartTime, callTime);
 
-    AttRefMsgPayload attCmd = {};
+    AttRefMsgF32Payload attCmd = {};
     eigenVectorToCArray(out.sigma_RN, attCmd.sigma_RN);
     eigenVectorToCArray(out.omega_RN_N, attCmd.omega_RN_N);
     eigenVectorToCArray(out.domega_RN_N, attCmd.domega_RN_N);

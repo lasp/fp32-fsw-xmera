@@ -13,5 +13,5 @@
 %include "dvGuidance.h"
 %include "dvGuidanceAlgorithm.h"
 
-%include <architecture/msgPayloadDef/AttRefMsgPayload.h>
-%include <architecture/msgPayloadDef/DvBurnCmdMsgPayload.h>
+%include "msgPayloadDef/AttRefMsgF32Payload.h"
+%include "msgPayloadDef/DvBurnCmdMsgF32Payload.h"

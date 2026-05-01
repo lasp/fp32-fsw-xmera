@@ -6,10 +6,10 @@
 #define F32XMERA_DV_GUIDANCE_H
 
 #include "dvGuidanceAlgorithm.h"
+#include "msgPayloadDef/AttRefMsgF32Payload.h"
+#include "msgPayloadDef/DvBurnCmdMsgF32Payload.h"
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
-#include <architecture/msgPayloadDef/AttRefMsgPayload.h>
-#include <architecture/msgPayloadDef/DvBurnCmdMsgPayload.h>
 
 #include <stdint.h>
 
@@ -22,8 +22,8 @@ class DvGuidance final : public SysModel {
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
 
-    Message<AttRefMsgPayload> attRefOutMsg;
-    ReadFunctor<DvBurnCmdMsgPayload> burnDataInMsg;
+    Message<AttRefMsgF32Payload> attRefOutMsg;
+    ReadFunctor<DvBurnCmdMsgF32Payload> burnDataInMsg;
 
    private:
     DvGuidanceAlgorithm algorithm{};

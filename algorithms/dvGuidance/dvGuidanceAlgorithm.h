@@ -9,9 +9,9 @@ class DvGuidanceAlgorithm final {
    public:
     DvGuidanceAlgorithm() = default;
 
-    DvGuidanceOutput update(const Eigen::Vector3d& dvInrtlCmd,
-                            const Eigen::Vector3d& dvRotVecUnit,
-                            double dvRotVecMag,
+    DvGuidanceOutput update(const Eigen::Vector3f& dvInrtlCmd,
+                            const Eigen::Vector3f& dvRotVecUnit,
+                            float dvRotVecMag,
                             uint64_t burnStartTime,
                             uint64_t callTime) const;
 };
