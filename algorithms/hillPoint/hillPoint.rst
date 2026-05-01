@@ -1,295 +1,171 @@
 Executive Summary
 -----------------
 
-This attitude guidance module computes the orbital Hill reference frame states.
+The Hill Point attitude guidance module computes a reference attitude that aligns the spacecraft body frame with
+the orbital Hill frame :math:`\mathcal{H}` of the spacecraft about a primary celestial body. It outputs the MRP
+attitude :math:`\boldsymbol{\sigma}_{R/N}`, the angular rate :math:`\boldsymbol{\omega}_{R/N}`, and the angular
+acceleration :math:`\dot{\boldsymbol{\omega}}_{R/N}` of the reference frame :math:`\mathcal{R}` with respect to
+the inertial frame :math:`\mathcal{N}`, all in inertial-frame components.
 
-The orbit can be any type of Keplerian motion, including circular, elliptical or hyperbolic.
-The module
+The orbit can be any Keplerian motion -- circular, elliptical, or hyperbolic. The primary celestial body's
+inertial state is optional; when not connected the body is treated as fixed at the inertial origin.
 
-Module Input and Output
-=======================
+This is the FP32 port of the Xmera ``hillPointCpp`` module. Position and velocity inputs remain double-precision
+to preserve orbit-scale accuracy; the attitude / rate output is single-precision (FP32).
 
-Table `1 <#tab:inputNavTable>`__ shows the input message from the
-navigation system.
+Module Architecture
+-------------------
 
-.. container::
-   :name: tab:inputNavTable
+The module is split into a thin adapter (``HillPoint``) that handles framework integration and an algorithm class
+(``HillPointAlgorithm``) that contains the pure math.
 
-   .. table:: Input Navigation Message
+Adapter Layer
+~~~~~~~~~~~~~
 
-      +--------------------------+-----------+--------+------------------------------+
-      | Name                     | Type      | Length | Description                  |
-      +==========================+===========+========+==============================+
-      | :math:`\boldsymbol{R}_S` | double [] | 3      | Position vector of           |
-      |                          |           |        | the spacecraft               |
-      |                          |           |        | body-point with              |
-      |                          |           |        | respect to the               |
-      |                          |           |        | inertial frame in            |
-      |                          |           |        | inertial frame               |
-      |                          |           |        | components                   |
-      |                          |           |        | (:math:`{}^{\mathcal{N}}     |
-      |                          |           |        | {\boldsymbol{r}_{B/N}}`)     |
-      +--------------------------+-----------+--------+------------------------------+
-      | :math:`\boldsymbol{v}_S` | double [] | 3      | Velocity vector of           |
-      |                          |           |        | the spacecraft point         |
-      |                          |           |        | with respect to the          |
-      |                          |           |        | inertial frame in            |
-      |                          |           |        | inertial frame               |
-      |                          |           |        | components                   |
-      |                          |           |        | (:math:`{}^{\mathcal{N}}     |
-      |                          |           |        | {\boldsymbol{v}}_{B/N}`).    |
-      +--------------------------+-----------+--------+------------------------------+
-
-Table `2 <#tab:inputCelTable>`__ shows the input message from Spice
-about the main celestial body.
-
-.. container::
-   :name: tab:inputCelTable
-
-   .. table:: Input Spice Planet Message
-
-      +--------------------------+-----------+--------+----------------------+
-      | Name                     | Type      | Length | Description          |
-      +==========================+===========+========+======================+
-      | :math:`\boldsymbol{R}_P` | double [] | 3      | Position vector of   |
-      |                          |           |        | the main celestial   |
-      |                          |           |        | object with respect  |
-      |                          |           |        | to the inertial      |
-      |                          |           |        | frame in inertial    |
-      |                          |           |        | frame components .   |
-      +--------------------------+-----------+--------+----------------------+
-      | :math:`\boldsymbol{v}_P` | double [] | 3      | Velocity vector of   |
-      |                          |           |        | the main celestial   |
-      |                          |           |        | object with respect  |
-      |                          |           |        | to the inertial      |
-      |                          |           |        | frame in inertial    |
-      |                          |           |        | frame components .   |
-      +--------------------------+-----------+--------+----------------------+
-
-Table `3 <#tab:outputTable>`__ shows the Attitude Reference output
-message of the module Hill Point.
-
-.. container::
-   :name: tab:outputTable
-
-   .. table:: Output Attitude Reference Message
-
-      +-----------------------------+-----------+--------+----------------------+
-      | Name                        | Type      | Length | Description          |
-      +=============================+===========+========+======================+
-      | :math:`\sigma_{R/N}`        | double [] | 3      | MRP attitude set of  |
-      |                             |           |        | the reference frame  |
-      |                             |           |        | with respect to the  |
-      |                             |           |        | reference.           |
-      +-----------------------------+-----------+--------+----------------------+
-      | :math:`\omega_{R/N}`        | double [] | 3      | Angular rate vector  |
-      |                             |           |        | of the reference     |
-      |                             |           |        | frame with respect   |
-      |                             |           |        | to the inertial      |
-      |                             |           |        | expressed in         |
-      |                             |           |        | inertial frame       |
-      |                             |           |        | components.          |
-      +-----------------------------+-----------+--------+----------------------+
-      | :math:`\dot{\omega}_{R/N}`  | double [] | 3      | Angular acceleration |
-      |                             |           |        | vector of the        |
-      |                             |           |        | reference frame with |
-      |                             |           |        | respect to the       |
-      |                             |           |        | inertial expressed   |
-      |                             |           |        | in inertial frame    |
-      |                             |           |        | components.          |
-      +-----------------------------+-----------+--------+----------------------+
-
-Hill Frame Definition
-=====================
-
-The Hill reference frame takes the spacecraft’s orbital plane as the
-principal one and has origin in the centre of the spacecraft. It is
-defined by the right-handed set of axes
-:math:`\mathcal{H}:\{ \hat{\boldsymbol\imath}_{r}, \hat{\boldsymbol\imath}_{\theta}, \hat{\boldsymbol\imath}_{h} \}`,
-where
-
-:math:`\hat {\boldsymbol\imath}_{r}` points radially outward in the direction
-that connects the center of the planet with the spacecraft.
-
-:math:`\hat {\boldsymbol\imath}_{h}` is defined normal to the orbital plane in
-the direction of the angular momentum.
-
-:math:`\hat {\boldsymbol\imath}_{\theta}` completes the right-handed triode.
-
-Illustration of the Hill orbit frame
-:math:`\mathcal{H}:\{ \hat{\boldsymbol\imath}_{r}, \hat{\boldsymbol\imath}_{\theta}, \hat{\boldsymbol\imath}_{h} \}`,
-and the inertial frame
-:math:`\mathcal{N}:\{ \hat{\boldsymbol n}_{1}, \hat{\boldsymbol n}_{2}, \hat{\boldsymbol n}_{3} \}`.
-
-Introduction
-============
-
-In this module, the output reference frame :math:`\mathcal{R}` is to be
-aligned with the Hill reference frame :math:`\mathcal{H}`. Note that the
-presented technique does not require the planet-fixed frame to coincide
-with the inertial frame
-:math:`\mathcal{N}:\{ \hat{\boldsymbol n}_{1}, \hat{\boldsymbol n}_{2}, \hat{\boldsymbol n}_{3} \}`.
-Figure 1 illustrates the general situation in which :math:`\boldsymbol{R}_{s}`
-is the position vector of the spacecraft with respect to the inertial
-frame and :math:`\boldsymbol{R_{p}}` is the position vector of the celestial
-body with respect to the inertial frame as well. The relative position
-of the spacecraft with respect to the planet is obtained by simple
-subtraction:
-
-.. math::
-
-   \label{eq:r}
-   	\boldsymbol r = \boldsymbol R_{s} -  \boldsymbol R_{p}
-
-The same methodology is applied to compute the relative velocity vector:
-
-.. math::
-
-   \label{eq:v}
-   	\boldsymbol v = \boldsymbol v_{s} -  \boldsymbol v_{p}
-
-Note that the position and velocity vectors of the spacecraft and the
-celestial body, :math:`\boldsymbol{R}_S`, :math:`\boldsymbol{R}_P`, :math:`\boldsymbol{v}_S` and
-:math:`\boldsymbol{v}_P` are the only inputs that this module requires. Having
-:math:`\boldsymbol r` and :math:`\boldsymbol v`, the Hill frame orientation is
-completely defined:
-
-.. math::
-
-   \begin{equation}
-   	\hat{\boldsymbol\imath}_{r} = \frac{\boldsymbol r}{r}
-   	\end{equation}
-
-.. math::
-   	\begin{equation}
-   	\hat{\boldsymbol\imath}_{h} = \frac{\boldsymbol{r}\times{\boldsymbol{v}}}{r v}
-   	\end{equation}
-
-.. math::
-   	\begin{equation}
-   	\hat{\boldsymbol\imath}_{\theta} = \hat{\boldsymbol\imath}_{h} \times \hat{\boldsymbol\imath}_{r}
-   	\end{equation}
-
-And the Direction Cosine Matrix to map from the reference frame to the
-inertial is obtained:
-
-.. math::
-
-   =  \begin{bmatrix}
-          		\hat{\boldsymbol\imath}_{r} \\
-   		\hat{\boldsymbol\imath}_{\theta} \\
-   		\hat{\boldsymbol\imath}_{h}
-         \end{bmatrix}
-
-The corresponding MRP attitude set is computed using the following
-function from the Rigid Body Kinematics library of Reference :
-
-.. math:: [RN] = \textrm{C2MRP}(\boldsymbol\sigma_{R/N})
-
-Angular Velocity Descriptions
-=============================
-
-Let :math:`\mathcal{R}_{0}` reference the Hill orbit frame. The orbit
-frame angular rate and acceleration vectors are given by
-
-.. math::
-
-   \label{eq:omega_R0}
-   	\boldsymbol\omega_{R_{0}/N} = \dot f \hat{\boldsymbol\imath}_{h}
-
-.. math::
-
-   \label{eq:domega_R0}
-   	\dot{\boldsymbol\omega}_{R_{0}/N} = \ddot f \hat{\boldsymbol\imath}_{h}
-
-where :math:`f` is the true anomaly, whose variation is determined
-through the general standard astrodynamics relations:
-
-.. math::
-
-   \begin{aligned}
-     \dot f &= \frac{h}{r^{2}}
-     \\
-     \ddot f &= - 2 \frac{\boldsymbol v \cdot \hat{\boldsymbol\imath}_{r}}{r} \dot f
-   \end{aligned}
-
-The angular rate :math:`\boldsymbol\omega_{R/N}` and acceleration
-:math:`\dot{\boldsymbol\omega}_{R/N}` of the output reference frame
-:math:`\mathcal{R}` still need to be computed. Since the desired
-attitude is a fixed-pointing one, :math:`\mathcal{R}` does not move
-relative to :math:`\mathcal{R}_{0}`. Thus, the angular velocity of the
-reference frame happens to be
-
-.. math::
-
-   \label{eq:omega_R}
-   	\boldsymbol\omega_{R/N} = \boldsymbol\omega_{R/R_{0}}
-    + \boldsymbol\omega_{R_{0}/N} = \dot{f} \hat{\boldsymbol\imath}_{h}
-
-Again, given that :math:`\hat{\boldsymbol\imath}_{h}` is fixed as seen by the
-reference frame :math:`R`, the acceleration vector of the reference
-frame expressed in the reference frame simply becomes:
-
-.. math::
-
-   \label{eq:domega_R}
-   	\dot\omega_{R/N} = \ddot{f} \hat{\boldsymbol\imath}_{h}
-
-Both :math:`\boldsymbol\omega_{R/N}` and :math:`\dot\omega_{R/N}` need to be
-expressed in the inertial frame :math:`N`. Given
-
-.. math::
-
-   \begin{equation}
-   {}^{\mathcal{R}}{\boldsymbol \omega_{R/N} } =
-         \begin{bmatrix}
-          0\\ 0 \\ \dot{f}
-         \end{bmatrix}
-   \end{equation}
-
-.. math::
-   \begin{equation}
-    {}^{\mathcal{R}}{\dot{\boldsymbol {\omega}}_{R/N}} =
-         \begin{bmatrix}
-          0\\ 0 \\ \ddot{f}
-         \end{bmatrix}
-   \end{equation}
-
-Then,
-
-.. math::
-
-   \begin{equation}
-   	{}^{\mathcal{N}}{\boldsymbol{\omega}_{R/N}} =  [NR] \textrm{ } {}^{\mathcal{R}}{\boldsymbol\omega_{R/N} }
-   \end{equation}
-
-.. math::
-
-   \begin{equation}
-   	{}^{\mathcal{N}}{\dot{\boldsymbol \omega}_{R/N}}=[NR] \textrm{ } {}^{\mathcal{R}}{\dot{\boldsymbol \omega}_{R/N}}
-   \end{equation}
-
-Where :math:`[NR] = [RN]^T`.
-
-Message Connection Descriptions
--------------------------------
-The following table lists all the module input and output messages.  The module msg connection is set by the
-user from python.  The msg type contains a link to the message structure definition, while the description
-provides information on what this message is used for.
+The adapter inherits from ``SysModel``. It owns the input / output message hooks, validates that the required
+input is connected at ``reset()`` time, then constructs the algorithm via the two-phase init pattern.
 
 .. list-table:: Module I/O Messages
-    :widths: 25 25 50
+    :widths: 25 30 45
     :header-rows: 1
 
     * - Msg Variable Name
       - Msg Type
       - Description
-    * - attRefOutMsg
-      - :ref:`AttRefMsgPayload`
-      - attitude reference output message
-    * - transNavInMsg
-      - :ref:`NavTransMsgPayload`
-      - incoming spacecraft translational state message
-    * - celBodyInMsg
-      - :ref:`EphemerisMsgPayload`
-      - (optional) primary celestial body information input message
+    * - ``transNavInMsg``
+      - :ref:`NavTransMsgF32Payload`
+      - spacecraft inertial translational state (required)
+    * - ``celBodyInMsg``
+      - :ref:`EphemerisMsgF32Payload`
+      - primary celestial body inertial state (optional; defaults to origin if not connected)
+    * - ``attRefOutMsg``
+      - :ref:`AttRefMsgF32Payload`
+      - Hill-frame reference attitude / rate / acceleration
+
+Configuration
+~~~~~~~~~~~~~
+
+``HillPointAlgorithm`` has no tunable parameters. The empty ``HillPointConfig`` class is provided to keep the
+algorithm consistent with the standard two-phase init pattern in this codebase.
+
+.. list-table:: Configuration parameters
+    :widths: 25 25 50
+    :header-rows: 1
+
+    * - Parameter
+      - Valid range
+      - Description
+    * - *(none)*
+      - --
+      - The Hill Point algorithm has no tunable parameters.
+
+Two-Phase Initialization
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+The Python usage follows the standard adapter lifecycle: subscribe inputs, call ``reset()`` once, then drive
+``updateState()`` each cycle. ::
+
+    module = hillPointF32.HillPoint()
+    module.transNavInMsg.subscribeTo(nav_msg)
+    module.celBodyInMsg.subscribeTo(cel_body_msg)  # optional
+
+    sim.AddModelToTask(task_name, module)
+    sim.InitializeSimulation()
+    sim.ExecuteSimulation()
+
+If ``transNavInMsg`` has not been connected when ``reset()`` runs, an ``std::invalid_argument`` is thrown.
+If ``updateState()`` is called before ``reset()``, an ``XmeraLifecycleException`` is thrown.
+
+Mathematical Formulation
+------------------------
+
+The output reference frame :math:`\mathcal{R}` is taken to coincide with the orbital Hill frame
+:math:`\mathcal{H}: \{ \hat{\boldsymbol{\imath}}_r, \hat{\boldsymbol{\imath}}_\theta, \hat{\boldsymbol{\imath}}_h \}`,
+where
+
+* :math:`\hat{\boldsymbol{\imath}}_r` is the radial unit vector pointing from the primary body to the spacecraft,
+* :math:`\hat{\boldsymbol{\imath}}_h` is the orbit angular momentum unit vector normal to the orbital plane,
+* :math:`\hat{\boldsymbol{\imath}}_\theta = \hat{\boldsymbol{\imath}}_h \times \hat{\boldsymbol{\imath}}_r` completes
+  the right-handed triad.
+
+Relative State
+~~~~~~~~~~~~~~
+
+Given the spacecraft inertial state :math:`(\boldsymbol{R}_S, \boldsymbol{v}_S)` and the primary body inertial
+state :math:`(\boldsymbol{R}_P, \boldsymbol{v}_P)`, the relative state is
+
+.. math::
+
+   \boldsymbol{r} = \boldsymbol{R}_S - \boldsymbol{R}_P, \qquad
+   \boldsymbol{v} = \boldsymbol{v}_S - \boldsymbol{v}_P.
+
+When ``celBodyInMsg`` is not connected, :math:`\boldsymbol{R}_P` and :math:`\boldsymbol{v}_P` default to zero.
+
+Frame Construction
+~~~~~~~~~~~~~~~~~~
+
+.. math::
+
+   \hat{\boldsymbol{\imath}}_r = \frac{\boldsymbol{r}}{r}, \qquad
+   \hat{\boldsymbol{\imath}}_h
+       = \frac{\boldsymbol{r} \times \boldsymbol{v}}{\| \boldsymbol{r} \times \boldsymbol{v} \|}, \qquad
+   \hat{\boldsymbol{\imath}}_\theta = \hat{\boldsymbol{\imath}}_h \times \hat{\boldsymbol{\imath}}_r.
+
+The DCM from inertial to reference frame is then
+
+.. math::
+
+   [RN] = \begin{bmatrix}
+      \hat{\boldsymbol{\imath}}_r^T \\
+      \hat{\boldsymbol{\imath}}_\theta^T \\
+      \hat{\boldsymbol{\imath}}_h^T
+   \end{bmatrix},
+
+and the corresponding MRP attitude set is :math:`\boldsymbol{\sigma}_{R/N} = \mathrm{C2MRP}([RN])`.
+
+Angular Rate and Acceleration
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Because :math:`\mathcal{R}` is rigidly attached to :math:`\mathcal{H}`, its rate and acceleration with respect to
+the inertial frame are entirely along :math:`\hat{\boldsymbol{\imath}}_h`:
+
+.. math::
+
+   {}^{\mathcal{R}}\boldsymbol{\omega}_{R/N} = \begin{bmatrix} 0 \\ 0 \\ \dot{f} \end{bmatrix}, \qquad
+   {}^{\mathcal{R}}\dot{\boldsymbol{\omega}}_{R/N} = \begin{bmatrix} 0 \\ 0 \\ \ddot{f} \end{bmatrix},
+
+where the true-anomaly rate and acceleration follow from the standard astrodynamics relations
+
+.. math::
+
+   \dot{f} = \frac{h}{r^2}, \qquad
+   \ddot{f} = -2 \frac{\boldsymbol{v} \cdot \hat{\boldsymbol{\imath}}_r}{r} \dot{f},
+   \quad h = \| \boldsymbol{r} \times \boldsymbol{v} \|.
+
+The outputs are then rotated into inertial-frame components via :math:`[NR] = [RN]^T`:
+
+.. math::
+
+   {}^{\mathcal{N}}\boldsymbol{\omega}_{R/N} = [NR] \, {}^{\mathcal{R}}\boldsymbol{\omega}_{R/N}, \qquad
+   {}^{\mathcal{N}}\dot{\boldsymbol{\omega}}_{R/N} = [NR] \, {}^{\mathcal{R}}\dot{\boldsymbol{\omega}}_{R/N}.
+
+Robustness
+~~~~~~~~~~
+
+If the relative orbital radius :math:`r` falls below :math:`1.0\,\mathrm{m}`, the angular rate and acceleration
+are forced to zero rather than dividing by an essentially-zero denominator. Note that the original Xmera comment
+described the threshold as "1 km" but the value is :math:`1.0` in the same units as :math:`\boldsymbol{R}_S`,
+which is meters; the FP32 port preserves the original numerical behavior.
+
+Assumptions and Limitations
+---------------------------
+
+* The relative position vector :math:`\boldsymbol{r}` and the relative velocity vector :math:`\boldsymbol{v}` must
+  not be collinear. If :math:`\boldsymbol{r} \times \boldsymbol{v} = \boldsymbol{0}`, the orbital plane is not
+  defined and :math:`\hat{\boldsymbol{\imath}}_h` is unobtainable; the algorithm will produce non-finite output
+  in that degenerate case.
+* The spacecraft must not be coincident with the primary body. Inputs satisfying :math:`r \le 1\,\mathrm{m}` are
+  routed to the zero-rate branch instead.
+* Position and velocity inputs are read in double precision to preserve orbit-scale accuracy. The attitude /
+  rate output is single-precision; expect a relative accuracy of :math:`\sim 10^{-7}` on
+  :math:`\boldsymbol{\sigma}_{R/N}` and :math:`\boldsymbol{\omega}_{R/N}`.
