@@ -5,6 +5,7 @@
 #ifndef F32XMERA_DV_GUIDANCE_H
 #define F32XMERA_DV_GUIDANCE_H
 
+#include "dvGuidanceAlgorithm.h"
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
 #include <architecture/msgPayloadDef/AttRefMsgPayload.h>
@@ -12,13 +13,20 @@
 
 #include <stdint.h>
 
-/*! Generates an attitude reference for a delta-V burn whose direction rotates at a constant rate. */
-class DvGuidance : public SysModel {
+/*! @brief Adapter for the delta-V guidance algorithm. */
+class DvGuidance final : public SysModel {
    public:
+    DvGuidance() = default;
+    ~DvGuidance() override = default;
+
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
+
     Message<AttRefMsgPayload> attRefOutMsg;
     ReadFunctor<DvBurnCmdMsgPayload> burnDataInMsg;
+
+   private:
+    DvGuidanceAlgorithm algorithm{};
 };
 
 #endif
