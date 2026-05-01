@@ -27,8 +27,8 @@ TEST(MrpFeedbackTest, SetupTest) { testMrpFeedbackSetup(); }
 
 TEST(MrpFeedbackTest, IntegralFeedbackDisabledWhenKiIsZero) {
     // With Ki = 0, the integral feedback torque must be zero on every cycle.
-    const MrpFeedbackConfig cfg = MrpFeedbackConfig::create(
-        1.0F, 0.5F, 0.0F, 1.0F, ControlLawType::NORMAL, Eigen::Vector3f::Zero());
+    const MrpFeedbackConfig cfg =
+        MrpFeedbackConfig::create(1.0F, 0.5F, 0.0F, 1.0F, ControlLawType::NORMAL, Eigen::Vector3f::Zero());
     MrpFeedbackAlgorithm alg(cfg);
 
     AttGuidMsgF32Payload guidCmd{};
@@ -63,8 +63,8 @@ TEST(MrpFeedbackTest, IntegralLimitClampsLargeError) {
     constexpr float K = 1.0F;
     constexpr float Ki = 1.0F;
     constexpr float intLimit = 0.5F;
-    const MrpFeedbackConfig cfg = MrpFeedbackConfig::create(
-        K, 1.0F, Ki, intLimit, ControlLawType::NORMAL, Eigen::Vector3f::Zero());
+    const MrpFeedbackConfig cfg =
+        MrpFeedbackConfig::create(K, 1.0F, Ki, intLimit, ControlLawType::NORMAL, Eigen::Vector3f::Zero());
     MrpFeedbackAlgorithm alg(cfg);
 
     AttGuidMsgF32Payload guidCmd{};

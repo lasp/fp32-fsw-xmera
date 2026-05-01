@@ -103,25 +103,21 @@ inline ReferenceOutput referenceUpdate(const MrpFeedbackConfig& cfg,
 inline void testMrpFeedbackSetup() {
     // Valid config builds without throwing.
     EXPECT_NO_THROW({
-        const MrpFeedbackConfig cfg = MrpFeedbackConfig::create(
-            0.0F, 0.0F, 0.0F, 0.0F, ControlLawType::NORMAL, Eigen::Vector3f::Zero());
+        const MrpFeedbackConfig cfg =
+            MrpFeedbackConfig::create(0.0F, 0.0F, 0.0F, 0.0F, ControlLawType::NORMAL, Eigen::Vector3f::Zero());
         const MrpFeedbackAlgorithm alg(cfg);
         (void)alg;
     });
 
     // Negative gains/limit are rejected by the Config factory.
-    EXPECT_ANY_THROW({
-        (void)MrpFeedbackConfig::create(-0.1F, 0.0F, 0.0F, 0.0F, ControlLawType::NORMAL, Eigen::Vector3f::Zero());
-    });
-    EXPECT_ANY_THROW({
-        (void)MrpFeedbackConfig::create(0.0F, -0.1F, 0.0F, 0.0F, ControlLawType::NORMAL, Eigen::Vector3f::Zero());
-    });
-    EXPECT_ANY_THROW({
-        (void)MrpFeedbackConfig::create(0.0F, 0.0F, -0.1F, 0.0F, ControlLawType::NORMAL, Eigen::Vector3f::Zero());
-    });
-    EXPECT_ANY_THROW({
-        (void)MrpFeedbackConfig::create(0.0F, 0.0F, 0.0F, -0.1F, ControlLawType::NORMAL, Eigen::Vector3f::Zero());
-    });
+    EXPECT_ANY_THROW(
+        { (void)MrpFeedbackConfig::create(-0.1F, 0.0F, 0.0F, 0.0F, ControlLawType::NORMAL, Eigen::Vector3f::Zero()); });
+    EXPECT_ANY_THROW(
+        { (void)MrpFeedbackConfig::create(0.0F, -0.1F, 0.0F, 0.0F, ControlLawType::NORMAL, Eigen::Vector3f::Zero()); });
+    EXPECT_ANY_THROW(
+        { (void)MrpFeedbackConfig::create(0.0F, 0.0F, -0.1F, 0.0F, ControlLawType::NORMAL, Eigen::Vector3f::Zero()); });
+    EXPECT_ANY_THROW(
+        { (void)MrpFeedbackConfig::create(0.0F, 0.0F, 0.0F, -0.1F, ControlLawType::NORMAL, Eigen::Vector3f::Zero()); });
 }
 
 inline void testMrpFeedback(const Eigen::Vector3f& sigma,

@@ -34,10 +34,7 @@ typedef struct {
  *
  * Numeric values must stay in lockstep with the C++ enum class in mrpFeedbackTypes.h.
  */
-typedef enum {
-    CONTROL_LAW_TYPE_NORMAL_C = 0,
-    CONTROL_LAW_TYPE_SIMPLE_INTEGRAL_C = 1
-} ControlLawType_c;
+typedef enum { CONTROL_LAW_TYPE_NORMAL_C = 0, CONTROL_LAW_TYPE_SIMPLE_INTEGRAL_C = 1 } ControlLawType_c;
 
 /**
  * @brief Plain-old-data mirror of the C++ MrpFeedbackConfig fields.

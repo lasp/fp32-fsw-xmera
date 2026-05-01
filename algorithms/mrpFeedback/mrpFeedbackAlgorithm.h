@@ -15,21 +15,21 @@
 /*! @brief Data configuration structure for the MRP feedback attitude control routine. */
 class MrpFeedbackAlgorithm final {
    public:
-    explicit MrpFeedbackAlgorithm(const MrpFeedbackConfig& config);
+    explicit MrpFeedbackAlgorithm(MrpFeedbackConfig config);
 
     void setConfig(const MrpFeedbackConfig& config);
 
     void reset(VehicleConfigMsgF32Payload vehConfigMsg, const RWArrayConfigMsgF32Payload& rwConfigMsg, bool rwIsLinked);
     MrpFeedbackOutput update(uint64_t callTime,
-                             AttGuidMsgF32Payload& guidCmd,
+                             const AttGuidMsgF32Payload& guidCmd,
                              const RWSpeedMsgF32Payload& wheelSpeeds,
                              const RWAvailabilityMsgPayload& wheelsAvailability);
 
    private:
     MrpFeedbackConfig cfg;
-    uint64_t priorTime{};                       //!< [ns]      Last time the attitude control is called
-    Eigen::Vector3f int_sigma{};                //!< [s] integral of the MPR attitude error
-    Eigen::Matrix3f ISCPntB_B{};                //!< [kg m^2] Spacecraft Inertia
+    uint64_t priorTime{};                         //!< [ns]      Last time the attitude control is called
+    Eigen::Vector3f int_sigma{};                  //!< [s] integral of the MPR attitude error
+    Eigen::Matrix3f ISCPntB_B{};                  //!< [kg m^2] Spacecraft Inertia
     RWArrayConfigMsgF32Payload rwConfigParams{};  //!< RW config snapshot taken at reset() time
 };
 

@@ -3,8 +3,9 @@
 #include "utilities/timeConstants.h"
 
 #include <math.h>
+#include <utility>
 
-MrpFeedbackAlgorithm::MrpFeedbackAlgorithm(const MrpFeedbackConfig& config) : cfg(config) {}
+MrpFeedbackAlgorithm::MrpFeedbackAlgorithm(MrpFeedbackConfig config) : cfg(std::move(config)) {}
 
 void MrpFeedbackAlgorithm::setConfig(const MrpFeedbackConfig& config) { this->cfg = config; }
 
@@ -28,7 +29,7 @@ void MrpFeedbackAlgorithm::reset(VehicleConfigMsgF32Payload vehConfigMsg,
 /*! Compute the required control torque Lr from the attitude/rate tracking error and (optional)
     RW state. */
 MrpFeedbackOutput MrpFeedbackAlgorithm::update(uint64_t callTime,
-                                               AttGuidMsgF32Payload& guidCmd,
+                                               const AttGuidMsgF32Payload& guidCmd,
                                                const RWSpeedMsgF32Payload& wheelSpeeds,
                                                const RWAvailabilityMsgPayload& wheelsAvailability) {
     float dt{};

@@ -52,12 +52,8 @@ MrpFeedbackOutput_c MrpFeedbackAlgorithm_update(MrpFeedbackAlgorithm* self,
                                                 const AttGuidMsgF32Payload* guidCmd,
                                                 const RWSpeedMsgF32Payload* wheelSpeeds,
                                                 const RWAvailabilityMsgPayload* wheelsAvailability) {
-    // The C++ algorithm currently takes guidCmd by non-const reference; cast away the const
-    // here so callers see a const-correct shim API. The algorithm only reads guidCmd.
-    AttGuidMsgF32Payload& guidCmdRef = const_cast<AttGuidMsgF32Payload&>(*guidCmd);
-
     // clang-format off
-    const MrpFeedbackOutput out = reinterpret_cast<::MrpFeedbackAlgorithm*>(self)->update(callTime, guidCmdRef, *wheelSpeeds, *wheelsAvailability);  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+    const MrpFeedbackOutput out = reinterpret_cast<::MrpFeedbackAlgorithm*>(self)->update(callTime, *guidCmd, *wheelSpeeds, *wheelsAvailability);  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
     // clang-format on
 
     MrpFeedbackOutput_c result{};
