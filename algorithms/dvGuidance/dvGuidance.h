@@ -26,7 +26,7 @@ class DvGuidance final : public SysModel {
     ReadFunctor<DvBurnCmdMsgF32Payload> burnDataInMsg;
 
    private:
-    DvGuidanceAlgorithm algorithm{};
+    DvGuidanceAlgorithm algorithm{DvGuidanceConfig::create()};
 };
 
 #endif

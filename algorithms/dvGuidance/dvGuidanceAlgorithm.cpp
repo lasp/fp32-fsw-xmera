@@ -2,6 +2,10 @@
 #include "architecture/utilities/rigidBodyKinematics.hpp"
 #include "utilities/timeConstants.h"
 
+DvGuidanceAlgorithm::DvGuidanceAlgorithm(const DvGuidanceConfig& config) : cfg(config) {}
+
+void DvGuidanceAlgorithm::setConfig(const DvGuidanceConfig& config) { this->cfg = config; }
+
 DvGuidanceOutput DvGuidanceAlgorithm::update(const Eigen::Vector3f& dvInrtlCmd,
                                              const Eigen::Vector3f& dvRotVecUnit,
                                              const float dvRotVecMag,

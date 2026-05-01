@@ -7,13 +7,18 @@
 
 class DvGuidanceAlgorithm final {
    public:
-    DvGuidanceAlgorithm() = default;
+    explicit DvGuidanceAlgorithm(const DvGuidanceConfig& config);
+
+    void setConfig(const DvGuidanceConfig& config);
 
     DvGuidanceOutput update(const Eigen::Vector3f& dvInrtlCmd,
                             const Eigen::Vector3f& dvRotVecUnit,
                             float dvRotVecMag,
                             uint64_t burnStartTime,
                             uint64_t callTime) const;
+
+   private:
+    DvGuidanceConfig cfg;
 };
 
 #endif
