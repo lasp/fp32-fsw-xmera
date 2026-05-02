@@ -14,3 +14,29 @@ target_link_libraries(test_dvGuidance
   )
 
 gtest_discover_tests(test_dvGuidance)
+
+if(XMERA_ENABLE_FUZZTESTS)
+  fuzztest_setup_fuzzing_flags()
+
+  add_executable(test_dvGuidance_fuzz
+    ../dvGuidanceAlgorithm.cpp
+    dvGuidanceTestHelpers.hpp
+    test_dvGuidance_fuzz.cpp
+  )
+
+  target_include_directories(test_dvGuidance_fuzz PRIVATE "../..")
+  target_include_directories(test_dvGuidance_fuzz PRIVATE "..")
+  target_include_directories(test_dvGuidance_fuzz PRIVATE "../../..")
+  target_include_directories(test_dvGuidance_fuzz PRIVATE "${CMAKE_SOURCE_DIR}")
+
+  target_link_libraries(test_dvGuidance_fuzz
+    Eigen3::Eigen
+    fuzztest::fuzztest
+    fuzztest::fuzztest_gtest_main
+  )
+
+  gtest_discover_tests(test_dvGuidance_fuzz
+    PROPERTIES
+      LABELS "fuzz\;fuzz-smoke"
+  )
+endif()
