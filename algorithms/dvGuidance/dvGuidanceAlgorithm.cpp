@@ -6,6 +6,11 @@ DvGuidanceAlgorithm::DvGuidanceAlgorithm(const DvGuidanceConfig& config) : cfg(c
 
 void DvGuidanceAlgorithm::setConfig(const DvGuidanceConfig& config) { this->cfg = config; }
 
+// NOLINTBEGIN(readability-convert-member-functions-to-static, bugprone-easily-swappable-parameters)
+// readability-convert-member-functions-to-static: DvGuidanceConfig is intentionally empty for this
+// algorithm; the cfg member is held for API consistency with the standard two-phase-init pattern.
+// bugprone-easily-swappable-parameters: the Vector3f / float / uint64 inputs are documented in the
+// header and follow the burn-command struct ordering.
 DvGuidanceOutput DvGuidanceAlgorithm::update(const Eigen::Vector3f& dvInrtlCmd,
                                              const Eigen::Vector3f& dvRotVecUnit,
                                              const float dvRotVecMag,
@@ -34,3 +39,4 @@ DvGuidanceOutput DvGuidanceAlgorithm::update(const Eigen::Vector3f& dvInrtlCmd,
     out.domega_RN_N = Eigen::Vector3f::Zero();
     return out;
 }
+// NOLINTEND(readability-convert-member-functions-to-static, bugprone-easily-swappable-parameters)
