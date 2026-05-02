@@ -23,6 +23,8 @@ algorithms/mrpFeedback/mrpFeedback.h
 algorithms/mrpFeedback/mrpFeedback.cpp
 algorithms/mrpPD/mrpPD.h
 algorithms/mrpPD/mrpPD.cpp
+algorithms/mrpPD/mrpPDAlgorithm_c.h
+algorithms/mrpPD/mrpPDAlgorithm_c.cpp
 algorithms/mrpSteering/mrpSteering.h
 algorithms/mrpSteering/mrpSteering.cpp
 algorithms/navAggregate/navAggregate.h
