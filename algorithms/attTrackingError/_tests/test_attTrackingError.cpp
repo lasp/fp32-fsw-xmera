@@ -1,8 +1,6 @@
 #include "attTrackingErrorTestHelpers.hpp"
-#include "fp32-fsw-xmera/algorithms/attTrackingError/attTrackingErrorTypes.h"
 
 #include <gtest/gtest.h>
-#include <cmath>
 
 TEST(attTrackingErrorTest, RegressionTest) {
     regressionTestAttTrackingError(Eigen::Vector3f{0.2f, -0.1f, -0.4f},
