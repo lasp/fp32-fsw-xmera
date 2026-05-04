@@ -13,6 +13,14 @@ xmera_add_swig_message(HingedRigidBodyMsgF32Payload)
 xmera_add_swig_message(IMUSensorBodyMsgF32Payload)
 xmera_add_swig_message(InertialFilterMsgF32Payload)
 xmera_add_swig_message(MimuFaultMsgPayload)
+xmera_add_swig_message(MimuPacketGroupF32Payload
+                       TEMPLATE
+                       "${CMAKE_CURRENT_SOURCE_DIR}/MimuPacketGroupF32Payload.i"
+)
+xmera_add_swig_message(MimuPacketF32Payload
+                       TEMPLATE
+                       "${CMAKE_CURRENT_SOURCE_DIR}/MimuPacketF32Payload.i"
+)
 xmera_add_swig_message(NavAttMsgF32Payload)
 xmera_add_swig_message(NavTransMsgF32Payload)
 xmera_add_swig_message(RateCmdMsgF32Payload)
