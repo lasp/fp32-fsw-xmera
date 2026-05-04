@@ -1,5 +1,10 @@
 #include "thrFiringSchmitt.h"
-#include "utilities/timeConstants.h"
+
+#include "msgPayloadDef/THRArrayCmdForceMsgF32Payload.h"
+#include "msgPayloadDef/THRArrayConfigMsgF32Payload.h"
+#include "msgPayloadDef/THRArrayOnTimeCmdMsgF32Payload.h"
+
+#include <algorithm>
 #include <stdexcept>
 
 /*! This method performs a complete reset of the module.  Local module variables that retain
@@ -16,12 +21,20 @@ void ThrFiringSchmitt::reset(uint64_t callTime) {
         throw std::invalid_argument("thrFiringSchmitt.thrForceInMsg wasn't connected.");
     }
 
-    this->algorithm.setLevelsOnOff(this->levelOn, this->levelOff);
+    /*! - read in the support messages and map to freestanding type */
+    const auto [numThrusters, thrusters] = this->thrConfInMsg();
+    ThrusterArrayConfig thrusterConfig{};
+    thrusterConfig.numThrusters = numThrusters;
+    for (std::uint32_t i = 0; i < numThrusters; ++i) {
+        thrusterConfig.thrusters.at(i).rThrust_B = {
+            thrusters[i].rThrust_B[0], thrusters[i].rThrust_B[1], thrusters[i].rThrust_B[2]};
+        thrusterConfig.thrusters.at(i).tHatThrust_B = {
+            thrusters[i].tHatThrust_B[0], thrusters[i].tHatThrust_B[1], thrusters[i].tHatThrust_B[2]};
+        thrusterConfig.thrusters.at(i).maxThrust = thrusters[i].maxThrust;
+    }
 
-    this->algorithm.configure(this->thrConfInMsg());
+    this->algorithm.setupThrusters(thrusterConfig);
     this->algorithm.reset();
-
-    this->prevCallTime = 0U;
 }
 
 /*! This method maps the input thruster command forces into thruster on times using a remainder tracking logic.
@@ -29,41 +42,33 @@ void ThrFiringSchmitt::reset(uint64_t callTime) {
  @param callTime The clock time at which the function was called (nanoseconds)
  */
 void ThrFiringSchmitt::updateState(uint64_t callTime) {
-    /*! - compute control time period Delta_t */
-    float controlPeriod{};
-    if (this->prevCallTime != 0U) {
-        controlPeriod = static_cast<float>(static_cast<double>(callTime - this->prevCallTime) * kNano2Sec);
-    }
-    this->prevCallTime = callTime;
+    /*! - read in the force command message and map to freestanding type */
+    const auto [thrForce] = this->thrForceInMsg();
+    ThrusterForceCmd thrusterForceCmd{};
+    std::ranges::copy(thrForce, thrusterForceCmd.thrForce.begin());
 
-    THRArrayCmdForceMsgF32Payload thrForceIn = this->thrForceInMsg();
-    THRArrayOnTimeCmdMsgF32Payload thrOnTimeOut = this->algorithm.update(controlPeriod, thrForceIn);
-    this->onTimeOutMsg.write(&thrOnTimeOut, this->moduleID, callTime);
+    /*! - call algorithm update */
+    const auto [onTimeRequest] = this->algorithm.update(thrusterForceCmd);
+
+    /*! - map freestanding type back to message payload and write */
+    THRArrayOnTimeCmdMsgF32Payload onTimeMsgOut{};
+    std::ranges::copy(onTimeRequest, onTimeMsgOut.onTimeRequest);
+    this->onTimeOutMsg.write(&onTimeMsgOut, this->moduleID, callTime);
 }
 
-/**
- * @brief Get the ON duty cycle fraction.
- * @return float The current ON duty cycle fraction.
+/*! Setter method for ON and OFF duty cycle fractions.
+ @return void
+ @param levelOn [-] ON duty cycle fraction
+ @param levelOff [-] OFF duty cycle fraction
  */
-float ThrFiringSchmitt::getLevelOn() const { return this->levelOn; }
+void ThrFiringSchmitt::setLevelsOnOff(const float levelOn, const float levelOff) {
+    this->algorithm.setLevelsOnOff(levelOn, levelOff);
+}
 
-/**
- * @brief Set the ON duty cycle fraction.
- * @param level The new ON duty cycle fraction to set.
+/*! Getter method for ON and OFF duty cycle fractions.
+ @return std::array<float, 2U> containing levelOn (index 0) and levelOff (index 1)
  */
-void ThrFiringSchmitt::setLevelOn(float level) { this->levelOn = level; }
-
-/**
- * @brief Get the OFF duty cycle fraction.
- * @return float The current OFF duty cycle fraction.
- */
-float ThrFiringSchmitt::getLevelOff() const { return this->levelOff; }
-
-/**
- * @brief Set the OFF duty cycle fraction.
- * @param level The new OFF duty cycle fraction to set.
- */
-void ThrFiringSchmitt::setLevelOff(float level) { this->levelOff = level; }
+std::array<float, 2U> ThrFiringSchmitt::getLevelsOnOff() const { return this->algorithm.getLevelsOnOff(); }
 
 /**
  * @brief Get the minimum ON time for thrusters.
@@ -77,32 +82,41 @@ float ThrFiringSchmitt::getThrMinFireTime() const { return this->algorithm.getTh
  */
 void ThrFiringSchmitt::setThrMinFireTime(float time) { this->algorithm.setThrMinFireTime(time); }
 
-/**
- * @brief Get the base thrust state.
- * @return int The current base thrust state (0 for off-pulsing, 1 for on-pulsing).
+/*! Getter method for thrustPulsingRegime.
+ @return ThrustPulsingRegime
  */
-uint32_t ThrFiringSchmitt::getBaseThrustState() const {
-    return static_cast<uint32_t>(this->algorithm.getBaseThrustState());
+ThrustPulsingRegime ThrFiringSchmitt::getThrustPulsingRegime() const {
+    return this->algorithm.getThrustPulsingRegime();
 }
 
-/**
- * @brief Set the base thrust state.
- * @param state The new base thrust state to set (0 for off-pulsing, 1 for on-pulsing).
+/*! Setter method for thrustPulsingRegime.
+ @return void
+ @param pulsingRegime the pulsing regime (ON_PULSING or OFF_PULSING)
  */
-void ThrFiringSchmitt::setBaseThrustState(uint32_t state) {
-    this->algorithm.setBaseThrustState(static_cast<PulsingRegime>(state));
+void ThrFiringSchmitt::setThrustPulsingRegime(const ThrustPulsingRegime pulsingRegime) {
+    this->algorithm.setThrustPulsingRegime(pulsingRegime);
 }
 
-/**
- * @brief Get the first call pulse duration
- * @return float The duration of the first call pulse. This should be at least the duration of the control period
- * (1/fsw_rate)
- */
-float ThrFiringSchmitt::getFirstCallPulse() const { return this->algorithm.getFirstCallPulse(); }
+/*! Getter method for controlPeriod.
+ @return const float
+*/
+float ThrFiringSchmitt::getControlPeriod() const { return this->algorithm.getControlPeriod(); }
 
-/**
- * @brief Set the first call pulse duration
- * @param time The duration of the first call pulse. This should be at least the duration of the control period
- * (1/fsw_rate)
+/*! Setter method for controlPeriod.
+ @return void
+ @param period [s] control period (time between two algorithm update calls)
  */
-void ThrFiringSchmitt::setFirstCallPulse(float time) { this->algorithm.setFirstCallPulse(time); }
+void ThrFiringSchmitt::setControlPeriod(const float period) { this->algorithm.setControlPeriod(period); }
+
+/*! Setter method for onTimeSaturationFactor.
+ @return void
+ @param factor [-] must be >= 1.0
+ */
+void ThrFiringSchmitt::setOnTimeSaturationFactor(const float factor) {
+    this->algorithm.setOnTimeSaturationFactor(factor);
+}
+
+/*! Getter method for onTimeSaturationFactor.
+ @return float
+ */
+float ThrFiringSchmitt::getOnTimeSaturationFactor() const { return this->algorithm.getOnTimeSaturationFactor(); }

@@ -1,13 +1,9 @@
 #ifndef TEST_THR_FIRING_SCHMITT_H
 #define TEST_THR_FIRING_SCHMITT_H
 
-#include "msgPayloadDef/THRArrayCmdForceMsgF32Payload.h"
-#include "msgPayloadDef/THRArrayConfigMsgF32Payload.h"
-#include "msgPayloadDef/THRArrayOnTimeCmdMsgF32Payload.h"
 #include "thrFiringSchmittAlgorithm.h"
 #include "utilities/freestandingInvalidArgument.h"
 #include "utilities/timeConstants.h"
-#include <architecture/msgPayloadDef/definitions.h>
 #include <gtest/gtest.h>
 #include <math.h>
 #include <stdint.h>
@@ -15,131 +11,90 @@
 #include <vector>
 
 typedef struct {
-    THRArrayOnTimeCmdMsgF32Payload onTime;
-    std::array<bool, MAX_EFF_CNT> lastThrustState;
-    uint64_t prevCallTime;
+    ThrusterOnTimeCmd onTime;
+    std::array<bool, kMaxThrusterCount> lastThrustState;
 } ReferenceOutput;
 
 // Reference computation for update
 ReferenceOutput referenceUpdate(const ThrFiringSchmittAlgorithm& alg,
                                 uint32_t numThrusters,
-                                std::array<float, MAX_EFF_CNT> maxThrust,
-                                std::array<bool, MAX_EFF_CNT> lastThrustState,
-                                uint64_t prevCallTime,
-                                const uint64_t callTime,
-                                THRArrayCmdForceMsgF32Payload& thrForceIn) {
+                                std::array<float, kMaxThrusterCount> maxThrust,
+                                std::array<bool, kMaxThrusterCount> lastThrustState,
+                                float controlPeriod,
+                                ThrusterForceCmd thrForceIn) {
     std::array<float, 2U> levelsOnOff = alg.getLevelsOnOff();
     float levelOn = levelsOnOff.at(0U);
     float levelOff = levelsOnOff.at(1U);
     float thrMinFireTime = alg.getThrMinFireTime();
-    PulsingRegime baseThrustState = alg.getBaseThrustState();
-    float firstCallPulse = alg.getFirstCallPulse();
+    float onTimeSaturationFactor = alg.getOnTimeSaturationFactor();
+    ThrustPulsingRegime thrustPulsingRegime = alg.getThrustPulsingRegime();
 
-    std::array<float, MAX_EFF_CNT> thrForce{};
-    std::ranges::copy(std::begin(thrForceIn.thrForce), std::end(thrForceIn.thrForce), std::begin(thrForce));
+    ThrusterOnTimeCmd thrOnTimeOut{};
 
-    THRArrayOnTimeCmdMsgF32Payload thrOnTimeOut{}; /* -- thruster on-time output payload */
-
-    /*! - the first time update() is called there is no information on the time step.  Here
-     return either all thrusters off or on depending on the baseThrustState state */
-    if (prevCallTime == 0U) {
-        prevCallTime = callTime;
-
-        for (uint32_t i = 0U; i < numThrusters; ++i) {
-            thrOnTimeOut.onTimeRequest[i] = static_cast<float>(baseThrustState) * firstCallPulse;
+    /*! - Loop through thrusters */
+    for (uint32_t i = 0U; i < numThrusters; ++i) {
+        /*! - Correct for off-pulsing if necessary.  Here the requested force is negative, and the maximum thrust
+         needs to be added.  If not control force is requested in off-pulsing mode, then the thruster force should
+         be set to the maximum thrust value */
+        if (thrustPulsingRegime == ThrustPulsingRegime::OFF_PULSING) {
+            thrForceIn.thrForce.at(i) += maxThrust.at(i);
         }
-    } else {
-        /*! - compute control time period Delta_t */
-        const float controlPeriod = static_cast<float>(static_cast<double>(callTime - prevCallTime) * kNano2Sec);
-        prevCallTime = callTime;
 
-        std::array<float, MAX_EFF_CNT> onTime{}; /* [s] array of commanded on time for thrusters */
-        /*! - Loop through thrusters */
-        for (uint32_t i = 0U; i < numThrusters; ++i) {
-            /*! - Correct for off-pulsing if necessary.  Here the requested force is negative, and the maximum thrust
-             needs to be added.  If not control force is requested in off-pulsing mode, then the thruster force should
-             be set to the maximum thrust value */
-            if (baseThrustState == PulsingRegime::OFFPULSING) {
-                thrForce[i] += maxThrust[i];
-            }
+        /*! - Do not allow thrust requests less than zero */
+        if (thrForceIn.thrForce.at(i) < 0.0) {
+            thrForceIn.thrForce.at(i) = 0.0;
+        }
+        /*! - Compute T_on from thrust request, max thrust, and control period */
+        float onTime = thrForceIn.thrForce.at(i) / maxThrust.at(i) * controlPeriod;
 
-            /*! - Do not allow thrust requests less than zero */
-            if (thrForce[i] < 0.0) {
-                thrForce[i] = 0.0;
-            }
-            /*! - Compute T_on from thrust request, max thrust, and control period */
-            onTime[i] = thrForce[i] / maxThrust[i] * controlPeriod;
-
-            /*! - Apply Schmitt trigger logic */
-            if (onTime[i] < thrMinFireTime) {
-                /*! - Request is less than minimum fire time */
-                float level = onTime[i] / thrMinFireTime; /* [-] duty cycle fraction */
-                if (level >= levelOn) {
-                    lastThrustState[i] = true;
-                    onTime[i] = thrMinFireTime;
-                } else if (level <= levelOff) {
-                    lastThrustState[i] = false;
-                    onTime[i] = 0.0;
-                } else if (lastThrustState[i]) {
-                    onTime[i] = thrMinFireTime;
-                } else {
-                    onTime[i] = 0.0;
-                }
-            } else if (onTime[i] >= controlPeriod) {
-                /*! - Request is greater than control period then oversaturate onTime */
-                lastThrustState[i] = true;
-                onTime[i] = 1.1 * controlPeriod;  // oversaturate to avoid numerical error
+        /*! - Apply Schmitt trigger logic */
+        if (onTime < thrMinFireTime) {
+            /*! - Request is less than minimum fire time */
+            float level = onTime / thrMinFireTime; /* [-] duty cycle fraction */
+            if (level >= levelOn) {
+                lastThrustState.at(i) = true;
+                onTime = thrMinFireTime;
+            } else if (level <= levelOff) {
+                lastThrustState.at(i) = false;
+                onTime = 0.0;
+            } else if (lastThrustState.at(i)) {
+                onTime = thrMinFireTime;
             } else {
-                /*! - Request is greater than minimum fire time and less than control period */
-                lastThrustState[i] = true;
+                onTime = 0.0;
             }
-
-            /*! Set the output data */
-            thrOnTimeOut.onTimeRequest[i] = onTime[i];
+        } else if (onTime >= controlPeriod) {
+            /*! - Request is greater than control period then oversaturate onTime */
+            lastThrustState.at(i) = true;
+            onTime = onTimeSaturationFactor * controlPeriod;
+        } else {
+            /*! - Request is greater than minimum fire time and less than control period */
+            lastThrustState.at(i) = true;
         }
+
+        /*! Set the output data */
+        thrOnTimeOut.onTimeRequest.at(i) = onTime;
     }
 
     ReferenceOutput out{};
 
     out.onTime = thrOnTimeOut;
     out.lastThrustState = lastThrustState;
-    out.prevCallTime = prevCallTime;
 
     return out;
 }
 
-inline void testThrFiringSchmittSetup() {
-    ThrFiringSchmittAlgorithm alg{};
+// ---------------------------------------------------------------------------
+// Regression test (reference comparison)
+// ---------------------------------------------------------------------------
 
-    // --- Test expected exceptions ---
-
-    // levelOn out of bounds
-    EXPECT_THROW(alg.setLevelsOnOff(-0.1, 0.3), fsw::invalid_argument);
-    EXPECT_THROW(alg.setLevelsOnOff(0.0, 0.3), fsw::invalid_argument);
-    EXPECT_THROW(alg.setLevelsOnOff(1.1, 0.3), fsw::invalid_argument);
-    // levelOff out of bounds
-    EXPECT_THROW(alg.setLevelsOnOff(0.7, -0.1), fsw::invalid_argument);
-    EXPECT_THROW(alg.setLevelsOnOff(0.7, 1.0), fsw::invalid_argument);
-    EXPECT_THROW(alg.setLevelsOnOff(0.7, 1.1), fsw::invalid_argument);
-    // levelOn less than levelOff
-    EXPECT_THROW(alg.setLevelsOnOff(0.1, 0.2), fsw::invalid_argument);
-    // Negative or zero thrMinFireTime
-    EXPECT_THROW(alg.setThrMinFireTime(-0.1), fsw::invalid_argument);
-    EXPECT_THROW(alg.setThrMinFireTime(0.0), fsw::invalid_argument);
-    // Negative or zero firstCallPulse
-    EXPECT_THROW(alg.setFirstCallPulse(-0.1), fsw::invalid_argument);
-    EXPECT_THROW(alg.setFirstCallPulse(0.0), fsw::invalid_argument);
-}
-
-inline void testThrFiringSchmitt(float levelOn,
-                                 float levelOff,
-                                 float thrMinFireTime,
-                                 uint32_t baseThrustState,
-                                 float firstCallPulse,
-                                 uint32_t numThrusters,
-                                 std::vector<float> maxThrustVec,
-                                 std::vector<float> thrForceVec,
-                                 float dt) {
+inline void testThrFiringSchmittRegression(float levelOn,
+                                           float levelOff,
+                                           float thrMinFireTime,
+                                           ThrustPulsingRegime thrustPulsingRegime,
+                                           uint32_t numThrusters,
+                                           std::vector<float> maxThrustVec,
+                                           std::vector<float> thrForceVec,
+                                           float dt) {
     ThrFiringSchmittAlgorithm alg{};
 
     // module assumes that thrMinFireTime is less than control period dt
@@ -147,10 +102,8 @@ inline void testThrFiringSchmitt(float levelOn,
         return;
     }
 
-    std::array<float, MAX_EFF_CNT> maxThrust;
+    std::array<float, kMaxThrusterCount> maxThrust{};
     std::copy_n(maxThrustVec.begin(), numThrusters, maxThrust.begin());
-    std::array<float, MAX_EFF_CNT> thrForce;
-    std::copy_n(thrForceVec.begin(), numThrusters, thrForce.begin());
 
     // Set up module
     if (levelOn < levelOff) {
@@ -159,74 +112,289 @@ inline void testThrFiringSchmitt(float levelOn,
     }
     EXPECT_NO_THROW(alg.setLevelsOnOff(levelOn, levelOff));
     alg.setThrMinFireTime(thrMinFireTime);
-    PulsingRegime baseThrustStatePulsingRegime{};
-    if (baseThrustState == 0U) {
-        baseThrustStatePulsingRegime = PulsingRegime::ONPULSING;
-    } else {
-        baseThrustStatePulsingRegime = PulsingRegime::OFFPULSING;
-    }
-    alg.setBaseThrustState(baseThrustStatePulsingRegime);
-    alg.setFirstCallPulse(firstCallPulse);
+    alg.setThrustPulsingRegime(thrustPulsingRegime);
+    alg.setControlPeriod(dt);
 
-    // Populate messages
-    THRArrayConfigMsgF32Payload thrusterConfigMsg{};
-    thrusterConfigMsg.numThrusters = numThrusters;
-
-    THRArrayCmdForceMsgF32Payload thrForceMsg{};
-
+    // Populate thruster config
+    ThrusterArrayConfig thrusterConfig{};
+    thrusterConfig.numThrusters = numThrusters;
     for (uint32_t i = 0U; i < numThrusters; ++i) {
-        THRConfigMsgF32Payload thrusters{};
-        thrusters.maxThrust = maxThrust[i];
-        thrusterConfigMsg.thrusters[i] = thrusters;
+        thrusterConfig.thrusters.at(i).maxThrust = maxThrust.at(i);
+    }
 
-        thrForceMsg.thrForce[i] = thrForce[i];
+    // Populate force command
+    ThrusterForceCmd thrForceCmd{};
+    for (uint32_t i = 0U; i < numThrusters; ++i) {
+        thrForceCmd.thrForce.at(i) = thrForceVec.at(i);
     }
 
     // Configure and reset module
-    alg.configure(thrusterConfigMsg);
+    alg.setupThrusters(thrusterConfig);
     alg.reset();
 
-    std::array<bool, MAX_EFF_CNT> lastThrustState{};
+    std::array<bool, kMaxThrusterCount> lastThrustState{};
     lastThrustState.fill(false);
-    uint64_t prevCallTime{};
-    uint64_t callTime{};
 
     // Test over a few time steps
     int numSteps = 5;
 
     for (int step = 0; step < numSteps; ++step) {
-        float controlPeriod{};
-        if (prevCallTime != 0U) {
-            controlPeriod = static_cast<float>(static_cast<double>(callTime - prevCallTime) * kNano2Sec);
-        }
-
         // Reference
-        THRArrayOnTimeCmdMsgF32Payload out{};
+        ThrusterOnTimeCmd out{};
         ReferenceOutput refOutput{};
-        EXPECT_NO_THROW(out = alg.update(controlPeriod, thrForceMsg));
-        EXPECT_NO_THROW(refOutput = referenceUpdate(
-                            alg, numThrusters, maxThrust, lastThrustState, prevCallTime, callTime, thrForceMsg));
-        THRArrayOnTimeCmdMsgF32Payload ref = refOutput.onTime;
+        EXPECT_NO_THROW(out = alg.update(thrForceCmd));
+        EXPECT_NO_THROW(refOutput = referenceUpdate(alg, numThrusters, maxThrust, lastThrustState, dt, thrForceCmd));
+        ThrusterOnTimeCmd ref = refOutput.onTime;
         lastThrustState = refOutput.lastThrustState;
-        prevCallTime = refOutput.prevCallTime;
 
         for (uint32_t i = 0U; i < numThrusters; ++i) {
             // --- General tests ---
 
             // Reference correctness
-            EXPECT_NEAR(out.onTimeRequest[i], ref.onTimeRequest[i], 1e-6);
+            EXPECT_NEAR(out.onTimeRequest.at(i), ref.onTimeRequest.at(i), 1e-6);
+        }
+    }
+}
 
-            // Finiteness
-            EXPECT_TRUE(std::isfinite(out.onTimeRequest[i]));
+// ---------------------------------------------------------------------------
+// Property test helpers (fuzzable)
+// ---------------------------------------------------------------------------
 
-            // --- Module specific tests ---
+// All outputs are within [0, onTimeSaturationFactor * controlPeriod].
+inline void propertyOutputsAreWithinBounds(float levelOn,
+                                           float levelOff,
+                                           float thrMinFireTime,
+                                           ThrustPulsingRegime thrustPulsingRegime,
+                                           uint32_t numThrusters,
+                                           std::vector<float> maxThrustVec,
+                                           std::vector<float> thrForceVec,
+                                           float dt) {
+    if (dt < thrMinFireTime || levelOn < levelOff) {
+        return;
+    }
 
-            // onTime greater or equal to thrMinFireTime (only if thruster is actually on)
-            if (lastThrustState[i]) {
-                EXPECT_GE(out.onTimeRequest[i], thrMinFireTime);
+    ThrFiringSchmittAlgorithm alg{};
+    alg.setLevelsOnOff(levelOn, levelOff);
+    alg.setThrMinFireTime(thrMinFireTime);
+    alg.setThrustPulsingRegime(thrustPulsingRegime);
+    alg.setControlPeriod(dt);
+
+    ThrusterArrayConfig config{};
+    config.numThrusters = numThrusters;
+    for (uint32_t i = 0U; i < numThrusters; ++i) {
+        config.thrusters.at(i).maxThrust = maxThrustVec.at(i);
+    }
+    alg.setupThrusters(config);
+    alg.reset();
+
+    ThrusterForceCmd cmd{};
+    for (uint32_t i = 0U; i < numThrusters; ++i) {
+        cmd.thrForce.at(i) = thrForceVec.at(i);
+    }
+
+    const float maxBound = alg.getOnTimeSaturationFactor() * dt;
+
+    for (int step = 0; step < 5; ++step) {
+        auto out = alg.update(cmd);
+        for (uint32_t i = 0U; i < numThrusters; ++i) {
+            EXPECT_GE(out.onTimeRequest.at(i), 0.0F);
+            EXPECT_LE(out.onTimeRequest.at(i), maxBound + 1e-6F);
+        }
+    }
+}
+
+// Non-zero outputs are at least min(thrMinFireTime, onTimeSaturationFactor * controlPeriod).
+inline void propertyNonZeroOutputsExceedMinFireTime(float levelOn,
+                                                    float levelOff,
+                                                    float thrMinFireTime,
+                                                    ThrustPulsingRegime thrustPulsingRegime,
+                                                    uint32_t numThrusters,
+                                                    std::vector<float> maxThrustVec,
+                                                    std::vector<float> thrForceVec,
+                                                    float dt) {
+    if (dt < thrMinFireTime || levelOn < levelOff) {
+        return;
+    }
+
+    ThrFiringSchmittAlgorithm alg{};
+    alg.setLevelsOnOff(levelOn, levelOff);
+    alg.setThrMinFireTime(thrMinFireTime);
+    alg.setThrustPulsingRegime(thrustPulsingRegime);
+    alg.setControlPeriod(dt);
+
+    ThrusterArrayConfig config{};
+    config.numThrusters = numThrusters;
+    for (uint32_t i = 0U; i < numThrusters; ++i) {
+        config.thrusters.at(i).maxThrust = maxThrustVec.at(i);
+    }
+    alg.setupThrusters(config);
+    alg.reset();
+
+    ThrusterForceCmd cmd{};
+    for (uint32_t i = 0U; i < numThrusters; ++i) {
+        cmd.thrForce.at(i) = thrForceVec.at(i);
+    }
+
+    const float effectiveMin = std::min(thrMinFireTime, alg.getOnTimeSaturationFactor() * dt);
+
+    for (int step = 0; step < 5; ++step) {
+        auto out = alg.update(cmd);
+        for (uint32_t i = 0U; i < numThrusters; ++i) {
+            if (out.onTimeRequest.at(i) > 0.0F) {
+                EXPECT_GE(out.onTimeRequest.at(i), effectiveMin - 1e-6F);
             }
         }
-        callTime += static_cast<uint64_t>(dt / kNano2Sec);
+    }
+}
+
+// All output components are finite.
+inline void propertyOutputIsFinite(float levelOn,
+                                   float levelOff,
+                                   float thrMinFireTime,
+                                   ThrustPulsingRegime thrustPulsingRegime,
+                                   uint32_t numThrusters,
+                                   std::vector<float> maxThrustVec,
+                                   std::vector<float> thrForceVec,
+                                   float dt) {
+    if (dt < thrMinFireTime || levelOn < levelOff) {
+        return;
+    }
+
+    ThrFiringSchmittAlgorithm alg{};
+    alg.setLevelsOnOff(levelOn, levelOff);
+    alg.setThrMinFireTime(thrMinFireTime);
+    alg.setThrustPulsingRegime(thrustPulsingRegime);
+    alg.setControlPeriod(dt);
+
+    ThrusterArrayConfig config{};
+    config.numThrusters = numThrusters;
+    for (uint32_t i = 0U; i < numThrusters; ++i) {
+        config.thrusters.at(i).maxThrust = maxThrustVec.at(i);
+    }
+    alg.setupThrusters(config);
+    alg.reset();
+
+    ThrusterForceCmd cmd{};
+    for (uint32_t i = 0U; i < numThrusters; ++i) {
+        cmd.thrForce.at(i) = thrForceVec.at(i);
+    }
+
+    for (int step = 0; step < 5; ++step) {
+        auto out = alg.update(cmd);
+        for (uint32_t i = 0U; i < numThrusters; ++i) {
+            EXPECT_TRUE(std::isfinite(out.onTimeRequest.at(i)));
+        }
+    }
+}
+
+// Reset clears internal state: after reset, repeated identical inputs produce identical outputs.
+inline void propertyResetClearsState(float levelOn,
+                                     float levelOff,
+                                     float thrMinFireTime,
+                                     ThrustPulsingRegime thrustPulsingRegime,
+                                     uint32_t numThrusters,
+                                     std::vector<float> maxThrustVec,
+                                     std::vector<float> thrForceVec,
+                                     float dt) {
+    if (dt < thrMinFireTime || levelOn < levelOff) {
+        return;
+    }
+
+    ThrFiringSchmittAlgorithm alg{};
+    alg.setLevelsOnOff(levelOn, levelOff);
+    alg.setThrMinFireTime(thrMinFireTime);
+    alg.setThrustPulsingRegime(thrustPulsingRegime);
+    alg.setControlPeriod(dt);
+
+    ThrusterArrayConfig config{};
+    config.numThrusters = numThrusters;
+    for (uint32_t i = 0U; i < numThrusters; ++i) {
+        config.thrusters.at(i).maxThrust = maxThrustVec.at(i);
+    }
+    alg.setupThrusters(config);
+
+    ThrusterForceCmd cmd{};
+    for (uint32_t i = 0U; i < numThrusters; ++i) {
+        cmd.thrForce.at(i) = thrForceVec.at(i);
+    }
+
+    // Run once from reset
+    alg.reset();
+    auto out1 = alg.update(cmd);
+
+    // Run some steps to change internal state, then reset and run again
+    for (int step = 0; step < 5; ++step) {
+        alg.update(cmd);
+    }
+    alg.reset();
+    auto out2 = alg.update(cmd);
+
+    for (uint32_t i = 0U; i < numThrusters; ++i) {
+        EXPECT_FLOAT_EQ(out1.onTimeRequest.at(i), out2.onTimeRequest.at(i));
+    }
+}
+
+// Saturated input (force == maxThrust for ON_PULSING) produces oversaturated output.
+inline void propertySaturatedInputProducesOversaturatedOutput(float thrMinFireTime,
+                                                              uint32_t numThrusters,
+                                                              std::vector<float> maxThrustVec,
+                                                              float dt) {
+    if (dt < thrMinFireTime) {
+        return;
+    }
+
+    ThrFiringSchmittAlgorithm alg{};
+    alg.setLevelsOnOff(0.75F, 0.25F);
+    alg.setThrMinFireTime(thrMinFireTime);
+    alg.setThrustPulsingRegime(ThrustPulsingRegime::ON_PULSING);
+    alg.setControlPeriod(dt);
+
+    ThrusterArrayConfig config{};
+    config.numThrusters = numThrusters;
+    for (uint32_t i = 0U; i < numThrusters; ++i) {
+        config.thrusters.at(i).maxThrust = maxThrustVec.at(i);
+    }
+    alg.setupThrusters(config);
+    alg.reset();
+
+    // Force == maxThrust → onTime == controlPeriod → saturates
+    ThrusterForceCmd cmd{};
+    for (uint32_t i = 0U; i < numThrusters; ++i) {
+        cmd.thrForce.at(i) = maxThrustVec.at(i);
+    }
+
+    const float expected = alg.getOnTimeSaturationFactor() * dt;
+    auto out = alg.update(cmd);
+    for (uint32_t i = 0U; i < numThrusters; ++i) {
+        EXPECT_NEAR(out.onTimeRequest.at(i), expected, 1e-6F);
+    }
+}
+
+// Zero force with ON_PULSING produces zero output.
+inline void propertyZeroForceProducesZeroOutput(float thrMinFireTime, uint32_t numThrusters, float dt) {
+    if (dt < thrMinFireTime) {
+        return;
+    }
+
+    ThrFiringSchmittAlgorithm alg{};
+    alg.setLevelsOnOff(0.75F, 0.25F);
+    alg.setThrMinFireTime(thrMinFireTime);
+    alg.setThrustPulsingRegime(ThrustPulsingRegime::ON_PULSING);
+    alg.setControlPeriod(dt);
+
+    ThrusterArrayConfig config{};
+    config.numThrusters = numThrusters;
+    for (uint32_t i = 0U; i < numThrusters; ++i) {
+        config.thrusters.at(i).maxThrust = 1.0F;
+    }
+    alg.setupThrusters(config);
+    alg.reset();
+
+    ThrusterForceCmd cmd{};  // all zeros
+
+    auto out = alg.update(cmd);
+    for (uint32_t i = 0U; i < numThrusters; ++i) {
+        EXPECT_FLOAT_EQ(out.onTimeRequest.at(i), 0.0F);
     }
 }
 

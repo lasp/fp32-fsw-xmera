@@ -11,6 +11,7 @@
 %attribute(ThrFiringRemainder, double, thrMinFireTime, getThrMinFireTime, setThrMinFireTime)
 %attribute(ThrFiringRemainder, ThrustPulsingRegime, thrustPulsingRegime, getThrustPulsingRegime, setThrustPulsingRegime)
 %attribute(ThrFiringRemainder, double, controlPeriod, getControlPeriod, setControlPeriod)
+%attribute(ThrFiringRemainder, double, onTimeSaturationFactor, getOnTimeSaturationFactor, setOnTimeSaturationFactor)
 
 %include "thrFiringRemainder.h"
 %include "thrFiringRemainderTypes.h"

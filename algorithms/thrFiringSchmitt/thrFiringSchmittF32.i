@@ -1,20 +1,24 @@
 %module thrFiringSchmittF32
 %{
    #include "thrFiringSchmitt.h"
-   #include "utilities/timeConstants.h"
+   typedef std::array<float, 2> FloatArray2;
 %}
 
 %include <attribute.i>
-%attribute(ThrFiringSchmitt, float, levelOn, getLevelOn, setLevelOn)
-%attribute(ThrFiringSchmitt, float, levelOff, getLevelOff, setLevelOff)
 %attribute(ThrFiringSchmitt, float, thrMinFireTime, getThrMinFireTime, setThrMinFireTime)
-%attribute(ThrFiringSchmitt, uint32_t, baseThrustState, getBaseThrustState, setBaseThrustState)
-%attribute(ThrFiringSchmitt, float, firstCallPulse, getFirstCallPulse, setFirstCallPulse)
+%attribute(ThrFiringSchmitt, ThrustPulsingRegime, thrustPulsingRegime, getThrustPulsingRegime, setThrustPulsingRegime)
+%attribute(ThrFiringSchmitt, float, controlPeriod, getControlPeriod, setControlPeriod)
+%attribute(ThrFiringSchmitt, float, onTimeSaturationFactor, getOnTimeSaturationFactor, setOnTimeSaturationFactor)
 
 %include <architecture/_GeneralModuleFiles/sys_model.i>
 %include <architecture/_GeneralModuleFiles/swig_conly_data.i>
 
+%include <std_array.i>
+%template(FloatArray2) std::array<float, 2>;
+
+%include "thrFiringSchmittAlgorithm.h"
 %include "thrFiringSchmitt.h"
+%include "thrFiringSchmittTypes.h"
 
 %include "msgPayloadDef/THRArrayConfigMsgF32Payload.h"
 %include "msgPayloadDef/THRArrayCmdForceMsgF32Payload.h"

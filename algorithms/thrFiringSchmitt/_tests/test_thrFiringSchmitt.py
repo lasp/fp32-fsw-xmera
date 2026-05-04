@@ -1,33 +1,51 @@
 import numpy
 import pytest
-from xmera.architecture import messaging
 from xmera.fp32 import thrFiringSchmittF32
 from xmera.utilities import SimulationBaseClass
 from xmera.utilities import macros
 
-import sys
-import os
-file_path = os.path.dirname(os.path.abspath(__file__))
-abs_path = os.path.abspath(os.path.join(file_path, "../../utilities"))
-sys.path.insert(0, abs_path)
-import fswSetupThrusters
+from xmera.architecture.messaging import (
+    THRArrayConfigMsgF32,
+    THRArrayConfigMsgF32Payload,
+    THRArrayCmdForceMsgF32,
+    THRArrayCmdForceMsgF32Payload,
+)
 
 
-@pytest.mark.parametrize("reset_check, dv_on", [
-    (False, False),
-    (True, False),
-    (False, True),
-    (True, True),
+def create_thruster_array_config_msg(thrusters: list[dict]) -> THRArrayConfigMsgF32:
+    """
+    Create a thruster array config message from a list of thruster dicts.
+
+    Each dict must have keys: rThrust_B, tHatThrust_B, maxThrust
+    """
+    payload = THRArrayConfigMsgF32Payload()
+    for i, thr in enumerate(thrusters):
+        payload.thrusters[i].rThrust_B = thr["rThrust_B"]
+        payload.thrusters[i].tHatThrust_B = thr["tHatThrust_B"]
+        payload.thrusters[i].maxThrust = thr["maxThrust"]
+    payload.numThrusters = len(thrusters)
+
+    msg = THRArrayConfigMsgF32().write(payload)
+    msg.this.disown()
+    return msg
+
+
+@pytest.mark.parametrize("reset_check, thrust_pulsing_regime", [
+    (False, thrFiringSchmittF32.ON_PULSING),
+    (True, thrFiringSchmittF32.ON_PULSING),
+    (False, thrFiringSchmittF32.OFF_PULSING),
+    (True, thrFiringSchmittF32.OFF_PULSING),
 ])
-def test_thr_firing_schmitt(show_plots, reset_check, dv_on):
+def test_thr_firing_schmitt(show_plots, reset_check, thrust_pulsing_regime):
     unit_task_name = "unitTask"               # arbitrary name (don't change)
     unit_process_name = "TestProcess"         # arbitrary name (don't change)
 
     # Create a sim module as an empty container
     unit_test_sim = SimulationBaseClass.SimBaseClass()
 
+    fsw_rate = 0.5
     # Create test thread
-    test_process_rate = macros.sec2nano(0.5)     # update process rate update time
+    test_process_rate = macros.sec2nano(fsw_rate)     # update process rate update time
     test_proc = unit_test_sim.CreateNewProcess(unit_process_name)
     test_proc.addTask(unit_test_sim.CreateNewTask(unit_task_name, test_process_rate))
 
@@ -37,49 +55,37 @@ def test_thr_firing_schmitt(show_plots, reset_check, dv_on):
     # Add test module to runtime call list
     unit_test_sim.AddModelToTask(unit_task_name, module)
 
-    # Initialize the test module configuration data
-    module.thrMinFireTime = 0.2
-    if dv_on == 1:
-        module.baseThrustState = 1
-    else:
-        module.baseThrustState = 0
+    control_period = fsw_rate
+    thr_min_fire_time = 0.2
+    level_on = 0.75
+    level_off = 0.25
+    on_time_saturation_factor = 1.1
 
-    module.levelOn = .75
-    module.levelOff = .25
-    module.firstCallPulse = 2.0
+    # Initialize the test module configuration data
+    module.thrMinFireTime = thr_min_fire_time
+    module.thrustPulsingRegime = thrust_pulsing_regime
+    module.setLevelsOnOff(level_on, level_off)
+    module.controlPeriod = control_period
+    module.onTimeSaturationFactor = on_time_saturation_factor
 
     # setup thruster cluster message
-    fswSetupThrusters.clearSetup()
-    rcs_location_data = [
-        [-0.86360, -0.82550, 1.79070],
-        [-0.82550, -0.86360, 1.79070],
-        [0.82550, 0.86360, 1.79070],
-        [0.86360, 0.82550, 1.79070],
-        [-0.86360, -0.82550, -1.79070],
-        [-0.82550, -0.86360, -1.79070],
-        [0.82550, 0.86360, -1.79070],
-        [0.86360, 0.82550, -1.79070]
-        ]
-    rcs_direction_data = [
-        [1.0, 0.0, 0.0],
-        [0.0, 1.0, 0.0],
-        [0.0, -1.0, 0.0],
-        [-1.0, 0.0, 0.0],
-        [-1.0, 0.0, 0.0],
-        [0.0, -1.0, 0.0],
-        [0.0, 1.0, 0.0],
-        [1.0, 0.0, 0.0]
-        ]
-
-    for i in range(len(rcs_location_data)):
-        fswSetupThrusters.create(rcs_location_data[i], rcs_direction_data[i], 0.5)
-    thr_conf_msg = fswSetupThrusters.writeConfigMessage()
-    num_thrusters = fswSetupThrusters.getNumOfDevices()
+    thrusters = [
+        {"rThrust_B": [-0.86360, -0.82550,  1.79070], "tHatThrust_B": [ 1.0,  0.0, 0.0], "maxThrust": 0.5},
+        {"rThrust_B": [-0.82550, -0.86360,  1.79070], "tHatThrust_B": [ 0.0,  1.0, 0.0], "maxThrust": 0.5},
+        {"rThrust_B": [ 0.82550,  0.86360,  1.79070], "tHatThrust_B": [ 0.0, -1.0, 0.0], "maxThrust": 0.5},
+        {"rThrust_B": [ 0.86360,  0.82550,  1.79070], "tHatThrust_B": [-1.0,  0.0, 0.0], "maxThrust": 0.5},
+        {"rThrust_B": [-0.86360, -0.82550, -1.79070], "tHatThrust_B": [-1.0,  0.0, 0.0], "maxThrust": 0.5},
+        {"rThrust_B": [-0.82550, -0.86360, -1.79070], "tHatThrust_B": [ 0.0, -1.0, 0.0], "maxThrust": 0.5},
+        {"rThrust_B": [ 0.82550,  0.86360, -1.79070], "tHatThrust_B": [ 0.0,  1.0, 0.0], "maxThrust": 0.5},
+        {"rThrust_B": [ 0.86360,  0.82550, -1.79070], "tHatThrust_B": [ 1.0,  0.0, 0.0], "maxThrust": 0.5},
+    ]
+    num_thrusters = len(thrusters)
+    thr_conf_msg = create_thruster_array_config_msg(thrusters)
     module.thrConfInMsg.subscribeTo(thr_conf_msg)
 
     # setup thruster impulse request message
-    input_message_data = messaging.THRArrayCmdForceMsgF32Payload()
-    thr_cmd_msg = messaging.THRArrayCmdForceMsgF32()
+    input_message_data = THRArrayCmdForceMsgF32Payload()
+    thr_cmd_msg = THRArrayCmdForceMsgF32()
     module.thrForceInMsg.subscribeTo(thr_cmd_msg)
 
     # Setup logging on the test module output message so that we get all the writes to it
@@ -94,7 +100,7 @@ def test_thr_firing_schmitt(show_plots, reset_check, dv_on):
     # simulation is stopped at the next logging event on or after the
     # simulation end time.
 
-    if dv_on:
+    if thrust_pulsing_regime == thrFiringSchmittF32.OFF_PULSING:
         eff_req1 = [0.0, -0.1, -0.2, -0.3, -0.349, -0.351, -0.451, -0.5]
         eff_req2 = [0.0, -0.1, -0.2, -0.3, -0.351, -0.351, -0.451, -0.5]
         eff_req3 = [0.0, -0.1, -0.2, -0.3, -0.5, -0.351, -0.451, -0.5]
@@ -135,20 +141,20 @@ def test_thr_firing_schmitt(show_plots, reset_check, dv_on):
         unit_test_sim.ExecuteSimulation()
 
     # This pulls the actual data log from the simulation run.
-    module_output = data_log.onTimeRequest[:, :num_thrusters]
+    on_time_requests = data_log.onTimeRequest[:, :num_thrusters]
 
     # set the filtered output truth states
-    if reset_check==1:
-        if dv_on == 1:
+    if reset_check:
+        if thrust_pulsing_regime == thrFiringSchmittF32.OFF_PULSING:
             true_vector = [
-                   [2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0],
-                   [2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0],
+                   [0.55, 0.4, 0.3, 0.2, 0.2, 0.0, 0.0, 0.0],
+                   [0.55, 0.4, 0.3, 0.2, 0.2, 0.0, 0.0, 0.0],
                    [0.55, 0.4, 0.3, 0.2, 0.2, 0.0, 0.0, 0.0],
                    [0.55, 0.4, 0.3, 0.2, 0.2, 0.0, 0.0, 0.0],
                    [0.55, 0.4, 0.3, 0.2, 0.2, 0.0, 0.0, 0.0],
                    [0.55, 0.4, 0.3, 0.2, 0.0, 0.0, 0.0, 0.0],
                    [0.55, 0.4, 0.3, 0.2, 0.0, 0.0, 0.0, 0.0],
-                   [2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0],
+                   [0.55, 0.4, 0.3, 0.2, 0.0, 0.0, 0.0, 0.0],
                    [0.55, 0.4, 0.3, 0.2, 0.0, 0.0, 0.0, 0.0],
                    [0.55, 0.4, 0.3, 0.2, 0.0, 0.0, 0.0, 0.0],
                    [0.55, 0.4, 0.3, 0.2, 0.0, 0.0, 0.0, 0.0],
@@ -156,14 +162,14 @@ def test_thr_firing_schmitt(show_plots, reset_check, dv_on):
                    ]
         else:
             true_vector = [
-                   [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                   [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                   [0.55, 0.0, 0.0, 0.0, 0.2, 0.2, 0.2, 0.49],
+                   [0.55, 0.0, 0.0, 0.0, 0.2, 0.2, 0.2, 0.49],
                    [0.55, 0.0, 0.0, 0.0, 0.2, 0.2, 0.2, 0.49],
                    [0.55, 0.0, 0.0, 0.0, 0.2, 0.2, 0.2, 0.2],
                    [0.55, 0.0, 0.0, 0.0, 0.2, 0.2, 0.2, 0.2],
                    [0.55, 0.0, 0.0, 0.0, 0.2, 0.2, 0.2, 0.0],
                    [0.55, 0.0, 0.0, 0.0, 0.2, 0.2, 0.2, 0.0],
-                   [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                   [0.55, 0.0, 0.0, 0.0, 0.2, 0.2, 0.2, 0.0],
                    [0.55, 0.0, 0.0, 0.0, 0.2, 0.2, 0.2, 0.0],
                    [0.55, 0.0, 0.0, 0.0, 0.2, 0.2, 0.2, 0.0],
                    [0.55, 0.0, 0.0, 0.0, 0.2, 0.2, 0.2, 0.0],
@@ -171,10 +177,10 @@ def test_thr_firing_schmitt(show_plots, reset_check, dv_on):
                    ]
 
     else:
-        if dv_on == 1:
+        if thrust_pulsing_regime == thrFiringSchmittF32.OFF_PULSING:
             true_vector = [
-                   [2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0],
-                   [2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0],
+                   [0.55, 0.4, 0.3, 0.2, 0.2, 0.0, 0.0, 0.0],
+                   [0.55, 0.4, 0.3, 0.2, 0.2, 0.0, 0.0, 0.0],
                    [0.55, 0.4, 0.3, 0.2, 0.2, 0.0, 0.0, 0.0],
                    [0.55, 0.4, 0.3, 0.2, 0.2, 0.0, 0.0, 0.0],
                    [0.55, 0.4, 0.3, 0.2, 0.2, 0.0, 0.0, 0.0],
@@ -183,8 +189,8 @@ def test_thr_firing_schmitt(show_plots, reset_check, dv_on):
                    ]
         else:
             true_vector = [
-                   [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                   [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                   [0.55, 0.0, 0.0, 0.0, 0.2, 0.2, 0.2, 0.49],
+                   [0.55, 0.0, 0.0, 0.0, 0.2, 0.2, 0.2, 0.49],
                    [0.55, 0.0, 0.0, 0.0, 0.2, 0.2, 0.2, 0.49],
                    [0.55, 0.0, 0.0, 0.0, 0.2, 0.2, 0.2, 0.2],
                    [0.55, 0.0, 0.0, 0.0, 0.2, 0.2, 0.2, 0.2],
@@ -192,7 +198,26 @@ def test_thr_firing_schmitt(show_plots, reset_check, dv_on):
                    [0.55, 0.0, 0.0, 0.0, 0.2, 0.2, 0.2, 0.0],
                    ]
 
-    numpy.testing.assert_allclose(module_output, true_vector, atol=1e-12, err_msg="onTimeRequest")
+    numpy.testing.assert_allclose(on_time_requests, true_vector, atol=1e-12, err_msg="onTimeRequest")
+
+    # All on-times must be non-negative
+    assert numpy.all(on_time_requests >= 0.0)
+
+    # All on-times must not exceed the oversaturation bound
+    assert numpy.all(on_time_requests <= module.onTimeSaturationFactor * control_period + 1e-6)
+
+    # Non-zero on-times must be >= thrMinFireTime
+    non_zero = on_time_requests[on_time_requests > 0.0]
+    assert numpy.all(non_zero >= module.thrMinFireTime)
+
+    # Getter/Setter roundtrip checks
+    numpy.testing.assert_allclose(module.thrMinFireTime, thr_min_fire_time, atol=1e-6)
+    numpy.testing.assert_equal(module.thrustPulsingRegime, thrust_pulsing_regime)
+    numpy.testing.assert_allclose(module.controlPeriod, control_period, atol=1e-6)
+    numpy.testing.assert_allclose(module.onTimeSaturationFactor, on_time_saturation_factor, atol=1e-6)
+    levels = module.getLevelsOnOff()
+    numpy.testing.assert_allclose(levels[0], level_on, atol=1e-6)
+    numpy.testing.assert_allclose(levels[1], level_off, atol=1e-6)
 
 
 #
@@ -200,4 +225,4 @@ def test_thr_firing_schmitt(show_plots, reset_check, dv_on):
 # stand-along python script
 #
 if __name__ == "__main__":
-    test_thr_firing_schmitt(False, True, False)
+    test_thr_firing_schmitt(False, True, thrFiringSchmittF32.ON_PULSING)

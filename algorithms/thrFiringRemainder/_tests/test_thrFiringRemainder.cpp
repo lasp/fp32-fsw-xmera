@@ -1,5 +1,6 @@
 #include "thrFiringRemainderAlgorithm.h"
 
+#include "utilities/freestandingInvalidArgument.h"
 #include <gtest/gtest.h>
 #include <algorithm>
 #include <array>
@@ -152,6 +153,33 @@ TEST_P(ThrFiringRemainderTest, ComputesCorrectOnTimes) {
                 << "Mismatch at step " << idx << " thruster " << thrIdx;
         }
     }
+}
+
+TEST(ThrFiringRemainderTest, SetupTest) {
+    ThrFiringRemainderAlgorithm alg{};
+
+    // Negative thrMinFireTime
+    EXPECT_THROW(alg.setThrMinFireTime(-0.1), fsw::invalid_argument);
+
+    // Non-positive controlPeriod
+    EXPECT_THROW(alg.setControlPeriod(-0.1), fsw::invalid_argument);
+    EXPECT_THROW(alg.setControlPeriod(0.0), fsw::invalid_argument);
+
+    // onTimeSaturationFactor must be >= 1.0
+    EXPECT_THROW(alg.setOnTimeSaturationFactor(0.5), fsw::invalid_argument);
+    EXPECT_THROW(alg.setOnTimeSaturationFactor(0.99), fsw::invalid_argument);
+    EXPECT_NO_THROW(alg.setOnTimeSaturationFactor(1.0));
+    EXPECT_NO_THROW(alg.setOnTimeSaturationFactor(1.1));
+    // Negative maxThrust
+    ThrusterArrayConfig negThrustConfig{};
+    negThrustConfig.numThrusters = 1;
+    negThrustConfig.thrusters.at(0).maxThrust = -0.1F;
+    EXPECT_THROW(alg.setThrusters(negThrustConfig), fsw::invalid_argument);
+    // Zero maxThrust is allowed
+    ThrusterArrayConfig zeroThrustConfig{};
+    zeroThrustConfig.numThrusters = 1;
+    zeroThrustConfig.thrusters.at(0).maxThrust = 0.0F;
+    EXPECT_NO_THROW(alg.setThrusters(zeroThrustConfig));
 }
 
 INSTANTIATE_TEST_SUITE_P(ThrFiringRemainder,

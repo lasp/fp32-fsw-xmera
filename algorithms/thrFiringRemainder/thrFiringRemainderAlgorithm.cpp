@@ -67,6 +67,9 @@ void ThrFiringRemainderAlgorithm::setThrusters(const ThrusterArrayConfig& thrust
 
     /*! - loop over all thrusters and for each copy over maximum thrust, zero the impulse remainder */
     for (std::uint32_t i = 0U; i < this->numThrusters; ++i) {
+        if (thrusterConfig.thrusters.at(i).maxThrust < 0.0F) {
+            FSW_THROW_INVALID_ARGUMENT("ThrFiringRemainder: maxThrust of each thruster must be >= 0.0");
+        }
         this->maxThrust.at(i) = thrusterConfig.thrusters.at(i).maxThrust;
     }
 }
@@ -121,6 +124,9 @@ float ThrFiringRemainderAlgorithm::getControlPeriod() const { return this->contr
  @param factor
 */
 void ThrFiringRemainderAlgorithm::setOnTimeSaturationFactor(const float factor) {
+    if (factor < 1.0) {
+        FSW_THROW_INVALID_ARGUMENT("ThrFiringRemainderAlgorithm::onTimeSaturationFactor must be >= 1.0");
+    }
     this->onTimeSaturationFactor = factor;
 }
 
