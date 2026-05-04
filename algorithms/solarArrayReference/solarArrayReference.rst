@@ -163,7 +163,7 @@ At every update cycle, the ``solarArrayReference`` module performs the following
 
    If :math:`\alpha < \epsilon_a` (or the Sun direction is the zero vector), the Sun is aligned with the drive axis
    and there is no preferred rotation: set :math:`\theta_R = \theta_C` (the current panel angle from
-   ``hingedRigidBodyInMsg``) and skip to step 5.
+   ``hingedRigidBodyInMsg``, with no offset applied) and skip to the wrap in step 5.
 
 4. **Compute reference angle** (Sun not aligned with drive axis): expressed in the body-fixed orthonormal frame
    :math:`\{\hat{\mathbf a}_1,\, \hat{\mathbf a}_2,\, \hat{\mathbf a}_3\}` with
@@ -183,11 +183,14 @@ At every update cycle, the ``solarArrayReference`` module performs the following
    so no explicit projection/normalization is required. :math:`\hat{\mathbf a}_3` is computed once in the setter
    and cached.
 
-5. **Apply offset and wrap**: add the configured offset angle and wrap the result to :math:`[-\pi, \pi]`:
+5. **Apply offset and wrap**: when the Sun was not aligned with the drive axis (and in ``SPECIFIED_ANGLE`` mode),
+   add the configured offset angle. In all cases, wrap the result to :math:`[-\pi, \pi]`:
 
    .. math::
 
       \theta_R \leftarrow \operatorname{atan2}\!\left( \sin(\theta_R + \theta_{\text{offset}}),\, \cos(\theta_R + \theta_{\text{offset}}) \right)
+
+   In the Sun-aligned fallback the offset is intentionally not applied — only the wrap step is performed.
 
 Wrapping and the Sun-Aligned Case
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -198,9 +201,10 @@ directly. Adding the offset can push the sum outside this range, so the final
 
 When the Sun direction is (nearly) aligned with the drive axis, its projection onto the :math:`(\hat{\mathbf a}_2,
 \hat{\mathbf a}_3)` plane vanishes and :math:`\theta_R` is undefined. The module detects this via the
-``alignmentThreshold`` check and falls back to returning the current panel angle
-:math:`\theta_C` plus the offset. Because the wrap is applied unconditionally at the end, this also normalizes
-:math:`\theta_C` (which the caller may have provided unwrapped) to :math:`[-\pi, \pi]`.
+``alignmentThreshold`` check and falls back to returning the current panel angle :math:`\theta_C` directly,
+without applying the offset (the offset is meaningful only against the Sun-tracking solution). Because the wrap is
+applied unconditionally at the end, this also normalizes :math:`\theta_C` (which the caller may have provided
+unwrapped) to :math:`[-\pi, \pi]`.
 
 Specified Angle Mode
 ^^^^^^^^^^^^^^^^^^^^

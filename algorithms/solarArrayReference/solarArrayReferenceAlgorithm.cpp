@@ -41,17 +41,15 @@ float SolarArrayReferenceAlgorithm::update(
                 thetaRef = theta;
             } else {
                 /*! required solar array surface normal direction to align with Sun as well as possible */
-                thetaRef = safeAtan2f(this->a3Hat_B.dot(rHat_SB_B), this->a2Hat_B.dot(rHat_SB_B));
+                thetaRef = safeAtan2f(this->a3Hat_B.dot(rHat_SB_B), this->a2Hat_B.dot(rHat_SB_B)) + this->offsetAngle;
             }
             break;
         }
         case TrackingMode::SPECIFIED_ANGLE: {
-            thetaRef = this->specifiedArrayAngle;
+            thetaRef = this->specifiedArrayAngle + this->offsetAngle;
             break;
         }
     }
-
-    thetaRef += this->offsetAngle;
 
     const float thetaRefOut = safeAtan2f(safeSinf(thetaRef), safeCosf(thetaRef));
 

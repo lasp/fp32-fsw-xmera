@@ -35,7 +35,7 @@ inline float referenceUpdate(const Eigen::Vector3f& sigma_BN,
 
     float thetaRef{};
     if (sunDriveAngle < alignmentThreshold || rHat_SB_R.stableNorm() == 0.0F) {
-        // sun aligned with drive axis: keep current angle (wrap happens below)
+        // sun aligned with drive axis: keep current angle (offset is not applied; wrap happens below)
         thetaRef = theta;
     } else {
         a2Hat_R.stableNormalize();
@@ -45,9 +45,9 @@ inline float referenceUpdate(const Eigen::Vector3f& sigma_BN,
         if (a1.dot(a1Hat_R) < 0) {
             thetaRef = -thetaRef;
         }
+        thetaRef += offsetAngle;
     }
 
-    thetaRef += offsetAngle;
     return atan2f(sinf(thetaRef), cosf(thetaRef));
 }
 
