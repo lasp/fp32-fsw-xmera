@@ -3,9 +3,7 @@
 
 #include "utilities/fsw/plainCAlgorithmDataTypes.h"
 
-#include <stdbool.h>
-#include <stddef.h>
-#include <stdint.h>
+#include "averageMimuDataTypes.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -15,38 +13,6 @@ extern "C" {
  * @brief Opaque handle to the C++ AverageMimuDataAlgorithm instance.
  */
 typedef struct AverageMimuDataAlgorithmHandle AverageMimuDataAlgorithmHandle;
-
-#define MAX_MIMU_PKT_C 4
-#define MAX_MIMU_SAMPLES_PER_PKT_C 10
-
-/**
- * @brief POD equivalent of one MIMU sample (algorithm-internal `Sample`).
- */
-typedef struct {
-    uint64_t measTime;
-    Vector3f_c gyro_P;
-    Vector3f_c accel_P;
-} Sample_c;
-
-/**
- * @brief POD equivalent of InputPktsData.
- *
- * 4 packets x 10 samples per packet. `isValid[p]` gates the whole packet;
- * within a fresh packet, samples with samples[p][s].measTime == 0 are
- * treated as unfilled and skipped.
- */
-typedef struct {
-    bool isValid[MAX_MIMU_PKT_C];
-    Sample_c samples[MAX_MIMU_PKT_C][MAX_MIMU_SAMPLES_PER_PKT_C];
-} InputPktsData_c;
-
-/**
- * @brief POD equivalent of OutputAverageAccelAngleVel.
- */
-typedef struct {
-    Vector3f_c accel_B;
-    Vector3f_c gyroOmega_B;
-} OutputAverageAccelAngleVel_c;
 
 /**
  * @brief Get the MAX_MIMU_PKT constant for Ada validation.
@@ -78,7 +44,7 @@ void AverageMimuDataAlgorithm_destroy(AverageMimuDataAlgorithmHandle* self);
  * @param input     Pointer to input packets data.
  * @return OutputAverageAccelAngleVel_c  The computed body-frame averages.
  */
-OutputAverageAccelAngleVel_c AverageMimuDataAlgorithm_update(const AverageMimuDataAlgorithmHandle* self,
+OutputAverageAccelAngleVel_c AverageMimuDataAlgorithm_update(AverageMimuDataAlgorithmHandle* self,
                                                              const InputPktsData_c* input);
 
 /**

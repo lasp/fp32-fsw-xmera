@@ -1,40 +1,62 @@
-#ifndef F32XIMERA_AVERAGE_MIMU_DATA_TYPES_H
-#define F32XIMERA_AVERAGE_MIMU_DATA_TYPES_H
+#ifndef F32XMERA_AVERAGE_MIMU_DATA_TYPES_H
+#define F32XMERA_AVERAGE_MIMU_DATA_TYPES_H
 
-#include "msgPayloadDef/MimuPacketF32Payload.h"
+#include "utilities/fsw/plainCAlgorithmDataTypes.h"
 
-#include <Eigen/Core>
+#include <stdbool.h>
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-/*! @brief One MIMU sample at the algorithm-internal layer: a time-tagged
- *         gyro/accel pair in the platform frame. */
-struct Sample {
-    std::uint64_t measTime{0U};
-    Eigen::Vector3f gyro_P{Eigen::Vector3f::Zero()};
-    Eigen::Vector3f accel_P{Eigen::Vector3f::Zero()};
-};
+#define MAX_MIMU_PKT_C 4
+#define MAX_MIMU_SAMPLES_PER_PKT_C 10
 
-/*! @brief Algorithm-internal view of a MimuPacketF32Payload: 4 packets,
- *         each holding up to MAX_MIMU_SAMPLES_PER_PKT time-tagged samples.
- *         The per-packet isValid flag gates the whole packet; within a
- *         fresh packet, a sample with measTime == 0 is treated as
- *         unfilled. */
-struct InputPktsData {
-    std::array<bool, MAX_MIMU_PKT> isValid{};
-    std::array<std::array<Sample, MAX_MIMU_SAMPLES_PER_PKT>, MAX_MIMU_PKT> samples{};
-};
+/**
+ * @brief POD equivalent of one MIMU sample (algorithm-internal `Sample`).
+ *
+ * Per-sample timestamps are derived from the enclosing packet's `measTime`
+ * and the MIMU device's compile-time sample period; the sample itself
+ * carries only the gyro/accel measurement.
+ */
+typedef struct {
+    Vector3f_c gyro_P;
+    Vector3f_c accel_P;
+} Sample_c;
 
-/*! @brief Structure containing the OutputAverageAccelAngleVel*/
-struct OutputAverageAccelAngleVel {
-    Eigen::Vector3f accel_B = Eigen::Vector3f::Zero();
-    Eigen::Vector3f gyroOmega_B = Eigen::Vector3f::Zero();
-};
+/**
+ * @brief POD equivalent of one MIMU packet (algorithm-internal `InputPacket`).
+ *
+ * `isValid` gates the whole packet; when true, all samples in the packet are
+ * assumed real. `measTime` is the timestamp of the first sample.
+ */
+typedef struct {
+    bool isValid;
+    uint64_t measTime;
+    Sample_c samples[MAX_MIMU_SAMPLES_PER_PKT_C];
+} InputPacket_c;
+
+/**
+ * @brief POD equivalent of InputPktsData.
+ *
+ * 4 packets x 10 samples per packet.
+ */
+typedef struct {
+    InputPacket_c packets[MAX_MIMU_PKT_C];
+} InputPktsData_c;
+
+/**
+ * @brief POD equivalent of OutputAverageAccelAngleVel.
+ */
+typedef struct {
+    Vector3f_c accel_B;
+    Vector3f_c gyroOmega_B;
+} OutputAverageAccelAngleVel_c;
+
 
 #ifdef __cplusplus
 }  // extern "C"
 #endif
 
-#endif  // F32XIMERA_AVERAGE_MIMU_DATA_TYPES_H
+#endif  // F32XMERA_AVERAGE_MIMU_DATA_TYPES_H

@@ -6,55 +6,78 @@
 
 #include <algorithm>
 
-/*! @brief Average recent gyro/accel samples and output them in the body frame.
- *  Iterates the 4 packets; within each fresh packet (isValid=true), iterates
- *  the MAX_MIMU_SAMPLES_PER_PKT samples and skips any with measTime == 0.
- *  Uses the newest fresh sample's time as the reference and averages every
- *  fresh sample whose age is within `averagingWindow` seconds. Each
- *  contributing sample is weighted equally.
- *  @param localPkts InputPktsData: 4-packet x 10-sample ring snapshot.
- *  @return OutputAverageAccelAngleVel: body-frame average. If no sample is
- * fresh and within the window, returns zeros.
+/*! @brief Ingest new packets from the input snapshot into the internal ring,
+ *  then return the rolling average of fresh samples currently in the ring.
+ *
+ *  Phase 1 (ingest): Each input packet carries a `measTime` that is the
+ *  first sample's timestamp (`firstSampleTime`). A packet is ingested iff
+ *  its `firstSampleTime` is strictly greater than the largest first-sample
+ *  time ever ingested before this update() call. The whole packet is
+ *  copied into the next ring slot, overwriting the oldest slot when
+ *  capacity is reached. Multiple packets within one snapshot can be
+ *  ingested; already-seen or older-than-prior-max packets are dropped.
+ *
+ *  Phase 2 (average): Per-sample times are derived from each ring slot's
+ *  `measTime` plus `s * kMimuSamplePeriodNs`. The maxTimeTag is the
+ *  newest slot's tail sample: `max(slot.measTime) + (N - 1) * period_ns`.
+ *  Every sample whose derived time is within `averagingWindowNs` of
+ *  maxTimeTag contributes equally to the body-frame average via `dcm_BP`.
+ *  Returns zeros if the ring is empty.
+ *
+ *  @param localPkts InputPktsData: 4-packet snapshot from the caller.
+ *  @return OutputAverageAccelAngleVel: body-frame rolling average.
  */
-OutputAverageAccelAngleVel AverageMimuDataAlgorithm::update(InputPktsData const& localPkts) const {
-    // Find the newest measTime among samples in valid packets, ignoring
-    // unfilled (measTime == 0) samples. Zero-init ring-buffer slots therefore
-    // cannot pollute the output during warm-up.
-    uint64_t maxTimeTag = 0U;
-    for (uint32_t p = 0; p < MAX_MIMU_PKT; ++p) {
-        if (!localPkts.isValid.at(p)) {
+OutputAverageAccelAngleVel AverageMimuDataAlgorithm::update(InputPktsData const& localPkts) {
+    // Phase 1: ingest. Freeze prior max so within one snapshot all packets
+    // are evaluated against the previous-call boundary, not against each
+    // other - this lets multiple new packets in the same snapshot all land.
+    const uint64_t priorMax = this->lastIngestedMaxMeasTime;
+    for (auto const& packet : localPkts.packets) {
+        if (!packet.isValid) {
             continue;
         }
-        for (const auto& sample : localPkts.samples.at(p)) {
-            if (sample.measTime != 0U) {
-                maxTimeTag = std::max(sample.measTime, maxTimeTag);
-            }
+        const uint64_t firstSampleTime = packet.measTime;
+        if ((firstSampleTime == 0U) || (firstSampleTime <= priorMax)) {
+            continue;
+        }
+
+        this->ring.at(this->insertIdx).isValid = true;
+        this->ring.at(this->insertIdx).measTime = firstSampleTime;
+        this->ring.at(this->insertIdx).samples = packet.samples;
+        this->insertIdx = (this->insertIdx + 1U) % kRingCapacity;
+        this->lastIngestedMaxMeasTime = std::max(this->lastIngestedMaxMeasTime, firstSampleTime);
+    }
+
+    // Phase 2: derive maxTimeTag from the newest stored packet's tail sample.
+    // Per-sample measTimes are reconstructed from slot.measTime + s * period_ns.
+    uint64_t maxSlotMeasTime = 0U;
+    for (auto const& slot : this->ring) {
+        if (slot.isValid && (slot.measTime > maxSlotMeasTime)) {
+            maxSlotMeasTime = slot.measTime;
         }
     }
 
     OutputAverageAccelAngleVel out{};
-    if (maxTimeTag == 0U) {
+    if (maxSlotMeasTime == 0U) {
         return out;
     }
+
+    const uint64_t maxTimeTag =
+        maxSlotMeasTime + ((MAX_MIMU_SAMPLES_PER_PKT_C - 1U) * kMimuSamplePeriodNs);
 
     Eigen::Vector3f gyroSum_P = Eigen::Vector3f::Zero();
     Eigen::Vector3f accelSum_P = Eigen::Vector3f::Zero();
     uint64_t measAvgCount = 0U;
 
-    for (uint32_t p = 0; p < MAX_MIMU_PKT; ++p) {
-        if (!localPkts.isValid.at(p)) {
+    for (auto const& slot : this->ring) {
+        if (!slot.isValid) {
             continue;
         }
-        for (const auto& [measTime, gyro_P, accel_P] : localPkts.samples.at(p)) {
-            if (measTime == 0U) {
-                continue;
-            }
-            // Rolling average across all fresh samples within the window.
-            // Integer compare in ns avoids casting a multi-second uint64_t
-            // delta through float (which has only a 24-bit mantissa).
-            if ((maxTimeTag - measTime) <= this->averagingWindowNs) {
-                gyroSum_P += gyro_P;
-                accelSum_P += accel_P;
+        for (std::size_t s = 0; s < MAX_MIMU_SAMPLES_PER_PKT_C; ++s) {
+            const uint64_t sampleMeasTime = slot.measTime + (s * kMimuSamplePeriodNs);
+            if ((maxTimeTag - sampleMeasTime) <= this->averagingWindowNs) {
+                gyroSum_P += slot.samples.at(s).gyro_P;
+                accelSum_P += slot.samples.at(s).accel_P;
                 measAvgCount++;
             }
         }
@@ -73,8 +96,8 @@ OutputAverageAccelAngleVel AverageMimuDataAlgorithm::update(InputPktsData const&
 }
 
 void AverageMimuDataAlgorithm::setAveragingWindow(float const window) {
-    if (window < 0.0F) {
-        FSW_THROW_INVALID_ARGUMENT("AveragingWindow cannot be smaller than 0.0");
+    if (window < 0.0F || window > kMaxAveragingWindowSec) {
+        FSW_THROW_INVALID_ARGUMENT("AveragingWindow cannot be smaller than 0.0 or greater than 2.0 seconds");
     }
     // Convert seconds->nanoseconds in double so plausible window values
     // (e.g. 2.0 s -> 2_000_000_000 ns) survive without rounding through float.
