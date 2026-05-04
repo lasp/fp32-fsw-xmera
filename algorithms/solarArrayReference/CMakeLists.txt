@@ -8,6 +8,7 @@ xmera_add_swig_module("${module}")
 target_sources("${module}" PRIVATE
   solarArrayReference.cpp
   solarArrayReferenceAlgorithm.cpp
+  solarArrayReferenceAlgorithm_c.cpp
 )
 
 target_include_directories("${module}" PRIVATE "..")

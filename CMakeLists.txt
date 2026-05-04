@@ -110,6 +110,7 @@ set(algorithms
     "rateControl"
     "rwMotorVoltage"
     "rwNullSpace"
+    "solarArrayReference"
     "sunlineEphem"
     "sunlineSRuKF"
     "sunTrackError"
