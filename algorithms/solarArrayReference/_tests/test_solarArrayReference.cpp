@@ -8,7 +8,7 @@
 TEST(SolarArrayReferenceTest, RegressionTest) {
     regressionTestSolarArrayReference({0.1F, 0.2F, 0.3F},  // sigma_BN
                                       {0.3F, 0.2F, 0.1F},  // sigma_RN
-                                      {1.0F, 0.0F, 0.0F},  // vehSunPntBdy
+                                      {1.0F, 0.0F, 0.0F},  // rHatIn_SB_B
                                       {1.0F, 0.0F, 0.0F},  // a1Hat_B
                                       {0.0F, 1.0F, 0.0F},  // a2Hat_B
                                       1e-3F,               // alignmentThreshold
@@ -19,7 +19,7 @@ TEST(SolarArrayReferenceTest, RegressionTest) {
 TEST(SolarArrayReferenceTest, RegressionTestNonZeroTheta) {
     regressionTestSolarArrayReference({0.5F, 0.4F, 0.3F},  // sigma_BN
                                       {0.9F, 0.7F, 0.8F},  // sigma_RN
-                                      {0.0F, 0.0F, 1.0F},  // vehSunPntBdy
+                                      {0.0F, 0.0F, 1.0F},  // rHatIn_SB_B
                                       {1.0F, 0.0F, 0.0F},  // a1Hat_B
                                       {0.0F, 1.0F, 0.0F},  // a2Hat_B
                                       1e-3F,               // alignmentThreshold
@@ -30,7 +30,7 @@ TEST(SolarArrayReferenceTest, RegressionTestNonZeroTheta) {
 TEST(SolarArrayReferenceTest, RegressionTestArbitraryAxes) {
     regressionTestSolarArrayReference({0.1F, -0.3F, 0.2F},  // sigma_BN
                                       {0.2F, 0.1F, -0.1F},  // sigma_RN
-                                      {1.0F, 1.0F, 1.0F},   // vehSunPntBdy
+                                      {1.0F, 1.0F, 1.0F},   // rHatIn_SB_B
                                       {0.0F, 0.0F, 1.0F},   // a1Hat_B
                                       {1.0F, 0.0F, 0.0F},   // a2Hat_B
                                       1e-3F,                // alignmentThreshold

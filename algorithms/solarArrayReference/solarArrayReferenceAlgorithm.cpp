@@ -11,20 +11,20 @@
  @return float
  @param sigma_BN body attitude MRP with respect to inertial frame
  @param sigma_RN reference attitude MRP with respect to inertial frame
- @param vehSunPntBdy Sun pointing vector in body frame
+ @param rHatIn_SB_B Sun pointing vector in body frame
  @param theta current panel angular displacement [rad]
 */
 float SolarArrayReferenceAlgorithm::update(
     const Eigen::Vector3f& sigma_BN,
     const Eigen::Vector3f& sigma_RN,  // NOLINT(bugprone-easily-swappable-parameters)
-    const Eigen::Vector3f& vehSunPntBdy,
+    const Eigen::Vector3f& rHatIn_SB_B,
     const float theta) const {
     float thetaRef{};
     switch (this->trackingMode) {
         case TrackingMode::AUTO_TRACK: {
             /*! track Sun in reference frame R, i.e. in the body frame that will be obtained at the end of the slew */
             const Eigen::Vector3f rHat_SB_Bc =
-                vehSunPntBdy.stableNormalized();  // Sun direction in current body frame Bc
+                rHatIn_SB_B.stableNormalized();  // Sun direction in current body frame Bc
             const Eigen::Matrix3f dcm_BN = mrpToDcm(sigma_BN);
             const Eigen::Matrix3f dcm_RN = mrpToDcm(sigma_RN);
             const Eigen::Matrix3f dcm_RB = dcm_RN * dcm_BN.transpose();

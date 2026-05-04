@@ -22,9 +22,9 @@ void SolarArrayReference::updateState(uint64_t callTime) {
 
     const Eigen::Vector3f sigma_BN = cArrayToEigenVector(attNavIn.sigma_BN);
     const Eigen::Vector3f sigma_RN = cArrayToEigenVector(attRefIn.sigma_RN);
-    const Eigen::Vector3f vehSunPntBdy = cArrayToEigenVector(attNavIn.vehSunPntBdy);
+    const Eigen::Vector3f rHatIn_SB_B = cArrayToEigenVector(attNavIn.vehSunPntBdy);
 
-    const float thetaRef = this->algorithm.update(sigma_BN, sigma_RN, vehSunPntBdy, hingedRigidBodyIn.theta);
+    const float thetaRef = this->algorithm.update(sigma_BN, sigma_RN, rHatIn_SB_B, hingedRigidBodyIn.theta);
 
     HingedRigidBodyMsgF32Payload hingedRigidBodyRefOut = {};
     hingedRigidBodyRefOut.theta = thetaRef;

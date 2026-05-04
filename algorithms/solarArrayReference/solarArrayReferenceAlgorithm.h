@@ -15,7 +15,7 @@ class SolarArrayReferenceAlgorithm final {
    public:
     float update(const Eigen::Vector3f& sigma_BN,
                  const Eigen::Vector3f& sigma_RN,
-                 const Eigen::Vector3f& vehSunPntBdy,
+                 const Eigen::Vector3f& rHatIn_SB_B,
                  float theta) const;
 
     void setSolarArrayAxes_B(const Eigen::Vector3f& driveAxis, const Eigen::Vector3f& surfaceNormal);
