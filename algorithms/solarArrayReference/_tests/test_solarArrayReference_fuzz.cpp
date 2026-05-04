@@ -23,11 +23,11 @@ FUZZ_TEST(SolarArrayReferencePropertyFuzz, propertyOutputIsFinite)
                  fuzztest::InRange(-100.0F, 100.0F));                               // theta
 
 FUZZ_TEST(SolarArrayReferencePropertyFuzz, propertySpecifiedAngleReturnsAngle)
-    .WithDomains(fuzztest::VectorOf(fuzztest::InRange(-1.0F, 1.0F)).WithSize(3),    // sigma_BN
-                 fuzztest::VectorOf(fuzztest::InRange(-1.0F, 1.0F)).WithSize(3),    // sigma_RN
-                 fuzztest::VectorOf(fuzztest::InRange(-10.0F, 10.0F)).WithSize(3),  // rHatIn_SB_B
-                 fuzztest::InRange(-100.0F, 100.0F),                                // specifiedAngle
-                 fuzztest::InRange(-100.0F, 100.0F));                               // theta
+    .WithDomains(fuzztest::VectorOf(fuzztest::InRange(-1.0F, 1.0F)).WithSize(3),            // sigma_BN
+                 fuzztest::VectorOf(fuzztest::InRange(-1.0F, 1.0F)).WithSize(3),            // sigma_RN
+                 fuzztest::VectorOf(fuzztest::InRange(-10.0F, 10.0F)).WithSize(3),          // rHatIn_SB_B
+                 fuzztest::InRange(-std::numbers::pi_v<float>, std::numbers::pi_v<float>),  // specifiedAngle
+                 fuzztest::InRange(-100.0F, 100.0F));                                       // theta
 
 FUZZ_TEST(SolarArrayReferencePropertyFuzz, propertyAlignedSunReturnsCurrentTheta)
     .WithDomains(fuzztest::VectorOf(fuzztest::InRange(-1.0F, 1.0F)).WithSize(3),  // a1Hat_B

@@ -89,13 +89,13 @@ The following table lists all the module parameters than can be set. The paramet
       - [rad]
       - 0
       - Reference angle returned when ``trackingMode`` is ``SPECIFIED_ANGLE``
-      - Any value accepted (wrapped to :math:`[-\pi, \pi]` after the offset is applied)
+      - Must be in :math:`[-\pi, \pi]` (checked in setter)
     * - offsetAngle
       - float
       - [rad]
       - 0
       - Offset added to the computed reference angle before wrapping
-      - Any value accepted (wrapped to :math:`[-\pi, \pi]` together with the base reference)
+      - Must be in :math:`[-\pi, \pi]` (checked in setter)
 
 Module Assumptions and Limitations
 ----------------------------------

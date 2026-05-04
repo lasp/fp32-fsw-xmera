@@ -121,10 +121,15 @@ void SolarArrayReferenceAlgorithm::setTrackingMode(const TrackingMode mode) { th
 TrackingMode SolarArrayReferenceAlgorithm::getTrackingMode() const { return this->trackingMode; }
 
 /*! Set the specified reference array angle (used when trackingMode is SPECIFIED_ANGLE).
- *  Any value is accepted; the update() method wraps it to [-pi, pi] when consumed.
- *  @param angle [rad] specified reference array angle
+ *  @param angle [rad] specified reference array angle, must be in [-pi, pi]
  */
-void SolarArrayReferenceAlgorithm::setSpecifiedArrayAngle(const float angle) { this->specifiedArrayAngle = angle; }
+void SolarArrayReferenceAlgorithm::setSpecifiedArrayAngle(const float angle) {
+    constexpr float pi = std::numbers::pi_v<float>;
+    if (angle < -pi || angle > pi) {
+        FSW_THROW_INVALID_ARGUMENT("solarArrayReferenceAlgorithm.specifiedArrayAngle must be in [-pi, pi].");
+    }
+    this->specifiedArrayAngle = angle;
+}
 
 /*! Get the specified reference array angle.
  *  @return float [rad] specified reference array angle (as stored, not wrapped)
@@ -132,10 +137,15 @@ void SolarArrayReferenceAlgorithm::setSpecifiedArrayAngle(const float angle) { t
 float SolarArrayReferenceAlgorithm::getSpecifiedArrayAngle() const { return this->specifiedArrayAngle; }
 
 /*! Set the offset angle added to the computed reference angle before wrapping.
- *  Any value is accepted; the update() method wraps the sum to [-pi, pi].
- *  @param angle [rad] offset angle
+ *  @param angle [rad] offset angle, must be in [-pi, pi]
  */
-void SolarArrayReferenceAlgorithm::setOffsetAngle(const float angle) { this->offsetAngle = angle; }
+void SolarArrayReferenceAlgorithm::setOffsetAngle(const float angle) {
+    constexpr float pi = std::numbers::pi_v<float>;
+    if (angle < -pi || angle > pi) {
+        FSW_THROW_INVALID_ARGUMENT("solarArrayReferenceAlgorithm.offsetAngle must be in [-pi, pi].");
+    }
+    this->offsetAngle = angle;
+}
 
 /*! Get the offset angle.
  *  @return float [rad] offset angle (as stored, not wrapped)

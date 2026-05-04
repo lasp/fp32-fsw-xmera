@@ -111,10 +111,13 @@ TEST(SolarArrayReferenceTest, SetupTest) {
     alg.setTrackingMode(TrackingMode::AUTO_TRACK);
     EXPECT_EQ(alg.getTrackingMode(), TrackingMode::AUTO_TRACK);
 
-    // Specified array angle accepts any value (no setter validation; wrapped at update time)
+    // Specified array angle: in-range values accepted, out-of-range values throw
+    constexpr float pi = std::numbers::pi_v<float>;
     EXPECT_NO_THROW(alg.setSpecifiedArrayAngle(0.0F));
-    EXPECT_NO_THROW(alg.setSpecifiedArrayAngle(-10.0F));
-    EXPECT_NO_THROW(alg.setSpecifiedArrayAngle(10.0F));
+    EXPECT_NO_THROW(alg.setSpecifiedArrayAngle(-pi));
+    EXPECT_NO_THROW(alg.setSpecifiedArrayAngle(pi));
+    EXPECT_THROW(alg.setSpecifiedArrayAngle(-10.0F), fsw::invalid_argument);
+    EXPECT_THROW(alg.setSpecifiedArrayAngle(10.0F), fsw::invalid_argument);
 
     // Specified array angle round-trip stores the raw value
     alg.setSpecifiedArrayAngle(0.5F);
@@ -125,10 +128,12 @@ TEST(SolarArrayReferenceTest, SetupTest) {
     // Offset angle: default is zero
     EXPECT_FLOAT_EQ(alg.getOffsetAngle(), 0.0F);
 
-    // Offset angle accepts any value (no setter validation; wrapped at update time)
+    // Offset angle: in-range values accepted, out-of-range values throw
     EXPECT_NO_THROW(alg.setOffsetAngle(0.0F));
-    EXPECT_NO_THROW(alg.setOffsetAngle(-10.0F));
-    EXPECT_NO_THROW(alg.setOffsetAngle(10.0F));
+    EXPECT_NO_THROW(alg.setOffsetAngle(-pi));
+    EXPECT_NO_THROW(alg.setOffsetAngle(pi));
+    EXPECT_THROW(alg.setOffsetAngle(-10.0F), fsw::invalid_argument);
+    EXPECT_THROW(alg.setOffsetAngle(10.0F), fsw::invalid_argument);
 
     // Offset angle round-trip stores the raw value
     alg.setOffsetAngle(0.3F);
