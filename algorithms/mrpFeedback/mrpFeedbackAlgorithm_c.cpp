@@ -1,7 +1,3 @@
-/* SPDX-License-Identifier: MIT
- * SPDX-FileCopyrightText: 2026 Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
- */
-
 #include "mrpFeedbackAlgorithm_c.h"
 #include "architecture/utilities/eigenSupport.h"
 #include "mrpFeedbackAlgorithm.h"

@@ -1,6 +1,3 @@
-// SPDX-License-Identifier: MIT
-// SPDX-FileCopyrightText: 2026 Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
-
 #ifndef F32XMERA_XMERA_LIFECYCLE_EXCEPTION_H
 #define F32XMERA_XMERA_LIFECYCLE_EXCEPTION_H
 
