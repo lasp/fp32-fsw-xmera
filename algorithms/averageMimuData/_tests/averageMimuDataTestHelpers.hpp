@@ -3,10 +3,12 @@
 
 #include "averageMimuDataAlgorithm.h"
 #include "utilities/fsw/eigenSupport.h"
+#include "utilities/fsw/freestandingInvalidArgument.h"
 
 #include <architecture/utilities/macroDefinitions.h>
 #include <gtest/gtest.h>
 
+#include <cstdint>
 #include <vector>
 
 OutputAverageAccelAngleVel referenceUpdate(InputPktsData const& localPkts, const AverageMimuDataAlgorithm& alg) {
@@ -29,6 +31,10 @@ OutputAverageAccelAngleVel referenceUpdate(InputPktsData const& localPkts, const
         return out;
     }
 
+    // Match the algorithm: convert window to ns once and compare integer-to-integer.
+    const std::uint64_t averagingWindowNs =
+        static_cast<std::uint64_t>(static_cast<double>(alg.getAveragingWindow()) * 1.0e9);
+
     Eigen::Vector3f gyroSum_P = Eigen::Vector3f::Zero();
     Eigen::Vector3f accelSum_P = Eigen::Vector3f::Zero();
     uint64_t measAvgCount = 0U;
@@ -42,7 +48,7 @@ OutputAverageAccelAngleVel referenceUpdate(InputPktsData const& localPkts, const
             if (sample.measTime == 0U) {
                 continue;
             }
-            if (static_cast<float>(maxTimeTag - sample.measTime) * NANO2SEC <= alg.getAveragingWindow()) {
+            if ((maxTimeTag - sample.measTime) <= averagingWindowNs) {
                 gyroSum_P += sample.gyro_P;
                 accelSum_P += sample.accel_P;
                 measAvgCount++;

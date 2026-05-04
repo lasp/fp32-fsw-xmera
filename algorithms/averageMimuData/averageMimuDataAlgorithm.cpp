@@ -49,8 +49,10 @@ OutputAverageAccelAngleVel AverageMimuDataAlgorithm::update(InputPktsData const&
             if (measTime == 0U) {
                 continue;
             }
-            // Rolling average across all fresh samples within the window
-            if (static_cast<float>(maxTimeTag - measTime) * kNano2SecF <= this->averagingWindow) {
+            // Rolling average across all fresh samples within the window.
+            // Integer compare in ns avoids casting a multi-second uint64_t
+            // delta through float (which has only a 24-bit mantissa).
+            if ((maxTimeTag - measTime) <= this->averagingWindowNs) {
                 gyroSum_P += gyro_P;
                 accelSum_P += accel_P;
                 measAvgCount++;
@@ -74,10 +76,14 @@ void AverageMimuDataAlgorithm::setAveragingWindow(float const window) {
     if (window < 0.0F) {
         FSW_THROW_INVALID_ARGUMENT("AveragingWindow cannot be smaller than 0.0");
     }
-    this->averagingWindow = window;
+    // Convert seconds->nanoseconds in double so plausible window values
+    // (e.g. 2.0 s -> 2_000_000_000 ns) survive without rounding through float.
+    this->averagingWindowNs = static_cast<std::uint64_t>(static_cast<double>(window) * 1.0e9);
 }
 
-float AverageMimuDataAlgorithm::getAveragingWindow() const { return this->averagingWindow; }
+float AverageMimuDataAlgorithm::getAveragingWindow() const {
+    return static_cast<float>(static_cast<double>(this->averagingWindowNs) * 1.0e-9);
+}
 
 void AverageMimuDataAlgorithm::setDcmPltfToBdy(Eigen::Matrix3f const& dcm_BPIn) {
     if (!isValidDcm(dcm_BPIn)) {

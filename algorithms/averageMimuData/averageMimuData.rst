@@ -68,7 +68,10 @@ Module Assumptions and Limitations
   clearing ``isValid[p]`` for any packet that has not yet been written this cycle, and for leaving unfilled samples
   within a fresh packet at ``measTime == 0`` so the algorithm does not include them during ring-buffer warm-up.
 - Among the fresh samples, a measurement is included in the average if
-  ``(maxTimeTag - measTime) * NANO2SEC <= averagingWindow``, where ``averagingWindow >= 0.0``.
+  ``(maxTimeTag - measTime) <= averagingWindowNs``, where ``averagingWindowNs`` is the configured
+  ``averagingWindow`` (seconds, ``>= 0.0``) converted once to nanoseconds. The comparison is done in
+  ``uint64_t`` nanoseconds to avoid the precision loss that would occur casting a multi-second
+  ``uint64_t`` delta through ``float``.
 - If no sample is fresh, or if no fresh sample falls within the averaging window, the output vectors are zero.
 - The algorithm performs an unweighted arithmetic mean across measurements (no weighting, outlier rejection, or bias
   correction). Each contributing sample weighs equally regardless of which packet it came from.
@@ -114,7 +117,8 @@ Given an input ring snapshot ``localPkts``, the algorithm:
 0. Builds the set of fresh samples: those in packets with ``isValid[p] == true`` and with ``samples[p][s].measTime != 0``.
 1. Finds the newest sample time tag ``maxTimeTag`` across the fresh samples. If no fresh sample exists, returns a zero
    output.
-2. Includes each fresh sample whose ``ΔT_{p,s} = (maxTimeTag - samples[p][s].measTime) * NANO2SEC <= averagingWindow``.
+2. Includes each fresh sample whose ``(maxTimeTag - samples[p][s].measTime) <= averagingWindowNs``,
+   i.e. whose age (in nanoseconds) does not exceed the configured window converted once to nanoseconds.
 3. Averages the selected gyro and accelerometer vectors (assumed to be in the platform frame), weighting each sample
    equally.
 4. Transforms the averaged vectors to the body frame using ``dcm_BP`` and returns them.

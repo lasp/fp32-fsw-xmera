@@ -7,6 +7,8 @@
 #include <array>
 #include <cstdint>
 
+#include <cstdint>
+
 class AverageMimuDataAlgorithm {
    public:
     void setAveragingWindow(float window);                  //!< [s] Setter method for windowSec
@@ -16,7 +18,9 @@ class AverageMimuDataAlgorithm {
     OutputAverageAccelAngleVel update(InputPktsData const& localPkts) const;
 
    private:
-    float averagingWindow{0.0F};                           //!< [s] Allowable time difference from "latest"
+    // Stored as nanoseconds so the per-sample comparison in update() is a pure
+    // uint64_t compare. Float is only used at the public seconds-based API.
+    std::uint64_t averagingWindowNs{0U};                   //!< [ns] Allowable time difference from "latest"
     Eigen::Matrix3f dcm_BP = Eigen::Matrix3f::Identity();  //!< [-] Transformation from the platform frame to body
 };
 
