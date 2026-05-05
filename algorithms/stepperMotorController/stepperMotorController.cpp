@@ -103,24 +103,24 @@ void StepperMotorController::setMotorFrequency(const float motorFrequencyIn) {
 
 float StepperMotorController::getMotorFrequency() const { return this->motorFrequency; }
 
-void StepperMotorController::setSettleCountMax(const int settleCountMaxIn) {
+void StepperMotorController::setSettleCountMax(const uint32_t settleCountMaxIn) {
     this->algorithm.setSettleCountMax(settleCountMaxIn);
 }
 
-int StepperMotorController::getSettleCountMax() const { return this->algorithm.getSettleCountMax(); }
+uint32_t StepperMotorController::getSettleCountMax() const { return this->algorithm.getSettleCountMax(); }
 
-void StepperMotorController::setCurrentPositionTolerance(const int currentPositionToleranceIn) {
+void StepperMotorController::setCurrentPositionTolerance(const uint32_t currentPositionToleranceIn) {
     this->algorithm.setCurrentPositionTolerance(currentPositionToleranceIn);
 }
 
-int StepperMotorController::getCurrentPositionTolerance() const {
+uint32_t StepperMotorController::getCurrentPositionTolerance() const {
     return this->algorithm.getCurrentPositionTolerance();
 }
 
-void StepperMotorController::setDesiredPositionTolerance(const int desiredPositionToleranceIn) {
+void StepperMotorController::setDesiredPositionTolerance(const uint32_t desiredPositionToleranceIn) {
     this->algorithm.setDesiredPositionTolerance(desiredPositionToleranceIn);
 }
 
-int StepperMotorController::getDesiredPositionTolerance() const {
+uint32_t StepperMotorController::getDesiredPositionTolerance() const {
     return this->algorithm.getDesiredPositionTolerance();
 }

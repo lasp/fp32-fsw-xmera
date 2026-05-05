@@ -65,23 +65,23 @@ adapter re-exposes all of these parameters through same-named setters/getters th
       - Upper bound of the motor's travel range; reference angles above this are rejected
       - Must be in :math:`[-2\pi,\, 2\pi]` and strictly greater than ``minAngle`` (checked in ``setMotorAngleRange``)
     * - settleCountMax
-      - int
+      - uint32_t
       - [ticks]
       - 10
       - Number of control ticks to remain in ``SETTLING`` before returning to ``IDLE``
-      - Must be non-negative (checked in setter)
+      - Non-negative by type (uint32_t)
     * - currentPositionTolerance
-      - int
+      - uint32_t
       - [steps]
       - 1
       - Tolerance between the current and target position used for the ``IDLE`` move trigger and the ``MOVING`` move-complete check
-      - Must be non-negative (checked in setter)
+      - Non-negative by type (uint32_t)
     * - desiredPositionTolerance
-      - int
+      - uint32_t
       - [steps]
       - 0
       - Tolerance between the commanded and desired position used in ``MOVING`` to detect a changed reference
-      - Must be non-negative (checked in setter)
+      - Non-negative by type (uint32_t)
 
 Module Parameters
 -------------------------------

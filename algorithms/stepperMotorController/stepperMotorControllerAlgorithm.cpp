@@ -45,7 +45,7 @@ StepperMotorControllerOutput StepperMotorControllerAlgorithm::update(
                 break;
             }
             const int steps = this->stepDelta(this->desiredPosition - currentPosition);
-            if (abs(steps) > this->currentPositionTolerance) {
+            if (static_cast<uint32_t>(abs(steps)) > this->currentPositionTolerance) {
                 output.commandType = StepperMotorCommandType::MOVE;
                 output.stepsToMove = steps;
                 this->commandedPosition = this->desiredPosition;
@@ -56,13 +56,13 @@ StepperMotorControllerOutput StepperMotorControllerAlgorithm::update(
 
         case StepperMotorState::MOVING: {
             // Desired position changed beyond desired-position tolerance
-            if (abs(this->stepDelta(this->commandedPosition - this->desiredPosition)) >
+            if (static_cast<uint32_t>(abs(this->stepDelta(this->commandedPosition - this->desiredPosition))) >
                 this->desiredPositionTolerance) {
                 output.commandType = StepperMotorCommandType::STOP;
                 this->state = StepperMotorState::STOPPING;
             }
             // Move completed (within current-position tolerance of commanded target)
-            else if (abs(this->stepDelta(this->commandedPosition - currentPosition)) <=
+            else if (static_cast<uint32_t>(abs(this->stepDelta(this->commandedPosition - currentPosition))) <=
                      this->currentPositionTolerance) {
                 this->state = StepperMotorState::STOPPING;
             }
@@ -72,7 +72,7 @@ StepperMotorControllerOutput StepperMotorControllerAlgorithm::update(
         case StepperMotorState::STOPPING:
             if (!isMotorMoving) {
                 this->state = StepperMotorState::SETTLING;
-                this->settleCount = 0;
+                this->settleCount = 0U;
             }
             break;
 
@@ -172,7 +172,8 @@ std::array<float, 2> StepperMotorControllerAlgorithm::getMotorAngleRange() const
  @return void
  @param settleCountMaxIn [ticks] number of ticks to wait during settling
 */
-void StepperMotorControllerAlgorithm::setSettleCountMax(const int settleCountMaxIn) {
+void StepperMotorControllerAlgorithm::setSettleCountMax(const uint32_t settleCountMaxIn) {
+    // NOLINTNEXTLINE(clang-diagnostic-tautological-unsigned-zero-compare)
     if (settleCountMaxIn < 0) {
         FSW_THROW_INVALID_ARGUMENT("settleCountMax must be non-negative");
     }
@@ -180,15 +181,16 @@ void StepperMotorControllerAlgorithm::setSettleCountMax(const int settleCountMax
 }
 
 /*! Getter for the maximum settling tick count.
- @return int
+ @return uint32_t
 */
-int StepperMotorControllerAlgorithm::getSettleCountMax() const { return this->settleCountMax; }
+uint32_t StepperMotorControllerAlgorithm::getSettleCountMax() const { return this->settleCountMax; }
 
 /*! Setter for the current-position tolerance (used for IDLE move trigger and MOVING stop condition).
  @return void
  @param currentPositionToleranceIn [steps] tolerance between current position and target
 */
-void StepperMotorControllerAlgorithm::setCurrentPositionTolerance(const int currentPositionToleranceIn) {
+void StepperMotorControllerAlgorithm::setCurrentPositionTolerance(const uint32_t currentPositionToleranceIn) {
+    // NOLINTNEXTLINE(clang-diagnostic-tautological-unsigned-zero-compare)
     if (currentPositionToleranceIn < 0) {
         FSW_THROW_INVALID_ARGUMENT("currentPositionTolerance must be non-negative");
     }
@@ -196,15 +198,16 @@ void StepperMotorControllerAlgorithm::setCurrentPositionTolerance(const int curr
 }
 
 /*! Getter for the current-position tolerance.
- @return int
+ @return uint32_t
 */
-int StepperMotorControllerAlgorithm::getCurrentPositionTolerance() const { return this->currentPositionTolerance; }
+uint32_t StepperMotorControllerAlgorithm::getCurrentPositionTolerance() const { return this->currentPositionTolerance; }
 
 /*! Setter for the desired-position tolerance (used in MOVING state to detect a changed reference).
  @return void
  @param desiredPositionToleranceIn [steps] tolerance between commanded and desired position
 */
-void StepperMotorControllerAlgorithm::setDesiredPositionTolerance(const int desiredPositionToleranceIn) {
+void StepperMotorControllerAlgorithm::setDesiredPositionTolerance(const uint32_t desiredPositionToleranceIn) {
+    // NOLINTNEXTLINE(clang-diagnostic-tautological-unsigned-zero-compare)
     if (desiredPositionToleranceIn < 0) {
         FSW_THROW_INVALID_ARGUMENT("desiredPositionTolerance must be non-negative");
     }
@@ -212,6 +215,6 @@ void StepperMotorControllerAlgorithm::setDesiredPositionTolerance(const int desi
 }
 
 /*! Getter for the desired-position tolerance.
- @return int
+ @return uint32_t
 */
-int StepperMotorControllerAlgorithm::getDesiredPositionTolerance() const { return this->desiredPositionTolerance; }
+uint32_t StepperMotorControllerAlgorithm::getDesiredPositionTolerance() const { return this->desiredPositionTolerance; }

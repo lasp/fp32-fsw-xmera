@@ -65,14 +65,14 @@ inline int angleToSteps(float angle, float stepAngle) { return static_cast<int>(
 struct StepperMotorControllerReference {
     int commandedPosition{};
     int desiredPosition{};
-    int settleCount{};
+    uint32_t settleCount{};
     StepperMotorState state{StepperMotorState::IDLE};
 
     int stepsPerRevolution{360};
     float stepAngle{2.0F * std::numbers::pi_v<float> / 360.0F};
-    int settleCountMax{10};
-    int currentPositionTolerance{1};
-    int desiredPositionTolerance{0};
+    uint32_t settleCountMax{10};
+    uint32_t currentPositionTolerance{1};
+    uint32_t desiredPositionTolerance{0};
     float minAngle{0.0F};
     float maxAngle{2.0F * std::numbers::pi_v<float>};
     bool isFullCircle{true};
@@ -110,10 +110,12 @@ struct StepperMotorControllerReference {
                 break;
 
             case StepperMotorState::MOVING: {
-                if (abs(stepDelta(commandedPosition - currentPosition)) <= currentPositionTolerance) {
+                if (static_cast<uint32_t>(abs(stepDelta(commandedPosition - currentPosition))) <=
+                    currentPositionTolerance) {
                     state = StepperMotorState::STOPPING;
                 }
-                if (abs(stepDelta(commandedPosition - desiredPosition)) > desiredPositionTolerance) {
+                if (static_cast<uint32_t>(abs(stepDelta(commandedPosition - desiredPosition))) >
+                    desiredPositionTolerance) {
                     output.commandType = StepperMotorCommandType::STOP;
                     state = StepperMotorState::STOPPING;
                 }
@@ -140,7 +142,7 @@ struct StepperMotorControllerReference {
                     break;
                 }
                 const int steps = stepDelta(desiredPosition - currentPosition);
-                if (abs(steps) > currentPositionTolerance) {
+                if (static_cast<uint32_t>(abs(steps)) > currentPositionTolerance) {
                     output.commandType = StepperMotorCommandType::MOVE;
                     output.stepsToMove = steps;
                     commandedPosition = desiredPosition;
@@ -164,9 +166,9 @@ inline void regressionTestMultiStep(float stepAngle,
                                     float initialAngle,
                                     float controlFrequency,
                                     float motorFrequency,
-                                    int settleCountMax,
-                                    int currentPositionTolerance,
-                                    int desiredPositionTolerance) {
+                                    uint32_t settleCountMax,
+                                    uint32_t currentPositionTolerance,
+                                    uint32_t desiredPositionTolerance) {
     if (minAngle >= maxAngle) {
         return;  // skip invalid range (fuzzer may generate it)
     }
@@ -207,7 +209,7 @@ inline void regressionTestMultiStep(float stepAngle,
     refSim.reset(initialStep);
 
     // Run for enough ticks to complete a full cycle
-    const int maxTicks = stepsPerRevolution + settleCountMax + 20;
+    const int maxTicks = stepsPerRevolution + static_cast<int>(settleCountMax) + 20;
     for (int tick = 0; tick < maxTicks; ++tick) {
         const auto algOut = alg.update(algSim.currentPosition, referenceAngle, false);
         const auto refOut = ref.update(refSim.currentPosition, referenceAngle, false);
@@ -235,9 +237,9 @@ inline void propertyOutputCommandTypeIsValid(float stepAngle,
                                              float initialAngle,
                                              float controlFrequency,
                                              float motorFrequency,
-                                             int settleCountMax,
-                                             int currentPositionTolerance,
-                                             int desiredPositionTolerance) {
+                                             uint32_t settleCountMax,
+                                             uint32_t currentPositionTolerance,
+                                             uint32_t desiredPositionTolerance) {
     if (minAngle >= maxAngle) {
         return;
     }
@@ -255,7 +257,7 @@ inline void propertyOutputCommandTypeIsValid(float stepAngle,
     sim.motorFrequency = motorFrequency;
     sim.reset(angleToSteps(initialAngle, stepAngle));
 
-    const int maxTicks = stepsPerRevolution + settleCountMax + 20;
+    const int maxTicks = stepsPerRevolution + static_cast<int>(settleCountMax) + 20;
     for (int tick = 0; tick < maxTicks; ++tick) {
         const auto out = alg.update(sim.currentPosition, referenceAngle, false);
         EXPECT_TRUE(out.commandType == StepperMotorCommandType::NONE ||
@@ -272,7 +274,7 @@ inline void propertyMoveStepsWithinHalfRevolution(float stepAngle,
                                                   float maxAngle,
                                                   float referenceAngle,
                                                   float initialAngle,
-                                                  int currentPositionTolerance) {
+                                                  uint32_t currentPositionTolerance) {
     if (minAngle >= maxAngle) {
         return;
     }
@@ -303,9 +305,9 @@ inline void propertyMotorReachesTarget(float stepAngle,
                                        float initialAngle,
                                        float controlFrequency,
                                        float motorFrequency,
-                                       int settleCountMax,
-                                       int currentPositionTolerance,
-                                       int desiredPositionTolerance) {
+                                       uint32_t settleCountMax,
+                                       uint32_t currentPositionTolerance,
+                                       uint32_t desiredPositionTolerance) {
     if (minAngle >= maxAngle) {
         return;
     }
@@ -328,7 +330,7 @@ inline void propertyMotorReachesTarget(float stepAngle,
     sim.reset(angleToSteps(initialAngle, stepAngle));
 
     // Run enough ticks for a full cycle to complete
-    const int maxTicks = stepsPerRevolution + settleCountMax + 20;
+    const int maxTicks = stepsPerRevolution + static_cast<int>(settleCountMax) + 20;
     bool sawMove = false;
     bool reachedIdle = false;
     for (int tick = 0; tick < maxTicks; ++tick) {

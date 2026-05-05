@@ -26,12 +26,12 @@ class StepperMotorControllerAlgorithm {
     float getStepAngle() const;
     void setMotorAngleRange(float minAngleIn, float maxAngleIn);
     std::array<float, 2> getMotorAngleRange() const;
-    void setSettleCountMax(int settleCountMaxIn);
-    int getSettleCountMax() const;
-    void setCurrentPositionTolerance(int currentPositionToleranceIn);
-    int getCurrentPositionTolerance() const;
-    void setDesiredPositionTolerance(int desiredPositionToleranceIn);
-    int getDesiredPositionTolerance() const;
+    void setSettleCountMax(uint32_t settleCountMaxIn);
+    uint32_t getSettleCountMax() const;
+    void setCurrentPositionTolerance(uint32_t currentPositionToleranceIn);
+    uint32_t getCurrentPositionTolerance() const;
+    void setDesiredPositionTolerance(uint32_t desiredPositionToleranceIn);
+    uint32_t getDesiredPositionTolerance() const;
 
     int angleToSteps(float angle) const;
 
@@ -50,17 +50,17 @@ class StepperMotorControllerAlgorithm {
     int stepsPerRev{};     //!< [steps] Derived: round(2*pi / stepAngle), cached by setStepAngle for wrap math
     float minAngle{0.0F};  //!< [rad] Lower bound of motor travel range
     float maxAngle{2.0F * std::numbers::pi_v<float>};  //!< [rad] Upper bound of motor travel range
-    bool isFullCircle{true};          //!< Derived: (maxAngle - minAngle) within eps of 2*pi; enables wrap-around
-    int settleCountMax{10};           //!< [ticks] Settling duration after stop
-    int currentPositionTolerance{1};  //!< [steps] Tolerance between current and target position (IDLE/STOPPING checks)
-    int desiredPositionTolerance{
+    bool isFullCircle{true};               //!< Derived: (maxAngle - minAngle) within eps of 2*pi; enables wrap-around
+    uint32_t settleCountMax{10};           //!< [ticks] Settling duration after stop
+    uint32_t currentPositionTolerance{1};  //!< [steps] Tolerance between current and target position (IDLE/STOPPING)
+    uint32_t desiredPositionTolerance{
         0};  //!< [steps] Tolerance between commanded and desired position (MOVING interrupt check)
 
     // State
     StepperMotorState state{StepperMotorState::IDLE};
     int commandedPosition{};  //!< [steps] Target of the current move command
     int desiredPosition{};    //!< [steps] Desired position from reference angle
-    int settleCount{};        //!< [ticks] Counter for settling phase
+    uint32_t settleCount{};   //!< [ticks] Counter for settling phase
 };
 
 #endif

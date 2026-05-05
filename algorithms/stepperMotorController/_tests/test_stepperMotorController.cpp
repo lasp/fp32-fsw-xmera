@@ -87,26 +87,23 @@ TEST(StepperMotorControllerTest, SetupTest) {
     EXPECT_NO_THROW(alg.setStepAngle(twoPi / 200.0F));
     EXPECT_FLOAT_EQ(alg.getStepAngle(), twoPi / 200.0F);
 
-    // settleCountMax: reject < 0
-    EXPECT_THROW(alg.setSettleCountMax(-1), fsw::invalid_argument);
-    EXPECT_NO_THROW(alg.setSettleCountMax(0));
-    EXPECT_EQ(alg.getSettleCountMax(), 0);
-    EXPECT_NO_THROW(alg.setSettleCountMax(10));
-    EXPECT_EQ(alg.getSettleCountMax(), 10);
+    // settleCountMax: round-trip (non-negativity is enforced by uint32_t parameter type)
+    EXPECT_NO_THROW(alg.setSettleCountMax(0U));
+    EXPECT_EQ(alg.getSettleCountMax(), 0U);
+    EXPECT_NO_THROW(alg.setSettleCountMax(10U));
+    EXPECT_EQ(alg.getSettleCountMax(), 10U);
 
-    // currentPositionTolerance: reject < 0
-    EXPECT_THROW(alg.setCurrentPositionTolerance(-1), fsw::invalid_argument);
-    EXPECT_NO_THROW(alg.setCurrentPositionTolerance(0));
-    EXPECT_EQ(alg.getCurrentPositionTolerance(), 0);
-    EXPECT_NO_THROW(alg.setCurrentPositionTolerance(5));
-    EXPECT_EQ(alg.getCurrentPositionTolerance(), 5);
+    // currentPositionTolerance: round-trip
+    EXPECT_NO_THROW(alg.setCurrentPositionTolerance(0U));
+    EXPECT_EQ(alg.getCurrentPositionTolerance(), 0U);
+    EXPECT_NO_THROW(alg.setCurrentPositionTolerance(5U));
+    EXPECT_EQ(alg.getCurrentPositionTolerance(), 5U);
 
-    // desiredPositionTolerance: reject < 0
-    EXPECT_THROW(alg.setDesiredPositionTolerance(-1), fsw::invalid_argument);
-    EXPECT_NO_THROW(alg.setDesiredPositionTolerance(0));
-    EXPECT_EQ(alg.getDesiredPositionTolerance(), 0);
-    EXPECT_NO_THROW(alg.setDesiredPositionTolerance(3));
-    EXPECT_EQ(alg.getDesiredPositionTolerance(), 3);
+    // desiredPositionTolerance: round-trip
+    EXPECT_NO_THROW(alg.setDesiredPositionTolerance(0U));
+    EXPECT_EQ(alg.getDesiredPositionTolerance(), 0U);
+    EXPECT_NO_THROW(alg.setDesiredPositionTolerance(3U));
+    EXPECT_EQ(alg.getDesiredPositionTolerance(), 3U);
 
     // motor angle range: reject min < -2pi, max > 2pi, min >= max
     EXPECT_THROW(alg.setMotorAngleRange(-twoPi - 0.1F, 1.0F), fsw::invalid_argument);
