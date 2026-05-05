@@ -32,18 +32,29 @@ StepperMotorControllerOutput StepperMotorControllerAlgorithm::update(
         case StepperMotorState::OFF:
             break;
 
-        case StepperMotorState::MOVING: {
-            // Move completed (within current-position tolerance of commanded target)
-            if (abs(this->wrapDelta(this->commandedPosition - currentPosition)) <= this->currentPositionTolerance) {
-                this->state = StepperMotorState::STOPPING;
+        case StepperMotorState::IDLE: {
+            const int steps = this->wrapDelta(this->desiredPosition - currentPosition);
+            if (abs(steps) > this->currentPositionTolerance) {
+                output.commandType = StepperMotorCommandType::MOVE;
+                output.stepsToMove = steps;
+                this->commandedPosition = this->desiredPosition;
+                this->state = StepperMotorState::MOVING;
             }
+            break;
+        }
+
+        case StepperMotorState::MOVING: {
             // Desired position changed beyond desired-position tolerance
             if (abs(this->wrapDelta(this->commandedPosition - this->desiredPosition)) >
                 this->desiredPositionTolerance) {
                 output.commandType = StepperMotorCommandType::STOP;
                 this->state = StepperMotorState::STOPPING;
             }
-
+            // Move completed (within current-position tolerance of commanded target)
+            else if (abs(this->wrapDelta(this->commandedPosition - currentPosition)) <=
+                     this->currentPositionTolerance) {
+                this->state = StepperMotorState::STOPPING;
+            }
             break;
         }
 
@@ -61,17 +72,6 @@ StepperMotorControllerOutput StepperMotorControllerAlgorithm::update(
                 this->settleCount++;
             }
             break;
-
-        case StepperMotorState::IDLE: {
-            const int steps = this->wrapDelta(this->desiredPosition - currentPosition);
-            if (abs(steps) > this->currentPositionTolerance) {
-                output.commandType = StepperMotorCommandType::MOVE;
-                output.stepsToMove = steps;
-                this->commandedPosition = this->desiredPosition;
-                this->state = StepperMotorState::MOVING;
-            }
-            break;
-        }
     }
 
     return output;
