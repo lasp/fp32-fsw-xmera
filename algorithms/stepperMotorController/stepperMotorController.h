@@ -20,8 +20,8 @@ class StepperMotorController : public SysModel {
     void reset(uint64_t currentSimNanos) override;
     void updateState(uint64_t currentSimNanos) override;
 
-    void setStepsPerRevolution(int stepsPerRevolutionIn);
-    int getStepsPerRevolution() const;
+    void setStepAngle(float stepAngleIn);
+    float getStepAngle() const;
     void setInitialAngle(float initialAngleIn);
     float getInitialAngle() const;
     void setControlFrequency(float controlFrequencyIn);

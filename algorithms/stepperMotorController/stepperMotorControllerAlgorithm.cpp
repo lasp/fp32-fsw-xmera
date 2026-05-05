@@ -82,41 +82,42 @@ StepperMotorControllerOutput StepperMotorControllerAlgorithm::update(
  @param angle [rad] reference angle
 */
 int StepperMotorControllerAlgorithm::angleToSteps(const float angle) const {
-    constexpr float twoPi = 2.0F * static_cast<float>(std::numbers::pi);
-    return static_cast<int>(round(angle * static_cast<float>(this->stepsPerRevolution) / twoPi));
+    return static_cast<int>(round(angle / this->stepAngle));
 }
 
-/*! Wrap a step delta to the shortest path within [-stepsPerRevolution/2, +stepsPerRevolution/2].
+/*! Wrap a step delta to the shortest path within [-stepsPerRev/2, +stepsPerRev/2].
  @return int wrapped delta
  @param delta [steps] unwrapped step difference
 */
 int StepperMotorControllerAlgorithm::wrapDelta(int delta) const {
-    const int half = this->stepsPerRevolution / 2;
-    delta = delta % this->stepsPerRevolution;
+    const int half = this->stepsPerRev / 2;
+    delta = delta % this->stepsPerRev;
     if (delta > half) {
-        delta -= this->stepsPerRevolution;
+        delta -= this->stepsPerRev;
     }
     if (delta < -half) {
-        delta += this->stepsPerRevolution;
+        delta += this->stepsPerRev;
     }
     return delta;
 }
 
-/*! Setter for the number of motor steps per revolution.
+/*! Setter for the angle per motor step.
  @return void
- @param stepsPerRevolutionIn [steps] steps per full revolution
+ @param stepAngleIn [rad/step] motor step angle, must be in [kMinStepAngle, 2*pi]
 */
-void StepperMotorControllerAlgorithm::setStepsPerRevolution(const int stepsPerRevolutionIn) {
-    if (stepsPerRevolutionIn <= 0) {
-        FSW_THROW_INVALID_ARGUMENT("stepsPerRevolution must be positive");
+void StepperMotorControllerAlgorithm::setStepAngle(const float stepAngleIn) {
+    constexpr float twoPi = 2.0F * std::numbers::pi_v<float>;
+    if (stepAngleIn < StepperMotorControllerAlgorithm::kMinStepAngle || stepAngleIn > twoPi) {
+        FSW_THROW_INVALID_ARGUMENT("stepAngle must be in [2*pi/kMaxStepsPerRev, 2*pi]");
     }
-    this->stepsPerRevolution = stepsPerRevolutionIn;
+    this->stepAngle = stepAngleIn;
+    this->stepsPerRev = static_cast<int>(round(twoPi / stepAngleIn));
 }
 
-/*! Getter for the number of motor steps per revolution.
- @return int
+/*! Getter for the angle per motor step.
+ @return float [rad/step]
 */
-int StepperMotorControllerAlgorithm::getStepsPerRevolution() const { return this->stepsPerRevolution; }
+float StepperMotorControllerAlgorithm::getStepAngle() const { return this->stepAngle; }
 
 /*! Setter for the maximum settling tick count.
  @return void

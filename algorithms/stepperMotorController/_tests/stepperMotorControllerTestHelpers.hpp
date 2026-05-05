@@ -56,10 +56,7 @@ struct StepperMotorSim {
 // Helper: convert an angle [rad] to a step position matching the algorithm's rounding
 // ---------------------------------------------------------------------------
 
-inline int angleToSteps(float angle, int stepsPerRevolution) {
-    constexpr float twoPi = 2.0F * static_cast<float>(std::numbers::pi);
-    return static_cast<int>(round(angle * static_cast<float>(stepsPerRevolution) / twoPi));
-}
+inline int angleToSteps(float angle, float stepAngle) { return static_cast<int>(round(angle / stepAngle)); }
 
 // ---------------------------------------------------------------------------
 // Independent reference implementation for regression cross-checking
@@ -72,6 +69,7 @@ struct StepperMotorControllerReference {
     StepperMotorState state{StepperMotorState::IDLE};
 
     int stepsPerRevolution{360};
+    float stepAngle{2.0F * std::numbers::pi_v<float> / 360.0F};
     int settleCountMax{10};
     int currentPositionTolerance{1};
     int desiredPositionTolerance{0};
@@ -97,7 +95,7 @@ struct StepperMotorControllerReference {
 
     StepperMotorControllerOutput update(int currentPosition, float referenceAngle, bool isMotorMoving) {
         StepperMotorControllerOutput output{};
-        desiredPosition = angleToSteps(referenceAngle, stepsPerRevolution);
+        desiredPosition = angleToSteps(referenceAngle, stepAngle);
 
         switch (state) {
             case StepperMotorState::OFF:
@@ -148,7 +146,7 @@ struct StepperMotorControllerReference {
 // Regression test helper: multi-step comparison against reference
 // ---------------------------------------------------------------------------
 
-inline void regressionTestMultiStep(int stepsPerRevolution,
+inline void regressionTestMultiStep(float stepAngle,
                                     float referenceAngle,
                                     float initialAngle,
                                     float controlFrequency,
@@ -156,11 +154,12 @@ inline void regressionTestMultiStep(int stepsPerRevolution,
                                     int settleCountMax,
                                     int currentPositionTolerance,
                                     int desiredPositionTolerance) {
-    const int initialStep = angleToSteps(initialAngle, stepsPerRevolution);
+    const int stepsPerRevolution = static_cast<int>(round(2.0F * std::numbers::pi_v<float> / stepAngle));
+    const int initialStep = angleToSteps(initialAngle, stepAngle);
 
     // Setup algorithm
     StepperMotorControllerAlgorithm alg{};
-    alg.setStepsPerRevolution(stepsPerRevolution);
+    alg.setStepAngle(stepAngle);
     alg.setSettleCountMax(settleCountMax);
     alg.setCurrentPositionTolerance(currentPositionTolerance);
     alg.setDesiredPositionTolerance(desiredPositionTolerance);
@@ -174,6 +173,7 @@ inline void regressionTestMultiStep(int stepsPerRevolution,
     // Setup reference
     StepperMotorControllerReference ref{};
     ref.stepsPerRevolution = stepsPerRevolution;
+    ref.stepAngle = stepAngle;
     ref.settleCountMax = settleCountMax;
     ref.currentPositionTolerance = currentPositionTolerance;
     ref.desiredPositionTolerance = desiredPositionTolerance;
@@ -206,7 +206,7 @@ inline void regressionTestMultiStep(int stepsPerRevolution,
 // Property test helpers
 // ---------------------------------------------------------------------------
 
-inline void propertyOutputCommandTypeIsValid(int stepsPerRevolution,
+inline void propertyOutputCommandTypeIsValid(float stepAngle,
                                              float referenceAngle,
                                              float initialAngle,
                                              float controlFrequency,
@@ -214,8 +214,9 @@ inline void propertyOutputCommandTypeIsValid(int stepsPerRevolution,
                                              int settleCountMax,
                                              int currentPositionTolerance,
                                              int desiredPositionTolerance) {
+    const int stepsPerRevolution = static_cast<int>(round(2.0F * std::numbers::pi_v<float> / stepAngle));
     StepperMotorControllerAlgorithm alg{};
-    alg.setStepsPerRevolution(stepsPerRevolution);
+    alg.setStepAngle(stepAngle);
     alg.setSettleCountMax(settleCountMax);
     alg.setCurrentPositionTolerance(currentPositionTolerance);
     alg.setDesiredPositionTolerance(desiredPositionTolerance);
@@ -224,7 +225,7 @@ inline void propertyOutputCommandTypeIsValid(int stepsPerRevolution,
     StepperMotorSim sim{};
     sim.controlFrequency = controlFrequency;
     sim.motorFrequency = motorFrequency;
-    sim.reset(angleToSteps(initialAngle, stepsPerRevolution));
+    sim.reset(angleToSteps(initialAngle, stepAngle));
 
     const int maxTicks = stepsPerRevolution + settleCountMax + 20;
     for (int tick = 0; tick < maxTicks; ++tick) {
@@ -238,23 +239,24 @@ inline void propertyOutputCommandTypeIsValid(int stepsPerRevolution,
     }
 }
 
-inline void propertyMoveStepsWithinHalfRevolution(int stepsPerRevolution,
+inline void propertyMoveStepsWithinHalfRevolution(float stepAngle,
                                                   float referenceAngle,
                                                   float initialAngle,
                                                   int currentPositionTolerance) {
+    const int stepsPerRevolution = static_cast<int>(round(2.0F * std::numbers::pi_v<float> / stepAngle));
     StepperMotorControllerAlgorithm alg{};
-    alg.setStepsPerRevolution(stepsPerRevolution);
+    alg.setStepAngle(stepAngle);
     alg.setCurrentPositionTolerance(currentPositionTolerance);
     alg.reset();
 
-    const int initialStep = angleToSteps(initialAngle, stepsPerRevolution);
+    const int initialStep = angleToSteps(initialAngle, stepAngle);
     const auto out = alg.update(initialStep, referenceAngle, false);
     if (out.commandType == StepperMotorCommandType::MOVE) {
         EXPECT_LE(abs(out.stepsToMove), stepsPerRevolution / 2) << "MOVE steps exceed half revolution";
     }
 }
 
-inline void propertyMotorReachesTarget(int stepsPerRevolution,
+inline void propertyMotorReachesTarget(float stepAngle,
                                        float referenceAngle,
                                        float initialAngle,
                                        float controlFrequency,
@@ -262,8 +264,9 @@ inline void propertyMotorReachesTarget(int stepsPerRevolution,
                                        int settleCountMax,
                                        int currentPositionTolerance,
                                        int desiredPositionTolerance) {
+    const int stepsPerRevolution = static_cast<int>(round(2.0F * std::numbers::pi_v<float> / stepAngle));
     StepperMotorControllerAlgorithm alg{};
-    alg.setStepsPerRevolution(stepsPerRevolution);
+    alg.setStepAngle(stepAngle);
     alg.setSettleCountMax(settleCountMax);
     alg.setCurrentPositionTolerance(currentPositionTolerance);
     alg.setDesiredPositionTolerance(desiredPositionTolerance);
@@ -272,7 +275,7 @@ inline void propertyMotorReachesTarget(int stepsPerRevolution,
     StepperMotorSim sim{};
     sim.controlFrequency = controlFrequency;
     sim.motorFrequency = motorFrequency;
-    sim.reset(angleToSteps(initialAngle, stepsPerRevolution));
+    sim.reset(angleToSteps(initialAngle, stepAngle));
 
     // Run enough ticks for a full cycle to complete
     const int maxTicks = stepsPerRevolution + settleCountMax + 20;

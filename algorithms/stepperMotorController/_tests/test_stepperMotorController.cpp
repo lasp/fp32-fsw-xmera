@@ -6,7 +6,7 @@
 // ---------------------------------------------------------------------------
 
 TEST(StepperMotorControllerTest, RegressionNominalMove) {
-    regressionTestMultiStep(360,                                                    // stepsPerRevolution
+    regressionTestMultiStep(std::numbers::pi_v<float> / 180.0F,  // stepAngle (1 deg/step = 360 steps/rev)
                             10.0F * static_cast<float>(std::numbers::pi) / 180.0F,  // referenceAngle (10 deg)
                             0.0F,                                                   // initialAngle
                             10.0F,                                                  // controlFrequency
@@ -17,7 +17,7 @@ TEST(StepperMotorControllerTest, RegressionNominalMove) {
 }
 
 TEST(StepperMotorControllerTest, RegressionNonZeroInit) {
-    regressionTestMultiStep(360,
+    regressionTestMultiStep(std::numbers::pi_v<float> / 180.0F,  // stepAngle (1 deg/step = 360 steps/rev)
                             10.0F * static_cast<float>(std::numbers::pi) / 180.0F,
                             -45.0F * static_cast<float>(std::numbers::pi) / 180.0F,
                             10.0F,
@@ -28,7 +28,7 @@ TEST(StepperMotorControllerTest, RegressionNonZeroInit) {
 }
 
 TEST(StepperMotorControllerTest, RegressionShortestPath) {
-    regressionTestMultiStep(360,
+    regressionTestMultiStep(std::numbers::pi_v<float> / 180.0F,  // stepAngle (1 deg/step = 360 steps/rev)
                             162.0F * static_cast<float>(std::numbers::pi) / 180.0F,
                             -162.0F * static_cast<float>(std::numbers::pi) / 180.0F,
                             10.0F,
@@ -39,7 +39,7 @@ TEST(StepperMotorControllerTest, RegressionShortestPath) {
 }
 
 TEST(StepperMotorControllerTest, RegressionFractionalFrequency) {
-    regressionTestMultiStep(360,
+    regressionTestMultiStep(std::numbers::pi_v<float> / 180.0F,  // stepAngle (1 deg/step = 360 steps/rev)
                             9.0F * static_cast<float>(std::numbers::pi) / 180.0F,
                             0.0F,
                             10.0F,
@@ -50,7 +50,7 @@ TEST(StepperMotorControllerTest, RegressionFractionalFrequency) {
 }
 
 TEST(StepperMotorControllerTest, RegressionLargeMove) {
-    regressionTestMultiStep(200,
+    regressionTestMultiStep(2.0F * std::numbers::pi_v<float> / 200.0F,  // stepAngle (1.8 deg/step = 200 steps/rev)
                             90.0F * static_cast<float>(std::numbers::pi) / 180.0F,
                             -90.0F * static_cast<float>(std::numbers::pi) / 180.0F,
                             10.0F,
@@ -67,11 +67,15 @@ TEST(StepperMotorControllerTest, RegressionLargeMove) {
 TEST(StepperMotorControllerTest, SetupTest) {
     StepperMotorControllerAlgorithm alg{};
 
-    // stepsPerRevolution: reject <= 0
-    EXPECT_THROW(alg.setStepsPerRevolution(0), fsw::invalid_argument);
-    EXPECT_THROW(alg.setStepsPerRevolution(-1), fsw::invalid_argument);
-    EXPECT_NO_THROW(alg.setStepsPerRevolution(200));
-    EXPECT_EQ(alg.getStepsPerRevolution(), 200);
+    // stepAngle: reject < kMinStepAngle or > 2*pi
+    constexpr float twoPi = 2.0F * std::numbers::pi_v<float>;
+    EXPECT_THROW(alg.setStepAngle(0.0F), fsw::invalid_argument);
+    EXPECT_THROW(alg.setStepAngle(-0.1F), fsw::invalid_argument);
+    EXPECT_THROW(alg.setStepAngle(twoPi + 0.1F), fsw::invalid_argument);
+    EXPECT_THROW(alg.setStepAngle(twoPi / 100001.0F), fsw::invalid_argument);  // stepsPerRev > 100k
+    EXPECT_NO_THROW(alg.setStepAngle(twoPi / 100000.0F));                      // stepsPerRev = 100k (boundary)
+    EXPECT_NO_THROW(alg.setStepAngle(twoPi / 200.0F));
+    EXPECT_FLOAT_EQ(alg.getStepAngle(), twoPi / 200.0F);
 
     // settleCountMax: reject < 0
     EXPECT_THROW(alg.setSettleCountMax(-1), fsw::invalid_argument);
@@ -97,7 +101,7 @@ TEST(StepperMotorControllerTest, SetupTest) {
 
 TEST(StepperMotorControllerTest, ResetBehavior) {
     StepperMotorControllerAlgorithm alg{};
-    alg.setStepsPerRevolution(360);
+    alg.setStepAngle(2.0F * std::numbers::pi_v<float> / 360.0F);
     alg.setCurrentPositionTolerance(0);
     alg.setSettleCountMax(0);
     alg.reset();
@@ -131,27 +135,27 @@ TEST(StepperMotorControllerTest, ResetBehavior) {
 // ---------------------------------------------------------------------------
 
 TEST(StepperMotorControllerTest, OutputCommandTypeIsValid) {
-    propertyOutputCommandTypeIsValid(360, 0.5F, 0.0F, 10.0F, 10.0F, 2, 0, 0);
+    propertyOutputCommandTypeIsValid(std::numbers::pi_v<float> / 180.0F, 0.5F, 0.0F, 10.0F, 10.0F, 2, 0, 0);
 }
 
 TEST(StepperMotorControllerTest, OutputCommandTypeIsValidLargeAngle) {
-    propertyOutputCommandTypeIsValid(200, 1.0F, -0.5F, 5.0F, 15.0F, 5, 1, 0);
+    propertyOutputCommandTypeIsValid(2.0F * std::numbers::pi_v<float> / 200.0F, 1.0F, -0.5F, 5.0F, 15.0F, 5, 1, 0);
 }
 
 TEST(StepperMotorControllerTest, MoveStepsWithinHalfRevolution) {
-    propertyMoveStepsWithinHalfRevolution(360, 0.5F, 0.0F, 0);
+    propertyMoveStepsWithinHalfRevolution(std::numbers::pi_v<float> / 180.0F, 0.5F, 0.0F, 0);
 }
 
 TEST(StepperMotorControllerTest, MoveStepsWithinHalfRevolutionLargeAngle) {
-    propertyMoveStepsWithinHalfRevolution(200, 1.0F, -0.5F, 1);
+    propertyMoveStepsWithinHalfRevolution(2.0F * std::numbers::pi_v<float> / 200.0F, 1.0F, -0.5F, 1);
 }
 
 TEST(StepperMotorControllerTest, MotorReachesTarget) {
-    propertyMotorReachesTarget(360, 0.5F, 0.0F, 10.0F, 10.0F, 2, 0, 0);
+    propertyMotorReachesTarget(std::numbers::pi_v<float> / 180.0F, 0.5F, 0.0F, 10.0F, 10.0F, 2, 0, 0);
 }
 
 TEST(StepperMotorControllerTest, MotorReachesTargetFractionalFreq) {
-    propertyMotorReachesTarget(360, 0.5F, 0.0F, 10.0F, 15.0F, 0, 0, 0);
+    propertyMotorReachesTarget(std::numbers::pi_v<float> / 180.0F, 0.5F, 0.0F, 10.0F, 15.0F, 0, 0, 0);
 }
 
 // ---------------------------------------------------------------------------
@@ -160,7 +164,7 @@ TEST(StepperMotorControllerTest, MotorReachesTargetFractionalFreq) {
 
 TEST(StepperMotorControllerTest, ZeroStepMove) {
     StepperMotorControllerAlgorithm alg{};
-    alg.setStepsPerRevolution(360);
+    alg.setStepAngle(2.0F * std::numbers::pi_v<float> / 360.0F);
     alg.setCurrentPositionTolerance(0);
     alg.reset();
 
@@ -171,7 +175,7 @@ TEST(StepperMotorControllerTest, ZeroStepMove) {
 
 TEST(StepperMotorControllerTest, ExactlyAtTolerance) {
     StepperMotorControllerAlgorithm alg{};
-    alg.setStepsPerRevolution(360);
+    alg.setStepAngle(2.0F * std::numbers::pi_v<float> / 360.0F);
     alg.setCurrentPositionTolerance(5);
     alg.reset();
 
@@ -183,7 +187,7 @@ TEST(StepperMotorControllerTest, ExactlyAtTolerance) {
 
 TEST(StepperMotorControllerTest, OneStepOverTolerance) {
     StepperMotorControllerAlgorithm alg{};
-    alg.setStepsPerRevolution(360);
+    alg.setStepAngle(2.0F * std::numbers::pi_v<float> / 360.0F);
     alg.setCurrentPositionTolerance(5);
     alg.reset();
 
@@ -196,7 +200,7 @@ TEST(StepperMotorControllerTest, OneStepOverTolerance) {
 
 TEST(StepperMotorControllerTest, WrapAtExactlyHalfRevolution) {
     StepperMotorControllerAlgorithm alg{};
-    alg.setStepsPerRevolution(360);
+    alg.setStepAngle(2.0F * std::numbers::pi_v<float> / 360.0F);
     alg.setCurrentPositionTolerance(0);
     alg.reset();
 
@@ -210,7 +214,7 @@ TEST(StepperMotorControllerTest, WrapAtExactlyHalfRevolution) {
 
 TEST(StepperMotorControllerTest, NegativeWrap) {
     StepperMotorControllerAlgorithm alg{};
-    alg.setStepsPerRevolution(360);
+    alg.setStepAngle(2.0F * std::numbers::pi_v<float> / 360.0F);
     alg.setCurrentPositionTolerance(0);
     alg.reset();
 
@@ -224,7 +228,7 @@ TEST(StepperMotorControllerTest, NegativeWrap) {
 
 TEST(StepperMotorControllerTest, DesiredChangeMidMove) {
     StepperMotorControllerAlgorithm alg{};
-    alg.setStepsPerRevolution(360);
+    alg.setStepAngle(2.0F * std::numbers::pi_v<float> / 360.0F);
     alg.setCurrentPositionTolerance(0);
     alg.setDesiredPositionTolerance(0);
     alg.setSettleCountMax(0);
@@ -259,7 +263,7 @@ TEST(StepperMotorControllerTest, DesiredChangeMidMove) {
 
 TEST(StepperMotorControllerTest, DesiredChangeWithinDesiredTolerance) {
     StepperMotorControllerAlgorithm alg{};
-    alg.setStepsPerRevolution(360);
+    alg.setStepAngle(2.0F * std::numbers::pi_v<float> / 360.0F);
     alg.setCurrentPositionTolerance(0);
     alg.setDesiredPositionTolerance(3);  // allow small changes without interrupting
     alg.setSettleCountMax(0);
@@ -287,7 +291,7 @@ TEST(StepperMotorControllerTest, DesiredChangeWithinDesiredTolerance) {
 
 TEST(StepperMotorControllerTest, StepAccumulatorFractionalRatio) {
     StepperMotorControllerAlgorithm alg{};
-    alg.setStepsPerRevolution(360);
+    alg.setStepAngle(2.0F * std::numbers::pi_v<float> / 360.0F);
     alg.setCurrentPositionTolerance(0);
     alg.setSettleCountMax(0);
     alg.reset();
@@ -332,7 +336,7 @@ TEST(StepperMotorControllerTest, StepAccumulatorFractionalRatio) {
 
 TEST(StepperMotorControllerTest, SettleCountZero) {
     StepperMotorControllerAlgorithm alg{};
-    alg.setStepsPerRevolution(360);
+    alg.setStepAngle(2.0F * std::numbers::pi_v<float> / 360.0F);
     alg.setCurrentPositionTolerance(0);
     alg.setSettleCountMax(0);
     alg.reset();

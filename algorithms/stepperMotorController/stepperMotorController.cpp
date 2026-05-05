@@ -71,11 +71,9 @@ void StepperMotorController::advanceMotor() {
     }
 }
 
-void StepperMotorController::setStepsPerRevolution(const int stepsPerRevolutionIn) {
-    this->algorithm.setStepsPerRevolution(stepsPerRevolutionIn);
-}
+void StepperMotorController::setStepAngle(const float stepAngleIn) { this->algorithm.setStepAngle(stepAngleIn); }
 
-int StepperMotorController::getStepsPerRevolution() const { return this->algorithm.getStepsPerRevolution(); }
+float StepperMotorController::getStepAngle() const { return this->algorithm.getStepAngle(); }
 
 void StepperMotorController::setInitialAngle(const float initialAngleIn) { this->initialAngle = initialAngleIn; }
 

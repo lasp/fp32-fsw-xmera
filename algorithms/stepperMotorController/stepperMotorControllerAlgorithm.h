@@ -15,8 +15,8 @@ class StepperMotorControllerAlgorithm {
     void reset();
     StepperMotorControllerOutput update(int currentPosition, float referenceAngle, bool isMotorMoving);
 
-    void setStepsPerRevolution(int stepsPerRevolutionIn);
-    int getStepsPerRevolution() const;
+    void setStepAngle(float stepAngleIn);
+    float getStepAngle() const;
     void setSettleCountMax(int settleCountMaxIn);
     int getSettleCountMax() const;
     void setCurrentPositionTolerance(int currentPositionToleranceIn);
@@ -29,9 +29,16 @@ class StepperMotorControllerAlgorithm {
    private:
     int wrapDelta(int delta) const;
 
+    /// Cap on stepsPerRev so the fp32 round-trip in angleToSteps stays within rounding tolerance
+    /// (error grows as O(N^2 * eps); at N=100k the expected drift is ~0.19 steps, safely within
+    /// the half-step round() margin).
+    static constexpr uint32_t kMaxStepsPerRev = 100000U;
+    static constexpr float kMinStepAngle = 2.0F * std::numbers::pi_v<float> / static_cast<float>(kMaxStepsPerRev);
+
     // Parameters
-    int stepsPerRevolution{360};      //!< [steps] Number of motor steps per full revolution
-    int settleCountMax{10};           //!< [ticks] Settling duration after stop
+    float stepAngle{};       //!< [rad/step] Angle per motor step (must be set via setStepAngle)
+    int stepsPerRev{};       //!< [steps] Derived: round(2*pi / stepAngle), cached by setStepAngle for wrap math
+    int settleCountMax{10};  //!< [ticks] Settling duration after stop
     int currentPositionTolerance{1};  //!< [steps] Tolerance between current and target position (IDLE/STOPPING checks)
     int desiredPositionTolerance{
         0};  //!< [steps] Tolerance between commanded and desired position (MOVING interrupt check)

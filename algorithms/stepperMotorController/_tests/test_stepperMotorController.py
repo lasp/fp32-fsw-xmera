@@ -36,10 +36,10 @@ def create_sim(process_rate_sec):
     return sim, process_rate
 
 
-@pytest.mark.parametrize("steps_per_rev", [200, 360, 400])
+@pytest.mark.parametrize("step_angle", [math.radians(1.8), math.radians(1.0), math.radians(0.9)])
 @pytest.mark.parametrize("theta_init_deg", [0.0, -45.0, 90.0])
 @pytest.mark.parametrize("theta_ref_deg", [10.0, -30.0, 50.5])
-def test_stepper_motor_controller_nominal(show_plots, steps_per_rev, theta_init_deg, theta_ref_deg):
+def test_stepper_motor_controller_nominal(show_plots, step_angle, theta_init_deg, theta_ref_deg):
     r"""
     **Validation Test Description**
 
@@ -49,18 +49,19 @@ def test_stepper_motor_controller_nominal(show_plots, steps_per_rev, theta_init_
     **Test Parameters**
 
     Args:
-        steps_per_rev (int): Number of motor steps per full revolution
+        step_angle (float): [rad/step] Angle per motor step
         theta_init_deg (float): [deg] Initial motor angle (converted to steps for the adapter)
         theta_ref_deg (float): [deg] Reference motor angle
     """
     process_rate_sec = 0.1
     sim, process_rate = create_sim(process_rate_sec)
 
+    steps_per_rev = round(2 * math.pi / step_angle)
     init_step = angle_to_steps(theta_init_deg * macros.D2R, steps_per_rev)
 
     motor_controller = stepperMotorControllerF32.StepperMotorController()
     motor_controller.modelTag = "stepperMotorController"
-    motor_controller.stepsPerRevolution = steps_per_rev
+    motor_controller.stepAngle = step_angle
     motor_controller.controlFrequency = 1.0 / process_rate_sec
     motor_controller.motorFrequency = 100.0
     motor_controller.currentPositionTolerance = 0
@@ -109,7 +110,8 @@ def test_stepper_motor_controller_shortest_path(show_plots, theta_init_deg, thet
         theta_ref_deg (float): [deg] Reference motor angle
         expected_sign (int): Expected sign of the step command (-1 or +1)
     """
-    steps_per_rev = 360
+    step_angle = math.radians(1.0)  # 1 deg/step (= 360 steps/rev)
+    steps_per_rev = round(2 * math.pi / step_angle)
     process_rate_sec = 0.1
     sim, process_rate = create_sim(process_rate_sec)
 
@@ -117,7 +119,7 @@ def test_stepper_motor_controller_shortest_path(show_plots, theta_init_deg, thet
 
     motor_controller = stepperMotorControllerF32.StepperMotorController()
     motor_controller.modelTag = "stepperMotorController"
-    motor_controller.stepsPerRevolution = steps_per_rev
+    motor_controller.stepAngle = step_angle
     motor_controller.controlFrequency = 1.0 / process_rate_sec
     motor_controller.motorFrequency = 100.0
     motor_controller.currentPositionTolerance = 0
@@ -156,13 +158,14 @@ def test_stepper_motor_controller_no_move_within_tolerance(show_plots):
     Verify that no move command is issued when the reference angle is within the current-position tolerance
     of the current motor position.
     """
-    steps_per_rev = 360
+    step_angle = math.radians(1.0)  # 1 deg/step (= 360 steps/rev)
+    steps_per_rev = round(2 * math.pi / step_angle)
     process_rate_sec = 0.1
     sim, process_rate = create_sim(process_rate_sec)
 
     motor_controller = stepperMotorControllerF32.StepperMotorController()
     motor_controller.modelTag = "stepperMotorController"
-    motor_controller.stepsPerRevolution = steps_per_rev
+    motor_controller.stepAngle = step_angle
     motor_controller.controlFrequency = 1.0 / process_rate_sec
     motor_controller.motorFrequency = 100.0
     motor_controller.currentPositionTolerance = 5
@@ -197,7 +200,8 @@ def test_stepper_motor_controller_interrupt(show_plots):
     The motor advances 1 step per tick (motorFrequency == controlFrequency) for predictable
     intermediate positions.
     """
-    steps_per_rev = 360
+    step_angle = math.radians(1.0)  # 1 deg/step (= 360 steps/rev)
+    steps_per_rev = round(2 * math.pi / step_angle)
     process_rate_sec = 0.1
     control_freq = 1.0 / process_rate_sec  # 10 Hz
     motor_freq = control_freq              # 1 step per tick
@@ -206,7 +210,7 @@ def test_stepper_motor_controller_interrupt(show_plots):
 
     motor_controller = stepperMotorControllerF32.StepperMotorController()
     motor_controller.modelTag = "stepperMotorController"
-    motor_controller.stepsPerRevolution = steps_per_rev
+    motor_controller.stepAngle = step_angle
     motor_controller.controlFrequency = control_freq
     motor_controller.motorFrequency = motor_freq
     motor_controller.currentPositionTolerance = 0
@@ -264,7 +268,8 @@ def test_stepper_motor_controller_fractional_step_accumulation(show_plots):
     on step 9 (not 8 or 10). This is verified by commanding a return to the origin and checking
     that the return command is exactly -9 steps.
     """
-    steps_per_rev = 360
+    step_angle = math.radians(1.0)  # 1 deg/step (= 360 steps/rev)
+    steps_per_rev = round(2 * math.pi / step_angle)
     process_rate_sec = 0.1
     control_freq = 1.0 / process_rate_sec  # 10 Hz
     motor_freq = 15.0                      # 15 Hz -> 1.5 steps/tick
@@ -272,7 +277,7 @@ def test_stepper_motor_controller_fractional_step_accumulation(show_plots):
 
     motor_controller = stepperMotorControllerF32.StepperMotorController()
     motor_controller.modelTag = "stepperMotorController"
-    motor_controller.stepsPerRevolution = steps_per_rev
+    motor_controller.stepAngle = step_angle
     motor_controller.controlFrequency = control_freq
     motor_controller.motorFrequency = motor_freq
     motor_controller.currentPositionTolerance = 0

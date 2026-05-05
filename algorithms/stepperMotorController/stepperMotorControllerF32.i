@@ -10,7 +10,7 @@
 
 %include <attribute.i>
 %attribute(StepperMotorController, float, initialAngle, getInitialAngle, setInitialAngle)
-%attribute(StepperMotorController, int, stepsPerRevolution, getStepsPerRevolution, setStepsPerRevolution)
+%attribute(StepperMotorController, float, stepAngle, getStepAngle, setStepAngle)
 %attribute(StepperMotorController, float, controlFrequency, getControlFrequency, setControlFrequency)
 %attribute(StepperMotorController, float, motorFrequency, getMotorFrequency, setMotorFrequency)
 %attribute(StepperMotorController, int, settleCountMax, getSettleCountMax, setSettleCountMax)

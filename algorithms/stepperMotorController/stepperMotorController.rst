@@ -44,12 +44,14 @@ adapter re-exposes all of these parameters through same-named setters/getters th
       - Default
       - Description
       - Bounds
-    * - stepsPerRevolution
-      - int
-      - [steps]
-      - 360
-      - Number of motor steps per full revolution
-      - Must be strictly positive (checked in setter)
+    * - stepAngle (required)
+      - float
+      - [rad/step]
+      - 0 (must be set)
+      - Angle traversed per motor step
+      - Must be in :math:`[2\pi / 100000,\, 2\pi]` (checked in setter; the lower bound caps
+        ``stepsPerRev`` at 100k so the fp32 round-trip in ``angleToSteps`` stays within rounding
+        tolerance)
     * - settleCountMax
       - int
       - [ticks]
@@ -154,10 +156,11 @@ step size,
 
 .. math::
 
-    n = \text{round}\!\left( \theta \, \frac{N}{2\pi} \right)
+    n = \text{round}\!\left( \frac{\theta}{\Delta\theta} \right)
 
-where :math:`\theta` is an angle in radians and :math:`N` is ``stepsPerRevolution``. The controller never reasons in
-radians internally: both the current and desired positions are integer step counts.
+where :math:`\theta` is an angle in radians and :math:`\Delta\theta` is ``stepAngle`` (the angle per motor step).
+A derived integer :math:`N = \text{round}(2\pi / \Delta\theta)` is cached internally for the wrap-around math; the
+controller never reasons in radians otherwise: both the current and desired positions are integer step counts.
 
 Shortest-Path Wrapping
 ^^^^^^^^^^^^^^^^^^^^^^
@@ -249,7 +252,7 @@ Typical usage in Python is::
 
     module = stepperMotorControllerF32.StepperMotorController()
     module.modelTag = "stepperMotorController"
-    module.stepsPerRevolution = 360
+    module.stepAngle = math.radians(1.0)             # [rad/step] (1 deg/step = 360 steps/rev)
     module.initialAngle = 0.0                        # [rad]
     module.controlFrequency = 10.0                   # [Hz]
     module.motorFrequency = 100.0                    # [Hz]
