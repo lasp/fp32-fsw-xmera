@@ -9,7 +9,7 @@
 #include <stdint.h>
 #include <Eigen/Core>
 
-/*! @brief MRP Rotation class */
+/*! @brief MRP Rotation adapter. */
 class MrpRotation : public SysModel {
    public:
     MrpRotation() = default;
@@ -19,16 +19,20 @@ class MrpRotation : public SysModel {
     void updateState(uint64_t callTime) override;
 
     void setSigmaRR0(const Eigen::Vector3f& sigma);
-    const Eigen::Vector3f getSigmaRR0() const;
+    Eigen::Vector3f getSigmaRR0() const;
     void setOmegaRR0(const Eigen::Vector3f& omega);
-    const Eigen::Vector3f getOmegaRR0() const;
+    Eigen::Vector3f getOmegaRR0() const;
 
     Message<AttRefMsgF32Payload> attRefOutMsg;           //!< output message containing the Reference
     ReadFunctor<AttRefMsgF32Payload> attRefInMsg;        //!< guidance reference input message
     ReadFunctor<AttStateMsgF32Payload> desiredAttInMsg;  //!< incoming message containing the desired attitude set
 
    private:
-    MrpRotationAlgorithm algorithm{};
+    void rebuildAlgorithmConfig();
+
+    Eigen::Vector3f sigma_RR0 = Eigen::Vector3f::Zero();
+    Eigen::Vector3f omega_RR0_R = Eigen::Vector3f::Zero();
+    MrpRotationAlgorithm algorithm{MrpRotationConfig::create(Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(), false)};
 };
 
 #endif

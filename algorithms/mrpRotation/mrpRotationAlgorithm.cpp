@@ -3,20 +3,38 @@
 #include <architecture/utilities/eigenSupport.h>
 #include <architecture/utilities/rigidBodyKinematics.hpp>
 
-/*! @brief Reset the algorithm: clear the integration timing state and the prior-command latches.
+/*! @brief Construct the algorithm with a validated configuration. Seeds the integrating runtime
+ state (sigma_RR0, omega_RR0_R) from the configured initial values so the first update produces a
+ sensible result without an explicit reset() call.
+ @param config Validated configuration (initial sigma_RR0, omega_RR0_R, and the dynamic-reference flag).
+ */
+MrpRotationAlgorithm::MrpRotationAlgorithm(const MrpRotationConfig& config)
+    : cfg(config), sigma_RR0(config.getInitialSigmaRR0()), omega_RR0_R(config.getOmegaRR0R()) {}
+
+/*! @brief Replace the algorithm's stored configuration at runtime. Runtime integrator state
+ (sigma_RR0, omega_RR0_R) is not re-seeded; call reset() if the new config's initial values should
+ be applied.
+ @param config New validated configuration to apply.
+ */
+void MrpRotationAlgorithm::setConfig(const MrpRotationConfig& config) { this->cfg = config; }
+
+/*! @brief Reset the algorithm: clear the integration timing state, the prior-command latches, and
+ re-seed the active sigma_RR0 / omega_RR0_R from the configured initial values.
  */
 void MrpRotationAlgorithm::reset() {
     this->priorTime = 0;
     this->priorCmdSet = Eigen::Vector3f::Zero();
     this->priorCmdRates = Eigen::Vector3f::Zero();
+    this->sigma_RR0 = this->cfg.getInitialSigmaRR0();
+    this->omega_RR0_R = this->cfg.getOmegaRR0R();
 }
 
 /*! @brief Take the input attitude reference frame and superimpose the algorithm's MRP rotation on
  top of it, advancing sigma_RR0 one Euler step and emitting the output reference frame.
  @param callTime The clock time at which the function was called (nanoseconds).
  @param inputRef Guidance reference input message (sigma_R0N, omega_R0N_N, domega_R0N_N).
- @param attStates Optional commanded MRP set / angular velocity, consumed only when
-                  dynamicReferenceEnabled is true.
+ @param attStates Optional commanded MRP set / angular velocity, consumed only when the configured
+                  dynamicReferenceEnabled flag is true.
  @return AttRefMsgF32Payload Output reference frame R: sigma_RN, omega_RN_N, domega_RN_N.
  */
 AttRefMsgF32Payload MrpRotationAlgorithm::update(const uint64_t callTime,
@@ -24,7 +42,7 @@ AttRefMsgF32Payload MrpRotationAlgorithm::update(const uint64_t callTime,
                                                  const AttStateMsgF32Payload attStates) {
     /*! - Check if a desired attitude configuration message exists. This allows for dynamic changes to the desired MRP
      * rotation */
-    if (this->dynamicReferenceEnabled) {
+    if (this->cfg.getDynamicReferenceEnabled()) {
         /* - Save commanded MRP set and body rates */
         this->cmdSet = Eigen::Map<const Eigen::Vector3f>(attStates.state);
         this->cmdRates = Eigen::Map<const Eigen::Vector3f>(attStates.rate);
@@ -122,33 +140,3 @@ AttRefMsgF32Payload MrpRotationAlgorithm::computeMRPRotationReference(const Eige
 
     return attRefOut;
 }
-
-/*! @brief Setter for the current MRP attitude coordinate set relative to the input reference.
- @param sigma [-] MRP attitude relative to the input reference.
- */
-void MrpRotationAlgorithm::setSigmaRR0(const Eigen::Vector3f& sigma) { this->sigma_RR0 = sigma; }
-
-/*! @brief Getter for the current MRP attitude coordinate set relative to the input reference.
- @return const Eigen::Vector3f MRP relative to the input reference.
- */
-const Eigen::Vector3f MrpRotationAlgorithm::getSigmaRR0() const { return this->sigma_RR0; }
-
-/*! @brief Setter for the angular velocity vector relative to the input reference.
- @param omega [rad/s] angular velocity vector relative to the input reference.
- */
-void MrpRotationAlgorithm::setOmegaRR0(const Eigen::Vector3f& omega) { this->omega_RR0_R = omega; }
-
-/*! @brief Getter for the angular velocity vector relative to the input reference.
- @return const Eigen::Vector3f Angular velocity vector relative to the input reference.
- */
-const Eigen::Vector3f MrpRotationAlgorithm::getOmegaRR0() const { return this->omega_RR0_R; }
-
-/*! @brief Enable the dynamic-reference path: subsequent update() calls will read attStates and
- latch any commanded MRP set / rate change into the integrator state.
- */
-void MrpRotationAlgorithm::enableDynamicReference() { this->dynamicReferenceEnabled = true; }
-
-/*! @brief Query whether the dynamic-reference path is enabled.
- @return const bool true when enableDynamicReference() has been called since construction.
- */
-const bool MrpRotationAlgorithm::isDynamicReferenceEnabled() const { return this->dynamicReferenceEnabled; }
