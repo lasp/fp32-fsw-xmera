@@ -1,216 +1,186 @@
+.. raw:: latex
+
+    {\LARGE \textbf{mrpRotation}}
+
 Executive Summary
-=================
+-----------------
+This module produces a dynamic reference frame attitude state by superimposing a constant-rate rotation on top of an
+input reference frame. The initial orientation relative to the input reference :math:`\mathcal R_0` is specified
+through an MRP set :math:`\mathbf\sigma_{R/R_0}`, and the :math:`\mathcal R`-frame angular velocity vector
+:math:`{}^{\mathcal R}{\mathbf\omega}_{R/R_0}` is held constant in :math:`\mathcal R`-frame components. The module
+integrates :math:`\mathbf\sigma_{R/R_0}` forward each cycle using the MRP kinematic differential equation, then
+composes the result with the input reference to produce the output attitude :math:`\mathbf\sigma_{R/N}`, the inertial
+angular velocity :math:`{}^{\mathcal N}{\mathbf\omega}_{R/N}`, and the inertial angular acceleration
+:math:`{}^{\mathcal N}{\dot{\mathbf\omega}}_{R/N}`. This is a single-precision (float32) port of the original
+double-precision Xmera implementation.
 
-This module creates a dynamic reference frame attitude state message where the initial orientation relative to the
-input reference frame is specified through an MRP set, and the angular velocity vector is held fixed as seen by the
-resulting reference frame.
+Module Architecture
+-------------------
 
-Message Connection Descriptions
-===============================
+The module is split into two layers:
 
-The following table lists all the module input and output messages.  The module msg connection is set by the
-user from python.  The msg type contains a link to the message structure definition, while the description
-provides information on what this message is used for.
+- The **adapter** (``mrpRotation.h``/``.cpp``) is the SysModel-derived class that handles message I/O, validates
+  configuration, builds an immutable ``MrpRotationConfig`` from public properties, and constructs the algorithm via
+  two-phase initialization. The adapter switches into the dynamic-reference path when the optional
+  ``desiredAttInMsg`` is connected.
+- The **algorithm** (``mrpRotationAlgorithm.h``/``.cpp``) is a pure C++23 class with no framework dependencies. It
+  takes message payloads as input, integrates the MRP set, and returns a payload struct as output. It must not throw
+  from ``update()``.
 
-.. _ModuleIO_mrpRotation:
-.. figure:: _Documentation/Figures/moduleIO.pdf
-    :align: center
-    :name: fig:moduleIO
+A pure-C shim (``mrpRotationAlgorithm_c.h``/``.cpp``) wraps the algorithm class for use by Ada/Adamant components via
+``extern "C"`` bindings.
 
-    Figure 1: ``mrpRotation()`` Module I/O Illustration
+Adapter Layer
+^^^^^^^^^^^^^
 
+The adapter consumes the following messages and exposes the configuration as public properties:
 
 .. list-table:: Module I/O Messages
-    :widths: 25 25 50
+    :widths: 20 30 50
     :header-rows: 1
 
     * - Msg Variable Name
       - Msg Type
       - Description
-    * - attRefOutMsg
-      - :ref:`AttRefMsgPayload`
-      - name of the output message containing the Reference
     * - attRefInMsg
-      - :ref:`AttRefMsgPayload`
-      - name of the guidance reference input message
+      - :ref:`AttRefMsgF32Payload`
+      - Required input reference frame attitude :math:`\mathbf\sigma_{R_0/N}`, rate
+        :math:`{}^{\mathcal N}{\mathbf\omega}_{R_0/N}`, and acceleration
+        :math:`{}^{\mathcal N}{\dot{\mathbf\omega}}_{R_0/N}`
     * - desiredAttInMsg
-      - :ref:`AttStateMsgPayload`
-      - (optional) name of the incoming message containing the desired MRP set
+      - :ref:`AttStateMsgF32Payload`
+      - Optional input. When connected, the algorithm latches the commanded MRP set into ``sigma_RR0`` and the
+        commanded rate into ``omega_RR0_R`` whenever the message contents change.
+    * - attRefOutMsg
+      - :ref:`AttRefMsgF32Payload`
+      - Output reference frame :math:`\mathbf\sigma_{R/N}`, :math:`{}^{\mathcal N}{\mathbf\omega}_{R/N}`,
+        :math:`{}^{\mathcal N}{\dot{\mathbf\omega}}_{R/N}`
 
-Model Description
-=================
+.. list-table:: Module Configuration Properties
+    :widths: 25 20 10 15 30
+    :header-rows: 1
 
-The purpose of this ``mrpRotation`` module is to add a constant rotation
-relative to the input frame :math:`\mathcal{R}_{0}`. The output
-reference frame is called :math:`\mathcal{R}`. The initial orientation
-is specified through an MRP set
-:math:`\mathbf\sigma_{R/R0}`, while the :math:`\mathcal{R}`-frame angular
-velocity vector :math:`{}^{\mathcal{R}}{\mathbf\omega}_{R/R0}`
-is held constant in this module.
+    * - Property
+      - Type
+      - Units
+      - Default
+      - Bounds
+    * - sigma_RR0
+      - Eigen::Vector3f
+      - [-]
+      - zero
+      - Components must be finite (``allFinite``); MRPs greater than 1 in norm are mapped to the shadow set during
+        integration via ``mrpSwitch``
+    * - omega_RR0_R
+      - Eigen::Vector3f
+      - [rad/s]
+      - zero
+      - Components must be finite (``allFinite``)
 
-Assume that the input reference frame :math:`\mathcal{R}_{0}` is given
-through an attitude state input message containing
-:math:`\mathbf\sigma_{R_{0}/N}`,
-:math:`{}^{\mathcal{N}}{\mathbf\omega}_{R_{0}/N}` and
-:math:`{}^{\mathcal{N}}{\dot{\mathbf\omega}}_{R_{0}/N}`
-as illustrated in :ref:`fig:moduleIO`.
-The MRP set is mapped into the corresponding Direction Cosine Matrix (DCM) using
+Two-Phase Initialization
+~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. math:: [R_{0}N] = [R_{0}N ( \mathbf\sigma_{R_{0}/N})]
+The adapter follows the standard two-phase init pattern: the user sets public properties, then ``reset()`` validates
+inputs and constructs the algorithm. ``updateState()`` throws ``XmeraLifecycleException`` if invoked before
+``reset()``::
 
-The goal of the motion is to compute the attitude of :math:`\mathcal{R}`
-relative to input frame :math:`\mathcal{R}_{0}` such that
+    module = mrpRotationF32.MrpRotation()
+    module.modelTag = "mrpRotation"
+    module.sigma_RR0 = [0.3, 0.5, 0.0]
+    module.omega_RR0_R = [0.001745, 0.0, 0.0]   # ~0.1 deg/s about x in R-frame
+
+    module.attRefInMsg.subscribeTo(att_ref_msg)
+    # Optional: connect to enable dynamic-reference latching
+    # module.desiredAttInMsg.subscribeTo(desired_att_msg)
+
+    sim.AddModelToTask(task_name, module)
+    sim.InitializeSimulation()  # invokes reset(); validators run, algorithm is constructed
+
+Algorithm Layer
+---------------
+
+Mathematical Formulation
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+Assume the input reference frame :math:`\mathcal R_0` is given through an attitude state input message containing
+:math:`\mathbf\sigma_{R_0/N}`, :math:`{}^{\mathcal N}{\mathbf\omega}_{R_0/N}`, and
+:math:`{}^{\mathcal N}{\dot{\mathbf\omega}}_{R_0/N}`. The MRP set is mapped into the corresponding direction cosine
+matrix (DCM)
+
+.. math:: [R_0 N] = [R_0 N(\mathbf\sigma_{R_0/N})]
+
+The output reference frame :math:`\mathcal R` is constructed so that
 
 .. math::
    \begin{align}
-   	\dot{\mathbf\sigma}_{R/R_{0}} &= \frac{1}{4} [B(\mathbf\sigma_{R/R_{0}})] {}^{\mathcal{R}}{\mathbf\omega}_{R/R_{0}}
-    & \label{eq:mRot1} \\
-   	\frac{{}^{\mathcal{R}}{\textrm{d}} {\mathbf\omega}_{R/R_{0}}}{\textrm{d}t} &= \mathbf 0 & \label{eq:mRot2}
+       \dot{\mathbf\sigma}_{R/R_0} &= \frac{1}{4} [B(\mathbf\sigma_{R/R_0})]\,{}^{\mathcal R}{\mathbf\omega}_{R/R_0}
+       & \label{eq:mRot1} \\
+       \frac{{}^{\mathcal R}{\textrm{d}}{\mathbf\omega}_{R/R_0}}{\textrm{d}t} &= \mathbf 0 & \label{eq:mRot2}
    \end{align}
 
-Assume the initial :math:`\mathbf\sigma_{R/R_{0}}(t_{0})` set and the
-:math:`\mathcal{R}`-frame relative invariant
-:math:`{}^{\mathcal{R}}{\mathbf\omega}_{R/R_{0}}` vector are provided to the module. The current
-:math:`\mathbf\sigma_{R/R_{0}}(t_{0})` value is then obtained by
-Eq.:ref:`eq:mRot1`. The current DCM of the
-:math:`\mathcal{R}`-frame is thus
+The MRP set :math:`\mathbf\sigma_{R/R_0}` is propagated each cycle using forward Euler integration with the integration
+step :math:`\Delta t = (\texttt{callTime} - \texttt{priorTime}) \cdot 10^{-9}\text{ s}`:
 
 .. math::
+   \mathbf\sigma_{R/R_0}(t_{k+1}) = \texttt{mrpSwitch}\!\left(\mathbf\sigma_{R/R_0}(t_k) + \Delta t \cdot
+   \dot{\mathbf\sigma}_{R/R_0},\ 1\right)
 
-   \label{eq:mRot3}
-   	[RN] = [RR_{0}(\mathbf\sigma_{R/R_{0}}(t) ] [R_{0}N]
+``mrpSwitch`` maps the MRP to the shadow set when the result has norm greater than one, ensuring the representation
+stays bounded. On the first call after ``reset()``, ``priorTime`` is zero so :math:`\Delta t = 0` and the MRP is not
+advanced.
 
-Next, the angular velocity vector is transformed to inertial frame
-:math:`\mathcal{N}`-frame components using
+The current DCM of the :math:`\mathcal R`-frame is
 
-.. math::
+.. math:: [RN] = [RR_0(\mathbf\sigma_{R/R_0}(t))]\,[R_0 N]
 
-   \label{eq:mRot4}
+The output MRP set is read from this DCM:
 
-   	{}^{\mathcal{N}}{\mathbf\omega}_{R/R_{0}} = [RN]^{T}{}^{\mathcal{R}}{\mathbf\omega}_{R/R_{0}}
+.. math:: \mathbf\sigma_{R/N} = \texttt{dcmToMrp}([RN])
 
-to find the inertial angular velocity of the output reference frame:
-
-.. math::
-
-   \label{eq:mRot5}
-
-   	{}^{\mathcal{N}}{\mathbf\omega}_{R/N} = {}^{\mathcal{N}}{\mathbf\omega}_{R/R_{0}} +
-    {}^{\mathcal{N}}{\mathbf\omega}_{R_{0}/N}
-
-Finally, the inertial angular acceleration of the output reference frame
-is found using the transport theorem:
+The angular velocity is mapped to inertial-frame components and combined with the input rate:
 
 .. math::
+   \begin{align}
+       {}^{\mathcal N}{\mathbf\omega}_{R/R_0} &= [RN]^{T}\,{}^{\mathcal R}{\mathbf\omega}_{R/R_0} \\
+       {}^{\mathcal N}{\mathbf\omega}_{R/N} &= {}^{\mathcal N}{\mathbf\omega}_{R/R_0} +
+       {}^{\mathcal N}{\mathbf\omega}_{R_0/N}
+   \end{align}
 
-   \label{eq:mRot6}
-   	\dot{\mathbf\omega}_{R/N} =
-   	\frac{
-   	{}^{\mathcal{R}}{\textrm{d}}
-    {\mathbf\omega}_{R/R_{0}}}{\textrm{d}t}
-   	 + \mathbf\omega_{R/N} \times {\mathbf\omega}_{R/R_{0}}
-   	+ \dot{\mathbf\omega}_{R_{0}/N}
-   	= \mathbf\omega_{R_{0}/N} \times {\mathbf\omega}_{R/R_{0}}
-   	+ \dot{\mathbf\omega}_{R_{0}/N}
-
-where
-:math:`\mathbf\omega_{R/N} \times {\mathbf\omega}_{R/R_{0}} = (\mathbf\omega_{R/R_{0}} +\mathbf\omega_{R_{0}/N})
-\times {\mathbf\omega}_{R/R_{0}} = \mathbf\omega_{R_{0}/N} \times {\mathbf\omega}_{R/R_{0}}`
-is used. Expressed in :math:`\mathcal{N}` frame components, this vector
-equation is numerically evaluated using:
+The inertial angular acceleration of the output frame is found via the transport theorem, noting that
+:math:`{}^{\mathcal R}{\dot{\mathbf\omega}}_{R/R_0} = \mathbf 0` and using
+:math:`\mathbf\omega_{R/N} \times {\mathbf\omega}_{R/R_0} = \mathbf\omega_{R_0/N} \times {\mathbf\omega}_{R/R_0}`:
 
 .. math::
+   {}^{\mathcal N}{\dot{\mathbf\omega}}_{R/N} = {}^{\mathcal N}{\mathbf\omega}_{R_0/N} \times
+   {}^{\mathcal N}{\mathbf\omega}_{R/R_0} + {}^{\mathcal N}{\dot{\mathbf\omega}}_{R_0/N}
 
-   \label{eq:mRot7}
+Dynamic-Reference Path
+^^^^^^^^^^^^^^^^^^^^^^
 
-   	{}^{\mathcal{N}}{\dot{\mathbf\omega}}
-   _{R/N} =
-   	{}^{\mathcal{N}}{\mathbf\omega}
-   _{R_{0}/N} \times
-   	{}^{\mathcal{N}}{\mathbf\omega}
-   _{R/R_{0}}
-   +
-   	{}^{\mathcal{N}}{\dot{\mathbf\omega}}
-   _{R_{0}/N}
-
-Module Functions
-================
-
-The ``mrpRotation`` module has the following design goals
-
-- **Constant Spin**: The angular velocity vector between the input and
-  output frame is constant as seen by output reference frame
-
-- **MRP attitude representation**: The initial and output attitude is
-  described through an MRP coordinate set
-
-- **Flexible Setup**: The desired rotation state can be described
-  through an initial MRP and angular velocity vector specified in module
-  internal variables, or read in through a Xmera :ref:`AttStateMsgPayload`
-  message.
+When the configuration's ``dynamicReferenceEnabled`` flag is true (set by the adapter when ``desiredAttInMsg`` is
+connected), the algorithm reads the commanded MRP set and rate from each ``AttStateMsgF32Payload`` and compares them
+against the prior commanded values. Whenever the commanded values change (componentwise absolute difference exceeds
+``1e-6``), the runtime ``sigma_RR0`` and ``omega_RR0_R`` are re-seeded from the new command. This allows operators to
+re-target the rotation at runtime without resetting the module.
 
 Module Assumptions and Limitations
-==================================
-
-- On reset the next time step doesn’t yield an integration as the
-  integration time evaluation requires at least a second time step.
-
-- If the desired rotation states are read in with an input message, then
-  this message is checked each update cycle for new content. On reset
-  the commanded frame states are reset to zero such that they are
-  re-read in again in the next update cycle.
-
-- If the desired rotation is specified with module internal states, then
-  on reset the prior internal states are re-used unless they are
-  over-written after the reset call.
-
-User Guide
-==========
-
-Specifying Desired Rotation
----------------------------
-
-If the ``mrpRotation`` module is set directly with the desired rotation
-states, then the modules variables ``sigma_RR0`` and ``omega_RR0_R`` must
-be set.
-
-If instead the desired rotation states are to be read in, then the
-input message name ``desiredAttInMsg`` must be specified, and a
-corresponding message of type :ref:`AttStateMsgPayload` created.
-
-Required Input and Output Messages
 ----------------------------------
 
-The :math:`\mathcal{R}_{0}` input reference frame state message is
-specified through ``attRefInMsg``. The output message name is specified
-through the ``attRefOutMsg``.
+- On reset, the integration step :math:`\Delta t` is zero for the first update because ``priorTime`` is cleared. The
+  rotation begins to advance only on the second update.
+- If ``desiredAttInMsg`` is connected, the commanded values are checked each update cycle. On reset, the prior-command
+  state is cleared so a fresh non-zero command is treated as new.
+- If ``desiredAttInMsg`` is not connected, the configured ``sigma_RR0`` and ``omega_RR0_R`` persist across resets unless
+  the user changes the public properties before invoking ``reset()`` again.
+- Forward Euler integration is used; for large :math:`\Delta t` and large :math:`\mathbf\omega_{R/R_0}`, integration
+  drift will accumulate. The expected use case is small steps (<= 1 s) and modest rotation rates.
+- All math uses single-precision (float32). Compared to the double-precision Xmera implementation, regression
+  tolerances are relaxed to roughly :math:`10^{-5}`.
 
-Module Reset Behavior
----------------------
-
-If the module is reset, then the ``priorTime`` flag is reset, meaning it
-take another time step to compute the sampling period used to integrate
-the kinematic differential equations.
-
-Module Setup
-------------
-
-The module is configured by::
-
-    module = mrpRotation.mrpRotation()
-    module.modelTag = "mrpRotation"
-
-The desired rotation state can be directly specified by::
-
-    sigma_RR0 = np.array([0.3, .5, 0.0])
-    module.setSigmaRR0(sigma_RR0)
-    omega_RR0_R = np.array([0.1, 0.0, 0.0]) * mc.D2R
-    module.setOmegaRR0(omega_RR0_R)
-
-Alternatively, the desired rotation state can be specified with the input message ``desiredAttInMsg``::
-
-    module.desiredAttInMsg.subscribeTo(desiredAttMsg)
-
-Finally, the module is added to the simulation using::
-
-    unitTestSim.AddModelToTask(unitTaskName, module)
+Test Description
+----------------
+The module is verified through regression tests that drive the algorithm through several integration steps and compare
+against an independently coded reference implementation, setup tests for the ``MrpRotationConfig`` validators, property
+tests for finiteness and the no-integration-on-first-step behavior, and edge-case tests covering zero angular velocity,
+the reset-reseeds-runtime-state contract, and the dynamic-reference latching path. Fuzz tests randomize the
+configuration and inputs over reasonable ranges.
