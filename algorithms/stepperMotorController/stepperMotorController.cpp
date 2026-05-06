@@ -29,8 +29,9 @@ void StepperMotorController::updateState(const uint64_t callTime) {
         referenceAngle = motorRefAngleIn.theta;
     }
 
+    const bool isMotorMoving = (this->currentPosition != this->commandedPosition);
     const StepperMotorControllerOutput output =
-        this->algorithm.update(this->currentPosition, referenceAngle, this->isMotorMoving);
+        this->algorithm.update(this->currentPosition, referenceAngle, isMotorMoving);
 
     if (output.commandType == StepperMotorCommandType::MOVE) {
         this->commandedPosition = this->currentPosition + output.stepsToMove;

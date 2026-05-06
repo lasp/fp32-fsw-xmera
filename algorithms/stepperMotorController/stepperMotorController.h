@@ -51,7 +51,6 @@ class StepperMotorController : public SysModel {
     int currentPosition{};         //!< [steps] Tracked current motor position
     int commandedPosition{};       //!< [steps] Target the motor is currently driving toward
     float stepAccumulator{};       //!< [steps] Fractional step accumulator for sub-tick motor advancement
-    bool isMotorMoving{false};     //!< True if the motor is currently moving (default false for xmera simulation)
 };
 
 #endif

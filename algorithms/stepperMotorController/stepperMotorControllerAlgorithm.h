@@ -50,9 +50,10 @@ class StepperMotorControllerAlgorithm {
     int stepsPerRev{};     //!< [steps] Derived: round(2*pi / stepAngle), cached by setStepAngle for wrap math
     float minAngle{0.0F};  //!< [rad] Lower bound of motor travel range
     float maxAngle{2.0F * std::numbers::pi_v<float>};  //!< [rad] Upper bound of motor travel range
-    bool isFullCircle{true};               //!< Derived: (maxAngle - minAngle) within eps of 2*pi; enables wrap-around
-    uint32_t settleCountMax{10};           //!< [ticks] Settling duration after stop
-    uint32_t currentPositionTolerance{1};  //!< [steps] Tolerance between current and target position (IDLE/STOPPING)
+    bool isFullCircle{true};      //!< Derived: (maxAngle - minAngle) within eps of 2*pi; enables wrap-around
+    uint32_t settleCountMax{10};  //!< [ticks] Settling duration after stop
+    uint32_t currentPositionTolerance{
+        1};  //!< [steps] Tolerance between current and target position (IDLE move trigger)
     uint32_t desiredPositionTolerance{
         0};  //!< [steps] Tolerance between commanded and desired position (MOVING interrupt check)
 

@@ -74,7 +74,7 @@ adapter re-exposes all of these parameters through same-named setters/getters th
       - uint32_t
       - [steps]
       - 1
-      - Tolerance between the current and target position used for the ``IDLE`` move trigger and the ``MOVING`` move-complete check
+      - Tolerance between the current and target position used for the ``IDLE`` move trigger
       - Non-negative by type (uint32_t)
     * - desiredPositionTolerance
       - uint32_t
@@ -226,25 +226,27 @@ angle), and :math:`n_m` the position most recently commanded (stored internally)
   the algorithm emits a ``MOVE`` with ``stepsToMove = stepDelta(n_d - n_c)``, stores :math:`n_m := n_d`, and transitions to
   ``MOVING``.
 
-- ``MOVING`` — the motor is executing a commanded move. Two conditions are checked each tick:
+- ``MOVING`` — the motor is executing a commanded move. Two conditions are checked each tick, in priority order:
 
-  1. *Move complete.* If :math:`\left| \text{stepDelta}(n_m - n_c) \right| \le \tau_c`, the algorithm transitions to
-     ``STOPPING`` (no ``STOP`` command issued; the motor is already at target).
-  2. *Reference changed.* If :math:`\left| \text{stepDelta}(n_m - n_d) \right| > \tau_d`, the algorithm emits a ``STOP``
+  1. *Reference changed.* If :math:`\left| \text{stepDelta}(n_m - n_d) \right| > \tau_d`, the algorithm emits a ``STOP``
      command and transitions to ``STOPPING``. The caller is expected to halt the motor at its current position; the
      controller will re-plan from that position once it returns to ``IDLE``.
+  2. *Move complete.* Otherwise, if the caller reports ``isMotorMoving == false``, the algorithm transitions directly
+     to ``SETTLING`` and resets the settle counter (skipping ``STOPPING``, since no ``STOP`` command needs to be
+     issued — the motor has already come to rest at the commanded target).
 
-- ``STOPPING`` — the motor is decelerating. The algorithm transitions to ``SETTLING`` and resets the settle counter as
-  soon as the caller reports ``isMotorMoving == false``. In Xmera simulations the caller leaves ``isMotorMoving`` at
-  ``false``, so this transition is immediate.
+- ``STOPPING`` — entered only after a ``STOP`` command was emitted (mid-move interrupt). The algorithm transitions to
+  ``SETTLING`` and resets the settle counter as soon as the caller reports ``isMotorMoving == false``.
 
 - ``SETTLING`` — a counter runs for up to ``settleCountMax`` ticks. Once the counter reaches the limit the algorithm
   returns to ``IDLE`` and is ready to issue the next move.
 
 The two tolerances are deliberately separated:
 
-- ``currentPositionTolerance`` governs whether the caller's physical position is close enough to the target to count as
-  "at target" — tuned to the motor's step-level resolution and positioning repeatability.
+- ``currentPositionTolerance`` governs whether the caller's physical position is close enough to a desired target to
+  warrant issuing a new ``MOVE`` from ``IDLE`` — tuned to the motor's step-level resolution and positioning
+  repeatability. (Move completion in ``MOVING`` is detected via the caller's ``isMotorMoving`` signal rather than this
+  tolerance.)
 - ``desiredPositionTolerance`` governs whether a new reference is different enough from the currently-commanded target
   to be worth interrupting the in-progress move — tuned to avoid interrupting on noise in the reference signal.
 
@@ -303,7 +305,7 @@ Typical usage in Python is::
 
 The commanded step delta is available on ``motorStepCommandOutMsg`` each time a new ``MOVE`` is issued.
 
-``currentPositionTolerance`` controls how close the motor must be to the target before the algorithm considers a move
-complete, and also how close an incoming reference must be to the current position before the algorithm declines to
-issue a move. ``desiredPositionTolerance`` separately controls how large a change in the reference angle must be,
-relative to the currently-commanded target, before the algorithm interrupts an in-progress move.
+``currentPositionTolerance`` controls how close an incoming reference must be to the current position before the
+algorithm declines to issue a new move. (Move completion in ``MOVING`` is detected via the caller's ``isMotorMoving``
+signal, not via this tolerance.) ``desiredPositionTolerance`` separately controls how large a change in the reference
+angle must be, relative to the currently-commanded target, before the algorithm interrupts an in-progress move.

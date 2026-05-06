@@ -134,7 +134,7 @@ TEST(StepperMotorControllerTest, ResetBehavior) {
     sim.motorFrequency = 360.0F;  // all steps in 1 tick
     sim.reset(0);
     for (int i = 0; i < 20; ++i) {
-        const auto out = alg.update(sim.currentPosition, thirtyDeg, false);
+        const auto out = alg.update(sim.currentPosition, thirtyDeg, sim.isMoving());
         sim.applyOutput(out);
         sim.advance();
     }
@@ -272,20 +272,20 @@ TEST(StepperMotorControllerTest, DesiredChangeMidMove) {
     constexpr float tenDeg = 10.0F * pi / 180.0F;
 
     // Tick 1: IDLE -> MOVE(20)
-    auto out = alg.update(sim.currentPosition, twentyDeg, false);
+    auto out = alg.update(sim.currentPosition, twentyDeg, sim.isMoving());
     EXPECT_EQ(out.commandType, StepperMotorCommandType::MOVE);
     EXPECT_EQ(out.stepsToMove, 20);
     sim.applyOutput(out);
     sim.advance();
 
     // Tick 2: MOVING, advance 1 step
-    out = alg.update(sim.currentPosition, twentyDeg, false);
+    out = alg.update(sim.currentPosition, twentyDeg, sim.isMoving());
     EXPECT_EQ(out.commandType, StepperMotorCommandType::NONE);
     sim.applyOutput(out);
     sim.advance();
 
     // Tick 3: change desired to 10 deg while moving → STOP
-    out = alg.update(sim.currentPosition, tenDeg, false);
+    out = alg.update(sim.currentPosition, tenDeg, sim.isMoving());
     EXPECT_EQ(out.commandType, StepperMotorCommandType::STOP);
 }
 
@@ -307,13 +307,13 @@ TEST(StepperMotorControllerTest, DesiredChangeWithinDesiredTolerance) {
     constexpr float twentyTwoDeg = 22.0F * pi / 180.0F;
 
     // Tick 1: IDLE -> MOVE(20)
-    auto out = alg.update(sim.currentPosition, twentyDeg, false);
+    auto out = alg.update(sim.currentPosition, twentyDeg, sim.isMoving());
     EXPECT_EQ(out.commandType, StepperMotorCommandType::MOVE);
     sim.applyOutput(out);
     sim.advance();
 
     // Tick 2: tiny change in reference (22 vs 20), within desiredPositionTolerance → keep going
-    out = alg.update(sim.currentPosition, twentyTwoDeg, false);
+    out = alg.update(sim.currentPosition, twentyTwoDeg, sim.isMoving());
     EXPECT_EQ(out.commandType, StepperMotorCommandType::NONE);
 }
 
@@ -332,7 +332,7 @@ TEST(StepperMotorControllerTest, StepAccumulatorFractionalRatio) {
     constexpr float sixDeg = 6.0F * static_cast<float>(std::numbers::pi) / 180.0F;
 
     // Tick 1: IDLE -> MOVE(6)
-    auto out = alg.update(sim.currentPosition, sixDeg, false);
+    auto out = alg.update(sim.currentPosition, sixDeg, sim.isMoving());
     EXPECT_EQ(out.commandType, StepperMotorCommandType::MOVE);
     EXPECT_EQ(out.stepsToMove, 6);
     sim.applyOutput(out);
@@ -340,24 +340,25 @@ TEST(StepperMotorControllerTest, StepAccumulatorFractionalRatio) {
 
     // Ticks 2-5: MOVING with pattern 1, 2, 1, 2 = 6 total → should reach target
     for (int i = 0; i < 4; ++i) {
-        out = alg.update(sim.currentPosition, sixDeg, false);
+        out = alg.update(sim.currentPosition, sixDeg, sim.isMoving());
         sim.applyOutput(out);
         sim.advance();
     }
 
-    // By now should be in STOPPING or SETTLING (motor not moving → immediate transition)
-    out = alg.update(sim.currentPosition, sixDeg, false);
+    // By now should be in SETTLING (motor reached target, MOVING transitions directly to SETTLING
+    // when isMotorMoving becomes false)
+    out = alg.update(sim.currentPosition, sixDeg, sim.isMoving());
     sim.applyOutput(out);
     sim.advance();
 
     // Tick 7: IDLE, desired == current → NONE
-    out = alg.update(sim.currentPosition, sixDeg, false);
+    out = alg.update(sim.currentPosition, sixDeg, sim.isMoving());
     sim.applyOutput(out);
     sim.advance();
     EXPECT_EQ(out.commandType, StepperMotorCommandType::NONE);
 
     // Verify by commanding return to 0: should get exactly -6
-    out = alg.update(sim.currentPosition, 0.0F, false);
+    out = alg.update(sim.currentPosition, 0.0F, sim.isMoving());
     EXPECT_EQ(out.commandType, StepperMotorCommandType::MOVE);
     EXPECT_EQ(out.stepsToMove, -6);
 }
@@ -377,28 +378,23 @@ TEST(StepperMotorControllerTest, SettleCountZero) {
     constexpr float tenDeg = 10.0F * static_cast<float>(std::numbers::pi) / 180.0F;
 
     // Tick 1: IDLE -> MOVE(10)
-    auto out = alg.update(sim.currentPosition, tenDeg, false);
+    auto out = alg.update(sim.currentPosition, tenDeg, sim.isMoving());
     EXPECT_EQ(out.commandType, StepperMotorCommandType::MOVE);
     sim.applyOutput(out);
     sim.advance();
 
-    // Tick 2: MOVING, advance all steps → STOPPING
-    out = alg.update(sim.currentPosition, tenDeg, false);
+    // Tick 2: MOVING, motor reached target (isMotorMoving=false) → SETTLING (skips STOPPING)
+    out = alg.update(sim.currentPosition, tenDeg, sim.isMoving());
     sim.applyOutput(out);
     sim.advance();
 
-    // Tick 3: STOPPING → SETTLING (isMotorMoving=false)
-    out = alg.update(sim.currentPosition, tenDeg, false);
+    // Tick 3: SETTLING → IDLE (settleCount=0 >= settleCountMax=0)
+    out = alg.update(sim.currentPosition, tenDeg, sim.isMoving());
     sim.applyOutput(out);
     sim.advance();
 
-    // Tick 4: SETTLING → IDLE (settleCount=0 >= 0)
-    out = alg.update(sim.currentPosition, tenDeg, false);
-    sim.applyOutput(out);
-    sim.advance();
-
-    // Tick 5: IDLE, desired == current → NONE
-    out = alg.update(sim.currentPosition, tenDeg, false);
+    // Tick 4: IDLE, desired == current → NONE
+    out = alg.update(sim.currentPosition, tenDeg, sim.isMoving());
     EXPECT_EQ(out.commandType, StepperMotorCommandType::NONE);
 }
 
@@ -449,14 +445,14 @@ TEST(StepperMotorControllerTest, RangeIgnoresOutOfBoundsRefDuringMove) {
     sim.reset(50);               // start at 50 deg (in range)
 
     // Tick 1: in-range ref 70 deg -> MOVE(20)
-    auto out = alg.update(sim.currentPosition, 70.0F * pi / 180.0F, false);
+    auto out = alg.update(sim.currentPosition, 70.0F * pi / 180.0F, sim.isMoving());
     EXPECT_EQ(out.commandType, StepperMotorCommandType::MOVE);
     EXPECT_EQ(out.stepsToMove, 20);
     sim.applyOutput(out);
     sim.advance();
 
     // Tick 2: out-of-range ref 120 deg → NONE; commanded position still 70
-    out = alg.update(sim.currentPosition, 120.0F * pi / 180.0F, false);
+    out = alg.update(sim.currentPosition, 120.0F * pi / 180.0F, sim.isMoving());
     EXPECT_EQ(out.commandType, StepperMotorCommandType::NONE);
 }
 

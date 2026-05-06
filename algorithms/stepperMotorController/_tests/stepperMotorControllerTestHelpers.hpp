@@ -26,6 +26,10 @@ struct StepperMotorSim {
         stepAccumulator = 0.0F;
     }
 
+    // Mirrors the adapter's isMotorMoving signal: true while the simulated motor is mid-move
+    // (the next advance() will move currentPosition toward commandedPosition).
+    bool isMoving() const { return currentPosition != commandedPosition; }
+
     void applyOutput(const StepperMotorControllerOutput& output) {
         if (output.commandType == StepperMotorCommandType::MOVE) {
             commandedPosition = currentPosition + output.stepsToMove;
@@ -110,14 +114,16 @@ struct StepperMotorControllerReference {
                 break;
 
             case StepperMotorState::MOVING: {
-                if (static_cast<uint32_t>(abs(stepDelta(commandedPosition - currentPosition))) <=
-                    currentPositionTolerance) {
-                    state = StepperMotorState::STOPPING;
-                }
+                // Desired position changed beyond desired-position tolerance
                 if (static_cast<uint32_t>(abs(stepDelta(commandedPosition - desiredPosition))) >
                     desiredPositionTolerance) {
                     output.commandType = StepperMotorCommandType::STOP;
                     state = StepperMotorState::STOPPING;
+                }
+                // Move completed
+                else if (!isMotorMoving) {
+                    state = StepperMotorState::SETTLING;
+                    settleCount = 0;
                 }
                 break;
             }
@@ -211,8 +217,8 @@ inline void regressionTestMultiStep(float stepAngle,
     // Run for enough ticks to complete a full cycle
     const int maxTicks = stepsPerRevolution + static_cast<int>(settleCountMax) + 20;
     for (int tick = 0; tick < maxTicks; ++tick) {
-        const auto algOut = alg.update(algSim.currentPosition, referenceAngle, false);
-        const auto refOut = ref.update(refSim.currentPosition, referenceAngle, false);
+        const auto algOut = alg.update(algSim.currentPosition, referenceAngle, algSim.isMoving());
+        const auto refOut = ref.update(refSim.currentPosition, referenceAngle, refSim.isMoving());
 
         EXPECT_EQ(algOut.commandType, refOut.commandType) << "Mismatch at tick " << tick;
         if (algOut.commandType == StepperMotorCommandType::MOVE) {
@@ -259,7 +265,7 @@ inline void propertyOutputCommandTypeIsValid(float stepAngle,
 
     const int maxTicks = stepsPerRevolution + static_cast<int>(settleCountMax) + 20;
     for (int tick = 0; tick < maxTicks; ++tick) {
-        const auto out = alg.update(sim.currentPosition, referenceAngle, false);
+        const auto out = alg.update(sim.currentPosition, referenceAngle, sim.isMoving());
         EXPECT_TRUE(out.commandType == StepperMotorCommandType::NONE ||
                     out.commandType == StepperMotorCommandType::STOP ||
                     out.commandType == StepperMotorCommandType::MOVE)
@@ -334,7 +340,7 @@ inline void propertyMotorReachesTarget(float stepAngle,
     bool sawMove = false;
     bool reachedIdle = false;
     for (int tick = 0; tick < maxTicks; ++tick) {
-        const auto out = alg.update(sim.currentPosition, referenceAngle, false);
+        const auto out = alg.update(sim.currentPosition, referenceAngle, sim.isMoving());
         if (out.commandType == StepperMotorCommandType::MOVE) {
             sawMove = true;
         }

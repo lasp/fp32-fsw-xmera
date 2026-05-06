@@ -61,10 +61,10 @@ StepperMotorControllerOutput StepperMotorControllerAlgorithm::update(
                 output.commandType = StepperMotorCommandType::STOP;
                 this->state = StepperMotorState::STOPPING;
             }
-            // Move completed (within current-position tolerance of commanded target)
-            else if (static_cast<uint32_t>(abs(this->stepDelta(this->commandedPosition - currentPosition))) <=
-                     this->currentPositionTolerance) {
-                this->state = StepperMotorState::STOPPING;
+            // Move completed
+            else if (!isMotorMoving) {
+                this->state = StepperMotorState::SETTLING;
+                this->settleCount = 0U;
             }
             break;
         }
@@ -185,7 +185,7 @@ void StepperMotorControllerAlgorithm::setSettleCountMax(const uint32_t settleCou
 */
 uint32_t StepperMotorControllerAlgorithm::getSettleCountMax() const { return this->settleCountMax; }
 
-/*! Setter for the current-position tolerance (used for IDLE move trigger and MOVING stop condition).
+/*! Setter for the current-position tolerance (used for the IDLE move trigger).
  @return void
  @param currentPositionToleranceIn [steps] tolerance between current position and target
 */
