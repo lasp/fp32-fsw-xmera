@@ -1,4 +1,5 @@
 #include "mrpRotation.h"
+#include "utilities/freestandingInvalidArgument.h"
 #include <stdexcept>
 
 /*! @brief Validate that the required input message is linked, enable the dynamic-reference path
@@ -38,19 +39,31 @@ void MrpRotation::updateState(const uint64_t callTime) {
 }
 
 /*! @brief Setter for the current MRP attitude coordinate set relative to the input reference.
+ Throws fsw::invalid_argument when any component of sigma is not finite.
  @param sigma [-] MRP attitude relative to the input reference.
  */
-void MrpRotation::setSigmaRR0(const Eigen::Vector3d& sigma) { this->algorithm.setSigmaRR0(sigma); }
+void MrpRotation::setSigmaRR0(const Eigen::Vector3d& sigma) {
+    if (!sigma.allFinite()) {
+        FSW_THROW_INVALID_ARGUMENT("mrpRotation: sigma_RR0 must be finite");
+    }
+    this->algorithm.setSigmaRR0(sigma);
+}
 
 /*! @brief Getter for the current MRP attitude coordinate set relative to the input reference.
  @return const Eigen::Vector3d MRP relative to the input reference.
  */
 const Eigen::Vector3d MrpRotation::getSigmaRR0() const { return this->algorithm.getSigmaRR0(); }
 
-/*! @brief Setter for the angular velocity vector relative to the input reference.
+/*! @brief Setter for the angular velocity vector relative to the input reference. Throws
+ fsw::invalid_argument when any component of omega is not finite.
  @param omega [rad/s] angular velocity vector relative to the input reference.
  */
-void MrpRotation::setOmegaRR0(const Eigen::Vector3d& omega) { this->algorithm.setOmegaRR0(omega); }
+void MrpRotation::setOmegaRR0(const Eigen::Vector3d& omega) {
+    if (!omega.allFinite()) {
+        FSW_THROW_INVALID_ARGUMENT("mrpRotation: omega_RR0_R must be finite");
+    }
+    this->algorithm.setOmegaRR0(omega);
+}
 
 /*! @brief Getter for the angular velocity vector relative to the input reference.
  @return const Eigen::Vector3d Angular velocity vector relative to the input reference.
