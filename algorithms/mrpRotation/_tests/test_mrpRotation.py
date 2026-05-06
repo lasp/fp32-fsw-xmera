@@ -27,7 +27,7 @@ def compute_truth(sigma_RR0, omega_RR0_R, ref_state_in_data, dt, cmd_state_flag,
 
     # compute 0th time step
     s0 = np.array(sigma_RR0)
-    s1=rbk.addMRP(np.array(sigma_R0N), np.array(sigma_RR0))
+    s1 = rbk.addMRP(np.array(sigma_R0N), np.array(sigma_RR0))
     RR0 = rbk.MRP2C(sigma_RR0)
     RN = np.dot(RR0, R0N)
 
@@ -45,7 +45,7 @@ def compute_truth(sigma_RR0, omega_RR0_R, ref_state_in_data, dt, cmd_state_flag,
     truth_domega_RN_N.append(domega_RN_N.tolist())
 
     # compute 1st time step
-    B =  rbk.BmatMRP(sigma_RR0)
+    B = rbk.BmatMRP(sigma_RR0)
     sigma_RR0 += dt * 0.25 * np.dot(B, omega_RR0_R)
     RR0 = rbk.MRP2C(sigma_RR0)
     RN = np.dot(RR0, R0N)
@@ -61,7 +61,7 @@ def compute_truth(sigma_RR0, omega_RR0_R, ref_state_in_data, dt, cmd_state_flag,
     truth_domega_RN_N.append(domega_RN_N.tolist())
 
     # compute 2nd time step
-    B =  rbk.BmatMRP(sigma_RR0)
+    B = rbk.BmatMRP(sigma_RR0)
     sigma_RR0 += dt * 0.25 * np.dot(B, omega_RR0_R)
     RR0 = rbk.MRP2C(sigma_RR0)
     RN = np.dot(RR0, R0N)
@@ -76,10 +76,12 @@ def compute_truth(sigma_RR0, omega_RR0_R, ref_state_in_data, dt, cmd_state_flag,
     domega_RN_N = domega_RR0_N + domega_R0N_N
     truth_domega_RN_N.append(domega_RN_N.tolist())
 
-    # Testing Reset function
+    # Testing Reset function. The fp32 refactor moved sigma_RR0 / omega_RR0_R into a validated
+    # Config and reset() now re-seeds the algorithm's runtime state from the configured initial
+    # values; that is true regardless of whether the dynamic-reference command path is wired up.
+    # The original Xmera mrpRotation only re-seeded when the cmd path was active.
     if test_reset:
-        if cmd_state_flag:
-            sigma_RR0 = s0
+        sigma_RR0 = s0
         # compute 0th time step
         s1 = rbk.addMRP(np.array(sigma_R0N), np.array(sigma_RR0))
         RR0 = rbk.MRP2C(sigma_RR0)
@@ -116,14 +118,13 @@ def compute_truth(sigma_RR0, omega_RR0_R, ref_state_in_data, dt, cmd_state_flag,
 
 @pytest.mark.parametrize("cmd_state_flag", [False, True])
 @pytest.mark.parametrize("test_reset", [False, True])
-# provide a unique test method name, starting with test_
 def test_mrp_rotation(show_plots, cmd_state_flag, test_reset):
-    unit_task_name = "unitTask"               # arbitrary name (don't change)
-    unit_process_name = "TestProcess"         # arbitrary name (don't change)
+    unit_task_name = "unitTask"
+    unit_process_name = "TestProcess"
     unit_test_sim = SimulationBaseClass.SimBaseClass()
 
     # Test times
-    update_time = 0.5     # update process rate update time
+    update_time = 0.5
     total_test_sim_time = 1.5
 
     # Create test thread
@@ -131,55 +132,52 @@ def test_mrp_rotation(show_plots, cmd_state_flag, test_reset):
     test_proc = unit_test_sim.CreateNewProcess(unit_process_name)
     test_proc.addTask(unit_test_sim.CreateNewTask(unit_task_name, test_process_rate))
 
-    # Construct algorithm and associated C++ container
-    module = mrpRotation.MrpRotation()
+    module = mrpRotationF32.MrpRotation()
     module.modelTag = "mrpRotation"
 
-    # Add test module to runtime call list
     unit_test_sim.AddModelToTask(unit_task_name, module)
 
-    # Initialize the test module configuration data
     sigma_RR0 = np.array([0.3, .5, 0.0])
     module.sigma_RR0 = sigma_RR0
     omega_RR0_R = np.array([0.1, 0.0, 0.0]) * mc.D2R
     module.omega_RR0_R = omega_RR0_R
 
     if cmd_state_flag:
-        desired_att = messaging.AttStateMsgPayload()
+        desired_att = messaging.AttStateMsgF32Payload()
         sigma_RR0 = np.array([0.1, 0.0, -0.2])
         desired_att.state = sigma_RR0
         omega_RR0_R = np.array([0.1, 1.0, 0.5]) * mc.D2R
         desired_att.rate = omega_RR0_R
-        des_in_msg = messaging.AttStateMsg().write(desired_att)
+        des_in_msg = messaging.AttStateMsgF32().write(desired_att)
         module.desiredAttInMsg.subscribeTo(des_in_msg)
 
-    # Reference Frame Message
-    ref_state_in_data = messaging.AttRefMsgPayload()  # Create a structure for the input message
+    ref_state_in_data = messaging.AttRefMsgF32Payload()
     sigma_R0N = np.array([0.1, 0.2, 0.3])
     ref_state_in_data.sigma_RN = sigma_R0N
     omega_R0N_N = np.array([0.1, 0.0, 0.0])
     ref_state_in_data.omega_RN_N = omega_R0N_N
     domega_R0N_N = np.array([0.0, 0.0, 0.0])
     ref_state_in_data.domega_RN_N = domega_R0N_N
-    att_ref_msg = messaging.AttRefMsg().write(ref_state_in_data)
+    att_ref_msg = messaging.AttRefMsgF32().write(ref_state_in_data)
     module.attRefInMsg.subscribeTo(att_ref_msg)
 
-    # Setup logging on the test module output message so that we get all the writes to it
     data_log = module.attRefOutMsg.recorder()
     unit_test_sim.AddModelToTask(unit_task_name, data_log)
 
     unit_test_sim.InitializeSimulation()
-    unit_test_sim.ConfigureStopTime(mc.sec2nano(total_test_sim_time))        # seconds to stop simulation
+    unit_test_sim.ConfigureStopTime(mc.sec2nano(total_test_sim_time))
     unit_test_sim.ExecuteSimulation()
 
     if test_reset:
         module.reset(1)
-        unit_test_sim.ConfigureStopTime(mc.sec2nano(total_test_sim_time+1.0))        # seconds to stop simulation
+        unit_test_sim.ConfigureStopTime(mc.sec2nano(total_test_sim_time + 1.0))
         unit_test_sim.ExecuteSimulation()
 
-    sigma_RN_true, omega_RN_true, dOmega_RN_true = compute_truth(sigma_RR0, omega_RR0_R, ref_state_in_data, update_time, cmd_state_flag, test_reset)
+    sigma_RN_true, omega_RN_true, dOmega_RN_true = compute_truth(
+        sigma_RR0, omega_RR0_R, ref_state_in_data, update_time, cmd_state_flag, test_reset
+    )
 
-    accuracy = 1e-12
+    accuracy = 1e-6
 
     np.testing.assert_allclose(data_log.sigma_RN, sigma_RN_true, atol=accuracy, rtol=0, verbose=True)
     np.testing.assert_allclose(data_log.omega_RN_N, omega_RN_true, atol=accuracy, rtol=0, verbose=True)
