@@ -1,12 +1,4 @@
-<<<<<<< HEAD:algorithms/mrpRotation/mrpRotation.i
-// SPDX-License-Identifier: ISC
-// Copyright (c) 2018, Autonomous Vehicle System Lab, University of Colorado at Boulder
-// Copyright (c) 2025, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
-
-%module mrpRotation
-=======
 %module mrpRotationF32
->>>>>>> 86e614b6 (fixup! Import mrpRotation module):algorithms/mrpRotation/mrpRotationF32.i
 %{
    #include "mrpRotation.h"
 %}

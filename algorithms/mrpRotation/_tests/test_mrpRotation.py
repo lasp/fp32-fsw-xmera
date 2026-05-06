@@ -9,7 +9,7 @@ path = os.path.dirname(os.path.abspath(filename))
 import numpy as np
 
 from xmera.utilities import SimulationBaseClass
-from xmera.fswAlgorithms import mrpRotation
+from xmera.fp32 import mrpRotationF32
 from xmera.utilities import macros as mc
 from xmera.utilities import RigidBodyKinematics as rbk
 from xmera.architecture import messaging

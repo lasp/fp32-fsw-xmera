@@ -1,5 +1,5 @@
-#ifndef MRP_ROTATION_H
-#define MRP_ROTATION_H
+#ifndef F32XMERA_MRP_ROTATION_H
+#define F32XMERA_MRP_ROTATION_H
 
 #include <stdint.h>
 
