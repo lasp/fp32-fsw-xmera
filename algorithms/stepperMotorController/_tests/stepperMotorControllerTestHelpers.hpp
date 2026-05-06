@@ -73,6 +73,9 @@ struct StepperMotorControllerReference {
     int settleCountMax{10};
     int currentPositionTolerance{1};
     int desiredPositionTolerance{0};
+    float minAngle{0.0F};
+    float maxAngle{2.0F * std::numbers::pi_v<float>};
+    bool isFullCircle{true};
 
     int wrapDelta(int delta) const {
         const int half = stepsPerRevolution / 2;
@@ -86,6 +89,8 @@ struct StepperMotorControllerReference {
         return delta;
     }
 
+    int stepDelta(int delta) const { return isFullCircle ? wrapDelta(delta) : delta; }
+
     void reset() {
         state = StepperMotorState::IDLE;
         commandedPosition = 0;
@@ -95,17 +100,20 @@ struct StepperMotorControllerReference {
 
     StepperMotorControllerOutput update(int currentPosition, float referenceAngle, bool isMotorMoving) {
         StepperMotorControllerOutput output{};
-        desiredPosition = angleToSteps(referenceAngle, stepAngle);
+        const bool isReferenceInRange = isFullCircle || (referenceAngle >= minAngle && referenceAngle <= maxAngle);
+        if (isReferenceInRange) {
+            desiredPosition = angleToSteps(referenceAngle, stepAngle);
+        }
 
         switch (state) {
             case StepperMotorState::OFF:
                 break;
 
             case StepperMotorState::MOVING: {
-                if (abs(wrapDelta(commandedPosition - currentPosition)) <= currentPositionTolerance) {
+                if (abs(stepDelta(commandedPosition - currentPosition)) <= currentPositionTolerance) {
                     state = StepperMotorState::STOPPING;
                 }
-                if (abs(wrapDelta(commandedPosition - desiredPosition)) > desiredPositionTolerance) {
+                if (abs(stepDelta(commandedPosition - desiredPosition)) > desiredPositionTolerance) {
                     output.commandType = StepperMotorCommandType::STOP;
                     state = StepperMotorState::STOPPING;
                 }
@@ -128,7 +136,10 @@ struct StepperMotorControllerReference {
                 break;
 
             case StepperMotorState::IDLE: {
-                const int steps = wrapDelta(desiredPosition - currentPosition);
+                if (!isReferenceInRange) {
+                    break;
+                }
+                const int steps = stepDelta(desiredPosition - currentPosition);
                 if (abs(steps) > currentPositionTolerance) {
                     output.commandType = StepperMotorCommandType::MOVE;
                     output.stepsToMove = steps;
@@ -147,6 +158,8 @@ struct StepperMotorControllerReference {
 // ---------------------------------------------------------------------------
 
 inline void regressionTestMultiStep(float stepAngle,
+                                    float minAngle,
+                                    float maxAngle,
                                     float referenceAngle,
                                     float initialAngle,
                                     float controlFrequency,
@@ -154,12 +167,18 @@ inline void regressionTestMultiStep(float stepAngle,
                                     int settleCountMax,
                                     int currentPositionTolerance,
                                     int desiredPositionTolerance) {
+    if (minAngle >= maxAngle) {
+        return;  // skip invalid range (fuzzer may generate it)
+    }
     const int stepsPerRevolution = static_cast<int>(round(2.0F * std::numbers::pi_v<float> / stepAngle));
     const int initialStep = angleToSteps(initialAngle, stepAngle);
+    constexpr float kMinStepAngle = 2.0F * std::numbers::pi_v<float> / 100000.0F;
+    const bool isFullCircle = ((maxAngle - minAngle) >= (2.0F * std::numbers::pi_v<float> - kMinStepAngle));
 
     // Setup algorithm
     StepperMotorControllerAlgorithm alg{};
     alg.setStepAngle(stepAngle);
+    alg.setMotorAngleRange(minAngle, maxAngle);
     alg.setSettleCountMax(settleCountMax);
     alg.setCurrentPositionTolerance(currentPositionTolerance);
     alg.setDesiredPositionTolerance(desiredPositionTolerance);
@@ -177,6 +196,9 @@ inline void regressionTestMultiStep(float stepAngle,
     ref.settleCountMax = settleCountMax;
     ref.currentPositionTolerance = currentPositionTolerance;
     ref.desiredPositionTolerance = desiredPositionTolerance;
+    ref.minAngle = minAngle;
+    ref.maxAngle = maxAngle;
+    ref.isFullCircle = isFullCircle;
     ref.reset();
 
     StepperMotorSim refSim{};
@@ -207,6 +229,8 @@ inline void regressionTestMultiStep(float stepAngle,
 // ---------------------------------------------------------------------------
 
 inline void propertyOutputCommandTypeIsValid(float stepAngle,
+                                             float minAngle,
+                                             float maxAngle,
                                              float referenceAngle,
                                              float initialAngle,
                                              float controlFrequency,
@@ -214,9 +238,13 @@ inline void propertyOutputCommandTypeIsValid(float stepAngle,
                                              int settleCountMax,
                                              int currentPositionTolerance,
                                              int desiredPositionTolerance) {
+    if (minAngle >= maxAngle) {
+        return;
+    }
     const int stepsPerRevolution = static_cast<int>(round(2.0F * std::numbers::pi_v<float> / stepAngle));
     StepperMotorControllerAlgorithm alg{};
     alg.setStepAngle(stepAngle);
+    alg.setMotorAngleRange(minAngle, maxAngle);
     alg.setSettleCountMax(settleCountMax);
     alg.setCurrentPositionTolerance(currentPositionTolerance);
     alg.setDesiredPositionTolerance(desiredPositionTolerance);
@@ -240,12 +268,24 @@ inline void propertyOutputCommandTypeIsValid(float stepAngle,
 }
 
 inline void propertyMoveStepsWithinHalfRevolution(float stepAngle,
+                                                  float minAngle,
+                                                  float maxAngle,
                                                   float referenceAngle,
                                                   float initialAngle,
                                                   int currentPositionTolerance) {
+    if (minAngle >= maxAngle) {
+        return;
+    }
     const int stepsPerRevolution = static_cast<int>(round(2.0F * std::numbers::pi_v<float> / stepAngle));
+    constexpr float kMinStepAngle = 2.0F * std::numbers::pi_v<float> / 100000.0F;
+    const bool isFullCircle = ((maxAngle - minAngle) >= (2.0F * std::numbers::pi_v<float> - kMinStepAngle));
+    // Half-revolution wrap-around shortest-path bound only holds for the full-circle configuration.
+    if (!isFullCircle) {
+        return;
+    }
     StepperMotorControllerAlgorithm alg{};
     alg.setStepAngle(stepAngle);
+    alg.setMotorAngleRange(minAngle, maxAngle);
     alg.setCurrentPositionTolerance(currentPositionTolerance);
     alg.reset();
 
@@ -257,6 +297,8 @@ inline void propertyMoveStepsWithinHalfRevolution(float stepAngle,
 }
 
 inline void propertyMotorReachesTarget(float stepAngle,
+                                       float minAngle,
+                                       float maxAngle,
                                        float referenceAngle,
                                        float initialAngle,
                                        float controlFrequency,
@@ -264,9 +306,17 @@ inline void propertyMotorReachesTarget(float stepAngle,
                                        int settleCountMax,
                                        int currentPositionTolerance,
                                        int desiredPositionTolerance) {
+    if (minAngle >= maxAngle) {
+        return;
+    }
+    // Motor only reaches an in-range target; out-of-range references are rejected by design.
+    if (referenceAngle < minAngle || referenceAngle > maxAngle) {
+        return;
+    }
     const int stepsPerRevolution = static_cast<int>(round(2.0F * std::numbers::pi_v<float> / stepAngle));
     StepperMotorControllerAlgorithm alg{};
     alg.setStepAngle(stepAngle);
+    alg.setMotorAngleRange(minAngle, maxAngle);
     alg.setSettleCountMax(settleCountMax);
     alg.setCurrentPositionTolerance(currentPositionTolerance);
     alg.setDesiredPositionTolerance(desiredPositionTolerance);

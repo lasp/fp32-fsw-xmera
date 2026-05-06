@@ -62,6 +62,7 @@ def test_stepper_motor_controller_nominal(show_plots, step_angle, theta_init_deg
     motor_controller = stepperMotorControllerF32.StepperMotorController()
     motor_controller.modelTag = "stepperMotorController"
     motor_controller.stepAngle = step_angle
+    motor_controller.setMotorAngleRange(0.0, 2 * math.pi)
     motor_controller.controlFrequency = 1.0 / process_rate_sec
     motor_controller.motorFrequency = 100.0
     motor_controller.currentPositionTolerance = 0
@@ -120,6 +121,7 @@ def test_stepper_motor_controller_shortest_path(show_plots, theta_init_deg, thet
     motor_controller = stepperMotorControllerF32.StepperMotorController()
     motor_controller.modelTag = "stepperMotorController"
     motor_controller.stepAngle = step_angle
+    motor_controller.setMotorAngleRange(0.0, 2 * math.pi)
     motor_controller.controlFrequency = 1.0 / process_rate_sec
     motor_controller.motorFrequency = 100.0
     motor_controller.currentPositionTolerance = 0
@@ -166,6 +168,7 @@ def test_stepper_motor_controller_no_move_within_tolerance(show_plots):
     motor_controller = stepperMotorControllerF32.StepperMotorController()
     motor_controller.modelTag = "stepperMotorController"
     motor_controller.stepAngle = step_angle
+    motor_controller.setMotorAngleRange(0.0, 2 * math.pi)
     motor_controller.controlFrequency = 1.0 / process_rate_sec
     motor_controller.motorFrequency = 100.0
     motor_controller.currentPositionTolerance = 5
@@ -211,6 +214,7 @@ def test_stepper_motor_controller_interrupt(show_plots):
     motor_controller = stepperMotorControllerF32.StepperMotorController()
     motor_controller.modelTag = "stepperMotorController"
     motor_controller.stepAngle = step_angle
+    motor_controller.setMotorAngleRange(0.0, 2 * math.pi)
     motor_controller.controlFrequency = control_freq
     motor_controller.motorFrequency = motor_freq
     motor_controller.currentPositionTolerance = 0
@@ -278,6 +282,7 @@ def test_stepper_motor_controller_fractional_step_accumulation(show_plots):
     motor_controller = stepperMotorControllerF32.StepperMotorController()
     motor_controller.modelTag = "stepperMotorController"
     motor_controller.stepAngle = step_angle
+    motor_controller.setMotorAngleRange(0.0, 2 * math.pi)
     motor_controller.controlFrequency = control_freq
     motor_controller.motorFrequency = motor_freq
     motor_controller.currentPositionTolerance = 0
@@ -317,9 +322,49 @@ def test_stepper_motor_controller_fractional_step_accumulation(show_plots):
     np.testing.assert_allclose(log.stepsCommanded[-1], -9, atol=0, rtol=0)
 
 
+@pytest.mark.parametrize("ref_deg", [-10.0, 200.0])
+def test_stepper_motor_controller_out_of_range(show_plots, ref_deg):
+    r"""
+    **Validation Test Description**
+
+    Verify that the controller commands zero steps when the reference angle is outside the
+    configured motor angle range. The configured range is [45 deg, 90 deg]; references at
+    -10 deg (below min) and 200 deg (above max) must both result in no commanded movement.
+    """
+    step_angle = math.radians(1.0)
+    process_rate_sec = 0.1
+    sim, process_rate = create_sim(process_rate_sec)
+
+    motor_controller = stepperMotorControllerF32.StepperMotorController()
+    motor_controller.modelTag = "stepperMotorController"
+    motor_controller.stepAngle = step_angle
+    motor_controller.setMotorAngleRange(math.radians(45.0), math.radians(90.0))
+    motor_controller.controlFrequency = 1.0 / process_rate_sec
+    motor_controller.motorFrequency = 100.0
+    motor_controller.currentPositionTolerance = 0
+    motor_controller.desiredPositionTolerance = 0
+    motor_controller.initialAngle = math.radians(60.0)  # in-range start
+    sim.AddModelToTask("unitTask", motor_controller)
+
+    ref_msg_data = messaging.HingedRigidBodyMsgF32Payload()
+    ref_msg_data.theta = math.radians(ref_deg)
+    ref_msg = messaging.HingedRigidBodyMsgF32().write(ref_msg_data)
+    motor_controller.motorRefAngleInMsg.subscribeTo(ref_msg)
+
+    log = motor_controller.motorStepCommandOutMsg.recorder(process_rate)
+    sim.AddModelToTask("unitTask", log)
+
+    sim.InitializeSimulation()
+    sim.ConfigureStopTime(process_rate)
+    sim.ExecuteSimulation()
+
+    np.testing.assert_allclose(log.stepsCommanded[0], 0, atol=0, rtol=0)
+
+
 if __name__ == "__main__":
     test_stepper_motor_controller_nominal(False, 360, 0.0, 10.0)
     test_stepper_motor_controller_shortest_path(False, -162.0, 162.0, -1)
     test_stepper_motor_controller_no_move_within_tolerance(False)
     test_stepper_motor_controller_interrupt(False)
     test_stepper_motor_controller_fractional_step_accumulation(False)
+    test_stepper_motor_controller_out_of_range(False, 200.0)

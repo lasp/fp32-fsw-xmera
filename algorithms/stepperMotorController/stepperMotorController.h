@@ -6,6 +6,7 @@
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
 #include <architecture/msgPayloadDef/MotorStepCommandMsgPayload.h>
+#include <array>
 
 /*! @brief Stepper Motor Controller Xmera Adapter
  *
@@ -22,6 +23,8 @@ class StepperMotorController : public SysModel {
 
     void setStepAngle(float stepAngleIn);
     float getStepAngle() const;
+    void setMotorAngleRange(float minAngleIn, float maxAngleIn);
+    std::array<float, 2> getMotorAngleRange() const;
     void setInitialAngle(float initialAngleIn);
     float getInitialAngle() const;
     void setControlFrequency(float controlFrequencyIn);

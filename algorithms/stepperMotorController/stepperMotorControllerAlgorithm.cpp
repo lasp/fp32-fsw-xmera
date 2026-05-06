@@ -26,14 +26,25 @@ StepperMotorControllerOutput StepperMotorControllerAlgorithm::update(
     const bool isMotorMoving) {
     StepperMotorControllerOutput output{};
 
-    this->desiredPosition = this->angleToSteps(referenceAngle);
+    // For a full-circle range, any reference angle is acceptable — wrap-around math handles the
+    // shortest-path conversion. For a partial range, reject references outside [minAngle, maxAngle]:
+    // leave desiredPosition unchanged so the state machine ignores them, keeping the motor
+    // quiescent rather than driving it across the forbidden seam.
+    const bool isReferenceInRange =
+        this->isFullCircle || (referenceAngle >= this->minAngle && referenceAngle <= this->maxAngle);
+    if (isReferenceInRange) {
+        this->desiredPosition = this->angleToSteps(referenceAngle);
+    }
 
     switch (this->state) {
         case StepperMotorState::OFF:
             break;
 
         case StepperMotorState::IDLE: {
-            const int steps = this->wrapDelta(this->desiredPosition - currentPosition);
+            if (!isReferenceInRange) {
+                break;
+            }
+            const int steps = this->stepDelta(this->desiredPosition - currentPosition);
             if (abs(steps) > this->currentPositionTolerance) {
                 output.commandType = StepperMotorCommandType::MOVE;
                 output.stepsToMove = steps;
@@ -45,13 +56,13 @@ StepperMotorControllerOutput StepperMotorControllerAlgorithm::update(
 
         case StepperMotorState::MOVING: {
             // Desired position changed beyond desired-position tolerance
-            if (abs(this->wrapDelta(this->commandedPosition - this->desiredPosition)) >
+            if (abs(this->stepDelta(this->commandedPosition - this->desiredPosition)) >
                 this->desiredPositionTolerance) {
                 output.commandType = StepperMotorCommandType::STOP;
                 this->state = StepperMotorState::STOPPING;
             }
             // Move completed (within current-position tolerance of commanded target)
-            else if (abs(this->wrapDelta(this->commandedPosition - currentPosition)) <=
+            else if (abs(this->stepDelta(this->commandedPosition - currentPosition)) <=
                      this->currentPositionTolerance) {
                 this->state = StepperMotorState::STOPPING;
             }
@@ -101,6 +112,16 @@ int StepperMotorControllerAlgorithm::wrapDelta(int delta) const {
     return delta;
 }
 
+/*! Pick the path delta based on the configured motor range. For a full-circle range, return the
+ *  shortest-path wrapped delta. For a partial range, return the linear delta unchanged so the
+ *  commanded path stays within the bounded travel.
+ @return int path delta [steps]
+ @param delta [steps] linear (unwrapped) step difference
+*/
+int StepperMotorControllerAlgorithm::stepDelta(const int delta) const {
+    return this->isFullCircle ? this->wrapDelta(delta) : delta;
+}
+
 /*! Setter for the angle per motor step.
  @return void
  @param stepAngleIn [rad/step] motor step angle, must be in [kMinStepAngle, 2*pi]
@@ -118,6 +139,34 @@ void StepperMotorControllerAlgorithm::setStepAngle(const float stepAngleIn) {
  @return float [rad/step]
 */
 float StepperMotorControllerAlgorithm::getStepAngle() const { return this->stepAngle; }
+
+/*! Setter for the motor travel range
+ @return void
+ @param minAngleIn [rad] lower bound, must be in [-2*pi, 2*pi]
+ @param maxAngleIn [rad] upper bound, must be in [-2*pi, 2*pi] and strictly greater than minAngleIn
+*/
+void StepperMotorControllerAlgorithm::setMotorAngleRange(const float minAngleIn, const float maxAngleIn) {
+    constexpr float twoPi = 2.0F * std::numbers::pi_v<float>;
+    if (minAngleIn < -twoPi || minAngleIn > twoPi) {
+        FSW_THROW_INVALID_ARGUMENT("minAngle must be in [-2*pi, 2*pi]");
+    }
+    if (maxAngleIn < -twoPi || maxAngleIn > twoPi) {
+        FSW_THROW_INVALID_ARGUMENT("maxAngle must be in [-2*pi, 2*pi]");
+    }
+    if (minAngleIn >= maxAngleIn) {
+        FSW_THROW_INVALID_ARGUMENT("minAngle must be strictly less than maxAngle");
+    }
+    this->minAngle = minAngleIn;
+    this->maxAngle = maxAngleIn;
+    this->isFullCircle = ((maxAngleIn - minAngleIn) >= (twoPi - StepperMotorControllerAlgorithm::kMinStepAngle));
+}
+
+/*! Getter for the motor travel range.
+ @return std::array<float, 2> {minAngle, maxAngle} in radians
+*/
+std::array<float, 2> StepperMotorControllerAlgorithm::getMotorAngleRange() const {
+    return {this->minAngle, this->maxAngle};
+}
 
 /*! Setter for the maximum settling tick count.
  @return void

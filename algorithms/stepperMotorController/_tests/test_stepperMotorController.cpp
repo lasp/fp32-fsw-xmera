@@ -7,6 +7,8 @@
 
 TEST(StepperMotorControllerTest, RegressionNominalMove) {
     regressionTestMultiStep(std::numbers::pi_v<float> / 180.0F,  // stepAngle (1 deg/step = 360 steps/rev)
+                            0.0F,                                // minAngle
+                            2.0F * std::numbers::pi_v<float>,    // maxAngle (full circle)
                             10.0F * static_cast<float>(std::numbers::pi) / 180.0F,  // referenceAngle (10 deg)
                             0.0F,                                                   // initialAngle
                             10.0F,                                                  // controlFrequency
@@ -18,6 +20,8 @@ TEST(StepperMotorControllerTest, RegressionNominalMove) {
 
 TEST(StepperMotorControllerTest, RegressionNonZeroInit) {
     regressionTestMultiStep(std::numbers::pi_v<float> / 180.0F,  // stepAngle (1 deg/step = 360 steps/rev)
+                            0.0F,                                // minAngle
+                            2.0F * std::numbers::pi_v<float>,    // maxAngle (full circle)
                             10.0F * static_cast<float>(std::numbers::pi) / 180.0F,
                             -45.0F * static_cast<float>(std::numbers::pi) / 180.0F,
                             10.0F,
@@ -29,6 +33,8 @@ TEST(StepperMotorControllerTest, RegressionNonZeroInit) {
 
 TEST(StepperMotorControllerTest, RegressionShortestPath) {
     regressionTestMultiStep(std::numbers::pi_v<float> / 180.0F,  // stepAngle (1 deg/step = 360 steps/rev)
+                            0.0F,                                // minAngle
+                            2.0F * std::numbers::pi_v<float>,    // maxAngle (full circle)
                             162.0F * static_cast<float>(std::numbers::pi) / 180.0F,
                             -162.0F * static_cast<float>(std::numbers::pi) / 180.0F,
                             10.0F,
@@ -40,6 +46,8 @@ TEST(StepperMotorControllerTest, RegressionShortestPath) {
 
 TEST(StepperMotorControllerTest, RegressionFractionalFrequency) {
     regressionTestMultiStep(std::numbers::pi_v<float> / 180.0F,  // stepAngle (1 deg/step = 360 steps/rev)
+                            0.0F,                                // minAngle
+                            2.0F * std::numbers::pi_v<float>,    // maxAngle (full circle)
                             9.0F * static_cast<float>(std::numbers::pi) / 180.0F,
                             0.0F,
                             10.0F,
@@ -51,6 +59,8 @@ TEST(StepperMotorControllerTest, RegressionFractionalFrequency) {
 
 TEST(StepperMotorControllerTest, RegressionLargeMove) {
     regressionTestMultiStep(2.0F * std::numbers::pi_v<float> / 200.0F,  // stepAngle (1.8 deg/step = 200 steps/rev)
+                            0.0F,                                       // minAngle
+                            2.0F * std::numbers::pi_v<float>,           // maxAngle (full circle)
                             90.0F * static_cast<float>(std::numbers::pi) / 180.0F,
                             -90.0F * static_cast<float>(std::numbers::pi) / 180.0F,
                             10.0F,
@@ -97,6 +107,19 @@ TEST(StepperMotorControllerTest, SetupTest) {
     EXPECT_EQ(alg.getDesiredPositionTolerance(), 0);
     EXPECT_NO_THROW(alg.setDesiredPositionTolerance(3));
     EXPECT_EQ(alg.getDesiredPositionTolerance(), 3);
+
+    // motor angle range: reject min < -2pi, max > 2pi, min >= max
+    EXPECT_THROW(alg.setMotorAngleRange(-twoPi - 0.1F, 1.0F), fsw::invalid_argument);
+    EXPECT_THROW(alg.setMotorAngleRange(1.0F, twoPi + 0.1F), fsw::invalid_argument);
+    EXPECT_THROW(alg.setMotorAngleRange(2.0F, 1.0F), fsw::invalid_argument);
+    EXPECT_THROW(alg.setMotorAngleRange(1.0F, 1.0F), fsw::invalid_argument);
+    EXPECT_NO_THROW(alg.setMotorAngleRange(0.0F, twoPi));
+    EXPECT_NO_THROW(alg.setMotorAngleRange(-twoPi, twoPi));
+    EXPECT_NO_THROW(alg.setMotorAngleRange(-1.0F, 1.0F));
+    EXPECT_NO_THROW(alg.setMotorAngleRange(0.5F, 1.5F));
+    const auto range = alg.getMotorAngleRange();
+    EXPECT_FLOAT_EQ(range[0], 0.5F);
+    EXPECT_FLOAT_EQ(range[1], 1.5F);
 }
 
 TEST(StepperMotorControllerTest, ResetBehavior) {
@@ -135,27 +158,35 @@ TEST(StepperMotorControllerTest, ResetBehavior) {
 // ---------------------------------------------------------------------------
 
 TEST(StepperMotorControllerTest, OutputCommandTypeIsValid) {
-    propertyOutputCommandTypeIsValid(std::numbers::pi_v<float> / 180.0F, 0.5F, 0.0F, 10.0F, 10.0F, 2, 0, 0);
+    constexpr float twoPi = 2.0F * std::numbers::pi_v<float>;
+    propertyOutputCommandTypeIsValid(
+        std::numbers::pi_v<float> / 180.0F, 0.0F, twoPi, 0.5F, 0.0F, 10.0F, 10.0F, 2, 0, 0);
 }
 
 TEST(StepperMotorControllerTest, OutputCommandTypeIsValidLargeAngle) {
-    propertyOutputCommandTypeIsValid(2.0F * std::numbers::pi_v<float> / 200.0F, 1.0F, -0.5F, 5.0F, 15.0F, 5, 1, 0);
+    constexpr float twoPi = 2.0F * std::numbers::pi_v<float>;
+    propertyOutputCommandTypeIsValid(
+        2.0F * std::numbers::pi_v<float> / 200.0F, 0.0F, twoPi, 1.0F, -0.5F, 5.0F, 15.0F, 5, 1, 0);
 }
 
 TEST(StepperMotorControllerTest, MoveStepsWithinHalfRevolution) {
-    propertyMoveStepsWithinHalfRevolution(std::numbers::pi_v<float> / 180.0F, 0.5F, 0.0F, 0);
+    constexpr float twoPi = 2.0F * std::numbers::pi_v<float>;
+    propertyMoveStepsWithinHalfRevolution(std::numbers::pi_v<float> / 180.0F, 0.0F, twoPi, 0.5F, 0.0F, 0);
 }
 
 TEST(StepperMotorControllerTest, MoveStepsWithinHalfRevolutionLargeAngle) {
-    propertyMoveStepsWithinHalfRevolution(2.0F * std::numbers::pi_v<float> / 200.0F, 1.0F, -0.5F, 1);
+    constexpr float twoPi = 2.0F * std::numbers::pi_v<float>;
+    propertyMoveStepsWithinHalfRevolution(2.0F * std::numbers::pi_v<float> / 200.0F, 0.0F, twoPi, 1.0F, -0.5F, 1);
 }
 
 TEST(StepperMotorControllerTest, MotorReachesTarget) {
-    propertyMotorReachesTarget(std::numbers::pi_v<float> / 180.0F, 0.5F, 0.0F, 10.0F, 10.0F, 2, 0, 0);
+    constexpr float twoPi = 2.0F * std::numbers::pi_v<float>;
+    propertyMotorReachesTarget(std::numbers::pi_v<float> / 180.0F, 0.0F, twoPi, 0.5F, 0.0F, 10.0F, 10.0F, 2, 0, 0);
 }
 
 TEST(StepperMotorControllerTest, MotorReachesTargetFractionalFreq) {
-    propertyMotorReachesTarget(std::numbers::pi_v<float> / 180.0F, 0.5F, 0.0F, 10.0F, 15.0F, 0, 0, 0);
+    constexpr float twoPi = 2.0F * std::numbers::pi_v<float>;
+    propertyMotorReachesTarget(std::numbers::pi_v<float> / 180.0F, 0.0F, twoPi, 0.5F, 0.0F, 10.0F, 15.0F, 0, 0, 0);
 }
 
 // ---------------------------------------------------------------------------
@@ -372,4 +403,79 @@ TEST(StepperMotorControllerTest, SettleCountZero) {
     // Tick 5: IDLE, desired == current → NONE
     out = alg.update(sim.currentPosition, tenDeg, false);
     EXPECT_EQ(out.commandType, StepperMotorCommandType::NONE);
+}
+
+// ---------------------------------------------------------------------------
+// Motor angle range tests
+// ---------------------------------------------------------------------------
+
+// Out-of-range references (above max and below min) are rejected: no MOVE issued, motor stays put.
+TEST(StepperMotorControllerTest, RangeRejectsOutOfBoundsReference) {
+    constexpr float pi = static_cast<float>(std::numbers::pi);
+    StepperMotorControllerAlgorithm alg{};
+    alg.setStepAngle(std::numbers::pi_v<float> / 180.0F);
+    alg.setMotorAngleRange(pi / 4.0F, pi / 2.0F);  // [45 deg, 90 deg]
+    alg.setCurrentPositionTolerance(0);
+    alg.reset();
+
+    // Reference below minAngle: 30 deg
+    auto out = alg.update(50, 30.0F * pi / 180.0F, false);
+    EXPECT_EQ(out.commandType, StepperMotorCommandType::NONE);
+    EXPECT_EQ(out.stepsToMove, 0);
+
+    // Reference above maxAngle: 120 deg
+    out = alg.update(50, 120.0F * pi / 180.0F, false);
+    EXPECT_EQ(out.commandType, StepperMotorCommandType::NONE);
+    EXPECT_EQ(out.stepsToMove, 0);
+
+    // In-range reference: 60 deg → MOVE
+    out = alg.update(50, 60.0F * pi / 180.0F, false);
+    EXPECT_EQ(out.commandType, StepperMotorCommandType::MOVE);
+    EXPECT_EQ(out.stepsToMove, 10);  // 60 - 50
+}
+
+// While MOVING, an out-of-range new reference is ignored (desiredPosition stays unchanged); the
+// motor continues toward the previously-commanded valid target.
+TEST(StepperMotorControllerTest, RangeIgnoresOutOfBoundsRefDuringMove) {
+    constexpr float pi = static_cast<float>(std::numbers::pi);
+    StepperMotorControllerAlgorithm alg{};
+    alg.setStepAngle(std::numbers::pi_v<float> / 180.0F);
+    alg.setMotorAngleRange(pi / 4.0F, pi / 2.0F);  // [45 deg, 90 deg]
+    alg.setCurrentPositionTolerance(0);
+    alg.setDesiredPositionTolerance(0);
+    alg.setSettleCountMax(0);
+    alg.reset();
+
+    StepperMotorSim sim{};
+    sim.controlFrequency = 10.0F;
+    sim.motorFrequency = 10.0F;  // 1 step/tick
+    sim.reset(50);               // start at 50 deg (in range)
+
+    // Tick 1: in-range ref 70 deg -> MOVE(20)
+    auto out = alg.update(sim.currentPosition, 70.0F * pi / 180.0F, false);
+    EXPECT_EQ(out.commandType, StepperMotorCommandType::MOVE);
+    EXPECT_EQ(out.stepsToMove, 20);
+    sim.applyOutput(out);
+    sim.advance();
+
+    // Tick 2: out-of-range ref 120 deg → NONE; commanded position still 70
+    out = alg.update(sim.currentPosition, 120.0F * pi / 180.0F, false);
+    EXPECT_EQ(out.commandType, StepperMotorCommandType::NONE);
+}
+
+// Partial range spanning more than half a revolution must NOT use shortest-path wrap. The
+// commanded delta equals desired - current even when |delta| > stepsPerRev/2.
+TEST(StepperMotorControllerTest, RangeUsesLinearDeltaForPartialRange) {
+    constexpr float pi = static_cast<float>(std::numbers::pi);
+    StepperMotorControllerAlgorithm alg{};
+    alg.setStepAngle(std::numbers::pi_v<float> / 180.0F);
+    alg.setMotorAngleRange(pi / 6.0F, 11.0F * pi / 6.0F);  // [30 deg, 330 deg], span 300 deg
+    alg.setCurrentPositionTolerance(0);
+    alg.reset();
+
+    // Move from 40 deg to 320 deg. Linear delta = +280 (forward).
+    // If wrap were used, delta would be -80 (backward through forbidden 30 deg seam) -- WRONG.
+    const auto out = alg.update(40, 320.0F * pi / 180.0F, false);
+    EXPECT_EQ(out.commandType, StepperMotorCommandType::MOVE);
+    EXPECT_EQ(out.stepsToMove, 280);
 }

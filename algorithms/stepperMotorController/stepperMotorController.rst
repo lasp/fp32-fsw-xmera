@@ -52,6 +52,18 @@ adapter re-exposes all of these parameters through same-named setters/getters th
       - Must be in :math:`[2\pi / 100000,\, 2\pi]` (checked in setter; the lower bound caps
         ``stepsPerRev`` at 100k so the fp32 round-trip in ``angleToSteps`` stays within rounding
         tolerance)
+    * - minAngle
+      - float
+      - [rad]
+      - 0
+      - Lower bound of the motor's travel range; reference angles below this are rejected
+      - Must be in :math:`[-2\pi,\, 2\pi]` and strictly less than ``maxAngle`` (checked in ``setMotorAngleRange``)
+    * - maxAngle
+      - float
+      - [rad]
+      - :math:`2\pi`
+      - Upper bound of the motor's travel range; reference angles above this are rejected
+      - Must be in :math:`[-2\pi,\, 2\pi]` and strictly greater than ``minAngle`` (checked in ``setMotorAngleRange``)
     * - settleCountMax
       - int
       - [ticks]
@@ -162,21 +174,43 @@ where :math:`\theta` is an angle in radians and :math:`\Delta\theta` is ``stepAn
 A derived integer :math:`N = \text{round}(2\pi / \Delta\theta)` is cached internally for the wrap-around math; the
 controller never reasons in radians otherwise: both the current and desired positions are integer step counts.
 
-Shortest-Path Wrapping
-^^^^^^^^^^^^^^^^^^^^^^
-To always command the shortest rotation, step deltas are wrapped into the interval
-:math:`[-\tfrac{N}{2},\, +\tfrac{N}{2}]` via
+Motor Angle Range
+^^^^^^^^^^^^^^^^^
+The motor's mechanical travel is bounded by ``[minAngle, maxAngle]``, set together via
+``setMotorAngleRange`` (defaults: :math:`[0,\, 2\pi]`). For a **partial range**, any reference angle
+outside ``[minAngle, maxAngle]`` is rejected: the controller leaves its internal ``desiredPosition``
+unchanged for that tick and the state machine emits no ``MOVE`` command. This keeps the motor
+quiescent on out-of-range commands rather than driving it across the forbidden seam.
 
-.. math::
+For a **full-circle range** (``maxAngle - minAngle`` within ``kMinStepAngle`` (:math:`2\pi / 100000`) of :math:`2\pi`), every
+reference angle is accepted regardless of sign or magnitude — the existing shortest-path wrap
+math reduces it to an equivalent step delta, so e.g. :math:`-30^\circ` and :math:`+330^\circ`
+command the same motion.
 
-    \text{wrap}(\Delta) = \begin{cases}
-        \Delta - N & \text{if } \Delta > \tfrac{N}{2} \\
-        \Delta + N & \text{if } \Delta < -\tfrac{N}{2} \\
-        \Delta & \text{otherwise}
-    \end{cases}
+Step-Delta Selection
+^^^^^^^^^^^^^^^^^^^^
+Define :math:`\Delta = n_d - n_c` (linear delta in step counts). The controller computes the
+commanded step delta either as a shortest-path wrap or as the linear value, depending on the
+configured range:
 
-applied after taking :math:`\Delta \bmod N`. A motor at -170° asked to move to +170° therefore commands a 20° forward
-step, not 340° backward.
+- **Full circle** (``maxAngle - minAngle`` within ``kMinStepAngle`` (:math:`2\pi / 100000`) of :math:`2\pi`): the delta is
+  wrapped into the interval :math:`[-\tfrac{N}{2},\, +\tfrac{N}{2}]` via
+
+  .. math::
+
+      \text{wrap}(\Delta) = \begin{cases}
+          \Delta - N & \text{if } \Delta > \tfrac{N}{2} \\
+          \Delta + N & \text{if } \Delta < -\tfrac{N}{2} \\
+          \Delta & \text{otherwise}
+      \end{cases}
+
+  applied after :math:`\Delta \bmod N`. A motor at -170° asked to move to +170° commands a 20°
+  forward step, not 340° backward.
+
+- **Partial range**: the delta is used unchanged (``stepDelta = Δ``). Wrapping across the
+  out-of-range region is unsafe because the motor cannot physically traverse the forbidden seam,
+  so the controller takes the linear path within the bounded travel even when it is the longer
+  path on the conceptual circle.
 
 State Machine
 ^^^^^^^^^^^^^
@@ -188,15 +222,15 @@ angle), and :math:`n_m` the position most recently commanded (stored internally)
   quiescent).
 
 - ``IDLE`` — the motor is quiescent. If
-  :math:`\left| \text{wrap}(n_d - n_c) \right| > \tau_c`,
-  the algorithm emits a ``MOVE`` with ``stepsToMove = wrap(n_d - n_c)``, stores :math:`n_m := n_d`, and transitions to
+  :math:`\left| \text{stepDelta}(n_d - n_c) \right| > \tau_c`,
+  the algorithm emits a ``MOVE`` with ``stepsToMove = stepDelta(n_d - n_c)``, stores :math:`n_m := n_d`, and transitions to
   ``MOVING``.
 
 - ``MOVING`` — the motor is executing a commanded move. Two conditions are checked each tick:
 
-  1. *Move complete.* If :math:`\left| \text{wrap}(n_m - n_c) \right| \le \tau_c`, the algorithm transitions to
+  1. *Move complete.* If :math:`\left| \text{stepDelta}(n_m - n_c) \right| \le \tau_c`, the algorithm transitions to
      ``STOPPING`` (no ``STOP`` command issued; the motor is already at target).
-  2. *Reference changed.* If :math:`\left| \text{wrap}(n_m - n_d) \right| > \tau_d`, the algorithm emits a ``STOP``
+  2. *Reference changed.* If :math:`\left| \text{stepDelta}(n_m - n_d) \right| > \tau_d`, the algorithm emits a ``STOP``
      command and transitions to ``STOPPING``. The caller is expected to halt the motor at its current position; the
      controller will re-plan from that position once it returns to ``IDLE``.
 
@@ -232,6 +266,10 @@ Algorithm Assumptions and Limitations
   remaining steps from the prior ``MOVE`` are discarded.
 - The ``OFF`` state is entered only via caller intervention; there is no transition into ``OFF`` from within the
   state machine.
+- The motor's travel range ``[minAngle, maxAngle]`` must satisfy :math:`-2\pi \le \text{minAngle} < \text{maxAngle} \le 2\pi`.
+  References outside this range produce no movement; the controller does not clamp them. Shortest-path
+  wrap-around is enabled only when the configured range is the full circle (within ``kMinStepAngle``
+  (:math:`2\pi / 100000` rad) of :math:`2\pi` span).
 
 Module Description (Xmera Usage)
 --------------------------------
@@ -253,6 +291,7 @@ Typical usage in Python is::
     module = stepperMotorControllerF32.StepperMotorController()
     module.modelTag = "stepperMotorController"
     module.stepAngle = math.radians(1.0)             # [rad/step] (1 deg/step = 360 steps/rev)
+    module.setMotorAngleRange(0.0, 2 * math.pi)      # full circle (default); use a partial range for bounded steppers
     module.initialAngle = 0.0                        # [rad]
     module.controlFrequency = 10.0                   # [Hz]
     module.motorFrequency = 100.0                    # [Hz]

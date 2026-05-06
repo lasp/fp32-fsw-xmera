@@ -4,9 +4,12 @@
 %}
 
 %include <std_string.i>
+%include <std_array.i>
 %include <architecture/_GeneralModuleFiles/swig_conly_data.i>
 %include <architecture/_GeneralModuleFiles/swig_eigen.i>
 %include <architecture/_GeneralModuleFiles/sys_model.i>
+
+%template(FloatArray2) std::array<float, 2>;
 
 %include <attribute.i>
 %attribute(StepperMotorController, float, initialAngle, getInitialAngle, setInitialAngle)

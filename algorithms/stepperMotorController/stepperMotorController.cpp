@@ -75,6 +75,12 @@ void StepperMotorController::setStepAngle(const float stepAngleIn) { this->algor
 
 float StepperMotorController::getStepAngle() const { return this->algorithm.getStepAngle(); }
 
+void StepperMotorController::setMotorAngleRange(const float minAngleIn, const float maxAngleIn) {
+    this->algorithm.setMotorAngleRange(minAngleIn, maxAngleIn);
+}
+
+std::array<float, 2> StepperMotorController::getMotorAngleRange() const { return this->algorithm.getMotorAngleRange(); }
+
 void StepperMotorController::setInitialAngle(const float initialAngleIn) { this->initialAngle = initialAngleIn; }
 
 float StepperMotorController::getInitialAngle() const { return this->initialAngle; }
