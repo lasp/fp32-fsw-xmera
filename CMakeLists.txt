@@ -105,6 +105,7 @@ set(algorithms
     "inertialUKF"
     "mimuMajorityVote"
     "mrpFeedback"
+    "mrpRotation"
     "navAggregate"
     "oeStateEphem"
     "rateControl"
