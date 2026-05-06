@@ -5,6 +5,7 @@ xmera_add_swig_message(AccDataMsgF32Payload
 xmera_add_swig_message(AccPktDataMsgF32Payload)
 xmera_add_swig_message(AttGuidMsgF32Payload)
 xmera_add_swig_message(AttRefMsgF32Payload)
+xmera_add_swig_message(AttStateMsgF32Payload)
 xmera_add_swig_message(BodyRateFaultMsgPayload)
 xmera_add_swig_message(CmdTorqueBodyMsgF32Payload)
 xmera_add_swig_message(CSSArraySensorMsgF32Payload)
