@@ -1,6 +1,6 @@
 #include "mrpRotationAlgorithm.h"
+#include "utilities/timeConstants.h"
 #include <architecture/utilities/eigenSupport.h>
-#include <architecture/utilities/macroDefinitions.h>
 #include <architecture/utilities/rigidBodyKinematics.hpp>
 
 /*! @brief Reset the algorithm: clear the integration timing state and the prior-command latches.
@@ -53,8 +53,9 @@ AttRefMsgPayload MrpRotationAlgorithm::update(const uint64_t callTime,
  prior-command latches.
  */
 void MrpRotationAlgorithm::checkRasterCommands() {
-    const bool prevCmdActive = ((this->cmdSet - this->priorCmdSet).array().abs() < 1E-12).all() &&
-                               ((this->cmdRates - this->priorCmdRates).array().abs() < 1E-12).all();
+    constexpr double kCmdChangeTolerance = 1e-12;
+    const bool prevCmdActive = ((this->cmdSet - this->priorCmdSet).array().abs() < kCmdChangeTolerance).all() &&
+                               ((this->cmdRates - this->priorCmdRates).array().abs() < kCmdChangeTolerance).all();
 
     /*! - check if a new attitude reference command message content is availble */
     if (!prevCmdActive) {
@@ -77,7 +78,7 @@ void MrpRotationAlgorithm::computeTimeStep(const uint64_t callTime) {
     if (this->priorTime == 0) {
         this->dt = 0.0;
     } else {
-        this->dt = (callTime - this->priorTime) * NANO2SEC;
+        this->dt = static_cast<double>(callTime - this->priorTime) * kNano2Sec;
     }
 }
 
@@ -93,11 +94,14 @@ void MrpRotationAlgorithm::computeTimeStep(const uint64_t callTime) {
 AttRefMsgPayload MrpRotationAlgorithm::computeMRPRotationReference(const Eigen::Vector3d sigma_R0N,
                                                                    const Eigen::Vector3d omega_R0N_N,
                                                                    const Eigen::Vector3d domega_R0N_N) {
+    constexpr double kMrpKinematicGain = 0.25;
+    constexpr double kMrpShadowSwitchNorm = 1.0;
+
     /*! - Compute attitude reference frame R/N information */
     const Eigen::Matrix3d B = bmatMrp(this->sigma_RR0);
-    const Eigen::Vector3d sigmaDot_RR0 = 0.25 * B * this->omega_RR0_R;
+    const Eigen::Vector3d sigmaDot_RR0 = kMrpKinematicGain * B * this->omega_RR0_R;
     const Eigen::Vector3d mrpSetNew = this->sigma_RR0 + sigmaDot_RR0 * this->dt;
-    this->sigma_RR0 = mrpSwitch(mrpSetNew, 1.0);
+    this->sigma_RR0 = mrpSwitch(mrpSetNew, kMrpShadowSwitchNorm);
     const Eigen::Matrix3d dcm_RR0 = mrpToDcm(this->sigma_RR0);
     const Eigen::Matrix3d dcm_R0N = mrpToDcm(sigma_R0N);
     const Eigen::Matrix3d dcm_RN = dcm_RR0 * dcm_R0N;
