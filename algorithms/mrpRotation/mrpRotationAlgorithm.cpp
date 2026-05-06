@@ -19,9 +19,9 @@ void MrpRotationAlgorithm::reset() {
                   dynamicReferenceEnabled is true.
  @return AttRefMsgPayload Output reference frame R: sigma_RN, omega_RN_N, domega_RN_N.
  */
-AttRefMsgPayload MrpRotationAlgorithm::update(uint64_t callTime,
-                                              AttRefMsgPayload inputRef,
-                                              AttStateMsgPayload attStates) {
+AttRefMsgPayload MrpRotationAlgorithm::update(const uint64_t callTime,
+                                              const AttRefMsgPayload inputRef,
+                                              const AttStateMsgPayload attStates) {
     /*! - Check if a desired attitude configuration message exists. This allows for dynamic changes to the desired MRP
      * rotation */
     if (this->dynamicReferenceEnabled) {
@@ -35,12 +35,12 @@ AttRefMsgPayload MrpRotationAlgorithm::update(uint64_t callTime,
     /*! - Compute time step to use in the integration downstream */
     this->computeTimeStep(callTime);
 
-    Eigen::Vector3d sigma_RN = Eigen::Map<const Eigen::Vector3d>(inputRef.sigma_RN);
-    Eigen::Vector3d omega_RN_N = Eigen::Map<const Eigen::Vector3d>(inputRef.omega_RN_N);
-    Eigen::Vector3d domega_RN_N = Eigen::Map<const Eigen::Vector3d>(inputRef.domega_RN_N);
+    const Eigen::Vector3d sigma_RN = Eigen::Map<const Eigen::Vector3d>(inputRef.sigma_RN);
+    const Eigen::Vector3d omega_RN_N = Eigen::Map<const Eigen::Vector3d>(inputRef.omega_RN_N);
+    const Eigen::Vector3d domega_RN_N = Eigen::Map<const Eigen::Vector3d>(inputRef.domega_RN_N);
 
     /*! - Compute output reference frame */
-    AttRefMsgPayload attRefOut = this->computeMRPRotationReference(sigma_RN, omega_RN_N, domega_RN_N);
+    const AttRefMsgPayload attRefOut = this->computeMRPRotationReference(sigma_RN, omega_RN_N, domega_RN_N);
 
     /*! - Update last time the module was called to current call time */
     this->priorTime = callTime;
@@ -53,8 +53,8 @@ AttRefMsgPayload MrpRotationAlgorithm::update(uint64_t callTime,
  prior-command latches.
  */
 void MrpRotationAlgorithm::checkRasterCommands() {
-    bool prevCmdActive = ((this->cmdSet - this->priorCmdSet).array().abs() < 1E-12).all() &&
-                         ((this->cmdRates - this->priorCmdRates).array().abs() < 1E-12).all();
+    const bool prevCmdActive = ((this->cmdSet - this->priorCmdSet).array().abs() < 1E-12).all() &&
+                               ((this->cmdRates - this->priorCmdRates).array().abs() < 1E-12).all();
 
     /*! - check if a new attitude reference command message content is availble */
     if (!prevCmdActive) {
@@ -73,7 +73,7 @@ void MrpRotationAlgorithm::checkRasterCommands() {
  is available.
  @param callTime The clock time at which the function was called (nanoseconds).
 */
-void MrpRotationAlgorithm::computeTimeStep(uint64_t callTime) {
+void MrpRotationAlgorithm::computeTimeStep(const uint64_t callTime) {
     if (this->priorTime == 0) {
         this->dt = 0.0;
     } else {
@@ -90,25 +90,25 @@ void MrpRotationAlgorithm::computeTimeStep(uint64_t callTime) {
  @param domega_R0N_N Input reference frame angular acceleration in inertial-frame components [rad/s^2].
  @return AttRefMsgPayload The output reference frame (sigma_RN, omega_RN_N, domega_RN_N).
  */
-AttRefMsgPayload MrpRotationAlgorithm::computeMRPRotationReference(Eigen::Vector3d sigma_R0N,
-                                                                   Eigen::Vector3d omega_R0N_N,
-                                                                   Eigen::Vector3d domega_R0N_N) {
+AttRefMsgPayload MrpRotationAlgorithm::computeMRPRotationReference(const Eigen::Vector3d sigma_R0N,
+                                                                   const Eigen::Vector3d omega_R0N_N,
+                                                                   const Eigen::Vector3d domega_R0N_N) {
     /*! - Compute attitude reference frame R/N information */
-    Eigen::Matrix3d B = bmatMrp(this->sigma_RR0);
-    Eigen::Vector3d sigmaDot_RR0 = 0.25 * B * this->omega_RR0_R;
-    Eigen::Vector3d mrpSetNew = this->sigma_RR0 + sigmaDot_RR0 * this->dt;
+    const Eigen::Matrix3d B = bmatMrp(this->sigma_RR0);
+    const Eigen::Vector3d sigmaDot_RR0 = 0.25 * B * this->omega_RR0_R;
+    const Eigen::Vector3d mrpSetNew = this->sigma_RR0 + sigmaDot_RR0 * this->dt;
     this->sigma_RR0 = mrpSwitch(mrpSetNew, 1.0);
-    Eigen::Matrix3d dcm_RR0 = mrpToDcm(this->sigma_RR0);
-    Eigen::Matrix3d dcm_R0N = mrpToDcm(sigma_R0N);
-    Eigen::Matrix3d dcm_RN = dcm_RR0 * dcm_R0N;
+    const Eigen::Matrix3d dcm_RR0 = mrpToDcm(this->sigma_RR0);
+    const Eigen::Matrix3d dcm_R0N = mrpToDcm(sigma_R0N);
+    const Eigen::Matrix3d dcm_RN = dcm_RR0 * dcm_R0N;
 
-    Eigen::Vector3d sigma_RN = dcmToMrp(dcm_RN);
+    const Eigen::Vector3d sigma_RN = dcmToMrp(dcm_RN);
 
-    Eigen::Vector3d omega_RR0_N = dcm_RN.transpose() * this->omega_RR0_R;
-    Eigen::Vector3d omega_RN_N = omega_RR0_N + omega_R0N_N;
+    const Eigen::Vector3d omega_RR0_N = dcm_RN.transpose() * this->omega_RR0_R;
+    const Eigen::Vector3d omega_RN_N = omega_RR0_N + omega_R0N_N;
 
-    Eigen::Vector3d domega_RR0_N = omega_R0N_N.cross(omega_RR0_N);
-    Eigen::Vector3d domega_RN_N = domega_RR0_N + domega_R0N_N;
+    const Eigen::Vector3d domega_RR0_N = omega_R0N_N.cross(omega_RR0_N);
+    const Eigen::Vector3d domega_RN_N = domega_RR0_N + domega_R0N_N;
 
     AttRefMsgPayload attRefOut{};
 

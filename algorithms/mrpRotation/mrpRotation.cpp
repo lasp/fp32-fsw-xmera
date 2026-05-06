@@ -5,7 +5,7 @@
  when the optional desiredAttInMsg is connected, and reset the embedded algorithm.
  @param callTime The clock time at which the function was called (nanoseconds).
  */
-void MrpRotation::reset(uint64_t callTime) {
+void MrpRotation::reset(const uint64_t callTime) {
     // check if the required input messages are included
     if (!this->attRefInMsg.isLinked()) {
         throw std::invalid_argument("mrpRotation.attRefInMsg wasn't connected.");
@@ -23,8 +23,8 @@ void MrpRotation::reset(uint64_t callTime) {
  top of it, producing the output guidance reference message.
  @param callTime The clock time at which the function was called (nanoseconds).
  */
-void MrpRotation::updateState(uint64_t callTime) {
-    AttRefMsgPayload inputRef = this->attRefInMsg();
+void MrpRotation::updateState(const uint64_t callTime) {
+    const AttRefMsgPayload inputRef = this->attRefInMsg();
     AttStateMsgPayload attStates{};
 
     if (this->algorithm.isDynamicReferenceEnabled()) {
