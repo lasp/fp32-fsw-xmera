@@ -1,13 +1,16 @@
 %module cssCommF32
 %{
    #include "cssComm.h"
-   typedef std::array<double, kMaxNumChebyPolys> DoubleArray10;
 %}
 
 %include <architecture/_GeneralModuleFiles/sys_model.i>
 %include <std_array.i>
 
-%template(DoubleArray10) std::array<double, 10>;
+// Use the same macro symbols as the C++ signatures in cssCommAlgorithm.h
+// so SWIG's type registry matches the function-arg types to these
+// template instantiations (mirrors ephemeridesRecenterF32.i pattern).
+%template(DoubleArrayCss) std::array<double, MAX_NUM_CSS_SENSORS>;
+%template(DoubleArrayCheby) std::array<double, MAX_NUM_CHEBY_POLYS>;
 
 %include <attribute.i>
 %attribute(CssComm, uint32_t, numSensors, getNumSensors, setNumSensors)
