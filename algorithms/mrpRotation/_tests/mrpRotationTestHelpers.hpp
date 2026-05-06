@@ -9,7 +9,9 @@
 #include "utilities/timeConstants.h"
 #include <gtest/gtest.h>
 #include <Eigen/Core>
+#include <algorithm>
 #include <cstdint>
+#include <vector>
 
 // Reference implementation that independently computes one update step of the MRP rotation
 // algorithm. Mirrors the production algorithm's formulation:
@@ -113,6 +115,75 @@ inline void regressionTestMrpRotation(const Eigen::Vector3f& initialSigmaRR0,
 
         callTime += step_ns;
     }
+}
+
+// ---------------------------------------------------------------------------
+// Property test helpers
+// ---------------------------------------------------------------------------
+
+// Output reference is finite for any finite inputs and finite configuration.
+inline void propertyOutputIsFinite(std::vector<float> sigmaInit, std::vector<float> omegaInit) {
+    const Eigen::Vector3f initialSigmaRR0(sigmaInit[0], sigmaInit[1], sigmaInit[2]);
+    const Eigen::Vector3f omegaRR0R(omegaInit[0], omegaInit[1], omegaInit[2]);
+
+    const auto config = MrpRotationConfig::create(initialSigmaRR0, omegaRR0R, false);
+    MrpRotationAlgorithm alg{config};
+    alg.reset();
+
+    const auto inputRef =
+        buildAttRef(Eigen::Vector3f{0.1F, 0.2F, 0.3F}, Eigen::Vector3f{0.05F, 0.0F, 0.0F}, Eigen::Vector3f::Zero());
+    const AttStateMsgF32Payload emptyState{};
+
+    AttRefMsgF32Payload out0{};
+    EXPECT_NO_THROW(out0 = alg.update(0, inputRef, emptyState));
+    AttRefMsgF32Payload out1{};
+    EXPECT_NO_THROW(out1 = alg.update(static_cast<uint64_t>(0.5 * kSec2Nano), inputRef, emptyState));
+
+    for (int i = 0; i < 3; ++i) {
+        EXPECT_TRUE(std::isfinite(out0.sigma_RN[i]));
+        EXPECT_TRUE(std::isfinite(out0.omega_RN_N[i]));
+        EXPECT_TRUE(std::isfinite(out0.domega_RN_N[i]));
+        EXPECT_TRUE(std::isfinite(out1.sigma_RN[i]));
+        EXPECT_TRUE(std::isfinite(out1.omega_RN_N[i]));
+        EXPECT_TRUE(std::isfinite(out1.domega_RN_N[i]));
+    }
+}
+
+// On the first update after reset, the integrated dt is 0, so sigma_RN equals the
+// composition of sigma_R0N and the configured initial sigma_RR0 (after mrpSwitch).
+inline void propertyFirstStepNoIntegration(std::vector<float> sigmaInit, std::vector<float> sigmaR0N_in) {
+    const Eigen::Vector3f initialSigmaRR0(sigmaInit[0], sigmaInit[1], sigmaInit[2]);
+    const Eigen::Vector3f sigma_R0N(sigmaR0N_in[0], sigmaR0N_in[1], sigmaR0N_in[2]);
+    const Eigen::Vector3f omegaRR0R{0.5F, -0.3F, 0.1F};
+
+    const auto config = MrpRotationConfig::create(initialSigmaRR0, omegaRR0R, false);
+    MrpRotationAlgorithm alg{config};
+    alg.reset();
+
+    const auto inputRef = buildAttRef(sigma_R0N, Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero());
+    const AttStateMsgF32Payload emptyState{};
+
+    const AttRefMsgF32Payload out = alg.update(0, inputRef, emptyState);
+
+    // Mirror what the algorithm does: it always runs mrpSwitch on its internal sigma_RR0 before
+    // composing with sigma_R0N, even when dt = 0. Without applying the same here, fuzz inputs
+    // with |sigma| > 1 land on opposite branches of the MRP shadow ambiguity.
+    const Eigen::Vector3f initialSwitched = mrpSwitch(initialSigmaRR0, 1.0F);
+    const Eigen::Matrix3f dcm_RR0 = mrpToDcm(initialSwitched);
+    const Eigen::Matrix3f dcm_R0N = mrpToDcm(sigma_R0N);
+    const Eigen::Vector3f expected = dcmToMrp(Eigen::Matrix3f(dcm_RR0 * dcm_R0N));
+
+    // dcmToMrp can pick either MRP shadow-set representative when the result is near the unit
+    // boundary; both encode the same physical rotation. Accept either.
+    const Eigen::Vector3f outVec(out.sigma_RN[0], out.sigma_RN[1], out.sigma_RN[2]);
+    const float expectedNormSq = expected.squaredNorm();
+    const Eigen::Vector3f expectedShadow =
+        (expectedNormSq > 1e-12F) ? Eigen::Vector3f(-expected / expectedNormSq) : expected;
+
+    constexpr float tol = 1e-5F;
+    const float errNominal = (outVec - expected).norm();
+    const float errShadow = (outVec - expectedShadow).norm();
+    EXPECT_LT(std::min(errNominal, errShadow), tol);
 }
 
 #endif  // TEST_MRPROTATION_H
