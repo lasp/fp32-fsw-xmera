@@ -65,8 +65,7 @@ def test_stepper_motor_controller_nominal(show_plots, step_angle, theta_init_deg
     motor_controller.setMotorAngleRange(0.0, 2 * math.pi)
     motor_controller.controlFrequency = 1.0 / process_rate_sec
     motor_controller.motorFrequency = 100.0
-    motor_controller.currentPositionTolerance = 0
-    motor_controller.desiredPositionTolerance = 0
+    motor_controller.minStepCommand = 1
     motor_controller.initialAngle = theta_init_deg * macros.D2R
     sim.AddModelToTask("unitTask", motor_controller)
 
@@ -124,8 +123,7 @@ def test_stepper_motor_controller_shortest_path(show_plots, theta_init_deg, thet
     motor_controller.setMotorAngleRange(0.0, 2 * math.pi)
     motor_controller.controlFrequency = 1.0 / process_rate_sec
     motor_controller.motorFrequency = 100.0
-    motor_controller.currentPositionTolerance = 0
-    motor_controller.desiredPositionTolerance = 0
+    motor_controller.minStepCommand = 1
     motor_controller.initialAngle = theta_init_deg * macros.D2R
     sim.AddModelToTask("unitTask", motor_controller)
 
@@ -153,12 +151,12 @@ def test_stepper_motor_controller_shortest_path(show_plots, theta_init_deg, thet
     np.testing.assert_array_less(np.abs(log.stepsCommanded[0]), steps_per_rev // 2 + 1)
 
 
-def test_stepper_motor_controller_no_move_within_tolerance(show_plots):
+def test_stepper_motor_controller_below_min_step_command(show_plots):
     r"""
     **Validation Test Description**
 
-    Verify that no move command is issued when the reference angle is within the current-position tolerance
-    of the current motor position.
+    Verify that no move command is issued when the step delta between the reference angle and
+    the current motor position is below ``minStepCommand``.
     """
     step_angle = math.radians(1.0)  # 1 deg/step (= 360 steps/rev)
     steps_per_rev = round(2 * math.pi / step_angle)
@@ -171,12 +169,11 @@ def test_stepper_motor_controller_no_move_within_tolerance(show_plots):
     motor_controller.setMotorAngleRange(0.0, 2 * math.pi)
     motor_controller.controlFrequency = 1.0 / process_rate_sec
     motor_controller.motorFrequency = 100.0
-    motor_controller.currentPositionTolerance = 5
-    motor_controller.desiredPositionTolerance = 0
+    motor_controller.minStepCommand = 5
     motor_controller.initialAngle = 0.0
     sim.AddModelToTask("unitTask", motor_controller)
 
-    # Reference is 3 deg from init = 3 steps, within tolerance of 5
+    # Reference is 3 deg from init = 3 steps, below minStepCommand of 5
     ref_msg_data = messaging.HingedRigidBodyMsgF32Payload()
     ref_msg_data.theta = 3.0 * macros.D2R
     ref_msg = messaging.HingedRigidBodyMsgF32().write(ref_msg_data)
@@ -217,8 +214,7 @@ def test_stepper_motor_controller_interrupt(show_plots):
     motor_controller.setMotorAngleRange(0.0, 2 * math.pi)
     motor_controller.controlFrequency = control_freq
     motor_controller.motorFrequency = motor_freq
-    motor_controller.currentPositionTolerance = 0
-    motor_controller.desiredPositionTolerance = 0
+    motor_controller.minStepCommand = 1
     motor_controller.settleCountMax = settle_ticks
     motor_controller.initialAngle = 0.0
     sim.AddModelToTask("unitTask", motor_controller)
@@ -285,8 +281,7 @@ def test_stepper_motor_controller_fractional_step_accumulation(show_plots):
     motor_controller.setMotorAngleRange(0.0, 2 * math.pi)
     motor_controller.controlFrequency = control_freq
     motor_controller.motorFrequency = motor_freq
-    motor_controller.currentPositionTolerance = 0
-    motor_controller.desiredPositionTolerance = 0
+    motor_controller.minStepCommand = 1
     motor_controller.settleCountMax = 0
     motor_controller.initialAngle = 0.0
     sim.AddModelToTask("unitTask", motor_controller)
@@ -341,8 +336,7 @@ def test_stepper_motor_controller_out_of_range(show_plots, ref_deg):
     motor_controller.setMotorAngleRange(math.radians(45.0), math.radians(90.0))
     motor_controller.controlFrequency = 1.0 / process_rate_sec
     motor_controller.motorFrequency = 100.0
-    motor_controller.currentPositionTolerance = 0
-    motor_controller.desiredPositionTolerance = 0
+    motor_controller.minStepCommand = 1
     motor_controller.initialAngle = math.radians(60.0)  # in-range start
     sim.AddModelToTask("unitTask", motor_controller)
 
@@ -364,7 +358,7 @@ def test_stepper_motor_controller_out_of_range(show_plots, ref_deg):
 if __name__ == "__main__":
     test_stepper_motor_controller_nominal(False, 360, 0.0, 10.0)
     test_stepper_motor_controller_shortest_path(False, -162.0, 162.0, -1)
-    test_stepper_motor_controller_no_move_within_tolerance(False)
+    test_stepper_motor_controller_below_min_step_command(False)
     test_stepper_motor_controller_interrupt(False)
     test_stepper_motor_controller_fractional_step_accumulation(False)
     test_stepper_motor_controller_out_of_range(False, 200.0)

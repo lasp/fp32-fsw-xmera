@@ -70,18 +70,14 @@ adapter re-exposes all of these parameters through same-named setters/getters th
       - 10
       - Number of control ticks to remain in ``SETTLING`` before returning to ``IDLE``
       - Non-negative by type (uint32_t)
-    * - currentPositionTolerance
+    * - minStepCommand
       - uint32_t
       - [steps]
       - 1
-      - Tolerance between the current and target position used for the ``IDLE`` move trigger
-      - Non-negative by type (uint32_t)
-    * - desiredPositionTolerance
-      - uint32_t
-      - [steps]
-      - 0
-      - Tolerance between the commanded and desired position used in ``MOVING`` to detect a changed reference
-      - Non-negative by type (uint32_t)
+      - Minimum step delta magnitude that triggers a ``MOVE`` from ``IDLE`` or a
+        ``STOP``-and-replan from ``MOVING``. Step deltas with magnitude below this value are
+        treated as too small to act on.
+      - Must be greater than 0 (checked in ``setMinStepCommand``)
 
 Module Parameters
 -------------------------------
@@ -215,20 +211,20 @@ configured range:
 State Machine
 ^^^^^^^^^^^^^
 Let :math:`n_c` be the caller-supplied ``currentPosition``, :math:`n_d` the desired position (derived from the reference
-angle), and :math:`n_m` the position most recently commanded (stored internally). Let :math:`\tau_c` be the
-``currentPositionTolerance`` and :math:`\tau_d` the ``desiredPositionTolerance``.
+angle), and :math:`n_m` the position most recently commanded (stored internally). Let :math:`\tau` be the
+``minStepCommand``.
 
 - ``OFF`` — no transitions; the algorithm stays in this state until the caller reassigns it (used to hold the motor
   quiescent).
 
 - ``IDLE`` — the motor is quiescent. If
-  :math:`\left| \text{stepDelta}(n_d - n_c) \right| > \tau_c`,
+  :math:`\left| \text{stepDelta}(n_d - n_c) \right| \ge \tau`,
   the algorithm emits a ``MOVE`` with ``stepsToMove = stepDelta(n_d - n_c)``, stores :math:`n_m := n_d`, and transitions to
   ``MOVING``.
 
 - ``MOVING`` — the motor is executing a commanded move. Two conditions are checked each tick, in priority order:
 
-  1. *Reference changed.* If :math:`\left| \text{stepDelta}(n_m - n_d) \right| > \tau_d`, the algorithm emits a ``STOP``
+  1. *Reference changed.* If :math:`\left| \text{stepDelta}(n_m - n_d) \right| \ge \tau`, the algorithm emits a ``STOP``
      command and transitions to ``STOPPING``. The caller is expected to halt the motor at its current position; the
      controller will re-plan from that position once it returns to ``IDLE``.
   2. *Move complete.* Otherwise, if the caller reports ``isMotorMoving == false``, the algorithm transitions directly
@@ -241,14 +237,11 @@ angle), and :math:`n_m` the position most recently commanded (stored internally)
 - ``SETTLING`` — a counter runs for up to ``settleCountMax`` ticks. Once the counter reaches the limit the algorithm
   returns to ``IDLE`` and is ready to issue the next move.
 
-The two tolerances are deliberately separated:
-
-- ``currentPositionTolerance`` governs whether the caller's physical position is close enough to a desired target to
-  warrant issuing a new ``MOVE`` from ``IDLE`` — tuned to the motor's step-level resolution and positioning
-  repeatability. (Move completion in ``MOVING`` is detected via the caller's ``isMotorMoving`` signal rather than this
-  tolerance.)
-- ``desiredPositionTolerance`` governs whether a new reference is different enough from the currently-commanded target
-  to be worth interrupting the in-progress move — tuned to avoid interrupting on noise in the reference signal.
+``minStepCommand`` is the smallest step delta magnitude the controller will act on. From ``IDLE`` it gates whether a
+new ``MOVE`` is issued (small position errors are left alone — tuned to the motor's step-level resolution and
+positioning repeatability). From ``MOVING`` the same threshold gates whether a changed reference is large enough to
+interrupt the in-progress move (tuned to avoid interrupting on noise in the reference signal). Move completion in
+``MOVING`` is detected via the caller's ``isMotorMoving`` signal rather than this threshold.
 
 Motor-Motion Simulation (Xmera Adapter)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -298,14 +291,13 @@ Typical usage in Python is::
     module.controlFrequency = 10.0                   # [Hz]
     module.motorFrequency = 100.0                    # [Hz]
     module.settleCountMax = 2
-    module.currentPositionTolerance = 0
-    module.desiredPositionTolerance = 0
+    module.minStepCommand = 1
 
     module.motorRefAngleInMsg.subscribeTo(ref_msg)
 
 The commanded step delta is available on ``motorStepCommandOutMsg`` each time a new ``MOVE`` is issued.
 
-``currentPositionTolerance`` controls how close an incoming reference must be to the current position before the
-algorithm declines to issue a new move. (Move completion in ``MOVING`` is detected via the caller's ``isMotorMoving``
-signal, not via this tolerance.) ``desiredPositionTolerance`` separately controls how large a change in the reference
-angle must be, relative to the currently-commanded target, before the algorithm interrupts an in-progress move.
+``minStepCommand`` is the smallest step delta magnitude the controller will command. From ``IDLE`` it gates whether a
+new ``MOVE`` is issued for an incoming reference. From ``MOVING`` it separately gates whether a changed reference is
+large enough — relative to the currently-commanded target — to interrupt the in-progress move. (Move completion in
+``MOVING`` is detected via the caller's ``isMotorMoving`` signal, not via this threshold.)

@@ -33,10 +33,8 @@ class StepperMotorController : public SysModel {
     float getMotorFrequency() const;
     void setSettleCountMax(uint32_t settleCountMaxIn);
     uint32_t getSettleCountMax() const;
-    void setCurrentPositionTolerance(uint32_t currentPositionToleranceIn);
-    uint32_t getCurrentPositionTolerance() const;
-    void setDesiredPositionTolerance(uint32_t desiredPositionToleranceIn);
-    uint32_t getDesiredPositionTolerance() const;
+    void setMinStepCommand(uint32_t minStepCommandIn);
+    uint32_t getMinStepCommand() const;
 
     ReadFunctor<HingedRigidBodyMsgF32Payload> motorRefAngleInMsg;  //!< Input msg for the motor reference angle
     Message<MotorStepCommandMsgPayload> motorStepCommandOutMsg;    //!< Output msg for commanded motor steps

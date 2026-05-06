@@ -17,8 +17,7 @@
 %attribute(StepperMotorController, float, controlFrequency, getControlFrequency, setControlFrequency)
 %attribute(StepperMotorController, float, motorFrequency, getMotorFrequency, setMotorFrequency)
 %attribute(StepperMotorController, uint32_t, settleCountMax, getSettleCountMax, setSettleCountMax)
-%attribute(StepperMotorController, uint32_t, currentPositionTolerance, getCurrentPositionTolerance, setCurrentPositionTolerance)
-%attribute(StepperMotorController, uint32_t, desiredPositionTolerance, getDesiredPositionTolerance, setDesiredPositionTolerance)
+%attribute(StepperMotorController, uint32_t, minStepCommand, getMinStepCommand, setMinStepCommand)
 
 %include "stepperMotorControllerTypes.h"
 %include "stepperMotorController.h"

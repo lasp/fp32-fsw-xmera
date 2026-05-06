@@ -14,8 +14,7 @@ TEST(StepperMotorControllerTest, RegressionNominalMove) {
                             10.0F,                                                  // controlFrequency
                             10.0F,                                                  // motorFrequency
                             2,                                                      // settleCountMax
-                            0,                                                      // currentPositionTolerance
-                            0);                                                     // desiredPositionTolerance
+                            1);                                                     // minStepCommand
 }
 
 TEST(StepperMotorControllerTest, RegressionNonZeroInit) {
@@ -27,8 +26,7 @@ TEST(StepperMotorControllerTest, RegressionNonZeroInit) {
                             10.0F,
                             10.0F,
                             2,
-                            0,
-                            0);
+                            1);
 }
 
 TEST(StepperMotorControllerTest, RegressionShortestPath) {
@@ -40,8 +38,7 @@ TEST(StepperMotorControllerTest, RegressionShortestPath) {
                             10.0F,
                             10.0F,
                             0,
-                            0,
-                            0);
+                            1);
 }
 
 TEST(StepperMotorControllerTest, RegressionFractionalFrequency) {
@@ -53,8 +50,7 @@ TEST(StepperMotorControllerTest, RegressionFractionalFrequency) {
                             10.0F,
                             15.0F,  // 1.5 steps/tick
                             0,
-                            0,
-                            0);
+                            1);
 }
 
 TEST(StepperMotorControllerTest, RegressionLargeMove) {
@@ -66,8 +62,7 @@ TEST(StepperMotorControllerTest, RegressionLargeMove) {
                             10.0F,
                             50.0F,
                             5,
-                            1,
-                            0);
+                            2);
 }
 
 // ---------------------------------------------------------------------------
@@ -93,17 +88,12 @@ TEST(StepperMotorControllerTest, SetupTest) {
     EXPECT_NO_THROW(alg.setSettleCountMax(10U));
     EXPECT_EQ(alg.getSettleCountMax(), 10U);
 
-    // currentPositionTolerance: round-trip
-    EXPECT_NO_THROW(alg.setCurrentPositionTolerance(0U));
-    EXPECT_EQ(alg.getCurrentPositionTolerance(), 0U);
-    EXPECT_NO_THROW(alg.setCurrentPositionTolerance(5U));
-    EXPECT_EQ(alg.getCurrentPositionTolerance(), 5U);
-
-    // desiredPositionTolerance: round-trip
-    EXPECT_NO_THROW(alg.setDesiredPositionTolerance(0U));
-    EXPECT_EQ(alg.getDesiredPositionTolerance(), 0U);
-    EXPECT_NO_THROW(alg.setDesiredPositionTolerance(3U));
-    EXPECT_EQ(alg.getDesiredPositionTolerance(), 3U);
+    // minStepCommand: reject 0, round-trip positive values
+    EXPECT_THROW(alg.setMinStepCommand(0U), fsw::invalid_argument);
+    EXPECT_NO_THROW(alg.setMinStepCommand(1U));
+    EXPECT_EQ(alg.getMinStepCommand(), 1U);
+    EXPECT_NO_THROW(alg.setMinStepCommand(5U));
+    EXPECT_EQ(alg.getMinStepCommand(), 5U);
 
     // motor angle range: reject min < -2pi, max > 2pi, min >= max
     EXPECT_THROW(alg.setMotorAngleRange(-twoPi - 0.1F, 1.0F), fsw::invalid_argument);
@@ -122,7 +112,7 @@ TEST(StepperMotorControllerTest, SetupTest) {
 TEST(StepperMotorControllerTest, ResetBehavior) {
     StepperMotorControllerAlgorithm alg{};
     alg.setStepAngle(2.0F * std::numbers::pi_v<float> / 360.0F);
-    alg.setCurrentPositionTolerance(0);
+    alg.setMinStepCommand(1);
     alg.setSettleCountMax(0);
     alg.reset();
 
@@ -156,34 +146,33 @@ TEST(StepperMotorControllerTest, ResetBehavior) {
 
 TEST(StepperMotorControllerTest, OutputCommandTypeIsValid) {
     constexpr float twoPi = 2.0F * std::numbers::pi_v<float>;
-    propertyOutputCommandTypeIsValid(
-        std::numbers::pi_v<float> / 180.0F, 0.0F, twoPi, 0.5F, 0.0F, 10.0F, 10.0F, 2, 0, 0);
+    propertyOutputCommandTypeIsValid(std::numbers::pi_v<float> / 180.0F, 0.0F, twoPi, 0.5F, 0.0F, 10.0F, 10.0F, 2, 1);
 }
 
 TEST(StepperMotorControllerTest, OutputCommandTypeIsValidLargeAngle) {
     constexpr float twoPi = 2.0F * std::numbers::pi_v<float>;
     propertyOutputCommandTypeIsValid(
-        2.0F * std::numbers::pi_v<float> / 200.0F, 0.0F, twoPi, 1.0F, -0.5F, 5.0F, 15.0F, 5, 1, 0);
+        2.0F * std::numbers::pi_v<float> / 200.0F, 0.0F, twoPi, 1.0F, -0.5F, 5.0F, 15.0F, 5, 2);
 }
 
 TEST(StepperMotorControllerTest, MoveStepsWithinHalfRevolution) {
     constexpr float twoPi = 2.0F * std::numbers::pi_v<float>;
-    propertyMoveStepsWithinHalfRevolution(std::numbers::pi_v<float> / 180.0F, 0.0F, twoPi, 0.5F, 0.0F, 0);
+    propertyMoveStepsWithinHalfRevolution(std::numbers::pi_v<float> / 180.0F, 0.0F, twoPi, 0.5F, 0.0F, 1);
 }
 
 TEST(StepperMotorControllerTest, MoveStepsWithinHalfRevolutionLargeAngle) {
     constexpr float twoPi = 2.0F * std::numbers::pi_v<float>;
-    propertyMoveStepsWithinHalfRevolution(2.0F * std::numbers::pi_v<float> / 200.0F, 0.0F, twoPi, 1.0F, -0.5F, 1);
+    propertyMoveStepsWithinHalfRevolution(2.0F * std::numbers::pi_v<float> / 200.0F, 0.0F, twoPi, 1.0F, -0.5F, 2);
 }
 
 TEST(StepperMotorControllerTest, MotorReachesTarget) {
     constexpr float twoPi = 2.0F * std::numbers::pi_v<float>;
-    propertyMotorReachesTarget(std::numbers::pi_v<float> / 180.0F, 0.0F, twoPi, 0.5F, 0.0F, 10.0F, 10.0F, 2, 0, 0);
+    propertyMotorReachesTarget(std::numbers::pi_v<float> / 180.0F, 0.0F, twoPi, 0.5F, 0.0F, 10.0F, 10.0F, 2, 1);
 }
 
 TEST(StepperMotorControllerTest, MotorReachesTargetFractionalFreq) {
     constexpr float twoPi = 2.0F * std::numbers::pi_v<float>;
-    propertyMotorReachesTarget(std::numbers::pi_v<float> / 180.0F, 0.0F, twoPi, 0.5F, 0.0F, 10.0F, 15.0F, 0, 0, 0);
+    propertyMotorReachesTarget(std::numbers::pi_v<float> / 180.0F, 0.0F, twoPi, 0.5F, 0.0F, 10.0F, 15.0F, 0, 1);
 }
 
 // ---------------------------------------------------------------------------
@@ -193,7 +182,7 @@ TEST(StepperMotorControllerTest, MotorReachesTargetFractionalFreq) {
 TEST(StepperMotorControllerTest, ZeroStepMove) {
     StepperMotorControllerAlgorithm alg{};
     alg.setStepAngle(2.0F * std::numbers::pi_v<float> / 360.0F);
-    alg.setCurrentPositionTolerance(0);
+    alg.setMinStepCommand(1);
     alg.reset();
 
     auto out = alg.update(0, 0.0F, false);
@@ -201,25 +190,25 @@ TEST(StepperMotorControllerTest, ZeroStepMove) {
     EXPECT_EQ(out.stepsToMove, 0);
 }
 
-TEST(StepperMotorControllerTest, ExactlyAtTolerance) {
+TEST(StepperMotorControllerTest, BelowMinStepCommand) {
     StepperMotorControllerAlgorithm alg{};
     alg.setStepAngle(2.0F * std::numbers::pi_v<float> / 360.0F);
-    alg.setCurrentPositionTolerance(5);
+    alg.setMinStepCommand(6);
     alg.reset();
 
-    // 5 deg = 5 steps, tolerance = 5, abs(5) is NOT > 5 → no MOVE
+    // 5 deg = 5 steps, minStepCommand = 6, abs(5) is NOT >= 6 → no MOVE
     constexpr float fiveDeg = 5.0F * static_cast<float>(std::numbers::pi) / 180.0F;
     auto out = alg.update(0, fiveDeg, false);
     EXPECT_EQ(out.commandType, StepperMotorCommandType::NONE);
 }
 
-TEST(StepperMotorControllerTest, OneStepOverTolerance) {
+TEST(StepperMotorControllerTest, AtMinStepCommand) {
     StepperMotorControllerAlgorithm alg{};
     alg.setStepAngle(2.0F * std::numbers::pi_v<float> / 360.0F);
-    alg.setCurrentPositionTolerance(5);
+    alg.setMinStepCommand(6);
     alg.reset();
 
-    // 6 deg = 6 steps, tolerance = 5, abs(6) > 5 → MOVE
+    // 6 deg = 6 steps, minStepCommand = 6, abs(6) >= 6 → MOVE
     constexpr float sixDeg = 6.0F * static_cast<float>(std::numbers::pi) / 180.0F;
     auto out = alg.update(0, sixDeg, false);
     EXPECT_EQ(out.commandType, StepperMotorCommandType::MOVE);
@@ -229,7 +218,7 @@ TEST(StepperMotorControllerTest, OneStepOverTolerance) {
 TEST(StepperMotorControllerTest, WrapAtExactlyHalfRevolution) {
     StepperMotorControllerAlgorithm alg{};
     alg.setStepAngle(2.0F * std::numbers::pi_v<float> / 360.0F);
-    alg.setCurrentPositionTolerance(0);
+    alg.setMinStepCommand(1);
     alg.reset();
 
     // 180 deg = 180 steps = exactly half revolution
@@ -243,7 +232,7 @@ TEST(StepperMotorControllerTest, WrapAtExactlyHalfRevolution) {
 TEST(StepperMotorControllerTest, NegativeWrap) {
     StepperMotorControllerAlgorithm alg{};
     alg.setStepAngle(2.0F * std::numbers::pi_v<float> / 360.0F);
-    alg.setCurrentPositionTolerance(0);
+    alg.setMinStepCommand(1);
     alg.reset();
 
     // 181 deg: naive steps = 181, wrapDelta(181, 360) = 181 > 180 → 181 - 360 = -179
@@ -257,8 +246,7 @@ TEST(StepperMotorControllerTest, NegativeWrap) {
 TEST(StepperMotorControllerTest, DesiredChangeMidMove) {
     StepperMotorControllerAlgorithm alg{};
     alg.setStepAngle(2.0F * std::numbers::pi_v<float> / 360.0F);
-    alg.setCurrentPositionTolerance(0);
-    alg.setDesiredPositionTolerance(0);
+    alg.setMinStepCommand(1);
     alg.setSettleCountMax(0);
     alg.reset();
 
@@ -289,11 +277,10 @@ TEST(StepperMotorControllerTest, DesiredChangeMidMove) {
     EXPECT_EQ(out.commandType, StepperMotorCommandType::STOP);
 }
 
-TEST(StepperMotorControllerTest, DesiredChangeWithinDesiredTolerance) {
+TEST(StepperMotorControllerTest, DesiredChangeBelowMinStepCommand) {
     StepperMotorControllerAlgorithm alg{};
     alg.setStepAngle(2.0F * std::numbers::pi_v<float> / 360.0F);
-    alg.setCurrentPositionTolerance(0);
-    alg.setDesiredPositionTolerance(3);  // allow small changes without interrupting
+    alg.setMinStepCommand(4);  // allow small changes (< 4 steps) without interrupting
     alg.setSettleCountMax(0);
     alg.reset();
 
@@ -312,7 +299,7 @@ TEST(StepperMotorControllerTest, DesiredChangeWithinDesiredTolerance) {
     sim.applyOutput(out);
     sim.advance();
 
-    // Tick 2: tiny change in reference (22 vs 20), within desiredPositionTolerance → keep going
+    // Tick 2: tiny change in reference (22 vs 20), |delta|=2 < minStepCommand=4 → keep going
     out = alg.update(sim.currentPosition, twentyTwoDeg, sim.isMoving());
     EXPECT_EQ(out.commandType, StepperMotorCommandType::NONE);
 }
@@ -320,7 +307,7 @@ TEST(StepperMotorControllerTest, DesiredChangeWithinDesiredTolerance) {
 TEST(StepperMotorControllerTest, StepAccumulatorFractionalRatio) {
     StepperMotorControllerAlgorithm alg{};
     alg.setStepAngle(2.0F * std::numbers::pi_v<float> / 360.0F);
-    alg.setCurrentPositionTolerance(0);
+    alg.setMinStepCommand(1);
     alg.setSettleCountMax(0);
     alg.reset();
 
@@ -366,7 +353,7 @@ TEST(StepperMotorControllerTest, StepAccumulatorFractionalRatio) {
 TEST(StepperMotorControllerTest, SettleCountZero) {
     StepperMotorControllerAlgorithm alg{};
     alg.setStepAngle(2.0F * std::numbers::pi_v<float> / 360.0F);
-    alg.setCurrentPositionTolerance(0);
+    alg.setMinStepCommand(1);
     alg.setSettleCountMax(0);
     alg.reset();
 
@@ -408,7 +395,7 @@ TEST(StepperMotorControllerTest, RangeRejectsOutOfBoundsReference) {
     StepperMotorControllerAlgorithm alg{};
     alg.setStepAngle(std::numbers::pi_v<float> / 180.0F);
     alg.setMotorAngleRange(pi / 4.0F, pi / 2.0F);  // [45 deg, 90 deg]
-    alg.setCurrentPositionTolerance(0);
+    alg.setMinStepCommand(1);
     alg.reset();
 
     // Reference below minAngle: 30 deg
@@ -434,8 +421,7 @@ TEST(StepperMotorControllerTest, RangeIgnoresOutOfBoundsRefDuringMove) {
     StepperMotorControllerAlgorithm alg{};
     alg.setStepAngle(std::numbers::pi_v<float> / 180.0F);
     alg.setMotorAngleRange(pi / 4.0F, pi / 2.0F);  // [45 deg, 90 deg]
-    alg.setCurrentPositionTolerance(0);
-    alg.setDesiredPositionTolerance(0);
+    alg.setMinStepCommand(1);
     alg.setSettleCountMax(0);
     alg.reset();
 
@@ -463,7 +449,7 @@ TEST(StepperMotorControllerTest, RangeUsesLinearDeltaForPartialRange) {
     StepperMotorControllerAlgorithm alg{};
     alg.setStepAngle(std::numbers::pi_v<float> / 180.0F);
     alg.setMotorAngleRange(pi / 6.0F, 11.0F * pi / 6.0F);  // [30 deg, 330 deg], span 300 deg
-    alg.setCurrentPositionTolerance(0);
+    alg.setMinStepCommand(1);
     alg.reset();
 
     // Move from 40 deg to 320 deg. Linear delta = +280 (forward).

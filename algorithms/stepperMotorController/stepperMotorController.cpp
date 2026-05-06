@@ -110,18 +110,8 @@ void StepperMotorController::setSettleCountMax(const uint32_t settleCountMaxIn) 
 
 uint32_t StepperMotorController::getSettleCountMax() const { return this->algorithm.getSettleCountMax(); }
 
-void StepperMotorController::setCurrentPositionTolerance(const uint32_t currentPositionToleranceIn) {
-    this->algorithm.setCurrentPositionTolerance(currentPositionToleranceIn);
+void StepperMotorController::setMinStepCommand(const uint32_t minStepCommandIn) {
+    this->algorithm.setMinStepCommand(minStepCommandIn);
 }
 
-uint32_t StepperMotorController::getCurrentPositionTolerance() const {
-    return this->algorithm.getCurrentPositionTolerance();
-}
-
-void StepperMotorController::setDesiredPositionTolerance(const uint32_t desiredPositionToleranceIn) {
-    this->algorithm.setDesiredPositionTolerance(desiredPositionToleranceIn);
-}
-
-uint32_t StepperMotorController::getDesiredPositionTolerance() const {
-    return this->algorithm.getDesiredPositionTolerance();
-}
+uint32_t StepperMotorController::getMinStepCommand() const { return this->algorithm.getMinStepCommand(); }

@@ -28,10 +28,8 @@ class StepperMotorControllerAlgorithm {
     std::array<float, 2> getMotorAngleRange() const;
     void setSettleCountMax(uint32_t settleCountMaxIn);
     uint32_t getSettleCountMax() const;
-    void setCurrentPositionTolerance(uint32_t currentPositionToleranceIn);
-    uint32_t getCurrentPositionTolerance() const;
-    void setDesiredPositionTolerance(uint32_t desiredPositionToleranceIn);
-    uint32_t getDesiredPositionTolerance() const;
+    void setMinStepCommand(uint32_t minStepCommandIn);
+    uint32_t getMinStepCommand() const;
 
     int angleToSteps(float angle) const;
 
@@ -52,10 +50,8 @@ class StepperMotorControllerAlgorithm {
     float maxAngle{2.0F * std::numbers::pi_v<float>};  //!< [rad] Upper bound of motor travel range
     bool isFullCircle{true};      //!< Derived: (maxAngle - minAngle) within eps of 2*pi; enables wrap-around
     uint32_t settleCountMax{10};  //!< [ticks] Settling duration after stop
-    uint32_t currentPositionTolerance{
-        1};  //!< [steps] Tolerance between current and target position (IDLE move trigger)
-    uint32_t desiredPositionTolerance{
-        0};  //!< [steps] Tolerance between commanded and desired position (MOVING interrupt check)
+    uint32_t minStepCommand{1};   //!< [steps] Minimum step delta magnitude that triggers a MOVE (from IDLE)
+                                  //!< or a STOP-and-replan (from MOVING); must be > 0
 
     // State
     StepperMotorState state{StepperMotorState::IDLE};
