@@ -37,7 +37,7 @@ std::array<double, kMaxNumCssSensors> CssCommAlgorithm::update(
 */
 void CssCommAlgorithm::setNumSensors(const uint32_t numberOfSensors) {
     if (numberOfSensors > kMaxNumCssSensors) {
-        FS_THROW_INVALID_ARGUMENT("The configured number of CSS sensors exceeds the maximum");
+        FSW_THROW_INVALID_ARGUMENT("The configured number of CSS sensors exceeds the maximum");
     }
     if (numberOfSensors <= 0) {
         FSW_THROW_INVALID_ARGUMENT("The number of configures CSS sensors must be positive.");
