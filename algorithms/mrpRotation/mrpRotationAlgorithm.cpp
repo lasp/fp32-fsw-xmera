@@ -109,9 +109,13 @@ void MrpRotationAlgorithm::computeTimeStep(const uint64_t callTime) {
  @param domega_R0N_N Input reference frame angular acceleration in inertial-frame components [rad/s^2].
  @return AttRefMsgF32Payload The output reference frame (sigma_RN, omega_RN_N, domega_RN_N).
  */
-AttRefMsgF32Payload MrpRotationAlgorithm::computeMRPRotationReference(const Eigen::Vector3f sigma_R0N,
-                                                                      const Eigen::Vector3f omega_R0N_N,
-                                                                      const Eigen::Vector3f domega_R0N_N) {
+// NOLINTBEGIN(bugprone-easily-swappable-parameters)
+// sigma_R0N (attitude MRP), omega_R0N_N (angular velocity), and domega_R0N_N (angular acceleration) are physically
+// distinct quantities with documented names; reordering would be caught by reviewers and tests.
+AttRefMsgF32Payload MrpRotationAlgorithm::computeMRPRotationReference(const Eigen::Vector3f& sigma_R0N,
+                                                                      const Eigen::Vector3f& omega_R0N_N,
+                                                                      const Eigen::Vector3f& domega_R0N_N) {
+    // NOLINTEND(bugprone-easily-swappable-parameters)
     constexpr float kMrpKinematicGain = 0.25F;
     constexpr float kMrpShadowSwitchNorm = 1.0F;
 

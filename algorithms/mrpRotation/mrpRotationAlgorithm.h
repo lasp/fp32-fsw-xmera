@@ -20,9 +20,9 @@ class MrpRotationAlgorithm final {
    private:
     void checkRasterCommands();
     void computeTimeStep(uint64_t callTime);
-    AttRefMsgF32Payload computeMRPRotationReference(Eigen::Vector3f sigma_R0N,
-                                                    Eigen::Vector3f omega_R0N_N,
-                                                    Eigen::Vector3f domega_R0N_N);
+    AttRefMsgF32Payload computeMRPRotationReference(const Eigen::Vector3f& sigma_R0N,
+                                                    const Eigen::Vector3f& omega_R0N_N,
+                                                    const Eigen::Vector3f& domega_R0N_N);
 
     MrpRotationConfig cfg;
 
