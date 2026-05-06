@@ -1,9 +1,9 @@
 #include "mrpRotation.h"
 #include <stdexcept>
 
-/*! @brief This resets the module to original states.
- @return void
- @param callTime The clock time at which the function was called (nanoseconds)
+/*! @brief Validate that the required input message is linked, enable the dynamic-reference path
+ when the optional desiredAttInMsg is connected, and reset the embedded algorithm.
+ @param callTime The clock time at which the function was called (nanoseconds).
  */
 void MrpRotation::reset(uint64_t callTime) {
     // check if the required input messages are included
@@ -19,10 +19,9 @@ void MrpRotation::reset(uint64_t callTime) {
     this->algorithm.reset();
 }
 
-/*! @brief This method takes the input attitude reference frame, and superimposes the dynamics MRP
- scanning motion on top of this.
- @return void
- @param callTime The clock time at which the function was called (nanoseconds)
+/*! @brief Take the input attitude reference frame and superimpose the algorithm's MRP rotation on
+ top of it, producing the output guidance reference message.
+ @param callTime The clock time at which the function was called (nanoseconds).
  */
 void MrpRotation::updateState(uint64_t callTime) {
     AttRefMsgPayload inputRef = this->attRefInMsg();
@@ -38,24 +37,22 @@ void MrpRotation::updateState(uint64_t callTime) {
     this->attRefOutMsg.write(&attRefOut, this->moduleID, callTime);
 }
 
-/*! Setter method for the current MRP attitude coordinate set with respect to the input reference
- @return void
- @param sigma [-] current MRP attitude coordinate set with respect to the input reference
-*/
+/*! @brief Setter for the current MRP attitude coordinate set relative to the input reference.
+ @param sigma [-] MRP attitude relative to the input reference.
+ */
 void MrpRotation::setSigmaRR0(const Eigen::Vector3d& sigma) { this->algorithm.setSigmaRR0(sigma); }
 
-/*! Getter method for the current MRP attitude coordinate set with respect to the input reference
- @return const Eigen::Vector3d
-*/
+/*! @brief Getter for the current MRP attitude coordinate set relative to the input reference.
+ @return const Eigen::Vector3d MRP relative to the input reference.
+ */
 const Eigen::Vector3d MrpRotation::getSigmaRR0() const { return this->algorithm.getSigmaRR0(); }
 
-/*! Setter method for the angular velocity vector relative to input reference
- @return void
- @param omega [rad/s] angular velocity vector relative to input reference
-*/
+/*! @brief Setter for the angular velocity vector relative to the input reference.
+ @param omega [rad/s] angular velocity vector relative to the input reference.
+ */
 void MrpRotation::setOmegaRR0(const Eigen::Vector3d& omega) { this->algorithm.setOmegaRR0(omega); }
 
-/*! Getter method for the angular velocity vector relative to input reference
- @return const Eigen::Vector3d
-*/
+/*! @brief Getter for the angular velocity vector relative to the input reference.
+ @return const Eigen::Vector3d Angular velocity vector relative to the input reference.
+ */
 const Eigen::Vector3d MrpRotation::getOmegaRR0() const { return this->algorithm.getOmegaRR0(); }

@@ -3,8 +3,7 @@
 #include <architecture/utilities/macroDefinitions.h>
 #include <architecture/utilities/rigidBodyKinematics.hpp>
 
-/*! @brief This resets the module to original states.
- @return void
+/*! @brief Reset the algorithm: clear the integration timing state and the prior-command latches.
  */
 void MrpRotationAlgorithm::reset() {
     this->priorTime = 0;
@@ -12,12 +11,13 @@ void MrpRotationAlgorithm::reset() {
     this->priorCmdRates = Eigen::Vector3d::Zero();
 }
 
-/*! @brief This method takes the input attitude reference frame, and superimposes the dynamics MRP
- scanning motion on top of this.
- @return void
- @param callTime The clock time at which the function was called (nanoseconds)
- @param inputRef Guidance reference input message
- @param attStates Incoming message containing the desired attitude set
+/*! @brief Take the input attitude reference frame and superimpose the algorithm's MRP rotation on
+ top of it, advancing sigma_RR0 one Euler step and emitting the output reference frame.
+ @param callTime The clock time at which the function was called (nanoseconds).
+ @param inputRef Guidance reference input message (sigma_R0N, omega_R0N_N, domega_R0N_N).
+ @param attStates Optional commanded MRP set / angular velocity, consumed only when
+                  dynamicReferenceEnabled is true.
+ @return AttRefMsgPayload Output reference frame R: sigma_RN, omega_RN_N, domega_RN_N.
  */
 AttRefMsgPayload MrpRotationAlgorithm::update(uint64_t callTime,
                                               AttRefMsgPayload inputRef,
@@ -48,8 +48,9 @@ AttRefMsgPayload MrpRotationAlgorithm::update(uint64_t callTime,
     return attRefOut;
 }
 
-/*! @brief This function checks if there is a new commanded raster maneuver message available
- @return void
+/*! @brief Detect a change in the commanded raster MRP set / rate (componentwise abs > 1e-12) and,
+ when found, latch the new command into the integrator state (sigma_RR0, omega_RR0_R) and the
+ prior-command latches.
  */
 void MrpRotationAlgorithm::checkRasterCommands() {
     bool prevCmdActive = ((this->cmdSet - this->priorCmdSet).array().abs() < 1E-12).all() &&
@@ -67,9 +68,10 @@ void MrpRotationAlgorithm::checkRasterCommands() {
     }
 }
 
-/*! @brief This function computes control update time
- @return void
- @param callTime The clock time at which the function was called (nanoseconds)
+/*! @brief Derive the integration time step dt from callTime - priorTime. On the first call after
+ reset() priorTime is 0, forcing dt to 0 so the integrator does not advance until a second sample
+ is available.
+ @param callTime The clock time at which the function was called (nanoseconds).
 */
 void MrpRotationAlgorithm::computeTimeStep(uint64_t callTime) {
     if (this->priorTime == 0) {
@@ -79,12 +81,14 @@ void MrpRotationAlgorithm::computeTimeStep(uint64_t callTime) {
     }
 }
 
-/*! @brief This function computes the reference (MRP attitude Set, angular velocity and angular acceleration)
- associated with a rotation defined in terms of an initial MRP set and a constant angular velocity vector
- @return AttRefMsgPayload The output message copy
- @param sigma_R0N The input reference attitude using MRPs
- @param omega_R0N_N The input reference frame angular rate vector
- @param domega_R0N_N The input reference frame angular acceleration vector
+/*! @brief Compute the reference frame (MRP attitude, angular velocity, angular acceleration)
+ defined by an initial MRP set and a constant R-frame angular velocity. Performs one forward-Euler
+ step on the MRP kinematic differential equation and uses the transport theorem (with R-frame
+ d/dt(omega_RR0) = 0) for the inertial angular acceleration.
+ @param sigma_R0N Input reference attitude as MRPs.
+ @param omega_R0N_N Input reference frame angular velocity in inertial-frame components [rad/s].
+ @param domega_R0N_N Input reference frame angular acceleration in inertial-frame components [rad/s^2].
+ @return AttRefMsgPayload The output reference frame (sigma_RN, omega_RN_N, domega_RN_N).
  */
 AttRefMsgPayload MrpRotationAlgorithm::computeMRPRotationReference(Eigen::Vector3d sigma_R0N,
                                                                    Eigen::Vector3d omega_R0N_N,
@@ -115,34 +119,32 @@ AttRefMsgPayload MrpRotationAlgorithm::computeMRPRotationReference(Eigen::Vector
     return attRefOut;
 }
 
-/*! Setter method for the current MRP attitude coordinate set with respect to the input reference
- @return void
- @param sigma [-] current MRP attitude coordinate set with respect to the input reference
-*/
+/*! @brief Setter for the current MRP attitude coordinate set relative to the input reference.
+ @param sigma [-] MRP attitude relative to the input reference.
+ */
 void MrpRotationAlgorithm::setSigmaRR0(const Eigen::Vector3d& sigma) { this->sigma_RR0 = sigma; }
 
-/*! Getter method for the current MRP attitude coordinate set with respect to the input reference
- @return const Eigen::Vector3d
-*/
+/*! @brief Getter for the current MRP attitude coordinate set relative to the input reference.
+ @return const Eigen::Vector3d MRP relative to the input reference.
+ */
 const Eigen::Vector3d MrpRotationAlgorithm::getSigmaRR0() const { return this->sigma_RR0; }
 
-/*! Setter method for the angular velocity vector relative to input reference
- @return void
- @param omega [rad/s] angular velocity vector relative to input reference
-*/
+/*! @brief Setter for the angular velocity vector relative to the input reference.
+ @param omega [rad/s] angular velocity vector relative to the input reference.
+ */
 void MrpRotationAlgorithm::setOmegaRR0(const Eigen::Vector3d& omega) { this->omega_RR0_R = omega; }
 
-/*! Getter method for the angular velocity vector relative to input reference
- @return const Eigen::Vector3d
-*/
+/*! @brief Getter for the angular velocity vector relative to the input reference.
+ @return const Eigen::Vector3d Angular velocity vector relative to the input reference.
+ */
 const Eigen::Vector3d MrpRotationAlgorithm::getOmegaRR0() const { return this->omega_RR0_R; }
 
-/*! Enable dynamic reference input
- @return void
-*/
+/*! @brief Enable the dynamic-reference path: subsequent update() calls will read attStates and
+ latch any commanded MRP set / rate change into the integrator state.
+ */
 void MrpRotationAlgorithm::enableDynamicReference() { this->dynamicReferenceEnabled = true; }
 
-/*! Get whether dynamic reference input is enabled
- @return const bool
-*/
+/*! @brief Query whether the dynamic-reference path is enabled.
+ @return const bool true when enableDynamicReference() has been called since construction.
+ */
 const bool MrpRotationAlgorithm::isDynamicReferenceEnabled() const { return this->dynamicReferenceEnabled; }
