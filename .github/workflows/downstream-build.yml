@@ -1,0 +1,65 @@
+name: "Downstream Build (adamant-xmera-components)"
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  downstream-test:
+    name: adamant-xmera-components test_all
+    runs-on: ubuntu-latest
+    if: ${{ github.event.pull_request.draft == false }}
+    container:
+      image: ghcr.io/lasp/adamant:0.2
+      options: --user root
+    steps:
+      - name: Check out adamant-xmera-components
+        uses: actions/checkout@v4
+        with:
+          set-safe-directory: true
+          repository: lasp/adamant-xmera-components
+          path: adamant-xmera-components
+          persist-credentials: false
+
+      - name: Check out fp32-fsw-xmera at PR head
+        uses: actions/checkout@v4
+        with:
+          set-safe-directory: true
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: fp32-fsw-xmera
+          persist-credentials: false
+
+      - name: Clone adamant repository
+        uses: actions/checkout@v4
+        with:
+          set-safe-directory: true
+          repository: lasp/adamant
+          path: adamant
+          persist-credentials: false
+
+      - name: Clone Eigen with freestanding support
+        uses: actions/checkout@v4
+        with:
+          set-safe-directory: true
+          repository: lasp/eigen
+          path: eigen
+          ref: feature/freestanding
+          persist-credentials: false
+
+      - name: Run downstream unit tests and coverage
+        run: bash adamant-xmera-components/env/github_run.sh "redo adamant-xmera-components/coverage_all"
+
+      - name: Archive build logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: downstream-test-logs
+          path: ${{ github.workspace }}/adamant-xmera-components/build
+          if-no-files-found: ignore
