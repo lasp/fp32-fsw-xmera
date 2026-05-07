@@ -101,6 +101,7 @@ set(algorithms
     "celestialTwoBodyPoint"
     "convertStPlatformToBody"
     "ephemeridesRecenter"
+    "hillPoint"
     "inertial3D"
     "inertialUKF"
     "mimuMajorityVote"
