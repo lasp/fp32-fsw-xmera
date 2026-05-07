@@ -3,6 +3,7 @@
 #include <math.h>
 
 #include <numbers>
+#include <utility>
 
 /*! Reset the controller to its initial state.
  @return void
@@ -45,7 +46,7 @@ StepperMotorControllerOutput StepperMotorControllerAlgorithm::update(
                 break;
             }
             const int steps = this->stepDelta(this->desiredPosition - currentPosition);
-            if (static_cast<uint32_t>(abs(steps)) >= this->minStepCommand) {
+            if (std::cmp_greater_equal(abs(steps), this->minStepCommand)) {
                 output.commandType = StepperMotorCommandType::MOVE;
                 output.stepsToMove = steps;
                 this->commandedPosition = this->desiredPosition;
@@ -56,8 +57,8 @@ StepperMotorControllerOutput StepperMotorControllerAlgorithm::update(
 
         case StepperMotorState::MOVING: {
             // Desired position changed by at least the minimum commandable step delta
-            if (static_cast<uint32_t>(abs(this->stepDelta(this->commandedPosition - this->desiredPosition))) >=
-                this->minStepCommand) {
+            if (std::cmp_greater_equal(abs(this->stepDelta(this->commandedPosition - this->desiredPosition)),
+                                       this->minStepCommand)) {
                 output.commandType = StepperMotorCommandType::STOP;
                 this->state = StepperMotorState::STOPPING;
             }
