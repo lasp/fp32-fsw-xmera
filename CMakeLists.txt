@@ -114,6 +114,7 @@ set(algorithms
     "rwMotorVoltage"
     "rwNullSpace"
     "solarArrayReference"
+    "stepperMotorController"
     "sunlineEphem"
     "sunlineSRuKF"
     "sunTrackError"
