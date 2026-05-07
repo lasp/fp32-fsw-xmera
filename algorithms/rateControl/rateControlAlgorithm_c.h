@@ -1,8 +1,6 @@
 #ifndef F32XIMERA_RATE_CONTROL_ALGORITHM_C_H
 #define F32XIMERA_RATE_CONTROL_ALGORITHM_C_H
 
-#include <Eigen/Core>
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -11,6 +9,13 @@ extern "C" {
  * @brief Opaque handle to the C++ RateControlAlgorithm instance.
  */
 typedef struct RateControlAlgorithm RateControlAlgorithm;
+
+/**
+ * @brief POD representation of a 3x3 matrix (Eigen::Matrix3f).
+ */
+typedef struct {
+    float data[3][3];
+} Matrix3f_c;
 
 /**
  * @brief POD representation of a 3-vector (Eigen::Vector3f).
@@ -38,16 +43,16 @@ void RateControlAlgorithm_destroy(RateControlAlgorithm* self);
  * @param domega_RN_B  Time derivative of reference frame angular velocity in body frame components [rad/s^2].
  * @return Eigen::Vector3f Required control torque about point B [Nm].
  */
-Eigen::Vector3f RateControlAlgorithm_update(const RateControlAlgorithm* self,
-                                            const Eigen::Vector3f& omega_BR_B,
-                                            const Eigen::Vector3f& domega_RN_B);
+Vector3f_c RateControlAlgorithm_update(const RateControlAlgorithm* self,
+                                       const Vector3f_c& omega_BR_B,
+                                       const Vector3f_c& domega_RN_B);
 
 /**
  * @brief Set the spacecraft inertia configuration.
  * @param self Pointer to the instance.
  * @param vehicleConfigIn Pointer to the vehicle configuration payload.
  */
-void RateControlAlgorithm_setSpacecraftInertia(RateControlAlgorithm* self, const Eigen::Matrix3f& spacecraftInertia);
+void RateControlAlgorithm_setSpacecraftInertia(RateControlAlgorithm* self, const Matrix3f_c& spacecraftInertia);
 
 /**
  * @brief Set the derivative gain P.
