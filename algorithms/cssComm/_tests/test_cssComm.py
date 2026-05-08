@@ -1,8 +1,3 @@
-"""
-Module Name:        cssComm
-Updated On:         February 10, 2019
-"""
-
 import inspect
 import os
 
@@ -16,9 +11,13 @@ from xmera.utilities import macros
 filename = inspect.getframeinfo(inspect.currentframe()).filename
 path = os.path.dirname(os.path.abspath(filename))
 
+# Tracks `kMaxNumCssSensors` in algorithms/msgPayloadDef/definitions.h.
+# Keep in sync if that constant changes.
+_MAX_CSS = 16
+
 @pytest.mark.parametrize("num_sensors, sensor_data", [
-    (4, [-100e-6, 200e-6, 600e-6, 300e-6]),  # Five data inputs used despite four sensors to ensure all reset conditions are tested.
-    (messaging.MAX_NUM_CSS_SENSORS, [200e-6]*messaging.MAX_NUM_CSS_SENSORS)  # Indicate more sensor devices than is allowed.  The output should be clipped to the allowed length
+    (4, [-100e-6, 200e-6, 600e-6, 300e-6]),  # Subset of sensors; verifies trailing entries are zeroed.
+    (_MAX_CSS, [200e-6]*_MAX_CSS),  # Configure the maximum allowed number of sensors.
 ])
 
 
@@ -46,13 +45,19 @@ def test_css_comm(num_sensors, sensor_data):
     module.numSensors = num_sensors
     module.maxSensorValue = 500e-6
 
-    cheby_list =  [-1.734963346951471e+06, 3.294117146099591e+06,
-                     -2.816333294617512e+06, 2.163709942144332e+06,
-                     -1.488025993860025e+06, 9.107359382775769e+05,
-                     -4.919712500291216e+05, 2.318436583511218e+05,
-                     -9.376105045529010e+04, 3.177536873430168e+04]
+    # 10 active coefficients + trailing zero so the list length matches
+    # MAX_NUM_CHEBY_POLYS = 11 (the SWIG-generated
+    # `std::array<double, MAX_NUM_CHEBY_POLYS>` enforces the size).
+    # The trailing zero contributes nothing to the Chebyshev sum so the
+    # extra polynomial is mathematically inert.
+    cheby_list = [-1.734963346951471e+06, 3.294117146099591e+06,
+                  -2.816333294617512e+06, 2.163709942144332e+06,
+                  -1.488025993860025e+06, 9.107359382775769e+05,
+                  -4.919712500291216e+05, 2.318436583511218e+05,
+                  -9.376105045529010e+04, 3.177536873430168e+04,
+                  0.0]
     module.chebyCount = len(cheby_list)
-    module.chebyPolynomials = cheby_list
+    module.chebyPolynomials = cssCommF32.DoubleArrayCheby(cheby_list)
 
     # Add the module to the task
     unit_test_sim.AddModelToTask(unit_task_name, module)
@@ -76,7 +81,7 @@ def test_css_comm(num_sensors, sensor_data):
     unit_test_sim.ExecuteSimulation()
 
     # Get the output from this simulation
-    MAX_NUM_CSS_SENSORS = messaging.MAX_NUM_CSS_SENSORS
+    MAX_NUM_CSS_SENSORS = _MAX_CSS
     output_data = data_log.CosValue
 
     # Verify output shape

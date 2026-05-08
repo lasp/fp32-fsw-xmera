@@ -1,18 +1,20 @@
 #ifndef F32XMERA_CSS_COMM_ALGORITHM_H
 #define F32XMERA_CSS_COMM_ALGORITHM_H
 
-#include <architecture/msgPayloadDef/definitions.h>
+#include "cssCommTypes.h"
+#include "msgPayloadDef/definitions.h"
+
 #include <array>
 #include <cstddef>
 #include <cstdint>
 
-inline constexpr std::size_t kMaxNumChebyPolys = 10;
+inline constexpr std::size_t kMaxNumChebyPolys = MAX_NUM_CHEBY_POLYS;
 
 /*! @brief Top level structure for the CSS sensor interface system.  Contains all parameters for the
  CSS interface*/
 class CssCommAlgorithm final {
    public:
-    std::array<double, MAX_NUM_CSS_SENSORS> update(const std::array<double, MAX_NUM_CSS_SENSORS>& inputValues) const;
+    std::array<double, kMaxNumCssSensors> update(const std::array<double, kMaxNumCssSensors>& inputValues) const;
 
     void setNumSensors(uint32_t numberOfSensors);
     uint32_t getNumSensors() const;

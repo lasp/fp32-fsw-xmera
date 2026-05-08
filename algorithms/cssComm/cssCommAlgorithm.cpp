@@ -8,9 +8,9 @@
  @return void
  @param inputValues [-] Current measured CSS value for the constellation of CSS sensors
  */
-std::array<double, MAX_NUM_CSS_SENSORS> CssCommAlgorithm::update(
-    const std::array<double, MAX_NUM_CSS_SENSORS>& inputValues) const {
-    std::array<double, MAX_NUM_CSS_SENSORS> outputValues{};
+std::array<double, kMaxNumCssSensors> CssCommAlgorithm::update(
+    const std::array<double, kMaxNumCssSensors>& inputValues) const {
+    std::array<double, kMaxNumCssSensors> outputValues{};
 
     for (uint32_t i = 0; i < this->numSensors; ++i) {
         double const measuredValue = inputValues.at(i) / this->maxSensorValue; /* Scale Sensor Data */
@@ -36,7 +36,7 @@ std::array<double, MAX_NUM_CSS_SENSORS> CssCommAlgorithm::update(
  @param numberOfSensors [-] number of CSS sensors
 */
 void CssCommAlgorithm::setNumSensors(const uint32_t numberOfSensors) {
-    if (numberOfSensors > MAX_NUM_CSS_SENSORS) {
+    if (numberOfSensors > kMaxNumCssSensors) {
         FSW_THROW_INVALID_ARGUMENT("The configured number of CSS sensors exceeds the maximum");
     }
     if (numberOfSensors <= 0) {
