@@ -14,6 +14,10 @@ constexpr float kStepAngleMax = 2.0F * std::numbers::pi_v<float> / 10.0F;
 constexpr float kAngleRangeMin = -2.0F * std::numbers::pi_v<float>;
 constexpr float kAngleRangeMax = 2.0F * std::numbers::pi_v<float>;
 
+// minStepCommand domain spans 1..10000 steps. The helpers early-skip combinations where
+// minStepCommand * stepAngle does not fit between stepAngle and the configured angular range
+// (i.e. cases that could never produce a meaningful MOVE command).
+
 // ---------------------------------------------------------------------------
 // Regression fuzz: compare algorithm against reference for random parameters
 // ---------------------------------------------------------------------------
@@ -27,7 +31,7 @@ FUZZ_TEST(StepperMotorControllerFuzz, regressionTestMultiStep)
                  fuzztest::InRange(1.0F, 100.0F),                    // controlFrequency
                  fuzztest::InRange(1.0F, 100.0F),                    // motorFrequency
                  fuzztest::InRange(0, 20),                           // settleCountMax
-                 fuzztest::InRange(1, 10));                          // minStepCommand
+                 fuzztest::InRange(1, 10000));                       // minStepCommand
 
 // ---------------------------------------------------------------------------
 // Property fuzz tests
@@ -42,7 +46,7 @@ FUZZ_TEST(StepperMotorControllerPropertyFuzz, propertyOutputCommandTypeIsValid)
                  fuzztest::InRange(1.0F, 100.0F),                    // controlFrequency
                  fuzztest::InRange(1.0F, 100.0F),                    // motorFrequency
                  fuzztest::InRange(0, 20),                           // settleCountMax
-                 fuzztest::InRange(1, 10));                          // minStepCommand
+                 fuzztest::InRange(1, 10000));                       // minStepCommand
 
 FUZZ_TEST(StepperMotorControllerPropertyFuzz, propertyMoveStepsWithinHalfRevolution)
     .WithDomains(fuzztest::InRange(kStepAngleMin, kStepAngleMax),    // stepAngle
@@ -50,7 +54,7 @@ FUZZ_TEST(StepperMotorControllerPropertyFuzz, propertyMoveStepsWithinHalfRevolut
                  fuzztest::InRange(kAngleRangeMin, kAngleRangeMax),  // maxAngle
                  fuzztest::InRange(-100.0F, 100.0F),                 // referenceAngle
                  fuzztest::InRange(-100.0F, 100.0F),                 // initialAngle
-                 fuzztest::InRange(1, 10));                          // minStepCommand
+                 fuzztest::InRange(1, 10000));                       // minStepCommand
 
 FUZZ_TEST(StepperMotorControllerPropertyFuzz, propertyMotorReachesTarget)
     .WithDomains(fuzztest::InRange(kStepAngleMin, kStepAngleMax),    // stepAngle
@@ -61,4 +65,4 @@ FUZZ_TEST(StepperMotorControllerPropertyFuzz, propertyMotorReachesTarget)
                  fuzztest::InRange(1.0F, 100.0F),                    // controlFrequency
                  fuzztest::InRange(1.0F, 100.0F),                    // motorFrequency
                  fuzztest::InRange(0, 20),                           // settleCountMax
-                 fuzztest::InRange(1, 10));                          // minStepCommand
+                 fuzztest::InRange(1, 10000));                       // minStepCommand

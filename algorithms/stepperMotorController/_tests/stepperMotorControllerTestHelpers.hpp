@@ -62,6 +62,16 @@ struct StepperMotorSim {
 
 inline int angleToSteps(float angle, float stepAngle) { return static_cast<int>(round(angle / stepAngle)); }
 
+// True if the configured minStepCommand maps to a meaningful angular threshold for the
+// configured motor: the corresponding minAngleCommand = minStepCommand * stepAngle must be
+// greater than stepAngle (so the threshold is more than a single step) and smaller than the
+// configured angular range (so MOVE commands can actually trigger). Used by fuzz helpers to
+// early-skip parameter combinations that would never produce a meaningful command.
+inline bool isMinStepCommandValidForRange(uint32_t minStepCommand, float stepAngle, float minAngle, float maxAngle) {
+    const float minAngleCommand = static_cast<float>(minStepCommand) * stepAngle;
+    return minAngleCommand > stepAngle && minAngleCommand < (maxAngle - minAngle);
+}
+
 // ---------------------------------------------------------------------------
 // Independent reference implementation for regression cross-checking
 // ---------------------------------------------------------------------------
@@ -175,6 +185,9 @@ inline void regressionTestMultiStep(float stepAngle,
     if (minAngle >= maxAngle) {
         return;  // skip invalid range (fuzzer may generate it)
     }
+    if (!isMinStepCommandValidForRange(minStepCommand, stepAngle, minAngle, maxAngle)) {
+        return;
+    }
     const int stepsPerRevolution = static_cast<int>(round(2.0F * std::numbers::pi_v<float> / stepAngle));
     const int initialStep = angleToSteps(initialAngle, stepAngle);
     constexpr float kMinStepAngle = 2.0F * std::numbers::pi_v<float> / 100000.0F;
@@ -243,6 +256,9 @@ inline void propertyOutputCommandTypeIsValid(float stepAngle,
     if (minAngle >= maxAngle) {
         return;
     }
+    if (!isMinStepCommandValidForRange(minStepCommand, stepAngle, minAngle, maxAngle)) {
+        return;
+    }
     const int stepsPerRevolution = static_cast<int>(round(2.0F * std::numbers::pi_v<float> / stepAngle));
     StepperMotorControllerAlgorithm alg{};
     alg.setStepAngle(stepAngle);
@@ -277,6 +293,9 @@ inline void propertyMoveStepsWithinHalfRevolution(float stepAngle,
     if (minAngle >= maxAngle) {
         return;
     }
+    if (!isMinStepCommandValidForRange(minStepCommand, stepAngle, minAngle, maxAngle)) {
+        return;
+    }
     const int stepsPerRevolution = static_cast<int>(round(2.0F * std::numbers::pi_v<float> / stepAngle));
     constexpr float kMinStepAngle = 2.0F * std::numbers::pi_v<float> / 100000.0F;
     const bool isFullCircle = ((maxAngle - minAngle) >= (2.0F * std::numbers::pi_v<float> - kMinStepAngle));
@@ -307,6 +326,9 @@ inline void propertyMotorReachesTarget(float stepAngle,
                                        uint32_t settleCountMax,
                                        uint32_t minStepCommand) {
     if (minAngle >= maxAngle) {
+        return;
+    }
+    if (!isMinStepCommandValidForRange(minStepCommand, stepAngle, minAngle, maxAngle)) {
         return;
     }
     // Motor only reaches an in-range target; out-of-range references are rejected by design.
