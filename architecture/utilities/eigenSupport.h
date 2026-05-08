@@ -8,7 +8,6 @@
 #include <architecture/utilities/eigenMRP.h>
 
 #include <Eigen/Core>
-#include <cstring>
 #include <exception>
 
 // =============================================================================
