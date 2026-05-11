@@ -8,6 +8,7 @@ xmera_add_swig_module("${module}")
 target_sources("${module}" PRIVATE
   stepperMotorController.cpp
   stepperMotorControllerAlgorithm.cpp
+  stepperMotorControllerAlgorithm_c.cpp
 )
 
 target_include_directories("${module}" PUBLIC "..")
@@ -15,3 +16,5 @@ target_include_directories("${module}" PUBLIC "..")
 target_link_libraries("${module}" PRIVATE
   Eigen3::Eigen
 )
+
+add_subdirectory(_tests)
