@@ -13,7 +13,7 @@ path = os.path.dirname(os.path.abspath(filename))
 
 # Tracks `kMaxNumCssSensors` in algorithms/msgPayloadDef/definitions.h.
 # Keep in sync if that constant changes.
-_MAX_CSS = 16
+_MAX_CSS = 32
 
 @pytest.mark.parametrize("num_sensors, sensor_data", [
     (4, [-100e-6, 200e-6, 600e-6, 300e-6]),  # Subset of sensors; verifies trailing entries are zeroed.
