@@ -32,7 +32,7 @@ void ForceTorqueThrForceMappingAlgorithm::computeThrusterMapping() {
     /* - compute thruster locations relative to COM */
     Eigen::Matrix<float, 3, MAX_EFF_CNT> rThrusterRelCOM_B{Eigen::Matrix<float, 3, MAX_EFF_CNT>::Zero()};
     rThrusterRelCOM_B.leftCols(this->numThrusters) =
-        this->rThruster_B.leftCols(this->numThrusters).colwise() - this->CoM_B;
+        this->rThruster_B.leftCols(this->numThrusters).colwise() - this->centerOfMass_B;
 
     /* Fill DG with moment arms (rows 0-2) and thruster directions (rows 3-5) */
     Eigen::Matrix<float, 3, MAX_EFF_CNT> rCrossGt{Eigen::Matrix<float, 3, MAX_EFF_CNT>::Zero()};
@@ -136,12 +136,14 @@ ThrusterArrayConfig ForceTorqueThrForceMappingAlgorithm::getThrusters() const {
  @return void
  @param centerOfMass [m] center of mass in body frame
 */
-void ForceTorqueThrForceMappingAlgorithm::setCoM_B(const Eigen::Vector3f& centerOfMass) { this->CoM_B = centerOfMass; }
+void ForceTorqueThrForceMappingAlgorithm::setCenterOfMass_B(const Eigen::Vector3f& centerOfMass) {
+    this->centerOfMass_B = centerOfMass;
+}
 
 /*! Getter for the spacecraft center of mass in body frame.
  @return Eigen::Vector3f [m]
 */
-Eigen::Vector3f ForceTorqueThrForceMappingAlgorithm::getCoM_B() const { return this->CoM_B; }
+Eigen::Vector3f ForceTorqueThrForceMappingAlgorithm::getCenterOfMass_B() const { return this->centerOfMass_B; }
 
 /*! Setter for the desiredControlAxes_B assertion vector. The first three entries are the torque
  *  components xyz in body frame B; the last three are the force components xyz in body frame B. A

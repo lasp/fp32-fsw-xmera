@@ -53,16 +53,16 @@ TEST(ForceTorqueThrForceMappingTest, SetupTest) {
     ForceTorqueThrForceMappingAlgorithm alg{};
 
     // Default state: CoM at origin, no thrusters configured.
-    const Eigen::Vector3f defaultCoM = alg.getCoM_B();
+    const Eigen::Vector3f defaultCoM = alg.getCenterOfMass_B();
     for (int i = 0; i < 3; ++i) {
         EXPECT_NEAR(defaultCoM[i], 0.0F, 1e-6F);
     }
     EXPECT_EQ(alg.getThrusters().numThrusters, 0U);
 
-    // setCoM_B / getCoM_B round-trip
+    // setCenterOfMass_B / getCenterOfMass_B round-trip
     const Eigen::Vector3f CoM(0.25F, -0.5F, 1.0F);
-    alg.setCoM_B(CoM);
-    const Eigen::Vector3f readBackCoM = alg.getCoM_B();
+    alg.setCenterOfMass_B(CoM);
+    const Eigen::Vector3f readBackCoM = alg.getCenterOfMass_B();
     for (int i = 0; i < 3; ++i) {
         EXPECT_NEAR(readBackCoM[i], CoM[i], 1e-6F);
     }
@@ -206,7 +206,7 @@ TEST(ForceTorqueThrForceMappingTest, UnbalancedLayoutAchievedFTDiffersFromComman
     ThrusterArrayConfig config{};
     ASSERT_TRUE(buildThrusterConfig(6U, positions, directions, config));
     ForceTorqueThrForceMappingAlgorithm alg{};
-    alg.setCoM_B({0.0F, 0.0F, 0.0F});
+    alg.setCenterOfMass_B({0.0F, 0.0F, 0.0F});
     alg.setThrusters(config);
     disableDesiredControlAxesAssertion(alg);
     alg.computeThrusterMapping();
@@ -237,7 +237,7 @@ TEST(ForceTorqueThrForceMappingTest, UnbalancedLayoutAchievedFTDiffersFromComman
 // [0;0] is zero, and min-shift of zero is zero.
 TEST(ForceTorqueThrForceMappingTest, ZeroCommandProducesZeroOutput) {
     ForceTorqueThrForceMappingAlgorithm alg{};
-    alg.setCoM_B({0.1F, 0.1F, 0.1F});
+    alg.setCenterOfMass_B({0.1F, 0.1F, 0.1F});
     ThrusterArrayConfig config{};
     if (!buildThrusterConfig(8U, rcsPositions1(), rcsDirections1(), config)) {
         FAIL() << "buildThrusterConfig failed for rcs1 layout";
@@ -266,7 +266,7 @@ TEST(ForceTorqueThrForceMappingTest, AllThrustersParallel) {
     ThrusterArrayConfig config{};
     ASSERT_TRUE(buildThrusterConfig(4U, positions, directions, config));
     ForceTorqueThrForceMappingAlgorithm alg{};
-    alg.setCoM_B({0.0F, 0.0F, 0.0F});
+    alg.setCenterOfMass_B({0.0F, 0.0F, 0.0F});
     alg.setThrusters(config);
     disableDesiredControlAxesAssertion(alg);
     alg.computeThrusterMapping();
@@ -287,7 +287,7 @@ TEST(ForceTorqueThrForceMappingTest, CoMCoincidesWithThruster) {
     ThrusterArrayConfig config{};
     ASSERT_TRUE(buildThrusterConfig(2U, positions, directions, config));
     ForceTorqueThrForceMappingAlgorithm alg{};
-    alg.setCoM_B({0.5F, 0.0F, 0.0F});
+    alg.setCenterOfMass_B({0.5F, 0.0F, 0.0F});
     alg.setThrusters(config);
     disableDesiredControlAxesAssertion(alg);
     alg.computeThrusterMapping();
@@ -367,7 +367,7 @@ TEST(ForceTorqueThrForceMappingTest, SmallMomentArmsControllable) {
     ThrusterArrayConfig config{};
     ASSERT_TRUE(buildThrusterConfig(6U, positions, directions, config));
     ForceTorqueThrForceMappingAlgorithm alg{};
-    alg.setCoM_B({0.0F, 0.0F, 0.0F});
+    alg.setCenterOfMass_B({0.0F, 0.0F, 0.0F});
     alg.setThrusters(config);
     disableDesiredControlAxesAssertion(alg);
     alg.computeThrusterMapping();
@@ -409,7 +409,7 @@ TEST(ForceTorqueThrForceMappingTest, CommandOnUncontrollableAxis) {
     ThrusterArrayConfig config{};
     ASSERT_TRUE(buildThrusterConfig(8U, rcsPositions1(), rcsDirections1(), config));
     ForceTorqueThrForceMappingAlgorithm alg{};
-    alg.setCoM_B({0.1F, 0.1F, 0.1F});
+    alg.setCenterOfMass_B({0.1F, 0.1F, 0.1F});
     alg.setThrusters(config);
     disableDesiredControlAxesAssertion(alg);
     alg.computeThrusterMapping();
@@ -450,7 +450,7 @@ TEST(ForceTorqueThrForceMappingTest, DesiredControlAxesAllTrueOnFullRankLayout) 
     ThrusterArrayConfig config{};
     ASSERT_TRUE(buildThrusterConfig(12U, rcsPositions2(), rcsDirections2(), config));
     ForceTorqueThrForceMappingAlgorithm alg{};
-    alg.setCoM_B({0.1F, 0.1F, 0.1F});
+    alg.setCenterOfMass_B({0.1F, 0.1F, 0.1F});
     alg.setThrusters(config);
     alg.setDesiredControlAxes({true, true, true, true, true, true});
     EXPECT_NO_THROW(alg.computeThrusterMapping());
@@ -463,7 +463,7 @@ TEST(ForceTorqueThrForceMappingTest, DesiredControlAxesUncontrollableForceXThrow
     ThrusterArrayConfig config{};
     ASSERT_TRUE(buildThrusterConfig(8U, rcsPositions1(), rcsDirections1(), config));
     ForceTorqueThrForceMappingAlgorithm alg{};
-    alg.setCoM_B({0.1F, 0.1F, 0.1F});
+    alg.setCenterOfMass_B({0.1F, 0.1F, 0.1F});
     alg.setThrusters(config);
 
     // force_x (index 3) is the uncontrollable axis.
@@ -481,7 +481,7 @@ TEST(ForceTorqueThrForceMappingTest, DesiredControlAxesAllFalseAcceptsUncontroll
     ThrusterArrayConfig config{};
     ASSERT_TRUE(buildThrusterConfig(8U, rcsPositions1(), rcsDirections1(), config));
     ForceTorqueThrForceMappingAlgorithm alg{};
-    alg.setCoM_B({0.1F, 0.1F, 0.1F});
+    alg.setCenterOfMass_B({0.1F, 0.1F, 0.1F});
     alg.setThrusters(config);
     alg.setDesiredControlAxes({false, false, false, false, false, false});
     EXPECT_NO_THROW(alg.computeThrusterMapping());
@@ -493,7 +493,7 @@ TEST(ForceTorqueThrForceMappingTest, DesiredControlAxesDefaultThrowsOnUncontroll
     ThrusterArrayConfig config{};
     ASSERT_TRUE(buildThrusterConfig(8U, rcsPositions1(), rcsDirections1(), config));
     ForceTorqueThrForceMappingAlgorithm alg{};
-    alg.setCoM_B({0.1F, 0.1F, 0.1F});
+    alg.setCenterOfMass_B({0.1F, 0.1F, 0.1F});
     alg.setThrusters(config);
     // No setDesiredControlAxes call — default is all-true.
     EXPECT_THROW(alg.computeThrusterMapping(), fsw::invalid_argument);

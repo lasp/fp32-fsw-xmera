@@ -153,7 +153,7 @@ inline void runRegressionCase(std::uint32_t numThrusters,
     }
 
     ForceTorqueThrForceMappingAlgorithm alg{};
-    alg.setCoM_B(CoM);
+    alg.setCenterOfMass_B(CoM);
     ASSERT_NO_THROW(alg.setThrusters(config));
     disableDesiredControlAxesAssertion(alg);
     alg.computeThrusterMapping();
@@ -209,7 +209,7 @@ inline void propertyNonNegativeForces(std::uint32_t numThrusters,
     }
 
     ForceTorqueThrForceMappingAlgorithm alg{};
-    alg.setCoM_B(CoM);
+    alg.setCenterOfMass_B(CoM);
     alg.setThrusters(config);
     disableDesiredControlAxesAssertion(alg);
     alg.computeThrusterMapping();
@@ -235,7 +235,7 @@ inline void propertyMinimumIsZero(std::uint32_t numThrusters,
     }
 
     ForceTorqueThrForceMappingAlgorithm alg{};
-    alg.setCoM_B(CoM);
+    alg.setCenterOfMass_B(CoM);
     alg.setThrusters(config);
     disableDesiredControlAxesAssertion(alg);
     alg.computeThrusterMapping();
@@ -262,7 +262,7 @@ inline void propertyPaddingIsZero(std::uint32_t numThrusters,
     }
 
     ForceTorqueThrForceMappingAlgorithm alg{};
-    alg.setCoM_B(CoM);
+    alg.setCenterOfMass_B(CoM);
     alg.setThrusters(config);
     disableDesiredControlAxesAssertion(alg);
     alg.computeThrusterMapping();
@@ -313,7 +313,7 @@ inline void propertyScaleInvariance(std::uint32_t numThrusters,
     }
 
     ForceTorqueThrForceMappingAlgorithm alg{};
-    alg.setCoM_B(CoM);
+    alg.setCenterOfMass_B(CoM);
     alg.setThrusters(config);
     disableDesiredControlAxesAssertion(alg);
     alg.computeThrusterMapping();
@@ -341,7 +341,7 @@ inline void propertyStateless(std::uint32_t numThrusters,
     }
 
     ForceTorqueThrForceMappingAlgorithm alg{};
-    alg.setCoM_B(CoM);
+    alg.setCenterOfMass_B(CoM);
     alg.setThrusters(config);
     disableDesiredControlAxesAssertion(alg);
     alg.computeThrusterMapping();
@@ -368,7 +368,7 @@ inline void propertyFiniteOutput(std::uint32_t numThrusters,
     }
 
     ForceTorqueThrForceMappingAlgorithm alg{};
-    alg.setCoM_B(CoM);
+    alg.setCenterOfMass_B(CoM);
     alg.setThrusters(config);
     disableDesiredControlAxesAssertion(alg);
     alg.computeThrusterMapping();
@@ -394,7 +394,7 @@ inline void propertyAchievesCommandForBalancedLayout(const Eigen::Vector3f& CoM,
     }
 
     ForceTorqueThrForceMappingAlgorithm alg{};
-    alg.setCoM_B(CoM);
+    alg.setCenterOfMass_B(CoM);
     alg.setThrusters(config);
     disableDesiredControlAxesAssertion(alg);
     alg.computeThrusterMapping();
@@ -436,7 +436,7 @@ inline void propertyOutputMagnitudeBounded(std::uint32_t numThrusters,
     }
 
     ForceTorqueThrForceMappingAlgorithm alg{};
-    alg.setCoM_B(CoM);
+    alg.setCenterOfMass_B(CoM);
     alg.setThrusters(config);
     disableDesiredControlAxesAssertion(alg);
     alg.computeThrusterMapping();

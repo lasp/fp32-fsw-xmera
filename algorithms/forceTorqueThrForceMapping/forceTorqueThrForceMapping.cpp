@@ -34,7 +34,7 @@ void ForceTorqueThrForceMapping::reset(const uint64_t callTime) {
         }
     }
 
-    this->algorithm.setCoM_B(cArrayToEigenVector(vehConfigIn.CoM_B));
+    this->algorithm.setCenterOfMass_B(cArrayToEigenVector(vehConfigIn.CoM_B));
     this->algorithm.setThrusters(thrusterConfig);
 
     this->algorithm.computeThrusterMapping();
