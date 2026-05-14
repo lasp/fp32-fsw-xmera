@@ -8,21 +8,21 @@
 // same numerical behavior against an independent SVD-based reference.
 // ---------------------------------------------------------------------------
 
-TEST(ForceTorqueThrForceMappingTest, RegressionUncontrollableZAxis) {
+TEST(ForceTorqueThrForceMappingTest, RegressionUncontrollableXAxis) {
     runRegressionCase(
-        8U, rcsPositions1(), rcsDirections1(), {0.1F, 0.1F, 0.1F}, {0.4F, 0.2F, 0.4F}, {0.9F, 1.1F, 0.0F});
+        8U, rcsPositions1(), rcsDirections1(), {0.1F, 0.1F, 0.1F}, {0.4F, 0.2F, 0.4F}, {0.0F, 0.9F, 1.1F});
 }
 
 TEST(ForceTorqueThrForceMappingTest, RegressionPureForceZeroTorque) {
     runRegressionCase(
-        8U, rcsPositions1(), rcsDirections1(), {0.1F, 0.1F, 0.1F}, {0.0F, 0.0F, 0.0F}, {0.9F, 1.1F, 0.0F});
+        8U, rcsPositions1(), rcsDirections1(), {0.1F, 0.1F, 0.1F}, {0.0F, 0.0F, 0.0F}, {0.0F, 0.9F, 1.1F});
 }
 
 TEST(ForceTorqueThrForceMappingTest, RegressionNoTorqueCommand) {
     // Mirrors the "no torque message connected" Python case: torque defaults to zero at the adapter
     // boundary, so at the algorithm layer it's indistinguishable from an explicit zero command.
     runRegressionCase(
-        8U, rcsPositions1(), rcsDirections1(), {0.1F, 0.1F, 0.1F}, {0.0F, 0.0F, 0.0F}, {0.9F, 1.1F, 0.0F});
+        8U, rcsPositions1(), rcsDirections1(), {0.1F, 0.1F, 0.1F}, {0.0F, 0.0F, 0.0F}, {0.0F, 0.9F, 1.1F});
 }
 
 TEST(ForceTorqueThrForceMappingTest, RegressionAllDirectionsCovered) {
@@ -32,12 +32,12 @@ TEST(ForceTorqueThrForceMappingTest, RegressionAllDirectionsCovered) {
 
 TEST(ForceTorqueThrForceMappingTest, RegressionCoMAtOrigin) {
     runRegressionCase(
-        8U, rcsPositions1(), rcsDirections1(), {0.0F, 0.0F, 0.0F}, {0.2F, -0.1F, 0.3F}, {0.5F, -0.4F, 0.0F});
+        8U, rcsPositions1(), rcsDirections1(), {0.0F, 0.0F, 0.0F}, {0.2F, -0.1F, 0.3F}, {0.0F, 0.5F, -0.4F});
 }
 
 TEST(ForceTorqueThrForceMappingTest, RegressionLargeCoMOffset) {
     runRegressionCase(
-        8U, rcsPositions1(), rcsDirections1(), {1.0F, 1.0F, 1.0F}, {0.2F, -0.1F, 0.3F}, {0.5F, -0.4F, 0.0F});
+        8U, rcsPositions1(), rcsDirections1(), {1.0F, 1.0F, 1.0F}, {0.2F, -0.1F, 0.3F}, {0.0F, 0.5F, -0.4F});
 }
 
 TEST(ForceTorqueThrForceMappingTest, RegressionSingleThruster) {
@@ -139,7 +139,7 @@ TEST(ForceTorqueThrForceMappingTest, UpdateBeforeComputeIsZero) {
 
 TEST(ForceTorqueThrForceMappingTest, PropertyNonNegativeForces) {
     propertyNonNegativeForces(
-        8U, rcsPositions1(), rcsDirections1(), {0.1F, 0.1F, 0.1F}, {0.4F, 0.2F, 0.4F}, {0.9F, 1.1F, 0.0F});
+        8U, rcsPositions1(), rcsDirections1(), {0.1F, 0.1F, 0.1F}, {0.4F, 0.2F, 0.4F}, {0.0F, 0.9F, 1.1F});
 }
 
 TEST(ForceTorqueThrForceMappingTest, PropertyMinimumIsZero) {
@@ -149,22 +149,22 @@ TEST(ForceTorqueThrForceMappingTest, PropertyMinimumIsZero) {
 
 TEST(ForceTorqueThrForceMappingTest, PropertyPaddingIsZero) {
     propertyPaddingIsZero(
-        8U, rcsPositions1(), rcsDirections1(), {0.1F, 0.1F, 0.1F}, {0.4F, 0.2F, 0.4F}, {0.9F, 1.1F, 0.0F});
+        8U, rcsPositions1(), rcsDirections1(), {0.1F, 0.1F, 0.1F}, {0.4F, 0.2F, 0.4F}, {0.0F, 0.9F, 1.1F});
 }
 
 TEST(ForceTorqueThrForceMappingTest, PropertyScaleInvariance) {
     propertyScaleInvariance(
-        8U, rcsPositions1(), rcsDirections1(), {0.1F, 0.1F, 0.1F}, {0.4F, 0.2F, 0.4F}, {0.9F, 1.1F, 0.0F}, 2.5F);
+        8U, rcsPositions1(), rcsDirections1(), {0.1F, 0.1F, 0.1F}, {0.4F, 0.2F, 0.4F}, {0.0F, 0.9F, 1.1F}, 2.5F);
 }
 
 TEST(ForceTorqueThrForceMappingTest, PropertyStateless) {
     propertyStateless(
-        8U, rcsPositions1(), rcsDirections1(), {0.1F, 0.1F, 0.1F}, {0.4F, 0.2F, 0.4F}, {0.9F, 1.1F, 0.0F});
+        8U, rcsPositions1(), rcsDirections1(), {0.1F, 0.1F, 0.1F}, {0.4F, 0.2F, 0.4F}, {0.0F, 0.9F, 1.1F});
 }
 
 TEST(ForceTorqueThrForceMappingTest, PropertyFiniteOutput) {
     propertyFiniteOutput(
-        8U, rcsPositions1(), rcsDirections1(), {0.1F, 0.1F, 0.1F}, {0.4F, 0.2F, 0.4F}, {0.9F, 1.1F, 0.0F});
+        8U, rcsPositions1(), rcsDirections1(), {0.1F, 0.1F, 0.1F}, {0.4F, 0.2F, 0.4F}, {0.0F, 0.9F, 1.1F});
 }
 
 TEST(ForceTorqueThrForceMappingTest, PropertyAchievesCommandForBalancedLayout) {
@@ -173,7 +173,7 @@ TEST(ForceTorqueThrForceMappingTest, PropertyAchievesCommandForBalancedLayout) {
 
 TEST(ForceTorqueThrForceMappingTest, PropertyOutputMagnitudeBounded) {
     propertyOutputMagnitudeBounded(
-        8U, rcsPositions1(), rcsDirections1(), {0.1F, 0.1F, 0.1F}, {0.4F, 0.2F, 0.4F}, {0.9F, 1.1F, 0.0F});
+        8U, rcsPositions1(), rcsDirections1(), {0.1F, 0.1F, 0.1F}, {0.4F, 0.2F, 0.4F}, {0.0F, 0.9F, 1.1F});
 }
 
 // Documents a known limitation: for an unbalanced layout (DG·1 ≠ 0), the min-shift step perturbs
@@ -401,8 +401,8 @@ TEST(ForceTorqueThrForceMappingTest, SmallMomentArmsControllable) {
     }
 }
 
-// A commanded force along a completely uncontrollable axis (z, for the 8-thruster layout 1 whose
-// directions all lie in the x-y plane) is silently dropped by the selector. With no other
+// A commanded force along a completely uncontrollable axis (x, for the 8-thruster layout 1 whose
+// directions all lie in the y-z plane) is silently dropped by the selector. With no other
 // commands, every kept row of ft is zero, so the pseudo-inverse product is zero and the output
 // must be exactly zero.
 TEST(ForceTorqueThrForceMappingTest, CommandOnUncontrollableAxis) {
@@ -414,7 +414,7 @@ TEST(ForceTorqueThrForceMappingTest, CommandOnUncontrollableAxis) {
     disableDesiredControlAxesAssertion(alg);
     alg.computeThrusterMapping();
 
-    const Eigen::Vector<float, MAX_EFF_CNT> out = alg.update(Eigen::Vector3f::Zero(), {0.0F, 0.0F, 1.0F});
+    const Eigen::Vector<float, MAX_EFF_CNT> out = alg.update(Eigen::Vector3f::Zero(), {1.0F, 0.0F, 0.0F});
     for (int i = 0; i < MAX_EFF_CNT; ++i) {
         EXPECT_NEAR(out[i], 0.0F, 1e-5F);
     }
@@ -456,22 +456,22 @@ TEST(ForceTorqueThrForceMappingTest, DesiredControlAxesAllTrueOnFullRankLayout) 
     EXPECT_NO_THROW(alg.computeThrusterMapping());
 }
 
-// 8-thruster layout 1 has all directions in the x-y plane: torque_z and force_xy are controllable
-// through moment arms / direction sums, but force_z is not. Asserting controllability on force_z
+// 8-thruster layout 1 has all directions in the y-z plane: torque_xyz and force_yz are controllable
+// through moment arms / direction sums, but force_x is not. Asserting controllability on force_x
 // must throw; asserting controllability only on the other axes must pass.
-TEST(ForceTorqueThrForceMappingTest, DesiredControlAxesUncontrollableForceZThrows) {
+TEST(ForceTorqueThrForceMappingTest, DesiredControlAxesUncontrollableForceXThrows) {
     ThrusterArrayConfig config{};
     ASSERT_TRUE(buildThrusterConfig(8U, rcsPositions1(), rcsDirections1(), config));
     ForceTorqueThrForceMappingAlgorithm alg{};
     alg.setCoM_B({0.1F, 0.1F, 0.1F});
     alg.setThrusters(config);
 
-    // force_z (index 5) is the uncontrollable axis.
-    alg.setDesiredControlAxes({false, false, false, false, false, true});
+    // force_x (index 3) is the uncontrollable axis.
+    alg.setDesiredControlAxes({false, false, false, true, false, false});
     EXPECT_THROW(alg.computeThrusterMapping(), fsw::invalid_argument);
 
     // Same layout, but only the controllable axes are asserted: must pass.
-    alg.setDesiredControlAxes({true, true, true, true, true, false});
+    alg.setDesiredControlAxes({true, true, true, false, true, true});
     EXPECT_NO_THROW(alg.computeThrusterMapping());
 }
 
@@ -487,7 +487,7 @@ TEST(ForceTorqueThrForceMappingTest, DesiredControlAxesAllFalseAcceptsUncontroll
     EXPECT_NO_THROW(alg.computeThrusterMapping());
 }
 
-// The all-true default is strict: on a layout with an uncontrollable axis (layout 1's force_z),
+// The all-true default is strict: on a layout with an uncontrollable axis (layout 1's force_x),
 // computeThrusterMapping() must throw if the caller hasn't opted out.
 TEST(ForceTorqueThrForceMappingTest, DesiredControlAxesDefaultThrowsOnUncontrollableLayout) {
     ThrusterArrayConfig config{};

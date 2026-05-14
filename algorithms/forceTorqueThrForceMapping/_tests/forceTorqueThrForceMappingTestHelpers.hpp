@@ -453,28 +453,31 @@ inline void propertyOutputMagnitudeBounded(std::uint32_t numThrusters,
 // C++ regression suite exercises the same geometries.
 // ---------------------------------------------------------------------------
 
-// 8-thruster RCS layout 1: no Z-axis thrusters — torque_Z and force_Z are controllable only through
-// moment arms, force_Z command is dropped by the selector.
+// 8-thruster RCS layout 1: directions lie in the y-z plane (no X-axis thrust component), so
+// force_X is uncontrollable and gets dropped by the selector. torque_X, torque_Y, torque_Z,
+// force_Y, force_Z are all controllable. The layout is balanced: sum(g_i) = 0 and
+// sum(r_i × g_i) = 0, so DG·1 = 0 and the min-shift preserves the requested force and torque.
 inline std::vector<Eigen::Vector3f> rcsPositions1() {
-    return {{-0.86360F, -0.82550F, 1.79070F},
-            {-0.82550F, -0.86360F, 1.79070F},
-            {0.82550F, 0.86360F, 1.79070F},
-            {0.86360F, 0.82550F, 1.79070F},
-            {-0.86360F, -0.82550F, -1.79070F},
-            {-0.82550F, -0.86360F, -1.79070F},
-            {0.82550F, 0.86360F, -1.79070F},
-            {0.86360F, 0.82550F, -1.79070F}};
+    return {{0.964717F, 0.88138F, 1.800225F},
+            {0.964717F, 0.88138F, 0.565785F},
+            {-0.964717F, 0.88138F, 1.800225F},
+            {-0.964717F, 0.88138F, 0.565785F},
+            {-0.964717F, -0.88138F, 1.800225F},
+            {-0.964717F, -0.88138F, 0.565785F},
+            {0.964717F, -0.88138F, 1.800225F},
+            {0.964717F, -0.88138F, 0.565785F}};
 }
 
 inline std::vector<Eigen::Vector3f> rcsDirections1() {
-    return {{1.0F, 0.0F, 0.0F},
-            {0.0F, 1.0F, 0.0F},
-            {0.0F, -1.0F, 0.0F},
-            {-1.0F, 0.0F, 0.0F},
-            {1.0F, 0.0F, 0.0F},
-            {0.0F, 1.0F, 0.0F},
-            {0.0F, -1.0F, 0.0F},
-            {-1.0F, 0.0F, 0.0F}};
+    constexpr float s = 0.70710678F;
+    return {{0.0F, -s, s},
+            {0.0F, -s, -s},
+            {0.0F, -s, s},
+            {0.0F, -s, -s},
+            {0.0F, s, s},
+            {0.0F, s, -s},
+            {0.0F, s, s},
+            {0.0F, s, -s}};
 }
 
 // 12-thruster layout 2 — thrusters cover all six axes so DG is full-rank.
