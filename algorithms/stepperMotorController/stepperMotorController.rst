@@ -31,7 +31,8 @@ Python.
       - Stepper motor dynamics feedback (uses ``motorPosition`` and ``isMotorMoving``)
     * - motorStepCommandOutMsg
       - :ref:`MotorStepCommandMsgPayload`
-      - Commanded motor steps output message (uses ``stepsCommanded``). Written only when a new ``MOVE`` command is issued.
+      - Commanded motor steps output message. Written on a ``MOVE`` (sets ``stepsCommanded``,
+        ``stopMotorCommand=false``) or a ``STOP`` (sets ``stepsCommanded=0``, ``stopMotorCommand=true``).
 
 Algorithm Parameters
 -------------------------------
@@ -200,9 +201,10 @@ angle), and :math:`n_m` the position most recently commanded (stored internally)
 - ``MOVING`` — the motor is executing a commanded move. Two conditions are checked each tick, in priority order:
 
   1. *Reference changed.* If :math:`\left| \text{stepDelta}(n_m - n_d) \right| \ge \tau`, the algorithm emits a ``STOP``
-     command and transitions to ``STOPPING``. The Xmera adapter does NOT propagate the ``STOP`` to the motor dynamics —
-     because a stepper motor cannot stop mid-step — so the motor continues to execute the original step command.
-     The algorithm waits in ``STOPPING`` for the motor to finish, then re-plans from the resulting final position.
+     command and transitions to ``STOPPING``. The Xmera adapter forwards the ``STOP`` to the motor dynamics
+     (``stopMotorCommand=true``); because a stepper motor cannot stop mid-step, the motor finishes its current step
+     before halting. The algorithm waits in ``STOPPING`` for the motor to report ``isMotorMoving == false``, then
+     re-plans from the resulting final position.
   2. *Move complete.* Otherwise, if the caller reports ``isMotorMoving == false``, the algorithm transitions directly
      to ``SETTLING`` and resets the settle counter (skipping ``STOPPING``, since no ``STOP`` command needs to be
      issued — the motor has already come to rest at the commanded target).
@@ -232,8 +234,8 @@ Algorithm Assumptions and Limitations
 - Motor motion is assumed to be quantized at the step level; reference angles that fall between steps are rounded to
   the nearest step.
 - The caller is responsible for tracking the motor's current position and passing it to ``update()`` each tick.
-- When a ``STOP`` is issued mid-move, the Xmera adapter does not interrupt the motor; the motor completes its original
-  commanded steps and the algorithm re-plans from the resulting final position.
+- When a ``STOP`` is issued mid-move, the Xmera adapter forwards the stop to the motor; the motor completes its
+  current step before halting, and the algorithm re-plans from the resulting final position.
 - The ``OFF`` state is entered only via caller intervention; there is no transition into ``OFF`` from within the
   state machine.
 - The motor's travel range ``[minAngle, maxAngle]`` must satisfy :math:`-2\pi \le \text{minAngle} < \text{maxAngle} \le 2\pi`.
@@ -250,9 +252,10 @@ The ``StepperMotorController`` Xmera adapter provides the simulation integration
 - On ``reset()``, requires both input messages to be linked and resets the underlying algorithm state.
 - On each ``updateState()``, calls the algorithm with the feedback ``motorPosition``, the reference angle, and the
   feedback ``isMotorMoving``.
-- On a ``MOVE`` output, writes ``motorStepCommandOutMsg`` with the commanded step delta.
-- On a ``STOP`` output, takes no action toward the motor; the algorithm transitions to ``STOPPING`` and waits for the
-  motor to settle naturally.
+- On a ``MOVE`` output, writes ``motorStepCommandOutMsg`` with the commanded step delta and ``stopMotorCommand=false``.
+- On a ``STOP`` output, writes ``motorStepCommandOutMsg`` with ``stopMotorCommand=true`` and ``stepsCommanded=0``; the
+  motor halts after finishing its current step. The algorithm transitions to ``STOPPING`` and waits for
+  ``isMotorMoving == false``.
 
 User Guide
 ----------

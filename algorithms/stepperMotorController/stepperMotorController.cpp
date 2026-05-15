@@ -39,6 +39,12 @@ void StepperMotorController::updateState(const uint64_t callTime) {
     if (output.commandType == StepperMotorCommandType::MOVE) {
         MotorStepCommandMsgPayload motorStepCommandOut{};
         motorStepCommandOut.stepsCommanded = output.stepsToMove;
+        motorStepCommandOut.stopMotorCommand = false;
+        this->motorStepCommandOutMsg.write(&motorStepCommandOut, moduleID, callTime);
+    } else if (output.commandType == StepperMotorCommandType::STOP) {
+        MotorStepCommandMsgPayload motorStepCommandOut{};
+        motorStepCommandOut.stepsCommanded = 0;
+        motorStepCommandOut.stopMotorCommand = true;
         this->motorStepCommandOutMsg.write(&motorStepCommandOut, moduleID, callTime);
     }
 }

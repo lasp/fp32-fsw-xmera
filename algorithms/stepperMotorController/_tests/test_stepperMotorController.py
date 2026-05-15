@@ -194,9 +194,10 @@ def test_stepper_motor_controller_interrupt(show_plots):
     **Validation Test Description**
 
     Verify that changing the reference angle mid-move causes the controller to transition to
-    STOPPING and wait for the motor to finish its original commanded steps, then re-plan from the
-    final position. The Xmera adapter does not propagate ``STOP`` to the motor (the motor cannot
-    stop mid-step), so the motor reaches the original target before the algorithm re-plans.
+    STOPPING and wait for the motor to halt, then re-plan from the final position. The adapter
+    propagates ``STOP`` as a command with ``stopMotorCommand=true``; the motor finishes its
+    current step before halting (it cannot stop mid-step), and the algorithm re-plans once the
+    motor reports ``isMotorMoving=false``.
 
     The "motor" is simulated here by writing the feedback message directly with chosen
     ``motorPosition`` and ``isMotorMoving`` values, so this test does not depend on the stepper
