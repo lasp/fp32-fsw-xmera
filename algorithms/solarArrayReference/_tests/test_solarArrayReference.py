@@ -70,7 +70,7 @@ def test_solarArrayReference(show_plots, rHat_SB_N, sigma_BN, sigma_RN, accuracy
 
     This unit test checks the correctness of the output attitude reference message
 
-    - ``hingedRigidBodyRefOutMsg``
+    - ``solarArrayRefOutMsg``
 
     in all its parts. The reference angle ``theta`` is checked versus the value computed by a python function that computes the same angle.
     The reference angle derivative ``thetaDot`` is checked versus zero, as the module is run for only one Update call.
@@ -125,7 +125,7 @@ def test_solarArrayReference(show_plots, rHat_SB_N, sigma_BN, sigma_RN, accuracy
     solar_array.hingedRigidBodyInMsg.subscribeTo(hinged_rigid_body_in_msg)
 
     # Setup logging on the test module output message so that we get all the writes to it
-    data_log = solar_array.hingedRigidBodyRefOutMsg.recorder()
+    data_log = solar_array.solarArrayRefOutMsg.recorder()
     unit_test_sim.AddModelToTask(unit_task_name, data_log)
 
     # Need to call the self-init and cross-init methods
@@ -198,7 +198,7 @@ def test_solarArrayReference_specifiedAngle(show_plots, specifiedAngle, offsetAn
     hinged_rigid_body_in_msg = messaging.HingedRigidBodyMsgF32().write(hinged_rigid_body_in_msg_data)
     solar_array.hingedRigidBodyInMsg.subscribeTo(hinged_rigid_body_in_msg)
 
-    data_log = solar_array.hingedRigidBodyRefOutMsg.recorder()
+    data_log = solar_array.solarArrayRefOutMsg.recorder()
     unit_test_sim.AddModelToTask(unit_task_name, data_log)
 
     unit_test_sim.InitializeSimulation()

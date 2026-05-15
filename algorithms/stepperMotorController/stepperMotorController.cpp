@@ -22,7 +22,7 @@ void StepperMotorController::reset(const uint64_t callTime) {
 void StepperMotorController::updateState(const uint64_t callTime) {
     float referenceAngle{};
     if (this->motorRefAngleInMsg.isWritten()) {
-        const HingedRigidBodyMsgF32Payload motorRefAngleIn = this->motorRefAngleInMsg();
+        const MotorAngleRefMsgF32Payload motorRefAngleIn = this->motorRefAngleInMsg();
         referenceAngle = motorRefAngleIn.theta;
     }
 

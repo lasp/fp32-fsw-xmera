@@ -24,7 +24,7 @@ Python.
       - Msg Type
       - Description
     * - motorRefAngleInMsg
-      - :ref:`HingedRigidBodyMsgF32Payload`
+      - :ref:`MotorAngleRefMsgF32Payload`
       - Reference motor angle input message (uses ``theta``, [rad])
     * - stepperMotorInMsg
       - :ref:`StepperMotorMsgPayload`

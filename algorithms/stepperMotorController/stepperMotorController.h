@@ -1,7 +1,7 @@
 #ifndef F32XMERA_STEPPER_MOTOR_CONTROLLER_H
 #define F32XMERA_STEPPER_MOTOR_CONTROLLER_H
 
-#include "msgPayloadDef/HingedRigidBodyMsgF32Payload.h"
+#include "msgPayloadDef/MotorAngleRefMsgF32Payload.h"
 #include "stepperMotorControllerAlgorithm.h"
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
@@ -31,7 +31,7 @@ class StepperMotorController : public SysModel {
     void setMinStepCommand(uint32_t minStepCommandIn);
     uint32_t getMinStepCommand() const;
 
-    ReadFunctor<HingedRigidBodyMsgF32Payload> motorRefAngleInMsg;  //!< Input msg for the motor reference angle
+    ReadFunctor<MotorAngleRefMsgF32Payload> motorRefAngleInMsg;  //!< Input msg for the motor reference angle
     ReadFunctor<StepperMotorMsgPayload>
         stepperMotorInMsg;  //!< Input msg from the stepper motor dynamics (motorPosition, isMotorMoving)
     Message<MotorStepCommandMsgPayload> motorStepCommandOutMsg;  //!< Output msg for commanded motor steps

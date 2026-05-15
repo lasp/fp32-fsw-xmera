@@ -76,9 +76,9 @@ def test_stepper_motor_controller_nominal(show_plots, step_angle, theta_init_deg
     motor_controller.minStepCommand = 1
     sim.AddModelToTask("unitTask", motor_controller)
 
-    ref_msg_data = messaging.HingedRigidBodyMsgF32Payload()
+    ref_msg_data = messaging.MotorAngleRefMsgF32Payload()
     ref_msg_data.theta = theta_ref_deg * macros.D2R
-    ref_msg = messaging.HingedRigidBodyMsgF32().write(ref_msg_data)
+    ref_msg = messaging.MotorAngleRefMsgF32().write(ref_msg_data)
     motor_controller.motorRefAngleInMsg.subscribeTo(ref_msg)
     feedback_msg = make_stepper_motor_msg_payload(motor_position=init_step)
     motor_controller.stepperMotorInMsg.subscribeTo(feedback_msg)
@@ -126,9 +126,9 @@ def test_stepper_motor_controller_shortest_path(show_plots, theta_init_deg, thet
     motor_controller.minStepCommand = 1
     sim.AddModelToTask("unitTask", motor_controller)
 
-    ref_msg_data = messaging.HingedRigidBodyMsgF32Payload()
+    ref_msg_data = messaging.MotorAngleRefMsgF32Payload()
     ref_msg_data.theta = theta_ref_deg * macros.D2R
-    ref_msg = messaging.HingedRigidBodyMsgF32().write(ref_msg_data)
+    ref_msg = messaging.MotorAngleRefMsgF32().write(ref_msg_data)
     motor_controller.motorRefAngleInMsg.subscribeTo(ref_msg)
     feedback_msg = make_stepper_motor_msg_payload(motor_position=init_step)
     motor_controller.stepperMotorInMsg.subscribeTo(feedback_msg)
@@ -171,9 +171,9 @@ def test_stepper_motor_controller_below_min_step_command(show_plots):
     sim.AddModelToTask("unitTask", motor_controller)
 
     # Reference is 3 deg from init = 3 steps, below minStepCommand of 5
-    ref_msg_data = messaging.HingedRigidBodyMsgF32Payload()
+    ref_msg_data = messaging.MotorAngleRefMsgF32Payload()
     ref_msg_data.theta = 3.0 * macros.D2R
-    ref_msg = messaging.HingedRigidBodyMsgF32().write(ref_msg_data)
+    ref_msg = messaging.MotorAngleRefMsgF32().write(ref_msg_data)
     motor_controller.motorRefAngleInMsg.subscribeTo(ref_msg)
     feedback_msg = make_stepper_motor_msg_payload(motor_position=0)
     motor_controller.stepperMotorInMsg.subscribeTo(feedback_msg)
@@ -217,9 +217,9 @@ def test_stepper_motor_controller_interrupt(show_plots):
     sim.AddModelToTask("unitTask", motor_controller)
 
     # First reference: 20 deg = 20 steps from motorPosition=0
-    ref_msg_data = messaging.HingedRigidBodyMsgF32Payload()
+    ref_msg_data = messaging.MotorAngleRefMsgF32Payload()
     ref_msg_data.theta = 20.0 * macros.D2R
-    ref_msg = messaging.HingedRigidBodyMsgF32().write(ref_msg_data)
+    ref_msg = messaging.MotorAngleRefMsgF32().write(ref_msg_data)
     motor_controller.motorRefAngleInMsg.subscribeTo(ref_msg)
 
     # Feedback: stand in for "motor already moving" so the algorithm doesn't transition out of
@@ -280,9 +280,9 @@ def test_stepper_motor_controller_position_tracking(show_plots):
     sim.AddModelToTask("unitTask", motor_controller)
 
     # First reference: 9 deg = 9 steps
-    ref_msg_data = messaging.HingedRigidBodyMsgF32Payload()
+    ref_msg_data = messaging.MotorAngleRefMsgF32Payload()
     ref_msg_data.theta = 9.0 * macros.D2R
-    ref_msg = messaging.HingedRigidBodyMsgF32().write(ref_msg_data)
+    ref_msg = messaging.MotorAngleRefMsgF32().write(ref_msg_data)
     motor_controller.motorRefAngleInMsg.subscribeTo(ref_msg)
 
     feedback_msg = make_stepper_motor_msg_payload(motor_position=0, is_motor_moving=False)
@@ -335,9 +335,9 @@ def test_stepper_motor_controller_out_of_range(show_plots, ref_deg):
     # Motor starts in-range at 60 deg = 60 steps
     init_step = angle_to_steps(math.radians(60.0), round(2 * math.pi / step_angle))
 
-    ref_msg_data = messaging.HingedRigidBodyMsgF32Payload()
+    ref_msg_data = messaging.MotorAngleRefMsgF32Payload()
     ref_msg_data.theta = math.radians(ref_deg)
-    ref_msg = messaging.HingedRigidBodyMsgF32().write(ref_msg_data)
+    ref_msg = messaging.MotorAngleRefMsgF32().write(ref_msg_data)
     motor_controller.motorRefAngleInMsg.subscribeTo(ref_msg)
     feedback_msg = make_stepper_motor_msg_payload(motor_position=init_step)
     motor_controller.stepperMotorInMsg.subscribeTo(feedback_msg)
