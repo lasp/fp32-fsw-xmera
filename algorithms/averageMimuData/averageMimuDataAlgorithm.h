@@ -63,8 +63,8 @@ class AverageMimuDataAlgorithm {
         average_mimu_detail::ceilDivSamplesToPackets(
             kMimuSampleRateHz, kMaxAveragingWindowSec, MAX_MIMU_SAMPLES_PER_PKT_C);
 
-    void setAveragingWindow(float window);                  //!< [s] Setter method for windowSec
-    float getAveragingWindow() const;                       //!< [s] Getter method for windowSec
+    void setAveragingWindow(double window);                 //!< [s] Setter method for windowSec
+    double getAveragingWindow() const;                      //!< [s] Getter method for windowSec
     void setDcmPltfToBdy(Eigen::Matrix3f const& dcm_BPIn);  //!< Setter method for dcm from platform to body
     Eigen::Matrix3f getDcmPltfToBdy() const;                //!< Getter method for dcm from platform to body
 

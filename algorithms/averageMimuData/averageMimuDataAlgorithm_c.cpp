@@ -39,11 +39,11 @@ OutputAverageAccelAngleVel_c AverageMimuDataAlgorithm_update(AverageMimuDataAlgo
     return result;
 }
 
-void AverageMimuDataAlgorithm_setAveragingWindow(AverageMimuDataAlgorithmHandle* self, float window) {
+void AverageMimuDataAlgorithm_setAveragingWindow(AverageMimuDataAlgorithmHandle* self, double window) {
     reinterpret_cast<::AverageMimuDataAlgorithm*>(self)->setAveragingWindow(window);
 }
 
-float AverageMimuDataAlgorithm_getAveragingWindow(const AverageMimuDataAlgorithmHandle* self) {
+double AverageMimuDataAlgorithm_getAveragingWindow(const AverageMimuDataAlgorithmHandle* self) {
     return reinterpret_cast<const ::AverageMimuDataAlgorithm*>(self)->getAveragingWindow();
 }
 

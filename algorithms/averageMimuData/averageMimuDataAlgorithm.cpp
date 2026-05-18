@@ -95,17 +95,15 @@ OutputAverageAccelAngleVel AverageMimuDataAlgorithm::update(InputPktsData const&
     return out;
 }
 
-void AverageMimuDataAlgorithm::setAveragingWindow(float const window) {
-    if (window < 0.0F || window > kMaxAveragingWindowSec) {
+void AverageMimuDataAlgorithm::setAveragingWindow(double const window) {
+    if (window < 0.0 || window > kMaxAveragingWindowSec) {
         FSW_THROW_INVALID_ARGUMENT("AveragingWindow cannot be smaller than 0.0 or greater than 2.0 seconds");
     }
-    // Convert seconds->nanoseconds in double so plausible window values
-    // (e.g. 2.0 s -> 2_000_000_000 ns) survive without rounding through float.
-    this->averagingWindowNs = static_cast<std::uint64_t>(static_cast<double>(window) * 1.0e9);
+    this->averagingWindowNs = static_cast<std::uint64_t>(window * kSec2Nano);
 }
 
-float AverageMimuDataAlgorithm::getAveragingWindow() const {
-    return static_cast<float>(static_cast<double>(this->averagingWindowNs) * 1.0e-9);
+double AverageMimuDataAlgorithm::getAveragingWindow() const {
+    return this->averagingWindowNs * kNano2Sec;
 }
 
 void AverageMimuDataAlgorithm::setDcmPltfToBdy(Eigen::Matrix3f const& dcm_BPIn) {
