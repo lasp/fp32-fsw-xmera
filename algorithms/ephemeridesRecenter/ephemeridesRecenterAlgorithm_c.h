@@ -15,17 +15,17 @@ typedef struct EphemeridesRecenterAlgorithm EphemeridesRecenterAlgorithm;
 
 /**
  * @brief POD representation of one body's ephemeris payload as used by the
- *        algorithm. The C++ side uses Eigen::Vector3d for r/v vectors and
- *        a bool for the moon flag; both are converted in the shim.
+ *        algorithm. The C++ side uses Eigen::Vector3d for position/velocity
+ *        and a bool for the moon flag; both are converted in the shim.
  */
 typedef struct {
     int bodySpiceId;           /*!< SPICE ID of the body */
     int originalCentralBodyId; /*!< SPICE ID of original central body */
     int isMoon;                /*!< 1 if this body is a moon of another listed body, else 0 */
-    double input_r[3];         /*!< [m] input position */
-    double input_v[3];         /*!< [m/s] input velocity */
-    double output_r[3];        /*!< [m] output position relative to new central body */
-    double output_v[3];        /*!< [m/s] output velocity relative to new central body */
+    double position[3]; /*!< [m] position (input: relative to original central body; output: relative to new central
+                           body) */
+    double velocity[3]; /*!< [m/s] velocity (input: relative to original central body; output: relative to new central
+                           body) */
 } BodyEphemerisPayload_c;
 
 /**
@@ -67,11 +67,11 @@ void EphemeridesRecenterAlgorithm_reset(EphemeridesRecenterAlgorithm* self);
 /**
  * @brief Run the recentering update.
  * @param self      Pointer to the instance.
- * @param newBodies Pointer to a single instance containing input r/v for
- *                  every configured body (in the order they were added).
+ * @param newBodies Pointer to a single instance containing input position/velocity
+ *                  for every configured body (in the order they were added).
  *                  Indices beyond the configured body count are unused.
- * @return BodyEphemerisPayloadArray20_c  Output r/v for each body relative
- *         to the new central body.
+ * @return BodyEphemerisPayloadArray20_c  Output position/velocity for each body
+ *         relative to the new central body.
  */
 BodyEphemerisPayloadArray20_c EphemeridesRecenterAlgorithm_updateState(EphemeridesRecenterAlgorithm* self,
                                                                        const BodyEphemerisPayloadArray20_c* newBodies);
