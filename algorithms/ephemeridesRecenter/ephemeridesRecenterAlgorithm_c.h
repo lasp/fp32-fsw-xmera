@@ -37,11 +37,11 @@ void EphemeridesRecenterAlgorithm_setConfig(EphemeridesRecenterAlgorithmHandle* 
 /**
  * @brief Run the recentering update.
  * @param self      Pointer to the instance.
- * @param newBodies Pointer to a single instance containing input r/v for
- *                  every configured body (in the order they were added).
+ * @param newBodies Pointer to a single instance containing input position/velocity
+ *                  for every configured body (in the order they were added).
  *                  Indices beyond the configured body count are unused.
- * @return BodyEphemerisPayloadArray20_c  Output r/v for each body relative
- *         to the new central body.
+ * @return BodyEphemerisPayloadArray20_c  Output position/velocity for each body
+ *         relative to the new central body.
  */
 BodyEphemerisPayloadArray20_c EphemeridesRecenterAlgorithm_updateState(EphemeridesRecenterAlgorithmHandle* self,
                                                                        const BodyEphemerisPayloadArray20_c* newBodies);

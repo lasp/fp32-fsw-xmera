@@ -62,8 +62,8 @@ void EphemeridesRecenter::updateState(const uint64_t callTime) {
         newBodyPayload.bodySpiceId = this->ephemerides.at(i).bodySpiceId;
         newBodyPayload.originalCentralBodyId = this->ephemerides.at(i).originalCentralBodyId;
         for (int j = 0; j < 3; ++j) {
-            newBodyPayload.input_r[j] = input_i.r_BdyZero_N[j];
-            newBodyPayload.input_v[j] = input_i.v_BdyZero_N[j];
+            newBodyPayload.position[j] = input_i.r_BdyZero_N[j];
+            newBodyPayload.velocity[j] = input_i.v_BdyZero_N[j];
         }
         bodyPayloads.at(i) = newBodyPayload;
     }
@@ -73,8 +73,8 @@ void EphemeridesRecenter::updateState(const uint64_t callTime) {
     for (size_t i = 0U; i < this->ephemeridesNumber; ++i) {
         EphemerisMsgF32Payload output_i{};
         for (int j = 0; j < 3; ++j) {
-            output_i.r_BdyZero_N[j] = outputPayloads.at(i).output_r[j];
-            output_i.v_BdyZero_N[j] = outputPayloads.at(i).output_v[j];
+            output_i.r_BdyZero_N[j] = outputPayloads.at(i).position[j];
+            output_i.v_BdyZero_N[j] = outputPayloads.at(i).velocity[j];
         }
         output_i.timeTag = this->ephemerides.at(i).inputEphemerisMsg().timeTag;
         this->recenteredEphemerisOutputMsgs.at(i)->write(output_i, this->moduleID, callTime);
