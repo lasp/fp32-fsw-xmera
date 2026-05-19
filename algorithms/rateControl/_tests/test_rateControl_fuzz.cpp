@@ -1,4 +1,4 @@
-#include "fp32-fsw-xmera/architecture/testUtilities/eigenFuzzDomains.hpp"
+#include "../architecture/testUtilities/eigenFuzzDomains.hpp"
 #include "rateControlTestHelpers.hpp"
 #include <fuzztest/fuzztest.h>
 
