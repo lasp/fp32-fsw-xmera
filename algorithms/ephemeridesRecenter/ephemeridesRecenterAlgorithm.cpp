@@ -9,14 +9,14 @@ void EphemeridesRecenterAlgorithm::reset() { this->checkConfiguration(); }
  */
 std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES> EphemeridesRecenterAlgorithm::updateState(
     const std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES>& newBodies) const {
-    Eigen::Vector3d newCentral_input_r = newBodies.at(this->newCentralIndex).input_r;
-    Eigen::Vector3d newCentral_input_v = newBodies.at(this->newCentralIndex).input_v;
+    Eigen::Vector3d newCentralPosition = newBodies.at(this->newCentralIndex).position;
+    Eigen::Vector3d newCentralVelocity = newBodies.at(this->newCentralIndex).velocity;
 
     /* If the new central body is a moon, first re-center it around the common
      * central body so that every body is relative to the common center */
     if (this->newCentralIsMoon) {
-        newCentral_input_r += newBodies.at(this->newCentralParentIndex).input_r;
-        newCentral_input_v += newBodies.at(this->newCentralParentIndex).input_v;
+        newCentralPosition += newBodies.at(this->newCentralParentIndex).position;
+        newCentralVelocity += newBodies.at(this->newCentralParentIndex).velocity;
     }
 
     std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES> recenteredBodies{};
@@ -27,20 +27,20 @@ std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES> EphemeridesRecenterAlgor
 
         recenteredBodies.at(i) = BodyEphemerisPayload{};
         if (this->originalCentralBodyIds.at(i) == this->previousCentralBodyId) {
-            Eigen::Vector3d const relativePosition = newBodies.at(i).input_r - newCentral_input_r;
-            Eigen::Vector3d const relativeVelocity = newBodies.at(i).input_v - newCentral_input_v;
+            Eigen::Vector3d const relativePosition = newBodies.at(i).position - newCentralPosition;
+            Eigen::Vector3d const relativeVelocity = newBodies.at(i).velocity - newCentralVelocity;
 
             if (this->moonIndices.at(i).found && this->bodyIds.at(i) != this->previousCentralBodyId) {
                 const size_t moonIdx = this->moonIndices.at(i).index;
                 recenteredBodies.at(moonIdx).bodySpiceId = newBodies.at(moonIdx).bodySpiceId;
                 recenteredBodies.at(moonIdx).isMoon = true;
                 recenteredBodies.at(moonIdx).originalCentralBodyId = newBodies.at(moonIdx).originalCentralBodyId;
-                recenteredBodies.at(moonIdx).output_r = relativePosition + newBodies.at(moonIdx).input_r;
-                recenteredBodies.at(moonIdx).output_v = relativeVelocity + newBodies.at(moonIdx).input_v;
+                recenteredBodies.at(moonIdx).position = relativePosition + newBodies.at(moonIdx).position;
+                recenteredBodies.at(moonIdx).velocity = relativeVelocity + newBodies.at(moonIdx).velocity;
             }
             recenteredBodies.at(i) = newBodies.at(i);
-            recenteredBodies.at(i).output_r = relativePosition;
-            recenteredBodies.at(i).output_v = relativeVelocity;
+            recenteredBodies.at(i).position = relativePosition;
+            recenteredBodies.at(i).velocity = relativeVelocity;
         }
     }
     return recenteredBodies;

@@ -43,8 +43,8 @@ std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES> referenceUpdate(
 
     // Central body payload
     const auto newCentralBody = celestialBodies[newCentralIndex];
-    Eigen::Vector3d newCentral_input_r = newCentralBody.input_r;
-    Eigen::Vector3d newCentral_input_v = newCentralBody.input_v;
+    Eigen::Vector3d newCentral_position = newCentralBody.position;
+    Eigen::Vector3d newCentral_velocity = newCentralBody.velocity;
 
     /* - If the new central body is a moon (its original central body is not the common central body but another body in
      * the list) first re-center the moon around the common central body so that every body is relative to the common
@@ -57,10 +57,10 @@ std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES> referenceUpdate(
                 break;
             }
         }
-        Eigen::Vector3d moonCentral_input_r = celestialBodies[moonCentralBodyIndex].input_r;
-        Eigen::Vector3d moonCentral_input_v = celestialBodies[moonCentralBodyIndex].input_v;
-        newCentral_input_r = newCentral_input_r + moonCentral_input_r;
-        newCentral_input_v = newCentral_input_v + moonCentral_input_v;
+        Eigen::Vector3d moonCentral_position = celestialBodies[moonCentralBodyIndex].position;
+        Eigen::Vector3d moonCentral_velocity = celestialBodies[moonCentralBodyIndex].velocity;
+        newCentral_position = newCentral_position + moonCentral_position;
+        newCentral_velocity = newCentral_velocity + moonCentral_velocity;
     }
 
     std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES> recenteredBodies{};
@@ -70,13 +70,13 @@ std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES> referenceUpdate(
         }
 
         recenteredBodies[i] = BodyEphemerisPayload{};
-        Eigen::Vector3d newEphemerisToRecenter_input_r = newBodies[i].input_r;
-        Eigen::Vector3d newEphemerisToRecenter_input_v = newBodies[i].input_v;
+        Eigen::Vector3d newEphemerisToRecenter_position = newBodies[i].position;
+        Eigen::Vector3d newEphemerisToRecenter_velocity = newBodies[i].velocity;
 
         if (celestialBodies[i].originalCentralBodyId == previousCentralBodyId) {
-            Eigen::Vector3d const relativePosition = newEphemerisToRecenter_input_r - newCentral_input_r;
+            Eigen::Vector3d const relativePosition = newEphemerisToRecenter_position - newCentral_position;
 
-            Eigen::Vector3d const relativeVelocity = newEphemerisToRecenter_input_v - newCentral_input_v;
+            Eigen::Vector3d const relativeVelocity = newEphemerisToRecenter_velocity - newCentral_velocity;
 
             // implement private function findMoonOfBody(celestialBodies[i]) in the algorithm
             size_t moonIndex = 0U;
@@ -90,22 +90,22 @@ std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES> referenceUpdate(
             }
 
             if (moonFound && celestialBodies[i].bodySpiceId != previousCentralBodyId) {
-                Eigen::Vector3d moonOfBody_input_r = celestialBodies[moonIndex].input_r;
-                Eigen::Vector3d moonOfBody_input_v = celestialBodies[moonIndex].input_v;
-                Eigen::Vector3d const moonRelativePosition = relativePosition + moonOfBody_input_r;
+                Eigen::Vector3d moonOfBody_position = celestialBodies[moonIndex].position;
+                Eigen::Vector3d moonOfBody_velocity = celestialBodies[moonIndex].velocity;
+                Eigen::Vector3d const moonRelativePosition = relativePosition + moonOfBody_position;
 
-                Eigen::Vector3d const moonRelativeVelocity = relativeVelocity + moonOfBody_input_v;
+                Eigen::Vector3d const moonRelativeVelocity = relativeVelocity + moonOfBody_velocity;
 
                 recenteredBodies[moonIndex].bodySpiceId = celestialBodies[moonIndex].bodySpiceId;
                 recenteredBodies[moonIndex].isMoon = true;
                 recenteredBodies[moonIndex].originalCentralBodyId = celestialBodies[moonIndex].originalCentralBodyId;
-                recenteredBodies[moonIndex].output_r = moonRelativePosition;
-                recenteredBodies[moonIndex].output_v = moonRelativeVelocity;
+                recenteredBodies[moonIndex].position = moonRelativePosition;
+                recenteredBodies[moonIndex].velocity = moonRelativeVelocity;
             }
 
             recenteredBodies[i] = newBodies[i];
-            recenteredBodies[i].output_r = relativePosition;
-            recenteredBodies[i].output_v = relativeVelocity;
+            recenteredBodies[i].position = relativePosition;
+            recenteredBodies[i].velocity = relativeVelocity;
         }
     }
 
@@ -161,8 +161,8 @@ inline void regressionTestEphemeridesRecenter(
         newBodies[idx].originalCentralBodyId = originalCentralId;
         newBodies[idx].isMoon = isMoonFlag;
         for (int k = 0; k < 3; ++k) {
-            newBodies[idx].input_r[k] = r[k];
-            newBodies[idx].input_v[k] = v[k];
+            newBodies[idx].position[k] = r[k];
+            newBodies[idx].velocity[k] = v[k];
         }
     };
     fillBody(0, bodyListInOrder[0], bodyListInOrder[previousCommonIdx], r0, v0, isMoon0);
@@ -201,11 +201,11 @@ inline void regressionTestEphemeridesRecenter(
     const size_t N = alg.getNumberOfBodies();
     for (size_t i = 0U; i < N; ++i) {
         for (int k = 0; k < 3; ++k) {
-            EXPECT_NEAR(out[i].output_r[k], ref[i].output_r[k], 1e-6);
-            EXPECT_NEAR(out[i].output_v[k], ref[i].output_v[k], 1e-6);
+            EXPECT_NEAR(out[i].position[k], ref[i].position[k], 1e-6);
+            EXPECT_NEAR(out[i].velocity[k], ref[i].velocity[k], 1e-6);
 
-            EXPECT_TRUE(std::isfinite(out[i].output_r[k]));
-            EXPECT_TRUE(std::isfinite(out[i].output_v[k]));
+            EXPECT_TRUE(std::isfinite(out[i].position[k]));
+            EXPECT_TRUE(std::isfinite(out[i].velocity[k]));
         }
         EXPECT_EQ(out[i].isMoon, ref[i].isMoon);
         EXPECT_EQ(out[i].bodySpiceId, ref[i].bodySpiceId);
@@ -300,8 +300,8 @@ inline void testRecenterEphemeridesRecenter() {
         newBodies[idx].originalCentralBodyId = originalCentralId;
         newBodies[idx].isMoon = isMoonFlag;
         for (int k = 0; k < 3; ++k) {
-            newBodies[idx].input_r[k] = r[k];
-            newBodies[idx].input_v[k] = v[k];
+            newBodies[idx].position[k] = r[k];
+            newBodies[idx].velocity[k] = v[k];
         }
     };
     const std::array<double, 3> r_sun = {0.0, 0.0, 0.0};
@@ -339,28 +339,28 @@ inline void testRecenterEphemeridesRecenter() {
 
         // Sun'
         for (size_t i = 0U; i < 3U; ++i) {
-            EXPECT_NEAR(out[0].output_r[i], r_sun[i] - r_earth[i], 1e-6);
-            EXPECT_NEAR(out[0].output_v[i], v_sun[i] - v_earth[i], 1e-6);
+            EXPECT_NEAR(out[0].position[i], r_sun[i] - r_earth[i], 1e-6);
+            EXPECT_NEAR(out[0].velocity[i], v_sun[i] - v_earth[i], 1e-6);
         }
         // Earth'
         for (size_t i = 0U; i < 3U; ++i) {
-            EXPECT_NEAR(out[1].output_r[i], 0.0, 1e-6);
-            EXPECT_NEAR(out[1].output_v[i], 0.0, 1e-6);
+            EXPECT_NEAR(out[1].position[i], 0.0, 1e-6);
+            EXPECT_NEAR(out[1].velocity[i], 0.0, 1e-6);
         }
         // Moon'
         for (size_t i = 0U; i < 3U; ++i) {
-            EXPECT_NEAR(out[2].output_r[i], r_moon_to_earth[i], 1e-6);
-            EXPECT_NEAR(out[2].output_v[i], v_moon_to_earth[i], 1e-6);
+            EXPECT_NEAR(out[2].position[i], r_moon_to_earth[i], 1e-6);
+            EXPECT_NEAR(out[2].velocity[i], v_moon_to_earth[i], 1e-6);
         }
         // SATURN'
         for (size_t i = 0U; i < 3U; ++i) {
-            EXPECT_NEAR(out[3].output_r[i], r_saturn[i] - r_earth[i], 1e-6);
-            EXPECT_NEAR(out[3].output_v[i], v_saturn[i] - v_earth[i], 1e-6);
+            EXPECT_NEAR(out[3].position[i], r_saturn[i] - r_earth[i], 1e-6);
+            EXPECT_NEAR(out[3].velocity[i], v_saturn[i] - v_earth[i], 1e-6);
         }
         // TITAN'
         for (size_t i = 0U; i < 3U; ++i) {
-            EXPECT_NEAR(out[4].output_r[i], r_titan[i] + (r_saturn[i] - r_earth[i]), 1e-6);
-            EXPECT_NEAR(out[4].output_v[i], v_titan[i] + (v_saturn[i] - v_earth[i]), 1e-6);
+            EXPECT_NEAR(out[4].position[i], r_titan[i] + (r_saturn[i] - r_earth[i]), 1e-6);
+            EXPECT_NEAR(out[4].velocity[i], v_titan[i] + (v_saturn[i] - v_earth[i]), 1e-6);
         }
     }
 }
@@ -390,8 +390,8 @@ inline void testRecenterMoonEphemeridesRecenter() {
         newBodies[idx].originalCentralBodyId = originalCentralId;
         newBodies[idx].isMoon = isMoonFlag;
         for (int k = 0; k < 3; ++k) {
-            newBodies[idx].input_r[k] = r[k];
-            newBodies[idx].input_v[k] = v[k];
+            newBodies[idx].position[k] = r[k];
+            newBodies[idx].velocity[k] = v[k];
         }
     };
     const std::array<double, 3> r_sun = {0.0, 0.0, 0.0};
@@ -429,28 +429,28 @@ inline void testRecenterMoonEphemeridesRecenter() {
 
         // Sun'
         for (size_t i = 0U; i < 3U; ++i) {
-            EXPECT_NEAR(out[0].output_r[i], r_sun[i] - (r_moon_to_earth[i] + r_earth[i]), 1e-6);
-            EXPECT_NEAR(out[0].output_v[i], v_sun[i] - (v_moon_to_earth[i] + v_earth[i]), 1e-6);
+            EXPECT_NEAR(out[0].position[i], r_sun[i] - (r_moon_to_earth[i] + r_earth[i]), 1e-6);
+            EXPECT_NEAR(out[0].velocity[i], v_sun[i] - (v_moon_to_earth[i] + v_earth[i]), 1e-6);
         }
         // Earth'
         for (size_t i = 0U; i < 3U; ++i) {
-            EXPECT_NEAR(out[1].output_r[i], r_earth[i] - (r_moon_to_earth[i] + r_earth[i]), 1e-6);
-            EXPECT_NEAR(out[1].output_v[i], v_earth[i] - (v_moon_to_earth[i] + v_earth[i]), 1e-6);
+            EXPECT_NEAR(out[1].position[i], r_earth[i] - (r_moon_to_earth[i] + r_earth[i]), 1e-6);
+            EXPECT_NEAR(out[1].velocity[i], v_earth[i] - (v_moon_to_earth[i] + v_earth[i]), 1e-6);
         }
         // Moon'
         for (size_t i = 0U; i < 3U; ++i) {
-            EXPECT_NEAR(out[2].output_r[i], 0.0, 1e-6);
-            EXPECT_NEAR(out[2].output_v[i], 0.0, 1e-6);
+            EXPECT_NEAR(out[2].position[i], 0.0, 1e-6);
+            EXPECT_NEAR(out[2].velocity[i], 0.0, 1e-6);
         }
         // SATURN'
         for (size_t i = 0U; i < 3U; ++i) {
-            EXPECT_NEAR(out[3].output_r[i], r_saturn[i] - (r_moon_to_earth[i] + r_earth[i]), 1e-6);
-            EXPECT_NEAR(out[3].output_v[i], v_saturn[i] - (v_moon_to_earth[i] + v_earth[i]), 1e-6);
+            EXPECT_NEAR(out[3].position[i], r_saturn[i] - (r_moon_to_earth[i] + r_earth[i]), 1e-6);
+            EXPECT_NEAR(out[3].velocity[i], v_saturn[i] - (v_moon_to_earth[i] + v_earth[i]), 1e-6);
         }
         // TITAN'
         for (size_t i = 0U; i < 3U; ++i) {
-            EXPECT_NEAR(out[4].output_r[i], r_titan[i] + (r_saturn[i] - (r_moon_to_earth[i] + r_earth[i])), 1e-6);
-            EXPECT_NEAR(out[4].output_v[i], v_titan[i] + (v_saturn[i] - (v_moon_to_earth[i] + v_earth[i])), 1e-6);
+            EXPECT_NEAR(out[4].position[i], r_titan[i] + (r_saturn[i] - (r_moon_to_earth[i] + r_earth[i])), 1e-6);
+            EXPECT_NEAR(out[4].velocity[i], v_titan[i] + (v_saturn[i] - (v_moon_to_earth[i] + v_earth[i])), 1e-6);
         }
     }
 }
@@ -480,8 +480,8 @@ inline void testRecenterPreCommonEphemeridesRecenter() {
         newBodies[idx].originalCentralBodyId = originalCentralId;
         newBodies[idx].isMoon = isMoonFlag;
         for (int k = 0; k < 3; ++k) {
-            newBodies[idx].input_r[k] = r[k];
-            newBodies[idx].input_v[k] = v[k];
+            newBodies[idx].position[k] = r[k];
+            newBodies[idx].velocity[k] = v[k];
         }
     };
     const std::array<double, 3> r_sun = {0.0, 0.0, 0.0};
@@ -519,28 +519,28 @@ inline void testRecenterPreCommonEphemeridesRecenter() {
 
         // Sun'
         for (size_t i = 0U; i < 3U; ++i) {
-            EXPECT_NEAR(out[0].output_r[i], r_sun[i], 1e-6);
-            EXPECT_NEAR(out[0].output_v[i], v_sun[i], 1e-6);
+            EXPECT_NEAR(out[0].position[i], r_sun[i], 1e-6);
+            EXPECT_NEAR(out[0].velocity[i], v_sun[i], 1e-6);
         }
         // Earth'
         for (size_t i = 0U; i < 3U; ++i) {
-            EXPECT_NEAR(out[1].output_r[i], r_earth[i], 1e-6);
-            EXPECT_NEAR(out[1].output_v[i], v_earth[i], 1e-6);
+            EXPECT_NEAR(out[1].position[i], r_earth[i], 1e-6);
+            EXPECT_NEAR(out[1].velocity[i], v_earth[i], 1e-6);
         }
         // Moon'
         for (size_t i = 0U; i < 3U; ++i) {
-            EXPECT_NEAR(out[2].output_r[i], r_moon_to_earth[i] + r_earth[i], 1e-6);
-            EXPECT_NEAR(out[2].output_v[i], v_moon_to_earth[i] + v_earth[i], 1e-6);
+            EXPECT_NEAR(out[2].position[i], r_moon_to_earth[i] + r_earth[i], 1e-6);
+            EXPECT_NEAR(out[2].velocity[i], v_moon_to_earth[i] + v_earth[i], 1e-6);
         }
         // SATURN'
         for (size_t i = 0U; i < 3U; ++i) {
-            EXPECT_NEAR(out[3].output_r[i], r_saturn[i], 1e-6);
-            EXPECT_NEAR(out[3].output_v[i], v_saturn[i], 1e-6);
+            EXPECT_NEAR(out[3].position[i], r_saturn[i], 1e-6);
+            EXPECT_NEAR(out[3].velocity[i], v_saturn[i], 1e-6);
         }
         // TITAN'
         for (size_t i = 0U; i < 3U; ++i) {
-            EXPECT_NEAR(out[4].output_r[i], r_titan[i] + r_saturn[i], 1e-6);
-            EXPECT_NEAR(out[4].output_v[i], v_titan[i] + v_saturn[i], 1e-6);
+            EXPECT_NEAR(out[4].position[i], r_titan[i] + r_saturn[i], 1e-6);
+            EXPECT_NEAR(out[4].velocity[i], v_titan[i] + v_saturn[i], 1e-6);
         }
     }
 }
@@ -570,8 +570,8 @@ inline void testMultiMoonsRecenter() {
         newBodies[idx].originalCentralBodyId = originalCentralId;
         newBodies[idx].isMoon = isMoonFlag;
         for (int k = 0; k < 3; ++k) {
-            newBodies[idx].input_r[k] = r[k];
-            newBodies[idx].input_v[k] = v[k];
+            newBodies[idx].position[k] = r[k];
+            newBodies[idx].velocity[k] = v[k];
         }
     };
     const std::array<double, 3> r_sun = {0.0, 0.0, 0.0};
@@ -651,24 +651,24 @@ inline void testDuplicateBodyRecenter() {
     std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES> newBodies{};
     newBodies[0].bodySpiceId = SUN_SPICE_ID;
     newBodies[0].originalCentralBodyId = SUN_SPICE_ID;
-    newBodies[0].input_r = {0.0, 0.0, 0.0};
+    newBodies[0].position = {0.0, 0.0, 0.0};
     newBodies[1].bodySpiceId = EARTH_SPICE_ID;
     newBodies[1].originalCentralBodyId = SUN_SPICE_ID;
-    newBodies[1].input_r = {10.0, -2.0, 3.0};
+    newBodies[1].position = {10.0, -2.0, 3.0};
     newBodies[2].bodySpiceId = SUN_SPICE_ID;  // duplicate
     newBodies[2].originalCentralBodyId = SUN_SPICE_ID;
-    newBodies[2].input_r = {0.0, 0.0, 0.0};
+    newBodies[2].position = {0.0, 0.0, 0.0};
 
     auto out = alg.updateState(newBodies);
 
     // Both Sun entries should be recentered to Earth
     for (int k = 0; k < 3; ++k) {
-        EXPECT_NEAR(out[0].output_r[k], -newBodies[1].input_r[k], 1e-6);
-        EXPECT_NEAR(out[2].output_r[k], -newBodies[1].input_r[k], 1e-6);  // duplicate matches
+        EXPECT_NEAR(out[0].position[k], -newBodies[1].position[k], 1e-6);
+        EXPECT_NEAR(out[2].position[k], -newBodies[1].position[k], 1e-6);  // duplicate matches
     }
     // Earth is the new center — output should be zero
     for (int k = 0; k < 3; ++k) {
-        EXPECT_NEAR(out[1].output_r[k], 0.0, 1e-6);
+        EXPECT_NEAR(out[1].position[k], 0.0, 1e-6);
     }
 }
 
