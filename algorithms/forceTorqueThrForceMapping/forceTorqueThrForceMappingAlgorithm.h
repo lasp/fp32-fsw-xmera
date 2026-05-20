@@ -16,8 +16,8 @@ class ForceTorqueThrForceMappingAlgorithm {
 
     void computeThrusterMapping();
 
-    void setThrusters(const ThrusterArrayConfig& thrusterConfig);
-    ThrusterArrayConfig getThrusters() const;
+    void setThrusters(const ThrusterArrayConfiguration& thrusterConfiguration);
+    ThrusterArrayConfiguration getThrusters() const;
     void setCenterOfMass_B(const Eigen::Vector3f& centerOfMass);
     Eigen::Vector3f getCenterOfMass_B() const;
     void setDesiredControlAxes(const std::array<bool, 6>& desiredControlAxes);

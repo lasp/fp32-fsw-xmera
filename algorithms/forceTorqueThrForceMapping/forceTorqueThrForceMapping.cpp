@@ -20,8 +20,8 @@ void ForceTorqueThrForceMapping::reset(const uint64_t callTime) {
     VehicleConfigMsgF32Payload vehConfigIn = this->vehConfigInMsg();
     THRArrayConfigMsgF32Payload thrConfigIn = this->thrConfigInMsg();
 
-    ThrusterArrayConfig thrusterConfig{};
-    thrusterConfig.numThrusters = thrConfigIn.numThrusters;
+    ThrusterArrayConfiguration thrusterConfiguration{};
+    thrusterConfiguration.numThrusters = thrConfigIn.numThrusters;
     for (uint32_t i = 0; i < thrConfigIn.numThrusters; ++i) {
         if (thrConfigIn.thrusters[i].maxThrust <= 0.0F) {
             throw std::invalid_argument(
@@ -29,13 +29,13 @@ void ForceTorqueThrForceMapping::reset(const uint64_t callTime) {
                 "saturation limit of <= 0 N!");
         }
         for (uint32_t j = 0; j < 3; ++j) {
-            thrusterConfig.thrusters.at(i).rThrust_B.at(j) = thrConfigIn.thrusters[i].rThrust_B[j];
-            thrusterConfig.thrusters.at(i).tHatThrust_B.at(j) = thrConfigIn.thrusters[i].tHatThrust_B[j];
+            thrusterConfiguration.thrusters.at(i).rThrust_B.at(j) = thrConfigIn.thrusters[i].rThrust_B[j];
+            thrusterConfiguration.thrusters.at(i).tHatThrust_B.at(j) = thrConfigIn.thrusters[i].tHatThrust_B[j];
         }
     }
 
     this->algorithm.setCenterOfMass_B(cArrayToEigenVector(vehConfigIn.CoM_B));
-    this->algorithm.setThrusters(thrusterConfig);
+    this->algorithm.setThrusters(thrusterConfiguration);
 
     this->algorithm.computeThrusterMapping();
 }

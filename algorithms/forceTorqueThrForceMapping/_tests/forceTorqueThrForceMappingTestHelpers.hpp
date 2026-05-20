@@ -37,7 +37,8 @@ inline float combinedTolerance(float expected, float atol, float rtol) { return 
 // moment arms (r-CoM)×g, rows 3-5 are thrust directions g. Trailing columns beyond numThrusters
 // are zero. Used by property helpers that need to compute the achieved force/torque from the
 // algorithm's output independently of the algorithm's internal storage.
-inline Eigen::Matrix<float, 6, MAX_EFF_CNT> buildDG(const ThrusterArrayConfig& config, const Eigen::Vector3f& CoM) {
+inline Eigen::Matrix<float, 6, MAX_EFF_CNT> buildDG(const ThrusterArrayConfiguration& config,
+                                                    const Eigen::Vector3f& CoM) {
     Eigen::Matrix<float, 6, MAX_EFF_CNT> DG = Eigen::Matrix<float, 6, MAX_EFF_CNT>::Zero();
     for (std::uint32_t i = 0; i < config.numThrusters; ++i) {
         const Eigen::Vector3f r(config.thrusters.at(i).rThrust_B[0],
@@ -53,14 +54,14 @@ inline Eigen::Matrix<float, 6, MAX_EFF_CNT> buildDG(const ThrusterArrayConfig& c
     return DG;
 }
 
-// Build a ThrusterArrayConfig from raw per-thruster vectors. `directions` are normalized here so the
+// Build a ThrusterArrayConfiguration from raw per-thruster vectors. `directions` are normalized here so the
 // resulting config is always valid for `setThrusters`. Returns false if the inputs cannot produce a
 // valid configuration (wrong count, size mismatch, or near-zero direction vector), in which case the
 // caller should skip the test input. This is used by both gtest and fuzz harnesses.
 inline bool buildThrusterConfig(std::uint32_t numThrusters,
                                 const std::vector<Eigen::Vector3f>& positions,
                                 const std::vector<Eigen::Vector3f>& directions,
-                                ThrusterArrayConfig& config) {
+                                ThrusterArrayConfiguration& config) {
     if (numThrusters < 1U || numThrusters > MAX_EFF_CNT) {
         return false;
     }
@@ -68,7 +69,7 @@ inline bool buildThrusterConfig(std::uint32_t numThrusters,
         return false;
     }
 
-    config = ThrusterArrayConfig{};
+    config = ThrusterArrayConfiguration{};
     config.numThrusters = numThrusters;
     for (std::uint32_t i = 0; i < numThrusters; ++i) {
         config.thrusters.at(i).rThrust_B = {positions[i].x(), positions[i].y(), positions[i].z()};
@@ -147,7 +148,7 @@ inline void runRegressionCase(std::uint32_t numThrusters,
                               const Eigen::Vector3f& CoM,
                               const Eigen::Vector3f& cmdTorque,
                               const Eigen::Vector3f& cmdForce) {
-    ThrusterArrayConfig config{};
+    ThrusterArrayConfiguration config{};
     if (!buildThrusterConfig(numThrusters, positions, directions, config)) {
         return;
     }
@@ -203,7 +204,7 @@ inline void propertyNonNegativeForces(std::uint32_t numThrusters,
                                       const Eigen::Vector3f& CoM,
                                       const Eigen::Vector3f& cmdTorque,
                                       const Eigen::Vector3f& cmdForce) {
-    ThrusterArrayConfig config{};
+    ThrusterArrayConfiguration config{};
     if (!buildThrusterConfig(numThrusters, positions, directions, config)) {
         return;
     }
@@ -229,7 +230,7 @@ inline void propertyMinimumIsZero(std::uint32_t numThrusters,
                                   const Eigen::Vector3f& CoM,
                                   const Eigen::Vector3f& cmdTorque,
                                   const Eigen::Vector3f& cmdForce) {
-    ThrusterArrayConfig config{};
+    ThrusterArrayConfiguration config{};
     if (!buildThrusterConfig(numThrusters, positions, directions, config)) {
         return;
     }
@@ -256,7 +257,7 @@ inline void propertyPaddingIsZero(std::uint32_t numThrusters,
                                   const Eigen::Vector3f& CoM,
                                   const Eigen::Vector3f& cmdTorque,
                                   const Eigen::Vector3f& cmdForce) {
-    ThrusterArrayConfig config{};
+    ThrusterArrayConfiguration config{};
     if (!buildThrusterConfig(numThrusters, positions, directions, config)) {
         return;
     }
@@ -307,7 +308,7 @@ inline void propertyScaleInvariance(std::uint32_t numThrusters,
     if (!rawDirectionsWellScaled(numThrusters, directions)) {
         return;
     }
-    ThrusterArrayConfig config{};
+    ThrusterArrayConfiguration config{};
     if (!buildThrusterConfig(numThrusters, positions, directions, config)) {
         return;
     }
@@ -335,7 +336,7 @@ inline void propertyStateless(std::uint32_t numThrusters,
                               const Eigen::Vector3f& CoM,
                               const Eigen::Vector3f& cmdTorque,
                               const Eigen::Vector3f& cmdForce) {
-    ThrusterArrayConfig config{};
+    ThrusterArrayConfiguration config{};
     if (!buildThrusterConfig(numThrusters, positions, directions, config)) {
         return;
     }
@@ -362,7 +363,7 @@ inline void propertyFiniteOutput(std::uint32_t numThrusters,
                                  const Eigen::Vector3f& CoM,
                                  const Eigen::Vector3f& cmdTorque,
                                  const Eigen::Vector3f& cmdForce) {
-    ThrusterArrayConfig config{};
+    ThrusterArrayConfiguration config{};
     if (!buildThrusterConfig(numThrusters, positions, directions, config)) {
         return;
     }
@@ -388,7 +389,7 @@ inline void propertyFiniteOutput(std::uint32_t numThrusters,
 inline void propertyAchievesCommandForBalancedLayout(const Eigen::Vector3f& CoM,
                                                      const Eigen::Matrix<float, 8, 1>& testForces) {
     constexpr std::uint32_t numThrusters = 8U;
-    ThrusterArrayConfig config{};
+    ThrusterArrayConfiguration config{};
     if (!buildThrusterConfig(numThrusters, rcsPositions1(), rcsDirections1(), config)) {
         return;
     }
@@ -430,7 +431,7 @@ inline void propertyOutputMagnitudeBounded(std::uint32_t numThrusters,
                                            const Eigen::Vector3f& CoM,
                                            const Eigen::Vector3f& cmdTorque,
                                            const Eigen::Vector3f& cmdForce) {
-    ThrusterArrayConfig config{};
+    ThrusterArrayConfiguration config{};
     if (!buildThrusterConfig(numThrusters, positions, directions, config)) {
         return;
     }

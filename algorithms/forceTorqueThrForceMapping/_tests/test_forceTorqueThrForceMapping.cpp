@@ -68,7 +68,7 @@ TEST(ForceTorqueThrForceMappingTest, SetupTest) {
     }
 
     // setThrusters / getThrusters round-trip — positions preserved, directions normalized.
-    ThrusterArrayConfig config{};
+    ThrusterArrayConfiguration config{};
     config.numThrusters = 2U;
     config.thrusters[0].rThrust_B = {1.0F, 2.0F, 3.0F};
     config.thrusters[0].tHatThrust_B = {1.0F, 0.0F, 0.0F};
@@ -76,7 +76,7 @@ TEST(ForceTorqueThrForceMappingTest, SetupTest) {
     config.thrusters[1].tHatThrust_B = {0.0F, 1.0F, 0.0F};
     EXPECT_NO_THROW(alg.setThrusters(config));
 
-    const ThrusterArrayConfig readBack = alg.getThrusters();
+    const ThrusterArrayConfiguration readBack = alg.getThrusters();
     EXPECT_EQ(readBack.numThrusters, 2U);
     for (std::uint32_t t = 0; t < readBack.numThrusters; ++t) {
         for (int i = 0; i < 3; ++i) {
@@ -89,7 +89,7 @@ TEST(ForceTorqueThrForceMappingTest, SetupTest) {
     }
 
     // Invalid configurations throw fsw::invalid_argument.
-    ThrusterArrayConfig bad = config;
+    ThrusterArrayConfiguration bad = config;
     bad.numThrusters = 0U;
     EXPECT_THROW(alg.setThrusters(bad), fsw::invalid_argument);
 
@@ -106,7 +106,7 @@ TEST(ForceTorqueThrForceMappingTest, SetupTest) {
     EXPECT_THROW(alg.setThrusters(bad), fsw::invalid_argument);
 
     // Directions within the 1e-3 tolerance band are accepted (and normalized).
-    ThrusterArrayConfig nearUnit = config;
+    ThrusterArrayConfiguration nearUnit = config;
     nearUnit.thrusters[0].tHatThrust_B = {1.0F + 5e-4F, 0.0F, 0.0F};
     nearUnit.thrusters[1].tHatThrust_B = {1.0F - 5e-4F, 0.0F, 0.0F};
     EXPECT_NO_THROW(alg.setThrusters(nearUnit));
@@ -117,7 +117,7 @@ TEST(ForceTorqueThrForceMappingTest, SetupTest) {
 // it zero.
 TEST(ForceTorqueThrForceMappingTest, UpdateBeforeComputeIsZero) {
     ForceTorqueThrForceMappingAlgorithm alg{};
-    ThrusterArrayConfig config{};
+    ThrusterArrayConfiguration config{};
     config.numThrusters = 2U;
     config.thrusters[0].rThrust_B = {1.0F, 0.0F, 0.0F};
     config.thrusters[0].tHatThrust_B = {1.0F, 0.0F, 0.0F};
@@ -203,7 +203,7 @@ TEST(ForceTorqueThrForceMappingTest, UnbalancedLayoutAchievedFTDiffersFromComman
                                                      {0.0F, 1.0F, 0.0F},
                                                      {0.0F, 0.0F, 1.0F}};
 
-    ThrusterArrayConfig config{};
+    ThrusterArrayConfiguration config{};
     ASSERT_TRUE(buildThrusterConfig(6U, positions, directions, config));
     ForceTorqueThrForceMappingAlgorithm alg{};
     alg.setCenterOfMass_B({0.0F, 0.0F, 0.0F});
@@ -238,7 +238,7 @@ TEST(ForceTorqueThrForceMappingTest, UnbalancedLayoutAchievedFTDiffersFromComman
 TEST(ForceTorqueThrForceMappingTest, ZeroCommandProducesZeroOutput) {
     ForceTorqueThrForceMappingAlgorithm alg{};
     alg.setCenterOfMass_B({0.1F, 0.1F, 0.1F});
-    ThrusterArrayConfig config{};
+    ThrusterArrayConfiguration config{};
     if (!buildThrusterConfig(8U, rcsPositions1(), rcsDirections1(), config)) {
         FAIL() << "buildThrusterConfig failed for rcs1 layout";
     }
@@ -263,7 +263,7 @@ TEST(ForceTorqueThrForceMappingTest, AllThrustersParallel) {
     const std::vector<Eigen::Vector3f> directions = {
         {1.0F, 0.0F, 0.0F}, {1.0F, 0.0F, 0.0F}, {1.0F, 0.0F, 0.0F}, {1.0F, 0.0F, 0.0F}};
 
-    ThrusterArrayConfig config{};
+    ThrusterArrayConfiguration config{};
     ASSERT_TRUE(buildThrusterConfig(4U, positions, directions, config));
     ForceTorqueThrForceMappingAlgorithm alg{};
     alg.setCenterOfMass_B({0.0F, 0.0F, 0.0F});
@@ -284,7 +284,7 @@ TEST(ForceTorqueThrForceMappingTest, CoMCoincidesWithThruster) {
     const std::vector<Eigen::Vector3f> positions = {{0.5F, 0.0F, 0.0F}, {-0.5F, 0.0F, 0.0F}};
     const std::vector<Eigen::Vector3f> directions = {{0.0F, 1.0F, 0.0F}, {0.0F, 1.0F, 0.0F}};
 
-    ThrusterArrayConfig config{};
+    ThrusterArrayConfiguration config{};
     ASSERT_TRUE(buildThrusterConfig(2U, positions, directions, config));
     ForceTorqueThrForceMappingAlgorithm alg{};
     alg.setCenterOfMass_B({0.5F, 0.0F, 0.0F});
@@ -333,7 +333,7 @@ TEST(ForceTorqueThrForceMappingTest, MaxThrusterCount) {
 // A direction vector with norm 1 + 9e-4 is inside the 1e-3 acceptance band — must not throw and
 // must be normalized on store.
 TEST(ForceTorqueThrForceMappingTest, DirectionAtNormToleranceBoundary) {
-    ThrusterArrayConfig config{};
+    ThrusterArrayConfiguration config{};
     config.numThrusters = 1U;
     config.thrusters[0].rThrust_B = {0.0F, 0.0F, 0.0F};
     config.thrusters[0].tHatThrust_B = {1.0F + 9e-4F, 0.0F, 0.0F};
@@ -341,7 +341,7 @@ TEST(ForceTorqueThrForceMappingTest, DirectionAtNormToleranceBoundary) {
     ForceTorqueThrForceMappingAlgorithm alg{};
     EXPECT_NO_THROW(alg.setThrusters(config));
 
-    const ThrusterArrayConfig readBack = alg.getThrusters();
+    const ThrusterArrayConfiguration readBack = alg.getThrusters();
     const Eigen::Vector3f dir(readBack.thrusters[0].tHatThrust_B[0],
                               readBack.thrusters[0].tHatThrust_B[1],
                               readBack.thrusters[0].tHatThrust_B[2]);
@@ -364,7 +364,7 @@ TEST(ForceTorqueThrForceMappingTest, SmallMomentArmsControllable) {
                                                      {1.0F, 0.0F, 0.0F},
                                                      {-1.0F, 0.0F, 0.0F}};
 
-    ThrusterArrayConfig config{};
+    ThrusterArrayConfiguration config{};
     ASSERT_TRUE(buildThrusterConfig(6U, positions, directions, config));
     ForceTorqueThrForceMappingAlgorithm alg{};
     alg.setCenterOfMass_B({0.0F, 0.0F, 0.0F});
@@ -406,7 +406,7 @@ TEST(ForceTorqueThrForceMappingTest, SmallMomentArmsControllable) {
 // commands, every kept row of ft is zero, so the pseudo-inverse product is zero and the output
 // must be exactly zero.
 TEST(ForceTorqueThrForceMappingTest, CommandOnUncontrollableAxis) {
-    ThrusterArrayConfig config{};
+    ThrusterArrayConfiguration config{};
     ASSERT_TRUE(buildThrusterConfig(8U, rcsPositions1(), rcsDirections1(), config));
     ForceTorqueThrForceMappingAlgorithm alg{};
     alg.setCenterOfMass_B({0.1F, 0.1F, 0.1F});
@@ -447,7 +447,7 @@ TEST(ForceTorqueThrForceMappingTest, DesiredControlAxesRoundTrip) {
 // 12-thruster layout 2 is full-rank — every axis is controllable, so an all-true assertion must
 // pass and the resulting mapping must still match the unconstrained reference.
 TEST(ForceTorqueThrForceMappingTest, DesiredControlAxesAllTrueOnFullRankLayout) {
-    ThrusterArrayConfig config{};
+    ThrusterArrayConfiguration config{};
     ASSERT_TRUE(buildThrusterConfig(12U, rcsPositions2(), rcsDirections2(), config));
     ForceTorqueThrForceMappingAlgorithm alg{};
     alg.setCenterOfMass_B({0.1F, 0.1F, 0.1F});
@@ -460,7 +460,7 @@ TEST(ForceTorqueThrForceMappingTest, DesiredControlAxesAllTrueOnFullRankLayout) 
 // through moment arms / direction sums, but force_x is not. Asserting controllability on force_x
 // must throw; asserting controllability only on the other axes must pass.
 TEST(ForceTorqueThrForceMappingTest, DesiredControlAxesUncontrollableForceXThrows) {
-    ThrusterArrayConfig config{};
+    ThrusterArrayConfiguration config{};
     ASSERT_TRUE(buildThrusterConfig(8U, rcsPositions1(), rcsDirections1(), config));
     ForceTorqueThrForceMappingAlgorithm alg{};
     alg.setCenterOfMass_B({0.1F, 0.1F, 0.1F});
@@ -478,7 +478,7 @@ TEST(ForceTorqueThrForceMappingTest, DesiredControlAxesUncontrollableForceXThrow
 // All-false desiredControlAxes_B opts every axis out of the assertion, so computeThrusterMapping()
 // must not gate on controllability — useful for callers that don't want any controllability check.
 TEST(ForceTorqueThrForceMappingTest, DesiredControlAxesAllFalseAcceptsUncontrollableLayout) {
-    ThrusterArrayConfig config{};
+    ThrusterArrayConfiguration config{};
     ASSERT_TRUE(buildThrusterConfig(8U, rcsPositions1(), rcsDirections1(), config));
     ForceTorqueThrForceMappingAlgorithm alg{};
     alg.setCenterOfMass_B({0.1F, 0.1F, 0.1F});
@@ -490,7 +490,7 @@ TEST(ForceTorqueThrForceMappingTest, DesiredControlAxesAllFalseAcceptsUncontroll
 // The all-true default is strict: on a layout with an uncontrollable axis (layout 1's force_x),
 // computeThrusterMapping() must throw if the caller hasn't opted out.
 TEST(ForceTorqueThrForceMappingTest, DesiredControlAxesDefaultThrowsOnUncontrollableLayout) {
-    ThrusterArrayConfig config{};
+    ThrusterArrayConfiguration config{};
     ASSERT_TRUE(buildThrusterConfig(8U, rcsPositions1(), rcsDirections1(), config));
     ForceTorqueThrForceMappingAlgorithm alg{};
     alg.setCenterOfMass_B({0.1F, 0.1F, 0.1F});

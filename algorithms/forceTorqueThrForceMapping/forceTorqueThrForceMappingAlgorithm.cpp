@@ -90,10 +90,10 @@ void ForceTorqueThrForceMappingAlgorithm::computeThrusterMapping() {
  *  direction vector has a norm within 1e-3 of 1.0, then decomposes the struct-of-arrays layout into
  *  the internal column-major Eigen matrices.
  @return void
- @param thrusterConfig thruster array configuration (positions and unit direction vectors)
+ @param thrusterConfiguration thruster array configuration (positions and unit direction vectors)
 */
-void ForceTorqueThrForceMappingAlgorithm::setThrusters(const ThrusterArrayConfig& thrusterConfig) {
-    const uint32_t count = thrusterConfig.numThrusters;
+void ForceTorqueThrForceMappingAlgorithm::setThrusters(const ThrusterArrayConfiguration& thrusterConfiguration) {
+    const uint32_t count = thrusterConfiguration.numThrusters;
     if (count == 0 || count > MAX_EFF_CNT) {
         FSW_THROW_INVALID_ARGUMENT("forceTorqueThrForceMapping: numThrusters must be in [1, MAX_EFF_CNT]");
     }
@@ -102,8 +102,8 @@ void ForceTorqueThrForceMappingAlgorithm::setThrusters(const ThrusterArrayConfig
     Eigen::Matrix<float, 3, MAX_EFF_CNT> rThruster_B_new{Eigen::Matrix<float, 3, MAX_EFF_CNT>::Zero()};
     Eigen::Matrix<float, 3, MAX_EFF_CNT> gtThruster_B_new{Eigen::Matrix<float, 3, MAX_EFF_CNT>::Zero()};
     for (uint32_t i = 0; i < count; ++i) {
-        rThruster_B_new.col(i) = Eigen::Vector3f(thrusterConfig.thrusters.at(i).rThrust_B.data());
-        Eigen::Vector3f direction(thrusterConfig.thrusters.at(i).tHatThrust_B.data());
+        rThruster_B_new.col(i) = Eigen::Vector3f(thrusterConfiguration.thrusters.at(i).rThrust_B.data());
+        Eigen::Vector3f direction(thrusterConfiguration.thrusters.at(i).tHatThrust_B.data());
         if (fabsf(direction.stableNorm() - 1.0F) > normTolerance) {
             FSW_THROW_INVALID_ARGUMENT("forceTorqueThrForceMapping: thruster direction vector must be a unit vector");
         }
@@ -118,18 +118,18 @@ void ForceTorqueThrForceMappingAlgorithm::setThrusters(const ThrusterArrayConfig
 
 /*! Getter for the thruster array configuration. Reconstructs the struct-of-arrays layout from the
  *  internal column-major Eigen matrices. Direction vectors are returned normalized.
- @return ThrusterArrayConfig
+ @return ThrusterArrayConfiguration
 */
-ThrusterArrayConfig ForceTorqueThrForceMappingAlgorithm::getThrusters() const {
-    ThrusterArrayConfig thrusterConfig{};
-    thrusterConfig.numThrusters = this->numThrusters;
+ThrusterArrayConfiguration ForceTorqueThrForceMappingAlgorithm::getThrusters() const {
+    ThrusterArrayConfiguration thrusterConfiguration{};
+    thrusterConfiguration.numThrusters = this->numThrusters;
     for (uint32_t i = 0; i < this->numThrusters; ++i) {
         for (uint32_t j = 0; j < 3; ++j) {
-            thrusterConfig.thrusters.at(i).rThrust_B.at(j) = this->rThruster_B(j, i);
-            thrusterConfig.thrusters.at(i).tHatThrust_B.at(j) = this->gtThruster_B(j, i);
+            thrusterConfiguration.thrusters.at(i).rThrust_B.at(j) = this->rThruster_B(j, i);
+            thrusterConfiguration.thrusters.at(i).tHatThrust_B.at(j) = this->gtThruster_B(j, i);
         }
     }
-    return thrusterConfig;
+    return thrusterConfiguration;
 }
 
 /*! Setter for the spacecraft center of mass in body frame.
