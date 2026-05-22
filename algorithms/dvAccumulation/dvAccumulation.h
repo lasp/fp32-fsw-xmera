@@ -20,8 +20,6 @@ class DvAccumulation final : public SysModel {
     Message<NavTransMsgF32Payload> dvAcumOutMsg;    //!< accumulated DV output message
     ReadFunctor<AccDataMsgF32Payload> accPktInMsg;  //!< [-] input accelerometer message
 
-    uint32_t msgCount{};  //!< [-] The total number of messages read from inputs
-
    private:
     std::unique_ptr<DvAccumulationAlgorithm> algorithm = nullptr;
 };
