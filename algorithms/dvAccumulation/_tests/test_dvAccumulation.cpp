@@ -68,6 +68,86 @@ TEST(DvAccumulationTest, OutOfOrderInputStillSortsCorrectly) {
     testDvAccumulation({shuffled}, resetSnap);
 }
 
+TEST(DvAccumulationTest, RepeatedIdenticalInputsDoNotDoubleAccumulate) {
+    /*! - feeding the same snapshot twice should integrate only the first time */
+    const AccDataMsgF32Payload resetSnap = buildAccData({}, {});
+    const AccDataMsgF32Payload snap = buildAccData(
+        {static_cast<uint64_t>(1e7), static_cast<uint64_t>(2e7), static_cast<uint64_t>(3e7)},
+        {Eigen::Vector3f{0.1F, 0.2F, 0.3F}, Eigen::Vector3f{0.1F, 0.2F, 0.3F}, Eigen::Vector3f{0.1F, 0.2F, 0.3F}});
+
+    DvAccumulationAlgorithm alg(DvAccumulationConfig::create());
+    alg.resetState(resetSnap);
+
+    const DvAccumulationOutput first = alg.update(snap);
+    const DvAccumulationOutput second = alg.update(snap);
+
+    EXPECT_FLOAT_EQ(first.vehAccumDV_B[0], second.vehAccumDV_B[0]);
+    EXPECT_FLOAT_EQ(first.vehAccumDV_B[1], second.vehAccumDV_B[1]);
+    EXPECT_FLOAT_EQ(first.vehAccumDV_B[2], second.vehAccumDV_B[2]);
+    EXPECT_DOUBLE_EQ(first.timeTag, second.timeTag);
+}
+
+TEST(DvAccumulationTest, AllOlderPacketsDoNotChangeState) {
+    /*! - after a seed reset, an update whose packets are all older than the seed must not
+     *    integrate anything */
+    const AccDataMsgF32Payload resetSnap =
+        buildAccData({static_cast<uint64_t>(1e8)}, {Eigen::Vector3f{0.0F, 0.0F, 0.0F}});
+
+    DvAccumulationAlgorithm alg(DvAccumulationConfig::create());
+    alg.resetState(resetSnap);
+
+    const AccDataMsgF32Payload allOlder = buildAccData(
+        {static_cast<uint64_t>(1e7), static_cast<uint64_t>(5e7), static_cast<uint64_t>(9e7)},
+        {Eigen::Vector3f{1.0F, 2.0F, 3.0F}, Eigen::Vector3f{1.0F, 2.0F, 3.0F}, Eigen::Vector3f{1.0F, 2.0F, 3.0F}});
+    const DvAccumulationOutput out = alg.update(allOlder);
+
+    EXPECT_FLOAT_EQ(out.vehAccumDV_B[0], 0.0F);
+    EXPECT_FLOAT_EQ(out.vehAccumDV_B[1], 0.0F);
+    EXPECT_FLOAT_EQ(out.vehAccumDV_B[2], 0.0F);
+}
+
+TEST(DvAccumulationTest, BoundedInputProducesFiniteOutput) {
+    /*! - with bounded accels and a bounded measTime span, the accumulator must stay finite */
+    const AccDataMsgF32Payload resetSnap = buildAccData({}, {});
+
+    DvAccumulationAlgorithm alg(DvAccumulationConfig::create());
+    alg.resetState(resetSnap);
+
+    /*! - 10 packets spanning 100 ms with a 10 m/s^2 accel — within range of any realistic sensor */
+    std::vector<uint64_t> measTimes;
+    std::vector<Eigen::Vector3f> accels;
+    for (uint64_t k = 1U; k <= 10U; ++k) {
+        measTimes.push_back(k * static_cast<uint64_t>(1e7));
+        accels.emplace_back(10.0F, -10.0F, 5.0F);
+    }
+    const AccDataMsgF32Payload snap = buildAccData(measTimes, accels);
+
+    const DvAccumulationOutput out = alg.update(snap);
+    for (int i = 0; i < 3; ++i) {
+        EXPECT_TRUE(std::isfinite(out.vehAccumDV_B[i]));
+    }
+    EXPECT_TRUE(std::isfinite(out.timeTag));
+}
+
+TEST(DvAccumulationTest, SingleNewPacketBootstrapSkipsFirst) {
+    /*! - after a zero-seed reset, the first update's first packet > 0 is consumed by the
+     *    dvInitialized bootstrap (sets previousTime, no integration); subsequent packets
+     *    integrate normally. Verify a single-packet snapshot leaves accumulator at zero. */
+    const AccDataMsgF32Payload resetSnap = buildAccData({}, {});
+
+    DvAccumulationAlgorithm alg(DvAccumulationConfig::create());
+    alg.resetState(resetSnap);
+
+    const AccDataMsgF32Payload singlePacket =
+        buildAccData({static_cast<uint64_t>(5e7)}, {Eigen::Vector3f{1.0F, 2.0F, 3.0F}});
+    const DvAccumulationOutput out = alg.update(singlePacket);
+
+    EXPECT_FLOAT_EQ(out.vehAccumDV_B[0], 0.0F);
+    EXPECT_FLOAT_EQ(out.vehAccumDV_B[1], 0.0F);
+    EXPECT_FLOAT_EQ(out.vehAccumDV_B[2], 0.0F);
+    EXPECT_NEAR(out.timeTag, 5e7 * kNano2Sec, 1e-9);
+}
+
 TEST(DvAccumulationTest, SetConfigDoesNotResetState) {
     /*! - setConfig is meaningful only by shape; for empty Config it should not perturb
      *    the running accumulator. */
