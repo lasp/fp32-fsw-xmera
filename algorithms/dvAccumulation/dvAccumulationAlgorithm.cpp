@@ -14,7 +14,7 @@ void sortByMeasTime(AccDataMsgF32Payload& accData) {
 
 void DvAccumulationAlgorithm::resetState(const AccDataMsgF32Payload& accData) {
     /*! - reset accumulator and bookkeeping */
-    this->vehAccumDV_B = Eigen::Vector3d::Zero();
+    this->vehAccumDV_B = Eigen::Vector3f::Zero();
     this->previousTime = 0U;
     this->dvInitialized = 0U;
 
@@ -52,8 +52,8 @@ DvAccumulationOutput DvAccumulationAlgorithm::update(const AccDataMsgF32Payload&
     /*! - integrate every packet newer than previousTime */
     for (uint32_t i = 0U; i < MAX_ACC_BUF_PKT; i++) {
         if (sorted.accPkts[i].measTime > this->previousTime) {
-            const double dt = static_cast<double>(sorted.accPkts[i].measTime - this->previousTime) * kNano2Sec;
-            const Eigen::Vector3d accel_B = cArrayToEigenVector3(sorted.accPkts[i].accel_B).cast<double>();
+            const float dt = static_cast<float>(sorted.accPkts[i].measTime - this->previousTime) * kNano2SecF;
+            const Eigen::Vector3f accel_B = cArrayToEigenVector3(sorted.accPkts[i].accel_B);
             this->vehAccumDV_B += dt * accel_B;
             this->previousTime = sorted.accPkts[i].measTime;
         }

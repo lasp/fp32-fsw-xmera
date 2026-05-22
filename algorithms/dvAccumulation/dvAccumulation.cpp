@@ -20,8 +20,7 @@ void DvAccumulation::updateState(const uint64_t callTime) {
 
     NavTransMsgF32Payload outputData = NavTransMsgF32Payload();
     outputData.timeTag = out.timeTag;
-    const Eigen::Vector3f vehAccumDV_B_f = out.vehAccumDV_B.cast<float>();
-    eigenVectorToCArray(vehAccumDV_B_f, outputData.vehAccumDV);
+    eigenVectorToCArray(out.vehAccumDV_B, outputData.vehAccumDV);
 
     this->dvAcumOutMsg.write(&outputData, this->moduleID, callTime);
 }
