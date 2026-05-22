@@ -18,10 +18,10 @@ class DVAccumulation : public SysModel {
     Message<NavTransMsgF32Payload> dvAcumOutMsg;    //!< accumulated DV output message
     ReadFunctor<AccDataMsgF32Payload> accPktInMsg;  //!< [-] input accelerometer message
 
-    uint32_t msgCount;       //!< [-] The total number of messages read from inputs
-    uint32_t dvInitialized;  //!< [-] Flag indicating whether DV has been started completely
-    uint64_t previousTime;   //!< [ns] The clock time associated with the previous run of algorithm
-    double vehAccumDV_B[3];  //!< [m/s] The accumulated Delta_V in body frame components
+    uint32_t msgCount{};       //!< [-] The total number of messages read from inputs
+    uint32_t dvInitialized{};  //!< [-] Flag indicating whether DV has been started completely
+    uint64_t previousTime{};   //!< [ns] The clock time associated with the previous run of algorithm
+    double vehAccumDV_B[3]{};  //!< [m/s] The accumulated Delta_V in body frame components
 };
 
 void dvAccumulation_QuickSort(AccPktDataMsgF32Payload* A, int start, int end);
