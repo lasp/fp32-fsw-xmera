@@ -86,6 +86,35 @@ inline AccDataMsgF32Payload buildAccData(const std::vector<uint64_t>& measTimes,
     return accData;
 }
 
+/*! @brief Fuzz-friendly driver: build one snapshot from caller-supplied measTimes/accels and
+ *         drive the algorithm + reference for a single update step from an empty reset. */
+inline void testDvAccumulationFuzz(const std::vector<uint64_t>& measTimes, const std::vector<Eigen::Vector3f>& accels) {
+    if (measTimes.size() != accels.size()) {
+        return;  // fuzz domain may produce mismatched lengths; ignore
+    }
+    if (measTimes.size() > static_cast<size_t>(MAX_ACC_BUF_PKT)) {
+        return;  // ignore over-sized inputs
+    }
+
+    const AccDataMsgF32Payload snap = buildAccData(measTimes, accels);
+    const AccDataMsgF32Payload emptyReset = buildAccData({}, {});
+
+    DvAccumulationAlgorithm alg(DvAccumulationConfig::create());
+    alg.resetState(emptyReset);
+    DvAccumulationOutput algOut{};
+    EXPECT_NO_THROW(algOut = alg.update(snap));
+
+    ReferenceState ref{};
+    referenceResetState(ref, emptyReset);
+    const DvAccumulationOutput refOut = referenceUpdate(ref, snap);
+
+    for (int i = 0; i < 3; ++i) {
+        EXPECT_NEAR(algOut.vehAccumDV_B[i], refOut.vehAccumDV_B[i], 1e-5F);
+        EXPECT_TRUE(std::isfinite(algOut.vehAccumDV_B[i]));
+    }
+    EXPECT_TRUE(std::isfinite(algOut.timeTag));
+}
+
 /*! @brief Drive the algorithm through a sequence of input snapshots and compare to the reference
  *         at every step. */
 inline void testDvAccumulation(const std::vector<AccDataMsgF32Payload>& snapshots,
