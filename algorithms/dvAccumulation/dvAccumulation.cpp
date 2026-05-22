@@ -1,18 +1,17 @@
 #include "dvAccumulation.h"
 #include <architecture/utilities/macroDefinitions.h>
-#include <architecture/utilities/linearAlgebra.h>
 #include <assert.h>
 #include <string.h>
 
 /* Experimenting QuickSort START */
-static void dvAccumulation_swap(AccPktDataMsgPayload* p, AccPktDataMsgPayload* q) {
-    AccPktDataMsgPayload t;
+static void dvAccumulation_swap(AccPktDataMsgF32Payload* p, AccPktDataMsgF32Payload* q) {
+    AccPktDataMsgF32Payload t;
     t = *p;
     *p = *q;
     *q = t;
 }
 
-static int dvAccumulation_partition(AccPktDataMsgPayload* A, int start, int end) {
+static int dvAccumulation_partition(AccPktDataMsgF32Payload* A, int start, int end) {
     int i;
     uint64_t pivot = A[end].measTime;
     int partitionIndex = start;
@@ -31,7 +30,7 @@ static int dvAccumulation_partition(AccPktDataMsgPayload* A, int start, int end)
   @param A --> Array to be sorted,
   @param start  --> Starting index,
   @param end  --> Ending index */
-void dvAccumulation_QuickSort(AccPktDataMsgPayload* A, int start, int end) {
+void dvAccumulation_QuickSort(AccPktDataMsgF32Payload* A, int start, int end) {
     /*! - Create an auxiliary stack array. This contains indicies. */
     int stack[MAX_ACC_BUF_PKT];
     assert((end - start + 1) <= MAX_ACC_BUF_PKT && "Stack insufficiently sized for quick-sort.");
@@ -74,13 +73,15 @@ void DVAccumulation::reset(uint64_t callTime) {
     }
 
     /*! - read in the accelerometer data message */
-    AccDataMsgPayload inputAccData = this->accPktInMsg();
+    AccDataMsgF32Payload inputAccData = this->accPktInMsg();
 
     /*! - stacks data in time order*/
     dvAccumulation_QuickSort(&(inputAccData.accPkts[0]), 0, MAX_ACC_BUF_PKT - 1);
 
     /*! - reset accumulated DV vector to zero */
-    v3SetZero(this->vehAccumDV_B);
+    this->vehAccumDV_B[0] = 0.0;
+    this->vehAccumDV_B[1] = 0.0;
+    this->vehAccumDV_B[2] = 0.0;
 
     /*! - reset previous time value to zero */
     this->previousTime = 0;
@@ -107,11 +108,11 @@ void DVAccumulation::reset(uint64_t callTime) {
 void DVAccumulation::updateState(uint64_t callTime) {
     int i;
     double dt;
-    double frameDV_B[3];                                  /* [m/s] The DV of an integrated acc measurement */
-    NavTransMsgPayload outputData = NavTransMsgPayload(); /* [-] The local storage of the outgoing message data */
+    double frameDV_B[3];                                        /* [m/s] The DV of an integrated acc measurement */
+    NavTransMsgF32Payload outputData = NavTransMsgF32Payload(); /* [-] The local storage of the outgoing message data */
 
     /*! - read accelerometer input message */
-    AccDataMsgPayload inputAccData = this->accPktInMsg();
+    AccDataMsgF32Payload inputAccData = this->accPktInMsg();
 
     /*! - stack data in time order */
 
@@ -137,8 +138,12 @@ void DVAccumulation::updateState(uint64_t callTime) {
         /*! - see if data is newer than last data time stamp */
         if (inputAccData.accPkts[i].measTime > this->previousTime) {
             dt = (inputAccData.accPkts[i].measTime - this->previousTime) * NANO2SEC;
-            v3Scale(dt, inputAccData.accPkts[i].accel_B, frameDV_B);
-            v3Add(this->vehAccumDV_B, frameDV_B, this->vehAccumDV_B);
+            frameDV_B[0] = dt * static_cast<double>(inputAccData.accPkts[i].accel_B[0]);
+            frameDV_B[1] = dt * static_cast<double>(inputAccData.accPkts[i].accel_B[1]);
+            frameDV_B[2] = dt * static_cast<double>(inputAccData.accPkts[i].accel_B[2]);
+            this->vehAccumDV_B[0] += frameDV_B[0];
+            this->vehAccumDV_B[1] += frameDV_B[1];
+            this->vehAccumDV_B[2] += frameDV_B[2];
             this->previousTime = inputAccData.accPkts[i].measTime;
         }
     }
@@ -146,7 +151,9 @@ void DVAccumulation::updateState(uint64_t callTime) {
     /*! - Create output message */
 
     outputData.timeTag = this->previousTime * NANO2SEC;
-    v3Copy(this->vehAccumDV_B, outputData.vehAccumDV);
+    outputData.vehAccumDV[0] = static_cast<float>(this->vehAccumDV_B[0]);
+    outputData.vehAccumDV[1] = static_cast<float>(this->vehAccumDV_B[1]);
+    outputData.vehAccumDV[2] = static_cast<float>(this->vehAccumDV_B[2]);
 
     /*! - write accumulated Dv message */
     this->dvAcumOutMsg.write(&outputData, this->moduleID, callTime);

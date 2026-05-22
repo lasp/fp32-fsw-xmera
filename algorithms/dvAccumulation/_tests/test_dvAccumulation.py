@@ -7,7 +7,7 @@ import os
 
 import numpy as np
 from xmera.architecture import messaging
-from xmera.fswAlgorithms import dvAccumulation
+from xmera.fp32 import dvAccumulationF32 as dvAccumulation
 from xmera.utilities import SimulationBaseClass, unitTestSupport
 from xmera.utilities import macros
 from numpy import random
