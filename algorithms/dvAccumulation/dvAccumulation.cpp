@@ -1,8 +1,6 @@
 #include "dvAccumulation.h"
 #include <architecture/utilities/macroDefinitions.h>
-#include <assert.h>
 #include <stdexcept>
-#include <string.h>
 
 /* Experimenting QuickSort START */
 static void dvAccumulation_swap(AccPktDataMsgF32Payload* p, AccPktDataMsgF32Payload* q) {
@@ -34,7 +32,6 @@ static int dvAccumulation_partition(AccPktDataMsgF32Payload* A, int start, int e
 void dvAccumulation_QuickSort(AccPktDataMsgF32Payload* A, int start, int end) {
     /*! - Create an auxiliary stack array. This contains indicies. */
     int stack[MAX_ACC_BUF_PKT];
-    assert((end - start + 1) <= MAX_ACC_BUF_PKT && "Stack insufficiently sized for quick-sort.");
 
     /*! - initialize the index of the top of the stack */
     int top = -1;
