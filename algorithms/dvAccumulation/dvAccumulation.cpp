@@ -1,6 +1,7 @@
 #include "dvAccumulation.h"
 #include <architecture/utilities/macroDefinitions.h>
 #include <assert.h>
+#include <stdexcept>
 #include <string.h>
 
 /* Experimenting QuickSort START */
@@ -69,7 +70,7 @@ void dvAccumulation_QuickSort(AccPktDataMsgF32Payload* A, int start, int end) {
 void DVAccumulation::reset(uint64_t callTime) {
     // check if the required message has not been connected
     if (!this->accPktInMsg.isLinked()) {
-        this->bskLogger.bskLog(BSK_ERROR, "Error: dvAccumulation.accPktInMsg wasn't connected.");
+        throw std::invalid_argument("dvAccumulation.accPktInMsg wasn't connected.");
     }
 
     /*! - read in the accelerometer data message */
