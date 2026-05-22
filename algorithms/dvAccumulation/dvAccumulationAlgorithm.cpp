@@ -1,4 +1,5 @@
 #include "dvAccumulationAlgorithm.h"
+#include "architecture/utilities/eigenSupport.h"
 #include "utilities/timeConstants.h"
 
 #include <algorithm>
@@ -13,9 +14,7 @@ void sortByMeasTime(AccDataMsgF32Payload& accData) {
 
 void DvAccumulationAlgorithm::resetState(const AccDataMsgF32Payload& accData) {
     /*! - reset accumulator and bookkeeping */
-    this->vehAccumDV_B[0] = 0.0;
-    this->vehAccumDV_B[1] = 0.0;
-    this->vehAccumDV_B[2] = 0.0;
+    this->vehAccumDV_B = Eigen::Vector3d::Zero();
     this->previousTime = 0U;
     this->dvInitialized = 0U;
 
@@ -54,20 +53,14 @@ DvAccumulationOutput DvAccumulationAlgorithm::update(const AccDataMsgF32Payload&
     for (uint32_t i = 0U; i < MAX_ACC_BUF_PKT; i++) {
         if (sorted.accPkts[i].measTime > this->previousTime) {
             const double dt = static_cast<double>(sorted.accPkts[i].measTime - this->previousTime) * kNano2Sec;
-            const double frameDV_B[3] = {dt * static_cast<double>(sorted.accPkts[i].accel_B[0]),
-                                         dt * static_cast<double>(sorted.accPkts[i].accel_B[1]),
-                                         dt * static_cast<double>(sorted.accPkts[i].accel_B[2])};
-            this->vehAccumDV_B[0] += frameDV_B[0];
-            this->vehAccumDV_B[1] += frameDV_B[1];
-            this->vehAccumDV_B[2] += frameDV_B[2];
+            const Eigen::Vector3d accel_B = cArrayToEigenVector3(sorted.accPkts[i].accel_B).cast<double>();
+            this->vehAccumDV_B += dt * accel_B;
             this->previousTime = sorted.accPkts[i].measTime;
         }
     }
 
     DvAccumulationOutput out{};
     out.timeTag = static_cast<double>(this->previousTime) * kNano2Sec;
-    out.vehAccumDV_B[0] = this->vehAccumDV_B[0];
-    out.vehAccumDV_B[1] = this->vehAccumDV_B[1];
-    out.vehAccumDV_B[2] = this->vehAccumDV_B[2];
+    out.vehAccumDV_B = this->vehAccumDV_B;
     return out;
 }

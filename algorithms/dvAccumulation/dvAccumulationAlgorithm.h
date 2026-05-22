@@ -4,12 +4,13 @@
 #include "dvAccumulationTypes.h"
 #include "msgPayloadDef/AccDataMsgF32Payload.h"
 
+#include <Eigen/Core>
 #include <cstdint>
 
 /*! @brief Output of the dvAccumulation algorithm. */
 struct DvAccumulationOutput {
-    double timeTag{};          //!< [s] time-tag of the most-recently-ingested sample
-    double vehAccumDV_B[3]{};  //!< [m/s] accumulated Delta-V in body-frame components
+    double timeTag{};                                       //!< [s] time-tag of the most-recently-ingested sample
+    Eigen::Vector3d vehAccumDV_B{Eigen::Vector3d::Zero()};  //!< [m/s] accumulated Delta-V in body-frame components
 };
 
 /*! @brief Pure algorithm: integrates accelerometer packets into a body-frame Delta-V accumulator.
@@ -24,8 +25,8 @@ class DvAccumulationAlgorithm final {
     DvAccumulationOutput update(const AccDataMsgF32Payload& accData);
 
    private:
-    double vehAccumDV_B[3]{};  //!< [m/s] running Delta-V accumulator in body frame
-    uint64_t previousTime{};   //!< [ns] latest measTime ingested so far
+    Eigen::Vector3d vehAccumDV_B{Eigen::Vector3d::Zero()};  //!< [m/s] running Delta-V accumulator in body frame
+    uint64_t previousTime{};                                //!< [ns] latest measTime ingested so far
     uint32_t dvInitialized{};  //!< [-] non-zero once the accumulator has ingested at least one packet
 };
 

@@ -1,4 +1,5 @@
 #include "dvAccumulation.h"
+#include "architecture/utilities/eigenSupport.h"
 
 #include <stdexcept>
 
@@ -19,9 +20,8 @@ void DvAccumulation::updateState(const uint64_t callTime) {
 
     NavTransMsgF32Payload outputData = NavTransMsgF32Payload();
     outputData.timeTag = out.timeTag;
-    outputData.vehAccumDV[0] = static_cast<float>(out.vehAccumDV_B[0]);
-    outputData.vehAccumDV[1] = static_cast<float>(out.vehAccumDV_B[1]);
-    outputData.vehAccumDV[2] = static_cast<float>(out.vehAccumDV_B[2]);
+    const Eigen::Vector3f vehAccumDV_B_f = out.vehAccumDV_B.cast<float>();
+    eigenVectorToCArray(vehAccumDV_B_f, outputData.vehAccumDV);
 
     this->dvAcumOutMsg.write(&outputData, this->moduleID, callTime);
 }
