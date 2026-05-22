@@ -7,14 +7,15 @@
 
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
+#include <memory>
 
 /*! @brief SysModel adapter for DvAccumulationAlgorithm. Reads the input accelerometer-packet
  message, runs the algorithm, and writes the accumulated body-frame Delta-V to the output
  navigation message. */
-class DvAccumulation : public SysModel {
+class DvAccumulation final : public SysModel {
    public:
-    void updateState(uint64_t callTime) override;
-    void reset(uint64_t callTime) override;
+    void reset(uint64_t callTime) final;
+    void updateState(uint64_t callTime) final;
 
     Message<NavTransMsgF32Payload> dvAcumOutMsg;    //!< accumulated DV output message
     ReadFunctor<AccDataMsgF32Payload> accPktInMsg;  //!< [-] input accelerometer message
@@ -22,7 +23,7 @@ class DvAccumulation : public SysModel {
     uint32_t msgCount{};  //!< [-] The total number of messages read from inputs
 
    private:
-    DvAccumulationAlgorithm algorithm{DvAccumulationConfig::create()};
+    std::unique_ptr<DvAccumulationAlgorithm> algorithm = nullptr;
 };
 
 #endif
