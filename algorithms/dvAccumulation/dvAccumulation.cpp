@@ -1,5 +1,6 @@
 #include "dvAccumulation.h"
-#include <architecture/utilities/macroDefinitions.h>
+#include "utilities/timeConstants.h"
+
 #include <stdexcept>
 
 /* Experimenting QuickSort START */
@@ -133,7 +134,7 @@ void DVAccumulation::updateState(const uint64_t callTime) {
     for (i = 0; i < MAX_ACC_BUF_PKT; i++) {
         /*! - see if data is newer than last data time stamp */
         if (inputAccData.accPkts[i].measTime > this->previousTime) {
-            const double dt = (inputAccData.accPkts[i].measTime - this->previousTime) * NANO2SEC;
+            const double dt = (inputAccData.accPkts[i].measTime - this->previousTime) * kNano2Sec;
             const double frameDV_B[3] = {dt * static_cast<double>(inputAccData.accPkts[i].accel_B[0]),
                                          dt * static_cast<double>(inputAccData.accPkts[i].accel_B[1]),
                                          dt * static_cast<double>(inputAccData.accPkts[i].accel_B[2])};
@@ -146,7 +147,7 @@ void DVAccumulation::updateState(const uint64_t callTime) {
 
     /*! - Create output message */
 
-    outputData.timeTag = this->previousTime * NANO2SEC;
+    outputData.timeTag = this->previousTime * kNano2Sec;
     outputData.vehAccumDV[0] = static_cast<float>(this->vehAccumDV_B[0]);
     outputData.vehAccumDV[1] = static_cast<float>(this->vehAccumDV_B[1]);
     outputData.vehAccumDV[2] = static_cast<float>(this->vehAccumDV_B[2]);
