@@ -12,7 +12,7 @@ static void dvAccumulation_swap(AccPktDataMsgF32Payload* p, AccPktDataMsgF32Payl
 
 static int dvAccumulation_partition(AccPktDataMsgF32Payload* A, int start, int end) {
     int i;
-    uint64_t pivot = A[end].measTime;
+    const uint64_t pivot = A[end].measTime;
     int partitionIndex = start;
     for (i = start; i < end; i++) {
         if (A[i].measTime <= pivot) {
@@ -47,7 +47,7 @@ void dvAccumulation_QuickSort(AccPktDataMsgF32Payload* A, int start, int end) {
         start = stack[top--];
 
         /*! - Set pivot element at its correct position in sorted array */
-        int partitionIndex = dvAccumulation_partition(A, start, end);
+        const int partitionIndex = dvAccumulation_partition(A, start, end);
 
         /*! - If there are elements on left side of pivot, then push left side to stack */
         if (partitionIndex - 1 > start) {
@@ -64,7 +64,7 @@ void dvAccumulation_QuickSort(AccPktDataMsgF32Payload* A, int start, int end) {
 }
 /* Experimenting QuickSort END */
 
-void DVAccumulation::reset(uint64_t callTime) {
+void DVAccumulation::reset(const uint64_t callTime) {
     // check if the required message has not been connected
     if (!this->accPktInMsg.isLinked()) {
         throw std::invalid_argument("dvAccumulation.accPktInMsg wasn't connected.");
@@ -103,10 +103,8 @@ void DVAccumulation::reset(uint64_t callTime) {
  @return void
  @param callTime The clock time at which the function was called (nanoseconds)
  */
-void DVAccumulation::updateState(uint64_t callTime) {
+void DVAccumulation::updateState(const uint64_t callTime) {
     int i;
-    double dt;
-    double frameDV_B[3];                                        /* [m/s] The DV of an integrated acc measurement */
     NavTransMsgF32Payload outputData = NavTransMsgF32Payload(); /* [-] The local storage of the outgoing message data */
 
     /*! - read accelerometer input message */
@@ -135,10 +133,10 @@ void DVAccumulation::updateState(uint64_t callTime) {
     for (i = 0; i < MAX_ACC_BUF_PKT; i++) {
         /*! - see if data is newer than last data time stamp */
         if (inputAccData.accPkts[i].measTime > this->previousTime) {
-            dt = (inputAccData.accPkts[i].measTime - this->previousTime) * NANO2SEC;
-            frameDV_B[0] = dt * static_cast<double>(inputAccData.accPkts[i].accel_B[0]);
-            frameDV_B[1] = dt * static_cast<double>(inputAccData.accPkts[i].accel_B[1]);
-            frameDV_B[2] = dt * static_cast<double>(inputAccData.accPkts[i].accel_B[2]);
+            const double dt = (inputAccData.accPkts[i].measTime - this->previousTime) * NANO2SEC;
+            const double frameDV_B[3] = {dt * static_cast<double>(inputAccData.accPkts[i].accel_B[0]),
+                                         dt * static_cast<double>(inputAccData.accPkts[i].accel_B[1]),
+                                         dt * static_cast<double>(inputAccData.accPkts[i].accel_B[2])};
             this->vehAccumDV_B[0] += frameDV_B[0];
             this->vehAccumDV_B[1] += frameDV_B[1];
             this->vehAccumDV_B[2] += frameDV_B[2];
