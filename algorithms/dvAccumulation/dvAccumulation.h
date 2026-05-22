@@ -7,8 +7,9 @@
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
 
-/*! @brief Top level structure for the CSS sensor interface system.  Contains all parameters for the
- CSS interface*/
+/*! @brief Accumulates body-frame Delta-V by integrating timestamped accelerometer packets. Sorts
+ each input snapshot by measurement time, ingests only packets newer than the previously-seen
+ latest time, and writes the running accumulator to the output navigation message. */
 class DVAccumulation : public SysModel {
    public:
     void updateState(uint64_t callTime) override;
