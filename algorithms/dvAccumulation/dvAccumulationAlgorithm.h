@@ -7,6 +7,20 @@
 #include <Eigen/Core>
 #include <cstdint>
 
+/*! @brief Validated configuration for the dvAccumulation algorithm.
+ *
+ * dvAccumulation has no tunable parameters, so the Config class is intentionally empty —
+ * its job is to keep the algorithm shape uniform with every other ported algorithm
+ * (two-phase init: Config::create() in the adapter's reset(), passed to the algorithm
+ * constructor). Construct via DvAccumulationConfig::create(). */
+class DvAccumulationConfig final {
+   public:
+    static DvAccumulationConfig create() { return {}; }
+
+   private:
+    DvAccumulationConfig() = default;
+};
+
 /*! @brief Output of the dvAccumulation algorithm. */
 struct DvAccumulationOutput {
     double timeTag{};                                       //!< [s] time-tag of the most-recently-ingested sample
