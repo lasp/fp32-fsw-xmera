@@ -22,7 +22,7 @@ class DvAccumulation : public SysModel {
     uint32_t msgCount{};  //!< [-] The total number of messages read from inputs
 
    private:
-    DvAccumulationAlgorithm algorithm{};
+    DvAccumulationAlgorithm algorithm{DvAccumulationConfig::create()};
 };
 
 #endif

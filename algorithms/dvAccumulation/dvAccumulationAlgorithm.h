@@ -35,10 +35,14 @@ struct DvAccumulationOutput {
  */
 class DvAccumulationAlgorithm final {
    public:
+    explicit DvAccumulationAlgorithm(const DvAccumulationConfig& config);
+
+    void setConfig(const DvAccumulationConfig& config);
     void resetState(const AccDataMsgF32Payload& accData);
     DvAccumulationOutput update(const AccDataMsgF32Payload& accData);
 
    private:
+    DvAccumulationConfig cfg;
     Eigen::Vector3f vehAccumDV_B{Eigen::Vector3f::Zero()};  //!< [m/s] running Delta-V accumulator in body frame
     uint64_t previousTime{};                                //!< [ns] latest measTime ingested so far
     uint32_t dvInitialized{};  //!< [-] non-zero once the accumulator has ingested at least one packet
