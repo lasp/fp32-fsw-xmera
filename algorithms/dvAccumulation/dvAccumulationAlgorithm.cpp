@@ -28,9 +28,9 @@ void DvAccumulationAlgorithm::resetState(const AccDataMsgF32Payload& accData) {
 
     /*! - seed previousTime to the latest non-zero measTime in the buffer so the first update() only
      *    integrates packets that arrived after reset */
-    for (int i = (MAX_ACC_BUF_PKT - 1); i >= 0; i--) {
-        if (sorted.accPkts[i].measTime > 0) {
-            this->previousTime = sorted.accPkts[i].measTime;
+    for (auto const& accPkt : sorted.accPkts | std::views::reverse) {
+        if (accPkt.measTime > 0) {
+            this->previousTime = accPkt.measTime;
             break;
         }
     }
@@ -44,9 +44,9 @@ DvAccumulationOutput DvAccumulationAlgorithm::update(const AccDataMsgF32Payload&
     /*! - On the first call ever, if reset's seed found nothing, latch onto the first new measTime
      *    here so dt doesn't blow up against a zero baseline */
     if (this->dvInitialized == 0U) {
-        for (uint32_t i = 0U; i < MAX_ACC_BUF_PKT; i++) {
-            if (sorted.accPkts[i].measTime > this->previousTime) {
-                this->previousTime = sorted.accPkts[i].measTime;
+        for (auto const& accPkt : sorted.accPkts) {
+            if (accPkt.measTime > this->previousTime) {
+                this->previousTime = accPkt.measTime;
                 this->dvInitialized = 1U;
                 break;
             }
@@ -54,12 +54,12 @@ DvAccumulationOutput DvAccumulationAlgorithm::update(const AccDataMsgF32Payload&
     }
 
     /*! - integrate every packet newer than previousTime */
-    for (uint32_t i = 0U; i < MAX_ACC_BUF_PKT; i++) {
-        if (sorted.accPkts[i].measTime > this->previousTime) {
-            const float dt = static_cast<float>(sorted.accPkts[i].measTime - this->previousTime) * kNano2SecF;
-            const Eigen::Vector3f accel_B = cArrayToEigenVector3(sorted.accPkts[i].accel_B);
+    for (auto const& accPkt : sorted.accPkts) {
+        if (accPkt.measTime > this->previousTime) {
+            const float dt = static_cast<float>(accPkt.measTime - this->previousTime) * kNano2SecF;
+            const Eigen::Vector3f accel_B = cArrayToEigenVector3(accPkt.accel_B);
             this->vehAccumDV_B += dt * accel_B;
-            this->previousTime = sorted.accPkts[i].measTime;
+            this->previousTime = accPkt.measTime;
         }
     }
 
