@@ -12,6 +12,10 @@ void sortByMeasTime(AccDataMsgF32Payload& accData) {
 }
 }  // namespace
 
+DvAccumulationAlgorithm::DvAccumulationAlgorithm(const DvAccumulationConfig& config) : cfg(config) {}
+
+void DvAccumulationAlgorithm::setConfig(const DvAccumulationConfig& config) { this->cfg = config; }
+
 void DvAccumulationAlgorithm::resetState(const AccDataMsgF32Payload& accData) {
     /*! - reset accumulator and bookkeeping */
     this->vehAccumDV_B = Eigen::Vector3f::Zero();
