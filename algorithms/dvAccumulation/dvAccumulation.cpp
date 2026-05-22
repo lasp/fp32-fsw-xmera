@@ -24,7 +24,7 @@ static int dvAccumulation_partition(AccPktDataMsgF32Payload* A, int start, int e
     return partitionIndex;
 }
 
-/*! Sort the AccPktDataMsgPaylaod by the measTime with an iterative quickSort.
+/*! Sort the AccPktDataMsgF32Payload array by measTime with an iterative quickSort.
   @return void
   @param A --> Array to be sorted,
   @param start  --> Starting index,
@@ -97,9 +97,9 @@ void DVAccumulation::reset(uint64_t callTime) {
     }
 }
 
-/*! This method takes the navigation message snippets created by the various
-    navigation components in the FSW and aggregates them into a single complete
-    navigation message.
+/*! Reads the latest accelerometer-packet snapshot, sorts it by measTime, integrates every packet
+    newer than the previously-seen latest time into the body-frame Delta-V accumulator, and writes
+    the running total plus the most-recent measTime to the output navigation message.
  @return void
  @param callTime The clock time at which the function was called (nanoseconds)
  */
