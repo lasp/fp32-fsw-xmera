@@ -8,6 +8,7 @@ xmera_add_swig_module("${module}")
 
 target_sources("${module}" PRIVATE
   dvAccumulation.cpp
+  dvAccumulationAlgorithm.cpp
 )
 
 target_include_directories("${module}" PUBLIC "..")
