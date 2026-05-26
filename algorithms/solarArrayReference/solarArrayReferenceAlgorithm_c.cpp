@@ -4,19 +4,19 @@
 #include <Eigen/Core>
 #include <array>
 
-SolarArrayReferenceAlgorithm* SolarArrayReferenceAlgorithm_create(void) {
+SolarArrayReferenceAlgorithmHandle* SolarArrayReferenceAlgorithm_create(void) {
     // clang-format off
-    return reinterpret_cast<SolarArrayReferenceAlgorithm*>(new ::SolarArrayReferenceAlgorithm());  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+    return reinterpret_cast<SolarArrayReferenceAlgorithmHandle*>(new ::SolarArrayReferenceAlgorithm());  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
     // clang-format on
 }
 
-void SolarArrayReferenceAlgorithm_destroy(SolarArrayReferenceAlgorithm* self) {
+void SolarArrayReferenceAlgorithm_destroy(SolarArrayReferenceAlgorithmHandle* self) {
     // clang-format off
     delete reinterpret_cast<::SolarArrayReferenceAlgorithm*>(self);  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast, cppcoreguidelines-owning-memory)
     // clang-format on
 }
 
-float SolarArrayReferenceAlgorithm_update(const SolarArrayReferenceAlgorithm* self,
+float SolarArrayReferenceAlgorithm_update(const SolarArrayReferenceAlgorithmHandle* self,
                                           const Vector3f_c sigma_BN,
                                           const Vector3f_c sigma_RN,
                                           const Vector3f_c rHatIn_SB_B,
@@ -35,7 +35,7 @@ float SolarArrayReferenceAlgorithm_update(const SolarArrayReferenceAlgorithm* se
     // clang-format on
 }
 
-void SolarArrayReferenceAlgorithm_setSolarArrayAxes_B(SolarArrayReferenceAlgorithm* self,
+void SolarArrayReferenceAlgorithm_setSolarArrayAxes_B(SolarArrayReferenceAlgorithmHandle* self,
                                                       const Vector3f_c driveAxis,
                                                       const Vector3f_c surfaceNormal) {
     Eigen::Vector3f drive{};
@@ -49,7 +49,7 @@ void SolarArrayReferenceAlgorithm_setSolarArrayAxes_B(SolarArrayReferenceAlgorit
     // clang-format on
 }
 
-SolarArrayAxes_c SolarArrayReferenceAlgorithm_getSolarArrayAxes_B(const SolarArrayReferenceAlgorithm* self) {
+SolarArrayAxes_c SolarArrayReferenceAlgorithm_getSolarArrayAxes_B(const SolarArrayReferenceAlgorithmHandle* self) {
     // clang-format off
     const std::array<Eigen::Vector3f, 2> axes = reinterpret_cast<const ::SolarArrayReferenceAlgorithm*>(self)->getSolarArrayAxes_B();  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
     // clang-format on
@@ -59,49 +59,50 @@ SolarArrayAxes_c SolarArrayReferenceAlgorithm_getSolarArrayAxes_B(const SolarArr
     return out;
 }
 
-void SolarArrayReferenceAlgorithm_setAlignmentThreshold(SolarArrayReferenceAlgorithm* self, const float threshold) {
+void SolarArrayReferenceAlgorithm_setAlignmentThreshold(SolarArrayReferenceAlgorithmHandle* self,
+                                                        const float threshold) {
     // clang-format off
     reinterpret_cast<::SolarArrayReferenceAlgorithm*>(self)->setAlignmentThreshold(threshold);  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
     // clang-format on
 }
 
-float SolarArrayReferenceAlgorithm_getAlignmentThreshold(const SolarArrayReferenceAlgorithm* self) {
+float SolarArrayReferenceAlgorithm_getAlignmentThreshold(const SolarArrayReferenceAlgorithmHandle* self) {
     // clang-format off
     return reinterpret_cast<const ::SolarArrayReferenceAlgorithm*>(self)->getAlignmentThreshold();  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
     // clang-format on
 }
 
-void SolarArrayReferenceAlgorithm_setTrackingMode(SolarArrayReferenceAlgorithm* self, const TrackingMode mode) {
+void SolarArrayReferenceAlgorithm_setTrackingMode(SolarArrayReferenceAlgorithmHandle* self, const TrackingMode mode) {
     // clang-format off
     reinterpret_cast<::SolarArrayReferenceAlgorithm*>(self)->setTrackingMode(mode);  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
     // clang-format on
 }
 
-TrackingMode SolarArrayReferenceAlgorithm_getTrackingMode(const SolarArrayReferenceAlgorithm* self) {
+TrackingMode SolarArrayReferenceAlgorithm_getTrackingMode(const SolarArrayReferenceAlgorithmHandle* self) {
     // clang-format off
     return reinterpret_cast<const ::SolarArrayReferenceAlgorithm*>(self)->getTrackingMode();  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
     // clang-format on
 }
 
-void SolarArrayReferenceAlgorithm_setSpecifiedArrayAngle(SolarArrayReferenceAlgorithm* self, const float angle) {
+void SolarArrayReferenceAlgorithm_setSpecifiedArrayAngle(SolarArrayReferenceAlgorithmHandle* self, const float angle) {
     // clang-format off
     reinterpret_cast<::SolarArrayReferenceAlgorithm*>(self)->setSpecifiedArrayAngle(angle);  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
     // clang-format on
 }
 
-float SolarArrayReferenceAlgorithm_getSpecifiedArrayAngle(const SolarArrayReferenceAlgorithm* self) {
+float SolarArrayReferenceAlgorithm_getSpecifiedArrayAngle(const SolarArrayReferenceAlgorithmHandle* self) {
     // clang-format off
     return reinterpret_cast<const ::SolarArrayReferenceAlgorithm*>(self)->getSpecifiedArrayAngle();  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
     // clang-format on
 }
 
-void SolarArrayReferenceAlgorithm_setOffsetAngle(SolarArrayReferenceAlgorithm* self, const float angle) {
+void SolarArrayReferenceAlgorithm_setOffsetAngle(SolarArrayReferenceAlgorithmHandle* self, const float angle) {
     // clang-format off
     reinterpret_cast<::SolarArrayReferenceAlgorithm*>(self)->setOffsetAngle(angle);  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
     // clang-format on
 }
 
-float SolarArrayReferenceAlgorithm_getOffsetAngle(const SolarArrayReferenceAlgorithm* self) {
+float SolarArrayReferenceAlgorithm_getOffsetAngle(const SolarArrayReferenceAlgorithmHandle* self) {
     // clang-format off
     return reinterpret_cast<const ::SolarArrayReferenceAlgorithm*>(self)->getOffsetAngle();  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
     // clang-format on
