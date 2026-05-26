@@ -5,6 +5,16 @@
 #include <stdint.h>
 #include <Eigen/Core>
 
+// dvGuidance has no tunable parameters; the Config class is intentionally empty so the
+// algorithm can still follow the standard two-phase init pattern.
+class DvGuidanceConfig final {
+   public:
+    static DvGuidanceConfig create() { return {}; }
+
+   private:
+    DvGuidanceConfig() = default;
+};
+
 class DvGuidanceAlgorithm final {
    public:
     explicit DvGuidanceAlgorithm(const DvGuidanceConfig& config);
