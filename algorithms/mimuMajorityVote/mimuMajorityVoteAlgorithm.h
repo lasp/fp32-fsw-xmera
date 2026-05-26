@@ -5,6 +5,16 @@
 #include <array>
 
 #include "mimuMajorityVoteTypes.h"
+#include "msgPayloadDef/definitions.h"
+
+/*! @brief Output from the MIMU majority vote algorithm */
+struct MimuMajorityVoteOutput {
+    Eigen::Vector3f avgOmega_BN_B{}; /*!< [rad/s] Averaged angular velocity in body frame */
+    bool faultDetected{};            /*!< Whether a MIMU fault was detected */
+    std::array<float, kMimuCount>
+        omegaDifferencesMag{};                /*!< [rad/s] Each IMU's difference magnitude from the 3-IMU average */
+    std::array<bool, kMimuCount> validImus{}; /*!< Whether each IMU is considered valid */
+};
 
 /*!@brief Module to compute the majority vote of the mimus. */
 class MimuMajorityVoteAlgorithm {
