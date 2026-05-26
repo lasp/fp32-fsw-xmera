@@ -1,5 +1,5 @@
-#ifndef F32XIMERA_AVERAGEMIMUDATAALGORITHM_C_H
-#define F32XIMERA_AVERAGEMIMUDATAALGORITHM_C_H
+#ifndef F32XMERA_AVERAGEMIMUDATAALGORITHM_C_H
+#define F32XMERA_AVERAGEMIMUDATAALGORITHM_C_H
 
 #include <stddef.h>
 #include <stdint.h>
@@ -100,4 +100,4 @@ Matrix3f_c AverageMimuDataAlgorithm_getDcmPltfToBdy(const AverageMimuDataAlgorit
 }  // extern "C"
 #endif
 
-#endif  // F32XIMERA_AVERAGEMIMUDATAALGORITHM_C_H
+#endif  // F32XMERA_AVERAGEMIMUDATAALGORITHM_C_H

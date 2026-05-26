@@ -1,5 +1,5 @@
-#ifndef F32XIMERA_AVERAGE_MIMU_DATA_TYPES_H
-#define F32XIMERA_AVERAGE_MIMU_DATA_TYPES_H
+#ifndef F32XMERA_AVERAGE_MIMU_DATA_TYPES_H
+#define F32XMERA_AVERAGE_MIMU_DATA_TYPES_H
 
 #include <Eigen/Core>
 
@@ -26,4 +26,4 @@ struct OutputAverageAccelAngleVel {
 }  // extern "C"
 #endif
 
-#endif  // F32XIMERA_AVERAGE_MIMU_DATA_TYPES_H
+#endif  // F32XMERA_AVERAGE_MIMU_DATA_TYPES_H
