@@ -3,7 +3,6 @@
 
 #include "msgPayloadDef/definitions.h"
 #include "thrFiringSchmittTypes.h"
-#include "msgPayloadDef/definitions.h"
 #include <stdint.h>
 #include <array>
 #include <cstdint>
