@@ -1,5 +1,5 @@
-#ifndef F32XIMERA_SUN_SEARCH_TYPES_H
-#define F32XIMERA_SUN_SEARCH_TYPES_H
+#ifndef F32XMERA_SUN_SEARCH_TYPES_H
+#define F32XMERA_SUN_SEARCH_TYPES_H
 
 #define NUM_SLEWS 3
 
@@ -31,4 +31,4 @@ typedef struct {
 }  // extern "C"
 #endif
 
-#endif  // F32XIMERA_SUN_SEARCH_TYPES_H
+#endif  // F32XMERA_SUN_SEARCH_TYPES_H

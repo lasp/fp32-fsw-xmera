@@ -1,5 +1,5 @@
-#ifndef F32XIMERA_SUNSEARCHALGORITHM_C_H
-#define F32XIMERA_SUNSEARCHALGORITHM_C_H
+#ifndef F32XMERA_SUNSEARCHALGORITHM_C_H
+#define F32XMERA_SUNSEARCHALGORITHM_C_H
 
 #include "msgPayloadDef/AttGuidMsgF32Payload.h"
 #include "msgPayloadDef/NavAttMsgF32Payload.h"
@@ -83,4 +83,4 @@ uint32_t SunSearchAlgorithm_getNumSlews(void);
 }  // extern "C"
 #endif
 
-#endif  // F32XIMERA_SUNSEARCHALGORITHM_C_H
+#endif  // F32XMERA_SUNSEARCHALGORITHM_C_H

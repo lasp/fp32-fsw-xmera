@@ -5,7 +5,9 @@ SunSearchAlgorithmHandle* SunSearchAlgorithm_create(void) {
     return reinterpret_cast<SunSearchAlgorithmHandle*>(new ::SunSearchAlgorithm());
 }
 
-void SunSearchAlgorithm_destroy(SunSearchAlgorithmHandle* self) { delete reinterpret_cast<::SunSearchAlgorithm*>(self); }
+void SunSearchAlgorithm_destroy(SunSearchAlgorithmHandle* self) {
+    delete reinterpret_cast<::SunSearchAlgorithm*>(self);
+}
 
 void SunSearchAlgorithm_reset(SunSearchAlgorithmHandle* self,
                               const uint64_t currentSimNanos,
