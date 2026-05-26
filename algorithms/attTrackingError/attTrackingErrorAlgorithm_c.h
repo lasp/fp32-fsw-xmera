@@ -10,7 +10,7 @@ extern "C" {
 /**
  * @brief Opaque handle to the C++ AttTrackingErrorAlgorithm instance.
  */
-typedef struct AttTrackingErrorAlgorithm AttTrackingErrorAlgorithm;
+typedef struct AttTrackingErrorAlgorithmHandle AttTrackingErrorAlgorithmHandle;
 
 /**
  * @brief C-compatible navigation attitude input.
@@ -43,13 +43,13 @@ typedef struct {
  * @brief Construct a new AttTrackingErrorAlgorithm instance.
  * @return Pointer to a new AttTrackingErrorAlgorithm (must be destroyed).
  */
-AttTrackingErrorAlgorithm* AttTrackingErrorAlgorithm_create(void);
+AttTrackingErrorAlgorithmHandle* AttTrackingErrorAlgorithm_create(void);
 
 /**
  * @brief Destroy a previously created AttTrackingErrorAlgorithm.
  * @param self Pointer to the instance to destroy.
  */
-void AttTrackingErrorAlgorithm_destroy(AttTrackingErrorAlgorithm* self);
+void AttTrackingErrorAlgorithm_destroy(AttTrackingErrorAlgorithmHandle* self);
 
 /**
  * @brief Run the update step.
@@ -58,7 +58,7 @@ void AttTrackingErrorAlgorithm_destroy(AttTrackingErrorAlgorithm* self);
  * @param refIn  C-compatible reference attitude input.
  * @return AttGuidOutput_c  The computed guidance output.
  */
-AttGuidOutput_c AttTrackingErrorAlgorithm_update(AttTrackingErrorAlgorithm* self,
+AttGuidOutput_c AttTrackingErrorAlgorithm_update(AttTrackingErrorAlgorithmHandle* self,
                                                  AttNavInput_c navIn,
                                                  AttRefInput_c refIn);
 

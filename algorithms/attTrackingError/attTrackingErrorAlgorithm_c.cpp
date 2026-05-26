@@ -3,19 +3,19 @@
 
 #include <Eigen/Core>
 
-AttTrackingErrorAlgorithm* AttTrackingErrorAlgorithm_create(void) {
+AttTrackingErrorAlgorithmHandle* AttTrackingErrorAlgorithm_create(void) {
     // clang-format off
-    return reinterpret_cast<AttTrackingErrorAlgorithm*>(new ::AttTrackingErrorAlgorithm());  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+    return reinterpret_cast<AttTrackingErrorAlgorithmHandle*>(new ::AttTrackingErrorAlgorithm());  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
     // clang-format on
 }
 
-void AttTrackingErrorAlgorithm_destroy(AttTrackingErrorAlgorithm* self) {
+void AttTrackingErrorAlgorithm_destroy(AttTrackingErrorAlgorithmHandle* self) {
     // clang-format off
     delete reinterpret_cast<::AttTrackingErrorAlgorithm*>(self);  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast, cppcoreguidelines-owning-memory)
     // clang-format on
 }
 
-AttGuidOutput_c AttTrackingErrorAlgorithm_update(AttTrackingErrorAlgorithm* self,
+AttGuidOutput_c AttTrackingErrorAlgorithm_update(AttTrackingErrorAlgorithmHandle* self,
                                                  AttNavInput_c navIn,
                                                  AttRefInput_c refIn) {
     // Convert C navigation input to Eigen-based struct
