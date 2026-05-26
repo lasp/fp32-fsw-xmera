@@ -11,7 +11,7 @@ extern "C" {
 /**
  * @brief Opaque handle to the C++ EphemeridesRecenterAlgorithm instance.
  */
-typedef struct EphemeridesRecenterAlgorithm EphemeridesRecenterAlgorithm;
+typedef struct EphemeridesRecenterAlgorithmHandle EphemeridesRecenterAlgorithmHandle;
 
 /**
  * @brief POD representation of one body's ephemeris payload as used by the
@@ -48,13 +48,13 @@ typedef struct {
  * @brief Construct a new EphemeridesRecenterAlgorithm instance.
  * @return Pointer to a new EphemeridesRecenterAlgorithm (must be destroyed).
  */
-EphemeridesRecenterAlgorithm* EphemeridesRecenterAlgorithm_create(void);
+EphemeridesRecenterAlgorithmHandle* EphemeridesRecenterAlgorithm_create(void);
 
 /**
  * @brief Destroy a previously created EphemeridesRecenterAlgorithm.
  * @param self Pointer to the instance to destroy.
  */
-void EphemeridesRecenterAlgorithm_destroy(EphemeridesRecenterAlgorithm* self);
+void EphemeridesRecenterAlgorithm_destroy(EphemeridesRecenterAlgorithmHandle* self);
 
 /**
  * @brief Validate the configured body topology and pre-compute moon hierarchy.
@@ -62,7 +62,7 @@ void EphemeridesRecenterAlgorithm_destroy(EphemeridesRecenterAlgorithm* self);
  *        multiple moons per parent).
  * @param self Pointer to the instance.
  */
-void EphemeridesRecenterAlgorithm_reset(EphemeridesRecenterAlgorithm* self);
+void EphemeridesRecenterAlgorithm_reset(EphemeridesRecenterAlgorithmHandle* self);
 
 /**
  * @brief Run the recentering update.
@@ -73,7 +73,7 @@ void EphemeridesRecenterAlgorithm_reset(EphemeridesRecenterAlgorithm* self);
  * @return BodyEphemerisPayloadArray20_c  Output r/v for each body relative
  *         to the new central body.
  */
-BodyEphemerisPayloadArray20_c EphemeridesRecenterAlgorithm_updateState(EphemeridesRecenterAlgorithm* self,
+BodyEphemerisPayloadArray20_c EphemeridesRecenterAlgorithm_updateState(EphemeridesRecenterAlgorithmHandle* self,
                                                                        const BodyEphemerisPayloadArray20_c* newBodies);
 
 /**
@@ -81,35 +81,35 @@ BodyEphemerisPayloadArray20_c EphemeridesRecenterAlgorithm_updateState(Ephemerid
  * @param self        Pointer to the instance.
  * @param bodySpiceId SPICE ID of the new central body.
  */
-void EphemeridesRecenterAlgorithm_setNewZeroBaseId(EphemeridesRecenterAlgorithm* self, int bodySpiceId);
+void EphemeridesRecenterAlgorithm_setNewZeroBaseId(EphemeridesRecenterAlgorithmHandle* self, int bodySpiceId);
 
 /**
  * @brief Get the SPICE ID of the new central body.
  * @param self Pointer to the instance.
  * @return int  SPICE ID of the new central body.
  */
-int EphemeridesRecenterAlgorithm_getNewZeroBase(const EphemeridesRecenterAlgorithm* self);
+int EphemeridesRecenterAlgorithm_getNewZeroBase(const EphemeridesRecenterAlgorithmHandle* self);
 
 /**
  * @brief Set the SPICE ID of the previous common central body.
  * @param self        Pointer to the instance.
  * @param bodySpiceId SPICE ID of the previous common central body.
  */
-void EphemeridesRecenterAlgorithm_setPreviousCommonZeroBase(EphemeridesRecenterAlgorithm* self, int bodySpiceId);
+void EphemeridesRecenterAlgorithm_setPreviousCommonZeroBase(EphemeridesRecenterAlgorithmHandle* self, int bodySpiceId);
 
 /**
  * @brief Get the SPICE ID of the previous common central body.
  * @param self Pointer to the instance.
  * @return int  SPICE ID of the previous common central body.
  */
-int EphemeridesRecenterAlgorithm_getPreviousCommonZeroBase(const EphemeridesRecenterAlgorithm* self);
+int EphemeridesRecenterAlgorithm_getPreviousCommonZeroBase(const EphemeridesRecenterAlgorithmHandle* self);
 
 /**
  * @brief Get the number of bodies that have been added to the algorithm.
  * @param self Pointer to the instance.
  * @return uint32_t  The number of configured bodies.
  */
-uint32_t EphemeridesRecenterAlgorithm_getNumberOfBodies(const EphemeridesRecenterAlgorithm* self);
+uint32_t EphemeridesRecenterAlgorithm_getNumberOfBodies(const EphemeridesRecenterAlgorithmHandle* self);
 
 /**
  * @brief Get all configured body SPICE IDs.
@@ -117,21 +117,21 @@ uint32_t EphemeridesRecenterAlgorithm_getNumberOfBodies(const EphemeridesRecente
  * @return IntArray20_c  SPICE IDs of every configured body, in insertion order.
  *         Trailing entries beyond the configured count are zero.
  */
-IntArray20_c EphemeridesRecenterAlgorithm_getAllIds(const EphemeridesRecenterAlgorithm* self);
+IntArray20_c EphemeridesRecenterAlgorithm_getAllIds(const EphemeridesRecenterAlgorithmHandle* self);
 
 /**
  * @brief Add a body to the recenter list.
  * @param self Pointer to the instance.
  * @param body Pointer to a single BodyToRecenter describing the body.
  */
-void EphemeridesRecenterAlgorithm_addBodyEphemerisToRecenter(EphemeridesRecenterAlgorithm* self,
+void EphemeridesRecenterAlgorithm_addBodyEphemerisToRecenter(EphemeridesRecenterAlgorithmHandle* self,
                                                              const BodyToRecenter* body);
 
 /**
  * @brief Remove every body from the recenter list.
  * @param self Pointer to the instance.
  */
-void EphemeridesRecenterAlgorithm_clearAllBodies(EphemeridesRecenterAlgorithm* self);
+void EphemeridesRecenterAlgorithm_clearAllBodies(EphemeridesRecenterAlgorithmHandle* self);
 
 /**
  * @brief Look up the index of a body by its SPICE ID.
@@ -139,7 +139,7 @@ void EphemeridesRecenterAlgorithm_clearAllBodies(EphemeridesRecenterAlgorithm* s
  * @param bodySpiceId SPICE ID to look up.
  * @return uint32_t  The index of the body in the configured list.
  */
-uint32_t EphemeridesRecenterAlgorithm_findBodyIndex(const EphemeridesRecenterAlgorithm* self, int bodySpiceId);
+uint32_t EphemeridesRecenterAlgorithm_findBodyIndex(const EphemeridesRecenterAlgorithmHandle* self, int bodySpiceId);
 
 /**
  * @brief Get the MAX_NUM_CHANGE_BODIES constant for Ada validation.

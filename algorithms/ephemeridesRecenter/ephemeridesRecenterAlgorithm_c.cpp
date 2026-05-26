@@ -5,19 +5,19 @@
 #include <array>
 #include <cstddef>
 
-EphemeridesRecenterAlgorithm* EphemeridesRecenterAlgorithm_create(void) {
-    return reinterpret_cast<EphemeridesRecenterAlgorithm*>(new ::EphemeridesRecenterAlgorithm());
+EphemeridesRecenterAlgorithmHandle* EphemeridesRecenterAlgorithm_create(void) {
+    return reinterpret_cast<EphemeridesRecenterAlgorithmHandle*>(new ::EphemeridesRecenterAlgorithm());
 }
 
-void EphemeridesRecenterAlgorithm_destroy(EphemeridesRecenterAlgorithm* self) {
+void EphemeridesRecenterAlgorithm_destroy(EphemeridesRecenterAlgorithmHandle* self) {
     delete reinterpret_cast<::EphemeridesRecenterAlgorithm*>(self);
 }
 
-void EphemeridesRecenterAlgorithm_reset(EphemeridesRecenterAlgorithm* self) {
+void EphemeridesRecenterAlgorithm_reset(EphemeridesRecenterAlgorithmHandle* self) {
     reinterpret_cast<::EphemeridesRecenterAlgorithm*>(self)->reset();
 }
 
-BodyEphemerisPayloadArray20_c EphemeridesRecenterAlgorithm_updateState(EphemeridesRecenterAlgorithm* self,
+BodyEphemerisPayloadArray20_c EphemeridesRecenterAlgorithm_updateState(EphemeridesRecenterAlgorithmHandle* self,
                                                                        const BodyEphemerisPayloadArray20_c* newBodies) {
     std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES> input{};
     for (std::size_t i = 0U; i < MAX_NUM_CHANGE_BODIES; ++i) {
@@ -58,27 +58,27 @@ BodyEphemerisPayloadArray20_c EphemeridesRecenterAlgorithm_updateState(Ephemerid
     return out;
 }
 
-void EphemeridesRecenterAlgorithm_setNewZeroBaseId(EphemeridesRecenterAlgorithm* self, const int bodySpiceId) {
+void EphemeridesRecenterAlgorithm_setNewZeroBaseId(EphemeridesRecenterAlgorithmHandle* self, const int bodySpiceId) {
     reinterpret_cast<::EphemeridesRecenterAlgorithm*>(self)->setNewZeroBaseId(bodySpiceId);
 }
 
-int EphemeridesRecenterAlgorithm_getNewZeroBase(const EphemeridesRecenterAlgorithm* self) {
+int EphemeridesRecenterAlgorithm_getNewZeroBase(const EphemeridesRecenterAlgorithmHandle* self) {
     return reinterpret_cast<const ::EphemeridesRecenterAlgorithm*>(self)->getNewZeroBase();
 }
 
-void EphemeridesRecenterAlgorithm_setPreviousCommonZeroBase(EphemeridesRecenterAlgorithm* self, const int bodySpiceId) {
+void EphemeridesRecenterAlgorithm_setPreviousCommonZeroBase(EphemeridesRecenterAlgorithmHandle* self, const int bodySpiceId) {
     reinterpret_cast<::EphemeridesRecenterAlgorithm*>(self)->setPreviousCommonZeroBase(bodySpiceId);
 }
 
-int EphemeridesRecenterAlgorithm_getPreviousCommonZeroBase(const EphemeridesRecenterAlgorithm* self) {
+int EphemeridesRecenterAlgorithm_getPreviousCommonZeroBase(const EphemeridesRecenterAlgorithmHandle* self) {
     return reinterpret_cast<const ::EphemeridesRecenterAlgorithm*>(self)->getPreviousCommonZeroBase();
 }
 
-uint32_t EphemeridesRecenterAlgorithm_getNumberOfBodies(const EphemeridesRecenterAlgorithm* self) {
+uint32_t EphemeridesRecenterAlgorithm_getNumberOfBodies(const EphemeridesRecenterAlgorithmHandle* self) {
     return static_cast<uint32_t>(reinterpret_cast<const ::EphemeridesRecenterAlgorithm*>(self)->getNumberOfBodies());
 }
 
-IntArray20_c EphemeridesRecenterAlgorithm_getAllIds(const EphemeridesRecenterAlgorithm* self) {
+IntArray20_c EphemeridesRecenterAlgorithm_getAllIds(const EphemeridesRecenterAlgorithmHandle* self) {
     std::array<int, MAX_NUM_CHANGE_BODIES> ids =
         reinterpret_cast<const ::EphemeridesRecenterAlgorithm*>(self)->getAllIds();
     IntArray20_c out{};
@@ -88,16 +88,16 @@ IntArray20_c EphemeridesRecenterAlgorithm_getAllIds(const EphemeridesRecenterAlg
     return out;
 }
 
-void EphemeridesRecenterAlgorithm_addBodyEphemerisToRecenter(EphemeridesRecenterAlgorithm* self,
+void EphemeridesRecenterAlgorithm_addBodyEphemerisToRecenter(EphemeridesRecenterAlgorithmHandle* self,
                                                              const BodyToRecenter* body) {
     reinterpret_cast<::EphemeridesRecenterAlgorithm*>(self)->addBodyEphemerisToRecenter(*body);
 }
 
-void EphemeridesRecenterAlgorithm_clearAllBodies(EphemeridesRecenterAlgorithm* self) {
+void EphemeridesRecenterAlgorithm_clearAllBodies(EphemeridesRecenterAlgorithmHandle* self) {
     reinterpret_cast<::EphemeridesRecenterAlgorithm*>(self)->clearAllBodies();
 }
 
-uint32_t EphemeridesRecenterAlgorithm_findBodyIndex(const EphemeridesRecenterAlgorithm* self, const int bodySpiceId) {
+uint32_t EphemeridesRecenterAlgorithm_findBodyIndex(const EphemeridesRecenterAlgorithmHandle* self, const int bodySpiceId) {
     return static_cast<uint32_t>(
         reinterpret_cast<const ::EphemeridesRecenterAlgorithm*>(self)->findBodyIndex(bodySpiceId));
 }
