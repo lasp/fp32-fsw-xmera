@@ -99,4 +99,4 @@ bool BodyRateMiscompareAlgorithm_getUseImuRates(const BodyRateMiscompareAlgorith
 }  // extern "C"
 #endif
 
-#endif  // F32XIMERA_BODYRATEMISCOMPAREALGORITHM_C_H
+#endif  // F32XMERA_BODYRATEMISCOMPAREALGORITHM_C_H

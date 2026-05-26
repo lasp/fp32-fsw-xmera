@@ -33,7 +33,8 @@ BodyRateMiscompareOutput_c BodyRateMiscompareAlgorithm_update(BodyRateMiscompare
     return out;
 }
 
-void BodyRateMiscompareAlgorithm_setBodyRateThreshold(BodyRateMiscompareAlgorithmHandle* self, float bodyRateThreshold) {
+void BodyRateMiscompareAlgorithm_setBodyRateThreshold(BodyRateMiscompareAlgorithmHandle* self,
+                                                      float bodyRateThreshold) {
     reinterpret_cast<::BodyRateMiscompareAlgorithm*>(self)->setBodyRateThreshold(bodyRateThreshold);
 }
 
