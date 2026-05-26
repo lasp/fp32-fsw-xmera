@@ -1,6 +1,3 @@
-// SPDX-FileCopyrightText: 2025 Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
-// SPDX-License-Identifier: MIT
-
 #ifndef F32XMERA_HILL_POINT_ALGORITHM_H
 #define F32XMERA_HILL_POINT_ALGORITHM_H
 

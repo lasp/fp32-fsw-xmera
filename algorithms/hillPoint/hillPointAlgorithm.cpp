@@ -1,6 +1,3 @@
-// SPDX-FileCopyrightText: 2025 Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
-// SPDX-License-Identifier: MIT
-
 #include "hillPointAlgorithm.h"
 #include "architecture/utilities/rigidBodyKinematics.hpp"
 
