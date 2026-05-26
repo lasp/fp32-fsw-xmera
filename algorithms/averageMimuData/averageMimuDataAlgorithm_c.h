@@ -1,6 +1,8 @@
 #ifndef F32XMERA_AVERAGEMIMUDATAALGORITHM_C_H
 #define F32XMERA_AVERAGEMIMUDATAALGORITHM_C_H
 
+#include "utilities/plainCAlgorithmDataTypes.h"
+
 #include <stddef.h>
 #include <stdint.h>
 
@@ -14,15 +16,6 @@ extern "C" {
 typedef struct AverageMimuDataAlgorithmHandle AverageMimuDataAlgorithmHandle;
 
 #define MAX_BUF_PKT_C 120
-
-/**
- * @brief POD representation of a 3x3 matrix (Eigen::Matrix3f).
- *
- * Stored in row-major order: data[row][col].
- */
-typedef struct {
-    float data[3][3];
-} Matrix3f_c;
 
 /**
  * @brief POD equivalent of InputPktsData.
