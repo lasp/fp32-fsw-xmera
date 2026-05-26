@@ -93,7 +93,8 @@ void OEStateEphemAlgorithm_setArcAnomalyFlag(OEStateEphemAlgorithmHandle* self,
     reinterpret_cast<::OEStateEphemAlgorithm*>(self)->setArcAnomalyFlag(arcNumber, anomalyFlag);
 }
 
-AnomalyType OEStateEphemAlgorithm_getArcAnomalyFlag(const OEStateEphemAlgorithmHandle* self, const unsigned int arcNumber) {
+AnomalyType OEStateEphemAlgorithm_getArcAnomalyFlag(const OEStateEphemAlgorithmHandle* self,
+                                                    const unsigned int arcNumber) {
     return reinterpret_cast<const ::OEStateEphemAlgorithm*>(self)->getArcAnomalyFlag(arcNumber);
 }
 

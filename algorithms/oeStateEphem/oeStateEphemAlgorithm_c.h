@@ -115,7 +115,9 @@ unsigned int OEStateEphemAlgorithm_getArcNumberOfCoefficients(const OEStateEphem
  * @param arcNumber  Index of the arc.
  * @param timeMiddle Ephemeris time at arc midpoint (seconds).
  */
-void OEStateEphemAlgorithm_setArcMiddleTime(OEStateEphemAlgorithmHandle* self, unsigned int arcNumber, double timeMiddle);
+void OEStateEphemAlgorithm_setArcMiddleTime(OEStateEphemAlgorithmHandle* self,
+                                            unsigned int arcNumber,
+                                            double timeMiddle);
 
 /**
  * @brief Get the middle time for a specified arc.
@@ -131,7 +133,9 @@ double OEStateEphemAlgorithm_getArcMiddleTime(const OEStateEphemAlgorithmHandle*
  * @param arcNumber  Index of the arc.
  * @param timeRadius Time radius (seconds).
  */
-void OEStateEphemAlgorithm_setArcRadiusTime(OEStateEphemAlgorithmHandle* self, unsigned int arcNumber, double timeRadius);
+void OEStateEphemAlgorithm_setArcRadiusTime(OEStateEphemAlgorithmHandle* self,
+                                            unsigned int arcNumber,
+                                            double timeRadius);
 
 /**
  * @brief Get the time radius for a specified arc.
@@ -251,7 +255,8 @@ void OEStateEphemAlgorithm_setArcRaanCoefficients(OEStateEphemAlgorithmHandle* s
  * @param arcNumber Index of the arc.
  * @return OeCoefficients  The coefficients.
  */
-OeCoefficients OEStateEphemAlgorithm_getArcRaanCoefficients(const OEStateEphemAlgorithmHandle* self, unsigned int arcNumber);
+OeCoefficients OEStateEphemAlgorithm_getArcRaanCoefficients(const OEStateEphemAlgorithmHandle* self,
+                                                            unsigned int arcNumber);
 
 /**
  * @brief Set the true anomaly Chebyshev coefficients for a specified arc.
