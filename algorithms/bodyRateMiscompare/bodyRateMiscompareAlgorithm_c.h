@@ -1,6 +1,8 @@
 #ifndef F32XMERA_BODYRATEMISCOMPAREALGORITHM_C_H
 #define F32XMERA_BODYRATEMISCOMPAREALGORITHM_C_H
 
+#include "utilities/plainCAlgorithmDataTypes.h"
+
 #include <stdbool.h>
 #include <cstdint>
 
@@ -12,13 +14,6 @@ extern "C" {
  * @brief Opaque handle to the C++ BodyRateMiscompareAlgorithm instance.
  */
 typedef struct BodyRateMiscompareAlgorithm BodyRateMiscompareAlgorithm;
-
-/**
- * @brief POD representation of a 3-vector (Eigen::Vector3f).
- */
-typedef struct {
-    float data[3];
-} Vector3f_c;
 
 /**
  * @brief POD representation of the BodyRateMiscompareOutput.

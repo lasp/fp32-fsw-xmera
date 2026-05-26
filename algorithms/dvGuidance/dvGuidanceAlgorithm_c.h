@@ -2,6 +2,7 @@
 #define F32XMERA_DVGUIDANCEALGORITHM_C_H
 
 #include "msgPayloadDef/AttRefMsgF32Payload.h"
+#include "utilities/plainCAlgorithmDataTypes.h"
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -12,13 +13,6 @@ extern "C" {
  * @brief Opaque handle to the C++ DvGuidanceAlgorithm instance.
  */
 typedef struct DvGuidanceAlgorithm DvGuidanceAlgorithm;
-
-/**
- * @brief POD representation of a 3-vector (Eigen::Vector3f).
- */
-typedef struct {
-    float data[3];
-} Vector3f_c;
 
 /**
  * @brief Construct a new DvGuidanceAlgorithm instance with a default-built config.

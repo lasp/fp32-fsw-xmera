@@ -16,13 +16,6 @@ typedef struct AverageMimuDataAlgorithm AverageMimuDataAlgorithm;
 #define MAX_BUF_PKT_C 120
 
 /**
- * @brief POD representation of a 3-vector (Eigen::Vector3f).
- */
-typedef struct {
-    float data[3];
-} Vector3f_c;
-
-/**
  * @brief POD representation of a 3x3 matrix (Eigen::Matrix3f).
  *
  * Stored in row-major order: data[row][col].

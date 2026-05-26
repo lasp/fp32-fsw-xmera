@@ -1,6 +1,7 @@
 #ifndef F32XMERA_MIMUMAJORITYVOTEALGORITHM_C_H
 #define F32XMERA_MIMUMAJORITYVOTEALGORITHM_C_H
 
+#include "utilities/plainCAlgorithmDataTypes.h"
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -16,13 +17,6 @@ typedef struct MimuMajorityVoteAlgorithm MimuMajorityVoteAlgorithm;
  * @brief Number of IMUs.
  */
 #define MIMU_COUNT_C 3
-
-/**
- * @brief POD representation of a 3-vector (Eigen::Vector3f).
- */
-typedef struct {
-    float data[3];
-} Vector3f_c;
 
 /**
  * @brief Sized array of 3-vectors.

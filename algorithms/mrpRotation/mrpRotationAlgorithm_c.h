@@ -3,6 +3,7 @@
 
 #include "msgPayloadDef/AttRefMsgF32Payload.h"
 #include "msgPayloadDef/AttStateMsgF32Payload.h"
+#include "utilities/plainCAlgorithmDataTypes.h"
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -13,13 +14,6 @@ extern "C" {
  * @brief Opaque handle to the C++ MrpRotationAlgorithm instance.
  */
 typedef struct MrpRotationAlgorithm MrpRotationAlgorithm;
-
-/**
- * @brief POD representation of a 3-vector (Eigen::Vector3f).
- */
-typedef struct {
-    float data[3];
-} Vector3f_c;
 
 /**
  * @brief Plain-old-data mirror of the C++ MrpRotationConfig fields.

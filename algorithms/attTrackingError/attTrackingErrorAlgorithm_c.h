@@ -1,7 +1,7 @@
 #ifndef F32XMERA_ATTTRACKINGERRORALGORITHM_C_H
 #define F32XMERA_ATTTRACKINGERRORALGORITHM_C_H
 
-#include <stdint.h>
+#include "utilities/plainCAlgorithmDataTypes.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -11,13 +11,6 @@ extern "C" {
  * @brief Opaque handle to the C++ AttTrackingErrorAlgorithm instance.
  */
 typedef struct AttTrackingErrorAlgorithm AttTrackingErrorAlgorithm;
-
-/**
- * @brief POD representation of a 3-vector (Eigen::Vector3f).
- */
-typedef struct {
-    float data[3];
-} Vector3f_c;
 
 /**
  * @brief C-compatible navigation attitude input.

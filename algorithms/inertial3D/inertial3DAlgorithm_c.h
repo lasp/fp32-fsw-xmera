@@ -2,6 +2,7 @@
 #define F32XIMERA_INERTIAL3DALGORITHM_C_H
 
 #include "msgPayloadDef/AttRefMsgF32Payload.h"
+#include "utilities/plainCAlgorithmDataTypes.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -11,13 +12,6 @@ extern "C" {
  * @brief Opaque handle to the C++ Inertial3DAlgorithm instance.
  */
 typedef struct Inertial3DAlgorithm Inertial3DAlgorithm;
-
-/**
- * @brief POD representation of a 3-vector (Eigen::Vector3f).
- */
-typedef struct {
-    float data[3];
-} Vector3f_c;
 
 /**
  * @brief Construct a new Inertial3DAlgorithm instance.

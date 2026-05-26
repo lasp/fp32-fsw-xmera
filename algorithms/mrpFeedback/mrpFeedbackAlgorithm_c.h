@@ -7,6 +7,7 @@
 #include "msgPayloadDef/RWAvailabilityMsgPayload.h"
 #include "msgPayloadDef/RWSpeedMsgF32Payload.h"
 #include "msgPayloadDef/VehicleConfigMsgF32Payload.h"
+#include "utilities/plainCAlgorithmDataTypes.h"
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -17,13 +18,6 @@ extern "C" {
  * @brief Opaque handle to the C++ MrpFeedbackAlgorithm instance.
  */
 typedef struct MrpFeedbackAlgorithm MrpFeedbackAlgorithm;
-
-/**
- * @brief POD representation of a 3-vector (Eigen::Vector3f).
- */
-typedef struct {
-    float data[3];
-} Vector3f_c;
 
 /**
  * @brief C-compatible mirror of the C++ ControlLawType enum class.

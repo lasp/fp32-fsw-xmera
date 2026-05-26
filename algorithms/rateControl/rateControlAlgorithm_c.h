@@ -1,6 +1,8 @@
 #ifndef F32XIMERA_RATE_CONTROL_ALGORITHM_C_H
 #define F32XIMERA_RATE_CONTROL_ALGORITHM_C_H
 
+#include "utilities/plainCAlgorithmDataTypes.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -9,20 +11,6 @@ extern "C" {
  * @brief Opaque handle to the C++ RateControlAlgorithm instance.
  */
 typedef struct RateControlAlgorithm RateControlAlgorithm;
-
-/**
- * @brief POD representation of a 3x3 matrix (Eigen::Matrix3f).
- */
-typedef struct {
-    float data[3][3];
-} Matrix3f_c;
-
-/**
- * @brief POD representation of a 3-vector (Eigen::Vector3f).
- */
-typedef struct {
-    float data[3];
-} Vector3f_c;
 
 /**
  * @brief Construct a new RateControlAlgorithm instance.

@@ -2,7 +2,7 @@
 #define F32XMERA_SOLARARRAYREFERENCEALGORITHM_C_H
 
 #include "solarArrayReferenceTypes.h"
-#include <stdint.h>
+#include "utilities/plainCAlgorithmDataTypes.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -12,13 +12,6 @@ extern "C" {
  * @brief Opaque handle to the C++ SolarArrayReferenceAlgorithm instance.
  */
 typedef struct SolarArrayReferenceAlgorithm SolarArrayReferenceAlgorithm;
-
-/**
- * @brief POD representation of a 3-vector (Eigen::Vector3f).
- */
-typedef struct {
-    float data[3];
-} Vector3f_c;
 
 /**
  * @brief POD representation of the solar array drive axis and surface normal pair.

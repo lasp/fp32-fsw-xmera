@@ -1,6 +1,7 @@
 #ifndef F32XIMERA_SUNLINESRUKFALGORITHM_C_H
 #define F32XIMERA_SUNLINESRUKFALGORITHM_C_H
 
+#include "utilities/plainCAlgorithmDataTypes.h"
 #include <stdint.h>
 
 #define SUNLINE_SRUKF_MAX_NUM_CSS 32
@@ -8,13 +9,6 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-/**
- * @brief POD representation of a 3-vector (Eigen::Vector3f).
- */
-typedef struct {
-    float data[3];
-} Vector3f_c;
 
 /**
  * @brief C-compatible input structure for the sunline SRuKF algorithm.
