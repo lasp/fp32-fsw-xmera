@@ -4,6 +4,13 @@
 #include "sunSafePointTypes.h"
 #include <Eigen/Core>
 
+/*! @brief Structure containing the sun safe point attitude guidance output */
+struct SunSafePointOutput {
+    Eigen::Vector3f sigma_BR;    //!< attitude error (MRPs) of B relative to R
+    Eigen::Vector3f omega_BR_B;  //!< [rad/s] body rate error of B relative to R in B frame
+    Eigen::Vector3f omega_RN_B;  //!< [rad/s] reference frame rate of R relative to N in B frame
+};
+
 /*! @brief Sun safe point attitude guidance algorithm class. */
 class SunSafePointAlgorithm {
    public:
