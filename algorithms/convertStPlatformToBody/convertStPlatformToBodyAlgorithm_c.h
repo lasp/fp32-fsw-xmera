@@ -2,6 +2,7 @@
 #define F32XMERA_CONVERTSTPLATFORMTOBODYALGORITHM_C_H
 
 #include "convertStPlatformToBodyTypes.h"
+#include "utilities/plainCAlgorithmDataTypes.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -11,13 +12,6 @@ extern "C" {
  * @brief Opaque handle to the C++ ConvertStPlatformToBodyAlgorithm instance.
  */
 typedef struct ConvertStPlatformToBodyAlgorithmHandle ConvertStPlatformToBodyAlgorithmHandle;
-
-/**
- * @brief POD representation of a 3x3 matrix (Eigen::Matrix3f).
- */
-typedef struct {
-    float data[3][3];
-} Matrix3f_c;
 
 /**
  * @brief Construct a new ConvertStPlatformToBodyAlgorithm instance.
