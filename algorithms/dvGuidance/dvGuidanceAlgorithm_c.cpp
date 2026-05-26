@@ -4,19 +4,19 @@
 
 #include <Eigen/Core>
 
-DvGuidanceAlgorithm* DvGuidanceAlgorithm_create(void) {
+DvGuidanceAlgorithmHandle* DvGuidanceAlgorithm_create(void) {
     // clang-format off
-    return reinterpret_cast<DvGuidanceAlgorithm*>(new ::DvGuidanceAlgorithm(DvGuidanceConfig::create()));  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast, cppcoreguidelines-owning-memory)
+    return reinterpret_cast<DvGuidanceAlgorithmHandle*>(new ::DvGuidanceAlgorithm(DvGuidanceConfig::create()));  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast, cppcoreguidelines-owning-memory)
     // clang-format on
 }
 
-void DvGuidanceAlgorithm_destroy(DvGuidanceAlgorithm* self) {
+void DvGuidanceAlgorithm_destroy(DvGuidanceAlgorithmHandle* self) {
     // clang-format off
     delete reinterpret_cast<::DvGuidanceAlgorithm*>(self);  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast, cppcoreguidelines-owning-memory)
     // clang-format on
 }
 
-AttRefMsgF32Payload DvGuidanceAlgorithm_update(const DvGuidanceAlgorithm* self,
+AttRefMsgF32Payload DvGuidanceAlgorithm_update(const DvGuidanceAlgorithmHandle* self,
                                                Vector3f_c dvInrtlCmd,
                                                Vector3f_c dvRotVecUnit,
                                                float dvRotVecMag,
