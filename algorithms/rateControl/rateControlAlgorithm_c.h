@@ -1,5 +1,5 @@
-#ifndef F32XIMERA_RATE_CONTROL_ALGORITHM_C_H
-#define F32XIMERA_RATE_CONTROL_ALGORITHM_C_H
+#ifndef F32XMERA_RATE_CONTROL_ALGORITHM_C_H
+#define F32XMERA_RATE_CONTROL_ALGORITHM_C_H
 
 #include "utilities/plainCAlgorithmDataTypes.h"
 
@@ -74,4 +74,4 @@ Vector3f_c RateControlAlgorithm_getKnownTorquePntB_B(const RateControlAlgorithmH
 }  // extern "C"
 #endif
 
-#endif  // F32XIMERA_RATE_CONTROL_ALGORITHM_C_H
+#endif  // F32XMERA_RATE_CONTROL_ALGORITHM_C_H
