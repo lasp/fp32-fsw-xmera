@@ -1,5 +1,5 @@
-#ifndef F32XIMERA_NAVAGGREGATEALGORITHM_C_H
-#define F32XIMERA_NAVAGGREGATEALGORITHM_C_H
+#ifndef F32XMERA_NAVAGGREGATEALGORITHM_C_H
+#define F32XMERA_NAVAGGREGATEALGORITHM_C_H
 
 #include "msgPayloadDef/NavAttMsgF32Payload.h"
 #include "msgPayloadDef/NavTransMsgF32Payload.h"
@@ -215,4 +215,4 @@ uint32_t NavAggregateAlgorithm_getTransMsgCount(const NavAggregateAlgorithmHandl
 }  // extern "C"
 #endif
 
-#endif  // F32XIMERA_NAVAGGREGATEALGORITHM_C_H
+#endif  // F32XMERA_NAVAGGREGATEALGORITHM_C_H
