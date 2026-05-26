@@ -13,8 +13,9 @@
 %attribute(ThrFiringRemainder, double, controlPeriod, getControlPeriod, setControlPeriod)
 %attribute(ThrFiringRemainder, double, onTimeSaturationFactor, getOnTimeSaturationFactor, setOnTimeSaturationFactor)
 
-%include "thrFiringRemainder.h"
 %include "thrFiringRemainderTypes.h"
+%include "thrFiringRemainderAlgorithm.h"
+%include "thrFiringRemainder.h"
 
 %include "msgPayloadDef/THRArrayConfigMsgF32Payload.h"
 %include "msgPayloadDef/THRArrayCmdForceMsgF32Payload.h"
