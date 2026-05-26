@@ -5,6 +5,7 @@
 
 #include "mrpFeedbackTypes.h"
 #include "msgPayloadDef/AttGuidMsgF32Payload.h"
+#include "msgPayloadDef/CmdTorqueBodyMsgF32Payload.h"
 #include "msgPayloadDef/RWArrayConfigMsgF32Payload.h"
 #include "msgPayloadDef/RWAvailabilityMsgPayload.h"
 #include "msgPayloadDef/RWSpeedMsgF32Payload.h"
@@ -12,6 +13,13 @@
 #include "utilities/freestandingInvalidArgument.h"
 
 #include <Eigen/Core>
+
+enum class ControlLawType { NORMAL = 0, SIMPLE_INTEGRAL = 1 };
+
+struct MrpFeedbackOutput {
+    CmdTorqueBodyMsgF32Payload controlOut{};      //!< control torque output
+    CmdTorqueBodyMsgF32Payload intFeedbackOut{};  //!< integral feedback torque output
+};
 
 class MrpFeedbackConfig final {
    public:
