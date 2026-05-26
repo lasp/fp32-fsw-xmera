@@ -4,9 +4,9 @@
 #include "averageMimuDataTypes.h"
 #include "msgPayloadDef/AccDataMsgF32Payload.h"
 
+#include <Eigen/Core>
 #include <array>
 #include <cstdint>
-#include <Eigen/Core>
 
 constexpr std::size_t MAX_BUF_PKT = 120;
 
