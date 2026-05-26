@@ -13,19 +13,19 @@ extern "C" {
 /**
  * @brief Opaque handle to the C++ SunSearchAlgorithm instance.
  */
-typedef struct SunSearchAlgorithm SunSearchAlgorithm;
+typedef struct SunSearchAlgorithmHandle SunSearchAlgorithmHandle;
 
 /**
  * @brief Construct a new SunSearchAlgorithm instance.
  * @return Pointer to a new SunSearchAlgorithm (must be destroyed).
  */
-SunSearchAlgorithm* SunSearchAlgorithm_create(void);
+SunSearchAlgorithmHandle* SunSearchAlgorithm_create(void);
 
 /**
  * @brief Destroy a previously created SunSearchAlgorithm.
  * @param self Pointer to the instance to destroy.
  */
-void SunSearchAlgorithm_destroy(SunSearchAlgorithm* self);
+void SunSearchAlgorithm_destroy(SunSearchAlgorithmHandle* self);
 
 /**
  * @brief Reset the algorithm state.
@@ -33,7 +33,7 @@ void SunSearchAlgorithm_destroy(SunSearchAlgorithm* self);
  * @param currentSimNanos   Current simulation time in nanoseconds.
  * @param principleInertias Principle vehicle inertia terms.
  */
-void SunSearchAlgorithm_reset(SunSearchAlgorithm* self,
+void SunSearchAlgorithm_reset(SunSearchAlgorithmHandle* self,
                               uint64_t currentSimNanos,
                               const PrincipleInertias* principleInertias);
 
@@ -44,7 +44,7 @@ void SunSearchAlgorithm_reset(SunSearchAlgorithm* self,
  * @param navAttIn        Pointer to navigation attitude message payload.
  * @return AttGuidMsgF32Payload  The computed guidance message.
  */
-AttGuidMsgF32Payload SunSearchAlgorithm_update(const SunSearchAlgorithm* self,
+AttGuidMsgF32Payload SunSearchAlgorithm_update(const SunSearchAlgorithmHandle* self,
                                                uint64_t currentSimNanos,
                                                const NavAttMsgF32Payload* navAttIn);
 
@@ -53,7 +53,7 @@ AttGuidMsgF32Payload SunSearchAlgorithm_update(const SunSearchAlgorithm* self,
  * @param self                Pointer to the instance.
  * @param slewPropertiesInput Pointer to the slew properties to append.
  */
-void SunSearchAlgorithm_setSlewProperties(SunSearchAlgorithm* self, const SlewProperties* slewPropertiesInput);
+void SunSearchAlgorithm_setSlewProperties(SunSearchAlgorithmHandle* self, const SlewProperties* slewPropertiesInput);
 
 /**
  * @brief Modify an existing slew maneuver at a given index.
@@ -61,7 +61,7 @@ void SunSearchAlgorithm_setSlewProperties(SunSearchAlgorithm* self, const SlewPr
  * @param slewPropertiesInput Pointer to the new slew properties.
  * @param index               Index of the slew maneuver to modify.
  */
-void SunSearchAlgorithm_modifySlewProperties(SunSearchAlgorithm* self,
+void SunSearchAlgorithm_modifySlewProperties(SunSearchAlgorithmHandle* self,
                                              const SlewProperties* slewPropertiesInput,
                                              uint32_t index);
 
@@ -71,7 +71,7 @@ void SunSearchAlgorithm_modifySlewProperties(SunSearchAlgorithm* self,
  * @param index Index of the slew maneuver.
  * @return SlewProperties  The slew properties at the given index.
  */
-SlewProperties SunSearchAlgorithm_getSlewProperties(const SunSearchAlgorithm* self, uint32_t index);
+SlewProperties SunSearchAlgorithm_getSlewProperties(const SunSearchAlgorithmHandle* self, uint32_t index);
 
 /**
  * @brief Get the NUM_SLEWS constant for Ada validation.
