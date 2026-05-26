@@ -4,6 +4,16 @@
 #include "hillPointTypes.h"
 #include <Eigen/Core>
 
+// hillPoint has no tunable parameters; the Config class is intentionally empty so the
+// algorithm can still follow the standard two-phase init pattern.
+class HillPointConfig final {
+   public:
+    static HillPointConfig create() { return {}; }
+
+   private:
+    HillPointConfig() = default;
+};
+
 class HillPointAlgorithm final {
    public:
     explicit HillPointAlgorithm(const HillPointConfig& config);
