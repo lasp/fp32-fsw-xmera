@@ -1,6 +1,7 @@
 #ifndef F32XMERA_THR_FIRING_SCHMITT_ALGORITHM_H
 #define F32XMERA_THR_FIRING_SCHMITT_ALGORITHM_H
 
+#include "msgPayloadDef/definitions.h"
 #include "thrFiringSchmittTypes.h"
 #include <stdint.h>
 #include <array>
