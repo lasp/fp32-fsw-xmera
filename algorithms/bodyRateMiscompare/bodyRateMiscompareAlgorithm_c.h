@@ -4,7 +4,7 @@
 #include "utilities/plainCAlgorithmDataTypes.h"
 
 #include <stdbool.h>
-#include <cstdint>
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
