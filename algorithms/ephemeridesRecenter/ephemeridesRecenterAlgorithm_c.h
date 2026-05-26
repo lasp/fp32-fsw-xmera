@@ -1,5 +1,5 @@
-#ifndef F32XIMERA_EPHEMERIDES_RECENTER_ALGORITHM_C_H
-#define F32XIMERA_EPHEMERIDES_RECENTER_ALGORITHM_C_H
+#ifndef F32XMERA_EPHEMERIDES_RECENTER_ALGORITHM_C_H
+#define F32XMERA_EPHEMERIDES_RECENTER_ALGORITHM_C_H
 
 #include "ephemeridesRecenterTypes.h"
 #include <stdint.h>
@@ -151,4 +151,4 @@ uint32_t EphemeridesRecenterAlgorithm_getMaxNumChangeBodies(void);
 }  // extern "C"
 #endif
 
-#endif  // F32XIMERA_EPHEMERIDES_RECENTER_ALGORITHM_C_H
+#endif  // F32XMERA_EPHEMERIDES_RECENTER_ALGORITHM_C_H

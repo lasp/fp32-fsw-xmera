@@ -66,7 +66,8 @@ int EphemeridesRecenterAlgorithm_getNewZeroBase(const EphemeridesRecenterAlgorit
     return reinterpret_cast<const ::EphemeridesRecenterAlgorithm*>(self)->getNewZeroBase();
 }
 
-void EphemeridesRecenterAlgorithm_setPreviousCommonZeroBase(EphemeridesRecenterAlgorithmHandle* self, const int bodySpiceId) {
+void EphemeridesRecenterAlgorithm_setPreviousCommonZeroBase(EphemeridesRecenterAlgorithmHandle* self,
+                                                            const int bodySpiceId) {
     reinterpret_cast<::EphemeridesRecenterAlgorithm*>(self)->setPreviousCommonZeroBase(bodySpiceId);
 }
 
@@ -97,7 +98,8 @@ void EphemeridesRecenterAlgorithm_clearAllBodies(EphemeridesRecenterAlgorithmHan
     reinterpret_cast<::EphemeridesRecenterAlgorithm*>(self)->clearAllBodies();
 }
 
-uint32_t EphemeridesRecenterAlgorithm_findBodyIndex(const EphemeridesRecenterAlgorithmHandle* self, const int bodySpiceId) {
+uint32_t EphemeridesRecenterAlgorithm_findBodyIndex(const EphemeridesRecenterAlgorithmHandle* self,
+                                                    const int bodySpiceId) {
     return static_cast<uint32_t>(
         reinterpret_cast<const ::EphemeridesRecenterAlgorithm*>(self)->findBodyIndex(bodySpiceId));
 }
