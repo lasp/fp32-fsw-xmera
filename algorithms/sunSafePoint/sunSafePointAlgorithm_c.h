@@ -1,5 +1,5 @@
-#ifndef F32XIMERA_SUNSAFEPOINTALGORITHM_C_H
-#define F32XIMERA_SUNSAFEPOINTALGORITHM_C_H
+#ifndef F32XMERA_SUNSAFEPOINTALGORITHM_C_H
+#define F32XMERA_SUNSAFEPOINTALGORITHM_C_H
 
 #include "utilities/plainCAlgorithmDataTypes.h"
 
@@ -90,4 +90,4 @@ Vector3f_c SunSafePointAlgorithm_getSHatBdyCmd(const SunSafePointAlgorithmHandle
 }  // extern "C"
 #endif
 
-#endif  // F32XIMERA_SUNSAFEPOINTALGORITHM_C_H
+#endif  // F32XMERA_SUNSAFEPOINTALGORITHM_C_H
