@@ -1,5 +1,5 @@
-#ifndef F32XIMERA_SUNLINESRUKFALGORITHM_C_H
-#define F32XIMERA_SUNLINESRUKFALGORITHM_C_H
+#ifndef F32XMERA_SUNLINESRUKFALGORITHM_C_H
+#define F32XMERA_SUNLINESRUKFALGORITHM_C_H
 
 #include "utilities/plainCAlgorithmDataTypes.h"
 #include <stdint.h>
@@ -49,4 +49,4 @@ SunlineSRuKFOutput_c SunlineSRuKFAlgorithm_updateState(const SunlineSRuKFInput_c
 }  // extern "C"
 #endif
 
-#endif  // F32XIMERA_SUNLINESRUKFALGORITHM_C_H
+#endif  // F32XMERA_SUNLINESRUKFALGORITHM_C_H
