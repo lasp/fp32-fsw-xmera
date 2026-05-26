@@ -1,5 +1,5 @@
-#ifndef F32XIMERA_INERTIAL3DALGORITHM_C_H
-#define F32XIMERA_INERTIAL3DALGORITHM_C_H
+#ifndef F32XMERA_INERTIAL3DALGORITHM_C_H
+#define F32XMERA_INERTIAL3DALGORITHM_C_H
 
 #include "msgPayloadDef/AttRefMsgF32Payload.h"
 #include "utilities/plainCAlgorithmDataTypes.h"
@@ -50,4 +50,4 @@ Vector3f_c Inertial3DAlgorithm_getSigmaRN(const Inertial3DAlgorithmHandle* self)
 }  // extern "C"
 #endif
 
-#endif  // F32XIMERA_INERTIAL3DALGORITHM_C_H
+#endif  // F32XMERA_INERTIAL3DALGORITHM_C_H

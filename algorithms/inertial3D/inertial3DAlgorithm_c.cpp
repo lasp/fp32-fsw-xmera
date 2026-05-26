@@ -7,7 +7,9 @@ Inertial3DAlgorithmHandle* Inertial3DAlgorithm_create(void) {
     return reinterpret_cast<Inertial3DAlgorithmHandle*>(new ::Inertial3DAlgorithm());
 }
 
-void Inertial3DAlgorithm_destroy(Inertial3DAlgorithmHandle* self) { delete reinterpret_cast<::Inertial3DAlgorithm*>(self); }
+void Inertial3DAlgorithm_destroy(Inertial3DAlgorithmHandle* self) {
+    delete reinterpret_cast<::Inertial3DAlgorithm*>(self);
+}
 
 AttRefMsgF32Payload Inertial3DAlgorithm_update(const Inertial3DAlgorithmHandle* self) {
     return reinterpret_cast<const ::Inertial3DAlgorithm*>(self)->update();
