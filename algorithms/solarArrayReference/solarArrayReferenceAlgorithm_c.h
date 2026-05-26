@@ -125,4 +125,4 @@ float SolarArrayReferenceAlgorithm_getOffsetAngle(const SolarArrayReferenceAlgor
 }  // extern "C"
 #endif
 
-#endif  // F32XIMERA_SOLARARRAYREFERENCEALGORITHM_C_H
+#endif  // F32XMERA_SOLARARRAYREFERENCEALGORITHM_C_H
