@@ -1,8 +1,8 @@
 #ifndef THR_FIRING_REMAINDER_ALGORITHM
 #define THR_FIRING_REMAINDER_ALGORITHM
 
-#include "thrFiringRemainderTypes.h"
 #include "msgPayloadDef/definitions.h"
+#include "thrFiringRemainderTypes.h"
 
 #include <stdint.h>
 #include <array>
