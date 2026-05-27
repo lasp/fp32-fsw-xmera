@@ -1,8 +1,3 @@
-/* MIT License
- *
- Copyright (c) 2025, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
- */
-
 #ifndef F32XMERA_HILLPOINTALGORITHM_C_H
 #define F32XMERA_HILLPOINTALGORITHM_C_H
 
@@ -15,7 +10,7 @@ extern "C" {
 /**
  * @brief Opaque handle to the C++ HillPointAlgorithm instance.
  */
-typedef struct HillPointAlgorithm HillPointAlgorithm;
+typedef struct HillPointAlgorithmHandle HillPointAlgorithmHandle;
 
 /**
  * @brief POD representation of a 3-vector (Eigen::Vector3d).
@@ -28,13 +23,13 @@ typedef struct {
  * @brief Construct a new HillPointAlgorithm instance with a default-built config.
  * @return Pointer to a new HillPointAlgorithm (must be destroyed).
  */
-HillPointAlgorithm* HillPointAlgorithm_create(void);
+HillPointAlgorithmHandle* HillPointAlgorithm_create(void);
 
 /**
  * @brief Destroy a previously created HillPointAlgorithm.
  * @param self Pointer to the instance to destroy.
  */
-void HillPointAlgorithm_destroy(HillPointAlgorithm* self);
+void HillPointAlgorithm_destroy(HillPointAlgorithmHandle* self);
 
 /**
  * @brief Compute the Hill-frame attitude reference for the spacecraft state.
@@ -50,7 +45,7 @@ void HillPointAlgorithm_destroy(HillPointAlgorithm* self);
  * @param v_planet_N  Primary body inertial velocity in the inertial frame N [m/s].
  * @return AttRefMsgF32Payload  Hill-frame reference attitude, rate, and acceleration.
  */
-AttRefMsgF32Payload HillPointAlgorithm_update(const HillPointAlgorithm* self,
+AttRefMsgF32Payload HillPointAlgorithm_update(const HillPointAlgorithmHandle* self,
                                               Vector3d_c r_BN_N,
                                               Vector3d_c v_BN_N,
                                               Vector3d_c r_planet_N,

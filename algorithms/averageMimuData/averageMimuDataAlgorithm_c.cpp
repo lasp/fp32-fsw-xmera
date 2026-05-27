@@ -5,15 +5,15 @@
 
 uint32_t AverageMimuDataAlgorithm_getMaxBufPkt(void) { return MAX_BUF_PKT; }
 
-AverageMimuDataAlgorithm* AverageMimuDataAlgorithm_create(void) {
-    return reinterpret_cast<AverageMimuDataAlgorithm*>(new ::AverageMimuDataAlgorithm());
+AverageMimuDataAlgorithmHandle* AverageMimuDataAlgorithm_create(void) {
+    return reinterpret_cast<AverageMimuDataAlgorithmHandle*>(new ::AverageMimuDataAlgorithm());
 }
 
-void AverageMimuDataAlgorithm_destroy(AverageMimuDataAlgorithm* self) {
+void AverageMimuDataAlgorithm_destroy(AverageMimuDataAlgorithmHandle* self) {
     delete reinterpret_cast<::AverageMimuDataAlgorithm*>(self);
 }
 
-OutputAverageAccelAngleVel_c AverageMimuDataAlgorithm_update(const AverageMimuDataAlgorithm* self,
+OutputAverageAccelAngleVel_c AverageMimuDataAlgorithm_update(const AverageMimuDataAlgorithmHandle* self,
                                                              const InputPktsData_c* input) {
     InputPktsData in{};
     for (size_t i = 0; i < MAX_BUF_PKT; i++) {
@@ -31,15 +31,15 @@ OutputAverageAccelAngleVel_c AverageMimuDataAlgorithm_update(const AverageMimuDa
     return result;
 }
 
-void AverageMimuDataAlgorithm_setAveragingWindow(AverageMimuDataAlgorithm* self, float window) {
+void AverageMimuDataAlgorithm_setAveragingWindow(AverageMimuDataAlgorithmHandle* self, float window) {
     reinterpret_cast<::AverageMimuDataAlgorithm*>(self)->setAveragingWindow(window);
 }
 
-float AverageMimuDataAlgorithm_getAveragingWindow(const AverageMimuDataAlgorithm* self) {
+float AverageMimuDataAlgorithm_getAveragingWindow(const AverageMimuDataAlgorithmHandle* self) {
     return reinterpret_cast<const ::AverageMimuDataAlgorithm*>(self)->getAveragingWindow();
 }
 
-void AverageMimuDataAlgorithm_setDcmPltfToBdy(AverageMimuDataAlgorithm* self, Matrix3f_c dcm_BP) {
+void AverageMimuDataAlgorithm_setDcmPltfToBdy(AverageMimuDataAlgorithmHandle* self, Matrix3f_c dcm_BP) {
     Eigen::Matrix3f mat;
     for (int i = 0; i < 3; i++) {
         for (int j = 0; j < 3; j++) {
@@ -49,7 +49,7 @@ void AverageMimuDataAlgorithm_setDcmPltfToBdy(AverageMimuDataAlgorithm* self, Ma
     reinterpret_cast<::AverageMimuDataAlgorithm*>(self)->setDcmPltfToBdy(mat);
 }
 
-Matrix3f_c AverageMimuDataAlgorithm_getDcmPltfToBdy(const AverageMimuDataAlgorithm* self) {
+Matrix3f_c AverageMimuDataAlgorithm_getDcmPltfToBdy(const AverageMimuDataAlgorithmHandle* self) {
     Eigen::Matrix3f mat = reinterpret_cast<const ::AverageMimuDataAlgorithm*>(self)->getDcmPltfToBdy();
     Matrix3f_c out;
     for (int i = 0; i < 3; i++) {

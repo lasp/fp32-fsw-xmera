@@ -3,6 +3,7 @@
 
 #include "msgPayloadDef/AttRefMsgF32Payload.h"
 #include "msgPayloadDef/AttStateMsgF32Payload.h"
+#include "utilities/plainCAlgorithmDataTypes.h"
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -12,14 +13,7 @@ extern "C" {
 /**
  * @brief Opaque handle to the C++ MrpRotationAlgorithm instance.
  */
-typedef struct MrpRotationAlgorithm MrpRotationAlgorithm;
-
-/**
- * @brief POD representation of a 3-vector (Eigen::Vector3f).
- */
-typedef struct {
-    float data[3];
-} Vector3f_c;
+typedef struct MrpRotationAlgorithmHandle MrpRotationAlgorithmHandle;
 
 /**
  * @brief Plain-old-data mirror of the C++ MrpRotationConfig fields.
@@ -41,27 +35,27 @@ typedef struct {
  * @param config Pointer to the configuration to apply (validated; throws on invalid input).
  * @return Pointer to a new MrpRotationAlgorithm (must be destroyed).
  */
-MrpRotationAlgorithm* MrpRotationAlgorithm_create(const MrpRotationConfig_c* config);
+MrpRotationAlgorithmHandle* MrpRotationAlgorithm_create(const MrpRotationConfig_c* config);
 
 /**
  * @brief Destroy a previously created MrpRotationAlgorithm.
  * @param self Pointer to the instance to destroy.
  */
-void MrpRotationAlgorithm_destroy(MrpRotationAlgorithm* self);
+void MrpRotationAlgorithm_destroy(MrpRotationAlgorithmHandle* self);
 
 /**
  * @brief Replace the algorithm's configuration at runtime.
  * @param self   Pointer to the instance.
  * @param config Pointer to the configuration to apply (validated; throws on invalid input).
  */
-void MrpRotationAlgorithm_setConfig(MrpRotationAlgorithm* self, const MrpRotationConfig_c* config);
+void MrpRotationAlgorithm_setConfig(MrpRotationAlgorithmHandle* self, const MrpRotationConfig_c* config);
 
 /**
  * @brief Reset the algorithm: clear the integration time-step and re-seed the rotating MRP set
  *        and angular velocity from the configured initial values.
  * @param self Pointer to the instance.
  */
-void MrpRotationAlgorithm_reset(MrpRotationAlgorithm* self);
+void MrpRotationAlgorithm_reset(MrpRotationAlgorithmHandle* self);
 
 /**
  * @brief Advance the rotating reference frame one integration step and produce the output reference.
@@ -72,7 +66,7 @@ void MrpRotationAlgorithm_reset(MrpRotationAlgorithm* self);
  *                  dynamicReferenceEnabled flag is non-zero).
  * @return AttRefMsgF32Payload  Output reference attitude / rate / acceleration.
  */
-AttRefMsgF32Payload MrpRotationAlgorithm_update(MrpRotationAlgorithm* self,
+AttRefMsgF32Payload MrpRotationAlgorithm_update(MrpRotationAlgorithmHandle* self,
                                                 uint64_t callTime,
                                                 const AttRefMsgF32Payload* inputRef,
                                                 const AttStateMsgF32Payload* attStates);

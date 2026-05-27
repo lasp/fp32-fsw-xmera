@@ -14,7 +14,7 @@ extern "C" {
 /**
  * @brief Opaque handle to the C++ ThrFiringSchmittAlgorithm instance.
  */
-typedef struct ThrFiringSchmittAlgorithm ThrFiringSchmittAlgorithm;
+typedef struct ThrFiringSchmittAlgorithmHandle ThrFiringSchmittAlgorithmHandle;
 
 /**
  * @brief POD representation of the ON/OFF duty cycle fraction pair.
@@ -65,19 +65,19 @@ uint32_t ThrFiringSchmittAlgorithm_getMaxThrusterCount(void);
  * @brief Construct a new ThrFiringSchmittAlgorithm instance.
  * @return Pointer to a new ThrFiringSchmittAlgorithm (must be destroyed).
  */
-ThrFiringSchmittAlgorithm* ThrFiringSchmittAlgorithm_create(void);
+ThrFiringSchmittAlgorithmHandle* ThrFiringSchmittAlgorithm_create(void);
 
 /**
  * @brief Destroy a previously created ThrFiringSchmittAlgorithm.
  * @param self Pointer to the instance to destroy.
  */
-void ThrFiringSchmittAlgorithm_destroy(ThrFiringSchmittAlgorithm* self);
+void ThrFiringSchmittAlgorithm_destroy(ThrFiringSchmittAlgorithmHandle* self);
 
 /**
  * @brief Reset the algorithm state (clears previous-state thruster history).
  * @param self Pointer to the instance.
  */
-void ThrFiringSchmittAlgorithm_reset(ThrFiringSchmittAlgorithm* self);
+void ThrFiringSchmittAlgorithm_reset(ThrFiringSchmittAlgorithmHandle* self);
 
 /**
  * @brief Run the update step.
@@ -85,7 +85,7 @@ void ThrFiringSchmittAlgorithm_reset(ThrFiringSchmittAlgorithm* self);
  * @param thrusterForceCmd Pointer to thruster force command input.
  * @return ThrusterOnTimeCmd_c  The computed thruster on-time command.
  */
-ThrusterOnTimeCmd_c ThrFiringSchmittAlgorithm_update(ThrFiringSchmittAlgorithm* self,
+ThrusterOnTimeCmd_c ThrFiringSchmittAlgorithm_update(ThrFiringSchmittAlgorithmHandle* self,
                                                      const ThrusterForceCmd_c* thrusterForceCmd);
 
 /**
@@ -93,7 +93,7 @@ ThrusterOnTimeCmd_c ThrFiringSchmittAlgorithm_update(ThrFiringSchmittAlgorithm* 
  * @param self           Pointer to the instance.
  * @param thrusterConfig Pointer to thruster array configuration.
  */
-void ThrFiringSchmittAlgorithm_setupThrusters(ThrFiringSchmittAlgorithm* self,
+void ThrFiringSchmittAlgorithm_setupThrusters(ThrFiringSchmittAlgorithmHandle* self,
                                               const ThrusterArrayConfig_c* thrusterConfig);
 
 /**
@@ -101,7 +101,7 @@ void ThrFiringSchmittAlgorithm_setupThrusters(ThrFiringSchmittAlgorithm* self,
  * @param self Pointer to the instance.
  * @return LevelsOnOff_c  Current ON and OFF duty cycle fractions.
  */
-LevelsOnOff_c ThrFiringSchmittAlgorithm_getLevelsOnOff(const ThrFiringSchmittAlgorithm* self);
+LevelsOnOff_c ThrFiringSchmittAlgorithm_getLevelsOnOff(const ThrFiringSchmittAlgorithmHandle* self);
 
 /**
  * @brief Set the ON and OFF duty cycle fractions.
@@ -109,35 +109,35 @@ LevelsOnOff_c ThrFiringSchmittAlgorithm_getLevelsOnOff(const ThrFiringSchmittAlg
  * @param levelOn  ON duty cycle fraction in (0.0, 1.0].
  * @param levelOff OFF duty cycle fraction in [0.0, 1.0); must not exceed levelOn.
  */
-void ThrFiringSchmittAlgorithm_setLevelsOnOff(ThrFiringSchmittAlgorithm* self, float levelOn, float levelOff);
+void ThrFiringSchmittAlgorithm_setLevelsOnOff(ThrFiringSchmittAlgorithmHandle* self, float levelOn, float levelOff);
 
 /**
  * @brief Get the minimum ON time for thrusters.
  * @param self Pointer to the instance.
  * @return float  Minimum ON time [s].
  */
-float ThrFiringSchmittAlgorithm_getThrMinFireTime(const ThrFiringSchmittAlgorithm* self);
+float ThrFiringSchmittAlgorithm_getThrMinFireTime(const ThrFiringSchmittAlgorithmHandle* self);
 
 /**
  * @brief Set the minimum ON time for thrusters.
  * @param self Pointer to the instance.
  * @param time Minimum ON time [s], must be positive.
  */
-void ThrFiringSchmittAlgorithm_setThrMinFireTime(ThrFiringSchmittAlgorithm* self, float time);
+void ThrFiringSchmittAlgorithm_setThrMinFireTime(ThrFiringSchmittAlgorithmHandle* self, float time);
 
 /**
  * @brief Get the thrust pulsing regime.
  * @param self Pointer to the instance.
  * @return ThrustPulsingRegime  Current pulsing regime (ON_PULSING or OFF_PULSING).
  */
-ThrustPulsingRegime ThrFiringSchmittAlgorithm_getThrustPulsingRegime(const ThrFiringSchmittAlgorithm* self);
+ThrustPulsingRegime ThrFiringSchmittAlgorithm_getThrustPulsingRegime(const ThrFiringSchmittAlgorithmHandle* self);
 
 /**
  * @brief Set the thrust pulsing regime.
  * @param self          Pointer to the instance.
  * @param pulsingRegime Pulsing regime (ON_PULSING or OFF_PULSING).
  */
-void ThrFiringSchmittAlgorithm_setThrustPulsingRegime(ThrFiringSchmittAlgorithm* self,
+void ThrFiringSchmittAlgorithm_setThrustPulsingRegime(ThrFiringSchmittAlgorithmHandle* self,
                                                       ThrustPulsingRegime pulsingRegime);
 
 /**
@@ -145,28 +145,28 @@ void ThrFiringSchmittAlgorithm_setThrustPulsingRegime(ThrFiringSchmittAlgorithm*
  * @param self Pointer to the instance.
  * @return float  Control period [s].
  */
-float ThrFiringSchmittAlgorithm_getControlPeriod(const ThrFiringSchmittAlgorithm* self);
+float ThrFiringSchmittAlgorithm_getControlPeriod(const ThrFiringSchmittAlgorithmHandle* self);
 
 /**
  * @brief Set the control period (time between two algorithm update calls).
  * @param self   Pointer to the instance.
  * @param period Control period [s], must be positive.
  */
-void ThrFiringSchmittAlgorithm_setControlPeriod(ThrFiringSchmittAlgorithm* self, float period);
+void ThrFiringSchmittAlgorithm_setControlPeriod(ThrFiringSchmittAlgorithmHandle* self, float period);
 
 /**
  * @brief Get the on-time saturation factor.
  * @param self Pointer to the instance.
  * @return float  On-time saturation factor.
  */
-float ThrFiringSchmittAlgorithm_getOnTimeSaturationFactor(const ThrFiringSchmittAlgorithm* self);
+float ThrFiringSchmittAlgorithm_getOnTimeSaturationFactor(const ThrFiringSchmittAlgorithmHandle* self);
 
 /**
  * @brief Set the on-time saturation factor (applied to control period when on-time saturates).
  * @param self   Pointer to the instance.
  * @param factor Saturation factor, must be >= 1.0.
  */
-void ThrFiringSchmittAlgorithm_setOnTimeSaturationFactor(ThrFiringSchmittAlgorithm* self, float factor);
+void ThrFiringSchmittAlgorithm_setOnTimeSaturationFactor(ThrFiringSchmittAlgorithmHandle* self, float factor);
 
 #ifdef __cplusplus
 }  // extern "C"

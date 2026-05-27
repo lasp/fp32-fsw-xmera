@@ -6,6 +6,12 @@
 
 #include "bodyRateMiscompareTypes.h"
 
+/*! @brief Structure containing the body frame angular rate and body rate fault output */
+struct BodyRateMiscompareOutput {
+    Eigen::Vector3f omega_BN_B; /*!< body frame angular rate */
+    bool bodyRateFaultDetected; /*!< body rate fault */
+};
+
 /*!@brief Module to compare the imu and star tracker rates and fall back to the imu solution if they disagree */
 class BodyRateMiscompareAlgorithm {
    public:

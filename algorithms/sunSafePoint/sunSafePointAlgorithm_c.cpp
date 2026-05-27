@@ -3,19 +3,19 @@
 
 #include <Eigen/Core>
 
-SunSafePointAlgorithm* SunSafePointAlgorithm_create(void) {
+SunSafePointAlgorithmHandle* SunSafePointAlgorithm_create(void) {
     // clang-format off
-    return reinterpret_cast<SunSafePointAlgorithm*>(new ::SunSafePointAlgorithm());  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+    return reinterpret_cast<SunSafePointAlgorithmHandle*>(new ::SunSafePointAlgorithm());  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
     // clang-format on
 }
 
-void SunSafePointAlgorithm_destroy(SunSafePointAlgorithm* self) {
+void SunSafePointAlgorithm_destroy(SunSafePointAlgorithmHandle* self) {
     // clang-format off
     delete reinterpret_cast<::SunSafePointAlgorithm*>(self);  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast, cppcoreguidelines-owning-memory)
     // clang-format on
 }
 
-SunSafePointOutput_c SunSafePointAlgorithm_update(const SunSafePointAlgorithm* self,
+SunSafePointOutput_c SunSafePointAlgorithm_update(const SunSafePointAlgorithmHandle* self,
                                                   const Vector3f_c vehSunPntBdy,
                                                   const Vector3f_c omega_BN_B) {
     Eigen::Vector3f sun{};
@@ -35,19 +35,19 @@ SunSafePointOutput_c SunSafePointAlgorithm_update(const SunSafePointAlgorithm* s
     return out;
 }
 
-void SunSafePointAlgorithm_setSunAxisSpinRate(SunSafePointAlgorithm* self, const float rate) {
+void SunSafePointAlgorithm_setSunAxisSpinRate(SunSafePointAlgorithmHandle* self, const float rate) {
     // clang-format off
     reinterpret_cast<::SunSafePointAlgorithm*>(self)->setSunAxisSpinRate(rate);  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
     // clang-format on
 }
 
-float SunSafePointAlgorithm_getSunAxisSpinRate(const SunSafePointAlgorithm* self) {
+float SunSafePointAlgorithm_getSunAxisSpinRate(const SunSafePointAlgorithmHandle* self) {
     // clang-format off
     return reinterpret_cast<const ::SunSafePointAlgorithm*>(self)->getSunAxisSpinRate();  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
     // clang-format on
 }
 
-void SunSafePointAlgorithm_setOmega_RN_B(SunSafePointAlgorithm* self, const Vector3f_c omega) {
+void SunSafePointAlgorithm_setOmega_RN_B(SunSafePointAlgorithmHandle* self, const Vector3f_c omega) {
     Eigen::Vector3f eigenOmega{};
     eigenOmega << omega.data[0], omega.data[1], omega.data[2];
     // clang-format off
@@ -55,7 +55,7 @@ void SunSafePointAlgorithm_setOmega_RN_B(SunSafePointAlgorithm* self, const Vect
     // clang-format on
 }
 
-Vector3f_c SunSafePointAlgorithm_getOmega_RN_B(const SunSafePointAlgorithm* self) {
+Vector3f_c SunSafePointAlgorithm_getOmega_RN_B(const SunSafePointAlgorithmHandle* self) {
     // clang-format off
     const Eigen::Vector3f omega = reinterpret_cast<const ::SunSafePointAlgorithm*>(self)->getOmega_RN_B();  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
     // clang-format on
@@ -66,7 +66,7 @@ Vector3f_c SunSafePointAlgorithm_getOmega_RN_B(const SunSafePointAlgorithm* self
     return out;
 }
 
-void SunSafePointAlgorithm_setSHatBdyCmd(SunSafePointAlgorithm* self, const Vector3f_c sHat) {
+void SunSafePointAlgorithm_setSHatBdyCmd(SunSafePointAlgorithmHandle* self, const Vector3f_c sHat) {
     Eigen::Vector3f eigenSHat{};
     eigenSHat << sHat.data[0], sHat.data[1], sHat.data[2];
     // clang-format off
@@ -74,7 +74,7 @@ void SunSafePointAlgorithm_setSHatBdyCmd(SunSafePointAlgorithm* self, const Vect
     // clang-format on
 }
 
-Vector3f_c SunSafePointAlgorithm_getSHatBdyCmd(const SunSafePointAlgorithm* self) {
+Vector3f_c SunSafePointAlgorithm_getSHatBdyCmd(const SunSafePointAlgorithmHandle* self) {
     // clang-format off
     const Eigen::Vector3f sHat = reinterpret_cast<const ::SunSafePointAlgorithm*>(self)->getSHatBdyCmd();  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
     // clang-format on

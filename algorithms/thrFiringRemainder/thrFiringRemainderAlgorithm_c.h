@@ -1,5 +1,5 @@
-#ifndef F32XIMERA_THRFIRINGREMAINDERALGORITHM_C_H
-#define F32XIMERA_THRFIRINGREMAINDERALGORITHM_C_H
+#ifndef F32XMERA_THRFIRINGREMAINDERALGORITHM_C_H
+#define F32XMERA_THRFIRINGREMAINDERALGORITHM_C_H
 
 #include <stdint.h>
 
@@ -40,7 +40,7 @@ typedef struct {
 } ThrFiringRemainderOnTimeCmd;
 
 /** @brief Opaque handle to the C++ ThrFiringRemainderAlgorithm instance. */
-typedef struct ThrFiringRemainderAlgorithm ThrFiringRemainderAlgorithm;
+typedef struct ThrFiringRemainderAlgorithmHandle ThrFiringRemainderAlgorithmHandle;
 
 /**
  * @brief Get the maximum thruster count constant for validation.
@@ -52,19 +52,19 @@ uint32_t ThrFiringRemainderAlgorithm_getMaxThrusterCount(void);
  * @brief Construct a new ThrFiringRemainderAlgorithm instance.
  * @return Pointer to a new ThrFiringRemainderAlgorithm (must be destroyed).
  */
-ThrFiringRemainderAlgorithm* ThrFiringRemainderAlgorithm_create(void);
+ThrFiringRemainderAlgorithmHandle* ThrFiringRemainderAlgorithm_create(void);
 
 /**
  * @brief Destroy a previously created ThrFiringRemainderAlgorithm.
  * @param self Pointer to the instance to destroy.
  */
-void ThrFiringRemainderAlgorithm_destroy(ThrFiringRemainderAlgorithm* self);
+void ThrFiringRemainderAlgorithm_destroy(ThrFiringRemainderAlgorithmHandle* self);
 
 /**
  * @brief Reset the algorithm state.
  * @param self Pointer to the instance.
  */
-void ThrFiringRemainderAlgorithm_reset(ThrFiringRemainderAlgorithm* self);
+void ThrFiringRemainderAlgorithm_reset(ThrFiringRemainderAlgorithmHandle* self);
 
 /**
  * @brief Run the update step.
@@ -72,7 +72,7 @@ void ThrFiringRemainderAlgorithm_reset(ThrFiringRemainderAlgorithm* self);
  * @param forceCmd Pointer to thruster force command input.
  * @return ThrFiringRemainderOnTimeCmd  The computed on-time command.
  */
-ThrFiringRemainderOnTimeCmd ThrFiringRemainderAlgorithm_update(ThrFiringRemainderAlgorithm* self,
+ThrFiringRemainderOnTimeCmd ThrFiringRemainderAlgorithm_update(ThrFiringRemainderAlgorithmHandle* self,
                                                                const ThrFiringRemainderForceCmd* forceCmd);
 
 /**
@@ -80,7 +80,7 @@ ThrFiringRemainderOnTimeCmd ThrFiringRemainderAlgorithm_update(ThrFiringRemainde
  * @param self   Pointer to the instance.
  * @param config Pointer to thruster array configuration.
  */
-void ThrFiringRemainderAlgorithm_setThrusters(ThrFiringRemainderAlgorithm* self,
+void ThrFiringRemainderAlgorithm_setThrusters(ThrFiringRemainderAlgorithmHandle* self,
                                               const ThrFiringRemainderArrayConfig* config);
 
 /**
@@ -88,21 +88,21 @@ void ThrFiringRemainderAlgorithm_setThrusters(ThrFiringRemainderAlgorithm* self,
  * @param self        Pointer to the instance.
  * @param minFireTime Minimum fire time in seconds.
  */
-void ThrFiringRemainderAlgorithm_setThrMinFireTime(ThrFiringRemainderAlgorithm* self, float minFireTime);
+void ThrFiringRemainderAlgorithm_setThrMinFireTime(ThrFiringRemainderAlgorithmHandle* self, float minFireTime);
 
 /**
  * @brief Get the minimum thruster fire time.
  * @param self Pointer to the instance.
  * @return float  Minimum fire time in seconds.
  */
-float ThrFiringRemainderAlgorithm_getThrMinFireTime(const ThrFiringRemainderAlgorithm* self);
+float ThrFiringRemainderAlgorithm_getThrMinFireTime(const ThrFiringRemainderAlgorithmHandle* self);
 
 /**
  * @brief Set the thrust pulsing regime.
  * @param self          Pointer to the instance.
  * @param pulsingRegime The pulsing regime (on-pulsing or off-pulsing).
  */
-void ThrFiringRemainderAlgorithm_setThrustPulsingRegime(ThrFiringRemainderAlgorithm* self,
+void ThrFiringRemainderAlgorithm_setThrustPulsingRegime(ThrFiringRemainderAlgorithmHandle* self,
                                                         ThrFiringRemainderPulsingRegime pulsingRegime);
 
 /**
@@ -111,38 +111,38 @@ void ThrFiringRemainderAlgorithm_setThrustPulsingRegime(ThrFiringRemainderAlgori
  * @return ThrFiringRemainderPulsingRegime  The current pulsing regime.
  */
 ThrFiringRemainderPulsingRegime ThrFiringRemainderAlgorithm_getThrustPulsingRegime(
-    const ThrFiringRemainderAlgorithm* self);
+    const ThrFiringRemainderAlgorithmHandle* self);
 
 /**
  * @brief Set the control period.
  * @param self   Pointer to the instance.
  * @param period Control period in seconds.
  */
-void ThrFiringRemainderAlgorithm_setControlPeriod(ThrFiringRemainderAlgorithm* self, float period);
+void ThrFiringRemainderAlgorithm_setControlPeriod(ThrFiringRemainderAlgorithmHandle* self, float period);
 
 /**
  * @brief Get the control period.
  * @param self Pointer to the instance.
  * @return float  Control period in seconds.
  */
-float ThrFiringRemainderAlgorithm_getControlPeriod(const ThrFiringRemainderAlgorithm* self);
+float ThrFiringRemainderAlgorithm_getControlPeriod(const ThrFiringRemainderAlgorithmHandle* self);
 
 /**
  * @brief Set the on-time saturation factor.
  * @param self   Pointer to the instance.
  * @param factor Saturation factor.
  */
-void ThrFiringRemainderAlgorithm_setOnTimeSaturationFactor(ThrFiringRemainderAlgorithm* self, float factor);
+void ThrFiringRemainderAlgorithm_setOnTimeSaturationFactor(ThrFiringRemainderAlgorithmHandle* self, float factor);
 
 /**
  * @brief Get the on-time saturation factor.
  * @param self Pointer to the instance.
  * @return float  The saturation factor.
  */
-float ThrFiringRemainderAlgorithm_getOnTimeSaturationFactor(const ThrFiringRemainderAlgorithm* self);
+float ThrFiringRemainderAlgorithm_getOnTimeSaturationFactor(const ThrFiringRemainderAlgorithmHandle* self);
 
 #ifdef __cplusplus
 }  // extern "C"
 #endif
 
-#endif  // F32XIMERA_THRFIRINGREMAINDERALGORITHM_C_H
+#endif  // F32XMERA_THRFIRINGREMAINDERALGORITHM_C_H

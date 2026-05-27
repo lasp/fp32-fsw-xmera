@@ -12,7 +12,7 @@ extern "C" {
 /**
  * @brief Opaque handle to the C++ StepperMotorControllerAlgorithm instance.
  */
-typedef struct StepperMotorControllerAlgorithm StepperMotorControllerAlgorithm;
+typedef struct StepperMotorControllerAlgorithmHandle StepperMotorControllerAlgorithmHandle;
 
 /**
  * @brief POD representation of the motor's angular travel range [rad].
@@ -26,19 +26,19 @@ typedef struct {
  * @brief Construct a new StepperMotorControllerAlgorithm instance.
  * @return Pointer to a new StepperMotorControllerAlgorithm (must be destroyed).
  */
-StepperMotorControllerAlgorithm* StepperMotorControllerAlgorithm_create(void);
+StepperMotorControllerAlgorithmHandle* StepperMotorControllerAlgorithm_create(void);
 
 /**
  * @brief Destroy a previously created StepperMotorControllerAlgorithm.
  * @param self Pointer to the instance to destroy.
  */
-void StepperMotorControllerAlgorithm_destroy(StepperMotorControllerAlgorithm* self);
+void StepperMotorControllerAlgorithm_destroy(StepperMotorControllerAlgorithmHandle* self);
 
 /**
  * @brief Reset the algorithm state machine to IDLE and clear cached positions.
  * @param self Pointer to the instance.
  */
-void StepperMotorControllerAlgorithm_reset(StepperMotorControllerAlgorithm* self);
+void StepperMotorControllerAlgorithm_reset(StepperMotorControllerAlgorithmHandle* self);
 
 /**
  * @brief Run one tick of the controller state machine.
@@ -48,7 +48,7 @@ void StepperMotorControllerAlgorithm_reset(StepperMotorControllerAlgorithm* self
  * @param isMotorMoving   True if the motor is currently moving.
  * @return StepperMotorControllerOutput  Command type (NONE, MOVE, STOP) and step delta.
  */
-StepperMotorControllerOutput StepperMotorControllerAlgorithm_update(StepperMotorControllerAlgorithm* self,
+StepperMotorControllerOutput StepperMotorControllerAlgorithm_update(StepperMotorControllerAlgorithmHandle* self,
                                                                     int32_t currentPosition,
                                                                     float referenceAngle,
                                                                     bool isMotorMoving);
@@ -59,21 +59,21 @@ StepperMotorControllerOutput StepperMotorControllerAlgorithm_update(StepperMotor
  * @param angle [rad] Reference angle.
  * @return int32_t  Step position rounded to the nearest integer.
  */
-int32_t StepperMotorControllerAlgorithm_angleToSteps(const StepperMotorControllerAlgorithm* self, float angle);
+int32_t StepperMotorControllerAlgorithm_angleToSteps(const StepperMotorControllerAlgorithmHandle* self, float angle);
 
 /**
  * @brief Set the angle traversed per motor step.
  * @param self      Pointer to the instance.
  * @param stepAngle [rad/step] Motor step angle, must be in [2*pi/100000, 2*pi].
  */
-void StepperMotorControllerAlgorithm_setStepAngle(StepperMotorControllerAlgorithm* self, float stepAngle);
+void StepperMotorControllerAlgorithm_setStepAngle(StepperMotorControllerAlgorithmHandle* self, float stepAngle);
 
 /**
  * @brief Get the angle traversed per motor step.
  * @param self Pointer to the instance.
  * @return float  Motor step angle [rad/step].
  */
-float StepperMotorControllerAlgorithm_getStepAngle(const StepperMotorControllerAlgorithm* self);
+float StepperMotorControllerAlgorithm_getStepAngle(const StepperMotorControllerAlgorithmHandle* self);
 
 /**
  * @brief Set the motor's angular travel range. Reference angles outside this range are rejected
@@ -82,7 +82,7 @@ float StepperMotorControllerAlgorithm_getStepAngle(const StepperMotorControllerA
  * @param minAngle [rad] Lower bound, must be in [-2*pi, 2*pi].
  * @param maxAngle [rad] Upper bound, must be in [-2*pi, 2*pi] and strictly greater than minAngle.
  */
-void StepperMotorControllerAlgorithm_setMotorAngleRange(StepperMotorControllerAlgorithm* self,
+void StepperMotorControllerAlgorithm_setMotorAngleRange(StepperMotorControllerAlgorithmHandle* self,
                                                         float minAngle,
                                                         float maxAngle);
 
@@ -91,21 +91,22 @@ void StepperMotorControllerAlgorithm_setMotorAngleRange(StepperMotorControllerAl
  * @param self Pointer to the instance.
  * @return MotorAngleRange_c  {minAngle, maxAngle} in radians.
  */
-MotorAngleRange_c StepperMotorControllerAlgorithm_getMotorAngleRange(const StepperMotorControllerAlgorithm* self);
+MotorAngleRange_c StepperMotorControllerAlgorithm_getMotorAngleRange(const StepperMotorControllerAlgorithmHandle* self);
 
 /**
  * @brief Set the maximum settling tick count.
  * @param self           Pointer to the instance.
  * @param settleCountMax [ticks] Number of ticks to wait during settling.
  */
-void StepperMotorControllerAlgorithm_setSettleCountMax(StepperMotorControllerAlgorithm* self, uint32_t settleCountMax);
+void StepperMotorControllerAlgorithm_setSettleCountMax(StepperMotorControllerAlgorithmHandle* self,
+                                                       uint32_t settleCountMax);
 
 /**
  * @brief Get the maximum settling tick count.
  * @param self Pointer to the instance.
  * @return uint32_t  Settling duration [ticks].
  */
-uint32_t StepperMotorControllerAlgorithm_getSettleCountMax(const StepperMotorControllerAlgorithm* self);
+uint32_t StepperMotorControllerAlgorithm_getSettleCountMax(const StepperMotorControllerAlgorithmHandle* self);
 
 /**
  * @brief Set the minimum step delta magnitude that triggers a MOVE (from IDLE) or a STOP-and-replan
@@ -113,14 +114,15 @@ uint32_t StepperMotorControllerAlgorithm_getSettleCountMax(const StepperMotorCon
  * @param self           Pointer to the instance.
  * @param minStepCommand [steps] Minimum step delta magnitude that warrants a command (must be > 0).
  */
-void StepperMotorControllerAlgorithm_setMinStepCommand(StepperMotorControllerAlgorithm* self, uint32_t minStepCommand);
+void StepperMotorControllerAlgorithm_setMinStepCommand(StepperMotorControllerAlgorithmHandle* self,
+                                                       uint32_t minStepCommand);
 
 /**
  * @brief Get the minimum commandable step delta.
  * @param self Pointer to the instance.
  * @return uint32_t  Minimum step delta magnitude [steps].
  */
-uint32_t StepperMotorControllerAlgorithm_getMinStepCommand(const StepperMotorControllerAlgorithm* self);
+uint32_t StepperMotorControllerAlgorithm_getMinStepCommand(const StepperMotorControllerAlgorithmHandle* self);
 
 #ifdef __cplusplus
 }  // extern "C"

@@ -5,19 +5,19 @@
 
 uint32_t ThrFiringRemainderAlgorithm_getMaxThrusterCount(void) { return THR_FIRING_REMAINDER_MAX_THRUSTER_COUNT; }
 
-ThrFiringRemainderAlgorithm* ThrFiringRemainderAlgorithm_create(void) {
-    return reinterpret_cast<ThrFiringRemainderAlgorithm*>(new ::ThrFiringRemainderAlgorithm());
+ThrFiringRemainderAlgorithmHandle* ThrFiringRemainderAlgorithm_create(void) {
+    return reinterpret_cast<ThrFiringRemainderAlgorithmHandle*>(new ::ThrFiringRemainderAlgorithm());
 }
 
-void ThrFiringRemainderAlgorithm_destroy(ThrFiringRemainderAlgorithm* self) {
+void ThrFiringRemainderAlgorithm_destroy(ThrFiringRemainderAlgorithmHandle* self) {
     delete reinterpret_cast<::ThrFiringRemainderAlgorithm*>(self);
 }
 
-void ThrFiringRemainderAlgorithm_reset(ThrFiringRemainderAlgorithm* self) {
+void ThrFiringRemainderAlgorithm_reset(ThrFiringRemainderAlgorithmHandle* self) {
     reinterpret_cast<::ThrFiringRemainderAlgorithm*>(self)->reset();
 }
 
-ThrFiringRemainderOnTimeCmd ThrFiringRemainderAlgorithm_update(ThrFiringRemainderAlgorithm* self,
+ThrFiringRemainderOnTimeCmd ThrFiringRemainderAlgorithm_update(ThrFiringRemainderAlgorithmHandle* self,
                                                                const ThrFiringRemainderForceCmd* forceCmd) {
     ThrusterForceCmd cppCmd{};
     std::ranges::copy_n(forceCmd->thrForce, kMaxThrusterCount, cppCmd.thrForce.data());
@@ -29,7 +29,7 @@ ThrFiringRemainderOnTimeCmd ThrFiringRemainderAlgorithm_update(ThrFiringRemainde
     return result;
 }
 
-void ThrFiringRemainderAlgorithm_setThrusters(ThrFiringRemainderAlgorithm* self,
+void ThrFiringRemainderAlgorithm_setThrusters(ThrFiringRemainderAlgorithmHandle* self,
                                               const ThrFiringRemainderArrayConfig* config) {
     ThrusterArrayConfig cppConfig{};
     cppConfig.numThrusters = config->numThrusters;
@@ -41,38 +41,38 @@ void ThrFiringRemainderAlgorithm_setThrusters(ThrFiringRemainderAlgorithm* self,
     reinterpret_cast<::ThrFiringRemainderAlgorithm*>(self)->setThrusters(cppConfig);
 }
 
-void ThrFiringRemainderAlgorithm_setThrMinFireTime(ThrFiringRemainderAlgorithm* self, float minFireTime) {
+void ThrFiringRemainderAlgorithm_setThrMinFireTime(ThrFiringRemainderAlgorithmHandle* self, float minFireTime) {
     reinterpret_cast<::ThrFiringRemainderAlgorithm*>(self)->setThrMinFireTime(minFireTime);
 }
 
-float ThrFiringRemainderAlgorithm_getThrMinFireTime(const ThrFiringRemainderAlgorithm* self) {
+float ThrFiringRemainderAlgorithm_getThrMinFireTime(const ThrFiringRemainderAlgorithmHandle* self) {
     return reinterpret_cast<const ::ThrFiringRemainderAlgorithm*>(self)->getThrMinFireTime();
 }
 
-void ThrFiringRemainderAlgorithm_setThrustPulsingRegime(ThrFiringRemainderAlgorithm* self,
+void ThrFiringRemainderAlgorithm_setThrustPulsingRegime(ThrFiringRemainderAlgorithmHandle* self,
                                                         ThrFiringRemainderPulsingRegime pulsingRegime) {
     reinterpret_cast<::ThrFiringRemainderAlgorithm*>(self)->setThrustPulsingRegime(
         static_cast<ThrustPulsingRegime>(pulsingRegime));
 }
 
 ThrFiringRemainderPulsingRegime ThrFiringRemainderAlgorithm_getThrustPulsingRegime(
-    const ThrFiringRemainderAlgorithm* self) {
+    const ThrFiringRemainderAlgorithmHandle* self) {
     return static_cast<ThrFiringRemainderPulsingRegime>(
         reinterpret_cast<const ::ThrFiringRemainderAlgorithm*>(self)->getThrustPulsingRegime());
 }
 
-void ThrFiringRemainderAlgorithm_setControlPeriod(ThrFiringRemainderAlgorithm* self, float period) {
+void ThrFiringRemainderAlgorithm_setControlPeriod(ThrFiringRemainderAlgorithmHandle* self, float period) {
     reinterpret_cast<::ThrFiringRemainderAlgorithm*>(self)->setControlPeriod(period);
 }
 
-float ThrFiringRemainderAlgorithm_getControlPeriod(const ThrFiringRemainderAlgorithm* self) {
+float ThrFiringRemainderAlgorithm_getControlPeriod(const ThrFiringRemainderAlgorithmHandle* self) {
     return reinterpret_cast<const ::ThrFiringRemainderAlgorithm*>(self)->getControlPeriod();
 }
 
-void ThrFiringRemainderAlgorithm_setOnTimeSaturationFactor(ThrFiringRemainderAlgorithm* self, float factor) {
+void ThrFiringRemainderAlgorithm_setOnTimeSaturationFactor(ThrFiringRemainderAlgorithmHandle* self, float factor) {
     reinterpret_cast<::ThrFiringRemainderAlgorithm*>(self)->setOnTimeSaturationFactor(factor);
 }
 
-float ThrFiringRemainderAlgorithm_getOnTimeSaturationFactor(const ThrFiringRemainderAlgorithm* self) {
+float ThrFiringRemainderAlgorithm_getOnTimeSaturationFactor(const ThrFiringRemainderAlgorithmHandle* self) {
     return reinterpret_cast<const ::ThrFiringRemainderAlgorithm*>(self)->getOnTimeSaturationFactor();
 }

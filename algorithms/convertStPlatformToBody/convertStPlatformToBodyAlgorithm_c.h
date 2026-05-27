@@ -1,7 +1,8 @@
-#ifndef F32XIMERA_CONVERTSTPLATFORMTOBODYALGORITHM_C_H
-#define F32XIMERA_CONVERTSTPLATFORMTOBODYALGORITHM_C_H
+#ifndef F32XMERA_CONVERTSTPLATFORMTOBODYALGORITHM_C_H
+#define F32XMERA_CONVERTSTPLATFORMTOBODYALGORITHM_C_H
 
 #include "convertStPlatformToBodyTypes.h"
+#include "utilities/plainCAlgorithmDataTypes.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -10,26 +11,19 @@ extern "C" {
 /**
  * @brief Opaque handle to the C++ ConvertStPlatformToBodyAlgorithm instance.
  */
-typedef struct ConvertStPlatformToBodyAlgorithm ConvertStPlatformToBodyAlgorithm;
-
-/**
- * @brief POD representation of a 3x3 matrix (Eigen::Matrix3f).
- */
-typedef struct {
-    float data[3][3];
-} Matrix3f_c;
+typedef struct ConvertStPlatformToBodyAlgorithmHandle ConvertStPlatformToBodyAlgorithmHandle;
 
 /**
  * @brief Construct a new ConvertStPlatformToBodyAlgorithm instance.
  * @return Pointer to a new instance (must be destroyed).
  */
-ConvertStPlatformToBodyAlgorithm* ConvertStPlatformToBodyAlgorithm_create(void);
+ConvertStPlatformToBodyAlgorithmHandle* ConvertStPlatformToBodyAlgorithm_create(void);
 
 /**
  * @brief Destroy a previously created ConvertStPlatformToBodyAlgorithm.
  * @param self Pointer to the instance to destroy.
  */
-void ConvertStPlatformToBodyAlgorithm_destroy(ConvertStPlatformToBodyAlgorithm* self);
+void ConvertStPlatformToBodyAlgorithm_destroy(ConvertStPlatformToBodyAlgorithmHandle* self);
 
 /**
  * @brief Run the update step.
@@ -38,7 +32,7 @@ void ConvertStPlatformToBodyAlgorithm_destroy(ConvertStPlatformToBodyAlgorithm* 
  * @param platformAngularRate Pointer to the case-frame delta quaternion input.
  * @return StAttitudeOutput  The computed star tracker attitude output.
  */
-StAttitudeOutput ConvertStPlatformToBodyAlgorithm_update(ConvertStPlatformToBodyAlgorithm* self,
+StAttitudeOutput ConvertStPlatformToBodyAlgorithm_update(ConvertStPlatformToBodyAlgorithmHandle* self,
                                                          const PlatformAttitude* platformAttitude,
                                                          const PlatformAngularVelocity* platformAngularRate);
 
@@ -47,17 +41,17 @@ StAttitudeOutput ConvertStPlatformToBodyAlgorithm_update(ConvertStPlatformToBody
  * @param self   Pointer to the instance.
  * @param dcm_CB 3x3 matrix in row-major POD format.
  */
-void ConvertStPlatformToBodyAlgorithm_setDcmCB(ConvertStPlatformToBodyAlgorithm* self, Matrix3f_c dcm_CB);
+void ConvertStPlatformToBodyAlgorithm_setDcmCB(ConvertStPlatformToBodyAlgorithmHandle* self, Matrix3f_c dcm_CB);
 
 /**
  * @brief Get the current DCM from body to star tracker case frame.
  * @param self Pointer to the instance.
  * @return Matrix3f_c  3x3 matrix in row-major POD format.
  */
-Matrix3f_c ConvertStPlatformToBodyAlgorithm_getDcmCB(const ConvertStPlatformToBodyAlgorithm* self);
+Matrix3f_c ConvertStPlatformToBodyAlgorithm_getDcmCB(const ConvertStPlatformToBodyAlgorithmHandle* self);
 
 #ifdef __cplusplus
 }  // extern "C"
 #endif
 
-#endif  // F32XIMERA_CONVERTSTPLATFORMTOBODYALGORITHM_C_H
+#endif  // F32XMERA_CONVERTSTPLATFORMTOBODYALGORITHM_C_H

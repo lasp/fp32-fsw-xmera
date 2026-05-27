@@ -7,6 +7,7 @@
 #include "msgPayloadDef/RWAvailabilityMsgPayload.h"
 #include "msgPayloadDef/RWSpeedMsgF32Payload.h"
 #include "msgPayloadDef/VehicleConfigMsgF32Payload.h"
+#include "utilities/plainCAlgorithmDataTypes.h"
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -16,14 +17,7 @@ extern "C" {
 /**
  * @brief Opaque handle to the C++ MrpFeedbackAlgorithm instance.
  */
-typedef struct MrpFeedbackAlgorithm MrpFeedbackAlgorithm;
-
-/**
- * @brief POD representation of a 3-vector (Eigen::Vector3f).
- */
-typedef struct {
-    float data[3];
-} Vector3f_c;
+typedef struct MrpFeedbackAlgorithmHandle MrpFeedbackAlgorithmHandle;
 
 /**
  * @brief C-compatible mirror of the C++ ControlLawType enum class.
@@ -63,20 +57,20 @@ typedef struct {
  * @param config Pointer to the configuration to apply (validated; throws on invalid input).
  * @return Pointer to a new MrpFeedbackAlgorithm (must be destroyed).
  */
-MrpFeedbackAlgorithm* MrpFeedbackAlgorithm_create(const MrpFeedbackConfig_c* config);
+MrpFeedbackAlgorithmHandle* MrpFeedbackAlgorithm_create(const MrpFeedbackConfig_c* config);
 
 /**
  * @brief Destroy a previously created MrpFeedbackAlgorithm.
  * @param self Pointer to the instance to destroy.
  */
-void MrpFeedbackAlgorithm_destroy(MrpFeedbackAlgorithm* self);
+void MrpFeedbackAlgorithm_destroy(MrpFeedbackAlgorithmHandle* self);
 
 /**
  * @brief Replace the algorithm's configuration at runtime.
  * @param self   Pointer to the instance.
  * @param config Pointer to the configuration to apply (validated; throws on invalid input).
  */
-void MrpFeedbackAlgorithm_setConfig(MrpFeedbackAlgorithm* self, const MrpFeedbackConfig_c* config);
+void MrpFeedbackAlgorithm_setConfig(MrpFeedbackAlgorithmHandle* self, const MrpFeedbackConfig_c* config);
 
 /**
  * @brief Reset the algorithm: snapshot the spacecraft inertia and (optional) RW configuration,
@@ -86,7 +80,7 @@ void MrpFeedbackAlgorithm_setConfig(MrpFeedbackAlgorithm* self, const MrpFeedbac
  * @param rwConfigMsg   Reaction-wheel configuration (consumed only when rwIsLinked is non-zero).
  * @param rwIsLinked    Non-zero when rwConfigMsg holds a valid configuration; zero to ignore it.
  */
-void MrpFeedbackAlgorithm_reset(MrpFeedbackAlgorithm* self,
+void MrpFeedbackAlgorithm_reset(MrpFeedbackAlgorithmHandle* self,
                                 const VehicleConfigMsgF32Payload* vehConfigMsg,
                                 const RWArrayConfigMsgF32Payload* rwConfigMsg,
                                 int rwIsLinked);
@@ -100,7 +94,7 @@ void MrpFeedbackAlgorithm_reset(MrpFeedbackAlgorithm* self,
  * @param wheelsAvailability  Reaction-wheel availability flags.
  * @return MrpFeedbackOutput_c  Control torque and integral feedback torque payloads.
  */
-MrpFeedbackOutput_c MrpFeedbackAlgorithm_update(MrpFeedbackAlgorithm* self,
+MrpFeedbackOutput_c MrpFeedbackAlgorithm_update(MrpFeedbackAlgorithmHandle* self,
                                                 uint64_t callTime,
                                                 const AttGuidMsgF32Payload* guidCmd,
                                                 const RWSpeedMsgF32Payload* wheelSpeeds,

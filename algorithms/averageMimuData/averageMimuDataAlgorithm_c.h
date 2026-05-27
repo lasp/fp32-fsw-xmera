@@ -1,5 +1,7 @@
-#ifndef F32XIMERA_AVERAGEMIMUDATAALGORITHM_C_H
-#define F32XIMERA_AVERAGEMIMUDATAALGORITHM_C_H
+#ifndef F32XMERA_AVERAGEMIMUDATAALGORITHM_C_H
+#define F32XMERA_AVERAGEMIMUDATAALGORITHM_C_H
+
+#include "utilities/plainCAlgorithmDataTypes.h"
 
 #include <stddef.h>
 #include <stdint.h>
@@ -11,25 +13,9 @@ extern "C" {
 /**
  * @brief Opaque handle to the C++ AverageMimuDataAlgorithm instance.
  */
-typedef struct AverageMimuDataAlgorithm AverageMimuDataAlgorithm;
+typedef struct AverageMimuDataAlgorithmHandle AverageMimuDataAlgorithmHandle;
 
 #define MAX_BUF_PKT_C 120
-
-/**
- * @brief POD representation of a 3-vector (Eigen::Vector3f).
- */
-typedef struct {
-    float data[3];
-} Vector3f_c;
-
-/**
- * @brief POD representation of a 3x3 matrix (Eigen::Matrix3f).
- *
- * Stored in row-major order: data[row][col].
- */
-typedef struct {
-    float data[3][3];
-} Matrix3f_c;
 
 /**
  * @brief POD equivalent of InputPktsData.
@@ -58,13 +44,13 @@ uint32_t AverageMimuDataAlgorithm_getMaxBufPkt(void);
  * @brief Construct a new AverageMimuDataAlgorithm instance.
  * @return Pointer to a new AverageMimuDataAlgorithm (must be destroyed).
  */
-AverageMimuDataAlgorithm* AverageMimuDataAlgorithm_create(void);
+AverageMimuDataAlgorithmHandle* AverageMimuDataAlgorithm_create(void);
 
 /**
  * @brief Destroy a previously created AverageMimuDataAlgorithm.
  * @param self Pointer to the instance to destroy.
  */
-void AverageMimuDataAlgorithm_destroy(AverageMimuDataAlgorithm* self);
+void AverageMimuDataAlgorithm_destroy(AverageMimuDataAlgorithmHandle* self);
 
 /**
  * @brief Run the update step to compute averaged MIMU data.
@@ -72,7 +58,7 @@ void AverageMimuDataAlgorithm_destroy(AverageMimuDataAlgorithm* self);
  * @param input     Pointer to input packets data.
  * @return OutputAverageAccelAngleVel_c  The computed body-frame averages.
  */
-OutputAverageAccelAngleVel_c AverageMimuDataAlgorithm_update(const AverageMimuDataAlgorithm* self,
+OutputAverageAccelAngleVel_c AverageMimuDataAlgorithm_update(const AverageMimuDataAlgorithmHandle* self,
                                                              const InputPktsData_c* input);
 
 /**
@@ -80,31 +66,31 @@ OutputAverageAccelAngleVel_c AverageMimuDataAlgorithm_update(const AverageMimuDa
  * @param self   Pointer to the instance.
  * @param window Averaging window duration in seconds.
  */
-void AverageMimuDataAlgorithm_setAveragingWindow(AverageMimuDataAlgorithm* self, float window);
+void AverageMimuDataAlgorithm_setAveragingWindow(AverageMimuDataAlgorithmHandle* self, float window);
 
 /**
  * @brief Get the current averaging window duration.
  * @param self Pointer to the instance.
  * @return float  The current averaging window in seconds.
  */
-float AverageMimuDataAlgorithm_getAveragingWindow(const AverageMimuDataAlgorithm* self);
+float AverageMimuDataAlgorithm_getAveragingWindow(const AverageMimuDataAlgorithmHandle* self);
 
 /**
  * @brief Set the DCM from platform frame to body frame.
  * @param self   Pointer to the instance.
  * @param dcm_BP 3x3 rotation matrix in row-major POD format.
  */
-void AverageMimuDataAlgorithm_setDcmPltfToBdy(AverageMimuDataAlgorithm* self, Matrix3f_c dcm_BP);
+void AverageMimuDataAlgorithm_setDcmPltfToBdy(AverageMimuDataAlgorithmHandle* self, Matrix3f_c dcm_BP);
 
 /**
  * @brief Get the current DCM from platform frame to body frame.
  * @param self Pointer to the instance.
  * @return Matrix3f_c  3x3 rotation matrix in row-major POD format.
  */
-Matrix3f_c AverageMimuDataAlgorithm_getDcmPltfToBdy(const AverageMimuDataAlgorithm* self);
+Matrix3f_c AverageMimuDataAlgorithm_getDcmPltfToBdy(const AverageMimuDataAlgorithmHandle* self);
 
 #ifdef __cplusplus
 }  // extern "C"
 #endif
 
-#endif  // F32XIMERA_AVERAGEMIMUDATAALGORITHM_C_H
+#endif  // F32XMERA_AVERAGEMIMUDATAALGORITHM_C_H

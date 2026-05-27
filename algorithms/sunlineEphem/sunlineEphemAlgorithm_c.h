@@ -13,19 +13,19 @@ extern "C" {
 /**
  * @brief Opaque handle to the C++ SunlineEphemAlgorithm instance.
  */
-typedef struct SunlineEphemAlgorithm SunlineEphemAlgorithm;
+typedef struct SunlineEphemAlgorithmHandle SunlineEphemAlgorithmHandle;
 
 /**
  * @brief Construct a new SunlineEphemAlgorithm instance.
  * @return Pointer to a new SunlineEphemAlgorithm (must be destroyed).
  */
-SunlineEphemAlgorithm* SunlineEphemAlgorithm_create(void);
+SunlineEphemAlgorithmHandle* SunlineEphemAlgorithm_create(void);
 
 /**
  * @brief Destroy a previously created SunlineEphemAlgorithm.
  * @param self Pointer to the instance to destroy.
  */
-void SunlineEphemAlgorithm_destroy(SunlineEphemAlgorithm* self);
+void SunlineEphemAlgorithm_destroy(SunlineEphemAlgorithmHandle* self);
 
 /**
  * @brief Compute ephemeris-based sunline heading in body frame.
@@ -35,7 +35,7 @@ void SunlineEphemAlgorithm_destroy(SunlineEphemAlgorithm* self);
  * @param scAtt  Pointer to spacecraft attitude message payload.
  * @return NavAttMsgF32Payload  Navigation message containing sunline direction in body frame.
  */
-NavAttMsgF32Payload SunlineEphemAlgorithm_update(const SunlineEphemAlgorithm* self,
+NavAttMsgF32Payload SunlineEphemAlgorithm_update(const SunlineEphemAlgorithmHandle* self,
                                                  const EphemerisMsgF32Payload* sunPos,
                                                  const NavTransMsgF32Payload* scPos,
                                                  const NavAttMsgF32Payload* scAtt);

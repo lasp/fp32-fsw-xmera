@@ -1,5 +1,5 @@
-#ifndef F32XIMERA_INERTIALUKFALGORITHM_C_H
-#define F32XIMERA_INERTIALUKFALGORITHM_C_H
+#ifndef F32XMERA_INERTIALUKFALGORITHM_C_H
+#define F32XMERA_INERTIALUKFALGORITHM_C_H
 
 #include <stdint.h>
 
@@ -93,4 +93,4 @@ InertialUKFOutput_c InertialUKFAlgorithm_updateState(const STAttInput_c* stAtt,
 }  // extern "C"
 #endif
 
-#endif  // F32XIMERA_INERTIALUKFALGORITHM_C_H
+#endif  // F32XMERA_INERTIALUKFALGORITHM_C_H

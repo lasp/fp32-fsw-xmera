@@ -1,6 +1,3 @@
-// SPDX-FileCopyrightText: 2025 Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
-// SPDX-License-Identifier: MIT
-
 #include "architecture/testUtilities/eigenFuzzDomains.hpp"
 #include "hillPointTestHelpers.hpp"
 

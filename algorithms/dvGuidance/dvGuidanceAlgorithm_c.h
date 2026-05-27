@@ -2,6 +2,7 @@
 #define F32XMERA_DVGUIDANCEALGORITHM_C_H
 
 #include "msgPayloadDef/AttRefMsgF32Payload.h"
+#include "utilities/plainCAlgorithmDataTypes.h"
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -11,14 +12,7 @@ extern "C" {
 /**
  * @brief Opaque handle to the C++ DvGuidanceAlgorithm instance.
  */
-typedef struct DvGuidanceAlgorithm DvGuidanceAlgorithm;
-
-/**
- * @brief POD representation of a 3-vector (Eigen::Vector3f).
- */
-typedef struct {
-    float data[3];
-} Vector3f_c;
+typedef struct DvGuidanceAlgorithmHandle DvGuidanceAlgorithmHandle;
 
 /**
  * @brief Construct a new DvGuidanceAlgorithm instance with a default-built config.
@@ -28,13 +22,13 @@ typedef struct {
  *
  * @return Pointer to a new DvGuidanceAlgorithm (must be destroyed).
  */
-DvGuidanceAlgorithm* DvGuidanceAlgorithm_create(void);
+DvGuidanceAlgorithmHandle* DvGuidanceAlgorithm_create(void);
 
 /**
  * @brief Destroy a previously created DvGuidanceAlgorithm.
  * @param self Pointer to the instance to destroy.
  */
-void DvGuidanceAlgorithm_destroy(DvGuidanceAlgorithm* self);
+void DvGuidanceAlgorithm_destroy(DvGuidanceAlgorithmHandle* self);
 
 /**
  * @brief Compute the attitude reference for a delta-V burn whose direction rotates at a constant
@@ -48,7 +42,7 @@ void DvGuidanceAlgorithm_destroy(DvGuidanceAlgorithm* self);
  * @param callTime        Current call time [ns].
  * @return AttRefMsgF32Payload  Reference attitude (sigma_RN), rate (omega_RN_N), and zero accel.
  */
-AttRefMsgF32Payload DvGuidanceAlgorithm_update(const DvGuidanceAlgorithm* self,
+AttRefMsgF32Payload DvGuidanceAlgorithm_update(const DvGuidanceAlgorithmHandle* self,
                                                Vector3f_c dvInrtlCmd,
                                                Vector3f_c dvRotVecUnit,
                                                float dvRotVecMag,

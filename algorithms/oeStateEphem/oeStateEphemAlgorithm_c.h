@@ -11,19 +11,19 @@ extern "C" {
 /**
  * @brief Opaque handle to the C++ OEStateEphemAlgorithm instance.
  */
-typedef struct OEStateEphemAlgorithm OEStateEphemAlgorithm;
+typedef struct OEStateEphemAlgorithmHandle OEStateEphemAlgorithmHandle;
 
 /**
  * @brief Construct a new OEStateEphemAlgorithm instance.
  * @return Pointer to a new OEStateEphemAlgorithm (must be destroyed).
  */
-OEStateEphemAlgorithm* OEStateEphemAlgorithm_create(void);
+OEStateEphemAlgorithmHandle* OEStateEphemAlgorithm_create(void);
 
 /**
  * @brief Destroy a previously created OEStateEphemAlgorithm.
  * @param self Pointer to the instance to destroy.
  */
-void OEStateEphemAlgorithm_destroy(OEStateEphemAlgorithm* self);
+void OEStateEphemAlgorithm_destroy(OEStateEphemAlgorithmHandle* self);
 
 /**
  * @brief Run the update step to compute Cartesian state from ephemeris.
@@ -31,14 +31,14 @@ void OEStateEphemAlgorithm_destroy(OEStateEphemAlgorithm* self);
  * @param callTime Clock time in nanoseconds.
  * @return CartesianState_c  The computed position and velocity vectors.
  */
-CartesianState_c OEStateEphemAlgorithm_update(OEStateEphemAlgorithm* self, uint64_t callTime);
+CartesianState_c OEStateEphemAlgorithm_update(OEStateEphemAlgorithmHandle* self, uint64_t callTime);
 
 /**
  * @brief Set the gravitational parameter of the central body.
  * @param self                    Pointer to the instance.
  * @param gravitationalParameter  Gravitational parameter (m^3/s^2).
  */
-void OEStateEphemAlgorithm_setCentralBodyGravitationalParameter(OEStateEphemAlgorithm* self,
+void OEStateEphemAlgorithm_setCentralBodyGravitationalParameter(OEStateEphemAlgorithmHandle* self,
                                                                 double gravitationalParameter);
 
 /**
@@ -46,49 +46,49 @@ void OEStateEphemAlgorithm_setCentralBodyGravitationalParameter(OEStateEphemAlgo
  * @param self Pointer to the instance.
  * @return double  Gravitational parameter (m^3/s^2).
  */
-double OEStateEphemAlgorithm_getCentralBodyGravitationalParameter(const OEStateEphemAlgorithm* self);
+double OEStateEphemAlgorithm_getCentralBodyGravitationalParameter(const OEStateEphemAlgorithmHandle* self);
 
 /**
  * @brief Set the number of orbital element coefficient arcs.
  * @param self Pointer to the instance.
  * @param arcs Number of arcs.
  */
-void OEStateEphemAlgorithm_setNumberOfArcs(OEStateEphemAlgorithm* self, unsigned int arcs);
+void OEStateEphemAlgorithm_setNumberOfArcs(OEStateEphemAlgorithmHandle* self, unsigned int arcs);
 
 /**
  * @brief Get the number of orbital element coefficient arcs.
  * @param self Pointer to the instance.
  * @return unsigned int  Number of arcs.
  */
-unsigned int OEStateEphemAlgorithm_getNumberOfArcs(const OEStateEphemAlgorithm* self);
+unsigned int OEStateEphemAlgorithm_getNumberOfArcs(const OEStateEphemAlgorithmHandle* self);
 
 /**
  * @brief Set the ephemeris time offset referenced to J2000.
  * @param self           Pointer to the instance.
  * @param ephemerisJ2000 Ephemeris time offset (seconds).
  */
-void OEStateEphemAlgorithm_setEphemerisTimeJ2000(OEStateEphemAlgorithm* self, double ephemerisJ2000);
+void OEStateEphemAlgorithm_setEphemerisTimeJ2000(OEStateEphemAlgorithmHandle* self, double ephemerisJ2000);
 
 /**
  * @brief Get the ephemeris time offset referenced to J2000.
  * @param self Pointer to the instance.
  * @return double  Ephemeris time offset (seconds).
  */
-double OEStateEphemAlgorithm_getEphemerisTimeJ2000(const OEStateEphemAlgorithm* self);
+double OEStateEphemAlgorithm_getEphemerisTimeJ2000(const OEStateEphemAlgorithmHandle* self);
 
 /**
  * @brief Set the vehicle time offset.
  * @param self       Pointer to the instance.
  * @param timeOffset Vehicle time offset (seconds).
  */
-void OEStateEphemAlgorithm_setVehicleTimeOffset(OEStateEphemAlgorithm* self, double timeOffset);
+void OEStateEphemAlgorithm_setVehicleTimeOffset(OEStateEphemAlgorithmHandle* self, double timeOffset);
 
 /**
  * @brief Get the vehicle time offset.
  * @param self Pointer to the instance.
  * @return double  Vehicle time offset (seconds).
  */
-double OEStateEphemAlgorithm_getVehicleTimeOffset(const OEStateEphemAlgorithm* self);
+double OEStateEphemAlgorithm_getVehicleTimeOffset(const OEStateEphemAlgorithmHandle* self);
 
 /**
  * @brief Set the number of Chebyshev coefficients for a specified arc.
@@ -96,7 +96,7 @@ double OEStateEphemAlgorithm_getVehicleTimeOffset(const OEStateEphemAlgorithm* s
  * @param arcNumber             Index of the arc.
  * @param numberOfCoefficients  Number of coefficients.
  */
-void OEStateEphemAlgorithm_setArcNumberOfCoefficients(OEStateEphemAlgorithm* self,
+void OEStateEphemAlgorithm_setArcNumberOfCoefficients(OEStateEphemAlgorithmHandle* self,
                                                       unsigned int arcNumber,
                                                       unsigned int numberOfCoefficients);
 
@@ -106,7 +106,7 @@ void OEStateEphemAlgorithm_setArcNumberOfCoefficients(OEStateEphemAlgorithm* sel
  * @param arcNumber Index of the arc.
  * @return unsigned int  Number of coefficients.
  */
-unsigned int OEStateEphemAlgorithm_getArcNumberOfCoefficients(const OEStateEphemAlgorithm* self,
+unsigned int OEStateEphemAlgorithm_getArcNumberOfCoefficients(const OEStateEphemAlgorithmHandle* self,
                                                               unsigned int arcNumber);
 
 /**
@@ -115,7 +115,9 @@ unsigned int OEStateEphemAlgorithm_getArcNumberOfCoefficients(const OEStateEphem
  * @param arcNumber  Index of the arc.
  * @param timeMiddle Ephemeris time at arc midpoint (seconds).
  */
-void OEStateEphemAlgorithm_setArcMiddleTime(OEStateEphemAlgorithm* self, unsigned int arcNumber, double timeMiddle);
+void OEStateEphemAlgorithm_setArcMiddleTime(OEStateEphemAlgorithmHandle* self,
+                                            unsigned int arcNumber,
+                                            double timeMiddle);
 
 /**
  * @brief Get the middle time for a specified arc.
@@ -123,7 +125,7 @@ void OEStateEphemAlgorithm_setArcMiddleTime(OEStateEphemAlgorithm* self, unsigne
  * @param arcNumber Index of the arc.
  * @return double  Ephemeris time at arc midpoint (seconds).
  */
-double OEStateEphemAlgorithm_getArcMiddleTime(const OEStateEphemAlgorithm* self, unsigned int arcNumber);
+double OEStateEphemAlgorithm_getArcMiddleTime(const OEStateEphemAlgorithmHandle* self, unsigned int arcNumber);
 
 /**
  * @brief Set the time radius for a specified arc.
@@ -131,7 +133,9 @@ double OEStateEphemAlgorithm_getArcMiddleTime(const OEStateEphemAlgorithm* self,
  * @param arcNumber  Index of the arc.
  * @param timeRadius Time radius (seconds).
  */
-void OEStateEphemAlgorithm_setArcRadiusTime(OEStateEphemAlgorithm* self, unsigned int arcNumber, double timeRadius);
+void OEStateEphemAlgorithm_setArcRadiusTime(OEStateEphemAlgorithmHandle* self,
+                                            unsigned int arcNumber,
+                                            double timeRadius);
 
 /**
  * @brief Get the time radius for a specified arc.
@@ -139,7 +143,7 @@ void OEStateEphemAlgorithm_setArcRadiusTime(OEStateEphemAlgorithm* self, unsigne
  * @param arcNumber Index of the arc.
  * @return double  Time radius (seconds).
  */
-double OEStateEphemAlgorithm_getArcRadiusTime(const OEStateEphemAlgorithm* self, unsigned int arcNumber);
+double OEStateEphemAlgorithm_getArcRadiusTime(const OEStateEphemAlgorithmHandle* self, unsigned int arcNumber);
 
 /**
  * @brief Set the anomaly flag for a specified arc.
@@ -147,7 +151,7 @@ double OEStateEphemAlgorithm_getArcRadiusTime(const OEStateEphemAlgorithm* self,
  * @param arcNumber   Index of the arc.
  * @param anomalyFlag Anomaly type (TRUE_ANOMALY or MEAN_ANOMALY).
  */
-void OEStateEphemAlgorithm_setArcAnomalyFlag(OEStateEphemAlgorithm* self,
+void OEStateEphemAlgorithm_setArcAnomalyFlag(OEStateEphemAlgorithmHandle* self,
                                              unsigned int arcNumber,
                                              AnomalyType anomalyFlag);
 
@@ -157,7 +161,7 @@ void OEStateEphemAlgorithm_setArcAnomalyFlag(OEStateEphemAlgorithm* self,
  * @param arcNumber Index of the arc.
  * @return AnomalyType  The anomaly type.
  */
-AnomalyType OEStateEphemAlgorithm_getArcAnomalyFlag(const OEStateEphemAlgorithm* self, unsigned int arcNumber);
+AnomalyType OEStateEphemAlgorithm_getArcAnomalyFlag(const OEStateEphemAlgorithmHandle* self, unsigned int arcNumber);
 
 /**
  * @brief Set the radius periapsis Chebyshev coefficients for a specified arc.
@@ -165,7 +169,7 @@ AnomalyType OEStateEphemAlgorithm_getArcAnomalyFlag(const OEStateEphemAlgorithm*
  * @param arcNumber    Index of the arc.
  * @param coefficients Pointer to the coefficients.
  */
-void OEStateEphemAlgorithm_setArcRadiusPeriapsisCoefficients(OEStateEphemAlgorithm* self,
+void OEStateEphemAlgorithm_setArcRadiusPeriapsisCoefficients(OEStateEphemAlgorithmHandle* self,
                                                              unsigned int arcNumber,
                                                              const OeCoefficients* coefficients);
 
@@ -175,7 +179,7 @@ void OEStateEphemAlgorithm_setArcRadiusPeriapsisCoefficients(OEStateEphemAlgorit
  * @param arcNumber Index of the arc.
  * @return OeCoefficients  The coefficients.
  */
-OeCoefficients OEStateEphemAlgorithm_getArcRadiusPeriapsisCoefficients(const OEStateEphemAlgorithm* self,
+OeCoefficients OEStateEphemAlgorithm_getArcRadiusPeriapsisCoefficients(const OEStateEphemAlgorithmHandle* self,
                                                                        unsigned int arcNumber);
 
 /**
@@ -184,7 +188,7 @@ OeCoefficients OEStateEphemAlgorithm_getArcRadiusPeriapsisCoefficients(const OES
  * @param arcNumber    Index of the arc.
  * @param coefficients Pointer to the coefficients.
  */
-void OEStateEphemAlgorithm_setArcEccentricityCoefficients(OEStateEphemAlgorithm* self,
+void OEStateEphemAlgorithm_setArcEccentricityCoefficients(OEStateEphemAlgorithmHandle* self,
                                                           unsigned int arcNumber,
                                                           const OeCoefficients* coefficients);
 
@@ -194,7 +198,7 @@ void OEStateEphemAlgorithm_setArcEccentricityCoefficients(OEStateEphemAlgorithm*
  * @param arcNumber Index of the arc.
  * @return OeCoefficients  The coefficients.
  */
-OeCoefficients OEStateEphemAlgorithm_getArcEccentricityCoefficients(const OEStateEphemAlgorithm* self,
+OeCoefficients OEStateEphemAlgorithm_getArcEccentricityCoefficients(const OEStateEphemAlgorithmHandle* self,
                                                                     unsigned int arcNumber);
 
 /**
@@ -203,7 +207,7 @@ OeCoefficients OEStateEphemAlgorithm_getArcEccentricityCoefficients(const OEStat
  * @param arcNumber    Index of the arc.
  * @param coefficients Pointer to the coefficients.
  */
-void OEStateEphemAlgorithm_setArcInclinationCoefficients(OEStateEphemAlgorithm* self,
+void OEStateEphemAlgorithm_setArcInclinationCoefficients(OEStateEphemAlgorithmHandle* self,
                                                          unsigned int arcNumber,
                                                          const OeCoefficients* coefficients);
 
@@ -213,7 +217,7 @@ void OEStateEphemAlgorithm_setArcInclinationCoefficients(OEStateEphemAlgorithm* 
  * @param arcNumber Index of the arc.
  * @return OeCoefficients  The coefficients.
  */
-OeCoefficients OEStateEphemAlgorithm_getArcInclinationCoefficients(const OEStateEphemAlgorithm* self,
+OeCoefficients OEStateEphemAlgorithm_getArcInclinationCoefficients(const OEStateEphemAlgorithmHandle* self,
                                                                    unsigned int arcNumber);
 
 /**
@@ -222,7 +226,7 @@ OeCoefficients OEStateEphemAlgorithm_getArcInclinationCoefficients(const OEState
  * @param arcNumber    Index of the arc.
  * @param coefficients Pointer to the coefficients.
  */
-void OEStateEphemAlgorithm_setArcArgPeriapsisCoefficients(OEStateEphemAlgorithm* self,
+void OEStateEphemAlgorithm_setArcArgPeriapsisCoefficients(OEStateEphemAlgorithmHandle* self,
                                                           unsigned int arcNumber,
                                                           const OeCoefficients* coefficients);
 
@@ -232,7 +236,7 @@ void OEStateEphemAlgorithm_setArcArgPeriapsisCoefficients(OEStateEphemAlgorithm*
  * @param arcNumber Index of the arc.
  * @return OeCoefficients  The coefficients.
  */
-OeCoefficients OEStateEphemAlgorithm_getArcArgPeriapsisCoefficients(const OEStateEphemAlgorithm* self,
+OeCoefficients OEStateEphemAlgorithm_getArcArgPeriapsisCoefficients(const OEStateEphemAlgorithmHandle* self,
                                                                     unsigned int arcNumber);
 
 /**
@@ -241,7 +245,7 @@ OeCoefficients OEStateEphemAlgorithm_getArcArgPeriapsisCoefficients(const OEStat
  * @param arcNumber    Index of the arc.
  * @param coefficients Pointer to the coefficients.
  */
-void OEStateEphemAlgorithm_setArcRaanCoefficients(OEStateEphemAlgorithm* self,
+void OEStateEphemAlgorithm_setArcRaanCoefficients(OEStateEphemAlgorithmHandle* self,
                                                   unsigned int arcNumber,
                                                   const OeCoefficients* coefficients);
 
@@ -251,7 +255,8 @@ void OEStateEphemAlgorithm_setArcRaanCoefficients(OEStateEphemAlgorithm* self,
  * @param arcNumber Index of the arc.
  * @return OeCoefficients  The coefficients.
  */
-OeCoefficients OEStateEphemAlgorithm_getArcRaanCoefficients(const OEStateEphemAlgorithm* self, unsigned int arcNumber);
+OeCoefficients OEStateEphemAlgorithm_getArcRaanCoefficients(const OEStateEphemAlgorithmHandle* self,
+                                                            unsigned int arcNumber);
 
 /**
  * @brief Set the true anomaly Chebyshev coefficients for a specified arc.
@@ -259,7 +264,7 @@ OeCoefficients OEStateEphemAlgorithm_getArcRaanCoefficients(const OEStateEphemAl
  * @param arcNumber    Index of the arc.
  * @param coefficients Pointer to the coefficients.
  */
-void OEStateEphemAlgorithm_setArcTrueAnomalyCoefficients(OEStateEphemAlgorithm* self,
+void OEStateEphemAlgorithm_setArcTrueAnomalyCoefficients(OEStateEphemAlgorithmHandle* self,
                                                          unsigned int arcNumber,
                                                          const OeCoefficients* coefficients);
 
@@ -269,7 +274,7 @@ void OEStateEphemAlgorithm_setArcTrueAnomalyCoefficients(OEStateEphemAlgorithm* 
  * @param arcNumber Index of the arc.
  * @return OeCoefficients  The coefficients.
  */
-OeCoefficients OEStateEphemAlgorithm_getArcTrueAnomalyCoefficients(const OEStateEphemAlgorithm* self,
+OeCoefficients OEStateEphemAlgorithm_getArcTrueAnomalyCoefficients(const OEStateEphemAlgorithmHandle* self,
                                                                    unsigned int arcNumber);
 
 /**

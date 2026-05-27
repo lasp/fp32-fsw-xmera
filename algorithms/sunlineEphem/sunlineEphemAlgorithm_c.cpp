@@ -3,15 +3,15 @@
 
 #include <Eigen/Core>
 
-SunlineEphemAlgorithm* SunlineEphemAlgorithm_create(void) {
-    return reinterpret_cast<SunlineEphemAlgorithm*>(new ::SunlineEphemAlgorithm());
+SunlineEphemAlgorithmHandle* SunlineEphemAlgorithm_create(void) {
+    return reinterpret_cast<SunlineEphemAlgorithmHandle*>(new ::SunlineEphemAlgorithm());
 }
 
-void SunlineEphemAlgorithm_destroy(SunlineEphemAlgorithm* self) {
+void SunlineEphemAlgorithm_destroy(SunlineEphemAlgorithmHandle* self) {
     delete reinterpret_cast<::SunlineEphemAlgorithm*>(self);
 }
 
-NavAttMsgF32Payload SunlineEphemAlgorithm_update(const SunlineEphemAlgorithm* self,
+NavAttMsgF32Payload SunlineEphemAlgorithm_update(const SunlineEphemAlgorithmHandle* self,
                                                  const EphemerisMsgF32Payload* sunPos,
                                                  const NavTransMsgF32Payload* scPos,
                                                  const NavAttMsgF32Payload* scAtt) {

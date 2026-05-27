@@ -3,19 +3,19 @@
 
 #include <Eigen/Core>
 
-BodyRateMiscompareAlgorithm* BodyRateMiscompareAlgorithm_create(void) {
-    return reinterpret_cast<BodyRateMiscompareAlgorithm*>(new ::BodyRateMiscompareAlgorithm());
+BodyRateMiscompareAlgorithmHandle* BodyRateMiscompareAlgorithm_create(void) {
+    return reinterpret_cast<BodyRateMiscompareAlgorithmHandle*>(new ::BodyRateMiscompareAlgorithm());
 }
 
-void BodyRateMiscompareAlgorithm_destroy(BodyRateMiscompareAlgorithm* self) {
+void BodyRateMiscompareAlgorithm_destroy(BodyRateMiscompareAlgorithmHandle* self) {
     delete reinterpret_cast<::BodyRateMiscompareAlgorithm*>(self);
 }
 
-void BodyRateMiscompareAlgorithm_reset(BodyRateMiscompareAlgorithm* self) {
+void BodyRateMiscompareAlgorithm_reset(BodyRateMiscompareAlgorithmHandle* self) {
     reinterpret_cast<::BodyRateMiscompareAlgorithm*>(self)->reset();
 }
 
-BodyRateMiscompareOutput_c BodyRateMiscompareAlgorithm_update(BodyRateMiscompareAlgorithm* self,
+BodyRateMiscompareOutput_c BodyRateMiscompareAlgorithm_update(BodyRateMiscompareAlgorithmHandle* self,
                                                               Vector3f_c imuOmega,
                                                               Vector3f_c stOmega) {
     Eigen::Vector3f imuVec;
@@ -33,27 +33,28 @@ BodyRateMiscompareOutput_c BodyRateMiscompareAlgorithm_update(BodyRateMiscompare
     return out;
 }
 
-void BodyRateMiscompareAlgorithm_setBodyRateThreshold(BodyRateMiscompareAlgorithm* self, float bodyRateThreshold) {
+void BodyRateMiscompareAlgorithm_setBodyRateThreshold(BodyRateMiscompareAlgorithmHandle* self,
+                                                      float bodyRateThreshold) {
     reinterpret_cast<::BodyRateMiscompareAlgorithm*>(self)->setBodyRateThreshold(bodyRateThreshold);
 }
 
-float BodyRateMiscompareAlgorithm_getBodyRateThreshold(const BodyRateMiscompareAlgorithm* self) {
+float BodyRateMiscompareAlgorithm_getBodyRateThreshold(const BodyRateMiscompareAlgorithmHandle* self) {
     return reinterpret_cast<const ::BodyRateMiscompareAlgorithm*>(self)->getBodyRateThreshold();
 }
 
-void BodyRateMiscompareAlgorithm_setFaultPersistenceLimit(BodyRateMiscompareAlgorithm* self,
+void BodyRateMiscompareAlgorithm_setFaultPersistenceLimit(BodyRateMiscompareAlgorithmHandle* self,
                                                           uint32_t faultPersistenceLimit) {
     reinterpret_cast<::BodyRateMiscompareAlgorithm*>(self)->setFaultPersistenceLimit(faultPersistenceLimit);
 }
 
-uint32_t BodyRateMiscompareAlgorithm_getFaultPersistenceLimit(const BodyRateMiscompareAlgorithm* self) {
+uint32_t BodyRateMiscompareAlgorithm_getFaultPersistenceLimit(const BodyRateMiscompareAlgorithmHandle* self) {
     return reinterpret_cast<const ::BodyRateMiscompareAlgorithm*>(self)->getFaultPersistenceLimit();
 }
 
-void BodyRateMiscompareAlgorithm_setUseImuRates(BodyRateMiscompareAlgorithm* self, bool useImuRates) {
+void BodyRateMiscompareAlgorithm_setUseImuRates(BodyRateMiscompareAlgorithmHandle* self, bool useImuRates) {
     reinterpret_cast<::BodyRateMiscompareAlgorithm*>(self)->setUseImuRates(useImuRates);
 }
 
-bool BodyRateMiscompareAlgorithm_getUseImuRates(const BodyRateMiscompareAlgorithm* self) {
+bool BodyRateMiscompareAlgorithm_getUseImuRates(const BodyRateMiscompareAlgorithmHandle* self) {
     return reinterpret_cast<const ::BodyRateMiscompareAlgorithm*>(self)->getUseImuRates();
 }

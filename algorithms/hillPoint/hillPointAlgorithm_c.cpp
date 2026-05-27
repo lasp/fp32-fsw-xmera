@@ -1,27 +1,22 @@
-/* MIT License
- *
- Copyright (c) 2025, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
- */
-
 #include "hillPointAlgorithm_c.h"
 #include "architecture/utilities/eigenSupport.h"
 #include "hillPointAlgorithm.h"
 
 #include <Eigen/Core>
 
-HillPointAlgorithm* HillPointAlgorithm_create(void) {
+HillPointAlgorithmHandle* HillPointAlgorithm_create(void) {
     // clang-format off
-    return reinterpret_cast<HillPointAlgorithm*>(new ::HillPointAlgorithm(HillPointConfig::create()));  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast, cppcoreguidelines-owning-memory)
+    return reinterpret_cast<HillPointAlgorithmHandle*>(new ::HillPointAlgorithm(HillPointConfig::create()));  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast, cppcoreguidelines-owning-memory)
     // clang-format on
 }
 
-void HillPointAlgorithm_destroy(HillPointAlgorithm* self) {
+void HillPointAlgorithm_destroy(HillPointAlgorithmHandle* self) {
     // clang-format off
     delete reinterpret_cast<::HillPointAlgorithm*>(self);  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast, cppcoreguidelines-owning-memory)
     // clang-format on
 }
 
-AttRefMsgF32Payload HillPointAlgorithm_update(const HillPointAlgorithm* self,
+AttRefMsgF32Payload HillPointAlgorithm_update(const HillPointAlgorithmHandle* self,
                                               Vector3d_c r_BN_N,
                                               Vector3d_c v_BN_N,
                                               Vector3d_c r_planet_N,

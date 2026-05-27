@@ -1,6 +1,7 @@
 #ifndef F32XMERA_MIMUMAJORITYVOTEALGORITHM_C_H
 #define F32XMERA_MIMUMAJORITYVOTEALGORITHM_C_H
 
+#include "utilities/plainCAlgorithmDataTypes.h"
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -10,19 +11,12 @@ extern "C" {
 /**
  * @brief Opaque handle to the C++ MimuMajorityVoteAlgorithm instance.
  */
-typedef struct MimuMajorityVoteAlgorithm MimuMajorityVoteAlgorithm;
+typedef struct MimuMajorityVoteAlgorithmHandle MimuMajorityVoteAlgorithmHandle;
 
 /**
  * @brief Number of IMUs.
  */
 #define MIMU_COUNT_C 3
-
-/**
- * @brief POD representation of a 3-vector (Eigen::Vector3f).
- */
-typedef struct {
-    float data[3];
-} Vector3f_c;
 
 /**
  * @brief Sized array of 3-vectors.
@@ -55,19 +49,19 @@ uint32_t MimuMajorityVoteAlgorithm_getMimuCount(void);
  * @brief Construct a new MimuMajorityVoteAlgorithm instance.
  * @return Pointer to a new MimuMajorityVoteAlgorithm (must be destroyed).
  */
-MimuMajorityVoteAlgorithm* MimuMajorityVoteAlgorithm_create(void);
+MimuMajorityVoteAlgorithmHandle* MimuMajorityVoteAlgorithm_create(void);
 
 /**
  * @brief Destroy a previously created MimuMajorityVoteAlgorithm.
  * @param self Pointer to the instance to destroy.
  */
-void MimuMajorityVoteAlgorithm_destroy(MimuMajorityVoteAlgorithm* self);
+void MimuMajorityVoteAlgorithm_destroy(MimuMajorityVoteAlgorithmHandle* self);
 
 /**
  * @brief Reset fault persistence counters to zero.
  * @param self Pointer to the instance.
  */
-void MimuMajorityVoteAlgorithm_reset(MimuMajorityVoteAlgorithm* self);
+void MimuMajorityVoteAlgorithm_reset(MimuMajorityVoteAlgorithmHandle* self);
 
 /**
  * @brief Run the majority vote update step.
@@ -75,7 +69,7 @@ void MimuMajorityVoteAlgorithm_reset(MimuMajorityVoteAlgorithm* self);
  * @param imuOmegas_BN_B IMU angular velocity 3-vectors.
  * @return MimuMajorityVoteOutput_c  The computed majority vote output.
  */
-MimuMajorityVoteOutput_c MimuMajorityVoteAlgorithm_update(MimuMajorityVoteAlgorithm* self,
+MimuMajorityVoteOutput_c MimuMajorityVoteAlgorithm_update(MimuMajorityVoteAlgorithmHandle* self,
                                                           const Vector3fArray3_c* imuOmegas_BN_B);
 
 /**
@@ -83,28 +77,28 @@ MimuMajorityVoteOutput_c MimuMajorityVoteAlgorithm_update(MimuMajorityVoteAlgori
  * @param self  Pointer to the instance.
  * @param value The new omega threshold value [rad/s].
  */
-void MimuMajorityVoteAlgorithm_setOmegaThreshold(MimuMajorityVoteAlgorithm* self, float value);
+void MimuMajorityVoteAlgorithm_setOmegaThreshold(MimuMajorityVoteAlgorithmHandle* self, float value);
 
 /**
  * @brief Get the current omega threshold.
  * @param self Pointer to the instance.
  * @return float  The current omega threshold [rad/s].
  */
-float MimuMajorityVoteAlgorithm_getOmegaThreshold(const MimuMajorityVoteAlgorithm* self);
+float MimuMajorityVoteAlgorithm_getOmegaThreshold(const MimuMajorityVoteAlgorithmHandle* self);
 
 /**
  * @brief Set the fault persistence limit.
  * @param self  Pointer to the instance.
  * @param value The new fault persistence limit.
  */
-void MimuMajorityVoteAlgorithm_setFaultPersistenceLimit(MimuMajorityVoteAlgorithm* self, uint32_t value);
+void MimuMajorityVoteAlgorithm_setFaultPersistenceLimit(MimuMajorityVoteAlgorithmHandle* self, uint32_t value);
 
 /**
  * @brief Get the current fault persistence limit.
  * @param self Pointer to the instance.
  * @return uint32_t  The current fault persistence limit.
  */
-uint32_t MimuMajorityVoteAlgorithm_getFaultPersistenceLimit(const MimuMajorityVoteAlgorithm* self);
+uint32_t MimuMajorityVoteAlgorithm_getFaultPersistenceLimit(const MimuMajorityVoteAlgorithmHandle* self);
 
 #ifdef __cplusplus
 }  // extern "C"

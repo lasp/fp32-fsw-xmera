@@ -1,6 +1,3 @@
-// SPDX-FileCopyrightText: 2025 Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
-// SPDX-License-Identifier: MIT
-
 #ifndef TEST_HILL_POINT_HELPERS_H
 #define TEST_HILL_POINT_HELPERS_H
 
