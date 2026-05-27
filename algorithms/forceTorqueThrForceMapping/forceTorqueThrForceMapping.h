@@ -11,6 +11,7 @@
 #include <architecture/messaging/messaging.h>
 #include <stdint.h>
 #include <array>
+#include <memory>
 
 /*! @brief This module maps thruster forces for arbitrary forces and torques
  */
@@ -33,7 +34,9 @@ class ForceTorqueThrForceMapping : public SysModel {
     Message<THRArrayCmdForceMsgF32Payload> thrForceCmdOutMsg;  //!< thruster force command output message
 
    private:
-    ForceTorqueThrForceMappingAlgorithm algorithm{};
+    std::unique_ptr<ForceTorqueThrForceMappingAlgorithm> algorithm = nullptr;
+    //! per-axis controllability assertions (torque xyz then force xyz, all in body frame B)
+    std::array<bool, 6> desiredControlAxes_B{true, true, true, true, true, true};
 };
 
 #endif  // F32XMERA_FORCE_TORQUE_THR_FORCE_MAPPING_H

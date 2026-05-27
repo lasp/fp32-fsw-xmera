@@ -9,6 +9,7 @@
 #include <Eigen/Geometry>
 #include <Eigen/SVD>
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdint>
 #include <limits>
@@ -20,13 +21,18 @@
 inline std::vector<Eigen::Vector3f> rcsPositions1();
 inline std::vector<Eigen::Vector3f> rcsDirections1();
 
-// The algorithm defaults desiredControlAxes_B to all-true (full controllability asserted), which
-// would throw on any rank-deficient layout. Test helpers below run on layouts including fuzzer
-// inputs and the deliberately rank-deficient layout 1, so they opt out of the assertion. Tests that
-// specifically exercise the assertion configure desiredControlAxes_B inline instead of using these
-// helpers.
-inline void disableDesiredControlAxesAssertion(ForceTorqueThrForceMappingAlgorithm& alg) {
-    alg.setDesiredControlAxes({false, false, false, false, false, false});
+// Property/regression helpers below run on layouts including fuzzer inputs and the deliberately
+// rank-deficient layout 1, so they opt every axis out of the controllability assertion (a true entry
+// would throw at construction on a rank-deficient layout). Tests that specifically exercise the
+// assertion pass their own axes to ForceTorqueThrForceMappingConfig::create.
+inline constexpr std::array<bool, 6> kNoAxisAssertion{false, false, false, false, false, false};
+
+// Build a configured algorithm from a thruster array, CoM, and controllability assertion vector. The
+// mapping is computed in the constructor and throws if an asserted axis is uncontrollable.
+inline ForceTorqueThrForceMappingAlgorithm makeMappingAlgorithm(const ThrusterArrayConfiguration& config,
+                                                                const Eigen::Vector3f& CoM,
+                                                                const std::array<bool, 6>& axes = kNoAxisAssertion) {
+    return ForceTorqueThrForceMappingAlgorithm{ForceTorqueThrForceMappingConfig::create(config, CoM, axes)};
 }
 
 // Combined atol + rtol tolerance for fp32 comparisons.
@@ -152,11 +158,7 @@ inline void runRegressionCase(std::uint32_t numThrusters,
         return;
     }
 
-    ForceTorqueThrForceMappingAlgorithm alg{};
-    alg.setCenterOfMass_B(CoM);
-    ASSERT_NO_THROW(alg.setThrusters(config));
-    disableDesiredControlAxesAssertion(alg);
-    alg.computeThrusterMapping();
+    ForceTorqueThrForceMappingAlgorithm alg = makeMappingAlgorithm(config, CoM);
 
     const Eigen::Vector<float, MAX_EFF_CNT> out = alg.update(cmdTorque, cmdForce);
 
@@ -208,11 +210,7 @@ inline void propertyNonNegativeForces(std::uint32_t numThrusters,
         return;
     }
 
-    ForceTorqueThrForceMappingAlgorithm alg{};
-    alg.setCenterOfMass_B(CoM);
-    alg.setThrusters(config);
-    disableDesiredControlAxesAssertion(alg);
-    alg.computeThrusterMapping();
+    ForceTorqueThrForceMappingAlgorithm alg = makeMappingAlgorithm(config, CoM);
 
     const Eigen::Vector<float, MAX_EFF_CNT> out = alg.update(cmdTorque, cmdForce);
 
@@ -234,11 +232,7 @@ inline void propertyMinimumIsZero(std::uint32_t numThrusters,
         return;
     }
 
-    ForceTorqueThrForceMappingAlgorithm alg{};
-    alg.setCenterOfMass_B(CoM);
-    alg.setThrusters(config);
-    disableDesiredControlAxesAssertion(alg);
-    alg.computeThrusterMapping();
+    ForceTorqueThrForceMappingAlgorithm alg = makeMappingAlgorithm(config, CoM);
 
     const Eigen::Vector<float, MAX_EFF_CNT> out = alg.update(cmdTorque, cmdForce);
 
@@ -261,11 +255,7 @@ inline void propertyPaddingIsZero(std::uint32_t numThrusters,
         return;
     }
 
-    ForceTorqueThrForceMappingAlgorithm alg{};
-    alg.setCenterOfMass_B(CoM);
-    alg.setThrusters(config);
-    disableDesiredControlAxesAssertion(alg);
-    alg.computeThrusterMapping();
+    ForceTorqueThrForceMappingAlgorithm alg = makeMappingAlgorithm(config, CoM);
 
     const Eigen::Vector<float, MAX_EFF_CNT> out = alg.update(cmdTorque, cmdForce);
 
@@ -312,11 +302,7 @@ inline void propertyScaleInvariance(std::uint32_t numThrusters,
         return;
     }
 
-    ForceTorqueThrForceMappingAlgorithm alg{};
-    alg.setCenterOfMass_B(CoM);
-    alg.setThrusters(config);
-    disableDesiredControlAxesAssertion(alg);
-    alg.computeThrusterMapping();
+    ForceTorqueThrForceMappingAlgorithm alg = makeMappingAlgorithm(config, CoM);
 
     const Eigen::Vector<float, MAX_EFF_CNT> baseOut = alg.update(cmdTorque, cmdForce);
     const Eigen::Vector<float, MAX_EFF_CNT> scaledOut = alg.update(scale * cmdTorque, scale * cmdForce);
@@ -340,11 +326,7 @@ inline void propertyStateless(std::uint32_t numThrusters,
         return;
     }
 
-    ForceTorqueThrForceMappingAlgorithm alg{};
-    alg.setCenterOfMass_B(CoM);
-    alg.setThrusters(config);
-    disableDesiredControlAxesAssertion(alg);
-    alg.computeThrusterMapping();
+    ForceTorqueThrForceMappingAlgorithm alg = makeMappingAlgorithm(config, CoM);
 
     const Eigen::Vector<float, MAX_EFF_CNT> first = alg.update(cmdTorque, cmdForce);
     for (int step = 0; step < 5; ++step) {
@@ -367,11 +349,7 @@ inline void propertyFiniteOutput(std::uint32_t numThrusters,
         return;
     }
 
-    ForceTorqueThrForceMappingAlgorithm alg{};
-    alg.setCenterOfMass_B(CoM);
-    alg.setThrusters(config);
-    disableDesiredControlAxesAssertion(alg);
-    alg.computeThrusterMapping();
+    ForceTorqueThrForceMappingAlgorithm alg = makeMappingAlgorithm(config, CoM);
 
     const Eigen::Vector<float, MAX_EFF_CNT> out = alg.update(cmdTorque, cmdForce);
     for (int i = 0; i < MAX_EFF_CNT; ++i) {
@@ -393,11 +371,7 @@ inline void propertyAchievesCommandForBalancedLayout(const Eigen::Vector3f& CoM,
         return;
     }
 
-    ForceTorqueThrForceMappingAlgorithm alg{};
-    alg.setCenterOfMass_B(CoM);
-    alg.setThrusters(config);
-    disableDesiredControlAxesAssertion(alg);
-    alg.computeThrusterMapping();
+    ForceTorqueThrForceMappingAlgorithm alg = makeMappingAlgorithm(config, CoM);
 
     const Eigen::Matrix<float, 6, MAX_EFF_CNT> DG = buildDG(config, CoM);
 
@@ -435,11 +409,7 @@ inline void propertyOutputMagnitudeBounded(std::uint32_t numThrusters,
         return;
     }
 
-    ForceTorqueThrForceMappingAlgorithm alg{};
-    alg.setCenterOfMass_B(CoM);
-    alg.setThrusters(config);
-    disableDesiredControlAxesAssertion(alg);
-    alg.computeThrusterMapping();
+    ForceTorqueThrForceMappingAlgorithm alg = makeMappingAlgorithm(config, CoM);
 
     const Eigen::Vector<float, MAX_EFF_CNT> out = alg.update(cmdTorque, cmdForce);
 

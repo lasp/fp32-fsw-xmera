@@ -1,5 +1,6 @@
 #include "forceTorqueThrForceMapping.h"
 
+#include "utilities/xmeraLifecycleException.h"
 #include <architecture/utilities/eigenSupport.h>
 #include <stdexcept>
 
@@ -34,10 +35,8 @@ void ForceTorqueThrForceMapping::reset(const uint64_t callTime) {
         }
     }
 
-    this->algorithm.setCenterOfMass_B(cArrayToEigenVector(vehConfigIn.CoM_B));
-    this->algorithm.setThrusters(thrusterConfiguration);
-
-    this->algorithm.computeThrusterMapping();
+    this->algorithm = std::make_unique<ForceTorqueThrForceMappingAlgorithm>(ForceTorqueThrForceMappingConfig::create(
+        thrusterConfiguration, cArrayToEigenVector(vehConfigIn.CoM_B), this->desiredControlAxes_B));
 }
 
 /*! Add a description of what this main Update() routine does for this module
@@ -45,6 +44,10 @@ void ForceTorqueThrForceMapping::reset(const uint64_t callTime) {
  @param callTime The clock time at which the function was called (nanoseconds)
 */
 void ForceTorqueThrForceMapping::updateState(const uint64_t callTime) {
+    if (!this->algorithm) {
+        throw XmeraLifecycleException("ForceTorqueThrForceMapping reset() has not been called.");
+    }
+
     Eigen::Vector3f cmdTorque{Eigen::Vector3f::Zero()};
     Eigen::Vector3f cmdForce{Eigen::Vector3f::Zero()};
 
@@ -60,7 +63,7 @@ void ForceTorqueThrForceMapping::updateState(const uint64_t callTime) {
         cmdForce = cArrayToEigenVector(cmdForceIn.forceRequestBody);
     }
 
-    const Eigen::Vector<float, MAX_EFF_CNT> thrForce = this->algorithm.update(cmdTorque, cmdForce);
+    const Eigen::Vector<float, MAX_EFF_CNT> thrForce = this->algorithm->update(cmdTorque, cmdForce);
 
     THRArrayCmdForceMsgF32Payload thrForceCmdOut{};
     eigenVectorToCArray(thrForce, thrForceCmdOut.thrForce);
@@ -73,12 +76,10 @@ void ForceTorqueThrForceMapping::updateState(const uint64_t callTime) {
  @param desiredControlAxes per-axis controllability assertions
 */
 void ForceTorqueThrForceMapping::setDesiredControlAxes(const std::array<bool, 6>& desiredControlAxes) {
-    this->algorithm.setDesiredControlAxes(desiredControlAxes);
+    this->desiredControlAxes_B = desiredControlAxes;
 }
 
 /*! Getter for the desiredControlAxes_B controllability assertion vector.
  @return std::array<bool, 6>
 */
-std::array<bool, 6> ForceTorqueThrForceMapping::getDesiredControlAxes() const {
-    return this->algorithm.getDesiredControlAxes();
-}
+std::array<bool, 6> ForceTorqueThrForceMapping::getDesiredControlAxes() const { return this->desiredControlAxes_B; }
