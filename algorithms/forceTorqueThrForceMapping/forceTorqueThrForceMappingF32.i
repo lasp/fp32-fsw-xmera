@@ -12,7 +12,6 @@
 %include <architecture/_GeneralModuleFiles/swig_conly_data.i>
 
 %include "forceTorqueThrForceMapping.h"
-%include "forceTorqueThrForceMappingTypes.h"
 
 %extend ForceTorqueThrForceMapping {
 %pythoncode %{

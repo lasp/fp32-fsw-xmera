@@ -2,7 +2,6 @@
 #define TEST_FORCE_TORQUE_THR_FORCE_MAPPING_H
 
 #include "forceTorqueThrForceMappingAlgorithm.h"
-#include "forceTorqueThrForceMappingTypes.h"
 #include "msgPayloadDef/definitions.h"
 
 #include <gtest/gtest.h>

@@ -1,11 +1,23 @@
 #ifndef F32XMERA_FORCE_TORQUE_THR_FORCE_MAPPING_ALGORITHM_H
 #define F32XMERA_FORCE_TORQUE_THR_FORCE_MAPPING_ALGORITHM_H
 
-#include "forceTorqueThrForceMappingTypes.h"
 #include "msgPayloadDef/definitions.h"
 #include <stdint.h>
 #include <Eigen/Core>
 #include <array>
+#include <cstdint>
+
+/*! @brief Single thruster configuration */
+struct ThrusterConfiguration {
+    std::array<float, 3> rThrust_B{};     //!< [m] Location of the thruster in the spacecraft body frame
+    std::array<float, 3> tHatThrust_B{};  //!< [-] Unit vector of the thrust direction
+};
+
+/*! @brief Thruster array configuration */
+struct ThrusterArrayConfiguration {
+    std::uint32_t numThrusters{};                                //!< [-] number of thrusters
+    std::array<ThrusterConfiguration, MAX_EFF_CNT> thrusters{};  //!< [-] array of thruster configuration information
+};
 
 /*! @brief This module maps thruster forces for arbitrary forces and torques
  */
