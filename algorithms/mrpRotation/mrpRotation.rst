@@ -21,14 +21,21 @@ The module is split into two layers:
 
 - The **adapter** (``mrpRotation.h``/``.cpp``) is the SysModel-derived class that handles message I/O, validates
   configuration, builds an immutable ``MrpRotationConfig`` from public properties, and constructs the algorithm via
-  two-phase initialization. The adapter switches into the dynamic-reference path when the optional
-  ``desiredAttInMsg`` is connected.
-- The **algorithm** (``mrpRotationAlgorithm.h``/``.cpp``) is a pure C++23 class with no framework dependencies. It
-  takes message payloads as input, integrates the MRP set, and returns a payload struct as output. It must not throw
-  from ``update()``.
+  two-phase initialization. The adapter is also the **payload ↔ Eigen conversion boundary**: it reads
+  ``AttRefMsgF32Payload`` (and ``AttStateMsgF32Payload`` when ``desiredAttInMsg`` is connected), converts each
+  ``float[3]`` field to ``Eigen::Vector3f`` via ``architecture/utilities/eigenSupport.h``
+  (``cArrayToEigenVector``), passes the resulting algorithm-native input structs into the algorithm, and packs the
+  algorithm's output struct back into the output ``AttRefMsgF32Payload`` via ``eigenVectorToCArray``.
+- The **algorithm** (``mrpRotationAlgorithm.h``/``.cpp``) is a pure C++23 class with no framework dependencies and no
+  messaging-payload includes. Its ``update()`` consumes two Eigen-typed input bundles -- ``MrpRotationAttRefInputs``
+  (mirrors ``AttRefMsgF32Payload``) and ``MrpRotationAttStateInputs`` (mirrors ``AttStateMsgF32Payload``) -- and
+  returns its own POD ``MrpRotationOutput`` (shape of the output ``AttRefMsgF32Payload``). All three structs are
+  declared at the top of ``mrpRotationAlgorithm.h``. ``update()`` must not throw.
 
 A pure-C shim (``mrpRotationAlgorithm_c.h``/``.cpp``) wraps the algorithm class for use by Ada/Adamant components via
-``extern "C"`` bindings.
+``extern "C"`` bindings. The shim's ``_update`` takes ``MrpRotationAttRefInputs_c`` / ``MrpRotationAttStateInputs_c``
+POD mirrors (declared in ``mrpRotationTypes.h`` and built from ``Vector3f_c``) and returns ``MrpRotationOutput_c``; Ada
+callers are responsible for the analogous payload-to-POD conversion on their side.
 
 Adapter Layer
 ^^^^^^^^^^^^^
@@ -158,10 +165,11 @@ Dynamic-Reference Path
 ^^^^^^^^^^^^^^^^^^^^^^
 
 When the configuration's ``dynamicReferenceEnabled`` flag is true (set by the adapter when ``desiredAttInMsg`` is
-connected), the algorithm reads the commanded MRP set and rate from each ``AttStateMsgF32Payload`` and compares them
-against the prior commanded values. Whenever the commanded values change (componentwise absolute difference exceeds
-``1e-6``), the runtime ``sigma_RR0`` and ``omega_RR0_R`` are re-seeded from the new command. This allows operators to
-re-target the rotation at runtime without resetting the module.
+connected), the algorithm reads the commanded MRP set (``cmdSigma``) and rate (``cmdOmega``) from each
+``MrpRotationAttStateInputs`` bundle the adapter passes in (built from the ``AttStateMsgF32Payload`` ``state``/``rate``
+fields) and compares them against the prior commanded values. Whenever the commanded values change (componentwise
+absolute difference exceeds ``1e-6``), the runtime ``sigma_RR0`` and ``omega_RR0_R`` are re-seeded from the new command.
+This allows operators to re-target the rotation at runtime without resetting the module.
 
 Module Assumptions and Limitations
 ----------------------------------
