@@ -103,6 +103,7 @@ set(algorithms
     "cssComm"
     "dvGuidance"
     "ephemeridesRecenter"
+    "forceTorqueThrForceMapping"
     "hillPoint"
     "inertial3D"
     "inertialUKF"
