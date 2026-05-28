@@ -3,6 +3,7 @@
 
 #include "msgPayloadDef/AttRefMsgF32Payload.h"
 #include "msgPayloadDef/HingedRigidBodyMsgF32Payload.h"
+#include "msgPayloadDef/MotorAngleRefMsgF32Payload.h"
 #include "msgPayloadDef/NavAttMsgF32Payload.h"
 #include "solarArrayReferenceAlgorithm.h"
 #include <architecture/_GeneralModuleFiles/sys_model.h>
@@ -31,8 +32,7 @@ class SolarArrayReference : public SysModel {
     ReadFunctor<NavAttMsgF32Payload> attNavInMsg;                    //!< input msg measured attitude
     ReadFunctor<AttRefMsgF32Payload> attRefInMsg;                    //!< input attitude reference message
     ReadFunctor<HingedRigidBodyMsgF32Payload> hingedRigidBodyInMsg;  //!< input hinged rigid body message
-    Message<HingedRigidBodyMsgF32Payload>
-        hingedRigidBodyRefOutMsg;  //!< output msg containing hinged rigid body target angle and angle rate
+    Message<MotorAngleRefMsgF32Payload> solarArrayRefOutMsg;  //!< output msg containing the solar array reference angle
 
    private:
     SolarArrayReferenceAlgorithm algorithm{};  //!< algorithm instance

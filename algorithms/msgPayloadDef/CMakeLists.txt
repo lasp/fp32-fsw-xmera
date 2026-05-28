@@ -24,6 +24,7 @@ xmera_add_swig_message(MimuPacketF32Payload
                        TEMPLATE
                        "${CMAKE_CURRENT_SOURCE_DIR}/MimuPacketF32Payload.i"
 )
+xmera_add_swig_message(MotorAngleRefMsgF32Payload)
 xmera_add_swig_message(NavAttMsgF32Payload)
 xmera_add_swig_message(NavTransMsgF32Payload)
 xmera_add_swig_message(RateCmdMsgF32Payload)

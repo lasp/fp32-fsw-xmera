@@ -33,9 +33,9 @@ provides information on what this message is used for.
     * - hingedRigidBodyInMsg
       - :ref:`HingedRigidBodyMsgF32Payload`
       - input hinged rigid body message containing the current panel angle :math:`\theta_C`
-    * - hingedRigidBodyRefOutMsg
-      - :ref:`HingedRigidBodyMsgF32Payload`
-      - output hinged rigid body reference message containing the reference angle :math:`\theta_R`
+    * - solarArrayRefOutMsg
+      - :ref:`MotorAngleRefMsgF32Payload`
+      - output solar array reference message containing the reference angle :math:`\theta_R`
 
 Module Parameters
 -------------------------------

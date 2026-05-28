@@ -8,7 +8,8 @@ This module drives a stepper motor toward a reference angle by issuing integer s
 runs a small state machine (OFF / IDLE / MOVING / STOPPING / SETTLING) that decides when to command a new move, when a
 changed reference should interrupt the current move, and how long to wait after a stop before accepting new commands.
 The controller always commands the shortest path around a full revolution, so a reference on the opposite side of the
-motor is reached via the smaller of the two directions.
+motor is reached via the smaller of the two directions. The current motor position and motion status are read each tick
+from a stepper motor dynamics module via the ``stepperMotorInMsg`` input.
 
 Message Connection Descriptions
 -------------------------------
@@ -23,11 +24,15 @@ Python.
       - Msg Type
       - Description
     * - motorRefAngleInMsg
-      - :ref:`HingedRigidBodyMsgF32Payload`
+      - :ref:`MotorAngleRefMsgF32Payload`
       - Reference motor angle input message (uses ``theta``, [rad])
+    * - stepperMotorInMsg
+      - :ref:`StepperMotorMsgPayload`
+      - Stepper motor dynamics feedback (uses ``motorPosition`` and ``isMotorMoving``)
     * - motorStepCommandOutMsg
       - :ref:`MotorStepCommandMsgPayload`
-      - Commanded motor steps output message (uses ``stepsCommanded``). Written only when a new ``MOVE`` command is issued.
+      - Commanded motor steps output message. Written on a ``MOVE`` (sets ``stepsCommanded``,
+        ``stopMotorCommand=false``) or a ``STOP`` (sets ``stepsCommanded=0``, ``stopMotorCommand=true``).
 
 Algorithm Parameters
 -------------------------------
@@ -81,43 +86,14 @@ adapter re-exposes all of these parameters through same-named setters/getters th
 
 Module Parameters
 -------------------------------
-The following table lists the parameters that live only on the Xmera adapter (``StepperMotorController``) — they
-configure the motor-motion simulator and the initial conditions applied on ``reset()``. The adapter additionally
-re-exposes every algorithm parameter from the table above.
-
-.. list-table:: Module Parameters (Xmera adapter only)
-    :widths: 32 15 10 10 40 30
-    :header-rows: 1
-
-    * - Parameter Name
-      - Type
-      - Units
-      - Default
-      - Description
-      - Bounds
-    * - initialAngle
-      - float
-      - [rad]
-      - 0.0
-      - Initial motor angle, used to seed the tracked current position on reset
-      - N/A
-    * - controlFrequency
-      - float
-      - [Hz]
-      - 1.0
-      - Rate at which ``updateState()`` is called by the simulation task
-      - Must be strictly positive (checked in setter)
-    * - motorFrequency
-      - float
-      - [Hz]
-      - 1.0
-      - Maximum motor step rate (steps per second) used by the Xmera motor-motion simulator
-      - Must be strictly positive (checked in setter)
+The Xmera adapter (``StepperMotorController``) exposes only the algorithm parameters listed in the previous table; it
+has no additional parameters of its own. The motor's absolute position is read each tick from
+``stepperMotorInMsg.motorPosition``, so the adapter does not need to be configured with an initial angle.
 
 Algorithm Input/Output
 -------------------------------
 The following tables list the inputs and outputs of the pure algorithm ``update()`` method, independent of the Xmera
-messaging layer and the motor-motion simulation.
+messaging layer.
 
 .. list-table:: Algorithm Inputs
     :widths: 25 20 10 45
@@ -225,8 +201,10 @@ angle), and :math:`n_m` the position most recently commanded (stored internally)
 - ``MOVING`` — the motor is executing a commanded move. Two conditions are checked each tick, in priority order:
 
   1. *Reference changed.* If :math:`\left| \text{stepDelta}(n_m - n_d) \right| \ge \tau`, the algorithm emits a ``STOP``
-     command and transitions to ``STOPPING``. The caller is expected to halt the motor at its current position; the
-     controller will re-plan from that position once it returns to ``IDLE``.
+     command and transitions to ``STOPPING``. The Xmera adapter forwards the ``STOP`` to the motor dynamics
+     (``stopMotorCommand=true``); because a stepper motor cannot stop mid-step, the motor finishes its current step
+     before halting. The algorithm waits in ``STOPPING`` for the motor to report ``isMotorMoving == false``, then
+     re-plans from the resulting final position.
   2. *Move complete.* Otherwise, if the caller reports ``isMotorMoving == false``, the algorithm transitions directly
      to ``SETTLING`` and resets the settle counter (skipping ``STOPPING``, since no ``STOP`` command needs to be
      issued — the motor has already come to rest at the commanded target).
@@ -243,22 +221,21 @@ positioning repeatability). From ``MOVING`` the same threshold gates whether a c
 interrupt the in-progress move (tuned to avoid interrupting on noise in the reference signal). Move completion in
 ``MOVING`` is detected via the caller's ``isMotorMoving`` signal rather than this threshold.
 
-Motor-Motion Simulation (Xmera Adapter)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-The algorithm itself does not simulate the motor. The Xmera adapter advances the tracked current position toward the
-commanded position each tick using a fractional-step accumulator. Given ``motorFrequency`` :math:`f_m` and
-``controlFrequency`` :math:`f_c`, each tick adds :math:`f_m / f_c` to a running accumulator; the integer part is taken
-as the number of whole steps advanced that tick and the fractional remainder carries over. This produces the expected
-patterns for non-integer ratios (e.g. a 1.5 ratio alternates 1, 2, 1, 2, …). The advance never overshoots the commanded
-position.
+Position Tracking via Feedback (Xmera Adapter)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The adapter reads the motor's absolute step position directly from ``stepperMotorInMsg.motorPosition`` each tick
+(:math:`n_c = \text{motorPosition}_{\text{feedback}}`). The dynamics module maintains this as a cumulative net signed
+step count from the angular zero (``motorPosition * stepAngle`` ≈ :math:`\theta`) and never resets it across commands,
+so the adapter does not need to track command-start baselines or initialize a position. ``isMotorMoving`` is read
+directly from the same message.
 
 Algorithm Assumptions and Limitations
 -------------------------------------
 - Motor motion is assumed to be quantized at the step level; reference angles that fall between steps are rounded to
   the nearest step.
 - The caller is responsible for tracking the motor's current position and passing it to ``update()`` each tick.
-- When a ``STOP`` is issued mid-move, the Xmera adapter freezes the commanded position at the current step; any
-  remaining steps from the prior ``MOVE`` are discarded.
+- When a ``STOP`` is issued mid-move, the Xmera adapter forwards the stop to the motor; the motor completes its
+  current step before halting, and the algorithm re-plans from the resulting final position.
 - The ``OFF`` state is entered only via caller intervention; there is no transition into ``OFF`` from within the
   state machine.
 - The motor's travel range ``[minAngle, maxAngle]`` must satisfy :math:`-2\pi \le \text{minAngle} < \text{maxAngle} \le 2\pi`.
@@ -271,13 +248,14 @@ Module Description (Xmera Usage)
 The ``StepperMotorController`` Xmera adapter provides the simulation integration layer for the algorithm. It:
 
 - Reads ``motorRefAngleInMsg`` to obtain the reference angle each tick.
-- Tracks the motor's current step position, the commanded position, and a fractional-step accumulator.
-- On ``reset()``, seeds the current and commanded positions from ``initialAngle`` (converted to steps).
-- On each ``updateState()``, calls the algorithm with the tracked current position and the reference angle.
-- On a ``MOVE`` output, writes ``motorStepCommandOutMsg`` with the commanded step delta and sets the new commanded
-  position.
-- On a ``STOP`` output, freezes the commanded position at the current position.
-- Advances the tracked current position toward the commanded position via the fractional-step accumulator.
+- Reads ``stepperMotorInMsg`` to obtain the motor's absolute ``motorPosition`` and ``isMotorMoving`` each tick.
+- On ``reset()``, requires both input messages to be linked and resets the underlying algorithm state.
+- On each ``updateState()``, calls the algorithm with the feedback ``motorPosition``, the reference angle, and the
+  feedback ``isMotorMoving``.
+- On a ``MOVE`` output, writes ``motorStepCommandOutMsg`` with the commanded step delta and ``stopMotorCommand=false``.
+- On a ``STOP`` output, writes ``motorStepCommandOutMsg`` with ``stopMotorCommand=true`` and ``stepsCommanded=0``; the
+  motor halts after finishing its current step. The algorithm transitions to ``STOPPING`` and waits for
+  ``isMotorMoving == false``.
 
 User Guide
 ----------
@@ -287,13 +265,11 @@ Typical usage in Python is::
     module.modelTag = "stepperMotorController"
     module.stepAngle = math.radians(1.0)             # [rad/step] (1 deg/step = 360 steps/rev)
     module.setMotorAngleRange(0.0, 2 * math.pi)      # full circle (default); use a partial range for bounded steppers
-    module.initialAngle = 0.0                        # [rad]
-    module.controlFrequency = 10.0                   # [Hz]
-    module.motorFrequency = 100.0                    # [Hz]
     module.settleCountMax = 2
     module.minStepCommand = 1
 
     module.motorRefAngleInMsg.subscribeTo(ref_msg)
+    module.stepperMotorInMsg.subscribeTo(stepper_motor.stepperMotorOutMsg)
 
 The commanded step delta is available on ``motorStepCommandOutMsg`` each time a new ``MOVE`` is issued.
 

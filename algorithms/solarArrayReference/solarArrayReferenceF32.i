@@ -24,3 +24,4 @@
 %include "msgPayloadDef/NavAttMsgF32Payload.h"
 %include "msgPayloadDef/AttRefMsgF32Payload.h"
 %include "msgPayloadDef/HingedRigidBodyMsgF32Payload.h"
+%include "msgPayloadDef/MotorAngleRefMsgF32Payload.h"

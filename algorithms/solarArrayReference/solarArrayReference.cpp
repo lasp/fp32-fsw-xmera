@@ -26,9 +26,9 @@ void SolarArrayReference::updateState(uint64_t callTime) {
 
     const float thetaRef = this->algorithm.update(sigma_BN, sigma_RN, rHatIn_SB_B, hingedRigidBodyIn.theta);
 
-    HingedRigidBodyMsgF32Payload hingedRigidBodyRefOut = {};
-    hingedRigidBodyRefOut.theta = thetaRef;
-    this->hingedRigidBodyRefOutMsg.write(&hingedRigidBodyRefOut, this->moduleID, callTime);
+    MotorAngleRefMsgF32Payload solarArrayRefOut = {};
+    solarArrayRefOut.theta = thetaRef;
+    this->solarArrayRefOutMsg.write(&solarArrayRefOut, this->moduleID, callTime);
 }
 
 /*! Set the solar array drive axis and surface normal in body frame coordinates.

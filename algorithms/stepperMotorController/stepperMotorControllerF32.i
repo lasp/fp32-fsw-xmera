@@ -12,10 +12,7 @@
 %template(FloatArray2) std::array<float, 2>;
 
 %include <attribute.i>
-%attribute(StepperMotorController, float, initialAngle, getInitialAngle, setInitialAngle)
 %attribute(StepperMotorController, float, stepAngle, getStepAngle, setStepAngle)
-%attribute(StepperMotorController, float, controlFrequency, getControlFrequency, setControlFrequency)
-%attribute(StepperMotorController, float, motorFrequency, getMotorFrequency, setMotorFrequency)
 %attribute(StepperMotorController, uint32_t, settleCountMax, getSettleCountMax, setSettleCountMax)
 %attribute(StepperMotorController, uint32_t, minStepCommand, getMinStepCommand, setMinStepCommand)
 
@@ -23,5 +20,6 @@
 %include "stepperMotorController.h"
 %include "stepperMotorControllerAlgorithm.h"
 
-%include "msgPayloadDef/HingedRigidBodyMsgF32Payload.h"
+%include "msgPayloadDef/MotorAngleRefMsgF32Payload.h"
 %include <architecture/msgPayloadDef/MotorStepCommandMsgPayload.h>
+%include <architecture/msgPayloadDef/StepperMotorMsgPayload.h>
