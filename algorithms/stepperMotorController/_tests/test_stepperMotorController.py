@@ -91,11 +91,11 @@ def test_stepper_motor_controller_nominal(show_plots, step_angle, theta_init_deg
     sim.ExecuteSimulation()
 
     # Compute expected steps via shortest path
-    refSteps = angle_to_steps(theta_ref_deg * macros.D2R, steps_per_rev)
-    expectedSteps = wrap_delta(refSteps - init_step, steps_per_rev)
+    ref_steps = angle_to_steps(theta_ref_deg * macros.D2R, steps_per_rev)
+    expected_steps = wrap_delta(ref_steps - init_step, steps_per_rev)
 
-    if expectedSteps != 0:
-        np.testing.assert_allclose(log.stepsCommanded[0], expectedSteps, atol=0, rtol=0)
+    if expected_steps != 0:
+        np.testing.assert_allclose(log.stepsCommanded[0], expected_steps, atol=0, rtol=0)
     else:
         np.testing.assert_allclose(log.stepsCommanded[0], 0, atol=0, rtol=0)
 
@@ -144,9 +144,9 @@ def test_stepper_motor_controller_shortest_path(show_plots, theta_init_deg, thet
     np.testing.assert_equal(np.sign(log.stepsCommanded[0]), expected_sign)
 
     # Verify magnitude via truth computation
-    refSteps = angle_to_steps(theta_ref_deg * macros.D2R, steps_per_rev)
-    expectedSteps = wrap_delta(refSteps - init_step, steps_per_rev)
-    np.testing.assert_allclose(log.stepsCommanded[0], expectedSteps, atol=0, rtol=0)
+    ref_steps = angle_to_steps(theta_ref_deg * macros.D2R, steps_per_rev)
+    expected_steps = wrap_delta(ref_steps - init_step, steps_per_rev)
+    np.testing.assert_allclose(log.stepsCommanded[0], expected_steps, atol=0, rtol=0)
 
     # Verify the magnitude is at most half a revolution (shortest path guarantee)
     np.testing.assert_array_less(np.abs(log.stepsCommanded[0]), steps_per_rev // 2 + 1)
