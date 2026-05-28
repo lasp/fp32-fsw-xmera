@@ -1,8 +1,7 @@
 #ifndef F32XMERA_MRPROTATIONALGORITHM_C_H
 #define F32XMERA_MRPROTATIONALGORITHM_C_H
 
-#include "msgPayloadDef/AttRefMsgF32Payload.h"
-#include "msgPayloadDef/AttStateMsgF32Payload.h"
+#include "mrpRotationTypes.h"
 #include "utilities/plainCAlgorithmDataTypes.h"
 #include <stdint.h>
 
@@ -59,17 +58,19 @@ void MrpRotationAlgorithm_reset(MrpRotationAlgorithmHandle* self);
 
 /**
  * @brief Advance the rotating reference frame one integration step and produce the output reference.
- * @param self      Pointer to the instance.
- * @param callTime  Time stamp for update [ns].
- * @param inputRef  Input reference frame attitude / rate / acceleration.
- * @param attStates Optional commanded MRP set / angular velocity (consumed only when the configured
- *                  dynamicReferenceEnabled flag is non-zero).
- * @return AttRefMsgF32Payload  Output reference attitude / rate / acceleration.
+ * @param self     Pointer to the instance.
+ * @param callTime Time stamp for update [ns].
+ * @param attRef   Input reference frame attitude / rate / acceleration (algorithm-native POD,
+ *                 mirrors AttRefMsgF32Payload; the caller converts at the messaging boundary).
+ * @param attState Optional commanded MRP set / angular velocity (algorithm-native POD, mirrors
+ *                 AttStateMsgF32Payload; consumed only when the configured dynamicReferenceEnabled
+ *                 flag is non-zero).
+ * @return MrpRotationOutput_c  Output reference attitude / rate / acceleration.
  */
-AttRefMsgF32Payload MrpRotationAlgorithm_update(MrpRotationAlgorithmHandle* self,
+MrpRotationOutput_c MrpRotationAlgorithm_update(MrpRotationAlgorithmHandle* self,
                                                 uint64_t callTime,
-                                                const AttRefMsgF32Payload* inputRef,
-                                                const AttStateMsgF32Payload* attStates);
+                                                const MrpRotationAttRefInputs_c* attRef,
+                                                const MrpRotationAttStateInputs_c* attState);
 
 #ifdef __cplusplus
 }  // extern "C"
