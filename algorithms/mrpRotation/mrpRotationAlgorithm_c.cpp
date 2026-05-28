@@ -41,7 +41,22 @@ AttRefMsgF32Payload MrpRotationAlgorithm_update(MrpRotationAlgorithmHandle* self
                                                 uint64_t callTime,
                                                 const AttRefMsgF32Payload* inputRef,
                                                 const AttStateMsgF32Payload* attStates) {
+    const MrpRotationAttRefInputs attRef{
+        cArrayToEigenVector(inputRef->sigma_RN),
+        cArrayToEigenVector(inputRef->omega_RN_N),
+        cArrayToEigenVector(inputRef->domega_RN_N),
+    };
+    const MrpRotationAttStateInputs attState{
+        cArrayToEigenVector(attStates->state),
+        cArrayToEigenVector(attStates->rate),
+    };
     // clang-format off
-    return reinterpret_cast<::MrpRotationAlgorithm*>(self)->update(callTime, *inputRef, *attStates);  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+    const MrpRotationOutput out = reinterpret_cast<::MrpRotationAlgorithm*>(self)->update(callTime, attRef, attState);  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
     // clang-format on
+
+    AttRefMsgF32Payload result{};
+    eigenVectorToCArray(out.sigma_RN, result.sigma_RN);
+    eigenVectorToCArray(out.omega_RN_N, result.omega_RN_N);
+    eigenVectorToCArray(out.domega_RN_N, result.domega_RN_N);
+    return result;
 }

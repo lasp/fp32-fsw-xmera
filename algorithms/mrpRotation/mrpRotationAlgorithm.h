@@ -1,12 +1,35 @@
 #ifndef F32XMERA_MRP_ROTATION_ALGORITHM_H
 #define F32XMERA_MRP_ROTATION_ALGORITHM_H
 
-#include "mrpRotationTypes.h"
-#include "msgPayloadDef/AttRefMsgF32Payload.h"
-#include "msgPayloadDef/AttStateMsgF32Payload.h"
 #include "utilities/freestandingInvalidArgument.h"
 #include <stdint.h>
 #include <Eigen/Core>
+
+/*! @brief Algorithm-native input bundle that mirrors AttRefMsgF32Payload. The adapter converts the
+ *  payload's float[3] arrays into Eigen vectors via eigenSupport.h before calling update().
+ */
+struct MrpRotationAttRefInputs {
+    Eigen::Vector3f sigma_R0N{Eigen::Vector3f::Zero()};     //!< [-] input ref MRP attitude wrt inertial N
+    Eigen::Vector3f omega_R0N_N{Eigen::Vector3f::Zero()};   //!< [rad/s] input ref angular velocity, N-frame components
+    Eigen::Vector3f domega_R0N_N{Eigen::Vector3f::Zero()};  //!< [rad/s^2] input ref angular acceleration, N-frame
+};
+
+/*! @brief Algorithm-native input bundle that mirrors AttStateMsgF32Payload. Only consumed when the
+ *  Config's dynamicReferenceEnabled flag is true; otherwise its contents are ignored.
+ */
+struct MrpRotationAttStateInputs {
+    Eigen::Vector3f cmdSigma{Eigen::Vector3f::Zero()};  //!< [-] desired attitude command MRP
+    Eigen::Vector3f cmdOmega{Eigen::Vector3f::Zero()};  //!< [rad/s] desired attitude command rate
+};
+
+/*! @brief Algorithm-native output bundle shaped like AttRefMsgF32Payload. The adapter packs these
+ *  Eigen fields back into the payload via eigenSupport.h.
+ */
+struct MrpRotationOutput {
+    Eigen::Vector3f sigma_RN{Eigen::Vector3f::Zero()};     //!< [-] output ref MRP wrt inertial N
+    Eigen::Vector3f omega_RN_N{Eigen::Vector3f::Zero()};   //!< [rad/s] output ref angular velocity, N-frame
+    Eigen::Vector3f domega_RN_N{Eigen::Vector3f::Zero()};  //!< [rad/s^2] output ref angular acceleration, N-frame
+};
 
 class MrpRotationConfig final {
    public:
@@ -48,14 +71,16 @@ class MrpRotationAlgorithm final {
     void setConfig(const MrpRotationConfig& config);
 
     void reset();
-    AttRefMsgF32Payload update(uint64_t callTime, AttRefMsgF32Payload inputRef, AttStateMsgF32Payload attStates);
+    MrpRotationOutput update(uint64_t callTime,
+                             const MrpRotationAttRefInputs& attRef,
+                             const MrpRotationAttStateInputs& attState);
 
    private:
     void checkRasterCommands();
     void computeTimeStep(uint64_t callTime);
-    AttRefMsgF32Payload computeMRPRotationReference(const Eigen::Vector3f& sigma_R0N,
-                                                    const Eigen::Vector3f& omega_R0N_N,
-                                                    const Eigen::Vector3f& domega_R0N_N);
+    MrpRotationOutput computeMRPRotationReference(const Eigen::Vector3f& sigma_R0N,
+                                                  const Eigen::Vector3f& omega_R0N_N,
+                                                  const Eigen::Vector3f& domega_R0N_N);
 
     MrpRotationConfig cfg;
 

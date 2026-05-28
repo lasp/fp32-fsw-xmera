@@ -1,10 +1,8 @@
 #ifndef TEST_MRPROTATION_H
 #define TEST_MRPROTATION_H
 
-#include "architecture/utilities/eigenSupport.h"
 #include "architecture/utilities/rigidBodyKinematics.hpp"
 #include "mrpRotationAlgorithm.h"
-#include "mrpRotationTypes.h"
 #include "utilities/freestandingInvalidArgument.h"
 #include "utilities/timeConstants.h"
 #include <gtest/gtest.h>
@@ -54,24 +52,6 @@ inline MrpRotationReferenceOutput referenceUpdate(MrpRotationReferenceState& sta
     return out;
 }
 
-// Build an AttRefMsgF32Payload from individual Eigen vectors.
-inline AttRefMsgF32Payload buildAttRef(const Eigen::Vector3f& sigma,
-                                       const Eigen::Vector3f& omega,
-                                       const Eigen::Vector3f& domega) {
-    AttRefMsgF32Payload payload{};
-    eigenVectorToCArray(sigma, payload.sigma_RN);
-    eigenVectorToCArray(omega, payload.omega_RN_N);
-    eigenVectorToCArray(domega, payload.domega_RN_N);
-    return payload;
-}
-
-inline AttStateMsgF32Payload buildAttState(const Eigen::Vector3f& state, const Eigen::Vector3f& rate) {
-    AttStateMsgF32Payload payload{};
-    eigenVectorToCArray(state, payload.state);
-    eigenVectorToCArray(rate, payload.rate);
-    return payload;
-}
-
 // ---------------------------------------------------------------------------
 // Regression test helper: drive the algorithm through several time steps and compare
 // to the reference implementation.
@@ -89,8 +69,8 @@ inline void regressionTestMrpRotation(const Eigen::Vector3f& initialSigmaRR0,
 
     MrpRotationReferenceState refState{initialSigmaRR0, omegaRR0R};
 
-    const auto inputRef = buildAttRef(sigma_R0N, omega_R0N_N, domega_R0N_N);
-    const AttStateMsgF32Payload emptyState{};
+    const MrpRotationAttRefInputs attRef{sigma_R0N, omega_R0N_N, domega_R0N_N};
+    const MrpRotationAttStateInputs emptyState{};
 
     // Start callTime at one update period (not 0). The algorithm's computeTimeStep keys off
     // priorTime: if it is exactly 0, dt is forced to 0. priorTime is set to callTime at the end of
@@ -102,14 +82,14 @@ inline void regressionTestMrpRotation(const Eigen::Vector3f& initialSigmaRR0,
     uint64_t callTime = step_ns;
     for (int k = 0; k < numSteps; ++k) {
         const float dt = (k == 0) ? 0.0F : updateTimeSec;
-        const AttRefMsgF32Payload algOut = alg.update(callTime, inputRef, emptyState);
+        const MrpRotationOutput algOut = alg.update(callTime, attRef, emptyState);
         const auto refOut = referenceUpdate(refState, sigma_R0N, omega_R0N_N, domega_R0N_N, dt);
 
         constexpr float tol = 1e-5F;
         for (int i = 0; i < 3; ++i) {
-            EXPECT_NEAR(algOut.sigma_RN[i], refOut.sigma_RN(i), tol);
-            EXPECT_NEAR(algOut.omega_RN_N[i], refOut.omega_RN_N(i), tol);
-            EXPECT_NEAR(algOut.domega_RN_N[i], refOut.domega_RN_N(i), tol);
+            EXPECT_NEAR(algOut.sigma_RN(i), refOut.sigma_RN(i), tol);
+            EXPECT_NEAR(algOut.omega_RN_N(i), refOut.omega_RN_N(i), tol);
+            EXPECT_NEAR(algOut.domega_RN_N(i), refOut.domega_RN_N(i), tol);
         }
 
         callTime += step_ns;
@@ -139,22 +119,25 @@ inline void propertyOutputIsFinite(const Eigen::Vector3f& initialSigmaRR0, const
     MrpRotationAlgorithm alg{config};
     alg.reset();
 
-    const auto inputRef =
-        buildAttRef(Eigen::Vector3f{0.1F, 0.2F, 0.3F}, Eigen::Vector3f{0.05F, 0.0F, 0.0F}, Eigen::Vector3f::Zero());
-    const AttStateMsgF32Payload emptyState{};
+    const MrpRotationAttRefInputs attRef{
+        Eigen::Vector3f{0.1F, 0.2F, 0.3F},
+        Eigen::Vector3f{0.05F, 0.0F, 0.0F},
+        Eigen::Vector3f::Zero(),
+    };
+    const MrpRotationAttStateInputs emptyState{};
 
-    AttRefMsgF32Payload out0{};
-    EXPECT_NO_THROW(out0 = alg.update(0, inputRef, emptyState));
-    AttRefMsgF32Payload out1{};
-    EXPECT_NO_THROW(out1 = alg.update(static_cast<uint64_t>(0.5 * kSec2Nano), inputRef, emptyState));
+    MrpRotationOutput out0{};
+    EXPECT_NO_THROW(out0 = alg.update(0, attRef, emptyState));
+    MrpRotationOutput out1{};
+    EXPECT_NO_THROW(out1 = alg.update(static_cast<uint64_t>(0.5 * kSec2Nano), attRef, emptyState));
 
     for (int i = 0; i < 3; ++i) {
-        EXPECT_TRUE(std::isfinite(out0.sigma_RN[i]));
-        EXPECT_TRUE(std::isfinite(out0.omega_RN_N[i]));
-        EXPECT_TRUE(std::isfinite(out0.domega_RN_N[i]));
-        EXPECT_TRUE(std::isfinite(out1.sigma_RN[i]));
-        EXPECT_TRUE(std::isfinite(out1.omega_RN_N[i]));
-        EXPECT_TRUE(std::isfinite(out1.domega_RN_N[i]));
+        EXPECT_TRUE(std::isfinite(out0.sigma_RN(i)));
+        EXPECT_TRUE(std::isfinite(out0.omega_RN_N(i)));
+        EXPECT_TRUE(std::isfinite(out0.domega_RN_N(i)));
+        EXPECT_TRUE(std::isfinite(out1.sigma_RN(i)));
+        EXPECT_TRUE(std::isfinite(out1.omega_RN_N(i)));
+        EXPECT_TRUE(std::isfinite(out1.domega_RN_N(i)));
     }
 }
 
@@ -167,10 +150,10 @@ inline void propertyFirstStepNoIntegration(const Eigen::Vector3f& initialSigmaRR
     MrpRotationAlgorithm alg{config};
     alg.reset();
 
-    const auto inputRef = buildAttRef(sigma_R0N, Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero());
-    const AttStateMsgF32Payload emptyState{};
+    const MrpRotationAttRefInputs attRef{sigma_R0N, Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero()};
+    const MrpRotationAttStateInputs emptyState{};
 
-    const AttRefMsgF32Payload out = alg.update(0, inputRef, emptyState);
+    const MrpRotationOutput out = alg.update(0, attRef, emptyState);
 
     // Mirror what the algorithm does: it always runs mrpSwitch on its internal sigma_RR0 before
     // composing with sigma_R0N, even when dt = 0. Without applying the same here, fuzz inputs
@@ -182,14 +165,13 @@ inline void propertyFirstStepNoIntegration(const Eigen::Vector3f& initialSigmaRR
 
     // dcmToMrp can pick either MRP shadow-set representative when the result is near the unit
     // boundary; both encode the same physical rotation. Accept either.
-    const Eigen::Vector3f outVec(out.sigma_RN[0], out.sigma_RN[1], out.sigma_RN[2]);
     const float expectedNormSq = expected.squaredNorm();
     const Eigen::Vector3f expectedShadow =
         (expectedNormSq > 1e-12F) ? Eigen::Vector3f(-expected / expectedNormSq) : expected;
 
     constexpr float tol = 1e-5F;
-    const float errNominal = (outVec - expected).norm();
-    const float errShadow = (outVec - expectedShadow).norm();
+    const float errNominal = (out.sigma_RN - expected).norm();
+    const float errShadow = (out.sigma_RN - expectedShadow).norm();
     EXPECT_LT(std::min(errNominal, errShadow), tol);
 }
 

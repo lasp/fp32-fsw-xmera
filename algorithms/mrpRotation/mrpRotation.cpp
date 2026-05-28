@@ -1,5 +1,6 @@
 #include "mrpRotation.h"
 #include "utilities/xmeraLifecycleException.h"
+#include <architecture/utilities/eigenSupport.h>
 #include <stdexcept>
 
 /*! @brief Validate that the required input message is linked, rebuild the algorithm's
@@ -27,14 +28,28 @@ void MrpRotation::updateState(const uint64_t callTime) {
         throw XmeraLifecycleException("MrpRotation reset() has not been called.");
     }
 
-    const AttRefMsgF32Payload inputRef = this->attRefInMsg();
-    AttStateMsgF32Payload attStates{};
-
+    const AttRefMsgF32Payload inputRefPayload = this->attRefInMsg();
+    AttStateMsgF32Payload attStatePayload{};
     if (this->desiredAttInMsg.isLinked()) {
-        attStates = this->desiredAttInMsg();
+        attStatePayload = this->desiredAttInMsg();
     }
 
-    AttRefMsgF32Payload attRefOut = this->algorithm->update(callTime, inputRef, attStates);
+    const MrpRotationAttRefInputs attRef{
+        cArrayToEigenVector(inputRefPayload.sigma_RN),
+        cArrayToEigenVector(inputRefPayload.omega_RN_N),
+        cArrayToEigenVector(inputRefPayload.domega_RN_N),
+    };
+    const MrpRotationAttStateInputs attState{
+        cArrayToEigenVector(attStatePayload.state),
+        cArrayToEigenVector(attStatePayload.rate),
+    };
+
+    const MrpRotationOutput out = this->algorithm->update(callTime, attRef, attState);
+
+    AttRefMsgF32Payload attRefOut{};
+    eigenVectorToCArray(out.sigma_RN, attRefOut.sigma_RN);
+    eigenVectorToCArray(out.omega_RN_N, attRefOut.omega_RN_N);
+    eigenVectorToCArray(out.domega_RN_N, attRefOut.domega_RN_N);
 
     /*! - write attitude guidance reference output */
     this->attRefOutMsg.write(&attRefOut, this->moduleID, callTime);

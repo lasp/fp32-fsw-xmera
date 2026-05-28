@@ -96,17 +96,17 @@ TEST(MrpRotationTest, ZeroOmegaHoldsSigmaRR0) {
     MrpRotationAlgorithm alg{cfg};
     alg.reset();
 
-    const auto inputRef = buildAttRef(Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero());
-    const AttStateMsgF32Payload emptyState{};
+    const MrpRotationAttRefInputs attRef{};
+    const MrpRotationAttStateInputs emptyState{};
 
-    const AttRefMsgF32Payload out0 = alg.update(0, inputRef, emptyState);
-    const AttRefMsgF32Payload out1 = alg.update(static_cast<uint64_t>(1.0 * kSec2Nano), inputRef, emptyState);
-    const AttRefMsgF32Payload out2 = alg.update(static_cast<uint64_t>(2.0 * kSec2Nano), inputRef, emptyState);
+    const MrpRotationOutput out0 = alg.update(0, attRef, emptyState);
+    const MrpRotationOutput out1 = alg.update(static_cast<uint64_t>(1.0 * kSec2Nano), attRef, emptyState);
+    const MrpRotationOutput out2 = alg.update(static_cast<uint64_t>(2.0 * kSec2Nano), attRef, emptyState);
 
     constexpr float tol = 1e-6F;
     for (int i = 0; i < 3; ++i) {
-        EXPECT_NEAR(out0.sigma_RN[i], out1.sigma_RN[i], tol);
-        EXPECT_NEAR(out1.sigma_RN[i], out2.sigma_RN[i], tol);
+        EXPECT_NEAR(out0.sigma_RN(i), out1.sigma_RN(i), tol);
+        EXPECT_NEAR(out1.sigma_RN(i), out2.sigma_RN(i), tol);
     }
 }
 
@@ -118,22 +118,25 @@ TEST(MrpRotationTest, ResetReseedsRuntimeState) {
     const auto cfg = MrpRotationConfig::create(initialSigmaRR0, omegaRR0R, false);
     MrpRotationAlgorithm alg{cfg};
 
-    const auto inputRef =
-        buildAttRef(Eigen::Vector3f{0.05F, 0.0F, 0.0F}, Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero());
-    const AttStateMsgF32Payload emptyState{};
+    const MrpRotationAttRefInputs attRef{
+        Eigen::Vector3f{0.05F, 0.0F, 0.0F},
+        Eigen::Vector3f::Zero(),
+        Eigen::Vector3f::Zero(),
+    };
+    const MrpRotationAttStateInputs emptyState{};
 
     alg.reset();
-    const AttRefMsgF32Payload first0 = alg.update(0, inputRef, emptyState);
-    const AttRefMsgF32Payload first1 = alg.update(static_cast<uint64_t>(0.5 * kSec2Nano), inputRef, emptyState);
+    const MrpRotationOutput first0 = alg.update(0, attRef, emptyState);
+    const MrpRotationOutput first1 = alg.update(static_cast<uint64_t>(0.5 * kSec2Nano), attRef, emptyState);
 
     alg.reset();
-    const AttRefMsgF32Payload second0 = alg.update(0, inputRef, emptyState);
-    const AttRefMsgF32Payload second1 = alg.update(static_cast<uint64_t>(0.5 * kSec2Nano), inputRef, emptyState);
+    const MrpRotationOutput second0 = alg.update(0, attRef, emptyState);
+    const MrpRotationOutput second1 = alg.update(static_cast<uint64_t>(0.5 * kSec2Nano), attRef, emptyState);
 
     constexpr float tol = 1e-6F;
     for (int i = 0; i < 3; ++i) {
-        EXPECT_NEAR(first0.sigma_RN[i], second0.sigma_RN[i], tol);
-        EXPECT_NEAR(first1.sigma_RN[i], second1.sigma_RN[i], tol);
+        EXPECT_NEAR(first0.sigma_RN(i), second0.sigma_RN(i), tol);
+        EXPECT_NEAR(first1.sigma_RN(i), second1.sigma_RN(i), tol);
     }
 }
 
@@ -146,21 +149,21 @@ TEST(MrpRotationTest, DynamicReferenceLatchesNewCommand) {
     MrpRotationAlgorithm alg{cfg};
     alg.reset();
 
-    const auto inputRef = buildAttRef(Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero());
+    const MrpRotationAttRefInputs attRef{};
 
     // First update: zero command -- algorithm sigma_RR0 stays at the initial value (zero).
-    const auto cmd0 = buildAttState(Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero());
-    const AttRefMsgF32Payload out0 = alg.update(0, inputRef, cmd0);
+    const MrpRotationAttStateInputs cmd0{};
+    const MrpRotationOutput out0 = alg.update(0, attRef, cmd0);
     for (int i = 0; i < 3; ++i) {
-        EXPECT_NEAR(out0.sigma_RN[i], 0.0F, 1e-6F);
+        EXPECT_NEAR(out0.sigma_RN(i), 0.0F, 1e-6F);
     }
 
     // Second update: a new command is provided; latched sigma_RR0 holds the new set when
     // the commanded rate is zero.
-    const auto cmd1 = buildAttState(Eigen::Vector3f{0.4F, 0.0F, 0.0F}, Eigen::Vector3f::Zero());
-    const AttRefMsgF32Payload out1 = alg.update(static_cast<uint64_t>(0.5 * kSec2Nano), inputRef, cmd1);
+    const MrpRotationAttStateInputs cmd1{Eigen::Vector3f{0.4F, 0.0F, 0.0F}, Eigen::Vector3f::Zero()};
+    const MrpRotationOutput out1 = alg.update(static_cast<uint64_t>(0.5 * kSec2Nano), attRef, cmd1);
 
-    EXPECT_NEAR(out1.sigma_RN[0], 0.4F, 1e-5F);
-    EXPECT_NEAR(out1.sigma_RN[1], 0.0F, 1e-5F);
-    EXPECT_NEAR(out1.sigma_RN[2], 0.0F, 1e-5F);
+    EXPECT_NEAR(out1.sigma_RN(0), 0.4F, 1e-5F);
+    EXPECT_NEAR(out1.sigma_RN(1), 0.0F, 1e-5F);
+    EXPECT_NEAR(out1.sigma_RN(2), 0.0F, 1e-5F);
 }

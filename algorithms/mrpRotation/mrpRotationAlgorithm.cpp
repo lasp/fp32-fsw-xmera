@@ -1,6 +1,5 @@
 #include "mrpRotationAlgorithm.h"
 #include "utilities/timeConstants.h"
-#include <architecture/utilities/eigenSupport.h>
 #include <architecture/utilities/rigidBodyKinematics.hpp>
 
 /*! @brief Construct the algorithm with a validated configuration. Seeds the integrating runtime
@@ -32,20 +31,21 @@ void MrpRotationAlgorithm::reset() {
 /*! @brief Take the input attitude reference frame and superimpose the algorithm's MRP rotation on
  top of it, advancing sigma_RR0 one Euler step and emitting the output reference frame.
  @param callTime The clock time at which the function was called (nanoseconds).
- @param inputRef Guidance reference input message (sigma_R0N, omega_R0N_N, domega_R0N_N).
- @param attStates Optional commanded MRP set / angular velocity, consumed only when the configured
-                  dynamicReferenceEnabled flag is true.
- @return AttRefMsgF32Payload Output reference frame R: sigma_RN, omega_RN_N, domega_RN_N.
+ @param attRef Guidance reference input (sigma_R0N, omega_R0N_N, domega_R0N_N), already converted to Eigen by the
+ adapter.
+ @param attState Optional commanded MRP set / angular velocity, consumed only when the configured
+                 dynamicReferenceEnabled flag is true.
+ @return MrpRotationOutput Output reference frame R: sigma_RN, omega_RN_N, domega_RN_N.
  */
-AttRefMsgF32Payload MrpRotationAlgorithm::update(const uint64_t callTime,
-                                                 const AttRefMsgF32Payload inputRef,
-                                                 const AttStateMsgF32Payload attStates) {
+MrpRotationOutput MrpRotationAlgorithm::update(const uint64_t callTime,
+                                               const MrpRotationAttRefInputs& attRef,
+                                               const MrpRotationAttStateInputs& attState) {
     /*! - Check if a desired attitude configuration message exists. This allows for dynamic changes to the desired MRP
      * rotation */
     if (this->cfg.getDynamicReferenceEnabled()) {
         /* - Save commanded MRP set and body rates */
-        this->cmdSet = Eigen::Map<const Eigen::Vector3f>(attStates.state);
-        this->cmdRates = Eigen::Map<const Eigen::Vector3f>(attStates.rate);
+        this->cmdSet = attState.cmdSigma;
+        this->cmdRates = attState.cmdOmega;
         /* - Check the command is new */
         this->checkRasterCommands();
     }
@@ -53,17 +53,14 @@ AttRefMsgF32Payload MrpRotationAlgorithm::update(const uint64_t callTime,
     /*! - Compute time step to use in the integration downstream */
     this->computeTimeStep(callTime);
 
-    const Eigen::Vector3f sigma_RN = Eigen::Map<const Eigen::Vector3f>(inputRef.sigma_RN);
-    const Eigen::Vector3f omega_RN_N = Eigen::Map<const Eigen::Vector3f>(inputRef.omega_RN_N);
-    const Eigen::Vector3f domega_RN_N = Eigen::Map<const Eigen::Vector3f>(inputRef.domega_RN_N);
-
     /*! - Compute output reference frame */
-    const AttRefMsgF32Payload attRefOut = this->computeMRPRotationReference(sigma_RN, omega_RN_N, domega_RN_N);
+    const MrpRotationOutput out =
+        this->computeMRPRotationReference(attRef.sigma_R0N, attRef.omega_R0N_N, attRef.domega_R0N_N);
 
     /*! - Update last time the module was called to current call time */
     this->priorTime = callTime;
 
-    return attRefOut;
+    return out;
 }
 
 /*! @brief Detect a change in the commanded raster MRP set / rate (componentwise abs >
@@ -107,14 +104,14 @@ void MrpRotationAlgorithm::computeTimeStep(const uint64_t callTime) {
  @param sigma_R0N Input reference attitude as MRPs.
  @param omega_R0N_N Input reference frame angular velocity in inertial-frame components [rad/s].
  @param domega_R0N_N Input reference frame angular acceleration in inertial-frame components [rad/s^2].
- @return AttRefMsgF32Payload The output reference frame (sigma_RN, omega_RN_N, domega_RN_N).
+ @return MrpRotationOutput The output reference frame (sigma_RN, omega_RN_N, domega_RN_N).
  */
 // NOLINTBEGIN(bugprone-easily-swappable-parameters)
 // sigma_R0N (attitude MRP), omega_R0N_N (angular velocity), and domega_R0N_N (angular acceleration) are physically
 // distinct quantities with documented names; reordering would be caught by reviewers and tests.
-AttRefMsgF32Payload MrpRotationAlgorithm::computeMRPRotationReference(const Eigen::Vector3f& sigma_R0N,
-                                                                      const Eigen::Vector3f& omega_R0N_N,
-                                                                      const Eigen::Vector3f& domega_R0N_N) {
+MrpRotationOutput MrpRotationAlgorithm::computeMRPRotationReference(const Eigen::Vector3f& sigma_R0N,
+                                                                    const Eigen::Vector3f& omega_R0N_N,
+                                                                    const Eigen::Vector3f& domega_R0N_N) {
     // NOLINTEND(bugprone-easily-swappable-parameters)
     constexpr float kMrpKinematicGain = 0.25F;
     constexpr float kMrpShadowSwitchNorm = 1.0F;
@@ -128,19 +125,12 @@ AttRefMsgF32Payload MrpRotationAlgorithm::computeMRPRotationReference(const Eige
     const Eigen::Matrix3f dcm_R0N = mrpToDcm(sigma_R0N);
     const Eigen::Matrix3f dcm_RN = dcm_RR0 * dcm_R0N;
 
-    const Eigen::Vector3f sigma_RN = dcmToMrp(dcm_RN);
-
     const Eigen::Vector3f omega_RR0_N = dcm_RN.transpose() * this->omega_RR0_R;
-    const Eigen::Vector3f omega_RN_N = omega_RR0_N + omega_R0N_N;
-
     const Eigen::Vector3f domega_RR0_N = omega_R0N_N.cross(omega_RR0_N);
-    const Eigen::Vector3f domega_RN_N = domega_RR0_N + domega_R0N_N;
 
-    AttRefMsgF32Payload attRefOut{};
-
-    eigenVectorToCArray(sigma_RN, attRefOut.sigma_RN);
-    eigenVectorToCArray(omega_RN_N, attRefOut.omega_RN_N);
-    eigenVectorToCArray(domega_RN_N, attRefOut.domega_RN_N);
-
-    return attRefOut;
+    return MrpRotationOutput{
+        dcmToMrp(dcm_RN),
+        omega_RR0_N + omega_R0N_N,
+        domega_RR0_N + domega_R0N_N,
+    };
 }
