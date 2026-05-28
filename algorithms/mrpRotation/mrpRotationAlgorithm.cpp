@@ -1,5 +1,4 @@
 #include "mrpRotationAlgorithm.h"
-#include "utilities/timeConstants.h"
 #include <architecture/utilities/rigidBodyKinematics.hpp>
 
 /*! @brief Construct the algorithm with a validated configuration. Seeds the integrating runtime
@@ -17,11 +16,10 @@ MrpRotationAlgorithm::MrpRotationAlgorithm(const MrpRotationConfig& config)
  */
 void MrpRotationAlgorithm::setConfig(const MrpRotationConfig& config) { this->cfg = config; }
 
-/*! @brief Reset the algorithm: clear the integration timing state, the prior-command latches, and
- re-seed the active sigma_RR0 / omega_RR0_R from the configured initial values.
+/*! @brief Reset the algorithm: clear the prior-command latches and re-seed the active sigma_RR0 /
+ omega_RR0_R from the configured initial values.
  */
 void MrpRotationAlgorithm::reset() {
-    this->priorTime = 0;
     this->priorCmdSet = Eigen::Vector3f::Zero();
     this->priorCmdRates = Eigen::Vector3f::Zero();
     this->sigma_RR0 = this->cfg.getInitialSigmaRR0();
@@ -29,16 +27,15 @@ void MrpRotationAlgorithm::reset() {
 }
 
 /*! @brief Take the input attitude reference frame and superimpose the algorithm's MRP rotation on
- top of it, advancing sigma_RR0 one Euler step and emitting the output reference frame.
- @param callTime The clock time at which the function was called (nanoseconds).
+ top of it, advancing sigma_RR0 one forward-Euler step (using the configured controlPeriod as dt)
+ and emitting the output reference frame.
  @param attRef Guidance reference input (sigma_R0N, omega_R0N_N, domega_R0N_N), already converted to Eigen by the
  adapter.
  @param attState Optional commanded MRP set / angular velocity, consumed only when the configured
                  dynamicReferenceEnabled flag is true.
  @return MrpRotationOutput Output reference frame R: sigma_RN, omega_RN_N, domega_RN_N.
  */
-MrpRotationOutput MrpRotationAlgorithm::update(const uint64_t callTime,
-                                               const MrpRotationAttRefInputs& attRef,
+MrpRotationOutput MrpRotationAlgorithm::update(const MrpRotationAttRefInputs& attRef,
                                                const MrpRotationAttStateInputs& attState) {
     /*! - Check if a desired attitude configuration message exists. This allows for dynamic changes to the desired MRP
      * rotation */
@@ -50,17 +47,8 @@ MrpRotationOutput MrpRotationAlgorithm::update(const uint64_t callTime,
         this->checkRasterCommands();
     }
 
-    /*! - Compute time step to use in the integration downstream */
-    this->computeTimeStep(callTime);
-
     /*! - Compute output reference frame */
-    const MrpRotationOutput out =
-        this->computeMRPRotationReference(attRef.sigma_R0N, attRef.omega_R0N_N, attRef.domega_R0N_N);
-
-    /*! - Update last time the module was called to current call time */
-    this->priorTime = callTime;
-
-    return out;
+    return this->computeMRPRotationReference(attRef.sigma_R0N, attRef.omega_R0N_N, attRef.domega_R0N_N);
 }
 
 /*! @brief Detect a change in the commanded raster MRP set / rate (componentwise abs >
@@ -81,19 +69,6 @@ void MrpRotationAlgorithm::checkRasterCommands() {
         /*! - reset the prior commanded attitude state variables */
         this->priorCmdSet = this->cmdSet;
         this->priorCmdRates = this->cmdRates;
-    }
-}
-
-/*! @brief Derive the integration time step dt from callTime - priorTime. On the first call after
- reset() priorTime is 0, forcing dt to 0 so the integrator does not advance until a second sample
- is available.
- @param callTime The clock time at which the function was called (nanoseconds).
-*/
-void MrpRotationAlgorithm::computeTimeStep(const uint64_t callTime) {
-    if (this->priorTime == 0) {
-        this->dt = 0.0F;
-    } else {
-        this->dt = static_cast<float>(callTime - this->priorTime) * kNano2SecF;
     }
 }
 
@@ -119,7 +94,7 @@ MrpRotationOutput MrpRotationAlgorithm::computeMRPRotationReference(const Eigen:
     /*! - Compute attitude reference frame R/N information */
     const Eigen::Matrix3f B = bmatMrp(this->sigma_RR0);
     const Eigen::Vector3f sigmaDot_RR0 = kMrpKinematicGain * B * this->omega_RR0_R;
-    const Eigen::Vector3f mrpSetNew = this->sigma_RR0 + sigmaDot_RR0 * this->dt;
+    const Eigen::Vector3f mrpSetNew = this->sigma_RR0 + (sigmaDot_RR0 * this->cfg.getControlPeriod());
     this->sigma_RR0 = mrpSwitch(mrpSetNew, kMrpShadowSwitchNorm);
 
     const Eigen::Matrix3f dcm_RR0 = mrpToDcm(this->sigma_RR0);

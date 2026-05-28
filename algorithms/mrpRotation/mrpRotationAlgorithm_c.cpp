@@ -9,6 +9,7 @@ namespace {
 MrpRotationConfig configFromC(const MrpRotationConfig_c& c) {
     return MrpRotationConfig::create(cArrayToEigenVector3<float>(c.initialSigmaRR0.data),
                                      cArrayToEigenVector3<float>(c.omegaRR0R.data),
+                                     c.controlPeriod,
                                      c.dynamicReferenceEnabled != 0);
 }
 
@@ -61,11 +62,10 @@ void MrpRotationAlgorithm_reset(MrpRotationAlgorithmHandle* self) {
 }
 
 MrpRotationOutput_c MrpRotationAlgorithm_update(MrpRotationAlgorithmHandle* self,
-                                                uint64_t callTime,
                                                 const MrpRotationAttRefInputs_c* attRef,
                                                 const MrpRotationAttStateInputs_c* attState) {
     // clang-format off
-    const MrpRotationOutput out = reinterpret_cast<::MrpRotationAlgorithm*>(self)->update(callTime, attRefFromC(*attRef), attStateFromC(*attState));  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+    const MrpRotationOutput out = reinterpret_cast<::MrpRotationAlgorithm*>(self)->update(attRefFromC(*attRef), attStateFromC(*attState));  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
     // clang-format on
     return outputToC(out);
 }

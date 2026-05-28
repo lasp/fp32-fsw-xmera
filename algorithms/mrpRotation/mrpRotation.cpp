@@ -14,7 +14,8 @@ void MrpRotation::reset(const uint64_t callTime) {
         throw std::invalid_argument("mrpRotation.attRefInMsg wasn't connected.");
     }
 
-    auto config = MrpRotationConfig::create(this->sigma_RR0, this->omega_RR0_R, this->desiredAttInMsg.isLinked());
+    auto config = MrpRotationConfig::create(
+        this->sigma_RR0, this->omega_RR0_R, this->controlPeriod, this->desiredAttInMsg.isLinked());
     this->algorithm = std::make_unique<MrpRotationAlgorithm>(config);
     this->algorithm->reset();
 }
@@ -44,7 +45,7 @@ void MrpRotation::updateState(const uint64_t callTime) {
         cArrayToEigenVector(attStatePayload.rate),
     };
 
-    const MrpRotationOutput out = this->algorithm->update(callTime, attRef, attState);
+    const MrpRotationOutput out = this->algorithm->update(attRef, attState);
 
     AttRefMsgF32Payload attRefOut{};
     eigenVectorToCArray(out.sigma_RN, attRefOut.sigma_RN);

@@ -22,6 +22,7 @@ class MrpRotation final : public SysModel {
     // Phase 1: public config properties -- set before reset().
     Eigen::Vector3f sigma_RR0 = Eigen::Vector3f::Zero();    //!< [-] initial MRP attitude relative to input reference
     Eigen::Vector3f omega_RR0_R = Eigen::Vector3f::Zero();  //!< [rad/s] constant angular velocity in R-frame components
+    float controlPeriod = 0.0F;  //!< [s] integration step used by the algorithm (must be > 0)
 
     Message<AttRefMsgF32Payload> attRefOutMsg;           //!< output message containing the Reference
     ReadFunctor<AttRefMsgF32Payload> attRefInMsg;        //!< guidance reference input message

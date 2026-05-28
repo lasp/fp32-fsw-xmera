@@ -83,6 +83,13 @@ The adapter consumes the following messages and exposes the configuration as pub
       - [rad/s]
       - zero
       - Components must be finite (``allFinite``)
+    * - controlPeriod
+      - float
+      - [s]
+      - 0.0 (invalid)
+      - Must be ``> 0`` (the validator also rejects NaN). Used directly as the forward-Euler
+        integration step on every ``update()``; the caller must set this before ``reset()`` runs --
+        typically to the simulation task's update rate.
 
 Two-Phase Initialization
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -95,6 +102,7 @@ inputs and constructs the algorithm. ``updateState()`` throws ``XmeraLifecycleEx
     module.modelTag = "mrpRotation"
     module.sigma_RR0 = [0.3, 0.5, 0.0]
     module.omega_RR0_R = [0.001745, 0.0, 0.0]   # ~0.1 deg/s about x in R-frame
+    module.controlPeriod = 0.5                  # [s] forward-Euler integration step; required (> 0)
 
     module.attRefInMsg.subscribeTo(att_ref_msg)
     # Optional: connect to enable dynamic-reference latching
@@ -126,15 +134,15 @@ The output reference frame :math:`\mathcal R` is constructed so that
    \end{align}
 
 The MRP set :math:`\mathbf\sigma_{R/R_0}` is propagated each cycle using forward Euler integration with the integration
-step :math:`\Delta t = (\texttt{callTime} - \texttt{priorTime}) \cdot 10^{-9}\text{ s}`:
+step :math:`\Delta t` taken directly from the configured ``controlPeriod``:
 
 .. math::
    \mathbf\sigma_{R/R_0}(t_{k+1}) = \texttt{mrpSwitch}\!\left(\mathbf\sigma_{R/R_0}(t_k) + \Delta t \cdot
    \dot{\mathbf\sigma}_{R/R_0},\ 1\right)
 
 ``mrpSwitch`` maps the MRP to the shadow set when the result has norm greater than one, ensuring the representation
-stays bounded. On the first call after ``reset()``, ``priorTime`` is zero so :math:`\Delta t = 0` and the MRP is not
-advanced.
+stays bounded. Every ``update()`` advances the MRP by ``controlPeriod``; the caller is responsible for setting
+``controlPeriod`` to match the rate at which ``update()`` is invoked (typically the simulation task rate).
 
 The current DCM of the :math:`\mathcal R`-frame is
 
@@ -174,8 +182,9 @@ This allows operators to re-target the rotation at runtime without resetting the
 Module Assumptions and Limitations
 ----------------------------------
 
-- On reset, the integration step :math:`\Delta t` is zero for the first update because ``priorTime`` is cleared. The
-  rotation begins to advance only on the second update.
+- Every ``update()`` advances the MRP by the configured ``controlPeriod``; there is no first-update "warm-up" tick.
+  The caller must set ``controlPeriod`` to match the rate at which the adapter is being driven (e.g. the simulation
+  task rate), otherwise the integrated reference frame will drift relative to true wall-clock time.
 - If ``desiredAttInMsg`` is connected, the commanded values are checked each update cycle. On reset, the prior-command
   state is cleared so a fresh non-zero command is treated as new.
 - If ``desiredAttInMsg`` is not connected, the configured ``sigma_RR0`` and ``omega_RR0_R`` persist across resets unless

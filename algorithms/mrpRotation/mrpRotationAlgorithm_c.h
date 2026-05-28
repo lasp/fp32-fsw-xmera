@@ -21,11 +21,13 @@ typedef struct MrpRotationAlgorithmHandle MrpRotationAlgorithmHandle;
  * side validates each field via MrpRotationConfig::create and throws on invalid input.
  *  - initialSigmaRR0 must be finite
  *  - omegaRR0R must be finite
+ *  - controlPeriod [s] must be > 0; used as the forward-Euler integration step every update
  *  - dynamicReferenceEnabled is unconstrained (interpreted as boolean: zero = disabled, non-zero = enabled)
  */
 typedef struct {
     Vector3f_c initialSigmaRR0;
     Vector3f_c omegaRR0R;
+    float controlPeriod;
     int dynamicReferenceEnabled;
 } MrpRotationConfig_c;
 
@@ -57,9 +59,9 @@ void MrpRotationAlgorithm_setConfig(MrpRotationAlgorithmHandle* self, const MrpR
 void MrpRotationAlgorithm_reset(MrpRotationAlgorithmHandle* self);
 
 /**
- * @brief Advance the rotating reference frame one integration step and produce the output reference.
+ * @brief Advance the rotating reference frame one integration step (dt = configured controlPeriod)
+ *        and produce the output reference.
  * @param self     Pointer to the instance.
- * @param callTime Time stamp for update [ns].
  * @param attRef   Input reference frame attitude / rate / acceleration (algorithm-native POD,
  *                 mirrors AttRefMsgF32Payload; the caller converts at the messaging boundary).
  * @param attState Optional commanded MRP set / angular velocity (algorithm-native POD, mirrors
@@ -68,7 +70,6 @@ void MrpRotationAlgorithm_reset(MrpRotationAlgorithmHandle* self);
  * @return MrpRotationOutput_c  Output reference attitude / rate / acceleration.
  */
 MrpRotationOutput_c MrpRotationAlgorithm_update(MrpRotationAlgorithmHandle* self,
-                                                uint64_t callTime,
                                                 const MrpRotationAttRefInputs_c* attRef,
                                                 const MrpRotationAttStateInputs_c* attState);
 

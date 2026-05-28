@@ -15,103 +15,54 @@ from xmera.utilities import RigidBodyKinematics as rbk
 from xmera.architecture import messaging
 
 
-def compute_truth(sigma_RR0, omega_RR0_R, ref_state_in_data, dt, cmd_state_flag, test_reset):
+def compute_truth(sigma_RR0_init, omega_RR0_R, ref_state_in_data, dt, num_steps_pre_reset, num_steps_post_reset):
+    """Each tick advances sigma_RR0 by the configured controlPeriod (dt) and emits the output frame.
+    The algorithm integrates BEFORE computing the output, so tick k uses sigma_RR0(k+1) = sigma_RR0(k) + dt * sigmaDot.
+    """
+    sigma_R0N = np.array(ref_state_in_data.sigma_RN)
+    R0N = rbk.MRP2C(sigma_R0N)
+    omega_R0N_N = np.array(ref_state_in_data.omega_RN_N)
+    domega_R0N_N = np.array(ref_state_in_data.domega_RN_N)
+    omega_RR0_R = np.array(omega_RR0_R)
+
     truth_sigma = []
     truth_omega_RN_N = []
     truth_domega_RN_N = []
 
-    sigma_R0N = ref_state_in_data.sigma_RN
-    R0N = rbk.MRP2C(sigma_R0N)
-    omega_R0N_N = ref_state_in_data.omega_RN_N
-    domega_R0N_N = ref_state_in_data.domega_RN_N
-
-    # compute 0th time step
-    s0 = np.array(sigma_RR0)
-    s1 = rbk.addMRP(np.array(sigma_R0N), np.array(sigma_RR0))
-    RR0 = rbk.MRP2C(sigma_RR0)
-    RN = np.dot(RR0, R0N)
-
-    omega_RR0_N = np.dot(RN.T, omega_RR0_R)
-    omega_RN_N = omega_RR0_N + omega_R0N_N
-
-    domega_RR0_N = np.cross(omega_R0N_N, omega_RR0_N)
-    domega_RN_N = domega_RR0_N + domega_R0N_N
-
-    truth_sigma.append(s1.tolist())
-    truth_omega_RN_N.append(omega_RN_N.tolist())
-    truth_domega_RN_N.append(domega_RN_N.tolist())
-    truth_sigma.append(s1.tolist())
-    truth_omega_RN_N.append(omega_RN_N.tolist())
-    truth_domega_RN_N.append(domega_RN_N.tolist())
-
-    # compute 1st time step
-    B = rbk.BmatMRP(sigma_RR0)
-    sigma_RR0 += dt * 0.25 * np.dot(B, omega_RR0_R)
-    RR0 = rbk.MRP2C(sigma_RR0)
-    RN = np.dot(RR0, R0N)
-    sigma_RN = rbk.C2MRP(RN)
-    truth_sigma.append(sigma_RN.tolist())
-
-    omega_RR0_N = np.dot(RN.T, omega_RR0_R)
-    omega_RN_N = omega_RR0_N + omega_R0N_N
-    truth_omega_RN_N.append(omega_RN_N.tolist())
-
-    domega_RR0_N = np.cross(omega_R0N_N, omega_RR0_N)
-    domega_RN_N = domega_RR0_N + domega_R0N_N
-    truth_domega_RN_N.append(domega_RN_N.tolist())
-
-    # compute 2nd time step
-    B = rbk.BmatMRP(sigma_RR0)
-    sigma_RR0 += dt * 0.25 * np.dot(B, omega_RR0_R)
-    RR0 = rbk.MRP2C(sigma_RR0)
-    RN = np.dot(RR0, R0N)
-    sigma_RN = rbk.C2MRP(RN)
-    truth_sigma.append(sigma_RN.tolist())
-
-    omega_RR0_N = np.dot(RN.T, omega_RR0_R)
-    omega_RN_N = omega_RR0_N + omega_R0N_N
-    truth_omega_RN_N.append(omega_RN_N.tolist())
-
-    domega_RR0_N = np.cross(omega_R0N_N, omega_RR0_N)
-    domega_RN_N = domega_RR0_N + domega_R0N_N
-    truth_domega_RN_N.append(domega_RN_N.tolist())
-
-    # Testing Reset function. The fp32 refactor moved sigma_RR0 / omega_RR0_R into a validated
-    # Config and reset() now re-seeds the algorithm's runtime state from the configured initial
-    # values; that is true regardless of whether the dynamic-reference command path is wired up.
-    # The original Xmera mrpRotation only re-seeded when the cmd path was active.
-    if test_reset:
-        sigma_RR0 = s0
-        # compute 0th time step
-        s1 = rbk.addMRP(np.array(sigma_R0N), np.array(sigma_RR0))
-        RR0 = rbk.MRP2C(sigma_RR0)
-        RN = np.dot(RR0, R0N)
-
-        omega_RR0_N = np.dot(RN.T, omega_RR0_R)
-        omega_RN_N = omega_RR0_N + omega_R0N_N
-
-        domega_RR0_N = np.cross(omega_R0N_N, omega_RR0_N)
-        domega_RN_N = domega_RR0_N + domega_R0N_N
-
-        truth_sigma.append(s1.tolist())
-        truth_omega_RN_N.append(omega_RN_N.tolist())
-        truth_domega_RN_N.append(domega_RN_N.tolist())
-
-        # compute 1st time step
+    def integrate_and_emit(sigma_RR0):
+        # Forward-Euler MRP integration with mrpSwitch (shadow set when |sigma| > 1).
         B = rbk.BmatMRP(sigma_RR0)
-        sigma_RR0 += dt * 0.25 * np.dot(B, omega_RR0_R)
-        RR0 = rbk.MRP2C(sigma_RR0)
+        sigma_RR0_new = sigma_RR0 + dt * 0.25 * np.dot(B, omega_RR0_R)
+        n_sq = float(np.dot(sigma_RR0_new, sigma_RR0_new))
+        if n_sq > 1.0:
+            sigma_RR0_new = -sigma_RR0_new / n_sq
+        # Output uses the post-integration sigma_RR0.
+        RR0 = rbk.MRP2C(sigma_RR0_new)
         RN = np.dot(RR0, R0N)
         sigma_RN = rbk.C2MRP(RN)
-        truth_sigma.append(sigma_RN.tolist())
-
         omega_RR0_N = np.dot(RN.T, omega_RR0_R)
         omega_RN_N = omega_RR0_N + omega_R0N_N
-        truth_omega_RN_N.append(omega_RN_N.tolist())
-
         domega_RR0_N = np.cross(omega_R0N_N, omega_RR0_N)
         domega_RN_N = domega_RR0_N + domega_R0N_N
+        return sigma_RR0_new, sigma_RN, omega_RN_N, domega_RN_N
+
+    sigma_RR0 = np.array(sigma_RR0_init, dtype=float)
+    for _ in range(num_steps_pre_reset):
+        sigma_RR0, sigma_RN, omega_RN_N, domega_RN_N = integrate_and_emit(sigma_RR0)
+        truth_sigma.append(sigma_RN.tolist())
+        truth_omega_RN_N.append(omega_RN_N.tolist())
         truth_domega_RN_N.append(domega_RN_N.tolist())
+
+    # reset() re-seeds the algorithm's runtime sigma_RR0 / omega_RR0_R from the configured initial
+    # values (the fp32 refactor made this true regardless of whether the dynamic-reference cmd path
+    # is wired up). The Python sigma_RR0_init carries the effective seed value for both cases.
+    if num_steps_post_reset > 0:
+        sigma_RR0 = np.array(sigma_RR0_init, dtype=float)
+        for _ in range(num_steps_post_reset):
+            sigma_RR0, sigma_RN, omega_RN_N, domega_RN_N = integrate_and_emit(sigma_RR0)
+            truth_sigma.append(sigma_RN.tolist())
+            truth_omega_RN_N.append(omega_RN_N.tolist())
+            truth_domega_RN_N.append(domega_RN_N.tolist())
 
     return truth_sigma, truth_omega_RN_N, truth_domega_RN_N
 
@@ -141,6 +92,7 @@ def test_mrp_rotation(show_plots, cmd_state_flag, test_reset):
     module.sigma_RR0 = sigma_RR0
     omega_RR0_R = np.array([0.1, 0.0, 0.0]) * mc.D2R
     module.omega_RR0_R = omega_RR0_R
+    module.controlPeriod = update_time
 
     if cmd_state_flag:
         desired_att = messaging.AttStateMsgF32Payload()
@@ -173,8 +125,13 @@ def test_mrp_rotation(show_plots, cmd_state_flag, test_reset):
         unit_test_sim.ConfigureStopTime(mc.sec2nano(total_test_sim_time + 1.0))
         unit_test_sim.ExecuteSimulation()
 
+    # Tick count: tasks at rate update_time fire at t=0, dt, 2*dt, ..., total_test_sim_time → that's
+    # (total_test_sim_time / update_time) + 1 ticks. Reset adds 1.0s of additional sim → 1.0/update_time more.
+    num_steps_pre_reset = int(round(total_test_sim_time / update_time)) + 1
+    num_steps_post_reset = int(round(1.0 / update_time)) if test_reset else 0
+
     sigma_RN_true, omega_RN_true, dOmega_RN_true = compute_truth(
-        sigma_RR0, omega_RR0_R, ref_state_in_data, update_time, cmd_state_flag, test_reset
+        sigma_RR0, omega_RR0_R, ref_state_in_data, update_time, num_steps_pre_reset, num_steps_post_reset
     )
 
     accuracy = 1e-6

@@ -34,30 +34,40 @@ TEST(MrpRotationTest, RegressionSpinningInputFrame) {
 TEST(MrpRotationConfigTest, RejectsNonFiniteInitialSigma) {
     const Eigen::Vector3f bad{std::nanf(""), 0.0F, 0.0F};
     const Eigen::Vector3f goodOmega = Eigen::Vector3f::Zero();
-    EXPECT_THROW(MrpRotationConfig::create(bad, goodOmega, false), fsw::invalid_argument);
+    EXPECT_THROW(MrpRotationConfig::create(bad, goodOmega, 0.5F, false), fsw::invalid_argument);
 }
 
 TEST(MrpRotationConfigTest, RejectsNonFiniteOmega) {
     const Eigen::Vector3f goodSigma = Eigen::Vector3f::Zero();
     const Eigen::Vector3f bad{0.0F, std::numeric_limits<float>::infinity(), 0.0F};
-    EXPECT_THROW(MrpRotationConfig::create(goodSigma, bad, false), fsw::invalid_argument);
+    EXPECT_THROW(MrpRotationConfig::create(goodSigma, bad, 0.5F, false), fsw::invalid_argument);
+}
+
+TEST(MrpRotationConfigTest, RejectsNonPositiveControlPeriod) {
+    const Eigen::Vector3f goodSigma = Eigen::Vector3f::Zero();
+    const Eigen::Vector3f goodOmega = Eigen::Vector3f::Zero();
+    EXPECT_THROW(MrpRotationConfig::create(goodSigma, goodOmega, 0.0F, false), fsw::invalid_argument);
+    EXPECT_THROW(MrpRotationConfig::create(goodSigma, goodOmega, -0.1F, false), fsw::invalid_argument);
+    EXPECT_THROW(MrpRotationConfig::create(goodSigma, goodOmega, std::nanf(""), false), fsw::invalid_argument);
 }
 
 TEST(MrpRotationConfigTest, AcceptsFiniteInputs) {
     const Eigen::Vector3f sigma{0.1F, 0.2F, 0.3F};
     const Eigen::Vector3f omega{0.01F, 0.0F, -0.02F};
-    EXPECT_NO_THROW(MrpRotationConfig::create(sigma, omega, true));
+    EXPECT_NO_THROW(MrpRotationConfig::create(sigma, omega, 0.5F, true));
 }
 
 TEST(MrpRotationConfigTest, GettersRoundTrip) {
     const Eigen::Vector3f sigma{0.1F, 0.2F, 0.3F};
     const Eigen::Vector3f omega{0.01F, 0.02F, 0.03F};
-    const auto cfg = MrpRotationConfig::create(sigma, omega, true);
+    constexpr float controlPeriod = 0.25F;
+    const auto cfg = MrpRotationConfig::create(sigma, omega, controlPeriod, true);
 
     for (int i = 0; i < 3; ++i) {
         EXPECT_FLOAT_EQ(cfg.getInitialSigmaRR0()(i), sigma(i));
         EXPECT_FLOAT_EQ(cfg.getOmegaRR0R()(i), omega(i));
     }
+    EXPECT_FLOAT_EQ(cfg.getControlPeriod(), controlPeriod);
     EXPECT_TRUE(cfg.getDynamicReferenceEnabled());
 }
 
@@ -69,6 +79,13 @@ TEST(MrpRotationConfigTest, IsValidValidatorsHonorContracts) {
     EXPECT_TRUE(MrpRotationConfig::isValidOmegaRR0R(Eigen::Vector3f::Zero()));
     EXPECT_FALSE(
         MrpRotationConfig::isValidOmegaRR0R(Eigen::Vector3f{0.0F, std::numeric_limits<float>::infinity(), 0.0F}));
+
+    EXPECT_TRUE(MrpRotationConfig::isValidControlPeriod(0.5F));
+    EXPECT_TRUE(MrpRotationConfig::isValidControlPeriod(1e-6F));
+    EXPECT_FALSE(MrpRotationConfig::isValidControlPeriod(0.0F));
+    EXPECT_FALSE(MrpRotationConfig::isValidControlPeriod(-1.0F));
+    EXPECT_FALSE(MrpRotationConfig::isValidControlPeriod(std::nanf("")));
+    EXPECT_FALSE(MrpRotationConfig::isValidControlPeriod(std::numeric_limits<float>::infinity()));
 }
 
 // ---------------------------------------------------------------------------
@@ -79,10 +96,6 @@ TEST(MrpRotationTest, OutputIsFiniteSmallInputs) { propertyOutputIsFinite({0.1F,
 
 TEST(MrpRotationTest, OutputIsFiniteLargeOmega) { propertyOutputIsFinite({0.0F, 0.0F, 0.0F}, {5.0F, -3.0F, 2.0F}); }
 
-TEST(MrpRotationTest, FirstStepNoIntegration) {
-    propertyFirstStepNoIntegration({0.3F, 0.5F, 0.0F}, {0.1F, 0.2F, 0.3F});
-}
-
 // ---------------------------------------------------------------------------
 // Edge-case tests
 // ---------------------------------------------------------------------------
@@ -92,16 +105,16 @@ TEST(MrpRotationTest, ZeroOmegaHoldsSigmaRR0) {
     const Eigen::Vector3f initialSigmaRR0{0.2F, 0.3F, 0.4F};
     const Eigen::Vector3f omegaRR0R = Eigen::Vector3f::Zero();
 
-    const auto cfg = MrpRotationConfig::create(initialSigmaRR0, omegaRR0R, false);
+    const auto cfg = MrpRotationConfig::create(initialSigmaRR0, omegaRR0R, 1.0F, false);
     MrpRotationAlgorithm alg{cfg};
     alg.reset();
 
     const MrpRotationAttRefInputs attRef{};
     const MrpRotationAttStateInputs emptyState{};
 
-    const MrpRotationOutput out0 = alg.update(0, attRef, emptyState);
-    const MrpRotationOutput out1 = alg.update(static_cast<uint64_t>(1.0 * kSec2Nano), attRef, emptyState);
-    const MrpRotationOutput out2 = alg.update(static_cast<uint64_t>(2.0 * kSec2Nano), attRef, emptyState);
+    const MrpRotationOutput out0 = alg.update(attRef, emptyState);
+    const MrpRotationOutput out1 = alg.update(attRef, emptyState);
+    const MrpRotationOutput out2 = alg.update(attRef, emptyState);
 
     constexpr float tol = 1e-6F;
     for (int i = 0; i < 3; ++i) {
@@ -115,7 +128,7 @@ TEST(MrpRotationTest, ResetReseedsRuntimeState) {
     const Eigen::Vector3f initialSigmaRR0{0.1F, -0.2F, 0.3F};
     const Eigen::Vector3f omegaRR0R{0.01F, 0.0F, 0.0F};
 
-    const auto cfg = MrpRotationConfig::create(initialSigmaRR0, omegaRR0R, false);
+    const auto cfg = MrpRotationConfig::create(initialSigmaRR0, omegaRR0R, 0.5F, false);
     MrpRotationAlgorithm alg{cfg};
 
     const MrpRotationAttRefInputs attRef{
@@ -126,12 +139,12 @@ TEST(MrpRotationTest, ResetReseedsRuntimeState) {
     const MrpRotationAttStateInputs emptyState{};
 
     alg.reset();
-    const MrpRotationOutput first0 = alg.update(0, attRef, emptyState);
-    const MrpRotationOutput first1 = alg.update(static_cast<uint64_t>(0.5 * kSec2Nano), attRef, emptyState);
+    const MrpRotationOutput first0 = alg.update(attRef, emptyState);
+    const MrpRotationOutput first1 = alg.update(attRef, emptyState);
 
     alg.reset();
-    const MrpRotationOutput second0 = alg.update(0, attRef, emptyState);
-    const MrpRotationOutput second1 = alg.update(static_cast<uint64_t>(0.5 * kSec2Nano), attRef, emptyState);
+    const MrpRotationOutput second0 = alg.update(attRef, emptyState);
+    const MrpRotationOutput second1 = alg.update(attRef, emptyState);
 
     constexpr float tol = 1e-6F;
     for (int i = 0; i < 3; ++i) {
@@ -145,7 +158,7 @@ TEST(MrpRotationTest, DynamicReferenceLatchesNewCommand) {
     const Eigen::Vector3f initialSigmaRR0 = Eigen::Vector3f::Zero();
     const Eigen::Vector3f omegaRR0R = Eigen::Vector3f::Zero();
 
-    const auto cfg = MrpRotationConfig::create(initialSigmaRR0, omegaRR0R, true);
+    const auto cfg = MrpRotationConfig::create(initialSigmaRR0, omegaRR0R, 0.5F, true);
     MrpRotationAlgorithm alg{cfg};
     alg.reset();
 
@@ -153,7 +166,7 @@ TEST(MrpRotationTest, DynamicReferenceLatchesNewCommand) {
 
     // First update: zero command -- algorithm sigma_RR0 stays at the initial value (zero).
     const MrpRotationAttStateInputs cmd0{};
-    const MrpRotationOutput out0 = alg.update(0, attRef, cmd0);
+    const MrpRotationOutput out0 = alg.update(attRef, cmd0);
     for (int i = 0; i < 3; ++i) {
         EXPECT_NEAR(out0.sigma_RN(i), 0.0F, 1e-6F);
     }
@@ -161,7 +174,7 @@ TEST(MrpRotationTest, DynamicReferenceLatchesNewCommand) {
     // Second update: a new command is provided; latched sigma_RR0 holds the new set when
     // the commanded rate is zero.
     const MrpRotationAttStateInputs cmd1{Eigen::Vector3f{0.4F, 0.0F, 0.0F}, Eigen::Vector3f::Zero()};
-    const MrpRotationOutput out1 = alg.update(static_cast<uint64_t>(0.5 * kSec2Nano), attRef, cmd1);
+    const MrpRotationOutput out1 = alg.update(attRef, cmd1);
 
     EXPECT_NEAR(out1.sigma_RN(0), 0.4F, 1e-5F);
     EXPECT_NEAR(out1.sigma_RN(1), 0.0F, 1e-5F);
