@@ -121,6 +121,7 @@ MrpRotationOutput MrpRotationAlgorithm::computeMRPRotationReference(const Eigen:
     const Eigen::Vector3f sigmaDot_RR0 = kMrpKinematicGain * B * this->omega_RR0_R;
     const Eigen::Vector3f mrpSetNew = this->sigma_RR0 + sigmaDot_RR0 * this->dt;
     this->sigma_RR0 = mrpSwitch(mrpSetNew, kMrpShadowSwitchNorm);
+
     const Eigen::Matrix3f dcm_RR0 = mrpToDcm(this->sigma_RR0);
     const Eigen::Matrix3f dcm_R0N = mrpToDcm(sigma_R0N);
     const Eigen::Matrix3f dcm_RN = dcm_RR0 * dcm_R0N;
@@ -128,9 +129,13 @@ MrpRotationOutput MrpRotationAlgorithm::computeMRPRotationReference(const Eigen:
     const Eigen::Vector3f omega_RR0_N = dcm_RN.transpose() * this->omega_RR0_R;
     const Eigen::Vector3f domega_RR0_N = omega_R0N_N.cross(omega_RR0_N);
 
+    const Eigen::Vector3f sigma_RN = dcmToMrp(dcm_RN);
+    const Eigen::Vector3f omega_RN_N = omega_RR0_N + omega_R0N_N;
+    const Eigen::Vector3f domega_RN_N = domega_RR0_N + domega_R0N_N;
+
     return MrpRotationOutput{
-        dcmToMrp(dcm_RN),
-        omega_RR0_N + omega_R0N_N,
-        domega_RR0_N + domega_R0N_N,
+        .sigma_RN = sigma_RN,
+        .omega_RN_N = omega_RN_N,
+        .domega_RN_N = domega_RN_N,
     };
 }
