@@ -47,9 +47,44 @@ Module Assumptions and Limitations
 This module assumes that each thruster only produces positive thrust (on-pulsing only). The pseudo-inverse of the
 stacked force/torque mapping matrix :math:`[D]` is computed via a truncated SVD: singular values below the relative
 cutoff :math:`\sigma_{\max} \cdot \varepsilon_{f32} \cdot \max(6, N_{\max})` (the fp32 noise floor) are treated as
-zero, which projects uncontrollable directions in the 6-D command space out of the result. The resulting solution is
+zero, which projects uncontrollable directions in the 6-D command space out of the result. A thruster geometry whose
+kept singular subspace is ill-conditioned (condition number above 100) is rejected when the configuration is created,
+as the pseudo-inverse would otherwise amplify the command and fp32 round-off. The resulting solution is
 the minimum-norm least-squares projection onto the thruster set, shifted so the minimum thrust is zero. No off-pulsing,
-saturation handling, or thruster availability masking is performed within this module.
+saturation handling, or thruster availability masking is performed within this module. All numeric computation uses
+single-precision (FP32).
+
+Module Architecture
+-------------------
+The module follows the three-layer adapter / algorithm / C-shim pattern shared across the fp32-fsw-xmera algorithms.
+A reader interested only in the math can skip to *Detailed Module Description* below; this section documents the
+messaging/lifecycle plumbing.
+
+Adapter layer (``forceTorqueThrForceMapping.h/.cpp``)
+    Inherits ``SysModel``. Holds ``desiredControlAxes_B`` as a Phase-1 property exposed to Python (set before
+    ``reset()``). On ``reset()``, the adapter validates input messages, reads the thruster array
+    (``thrConfigInMsg``) and center of mass (``vehConfigInMsg``), builds a validated
+    ``ForceTorqueThrForceMappingConfig`` and constructs the algorithm via ``std::make_unique``. Each
+    ``updateState()`` reads the (optional) command messages, invokes the algorithm, and writes
+    ``thrForceCmdOutMsg``. Calling ``updateState()`` before ``reset()`` throws ``XmeraLifecycleException``.
+
+Algorithm layer (``forceTorqueThrForceMappingAlgorithm.h/.cpp``)
+    The pure FP32 algorithm with no framework dependencies. The immutable
+    ``ForceTorqueThrForceMappingConfig`` (created via the static ``::create`` factory) carries the thruster
+    geometry, center of mass, and controllability assertions. Validators are: ``numThrusters`` :math:`\in
+    [1, \text{MAX\_EFF\_CNT}]`, each active direction :math:`\hat{\mathbf{g}}_{t_i}` within 1e-3 of unit norm,
+    and ``centerOfMass_B`` finite (``Eigen::Vector3f::allFinite()``). The static ``::create`` factory is the only
+    place that throws ``fsw::invalid_argument``: on an invalid thruster array or center of mass, on an asserted
+    ``desiredControlAxes_B`` axis that is uncontrollable, or on an ill-conditioned thruster geometry (condition
+    number above 100). The constructor and ``setConfig`` then cache the pseudo-inverse from the validated config;
+    ``update()`` is ``const`` and never throws.
+
+C shim (``forceTorqueThrForceMappingAlgorithm_c.h/.cpp``)
+    Pure-C ``extern "C"`` wrapper around the algorithm for Ada (Adamant) FFI. The opaque
+    ``ForceTorqueThrForceMappingAlgorithm`` handle is created from a ``ForceTorqueThrForceMappingConfig_c``
+    POD (``ThrusterArrayConfiguration_c`` count + per-thruster ``Vector3f_c`` arrays, ``Vector3f_c``
+    CoM, ``uint8_t[6]`` axes). The ``configFromC`` helper bridges the C/C++ representations via
+    ``architecture/utilities/eigenSupport.h``.
 
 Module Parameters
 -----------------
@@ -66,10 +101,11 @@ Module Parameters
         torque components :math:`\tau_x, \tau_y, \tau_z` and entries ``[3..5]`` correspond to force
         components :math:`F_x, F_y, F_z`. A ``true`` entry asserts that the corresponding axis must
         be controllable by the configured thruster array; the assertion is cross-checked against the
-        SVD of :math:`[D]` inside ``computeThrusterMapping()``. If any flagged axis lies outside the
-        column space of :math:`[D]`, the module throws ``fs::invalid_argument`` (which surfaces in
-        Python as ``RuntimeError``). Default is all-true (full controllability asserted); set entries
-        to ``False`` to opt out per axis when the thruster array is intentionally rank-deficient.
+        SVD of :math:`[D]` in ``create()`` (invoked during ``reset()``). If any flagged axis
+        lies outside the column space of :math:`[D]`, the module throws ``fsw::invalid_argument``
+        (which surfaces in Python as ``RuntimeError``). Default is all-true (full controllability
+        asserted); set entries to ``False`` to opt out per axis when the thruster array is
+        intentionally rank-deficient.
 
 Initialization
 --------------
@@ -77,7 +113,8 @@ The module is configured by::
 
     module = forceTorqueThrForceMapping.ForceTorqueThrForceMapping()
     module.modelTag = "forceTorqueThrForceMappingTag"
-    # Optional controllability assertion (torque xyz, force xyz in body frame B)
+    # Phase 1 (set before InitializeSimulation -> reset() builds the validated config):
+    # optional per-axis controllability assertion (torque xyz, force xyz in body frame B).
     module.desiredControlAxes_B = [True, True, True, True, True, False]
 
 The ``cmdForceInMsg`` and ``cmdTorqueInMsg`` are optional; if not connected the corresponding commanded vector is
@@ -109,7 +146,6 @@ The desired force and torque are given as :math:`\mathbf{F}_{req}` and :math:`\b
 These are both stacked into a single vector
 
 .. math::
-    :label: eq:augmented_ft
 
     \begin{bmatrix}
         \boldsymbol{\tau}_{req} \\
@@ -120,14 +156,12 @@ The :math:`i`-th thruster position expressed in spacecraft body-fixed coordinate
 The unit direction vector of the thruster force is :math:`\hat{\mathbf{g}}_{t_{i}}`. The thruster force is given as
 
 .. math::
-    :label: eq:force_direction
 
     \mathbf{F}_{i} = F_{i} \hat{\mathbf{g}}_{t_{i}}
 
 The torque produced by each thruster about the body-fixed CoM is
 
 .. math::
-    :label: eq:torques
 
     \boldsymbol{\tau}_{i} = \left((\mathbf{r}_{i} - \mathbf{r}_{\text{COM}}) \times \hat{\mathbf{g}}_{t_{i}}\right) F_{i}
     = \mathbf{d}_{i} F_{i}
@@ -135,7 +169,6 @@ The torque produced by each thruster about the body-fixed CoM is
 The total force and torque on the spacecraft may be represented as
 
 .. math::
-    :label: eq:sys_eqs
 
     \begin{bmatrix}
         \boldsymbol{\tau}_{req} \\
@@ -157,7 +190,6 @@ The force required by each thruster is computed via the Moore-Penrose pseudo-inv
 its truncated singular value decomposition :math:`[D] = U \Sigma V^{T}`:
 
 .. math::
-    :label: eq:soln
 
     \mathbf{F} = V \, \tilde{\Sigma}^{+} U^{T}
     \begin{bmatrix}
@@ -175,13 +207,12 @@ commanded force/torque pushes some thrusters into a sign opposite their directio
 thrust is less than zero, the minimum thrust is subtracted from the thrust vector:
 
 .. math::
-    :label: eq:F_min
 
     \mathbf{F} = \mathbf{F}_{pre} - \min(\mathbf{F}_{pre}) \cdot \mathbf{1}
 
 Balanced Layouts and Null-Space Optimality
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-The shift in :eq:`eq:F_min` preserves the requested force and torque precisely when the thruster layout is **balanced**,
+The min-shift above preserves the requested force and torque precisely when the thruster layout is **balanced**,
 i.e. when :math:`[D]\mathbf{1} = 0`. Expanding the rows of :math:`[D]`, balance is equivalent to two geometric
 conditions on the thruster array:
 
@@ -221,5 +252,7 @@ Additional Information
 For rank-deficient :math:`[D]` the minimum-norm solution is returned; uncontrollable directions in the 6-D command
 space are silently dropped by the SVD truncation. The optional ``desiredControlAxes_B`` parameter converts that silent
 drop into a fail-fast assertion at configuration time: if any axis flagged ``True`` in ``desiredControlAxes_B`` lies
-outside the column space of :math:`[D]`, ``computeThrusterMapping()`` throws rather than returning a solution that
-ignores the request.
+outside the column space of :math:`[D]`, ``create()`` (invoked from the adapter's ``reset()``) throws
+``fsw::invalid_argument`` rather than returning a solution that ignores the request. ``create()`` likewise rejects an
+ill-conditioned thruster geometry (kept condition number above 100), where the pseudo-inverse would amplify the
+command and fp32 round-off.
