@@ -69,10 +69,6 @@ class MrpRotationAlgorithm final {
     MrpRotationOutput update(const MrpRotationAttRefInputs& attRef);
 
    private:
-    MrpRotationOutput computeMRPRotationReference(const Eigen::Vector3f& sigma_R0N,
-                                                  const Eigen::Vector3f& omega_R0N_N,
-                                                  const Eigen::Vector3f& domega_R0N_N);
-
     MrpRotationConfig cfg;
 
     Eigen::Vector3f sigma_RR0{Eigen::Vector3f::Zero()};    //!< [-] integrated MRP attitude relative to input ref
