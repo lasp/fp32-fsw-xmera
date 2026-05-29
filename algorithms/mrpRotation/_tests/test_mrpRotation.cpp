@@ -95,6 +95,26 @@ TEST(MrpRotationTest, OutputIsFiniteSmallInputs) { propertyOutputIsFinite({0.1F,
 
 TEST(MrpRotationTest, OutputIsFiniteLargeOmega) { propertyOutputIsFinite({0.0F, 0.0F, 0.0F}, {5.0F, -3.0F, 2.0F}); }
 
+TEST(MrpRotationTest, SigmaRNEqualsSigmaRR0WhenInputRefIsIdentity) {
+    propertySigmaRNEqualsSigmaRR0WhenInputRefIsIdentity({0.3F, 0.5F, 0.0F}, {0.05F, -0.02F, 0.01F});
+}
+
+TEST(MrpRotationTest, SigmaRNNormLessOrEqualToOne) {
+    // omegaRR0R chosen large enough that the 100-step run crosses the |sigma| = 1 shadow-switch
+    // boundary several times.
+    propertySigmaRNNormLessOrEqualToOne({0.5F, 0.0F, 0.0F}, {0.3F, 0.1F, -0.2F});
+}
+
+TEST(MrpRotationTest, OmegaRNDecomposesCorrectly) {
+    propertyOmegaRNDecomposesCorrectly(
+        {0.1F, 0.2F, -0.1F}, {0.05F, -0.03F, 0.02F}, {0.05F, 0.1F, 0.0F}, {0.02F, 0.0F, -0.01F});
+}
+
+TEST(MrpRotationTest, OutputRefEqualsInputRefWhenRotationIsZero) {
+    propertyOutputRefEqualsInputRefWhenRotationIsZero(
+        {0.1F, 0.2F, -0.3F}, {0.05F, -0.02F, 0.01F}, {0.0F, 0.03F, -0.01F});
+}
+
 // ---------------------------------------------------------------------------
 // Edge-case tests
 // ---------------------------------------------------------------------------
@@ -147,5 +167,105 @@ TEST(MrpRotationTest, ResetReseedsRuntimeState) {
     for (int i = 0; i < 3; ++i) {
         EXPECT_NEAR(first0.sigma_RN(i), second0.sigma_RN(i), tol);
         EXPECT_NEAR(first1.sigma_RN(i), second1.sigma_RN(i), tol);
+    }
+}
+
+// setConfig() replaces the algorithm's stored configuration but must not touch the runtime
+// integrator state -- only reset() does that. To verify, run one step under cfgA (advancing
+// runtime sigma_RR0 / omega_RR0_R), swap in cfgB with deliberately different initial values and a
+// different controlPeriod, then run another step. The output must match an independent reference
+// that integrates from firstOut's runtime sigma with cfgA's (unchanged) runtime omega -- but using
+// cfgB's controlPeriod, since that *is* picked up from the new cfg.
+TEST(MrpRotationTest, SetConfigDoesNotReseedRuntimeState) {
+    const Eigen::Vector3f initialSigmaRR0_A{0.1F, 0.0F, 0.0F};
+    const Eigen::Vector3f omegaRR0R_A{0.05F, 0.0F, 0.0F};
+    constexpr float kPeriodA = 0.5F;
+    const auto cfgA = MrpRotationConfig::create(initialSigmaRR0_A, omegaRR0R_A, kPeriodA);
+
+    MrpRotationAlgorithm alg{cfgA};
+    alg.reset();
+
+    // sigma_R0N = 0 makes the output sigma_RN equal to the algorithm's internal sigma_RR0, so we
+    // can read runtime state directly off the output.
+    const MrpRotationAttRefInputs identityRef{};
+    const MrpRotationOutput firstOut = alg.update(identityRef);
+
+    // Swap in cfgB with very different initial sigma, different omega, and a different controlPeriod.
+    const Eigen::Vector3f initialSigmaRR0_B{0.0F, 0.5F, 0.0F};
+    const Eigen::Vector3f omegaRR0R_B{0.0F, 0.2F, 0.0F};
+    constexpr float kPeriodB = 0.25F;
+    const auto cfgB = MrpRotationConfig::create(initialSigmaRR0_B, omegaRR0R_B, kPeriodB);
+    alg.setConfig(cfgB);
+
+    const MrpRotationOutput secondOut = alg.update(identityRef);
+
+    // Independent reference: continues from the post-firstOut runtime state (sigma = firstOut.sigma_RN
+    // because sigma_R0N = 0, omega = cfgA's unchanged omegaRR0R_A), stepped by cfgB's controlPeriod.
+    MrpRotationReferenceState refState{firstOut.sigma_RN, omegaRR0R_A};
+    const auto refOut =
+        referenceUpdate(refState, Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(), kPeriodB);
+
+    constexpr float tol = 1e-5F;
+    for (int i = 0; i < 3; ++i) {
+        EXPECT_NEAR(secondOut.sigma_RN(i), refOut.sigma_RN(i), tol);
+    }
+}
+
+// reset() must read its seed values from the algorithm's *current* configuration. After
+// setConfig(cfgB), reset() should re-seed sigma_RR0 / omega_RR0_R from cfgB, not from cfgA (the
+// original) and not from cached construction-time values.
+TEST(MrpRotationTest, ResetAfterSetConfigUsesNewInitialValues) {
+    const Eigen::Vector3f initialSigmaRR0_A{0.1F, 0.0F, 0.0F};
+    const Eigen::Vector3f omegaRR0R_A{0.05F, 0.0F, 0.0F};
+    const auto cfgA = MrpRotationConfig::create(initialSigmaRR0_A, omegaRR0R_A, 0.5F);
+
+    MrpRotationAlgorithm alg{cfgA};
+    alg.reset();
+    alg.update(MrpRotationAttRefInputs{});  // advance runtime state away from initial
+
+    // setConfig + reset; cfgB has zero omega so the next step holds sigma_RR0 at cfgB's initial.
+    const Eigen::Vector3f initialSigmaRR0_B{0.3F, -0.2F, 0.1F};
+    const Eigen::Vector3f omegaRR0R_B = Eigen::Vector3f::Zero();
+    const auto cfgB = MrpRotationConfig::create(initialSigmaRR0_B, omegaRR0R_B, 0.5F);
+    alg.setConfig(cfgB);
+    alg.reset();
+
+    // With sigma_R0N = 0 and omegaRR0R = 0, sigma_RN equals the post-reset sigma_RR0, which must
+    // come from cfgB.
+    const MrpRotationOutput out = alg.update(MrpRotationAttRefInputs{});
+
+    constexpr float tol = 1e-5F;
+    for (int i = 0; i < 3; ++i) {
+        EXPECT_NEAR(out.sigma_RN(i), initialSigmaRR0_B(i), tol);
+    }
+}
+
+// Direct test of the mrpSwitch path: choose sigma_RR0 near the |sigma| = 1 boundary and an
+// omegaRR0R that, after one forward-Euler step, pushes the unswitched MRP past 1. Verify the
+// algorithm lands on the shadow-set representative (-sigma_pre / |sigma_pre|^2).
+TEST(MrpRotationTest, MrpShadowSwitchActivates) {
+    const Eigen::Vector3f initialSigmaRR0{0.95F, 0.0F, 0.0F};  // close to the norm-1 boundary
+    const Eigen::Vector3f omegaRR0R{1.0F, 0.0F, 0.0F};         // strong push along +x
+    constexpr float kControlPeriod = 0.5F;
+
+    // Compute the pre-mrpSwitch sigma_RR0 using the same forward-Euler formula the algorithm
+    // applies, and confirm the test setup actually crosses the |sigma| = 1 boundary.
+    const Eigen::Matrix3f B = bmatMrp(initialSigmaRR0);
+    const Eigen::Vector3f preSwitchSigma = initialSigmaRR0 + kControlPeriod * 0.25F * B * omegaRR0R;
+    ASSERT_GT(preSwitchSigma.norm(), 1.0F) << "Test setup: forward-Euler step must cross norm-1 boundary";
+
+    const Eigen::Vector3f expectedShadow = -preSwitchSigma / preSwitchSigma.squaredNorm();
+
+    const auto cfg = MrpRotationConfig::create(initialSigmaRR0, omegaRR0R, kControlPeriod);
+    MrpRotationAlgorithm alg{cfg};
+    alg.reset();
+
+    // sigma_R0N = 0 makes sigma_RN equal to the internal (post-switch) sigma_RR0.
+    const MrpRotationOutput out = alg.update(MrpRotationAttRefInputs{});
+
+    EXPECT_LT(out.sigma_RN.norm(), 1.0F);
+    constexpr float tol = 1e-5F;
+    for (int i = 0; i < 3; ++i) {
+        EXPECT_NEAR(out.sigma_RN(i), expectedShadow(i), tol);
     }
 }
