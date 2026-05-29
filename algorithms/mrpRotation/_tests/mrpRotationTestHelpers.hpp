@@ -67,7 +67,6 @@ inline void regressionTestMrpRotation(const Eigen::Vector3f& initialSigmaRR0,
                                       int numSteps) {
     const auto config = MrpRotationConfig::create(initialSigmaRR0, omegaRR0R, updateTimeSec);
     MrpRotationAlgorithm alg{config};
-    alg.reset();
 
     MrpRotationReferenceState refState{initialSigmaRR0, omegaRR0R};
 
@@ -108,7 +107,6 @@ inline void propertyOutputIsFinite(const Eigen::Vector3f& initialSigmaRR0, const
     constexpr float kPropertyControlPeriod = 0.5F;
     const auto config = MrpRotationConfig::create(initialSigmaRR0, omegaRR0R, kPropertyControlPeriod);
     MrpRotationAlgorithm alg{config};
-    alg.reset();
 
     const MrpRotationAttRefInputs attRef{
         Eigen::Vector3f{0.1F, 0.2F, 0.3F},
@@ -143,7 +141,6 @@ inline void propertySigmaRNEqualsSigmaRR0WhenInputRefIsIdentity(const Eigen::Vec
 
     const auto config = MrpRotationConfig::create(initialSigmaRR0, omegaRR0R, kControlPeriod);
     MrpRotationAlgorithm alg{config};
-    alg.reset();
 
     const MrpRotationAttRefInputs identityRef{
         Eigen::Vector3f::Zero(),
@@ -181,7 +178,6 @@ inline void propertySigmaRNNormLessOrEqualToOne(const Eigen::Vector3f& initialSi
 
     const auto config = MrpRotationConfig::create(initialSigmaRR0, omegaRR0R, kControlPeriod);
     MrpRotationAlgorithm alg{config};
-    alg.reset();
 
     const MrpRotationAttRefInputs attRef{
         Eigen::Vector3f{0.1F, 0.2F, 0.3F},
@@ -208,7 +204,6 @@ inline void propertyOmegaRNDecomposesCorrectly(const Eigen::Vector3f& initialSig
 
     const auto config = MrpRotationConfig::create(initialSigmaRR0, omegaRR0R, kControlPeriod);
     MrpRotationAlgorithm alg{config};
-    alg.reset();
 
     const MrpRotationAttRefInputs attRef{sigma_R0N, omega_R0N_N, Eigen::Vector3f::Zero()};
 
@@ -237,7 +232,6 @@ inline void propertyOutputRefEqualsInputRefWhenRotationIsZero(const Eigen::Vecto
 
     const auto config = MrpRotationConfig::create(Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(), kControlPeriod);
     MrpRotationAlgorithm alg{config};
-    alg.reset();
 
     const MrpRotationAttRefInputs attRef{sigma_R0N, omega_R0N_N, domega_R0N_N};
 

@@ -47,12 +47,6 @@ void MrpRotationAlgorithm_setConfig(MrpRotationAlgorithmHandle* self, const MrpR
     // clang-format on
 }
 
-void MrpRotationAlgorithm_reset(MrpRotationAlgorithmHandle* self) {
-    // clang-format off
-    reinterpret_cast<::MrpRotationAlgorithm*>(self)->reset();  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
-    // clang-format on
-}
-
 MrpRotationOutput_c MrpRotationAlgorithm_update(MrpRotationAlgorithmHandle* self,
                                                 const MrpRotationAttRefInputs_c* attRef) {
     // clang-format off

@@ -65,7 +65,6 @@ class MrpRotationAlgorithm final {
 
     void setConfig(const MrpRotationConfig& config);
 
-    void reset();
     MrpRotationOutput update(const MrpRotationAttRefInputs& attRef);
 
    private:

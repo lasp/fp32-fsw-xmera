@@ -183,4 +183,4 @@ Test Description
 The module is verified through regression tests that drive the algorithm through several integration steps and compare
 against an independently coded reference implementation, setup tests for the ``MrpRotationConfig`` validators, property
 tests for finiteness of the integrated output, and edge-case tests covering zero angular velocity and the
-reset-reseeds-runtime-state contract. Fuzz tests randomize the configuration and inputs over reasonable ranges.
+setConfig-reseeds-runtime-state contract. Fuzz tests randomize the configuration and inputs over reasonable ranges.

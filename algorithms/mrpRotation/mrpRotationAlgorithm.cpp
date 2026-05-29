@@ -3,23 +3,19 @@
 
 /*! @brief Construct the algorithm with a validated configuration. Seeds the integrating runtime
  state (sigma_RR0, omega_RR0_R) from the configured initial values so the first update produces a
- sensible result without an explicit reset() call.
+ sensible result.
  @param config Validated configuration (initial sigma_RR0, omega_RR0_R, and integration controlPeriod).
  */
 MrpRotationAlgorithm::MrpRotationAlgorithm(const MrpRotationConfig& config)
     : cfg(config), sigma_RR0(config.getInitialSigmaRR0()), omega_RR0_R(config.getOmegaRR0R()) {}
 
-/*! @brief Replace the algorithm's stored configuration at runtime. Runtime integrator state
- (sigma_RR0, omega_RR0_R) is not re-seeded; call reset() if the new config's initial values should
- be applied.
+/*! @brief Replace the algorithm's stored configuration at runtime and re-seed the runtime integrator
+ state (sigma_RR0, omega_RR0_R) from the new configuration's initial values, so every reconfiguration
+ restarts the rotating reference from its configured seed.
  @param config New validated configuration to apply.
  */
-void MrpRotationAlgorithm::setConfig(const MrpRotationConfig& config) { this->cfg = config; }
-
-/*! @brief Reset the algorithm: re-seed the active sigma_RR0 / omega_RR0_R from the configured
- initial values.
- */
-void MrpRotationAlgorithm::reset() {
+void MrpRotationAlgorithm::setConfig(const MrpRotationConfig& config) {
+    this->cfg = config;
     this->sigma_RR0 = this->cfg.getInitialSigmaRR0();
     this->omega_RR0_R = this->cfg.getOmegaRR0R();
 }

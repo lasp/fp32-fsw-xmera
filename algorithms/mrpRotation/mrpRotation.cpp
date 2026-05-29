@@ -4,7 +4,8 @@
 #include <stdexcept>
 
 /*! @brief Validate that the required input message is linked, build the algorithm's configuration
- from the adapter's stored properties, and reset the embedded algorithm.
+ from the adapter's stored properties, and (re)construct the embedded algorithm. Construction seeds
+ the algorithm's runtime state (sigma_RR0, omega_RR0_R) from the configured initial values.
  @param callTime The clock time at which the function was called (nanoseconds).
  */
 void MrpRotation::reset(const uint64_t callTime) {
@@ -15,7 +16,6 @@ void MrpRotation::reset(const uint64_t callTime) {
 
     auto config = MrpRotationConfig::create(this->sigma_RR0, this->omega_RR0_R, this->controlPeriod);
     this->algorithm = std::make_unique<MrpRotationAlgorithm>(config);
-    this->algorithm->reset();
 }
 
 /*! @brief Take the input attitude reference frame and superimpose the algorithm's MRP rotation on

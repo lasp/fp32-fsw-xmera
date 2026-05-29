@@ -43,18 +43,13 @@ MrpRotationAlgorithmHandle* MrpRotationAlgorithm_create(const MrpRotationConfig_
 void MrpRotationAlgorithm_destroy(MrpRotationAlgorithmHandle* self);
 
 /**
- * @brief Replace the algorithm's configuration at runtime.
+ * @brief Replace the algorithm's configuration at runtime. Re-seeds the rotating MRP set and angular
+ *        velocity from the new configuration's initial values, so every reconfiguration restarts the
+ *        rotating reference from its configured seed.
  * @param self   Pointer to the instance.
  * @param config Pointer to the configuration to apply (validated; throws on invalid input).
  */
 void MrpRotationAlgorithm_setConfig(MrpRotationAlgorithmHandle* self, const MrpRotationConfig_c* config);
-
-/**
- * @brief Reset the algorithm: clear the integration time-step and re-seed the rotating MRP set
- *        and angular velocity from the configured initial values.
- * @param self Pointer to the instance.
- */
-void MrpRotationAlgorithm_reset(MrpRotationAlgorithmHandle* self);
 
 /**
  * @brief Advance the rotating reference frame one integration step (dt = configured controlPeriod)
