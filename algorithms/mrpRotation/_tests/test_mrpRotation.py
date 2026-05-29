@@ -54,8 +54,7 @@ def compute_truth(sigma_RR0_init, omega_RR0_R, ref_state_in_data, dt, num_steps_
         truth_domega_RN_N.append(domega_RN_N.tolist())
 
     # reset() re-seeds the algorithm's runtime sigma_RR0 / omega_RR0_R from the configured initial
-    # values (the fp32 refactor made this true regardless of whether the dynamic-reference cmd path
-    # is wired up). The Python sigma_RR0_init carries the effective seed value for both cases.
+    # values, so the post-reset integration restarts from sigma_RR0_init.
     if num_steps_post_reset > 0:
         sigma_RR0 = np.array(sigma_RR0_init, dtype=float)
         for _ in range(num_steps_post_reset):
@@ -67,9 +66,8 @@ def compute_truth(sigma_RR0_init, omega_RR0_R, ref_state_in_data, dt, num_steps_
     return truth_sigma, truth_omega_RN_N, truth_domega_RN_N
 
 
-@pytest.mark.parametrize("cmd_state_flag", [False, True])
 @pytest.mark.parametrize("test_reset", [False, True])
-def test_mrp_rotation(show_plots, cmd_state_flag, test_reset):
+def test_mrp_rotation(show_plots, test_reset):
     unit_task_name = "unitTask"
     unit_process_name = "TestProcess"
     unit_test_sim = SimulationBaseClass.SimBaseClass()
@@ -93,15 +91,6 @@ def test_mrp_rotation(show_plots, cmd_state_flag, test_reset):
     omega_RR0_R = np.array([0.1, 0.0, 0.0]) * mc.D2R
     module.omega_RR0_R = omega_RR0_R
     module.controlPeriod = update_time
-
-    if cmd_state_flag:
-        desired_att = messaging.AttStateMsgF32Payload()
-        sigma_RR0 = np.array([0.1, 0.0, -0.2])
-        desired_att.state = sigma_RR0
-        omega_RR0_R = np.array([0.1, 1.0, 0.5]) * mc.D2R
-        desired_att.rate = omega_RR0_R
-        des_in_msg = messaging.AttStateMsgF32().write(desired_att)
-        module.desiredAttInMsg.subscribeTo(des_in_msg)
 
     ref_state_in_data = messaging.AttRefMsgF32Payload()
     sigma_R0N = np.array([0.1, 0.2, 0.3])
@@ -142,4 +131,4 @@ def test_mrp_rotation(show_plots, cmd_state_flag, test_reset):
 
 
 if __name__ == "__main__":
-    test_mrp_rotation(False, False, True)
+    test_mrp_rotation(False, True)

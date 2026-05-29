@@ -11,4 +11,3 @@
 %include "mrpRotationAlgorithm.h"
 
 %include "msgPayloadDef/AttRefMsgF32Payload.h"
-%include "msgPayloadDef/AttStateMsgF32Payload.h"

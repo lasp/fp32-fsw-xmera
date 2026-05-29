@@ -3,19 +3,17 @@
 #include <architecture/utilities/eigenSupport.h>
 #include <stdexcept>
 
-/*! @brief Validate that the required input message is linked, rebuild the algorithm's
- configuration from the adapter's stored properties (which captures whether the optional
- desiredAttInMsg is connected), and reset the embedded algorithm.
+/*! @brief Validate that the required input message is linked, build the algorithm's configuration
+ from the adapter's stored properties, and reset the embedded algorithm.
  @param callTime The clock time at which the function was called (nanoseconds).
  */
 void MrpRotation::reset(const uint64_t callTime) {
-    // check if the required input messages are included
+    // check if the required input message is connected
     if (!this->attRefInMsg.isLinked()) {
         throw std::invalid_argument("mrpRotation.attRefInMsg wasn't connected.");
     }
 
-    auto config = MrpRotationConfig::create(
-        this->sigma_RR0, this->omega_RR0_R, this->controlPeriod, this->desiredAttInMsg.isLinked());
+    auto config = MrpRotationConfig::create(this->sigma_RR0, this->omega_RR0_R, this->controlPeriod);
     this->algorithm = std::make_unique<MrpRotationAlgorithm>(config);
     this->algorithm->reset();
 }
@@ -30,22 +28,14 @@ void MrpRotation::updateState(const uint64_t callTime) {
     }
 
     const AttRefMsgF32Payload inputRefPayload = this->attRefInMsg();
-    AttStateMsgF32Payload attStatePayload{};
-    if (this->desiredAttInMsg.isLinked()) {
-        attStatePayload = this->desiredAttInMsg();
-    }
 
     const MrpRotationAttRefInputs attRef{
         cArrayToEigenVector(inputRefPayload.sigma_RN),
         cArrayToEigenVector(inputRefPayload.omega_RN_N),
         cArrayToEigenVector(inputRefPayload.domega_RN_N),
     };
-    const MrpRotationAttStateInputs attState{
-        cArrayToEigenVector(attStatePayload.state),
-        cArrayToEigenVector(attStatePayload.rate),
-    };
 
-    const MrpRotationOutput out = this->algorithm->update(attRef, attState);
+    const MrpRotationOutput out = this->algorithm->update(attRef);
 
     AttRefMsgF32Payload attRefOut{};
     eigenVectorToCArray(out.sigma_RN, attRefOut.sigma_RN);

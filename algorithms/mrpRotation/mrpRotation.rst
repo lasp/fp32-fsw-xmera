@@ -21,21 +21,22 @@ The module is split into two layers:
 
 - The **adapter** (``mrpRotation.h``/``.cpp``) is the SysModel-derived class that handles message I/O, validates
   configuration, builds an immutable ``MrpRotationConfig`` from public properties, and constructs the algorithm via
-  two-phase initialization. The adapter is also the **payload ↔ Eigen conversion boundary**: it reads
-  ``AttRefMsgF32Payload`` (and ``AttStateMsgF32Payload`` when ``desiredAttInMsg`` is connected), converts each
-  ``float[3]`` field to ``Eigen::Vector3f`` via ``architecture/utilities/eigenSupport.h``
-  (``cArrayToEigenVector``), passes the resulting algorithm-native input structs into the algorithm, and packs the
-  algorithm's output struct back into the output ``AttRefMsgF32Payload`` via ``eigenVectorToCArray``.
+  two-phase initialization. The adapter is also the **payload ↔ Eigen conversion boundary**: it reads the input
+  ``AttRefMsgF32Payload``, converts each ``float[3]`` field to ``Eigen::Vector3f`` via
+  ``architecture/utilities/eigenSupport.h`` (``cArrayToEigenVector``), passes the resulting algorithm-native input
+  struct into the algorithm, and packs the algorithm's output struct back into the output ``AttRefMsgF32Payload``
+  via ``eigenVectorToCArray``.
 - The **algorithm** (``mrpRotationAlgorithm.h``/``.cpp``) is a pure C++23 class with no framework dependencies and no
-  messaging-payload includes. Its ``update()`` consumes two Eigen-typed input bundles -- ``MrpRotationAttRefInputs``
-  (mirrors ``AttRefMsgF32Payload``) and ``MrpRotationAttStateInputs`` (mirrors ``AttStateMsgF32Payload``) -- and
-  returns its own POD ``MrpRotationOutput`` (shape of the output ``AttRefMsgF32Payload``). All three structs are
-  declared at the top of ``mrpRotationAlgorithm.h``. ``update()`` must not throw.
+  messaging-payload includes. Its ``update()`` consumes one Eigen-typed input bundle -- ``MrpRotationAttRefInputs``
+  (mirrors ``AttRefMsgF32Payload``) -- and returns its own POD ``MrpRotationOutput`` (shape of the output
+  ``AttRefMsgF32Payload``). Both structs are declared at the top of ``mrpRotationAlgorithm.h``. ``update()`` must not
+  throw. The rotating reference frame is fully determined by the configured ``sigma_RR0``, ``omega_RR0_R``, and
+  ``controlPeriod``; the algorithm has no runtime command-latching path.
 
 A pure-C shim (``mrpRotationAlgorithm_c.h``/``.cpp``) wraps the algorithm class for use by Ada/Adamant components via
-``extern "C"`` bindings. The shim's ``_update`` takes ``MrpRotationAttRefInputs_c`` / ``MrpRotationAttStateInputs_c``
-POD mirrors (declared in ``mrpRotationTypes.h`` and built from ``Vector3f_c``) and returns ``MrpRotationOutput_c``; Ada
-callers are responsible for the analogous payload-to-POD conversion on their side.
+``extern "C"`` bindings. The shim's ``_update`` takes a ``MrpRotationAttRefInputs_c`` POD mirror (declared in
+``mrpRotationTypes.h`` and built from ``Vector3f_c``) and returns ``MrpRotationOutput_c``; Ada callers are responsible
+for the analogous payload-to-POD conversion on their side.
 
 Adapter Layer
 ^^^^^^^^^^^^^
@@ -54,10 +55,6 @@ The adapter consumes the following messages and exposes the configuration as pub
       - Required input reference frame attitude :math:`\mathbf\sigma_{R_0/N}`, rate
         :math:`{}^{\mathcal N}{\mathbf\omega}_{R_0/N}`, and acceleration
         :math:`{}^{\mathcal N}{\dot{\mathbf\omega}}_{R_0/N}`
-    * - desiredAttInMsg
-      - :ref:`AttStateMsgF32Payload`
-      - Optional input. When connected, the algorithm latches the commanded MRP set into ``sigma_RR0`` and the
-        commanded rate into ``omega_RR0_R`` whenever the message contents change.
     * - attRefOutMsg
       - :ref:`AttRefMsgF32Payload`
       - Output reference frame :math:`\mathbf\sigma_{R/N}`, :math:`{}^{\mathcal N}{\mathbf\omega}_{R/N}`,
@@ -105,8 +102,6 @@ inputs and constructs the algorithm. ``updateState()`` throws ``XmeraLifecycleEx
     module.controlPeriod = 0.5                  # [s] forward-Euler integration step; required (> 0)
 
     module.attRefInMsg.subscribeTo(att_ref_msg)
-    # Optional: connect to enable dynamic-reference latching
-    # module.desiredAttInMsg.subscribeTo(desired_att_msg)
 
     sim.AddModelToTask(task_name, module)
     sim.InitializeSimulation()  # invokes reset(); validators run, algorithm is constructed
@@ -169,26 +164,15 @@ The inertial angular acceleration of the output frame is found via the transport
    {}^{\mathcal N}{\dot{\mathbf\omega}}_{R/N} = {}^{\mathcal N}{\mathbf\omega}_{R_0/N} \times
    {}^{\mathcal N}{\mathbf\omega}_{R/R_0} + {}^{\mathcal N}{\dot{\mathbf\omega}}_{R_0/N}
 
-Dynamic-Reference Path
-^^^^^^^^^^^^^^^^^^^^^^
-
-When the configuration's ``dynamicReferenceEnabled`` flag is true (set by the adapter when ``desiredAttInMsg`` is
-connected), the algorithm reads the commanded MRP set (``cmdSigma``) and rate (``cmdOmega``) from each
-``MrpRotationAttStateInputs`` bundle the adapter passes in (built from the ``AttStateMsgF32Payload`` ``state``/``rate``
-fields) and compares them against the prior commanded values. Whenever the commanded values change (componentwise
-absolute difference exceeds ``1e-6``), the runtime ``sigma_RR0`` and ``omega_RR0_R`` are re-seeded from the new command.
-This allows operators to re-target the rotation at runtime without resetting the module.
-
 Module Assumptions and Limitations
 ----------------------------------
 
 - Every ``update()`` advances the MRP by the configured ``controlPeriod``; there is no first-update "warm-up" tick.
   The caller must set ``controlPeriod`` to match the rate at which the adapter is being driven (e.g. the simulation
   task rate), otherwise the integrated reference frame will drift relative to true wall-clock time.
-- If ``desiredAttInMsg`` is connected, the commanded values are checked each update cycle. On reset, the prior-command
-  state is cleared so a fresh non-zero command is treated as new.
-- If ``desiredAttInMsg`` is not connected, the configured ``sigma_RR0`` and ``omega_RR0_R`` persist across resets unless
-  the user changes the public properties before invoking ``reset()`` again.
+- The configured ``sigma_RR0`` and ``omega_RR0_R`` are the sole source of the rotating-reference seed values; the
+  module does not consume a runtime command stream. To re-target the rotation at runtime, update the public
+  properties and call ``reset()`` again.
 - Forward Euler integration is used; for large :math:`\Delta t` and large :math:`\mathbf\omega_{R/R_0}`, integration
   drift will accumulate. The expected use case is small steps (<= 1 s) and modest rotation rates.
 - All math uses single-precision (float32). Compared to the double-precision Xmera implementation, regression
@@ -198,6 +182,5 @@ Test Description
 ----------------
 The module is verified through regression tests that drive the algorithm through several integration steps and compare
 against an independently coded reference implementation, setup tests for the ``MrpRotationConfig`` validators, property
-tests for finiteness and the no-integration-on-first-step behavior, and edge-case tests covering zero angular velocity,
-the reset-reseeds-runtime-state contract, and the dynamic-reference latching path. Fuzz tests randomize the
-configuration and inputs over reasonable ranges.
+tests for finiteness of the integrated output, and edge-case tests covering zero angular velocity and the
+reset-reseeds-runtime-state contract. Fuzz tests randomize the configuration and inputs over reasonable ranges.

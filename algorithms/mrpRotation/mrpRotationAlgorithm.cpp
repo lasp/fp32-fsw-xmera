@@ -4,7 +4,7 @@
 /*! @brief Construct the algorithm with a validated configuration. Seeds the integrating runtime
  state (sigma_RR0, omega_RR0_R) from the configured initial values so the first update produces a
  sensible result without an explicit reset() call.
- @param config Validated configuration (initial sigma_RR0, omega_RR0_R, and the dynamic-reference flag).
+ @param config Validated configuration (initial sigma_RR0, omega_RR0_R, and integration controlPeriod).
  */
 MrpRotationAlgorithm::MrpRotationAlgorithm(const MrpRotationConfig& config)
     : cfg(config), sigma_RR0(config.getInitialSigmaRR0()), omega_RR0_R(config.getOmegaRR0R()) {}
@@ -16,12 +16,10 @@ MrpRotationAlgorithm::MrpRotationAlgorithm(const MrpRotationConfig& config)
  */
 void MrpRotationAlgorithm::setConfig(const MrpRotationConfig& config) { this->cfg = config; }
 
-/*! @brief Reset the algorithm: clear the prior-command latches and re-seed the active sigma_RR0 /
- omega_RR0_R from the configured initial values.
+/*! @brief Reset the algorithm: re-seed the active sigma_RR0 / omega_RR0_R from the configured
+ initial values.
  */
 void MrpRotationAlgorithm::reset() {
-    this->priorCmdSet = Eigen::Vector3f::Zero();
-    this->priorCmdRates = Eigen::Vector3f::Zero();
     this->sigma_RR0 = this->cfg.getInitialSigmaRR0();
     this->omega_RR0_R = this->cfg.getOmegaRR0R();
 }
@@ -31,45 +29,10 @@ void MrpRotationAlgorithm::reset() {
  and emitting the output reference frame.
  @param attRef Guidance reference input (sigma_R0N, omega_R0N_N, domega_R0N_N), already converted to Eigen by the
  adapter.
- @param attState Optional commanded MRP set / angular velocity, consumed only when the configured
-                 dynamicReferenceEnabled flag is true.
  @return MrpRotationOutput Output reference frame R: sigma_RN, omega_RN_N, domega_RN_N.
  */
-MrpRotationOutput MrpRotationAlgorithm::update(const MrpRotationAttRefInputs& attRef,
-                                               const MrpRotationAttStateInputs& attState) {
-    /*! - Check if a desired attitude configuration message exists. This allows for dynamic changes to the desired MRP
-     * rotation */
-    if (this->cfg.getDynamicReferenceEnabled()) {
-        /* - Save commanded MRP set and body rates */
-        this->cmdSet = attState.cmdSigma;
-        this->cmdRates = attState.cmdOmega;
-        /* - Check the command is new */
-        this->checkRasterCommands();
-    }
-
-    /*! - Compute output reference frame */
+MrpRotationOutput MrpRotationAlgorithm::update(const MrpRotationAttRefInputs& attRef) {
     return this->computeMRPRotationReference(attRef.sigma_R0N, attRef.omega_R0N_N, attRef.domega_R0N_N);
-}
-
-/*! @brief Detect a change in the commanded raster MRP set / rate (componentwise abs >
- kCmdChangeTolerance) and, when found, latch the new command into the integrator state
- (sigma_RR0, omega_RR0_R) and the prior-command latches.
- */
-void MrpRotationAlgorithm::checkRasterCommands() {
-    constexpr float kCmdChangeTolerance = 1e-6F;
-    const bool prevCmdActive = ((this->cmdSet - this->priorCmdSet).array().abs() < kCmdChangeTolerance).all() &&
-                               ((this->cmdRates - this->priorCmdRates).array().abs() < kCmdChangeTolerance).all();
-
-    /*! - check if a new attitude reference command message content is availble */
-    if (!prevCmdActive) {
-        /*! - copy over the commanded initial MRP and rate information */
-        this->sigma_RR0 = this->cmdSet;
-        this->omega_RR0_R = this->cmdRates;
-
-        /*! - reset the prior commanded attitude state variables */
-        this->priorCmdSet = this->cmdSet;
-        this->priorCmdRates = this->cmdRates;
-    }
 }
 
 /*! @brief Compute the reference frame (MRP attitude, angular velocity, angular acceleration)

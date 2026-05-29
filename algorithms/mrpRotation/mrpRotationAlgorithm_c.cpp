@@ -9,8 +9,7 @@ namespace {
 MrpRotationConfig configFromC(const MrpRotationConfig_c& c) {
     return MrpRotationConfig::create(cArrayToEigenVector3<float>(c.initialSigmaRR0.data),
                                      cArrayToEigenVector3<float>(c.omegaRR0R.data),
-                                     c.controlPeriod,
-                                     c.dynamicReferenceEnabled != 0);
+                                     c.controlPeriod);
 }
 
 MrpRotationAttRefInputs attRefFromC(const MrpRotationAttRefInputs_c& c) {
@@ -18,13 +17,6 @@ MrpRotationAttRefInputs attRefFromC(const MrpRotationAttRefInputs_c& c) {
         cArrayToEigenVector3<float>(c.sigma_R0N.data),
         cArrayToEigenVector3<float>(c.omega_R0N_N.data),
         cArrayToEigenVector3<float>(c.domega_R0N_N.data),
-    };
-}
-
-MrpRotationAttStateInputs attStateFromC(const MrpRotationAttStateInputs_c& c) {
-    return MrpRotationAttStateInputs{
-        cArrayToEigenVector3<float>(c.cmdSigma.data),
-        cArrayToEigenVector3<float>(c.cmdOmega.data),
     };
 }
 
@@ -62,10 +54,9 @@ void MrpRotationAlgorithm_reset(MrpRotationAlgorithmHandle* self) {
 }
 
 MrpRotationOutput_c MrpRotationAlgorithm_update(MrpRotationAlgorithmHandle* self,
-                                                const MrpRotationAttRefInputs_c* attRef,
-                                                const MrpRotationAttStateInputs_c* attState) {
+                                                const MrpRotationAttRefInputs_c* attRef) {
     // clang-format off
-    const MrpRotationOutput out = reinterpret_cast<::MrpRotationAlgorithm*>(self)->update(attRefFromC(*attRef), attStateFromC(*attState));  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+    const MrpRotationOutput out = reinterpret_cast<::MrpRotationAlgorithm*>(self)->update(attRefFromC(*attRef));  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
     // clang-format on
     return outputToC(out);
 }

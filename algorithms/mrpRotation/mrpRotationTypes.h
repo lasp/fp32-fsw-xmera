@@ -23,19 +23,6 @@ typedef struct {
 } MrpRotationAttRefInputs_c;
 
 /**
- * @brief Plain-old-data mirror of the C++ MrpRotationAttStateInputs fields.
- *
- * Same content as AttStateMsgF32Payload's state / rate. Only consumed when the configured
- * dynamicReferenceEnabled flag is non-zero; otherwise its contents are ignored.
- *  - cmdSigma [-]     desired attitude command MRP
- *  - cmdOmega [rad/s] desired attitude command rate
- */
-typedef struct {
-    Vector3f_c cmdSigma;
-    Vector3f_c cmdOmega;
-} MrpRotationAttStateInputs_c;
-
-/**
  * @brief Plain-old-data mirror of the C++ MrpRotationOutput fields.
  *
  * Same content as the output AttRefMsgF32Payload's sigma_RN / omega_RN_N / domega_RN_N.

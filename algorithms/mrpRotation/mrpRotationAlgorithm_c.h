@@ -22,13 +22,11 @@ typedef struct MrpRotationAlgorithmHandle MrpRotationAlgorithmHandle;
  *  - initialSigmaRR0 must be finite
  *  - omegaRR0R must be finite
  *  - controlPeriod [s] must be > 0; used as the forward-Euler integration step every update
- *  - dynamicReferenceEnabled is unconstrained (interpreted as boolean: zero = disabled, non-zero = enabled)
  */
 typedef struct {
     Vector3f_c initialSigmaRR0;
     Vector3f_c omegaRR0R;
     float controlPeriod;
-    int dynamicReferenceEnabled;
 } MrpRotationConfig_c;
 
 /**
@@ -61,17 +59,13 @@ void MrpRotationAlgorithm_reset(MrpRotationAlgorithmHandle* self);
 /**
  * @brief Advance the rotating reference frame one integration step (dt = configured controlPeriod)
  *        and produce the output reference.
- * @param self     Pointer to the instance.
- * @param attRef   Input reference frame attitude / rate / acceleration (algorithm-native POD,
- *                 mirrors AttRefMsgF32Payload; the caller converts at the messaging boundary).
- * @param attState Optional commanded MRP set / angular velocity (algorithm-native POD, mirrors
- *                 AttStateMsgF32Payload; consumed only when the configured dynamicReferenceEnabled
- *                 flag is non-zero).
+ * @param self   Pointer to the instance.
+ * @param attRef Input reference frame attitude / rate / acceleration (algorithm-native POD,
+ *               mirrors AttRefMsgF32Payload; the caller converts at the messaging boundary).
  * @return MrpRotationOutput_c  Output reference attitude / rate / acceleration.
  */
 MrpRotationOutput_c MrpRotationAlgorithm_update(MrpRotationAlgorithmHandle* self,
-                                                const MrpRotationAttRefInputs_c* attRef,
-                                                const MrpRotationAttStateInputs_c* attState);
+                                                const MrpRotationAttRefInputs_c* attRef);
 
 #ifdef __cplusplus
 }  // extern "C"

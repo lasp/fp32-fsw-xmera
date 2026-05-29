@@ -3,7 +3,6 @@
 
 #include "mrpRotationAlgorithm.h"
 #include "msgPayloadDef/AttRefMsgF32Payload.h"
-#include "msgPayloadDef/AttStateMsgF32Payload.h"
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
 #include <stdint.h>
@@ -24,9 +23,8 @@ class MrpRotation final : public SysModel {
     Eigen::Vector3f omega_RR0_R = Eigen::Vector3f::Zero();  //!< [rad/s] constant angular velocity in R-frame components
     float controlPeriod = 0.0F;  //!< [s] integration step used by the algorithm (must be > 0)
 
-    Message<AttRefMsgF32Payload> attRefOutMsg;           //!< output message containing the Reference
-    ReadFunctor<AttRefMsgF32Payload> attRefInMsg;        //!< guidance reference input message
-    ReadFunctor<AttStateMsgF32Payload> desiredAttInMsg;  //!< incoming message containing the desired attitude set
+    Message<AttRefMsgF32Payload> attRefOutMsg;     //!< output message containing the Reference
+    ReadFunctor<AttRefMsgF32Payload> attRefInMsg;  //!< guidance reference input message
 
    private:
     std::unique_ptr<MrpRotationAlgorithm> algorithm = nullptr;

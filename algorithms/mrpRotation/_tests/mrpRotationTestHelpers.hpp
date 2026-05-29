@@ -65,17 +65,16 @@ inline void regressionTestMrpRotation(const Eigen::Vector3f& initialSigmaRR0,
                                       const Eigen::Vector3f& domega_R0N_N,
                                       float updateTimeSec,
                                       int numSteps) {
-    const auto config = MrpRotationConfig::create(initialSigmaRR0, omegaRR0R, updateTimeSec, false);
+    const auto config = MrpRotationConfig::create(initialSigmaRR0, omegaRR0R, updateTimeSec);
     MrpRotationAlgorithm alg{config};
     alg.reset();
 
     MrpRotationReferenceState refState{initialSigmaRR0, omegaRR0R};
 
     const MrpRotationAttRefInputs attRef{sigma_R0N, omega_R0N_N, domega_R0N_N};
-    const MrpRotationAttStateInputs emptyState{};
 
     for (int k = 0; k < numSteps; ++k) {
-        const MrpRotationOutput algOut = alg.update(attRef, emptyState);
+        const MrpRotationOutput algOut = alg.update(attRef);
         const auto refOut = referenceUpdate(refState, sigma_R0N, omega_R0N_N, domega_R0N_N, updateTimeSec);
 
         constexpr float tol = 1e-5F;
@@ -107,7 +106,7 @@ inline void fuzzRegressionMrpRotation(const Eigen::Vector3f& initialSigmaRR0,
 // Output reference is finite for any finite inputs and finite configuration.
 inline void propertyOutputIsFinite(const Eigen::Vector3f& initialSigmaRR0, const Eigen::Vector3f& omegaRR0R) {
     constexpr float kPropertyControlPeriod = 0.5F;
-    const auto config = MrpRotationConfig::create(initialSigmaRR0, omegaRR0R, kPropertyControlPeriod, false);
+    const auto config = MrpRotationConfig::create(initialSigmaRR0, omegaRR0R, kPropertyControlPeriod);
     MrpRotationAlgorithm alg{config};
     alg.reset();
 
@@ -116,12 +115,11 @@ inline void propertyOutputIsFinite(const Eigen::Vector3f& initialSigmaRR0, const
         Eigen::Vector3f{0.05F, 0.0F, 0.0F},
         Eigen::Vector3f::Zero(),
     };
-    const MrpRotationAttStateInputs emptyState{};
 
     MrpRotationOutput out0{};
-    EXPECT_NO_THROW(out0 = alg.update(attRef, emptyState));
+    EXPECT_NO_THROW(out0 = alg.update(attRef));
     MrpRotationOutput out1{};
-    EXPECT_NO_THROW(out1 = alg.update(attRef, emptyState));
+    EXPECT_NO_THROW(out1 = alg.update(attRef));
 
     for (int i = 0; i < 3; ++i) {
         EXPECT_TRUE(std::isfinite(out0.sigma_RN(i)));
