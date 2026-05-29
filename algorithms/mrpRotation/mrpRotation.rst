@@ -6,12 +6,12 @@ Executive Summary
 -----------------
 This module produces a dynamic reference frame attitude state by superimposing a constant-rate rotation on top of an
 input reference frame. The initial orientation relative to the input reference :math:`\mathcal R_0` is specified
-through an MRP set :math:`\mathbf\sigma_{R/R_0}`, and the :math:`\mathcal R`-frame angular velocity vector
-:math:`{}^{\mathcal R}{\mathbf\omega}_{R/R_0}` is held constant in :math:`\mathcal R`-frame components. The module
-integrates :math:`\mathbf\sigma_{R/R_0}` forward each cycle using the MRP kinematic differential equation, then
-composes the result with the input reference to produce the output attitude :math:`\mathbf\sigma_{R/N}`, the inertial
-angular velocity :math:`{}^{\mathcal N}{\mathbf\omega}_{R/N}`, and the inertial angular acceleration
-:math:`{}^{\mathcal N}{\dot{\mathbf\omega}}_{R/N}`. This is a single-precision (float32) port of the original
+through an MRP set :math:`\mathbf\sigma_{\mathcal{R}/\mathcal{R}_0}`, and the :math:`\mathcal R`-frame angular velocity vector
+:math:`{}^{\mathcal R}{\mathbf\omega}_{\mathcal{R}/\mathcal{R}_0}` is held constant in :math:`\mathcal R`-frame components. The module
+integrates :math:`\mathbf\sigma_{\mathcal{R}/\mathcal{R}_0}` forward each cycle using the MRP kinematic differential equation, then
+composes the result with the input reference to produce the output attitude :math:`\mathbf\sigma_{\mathcal{R}/\mathcal{N}}`, the inertial
+angular velocity :math:`{}^{\mathcal N}{\mathbf\omega}_{\mathcal{R}/\mathcal{N}}`, and the inertial angular acceleration
+:math:`{}^{\mathcal N}{\dot{\mathbf\omega}}_{\mathcal{R}/\mathcal{N}}`. This is a single-precision (float32) port of the original
 double-precision Xmera implementation.
 
 Module Architecture
@@ -52,13 +52,13 @@ The adapter consumes the following messages and exposes the configuration as pub
       - Description
     * - attRefInMsg
       - :ref:`AttRefMsgF32Payload`
-      - Required input reference frame attitude :math:`\mathbf\sigma_{R_0/N}`, rate
-        :math:`{}^{\mathcal N}{\mathbf\omega}_{R_0/N}`, and acceleration
-        :math:`{}^{\mathcal N}{\dot{\mathbf\omega}}_{R_0/N}`
+      - Required input reference frame attitude :math:`\mathbf\sigma_{\mathcal{R}_0/\mathcal{N}}`, rate
+        :math:`{}^{\mathcal N}{\mathbf\omega}_{\mathcal{R}_0/\mathcal{N}}`, and acceleration
+        :math:`{}^{\mathcal N}{\dot{\mathbf\omega}}_{\mathcal{R}_0/\mathcal{N}}`
     * - attRefOutMsg
       - :ref:`AttRefMsgF32Payload`
-      - Output reference frame :math:`\mathbf\sigma_{R/N}`, :math:`{}^{\mathcal N}{\mathbf\omega}_{R/N}`,
-        :math:`{}^{\mathcal N}{\dot{\mathbf\omega}}_{R/N}`
+      - Output reference frame :math:`\mathbf\sigma_{\mathcal{R}/\mathcal{N}}`, :math:`{}^{\mathcal N}{\mathbf\omega}_{\mathcal{R}/\mathcal{N}}`,
+        :math:`{}^{\mathcal N}{\dot{\mathbf\omega}}_{\mathcal{R}/\mathcal{N}}`
 
 .. list-table:: Module Configuration Properties
     :widths: 25 20 10 15 30
@@ -114,27 +114,27 @@ Mathematical Formulation
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
 Assume the input reference frame :math:`\mathcal R_0` is given through an attitude state input message containing
-:math:`\mathbf\sigma_{R_0/N}`, :math:`{}^{\mathcal N}{\mathbf\omega}_{R_0/N}`, and
-:math:`{}^{\mathcal N}{\dot{\mathbf\omega}}_{R_0/N}`. The MRP set is mapped into the corresponding direction cosine
+:math:`\mathbf\sigma_{\mathcal{R}_0/\mathcal{N}}`, :math:`{}^{\mathcal N}{\mathbf\omega}_{\mathcal{R}_0/\mathcal{N}}`, and
+:math:`{}^{\mathcal N}{\dot{\mathbf\omega}}_{\mathcal{R}_0/\mathcal{N}}`. The MRP set is mapped into the corresponding direction cosine
 matrix (DCM)
 
-.. math:: [R_0 N] = [R_0 N(\mathbf\sigma_{R_0/N})]
+.. math:: [R_0 N] = [R_0 N(\mathbf\sigma_{\mathcal{R}_0/\mathcal{N}})]
 
 The output reference frame :math:`\mathcal R` is constructed so that
 
 .. math::
    \begin{align}
-       \dot{\mathbf\sigma}_{R/R_0} &= \frac{1}{4} [B(\mathbf\sigma_{R/R_0})]\,{}^{\mathcal R}{\mathbf\omega}_{R/R_0}
+       \dot{\mathbf\sigma}_{\mathcal{R}/\mathcal{R}_0} &= \frac{1}{4} [B(\mathbf\sigma_{\mathcal{R}/\mathcal{R}_0})]\,{}^{\mathcal R}{\mathbf\omega}_{\mathcal{R}/\mathcal{R}_0}
        & \label{eq:mRot1} \\
-       \frac{{}^{\mathcal R}{\textrm{d}}{\mathbf\omega}_{R/R_0}}{\textrm{d}t} &= \mathbf 0 & \label{eq:mRot2}
+       \frac{{}^{\mathcal R}{\textrm{d}}{\mathbf\omega}_{\mathcal{R}/\mathcal{R}_0}}{\textrm{d}t} &= \mathbf 0 & \label{eq:mRot2}
    \end{align}
 
-The MRP set :math:`\mathbf\sigma_{R/R_0}` is propagated each cycle using forward Euler integration with the integration
+The MRP set :math:`\mathbf\sigma_{\mathcal{R}/\mathcal{R}_0}` is propagated each cycle using forward Euler integration with the integration
 step :math:`\Delta t` taken directly from the configured ``controlPeriod``:
 
 .. math::
-   \mathbf\sigma_{R/R_0}(t_{k+1}) = \texttt{mrpSwitch}\!\left(\mathbf\sigma_{R/R_0}(t_k) + \Delta t \cdot
-   \dot{\mathbf\sigma}_{R/R_0},\ 1\right)
+   \mathbf\sigma_{\mathcal{R}/\mathcal{R}_0}(t_{k+1}) = \texttt{mrpSwitch}\!\left(\mathbf\sigma_{\mathcal{R}/\mathcal{R}_0}(t_k) + \Delta t \cdot
+   \dot{\mathbf\sigma}_{\mathcal{R}/\mathcal{R}_0},\ 1\right)
 
 ``mrpSwitch`` maps the MRP to the shadow set when the result has norm greater than one, ensuring the representation
 stays bounded. Every ``update()`` advances the MRP by ``controlPeriod``; the caller is responsible for setting
@@ -142,28 +142,28 @@ stays bounded. Every ``update()`` advances the MRP by ``controlPeriod``; the cal
 
 The current DCM of the :math:`\mathcal R`-frame is
 
-.. math:: [RN] = [RR_0(\mathbf\sigma_{R/R_0}(t))]\,[R_0 N]
+.. math:: [RN] = [RR_0(\mathbf\sigma_{\mathcal{R}/\mathcal{R}_0}(t))]\,[R_0 N]
 
 The output MRP set is read from this DCM:
 
-.. math:: \mathbf\sigma_{R/N} = \texttt{dcmToMrp}([RN])
+.. math:: \mathbf\sigma_{\mathcal{R}/\mathcal{N}} = \texttt{dcmToMrp}([RN])
 
 The angular velocity is mapped to inertial-frame components and combined with the input rate:
 
 .. math::
    \begin{align}
-       {}^{\mathcal N}{\mathbf\omega}_{R/R_0} &= [RN]^{T}\,{}^{\mathcal R}{\mathbf\omega}_{R/R_0} \\
-       {}^{\mathcal N}{\mathbf\omega}_{R/N} &= {}^{\mathcal N}{\mathbf\omega}_{R/R_0} +
-       {}^{\mathcal N}{\mathbf\omega}_{R_0/N}
+       {}^{\mathcal N}{\mathbf\omega}_{\mathcal{R}/\mathcal{R}_0} &= [RN]^{T}\,{}^{\mathcal R}{\mathbf\omega}_{\mathcal{R}/\mathcal{R}_0} \\
+       {}^{\mathcal N}{\mathbf\omega}_{\mathcal{R}/\mathcal{N}} &= {}^{\mathcal N}{\mathbf\omega}_{\mathcal{R}/\mathcal{R}_0} +
+       {}^{\mathcal N}{\mathbf\omega}_{\mathcal{R}_0/\mathcal{N}}
    \end{align}
 
 The inertial angular acceleration of the output frame is found via the transport theorem, noting that
-:math:`{}^{\mathcal R}{\dot{\mathbf\omega}}_{R/R_0} = \mathbf 0` and using
-:math:`\mathbf\omega_{R/N} \times {\mathbf\omega}_{R/R_0} = \mathbf\omega_{R_0/N} \times {\mathbf\omega}_{R/R_0}`:
+:math:`\frac{{}^{\mathcal R}{\textrm{d}}{\mathbf\omega}_{\mathcal{R}/\mathcal{R}_0}}{\textrm{d}t} = \mathbf 0` and using
+:math:`\mathbf\omega_{\mathcal{R}/\mathcal{N}} \times {\mathbf\omega}_{\mathcal{R}/\mathcal{R}_0} = \mathbf\omega_{\mathcal{R}_0/\mathcal{N}} \times {\mathbf\omega}_{\mathcal{R}/\mathcal{R}_0}`:
 
 .. math::
-   {}^{\mathcal N}{\dot{\mathbf\omega}}_{R/N} = {}^{\mathcal N}{\mathbf\omega}_{R_0/N} \times
-   {}^{\mathcal N}{\mathbf\omega}_{R/R_0} + {}^{\mathcal N}{\dot{\mathbf\omega}}_{R_0/N}
+   {}^{\mathcal N}{\dot{\mathbf\omega}}_{\mathcal{R}/\mathcal{N}} = {}^{\mathcal N}{\mathbf\omega}_{\mathcal{R}_0/\mathcal{N}} \times
+   {}^{\mathcal N}{\mathbf\omega}_{\mathcal{R}/\mathcal{R}_0} + {}^{\mathcal N}{\dot{\mathbf\omega}}_{\mathcal{R}_0/\mathcal{N}}
 
 Module Assumptions and Limitations
 ----------------------------------
@@ -174,7 +174,7 @@ Module Assumptions and Limitations
 - The configured ``sigma_RR0`` and ``omega_RR0_R`` are the sole source of the rotating-reference seed values; the
   module does not consume a runtime command stream. To re-target the rotation at runtime, update the public
   properties and call ``reset()`` again.
-- Forward Euler integration is used; for large :math:`\Delta t` and large :math:`\mathbf\omega_{R/R_0}`, integration
+- Forward Euler integration is used; for large :math:`\Delta t` and large :math:`\mathbf\omega_{\mathcal{R}/\mathcal{R}_0}`, integration
   drift will accumulate. The expected use case is small steps (<= 1 s) and modest rotation rates.
 - All math uses single-precision (float32). Compared to the double-precision Xmera implementation, regression
   tolerances are relaxed to roughly :math:`10^{-5}`.
