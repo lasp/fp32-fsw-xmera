@@ -73,8 +73,9 @@ The adapter consumes the following messages and exposes the configuration as pub
       - Eigen::Vector3f
       - [-]
       - zero
-      - Components must be finite (``allFinite``); MRPs greater than 1 in norm are mapped to the shadow set during
-        integration via ``mrpSwitch``
+      - Components must be finite (``allFinite``). A seed with norm greater than 1 is mapped to its shadow-set
+        representative (norm :math:`\le 1`) when the configuration is created, so the stored initial attitude is always a
+        well-conditioned MRP; the integrated MRP is likewise kept bounded via ``mrpSwitch`` on every ``update()``
     * - omega_RR0_R
       - Eigen::Vector3f
       - [rad/s]

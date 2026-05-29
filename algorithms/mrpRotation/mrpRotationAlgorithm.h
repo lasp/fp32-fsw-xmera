@@ -5,6 +5,7 @@
 #include "utilities/freestandingIsFinite.hpp"
 #include <stdint.h>
 #include <Eigen/Core>
+#include <architecture/utilities/rigidBodyKinematics.hpp>
 
 /*! @brief Algorithm-native input bundle that mirrors AttRefMsgF32Payload. The adapter converts the
  *  payload's float[3] arrays into Eigen vectors via eigenSupport.h before calling update().
@@ -38,7 +39,9 @@ class MrpRotationConfig final {
         if (!isValidControlPeriod(controlPeriod)) {
             FSW_THROW_INVALID_ARGUMENT("mrpRotation: controlPeriod must be > 0");
         }
-        return {initialSigmaRR0, omegaRR0R, controlPeriod};
+        // Bound the seed MRP to the principal set (norm <= 1) by switching to the shadow set if
+        // needed, so the stored initial attitude is always a well-conditioned MRP representation.
+        return {mrpSwitch(initialSigmaRR0, 1.0F), omegaRR0R, controlPeriod};
     }
 
     static bool isValidInitialSigmaRR0(const Eigen::Vector3f& sigma) { return sigma.allFinite(); }

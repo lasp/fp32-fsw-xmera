@@ -70,6 +70,34 @@ TEST(MrpRotationConfigTest, GettersRoundTrip) {
     EXPECT_FLOAT_EQ(cfg.getControlPeriod(), controlPeriod);
 }
 
+// create() bounds the seed MRP to the principal set: an initialSigmaRR0 with norm > 1 is stored as
+// its shadow-set representative (-sigma / |sigma|^2), which has norm <= 1.
+TEST(MrpRotationConfigTest, InitialSigmaRR0SwitchedToShadowSetWhenNormExceedsOne) {
+    const Eigen::Vector3f largeSigma{0.8F, 0.6F, 0.6F};  // |sigma|^2 = 1.36 > 1
+    ASSERT_GT(largeSigma.norm(), 1.0F) << "Test setup: seed MRP must exceed the norm-1 boundary";
+
+    const auto cfg = MrpRotationConfig::create(largeSigma, Eigen::Vector3f::Zero(), 0.5F);
+    const Eigen::Vector3f stored = cfg.getInitialSigmaRR0();
+
+    EXPECT_LE(stored.norm(), 1.0F);
+    const Eigen::Vector3f expectedShadow = -largeSigma / largeSigma.squaredNorm();
+    for (int i = 0; i < 3; ++i) {
+        EXPECT_FLOAT_EQ(stored(i), expectedShadow(i));
+    }
+}
+
+// A seed MRP already within the principal set (norm <= 1) is stored unchanged.
+TEST(MrpRotationConfigTest, InitialSigmaRR0WithinBoundStoredUnchanged) {
+    const Eigen::Vector3f sigma{0.3F, -0.4F, 0.2F};  // norm < 1
+    ASSERT_LE(sigma.norm(), 1.0F);
+
+    const auto cfg = MrpRotationConfig::create(sigma, Eigen::Vector3f::Zero(), 0.5F);
+    const Eigen::Vector3f stored = cfg.getInitialSigmaRR0();
+    for (int i = 0; i < 3; ++i) {
+        EXPECT_FLOAT_EQ(stored(i), sigma(i));
+    }
+}
+
 TEST(MrpRotationConfigTest, IsValidValidatorsHonorContracts) {
     EXPECT_TRUE(MrpRotationConfig::isValidInitialSigmaRR0(Eigen::Vector3f{0.0F, 0.0F, 0.0F}));
     EXPECT_TRUE(MrpRotationConfig::isValidInitialSigmaRR0(Eigen::Vector3f{1.5F, -2.0F, 3.5F}));
@@ -198,7 +226,8 @@ TEST(MrpRotationTest, SetConfigReseedsRuntimeState) {
 
     // Independent reference: setConfig re-seeded runtime state to cfgB's initial sigma / omega
     // (discarding the post-firstStep state), so the step integrates from there using cfgB's period.
-    MrpRotationReferenceState refState{initialSigmaRR0_B, omegaRR0R_B};
+    // create() bounds the seed MRP via mrpSwitch, so mirror that here.
+    MrpRotationReferenceState refState{mrpSwitch(initialSigmaRR0_B, 1.0F), omegaRR0R_B};
     const auto refOut =
         referenceUpdate(refState, Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(), kPeriodB);
 

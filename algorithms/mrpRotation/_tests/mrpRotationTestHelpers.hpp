@@ -68,7 +68,9 @@ inline void regressionTestMrpRotation(const Eigen::Vector3f& initialSigmaRR0,
     const auto config = MrpRotationConfig::create(initialSigmaRR0, omegaRR0R, updateTimeSec);
     MrpRotationAlgorithm alg{config};
 
-    MrpRotationReferenceState refState{initialSigmaRR0, omegaRR0R};
+    // The algorithm bounds the seed MRP via mrpSwitch in MrpRotationConfig::create, so the
+    // reference must start from the same bounded representative to stay in lock-step.
+    MrpRotationReferenceState refState{mrpSwitch(initialSigmaRR0, 1.0F), omegaRR0R};
 
     const MrpRotationAttRefInputs attRef{sigma_R0N, omega_R0N_N, domega_R0N_N};
 
@@ -147,7 +149,9 @@ inline void propertySigmaRNEqualsSigmaRR0WhenInputRefIsIdentity(const Eigen::Vec
         Eigen::Vector3f::Zero(),
         Eigen::Vector3f::Zero(),
     };
-    MrpRotationReferenceState refState{initialSigmaRR0, omegaRR0R};
+    // The algorithm bounds the seed MRP via mrpSwitch in MrpRotationConfig::create, so the
+    // reference must start from the same bounded representative to stay in lock-step.
+    MrpRotationReferenceState refState{mrpSwitch(initialSigmaRR0, 1.0F), omegaRR0R};
 
     constexpr float tol = 1e-5F;
     for (int k = 0; k < kNumSteps; ++k) {
