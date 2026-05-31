@@ -171,6 +171,10 @@ jobs:
           XMERA_FUZZTEST_REPLAY_FOR: inf
         run: ctest --output-on-failure -L fuzz
 
+      - name: Run exhaustive equivalence scans (CTest)
+        working-directory: xmera/build/fp32-fsw-xmera/algorithms
+        run: ctest --output-on-failure -L exhaustive
+
       - name: Run extended fuzz sessions
         working-directory: xmera/build/fp32-fsw-xmera/algorithms
         env:
