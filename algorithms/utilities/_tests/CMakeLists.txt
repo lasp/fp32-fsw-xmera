@@ -73,6 +73,38 @@ target_link_libraries(test_orbitalMotion_degenerate PRIVATE
 
 gtest_discover_tests(test_orbitalMotion_degenerate)
 
+add_executable(test_freestandingIsFinite
+               test_freestandingIsFinite.cpp
+  freestandingIsFinite_static_tests.hpp
+)
+
+target_include_directories(test_freestandingIsFinite PRIVATE "..")
+
+# main() is defined in the source, so link gtest (NOT gtest_main).
+target_link_libraries(test_freestandingIsFinite PRIVATE
+    GTest::gtest
+)
+
+# Fast suite: equivalence classes, boundary, FP-flag, and the compile-time
+# static_asserts. Excludes the two long-running brute-force scans.
+gtest_discover_tests(test_freestandingIsFinite
+  TEST_FILTER "-FloatExhaustive.*:DoubleDifferential.*"
+  # Keep the generator-produced names (pos_zero, snan, ...); without this CMake
+  # rewrites the ctest label from gtest's "# GetParam() = 16-byte object <hex>"
+  # comment, since FCase/DCase have no operator<<.
+  NO_PRETTY_VALUES
+)
+
+# Brute-force scans (2^32 float + 50M double): registered separately and
+# labeled so the default ctest run can skip them (run with `ctest -L exhaustive`).
+gtest_discover_tests(test_freestandingIsFinite
+  TEST_FILTER "FloatExhaustive.*:DoubleDifferential.*"
+  TEST_PREFIX "exhaustive."
+  NO_PRETTY_VALUES
+  PROPERTIES
+    LABELS "exhaustive"
+)
+
 if(XMERA_ENABLE_FUZZTESTS)
   fuzztest_setup_fuzzing_flags()
 
