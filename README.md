@@ -82,7 +82,7 @@ cmake --build --preset linux-gcc-debug --target gncAlgorithms
 cmake --build --preset linux-gcc-debug -- -j8
 ```
 
-Note: `build_a.sh` and `build_all.sh` are legacy and not required when using CMake presets directly.
+Note: `build_all.sh` is the recommended driver for building every target/mode at once (it routes through `./build.sh <preset>`). For ad-hoc builds, invoke `./build.sh <preset>` or `cmake --preset <preset>` directly.
 
 One can add a user-defined preset to CMakeUserPresets.json which is not added to the repository.
 E.g.
