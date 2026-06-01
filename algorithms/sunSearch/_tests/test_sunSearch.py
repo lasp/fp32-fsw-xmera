@@ -2,7 +2,6 @@ import inspect
 import os
 
 import numpy as np
-import pytest
 
 filename = inspect.getframeinfo(inspect.currentframe()).filename
 path = os.path.dirname(os.path.abspath(filename))
@@ -15,15 +14,7 @@ from xmera.architecture import messaging
 from xmera.architecture import sim_model
 
 
-@pytest.mark.parametrize("axes", [
-    [sunSearchF32.RotationAxis_b1Hat_B, sunSearchF32.RotationAxis_b2Hat_B,
-     sunSearchF32.RotationAxis_b3Hat_B, sunSearchF32.RotationAxis_b1Hat_B],
-    [sunSearchF32.RotationAxis_b3Hat_B, sunSearchF32.RotationAxis_b3Hat_B,
-     sunSearchF32.RotationAxis_b1Hat_B, sunSearchF32.RotationAxis_b2Hat_B],
-])
-@pytest.mark.parametrize("omega_BN_B", [[0, 0, 0], [0.01, -0.02, 0.03]])
-def test_sun_search(show_plots, axes, omega_BN_B):
-
+def run_test(axes, omega_BN_B):
     unit_task_name = "unitTask"
     unit_process_name = "TestProcess"
     sim_model.setDefaultLogLevel(sim_model.BSK_WARNING)
@@ -108,8 +99,28 @@ def test_sun_search(show_plots, axes, omega_BN_B):
     np.testing.assert_allclose(omega_RN_B, omega_RN_B_truth, rtol=0, atol=accuracy, verbose=True)
 
 
+def test_sun_search_distinct_axes():
+    distinct_axes = [
+        sunSearchF32.RotationAxis_b1Hat_B,
+        sunSearchF32.RotationAxis_b2Hat_B,
+        sunSearchF32.RotationAxis_b3Hat_B,
+        sunSearchF32.RotationAxis_b1Hat_B,
+    ]
+    for omega_BN_B in ([0, 0, 0], [0.01, -0.02, 0.03]):
+        run_test(distinct_axes, omega_BN_B)
+
+
+def test_sun_search_repeated_axis():
+    repeated_axes = [
+        sunSearchF32.RotationAxis_b3Hat_B,
+        sunSearchF32.RotationAxis_b3Hat_B,
+        sunSearchF32.RotationAxis_b1Hat_B,
+        sunSearchF32.RotationAxis_b2Hat_B,
+    ]
+    for omega_BN_B in ([0, 0, 0], [0.01, -0.02, 0.03]):
+        run_test(repeated_axes, omega_BN_B)
+
+
 if __name__ == "__main__":
-    test_sun_search(False,
-                    [sunSearchF32.RotationAxis_b1Hat_B, sunSearchF32.RotationAxis_b2Hat_B,
-                     sunSearchF32.RotationAxis_b3Hat_B, sunSearchF32.RotationAxis_b1Hat_B],
-                    [0, 0, 0])
+    test_sun_search_distinct_axes()
+    test_sun_search_repeated_axis()
