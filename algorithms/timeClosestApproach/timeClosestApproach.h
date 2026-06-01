@@ -20,6 +20,7 @@ class TimeClosestApproach : public SysModel {
    public:
     TimeClosestApproach();
     ~TimeClosestApproach() override;
+    void reset(uint64_t callTime) override;
     void updateState(uint64_t currentSimNanos) override;
 
     ReadFunctor<FilterMsgF32Payload> filterInMsg;  //!< relative state and covariance input msg

@@ -26,6 +26,19 @@ void TimeClosestApproach::writeMessages(const double tCA, const double sigmaTca,
     this->tcaOutMsg.write(tcaMsgBuffer, this->moduleID, currentSimNanos);
 }
 
+/*! @brief Validate that the required input messages are linked
+ @param callTime The clock time at which the function was called (nanoseconds).
+ */
+void TimeClosestApproach::reset(const uint64_t callTime) {
+    // check if the required input messages are included
+    if (!this->filterInMsg.isLinked()) {
+        throw std::invalid_argument("timeClosestApproach.filterInMsg wasn't connected.");
+    }
+    if (!this->navFilterMsg.isLinked()) {
+        throw std::invalid_argument("timeClosestApproach.navFilterMsg wasn't connected.");
+    }
+}
+
 /*! This method is the main carrier for the time of closest approach calculation
  @return void
  @param currentSimNanos The current simulation time for system
