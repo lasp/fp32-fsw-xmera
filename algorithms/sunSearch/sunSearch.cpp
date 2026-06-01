@@ -1,52 +1,37 @@
 #include "sunSearch.h"
 
-/*! This method is used to reset the module.
- @return void
- */
-void SunSearch::reset(const uint64_t currentSimNanos) {
+#include "architecture/utilities/eigenSupport.h"
+#include "utilities/xmeraLifecycleException.h"
+
+#include <stdexcept>
+
+void SunSearch::reset(const uint64_t callTime) {
     if (!this->attNavInMsg.isLinked()) {
         throw std::invalid_argument("SunSearch.attNavInMsg wasn't connected.");
     }
-    if (!this->vehConfigInMsg.isLinked()) {
-        throw std::invalid_argument("SunSearch.vehConfigInMsg wasn't connected.");
+    auto config = SunSearchConfig::create(this->rotations);
+    this->algorithm = std::make_unique<SunSearchAlgorithm>(config);
+}
+
+void SunSearch::updateState(const uint64_t callTime) {
+    if (!this->algorithm) {
+        throw XmeraLifecycleException("SunSearch reset() has not been called.");
     }
-    const float* iScPntB_B = this->vehConfigInMsg().ISCPntB_B;
-    this->algorithm.reset(currentSimNanos, {iScPntB_B[0], iScPntB_B[4], iScPntB_B[8]});
+
+    NavAttMsgF32Payload navAttIn = this->attNavInMsg();
+    const Eigen::Vector3f omega_BN_B = cArrayToEigenVector(navAttIn.omega_BN_B);
+
+    SunSearchOutput output = this->algorithm->update(callTime, omega_BN_B);
+
+    AttGuidMsgF32Payload attGuidOut{};
+    eigenVectorToCArray(output.omega_RN_B, attGuidOut.omega_RN_B);
+    eigenVectorToCArray(output.omega_BR_B, attGuidOut.omega_BR_B);
+
+    this->attGuidOutMsg.write(attGuidOut, this->moduleID, callTime);
 }
 
-/*! This method is the main carrier for the computation of the guidance message
- @return void
- @param currentSimNanos The current simulation time for system
- */
-void SunSearch::updateState(const uint64_t currentSimNanos) {
-    const NavAttMsgF32Payload navAttIn = this->attNavInMsg();
-    AttGuidMsgF32Payload attGuidOut = this->algorithm.update(currentSimNanos, navAttIn);
-
-    this->attGuidOutMsg.write(&attGuidOut, this->moduleID, currentSimNanos);
+void SunSearch::setRotation(const uint32_t index, const RotationProperties& rotation) {
+    this->rotations.at(index) = rotation;
 }
 
-/**
- * @brief Set the properties of a slew maneuver
- * @param slewPropertiesInput the properties of the slew maneuver
- */
-void SunSearch::setSlewProperties(const SlewProperties& slewPropertiesInput) {
-    this->algorithm.setSlewProperties(slewPropertiesInput);
-}
-
-/**
- * @brief Modify the properties of a slew maneuver
- * @param slewPropertiesInput the properties of the slew maneuver
- * @param index index of the slew maneuver
- */
-void SunSearch::modifySlewProperties(const SlewProperties& slewPropertiesInput, const uint32_t index) {
-    this->algorithm.modifySlewProperties(slewPropertiesInput, index);
-}
-
-/**
- * @brief Get the properties of a slew maneuver
- * @param index index of the slew maneuver
- * @return SlewProperties the properties of the slew maneuver
- */
-SlewProperties SunSearch::getSlewProperties(const uint32_t index) const {
-    return this->algorithm.getSlewProperties(index);
-}
+RotationProperties SunSearch::getRotation(const uint32_t index) const { return this->rotations.at(index); }

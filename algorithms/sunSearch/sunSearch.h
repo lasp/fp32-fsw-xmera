@@ -1,30 +1,29 @@
-#ifndef F32XIMERA_SUN_SEARCH_H
-#define F32XIMERA_SUN_SEARCH_H
+#ifndef F32XMERA_SUN_SEARCH_H
+#define F32XMERA_SUN_SEARCH_H
 
 #include "msgPayloadDef/AttGuidMsgF32Payload.h"
 #include "msgPayloadDef/NavAttMsgF32Payload.h"
-#include "msgPayloadDef/VehicleConfigMsgF32Payload.h"
 #include "sunSearchAlgorithm.h"
+
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
+#include <array>
+#include <cstdint>
+#include <memory>
 
 class SunSearch : public SysModel {
    public:
-    SunSearch() = default;
-    ~SunSearch() = default;
+    void reset(uint64_t callTime) final;
+    void updateState(uint64_t callTime) final;
+    void setRotation(uint32_t index, const RotationProperties& rotation);
+    RotationProperties getRotation(uint32_t index) const;
 
-    void reset(uint64_t currentSimNanos);
-    void updateState(uint64_t currentSimNanos);
-    void setSlewProperties(const SlewProperties& slewPropertiesInput);
-    void modifySlewProperties(const SlewProperties& slewPropertiesInput, uint32_t index);
-    SlewProperties getSlewProperties(uint32_t index) const;
-
-    ReadFunctor<NavAttMsgF32Payload> attNavInMsg;            //!< input msg measured attitude
-    ReadFunctor<VehicleConfigMsgF32Payload> vehConfigInMsg;  //!< input veh config msg
-    Message<AttGuidMsgF32Payload> attGuidOutMsg;             //!< Attitude reference output message
+    ReadFunctor<NavAttMsgF32Payload> attNavInMsg;  //!< input msg measured attitude
+    Message<AttGuidMsgF32Payload> attGuidOutMsg;   //!< Attitude reference output message
 
    private:
-    SunSearchAlgorithm algorithm{};
+    std::unique_ptr<SunSearchAlgorithm> algorithm = nullptr;
+    std::array<RotationProperties, kNumRotations> rotations{};
 };
 
 #endif
