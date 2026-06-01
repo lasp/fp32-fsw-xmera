@@ -16,7 +16,7 @@ from xmera.architecture import messaging
 from xmera.architecture import sim_model
 
 
-def computeKinematicProperties(theta_R, T_R, u_M, I, omega_M):
+def compute_kinematic_properties(theta_R, T_R, u_M, I, omega_M):
 
     alpha_M = u_M / I
 
@@ -42,138 +42,138 @@ def computeKinematicProperties(theta_R, T_R, u_M, I, omega_M):
     return alpha, omega, T, t_c
 
 
-@pytest.mark.parametrize("axis1", [1, 2, 3])
-@pytest.mark.parametrize("axis2", [1, 2, 3])
-@pytest.mark.parametrize("axis3", [1, 2, 3])
+@pytest.mark.parametrize("axis_1", [1, 2, 3])
+@pytest.mark.parametrize("axis_2", [1, 2, 3])
+@pytest.mark.parametrize("axis_3", [1, 2, 3])
 @pytest.mark.parametrize("omega_BN_B", [[0, 0, 0], [0.01, -0.02, 0.03]])
-def test_sunSearch(show_plots, axis1, axis2, axis3, omega_BN_B):
+def test_sun_search(show_plots, axis_1, axis_2, axis_3, omega_BN_B):
 
-    unitTaskName = "unitTask"
-    unitProcessName = "TestProcess"
+    unit_task_name = "unitTask"
+    unit_process_name = "TestProcess"
     sim_model.setDefaultLogLevel(sim_model.BSK_WARNING)
 
     # Create a sim module as an empty container
-    unitTestSim = SimulationBaseClass.SimBaseClass()
+    unit_test_sim = SimulationBaseClass.SimBaseClass()
 
     # Create test thread
-    testProcessRate = macros.sec2nano(1.1)
-    testProc = unitTestSim.CreateNewProcess(unitProcessName)
-    testProc.addTask(unitTestSim.CreateNewTask(unitTaskName, testProcessRate))
+    test_process_rate = macros.sec2nano(1.1)
+    test_proc = unit_test_sim.CreateNewProcess(unit_process_name)
+    test_proc.addTask(unit_test_sim.CreateNewTask(unit_task_name, test_process_rate))
 
-    theta1 = np.pi/2
-    theta2 = np.pi
-    theta3 = 2*np.pi
+    theta_1 = np.pi/2
+    theta_2 = np.pi
+    theta_3 = 2*np.pi
     T_R = 1
     u_M = 1
     omega_M = np.pi / 18
 
     # Construct algorithm and associated C++ container
-    attGuidance = sunSearchF32.SunSearch()
-    attGuidance.modelTag = "sunSearch"
+    module = sunSearchF32.SunSearch()
+    module.modelTag = "sunSearch"
 
-    slewProp1 = sunSearchF32.SlewProperties()
-    slewProp1.slewTime = T_R
-    slewProp1.slewAngle = theta1
-    slewProp1.slewMaxRate = omega_M
-    slewProp1.slewMaxTorque = u_M
-    slewProp1.slewRotAxis = axis1
+    slew_prop_1 = sunSearchF32.SlewProperties()
+    slew_prop_1.slewTime = T_R
+    slew_prop_1.slewAngle = theta_1
+    slew_prop_1.slewMaxRate = omega_M
+    slew_prop_1.slewMaxTorque = u_M
+    slew_prop_1.slewRotAxis = axis_1
 
-    slewProp2 = sunSearchF32.SlewProperties()
-    slewProp2.slewTime = T_R
-    slewProp2.slewAngle = theta2
-    slewProp2.slewMaxRate = omega_M
-    slewProp2.slewMaxTorque = u_M
-    slewProp2.slewRotAxis = axis2
+    slew_prop_2 = sunSearchF32.SlewProperties()
+    slew_prop_2.slewTime = T_R
+    slew_prop_2.slewAngle = theta_2
+    slew_prop_2.slewMaxRate = omega_M
+    slew_prop_2.slewMaxTorque = u_M
+    slew_prop_2.slewRotAxis = axis_2
 
-    slewProp3 = sunSearchF32.SlewProperties()
-    slewProp3.slewTime = T_R
-    slewProp3.slewAngle = theta3
-    slewProp3.slewMaxRate = omega_M
-    slewProp3.slewMaxTorque = u_M
-    slewProp3.slewRotAxis = axis3
+    slew_prop_3 = sunSearchF32.SlewProperties()
+    slew_prop_3.slewTime = T_R
+    slew_prop_3.slewAngle = theta_3
+    slew_prop_3.slewMaxRate = omega_M
+    slew_prop_3.slewMaxTorque = u_M
+    slew_prop_3.slewRotAxis = axis_3
 
-    attGuidance.setSlewProperties(slewProp1)
-    attGuidance.setSlewProperties(slewProp2)
-    attGuidance.setSlewProperties(slewProp3)
+    module.setSlewProperties(slew_prop_1)
+    module.setSlewProperties(slew_prop_2)
+    module.setSlewProperties(slew_prop_3)
 
     # Add test module to runtime call list
-    unitTestSim.AddModelToTask(unitTaskName, attGuidance)
+    unit_test_sim.AddModelToTask(unit_task_name, module)
 
     # Initialize the test module configuration data
     # These will eventually become input messages
 
     # Create input navigation message
-    NavAttMessageData = messaging.NavAttMsgF32Payload()
-    NavAttMessageData.omega_BN_B = omega_BN_B
-    NavAttMsg = messaging.NavAttMsgF32().write(NavAttMessageData)
-    attGuidance.attNavInMsg.subscribeTo(NavAttMsg)
+    nav_att_data = messaging.NavAttMsgF32Payload()
+    nav_att_data.omega_BN_B = omega_BN_B
+    nav_att_msg = messaging.NavAttMsgF32().write(nav_att_data)
+    module.attNavInMsg.subscribeTo(nav_att_msg)
 
     I = [100, 200, 300]
 
     # Create input vehicle configuration message
-    VehConfMessageData = messaging.VehicleConfigMsgF32Payload()
-    VehConfMessageData.ISCPntB_B = [I[0],  0.0,  0.0,
-                                     0.0, I[1],  0.0,
-                                     0.0,  0.0, I[2]]
-    VehConfMessage = messaging.VehicleConfigMsgF32().write(VehConfMessageData)
-    attGuidance.vehConfigInMsg.subscribeTo(VehConfMessage)
+    veh_conf_data = messaging.VehicleConfigMsgF32Payload()
+    veh_conf_data.ISCPntB_B = [I[0],  0.0,  0.0,
+                                0.0, I[1],  0.0,
+                                0.0,  0.0, I[2]]
+    veh_conf_msg = messaging.VehicleConfigMsgF32().write(veh_conf_data)
+    module.vehConfigInMsg.subscribeTo(veh_conf_msg)
 
     # Setup logging on the test module output message so that we get all the writes to it
-    dataLog = attGuidance.attGuidOutMsg.recorder()
-    unitTestSim.AddModelToTask(unitTaskName, dataLog)
+    data_log = module.attGuidOutMsg.recorder()
+    unit_test_sim.AddModelToTask(unit_task_name, data_log)
 
-    alpha1, omega1, T1, tc1 = computeKinematicProperties(theta1, T_R, u_M, I[axis1-1], omega_M)
-    alpha2, omega2, T2, tc2 = computeKinematicProperties(theta2, T_R, u_M, I[axis2-1], omega_M)
-    alpha3, omega3, T3, tc3 = computeKinematicProperties(theta3, T_R, u_M, I[axis3-1], omega_M)
+    alpha_1, omega_1, T_1, tc_1 = compute_kinematic_properties(theta_1, T_R, u_M, I[axis_1-1], omega_M)
+    alpha_2, omega_2, T_2, tc_2 = compute_kinematic_properties(theta_2, T_R, u_M, I[axis_2-1], omega_M)
+    alpha_3, omega_3, T_3, tc_3 = compute_kinematic_properties(theta_3, T_R, u_M, I[axis_3-1], omega_M)
 
     # Need to call the self-init and cross-init methods
-    unitTestSim.InitializeSimulation()
+    unit_test_sim.InitializeSimulation()
 
     # Set the simulation time.
     # NOTE: the total simulation time may be longer than this value. The
     # simulation is stopped at the next logging event on or after the
     # simulation end time.
-    unitTestSim.ConfigureStopTime(macros.sec2nano(T1+T2+T3))
+    unit_test_sim.ConfigureStopTime(macros.sec2nano(T_1+T_2+T_3))
 
     # Begin the simulation time run set above
-    unitTestSim.ExecuteSimulation()
+    unit_test_sim.ExecuteSimulation()
 
-    time = dataLog.times() * macros.NANO2SEC
-    omega_BR_B = dataLog.omega_BR_B
-    omega_RN_B = dataLog.omega_RN_B
-    omegaDot_RN_B = dataLog.domega_RN_B
+    time = data_log.times() * macros.NANO2SEC
+    omega_BR_B = data_log.omega_BR_B
+    omega_RN_B = data_log.omega_RN_B
+    omega_dot_RN_B = data_log.domega_RN_B
 
-    timeVector = [0, tc1, T1-tc1, T1, T1+tc2, T1+T2-tc2, T1+T2, T1+T2+tc3, T1+T2+T3-tc3, T1+T2+T3]
+    time_vector = [0, tc_1, T_1-tc_1, T_1, T_1+tc_2, T_1+T_2-tc_2, T_1+T_2, T_1+T_2+tc_3, T_1+T_2+T_3-tc_3, T_1+T_2+T_3]
 
     omega_BR_B_truth = np.zeros((len(time), 3))
     omega_RN_B_truth = np.zeros((len(time), 3))
-    omegaDot_RN_B_truth = np.zeros((len(time), 3))
+    omega_dot_RN_B_truth = np.zeros((len(time), 3))
     for i in range(len(time)):
         t = time[i]
-        if t < timeVector[1]:
-            omega_RN_B_truth[i, axis1-1] = omega1 * t / tc1
-            omegaDot_RN_B_truth[i, axis1-1] = alpha1
-        elif t < timeVector[2]:
-            omega_RN_B_truth[i, axis1-1] = omega1
-        elif t < timeVector[3]:
-            omega_RN_B_truth[i, axis1-1] = omega1 * (T1-t) / tc1
-            omegaDot_RN_B_truth[i, axis1-1] = -alpha1
-        elif t < timeVector[4]:
-            omega_RN_B_truth[i, axis2-1] = omega2 * (t-T1) / tc2
-            omegaDot_RN_B_truth[i, axis2-1] = alpha2
-        elif t < timeVector[5]:
-            omega_RN_B_truth[i, axis2-1] = omega2
-        elif t < timeVector[6]:
-            omega_RN_B_truth[i, axis2-1] = omega2 * (T1+T2-t) / tc2
-            omegaDot_RN_B_truth[i, axis2-1] = -alpha2
-        elif t < timeVector[7]:
-            omega_RN_B_truth[i, axis3-1] = omega3 * (t-T1-T2) / tc3
-            omegaDot_RN_B_truth[i, axis3-1] = alpha3
-        elif t < timeVector[8]:
-            omega_RN_B_truth[i, axis3-1] = omega3
-        elif t < timeVector[9]:
-            omega_RN_B_truth[i, axis3-1] = omega3 * (T1+T2+T3-t) / tc3
-            omegaDot_RN_B_truth[i, axis3-1] = -alpha3
+        if t < time_vector[1]:
+            omega_RN_B_truth[i, axis_1-1] = omega_1 * t / tc_1
+            omega_dot_RN_B_truth[i, axis_1-1] = alpha_1
+        elif t < time_vector[2]:
+            omega_RN_B_truth[i, axis_1-1] = omega_1
+        elif t < time_vector[3]:
+            omega_RN_B_truth[i, axis_1-1] = omega_1 * (T_1-t) / tc_1
+            omega_dot_RN_B_truth[i, axis_1-1] = -alpha_1
+        elif t < time_vector[4]:
+            omega_RN_B_truth[i, axis_2-1] = omega_2 * (t-T_1) / tc_2
+            omega_dot_RN_B_truth[i, axis_2-1] = alpha_2
+        elif t < time_vector[5]:
+            omega_RN_B_truth[i, axis_2-1] = omega_2
+        elif t < time_vector[6]:
+            omega_RN_B_truth[i, axis_2-1] = omega_2 * (T_1+T_2-t) / tc_2
+            omega_dot_RN_B_truth[i, axis_2-1] = -alpha_2
+        elif t < time_vector[7]:
+            omega_RN_B_truth[i, axis_3-1] = omega_3 * (t-T_1-T_2) / tc_3
+            omega_dot_RN_B_truth[i, axis_3-1] = alpha_3
+        elif t < time_vector[8]:
+            omega_RN_B_truth[i, axis_3-1] = omega_3
+        elif t < time_vector[9]:
+            omega_RN_B_truth[i, axis_3-1] = omega_3 * (T_1+T_2+T_3-t) / tc_3
+            omega_dot_RN_B_truth[i, axis_3-1] = -alpha_3
         omega_BR_B_truth[i] = omega_BN_B - omega_RN_B_truth[i]
 
     accuracy = 1e-6
@@ -181,11 +181,11 @@ def test_sunSearch(show_plots, axis1, axis2, axis3, omega_BN_B):
     # set the filtered output truth states
     np.testing.assert_allclose(omega_BR_B, omega_BR_B_truth, rtol=0, atol=accuracy, verbose=True)
     np.testing.assert_allclose(omega_RN_B, omega_RN_B_truth, rtol=0, atol=accuracy, verbose=True)
-    np.testing.assert_allclose(omegaDot_RN_B, omegaDot_RN_B_truth, rtol=0, atol=accuracy, verbose=True)
+    np.testing.assert_allclose(omega_dot_RN_B, omega_dot_RN_B_truth, rtol=0, atol=accuracy, verbose=True)
 
     return
 
 
 
 if __name__ == "__main__":
-    test_sunSearch(False, 1, 2, 3, [0, 0, 0])
+    test_sun_search(False, 1, 2, 3, [0, 0, 0])
