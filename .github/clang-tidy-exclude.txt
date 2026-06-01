@@ -47,6 +47,8 @@ algorithms/rateControl/rateControl.h
 algorithms/rateControl/rateControl.cpp
 algorithms/rwMotorTorque/rwMotorTorque.h
 algorithms/rwMotorTorque/rwMotorTorque.cpp
+algorithms/rwMotorTorque/rwMotorTorqueAlgorithm_c.h
+algorithms/rwMotorTorque/rwMotorTorqueAlgorithm_c.cpp
 algorithms/rwMotorVoltage/rwMotorVoltage.h
 algorithms/rwMotorVoltage/rwMotorVoltage.cpp
 algorithms/rwNullSpace/rwNullSpace.h

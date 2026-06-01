@@ -9,6 +9,10 @@
 
 #include <stdexcept>
 
+// The algorithm's C-boundary RW count must match the system-wide RW_EFF_CNT, otherwise the
+// payload GsMatrix_B / motorTorque arrays would not map onto the algorithm's fixed-size types.
+static_assert(kMaxNumRw == RW_EFF_CNT, "RW_MOTOR_TORQUE_MAX_NUM_RW must match RW_EFF_CNT");
+
 /*! This method performs a complete reset of the module.  Local module variables that retain
  time varying states between function calls are reset to their default values.
  @return void
