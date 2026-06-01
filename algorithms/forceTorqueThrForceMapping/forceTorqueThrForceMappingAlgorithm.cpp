@@ -9,7 +9,9 @@
  *  mapping matrix.
  @param config validated configuration (thruster array, center of mass, controllability assertions)
 */
-ForceTorqueThrForceMappingAlgorithm::ForceTorqueThrForceMappingAlgorithm(const ForceTorqueThrForceMappingConfig& config)
+// Config is fixed-size/trivially copyable, so move == copy; pass-by-value would only add an extra copy.
+ForceTorqueThrForceMappingAlgorithm::ForceTorqueThrForceMappingAlgorithm(
+    const ForceTorqueThrForceMappingConfig& config)  // NOLINT(modernize-pass-by-value)
     : cfg(config) {
     this->computeThrusterMapping();
 }
