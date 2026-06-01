@@ -23,7 +23,7 @@ void TimeClosestApproach::writeMessages(const double tCA, const double sigmaTca,
     tcaMsgBuffer.standardDeviation = static_cast<float>(sigmaTca);
 
     /*! Write the output messages */
-    this->tcaOutMsg.write(&tcaMsgBuffer, this->moduleID, currentSimNanos);
+    this->tcaOutMsg.write(tcaMsgBuffer, this->moduleID, currentSimNanos);
 }
 
 /*! This method is the main carrier for the time of closest approach calculation
@@ -35,10 +35,9 @@ void TimeClosestApproach::updateState(const uint64_t currentSimNanos) {
     auto navFilterMsgPayload = this->navFilterMsg();
 
     int numberOfStates = filterStatePayload.numberOfStates;
-    Eigen::Vector3d r_BN_N = cArrayToEigenVector(navFilterMsgPayload.r_BN_N);
-    Eigen::Vector3d v_BN_N = cArrayToEigenVector(navFilterMsgPayload.v_BN_N);
-    Eigen::MatrixXd filterCovariance =
-        cArrayToEigenMatrixX(filterStatePayload.covar, numberOfStates, numberOfStates).cast<double>();
+    Eigen::Vector3f r_BN_N = cArrayToEigenVector(navFilterMsgPayload.r_BN_N).cast<float>();
+    Eigen::Vector3f v_BN_N = cArrayToEigenVector(navFilterMsgPayload.v_BN_N).cast<float>();
+    Eigen::MatrixXf filterCovariance = cArrayToEigenMatrixX(filterStatePayload.covar, numberOfStates, numberOfStates);
 
     TimeClosestApproachOutput out_algo = this->algorithm.update(numberOfStates, r_BN_N, v_BN_N, filterCovariance);
     this->writeMessages(out_algo.tCA, out_algo.sigmaTca, currentSimNanos);
