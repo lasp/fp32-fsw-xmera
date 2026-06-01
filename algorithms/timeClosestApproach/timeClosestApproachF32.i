@@ -2,7 +2,7 @@
 // Copyright (c) 2024, Autonomous Vehicle System Lab, University of Colorado at Boulder
 // Copyright (c) 2024, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
 
-%module timeClosestApproach
+%module timeClosestApproachF32
 %{
    #include "timeClosestApproach.h"
 %}
@@ -14,6 +14,6 @@
 
 %include "timeClosestApproach.h"
 
-%include <architecture/msgPayloadDef/NavTransMsgPayload.h>
-%include <architecture/msgPayloadDef/FilterMsgPayload.h>
-%include <architecture/msgPayloadDef/TimeClosestApproachMsgPayload.h>
+%include "msgPayloadDef/NavTransMsgF32Payload.h"
+%include "msgPayloadDef/FilterMsgF32Payload.h"
+%include "msgPayloadDef/TimeClosestApproachMsgF32Payload.h"

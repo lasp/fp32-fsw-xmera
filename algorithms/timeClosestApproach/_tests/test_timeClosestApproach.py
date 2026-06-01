@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 from xmera import __path__
 from xmera.architecture import messaging
-from xmera.fswAlgorithms import timeClosestApproach
+from xmera.fp32 import timeClosestApproachF32 as timeClosestApproach
 from xmera.utilities import SimulationBaseClass, macros
 
 bskPath = __path__[0]
@@ -42,14 +42,14 @@ def test_time_closest_approach(show_plots, position, velocity, filter_covariance
     state_vector[3:] = velocity
 
     # Create the input messages.
-    input_filter_data = messaging.FilterMsgPayload()
-    input_nav_data = messaging.NavTransMsgPayload()
+    input_filter_data = messaging.FilterMsgF32Payload()
+    input_nav_data = messaging.NavTransMsgF32Payload()
     input_nav_data.r_BN_N = state_vector.tolist()[0:3]
     input_nav_data.v_BN_N = state_vector.tolist()[3:6]
     input_filter_data.numberOfStates = len(filter_covariance[:,0])
     input_filter_data.covar = filter_covariance.flatten().tolist()
-    filter_in_msg = messaging.FilterMsg().write(input_filter_data)
-    nav_in_msg = messaging.NavTransMsg().write(input_nav_data)
+    filter_in_msg = messaging.FilterMsgF32().write(input_filter_data)
+    nav_in_msg = messaging.NavTransMsgF32().write(input_nav_data)
     tca_module.filterInMsg.subscribeTo(filter_in_msg)
     tca_module.navFilterMsg.subscribeTo(nav_in_msg)
 
@@ -74,18 +74,19 @@ def test_time_closest_approach(show_plots, position, velocity, filter_covariance
 
 
     # make sure module output data is correct
-    tolerance = 1e-10
+    # float32 output fields have ~1e-7 relative precision
+    tolerance = 1e-5
     np.testing.assert_allclose(tca_tca,
                                tca,
-                               rtol=0,
-                               atol=tolerance,
+                               rtol=tolerance,
+                               atol=0,
                                err_msg='Variable: tca',
                                verbose=True)
 
     np.testing.assert_allclose(sigmatca_tca,
                                tca_covariance,
-                               rtol=0,
-                               atol=tolerance,
+                               rtol=tolerance,
+                               atol=0,
                                err_msg='Variable: tca_covariance',
                                verbose=True)
 

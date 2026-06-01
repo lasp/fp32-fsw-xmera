@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: ISC
 // Copyright (c) 2024, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
 
-#ifndef TIME_CA_H
-#define TIME_CA_H
+#ifndef F32XMERA_TIME_CA_H
+#define F32XMERA_TIME_CA_H
 
+#include "msgPayloadDef/FilterMsgF32Payload.h"
+#include "msgPayloadDef/NavTransMsgF32Payload.h"
+#include "msgPayloadDef/TimeClosestApproachMsgF32Payload.h"
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
-#include <architecture/msgPayloadDef/FilterMsgPayload.h>
-#include <architecture/msgPayloadDef/NavTransMsgPayload.h>
-#include <architecture/msgPayloadDef/TimeClosestApproachMsgPayload.h>
 #include <architecture/utilities/eigenSupport.h>
 
 #include <Eigen/Core>
@@ -20,9 +20,9 @@ class TimeClosestApproach : public SysModel {
     ~TimeClosestApproach() override;
     void updateState(uint64_t currentSimNanos) override;
 
-    ReadFunctor<FilterMsgPayload> filterInMsg;  //!< relative state and covariance input msg
-    ReadFunctor<NavTransMsgPayload> navFilterMsg;
-    Message<TimeClosestApproachMsgPayload> tcaOutMsg;  //!< time of closest approach output message
+    ReadFunctor<FilterMsgF32Payload> filterInMsg;  //!< relative state and covariance input msg
+    ReadFunctor<NavTransMsgF32Payload> navFilterMsg;
+    Message<TimeClosestApproachMsgF32Payload> tcaOutMsg;  //!< time of closest approach output message
 
    private:
     void readMessages();

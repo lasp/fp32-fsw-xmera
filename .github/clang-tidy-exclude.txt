@@ -69,6 +69,8 @@ algorithms/thrFiringRemainder/thrFiringRemainder.h
 algorithms/thrFiringRemainder/thrFiringRemainder.cpp
 algorithms/thrFiringSchmitt/thrFiringSchmitt.h
 algorithms/thrFiringSchmitt/thrFiringSchmitt.cpp
+algorithms/timeClosestApproach/timeClosestApproach.h
+algorithms/timeClosestApproach/timeClosestApproach.cpp
 
 // Remove the files below this line once the actual algorithms are added
 algorithms/sunlineSRuKF/sunlineSRuKF.cpp

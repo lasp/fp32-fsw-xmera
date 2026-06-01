@@ -20,7 +20,8 @@ void TimeClosestApproach::readMessages() {
     this->numberOfStates = filterStatePayload.numberOfStates;
     this->r_BN_N = cArrayToEigenVector(navFilterMsgPayload.r_BN_N);
     this->v_BN_N = cArrayToEigenVector(navFilterMsgPayload.v_BN_N);
-    this->filterCovariance = cArrayToEigenMatrixX(filterStatePayload.covar, this->numberOfStates, this->numberOfStates);
+    this->filterCovariance =
+        cArrayToEigenMatrixX(filterStatePayload.covar, this->numberOfStates, this->numberOfStates).cast<double>();
 }
 
 /*! Write output messages.
@@ -32,9 +33,9 @@ void TimeClosestApproach::readMessages() {
 */
 void TimeClosestApproach::writeMessages(const double tCA, const double sigmaTca, const uint64_t currentSimNanos) {
     /*! create and zero the output message */
-    TimeClosestApproachMsgPayload tcaMsgBuffer{};
-    tcaMsgBuffer.timeClosestApproach = tCA;
-    tcaMsgBuffer.standardDeviation = sigmaTca;
+    TimeClosestApproachMsgF32Payload tcaMsgBuffer{};
+    tcaMsgBuffer.timeClosestApproach = static_cast<float>(tCA);
+    tcaMsgBuffer.standardDeviation = static_cast<float>(sigmaTca);
 
     /*! Write the output messages */
     this->tcaOutMsg.write(&tcaMsgBuffer, this->moduleID, currentSimNanos);
