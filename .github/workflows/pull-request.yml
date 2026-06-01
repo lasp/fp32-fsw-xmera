@@ -288,7 +288,11 @@ jobs:
         working-directory: xmera/build/fp32-fsw-xmera/algorithms
         run: |
           mkdir -p "${GITHUB_WORKSPACE}/junit"
-          ctest --output-on-failure --output-junit "${GITHUB_WORKSPACE}/junit/ctest-${{ matrix.os }}.xml"
+          # Exclude the exhaustive is_finite scans: under --coverage their ~4.3e9
+          # iterations make gcov emit an overflow-range hit count that aborts gcovr
+          # (gcc bug 68080). They add no line coverage (the fast suite covers every
+          # line) and run uninstrumented in daily-fuzz instead.
+          ctest --output-on-failure -LE exhaustive --output-junit "${GITHUB_WORKSPACE}/junit/ctest-${{ matrix.os }}.xml"
 
       - name: Run Python Tests
         run: |

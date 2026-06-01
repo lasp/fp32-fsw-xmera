@@ -4,6 +4,7 @@ target_sources(AlgorithmUtilities INTERFACE
   chebyshevUtilities.h
   orbitalMotion.hpp
   safeMath.h
+  freestandingIsFinite.hpp
 )
 
 target_link_libraries(AlgorithmUtilities INTERFACE
