@@ -4,6 +4,7 @@
  */
 
 #include "rwMotorTorque.h"
+#include "utilities/xmeraLifecycleException.h"
 #include <architecture/utilities/eigenSupport.h>
 
 #include <stdexcept>
@@ -22,6 +23,10 @@ void RwMotorTorque::reset(uint64_t callTime) {
         throw std::invalid_argument("rwMotorTorque.vehControlInMsg wasn't connected.");
     }
 
+    /*! - Build the validated configuration and (re)create the algorithm */
+    const auto config = RwMotorTorqueConfig::create(this->controlAxes_B);
+    this->algorithm = std::make_unique<RwMotorTorqueAlgorithm>(config);
+
     /*! - Read static RW config data message and convert it to the algorithm's own types */
     const RWArrayConfigMsgF32Payload rwParams = this->rwParamsInMsg();
     RwMotorTorqueArrayConfig rwConfig{};
@@ -38,7 +43,7 @@ void RwMotorTorque::reset(uint64_t callTime) {
         }
     }
 
-    this->algorithm.configure(rwConfig, availability, rwAvailIsLinked);
+    this->algorithm->configure(rwConfig, availability, rwAvailIsLinked);
 }
 
 /*! Computes the reaction wheel torques given a commanded torque on the spacecraft
@@ -46,6 +51,10 @@ void RwMotorTorque::reset(uint64_t callTime) {
  @param callTime The clock time at which the function was called (nanoseconds)
  */
 void RwMotorTorque::updateState(uint64_t callTime) {
+    if (!this->algorithm) {
+        throw XmeraLifecycleException("RwMotorTorque reset() has not been called.");
+    }
+
     /*! - Read the commanded control torque and, if linked, the optional second torque message */
     auto [torqueRequestBody] = this->vehControlInMsg();
     Eigen::Vector3f Lr_B = cArrayToEigenVector(torqueRequestBody);
@@ -54,23 +63,9 @@ void RwMotorTorque::updateState(uint64_t callTime) {
         Lr_B += cArrayToEigenVector(torqueRequestBody2);
     }
 
-    const Eigen::Vector<float, kMaxNumRw> motorTorque = this->algorithm.update(Lr_B);
+    const Eigen::Vector<float, kMaxNumRw> motorTorque = this->algorithm->update(Lr_B);
 
     RwMotorTorqueMsgF32Payload rwMotorTorques{};
     eigenVectorToCArray(motorTorque, rwMotorTorques.motorTorque);
     this->rwMotorTorqueOutMsg.write(&rwMotorTorques, this->moduleID, callTime);
 }
-
-/*! Setter method for the control axes mapping matrix CB, where each row includes the transpose of a control axis.
- The matrix needs to be 3x3, so if only 2 axes are controlled, the third row should be all zeros.
- @return void
- @param controlMappingMatrix Control axes mapping matrix, each row holding the transpose of a control axis
-*/
-void RwMotorTorque::setControlAxes(const Eigen::Matrix3f& controlMappingMatrix) {
-    this->algorithm.setControlAxes(controlMappingMatrix);
-}
-
-/*! Getter method for the control axes mapping matrix CB.
- @return const Eigen::Matrix3f
-*/
-Eigen::Matrix3f RwMotorTorque::getControlAxes() const { return this->algorithm.getControlAxes(); }

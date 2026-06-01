@@ -3,6 +3,10 @@
 #include <Eigen/LU>
 #include <cstdint>
 
+RwMotorTorqueAlgorithm::RwMotorTorqueAlgorithm(const RwMotorTorqueConfig& config) : cfg(config) {}
+
+void RwMotorTorqueAlgorithm::setConfig(const RwMotorTorqueConfig& config) { this->cfg = config; }
+
 /*! This method configures the module by populating any necessary class members.
  @return void
  @param rwConfig reaction-wheel spin-axis configuration in body-frame components
@@ -12,22 +16,14 @@
 void RwMotorTorqueAlgorithm::configure(const RwMotorTorqueArrayConfig& rwConfig,
                                        const RwMotorTorqueAvailability& availability,
                                        bool rwAvailIsLinked) {
-    /*!- configure the number of axes that are controlled.
-     This is determined by checking for a zero row to determinate search */
+    /*!- count the number of controlled axes. The control axes mapping matrix is already validated by
+     RwMotorTorqueConfig (finite, filled top to bottom, at least one axis), so a simple count suffices. */
+    const Eigen::Matrix3f& controlAxes_B = this->cfg.getControlAxes();
     this->numControlAxes = 0U;
     for (uint32_t i = 0U; i < 3U; ++i) {
-        if (this->controlAxes_B.row(i).norm() > 0.0F) {
-            if (this->numControlAxes < i) {
-                FSW_THROW_INVALID_ARGUMENT(
-                    "rwMotorTorque: found empty control axis. "
-                    "Make sure to fill controlAxes matrix from top to bottom, "
-                    "with zero axes (no control) at the bottom.");
-            }
+        if (controlAxes_B.row(i).norm() > 0.0F) {
             this->numControlAxes += 1U;
         }
-    }
-    if (this->numControlAxes == 0U) {
-        FSW_THROW_INVALID_ARGUMENT("rwMotorTorque is not setup to control any axes.");
     }
 
     /*! - Store static RW config data in module variables */
@@ -55,7 +51,7 @@ void RwMotorTorqueAlgorithm::configure(const RwMotorTorqueArrayConfig& rwConfig,
         this->numAvailRW = this->numRW;
     }
 
-    this->CGs = this->controlAxes_B * G_s_B;
+    this->CGs = controlAxes_B * G_s_B;
     const Eigen::FullPivLU<Eigen::MatrixXf> lu_decomp(this->CGs);
     const auto controlMappingRank = static_cast<uint32_t>(lu_decomp.rank());
 
@@ -77,7 +73,7 @@ Eigen::Vector<float, kMaxNumRw> RwMotorTorqueAlgorithm::update(const Eigen::Vect
     const uint32_t numCols = this->numAvailRW;
 
     Eigen::Vector3f Lr_C{Eigen::Vector3f::Zero()};
-    Lr_C.head(numRows) = -this->controlAxes_B.topRows(numRows) * Lr_B;
+    Lr_C.head(numRows) = -this->cfg.getControlAxes().topRows(numRows) * Lr_B;
 
     Eigen::Vector<float, kMaxNumRw> us_avail{Eigen::Vector<float, kMaxNumRw>::Zero()};
     us_avail.topRows(numCols) =
@@ -96,17 +92,3 @@ Eigen::Vector<float, kMaxNumRw> RwMotorTorqueAlgorithm::update(const Eigen::Vect
 
     return us;
 }
-
-/*! Setter method for the control axes mapping matrix CB, where each row includes the transpose of a control axis.
- The matrix needs to be 3x3, so if only 2 axes are controlled, the third row should be all zeros.
- @return void
- @param controlMappingMatrix Control axes mapping matrix, each row holding the transpose of a control axis
-*/
-void RwMotorTorqueAlgorithm::setControlAxes(const Eigen::Matrix3f& controlMappingMatrix) {
-    this->controlAxes_B = controlMappingMatrix;
-}
-
-/*! Getter method for the control axes mapping matrix CB.
- @return const Eigen::Matrix3f
-*/
-Eigen::Matrix3f RwMotorTorqueAlgorithm::getControlAxes() const { return this->controlAxes_B; }

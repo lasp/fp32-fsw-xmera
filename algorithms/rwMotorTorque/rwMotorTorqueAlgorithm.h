@@ -70,18 +70,18 @@ class RwMotorTorqueConfig final {
 };
 
 /*! @brief Top level structure for the sub-module routines. */
-class RwMotorTorqueAlgorithm {
+class RwMotorTorqueAlgorithm final {
    public:
+    explicit RwMotorTorqueAlgorithm(const RwMotorTorqueConfig& config);
+
+    void setConfig(const RwMotorTorqueConfig& config);
     void configure(const RwMotorTorqueArrayConfig& rwConfig,
                    const RwMotorTorqueAvailability& availability,
                    bool rwAvailIsLinked);
     Eigen::Vector<float, kMaxNumRw> update(const Eigen::Vector3f& Lr_B) const;  //!< [N-m] RW motor torques
 
-    void setControlAxes(const Eigen::Matrix3f& controlMappingMatrix);
-    Eigen::Matrix3f getControlAxes() const;
-
    private:
-    Eigen::Matrix3f controlAxes_B{Eigen::Matrix3f::Zero()};  //!< [-] array of the control unit axes
+    RwMotorTorqueConfig cfg;    //!< [-] validated configuration (control axes mapping matrix)
     uint32_t numControlAxes{};  //!< [-] counter indicating how many orthogonal axes are controlled
     uint32_t numAvailRW{};      //!< [-] number of reaction wheels available
     uint32_t numRW{};           //!< [-] number of reaction wheels on the vehicle

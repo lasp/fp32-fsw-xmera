@@ -11,6 +11,7 @@
 #include <architecture/msgPayloadDef/RWAvailabilityMsgPayload.h>
 #include <Eigen/Core>
 #include <cstdint>
+#include <memory>
 
 /*! @brief Top level structure for the sub-module routines. */
 class RwMotorTorque : public SysModel {
@@ -21,8 +22,8 @@ class RwMotorTorque : public SysModel {
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
 
-    void setControlAxes(const Eigen::Matrix3f& controlMappingMatrix);
-    Eigen::Matrix3f getControlAxes() const;
+    // Phase 1: public config property — set before reset()
+    Eigen::Matrix3f controlAxes_B{Eigen::Matrix3f::Zero()};  //!< [-] control axes mapping matrix CB
 
     /* declare module IO interfaces */
     Message<RwMotorTorqueMsgF32Payload> rwMotorTorqueOutMsg;   //!< RW motor torque output message
@@ -32,7 +33,7 @@ class RwMotorTorque : public SysModel {
     ReadFunctor<RWAvailabilityMsgPayload> rwAvailInMsg;        //!< optional RWs availability input message
 
    private:
-    RwMotorTorqueAlgorithm algorithm{};
+    std::unique_ptr<RwMotorTorqueAlgorithm> algorithm = nullptr;
 };
 
 #endif

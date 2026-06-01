@@ -85,27 +85,23 @@ inline Eigen::Vector<float, kMaxNumRw> referenceUpdate(const Eigen::Matrix3f& co
 }
 
 inline void testRwMotorTorqueSetup() {
-    RwMotorTorqueAlgorithm alg{};
-
     // --- Test expected exceptions ---
 
     const RwMotorTorqueArrayConfig rwConfig{};
     const RwMotorTorqueAvailability availability{};
 
-    // control axes matrix not properly set up (control axes not filled from top to bottom before any zero rows)
+    // control axes matrix not properly set up (control axes not filled from top to bottom before any zero rows):
+    // RwMotorTorqueConfig rejects it at construction time
     Eigen::Matrix3f controlAxes_B{Eigen::Matrix3f::Zero()};
     controlAxes_B.row(0) = Eigen::Vector3f{1.0F, 0.0F, 0.0F};
     controlAxes_B.row(1) = Eigen::Vector3f{0.0F, 0.0F, 0.0F};
     controlAxes_B.row(2) = Eigen::Vector3f{0.0F, 0.0F, 1.0F};
-    alg.setControlAxes(controlAxes_B);
-    EXPECT_THROW(alg.configure(rwConfig, availability, false), fsw::invalid_argument);
+    EXPECT_THROW(RwMotorTorqueConfig::create(controlAxes_B), fsw::invalid_argument);
 
-    // control mapping matrix not full rank (to test, 3 control axes are specified but not a single reaction wheel)
-    controlAxes_B = Eigen::Matrix3f::Zero();
-    controlAxes_B.row(0) = Eigen::Vector3f{1.0F, 0.0F, 0.0F};
-    controlAxes_B.row(1) = Eigen::Vector3f{0.0F, 1.0F, 0.0F};
-    controlAxes_B.row(2) = Eigen::Vector3f{0.0F, 0.0F, 1.0F};
-    alg.setControlAxes(controlAxes_B);
+    // control mapping matrix not full rank (to test, 3 control axes are specified but not a single reaction wheel):
+    // the config is valid, but configure() rejects the rank-deficient mapping
+    controlAxes_B = makeControlAxes(3U);
+    RwMotorTorqueAlgorithm alg{RwMotorTorqueConfig::create(controlAxes_B)};
     EXPECT_THROW(alg.configure(rwConfig, availability, false), fsw::invalid_argument);
 }
 
@@ -117,11 +113,14 @@ inline void testRwMotorTorque(const Eigen::Vector3f& Lr1_B,
                               int numRW,
                               std::vector<float> GsMatrix_B,
                               uint32_t numControlAxes) {
-    RwMotorTorqueAlgorithm alg{};
-
-    // Set up the control axes mapping matrix
+    // Set up the control axes mapping matrix. A zero matrix (no control axes) is rejected by the
+    // RwMotorTorqueConfig factory, so test that and return early.
     const Eigen::Matrix3f controlAxes_B = makeControlAxes(numControlAxes);
-    alg.setControlAxes(controlAxes_B);
+    if (numControlAxes == 0U) {
+        EXPECT_THROW(RwMotorTorqueConfig::create(controlAxes_B), fsw::invalid_argument);
+        return;
+    }
+    RwMotorTorqueAlgorithm alg{RwMotorTorqueConfig::create(controlAxes_B)};
 
     // Build the RW array configuration from the flat spin-axis array
     RwMotorTorqueArrayConfig rwConfig{};
@@ -162,7 +161,7 @@ inline void testRwMotorTorque(const Eigen::Vector3f& Lr1_B,
     const Eigen::FullPivLU<Eigen::MatrixXf> lu_decomp(CGs);
     const auto controlMappingRank = static_cast<uint32_t>(lu_decomp.rank());
 
-    if (numControlAxes == 0U || controlMappingRank < numControlAxes) {
+    if (controlMappingRank < numControlAxes) {
         EXPECT_THROW(alg.configure(rwConfig, availability, rwAvailIsLinked), fsw::invalid_argument);
         return;
     }
