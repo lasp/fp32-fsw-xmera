@@ -10,12 +10,10 @@ void RwMotorTorqueAlgorithm::setConfig(const RwMotorTorqueConfig& config) { this
 /*! This method configures the module by populating any necessary class members.
  @return void
  @param rwConfig reaction-wheel spin-axis configuration in body-frame components
- @param availability per-wheel reaction-wheel availability
- @param rwAvailIsLinked boolean indicating whether RW availability information is provided
+ @param availability per-wheel reaction-wheel availability (a default-constructed value marks every wheel AVAILABLE)
  */
 void RwMotorTorqueAlgorithm::configure(const RwMotorTorqueArrayConfig& rwConfig,
-                                       const RwMotorTorqueAvailability& availability,
-                                       const bool rwAvailIsLinked) {
+                                       const RwMotorTorqueAvailability& availability) {
     /*!- count the number of controlled axes. The control axes mapping matrix is already validated by
      RwMotorTorqueConfig (finite, filled top to bottom, at least one axis), so a simple count suffices. */
     const Eigen::Matrix3f& controlAxes_B = this->cfg.getControlAxes();
@@ -28,28 +26,19 @@ void RwMotorTorqueAlgorithm::configure(const RwMotorTorqueArrayConfig& rwConfig,
 
     /*! - Store static RW config data in module variables */
     this->numRW = rwConfig.numRW;
+    this->wheelsAvailability = availability.wheelAvailability;
 
-    /*! - Build the [Gs] projection matrix with the available RWs.
-     If no info is provided about RW availability we assume that all are available. */
+    /*! - Build the [Gs] projection matrix from the available RWs. A wheel left at its default AVAILABLE
+     state (i.e. no availability message was provided) is always included. */
     Eigen::Matrix<float, 3, kMaxNumRw> G_s_B{Eigen::Matrix<float, 3, kMaxNumRw>::Zero()};
-    if (rwAvailIsLinked) {
-        this->wheelsAvailability = availability.wheelAvailability;
-        uint32_t numAvailWheels = 0U;
-        for (uint32_t i = 0U; i < this->numRW; ++i) {
-            if (this->wheelsAvailability[i] == AVAILABLE) {
-                G_s_B.col(numAvailWheels) = rwConfig.GsMatrix_B.col(i).normalized();
-                numAvailWheels += 1U;
-            }
+    uint32_t numAvailWheels = 0U;
+    for (uint32_t i = 0U; i < this->numRW; ++i) {
+        if (this->wheelsAvailability[i] == AVAILABLE) {
+            G_s_B.col(numAvailWheels) = rwConfig.GsMatrix_B.col(i).normalized();
+            numAvailWheels += 1U;
         }
-        /*! - update the number of currently available RWs */
-        this->numAvailRW = numAvailWheels;
-    } else {
-        this->wheelsAvailability.fill(AVAILABLE);
-        for (uint32_t i = 0U; i < this->numRW; ++i) {
-            G_s_B.col(i) = rwConfig.GsMatrix_B.col(i).normalized();
-        }
-        this->numAvailRW = this->numRW;
     }
+    this->numAvailRW = numAvailWheels;
 
     this->CGs = controlAxes_B * G_s_B;
     const Eigen::FullPivLU<Eigen::MatrixXf> lu_decomp(this->CGs);

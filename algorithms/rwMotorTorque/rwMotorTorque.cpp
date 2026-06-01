@@ -37,17 +37,16 @@ void RwMotorTorque::reset(const uint64_t callTime) {
     rwConfig.numRW = static_cast<uint32_t>(rwParams.numRW);
     rwConfig.GsMatrix_B = cArrayToEigenMatrix<float, 3, kMaxNumRw>(rwParams.GsMatrix_B);
 
-    /*! - Check if RW availability message is available. If so, copy the payload availability flags. */
-    const bool rwAvailIsLinked = this->rwAvailInMsg.isLinked();
+    /*! - Availability defaults to all wheels AVAILABLE; if the optional message is linked, copy its flags. */
     RwMotorTorqueAvailability availability{};
-    if (rwAvailIsLinked) {
+    if (this->rwAvailInMsg.isLinked()) {
         const RWAvailabilityMsgPayload wheelsAvailability = this->rwAvailInMsg();
         for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
             availability.wheelAvailability[i] = wheelsAvailability.wheelAvailability[i];
         }
     }
 
-    this->algorithm->configure(rwConfig, availability, rwAvailIsLinked);
+    this->algorithm->configure(rwConfig, availability);
 }
 
 /*! Computes the reaction wheel torques given a commanded torque on the spacecraft

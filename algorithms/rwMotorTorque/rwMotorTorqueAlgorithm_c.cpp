@@ -42,10 +42,9 @@ void RwMotorTorqueAlgorithm_setConfig(RwMotorTorqueAlgorithmHandle* self, const 
 
 void RwMotorTorqueAlgorithm_configure(RwMotorTorqueAlgorithmHandle* self,
                                       const RwMotorTorqueArrayConfig_c* rwConfig,
-                                      const RwMotorTorqueAvailability_c* availability,
-                                      const bool rwAvailIsLinked) {
-    reinterpret_cast<::RwMotorTorqueAlgorithm*>(self)->configure(
-        arrayConfigFromC(*rwConfig), availabilityFromC(*availability), rwAvailIsLinked);
+                                      const RwMotorTorqueAvailability_c* availability) {
+    reinterpret_cast<::RwMotorTorqueAlgorithm*>(self)->configure(arrayConfigFromC(*rwConfig),
+                                                                 availabilityFromC(*availability));
 }
 
 RwMotorTorqueOutput_c RwMotorTorqueAlgorithm_update(const RwMotorTorqueAlgorithmHandle* self, const Vector3f_c Lr_B) {

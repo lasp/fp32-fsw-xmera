@@ -31,7 +31,6 @@ inline Eigen::Matrix3f makeControlAxes(uint32_t numControlAxes) {
 inline Eigen::Vector<float, kMaxNumRw> referenceUpdate(const Eigen::Matrix3f& controlAxes_B,
                                                        const RwMotorTorqueArrayConfig& rwConfig,
                                                        const RwMotorTorqueAvailability& availability,
-                                                       bool rwAvailIsLinked,
                                                        const Eigen::Vector3f& Lr_B) {
     uint32_t numControlAxes = 0U;
     for (uint32_t i = 0U; i < 3U; ++i) {
@@ -42,20 +41,12 @@ inline Eigen::Vector<float, kMaxNumRw> referenceUpdate(const Eigen::Matrix3f& co
 
     Eigen::Matrix<float, 3, kMaxNumRw> G_s_B{Eigen::Matrix<float, 3, kMaxNumRw>::Zero()};
     uint32_t numAvailRW = 0U;
-    std::array<FSWdeviceAvailability, kMaxNumRw> wheelsAvailability{};
-    if (rwAvailIsLinked) {
-        wheelsAvailability = availability.wheelAvailability;
-        for (uint32_t i = 0U; i < rwConfig.numRW; ++i) {
-            if (wheelsAvailability[i] == AVAILABLE) {
-                G_s_B.col(numAvailRW) = rwConfig.GsMatrix_B.col(i).normalized();
-                numAvailRW += 1U;
-            }
+    const std::array<FSWdeviceAvailability, kMaxNumRw>& wheelsAvailability = availability.wheelAvailability;
+    for (uint32_t i = 0U; i < rwConfig.numRW; ++i) {
+        if (wheelsAvailability[i] == AVAILABLE) {
+            G_s_B.col(numAvailRW) = rwConfig.GsMatrix_B.col(i).normalized();
+            numAvailRW += 1U;
         }
-    } else {
-        for (uint32_t i = 0U; i < rwConfig.numRW; ++i) {
-            G_s_B.col(i) = rwConfig.GsMatrix_B.col(i).normalized();
-        }
-        numAvailRW = rwConfig.numRW;
     }
 
     const Eigen::Matrix<float, 3, kMaxNumRw> CGs = controlAxes_B * G_s_B;
@@ -102,7 +93,7 @@ inline void testRwMotorTorqueSetup() {
     // the config is valid, but configure() rejects the rank-deficient mapping
     controlAxes_B = makeControlAxes(3U);
     RwMotorTorqueAlgorithm alg{RwMotorTorqueConfig::create(controlAxes_B)};
-    EXPECT_THROW(alg.configure(rwConfig, availability, false), fsw::invalid_argument);
+    EXPECT_THROW(alg.configure(rwConfig, availability), fsw::invalid_argument);
 }
 
 inline void testRwMotorTorque(const Eigen::Vector3f& Lr1_B,
@@ -141,19 +132,14 @@ inline void testRwMotorTorque(const Eigen::Vector3f& Lr1_B,
         Lr_B += Lr2_B;
     }
 
-    // Independently compute the available RW count and rank to predict configure() behavior
+    // Independently compute the available RW count and rank to predict configure() behavior. Wheels left
+    // at the default AVAILABLE state (no availability message) are always included.
     Eigen::Matrix<float, 3, kMaxNumRw> G_s_B{Eigen::Matrix<float, 3, kMaxNumRw>::Zero()};
-    if (rwAvailIsLinked) {
-        uint32_t numAvailWheels = 0U;
-        for (uint32_t i = 0U; i < rwConfig.numRW; ++i) {
-            if (availability.wheelAvailability[i] == AVAILABLE) {
-                G_s_B.col(numAvailWheels) = rwConfig.GsMatrix_B.col(i).normalized();
-                numAvailWheels += 1U;
-            }
-        }
-    } else {
-        for (uint32_t i = 0U; i < rwConfig.numRW; ++i) {
-            G_s_B.col(i) = rwConfig.GsMatrix_B.col(i).normalized();
+    uint32_t numAvailWheels = 0U;
+    for (uint32_t i = 0U; i < rwConfig.numRW; ++i) {
+        if (availability.wheelAvailability[i] == AVAILABLE) {
+            G_s_B.col(numAvailWheels) = rwConfig.GsMatrix_B.col(i).normalized();
+            numAvailWheels += 1U;
         }
     }
 
@@ -162,16 +148,16 @@ inline void testRwMotorTorque(const Eigen::Vector3f& Lr1_B,
     const auto controlMappingRank = static_cast<uint32_t>(lu_decomp.rank());
 
     if (controlMappingRank < numControlAxes) {
-        EXPECT_THROW(alg.configure(rwConfig, availability, rwAvailIsLinked), fsw::invalid_argument);
+        EXPECT_THROW(alg.configure(rwConfig, availability), fsw::invalid_argument);
         return;
     }
-    EXPECT_NO_THROW(alg.configure(rwConfig, availability, rwAvailIsLinked));
+    EXPECT_NO_THROW(alg.configure(rwConfig, availability));
 
     // Compare against the independent reference
     Eigen::Vector<float, kMaxNumRw> out{Eigen::Vector<float, kMaxNumRw>::Zero()};
     Eigen::Vector<float, kMaxNumRw> ref{Eigen::Vector<float, kMaxNumRw>::Zero()};
     EXPECT_NO_THROW(out = alg.update(Lr_B));
-    EXPECT_NO_THROW(ref = referenceUpdate(controlAxes_B, rwConfig, availability, rwAvailIsLinked, Lr_B));
+    EXPECT_NO_THROW(ref = referenceUpdate(controlAxes_B, rwConfig, availability, Lr_B));
 
     for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
         // Reference correctness
