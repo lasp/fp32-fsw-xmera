@@ -61,6 +61,7 @@ inline void testTimeClosestApproach(const Eigen::Vector3f& r_BN_N,
     constexpr float tol = 1e-5F;
     EXPECT_NEAR(out.tCA, static_cast<float>(ref.tCA), tol);
     EXPECT_NEAR(out.sigmaTca, static_cast<float>(ref.sigmaTca), tol);
+    EXPECT_GE(out.sigmaTca, 0.0F);
 }
 
 #endif
