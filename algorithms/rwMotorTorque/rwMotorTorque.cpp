@@ -4,6 +4,7 @@
  */
 
 #include "rwMotorTorque.h"
+#include <architecture/utilities/eigenSupport.h>
 
 #include <stdexcept>
 
@@ -21,16 +22,23 @@ void RwMotorTorque::reset(uint64_t callTime) {
         throw std::invalid_argument("rwMotorTorque.vehControlInMsg wasn't connected.");
     }
 
-    RWArrayConfigMsgF32Payload rwParams = this->rwParamsInMsg();
-    bool rwAvailIsLinked = this->rwAvailInMsg.isLinked();
-    RWAvailabilityMsgPayload wheelsAvailability{};
+    /*! - Read static RW config data message and convert it to the algorithm's own types */
+    const RWArrayConfigMsgF32Payload rwParams = this->rwParamsInMsg();
+    RwMotorTorqueArrayConfig rwConfig{};
+    rwConfig.numRW = static_cast<uint32_t>(rwParams.numRW);
+    rwConfig.GsMatrix_B = cArrayToEigenMatrix<float, 3, kMaxNumRw>(rwParams.GsMatrix_B);
 
-    /*! - Check if RW availability message is available */
+    /*! - Check if RW availability message is available. If so, copy the payload availability flags. */
+    const bool rwAvailIsLinked = this->rwAvailInMsg.isLinked();
+    RwMotorTorqueAvailability availability{};
     if (rwAvailIsLinked) {
-        wheelsAvailability = this->rwAvailInMsg();
+        const RWAvailabilityMsgPayload wheelsAvailability = this->rwAvailInMsg();
+        for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
+            availability.wheelAvailability[i] = wheelsAvailability.wheelAvailability[i];
+        }
     }
 
-    this->algorithm.configure(rwParams, wheelsAvailability, rwAvailIsLinked);
+    this->algorithm.configure(rwConfig, availability, rwAvailIsLinked);
 }
 
 /*! Computes the reaction wheel torques given a commanded torque on the spacecraft
@@ -38,25 +46,25 @@ void RwMotorTorque::reset(uint64_t callTime) {
  @param callTime The clock time at which the function was called (nanoseconds)
  */
 void RwMotorTorque::updateState(uint64_t callTime) {
-    CmdTorqueBodyMsgF32Payload LrInputMsg = this->vehControlInMsg(); /*!< Msg containing Lr control torque */
-    CmdTorqueBodyMsgF32Payload LrInput2Msg{};                        /*!< Msg containing optional Lr control torque */
-    bool cmdTorque2IsLinked{};
-
-    /*! - Check if the optional second message is provided */
+    /*! - Read the commanded control torque and, if linked, the optional second torque message */
+    auto [torqueRequestBody] = this->vehControlInMsg();
+    Eigen::Vector3f Lr_B = cArrayToEigenVector(torqueRequestBody);
     if (this->vehControlIn2Msg.isLinked()) {
-        LrInput2Msg = this->vehControlIn2Msg();
-        cmdTorque2IsLinked = true;
+        auto [torqueRequestBody2] = this->vehControlIn2Msg();
+        Lr_B += cArrayToEigenVector(torqueRequestBody2);
     }
 
-    RwMotorTorqueMsgF32Payload rwMotorTorques = this->algorithm.update(LrInputMsg, LrInput2Msg, cmdTorque2IsLinked);
+    const Eigen::Vector<float, kMaxNumRw> motorTorque = this->algorithm.update(Lr_B);
 
+    RwMotorTorqueMsgF32Payload rwMotorTorques{};
+    eigenVectorToCArray(motorTorque, rwMotorTorques.motorTorque);
     this->rwMotorTorqueOutMsg.write(&rwMotorTorques, this->moduleID, callTime);
 }
 
 /*! Setter method for the control axes mapping matrix CB, where each row includes the transpose of a control axis.
  The matrix needs to be 3x3, so if only 2 axes are controlled, the third row should be all zeros.
  @return void
- @param controlMappingMatrix Known external torque expressed in body frame components
+ @param controlMappingMatrix Control axes mapping matrix, each row holding the transpose of a control axis
 */
 void RwMotorTorque::setControlAxes(const Eigen::Matrix3f& controlMappingMatrix) {
     this->algorithm.setControlAxes(controlMappingMatrix);

@@ -1,17 +1,16 @@
 #ifndef F32XMERA_RW_MOTOR_TORQUE_H
 #define F32XMERA_RW_MOTOR_TORQUE_H
 
-#include <stdint.h>
-
 #include "msgPayloadDef/CmdTorqueBodyMsgF32Payload.h"
 #include "msgPayloadDef/RWArrayConfigMsgF32Payload.h"
 #include "msgPayloadDef/RwMotorTorqueMsgF32Payload.h"
 #include "rwMotorTorqueAlgorithm.h"
+
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
 #include <architecture/msgPayloadDef/RWAvailabilityMsgPayload.h>
-
 #include <Eigen/Core>
+#include <cstdint>
 
 /*! @brief Top level structure for the sub-module routines. */
 class RwMotorTorque : public SysModel {
