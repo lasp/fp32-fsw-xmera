@@ -15,7 +15,7 @@ void RwMotorTorqueAlgorithm::setConfig(const RwMotorTorqueConfig& config) { this
  */
 void RwMotorTorqueAlgorithm::configure(const RwMotorTorqueArrayConfig& rwConfig,
                                        const RwMotorTorqueAvailability& availability,
-                                       bool rwAvailIsLinked) {
+                                       const bool rwAvailIsLinked) {
     /*!- count the number of controlled axes. The control axes mapping matrix is already validated by
      RwMotorTorqueConfig (finite, filled top to bottom, at least one axis), so a simple count suffices. */
     const Eigen::Matrix3f& controlAxes_B = this->cfg.getControlAxes();

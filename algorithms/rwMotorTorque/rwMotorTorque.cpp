@@ -18,7 +18,7 @@ static_assert(kMaxNumRw == RW_EFF_CNT, "RW_MOTOR_TORQUE_MAX_NUM_RW must match RW
  @return void
  @param callTime The clock time at which the function was called (nanoseconds)
  */
-void RwMotorTorque::reset(uint64_t callTime) {
+void RwMotorTorque::reset(const uint64_t callTime) {
     // check if the required input messages are included
     if (!this->rwParamsInMsg.isLinked()) {
         throw std::invalid_argument("rwMotorTorque.rwParamsInMsg wasn't connected.");
@@ -54,7 +54,7 @@ void RwMotorTorque::reset(uint64_t callTime) {
  @return void
  @param callTime The clock time at which the function was called (nanoseconds)
  */
-void RwMotorTorque::updateState(uint64_t callTime) {
+void RwMotorTorque::updateState(const uint64_t callTime) {
     if (!this->algorithm) {
         throw XmeraLifecycleException("RwMotorTorque reset() has not been called.");
     }
