@@ -33,12 +33,15 @@ void RwMotorTorqueAlgorithm::computeRwMapping() {
     const std::array<FSWdeviceAvailability, kMaxNumRw>& wheelsAvailability =
         this->cfg.getAvailability().wheelAvailability;
 
-    /*!- count the number of controlled axes. The control axes mapping matrix is already validated by
-     RwMotorTorqueConfig (finite, filled top to bottom, at least one axis), so a simple count suffices. */
-    const Eigen::Matrix3f& controlAxes_B = this->cfg.getControlAxes();
+    /*!- Gather the control axes. RwMotorTorqueConfig has already validated them (finite, orthonormal,
+     at least one axis); the non-zero rows may sit in any position, so compact them to the top here.
+     Only the controlled subspace matters, so the row positions in the configured matrix are irrelevant. */
+    const Eigen::Matrix3f& configuredControlAxes_B = this->cfg.getControlAxes();
+    Eigen::Matrix3f controlAxes_B{Eigen::Matrix3f::Zero()};
     uint32_t numControlAxes = 0U;
     for (uint32_t i = 0U; i < 3U; ++i) {
-        if (controlAxes_B.row(i).norm() > 0.0F) {
+        if (configuredControlAxes_B.row(i).norm() > 0.0F) {
+            controlAxes_B.row(numControlAxes) = configuredControlAxes_B.row(i);
             numControlAxes += 1U;
         }
     }

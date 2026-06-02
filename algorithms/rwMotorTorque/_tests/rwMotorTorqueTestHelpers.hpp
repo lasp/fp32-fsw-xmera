@@ -100,12 +100,15 @@ inline void testRwMotorTorqueSetup() {
     const RwMotorTorqueArrayConfiguration rwConfiguration{};
     const RwMotorTorqueAvailability availability{};
 
-    // control axes matrix not properly set up (control axes not filled from top to bottom before any zero rows):
-    // RwMotorTorqueConfig rejects it at construction time
+    // A non-unit control axis is rejected by RwMotorTorqueConfig.
     Eigen::Matrix3f controlAxes_B{Eigen::Matrix3f::Zero()};
+    controlAxes_B.row(0) = Eigen::Vector3f{2.0F, 0.0F, 0.0F};
+    EXPECT_THROW(RwMotorTorqueConfig::create(controlAxes_B, rwConfiguration, availability), fsw::invalid_argument);
+
+    // Non-orthogonal control axes are rejected by RwMotorTorqueConfig.
+    controlAxes_B = Eigen::Matrix3f::Zero();
     controlAxes_B.row(0) = Eigen::Vector3f{1.0F, 0.0F, 0.0F};
-    controlAxes_B.row(1) = Eigen::Vector3f{0.0F, 0.0F, 0.0F};
-    controlAxes_B.row(2) = Eigen::Vector3f{0.0F, 0.0F, 1.0F};
+    controlAxes_B.row(1) = Eigen::Vector3f{0.70710678F, 0.70710678F, 0.0F};
     EXPECT_THROW(RwMotorTorqueConfig::create(controlAxes_B, rwConfiguration, availability), fsw::invalid_argument);
 
     // control mapping matrix not full rank (to test, 3 control axes are specified but not a single reaction wheel):

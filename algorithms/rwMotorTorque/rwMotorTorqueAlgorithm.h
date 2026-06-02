@@ -4,6 +4,7 @@
 #include "rwMotorTorqueTypes.h"
 #include "utilities/freestandingInvalidArgument.h"
 #include <fswAlgorithms/fswUtilities/fswDefinitions.h>
+#include <math.h>
 
 #include <Eigen/Core>
 #include <array>
@@ -28,10 +29,10 @@ struct RwMotorTorqueAvailability {
  * @brief Validated configuration for the RW motor torque algorithm.
  *
  * Bundles the control axes mapping matrix, the reaction-wheel spin-axis configuration, and the
- * per-wheel availability. An instance can only exist if the control axes mapping matrix is finite,
- * defines at least one control axis, and is filled from top to bottom (any zero, uncontrolled axes
- * at the bottom), and the reaction-wheel count does not exceed the compile-time maximum. Construct
- * via RwMotorTorqueConfig::create(...).
+ * per-wheel availability. An instance can only exist if the control axes mapping matrix is finite and
+ * defines at least one control axis -- each non-zero row being a unit vector, the non-zero rows being
+ * mutually orthogonal, and zero (uncontrolled) rows allowed in any position -- and the reaction-wheel
+ * count does not exceed the compile-time maximum. Construct via RwMotorTorqueConfig::create(...).
  */
 class RwMotorTorqueConfig final {
    public:
@@ -40,8 +41,9 @@ class RwMotorTorqueConfig final {
                                       const RwMotorTorqueAvailability& availability) {
         if (!isValidControlAxes(controlAxes_B)) {
             FSW_THROW_INVALID_ARGUMENT(
-                "rwMotorTorque: controlAxes_B must contain only finite values, define at least one control "
-                "axis, and be filled from top to bottom with any zero (uncontrolled) axes at the bottom.");
+                "rwMotorTorque: controlAxes_B must contain only finite values and define at least one control "
+                "axis, each non-zero row a unit vector and the non-zero rows mutually orthogonal (zero rows mark "
+                "uncontrolled axes).");
         }
         if (!isValidRwConfiguration(rwConfiguration)) {
             FSW_THROW_INVALID_ARGUMENT(
@@ -55,16 +57,23 @@ class RwMotorTorqueConfig final {
         if (!controlAxes_B.allFinite()) {
             return false;
         }
-        bool seenEmptyAxis = false;
+        // Each non-zero row is a control axis (in any position); the control axes must be unit vectors
+        // and mutually orthogonal. Zero rows mark uncontrolled body directions.
+        constexpr float kOrthonormalTol = 1e-3F;
         uint32_t numControlAxes = 0U;
         for (uint32_t i = 0U; i < 3U; ++i) {
-            if (controlAxes_B.row(i).norm() > 0.0F) {
-                if (seenEmptyAxis) {
+            if (controlAxes_B.row(i).norm() <= 0.0F) {
+                continue;
+            }
+            numControlAxes += 1U;
+            if (fabsf(controlAxes_B.row(i).norm() - 1.0F) > kOrthonormalTol) {
+                return false;
+            }
+            for (uint32_t k = i + 1U; k < 3U; ++k) {
+                if (controlAxes_B.row(k).norm() > 0.0F &&
+                    fabsf(controlAxes_B.row(i).dot(controlAxes_B.row(k))) > kOrthonormalTol) {
                     return false;
                 }
-                numControlAxes += 1U;
-            } else {
-                seenEmptyAxis = true;
             }
         }
         return numControlAxes > 0U;

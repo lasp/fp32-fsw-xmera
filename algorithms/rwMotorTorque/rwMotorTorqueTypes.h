@@ -33,8 +33,8 @@ typedef struct {
 /**
  * @brief Plain-old-data mirror of the C++ RwMotorTorqueConfig.
  *
- *  - controlAxes_B must be finite, define at least one control axis, and be filled from top to
- *    bottom with any zero (uncontrolled) axes at the bottom.
+ *  - controlAxes_B must be finite and define at least one control axis: each non-zero row a unit
+ *    vector, the non-zero rows mutually orthogonal, with zero (uncontrolled) rows allowed anywhere.
  *  - rwConfiguration.numRW must not exceed RW_MOTOR_TORQUE_MAX_NUM_RW.
  */
 typedef struct {
