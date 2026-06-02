@@ -25,8 +25,8 @@ class TriadConfig final {
    private:
     TriadConfig(const Eigen::Vector3f& a1Hat_B, const Eigen::Vector3f& hHat_N) : a1Hat_B(a1Hat_B), hHat_N(hHat_N) {}
 
-    Eigen::Vector3f a1Hat_B;
-    Eigen::Vector3f hHat_N;
+    Eigen::Vector3f a1Hat_B{Eigen::Vector3f::Zero()};
+    Eigen::Vector3f hHat_N{Eigen::Vector3f::Zero()};
 };
 
 class TriadAlgorithm final {
