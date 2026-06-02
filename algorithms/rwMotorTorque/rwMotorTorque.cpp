@@ -46,7 +46,7 @@ void RwMotorTorque::reset(const uint64_t callTime) {
         }
     }
 
-    this->algorithm->configure(rwConfiguration, availability);
+    this->algorithm->computeRwMapping(rwConfiguration, availability);
 }
 
 /*! Computes the reaction wheel torques given a commanded torque on the spacecraft

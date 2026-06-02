@@ -75,9 +75,9 @@ class RwMotorTorqueAlgorithm final {
     explicit RwMotorTorqueAlgorithm(const RwMotorTorqueConfig& config);
 
     void setConfig(const RwMotorTorqueConfig& config);
-    void configure(const RwMotorTorqueArrayConfiguration& rwConfiguration,
-                   const RwMotorTorqueAvailability& availability);
     Eigen::Vector<float, kMaxNumRw> update(const Eigen::Vector3f& Lr_B) const;  //!< [N-m] RW motor torques
+    void computeRwMapping(const RwMotorTorqueArrayConfiguration& rwConfiguration,
+                          const RwMotorTorqueAvailability& availability);
 
    private:
     RwMotorTorqueConfig cfg;  //!< [-] validated configuration (control axes mapping matrix)

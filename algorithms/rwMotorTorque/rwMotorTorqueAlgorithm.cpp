@@ -7,13 +7,22 @@ RwMotorTorqueAlgorithm::RwMotorTorqueAlgorithm(const RwMotorTorqueConfig& config
 
 void RwMotorTorqueAlgorithm::setConfig(const RwMotorTorqueConfig& config) { this->cfg = config; }
 
-/*! This method configures the module by populating any necessary class members.
+/*! Computes the reaction wheel torques given a commanded torque on the spacecraft
+ @return Eigen::Vector<float, kMaxNumRw> commanded RW motor torques [N-m]
+ @param Lr_B total commanded control torque on the spacecraft in body-frame components
+ */
+Eigen::Vector<float, kMaxNumRw> RwMotorTorqueAlgorithm::update(const Eigen::Vector3f& Lr_B) const {
+    return this->motorTorqueMap * Lr_B;
+}
+
+/*! Precomputes the constant map from the commanded body torque to the per-RW motor torques from the
+ reaction-wheel configuration and availability. Must be called before update().
  @return void
  @param rwConfiguration reaction-wheel spin-axis configuration in body-frame components
  @param availability per-wheel reaction-wheel availability (a default-constructed value marks every wheel AVAILABLE)
  */
-void RwMotorTorqueAlgorithm::configure(const RwMotorTorqueArrayConfiguration& rwConfiguration,
-                                       const RwMotorTorqueAvailability& availability) {
+void RwMotorTorqueAlgorithm::computeRwMapping(const RwMotorTorqueArrayConfiguration& rwConfiguration,
+                                              const RwMotorTorqueAvailability& availability) {
     /*!- count the number of controlled axes. The control axes mapping matrix is already validated by
      RwMotorTorqueConfig (finite, filled top to bottom, at least one axis), so a simple count suffices. */
     const Eigen::Matrix3f& controlAxes_B = this->cfg.getControlAxes();
@@ -59,12 +68,4 @@ void RwMotorTorqueAlgorithm::configure(const RwMotorTorqueArrayConfiguration& rw
             j += 1U;
         }
     }
-}
-
-/*! Computes the reaction wheel torques given a commanded torque on the spacecraft
- @return Eigen::Vector<float, kMaxNumRw> commanded RW motor torques [N-m]
- @param Lr_B total commanded control torque on the spacecraft in body-frame components
- */
-Eigen::Vector<float, kMaxNumRw> RwMotorTorqueAlgorithm::update(const Eigen::Vector3f& Lr_B) const {
-    return this->motorTorqueMap * Lr_B;
 }

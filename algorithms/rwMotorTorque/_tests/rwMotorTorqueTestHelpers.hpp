@@ -83,10 +83,10 @@ inline void testRwMotorTorqueSetup() {
     EXPECT_THROW(RwMotorTorqueConfig::create(controlAxes_B), fsw::invalid_argument);
 
     // control mapping matrix not full rank (to test, 3 control axes are specified but not a single reaction wheel):
-    // the config is valid, but configure() rejects the rank-deficient mapping
+    // the config is valid, but computeRwMapping() rejects the rank-deficient mapping
     controlAxes_B = makeControlAxes(3U);
     RwMotorTorqueAlgorithm alg{RwMotorTorqueConfig::create(controlAxes_B)};
-    EXPECT_THROW(alg.configure(rwConfiguration, availability), fsw::invalid_argument);
+    EXPECT_THROW(alg.computeRwMapping(rwConfiguration, availability), fsw::invalid_argument);
 }
 
 inline void testRwMotorTorque(const Eigen::Vector3f& Lr1_B,
@@ -125,7 +125,7 @@ inline void testRwMotorTorque(const Eigen::Vector3f& Lr1_B,
         Lr_B += Lr2_B;
     }
 
-    // Independently compute the available RW count and rank to predict configure() behavior. Wheels left
+    // Independently compute the available RW count and rank to predict computeRwMapping() behavior. Wheels left
     // at the default AVAILABLE state (no availability message) are always included.
     Eigen::Matrix<float, 3, kMaxNumRw> G_s_B{Eigen::Matrix<float, 3, kMaxNumRw>::Zero()};
     uint32_t numAvailWheels = 0U;
@@ -141,10 +141,10 @@ inline void testRwMotorTorque(const Eigen::Vector3f& Lr1_B,
     const auto controlMappingRank = static_cast<uint32_t>(lu_decomp.rank());
 
     if (controlMappingRank < numControlAxes) {
-        EXPECT_THROW(alg.configure(rwConfiguration, availability), fsw::invalid_argument);
+        EXPECT_THROW(alg.computeRwMapping(rwConfiguration, availability), fsw::invalid_argument);
         return;
     }
-    EXPECT_NO_THROW(alg.configure(rwConfiguration, availability));
+    EXPECT_NO_THROW(alg.computeRwMapping(rwConfiguration, availability));
 
     // Compare against the independent reference
     Eigen::Vector<float, kMaxNumRw> out{Eigen::Vector<float, kMaxNumRw>::Zero()};

@@ -40,11 +40,11 @@ void RwMotorTorqueAlgorithm_setConfig(RwMotorTorqueAlgorithmHandle* self, const 
     reinterpret_cast<::RwMotorTorqueAlgorithm*>(self)->setConfig(configFromC(*config));
 }
 
-void RwMotorTorqueAlgorithm_configure(RwMotorTorqueAlgorithmHandle* self,
-                                      const RwMotorTorqueArrayConfiguration_c* rwConfiguration,
-                                      const RwMotorTorqueAvailability_c* availability) {
-    reinterpret_cast<::RwMotorTorqueAlgorithm*>(self)->configure(arrayConfigurationFromC(*rwConfiguration),
-                                                                 availabilityFromC(*availability));
+void RwMotorTorqueAlgorithm_computeRwMapping(RwMotorTorqueAlgorithmHandle* self,
+                                             const RwMotorTorqueArrayConfiguration_c* rwConfiguration,
+                                             const RwMotorTorqueAvailability_c* availability) {
+    reinterpret_cast<::RwMotorTorqueAlgorithm*>(self)->computeRwMapping(arrayConfigurationFromC(*rwConfiguration),
+                                                                        availabilityFromC(*availability));
 }
 
 RwMotorTorqueOutput_c RwMotorTorqueAlgorithm_update(const RwMotorTorqueAlgorithmHandle* self, const Vector3f_c Lr_B) {

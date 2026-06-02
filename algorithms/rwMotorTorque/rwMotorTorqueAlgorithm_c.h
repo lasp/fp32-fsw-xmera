@@ -48,9 +48,9 @@ void RwMotorTorqueAlgorithm_setConfig(RwMotorTorqueAlgorithmHandle* self, const 
  * @param rwConfiguration     Reaction-wheel spin-axis configuration in body-frame components.
  * @param availability Per-wheel availability (set every wheel AVAILABLE to use all of them).
  */
-void RwMotorTorqueAlgorithm_configure(RwMotorTorqueAlgorithmHandle* self,
-                                      const RwMotorTorqueArrayConfiguration_c* rwConfiguration,
-                                      const RwMotorTorqueAvailability_c* availability);
+void RwMotorTorqueAlgorithm_computeRwMapping(RwMotorTorqueAlgorithmHandle* self,
+                                             const RwMotorTorqueArrayConfiguration_c* rwConfiguration,
+                                             const RwMotorTorqueAvailability_c* availability);
 
 /**
  * @brief Compute the reaction wheel motor torques for a commanded body torque.
