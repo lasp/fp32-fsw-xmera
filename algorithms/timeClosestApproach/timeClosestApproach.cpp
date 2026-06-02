@@ -52,6 +52,6 @@ void TimeClosestApproach::updateState(const uint64_t currentSimNanos) {
     Eigen::Vector3f v_BN_N = cArrayToEigenVector(navFilterMsgPayload.v_BN_N).cast<float>();
     Eigen::MatrixXf filterCovariance = cArrayToEigenMatrixX(filterStatePayload.covar, numberOfStates, numberOfStates);
 
-    TimeClosestApproachOutput out_algo = this->algorithm.update(numberOfStates, r_BN_N, v_BN_N, filterCovariance);
+    TimeClosestApproachOutput out_algo = this->algorithm.update(r_BN_N, v_BN_N, filterCovariance);
     this->writeMessages(out_algo.tCA, out_algo.sigmaTca, currentSimNanos);
 }

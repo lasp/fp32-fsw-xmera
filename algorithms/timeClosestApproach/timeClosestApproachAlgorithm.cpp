@@ -3,8 +3,7 @@
 
 #include "timeClosestApproachAlgorithm.h"
 
-TimeClosestApproachOutput TimeClosestApproachAlgorithm::update(int numberOfStates,
-                                                               const Eigen::Vector3f& r_BN_N,
+TimeClosestApproachOutput TimeClosestApproachAlgorithm::update(const Eigen::Vector3f& r_BN_N,
                                                                const Eigen::Vector3f& v_BN_N,
                                                                const Eigen::MatrixXf& filterCovariance) {
     //    float flightPathAngle = -M_PI / 2;  //!< flight path angle of the spacecraft at time of read [rad]
@@ -29,6 +28,7 @@ TimeClosestApproachOutput TimeClosestApproachAlgorithm::update(int numberOfState
     algo_output.tCA = -std::sin(flightPathAngle) / ratio;
 
     // Calculate covariance_map_to_tca
+    const uint8_t numberOfStates = filterCovariance.rows();
     Eigen::VectorXf covariance_map_to_tca(numberOfStates);
 
     covariance_map_to_tca.head(3) = v_BN_N_hat / r_BN_N.norm();

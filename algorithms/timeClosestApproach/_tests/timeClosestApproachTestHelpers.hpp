@@ -13,8 +13,7 @@ struct ReferenceTimeClosestApproachOutput {
     double sigmaTca{};
 };
 
-inline ReferenceTimeClosestApproachOutput referenceTimeClosestApproach(int numberOfStates,
-                                                                       const Eigen::Vector3d& r_BN_N,
+inline ReferenceTimeClosestApproachOutput referenceTimeClosestApproach(const Eigen::Vector3d& r_BN_N,
                                                                        const Eigen::Vector3d& v_BN_N,
                                                                        const Eigen::MatrixXd& filterCovariance) {
     /*! - compute velocity/radius ratio at time of read */
@@ -35,6 +34,7 @@ inline ReferenceTimeClosestApproachOutput referenceTimeClosestApproach(int numbe
     algo_output.tCA = -std::sin(flightPathAngle) / ratio;
 
     // Calculate covariance_map_to_tca
+    int numberOfStates = filterCovariance.rows();
     Eigen::VectorXd covariance_map_to_tca(numberOfStates);
 
     covariance_map_to_tca.head(3) = v_BN_N_hat / r_BN_N.norm();
@@ -49,16 +49,15 @@ inline ReferenceTimeClosestApproachOutput referenceTimeClosestApproach(int numbe
     return algo_output;
 }
 
-inline void testTimeClosestApproach(int numberOfStates,
-                                    const Eigen::Vector3f& r_BN_N,
+inline void testTimeClosestApproach(const Eigen::Vector3f& r_BN_N,
                                     const Eigen::Vector3f& v_BN_N,
                                     const Eigen::MatrixXf& filterCovariance) {
     TimeClosestApproachAlgorithm alg;
     TimeClosestApproachOutput out;
-    EXPECT_NO_THROW(out = alg.update(numberOfStates, r_BN_N, v_BN_N, filterCovariance));
+    EXPECT_NO_THROW(out = alg.update(r_BN_N, v_BN_N, filterCovariance));
 
-    ReferenceTimeClosestApproachOutput ref = referenceTimeClosestApproach(
-        numberOfStates, r_BN_N.cast<double>(), v_BN_N.cast<double>(), filterCovariance.cast<double>());
+    ReferenceTimeClosestApproachOutput ref =
+        referenceTimeClosestApproach(r_BN_N.cast<double>(), v_BN_N.cast<double>(), filterCovariance.cast<double>());
     constexpr float tol = 1e-5F;
     EXPECT_NEAR(out.tCA, static_cast<float>(ref.tCA), tol);
     EXPECT_NEAR(out.sigmaTca, static_cast<float>(ref.sigmaTca), tol);
