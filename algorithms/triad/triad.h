@@ -20,6 +20,8 @@ class Triad final : public SysModel {
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
 
+    void reconfigure() const;
+
     ReadFunctor<NavAttMsgF32Payload> attNavInMsg;
     ReadFunctor<BodyHeadingMsgF32Payload> bodyHeadingInMsg;
     Message<AttRefMsgF32Payload> attRefOutMsg;
@@ -30,6 +32,7 @@ class Triad final : public SysModel {
 
    private:
     std::unique_ptr<TriadAlgorithm> algorithm = nullptr;
+    TriadConfig toConfig() const;
 };
 
 #endif
