@@ -12,16 +12,7 @@ void fuzzTriadRegression(std::vector<float> sigma_BNVec,
     const Eigen::Vector3f sun(sunVec[0], sunVec[1], sunVec[2]);
     const Eigen::Vector3f earth(earthVec[0], earthVec[1], earthVec[2]);
 
-    // Filter: a1 must be non-zero
-    if (a1.norm() < 1e-6F) return;
-    // Filter: sun and earth must be non-zero
-    if (sun.norm() < 1e-6F || earth.norm() < 1e-6F) return;
-    // Filter: a1 and h1 must not be parallel
-    if (a1.normalized().cross(h1.normalized()).norm() < 1e-6F) return;
-    // Filter: sun and earth must not be parallel (SPE check)
-    if (sun.normalized().cross(earth.normalized()).norm() < 1e-3F) return;
-
-    testTriadRegression(sigma_BNVec, a1, h1, sun.normalized(), earth.normalized());
+    testTriadRegression(sigma_BNVec, a1.stableNormalized(), h1.stableNormalized(), sun.stableNormalized(), earth.stableNormalized());
 }
 
 FUZZ_TEST(TriadAlgorithmFuzz, fuzzTriadRegression)

@@ -2,22 +2,23 @@
 #define F32XMERA_TRIAD_ALGORITHM_H
 
 #include "utilities/fsw/freestandingInvalidArgument.h"
+#include <math.h>
 #include <Eigen/Core>
 
 class TriadConfig final {
    public:
     static TriadConfig create(const Eigen::Vector3f& a1Hat_B, const Eigen::Vector3f& hHat_N) {
         if (!isValidA1Hat_B(a1Hat_B)) {
-            FSW_THROW_INVALID_ARGUMENT("triad: a1Hat_B must be a non-zero vector");
+            FSW_THROW_INVALID_ARGUMENT("triad: a1Hat_B must be a unit vector");
         }
         if (!isValidHHat_N(hHat_N)) {
-            FSW_THROW_INVALID_ARGUMENT("triad: hHat_N must be a non-zero vector");
+            FSW_THROW_INVALID_ARGUMENT("triad: hHat_N must be a unit vector");
         }
-        return {a1Hat_B, hHat_N};
+        return {a1Hat_B.normalized(), hHat_N.normalized()};
     }
 
-    static bool isValidA1Hat_B(const Eigen::Vector3f& a1Hat_B) { return a1Hat_B.norm() > 1e-6F; }
-    static bool isValidHHat_N(const Eigen::Vector3f& hHat_N) { return hHat_N.norm() > 1e-6F; }
+    static bool isValidA1Hat_B(const Eigen::Vector3f& a1Hat_B) { return fabsf(a1Hat_B.stableNorm() - 1.0F) < 1e-3F; }
+    static bool isValidHHat_N(const Eigen::Vector3f& hHat_N) { return fabsf(hHat_N.stableNorm() - 1.0F) < 1e-3F; }
 
     Eigen::Vector3f getA1Hat_B() const { return a1Hat_B; }
     Eigen::Vector3f getHHat_N() const { return hHat_N; }
