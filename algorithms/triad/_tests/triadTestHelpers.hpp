@@ -135,4 +135,18 @@ inline void propertyBodyHeadingAlignedToInertialHeading(const Eigen::Vector3f& s
     }
 }
 
+// sigma_RN norm is bounded by 1 (inner MRP set) for any inputs
+inline void propertySigmaNormBounded(const Eigen::Vector3f& sigma_BN,
+                                     const Eigen::Vector3f& rHat_SB_B,
+                                     const Eigen::Vector3f& thrustHat_B,
+                                     const Eigen::Vector3f& sadaHat_B,
+                                     const Eigen::Vector3f& thrustReqHat_N,
+                                     const float signOfZHat_N) {
+    auto config = TriadConfig::create(sadaHat_B, thrustReqHat_N, signOfZHat_N);
+    TriadAlgorithm alg(config);
+
+    auto result = alg.update(sigma_BN, rHat_SB_B, thrustHat_B);
+    EXPECT_LE(result.norm(), 1.0F + 1e-6F);
+}
+
 #endif  // TEST_TRIAD_H
