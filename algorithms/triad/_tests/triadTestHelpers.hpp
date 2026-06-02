@@ -12,7 +12,8 @@ inline Eigen::Vector3f referenceTriad(const Eigen::Vector3f& sigma_BN,
                                       const Eigen::Vector3f& rHat_SB_B,
                                       const Eigen::Vector3f& hReqHat_N,
                                       const Eigen::Vector3f& a1Hat_B,
-                                      const Eigen::Vector3f& hRefHat_B) {
+                                      const Eigen::Vector3f& hRefHat_B,
+                                      const float signOfZHat_N) {
     const Eigen::Vector3f r2 = hRefHat_B;
     const Eigen::Vector3f r3 = a1Hat_B.cross(hRefHat_B).normalized();
     const Eigen::Vector3f r1 = r2.cross(r3);
@@ -43,12 +44,13 @@ inline void testTriadRegression(const Eigen::Vector3f& sigma_BN,
                                 const Eigen::Vector3f& a1Hat_B,
                                 const Eigen::Vector3f& h1Hat_B,
                                 const Eigen::Vector3f& rHat_SB_B,
-                                const Eigen::Vector3f& hReqHat_N) {
-    auto config = TriadConfig::create(a1Hat_B, hReqHat_N);
+                                const Eigen::Vector3f& hReqHat_N,
+                                const float signOfZHat_N) {
+    auto config = TriadConfig::create(a1Hat_B, hReqHat_N, signOfZHat_N);
     TriadAlgorithm alg(config);
 
     const Eigen::Vector3f result = alg.update(sigma_BN, rHat_SB_B, h1Hat_B);
-    const Eigen::Vector3f expected = referenceTriad(sigma_BN, rHat_SB_B, hReqHat_N, a1Hat_B, h1Hat_B);
+    const Eigen::Vector3f expected = referenceTriad(sigma_BN, rHat_SB_B, hReqHat_N, a1Hat_B, h1Hat_B, signOfZHat_N);
 
     for (int i = 0; i < 3; ++i) {
         EXPECT_NEAR(result[i], expected[i], 1e-5F) << "Component " << i;
@@ -58,26 +60,33 @@ inline void testTriadRegression(const Eigen::Vector3f& sigma_BN,
 
 inline void testTriadSetup() {
     // Valid config should not throw
-    EXPECT_NO_THROW(TriadConfig::create(Eigen::Vector3f::UnitX(), Eigen::Vector3f::UnitY()));
+    EXPECT_NO_THROW(TriadConfig::create(Eigen::Vector3f::UnitX(), Eigen::Vector3f::UnitY(), 1.0F));
 
     // Zero a1Hat_B should throw
-    EXPECT_THROW(TriadConfig::create(Eigen::Vector3f::Zero(), Eigen::Vector3f::UnitX()), fsw::invalid_argument);
+    EXPECT_THROW(TriadConfig::create(Eigen::Vector3f::Zero(), Eigen::Vector3f::UnitX(), -1.0F), fsw::invalid_argument);
 
     // Zero hReqHat_N should throw
-    EXPECT_THROW(TriadConfig::create(Eigen::Vector3f::UnitX(), Eigen::Vector3f::Zero()), fsw::invalid_argument);
+    EXPECT_THROW(TriadConfig::create(Eigen::Vector3f::UnitX(), Eigen::Vector3f::Zero(), 2.0F), fsw::invalid_argument);
+
+    // Zero signOfZHat_N should throw
+    EXPECT_THROW(TriadConfig::create(Eigen::Vector3f::UnitX(), Eigen::Vector3f::UnitY(), 0.0F), fsw::invalid_argument);
 
     // Config round-trip
     const Eigen::Vector3f a1 = Eigen::Vector3f(1.0F, 2.0F, 3.0F);
     const Eigen::Vector3f hN = Eigen::Vector3f(0.0F, 0.0F, 1.0F);
-    auto config = TriadConfig::create(a1, hN);
+    const float signOfZHat_N = -1.0F;
+    auto config = TriadConfig::create(a1, hN, signOfZHat_N);
     EXPECT_EQ(config.getA1Hat_B(), a1);
     EXPECT_EQ(config.getHHat_N(), hN);
+    EXPECT_EQ(config.getSignOfZHat_N(), signOfZHat_N);
 
     // Static validators
     EXPECT_TRUE(TriadConfig::isValidA1Hat_B(Eigen::Vector3f::UnitX()));
     EXPECT_FALSE(TriadConfig::isValidA1Hat_B(Eigen::Vector3f::Zero()));
     EXPECT_TRUE(TriadConfig::isValidHHat_N(Eigen::Vector3f::UnitX()));
     EXPECT_FALSE(TriadConfig::isValidHHat_N(Eigen::Vector3f::Zero()));
+    EXPECT_TRUE(TriadConfig::isValidSignOfZHat_N(-2.0F));
+    EXPECT_FALSE(TriadConfig::isValidSignOfZHat_N(0.0F));
 }
 
 #endif  // TEST_TRIAD_H

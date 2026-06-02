@@ -68,6 +68,7 @@ def test_triad(show_plots, case):
     unit_test_sim.AddModelToTask(unit_task_name, module)
     module.a1Hat_B = a1_B
     module.hHat_N = eh_N
+    module.signOfZHat_N = 1.0
 
     sigma_BN = np.array([0.1, -0.2, 0.1])
     BN = rbk.MRP2C(sigma_BN)

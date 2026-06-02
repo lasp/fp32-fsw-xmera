@@ -8,8 +8,9 @@ TEST(TriadTest, RegressionCase1) {
     const Eigen::Vector3f h1Hat_B = Eigen::Vector3f::UnitY();
     const Eigen::Vector3f sh_B = Eigen::Vector3f(2.12024926e+11F, 2.12239088e+11F, 6.60583756e-01F).normalized();
     const Eigen::Vector3f eh_N = Eigen::Vector3f(3.43401015e+11F, 2.76561597e+11F, 2.78825040e+10F).normalized();
+    const float signOfZHat_N = -1.0F;
 
-    testTriadRegression(sigma_BN, a1Hat_B, h1Hat_B, sh_B, eh_N);
+    testTriadRegression(sigma_BN, a1Hat_B, h1Hat_B, sh_B, eh_N, signOfZHat_N);
 }
 
 TEST(TriadTest, RegressionCase2) {
@@ -19,8 +20,9 @@ TEST(TriadTest, RegressionCase2) {
     const Eigen::Vector3f h1Hat_B = Eigen::Vector3f::UnitY();
     const Eigen::Vector3f sh_B = Eigen::Vector3f(-7.47993852e+10F, -3.03274801e+08F, -6.16397545e-01F).normalized();
     const Eigen::Vector3f eh_N = Eigen::Vector3f(5.65767033e+10F, 6.40192339e+10F, 2.78825040e+10F).normalized();
+    const float signOfZHat_N = -1.0F;
 
-    testTriadRegression(sigma_BN, a1Hat_B, h1Hat_B, sh_B, eh_N);
+    testTriadRegression(sigma_BN, a1Hat_B, h1Hat_B, sh_B, eh_N, signOfZHat_N);
 }
 
 TEST(TriadTest, SetupTest) { testTriadSetup(); }
@@ -31,8 +33,9 @@ TEST(TriadTest, OutputIsFinite) {
     const Eigen::Vector3f h1 = Eigen::Vector3f::UnitY();
     const Eigen::Vector3f sun = Eigen::Vector3f(1.0F, 1.0F, 0.0F).normalized();
     const Eigen::Vector3f earth = Eigen::Vector3f(0.0F, 0.0F, 1.0F).normalized();
+    const float signOfZHat_N = -1.0F;
 
-    auto config = TriadConfig::create(a1, earth);
+    auto config = TriadConfig::create(a1, earth, signOfZHat_N);
     TriadAlgorithm alg(config);
     const Eigen::Vector3f result = alg.update(sigma_BN, sun, h1);
 
@@ -48,8 +51,9 @@ TEST(TriadTest, ParallelVectorsThrows) {
     // Sun and heading nearly parallel (SPE < 0.5 degrees)
     const Eigen::Vector3f sun = Eigen::Vector3f::UnitZ();
     const Eigen::Vector3f earth = Eigen::Vector3f::UnitZ();
+    const float signOfZHat_N = -1.0F;
 
-    auto config = TriadConfig::create(a1, earth);
+    auto config = TriadConfig::create(a1, earth, signOfZHat_N);
     TriadAlgorithm alg(config);
     EXPECT_THROW(alg.update(sigma_BN, sun, h1), std::runtime_error);
 }
@@ -62,8 +66,9 @@ TEST(TriadTest, BodyHeadingAlignedToInertialHeading) {
     const Eigen::Vector3f h1 = Eigen::Vector3f::UnitY();
     const Eigen::Vector3f sun = Eigen::Vector3f(1.0F, 0.0F, 0.0F);
     const Eigen::Vector3f earth = Eigen::Vector3f(0.0F, 1.0F, 0.0F);
+    const float signOfZHat_N = -1.0F;
 
-    auto config = TriadConfig::create(a1, earth);
+    auto config = TriadConfig::create(a1, earth, signOfZHat_N);
     TriadAlgorithm alg(config);
     const Eigen::Vector3f sigma_RN = alg.update(sigma_BN, sun, h1);
 
@@ -74,9 +79,9 @@ TEST(TriadTest, BodyHeadingAlignedToInertialHeading) {
 }
 
 TEST(TriadTest, ConfigSetConfig) {
-    auto config1 = TriadConfig::create(Eigen::Vector3f::UnitX(), Eigen::Vector3f::UnitY());
+    auto config1 = TriadConfig::create(Eigen::Vector3f::UnitX(), Eigen::Vector3f::UnitY(), 1.0F);
     TriadAlgorithm alg(config1);
 
-    auto config2 = TriadConfig::create(Eigen::Vector3f::UnitZ(), Eigen::Vector3f::UnitY());
+    auto config2 = TriadConfig::create(Eigen::Vector3f::UnitZ(), Eigen::Vector3f::UnitY(), -1.0F);
     EXPECT_NO_THROW(alg.setConfig(config2));
 }
