@@ -95,4 +95,24 @@ inline void testTriadRegression(const Eigen::Vector3f& sigma_BN,
     }
 }
 
+// ---------------------------------------------------------------------------
+// Property test helper functions
+// ---------------------------------------------------------------------------
+
+// All output components are finite for valid inputs.
+inline void propertyOutputIsFinite(const Eigen::Vector3f& sigma_BN,
+                                   const Eigen::Vector3f& rHat_SB_B,
+                                   const Eigen::Vector3f& thrustHat_B,
+                                   const Eigen::Vector3f& sadaHat_B,
+                                   const Eigen::Vector3f& thrustReqHat_N,
+                                   const float signOfZHat_N) {
+    auto config = TriadConfig::create(sadaHat_B, thrustReqHat_N, signOfZHat_N);
+    TriadAlgorithm alg(config);
+
+    auto result = alg.update(sigma_BN, rHat_SB_B, thrustHat_B);
+    for (int i = 0; i < 3; ++i) {
+        EXPECT_TRUE(std::isfinite(result(i)));
+    }
+}
+
 #endif  // TEST_TRIAD_H
