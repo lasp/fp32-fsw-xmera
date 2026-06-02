@@ -4,6 +4,9 @@
 #include "utilities/fsw/freestandingInvalidArgument.h"
 #include <math.h>
 #include <Eigen/Core>
+#include <numbers>
+
+static constexpr float kParallelThresholdRad = 0.5F * std::numbers::pi_v<float> / 180.0F;
 
 class TriadConfig final {
    public:
