@@ -4,16 +4,11 @@
 #include "architecture/utilities/eigenSupport.h"
 #include "mrpFeedbackAlgorithm.h"
 #include "mrpFeedbackTypes.h"
-#include "msgPayloadDef/AttGuidMsgF32Payload.h"
-#include "msgPayloadDef/CmdTorqueBodyMsgF32Payload.h"
 #include "msgPayloadDef/RWArrayConfigMsgF32Payload.h"
-#include "msgPayloadDef/RWAvailabilityMsgPayload.h"
-#include "msgPayloadDef/RWSpeedMsgF32Payload.h"
-#include "msgPayloadDef/VehicleConfigMsgF32Payload.h"
-#include "utilities/freestandingInvalidArgument.h"
 #include "utilities/timeConstants.h"
 #include <gtest/gtest.h>
 #include <Eigen/Core>
+#include <array>
 #include <cmath>
 #include <vector>
 

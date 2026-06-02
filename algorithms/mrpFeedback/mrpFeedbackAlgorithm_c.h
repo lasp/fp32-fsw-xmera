@@ -1,12 +1,7 @@
 #ifndef F32XMERA_MRPFEEDBACKALGORITHM_C_H
 #define F32XMERA_MRPFEEDBACKALGORITHM_C_H
 
-#include "msgPayloadDef/AttGuidMsgF32Payload.h"
-#include "msgPayloadDef/CmdTorqueBodyMsgF32Payload.h"
-#include "msgPayloadDef/RWArrayConfigMsgF32Payload.h"
-#include "msgPayloadDef/RWAvailabilityMsgPayload.h"
-#include "msgPayloadDef/RWSpeedMsgF32Payload.h"
-#include "msgPayloadDef/VehicleConfigMsgF32Payload.h"
+#include "msgPayloadDef/definitions.h"  // RW_EFF_CNT
 #include "utilities/plainCAlgorithmDataTypes.h"
 #include <stdbool.h>
 #include <stdint.h>

@@ -6,12 +6,7 @@
 #include <cstdint>
 
 #include "mrpFeedbackTypes.h"
-#include "msgPayloadDef/AttGuidMsgF32Payload.h"
-#include "msgPayloadDef/CmdTorqueBodyMsgF32Payload.h"
-#include "msgPayloadDef/RWArrayConfigMsgF32Payload.h"
-#include "msgPayloadDef/RWAvailabilityMsgPayload.h"
-#include "msgPayloadDef/RWSpeedMsgF32Payload.h"
-#include "msgPayloadDef/VehicleConfigMsgF32Payload.h"
+#include "msgPayloadDef/definitions.h"  // RW_EFF_CNT
 #include "utilities/freestandingInvalidArgument.h"
 #include "utilities/freestandingIsFinite.hpp"
 #include "utilities/validInertiaCheck.h"

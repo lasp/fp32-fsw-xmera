@@ -1,5 +1,4 @@
 #include "mrpFeedbackAlgorithm.h"
-#include "architecture/utilities/eigenSupport.h"
 #include "utilities/timeConstants.h"
 
 #include <math.h>
