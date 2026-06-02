@@ -96,16 +96,25 @@ TEST(TriadTest, SigmaRnNormBounded) {
     propertySigmaNormBounded(sigma_BN, rHat_SB_B, thrustHat_B, sadaHat_B, thrustReqHat_N, signOfZHat_N);
 }
 
-TEST(TriadTest, ParallelVectorsThrows) {
-    const Eigen::Vector3f sigma_BN{0.0F, 0.0F, 0.0};
-    const Eigen::Vector3f sadaHat_B = Eigen::Vector3f::UnitX();
-    const Eigen::Vector3f thrustHat_B = Eigen::Vector3f::UnitY();
-    // rHat_SB_B and heading nearly parallel (SPE < 0.5 degrees)
-    const Eigen::Vector3f rHat_SB_B = Eigen::Vector3f::UnitZ();
-    const Eigen::Vector3f thrustReqHat_N = Eigen::Vector3f::UnitZ();
-    const float signOfZHat_N = -1.0F;
+// ---------------------------------------------------------------------------
+// Edge-case tests
+// ---------------------------------------------------------------------------
+
+// When Sun direction is aligned with thrust inertial reference, zHat_N is used in triad frame
+TEST(TriadTest, SunAlignedWithThrustRef) {
+    const Eigen::Vector3f sigma_BN{0.0F, 0.0F, 0.0F};
+    const Eigen::Vector3f rHat_SB_B = Eigen::Vector3f::UnitY();
+    const Eigen::Vector3f thrustHat_B = Eigen::Vector3f::UnitX();
+    const Eigen::Vector3f sadaHat_B = Eigen::Vector3f::UnitZ();
+    const Eigen::Vector3f thrustReqHat_N = Eigen::Vector3f::UnitY();
+    const float signOfZHat_N = 1.0F;
 
     auto config = TriadConfig::create(sadaHat_B, thrustReqHat_N, signOfZHat_N);
     TriadAlgorithm alg(config);
-    EXPECT_THROW(alg.update(sigma_BN, rHat_SB_B, thrustHat_B), std::runtime_error);
+
+    auto result = alg.update(sigma_BN, rHat_SB_B, thrustHat_B);
+    Eigen::Vector3f expected = referenceUpdate(sigma_BN, rHat_SB_B, thrustHat_B, sadaHat_B, thrustReqHat_N, signOfZHat_N);;
+    for (int i = 0; i < 3; ++i) {
+        EXPECT_NEAR(result(i), expected(i), 1e-6F);
+    }
 }
