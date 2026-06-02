@@ -72,6 +72,18 @@ TEST(TriadTest, OutputIsFinite) {
     propertyOutputIsFinite(sigma_BN, rHat_SB_B, thrustHat_B, sadaHat_B, thrustReqHat_N, signOfZHat_N);
 }
 
+// Thrust body axis should align with thrust inertial heading direction
+TEST(TriadTest, BodyHeadingAlignedToInertialHeading) {
+    const Eigen::Vector3f sigma_BN{0.1F, -0.2F, 0.3F};
+    const Eigen::Vector3f rHat_SB_B = Eigen::Vector3f(1.0F, 1.0F, 0.0F).normalized();
+    const Eigen::Vector3f thrustHat_B = Eigen::Vector3f::UnitX();
+    const Eigen::Vector3f sadaHat_B = Eigen::Vector3f::UnitY();
+    const Eigen::Vector3f thrustReqHat_N = Eigen::Vector3f::UnitZ();
+    const float signOfZHat_N = 1.0F;
+
+    propertyBodyHeadingAlignedToInertialHeading(sigma_BN, rHat_SB_B, thrustHat_B, sadaHat_B, thrustReqHat_N, signOfZHat_N);
+}
+
 TEST(TriadTest, ParallelVectorsThrows) {
     const Eigen::Vector3f sigma_BN{0.0F, 0.0F, 0.0};
     const Eigen::Vector3f sadaHat_B = Eigen::Vector3f::UnitX();
