@@ -63,10 +63,14 @@ inline Eigen::Vector3f referenceTriad(const Eigen::Vector3f& sigma_BN,
     return dcmToMrp(dcm_RN);
 }
 
+// ---------------------------------------------------------------------------
+// Regression test helper function
+// ---------------------------------------------------------------------------
+
 inline void testTriadRegression(const Eigen::Vector3f& sigma_BN,
-                                const Eigen::Vector3f& sadaHat_B,
-                                const Eigen::Vector3f& thrustHat_B,
                                 const Eigen::Vector3f& rHat_SB_B,
+                                const Eigen::Vector3f& thrustHat_B,
+                                const Eigen::Vector3f& sadaHat_B,
                                 const Eigen::Vector3f& thrustReqHat_N,
                                 const float signOfZHat_N) {
     auto config = TriadConfig::create(sadaHat_B, thrustReqHat_N, signOfZHat_N);
@@ -75,9 +79,19 @@ inline void testTriadRegression(const Eigen::Vector3f& sigma_BN,
     const Eigen::Vector3f result = alg.update(sigma_BN, rHat_SB_B, thrustHat_B);
     const Eigen::Vector3f expected = referenceTriad(sigma_BN, rHat_SB_B, thrustHat_B, sadaHat_B, thrustReqHat_N, signOfZHat_N);
 
+    // Compare attitudes as DCMs rather than MRP components: dcmToMrp can return either MRP
+    // shadow-set representative near |sigma| = 1 (the 180-deg boundary). The DCM is unique through 180 deg.
+    constexpr float tol = 1e-6F;
+    const Eigen::Matrix3f dcmResult = mrpToDcm(result);
+    const Eigen::Matrix3f dcmExpected = mrpToDcm(expected);
+    for (int r = 0; r < 3; ++r) {
+        for (int c = 0; c < 3; ++c) {
+            EXPECT_NEAR(dcmResult(r, c), dcmExpected(r, c), tol);
+        }
+    }
+
     for (int i = 0; i < 3; ++i) {
-        EXPECT_NEAR(result[i], expected[i], 1e-5F) << "Component " << i;
-        EXPECT_TRUE(std::isfinite(result[i])) << "Component " << i << " is not finite";
+        EXPECT_TRUE(std::isfinite(result[i]));
     }
 }
 
