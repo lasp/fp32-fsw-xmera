@@ -6,10 +6,6 @@
 #include <Eigen/Core>
 
 namespace {
-RwMotorTorqueConfig configFromC(const RwMotorTorqueConfig_c& c) {
-    return RwMotorTorqueConfig::create(c2DArrayToEigenMatrix3(c.controlAxes_B.data));
-}
-
 RwMotorTorqueArrayConfiguration arrayConfigurationFromC(const RwMotorTorqueArrayConfiguration_c& c) {
     RwMotorTorqueArrayConfiguration out{};
     out.numRW = c.numRW;
@@ -23,6 +19,12 @@ RwMotorTorqueAvailability availabilityFromC(const RwMotorTorqueAvailability_c& c
         out.wheelAvailability[i] = c.wheelAvailability[i];
     }
     return out;
+}
+
+RwMotorTorqueConfig configFromC(const RwMotorTorqueConfig_c& c) {
+    return RwMotorTorqueConfig::create(c2DArrayToEigenMatrix3(c.controlAxes_B.data),
+                                       arrayConfigurationFromC(c.rwConfiguration),
+                                       availabilityFromC(c.availability));
 }
 }  // namespace
 
@@ -38,13 +40,6 @@ void RwMotorTorqueAlgorithm_destroy(RwMotorTorqueAlgorithmHandle* self) {
 
 void RwMotorTorqueAlgorithm_setConfig(RwMotorTorqueAlgorithmHandle* self, const RwMotorTorqueConfig_c* config) {
     reinterpret_cast<::RwMotorTorqueAlgorithm*>(self)->setConfig(configFromC(*config));
-}
-
-void RwMotorTorqueAlgorithm_computeRwMapping(RwMotorTorqueAlgorithmHandle* self,
-                                             const RwMotorTorqueArrayConfiguration_c* rwConfiguration,
-                                             const RwMotorTorqueAvailability_c* availability) {
-    reinterpret_cast<::RwMotorTorqueAlgorithm*>(self)->computeRwMapping(arrayConfigurationFromC(*rwConfiguration),
-                                                                        availabilityFromC(*availability));
 }
 
 RwMotorTorqueOutput_c RwMotorTorqueAlgorithm_update(const RwMotorTorqueAlgorithmHandle* self, const Vector3f_c Lr_B) {

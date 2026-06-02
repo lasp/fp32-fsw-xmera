@@ -3,7 +3,6 @@
 
 #include "rwMotorTorqueTypes.h"
 
-#include <stdbool.h>
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -23,7 +22,12 @@ uint32_t RwMotorTorqueAlgorithm_getMaxNumRw(void);
 
 /**
  * @brief Construct a new RwMotorTorqueAlgorithm instance from the supplied configuration.
- * @param config Pointer to the configuration to apply (validated; throws on invalid input).
+ *
+ * The configuration carries the control axes, the reaction-wheel spin-axis configuration, and the
+ * per-wheel availability; the RW motor torque mapping is computed during construction.
+ *
+ * @param config Pointer to the configuration to apply (validated; throws on invalid input or if the
+ *               resulting control mapping matrix is not full rank).
  * @return Pointer to a new RwMotorTorqueAlgorithm (must be destroyed).
  */
 RwMotorTorqueAlgorithmHandle* RwMotorTorqueAlgorithm_create(const RwMotorTorqueConfig_c* config);
@@ -40,17 +44,6 @@ void RwMotorTorqueAlgorithm_destroy(RwMotorTorqueAlgorithmHandle* self);
  * @param config Pointer to the configuration to apply (validated; throws on invalid input).
  */
 void RwMotorTorqueAlgorithm_setConfig(RwMotorTorqueAlgorithmHandle* self, const RwMotorTorqueConfig_c* config);
-
-/**
- * @brief Configure the algorithm: snapshot the RW spin-axis configuration and availability, and
- *        build the control mapping matrix.
- * @param self         Pointer to the instance.
- * @param rwConfiguration     Reaction-wheel spin-axis configuration in body-frame components.
- * @param availability Per-wheel availability (set every wheel AVAILABLE to use all of them).
- */
-void RwMotorTorqueAlgorithm_computeRwMapping(RwMotorTorqueAlgorithmHandle* self,
-                                             const RwMotorTorqueArrayConfiguration_c* rwConfiguration,
-                                             const RwMotorTorqueAvailability_c* availability);
 
 /**
  * @brief Compute the reaction wheel motor torques for a commanded body torque.

@@ -27,10 +27,6 @@ void RwMotorTorque::reset(const uint64_t callTime) {
         throw std::invalid_argument("rwMotorTorque.vehControlInMsg wasn't connected.");
     }
 
-    /*! - Build the validated configuration and (re)create the algorithm */
-    const auto config = RwMotorTorqueConfig::create(this->controlAxes_B);
-    this->algorithm = std::make_unique<RwMotorTorqueAlgorithm>(config);
-
     /*! - Read static RW config data message and convert it to the algorithm's own types */
     const RWArrayConfigMsgF32Payload rwParams = this->rwParamsInMsg();
     RwMotorTorqueArrayConfiguration rwConfiguration{};
@@ -46,7 +42,10 @@ void RwMotorTorque::reset(const uint64_t callTime) {
         }
     }
 
-    this->algorithm->computeRwMapping(rwConfiguration, availability);
+    /*! - Build the validated configuration and (re)create the algorithm. The constructor computes the
+     RW motor torque mapping and throws if the control mapping matrix is not full rank. */
+    const auto config = RwMotorTorqueConfig::create(this->controlAxes_B, rwConfiguration, availability);
+    this->algorithm = std::make_unique<RwMotorTorqueAlgorithm>(config);
 }
 
 /*! Computes the reaction wheel torques given a commanded torque on the spacecraft

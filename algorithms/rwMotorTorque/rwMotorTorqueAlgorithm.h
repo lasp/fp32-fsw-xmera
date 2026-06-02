@@ -27,19 +27,28 @@ struct RwMotorTorqueAvailability {
 /*!
  * @brief Validated configuration for the RW motor torque algorithm.
  *
- * An instance of this class can only exist if the control axes mapping matrix is finite, defines at
- * least one control axis, and is filled from top to bottom (any zero, uncontrolled axes at the
- * bottom). Construct via RwMotorTorqueConfig::create(...).
+ * Bundles the control axes mapping matrix, the reaction-wheel spin-axis configuration, and the
+ * per-wheel availability. An instance can only exist if the control axes mapping matrix is finite,
+ * defines at least one control axis, and is filled from top to bottom (any zero, uncontrolled axes
+ * at the bottom), and the reaction-wheel count does not exceed the compile-time maximum. Construct
+ * via RwMotorTorqueConfig::create(...).
  */
 class RwMotorTorqueConfig final {
    public:
-    static RwMotorTorqueConfig create(const Eigen::Matrix3f& controlAxes_B) {
+    static RwMotorTorqueConfig create(const Eigen::Matrix3f& controlAxes_B,
+                                      const RwMotorTorqueArrayConfiguration& rwConfiguration,
+                                      const RwMotorTorqueAvailability& availability) {
         if (!isValidControlAxes(controlAxes_B)) {
             FSW_THROW_INVALID_ARGUMENT(
                 "rwMotorTorque: controlAxes_B must contain only finite values, define at least one control "
                 "axis, and be filled from top to bottom with any zero (uncontrolled) axes at the bottom.");
         }
-        return RwMotorTorqueConfig{controlAxes_B};
+        if (!isValidRwConfiguration(rwConfiguration)) {
+            FSW_THROW_INVALID_ARGUMENT(
+                "rwMotorTorque: rwConfiguration.numRW must not exceed the compile-time maximum and the spin "
+                "axis matrix must be finite.");
+        }
+        return RwMotorTorqueConfig{controlAxes_B, rwConfiguration, availability};
     }
 
     static bool isValidControlAxes(const Eigen::Matrix3f& controlAxes_B) {
@@ -61,12 +70,24 @@ class RwMotorTorqueConfig final {
         return numControlAxes > 0U;
     }
 
+    static bool isValidRwConfiguration(const RwMotorTorqueArrayConfiguration& rwConfiguration) {
+        return rwConfiguration.numRW <= kMaxNumRw && rwConfiguration.GsMatrix_B.allFinite();
+    }
+    // No isValidAvailability — any combination of AVAILABLE / UNAVAILABLE flags is valid.
+
     const Eigen::Matrix3f& getControlAxes() const { return this->controlAxes_B; }
+    const RwMotorTorqueArrayConfiguration& getRwConfiguration() const { return this->rwConfiguration; }
+    const RwMotorTorqueAvailability& getAvailability() const { return this->availability; }
 
    private:
-    explicit RwMotorTorqueConfig(const Eigen::Matrix3f& controlAxes_B) : controlAxes_B(controlAxes_B) {}
+    RwMotorTorqueConfig(const Eigen::Matrix3f& controlAxes_B,
+                        const RwMotorTorqueArrayConfiguration& rwConfiguration,
+                        const RwMotorTorqueAvailability& availability)
+        : controlAxes_B(controlAxes_B), rwConfiguration(rwConfiguration), availability(availability) {}
 
     Eigen::Matrix3f controlAxes_B;
+    RwMotorTorqueArrayConfiguration rwConfiguration;
+    RwMotorTorqueAvailability availability;
 };
 
 /*! @brief Top level structure for the sub-module routines. */
@@ -76,11 +97,11 @@ class RwMotorTorqueAlgorithm final {
 
     void setConfig(const RwMotorTorqueConfig& config);
     Eigen::Vector<float, kMaxNumRw> update(const Eigen::Vector3f& Lr_B) const;  //!< [N-m] RW motor torques
-    void computeRwMapping(const RwMotorTorqueArrayConfiguration& rwConfiguration,
-                          const RwMotorTorqueAvailability& availability);
 
    private:
-    RwMotorTorqueConfig cfg;  //!< [-] validated configuration (control axes mapping matrix)
+    void computeRwMapping();  //!< builds motorTorqueMap from cfg; throws if the mapping is not full rank
+
+    RwMotorTorqueConfig cfg;  //!< [-] validated configuration (control axes, RW config, availability)
     Eigen::Matrix<float, kMaxNumRw, 3> motorTorqueMap{
         Eigen::Matrix<float, kMaxNumRw, 3>::Zero()};  //!< [-] maps the commanded body control torque to per-RW
                                                       //!< motor torques (rows of unavailable wheels are zero)

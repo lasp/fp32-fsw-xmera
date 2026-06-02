@@ -80,13 +80,13 @@ inline void testRwMotorTorqueSetup() {
     controlAxes_B.row(0) = Eigen::Vector3f{1.0F, 0.0F, 0.0F};
     controlAxes_B.row(1) = Eigen::Vector3f{0.0F, 0.0F, 0.0F};
     controlAxes_B.row(2) = Eigen::Vector3f{0.0F, 0.0F, 1.0F};
-    EXPECT_THROW(RwMotorTorqueConfig::create(controlAxes_B), fsw::invalid_argument);
+    EXPECT_THROW(RwMotorTorqueConfig::create(controlAxes_B, rwConfiguration, availability), fsw::invalid_argument);
 
     // control mapping matrix not full rank (to test, 3 control axes are specified but not a single reaction wheel):
-    // the config is valid, but computeRwMapping() rejects the rank-deficient mapping
+    // the config is valid, but constructing the algorithm (which computes the mapping) rejects the rank-deficient case
     controlAxes_B = makeControlAxes(3U);
-    RwMotorTorqueAlgorithm alg{RwMotorTorqueConfig::create(controlAxes_B)};
-    EXPECT_THROW(alg.computeRwMapping(rwConfiguration, availability), fsw::invalid_argument);
+    EXPECT_THROW(RwMotorTorqueAlgorithm{RwMotorTorqueConfig::create(controlAxes_B, rwConfiguration, availability)},
+                 fsw::invalid_argument);
 }
 
 inline void testRwMotorTorque(const Eigen::Vector3f& Lr1_B,
@@ -97,14 +97,8 @@ inline void testRwMotorTorque(const Eigen::Vector3f& Lr1_B,
                               int numRW,
                               std::vector<float> GsMatrix_B,
                               uint32_t numControlAxes) {
-    // Set up the control axes mapping matrix. A zero matrix (no control axes) is rejected by the
-    // RwMotorTorqueConfig factory, so test that and return early.
+    // Set up the control axes mapping matrix.
     const Eigen::Matrix3f controlAxes_B = makeControlAxes(numControlAxes);
-    if (numControlAxes == 0U) {
-        EXPECT_THROW(RwMotorTorqueConfig::create(controlAxes_B), fsw::invalid_argument);
-        return;
-    }
-    RwMotorTorqueAlgorithm alg{RwMotorTorqueConfig::create(controlAxes_B)};
 
     // Build the RW array configuration from the flat spin-axis array
     RwMotorTorqueArrayConfiguration rwConfiguration{};
@@ -119,13 +113,19 @@ inline void testRwMotorTorque(const Eigen::Vector3f& Lr1_B,
         }
     }
 
+    // A zero control-axes matrix (no control axes) is rejected by the RwMotorTorqueConfig factory.
+    if (numControlAxes == 0U) {
+        EXPECT_THROW(RwMotorTorqueConfig::create(controlAxes_B, rwConfiguration, availability), fsw::invalid_argument);
+        return;
+    }
+
     // Total commanded torque seen by the algorithm (adapter sums the two messages)
     Eigen::Vector3f Lr_B = Lr1_B;
     if (cmdTorque2IsLinked) {
         Lr_B += Lr2_B;
     }
 
-    // Independently compute the available RW count and rank to predict computeRwMapping() behavior. Wheels left
+    // Independently compute the available RW count and rank to predict construction behavior. Wheels left
     // at the default AVAILABLE state (no availability message) are always included.
     Eigen::Matrix<float, 3, kMaxNumRw> G_s_B{Eigen::Matrix<float, 3, kMaxNumRw>::Zero()};
     uint32_t numAvailWheels = 0U;
@@ -140,11 +140,13 @@ inline void testRwMotorTorque(const Eigen::Vector3f& Lr1_B,
     const Eigen::FullPivLU<Eigen::MatrixXf> lu_decomp(CGs);
     const auto controlMappingRank = static_cast<uint32_t>(lu_decomp.rank());
 
+    // A rank-deficient control mapping makes the constructor (which computes the mapping) throw.
     if (controlMappingRank < numControlAxes) {
-        EXPECT_THROW(alg.computeRwMapping(rwConfiguration, availability), fsw::invalid_argument);
+        EXPECT_THROW(RwMotorTorqueAlgorithm{RwMotorTorqueConfig::create(controlAxes_B, rwConfiguration, availability)},
+                     fsw::invalid_argument);
         return;
     }
-    EXPECT_NO_THROW(alg.computeRwMapping(rwConfiguration, availability));
+    RwMotorTorqueAlgorithm alg{RwMotorTorqueConfig::create(controlAxes_B, rwConfiguration, availability)};
 
     // Compare against the independent reference
     Eigen::Vector<float, kMaxNumRw> out{Eigen::Vector<float, kMaxNumRw>::Zero()};

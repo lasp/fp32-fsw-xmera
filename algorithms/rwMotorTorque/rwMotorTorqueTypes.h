@@ -15,16 +15,6 @@ extern "C" {
 #define RW_MOTOR_TORQUE_MAX_NUM_RW 36
 
 /**
- * @brief Plain-old-data mirror of the C++ RwMotorTorqueConfig.
- *
- *  - controlAxes_B must be finite, define at least one control axis, and be filled from top to
- *    bottom with any zero (uncontrolled) axes at the bottom.
- */
-typedef struct {
-    Matrix3f_c controlAxes_B; /*!< [-] control axes mapping matrix CB */
-} RwMotorTorqueConfig_c;
-
-/**
  * @brief Plain-old-data mirror of the C++ RwMotorTorqueArrayConfiguration.
  */
 typedef struct {
@@ -39,6 +29,19 @@ typedef struct {
     FSWdeviceAvailability
         wheelAvailability[RW_MOTOR_TORQUE_MAX_NUM_RW]; /*!< [-]   AVAILABLE / UNAVAILABLE state of each wheel */
 } RwMotorTorqueAvailability_c;
+
+/**
+ * @brief Plain-old-data mirror of the C++ RwMotorTorqueConfig.
+ *
+ *  - controlAxes_B must be finite, define at least one control axis, and be filled from top to
+ *    bottom with any zero (uncontrolled) axes at the bottom.
+ *  - rwConfiguration.numRW must not exceed RW_MOTOR_TORQUE_MAX_NUM_RW.
+ */
+typedef struct {
+    Matrix3f_c controlAxes_B;                          /*!< [-] control axes mapping matrix CB */
+    RwMotorTorqueArrayConfiguration_c rwConfiguration; /*!< [-] reaction-wheel spin-axis configuration */
+    RwMotorTorqueAvailability_c availability;          /*!< [-] per-wheel availability */
+} RwMotorTorqueConfig_c;
 
 /**
  * @brief Plain-old-data carrier for the algorithm's RW motor torque output vector.
