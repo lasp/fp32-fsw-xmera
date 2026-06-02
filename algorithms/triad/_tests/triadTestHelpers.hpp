@@ -8,7 +8,8 @@
 #include <cmath>
 
 // Reference implementation of the TRIAD algorithm matching the Python true_triad()
-inline Eigen::Vector3f referenceTriad(const Eigen::Vector3f& rHat_SB_N,
+inline Eigen::Vector3f referenceTriad(const Eigen::Vector3f& sigma_BN,
+                                      const Eigen::Vector3f& rHat_SB_B,
                                       const Eigen::Vector3f& hReqHat_N,
                                       const Eigen::Vector3f& a1Hat_B,
                                       const Eigen::Vector3f& hRefHat_B) {
@@ -17,6 +18,9 @@ inline Eigen::Vector3f referenceTriad(const Eigen::Vector3f& rHat_SB_N,
     const Eigen::Vector3f r1 = r2.cross(r3);
 
     const Eigen::Vector3f n2 = hReqHat_N;
+
+    const Eigen::Matrix3f dcm_BN = mrpToDcm(sigma_BN);
+    const Eigen::Vector3f rHat_SB_N = (dcm_BN.transpose() * rHat_SB_B).normalized();
     const Eigen::Vector3f n1 = rHat_SB_N.cross(hReqHat_N).normalized();
     const Eigen::Vector3f n3 = n1.cross(n2);
 
@@ -35,15 +39,16 @@ inline Eigen::Vector3f referenceTriad(const Eigen::Vector3f& rHat_SB_N,
     return dcmToMrp(RN);
 }
 
-inline void testTriadRegression(const Eigen::Vector3f& a1Hat_B,
+inline void testTriadRegression(const Eigen::Vector3f& sigma_BN,
+                                const Eigen::Vector3f& a1Hat_B,
                                 const Eigen::Vector3f& h1Hat_B,
-                                const Eigen::Vector3f& rHat_SB_N,
+                                const Eigen::Vector3f& rHat_SB_B,
                                 const Eigen::Vector3f& hReqHat_N) {
     auto config = TriadConfig::create(a1Hat_B, h1Hat_B, Eigen::Vector3f::Zero());
     TriadAlgorithm alg(config);
 
-    const Eigen::Vector3f result = alg.update(rHat_SB_N, hReqHat_N, h1Hat_B);
-    const Eigen::Vector3f expected = referenceTriad(rHat_SB_N, hReqHat_N, a1Hat_B, h1Hat_B);
+    const Eigen::Vector3f result = alg.update(sigma_BN, rHat_SB_B, hReqHat_N, h1Hat_B);
+    const Eigen::Vector3f expected = referenceTriad(sigma_BN, rHat_SB_B, hReqHat_N, a1Hat_B, h1Hat_B);
 
     for (int i = 0; i < 3; ++i) {
         EXPECT_NEAR(result[i], expected[i], 1e-5F) << "Component " << i;

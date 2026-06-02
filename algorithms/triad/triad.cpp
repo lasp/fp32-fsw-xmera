@@ -87,13 +87,11 @@ void Triad::updateState(const uint64_t callTime) {
         hRefHat_B = cArrayToEigenVector(bodyHeadingIn.rHat_XB_B).normalized();
     }
 
-    // Compute sun direction in inertial frame
-    const Eigen::Matrix3f BN = mrpToDcm(cArrayToEigenVector(attNavIn.sigma_BN));
+    const Eigen::Vector3f sigma_BN = cArrayToEigenVector(attNavIn.sigma_BN);
     const Eigen::Vector3f rHat_SB_B = cArrayToEigenVector(attNavIn.vehSunPntBdy).normalized();
-    const Eigen::Vector3f rHat_SB_N = BN.transpose() * rHat_SB_B;
 
     // Run algorithm
-    const Eigen::Vector3f sigma_RN = this->algorithm->update(rHat_SB_N, hReqHat_N, hRefHat_B);
+    const Eigen::Vector3f sigma_RN = this->algorithm->update(sigma_BN, rHat_SB_B, hReqHat_N, hRefHat_B);
 
     eigenVectorToCArray(sigma_RN, attRefOut.sigma_RN);
     this->attRefOutMsg.write(attRefOut, this->moduleID, callTime);

@@ -38,7 +38,8 @@ class TriadAlgorithm final {
 
     void setConfig(const TriadConfig& config);
 
-    Eigen::Vector3f update(const Eigen::Vector3f& rHat_SB_N,
+    Eigen::Vector3f update(const Eigen::Vector3f& sigma_BN,
+                           const Eigen::Vector3f& rHat_SB_B,
                            const Eigen::Vector3f& hReqHat_N,
                            const Eigen::Vector3f& hRefHat_B) const;
 
