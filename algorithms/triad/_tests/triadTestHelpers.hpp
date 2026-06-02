@@ -59,7 +59,7 @@ inline void testTriadSetup() {
     // Zero a1Hat_B should throw
     EXPECT_THROW(TriadConfig::create(
                      Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(), CelestialBody::NotSun),
-                 fs::invalid_argument);
+                 fsw::invalid_argument);
 
     // Config round-trip
     const Eigen::Vector3f a1 = Eigen::Vector3f(1.0F, 2.0F, 3.0F);

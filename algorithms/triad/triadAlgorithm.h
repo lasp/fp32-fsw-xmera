@@ -14,7 +14,7 @@ class TriadConfig final {
                               const Eigen::Vector3f& hHat_N,
                               const CelestialBody celestialBodyInput) {
         if (!isValidA1Hat_B(a1Hat_B)) {
-            FS_THROW_INVALID_ARGUMENT("triad: a1Hat_B must be a non-zero vector");
+            FSW_THROW_INVALID_ARGUMENT("triad: a1Hat_B must be a non-zero vector");
         }
         return {a1Hat_B, h1Hat_B, hHat_N, celestialBodyInput};
     }
