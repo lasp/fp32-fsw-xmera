@@ -95,35 +95,4 @@ inline void testTriadRegression(const Eigen::Vector3f& sigma_BN,
     }
 }
 
-inline void testTriadSetup() {
-    // Valid config should not throw
-    EXPECT_NO_THROW(TriadConfig::create(Eigen::Vector3f::UnitX(), Eigen::Vector3f::UnitY(), 1.0F));
-
-    // Zero sadaHat_B should throw
-    EXPECT_THROW(TriadConfig::create(Eigen::Vector3f::Zero(), Eigen::Vector3f::UnitX(), -1.0F), fsw::invalid_argument);
-
-    // Zero hReqHat_N should throw
-    EXPECT_THROW(TriadConfig::create(Eigen::Vector3f::UnitX(), Eigen::Vector3f::Zero(), 2.0F), fsw::invalid_argument);
-
-    // Zero signOfZHat_N should throw
-    EXPECT_THROW(TriadConfig::create(Eigen::Vector3f::UnitX(), Eigen::Vector3f::UnitY(), 0.0F), fsw::invalid_argument);
-
-    // Config round-trip
-    const Eigen::Vector3f sadaHat_B = Eigen::Vector3f(1.0F, 2.0F, 3.0F);
-    const Eigen::Vector3f thrustReqHat_N = Eigen::Vector3f(0.0F, 0.0F, 1.0F);
-    const float signOfZHat_N = -1.0F;
-    auto config = TriadConfig::create(sadaHat_B, thrustReqHat_N, signOfZHat_N);
-    EXPECT_EQ(config.getSadaHat_B(), sadaHat_B);
-    EXPECT_EQ(config.getThrustReqHat_N(), thrustReqHat_N);
-    EXPECT_EQ(config.getSignOfZHat_N(), signOfZHat_N);
-
-    // Static validators
-    EXPECT_TRUE(TriadConfig::isValidSadaHat_B(Eigen::Vector3f::UnitX()));
-    EXPECT_FALSE(TriadConfig::isValidSadaHat_B(Eigen::Vector3f::Zero()));
-    EXPECT_TRUE(TriadConfig::isValidThrustReqHat_N(Eigen::Vector3f::UnitX()));
-    EXPECT_FALSE(TriadConfig::isValidThrustReqHat_N(Eigen::Vector3f::Zero()));
-    EXPECT_TRUE(TriadConfig::isValidSignOfZHat_N(-2.0F));
-    EXPECT_FALSE(TriadConfig::isValidSignOfZHat_N(0.0F));
-}
-
 #endif  // TEST_TRIAD_H

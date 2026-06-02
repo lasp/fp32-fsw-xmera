@@ -16,7 +16,44 @@ TEST(TriadTest, RegressionTest) {
     testTriadRegression(sigma_BN, rHat_SB_B, thrustHat_B, sadaHat_B, thrustReqHat_N, signOfZHat_N);
 }
 
-TEST(TriadTest, SetupTest) { testTriadSetup(); }
+// ---------------------------------------------------------------------------
+// Setup tests (setter validation + round-trip)
+// ---------------------------------------------------------------------------
+
+TEST(TriadTest, SetupTest) {
+    // Valid config should not throw
+    EXPECT_NO_THROW(TriadConfig::create(Eigen::Vector3f::UnitX(), Eigen::Vector3f::UnitY(), 1.0F));
+
+    // Zero or non-unit vector sadaHat_B should throw
+    EXPECT_THROW(TriadConfig::create(Eigen::Vector3f::Zero(), Eigen::Vector3f::UnitX(), -1.0F), fsw::invalid_argument);
+    EXPECT_THROW(TriadConfig::create(Eigen::Vector3f(1.0F, 2.0F, 3.0F), Eigen::Vector3f::UnitX(), -1.0F),
+                 fsw::invalid_argument);
+
+    // Zero or non-unit vector thrustReqHat_N should throw
+    EXPECT_THROW(TriadConfig::create(Eigen::Vector3f::UnitX(), Eigen::Vector3f::Zero(), 2.0F), fsw::invalid_argument);
+    EXPECT_THROW(TriadConfig::create(Eigen::Vector3f::UnitX(), Eigen::Vector3f(1.0F, 2.0F, 3.0F), 2.0F),
+                 fsw::invalid_argument);
+
+    // Zero signOfZHat_N should throw
+    EXPECT_THROW(TriadConfig::create(Eigen::Vector3f::UnitX(), Eigen::Vector3f::UnitY(), 0.0F), fsw::invalid_argument);
+
+    // Config round-trip
+    const Eigen::Vector3f sadaHat_B = Eigen::Vector3f::UnitX();
+    const Eigen::Vector3f thrustReqHat_N = Eigen::Vector3f::UnitZ();
+    const float signOfZHat_N = -1.0F;
+    auto config = TriadConfig::create(sadaHat_B, thrustReqHat_N, signOfZHat_N);
+    EXPECT_EQ(config.getSadaHat_B(), sadaHat_B);
+    EXPECT_EQ(config.getThrustReqHat_N(), thrustReqHat_N);
+    EXPECT_EQ(config.getSignOfZHat_N(), signOfZHat_N);
+
+    // Static validators
+    EXPECT_TRUE(TriadConfig::isValidSadaHat_B(Eigen::Vector3f::UnitX()));
+    EXPECT_FALSE(TriadConfig::isValidSadaHat_B(Eigen::Vector3f::Zero()));
+    EXPECT_TRUE(TriadConfig::isValidThrustReqHat_N(Eigen::Vector3f::UnitX()));
+    EXPECT_FALSE(TriadConfig::isValidThrustReqHat_N(Eigen::Vector3f::Zero()));
+    EXPECT_TRUE(TriadConfig::isValidSignOfZHat_N(-2.0F));
+    EXPECT_FALSE(TriadConfig::isValidSignOfZHat_N(0.0F));
+}
 
 TEST(TriadTest, OutputIsFinite) {
     const Eigen::Vector3f sigma_BN{0.0F, 0.0F, 0.0};
