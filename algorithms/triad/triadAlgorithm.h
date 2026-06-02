@@ -25,8 +25,12 @@ class TriadConfig final {
         return {sadaHat_B.normalized(), thrustReqHat_N.normalized(), copysignf(1.0F, signOfZHat_N)};
     }
 
-    static bool isValidSadaHat_B(const Eigen::Vector3f& sadaHat_B) { return fabsf(sadaHat_B.stableNorm() - 1.0F) < 1e-3F; }
-    static bool isValidThrustReqHat_N(const Eigen::Vector3f& thrustReqHat_N) { return fabsf(thrustReqHat_N.stableNorm() - 1.0F) < 1e-3F; }
+    static bool isValidSadaHat_B(const Eigen::Vector3f& sadaHat_B) {
+        return fabsf(sadaHat_B.stableNorm() - 1.0F) < 1e-3F;
+    }
+    static bool isValidThrustReqHat_N(const Eigen::Vector3f& thrustReqHat_N) {
+        return fabsf(thrustReqHat_N.stableNorm() - 1.0F) < 1e-3F;
+    }
     static bool isValidSignOfZHat_N(const float signOfZHat_N) { return signOfZHat_N != 0.0F; }
 
     Eigen::Vector3f getSadaHat_B() const { return sadaHat_B; }
@@ -34,9 +38,7 @@ class TriadConfig final {
     float getSignOfZHat_N() const { return signOfZHat_N; }
 
    private:
-    TriadConfig(const Eigen::Vector3f& sadaHat_B,
-                const Eigen::Vector3f& thrustReqHat_N,
-                const float signOfZHat_N)
+    TriadConfig(const Eigen::Vector3f& sadaHat_B, const Eigen::Vector3f& thrustReqHat_N, const float signOfZHat_N)
         : sadaHat_B(sadaHat_B), thrustReqHat_N(thrustReqHat_N), signOfZHat_N(signOfZHat_N) {}
     
     Eigen::Vector3f sadaHat_B{Eigen::Vector3f::Zero()};

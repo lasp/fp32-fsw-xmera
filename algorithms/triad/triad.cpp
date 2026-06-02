@@ -2,10 +2,9 @@
 // Copyright (c) 2025, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
 
 #include "triad.h"
-#include <stdexcept>
-#include <Eigen/Core>
 #include <architecture/utilities/eigenSupport.h>
-
+#include <Eigen/Core>
+#include <stdexcept>
 
 class XmeraLifecycleException : public std::runtime_error {
    public:
@@ -25,8 +24,7 @@ void Triad::reset(const uint64_t callTime) {
 }
 
 TriadConfig Triad::toConfig() const {
-    return TriadConfig::create(
-        this->sadaHat_B, this->thrustReqHat_N, this->signOfZHat_N);
+    return TriadConfig::create(this->sadaHat_B, this->thrustReqHat_N, this->signOfZHat_N);
 }
 
 void Triad::reconfigure() const {

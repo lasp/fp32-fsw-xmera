@@ -9,8 +9,8 @@
 #include "triadAlgorithm.h"
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
-#include <Eigen/Core>
 #include <stdint.h>
+#include <Eigen/Core>
 #include <memory>
 
 class Triad final : public SysModel {

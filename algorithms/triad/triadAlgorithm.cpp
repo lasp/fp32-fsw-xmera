@@ -16,8 +16,10 @@ Eigen::Vector3f TriadAlgorithm::update(const Eigen::Vector3f& sigma_BN,
     const Eigen::Vector3f sadaHat_B = this->cfg.getSadaHat_B().normalized();
     const float sadaAxisToThrustAngle = safeAcosf(fabsf(sadaHat_B.dot(thrustHat_B)));
     
-    /*! Return current attitude if solar array drive axis and thrust direction are nearly parallel or if either thrustHat_B or rHat_SB_B are zero */
-    if (sadaAxisToThrustAngle < kParallelThresholdRad || thrustHat_B.stableNorm() == 0.0F || rHat_SB_B.stableNorm() == 0.0F) {
+    /*! Return current attitude if solar array drive axis and thrust direction are nearly parallel or if either
+     * thrustHat_B or rHat_SB_B are zero */
+    if (sadaAxisToThrustAngle < kParallelThresholdRad || thrustHat_B.stableNorm() == 0.0F ||
+        rHat_SB_B.stableNorm() == 0.0F) {
         return mrpSwitch(sigma_BN, 1.0F);
     }
 
@@ -33,7 +35,7 @@ Eigen::Vector3f TriadAlgorithm::update(const Eigen::Vector3f& sigma_BN,
     /*! Compute angle between sun direction and thrust inertial reference direction */
     const Eigen::Matrix3f dcm_BN = mrpToDcm(sigma_BN);
     const Eigen::Vector3f rHat_SB_N = (dcm_BN.transpose() * rHat_SB_B).normalized();
-    const Eigen::Vector3f thrustRefHat_N =  this->cfg.getThrustReqHat_N();
+    const Eigen::Vector3f thrustRefHat_N = this->cfg.getThrustReqHat_N();
     const float sunToThrustRefAngle = safeAcosf(fabsf(rHat_SB_N.dot(thrustRefHat_N)));
 
     /*! Triad (D Frame) basis vectors in inertial frame */
@@ -41,7 +43,8 @@ Eigen::Vector3f TriadAlgorithm::update(const Eigen::Vector3f& sigma_BN,
     Eigen::Vector3f d1Hat_N = Eigen::Vector3f::Zero();
     Eigen::Vector3f d3Hat_N = Eigen::Vector3f::Zero();
 
-    /*! If sun direction and thrust inertial reference are nearly parallel, cross the second triad axis instead with the configured inertial z-axis */
+    /*! If sun direction and thrust inertial reference are nearly parallel, cross the second triad axis instead with the
+     * configured inertial z-axis */
     if (fabsf(sunToThrustRefAngle) < kParallelThresholdRad) {
         const Eigen::Vector3f zHat_N = (this->cfg.getSignOfZHat_N() * Eigen::Vector3f::UnitZ()).normalized();
 

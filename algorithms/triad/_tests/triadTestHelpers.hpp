@@ -18,8 +18,10 @@ inline Eigen::Vector3f referenceTriad(const Eigen::Vector3f& sigma_BN,
     /*! Compute angle between solar array drive axis and thrust direction */
     const float sadaAxisToThrustAngle = safeAcosf(fabsf(sadaHat_B.dot(thrustHat_B)));
 
-    /*! Return current attitude if solar array drive axis and thrust direction are nearly parallel or if either thrustHat_B or rHat_SB_B are zero */
-    if (sadaAxisToThrustAngle < kParallelThresholdRad || thrustHat_B.stableNorm() == 0.0F || rHat_SB_B.stableNorm() == 0.0F) {
+    /*! Return current attitude if solar array drive axis and thrust direction are nearly parallel or if either
+     * thrustHat_B or rHat_SB_B are zero */
+    if (sadaAxisToThrustAngle < kParallelThresholdRad || thrustHat_B.stableNorm() == 0.0F ||
+        rHat_SB_B.stableNorm() == 0.0F) {
         return mrpSwitch(sigma_BN, 1.0F);
     }
 
@@ -42,7 +44,8 @@ inline Eigen::Vector3f referenceTriad(const Eigen::Vector3f& sigma_BN,
     Eigen::Vector3f d1Hat_N = Eigen::Vector3f::Zero();
     Eigen::Vector3f d3Hat_N = Eigen::Vector3f::Zero();
 
-    /*! If sun direction and thrust inertial reference are nearly parallel, cross the second triad axis instead with the configured inertial z-axis */
+    /*! If sun direction and thrust inertial reference are nearly parallel, cross the second triad axis instead with the
+     * configured inertial z-axis */
     if (fabsf(sunToThrustRefAngle) < kParallelThresholdRad) {
         const Eigen::Vector3f zHat_N = (signOfZHat_N * Eigen::Vector3f::UnitZ()).normalized();
 
@@ -85,7 +88,8 @@ inline void testTriadRegression(const Eigen::Vector3f& sigma_BN,
     TriadAlgorithm alg(config);
 
     const Eigen::Vector3f result = alg.update(sigma_BN, rHat_SB_B, thrustHat_B);
-    const Eigen::Vector3f expected = referenceTriad(sigma_BN, rHat_SB_B, thrustHat_B, sadaHat_B, thrustReqHat_N, signOfZHat_N);
+    const Eigen::Vector3f expected =
+        referenceTriad(sigma_BN, rHat_SB_B, thrustHat_B, sadaHat_B, thrustReqHat_N, signOfZHat_N);
 
     // Compare attitudes as DCMs rather than MRP components: dcmToMrp can return either MRP
     // shadow-set representative near |sigma| = 1 (the 180-deg boundary). The DCM is unique through 180 deg.

@@ -17,11 +17,11 @@ void fuzzTriadRegression(const Eigen::Vector3f& sigma_BN,
     }
 
     testTriadRegression(sigma_BN,
-        rHat_SB_B.stableNormalized(),
-        thrustHat_B.stableNormalized(),
-        sadaHat_B.stableNormalized(),
-        thrustReqHat_N.stableNormalized(),
-        signOfZHat_N);
+                        rHat_SB_B.stableNormalized(),
+                        thrustHat_B.stableNormalized(),
+                        sadaHat_B.stableNormalized(),
+                        thrustReqHat_N.stableNormalized(),
+                        signOfZHat_N);
 }
 
 FUZZ_TEST(TriadAlgorithmFuzz, fuzzTriadRegression)
@@ -30,7 +30,7 @@ FUZZ_TEST(TriadAlgorithmFuzz, fuzzTriadRegression)
                  xmera::fuzz::Vector3fInRange(-1e6F, 1e6F),  // thrustHat_B
                  xmera::fuzz::Vector3fInRange(-1e6F, 1e6F),  // sadaAxisHat_B
                  xmera::fuzz::Vector3fInRange(-1e6F, 1e6F),  // thrustReqHat_N
-                 fuzztest::InRange(-1e6F, 1e6F));  // signOfZHat_N
+                 fuzztest::InRange(-1e6F, 1e6F));            // signOfZHat_N
 
 // ---------------------------------------------------------------------------
 // Property fuzz tests
@@ -59,7 +59,7 @@ FUZZ_TEST(TriadPropertyFuzz, fuzzPropertyOutputIsFinite)
                  xmera::fuzz::Vector3fInRange(-1e6F, 1e6F),  // thrustHat_B
                  xmera::fuzz::Vector3fInRange(-1e6F, 1e6F),  // sadaAxisHat_B
                  xmera::fuzz::Vector3fInRange(-1e6F, 1e6F),  // thrustReqHat_N
-                 fuzztest::InRange(-1e6F, 1e6F));  // signOfZHat_N
+                 fuzztest::InRange(-1e6F, 1e6F));            // signOfZHat_N
 
 void fuzzPropertyBodyHeadingAlignedToInertialHeading(const Eigen::Vector3f& sigma_BN,
                                                      const Eigen::Vector3f& rHat_SB_B,
@@ -101,7 +101,7 @@ FUZZ_TEST(TriadPropertyFuzz, fuzzPropertyBodyHeadingAlignedToInertialHeading)
                  xmera::fuzz::Vector3fInRange(-1e6F, 1e6F),  // thrustHat_B
                  xmera::fuzz::Vector3fInRange(-1e6F, 1e6F),  // sadaAxisHat_B
                  xmera::fuzz::Vector3fInRange(-1e6F, 1e6F),  // thrustReqHat_N
-                 fuzztest::InRange(-1e6F, 1e6F));  // signOfZHat_N
+                 fuzztest::InRange(-1e6F, 1e6F));            // signOfZHat_N
 
 void fuzzPropertySigmaNormBounded(const Eigen::Vector3f& sigma_BN,
                                   const Eigen::Vector3f& rHat_SB_B,
@@ -127,4 +127,4 @@ FUZZ_TEST(TriadPropertyFuzz, fuzzPropertySigmaNormBounded)
                  xmera::fuzz::Vector3fInRange(-1e6F, 1e6F),  // thrustHat_B
                  xmera::fuzz::Vector3fInRange(-1e6F, 1e6F),  // sadaAxisHat_B
                  xmera::fuzz::Vector3fInRange(-1e6F, 1e6F),  // thrustReqHat_N
-                 fuzztest::InRange(-1e6F, 1e6F));  // signOfZHat_N
+                 fuzztest::InRange(-1e6F, 1e6F));            // signOfZHat_N

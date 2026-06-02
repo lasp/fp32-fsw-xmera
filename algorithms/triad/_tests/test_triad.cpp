@@ -55,7 +55,6 @@ TEST(TriadTest, SetupTest) {
     EXPECT_FALSE(TriadConfig::isValidSignOfZHat_N(0.0F));
 }
 
-
 // ---------------------------------------------------------------------------
 // Property tests
 // ---------------------------------------------------------------------------
@@ -81,7 +80,8 @@ TEST(TriadTest, BodyHeadingAlignedToInertialHeading) {
     const Eigen::Vector3f thrustReqHat_N = Eigen::Vector3f::UnitZ();
     const float signOfZHat_N = 1.0F;
 
-    propertyBodyHeadingAlignedToInertialHeading(sigma_BN, rHat_SB_B, thrustHat_B, sadaHat_B, thrustReqHat_N, signOfZHat_N);
+    propertyBodyHeadingAlignedToInertialHeading(
+        sigma_BN, rHat_SB_B, thrustHat_B, sadaHat_B, thrustReqHat_N, signOfZHat_N);
 }
 
 // sigma_RN norm is bounded by 1 (inner MRP set) for any inputs
@@ -170,7 +170,9 @@ TEST(TriadTest, SunAlignedWithThrustRef) {
     TriadAlgorithm alg(config);
 
     auto result = alg.update(sigma_BN, rHat_SB_B, thrustHat_B);
-    Eigen::Vector3f expected = referenceTriad(sigma_BN, rHat_SB_B, thrustHat_B, sadaHat_B, thrustReqHat_N, signOfZHat_N);;
+    Eigen::Vector3f expected =
+        referenceTriad(sigma_BN, rHat_SB_B, thrustHat_B, sadaHat_B, thrustReqHat_N, signOfZHat_N);
+    ;
     for (int i = 0; i < 3; ++i) {
         EXPECT_NEAR(result(i), expected(i), 1e-6F);
     }
