@@ -50,11 +50,21 @@ void MrpFeedbackAlgorithm_reset(MrpFeedbackAlgorithmHandle* self) {
 
 MrpFeedbackOutput_c MrpFeedbackAlgorithm_update(MrpFeedbackAlgorithmHandle* self,
                                                 uint64_t callTime,
-                                                const AttGuidMsgF32Payload* guidCmd,
-                                                const RWSpeedMsgF32Payload* wheelSpeeds,
-                                                const RWAvailabilityMsgPayload* wheelsAvailability) {
+                                                const MrpFeedbackGuidInput_c* guid,
+                                                const float wheelSpeeds[RW_EFF_CNT],
+                                                const bool wheelAvailability[RW_EFF_CNT]) {
+    MrpFeedbackGuidInput guidCpp;
+    guidCpp.sigma_BR = cArrayToEigenVector3<float>(guid->sigma_BR.data);
+    guidCpp.omega_BR_B = cArrayToEigenVector3<float>(guid->omega_BR_B.data);
+    guidCpp.omega_RN_B = cArrayToEigenVector3<float>(guid->omega_RN_B.data);
+    guidCpp.domega_RN_B = cArrayToEigenVector3<float>(guid->domega_RN_B.data);
+
+    const Eigen::Vector<float, RW_EFF_CNT> speeds = Eigen::Map<const Eigen::Vector<float, RW_EFF_CNT>>(wheelSpeeds);
+    std::array<bool, RW_EFF_CNT> availability{};
+    std::copy(wheelAvailability, wheelAvailability + RW_EFF_CNT, availability.begin());
+
     // clang-format off
-    const MrpFeedbackOutput out = reinterpret_cast<::MrpFeedbackAlgorithm*>(self)->update(callTime, *guidCmd, *wheelSpeeds, *wheelsAvailability);  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+    const MrpFeedbackOutput out = reinterpret_cast<::MrpFeedbackAlgorithm*>(self)->update(callTime, guidCpp, speeds, availability);  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
     // clang-format on
 
     MrpFeedbackOutput_c result{};

@@ -8,6 +8,7 @@
 #include "msgPayloadDef/RWSpeedMsgF32Payload.h"
 #include "msgPayloadDef/VehicleConfigMsgF32Payload.h"
 #include "utilities/plainCAlgorithmDataTypes.h"
+#include <stdbool.h>
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -51,6 +52,16 @@ typedef struct {
 } MrpFeedbackConfig_c;
 
 /**
+ * @brief C-compatible mirror of the C++ MrpFeedbackGuidInput (per-cycle tracking error).
+ */
+typedef struct {
+    Vector3f_c sigma_BR;    /*!< attitude error (MRP) of B relative to R */
+    Vector3f_c omega_BR_B;  /*!< [r/s] body rate error of B relative to R, B frame */
+    Vector3f_c omega_RN_B;  /*!< [r/s] reference rate of R relative to N, B frame */
+    Vector3f_c domega_RN_B; /*!< [r/s^2] reference acceleration of R relative to N, B frame */
+} MrpFeedbackGuidInput_c;
+
+/**
  * @brief C-compatible mirror of the C++ MrpFeedbackOutput.
  */
 typedef struct {
@@ -87,18 +98,18 @@ void MrpFeedbackAlgorithm_reset(MrpFeedbackAlgorithmHandle* self);
 
 /**
  * @brief Compute the required control torque Lr and integral feedback torque Li.
- * @param self                Pointer to the instance.
- * @param callTime            Time stamp for update [ns].
- * @param guidCmd             Attitude tracking error.
- * @param wheelSpeeds         Reaction-wheel speeds (read only when reset configured numRW > 0).
- * @param wheelsAvailability  Reaction-wheel availability flags.
+ * @param self               Pointer to the instance.
+ * @param callTime           Time stamp for update [ns].
+ * @param guid               Attitude/rate tracking error.
+ * @param wheelSpeeds        Reaction-wheel speeds (used only when configured numRW > 0).
+ * @param wheelAvailability  Per-wheel availability (true = available).
  * @return MrpFeedbackOutput_c  Control torque and integral feedback torque payloads.
  */
 MrpFeedbackOutput_c MrpFeedbackAlgorithm_update(MrpFeedbackAlgorithmHandle* self,
                                                 uint64_t callTime,
-                                                const AttGuidMsgF32Payload* guidCmd,
-                                                const RWSpeedMsgF32Payload* wheelSpeeds,
-                                                const RWAvailabilityMsgPayload* wheelsAvailability);
+                                                const MrpFeedbackGuidInput_c* guid,
+                                                const float wheelSpeeds[RW_EFF_CNT],
+                                                const bool wheelAvailability[RW_EFF_CNT]);
 
 #ifdef __cplusplus
 }  // extern "C"

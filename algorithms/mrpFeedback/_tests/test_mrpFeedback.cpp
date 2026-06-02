@@ -41,20 +41,20 @@ TEST(MrpFeedbackTest, IntegralFeedbackDisabledWhenKiIsZero) {
                                                             std::array<float, RW_EFF_CNT>{});
     MrpFeedbackAlgorithm alg(cfg);
 
-    AttGuidMsgF32Payload guidCmd{};
-    eigenVectorToCArray(Eigen::Vector3f{0.4F, 0.1F, -0.3F}, guidCmd.sigma_BR);
-    eigenVectorToCArray(Eigen::Vector3f{-0.4F, 0.5F, -0.6F}, guidCmd.omega_BR_B);
-    eigenVectorToCArray(Eigen::Vector3f{0.7F, -0.8F, 0.9F}, guidCmd.omega_RN_B);
-    eigenVectorToCArray(Eigen::Vector3f{-1.0F, 1.1F, -1.2F}, guidCmd.domega_RN_B);
+    MrpFeedbackGuidInput guid;
+    guid.sigma_BR = Eigen::Vector3f{0.4F, 0.1F, -0.3F};
+    guid.omega_BR_B = Eigen::Vector3f{-0.4F, 0.5F, -0.6F};
+    guid.omega_RN_B = Eigen::Vector3f{0.7F, -0.8F, 0.9F};
+    guid.domega_RN_B = Eigen::Vector3f{-1.0F, 1.1F, -1.2F};
 
-    const RWSpeedMsgF32Payload wheelSpeeds{};
-    const RWAvailabilityMsgPayload availability{};
+    const Eigen::Vector<float, RW_EFF_CNT> wheelSpeeds = Eigen::Vector<float, RW_EFF_CNT>::Zero();
+    const std::array<bool, RW_EFF_CNT> availability{};
 
     EXPECT_NO_THROW(alg.reset());
     for (int step = 0; step < 5; ++step) {
         const auto callTime = static_cast<uint64_t>(step + 1) * static_cast<uint64_t>(0.1F / kNano2Sec);
         MrpFeedbackOutput out{};
-        EXPECT_NO_THROW(out = alg.update(callTime, guidCmd, wheelSpeeds, availability));
+        EXPECT_NO_THROW(out = alg.update(callTime, guid, wheelSpeeds, availability));
         for (int i = 0; i < 3; ++i) {
             EXPECT_FLOAT_EQ(out.intFeedbackOut.torqueRequestBody[i], 0.0F);
             EXPECT_TRUE(std::isfinite(out.controlOut.torqueRequestBody[i]));
@@ -82,14 +82,14 @@ TEST(MrpFeedbackTest, IntegralLimitClampsLargeError) {
                                                             std::array<float, RW_EFF_CNT>{});
     MrpFeedbackAlgorithm alg(cfg);
 
-    AttGuidMsgF32Payload guidCmd{};
-    eigenVectorToCArray(Eigen::Vector3f{1.0F, 1.0F, 1.0F}, guidCmd.sigma_BR);
-    eigenVectorToCArray(Eigen::Vector3f::Zero(), guidCmd.omega_BR_B);
-    eigenVectorToCArray(Eigen::Vector3f::Zero(), guidCmd.omega_RN_B);
-    eigenVectorToCArray(Eigen::Vector3f::Zero(), guidCmd.domega_RN_B);
+    MrpFeedbackGuidInput guid;
+    guid.sigma_BR = Eigen::Vector3f{1.0F, 1.0F, 1.0F};
+    guid.omega_BR_B = Eigen::Vector3f::Zero();
+    guid.omega_RN_B = Eigen::Vector3f::Zero();
+    guid.domega_RN_B = Eigen::Vector3f::Zero();
 
-    const RWSpeedMsgF32Payload wheelSpeeds{};
-    const RWAvailabilityMsgPayload availability{};
+    const Eigen::Vector<float, RW_EFF_CNT> wheelSpeeds = Eigen::Vector<float, RW_EFF_CNT>::Zero();
+    const std::array<bool, RW_EFF_CNT> availability{};
 
     EXPECT_NO_THROW(alg.reset());
 
@@ -99,7 +99,7 @@ TEST(MrpFeedbackTest, IntegralLimitClampsLargeError) {
     MrpFeedbackOutput out{};
     for (int step = 0; step < steps; ++step) {
         const auto callTime = static_cast<uint64_t>(step + 1) * static_cast<uint64_t>(dt / kNano2Sec);
-        EXPECT_NO_THROW(out = alg.update(callTime, guidCmd, wheelSpeeds, availability));
+        EXPECT_NO_THROW(out = alg.update(callTime, guid, wheelSpeeds, availability));
         for (int i = 0; i < 3; ++i) {
             EXPECT_TRUE(std::isfinite(out.controlOut.torqueRequestBody[i]));
             EXPECT_TRUE(std::isfinite(out.intFeedbackOut.torqueRequestBody[i]));

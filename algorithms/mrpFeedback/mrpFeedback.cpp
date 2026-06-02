@@ -50,18 +50,28 @@ void MrpFeedback::updateState(const uint64_t callTime) {
         throw XmeraLifecycleException("MrpFeedback reset() has not been called.");
     }
 
-    AttGuidMsgF32Payload guidCmd = this->guidInMsg();
-    RWSpeedMsgF32Payload wheelSpeeds{};
-    RWAvailabilityMsgPayload wheelsAvailability{};
+    const AttGuidMsgF32Payload guidCmd = this->guidInMsg();
+    MrpFeedbackGuidInput guid;
+    guid.sigma_BR = cArrayToEigenVector(guidCmd.sigma_BR);
+    guid.omega_BR_B = cArrayToEigenVector(guidCmd.omega_BR_B);
+    guid.omega_RN_B = cArrayToEigenVector(guidCmd.omega_RN_B);
+    guid.domega_RN_B = cArrayToEigenVector(guidCmd.domega_RN_B);
 
+    Eigen::Vector<float, RW_EFF_CNT> wheelSpeeds = Eigen::Vector<float, RW_EFF_CNT>::Zero();
+    std::array<bool, RW_EFF_CNT> wheelAvailability{};
+    wheelAvailability.fill(true);  // default: all wheels available (matches the default AVAILABLE payload)
     if (this->numRW > 0U) {
-        wheelSpeeds = this->rwSpeedsInMsg();
+        const RWSpeedMsgF32Payload speeds = this->rwSpeedsInMsg();
+        wheelSpeeds = cArrayToEigenVector(speeds.wheelSpeeds);
         if (this->rwAvailInMsg.isLinked()) {
-            wheelsAvailability = this->rwAvailInMsg();
+            const RWAvailabilityMsgPayload avail = this->rwAvailInMsg();
+            for (uint32_t i = 0U; i < RW_EFF_CNT; ++i) {
+                wheelAvailability[i] = (avail.wheelAvailability[i] == AVAILABLE);
+            }
         }
     }
 
-    auto [controlOut, intFeedbackOut] = this->algorithm->update(callTime, guidCmd, wheelSpeeds, wheelsAvailability);
+    auto [controlOut, intFeedbackOut] = this->algorithm->update(callTime, guid, wheelSpeeds, wheelAvailability);
 
     this->cmdTorqueOutMsg.write(&controlOut, moduleID, callTime);
     this->intFeedbackTorqueOutMsg.write(&intFeedbackOut, this->moduleID, callTime);

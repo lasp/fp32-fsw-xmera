@@ -29,9 +29,9 @@ inline ReferenceOutput referenceUpdate(const MrpFeedbackConfig& cfg,
                                        Eigen::Vector3f int_sigma,
                                        uint64_t priorTime,
                                        const uint64_t callTime,
-                                       AttGuidMsgF32Payload guidCmd,
-                                       const RWSpeedMsgF32Payload& wheelSpeeds,
-                                       const RWAvailabilityMsgPayload& wheelsAvailability) {
+                                       const MrpFeedbackGuidInput& guid,
+                                       const Eigen::Vector<float, RW_EFF_CNT>& wheelSpeeds,
+                                       const std::array<bool, RW_EFF_CNT>& wheelAvailability) {
     const float K = cfg.getK();
     const float P = cfg.getP();
     const float Ki = cfg.getKi();
@@ -47,10 +47,10 @@ inline ReferenceOutput referenceUpdate(const MrpFeedbackConfig& cfg,
     }
     priorTime = callTime;
 
-    const Eigen::Vector3f sigma_BR = cArrayToEigenVector(guidCmd.sigma_BR);
-    const Eigen::Vector3f omega_BR_B = cArrayToEigenVector(guidCmd.omega_BR_B);
-    const Eigen::Vector3f omega_RN_B = cArrayToEigenVector(guidCmd.omega_RN_B);
-    const Eigen::Vector3f domega_RN_B = cArrayToEigenVector(guidCmd.domega_RN_B);
+    const Eigen::Vector3f& sigma_BR = guid.sigma_BR;
+    const Eigen::Vector3f& omega_BR_B = guid.omega_BR_B;
+    const Eigen::Vector3f& omega_RN_B = guid.omega_RN_B;
+    const Eigen::Vector3f& domega_RN_B = guid.domega_RN_B;
 
     const Eigen::Vector3f omega_BN_B = omega_BR_B + omega_RN_B;
 
@@ -71,10 +71,10 @@ inline ReferenceOutput referenceUpdate(const MrpFeedbackConfig& cfg,
 
     Eigen::Vector3f H_B = ISCPntB_B * omega_BN_B;
     for (Eigen::Index i = 0; i < rwConfigParams.numRW; ++i) {
-        if (wheelsAvailability.wheelAvailability[i] == AVAILABLE) {
+        if (wheelAvailability[i]) {
             const Eigen::Vector3f G_s_B_i = G_s_B.col(i);
             const Eigen::Vector3f h_s_i =
-                rwConfigParams.JsList[i] * (omega_BN_B.dot(G_s_B_i) + wheelSpeeds.wheelSpeeds[i]) * G_s_B_i;
+                rwConfigParams.JsList[i] * (omega_BN_B.dot(G_s_B_i) + wheelSpeeds[i]) * G_s_B_i;
             H_B += h_s_i;
         }
     }
@@ -195,20 +195,20 @@ inline void testMrpFeedback(const Eigen::Vector3f& sigma,
         K, P, Ki, integralLimit, controlLawTypeAlg, knownTorquePntB_B, ISC_B, rwConfigMsg.numRW, Gs_B, jsListArr);
     MrpFeedbackAlgorithm alg(cfg);
 
-    AttGuidMsgF32Payload guidCmdMsg{};
-    eigenVectorToCArray(sigma, guidCmdMsg.sigma_BR);
-    eigenVectorToCArray(omega_BR_B, guidCmdMsg.omega_BR_B);
-    eigenVectorToCArray(omega_RN_B, guidCmdMsg.omega_RN_B);
-    eigenVectorToCArray(domega_RN_B, guidCmdMsg.domega_RN_B);
+    MrpFeedbackGuidInput guid;
+    guid.sigma_BR = sigma;
+    guid.omega_BR_B = omega_BR_B;
+    guid.omega_RN_B = omega_RN_B;
+    guid.domega_RN_B = domega_RN_B;
 
-    RWSpeedMsgF32Payload wheelSpeedsMsg{};
-    std::copy(wheelSpeeds.begin(), wheelSpeeds.end(), wheelSpeedsMsg.wheelSpeeds);
+    Eigen::Vector<float, RW_EFF_CNT> wheelSpeedsVec = Eigen::Vector<float, RW_EFF_CNT>::Zero();
+    for (std::size_t i = 0U; i < wheelSpeeds.size() && i < RW_EFF_CNT; ++i) {
+        wheelSpeedsVec[static_cast<Eigen::Index>(i)] = wheelSpeeds[i];
+    }
 
-    RWAvailabilityMsgPayload wheelsAvailabilityMsg{};
-    for (uint32_t i = 0U; i < wheelAvailabilityBool.size(); ++i) {
-        if (wheelAvailabilityBool[i]) {
-            wheelsAvailabilityMsg.wheelAvailability[i] = UNAVAILABLE;
-        }
+    std::array<bool, RW_EFF_CNT> wheelAvailabilityArr{};  // false = unavailable
+    for (std::size_t i = 0U; i < wheelAvailabilityBool.size() && i < RW_EFF_CNT; ++i) {
+        wheelAvailabilityArr[i] = wheelAvailabilityBool[i];
     }
 
     EXPECT_NO_THROW(alg.reset());
@@ -222,16 +222,10 @@ inline void testMrpFeedback(const Eigen::Vector3f& sigma,
 
         MrpFeedbackOutput out{};
         ReferenceOutput refOutput{};
-        EXPECT_NO_THROW(out = alg.update(callTime, guidCmdMsg, wheelSpeedsMsg, wheelsAvailabilityMsg));
-        EXPECT_NO_THROW(refOutput = referenceUpdate(cfg,
-                                                    rwConfigMsg,
-                                                    ISC_B,
-                                                    int_sigma,
-                                                    priorTime,
-                                                    callTime,
-                                                    guidCmdMsg,
-                                                    wheelSpeedsMsg,
-                                                    wheelsAvailabilityMsg));
+        EXPECT_NO_THROW(out = alg.update(callTime, guid, wheelSpeedsVec, wheelAvailabilityArr));
+        EXPECT_NO_THROW(
+            refOutput = referenceUpdate(
+                cfg, rwConfigMsg, ISC_B, int_sigma, priorTime, callTime, guid, wheelSpeedsVec, wheelAvailabilityArr));
         const MrpFeedbackOutput ref = refOutput.mrpFeedbackOut;
         int_sigma = refOutput.int_sigma;
         priorTime = refOutput.priorTime;

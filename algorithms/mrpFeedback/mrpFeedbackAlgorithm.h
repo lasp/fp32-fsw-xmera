@@ -20,6 +20,15 @@
 
 enum class ControlLawType { NORMAL = 0, SIMPLE_INTEGRAL = 1 };
 
+/// Per-cycle attitude/rate tracking error (was AttGuidMsgF32Payload at the interface).
+struct MrpFeedbackGuidInput {
+    Eigen::Vector3f sigma_BR = Eigen::Vector3f::Zero();    //!< attitude error (MRP) of B relative to R
+    Eigen::Vector3f omega_BR_B = Eigen::Vector3f::Zero();  //!< [r/s] body rate error of B relative to R, B frame
+    Eigen::Vector3f omega_RN_B = Eigen::Vector3f::Zero();  //!< [r/s] reference rate of R relative to N, B frame
+    Eigen::Vector3f domega_RN_B =
+        Eigen::Vector3f::Zero();  //!< [r/s^2] reference acceleration of R relative to N, B frame
+};
+
 struct MrpFeedbackOutput {
     CmdTorqueBodyMsgF32Payload controlOut{};      //!< control torque output
     CmdTorqueBodyMsgF32Payload intFeedbackOut{};  //!< integral feedback torque output
@@ -139,9 +148,9 @@ class MrpFeedbackAlgorithm final {
 
     void reset();
     MrpFeedbackOutput update(uint64_t callTime,
-                             const AttGuidMsgF32Payload& guidCmd,
-                             const RWSpeedMsgF32Payload& wheelSpeeds,
-                             const RWAvailabilityMsgPayload& wheelsAvailability);
+                             const MrpFeedbackGuidInput& guid,
+                             const Eigen::Vector<float, RW_EFF_CNT>& wheelSpeeds,
+                             const std::array<bool, RW_EFF_CNT>& wheelAvailability);
 
    private:
     MrpFeedbackConfig cfg;

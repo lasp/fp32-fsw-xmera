@@ -20,9 +20,9 @@ void MrpFeedbackAlgorithm::reset() {
 /*! Compute the required control torque Lr from the attitude/rate tracking error and (optional)
     RW state. */
 MrpFeedbackOutput MrpFeedbackAlgorithm::update(uint64_t callTime,
-                                               const AttGuidMsgF32Payload& guidCmd,
-                                               const RWSpeedMsgF32Payload& wheelSpeeds,
-                                               const RWAvailabilityMsgPayload& wheelsAvailability) {
+                                               const MrpFeedbackGuidInput& guid,
+                                               const Eigen::Vector<float, RW_EFF_CNT>& wheelSpeeds,
+                                               const std::array<bool, RW_EFF_CNT>& wheelAvailability) {
     float dt{};
     if (this->priorTime == 0U) {
         dt = 0.0F;
@@ -33,10 +33,10 @@ MrpFeedbackOutput MrpFeedbackAlgorithm::update(uint64_t callTime,
 
     const Eigen::Matrix3f ISCPntB_B = this->cfg.getISCPntB_B();
 
-    const Eigen::Vector3f sigma_BR = cArrayToEigenVector(guidCmd.sigma_BR);
-    const Eigen::Vector3f omega_BR_B = cArrayToEigenVector(guidCmd.omega_BR_B);
-    const Eigen::Vector3f omega_RN_B = cArrayToEigenVector(guidCmd.omega_RN_B);
-    const Eigen::Vector3f domega_RN_B = cArrayToEigenVector(guidCmd.domega_RN_B);
+    const Eigen::Vector3f& sigma_BR = guid.sigma_BR;
+    const Eigen::Vector3f& omega_BR_B = guid.omega_BR_B;
+    const Eigen::Vector3f& omega_RN_B = guid.omega_RN_B;
+    const Eigen::Vector3f& domega_RN_B = guid.domega_RN_B;
 
     const Eigen::Vector3f omega_BN_B = omega_BR_B + omega_RN_B;
 
@@ -60,10 +60,9 @@ MrpFeedbackOutput MrpFeedbackAlgorithm::update(uint64_t callTime,
 
     Eigen::Vector3f H_B = ISCPntB_B * omega_BN_B;
     for (Eigen::Index i = 0; i < this->cfg.getNumRW(); ++i) {
-        if (wheelsAvailability.wheelAvailability[i] == AVAILABLE) {
+        if (wheelAvailability[i]) {
             const Eigen::Vector3f G_s_B_i = G_s_B.col(i);
-            const Eigen::Vector3f h_s_i =
-                JsList[i] * (omega_BN_B.dot(G_s_B_i) + wheelSpeeds.wheelSpeeds[i]) * G_s_B_i;
+            const Eigen::Vector3f h_s_i = JsList[i] * (omega_BN_B.dot(G_s_B_i) + wheelSpeeds[i]) * G_s_B_i;
             H_B += h_s_i;
         }
     }
