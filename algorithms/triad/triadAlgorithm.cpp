@@ -6,20 +6,8 @@
 #include <Eigen/Core>
 #include <stdexcept>
 
-static float SPE_angle(const Eigen::Vector3f& v1, const Eigen::Vector3f& v2) {
-    const float dot = v1.dot(v2);
-    const float cross = v1.x() * v2.y() - v1.y() * v2.x();
-
-    float angle = safeAcosf(dot / (v1.norm() * v2.norm()));
-
-    if (cross < 0.0F) {
-        angle = -angle;
-    }
-
-    return angle;
-}
-
-TriadAlgorithm::TriadAlgorithm(const TriadConfig& config) : cfg(config) {}
+TriadAlgorithm::TriadAlgorithm(const TriadConfig& config)
+    : cfg(config) {}
 
 void TriadAlgorithm::setConfig(const TriadConfig& config) { this->cfg = config; }
 
@@ -29,7 +17,9 @@ Eigen::Vector3f TriadAlgorithm::update(const Eigen::Vector3f& sigma_BN,
     const Eigen::Matrix3f dcm_BN = mrpToDcm(sigma_BN);
     const Eigen::Vector3f rHat_SB_N = (dcm_BN.transpose() * rHat_SB_B).normalized();
     const Eigen::Vector3f hReqHat_N =  this->cfg.getHHat_N();
-    if (const float SPE = SPE_angle(rHat_SB_N, hReqHat_N); fabsf(SPE) < kParallelThresholdRad) {
+
+    const float SPE = safeAcosf(fabsf(rHat_SB_N.dot(hReqHat_N)));
+    if (SPE < kParallelThresholdRad) {
         throw std::runtime_error("sun and earth reference vectors are parallel, Triad can not be used");
     }
 
