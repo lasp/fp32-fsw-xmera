@@ -9,9 +9,7 @@
 #include "triadAlgorithm.h"
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
-
 #include <Eigen/Core>
-
 #include <stdint.h>
 #include <memory>
 
@@ -26,7 +24,6 @@ class Triad final : public SysModel {
     ReadFunctor<BodyHeadingMsgF32Payload> bodyHeadingInMsg;
     Message<AttRefMsgF32Payload> attRefOutMsg;
 
-    // Phase 1: Public config properties — set before reset()
     Eigen::Vector3f a1Hat_B = Eigen::Vector3f::Zero();
     Eigen::Vector3f hHat_N = Eigen::Vector3f::Zero();
 
