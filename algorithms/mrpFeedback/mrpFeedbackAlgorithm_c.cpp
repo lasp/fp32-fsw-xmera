@@ -12,7 +12,8 @@ MrpFeedbackConfig configFromC(const MrpFeedbackConfig_c& c) {
                                      c.Ki,
                                      c.integralLimit,
                                      static_cast<ControlLawType>(c.controlLawType),
-                                     cArrayToEigenVector3<float>(c.knownTorquePntB_B.data));
+                                     cArrayToEigenVector3<float>(c.knownTorquePntB_B.data),
+                                     c2DArrayToEigenMatrix3<float>(c.ISCPntB_B.data));
 }
 }  // namespace
 
@@ -35,11 +36,10 @@ void MrpFeedbackAlgorithm_setConfig(MrpFeedbackAlgorithmHandle* self, const MrpF
 }
 
 void MrpFeedbackAlgorithm_reset(MrpFeedbackAlgorithmHandle* self,
-                                const VehicleConfigMsgF32Payload* vehConfigMsg,
                                 const RWArrayConfigMsgF32Payload* rwConfigMsg,
                                 int rwIsLinked) {
     // clang-format off
-    reinterpret_cast<::MrpFeedbackAlgorithm*>(self)->reset(*vehConfigMsg, *rwConfigMsg, rwIsLinked != 0);  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+    reinterpret_cast<::MrpFeedbackAlgorithm*>(self)->reset(*rwConfigMsg, rwIsLinked != 0);  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
     // clang-format on
 }
 

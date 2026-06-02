@@ -34,6 +34,7 @@ typedef enum { CONTROL_LAW_TYPE_NORMAL_C = 0, CONTROL_LAW_TYPE_SIMPLE_INTEGRAL_C
  *  - K, P, Ki, integralLimit must be >= 0
  *  - controlLawType is unconstrained
  *  - knownTorquePntB_B is unconstrained
+ *  - ISCPntB_B must be a valid inertia tensor (symmetric, positive-definite, triangle inequality)
  */
 typedef struct {
     float K;
@@ -42,6 +43,7 @@ typedef struct {
     float integralLimit;
     ControlLawType_c controlLawType;
     Vector3f_c knownTorquePntB_B;
+    Matrix3f_c ISCPntB_B;
 } MrpFeedbackConfig_c;
 
 /**
@@ -73,15 +75,13 @@ void MrpFeedbackAlgorithm_destroy(MrpFeedbackAlgorithmHandle* self);
 void MrpFeedbackAlgorithm_setConfig(MrpFeedbackAlgorithmHandle* self, const MrpFeedbackConfig_c* config);
 
 /**
- * @brief Reset the algorithm: snapshot the spacecraft inertia and (optional) RW configuration,
- *        and clear the integral state.
+ * @brief Reset the algorithm: snapshot the (optional) RW configuration and clear the integral
+ *        state. The spacecraft inertia is part of the immutable config (MrpFeedbackConfig_c).
  * @param self          Pointer to the instance.
- * @param vehConfigMsg  Spacecraft inertia configuration.
  * @param rwConfigMsg   Reaction-wheel configuration (consumed only when rwIsLinked is non-zero).
  * @param rwIsLinked    Non-zero when rwConfigMsg holds a valid configuration; zero to ignore it.
  */
 void MrpFeedbackAlgorithm_reset(MrpFeedbackAlgorithmHandle* self,
-                                const VehicleConfigMsgF32Payload* vehConfigMsg,
                                 const RWArrayConfigMsgF32Payload* rwConfigMsg,
                                 int rwIsLinked);
 

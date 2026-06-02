@@ -101,23 +101,39 @@ inline ReferenceOutput referenceUpdate(const MrpFeedbackConfig& cfg,
 }
 
 inline void testMrpFeedbackSetup() {
+    const Eigen::Matrix3f validInertia = Eigen::Matrix3f::Identity();
+
     // Valid config builds without throwing.
     EXPECT_NO_THROW({
-        const MrpFeedbackConfig cfg =
-            MrpFeedbackConfig::create(0.0F, 0.0F, 0.0F, 0.0F, ControlLawType::NORMAL, Eigen::Vector3f::Zero());
+        const MrpFeedbackConfig cfg = MrpFeedbackConfig::create(
+            0.0F, 0.0F, 0.0F, 0.0F, ControlLawType::NORMAL, Eigen::Vector3f::Zero(), validInertia);
         const MrpFeedbackAlgorithm alg(cfg);
         (void)alg;
     });
 
     // Negative gains/limit are rejected by the Config factory.
-    EXPECT_ANY_THROW(
-        { (void)MrpFeedbackConfig::create(-0.1F, 0.0F, 0.0F, 0.0F, ControlLawType::NORMAL, Eigen::Vector3f::Zero()); });
-    EXPECT_ANY_THROW(
-        { (void)MrpFeedbackConfig::create(0.0F, -0.1F, 0.0F, 0.0F, ControlLawType::NORMAL, Eigen::Vector3f::Zero()); });
-    EXPECT_ANY_THROW(
-        { (void)MrpFeedbackConfig::create(0.0F, 0.0F, -0.1F, 0.0F, ControlLawType::NORMAL, Eigen::Vector3f::Zero()); });
-    EXPECT_ANY_THROW(
-        { (void)MrpFeedbackConfig::create(0.0F, 0.0F, 0.0F, -0.1F, ControlLawType::NORMAL, Eigen::Vector3f::Zero()); });
+    EXPECT_ANY_THROW({
+        (void)MrpFeedbackConfig::create(
+            -0.1F, 0.0F, 0.0F, 0.0F, ControlLawType::NORMAL, Eigen::Vector3f::Zero(), validInertia);
+    });
+    EXPECT_ANY_THROW({
+        (void)MrpFeedbackConfig::create(
+            0.0F, -0.1F, 0.0F, 0.0F, ControlLawType::NORMAL, Eigen::Vector3f::Zero(), validInertia);
+    });
+    EXPECT_ANY_THROW({
+        (void)MrpFeedbackConfig::create(
+            0.0F, 0.0F, -0.1F, 0.0F, ControlLawType::NORMAL, Eigen::Vector3f::Zero(), validInertia);
+    });
+    EXPECT_ANY_THROW({
+        (void)MrpFeedbackConfig::create(
+            0.0F, 0.0F, 0.0F, -0.1F, ControlLawType::NORMAL, Eigen::Vector3f::Zero(), validInertia);
+    });
+
+    // A non-physical inertia (here all-zero: not positive-definite) is rejected by the Config factory.
+    EXPECT_ANY_THROW({
+        (void)MrpFeedbackConfig::create(
+            0.0F, 0.0F, 0.0F, 0.0F, ControlLawType::NORMAL, Eigen::Vector3f::Zero(), Eigen::Matrix3f::Zero());
+    });
 }
 
 inline void testMrpFeedback(const Eigen::Vector3f& sigma,
@@ -142,8 +158,18 @@ inline void testMrpFeedback(const Eigen::Vector3f& sigma,
     const ControlLawType controlLawTypeAlg =
         (controlLawType == 0) ? ControlLawType::NORMAL : ControlLawType::SIMPLE_INTEGRAL;
 
+    const Eigen::Matrix3f ISC_B = cArrayToEigenMatrix3(ISCPntB_B.data());
+
+    // Inertia is now part of the validated config. The fuzz harness feeds arbitrary 3x3 data, so a
+    // non-physical inertia must be rejected by the Config factory; confirm that and stop.
+    if (!inertiaIsValid(ISC_B)) {
+        EXPECT_ANY_THROW(
+            { (void)MrpFeedbackConfig::create(K, P, Ki, integralLimit, controlLawTypeAlg, knownTorquePntB_B, ISC_B); });
+        return;
+    }
+
     const MrpFeedbackConfig cfg =
-        MrpFeedbackConfig::create(K, P, Ki, integralLimit, controlLawTypeAlg, knownTorquePntB_B);
+        MrpFeedbackConfig::create(K, P, Ki, integralLimit, controlLawTypeAlg, knownTorquePntB_B, ISC_B);
     MrpFeedbackAlgorithm alg(cfg);
 
     AttGuidMsgF32Payload guidCmdMsg{};
@@ -170,12 +196,7 @@ inline void testMrpFeedback(const Eigen::Vector3f& sigma,
         std::copy(GsMatrix_B.begin(), GsMatrix_B.end(), rwConfigMsg.GsMatrix_B);
     }
 
-    VehicleConfigMsgF32Payload vehConfigMsg{};
-    std::copy(ISCPntB_B.begin(), ISCPntB_B.end(), vehConfigMsg.ISCPntB_B);
-
-    const Eigen::Matrix3f ISC_B = cArrayToEigenMatrix3(ISCPntB_B.data());
-
-    EXPECT_NO_THROW(alg.reset(vehConfigMsg, rwConfigMsg, rwIsLinked));
+    EXPECT_NO_THROW(alg.reset(rwConfigMsg, rwIsLinked));
 
     Eigen::Vector3f int_sigma{Eigen::Vector3f::Zero()};
     uint64_t priorTime{};
