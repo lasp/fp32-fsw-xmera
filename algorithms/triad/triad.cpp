@@ -30,6 +30,19 @@ void Triad::reset(const uint64_t callTime) {
     this->algorithm = std::make_unique<TriadAlgorithm>(config);
 }
 
+TriadConfig Triad::toConfig() const {
+    return TriadConfig::create(
+        this->a1Hat_B, this->hHat_N);
+}
+
+void Triad::reconfigure() const {
+    if (!this->algorithm) {
+        throw XmeraLifecycleException("Triad reset() has not been called.");
+    }
+
+    this->algorithm->setConfig(this->toConfig());
+}
+
 void Triad::updateState(const uint64_t callTime) {
     if (!this->algorithm) {
         throw XmeraLifecycleException("Triad reset() has not been called.");
