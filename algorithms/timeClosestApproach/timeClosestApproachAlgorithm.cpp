@@ -6,37 +6,29 @@
 TimeClosestApproachOutput TimeClosestApproachAlgorithm::update(const Eigen::Vector3f& r_BN_N,
                                                                const Eigen::Vector3f& v_BN_N,
                                                                const Eigen::MatrixXf& filterCovariance) {
-    //    float flightPathAngle = -M_PI / 2;  //!< flight path angle of the spacecraft at time of read [rad]
-    //    float ratio = 0;                    //!< ratio between relative velocity and position norms at time of read
-    //    [Hz]
-
-    /*! - compute velocity/radius ratio at time of read */
     float const ratio = v_BN_N.norm() / r_BN_N.norm();
 
-    // compute an angle at the time of read
     Eigen::Vector3f const r_BN_N_hat = r_BN_N.normalized();
     Eigen::Vector3f const v_BN_N_hat = v_BN_N.normalized();
 
-    float product = -r_BN_N_hat.dot(v_BN_N_hat);
-    product = std::max(-1.0F, std::min(1.0F, product));
-    const float theta = std::acos(product);
-
-    // compute flight path angle at the time of read
-    const float flightPathAngle = theta - static_cast<float>(M_PI) / 2.0F;
+    // sin(flightPathAngle) == r_hat·v_hat  (identity: sin(acos(-d) - π/2) = d)
+    // Using the dot product directly avoids catastrophic cancellation in float32
+    // when computing theta = acos(-d) and then subtracting π/2.
+    float sinFPA = r_BN_N_hat.dot(v_BN_N_hat);
+    sinFPA = std::max(-1.0F, std::min(1.0F, sinFPA));
 
     TimeClosestApproachOutput algo_output{};
-    algo_output.tCA = -std::sin(flightPathAngle) / ratio;
+    algo_output.tCA = -sinFPA / ratio;
 
-    // Calculate covariance_map_to_tca
-    const uint8_t numberOfStates = filterCovariance.rows();
+    const auto numberOfStates = static_cast<std::size_t>(filterCovariance.rows());
     Eigen::VectorXf covariance_map_to_tca(numberOfStates);
 
     covariance_map_to_tca.head(3) = v_BN_N_hat / r_BN_N.norm();
     if (numberOfStates == 6) {
-        covariance_map_to_tca.tail(3) = 1.0F / v_BN_N.norm() * (r_BN_N_hat - std::sin(flightPathAngle) * v_BN_N_hat);
+        covariance_map_to_tca.tail(3) = (r_BN_N_hat - sinFPA * v_BN_N_hat) / v_BN_N.norm();
     }
     const float mappedCovariance = covariance_map_to_tca.transpose() * filterCovariance * covariance_map_to_tca;
-    const float tCA_covariance = (1.0F / std::pow(ratio, 2.0F)) * mappedCovariance;
+    const float tCA_covariance = mappedCovariance / (ratio * ratio);
 
     algo_output.sigmaTca = std::sqrt(tCA_covariance);
 
