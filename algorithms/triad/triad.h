@@ -24,8 +24,8 @@ class Triad final : public SysModel {
     ReadFunctor<BodyHeadingMsgF32Payload> bodyHeadingInMsg;
     Message<AttRefMsgF32Payload> attRefOutMsg;
 
-    Eigen::Vector3f a1Hat_B = Eigen::Vector3f::Zero();
-    Eigen::Vector3f hHat_N = Eigen::Vector3f::Zero();
+    Eigen::Vector3f sadaHat_B = Eigen::Vector3f::Zero();
+    Eigen::Vector3f thrustReqHat_N = Eigen::Vector3f::Zero();
     float signOfZHat_N = 1.0F;
 
    private:
