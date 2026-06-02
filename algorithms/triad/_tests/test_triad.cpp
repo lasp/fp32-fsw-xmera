@@ -170,8 +170,31 @@ TEST(TriadTest, SunAlignedWithThrustRef) {
     TriadAlgorithm alg(config);
 
     auto result = alg.update(sigma_BN, rHat_SB_B, thrustHat_B);
-    Eigen::Vector3f expected = referenceUpdate(sigma_BN, rHat_SB_B, thrustHat_B, sadaHat_B, thrustReqHat_N, signOfZHat_N);;
+    Eigen::Vector3f expected = referenceTriad(sigma_BN, rHat_SB_B, thrustHat_B, sadaHat_B, thrustReqHat_N, signOfZHat_N);;
     for (int i = 0; i < 3; ++i) {
         EXPECT_NEAR(result(i), expected(i), 1e-6F);
     }
+}
+
+// When sada axis is orthogonal to the thrust direction msg, the array-Sun orthogonality constraint is met
+TEST(TriadTest, SadaAxisOrthogonalToSun) {
+    const Eigen::Vector3f sigma_BN{0.1F, -0.2F, 0.3F};
+    const Eigen::Vector3f rHat_SB_B = Eigen::Vector3f(1.0F, 1.0F, 0.0F).normalized();
+    const Eigen::Vector3f thrustHat_B = Eigen::Vector3f::UnitY();
+    const Eigen::Vector3f sadaHat_B = Eigen::Vector3f::UnitX();
+    const Eigen::Vector3f thrustReqHat_N = Eigen::Vector3f::UnitZ();
+    const float signOfZHat_N = 1.0F;
+
+    auto config = TriadConfig::create(sadaHat_B, thrustReqHat_N, signOfZHat_N);
+    TriadAlgorithm alg(config);
+
+    const Eigen::Vector3f sigma_RN = alg.update(sigma_BN, rHat_SB_B, thrustHat_B);
+
+    // Compute Sun direction vector in reference body frame components
+    const Eigen::Matrix3f dcm_BN = mrpToDcm(sigma_BN);
+    Eigen::Vector3f rHat_SB_N = (dcm_BN.transpose() * rHat_SB_B).stableNormalized();
+    const Eigen::Matrix3f dcm_RN = mrpToDcm(sigma_RN);
+    Eigen::Vector3f rHat_SB_R = (dcm_RN * rHat_SB_N).stableNormalized();
+
+    EXPECT_NEAR(sadaHat_B.dot(rHat_SB_R), 0.0F, 1e-6F);
 }
