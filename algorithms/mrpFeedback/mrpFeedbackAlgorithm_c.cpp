@@ -4,16 +4,23 @@
 #include "mrpFeedbackTypes.h"
 
 #include <Eigen/Core>
+#include <algorithm>
+#include <array>
 
 namespace {
 MrpFeedbackConfig configFromC(const MrpFeedbackConfig_c& c) {
+    std::array<float, RW_EFF_CNT> jsList{};
+    std::copy(std::begin(c.JsList), std::end(c.JsList), jsList.begin());
     return MrpFeedbackConfig::create(c.K,
                                      c.P,
                                      c.Ki,
                                      c.integralLimit,
                                      static_cast<ControlLawType>(c.controlLawType),
                                      cArrayToEigenVector3<float>(c.knownTorquePntB_B.data),
-                                     c2DArrayToEigenMatrix3<float>(c.ISCPntB_B.data));
+                                     c2DArrayToEigenMatrix3<float>(c.ISCPntB_B.data),
+                                     c.numRW,
+                                     cArrayToEigenMatrix<float, 3, RW_EFF_CNT>(c.GsMatrix_B),
+                                     jsList);
 }
 }  // namespace
 
@@ -35,11 +42,9 @@ void MrpFeedbackAlgorithm_setConfig(MrpFeedbackAlgorithmHandle* self, const MrpF
     // clang-format on
 }
 
-void MrpFeedbackAlgorithm_reset(MrpFeedbackAlgorithmHandle* self,
-                                const RWArrayConfigMsgF32Payload* rwConfigMsg,
-                                int rwIsLinked) {
+void MrpFeedbackAlgorithm_reset(MrpFeedbackAlgorithmHandle* self) {
     // clang-format off
-    reinterpret_cast<::MrpFeedbackAlgorithm*>(self)->reset(*rwConfigMsg, rwIsLinked != 0);  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+    reinterpret_cast<::MrpFeedbackAlgorithm*>(self)->reset();  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
     // clang-format on
 }
 

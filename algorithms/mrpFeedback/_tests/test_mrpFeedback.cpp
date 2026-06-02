@@ -29,8 +29,16 @@ TEST(MrpFeedbackTest, IntegralFeedbackDisabledWhenKiIsZero) {
     // With Ki = 0, the integral feedback torque must be zero on every cycle.
     const std::vector<float> isc{1000.0F, 0.0F, 0.0F, 0.0F, 800.0F, 0.0F, 0.0F, 0.0F, 800.0F};
     const Eigen::Matrix3f ISCPntB_B = cArrayToEigenMatrix3(isc.data());
-    const MrpFeedbackConfig cfg =
-        MrpFeedbackConfig::create(1.0F, 0.5F, 0.0F, 1.0F, ControlLawType::NORMAL, Eigen::Vector3f::Zero(), ISCPntB_B);
+    const MrpFeedbackConfig cfg = MrpFeedbackConfig::create(1.0F,
+                                                            0.5F,
+                                                            0.0F,
+                                                            1.0F,
+                                                            ControlLawType::NORMAL,
+                                                            Eigen::Vector3f::Zero(),
+                                                            ISCPntB_B,
+                                                            /*numRW=*/0,
+                                                            Eigen::Matrix<float, 3, RW_EFF_CNT>::Zero(),
+                                                            std::array<float, RW_EFF_CNT>{});
     MrpFeedbackAlgorithm alg(cfg);
 
     AttGuidMsgF32Payload guidCmd{};
@@ -39,11 +47,10 @@ TEST(MrpFeedbackTest, IntegralFeedbackDisabledWhenKiIsZero) {
     eigenVectorToCArray(Eigen::Vector3f{0.7F, -0.8F, 0.9F}, guidCmd.omega_RN_B);
     eigenVectorToCArray(Eigen::Vector3f{-1.0F, 1.1F, -1.2F}, guidCmd.domega_RN_B);
 
-    const RWArrayConfigMsgF32Payload rwConfig{};
     const RWSpeedMsgF32Payload wheelSpeeds{};
     const RWAvailabilityMsgPayload availability{};
 
-    EXPECT_NO_THROW(alg.reset(rwConfig, /*rwIsLinked=*/false));
+    EXPECT_NO_THROW(alg.reset());
     for (int step = 0; step < 5; ++step) {
         const auto callTime = static_cast<uint64_t>(step + 1) * static_cast<uint64_t>(0.1F / kNano2Sec);
         MrpFeedbackOutput out{};
@@ -63,8 +70,16 @@ TEST(MrpFeedbackTest, IntegralLimitClampsLargeError) {
     constexpr float intLimit = 0.5F;
     const std::vector<float> isc{1.0F, 0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 0.0F, 1.0F};
     const Eigen::Matrix3f ISCPntB_B = cArrayToEigenMatrix3(isc.data());
-    const MrpFeedbackConfig cfg =
-        MrpFeedbackConfig::create(K, 1.0F, Ki, intLimit, ControlLawType::NORMAL, Eigen::Vector3f::Zero(), ISCPntB_B);
+    const MrpFeedbackConfig cfg = MrpFeedbackConfig::create(K,
+                                                            1.0F,
+                                                            Ki,
+                                                            intLimit,
+                                                            ControlLawType::NORMAL,
+                                                            Eigen::Vector3f::Zero(),
+                                                            ISCPntB_B,
+                                                            /*numRW=*/0,
+                                                            Eigen::Matrix<float, 3, RW_EFF_CNT>::Zero(),
+                                                            std::array<float, RW_EFF_CNT>{});
     MrpFeedbackAlgorithm alg(cfg);
 
     AttGuidMsgF32Payload guidCmd{};
@@ -73,11 +88,10 @@ TEST(MrpFeedbackTest, IntegralLimitClampsLargeError) {
     eigenVectorToCArray(Eigen::Vector3f::Zero(), guidCmd.omega_RN_B);
     eigenVectorToCArray(Eigen::Vector3f::Zero(), guidCmd.domega_RN_B);
 
-    const RWArrayConfigMsgF32Payload rwConfig{};
     const RWSpeedMsgF32Payload wheelSpeeds{};
     const RWAvailabilityMsgPayload availability{};
 
-    EXPECT_NO_THROW(alg.reset(rwConfig, /*rwIsLinked=*/false));
+    EXPECT_NO_THROW(alg.reset());
 
     // Drive enough integration steps to saturate (each step accumulates K*dt*sigma = 1.0 * 1.0 * 1.0 in each axis).
     constexpr float dt = 1.0F;

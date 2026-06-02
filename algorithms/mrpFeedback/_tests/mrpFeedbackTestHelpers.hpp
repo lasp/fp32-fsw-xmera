@@ -160,16 +160,39 @@ inline void testMrpFeedback(const Eigen::Vector3f& sigma,
 
     const Eigen::Matrix3f ISC_B = cArrayToEigenMatrix3(ISCPntB_B.data());
 
+    // The RW array config is now part of the immutable config. Build the (fully RW_EFF_CNT-sized)
+    // payload first so it stays the canonical source for both the config inputs and the reference.
+    RWArrayConfigMsgF32Payload rwConfigMsg{};
+    if (rwIsLinked) {
+        rwConfigMsg.numRW = numRW;
+        std::copy(uMax.begin(), uMax.end(), rwConfigMsg.uMax);
+        std::copy(JsList.begin(), JsList.end(), rwConfigMsg.JsList);
+        std::copy(GsMatrix_B.begin(), GsMatrix_B.end(), rwConfigMsg.GsMatrix_B);
+    }
+    const Eigen::Matrix<float, 3, RW_EFF_CNT> Gs_B = cArrayToEigenMatrix<float, 3, RW_EFF_CNT>(rwConfigMsg.GsMatrix_B);
+    std::array<float, RW_EFF_CNT> jsListArr{};
+    std::copy(std::begin(rwConfigMsg.JsList), std::end(rwConfigMsg.JsList), jsListArr.begin());
+
     // Inertia is now part of the validated config. The fuzz harness feeds arbitrary 3x3 data, so a
     // non-physical inertia must be rejected by the Config factory; confirm that and stop.
     if (!inertiaIsValid(ISC_B)) {
-        EXPECT_ANY_THROW(
-            { (void)MrpFeedbackConfig::create(K, P, Ki, integralLimit, controlLawTypeAlg, knownTorquePntB_B, ISC_B); });
+        EXPECT_ANY_THROW({
+            (void)MrpFeedbackConfig::create(K,
+                                            P,
+                                            Ki,
+                                            integralLimit,
+                                            controlLawTypeAlg,
+                                            knownTorquePntB_B,
+                                            ISC_B,
+                                            rwConfigMsg.numRW,
+                                            Gs_B,
+                                            jsListArr);
+        });
         return;
     }
 
-    const MrpFeedbackConfig cfg =
-        MrpFeedbackConfig::create(K, P, Ki, integralLimit, controlLawTypeAlg, knownTorquePntB_B, ISC_B);
+    const MrpFeedbackConfig cfg = MrpFeedbackConfig::create(
+        K, P, Ki, integralLimit, controlLawTypeAlg, knownTorquePntB_B, ISC_B, rwConfigMsg.numRW, Gs_B, jsListArr);
     MrpFeedbackAlgorithm alg(cfg);
 
     AttGuidMsgF32Payload guidCmdMsg{};
@@ -188,15 +211,7 @@ inline void testMrpFeedback(const Eigen::Vector3f& sigma,
         }
     }
 
-    RWArrayConfigMsgF32Payload rwConfigMsg{};
-    if (rwIsLinked) {
-        rwConfigMsg.numRW = numRW;
-        std::copy(uMax.begin(), uMax.end(), rwConfigMsg.uMax);
-        std::copy(JsList.begin(), JsList.end(), rwConfigMsg.JsList);
-        std::copy(GsMatrix_B.begin(), GsMatrix_B.end(), rwConfigMsg.GsMatrix_B);
-    }
-
-    EXPECT_NO_THROW(alg.reset(rwConfigMsg, rwIsLinked));
+    EXPECT_NO_THROW(alg.reset());
 
     Eigen::Vector3f int_sigma{Eigen::Vector3f::Zero()};
     uint64_t priorTime{};

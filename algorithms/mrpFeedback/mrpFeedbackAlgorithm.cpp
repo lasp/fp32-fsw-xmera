@@ -9,14 +9,9 @@ MrpFeedbackAlgorithm::MrpFeedbackAlgorithm(MrpFeedbackConfig config) : cfg(std::
 
 void MrpFeedbackAlgorithm::setConfig(const MrpFeedbackConfig& config) { this->cfg = config; }
 
-/*! Reset the algorithm: snapshot the (optional) RW configuration and clear the integral state.
-    The spacecraft inertia is part of the immutable config (MrpFeedbackConfig). */
-void MrpFeedbackAlgorithm::reset(const RWArrayConfigMsgF32Payload& rwConfigMsg, const bool rwIsLinked) {
-    this->rwConfigParams.numRW = 0;
-    if (rwIsLinked) {
-        this->rwConfigParams = rwConfigMsg;
-    }
-
+/*! Reset the algorithm: clear the integral state. The spacecraft inertia and the RW array
+    configuration are part of the immutable config (MrpFeedbackConfig). */
+void MrpFeedbackAlgorithm::reset() {
     this->int_sigma = Eigen::Vector3f::Zero();
     // priorTime == 0 signals first-call: no time delta is taken on the first update.
     this->priorTime = 0U;
@@ -60,15 +55,15 @@ MrpFeedbackOutput MrpFeedbackAlgorithm::update(uint64_t callTime,
         z = this->int_sigma + ISCPntB_B * omega_BR_B;
     }
 
-    const Eigen::Matrix<float, 3, RW_EFF_CNT> G_s_B =
-        cArrayToEigenMatrix<float, 3, RW_EFF_CNT>(this->rwConfigParams.GsMatrix_B);
+    const Eigen::Matrix<float, 3, RW_EFF_CNT>& G_s_B = this->cfg.getGs_B();
+    const std::array<float, RW_EFF_CNT>& JsList = this->cfg.getJsList();
 
     Eigen::Vector3f H_B = ISCPntB_B * omega_BN_B;
-    for (Eigen::Index i = 0; i < this->rwConfigParams.numRW; ++i) {
+    for (Eigen::Index i = 0; i < this->cfg.getNumRW(); ++i) {
         if (wheelsAvailability.wheelAvailability[i] == AVAILABLE) {
             const Eigen::Vector3f G_s_B_i = G_s_B.col(i);
             const Eigen::Vector3f h_s_i =
-                this->rwConfigParams.JsList[i] * (omega_BN_B.dot(G_s_B_i) + wheelSpeeds.wheelSpeeds[i]) * G_s_B_i;
+                JsList[i] * (omega_BN_B.dot(G_s_B_i) + wheelSpeeds.wheelSpeeds[i]) * G_s_B_i;
             H_B += h_s_i;
         }
     }
