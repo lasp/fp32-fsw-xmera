@@ -8,12 +8,12 @@
 #include <architecture/utilities/rigidBodyKinematics.hpp>
 #include <cmath>
 
-// Reference implementation of the TRIAD algorithm matching the Python true_triad()
+// Reference implementation of the triad algorithm
 inline Eigen::Vector3f referenceTriad(const Eigen::Vector3f& sigma_BN,
                                       const Eigen::Vector3f& rHat_SB_B,
-                                      const Eigen::Vector3f& thrustReqHat_N,
-                                      const Eigen::Vector3f& sadaHat_B,
                                       const Eigen::Vector3f& thrustHat_B,
+                                      const Eigen::Vector3f& sadaHat_B,
+                                      const Eigen::Vector3f& thrustReqHat_N,
                                       const float signOfZHat_N) {
     /*! Compute angle between solar array drive axis and thrust direction */
     const float sadaAxisToThrustAngle = safeAcosf(fabsf(sadaHat_B.dot(thrustHat_B)));
@@ -73,7 +73,7 @@ inline void testTriadRegression(const Eigen::Vector3f& sigma_BN,
     TriadAlgorithm alg(config);
 
     const Eigen::Vector3f result = alg.update(sigma_BN, rHat_SB_B, thrustHat_B);
-    const Eigen::Vector3f expected = referenceTriad(sigma_BN, rHat_SB_B, thrustReqHat_N, sadaHat_B, thrustHat_B, signOfZHat_N);
+    const Eigen::Vector3f expected = referenceTriad(sigma_BN, rHat_SB_B, thrustHat_B, sadaHat_B, thrustReqHat_N, signOfZHat_N);
 
     for (int i = 0; i < 3; ++i) {
         EXPECT_NEAR(result[i], expected[i], 1e-5F) << "Component " << i;
