@@ -8,8 +8,11 @@
 #include <gtest/gtest.h>
 #include <Eigen/Core>
 #include <Eigen/LU>
+#include <Eigen/SVD>
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <limits>
 #include <vector>
 
 // Builds the control axes mapping matrix used by the tests for a given number of controlled axes.
@@ -25,6 +28,29 @@ inline Eigen::Matrix3f makeControlAxes(uint32_t numControlAxes) {
         controlAxes_B.row(2) = Eigen::Vector3f{0.0F, 0.0F, 1.0F};
     }
     return controlAxes_B;
+}
+
+// Mirrors the algorithm's SVD controllability cross-check: returns true iff every control axis is
+// reachable by the available reaction wheels (i.e. the construction of the algorithm will not throw).
+inline bool isControllable(const Eigen::Matrix<float, 3, kMaxNumRw>& CGs, uint32_t numControlAxes) {
+    const Eigen::JacobiSVD<Eigen::MatrixXf> svd(CGs.topRows(numControlAxes), Eigen::ComputeFullU);
+    const Eigen::VectorXf& singularValues = svd.singularValues();
+    const Eigen::MatrixXf& leftSingularVectors = svd.matrixU();
+    const float singularValueTol = singularValues(0) * std::numeric_limits<float>::epsilon() *
+                                   static_cast<float>(std::max(numControlAxes, kMaxNumRw));
+    constexpr float kControllabilityResidualSqTol = 1e-6F;
+    for (uint32_t axis = 0U; axis < numControlAxes; ++axis) {
+        float nullSpaceResidualSq = 0.0F;
+        for (uint32_t k = 0U; k < numControlAxes; ++k) {
+            if (singularValues(k) <= singularValueTol) {
+                nullSpaceResidualSq += leftSingularVectors(axis, k) * leftSingularVectors(axis, k);
+            }
+        }
+        if (nullSpaceResidualSq > kControllabilityResidualSqTol) {
+            return false;
+        }
+    }
+    return true;
 }
 
 // Independent reference computation of the RW motor torques for verification. Reimplements the
@@ -137,11 +163,10 @@ inline void testRwMotorTorque(const Eigen::Vector3f& Lr1_B,
     }
 
     const Eigen::Matrix<float, 3, kMaxNumRw> CGs = controlAxes_B * G_s_B;
-    const Eigen::FullPivLU<Eigen::MatrixXf> lu_decomp(CGs);
-    const auto controlMappingRank = static_cast<uint32_t>(lu_decomp.rank());
 
-    // A rank-deficient control mapping makes the constructor (which computes the mapping) throw.
-    if (controlMappingRank < numControlAxes) {
+    // An uncontrollable (rank-deficient) control mapping makes the constructor (which computes the
+    // mapping and runs the controllability cross-check) throw.
+    if (!isControllable(CGs, numControlAxes)) {
         EXPECT_THROW(RwMotorTorqueAlgorithm{RwMotorTorqueConfig::create(controlAxes_B, rwConfiguration, availability)},
                      fsw::invalid_argument);
         return;

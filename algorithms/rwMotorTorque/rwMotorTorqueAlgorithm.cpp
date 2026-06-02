@@ -1,7 +1,10 @@
 #include "rwMotorTorqueAlgorithm.h"
 #include "utilities/freestandingInvalidArgument.h"
 #include <Eigen/LU>
+#include <Eigen/SVD>
+#include <algorithm>
 #include <cstdint>
+#include <limits>
 
 RwMotorTorqueAlgorithm::RwMotorTorqueAlgorithm(const RwMotorTorqueConfig& config) : cfg(config) {
     this->computeRwMapping();
@@ -52,9 +55,30 @@ void RwMotorTorqueAlgorithm::computeRwMapping() {
     }
 
     const Eigen::Matrix<float, 3, kMaxNumRw> CGs = controlAxes_B * G_s_B;
-    const Eigen::FullPivLU<Eigen::MatrixXf> lu_decomp(CGs);
-    if (static_cast<uint32_t>(lu_decomp.rank()) < numControlAxes) {
-        FSW_THROW_INVALID_ARGUMENT("rwMotorTorque: control mapping matrix [CB][G_s] is not full rank.");
+
+    /*! - Controllability cross-check: every control axis must be reachable by the available reaction
+     wheels. Decompose the control mapping [CGs] = [CB][Gs] (numControlAxes x kMaxNumRw, trailing columns
+     zero for unavailable wheels) with an SVD. Singular values below a relative tolerance are treated as
+     zero; a control axis with a significant projection onto the corresponding left singular vectors
+     (the left-null-space) cannot be produced by the available wheels and is rejected. */
+    const Eigen::JacobiSVD<Eigen::MatrixXf> svd(CGs.topRows(numControlAxes), Eigen::ComputeFullU);
+    const Eigen::VectorXf& singularValues = svd.singularValues();
+    const Eigen::MatrixXf& leftSingularVectors = svd.matrixU();
+    const float singularValueTol = singularValues(0) * std::numeric_limits<float>::epsilon() *
+                                   static_cast<float>(std::max(numControlAxes, kMaxNumRw));
+    constexpr float kControllabilityResidualSqTol = 1e-6F;
+    for (uint32_t axis = 0U; axis < numControlAxes; ++axis) {
+        float nullSpaceResidualSq = 0.0F;
+        for (uint32_t k = 0U; k < numControlAxes; ++k) {
+            if (singularValues(k) <= singularValueTol) {
+                nullSpaceResidualSq += leftSingularVectors(axis, k) * leftSingularVectors(axis, k);
+            }
+        }
+        if (nullSpaceResidualSq > kControllabilityResidualSqTol) {
+            FSW_THROW_INVALID_ARGUMENT(
+                "rwMotorTorque: a control axis is not controllable by the available reaction wheels "
+                "(control mapping matrix [CB][G_s] is rank deficient).");
+        }
     }
 
     /*! - Precompute the constant map from the commanded body torque to the available RW motor torques:
