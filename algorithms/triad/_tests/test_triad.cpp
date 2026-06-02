@@ -119,6 +119,25 @@ TEST(TriadTest, ZeroThrustDirectionReturnsCurrentAttitude) {
     }
 }
 
+// When Sun direction message is zero, output equals current sigma_BN
+TEST(TriadTest, ZeroSunDirectionReturnsCurrentAttitude) {
+    const Eigen::Vector3f sigma_BN{0.1F, -0.2F, 0.3F};
+    const Eigen::Vector3f rHat_SB_B = Eigen::Vector3f::Zero();
+    const Eigen::Vector3f thrustHat_B = Eigen::Vector3f::UnitX();
+    const Eigen::Vector3f sadaHat_B = Eigen::Vector3f::UnitY();
+    const Eigen::Vector3f thrustReqHat_N = Eigen::Vector3f::UnitZ();
+    const float signOfZHat_N = 1.0F;
+
+    auto config = TriadConfig::create(sadaHat_B, thrustReqHat_N, signOfZHat_N);
+    TriadAlgorithm alg(config);
+
+    auto result = alg.update(sigma_BN, rHat_SB_B, thrustHat_B);
+    Eigen::Vector3f expected = sigma_BN;
+    for (int i = 0; i < 3; ++i) {
+        EXPECT_NEAR(result(i), expected(i), 1e-6F);
+    }
+}
+
 // When Sun direction is aligned with thrust inertial reference, zHat_N is used in triad frame
 TEST(TriadTest, SunAlignedWithThrustRef) {
     const Eigen::Vector3f sigma_BN{0.0F, 0.0F, 0.0F};
