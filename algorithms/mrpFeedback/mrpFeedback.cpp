@@ -71,8 +71,13 @@ void MrpFeedback::updateState(const uint64_t callTime) {
         }
     }
 
-    auto [controlOut, intFeedbackOut] = this->algorithm->update(callTime, guid, wheelSpeeds, wheelAvailability);
+    const MrpFeedbackOutput out = this->algorithm->update(callTime, guid, wheelSpeeds, wheelAvailability);
 
-    this->cmdTorqueOutMsg.write(&controlOut, moduleID, callTime);
+    CmdTorqueBodyMsgF32Payload controlOut{};
+    CmdTorqueBodyMsgF32Payload intFeedbackOut{};
+    eigenVectorToCArray(out.controlTorque, controlOut.torqueRequestBody);
+    eigenVectorToCArray(out.intFeedbackTorque, intFeedbackOut.torqueRequestBody);
+
+    this->cmdTorqueOutMsg.write(&controlOut, this->moduleID, callTime);
     this->intFeedbackTorqueOutMsg.write(&intFeedbackOut, this->moduleID, callTime);
 }

@@ -83,7 +83,7 @@ MrpFeedbackOutput MrpFeedbackAlgorithm::update(uint64_t callTime,
     const Eigen::Vector3f Li = -(this->cfg.getP() * this->cfg.getKi() * z);
 
     MrpFeedbackOutput out{};
-    eigenVectorToCArray(Lr, out.controlOut.torqueRequestBody);
-    eigenVectorToCArray(Li, out.intFeedbackOut.torqueRequestBody);
+    out.controlTorque = Lr;
+    out.intFeedbackTorque = Li;
     return out;
 }

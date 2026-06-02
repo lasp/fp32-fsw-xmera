@@ -68,7 +68,7 @@ MrpFeedbackOutput_c MrpFeedbackAlgorithm_update(MrpFeedbackAlgorithmHandle* self
     // clang-format on
 
     MrpFeedbackOutput_c result{};
-    result.controlOut = out.controlOut;
-    result.intFeedbackOut = out.intFeedbackOut;
+    eigenVectorToCArray(out.controlTorque, result.controlTorque.data);
+    eigenVectorToCArray(out.intFeedbackTorque, result.intFeedbackTorque.data);
     return result;
 }

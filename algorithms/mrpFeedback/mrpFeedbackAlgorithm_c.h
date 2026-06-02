@@ -65,8 +65,8 @@ typedef struct {
  * @brief C-compatible mirror of the C++ MrpFeedbackOutput.
  */
 typedef struct {
-    CmdTorqueBodyMsgF32Payload controlOut;     /*!< control torque output */
-    CmdTorqueBodyMsgF32Payload intFeedbackOut; /*!< integral feedback torque output */
+    Vector3f_c controlTorque;     /*!< [N*m] required control torque Lr */
+    Vector3f_c intFeedbackTorque; /*!< [N*m] integral feedback torque Li */
 } MrpFeedbackOutput_c;
 
 /**

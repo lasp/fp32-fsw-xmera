@@ -93,8 +93,8 @@ inline ReferenceOutput referenceUpdate(const MrpFeedbackConfig& cfg,
     const Eigen::Vector3f Li = -(P * Ki * z);
 
     ReferenceOutput out{};
-    eigenVectorToCArray(Lr, out.mrpFeedbackOut.controlOut.torqueRequestBody);
-    eigenVectorToCArray(Li, out.mrpFeedbackOut.intFeedbackOut.torqueRequestBody);
+    out.mrpFeedbackOut.controlTorque = Lr;
+    out.mrpFeedbackOut.intFeedbackTorque = Li;
     out.int_sigma = int_sigma;
     out.priorTime = priorTime;
     return out;
@@ -231,11 +231,11 @@ inline void testMrpFeedback(const Eigen::Vector3f& sigma,
         priorTime = refOutput.priorTime;
 
         for (int i = 0; i < 3; ++i) {
-            EXPECT_NEAR(out.controlOut.torqueRequestBody[i], ref.controlOut.torqueRequestBody[i], 1e-6);
-            EXPECT_NEAR(out.intFeedbackOut.torqueRequestBody[i], ref.intFeedbackOut.torqueRequestBody[i], 1e-6);
+            EXPECT_NEAR(out.controlTorque[i], ref.controlTorque[i], 1e-6);
+            EXPECT_NEAR(out.intFeedbackTorque[i], ref.intFeedbackTorque[i], 1e-6);
 
-            EXPECT_TRUE(std::isfinite(out.controlOut.torqueRequestBody[i]));
-            EXPECT_TRUE(std::isfinite(out.intFeedbackOut.torqueRequestBody[i]));
+            EXPECT_TRUE(std::isfinite(out.controlTorque[i]));
+            EXPECT_TRUE(std::isfinite(out.intFeedbackTorque[i]));
         }
     }
 }

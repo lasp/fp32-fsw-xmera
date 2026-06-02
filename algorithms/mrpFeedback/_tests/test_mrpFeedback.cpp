@@ -56,8 +56,8 @@ TEST(MrpFeedbackTest, IntegralFeedbackDisabledWhenKiIsZero) {
         MrpFeedbackOutput out{};
         EXPECT_NO_THROW(out = alg.update(callTime, guid, wheelSpeeds, availability));
         for (int i = 0; i < 3; ++i) {
-            EXPECT_FLOAT_EQ(out.intFeedbackOut.torqueRequestBody[i], 0.0F);
-            EXPECT_TRUE(std::isfinite(out.controlOut.torqueRequestBody[i]));
+            EXPECT_FLOAT_EQ(out.intFeedbackTorque[i], 0.0F);
+            EXPECT_TRUE(std::isfinite(out.controlTorque[i]));
         }
     }
 }
@@ -101,13 +101,13 @@ TEST(MrpFeedbackTest, IntegralLimitClampsLargeError) {
         const auto callTime = static_cast<uint64_t>(step + 1) * static_cast<uint64_t>(dt / kNano2Sec);
         EXPECT_NO_THROW(out = alg.update(callTime, guid, wheelSpeeds, availability));
         for (int i = 0; i < 3; ++i) {
-            EXPECT_TRUE(std::isfinite(out.controlOut.torqueRequestBody[i]));
-            EXPECT_TRUE(std::isfinite(out.intFeedbackOut.torqueRequestBody[i]));
+            EXPECT_TRUE(std::isfinite(out.controlTorque[i]));
+            EXPECT_TRUE(std::isfinite(out.intFeedbackTorque[i]));
         }
     }
     // After saturation, the integral feedback torque magnitude per axis is bounded by P*Ki*intLimit.
     constexpr float bound = 1.0F * Ki * intLimit + 1e-5F;  // P=1 in this test
     for (int i = 0; i < 3; ++i) {
-        EXPECT_LE(std::abs(out.intFeedbackOut.torqueRequestBody[i]), bound);
+        EXPECT_LE(std::abs(out.intFeedbackTorque[i]), bound);
     }
 }

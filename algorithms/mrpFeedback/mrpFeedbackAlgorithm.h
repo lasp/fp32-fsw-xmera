@@ -30,8 +30,8 @@ struct MrpFeedbackGuidInput {
 };
 
 struct MrpFeedbackOutput {
-    CmdTorqueBodyMsgF32Payload controlOut{};      //!< control torque output
-    CmdTorqueBodyMsgF32Payload intFeedbackOut{};  //!< integral feedback torque output
+    Eigen::Vector3f controlTorque = Eigen::Vector3f::Zero();      //!< [N*m] required control torque Lr
+    Eigen::Vector3f intFeedbackTorque = Eigen::Vector3f::Zero();  //!< [N*m] integral feedback torque Li
 };
 
 class MrpFeedbackConfig final {
