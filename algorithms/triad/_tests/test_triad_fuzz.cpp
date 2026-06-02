@@ -1,28 +1,117 @@
 #include "triadTestHelpers.hpp"
+#include "utilities/testUtilities/eigenFuzzDomains.hpp"
 #include <fuzztest/fuzztest.h>
 
-void fuzzTriadRegression(std::vector<float> sigma_BNVec,
-                         std::vector<float> sadaHat_BVec,
-                         std::vector<float> thrustHat_BVec,
-                         std::vector<float> rHat_SB_BVec,
-                         std::vector<float> thrustReqHat_NVec,
+// ---------------------------------------------------------------------------
+// Regression fuzz: random configs and reference inputs must agree with the
+// independent reference implementation across multiple steps.
+// ---------------------------------------------------------------------------
+void fuzzTriadRegression(const Eigen::Vector3f& sigma_BN,
+                         const Eigen::Vector3f& rHat_SB_B,
+                         const Eigen::Vector3f& thrustHat_B,
+                         const Eigen::Vector3f& sadaHat_B,
+                         const Eigen::Vector3f& thrustReqHat_N,
                          const float signOfZHat_N) {
-    const Eigen::Vector3f sigma_BN(sigma_BNVec[0], sigma_BNVec[1], sigma_BNVec[2]);
-    const Eigen::Vector3f sadaHat_B(sadaHat_BVec[0], sadaHat_BVec[1], sadaHat_BVec[2]);
-    const Eigen::Vector3f thrustHat_B(thrustHat_BVec[0], thrustHat_BVec[1], thrustHat_BVec[2]);
-    const Eigen::Vector3f rHat_SB_B(rHat_SB_BVec[0], rHat_SB_BVec[1], rHat_SB_BVec[2]);
-    const Eigen::Vector3f thrustReqHat_N(thrustReqHat_NVec[0], thrustReqHat_NVec[1], thrustReqHat_NVec[2]);
+    if (signOfZHat_N == 0.0F || sadaHat_B.stableNorm() == 0.0F || thrustReqHat_N.stableNorm() == 0.0F) {
+        return;
+    }
 
-    // Filter: signOfZHat_N must be non-zero
-    if (signOfZHat_N == 0.0F) { return; }
-
-    testTriadRegression(sigma_BN, sadaHat_B.stableNormalized(), thrustHat_B.stableNormalized(), rHat_SB_B.stableNormalized(), thrustReqHat_N.stableNormalized(), signOfZHat_N);
+    testTriadRegression(sigma_BN,
+        rHat_SB_B.stableNormalized(),
+        thrustHat_B.stableNormalized(),
+        sadaHat_B.stableNormalized(),
+        thrustReqHat_N.stableNormalized(),
+        signOfZHat_N);
 }
 
 FUZZ_TEST(TriadAlgorithmFuzz, fuzzTriadRegression)
-    .WithDomains(fuzztest::VectorOf(fuzztest::InRange(-1.0F, 1.0F)).WithSize(3),   // sigma_BN
-                 fuzztest::VectorOf(fuzztest::InRange(-1.0F, 1.0F)).WithSize(3),   // sadaHat_B
-                 fuzztest::VectorOf(fuzztest::InRange(-1.0F, 1.0F)).WithSize(3),   // thrustHat_B
-                 fuzztest::VectorOf(fuzztest::InRange(-1e6F, 1e6F)).WithSize(3),   // rHat_SB_B
-                 fuzztest::VectorOf(fuzztest::InRange(-1e6F, 1e6F)).WithSize(3),  // thrustReqHat_N
+    .WithDomains(xmera::fuzz::Vector3fInRange(-1e6F, 1e6F),  // sigma_BN
+                 xmera::fuzz::Vector3fInRange(-1e6F, 1e6F),  // rHat_SB_B
+                 xmera::fuzz::Vector3fInRange(-1e6F, 1e6F),  // thrustHat_B
+                 xmera::fuzz::Vector3fInRange(-1e6F, 1e6F),  // sadaAxisHat_B
+                 xmera::fuzz::Vector3fInRange(-1e6F, 1e6F),  // thrustReqHat_N
+                 fuzztest::InRange(-1e6F, 1e6F));  // signOfZHat_N
+
+// ---------------------------------------------------------------------------
+// Property fuzz tests
+// ---------------------------------------------------------------------------
+void fuzzPropertyOutputIsFinite(const Eigen::Vector3f& sigma_BN,
+                                const Eigen::Vector3f& rHat_SB_B,
+                                const Eigen::Vector3f& thrustHat_B,
+                                const Eigen::Vector3f& sadaHat_B,
+                                const Eigen::Vector3f& thrustReqHat_N,
+                                const float signOfZHat_N) {
+    if (signOfZHat_N == 0.0F || sadaHat_B.stableNorm() == 0.0F || thrustReqHat_N.stableNorm() == 0.0F) {
+        return;
+    }
+
+    propertyOutputIsFinite(sigma_BN,
+                           rHat_SB_B.stableNormalized(),
+                           thrustHat_B.stableNormalized(),
+                           sadaHat_B.stableNormalized(),
+                           thrustReqHat_N.stableNormalized(),
+                           signOfZHat_N);
+}
+
+FUZZ_TEST(TriadPropertyFuzz, fuzzPropertyOutputIsFinite)
+    .WithDomains(xmera::fuzz::Vector3fInRange(-1e6F, 1e6F),  // sigma_BN
+                 xmera::fuzz::Vector3fInRange(-1e6F, 1e6F),  // rHat_SB_B
+                 xmera::fuzz::Vector3fInRange(-1e6F, 1e6F),  // thrustHat_B
+                 xmera::fuzz::Vector3fInRange(-1e6F, 1e6F),  // sadaAxisHat_B
+                 xmera::fuzz::Vector3fInRange(-1e6F, 1e6F),  // thrustReqHat_N
+                 fuzztest::InRange(-1e6F, 1e6F));  // signOfZHat_N
+
+void fuzzPropertyBodyHeadingAlignedToInertialHeading(const Eigen::Vector3f& sigma_BN,
+                                                     const Eigen::Vector3f& rHat_SB_B,
+                                                     const Eigen::Vector3f& thrustHat_B,
+                                                     const Eigen::Vector3f& sadaHat_B,
+                                                     const Eigen::Vector3f& thrustReqHat_N,
+                                                     const float signOfZHat_N) {
+    const Eigen::Vector3f rHatUnit_SB_B = rHat_SB_B.stableNormalized();
+    const Eigen::Vector3f thrustHatUnit_B = thrustHat_B.stableNormalized();
+    const Eigen::Vector3f sadaHatUnit_B = sadaHat_B.stableNormalized();
+    const float sadaAxisToThrustAngle = safeAcosf(fabsf(sadaHatUnit_B.dot(thrustHatUnit_B)));
+
+    // Skip configs the algorithm answers with the current attitude (no alignment guarantee)
+    if (signOfZHat_N == 0.0F || sadaAxisToThrustAngle < kParallelThresholdRad || thrustHatUnit_B.stableNorm() == 0.0F ||
+        rHatUnit_SB_B.stableNorm() == 0.0F || sadaHat_B.stableNorm() == 0.0F || thrustReqHat_N.stableNorm() == 0.0F) {
+        return;
+    }
+
+    propertyBodyHeadingAlignedToInertialHeading(
+        sigma_BN, rHatUnit_SB_B, thrustHatUnit_B, sadaHatUnit_B, thrustReqHat_N.stableNormalized(), signOfZHat_N);
+}
+
+FUZZ_TEST(TriadPropertyFuzz, fuzzPropertyBodyHeadingAlignedToInertialHeading)
+    .WithDomains(xmera::fuzz::Vector3fInRange(-1e6F, 1e6F),  // sigma_BN
+                 xmera::fuzz::Vector3fInRange(-1e6F, 1e6F),  // rHat_SB_B
+                 xmera::fuzz::Vector3fInRange(-1e6F, 1e6F),  // thrustHat_B
+                 xmera::fuzz::Vector3fInRange(-1e6F, 1e6F),  // sadaAxisHat_B
+                 xmera::fuzz::Vector3fInRange(-1e6F, 1e6F),  // thrustReqHat_N
+                 fuzztest::InRange(-1e6F, 1e6F));  // signOfZHat_N
+
+void fuzzPropertySigmaNormBounded(const Eigen::Vector3f& sigma_BN,
+                                  const Eigen::Vector3f& rHat_SB_B,
+                                  const Eigen::Vector3f& thrustHat_B,
+                                  const Eigen::Vector3f& sadaHat_B,
+                                  const Eigen::Vector3f& thrustReqHat_N,
+                                  const float signOfZHat_N) {
+    if (signOfZHat_N == 0.0F || sadaHat_B.stableNorm() == 0.0F || thrustReqHat_N.stableNorm() == 0.0F) {
+        return;
+    }
+
+    propertySigmaNormBounded(sigma_BN,
+                             rHat_SB_B.stableNormalized(),
+                             thrustHat_B.stableNormalized(),
+                             sadaHat_B.stableNormalized(),
+                             thrustReqHat_N.stableNormalized(),
+                             signOfZHat_N);
+}
+
+FUZZ_TEST(TriadPropertyFuzz, fuzzPropertySigmaNormBounded)
+    .WithDomains(xmera::fuzz::Vector3fInRange(-1e6F, 1e6F),  // sigma_BN
+                 xmera::fuzz::Vector3fInRange(-1e6F, 1e6F),  // rHat_SB_B
+                 xmera::fuzz::Vector3fInRange(-1e6F, 1e6F),  // thrustHat_B
+                 xmera::fuzz::Vector3fInRange(-1e6F, 1e6F),  // sadaAxisHat_B
+                 xmera::fuzz::Vector3fInRange(-1e6F, 1e6F),  // thrustReqHat_N
                  fuzztest::InRange(-1e6F, 1e6F));  // signOfZHat_N
