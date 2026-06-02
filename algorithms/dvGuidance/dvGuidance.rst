@@ -191,13 +191,32 @@ Assumptions and Limitations
 
 * The commanded delta-V direction is assumed to drive the spacecraft's downstream body 1 axis. Pair this module with
   :ref:`attTrackingError` (or analogous) when a different body axis must align with :math:`\mathcal{R}`.
-* :math:`\hat{\boldsymbol{r}}` (``dvRotVecUnit``) must not be parallel to :math:`\Delta\boldsymbol{v}`; otherwise
-  :math:`\hat{\boldsymbol{r}} \times \Delta\boldsymbol{v}` collapses to zero and the normalize step propagates
-  ``NaN`` through the output. The module does **not** guard against this case (it preserves the original Xmera
-  semantics).
-* :math:`\Delta\boldsymbol{v}` must have nonzero norm. A zero-magnitude commanded delta-V causes the same NaN
-  propagation through the first normalize step.
+* :math:`\hat{\boldsymbol{r}}` (``dvRotVecUnit``) (anti)parallel to :math:`\Delta\boldsymbol{v}` (or itself
+  near-zero) makes :math:`\hat{\boldsymbol{r}} \times \Delta\boldsymbol{v}` collapse, leaving the base burn frame
+  undefined. The module **guards** this case: when :math:`\sin^2(\text{angle})` falls below ``kMinCrossSq`` (or the
+  cross product is otherwise degenerate) it returns a safe default output
+  (:math:`\boldsymbol{\sigma}_{R/N}=\boldsymbol{0}`, i.e. the identity :math:`\mathcal{R}/\mathcal{N}` attitude, with
+  zero rates) instead of propagating ``NaN``.
+* :math:`\Delta\boldsymbol{v}` near-zero norm leaves the burn direction undefined. The module **guards** this case:
+  when :math:`\lVert\Delta\boldsymbol{v}\rVert^2` falls below ``kMinNormSq`` it returns the same safe default
+  instead of propagating ``NaN`` through the first normalize step.
 * :math:`\dot\theta` is constant for the entire burn; the module does not support time-varying rotation rates.
 * All math is single-precision (FP32). For burns with very small :math:`\dot\theta\,\Delta t` rotations, numerical
-  noise on :math:`[B_{u,t}B_{u,b}]` can dominate the small-angle deviation; downstream consumers should apply their
-  own threshold logic if needed.
+  noise on :math:`[B_{u,t}B_{u,b}]` would dominate the small-angle deviation, so the module **guards** this case
+  too: a rotation magnitude :math:`\lvert\dot\theta\,\Delta t\rvert` below ``kSmallAngle`` is reported as the
+  identity rotation (the clean base burn frame :math:`[B_{u,b}\mathcal{N}]`) rather than the noise.
+
+Numerical conditioning
+----------------------
+
+The guard thresholds bound the FP32 reference error rather than being arbitrary cutoffs. The base-frame
+construction normalizes :math:`\hat{\boldsymbol{r}} \times \hat{\boldsymbol{v}}`, whose magnitude is
+:math:`\sin(\text{angle})`; this amplifies the relative round-off by :math:`\sim 1/\sin(\text{angle})`. With a
+float epsilon of :math:`\sim 1.2\times10^{-7}` and the additional amplification of the second Gram-Schmidt
+normalization, the matrix product, and the DCM\ :math:`\leftrightarrow`\ MRP round-trip, the per-element DCM error
+reaches :math:`\sim 10^{-5}` near :math:`\sin(\text{angle}) \approx 1.7\times10^{-2}`. ``kMinCrossSq`` =
+:math:`9\times10^{-4}` (i.e. :math:`\sin(\text{angle}) \approx 3\times10^{-2}`, about :math:`1.7^\circ`) is the
+boundary below which the frame is no longer trusted to FP32 reference accuracy; the unit tests verify the algorithm
+matches a double-precision reference to :math:`10^{-5}` only outside this guard region. ``kSmallAngle`` =
+:math:`10^{-5}` rad is the corresponding rotation-magnitude floor (at the module's FP32 precision), and
+``kMinNormSq`` = :math:`10^{-12}` (\ :math:`\sim 10^{-6}` m/s) flags an effectively zero commanded delta-V.
