@@ -2,15 +2,10 @@
 // Copyright (c) 2025, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
 
 #include "triad.h"
-
 #include <stdexcept>
-
 #include <Eigen/Core>
-
-#include "architecture/utilities/rigidBodyKinematics.hpp"
 #include <architecture/utilities/eigenSupport.h>
 
-static constexpr float kNormEpsilon = 1e-6F;
 
 class XmeraLifecycleException : public std::runtime_error {
    public:
@@ -25,7 +20,6 @@ void Triad::reset(const uint64_t callTime) {
         throw std::invalid_argument("triad.bodyHeadingInMsg wasn't connected.");
     }
 
-    // Phase 2: Validate config and create algorithm
     auto config = TriadConfig::create(this->a1Hat_B, this->hHat_N);
     this->algorithm = std::make_unique<TriadAlgorithm>(config);
 }
