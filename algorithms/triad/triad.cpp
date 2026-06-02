@@ -96,5 +96,5 @@ void Triad::updateState(const uint64_t callTime) {
     const Eigen::Vector3f sigma_RN = this->algorithm->update(rHat_SB_N, hReqHat_N, hRefHat_B);
 
     eigenVectorToCArray(sigma_RN, attRefOut.sigma_RN);
-    this->attRefOutMsg.write(&attRefOut, this->moduleID, callTime);
+    this->attRefOutMsg.write(attRefOut, this->moduleID, callTime);
 }
