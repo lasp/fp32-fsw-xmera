@@ -27,7 +27,9 @@ inline Eigen::Matrix3f makeControlAxes(uint32_t numControlAxes) {
     return controlAxes_B;
 }
 
-// Independent reference computation of the RW motor torques for verification.
+// Independent reference computation of the RW motor torques for verification. Reimplements the
+// algorithm's folded mapping (control-axis projection + minimum-norm pseudo-inverse + availability
+// scatter into a single matrix) so it matches the algorithm's fp32 product association.
 inline Eigen::Vector<float, kMaxNumRw> referenceUpdate(const Eigen::Matrix3f& controlAxes_B,
                                                        const RwMotorTorqueArrayConfiguration& rwConfiguration,
                                                        const RwMotorTorqueAvailability& availability,
@@ -50,29 +52,20 @@ inline Eigen::Vector<float, kMaxNumRw> referenceUpdate(const Eigen::Matrix3f& co
     }
 
     const Eigen::Matrix<float, 3, kMaxNumRw> CGs = controlAxes_B * G_s_B;
+    const Eigen::MatrixXf CGsAvail = CGs.topLeftCorner(numControlAxes, numAvailRW);
+    const Eigen::MatrixXf availableMotorTorqueMap =
+        CGsAvail.transpose() * (CGsAvail * CGsAvail.transpose()).inverse() * (-controlAxes_B.topRows(numControlAxes));
 
-    Eigen::Vector<float, kMaxNumRw> us = Eigen::Vector<float, kMaxNumRw>::Zero();
-    const uint32_t numRows = numControlAxes;
-    const uint32_t numCols = numAvailRW;
-
-    Eigen::Vector3f Lr_C{Eigen::Vector3f::Zero()};
-    Lr_C.head(numRows) = -controlAxes_B.topRows(numRows) * Lr_B;
-
-    Eigen::Vector<float, kMaxNumRw> us_avail{Eigen::Vector<float, kMaxNumRw>::Zero()};
-    us_avail.topRows(numCols) =
-        CGs.topLeftCorner(numRows, numCols).transpose() *
-        (CGs.topLeftCorner(numRows, numCols) * CGs.topLeftCorner(numRows, numCols).transpose()).inverse() *
-        Lr_C.topRows(numRows);
-
+    Eigen::Matrix<float, kMaxNumRw, 3> motorTorqueMap{Eigen::Matrix<float, kMaxNumRw, 3>::Zero()};
     uint32_t j = 0U;
     for (uint32_t i = 0U; i < rwConfiguration.numRW; ++i) {
         if (wheelsAvailability[i] == AVAILABLE) {
-            us[i] = us_avail[j];
+            motorTorqueMap.row(i) = availableMotorTorqueMap.row(j);
             j += 1U;
         }
     }
 
-    return us;
+    return motorTorqueMap * Lr_B;
 }
 
 inline void testRwMotorTorqueSetup() {

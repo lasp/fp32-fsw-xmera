@@ -17,35 +17,47 @@ void RwMotorTorqueAlgorithm::configure(const RwMotorTorqueArrayConfiguration& rw
     /*!- count the number of controlled axes. The control axes mapping matrix is already validated by
      RwMotorTorqueConfig (finite, filled top to bottom, at least one axis), so a simple count suffices. */
     const Eigen::Matrix3f& controlAxes_B = this->cfg.getControlAxes();
-    this->numControlAxes = 0U;
+    uint32_t numControlAxes = 0U;
     for (uint32_t i = 0U; i < 3U; ++i) {
         if (controlAxes_B.row(i).norm() > 0.0F) {
-            this->numControlAxes += 1U;
+            numControlAxes += 1U;
         }
     }
-
-    /*! - Store static RW config data in module variables */
-    this->numRW = rwConfiguration.numRW;
-    this->wheelsAvailability = availability.wheelAvailability;
 
     /*! - Build the [Gs] projection matrix from the available RWs. A wheel left at its default AVAILABLE
      state (i.e. no availability message was provided) is always included. */
+    const std::array<FSWdeviceAvailability, kMaxNumRw>& wheelsAvailability = availability.wheelAvailability;
     Eigen::Matrix<float, 3, kMaxNumRw> G_s_B{Eigen::Matrix<float, 3, kMaxNumRw>::Zero()};
-    uint32_t numAvailWheels = 0U;
-    for (uint32_t i = 0U; i < this->numRW; ++i) {
-        if (this->wheelsAvailability[i] == AVAILABLE) {
-            G_s_B.col(numAvailWheels) = rwConfiguration.GsMatrix_B.col(i).normalized();
-            numAvailWheels += 1U;
+    uint32_t numAvailRW = 0U;
+    for (uint32_t i = 0U; i < rwConfiguration.numRW; ++i) {
+        if (wheelsAvailability[i] == AVAILABLE) {
+            G_s_B.col(numAvailRW) = rwConfiguration.GsMatrix_B.col(i).normalized();
+            numAvailRW += 1U;
         }
     }
-    this->numAvailRW = numAvailWheels;
 
-    this->CGs = controlAxes_B * G_s_B;
-    const Eigen::FullPivLU<Eigen::MatrixXf> lu_decomp(this->CGs);
-    const auto controlMappingRank = static_cast<uint32_t>(lu_decomp.rank());
-
-    if (controlMappingRank < this->numControlAxes) {
+    const Eigen::Matrix<float, 3, kMaxNumRw> CGs = controlAxes_B * G_s_B;
+    const Eigen::FullPivLU<Eigen::MatrixXf> lu_decomp(CGs);
+    if (static_cast<uint32_t>(lu_decomp.rank()) < numControlAxes) {
         FSW_THROW_INVALID_ARGUMENT("rwMotorTorque: control mapping matrix [CB][G_s] is not full rank.");
+    }
+
+    /*! - Precompute the constant map from the commanded body torque to the available RW motor torques:
+     us_avail = [CGs].T inv([CGs][CGs].T) (-[CB] Lr_B). The control-axis projection and minimum-norm
+     pseudo-inverse only depend on the configuration, so they are folded into a single matrix here. A
+     full-rank [CGs] guarantees numAvailRW >= numControlAxes >= 1, so the active block is non-empty. */
+    const Eigen::MatrixXf CGsAvail = CGs.topLeftCorner(numControlAxes, numAvailRW);
+    const Eigen::MatrixXf availableMotorTorqueMap =
+        CGsAvail.transpose() * (CGsAvail * CGsAvail.transpose()).inverse() * (-controlAxes_B.topRows(numControlAxes));
+
+    /*! - Scatter the available-wheel rows back onto the full RW array; rows of unavailable wheels stay zero. */
+    this->motorTorqueMap.setZero();
+    uint32_t j = 0U;
+    for (uint32_t i = 0U; i < rwConfiguration.numRW; ++i) {
+        if (wheelsAvailability[i] == AVAILABLE) {
+            this->motorTorqueMap.row(i) = availableMotorTorqueMap.row(j);
+            j += 1U;
+        }
     }
 }
 
@@ -54,30 +66,5 @@ void RwMotorTorqueAlgorithm::configure(const RwMotorTorqueArrayConfiguration& rw
  @param Lr_B total commanded control torque on the spacecraft in body-frame components
  */
 Eigen::Vector<float, kMaxNumRw> RwMotorTorqueAlgorithm::update(const Eigen::Vector3f& Lr_B) const {
-    /*! - zero RW motor torque variable */
-    Eigen::Vector<float, kMaxNumRw> us = Eigen::Vector<float, kMaxNumRw>::Zero();
-
-    /*! - Compute minimum norm inverse for us = [CGs].T inv([CGs][CGs].T) [Lr_C] */
-    const uint32_t numRows = this->numControlAxes;
-    const uint32_t numCols = this->numAvailRW;
-
-    Eigen::Vector3f Lr_C{Eigen::Vector3f::Zero()};
-    Lr_C.head(numRows) = -this->cfg.getControlAxes().topRows(numRows) * Lr_B;
-
-    Eigen::Vector<float, kMaxNumRw> us_avail{Eigen::Vector<float, kMaxNumRw>::Zero()};
-    us_avail.topRows(numCols) =
-        this->CGs.topLeftCorner(numRows, numCols).transpose() *
-        (this->CGs.topLeftCorner(numRows, numCols) * this->CGs.topLeftCorner(numRows, numCols).transpose()).inverse() *
-        Lr_C.topRows(numRows);
-
-    /*! - map the desired RW motor torques to the available RWs */
-    uint32_t j = 0U;
-    for (uint32_t i = 0U; i < this->numRW; ++i) {
-        if (this->wheelsAvailability[i] == AVAILABLE) {
-            us[i] = us_avail[j];
-            j += 1U;
-        }
-    }
-
-    return us;
+    return this->motorTorqueMap * Lr_B;
 }

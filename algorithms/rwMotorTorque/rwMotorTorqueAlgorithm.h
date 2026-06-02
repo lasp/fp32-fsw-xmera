@@ -80,13 +80,10 @@ class RwMotorTorqueAlgorithm final {
     Eigen::Vector<float, kMaxNumRw> update(const Eigen::Vector3f& Lr_B) const;  //!< [N-m] RW motor torques
 
    private:
-    RwMotorTorqueConfig cfg;    //!< [-] validated configuration (control axes mapping matrix)
-    uint32_t numControlAxes{};  //!< [-] counter indicating how many orthogonal axes are controlled
-    uint32_t numAvailRW{};      //!< [-] number of reaction wheels available
-    uint32_t numRW{};           //!< [-] number of reaction wheels on the vehicle
-    Eigen::Matrix<float, 3, kMaxNumRw> CGs{
-        Eigen::Matrix<float, 3, kMaxNumRw>::Zero()};                    //!< [-] The control mapping matrix [CB][G_s]
-    std::array<FSWdeviceAvailability, kMaxNumRw> wheelsAvailability{};  //!< [-] Reaction wheel availability
+    RwMotorTorqueConfig cfg;  //!< [-] validated configuration (control axes mapping matrix)
+    Eigen::Matrix<float, kMaxNumRw, 3> motorTorqueMap{
+        Eigen::Matrix<float, kMaxNumRw, 3>::Zero()};  //!< [-] maps the commanded body control torque to per-RW
+                                                      //!< motor torques (rows of unavailable wheels are zero)
 };
 
 #endif
