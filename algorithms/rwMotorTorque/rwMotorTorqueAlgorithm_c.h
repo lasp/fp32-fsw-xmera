@@ -45,11 +45,11 @@ void RwMotorTorqueAlgorithm_setConfig(RwMotorTorqueAlgorithmHandle* self, const 
  * @brief Configure the algorithm: snapshot the RW spin-axis configuration and availability, and
  *        build the control mapping matrix.
  * @param self         Pointer to the instance.
- * @param rwConfig     Reaction-wheel spin-axis configuration in body-frame components.
+ * @param rwConfiguration     Reaction-wheel spin-axis configuration in body-frame components.
  * @param availability Per-wheel availability (set every wheel AVAILABLE to use all of them).
  */
 void RwMotorTorqueAlgorithm_configure(RwMotorTorqueAlgorithmHandle* self,
-                                      const RwMotorTorqueArrayConfig_c* rwConfig,
+                                      const RwMotorTorqueArrayConfiguration_c* rwConfiguration,
                                       const RwMotorTorqueAvailability_c* availability);
 
 /**

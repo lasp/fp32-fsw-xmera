@@ -25,12 +25,12 @@ typedef struct {
 } RwMotorTorqueConfig_c;
 
 /**
- * @brief Plain-old-data mirror of the C++ RwMotorTorqueArrayConfig.
+ * @brief Plain-old-data mirror of the C++ RwMotorTorqueArrayConfiguration.
  */
 typedef struct {
     uint32_t numRW;                                   /*!< [-]   number of reaction wheels on the vehicle */
     float GsMatrix_B[3 * RW_MOTOR_TORQUE_MAX_NUM_RW]; /*!< [-]   RW spin axes in body frame, three per wheel */
-} RwMotorTorqueArrayConfig_c;
+} RwMotorTorqueArrayConfiguration_c;
 
 /**
  * @brief Plain-old-data mirror of the C++ RwMotorTorqueAvailability.

@@ -10,8 +10,8 @@ RwMotorTorqueConfig configFromC(const RwMotorTorqueConfig_c& c) {
     return RwMotorTorqueConfig::create(c2DArrayToEigenMatrix3(c.controlAxes_B.data));
 }
 
-RwMotorTorqueArrayConfig arrayConfigFromC(const RwMotorTorqueArrayConfig_c& c) {
-    RwMotorTorqueArrayConfig out{};
+RwMotorTorqueArrayConfiguration arrayConfigurationFromC(const RwMotorTorqueArrayConfiguration_c& c) {
+    RwMotorTorqueArrayConfiguration out{};
     out.numRW = c.numRW;
     out.GsMatrix_B = cArrayToEigenMatrix<float, 3, kMaxNumRw>(c.GsMatrix_B);
     return out;
@@ -41,9 +41,9 @@ void RwMotorTorqueAlgorithm_setConfig(RwMotorTorqueAlgorithmHandle* self, const 
 }
 
 void RwMotorTorqueAlgorithm_configure(RwMotorTorqueAlgorithmHandle* self,
-                                      const RwMotorTorqueArrayConfig_c* rwConfig,
+                                      const RwMotorTorqueArrayConfiguration_c* rwConfiguration,
                                       const RwMotorTorqueAvailability_c* availability) {
-    reinterpret_cast<::RwMotorTorqueAlgorithm*>(self)->configure(arrayConfigFromC(*rwConfig),
+    reinterpret_cast<::RwMotorTorqueAlgorithm*>(self)->configure(arrayConfigurationFromC(*rwConfiguration),
                                                                  availabilityFromC(*availability));
 }
 

@@ -29,7 +29,7 @@ inline Eigen::Matrix3f makeControlAxes(uint32_t numControlAxes) {
 
 // Independent reference computation of the RW motor torques for verification.
 inline Eigen::Vector<float, kMaxNumRw> referenceUpdate(const Eigen::Matrix3f& controlAxes_B,
-                                                       const RwMotorTorqueArrayConfig& rwConfig,
+                                                       const RwMotorTorqueArrayConfiguration& rwConfiguration,
                                                        const RwMotorTorqueAvailability& availability,
                                                        const Eigen::Vector3f& Lr_B) {
     uint32_t numControlAxes = 0U;
@@ -42,9 +42,9 @@ inline Eigen::Vector<float, kMaxNumRw> referenceUpdate(const Eigen::Matrix3f& co
     Eigen::Matrix<float, 3, kMaxNumRw> G_s_B{Eigen::Matrix<float, 3, kMaxNumRw>::Zero()};
     uint32_t numAvailRW = 0U;
     const std::array<FSWdeviceAvailability, kMaxNumRw>& wheelsAvailability = availability.wheelAvailability;
-    for (uint32_t i = 0U; i < rwConfig.numRW; ++i) {
+    for (uint32_t i = 0U; i < rwConfiguration.numRW; ++i) {
         if (wheelsAvailability[i] == AVAILABLE) {
-            G_s_B.col(numAvailRW) = rwConfig.GsMatrix_B.col(i).normalized();
+            G_s_B.col(numAvailRW) = rwConfiguration.GsMatrix_B.col(i).normalized();
             numAvailRW += 1U;
         }
     }
@@ -65,7 +65,7 @@ inline Eigen::Vector<float, kMaxNumRw> referenceUpdate(const Eigen::Matrix3f& co
         Lr_C.topRows(numRows);
 
     uint32_t j = 0U;
-    for (uint32_t i = 0U; i < rwConfig.numRW; ++i) {
+    for (uint32_t i = 0U; i < rwConfiguration.numRW; ++i) {
         if (wheelsAvailability[i] == AVAILABLE) {
             us[i] = us_avail[j];
             j += 1U;
@@ -78,7 +78,7 @@ inline Eigen::Vector<float, kMaxNumRw> referenceUpdate(const Eigen::Matrix3f& co
 inline void testRwMotorTorqueSetup() {
     // --- Test expected exceptions ---
 
-    const RwMotorTorqueArrayConfig rwConfig{};
+    const RwMotorTorqueArrayConfiguration rwConfiguration{};
     const RwMotorTorqueAvailability availability{};
 
     // control axes matrix not properly set up (control axes not filled from top to bottom before any zero rows):
@@ -93,7 +93,7 @@ inline void testRwMotorTorqueSetup() {
     // the config is valid, but configure() rejects the rank-deficient mapping
     controlAxes_B = makeControlAxes(3U);
     RwMotorTorqueAlgorithm alg{RwMotorTorqueConfig::create(controlAxes_B)};
-    EXPECT_THROW(alg.configure(rwConfig, availability), fsw::invalid_argument);
+    EXPECT_THROW(alg.configure(rwConfiguration, availability), fsw::invalid_argument);
 }
 
 inline void testRwMotorTorque(const Eigen::Vector3f& Lr1_B,
@@ -114,9 +114,9 @@ inline void testRwMotorTorque(const Eigen::Vector3f& Lr1_B,
     RwMotorTorqueAlgorithm alg{RwMotorTorqueConfig::create(controlAxes_B)};
 
     // Build the RW array configuration from the flat spin-axis array
-    RwMotorTorqueArrayConfig rwConfig{};
-    rwConfig.numRW = static_cast<uint32_t>(numRW);
-    rwConfig.GsMatrix_B = cArrayToEigenMatrix<float, 3, kMaxNumRw>(GsMatrix_B.data());
+    RwMotorTorqueArrayConfiguration rwConfiguration{};
+    rwConfiguration.numRW = static_cast<uint32_t>(numRW);
+    rwConfiguration.GsMatrix_B = cArrayToEigenMatrix<float, 3, kMaxNumRw>(GsMatrix_B.data());
 
     // Build the availability: wheelAvailabilityBool[i] == true marks wheel i UNAVAILABLE
     RwMotorTorqueAvailability availability{};
@@ -136,9 +136,9 @@ inline void testRwMotorTorque(const Eigen::Vector3f& Lr1_B,
     // at the default AVAILABLE state (no availability message) are always included.
     Eigen::Matrix<float, 3, kMaxNumRw> G_s_B{Eigen::Matrix<float, 3, kMaxNumRw>::Zero()};
     uint32_t numAvailWheels = 0U;
-    for (uint32_t i = 0U; i < rwConfig.numRW; ++i) {
+    for (uint32_t i = 0U; i < rwConfiguration.numRW; ++i) {
         if (availability.wheelAvailability[i] == AVAILABLE) {
-            G_s_B.col(numAvailWheels) = rwConfig.GsMatrix_B.col(i).normalized();
+            G_s_B.col(numAvailWheels) = rwConfiguration.GsMatrix_B.col(i).normalized();
             numAvailWheels += 1U;
         }
     }
@@ -148,16 +148,16 @@ inline void testRwMotorTorque(const Eigen::Vector3f& Lr1_B,
     const auto controlMappingRank = static_cast<uint32_t>(lu_decomp.rank());
 
     if (controlMappingRank < numControlAxes) {
-        EXPECT_THROW(alg.configure(rwConfig, availability), fsw::invalid_argument);
+        EXPECT_THROW(alg.configure(rwConfiguration, availability), fsw::invalid_argument);
         return;
     }
-    EXPECT_NO_THROW(alg.configure(rwConfig, availability));
+    EXPECT_NO_THROW(alg.configure(rwConfiguration, availability));
 
     // Compare against the independent reference
     Eigen::Vector<float, kMaxNumRw> out{Eigen::Vector<float, kMaxNumRw>::Zero()};
     Eigen::Vector<float, kMaxNumRw> ref{Eigen::Vector<float, kMaxNumRw>::Zero()};
     EXPECT_NO_THROW(out = alg.update(Lr_B));
-    EXPECT_NO_THROW(ref = referenceUpdate(controlAxes_B, rwConfig, availability, Lr_B));
+    EXPECT_NO_THROW(ref = referenceUpdate(controlAxes_B, rwConfiguration, availability, Lr_B));
 
     for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
         // Reference correctness

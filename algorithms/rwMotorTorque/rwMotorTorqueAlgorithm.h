@@ -12,7 +12,7 @@
 inline constexpr uint32_t kMaxNumRw = RW_MOTOR_TORQUE_MAX_NUM_RW;
 
 /*! @brief Reaction-wheel spin-axis configuration in body-frame components. */
-struct RwMotorTorqueArrayConfig {
+struct RwMotorTorqueArrayConfiguration {
     uint32_t numRW{};  //!< [-] number of reaction wheels on the vehicle
     Eigen::Matrix<float, 3, kMaxNumRw> GsMatrix_B{
         Eigen::Matrix<float, 3, kMaxNumRw>::Zero()};  //!< [-] RW spin axes in body frame, one column per wheel
@@ -75,7 +75,8 @@ class RwMotorTorqueAlgorithm final {
     explicit RwMotorTorqueAlgorithm(const RwMotorTorqueConfig& config);
 
     void setConfig(const RwMotorTorqueConfig& config);
-    void configure(const RwMotorTorqueArrayConfig& rwConfig, const RwMotorTorqueAvailability& availability);
+    void configure(const RwMotorTorqueArrayConfiguration& rwConfiguration,
+                   const RwMotorTorqueAvailability& availability);
     Eigen::Vector<float, kMaxNumRw> update(const Eigen::Vector3f& Lr_B) const;  //!< [N-m] RW motor torques
 
    private:

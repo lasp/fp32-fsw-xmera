@@ -9,10 +9,10 @@ void RwMotorTorqueAlgorithm::setConfig(const RwMotorTorqueConfig& config) { this
 
 /*! This method configures the module by populating any necessary class members.
  @return void
- @param rwConfig reaction-wheel spin-axis configuration in body-frame components
+ @param rwConfiguration reaction-wheel spin-axis configuration in body-frame components
  @param availability per-wheel reaction-wheel availability (a default-constructed value marks every wheel AVAILABLE)
  */
-void RwMotorTorqueAlgorithm::configure(const RwMotorTorqueArrayConfig& rwConfig,
+void RwMotorTorqueAlgorithm::configure(const RwMotorTorqueArrayConfiguration& rwConfiguration,
                                        const RwMotorTorqueAvailability& availability) {
     /*!- count the number of controlled axes. The control axes mapping matrix is already validated by
      RwMotorTorqueConfig (finite, filled top to bottom, at least one axis), so a simple count suffices. */
@@ -25,7 +25,7 @@ void RwMotorTorqueAlgorithm::configure(const RwMotorTorqueArrayConfig& rwConfig,
     }
 
     /*! - Store static RW config data in module variables */
-    this->numRW = rwConfig.numRW;
+    this->numRW = rwConfiguration.numRW;
     this->wheelsAvailability = availability.wheelAvailability;
 
     /*! - Build the [Gs] projection matrix from the available RWs. A wheel left at its default AVAILABLE
@@ -34,7 +34,7 @@ void RwMotorTorqueAlgorithm::configure(const RwMotorTorqueArrayConfig& rwConfig,
     uint32_t numAvailWheels = 0U;
     for (uint32_t i = 0U; i < this->numRW; ++i) {
         if (this->wheelsAvailability[i] == AVAILABLE) {
-            G_s_B.col(numAvailWheels) = rwConfig.GsMatrix_B.col(i).normalized();
+            G_s_B.col(numAvailWheels) = rwConfiguration.GsMatrix_B.col(i).normalized();
             numAvailWheels += 1U;
         }
     }
