@@ -14,9 +14,9 @@ void CelestialTwoBodyPointAlgorithm::reset(const bool secCelBodyIsLinkedIn) {
  downstream.
  @return AttRefMsgF32Payload
  */
-AttRefMsgF32Payload CelestialTwoBodyPointAlgorithm::update(EphemerisMsgF32Payload& celBodyIn,
-                                                           EphemerisMsgF32Payload& secCelBodyIn,
-                                                           NavTransMsgF32Payload& transNavIn) const {
+AttRefMsgF32Payload CelestialTwoBodyPointAlgorithm::update(EphemerisMsgF32Payload &celBodyIn,
+                                                           EphemerisMsgF32Payload &secCelBodyIn,
+                                                           NavTransMsgF32Payload &transNavIn) const {
     const Eigen::Vector3d r_PB_N =
         cArrayToEigenVector3(celBodyIn.r_BdyZero_N) - cArrayToEigenVector3(transNavIn.r_BN_N);
     const Eigen::Vector3d v_PB_N =
@@ -27,10 +27,8 @@ AttRefMsgF32Payload CelestialTwoBodyPointAlgorithm::update(EphemerisMsgF32Payloa
 
     float platAngDiff{}; /* Angle between r_PB_N and r_SB_N */
     if (this->secCelBodyIsLinked) {
-        r_SB_N = cArrayToEigenVector3(secCelBodyIn.r_BdyZero_N) -
-                  cArrayToEigenVector3(transNavIn.r_BN_N);
-        v_SB_N = cArrayToEigenVector3(secCelBodyIn.v_BdyZero_N) -
-                  cArrayToEigenVector3(transNavIn.v_BN_N);
+        r_SB_N = cArrayToEigenVector3(secCelBodyIn.r_BdyZero_N) - cArrayToEigenVector3(transNavIn.r_BN_N);
+        v_SB_N = cArrayToEigenVector3(secCelBodyIn.v_BdyZero_N) - cArrayToEigenVector3(transNavIn.v_BN_N);
 
         const float dotProduct = r_SB_N.normalized().dot(r_PB_N.normalized());
         platAngDiff = safeAcosf(dotProduct);
@@ -40,8 +38,8 @@ AttRefMsgF32Payload CelestialTwoBodyPointAlgorithm::update(EphemerisMsgF32Payloa
 
     /*! - Cross the first bodies' states to get R_SB and v_SB if no secondary celestial body is included or
      if the two bodies are close to parallel or if the computed rate was higher than rate threshold */
-    if (!this->secCelBodyIsLinked || cArrayToEigenVector3(attRefOut.omega_RN_N).norm() > this->rateThreshold || fabs(platAngDiff) < this->singularityThreshold ||
-        fabs(platAngDiff) > M_PI - this->singularityThreshold) {
+    if (!this->secCelBodyIsLinked || cArrayToEigenVector3(attRefOut.omega_RN_N).norm() > this->rateThreshold ||
+        fabs(platAngDiff) < this->singularityThreshold || fabs(platAngDiff) > M_PI - this->singularityThreshold) {
         r_SB_N = r_PB_N.cross(v_PB_N);
         v_SB_N = Eigen::Vector3d::Zero();
         attRefOut = this->rateAndAccelCalc(r_PB_N, v_PB_N, r_SB_N, v_SB_N);
@@ -131,7 +129,7 @@ float CelestialTwoBodyPointAlgorithm::getSingularityThreshold() const { return t
  */
 void CelestialTwoBodyPointAlgorithm::setRateThreshold(const float rateThresholdIn) {
     if (rateThresholdIn < 0.0) {
-        FS_THROW_INVALID_ARGUMENT("Rate threshold must not be negative");
+        FSW_THROW_INVALID_ARGUMENT("Rate threshold must not be negative");
     }
     this->rateThreshold = rateThresholdIn;
 }
