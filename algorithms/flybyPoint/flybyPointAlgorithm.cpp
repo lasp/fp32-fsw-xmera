@@ -142,10 +142,10 @@ void FlybyPointAlgorithm::computeRN(const Eigen::Vector3d& r_BN_N, const Eigen::
 
 std::tuple<Eigen::Vector3f, Eigen::Vector3f, Eigen::Vector3f> FlybyPointAlgorithm::computeGuidanceSolution() const {
     // dt is a sub-second to sub-minute time delta; float resolution (~120 ns) is adequate for guidance
-    const auto dt = static_cast<float>(this->dt);
+    const auto dtF32 = static_cast<float>(this->dt);
 
     /*! compute DCM (RtR0) of reference frame from last read time */
-    float theta = safeAtanf(safeTanf(this->gamma0) + (this->f0 / safeCosf(this->gamma0) * dt)) - this->gamma0;
+    float theta = safeAtanf(safeTanf(this->gamma0) + (this->f0 / safeCosf(this->gamma0) * dtF32)) - this->gamma0;
     Eigen::Vector3f PRV_theta{0.0F, 0.0F, theta};
     Eigen::Matrix3f RtR0 = prvToDcm(PRV_theta);
 
@@ -153,10 +153,10 @@ std::tuple<Eigen::Vector3f, Eigen::Vector3f, Eigen::Vector3f> FlybyPointAlgorith
     Eigen::Matrix3f RtN = RtR0 * this->R0N;
 
     /*! compute scalar angular rate and acceleration of the reference frame in R-frame coordinates */
-    float den = ((this->f0 * this->f0 * dt * dt) + (2.0F * this->f0 * safeSinf(this->gamma0) * dt) + 1.0F);
+    float den = ((this->f0 * this->f0 * dtF32 * dtF32) + (2.0F * this->f0 * safeSinf(this->gamma0) * dtF32) + 1.0F);
     float thetaDot = this->f0 * safeCosf(this->gamma0) / den;
-    float thetaDDot =
-        -2.0F * this->f0 * this->f0 * safeCosf(this->gamma0) * (this->f0 * dt + safeSinf(this->gamma0)) / (den * den);
+    float thetaDDot = -2.0F * this->f0 * this->f0 * safeCosf(this->gamma0) *
+                      (this->f0 * dtF32 + safeSinf(this->gamma0)) / (den * den);
     Eigen::Vector3f omega_RN_R{0.0F, 0.0F, thetaDot};
     Eigen::Vector3f omegaDot_RN_R{0.0F, 0.0F, thetaDDot};
 
