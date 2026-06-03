@@ -113,7 +113,7 @@ bool FlybyPointAlgorithm::checkValidity(uint64_t currentSimNanos,
     }
 
     /*! check if the position error exceeds a-priori sigma bound */
-    double deltaT = currentSimNanos * NANO2SEC - this->timeOfFirstRead;
+    double deltaT = (currentSimNanos * NANO2SEC) - this->timeOfFirstRead;
     double deltaPositionNorm = (r_BN_N - (this->firstNavPosition + deltaT * this->firstNavVelocity)).norm();
     if (deltaPositionNorm > this->positionKnowledgeSigma && this->positionKnowledgeSigma > 0) {
         valid = false;
@@ -145,7 +145,7 @@ std::tuple<Eigen::Vector3f, Eigen::Vector3f, Eigen::Vector3f> FlybyPointAlgorith
     const auto dt = static_cast<float>(this->dt);
 
     /*! compute DCM (RtR0) of reference frame from last read time */
-    float theta = safeAtanf(safeTanf(this->gamma0) + this->f0 / safeCosf(this->gamma0) * dt) - this->gamma0;
+    float theta = safeAtanf(safeTanf(this->gamma0) + (this->f0 / safeCosf(this->gamma0) * dt)) - this->gamma0;
     Eigen::Vector3f PRV_theta{0.0F, 0.0F, theta};
     Eigen::Matrix3f RtR0 = prvToDcm(PRV_theta);
 
@@ -153,7 +153,7 @@ std::tuple<Eigen::Vector3f, Eigen::Vector3f, Eigen::Vector3f> FlybyPointAlgorith
     Eigen::Matrix3f RtN = RtR0 * this->R0N;
 
     /*! compute scalar angular rate and acceleration of the reference frame in R-frame coordinates */
-    float den = (this->f0 * this->f0 * dt * dt + 2.0F * this->f0 * safeSinf(this->gamma0) * dt + 1.0F);
+    float den = ((this->f0 * this->f0 * dt * dt) + (2.0F * this->f0 * safeSinf(this->gamma0) * dt) + 1.0F);
     float thetaDot = this->f0 * safeCosf(this->gamma0) / den;
     float thetaDDot =
         -2.0F * this->f0 * this->f0 * safeCosf(this->gamma0) * (this->f0 * dt + safeSinf(this->gamma0)) / (den * den);
