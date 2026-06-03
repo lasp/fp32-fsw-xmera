@@ -13,7 +13,7 @@
 %include <architecture/_GeneralModuleFiles/sys_model.i>
 %include "flybyPoint.h"
 
-%include <architecture/msgPayloadDef/NavTransMsgPayload.h>
+%include "msgPayloadDef/NavTransMsgF32Payload.h"
 %include <architecture/msgPayloadDef/EphemerisMsgPayload.h>
 %include <architecture/msgPayloadDef/AttRefMsgPayload.h>
 %include <architecture/msgPayloadDef/FlybyDiagnosticMsgPayload.h>
