@@ -17,9 +17,9 @@ void CelestialTwoBodyPointAlgorithm::reset(const bool secCelBodyIsLinkedIn) {
  @param transNavIn spacecraft translational navigation solution
  @return attitude reference message payload
  */
-AttRefMsgF32Payload CelestialTwoBodyPointAlgorithm::update(EphemerisMsgF32Payload &celBodyIn,
-                                                           EphemerisMsgF32Payload &secCelBodyIn,
-                                                           NavTransMsgF32Payload &transNavIn) const {
+AttRefMsgF32Payload CelestialTwoBodyPointAlgorithm::update(const EphemerisMsgF32Payload &celBodyIn,
+                                                           const EphemerisMsgF32Payload &secCelBodyIn,
+                                                           const NavTransMsgF32Payload &transNavIn) const {
     const Eigen::Vector3d r_PB_N =
         cArrayToEigenVector3(celBodyIn.r_BdyZero_N) - cArrayToEigenVector3(transNavIn.r_BN_N);
     const Eigen::Vector3d v_PB_N =
