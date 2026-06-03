@@ -71,8 +71,8 @@ def test_celestial_two_body_point_test_function(secondary_body):
 
     module = celestialTwoBodyPointF32.CelestialTwoBodyPoint()
     module.modelTag = "celestialTwoBodyPoint"
-    module.setSingularityThreshold(1.0 * af.D2R)
-    module.setRateThreshold(10.0 * af.D2R)
+    module.singularityThreshold = 1.0 * af.D2R
+    module.rateThreshold = 10.0 * af.D2R
     unit_test_sim.AddModelToTask(unit_task_name, module)
 
     # Previous Computation of Initial Conditions for the test
