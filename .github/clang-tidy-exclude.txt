@@ -57,6 +57,8 @@ algorithms/sunSafePoint/sunSafePoint.h
 algorithms/sunSafePoint/sunSafePoint.cpp
 algorithms/sunSearch/sunSearch.h
 algorithms/sunSearch/sunSearch.cpp
+algorithms/sunSearch/sunSearchAlgorithm_c.h
+algorithms/sunSearch/sunSearchAlgorithm_c.cpp
 algorithms/sunlineEphem/sunlineEphem.h
 algorithms/sunlineEphem/sunlineEphem.cpp
 algorithms/sunTrackError/sunTrackError.h

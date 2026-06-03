@@ -10,12 +10,11 @@
 
 %include <architecture/_GeneralModuleFiles/sys_model.i>
 
-STRUCTASLIST(SlewProperties)
+STRUCTASLIST(RotationProperties)
 
 %include "sunSearch.h"
 %include "sunSearchAlgorithm.h"
 %include "sunSearchTypes.h"
 
 %include "msgPayloadDef/NavAttMsgF32Payload.h"
-%include "msgPayloadDef/VehicleConfigMsgF32Payload.h"
 %include "msgPayloadDef/AttGuidMsgF32Payload.h"
