@@ -16,11 +16,8 @@ void CelestialTwoBodyPoint::reset(const uint64_t callTime) {
     this->algorithm.reset(this->secCelBodyIsLinked);
 }
 
-/*! This method takes the spacecraft and points a specified axis at a named
- celestial body specified in the configuration data.  It generates the
- commanded attitude and assumes that the control errors are computed
- downstream.
- @return void
+/*! This method reads the input messages, computes the two-body celestial pointing attitude
+ reference, and writes the attitude reference output message.
  @param callTime The clock time at which the function was called (nanoseconds)
  */
 void CelestialTwoBodyPoint::updateState(const uint64_t callTime) {

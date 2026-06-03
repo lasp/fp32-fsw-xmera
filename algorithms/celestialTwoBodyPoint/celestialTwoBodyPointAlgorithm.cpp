@@ -8,11 +8,14 @@ void CelestialTwoBodyPointAlgorithm::reset(const bool secCelBodyIsLinkedIn) {
     this->secCelBodyIsLinked = secCelBodyIsLinkedIn;
 }
 
-/*! This method takes the spacecraft and points a specified axis at a named
- celestial body specified in the configuration data.  It generates the
- commanded attitude and assumes that the control errors are computed
- downstream.
- @return AttRefMsgF32Payload
+/*! This method computes the attitude reference that points the primary axis at the primary
+ celestial body while aligning a second axis as close as possible toward the secondary
+ celestial body. It generates the commanded attitude and assumes that the control errors are
+ computed downstream.
+ @param celBodyIn primary celestial body ephemeris
+ @param secCelBodyIn secondary celestial body ephemeris (ignored when not linked)
+ @param transNavIn spacecraft translational navigation solution
+ @return attitude reference message payload
  */
 AttRefMsgF32Payload CelestialTwoBodyPointAlgorithm::update(EphemerisMsgF32Payload &celBodyIn,
                                                            EphemerisMsgF32Payload &secCelBodyIn,
@@ -108,7 +111,7 @@ AttRefMsgF32Payload CelestialTwoBodyPointAlgorithm::rateAndAccelCalc(const Eigen
 
 /**
  * @brief Set the singularity threshold
- * @param singularityThresholdIn singularity threshold
+ * @param singularityThresholdIn [rad] angle threshold below which the constraint axis is fixed
  */
 void CelestialTwoBodyPointAlgorithm::setSingularityThreshold(const float singularityThresholdIn) {
     if (singularityThresholdIn < 0.0) {
@@ -119,13 +122,13 @@ void CelestialTwoBodyPointAlgorithm::setSingularityThreshold(const float singula
 
 /**
  * @brief Get the singularity threshold
- * @return float singularity threshold
+ * @return [rad] angle threshold below which the constraint axis is fixed
  */
 float CelestialTwoBodyPointAlgorithm::getSingularityThreshold() const { return this->singularityThreshold; }
 
 /**
  * @brief Set the rate threshold
- * @param rateThresholdIn rate threshold
+ * @param rateThresholdIn [rad/s] rate threshold above which the constraint axis is fixed
  */
 void CelestialTwoBodyPointAlgorithm::setRateThreshold(const float rateThresholdIn) {
     if (rateThresholdIn < 0.0) {
@@ -136,6 +139,6 @@ void CelestialTwoBodyPointAlgorithm::setRateThreshold(const float rateThresholdI
 
 /**
  * @brief Get the rate threshold
- * @return float rate threshold
+ * @return [rad/s] rate threshold above which the constraint axis is fixed
  */
 float CelestialTwoBodyPointAlgorithm::getRateThreshold() const { return this->rateThreshold; }
