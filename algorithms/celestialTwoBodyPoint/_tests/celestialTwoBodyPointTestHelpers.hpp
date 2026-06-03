@@ -151,6 +151,48 @@ inline void testCelestialTwoBodyPoint(const Eigen::Vector3d& r_celBody_N,
     }
 }
 
+// Property: every output component is finite for well-posed inputs.
+inline void propertyOutputIsFinite(const Eigen::Vector3d& r_celBody_N,
+                                   const Eigen::Vector3d& v_celBody_N,
+                                   const Eigen::Vector3d& r_secCelBody_N,
+                                   const Eigen::Vector3d& v_secCelBody_N,
+                                   const Eigen::Vector3d& r_BN_N,
+                                   const Eigen::Vector3d& v_BN_N,
+                                   const float singularityThreshold,
+                                   const float rateThreshold,
+                                   const bool secCelBodyIsLinked) {
+    const CelestialTwoBodyPointAlgorithm alg(
+        CelestialTwoBodyPointConfig::create(singularityThreshold, rateThreshold, secCelBodyIsLinked));
+
+    CelestialTwoBodyPointOutput out;
+    EXPECT_NO_THROW(out = alg.update(r_celBody_N, v_celBody_N, r_secCelBody_N, v_secCelBody_N, r_BN_N, v_BN_N));
+
+    for (int i = 0; i < 3; ++i) {
+        EXPECT_TRUE(std::isfinite(out.sigma_RN[i]));
+        EXPECT_TRUE(std::isfinite(out.omega_RN_N[i]));
+        EXPECT_TRUE(std::isfinite(out.domega_RN_N[i]));
+    }
+}
+
+// Property: dcmToMrp always returns the short-rotation MRP set, so |sigma_RN| <= 1.
+inline void propertySigmaNormBounded(const Eigen::Vector3d& r_celBody_N,
+                                     const Eigen::Vector3d& v_celBody_N,
+                                     const Eigen::Vector3d& r_secCelBody_N,
+                                     const Eigen::Vector3d& v_secCelBody_N,
+                                     const Eigen::Vector3d& r_BN_N,
+                                     const Eigen::Vector3d& v_BN_N,
+                                     const float singularityThreshold,
+                                     const float rateThreshold,
+                                     const bool secCelBodyIsLinked) {
+    const CelestialTwoBodyPointAlgorithm alg(
+        CelestialTwoBodyPointConfig::create(singularityThreshold, rateThreshold, secCelBodyIsLinked));
+
+    CelestialTwoBodyPointOutput out;
+    EXPECT_NO_THROW(out = alg.update(r_celBody_N, v_celBody_N, r_secCelBody_N, v_secCelBody_N, r_BN_N, v_BN_N));
+
+    EXPECT_LE(out.sigma_RN.norm(), 1.0F + 1e-6F);
+}
+
 inline void testCelestialTwoBodyPointSetup() {
     EXPECT_NO_THROW({
         const CelestialTwoBodyPointConfig cfg = CelestialTwoBodyPointConfig::create(0.1F, 0.2F, true);

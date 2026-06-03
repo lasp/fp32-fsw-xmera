@@ -103,3 +103,181 @@ TEST(CelestialTwoBodyPointTest, CircularEquatorialOrbitTruthValues) {
     EXPECT_NEAR(out.domega_RN_N[1], 0.0F, tol);
     EXPECT_NEAR(out.domega_RN_N[2], 0.0F, tol);
 }
+
+TEST(CelestialTwoBodyPointTest, ConfigValidCreation) {
+    EXPECT_NO_THROW(CelestialTwoBodyPointConfig::create(0.0F, 0.0F, false));
+    EXPECT_NO_THROW(CelestialTwoBodyPointConfig::create(0.5F, 0.1F, true));
+}
+
+TEST(CelestialTwoBodyPointTest, ConfigInvalidSingularityThreshold) {
+    EXPECT_THROW(CelestialTwoBodyPointConfig::create(-1.0F, 0.1F, false), fsw::invalid_argument);
+    EXPECT_THROW(CelestialTwoBodyPointConfig::create(-1e-7F, 0.1F, false), fsw::invalid_argument);
+    EXPECT_THROW(CelestialTwoBodyPointConfig::create(std::nanf(""), 0.1F, false), fsw::invalid_argument);
+}
+
+TEST(CelestialTwoBodyPointTest, ConfigInvalidRateThreshold) {
+    EXPECT_THROW(CelestialTwoBodyPointConfig::create(0.1F, -1.0F, false), fsw::invalid_argument);
+    EXPECT_THROW(CelestialTwoBodyPointConfig::create(0.1F, -1e-7F, false), fsw::invalid_argument);
+    EXPECT_THROW(CelestialTwoBodyPointConfig::create(0.1F, std::nanf(""), false), fsw::invalid_argument);
+}
+
+TEST(CelestialTwoBodyPointTest, ConfigRoundTrip) {
+    const auto config = CelestialTwoBodyPointConfig::create(0.25F, 0.125F, true);
+    EXPECT_FLOAT_EQ(config.getSingularityThreshold(), 0.25F);
+    EXPECT_FLOAT_EQ(config.getRateThreshold(), 0.125F);
+    EXPECT_TRUE(config.getSecCelBodyIsLinked());
+}
+
+TEST(CelestialTwoBodyPointTest, ConfigStaticValidators) {
+    EXPECT_TRUE(CelestialTwoBodyPointConfig::isValidSingularityThreshold(0.0F));
+    EXPECT_TRUE(CelestialTwoBodyPointConfig::isValidSingularityThreshold(1.0F));
+    EXPECT_FALSE(CelestialTwoBodyPointConfig::isValidSingularityThreshold(-0.1F));
+    EXPECT_TRUE(CelestialTwoBodyPointConfig::isValidRateThreshold(0.0F));
+    EXPECT_TRUE(CelestialTwoBodyPointConfig::isValidRateThreshold(1.0F));
+    EXPECT_FALSE(CelestialTwoBodyPointConfig::isValidRateThreshold(-0.1F));
+}
+
+TEST(CelestialTwoBodyPointTest, AlgorithmSetConfig) {
+    const auto config1 = CelestialTwoBodyPointConfig::create(0.1F, 0.2F, false);
+    CelestialTwoBodyPointAlgorithm alg(config1);
+
+    const auto config2 = CelestialTwoBodyPointConfig::create(0.3F, 0.4F, true);
+    EXPECT_NO_THROW(alg.setConfig(config2));
+}
+
+TEST(CelestialTwoBodyPointTest, SecondaryAlignedWithPrimaryFallsBack) {
+    // When the secondary body is aligned with the primary as seen by the spacecraft, the
+    // secondary constraint is invalid and the output must match the no-secondary-body result.
+    const Eigen::Vector3d r_celBody_N{1.0e7, 2.0e6, 3.0e5};
+    const Eigen::Vector3d v_celBody_N{-1.0e3, 5.0e3, 2.0e2};
+    const Eigen::Vector3d r_secCelBody_N = 2.5 * r_celBody_N;  // same direction, farther away
+    const Eigen::Vector3d v_secCelBody_N{10.0, -5.0, 2.0};
+
+    const CelestialTwoBodyPointAlgorithm algWithSecondary(
+        CelestialTwoBodyPointConfig::create(1.0F * kDeg2Rad, 10.0F * kDeg2Rad, true));
+    const CelestialTwoBodyPointAlgorithm algNoSecondary(
+        CelestialTwoBodyPointConfig::create(1.0F * kDeg2Rad, 10.0F * kDeg2Rad, false));
+
+    const CelestialTwoBodyPointOutput outWith = algWithSecondary.update(
+        r_celBody_N, v_celBody_N, r_secCelBody_N, v_secCelBody_N, Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero());
+    const CelestialTwoBodyPointOutput outWithout = algNoSecondary.update(r_celBody_N,
+                                                                         v_celBody_N,
+                                                                         Eigen::Vector3d::Zero(),
+                                                                         Eigen::Vector3d::Zero(),
+                                                                         Eigen::Vector3d::Zero(),
+                                                                         Eigen::Vector3d::Zero());
+
+    for (int i = 0; i < 3; ++i) {
+        EXPECT_FLOAT_EQ(outWith.sigma_RN[i], outWithout.sigma_RN[i]);
+        EXPECT_FLOAT_EQ(outWith.omega_RN_N[i], outWithout.omega_RN_N[i]);
+        EXPECT_FLOAT_EQ(outWith.domega_RN_N[i], outWithout.domega_RN_N[i]);
+    }
+}
+
+TEST(CelestialTwoBodyPointTest, SecondaryAntiAlignedWithPrimaryFallsBack) {
+    // Anti-aligned secondary body (angle ~ pi) is also an invalid constraint configuration.
+    const Eigen::Vector3d r_celBody_N{1.0e7, 2.0e6, 3.0e5};
+    const Eigen::Vector3d v_celBody_N{-1.0e3, 5.0e3, 2.0e2};
+    const Eigen::Vector3d r_secCelBody_N = -3.0 * r_celBody_N;  // opposite direction
+    const Eigen::Vector3d v_secCelBody_N{10.0, -5.0, 2.0};
+
+    const CelestialTwoBodyPointAlgorithm algWithSecondary(
+        CelestialTwoBodyPointConfig::create(1.0F * kDeg2Rad, 10.0F * kDeg2Rad, true));
+    const CelestialTwoBodyPointAlgorithm algNoSecondary(
+        CelestialTwoBodyPointConfig::create(1.0F * kDeg2Rad, 10.0F * kDeg2Rad, false));
+
+    const CelestialTwoBodyPointOutput outWith = algWithSecondary.update(
+        r_celBody_N, v_celBody_N, r_secCelBody_N, v_secCelBody_N, Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero());
+    const CelestialTwoBodyPointOutput outWithout = algNoSecondary.update(r_celBody_N,
+                                                                         v_celBody_N,
+                                                                         Eigen::Vector3d::Zero(),
+                                                                         Eigen::Vector3d::Zero(),
+                                                                         Eigen::Vector3d::Zero(),
+                                                                         Eigen::Vector3d::Zero());
+
+    for (int i = 0; i < 3; ++i) {
+        EXPECT_FLOAT_EQ(outWith.sigma_RN[i], outWithout.sigma_RN[i]);
+        EXPECT_FLOAT_EQ(outWith.omega_RN_N[i], outWithout.omega_RN_N[i]);
+        EXPECT_FLOAT_EQ(outWith.domega_RN_N[i], outWithout.domega_RN_N[i]);
+    }
+}
+
+TEST(CelestialTwoBodyPointTest, HighReferenceRateFallsBack) {
+    // With a near-zero rate threshold, any non-zero reference rate from the secondary constraint
+    // exceeds the threshold and the algorithm must fall back to the no-secondary-body solution.
+    const Eigen::Vector3d r_celBody_N{1.0e7, 2.0e6, 3.0e5};
+    const Eigen::Vector3d v_celBody_N{-1.0e3, 5.0e3, 2.0e2};
+    const Eigen::Vector3d r_secCelBody_N{500.0, 500.0, 500.0};
+    const Eigen::Vector3d v_secCelBody_N{100.0, -10.0, 20.0};
+
+    const CelestialTwoBodyPointAlgorithm algTightRate(
+        CelestialTwoBodyPointConfig::create(1.0F * kDeg2Rad, 1e-12F, true));
+    const CelestialTwoBodyPointAlgorithm algNoSecondary(
+        CelestialTwoBodyPointConfig::create(1.0F * kDeg2Rad, 1e-12F, false));
+
+    const CelestialTwoBodyPointOutput outWith = algTightRate.update(
+        r_celBody_N, v_celBody_N, r_secCelBody_N, v_secCelBody_N, Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero());
+    const CelestialTwoBodyPointOutput outWithout = algNoSecondary.update(r_celBody_N,
+                                                                         v_celBody_N,
+                                                                         Eigen::Vector3d::Zero(),
+                                                                         Eigen::Vector3d::Zero(),
+                                                                         Eigen::Vector3d::Zero(),
+                                                                         Eigen::Vector3d::Zero());
+
+    for (int i = 0; i < 3; ++i) {
+        EXPECT_FLOAT_EQ(outWith.sigma_RN[i], outWithout.sigma_RN[i]);
+        EXPECT_FLOAT_EQ(outWith.omega_RN_N[i], outWithout.omega_RN_N[i]);
+        EXPECT_FLOAT_EQ(outWith.domega_RN_N[i], outWithout.domega_RN_N[i]);
+    }
+}
+
+TEST(CelestialTwoBodyPointTest, PropertyOutputIsFinite) {
+    propertyOutputIsFinite({1.0e7, 2.0e6, 3.0e5},
+                           {-1.0e3, 5.0e3, 2.0e2},
+                           {500.0, 500.0, 500.0},
+                           {100.0, -10.0, 20.0},
+                           {0.0, 0.0, 0.0},
+                           {0.0, 0.0, 0.0},
+                           1.0F * kDeg2Rad,
+                           10.0F * kDeg2Rad,
+                           true);
+    propertyOutputIsFinite({1.5e11, 0.0, 0.0},
+                           {0.0, 2.978e4, 0.0},
+                           {0.0, 0.0, 0.0},
+                           {0.0, 0.0, 0.0},
+                           {1.5e11 + 7.0e6, 0.0, 0.0},
+                           {0.0, 7.7e3, 0.0},
+                           1.0F * kDeg2Rad,
+                           10.0F * kDeg2Rad,
+                           true);
+    propertyOutputIsFinite({1.0e7, 0.0, 0.0},
+                           {0.0, 5.0e3, 0.0},
+                           {0.0, 0.0, 0.0},
+                           {0.0, 0.0, 0.0},
+                           {0.0, 0.0, 0.0},
+                           {0.0, 0.0, 0.0},
+                           1.0F * kDeg2Rad,
+                           10.0F * kDeg2Rad,
+                           false);
+}
+
+TEST(CelestialTwoBodyPointTest, PropertySigmaNormBounded) {
+    propertySigmaNormBounded({1.0e7, 2.0e6, 3.0e5},
+                             {-1.0e3, 5.0e3, 2.0e2},
+                             {500.0, 500.0, 500.0},
+                             {100.0, -10.0, 20.0},
+                             {0.0, 0.0, 0.0},
+                             {0.0, 0.0, 0.0},
+                             1.0F * kDeg2Rad,
+                             10.0F * kDeg2Rad,
+                             true);
+    propertySigmaNormBounded({-1.0e7, -2.0e6, 3.0e5},
+                             {1.0e3, -5.0e3, 2.0e2},
+                             {0.0, 0.0, 0.0},
+                             {0.0, 0.0, 0.0},
+                             {0.0, 0.0, 0.0},
+                             {0.0, 0.0, 0.0},
+                             1.0F * kDeg2Rad,
+                             10.0F * kDeg2Rad,
+                             false);
+}
