@@ -20,9 +20,9 @@ void FlybyPointAlgorithm::reset() {
  @param r_BN_N The relative position state
  @param v_BN_N The relative velocity state
  */
-std::pair<AttRefMsgPayload, FlybyDiagnosticMsgPayload> FlybyPointAlgorithm::updateState(uint64_t currentSimNanos,
-                                                                                        const Eigen::Vector3d& r_BN_N,
-                                                                                        const Eigen::Vector3d& v_BN_N) {
+FlybyPointOutput FlybyPointAlgorithm::updateState(uint64_t currentSimNanos,
+                                                  const Eigen::Vector3d& r_BN_N,
+                                                  const Eigen::Vector3d& v_BN_N) {
     /*! init diagnostic message */
     FlybyDiagnosticMsgPayload flybyDiagnosticMsgBuffer = {false, false, false, false};
     /*! compute dt from current time and last filter read time and get new states*/
@@ -49,11 +49,15 @@ std::pair<AttRefMsgPayload, FlybyDiagnosticMsgPayload> FlybyPointAlgorithm::upda
         }
     }
     auto [sigma_RN, omega_RN_N, omegaDot_RN_N] = this->computeGuidanceSolution();
-    AttRefMsgPayload attMsgBuffer{};
-    eigenVectorToCArray(sigma_RN, attMsgBuffer.sigma_RN);
-    eigenVectorToCArray(omega_RN_N, attMsgBuffer.omega_RN_N);
-    eigenVectorToCArray(omegaDot_RN_N, attMsgBuffer.domega_RN_N);
-    return {attMsgBuffer, flybyDiagnosticMsgBuffer};
+    FlybyPointOutput output{};
+    output.sigma_RN = sigma_RN;
+    output.omega_RN_N = omega_RN_N;
+    output.domega_RN_N = omegaDot_RN_N;
+    output.collinearityTrigger = flybyDiagnosticMsgBuffer.collinearityTrigger;
+    output.maxRateTrigger = flybyDiagnosticMsgBuffer.maxRateTrigger;
+    output.maxAccelerationTrigger = flybyDiagnosticMsgBuffer.maxAccelerationTrigger;
+    output.positionKnowledgeExceedTrigger = flybyDiagnosticMsgBuffer.positionKnowledgeExceedTrigger;
+    return output;
 }
 
 void FlybyPointAlgorithm::computeFlybyParameters(const Eigen::Vector3d& r_BN_N, const Eigen::Vector3d& v_BN_N) {

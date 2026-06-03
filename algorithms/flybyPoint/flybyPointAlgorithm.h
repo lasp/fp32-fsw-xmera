@@ -8,13 +8,24 @@
 #include <architecture/msgPayloadDef/FlybyDiagnosticMsgPayload.h>
 #include <Eigen/Dense>
 
+/*! structure containing the attitude guidance outputs of the algorithm */
+struct FlybyPointOutput {
+    Eigen::Vector3d sigma_RN = Eigen::Vector3d::Zero();
+    Eigen::Vector3d omega_RN_N = Eigen::Vector3d::Zero();
+    Eigen::Vector3d domega_RN_N = Eigen::Vector3d::Zero();
+    bool collinearityTrigger = false;
+    bool maxRateTrigger = false;
+    bool maxAccelerationTrigger = false;
+    bool positionKnowledgeExceedTrigger = false;
+};
+
 /*! @brief A class to perform flyby pointing */
 class FlybyPointAlgorithm {
    public:
     void reset();
-    std::pair<AttRefMsgPayload, FlybyDiagnosticMsgPayload> updateState(uint64_t currentSimNanos,
-                                                                       const Eigen::Vector3d& r_BN_N,
-                                                                       const Eigen::Vector3d& v_BN_N);
+    FlybyPointOutput updateState(uint64_t currentSimNanos,
+                                 const Eigen::Vector3d& r_BN_N,
+                                 const Eigen::Vector3d& v_BN_N);
     bool checkValidity(uint64_t currentSimNanos,
                        const Eigen::Vector3d& r_BN_N,
                        const Eigen::Vector3d& v_BN_N,
