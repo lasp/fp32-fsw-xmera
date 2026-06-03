@@ -56,9 +56,13 @@ class CelestialTwoBodyPointConfig final {
  */
 class CelestialTwoBodyPointAlgorithm final {
    public:
-    /*! @brief Store whether the optional secondary celestial body input is available
-        @param secCelBodyIsLinkedIn true if the secondary celestial body message is linked */
-    void reset(bool secCelBodyIsLinkedIn);
+    /*! @brief Construct the algorithm from a validated configuration
+        @param config validated configuration object */
+    explicit CelestialTwoBodyPointAlgorithm(const CelestialTwoBodyPointConfig &config);
+
+    /*! @brief Replace the algorithm configuration
+        @param config validated configuration object */
+    void setConfig(const CelestialTwoBodyPointConfig &config);
 
     /*! @brief Compute the attitude reference that points at the primary celestial body while
         constraining a second axis toward the secondary celestial body when possible
@@ -87,15 +91,9 @@ class CelestialTwoBodyPointAlgorithm final {
                                                         const Eigen::Vector3d &v_PB_N,
                                                         const Eigen::Vector3d &r_SB_N,
                                                         const Eigen::Vector3d &v_SB_N);
-    void setSingularityThreshold(float singularityThresholdIn);
-    float getSingularityThreshold() const;
-    void setRateThreshold(float rateThresholdIn);
-    float getRateThreshold() const;
 
    private:
-    float singularityThreshold{};  //!< [rad] Angle threshold below which the constraint axis is fixed
-    float rateThreshold{};         //!< [rad/s] Rate threshold above which the constraint axis is fixed
-    bool secCelBodyIsLinked{};     //!< Flag to indicate if the optional secondary celestial body message is linked
+    CelestialTwoBodyPointConfig cfg;  //!< Validated algorithm configuration
 };
 
 #endif
