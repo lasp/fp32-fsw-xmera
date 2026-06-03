@@ -1,10 +1,15 @@
 #ifndef F32XMERA_CELESTIAL_BODY_POINT_ALGORITHM_H
 #define F32XMERA_CELESTIAL_BODY_POINT_ALGORITHM_H
 
-#include "msgPayloadDef/AttRefMsgF32Payload.h"
-#include "msgPayloadDef/EphemerisMsgF32Payload.h"
-#include "msgPayloadDef/NavTransMsgF32Payload.h"
 #include <Eigen/Core>
+
+/*!@brief Output of the two-body celestial pointing algorithm.
+ */
+struct CelestialTwoBodyPointOutput {
+    Eigen::Vector3f sigma_RN = Eigen::Vector3f::Zero();     //!< MRP attitude of reference frame relative to inertial
+    Eigen::Vector3f omega_RN_N = Eigen::Vector3f::Zero();   //!< [rad/s] Reference frame angular velocity
+    Eigen::Vector3f domega_RN_N = Eigen::Vector3f::Zero();  //!< [rad/s^2] Reference frame angular acceleration
+};
 
 /*!@brief Algorithm that computes the two-body celestial pointing attitude reference.
  */
@@ -16,13 +21,19 @@ class CelestialTwoBodyPointAlgorithm final {
 
     /*! @brief Compute the attitude reference that points at the primary celestial body while
         constraining a second axis toward the secondary celestial body when possible
-        @param celBodyIn primary celestial body ephemeris
-        @param secCelBodyIn secondary celestial body ephemeris (ignored when not linked)
-        @param transNavIn spacecraft translational navigation solution
-        @return attitude reference message payload */
-    AttRefMsgF32Payload update(const EphemerisMsgF32Payload &celBodyIn,
-                               const EphemerisMsgF32Payload &secCelBodyIn,
-                               const NavTransMsgF32Payload &transNavIn) const;
+        @param r_celBody_N [m] primary celestial body inertial position
+        @param v_celBody_N [m/s] primary celestial body inertial velocity
+        @param r_secCelBody_N [m] secondary celestial body inertial position (ignored when not linked)
+        @param v_secCelBody_N [m/s] secondary celestial body inertial velocity (ignored when not linked)
+        @param r_BN_N [m] spacecraft inertial position
+        @param v_BN_N [m/s] spacecraft inertial velocity
+        @return attitude reference output */
+    CelestialTwoBodyPointOutput update(const Eigen::Vector3d &r_celBody_N,
+                                       const Eigen::Vector3d &v_celBody_N,
+                                       const Eigen::Vector3d &r_secCelBody_N,
+                                       const Eigen::Vector3d &v_secCelBody_N,
+                                       const Eigen::Vector3d &r_BN_N,
+                                       const Eigen::Vector3d &v_BN_N) const;
 
     /*! @brief Compute the reference attitude, angular velocity, and angular acceleration from the
         relative position and velocity of the primary and secondary celestial bodies
@@ -30,11 +41,11 @@ class CelestialTwoBodyPointAlgorithm final {
         @param v_PB_N [m/s] primary celestial body velocity relative to the spacecraft in inertial frame
         @param r_SB_N [m] secondary celestial body position relative to the spacecraft in inertial frame
         @param v_SB_N [m/s] secondary celestial body velocity relative to the spacecraft in inertial frame
-        @return attitude reference message payload */
-    static AttRefMsgF32Payload rateAndAccelCalc(const Eigen::Vector3d &r_PB_N,
-                                                const Eigen::Vector3d &v_PB_N,
-                                                const Eigen::Vector3d &r_SB_N,
-                                                const Eigen::Vector3d &v_SB_N);
+        @return attitude reference output */
+    static CelestialTwoBodyPointOutput rateAndAccelCalc(const Eigen::Vector3d &r_PB_N,
+                                                        const Eigen::Vector3d &v_PB_N,
+                                                        const Eigen::Vector3d &r_SB_N,
+                                                        const Eigen::Vector3d &v_SB_N);
     void setSingularityThreshold(float singularityThresholdIn);
     float getSingularityThreshold() const;
     void setRateThreshold(float rateThresholdIn);
