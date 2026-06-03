@@ -32,7 +32,7 @@ class FlybyPointAlgorithm {
                        FlybyDiagnosticMsgPayload& flybyDiagnosticMsgBuffer) const;
     void computeFlybyParameters(const Eigen::Vector3d& r_BN_N, const Eigen::Vector3d& v_BN_N);
     void computeRN(const Eigen::Vector3d& r_BN_N, const Eigen::Vector3d& v_BN_N);
-    std::tuple<Eigen::Vector3d, Eigen::Vector3d, Eigen::Vector3d> computeGuidanceSolution() const;
+    std::tuple<Eigen::Vector3f, Eigen::Vector3f, Eigen::Vector3f> computeGuidanceSolution() const;
     double getTimeBetweenFilterData() const;
     void setTimeBetweenFilterData(double timeBetweenFilterData);
     double getToleranceForCollinearity() const;
@@ -58,10 +58,10 @@ class FlybyPointAlgorithm {
     double maxAcceleration = 0;  //!< maximum acceleration spacecraft can control to, used for validity of solution
 
     bool firstRead = true;            //!< variable to attest if this is the first read after a Reset
-    double f0 = 0;                    //!< ratio between relative velocity and position norms at time of read [Hz]
-    double gamma0 = 0;                //!< flight path angle of the spacecraft at time of read [rad]
+    float f0 = 0.0F;                  //!< ratio between relative velocity and position norms at time of read [Hz]
+    float gamma0 = 0.0F;              //!< flight path angle of the spacecraft at time of read [rad]
     uint64_t lastFilterReadTime = 0;  //!< time of last filter read
-    Eigen::Matrix3d R0N{Eigen::Matrix3d::Identity()};  //!< inertial-to-reference DCM at time of read
+    Eigen::Matrix3f R0N{Eigen::Matrix3f::Identity()};  //!< inertial-to-reference DCM at time of read
     Eigen::Vector3d firstNavPosition{};                //!< First position used to create profile
     Eigen::Vector3d firstNavVelocity{};                //!< First velocity used to create profile
     double positionKnowledgeSigma = 0;                 //!< Last position used to create profile

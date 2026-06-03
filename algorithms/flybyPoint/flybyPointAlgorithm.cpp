@@ -50,9 +50,9 @@ FlybyPointOutput FlybyPointAlgorithm::updateState(uint64_t currentSimNanos,
     }
     auto [sigma_RN, omega_RN_N, omegaDot_RN_N] = this->computeGuidanceSolution();
     FlybyPointOutput output{};
-    output.sigma_RN = sigma_RN.cast<float>();
-    output.omega_RN_N = omega_RN_N.cast<float>();
-    output.domega_RN_N = omegaDot_RN_N.cast<float>();
+    output.sigma_RN = sigma_RN;
+    output.omega_RN_N = omega_RN_N;
+    output.domega_RN_N = omegaDot_RN_N;
     output.collinearityTrigger = flybyDiagnosticMsgBuffer.collinearityTrigger;
     output.maxRateTrigger = flybyDiagnosticMsgBuffer.maxRateTrigger;
     output.maxAccelerationTrigger = flybyDiagnosticMsgBuffer.maxAccelerationTrigger;
@@ -61,7 +61,8 @@ FlybyPointOutput FlybyPointAlgorithm::updateState(uint64_t currentSimNanos,
 }
 
 void FlybyPointAlgorithm::computeFlybyParameters(const Eigen::Vector3d& r_BN_N, const Eigen::Vector3d& v_BN_N) {
-    this->f0 = v_BN_N.norm() / r_BN_N.norm();
+    // f0 derived from large-magnitude double inputs; ratio cancels scale, float precision suffices
+    this->f0 = static_cast<float>(v_BN_N.norm() / r_BN_N.norm());
 
     /*! compute radial (ur_N), velocity (uv_N), along-track (ut_N), and out-of-plane (uh_N) unit direction vectors */
     Eigen::Vector3d ur_N = r_BN_N.normalized();
@@ -70,8 +71,8 @@ void FlybyPointAlgorithm::computeFlybyParameters(const Eigen::Vector3d& r_BN_N, 
     Eigen::Vector3d uh_N = ur_N.cross(uv_N).normalized();
     Eigen::Vector3d ut_N = uh_N.cross(ur_N).normalized();
 
-    // compute flight path angle at the time of read
-    this->gamma0 = std::atan(v_BN_N.dot(ur_N) / v_BN_N.dot(ut_N));
+    // gamma0 is a pure angle; computed in double for input precision, float storage is sufficient
+    this->gamma0 = static_cast<float>(std::atan(v_BN_N.dot(ur_N) / v_BN_N.dot(ut_N)));
 }
 
 bool FlybyPointAlgorithm::checkValidity(uint64_t currentSimNanos,
@@ -132,37 +133,41 @@ void FlybyPointAlgorithm::computeRN(const Eigen::Vector3d& r_BN_N, const Eigen::
     Eigen::Vector3d ut_N = uh_N.cross(ur_N).normalized();
 
     /*! compute inertial-to-reference DCM at time of read */
-    this->R0N.row(0) = ur_N;
-    this->R0N.row(1) = ut_N;
-    this->R0N.row(2) = uh_N;
+    // Unit vectors computed in double for input precision; dimensionless rows, float storage is sufficient
+    this->R0N.row(0) = ur_N.cast<float>();
+    this->R0N.row(1) = ut_N.cast<float>();
+    this->R0N.row(2) = uh_N.cast<float>();
 }
 
-std::tuple<Eigen::Vector3d, Eigen::Vector3d, Eigen::Vector3d> FlybyPointAlgorithm::computeGuidanceSolution() const {
+std::tuple<Eigen::Vector3f, Eigen::Vector3f, Eigen::Vector3f> FlybyPointAlgorithm::computeGuidanceSolution() const {
+    // dt is a sub-second to sub-minute time delta; float resolution (~120 ns) is adequate for guidance
+    const auto dt = static_cast<float>(this->dt);
+
     /*! compute DCM (RtR0) of reference frame from last read time */
-    double theta = std::atan(std::tan(this->gamma0) + this->f0 / std::cos(this->gamma0) * this->dt) - this->gamma0;
-    Eigen::Vector3d PRV_theta{0, 0, theta};
-    Eigen::Matrix3d RtR0 = prvToDcm(PRV_theta);
+    float theta = std::atan(std::tan(this->gamma0) + this->f0 / std::cos(this->gamma0) * dt) - this->gamma0;
+    Eigen::Vector3f PRV_theta{0.0F, 0.0F, theta};
+    Eigen::Matrix3f RtR0 = prvToDcm(PRV_theta);
 
     /*! compute DCM of reference frame at time t_0 + dt with respect to inertial frame */
-    Eigen::Matrix3d RtN = RtR0 * this->R0N;
+    Eigen::Matrix3f RtN = RtR0 * this->R0N;
 
     /*! compute scalar angular rate and acceleration of the reference frame in R-frame coordinates */
-    double den = (this->f0 * this->f0 * this->dt * this->dt + 2 * this->f0 * sin(this->gamma0) * this->dt + 1);
-    double thetaDot = this->f0 * cos(this->gamma0) / den;
-    double thetaDDot =
-        -2 * this->f0 * this->f0 * cos(this->gamma0) * (this->f0 * this->dt + sin(this->gamma0)) / (den * den);
-    Eigen::Vector3d omega_RN_R{0, 0, thetaDot};
-    Eigen::Vector3d omegaDot_RN_R{0, 0, thetaDDot};
+    float den = (this->f0 * this->f0 * dt * dt + 2.0F * this->f0 * std::sin(this->gamma0) * dt + 1.0F);
+    float thetaDot = this->f0 * std::cos(this->gamma0) / den;
+    float thetaDDot =
+        -2.0F * this->f0 * this->f0 * std::cos(this->gamma0) * (this->f0 * dt + std::sin(this->gamma0)) / (den * den);
+    Eigen::Vector3f omega_RN_R{0.0F, 0.0F, thetaDot};
+    Eigen::Vector3f omegaDot_RN_R{0.0F, 0.0F, thetaDDot};
 
     /*! populate attRefOut with reference frame information */
-    Eigen::Vector3d sigma_RN = dcmToMrp(RtN);
+    Eigen::Vector3f sigma_RN = dcmToMrp(RtN);
 
     if (this->signOfOrbitNormalFrameVector == -1) {
-        Eigen::Vector3d halfRotationX{1, 0, 0};
+        Eigen::Vector3f halfRotationX{1.0F, 0.0F, 0.0F};
         sigma_RN = addMrp(sigma_RN, halfRotationX);
     }
-    Eigen::Vector3d omega_RN_N = RtN.transpose() * omega_RN_R;
-    Eigen::Vector3d omegaDot_RN_N = RtN.transpose() * omegaDot_RN_R;
+    Eigen::Vector3f omega_RN_N = RtN.transpose() * omega_RN_R;
+    Eigen::Vector3f omegaDot_RN_N = RtN.transpose() * omegaDot_RN_R;
 
     return {sigma_RN, omega_RN_N, omegaDot_RN_N};
 }
