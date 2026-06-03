@@ -157,6 +157,10 @@ inline void runRegressionCase(std::uint32_t numThrusters,
     if (!buildThrusterConfig(numThrusters, positions, directions, config)) {
         return;
     }
+    // create() rejects ill-conditioned or uncontrollable configs; skip the inputs it would reject.
+    if (!ForceTorqueThrForceMappingConfig::isValidMapping(config, CoM, kNoAxisAssertion)) {
+        return;
+    }
 
     ForceTorqueThrForceMappingAlgorithm alg = makeMappingAlgorithm(config, CoM);
 
@@ -173,12 +177,8 @@ inline void runRegressionCase(std::uint32_t numThrusters,
     const Eigen::Vector<float, MAX_EFF_CNT> ref =
         referenceUpdate(numThrusters, positions, unitDirs, CoM, cmdTorque, cmdForce);
 
-    // 1e-3 covers the fp32 precision floor for this algorithm across the full input domain. The
-    // chain (JacobiSVD → truncated pseudo-inverse → length-6 matvec) has relative error bounded by
-    // ~eps_f32 · cond(DG_kept) · O(N). For well-conditioned DG (cond ~ 1) this gives ~10⁻⁵, but
-    // the fuzz harness exercises adversarial layouts where cond(DG_kept) reaches ~10²–10³, pushing
-    // the relative-error floor up to ~10⁻⁴. 1e-3 leaves a ~6× margin above empirically-observed
-    // worst-case fuzz seeds and is still tight enough to catch genuine algorithmic regressions.
+    // create() already rejected ill-conditioned layouts (gated above), so the kept singular subspace has
+    // condition number <= 100 and the fp32 solve agrees with the fp64 reference to ~1e-3.
     constexpr float kAtol = 1e-3F;
     constexpr float kRtol = 1e-3F;
     for (std::uint32_t i = 0; i < numThrusters; ++i) {
@@ -209,6 +209,10 @@ inline void propertyNonNegativeForces(std::uint32_t numThrusters,
     if (!buildThrusterConfig(numThrusters, positions, directions, config)) {
         return;
     }
+    // create() rejects ill-conditioned or uncontrollable configs; skip the inputs it would reject.
+    if (!ForceTorqueThrForceMappingConfig::isValidMapping(config, CoM, kNoAxisAssertion)) {
+        return;
+    }
 
     ForceTorqueThrForceMappingAlgorithm alg = makeMappingAlgorithm(config, CoM);
 
@@ -229,6 +233,10 @@ inline void propertyMinimumIsZero(std::uint32_t numThrusters,
                                   const Eigen::Vector3f& cmdForce) {
     ThrusterArrayConfiguration config{};
     if (!buildThrusterConfig(numThrusters, positions, directions, config)) {
+        return;
+    }
+    // create() rejects ill-conditioned or uncontrollable configs; skip the inputs it would reject.
+    if (!ForceTorqueThrForceMappingConfig::isValidMapping(config, CoM, kNoAxisAssertion)) {
         return;
     }
 
@@ -252,6 +260,10 @@ inline void propertyPaddingIsZero(std::uint32_t numThrusters,
                                   const Eigen::Vector3f& cmdForce) {
     ThrusterArrayConfiguration config{};
     if (!buildThrusterConfig(numThrusters, positions, directions, config)) {
+        return;
+    }
+    // create() rejects ill-conditioned or uncontrollable configs; skip the inputs it would reject.
+    if (!ForceTorqueThrForceMappingConfig::isValidMapping(config, CoM, kNoAxisAssertion)) {
         return;
     }
 
@@ -280,10 +292,8 @@ inline bool rawDirectionsWellScaled(std::uint32_t numThrusters, const std::vecto
 
 // Positive scaling of the commanded torque and force scales the output by the same factor.
 // Rationale: pseudoInverseDG * (k * v) = k * (pseudoInverseDG * v); for k > 0 the min-shift is also
-// scaled by k, so the post-shift output scales linearly. Caller must supply numThrusters >= 6:
-// with fewer thrusters the pseudo-inverse degenerates into an overdetermined LS solve whose
-// condition number is essentially uncapped for adversarial fuzz inputs, and the property becomes
-// numerically unreliable in fp32.
+// scaled by k, so the post-shift output scales linearly. create() rejects ill-conditioned layouts, so the
+// kept singular subspace has condition number <= 100 and the linear-scaling residual stays within tolerance.
 inline void propertyScaleInvariance(std::uint32_t numThrusters,
                                     std::vector<Eigen::Vector3f> positions,
                                     std::vector<Eigen::Vector3f> directions,
@@ -299,6 +309,10 @@ inline void propertyScaleInvariance(std::uint32_t numThrusters,
     }
     ThrusterArrayConfiguration config{};
     if (!buildThrusterConfig(numThrusters, positions, directions, config)) {
+        return;
+    }
+    // create() rejects ill-conditioned or uncontrollable configs; skip the inputs it would reject.
+    if (!ForceTorqueThrForceMappingConfig::isValidMapping(config, CoM, kNoAxisAssertion)) {
         return;
     }
 
@@ -325,6 +339,10 @@ inline void propertyStateless(std::uint32_t numThrusters,
     if (!buildThrusterConfig(numThrusters, positions, directions, config)) {
         return;
     }
+    // create() rejects ill-conditioned or uncontrollable configs; skip the inputs it would reject.
+    if (!ForceTorqueThrForceMappingConfig::isValidMapping(config, CoM, kNoAxisAssertion)) {
+        return;
+    }
 
     ForceTorqueThrForceMappingAlgorithm alg = makeMappingAlgorithm(config, CoM);
 
@@ -346,6 +364,10 @@ inline void propertyFiniteOutput(std::uint32_t numThrusters,
                                  const Eigen::Vector3f& cmdForce) {
     ThrusterArrayConfiguration config{};
     if (!buildThrusterConfig(numThrusters, positions, directions, config)) {
+        return;
+    }
+    // create() rejects ill-conditioned or uncontrollable configs; skip the inputs it would reject.
+    if (!ForceTorqueThrForceMappingConfig::isValidMapping(config, CoM, kNoAxisAssertion)) {
         return;
     }
 
@@ -406,6 +428,10 @@ inline void propertyOutputMagnitudeBounded(std::uint32_t numThrusters,
                                            const Eigen::Vector3f& cmdForce) {
     ThrusterArrayConfiguration config{};
     if (!buildThrusterConfig(numThrusters, positions, directions, config)) {
+        return;
+    }
+    // create() rejects ill-conditioned or uncontrollable configs; skip the inputs it would reject.
+    if (!ForceTorqueThrForceMappingConfig::isValidMapping(config, CoM, kNoAxisAssertion)) {
         return;
     }
 

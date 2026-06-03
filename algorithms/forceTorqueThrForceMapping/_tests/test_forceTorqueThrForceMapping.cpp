@@ -59,11 +59,13 @@ TEST(ForceTorqueThrForceMappingTest, ConfigValidationAndRoundTrip) {
     config.thrusters[1].rThrust_B = {-1.0F, 0.5F, 0.0F};
     config.thrusters[1].tHatThrust_B = {0.0F, 1.0F, 0.0F};
     const Eigen::Vector3f CoM(0.25F, -0.5F, 1.0F);
-    const std::array<bool, 6> axes{true, false, true, false, true, false};
 
     // create() round-trips the stored configuration via the getters (positions and directions are
-    // preserved verbatim; normalization happens later when the mapping is computed).
-    const ForceTorqueThrForceMappingConfig cfg = ForceTorqueThrForceMappingConfig::create(config, CoM, axes);
+    // preserved verbatim; normalization happens later when the mapping is computed). The minimal
+    // 2-thruster layout cannot control every axis, so opt out of the controllability assertion with
+    // kNoAxisAssertion (asserting an uncontrollable axis would be rejected by create()).
+    const ForceTorqueThrForceMappingConfig cfg =
+        ForceTorqueThrForceMappingConfig::create(config, CoM, kNoAxisAssertion);
     EXPECT_EQ(cfg.getThrusters().numThrusters, 2U);
     for (std::uint32_t t = 0; t < 2U; ++t) {
         for (int i = 0; i < 3; ++i) {
@@ -75,7 +77,7 @@ TEST(ForceTorqueThrForceMappingTest, ConfigValidationAndRoundTrip) {
         EXPECT_NEAR(cfg.getCenterOfMass_B()[i], CoM[i], 1e-6F);
     }
     for (std::size_t i = 0; i < 6U; ++i) {
-        EXPECT_EQ(cfg.getDesiredControlAxes().at(i), axes.at(i));
+        EXPECT_EQ(cfg.getDesiredControlAxes().at(i), kNoAxisAssertion.at(i));
     }
 
     // Constructing the algorithm from a valid config succeeds (controllability is not asserted here:
@@ -303,55 +305,6 @@ TEST(ForceTorqueThrForceMappingTest, DirectionAtNormToleranceBoundary) {
     EXPECT_NO_THROW(ForceTorqueThrForceMappingConfig::create(config, Eigen::Vector3f::Zero(), kNoAxisAssertion));
 }
 
-// CubeSat-scale moment arms. With ~5e-3 m moment arms, individual torque-row entries (r×g) are at
-// most ~5e-3 — well above the SVD's relative tol (sigma_max * eps * max(m,n) ~ 1e-7 here) but
-// below the prior algorithm's hard-coded 1e-4 absolute threshold. Verifies the new tolerance
-// preserves controllability for small bodies that the old code would have dropped, and that small
-// commanded torques are reproduced rather than zeroed out by the pseudo-inverse.
-TEST(ForceTorqueThrForceMappingTest, SmallMomentArmsControllable) {
-    constexpr float r = 5e-3F;
-    const std::vector<Eigen::Vector3f> positions = {
-        {r, 0.0F, 0.0F}, {-r, 0.0F, 0.0F}, {0.0F, r, 0.0F}, {0.0F, -r, 0.0F}, {0.0F, 0.0F, r}, {0.0F, 0.0F, -r}};
-    const std::vector<Eigen::Vector3f> directions = {{0.0F, 1.0F, 0.0F},
-                                                     {0.0F, -1.0F, 0.0F},
-                                                     {0.0F, 0.0F, 1.0F},
-                                                     {0.0F, 0.0F, -1.0F},
-                                                     {1.0F, 0.0F, 0.0F},
-                                                     {-1.0F, 0.0F, 0.0F}};
-
-    ThrusterArrayConfiguration config{};
-    ASSERT_TRUE(buildThrusterConfig(6U, positions, directions, config));
-    ForceTorqueThrForceMappingAlgorithm alg = makeMappingAlgorithm(config, Eigen::Vector3f::Zero());
-
-    // Small commanded torque, no force — needs the small-moment-arm rows to be retained.
-    const Eigen::Vector3f torque{1e-4F, 2e-4F, -1e-4F};
-    const Eigen::Vector<float, MAX_EFF_CNT> out = alg.update(torque, Eigen::Vector3f::Zero());
-
-    // The layout pairs flip both r and g, so each pair's r×g terms add (DG·1 = (2r, 2r, 2r, 0, 0, 0)
-    // ≠ 0) and the min-shift introduces an FT offset that's part of the algorithm's documented
-    // behavior — see UnbalancedLayoutAchievedFTDiffersFromCommand. We can't compare achieved
-    // against commanded directly, but we can compare against the fp64 SVD reference, which
-    // applies the same min-shift; agreement confirms fp32 didn't drop the small-arm rows.
-    std::vector<Eigen::Vector3f> unitDirs(config.numThrusters);
-    for (std::uint32_t i = 0; i < config.numThrusters; ++i) {
-        unitDirs[i] = Eigen::Vector3f(config.thrusters.at(i).tHatThrust_B[0],
-                                      config.thrusters.at(i).tHatThrust_B[1],
-                                      config.thrusters.at(i).tHatThrust_B[2]);
-    }
-    const Eigen::Vector<float, MAX_EFF_CNT> ref = referenceUpdate(
-        config.numThrusters, positions, unitDirs, Eigen::Vector3f::Zero(), torque, Eigen::Vector3f::Zero());
-
-    // At least one active thruster must be non-zero — pinning the small-moment-arm intent: if SVD
-    // truncation had dropped the torque rows the entire output would be zero post-min-shift.
-    EXPECT_GT(out.head(config.numThrusters).cwiseAbs().maxCoeff(), 1e-6F);
-
-    for (std::uint32_t i = 0; i < config.numThrusters; ++i) {
-        const int idx = static_cast<int>(i);
-        EXPECT_TRUE(std::isfinite(out[idx]));
-        EXPECT_NEAR(out[idx], ref[idx], combinedTolerance(ref[idx], 1e-4F, 1e-4F));
-    }
-}
-
 // A commanded force along a completely uncontrollable axis (x, for the 8-thruster layout 1 whose
 // directions all lie in the y-z plane) is silently dropped by the selector. With no other
 // commands, every kept row of ft is zero, so the pseudo-inverse product is zero and the output
@@ -410,5 +363,25 @@ TEST(ForceTorqueThrForceMappingTest, DesiredControlAxesAllTrueThrowsOnUncontroll
     ThrusterArrayConfiguration config{};
     ASSERT_TRUE(buildThrusterConfig(8U, rcsPositions1(), rcsDirections1(), config));
     EXPECT_THROW(makeMappingAlgorithm(config, {0.1F, 0.1F, 0.1F}, {true, true, true, true, true, true}),
+                 fsw::invalid_argument);
+}
+
+// An ill-conditioned (but full-rank) layout is rejected by create() even with no controllability assertion.
+// Six thrusters with 5 mm moment arms span all six axes, but the torque rows are ~5e-3 while the force rows
+// are unit, so cond(DG) ~ 200 (> 100). create() must reject it.
+TEST(ForceTorqueThrForceMappingTest, IllConditionedLayoutRejected) {
+    constexpr float r = 5e-3F;
+    const std::vector<Eigen::Vector3f> positions = {
+        {r, 0.0F, 0.0F}, {-r, 0.0F, 0.0F}, {0.0F, r, 0.0F}, {0.0F, -r, 0.0F}, {0.0F, 0.0F, r}, {0.0F, 0.0F, -r}};
+    const std::vector<Eigen::Vector3f> directions = {{0.0F, 1.0F, 0.0F},
+                                                     {0.0F, -1.0F, 0.0F},
+                                                     {0.0F, 0.0F, 1.0F},
+                                                     {0.0F, 0.0F, -1.0F},
+                                                     {1.0F, 0.0F, 0.0F},
+                                                     {-1.0F, 0.0F, 0.0F}};
+
+    ThrusterArrayConfiguration config{};
+    ASSERT_TRUE(buildThrusterConfig(6U, positions, directions, config));
+    EXPECT_THROW(ForceTorqueThrForceMappingConfig::create(config, Eigen::Vector3f::Zero(), kNoAxisAssertion),
                  fsw::invalid_argument);
 }

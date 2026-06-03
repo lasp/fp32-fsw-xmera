@@ -23,11 +23,10 @@ struct ThrusterArrayConfiguration {
 
 /*! @brief Validated configuration for the force/torque-to-thruster-force mapping algorithm.
  *
- * An instance can only exist if the thruster array has a valid count with unit direction vectors
- * and the center of mass is finite. Construct via ForceTorqueThrForceMappingConfig::create(...).
- * The desiredControlAxes_B entries are per-axis controllability assertions (torque xyz then force
- * xyz, all in body frame B); they carry no static constraint and are checked against the SVD of
- * the control mapping matrix DG when the mapping is computed.
+ * Construct via create(), which rejects an invalid thruster array (bad count or non-unit direction), a
+ * non-finite center of mass, or an unrealizable mapping (an asserted desiredControlAxes_B axis is
+ * uncontrollable, or the geometry is ill-conditioned with condition number above 100). desiredControlAxes_B
+ * are per-axis controllability assertions (torque xyz then force xyz, body frame B).
  */
 class ForceTorqueThrForceMappingConfig final {
    public:
@@ -41,6 +40,12 @@ class ForceTorqueThrForceMappingConfig final {
         }
         if (!isValidCenterOfMass_B(centerOfMass_B)) {
             FSW_THROW_INVALID_ARGUMENT("forceTorqueThrForceMapping: centerOfMass_B must be finite");
+        }
+        if (!isValidMapping(thrusters, centerOfMass_B, desiredControlAxes_B)) {
+            FSW_THROW_INVALID_ARGUMENT(
+                "forceTorqueThrForceMapping: the configuration does not yield a valid thruster mapping -- an "
+                "axis marked in desiredControlAxes_B is not controllable by the thruster array, or the thruster "
+                "geometry is ill-conditioned (condition number above 100).");
         }
         return {thrusters, centerOfMass_B, desiredControlAxes_B};
     }
@@ -61,6 +66,13 @@ class ForceTorqueThrForceMappingConfig final {
     static bool isValidCenterOfMass_B(const Eigen::Vector3f& centerOfMass_B) { return centerOfMass_B.allFinite(); }
     // No isValidDesiredControlAxes — any bool combination is valid; controllability is checked against control mapping
     // matrix DG.
+
+    // True if the mapping is realizable: every asserted axis is controllable and the control mapping
+    // matrix DG is well-conditioned (condition number below 100).
+    // In the .cpp because it shares the mapping computation with the algorithm.
+    static bool isValidMapping(const ThrusterArrayConfiguration& thrusters,
+                               const Eigen::Vector3f& centerOfMass_B,
+                               const std::array<bool, 6>& desiredControlAxes_B);
 
     const ThrusterArrayConfiguration& getThrusters() const { return thrusters; }
     Eigen::Vector3f getCenterOfMass_B() const { return centerOfMass_B; }
@@ -89,8 +101,6 @@ class ForceTorqueThrForceMappingAlgorithm final {
                                              const Eigen::Vector3f& cmdForce_B) const;
 
    private:
-    void computeThrusterMapping();
-
     ForceTorqueThrForceMappingConfig cfg;  //!< validated configuration (thrusters, CoM, controllability assertions)
     Eigen::Matrix<float, MAX_EFF_CNT, 6> pseudoInverseDG{
         Eigen::Matrix<float, MAX_EFF_CNT, 6>::Zero()};  //!< truncated-SVD pseudo-inverse of DG
