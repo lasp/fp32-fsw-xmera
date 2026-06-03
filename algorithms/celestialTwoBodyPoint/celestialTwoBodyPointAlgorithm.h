@@ -1,6 +1,7 @@
 #ifndef F32XMERA_CELESTIAL_BODY_POINT_ALGORITHM_H
 #define F32XMERA_CELESTIAL_BODY_POINT_ALGORITHM_H
 
+#include "celestialTwoBodyPointTypes.h"
 #include "utilities/fsw/freestandingInvalidArgument.h"
 #include <Eigen/Core>
 
