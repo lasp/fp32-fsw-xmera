@@ -62,8 +62,8 @@ class FlybyPointAlgorithm {
     float gamma0 = 0.0F;              //!< flight path angle of the spacecraft at time of read [rad]
     uint64_t lastFilterReadTime = 0;  //!< time of last filter read
     Eigen::Matrix3f R0N{Eigen::Matrix3f::Identity()};  //!< inertial-to-reference DCM at time of read
-    Eigen::Vector3d firstNavPosition{};                //!< First position used to create profile
-    Eigen::Vector3d firstNavVelocity{};                //!< First velocity used to create profile
+    Eigen::Vector3d firstNavPosition;                  //!< First position used to create profile
+    Eigen::Vector3d firstNavVelocity;                  //!< First velocity used to create profile
     float positionKnowledgeSigma = 0.0F;               //!< Last position used to create profile
 };
 
