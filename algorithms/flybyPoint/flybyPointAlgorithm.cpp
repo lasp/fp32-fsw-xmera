@@ -27,11 +27,11 @@ FlybyPointOutput FlybyPointAlgorithm::updateState(uint64_t currentSimNanos,
     /*! init diagnostic message */
     FlybyDiagnosticMsgPayload flybyDiagnosticMsgBuffer = {false, false, false, false};
     /*! compute dt from current time and last filter read time and get new states*/
-    this->dt = (currentSimNanos - this->lastFilterReadTime) * NANO2SEC;
+    this->dt = static_cast<double>(currentSimNanos - this->lastFilterReadTime) * NANO2SEC;
     if ((this->dt >= this->timeBetweenFilterData) || this->firstRead) {
         /*! If this is the first read, seed the algorithm with the solution  */
         if (this->firstRead) {
-            this->timeOfFirstRead = currentSimNanos * NANO2SEC;
+            this->timeOfFirstRead = static_cast<double>(currentSimNanos) * NANO2SEC;
             this->firstNavPosition = r_BN_N;
             this->firstNavVelocity = v_BN_N;
             this->computeFlybyParameters(r_BN_N, v_BN_N);
@@ -113,7 +113,7 @@ bool FlybyPointAlgorithm::checkValidity(uint64_t currentSimNanos,
     }
 
     /*! check if the position error exceeds a-priori sigma bound */
-    double deltaT = (currentSimNanos * NANO2SEC) - this->timeOfFirstRead;
+    double deltaT = (static_cast<double>(currentSimNanos) * NANO2SEC) - this->timeOfFirstRead;
     double deltaPositionNorm = (r_BN_N - (this->firstNavPosition + deltaT * this->firstNavVelocity)).norm();
     if (deltaPositionNorm > this->positionKnowledgeSigma && this->positionKnowledgeSigma > 0) {
         valid = false;
