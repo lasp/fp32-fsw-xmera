@@ -4,13 +4,13 @@
 #ifndef FLYBY_POINT_H
 #define FLYBY_POINT_H
 
+#include "flybyPointAlgorithm.h"
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
 #include <architecture/msgPayloadDef/AttRefMsgPayload.h>
 #include <architecture/msgPayloadDef/EphemerisMsgPayload.h>
 #include <architecture/msgPayloadDef/FlybyDiagnosticMsgPayload.h>
 #include <architecture/msgPayloadDef/NavTransMsgPayload.h>
-#include "flybyPointAlgorithm.h"
 #include <Eigen/Dense>
 
 /*! @brief A class to perform flyby pointing */

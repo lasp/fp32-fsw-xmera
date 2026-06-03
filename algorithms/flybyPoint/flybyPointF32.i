@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: ISC
 // Copyright (c) 2023, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
 
-%module flybyPoint
+%module flybyPointF32
 %{
    #include "flybyPoint.h"
 %}

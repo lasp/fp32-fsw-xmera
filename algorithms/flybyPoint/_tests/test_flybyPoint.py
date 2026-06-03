@@ -9,7 +9,7 @@ import numpy as np
 import pytest
 from xmera import __path__
 from xmera.architecture import messaging
-from xmera.fswAlgorithms import flybyPoint
+from xmera.fp32 import flybyPointF32 as flybyPoint
 from xmera.utilities import RigidBodyKinematics as rbk
 from xmera.utilities import SimulationBaseClass, macros, unitTestSupport
 

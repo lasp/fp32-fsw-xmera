@@ -104,6 +104,7 @@ set(algorithms
     "dvGuidance"
     "ephemeridesRecenter"
     "forceTorqueThrForceMapping"
+        "flybyPoint"
     "hillPoint"
     "inertial3D"
     "inertialUKF"
