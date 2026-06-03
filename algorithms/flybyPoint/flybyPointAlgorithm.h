@@ -24,8 +24,9 @@ class FlybyPointAlgorithm {
    public:
     void reset();
     FlybyPointOutput updateState(uint64_t currentSimNanos,
-                                 const Eigen::Vector3d& r_BN_N,
-                                 const Eigen::Vector3d& v_BN_N);
+                                 const Eigen::Vector3d& r_BN_N,  //!< [m] relative position — double: §3.2 item 2
+                                 const Eigen::Vector3d& v_BN_N   //!< [m/s] relative velocity — double: §3.2 item 2
+    );
     bool checkValidity(uint64_t currentSimNanos,
                        const Eigen::Vector3d& r_BN_N,
                        const Eigen::Vector3d& v_BN_N,
@@ -47,9 +48,9 @@ class FlybyPointAlgorithm {
     void setPositionKnowledgeSigma(float positionKnowledgeStd);
 
    private:
-    double dt = 0;                     //!< current time step between last two updates
-    double timeOfFirstRead = 0;        //!< time of first nav solution read
-    double timeBetweenFilterData = 0;  //!< time between two subsequent reads of the filter information
+    double dt = 0;               //!< [s] time step between last two updates — double: time arithmetic (§3.2 item 1)
+    double timeOfFirstRead = 0;  //!< time of first nav solution read - double
+    double timeBetweenFilterData = 0;  //!< time between two subsequent reads of the filter information - double
     float toleranceForCollinearity =
         0.0F;  //!< tolerance for singular conditions when position and velocity are collinear
     int signOfOrbitNormalFrameVector = 1;  //!< Sign of orbit normal vector to complete reference frame
@@ -62,8 +63,8 @@ class FlybyPointAlgorithm {
     float gamma0 = 0.0F;              //!< flight path angle of the spacecraft at time of read [rad]
     uint64_t lastFilterReadTime = 0;  //!< time of last filter read
     Eigen::Matrix3f R0N{Eigen::Matrix3f::Identity()};  //!< inertial-to-reference DCM at time of read
-    Eigen::Vector3d firstNavPosition;                  //!< First position used to create profile
-    Eigen::Vector3d firstNavVelocity;                  //!< First velocity used to create profile
+    Eigen::Vector3d firstNavPosition;                  //!< [m] position at first read — double
+    Eigen::Vector3d firstNavVelocity;                  //!< [m/s] velocity at first read — double
     float positionKnowledgeSigma = 0.0F;               //!< Last position used to create profile
 };
 
