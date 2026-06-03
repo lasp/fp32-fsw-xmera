@@ -20,9 +20,9 @@ class CelestialTwoBodyPointAlgorithm final {
         @param secCelBodyIn secondary celestial body ephemeris (ignored when not linked)
         @param transNavIn spacecraft translational navigation solution
         @return attitude reference message payload */
-    AttRefMsgF32Payload update(EphemerisMsgF32Payload &celBodyIn,
-                               EphemerisMsgF32Payload &secCelBodyIn,
-                               NavTransMsgF32Payload &transNavIn) const;
+    AttRefMsgF32Payload update(const EphemerisMsgF32Payload &celBodyIn,
+                               const EphemerisMsgF32Payload &secCelBodyIn,
+                               const NavTransMsgF32Payload &transNavIn) const;
 
     /*! @brief Compute the reference attitude, angular velocity, and angular acceleration from the
         relative position and velocity of the primary and secondary celestial bodies

@@ -21,8 +21,8 @@ void CelestialTwoBodyPoint::reset(const uint64_t callTime) {
  @param callTime The clock time at which the function was called (nanoseconds)
  */
 void CelestialTwoBodyPoint::updateState(const uint64_t callTime) {
-    NavTransMsgF32Payload transNavIn = this->transNavInMsg();
-    EphemerisMsgF32Payload celBodyIn = this->celBodyInMsg();
+    const NavTransMsgF32Payload transNavIn = this->transNavInMsg();
+    const EphemerisMsgF32Payload celBodyIn = this->celBodyInMsg();
     EphemerisMsgF32Payload secCelBodyIn{};
     if (this->secCelBodyIsLinked) {
         secCelBodyIn = this->secCelBodyInMsg();
