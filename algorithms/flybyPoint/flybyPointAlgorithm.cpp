@@ -2,6 +2,7 @@
 // Copyright (c) 2025, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
 
 #include "flybyPointAlgorithm.h"
+#include "utilities/freestandingInvalidArgument.h"
 #include "utilities/safeMath.h"
 #include <architecture/utilities/eigenSupport.h>
 #include <architecture/utilities/macroDefinitions.h>
@@ -24,6 +25,11 @@ void FlybyPointAlgorithm::reset() {
 FlybyPointOutput FlybyPointAlgorithm::updateState(uint64_t currentSimNanos,
                                                   const Eigen::Vector3d& r_BN_N,
                                                   const Eigen::Vector3d& v_BN_N) {
+    constexpr double eps = std::numeric_limits<double>::epsilon();
+    if (r_BN_N.squaredNorm() < eps || v_BN_N.squaredNorm() < eps) {
+        FSW_THROW_INVALID_ARGUMENT("inputs r and v must be non-zero");
+    }
+
     /*! init diagnostic message */
     FlybyDiagnosticMsgPayload flybyDiagnosticMsgBuffer = {false, false, false, false};
     /*! compute dt from current time and last filter read time and get new states*/
