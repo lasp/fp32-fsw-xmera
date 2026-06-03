@@ -1,4 +1,5 @@
 #include "celestialTwoBodyPoint.h"
+#include "architecture/utilities/eigenSupport.h"
 
 #include <stdexcept>
 
@@ -23,14 +24,27 @@ void CelestialTwoBodyPoint::reset(const uint64_t callTime) {
 void CelestialTwoBodyPoint::updateState(const uint64_t callTime) {
     const NavTransMsgF32Payload transNavIn = this->transNavInMsg();
     const EphemerisMsgF32Payload celBodyIn = this->celBodyInMsg();
-    EphemerisMsgF32Payload secCelBodyIn{};
+    const Eigen::Vector3d r_BN_N = cArrayToEigenVector3<double>(transNavIn.r_BN_N);
+    const Eigen::Vector3d v_BN_N = cArrayToEigenVector3<double>(transNavIn.v_BN_N);
+    const Eigen::Vector3d r_celBody_N = cArrayToEigenVector3<double>(celBodyIn.r_BdyZero_N);
+    const Eigen::Vector3d v_celBody_N = cArrayToEigenVector3<double>(celBodyIn.v_BdyZero_N);
+
+    Eigen::Vector3d r_secCelBody_N = Eigen::Vector3d::Zero();
+    Eigen::Vector3d v_secCelBody_N = Eigen::Vector3d::Zero();
     if (this->secCelBodyIsLinked) {
-        secCelBodyIn = this->secCelBodyInMsg();
+        const EphemerisMsgF32Payload secCelBodyIn = this->secCelBodyInMsg();
+        r_secCelBody_N = cArrayToEigenVector3<double>(secCelBodyIn.r_BdyZero_N);
+        v_secCelBody_N = cArrayToEigenVector3<double>(secCelBodyIn.v_BdyZero_N);
     }
 
-    AttRefMsgF32Payload attRefOut = this->algorithm.update(celBodyIn, secCelBodyIn, transNavIn);
+    const CelestialTwoBodyPointOutput out =
+        this->algorithm.update(r_celBody_N, v_celBody_N, r_secCelBody_N, v_secCelBody_N, r_BN_N, v_BN_N);
 
     /*! - Write the output message */
+    AttRefMsgF32Payload attRefOut{};
+    eigenVectorToCArray(out.sigma_RN, attRefOut.sigma_RN);
+    eigenVectorToCArray(out.omega_RN_N, attRefOut.omega_RN_N);
+    eigenVectorToCArray(out.domega_RN_N, attRefOut.domega_RN_N);
     this->attRefOutMsg.write(&attRefOut, this->moduleID, callTime);
 }
 
