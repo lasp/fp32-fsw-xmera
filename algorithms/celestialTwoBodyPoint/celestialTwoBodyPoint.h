@@ -30,8 +30,13 @@ class CelestialTwoBodyPoint final : public SysModel {
     ReadFunctor<NavTransMsgF32Payload> transNavInMsg;     //!< Spacecraft translational navigation input message
 
    private:
-    bool secCelBodyIsLinked{};
-    CelestialTwoBodyPointAlgorithm algorithm{};
+    /*! @brief Rebuild the validated algorithm configuration from the stored parameters */
+    void rebuildAlgorithmConfig();
+
+    float singularityThreshold{};  //!< [rad] Angle threshold below which the constraint axis is fixed
+    float rateThreshold{};         //!< [rad/s] Rate threshold above which the constraint axis is fixed
+    bool secCelBodyIsLinked{};     //!< Flag to indicate if the optional secondary celestial body message is linked
+    CelestialTwoBodyPointAlgorithm algorithm{CelestialTwoBodyPointConfig::create(0.0F, 0.0F, false)};
 };
 
 #endif

@@ -14,7 +14,7 @@ void CelestialTwoBodyPoint::reset(const uint64_t callTime) {
         throw std::invalid_argument("celestialTwoBodyPoint.celBodyInMsg was not linked.");
     }
 
-    this->algorithm.reset(this->secCelBodyIsLinked);
+    this->rebuildAlgorithmConfig();
 }
 
 /*! This method reads the input messages, computes the two-body celestial pointing attitude
@@ -50,28 +50,42 @@ void CelestialTwoBodyPoint::updateState(const uint64_t callTime) {
 
 /**
  * @brief Set the singularity threshold
- * @param threshold singularity threshold
+ * @param threshold [rad] angle threshold below which the constraint axis is fixed
  */
 void CelestialTwoBodyPoint::setSingularityThreshold(const float threshold) {
-    this->algorithm.setSingularityThreshold(threshold);
+    if (!CelestialTwoBodyPointConfig::isValidSingularityThreshold(threshold)) {
+        FSW_THROW_INVALID_ARGUMENT("celestialTwoBodyPoint: singularityThreshold must be >= 0");
+    }
+    this->singularityThreshold = threshold;
+    this->rebuildAlgorithmConfig();
 }
 
 /**
  * @brief Get the singularity threshold
- * @return float singularity threshold
+ * @return [rad] angle threshold below which the constraint axis is fixed
  */
-float CelestialTwoBodyPoint::getSingularityThreshold() const { return this->algorithm.getSingularityThreshold(); }
+float CelestialTwoBodyPoint::getSingularityThreshold() const { return this->singularityThreshold; }
 
 /**
  * @brief Set the rate threshold
- * @param rateThreshold rate threshold
+ * @param rateThreshold [rad/s] rate threshold above which the constraint axis is fixed
  */
 void CelestialTwoBodyPoint::setRateThreshold(const float rateThreshold) {
-    this->algorithm.setRateThreshold(rateThreshold);
+    if (!CelestialTwoBodyPointConfig::isValidRateThreshold(rateThreshold)) {
+        FSW_THROW_INVALID_ARGUMENT("celestialTwoBodyPoint: rateThreshold must be >= 0");
+    }
+    this->rateThreshold = rateThreshold;
+    this->rebuildAlgorithmConfig();
 }
 
 /**
  * @brief Get the rate threshold
- * @return float rate threshold
+ * @return [rad/s] rate threshold above which the constraint axis is fixed
  */
-float CelestialTwoBodyPoint::getRateThreshold() const { return this->algorithm.getRateThreshold(); }
+float CelestialTwoBodyPoint::getRateThreshold() const { return this->rateThreshold; }
+
+void CelestialTwoBodyPoint::rebuildAlgorithmConfig() {
+    const CelestialTwoBodyPointConfig cfg =
+        CelestialTwoBodyPointConfig::create(this->singularityThreshold, this->rateThreshold, this->secCelBodyIsLinked);
+    this->algorithm.setConfig(cfg);
+}

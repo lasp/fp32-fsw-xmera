@@ -1,13 +1,15 @@
 #include "celestialTwoBodyPointAlgorithm.h"
-#include "utilities/fsw/freestandingInvalidArgument.h"
 #include "utilities/fsw/rigidBodyKinematics.hpp"
 #include "utilities/fsw/safeMath.h"
 #include <math.h>
 #include <numbers>
 
-void CelestialTwoBodyPointAlgorithm::reset(const bool secCelBodyIsLinkedIn) {
-    this->secCelBodyIsLinked = secCelBodyIsLinkedIn;
+CelestialTwoBodyPointAlgorithm::CelestialTwoBodyPointAlgorithm(const CelestialTwoBodyPointConfig &config)
+    : cfg(config) {
+    setConfig(config);
 }
+
+void CelestialTwoBodyPointAlgorithm::setConfig(const CelestialTwoBodyPointConfig &config) { this->cfg = config; }
 
 /*! This method computes the attitude reference that points the primary axis at the primary
  celestial body while aligning a second axis as close as possible toward the secondary
@@ -34,7 +36,7 @@ CelestialTwoBodyPointOutput CelestialTwoBodyPointAlgorithm::update(const Eigen::
     Eigen::Vector3d v_SB_N{};
 
     float platAngDiff{}; /* Angle between r_PB_N and r_SB_N */
-    if (this->secCelBodyIsLinked) {
+    if (this->cfg.getSecCelBodyIsLinked()) {
         r_SB_N = r_secCelBody_N - r_BN_N;
         v_SB_N = v_secCelBody_N - v_BN_N;
 
@@ -46,9 +48,9 @@ CelestialTwoBodyPointOutput CelestialTwoBodyPointAlgorithm::update(const Eigen::
 
     /*! - Cross the first bodies' states to get R_SB and v_SB if no secondary celestial body is included or
      if the two bodies are close to parallel or if the computed rate was higher than rate threshold */
-    if (!this->secCelBodyIsLinked || attRefOut.omega_RN_N.norm() > this->rateThreshold ||
-        fabsf(platAngDiff) < this->singularityThreshold ||
-        fabsf(platAngDiff) > std::numbers::pi_v<float> - this->singularityThreshold) {
+    if (!this->cfg.getSecCelBodyIsLinked() || attRefOut.omega_RN_N.norm() > this->cfg.getRateThreshold() ||
+        fabsf(platAngDiff) < this->cfg.getSingularityThreshold() ||
+        fabsf(platAngDiff) > std::numbers::pi_v<float> - this->cfg.getSingularityThreshold()) {
         r_SB_N = r_PB_N.cross(v_PB_N);
         v_SB_N = Eigen::Vector3d::Zero();
         attRefOut = this->rateAndAccelCalc(r_PB_N, v_PB_N, r_SB_N, v_SB_N);
@@ -111,37 +113,3 @@ CelestialTwoBodyPointOutput CelestialTwoBodyPointAlgorithm::rateAndAccelCalc(con
 
     return attRefOut;
 }
-
-/**
- * @brief Set the singularity threshold
- * @param singularityThresholdIn [rad] angle threshold below which the constraint axis is fixed
- */
-void CelestialTwoBodyPointAlgorithm::setSingularityThreshold(const float singularityThresholdIn) {
-    if (singularityThresholdIn < 0.0F) {
-        FSW_THROW_INVALID_ARGUMENT("Singularity threshold must not be negative");
-    }
-    this->singularityThreshold = singularityThresholdIn;
-}
-
-/**
- * @brief Get the singularity threshold
- * @return [rad] angle threshold below which the constraint axis is fixed
- */
-float CelestialTwoBodyPointAlgorithm::getSingularityThreshold() const { return this->singularityThreshold; }
-
-/**
- * @brief Set the rate threshold
- * @param rateThresholdIn [rad/s] rate threshold above which the constraint axis is fixed
- */
-void CelestialTwoBodyPointAlgorithm::setRateThreshold(const float rateThresholdIn) {
-    if (rateThresholdIn < 0.0F) {
-        FSW_THROW_INVALID_ARGUMENT("Rate threshold must not be negative");
-    }
-    this->rateThreshold = rateThresholdIn;
-}
-
-/**
- * @brief Get the rate threshold
- * @return [rad/s] rate threshold above which the constraint axis is fixed
- */
-float CelestialTwoBodyPointAlgorithm::getRateThreshold() const { return this->rateThreshold; }
