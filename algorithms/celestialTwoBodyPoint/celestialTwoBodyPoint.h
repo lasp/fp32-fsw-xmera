@@ -10,7 +10,7 @@
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
 
-/*!@brief Data structure for module to compute the two-body celestial pointing navigation solution.
+/*!@brief Celestial two-body pointing attitude guidance adapter.
  */
 class CelestialTwoBodyPoint final : public SysModel {
    public:
@@ -24,10 +24,10 @@ class CelestialTwoBodyPoint final : public SysModel {
     void setRateThreshold(float rateThreshold);
     float getRateThreshold() const;
 
-    Message<AttRefMsgF32Payload> attRefOutMsg;            //!< The name of the output message*/
-    ReadFunctor<EphemerisMsgF32Payload> celBodyInMsg;     //!< The name of the celestial body message*/
-    ReadFunctor<EphemerisMsgF32Payload> secCelBodyInMsg;  //!< The name of the secondary body to constrain point*/
-    ReadFunctor<NavTransMsgF32Payload> transNavInMsg;     //!< The name of the incoming attitude command*/
+    Message<AttRefMsgF32Payload> attRefOutMsg;            //!< Attitude reference output message
+    ReadFunctor<EphemerisMsgF32Payload> celBodyInMsg;     //!< Primary celestial body ephemeris input message
+    ReadFunctor<EphemerisMsgF32Payload> secCelBodyInMsg;  //!< (optional) Secondary celestial body ephemeris input
+    ReadFunctor<NavTransMsgF32Payload> transNavInMsg;     //!< Spacecraft translational navigation input message
 
    private:
     bool secCelBodyIsLinked{};
