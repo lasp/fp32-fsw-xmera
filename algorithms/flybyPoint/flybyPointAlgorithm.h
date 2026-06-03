@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: ISC
 // Copyright (c) 2025, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
 
-#ifndef _FLYBY_POINT_ALGORITHM_H
-#define _FLYBY_POINT_ALGORITHM_H
+#ifndef F32XMERA_FLYBY_POINT_ALGORITHM_H
+#define F32XMERA_FLYBY_POINT_ALGORITHM_H
 
 #include <architecture/msgPayloadDef/AttRefMsgPayload.h>
 #include <architecture/msgPayloadDef/FlybyDiagnosticMsgPayload.h>
