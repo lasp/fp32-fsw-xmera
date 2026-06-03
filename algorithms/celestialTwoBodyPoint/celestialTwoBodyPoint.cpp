@@ -1,5 +1,6 @@
 #include "celestialTwoBodyPoint.h"
 #include "architecture/utilities/eigenSupport.h"
+#include "utilities/xmera/xmeraLifecycleException.h"
 
 #include <stdexcept>
 
@@ -14,7 +15,10 @@ void CelestialTwoBodyPoint::reset(const uint64_t callTime) {
         throw std::invalid_argument("celestialTwoBodyPoint.celBodyInMsg was not linked.");
     }
 
-    this->rebuildAlgorithmConfig();
+    // Phase 2: Validate config and create algorithm
+    auto config =
+        CelestialTwoBodyPointConfig::create(this->singularityThreshold, this->rateThreshold, this->secCelBodyIsLinked);
+    this->algorithm = std::make_unique<CelestialTwoBodyPointAlgorithm>(config);
 }
 
 /*! This method reads the input messages, computes the two-body celestial pointing attitude
@@ -22,6 +26,10 @@ void CelestialTwoBodyPoint::reset(const uint64_t callTime) {
  @param callTime The clock time at which the function was called (nanoseconds)
  */
 void CelestialTwoBodyPoint::updateState(const uint64_t callTime) {
+    if (!this->algorithm) {
+        throw XmeraLifecycleException("CelestialTwoBodyPoint reset() has not been called.");
+    }
+
     const NavTransMsgF32Payload transNavIn = this->transNavInMsg();
     const EphemerisMsgF32Payload celBodyIn = this->celBodyInMsg();
     const Eigen::Vector3d r_BN_N = cArrayToEigenVector3<double>(transNavIn.r_BN_N);
@@ -38,7 +46,7 @@ void CelestialTwoBodyPoint::updateState(const uint64_t callTime) {
     }
 
     const CelestialTwoBodyPointOutput out =
-        this->algorithm.update(r_celBody_N, v_celBody_N, r_secCelBody_N, v_secCelBody_N, r_BN_N, v_BN_N);
+        this->algorithm->update(r_celBody_N, v_celBody_N, r_secCelBody_N, v_secCelBody_N, r_BN_N, v_BN_N);
 
     /*! - Write the output message */
     AttRefMsgF32Payload attRefOut{};
@@ -46,46 +54,4 @@ void CelestialTwoBodyPoint::updateState(const uint64_t callTime) {
     eigenVectorToCArray(out.omega_RN_N, attRefOut.omega_RN_N);
     eigenVectorToCArray(out.domega_RN_N, attRefOut.domega_RN_N);
     this->attRefOutMsg.write(&attRefOut, this->moduleID, callTime);
-}
-
-/**
- * @brief Set the singularity threshold
- * @param threshold [rad] angle threshold below which the constraint axis is fixed
- */
-void CelestialTwoBodyPoint::setSingularityThreshold(const float threshold) {
-    if (!CelestialTwoBodyPointConfig::isValidSingularityThreshold(threshold)) {
-        FSW_THROW_INVALID_ARGUMENT("celestialTwoBodyPoint: singularityThreshold must be >= 0");
-    }
-    this->singularityThreshold = threshold;
-    this->rebuildAlgorithmConfig();
-}
-
-/**
- * @brief Get the singularity threshold
- * @return [rad] angle threshold below which the constraint axis is fixed
- */
-float CelestialTwoBodyPoint::getSingularityThreshold() const { return this->singularityThreshold; }
-
-/**
- * @brief Set the rate threshold
- * @param rateThreshold [rad/s] rate threshold above which the constraint axis is fixed
- */
-void CelestialTwoBodyPoint::setRateThreshold(const float rateThreshold) {
-    if (!CelestialTwoBodyPointConfig::isValidRateThreshold(rateThreshold)) {
-        FSW_THROW_INVALID_ARGUMENT("celestialTwoBodyPoint: rateThreshold must be >= 0");
-    }
-    this->rateThreshold = rateThreshold;
-    this->rebuildAlgorithmConfig();
-}
-
-/**
- * @brief Get the rate threshold
- * @return [rad/s] rate threshold above which the constraint axis is fixed
- */
-float CelestialTwoBodyPoint::getRateThreshold() const { return this->rateThreshold; }
-
-void CelestialTwoBodyPoint::rebuildAlgorithmConfig() {
-    const CelestialTwoBodyPointConfig cfg =
-        CelestialTwoBodyPointConfig::create(this->singularityThreshold, this->rateThreshold, this->secCelBodyIsLinked);
-    this->algorithm.setConfig(cfg);
 }
