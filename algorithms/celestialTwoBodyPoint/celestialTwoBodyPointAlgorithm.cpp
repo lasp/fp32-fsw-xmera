@@ -3,6 +3,7 @@
 #include "utilities/fsw/freestandingInvalidArgument.h"
 #include "utilities/fsw/rigidBodyKinematics.hpp"
 #include "utilities/fsw/safeMath.h"
+#include <numbers>
 
 void CelestialTwoBodyPointAlgorithm::reset(const bool secCelBodyIsLinkedIn) {
     this->secCelBodyIsLinked = secCelBodyIsLinkedIn;
@@ -30,7 +31,7 @@ AttRefMsgF32Payload CelestialTwoBodyPointAlgorithm::update(const EphemerisMsgF32
 
     float platAngDiff{}; /* Angle between r_PB_N and r_SB_N */
     if (this->secCelBodyIsLinked) {
-        r_SB_N = cArrayToEigenVector3(secCelBodyIn.r_BdyZero_N) - cArrayToEigenVector3(transNavIn.r_BN_N);
+        r_SB_N = cArrayToEigenVector3(secCelBodyIn.r_BdyZero_N) - cArrayToE igenVector3(transNavIn.r_BN_N);
         v_SB_N = cArrayToEigenVector3(secCelBodyIn.v_BdyZero_N) - cArrayToEigenVector3(transNavIn.v_BN_N);
 
         const float dotProduct = r_SB_N.normalized().dot(r_PB_N.normalized());
@@ -42,7 +43,8 @@ AttRefMsgF32Payload CelestialTwoBodyPointAlgorithm::update(const EphemerisMsgF32
     /*! - Cross the first bodies' states to get R_SB and v_SB if no secondary celestial body is included or
      if the two bodies are close to parallel or if the computed rate was higher than rate threshold */
     if (!this->secCelBodyIsLinked || cArrayToEigenVector3(attRefOut.omega_RN_N).norm() > this->rateThreshold ||
-        fabs(platAngDiff) < this->singularityThreshold || fabs(platAngDiff) > M_PI - this->singularityThreshold) {
+        fabs(platAngDiff) < this->singularityThreshold ||
+        fabs(platAngDiff) > std::numbers::pi_v<float> - this->singularityThreshold) {
         r_SB_N = r_PB_N.cross(v_PB_N);
         v_SB_N = Eigen::Vector3d::Zero();
         attRefOut = this->rateAndAccelCalc(r_PB_N, v_PB_N, r_SB_N, v_SB_N);
