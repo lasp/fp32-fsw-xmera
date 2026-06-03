@@ -100,23 +100,31 @@ bool FlybyPointAlgorithm::checkValidity(uint64_t currentSimNanos,
 
     /*! check if the predicted rate exceeds the maximum rate of the spacecraft */
     const double distanceClosestApproach = -r_BN_N.norm() * safeSinf(this->gamma0);
-    const double maxPredictedRate = v_BN_N.norm() / distanceClosestApproach * 180.0 / M_PI;
-    if (maxPredictedRate > this->maxRate && this->maxRate > 0.0F) {
+    if (std::abs(distanceClosestApproach) < std::numeric_limits<double>::epsilon()) {
+        // gamma0 ≈ 0: spacecraft is at or past closest approach — predicted rates and accelerations
+        // are unbounded, so both checks trigger regardless of the configured thresholds
         valid = false;
         flybyDiagnosticMsgBuffer.maxRateTrigger = true;
-    } else {
-        flybyDiagnosticMsgBuffer.maxRateTrigger = false;
-    }
-
-    /*! check if the predicted acceleration exceeds the maximum acceleration of the spacecraft */
-    const double angularRateAtCA = v_BN_N.norm() / distanceClosestApproach;
-    const double maxPredictedAcceleration =
-        3.0 * safeSqrt(3.0) / 8.0 * angularRateAtCA * angularRateAtCA * 180.0 / M_PI;
-    if (maxPredictedAcceleration > this->maxAcceleration && this->maxAcceleration > 0) {
-        valid = false;
         flybyDiagnosticMsgBuffer.maxAccelerationTrigger = true;
     } else {
-        flybyDiagnosticMsgBuffer.maxAccelerationTrigger = false;
+        const double maxPredictedRate = v_BN_N.norm() / distanceClosestApproach * 180.0 / M_PI;
+        if (maxPredictedRate > this->maxRate && this->maxRate > 0.0F) {
+            valid = false;
+            flybyDiagnosticMsgBuffer.maxRateTrigger = true;
+        } else {
+            flybyDiagnosticMsgBuffer.maxRateTrigger = false;
+        }
+
+        /*! check if the predicted acceleration exceeds the maximum acceleration of the spacecraft */
+        const double angularRateAtCA = v_BN_N.norm() / distanceClosestApproach;
+        const double maxPredictedAcceleration =
+            3.0 * safeSqrt(3.0) / 8.0 * angularRateAtCA * angularRateAtCA * 180.0 / M_PI;
+        if (maxPredictedAcceleration > this->maxAcceleration && this->maxAcceleration > 0) {
+            valid = false;
+            flybyDiagnosticMsgBuffer.maxAccelerationTrigger = true;
+        } else {
+            flybyDiagnosticMsgBuffer.maxAccelerationTrigger = false;
+        }
     }
 
     /*! check if the position error exceeds a-priori sigma bound */
