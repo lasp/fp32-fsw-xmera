@@ -23,6 +23,9 @@ void CelestialTwoBodyPointAlgorithm::setConfig(const CelestialTwoBodyPointConfig
  @param v_BN_N [m/s] spacecraft inertial velocity
  @return attitude reference output
  */
+// NOLINTBEGIN(bugprone-easily-swappable-parameters)
+// bugprone-easily-swappable-parameters: the Vector3d position/velocity inputs are documented in
+// the header and follow the standard (primary, secondary, spacecraft) ordering.
 CelestialTwoBodyPointOutput CelestialTwoBodyPointAlgorithm::update(const Eigen::Vector3d &r_celBody_N,
                                                                    const Eigen::Vector3d &v_celBody_N,
                                                                    const Eigen::Vector3d &r_secCelBody_N,
@@ -40,11 +43,12 @@ CelestialTwoBodyPointOutput CelestialTwoBodyPointAlgorithm::update(const Eigen::
         r_SB_N = r_secCelBody_N - r_BN_N;
         v_SB_N = v_secCelBody_N - v_BN_N;
 
-        const float dotProduct = static_cast<float>(r_SB_N.normalized().dot(r_PB_N.normalized()));
+        const auto dotProduct = static_cast<float>(r_SB_N.normalized().dot(r_PB_N.normalized()));
         platAngDiff = safeAcosf(dotProduct);
     }
 
-    CelestialTwoBodyPointOutput attRefOut = this->rateAndAccelCalc(r_PB_N, v_PB_N, r_SB_N, v_SB_N);
+    CelestialTwoBodyPointOutput attRefOut =
+        CelestialTwoBodyPointAlgorithm::rateAndAccelCalc(r_PB_N, v_PB_N, r_SB_N, v_SB_N);
 
     /*! - Cross the first bodies' states to get R_SB and v_SB if no secondary celestial body is included or
      if the two bodies are close to parallel or if the computed rate was higher than rate threshold */
@@ -53,11 +57,12 @@ CelestialTwoBodyPointOutput CelestialTwoBodyPointAlgorithm::update(const Eigen::
         fabsf(platAngDiff) > std::numbers::pi_v<float> - this->cfg.getSingularityThreshold()) {
         r_SB_N = r_PB_N.cross(v_PB_N);
         v_SB_N = Eigen::Vector3d::Zero();
-        attRefOut = this->rateAndAccelCalc(r_PB_N, v_PB_N, r_SB_N, v_SB_N);
+        attRefOut = CelestialTwoBodyPointAlgorithm::rateAndAccelCalc(r_PB_N, v_PB_N, r_SB_N, v_SB_N);
     }
 
     return attRefOut;
 }
+// NOLINTEND(bugprone-easily-swappable-parameters)
 
 CelestialTwoBodyPointOutput CelestialTwoBodyPointAlgorithm::rateAndAccelCalc(const Eigen::Vector3d &r_PB_N,
                                                                              const Eigen::Vector3d &v_PB_N,
@@ -95,14 +100,14 @@ CelestialTwoBodyPointOutput CelestialTwoBodyPointAlgorithm::rateAndAccelCalc(con
     attRefOut.omega_RN_N = dcm_RN.transpose() * omega_RN_R;
 
     /* - Reference base-vectors second time-derivative */
-    const Eigen::Vector3f ddr1_N_hat = -(2 * dr1_N_hat * r1_N_hat.transpose() + r1_N_hat * dr1_N_hat.transpose()) *
+    const Eigen::Vector3f ddr1_N_hat = -((2 * dr1_N_hat * r1_N_hat.transpose()) + (r1_N_hat * dr1_N_hat.transpose())) *
                                        (v_PB_N / r_PB_N.norm()).cast<float>();
     const Eigen::Vector3f ddr3_N_hat =
-        ((Eigen::Matrix3f::Identity() - r3_N_hat * r3_N_hat.transpose()) * a_N.cast<float>() -
-         (2 * dr3_N_hat * r3_N_hat.transpose() + r3_N_hat * dr3_N_hat.transpose()) * v_N.cast<float>()) /
+        (((Eigen::Matrix3f::Identity() - r3_N_hat * r3_N_hat.transpose()) * a_N.cast<float>()) -
+         (((2 * dr3_N_hat * r3_N_hat.transpose()) + (r3_N_hat * dr3_N_hat.transpose())) * v_N.cast<float>())) /
         R_N.norm();
     const Eigen::Vector3f ddr2_N_hat =
-        ddr3_N_hat.cross(r1_N_hat) + r3_N_hat.cross(ddr1_N_hat) + 2 * dr3_N_hat.cross(dr1_N_hat);
+        ddr3_N_hat.cross(r1_N_hat) + r3_N_hat.cross(ddr1_N_hat) + (2 * dr3_N_hat.cross(dr1_N_hat));
 
     /* - Angular acceleration computation */
     Eigen::Vector3f domega_RN_R{};
