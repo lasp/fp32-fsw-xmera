@@ -50,9 +50,9 @@ FlybyPointOutput FlybyPointAlgorithm::updateState(uint64_t currentSimNanos,
     }
     auto [sigma_RN, omega_RN_N, omegaDot_RN_N] = this->computeGuidanceSolution();
     FlybyPointOutput output{};
-    output.sigma_RN = sigma_RN;
-    output.omega_RN_N = omega_RN_N;
-    output.domega_RN_N = omegaDot_RN_N;
+    output.sigma_RN = sigma_RN.cast<float>();
+    output.omega_RN_N = omega_RN_N.cast<float>();
+    output.domega_RN_N = omegaDot_RN_N.cast<float>();
     output.collinearityTrigger = flybyDiagnosticMsgBuffer.collinearityTrigger;
     output.maxRateTrigger = flybyDiagnosticMsgBuffer.maxRateTrigger;
     output.maxAccelerationTrigger = flybyDiagnosticMsgBuffer.maxAccelerationTrigger;

@@ -16,7 +16,7 @@ void FlybyPoint::updateState(uint64_t currentSimNanos) {
     FlybyPointOutput algo_output = this->algorithm.updateState(currentSimNanos, r_BN_N, v_BN_N);
 
     // Create local container for output message
-    AttRefMsgPayload attMsgBuffer{};
+    AttRefMsgF32Payload attMsgBuffer{};
 
     // Convert algorithm outputs from eigen vectors to C arrays
     eigenVectorToCArray(algo_output.sigma_RN, attMsgBuffer.sigma_RN);

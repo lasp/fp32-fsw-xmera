@@ -5,11 +5,11 @@
 #define FLYBY_POINT_H
 
 #include "flybyPointAlgorithm.h"
+#include "msgPayloadDef/AttRefMsgF32Payload.h"
 #include "msgPayloadDef/EphemerisMsgF32Payload.h"
 #include "msgPayloadDef/NavTransMsgF32Payload.h"
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
-#include <architecture/msgPayloadDef/AttRefMsgPayload.h>
 #include <architecture/msgPayloadDef/FlybyDiagnosticMsgPayload.h>
 #include <Eigen/Dense>
 
@@ -35,7 +35,7 @@ class FlybyPoint : public SysModel {
 
     ReadFunctor<NavTransMsgF32Payload> filterInMsg;              //!< input msg relative position w.r.t. asteroid
     ReadFunctor<EphemerisMsgF32Payload> asteroidEphemerisInMsg;  //!< input asteroid ephemeris msg
-    Message<AttRefMsgPayload> attRefOutMsg;                      //!< Attitude reference output message
+    Message<AttRefMsgF32Payload> attRefOutMsg;                   //!< Attitude reference output message
     Message<FlybyDiagnosticMsgPayload> flybyDiagnosticOutMsg;    //!< Flyby diagnostic output message
 
    private:

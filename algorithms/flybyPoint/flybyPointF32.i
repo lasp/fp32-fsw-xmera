@@ -15,5 +15,5 @@
 
 %include "msgPayloadDef/NavTransMsgF32Payload.h"
 %include "msgPayloadDef/EphemerisMsgF32Payload.h"
-%include <architecture/msgPayloadDef/AttRefMsgPayload.h>
+%include "msgPayloadDef/AttRefMsgF32Payload.h"
 %include <architecture/msgPayloadDef/FlybyDiagnosticMsgPayload.h>
