@@ -3,6 +3,7 @@
 #include "utilities/fsw/freestandingInvalidArgument.h"
 #include "utilities/fsw/rigidBodyKinematics.hpp"
 #include "utilities/fsw/safeMath.h"
+#include <math.h>
 #include <numbers>
 
 void CelestialTwoBodyPointAlgorithm::reset(const bool secCelBodyIsLinkedIn) {
@@ -34,7 +35,7 @@ AttRefMsgF32Payload CelestialTwoBodyPointAlgorithm::update(const EphemerisMsgF32
         r_SB_N = cArrayToEigenVector3(secCelBodyIn.r_BdyZero_N) - cArrayToE igenVector3(transNavIn.r_BN_N);
         v_SB_N = cArrayToEigenVector3(secCelBodyIn.v_BdyZero_N) - cArrayToEigenVector3(transNavIn.v_BN_N);
 
-        const float dotProduct = r_SB_N.normalized().dot(r_PB_N.normalized());
+        const float dotProduct = static_cast<float>(r_SB_N.normalized().dot(r_PB_N.normalized()));
         platAngDiff = safeAcosf(dotProduct);
     }
 
@@ -43,8 +44,8 @@ AttRefMsgF32Payload CelestialTwoBodyPointAlgorithm::update(const EphemerisMsgF32
     /*! - Cross the first bodies' states to get R_SB and v_SB if no secondary celestial body is included or
      if the two bodies are close to parallel or if the computed rate was higher than rate threshold */
     if (!this->secCelBodyIsLinked || cArrayToEigenVector3(attRefOut.omega_RN_N).norm() > this->rateThreshold ||
-        fabs(platAngDiff) < this->singularityThreshold ||
-        fabs(platAngDiff) > std::numbers::pi_v<float> - this->singularityThreshold) {
+        fabsf(platAngDiff) < this->singularityThreshold ||
+        fabsf(platAngDiff) > std::numbers::pi_v<float> - this->singularityThreshold) {
         r_SB_N = r_PB_N.cross(v_PB_N);
         v_SB_N = Eigen::Vector3d::Zero();
         attRefOut = this->rateAndAccelCalc(r_PB_N, v_PB_N, r_SB_N, v_SB_N);
@@ -116,7 +117,7 @@ AttRefMsgF32Payload CelestialTwoBodyPointAlgorithm::rateAndAccelCalc(const Eigen
  * @param singularityThresholdIn [rad] angle threshold below which the constraint axis is fixed
  */
 void CelestialTwoBodyPointAlgorithm::setSingularityThreshold(const float singularityThresholdIn) {
-    if (singularityThresholdIn < 0.0) {
+    if (singularityThresholdIn < 0.0F) {
         FSW_THROW_INVALID_ARGUMENT("Singularity threshold must not be negative");
     }
     this->singularityThreshold = singularityThresholdIn;
@@ -133,7 +134,7 @@ float CelestialTwoBodyPointAlgorithm::getSingularityThreshold() const { return t
  * @param rateThresholdIn [rad/s] rate threshold above which the constraint axis is fixed
  */
 void CelestialTwoBodyPointAlgorithm::setRateThreshold(const float rateThresholdIn) {
-    if (rateThresholdIn < 0.0) {
+    if (rateThresholdIn < 0.0F) {
         FSW_THROW_INVALID_ARGUMENT("Rate threshold must not be negative");
     }
     this->rateThreshold = rateThresholdIn;
