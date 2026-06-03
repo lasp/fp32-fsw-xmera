@@ -35,27 +35,27 @@ class FlybyPointAlgorithm {
     std::tuple<Eigen::Vector3f, Eigen::Vector3f, Eigen::Vector3f> computeGuidanceSolution() const;
     double getTimeBetweenFilterData() const;
     void setTimeBetweenFilterData(double timeBetweenFilterData);
-    double getToleranceForCollinearity() const;
-    void setToleranceForCollinearity(double toleranceForCollinearity);
+    float getToleranceForCollinearity() const;
+    void setToleranceForCollinearity(float toleranceForCollinearity);
     int getSignOfOrbitNormalFrameVector() const;
     void setSignOfOrbitNormalFrameVector(int signOfOrbitNormalFrameVector);
-    double getMaximumAccelerationThreshold() const;
-    void setMaximumAccelerationThreshold(double maxAccelerationThreshold);
-    double getMaximumRateThreshold() const;
-    void setMaximumRateThreshold(double maxRateThreshold);
-    double getPositionKnowledgeSigma() const;
-    void setPositionKnowledgeSigma(double positionKnowledgeStd);
+    float getMaximumAccelerationThreshold() const;
+    void setMaximumAccelerationThreshold(float maxAccelerationThreshold);
+    float getMaximumRateThreshold() const;
+    void setMaximumRateThreshold(float maxRateThreshold);
+    float getPositionKnowledgeSigma() const;
+    void setPositionKnowledgeSigma(float positionKnowledgeStd);
 
    private:
     double dt = 0;                     //!< current time step between last two updates
     double timeOfFirstRead = 0;        //!< time of first nav solution read
     double timeBetweenFilterData = 0;  //!< time between two subsequent reads of the filter information
-    double toleranceForCollinearity =
-        0;  //!< tolerance for singular conditions when position and velocity are collinear
+    float toleranceForCollinearity =
+        0.0F;  //!< tolerance for singular conditions when position and velocity are collinear
     int signOfOrbitNormalFrameVector = 1;  //!< Sign of orbit normal vector to complete reference frame
 
-    double maxRate = 0;          //!< maximum rate spacecraft can control to, used for validity of solution
-    double maxAcceleration = 0;  //!< maximum acceleration spacecraft can control to, used for validity of solution
+    float maxRate = 0.0F;          //!< maximum rate spacecraft can control to, used for validity of solution
+    float maxAcceleration = 0.0F;  //!< maximum acceleration spacecraft can control to, used for validity of solution
 
     bool firstRead = true;            //!< variable to attest if this is the first read after a Reset
     float f0 = 0.0F;                  //!< ratio between relative velocity and position norms at time of read [Hz]
@@ -64,7 +64,7 @@ class FlybyPointAlgorithm {
     Eigen::Matrix3f R0N{Eigen::Matrix3f::Identity()};  //!< inertial-to-reference DCM at time of read
     Eigen::Vector3d firstNavPosition{};                //!< First position used to create profile
     Eigen::Vector3d firstNavVelocity{};                //!< First velocity used to create profile
-    double positionKnowledgeSigma = 0;                 //!< Last position used to create profile
+    float positionKnowledgeSigma = 0.0F;               //!< Last position used to create profile
 };
 
 #endif
