@@ -2,6 +2,7 @@
 // Copyright (c) 2025, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
 
 #include "flybyPointAlgorithm.h"
+#include "utilities/safeMath.h"
 #include <architecture/utilities/eigenSupport.h>
 #include <architecture/utilities/macroDefinitions.h>
 #include <architecture/utilities/rigidBodyKinematics.hpp>
@@ -72,7 +73,7 @@ void FlybyPointAlgorithm::computeFlybyParameters(const Eigen::Vector3d& r_BN_N, 
     Eigen::Vector3d ut_N = uh_N.cross(ur_N).normalized();
 
     // gamma0 is a pure angle; computed in double for input precision, float storage is sufficient
-    this->gamma0 = static_cast<float>(std::atan(v_BN_N.dot(ur_N) / v_BN_N.dot(ut_N)));
+    this->gamma0 = static_cast<float>(safeAtan(v_BN_N.dot(ur_N) / v_BN_N.dot(ut_N)));
 }
 
 bool FlybyPointAlgorithm::checkValidity(uint64_t currentSimNanos,
@@ -92,9 +93,9 @@ bool FlybyPointAlgorithm::checkValidity(uint64_t currentSimNanos,
     }
 
     /*! check if the predicted rate exceeds the maximum rate of the spacecraft */
-    double distanceClosestApproach = -r_BN_N.norm() * std::sin(this->gamma0);
-    double maxPredictedRate = v_BN_N.norm() / distanceClosestApproach * 180 / M_PI;
-    if (maxPredictedRate > this->maxRate && this->maxRate > 0) {
+    double distanceClosestApproach = -r_BN_N.norm() * safeSinf(this->gamma0);
+    double maxPredictedRate = v_BN_N.norm() / distanceClosestApproach * 180.0 / M_PI;
+    if (maxPredictedRate > this->maxRate && this->maxRate > 0.0F) {
         valid = false;
         flybyDiagnosticMsgBuffer.maxRateTrigger = true;
     } else {
@@ -102,8 +103,8 @@ bool FlybyPointAlgorithm::checkValidity(uint64_t currentSimNanos,
     }
 
     /*! check if the predicted acceleration exceeds the maximum acceleration of the spacecraft */
-    double maxPredictedAcceleration =
-        3 * std::sqrt(3) / 8 * pow(v_BN_N.norm() / distanceClosestApproach, 2) * 180 / M_PI;
+    const double angularRateAtCA = v_BN_N.norm() / distanceClosestApproach;
+    double maxPredictedAcceleration = 3.0 * safeSqrt(3.0) / 8.0 * angularRateAtCA * angularRateAtCA * 180.0 / M_PI;
     if (maxPredictedAcceleration > this->maxAcceleration && this->maxAcceleration > 0) {
         valid = false;
         flybyDiagnosticMsgBuffer.maxAccelerationTrigger = true;
@@ -144,7 +145,7 @@ std::tuple<Eigen::Vector3f, Eigen::Vector3f, Eigen::Vector3f> FlybyPointAlgorith
     const auto dt = static_cast<float>(this->dt);
 
     /*! compute DCM (RtR0) of reference frame from last read time */
-    float theta = std::atan(std::tan(this->gamma0) + this->f0 / std::cos(this->gamma0) * dt) - this->gamma0;
+    float theta = safeAtanf(safeTanf(this->gamma0) + this->f0 / safeCosf(this->gamma0) * dt) - this->gamma0;
     Eigen::Vector3f PRV_theta{0.0F, 0.0F, theta};
     Eigen::Matrix3f RtR0 = prvToDcm(PRV_theta);
 
@@ -152,10 +153,10 @@ std::tuple<Eigen::Vector3f, Eigen::Vector3f, Eigen::Vector3f> FlybyPointAlgorith
     Eigen::Matrix3f RtN = RtR0 * this->R0N;
 
     /*! compute scalar angular rate and acceleration of the reference frame in R-frame coordinates */
-    float den = (this->f0 * this->f0 * dt * dt + 2.0F * this->f0 * std::sin(this->gamma0) * dt + 1.0F);
-    float thetaDot = this->f0 * std::cos(this->gamma0) / den;
+    float den = (this->f0 * this->f0 * dt * dt + 2.0F * this->f0 * safeSinf(this->gamma0) * dt + 1.0F);
+    float thetaDot = this->f0 * safeCosf(this->gamma0) / den;
     float thetaDDot =
-        -2.0F * this->f0 * this->f0 * std::cos(this->gamma0) * (this->f0 * dt + std::sin(this->gamma0)) / (den * den);
+        -2.0F * this->f0 * this->f0 * safeCosf(this->gamma0) * (this->f0 * dt + safeSinf(this->gamma0)) / (den * den);
     Eigen::Vector3f omega_RN_R{0.0F, 0.0F, thetaDot};
     Eigen::Vector3f omegaDot_RN_R{0.0F, 0.0F, thetaDDot};
 
