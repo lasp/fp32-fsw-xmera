@@ -129,10 +129,12 @@ inline void testRwMotorTorque(const Eigen::Vector3f& Lr1_B,
     // Set up the control axes mapping matrix.
     const Eigen::Matrix3f controlAxes_B = makeControlAxes(numControlAxes);
 
-    // Build the RW array configuration from the flat spin-axis array
+    // Zero-pad the caller's 3 * numRW spin-axis entries to the full matrix (avoids reading past the vector).
     RwMotorTorqueArrayConfiguration rwConfiguration{};
     rwConfiguration.numRW = static_cast<uint32_t>(numRW);
-    rwConfiguration.GsMatrix_B = cArrayToEigenMatrix<float, 3, kMaxNumRw>(GsMatrix_B.data());
+    std::vector<float> paddedGsMatrix_B(3U * static_cast<size_t>(kMaxNumRw), 0.0F);
+    std::copy(GsMatrix_B.begin(), GsMatrix_B.end(), paddedGsMatrix_B.begin());
+    rwConfiguration.GsMatrix_B = cArrayToEigenMatrix<float, 3, kMaxNumRw>(paddedGsMatrix_B.data());
 
     // Build the availability: wheelAvailabilityBool[i] == true marks wheel i UNAVAILABLE
     RwMotorTorqueAvailability availability{};
