@@ -9,12 +9,15 @@ internal ring that the algorithm itself owns and grows across update cycles. Eac
 of up to ``MAX_MIMU_PKT_C`` (4) packets, each carrying a per-packet ``measTime`` (the timestamp of the first sample in
 that group) plus ``MAX_MIMU_SAMPLES_PER_PKT_C`` (10) gyro/accel sample pairs. Phase 1 ingests any newly-arrived packets
 - those whose ``measTime`` is strictly greater than the largest first-sample time ever ingested - into the next slot of
-the ring, overwriting the oldest slot when capacity is reached. Phase 2 averages every sample currently in the ring
-whose derived measurement time (``slot.measTime + s * kMimuSamplePeriodNs``) is within ``averagingWindow`` of the
-newest stored sample's tail time, and rotates the result into the body frame using the user-provided DCM ``dcm_BP``.
-Each contributing sample weighs equally. If the ring is empty or holds no fresh sample within the window, the output
-is zero. The ring is sized at compile time to hold exactly ``kMaxAveragingWindowSec`` (2.0 s) of samples at the MIMU
-device's compile-time sample rate ``kMimuSampleRateHz`` (100 Hz).
+the ring, overwriting the oldest slot when capacity is reached. Phase 2 averages the ring, but gyro and accelerometer
+are filtered over **independent** time windows: a sample (derived measurement time
+``slot.measTime + s * kMimuSamplePeriodNs``) contributes to the angular-rate mean when it lies within
+``gyroAveragingWindow`` of the newest stored sample's tail time, and to the acceleration mean when within
+``accelAveragingWindow``. Each mean is rotated into the body frame using the user-provided DCM ``dcm_BP``. Each
+contributing sample weighs equally. A modality with no fresh sample inside its window (or an empty ring) yields a zero
+vector for that modality. The ring is sized at compile time to hold exactly ``kMaxAveragingWindowSec`` (2.0 s) of
+samples at the MIMU device's compile-time sample rate ``kMimuSampleRateHz`` (100 Hz); both windows share this ring and
+are each capped at ``kMaxAveragingWindowSec``.
 
 Message Connection Descriptions
 -------------------------------
@@ -52,12 +55,18 @@ The following table lists all parameters that can be set. Parameters are optiona
       - Default
       - Setter / Getter
       - Description
-    * - averagingWindow
+    * - gyroAveragingWindow
       - double
       - [s]
       - 0.0
-      - ``setAveragingWindow()`` / ``getAveragingWindow()``
-      - Rolling time-window. Must be in ``[0.0, kMaxAveragingWindowSec]``; the setter throws otherwise.
+      - ``setGyroAveragingWindow()`` / ``getGyroAveragingWindow()``
+      - Rolling time-window for angular rate. Must be in ``[0.0, kMaxAveragingWindowSec]``; the setter throws otherwise.
+    * - accelAveragingWindow
+      - double
+      - [s]
+      - 0.0
+      - ``setAccelAveragingWindow()`` / ``getAccelAveragingWindow()``
+      - Rolling time-window for acceleration. Must be in ``[0.0, kMaxAveragingWindowSec]``; the setter throws otherwise.
     * - dcm_BP
       - Eigen::Matrix3f
       - [-]
@@ -67,31 +76,16 @@ The following table lists all parameters that can be set. Parameters are optiona
 
 Module Assumptions and Limitations
 ----------------------------------
+- Packet ``measTime`` values are assumed strictly monotonic across successive ``update()`` calls. A snapshot whose
+  packets have ``measTime`` less than or equal to the prior call's max is dropped at ingest.
 - ``measTime`` is in nanoseconds. The packet's ``measTime`` is the first sample's timestamp; subsequent samples are
   assumed to be at ``measTime + s * kMimuSamplePeriodNs`` for ``s = 1 .. N-1``. Upstream is responsible for ensuring
   this device-rate-derived schedule matches reality.
-- Packet ``measTime`` values are assumed strictly monotonic across successive ``update()`` calls. A snapshot whose
-  packets have ``measTime`` less than or equal to the prior call's max is dropped at ingest (no out-of-order ingestion).
-- ``isValid`` gates a packet wholesale. When true, every sample in the packet is treated as real. There is no
-  per-sample fill flag.
 - A packet with ``isValid == true`` but ``measTime == 0`` is dropped at ingest. Empty ring slots remain
   ``isValid == false`` until ingested and therefore cannot pollute the average during warm-up.
-- Among the samples currently in the ring, a measurement at derived time ``slot.measTime + s * kMimuSamplePeriodNs``
-  is included in the average if ``(maxTimeTag - sampleMeasTime) <= averagingWindowNs``, where ``maxTimeTag`` is the
-  newest stored slot's tail (``maxSlotMeasTime + (N - 1) * kMimuSamplePeriodNs``) and ``averagingWindowNs`` is the
-  configured ``averagingWindow`` (seconds, in ``[0.0, kMaxAveragingWindowSec]``) converted once to nanoseconds. The
-  comparison is done in ``uint64_t`` nanoseconds to avoid the precision loss that would occur casting a multi-second
-  ``uint64_t`` delta through ``float``.
-- ``setAveragingWindow`` throws if the argument is negative or exceeds ``kMaxAveragingWindowSec`` (the compile-time
-  maximum). The ring is sized for exactly this maximum at the MIMU sample rate; larger windows can't be supported
-  by a fixed-size buffer.
-- ``setDcmPltfToBdy`` throws if the supplied matrix is not a proper DCM (orthonormal, right-handed, det=+1). The
-  previously-stored DCM is preserved on rejection.
-- If the ring is empty or holds no fresh sample within the averaging window, the output vectors are zero.
-- The algorithm performs an unweighted arithmetic mean across measurements (no weighting, outlier rejection, or bias
-  correction). Each contributing sample weighs equally regardless of which packet it came from.
-- The internal ring is never reset. Setters (``setAveragingWindow``, ``setDcmPltfToBdy``) take effect on the next
-  ``update()`` but do not clear stored data; callers that need a clean state must construct a new instance.
+- If the ring is empty, or there is no fresh sample within a window, the output vector is zero.
+- The algorithm performs an unweighted arithmetic mean across measurements.
+- The internal ring is only ever reset when reset() is called.
 
 Initialization
 --------------
@@ -99,7 +93,8 @@ Production wiring uses the SysModel-style ``AverageMimuData`` wrapper, which own
 its messages::
 
     AverageMimuData mod;
-    mod.setAveragingWindow(0.05F);           // float at the adapter; <= kMaxAveragingWindowSec
+    mod.setGyroAveragingWindow(0.05);        // <= kMaxAveragingWindowSec
+    mod.setAccelAveragingWindow(0.10);       // independent of the gyro window
     mod.setDcmPltfToBdy(dcm_BP);             // Eigen::Matrix3f (platform-to-body)
     mod.mimuPacketInMsg.subscribeTo(...);    // required - reset() throws if not linked
 
@@ -109,7 +104,8 @@ the algorithm and writes the body-frame averages to ``mod.imuOutMsg``.
 For unit-test or standalone use, the algorithm class can be driven directly::
 
     AverageMimuDataAlgorithm alg;
-    alg.setAveragingWindow(0.05);            // double at the algorithm layer
+    alg.setGyroAveragingWindow(0.05);        // double at the algorithm layer
+    alg.setAccelAveragingWindow(0.10);       // independent of the gyro window
     alg.setDcmPltfToBdy(dcm_BP);
     OutputAverageAccelAngleVel out = alg.update(localPkts);
 
@@ -132,7 +128,8 @@ interpreted as platform-frame quantities, despite the field naming.
 
 Configuration
 ^^^^^^^^^^^^^
-1. Set ``averagingWindow`` to define how far back (from the newest fresh sample) to include samples in the average.
+1. Set ``gyroAveragingWindow`` and ``accelAveragingWindow`` to define, independently per modality, how far back (from
+   the newest fresh sample) to include samples in the average.
 2. Set ``dcm_BP`` to map platform-frame vectors into the body frame.
 
 Algorithm
@@ -159,15 +156,18 @@ Phase 2 - average over the ring:
 1. Compute ``maxTimeTag = maxSlotMeasTime + (N - 1) * kMimuSamplePeriodNs`` -- the tail sample's time of the newest
    stored packet.
 2. For each valid ring slot and each ``s`` in ``0 .. N - 1``, compute the derived sample time
-   ``sampleMeasTime = slot.measTime + s * kMimuSamplePeriodNs`` and include the sample iff
-   ``(maxTimeTag - sampleMeasTime) <= averagingWindowNs``.
-3. Average the selected gyro and accelerometer vectors (in the platform frame), weighting each sample equally.
-4. Transform the averaged vectors to the body frame using ``dcm_BP`` and return them.
+   ``sampleMeasTime = slot.measTime + s * kMimuSamplePeriodNs`` and its age ``maxTimeTag - sampleMeasTime``. Add the
+   gyro vector to the gyro accumulator (and bump the gyro count) iff the age is ``<= gyroAveragingWindowNs``; add the
+   accel vector to the accel accumulator (and bump the accel count) iff the age is ``<= accelAveragingWindowNs``.
+3. Divide each accumulator by its own count to form the platform-frame means, weighting each sample equally. A count of
+   zero leaves that modality's mean at zero.
+4. Transform each averaged vector to the body frame using ``dcm_BP`` and return them.
 
 Recommended Practices
 ^^^^^^^^^^^^^^^^^^^^^
-- Choose ``averagingWindow`` based on the desired smoothing. Larger values increase smoothing but introduce more
-  latency. The setter rejects values outside ``[0.0, kMaxAveragingWindowSec]``.
+- Choose ``gyroAveragingWindow`` and ``accelAveragingWindow`` independently based on the desired smoothing for each
+  modality. Larger values increase smoothing but introduce more latency. Each setter rejects values outside
+  ``[0.0, kMaxAveragingWindowSec]``.
 - ``dcm_BP`` shall be a proper DCM (orthonormal, right-handed).
 - Set ``packet.measTime`` to the timestamp of the first sample in each packet. Subsequent samples are scheduled at
   ``measTime + s * kMimuSamplePeriodNs`` regardless of what the per-sample ``AccPktDataMsgF32Payload.measTime`` says.
@@ -205,8 +205,11 @@ The algorithm is implemented by::
             average_mimu_detail::ceilDivSamplesToPackets(
                 kMimuSampleRateHz, kMaxAveragingWindowSec, MAX_MIMU_SAMPLES_PER_PKT_C);
 
-        void setAveragingWindow(double averagingWindowIn);
-        double getAveragingWindow() const;
+        void setGyroAveragingWindow(double gyroWindowIn);
+        double getGyroAveragingWindow() const;
+
+        void setAccelAveragingWindow(double accelWindowIn);
+        double getAccelAveragingWindow() const;
 
         void setDcmPltfToBdy(Eigen::Matrix3f const& dcm_BPIn);
         Eigen::Matrix3f getDcmPltfToBdy() const;
@@ -228,8 +231,8 @@ algorithm:
 - If ``mimuPacketInMsg.timeWritten()`` has not changed since the previous ``updateState``, the call is skipped,
   ``staleDataCount`` is incremented, and no new output is written. The algorithm's internal ring is unchanged on a
   skipped cycle.
-- ``setAveragingWindow`` on the adapter takes ``float`` and delegates to the algorithm's ``double`` setter; this
-  is the only public-API type difference between the two layers.
+- ``setGyroAveragingWindow`` / ``setAccelAveragingWindow`` on the adapter delegate directly to the algorithm's
+  setters of the same name; both layers use ``double``.
 
 Input Type
 ^^^^^^^^^^
@@ -252,5 +255,6 @@ The algorithm-internal input types are::
 
 Notes
 -----
-- The averaging window is anchored to the newest sample's derived time, not to the current system time.
-- The output is deterministic given the input snapshot history, ``averagingWindow``, and ``dcm_BP``.
+- Both averaging windows are anchored to the newest sample's derived time, not to the current system time.
+- The output is deterministic given the input snapshot history, ``gyroAveragingWindow``, ``accelAveragingWindow``,
+  and ``dcm_BP``.
