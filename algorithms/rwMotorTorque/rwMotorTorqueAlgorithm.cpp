@@ -110,28 +110,37 @@ void RwMotorTorqueAlgorithm::computeRwMapping() {
         }
     }
 
-    this->computeNullSpaceProjection(rwConfiguration);
+    this->computeNullSpaceProjection(rwConfiguration, wheelsAvailability);
 }
 
-/*! Precomputes the RW null-space projection [tau] = [I] - [Gs]^T([Gs][Gs]^T)^-1[Gs] from the configured
- spin axes. Applied to the wheel-speed feedback, [tau] gives a despin torque that produces no body torque.
- Left zero unless more than three wheels span 3-D, so ([Gs][Gs]^T) is never inverted while singular.
+/*! Precomputes the RW null-space projection [tau] = [I] - [Gs]^T([Gs][Gs]^T)^-1[Gs] from the available
+ spin axes (in their original columns). Applied to the wheel-speed feedback, [tau] gives a despin torque
+ that produces no body torque; rows of excluded wheels are zeroed. Left zero unless more than three wheels
+ are available and span 3-D, so ([Gs][Gs]^T) is never inverted while singular.
  @param rwConfiguration reaction-wheel spin-axis configuration
+ @param wheelsAvailability per-wheel availability flags
  */
-void RwMotorTorqueAlgorithm::computeNullSpaceProjection(const RwMotorTorqueArrayConfiguration& rwConfiguration) {
+void RwMotorTorqueAlgorithm::computeNullSpaceProjection(
+    const RwMotorTorqueArrayConfiguration& rwConfiguration,
+    const std::array<FSWdeviceAvailability, kMaxNumRw>& wheelsAvailability) {
     this->tau.setZero();
 
-    // No null space unless there are more than three wheels.
-    if (rwConfiguration.numRW <= 3U) {
+    // [Gs] from the available wheels, each in its original column.
+    Eigen::Matrix<float, 3, kMaxNumRw> G_s_B{Eigen::Matrix<float, 3, kMaxNumRw>::Zero()};
+    uint32_t numAvailRW = 0U;
+    for (uint32_t i = 0U; i < rwConfiguration.numRW; ++i) {
+        if (wheelsAvailability[i] == AVAILABLE) {
+            G_s_B.col(i) = rwConfiguration.GsMatrix_B.col(i).normalized();
+            numAvailRW += 1U;
+        }
+    }
+
+    // No null space unless more than three wheels are available.
+    if (numAvailRW <= 3U) {
         return;
     }
 
-    Eigen::Matrix<float, 3, kMaxNumRw> G_s_B{Eigen::Matrix<float, 3, kMaxNumRw>::Zero()};
-    for (uint32_t i = 0U; i < rwConfiguration.numRW; ++i) {
-        G_s_B.col(i) = rwConfiguration.GsMatrix_B.col(i).normalized();
-    }
-
-    // ([Gs][Gs]^T) is invertible only when the wheels span 3-D; a rank-deficient array leaves [tau] zero.
+    // ([Gs][Gs]^T) is invertible only when the available wheels span 3-D; a rank-deficient array leaves [tau] zero.
     const Eigen::Matrix3f GsGsT = G_s_B * G_s_B.transpose();
     const Eigen::JacobiSVD<Eigen::Matrix3f> gsSvd(GsGsT);
     const Eigen::Vector3f gsSingularValues = gsSvd.singularValues();
@@ -141,4 +150,11 @@ void RwMotorTorqueAlgorithm::computeNullSpaceProjection(const RwMotorTorqueArray
     }
 
     this->tau = Eigen::Matrix<float, kMaxNumRw, kMaxNumRw>::Identity() - G_s_B.transpose() * GsGsT.inverse() * G_s_B;
+
+    // Zero the despin rows of unavailable and absent wheels.
+    for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
+        if (i >= rwConfiguration.numRW || wheelsAvailability[i] != AVAILABLE) {
+            this->tau.row(i).setZero();
+        }
+    }
 }

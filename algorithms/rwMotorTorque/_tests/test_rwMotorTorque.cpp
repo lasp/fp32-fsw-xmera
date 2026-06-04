@@ -99,6 +99,51 @@ TEST(RwMotorTorqueTest, NullSpaceNoOpThreeSpanningWheels) {
     }
 }
 
+// Despin must respect availability: an unavailable wheel gets zero torque, and despin adds no body torque.
+TEST(RwMotorTorqueTest, NullSpaceRespectsAvailability) {
+    // Five wheels so that, with one unavailable, four available wheels still leave a 1-D null space.
+    RwMotorTorqueArrayConfiguration rwConfiguration{};
+    rwConfiguration.numRW = 5U;
+    rwConfiguration.GsMatrix_B.col(0) = Eigen::Vector3f{1.0F, 0.0F, 0.0F};
+    rwConfiguration.GsMatrix_B.col(1) = Eigen::Vector3f{0.0F, 1.0F, 0.0F};
+    rwConfiguration.GsMatrix_B.col(2) = Eigen::Vector3f{0.0F, 0.0F, 1.0F};
+    rwConfiguration.GsMatrix_B.col(3) = Eigen::Vector3f{1.0F, 1.0F, 1.0F}.normalized();
+    rwConfiguration.GsMatrix_B.col(4) = Eigen::Vector3f{1.0F, -1.0F, 0.5F}.normalized();
+
+    RwMotorTorqueAvailability availability{};
+    availability.wheelAvailability[2] = UNAVAILABLE;
+
+    constexpr float kOmegaGain = 0.5F;
+    RwMotorTorqueAlgorithm alg{
+        RwMotorTorqueConfig::create(makeControlAxes(3U), rwConfiguration, availability, kOmegaGain)};
+
+    RwMotorTorqueSpeeds speeds{};
+    speeds.rwSpeeds.head<5>() = Eigen::Matrix<float, 5, 1>{100.0F, -50.0F, 30.0F, 80.0F, -20.0F};
+
+    const Eigen::Vector3f Lr_B{0.3F, -0.5F, 0.8F};
+    const Eigen::Vector<float, kMaxNumRw> out = alg.update(Lr_B, speeds);
+    const Eigen::Vector<float, kMaxNumRw> controlOnly = alg.update(Lr_B, RwMotorTorqueSpeeds{});
+    const Eigen::Vector<float, kMaxNumRw> ref =
+        referenceUpdate(makeControlAxes(3U), rwConfiguration, availability, Lr_B, speeds, kOmegaGain);
+
+    for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
+        EXPECT_NEAR(out[i], ref[i], 1e-6);
+    }
+
+    EXPECT_FLOAT_EQ(out[2], 0.0F);  // unavailable wheel gets no torque
+
+    // The despin term over the available wheels produces no net body torque.
+    Eigen::Matrix<float, 3, 5> Gs_avail{Eigen::Matrix<float, 3, 5>::Zero()};
+    for (uint32_t i = 0U; i < 5U; ++i) {
+        if (i != 2U) {
+            Gs_avail.col(i) = rwConfiguration.GsMatrix_B.col(i);
+        }
+    }
+    const Eigen::Vector3f despinBodyTorque = Gs_avail * (out - controlOnly).head<5>();
+    EXPECT_NEAR(despinBodyTorque.norm(), 0.0F, 1e-5);
+    EXPECT_GT((out - controlOnly).norm(), 1e-3);  // despin is non-trivial
+}
+
 TEST(RwMotorTorqueTest, SetupTest) { testRwMotorTorqueSetup(); }
 
 // Control axes may sit in any rows; only the spanned subspace matters. Controlling body x and z via

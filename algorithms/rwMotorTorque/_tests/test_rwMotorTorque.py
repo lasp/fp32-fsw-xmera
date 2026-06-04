@@ -149,10 +149,10 @@ def test_rw_motor_torque(show_plots, num_control_axes, num_wheels, num_input_cmd
                               requested_torque,
                               avail)
 
-    # Add the null-space despin term (built from all configured wheels, matching the algorithm).
+    # Add the null-space despin term (built from the available wheels, matching the algorithm).
     u_s = u_s + compute_null_space_torque(
         np.array(rw_config_params.GsMatrix_B).reshape((3, RW_EFF_CNT), order='F'),
-        num_wheels, rw_speeds, desired_omega, omega_gain)
+        num_wheels, rw_speeds, desired_omega, omega_gain, avail)
 
     true_motor_torque = [u_s] * 2
 
@@ -234,18 +234,22 @@ def compute_true_torque(C, Gs_B, Lr, avail_msg):
     return -u_s
 
 
-def compute_null_space_torque(Gs_B, num_wheels, rw_speeds, desired_omega, omega_gain):
-    """Mirror the algorithm's null-space despin term over all configured wheels (faithful)."""
+def compute_null_space_torque(Gs_B, num_wheels, rw_speeds, desired_omega, omega_gain, avail_msg):
+    """Mirror the algorithm's null-space despin term over the available wheels."""
     rw_eff_cnt = Gs_B.shape[1]
     u_null = np.zeros(rw_eff_cnt)
 
-    # A null space exists only for more than three wheels spanning 3-D.
-    if num_wheels > 3:
-        Gs = np.zeros((3, rw_eff_cnt))
-        for i in range(num_wheels):
+    # [Gs] from the available wheels, each in its original column.
+    Gs = np.zeros((3, rw_eff_cnt))
+    num_avail = 0
+    for i in range(num_wheels):
+        if avail_msg[i] == messaging.AVAILABLE:
             col_norm = np.linalg.norm(Gs_B[:, i])
             if col_norm > 0.0:
                 Gs[:, i] = Gs_B[:, i] / col_norm
+            num_avail += 1
+
+    if num_avail > 3:
         GsGsT = Gs @ Gs.T
         singular_values = np.linalg.svd(GsGsT, compute_uv=False)
         if singular_values[2] > singular_values[0] * 1e-6:
@@ -253,6 +257,10 @@ def compute_null_space_torque(Gs_B, num_wheels, rw_speeds, desired_omega, omega_
             d = np.zeros(rw_eff_cnt)
             d[:num_wheels] = -omega_gain * (np.array(rw_speeds) - np.array(desired_omega))
             u_null = tau @ d
+            # Zero the despin torque for unavailable or absent wheels.
+            for i in range(rw_eff_cnt):
+                if i >= num_wheels or avail_msg[i] != messaging.AVAILABLE:
+                    u_null[i] = 0.0
 
     return u_null
 

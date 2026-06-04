@@ -134,7 +134,8 @@ class RwMotorTorqueAlgorithm final {
    private:
     void computeRwMapping();  //!< builds motorTorqueMap and tau from cfg; throws if the mapping is not full rank
     void computeNullSpaceProjection(
-        const RwMotorTorqueArrayConfiguration& rwConfiguration);  //!< builds tau from the RW spin axes
+        const RwMotorTorqueArrayConfiguration& rwConfiguration,
+        const std::array<FSWdeviceAvailability, kMaxNumRw>& wheelsAvailability);  //!< builds tau (available wheels)
 
     RwMotorTorqueConfig cfg;  //!< [-] validated configuration (control axes, RW config, availability, gain)
     Eigen::Matrix<float, kMaxNumRw, 3> motorTorqueMap{

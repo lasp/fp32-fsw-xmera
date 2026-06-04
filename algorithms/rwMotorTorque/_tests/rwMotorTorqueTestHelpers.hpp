@@ -54,15 +54,22 @@ inline bool isControllable(const Eigen::Matrix<float, 3, kMaxNumRw>& CGs, uint32
 }
 
 // Reference [tau], mirroring computeNullSpaceProjection's fp32 computation.
-inline Eigen::Matrix<float, kMaxNumRw, kMaxNumRw> referenceTau(const RwMotorTorqueArrayConfiguration& rwConfiguration) {
+inline Eigen::Matrix<float, kMaxNumRw, kMaxNumRw> referenceTau(const RwMotorTorqueArrayConfiguration& rwConfiguration,
+                                                               const RwMotorTorqueAvailability& availability) {
     Eigen::Matrix<float, kMaxNumRw, kMaxNumRw> tau{Eigen::Matrix<float, kMaxNumRw, kMaxNumRw>::Zero()};
-    if (rwConfiguration.numRW <= 3U) {
-        return tau;
-    }
+    const std::array<FSWdeviceAvailability, kMaxNumRw>& wheelsAvailability = availability.wheelAvailability;
 
     Eigen::Matrix<float, 3, kMaxNumRw> G_s_B{Eigen::Matrix<float, 3, kMaxNumRw>::Zero()};
+    uint32_t numAvailRW = 0U;
     for (uint32_t i = 0U; i < rwConfiguration.numRW; ++i) {
-        G_s_B.col(i) = rwConfiguration.GsMatrix_B.col(i).normalized();
+        if (wheelsAvailability[i] == AVAILABLE) {
+            G_s_B.col(i) = rwConfiguration.GsMatrix_B.col(i).normalized();
+            numAvailRW += 1U;
+        }
+    }
+
+    if (numAvailRW <= 3U) {
+        return tau;
     }
 
     const Eigen::Matrix3f GsGsT = G_s_B * G_s_B.transpose();
@@ -74,6 +81,12 @@ inline Eigen::Matrix<float, kMaxNumRw, kMaxNumRw> referenceTau(const RwMotorTorq
     }
 
     tau = Eigen::Matrix<float, kMaxNumRw, kMaxNumRw>::Identity() - G_s_B.transpose() * GsGsT.inverse() * G_s_B;
+
+    for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
+        if (i >= rwConfiguration.numRW || wheelsAvailability[i] != AVAILABLE) {
+            tau.row(i).setZero();
+        }
+    }
     return tau;
 }
 
@@ -116,7 +129,7 @@ inline Eigen::Vector<float, kMaxNumRw> referenceUpdate(const Eigen::Matrix3f& co
     }
 
     const Eigen::Vector<float, kMaxNumRw> d = -omegaGain * (speeds.rwSpeeds - speeds.rwDesiredSpeeds);
-    const Eigen::Vector<float, kMaxNumRw> nullSpaceTorque = referenceTau(rwConfiguration) * d;
+    const Eigen::Vector<float, kMaxNumRw> nullSpaceTorque = referenceTau(rwConfiguration, availability) * d;
 
     return motorTorqueMap * Lr_B + nullSpaceTorque;
 }
