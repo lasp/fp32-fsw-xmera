@@ -16,22 +16,28 @@ struct RwMotorTorqueMapping {
         Eigen::Matrix<float, kMaxNumRw, kMaxNumRw>::Zero()};  //!< [-] RW null-space projection for despin
 };
 
+// Configurations whose pseudo-inverted operator -- [CGs] for the control map, [Gs] for the null-space
+// projector -- has a condition number above 1 / kConditioningTol = 100 are rejected, so a near-degenerate
+// layout (which would amplify command and fp32 error, or yield an unreliable despin) can never be configured.
+constexpr float kConditioningTol = 1e-2F;
+
 /*! Builds the RW null-space projection [tau], the orthogonal projector onto the null space of the available-
  wheel spin-axis matrix [Gs] (in-position, zero columns for unavailable wheels). [tau] is built from the right
  singular vectors of [Gs] -- [tau] = [I] - [Vr][Vr]^T where [Vr] spans the row space -- so [Gs][tau] == 0 to
- machine precision regardless of conditioning. Returns the zero matrix (despin disabled) when there is no usable
- null space: three or fewer available wheels, or wheels that do not span 3-D. */
-Eigen::Matrix<float, kMaxNumRw, kMaxNumRw> computeNullSpaceProjection(const Eigen::Matrix<float, 3, kMaxNumRw>& G_s_B,
-                                                                      uint32_t numAvailRW) {
+ machine precision. Returns the zero matrix (despin disabled) when there are three or fewer available wheels,
+ and nullopt when more than three available wheels are ill-conditioned (cond([Gs]) > 100, which also covers a
+ rank-deficient array that does not span 3-D). */
+std::optional<Eigen::Matrix<float, kMaxNumRw, kMaxNumRw>> computeNullSpaceProjection(
+    const Eigen::Matrix<float, 3, kMaxNumRw>& G_s_B,
+    uint32_t numAvailRW) {
     if (numAvailRW <= 3U) {
         return Eigen::Matrix<float, kMaxNumRw, kMaxNumRw>::Zero();
     }
 
     const Eigen::JacobiSVD<Eigen::Matrix<float, 3, kMaxNumRw>> gsSvd(G_s_B, Eigen::ComputeFullV);
     const Eigen::Vector3f gsSingularValues = gsSvd.singularValues();
-    const float rankTol = gsSingularValues(0) * std::numeric_limits<float>::epsilon() * static_cast<float>(kMaxNumRw);
-    if (gsSingularValues(2) <= rankTol) {
-        return Eigen::Matrix<float, kMaxNumRw, kMaxNumRw>::Zero();
+    if (gsSingularValues(2) <= gsSingularValues(0) * kConditioningTol) {
+        return std::nullopt;
     }
 
     const Eigen::Matrix<float, kMaxNumRw, 3> Vr = gsSvd.matrixV().leftCols<3>();
@@ -96,6 +102,12 @@ std::optional<RwMotorTorqueMapping> computeRwMapping(const Eigen::Matrix3f& cont
         }
     }
 
+    // Reject ill-conditioned control geometry: even at full rank, a small smallest-to-largest singular value
+    // ratio makes the pseudo-inverse amplify both the command and fp32 error. cond([CGs]) = sv(0) / sv(min).
+    if (singularValues(numControlAxes - 1U) <= singularValues(0) * kConditioningTol) {
+        return std::nullopt;
+    }
+
     // Control map = pseudo-inverse([CGs]) * (-[CB]) via a truncated SVD ([V][S^-1][U]^T), folding the control-
     // axis projection and the minimum-norm inverse into one matrix.
     Eigen::VectorXf invSingularValues = Eigen::VectorXf::Zero(singularValues.size());
@@ -108,7 +120,11 @@ std::optional<RwMotorTorqueMapping> computeRwMapping(const Eigen::Matrix3f& cont
     mapping.motorTorqueMap = svd.matrixV() * invSingularValues.asDiagonal() * leftSingularVectors.transpose() *
                              (-compactControlAxes.topRows(numControlAxes));
 
-    mapping.tau = computeNullSpaceProjection(G_s_B, numAvailRW);
+    const std::optional<Eigen::Matrix<float, kMaxNumRw, kMaxNumRw>> tau = computeNullSpaceProjection(G_s_B, numAvailRW);
+    if (!tau.has_value()) {
+        return std::nullopt;
+    }
+    mapping.tau = *tau;
 
     // Zero the rows of excluded wheels (beyond numRW or unavailable). Their [CGs]/[Gs] columns are zero, so
     // these rows are zero in exact arithmetic; mask them so an excluded wheel is commanded exactly zero torque.

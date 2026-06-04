@@ -203,3 +203,35 @@ TEST(RwMotorTorqueTest, ControlAxesAreOrthonormalized) {
     EXPECT_NEAR(stored.row(0).dot(stored.row(1)), 0.0F, 1e-6);  // exactly orthogonal after Gram-Schmidt
     EXPECT_NEAR(stored.row(2).norm(), 0.0F, 1e-6);              // uncontrolled row untouched
 }
+
+// A near-degenerate control geometry (two wheels nearly aligned, so the second control axis is barely
+// reachable) is rejected by create(): cond([CGs]) exceeds the limit even though the mapping is full rank.
+TEST(RwMotorTorqueTest, IllConditionedControlMappingRejected) {
+    RwMotorTorqueArrayConfiguration rwConfiguration{};
+    rwConfiguration.numRW = 2U;
+    rwConfiguration.GsMatrix_B.col(0) = Eigen::Vector3f{1.0F, 0.0F, 0.0F};
+    rwConfiguration.GsMatrix_B.col(1) = Eigen::Vector3f{1.0F, 5e-3F, 0.0F}.normalized();  // ~0.3 deg off wheel 0
+
+    // Control body x and y: y is reachable only through the tiny y-component of the near-parallel wheels.
+    Eigen::Matrix3f controlAxes{Eigen::Matrix3f::Zero()};
+    controlAxes.row(0) = Eigen::Vector3f{1.0F, 0.0F, 0.0F};
+    controlAxes.row(1) = Eigen::Vector3f{0.0F, 1.0F, 0.0F};
+
+    EXPECT_THROW(RwMotorTorqueConfig::create(controlAxes, rwConfiguration, RwMotorTorqueAvailability{}),
+                 fsw::invalid_argument);
+}
+
+// Four near-coplanar wheels: the control mapping (body x, y) is well-conditioned, but the null-space (despin)
+// geometry is ill-conditioned (cond([Gs]) > 100), so create() rejects the configuration regardless of gain.
+TEST(RwMotorTorqueTest, IllConditionedDespinGeometryRejected) {
+    constexpr float kOutOfPlane = 1e-3F;  // tiny z component -> [Gs] barely spans the third dimension
+    RwMotorTorqueArrayConfiguration rwConfiguration{};
+    rwConfiguration.numRW = 4U;
+    rwConfiguration.GsMatrix_B.col(0) = Eigen::Vector3f{1.0F, 0.0F, kOutOfPlane}.normalized();
+    rwConfiguration.GsMatrix_B.col(1) = Eigen::Vector3f{0.0F, 1.0F, kOutOfPlane}.normalized();
+    rwConfiguration.GsMatrix_B.col(2) = Eigen::Vector3f{-1.0F, 0.0F, kOutOfPlane}.normalized();
+    rwConfiguration.GsMatrix_B.col(3) = Eigen::Vector3f{0.0F, -1.0F, kOutOfPlane}.normalized();
+
+    EXPECT_THROW(RwMotorTorqueConfig::create(makeControlAxes(2U), rwConfiguration, RwMotorTorqueAvailability{}, 0.5F),
+                 fsw::invalid_argument);
+}

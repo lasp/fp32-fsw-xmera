@@ -50,8 +50,8 @@ inline Eigen::Matrix<float, kMaxNumRw, kMaxNumRw> referenceTau(const RwMotorTorq
 
     const Eigen::JacobiSVD<Eigen::Matrix<float, 3, kMaxNumRw>> gsSvd(G_s_B, Eigen::ComputeFullV);
     const Eigen::Vector3f gsSingularValues = gsSvd.singularValues();
-    const float rankTol = gsSingularValues(0) * std::numeric_limits<float>::epsilon() * static_cast<float>(kMaxNumRw);
-    if (gsSingularValues(2) <= rankTol) {
+    constexpr float kConditioningTol = 1e-2F;
+    if (gsSingularValues(2) <= gsSingularValues(0) * kConditioningTol) {
         return tau;
     }
 

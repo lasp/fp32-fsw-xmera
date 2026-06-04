@@ -36,11 +36,13 @@ struct RwMotorTorqueSpeeds {
 /*!
  * @brief Validated configuration for the RW motor torque algorithm.
  *
- * Bundles the control axes mapping matrix, the reaction-wheel spin-axis configuration, and the
- * per-wheel availability. An instance can only exist if the control axes mapping matrix is finite and
- * defines at least one control axis -- each non-zero row being a unit vector, the non-zero rows being
- * mutually orthogonal, and zero (uncontrolled) rows allowed in any position -- and the reaction-wheel
- * count does not exceed the compile-time maximum. Construct via RwMotorTorqueConfig::create(...).
+ * Bundles the control axes mapping matrix, the reaction-wheel spin-axis configuration, and the per-wheel
+ * availability. An instance can only exist if: the control axes mapping matrix is finite and defines at least
+ * one control axis (each non-zero row a unit vector, the non-zero rows mutually orthogonal, zero/uncontrolled
+ * rows allowed in any position); the reaction-wheel count does not exceed the compile-time maximum and each
+ * spin axis is a unit vector; and the configuration yields a realizable, well-conditioned control mapping
+ * (every control axis reachable by the available wheels, with neither the control mapping nor the null-space
+ * despin geometry ill-conditioned). Construct via RwMotorTorqueConfig::create(...).
  */
 class RwMotorTorqueConfig final {
    public:
@@ -86,13 +88,15 @@ class RwMotorTorqueConfig final {
             normalizedRwConfiguration.GsMatrix_B.col(i).normalize();
         }
 
-        // Reject configurations whose control mapping cannot be realized (a control axis is not reachable by
-        // the available reaction wheels). This is the only place such an invalid argument is thrown -- once
+        // Reject configurations whose control mapping cannot be realized: a control axis is unreachable by the
+        // available reaction wheels, or the control mapping or null-space (despin) geometry is ill-conditioned
+        // (condition number above 100). This is the only place such an invalid argument is thrown -- once
         // constructed, a RwMotorTorqueConfig always yields a usable mapping.
         if (!isValidMapping(orthonormalControlAxes, normalizedRwConfiguration, availability)) {
             FSW_THROW_INVALID_ARGUMENT(
-                "rwMotorTorque: a control axis is not controllable by the available reaction wheels "
-                "(the control mapping matrix [CB][G_s] is rank deficient).");
+                "rwMotorTorque: the configuration does not yield a valid control mapping -- a control axis is not "
+                "reachable by the available reaction wheels, or the control mapping or null-space (despin) "
+                "geometry is ill-conditioned.");
         }
 
         return RwMotorTorqueConfig{orthonormalControlAxes, normalizedRwConfiguration, availability, omegaGain};
@@ -141,9 +145,10 @@ class RwMotorTorqueConfig final {
 
     static bool isValidOmegaGain(float omegaGain) { return fsw::is_finite(omegaGain) && omegaGain >= 0.0F; }
 
-    // Returns true if the (canonicalized) configuration yields a realizable control mapping: every control
-    // axis is reachable by the available reaction wheels. Defined in the .cpp because it shares the mapping
-    // computation with the algorithm.
+    // Returns true if the (canonicalized) configuration yields a valid control mapping: every control axis is
+    // reachable by the available reaction wheels, and both the control mapping and the null-space (despin)
+    // geometry are well-conditioned (condition number below 100). Defined in the .cpp because it shares the
+    // mapping computation with the algorithm.
     static bool isValidMapping(const Eigen::Matrix3f& controlAxes_B,
                                const RwMotorTorqueArrayConfiguration& rwConfiguration,
                                const RwMotorTorqueAvailability& availability);
