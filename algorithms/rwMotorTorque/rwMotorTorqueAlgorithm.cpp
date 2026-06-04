@@ -15,12 +15,20 @@ void RwMotorTorqueAlgorithm::setConfig(const RwMotorTorqueConfig& config) {
     this->computeRwMapping();
 }
 
-/*! Computes the reaction wheel torques given a commanded torque on the spacecraft
- @return Eigen::Vector<float, kMaxNumRw> commanded RW motor torques [N-m]
- @param Lr_B total commanded control torque on the spacecraft in body-frame components
+/*! Maps the commanded body torque to per-RW motor torques and adds the null-space despin torque.
+ @param Lr_B commanded control torque on the spacecraft, body frame [N-m]
+ @param speeds current and desired RW speeds for the despin term
+ @return per-RW motor torques [N-m]
  */
-Eigen::Vector<float, kMaxNumRw> RwMotorTorqueAlgorithm::update(const Eigen::Vector3f& Lr_B) const {
-    return this->motorTorqueMap * Lr_B;
+Eigen::Vector<float, kMaxNumRw> RwMotorTorqueAlgorithm::update(const Eigen::Vector3f& Lr_B,
+                                                               const RwMotorTorqueSpeeds& speeds) const {
+    const Eigen::Vector<float, kMaxNumRw> controlTorque = this->motorTorqueMap * Lr_B;
+
+    // Null-space despin: [tau] projects the wheel-speed feedback so it adds no body torque.
+    const Eigen::Vector<float, kMaxNumRw> d = -this->cfg.getOmegaGain() * (speeds.rwSpeeds - speeds.rwDesiredSpeeds);
+    const Eigen::Vector<float, kMaxNumRw> nullSpaceTorque = this->tau * d;
+
+    return controlTorque + nullSpaceTorque;
 }
 
 /*! Precomputes the constant map from the commanded body torque to the per-RW motor torques from the
@@ -101,4 +109,36 @@ void RwMotorTorqueAlgorithm::computeRwMapping() {
             j += 1U;
         }
     }
+
+    this->computeNullSpaceProjection(rwConfiguration);
+}
+
+/*! Precomputes the RW null-space projection [tau] = [I] - [Gs]^T([Gs][Gs]^T)^-1[Gs] from the configured
+ spin axes. Applied to the wheel-speed feedback, [tau] gives a despin torque that produces no body torque.
+ Left zero unless more than three wheels span 3-D, so ([Gs][Gs]^T) is never inverted while singular.
+ @param rwConfiguration reaction-wheel spin-axis configuration
+ */
+void RwMotorTorqueAlgorithm::computeNullSpaceProjection(const RwMotorTorqueArrayConfiguration& rwConfiguration) {
+    this->tau.setZero();
+
+    // No null space unless there are more than three wheels.
+    if (rwConfiguration.numRW <= 3U) {
+        return;
+    }
+
+    Eigen::Matrix<float, 3, kMaxNumRw> G_s_B{Eigen::Matrix<float, 3, kMaxNumRw>::Zero()};
+    for (uint32_t i = 0U; i < rwConfiguration.numRW; ++i) {
+        G_s_B.col(i) = rwConfiguration.GsMatrix_B.col(i).normalized();
+    }
+
+    // ([Gs][Gs]^T) is invertible only when the wheels span 3-D; a rank-deficient array leaves [tau] zero.
+    const Eigen::Matrix3f GsGsT = G_s_B * G_s_B.transpose();
+    const Eigen::JacobiSVD<Eigen::Matrix3f> gsSvd(GsGsT);
+    const Eigen::Vector3f gsSingularValues = gsSvd.singularValues();
+    constexpr float kSpanRelativeTol = 1e-6F;
+    if (gsSingularValues(2) <= gsSingularValues(0) * kSpanRelativeTol) {
+        return;
+    }
+
+    this->tau = Eigen::Matrix<float, kMaxNumRw, kMaxNumRw>::Identity() - G_s_B.transpose() * GsGsT.inverse() * G_s_B;
 }

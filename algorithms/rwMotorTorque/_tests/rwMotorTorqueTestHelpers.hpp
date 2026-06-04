@@ -53,13 +53,37 @@ inline bool isControllable(const Eigen::Matrix<float, 3, kMaxNumRw>& CGs, uint32
     return true;
 }
 
-// Independent reference computation of the RW motor torques for verification. Reimplements the
-// algorithm's folded mapping (control-axis projection + minimum-norm pseudo-inverse + availability
-// scatter into a single matrix) so it matches the algorithm's fp32 product association.
+// Reference [tau], mirroring computeNullSpaceProjection's fp32 computation.
+inline Eigen::Matrix<float, kMaxNumRw, kMaxNumRw> referenceTau(const RwMotorTorqueArrayConfiguration& rwConfiguration) {
+    Eigen::Matrix<float, kMaxNumRw, kMaxNumRw> tau{Eigen::Matrix<float, kMaxNumRw, kMaxNumRw>::Zero()};
+    if (rwConfiguration.numRW <= 3U) {
+        return tau;
+    }
+
+    Eigen::Matrix<float, 3, kMaxNumRw> G_s_B{Eigen::Matrix<float, 3, kMaxNumRw>::Zero()};
+    for (uint32_t i = 0U; i < rwConfiguration.numRW; ++i) {
+        G_s_B.col(i) = rwConfiguration.GsMatrix_B.col(i).normalized();
+    }
+
+    const Eigen::Matrix3f GsGsT = G_s_B * G_s_B.transpose();
+    const Eigen::JacobiSVD<Eigen::Matrix3f> gsSvd(GsGsT);
+    const Eigen::Vector3f gsSingularValues = gsSvd.singularValues();
+    constexpr float kSpanRelativeTol = 1e-6F;
+    if (gsSingularValues(2) <= gsSingularValues(0) * kSpanRelativeTol) {
+        return tau;
+    }
+
+    tau = Eigen::Matrix<float, kMaxNumRw, kMaxNumRw>::Identity() - G_s_B.transpose() * GsGsT.inverse() * G_s_B;
+    return tau;
+}
+
+// Reference RW motor torques (control mapping + null-space despin), mirroring the algorithm's fp32 computation.
 inline Eigen::Vector<float, kMaxNumRw> referenceUpdate(const Eigen::Matrix3f& controlAxes_B,
                                                        const RwMotorTorqueArrayConfiguration& rwConfiguration,
                                                        const RwMotorTorqueAvailability& availability,
-                                                       const Eigen::Vector3f& Lr_B) {
+                                                       const Eigen::Vector3f& Lr_B,
+                                                       const RwMotorTorqueSpeeds& speeds,
+                                                       float omegaGain) {
     uint32_t numControlAxes = 0U;
     for (uint32_t i = 0U; i < 3U; ++i) {
         if (controlAxes_B.row(i).norm() > 0.0F) {
@@ -91,7 +115,10 @@ inline Eigen::Vector<float, kMaxNumRw> referenceUpdate(const Eigen::Matrix3f& co
         }
     }
 
-    return motorTorqueMap * Lr_B;
+    const Eigen::Vector<float, kMaxNumRw> d = -omegaGain * (speeds.rwSpeeds - speeds.rwDesiredSpeeds);
+    const Eigen::Vector<float, kMaxNumRw> nullSpaceTorque = referenceTau(rwConfiguration) * d;
+
+    return motorTorqueMap * Lr_B + nullSpaceTorque;
 }
 
 inline void testRwMotorTorqueSetup() {
@@ -125,11 +152,16 @@ inline void testRwMotorTorque(const Eigen::Vector3f& Lr1_B,
                               bool rwAvailIsLinked,
                               int numRW,
                               std::vector<float> GsMatrix_B,
-                              uint32_t numControlAxes) {
+                              uint32_t numControlAxes,
+                              std::vector<float> rwSpeeds,
+                              std::vector<float> rwDesiredSpeeds,
+                              float omegaGain) {
     // Set up the control axes mapping matrix.
     const Eigen::Matrix3f controlAxes_B = makeControlAxes(numControlAxes);
 
-    // Zero-pad the caller's 3 * numRW spin-axis entries to the full matrix (avoids reading past the vector).
+    // Build the RW array configuration from the flat spin-axis array. The caller only supplies the
+    // 3 * numRW used entries (column-major: three components per wheel), so zero-pad to the full
+    // 3 * kMaxNumRw matrix rather than reading past the end of the input vector.
     RwMotorTorqueArrayConfiguration rwConfiguration{};
     rwConfiguration.numRW = static_cast<uint32_t>(numRW);
     std::vector<float> paddedGsMatrix_B(3U * static_cast<size_t>(kMaxNumRw), 0.0F);
@@ -169,20 +201,30 @@ inline void testRwMotorTorque(const Eigen::Vector3f& Lr1_B,
 
     const Eigen::Matrix<float, 3, kMaxNumRw> CGs = controlAxes_B * G_s_B;
 
+    // RW speeds driving the null-space despin term (zero-padded to the full RW array).
+    RwMotorTorqueSpeeds speeds{};
+    for (uint32_t i = 0U; i < rwSpeeds.size() && i < kMaxNumRw; ++i) {
+        speeds.rwSpeeds(static_cast<Eigen::Index>(i)) = rwSpeeds[i];
+    }
+    for (uint32_t i = 0U; i < rwDesiredSpeeds.size() && i < kMaxNumRw; ++i) {
+        speeds.rwDesiredSpeeds(static_cast<Eigen::Index>(i)) = rwDesiredSpeeds[i];
+    }
+
     // An uncontrollable (rank-deficient) control mapping makes the constructor (which computes the
     // mapping and runs the controllability cross-check) throw.
     if (!isControllable(CGs, numControlAxes)) {
-        EXPECT_THROW(RwMotorTorqueAlgorithm{RwMotorTorqueConfig::create(controlAxes_B, rwConfiguration, availability)},
+        EXPECT_THROW(RwMotorTorqueAlgorithm{RwMotorTorqueConfig::create(
+                         controlAxes_B, rwConfiguration, availability, omegaGain)},
                      fsw::invalid_argument);
         return;
     }
-    RwMotorTorqueAlgorithm alg{RwMotorTorqueConfig::create(controlAxes_B, rwConfiguration, availability)};
+    RwMotorTorqueAlgorithm alg{RwMotorTorqueConfig::create(controlAxes_B, rwConfiguration, availability, omegaGain)};
 
     // Compare against the independent reference
     Eigen::Vector<float, kMaxNumRw> out{Eigen::Vector<float, kMaxNumRw>::Zero()};
     Eigen::Vector<float, kMaxNumRw> ref{Eigen::Vector<float, kMaxNumRw>::Zero()};
-    EXPECT_NO_THROW(out = alg.update(Lr_B));
-    EXPECT_NO_THROW(ref = referenceUpdate(controlAxes_B, rwConfiguration, availability, Lr_B));
+    EXPECT_NO_THROW(out = alg.update(Lr_B, speeds));
+    EXPECT_NO_THROW(ref = referenceUpdate(controlAxes_B, rwConfiguration, availability, Lr_B, speeds, omegaGain));
 
     for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
         // Reference correctness

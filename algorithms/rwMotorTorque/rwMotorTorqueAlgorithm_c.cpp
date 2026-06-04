@@ -24,7 +24,8 @@ RwMotorTorqueAvailability availabilityFromC(const RwMotorTorqueAvailability_c& c
 RwMotorTorqueConfig configFromC(const RwMotorTorqueConfig_c& c) {
     return RwMotorTorqueConfig::create(c2DArrayToEigenMatrix3(c.controlAxes_B.data),
                                        arrayConfigurationFromC(c.rwConfiguration),
-                                       availabilityFromC(c.availability));
+                                       availabilityFromC(c.availability),
+                                       c.omegaGain);
 }
 }  // namespace
 
@@ -42,9 +43,16 @@ void RwMotorTorqueAlgorithm_setConfig(RwMotorTorqueAlgorithmHandle* self, const 
     reinterpret_cast<::RwMotorTorqueAlgorithm*>(self)->setConfig(configFromC(*config));
 }
 
-RwMotorTorqueOutput_c RwMotorTorqueAlgorithm_update(const RwMotorTorqueAlgorithmHandle* self, const Vector3f_c Lr_B) {
+RwMotorTorqueOutput_c RwMotorTorqueAlgorithm_update(const RwMotorTorqueAlgorithmHandle* self,
+                                                    const Vector3f_c Lr_B,
+                                                    const RwSpeeds_c* rwSpeeds,
+                                                    const RwSpeeds_c* rwDesiredSpeeds) {
+    RwMotorTorqueSpeeds speeds{};
+    speeds.rwSpeeds = cArrayToEigenVector(rwSpeeds->wheelSpeeds);
+    speeds.rwDesiredSpeeds = cArrayToEigenVector(rwDesiredSpeeds->wheelSpeeds);
+
     const Eigen::Vector<float, kMaxNumRw> out =
-        reinterpret_cast<const ::RwMotorTorqueAlgorithm*>(self)->update(cArrayToEigenVector3<float>(Lr_B.data));
+        reinterpret_cast<const ::RwMotorTorqueAlgorithm*>(self)->update(cArrayToEigenVector3<float>(Lr_B.data), speeds);
 
     RwMotorTorqueOutput_c result{};
     eigenVectorToCArray(out, result.motorTorque);

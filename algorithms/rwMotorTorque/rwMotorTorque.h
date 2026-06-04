@@ -3,6 +3,7 @@
 
 #include "msgPayloadDef/CmdTorqueBodyMsgF32Payload.h"
 #include "msgPayloadDef/RWArrayConfigMsgF32Payload.h"
+#include "msgPayloadDef/RWSpeedMsgF32Payload.h"
 #include "msgPayloadDef/RwMotorTorqueMsgF32Payload.h"
 #include "rwMotorTorqueAlgorithm.h"
 
@@ -22,8 +23,8 @@ class RwMotorTorque : public SysModel {
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
 
-    // Phase 1: public config property — set before reset()
     Eigen::Matrix3f controlAxes_B{Eigen::Matrix3f::Zero()};  //!< [-] control axes mapping matrix CB
+    float omegaGain{};  //!< [-] RW null-space despin feedback gain (>= 0; 0 disables despin)
 
     /* declare module IO interfaces */
     Message<RwMotorTorqueMsgF32Payload> rwMotorTorqueOutMsg;   //!< RW motor torque output message
@@ -31,6 +32,8 @@ class RwMotorTorque : public SysModel {
     ReadFunctor<CmdTorqueBodyMsgF32Payload> vehControlIn2Msg;  //!<  optional vehicle control input message
     ReadFunctor<RWArrayConfigMsgF32Payload> rwParamsInMsg;     //!<  RW Array input message
     ReadFunctor<RWAvailabilityMsgPayload> rwAvailInMsg;        //!< optional RWs availability input message
+    ReadFunctor<RWSpeedMsgF32Payload> rwSpeedsInMsg;           //!< optional current RW speeds (null-space despin)
+    ReadFunctor<RWSpeedMsgF32Payload> rwDesiredSpeedsInMsg;    //!< optional desired RW speeds (null-space despin)
 
    private:
     std::unique_ptr<RwMotorTorqueAlgorithm> algorithm = nullptr;

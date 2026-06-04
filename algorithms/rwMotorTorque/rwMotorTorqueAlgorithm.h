@@ -3,6 +3,7 @@
 
 #include "rwMotorTorqueTypes.h"
 #include "utilities/freestandingInvalidArgument.h"
+#include "utilities/freestandingIsFinite.hpp"
 #include <fswAlgorithms/fswUtilities/fswDefinitions.h>
 #include <math.h>
 
@@ -25,6 +26,13 @@ struct RwMotorTorqueAvailability {
         wheelAvailability{};  //!< [-] AVAILABLE / UNAVAILABLE state of each reaction wheel
 };
 
+/*! @brief Per-update reaction-wheel speeds for the null-space despin term. */
+struct RwMotorTorqueSpeeds {
+    Eigen::Vector<float, kMaxNumRw> rwSpeeds{Eigen::Vector<float, kMaxNumRw>::Zero()};  //!< [r/s] current RW speeds
+    Eigen::Vector<float, kMaxNumRw> rwDesiredSpeeds{
+        Eigen::Vector<float, kMaxNumRw>::Zero()};  //!< [r/s] desired RW speeds
+};
+
 /*!
  * @brief Validated configuration for the RW motor torque algorithm.
  *
@@ -38,7 +46,8 @@ class RwMotorTorqueConfig final {
    public:
     static RwMotorTorqueConfig create(const Eigen::Matrix3f& controlAxes_B,
                                       const RwMotorTorqueArrayConfiguration& rwConfiguration,
-                                      const RwMotorTorqueAvailability& availability) {
+                                      const RwMotorTorqueAvailability& availability,
+                                      float omegaGain = 0.0F) {
         if (!isValidControlAxes(controlAxes_B)) {
             FSW_THROW_INVALID_ARGUMENT(
                 "rwMotorTorque: controlAxes_B must contain only finite values and define at least one control "
@@ -50,7 +59,11 @@ class RwMotorTorqueConfig final {
                 "rwMotorTorque: rwConfiguration.numRW must not exceed the compile-time maximum and the spin "
                 "axis matrix must be finite.");
         }
-        return RwMotorTorqueConfig{controlAxes_B, rwConfiguration, availability};
+        if (!isValidOmegaGain(omegaGain)) {
+            FSW_THROW_INVALID_ARGUMENT(
+                "rwMotorTorque: omegaGain (RW null-space despin feedback gain) must be finite and non-negative.");
+        }
+        return RwMotorTorqueConfig{controlAxes_B, rwConfiguration, availability, omegaGain};
     }
 
     static bool isValidControlAxes(const Eigen::Matrix3f& controlAxes_B) {
@@ -84,19 +97,27 @@ class RwMotorTorqueConfig final {
     }
     // No isValidAvailability — any combination of AVAILABLE / UNAVAILABLE flags is valid.
 
+    static bool isValidOmegaGain(float omegaGain) { return fsw::is_finite(omegaGain) && omegaGain >= 0.0F; }
+
     const Eigen::Matrix3f& getControlAxes() const { return this->controlAxes_B; }
     const RwMotorTorqueArrayConfiguration& getRwConfiguration() const { return this->rwConfiguration; }
     const RwMotorTorqueAvailability& getAvailability() const { return this->availability; }
+    float getOmegaGain() const { return this->omegaGain; }
 
    private:
     RwMotorTorqueConfig(const Eigen::Matrix3f& controlAxes_B,
                         const RwMotorTorqueArrayConfiguration& rwConfiguration,
-                        const RwMotorTorqueAvailability& availability)
-        : controlAxes_B(controlAxes_B), rwConfiguration(rwConfiguration), availability(availability) {}
+                        const RwMotorTorqueAvailability& availability,
+                        float omegaGain)
+        : controlAxes_B(controlAxes_B),
+          rwConfiguration(rwConfiguration),
+          availability(availability),
+          omegaGain(omegaGain) {}
 
     Eigen::Matrix3f controlAxes_B;
     RwMotorTorqueArrayConfiguration rwConfiguration;
     RwMotorTorqueAvailability availability;
+    float omegaGain;  //!< [-] RW null-space despin feedback gain (>= 0; 0 disables despin)
 };
 
 /*! @brief Top level structure for the sub-module routines. */
@@ -105,15 +126,23 @@ class RwMotorTorqueAlgorithm final {
     explicit RwMotorTorqueAlgorithm(const RwMotorTorqueConfig& config);
 
     void setConfig(const RwMotorTorqueConfig& config);
-    Eigen::Vector<float, kMaxNumRw> update(const Eigen::Vector3f& Lr_B) const;  //!< [N-m] RW motor torques
+
+    //! Control torque plus the RW null-space despin torque (pass zero speeds for control torque only).
+    //! [N-m] RW motor torques
+    Eigen::Vector<float, kMaxNumRw> update(const Eigen::Vector3f& Lr_B, const RwMotorTorqueSpeeds& speeds) const;
 
    private:
-    void computeRwMapping();  //!< builds motorTorqueMap from cfg; throws if the mapping is not full rank
+    void computeRwMapping();  //!< builds motorTorqueMap and tau from cfg; throws if the mapping is not full rank
+    void computeNullSpaceProjection(
+        const RwMotorTorqueArrayConfiguration& rwConfiguration);  //!< builds tau from the RW spin axes
 
-    RwMotorTorqueConfig cfg;  //!< [-] validated configuration (control axes, RW config, availability)
+    RwMotorTorqueConfig cfg;  //!< [-] validated configuration (control axes, RW config, availability, gain)
     Eigen::Matrix<float, kMaxNumRw, 3> motorTorqueMap{
         Eigen::Matrix<float, kMaxNumRw, 3>::Zero()};  //!< [-] maps the commanded body control torque to per-RW
                                                       //!< motor torques (rows of unavailable wheels are zero)
+    Eigen::Matrix<float, kMaxNumRw, kMaxNumRw> tau{
+        Eigen::Matrix<float, kMaxNumRw, kMaxNumRw>::Zero()};  //!< [-] RW null-space projection matrix (zero when
+                                                              //!< the wheels do not span 3-D, disabling despin)
 };
 
 #endif

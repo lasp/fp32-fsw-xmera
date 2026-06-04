@@ -42,9 +42,10 @@ void RwMotorTorque::reset(const uint64_t callTime) {
         }
     }
 
-    /*! - Build the validated configuration and (re)create the algorithm. The constructor computes the
-     RW motor torque mapping and throws if the control mapping matrix is not full rank. */
-    const auto config = RwMotorTorqueConfig::create(this->controlAxes_B, rwConfiguration, availability);
+    /*! - Build the validated configuration and (re)create the algorithm (computes the mapping and
+     projection; throws on an invalid config). */
+    const auto config =
+        RwMotorTorqueConfig::create(this->controlAxes_B, rwConfiguration, availability, this->omegaGain);
     this->algorithm = std::make_unique<RwMotorTorqueAlgorithm>(config);
 }
 
@@ -65,7 +66,18 @@ void RwMotorTorque::updateState(const uint64_t callTime) {
         Lr_B += cArrayToEigenVector(torqueRequestBody2);
     }
 
-    const Eigen::Vector<float, kMaxNumRw> motorTorque = this->algorithm->update(Lr_B);
+    /*! - Read the optional RW speeds for the despin term; unlinked speeds default to zero. */
+    RwMotorTorqueSpeeds speeds{};
+    if (this->rwSpeedsInMsg.isLinked()) {
+        const RWSpeedMsgF32Payload rwSpeeds = this->rwSpeedsInMsg();
+        speeds.rwSpeeds = cArrayToEigenVector(rwSpeeds.wheelSpeeds);
+    }
+    if (this->rwDesiredSpeedsInMsg.isLinked()) {
+        const RWSpeedMsgF32Payload rwDesiredSpeeds = this->rwDesiredSpeedsInMsg();
+        speeds.rwDesiredSpeeds = cArrayToEigenVector(rwDesiredSpeeds.wheelSpeeds);
+    }
+
+    const Eigen::Vector<float, kMaxNumRw> motorTorque = this->algorithm->update(Lr_B, speeds);
 
     RwMotorTorqueMsgF32Payload rwMotorTorques{};
     eigenVectorToCArray(motorTorque, rwMotorTorques.motorTorque);

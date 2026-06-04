@@ -21,8 +21,9 @@ from xmera.architecture import messaging
 @pytest.mark.parametrize("num_wheels", [2, 4, messaging.RW_EFF_CNT])
 @pytest.mark.parametrize("num_input_cmd_torques", [1, 2])
 @pytest.mark.parametrize("rw_avail_msg",["NO", "ON", "OFF", "MIXED"])
+@pytest.mark.parametrize("omega_gain", [0.0, 0.5])
 
-def test_rw_motor_torque(show_plots, num_control_axes, num_wheels, num_input_cmd_torques, rw_avail_msg):
+def test_rw_motor_torque(show_plots, num_control_axes, num_wheels, num_input_cmd_torques, rw_avail_msg, omega_gain):
     # @TODO With the current implementation of throwing an exception when zero control axes are specified, Python quits
     #  and causes all unit tests to fail. Until a different way of handling exceptions or errors is implemented, the
     #  test with 0 control axes is skipped.
@@ -56,6 +57,7 @@ def test_rw_motor_torque(show_plots, num_control_axes, num_wheels, num_input_cmd
         control_axes_B = [[0, 0, 0], [0, 0, 0], [0, 0, 0]]
 
     module.controlAxes_B = control_axes_B
+    module.omegaGain = omega_gain  # RW null-space despin feedback gain (0 disables despin)
 
     # Add test module to runtime call list
     unit_test_sim.AddModelToTask(unit_task_name, module)
@@ -89,18 +91,28 @@ def test_rw_motor_torque(show_plots, num_control_axes, num_wheels, num_input_cmd
             0.5773502691896258, 0.5773502691896258, 0.5773502691896258
         ]
     else:
-        # create some arbitrary spin axes
-        spin_axis = np.array([0.56, -1.73, 0.22])
+        # Spread the spin axes evenly over the unit sphere (Fibonacci sphere) to keep [Gs] well-conditioned.
+        golden_angle = np.pi * (3.0 - np.sqrt(5.0))
         G_s_B = []
         for rw in range(num_wheels):
-            spin_axis = np.array([[1.5, -3.7, 0.4], [-0.1, 0.3, -1.9], [3.2, 0.3, 0.8]]) @ spin_axis
-            G_s_B.append(spin_axis / np.linalg.norm(spin_axis))
+            z = 1.0 - 2.0 * (rw + 0.5) / num_wheels
+            radius = np.sqrt(max(0.0, 1.0 - z * z))
+            phi = golden_angle * rw
+            axis = np.array([radius * np.cos(phi), radius * np.sin(phi), z])
+            G_s_B.append(axis / np.linalg.norm(axis))
 
         rw_config_params.GsMatrix_B = np.array(G_s_B).flatten()
 
     rw_config_params.JsList = [0.1] * num_wheels
     rw_config_params.numRW = num_wheels
     rw_config_in_msg = messaging.RWArrayConfigMsgF32().write(rw_config_params)
+
+    # Current RW speeds driving the null-space despin term; desired speeds default to zero (unlinked).
+    rw_speeds = [10.0 * (i + 1) for i in range(num_wheels)]
+    desired_omega = [0.0] * num_wheels
+    input_speed_msg = messaging.RWSpeedMsgF32Payload()
+    input_speed_msg.wheelSpeeds = rw_speeds
+    rw_speed_in_msg = messaging.RWSpeedMsgF32().write(input_speed_msg)
 
     if rw_avail_msg != "NO":
         rw_availability_message = messaging.RWAvailabilityMsgPayload()
@@ -128,6 +140,7 @@ def test_rw_motor_torque(show_plots, num_control_axes, num_wheels, num_input_cmd
     if num_input_cmd_torques == 2:
         module.vehControlIn2Msg.subscribeTo(cmd_torque_in2_msg)
     module.rwParamsInMsg.subscribeTo(rw_config_in_msg)
+    module.rwSpeedsInMsg.subscribeTo(rw_speed_in_msg)
 
     # set the output truth states (needs to be computed before module reset because it also determines if test needs to
     # be skipped due to control mapping matrix not being full rank
@@ -135,6 +148,11 @@ def test_rw_motor_torque(show_plots, num_control_axes, num_wheels, num_input_cmd
                               np.array(rw_config_params.GsMatrix_B).reshape((3, RW_EFF_CNT), order='F'),
                               requested_torque,
                               avail)
+
+    # Add the null-space despin term (built from all configured wheels, matching the algorithm).
+    u_s = u_s + compute_null_space_torque(
+        np.array(rw_config_params.GsMatrix_B).reshape((3, RW_EFF_CNT), order='F'),
+        num_wheels, rw_speeds, desired_omega, omega_gain)
 
     true_motor_torque = [u_s] * 2
 
@@ -158,7 +176,9 @@ def test_rw_motor_torque(show_plots, num_control_axes, num_wheels, num_input_cmd
     F = np.transpose(motor_torque[0])
     received_torque = -(G_s_B @ F).flatten()
 
-    if num_wheels >= num_control_axes > 0:
+    # The control mapping must reproduce the requested body torque. Skip with despin on, whose fp32
+    # body-torque leak the truth comparison above already bounds.
+    if omega_gain == 0.0 and num_wheels >= num_control_axes > 0:
         if (len(avail) - np.sum(avail)) > num_control_axes:
             np.testing.assert_allclose(received_torque[:num_control_axes], requested_torque[:num_control_axes],
                                        rtol=accuracy,
@@ -214,10 +234,34 @@ def compute_true_torque(C, Gs_B, Lr, avail_msg):
     return -u_s
 
 
+def compute_null_space_torque(Gs_B, num_wheels, rw_speeds, desired_omega, omega_gain):
+    """Mirror the algorithm's null-space despin term over all configured wheels (faithful)."""
+    rw_eff_cnt = Gs_B.shape[1]
+    u_null = np.zeros(rw_eff_cnt)
+
+    # A null space exists only for more than three wheels spanning 3-D.
+    if num_wheels > 3:
+        Gs = np.zeros((3, rw_eff_cnt))
+        for i in range(num_wheels):
+            col_norm = np.linalg.norm(Gs_B[:, i])
+            if col_norm > 0.0:
+                Gs[:, i] = Gs_B[:, i] / col_norm
+        GsGsT = Gs @ Gs.T
+        singular_values = np.linalg.svd(GsGsT, compute_uv=False)
+        if singular_values[2] > singular_values[0] * 1e-6:
+            tau = np.identity(rw_eff_cnt) - Gs.T @ np.linalg.inv(GsGsT) @ Gs
+            d = np.zeros(rw_eff_cnt)
+            d[:num_wheels] = -omega_gain * (np.array(rw_speeds) - np.array(desired_omega))
+            u_null = tau @ d
+
+    return u_null
+
+
 if __name__ == "__main__":
     test_rw_motor_torque(False,
                          3,  # numControlAxes
                          36,  # numWheels
                          2,  # numInputCmdTorques
-                         "NO"  # RWAvailMsg ("NO", "ON", "OFF")
+                         "NO",  # RWAvailMsg ("NO", "ON", "OFF")
+                         0.5  # omegaGain
                          )

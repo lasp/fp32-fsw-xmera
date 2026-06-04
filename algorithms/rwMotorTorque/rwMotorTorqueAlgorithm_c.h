@@ -23,8 +23,9 @@ uint32_t RwMotorTorqueAlgorithm_getMaxNumRw(void);
 /**
  * @brief Construct a new RwMotorTorqueAlgorithm instance from the supplied configuration.
  *
- * The configuration carries the control axes, the reaction-wheel spin-axis configuration, and the
- * per-wheel availability; the RW motor torque mapping is computed during construction.
+ * The configuration carries the control axes, the reaction-wheel spin-axis configuration, the
+ * per-wheel availability, and the null-space despin gain; the RW motor torque mapping and the
+ * null-space projection are computed during construction.
  *
  * @param config Pointer to the configuration to apply (validated; throws on invalid input or if the
  *               resulting control mapping matrix is not full rank).
@@ -46,12 +47,17 @@ void RwMotorTorqueAlgorithm_destroy(RwMotorTorqueAlgorithmHandle* self);
 void RwMotorTorqueAlgorithm_setConfig(RwMotorTorqueAlgorithmHandle* self, const RwMotorTorqueConfig_c* config);
 
 /**
- * @brief Compute the reaction wheel motor torques for a commanded body torque.
- * @param self Pointer to the instance.
- * @param Lr_B Total commanded control torque on the spacecraft in body-frame components.
- * @return RwMotorTorqueOutput_c  The per-wheel commanded motor torques.
+ * @brief Compute the per-wheel motor torques (control mapping + null-space despin) for a body torque.
+ * @param self            Pointer to the instance.
+ * @param Lr_B            Commanded control torque on the spacecraft, body frame.
+ * @param rwSpeeds        Current RW speeds (pass zero-filled to disable despin).
+ * @param rwDesiredSpeeds Desired RW speeds.
+ * @return The per-wheel commanded motor torques.
  */
-RwMotorTorqueOutput_c RwMotorTorqueAlgorithm_update(const RwMotorTorqueAlgorithmHandle* self, Vector3f_c Lr_B);
+RwMotorTorqueOutput_c RwMotorTorqueAlgorithm_update(const RwMotorTorqueAlgorithmHandle* self,
+                                                    Vector3f_c Lr_B,
+                                                    const RwSpeeds_c* rwSpeeds,
+                                                    const RwSpeeds_c* rwDesiredSpeeds);
 
 #ifdef __cplusplus
 }  // extern "C"

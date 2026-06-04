@@ -14,5 +14,6 @@
 %include "msgPayloadDef/RwMotorTorqueMsgF32Payload.h"
 %include <architecture/msgPayloadDef/RWAvailabilityMsgPayload.h>
 %include "msgPayloadDef/RWArrayConfigMsgF32Payload.h"
+%include "msgPayloadDef/RWSpeedMsgF32Payload.h"
 
 %include <fswAlgorithms/fswUtilities/fswDefinitions.h>
