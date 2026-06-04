@@ -105,28 +105,18 @@ inline Eigen::Vector<float, kMaxNumRw> referenceUpdate(const Eigen::Matrix3f& co
     }
 
     Eigen::Matrix<float, 3, kMaxNumRw> G_s_B{Eigen::Matrix<float, 3, kMaxNumRw>::Zero()};
-    uint32_t numAvailRW = 0U;
     const std::array<FSWdeviceAvailability, kMaxNumRw>& wheelsAvailability = availability.wheelAvailability;
     for (uint32_t i = 0U; i < rwConfiguration.numRW; ++i) {
         if (wheelsAvailability[i] == AVAILABLE) {
-            G_s_B.col(numAvailRW) = rwConfiguration.GsMatrix_B.col(i).normalized();
-            numAvailRW += 1U;
+            G_s_B.col(i) = rwConfiguration.GsMatrix_B.col(i).normalized();
         }
     }
 
     const Eigen::Matrix<float, 3, kMaxNumRw> CGs = controlAxes_B * G_s_B;
-    const Eigen::MatrixXf CGsAvail = CGs.topLeftCorner(numControlAxes, numAvailRW);
-    const Eigen::MatrixXf availableMotorTorqueMap =
-        CGsAvail.transpose() * (CGsAvail * CGsAvail.transpose()).inverse() * (-controlAxes_B.topRows(numControlAxes));
-
-    Eigen::Matrix<float, kMaxNumRw, 3> motorTorqueMap{Eigen::Matrix<float, kMaxNumRw, 3>::Zero()};
-    uint32_t j = 0U;
-    for (uint32_t i = 0U; i < rwConfiguration.numRW; ++i) {
-        if (wheelsAvailability[i] == AVAILABLE) {
-            motorTorqueMap.row(i) = availableMotorTorqueMap.row(j);
-            j += 1U;
-        }
-    }
+    const Eigen::MatrixXf CGsActive = CGs.topRows(numControlAxes);
+    const Eigen::Matrix<float, kMaxNumRw, 3> motorTorqueMap = CGsActive.transpose() *
+                                                              (CGsActive * CGsActive.transpose()).inverse() *
+                                                              (-controlAxes_B.topRows(numControlAxes));
 
     const Eigen::Vector<float, kMaxNumRw> d = -omegaGain * (speeds.rwSpeeds - speeds.rwDesiredSpeeds);
     const Eigen::Vector<float, kMaxNumRw> nullSpaceTorque = referenceTau(rwConfiguration, availability) * d;

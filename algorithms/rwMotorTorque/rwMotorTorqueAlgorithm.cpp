@@ -54,22 +54,19 @@ void RwMotorTorqueAlgorithm::computeRwMapping() {
         }
     }
 
-    /*! - Build the [Gs] projection matrix from the available RWs. A wheel left at its default AVAILABLE
-     state (i.e. no availability message was provided) is always included. */
+    // [Gs] from the available RWs, each in its original column (unavailable wheels stay zero).
     Eigen::Matrix<float, 3, kMaxNumRw> G_s_B{Eigen::Matrix<float, 3, kMaxNumRw>::Zero()};
-    uint32_t numAvailRW = 0U;
     for (uint32_t i = 0U; i < rwConfiguration.numRW; ++i) {
         if (wheelsAvailability[i] == AVAILABLE) {
-            G_s_B.col(numAvailRW) = rwConfiguration.GsMatrix_B.col(i).normalized();
-            numAvailRW += 1U;
+            G_s_B.col(i) = rwConfiguration.GsMatrix_B.col(i).normalized();
         }
     }
 
     const Eigen::Matrix<float, 3, kMaxNumRw> CGs = controlAxes_B * G_s_B;
 
     /*! - Controllability cross-check: every control axis must be reachable by the available reaction
-     wheels. Decompose the control mapping [CGs] = [CB][Gs] (numControlAxes x kMaxNumRw, trailing columns
-     zero for unavailable wheels) with an SVD. Singular values below a relative tolerance are treated as
+     wheels. Decompose the control mapping [CGs] = [CB][Gs] (numControlAxes x kMaxNumRw, with zero columns
+     for unavailable wheels) with an SVD. Singular values below a relative tolerance are treated as
      zero; a control axis with a significant projection onto the corresponding left singular vectors
      (the left-null-space) cannot be produced by the available wheels and is rejected. */
     const Eigen::JacobiSVD<Eigen::MatrixXf> svd(CGs.topRows(numControlAxes), Eigen::ComputeFullU);
@@ -92,23 +89,12 @@ void RwMotorTorqueAlgorithm::computeRwMapping() {
         }
     }
 
-    /*! - Precompute the constant map from the commanded body torque to the available RW motor torques:
-     us_avail = [CGs].T inv([CGs][CGs].T) (-[CB] Lr_B). The control-axis projection and minimum-norm
-     pseudo-inverse only depend on the configuration, so they are folded into a single matrix here. A
-     full-rank [CGs] guarantees numAvailRW >= numControlAxes >= 1, so the active block is non-empty. */
-    const Eigen::MatrixXf CGsAvail = CGs.topLeftCorner(numControlAxes, numAvailRW);
-    const Eigen::MatrixXf availableMotorTorqueMap =
-        CGsAvail.transpose() * (CGsAvail * CGsAvail.transpose()).inverse() * (-controlAxes_B.topRows(numControlAxes));
-
-    /*! - Scatter the available-wheel rows back onto the full RW array; rows of unavailable wheels stay zero. */
-    this->motorTorqueMap.setZero();
-    uint32_t j = 0U;
-    for (uint32_t i = 0U; i < rwConfiguration.numRW; ++i) {
-        if (wheelsAvailability[i] == AVAILABLE) {
-            this->motorTorqueMap.row(i) = availableMotorTorqueMap.row(j);
-            j += 1U;
-        }
-    }
+    /*! - Fold the control-axis projection and minimum-norm pseudo-inverse into one map. Unavailable wheels
+     are zero columns of [CGs], so their map rows come out zero with no scatter step, and the inverted Gram
+     [CGs][CGs].T is the small numControlAxes x numControlAxes block (full rank by the check above). */
+    const Eigen::MatrixXf CGsActive = CGs.topRows(numControlAxes);
+    this->motorTorqueMap = CGsActive.transpose() * (CGsActive * CGsActive.transpose()).inverse() *
+                           (-controlAxes_B.topRows(numControlAxes));
 
     this->computeNullSpaceProjection(rwConfiguration, wheelsAvailability);
 }
