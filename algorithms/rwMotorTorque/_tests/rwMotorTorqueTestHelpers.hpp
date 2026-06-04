@@ -97,9 +97,23 @@ inline Eigen::Vector<float, kMaxNumRw> referenceUpdate(const Eigen::Matrix3f& co
                                                        const Eigen::Vector3f& Lr_B,
                                                        const RwMotorTorqueSpeeds& speeds,
                                                        float omegaGain) {
+    // Mirror the config: orthonormalize the control axes (Gram-Schmidt over the non-zero rows).
+    Eigen::Matrix3f controlAxes = controlAxes_B;
+    for (uint32_t i = 0U; i < 3U; ++i) {
+        if (controlAxes.row(i).norm() <= 0.0F) {
+            continue;
+        }
+        for (uint32_t k = 0U; k < i; ++k) {
+            if (controlAxes.row(k).norm() > 0.0F) {
+                controlAxes.row(i) -= controlAxes.row(i).dot(controlAxes.row(k)) * controlAxes.row(k);
+            }
+        }
+        controlAxes.row(i).normalize();
+    }
+
     uint32_t numControlAxes = 0U;
     for (uint32_t i = 0U; i < 3U; ++i) {
-        if (controlAxes_B.row(i).norm() > 0.0F) {
+        if (controlAxes.row(i).norm() > 0.0F) {
             numControlAxes += 1U;
         }
     }
@@ -112,11 +126,10 @@ inline Eigen::Vector<float, kMaxNumRw> referenceUpdate(const Eigen::Matrix3f& co
         }
     }
 
-    const Eigen::Matrix<float, 3, kMaxNumRw> CGs = controlAxes_B * G_s_B;
+    const Eigen::Matrix<float, 3, kMaxNumRw> CGs = controlAxes * G_s_B;
     const Eigen::MatrixXf CGsActive = CGs.topRows(numControlAxes);
-    const Eigen::Matrix<float, kMaxNumRw, 3> motorTorqueMap = CGsActive.transpose() *
-                                                              (CGsActive * CGsActive.transpose()).inverse() *
-                                                              (-controlAxes_B.topRows(numControlAxes));
+    const Eigen::Matrix<float, kMaxNumRw, 3> motorTorqueMap =
+        CGsActive.transpose() * (CGsActive * CGsActive.transpose()).inverse() * (-controlAxes.topRows(numControlAxes));
 
     const Eigen::Vector<float, kMaxNumRw> d = -omegaGain * (speeds.rwSpeeds - speeds.rwDesiredSpeeds);
     const Eigen::Vector<float, kMaxNumRw> nullSpaceTorque = referenceTau(rwConfiguration, availability) * d;

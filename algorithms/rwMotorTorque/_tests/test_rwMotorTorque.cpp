@@ -176,3 +176,20 @@ TEST(RwMotorTorqueTest, NonContiguousControlAxes) {
         EXPECT_NEAR(outContiguous[i], outNonContiguous[i], 1e-6);
     }
 }
+
+// Control axes that are unit but slightly non-orthogonal (within the validation tolerance) are stored
+// orthonormalized, and zero (uncontrolled) rows stay zero.
+TEST(RwMotorTorqueTest, ControlAxesAreOrthonormalized) {
+    Eigen::Matrix3f controlAxes{Eigen::Matrix3f::Zero()};
+    controlAxes.row(0) = Eigen::Vector3f{1.0F, 0.0F, 0.0F};
+    controlAxes.row(1) = Eigen::Vector3f{8e-4F, 1.0F, 0.0F}.normalized();  // unit, ~8e-4 off orthogonal to row 0
+
+    const RwMotorTorqueConfig config =
+        RwMotorTorqueConfig::create(controlAxes, RwMotorTorqueArrayConfiguration{}, RwMotorTorqueAvailability{});
+    const Eigen::Matrix3f& stored = config.getControlAxes();
+
+    EXPECT_NEAR(stored.row(0).norm(), 1.0F, 1e-6);
+    EXPECT_NEAR(stored.row(1).norm(), 1.0F, 1e-6);
+    EXPECT_NEAR(stored.row(0).dot(stored.row(1)), 0.0F, 1e-6);  // exactly orthogonal after Gram-Schmidt
+    EXPECT_NEAR(stored.row(2).norm(), 0.0F, 1e-6);              // uncontrolled row untouched
+}

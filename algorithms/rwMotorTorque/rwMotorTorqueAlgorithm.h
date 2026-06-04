@@ -64,20 +64,29 @@ class RwMotorTorqueConfig final {
                 "rwMotorTorque: omegaGain (RW null-space despin feedback gain) must be finite and non-negative.");
         }
 
-        // Store exact unit vectors: the inputs are validated to be (near-)unit, so normalize the control
-        // axes (non-zero rows) and the RW spin axes so downstream code can rely on unit columns.
-        Eigen::Matrix3f normalizedControlAxes = controlAxes_B;
+        // Canonicalize the validated inputs so downstream code can rely on exact unit vectors. The control
+        // axes are orthonormalized (Gram-Schmidt over the non-zero rows; zero/uncontrolled rows stay in
+        // place), and the RW spin axes are normalized. The inputs are validated (near-)unit and (near-)
+        // orthogonal, so this only removes rounding.
+        Eigen::Matrix3f orthonormalControlAxes = controlAxes_B;
         for (uint32_t i = 0U; i < 3U; ++i) {
-            if (normalizedControlAxes.row(i).norm() > 0.0F) {
-                normalizedControlAxes.row(i).normalize();
+            if (orthonormalControlAxes.row(i).norm() <= 0.0F) {
+                continue;
             }
+            for (uint32_t k = 0U; k < i; ++k) {
+                if (orthonormalControlAxes.row(k).norm() > 0.0F) {
+                    orthonormalControlAxes.row(i) -= orthonormalControlAxes.row(i).dot(orthonormalControlAxes.row(k)) *
+                                                     orthonormalControlAxes.row(k);
+                }
+            }
+            orthonormalControlAxes.row(i).normalize();
         }
         RwMotorTorqueArrayConfiguration normalizedRwConfiguration = rwConfiguration;
         for (uint32_t i = 0U; i < normalizedRwConfiguration.numRW; ++i) {
             normalizedRwConfiguration.GsMatrix_B.col(i).normalize();
         }
 
-        return RwMotorTorqueConfig{normalizedControlAxes, normalizedRwConfiguration, availability, omegaGain};
+        return RwMotorTorqueConfig{orthonormalControlAxes, normalizedRwConfiguration, availability, omegaGain};
     }
 
     static bool isValidControlAxes(const Eigen::Matrix3f& controlAxes_B) {
