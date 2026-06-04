@@ -47,6 +47,14 @@ double AverageMimuDataAlgorithm_getGyroAveragingWindow(const AverageMimuDataAlgo
     return reinterpret_cast<const ::AverageMimuDataAlgorithm*>(self)->getGyroAveragingWindow();
 }
 
+void AverageMimuDataAlgorithm_setAccelAveragingWindow(AverageMimuDataAlgorithmHandle* self, double window) {
+    reinterpret_cast<::AverageMimuDataAlgorithm*>(self)->setAccelAveragingWindow(window);
+}
+
+double AverageMimuDataAlgorithm_getAccelAveragingWindow(const AverageMimuDataAlgorithmHandle* self) {
+    return reinterpret_cast<const ::AverageMimuDataAlgorithm*>(self)->getAccelAveragingWindow();
+}
+
 void AverageMimuDataAlgorithm_setDcmPltfToBdy(AverageMimuDataAlgorithmHandle* self, Matrix3f_c dcm_BP) {
     Eigen::Matrix3f mat;
     for (int i = 0; i < 3; i++) {

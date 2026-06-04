@@ -39,10 +39,12 @@ class ReferenceAverager {
             lastIngestedMaxMeasTime_ = std::max(lastIngestedMaxMeasTime_, firstSampleTime);
         }
 
-        // Phase 2: max-tail-time + window filter, derived sample schedule.
-        // Convert the algorithm's window to ns once and compare in integer.
+        // Phase 2: max-tail-time + per-modality window filter, derived sample
+        // schedule. Convert each window to ns once and compare in integer.
         const std::uint64_t gyroAveragingWindowNs =
             static_cast<std::uint64_t>(alg_.getGyroAveragingWindow() * 1.0e9);
+        const std::uint64_t accelAveragingWindowNs =
+            static_cast<std::uint64_t>(alg_.getAccelAveragingWindow() * 1.0e9);
 
         std::uint64_t maxSlotMeasTime = 0U;
         for (auto const& slot : ring_) {
@@ -62,7 +64,8 @@ class ReferenceAverager {
 
         Eigen::Vector3f gyroSum_P = Eigen::Vector3f::Zero();
         Eigen::Vector3f accelSum_P = Eigen::Vector3f::Zero();
-        std::uint64_t measAvgCount = 0U;
+        std::uint64_t gyroAvgCount = 0U;
+        std::uint64_t accelAvgCount = 0U;
 
         for (auto const& slot : ring_) {
             if (!slot.isValid) {
@@ -71,18 +74,24 @@ class ReferenceAverager {
             for (std::size_t s = 0; s < MAX_MIMU_SAMPLES_PER_PKT_C; ++s) {
                 const std::uint64_t sampleMeasTime =
                     slot.measTime + (s * AverageMimuDataAlgorithm::kMimuSamplePeriodNs);
-                if ((maxTimeTag - sampleMeasTime) <= gyroAveragingWindowNs) {
+                const std::uint64_t age = maxTimeTag - sampleMeasTime;
+                if (age <= gyroAveragingWindowNs) {
                     gyroSum_P += slot.samples[s].gyro_P;
+                    gyroAvgCount++;
+                }
+                if (age <= accelAveragingWindowNs) {
                     accelSum_P += slot.samples[s].accel_P;
-                    measAvgCount++;
+                    accelAvgCount++;
                 }
             }
         }
 
-        if (measAvgCount > 0U) {
-            gyroSum_P /= static_cast<float>(measAvgCount);
-            accelSum_P /= static_cast<float>(measAvgCount);
+        if (gyroAvgCount > 0U) {
+            gyroSum_P /= static_cast<float>(gyroAvgCount);
             out.gyroOmega_B = alg_.getDcmPltfToBdy() * gyroSum_P;
+        }
+        if (accelAvgCount > 0U) {
+            accelSum_P /= static_cast<float>(accelAvgCount);
             out.accel_B = alg_.getDcmPltfToBdy() * accelSum_P;
         }
 
@@ -121,6 +130,7 @@ inline void regressionTestAverageMimuData(float window, InputPktsData const& in)
     AverageMimuDataAlgorithm alg;
     alg.setDcmPltfToBdy(Eigen::Matrix3f::Identity());
     alg.setGyroAveragingWindow(window);
+    alg.setAccelAveragingWindow(window);
 
     ReferenceAverager ref(alg);
 
@@ -139,6 +149,7 @@ inline void sequencedRegressionTestAverageMimuData(float window, std::vector<Inp
     AverageMimuDataAlgorithm alg;
     alg.setDcmPltfToBdy(Eigen::Matrix3f::Identity());
     alg.setGyroAveragingWindow(window);
+    alg.setAccelAveragingWindow(window);
 
     ReferenceAverager ref(alg);
 

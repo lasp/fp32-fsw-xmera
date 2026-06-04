@@ -42,6 +42,10 @@ void AverageMimuData::setGyroAveragingWindow(double const window) { this->algori
 
 double AverageMimuData::getGyroAveragingWindow() const { return this->algorithm.getGyroAveragingWindow(); }
 
+void AverageMimuData::setAccelAveragingWindow(double const window) { this->algorithm.setAccelAveragingWindow(window); }
+
+double AverageMimuData::getAccelAveragingWindow() const { return this->algorithm.getAccelAveragingWindow(); }
+
 void AverageMimuData::setDcmPltfToBdy(Eigen::Matrix3f const& dcm_BP) { this->algorithm.setDcmPltfToBdy(dcm_BP); }
 
 Eigen::Matrix3f AverageMimuData::getDcmPltfToBdy() const { return this->algorithm.getDcmPltfToBdy(); }
