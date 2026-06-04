@@ -7,7 +7,6 @@
 
 #include <gtest/gtest.h>
 #include <Eigen/Core>
-#include <Eigen/LU>
 #include <Eigen/SVD>
 #include <algorithm>
 #include <cmath>
@@ -49,15 +48,15 @@ inline Eigen::Matrix<float, kMaxNumRw, kMaxNumRw> referenceTau(const RwMotorTorq
         return tau;
     }
 
-    const Eigen::Matrix3f GsGsT = G_s_B * G_s_B.transpose();
-    const Eigen::JacobiSVD<Eigen::Matrix3f> gsSvd(GsGsT);
+    const Eigen::JacobiSVD<Eigen::Matrix<float, 3, kMaxNumRw>> gsSvd(G_s_B, Eigen::ComputeFullV);
     const Eigen::Vector3f gsSingularValues = gsSvd.singularValues();
-    constexpr float kSpanRelativeTol = 1e-6F;
-    if (gsSingularValues(2) <= gsSingularValues(0) * kSpanRelativeTol) {
+    const float rankTol = gsSingularValues(0) * std::numeric_limits<float>::epsilon() * static_cast<float>(kMaxNumRw);
+    if (gsSingularValues(2) <= rankTol) {
         return tau;
     }
 
-    tau = Eigen::Matrix<float, kMaxNumRw, kMaxNumRw>::Identity() - G_s_B.transpose() * GsGsT.inverse() * G_s_B;
+    const Eigen::Matrix<float, kMaxNumRw, 3> Vr = gsSvd.matrixV().leftCols<3>();
+    tau = Eigen::Matrix<float, kMaxNumRw, kMaxNumRw>::Identity() - Vr * Vr.transpose();
 
     for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
         if (i >= rwConfiguration.numRW || wheelsAvailability[i] != AVAILABLE) {
@@ -105,8 +104,24 @@ inline Eigen::Vector<float, kMaxNumRw> referenceUpdate(const Eigen::Matrix3f& co
 
     const Eigen::Matrix<float, 3, kMaxNumRw> CGs = controlAxes * G_s_B;
     const Eigen::MatrixXf CGsActive = CGs.topRows(numControlAxes);
-    const Eigen::Matrix<float, kMaxNumRw, 3> motorTorqueMap =
-        CGsActive.transpose() * (CGsActive * CGsActive.transpose()).inverse() * (-controlAxes.topRows(numControlAxes));
+    const Eigen::JacobiSVD<Eigen::MatrixXf> svd(CGsActive, Eigen::ComputeThinU | Eigen::ComputeThinV);
+    const Eigen::VectorXf& singularValues = svd.singularValues();
+    const float singularValueTol = singularValues(0) * std::numeric_limits<float>::epsilon() *
+                                   static_cast<float>(std::max(numControlAxes, kMaxNumRw));
+    Eigen::VectorXf invSingularValues = Eigen::VectorXf::Zero(singularValues.size());
+    for (Eigen::Index i = 0; i < singularValues.size(); ++i) {
+        if (singularValues(i) > singularValueTol) {
+            invSingularValues(i) = 1.0F / singularValues(i);
+        }
+    }
+    Eigen::Matrix<float, kMaxNumRw, 3> motorTorqueMap = svd.matrixV() * invSingularValues.asDiagonal() *
+                                                        svd.matrixU().transpose() *
+                                                        (-controlAxes.topRows(numControlAxes));
+    for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
+        if (i >= rwConfiguration.numRW || wheelsAvailability[i] != AVAILABLE) {
+            motorTorqueMap.row(i).setZero();
+        }
+    }
 
     const Eigen::Vector<float, kMaxNumRw> d = -omegaGain * (speeds.rwSpeeds - speeds.rwDesiredSpeeds);
     const Eigen::Vector<float, kMaxNumRw> nullSpaceTorque = referenceTau(rwConfiguration, availability) * d;

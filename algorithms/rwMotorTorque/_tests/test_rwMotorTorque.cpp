@@ -44,12 +44,14 @@ TEST(RwMotorTorqueTest, NullSpaceDespinFourWheels) {
         EXPECT_NEAR(out[i], ref[i], 1e-6);
     }
 
-    // The despin contribution (out - controlOnly) must produce no net body torque.
-    const Eigen::Vector3f despinBodyTorque = rwConfiguration.GsMatrix_B.leftCols<4>() * (out - controlOnly).head<4>();
-    EXPECT_NEAR(despinBodyTorque.norm(), 0.0F, 1e-5);
+    // The despin contribution (out - controlOnly) must produce no net body torque (fp32 noise floor relative
+    // to the despin magnitude).
+    const Eigen::Vector<float, kMaxNumRw> despin = out - controlOnly;
+    const Eigen::Vector3f despinBodyTorque = rwConfiguration.GsMatrix_B.leftCols<4>() * despin.head<4>();
+    EXPECT_LE(despinBodyTorque.norm(), 1e-6F * despin.norm() + 1e-6F);
 
     // The despin term must be non-trivial (otherwise the test would pass vacuously).
-    EXPECT_GT((out - controlOnly).norm(), 1e-3);
+    EXPECT_GT(despin.norm(), 1e-3);
 }
 
 // Zero gain disables despin: output equals the control-only (zero-speed) update.
@@ -139,9 +141,10 @@ TEST(RwMotorTorqueTest, NullSpaceRespectsAvailability) {
             Gs_avail.col(i) = rwConfiguration.GsMatrix_B.col(i);
         }
     }
-    const Eigen::Vector3f despinBodyTorque = Gs_avail * (out - controlOnly).head<5>();
-    EXPECT_NEAR(despinBodyTorque.norm(), 0.0F, 1e-5);
-    EXPECT_GT((out - controlOnly).norm(), 1e-3);  // despin is non-trivial
+    const Eigen::Vector<float, kMaxNumRw> despin = out - controlOnly;
+    const Eigen::Vector3f despinBodyTorque = Gs_avail * despin.head<5>();
+    EXPECT_LE(despinBodyTorque.norm(), 1e-6F * despin.norm() + 1e-6F);  // fp32 noise floor
+    EXPECT_GT(despin.norm(), 1e-3);                                     // despin is non-trivial
 }
 
 TEST(RwMotorTorqueTest, SetupTest) { testRwMotorTorqueSetup(); }

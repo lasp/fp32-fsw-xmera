@@ -1,6 +1,5 @@
 #include "rwMotorTorqueAlgorithm.h"
 #include "utilities/freestandingInvalidArgument.h"
-#include <Eigen/LU>
 #include <Eigen/SVD>
 #include <algorithm>
 #include <cstdint>
@@ -17,26 +16,27 @@ struct RwMotorTorqueMapping {
         Eigen::Matrix<float, kMaxNumRw, kMaxNumRw>::Zero()};  //!< [-] RW null-space projection for despin
 };
 
-/*! Builds the RW null-space projection [tau] = [I] - [Gs]^T([Gs][Gs]^T)^-1[Gs] from the available-wheel
- spin-axis matrix [Gs] (in-position, zero columns for unavailable wheels). Returns the zero matrix (despin
- disabled) when there is no usable null space: three or fewer available wheels, or wheels that do not span
- 3-D so ([Gs][Gs]^T) would be singular. */
+/*! Builds the RW null-space projection [tau], the orthogonal projector onto the null space of the available-
+ wheel spin-axis matrix [Gs] (in-position, zero columns for unavailable wheels). [tau] is built from the right
+ singular vectors of [Gs] -- [tau] = [I] - [Vr][Vr]^T where [Vr] spans the row space -- so [Gs][tau] == 0 to
+ machine precision regardless of conditioning. Returns the zero matrix (despin disabled) when there is no usable
+ null space: three or fewer available wheels, or wheels that do not span 3-D. */
 Eigen::Matrix<float, kMaxNumRw, kMaxNumRw> computeNullSpaceProjection(const Eigen::Matrix<float, 3, kMaxNumRw>& G_s_B,
                                                                       uint32_t numAvailRW) {
     if (numAvailRW <= 3U) {
         return Eigen::Matrix<float, kMaxNumRw, kMaxNumRw>::Zero();
     }
 
-    const Eigen::Matrix3f GsGsT = G_s_B * G_s_B.transpose();
-    const Eigen::JacobiSVD<Eigen::Matrix3f> gsSvd(GsGsT);
+    const Eigen::JacobiSVD<Eigen::Matrix<float, 3, kMaxNumRw>> gsSvd(G_s_B, Eigen::ComputeFullV);
     const Eigen::Vector3f gsSingularValues = gsSvd.singularValues();
-    constexpr float kSpanRelativeTol = 1e-6F;
-    if (gsSingularValues(2) <= gsSingularValues(0) * kSpanRelativeTol) {
+    const float rankTol = gsSingularValues(0) * std::numeric_limits<float>::epsilon() * static_cast<float>(kMaxNumRw);
+    if (gsSingularValues(2) <= rankTol) {
         return Eigen::Matrix<float, kMaxNumRw, kMaxNumRw>::Zero();
     }
 
+    const Eigen::Matrix<float, kMaxNumRw, 3> Vr = gsSvd.matrixV().leftCols<3>();
     return Eigen::Matrix<float, kMaxNumRw, kMaxNumRw>{Eigen::Matrix<float, kMaxNumRw, kMaxNumRw>::Identity() -
-                                                      G_s_B.transpose() * GsGsT.inverse() * G_s_B};
+                                                      Vr * Vr.transpose()};
 }
 
 /*! Computes the per-RW motor-torque map and the null-space projection [tau] from a validated, canonicalized
@@ -70,14 +70,19 @@ std::optional<RwMotorTorqueMapping> computeRwMapping(const Eigen::Matrix3f& cont
     }
 
     const Eigen::Matrix<float, 3, kMaxNumRw> CGs = compactControlAxes * G_s_B;
+    const Eigen::MatrixXf CGsActive = CGs.topRows(numControlAxes);
 
-    // Controllability cross-check: every control axis must be reachable by the available reaction wheels.
-    // A control axis with a significant projection onto the left-null-space of [CGs] is not reachable.
-    const Eigen::JacobiSVD<Eigen::MatrixXf> svd(CGs.topRows(numControlAxes), Eigen::ComputeFullU);
+    // SVD of the control mapping [CGs] = [CB][Gs] (numControlAxes x kMaxNumRw, with zero columns for
+    // unavailable wheels), reused for the controllability check and the pseudo-inverse below. Singular values
+    // below a relative tolerance are treated as zero.
+    const Eigen::JacobiSVD<Eigen::MatrixXf> svd(CGsActive, Eigen::ComputeThinU | Eigen::ComputeThinV);
     const Eigen::VectorXf& singularValues = svd.singularValues();
     const Eigen::MatrixXf& leftSingularVectors = svd.matrixU();
     const float singularValueTol = singularValues(0) * std::numeric_limits<float>::epsilon() *
                                    static_cast<float>(std::max(numControlAxes, kMaxNumRw));
+
+    // Controllability cross-check: every control axis must be reachable by the available reaction wheels.
+    // A control axis with a significant projection onto the left-null-space of [CGs] is not reachable.
     constexpr float kControllabilityResidualSqTol = 1e-6F;
     for (uint32_t axis = 0U; axis < numControlAxes; ++axis) {
         float nullSpaceResidualSq = 0.0F;
@@ -91,20 +96,25 @@ std::optional<RwMotorTorqueMapping> computeRwMapping(const Eigen::Matrix3f& cont
         }
     }
 
-    // Fold the control-axis projection and minimum-norm pseudo-inverse into one map. Unavailable wheels are
-    // zero columns of [CGs], so their map rows come out zero, and the inverted Gram [CGs][CGs].T is the small
-    // numControlAxes x numControlAxes block (full rank by the check above).
-    const Eigen::MatrixXf CGsActive = CGs.topRows(numControlAxes);
+    // Control map = pseudo-inverse([CGs]) * (-[CB]) via a truncated SVD ([V][S^-1][U]^T), folding the control-
+    // axis projection and the minimum-norm inverse into one matrix.
+    Eigen::VectorXf invSingularValues = Eigen::VectorXf::Zero(singularValues.size());
+    for (Eigen::Index i = 0; i < singularValues.size(); ++i) {
+        if (singularValues(i) > singularValueTol) {
+            invSingularValues(i) = 1.0F / singularValues(i);
+        }
+    }
     RwMotorTorqueMapping mapping{};
-    mapping.motorTorqueMap = CGsActive.transpose() * (CGsActive * CGsActive.transpose()).inverse() *
+    mapping.motorTorqueMap = svd.matrixV() * invSingularValues.asDiagonal() * leftSingularVectors.transpose() *
                              (-compactControlAxes.topRows(numControlAxes));
 
     mapping.tau = computeNullSpaceProjection(G_s_B, numAvailRW);
 
-    // Zero the despin rows of excluded wheels: their [Gs] columns are zero, so [tau] would otherwise leave
-    // identity rows that inject the raw despin command onto an excluded wheel.
+    // Zero the rows of excluded wheels (beyond numRW or unavailable). Their [CGs]/[Gs] columns are zero, so
+    // these rows are zero in exact arithmetic; mask them so an excluded wheel is commanded exactly zero torque.
     for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
         if (i >= rwConfiguration.numRW || wheelsAvailability[i] != AVAILABLE) {
+            mapping.motorTorqueMap.row(i).setZero();
             mapping.tau.row(i).setZero();
         }
     }
