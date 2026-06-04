@@ -39,12 +39,12 @@ OutputAverageAccelAngleVel_c AverageMimuDataAlgorithm_update(AverageMimuDataAlgo
     return result;
 }
 
-void AverageMimuDataAlgorithm_setAveragingWindow(AverageMimuDataAlgorithmHandle* self, double window) {
-    reinterpret_cast<::AverageMimuDataAlgorithm*>(self)->setAveragingWindow(window);
+void AverageMimuDataAlgorithm_setGyroAveragingWindow(AverageMimuDataAlgorithmHandle* self, double window) {
+    reinterpret_cast<::AverageMimuDataAlgorithm*>(self)->setGyroAveragingWindow(window);
 }
 
-double AverageMimuDataAlgorithm_getAveragingWindow(const AverageMimuDataAlgorithmHandle* self) {
-    return reinterpret_cast<const ::AverageMimuDataAlgorithm*>(self)->getAveragingWindow();
+double AverageMimuDataAlgorithm_getGyroAveragingWindow(const AverageMimuDataAlgorithmHandle* self) {
+    return reinterpret_cast<const ::AverageMimuDataAlgorithm*>(self)->getGyroAveragingWindow();
 }
 
 void AverageMimuDataAlgorithm_setDcmPltfToBdy(AverageMimuDataAlgorithmHandle* self, Matrix3f_c dcm_BP) {

@@ -10,8 +10,8 @@ class AverageMimuData : public SysModel {
    public:
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
-    void setAveragingWindow(double window);               //!< [s] Setter method for averagingWindow
-    double getAveragingWindow() const;                    //!< [s] Getter method for averagingWindow
+    void setGyroAveragingWindow(double window);               //!< [s] Setter method for gyroAveragingWindow
+    double getGyroAveragingWindow() const;                    //!< [s] Getter method for gyroAveragingWindow
     void setDcmPltfToBdy(Eigen::Matrix3f const& dcm_BP);  //!< Setter method for dcm from platform to body
     Eigen::Matrix3f getDcmPltfToBdy() const;              //!< Getter method for dcm from platform to body
 

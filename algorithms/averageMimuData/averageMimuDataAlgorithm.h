@@ -63,8 +63,8 @@ class AverageMimuDataAlgorithm {
         average_mimu_detail::ceilDivSamplesToPackets(
             kMimuSampleRateHz, kMaxAveragingWindowSec, MAX_MIMU_SAMPLES_PER_PKT_C);
 
-    void setAveragingWindow(double window);                 //!< [s] Setter method for windowSec
-    double getAveragingWindow() const;                      //!< [s] Getter method for windowSec
+    void setGyroAveragingWindow(double window);                 //!< [s] Setter method for windowSec
+    double getGyroAveragingWindow() const;                      //!< [s] Getter method for windowSec
     void setDcmPltfToBdy(Eigen::Matrix3f const& dcm_BPIn);  //!< Setter method for dcm from platform to body
     Eigen::Matrix3f getDcmPltfToBdy() const;                //!< Getter method for dcm from platform to body
 
@@ -85,7 +85,7 @@ class AverageMimuDataAlgorithm {
 
     // Stored as nanoseconds so the per-sample comparison in update() is a
     // pure uint64_t compare. Float is only used at the public seconds-based API.
-    std::uint64_t averagingWindowNs{0U};                   //!< [ns] Allowable time difference from "latest"
+    std::uint64_t gyroAveragingWindowNs{0U};                   //!< [ns] Allowable time difference from "latest"
     Eigen::Matrix3f dcm_BP = Eigen::Matrix3f::Identity();  //!< [-] Transformation from the platform frame to body
     std::array<RingPacket, kRingCapacity> ring{};          //!< Internal ring of recent packets (overwrites oldest on insert)
     std::size_t insertIdx{0U};                             //!< Next ring slot to overwrite

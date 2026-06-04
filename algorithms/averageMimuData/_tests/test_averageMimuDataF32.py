@@ -35,7 +35,7 @@ def test_average_mimu_data():
 
     dcm_pltf_to_body = RigidBodyKinematics.euler3212C([0.01, -0.04, 0.06]).astype(np.float32)
     module.setDcmPltfToBdy(dcm_pltf_to_body)
-    module.setAveragingWindow(_MAX_AVG_WINDOW_SEC)  # 2 s window covers the full ring
+    module.setGyroAveragingWindow(_MAX_AVG_WINDOW_SEC)  # 2 s window covers the full ring
 
     mimu_pkt = messaging.MimuPacketF32Payload()
     mimu_pkt_msg = messaging.MimuPacketF32().write(mimu_pkt, time=0)
@@ -92,7 +92,7 @@ def test_average_mimu_data():
         unit_test_sim.ConfigureStopTime(macros.sec2nano(sim_time))
         unit_test_sim.ExecuteSimulation()
 
-    np.testing.assert_allclose(_MAX_AVG_WINDOW_SEC, module.getAveragingWindow(), rtol=1e-8, atol=1e-9, verbose=True)
+    np.testing.assert_allclose(_MAX_AVG_WINDOW_SEC, module.getGyroAveragingWindow(), rtol=1e-8, atol=1e-9, verbose=True)
     np.testing.assert_allclose(dcm_pltf_to_body, module.getDcmPltfToBdy(), rtol=1e-8, atol=1e-6, verbose=True)
 
     module_output_accel = data_log.AccelBody
@@ -130,7 +130,7 @@ def test_average_mimu_data_buffer_fill():
 
     dcm_pltf_to_body = np.eye(3, dtype=np.float32)
     module.setDcmPltfToBdy(dcm_pltf_to_body)
-    module.setAveragingWindow(_MAX_AVG_WINDOW_SEC)  # 2 s covers the full ring
+    module.setGyroAveragingWindow(_MAX_AVG_WINDOW_SEC)  # 2 s covers the full ring
 
     mimu_pkt = messaging.MimuPacketF32Payload()
     mimu_pkt_msg = messaging.MimuPacketF32().write(mimu_pkt, time=0)

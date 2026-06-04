@@ -14,7 +14,7 @@
 /*! @brief Independent reimplementation of AverageMimuDataAlgorithm's two-phase
  *  update used by the regression and fuzz harnesses. Holds its own ring with
  *  the same capacity as the algorithm so cross-cycle behavior matches
- *  bit-for-bit. The averagingWindow and dcm_BP are read from the algorithm
+ *  bit-for-bit. The gyroAveragingWindow and dcm_BP are read from the algorithm
  *  via getters at each update() call. */
 class ReferenceAverager {
    public:
@@ -41,8 +41,8 @@ class ReferenceAverager {
 
         // Phase 2: max-tail-time + window filter, derived sample schedule.
         // Convert the algorithm's window to ns once and compare in integer.
-        const std::uint64_t averagingWindowNs =
-            static_cast<std::uint64_t>(alg_.getAveragingWindow() * 1.0e9);
+        const std::uint64_t gyroAveragingWindowNs =
+            static_cast<std::uint64_t>(alg_.getGyroAveragingWindow() * 1.0e9);
 
         std::uint64_t maxSlotMeasTime = 0U;
         for (auto const& slot : ring_) {
@@ -71,7 +71,7 @@ class ReferenceAverager {
             for (std::size_t s = 0; s < MAX_MIMU_SAMPLES_PER_PKT_C; ++s) {
                 const std::uint64_t sampleMeasTime =
                     slot.measTime + (s * AverageMimuDataAlgorithm::kMimuSamplePeriodNs);
-                if ((maxTimeTag - sampleMeasTime) <= averagingWindowNs) {
+                if ((maxTimeTag - sampleMeasTime) <= gyroAveragingWindowNs) {
                     gyroSum_P += slot.samples[s].gyro_P;
                     accelSum_P += slot.samples[s].accel_P;
                     measAvgCount++;
@@ -120,7 +120,7 @@ inline void fillPacket(InputPktsData& in,
 inline void regressionTestAverageMimuData(float window, InputPktsData const& in) {
     AverageMimuDataAlgorithm alg;
     alg.setDcmPltfToBdy(Eigen::Matrix3f::Identity());
-    alg.setAveragingWindow(window);
+    alg.setGyroAveragingWindow(window);
 
     ReferenceAverager ref(alg);
 
@@ -138,7 +138,7 @@ inline void regressionTestAverageMimuData(float window, InputPktsData const& in)
 inline void sequencedRegressionTestAverageMimuData(float window, std::vector<InputPktsData> const& frames) {
     AverageMimuDataAlgorithm alg;
     alg.setDcmPltfToBdy(Eigen::Matrix3f::Identity());
-    alg.setAveragingWindow(window);
+    alg.setGyroAveragingWindow(window);
 
     ReferenceAverager ref(alg);
 

@@ -52,14 +52,14 @@ OutputAverageAccelAngleVel_c AverageMimuDataAlgorithm_update(AverageMimuDataAlgo
  * @param self   Pointer to the instance.
  * @param window Averaging window duration in seconds.
  */
-void AverageMimuDataAlgorithm_setAveragingWindow(AverageMimuDataAlgorithmHandle* self, double window);
+void AverageMimuDataAlgorithm_setGyroAveragingWindow(AverageMimuDataAlgorithmHandle* self, double window);
 
 /**
  * @brief Get the current averaging window duration.
  * @param self Pointer to the instance.
  * @return double  The current averaging window in seconds.
  */
-double AverageMimuDataAlgorithm_getAveragingWindow(const AverageMimuDataAlgorithmHandle* self);
+double AverageMimuDataAlgorithm_getGyroAveragingWindow(const AverageMimuDataAlgorithmHandle* self);
 
 /**
  * @brief Set the DCM from platform frame to body frame.

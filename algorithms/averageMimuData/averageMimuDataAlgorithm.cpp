@@ -20,7 +20,7 @@
  *  Phase 2 (average): Per-sample times are derived from each ring slot's
  *  `measTime` plus `s * kMimuSamplePeriodNs`. The maxTimeTag is the
  *  newest slot's tail sample: `max(slot.measTime) + (N - 1) * period_ns`.
- *  Every sample whose derived time is within `averagingWindowNs` of
+ *  Every sample whose derived time is within `gyroAveragingWindowNs` of
  *  maxTimeTag contributes equally to the body-frame average via `dcm_BP`.
  *  Returns zeros if the ring is empty.
  *
@@ -75,7 +75,7 @@ OutputAverageAccelAngleVel AverageMimuDataAlgorithm::update(InputPktsData const&
         }
         for (std::size_t s = 0; s < MAX_MIMU_SAMPLES_PER_PKT_C; ++s) {
             const uint64_t sampleMeasTime = slot.measTime + (s * kMimuSamplePeriodNs);
-            if ((maxTimeTag - sampleMeasTime) <= this->averagingWindowNs) {
+            if ((maxTimeTag - sampleMeasTime) <= this->gyroAveragingWindowNs) {
                 gyroSum_P += slot.samples.at(s).gyro_P;
                 accelSum_P += slot.samples.at(s).accel_P;
                 measAvgCount++;
@@ -95,15 +95,15 @@ OutputAverageAccelAngleVel AverageMimuDataAlgorithm::update(InputPktsData const&
     return out;
 }
 
-void AverageMimuDataAlgorithm::setAveragingWindow(double const window) {
+void AverageMimuDataAlgorithm::setGyroAveragingWindow(double const window) {
     if (window < 0.0 || window > kMaxAveragingWindowSec) {
         FSW_THROW_INVALID_ARGUMENT("AveragingWindow cannot be smaller than 0.0 or greater than 2.0 seconds");
     }
-    this->averagingWindowNs = static_cast<std::uint64_t>(window * kSec2Nano);
+    this->gyroAveragingWindowNs = static_cast<std::uint64_t>(window * kSec2Nano);
 }
 
-double AverageMimuDataAlgorithm::getAveragingWindow() const {
-    return this->averagingWindowNs * kNano2Sec;
+double AverageMimuDataAlgorithm::getGyroAveragingWindow() const {
+    return static_cast<double>(this->gyroAveragingWindowNs) * kNano2Sec;
 }
 
 void AverageMimuDataAlgorithm::setDcmPltfToBdy(Eigen::Matrix3f const& dcm_BPIn) {
