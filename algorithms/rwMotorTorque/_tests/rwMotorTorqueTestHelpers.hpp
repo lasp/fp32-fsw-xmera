@@ -129,29 +129,6 @@ inline Eigen::Vector<float, kMaxNumRw> referenceUpdate(const Eigen::Matrix3f& co
     return motorTorqueMap * Lr_B + nullSpaceTorque;
 }
 
-inline void testRwMotorTorqueSetup() {
-    // --- Test expected exceptions ---
-
-    const RwMotorTorqueArrayConfiguration rwConfiguration{};
-    const RwMotorTorqueAvailability availability{};
-
-    // A non-unit control axis is rejected by RwMotorTorqueConfig.
-    Eigen::Matrix3f controlAxes_B{Eigen::Matrix3f::Zero()};
-    controlAxes_B.row(0) = Eigen::Vector3f{2.0F, 0.0F, 0.0F};
-    EXPECT_THROW(RwMotorTorqueConfig::create(controlAxes_B, rwConfiguration, availability), fsw::invalid_argument);
-
-    // Non-orthogonal control axes are rejected by RwMotorTorqueConfig.
-    controlAxes_B = Eigen::Matrix3f::Zero();
-    controlAxes_B.row(0) = Eigen::Vector3f{1.0F, 0.0F, 0.0F};
-    controlAxes_B.row(1) = Eigen::Vector3f{0.70710678F, 0.70710678F, 0.0F};
-    EXPECT_THROW(RwMotorTorqueConfig::create(controlAxes_B, rwConfiguration, availability), fsw::invalid_argument);
-
-    // control mapping matrix not full rank (3 control axes specified but not a single reaction wheel):
-    // create() validates the mapping and rejects the rank-deficient configuration.
-    controlAxes_B = makeControlAxes(3U);
-    EXPECT_THROW(RwMotorTorqueConfig::create(controlAxes_B, rwConfiguration, availability), fsw::invalid_argument);
-}
-
 inline void testRwMotorTorque(const Eigen::Vector3f& Lr1_B,
                               const Eigen::Vector3f& Lr2_B,
                               std::vector<bool> wheelAvailabilityBool,

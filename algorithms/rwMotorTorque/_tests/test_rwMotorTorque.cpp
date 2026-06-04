@@ -1,4 +1,5 @@
 #include "rwMotorTorqueTestHelpers.hpp"
+#include "utilities/freestandingInvalidArgument.h"
 #include <gtest/gtest.h>
 
 TEST(RwMotorTorqueTest, ReferenceTest) {
@@ -13,6 +14,29 @@ TEST(RwMotorTorqueTest, ReferenceTest) {
                       std::vector<float>{},
                       std::vector<float>{},
                       0.0F);
+}
+
+TEST(RwMotorTorqueTest, SetupTest) {
+    // --- Test expected exceptions ---
+
+    const RwMotorTorqueArrayConfiguration rwConfiguration{};
+    const RwMotorTorqueAvailability availability{};
+
+    // A non-unit control axis is rejected by RwMotorTorqueConfig.
+    Eigen::Matrix3f controlAxes_B{Eigen::Matrix3f::Zero()};
+    controlAxes_B.row(0) = Eigen::Vector3f{2.0F, 0.0F, 0.0F};
+    EXPECT_THROW(RwMotorTorqueConfig::create(controlAxes_B, rwConfiguration, availability), fsw::invalid_argument);
+
+    // Non-orthogonal control axes are rejected by RwMotorTorqueConfig.
+    controlAxes_B = Eigen::Matrix3f::Zero();
+    controlAxes_B.row(0) = Eigen::Vector3f{1.0F, 0.0F, 0.0F};
+    controlAxes_B.row(1) = Eigen::Vector3f{0.70710678F, 0.70710678F, 0.0F};
+    EXPECT_THROW(RwMotorTorqueConfig::create(controlAxes_B, rwConfiguration, availability), fsw::invalid_argument);
+
+    // control mapping matrix not full rank (3 control axes specified but not a single reaction wheel):
+    // create() validates the mapping and rejects the rank-deficient configuration.
+    controlAxes_B = makeControlAxes(3U);
+    EXPECT_THROW(RwMotorTorqueConfig::create(controlAxes_B, rwConfiguration, availability), fsw::invalid_argument);
 }
 
 // Non-zero gain: despin must match the reference and add no net body torque.
@@ -146,8 +170,6 @@ TEST(RwMotorTorqueTest, NullSpaceRespectsAvailability) {
     EXPECT_LE(despinBodyTorque.norm(), 1e-6F * despin.norm() + 1e-6F);  // fp32 noise floor
     EXPECT_GT(despin.norm(), 1e-3);                                     // despin is non-trivial
 }
-
-TEST(RwMotorTorqueTest, SetupTest) { testRwMotorTorqueSetup(); }
 
 // Control axes may sit in any rows; only the spanned subspace matters. Controlling body x and z via
 // non-contiguous rows {0, 2} must produce the same motor torques as the contiguous rows {0, 1}.
