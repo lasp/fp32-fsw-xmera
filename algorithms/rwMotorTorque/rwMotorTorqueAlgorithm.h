@@ -86,6 +86,15 @@ class RwMotorTorqueConfig final {
             normalizedRwConfiguration.GsMatrix_B.col(i).normalize();
         }
 
+        // Reject configurations whose control mapping cannot be realized (a control axis is not reachable by
+        // the available reaction wheels). This is the only place such an invalid argument is thrown -- once
+        // constructed, a RwMotorTorqueConfig always yields a usable mapping.
+        if (!isValidMapping(orthonormalControlAxes, normalizedRwConfiguration, availability)) {
+            FSW_THROW_INVALID_ARGUMENT(
+                "rwMotorTorque: a control axis is not controllable by the available reaction wheels "
+                "(the control mapping matrix [CB][G_s] is rank deficient).");
+        }
+
         return RwMotorTorqueConfig{orthonormalControlAxes, normalizedRwConfiguration, availability, omegaGain};
     }
 
@@ -132,6 +141,13 @@ class RwMotorTorqueConfig final {
 
     static bool isValidOmegaGain(float omegaGain) { return fsw::is_finite(omegaGain) && omegaGain >= 0.0F; }
 
+    // Returns true if the (canonicalized) configuration yields a realizable control mapping: every control
+    // axis is reachable by the available reaction wheels. Defined in the .cpp because it shares the mapping
+    // computation with the algorithm.
+    static bool isValidMapping(const Eigen::Matrix3f& controlAxes_B,
+                               const RwMotorTorqueArrayConfiguration& rwConfiguration,
+                               const RwMotorTorqueAvailability& availability);
+
     const Eigen::Matrix3f& getControlAxes() const { return this->controlAxes_B; }
     const RwMotorTorqueArrayConfiguration& getRwConfiguration() const { return this->rwConfiguration; }
     const RwMotorTorqueAvailability& getAvailability() const { return this->availability; }
@@ -165,10 +181,6 @@ class RwMotorTorqueAlgorithm final {
     Eigen::Vector<float, kMaxNumRw> update(const Eigen::Vector3f& Lr_B, const RwMotorTorqueSpeeds& speeds) const;
 
    private:
-    void computeRwMapping();  //!< builds motorTorqueMap and tau from cfg; throws if the mapping is not full rank
-    void computeNullSpaceProjection(const Eigen::Matrix<float, 3, kMaxNumRw>& G_s_B,
-                                    uint32_t numAvailRW);  //!< builds tau from the shared available-wheel [Gs]
-
     RwMotorTorqueConfig cfg;  //!< [-] validated configuration (control axes, RW config, availability, gain)
     Eigen::Matrix<float, kMaxNumRw, 3> motorTorqueMap{
         Eigen::Matrix<float, kMaxNumRw, 3>::Zero()};  //!< [-] maps the commanded body control torque to per-RW

@@ -184,8 +184,15 @@ TEST(RwMotorTorqueTest, ControlAxesAreOrthonormalized) {
     controlAxes.row(0) = Eigen::Vector3f{1.0F, 0.0F, 0.0F};
     controlAxes.row(1) = Eigen::Vector3f{8e-4F, 1.0F, 0.0F}.normalized();  // unit, ~8e-4 off orthogonal to row 0
 
+    // Three wheels spanning body x, y, z so create() accepts the (controllable) configuration.
+    RwMotorTorqueArrayConfiguration rwConfiguration{};
+    rwConfiguration.numRW = 3U;
+    rwConfiguration.GsMatrix_B.col(0) = Eigen::Vector3f{1.0F, 0.0F, 0.0F};
+    rwConfiguration.GsMatrix_B.col(1) = Eigen::Vector3f{0.0F, 1.0F, 0.0F};
+    rwConfiguration.GsMatrix_B.col(2) = Eigen::Vector3f{0.0F, 0.0F, 1.0F};
+
     const RwMotorTorqueConfig config =
-        RwMotorTorqueConfig::create(controlAxes, RwMotorTorqueArrayConfiguration{}, RwMotorTorqueAvailability{});
+        RwMotorTorqueConfig::create(controlAxes, rwConfiguration, RwMotorTorqueAvailability{});
     const Eigen::Matrix3f& stored = config.getControlAxes();
 
     EXPECT_NEAR(stored.row(0).norm(), 1.0F, 1e-6);

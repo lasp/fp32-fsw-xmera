@@ -30,29 +30,6 @@ inline Eigen::Matrix3f makeControlAxes(uint32_t numControlAxes) {
     return controlAxes_B;
 }
 
-// Mirrors the algorithm's SVD controllability cross-check: returns true iff every control axis is
-// reachable by the available reaction wheels (i.e. the construction of the algorithm will not throw).
-inline bool isControllable(const Eigen::Matrix<float, 3, kMaxNumRw>& CGs, uint32_t numControlAxes) {
-    const Eigen::JacobiSVD<Eigen::MatrixXf> svd(CGs.topRows(numControlAxes), Eigen::ComputeFullU);
-    const Eigen::VectorXf& singularValues = svd.singularValues();
-    const Eigen::MatrixXf& leftSingularVectors = svd.matrixU();
-    const float singularValueTol = singularValues(0) * std::numeric_limits<float>::epsilon() *
-                                   static_cast<float>(std::max(numControlAxes, kMaxNumRw));
-    constexpr float kControllabilityResidualSqTol = 1e-6F;
-    for (uint32_t axis = 0U; axis < numControlAxes; ++axis) {
-        float nullSpaceResidualSq = 0.0F;
-        for (uint32_t k = 0U; k < numControlAxes; ++k) {
-            if (singularValues(k) <= singularValueTol) {
-                nullSpaceResidualSq += leftSingularVectors(axis, k) * leftSingularVectors(axis, k);
-            }
-        }
-        if (nullSpaceResidualSq > kControllabilityResidualSqTol) {
-            return false;
-        }
-    }
-    return true;
-}
-
 // Reference [tau], mirroring computeNullSpaceProjection's fp32 computation.
 inline Eigen::Matrix<float, kMaxNumRw, kMaxNumRw> referenceTau(const RwMotorTorqueArrayConfiguration& rwConfiguration,
                                                                const RwMotorTorqueAvailability& availability) {
@@ -154,11 +131,10 @@ inline void testRwMotorTorqueSetup() {
     controlAxes_B.row(1) = Eigen::Vector3f{0.70710678F, 0.70710678F, 0.0F};
     EXPECT_THROW(RwMotorTorqueConfig::create(controlAxes_B, rwConfiguration, availability), fsw::invalid_argument);
 
-    // control mapping matrix not full rank (to test, 3 control axes are specified but not a single reaction wheel):
-    // the config is valid, but constructing the algorithm (which computes the mapping) rejects the rank-deficient case
+    // control mapping matrix not full rank (3 control axes specified but not a single reaction wheel):
+    // create() validates the mapping and rejects the rank-deficient configuration.
     controlAxes_B = makeControlAxes(3U);
-    EXPECT_THROW(RwMotorTorqueAlgorithm{RwMotorTorqueConfig::create(controlAxes_B, rwConfiguration, availability)},
-                 fsw::invalid_argument);
+    EXPECT_THROW(RwMotorTorqueConfig::create(controlAxes_B, rwConfiguration, availability), fsw::invalid_argument);
 }
 
 inline void testRwMotorTorque(const Eigen::Vector3f& Lr1_B,
@@ -221,19 +197,6 @@ inline void testRwMotorTorque(const Eigen::Vector3f& Lr1_B,
         Lr_B += Lr2_B;
     }
 
-    // Independently compute the available RW count and rank to predict construction behavior. Wheels left
-    // at the default AVAILABLE state (no availability message) are always included.
-    Eigen::Matrix<float, 3, kMaxNumRw> G_s_B{Eigen::Matrix<float, 3, kMaxNumRw>::Zero()};
-    uint32_t numAvailWheels = 0U;
-    for (uint32_t i = 0U; i < rwConfiguration.numRW; ++i) {
-        if (availability.wheelAvailability[i] == AVAILABLE) {
-            G_s_B.col(numAvailWheels) = rwConfiguration.GsMatrix_B.col(i).normalized();
-            numAvailWheels += 1U;
-        }
-    }
-
-    const Eigen::Matrix<float, 3, kMaxNumRw> CGs = controlAxes_B * G_s_B;
-
     // RW speeds driving the null-space despin term (zero-padded to the full RW array).
     RwMotorTorqueSpeeds speeds{};
     for (uint32_t i = 0U; i < rwSpeeds.size() && i < kMaxNumRw; ++i) {
@@ -243,11 +206,9 @@ inline void testRwMotorTorque(const Eigen::Vector3f& Lr1_B,
         speeds.rwDesiredSpeeds(static_cast<Eigen::Index>(i)) = rwDesiredSpeeds[i];
     }
 
-    // An uncontrollable (rank-deficient) control mapping makes the constructor (which computes the
-    // mapping and runs the controllability cross-check) throw.
-    if (!isControllable(CGs, numControlAxes)) {
-        EXPECT_THROW(RwMotorTorqueAlgorithm{RwMotorTorqueConfig::create(
-                         controlAxes_B, rwConfiguration, availability, omegaGain)},
+    // An uncontrollable (rank-deficient) control mapping is rejected by RwMotorTorqueConfig::create().
+    if (!RwMotorTorqueConfig::isValidMapping(controlAxes_B, rwConfiguration, availability)) {
+        EXPECT_THROW(RwMotorTorqueConfig::create(controlAxes_B, rwConfiguration, availability, omegaGain),
                      fsw::invalid_argument);
         return;
     }
