@@ -162,14 +162,24 @@ inline void testRwMotorTorque(const Eigen::Vector3f& Lr1_B,
     // Set up the control axes mapping matrix.
     const Eigen::Matrix3f controlAxes_B = makeControlAxes(numControlAxes);
 
-    // Build the RW array configuration from the flat spin-axis array. The caller only supplies the
-    // 3 * numRW used entries (column-major: three components per wheel), so zero-pad to the full
-    // 3 * kMaxNumRw matrix rather than reading past the end of the input vector.
+    // Zero-pad the caller's 3 * numRW spin-axis entries to the full matrix (avoids reading past the vector).
     RwMotorTorqueArrayConfiguration rwConfiguration{};
     rwConfiguration.numRW = static_cast<uint32_t>(numRW);
     std::vector<float> paddedGsMatrix_B(3U * static_cast<size_t>(kMaxNumRw), 0.0F);
     std::copy(GsMatrix_B.begin(), GsMatrix_B.end(), paddedGsMatrix_B.begin());
     rwConfiguration.GsMatrix_B = cArrayToEigenMatrix<float, 3, kMaxNumRw>(paddedGsMatrix_B.data());
+
+    // The config requires unit spin axes; normalize the active columns. A zero column cannot be normalized,
+    // leaving the config invalid so construction must throw.
+    bool spinAxesNormalizable = true;
+    for (uint32_t i = 0U; i < rwConfiguration.numRW; ++i) {
+        const float colNorm = rwConfiguration.GsMatrix_B.col(i).norm();
+        if (colNorm > 0.0F) {
+            rwConfiguration.GsMatrix_B.col(i) /= colNorm;
+        } else {
+            spinAxesNormalizable = false;
+        }
+    }
 
     // Build the availability: wheelAvailabilityBool[i] == true marks wheel i UNAVAILABLE
     RwMotorTorqueAvailability availability{};
@@ -182,6 +192,13 @@ inline void testRwMotorTorque(const Eigen::Vector3f& Lr1_B,
     // A zero control-axes matrix (no control axes) is rejected by the RwMotorTorqueConfig factory.
     if (numControlAxes == 0U) {
         EXPECT_THROW(RwMotorTorqueConfig::create(controlAxes_B, rwConfiguration, availability), fsw::invalid_argument);
+        return;
+    }
+
+    // A non-unit (here, zero) spin axis is rejected by the RwMotorTorqueConfig factory.
+    if (!spinAxesNormalizable) {
+        EXPECT_THROW(RwMotorTorqueConfig::create(controlAxes_B, rwConfiguration, availability, omegaGain),
+                     fsw::invalid_argument);
         return;
     }
 

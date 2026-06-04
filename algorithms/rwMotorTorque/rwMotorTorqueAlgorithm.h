@@ -56,14 +56,28 @@ class RwMotorTorqueConfig final {
         }
         if (!isValidRwConfiguration(rwConfiguration)) {
             FSW_THROW_INVALID_ARGUMENT(
-                "rwMotorTorque: rwConfiguration.numRW must not exceed the compile-time maximum and the spin "
-                "axis matrix must be finite.");
+                "rwMotorTorque: rwConfiguration.numRW must not exceed the compile-time maximum, the spin axis "
+                "matrix must be finite, and each spin axis must be a unit vector.");
         }
         if (!isValidOmegaGain(omegaGain)) {
             FSW_THROW_INVALID_ARGUMENT(
                 "rwMotorTorque: omegaGain (RW null-space despin feedback gain) must be finite and non-negative.");
         }
-        return RwMotorTorqueConfig{controlAxes_B, rwConfiguration, availability, omegaGain};
+
+        // Store exact unit vectors: the inputs are validated to be (near-)unit, so normalize the control
+        // axes (non-zero rows) and the RW spin axes so downstream code can rely on unit columns.
+        Eigen::Matrix3f normalizedControlAxes = controlAxes_B;
+        for (uint32_t i = 0U; i < 3U; ++i) {
+            if (normalizedControlAxes.row(i).norm() > 0.0F) {
+                normalizedControlAxes.row(i).normalize();
+            }
+        }
+        RwMotorTorqueArrayConfiguration normalizedRwConfiguration = rwConfiguration;
+        for (uint32_t i = 0U; i < normalizedRwConfiguration.numRW; ++i) {
+            normalizedRwConfiguration.GsMatrix_B.col(i).normalize();
+        }
+
+        return RwMotorTorqueConfig{normalizedControlAxes, normalizedRwConfiguration, availability, omegaGain};
     }
 
     static bool isValidControlAxes(const Eigen::Matrix3f& controlAxes_B) {
@@ -93,7 +107,17 @@ class RwMotorTorqueConfig final {
     }
 
     static bool isValidRwConfiguration(const RwMotorTorqueArrayConfiguration& rwConfiguration) {
-        return rwConfiguration.numRW <= kMaxNumRw && rwConfiguration.GsMatrix_B.allFinite();
+        if (rwConfiguration.numRW > kMaxNumRw || !rwConfiguration.GsMatrix_B.allFinite()) {
+            return false;
+        }
+        // Each spin axis must be (close to) a unit vector.
+        constexpr float kUnitNormTol = 1e-3F;
+        for (uint32_t i = 0U; i < rwConfiguration.numRW; ++i) {
+            if (fabsf(rwConfiguration.GsMatrix_B.col(i).norm() - 1.0F) > kUnitNormTol) {
+                return false;
+            }
+        }
+        return true;
     }
     // No isValidAvailability — any combination of AVAILABLE / UNAVAILABLE flags is valid.
 

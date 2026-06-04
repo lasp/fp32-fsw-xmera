@@ -54,12 +54,13 @@ void RwMotorTorqueAlgorithm::computeRwMapping() {
         }
     }
 
-    // [Gs] from the available RWs, each in its original column (unavailable wheels stay zero).
+    // [Gs] from the available RWs, each in its original column (unavailable wheels stay zero). The config
+    // stores unit spin axes, so no normalization is needed here.
     Eigen::Matrix<float, 3, kMaxNumRw> G_s_B{Eigen::Matrix<float, 3, kMaxNumRw>::Zero()};
     uint32_t numAvailRW = 0U;
     for (uint32_t i = 0U; i < rwConfiguration.numRW; ++i) {
         if (wheelsAvailability[i] == AVAILABLE) {
-            G_s_B.col(i) = rwConfiguration.GsMatrix_B.col(i).normalized();
+            G_s_B.col(i) = rwConfiguration.GsMatrix_B.col(i);
             numAvailRW += 1U;
         }
     }
