@@ -71,6 +71,67 @@ TEST(averageMimuDataTest, PropertyKnownSolution) {
     EXPECT_EQ(out.accel_B, accTrue_B);
 }
 
+TEST(averageMimuDataTest, SeparateGyroAccelWindows) {
+    // One packet: 10 samples 10 ms apart (90 ms span). A wide window keeps all
+    // 10 samples; a 35 ms window keeps only samples 6..9 (ages 30/20/10/0 ms
+    // from maxTimeTag). Driving gyro and accel with different windows must make
+    // each modality average over its own sample set, independently.
+    constexpr double wide = 1.0;
+    constexpr double tight = 0.035;
+
+    std::array<Eigen::Vector3f, kSamplesPerPkt> gyros{};
+    std::array<Eigen::Vector3f, kSamplesPerPkt> accels{};
+    for (std::size_t s = 0; s < kSamplesPerPkt; ++s) {
+        gyros[s] = Eigen::Vector3f{static_cast<float>(s), 2.0F * static_cast<float>(s), 3.0F * static_cast<float>(s)};
+        accels[s] = Eigen::Vector3f{4.0F, static_cast<float>(s), -static_cast<float>(s)};
+    }
+
+    // Expected means: full ring vs the 4-sample tail (samples 6..9). Summation
+    // order matches the algorithm's, so exact float equality holds.
+    Eigen::Vector3f gyroAll = Eigen::Vector3f::Zero();
+    Eigen::Vector3f accelAll = Eigen::Vector3f::Zero();
+    Eigen::Vector3f gyroTail = Eigen::Vector3f::Zero();
+    Eigen::Vector3f accelTail = Eigen::Vector3f::Zero();
+    for (std::size_t s = 0; s < kSamplesPerPkt; ++s) {
+        gyroAll += gyros[s];
+        accelAll += accels[s];
+        if (s >= 6) {
+            gyroTail += gyros[s];
+            accelTail += accels[s];
+        }
+    }
+    gyroAll /= static_cast<float>(kSamplesPerPkt);
+    accelAll /= static_cast<float>(kSamplesPerPkt);
+    gyroTail /= 4.0F;
+    accelTail /= 4.0F;
+
+    // Wide gyro window, tight accel window: gyro averages all 10, accel only 6..9.
+    {
+        AverageMimuDataAlgorithm alg;
+        alg.setDcmPltfToBdy(Eigen::Matrix3f::Identity());
+        alg.setGyroAveragingWindow(wide);
+        alg.setAccelAveragingWindow(tight);
+        InputPktsData in{};
+        fillPacket(in, 0, kSec2Nano, gyros, accels);
+        const auto [accel_B, gyroOmega_B] = alg.update(in);
+        EXPECT_EQ(gyroOmega_B, gyroAll);
+        EXPECT_EQ(accel_B, accelTail);
+    }
+
+    // Symmetric case: tight gyro window, wide accel window.
+    {
+        AverageMimuDataAlgorithm alg;
+        alg.setDcmPltfToBdy(Eigen::Matrix3f::Identity());
+        alg.setGyroAveragingWindow(tight);
+        alg.setAccelAveragingWindow(wide);
+        InputPktsData in{};
+        fillPacket(in, 0, kSec2Nano, gyros, accels);
+        const auto [accel_B, gyroOmega_B] = alg.update(in);
+        EXPECT_EQ(gyroOmega_B, gyroTail);
+        EXPECT_EQ(accel_B, accelAll);
+    }
+}
+
 TEST(averageMimuDataTest, PropertyZeroAveragingWindow) {
     // window = 0 -> only the last sample (sample 9, at maxTimeTag) qualifies.
     AverageMimuDataAlgorithm alg;
@@ -242,6 +303,13 @@ TEST(averageMimuDataTest, SetupTest) {
                  fsw::invalid_argument);
     EXPECT_NO_THROW(alg.setGyroAveragingWindow(0.25));
 
+    EXPECT_THROW(alg.setAccelAveragingWindow(-0.1), fsw::invalid_argument);
+    EXPECT_NO_THROW(alg.setAccelAveragingWindow(static_cast<double>(AverageMimuDataAlgorithm::kMaxAveragingWindowSec)));
+    EXPECT_THROW(alg.setAccelAveragingWindow(
+                     static_cast<double>(AverageMimuDataAlgorithm::kMaxAveragingWindowSec) + 0.001),
+                 fsw::invalid_argument);
+    EXPECT_NO_THROW(alg.setAccelAveragingWindow(0.5));
+
     Eigen::Matrix3f badOrtho = Eigen::Matrix3f::Identity();
     badOrtho(0, 0) = 2.0F;
     EXPECT_THROW(alg.setDcmPltfToBdy(badOrtho), fsw::invalid_argument);
@@ -252,6 +320,7 @@ TEST(averageMimuDataTest, SetupTest) {
     EXPECT_NO_THROW(alg.setDcmPltfToBdy(Eigen::Matrix3f::Identity()));
 
     EXPECT_DOUBLE_EQ(alg.getGyroAveragingWindow(), 0.25);
+    EXPECT_DOUBLE_EQ(alg.getAccelAveragingWindow(), 0.5);
     EXPECT_EQ(alg.getDcmPltfToBdy(), Eigen::Matrix3f::Identity());
 
     InputPktsData in{};

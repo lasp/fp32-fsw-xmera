@@ -22,10 +22,12 @@ auto inputPktsDataDomain() {
 }
 }  // namespace
 
-FUZZ_TEST(averageMimuDataFuzz, regressionTestAverageMimuData)
+FUZZ_TEST(averageMimuDataFuzz, regressionTestAverageMimuDataWindows)
     .WithDomains(fuzztest::InRange(0.0F, AverageMimuDataAlgorithm::kMaxAveragingWindowSec),
+                 fuzztest::InRange(0.0F, AverageMimuDataAlgorithm::kMaxAveragingWindowSec),
                  inputPktsDataDomain());
 
-FUZZ_TEST(averageMimuDataFuzz, sequencedRegressionTestAverageMimuData)
+FUZZ_TEST(averageMimuDataFuzz, sequencedRegressionTestAverageMimuDataWindows)
     .WithDomains(fuzztest::InRange(0.0F, AverageMimuDataAlgorithm::kMaxAveragingWindowSec),
+                 fuzztest::InRange(0.0F, AverageMimuDataAlgorithm::kMaxAveragingWindowSec),
                  fuzztest::VectorOf(inputPktsDataDomain()).WithSize(8));

@@ -126,11 +126,11 @@ inline void fillPacket(InputPktsData& in,
     }
 }
 
-inline void regressionTestAverageMimuData(float window, InputPktsData const& in) {
+inline void regressionTestAverageMimuDataWindows(float gyroWindow, float accelWindow, InputPktsData const& in) {
     AverageMimuDataAlgorithm alg;
     alg.setDcmPltfToBdy(Eigen::Matrix3f::Identity());
-    alg.setGyroAveragingWindow(window);
-    alg.setAccelAveragingWindow(window);
+    alg.setGyroAveragingWindow(gyroWindow);
+    alg.setAccelAveragingWindow(accelWindow);
 
     ReferenceAverager ref(alg);
 
@@ -141,15 +141,21 @@ inline void regressionTestAverageMimuData(float window, InputPktsData const& in)
     EXPECT_EQ(out_alg.accel_B, out_ref.accel_B);
 }
 
+inline void regressionTestAverageMimuData(float window, InputPktsData const& in) {
+    regressionTestAverageMimuDataWindows(window, window, in);
+}
+
 /*! @brief Drives the algorithm and the reference across a sequence of
  *  snapshots. Both maintain their own internal ring; the cycle-by-cycle
  *  outputs are compared to catch any drift in the staleness / window-filter
  *  logic across cycles or in the ingestion / overflow rules. */
-inline void sequencedRegressionTestAverageMimuData(float window, std::vector<InputPktsData> const& frames) {
+inline void sequencedRegressionTestAverageMimuDataWindows(float gyroWindow,
+                                                          float accelWindow,
+                                                          std::vector<InputPktsData> const& frames) {
     AverageMimuDataAlgorithm alg;
     alg.setDcmPltfToBdy(Eigen::Matrix3f::Identity());
-    alg.setGyroAveragingWindow(window);
-    alg.setAccelAveragingWindow(window);
+    alg.setGyroAveragingWindow(gyroWindow);
+    alg.setAccelAveragingWindow(accelWindow);
 
     ReferenceAverager ref(alg);
 
@@ -160,6 +166,10 @@ inline void sequencedRegressionTestAverageMimuData(float window, std::vector<Inp
         EXPECT_EQ(out_alg.gyroOmega_B, out_ref.gyroOmega_B);
         EXPECT_EQ(out_alg.accel_B, out_ref.accel_B);
     }
+}
+
+inline void sequencedRegressionTestAverageMimuData(float window, std::vector<InputPktsData> const& frames) {
+    sequencedRegressionTestAverageMimuDataWindows(window, window, frames);
 }
 
 #endif
