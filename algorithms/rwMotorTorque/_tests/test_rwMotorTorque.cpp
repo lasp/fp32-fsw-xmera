@@ -107,10 +107,7 @@ TEST(RwMotorTorqueTest, PropertyExcludedWheelsZeroTorque) {
 
 TEST(RwMotorTorqueTest, PropertyDespinAddsNoBodyTorque) {
     propertyDespinAddsNoBodyTorque(
-        Eigen::Vector3f{0.3F, -0.5F, 0.8F},
-        Eigen::Vector3f::Zero(),
         std::vector<bool>{},
-        false,
         false,
         4,
         std::vector<float>{1.0F, 0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 0.0F, 1.0F, 1.0F, 1.0F, 1.0F},

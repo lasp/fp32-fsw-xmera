@@ -332,12 +332,9 @@ inline void propertyExcludedWheelsZeroTorque(Eigen::Vector3f Lr1_B,
     }
 }
 
-// The null-space despin term adds no net body torque: [Gs] applied to (out - control-only) is zero (up to
-// fp32 round-off scaled by the despin magnitude).
-inline void propertyDespinAddsNoBodyTorque(Eigen::Vector3f Lr1_B,
-                                           Eigen::Vector3f Lr2_B,
-                                           std::vector<bool> wheelAvailabilityBool,
-                                           bool cmdTorque2IsLinked,
+// The null-space despin term adds no net body torque: [Gs] applied to the despin output is zero (up to fp32
+// round-off scaled by the despin magnitude).
+inline void propertyDespinAddsNoBodyTorque(std::vector<bool> wheelAvailabilityBool,
                                            bool rwAvailIsLinked,
                                            int numRW,
                                            std::vector<float> GsMatrix_B,
@@ -359,17 +356,13 @@ inline void propertyDespinAddsNoBodyTorque(Eigen::Vector3f Lr1_B,
         return;
     }
 
-    Eigen::Vector3f Lr_B = Lr1_B;
-    if (cmdTorque2IsLinked) {
-        Lr_B += Lr2_B;
-    }
     const RwMotorTorqueConfig config =
         RwMotorTorqueConfig::create(controlAxes_B, rwConfiguration, availability, omegaGain);
     const RwMotorTorqueAlgorithm alg{config};
 
-    const Eigen::Vector<float, kMaxNumRw> out = alg.update(Lr_B, makeSpeeds(rwSpeeds, rwDesiredSpeeds));
-    const Eigen::Vector<float, kMaxNumRw> controlOnly = alg.update(Lr_B, RwMotorTorqueSpeeds{});
-    const Eigen::Vector<float, kMaxNumRw> despin = out - controlOnly;
+    // Zero command: the control term vanishes, so the output is the despin term tau * d on its own.
+    const Eigen::Vector<float, kMaxNumRw> despin =
+        alg.update(Eigen::Vector3f::Zero(), makeSpeeds(rwSpeeds, rwDesiredSpeeds));
 
     // The config factory rejects ill-conditioned null-space geometry, so for any constructible config the
     // despin lies cleanly in the null space and produces no body torque (up to fp32 round-off).
