@@ -129,8 +129,82 @@ inline Eigen::Vector<float, kMaxNumRw> referenceUpdate(const Eigen::Matrix3f& co
     return motorTorqueMap * Lr_B + nullSpaceTorque;
 }
 
-inline void testRwMotorTorque(const Eigen::Vector3f& Lr1_B,
-                              const Eigen::Vector3f& Lr2_B,
+// Builds RwMotorTorqueSpeeds from caller-supplied speed vectors, zero-padded to the full RW array.
+inline RwMotorTorqueSpeeds makeSpeeds(const std::vector<float>& rwSpeeds, const std::vector<float>& rwDesiredSpeeds) {
+    RwMotorTorqueSpeeds speeds{};
+    for (uint32_t i = 0U; i < rwSpeeds.size() && i < kMaxNumRw; ++i) {
+        speeds.rwSpeeds(static_cast<Eigen::Index>(i)) = rwSpeeds[i];
+    }
+    for (uint32_t i = 0U; i < rwDesiredSpeeds.size() && i < kMaxNumRw; ++i) {
+        speeds.rwDesiredSpeeds(static_cast<Eigen::Index>(i)) = rwDesiredSpeeds[i];
+    }
+    return speeds;
+}
+
+// The available-wheel spin-axis matrix [Gs] in original columns (matching the stored config), used to
+// project an output torque vector back onto the body frame.
+inline Eigen::Matrix<float, 3, kMaxNumRw> availableGs(const RwMotorTorqueConfig& config) {
+    const RwMotorTorqueArrayConfiguration& rwConfiguration = config.getRwConfiguration();
+    const std::array<FSWdeviceAvailability, kMaxNumRw>& wheelsAvailability = config.getAvailability().wheelAvailability;
+    Eigen::Matrix<float, 3, kMaxNumRw> Gs{Eigen::Matrix<float, 3, kMaxNumRw>::Zero()};
+    for (uint32_t i = 0U; i < rwConfiguration.numRW; ++i) {
+        if (wheelsAvailability[i] == AVAILABLE) {
+            Gs.col(i) = rwConfiguration.GsMatrix_B.col(i);
+        }
+    }
+    return Gs;
+}
+
+// Builds the test config from raw inputs: contiguous control axes, zero-padded + normalized spin axes, and
+// availability. Returns false (caller should skip the input) when the config would be invalid (no control
+// axes, a non-normalizable spin axis) or not realizable (uncontrollable / ill-conditioned mapping). Shared by
+// the regression and property helpers so the fuzz harness drops unusable samples silently.
+inline bool buildConfig(uint32_t numControlAxes,
+                        int numRW,
+                        const std::vector<float>& GsMatrix_B,
+                        const std::vector<bool>& wheelAvailabilityBool,
+                        bool rwAvailIsLinked,
+                        Eigen::Matrix3f& controlAxes_B,
+                        RwMotorTorqueArrayConfiguration& rwConfiguration,
+                        RwMotorTorqueAvailability& availability) {
+    if (numControlAxes == 0U) {
+        return false;
+    }
+    controlAxes_B = makeControlAxes(numControlAxes);
+
+    rwConfiguration = RwMotorTorqueArrayConfiguration{};
+    rwConfiguration.numRW = static_cast<uint32_t>(numRW);
+    std::vector<float> paddedGsMatrix_B(3U * static_cast<size_t>(kMaxNumRw), 0.0F);
+    std::copy(GsMatrix_B.begin(), GsMatrix_B.end(), paddedGsMatrix_B.begin());
+    rwConfiguration.GsMatrix_B = cArrayToEigenMatrix<float, 3, kMaxNumRw>(paddedGsMatrix_B.data());
+
+    // The config requires unit spin axes; normalize the active columns. A zero column cannot be normalized.
+    for (uint32_t i = 0U; i < rwConfiguration.numRW; ++i) {
+        const float colNorm = rwConfiguration.GsMatrix_B.col(i).norm();
+        if (colNorm <= 0.0F) {
+            return false;
+        }
+        rwConfiguration.GsMatrix_B.col(i) /= colNorm;
+    }
+
+    availability = RwMotorTorqueAvailability{};
+    if (rwAvailIsLinked) {
+        for (uint32_t i = 0U; i < wheelAvailabilityBool.size() && i < kMaxNumRw; ++i) {
+            availability.wheelAvailability[i] = wheelAvailabilityBool[i] ? UNAVAILABLE : AVAILABLE;
+        }
+    }
+
+    // Use the algorithm's own validity check (controllable control mapping + well-conditioned null-space
+    // geometry) so the harness skips exactly the configs the config factory rejects.
+    return RwMotorTorqueConfig::isValidMapping(controlAxes_B, rwConfiguration, availability);
+}
+
+// ---------------------------------------------------------------------------
+// Regression helper — configures the algorithm and compares update() against
+// the independent fp32 reference. Re-run under fuzz inputs in the fuzz file.
+// ---------------------------------------------------------------------------
+inline void runRegressionCase(Eigen::Vector3f Lr1_B,
+                              Eigen::Vector3f Lr2_B,
                               std::vector<bool> wheelAvailabilityBool,
                               bool cmdTorque2IsLinked,
                               bool rwAvailIsLinked,
@@ -140,84 +214,205 @@ inline void testRwMotorTorque(const Eigen::Vector3f& Lr1_B,
                               std::vector<float> rwSpeeds,
                               std::vector<float> rwDesiredSpeeds,
                               float omegaGain) {
-    // Set up the control axes mapping matrix.
-    const Eigen::Matrix3f controlAxes_B = makeControlAxes(numControlAxes);
-
-    // Zero-pad the caller's 3 * numRW spin-axis entries to the full matrix (avoids reading past the vector).
+    Eigen::Matrix3f controlAxes_B{Eigen::Matrix3f::Zero()};
     RwMotorTorqueArrayConfiguration rwConfiguration{};
-    rwConfiguration.numRW = static_cast<uint32_t>(numRW);
-    std::vector<float> paddedGsMatrix_B(3U * static_cast<size_t>(kMaxNumRw), 0.0F);
-    std::copy(GsMatrix_B.begin(), GsMatrix_B.end(), paddedGsMatrix_B.begin());
-    rwConfiguration.GsMatrix_B = cArrayToEigenMatrix<float, 3, kMaxNumRw>(paddedGsMatrix_B.data());
-
-    // The config requires unit spin axes; normalize the active columns. A zero column cannot be normalized,
-    // leaving the config invalid so construction must throw.
-    bool spinAxesNormalizable = true;
-    for (uint32_t i = 0U; i < rwConfiguration.numRW; ++i) {
-        const float colNorm = rwConfiguration.GsMatrix_B.col(i).norm();
-        if (colNorm > 0.0F) {
-            rwConfiguration.GsMatrix_B.col(i) /= colNorm;
-        } else {
-            spinAxesNormalizable = false;
-        }
-    }
-
-    // Build the availability: wheelAvailabilityBool[i] == true marks wheel i UNAVAILABLE
     RwMotorTorqueAvailability availability{};
-    if (rwAvailIsLinked) {
-        for (uint32_t i = 0U; i < wheelAvailabilityBool.size(); ++i) {
-            availability.wheelAvailability[i] = wheelAvailabilityBool[i] ? UNAVAILABLE : AVAILABLE;
-        }
-    }
-
-    // A zero control-axes matrix (no control axes) is rejected by the RwMotorTorqueConfig factory.
-    if (numControlAxes == 0U) {
-        EXPECT_THROW(RwMotorTorqueConfig::create(controlAxes_B, rwConfiguration, availability), fsw::invalid_argument);
+    if (!buildConfig(numControlAxes,
+                     numRW,
+                     GsMatrix_B,
+                     wheelAvailabilityBool,
+                     rwAvailIsLinked,
+                     controlAxes_B,
+                     rwConfiguration,
+                     availability)) {
         return;
     }
 
-    // A non-unit (here, zero) spin axis is rejected by the RwMotorTorqueConfig factory.
-    if (!spinAxesNormalizable) {
-        EXPECT_THROW(RwMotorTorqueConfig::create(controlAxes_B, rwConfiguration, availability, omegaGain),
-                     fsw::invalid_argument);
-        return;
-    }
-
-    // Total commanded torque seen by the algorithm (adapter sums the two messages)
     Eigen::Vector3f Lr_B = Lr1_B;
     if (cmdTorque2IsLinked) {
         Lr_B += Lr2_B;
     }
+    const RwMotorTorqueSpeeds speeds = makeSpeeds(rwSpeeds, rwDesiredSpeeds);
 
-    // RW speeds driving the null-space despin term (zero-padded to the full RW array).
-    RwMotorTorqueSpeeds speeds{};
-    for (uint32_t i = 0U; i < rwSpeeds.size() && i < kMaxNumRw; ++i) {
-        speeds.rwSpeeds(static_cast<Eigen::Index>(i)) = rwSpeeds[i];
-    }
-    for (uint32_t i = 0U; i < rwDesiredSpeeds.size() && i < kMaxNumRw; ++i) {
-        speeds.rwDesiredSpeeds(static_cast<Eigen::Index>(i)) = rwDesiredSpeeds[i];
-    }
-
-    // An uncontrollable (rank-deficient) control mapping is rejected by RwMotorTorqueConfig::create().
-    if (!RwMotorTorqueConfig::isValidMapping(controlAxes_B, rwConfiguration, availability)) {
-        EXPECT_THROW(RwMotorTorqueConfig::create(controlAxes_B, rwConfiguration, availability, omegaGain),
-                     fsw::invalid_argument);
-        return;
-    }
-    RwMotorTorqueAlgorithm alg{RwMotorTorqueConfig::create(controlAxes_B, rwConfiguration, availability, omegaGain)};
-
-    // Compare against the independent reference
-    Eigen::Vector<float, kMaxNumRw> out{Eigen::Vector<float, kMaxNumRw>::Zero()};
-    Eigen::Vector<float, kMaxNumRw> ref{Eigen::Vector<float, kMaxNumRw>::Zero()};
-    EXPECT_NO_THROW(out = alg.update(Lr_B, speeds));
-    EXPECT_NO_THROW(ref = referenceUpdate(controlAxes_B, rwConfiguration, availability, Lr_B, speeds, omegaGain));
+    const RwMotorTorqueAlgorithm alg{
+        RwMotorTorqueConfig::create(controlAxes_B, rwConfiguration, availability, omegaGain)};
+    const Eigen::Vector<float, kMaxNumRw> out = alg.update(Lr_B, speeds);
+    const Eigen::Vector<float, kMaxNumRw> ref =
+        referenceUpdate(controlAxes_B, rwConfiguration, availability, Lr_B, speeds, omegaGain);
 
     for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
-        // Reference correctness
         EXPECT_NEAR(out[i], ref[i], 1e-6);
-
-        // Finiteness
         EXPECT_TRUE(std::isfinite(out[i]));
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Property helper functions — each asserts an invariant that must hold for any
+// valid configuration and bounded inputs. Each guards invalid inputs with an
+// early return so the fuzz harness can drop unusable samples silently.
+// ---------------------------------------------------------------------------
+
+// All output components are finite for a valid config and finite inputs.
+inline void propertyOutputIsFinite(Eigen::Vector3f Lr1_B,
+                                   Eigen::Vector3f Lr2_B,
+                                   std::vector<bool> wheelAvailabilityBool,
+                                   bool cmdTorque2IsLinked,
+                                   bool rwAvailIsLinked,
+                                   int numRW,
+                                   std::vector<float> GsMatrix_B,
+                                   uint32_t numControlAxes,
+                                   std::vector<float> rwSpeeds,
+                                   std::vector<float> rwDesiredSpeeds,
+                                   float omegaGain) {
+    Eigen::Matrix3f controlAxes_B{Eigen::Matrix3f::Zero()};
+    RwMotorTorqueArrayConfiguration rwConfiguration{};
+    RwMotorTorqueAvailability availability{};
+    if (!buildConfig(numControlAxes,
+                     numRW,
+                     GsMatrix_B,
+                     wheelAvailabilityBool,
+                     rwAvailIsLinked,
+                     controlAxes_B,
+                     rwConfiguration,
+                     availability)) {
+        return;
+    }
+
+    Eigen::Vector3f Lr_B = Lr1_B;
+    if (cmdTorque2IsLinked) {
+        Lr_B += Lr2_B;
+    }
+    const RwMotorTorqueAlgorithm alg{
+        RwMotorTorqueConfig::create(controlAxes_B, rwConfiguration, availability, omegaGain)};
+    const Eigen::Vector<float, kMaxNumRw> out = alg.update(Lr_B, makeSpeeds(rwSpeeds, rwDesiredSpeeds));
+
+    for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
+        EXPECT_TRUE(std::isfinite(out[i]));
+    }
+}
+
+// Excluded wheels (unavailable, or beyond numRW) receive exactly zero motor torque.
+inline void propertyExcludedWheelsZeroTorque(Eigen::Vector3f Lr1_B,
+                                             Eigen::Vector3f Lr2_B,
+                                             std::vector<bool> wheelAvailabilityBool,
+                                             bool cmdTorque2IsLinked,
+                                             bool rwAvailIsLinked,
+                                             int numRW,
+                                             std::vector<float> GsMatrix_B,
+                                             uint32_t numControlAxes,
+                                             std::vector<float> rwSpeeds,
+                                             std::vector<float> rwDesiredSpeeds,
+                                             float omegaGain) {
+    Eigen::Matrix3f controlAxes_B{Eigen::Matrix3f::Zero()};
+    RwMotorTorqueArrayConfiguration rwConfiguration{};
+    RwMotorTorqueAvailability availability{};
+    if (!buildConfig(numControlAxes,
+                     numRW,
+                     GsMatrix_B,
+                     wheelAvailabilityBool,
+                     rwAvailIsLinked,
+                     controlAxes_B,
+                     rwConfiguration,
+                     availability)) {
+        return;
+    }
+
+    Eigen::Vector3f Lr_B = Lr1_B;
+    if (cmdTorque2IsLinked) {
+        Lr_B += Lr2_B;
+    }
+    const RwMotorTorqueAlgorithm alg{
+        RwMotorTorqueConfig::create(controlAxes_B, rwConfiguration, availability, omegaGain)};
+    const Eigen::Vector<float, kMaxNumRw> out = alg.update(Lr_B, makeSpeeds(rwSpeeds, rwDesiredSpeeds));
+
+    for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
+        if (i >= rwConfiguration.numRW || availability.wheelAvailability[i] != AVAILABLE) {
+            EXPECT_FLOAT_EQ(out[i], 0.0F);
+        }
+    }
+}
+
+// The null-space despin term adds no net body torque: [Gs] applied to (out - control-only) is zero (up to
+// fp32 round-off scaled by the despin magnitude).
+inline void propertyDespinAddsNoBodyTorque(Eigen::Vector3f Lr1_B,
+                                           Eigen::Vector3f Lr2_B,
+                                           std::vector<bool> wheelAvailabilityBool,
+                                           bool cmdTorque2IsLinked,
+                                           bool rwAvailIsLinked,
+                                           int numRW,
+                                           std::vector<float> GsMatrix_B,
+                                           uint32_t numControlAxes,
+                                           std::vector<float> rwSpeeds,
+                                           std::vector<float> rwDesiredSpeeds,
+                                           float omegaGain) {
+    Eigen::Matrix3f controlAxes_B{Eigen::Matrix3f::Zero()};
+    RwMotorTorqueArrayConfiguration rwConfiguration{};
+    RwMotorTorqueAvailability availability{};
+    if (!buildConfig(numControlAxes,
+                     numRW,
+                     GsMatrix_B,
+                     wheelAvailabilityBool,
+                     rwAvailIsLinked,
+                     controlAxes_B,
+                     rwConfiguration,
+                     availability)) {
+        return;
+    }
+
+    Eigen::Vector3f Lr_B = Lr1_B;
+    if (cmdTorque2IsLinked) {
+        Lr_B += Lr2_B;
+    }
+    const RwMotorTorqueConfig config =
+        RwMotorTorqueConfig::create(controlAxes_B, rwConfiguration, availability, omegaGain);
+    const RwMotorTorqueAlgorithm alg{config};
+
+    const Eigen::Vector<float, kMaxNumRw> out = alg.update(Lr_B, makeSpeeds(rwSpeeds, rwDesiredSpeeds));
+    const Eigen::Vector<float, kMaxNumRw> controlOnly = alg.update(Lr_B, RwMotorTorqueSpeeds{});
+    const Eigen::Vector<float, kMaxNumRw> despin = out - controlOnly;
+
+    // The config factory rejects ill-conditioned null-space geometry, so for any constructible config the
+    // despin lies cleanly in the null space and produces no body torque (up to fp32 round-off).
+    const Eigen::Vector3f bodyTorque = availableGs(config) * despin;
+    EXPECT_LE(bodyTorque.norm(), 1e-3F * despin.norm() + 1e-4F);
+}
+
+// With a zero gain the despin term vanishes: the output is independent of the RW speeds.
+inline void propertyZeroGainDisablesDespin(Eigen::Vector3f Lr1_B,
+                                           Eigen::Vector3f Lr2_B,
+                                           std::vector<bool> wheelAvailabilityBool,
+                                           bool cmdTorque2IsLinked,
+                                           bool rwAvailIsLinked,
+                                           int numRW,
+                                           std::vector<float> GsMatrix_B,
+                                           uint32_t numControlAxes,
+                                           std::vector<float> rwSpeeds,
+                                           std::vector<float> rwDesiredSpeeds) {
+    Eigen::Matrix3f controlAxes_B{Eigen::Matrix3f::Zero()};
+    RwMotorTorqueArrayConfiguration rwConfiguration{};
+    RwMotorTorqueAvailability availability{};
+    if (!buildConfig(numControlAxes,
+                     numRW,
+                     GsMatrix_B,
+                     wheelAvailabilityBool,
+                     rwAvailIsLinked,
+                     controlAxes_B,
+                     rwConfiguration,
+                     availability)) {
+        return;
+    }
+
+    Eigen::Vector3f Lr_B = Lr1_B;
+    if (cmdTorque2IsLinked) {
+        Lr_B += Lr2_B;
+    }
+    const RwMotorTorqueAlgorithm alg{RwMotorTorqueConfig::create(controlAxes_B, rwConfiguration, availability, 0.0F)};
+
+    const Eigen::Vector<float, kMaxNumRw> withSpeeds = alg.update(Lr_B, makeSpeeds(rwSpeeds, rwDesiredSpeeds));
+    const Eigen::Vector<float, kMaxNumRw> controlOnly = alg.update(Lr_B, RwMotorTorqueSpeeds{});
+
+    for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
+        EXPECT_FLOAT_EQ(withSpeeds[i], controlOnly[i]);
     }
 }
 

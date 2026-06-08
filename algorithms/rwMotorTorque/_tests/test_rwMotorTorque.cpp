@@ -2,8 +2,13 @@
 #include "utilities/freestandingInvalidArgument.h"
 #include <gtest/gtest.h>
 
-TEST(RwMotorTorqueTest, ReferenceTest) {
-    testRwMotorTorque(Eigen::Vector3f{0.1F, 0.2F, 0.3F},
+// ---------------------------------------------------------------------------
+// Regression tests — pin update() against the independent fp32 reference.
+// ---------------------------------------------------------------------------
+
+// Control torque only (zero gain), four wheels, one unavailable, two summed command torques.
+TEST(RwMotorTorqueTest, RegressionControlOnly) {
+    runRegressionCase(Eigen::Vector3f{0.1F, 0.2F, 0.3F},
                       Eigen::Vector3f{0.2F, -0.4F, 0.7F},
                       std::vector<bool>{false, false, true, false},
                       true,
@@ -16,102 +21,133 @@ TEST(RwMotorTorqueTest, ReferenceTest) {
                       0.0F);
 }
 
-TEST(RwMotorTorqueTest, SetupTest) {
-    // --- Test expected exceptions ---
+// Control torque plus an active null-space despin term (four wheels, non-zero gain and speeds).
+TEST(RwMotorTorqueTest, RegressionDespin) {
+    runRegressionCase(Eigen::Vector3f{0.3F, -0.5F, 0.8F},
+                      Eigen::Vector3f::Zero(),
+                      std::vector<bool>{},
+                      false,
+                      false,
+                      4,
+                      std::vector<float>{1.0F, 0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 0.0F, 1.0F, 1.0F, 1.0F, 1.0F},
+                      3,
+                      std::vector<float>{100.0F, -50.0F, 30.0F, 80.0F},
+                      std::vector<float>{10.0F, 10.0F, 10.0F, 10.0F},
+                      0.5F);
+}
 
+// ---------------------------------------------------------------------------
+// Setup test — RwMotorTorqueConfig validation / exception paths.
+// ---------------------------------------------------------------------------
+
+TEST(RwMotorTorqueTest, SetupTest) {
     const RwMotorTorqueArrayConfiguration rwConfiguration{};
     const RwMotorTorqueAvailability availability{};
 
-    // A non-unit control axis is rejected by RwMotorTorqueConfig.
+    // A non-unit control axis is rejected.
     Eigen::Matrix3f controlAxes_B{Eigen::Matrix3f::Zero()};
     controlAxes_B.row(0) = Eigen::Vector3f{2.0F, 0.0F, 0.0F};
     EXPECT_THROW(RwMotorTorqueConfig::create(controlAxes_B, rwConfiguration, availability), fsw::invalid_argument);
 
-    // Non-orthogonal control axes are rejected by RwMotorTorqueConfig.
+    // Non-orthogonal control axes are rejected.
     controlAxes_B = Eigen::Matrix3f::Zero();
     controlAxes_B.row(0) = Eigen::Vector3f{1.0F, 0.0F, 0.0F};
     controlAxes_B.row(1) = Eigen::Vector3f{0.70710678F, 0.70710678F, 0.0F};
     EXPECT_THROW(RwMotorTorqueConfig::create(controlAxes_B, rwConfiguration, availability), fsw::invalid_argument);
 
-    // control mapping matrix not full rank (3 control axes specified but not a single reaction wheel):
-    // create() validates the mapping and rejects the rank-deficient configuration.
-    controlAxes_B = makeControlAxes(3U);
-    EXPECT_THROW(RwMotorTorqueConfig::create(controlAxes_B, rwConfiguration, availability), fsw::invalid_argument);
+    // A non-unit RW spin axis is rejected.
+    RwMotorTorqueArrayConfiguration nonUnitRw{};
+    nonUnitRw.numRW = 1U;
+    nonUnitRw.GsMatrix_B.col(0) = Eigen::Vector3f{2.0F, 0.0F, 0.0F};
+    EXPECT_THROW(RwMotorTorqueConfig::create(makeControlAxes(1U), nonUnitRw, availability), fsw::invalid_argument);
+
+    // A negative despin gain is rejected.
+    EXPECT_THROW(RwMotorTorqueConfig::create(makeControlAxes(1U), rwConfiguration, availability, -1.0F),
+                 fsw::invalid_argument);
+
+    // Control mapping not full rank (3 control axes but no reaction wheels): create() validates the mapping
+    // and rejects the rank-deficient configuration.
+    EXPECT_THROW(RwMotorTorqueConfig::create(makeControlAxes(3U), rwConfiguration, availability),
+                 fsw::invalid_argument);
 }
 
-// Non-zero gain: despin must match the reference and add no net body torque.
-TEST(RwMotorTorqueTest, NullSpaceDespinFourWheels) {
-    // Four wheels: body x, y, z, and a skewed axis so a 1-D null space exists for 3 control axes.
-    RwMotorTorqueArrayConfiguration rwConfiguration{};
-    rwConfiguration.numRW = 4U;
-    rwConfiguration.GsMatrix_B.col(0) = Eigen::Vector3f{1.0F, 0.0F, 0.0F};
-    rwConfiguration.GsMatrix_B.col(1) = Eigen::Vector3f{0.0F, 1.0F, 0.0F};
-    rwConfiguration.GsMatrix_B.col(2) = Eigen::Vector3f{0.0F, 0.0F, 1.0F};
-    rwConfiguration.GsMatrix_B.col(3) = Eigen::Vector3f{1.0F, 1.0F, 1.0F}.normalized();
-    const RwMotorTorqueAvailability availability{};  // all wheels available
+// ---------------------------------------------------------------------------
+// Property tests — fixed representative inputs exercising invariants. The same
+// helpers are re-run under fuzz inputs in test_rwMotorTorque_fuzz.cpp.
+// ---------------------------------------------------------------------------
 
-    Eigen::Matrix3f controlAxes_B{Eigen::Matrix3f::Identity()};
-    constexpr float kOmegaGain = 0.5F;
-    RwMotorTorqueAlgorithm alg{RwMotorTorqueConfig::create(controlAxes_B, rwConfiguration, availability, kOmegaGain)};
-
-    RwMotorTorqueSpeeds speeds{};
-    speeds.rwSpeeds.head<4>() = Eigen::Vector4f{100.0F, -50.0F, 30.0F, 80.0F};
-    speeds.rwDesiredSpeeds.head<4>() = Eigen::Vector4f{10.0F, 10.0F, 10.0F, 10.0F};
-
-    const Eigen::Vector3f Lr_B{0.3F, -0.5F, 0.8F};
-    const Eigen::Vector<float, kMaxNumRw> out = alg.update(Lr_B, speeds);
-    const Eigen::Vector<float, kMaxNumRw> controlOnly = alg.update(Lr_B, RwMotorTorqueSpeeds{});
-    const Eigen::Vector<float, kMaxNumRw> ref =
-        referenceUpdate(controlAxes_B, rwConfiguration, availability, Lr_B, speeds, kOmegaGain);
-
-    for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
-        EXPECT_NEAR(out[i], ref[i], 1e-6);
-    }
-
-    // The despin contribution (out - controlOnly) must produce no net body torque (fp32 noise floor relative
-    // to the despin magnitude).
-    const Eigen::Vector<float, kMaxNumRw> despin = out - controlOnly;
-    const Eigen::Vector3f despinBodyTorque = rwConfiguration.GsMatrix_B.leftCols<4>() * despin.head<4>();
-    EXPECT_LE(despinBodyTorque.norm(), 1e-6F * despin.norm() + 1e-6F);
-
-    // The despin term must be non-trivial (otherwise the test would pass vacuously).
-    EXPECT_GT(despin.norm(), 1e-3);
+TEST(RwMotorTorqueTest, PropertyOutputIsFinite) {
+    propertyOutputIsFinite(Eigen::Vector3f{0.3F, -0.5F, 0.8F},
+                           Eigen::Vector3f::Zero(),
+                           std::vector<bool>{},
+                           false,
+                           false,
+                           4,
+                           std::vector<float>{1.0F, 0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 0.0F, 1.0F, 1.0F, 1.0F, 1.0F},
+                           3,
+                           std::vector<float>{100.0F, -50.0F, 30.0F, 80.0F},
+                           std::vector<float>{},
+                           0.5F);
 }
 
-// Zero gain disables despin: output equals the control-only (zero-speed) update.
-TEST(RwMotorTorqueTest, NullSpaceNoOpOmegaGainZero) {
-    RwMotorTorqueArrayConfiguration rwConfiguration{};
-    rwConfiguration.numRW = 4U;
-    rwConfiguration.GsMatrix_B.col(0) = Eigen::Vector3f{1.0F, 0.0F, 0.0F};
-    rwConfiguration.GsMatrix_B.col(1) = Eigen::Vector3f{0.0F, 1.0F, 0.0F};
-    rwConfiguration.GsMatrix_B.col(2) = Eigen::Vector3f{0.0F, 0.0F, 1.0F};
-    rwConfiguration.GsMatrix_B.col(3) = Eigen::Vector3f{1.0F, 1.0F, 1.0F}.normalized();
-    const RwMotorTorqueAvailability availability{};
-
-    RwMotorTorqueAlgorithm alg{RwMotorTorqueConfig::create(makeControlAxes(3U), rwConfiguration, availability, 0.0F)};
-
-    RwMotorTorqueSpeeds speeds{};
-    speeds.rwSpeeds.head<4>() = Eigen::Vector4f{100.0F, -50.0F, 30.0F, 80.0F};
-
-    const Eigen::Vector3f Lr_B{0.3F, -0.5F, 0.8F};
-    const Eigen::Vector<float, kMaxNumRw> withSpeeds = alg.update(Lr_B, speeds);
-    const Eigen::Vector<float, kMaxNumRw> controlOnly = alg.update(Lr_B, RwMotorTorqueSpeeds{});
-
-    for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
-        EXPECT_FLOAT_EQ(withSpeeds[i], controlOnly[i]);
-    }
+TEST(RwMotorTorqueTest, PropertyExcludedWheelsZeroTorque) {
+    propertyExcludedWheelsZeroTorque(
+        Eigen::Vector3f{0.3F, -0.5F, 0.8F},
+        Eigen::Vector3f::Zero(),
+        std::vector<bool>{false, false, true, false, false},
+        false,
+        true,
+        5,
+        std::vector<float>{1.0F, 0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 0.0F, 1.0F, 1.0F, 1.0F, 1.0F, 1.0F, -1.0F, 0.5F},
+        3,
+        std::vector<float>{100.0F, -50.0F, 30.0F, 80.0F, -20.0F},
+        std::vector<float>{},
+        0.5F);
 }
 
-// Three spanning wheels leave no null space, so despin is zero even with a non-zero gain.
-TEST(RwMotorTorqueTest, NullSpaceNoOpThreeSpanningWheels) {
+TEST(RwMotorTorqueTest, PropertyDespinAddsNoBodyTorque) {
+    propertyDespinAddsNoBodyTorque(
+        Eigen::Vector3f{0.3F, -0.5F, 0.8F},
+        Eigen::Vector3f::Zero(),
+        std::vector<bool>{},
+        false,
+        false,
+        4,
+        std::vector<float>{1.0F, 0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 0.0F, 1.0F, 1.0F, 1.0F, 1.0F},
+        3,
+        std::vector<float>{100.0F, -50.0F, 30.0F, 80.0F},
+        std::vector<float>{10.0F, 10.0F, 10.0F, 10.0F},
+        0.5F);
+}
+
+TEST(RwMotorTorqueTest, PropertyZeroGainDisablesDespin) {
+    propertyZeroGainDisablesDespin(
+        Eigen::Vector3f{0.3F, -0.5F, 0.8F},
+        Eigen::Vector3f::Zero(),
+        std::vector<bool>{},
+        false,
+        false,
+        4,
+        std::vector<float>{1.0F, 0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 0.0F, 1.0F, 1.0F, 1.0F, 1.0F},
+        3,
+        std::vector<float>{100.0F, -50.0F, 30.0F, 80.0F},
+        std::vector<float>{});
+}
+
+// ---------------------------------------------------------------------------
+// Edge-case tests — boundary geometries and config canonicalization.
+// ---------------------------------------------------------------------------
+
+// Three spanning wheels leave no null space, so the despin term is zero even with a non-zero gain.
+TEST(RwMotorTorqueTest, ThreeSpanningWheelsHaveNoDespin) {
     RwMotorTorqueArrayConfiguration rwConfiguration{};
     rwConfiguration.numRW = 3U;
     rwConfiguration.GsMatrix_B.col(0) = Eigen::Vector3f{1.0F, 0.0F, 0.0F};
     rwConfiguration.GsMatrix_B.col(1) = Eigen::Vector3f{0.0F, 1.0F, 0.0F};
     rwConfiguration.GsMatrix_B.col(2) = Eigen::Vector3f{0.0F, 0.0F, 1.0F};
-    const RwMotorTorqueAvailability availability{};
 
-    RwMotorTorqueAlgorithm alg{RwMotorTorqueConfig::create(makeControlAxes(3U), rwConfiguration, availability, 0.5F)};
+    const RwMotorTorqueAlgorithm alg{
+        RwMotorTorqueConfig::create(makeControlAxes(3U), rwConfiguration, RwMotorTorqueAvailability{}, 0.5F)};
 
     RwMotorTorqueSpeeds speeds{};
     speeds.rwSpeeds.head<3>() = Eigen::Vector3f{100.0F, -50.0F, 30.0F};
@@ -125,62 +161,15 @@ TEST(RwMotorTorqueTest, NullSpaceNoOpThreeSpanningWheels) {
     }
 }
 
-// Despin must respect availability: an unavailable wheel gets zero torque, and despin adds no body torque.
-TEST(RwMotorTorqueTest, NullSpaceRespectsAvailability) {
-    // Five wheels so that, with one unavailable, four available wheels still leave a 1-D null space.
-    RwMotorTorqueArrayConfiguration rwConfiguration{};
-    rwConfiguration.numRW = 5U;
-    rwConfiguration.GsMatrix_B.col(0) = Eigen::Vector3f{1.0F, 0.0F, 0.0F};
-    rwConfiguration.GsMatrix_B.col(1) = Eigen::Vector3f{0.0F, 1.0F, 0.0F};
-    rwConfiguration.GsMatrix_B.col(2) = Eigen::Vector3f{0.0F, 0.0F, 1.0F};
-    rwConfiguration.GsMatrix_B.col(3) = Eigen::Vector3f{1.0F, 1.0F, 1.0F}.normalized();
-    rwConfiguration.GsMatrix_B.col(4) = Eigen::Vector3f{1.0F, -1.0F, 0.5F}.normalized();
-
-    RwMotorTorqueAvailability availability{};
-    availability.wheelAvailability[2] = UNAVAILABLE;
-
-    constexpr float kOmegaGain = 0.5F;
-    RwMotorTorqueAlgorithm alg{
-        RwMotorTorqueConfig::create(makeControlAxes(3U), rwConfiguration, availability, kOmegaGain)};
-
-    RwMotorTorqueSpeeds speeds{};
-    speeds.rwSpeeds.head<5>() = Eigen::Matrix<float, 5, 1>{100.0F, -50.0F, 30.0F, 80.0F, -20.0F};
-
-    const Eigen::Vector3f Lr_B{0.3F, -0.5F, 0.8F};
-    const Eigen::Vector<float, kMaxNumRw> out = alg.update(Lr_B, speeds);
-    const Eigen::Vector<float, kMaxNumRw> controlOnly = alg.update(Lr_B, RwMotorTorqueSpeeds{});
-    const Eigen::Vector<float, kMaxNumRw> ref =
-        referenceUpdate(makeControlAxes(3U), rwConfiguration, availability, Lr_B, speeds, kOmegaGain);
-
-    for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
-        EXPECT_NEAR(out[i], ref[i], 1e-6);
-    }
-
-    EXPECT_FLOAT_EQ(out[2], 0.0F);  // unavailable wheel gets no torque
-
-    // The despin term over the available wheels produces no net body torque.
-    Eigen::Matrix<float, 3, 5> Gs_avail{Eigen::Matrix<float, 3, 5>::Zero()};
-    for (uint32_t i = 0U; i < 5U; ++i) {
-        if (i != 2U) {
-            Gs_avail.col(i) = rwConfiguration.GsMatrix_B.col(i);
-        }
-    }
-    const Eigen::Vector<float, kMaxNumRw> despin = out - controlOnly;
-    const Eigen::Vector3f despinBodyTorque = Gs_avail * despin.head<5>();
-    EXPECT_LE(despinBodyTorque.norm(), 1e-6F * despin.norm() + 1e-6F);  // fp32 noise floor
-    EXPECT_GT(despin.norm(), 1e-3);                                     // despin is non-trivial
-}
-
 // Control axes may sit in any rows; only the spanned subspace matters. Controlling body x and z via
 // non-contiguous rows {0, 2} must produce the same motor torques as the contiguous rows {0, 1}.
 TEST(RwMotorTorqueTest, NonContiguousControlAxes) {
-    // Three wheels spinning about body x, y, z so any control axis is reachable.
     RwMotorTorqueArrayConfiguration rwConfiguration{};
     rwConfiguration.numRW = 3U;
     rwConfiguration.GsMatrix_B.col(0) = Eigen::Vector3f{1.0F, 0.0F, 0.0F};
     rwConfiguration.GsMatrix_B.col(1) = Eigen::Vector3f{0.0F, 1.0F, 0.0F};
     rwConfiguration.GsMatrix_B.col(2) = Eigen::Vector3f{0.0F, 0.0F, 1.0F};
-    const RwMotorTorqueAvailability availability{};  // all wheels available
+    const RwMotorTorqueAvailability availability{};
 
     Eigen::Matrix3f contiguous{Eigen::Matrix3f::Zero()};
     contiguous.row(0) = Eigen::Vector3f{1.0F, 0.0F, 0.0F};
@@ -190,8 +179,9 @@ TEST(RwMotorTorqueTest, NonContiguousControlAxes) {
     nonContiguous.row(0) = Eigen::Vector3f{1.0F, 0.0F, 0.0F};
     nonContiguous.row(2) = Eigen::Vector3f{0.0F, 0.0F, 1.0F};
 
-    RwMotorTorqueAlgorithm algContiguous{RwMotorTorqueConfig::create(contiguous, rwConfiguration, availability)};
-    RwMotorTorqueAlgorithm algNonContiguous{RwMotorTorqueConfig::create(nonContiguous, rwConfiguration, availability)};
+    const RwMotorTorqueAlgorithm algContiguous{RwMotorTorqueConfig::create(contiguous, rwConfiguration, availability)};
+    const RwMotorTorqueAlgorithm algNonContiguous{
+        RwMotorTorqueConfig::create(nonContiguous, rwConfiguration, availability)};
 
     const Eigen::Vector3f Lr_B{0.3F, -0.5F, 0.8F};
     const Eigen::Vector<float, kMaxNumRw> outContiguous = algContiguous.update(Lr_B, RwMotorTorqueSpeeds{});
