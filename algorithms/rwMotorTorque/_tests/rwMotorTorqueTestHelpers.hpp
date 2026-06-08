@@ -29,17 +29,19 @@ inline Eigen::Matrix3f makeControlAxes(uint32_t numControlAxes) {
     return controlAxes_B;
 }
 
-// Reference [tau], mirroring computeNullSpaceProjection's fp32 computation.
-inline Eigen::Matrix<float, kMaxNumRw, kMaxNumRw> referenceTau(const RwMotorTorqueArrayConfiguration& rwConfiguration,
-                                                               const RwMotorTorqueAvailability& availability) {
-    Eigen::Matrix<float, kMaxNumRw, kMaxNumRw> tau{Eigen::Matrix<float, kMaxNumRw, kMaxNumRw>::Zero()};
+// Independent fp64 reference for the null-space projection [tau]. Works entirely in double; the caller casts
+// the float spin-axis matrix to double.
+inline Eigen::Matrix<double, kMaxNumRw, kMaxNumRw> referenceTau(const Eigen::Matrix<double, 3, kMaxNumRw>& GsMatrix_B,
+                                                                uint32_t numRW,
+                                                                const RwMotorTorqueAvailability& availability) {
+    Eigen::Matrix<double, kMaxNumRw, kMaxNumRw> tau{Eigen::Matrix<double, kMaxNumRw, kMaxNumRw>::Zero()};
     const std::array<FSWdeviceAvailability, kMaxNumRw>& wheelsAvailability = availability.wheelAvailability;
 
-    Eigen::Matrix<float, 3, kMaxNumRw> G_s_B{Eigen::Matrix<float, 3, kMaxNumRw>::Zero()};
+    Eigen::Matrix<double, 3, kMaxNumRw> G_s_B{Eigen::Matrix<double, 3, kMaxNumRw>::Zero()};
     uint32_t numAvailRW = 0U;
-    for (uint32_t i = 0U; i < rwConfiguration.numRW; ++i) {
+    for (uint32_t i = 0U; i < numRW; ++i) {
         if (wheelsAvailability[i] == AVAILABLE) {
-            G_s_B.col(i) = rwConfiguration.GsMatrix_B.col(i).normalized();
+            G_s_B.col(i) = GsMatrix_B.col(i).normalized();
             numAvailRW += 1U;
         }
     }
@@ -48,39 +50,42 @@ inline Eigen::Matrix<float, kMaxNumRw, kMaxNumRw> referenceTau(const RwMotorTorq
         return tau;
     }
 
-    const Eigen::JacobiSVD<Eigen::Matrix<float, 3, kMaxNumRw>> gsSvd(G_s_B, Eigen::ComputeFullV);
-    const Eigen::Vector3f& gsSingularValues = gsSvd.singularValues();
-    constexpr float kConditioningTol = 1e-2F;
+    const Eigen::JacobiSVD<Eigen::Matrix<double, 3, kMaxNumRw>> gsSvd(G_s_B, Eigen::ComputeFullV);
+    const Eigen::Vector3d& gsSingularValues = gsSvd.singularValues();
+    constexpr double kConditioningTol = 1e-2;
     if (gsSingularValues(2) <= gsSingularValues(0) * kConditioningTol) {
         return tau;
     }
 
-    const Eigen::Matrix<float, kMaxNumRw, 3> Vr = gsSvd.matrixV().leftCols<3>();
-    tau = Eigen::Matrix<float, kMaxNumRw, kMaxNumRw>::Identity() - Vr * Vr.transpose();
+    const Eigen::Matrix<double, kMaxNumRw, 3> Vr = gsSvd.matrixV().leftCols<3>();
+    tau = Eigen::Matrix<double, kMaxNumRw, kMaxNumRw>::Identity() - Vr * Vr.transpose();
 
     for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
-        if (i >= rwConfiguration.numRW || wheelsAvailability[i] != AVAILABLE) {
+        if (i >= numRW || wheelsAvailability[i] != AVAILABLE) {
             tau.row(i).setZero();
         }
     }
     return tau;
 }
 
-// Reference RW motor torques (control mapping + null-space despin), mirroring the algorithm's fp32 computation.
-inline Eigen::Vector<float, kMaxNumRw> referenceUpdate(const Eigen::Matrix3f& controlAxes_B,
-                                                       const RwMotorTorqueArrayConfiguration& rwConfiguration,
-                                                       const RwMotorTorqueAvailability& availability,
-                                                       const Eigen::Vector3f& Lr_B,
-                                                       const RwMotorTorqueSpeeds& speeds,
-                                                       float omegaGain) {
-    // Mirror the config: orthonormalize the control axes (Gram-Schmidt over the non-zero rows).
-    Eigen::Matrix3f controlAxes = controlAxes_B;
+// Independent fp64 reference for update() (control mapping + null-space despin). Works entirely in double; the
+// caller casts the float inputs to double, and casts the returned result back to float for comparison.
+inline Eigen::Vector<double, kMaxNumRw> referenceUpdate(const Eigen::Matrix3d& controlAxes_B,
+                                                        const Eigen::Matrix<double, 3, kMaxNumRw>& GsMatrix_B,
+                                                        uint32_t numRW,
+                                                        const RwMotorTorqueAvailability& availability,
+                                                        const Eigen::Vector3d& Lr_B,
+                                                        const Eigen::Vector<double, kMaxNumRw>& rwSpeeds,
+                                                        const Eigen::Vector<double, kMaxNumRw>& rwDesiredSpeeds,
+                                                        double omegaGain) {
+    // Orthonormalize the control axes (Gram-Schmidt over the non-zero rows), matching the config.
+    Eigen::Matrix3d controlAxes = controlAxes_B;
     for (uint32_t i = 0U; i < 3U; ++i) {
-        if (controlAxes.row(i).norm() <= 0.0F) {
+        if (controlAxes.row(i).norm() <= 0.0) {
             continue;
         }
         for (uint32_t k = 0U; k < i; ++k) {
-            if (controlAxes.row(k).norm() > 0.0F) {
+            if (controlAxes.row(k).norm() > 0.0) {
                 controlAxes.row(i) -= controlAxes.row(i).dot(controlAxes.row(k)) * controlAxes.row(k);
             }
         }
@@ -89,42 +94,44 @@ inline Eigen::Vector<float, kMaxNumRw> referenceUpdate(const Eigen::Matrix3f& co
 
     uint32_t numControlAxes = 0U;
     for (uint32_t i = 0U; i < 3U; ++i) {
-        if (controlAxes.row(i).norm() > 0.0F) {
+        if (controlAxes.row(i).norm() > 0.0) {
             numControlAxes += 1U;
         }
     }
 
-    Eigen::Matrix<float, 3, kMaxNumRw> G_s_B{Eigen::Matrix<float, 3, kMaxNumRw>::Zero()};
+    Eigen::Matrix<double, 3, kMaxNumRw> G_s_B{Eigen::Matrix<double, 3, kMaxNumRw>::Zero()};
     const std::array<FSWdeviceAvailability, kMaxNumRw>& wheelsAvailability = availability.wheelAvailability;
-    for (uint32_t i = 0U; i < rwConfiguration.numRW; ++i) {
+    for (uint32_t i = 0U; i < numRW; ++i) {
         if (wheelsAvailability[i] == AVAILABLE) {
-            G_s_B.col(i) = rwConfiguration.GsMatrix_B.col(i).normalized();
+            G_s_B.col(i) = GsMatrix_B.col(i).normalized();
         }
     }
 
-    const Eigen::Matrix<float, 3, kMaxNumRw> CGs = controlAxes * G_s_B;
-    const Eigen::MatrixXf CGsActive = CGs.topRows(numControlAxes);
-    const Eigen::JacobiSVD<Eigen::MatrixXf> svd(CGsActive, Eigen::ComputeThinU | Eigen::ComputeThinV);
-    const Eigen::VectorXf& singularValues = svd.singularValues();
-    const float singularValueTol = singularValues(0) * std::numeric_limits<float>::epsilon() *
-                                   static_cast<float>(std::max(numControlAxes, kMaxNumRw));
-    Eigen::VectorXf invSingularValues = Eigen::VectorXf::Zero(singularValues.size());
+    // Truncated-SVD pseudo-inverse of [CGs]. The cutoff uses fp32 epsilon (the algorithm's noise floor) so the
+    // reference keeps the same singular values the fp32 algorithm keeps.
+    const Eigen::Matrix<double, 3, kMaxNumRw> CGs = controlAxes * G_s_B;
+    const Eigen::MatrixXd CGsActive = CGs.topRows(numControlAxes);
+    const Eigen::JacobiSVD<Eigen::MatrixXd> svd(CGsActive, Eigen::ComputeThinU | Eigen::ComputeThinV);
+    const Eigen::VectorXd& singularValues = svd.singularValues();
+    const double singularValueTol = singularValues(0) * static_cast<double>(std::numeric_limits<float>::epsilon()) *
+                                    static_cast<double>(std::max(numControlAxes, kMaxNumRw));
+    Eigen::VectorXd invSingularValues = Eigen::VectorXd::Zero(singularValues.size());
     for (Eigen::Index i = 0; i < singularValues.size(); ++i) {
         if (singularValues(i) > singularValueTol) {
-            invSingularValues(i) = 1.0F / singularValues(i);
+            invSingularValues(i) = 1.0 / singularValues(i);
         }
     }
-    Eigen::Matrix<float, kMaxNumRw, 3> motorTorqueMap = svd.matrixV() * invSingularValues.asDiagonal() *
-                                                        svd.matrixU().transpose() *
-                                                        (-controlAxes.topRows(numControlAxes));
+    Eigen::Matrix<double, kMaxNumRw, 3> motorTorqueMap = svd.matrixV() * invSingularValues.asDiagonal() *
+                                                         svd.matrixU().transpose() *
+                                                         (-controlAxes.topRows(numControlAxes));
     for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
-        if (i >= rwConfiguration.numRW || wheelsAvailability[i] != AVAILABLE) {
+        if (i >= numRW || wheelsAvailability[i] != AVAILABLE) {
             motorTorqueMap.row(i).setZero();
         }
     }
 
-    const Eigen::Vector<float, kMaxNumRw> d = -omegaGain * (speeds.rwSpeeds - speeds.rwDesiredSpeeds);
-    const Eigen::Vector<float, kMaxNumRw> nullSpaceTorque = referenceTau(rwConfiguration, availability) * d;
+    const Eigen::Vector<double, kMaxNumRw> d = -omegaGain * (rwSpeeds - rwDesiredSpeeds);
+    const Eigen::Vector<double, kMaxNumRw> nullSpaceTorque = referenceTau(GsMatrix_B, numRW, availability) * d;
 
     return motorTorqueMap * Lr_B + nullSpaceTorque;
 }
@@ -237,11 +244,20 @@ inline void runRegressionCase(Eigen::Vector3f Lr1_B,
     const RwMotorTorqueAlgorithm alg{
         RwMotorTorqueConfig::create(controlAxes_B, rwConfiguration, availability, omegaGain)};
     const Eigen::Vector<float, kMaxNumRw> out = alg.update(Lr_B, speeds);
-    const Eigen::Vector<float, kMaxNumRw> ref =
-        referenceUpdate(controlAxes_B, rwConfiguration, availability, Lr_B, speeds, omegaGain);
+    const Eigen::Vector<double, kMaxNumRw> ref = referenceUpdate(controlAxes_B.cast<double>(),
+                                                                 rwConfiguration.GsMatrix_B.cast<double>(),
+                                                                 rwConfiguration.numRW,
+                                                                 availability,
+                                                                 Lr_B.cast<double>(),
+                                                                 speeds.rwSpeeds.cast<double>(),
+                                                                 speeds.rwDesiredSpeeds.cast<double>(),
+                                                                 static_cast<double>(omegaGain));
 
+    // Compare the fp32 output against the fp64 reference (cast back to float). The tolerance is scaled by the
+    // output magnitude to absorb fp32 round-off (cond <= 100 by the config conditioning check).
+    const float refScale = static_cast<float>(ref.cwiseAbs().maxCoeff());
     for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
-        EXPECT_NEAR(out[i], ref[i], 1e-6);
+        EXPECT_NEAR(out[i], static_cast<float>(ref[i]), 1e-4F + 1e-3F * refScale);
         EXPECT_TRUE(std::isfinite(out[i]));
     }
 }

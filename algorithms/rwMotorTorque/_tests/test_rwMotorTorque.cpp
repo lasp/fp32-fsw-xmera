@@ -323,11 +323,18 @@ TEST(RwMotorTorqueTest, SetConfigSwitchesConfiguration) {
 
     const Eigen::Vector3f Lr_B{0.3F, -0.5F, 0.8F};
     const Eigen::Vector<float, kMaxNumRw> out = alg.update(Lr_B, speeds);
-    const Eigen::Vector<float, kMaxNumRw> ref =
-        referenceUpdate(makeControlAxes(3U), rwB, availabilityB, Lr_B, speeds, kOmegaGain);
+    const Eigen::Vector<double, kMaxNumRw> ref = referenceUpdate(makeControlAxes(3U).cast<double>(),
+                                                                 rwB.GsMatrix_B.cast<double>(),
+                                                                 rwB.numRW,
+                                                                 availabilityB,
+                                                                 Lr_B.cast<double>(),
+                                                                 speeds.rwSpeeds.cast<double>(),
+                                                                 speeds.rwDesiredSpeeds.cast<double>(),
+                                                                 static_cast<double>(kOmegaGain));
 
+    const float refScale = static_cast<float>(ref.cwiseAbs().maxCoeff());
     for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
-        EXPECT_NEAR(out[i], ref[i], 1e-6);
+        EXPECT_NEAR(out[i], static_cast<float>(ref[i]), 1e-4F + 1e-3F * refScale);
     }
 }
 
