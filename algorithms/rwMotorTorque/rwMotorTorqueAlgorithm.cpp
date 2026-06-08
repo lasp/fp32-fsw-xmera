@@ -35,7 +35,7 @@ std::optional<Eigen::Matrix<float, kMaxNumRw, kMaxNumRw>> computeNullSpaceProjec
     }
 
     const Eigen::JacobiSVD<Eigen::Matrix<float, 3, kMaxNumRw>> gsSvd(G_s_B, Eigen::ComputeFullV);
-    const Eigen::Vector3f gsSingularValues = gsSvd.singularValues();
+    const Eigen::Vector3f& gsSingularValues = gsSvd.singularValues();
     if (gsSingularValues(2) <= gsSingularValues(0) * kConditioningTol) {
         return std::nullopt;
     }
@@ -146,7 +146,8 @@ bool RwMotorTorqueConfig::isValidMapping(const Eigen::Matrix3f& controlAxes_B,
     return computeRwMapping(controlAxes_B, rwConfiguration, availability).has_value();
 }
 
-RwMotorTorqueAlgorithm::RwMotorTorqueAlgorithm(const RwMotorTorqueConfig& config) : cfg(config) {
+RwMotorTorqueAlgorithm::RwMotorTorqueAlgorithm(const RwMotorTorqueConfig& config)  // NOLINT(modernize-pass-by-value)
+    : cfg(config) {
     const std::optional<RwMotorTorqueMapping> mapping =
         computeRwMapping(this->cfg.getControlAxes(), this->cfg.getRwConfiguration(), this->cfg.getAvailability());
     if (mapping.has_value()) {
