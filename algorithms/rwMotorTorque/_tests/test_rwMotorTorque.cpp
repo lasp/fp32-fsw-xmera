@@ -131,6 +131,18 @@ TEST(RwMotorTorqueTest, PropertyZeroGainDisablesDespin) {
         std::vector<float>{});
 }
 
+TEST(RwMotorTorqueTest, PropertyControlTorqueRealized) {
+    propertyControlTorqueRealized(
+        Eigen::Vector3f{0.3F, -0.5F, 0.8F},
+        Eigen::Vector3f::Zero(),
+        std::vector<bool>{false, false, true, false},
+        false,
+        true,
+        4,
+        std::vector<float>{1.0F, 0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 0.0F, 1.0F, 1.0F, 1.0F, 1.0F},
+        3);
+}
+
 // ---------------------------------------------------------------------------
 // Edge-case tests — boundary geometries and config canonicalization.
 // ---------------------------------------------------------------------------
@@ -243,4 +255,104 @@ TEST(RwMotorTorqueTest, IllConditionedDespinGeometryRejected) {
 
     EXPECT_THROW(RwMotorTorqueConfig::create(makeControlAxes(2U), rwConfiguration, RwMotorTorqueAvailability{}, 0.5F),
                  fsw::invalid_argument);
+}
+
+// With every wheel marked unavailable there is nothing to control with, so the (otherwise valid) configuration
+// is uncontrollable and create() rejects it.
+TEST(RwMotorTorqueTest, AllWheelsUnavailableRejected) {
+    RwMotorTorqueArrayConfiguration rwConfiguration{};
+    rwConfiguration.numRW = 3U;
+    rwConfiguration.GsMatrix_B.col(0) = Eigen::Vector3f{1.0F, 0.0F, 0.0F};
+    rwConfiguration.GsMatrix_B.col(1) = Eigen::Vector3f{0.0F, 1.0F, 0.0F};
+    rwConfiguration.GsMatrix_B.col(2) = Eigen::Vector3f{0.0F, 0.0F, 1.0F};
+
+    RwMotorTorqueAvailability availability{};
+    availability.wheelAvailability[0] = UNAVAILABLE;
+    availability.wheelAvailability[1] = UNAVAILABLE;
+    availability.wheelAvailability[2] = UNAVAILABLE;
+
+    EXPECT_THROW(RwMotorTorqueConfig::create(makeControlAxes(3U), rwConfiguration, availability),
+                 fsw::invalid_argument);
+}
+
+// Determined case: three orthogonal wheels and three control axes give a square mapping with no null space, so
+// the motor torques are the exact unique solution (each wheel negates the commanded torque on its own axis).
+TEST(RwMotorTorqueTest, SquareMappingIsExact) {
+    RwMotorTorqueArrayConfiguration rwConfiguration{};
+    rwConfiguration.numRW = 3U;
+    rwConfiguration.GsMatrix_B.col(0) = Eigen::Vector3f{1.0F, 0.0F, 0.0F};
+    rwConfiguration.GsMatrix_B.col(1) = Eigen::Vector3f{0.0F, 1.0F, 0.0F};
+    rwConfiguration.GsMatrix_B.col(2) = Eigen::Vector3f{0.0F, 0.0F, 1.0F};
+
+    const RwMotorTorqueAlgorithm alg{
+        RwMotorTorqueConfig::create(makeControlAxes(3U), rwConfiguration, RwMotorTorqueAvailability{})};
+
+    const Eigen::Vector3f Lr_B{0.3F, -0.5F, 0.8F};
+    const Eigen::Vector<float, kMaxNumRw> out = alg.update(Lr_B, RwMotorTorqueSpeeds{});
+
+    EXPECT_NEAR(out[0], -Lr_B[0], 1e-6);
+    EXPECT_NEAR(out[1], -Lr_B[1], 1e-6);
+    EXPECT_NEAR(out[2], -Lr_B[2], 1e-6);
+    for (uint32_t i = 3U; i < kMaxNumRw; ++i) {
+        EXPECT_FLOAT_EQ(out[i], 0.0F);
+    }
+}
+
+// setConfig swaps in a new configuration: the algorithm recomputes the mapping, so update() matches the new
+// configuration's reference (here switching from three wheels to four with an active despin).
+TEST(RwMotorTorqueTest, SetConfigSwitchesConfiguration) {
+    RwMotorTorqueArrayConfiguration rwA{};
+    rwA.numRW = 3U;
+    rwA.GsMatrix_B.col(0) = Eigen::Vector3f{1.0F, 0.0F, 0.0F};
+    rwA.GsMatrix_B.col(1) = Eigen::Vector3f{0.0F, 1.0F, 0.0F};
+    rwA.GsMatrix_B.col(2) = Eigen::Vector3f{0.0F, 0.0F, 1.0F};
+    RwMotorTorqueAlgorithm alg{RwMotorTorqueConfig::create(makeControlAxes(3U), rwA, RwMotorTorqueAvailability{})};
+
+    RwMotorTorqueArrayConfiguration rwB{};
+    rwB.numRW = 4U;
+    rwB.GsMatrix_B.col(0) = Eigen::Vector3f{1.0F, 0.0F, 0.0F};
+    rwB.GsMatrix_B.col(1) = Eigen::Vector3f{0.0F, 1.0F, 0.0F};
+    rwB.GsMatrix_B.col(2) = Eigen::Vector3f{0.0F, 0.0F, 1.0F};
+    rwB.GsMatrix_B.col(3) = Eigen::Vector3f{1.0F, 1.0F, 1.0F}.normalized();
+    const RwMotorTorqueAvailability availabilityB{};
+    constexpr float kOmegaGain = 0.5F;
+    alg.setConfig(RwMotorTorqueConfig::create(makeControlAxes(3U), rwB, availabilityB, kOmegaGain));
+
+    RwMotorTorqueSpeeds speeds{};
+    speeds.rwSpeeds.head<4>() = Eigen::Vector4f{100.0F, -50.0F, 30.0F, 80.0F};
+
+    const Eigen::Vector3f Lr_B{0.3F, -0.5F, 0.8F};
+    const Eigen::Vector<float, kMaxNumRw> out = alg.update(Lr_B, speeds);
+    const Eigen::Vector<float, kMaxNumRw> ref =
+        referenceUpdate(makeControlAxes(3U), rwB, availabilityB, Lr_B, speeds, kOmegaGain);
+
+    for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
+        EXPECT_NEAR(out[i], ref[i], 1e-6);
+    }
+}
+
+// With the RW speeds already at their desired values the speed error is zero, so the despin term vanishes even
+// with a non-zero gain and a non-trivial null space: the output equals the control-only update.
+TEST(RwMotorTorqueTest, DespinZeroAtDesiredSpeed) {
+    RwMotorTorqueArrayConfiguration rwConfiguration{};
+    rwConfiguration.numRW = 4U;
+    rwConfiguration.GsMatrix_B.col(0) = Eigen::Vector3f{1.0F, 0.0F, 0.0F};
+    rwConfiguration.GsMatrix_B.col(1) = Eigen::Vector3f{0.0F, 1.0F, 0.0F};
+    rwConfiguration.GsMatrix_B.col(2) = Eigen::Vector3f{0.0F, 0.0F, 1.0F};
+    rwConfiguration.GsMatrix_B.col(3) = Eigen::Vector3f{1.0F, 1.0F, 1.0F}.normalized();
+
+    const RwMotorTorqueAlgorithm alg{
+        RwMotorTorqueConfig::create(makeControlAxes(3U), rwConfiguration, RwMotorTorqueAvailability{}, 0.5F)};
+
+    RwMotorTorqueSpeeds speeds{};
+    speeds.rwSpeeds.head<4>() = Eigen::Vector4f{100.0F, -50.0F, 30.0F, 80.0F};
+    speeds.rwDesiredSpeeds.head<4>() = Eigen::Vector4f{100.0F, -50.0F, 30.0F, 80.0F};  // zero speed error
+
+    const Eigen::Vector3f Lr_B{0.3F, -0.5F, 0.8F};
+    const Eigen::Vector<float, kMaxNumRw> out = alg.update(Lr_B, speeds);
+    const Eigen::Vector<float, kMaxNumRw> controlOnly = alg.update(Lr_B, RwMotorTorqueSpeeds{});
+
+    for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
+        EXPECT_FLOAT_EQ(out[i], controlOnly[i]);
+    }
 }

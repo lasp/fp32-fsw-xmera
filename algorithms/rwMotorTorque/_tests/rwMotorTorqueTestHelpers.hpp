@@ -409,4 +409,47 @@ inline void propertyZeroGainDisablesDespin(Eigen::Vector3f Lr1_B,
     }
 }
 
+// The control-only output realizes the commanded torque on the controllable axes: projecting the body torque
+// the wheels produce, [Gs] u_control, onto each control axis recovers the commanded torque -Lr_B on that axis.
+inline void propertyControlTorqueRealized(Eigen::Vector3f Lr1_B,
+                                          Eigen::Vector3f Lr2_B,
+                                          std::vector<bool> wheelAvailabilityBool,
+                                          bool cmdTorque2IsLinked,
+                                          bool rwAvailIsLinked,
+                                          int numRW,
+                                          std::vector<float> GsMatrix_B,
+                                          uint32_t numControlAxes) {
+    Eigen::Matrix3f controlAxes_B{Eigen::Matrix3f::Zero()};
+    RwMotorTorqueArrayConfiguration rwConfiguration{};
+    RwMotorTorqueAvailability availability{};
+    if (!buildConfig(numControlAxes,
+                     numRW,
+                     GsMatrix_B,
+                     wheelAvailabilityBool,
+                     rwAvailIsLinked,
+                     controlAxes_B,
+                     rwConfiguration,
+                     availability)) {
+        return;
+    }
+
+    Eigen::Vector3f Lr_B = Lr1_B;
+    if (cmdTorque2IsLinked) {
+        Lr_B += Lr2_B;
+    }
+    const RwMotorTorqueConfig config = RwMotorTorqueConfig::create(controlAxes_B, rwConfiguration, availability);
+    const RwMotorTorqueAlgorithm alg{config};
+
+    // Control-only output (zero speeds): the despin term is absent, so this is the pure control mapping.
+    const Eigen::Vector3f bodyTorque = availableGs(config) * alg.update(Lr_B, RwMotorTorqueSpeeds{});
+    const Eigen::Matrix3f& storedAxes = config.getControlAxes();
+    for (uint32_t i = 0U; i < 3U; ++i) {
+        if (storedAxes.row(i).norm() > 0.0F) {
+            const float realized = storedAxes.row(i).dot(bodyTorque);
+            const float commanded = -storedAxes.row(i).dot(Lr_B);
+            EXPECT_NEAR(realized, commanded, 1e-3F * Lr_B.norm() + 1e-3F);
+        }
+    }
+}
+
 #endif  // TEST_RW_MOTOR_TORQUE_H
