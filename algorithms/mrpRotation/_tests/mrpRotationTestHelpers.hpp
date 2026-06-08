@@ -1,10 +1,8 @@
 #ifndef TEST_MRPROTATION_H
 #define TEST_MRPROTATION_H
 
-#include "architecture/utilities/eigenSupport.h"
 #include "architecture/utilities/rigidBodyKinematics.hpp"
 #include "mrpRotationAlgorithm.h"
-#include "mrpRotationTypes.h"
 #include "utilities/freestandingInvalidArgument.h"
 #include "utilities/timeConstants.h"
 #include <gtest/gtest.h>
@@ -54,27 +52,11 @@ inline MrpRotationReferenceOutput referenceUpdate(MrpRotationReferenceState& sta
     return out;
 }
 
-// Build an AttRefMsgF32Payload from individual Eigen vectors.
-inline AttRefMsgF32Payload buildAttRef(const Eigen::Vector3f& sigma,
-                                       const Eigen::Vector3f& omega,
-                                       const Eigen::Vector3f& domega) {
-    AttRefMsgF32Payload payload{};
-    eigenVectorToCArray(sigma, payload.sigma_RN);
-    eigenVectorToCArray(omega, payload.omega_RN_N);
-    eigenVectorToCArray(domega, payload.domega_RN_N);
-    return payload;
-}
-
-inline AttStateMsgF32Payload buildAttState(const Eigen::Vector3f& state, const Eigen::Vector3f& rate) {
-    AttStateMsgF32Payload payload{};
-    eigenVectorToCArray(state, payload.state);
-    eigenVectorToCArray(rate, payload.rate);
-    return payload;
-}
-
 // ---------------------------------------------------------------------------
 // Regression test helper: drive the algorithm through several time steps and compare
-// to the reference implementation.
+// to the reference implementation. The algorithm now integrates by the configured
+// controlPeriod on every call (no priorTime-based first-step gating), so every k advances
+// the reference by the same dt.
 // ---------------------------------------------------------------------------
 inline void regressionTestMrpRotation(const Eigen::Vector3f& initialSigmaRR0,
                                       const Eigen::Vector3f& omegaRR0R,
@@ -83,36 +65,25 @@ inline void regressionTestMrpRotation(const Eigen::Vector3f& initialSigmaRR0,
                                       const Eigen::Vector3f& domega_R0N_N,
                                       float updateTimeSec,
                                       int numSteps) {
-    const auto config = MrpRotationConfig::create(initialSigmaRR0, omegaRR0R, false);
+    const auto config = MrpRotationConfig::create(initialSigmaRR0, omegaRR0R, updateTimeSec);
     MrpRotationAlgorithm alg{config};
-    alg.reset();
 
-    MrpRotationReferenceState refState{initialSigmaRR0, omegaRR0R};
+    // The algorithm bounds the seed MRP via mrpSwitch in MrpRotationConfig::create, so the
+    // reference must start from the same bounded representative to stay in lock-step.
+    MrpRotationReferenceState refState{mrpSwitch(initialSigmaRR0, 1.0F), omegaRR0R};
 
-    const auto inputRef = buildAttRef(sigma_R0N, omega_R0N_N, domega_R0N_N);
-    const AttStateMsgF32Payload emptyState{};
+    const MrpRotationAttRefInputs attRef{sigma_R0N, omega_R0N_N, domega_R0N_N};
 
-    // Start callTime at one update period (not 0). The algorithm's computeTimeStep keys off
-    // priorTime: if it is exactly 0, dt is forced to 0. priorTime is set to callTime at the end of
-    // each update, so calling first with callTime=0 leaves priorTime at 0 -- which then forces
-    // dt=0 on the *second* call too. Starting at step_ns gives priorTime a non-zero value after
-    // the first call, so step 0 has dt=0 (no integration) and step 1 onward integrates by
-    // updateTimeSec, exactly as this test expects.
-    const uint64_t step_ns = static_cast<uint64_t>(updateTimeSec * static_cast<float>(kSec2Nano));
-    uint64_t callTime = step_ns;
     for (int k = 0; k < numSteps; ++k) {
-        const float dt = (k == 0) ? 0.0F : updateTimeSec;
-        const AttRefMsgF32Payload algOut = alg.update(callTime, inputRef, emptyState);
-        const auto refOut = referenceUpdate(refState, sigma_R0N, omega_R0N_N, domega_R0N_N, dt);
+        const MrpRotationOutput algOut = alg.update(attRef);
+        const auto refOut = referenceUpdate(refState, sigma_R0N, omega_R0N_N, domega_R0N_N, updateTimeSec);
 
         constexpr float tol = 1e-5F;
         for (int i = 0; i < 3; ++i) {
-            EXPECT_NEAR(algOut.sigma_RN[i], refOut.sigma_RN(i), tol);
-            EXPECT_NEAR(algOut.omega_RN_N[i], refOut.omega_RN_N(i), tol);
-            EXPECT_NEAR(algOut.domega_RN_N[i], refOut.domega_RN_N(i), tol);
+            EXPECT_NEAR(algOut.sigma_RN(i), refOut.sigma_RN(i), tol);
+            EXPECT_NEAR(algOut.omega_RN_N(i), refOut.omega_RN_N(i), tol);
+            EXPECT_NEAR(algOut.domega_RN_N(i), refOut.domega_RN_N(i), tol);
         }
-
-        callTime += step_ns;
     }
 }
 
@@ -135,62 +106,156 @@ inline void fuzzRegressionMrpRotation(const Eigen::Vector3f& initialSigmaRR0,
 
 // Output reference is finite for any finite inputs and finite configuration.
 inline void propertyOutputIsFinite(const Eigen::Vector3f& initialSigmaRR0, const Eigen::Vector3f& omegaRR0R) {
-    const auto config = MrpRotationConfig::create(initialSigmaRR0, omegaRR0R, false);
+    constexpr float kPropertyControlPeriod = 0.5F;
+    const auto config = MrpRotationConfig::create(initialSigmaRR0, omegaRR0R, kPropertyControlPeriod);
     MrpRotationAlgorithm alg{config};
-    alg.reset();
 
-    const auto inputRef =
-        buildAttRef(Eigen::Vector3f{0.1F, 0.2F, 0.3F}, Eigen::Vector3f{0.05F, 0.0F, 0.0F}, Eigen::Vector3f::Zero());
-    const AttStateMsgF32Payload emptyState{};
+    const MrpRotationAttRefInputs attRef{
+        Eigen::Vector3f{0.1F, 0.2F, 0.3F},
+        Eigen::Vector3f{0.05F, 0.0F, 0.0F},
+        Eigen::Vector3f::Zero(),
+    };
 
-    AttRefMsgF32Payload out0{};
-    EXPECT_NO_THROW(out0 = alg.update(0, inputRef, emptyState));
-    AttRefMsgF32Payload out1{};
-    EXPECT_NO_THROW(out1 = alg.update(static_cast<uint64_t>(0.5 * kSec2Nano), inputRef, emptyState));
+    MrpRotationOutput out0{};
+    EXPECT_NO_THROW(out0 = alg.update(attRef));
+    MrpRotationOutput out1{};
+    EXPECT_NO_THROW(out1 = alg.update(attRef));
 
     for (int i = 0; i < 3; ++i) {
-        EXPECT_TRUE(std::isfinite(out0.sigma_RN[i]));
-        EXPECT_TRUE(std::isfinite(out0.omega_RN_N[i]));
-        EXPECT_TRUE(std::isfinite(out0.domega_RN_N[i]));
-        EXPECT_TRUE(std::isfinite(out1.sigma_RN[i]));
-        EXPECT_TRUE(std::isfinite(out1.omega_RN_N[i]));
-        EXPECT_TRUE(std::isfinite(out1.domega_RN_N[i]));
+        EXPECT_TRUE(std::isfinite(out0.sigma_RN(i)));
+        EXPECT_TRUE(std::isfinite(out0.omega_RN_N(i)));
+        EXPECT_TRUE(std::isfinite(out0.domega_RN_N(i)));
+        EXPECT_TRUE(std::isfinite(out1.sigma_RN(i)));
+        EXPECT_TRUE(std::isfinite(out1.omega_RN_N(i)));
+        EXPECT_TRUE(std::isfinite(out1.domega_RN_N(i)));
     }
 }
 
-// On the first update after reset, the integrated dt is 0, so sigma_RN equals the
-// composition of sigma_R0N and the configured initial sigma_RR0 (after mrpSwitch).
-inline void propertyFirstStepNoIntegration(const Eigen::Vector3f& initialSigmaRR0, const Eigen::Vector3f& sigma_R0N) {
-    const Eigen::Vector3f omegaRR0R{0.5F, -0.3F, 0.1F};
+// With sigma_R0N = 0 the input reference frame coincides with N, so dcm_RN = dcm_RR0 and the
+// output sigma_RN must encode the same rotation as the algorithm's internal sigma_RR0. We track
+// the latter independently in a MrpRotationReferenceState and assert agreement at every step.
+// dcmToMrp can return either MRP shadow-set representative near norm = 1, so we accept whichever is
+// closer.
+inline void propertySigmaRNEqualsSigmaRR0WhenInputRefIsIdentity(const Eigen::Vector3f& initialSigmaRR0,
+                                                                const Eigen::Vector3f& omegaRR0R) {
+    constexpr float kControlPeriod = 0.1F;
+    constexpr int kNumSteps = 10;
 
-    const auto config = MrpRotationConfig::create(initialSigmaRR0, omegaRR0R, false);
+    const auto config = MrpRotationConfig::create(initialSigmaRR0, omegaRR0R, kControlPeriod);
     MrpRotationAlgorithm alg{config};
-    alg.reset();
 
-    const auto inputRef = buildAttRef(sigma_R0N, Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero());
-    const AttStateMsgF32Payload emptyState{};
-
-    const AttRefMsgF32Payload out = alg.update(0, inputRef, emptyState);
-
-    // Mirror what the algorithm does: it always runs mrpSwitch on its internal sigma_RR0 before
-    // composing with sigma_R0N, even when dt = 0. Without applying the same here, fuzz inputs
-    // with |sigma| > 1 land on opposite branches of the MRP shadow ambiguity.
-    const Eigen::Vector3f initialSwitched = mrpSwitch(initialSigmaRR0, 1.0F);
-    const Eigen::Matrix3f dcm_RR0 = mrpToDcm(initialSwitched);
-    const Eigen::Matrix3f dcm_R0N = mrpToDcm(sigma_R0N);
-    const Eigen::Vector3f expected = dcmToMrp(Eigen::Matrix3f(dcm_RR0 * dcm_R0N));
-
-    // dcmToMrp can pick either MRP shadow-set representative when the result is near the unit
-    // boundary; both encode the same physical rotation. Accept either.
-    const Eigen::Vector3f outVec(out.sigma_RN[0], out.sigma_RN[1], out.sigma_RN[2]);
-    const float expectedNormSq = expected.squaredNorm();
-    const Eigen::Vector3f expectedShadow =
-        (expectedNormSq > 1e-12F) ? Eigen::Vector3f(-expected / expectedNormSq) : expected;
+    const MrpRotationAttRefInputs identityRef{
+        Eigen::Vector3f::Zero(),
+        Eigen::Vector3f::Zero(),
+        Eigen::Vector3f::Zero(),
+    };
+    // The algorithm bounds the seed MRP via mrpSwitch in MrpRotationConfig::create, so the
+    // reference must start from the same bounded representative to stay in lock-step.
+    MrpRotationReferenceState refState{mrpSwitch(initialSigmaRR0, 1.0F), omegaRR0R};
 
     constexpr float tol = 1e-5F;
-    const float errNominal = (outVec - expected).norm();
-    const float errShadow = (outVec - expectedShadow).norm();
-    EXPECT_LT(std::min(errNominal, errShadow), tol);
+    for (int k = 0; k < kNumSteps; ++k) {
+        const MrpRotationOutput algOut = alg.update(identityRef);
+        (void)referenceUpdate(
+            refState, identityRef.sigma_R0N, identityRef.omega_R0N_N, identityRef.domega_R0N_N, kControlPeriod);
+        // algOut.sigma_RN and refState.sigma_RR0 encode the same rotation. Accept either
+        // shadow-set representative when they straddle the |sigma| = 1 boundary.
+        const Eigen::Vector3f principal = refState.sigma_RR0;
+        const float principalNormSq = principal.squaredNorm();
+        const Eigen::Vector3f shadow =
+            (principalNormSq > 1e-5F) ? Eigen::Vector3f(-principal / principalNormSq) : principal;
+        const float errPrincipal = (algOut.sigma_RN - principal).norm();
+        const float errShadow = (algOut.sigma_RN - shadow).norm();
+        EXPECT_LT(std::min(errPrincipal, errShadow), tol);
+    }
+}
+
+// dcmToMrp's contract is to return the MRP with |sigma| <= 1, so the algorithm's output sigma_RN
+// must satisfy that bound on every step. This invariant is what mrpSwitch exists to enforce; drive
+// many steps with a R-frame omega large enough to repeatedly cross the boundary and assert the
+// bound holds throughout.
+inline void propertySigmaRNNormLessOrEqualToOne(const Eigen::Vector3f& initialSigmaRR0,
+                                                const Eigen::Vector3f& omegaRR0R) {
+    constexpr float kControlPeriod = 0.5F;
+    constexpr int kNumSteps = 100;
+    constexpr float kMrpNormBound = 1.0F + 1e-5F;  // small fp32 slack at the boundary
+
+    const auto config = MrpRotationConfig::create(initialSigmaRR0, omegaRR0R, kControlPeriod);
+    MrpRotationAlgorithm alg{config};
+
+    const MrpRotationAttRefInputs attRef{
+        Eigen::Vector3f{0.1F, 0.2F, 0.3F},
+        Eigen::Vector3f::Zero(),
+        Eigen::Vector3f::Zero(),
+    };
+
+    for (int k = 0; k < kNumSteps; ++k) {
+        const MrpRotationOutput out = alg.update(attRef);
+        EXPECT_LE(out.sigma_RN.norm(), kMrpNormBound);
+    }
+}
+
+// The algebraic identity omega_RN_N = [RN]^T * omega_RR0_R + omega_R0N_N follows from the
+// transport theorem. Reconstruct dcm_RN from out.sigma_RN (mrpToDcm gives the same DCM whether
+// sigma_RN is the principal or shadow representative) and verify the decomposition holds on every
+// step, independently of the reference implementation.
+inline void propertyOmegaRNDecomposesCorrectly(const Eigen::Vector3f& initialSigmaRR0,
+                                               const Eigen::Vector3f& omegaRR0R,
+                                               const Eigen::Vector3f& sigma_R0N,
+                                               const Eigen::Vector3f& omega_R0N_N) {
+    constexpr float kControlPeriod = 0.25F;
+    constexpr int kNumSteps = 5;
+
+    const auto config = MrpRotationConfig::create(initialSigmaRR0, omegaRR0R, kControlPeriod);
+    MrpRotationAlgorithm alg{config};
+
+    const MrpRotationAttRefInputs attRef{sigma_R0N, omega_R0N_N, Eigen::Vector3f::Zero()};
+
+    constexpr float tol = 1e-5F;
+    for (int k = 0; k < kNumSteps; ++k) {
+        const MrpRotationOutput out = alg.update(attRef);
+        const Eigen::Matrix3f dcm_RN = mrpToDcm(out.sigma_RN);
+        const Eigen::Vector3f expectedOmegaRR0_N = dcm_RN.transpose() * omegaRR0R;
+        const Eigen::Vector3f actualOmegaRR0_N = out.omega_RN_N - omega_R0N_N;
+        for (int i = 0; i < 3; ++i) {
+            EXPECT_NEAR(actualOmegaRR0_N(i), expectedOmegaRR0_N(i), tol);
+        }
+    }
+}
+
+// With sigma_RR0 = 0 and omega_RR0_R = 0 the algorithm's internal R/R0 rotation is identity and a
+// zero R-frame rate never advances it, so the output reference frame R must coincide with the input
+// reference frame R0 on every step: sigma_RN == sigma_R0N, omega_RN_N == omega_R0N_N, and
+// domega_RN_N == domega_R0N_N. Compare the attitude via its DCM so the check is independent of which
+// shadow-set representative dcmToMrp returns (fuzzed sigma_R0N may have norm > 1).
+inline void propertyOutputRefEqualsInputRefWhenRotationIsZero(const Eigen::Vector3f& sigma_R0N,
+                                                              const Eigen::Vector3f& omega_R0N_N,
+                                                              const Eigen::Vector3f& domega_R0N_N) {
+    constexpr float kControlPeriod = 0.5F;
+    constexpr int kNumSteps = 5;
+
+    const auto config = MrpRotationConfig::create(Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(), kControlPeriod);
+    MrpRotationAlgorithm alg{config};
+
+    const MrpRotationAttRefInputs attRef{sigma_R0N, omega_R0N_N, domega_R0N_N};
+
+    const Eigen::Matrix3f dcm_R0N = mrpToDcm(sigma_R0N);
+
+    constexpr float tol = 1e-5F;
+    for (int k = 0; k < kNumSteps; ++k) {
+        const MrpRotationOutput out = alg.update(attRef);
+
+        const Eigen::Matrix3f dcm_RN = mrpToDcm(out.sigma_RN);
+        for (int r = 0; r < 3; ++r) {
+            for (int c = 0; c < 3; ++c) {
+                EXPECT_NEAR(dcm_RN(r, c), dcm_R0N(r, c), tol);
+            }
+        }
+        for (int i = 0; i < 3; ++i) {
+            EXPECT_NEAR(out.omega_RN_N(i), omega_R0N_N(i), tol);
+            EXPECT_NEAR(out.domega_RN_N(i), domega_R0N_N(i), tol);
+        }
+    }
 }
 
 #endif  // TEST_MRPROTATION_H

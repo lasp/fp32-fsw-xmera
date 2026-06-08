@@ -9,7 +9,23 @@ namespace {
 MrpRotationConfig configFromC(const MrpRotationConfig_c& c) {
     return MrpRotationConfig::create(cArrayToEigenVector3<float>(c.initialSigmaRR0.data),
                                      cArrayToEigenVector3<float>(c.omegaRR0R.data),
-                                     c.dynamicReferenceEnabled != 0);
+                                     c.controlPeriod);
+}
+
+MrpRotationAttRefInputs attRefFromC(const MrpRotationAttRefInputs_c& c) {
+    return MrpRotationAttRefInputs{
+        cArrayToEigenVector3<float>(c.sigma_R0N.data),
+        cArrayToEigenVector3<float>(c.omega_R0N_N.data),
+        cArrayToEigenVector3<float>(c.domega_R0N_N.data),
+    };
+}
+
+MrpRotationOutput_c outputToC(const MrpRotationOutput& out) {
+    MrpRotationOutput_c result{};
+    eigenVectorToCArray(out.sigma_RN, result.sigma_RN.data);
+    eigenVectorToCArray(out.omega_RN_N, result.omega_RN_N.data);
+    eigenVectorToCArray(out.domega_RN_N, result.domega_RN_N.data);
+    return result;
 }
 }  // namespace
 
@@ -31,17 +47,10 @@ void MrpRotationAlgorithm_setConfig(MrpRotationAlgorithmHandle* self, const MrpR
     // clang-format on
 }
 
-void MrpRotationAlgorithm_reset(MrpRotationAlgorithmHandle* self) {
+MrpRotationOutput_c MrpRotationAlgorithm_update(MrpRotationAlgorithmHandle* self,
+                                                const MrpRotationAttRefInputs_c* attRef) {
     // clang-format off
-    reinterpret_cast<::MrpRotationAlgorithm*>(self)->reset();  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+    const MrpRotationOutput out = reinterpret_cast<::MrpRotationAlgorithm*>(self)->update(attRefFromC(*attRef));  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
     // clang-format on
-}
-
-AttRefMsgF32Payload MrpRotationAlgorithm_update(MrpRotationAlgorithmHandle* self,
-                                                uint64_t callTime,
-                                                const AttRefMsgF32Payload* inputRef,
-                                                const AttStateMsgF32Payload* attStates) {
-    // clang-format off
-    return reinterpret_cast<::MrpRotationAlgorithm*>(self)->update(callTime, *inputRef, *attStates);  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
-    // clang-format on
+    return outputToC(out);
 }
