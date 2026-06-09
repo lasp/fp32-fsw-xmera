@@ -243,21 +243,42 @@ inline void runRegressionCase(Eigen::Vector3f Lr1_B,
 
     const RwMotorTorqueAlgorithm alg{
         RwMotorTorqueConfig::create(controlAxes_B, rwConfiguration, availability, omegaGain)};
-    const Eigen::Vector<float, kMaxNumRw> out = alg.update(Lr_B, speeds);
-    const Eigen::Vector<double, kMaxNumRw> ref = referenceUpdate(controlAxes_B.cast<double>(),
-                                                                 rwConfiguration.GsMatrix_B.cast<double>(),
-                                                                 rwConfiguration.numRW,
-                                                                 availability,
-                                                                 Lr_B.cast<double>(),
-                                                                 speeds.rwSpeeds.cast<double>(),
-                                                                 speeds.rwDesiredSpeeds.cast<double>(),
-                                                                 static_cast<double>(omegaGain));
 
-    // Compare the fp32 output against the fp64 reference (cast back to float). The tolerance is scaled by the
-    // output magnitude to absorb fp32 round-off (cond <= 100 by the config conditioning check).
-    const float refScale = static_cast<float>(ref.cwiseAbs().maxCoeff());
+    // Validate the control and despin contributions separately against the fp64 reference, each with the
+    // tolerance matched to its error source. By linearity, update(Lr, speeds) = update(Lr, 0) + update(0, speeds),
+    // so isolating the two terms lets each comparison use the right scale. A single combined tolerance would
+    // let a large ||d|| slacken the control comparison and mask a control-path error.
+    const Eigen::Vector<float, kMaxNumRw> controlOut = alg.update(Lr_B, RwMotorTorqueSpeeds{});
+    const Eigen::Vector<float, kMaxNumRw> despinOut = alg.update(Eigen::Vector3f::Zero(), speeds);
+    const Eigen::Vector<float, kMaxNumRw> out = alg.update(Lr_B, speeds);
+
+    const Eigen::Vector<double, kMaxNumRw> zeroSpeeds = Eigen::Vector<double, kMaxNumRw>::Zero();
+    const Eigen::Vector<double, kMaxNumRw> controlRef = referenceUpdate(controlAxes_B.cast<double>(),
+                                                                        rwConfiguration.GsMatrix_B.cast<double>(),
+                                                                        rwConfiguration.numRW,
+                                                                        availability,
+                                                                        Lr_B.cast<double>(),
+                                                                        zeroSpeeds,
+                                                                        zeroSpeeds,
+                                                                        static_cast<double>(omegaGain));
+    const Eigen::Vector<double, kMaxNumRw> despinRef = referenceUpdate(controlAxes_B.cast<double>(),
+                                                                       rwConfiguration.GsMatrix_B.cast<double>(),
+                                                                       rwConfiguration.numRW,
+                                                                       availability,
+                                                                       Eigen::Vector3d::Zero(),
+                                                                       speeds.rwSpeeds.cast<double>(),
+                                                                       speeds.rwDesiredSpeeds.cast<double>(),
+                                                                       static_cast<double>(omegaGain));
+
+    const float controlScale = static_cast<float>(controlRef.cwiseAbs().maxCoeff());
+    const Eigen::Vector<float, kMaxNumRw> despinInput = omegaGain * (speeds.rwSpeeds - speeds.rwDesiredSpeeds);
+    const float controlTol = 1e-4F + 1e-3F * controlScale;
+    const float despinTol = 1e-4F + 1e-5F * despinInput.norm();
     for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
-        EXPECT_NEAR(out[i], static_cast<float>(ref[i]), 1e-4F + 1e-3F * refScale);
+        EXPECT_NEAR(controlOut[i], static_cast<float>(controlRef[i]), controlTol);
+        EXPECT_NEAR(despinOut[i], static_cast<float>(despinRef[i]), despinTol);
+        // The production update() output is exactly the fp32 sum of the two contributions (linearity).
+        EXPECT_FLOAT_EQ(out[i], controlOut[i] + despinOut[i]);
         EXPECT_TRUE(std::isfinite(out[i]));
     }
 }
@@ -377,13 +398,17 @@ inline void propertyDespinAddsNoBodyTorque(std::vector<bool> wheelAvailabilityBo
     const RwMotorTorqueAlgorithm alg{config};
 
     // Zero command: the control term vanishes, so the output is the despin term tau * d on its own.
-    const Eigen::Vector<float, kMaxNumRw> despin =
-        alg.update(Eigen::Vector3f::Zero(), makeSpeeds(rwSpeeds, rwDesiredSpeeds));
+    const RwMotorTorqueSpeeds speeds = makeSpeeds(rwSpeeds, rwDesiredSpeeds);
+    const Eigen::Vector<float, kMaxNumRw> despin = alg.update(Eigen::Vector3f::Zero(), speeds);
 
     // The config factory rejects ill-conditioned null-space geometry, so for any constructible config the
-    // despin lies cleanly in the null space and produces no body torque (up to fp32 round-off).
+    // despin lies cleanly in the null space and produces no body torque (up to fp32 round-off). [Gs] * tau == 0
+    // in exact arithmetic, so the residual is pure round-off whose magnitude scales with the despin input
+    // d = -omegaGain * (rwSpeeds - rwDesiredSpeeds). The tolerance is therefore scaled by ||d||.
+    // Essentially, this compares that the torque on the body is negligible to the torque applied to despin the wheels.
+    const Eigen::Vector<float, kMaxNumRw> despinInput = omegaGain * (speeds.rwSpeeds - speeds.rwDesiredSpeeds);
     const Eigen::Vector3f bodyTorque = availableGs(config) * despin;
-    EXPECT_LE(bodyTorque.norm(), 1e-3F * despin.norm() + 1e-4F);
+    EXPECT_LE(bodyTorque.norm(), 1e-4F + 1e-5F * despinInput.norm());
 }
 
 // With a zero gain the despin term vanishes: the output is independent of the RW speeds.
