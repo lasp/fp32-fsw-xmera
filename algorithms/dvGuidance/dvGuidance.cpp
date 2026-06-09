@@ -31,5 +31,5 @@ void DvGuidance::updateState(const uint64_t callTime) {
     eigenVectorToCArray(out.omega_RN_N, attCmd.omega_RN_N);
     eigenVectorToCArray(out.domega_RN_N, attCmd.domega_RN_N);
 
-    this->attRefOutMsg.write(&attCmd, this->moduleID, callTime);
+    this->attRefOutMsg.write(attCmd, this->moduleID, callTime);
 }

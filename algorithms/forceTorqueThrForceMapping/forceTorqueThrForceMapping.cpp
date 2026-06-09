@@ -67,7 +67,7 @@ void ForceTorqueThrForceMapping::updateState(const uint64_t callTime) {
 
     THRArrayCmdForceMsgF32Payload thrForceCmdOut{};
     eigenVectorToCArray(thrForce, thrForceCmdOut.thrForce);
-    this->thrForceCmdOutMsg.write(&thrForceCmdOut, this->moduleID, callTime);
+    this->thrForceCmdOutMsg.write(thrForceCmdOut, this->moduleID, callTime);
 }
 
 /*! Setter for the desiredControlAxes_B controllability assertion vector. See the algorithm class for

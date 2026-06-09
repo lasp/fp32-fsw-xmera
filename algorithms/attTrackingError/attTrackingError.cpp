@@ -59,5 +59,5 @@ void AttTrackingError::updateState(uint64_t callTime) {
     eigenVectorToCArray(guidOut.domega_RN_B, attGuidOutF32.domega_RN_B);
 
     // Write the attitude guidance float output message
-    this->attGuidOutMsg.write(&attGuidOutF32, this->moduleID, callTime);
+    this->attGuidOutMsg.write(attGuidOutF32, this->moduleID, callTime);
 }
