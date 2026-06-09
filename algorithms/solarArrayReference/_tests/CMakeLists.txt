@@ -1,8 +1,8 @@
 add_executable(test_solarArrayReference
-  ../solarArrayReferenceAlgorithm.cpp
-  ../../utilities/fsw/safeMath.h
-  solarArrayReferenceTestHelpers.hpp
-  test_solarArrayReference.cpp
+               ../solarArrayReferenceAlgorithm.cpp
+               ../../utilities/fsw/safeMath.h
+               solarArrayReferenceTestHelpers.hpp
+               test_solarArrayReference.cpp
 )
 
 target_include_directories(test_solarArrayReference PRIVATE "../..")

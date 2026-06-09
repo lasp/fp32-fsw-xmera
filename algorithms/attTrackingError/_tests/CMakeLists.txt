@@ -1,7 +1,7 @@
 add_executable(test_attTrackingError
-  ../attTrackingErrorAlgorithm.cpp
-        attTrackingErrorTestHelpers.hpp
-  test_attTrackingError.cpp
+               ../attTrackingErrorAlgorithm.cpp
+               attTrackingErrorTestHelpers.hpp
+               test_attTrackingError.cpp
 )
 
 target_include_directories(test_attTrackingError PRIVATE "../..")
@@ -19,9 +19,9 @@ if(XMERA_ENABLE_FUZZTESTS)
   fuzztest_setup_fuzzing_flags()
 
   add_executable(test_attTrackingError_fuzz
-    ../attTrackingErrorAlgorithm.cpp
-          attTrackingErrorTestHelpers.hpp
-    test_attTrackingError_fuzz.cpp
+                 ../attTrackingErrorAlgorithm.cpp
+                 attTrackingErrorTestHelpers.hpp
+                 test_attTrackingError_fuzz.cpp
   )
 
   target_include_directories(test_attTrackingError_fuzz PRIVATE "../..")

@@ -1,6 +1,5 @@
 add_executable(test_oeStateEphem
   ../oeStateEphemAlgorithm.cpp
-  ../../utilities/fsw/chebyshevUtilities.h
   test_oeStateEphem.cpp
 )
 

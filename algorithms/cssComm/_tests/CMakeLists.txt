@@ -1,6 +1,5 @@
 add_executable(test_cssComm
   ../cssCommAlgorithm.cpp
-  ../../utilities/fsw/chebyshevUtilities.h
   cssCommTestHelpers.hpp
   test_cssComm.cpp
 )
