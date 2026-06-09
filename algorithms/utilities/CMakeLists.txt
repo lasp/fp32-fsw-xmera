@@ -5,6 +5,7 @@ target_sources(AlgorithmUtilities INTERFACE
   orbitalMotion.hpp
   safeMath.h
   freestandingIsFinite.hpp
+  validPSDCheck.h
 )
 
 target_link_libraries(AlgorithmUtilities INTERFACE

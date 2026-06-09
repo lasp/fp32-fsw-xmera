@@ -22,6 +22,17 @@ target_link_libraries(test_validateInertia PRIVATE
 
 gtest_discover_tests(test_validateInertia)
 
+add_executable(test_validPSDCheck
+  test_validPSDCheck.cpp
+)
+
+target_link_libraries(test_validPSDCheck PRIVATE
+    Eigen3::Eigen
+    GTest::gtest_main
+  )
+
+gtest_discover_tests(test_validPSDCheck)
+
 add_executable(test_chebyshevUtilities
   test_chebyshevUtilities.cpp
 )
