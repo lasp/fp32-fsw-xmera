@@ -2,7 +2,6 @@
 #define F32XMERA_AVERAGEMIMUDATAALGORITHM_C_H
 
 #include "utilities/fsw/plainCAlgorithmDataTypes.h"
-#include <stddef.h>
 
 #include <stdint.h>
 

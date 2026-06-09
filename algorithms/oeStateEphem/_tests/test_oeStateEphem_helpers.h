@@ -6,7 +6,6 @@
 #define TEST_OE_STATE_EPHEM_HELPERS_H
 
 #include "oeStateEphemAlgorithm.h"
-#include <numbers>
 #include "utilities/fsw/orbitalMotion.hpp"
 #include "utilities/fsw/safeMath.h"
 #include "utilities/fsw/timeConstants.h"

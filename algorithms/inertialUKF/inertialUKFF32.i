@@ -1,6 +1,5 @@
 %module inertialUKFF32
 %{
-#include "utilities/fsw/timeConstants.h"
     #include "inertialUKF.h"
 %}
 

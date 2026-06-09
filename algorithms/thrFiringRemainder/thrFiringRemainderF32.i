@@ -1,6 +1,5 @@
 %module thrFiringRemainderF32
 %{
-#include "utilities/fsw/timeConstants.h"
    #include "thrFiringRemainder.h"
 %}
 

@@ -1,6 +1,5 @@
 %module sunTrackErrorF32
 %{
-#include "utilities/fsw/timeConstants.h"
    #include "sunTrackError.h"
 %}
 

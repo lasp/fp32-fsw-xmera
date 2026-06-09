@@ -1,6 +1,5 @@
 %module sunlineSRuKFF32
 %{
-#include "utilities/fsw/timeConstants.h"
     #include "sunlineSRuKF.h"
 %}
 

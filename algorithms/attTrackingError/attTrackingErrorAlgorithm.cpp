@@ -1,5 +1,4 @@
 #include "attTrackingErrorAlgorithm.h"
-#include "attTrackingErrorTypes.h"
 
 #include "utilities/fsw/rigidBodyKinematics.hpp"
 

@@ -2,7 +2,6 @@
 #define F32XMERA_ATT_TRACKING_ERROR_ALGORITHM_H
 
 #include <Eigen/Core>
-#include "attTrackingErrorTypes.h"
 
 /*! @brief Structure containing the attitude navigation input needed by the algorithm */
 struct AttNavInput {

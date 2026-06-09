@@ -1,6 +1,5 @@
 %module sunSearchF32
 %{
-#include "utilities/fsw/timeConstants.h"
    #include "sunSearch.h"
 %}
 

@@ -1,6 +1,5 @@
 %module navAggregateF32
 %{
-#include "utilities/fsw/timeConstants.h"
    #include "navAggregate.h"
    using namespace f32;
 %}

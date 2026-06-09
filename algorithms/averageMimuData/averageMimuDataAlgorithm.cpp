@@ -1,5 +1,4 @@
 #include "averageMimuDataAlgorithm.h"
-#include <cstdint>
 #include "utilities/fsw/eigenSupport.h"
 #include "utilities/fsw/freestandingInvalidArgument.h"
 #include "utilities/fsw/timeConstants.h"

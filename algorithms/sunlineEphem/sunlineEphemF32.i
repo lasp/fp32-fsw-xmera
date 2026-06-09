@@ -1,6 +1,5 @@
 %module sunlineEphemF32
 %{
-#include "utilities/fsw/timeConstants.h"
     #include "sunlineEphem.h"
 %}
 

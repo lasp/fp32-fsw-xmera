@@ -1,6 +1,5 @@
 %module oeStateEphemF32
 %{
-#include "utilities/fsw/timeConstants.h"
    #include "oeStateEphem.h"
 %}
 

@@ -2,13 +2,12 @@
 #define TEST_ATT_TRACKING_ERROR_H
 
 #include "attTrackingErrorAlgorithm.h"
-#include "attTrackingErrorTypes.h"
-#include "utilities/fsw/rigidBodyKinematics.hpp"
 #include "utilities/fsw/eigenSupport.h"
+#include "utilities/fsw/rigidBodyKinematics.hpp"
 
 #include <gtest/gtest.h>
-#include <Eigen/Core>
 #include <math.h>
+#include <Eigen/Core>
 #include <numbers>
 
 // Create a struct for the double output

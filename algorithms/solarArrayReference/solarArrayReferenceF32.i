@@ -1,6 +1,5 @@
 %module solarArrayReferenceF32
 %{
-#include "utilities/fsw/timeConstants.h"
    #include "solarArrayReference.h"
    typedef std::array<Eigen::Vector3f, 2> Vector3fArray2;
 %}

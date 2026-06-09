@@ -1,6 +1,5 @@
 %module mimuMajorityVoteF32
 %{
-#include "utilities/fsw/timeConstants.h"
    #include "mimuMajorityVote.h"
 %}
 

@@ -1,5 +1,4 @@
 #include "attTrackingError.h"
-#include "attTrackingErrorTypes.h"
 
 #include "utilities/fsw/eigenSupport.h"
 #include "utilities/fsw/messageConversionHelpers.hpp"

@@ -1,6 +1,5 @@
 %module convertStPlatformToBodyF32
 %{
-#include "utilities/fsw/timeConstants.h"
    #include "convertStPlatformToBody.h"
 %}
 

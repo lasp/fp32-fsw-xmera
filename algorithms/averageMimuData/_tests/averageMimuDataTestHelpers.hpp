@@ -2,7 +2,6 @@
 #define TEST_EPHEMERIDESRECENTER_H
 
 #include "averageMimuDataAlgorithm.h"
-#include "utilities/fsw/freestandingInvalidArgument.h"
 #include "utilities/fsw/eigenSupport.h"
 
 #include <architecture/utilities/macroDefinitions.h>
