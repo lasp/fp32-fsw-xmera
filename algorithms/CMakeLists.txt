@@ -1,5 +1,6 @@
 add_subdirectory(msgPayloadDef)
 add_subdirectory(utilities)
+add_subdirectory(filteringCore)
 
 add_subdirectory(attTrackingError)
 add_subdirectory(averageMimuData)
