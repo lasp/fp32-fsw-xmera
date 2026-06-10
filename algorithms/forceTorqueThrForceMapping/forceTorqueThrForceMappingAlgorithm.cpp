@@ -4,48 +4,40 @@
 #include <Eigen/Geometry>
 #include <Eigen/SVD>
 #include <limits>
+#include <optional>
 
-/*! Compute thruster force commands from the requested torque and force vectors.
- @return Eigen::Vector<float, MAX_EFF_CNT> thruster force commands (non-negative, shifted by min)
- @param cmdTorque_B [Nm] requested control torque in body frame
- @param cmdForce_B [N] requested control force in body frame
-*/
-Eigen::Vector<float, MAX_EFF_CNT> ForceTorqueThrForceMappingAlgorithm::update(const Eigen::Vector3f& cmdTorque_B,
-                                                                              const Eigen::Vector3f& cmdForce_B) const {
-    /* Create the torque and force vector */
-    Eigen::Vector<float, 6> forceTorque_B{};
-    forceTorque_B << cmdTorque_B, cmdForce_B;
+namespace {
 
-    Eigen::Vector<float, MAX_EFF_CNT> thrusterForces = this->pseudoInverseDG * forceTorque_B;
-    const float minForce = thrusterForces.head(this->numThrusters).minCoeff();
-    thrusterForces.head(this->numThrusters).array() -= minForce;
-
-    return thrusterForces;
-}
-
-/*! Compute the thruster mapping matrix via a truncated-SVD pseudo-inverse of DG. Singular values
- *  below a relative tolerance (sigma_max * eps * max(m,n)) are treated as zero, which projects
- *  uncontrollable directions in the 6-D command space out of the result. Throws if any axis flagged
- *  in desiredControlAxes_B lies outside the column space of DG.
+/*! Truncated-SVD pseudo-inverse of the control mapping matrix DG (singular values below
+ *  sigma_max * eps * max(m,n) are dropped). Returns nullopt when a desiredControlAxes_B axis is
+ *  uncontrollable or the kept subspace is ill-conditioned (condition number > 100).
  */
-void ForceTorqueThrForceMappingAlgorithm::computeThrusterMapping() {
-    /* - compute thruster locations relative to COM */
-    Eigen::Matrix<float, 3, MAX_EFF_CNT> rThrusterRelCOM_B{Eigen::Matrix<float, 3, MAX_EFF_CNT>::Zero()};
-    rThrusterRelCOM_B.leftCols(this->numThrusters) =
-        this->rThruster_B.leftCols(this->numThrusters).colwise() - this->CoM_B;
+std::optional<Eigen::Matrix<float, MAX_EFF_CNT, 6>> computeThrusterMapping(
+    const ThrusterArrayConfiguration& thrusters,
+    const Eigen::Vector3f& centerOfMass_B,
+    const std::array<bool, 6>& desiredControlAxes_B) {
+    const uint32_t numThrusters = thrusters.numThrusters;
 
-    /* Fill DG with moment arms (rows 0-2) and thruster directions (rows 3-5) */
-    Eigen::Matrix<float, 3, MAX_EFF_CNT> rCrossGt{Eigen::Matrix<float, 3, MAX_EFF_CNT>::Zero()};
-    for (uint32_t i = 0; i < this->numThrusters; ++i) {
-        rCrossGt.col(i) = rThrusterRelCOM_B.col(i).cross(this->gtThruster_B.col(i));
+    // Column-major moment arms (r - CoM) and unit thrust directions.
+    Eigen::Matrix<float, 3, MAX_EFF_CNT> r_TB_B{Eigen::Matrix<float, 3, MAX_EFF_CNT>::Zero()};
+    Eigen::Matrix<float, 3, MAX_EFF_CNT> tHat_B{Eigen::Matrix<float, 3, MAX_EFF_CNT>::Zero()};
+    for (uint32_t i = 0; i < numThrusters; ++i) {
+        r_TB_B.col(i) = Eigen::Vector3f(thrusters.thrusters.at(i).r_TB_B.data());
+        tHat_B.col(i) = Eigen::Vector3f(thrusters.thrusters.at(i).tHat_B.data()).normalized();
+    }
+    Eigen::Matrix<float, 3, MAX_EFF_CNT> r_TC_B{Eigen::Matrix<float, 3, MAX_EFF_CNT>::Zero()};
+    r_TC_B.leftCols(numThrusters) = r_TB_B.leftCols(numThrusters).colwise() - centerOfMass_B;
+
+    // DG: moment arms (rows 0-2), thrust directions (rows 3-5).
+    Eigen::Matrix<float, 3, MAX_EFF_CNT> torquePntC_B{Eigen::Matrix<float, 3, MAX_EFF_CNT>::Zero()};
+    for (uint32_t i = 0; i < numThrusters; ++i) {
+        torquePntC_B.col(i) = r_TC_B.col(i).cross(tHat_B.col(i));
     }
     Eigen::Matrix<float, 6, MAX_EFF_CNT> DGwithZeros{};
-    DGwithZeros << rCrossGt, this->gtThruster_B;
+    DGwithZeros << torquePntC_B, tHat_B;
 
-    // SVD on the full DG (trailing columns are zero for unused thruster slots).
     const Eigen::JacobiSVD<Eigen::Matrix<float, 6, MAX_EFF_CNT>> svd(DGwithZeros,
                                                                      Eigen::ComputeFullU | Eigen::ComputeFullV);
-
     const Eigen::Vector<float, 6>& sv = svd.singularValues();
     constexpr int kMaxDim = (6 > MAX_EFF_CNT) ? 6 : MAX_EFF_CNT;
     const float tol = sv(0) * std::numeric_limits<float>::epsilon() * static_cast<float>(kMaxDim);
@@ -57,11 +49,12 @@ void ForceTorqueThrForceMappingAlgorithm::computeThrusterMapping() {
         }
     }
 
-    // Cross-check desiredControlAxes_B against the SVD
+    // Controllability: an asserted axis projecting onto the truncated (uncontrollable) left singular vectors
+    // is not reachable.
     constexpr float kControllabilityResidualSqTol = 1e-6F;
     const Eigen::Matrix<float, 6, 6>& U = svd.matrixU();
     for (int axis = 0; axis < 6; ++axis) {
-        if (!this->desiredControlAxes_B.at(static_cast<std::size_t>(axis))) {
+        if (!desiredControlAxes_B.at(static_cast<std::size_t>(axis))) {
             continue;
         }
         float residualSq = 0.0F;
@@ -71,92 +64,79 @@ void ForceTorqueThrForceMappingAlgorithm::computeThrusterMapping() {
             }
         }
         if (residualSq > kControllabilityResidualSqTol) {
-            FSW_THROW_INVALID_ARGUMENT(
-                "forceTorqueThrForceMapping: an axis marked in desiredControlAxes_B is not "
-                "controllable by the configured thruster array");
+            return std::nullopt;
         }
     }
 
-    this->pseudoInverseDG.noalias() = svd.matrixV().leftCols<6>() * invSv.asDiagonal() * svd.matrixU().transpose();
-
-    // Trailing rows are zero in exact arithmetic but may carry fp32 noise. Clear them so the
-    // padding-is-zero contract holds bitwise.
-    if (this->numThrusters < MAX_EFF_CNT) {
-        this->pseudoInverseDG.bottomRows(MAX_EFF_CNT - this->numThrusters).setZero();
-    }
-}
-
-/*! Setter for the thruster array configuration. Validates the thruster count and that each active
- *  direction vector has a norm within 1e-3 of 1.0, then decomposes the struct-of-arrays layout into
- *  the internal column-major Eigen matrices.
- @return void
- @param thrusterConfig thruster array configuration (positions and unit direction vectors)
-*/
-void ForceTorqueThrForceMappingAlgorithm::setThrusters(const ThrusterArrayConfig& thrusterConfig) {
-    const uint32_t count = thrusterConfig.numThrusters;
-    if (count == 0 || count > MAX_EFF_CNT) {
-        FSW_THROW_INVALID_ARGUMENT("forceTorqueThrForceMapping: numThrusters must be in [1, MAX_EFF_CNT]");
-    }
-
-    constexpr float normTolerance = 1e-3F;
-    Eigen::Matrix<float, 3, MAX_EFF_CNT> rThruster_B_new{Eigen::Matrix<float, 3, MAX_EFF_CNT>::Zero()};
-    Eigen::Matrix<float, 3, MAX_EFF_CNT> gtThruster_B_new{Eigen::Matrix<float, 3, MAX_EFF_CNT>::Zero()};
-    for (uint32_t i = 0; i < count; ++i) {
-        rThruster_B_new.col(i) = Eigen::Vector3f(thrusterConfig.thrusters.at(i).rThrust_B.data());
-        Eigen::Vector3f direction(thrusterConfig.thrusters.at(i).tHatThrust_B.data());
-        if (fabsf(direction.stableNorm() - 1.0F) > normTolerance) {
-            FSW_THROW_INVALID_ARGUMENT("forceTorqueThrForceMapping: thruster direction vector must be a unit vector");
-        }
-        direction.normalize();
-        gtThruster_B_new.col(i) = direction;
-    }
-
-    this->rThruster_B = rThruster_B_new;
-    this->gtThruster_B = gtThruster_B_new;
-    this->numThrusters = count;
-}
-
-/*! Getter for the thruster array configuration. Reconstructs the struct-of-arrays layout from the
- *  internal column-major Eigen matrices. Direction vectors are returned normalized.
- @return ThrusterArrayConfig
-*/
-ThrusterArrayConfig ForceTorqueThrForceMappingAlgorithm::getThrusters() const {
-    ThrusterArrayConfig thrusterConfig{};
-    thrusterConfig.numThrusters = this->numThrusters;
-    for (uint32_t i = 0; i < this->numThrusters; ++i) {
-        for (uint32_t j = 0; j < 3; ++j) {
-            thrusterConfig.thrusters.at(i).rThrust_B.at(j) = this->rThruster_B(j, i);
-            thrusterConfig.thrusters.at(i).tHatThrust_B.at(j) = this->gtThruster_B(j, i);
+    // Conditioning: reject when the smallest kept singular value (the last above tol, sorted descending)
+    // drops below kConditioningTol of the largest, i.e. condition number > 100.
+    constexpr float kConditioningTol = 1e-2F;
+    float minKept = sv(0);
+    for (int i = 0; i < 6; ++i) {
+        if (sv(i) > tol) {
+            minKept = sv(i);
         }
     }
-    return thrusterConfig;
+    if (minKept <= sv(0) * kConditioningTol) {
+        return std::nullopt;
+    }
+
+    Eigen::Matrix<float, MAX_EFF_CNT, 6> pseudoInverseDG{Eigen::Matrix<float, MAX_EFF_CNT, 6>::Zero()};
+    pseudoInverseDG.noalias() = svd.matrixV().leftCols<6>() * invSv.asDiagonal() * svd.matrixU().transpose();
+
+    // Clear trailing rows (zero in exact arithmetic) so the padding-is-zero contract holds bitwise.
+    if (numThrusters < MAX_EFF_CNT) {
+        pseudoInverseDG.bottomRows(MAX_EFF_CNT - numThrusters).setZero();
+    }
+
+    return pseudoInverseDG;
 }
 
-/*! Setter for the spacecraft center of mass in body frame.
- @return void
- @param centerOfMass [m] center of mass in body frame
-*/
-void ForceTorqueThrForceMappingAlgorithm::setCoM_B(const Eigen::Vector3f& centerOfMass) { this->CoM_B = centerOfMass; }
+}  // namespace
 
-/*! Getter for the spacecraft center of mass in body frame.
- @return Eigen::Vector3f [m]
-*/
-Eigen::Vector3f ForceTorqueThrForceMappingAlgorithm::getCoM_B() const { return this->CoM_B; }
-
-/*! Setter for the desiredControlAxes_B assertion vector. The first three entries are the torque
- *  components xyz in body frame B; the last three are the force components xyz in body frame B. A
- *  true entry asserts that the corresponding axis must be controllable by the configured thruster
- *  array; the assertion is checked against the SVD of DG inside computeThrusterMapping().
- @return void
- @param desiredControlAxes per-axis controllability assertions
-*/
-void ForceTorqueThrForceMappingAlgorithm::setDesiredControlAxes(const std::array<bool, 6>& desiredControlAxes) {
-    this->desiredControlAxes_B = desiredControlAxes;
+bool ForceTorqueThrForceMappingConfig::isValidMapping(const ThrusterArrayConfiguration& thrusters,
+                                                      const Eigen::Vector3f& centerOfMass_B,
+                                                      const std::array<bool, 6>& desiredControlAxes_B) {
+    return computeThrusterMapping(thrusters, centerOfMass_B, desiredControlAxes_B).has_value();
 }
 
-/*! Getter for the desiredControlAxes_B assertion vector.
- @return std::array<bool, 6>
+// create() already rejected configs that do not yield a valid mapping, so computeThrusterMapping() returns a
+// value here; the guard avoids a throw in the impossible nullopt case.
+// Config is fixed-size/trivially copyable, so move == copy; pass-by-value would only add an extra copy.
+ForceTorqueThrForceMappingAlgorithm::ForceTorqueThrForceMappingAlgorithm(
+    const ForceTorqueThrForceMappingConfig& config)  // NOLINT(modernize-pass-by-value)
+    : cfg(config) {
+    const std::optional<Eigen::Matrix<float, MAX_EFF_CNT, 6>> mapping = computeThrusterMapping(
+        this->cfg.getThrusters(), this->cfg.getCenterOfMass_B(), this->cfg.getDesiredControlAxes());
+    if (mapping.has_value()) {
+        this->pseudoInverseDG = *mapping;
+    }
+}
+
+//! Replace the configuration and recompute the thruster mapping matrix.
+void ForceTorqueThrForceMappingAlgorithm::setConfig(const ForceTorqueThrForceMappingConfig& config) {
+    this->cfg = config;
+    const std::optional<Eigen::Matrix<float, MAX_EFF_CNT, 6>> mapping = computeThrusterMapping(
+        this->cfg.getThrusters(), this->cfg.getCenterOfMass_B(), this->cfg.getDesiredControlAxes());
+    if (mapping.has_value()) {
+        this->pseudoInverseDG = *mapping;
+    }
+}
+
+/*! Map the requested body torque and force to per-thruster forces (non-negative, shifted by their minimum).
+ @param cmdTorque_B [Nm] requested control torque in body frame
+ @param cmdForce_B [N] requested control force in body frame
+ @return per-thruster force commands [N]
 */
-std::array<bool, 6> ForceTorqueThrForceMappingAlgorithm::getDesiredControlAxes() const {
-    return this->desiredControlAxes_B;
+Eigen::Vector<float, MAX_EFF_CNT> ForceTorqueThrForceMappingAlgorithm::update(const Eigen::Vector3f& cmdTorque_B,
+                                                                              const Eigen::Vector3f& cmdForce_B) const {
+    Eigen::Vector<float, 6> forceTorque_B{};
+    forceTorque_B << cmdTorque_B, cmdForce_B;
+
+    const uint32_t numThrusters = this->cfg.getThrusters().numThrusters;
+    Eigen::Vector<float, MAX_EFF_CNT> thrusterForces = this->pseudoInverseDG * forceTorque_B;
+    const float minForce = thrusterForces.head(numThrusters).minCoeff();
+    thrusterForces.head(numThrusters).array() -= minForce;
+
+    return thrusterForces;
 }

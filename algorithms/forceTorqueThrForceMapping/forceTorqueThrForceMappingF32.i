@@ -1,10 +1,8 @@
 %module forceTorqueThrForceMappingF32
 %{
     #include "forceTorqueThrForceMapping.h"
-   typedef std::array<double, 6> BoolArray6;
 %}
 
-%include <attribute.i>
 %include <std_array.i>
 %template(BoolArray6) std::array<bool, 6>;
 
@@ -12,7 +10,6 @@
 %include <architecture/_GeneralModuleFiles/swig_conly_data.i>
 
 %include "forceTorqueThrForceMapping.h"
-%include "forceTorqueThrForceMappingTypes.h"
 
 %extend ForceTorqueThrForceMapping {
 %pythoncode %{
