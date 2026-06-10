@@ -53,5 +53,5 @@ void CelestialTwoBodyPoint::updateState(const uint64_t callTime) {
     eigenVectorToCArray(out.sigma_RN, attRefOut.sigma_RN);
     eigenVectorToCArray(out.omega_RN_N, attRefOut.omega_RN_N);
     eigenVectorToCArray(out.domega_RN_N, attRefOut.domega_RN_N);
-    this->attRefOutMsg.write(&attRefOut, this->moduleID, callTime);
+    this->attRefOutMsg.write(attRefOut, this->moduleID, callTime);
 }
