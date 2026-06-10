@@ -23,10 +23,10 @@ Eigen::Vector<float, MAX_EFF_CNT> ForceTorqueThrForceMappingAlgorithm::update(co
     return thrusterForces;
 }
 
-/*! Compute the thruster mapping matrix via a truncated-SVD pseudo-inverse of DG. Singular values
- *  below a relative tolerance (sigma_max * eps * max(m,n)) are treated as zero, which projects
- *  uncontrollable directions in the 6-D command space out of the result. Throws if any axis flagged
- *  in desiredControlAxes_B lies outside the column space of DG.
+/*! Compute the thruster mapping matrix via a truncated-SVD pseudo-inverse of the control mapping
+ *  matrix DG. Singular values below a relative tolerance (sigma_max * eps * max(m,n)) are treated
+ *  as zero, which projects uncontrollable directions in the 6-D command space out of the result.
+ *  Throws if any axis flagged in desiredControlAxes_B lies outside the column space of DG.
  */
 void ForceTorqueThrForceMappingAlgorithm::computeThrusterMapping() {
     /* - compute thruster locations relative to COM */
