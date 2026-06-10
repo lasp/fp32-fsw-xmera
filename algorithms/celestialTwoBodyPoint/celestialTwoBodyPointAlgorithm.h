@@ -53,17 +53,17 @@ class CelestialTwoBodyPointAlgorithm final {
 
     /*! @brief Compute the attitude reference that points at the primary celestial body while
         constraining a second axis toward the secondary celestial body when possible
-        @param r_celBody_N [m] primary celestial body inertial position
-        @param v_celBody_N [m/s] primary celestial body inertial velocity
-        @param r_secCelBody_N [m] secondary celestial body inertial position
-        @param v_secCelBody_N [m/s] secondary celestial body inertial velocity
+        @param r_PN_N [m] primary celestial body inertial position
+        @param v_PN_N [m/s] primary celestial body inertial velocity
+        @param r_SN_N [m] secondary celestial body inertial position
+        @param v_SN_N [m/s] secondary celestial body inertial velocity
         @param r_BN_N [m] spacecraft inertial position
         @param v_BN_N [m/s] spacecraft inertial velocity
         @return attitude reference output */
-    CelestialTwoBodyPointOutput update(const Eigen::Vector3d &r_celBody_N,
-                                       const Eigen::Vector3d &v_celBody_N,
-                                       const Eigen::Vector3d &r_secCelBody_N,
-                                       const Eigen::Vector3d &v_secCelBody_N,
+    CelestialTwoBodyPointOutput update(const Eigen::Vector3d &r_PN_N,
+                                       const Eigen::Vector3d &v_PN_N,
+                                       const Eigen::Vector3d &r_SN_N,
+                                       const Eigen::Vector3d &v_SN_N,
                                        const Eigen::Vector3d &r_BN_N,
                                        const Eigen::Vector3d &v_BN_N) const;
 

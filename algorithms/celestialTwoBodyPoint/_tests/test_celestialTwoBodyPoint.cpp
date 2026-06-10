@@ -16,21 +16,21 @@ TEST(CelestialTwoBodyPointTest, ReferenceTestWithSecondaryBody) {
     const double speed = std::sqrt(kMuEarth / a);
     const double f_rad = 60.0 * M_PI / 180.0;
 
-    testCelestialTwoBodyPoint(Eigen::Vector3d{a * std::cos(f_rad), a * std::sin(f_rad), 0.0},  // r_celBody_N
-                              Eigen::Vector3d{-speed * std::sin(f_rad), speed * std::cos(f_rad), 0.0},
-                              Eigen::Vector3d{500.0, 500.0, 500.0},  // r_secCelBody_N
-                              Eigen::Vector3d{100.0, -10.0, 20.0},   // v_secCelBody_N
-                              Eigen::Vector3d::Zero(),               // r_BN_N
-                              Eigen::Vector3d::Zero(),               // v_BN_N
+    testCelestialTwoBodyPoint(Eigen::Vector3d{a * std::cos(f_rad), a * std::sin(f_rad), 0.0},           // r_PN_N
+                              Eigen::Vector3d{-speed * std::sin(f_rad), speed * std::cos(f_rad), 0.0},  // v_PN_N
+                              Eigen::Vector3d{500.0, 500.0, 500.0},                                     // r_SN_N
+                              Eigen::Vector3d{100.0, -10.0, 20.0},                                      // v_SN_N
+                              Eigen::Vector3d::Zero(),                                                  // r_BN_N
+                              Eigen::Vector3d::Zero(),                                                  // v_BN_N
                               1.0F * kDeg2Rad);
 }
 
 TEST(CelestialTwoBodyPointTest, ReferenceTestNonZeroSpacecraftState) {
     // Spacecraft with a non-zero inertial state observing a primary body offset from the origin.
-    testCelestialTwoBodyPoint(Eigen::Vector3d{1.5e11, 0.0, 0.0},          // r_celBody_N (heliocentric Earth)
-                              Eigen::Vector3d{0.0, 2.978e4, 0.0},         // v_celBody_N
-                              Eigen::Vector3d{0.0, 0.0, 0.0},             // r_secCelBody_N (Sun at origin)
-                              Eigen::Vector3d{0.0, 0.0, 0.0},             // v_secCelBody_N
+    testCelestialTwoBodyPoint(Eigen::Vector3d{1.5e11, 0.0, 0.0},          // r_PN_N (heliocentric Earth)
+                              Eigen::Vector3d{0.0, 2.978e4, 0.0},         // v_PN_N
+                              Eigen::Vector3d{0.0, 0.0, 0.0},             // r_SN_N (Sun at origin)
+                              Eigen::Vector3d{0.0, 0.0, 0.0},             // v_SN_N
                               Eigen::Vector3d{1.5e11 + 7.0e6, 0.0, 0.0},  // r_BN_N (LEO offset)
                               Eigen::Vector3d{0.0, 7.7e3, 0.0},           // v_BN_N
                               1.0F * kDeg2Rad);

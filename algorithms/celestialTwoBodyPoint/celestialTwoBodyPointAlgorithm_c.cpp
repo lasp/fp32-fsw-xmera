@@ -31,21 +31,21 @@ void CelestialTwoBodyPointAlgorithm_setConfig(CelestialTwoBodyPointAlgorithmHand
 }
 
 AttRefMsgF32Payload CelestialTwoBodyPointAlgorithm_update(const CelestialTwoBodyPointAlgorithmHandle* self,
-                                                          Vector3d_c r_celBody_N,
-                                                          Vector3d_c v_celBody_N,
-                                                          Vector3d_c r_secCelBody_N,
-                                                          Vector3d_c v_secCelBody_N,
+                                                          Vector3d_c r_PN_N,
+                                                          Vector3d_c v_PN_N,
+                                                          Vector3d_c r_SN_N,
+                                                          Vector3d_c v_SN_N,
                                                           Vector3d_c r_BN_N,
                                                           Vector3d_c v_BN_N) {
-    const Eigen::Vector3d r_celBody_N_e = cArrayToEigenVector3<double>(r_celBody_N.data);
-    const Eigen::Vector3d v_celBody_N_e = cArrayToEigenVector3<double>(v_celBody_N.data);
-    const Eigen::Vector3d r_secCelBody_N_e = cArrayToEigenVector3<double>(r_secCelBody_N.data);
-    const Eigen::Vector3d v_secCelBody_N_e = cArrayToEigenVector3<double>(v_secCelBody_N.data);
+    const Eigen::Vector3d r_PN_N_e = cArrayToEigenVector3<double>(r_PN_N.data);
+    const Eigen::Vector3d v_PN_N_e = cArrayToEigenVector3<double>(v_PN_N.data);
+    const Eigen::Vector3d r_SN_N_e = cArrayToEigenVector3<double>(r_SN_N.data);
+    const Eigen::Vector3d v_SN_N_e = cArrayToEigenVector3<double>(v_SN_N.data);
     const Eigen::Vector3d r_BN_N_e = cArrayToEigenVector3<double>(r_BN_N.data);
     const Eigen::Vector3d v_BN_N_e = cArrayToEigenVector3<double>(v_BN_N.data);
 
     // clang-format off
-    const CelestialTwoBodyPointOutput out = reinterpret_cast<const ::CelestialTwoBodyPointAlgorithm*>(self)->update(r_celBody_N_e, v_celBody_N_e, r_secCelBody_N_e, v_secCelBody_N_e, r_BN_N_e, v_BN_N_e);  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+    const CelestialTwoBodyPointOutput out = reinterpret_cast<const ::CelestialTwoBodyPointAlgorithm*>(self)->update(r_PN_N_e, v_PN_N_e, r_SN_N_e, v_SN_N_e, r_BN_N_e, v_BN_N_e);  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
     // clang-format on
 
     AttRefMsgF32Payload payload{};

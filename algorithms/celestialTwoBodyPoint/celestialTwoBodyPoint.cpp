@@ -8,11 +8,11 @@ void CelestialTwoBodyPoint::reset(const uint64_t callTime) {
     if (!this->transNavInMsg.isLinked()) {
         throw std::invalid_argument("celestialTwoBodyPoint.transNavInMsg was not linked.");
     }
-    if (!this->celBodyInMsg.isLinked()) {
-        throw std::invalid_argument("celestialTwoBodyPoint.celBodyInMsg was not linked.");
+    if (!this->primaryCelBodyInMsg.isLinked()) {
+        throw std::invalid_argument("celestialTwoBodyPoint.primaryCelBodyInMsg was not linked.");
     }
-    if (!this->secCelBodyInMsg.isLinked()) {
-        throw std::invalid_argument("celestialTwoBodyPoint.secCelBodyInMsg was not linked.");
+    if (!this->secondaryCelBodyInMsg.isLinked()) {
+        throw std::invalid_argument("celestialTwoBodyPoint.secondaryCelBodyInMsg was not linked.");
     }
 
     // Phase 2: Validate config and create algorithm
@@ -42,17 +42,16 @@ void CelestialTwoBodyPoint::updateState(const uint64_t callTime) {
     }
 
     const NavTransMsgF32Payload transNavIn = this->transNavInMsg();
-    const EphemerisMsgF32Payload celBodyIn = this->celBodyInMsg();
-    const EphemerisMsgF32Payload secCelBodyIn = this->secCelBodyInMsg();
+    const EphemerisMsgF32Payload primaryCelBodyIn = this->primaryCelBodyInMsg();
+    const EphemerisMsgF32Payload secondaryCelBodyIn = this->secondaryCelBodyInMsg();
     const Eigen::Vector3d r_BN_N = cArrayToEigenVector3<double>(transNavIn.r_BN_N);
     const Eigen::Vector3d v_BN_N = cArrayToEigenVector3<double>(transNavIn.v_BN_N);
-    const Eigen::Vector3d r_celBody_N = cArrayToEigenVector3<double>(celBodyIn.r_BdyZero_N);
-    const Eigen::Vector3d v_celBody_N = cArrayToEigenVector3<double>(celBodyIn.v_BdyZero_N);
-    const Eigen::Vector3d r_secCelBody_N = cArrayToEigenVector3<double>(secCelBodyIn.r_BdyZero_N);
-    const Eigen::Vector3d v_secCelBody_N = cArrayToEigenVector3<double>(secCelBodyIn.v_BdyZero_N);
+    const Eigen::Vector3d r_PN_N = cArrayToEigenVector3<double>(primaryCelBodyIn.r_BdyZero_N);
+    const Eigen::Vector3d v_PN_N = cArrayToEigenVector3<double>(primaryCelBodyIn.v_BdyZero_N);
+    const Eigen::Vector3d r_SN_N = cArrayToEigenVector3<double>(secondaryCelBodyIn.r_BdyZero_N);
+    const Eigen::Vector3d v_SN_N = cArrayToEigenVector3<double>(secondaryCelBodyIn.v_BdyZero_N);
 
-    const CelestialTwoBodyPointOutput out =
-        this->algorithm->update(r_celBody_N, v_celBody_N, r_secCelBody_N, v_secCelBody_N, r_BN_N, v_BN_N);
+    const CelestialTwoBodyPointOutput out = this->algorithm->update(r_PN_N, v_PN_N, r_SN_N, v_SN_N, r_BN_N, v_BN_N);
 
     /*! - Write the output message */
     AttRefMsgF32Payload attRefOut{};

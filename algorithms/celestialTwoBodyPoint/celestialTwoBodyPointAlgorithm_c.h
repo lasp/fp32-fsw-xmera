@@ -49,19 +49,19 @@ void CelestialTwoBodyPointAlgorithm_setConfig(CelestialTwoBodyPointAlgorithmHand
  * the secondary celestial body when possible.
  *
  * @param self            Pointer to the instance.
- * @param r_celBody_N     Primary celestial body inertial position [m].
- * @param v_celBody_N     Primary celestial body inertial velocity [m/s].
- * @param r_secCelBody_N  Secondary celestial body inertial position [m].
- * @param v_secCelBody_N  Secondary celestial body inertial velocity [m/s].
+ * @param r_PN_N     Primary celestial body inertial position [m].
+ * @param v_PN_N     Primary celestial body inertial velocity [m/s].
+ * @param r_SN_N  Secondary celestial body inertial position [m].
+ * @param v_SN_N  Secondary celestial body inertial velocity [m/s].
  * @param r_BN_N          Spacecraft inertial position [m].
  * @param v_BN_N          Spacecraft inertial velocity [m/s].
  * @return AttRefMsgF32Payload  Reference attitude, angular velocity, and angular acceleration.
  */
 AttRefMsgF32Payload CelestialTwoBodyPointAlgorithm_update(const CelestialTwoBodyPointAlgorithmHandle* self,
-                                                          Vector3d_c r_celBody_N,
-                                                          Vector3d_c v_celBody_N,
-                                                          Vector3d_c r_secCelBody_N,
-                                                          Vector3d_c v_secCelBody_N,
+                                                          Vector3d_c r_PN_N,
+                                                          Vector3d_c v_PN_N,
+                                                          Vector3d_c r_SN_N,
+                                                          Vector3d_c v_SN_N,
                                                           Vector3d_c r_BN_N,
                                                           Vector3d_c v_BN_N);
 

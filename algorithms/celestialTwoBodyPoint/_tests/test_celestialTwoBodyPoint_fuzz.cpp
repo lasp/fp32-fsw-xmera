@@ -13,35 +13,25 @@ constexpr float kSingularityThreshold = 0.017453292519943F;  // [rad] 1 deg
 // bounded by 1.
 void fuzzCelestialTwoBodyPointWithSecondaryProperties(const Eigen::Vector3d& r_BN_N,
                                                       const Eigen::Vector3d& v_BN_N,
-                                                      const Eigen::Vector3d& relPosPrimary,
-                                                      const Eigen::Vector3d& relVelPrimary,
-                                                      const Eigen::Vector3d& relPosSecondary,
-                                                      const Eigen::Vector3d& relVelSecondary) {
-    const double rNorm = relPosPrimary.norm();
-    const double vNorm = relVelPrimary.norm();
-    if (vNorm == 0.0 || relPosPrimary.cross(relVelPrimary).norm() < 1.0e-3 * rNorm * vNorm) {
+                                                      const Eigen::Vector3d& r_PB_N,
+                                                      const Eigen::Vector3d& v_PB_N,
+                                                      const Eigen::Vector3d& r_SB_N,
+                                                      const Eigen::Vector3d& v_SB_N) {
+    const double rNorm = r_PB_N.norm();
+    const double vNorm = v_PB_N.norm();
+    if (vNorm == 0.0 || r_PB_N.cross(v_PB_N).norm() < 1.0e-3 * rNorm * vNorm) {
         return;
     }
     // The secondary body must not sit on top of the spacecraft, otherwise its direction is
     // undefined (normalizing a zero vector).
-    if (relPosSecondary.norm() < 1.0e3) {
+    if (r_SB_N.norm() < 1.0e3) {
         return;
     }
 
-    propertyOutputIsFinite(r_BN_N + relPosPrimary,
-                           v_BN_N + relVelPrimary,
-                           r_BN_N + relPosSecondary,
-                           v_BN_N + relVelSecondary,
-                           r_BN_N,
-                           v_BN_N,
-                           kSingularityThreshold);
-    propertySigmaNormBounded(r_BN_N + relPosPrimary,
-                             v_BN_N + relVelPrimary,
-                             r_BN_N + relPosSecondary,
-                             v_BN_N + relVelSecondary,
-                             r_BN_N,
-                             v_BN_N,
-                             kSingularityThreshold);
+    propertyOutputIsFinite(
+        r_BN_N + r_PB_N, v_BN_N + v_PB_N, r_BN_N + r_SB_N, v_BN_N + v_SB_N, r_BN_N, v_BN_N, kSingularityThreshold);
+    propertySigmaNormBounded(
+        r_BN_N + r_PB_N, v_BN_N + v_PB_N, r_BN_N + r_SB_N, v_BN_N + v_SB_N, r_BN_N, v_BN_N, kSingularityThreshold);
 }
 
 }  // namespace

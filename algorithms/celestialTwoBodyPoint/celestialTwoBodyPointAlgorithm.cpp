@@ -15,10 +15,10 @@ void CelestialTwoBodyPointAlgorithm::setConfig(const CelestialTwoBodyPointConfig
  celestial body while aligning a second axis as close as possible toward the secondary
  celestial body. It generates the commanded attitude and assumes that the control errors are
  computed downstream.
- @param r_celBody_N [m] primary celestial body inertial position
- @param v_celBody_N [m/s] primary celestial body inertial velocity
- @param r_secCelBody_N [m] secondary celestial body inertial position
- @param v_secCelBody_N [m/s] secondary celestial body inertial velocity
+ @param r_PN_N [m] primary celestial body inertial position
+ @param v_PN_N [m/s] primary celestial body inertial velocity
+ @param r_SN_N [m] secondary celestial body inertial position
+ @param v_SN_N [m/s] secondary celestial body inertial velocity
  @param r_BN_N [m] spacecraft inertial position
  @param v_BN_N [m/s] spacecraft inertial velocity
  @return attitude reference output
@@ -26,16 +26,16 @@ void CelestialTwoBodyPointAlgorithm::setConfig(const CelestialTwoBodyPointConfig
 // NOLINTBEGIN(bugprone-easily-swappable-parameters)
 // bugprone-easily-swappable-parameters: the Vector3d position/velocity inputs are documented in
 // the header and follow the standard (primary, secondary, spacecraft) ordering.
-CelestialTwoBodyPointOutput CelestialTwoBodyPointAlgorithm::update(const Eigen::Vector3d &r_celBody_N,
-                                                                   const Eigen::Vector3d &v_celBody_N,
-                                                                   const Eigen::Vector3d &r_secCelBody_N,
-                                                                   const Eigen::Vector3d &v_secCelBody_N,
+CelestialTwoBodyPointOutput CelestialTwoBodyPointAlgorithm::update(const Eigen::Vector3d &r_PN_N,
+                                                                   const Eigen::Vector3d &v_PN_N,
+                                                                   const Eigen::Vector3d &r_SN_N,
+                                                                   const Eigen::Vector3d &v_SN_N,
                                                                    const Eigen::Vector3d &r_BN_N,
                                                                    const Eigen::Vector3d &v_BN_N) const {
-    const Eigen::Vector3d r_PB_N = r_celBody_N - r_BN_N;
-    const Eigen::Vector3d v_PB_N = v_celBody_N - v_BN_N;
-    Eigen::Vector3d r_SB_N = r_secCelBody_N - r_BN_N;
-    Eigen::Vector3d v_SB_N = v_secCelBody_N - v_BN_N;
+    const Eigen::Vector3d r_PB_N = r_PN_N - r_BN_N;
+    const Eigen::Vector3d v_PB_N = v_PN_N - v_BN_N;
+    Eigen::Vector3d r_SB_N = r_SN_N - r_BN_N;
+    Eigen::Vector3d v_SB_N = v_SN_N - v_BN_N;
 
     /*! Return identity reference attitude and zero reference rates if either r_PB_N or r_SB_N are zero */
     if (r_PB_N.squaredNorm() < kMinNormSq || r_SB_N.squaredNorm() < kMinNormSq) {
