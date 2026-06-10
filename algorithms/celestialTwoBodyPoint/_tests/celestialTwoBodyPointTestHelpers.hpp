@@ -20,44 +20,56 @@ inline ReferenceCelestialTwoBodyPointOutput referenceRateAndAccelCalc(const Eige
                                                                       const Eigen::Vector3d& v_PB_N,
                                                                       const Eigen::Vector3d& r_SB_N,
                                                                       const Eigen::Vector3d& v_SB_N) {
-    const Eigen::Vector3d R_n = r_PB_N.cross(r_SB_N);
-    const Eigen::Vector3d v_n = v_PB_N.cross(r_SB_N) + r_PB_N.cross(v_SB_N);
-    const Eigen::Vector3d a_n = 2.0 * v_PB_N.cross(v_SB_N);
+    /* Compute normal vector to plane of r_PB_N and r_SB_N */
+    const Eigen::Vector3d normalVec_N = r_PB_N.cross(r_SB_N);
 
-    const Eigen::Vector3d r1_hat = r_PB_N.normalized();
-    const Eigen::Vector3d r3_hat = R_n.normalized();
-    const Eigen::Vector3d r2_hat = (r3_hat.cross(r1_hat)).normalized();
+    /* Compute inertial time derivative of normal vector */
+    const Eigen::Vector3d normalVecDot_N = v_PB_N.cross(r_SB_N) + r_PB_N.cross(v_SB_N);
+
+    /* Compute inertial acceleration of normal vector */
+    const Eigen::Vector3d normalVecDDot_N = 2.0 * v_PB_N.cross(v_SB_N);
+
+    /* Reference frame computation */
+    const Eigen::Vector3d r1Hat_N = r_PB_N.normalized();
+    const Eigen::Vector3d r3Hat_N = normalVec_N.normalized();
+    const Eigen::Vector3d r2Hat_N = (r3Hat_N.cross(r1Hat_N)).normalized();
     Eigen::Matrix3d dcm_RN;
-    dcm_RN.row(0) = r1_hat;
-    dcm_RN.row(1) = r2_hat;
-    dcm_RN.row(2) = r3_hat;
+    dcm_RN.row(0) = r1Hat_N;
+    dcm_RN.row(1) = r2Hat_N;
+    dcm_RN.row(2) = r3Hat_N;
 
+    /* Compute inertial time derivative of reference frame basis vectors */
     const Eigen::Matrix3d identity = Eigen::Matrix3d::Identity();
-    const Eigen::Vector3d dr1_hat = (identity - r1_hat * r1_hat.transpose()) * (v_PB_N / r_PB_N.norm());
-    const Eigen::Vector3d dr3_hat = (identity - r3_hat * r3_hat.transpose()) * (v_n / R_n.norm());
-    const Eigen::Vector3d dr2_hat = dr3_hat.cross(r1_hat) + r3_hat.cross(dr1_hat);
+    const Eigen::Vector3d r1HatDot_N = (identity - r1Hat_N * r1Hat_N.transpose()) * (v_PB_N / r_PB_N.norm());
+    const Eigen::Vector3d r3HatDot_N =
+        (identity - r3Hat_N * r3Hat_N.transpose()) * (normalVecDot_N / normalVec_N.norm());
+    const Eigen::Vector3d r2HatDot_N = r3HatDot_N.cross(r1Hat_N) + r3Hat_N.cross(r1HatDot_N);
 
+    /* Reference angular velocity computation */
     Eigen::Vector3d omega_RN_R;
-    omega_RN_R[0] = r3_hat.dot(dr2_hat);
-    omega_RN_R[1] = r1_hat.dot(dr3_hat);
-    omega_RN_R[2] = r2_hat.dot(dr1_hat);
+    omega_RN_R[0] = r3Hat_N.dot(r2HatDot_N);
+    omega_RN_R[1] = r1Hat_N.dot(r3HatDot_N);
+    omega_RN_R[2] = r2Hat_N.dot(r1HatDot_N);
 
-    const Eigen::Vector3d ddr1_hat =
-        -(2.0 * dr1_hat * r1_hat.transpose() + r1_hat * dr1_hat.transpose()) * (v_PB_N / r_PB_N.norm());
-    const Eigen::Vector3d ddr3_hat = ((identity - r3_hat * r3_hat.transpose()) * a_n -
-                                      (2.0 * dr3_hat * r3_hat.transpose() + r3_hat * dr3_hat.transpose()) * v_n) /
-                                     R_n.norm();
-    const Eigen::Vector3d ddr2_hat = ddr3_hat.cross(r1_hat) + r3_hat.cross(ddr1_hat) + 2.0 * dr3_hat.cross(dr1_hat);
+    const Eigen::Vector3d r1HatDDot_N =
+        -(2.0 * r1HatDot_N * r1Hat_N.transpose() + r1Hat_N * r1HatDot_N.transpose()) * (v_PB_N / r_PB_N.norm());
+    const Eigen::Vector3d r3HatDDot_N =
+        ((identity - r3Hat_N * r3Hat_N.transpose()) * normalVecDDot_N -
+         (2.0 * r3HatDot_N * r3Hat_N.transpose() + r3Hat_N * r3HatDot_N.transpose()) * normalVecDot_N) /
+        normalVec_N.norm();
+    const Eigen::Vector3d r2HatDDot_N =
+        r3HatDDot_N.cross(r1Hat_N) + r3Hat_N.cross(r1HatDDot_N) + 2.0 * r3HatDot_N.cross(r1HatDot_N);
 
-    Eigen::Vector3d domega_RN_R;
-    domega_RN_R[0] = dr3_hat.dot(dr2_hat) + r3_hat.dot(ddr2_hat) - omega_RN_R.dot(dr1_hat);
-    domega_RN_R[1] = dr1_hat.dot(dr3_hat) + r1_hat.dot(ddr3_hat) - omega_RN_R.dot(dr2_hat);
-    domega_RN_R[2] = dr2_hat.dot(dr1_hat) + r2_hat.dot(ddr1_hat) - omega_RN_R.dot(dr3_hat);
+    /* Reference angular acceleration computation */
+    Eigen::Vector3d omegaDot_RN_R;
+    omegaDot_RN_R[0] = r3HatDot_N.dot(r2HatDot_N) + r3Hat_N.dot(r2HatDDot_N) - omega_RN_R.dot(r1HatDot_N);
+    omegaDot_RN_R[1] = r1HatDot_N.dot(r3HatDot_N) + r1Hat_N.dot(r3HatDDot_N) - omega_RN_R.dot(r2HatDot_N);
+    omegaDot_RN_R[2] = r2HatDot_N.dot(r1HatDot_N) + r2Hat_N.dot(r1HatDDot_N) - omega_RN_R.dot(r3HatDot_N);
 
     return {
         dcmToMrp(dcm_RN),
         dcm_RN.transpose() * omega_RN_R,
-        dcm_RN.transpose() * domega_RN_R,
+        dcm_RN.transpose() * omegaDot_RN_R,
     };
 }
 
