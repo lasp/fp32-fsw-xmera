@@ -5,13 +5,14 @@ if(NOT _is_enabled)
 endif()
 
 xmera_add_swig_module("${module}")
-
 target_sources("${module}" PRIVATE
   sunlineSRuKF.cpp
   sunlineSRuKFAlgorithm.cpp
-  sunlineSRuKFAlgorithm_c.cpp
 )
 
-target_include_directories("${module}" PUBLIC "..")
+target_link_libraries("${module}" PRIVATE
+  fswAlgorithmsCommon
+  filteringCore
+)
 
 target_link_libraries("${module}" PRIVATE Eigen3::Eigen)

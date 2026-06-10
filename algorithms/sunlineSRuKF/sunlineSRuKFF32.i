@@ -1,15 +1,19 @@
+// SPDX-License-Identifier: ISC
+// Copyright (c) 2024, Autonomous Vehicle System Lab, University of Colorado at Boulder
+// Copyright (c) 2024, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
+
 %module sunlineSRuKFF32
 %{
-    #include "sunlineSRuKF.h"
-    #include "utilities/timeConstants.h"
+   #include "sunlineSRuKF.h"
 %}
 
-%include <architecture/_GeneralModuleFiles/sys_model.i>
-%include <architecture/_GeneralModuleFiles/swig_conly_data.i>
+%include <fswAlgorithms/_GeneralModuleFiles/srukfInterface.i>
 
 %include "sunlineSRuKF.h"
 
-%include "msgPayloadDef/NavAttMsgF32Payload.h"
-%include <architecture/msgPayloadDef/CSSArraySensorMsgPayload.h>
+%include <architecture/msgPayloadDef/NavAttMsgPayload.h>
 %include <architecture/msgPayloadDef/CSSConfigMsgPayload.h>
 %include <architecture/msgPayloadDef/CSSUnitConfigMsgPayload.h>
+%include <architecture/msgPayloadDef/CSSArraySensorMsgPayload.h>
+%include <architecture/msgPayloadDef/FilterMsgPayload.h>
+%include <architecture/msgPayloadDef/FilterResidualsMsgPayload.h>
