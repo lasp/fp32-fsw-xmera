@@ -15,4 +15,7 @@ target_link_libraries("${module}" PRIVATE
   filteringCore
 )
 
-target_link_libraries("${module}" PRIVATE Eigen3::Eigen)
+# Framework-agnostic algorithm C++ unit tests.
+if(BUILD_TESTING)
+  add_subdirectory(_tests)
+endif()
