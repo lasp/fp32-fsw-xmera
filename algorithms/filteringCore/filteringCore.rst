@@ -29,18 +29,18 @@ Composable structure
 ::
 
    +-------------------------------------------------------------+
-   | xmera host adapter   (algorithms/sunlineSRuKF/              |
-   |                       sunlineSRuKF.{h,cpp})                  |
-   |   - SunlineSRuKF : SysModel, ReadFunctor<>, Message<>       |
+   | xmera host adapter   (algorithms/sunlineFilter/              |
+   |                       sunlineFilter.{h,cpp})                  |
+   |   - SunlineFilter : SysModel, ReadFunctor<>, Message<>       |
    |   - marshals MsgPayloads <-> plain-data I/O types           |
    +----------------------------+--------------------------------+
                                 | owns (pimpl)
                                 v
    +-------------------------------------------------------------+
-   | algorithm library   (algorithms/sunlineSRuKF/              |
-   |                       sunlineSRuKFAlgorithm.{h,cpp})         |
-   |   - SunlineSRuKFAlgorithm  (stateful, plain C++ class)       |
-   |   - sunlineSRuKFSpecs.h    (State, dynamics, I/O types,     |
+   | algorithm library   (algorithms/sunlineFilter/              |
+   |                       sunlineFilterAlgorithm.{h,cpp})         |
+   |   - SunlineFilterAlgorithm  (stateful, plain C++ class)       |
+   |   - sunlineFilterSpecs.h    (State, dynamics, I/O types,     |
    |                             variant Measurement)            |
    |   - measurement model(s) (in the .cpp)                       |
    +----------------------------+--------------------------------+
@@ -57,9 +57,9 @@ Composable structure
                   depends only on Eigen + the C++ stdlib
 
 The host adapter and the algorithm library live in the same directory
-(``algorithms/sunlineSRuKF``) and compile into one SWIG module, but they stay
-seperate: ``sunlineSRuKF.{h,cpp}`` is the xmera translation
-unit, and ``sunlineSRuKFAlgorithm.{h,cpp}`` / ``sunlineSRuKFSpecs.h`` depend
+(``algorithms/sunlineFilter``) and compile into one SWIG module, but they stay
+seperate: ``sunlineFilter.{h,cpp}`` is the xmera translation
+unit, and ``sunlineFilterAlgorithm.{h,cpp}`` / ``sunlineFilterSpecs.h`` depend
 only on ``filteringCore``.
 
 filteringCore
@@ -168,8 +168,8 @@ which the parent ``algorithms/`` include path resolves.
 host adapter
 ~~~~~~~~~~~~
 
-``algorithms/sunlineSRuKF/sunlineSRuKF.{h,cpp}`` is the only xmera layer.
-``SunlineSRuKF`` is a ``SysModel`` that owns the message ports and holds the
+``algorithms/sunlineFilter/sunlineFilter.{h,cpp}`` is the only xmera layer.
+``SunlineFilter`` is a ``SysModel`` that owns the message ports and holds the
 algorithm behind a ``std::unique_ptr`` (forward-declared, so the SWIG-parsed
 header never sees the concept-heavy core). See filter implementation examples
 for more details.
@@ -192,7 +192,7 @@ Each concept is an interface in the core; a concrete type connects to it by
 
 ::
 
-   interface (concept in filteringCore)         implementation (sunlineSRuKF)
+   interface (concept in filteringCore)         implementation (sunlineFilter)
    ------------------------------------------     ---------------------------
    FilterState<State>                        <==  StateVector<Position<3>,
                                                               Velocity<3>,
@@ -200,9 +200,9 @@ Each concept is an interface in the core; a concrete type connects to it by
    Dynamics<D, State>                        <==  SunlineDynamics (s x omega)
    Measurement<M, State>                     <==  CssMeasurementModel /
                                                   RateMeasurementModel
-   SequentialFilter<Filter, Measurement>     <==  SunlineSRuKFAlgorithm
+   SequentialFilter<Filter, Measurement>     <==  SunlineFilterAlgorithm
 
-``SunlineSRuKFAlgorithm`` is the single composition root. It holds the
+``SunlineFilterAlgorithm`` is the single composition root. It holds the
 ``SRuKF`` and the retained configuration, installs the dynamics
 functor onto the estimator's ``dynamics`` member in ``reset()``, satisfies
 ``SequentialFilter`` via public ``timeUpdate`` / ``measurementUpdate``, owns
@@ -303,7 +303,7 @@ Heterogeneous measurements
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 A multi-sensor filter consumes more than one kind of measurement on one
-timeline. ``sunlineSRuKF`` is an example — it folds CSS array readings
+timeline. ``sunlineFilter`` is an example — it folds CSS array readings
 and gyro rates into the same state on a shared timeline. No core change is
 needed for this; the core is agnostic of the measurement type:
 
@@ -336,7 +336,7 @@ interleaves them in time order. The variant is over the input structs; each
 ``Measurement<M, State>`` object) and calls ``srukf.measurementUpdate`` — the
 same input-struct-vs-model split a single-kind filter would use. Each overload also
 records its own residuals (``lastCssResiduals`` / ``lastRateResiduals``), so the
-bundled ``SunlineSRuKFOutput`` reports only the kinds that actually fired this
+bundled ``SunlineFilterOutput`` reports only the kinds that actually fired this
 cycle.
 
 Assumptions and Limitations
@@ -367,14 +367,14 @@ fast-kind samples but no slow-kind sample.
 How to use a filter
 -------------------
 
-Configuring, resetting, and stepping ``SunlineSRuKFAlgorithm`` directly (no
+Configuring, resetting, and stepping ``SunlineFilterAlgorithm`` directly (no
 xmera):
 
 .. code-block:: cpp
 
-   using namespace filtering::sunlineSRuKF;
+   using namespace filtering::sunlineFilter;
 
-   SunlineSRuKFAlgorithm::State x0;
+   SunlineFilterAlgorithm::State x0;
    x0.set<filtering::Position<3>>(sHat0);                       // sun heading (unit)
    x0.set<filtering::Velocity<3>>(omega0);                      // body rate
    x0.set<filtering::Bias<1>>(Eigen::Vector<double, 1>{1.0});   // bias state
@@ -382,13 +382,13 @@ xmera):
    // Build a validated configuration (throws on invalid input). CSS geometry
    // (boresights, per-sensor scale factors, count) is latched from CSSConfig by
    // the host adapter at reset; here it is supplied directly.
-   SunlineSRuKFConfig cfg = SunlineSRuKFConfig::create(
+   SunlineFilterConfig cfg = SunlineFilterConfig::create(
        0.02, 2.0, Q, x0, P0,            // alpha, beta, processNoise (7x7), initialState, initialCovariance (7x7)
        0.5, 1.5,                        // biasLowerBound, biasUpperBound
        nHat, scaleFactor, numCss,       // MaxCss x 3 boresights, MaxCss scale factors, count (0 .. MaxCss)
        0.1, sigmaCss, sigmaGyro);       // sensorThreshold, cssMeasurementNoiseStd, gyroMeasurementNoiseStd
 
-   SunlineSRuKFAlgorithm algo(cfg);     // owns the SRUKF + measurement_queue; construction seeds the filter
+   SunlineFilterAlgorithm algo(cfg);     // owns the SRUKF + measurement_queue; construction seeds the filter
 
    // Queue-driven path: hand the raw readings to one drive call. update() packs
    // whichever readings are present (timeTag > 0), enqueues them, and runs
@@ -396,7 +396,7 @@ xmera):
    // regularizes the state and returns a single bundled snapshot.
    CssData  css;  css.timeTag  = t;  css.cosValues = cosValues;
    RateData rate; rate.timeTag = t;  rate.rate     = omegaMeas;
-   SunlineSRuKFOutput out = algo.update(currentSeconds, css, rate);
+   SunlineFilterOutput out = algo.update(currentSeconds, css, rate);
 
    // Direct-stepping path: call the SequentialFilter pair yourself (this is
    // what applySequential calls under the hood).
@@ -435,7 +435,7 @@ How to add a new filter
    different ``apply_*`` if your filter family wants different scheduling).
    The ``update`` signature is filter-specific — sunline uses
    ``update(currentSeconds, CssData, RateData)`` and returns a bundled
-   ``SunlineSRuKFOutput``. Put the measurement model(s) in the ``.cpp`` — they
+   ``SunlineFilterOutput``. Put the measurement model(s) in the ``.cpp`` — they
    only need to *satisfy* ``Measurement<M, State>``, no base class to inherit.
    If your filter needs to keep the estimate physically meaningful, post-process
    after the queue drains (sunline renormalizes the heading and clamps the bias
@@ -445,6 +445,6 @@ How to add a new filter
 #. **Write a gtest** (``_tests/``) that drives the algorithm class directly,
    with no xmera — config round-trip, direct ``timeUpdate`` / ``measurementUpdate``
    stepping, and the queue-driven path through ``update(...)``. See
-   ``algorithms/sunlineSRuKF/_tests``.
+   ``algorithms/sunlineFilter/_tests``.
 #. **Write the host adapter** under ``algorithms/<filter>`` that marshals
    messages to and from the plain-data I/O types and links the algorithm library.

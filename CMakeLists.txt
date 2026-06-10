@@ -129,7 +129,7 @@ set(algorithms
     "solarArrayReference"
     "stepperMotorController"
     "sunlineEphem"
-    "sunlineSRuKF"
+    "sunlineFilter"
     "sunAvoidance"
     "sunSearchPoint"
     "thrFiringRemainder"

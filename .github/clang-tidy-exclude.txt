@@ -105,10 +105,10 @@ algorithms/timeClosestApproach/timeClosestApproachAlgorithm_c.h
 algorithms/timeClosestApproach/timeClosestApproachAlgorithm_c.cpp
 
 // Remove the files below this line once the actual algorithms are added
-algorithms/sunlineSRuKF/sunlineSRuKF.cpp
-algorithms/sunlineSRuKF/sunlineSRuKF.h
-algorithms/sunlineSRuKF/sunlineSRuKFAlgorithm.cpp
-algorithms/sunlineSRuKF/sunlineSRuKFAlgorithm.h
+algorithms/sunlineFilter/sunlineFilter.cpp
+algorithms/sunlineFilter/sunlineFilter.h
+algorithms/sunlineFilter/sunlineFilterAlgorithm.cpp
+algorithms/sunlineFilter/sunlineFilterAlgorithm.h
 algorithms/inertialUKF/inertialUKF.cpp
 algorithms/inertialUKF/inertialUKF.h
 algorithms/inertialUKF/inertialUKFAlgorithm.cpp

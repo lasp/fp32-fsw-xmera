@@ -1,17 +1,17 @@
-#ifndef F32XIMERA_SUNLINE_SRUKF_H
-#define F32XIMERA_SUNLINE_SRUKF_H
+#ifndef F32XIMERA_SUNLINE_FILTER_H
+#define F32XIMERA_SUNLINE_FILTER_H
 
 #include "msgPayloadDef/NavAttMsgF32Payload.h"
-#include "sunlineSRuKFAlgorithm.h"
+#include "sunlineFilterAlgorithm.h"
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
 #include <architecture/msgPayloadDef/CSSArraySensorMsgPayload.h>
 #include <architecture/msgPayloadDef/CSSConfigMsgPayload.h>
 
-class SunlineSRuKF : public SysModel {
+class SunlineFilter : public SysModel {
    public:
-    SunlineSRuKF() = default;
-    ~SunlineSRuKF() = default;
+    SunlineFilter() = default;
+    ~SunlineFilter() = default;
 
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;

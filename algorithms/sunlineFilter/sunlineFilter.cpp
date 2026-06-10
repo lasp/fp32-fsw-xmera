@@ -1,28 +1,28 @@
-#include "sunlineSRuKF.h"
+#include "sunlineFilter.h"
 
 #include <utilities/fsw/eigenSupport.h>
 #include <stdexcept>
 
-void SunlineSRuKF::reset(uint64_t callTime) {
+void SunlineFilter::reset(uint64_t callTime) {
     if (!this->navAttInMsg.isLinked()) {
-        throw std::invalid_argument("SunlineSRuKF.navAttInMsg is unlinked");
+        throw std::invalid_argument("SunlineFilter.navAttInMsg is unlinked");
     }
     if (!this->cssDataInMsg.isLinked()) {
-        throw std::invalid_argument("SunlineSRuKF.cssDataInMsg is unlinked");
+        throw std::invalid_argument("SunlineFilter.cssDataInMsg is unlinked");
     }
     if (!this->cssConfigInMsg.isLinked()) {
-        throw std::invalid_argument("SunlineSRuKF.cssConfigInMsg is unlinked");
+        throw std::invalid_argument("SunlineFilter.cssConfigInMsg is unlinked");
     }
 
     CSSConfigMsgPayload cssConfigBuffer = this->cssConfigInMsg();
     this->nCSS = cssConfigBuffer.nCSS;
 }
 
-void SunlineSRuKF::updateState(uint64_t callTime) {
+void SunlineFilter::updateState(uint64_t callTime) {
     NavAttMsgF32Payload navAttIn = this->navAttInMsg();
     CSSArraySensorMsgPayload cssDataIn = this->cssDataInMsg();
 
-    SunlineSRuKFInput input{};
+    SunlineFilterInput input{};
     input.timeTag = navAttIn.timeTag;
     input.sigma_BN = cArrayToEigenVector3(navAttIn.sigma_BN);
     input.omega_BN_B = cArrayToEigenVector3(navAttIn.omega_BN_B);
@@ -32,7 +32,7 @@ void SunlineSRuKF::updateState(uint64_t callTime) {
         input.cosValues[i] = static_cast<float>(cssDataIn.CosValue[i]);
     }
 
-    const SunlineSRuKFOutput output = SunlineSRuKFAlgorithm::updateState(input);
+    const SunlineFilterOutput output = SunlineFilterAlgorithm::updateState(input);
 
     NavAttMsgF32Payload navAttOut{};
     navAttOut.timeTag = output.timeTag;
