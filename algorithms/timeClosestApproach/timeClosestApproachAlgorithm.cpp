@@ -18,7 +18,7 @@ void TimeClosestApproachAlgorithm::setConfig(const TimeClosestApproachConfig& co
 TimeClosestApproachOutput TimeClosestApproachAlgorithm::update(
     const Eigen::Vector3d& r_BN_N,
     const Eigen::Vector3d& v_BN_N,
-    const Eigen::Matrix<float, 6, 6>& filterCovariance) const {
+    const Eigen::Matrix<double, 6, 6>& filterCovariance) const {
     double const ratio = v_BN_N.norm() / r_BN_N.norm();
 
     Eigen::Vector3d const r_BN_N_hat = r_BN_N.normalized();
@@ -30,12 +30,12 @@ TimeClosestApproachOutput TimeClosestApproachAlgorithm::update(
     TimeClosestApproachOutput algo_output{};
     algo_output.tCA = static_cast<float>(-sinFPA / ratio);
 
-    Eigen::Matrix<float, 6, 1> covariance_map_to_tca;
-    covariance_map_to_tca.head(3) = (v_BN_N_hat / r_BN_N.norm()).cast<float>();
-    covariance_map_to_tca.tail(3) = ((r_BN_N_hat - sinFPA * v_BN_N_hat) / v_BN_N.norm()).cast<float>();
+    Eigen::Matrix<double, 6, 1> covariance_map_to_tca;
+    covariance_map_to_tca.head(3) = (v_BN_N_hat / r_BN_N.norm());
+    covariance_map_to_tca.tail(3) = ((r_BN_N_hat - sinFPA * v_BN_N_hat) / v_BN_N.norm());
 
-    const float mappedCovariance = covariance_map_to_tca.transpose() * filterCovariance * covariance_map_to_tca;
-    const float tCA_covariance = mappedCovariance / static_cast<float>(ratio * ratio);
+    const double mappedCovariance = covariance_map_to_tca.transpose() * filterCovariance * covariance_map_to_tca;
+    const auto tCA_covariance = static_cast<float>(mappedCovariance / (ratio * ratio));
 
     algo_output.sigmaTca = safeSqrtf(tCA_covariance);
 

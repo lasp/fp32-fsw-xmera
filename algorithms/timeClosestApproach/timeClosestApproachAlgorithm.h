@@ -30,7 +30,7 @@ class TimeClosestApproachAlgorithm final {
     // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
     TimeClosestApproachOutput update(const Eigen::Vector3d& r_BN_N,
                                      const Eigen::Vector3d& v_BN_N,
-                                     const Eigen::Matrix<float, 6, 6>& filterCovariance) const;
+                                     const Eigen::Matrix<double, 6, 6>& filterCovariance) const;
 
    private:
     TimeClosestApproachConfig cfg;

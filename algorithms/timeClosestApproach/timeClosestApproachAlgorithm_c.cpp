@@ -20,7 +20,7 @@ TimeClosestApproachOutput_c TimeClosestApproachAlgorithm_update(const TimeCloses
                                                                 const FilterCovariance_c* covariance) {
     const Eigen::Vector3d r = Eigen::Map<const Eigen::Vector3d>(r_BN_N->data);
     const Eigen::Vector3d v = Eigen::Map<const Eigen::Vector3d>(v_BN_N->data);
-    const Eigen::Matrix<float, 6, 6> P = Eigen::Map<const Eigen::Matrix<float, 6, 6>>(covariance->data);
+    const Eigen::Matrix<double, 6, 6> P = Eigen::Map<const Eigen::Matrix<float, 6, 6>>(covariance->data).cast<double>();
 
     const TimeClosestApproachOutput out =
         reinterpret_cast<const ::TimeClosestApproachAlgorithm*>(self)->update(r, v, P);
