@@ -25,10 +25,10 @@ class CelestialTwoBodyPoint final : public SysModel {
     // Phase 1: Public config properties — set before reset()
     float singularityThreshold = 0.0F;  //!< [rad] Angle threshold below which the constraint axis is fixed
 
-    Message<AttRefMsgF32Payload> attRefOutMsg;            //!< Attitude reference output message
-    ReadFunctor<EphemerisMsgF32Payload> celBodyInMsg;     //!< Primary celestial body ephemeris input message
-    ReadFunctor<EphemerisMsgF32Payload> secCelBodyInMsg;  //!< Secondary celestial body ephemeris input
-    ReadFunctor<NavTransMsgF32Payload> transNavInMsg;     //!< Spacecraft translational navigation input message
+    Message<AttRefMsgF32Payload> attRefOutMsg;                  //!< Attitude reference output message
+    ReadFunctor<EphemerisMsgF32Payload> primaryCelBodyInMsg;    //!< Primary celestial body ephemeris input message
+    ReadFunctor<EphemerisMsgF32Payload> secondaryCelBodyInMsg;  //!< Secondary celestial body ephemeris input message
+    ReadFunctor<NavTransMsgF32Payload> transNavInMsg;           //!< Spacecraft translational navigation input message
 
    private:
     std::unique_ptr<CelestialTwoBodyPointAlgorithm> algorithm = nullptr;

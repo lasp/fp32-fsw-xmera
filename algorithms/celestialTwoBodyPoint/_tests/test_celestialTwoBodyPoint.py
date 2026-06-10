@@ -102,7 +102,7 @@ def test_celestial_two_body_point_test_function():
     unit_test_sim.AddModelToTask(unit_task_name, data_log)
 
     module.transNavInMsg.subscribeTo(nav_msg)
-    module.celBodyInMsg.subscribeTo(cel_body_msg)
+    module.primaryCelBodyInMsg.subscribeTo(cel_body_msg)
 
 
     sec_body_data = messaging.EphemerisMsgF32Payload()
@@ -112,7 +112,7 @@ def test_celestial_two_body_point_test_function():
     sec_body_data.v_BdyZero_N = sec_velocity_vec
     cel2nd_body_msg = messaging.EphemerisMsgF32().write(sec_body_data)
 
-    module.secCelBodyInMsg.subscribeTo(cel2nd_body_msg)
+    module.secondaryCelBodyInMsg.subscribeTo(cel2nd_body_msg)
 
     unit_test_sim.InitializeSimulation()
     unit_test_sim.ConfigureStopTime(macros.sec2nano(1.))  # seconds to stop simulation

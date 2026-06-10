@@ -75,17 +75,17 @@ inline ReferenceCelestialTwoBodyPointOutput referenceRateAndAccelCalc(const Eige
 
 // Full double-precision reference for the algorithm, including the secondary-constraint
 // validity logic. The thresholds and link flag must match the algorithm's configuration.
-inline ReferenceCelestialTwoBodyPointOutput referenceCelestialTwoBodyPoint(const Eigen::Vector3d& r_celBody_N,
-                                                                           const Eigen::Vector3d& v_celBody_N,
-                                                                           const Eigen::Vector3d& r_secCelBody_N,
-                                                                           const Eigen::Vector3d& v_secCelBody_N,
+inline ReferenceCelestialTwoBodyPointOutput referenceCelestialTwoBodyPoint(const Eigen::Vector3d& r_PN_N,
+                                                                           const Eigen::Vector3d& v_PN_N,
+                                                                           const Eigen::Vector3d& r_SN_N,
+                                                                           const Eigen::Vector3d& v_SN_N,
                                                                            const Eigen::Vector3d& r_BN_N,
                                                                            const Eigen::Vector3d& v_BN_N,
                                                                            const float singularityThreshold) {
-    const Eigen::Vector3d r_PB_N = r_celBody_N - r_BN_N;
-    const Eigen::Vector3d v_PB_N = v_celBody_N - v_BN_N;
-    Eigen::Vector3d r_SB_N = r_secCelBody_N - r_BN_N;
-    Eigen::Vector3d v_SB_N = v_secCelBody_N - v_BN_N;
+    const Eigen::Vector3d r_PB_N = r_PN_N - r_BN_N;
+    const Eigen::Vector3d v_PB_N = v_PN_N - v_BN_N;
+    Eigen::Vector3d r_SB_N = r_SN_N - r_BN_N;
+    Eigen::Vector3d v_SB_N = v_SN_N - v_BN_N;
 
     /*! Return identity reference attitude and zero reference rates if either r_PB_N or r_SB_N are zero */
     if (r_PB_N.squaredNorm() < static_cast<double>(CelestialTwoBodyPointAlgorithm::kMinNormSq) ||
@@ -114,22 +114,21 @@ inline ReferenceCelestialTwoBodyPointOutput referenceCelestialTwoBodyPoint(const
 // chosen so that the constraint-validity branch decision is unambiguous (not at the threshold
 // boundary), otherwise the float and double implementations may legitimately pick different
 // branches.
-inline void testCelestialTwoBodyPoint(const Eigen::Vector3d& r_celBody_N,
-                                      const Eigen::Vector3d& v_celBody_N,
-                                      const Eigen::Vector3d& r_secCelBody_N,
-                                      const Eigen::Vector3d& v_secCelBody_N,
+inline void testCelestialTwoBodyPoint(const Eigen::Vector3d& r_PN_N,
+                                      const Eigen::Vector3d& v_PN_N,
+                                      const Eigen::Vector3d& r_SN_N,
+                                      const Eigen::Vector3d& v_SN_N,
                                       const Eigen::Vector3d& r_BN_N,
                                       const Eigen::Vector3d& v_BN_N,
                                       const float singularityThreshold) {
     const CelestialTwoBodyPointAlgorithm alg(CelestialTwoBodyPointConfig::create(singularityThreshold));
 
     CelestialTwoBodyPointOutput out;
-    EXPECT_NO_THROW(out = alg.update(r_celBody_N, v_celBody_N, r_secCelBody_N, v_secCelBody_N, r_BN_N, v_BN_N));
+    EXPECT_NO_THROW(out = alg.update(r_PN_N, v_PN_N, r_SN_N, v_SN_N, r_BN_N, v_BN_N));
 
     ReferenceCelestialTwoBodyPointOutput ref;
     EXPECT_NO_THROW(
-        ref = referenceCelestialTwoBodyPoint(
-            r_celBody_N, v_celBody_N, r_secCelBody_N, v_secCelBody_N, r_BN_N, v_BN_N, singularityThreshold));
+        ref = referenceCelestialTwoBodyPoint(r_PN_N, v_PN_N, r_SN_N, v_SN_N, r_BN_N, v_BN_N, singularityThreshold));
 
     // dcmToMrp can pick either MRP shadow-set representative when |sigma| is near 1 (180-deg
     // rotation boundary). Pick whichever representative is closer to the algorithm output before
@@ -156,17 +155,17 @@ inline void testCelestialTwoBodyPoint(const Eigen::Vector3d& r_celBody_N,
 }
 
 // Property: every output component is finite for well-posed inputs.
-inline void propertyOutputIsFinite(const Eigen::Vector3d& r_celBody_N,
-                                   const Eigen::Vector3d& v_celBody_N,
-                                   const Eigen::Vector3d& r_secCelBody_N,
-                                   const Eigen::Vector3d& v_secCelBody_N,
+inline void propertyOutputIsFinite(const Eigen::Vector3d& r_PN_N,
+                                   const Eigen::Vector3d& v_PN_N,
+                                   const Eigen::Vector3d& r_SN_N,
+                                   const Eigen::Vector3d& v_SN_N,
                                    const Eigen::Vector3d& r_BN_N,
                                    const Eigen::Vector3d& v_BN_N,
                                    const float singularityThreshold) {
     const CelestialTwoBodyPointAlgorithm alg(CelestialTwoBodyPointConfig::create(singularityThreshold));
 
     CelestialTwoBodyPointOutput out;
-    EXPECT_NO_THROW(out = alg.update(r_celBody_N, v_celBody_N, r_secCelBody_N, v_secCelBody_N, r_BN_N, v_BN_N));
+    EXPECT_NO_THROW(out = alg.update(r_PN_N, v_PN_N, r_SN_N, v_SN_N, r_BN_N, v_BN_N));
 
     for (int i = 0; i < 3; ++i) {
         EXPECT_TRUE(std::isfinite(out.sigma_RN[i]));
@@ -176,17 +175,17 @@ inline void propertyOutputIsFinite(const Eigen::Vector3d& r_celBody_N,
 }
 
 // Property: dcmToMrp always returns the short-rotation MRP set, so |sigma_RN| <= 1.
-inline void propertySigmaNormBounded(const Eigen::Vector3d& r_celBody_N,
-                                     const Eigen::Vector3d& v_celBody_N,
-                                     const Eigen::Vector3d& r_secCelBody_N,
-                                     const Eigen::Vector3d& v_secCelBody_N,
+inline void propertySigmaNormBounded(const Eigen::Vector3d& r_PN_N,
+                                     const Eigen::Vector3d& v_PN_N,
+                                     const Eigen::Vector3d& r_SN_N,
+                                     const Eigen::Vector3d& v_SN_N,
                                      const Eigen::Vector3d& r_BN_N,
                                      const Eigen::Vector3d& v_BN_N,
                                      const float singularityThreshold) {
     const CelestialTwoBodyPointAlgorithm alg(CelestialTwoBodyPointConfig::create(singularityThreshold));
 
     CelestialTwoBodyPointOutput out;
-    EXPECT_NO_THROW(out = alg.update(r_celBody_N, v_celBody_N, r_secCelBody_N, v_secCelBody_N, r_BN_N, v_BN_N));
+    EXPECT_NO_THROW(out = alg.update(r_PN_N, v_PN_N, r_SN_N, v_SN_N, r_BN_N, v_BN_N));
 
     EXPECT_LE(out.sigma_RN.norm(), 1.0F + 1e-6F);
 }
