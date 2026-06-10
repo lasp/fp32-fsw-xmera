@@ -6,7 +6,6 @@
 namespace {
 
 constexpr float kSingularityThreshold = 0.017453292519943F;  // [rad] 1 deg
-constexpr float kRateThreshold = 0.17453292519943F;          // [rad/s] 10 deg/s
 
 // With a secondary body the constraint-validity branch decision is computed in float by the
 // algorithm and in double by the reference, so near-threshold inputs may legitimately diverge.
@@ -35,16 +34,14 @@ void fuzzCelestialTwoBodyPointWithSecondaryProperties(const Eigen::Vector3d& r_B
                            v_BN_N + relVelSecondary,
                            r_BN_N,
                            v_BN_N,
-                           kSingularityThreshold,
-                           kRateThreshold);
+                           kSingularityThreshold);
     propertySigmaNormBounded(r_BN_N + relPosPrimary,
                              v_BN_N + relVelPrimary,
                              r_BN_N + relPosSecondary,
                              v_BN_N + relVelSecondary,
                              r_BN_N,
                              v_BN_N,
-                             kSingularityThreshold,
-                             kRateThreshold);
+                             kSingularityThreshold);
 }
 
 }  // namespace

@@ -44,10 +44,8 @@ CelestialTwoBodyPointOutput CelestialTwoBodyPointAlgorithm::update(const Eigen::
     CelestialTwoBodyPointOutput attRefOut =
         CelestialTwoBodyPointAlgorithm::rateAndAccelCalc(r_PB_N, v_PB_N, r_SB_N, v_SB_N);
 
-    /*! - Cross the first bodies' states to get R_SB and v_SB if the two bodies are close to parallel
-     or if the computed rate was higher than rate threshold */
-    if (attRefOut.omega_RN_N.norm() > this->cfg.getRateThreshold() ||
-        fabsf(platAngDiff) < this->cfg.getSingularityThreshold() ||
+    /*! - Cross the first bodies' states to get R_SB and v_SB if the two bodies are close to parallel */
+    if (fabsf(platAngDiff) < this->cfg.getSingularityThreshold() ||
         fabsf(platAngDiff) > std::numbers::pi_v<float> - this->cfg.getSingularityThreshold()) {
         r_SB_N = r_PB_N.cross(v_PB_N);
         v_SB_N = Eigen::Vector3d::Zero();

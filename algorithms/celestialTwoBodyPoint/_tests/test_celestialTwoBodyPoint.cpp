@@ -22,8 +22,7 @@ TEST(CelestialTwoBodyPointTest, ReferenceTestWithSecondaryBody) {
                               Eigen::Vector3d{100.0, -10.0, 20.0},   // v_secCelBody_N
                               Eigen::Vector3d::Zero(),               // r_BN_N
                               Eigen::Vector3d::Zero(),               // v_BN_N
-                              1.0F * kDeg2Rad,
-                              10.0F * kDeg2Rad);
+                              1.0F * kDeg2Rad);
 }
 
 TEST(CelestialTwoBodyPointTest, ReferenceTestNonZeroSpacecraftState) {
@@ -34,47 +33,36 @@ TEST(CelestialTwoBodyPointTest, ReferenceTestNonZeroSpacecraftState) {
                               Eigen::Vector3d{0.0, 0.0, 0.0},             // v_secCelBody_N
                               Eigen::Vector3d{1.5e11 + 7.0e6, 0.0, 0.0},  // r_BN_N (LEO offset)
                               Eigen::Vector3d{0.0, 7.7e3, 0.0},           // v_BN_N
-                              1.0F * kDeg2Rad,
-                              10.0F * kDeg2Rad);
+                              1.0F * kDeg2Rad);
 }
 
 TEST(CelestialTwoBodyPointTest, ConfigValidCreation) {
-    EXPECT_NO_THROW(CelestialTwoBodyPointConfig::create(0.0F, 0.0F));
-    EXPECT_NO_THROW(CelestialTwoBodyPointConfig::create(0.5F, 0.1F));
+    EXPECT_NO_THROW(CelestialTwoBodyPointConfig::create(0.0F));
+    EXPECT_NO_THROW(CelestialTwoBodyPointConfig::create(0.5F));
 }
 
 TEST(CelestialTwoBodyPointTest, ConfigInvalidSingularityThreshold) {
-    EXPECT_THROW(CelestialTwoBodyPointConfig::create(-1.0F, 0.1F), fsw::invalid_argument);
-    EXPECT_THROW(CelestialTwoBodyPointConfig::create(-1e-7F, 0.1F), fsw::invalid_argument);
-    EXPECT_THROW(CelestialTwoBodyPointConfig::create(std::nanf(""), 0.1F), fsw::invalid_argument);
-}
-
-TEST(CelestialTwoBodyPointTest, ConfigInvalidRateThreshold) {
-    EXPECT_THROW(CelestialTwoBodyPointConfig::create(0.1F, -1.0F), fsw::invalid_argument);
-    EXPECT_THROW(CelestialTwoBodyPointConfig::create(0.1F, -1e-7F), fsw::invalid_argument);
-    EXPECT_THROW(CelestialTwoBodyPointConfig::create(0.1F, std::nanf("")), fsw::invalid_argument);
+    EXPECT_THROW(CelestialTwoBodyPointConfig::create(-1.0F), fsw::invalid_argument);
+    EXPECT_THROW(CelestialTwoBodyPointConfig::create(-1e-7F), fsw::invalid_argument);
+    EXPECT_THROW(CelestialTwoBodyPointConfig::create(std::nanf("")), fsw::invalid_argument);
 }
 
 TEST(CelestialTwoBodyPointTest, ConfigRoundTrip) {
-    const auto config = CelestialTwoBodyPointConfig::create(0.25F, 0.125F);
+    const auto config = CelestialTwoBodyPointConfig::create(0.25F);
     EXPECT_FLOAT_EQ(config.getSingularityThreshold(), 0.25F);
-    EXPECT_FLOAT_EQ(config.getRateThreshold(), 0.125F);
 }
 
 TEST(CelestialTwoBodyPointTest, ConfigStaticValidators) {
     EXPECT_TRUE(CelestialTwoBodyPointConfig::isValidSingularityThreshold(0.0F));
     EXPECT_TRUE(CelestialTwoBodyPointConfig::isValidSingularityThreshold(1.0F));
     EXPECT_FALSE(CelestialTwoBodyPointConfig::isValidSingularityThreshold(-0.1F));
-    EXPECT_TRUE(CelestialTwoBodyPointConfig::isValidRateThreshold(0.0F));
-    EXPECT_TRUE(CelestialTwoBodyPointConfig::isValidRateThreshold(1.0F));
-    EXPECT_FALSE(CelestialTwoBodyPointConfig::isValidRateThreshold(-0.1F));
 }
 
 TEST(CelestialTwoBodyPointTest, AlgorithmSetConfig) {
-    const auto config1 = CelestialTwoBodyPointConfig::create(0.1F, 0.2F);
+    const auto config1 = CelestialTwoBodyPointConfig::create(0.1F);
     CelestialTwoBodyPointAlgorithm alg(config1);
 
-    const auto config2 = CelestialTwoBodyPointConfig::create(0.3F, 0.4F);
+    const auto config2 = CelestialTwoBodyPointConfig::create(0.3F);
     EXPECT_NO_THROW(alg.setConfig(config2));
 }
 
@@ -85,24 +73,21 @@ TEST(CelestialTwoBodyPointTest, PropertyOutputIsFinite) {
                            {100.0, -10.0, 20.0},
                            {0.0, 0.0, 0.0},
                            {0.0, 0.0, 0.0},
-                           1.0F * kDeg2Rad,
-                           10.0F * kDeg2Rad);
+                           1.0F * kDeg2Rad);
     propertyOutputIsFinite({1.5e11, 0.0, 0.0},
                            {0.0, 2.978e4, 0.0},
                            {0.0, 0.0, 0.0},
                            {0.0, 0.0, 0.0},
                            {1.5e11 + 7.0e6, 0.0, 0.0},
                            {0.0, 7.7e3, 0.0},
-                           1.0F * kDeg2Rad,
-                           10.0F * kDeg2Rad);
+                           1.0F * kDeg2Rad);
     propertyOutputIsFinite({1.0e7, 0.0, 0.0},
                            {0.0, 5.0e3, 0.0},
                            {0.0, 0.0, 0.0},
                            {0.0, 0.0, 0.0},
                            {0.0, 0.0, 0.0},
                            {0.0, 0.0, 0.0},
-                           1.0F * kDeg2Rad,
-                           10.0F * kDeg2Rad);
+                           1.0F * kDeg2Rad);
 }
 
 TEST(CelestialTwoBodyPointTest, PropertySigmaNormBounded) {
@@ -112,14 +97,12 @@ TEST(CelestialTwoBodyPointTest, PropertySigmaNormBounded) {
                              {100.0, -10.0, 20.0},
                              {0.0, 0.0, 0.0},
                              {0.0, 0.0, 0.0},
-                             1.0F * kDeg2Rad,
-                             10.0F * kDeg2Rad);
+                             1.0F * kDeg2Rad);
     propertySigmaNormBounded({-1.0e7, -2.0e6, 3.0e5},
                              {1.0e3, -5.0e3, 2.0e2},
                              {0.0, 0.0, 0.0},
                              {0.0, 0.0, 0.0},
                              {0.0, 0.0, 0.0},
                              {0.0, 0.0, 0.0},
-                             1.0F * kDeg2Rad,
-                             10.0F * kDeg2Rad);
+                             1.0F * kDeg2Rad);
 }
