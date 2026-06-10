@@ -27,11 +27,10 @@ class CelestialTwoBodyPoint final : public SysModel {
 
     Message<AttRefMsgF32Payload> attRefOutMsg;            //!< Attitude reference output message
     ReadFunctor<EphemerisMsgF32Payload> celBodyInMsg;     //!< Primary celestial body ephemeris input message
-    ReadFunctor<EphemerisMsgF32Payload> secCelBodyInMsg;  //!< (optional) Secondary celestial body ephemeris input
+    ReadFunctor<EphemerisMsgF32Payload> secCelBodyInMsg;  //!< Secondary celestial body ephemeris input
     ReadFunctor<NavTransMsgF32Payload> transNavInMsg;     //!< Spacecraft translational navigation input message
 
    private:
-    bool secCelBodyIsLinked{};  //!< Flag to indicate if the optional secondary celestial body message is linked
     std::unique_ptr<CelestialTwoBodyPointAlgorithm> algorithm = nullptr;
 };
 

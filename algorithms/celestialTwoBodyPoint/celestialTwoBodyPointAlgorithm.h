@@ -20,37 +20,29 @@ class CelestialTwoBodyPointConfig final {
     /*! @brief Static factory — validates all parameters, throws on failure
         @param singularityThreshold [rad] angle threshold below which the constraint axis is fixed
         @param rateThreshold [rad/s] rate threshold above which the constraint axis is fixed
-        @param secCelBodyIsLinked true if the secondary celestial body message is linked
         @return validated configuration object */
-    static CelestialTwoBodyPointConfig create(float singularityThreshold,
-                                              float rateThreshold,
-                                              bool secCelBodyIsLinked) {
+    static CelestialTwoBodyPointConfig create(float singularityThreshold, float rateThreshold) {
         if (!isValidSingularityThreshold(singularityThreshold)) {
             FSW_THROW_INVALID_ARGUMENT("celestialTwoBodyPoint: singularityThreshold must be >= 0");
         }
         if (!isValidRateThreshold(rateThreshold)) {
             FSW_THROW_INVALID_ARGUMENT("celestialTwoBodyPoint: rateThreshold must be >= 0");
         }
-        return {singularityThreshold, rateThreshold, secCelBodyIsLinked};
+        return {singularityThreshold, rateThreshold};
     }
 
     static bool isValidSingularityThreshold(float singularityThreshold) { return singularityThreshold >= 0.0F; }
     static bool isValidRateThreshold(float rateThreshold) { return rateThreshold >= 0.0F; }
-    // No isValidSecCelBodyIsLinked — bool with no semantic constraint, validator would be vacuous.
 
     float getSingularityThreshold() const { return singularityThreshold; }
     float getRateThreshold() const { return rateThreshold; }
-    bool getSecCelBodyIsLinked() const { return secCelBodyIsLinked; }
 
    private:
-    CelestialTwoBodyPointConfig(float singularityThreshold, float rateThreshold, bool secCelBodyIsLinked)
-        : singularityThreshold(singularityThreshold),
-          rateThreshold(rateThreshold),
-          secCelBodyIsLinked(secCelBodyIsLinked) {}
+    CelestialTwoBodyPointConfig(float singularityThreshold, float rateThreshold)
+        : singularityThreshold(singularityThreshold), rateThreshold(rateThreshold) {}
 
     float singularityThreshold;  //!< [rad] Angle threshold below which the constraint axis is fixed
     float rateThreshold;         //!< [rad/s] Rate threshold above which the constraint axis is fixed
-    bool secCelBodyIsLinked;     //!< Flag to indicate if the optional secondary celestial body message is linked
 };
 
 /*!@brief Algorithm that computes the two-body celestial pointing attitude reference.
@@ -69,8 +61,8 @@ class CelestialTwoBodyPointAlgorithm final {
         constraining a second axis toward the secondary celestial body when possible
         @param r_celBody_N [m] primary celestial body inertial position
         @param v_celBody_N [m/s] primary celestial body inertial velocity
-        @param r_secCelBody_N [m] secondary celestial body inertial position (ignored when not linked)
-        @param v_secCelBody_N [m/s] secondary celestial body inertial velocity (ignored when not linked)
+        @param r_secCelBody_N [m] secondary celestial body inertial position
+        @param v_secCelBody_N [m/s] secondary celestial body inertial velocity
         @param r_BN_N [m] spacecraft inertial position
         @param v_BN_N [m/s] spacecraft inertial velocity
         @return attitude reference output */

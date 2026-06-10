@@ -59,8 +59,7 @@ def compute_celestial_two_body_point(R_P1, v_P1, a_P1, R_P2, v_P2, a_P2):
     return sigma_RN, omega_RN_N, domega_RN_N
 
 
-@pytest.mark.parametrize("secondary_body", [True, False])
-def test_celestial_two_body_point_test_function(secondary_body):
+def test_celestial_two_body_point_test_function():
     unit_task_name = "unitTask"
     unit_process_name = "TestProcess"
     unit_test_sim = SimulationBaseClass.SimBaseClass()
@@ -105,15 +104,16 @@ def test_celestial_two_body_point_test_function(secondary_body):
 
     module.transNavInMsg.subscribeTo(nav_msg)
     module.celBodyInMsg.subscribeTo(cel_body_msg)
-    if secondary_body:
-        sec_body_data = messaging.EphemerisMsgF32Payload()
-        sec_position_vec = [500., 500., 500.]
-        sec_body_data.r_BdyZero_N = sec_position_vec
-        sec_velocity_vec = [100., -10., 20.]
-        sec_body_data.v_BdyZero_N = sec_velocity_vec
-        cel2nd_body_msg = messaging.EphemerisMsgF32().write(sec_body_data)
 
-        module.secCelBodyInMsg.subscribeTo(cel2nd_body_msg)
+
+    sec_body_data = messaging.EphemerisMsgF32Payload()
+    sec_position_vec = [500., 500., 500.]
+    sec_body_data.r_BdyZero_N = sec_position_vec
+    sec_velocity_vec = [100., -10., 20.]
+    sec_body_data.v_BdyZero_N = sec_velocity_vec
+    cel2nd_body_msg = messaging.EphemerisMsgF32().write(sec_body_data)
+
+    module.secCelBodyInMsg.subscribeTo(cel2nd_body_msg)
 
     unit_test_sim.InitializeSimulation()
     unit_test_sim.ConfigureStopTime(macros.sec2nano(1.))  # seconds to stop simulation
@@ -135,14 +135,10 @@ def test_celestial_two_body_point_test_function(secondary_body):
     R_P1 = cel_position_vec - r_BN_N
     v_P1 = cel_velocity_vec - v_BN_N
     a_P1 = np.array([0., 0., 0.])
-    if secondary_body:
-        R_P2 = sec_position_vec - r_BN_N
-        v_P2 = sec_velocity_vec - v_BN_N
-        a_P2 = np.array([0., 0., 0.])
-    else:
-        R_P2 = np.cross(R_P1, v_P1)
-        v_P2 = np.cross(R_P1, a_P1)
-        a_P2 = np.cross(v_P1, a_P1)
+
+    R_P2 = np.cross(R_P1, v_P1)
+    v_P2 = np.cross(R_P1, a_P1)
+    a_P2 = np.cross(v_P1, a_P1)
 
     sigma_RN, omega_RN_N, domega_RN_N = compute_celestial_two_body_point(R_P1, v_P1, a_P1, R_P2, v_P2, a_P2)
 

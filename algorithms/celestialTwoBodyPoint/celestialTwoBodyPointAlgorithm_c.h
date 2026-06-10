@@ -46,8 +46,7 @@ void CelestialTwoBodyPointAlgorithm_setConfig(CelestialTwoBodyPointAlgorithmHand
  * @brief Compute the two-body celestial pointing attitude reference.
  *
  * Points the primary axis at the primary celestial body while constraining a second axis toward
- * the secondary celestial body when possible. The secondary body states are ignored when the
- * configured secCelBodyIsLinked flag is zero.
+ * the secondary celestial body when possible.
  *
  * @param self            Pointer to the instance.
  * @param r_celBody_N     Primary celestial body inertial position [m].
