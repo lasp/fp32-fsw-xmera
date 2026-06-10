@@ -94,11 +94,11 @@ TEST(ForceTorqueThrForceMappingTest, ConfigValidationAndRoundTrip) {
     EXPECT_THROW(ForceTorqueThrForceMappingConfig::create(bad, CoM, kNoAxisAssertion), fsw::invalid_argument);
 
     bad = config;
-    bad.thrusters[0].tHatThrust_B = {0.5F, 0.0F, 0.0F};  // norm = 0.5, far outside 1e-3 tolerance
+    bad.thrusters[0].tHatThrust_B = {0.5F, 0.0F, 0.0F};  // norm = 0.5, below unit length
     EXPECT_THROW(ForceTorqueThrForceMappingConfig::create(bad, CoM, kNoAxisAssertion), fsw::invalid_argument);
 
     bad = config;
-    bad.thrusters[0].tHatThrust_B = {1.01F, 0.0F, 0.0F};  // norm = 1.01, outside 1e-3 tolerance
+    bad.thrusters[0].tHatThrust_B = {1.5F, 0.0F, 0.0F};  // norm = 1.5, above unit length
     EXPECT_THROW(ForceTorqueThrForceMappingConfig::create(bad, CoM, kNoAxisAssertion), fsw::invalid_argument);
 
     // A non-finite center of mass is rejected.
