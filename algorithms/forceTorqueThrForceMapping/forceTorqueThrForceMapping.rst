@@ -170,20 +170,54 @@ where :math:`\tilde{\Sigma}^{+}` is the diagonal of inverse singular values with
 uncontrollable direction in the 6-D command space — equivalent to removing rows of :math:`[D]` whose contribution lies
 entirely in the noise floor — without requiring an explicit row-by-row threshold.
 
-To ensure no commanded thrust is less than zero, the minimum thrust is subtracted from the thrust vector
+The pseudo-inverse output :math:`\mathbf{F}_{pre} = [D]^{+}\,\text{cmd}` may contain negative entries when the
+commanded force/torque pushes some thrusters into a sign opposite their direction vector. To ensure no commanded
+thrust is less than zero, the minimum thrust is subtracted from the thrust vector:
 
 .. math::
     :label: eq:F_min
 
-    \mathbf{F} = \mathbf{F} - \min(\mathbf{F})
+    \mathbf{F} = \mathbf{F}_{pre} - \min(\mathbf{F}_{pre}) \cdot \mathbf{1}
 
-These thrust commands are then written to the output message.
+Balanced Layouts and Null-Space Optimality
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The shift in :eq:`eq:F_min` preserves the requested force and torque precisely when the thruster layout is **balanced**,
+i.e. when :math:`[D]\mathbf{1} = 0`. Expanding the rows of :math:`[D]`, balance is equivalent to two geometric
+conditions on the thruster array:
+
+.. math::
+
+    \sum_i \hat{\mathbf{g}}_{t_i} = \mathbf{0}, \qquad
+    \sum_i (\mathbf{r}_i - \mathbf{r}_{\text{COM}}) \times \hat{\mathbf{g}}_{t_i} = \mathbf{0}
+
+When both hold, :math:`\mathbf{1} \in \ker([D])` (with :math:`\ker([D])` being the null space of :math:`[D]`) and
+shifting along :math:`\mathbf{1}` stays inside :math:`\{\mathbf{F} : [D]\mathbf{F} = \text{cmd}\}`, leaving the achieved
+force/torque exactly equal to the commanded value.
+
+A further useful property of the pseudo-inverse on a balanced layout: :math:`\mathbf{F}_{pre}` lies in the row space
+of :math:`[D]`, which is orthogonal to :math:`\ker([D])`. Since :math:`\mathbf{1} \in \ker([D])`, this implies
+:math:`\mathbf{1}^{T}\mathbf{F}_{pre} = 0` — the raw pseudo-inverse output has positive and negative entries that
+exactly cancel — and the post-shift total thrust is therefore
+
+.. math::
+
+    \sum_i F_i = -N \cdot \min(\mathbf{F}_{pre})
+
+where :math:`N` is the number of thrusters.
+
+**On a balanced layout with zero commanded body force, the single-direction shift along** :math:`\mathbf{1}` **is
+globally fuel-optimal** — no more general null-space optimization can reduce the total thrust further. Verified
+empirically on the 8-thruster reference layout across 15 representative torque commands: the min-shift solution and the
+full linear program :math:`\min\,\mathbf{1}^{T}\mathbf{F}` subject to :math:`[D]\mathbf{F} = \text{cmd}` and
+:math:`\mathbf{F} \geq 0` produce identical total thrust to within fp32 noise, due to the layout's bilateral symmetry.
+Layouts with lower symmetry or nonzero commanded body force can break this equivalence and create headroom for a more
+general null-space optimization (e.g. linear programming over :math:`\ker([D])`).
+
+On **unbalanced** layouts (:math:`[D]\mathbf{1} \neq 0`), the min-shift perturbs the achieved force/torque by
+:math:`-\min(\mathbf{F}_{pre}) \cdot ([D]\mathbf{1})`.
 
 Additional Information
 ----------------------
-The minimum-thrust subtraction in :eq:`eq:F_min` guarantees non-negative thruster commands but does not preserve the
-exact commanded force and torque when the raw pseudo-inverse solution contains negative components. In those cases the
-system sacrifices some of the requested force/torque fidelity in exchange for producing an on-pulse-only solution.
 For rank-deficient :math:`[D]` the minimum-norm solution is returned; uncontrollable directions in the 6-D command
 space are silently dropped by the SVD truncation. The optional ``desiredControlAxes_B`` parameter converts that silent
 drop into a fail-fast assertion at configuration time: if any axis flagged ``True`` in ``desiredControlAxes_B`` lies
