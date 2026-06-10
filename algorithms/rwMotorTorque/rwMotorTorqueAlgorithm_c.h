@@ -24,7 +24,7 @@ uint32_t RwMotorTorqueAlgorithm_getMaxNumRw(void);
  * @brief Construct a new RwMotorTorqueAlgorithm instance from the supplied configuration.
  *
  * The configuration carries the control axes, the reaction-wheel spin-axis configuration, the
- * per-wheel availability, and the null-space despin gain; the RW motor torque mapping and the
+ * per-wheel availability, and the null-space gain; the RW motor torque mapping and the
  * null-space projection are computed during construction.
  *
  * @param config Pointer to the configuration to apply (validated; throws on invalid input or if the
@@ -47,10 +47,10 @@ void RwMotorTorqueAlgorithm_destroy(RwMotorTorqueAlgorithmHandle* self);
 void RwMotorTorqueAlgorithm_setConfig(RwMotorTorqueAlgorithmHandle* self, const RwMotorTorqueConfig_c* config);
 
 /**
- * @brief Compute the per-wheel motor torques (control mapping + null-space despin) for a body torque.
+ * @brief Compute the per-wheel motor torques (control mapping + null-space) for a body torque.
  * @param self            Pointer to the instance.
  * @param Lr_B            Commanded control torque on the spacecraft, body frame.
- * @param rwSpeeds        Current RW speeds (pass zero-filled to disable despin).
+ * @param rwSpeeds        Current RW speeds (pass zero-filled to disable null-space).
  * @param rwDesiredSpeeds Desired RW speeds.
  * @return The per-wheel commanded motor torques.
  */

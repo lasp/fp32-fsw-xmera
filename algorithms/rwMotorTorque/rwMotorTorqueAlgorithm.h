@@ -26,7 +26,7 @@ struct RwMotorTorqueAvailability {
         wheelAvailability{};  //!< [-] AVAILABLE / UNAVAILABLE state of each reaction wheel
 };
 
-/*! @brief Per-update reaction-wheel speeds for the null-space despin term. */
+/*! @brief Per-update reaction-wheel speeds for the null-space term. */
 struct RwMotorTorqueSpeeds {
     Eigen::Vector<float, kMaxNumRw> rwSpeeds{Eigen::Vector<float, kMaxNumRw>::Zero()};  //!< [r/s] current RW speeds
     Eigen::Vector<float, kMaxNumRw> rwDesiredSpeeds{
@@ -42,7 +42,7 @@ struct RwMotorTorqueSpeeds {
  * rows allowed in any position); the reaction-wheel count does not exceed the compile-time maximum and each
  * spin axis is a unit vector; and the configuration yields a realizable, well-conditioned control mapping
  * (every control axis reachable by the available wheels, with neither the control mapping nor the null-space
- * despin geometry ill-conditioned). Construct via RwMotorTorqueConfig::create(...).
+ * null-space geometry ill-conditioned). Construct via RwMotorTorqueConfig::create(...).
  */
 class RwMotorTorqueConfig final {
    public:
@@ -63,7 +63,7 @@ class RwMotorTorqueConfig final {
         }
         if (!isValidOmegaGain(omegaGain)) {
             FSW_THROW_INVALID_ARGUMENT(
-                "rwMotorTorque: omegaGain (RW null-space despin feedback gain) must be finite and non-negative.");
+                "rwMotorTorque: omegaGain (RW null-space feedback gain) must be finite and non-negative.");
         }
 
         // Canonicalize the validated inputs so downstream code can rely on exact unit vectors. The control
@@ -89,13 +89,13 @@ class RwMotorTorqueConfig final {
         }
 
         // Reject configurations whose control mapping cannot be realized: a control axis is unreachable by the
-        // available reaction wheels, or the control mapping or null-space (despin) geometry is ill-conditioned
+        // available reaction wheels, or the control mapping or null-space geometry is ill-conditioned
         // (condition number above 100). This is the only place such an invalid argument is thrown -- once
         // constructed, a RwMotorTorqueConfig always yields a usable mapping.
         if (!isValidMapping(orthonormalControlAxes, normalizedRwConfiguration, availability)) {
             FSW_THROW_INVALID_ARGUMENT(
                 "rwMotorTorque: the configuration does not yield a valid control mapping -- a control axis is not "
-                "reachable by the available reaction wheels, or the control mapping or null-space (despin) "
+                "reachable by the available reaction wheels, or the control mapping or null-space "
                 "geometry is ill-conditioned.");
         }
 
@@ -146,7 +146,7 @@ class RwMotorTorqueConfig final {
     static bool isValidOmegaGain(float omegaGain) { return fsw::is_finite(omegaGain) && omegaGain >= 0.0F; }
 
     // Returns true if the (canonicalized) configuration yields a valid control mapping: every control axis is
-    // reachable by the available reaction wheels, and both the control mapping and the null-space (despin)
+    // reachable by the available reaction wheels, and both the control mapping and the null-space
     // geometry are well-conditioned (condition number below 100). Defined in the .cpp because it shares the
     // mapping computation with the algorithm.
     static bool isValidMapping(const Eigen::Matrix3f& controlAxes_B,
@@ -171,7 +171,7 @@ class RwMotorTorqueConfig final {
     Eigen::Matrix3f controlAxes_B;
     RwMotorTorqueArrayConfiguration rwConfiguration;
     RwMotorTorqueAvailability availability;
-    float omegaGain;  //!< [-] RW null-space despin feedback gain (>= 0; 0 disables despin)
+    float omegaGain;  //!< [-] RW null-space feedback gain (>= 0; 0 disables the null-space term)
 };
 
 /*! @brief Top level structure for the sub-module routines. */
@@ -181,7 +181,7 @@ class RwMotorTorqueAlgorithm final {
 
     void setConfig(const RwMotorTorqueConfig& config);
 
-    //! Control torque plus the RW null-space despin torque (pass zero speeds for control torque only).
+    //! Control torque plus the RW null-space torque (pass zero speeds for control torque only).
     //! [N-m] RW motor torques
     Eigen::Vector<float, kMaxNumRw> update(const Eigen::Vector3f& Lr_B, const RwMotorTorqueSpeeds& speeds) const;
 
@@ -192,7 +192,8 @@ class RwMotorTorqueAlgorithm final {
                                                       //!< motor torques (rows of unavailable wheels are zero)
     Eigen::Matrix<float, kMaxNumRw, kMaxNumRw> tau{
         Eigen::Matrix<float, kMaxNumRw, kMaxNumRw>::Zero()};  //!< [-] RW null-space projection matrix (zero when
-                                                              //!< the wheels do not span 3-D, disabling despin)
+                                                              //!< the wheels do not span 3-D, disabling the null-space
+                                                              //!< term)
 };
 
 #endif

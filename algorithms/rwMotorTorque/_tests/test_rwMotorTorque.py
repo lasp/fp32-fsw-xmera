@@ -57,7 +57,7 @@ def test_rw_motor_torque(show_plots, num_control_axes, num_wheels, num_input_cmd
         control_axes_B = [[0, 0, 0], [0, 0, 0], [0, 0, 0]]
 
     module.controlAxes_B = control_axes_B
-    module.omegaGain = omega_gain  # RW null-space despin feedback gain (0 disables despin)
+    module.omegaGain = omega_gain  # RW null-space feedback gain (0 disables the null-space term)
 
     # Add test module to runtime call list
     unit_test_sim.AddModelToTask(unit_task_name, module)
@@ -107,7 +107,7 @@ def test_rw_motor_torque(show_plots, num_control_axes, num_wheels, num_input_cmd
     rw_config_params.numRW = num_wheels
     rw_config_in_msg = messaging.RWArrayConfigMsgF32().write(rw_config_params)
 
-    # Current RW speeds driving the null-space despin term; desired speeds default to zero (unlinked).
+    # Current RW speeds driving the null-space term; desired speeds default to zero (unlinked).
     rw_speeds = [10.0 * (i + 1) for i in range(num_wheels)]
     desired_omega = [0.0] * num_wheels
     input_speed_msg = messaging.RWSpeedMsgF32Payload()
@@ -149,7 +149,7 @@ def test_rw_motor_torque(show_plots, num_control_axes, num_wheels, num_input_cmd
                               requested_torque,
                               avail)
 
-    # Add the null-space despin term (built from the available wheels, matching the algorithm).
+    # Add the null-space term (built from the available wheels, matching the algorithm).
     u_s = u_s + compute_null_space_torque(
         np.array(rw_config_params.GsMatrix_B).reshape((3, RW_EFF_CNT), order='F'),
         num_wheels, rw_speeds, desired_omega, omega_gain, avail)
@@ -176,7 +176,7 @@ def test_rw_motor_torque(show_plots, num_control_axes, num_wheels, num_input_cmd
     F = np.transpose(motor_torque[0])
     received_torque = -(G_s_B @ F).flatten()
 
-    # The control mapping must reproduce the requested body torque. Skip with despin on, whose fp32
+    # The control mapping must reproduce the requested body torque. Skip with null-space on, whose fp32
     # body-torque leak the truth comparison above already bounds.
     if omega_gain == 0.0 and num_wheels >= num_control_axes > 0:
         if (len(avail) - np.sum(avail)) > num_control_axes:
@@ -235,7 +235,7 @@ def compute_true_torque(C, Gs_B, Lr, avail_msg):
 
 
 def compute_null_space_torque(Gs_B, num_wheels, rw_speeds, desired_omega, omega_gain, avail_msg):
-    """Mirror the algorithm's null-space despin term over the available wheels."""
+    """Mirror the algorithm's null-space term over the available wheels."""
     rw_eff_cnt = Gs_B.shape[1]
     u_null = np.zeros(rw_eff_cnt)
 
@@ -257,7 +257,7 @@ def compute_null_space_torque(Gs_B, num_wheels, rw_speeds, desired_omega, omega_
             d = np.zeros(rw_eff_cnt)
             d[:num_wheels] = -omega_gain * (np.array(rw_speeds) - np.array(desired_omega))
             u_null = tau @ d
-            # Zero the despin torque for unavailable or absent wheels.
+            # Zero the null-space torque for unavailable or absent wheels.
             for i in range(rw_eff_cnt):
                 if i >= num_wheels or avail_msg[i] != messaging.AVAILABLE:
                     u_null[i] = 0.0

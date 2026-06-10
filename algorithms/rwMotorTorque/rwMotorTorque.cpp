@@ -66,7 +66,7 @@ void RwMotorTorque::updateState(const uint64_t callTime) {
         Lr_B += cArrayToEigenVector(torqueRequestBody2);
     }
 
-    /*! - Read the optional RW speeds for the despin term; unlinked speeds default to zero. */
+    /*! - Read the optional RW speeds for the null-space term; unlinked speeds default to zero. */
     RwMotorTorqueSpeeds speeds{};
     if (this->rwSpeedsInMsg.isLinked()) {
         const RWSpeedMsgF32Payload rwSpeeds = this->rwSpeedsInMsg();

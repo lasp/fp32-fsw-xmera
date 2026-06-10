@@ -41,7 +41,7 @@ typedef struct {
     Matrix3f_c controlAxes_B;                          /*!< [-] control axes mapping matrix CB */
     RwMotorTorqueArrayConfiguration_c rwConfiguration; /*!< [-] reaction-wheel spin-axis configuration */
     RwMotorTorqueAvailability_c availability;          /*!< [-] per-wheel availability */
-    float omegaGain;                                   /*!< [-] RW null-space despin feedback gain (>= 0) */
+    float omegaGain;                                   /*!< [-] RW null-space feedback gain (>= 0) */
 } RwMotorTorqueConfig_c;
 
 /**

@@ -12,7 +12,7 @@ The optional wheel availability message is used to include or exclude particular
 solution. The desired control torque can be mapped onto particular orthogonal control axes to implement a partial
 solution for the overall attitude control torque.
 
-The module also provides an optional reaction-wheel null-space despin term that drives the wheel speeds toward a
+The module also provides an optional reaction-wheel null-space term that drives the wheel speeds toward a
 desired set without producing any net body torque. This is enabled by a non-zero ``omegaGain`` together with the
 optional RW speed messages; with the default zero gain (or no speed message linked) the module reduces to the pure
 control-torque mapping.
@@ -52,10 +52,10 @@ provides information on what this message is used for.
       - (optional) RW device availability message
     * - rwSpeedsInMsg
       - :ref:`RWSpeedMsgPayload`
-      - (optional) current RW speeds, used by the null-space despin term
+      - (optional) current RW speeds, used by the null-space term
     * - rwDesiredSpeedsInMsg
       - :ref:`RWSpeedMsgPayload`
-      - (optional) desired RW speeds for the null-space despin term (defaults to zero)
+      - (optional) desired RW speeds for the null-space term (defaults to zero)
 
 Module Parameters
 -------------------------------
@@ -82,7 +82,7 @@ The following table lists all the module parameters than can be set. The paramet
       - float
       - [-]
       - :math:`0`
-      - RW null-space despin feedback gain; ``0`` disables the despin term
+      - RW null-space feedback gain; ``0`` disables the null-space term
       - :math:`\ge 0`
 
 Model Assumptions and Limitations
@@ -99,9 +99,9 @@ This code makes the following assumptions:
 - The control axes and RW spin axes are expected to be unit vectors. They are validated when the configuration is
   created (a non-unit spin axis is rejected) and canonicalized before use: the RW spin axes are normalized and the
   control axes are orthonormalized (Gram-Schmidt).
-- The null-space despin term requires more than three *available* reaction wheels spanning 3-D for a non-trivial
+- The null-space term requires more than three *available* reaction wheels spanning 3-D for a non-trivial
   null space. With three (or fewer) available spanning wheels the null space is empty, :math:`[\tau]` is zero, and
-  the despin term has no effect. A zero ``omegaGain`` (the default) likewise disables the despin term. The
+  the null-space term has no effect. A zero ``omegaGain`` (the default) likewise disables the null-space term. The
   available-wheel geometry :math:`[G_{s}]` must also be well conditioned (condition number below 100); a near-coplanar
   array of more than three wheels is rejected when the configuration is created.
 
@@ -230,9 +230,9 @@ availability message is read in. The torque mapping is only used for
 RW’s whose availability setting is ``AVAILABLE``. If it is
 ``UNAVAILABLE`` then that RW output torque is set to zero.
 
-RW Null-Space Despin
-====================
-On top of the control-torque solution, the module can add a null-space despin torque that drives the RW speeds
+RW Null-Space Speed Feedback
+============================
+On top of the control-torque solution, the module can add a null-space torque that drives the RW speeds
 toward a desired set without disturbing the spacecraft attitude. This capability was previously provided by a
 separate ``rwNullSpace`` module and is now part of ``rwMotorTorque``.
 
@@ -254,7 +254,7 @@ the single-precision torque leakage incurred by the algebraically equivalent nor
 in the RW null space and exerts no net torque on the spacecraft, leaving the attitude control solution unaffected.
 
 Let :math:`\Omega_{i}` be the RW spin speeds and :math:`\Omega_{i,d}` the desired speeds, with tracking error
-:math:`\Delta\Omega_i = \Omega_i - \Omega_{i,d}`. The desired despin torque array is
+:math:`\Delta\Omega_i = \Omega_i - \Omega_{i,d}`. The desired null-space torque array is
 
 .. math:: \mathbf d = -K \, \Delta\bm\Omega
 
@@ -264,11 +264,11 @@ control solution :math:`\mathbf u_{s,\text{cont}}` gives the module output
 .. math:: \mathbf u_{s} = \mathbf u_{s,\text{cont}} + [\tau] \, \mathbf d
 
 The projection matrix :math:`[\tau]` is precomputed at reset, and its rows for unavailable wheels are zeroed so
-the despin term never commands torque to a wheel the control mapping excluded. A null space exists only when more
+the null-space term never commands torque to a wheel the control mapping excluded. A null space exists only when more
 than three wheels are available and span 3-D; with three (or fewer) available wheels :math:`[\tau]` is zero and the
-despin term vanishes. When more than three wheels are available their geometry must be well conditioned (condition
+null-space term vanishes. When more than three wheels are available their geometry must be well conditioned (condition
 number below 100); a near-coplanar array is rejected when the configuration is created rather than producing an
-unreliable despin. The current and desired RW speeds are read each update from the optional ``rwSpeedsInMsg`` and
+unreliable null-space. The current and desired RW speeds are read each update from the optional ``rwSpeedsInMsg`` and
 ``rwDesiredSpeedsInMsg`` (unlinked speeds default to zero).
 
 This availability handling is a deliberate departure from the legacy ``rwNullSpace`` module, which had no concept
@@ -287,6 +287,6 @@ The code performs the following functions:
   observes the availability of the RWs and maps the torques to only
   available reaction wheels.
 
-- **Adds an optional RW null-space despin torque**: When ``omegaGain`` is
+- **Adds an optional RW null-space torque**: When ``omegaGain`` is
   non-zero, the module superimposes a null-space torque that drives the RW
   speeds toward their desired values without producing any net body torque.

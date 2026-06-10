@@ -68,7 +68,7 @@ inline Eigen::Matrix<double, kMaxNumRw, kMaxNumRw> referenceTau(const Eigen::Mat
     return tau;
 }
 
-// Independent fp64 reference for update() (control mapping + null-space despin). Works entirely in double; the
+// Independent fp64 reference for update() (control mapping + null-space). Works entirely in double; the
 // caller casts the float inputs to double, and casts the returned result back to float for comparison.
 inline Eigen::Vector<double, kMaxNumRw> referenceUpdate(const Eigen::Matrix3d& controlAxes_B,
                                                         const Eigen::Matrix<double, 3, kMaxNumRw>& GsMatrix_B,
@@ -244,12 +244,12 @@ inline void runRegressionCase(Eigen::Vector3f Lr1_B,
     const RwMotorTorqueAlgorithm alg{
         RwMotorTorqueConfig::create(controlAxes_B, rwConfiguration, availability, omegaGain)};
 
-    // Validate the control and despin contributions separately against the fp64 reference, each with the
+    // Validate the control and null-space contributions separately against the fp64 reference, each with the
     // tolerance matched to its error source. By linearity, update(Lr, speeds) = update(Lr, 0) + update(0, speeds),
     // so isolating the two terms lets each comparison use the right scale. A single combined tolerance would
     // let a large ||d|| slacken the control comparison and mask a control-path error.
     const Eigen::Vector<float, kMaxNumRw> controlOut = alg.update(Lr_B, RwMotorTorqueSpeeds{});
-    const Eigen::Vector<float, kMaxNumRw> despinOut = alg.update(Eigen::Vector3f::Zero(), speeds);
+    const Eigen::Vector<float, kMaxNumRw> nullSpaceOut = alg.update(Eigen::Vector3f::Zero(), speeds);
     const Eigen::Vector<float, kMaxNumRw> out = alg.update(Lr_B, speeds);
 
     const Eigen::Vector<double, kMaxNumRw> zeroSpeeds = Eigen::Vector<double, kMaxNumRw>::Zero();
@@ -261,24 +261,24 @@ inline void runRegressionCase(Eigen::Vector3f Lr1_B,
                                                                         zeroSpeeds,
                                                                         zeroSpeeds,
                                                                         static_cast<double>(omegaGain));
-    const Eigen::Vector<double, kMaxNumRw> despinRef = referenceUpdate(controlAxes_B.cast<double>(),
-                                                                       rwConfiguration.GsMatrix_B.cast<double>(),
-                                                                       rwConfiguration.numRW,
-                                                                       availability,
-                                                                       Eigen::Vector3d::Zero(),
-                                                                       speeds.rwSpeeds.cast<double>(),
-                                                                       speeds.rwDesiredSpeeds.cast<double>(),
-                                                                       static_cast<double>(omegaGain));
+    const Eigen::Vector<double, kMaxNumRw> nullSpaceRef = referenceUpdate(controlAxes_B.cast<double>(),
+                                                                          rwConfiguration.GsMatrix_B.cast<double>(),
+                                                                          rwConfiguration.numRW,
+                                                                          availability,
+                                                                          Eigen::Vector3d::Zero(),
+                                                                          speeds.rwSpeeds.cast<double>(),
+                                                                          speeds.rwDesiredSpeeds.cast<double>(),
+                                                                          static_cast<double>(omegaGain));
 
     const float controlScale = static_cast<float>(controlRef.cwiseAbs().maxCoeff());
-    const Eigen::Vector<float, kMaxNumRw> despinInput = omegaGain * (speeds.rwSpeeds - speeds.rwDesiredSpeeds);
+    const Eigen::Vector<float, kMaxNumRw> nullSpaceInput = omegaGain * (speeds.rwSpeeds - speeds.rwDesiredSpeeds);
     const float controlTol = 1e-4F + 1e-3F * controlScale;
-    const float despinTol = 1e-4F + 1e-5F * despinInput.norm();
+    const float nullSpaceTol = 1e-4F + 1e-5F * nullSpaceInput.norm();
     for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
         EXPECT_NEAR(controlOut[i], static_cast<float>(controlRef[i]), controlTol);
-        EXPECT_NEAR(despinOut[i], static_cast<float>(despinRef[i]), despinTol);
+        EXPECT_NEAR(nullSpaceOut[i], static_cast<float>(nullSpaceRef[i]), nullSpaceTol);
         // The production update() output is exactly the fp32 sum of the two contributions (linearity).
-        EXPECT_FLOAT_EQ(out[i], controlOut[i] + despinOut[i]);
+        EXPECT_FLOAT_EQ(out[i], controlOut[i] + nullSpaceOut[i]);
         EXPECT_TRUE(std::isfinite(out[i]));
     }
 }
@@ -369,16 +369,16 @@ inline void propertyExcludedWheelsZeroTorque(Eigen::Vector3f Lr1_B,
     }
 }
 
-// The null-space despin term adds no net body torque: [Gs] applied to the despin output is zero (up to fp32
-// round-off scaled by the despin magnitude).
-inline void propertyDespinAddsNoBodyTorque(std::vector<bool> wheelAvailabilityBool,
-                                           bool rwAvailIsLinked,
-                                           int numRW,
-                                           std::vector<float> GsMatrix_B,
-                                           uint32_t numControlAxes,
-                                           std::vector<float> rwSpeeds,
-                                           std::vector<float> rwDesiredSpeeds,
-                                           float omegaGain) {
+// The null-space term adds no net body torque: [Gs] applied to the null-space output is zero (up to fp32
+// round-off scaled by the null-space magnitude).
+inline void propertyNullSpaceAddsNoBodyTorque(std::vector<bool> wheelAvailabilityBool,
+                                              bool rwAvailIsLinked,
+                                              int numRW,
+                                              std::vector<float> GsMatrix_B,
+                                              uint32_t numControlAxes,
+                                              std::vector<float> rwSpeeds,
+                                              std::vector<float> rwDesiredSpeeds,
+                                              float omegaGain) {
     Eigen::Matrix3f controlAxes_B{Eigen::Matrix3f::Zero()};
     RwMotorTorqueArrayConfiguration rwConfiguration{};
     RwMotorTorqueAvailability availability{};
@@ -397,31 +397,32 @@ inline void propertyDespinAddsNoBodyTorque(std::vector<bool> wheelAvailabilityBo
         RwMotorTorqueConfig::create(controlAxes_B, rwConfiguration, availability, omegaGain);
     const RwMotorTorqueAlgorithm alg{config};
 
-    // Zero command: the control term vanishes, so the output is the despin term tau * d on its own.
+    // Zero command: the control term vanishes, so the output is the null-space term tau * d on its own.
     const RwMotorTorqueSpeeds speeds = makeSpeeds(rwSpeeds, rwDesiredSpeeds);
-    const Eigen::Vector<float, kMaxNumRw> despin = alg.update(Eigen::Vector3f::Zero(), speeds);
+    const Eigen::Vector<float, kMaxNumRw> nullSpaceOut = alg.update(Eigen::Vector3f::Zero(), speeds);
 
     // The config factory rejects ill-conditioned null-space geometry, so for any constructible config the
-    // despin lies cleanly in the null space and produces no body torque (up to fp32 round-off). [Gs] * tau == 0
-    // in exact arithmetic, so the residual is pure round-off whose magnitude scales with the despin input
+    // null-space lies cleanly in the null space and produces no body torque (up to fp32 round-off). [Gs] * tau == 0
+    // in exact arithmetic, so the residual is pure round-off whose magnitude scales with the null-space term input
     // d = -omegaGain * (rwSpeeds - rwDesiredSpeeds). The tolerance is therefore scaled by ||d||.
-    // Essentially, this compares that the torque on the body is negligible to the torque applied to despin the wheels.
-    const Eigen::Vector<float, kMaxNumRw> despinInput = omegaGain * (speeds.rwSpeeds - speeds.rwDesiredSpeeds);
-    const Eigen::Vector3f bodyTorque = availableGs(config) * despin;
-    EXPECT_LE(bodyTorque.norm(), 1e-4F + 1e-5F * despinInput.norm());
+    // Essentially, this compares that the torque on the body is negligible to the torque applied to drive the wheel
+    // speeds toward their desired values.
+    const Eigen::Vector<float, kMaxNumRw> nullSpaceInput = omegaGain * (speeds.rwSpeeds - speeds.rwDesiredSpeeds);
+    const Eigen::Vector3f bodyTorque = availableGs(config) * nullSpaceOut;
+    EXPECT_LE(bodyTorque.norm(), 1e-4F + 1e-5F * nullSpaceInput.norm());
 }
 
-// With a zero gain the despin term vanishes: the output is independent of the RW speeds.
-inline void propertyZeroGainDisablesDespin(Eigen::Vector3f Lr1_B,
-                                           Eigen::Vector3f Lr2_B,
-                                           std::vector<bool> wheelAvailabilityBool,
-                                           bool cmdTorque2IsLinked,
-                                           bool rwAvailIsLinked,
-                                           int numRW,
-                                           std::vector<float> GsMatrix_B,
-                                           uint32_t numControlAxes,
-                                           std::vector<float> rwSpeeds,
-                                           std::vector<float> rwDesiredSpeeds) {
+// With a zero gain the null-space term vanishes: the output is independent of the RW speeds.
+inline void propertyZeroGainDisablesNullSpace(Eigen::Vector3f Lr1_B,
+                                              Eigen::Vector3f Lr2_B,
+                                              std::vector<bool> wheelAvailabilityBool,
+                                              bool cmdTorque2IsLinked,
+                                              bool rwAvailIsLinked,
+                                              int numRW,
+                                              std::vector<float> GsMatrix_B,
+                                              uint32_t numControlAxes,
+                                              std::vector<float> rwSpeeds,
+                                              std::vector<float> rwDesiredSpeeds) {
     Eigen::Matrix3f controlAxes_B{Eigen::Matrix3f::Zero()};
     RwMotorTorqueArrayConfiguration rwConfiguration{};
     RwMotorTorqueAvailability availability{};
@@ -481,7 +482,7 @@ inline void propertyControlTorqueRealized(Eigen::Vector3f Lr1_B,
     const RwMotorTorqueConfig config = RwMotorTorqueConfig::create(controlAxes_B, rwConfiguration, availability);
     const RwMotorTorqueAlgorithm alg{config};
 
-    // Control-only output (zero speeds): the despin term is absent, so this is the pure control mapping.
+    // Control-only output (zero speeds): the null-space term is absent, so this is the pure control mapping.
     const Eigen::Vector3f bodyTorque = availableGs(config) * alg.update(Lr_B, RwMotorTorqueSpeeds{});
     const Eigen::Matrix3f& storedAxes = config.getControlAxes();
     for (uint32_t i = 0U; i < 3U; ++i) {

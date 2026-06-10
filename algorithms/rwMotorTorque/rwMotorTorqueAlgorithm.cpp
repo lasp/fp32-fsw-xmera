@@ -13,18 +13,18 @@ struct RwMotorTorqueMapping {
     Eigen::Matrix<float, kMaxNumRw, 3> motorTorqueMap{
         Eigen::Matrix<float, kMaxNumRw, 3>::Zero()};  //!< [-] body control torque -> per-RW motor torques
     Eigen::Matrix<float, kMaxNumRw, kMaxNumRw> tau{
-        Eigen::Matrix<float, kMaxNumRw, kMaxNumRw>::Zero()};  //!< [-] RW null-space projection for despin
+        Eigen::Matrix<float, kMaxNumRw, kMaxNumRw>::Zero()};  //!< [-] RW null-space projection
 };
 
 // Configurations whose pseudo-inverted operator -- [CGs] for the control map, [Gs] for the null-space
 // projector -- has a condition number above 1 / kConditioningTol = 100 are rejected, so a near-degenerate
-// layout (which would amplify command and fp32 error, or yield an unreliable despin) can never be configured.
+// layout (which would amplify command and fp32 error, or yield an unreliable null-space) can never be configured.
 constexpr float kConditioningTol = 1e-2F;
 
 /*! Builds the RW null-space projection [tau], the orthogonal projector onto the null space of the available-
  wheel spin-axis matrix [Gs] (in-position, zero columns for unavailable wheels). [tau] is built from the right
  singular vectors of [Gs] -- [tau] = [I] - [Vr][Vr]^T where [Vr] spans the row space -- so [Gs][tau] == 0 to
- machine precision. Returns the zero matrix (despin disabled) when there are three or fewer available wheels,
+ machine precision. Returns the zero matrix (null-space disabled) when there are three or fewer available wheels,
  and nullopt when more than three available wheels are ill-conditioned (cond([Gs]) > 100, which also covers a
  rank-deficient array that does not span 3-D). */
 std::optional<Eigen::Matrix<float, kMaxNumRw, kMaxNumRw>> computeNullSpaceProjection(
@@ -166,16 +166,16 @@ void RwMotorTorqueAlgorithm::setConfig(const RwMotorTorqueConfig& config) {
     }
 }
 
-/*! Maps the commanded body torque to per-RW motor torques and adds the null-space despin torque.
+/*! Maps the commanded body torque to per-RW motor torques and adds the null-space torque.
  @param Lr_B commanded control torque on the spacecraft, body frame [N-m]
- @param speeds current and desired RW speeds for the despin term
+ @param speeds current and desired RW speeds for the null-space term
  @return per-RW motor torques [N-m]
  */
 Eigen::Vector<float, kMaxNumRw> RwMotorTorqueAlgorithm::update(const Eigen::Vector3f& Lr_B,
                                                                const RwMotorTorqueSpeeds& speeds) const {
     const Eigen::Vector<float, kMaxNumRw> controlTorque = this->motorTorqueMap * Lr_B;
 
-    // Null-space despin: [tau] projects the wheel-speed feedback so it adds no body torque.
+    // Null-space term: [tau] projects the wheel-speed feedback so it adds no body torque.
     const Eigen::Vector<float, kMaxNumRw> d = -this->cfg.getOmegaGain() * (speeds.rwSpeeds - speeds.rwDesiredSpeeds);
     const Eigen::Vector<float, kMaxNumRw> nullSpaceTorque = this->tau * d;
 

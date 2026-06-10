@@ -21,8 +21,8 @@ TEST(RwMotorTorqueTest, RegressionControlOnly) {
                       0.0F);
 }
 
-// Control torque plus an active null-space despin term (four wheels, non-zero gain and speeds).
-TEST(RwMotorTorqueTest, RegressionDespin) {
+// Control torque plus an active null-space term (four wheels, non-zero gain and speeds).
+TEST(RwMotorTorqueTest, RegressionNullSpace) {
     runRegressionCase(Eigen::Vector3f{0.3F, -0.5F, 0.8F},
                       Eigen::Vector3f::Zero(),
                       std::vector<bool>{},
@@ -61,7 +61,7 @@ TEST(RwMotorTorqueTest, SetupTest) {
     nonUnitRw.GsMatrix_B.col(0) = Eigen::Vector3f{2.0F, 0.0F, 0.0F};
     EXPECT_THROW(RwMotorTorqueConfig::create(makeControlAxes(1U), nonUnitRw, availability), fsw::invalid_argument);
 
-    // A negative despin gain is rejected.
+    // A negative null-space feedback gain is rejected.
     EXPECT_THROW(RwMotorTorqueConfig::create(makeControlAxes(1U), rwConfiguration, availability, -1.0F),
                  fsw::invalid_argument);
 
@@ -105,8 +105,8 @@ TEST(RwMotorTorqueTest, PropertyExcludedWheelsZeroTorque) {
         0.5F);
 }
 
-TEST(RwMotorTorqueTest, PropertyDespinAddsNoBodyTorque) {
-    propertyDespinAddsNoBodyTorque(
+TEST(RwMotorTorqueTest, PropertyNullSpaceAddsNoBodyTorque) {
+    propertyNullSpaceAddsNoBodyTorque(
         std::vector<bool>{},
         false,
         4,
@@ -117,8 +117,8 @@ TEST(RwMotorTorqueTest, PropertyDespinAddsNoBodyTorque) {
         0.5F);
 }
 
-TEST(RwMotorTorqueTest, PropertyZeroGainDisablesDespin) {
-    propertyZeroGainDisablesDespin(
+TEST(RwMotorTorqueTest, PropertyZeroGainDisablesNullSpace) {
+    propertyZeroGainDisablesNullSpace(
         Eigen::Vector3f{0.3F, -0.5F, 0.8F},
         Eigen::Vector3f::Zero(),
         std::vector<bool>{},
@@ -147,8 +147,8 @@ TEST(RwMotorTorqueTest, PropertyControlTorqueRealized) {
 // Edge-case tests — boundary geometries and config canonicalization.
 // ---------------------------------------------------------------------------
 
-// Three spanning wheels leave no null space, so the despin term is zero even with a non-zero gain.
-TEST(RwMotorTorqueTest, ThreeSpanningWheelsHaveNoDespin) {
+// Three spanning wheels leave no null space, so the null-space term is zero even with a non-zero gain.
+TEST(RwMotorTorqueTest, ThreeSpanningWheelsHaveNoNullSpace) {
     RwMotorTorqueArrayConfiguration rwConfiguration{};
     rwConfiguration.numRW = 3U;
     rwConfiguration.GsMatrix_B.col(0) = Eigen::Vector3f{1.0F, 0.0F, 0.0F};
@@ -242,9 +242,9 @@ TEST(RwMotorTorqueTest, IllConditionedControlMappingRejected) {
                  fsw::invalid_argument);
 }
 
-// Four near-coplanar wheels: the control mapping (body x, y) is well-conditioned, but the null-space (despin)
+// Four near-coplanar wheels: the control mapping (body x, y) is well-conditioned, but the null-space
 // geometry is ill-conditioned (cond([Gs]) > 100), so create() rejects the configuration regardless of gain.
-TEST(RwMotorTorqueTest, IllConditionedDespinGeometryRejected) {
+TEST(RwMotorTorqueTest, IllConditionedNullSpaceGeometryRejected) {
     constexpr float kOutOfPlane = 1e-3F;  // tiny z component -> [Gs] barely spans the third dimension
     RwMotorTorqueArrayConfiguration rwConfiguration{};
     rwConfiguration.numRW = 4U;
@@ -299,7 +299,7 @@ TEST(RwMotorTorqueTest, SquareMappingIsExact) {
 }
 
 // setConfig swaps in a new configuration: the algorithm recomputes the mapping, so update() matches the new
-// configuration's reference (here switching from three wheels to four with an active despin).
+// configuration's reference (here switching from three wheels to four with an active null-space).
 TEST(RwMotorTorqueTest, SetConfigSwitchesConfiguration) {
     RwMotorTorqueArrayConfiguration rwA{};
     rwA.numRW = 3U;
@@ -338,9 +338,9 @@ TEST(RwMotorTorqueTest, SetConfigSwitchesConfiguration) {
     }
 }
 
-// With the RW speeds already at their desired values the speed error is zero, so the despin term vanishes even
+// With the RW speeds already at their desired values the speed error is zero, so the null-space term vanishes even
 // with a non-zero gain and a non-trivial null space: the output equals the control-only update.
-TEST(RwMotorTorqueTest, DespinZeroAtDesiredSpeed) {
+TEST(RwMotorTorqueTest, NullSpaceZeroAtDesiredSpeed) {
     RwMotorTorqueArrayConfiguration rwConfiguration{};
     rwConfiguration.numRW = 4U;
     rwConfiguration.GsMatrix_B.col(0) = Eigen::Vector3f{1.0F, 0.0F, 0.0F};

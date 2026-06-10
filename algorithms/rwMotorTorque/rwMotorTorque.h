@@ -24,7 +24,7 @@ class RwMotorTorque : public SysModel {
     void updateState(uint64_t callTime) override;
 
     Eigen::Matrix3f controlAxes_B{Eigen::Matrix3f::Zero()};  //!< [-] control axes mapping matrix CB
-    float omegaGain{};  //!< [-] RW null-space despin feedback gain (>= 0; 0 disables despin)
+    float omegaGain{};  //!< [-] RW null-space feedback gain (>= 0; 0 disables the null-space term)
 
     /* declare module IO interfaces */
     Message<RwMotorTorqueMsgF32Payload> rwMotorTorqueOutMsg;   //!< RW motor torque output message
@@ -32,8 +32,8 @@ class RwMotorTorque : public SysModel {
     ReadFunctor<CmdTorqueBodyMsgF32Payload> vehControlIn2Msg;  //!<  optional vehicle control input message
     ReadFunctor<RWArrayConfigMsgF32Payload> rwParamsInMsg;     //!<  RW Array input message
     ReadFunctor<RWAvailabilityMsgPayload> rwAvailInMsg;        //!< optional RWs availability input message
-    ReadFunctor<RWSpeedMsgF32Payload> rwSpeedsInMsg;           //!< optional current RW speeds (null-space despin)
-    ReadFunctor<RWSpeedMsgF32Payload> rwDesiredSpeedsInMsg;    //!< optional desired RW speeds (null-space despin)
+    ReadFunctor<RWSpeedMsgF32Payload> rwSpeedsInMsg;           //!< optional current RW speeds (null-space)
+    ReadFunctor<RWSpeedMsgF32Payload> rwDesiredSpeedsInMsg;    //!< optional desired RW speeds (null-space)
 
    private:
     std::unique_ptr<RwMotorTorqueAlgorithm> algorithm = nullptr;
