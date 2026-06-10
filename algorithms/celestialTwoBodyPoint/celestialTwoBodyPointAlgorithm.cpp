@@ -17,8 +17,8 @@ void CelestialTwoBodyPointAlgorithm::setConfig(const CelestialTwoBodyPointConfig
  computed downstream.
  @param r_celBody_N [m] primary celestial body inertial position
  @param v_celBody_N [m/s] primary celestial body inertial velocity
- @param r_secCelBody_N [m] secondary celestial body inertial position (ignored when not linked)
- @param v_secCelBody_N [m/s] secondary celestial body inertial velocity (ignored when not linked)
+ @param r_secCelBody_N [m] secondary celestial body inertial position
+ @param v_secCelBody_N [m/s] secondary celestial body inertial velocity
  @param r_BN_N [m] spacecraft inertial position
  @param v_BN_N [m/s] spacecraft inertial velocity
  @return attitude reference output
@@ -35,24 +35,18 @@ CelestialTwoBodyPointOutput CelestialTwoBodyPointAlgorithm::update(const Eigen::
     const Eigen::Vector3d r_PB_N = r_celBody_N - r_BN_N;
     const Eigen::Vector3d v_PB_N = v_celBody_N - v_BN_N;
 
-    Eigen::Vector3d r_SB_N{};
-    Eigen::Vector3d v_SB_N{};
+    Eigen::Vector3d r_SB_N = r_secCelBody_N - r_BN_N;
+    Eigen::Vector3d v_SB_N = v_secCelBody_N - v_BN_N;
 
-    float platAngDiff{}; /* Angle between r_PB_N and r_SB_N */
-    if (this->cfg.getSecCelBodyIsLinked()) {
-        r_SB_N = r_secCelBody_N - r_BN_N;
-        v_SB_N = v_secCelBody_N - v_BN_N;
-
-        const auto dotProduct = static_cast<float>(r_SB_N.normalized().dot(r_PB_N.normalized()));
-        platAngDiff = safeAcosf(dotProduct);
-    }
+    const auto dotProduct = static_cast<float>(r_SB_N.normalized().dot(r_PB_N.normalized()));
+    float platAngDiff = safeAcosf(dotProduct); /* Angle between r_PB_N and r_SB_N */
 
     CelestialTwoBodyPointOutput attRefOut =
         CelestialTwoBodyPointAlgorithm::rateAndAccelCalc(r_PB_N, v_PB_N, r_SB_N, v_SB_N);
 
-    /*! - Cross the first bodies' states to get R_SB and v_SB if no secondary celestial body is included or
-     if the two bodies are close to parallel or if the computed rate was higher than rate threshold */
-    if (!this->cfg.getSecCelBodyIsLinked() || attRefOut.omega_RN_N.norm() > this->cfg.getRateThreshold() ||
+    /*! - Cross the first bodies' states to get R_SB and v_SB if the two bodies are close to parallel
+     or if the computed rate was higher than rate threshold */
+    if (attRefOut.omega_RN_N.norm() > this->cfg.getRateThreshold() ||
         fabsf(platAngDiff) < this->cfg.getSingularityThreshold() ||
         fabsf(platAngDiff) > std::numbers::pi_v<float> - this->cfg.getSingularityThreshold()) {
         r_SB_N = r_PB_N.cross(v_PB_N);
