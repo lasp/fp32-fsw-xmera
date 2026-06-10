@@ -72,21 +72,30 @@ inline ReferenceCelestialTwoBodyPointOutput referenceCelestialTwoBodyPoint(const
                                                                            const float singularityThreshold) {
     const Eigen::Vector3d r_PB_N = r_celBody_N - r_BN_N;
     const Eigen::Vector3d v_PB_N = v_celBody_N - v_BN_N;
-
     Eigen::Vector3d r_SB_N = r_secCelBody_N - r_BN_N;
     Eigen::Vector3d v_SB_N = v_secCelBody_N - v_BN_N;
 
-    double platAngDiff = std::acos(r_SB_N.normalized().dot(r_PB_N.normalized()));
+    /*! Return identity reference attitude and zero reference rates if either r_PB_N or r_SB_N are zero */
+    if (r_PB_N.squaredNorm() < static_cast<double>(CelestialTwoBodyPointAlgorithm::kMinNormSq) ||
+        r_SB_N.squaredNorm() < static_cast<double>(CelestialTwoBodyPointAlgorithm::kMinNormSq)) {
+        const ReferenceCelestialTwoBodyPointOutput safeDefault = {
+            Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero()};
 
-    ReferenceCelestialTwoBodyPointOutput out = referenceRateAndAccelCalc(r_PB_N, v_PB_N, r_SB_N, v_SB_N);
-
-    if (std::abs(platAngDiff) < singularityThreshold || std::abs(platAngDiff) > M_PI - singularityThreshold) {
-        r_SB_N = r_PB_N.cross(v_PB_N);
-        v_SB_N = Eigen::Vector3d::Zero();
-        out = referenceRateAndAccelCalc(r_PB_N, v_PB_N, r_SB_N, v_SB_N);
+        return safeDefault;
     }
 
-    return out;
+    /*! Compute angle between celestial bodies */
+    double celestialBodySeparationAngle = std::acos(std::abs(r_SB_N.normalized().dot(r_PB_N.normalized())));
+
+    /*! Update r_SB_N and v_SB_N if celestial bodies are aligned */
+    if (celestialBodySeparationAngle < singularityThreshold) {
+        r_SB_N = r_PB_N.cross(v_PB_N);
+        v_SB_N = Eigen::Vector3d::Zero();
+    }
+
+    ReferenceCelestialTwoBodyPointOutput expected = referenceRateAndAccelCalc(r_PB_N, v_PB_N, r_SB_N, v_SB_N);
+
+    return expected;
 }
 
 // Compare the FP32 algorithm output against the double-precision reference. The inputs should be

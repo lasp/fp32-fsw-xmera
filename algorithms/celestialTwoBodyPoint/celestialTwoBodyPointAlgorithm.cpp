@@ -34,28 +34,26 @@ CelestialTwoBodyPointOutput CelestialTwoBodyPointAlgorithm::update(const Eigen::
                                                                    const Eigen::Vector3d &v_BN_N) const {
     const Eigen::Vector3d r_PB_N = r_celBody_N - r_BN_N;
     const Eigen::Vector3d v_PB_N = v_celBody_N - v_BN_N;
-
     Eigen::Vector3d r_SB_N = r_secCelBody_N - r_BN_N;
     Eigen::Vector3d v_SB_N = v_secCelBody_N - v_BN_N;
 
-    // Return identity if either r_PB_N or r_SB_N are zero
+    /*! Return identity reference attitude and zero reference rates if either r_PB_N or r_SB_N are zero */
     if (r_PB_N.squaredNorm() < kMinNormSq || r_SB_N.squaredNorm() < kMinNormSq) {
         return CelestialTwoBodyPointOutput{};
     }
 
+    /*! Compute angle between celestial bodies */
     const auto dotProduct = static_cast<float>(r_SB_N.normalized().dot(r_PB_N.normalized()));
-    float platAngDiff = safeAcosf(dotProduct); /* Angle between r_PB_N and r_SB_N */
+    const float celestialBodySeparationAngle = safeAcosf(fabsf(dotProduct)); /* Angle between r_PB_N and r_SB_N */
+
+    /*! Update r_SB_N and v_SB_N if celestial bodies are aligned */
+    if (celestialBodySeparationAngle < this->cfg.getSingularityThreshold()) {
+        r_SB_N = r_PB_N.cross(v_PB_N);
+        v_SB_N = Eigen::Vector3d::Zero();
+    }
 
     CelestialTwoBodyPointOutput attRefOut =
         CelestialTwoBodyPointAlgorithm::rateAndAccelCalc(r_PB_N, v_PB_N, r_SB_N, v_SB_N);
-
-    /*! - Cross the first bodies' states to get R_SB and v_SB if the two bodies are close to parallel */
-    if (fabsf(platAngDiff) < this->cfg.getSingularityThreshold() ||
-        fabsf(platAngDiff) > std::numbers::pi_v<float> - this->cfg.getSingularityThreshold()) {
-        r_SB_N = r_PB_N.cross(v_PB_N);
-        v_SB_N = Eigen::Vector3d::Zero();
-        attRefOut = CelestialTwoBodyPointAlgorithm::rateAndAccelCalc(r_PB_N, v_PB_N, r_SB_N, v_SB_N);
-    }
 
     return attRefOut;
 }
