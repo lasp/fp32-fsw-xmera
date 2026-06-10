@@ -20,6 +20,7 @@ class CelestialTwoBodyPoint final : public SysModel {
 
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
+    void reconfigure() const;
 
     // Phase 1: Public config properties — set before reset()
     float singularityThreshold = 0.0F;  //!< [rad] Angle threshold below which the constraint axis is fixed
@@ -31,6 +32,7 @@ class CelestialTwoBodyPoint final : public SysModel {
 
    private:
     std::unique_ptr<CelestialTwoBodyPointAlgorithm> algorithm = nullptr;
+    CelestialTwoBodyPointConfig toConfig() const;
 };
 
 #endif
