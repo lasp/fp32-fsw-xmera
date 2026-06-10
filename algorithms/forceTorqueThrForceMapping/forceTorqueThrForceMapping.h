@@ -15,10 +15,10 @@
 
 /*! @brief This module maps thruster forces for arbitrary forces and torques
  */
-class ForceTorqueThrForceMapping : public SysModel {
+class ForceTorqueThrForceMapping final : public SysModel {
    public:
     ForceTorqueThrForceMapping() = default;
-    ~ForceTorqueThrForceMapping() final = default;
+    ~ForceTorqueThrForceMapping() override = default;
 
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
