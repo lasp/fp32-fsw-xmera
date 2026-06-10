@@ -20,6 +20,18 @@ void CelestialTwoBodyPoint::reset(const uint64_t callTime) {
     this->algorithm = std::make_unique<CelestialTwoBodyPointAlgorithm>(config);
 }
 
+CelestialTwoBodyPointConfig CelestialTwoBodyPoint::toConfig() const {
+    return CelestialTwoBodyPointConfig::create(this->singularityThreshold);
+}
+
+void CelestialTwoBodyPoint::reconfigure() const {
+    if (!this->algorithm) {
+        throw XmeraLifecycleException("CelestialTwoBodyPoint reset() has not been called.");
+    }
+
+    this->algorithm->setConfig(this->toConfig());
+}
+
 /*! This method reads the input messages, computes the two-body celestial pointing attitude
  reference, and writes the attitude reference output message.
  @param callTime The clock time at which the function was called (nanoseconds)
