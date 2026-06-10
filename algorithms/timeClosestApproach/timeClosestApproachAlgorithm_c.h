@@ -4,8 +4,6 @@
 #include "timeClosestApproachTypes.h"
 #include <stdint.h>
 
-#define TIME_CA_MAX_FILTER_STATES 6
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -19,12 +17,12 @@ typedef struct TimeClosestApproachAlgorithmHandle TimeClosestApproachAlgorithmHa
  * @brief Fixed-size 6×6 filter covariance matrix (column-major).
  */
 typedef struct {
-    float data[TIME_CA_MAX_FILTER_STATES * TIME_CA_MAX_FILTER_STATES]; /*!< 6×6 covariance matrix, column-major */
+    float data[36]; /*!< 6×6 covariance matrix, column-major */
 } FilterCovariance_c;
 
 /**
- * @brief Get the TIME_CA_MAX_FILTER_STATES constant for Ada elaboration-time validation.
- * @return The value of TIME_CA_MAX_FILTER_STATES.
+ * @brief Get the number of filter states for Ada elaboration-time validation.
+ * @return 6 (position + velocity, 3 components each).
  */
 uint32_t TimeClosestApproachAlgorithm_getMaxFilterStates(void);
 

@@ -3,7 +3,7 @@
 
 #include <Eigen/Core>
 
-uint32_t TimeClosestApproachAlgorithm_getMaxFilterStates(void) { return TIME_CA_MAX_FILTER_STATES; }
+uint32_t TimeClosestApproachAlgorithm_getMaxFilterStates(void) { return 6U; }
 
 TimeClosestApproachAlgorithmHandle* TimeClosestApproachAlgorithm_create(void) {
     return reinterpret_cast<TimeClosestApproachAlgorithmHandle*>(
