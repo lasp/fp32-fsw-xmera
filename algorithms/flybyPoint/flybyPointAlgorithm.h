@@ -27,6 +27,9 @@ class FlybyPointAlgorithm {
                                  const Eigen::Vector3d& r_BN_N,  //!< [m] relative position — double: §3.2 item 2
                                  const Eigen::Vector3d& v_BN_N   //!< [m/s] relative velocity — double: §3.2 item 2
     );
+    bool checkValidityFirstRead(const Eigen::Vector3d& r_BN_N,
+                                const Eigen::Vector3d& v_BN_N,
+                                FlybyDiagnosticMsgPayload& flybyDiagnosticMsgBuffer) const;
     bool checkValidity(uint64_t currentSimNanos,
                        const Eigen::Vector3d& r_BN_N,
                        const Eigen::Vector3d& v_BN_N,

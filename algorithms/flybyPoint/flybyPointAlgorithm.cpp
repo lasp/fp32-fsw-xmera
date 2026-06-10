@@ -37,12 +37,14 @@ FlybyPointOutput FlybyPointAlgorithm::updateState(uint64_t currentSimNanos,
     if ((this->dt >= this->timeBetweenFilterData) || this->firstRead) {
         /*! If this is the first read, seed the algorithm with the solution  */
         if (this->firstRead) {
-            this->timeOfFirstRead = static_cast<double>(currentSimNanos) * NANO2SEC;
-            this->firstNavPosition = r_BN_N;
-            this->firstNavVelocity = v_BN_N;
-            this->computeFlybyParameters(r_BN_N, v_BN_N);
-            this->computeRN(r_BN_N, v_BN_N);
-            this->firstRead = false;
+            if (this->checkValidityFirstRead(r_BN_N, v_BN_N, flybyDiagnosticMsgBuffer)) {
+                this->timeOfFirstRead = static_cast<double>(currentSimNanos) * NANO2SEC;
+                this->firstNavPosition = r_BN_N;
+                this->firstNavVelocity = v_BN_N;
+                this->computeFlybyParameters(r_BN_N, v_BN_N);
+                this->computeRN(r_BN_N, v_BN_N);
+                this->firstRead = false;
+            }
         }
         /*! Protect against bad new solutions by checking validity */
         else if (this->checkValidity(currentSimNanos, r_BN_N, v_BN_N, flybyDiagnosticMsgBuffer)) {
@@ -80,6 +82,23 @@ void FlybyPointAlgorithm::computeFlybyParameters(const Eigen::Vector3d& r_BN_N, 
 
     // gamma0 is a pure angle; computed in double for input precision, float storage is sufficient
     this->gamma0 = static_cast<float>(safeAtan(v_BN_N.dot(ur_N) / v_BN_N.dot(ut_N)));
+}
+
+bool FlybyPointAlgorithm::checkValidityFirstRead(const Eigen::Vector3d& r_BN_N,
+                                                 const Eigen::Vector3d& v_BN_N,
+                                                 FlybyDiagnosticMsgPayload& flybyDiagnosticMsgBuffer) const {
+    bool valid = true;
+    const Eigen::Vector3d ur_N = r_BN_N.normalized();
+    const Eigen::Vector3d uv_N = v_BN_N.normalized();
+
+    /*! assert r and v are not collinear (collision trajectory) */
+    if (std::abs(1 - ur_N.dot(uv_N)) < this->toleranceForCollinearity) {
+        valid = false;
+        flybyDiagnosticMsgBuffer.collinearityTrigger = true;
+    } else {
+        flybyDiagnosticMsgBuffer.collinearityTrigger = false;
+    }
+    return valid;
 }
 
 bool FlybyPointAlgorithm::checkValidity(uint64_t currentSimNanos,
