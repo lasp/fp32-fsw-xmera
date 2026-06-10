@@ -38,6 +38,11 @@ CelestialTwoBodyPointOutput CelestialTwoBodyPointAlgorithm::update(const Eigen::
     Eigen::Vector3d r_SB_N = r_secCelBody_N - r_BN_N;
     Eigen::Vector3d v_SB_N = v_secCelBody_N - v_BN_N;
 
+    // Return identity if either r_PB_N or r_SB_N are zero
+    if (r_PB_N.squaredNorm() < kMinNormSq || r_SB_N.squaredNorm() < kMinNormSq) {
+        return CelestialTwoBodyPointOutput{};
+    }
+
     const auto dotProduct = static_cast<float>(r_SB_N.normalized().dot(r_PB_N.normalized()));
     float platAngDiff = safeAcosf(dotProduct); /* Angle between r_PB_N and r_SB_N */
 

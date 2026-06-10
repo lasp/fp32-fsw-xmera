@@ -40,6 +40,9 @@ class CelestialTwoBodyPointConfig final {
  */
 class CelestialTwoBodyPointAlgorithm final {
    public:
+    /// @c |r_SB_N|^2 and |r_PB_N|^2 floor: below this the configuration is invalid.
+    static constexpr float kMinNormSq = 1e-6F;
+
     /*! @brief Construct the algorithm from a validated configuration
         @param config validated configuration object */
     explicit CelestialTwoBodyPointAlgorithm(const CelestialTwoBodyPointConfig &config);
