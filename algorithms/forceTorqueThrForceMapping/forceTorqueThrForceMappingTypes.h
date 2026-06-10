@@ -12,12 +12,12 @@ extern "C" {
 
 /**
  * @brief Plain-old-data mirror of the C++ ThrusterConfiguration fields.
- *  - rThrust_B    [m] location of the thruster in the spacecraft body frame
- *  - tHatThrust_B [-] unit vector of the thrust direction (must be ~unit within 1e-3 of 1.0)
+ *  - r_TB_B    [m] location of the thruster in the spacecraft body frame
+ *  - tHat_B    [-] unit vector of the thrust direction (must be ~unit within 1e-3 of 1.0)
  */
 typedef struct {
-    Vector3f_c rThrust_B;
-    Vector3f_c tHatThrust_B;
+    Vector3f_c r_TB_B;
+    Vector3f_c tHat_B;
 } ThrusterConfiguration_c;
 
 /**

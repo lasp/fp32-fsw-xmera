@@ -11,8 +11,8 @@
 
 /*! @brief Single thruster configuration */
 struct ThrusterConfiguration {
-    std::array<float, 3> rThrust_B{};     //!< [m] Location of the thruster in the spacecraft body frame
-    std::array<float, 3> tHatThrust_B{};  //!< [-] Unit vector of the thrust direction
+    std::array<float, 3> r_TB_B{};  //!< [m] Location of the thruster in the spacecraft body frame
+    std::array<float, 3> tHat_B{};  //!< [-] Unit vector of the thrust direction
 };
 
 /*! @brief Thruster array configuration */
@@ -56,7 +56,7 @@ class ForceTorqueThrForceMappingConfig final {
         }
         constexpr float normTolerance = 1e-3F;
         for (std::uint32_t i = 0; i < thrusters.numThrusters; ++i) {
-            const Eigen::Vector3f direction(thrusters.thrusters.at(i).tHatThrust_B.data());
+            const Eigen::Vector3f direction(thrusters.thrusters.at(i).tHat_B.data());
             if (fabsf(direction.stableNorm() - 1.0F) > normTolerance) {
                 return false;
             }

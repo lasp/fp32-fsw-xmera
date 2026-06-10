@@ -30,8 +30,8 @@ void ForceTorqueThrForceMapping::reset(const uint64_t callTime) {
                 "saturation limit of <= 0 N!");
         }
         for (uint32_t j = 0; j < 3; ++j) {
-            thrusterConfiguration.thrusters.at(i).rThrust_B.at(j) = thrConfigIn.thrusters[i].rThrust_B[j];
-            thrusterConfiguration.thrusters.at(i).tHatThrust_B.at(j) = thrConfigIn.thrusters[i].tHatThrust_B[j];
+            thrusterConfiguration.thrusters.at(i).r_TB_B.at(j) = thrConfigIn.thrusters[i].rThrust_B[j];
+            thrusterConfiguration.thrusters.at(i).tHat_B.at(j) = thrConfigIn.thrusters[i].tHatThrust_B[j];
         }
     }
 

@@ -46,12 +46,10 @@ inline Eigen::Matrix<float, 6, MAX_EFF_CNT> buildDG(const ThrusterArrayConfigura
                                                     const Eigen::Vector3f& CoM) {
     Eigen::Matrix<float, 6, MAX_EFF_CNT> DG = Eigen::Matrix<float, 6, MAX_EFF_CNT>::Zero();
     for (std::uint32_t i = 0; i < config.numThrusters; ++i) {
-        const Eigen::Vector3f r(config.thrusters.at(i).rThrust_B[0],
-                                config.thrusters.at(i).rThrust_B[1],
-                                config.thrusters.at(i).rThrust_B[2]);
-        const Eigen::Vector3f g(config.thrusters.at(i).tHatThrust_B[0],
-                                config.thrusters.at(i).tHatThrust_B[1],
-                                config.thrusters.at(i).tHatThrust_B[2]);
+        const Eigen::Vector3f r(
+            config.thrusters.at(i).r_TB_B[0], config.thrusters.at(i).r_TB_B[1], config.thrusters.at(i).r_TB_B[2]);
+        const Eigen::Vector3f g(
+            config.thrusters.at(i).tHat_B[0], config.thrusters.at(i).tHat_B[1], config.thrusters.at(i).tHat_B[2]);
         const Eigen::Vector3f arm = r - CoM;
         DG.col(static_cast<int>(i)).head<3>() = arm.cross(g);
         DG.col(static_cast<int>(i)).tail<3>() = g;
@@ -77,7 +75,7 @@ inline bool buildThrusterConfig(std::uint32_t numThrusters,
     config = ThrusterArrayConfiguration{};
     config.numThrusters = numThrusters;
     for (std::uint32_t i = 0; i < numThrusters; ++i) {
-        config.thrusters.at(i).rThrust_B = {positions[i].x(), positions[i].y(), positions[i].z()};
+        config.thrusters.at(i).r_TB_B = {positions[i].x(), positions[i].y(), positions[i].z()};
 
         Eigen::Vector3f dir = directions[i];
         const float norm = dir.stableNorm();
@@ -85,7 +83,7 @@ inline bool buildThrusterConfig(std::uint32_t numThrusters,
             return false;
         }
         dir /= norm;
-        config.thrusters.at(i).tHatThrust_B = {dir.x(), dir.y(), dir.z()};
+        config.thrusters.at(i).tHat_B = {dir.x(), dir.y(), dir.z()};
     }
     return true;
 }
@@ -170,9 +168,8 @@ inline void runRegressionCase(std::uint32_t numThrusters,
     // implementations start from identical unit-norm inputs.
     std::vector<Eigen::Vector3f> unitDirs(numThrusters);
     for (std::uint32_t i = 0; i < numThrusters; ++i) {
-        unitDirs[i] = Eigen::Vector3f(config.thrusters.at(i).tHatThrust_B[0],
-                                      config.thrusters.at(i).tHatThrust_B[1],
-                                      config.thrusters.at(i).tHatThrust_B[2]);
+        unitDirs[i] = Eigen::Vector3f(
+            config.thrusters.at(i).tHat_B[0], config.thrusters.at(i).tHat_B[1], config.thrusters.at(i).tHat_B[2]);
     }
     const Eigen::Vector<float, MAX_EFF_CNT> ref =
         referenceUpdate(numThrusters, positions, unitDirs, CoM, cmdTorque, cmdForce);

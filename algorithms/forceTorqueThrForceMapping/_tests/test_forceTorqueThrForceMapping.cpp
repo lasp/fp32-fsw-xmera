@@ -54,10 +54,10 @@ TEST(ForceTorqueThrForceMappingTest, RegressionSingleThruster) {
 TEST(ForceTorqueThrForceMappingTest, ConfigValidationAndRoundTrip) {
     ThrusterArrayConfiguration config{};
     config.numThrusters = 2U;
-    config.thrusters[0].rThrust_B = {1.0F, 2.0F, 3.0F};
-    config.thrusters[0].tHatThrust_B = {1.0F, 0.0F, 0.0F};
-    config.thrusters[1].rThrust_B = {-1.0F, 0.5F, 0.0F};
-    config.thrusters[1].tHatThrust_B = {0.0F, 1.0F, 0.0F};
+    config.thrusters[0].r_TB_B = {1.0F, 2.0F, 3.0F};
+    config.thrusters[0].tHat_B = {1.0F, 0.0F, 0.0F};
+    config.thrusters[1].r_TB_B = {-1.0F, 0.5F, 0.0F};
+    config.thrusters[1].tHat_B = {0.0F, 1.0F, 0.0F};
     const Eigen::Vector3f CoM(0.25F, -0.5F, 1.0F);
 
     // create() round-trips the stored configuration via the getters (positions and directions are
@@ -69,8 +69,8 @@ TEST(ForceTorqueThrForceMappingTest, ConfigValidationAndRoundTrip) {
     EXPECT_EQ(cfg.getThrusters().numThrusters, 2U);
     for (std::uint32_t t = 0; t < 2U; ++t) {
         for (int i = 0; i < 3; ++i) {
-            EXPECT_FLOAT_EQ(cfg.getThrusters().thrusters[t].rThrust_B[i], config.thrusters[t].rThrust_B[i]);
-            EXPECT_FLOAT_EQ(cfg.getThrusters().thrusters[t].tHatThrust_B[i], config.thrusters[t].tHatThrust_B[i]);
+            EXPECT_FLOAT_EQ(cfg.getThrusters().thrusters[t].r_TB_B[i], config.thrusters[t].r_TB_B[i]);
+            EXPECT_FLOAT_EQ(cfg.getThrusters().thrusters[t].tHat_B[i], config.thrusters[t].tHat_B[i]);
         }
     }
     for (int i = 0; i < 3; ++i) {
@@ -94,11 +94,11 @@ TEST(ForceTorqueThrForceMappingTest, ConfigValidationAndRoundTrip) {
     EXPECT_THROW(ForceTorqueThrForceMappingConfig::create(bad, CoM, kNoAxisAssertion), fsw::invalid_argument);
 
     bad = config;
-    bad.thrusters[0].tHatThrust_B = {0.5F, 0.0F, 0.0F};  // norm = 0.5, below unit length
+    bad.thrusters[0].tHat_B = {0.5F, 0.0F, 0.0F};  // norm = 0.5, below unit length
     EXPECT_THROW(ForceTorqueThrForceMappingConfig::create(bad, CoM, kNoAxisAssertion), fsw::invalid_argument);
 
     bad = config;
-    bad.thrusters[0].tHatThrust_B = {1.5F, 0.0F, 0.0F};  // norm = 1.5, above unit length
+    bad.thrusters[0].tHat_B = {1.5F, 0.0F, 0.0F};  // norm = 1.5, above unit length
     EXPECT_THROW(ForceTorqueThrForceMappingConfig::create(bad, CoM, kNoAxisAssertion), fsw::invalid_argument);
 
     // A non-finite center of mass is rejected.
@@ -107,8 +107,8 @@ TEST(ForceTorqueThrForceMappingTest, ConfigValidationAndRoundTrip) {
 
     // Directions within the 1e-3 tolerance band are accepted.
     ThrusterArrayConfiguration nearUnit = config;
-    nearUnit.thrusters[0].tHatThrust_B = {1.0F + 5e-4F, 0.0F, 0.0F};
-    nearUnit.thrusters[1].tHatThrust_B = {1.0F - 5e-4F, 0.0F, 0.0F};
+    nearUnit.thrusters[0].tHat_B = {1.0F + 5e-4F, 0.0F, 0.0F};
+    nearUnit.thrusters[1].tHat_B = {1.0F - 5e-4F, 0.0F, 0.0F};
     EXPECT_NO_THROW(ForceTorqueThrForceMappingConfig::create(nearUnit, CoM, kNoAxisAssertion));
 }
 
@@ -299,8 +299,8 @@ TEST(ForceTorqueThrForceMappingTest, MaxThrusterCount) {
 TEST(ForceTorqueThrForceMappingTest, DirectionAtNormToleranceBoundary) {
     ThrusterArrayConfiguration config{};
     config.numThrusters = 1U;
-    config.thrusters[0].rThrust_B = {0.0F, 0.0F, 0.0F};
-    config.thrusters[0].tHatThrust_B = {1.0F + 9e-4F, 0.0F, 0.0F};
+    config.thrusters[0].r_TB_B = {0.0F, 0.0F, 0.0F};
+    config.thrusters[0].tHat_B = {1.0F + 9e-4F, 0.0F, 0.0F};
 
     EXPECT_NO_THROW(ForceTorqueThrForceMappingConfig::create(config, Eigen::Vector3f::Zero(), kNoAxisAssertion));
 }

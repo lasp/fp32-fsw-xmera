@@ -72,7 +72,7 @@ Algorithm layer (``forceTorqueThrForceMappingAlgorithm.h/.cpp``)
     The pure FP32 algorithm with no framework dependencies. The immutable
     ``ForceTorqueThrForceMappingConfig`` (created via the static ``::create`` factory) carries the thruster
     geometry, center of mass, and controllability assertions. Validators are: ``numThrusters`` :math:`\in
-    [1, \text{MAX\_EFF\_CNT}]`, each active direction :math:`\hat{\mathbf{g}}_{t_i}` within 1e-3 of unit norm,
+    [1, \text{MAX\_EFF\_CNT}]`, each active direction :math:`\hat{\mathbf{t}}_{i}` within 1e-3 of unit norm,
     and ``centerOfMass_B`` finite (``Eigen::Vector3f::allFinite()``). The static ``::create`` factory is the only
     place that throws ``fsw::invalid_argument``: on an invalid thruster array or center of mass, on an asserted
     ``desiredControlAxes_B`` axis that is uncontrollable, or on an ill-conditioned thruster geometry (condition
@@ -152,18 +152,20 @@ These are both stacked into a single vector
         \mathbf{F}_{req}
     \end{bmatrix}
 
-The :math:`i`-th thruster position expressed in spacecraft body-fixed coordinates is given by :math:`\mathbf{r}_{i}`.
-The unit direction vector of the thruster force is :math:`\hat{\mathbf{g}}_{t_{i}}`. The thruster force is given as
+The :math:`i`-th thruster position relative to the body-frame origin :math:`B`, expressed in body-fixed
+coordinates, is given by :math:`\mathbf{r}_{T_i/B}`. The unit direction vector of the thruster force is
+:math:`\hat{\mathbf{t}}_{i}`. The thruster force is given as
 
 .. math::
 
-    \mathbf{F}_{i} = F_{i} \hat{\mathbf{g}}_{t_{i}}
+    \mathbf{F}_{i} = F_{i} \hat{\mathbf{t}}_{i}
 
-The torque produced by each thruster about the body-fixed CoM is
+The torque produced by each thruster about the body-fixed center of mass :math:`C` (located at
+:math:`\mathbf{r}_{C/B}`) uses the moment arm :math:`\mathbf{r}_{T_i/C} = \mathbf{r}_{T_i/B} - \mathbf{r}_{C/B}`:
 
 .. math::
 
-    \boldsymbol{\tau}_{i} = \left((\mathbf{r}_{i} - \mathbf{r}_{\text{COM}}) \times \hat{\mathbf{g}}_{t_{i}}\right) F_{i}
+    \boldsymbol{\tau}_{i} = \left(\mathbf{r}_{T_i/C} \times \hat{\mathbf{t}}_{i}\right) F_{i}
     = \mathbf{d}_{i} F_{i}
 
 The total force and torque on the spacecraft may be represented as
@@ -177,7 +179,7 @@ The total force and torque on the spacecraft may be represented as
     =
     \begin{bmatrix}
         \mathbf{d}_{1} \cdots \mathbf{d}_{N} \\
-        \hat{\mathbf{g}}_{t_{1}} \cdots \hat{\mathbf{g}}_{t_{N}}
+        \hat{\mathbf{t}}_{1} \cdots \hat{\mathbf{t}}_{N}
     \end{bmatrix}
     \begin{bmatrix}
         F_{1} \\
@@ -218,8 +220,8 @@ conditions on the thruster array:
 
 .. math::
 
-    \sum_i \hat{\mathbf{g}}_{t_i} = \mathbf{0}, \qquad
-    \sum_i (\mathbf{r}_i - \mathbf{r}_{\text{COM}}) \times \hat{\mathbf{g}}_{t_i} = \mathbf{0}
+    \sum_i \hat{\mathbf{t}}_i = \mathbf{0}, \qquad
+    \sum_i \mathbf{r}_{T_i/C} \times \hat{\mathbf{t}}_i = \mathbf{0}
 
 When both hold, :math:`\mathbf{1} \in \ker([D])` (with :math:`\ker([D])` being the null space of :math:`[D]`) and
 shifting along :math:`\mathbf{1}` stays inside :math:`\{\mathbf{F} : [D]\mathbf{F} = \text{cmd}\}`, leaving the achieved

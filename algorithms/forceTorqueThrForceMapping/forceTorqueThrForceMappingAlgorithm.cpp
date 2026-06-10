@@ -19,22 +19,22 @@ std::optional<Eigen::Matrix<float, MAX_EFF_CNT, 6>> computeThrusterMapping(
     const uint32_t numThrusters = thrusters.numThrusters;
 
     // Column-major moment arms (r - CoM) and unit thrust directions.
-    Eigen::Matrix<float, 3, MAX_EFF_CNT> rThruster_B{Eigen::Matrix<float, 3, MAX_EFF_CNT>::Zero()};
-    Eigen::Matrix<float, 3, MAX_EFF_CNT> gtThruster_B{Eigen::Matrix<float, 3, MAX_EFF_CNT>::Zero()};
+    Eigen::Matrix<float, 3, MAX_EFF_CNT> r_TB_B{Eigen::Matrix<float, 3, MAX_EFF_CNT>::Zero()};
+    Eigen::Matrix<float, 3, MAX_EFF_CNT> tHat_B{Eigen::Matrix<float, 3, MAX_EFF_CNT>::Zero()};
     for (uint32_t i = 0; i < numThrusters; ++i) {
-        rThruster_B.col(i) = Eigen::Vector3f(thrusters.thrusters.at(i).rThrust_B.data());
-        gtThruster_B.col(i) = Eigen::Vector3f(thrusters.thrusters.at(i).tHatThrust_B.data()).normalized();
+        r_TB_B.col(i) = Eigen::Vector3f(thrusters.thrusters.at(i).r_TB_B.data());
+        tHat_B.col(i) = Eigen::Vector3f(thrusters.thrusters.at(i).tHat_B.data()).normalized();
     }
-    Eigen::Matrix<float, 3, MAX_EFF_CNT> rThrusterRelCOM_B{Eigen::Matrix<float, 3, MAX_EFF_CNT>::Zero()};
-    rThrusterRelCOM_B.leftCols(numThrusters) = rThruster_B.leftCols(numThrusters).colwise() - centerOfMass_B;
+    Eigen::Matrix<float, 3, MAX_EFF_CNT> r_TC_B{Eigen::Matrix<float, 3, MAX_EFF_CNT>::Zero()};
+    r_TC_B.leftCols(numThrusters) = r_TB_B.leftCols(numThrusters).colwise() - centerOfMass_B;
 
     // DG: moment arms (rows 0-2), thrust directions (rows 3-5).
-    Eigen::Matrix<float, 3, MAX_EFF_CNT> rCrossGt{Eigen::Matrix<float, 3, MAX_EFF_CNT>::Zero()};
+    Eigen::Matrix<float, 3, MAX_EFF_CNT> torquePntC_B{Eigen::Matrix<float, 3, MAX_EFF_CNT>::Zero()};
     for (uint32_t i = 0; i < numThrusters; ++i) {
-        rCrossGt.col(i) = rThrusterRelCOM_B.col(i).cross(gtThruster_B.col(i));
+        torquePntC_B.col(i) = r_TC_B.col(i).cross(tHat_B.col(i));
     }
     Eigen::Matrix<float, 6, MAX_EFF_CNT> DGwithZeros{};
-    DGwithZeros << rCrossGt, gtThruster_B;
+    DGwithZeros << torquePntC_B, tHat_B;
 
     const Eigen::JacobiSVD<Eigen::Matrix<float, 6, MAX_EFF_CNT>> svd(DGwithZeros,
                                                                      Eigen::ComputeFullU | Eigen::ComputeFullV);
