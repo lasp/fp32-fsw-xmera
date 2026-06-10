@@ -19,30 +19,21 @@ class CelestialTwoBodyPointConfig final {
    public:
     /*! @brief Static factory — validates all parameters, throws on failure
         @param singularityThreshold [rad] angle threshold below which the constraint axis is fixed
-        @param rateThreshold [rad/s] rate threshold above which the constraint axis is fixed
         @return validated configuration object */
-    static CelestialTwoBodyPointConfig create(float singularityThreshold, float rateThreshold) {
+    static CelestialTwoBodyPointConfig create(float singularityThreshold) {
         if (!isValidSingularityThreshold(singularityThreshold)) {
             FSW_THROW_INVALID_ARGUMENT("celestialTwoBodyPoint: singularityThreshold must be >= 0");
         }
-        if (!isValidRateThreshold(rateThreshold)) {
-            FSW_THROW_INVALID_ARGUMENT("celestialTwoBodyPoint: rateThreshold must be >= 0");
-        }
-        return {singularityThreshold, rateThreshold};
+        return {singularityThreshold};
     }
 
     static bool isValidSingularityThreshold(float singularityThreshold) { return singularityThreshold >= 0.0F; }
-    static bool isValidRateThreshold(float rateThreshold) { return rateThreshold >= 0.0F; }
-
     float getSingularityThreshold() const { return singularityThreshold; }
-    float getRateThreshold() const { return rateThreshold; }
 
    private:
-    CelestialTwoBodyPointConfig(float singularityThreshold, float rateThreshold)
-        : singularityThreshold(singularityThreshold), rateThreshold(rateThreshold) {}
+    CelestialTwoBodyPointConfig(float singularityThreshold) : singularityThreshold(singularityThreshold) {}
 
     float singularityThreshold;  //!< [rad] Angle threshold below which the constraint axis is fixed
-    float rateThreshold;         //!< [rad/s] Rate threshold above which the constraint axis is fixed
 };
 
 /*!@brief Algorithm that computes the two-body celestial pointing attitude reference.

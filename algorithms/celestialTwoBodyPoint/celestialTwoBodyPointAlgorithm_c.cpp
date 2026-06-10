@@ -6,7 +6,7 @@
 
 namespace {
 CelestialTwoBodyPointConfig configFromC(const CelestialTwoBodyPointConfig_c& c) {
-    return CelestialTwoBodyPointConfig::create(c.singularityThreshold, c.rateThreshold);
+    return CelestialTwoBodyPointConfig::create(c.singularityThreshold);
 }
 }  // namespace
 

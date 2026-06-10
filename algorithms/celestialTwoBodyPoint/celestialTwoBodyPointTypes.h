@@ -12,11 +12,9 @@ extern "C" {
  * The C++ side validates each field via CelestialTwoBodyPointConfig::create and throws on
  * invalid input.
  *  - singularityThreshold must be >= 0
- *  - rateThreshold must be >= 0
  */
 typedef struct {
     float singularityThreshold; /*!< [rad] Angle threshold below which the constraint axis is fixed */
-    float rateThreshold;        /*!< [rad/s] Rate threshold above which the constraint axis is fixed */
 } CelestialTwoBodyPointConfig_c;
 
 #ifdef __cplusplus

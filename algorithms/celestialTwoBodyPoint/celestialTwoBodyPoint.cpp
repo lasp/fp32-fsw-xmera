@@ -16,7 +16,7 @@ void CelestialTwoBodyPoint::reset(const uint64_t callTime) {
     }
 
     // Phase 2: Validate config and create algorithm
-    auto config = CelestialTwoBodyPointConfig::create(this->singularityThreshold, this->rateThreshold);
+    auto config = CelestialTwoBodyPointConfig::create(this->singularityThreshold);
     this->algorithm = std::make_unique<CelestialTwoBodyPointAlgorithm>(config);
 }
 
