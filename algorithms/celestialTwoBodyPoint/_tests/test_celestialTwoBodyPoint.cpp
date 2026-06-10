@@ -41,7 +41,7 @@ TEST(CelestialTwoBodyPointTest, ConfigValidCreation) {
     EXPECT_NO_THROW(CelestialTwoBodyPointConfig::create(0.5F));
 }
 
-TEST(CelestialTwoBodyPointTest, ConfigInvalidSingularityThreshold) {
+TEST(CelestialTwoBodyPointTest, ConfigInvalidCelestialBodyAlignmentThreshold) {
     EXPECT_THROW(CelestialTwoBodyPointConfig::create(-1.0F), fsw::invalid_argument);
     EXPECT_THROW(CelestialTwoBodyPointConfig::create(-1e-7F), fsw::invalid_argument);
     EXPECT_THROW(CelestialTwoBodyPointConfig::create(std::nanf("")), fsw::invalid_argument);
@@ -49,13 +49,13 @@ TEST(CelestialTwoBodyPointTest, ConfigInvalidSingularityThreshold) {
 
 TEST(CelestialTwoBodyPointTest, ConfigRoundTrip) {
     const auto config = CelestialTwoBodyPointConfig::create(0.25F);
-    EXPECT_FLOAT_EQ(config.getSingularityThreshold(), 0.25F);
+    EXPECT_FLOAT_EQ(config.getCelestialBodyAlignmentThreshold(), 0.25F);
 }
 
 TEST(CelestialTwoBodyPointTest, ConfigStaticValidators) {
-    EXPECT_TRUE(CelestialTwoBodyPointConfig::isValidSingularityThreshold(0.0F));
-    EXPECT_TRUE(CelestialTwoBodyPointConfig::isValidSingularityThreshold(1.0F));
-    EXPECT_FALSE(CelestialTwoBodyPointConfig::isValidSingularityThreshold(-0.1F));
+    EXPECT_TRUE(CelestialTwoBodyPointConfig::isValidCelestialBodyAlignmentThreshold(0.0F));
+    EXPECT_TRUE(CelestialTwoBodyPointConfig::isValidCelestialBodyAlignmentThreshold(1.0F));
+    EXPECT_FALSE(CelestialTwoBodyPointConfig::isValidCelestialBodyAlignmentThreshold(-0.1F));
 }
 
 TEST(CelestialTwoBodyPointTest, AlgorithmSetConfig) {

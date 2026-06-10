@@ -47,7 +47,7 @@ CelestialTwoBodyPointOutput CelestialTwoBodyPointAlgorithm::update(const Eigen::
     const float celestialBodySeparationAngle = safeAcosf(fabsf(dotProduct)); /* Angle between r_PB_N and r_SB_N */
 
     /*! Update r_SB_N and v_SB_N if celestial bodies are aligned */
-    if (celestialBodySeparationAngle < this->cfg.getSingularityThreshold()) {
+    if (celestialBodySeparationAngle < this->cfg.getCelestialBodyAlignmentThreshold()) {
         r_SB_N = r_PB_N.cross(v_PB_N);
         v_SB_N = Eigen::Vector3d::Zero();
     }

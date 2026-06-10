@@ -11,10 +11,11 @@ extern "C" {
  * Caller fills this struct and passes it to CelestialTwoBodyPointAlgorithm_create or _setConfig.
  * The C++ side validates each field via CelestialTwoBodyPointConfig::create and throws on
  * invalid input.
- *  - singularityThreshold must be >= 0
+ *  - celestialBodyAlignmentThreshold must be >= 0
  */
 typedef struct {
-    float singularityThreshold; /*!< [rad] Angle threshold below which the constraint axis is fixed */
+    float celestialBodyAlignmentThreshold; /*!< [rad] Angle threshold for primary and secondary celestial body alignment
+                                              check */
 } CelestialTwoBodyPointConfig_c;
 
 #ifdef __cplusplus

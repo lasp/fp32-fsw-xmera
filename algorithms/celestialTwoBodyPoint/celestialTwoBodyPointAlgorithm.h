@@ -18,22 +18,27 @@ struct CelestialTwoBodyPointOutput {
 class CelestialTwoBodyPointConfig final {
    public:
     /*! @brief Static factory — validates all parameters, throws on failure
-        @param singularityThreshold [rad] angle threshold below which the constraint axis is fixed
+        @param celestialBodyAlignmentThreshold [rad] Angle threshold for primary and secondary celestial body alignment
+       check
         @return validated configuration object */
-    static CelestialTwoBodyPointConfig create(float singularityThreshold) {
-        if (!isValidSingularityThreshold(singularityThreshold)) {
-            FSW_THROW_INVALID_ARGUMENT("celestialTwoBodyPoint: singularityThreshold must be >= 0");
+    static CelestialTwoBodyPointConfig create(float celestialBodyAlignmentThreshold) {
+        if (!isValidCelestialBodyAlignmentThreshold(celestialBodyAlignmentThreshold)) {
+            FSW_THROW_INVALID_ARGUMENT("celestialTwoBodyPoint: celestialBodyAlignmentThreshold must be >= 0");
         }
-        return {singularityThreshold};
+        return {celestialBodyAlignmentThreshold};
     }
 
-    static bool isValidSingularityThreshold(float singularityThreshold) { return singularityThreshold >= 0.0F; }
-    float getSingularityThreshold() const { return singularityThreshold; }
+    static bool isValidCelestialBodyAlignmentThreshold(float celestialBodyAlignmentThreshold) {
+        return celestialBodyAlignmentThreshold >= 0.0F;
+    }
+    float getCelestialBodyAlignmentThreshold() const { return celestialBodyAlignmentThreshold; }
 
    private:
-    CelestialTwoBodyPointConfig(float singularityThreshold) : singularityThreshold(singularityThreshold) {}
+    CelestialTwoBodyPointConfig(float celestialBodyAlignmentThreshold)
+        : celestialBodyAlignmentThreshold(celestialBodyAlignmentThreshold) {}
 
-    float singularityThreshold;  //!< [rad] Angle threshold below which the constraint axis is fixed
+    float celestialBodyAlignmentThreshold{};  //!< [rad] Angle threshold for primary and secondary celestial body
+                                              //!< alignment check
 };
 
 /*!@brief Algorithm that computes the two-body celestial pointing attitude reference.
