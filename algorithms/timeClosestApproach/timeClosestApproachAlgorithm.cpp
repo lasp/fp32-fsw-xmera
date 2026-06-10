@@ -15,9 +15,10 @@ void TimeClosestApproachAlgorithm::setConfig(const TimeClosestApproachConfig& co
  @return the predicted time of closest approach [s] and its standard deviation [s]
 */
 // NOLINTBEGIN(readability-convert-member-functions-to-static)
-TimeClosestApproachOutput TimeClosestApproachAlgorithm::update(const Eigen::Vector3d& r_BN_N,
-                                                               const Eigen::Vector3d& v_BN_N,
-                                                               const Eigen::MatrixXf& filterCovariance) const {
+TimeClosestApproachOutput TimeClosestApproachAlgorithm::update(
+    const Eigen::Vector3d& r_BN_N,
+    const Eigen::Vector3d& v_BN_N,
+    const Eigen::Matrix<float, 6, 6>& filterCovariance) const {
     double const ratio = v_BN_N.norm() / r_BN_N.norm();
 
     Eigen::Vector3d const r_BN_N_hat = r_BN_N.normalized();
@@ -29,13 +30,10 @@ TimeClosestApproachOutput TimeClosestApproachAlgorithm::update(const Eigen::Vect
     TimeClosestApproachOutput algo_output{};
     algo_output.tCA = static_cast<float>(-sinFPA / ratio);
 
-    const auto numberOfStates = static_cast<std::size_t>(filterCovariance.rows());
-    Eigen::VectorXf covariance_map_to_tca(numberOfStates);
-
+    Eigen::Matrix<float, 6, 1> covariance_map_to_tca;
     covariance_map_to_tca.head(3) = (v_BN_N_hat / r_BN_N.norm()).cast<float>();
-    if (numberOfStates == 6) {
-        covariance_map_to_tca.tail(3) = ((r_BN_N_hat - sinFPA * v_BN_N_hat) / v_BN_N.norm()).cast<float>();
-    }
+    covariance_map_to_tca.tail(3) = ((r_BN_N_hat - sinFPA * v_BN_N_hat) / v_BN_N.norm()).cast<float>();
+
     const float mappedCovariance = covariance_map_to_tca.transpose() * filterCovariance * covariance_map_to_tca;
     const float tCA_covariance = mappedCovariance / static_cast<float>(ratio * ratio);
 

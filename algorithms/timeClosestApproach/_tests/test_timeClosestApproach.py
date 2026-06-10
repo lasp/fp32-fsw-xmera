@@ -17,7 +17,7 @@ fileName = os.path.basename(os.path.splitext(__file__)[0])
 
 @pytest.mark.parametrize("position", [[-5e7, 7.5e6, 5e5], [-5e6, 7e6, 4e5]])  # m
 @pytest.mark.parametrize("velocity", [[2e4, 0, 0], [1e4, 1e3, 2e2]])  # m/s
-@pytest.mark.parametrize("filter_covariance", [np.eye(6),  np.ones([6, 6]), np.eye(3), np.ones([3, 3])])
+@pytest.mark.parametrize("filter_covariance", [np.eye(6),  np.ones([6, 6])])
 
 def test_time_closest_approach(show_plots, position, velocity, filter_covariance):
 
@@ -130,5 +130,5 @@ if __name__ == "__main__":
     test_time_closest_approach(True,
                              np.array([-5e7, 7.5e6, 5e5]),
                              np.array([2e4, 0, 0]),
-                             np.eye(3)
+                             np.eye(6)
                              )

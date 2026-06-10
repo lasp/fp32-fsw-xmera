@@ -16,14 +16,10 @@ extern "C" {
 typedef struct TimeClosestApproachAlgorithmHandle TimeClosestApproachAlgorithmHandle;
 
 /**
- * @brief Bounded filter covariance matrix, up to TIME_CA_MAX_FILTER_STATES×TIME_CA_MAX_FILTER_STATES.
- *
- * The `n` field identifies how many states are active; only the first n×n
- * entries of `data` are read by the algorithm.
+ * @brief Fixed-size 6×6 filter covariance matrix (column-major).
  */
 typedef struct {
-    uint32_t n;                                                        /*!< Number of filter states (3 or 6) */
-    float data[TIME_CA_MAX_FILTER_STATES * TIME_CA_MAX_FILTER_STATES]; /*!< n×n covariance matrix, column-major */
+    float data[TIME_CA_MAX_FILTER_STATES * TIME_CA_MAX_FILTER_STATES]; /*!< 6×6 covariance matrix, column-major */
 } FilterCovariance_c;
 
 /**

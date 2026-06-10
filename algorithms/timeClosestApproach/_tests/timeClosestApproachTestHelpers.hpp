@@ -16,9 +16,10 @@ struct ReferenceTimeClosestApproachOutput {
     double sigmaTca{};
 };
 
-inline ReferenceTimeClosestApproachOutput referenceTimeClosestApproach(const Eigen::Vector3d& r_BN_N,
-                                                                       const Eigen::Vector3d& v_BN_N,
-                                                                       const Eigen::MatrixXd& filterCovariance) {
+inline ReferenceTimeClosestApproachOutput referenceTimeClosestApproach(
+    const Eigen::Vector3d& r_BN_N,
+    const Eigen::Vector3d& v_BN_N,
+    const Eigen::Matrix<double, 6, 6>& filterCovariance) {
     double const ratio = v_BN_N.norm() / r_BN_N.norm();
 
     Eigen::Vector3d const r_BN_N_hat = r_BN_N.normalized();
@@ -30,13 +31,10 @@ inline ReferenceTimeClosestApproachOutput referenceTimeClosestApproach(const Eig
     ReferenceTimeClosestApproachOutput ref_output{};
     ref_output.tCA = -sinFPA / ratio;
 
-    const auto numberOfStates = static_cast<std::size_t>(filterCovariance.rows());
-    Eigen::VectorXd covariance_map_to_tca(numberOfStates);
+    Eigen::Matrix<double, 6, 1> covariance_map_to_tca;
 
     covariance_map_to_tca.head(3) = v_BN_N_hat / r_BN_N.norm();
-    if (numberOfStates == 6) {
-        covariance_map_to_tca.tail(3) = (r_BN_N_hat - sinFPA * v_BN_N_hat) / v_BN_N.norm();
-    }
+    covariance_map_to_tca.tail(3) = (r_BN_N_hat - sinFPA * v_BN_N_hat) / v_BN_N.norm();
     const double mappedCovariance = covariance_map_to_tca.transpose() * filterCovariance * covariance_map_to_tca;
     const double tCA_covariance = mappedCovariance / (ratio * ratio);
 
@@ -47,7 +45,7 @@ inline ReferenceTimeClosestApproachOutput referenceTimeClosestApproach(const Eig
 
 inline void testTimeClosestApproach(const Eigen::Vector3d& r_BN_N,
                                     const Eigen::Vector3d& v_BN_N,
-                                    const Eigen::MatrixXf& filterCovariance) {
+                                    const Eigen::Matrix<float, 6, 6>& filterCovariance) {
     TimeClosestApproachAlgorithm const alg(TimeClosestApproachConfig::create());
     TimeClosestApproachOutput out;
     EXPECT_NO_THROW(out = alg.update(r_BN_N, v_BN_N, filterCovariance));
