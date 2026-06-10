@@ -23,7 +23,8 @@ class CelestialTwoBodyPoint final : public SysModel {
     void reconfigure() const;
 
     // Phase 1: Public config properties — set before reset()
-    float singularityThreshold = 0.0F;  //!< [rad] Angle threshold below which the constraint axis is fixed
+    float celestialBodyAlignmentThreshold =
+        1e-3F;  //!< [rad] Angle threshold for primary and secondary celestial body alignment check
 
     Message<AttRefMsgF32Payload> attRefOutMsg;                  //!< Attitude reference output message
     ReadFunctor<EphemerisMsgF32Payload> primaryCelBodyInMsg;    //!< Primary celestial body ephemeris input message
