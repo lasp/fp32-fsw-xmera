@@ -232,9 +232,14 @@ inline void regressionTestFlybyPoint(double timeBetweenFilterData,
             }
         }
         for (int i = 0; i < 3; ++i) {
-            EXPECT_NEAR(sigma_out[i], sigma_cmp[i], 1e-5);
-            EXPECT_NEAR(out.omega_RN_N[i], ref.omega_RN_N[i], 1e-5);
-            EXPECT_NEAR(out.domega_RN_N[i], ref.domega_RN_N[i], 1e-5);
+            EXPECT_NEAR(
+                sigma_out[i], sigma_cmp[i], std::max(1e-6F, std::abs(static_cast<float>(sigma_cmp[i])) * 1e-5F));
+            EXPECT_NEAR(out.omega_RN_N[i],
+                        ref.omega_RN_N[i],
+                        std::max(1e-6F, std::abs(static_cast<float>(ref.omega_RN_N[i])) * 1e-5F));
+            EXPECT_NEAR(out.domega_RN_N[i],
+                        ref.domega_RN_N[i],
+                        std::max(1e-6F, std::abs(static_cast<float>(ref.domega_RN_N[i])) * 1e-5F));
         }
 
         // Diagnostic flags must agree exactly

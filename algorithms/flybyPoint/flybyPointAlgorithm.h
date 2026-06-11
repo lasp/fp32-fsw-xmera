@@ -63,6 +63,8 @@ class FlybyPointConfig final {
     float getPositionKnowledgeSigma() const { return positionKnowledgeSigma; }
 
    private:
+    // Private constructor is only called by create(), which validates and orders all fields.
+    // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
     FlybyPointConfig(double timeBetweenFilterData,
                      float toleranceForCollinearity,
                      int signOfOrbitNormalFrameVector,
