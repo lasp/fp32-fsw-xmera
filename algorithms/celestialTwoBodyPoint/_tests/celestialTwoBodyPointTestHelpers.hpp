@@ -6,6 +6,7 @@
 
 #include <gtest/gtest.h>
 #include <Eigen/Core>
+#include <algorithm>
 #include <cmath>
 
 struct ReferenceCelestialTwoBodyPointOutput {
@@ -120,47 +121,42 @@ inline ReferenceCelestialTwoBodyPointOutput referenceCelestialTwoBodyPoint(
     return expected;
 }
 
-// Compare the FP32 algorithm output against the double-precision reference. The inputs should be
-// chosen so that the constraint-validity branch decision is unambiguous (not at the threshold
-// boundary), otherwise the float and double implementations may legitimately pick different
-// branches.
-inline void testCelestialTwoBodyPoint(const Eigen::Vector3d& r_PN_N,
-                                      const Eigen::Vector3d& v_PN_N,
-                                      const Eigen::Vector3d& r_SN_N,
-                                      const Eigen::Vector3d& v_SN_N,
-                                      const Eigen::Vector3d& r_BN_N,
-                                      const Eigen::Vector3d& v_BN_N,
-                                      const float celestialBodyAlignmentThreshold) {
-    const CelestialTwoBodyPointAlgorithm alg(CelestialTwoBodyPointConfig::create(celestialBodyAlignmentThreshold));
+// ---------------------------------------------------------------------------
+// Regression test helper function
+// ---------------------------------------------------------------------------
 
-    CelestialTwoBodyPointOutput out;
-    EXPECT_NO_THROW(out = alg.update(r_PN_N, v_PN_N, r_SN_N, v_SN_N, r_BN_N, v_BN_N));
+inline void testCelestialTwoBodyPointRegression(const Eigen::Vector3d& r_PN_N,
+                                                const Eigen::Vector3d& v_PN_N,
+                                                const Eigen::Vector3d& r_SN_N,
+                                                const Eigen::Vector3d& v_SN_N,
+                                                const Eigen::Vector3d& r_BN_N,
+                                                const Eigen::Vector3d& v_BN_N,
+                                                const float celestialBodyAlignmentThreshold) {
+    auto config = CelestialTwoBodyPointConfig::create(celestialBodyAlignmentThreshold);
+    const CelestialTwoBodyPointAlgorithm alg(config);
 
-    ReferenceCelestialTwoBodyPointOutput ref;
-    EXPECT_NO_THROW(ref = referenceCelestialTwoBodyPoint(
-                        r_PN_N, v_PN_N, r_SN_N, v_SN_N, r_BN_N, v_BN_N, celestialBodyAlignmentThreshold));
+    CelestialTwoBodyPointOutput result = alg.update(r_PN_N, v_PN_N, r_SN_N, v_SN_N, r_BN_N, v_BN_N);
+    ReferenceCelestialTwoBodyPointOutput expected =
+        referenceCelestialTwoBodyPoint(r_PN_N, v_PN_N, r_SN_N, v_SN_N, r_BN_N, v_BN_N, celestialBodyAlignmentThreshold);
 
-    // dcmToMrp can pick either MRP shadow-set representative when |sigma| is near 1 (180-deg
-    // rotation boundary). Pick whichever representative is closer to the algorithm output before
-    // the per-component comparison.
-    const Eigen::Vector3d sigma_out = out.sigma_RN.cast<double>();
-    Eigen::Vector3d sigma_ref = ref.sigma_RN;
-    if (sigma_ref.squaredNorm() > 1e-12) {
-        const Eigen::Vector3d sigma_ref_shadow = -sigma_ref / sigma_ref.squaredNorm();
-        if ((sigma_out - sigma_ref_shadow).squaredNorm() < (sigma_out - sigma_ref).squaredNorm()) {
-            sigma_ref = sigma_ref_shadow;
-        }
-    }
-
-    constexpr float tol = 1e-5F;
+    /*! Use a combined absolute + relative tolerance. The absolute floor handles
+        near-zero outputs, while the relative term scales the allowed error with the
+        expected magnitude: a fixed absolute tolerance is unachievable for
+        large-magnitude outputs because a single float32 ULP can exceed it. */
+    constexpr float absTol = 1e-5F;
+    constexpr float relTol = 1e-5F;
+    const auto tolFor = [&](double expectedVal) {
+        return std::max(absTol, relTol * std::abs(static_cast<float>(expectedVal)));
+    };
     for (int i = 0; i < 3; ++i) {
-        EXPECT_NEAR(out.sigma_RN[i], static_cast<float>(sigma_ref[i]), tol);
-        EXPECT_NEAR(out.omega_RN_N[i], static_cast<float>(ref.omega_RN_N[i]), tol);
-        EXPECT_NEAR(out.domega_RN_N[i], static_cast<float>(ref.domega_RN_N[i]), tol);
+        EXPECT_NEAR(result.sigma_RN[i], static_cast<float>(expected.sigma_RN[i]), tolFor(expected.sigma_RN[i]));
+        EXPECT_NEAR(result.omega_RN_N[i], static_cast<float>(expected.omega_RN_N[i]), tolFor(expected.omega_RN_N[i]));
+        EXPECT_NEAR(
+            result.domega_RN_N[i], static_cast<float>(expected.domega_RN_N[i]), tolFor(expected.domega_RN_N[i]));
 
-        EXPECT_TRUE(std::isfinite(out.sigma_RN[i]));
-        EXPECT_TRUE(std::isfinite(out.omega_RN_N[i]));
-        EXPECT_TRUE(std::isfinite(out.domega_RN_N[i]));
+        EXPECT_TRUE(std::isfinite(result.sigma_RN[i]));
+        EXPECT_TRUE(std::isfinite(result.omega_RN_N[i]));
+        EXPECT_TRUE(std::isfinite(result.domega_RN_N[i]));
     }
 }
 
