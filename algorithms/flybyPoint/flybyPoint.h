@@ -12,26 +12,25 @@
 #include <architecture/messaging/messaging.h>
 #include <architecture/msgPayloadDef/FlybyDiagnosticMsgPayload.h>
 #include <Eigen/Dense>
+#include <memory>
 
 /*! @brief A class to perform flyby pointing */
-class FlybyPoint : public SysModel {
+class FlybyPoint final : public SysModel {
    public:
-    FlybyPoint();
+    FlybyPoint() = default;
+    ~FlybyPoint() override = default;
+
     void reset(uint64_t currentSimNanos) override;
     void updateState(uint64_t currentSimNanos) override;
     std::tuple<Eigen::Vector3d, Eigen::Vector3d> readRelativeState();
-    double getTimeBetweenFilterData() const;
-    void setTimeBetweenFilterData(double timeBetweenFilterData);
-    double getToleranceForCollinearity() const;
-    void setToleranceForCollinearity(double toleranceForCollinearity);
-    int getSignOfOrbitNormalFrameVector() const;
-    void setSignOfOrbitNormalFrameVector(int signOfOrbitNormalFrameVector);
-    double getMaximumAccelerationThreshold() const;
-    void setMaximumAccelerationThreshold(double maxAccelerationThreshold);
-    double getMaximumRateThreshold() const;
-    void setMaximumRateThreshold(double maxRateThreshold);
-    double getPositionKnowledgeSigma() const;
-    void setPositionKnowledgeSigma(double positionKnowledgeStd);
+
+    // Phase 1: public config properties — set before reset()
+    double timeBetweenFilterData = 0.0;     //!< [s] time between two subsequent filter reads (0 = every message)
+    float toleranceForCollinearity = 0.0F;  //!< [-] tolerance for collinear r/v singular condition
+    int signOfOrbitNormalFrameVector = 1;   //!< [-] sign (+1 or -1) of the orbit normal frame vector
+    float maxRateThreshold = 0.0F;          //!< [deg/s] max predicted rate; 0 disables check
+    float maxAccelerationThreshold = 0.0F;  //!< [deg/s^2] max predicted acceleration; 0 disables check
+    float positionKnowledgeSigma = 0.0F;    //!< [m] position knowledge sigma; 0 disables check
 
     ReadFunctor<NavTransMsgF32Payload> filterInMsg;              //!< input msg relative position w.r.t. asteroid
     ReadFunctor<EphemerisMsgF32Payload> asteroidEphemerisInMsg;  //!< input asteroid ephemeris msg
@@ -39,7 +38,7 @@ class FlybyPoint : public SysModel {
     Message<FlybyDiagnosticMsgPayload> flybyDiagnosticOutMsg;    //!< Flyby diagnostic output message
 
    private:
-    FlybyPointAlgorithm algorithm;
+    std::unique_ptr<FlybyPointAlgorithm> algorithm = nullptr;
 };
 
 #endif
