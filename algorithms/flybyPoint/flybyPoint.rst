@@ -53,6 +53,37 @@ Clohessy-Wiltshire Equations Model
 T.B.D.
 
 
+Output Validity
+...............
+Every call to ``updateState`` returns a ``FlybyPointOutput`` struct whose ``validOutput`` field
+indicates whether the attitude guidance outputs can be trusted. The field is ``false`` by default
+and is set to ``true`` only when both of the following conditions hold simultaneously:
+
+1. **Algorithm seeded.** At least one first-read attempt has passed the collinearity check, so
+   ``f0``, ``gamma0``, and ``R0N`` have been initialised from real navigation data. If all
+   first-read attempts have been rejected (e.g. the spacecraft is on a collision trajectory),
+   ``validOutput`` remains ``false`` and the outputs carry only default zero-initialised values.
+
+2. **All output components finite.** ``sigma_RN``, ``omega_RN_N``, and ``domega_RN_N`` are each
+   checked via ``Eigen::Vector3f::allFinite()`` after ``computeGuidanceSolution`` returns. This
+   satisfies the runtime NaN/Inf detection requirement of PRECISION_GUIDELINES §10.1 and serves as
+   a downstream sentinel for any arithmetic path inside ``computeGuidanceSolution`` that could
+   produce a non-finite value, including:
+
+   * ``dcmToMrp`` near a 180° rotation singularity (division-by-near-zero in the EP-to-MRP
+     conversion, PRECISION_GUIDELINES §5.1).
+   * ``addMrp`` catastrophic cancellation when composing nearly inverse rotations
+     (PRECISION_GUIDELINES §5.6).
+   * The raw division ``f0 / safeCosf(gamma0)`` inside the :math:`\theta(t)` formula, which is
+     guarded structurally by the collinearity check but covered by the finiteness check as a
+     defence-in-depth measure.
+
+A ``validOutput = false`` result does **not** mean the module has failed; the output struct is still
+returned and the diagnostic trigger flags (``collinearityTrigger``, ``maxRateTrigger``, etc.) remain
+populated so the caller can determine the cause. Callers should check ``validOutput`` before using
+the attitude guidance outputs for actuation.
+
+
 Module Assumptions and Limitations
 ----------------------------------
 The limitations of this module are inherent to the geometry of the problem, which determines whether or not all the constraints can be satisfied. For example, as shown in  in R. Calaon, C. Allard and H. Schaub, "Attitude Reference Generation for Spacecraft with Rotating Solar Arrays and Pointing Constraints," In preparation for Journal of Spacecraft and Rockets, depending on the relative orientation of :math:`{}^\mathcal{B}h` and :math:`{}^\mathcal{B}a_1`, it may not be possible to  achieve perfect incidence angle on the solar arrays. Only when perfect incidence is obtained, it is possible to solve for the solution that also drives the body-fixed direction :math:`{}^\mathcal{B}a_2` close to the Sun. When perfect incidence is achievable, two solutions exist. If :math:`{}^\mathcal{B}a_2` is provided as input, this is used to determine which solution to pick. If this input is not provided, one of the two solution is chosen arbitrarily.
