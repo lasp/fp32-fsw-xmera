@@ -21,22 +21,22 @@ class FlybyPointConfig final {
                                    float maxAccelerationThreshold,
                                    float positionKnowledgeSigma) {
         if (!isValidTimeBetweenFilterData(timeBetweenFilterData)) {
-            FSW_THROW_INVALID_ARGUMENT("flybyPoint: timeBetweenFilterData must be >= 0");
+            FSW_THROW_INVALID_ARGUMENT("flybyPoint: timeBetweenFilterData must be > 0");
         }
         if (!isValidToleranceForCollinearity(toleranceForCollinearity)) {
-            FSW_THROW_INVALID_ARGUMENT("flybyPoint: toleranceForCollinearity must be >= 0");
+            FSW_THROW_INVALID_ARGUMENT("flybyPoint: toleranceForCollinearity must be > 0");
         }
         if (!isValidSignOfOrbitNormalFrameVector(signOfOrbitNormalFrameVector)) {
             FSW_THROW_INVALID_ARGUMENT("flybyPoint: signOfOrbitNormalFrameVector must be 1 or -1");
         }
         if (!isValidMaxRateThreshold(maxRateThreshold)) {
-            FSW_THROW_INVALID_ARGUMENT("flybyPoint: maxRateThreshold must be >= 0");
+            FSW_THROW_INVALID_ARGUMENT("flybyPoint: maxRateThreshold must be > 0");
         }
         if (!isValidMaxAccelerationThreshold(maxAccelerationThreshold)) {
-            FSW_THROW_INVALID_ARGUMENT("flybyPoint: maxAccelerationThreshold must be >= 0");
+            FSW_THROW_INVALID_ARGUMENT("flybyPoint: maxAccelerationThreshold must be > 0");
         }
         if (!isValidPositionKnowledgeSigma(positionKnowledgeSigma)) {
-            FSW_THROW_INVALID_ARGUMENT("flybyPoint: positionKnowledgeSigma must be >= 0");
+            FSW_THROW_INVALID_ARGUMENT("flybyPoint: positionKnowledgeSigma must be > 0");
         }
         return {timeBetweenFilterData,
                 toleranceForCollinearity,
@@ -47,12 +47,12 @@ class FlybyPointConfig final {
     }
 
     /// Static validators — only for parameters with a meaningful constraint
-    static bool isValidTimeBetweenFilterData(double time) { return time >= 0.0; }
-    static bool isValidToleranceForCollinearity(float tolerance) { return tolerance >= 0.0F; }
+    static bool isValidTimeBetweenFilterData(double time) { return time > 0.0; }
+    static bool isValidToleranceForCollinearity(float tolerance) { return tolerance > 0.0F; }
     static bool isValidSignOfOrbitNormalFrameVector(int sign) { return sign == 1 || sign == -1; }
-    static bool isValidMaxRateThreshold(float maxRate) { return maxRate >= 0.0F; }
-    static bool isValidMaxAccelerationThreshold(float maxAcceleration) { return maxAcceleration >= 0.0F; }
-    static bool isValidPositionKnowledgeSigma(float sigma) { return sigma >= 0.0F; }
+    static bool isValidMaxRateThreshold(float maxRate) { return maxRate > 0.0F; }
+    static bool isValidMaxAccelerationThreshold(float maxAcceleration) { return maxAcceleration > 0.0F; }
+    static bool isValidPositionKnowledgeSigma(float sigma) { return sigma > 0.0F; }
 
     /// Const getters — Config is immutable after construction
     double getTimeBetweenFilterData() const { return timeBetweenFilterData; }

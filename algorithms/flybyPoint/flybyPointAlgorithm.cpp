@@ -130,7 +130,7 @@ bool FlybyPointAlgorithm::checkValidity(uint64_t currentSimNanos,
         flybyDiagnosticMsgBuffer.maxAccelerationTrigger = true;
     } else {
         const double maxPredictedRate = v_BN_N.norm() / distanceClosestApproach * 180.0 / M_PI;
-        if (maxPredictedRate > this->cfg.getMaxRateThreshold() && this->cfg.getMaxRateThreshold() > 0.0F) {
+        if (maxPredictedRate > this->cfg.getMaxRateThreshold()) {
             valid = false;
             flybyDiagnosticMsgBuffer.maxRateTrigger = true;
         } else {
@@ -141,8 +141,7 @@ bool FlybyPointAlgorithm::checkValidity(uint64_t currentSimNanos,
         const double angularRateAtCA = v_BN_N.norm() / distanceClosestApproach;
         const double maxPredictedAcceleration =
             3.0 * safeSqrt(3.0) / 8.0 * angularRateAtCA * angularRateAtCA * 180.0 / M_PI;
-        if (maxPredictedAcceleration > this->cfg.getMaxAccelerationThreshold() &&
-            this->cfg.getMaxAccelerationThreshold() > 0) {
+        if (maxPredictedAcceleration > this->cfg.getMaxAccelerationThreshold()) {
             valid = false;
             flybyDiagnosticMsgBuffer.maxAccelerationTrigger = true;
         } else {
@@ -153,7 +152,7 @@ bool FlybyPointAlgorithm::checkValidity(uint64_t currentSimNanos,
     /*! check if the position error exceeds a-priori sigma bound */
     const double deltaT = (static_cast<double>(currentSimNanos) * NANO2SEC) - this->timeOfFirstRead;
     const double deltaPositionNorm = (r_BN_N - (this->firstNavPosition + deltaT * this->firstNavVelocity)).norm();
-    if (deltaPositionNorm > this->cfg.getPositionKnowledgeSigma() && this->cfg.getPositionKnowledgeSigma() > 0) {
+    if (deltaPositionNorm > this->cfg.getPositionKnowledgeSigma()) {
         valid = false;
         flybyDiagnosticMsgBuffer.positionKnowledgeExceedTrigger = true;
     } else {
