@@ -15,6 +15,9 @@ inline constexpr int BatchSize = 2;
 // State: [s_hat (3), omega_BN_B (3), bias (1)].
 using SunlineState = filtering::StateVector<filtering::Position<3>, filtering::Velocity<3>, filtering::Bias<1>>;
 
+// N x N filter matrix (process noise, covariance) where N = SunlineState::size.
+using StateMatrix = Eigen::Matrix<double, SunlineState::size, SunlineState::size>;
+
 // ds/dt = s × omega; omega and bias constant under propagation.
 struct SunlineDynamics {
     SunlineState operator()(double /*t*/, SunlineState const& state) const {

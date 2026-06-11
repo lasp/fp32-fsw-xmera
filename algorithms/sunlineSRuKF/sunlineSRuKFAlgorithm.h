@@ -2,10 +2,14 @@
 #define F32XMERA_SUNLINESRUKFALGORITHM_H
 
 #include "sunlineSRuKFSpecs.h"
+#include "utilities/freestandingInvalidArgument.h"
+#include "utilities/validPSDCheck.h"
 
 #include <filteringCore/measurementQueue.h>
 #include <filteringCore/kalmanFilter.hpp>
 #include <filteringCore/srukf.hpp>
+
+#include <math.h>
 
 #include <Eigen/Core>
 
@@ -33,6 +37,167 @@ struct SunlineSRuKFOutput {
     FilterStateOutput filterState;
     CssResidualsOutput cssResiduals;
     RateResidualsOutput rateResiduals;
+};
+
+/*! Validated, immutable configuration for SunlineSRuKFAlgorithm. create() validates every constrained
+ *  parameter and normalizes the CSS boresights; the algorithm trusts the Config thereafter. Parameters
+ *  without a meaningful constraint (alpha, beta, initialState) have no validator. */
+class SunlineSRuKFConfig final {
+   public:
+    static SunlineSRuKFConfig create(double alpha,
+                                     double beta,
+                                     StateMatrix const& processNoise,
+                                     SunlineState const& initialState,
+                                     StateMatrix const& initialCovariance,
+                                     double biasLowerBound,
+                                     double biasUpperBound,
+                                     Eigen::Matrix<double, MaxCss, 3> const& cssNHat,
+                                     Eigen::Vector<double, MaxCss> const& cssCBias,
+                                     int numberOfCss,
+                                     double sensorThreshold,
+                                     double cssMeasurementNoiseStd,
+                                     double gyroMeasurementNoiseStd) {
+        if (!isValidProcessNoise(processNoise)) {
+            FSW_THROW_INVALID_ARGUMENT("sunlineSRuKF: process noise must be positive semi-definite");
+        }
+        if (!isValidInitialCovariance(initialCovariance)) {
+            FSW_THROW_INVALID_ARGUMENT("sunlineSRuKF: initial covariance must be positive semi-definite");
+        }
+        if (!isValidBiasLowerBound(biasLowerBound)) {
+            FSW_THROW_INVALID_ARGUMENT("sunlineSRuKF: bias lower bound must be greater than 0");
+        }
+        if (!isValidBiasUpperBound(biasUpperBound)) {
+            FSW_THROW_INVALID_ARGUMENT("sunlineSRuKF: bias upper bound must be greater than 0");
+        }
+        if (!isValidBiasBounds(biasLowerBound, biasUpperBound)) {
+            FSW_THROW_INVALID_ARGUMENT("sunlineSRuKF: bias lower bound must be less than bias upper bound");
+        }
+        if (!isValidNumberOfCss(numberOfCss)) {
+            FSW_THROW_INVALID_ARGUMENT("sunlineSRuKF: numberOfCss must be in [0, MaxCss]");
+        }
+        if (!isValidCssNHat(cssNHat, numberOfCss)) {
+            FSW_THROW_INVALID_ARGUMENT(
+                "sunlineSRuKF: the first numberOfCss CSS nHat rows must be unit vectors within 1e-3");
+        }
+        if (!isValidCssCBias(cssCBias)) {
+            FSW_THROW_INVALID_ARGUMENT("sunlineSRuKF: CSS calibration bias must not be negative");
+        }
+        if (!isValidSensorThreshold(sensorThreshold)) {
+            FSW_THROW_INVALID_ARGUMENT("sunlineSRuKF: sensor threshold must not be negative");
+        }
+        if (!isValidCssMeasurementNoiseStd(cssMeasurementNoiseStd)) {
+            FSW_THROW_INVALID_ARGUMENT("sunlineSRuKF: CSS measurement noise std must not be negative");
+        }
+        if (!isValidGyroMeasurementNoiseStd(gyroMeasurementNoiseStd)) {
+            FSW_THROW_INVALID_ARGUMENT("sunlineSRuKF: gyro measurement noise std must not be negative");
+        }
+        return {alpha,
+                beta,
+                processNoise,
+                initialState,
+                initialCovariance,
+                biasLowerBound,
+                biasUpperBound,
+                normalizeCssNHat(cssNHat, numberOfCss),
+                cssCBias,
+                numberOfCss,
+                sensorThreshold,
+                cssMeasurementNoiseStd,
+                gyroMeasurementNoiseStd};
+    }
+
+    static bool isValidProcessNoise(StateMatrix const& processNoise) {
+        return isPositiveSemiDefinite<SunlineState::size>(processNoise);
+    }
+    static bool isValidInitialCovariance(StateMatrix const& covariance) {
+        return isPositiveSemiDefinite<SunlineState::size>(covariance);
+    }
+    static bool isValidBiasLowerBound(double bound) { return bound > 0.0; }
+    static bool isValidBiasUpperBound(double bound) { return bound > 0.0; }
+    static bool isValidBiasBounds(double lowerBound, double upperBound) { return lowerBound < upperBound; }
+    static bool isValidCssNHat(Eigen::Matrix<double, MaxCss, 3> const& cssNHat, int numberOfCss) {
+        constexpr double normTolerance = 1e-3;
+        for (int i = 0; i < numberOfCss; ++i) {
+            Eigen::Vector3d const row = cssNHat.row(i).transpose();
+            if (fabs(row.stableNorm() - 1.0) > normTolerance) {
+                return false;
+            }
+        }
+        return true;
+    }
+    static bool isValidCssCBias(Eigen::Vector<double, MaxCss> const& cssCBias) {
+        return (cssCBias.array() >= 0.0).all();
+    }
+    static bool isValidNumberOfCss(int count) { return count >= 0 && count <= MaxCss; }
+    static bool isValidSensorThreshold(double threshold) { return threshold >= 0.0; }
+    static bool isValidCssMeasurementNoiseStd(double noiseStd) { return noiseStd >= 0.0; }
+    static bool isValidGyroMeasurementNoiseStd(double noiseStd) { return noiseStd >= 0.0; }
+
+    double getAlpha() const { return this->alpha; }
+    double getBeta() const { return this->beta; }
+    StateMatrix const& getProcessNoise() const { return this->processNoise; }
+    SunlineState const& getInitialState() const { return this->initialState; }
+    StateMatrix const& getInitialCovariance() const { return this->initialCovariance; }
+    double getBiasLowerBound() const { return this->biasLowerBound; }
+    double getBiasUpperBound() const { return this->biasUpperBound; }
+    Eigen::Matrix<double, MaxCss, 3> const& getCssNHat() const { return this->cssNHat; }
+    Eigen::Vector<double, MaxCss> const& getCssCBias() const { return this->cssCBias; }
+    int getNumberOfCss() const { return this->numberOfCss; }
+    double getSensorThreshold() const { return this->sensorThreshold; }
+    double getCssMeasurementNoiseStd() const { return this->cssMeasNoiseStd; }
+    double getGyroMeasurementNoiseStd() const { return this->gyroMeasNoiseStd; }
+
+   private:
+    SunlineSRuKFConfig(double alpha,
+                       double beta,
+                       StateMatrix const& processNoise,
+                       SunlineState const& initialState,
+                       StateMatrix const& initialCovariance,
+                       double biasLowerBound,
+                       double biasUpperBound,
+                       Eigen::Matrix<double, MaxCss, 3> const& cssNHat,
+                       Eigen::Vector<double, MaxCss> const& cssCBias,
+                       int numberOfCss,
+                       double sensorThreshold,
+                       double cssMeasurementNoiseStd,
+                       double gyroMeasurementNoiseStd)
+        : alpha(alpha),
+          beta(beta),
+          processNoise(processNoise),
+          initialState(initialState),
+          initialCovariance(initialCovariance),
+          biasLowerBound(biasLowerBound),
+          biasUpperBound(biasUpperBound),
+          cssNHat(cssNHat),
+          cssCBias(cssCBias),
+          numberOfCss(numberOfCss),
+          sensorThreshold(sensorThreshold),
+          cssMeasNoiseStd(cssMeasurementNoiseStd),
+          gyroMeasNoiseStd(gyroMeasurementNoiseStd) {}
+
+    static Eigen::Matrix<double, MaxCss, 3> normalizeCssNHat(Eigen::Matrix<double, MaxCss, 3> const& cssNHat,
+                                                             int numberOfCss) {
+        Eigen::Matrix<double, MaxCss, 3> normalized = Eigen::Matrix<double, MaxCss, 3>::Zero();
+        for (int i = 0; i < numberOfCss; ++i) {
+            Eigen::Vector3d const row = cssNHat.row(i).transpose();
+            normalized.row(i) = row.stableNormalized().transpose();
+        }
+        return normalized;
+    }
+
+    double alpha;
+    double beta;
+    StateMatrix processNoise;
+    SunlineState initialState;
+    StateMatrix initialCovariance;
+    double biasLowerBound;
+    double biasUpperBound;
+    Eigen::Matrix<double, MaxCss, 3> cssNHat;
+    Eigen::Vector<double, MaxCss> cssCBias;
+    int numberOfCss;
+    double sensorThreshold;
+    double cssMeasNoiseStd;
+    double gyroMeasNoiseStd;
 };
 
 /*! @brief Sunline square-root UKF. Estimates sun-heading direction, body rate,
