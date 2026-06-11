@@ -32,6 +32,7 @@ typedef struct {
     bool maxRateTrigger;
     bool maxAccelerationTrigger;
     bool positionKnowledgeExceedTrigger;
+    bool validOutput;
 } FlybyPointOutput_c;
 
 #ifdef __cplusplus

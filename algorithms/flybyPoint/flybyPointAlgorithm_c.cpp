@@ -59,5 +59,6 @@ FlybyPointOutput_c FlybyPointAlgorithm_updateState(FlybyPointAlgorithmHandle* se
     result.maxRateTrigger = out.maxRateTrigger;
     result.maxAccelerationTrigger = out.maxAccelerationTrigger;
     result.positionKnowledgeExceedTrigger = out.positionKnowledgeExceedTrigger;
+    result.validOutput = out.validOutput;
     return result;
 }

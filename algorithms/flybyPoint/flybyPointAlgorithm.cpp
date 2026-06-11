@@ -69,6 +69,8 @@ FlybyPointOutput FlybyPointAlgorithm::updateState(uint64_t currentSimNanos,
     output.maxRateTrigger = flybyDiagnosticMsgBuffer.maxRateTrigger;
     output.maxAccelerationTrigger = flybyDiagnosticMsgBuffer.maxAccelerationTrigger;
     output.positionKnowledgeExceedTrigger = flybyDiagnosticMsgBuffer.positionKnowledgeExceedTrigger;
+    output.validOutput = !this->firstRead && output.sigma_RN.allFinite() && output.omega_RN_N.allFinite() &&
+                         output.domega_RN_N.allFinite();
     return output;
 }
 

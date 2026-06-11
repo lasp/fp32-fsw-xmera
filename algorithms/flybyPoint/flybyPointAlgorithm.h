@@ -93,6 +93,7 @@ struct FlybyPointOutput {
     bool maxRateTrigger = false;
     bool maxAccelerationTrigger = false;
     bool positionKnowledgeExceedTrigger = false;
+    bool validOutput = false;
 };
 
 /*! @brief A class to perform flyby pointing */
