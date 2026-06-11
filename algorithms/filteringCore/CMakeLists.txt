@@ -26,3 +26,7 @@ target_link_libraries(filteringCore INTERFACE
 target_compile_features(filteringCore INTERFACE
   cxx_std_23
 )
+
+if(BUILD_TESTING)
+  add_subdirectory(_tests)
+endif()
