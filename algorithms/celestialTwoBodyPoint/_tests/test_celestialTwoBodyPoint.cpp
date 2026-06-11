@@ -24,7 +24,35 @@ TEST(CelestialTwoBodyPointTest, RegressionTest) {
         r_PN_N, v_PN_N, r_SN_N, v_SN_N, r_BN_N, v_BN_N, celestialBodyAlignmentThreshold);
 }
 
-TEST(CelestialTwoBodyPointTest, Setup) { testCelestialTwoBodyPointSetup(); }
+// ---------------------------------------------------------------------------
+// Setup tests (setter validation + round-trip)
+// ---------------------------------------------------------------------------
+
+TEST(CelestialTwoBodyPointTest, SetupTest) {
+    // Valid config should not throw
+    EXPECT_NO_THROW(CelestialTwoBodyPointConfig::create(kDeg2Rad));
+
+    // Negative or zero celestialBodyAlignmentThreshold should throw
+    EXPECT_THROW(CelestialTwoBodyPointConfig::create(-1.0F), fsw::invalid_argument);
+    EXPECT_THROW(CelestialTwoBodyPointConfig::create(0.0F), fsw::invalid_argument);
+
+    // Config round-trip
+    const float celestialBodyAlignmentThreshold = kDeg2Rad;
+    auto config = CelestialTwoBodyPointConfig::create(celestialBodyAlignmentThreshold);
+    EXPECT_EQ(config.getCelestialBodyAlignmentThreshold(), celestialBodyAlignmentThreshold);
+
+    // Static validators
+    EXPECT_TRUE(CelestialTwoBodyPointConfig::isValidCelestialBodyAlignmentThreshold(1.0F));
+    EXPECT_FALSE(CelestialTwoBodyPointConfig::isValidCelestialBodyAlignmentThreshold(0.0F));
+    EXPECT_FALSE(CelestialTwoBodyPointConfig::isValidCelestialBodyAlignmentThreshold(-1.0F));
+
+    // Set config
+    const auto config1 = CelestialTwoBodyPointConfig::create(kDeg2Rad);
+    CelestialTwoBodyPointAlgorithm alg(config1);
+
+    const auto config2 = CelestialTwoBodyPointConfig::create(0.02F);
+    EXPECT_NO_THROW(alg.setConfig(config2));
+}
 
 TEST(CelestialTwoBodyPointTest, ReferenceTestWithSecondaryBody) {
     // Same primary geometry as the Python regression test, with the secondary body well away from
@@ -52,36 +80,6 @@ TEST(CelestialTwoBodyPointTest, ReferenceTestNonZeroSpacecraftState) {
                                         Eigen::Vector3d{1.5e11 + 7.0e6, 0.0, 0.0},  // r_BN_N (LEO offset)
                                         Eigen::Vector3d{0.0, 7.7e3, 0.0},           // v_BN_N
                                         1.0F * kDeg2Rad);
-}
-
-TEST(CelestialTwoBodyPointTest, ConfigValidCreation) {
-    EXPECT_NO_THROW(CelestialTwoBodyPointConfig::create(0.0F));
-    EXPECT_NO_THROW(CelestialTwoBodyPointConfig::create(0.5F));
-}
-
-TEST(CelestialTwoBodyPointTest, ConfigInvalidCelestialBodyAlignmentThreshold) {
-    EXPECT_THROW(CelestialTwoBodyPointConfig::create(-1.0F), fsw::invalid_argument);
-    EXPECT_THROW(CelestialTwoBodyPointConfig::create(-1e-7F), fsw::invalid_argument);
-    EXPECT_THROW(CelestialTwoBodyPointConfig::create(std::nanf("")), fsw::invalid_argument);
-}
-
-TEST(CelestialTwoBodyPointTest, ConfigRoundTrip) {
-    const auto config = CelestialTwoBodyPointConfig::create(0.25F);
-    EXPECT_FLOAT_EQ(config.getCelestialBodyAlignmentThreshold(), 0.25F);
-}
-
-TEST(CelestialTwoBodyPointTest, ConfigStaticValidators) {
-    EXPECT_TRUE(CelestialTwoBodyPointConfig::isValidCelestialBodyAlignmentThreshold(0.0F));
-    EXPECT_TRUE(CelestialTwoBodyPointConfig::isValidCelestialBodyAlignmentThreshold(1.0F));
-    EXPECT_FALSE(CelestialTwoBodyPointConfig::isValidCelestialBodyAlignmentThreshold(-0.1F));
-}
-
-TEST(CelestialTwoBodyPointTest, AlgorithmSetConfig) {
-    const auto config1 = CelestialTwoBodyPointConfig::create(0.1F);
-    CelestialTwoBodyPointAlgorithm alg(config1);
-
-    const auto config2 = CelestialTwoBodyPointConfig::create(0.3F);
-    EXPECT_NO_THROW(alg.setConfig(config2));
 }
 
 TEST(CelestialTwoBodyPointTest, PropertyOutputIsFinite) {

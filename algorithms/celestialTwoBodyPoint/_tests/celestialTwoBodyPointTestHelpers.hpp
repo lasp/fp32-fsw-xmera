@@ -196,12 +196,4 @@ inline void propertySigmaNormBounded(const Eigen::Vector3d& r_PN_N,
     EXPECT_LE(out.sigma_RN.norm(), 1.0F + 1e-6F);
 }
 
-inline void testCelestialTwoBodyPointSetup() {
-    EXPECT_NO_THROW({
-        const CelestialTwoBodyPointConfig cfg = CelestialTwoBodyPointConfig::create(0.1F);
-        const CelestialTwoBodyPointAlgorithm alg(cfg);
-        (void)alg;
-    });
-}
-
 #endif  // TEST_CELESTIAL_TWO_BODY_POINT_HELPERS_H
