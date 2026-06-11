@@ -58,12 +58,12 @@ def test_flybyPoint_diagnostic_collinearity(
     # setup flybyPoint guidance module
     flyby_guidance = flybyPoint.FlybyPoint()
     flyby_guidance.modelTag = "flybyPoint"
-    flyby_guidance.setTimeBetweenFilterData(filter_dt)
-    flyby_guidance.setToleranceForCollinearity(1E-5)
-    flyby_guidance.setSignOfOrbitNormalFrameVector(orbit_normal_sign)
-    flyby_guidance.setMaximumRateThreshold(max_rate)
-    flyby_guidance.setMaximumAccelerationThreshold(max_acceleration)
-    flyby_guidance.setPositionKnowledgeSigma(pos_knowledge)
+    flyby_guidance.timeBetweenFilterData = filter_dt
+    flyby_guidance.toleranceForCollinearity = 1E-5
+    flyby_guidance.signOfOrbitNormalFrameVector = orbit_normal_sign
+    flyby_guidance.maxRateThreshold = max_rate
+    flyby_guidance.maxAccelerationThreshold = max_acceleration
+    flyby_guidance.positionKnowledgeSigma = pos_knowledge
     unit_test_sim.AddModelToTask("unit_task", flyby_guidance)
 
     input_data = messaging.NavTransMsgF32Payload()
@@ -121,12 +121,12 @@ def test_flybyPoint_maxrate(
     # setup flybyPoint guidance module
     flyby_guidance = flybyPoint.FlybyPoint()
     flyby_guidance.modelTag = "flybyPoint"
-    flyby_guidance.setTimeBetweenFilterData(filter_dt)
-    flyby_guidance.setToleranceForCollinearity(1E-5)
-    flyby_guidance.setSignOfOrbitNormalFrameVector(orbit_normal_sign)
-    flyby_guidance.setMaximumRateThreshold(max_rate)
-    flyby_guidance.setMaximumAccelerationThreshold(max_acceleration)
-    flyby_guidance.setPositionKnowledgeSigma(pos_knowledge)
+    flyby_guidance.timeBetweenFilterData = filter_dt
+    flyby_guidance.toleranceForCollinearity = 1E-5
+    flyby_guidance.signOfOrbitNormalFrameVector = orbit_normal_sign
+    flyby_guidance.maxRateThreshold = max_rate
+    flyby_guidance.maxAccelerationThreshold = max_acceleration
+    flyby_guidance.positionKnowledgeSigma = pos_knowledge
     unit_test_sim.AddModelToTask("unit_task", flyby_guidance)
 
     input_data = messaging.NavTransMsgF32Payload()
@@ -184,12 +184,12 @@ def test_flybyPoint_maxacc(
     # setup flybyPoint guidance module
     flyby_guidance = flybyPoint.FlybyPoint()
     flyby_guidance.modelTag = "flybyPoint"
-    flyby_guidance.setTimeBetweenFilterData(filter_dt)
-    flyby_guidance.setToleranceForCollinearity(1E-5)
-    flyby_guidance.setSignOfOrbitNormalFrameVector(orbit_normal_sign)
-    flyby_guidance.setMaximumRateThreshold(max_rate)
-    flyby_guidance.setMaximumAccelerationThreshold(max_acceleration)
-    flyby_guidance.setPositionKnowledgeSigma(pos_knowledge)
+    flyby_guidance.timeBetweenFilterData = filter_dt
+    flyby_guidance.toleranceForCollinearity = 1E-5
+    flyby_guidance.signOfOrbitNormalFrameVector = orbit_normal_sign
+    flyby_guidance.maxRateThreshold = max_rate
+    flyby_guidance.maxAccelerationThreshold = max_acceleration
+    flyby_guidance.positionKnowledgeSigma = pos_knowledge
     unit_test_sim.AddModelToTask("unit_task", flyby_guidance)
 
     input_data = messaging.NavTransMsgF32Payload()
@@ -207,15 +207,14 @@ def test_flybyPoint_maxacc(
     position_data = []
     velocity_data = []
     trigger_indices = [1, 3, 8, 10, 11, 12, 13, 14, 15, 23, 24, 25, 26, 27, 28]
+    fac = 1000.0
     for i in range(round(600 / sim_dt)):
         if(i in trigger_indices):
-            flyby_guidance.setMaximumAccelerationThreshold(1E-20) # use small maxAcc threshold
-            pos_vec = np.array(initial_position) + np.array(initial_velocity) * (i * sim_dt)
+            pos_vec = np.array(initial_position) + np.array(initial_velocity) * (i * sim_dt) * fac
             position_data.append(pos_vec)
-            vel_vec = np.array(initial_velocity)
+            vel_vec = np.array(initial_velocity) * fac  # large velocity drives predicted acceleration above threshold
             velocity_data.append(vel_vec)
         else:
-            flyby_guidance.setMaximumAccelerationThreshold(max_acceleration)
             position_data.append(np.array(initial_position) + np.array(initial_velocity) * (i * sim_dt))
             velocity_data.append(np.array(initial_velocity))
         input_data.timeTag = macros.sec2nano(i * sim_dt)
@@ -248,12 +247,12 @@ def test_flybyPoint_diagnostic_positionknowledge(
     # setup flybyPoint guidance module
     flyby_guidance = flybyPoint.FlybyPoint()
     flyby_guidance.modelTag = "flybyPoint"
-    flyby_guidance.setTimeBetweenFilterData(filter_dt)
-    flyby_guidance.setToleranceForCollinearity(1E-5)
-    flyby_guidance.setSignOfOrbitNormalFrameVector(orbit_normal_sign)
-    flyby_guidance.setMaximumRateThreshold(max_rate)
-    flyby_guidance.setMaximumAccelerationThreshold(max_acceleration)
-    flyby_guidance.setPositionKnowledgeSigma(pos_knowledge)
+    flyby_guidance.timeBetweenFilterData = filter_dt
+    flyby_guidance.toleranceForCollinearity = 1E-5
+    flyby_guidance.signOfOrbitNormalFrameVector = orbit_normal_sign
+    flyby_guidance.maxRateThreshold = max_rate
+    flyby_guidance.maxAccelerationThreshold = max_acceleration
+    flyby_guidance.positionKnowledgeSigma = pos_knowledge
     unit_test_sim.AddModelToTask("unit_task", flyby_guidance)
 
     input_data = messaging.NavTransMsgF32Payload()
@@ -304,12 +303,12 @@ def flybyPointTestFunction(show_plots, initial_position, initial_velocity, filte
     # setup flybyPoint guidance module
     flyby_guidance = flybyPoint.FlybyPoint()
     flyby_guidance.modelTag = "flybyPoint"
-    flyby_guidance.setTimeBetweenFilterData(filter_dt)
-    flyby_guidance.setToleranceForCollinearity(1E-5)
-    flyby_guidance.setSignOfOrbitNormalFrameVector(orbit_normal_sign)
-    flyby_guidance.setMaximumRateThreshold(max_rate)
-    flyby_guidance.setMaximumAccelerationThreshold(max_acceleration)
-    flyby_guidance.setPositionKnowledgeSigma(pos_knowledge)
+    flyby_guidance.timeBetweenFilterData = filter_dt
+    flyby_guidance.toleranceForCollinearity = 1E-5
+    flyby_guidance.signOfOrbitNormalFrameVector = orbit_normal_sign
+    flyby_guidance.maxRateThreshold = max_rate
+    flyby_guidance.maxAccelerationThreshold = max_acceleration
+    flyby_guidance.positionKnowledgeSigma = pos_knowledge
     unit_test_sim.AddModelToTask("unit_task", flyby_guidance)
 
     input_data = messaging.NavTransMsgF32Payload()
