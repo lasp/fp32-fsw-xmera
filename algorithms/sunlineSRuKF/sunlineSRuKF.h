@@ -1,5 +1,5 @@
-#ifndef SUNLINESRUKF_H
-#define SUNLINESRUKF_H
+#ifndef F32XMERA_SUNLINESRUKF_H
+#define F32XMERA_SUNLINESRUKF_H
 
 #include "sunlineSRuKFSpecs.h"
 
