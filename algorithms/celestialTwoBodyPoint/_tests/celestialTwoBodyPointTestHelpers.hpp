@@ -160,7 +160,11 @@ inline void testCelestialTwoBodyPointRegression(const Eigen::Vector3d& r_PN_N,
     }
 }
 
-// Property: every output component is finite for well-posed inputs.
+// ---------------------------------------------------------------------------
+// Property test helper functions
+// ---------------------------------------------------------------------------
+
+// All output components are finite for valid inputs.
 inline void propertyOutputIsFinite(const Eigen::Vector3d& r_PN_N,
                                    const Eigen::Vector3d& v_PN_N,
                                    const Eigen::Vector3d& r_SN_N,
@@ -168,15 +172,14 @@ inline void propertyOutputIsFinite(const Eigen::Vector3d& r_PN_N,
                                    const Eigen::Vector3d& r_BN_N,
                                    const Eigen::Vector3d& v_BN_N,
                                    const float celestialBodyAlignmentThreshold) {
-    const CelestialTwoBodyPointAlgorithm alg(CelestialTwoBodyPointConfig::create(celestialBodyAlignmentThreshold));
+    auto config = CelestialTwoBodyPointConfig::create(celestialBodyAlignmentThreshold);
+    const CelestialTwoBodyPointAlgorithm alg(config);
 
-    CelestialTwoBodyPointOutput out;
-    EXPECT_NO_THROW(out = alg.update(r_PN_N, v_PN_N, r_SN_N, v_SN_N, r_BN_N, v_BN_N));
-
+    CelestialTwoBodyPointOutput result = alg.update(r_PN_N, v_PN_N, r_SN_N, v_SN_N, r_BN_N, v_BN_N);
     for (int i = 0; i < 3; ++i) {
-        EXPECT_TRUE(std::isfinite(out.sigma_RN[i]));
-        EXPECT_TRUE(std::isfinite(out.omega_RN_N[i]));
-        EXPECT_TRUE(std::isfinite(out.domega_RN_N[i]));
+        EXPECT_TRUE(std::isfinite(result.sigma_RN[i]));
+        EXPECT_TRUE(std::isfinite(result.omega_RN_N[i]));
+        EXPECT_TRUE(std::isfinite(result.domega_RN_N[i]));
     }
 }
 

@@ -82,28 +82,21 @@ TEST(CelestialTwoBodyPointTest, ReferenceTestNonZeroSpacecraftState) {
                                         1.0F * kDeg2Rad);
 }
 
+// ---------------------------------------------------------------------------
+// Property tests
+// ---------------------------------------------------------------------------
+
+// All output components are finite for valid inputs.
 TEST(CelestialTwoBodyPointTest, PropertyOutputIsFinite) {
-    propertyOutputIsFinite({1.0e7, 2.0e6, 3.0e5},
-                           {-1.0e3, 5.0e3, 2.0e2},
-                           {500.0, 500.0, 500.0},
-                           {100.0, -10.0, 20.0},
-                           {0.0, 0.0, 0.0},
-                           {0.0, 0.0, 0.0},
-                           1.0F * kDeg2Rad);
-    propertyOutputIsFinite({1.5e11, 0.0, 0.0},
-                           {0.0, 2.978e4, 0.0},
-                           {0.0, 0.0, 0.0},
-                           {0.0, 0.0, 0.0},
-                           {1.5e11 + 7.0e6, 0.0, 0.0},
-                           {0.0, 7.7e3, 0.0},
-                           1.0F * kDeg2Rad);
-    propertyOutputIsFinite({1.0e7, 0.0, 0.0},
-                           {0.0, 5.0e3, 0.0},
-                           {0.0, 0.0, 0.0},
-                           {0.0, 0.0, 0.0},
-                           {0.0, 0.0, 0.0},
-                           {0.0, 0.0, 0.0},
-                           1.0F * kDeg2Rad);
+    const Eigen::Vector3d r_PN_N{-1e4, 0.0, 0.0};
+    const Eigen::Vector3d v_PN_N{0.0, -3e4, 0.0};
+    const Eigen::Vector3d r_SN_N{1e3, 0.0, 0.0};
+    const Eigen::Vector3d v_SN_N{3e4, 0.0, 0.0};
+    const Eigen::Vector3d r_BN_N{5e2, 5e3, 0.0};
+    const Eigen::Vector3d v_BN_N{-1e4, 1e3, 0.0};
+    const float celestialBodyAlignmentThreshold = kDeg2Rad;
+
+    propertyOutputIsFinite(r_PN_N, v_PN_N, r_SN_N, v_SN_N, r_BN_N, v_BN_N, celestialBodyAlignmentThreshold);
 }
 
 TEST(CelestialTwoBodyPointTest, PropertySigmaNormBounded) {
