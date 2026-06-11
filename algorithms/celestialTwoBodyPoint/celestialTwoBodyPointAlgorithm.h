@@ -18,17 +18,17 @@ struct CelestialTwoBodyPointOutput {
 class CelestialTwoBodyPointConfig final {
    public:
     /*! @brief Static factory — validates all parameters, throws on failure
-        @param celestialBodyAlignmentThreshold [rad] Angle threshold for primary and secondary celestial body alignment
-       check
+        @param const celestialBodyAlignmentThreshold [rad] Angle threshold for primary and secondary celestial body
+       alignment check
         @return validated configuration object */
-    static CelestialTwoBodyPointConfig create(float celestialBodyAlignmentThreshold) {
+    static CelestialTwoBodyPointConfig create(const float celestialBodyAlignmentThreshold) {
         if (!isValidCelestialBodyAlignmentThreshold(celestialBodyAlignmentThreshold)) {
             FSW_THROW_INVALID_ARGUMENT("celestialTwoBodyPoint: celestialBodyAlignmentThreshold must be >= 0");
         }
         return {celestialBodyAlignmentThreshold};
     }
 
-    static bool isValidCelestialBodyAlignmentThreshold(float celestialBodyAlignmentThreshold) {
+    static bool isValidCelestialBodyAlignmentThreshold(const float celestialBodyAlignmentThreshold) {
         return celestialBodyAlignmentThreshold >= 0.0F;
     }
     float getCelestialBodyAlignmentThreshold() const { return celestialBodyAlignmentThreshold; }
