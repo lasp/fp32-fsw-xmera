@@ -1,7 +1,8 @@
 #include "sunlineSRuKFAlgorithm.h"
 
+#include "utilities/freestandingInvalidArgument.h"
+
 #include <algorithm>
-#include <cassert>
 #include <variant>
 
 namespace filtering::sunlineSRuKF {
@@ -275,7 +276,9 @@ Eigen::Vector<double, MaxCss> SunlineSRuKFAlgorithm::getCssCBias() const { retur
 /*! Set the count of configured CSS sensors.
  *  @param count [-] number of CSS sensors; must satisfy 0 <= count <= MaxCss */
 void SunlineSRuKFAlgorithm::setNumberOfCss(int count) {
-    assert(count >= 0 && count <= MaxCss);
+    if (count < 0 || count > MaxCss) {
+        FSW_THROW_INVALID_ARGUMENT("sunlineSRuKF: numberOfCss must be in [0, MaxCss]");
+    }
     this->numberOfCss = count;
 }
 /*! @return number of configured CSS sensors */
