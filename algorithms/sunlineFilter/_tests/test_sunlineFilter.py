@@ -55,30 +55,30 @@ def mrp_integration(t, x):
 
 
 def setup_filter_data(filter_object):
-    filter_object.setAlpha(0.02)
-    filter_object.setBeta(2.0)
+    filter_object.alpha = 0.02
+    filter_object.beta = 2.0
 
-    filter_object.setInitialState([0.0, 0.0, 1.0, 0.02, -0.005, 0.01, 0.6])
-    filter_object.setInitialCovariance([[0.0001, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                                        [0.0, 0.0001, 0.0, 0.0, 0.0, 0.0, 0.0],
-                                        [0.0, 0.0, 0.0001, 0.0, 0.0, 0.0, 0.0],
-                                        [0.0, 0.0, 0.0, 0.0001, 0.0, 0.0, 0.0],
-                                        [0.0, 0.0, 0.0, 0.0, 0.0001, 0.0, 0.0],
-                                        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0001, 0.0],
-                                        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1]])
+    filter_object.initialState = [0.0, 0.0, 1.0, 0.02, -0.005, 0.01, 0.6]
+    filter_object.initialCovariance = [[0.0001, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                                       [0.0, 0.0001, 0.0, 0.0, 0.0, 0.0, 0.0],
+                                       [0.0, 0.0, 0.0001, 0.0, 0.0, 0.0, 0.0],
+                                       [0.0, 0.0, 0.0, 0.0001, 0.0, 0.0, 0.0],
+                                       [0.0, 0.0, 0.0, 0.0, 0.0001, 0.0, 0.0],
+                                       [0.0, 0.0, 0.0, 0.0, 0.0, 0.0001, 0.0],
+                                       [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1]]
 
-    filter_object.setCssMeasurementNoiseStd(0.01)
-    filter_object.setGyroMeasurementNoiseStd(0.001)
+    filter_object.cssMeasurementNoiseStd = 0.01
+    filter_object.gyroMeasurementNoiseStd = 0.001
     sigmaSun = (1E-6) ** 2
     sigmaRate = (1E-8) ** 2
     sigmaBias = (1E-5) ** 2
-    filter_object.setProcessNoise([[sigmaSun, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                                   [0.0, sigmaSun, 0.0, 0.0, 0.0, 0.0, 0.0],
-                                   [0.0, 0.0, sigmaSun, 0.0, 0.0, 0.0, 0.0],
-                                   [0.0, 0.0, 0.0, sigmaRate, 0.0, 0.0, 0.0],
-                                   [0.0, 0.0, 0.0, 0.0, sigmaRate, 0.0, 0.0],
-                                   [0.0, 0.0, 0.0, 0.0, 0.0, sigmaRate, 0.0],
-                                   [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, sigmaBias]])
+    filter_object.processNoise = [[sigmaSun, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                                  [0.0, sigmaSun, 0.0, 0.0, 0.0, 0.0, 0.0],
+                                  [0.0, 0.0, sigmaSun, 0.0, 0.0, 0.0, 0.0],
+                                  [0.0, 0.0, 0.0, sigmaRate, 0.0, 0.0, 0.0],
+                                  [0.0, 0.0, 0.0, 0.0, sigmaRate, 0.0, 0.0],
+                                  [0.0, 0.0, 0.0, 0.0, 0.0, sigmaRate, 0.0],
+                                  [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, sigmaBias]]
 
 def setup_css_config_msg(CSSOrientationList, cssConfigDataInMsg):
     numCSS = len(CSSOrientationList)
@@ -127,7 +127,7 @@ def state_propagation_flyby(show_plots=False):
     unit_test_sim.AddModelToTask(unit_task_name, sun_heading_data_log)
 
     simpleNavMsgData = messaging.NavAttMsgPayload()
-    initState = np.array(sunHeadingFilter.getInitialState()).reshape(7)
+    initState = np.array(sunHeadingFilter.initialState).reshape(7)
     simpleNavMsgData.timeTag = -1
     simpleNavMsgData.omega_BN_B = initState[3:6]
     simpleNavMsg = messaging.NavAttMsg().write(simpleNavMsgData)
@@ -216,7 +216,7 @@ def state_update_flyby(initial_error, show_plots=False):
     unit_test_sim.AddModelToTask(unit_task_name, nav_att_data_log)
 
     simpleNavMsgData = messaging.NavAttMsgPayload()
-    initState = np.array(sunHeadingFilter.getInitialState()).reshape(7)
+    initState = np.array(sunHeadingFilter.initialState).reshape(7)
     simpleNavMsgData.timeTag = -1
     simpleNavMsgData.omega_BN_B = initState[3:6]
     simpleNavMsg = messaging.NavAttMsg().write(simpleNavMsgData)
@@ -249,21 +249,21 @@ def state_update_flyby(initial_error, show_plots=False):
     bodyFrame = rk4(mrp_integration, time, bodyFrame[0, 1:], mrpShadow=True)
 
     if initial_error:
-        sunHeadingFilter.setInitialState([1.0, 0.0, 0.0, -0.02, 0.005, -0.01, 1])
-        sunHeadingFilter.setInitialCovariance([[0.1, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                                        [0.0, 0.1, 0.0, 0.0, 0.0, 0.0, 0.0],
-                                        [0.0, 0.0, 0.1, 0.0, 0.0, 0.0, 0.0],
-                                        [0.0, 0.0, 0.0, 0.001, 0.0, 0.0, 0.0],
-                                        [0.0, 0.0, 0.0, 0.0, 0.001, 0.0, 0.0],
-                                        [0.0, 0.0, 0.0, 0.0, 0.0, 0.001, 0.0],
-                                        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.5]])
+        sunHeadingFilter.initialState = [1.0, 0.0, 0.0, -0.02, 0.005, -0.01, 1]
+        sunHeadingFilter.initialCovariance = [[0.1, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                                              [0.0, 0.1, 0.0, 0.0, 0.0, 0.0, 0.0],
+                                              [0.0, 0.0, 0.1, 0.0, 0.0, 0.0, 0.0],
+                                              [0.0, 0.0, 0.0, 0.001, 0.0, 0.0, 0.0],
+                                              [0.0, 0.0, 0.0, 0.0, 0.001, 0.0, 0.0],
+                                              [0.0, 0.0, 0.0, 0.0, 0.0, 0.001, 0.0],
+                                              [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.5]]
 
     cssDataMsg = messaging.CSSArraySensorMsgPayload()
     cssMsg = messaging.CSSArraySensorMsg()
     sunHeadingFilter.cssDataInMsg.subscribeTo(cssMsg)
 
-    cssSigma = sunHeadingFilter.getCssMeasurementNoiseStd()
-    gyroSigma = sunHeadingFilter.getGyroMeasurementNoiseStd()
+    cssSigma = sunHeadingFilter.cssMeasurementNoiseStd
+    gyroSigma = sunHeadingFilter.gyroMeasurementNoiseStd
     unit_test_sim.InitializeSimulation()
     for i in range(0, len(time)-1):
         BN = rbk.MRP2C(bodyFrame[i, 1:4])

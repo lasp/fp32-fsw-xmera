@@ -1,6 +1,7 @@
 #include "sunlineFilterAlgorithm.h"
 
 #include "utilities/fsw/freestandingInvalidArgument.h"
+#include "utilities/fsw/validPSDCheck.h"
 
 #include <algorithm>
 #include <variant>
@@ -60,15 +61,25 @@ static_assert(filtering::Measurement<RateMeasurementModel, State>);
 
 }  // namespace
 
-/*! Reset the filter states, provide dynamics, and clear
- *  any state carried from a previous run.
+/*! Construct from a validated configuration and seed the filter runtime state.
+ *  @param config [-] validated SunlineFilterConfig */
+SunlineFilterAlgorithm::SunlineFilterAlgorithm(const SunlineFilterConfig& config) : cfg(config) {
+    this->setConfig(config);
+    this->reInitialize();
+}
+
+/*! Swap in a new validated configuration. Takes effect at the next reInitialize().
+ *  @param config [-] validated SunlineFilterConfig */
+void SunlineFilterAlgorithm::setConfig(SunlineFilterConfig const& config) { this->cfg = config; }
+
+/*! Re-seed the filter from the configuration and clear any state carried from a previous run.
  *  @return void */
-void SunlineFilterAlgorithm::reset() {
-    this->srukf.setAlpha(this->alpha);
-    this->srukf.setBeta(this->beta);
-    this->srukf.setProcessNoise(this->processNoise);
-    this->srukf.setInitialState(this->initialState);
-    this->srukf.setInitialCovariance(this->initialCovariance);
+void SunlineFilterAlgorithm::reInitialize() {
+    this->srukf.setAlpha(this->cfg.getAlpha());
+    this->srukf.setBeta(this->cfg.getBeta());
+    this->srukf.setProcessNoise(this->cfg.getProcessNoise());
+    this->srukf.setInitialState(this->cfg.getInitialState());
+    this->srukf.setInitialCovariance(this->cfg.getInitialCovariance());
     this->srukf.dynamics = SunlineDynamics{};
 
     this->srukf.reset();
@@ -162,17 +173,18 @@ void SunlineFilterAlgorithm::applyMeasurement(RateMeasurement const& measurement
  *  @return CssMeasurement (valid = active > 0)
  *  @param cssData [-] raw CSS cos-values and time tag */
 CssMeasurement SunlineFilterAlgorithm::packCssMeasurement(CssData const& cssData) const {
+    double const cssMeasNoiseStd = this->cfg.getCssMeasurementNoiseStd();
     CssMeasurement packed;
     packed.timeTag = cssData.timeTag;
-    packed.covar = (this->cssMeasNoiseStd * this->cssMeasNoiseStd) * Eigen::Matrix<double, MaxCss, MaxCss>::Identity();
+    packed.covar = (cssMeasNoiseStd * cssMeasNoiseStd) * Eigen::Matrix<double, MaxCss, MaxCss>::Identity();
 
     int active = 0;
-    for (int i = 0; i < this->numberOfCss && active < MaxCss; ++i) {
-        if (cssData.cosValues(i) <= this->sensorUseThresh) {
+    for (int i = 0; i < this->cfg.getNumberOfCss() && active < MaxCss; ++i) {
+        if (cssData.cosValues(i) <= this->cfg.getSensorThreshold()) {
             continue;
         }
         packed.cssCosValues(active) = cssData.cosValues(i);
-        packed.hMatrix.row(active) = this->cssCBias(i) * this->cssNHat.row(i);
+        packed.hMatrix.row(active) = this->cfg.getCssCBias()(i) * this->cfg.getCssNHat().row(i);
         active += 1;
     }
     packed.numberOfActiveCss = active;
@@ -187,7 +199,8 @@ RateMeasurement SunlineFilterAlgorithm::packRateMeasurement(RateData const& rate
     RateMeasurement packed;
     packed.timeTag = rateData.timeTag;
     packed.omega_BN_B = rateData.rate;
-    packed.covar = (this->gyroMeasNoiseStd * this->gyroMeasNoiseStd) * Eigen::Matrix3d::Identity();
+    double const gyroMeasNoiseStd = this->cfg.getGyroMeasurementNoiseStd();
+    packed.covar = (gyroMeasNoiseStd * gyroMeasNoiseStd) * Eigen::Matrix3d::Identity();
     packed.valid = true;
     return packed;
 }
@@ -199,7 +212,8 @@ SunlineFilterAlgorithm::State SunlineFilterAlgorithm::regularize(State const& st
     State outputState = state;
     outputState.set<filtering::Position<3>>(outputState.get<filtering::Position<3>>().normalized());
     Eigen::Vector<double, 1> biasVec;
-    biasVec(0) = std::clamp(outputState.get<filtering::Bias<1>>()(0), this->biasLowerBound, this->biasUpperBound);
+    biasVec(0) = std::clamp(
+        outputState.get<filtering::Bias<1>>()(0), this->cfg.getBiasLowerBound(), this->cfg.getBiasUpperBound());
     outputState.set<filtering::Bias<1>>(biasVec);
     return outputState;
 }
@@ -225,97 +239,5 @@ Eigen::Matrix<double, SunlineFilterAlgorithm::N, SunlineFilterAlgorithm::N> Sunl
     const {
     return this->srukf.getCovariance();
 }
-
-/*! Set the process noise.
- *  @param newProcessNoise [-] N x N process noise covariance */
-void SunlineFilterAlgorithm::setProcessNoise(Eigen::Matrix<double, N, N> const& newProcessNoise) {
-    this->processNoise = newProcessNoise;
-}
-/*! @return current process noise */
-Eigen::Matrix<double, SunlineFilterAlgorithm::N, SunlineFilterAlgorithm::N> SunlineFilterAlgorithm::getProcessNoise()
-    const {
-    return this->processNoise;
-}
-
-/*! Set the UKF alpha tunable.
- *  @param newAlpha [-] sigma-point spread */
-void SunlineFilterAlgorithm::setAlpha(double newAlpha) { this->alpha = newAlpha; }
-/*! @return current UKF alpha */
-double SunlineFilterAlgorithm::getAlpha() const { return this->alpha; }
-
-/*! Set the UKF beta tunable.
- *  @param newBeta [-] prior-knowledge constant */
-void SunlineFilterAlgorithm::setBeta(double newBeta) { this->beta = newBeta; }
-/*! @return current UKF beta */
-double SunlineFilterAlgorithm::getBeta() const { return this->beta; }
-
-/*! Set the initial state seed (consumed by reset()).
- *  @param newInitialState [-] N-element state */
-void SunlineFilterAlgorithm::setInitialState(State const& newInitialState) { this->initialState = newInitialState; }
-/*! @return current initial state seed */
-SunlineFilterAlgorithm::State SunlineFilterAlgorithm::getInitialState() const { return this->initialState; }
-
-/*! Set the initial covariance seed (consumed by reset()).
- *  @param newInitialCovariance [-] N x N covariance */
-void SunlineFilterAlgorithm::setInitialCovariance(Eigen::Matrix<double, N, N> const& newInitialCovariance) {
-    this->initialCovariance = newInitialCovariance;
-}
-/*! @return current initial covariance seed */
-Eigen::Matrix<double, SunlineFilterAlgorithm::N, SunlineFilterAlgorithm::N>
-SunlineFilterAlgorithm::getInitialCovariance() const {
-    return this->initialCovariance;
-}
-
-/*! Set the lower clamp on the CSS bias state.
- *  @param lowerBound [-] bias lower bound */
-void SunlineFilterAlgorithm::setBiasLowerBound(double lowerBound) { this->biasLowerBound = lowerBound; }
-/*! @return current bias lower bound */
-double SunlineFilterAlgorithm::getBiasLowerBound() const { return this->biasLowerBound; }
-/*! Set the upper clamp on the CSS bias state.
- *  @param upperBound [-] bias upper bound */
-void SunlineFilterAlgorithm::setBiasUpperBound(double upperBound) { this->biasUpperBound = upperBound; }
-/*! @return current bias upper bound */
-double SunlineFilterAlgorithm::getBiasUpperBound() const { return this->biasUpperBound; }
-
-/*! Set the per-sensor CSS unit vectors (body frame).
- *  @param nHat [-] MaxCss x 3 matrix; only the first `numberOfCss` rows matter */
-void SunlineFilterAlgorithm::setCssNHat(Eigen::Matrix<double, MaxCss, 3> const& nHat) { this->cssNHat = nHat; }
-/*! @return CSS unit-vector matrix */
-Eigen::Matrix<double, MaxCss, 3> SunlineFilterAlgorithm::getCssNHat() const { return this->cssNHat; }
-
-/*! Set the per-sensor CSS calibration biases.
- *  @param cBias [-] MaxCss-vector; only the first `numberOfCss` entries matter */
-void SunlineFilterAlgorithm::setCssCBias(Eigen::Vector<double, MaxCss> const& cBias) { this->cssCBias = cBias; }
-/*! @return CSS calibration-bias vector */
-Eigen::Vector<double, MaxCss> SunlineFilterAlgorithm::getCssCBias() const { return this->cssCBias; }
-
-/*! Set the count of configured CSS sensors.
- *  @param count [-] number of CSS sensors; must satisfy 0 <= count <= MaxCss */
-void SunlineFilterAlgorithm::setNumberOfCss(int count) {
-    if (count < 0 || count > MaxCss) {
-        FSW_THROW_INVALID_ARGUMENT("sunlineFilter: numberOfCss must be in [0, MaxCss]");
-    }
-    this->numberOfCss = count;
-}
-/*! @return number of configured CSS sensors */
-int SunlineFilterAlgorithm::getNumberOfCss() const { return this->numberOfCss; }
-
-/*! Set the activation threshold on CSS cos-values.
- *  @param threshold [-] minimum cosValue to count a sensor as active */
-void SunlineFilterAlgorithm::setSensorThreshold(double threshold) { this->sensorUseThresh = threshold; }
-/*! @return current activation threshold */
-double SunlineFilterAlgorithm::getSensorThreshold() const { return this->sensorUseThresh; }
-
-/*! Set the CSS measurement noise std.
- *  @param noiseStd [-] noise std (sigma) for each CSS observation */
-void SunlineFilterAlgorithm::setCssMeasurementNoiseStd(double noiseStd) { this->cssMeasNoiseStd = noiseStd; }
-/*! @return current CSS noise std */
-double SunlineFilterAlgorithm::getCssMeasurementNoiseStd() const { return this->cssMeasNoiseStd; }
-
-/*! Set the gyro measurement noise std.
- *  @param noiseStd [rad/s] noise std (sigma) for each rate observation */
-void SunlineFilterAlgorithm::setGyroMeasurementNoiseStd(double noiseStd) { this->gyroMeasNoiseStd = noiseStd; }
-/*! @return current gyro noise std */
-double SunlineFilterAlgorithm::getGyroMeasurementNoiseStd() const { return this->gyroMeasNoiseStd; }
 
 }  // namespace filtering::sunlineFilter

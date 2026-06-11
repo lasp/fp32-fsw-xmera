@@ -1,7 +1,7 @@
 #include "sunlineFilter.h"
 
 #include "sunlineFilterAlgorithm.h"
-#include "sunlineFilterSpecs.h"
+#include "utilities/xmera/xmeraLifecycleException.h"
 #include <utilities/fsw/eigenSupport.h>
 #include <stdexcept>
 
@@ -12,16 +12,23 @@
 using filtering::sunlineFilter::CssData;
 using filtering::sunlineFilter::MaxCss;
 using filtering::sunlineFilter::RateData;
+using filtering::sunlineFilter::StateMatrix;
 using filtering::sunlineFilter::SunlineFilterAlgorithm;
+using filtering::sunlineFilter::SunlineFilterConfig;
 using filtering::sunlineFilter::SunlineFilterOutput;
 using filtering::sunlineFilter::SunlineState;
 
-SunlineFilter::SunlineFilter() : algorithm(std::make_unique<SunlineFilterAlgorithm>()) {}
+SunlineFilter::SunlineFilter() {
+    constexpr int n = SunlineFilterAlgorithm::N;
+    this->processNoise = Eigen::MatrixXd::Zero(n, n);
+    this->initialState = Eigen::VectorXd::Zero(n);
+    this->initialCovariance = Eigen::MatrixXd::Identity(n, n);
+}
 
 SunlineFilter::~SunlineFilter() = default;
 
-/*! Latch the CSS geometry from cssConfigInMsg into the algorithm, then reset
- *  the algorithm and the per-channel freshness trackers.
+/*! Validate message connections, build a validated config from the public properties and the CSS
+ *  geometry latched from cssConfigInMsg, construct the algorithm, and reset it.
  *  @return void
  *  @param currentSimNanos [ns] sim time at which reset was called */
 void SunlineFilter::reset(uint64_t currentSimNanos) {
@@ -45,13 +52,34 @@ void SunlineFilter::reset(uint64_t currentSimNanos) {
             nHat(i, j) = cssConfig.cssVals[i].nHat_B[j];
         }
     }
-    this->algorithm->setCssNHat(nHat);
-    this->algorithm->setCssCBias(cBias);
-    this->algorithm->setNumberOfCss(numCss);  // throws if numCss not in [0, MaxCss]
+    this->numberOfCss = numCss;
 
-    this->algorithm->reset();
+    constexpr int n = SunlineFilterAlgorithm::N;
+    auto const config = SunlineFilterConfig::create(this->alpha,
+                                                    this->beta,
+                                                    StateMatrix(this->processNoise),
+                                                    SunlineState{Eigen::Vector<double, n>(this->initialState)},
+                                                    StateMatrix(this->initialCovariance),
+                                                    this->biasLowerBound,
+                                                    this->biasUpperBound,
+                                                    nHat,
+                                                    cBias,
+                                                    numCss,
+                                                    this->sensorThreshold,
+                                                    this->cssMeasurementNoiseStd,
+                                                    this->gyroMeasurementNoiseStd);
+    this->algorithm = std::make_unique<SunlineFilterAlgorithm>(config);
     this->lastNavAttTimeTag = 0;
     this->lastCssTimeTag = 0;
+}
+
+/*! Re-seed the filter runtime state from the configuration.
+ *  @return void */
+void SunlineFilter::reInitialize() {
+    if (!this->algorithm) {
+        throw XmeraLifecycleException("SunlineFilter reset() has not been called.");
+    }
+    this->algorithm->reInitialize();
 }
 
 /*! Read NavAtt and CSS messages, call algorithm update, and
@@ -59,6 +87,10 @@ void SunlineFilter::reset(uint64_t currentSimNanos) {
  *  @return void
  *  @param currentSimNanos [ns] sim time the filter is advancing to */
 void SunlineFilter::updateState(uint64_t currentSimNanos) {
+    if (!this->algorithm) {
+        throw XmeraLifecycleException("SunlineFilter reset() has not been called.");
+    }
+
     double const currentSeconds = static_cast<double>(currentSimNanos) * NANO2SEC;
 
     RateData rateData{};
@@ -72,7 +104,7 @@ void SunlineFilter::updateState(uint64_t currentSimNanos) {
 
     if (auto const [timeTag, CosValue] = this->cssDataInMsg(); timeTag > this->lastCssTimeTag) {
         Eigen::Vector<double, MaxCss> sensorMeasurements{};
-        for (int i = 0; i < this->algorithm->getNumberOfCss(); ++i) {
+        for (int i = 0; i < this->numberOfCss; ++i) {
             sensorMeasurements[i] = CosValue[i];
         }
         cssData.timeTag = timeTag;
@@ -127,84 +159,3 @@ void SunlineFilter::writeOutputMessages(uint64_t currentSimNanos, SunlineFilterO
     this->filterGyroResOutMsg.write(gyroResBuf, this->moduleID, currentSimNanos);
     this->filterCssResOutMsg.write(cssResBuf, this->moduleID, currentSimNanos);
 }
-
-/*! Set the UKF alpha parameter.
- *  @return void
- *  @param newAlpha [-] sigma-point spread */
-void SunlineFilter::setAlpha(double newAlpha) { this->algorithm->setAlpha(newAlpha); }
-/*! @return current UKF alpha */
-double SunlineFilter::getAlpha() const { return this->algorithm->getAlpha(); }
-
-/*! Set the UKF beta parameter.
- *  @return void
- *  @param newBeta [-] prior-knowledge constant */
-void SunlineFilter::setBeta(double newBeta) { this->algorithm->setBeta(newBeta); }
-/*! @return current UKF beta */
-double SunlineFilter::getBeta() const { return this->algorithm->getBeta(); }
-
-/*! Set the filter process noise.
- *  @return void
- *  @param newProcessNoise [-] N x N process noise covariance */
-void SunlineFilter::setProcessNoise(Eigen::MatrixXd const& newProcessNoise) {
-    using Mat = Eigen::Matrix<double, SunlineFilterAlgorithm::N, SunlineFilterAlgorithm::N>;
-    this->algorithm->setProcessNoise(Mat(newProcessNoise));
-}
-/*! @return current filter process noise */
-Eigen::MatrixXd SunlineFilter::getProcessNoise() const { return this->algorithm->getProcessNoise(); }
-
-/*! Set the initial state.
- *  @return void
- *  @param newInitialState [-] N-element flat state vector */
-void SunlineFilter::setInitialState(Eigen::VectorXd const& newInitialState) {
-    using Vec = Eigen::Vector<double, SunlineFilterAlgorithm::N>;
-    this->algorithm->setInitialState(SunlineState{Vec(newInitialState)});
-}
-/*! @return current initial state */
-Eigen::VectorXd SunlineFilter::getInitialState() const { return this->algorithm->getInitialState().raw(); }
-
-/*! Set the initial covariance.
- *  @return void
- *  @param newInitialCovariance [-] N x N covariance */
-void SunlineFilter::setInitialCovariance(Eigen::MatrixXd const& newInitialCovariance) {
-    using Mat = Eigen::Matrix<double, SunlineFilterAlgorithm::N, SunlineFilterAlgorithm::N>;
-    this->algorithm->setInitialCovariance(Mat(newInitialCovariance));
-}
-/*! @return current initial covariance */
-Eigen::MatrixXd SunlineFilter::getInitialCovariance() const { return this->algorithm->getInitialCovariance(); }
-
-/*! Set the lower bound on the CSS bias state.
- *  @return void
- *  @param lowerBound [-] bias lower bound */
-void SunlineFilter::setBiasLowerBound(double lowerBound) { this->algorithm->setBiasLowerBound(lowerBound); }
-/*! @return current bias lower bound */
-double SunlineFilter::getBiasLowerBound() const { return this->algorithm->getBiasLowerBound(); }
-
-/*! Set the upper bound on the CSS bias state.
- *  @return void
- *  @param upperBound [-] bias upper bound */
-void SunlineFilter::setBiasUpperBound(double upperBound) { this->algorithm->setBiasUpperBound(upperBound); }
-/*! @return current bias upper bound */
-double SunlineFilter::getBiasUpperBound() const { return this->algorithm->getBiasUpperBound(); }
-
-/*! Set the CSS measurement noise std.
- *  @return void
- *  @param noiseStd [-] noise std for each CSS observation */
-void SunlineFilter::setCssMeasurementNoiseStd(double noiseStd) { this->algorithm->setCssMeasurementNoiseStd(noiseStd); }
-/*! @return current CSS noise std */
-double SunlineFilter::getCssMeasurementNoiseStd() const { return this->algorithm->getCssMeasurementNoiseStd(); }
-
-/*! Set the gyro measurement noise std.
- *  @return void
- *  @param noiseStd [rad/s] noise std for each rate observation */
-void SunlineFilter::setGyroMeasurementNoiseStd(double noiseStd) {
-    this->algorithm->setGyroMeasurementNoiseStd(noiseStd);
-}
-/*! @return current gyro noise std */
-double SunlineFilter::getGyroMeasurementNoiseStd() const { return this->algorithm->getGyroMeasurementNoiseStd(); }
-
-/*! Set the CSS measurement threshold.
- *  @return void
- *  @param threshold [-] minimum cosValue to count a sensor as active */
-void SunlineFilter::setSensorThreshold(double threshold) { this->algorithm->setSensorThreshold(threshold); }
-/*! @return current CSS activation threshold */
-double SunlineFilter::getSensorThreshold() const { return this->algorithm->getSensorThreshold(); }
