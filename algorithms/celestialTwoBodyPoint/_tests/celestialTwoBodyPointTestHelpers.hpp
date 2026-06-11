@@ -102,6 +102,15 @@ inline ReferenceCelestialTwoBodyPointOutput referenceCelestialTwoBodyPoint(
 
     /*! Update r_SB_N and v_SB_N if celestial bodies are aligned */
     if (celestialBodySeparationAngle < celestialBodyAlignmentThreshold) {
+        /*! Return identity reference attitude and zero reference rates if r_PB_N and v_PB_N are aligned */
+        const float posVelSeparationAngle = std::acos(std::abs(r_PB_N.normalized().dot(v_PB_N.normalized())));
+        if (posVelSeparationAngle < static_cast<double>(CelestialTwoBodyPointAlgorithm::kSmallAngle)) {
+            const ReferenceCelestialTwoBodyPointOutput safeDefault = {
+                Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero()};
+
+            return safeDefault;
+        }
+
         r_SB_N = r_PB_N.cross(v_PB_N);
         v_SB_N = Eigen::Vector3d::Zero();
     }
