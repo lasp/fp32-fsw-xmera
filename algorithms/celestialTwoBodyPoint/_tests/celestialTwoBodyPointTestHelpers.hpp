@@ -183,7 +183,7 @@ inline void propertyOutputIsFinite(const Eigen::Vector3d& r_PN_N,
     }
 }
 
-// Property: dcmToMrp always returns the short-rotation MRP set, so |sigma_RN| <= 1.
+// sigma_RN norm is bounded by 1 (inner MRP set) for any inputs
 inline void propertySigmaNormBounded(const Eigen::Vector3d& r_PN_N,
                                      const Eigen::Vector3d& v_PN_N,
                                      const Eigen::Vector3d& r_SN_N,
@@ -191,12 +191,11 @@ inline void propertySigmaNormBounded(const Eigen::Vector3d& r_PN_N,
                                      const Eigen::Vector3d& r_BN_N,
                                      const Eigen::Vector3d& v_BN_N,
                                      const float celestialBodyAlignmentThreshold) {
-    const CelestialTwoBodyPointAlgorithm alg(CelestialTwoBodyPointConfig::create(celestialBodyAlignmentThreshold));
+    auto config = CelestialTwoBodyPointConfig::create(celestialBodyAlignmentThreshold);
+    const CelestialTwoBodyPointAlgorithm alg(config);
 
-    CelestialTwoBodyPointOutput out;
-    EXPECT_NO_THROW(out = alg.update(r_PN_N, v_PN_N, r_SN_N, v_SN_N, r_BN_N, v_BN_N));
-
-    EXPECT_LE(out.sigma_RN.norm(), 1.0F + 1e-6F);
+    CelestialTwoBodyPointOutput result = alg.update(r_PN_N, v_PN_N, r_SN_N, v_SN_N, r_BN_N, v_BN_N);
+    EXPECT_LE(result.sigma_RN.norm(), 1.0F + 1e-6F);
 }
 
 #endif  // TEST_CELESTIAL_TWO_BODY_POINT_HELPERS_H
