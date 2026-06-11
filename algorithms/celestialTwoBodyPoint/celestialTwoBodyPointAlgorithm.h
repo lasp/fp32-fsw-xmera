@@ -48,6 +48,9 @@ class CelestialTwoBodyPointAlgorithm final {
     /// @c |r_SB_N|^2 and |r_PB_N|^2 floor: below this the configuration is invalid.
     static constexpr float kMinNormSq = 1e-6F;
 
+    /// @c [rad] Threshold below which an angle is considered zero.
+    static constexpr float kSmallAngle = 1e-3F;
+
     /*! @brief Construct the algorithm from a validated configuration
         @param config validated configuration object */
     explicit CelestialTwoBodyPointAlgorithm(const CelestialTwoBodyPointConfig &config);

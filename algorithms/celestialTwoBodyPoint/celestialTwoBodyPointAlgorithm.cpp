@@ -43,11 +43,18 @@ CelestialTwoBodyPointOutput CelestialTwoBodyPointAlgorithm::update(const Eigen::
     }
 
     /*! Compute angle between celestial bodies */
-    const auto dotProduct = static_cast<float>(r_SB_N.normalized().dot(r_PB_N.normalized()));
-    const float celestialBodySeparationAngle = safeAcosf(fabsf(dotProduct)); /* Angle between r_PB_N and r_SB_N */
+    const auto dotProduct1 = static_cast<float>(r_SB_N.normalized().dot(r_PB_N.normalized()));
+    const float celestialBodySeparationAngle = safeAcosf(fabsf(dotProduct1)); /* Angle between r_PB_N and r_SB_N */
 
     /*! Update r_SB_N and v_SB_N if celestial bodies are aligned */
     if (celestialBodySeparationAngle < this->cfg.getCelestialBodyAlignmentThreshold()) {
+        /*! Return identity reference attitude and zero reference rates if r_PB_N and v_PB_N are aligned */
+        const auto dotProduct2 = static_cast<float>(r_PB_N.normalized().dot(v_PB_N.normalized()));
+        const float posVelSeparationAngle = safeAcosf(fabsf(dotProduct2)); /* Angle between r_PB_N and v_PB_N */
+        if (posVelSeparationAngle < kSmallAngle) {
+            return CelestialTwoBodyPointOutput{};
+        }
+
         r_SB_N = r_PB_N.cross(v_PB_N);
         v_SB_N = Eigen::Vector3d::Zero();
     }
