@@ -1,7 +1,8 @@
 #include "sunlineFilterAlgorithm.h"
 
+#include "utilities/fsw/freestandingInvalidArgument.h"
+
 #include <algorithm>
-#include <cassert>
 #include <variant>
 
 namespace filtering::sunlineFilter {
@@ -280,7 +281,9 @@ Eigen::Vector<double, MaxCss> SunlineFilterAlgorithm::getCssCBias() const { retu
 /*! Set the count of configured CSS sensors.
  *  @param count [-] number of CSS sensors; must satisfy 0 <= count <= MaxCss */
 void SunlineFilterAlgorithm::setNumberOfCss(int count) {
-    assert(count >= 0 && count <= MaxCss);
+    if (count < 0 || count > MaxCss) {
+        FSW_THROW_INVALID_ARGUMENT("sunlineFilter: numberOfCss must be in [0, MaxCss]");
+    }
     this->numberOfCss = count;
 }
 /*! @return number of configured CSS sensors */

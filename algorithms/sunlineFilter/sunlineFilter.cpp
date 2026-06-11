@@ -9,8 +9,6 @@
 
 #include <Eigen/Core>
 
-#include <cassert>
-
 using filtering::sunlineFilter::CssData;
 using filtering::sunlineFilter::MaxCss;
 using filtering::sunlineFilter::RateData;
@@ -27,9 +25,15 @@ SunlineFilter::~SunlineFilter() = default;
  *  @return void
  *  @param currentSimNanos [ns] sim time at which reset was called */
 void SunlineFilter::reset(uint64_t currentSimNanos) {
-    assert(this->navAttInMsg.isLinked());
-    assert(this->cssDataInMsg.isLinked());
-    assert(this->cssConfigInMsg.isLinked());
+    if (!this->navAttInMsg.isLinked()) {
+        throw std::invalid_argument("sunlineFilter.navAttInMsg wasn't connected.");
+    }
+    if (!this->cssDataInMsg.isLinked()) {
+        throw std::invalid_argument("sunlineFilter.cssDataInMsg wasn't connected.");
+    }
+    if (!this->cssConfigInMsg.isLinked()) {
+        throw std::invalid_argument("sunlineFilter.cssConfigInMsg wasn't connected.");
+    }
 
     auto const cssConfig = this->cssConfigInMsg();
     int const numCss = static_cast<int>(cssConfig.nCSS);
@@ -43,7 +47,7 @@ void SunlineFilter::reset(uint64_t currentSimNanos) {
     }
     this->algorithm->setCssNHat(nHat);
     this->algorithm->setCssCBias(cBias);
-    this->algorithm->setNumberOfCss(numCss);  // asserts numCss in [0, MaxCss]
+    this->algorithm->setNumberOfCss(numCss);  // throws if numCss not in [0, MaxCss]
 
     this->algorithm->reset();
     this->lastNavAttTimeTag = 0;
