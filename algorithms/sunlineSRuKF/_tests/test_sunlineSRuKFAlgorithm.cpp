@@ -339,4 +339,179 @@ TEST(SrukfDetail, CholeskyUpDownDateMatchesExplicitUpdate) {
     }
 }
 
+// ============================================================================
+// SunlineSRuKFConfig: factory validation, static validators, and round-trip.
+// ============================================================================
+
+namespace {
+
+// A complete set of valid Config inputs; individual tests override one field to
+// drive a specific validation branch.
+struct ConfigInputs {
+    double alpha = kAlpha;
+    double beta = kBeta;
+    Matrix7 processNoise = smallProcessNoise();
+    State initialState = makeState(Eigen::Vector3d(0.0, 0.0, 1.0), Eigen::Vector3d::Zero(), 1.0);
+    Matrix7 initialCovariance = diagCovariance(1E-2, 1E-3, 1E-2);
+    double biasLowerBound = kBiasLowerBound;
+    double biasUpperBound = kBiasUpperBound;
+    Eigen::Matrix<double, MaxCss, 3> cssNHat = threeCssNHat();
+    Eigen::Vector<double, MaxCss> cssCBias = Eigen::Vector<double, MaxCss>::Ones();
+    int numberOfCss = 3;
+    double sensorThreshold = 0.0;
+    double cssMeasStd = 1E-2;
+    double gyroStd = 1E-3;
+};
+
+SunlineSRuKFConfig buildConfig(ConfigInputs const& in) {
+    return SunlineSRuKFConfig::create(in.alpha,
+                                      in.beta,
+                                      in.processNoise,
+                                      in.initialState,
+                                      in.initialCovariance,
+                                      in.biasLowerBound,
+                                      in.biasUpperBound,
+                                      in.cssNHat,
+                                      in.cssCBias,
+                                      in.numberOfCss,
+                                      in.sensorThreshold,
+                                      in.cssMeasStd,
+                                      in.gyroStd);
+}
+
+}  // namespace
+
+TEST(SunlineSRuKFConfig, ValidInputsDoNotThrow) { EXPECT_NO_THROW(buildConfig({})); }
+
+TEST(SunlineSRuKFConfig, RejectsNonPositiveSemiDefiniteProcessNoise) {
+    ConfigInputs in;
+    in.processNoise = -Matrix7::Identity();  // negative definite
+    EXPECT_THROW(buildConfig(in), fsw::invalid_argument);
+}
+
+TEST(SunlineSRuKFConfig, RejectsNonPositiveSemiDefiniteCovariance) {
+    ConfigInputs in;
+    in.initialCovariance = -Matrix7::Identity();  // negative definite
+    EXPECT_THROW(buildConfig(in), fsw::invalid_argument);
+}
+
+TEST(SunlineSRuKFConfig, RejectsNonPositiveBiasBounds) {
+    ConfigInputs lower;
+    lower.biasLowerBound = 0.0;
+    EXPECT_THROW(buildConfig(lower), fsw::invalid_argument);
+
+    ConfigInputs upper;
+    upper.biasUpperBound = -1.0;
+    EXPECT_THROW(buildConfig(upper), fsw::invalid_argument);
+}
+
+TEST(SunlineSRuKFConfig, RejectsNonUnitCssNHat) {
+    ConfigInputs in;
+    in.cssNHat.row(0) = Eigen::RowVector3d(0.5, 0.0, 0.0);  // norm 0.5, outside 1e-3 of unit
+    EXPECT_THROW(buildConfig(in), fsw::invalid_argument);
+}
+
+TEST(SunlineSRuKFConfig, RejectsNegativeCssCBias) {
+    ConfigInputs in;
+    in.cssCBias(1) = -0.1;
+    EXPECT_THROW(buildConfig(in), fsw::invalid_argument);
+}
+
+TEST(SunlineSRuKFConfig, RejectsNumberOfCssOutOfRange) {
+    ConfigInputs negative;
+    negative.numberOfCss = -1;
+    EXPECT_THROW(buildConfig(negative), fsw::invalid_argument);
+
+    ConfigInputs tooMany;
+    tooMany.numberOfCss = MaxCss + 1;
+    EXPECT_THROW(buildConfig(tooMany), fsw::invalid_argument);
+}
+
+TEST(SunlineSRuKFConfig, RejectsNegativeThresholdAndNoiseStds) {
+    ConfigInputs threshold;
+    threshold.sensorThreshold = -1E-3;
+    EXPECT_THROW(buildConfig(threshold), fsw::invalid_argument);
+
+    ConfigInputs cssStd;
+    cssStd.cssMeasStd = -1E-3;
+    EXPECT_THROW(buildConfig(cssStd), fsw::invalid_argument);
+
+    ConfigInputs gyroStd;
+    gyroStd.gyroStd = -1E-3;
+    EXPECT_THROW(buildConfig(gyroStd), fsw::invalid_argument);
+}
+
+TEST(SunlineSRuKFConfig, RejectsBiasLowerBoundNotLessThanUpper) {
+    ConfigInputs equal;
+    equal.biasLowerBound = 1.0;
+    equal.biasUpperBound = 1.0;
+    EXPECT_THROW(buildConfig(equal), fsw::invalid_argument);
+
+    ConfigInputs inverted;
+    inverted.biasLowerBound = 1.5;
+    inverted.biasUpperBound = 0.5;
+    EXPECT_THROW(buildConfig(inverted), fsw::invalid_argument);
+}
+
+TEST(SunlineSRuKFConfig, RejectsMissingLeadingCssNHat) {
+    ConfigInputs in;
+    in.cssNHat = Eigen::Matrix<double, MaxCss, 3>::Zero();
+    in.cssNHat.row(0) = Eigen::RowVector3d(1.0, 0.0, 0.0);
+    in.cssNHat.row(1) = Eigen::RowVector3d(0.0, 1.0, 0.0);
+    in.numberOfCss = 3;
+    EXPECT_THROW(buildConfig(in), fsw::invalid_argument);
+}
+
+TEST(SunlineSRuKFConfig, IgnoresCssNHatRowsBeyondNumberOfCss) {
+    ConfigInputs in;
+    in.numberOfCss = 2;
+    EXPECT_NO_THROW(buildConfig(in));
+}
+
+TEST(SunlineSRuKFConfig, StaticValidatorsCheckBoundaries) {
+    EXPECT_TRUE(SunlineSRuKFConfig::isValidBiasBounds(0.5, 1.5));
+    EXPECT_FALSE(SunlineSRuKFConfig::isValidBiasBounds(1.5, 0.5));
+    EXPECT_FALSE(SunlineSRuKFConfig::isValidBiasBounds(1.0, 1.0));
+    EXPECT_TRUE(SunlineSRuKFConfig::isValidCssNHat(threeCssNHat(), 3));
+    EXPECT_FALSE(SunlineSRuKFConfig::isValidCssNHat(threeCssNHat(), 4));  // row 3 is zero
+    EXPECT_TRUE(SunlineSRuKFConfig::isValidBiasLowerBound(1E-9));
+    EXPECT_FALSE(SunlineSRuKFConfig::isValidBiasLowerBound(0.0));
+    EXPECT_TRUE(SunlineSRuKFConfig::isValidSensorThreshold(0.0));
+    EXPECT_FALSE(SunlineSRuKFConfig::isValidSensorThreshold(-1E-9));
+    EXPECT_TRUE(SunlineSRuKFConfig::isValidCssMeasurementNoiseStd(0.0));
+    EXPECT_FALSE(SunlineSRuKFConfig::isValidGyroMeasurementNoiseStd(-1E-9));
+    EXPECT_TRUE(SunlineSRuKFConfig::isValidNumberOfCss(0));
+    EXPECT_TRUE(SunlineSRuKFConfig::isValidNumberOfCss(MaxCss));
+    EXPECT_FALSE(SunlineSRuKFConfig::isValidNumberOfCss(MaxCss + 1));
+    EXPECT_TRUE(SunlineSRuKFConfig::isValidProcessNoise(Matrix7::Identity()));
+    EXPECT_FALSE(SunlineSRuKFConfig::isValidProcessNoise(-Matrix7::Identity()));
+    EXPECT_TRUE(SunlineSRuKFConfig::isValidInitialCovariance(Matrix7::Identity()));
+    EXPECT_FALSE(SunlineSRuKFConfig::isValidInitialCovariance(-Matrix7::Identity()));
+}
+
+TEST(SunlineSRuKFConfig, GettersRoundTripAndNormalizeNHat) {
+    SunlineSRuKFConfig const cfg = buildConfig({});
+    EXPECT_DOUBLE_EQ(cfg.getAlpha(), kAlpha);
+    EXPECT_DOUBLE_EQ(cfg.getBeta(), kBeta);
+    EXPECT_DOUBLE_EQ(cfg.getBiasLowerBound(), kBiasLowerBound);
+    EXPECT_DOUBLE_EQ(cfg.getBiasUpperBound(), kBiasUpperBound);
+    EXPECT_EQ(cfg.getNumberOfCss(), 3);
+    EXPECT_DOUBLE_EQ(cfg.getCssMeasurementNoiseStd(), 1E-2);
+    EXPECT_DOUBLE_EQ(cfg.getGyroMeasurementNoiseStd(), 1E-3);
+    // Active boresights are stored normalized; unused rows stay zero.
+    for (int i = 0; i < 3; ++i) {
+        EXPECT_NEAR(cfg.getCssNHat().row(i).norm(), 1.0, 1E-12);
+    }
+    EXPECT_TRUE(cfg.getCssNHat().row(3).isZero());
+}
+
+TEST(SunlineSRuKFConfig, SetConfigSwapsConfiguration) {
+    SunlineSRuKFAlgorithm algo(buildConfig({}));
+    ConfigInputs other;
+    other.numberOfCss = 0;
+    other.cssNHat = Eigen::Matrix<double, MaxCss, 3>::Zero();
+    other.cssCBias = Eigen::Vector<double, MaxCss>::Zero();
+    EXPECT_NO_THROW(algo.setConfig(buildConfig(other)));
+}
+
 }  // namespace filtering::sunlineSRuKF
