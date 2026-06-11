@@ -1,5 +1,5 @@
-#ifndef SUNLINEFILTER_H
-#define SUNLINEFILTER_H
+#ifndef F32XMERA_SUNLINEFILTER_H
+#define F32XMERA_SUNLINEFILTER_H
 
 #include "sunlineFilterSpecs.h"
 
