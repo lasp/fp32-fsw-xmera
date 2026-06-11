@@ -3,8 +3,6 @@
 
 #include <fuzztest/fuzztest.h>
 
-constexpr float kCelestialBodyAlignmentThreshold = 0.017453292519943F;  // [rad] 1 deg
-
 // ---------------------------------------------------------------------------
 // Regression fuzz: random configs and reference inputs must agree with the
 // independent reference implementation across multiple steps.

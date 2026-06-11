@@ -15,8 +15,7 @@ struct ReferenceCelestialTwoBodyPointOutput {
     Eigen::Vector3d domega_RN_N;
 };
 
-// Independent double-precision reference for the rate/acceleration kernel, mirroring the original
-// Xmera math. Used to verify the algorithm's mixed-precision FP32 output to within float tolerance.
+// Reference implementation of the celestial two-body point algorithm
 inline ReferenceCelestialTwoBodyPointOutput referenceRateAndAccelCalc(const Eigen::Vector3d& r_PB_N,
                                                                       const Eigen::Vector3d& v_PB_N,
                                                                       const Eigen::Vector3d& r_SB_N,
@@ -74,8 +73,7 @@ inline ReferenceCelestialTwoBodyPointOutput referenceRateAndAccelCalc(const Eige
     };
 }
 
-// Full double-precision reference for the algorithm, including the secondary-constraint
-// validity logic. The thresholds and link flag must match the algorithm's configuration.
+// Reference implementation of the celestial two-body point algorithm
 inline ReferenceCelestialTwoBodyPointOutput referenceCelestialTwoBodyPoint(
     const Eigen::Vector3d& r_PN_N,
     const Eigen::Vector3d& v_PN_N,
