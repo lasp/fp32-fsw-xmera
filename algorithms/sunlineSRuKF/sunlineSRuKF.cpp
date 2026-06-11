@@ -123,10 +123,10 @@ void SunlineSRuKF::writeOutputMessages(uint64_t currentSimNanos, SunlineSRuKFOut
         eigenMatrixXToCArray(filterOutput.rateResiduals.postFit, gyroResBuf.postFits);
     }
 
-    this->navAttOutMsg.write(&navAttBuf, this->moduleID, currentSimNanos);
-    this->filterOutMsg.write(&filterBuf, this->moduleID, currentSimNanos);
-    this->filterGyroResOutMsg.write(&gyroResBuf, this->moduleID, currentSimNanos);
-    this->filterCssResOutMsg.write(&cssResBuf, this->moduleID, currentSimNanos);
+    this->navAttOutMsg.write(navAttBuf, this->moduleID, currentSimNanos);
+    this->filterOutMsg.write(filterBuf, this->moduleID, currentSimNanos);
+    this->filterGyroResOutMsg.write(gyroResBuf, this->moduleID, currentSimNanos);
+    this->filterCssResOutMsg.write(cssResBuf, this->moduleID, currentSimNanos);
 }
 
 /*! Set the UKF alpha parameter.
