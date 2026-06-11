@@ -1,6 +1,3 @@
-// SPDX-License-Identifier: ISC
-// Copyright (c) 2026, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
-
 #ifndef FILTERING_ALGORITHMS_SUNLINE_SR_UKF_ALGORITHM_H
 #define FILTERING_ALGORITHMS_SUNLINE_SR_UKF_ALGORITHM_H
 

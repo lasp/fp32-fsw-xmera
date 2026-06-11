@@ -1,7 +1,3 @@
-// SPDX-License-Identifier: ISC
-// Copyright (c) 2023, Autonomous Vehicle System Lab, University of Colorado at Boulder
-// Copyright (c) 2026, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
-
 #ifndef SUNLINESRUKF_H
 #define SUNLINESRUKF_H
 

@@ -1,6 +1,3 @@
-// SPDX-License-Identifier: ISC
-// Copyright (c) 2026, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
-
 #include "sunlineSRuKFAlgorithm.h"
 
 #include <algorithm>
