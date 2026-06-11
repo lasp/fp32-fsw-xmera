@@ -37,6 +37,8 @@ using SRuKF = ::filtering::SRuKF<SunlineState, SunlineDynamics>;
 
 constexpr double kAlpha = 0.02;
 constexpr double kBeta = 2.0;
+constexpr double kBiasLowerBound = 0.5;
+constexpr double kBiasUpperBound = 1.5;
 
 State makeState(Eigen::Vector3d const& sHat, Eigen::Vector3d const& omega, double bias) {
     State s;
@@ -62,12 +64,47 @@ Matrix7 smallProcessNoise() {
     return d.asDiagonal();
 }
 
-void configure(SunlineSRuKFAlgorithm& algo, State const& initial, Matrix7 const& P) {
-    algo.setAlpha(kAlpha);
-    algo.setBeta(kBeta);
-    algo.setInitialState(initial);
-    algo.setInitialCovariance(P);
-    algo.setProcessNoise(smallProcessNoise());
+// Three-CSS geometry (unit boresights in rows 0..2; remaining rows unused/zero).
+Eigen::Matrix<double, MaxCss, 3> threeCssNHat() {
+    Eigen::Matrix<double, MaxCss, 3> nHat = Eigen::Matrix<double, MaxCss, 3>::Zero();
+    nHat.row(0) = Eigen::RowVector3d(0.707, -0.5, 0.5);
+    nHat.row(1) = Eigen::RowVector3d(0.707, 0.5, 0.5);
+    nHat.row(2) = Eigen::RowVector3d(-0.707, 0.0, 0.707);
+    return nHat;
+}
+
+// Validated config with no CSS sensors; for dynamics / timeUpdate / rate-only tests.
+SunlineSRuKFConfig noCssConfig(State const& initial, Matrix7 const& P) {
+    return SunlineSRuKFConfig::create(kAlpha,
+                                      kBeta,
+                                      smallProcessNoise(),
+                                      initial,
+                                      P,
+                                      kBiasLowerBound,
+                                      kBiasUpperBound,
+                                      Eigen::Matrix<double, MaxCss, 3>::Zero(),
+                                      Eigen::Vector<double, MaxCss>::Zero(),
+                                      0,
+                                      0.0,
+                                      1E-2,
+                                      1E-3);
+}
+
+// Validated config with the three-CSS geometry, CBias = 1, and the given sensor threshold.
+SunlineSRuKFConfig threeCssConfig(State const& initial, Matrix7 const& P, double sensorThreshold) {
+    return SunlineSRuKFConfig::create(kAlpha,
+                                      kBeta,
+                                      smallProcessNoise(),
+                                      initial,
+                                      P,
+                                      kBiasLowerBound,
+                                      kBiasUpperBound,
+                                      threeCssNHat(),
+                                      Eigen::Vector<double, MaxCss>::Ones(),
+                                      3,
+                                      sensorThreshold,
+                                      1E-2,
+                                      1E-3);
 }
 
 }  // namespace
@@ -102,9 +139,7 @@ TEST(SunlineSRuKFAlgorithmDynamics, HeadingMagnitudePreservedOverSmallTimeUpdate
     Eigen::Vector3d const sHat0 = Eigen::Vector3d(0.0, 0.0, 1.0);
     Eigen::Vector3d const omega0 = Eigen::Vector3d(0.02, -0.005, 0.01);
 
-    SunlineSRuKFAlgorithm algo;
-    configure(algo, makeState(sHat0, omega0, 0.6), diagCovariance(1E-2, 1E-3, 1E-2));
-    algo.reset();
+    SunlineSRuKFAlgorithm algo(noCssConfig(makeState(sHat0, omega0, 0.6), diagCovariance(1E-2, 1E-3, 1E-2)));
 
     algo.timeUpdate(1.0);
 
@@ -119,9 +154,8 @@ TEST(SunlineSRuKFAlgorithmDynamics, HeadingMagnitudePreservedOverSmallTimeUpdate
 // With omega = 0 the heading must not move.
 TEST(SunlineSRuKFAlgorithmTimeUpdate, ZeroRateLeavesHeadingFixed) {
     Eigen::Vector3d const sHat0 = Eigen::Vector3d(0.0, 1.0, 0.0).normalized();
-    SunlineSRuKFAlgorithm algo;
-    configure(algo, makeState(sHat0, Eigen::Vector3d::Zero(), 1.0), diagCovariance(1E-2, 1E-3, 1E-2));
-    algo.reset();
+    SunlineSRuKFAlgorithm algo(
+        noCssConfig(makeState(sHat0, Eigen::Vector3d::Zero(), 1.0), diagCovariance(1E-2, 1E-3, 1E-2)));
 
     algo.timeUpdate(10.0);
     Eigen::Vector3d const sHat = algo.getState().get<filtering::Position<3>>();
@@ -134,9 +168,7 @@ TEST(SunlineSRuKFAlgorithmTimeUpdate, ZeroDtCollapsesToAnchor) {
     Eigen::Vector3d const sHat0 = Eigen::Vector3d(0.0, 0.0, 1.0);
     Eigen::Vector3d const omega0 = Eigen::Vector3d(0.1, 0.0, 0.0);
 
-    SunlineSRuKFAlgorithm algo;
-    configure(algo, makeState(sHat0, omega0, 1.0), diagCovariance(1E-2, 1E-3, 1E-2));
-    algo.reset();
+    SunlineSRuKFAlgorithm algo(noCssConfig(makeState(sHat0, omega0, 1.0), diagCovariance(1E-2, 1E-3, 1E-2)));
 
     algo.timeUpdate(0.0);
     State const s = algo.getState();
@@ -157,9 +189,7 @@ TEST(SunlineSRuKFAlgorithmMeasurementUpdate, RateMeasurementShrinksRateCovarianc
     Eigen::Vector3d const sHat0 = Eigen::Vector3d(0.0, 0.0, 1.0);
     Eigen::Vector3d const omega0 = Eigen::Vector3d(0.01, 0.01, 0.01);
 
-    SunlineSRuKFAlgorithm algo;
-    configure(algo, makeState(sHat0, omega0, 1.0), diagCovariance(1E-2, 1E-1, 1E-1));
-    algo.reset();
+    SunlineSRuKFAlgorithm algo(noCssConfig(makeState(sHat0, omega0, 1.0), diagCovariance(1E-2, 1E-1, 1E-1)));
 
     Matrix7 const covar0 = algo.getCovariance();
 
@@ -189,31 +219,10 @@ TEST(SunlineSRuKFAlgorithmMeasurementUpdate, RateMeasurementShrinksRateCovarianc
 // Residuals into per-kind storage.
 // ============================================================================
 
-namespace {
-
-// Three-CSS, no-CBias, threshold-0 sensor config. Used by the update() tests
-// below to exercise the pack methods.
-void configureThreeCss(SunlineSRuKFAlgorithm& algo) {
-    Eigen::Matrix<double, MaxCss, 3> nHat = Eigen::Matrix<double, MaxCss, 3>::Zero();
-    nHat.row(0) = Eigen::RowVector3d(0.707, -0.5, 0.5);
-    nHat.row(1) = Eigen::RowVector3d(0.707, 0.5, 0.5);
-    nHat.row(2) = Eigen::RowVector3d(-0.707, 0.0, 0.707);
-    algo.setCssNHat(nHat);
-    algo.setCssCBias(Eigen::Vector<double, MaxCss>::Ones());
-    algo.setNumberOfCss(3);
-    algo.setSensorThreshold(0.0);
-    algo.setCssMeasurementNoiseStd(1E-2);
-    algo.setGyroMeasurementNoiseStd(1E-3);
-}
-
-}  // namespace
-
 TEST(SunlineSRuKFAlgorithmUpdate, UpdateWithRateAndCssExposesBothResiduals) {
     Eigen::Vector3d const sHat0 = Eigen::Vector3d(0.0, 0.0, 1.0);
-    SunlineSRuKFAlgorithm algo;
-    configure(algo, makeState(sHat0, Eigen::Vector3d(0.01, 0.0, 0.0), 1.0), diagCovariance(1E-2, 1E-2, 1E-1));
-    configureThreeCss(algo);
-    algo.reset();
+    SunlineSRuKFAlgorithm algo(
+        threeCssConfig(makeState(sHat0, Eigen::Vector3d(0.01, 0.0, 0.0), 1.0), diagCovariance(1E-2, 1E-2, 1E-1), 0.0));
 
     CssData css;
     css.timeTag = 1.0;
@@ -234,12 +243,8 @@ TEST(SunlineSRuKFAlgorithmUpdate, UpdateWithRateAndCssExposesBothResiduals) {
 // `valid = false` CSS residual (the pack method's threshold gate), while the
 // rate channel — which has no threshold — still fires.
 TEST(SunlineSRuKFAlgorithmUpdate, CssBelowThresholdNotProcessed) {
-    SunlineSRuKFAlgorithm algo;
-    configure(
-        algo, makeState(Eigen::Vector3d(0, 0, 1), Eigen::Vector3d(0.01, 0, 0), 1.0), diagCovariance(1E-2, 1E-2, 1E-1));
-    configureThreeCss(algo);
-    algo.setSensorThreshold(0.5);
-    algo.reset();
+    SunlineSRuKFAlgorithm algo(threeCssConfig(
+        makeState(Eigen::Vector3d(0, 0, 1), Eigen::Vector3d(0.01, 0, 0), 1.0), diagCovariance(1E-2, 1E-2, 1E-1), 0.5));
 
     CssData css;
     css.timeTag = 1.0;
