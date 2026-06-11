@@ -86,8 +86,8 @@ class SunlineSRuKFAlgorithm {
     void applyMeasurement(CssMeasurement const& measurement);
     void applyMeasurement(RateMeasurement const& measurement);
 
-    CssMeasurement packCssMeasurement(CssData const& cssData);
-    RateMeasurement packRateMeasurement(RateData const& rateData);
+    CssMeasurement packCssMeasurement(CssData const& cssData) const;
+    RateMeasurement packRateMeasurement(RateData const& rateData) const;
 
     State regularize(State const& state) const;
 
@@ -97,7 +97,8 @@ class SunlineSRuKFAlgorithm {
     double alpha = 0;                                                                //!< [-] sigma-point spread tunable
     double beta = 0;                                                                 //!< [-] prior-knowledge tunable
     Eigen::Matrix<double, N, N> processNoise = Eigen::Matrix<double, N, N>::Zero();  //!< [-] Q
-    State initialState = {};                                                         //!< [-] seed for reset()
+    // NOLINTNEXTLINE(readability-redundant-member-init): kept explicit for clarity (StateVector zero-inits anyway)
+    State initialState = {};                                                                  //!< [-] seed for reset()
     Eigen::Matrix<double, N, N> initialCovariance = Eigen::Matrix<double, N, N>::Identity();  //!< [-] P0
     double biasLowerBound = 0.5;  //!< [-] lower clamp on the bias state
     double biasUpperBound = 1.5;  //!< [-] upper clamp on the bias state

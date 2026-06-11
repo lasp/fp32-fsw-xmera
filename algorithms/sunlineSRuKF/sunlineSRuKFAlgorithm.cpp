@@ -16,9 +16,15 @@ using State = SunlineSRuKFAlgorithm::State;
 struct CssMeasurementModel {
     static constexpr int size = MaxCss;
 
+    // Concept-model aggregate: these fields are populated directly by
+    // applyMeasurement() and read back through the accessors below to satisfy
+    // the filtering::Measurement concept. Public data is the point of the type,
+    // so the private-member guidance does not apply here.
+    // NOLINTBEGIN(misc-non-private-member-variables-in-classes)
     Eigen::Vector<double, MaxCss> observed = Eigen::Vector<double, MaxCss>::Zero();
     Eigen::Matrix<double, MaxCss, 3> hMatrix = Eigen::Matrix<double, MaxCss, 3>::Zero();
     Eigen::Matrix<double, MaxCss, MaxCss> measNoise = Eigen::Matrix<double, MaxCss, MaxCss>::Identity();
+    // NOLINTEND(misc-non-private-member-variables-in-classes)
 
     Eigen::Vector<double, MaxCss> observation() const { return this->observed; }
     Eigen::Vector<double, MaxCss> model(State const& state) const {
@@ -27,8 +33,8 @@ struct CssMeasurementModel {
         return bias * (this->hMatrix * sHat);
     }
     Eigen::Matrix<double, MaxCss, MaxCss> noise() const { return this->measNoise; }
-    Eigen::Vector<double, MaxCss> subtract(Eigen::Vector<double, MaxCss> const& a,
-                                           Eigen::Vector<double, MaxCss> const& b) const {
+    static Eigen::Vector<double, MaxCss> subtract(Eigen::Vector<double, MaxCss> const& a,
+                                                  Eigen::Vector<double, MaxCss> const& b) {
         return a - b;
     }
 };
@@ -37,13 +43,16 @@ struct CssMeasurementModel {
 struct RateMeasurementModel {
     static constexpr int size = 3;
 
+    // Concept-model aggregate; see CssMeasurementModel for the rationale.
+    // NOLINTBEGIN(misc-non-private-member-variables-in-classes)
     Eigen::Vector3d observed = Eigen::Vector3d::Zero();
     Eigen::Matrix3d measNoise = Eigen::Matrix3d::Identity();
+    // NOLINTEND(misc-non-private-member-variables-in-classes)
 
     Eigen::Vector3d observation() const { return this->observed; }
-    Eigen::Vector3d model(State const& state) const { return state.get<filtering::Velocity<3>>(); }
+    static Eigen::Vector3d model(State const& state) { return state.get<filtering::Velocity<3>>(); }
     Eigen::Matrix3d noise() const { return this->measNoise; }
-    Eigen::Vector3d subtract(Eigen::Vector3d const& a, Eigen::Vector3d const& b) const { return a - b; }
+    static Eigen::Vector3d subtract(Eigen::Vector3d const& a, Eigen::Vector3d const& b) { return a - b; }
 };
 
 static_assert(filtering::Measurement<CssMeasurementModel, State>);
@@ -148,14 +157,16 @@ void SunlineSRuKFAlgorithm::applyMeasurement(RateMeasurement const& measurement)
  *  carry CBias * nHat vectors.
  *  @return CssMeasurement (valid = active > 0)
  *  @param cssData [-] raw CSS cos-values and time tag */
-CssMeasurement SunlineSRuKFAlgorithm::packCssMeasurement(CssData const& cssData) {
+CssMeasurement SunlineSRuKFAlgorithm::packCssMeasurement(CssData const& cssData) const {
     CssMeasurement packed;
     packed.timeTag = cssData.timeTag;
     packed.covar = (this->cssMeasNoiseStd * this->cssMeasNoiseStd) * Eigen::Matrix<double, MaxCss, MaxCss>::Identity();
 
     int active = 0;
     for (int i = 0; i < this->numberOfCss && active < MaxCss; ++i) {
-        if (cssData.cosValues(i) <= this->sensorUseThresh) continue;
+        if (cssData.cosValues(i) <= this->sensorUseThresh) {
+            continue;
+        }
         packed.cssCosValues(active) = cssData.cosValues(i);
         packed.hMatrix.row(active) = this->cssCBias(i) * this->cssNHat.row(i);
         active += 1;
@@ -168,7 +179,7 @@ CssMeasurement SunlineSRuKFAlgorithm::packCssMeasurement(CssData const& cssData)
 /*! Pack a raw gyro reading into a RateMeasurement with diagonal noise covar.
  *  @return RateMeasurement (always valid)
  *  @param rateData [-] raw rate vector and time tag */
-RateMeasurement SunlineSRuKFAlgorithm::packRateMeasurement(RateData const& rateData) {
+RateMeasurement SunlineSRuKFAlgorithm::packRateMeasurement(RateData const& rateData) const {
     RateMeasurement packed;
     packed.timeTag = rateData.timeTag;
     packed.omega_BN_B = rateData.rate;
