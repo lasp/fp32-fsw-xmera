@@ -43,14 +43,15 @@ class TwoAxisGimbalLookupTables {
                                                                     //!< given the gimbal sequential tip and tilt angles
 
    private:
-    MotorAngles pullAngles(double angle1, double angle2) const;
-    bool bilinearInterpolationRequired(double angle1,
-                                       double angle2);  //!< Method to determine if bilinear interpolation is required
-    bool noInterpolationRequired(double angle1,
-                                 double angle2);     //!< Method to determine if no interpolation is required
-    bool linearInterpolationRequired(double angle);  //!< Method to determine if linear interpolation is required
-    MotorAngles bilinearlyInterpolateAngles(double angle1, double angle2);
-    MotorAngles linearlyInterpolateAngles(double angle1, double angle2, FixedAngle fixedAngle);
+    MotorAngles pullAngles(double gimbalAngle1, double gimbalAngle2) const;
+    bool bilinearInterpolationRequired(
+        double gimbalAngle1,
+        double gimbalAngle2);  //!< Method to determine if bilinear interpolation is required
+    bool noInterpolationRequired(double gimbalAngle1,
+                                 double gimbalAngle2);  //!< Method to determine if no interpolation is required
+    bool linearInterpolationRequired(double angle);     //!< Method to determine if linear interpolation is required
+    MotorAngles bilinearlyInterpolateAngles(double gimbalAngle1, double gimbalAngle2);
+    MotorAngles linearlyInterpolateAngles(double gimbalAngle1, double gimbalAngle2, FixedAngle fixedAngle);
 
     double tableStepAngle{0.5 * DEG2RAD};  //!< [rad] Interpolation table motor discretization angle
     std::array<std::array<double, NUM_GIMBAL_TO_MOTOR_TABLE_COLS>, NUM_GIMBAL_TO_MOTOR_TABLE_ROWS>
