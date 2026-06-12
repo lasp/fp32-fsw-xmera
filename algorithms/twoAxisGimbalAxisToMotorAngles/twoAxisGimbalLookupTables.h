@@ -27,8 +27,6 @@
 
 const double DEG2RAD = M_PI / 180.0;
 
-enum class InterpolationTableType { GIMBAL_ANGLES_TO_MOTOR_1_ANGLES, GIMBAL_ANGLES_TO_MOTOR_2_ANGLES };
-
 enum class FixedAngle { ANGLE_1_FIXED, ANGLE_2_FIXED };
 
 struct MotorAngles {
@@ -45,7 +43,7 @@ class TwoAxisGimbalLookupTables {
                                                                     //!< given the gimbal sequential tip and tilt angles
 
    private:
-    double pullAngle(double angle1, double angle2, InterpolationTableType interpolationTableType) const;
+    MotorAngles pullAngle(double angle1, double angle2) const;
     bool bilinearInterpolationRequired(double angle1,
                                        double angle2);  //!< Method to determine if bilinear interpolation is required
     bool noInterpolationRequired(double angle1,
