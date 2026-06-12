@@ -275,7 +275,7 @@ jobs:
 
       - name: Build Xmera + modules
         working-directory: xmera/src
-        run: cmake --build ../build --parallel
+        run: cmake --build ../build --parallel -DVCPKG_INSTALL_OPTIONS="--debug"
 
       - name: Install Xmera (editable)
         run: |
