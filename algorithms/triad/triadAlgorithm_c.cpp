@@ -1,7 +1,7 @@
 #include "triadAlgorithm_c.h"
-#include "architecture/utilities/eigenSupport.h"
 #include "triadAlgorithm.h"
 #include "triadTypes.h"
+#include "utilities/fsw/eigenSupport.h"
 
 #include <Eigen/Core>
 
