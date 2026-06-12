@@ -48,7 +48,7 @@ class TriadConfig final {
 
 class TriadAlgorithm final {
    public:
-    explicit TriadAlgorithm(const TriadConfig& config);
+    explicit TriadAlgorithm(TriadConfig config);
 
     void setConfig(const TriadConfig& config);
 

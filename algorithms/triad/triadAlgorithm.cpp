@@ -4,11 +4,15 @@
 #include "utilities/fsw/safeMath.h"
 #include <math.h>
 #include <Eigen/Core>
+#include <utility>
 
-TriadAlgorithm::TriadAlgorithm(const TriadConfig& config) : cfg(config) {}
+TriadAlgorithm::TriadAlgorithm(TriadConfig config) : cfg(std::move(config)) {}
 
 void TriadAlgorithm::setConfig(const TriadConfig& config) { this->cfg = config; }
 
+// NOLINTBEGIN(bugprone-easily-swappable-parameters)
+// bugprone-easily-swappable-parameters: the Vector3f attitude/direction inputs are documented in
+// the header and follow the standard (sigma_BN, rHat_SB_B, thrustHat_B) ordering.
 Eigen::Vector3f TriadAlgorithm::update(const Eigen::Vector3f& sigma_BN,
                                        const Eigen::Vector3f& rHat_SB_B,
                                        const Eigen::Vector3f& thrustHat_B) const {
@@ -39,7 +43,7 @@ Eigen::Vector3f TriadAlgorithm::update(const Eigen::Vector3f& sigma_BN,
     const float sunToThrustRefAngle = safeAcosf(fabsf(rHat_SB_N.dot(thrustRefHat_N)));
 
     /*! Triad (D Frame) basis vectors in inertial frame */
-    const Eigen::Vector3f d2Hat_N = thrustRefHat_N;
+    const Eigen::Vector3f d2Hat_N = thrustRefHat_N;  // NOLINT(performance-unnecessary-copy-initialization)
     Eigen::Vector3f d1Hat_N = Eigen::Vector3f::Zero();
     Eigen::Vector3f d3Hat_N = Eigen::Vector3f::Zero();
 
@@ -71,3 +75,4 @@ Eigen::Vector3f TriadAlgorithm::update(const Eigen::Vector3f& sigma_BN,
 
     return dcmToMrp(dcm_RN);
 }
+// NOLINTEND(bugprone-easily-swappable-parameters)
