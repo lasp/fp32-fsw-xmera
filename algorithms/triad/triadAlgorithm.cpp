@@ -1,16 +1,19 @@
 #include "triadAlgorithm.h"
-#include "utilities/fsw/rigidBodyKinematics.hpp"
-#include "utilities/fsw/safeMath.h"
 #include <math.h>
 #include <Eigen/Core>
-#include <numbers>
-#include <stdexcept>
+#include "utilities/fsw/rigidBodyKinematics.hpp"
+#include "utilities/fsw/safeMath.h"
+#include <utility>
 
-TriadAlgorithm::TriadAlgorithm(const TriadConfig& config) : cfg(config) {}
+TriadAlgorithm::TriadAlgorithm(const TriadConfig& config) : cfg(config) { setConfig(config); }
 
 void TriadAlgorithm::setConfig(const TriadConfig& config) { this->cfg = config; }
 
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
 Eigen::Vector3f TriadAlgorithm::update(const Eigen::Vector3f& rHat_SB_N, const Eigen::Vector3f& thrustHat_B) const {
+    /*! Set the default reference attitude to zero. Used if a valid triad cannot be formed */
+    Eigen::Vector3f sigma_RN = Eigen::Vector3f::Zero();
+
     /*! Compute angle between solar array drive axis and thrust direction */
     const Eigen::Vector3f sadaHat_B = this->cfg.getSadaHat_B().normalized();
     const float sadaAxisToThrustAngle = safeAcosf(fabsf(sadaHat_B.dot(thrustHat_B)));
@@ -36,7 +39,7 @@ Eigen::Vector3f TriadAlgorithm::update(const Eigen::Vector3f& rHat_SB_N, const E
     const float sunToThrustRefAngle = safeAcosf(fabsf(rHat_SB_N.dot(thrustRefHat_N)));
 
     /*! Triad (D Frame) basis vectors in inertial frame */
-    const Eigen::Vector3f d2Hat_N = thrustRefHat_N;
+    const Eigen::Vector3f d2Hat_N = thrustRefHat_N;  // NOLINT(performance-unnecessary-copy-initialization)
     Eigen::Vector3f d1Hat_N = Eigen::Vector3f::Zero();
     Eigen::Vector3f d3Hat_N = Eigen::Vector3f::Zero();
 
