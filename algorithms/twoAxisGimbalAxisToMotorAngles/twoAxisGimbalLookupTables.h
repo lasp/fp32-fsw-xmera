@@ -43,7 +43,7 @@ class TwoAxisGimbalLookupTables {
                                                                     //!< given the gimbal sequential tip and tilt angles
 
    private:
-    MotorAngles pullAngle(double angle1, double angle2) const;
+    MotorAngles pullAngles(double angle1, double angle2) const;
     bool bilinearInterpolationRequired(double angle1,
                                        double angle2);  //!< Method to determine if bilinear interpolation is required
     bool noInterpolationRequired(double angle1,
