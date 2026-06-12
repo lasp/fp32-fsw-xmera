@@ -13,7 +13,7 @@ enum class InterpolationTableType { GIMBAL_ANGLES_TO_MOTOR_1_ANGLES, GIMBAL_ANGL
 
 enum class FixedAngle { ANGLE_1_FIXED, ANGLE_2_FIXED };
 
-struct InterpolatedAngles {
+struct MotorAngles {
     double angle1;
     double angle2;
     bool isValidInterpolation;
@@ -28,10 +28,9 @@ class TwoAxisGimbalLookupTables {
                                                NUM_GIMBAL_TO_MOTOR_TABLE_ROWS>& gimbalToMotor2Data);  //!< Constructor
     ~TwoAxisGimbalLookupTables() = default;                                                           //!< Destructor
 
-    InterpolatedAngles gimbalAnglesToMotorAngles(
-        double gimbalTipAngle,
-        double gimbalTiltAngle);  //!< Method to determine the stepper motor angles given the gimbal sequential tip and
-                                  //!< tilt angles
+    MotorAngles gimbalAnglesToMotorAngles(double gimbalTipAngle,
+                                          double gimbalTiltAngle);  //!< Method to determine the stepper motor angles
+                                                                    //!< given the gimbal sequential tip and tilt angles
 
    private:
     double pullAngle(double angle1, double angle2, InterpolationTableType interpolationTableType) const;
@@ -40,8 +39,8 @@ class TwoAxisGimbalLookupTables {
     bool noInterpolationRequired(double angle1,
                                  double angle2);     //!< Method to determine if no interpolation is required
     bool linearInterpolationRequired(double angle);  //!< Method to determine if linear interpolation is required
-    InterpolatedAngles bilinearlyInterpolateAngles(double angle1, double angle2);
-    InterpolatedAngles linearlyInterpolateAngles(double angle1, double angle2, FixedAngle fixedAngle);
+    MotorAngles bilinearlyInterpolateAngles(double angle1, double angle2);
+    MotorAngles linearlyInterpolateAngles(double angle1, double angle2, FixedAngle fixedAngle);
 
     double tableStepAngle{0.5 * DEG2RAD};  //!< [rad] Interpolation table motor discretization angle
     std::array<std::array<double, NUM_GIMBAL_TO_MOTOR_TABLE_COLS>, NUM_GIMBAL_TO_MOTOR_TABLE_ROWS>
