@@ -46,9 +46,9 @@ void SunlineSRuKF::reset(uint64_t currentSimNanos) {
     auto const cssConfig = this->cssConfigInMsg();
     int const numCss = static_cast<int>(cssConfig.nCSS);
     Eigen::Matrix<double, MaxCss, 3> nHat = Eigen::Matrix<double, MaxCss, 3>::Zero();
-    Eigen::Vector<double, MaxCss> cBias = Eigen::Vector<double, MaxCss>::Zero();
+    Eigen::Vector<double, MaxCss> cssScaleFactor = Eigen::Vector<double, MaxCss>::Zero();
     for (int i = 0; i < numCss; ++i) {
-        cBias(i) = cssConfig.cssVals[i].CBias;
+        cssScaleFactor(i) = cssConfig.cssVals[i].CBias;
         for (int j = 0; j < 3; ++j) {
             nHat(i, j) = cssConfig.cssVals[i].nHat_B[j];
         }
@@ -64,7 +64,7 @@ void SunlineSRuKF::reset(uint64_t currentSimNanos) {
                                                    this->biasLowerBound,
                                                    this->biasUpperBound,
                                                    nHat,
-                                                   cBias,
+                                                   cssScaleFactor,
                                                    numCss,
                                                    this->sensorThreshold,
                                                    this->cssMeasurementNoiseStd,

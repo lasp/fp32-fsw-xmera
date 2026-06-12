@@ -356,7 +356,7 @@ struct ConfigInputs {
     double biasLowerBound = kBiasLowerBound;
     double biasUpperBound = kBiasUpperBound;
     Eigen::Matrix<double, MaxCss, 3> cssNHat = threeCssNHat();
-    Eigen::Vector<double, MaxCss> cssCBias = Eigen::Vector<double, MaxCss>::Ones();
+    Eigen::Vector<double, MaxCss> cssScaleFactor = Eigen::Vector<double, MaxCss>::Ones();
     int numberOfCss = 3;
     double sensorThreshold = 0.0;
     double cssMeasStd = 1E-2;
@@ -372,7 +372,7 @@ SunlineSRuKFConfig buildConfig(ConfigInputs const& in) {
                                       in.biasLowerBound,
                                       in.biasUpperBound,
                                       in.cssNHat,
-                                      in.cssCBias,
+                                      in.cssScaleFactor,
                                       in.numberOfCss,
                                       in.sensorThreshold,
                                       in.cssMeasStd,
@@ -411,9 +411,9 @@ TEST(SunlineSRuKFConfig, RejectsNonUnitCssNHat) {
     EXPECT_THROW(buildConfig(in), fsw::invalid_argument);
 }
 
-TEST(SunlineSRuKFConfig, RejectsNegativeCssCBias) {
+TEST(SunlineSRuKFConfig, RejectsNegativeCssScaleFactor) {
     ConfigInputs in;
-    in.cssCBias(1) = -0.1;
+    in.cssScaleFactor(1) = -0.1;
     EXPECT_THROW(buildConfig(in), fsw::invalid_argument);
 }
 
@@ -510,7 +510,7 @@ TEST(SunlineSRuKFConfig, SetConfigSwapsConfiguration) {
     ConfigInputs other;
     other.numberOfCss = 0;
     other.cssNHat = Eigen::Matrix<double, MaxCss, 3>::Zero();
-    other.cssCBias = Eigen::Vector<double, MaxCss>::Zero();
+    other.cssScaleFactor = Eigen::Vector<double, MaxCss>::Zero();
     EXPECT_NO_THROW(algo.setConfig(buildConfig(other)));
 }
 

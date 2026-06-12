@@ -52,7 +52,7 @@ class SunlineSRuKFConfig final {
                                      double biasLowerBound,
                                      double biasUpperBound,
                                      Eigen::Matrix<double, MaxCss, 3> const& cssNHat,
-                                     Eigen::Vector<double, MaxCss> const& cssCBias,
+                                     Eigen::Vector<double, MaxCss> const& cssScaleFactor,
                                      int numberOfCss,
                                      double sensorThreshold,
                                      double cssMeasurementNoiseStd,
@@ -79,7 +79,7 @@ class SunlineSRuKFConfig final {
             FSW_THROW_INVALID_ARGUMENT(
                 "sunlineSRuKF: the first numberOfCss CSS nHat rows must be unit vectors within 1e-3");
         }
-        if (!isValidCssCBias(cssCBias)) {
+        if (!isValidCssScaleFactor(cssScaleFactor)) {
             FSW_THROW_INVALID_ARGUMENT("sunlineSRuKF: CSS calibration bias must not be negative");
         }
         if (!isValidSensorThreshold(sensorThreshold)) {
@@ -99,7 +99,7 @@ class SunlineSRuKFConfig final {
                 biasLowerBound,
                 biasUpperBound,
                 normalizeCssNHat(cssNHat, numberOfCss),
-                cssCBias,
+                cssScaleFactor,
                 numberOfCss,
                 sensorThreshold,
                 cssMeasurementNoiseStd,
@@ -125,8 +125,8 @@ class SunlineSRuKFConfig final {
         }
         return true;
     }
-    static bool isValidCssCBias(Eigen::Vector<double, MaxCss> const& cssCBias) {
-        return (cssCBias.array() >= 0.0).all();
+    static bool isValidCssScaleFactor(Eigen::Vector<double, MaxCss> const& cssScaleFactor) {
+        return (cssScaleFactor.array() >= 0.0).all();
     }
     static bool isValidNumberOfCss(int count) { return count >= 0 && count <= MaxCss; }
     static bool isValidSensorThreshold(double threshold) { return threshold >= 0.0; }
@@ -141,7 +141,7 @@ class SunlineSRuKFConfig final {
     double getBiasLowerBound() const { return this->biasLowerBound; }
     double getBiasUpperBound() const { return this->biasUpperBound; }
     Eigen::Matrix<double, MaxCss, 3> const& getCssNHat() const { return this->cssNHat; }
-    Eigen::Vector<double, MaxCss> const& getCssCBias() const { return this->cssCBias; }
+    Eigen::Vector<double, MaxCss> const& getCssScaleFactor() const { return this->cssScaleFactor; }
     int getNumberOfCss() const { return this->numberOfCss; }
     double getSensorThreshold() const { return this->sensorThreshold; }
     double getCssMeasurementNoiseStd() const { return this->cssMeasNoiseStd; }
@@ -156,7 +156,7 @@ class SunlineSRuKFConfig final {
                        double biasLowerBound,
                        double biasUpperBound,
                        Eigen::Matrix<double, MaxCss, 3> const& cssNHat,
-                       Eigen::Vector<double, MaxCss> const& cssCBias,
+                       Eigen::Vector<double, MaxCss> const& cssScaleFactor,
                        int numberOfCss,
                        double sensorThreshold,
                        double cssMeasurementNoiseStd,
@@ -169,7 +169,7 @@ class SunlineSRuKFConfig final {
           biasLowerBound(biasLowerBound),
           biasUpperBound(biasUpperBound),
           cssNHat(cssNHat),
-          cssCBias(cssCBias),
+          cssScaleFactor(cssScaleFactor),
           numberOfCss(numberOfCss),
           sensorThreshold(sensorThreshold),
           cssMeasNoiseStd(cssMeasurementNoiseStd),
@@ -193,7 +193,7 @@ class SunlineSRuKFConfig final {
     double biasLowerBound;
     double biasUpperBound;
     Eigen::Matrix<double, MaxCss, 3> cssNHat;
-    Eigen::Vector<double, MaxCss> cssCBias;
+    Eigen::Vector<double, MaxCss> cssScaleFactor;
     int numberOfCss;
     double sensorThreshold;
     double cssMeasNoiseStd;

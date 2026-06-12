@@ -180,7 +180,7 @@ CssMeasurement SunlineSRuKFAlgorithm::packCssMeasurement(CssData const& cssData)
             continue;
         }
         packed.cssCosValues(active) = cssData.cosValues(i);
-        packed.hMatrix.row(active) = this->cfg.getCssCBias()(i) * this->cfg.getCssNHat().row(i);
+        packed.hMatrix.row(active) = this->cfg.getCssScaleFactor()(i) * this->cfg.getCssNHat().row(i);
         active += 1;
     }
     packed.numberOfActiveCss = active;
