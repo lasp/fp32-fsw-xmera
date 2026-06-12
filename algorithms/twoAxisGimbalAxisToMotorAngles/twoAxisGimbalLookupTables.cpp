@@ -27,12 +27,12 @@ const int tipAngleIdxOffset = 38;
 const int tiltAngleIdxOffset = 55;
 
 /*! This method determines the stepper motor angles given the gimbal sequential tip and tilt angles.
- @return InterpolatedAngles
+ @return MotorAngles
  @param gimbalTipAngle [rad] Gimbal tip angle
  @param gimbalTiltAngle [rad] Gimbal tilt angle
 */
-InterpolatedAngles TwoAxisGimbalLookupTables::gimbalAnglesToMotorAngles(double gimbalTipAngle, double gimbalTiltAngle) {
-    InterpolatedAngles motorAngles{};
+MotorAngles TwoAxisGimbalLookupTables::gimbalAnglesToMotorAngles(double gimbalTipAngle, double gimbalTiltAngle) {
+    MotorAngles motorAngles{};
 
     if (this->bilinearInterpolationRequired(gimbalTipAngle, gimbalTiltAngle)) {
         motorAngles = this->bilinearlyInterpolateAngles(gimbalTipAngle, gimbalTiltAngle);
@@ -128,7 +128,7 @@ The case where the gimbal angles are at the edge of the interpolation table is c
 computeTableEdgeCase() is called to determine the appropriate motor angles.
  @return void
 */
-InterpolatedAngles TwoAxisGimbalLookupTables::bilinearlyInterpolateAngles(double angle1, double angle2) {
+MotorAngles TwoAxisGimbalLookupTables::bilinearlyInterpolateAngles(double angle1, double angle2) {
     // Find the upper and lower interpolation table angle bounds using the given angles
     double angle1LowerBound = this->tableStepAngle * floor(angle1 / this->tableStepAngle);
     double angle1UpperBound = this->tableStepAngle * ceil(angle1 / this->tableStepAngle);
@@ -136,60 +136,60 @@ InterpolatedAngles TwoAxisGimbalLookupTables::bilinearlyInterpolateAngles(double
     double angle2UpperBound = this->tableStepAngle * ceil(angle2 / this->tableStepAngle);
 
     // Determine the bounding angles for the first angle
-    double interpolatedAngle1LLBound =
+    double motor1AngleLLBound =
         this->pullAngle(angle1LowerBound, angle2LowerBound, InterpolationTableType::GIMBAL_ANGLES_TO_MOTOR_1_ANGLES);
-    double interpolatedAngle1LUBound =
+    double motor1AngleLUBound =
         this->pullAngle(angle1LowerBound, angle2UpperBound, InterpolationTableType::GIMBAL_ANGLES_TO_MOTOR_1_ANGLES);
-    double interpolatedAngle1ULBound =
+    double motor1AngleULBound =
         this->pullAngle(angle1UpperBound, angle2LowerBound, InterpolationTableType::GIMBAL_ANGLES_TO_MOTOR_1_ANGLES);
-    double interpolatedAngle1UUBound =
+    double motor1AngleUUBound =
         this->pullAngle(angle1UpperBound, angle2UpperBound, InterpolationTableType::GIMBAL_ANGLES_TO_MOTOR_1_ANGLES);
 
     // Determine the bounding angles for the second angle
-    double interpolatedAngle2LLBound =
+    double motor2AngleLLBound =
         this->pullAngle(angle1LowerBound, angle2LowerBound, InterpolationTableType::GIMBAL_ANGLES_TO_MOTOR_2_ANGLES);
-    double interpolatedAngle2LUBound =
+    double motor2AngleLUBound =
         this->pullAngle(angle1LowerBound, angle2UpperBound, InterpolationTableType::GIMBAL_ANGLES_TO_MOTOR_2_ANGLES);
-    double interpolatedAngle2ULBound =
+    double motor2AngleULBound =
         this->pullAngle(angle1UpperBound, angle2LowerBound, InterpolationTableType::GIMBAL_ANGLES_TO_MOTOR_2_ANGLES);
-    double interpolatedAngle2UUBound =
+    double motor2AngleUUBound =
         this->pullAngle(angle1UpperBound, angle2UpperBound, InterpolationTableType::GIMBAL_ANGLES_TO_MOTOR_2_ANGLES);
 
-    double interpolatedAngle1{};
-    double interpolatedAngle2{};
+    double motor1Angle{};
+    double motor2Angle{};
     bool validInterpolation{};
-    if (interpolatedAngle1LLBound >= 0.0 && interpolatedAngle1LUBound >= 0.0 && interpolatedAngle1ULBound >= 0.0 &&
-        interpolatedAngle1UUBound >= 0.0) {
-        interpolatedAngle1 = bilinearInterpolation(angle1LowerBound,
-                                                   angle1UpperBound,
-                                                   angle2LowerBound,
-                                                   angle2UpperBound,
-                                                   interpolatedAngle1LLBound,
-                                                   interpolatedAngle1LUBound,
-                                                   interpolatedAngle1ULBound,
-                                                   interpolatedAngle1UUBound,
-                                                   angle1,
-                                                   angle2);
+    if (motor1AngleLLBound >= 0.0 && motor1AngleLUBound >= 0.0 && motor1AngleULBound >= 0.0 &&
+        motor1AngleUUBound >= 0.0) {
+        motor1Angle = bilinearInterpolation(angle1LowerBound,
+                                            angle1UpperBound,
+                                            angle2LowerBound,
+                                            angle2UpperBound,
+                                            motor1AngleLLBound,
+                                            motor1AngleLUBound,
+                                            motor1AngleULBound,
+                                            motor1AngleUUBound,
+                                            angle1,
+                                            angle2);
 
-        interpolatedAngle2 = bilinearInterpolation(angle1LowerBound,
-                                                   angle1UpperBound,
-                                                   angle2LowerBound,
-                                                   angle2UpperBound,
-                                                   interpolatedAngle2LLBound,
-                                                   interpolatedAngle2LUBound,
-                                                   interpolatedAngle2ULBound,
-                                                   interpolatedAngle2UUBound,
-                                                   angle1,
-                                                   angle2);
+        motor2Angle = bilinearInterpolation(angle1LowerBound,
+                                            angle1UpperBound,
+                                            angle2LowerBound,
+                                            angle2UpperBound,
+                                            motor2AngleLLBound,
+                                            motor2AngleLUBound,
+                                            motor2AngleULBound,
+                                            motor2AngleUUBound,
+                                            angle1,
+                                            angle2);
         validInterpolation = true;
     }
 
-    InterpolatedAngles interpolatedAngles;
-    interpolatedAngles.angle1 = interpolatedAngle1;
-    interpolatedAngles.angle2 = interpolatedAngle2;
-    interpolatedAngles.isValidInterpolation = validInterpolation;
+    MotorAngles MotorAngles;
+    MotorAngles.angle1 = motor1Angle;
+    MotorAngles.angle2 = motor2Angle;
+    MotorAngles.isValidInterpolation = validInterpolation;
 
-    return interpolatedAngles;
+    return MotorAngles;
 }
 
 /*! This method calls the linear interpolation function to interpolate using a fixed angle and a bounded angle.
@@ -197,14 +197,12 @@ For the gimbal-to-motor interpolation case where the gimbal angles are at the ed
 the logic determines the appropriate motor angles to return. If 2/2 of the pulled motor angles are valid, linear
 interpolation is used to determine the motor angle. If 1/2 motor angles are valid, the valid motor angle is directly
 used as the result.
- @return InterpolatedAngles
+ @return MotorAngles
  @param angle1 [rad] Angle 1 for linear interpolation
  @param angle2 [rad] Angle 2 for linear interpolation
  @param fixedAngle Angle that is fixed for linear interpolation
 */
-InterpolatedAngles TwoAxisGimbalLookupTables::linearlyInterpolateAngles(double angle1,
-                                                                        double angle2,
-                                                                        FixedAngle fixedAngle) {
+MotorAngles TwoAxisGimbalLookupTables::linearlyInterpolateAngles(double angle1, double angle2, FixedAngle fixedAngle) {
     // Use the provided fixed angle to save the bounded angle (The bounded angle is the non-fixed angle)
     double boundedAngle{};
     if (fixedAngle == FixedAngle::ANGLE_1_FIXED) {
@@ -218,49 +216,49 @@ InterpolatedAngles TwoAxisGimbalLookupTables::linearlyInterpolateAngles(double a
     double angleUpperBound = this->tableStepAngle * ceil(boundedAngle / this->tableStepAngle);
 
     // Determine the bounding angles for linear interpolation
-    double interpolatedAngle1LowerBound{};
-    double interpolatedAngle1UpperBound{};
-    double interpolatedAngle2LowerBound{};
-    double interpolatedAngle2UpperBound{};
+    double motor1AngleLowerBound{};
+    double motor1AngleUpperBound{};
+    double motor2AngleLowerBound{};
+    double motor2AngleUpperBound{};
     switch (fixedAngle) {
         case FixedAngle::ANGLE_1_FIXED:
-            interpolatedAngle1LowerBound =
+            motor1AngleLowerBound =
                 this->pullAngle(angle1, angleLowerBound, InterpolationTableType::GIMBAL_ANGLES_TO_MOTOR_1_ANGLES);
-            interpolatedAngle1UpperBound =
+            motor1AngleUpperBound =
                 this->pullAngle(angle1, angleUpperBound, InterpolationTableType::GIMBAL_ANGLES_TO_MOTOR_1_ANGLES);
-            interpolatedAngle2LowerBound =
+            motor2AngleLowerBound =
                 this->pullAngle(angle1, angleLowerBound, InterpolationTableType::GIMBAL_ANGLES_TO_MOTOR_2_ANGLES);
-            interpolatedAngle2UpperBound =
+            motor2AngleUpperBound =
                 this->pullAngle(angle1, angleUpperBound, InterpolationTableType::GIMBAL_ANGLES_TO_MOTOR_2_ANGLES);
             break;
         case FixedAngle::ANGLE_2_FIXED:
-            interpolatedAngle1LowerBound =
+            motor1AngleLowerBound =
                 this->pullAngle(angleLowerBound, angle2, InterpolationTableType::GIMBAL_ANGLES_TO_MOTOR_1_ANGLES);
-            interpolatedAngle1UpperBound =
+            motor1AngleUpperBound =
                 this->pullAngle(angleUpperBound, angle2, InterpolationTableType::GIMBAL_ANGLES_TO_MOTOR_1_ANGLES);
-            interpolatedAngle2LowerBound =
+            motor2AngleLowerBound =
                 this->pullAngle(angleLowerBound, angle2, InterpolationTableType::GIMBAL_ANGLES_TO_MOTOR_2_ANGLES);
-            interpolatedAngle2UpperBound =
+            motor2AngleUpperBound =
                 this->pullAngle(angleUpperBound, angle2, InterpolationTableType::GIMBAL_ANGLES_TO_MOTOR_2_ANGLES);
             break;
     }
 
     // Linearly interpolate if the pulled angles are valid
-    double interpolatedAngle1{};
-    double interpolatedAngle2{};
+    double motor1Angle{};
+    double motor2Angle{};
     bool validInterpolation{};
-    if (interpolatedAngle1LowerBound >= 0.0 && interpolatedAngle1UpperBound >= 0.0) {
-        interpolatedAngle1 = linearInterpolation(
-            angleLowerBound, angleUpperBound, interpolatedAngle1LowerBound, interpolatedAngle1UpperBound, boundedAngle);
-        interpolatedAngle2 = linearInterpolation(
-            angleLowerBound, angleUpperBound, interpolatedAngle2LowerBound, interpolatedAngle2UpperBound, boundedAngle);
+    if (motor1AngleLowerBound >= 0.0 && motor1AngleUpperBound >= 0.0) {
+        motor1Angle = linearInterpolation(
+            angleLowerBound, angleUpperBound, motor1AngleLowerBound, motor1AngleUpperBound, boundedAngle);
+        motor2Angle = linearInterpolation(
+            angleLowerBound, angleUpperBound, motor2AngleLowerBound, motor2AngleUpperBound, boundedAngle);
         validInterpolation = true;
     }
 
-    InterpolatedAngles interpolatedAngles;
-    interpolatedAngles.angle1 = interpolatedAngle1;
-    interpolatedAngles.angle2 = interpolatedAngle2;
-    interpolatedAngles.isValidInterpolation = validInterpolation;
+    MotorAngles MotorAngles;
+    MotorAngles.angle1 = motor1Angle;
+    MotorAngles.angle2 = motor2Angle;
+    MotorAngles.isValidInterpolation = validInterpolation;
 
-    return interpolatedAngles;
+    return MotorAngles;
 }
