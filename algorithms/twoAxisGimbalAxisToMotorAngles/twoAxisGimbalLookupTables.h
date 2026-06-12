@@ -27,14 +27,7 @@
 
 const double DEG2RAD = M_PI / 180.0;
 
-enum class InterpolationType { GIMBAL_ANGLES_TO_MOTOR_ANGLES, MOTOR_ANGLES_TO_GIMBAL_ANGLES };
-
-enum class InterpolationTableType {
-    GIMBAL_ANGLES_TO_MOTOR_1_ANGLES,
-    GIMBAL_ANGLES_TO_MOTOR_2_ANGLES,
-    MOTOR_ANGLES_TO_GIMBAL_TIP_ANGLES,
-    MOTOR_ANGLES_TO_GIMBAL_TILT_ANGLES
-};
+enum class InterpolationTableType { GIMBAL_ANGLES_TO_MOTOR_1_ANGLES, GIMBAL_ANGLES_TO_MOTOR_2_ANGLES };
 
 enum class FixedAngle { ANGLE_1_FIXED, ANGLE_2_FIXED };
 
@@ -49,12 +42,8 @@ class TwoAxisGimbalLookupTables {
    public:
     InterpolatedAngles gimbalAnglesToMotorAngles(
         double gimbalTipAngle,
-        double gimbalTiltAngle);  //!< Method to determine the stepper motor angles given the gimbal
-                                  //!< sequential tip and tilt angles
-    InterpolatedAngles motorAnglesToGimbalAngles(
-        double motor1Angle,
-        double motor2Angle);  //!< Method to determine the sequential gimbal tip and tilt angles given the
-                              //!< stepper motor angles
+        double gimbalTiltAngle);  //!< Method to determine the stepper motor angles given the gimbal sequential tip and
+                                  //!< tilt angles
 
    private:
     double pullAngle(double angle1, double angle2, InterpolationTableType interpolationTableType) const;
@@ -63,21 +52,14 @@ class TwoAxisGimbalLookupTables {
     bool noInterpolationRequired(double angle1,
                                  double angle2);     //!< Method to determine if no interpolation is required
     bool linearInterpolationRequired(double angle);  //!< Method to determine if linear interpolation is required
-    InterpolatedAngles bilinearlyInterpolateAngles(double angle1, double angle2, InterpolationType interpolationType);
-    InterpolatedAngles linearlyInterpolateAngles(double angle1,
-                                                 double angle2,
-                                                 InterpolationType interpolationType,
-                                                 FixedAngle fixedAngle);
+    InterpolatedAngles bilinearlyInterpolateAngles(double angle1, double angle2);
+    InterpolatedAngles linearlyInterpolateAngles(double angle1, double angle2, FixedAngle fixedAngle);
 
     double tableStepAngle{0.5 * DEG2RAD};  //!< [rad] Interpolation table motor discretization angle
     std::array<std::array<double, NUM_GIMBAL_TO_MOTOR_TABLE_COLS>, NUM_GIMBAL_TO_MOTOR_TABLE_ROWS>
         gimbalAnglesToMotor1AngleData;  //!< [rad] Gimbal-to-motor 1 angle interpolation table storage array
     std::array<std::array<double, NUM_GIMBAL_TO_MOTOR_TABLE_COLS>, NUM_GIMBAL_TO_MOTOR_TABLE_ROWS>
         gimbalAnglesToMotor2AngleData;  //!< [rad] Gimbal-to-motor 2 angle interpolation table storage array
-    std::array<std::array<double, 320>, 320>
-        motorToGimbalTipAngleData;  //!< [rad] Motor-to-gimbal tip angle interpolation table storage array
-    std::array<std::array<double, 320>, 320>
-        motorToGimbalTiltAngleData;  //!< [rad] Motor-to-gimbal tilt angle interpolation table storage array
 };
 
 #endif
