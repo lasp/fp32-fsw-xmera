@@ -1,21 +1,29 @@
 #ifndef F32XMERA_FLYBY_POINT_ALGORITHM_H
 #define F32XMERA_FLYBY_POINT_ALGORITHM_H
 
-#include <architecture/msgPayloadDef/AttRefMsgPayload.h>
-#include <architecture/msgPayloadDef/FlybyDiagnosticMsgPayload.h>
 #include <Eigen/Dense>
 
+/*! @brief Structure containing the attitude guidance output of the algorithm */
+struct AttGuideOutput {
+    Eigen::Vector3f sigma_RN = Eigen::Vector3f::Zero();
+    Eigen::Vector3f omega_RN_N = Eigen::Vector3f::Zero();
+    Eigen::Vector3f domega_RN_N = Eigen::Vector3f::Zero();
+    bool collinearityTrigger = false;     // true if vectors r and v are collinear
+    bool maxRateTrigger = false;          // true if the predicted rate exceeds the maximum rate of the spacecraft
+    bool maxAccelerationTrigger = false;  // true if the predicted acceleration exceeds the maximum acceleration of the
+                                          // spacecraft
+    bool positionKnowledgeExceedTrigger = false;  // true if the position error exceeds a-priori sigma bound
+};
+
 /*! @brief A class to perform flyby pointing */
-class FlybyPointAlgorithm {
+class FlybyPointAlgorithm final {
    public:
     void reset();
-    std::pair<AttRefMsgPayload, FlybyDiagnosticMsgPayload> updateState(uint64_t currentSimNanos,
-                                                                       const Eigen::Vector3d& r_BN_N,
-                                                                       const Eigen::Vector3d& v_BN_N);
+    AttGuideOutput updateState(uint64_t currentSimNanos, const Eigen::Vector3d& r_BN_N, const Eigen::Vector3d& v_BN_N);
     bool checkValidity(uint64_t currentSimNanos,
                        const Eigen::Vector3d& r_BN_N,
                        const Eigen::Vector3d& v_BN_N,
-                       FlybyDiagnosticMsgPayload& flybyDiagnosticMsgBuffer) const;
+                       AttGuideOutput& output) const;
     void computeFlybyParameters(const Eigen::Vector3d& r_BN_N, const Eigen::Vector3d& v_BN_N);
     void computeRN(const Eigen::Vector3d& r_BN_N, const Eigen::Vector3d& v_BN_N);
     std::tuple<Eigen::Vector3d, Eigen::Vector3d, Eigen::Vector3d> computeGuidanceSolution() const;

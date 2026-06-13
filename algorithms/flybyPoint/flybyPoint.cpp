@@ -13,8 +13,17 @@ void FlybyPoint::reset(uint64_t currentSimNanos) {
 
 void FlybyPoint::updateState(uint64_t currentSimNanos) {
     auto [r_BN_N, v_BN_N] = this->readRelativeState();
-    auto [attMsgBuffer, flybyDiagnosticMsgBuffer] = this->algorithm.updateState(currentSimNanos, r_BN_N, v_BN_N);
+    auto algo_output = this->algorithm.updateState(currentSimNanos, r_BN_N, v_BN_N);
+    AttRefMsgPayload attMsgBuffer{};
+    eigenVectorToCArray(algo_output.sigma_RN.cast<double>(), attMsgBuffer.sigma_RN);
+    eigenVectorToCArray(algo_output.omega_RN_N.cast<double>(), attMsgBuffer.omega_RN_N);
+    eigenVectorToCArray(algo_output.domega_RN_N.cast<double>(), attMsgBuffer.domega_RN_N);
     this->attRefOutMsg.write(&attMsgBuffer, this->moduleID, currentSimNanos);
+    FlybyDiagnosticMsgPayload flybyDiagnosticMsgBuffer{};
+    flybyDiagnosticMsgBuffer.collinearityTrigger = algo_output.collinearityTrigger;
+    flybyDiagnosticMsgBuffer.maxRateTrigger = algo_output.maxRateTrigger;
+    flybyDiagnosticMsgBuffer.maxAccelerationTrigger = algo_output.maxAccelerationTrigger;
+    flybyDiagnosticMsgBuffer.positionKnowledgeExceedTrigger = algo_output.positionKnowledgeExceedTrigger;
     this->flybyDiagnosticOutMsg.write(&flybyDiagnosticMsgBuffer, this->moduleID, currentSimNanos);
 }
 

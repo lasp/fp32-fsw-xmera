@@ -369,11 +369,11 @@ def flybyPointTestFunction(show_plots, initial_position, initial_velocity, filte
             uh = np.cross(ur, ut)
 
         # test correctness of frame, angular rate and acceleration
-        np.testing.assert_allclose(ur_output[i], ur, rtol=0, atol=1E-12, verbose=True)
-        np.testing.assert_allclose(ut_output[i], ut, rtol=0, atol=1E-12, verbose=True)
-        np.testing.assert_allclose(uh_output[i], uh, rtol=0, atol=1E-12, verbose=True)
-        np.testing.assert_allclose(reference_rate[i], omega, rtol=0, atol=1E-12, verbose=True)
-        np.testing.assert_allclose(reference_acceleration[i], omegaDot, rtol=0, atol=1E-12, verbose=True)
+        np.testing.assert_allclose(ur_output[i], ur, rtol=0, atol=1E-5, verbose=True)
+        np.testing.assert_allclose(ut_output[i], ut, rtol=0, atol=1E-5, verbose=True)
+        np.testing.assert_allclose(uh_output[i], uh, rtol=0, atol=1E-5, verbose=True)
+        np.testing.assert_allclose(reference_rate[i], omega, rtol=0, atol=1E-5, verbose=True)
+        np.testing.assert_allclose(reference_acceleration[i], omegaDot, rtol=0, atol=1E-5, verbose=True)
 
     plt.close("all")
     position_data = np.array(position_data)
