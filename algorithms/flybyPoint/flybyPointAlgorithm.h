@@ -47,10 +47,10 @@ class FlybyPointAlgorithm {
     double f0 = 0;                    //!< ratio between relative velocity and position norms at time of read [Hz]
     double gamma0 = 0;                //!< flight path angle of the spacecraft at time of read [rad]
     uint64_t lastFilterReadTime = 0;  //!< time of last filter read
-    Eigen::Matrix3d R0N{Eigen::Matrix3d::Identity()};  //!< inertial-to-reference DCM at time of read
-    Eigen::Vector3d firstNavPosition{};                //!< First position used to create profile
-    Eigen::Vector3d firstNavVelocity{};                //!< First velocity used to create profile
-    double positionKnowledgeSigma = 0;                 //!< Last position used to create profile
+    Eigen::Matrix3d R0N{Eigen::Matrix3d::Identity()};            //!< inertial-to-reference DCM at time of read
+    Eigen::Vector3d firstNavPosition = Eigen::Vector3d::Zero();  //!< First position used to create profile
+    Eigen::Vector3d firstNavVelocity = Eigen::Vector3d::Zero();  //!< First velocity used to create profile
+    double positionKnowledgeSigma = 0;                           //!< Last position used to create profile
 };
 
 #endif  // F32XMERA_FLYBY_POINT_ALGORITHM_H
