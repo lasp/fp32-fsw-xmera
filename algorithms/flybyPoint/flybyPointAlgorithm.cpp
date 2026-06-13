@@ -4,6 +4,9 @@
 #include "utilities/fsw/rigidBodyKinematics.hpp"
 #include <numbers>
 
+static constexpr double kRad2Deg = 180.0 / std::numbers::pi;
+static constexpr double kMaxAccelCoeff = 3.0 * std::numbers::sqrt3 / 8.0;
+
 /*! This method is used to reset the module.
  @return void
  */
@@ -87,7 +90,7 @@ bool FlybyPointAlgorithm::checkValidity(uint64_t currentSimNanos,
 
     /*! check if the predicted rate exceeds the maximum rate of the spacecraft */
     const double distanceClosestApproach = -r_BN_N.norm() * std::sin(this->gamma0);
-    const double maxPredictedRate = v_BN_N.norm() / distanceClosestApproach * 180.0 / std::numbers::pi;
+    const double maxPredictedRate = v_BN_N.norm() / distanceClosestApproach * kRad2Deg;
     if (maxPredictedRate > this->maxRate && this->maxRate > 0) {
         valid = false;
         flybyDiagnosticMsgBuffer.maxRateTrigger = true;
@@ -96,8 +99,7 @@ bool FlybyPointAlgorithm::checkValidity(uint64_t currentSimNanos,
     }
 
     /*! check if the predicted acceleration exceeds the maximum acceleration of the spacecraft */
-    const double maxPredictedAcceleration =
-        3 * std::sqrt(3) / 8 * pow(v_BN_N.norm() / distanceClosestApproach, 2) * 180.0 / std::numbers::pi;
+    const double maxPredictedAcceleration = kMaxAccelCoeff * pow(v_BN_N.norm() / distanceClosestApproach, 2) * kRad2Deg;
     if (maxPredictedAcceleration > this->maxAcceleration && this->maxAcceleration > 0) {
         valid = false;
         flybyDiagnosticMsgBuffer.maxAccelerationTrigger = true;
