@@ -12,7 +12,8 @@ void FlybyPointAlgorithm::reset() {
 }
 
 /*! This function computes a reference attitude frame for a spacecraft in relative motion about a small body.
- @return AttRefMsgPayload
+ @return pair of AttRefMsgPayload (reference attitude, rate, acceleration) and FlybyDiagnosticMsgPayload (validity
+ flags)
  @param currentSimNanos The current simulation time for system
  @param r_BN_N The relative position state
  @param v_BN_N The relative velocity state
@@ -169,7 +170,7 @@ double FlybyPointAlgorithm::getToleranceForCollinearity() const { return this->t
 void FlybyPointAlgorithm::setToleranceForCollinearity(double tolerance) { this->toleranceForCollinearity = tolerance; }
 
 /*! Get the sign (+1 or -1) of the axis of rotation of the Z axis during the flyby
- @param int sign (+1 or -1)
+ @return int sign (+1 or -1)
  */
 int FlybyPointAlgorithm::getSignOfOrbitNormalFrameVector() const { return this->signOfOrbitNormalFrameVector; }
 
@@ -179,12 +180,12 @@ int FlybyPointAlgorithm::getSignOfOrbitNormalFrameVector() const { return this->
 void FlybyPointAlgorithm::setSignOfOrbitNormalFrameVector(int sign) { this->signOfOrbitNormalFrameVector = sign; }
 
 /*! Get the maximum acceleration threshold to consider a solution invalid
- @return double maximum accceleration
+ @return double maximum acceleration
  */
 double FlybyPointAlgorithm::getMaximumAccelerationThreshold() const { return this->maxAcceleration; }
 
 /*! Set the maximum acceleration threshold to consider a solution invalid
- @param double maximum accceleration
+ @param double maximum acceleration
  */
 void FlybyPointAlgorithm::setMaximumAccelerationThreshold(double maxAccelerationThreshold) {
     this->maxAcceleration = maxAccelerationThreshold;
