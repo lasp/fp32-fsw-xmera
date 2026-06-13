@@ -58,11 +58,11 @@ void FlybyPointAlgorithm::computeFlybyParameters(const Eigen::Vector3d& r_BN_N, 
     this->f0 = v_BN_N.norm() / r_BN_N.norm();
 
     /*! compute radial (ur_N), velocity (uv_N), along-track (ut_N), and out-of-plane (uh_N) unit direction vectors */
-    Eigen::Vector3d ur_N = r_BN_N.normalized();
-    Eigen::Vector3d uv_N = v_BN_N.normalized();
+    const Eigen::Vector3d ur_N = r_BN_N.normalized();
+    const Eigen::Vector3d uv_N = v_BN_N.normalized();
 
-    Eigen::Vector3d uh_N = ur_N.cross(uv_N).normalized();
-    Eigen::Vector3d ut_N = uh_N.cross(ur_N).normalized();
+    const Eigen::Vector3d uh_N = ur_N.cross(uv_N).normalized();
+    const Eigen::Vector3d ut_N = uh_N.cross(ur_N).normalized();
 
     // compute flight path angle at the time of read
     this->gamma0 = std::atan(v_BN_N.dot(ur_N) / v_BN_N.dot(ut_N));
@@ -73,8 +73,8 @@ bool FlybyPointAlgorithm::checkValidity(uint64_t currentSimNanos,
                                         const Eigen::Vector3d& v_BN_N,
                                         FlybyDiagnosticMsgPayload& flybyDiagnosticMsgBuffer) const {
     bool valid = true;
-    Eigen::Vector3d ur_N = r_BN_N.normalized();
-    Eigen::Vector3d uv_N = v_BN_N.normalized();
+    const Eigen::Vector3d ur_N = r_BN_N.normalized();
+    const Eigen::Vector3d uv_N = v_BN_N.normalized();
 
     /*! assert r and v are not collinear (collision trajectory) */
     if (std::abs(1 - ur_N.dot(uv_N)) < this->toleranceForCollinearity) {
@@ -85,8 +85,8 @@ bool FlybyPointAlgorithm::checkValidity(uint64_t currentSimNanos,
     }
 
     /*! check if the predicted rate exceeds the maximum rate of the spacecraft */
-    double distanceClosestApproach = -r_BN_N.norm() * std::sin(this->gamma0);
-    double maxPredictedRate = v_BN_N.norm() / distanceClosestApproach * 180 / M_PI;
+    const double distanceClosestApproach = -r_BN_N.norm() * std::sin(this->gamma0);
+    const double maxPredictedRate = v_BN_N.norm() / distanceClosestApproach * 180 / M_PI;
     if (maxPredictedRate > this->maxRate && this->maxRate > 0) {
         valid = false;
         flybyDiagnosticMsgBuffer.maxRateTrigger = true;
@@ -95,7 +95,7 @@ bool FlybyPointAlgorithm::checkValidity(uint64_t currentSimNanos,
     }
 
     /*! check if the predicted acceleration exceeds the maximum acceleration of the spacecraft */
-    double maxPredictedAcceleration =
+    const double maxPredictedAcceleration =
         3 * std::sqrt(3) / 8 * pow(v_BN_N.norm() / distanceClosestApproach, 2) * 180 / M_PI;
     if (maxPredictedAcceleration > this->maxAcceleration && this->maxAcceleration > 0) {
         valid = false;
@@ -105,8 +105,8 @@ bool FlybyPointAlgorithm::checkValidity(uint64_t currentSimNanos,
     }
 
     /*! check if the position error exceeds a-priori sigma bound */
-    double deltaT = currentSimNanos * NANO2SEC - this->timeOfFirstRead;
-    double deltaPositionNorm = (r_BN_N - (this->firstNavPosition + deltaT * this->firstNavVelocity)).norm();
+    const double deltaT = currentSimNanos * NANO2SEC - this->timeOfFirstRead;
+    const double deltaPositionNorm = (r_BN_N - (this->firstNavPosition + deltaT * this->firstNavVelocity)).norm();
     if (deltaPositionNorm > this->positionKnowledgeSigma && this->positionKnowledgeSigma > 0) {
         valid = false;
         flybyDiagnosticMsgBuffer.positionKnowledgeExceedTrigger = true;
@@ -119,11 +119,11 @@ bool FlybyPointAlgorithm::checkValidity(uint64_t currentSimNanos,
 
 void FlybyPointAlgorithm::computeRN(const Eigen::Vector3d& r_BN_N, const Eigen::Vector3d& v_BN_N) {
     /*! compute radial (ur_N), velocity (uv_N), along-track (ut_N), and out-of-plane (uh_N) unit direction vectors */
-    Eigen::Vector3d ur_N = r_BN_N.normalized();
-    Eigen::Vector3d uv_N = v_BN_N.normalized();
+    const Eigen::Vector3d ur_N = r_BN_N.normalized();
+    const Eigen::Vector3d uv_N = v_BN_N.normalized();
 
-    Eigen::Vector3d uh_N = ur_N.cross(uv_N).normalized();
-    Eigen::Vector3d ut_N = uh_N.cross(ur_N).normalized();
+    const Eigen::Vector3d uh_N = ur_N.cross(uv_N).normalized();
+    const Eigen::Vector3d ut_N = uh_N.cross(ur_N).normalized();
 
     /*! compute inertial-to-reference DCM at time of read */
     this->R0N.row(0) = ur_N;
@@ -133,20 +133,21 @@ void FlybyPointAlgorithm::computeRN(const Eigen::Vector3d& r_BN_N, const Eigen::
 
 std::tuple<Eigen::Vector3d, Eigen::Vector3d, Eigen::Vector3d> FlybyPointAlgorithm::computeGuidanceSolution() const {
     /*! compute DCM (RtR0) of reference frame from last read time */
-    double theta = std::atan(std::tan(this->gamma0) + this->f0 / std::cos(this->gamma0) * this->dt) - this->gamma0;
-    Eigen::Vector3d PRV_theta{0, 0, theta};
-    Eigen::Matrix3d RtR0 = prvToDcm(PRV_theta);
+    const double theta =
+        std::atan(std::tan(this->gamma0) + this->f0 / std::cos(this->gamma0) * this->dt) - this->gamma0;
+    const Eigen::Vector3d PRV_theta{0, 0, theta};
+    const Eigen::Matrix3d RtR0 = prvToDcm(PRV_theta);
 
     /*! compute DCM of reference frame at time t_0 + dt with respect to inertial frame */
-    Eigen::Matrix3d RtN = RtR0 * this->R0N;
+    const Eigen::Matrix3d RtN = RtR0 * this->R0N;
 
     /*! compute scalar angular rate and acceleration of the reference frame in R-frame coordinates */
-    double den = (this->f0 * this->f0 * this->dt * this->dt + 2 * this->f0 * sin(this->gamma0) * this->dt + 1);
-    double thetaDot = this->f0 * cos(this->gamma0) / den;
-    double thetaDDot =
+    const double den = (this->f0 * this->f0 * this->dt * this->dt + 2 * this->f0 * sin(this->gamma0) * this->dt + 1);
+    const double thetaDot = this->f0 * cos(this->gamma0) / den;
+    const double thetaDDot =
         -2 * this->f0 * this->f0 * cos(this->gamma0) * (this->f0 * this->dt + sin(this->gamma0)) / (den * den);
-    Eigen::Vector3d omega_RN_R{0, 0, thetaDot};
-    Eigen::Vector3d omegaDot_RN_R{0, 0, thetaDDot};
+    const Eigen::Vector3d omega_RN_R{0, 0, thetaDot};
+    const Eigen::Vector3d omegaDot_RN_R{0, 0, thetaDDot};
 
     /*! populate attRefOut with reference frame information */
     Eigen::Vector3d sigma_RN = dcmToMrp(RtN);
@@ -155,8 +156,8 @@ std::tuple<Eigen::Vector3d, Eigen::Vector3d, Eigen::Vector3d> FlybyPointAlgorith
         Eigen::Vector3d halfRotationX{1, 0, 0};
         sigma_RN = addMrp(sigma_RN, halfRotationX);
     }
-    Eigen::Vector3d omega_RN_N = RtN.transpose() * omega_RN_R;
-    Eigen::Vector3d omegaDot_RN_N = RtN.transpose() * omegaDot_RN_R;
+    const Eigen::Vector3d omega_RN_N = RtN.transpose() * omega_RN_R;
+    const Eigen::Vector3d omegaDot_RN_N = RtN.transpose() * omegaDot_RN_R;
 
     return {sigma_RN, omega_RN_N, omegaDot_RN_N};
 }

@@ -19,7 +19,7 @@ void FlybyPoint::updateState(uint64_t currentSimNanos) {
 }
 
 std::tuple<Eigen::Vector3d, Eigen::Vector3d> FlybyPoint::readRelativeState() {
-    NavTransMsgPayload relativeState = this->filterInMsg();
+    const NavTransMsgPayload relativeState = this->filterInMsg();
 
     Eigen::Vector3d r_BN_N(relativeState.r_BN_N[0], relativeState.r_BN_N[1], relativeState.r_BN_N[2]);
     Eigen::Vector3d v_BN_N(relativeState.v_BN_N[0], relativeState.v_BN_N[1], relativeState.v_BN_N[2]);
