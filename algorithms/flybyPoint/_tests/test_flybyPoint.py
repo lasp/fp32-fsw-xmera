@@ -17,9 +17,9 @@ fileName = os.path.basename(os.path.splitext(__file__)[0])
 @pytest.mark.parametrize("initial_velocity", [[2e4, 0, 0]])  # m/s - v_CN_N
 @pytest.mark.parametrize("filter_dt", [1, 60])  # s
 @pytest.mark.parametrize("orbit_normal_sign", [1, -1])
-@pytest.mark.parametrize("max_rate", [0, 0.01])
-@pytest.mark.parametrize("max_acceleration", [0, 1E-7])
-@pytest.mark.parametrize("pos_knowledge", [0, 1E5])
+@pytest.mark.parametrize("max_rate", [0.01, 1.0])
+@pytest.mark.parametrize("max_acceleration", [1E-7, 1.0])
+@pytest.mark.parametrize("pos_knowledge", [1.0, 1E5])
 def test_flybyPoint(show_plots, initial_position, initial_velocity, filter_dt, orbit_normal_sign, max_rate,
                     max_acceleration, pos_knowledge):
     r"""

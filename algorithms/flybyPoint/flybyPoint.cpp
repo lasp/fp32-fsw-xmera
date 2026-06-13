@@ -37,26 +37,44 @@ std::tuple<Eigen::Vector3d, Eigen::Vector3d> FlybyPoint::readRelativeState() {
 }
 
 void FlybyPoint::setTimeBetweenFilterData(double timeBetweenFilterData) {
+    if (timeBetweenFilterData <= 0.0) {
+        FSW_THROW_INVALID_ARGUMENT("flybyPoint: timeBetweenFilterData must be > 0");
+    }
     this->algorithm.setTimeBetweenFilterData(timeBetweenFilterData);
 }
 
 void FlybyPoint::setToleranceForCollinearity(double toleranceForCollinearity) {
+    if (toleranceForCollinearity <= 0.0) {
+        FSW_THROW_INVALID_ARGUMENT("flybyPoint: toleranceForCollinearity must be > 0");
+    }
     this->algorithm.setToleranceForCollinearity(toleranceForCollinearity);
 }
 
 void FlybyPoint::setSignOfOrbitNormalFrameVector(int signOfOrbitNormalFrameVector) {
+    if (signOfOrbitNormalFrameVector != 1 && signOfOrbitNormalFrameVector != -1) {
+        FSW_THROW_INVALID_ARGUMENT("flybyPoint: signOfOrbitNormalFrameVector must be +1 or -1");
+    }
     this->algorithm.setSignOfOrbitNormalFrameVector(signOfOrbitNormalFrameVector);
 }
 
 void FlybyPoint::setMaximumRateThreshold(double maximumRateThreshold) {
+    if (maximumRateThreshold <= 0.0) {
+        FSW_THROW_INVALID_ARGUMENT("flybyPoint: maximumRateThreshold must be > 0");
+    }
     this->algorithm.setMaximumRateThreshold(maximumRateThreshold);
 }
 
 void FlybyPoint::setMaximumAccelerationThreshold(double maximumAccelerationThreshold) {
+    if (maximumAccelerationThreshold <= 0.0) {
+        FSW_THROW_INVALID_ARGUMENT("flybyPoint: maximumAccelerationThreshold must be > 0");
+    }
     this->algorithm.setMaximumAccelerationThreshold(maximumAccelerationThreshold);
 }
 
 void FlybyPoint::setPositionKnowledgeSigma(double positionKnowledgeStd) {
+    if (positionKnowledgeStd <= 0.0) {
+        FSW_THROW_INVALID_ARGUMENT("flybyPoint: positionKnowledgeSigma must be > 0");
+    }
     this->algorithm.setPositionKnowledgeSigma(positionKnowledgeStd);
 }
 
