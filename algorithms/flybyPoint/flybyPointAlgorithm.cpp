@@ -32,11 +32,11 @@ AttGuideOutput FlybyPointAlgorithm::updateState(uint64_t currentSimNanos,
     /*! init diagnostic message */
     AttGuideOutput output{};
     /*! compute dt from current time and last filter read time and get new states*/
-    this->dt = (currentSimNanos - this->lastFilterReadTime) * NANO2SEC;
+    this->dt = static_cast<double>(currentSimNanos - this->lastFilterReadTime) * NANO2SEC;
     if ((this->dt >= this->cfg.getTimeBetweenFilterData()) || this->firstRead) {
         /*! If this is the first read, seed the algorithm with the solution  */
         if (this->firstRead) {
-            this->timeOfFirstRead = currentSimNanos * NANO2SEC;
+            this->timeOfFirstRead = static_cast<double>(currentSimNanos) * NANO2SEC;
             this->firstNavPosition = r_BN_N;
             this->firstNavVelocity = v_BN_N;
             this->computeFlybyParameters(r_BN_N, v_BN_N);
@@ -112,7 +112,7 @@ bool FlybyPointAlgorithm::checkValidity(uint64_t currentSimNanos,
     }
 
     /*! check if the position error exceeds a-priori sigma bound */
-    const double deltaT = currentSimNanos * NANO2SEC - this->timeOfFirstRead;
+    const double deltaT = static_cast<double>(currentSimNanos) * NANO2SEC - this->timeOfFirstRead;
     const double deltaPositionNorm = (r_BN_N - (this->firstNavPosition + deltaT * this->firstNavVelocity)).norm();
     if (deltaPositionNorm > this->cfg.getPositionKnowledgeSigma() && this->cfg.getPositionKnowledgeSigma() > 0) {
         valid = false;
@@ -140,7 +140,7 @@ void FlybyPointAlgorithm::computeRN(const Eigen::Vector3d& r_BN_N, const Eigen::
 
 std::tuple<Eigen::Vector3d, Eigen::Vector3d, Eigen::Vector3d> FlybyPointAlgorithm::computeGuidanceSolution() const {
     /*! compute DCM (RtR0) of reference frame from last read time */
-    const double theta = safeAtan(safeTan(this->gamma0) + this->f0 / safeCos(this->gamma0) * this->dt) - this->gamma0;
+    const double theta = safeAtan(safeTan(this->gamma0) + (this->f0 / safeCos(this->gamma0) * this->dt)) - this->gamma0;
     const Eigen::Vector3d PRV_theta{0, 0, theta};
     const Eigen::Matrix3d RtR0 = prvToDcm(PRV_theta);
 
@@ -149,7 +149,7 @@ std::tuple<Eigen::Vector3d, Eigen::Vector3d, Eigen::Vector3d> FlybyPointAlgorith
 
     /*! compute scalar angular rate and acceleration of the reference frame in R-frame coordinates */
     const double den =
-        (this->f0 * this->f0 * this->dt * this->dt + 2 * this->f0 * safeSin(this->gamma0) * this->dt + 1);
+        ((this->f0 * this->f0 * this->dt * this->dt) + (2 * this->f0 * safeSin(this->gamma0) * this->dt) + 1);
     const double thetaDot = this->f0 * safeCos(this->gamma0) / den;
     const double thetaDDot =
         -2 * this->f0 * this->f0 * safeCos(this->gamma0) * (this->f0 * this->dt + safeSin(this->gamma0)) / (den * den);
@@ -160,7 +160,7 @@ std::tuple<Eigen::Vector3d, Eigen::Vector3d, Eigen::Vector3d> FlybyPointAlgorith
     Eigen::Vector3d sigma_RN = dcmToMrp(RtN);
 
     if (this->cfg.getSignOfOrbitNormalFrameVector() == -1) {
-        Eigen::Vector3d halfRotationX{1, 0, 0};
+        Eigen::Vector3d const halfRotationX{1, 0, 0};
         sigma_RN = addMrp(sigma_RN, halfRotationX);
     }
     const Eigen::Vector3d omega_RN_N = RtN.transpose() * omega_RN_R;
