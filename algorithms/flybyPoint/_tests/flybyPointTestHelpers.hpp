@@ -62,9 +62,7 @@ inline void referenceComputeFlybyParameters(ReferenceFlybyState& s,
  @param r The relative position state [m]
  @param v The relative velocity state [m/s]
  */
-inline void referenceComputeRN(ReferenceFlybyState& s,
-                               const Eigen::Vector3d& r,
-                               const Eigen::Vector3d& v) {
+inline void referenceComputeRN(ReferenceFlybyState& s, const Eigen::Vector3d& r, const Eigen::Vector3d& v) {
     const Eigen::Vector3d ur = r.normalized();
     const Eigen::Vector3d uv = v.normalized();
     const Eigen::Vector3d uh = ur.cross(uv).normalized();
@@ -123,8 +121,7 @@ inline ReferenceFlybyOutput referenceGuidanceSolution(const ReferenceFlybyState&
 
     const double den = s.f0 * s.f0 * s.dt * s.dt + 2.0 * s.f0 * safeSin(s.gamma0) * s.dt + 1.0;
     const double thetaDot = s.f0 * safeCos(s.gamma0) / den;
-    const double thetaDDot =
-        -2.0 * s.f0 * s.f0 * safeCos(s.gamma0) * (s.f0 * s.dt + safeSin(s.gamma0)) / (den * den);
+    const double thetaDDot = -2.0 * s.f0 * s.f0 * safeCos(s.gamma0) * (s.f0 * s.dt + safeSin(s.gamma0)) / (den * den);
 
     Eigen::Vector3d sigma_RN = dcmToMrp(RtN);
     if (signOfOrbitNormal == -1) {
