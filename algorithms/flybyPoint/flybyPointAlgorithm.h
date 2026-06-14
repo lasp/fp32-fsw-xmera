@@ -94,6 +94,8 @@ class FlybyPointAlgorithm final {
     void setConfig(const FlybyPointConfig& config);
     void reset();
     AttGuideOutput updateState(uint64_t currentSimNanos, const Eigen::Vector3d& r_BN_N, const Eigen::Vector3d& v_BN_N);
+
+   private:
     bool checkValidity(uint64_t currentSimNanos,
                        const Eigen::Vector3d& r_BN_N,
                        const Eigen::Vector3d& v_BN_N,
@@ -101,8 +103,6 @@ class FlybyPointAlgorithm final {
     void computeFlybyParameters(const Eigen::Vector3d& r_BN_N, const Eigen::Vector3d& v_BN_N);
     void computeRN(const Eigen::Vector3d& r_BN_N, const Eigen::Vector3d& v_BN_N);
     std::tuple<Eigen::Vector3d, Eigen::Vector3d, Eigen::Vector3d> computeGuidanceSolution() const;
-
-   private:
     FlybyPointConfig cfg;
     double dt = 0;                    //!< current time step between last two updates
     double timeOfFirstRead = 0;       //!< time of first nav solution read
