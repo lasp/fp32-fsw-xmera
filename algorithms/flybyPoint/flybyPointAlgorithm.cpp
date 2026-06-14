@@ -128,9 +128,9 @@ void FlybyPointAlgorithm::computeRN(const Eigen::Vector3d& r_BN_N, const Eigen::
     const Eigen::Vector3d ut_N = uh_N.cross(ur_N).normalized();
 
     /*! compute inertial-to-reference DCM at time of read */
-    this->R0N.row(0) = ur_N;
-    this->R0N.row(1) = ut_N;
-    this->R0N.row(2) = uh_N;
+    this->R0N.row(0) = ur_N.cast<float>();
+    this->R0N.row(1) = ut_N.cast<float>();
+    this->R0N.row(2) = uh_N.cast<float>();
 }
 
 std::tuple<Eigen::Vector3d, Eigen::Vector3d, Eigen::Vector3d> FlybyPointAlgorithm::computeGuidanceSolution() const {
@@ -140,7 +140,7 @@ std::tuple<Eigen::Vector3d, Eigen::Vector3d, Eigen::Vector3d> FlybyPointAlgorith
     const Eigen::Matrix3d RtR0 = prvToDcm(PRV_theta);
 
     /*! compute DCM of reference frame at time t_0 + dt with respect to inertial frame */
-    const Eigen::Matrix3d RtN = RtR0 * this->R0N;
+    const Eigen::Matrix3d RtN = RtR0 * this->R0N.cast<double>();
 
     /*! compute scalar angular rate and acceleration of the reference frame in R-frame coordinates */
     const double den =
@@ -168,9 +168,9 @@ double FlybyPointAlgorithm::getTimeBetweenFilterData() const { return this->time
 
 void FlybyPointAlgorithm::setTimeBetweenFilterData(double time) { this->timeBetweenFilterData = time; }
 
-double FlybyPointAlgorithm::getToleranceForCollinearity() const { return this->toleranceForCollinearity; }
+float FlybyPointAlgorithm::getToleranceForCollinearity() const { return this->toleranceForCollinearity; }
 
-void FlybyPointAlgorithm::setToleranceForCollinearity(double tolerance) { this->toleranceForCollinearity = tolerance; }
+void FlybyPointAlgorithm::setToleranceForCollinearity(float tolerance) { this->toleranceForCollinearity = tolerance; }
 
 /*! Get the sign (+1 or -1) of the axis of rotation of the Z axis during the flyby
  @return int sign (+1 or -1)
@@ -185,33 +185,33 @@ void FlybyPointAlgorithm::setSignOfOrbitNormalFrameVector(int sign) { this->sign
 /*! Get the maximum acceleration threshold to consider a solution invalid
  @return double maximum acceleration
  */
-double FlybyPointAlgorithm::getMaximumAccelerationThreshold() const { return this->maxAcceleration; }
+float FlybyPointAlgorithm::getMaximumAccelerationThreshold() const { return this->maxAcceleration; }
 
 /*! Set the maximum acceleration threshold to consider a solution invalid
- @param double maximum acceleration
+ @param float maximum acceleration
  */
-void FlybyPointAlgorithm::setMaximumAccelerationThreshold(double maxAccelerationThreshold) {
+void FlybyPointAlgorithm::setMaximumAccelerationThreshold(float maxAccelerationThreshold) {
     this->maxAcceleration = maxAccelerationThreshold;
 }
 
 /*! Get the maximum rate threshold to consider a solution invalid
  @return maximum rate
  */
-double FlybyPointAlgorithm::getMaximumRateThreshold() const { return this->maxRate; }
+float FlybyPointAlgorithm::getMaximumRateThreshold() const { return this->maxRate; }
 
 /*! Set the maximum rate threshold to consider a solution invalid
  @param maximum rate
  */
-void FlybyPointAlgorithm::setMaximumRateThreshold(double maxRateThreshold) { this->maxRate = maxRateThreshold; }
+void FlybyPointAlgorithm::setMaximumRateThreshold(float maxRateThreshold) { this->maxRate = maxRateThreshold; }
 
 /*! Get the ground based positional knowledge standard deviation
  @return sigma
  */
-double FlybyPointAlgorithm::getPositionKnowledgeSigma() const { return this->positionKnowledgeSigma; }
+float FlybyPointAlgorithm::getPositionKnowledgeSigma() const { return this->positionKnowledgeSigma; }
 
 /*! Set the ground based positional knowledge sigma
  @param sigma
  */
-void FlybyPointAlgorithm::setPositionKnowledgeSigma(double positionKnowledgeStd) {
+void FlybyPointAlgorithm::setPositionKnowledgeSigma(float positionKnowledgeStd) {
     this->positionKnowledgeSigma = positionKnowledgeStd;
 }

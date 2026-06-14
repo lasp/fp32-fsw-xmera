@@ -43,8 +43,8 @@ void FlybyPoint::setTimeBetweenFilterData(double timeBetweenFilterData) {
     this->algorithm.setTimeBetweenFilterData(timeBetweenFilterData);
 }
 
-void FlybyPoint::setToleranceForCollinearity(double toleranceForCollinearity) {
-    if (toleranceForCollinearity <= 0.0) {
+void FlybyPoint::setToleranceForCollinearity(float toleranceForCollinearity) {
+    if (toleranceForCollinearity <= 0.0f) {
         FSW_THROW_INVALID_ARGUMENT("flybyPoint: toleranceForCollinearity must be > 0");
     }
     this->algorithm.setToleranceForCollinearity(toleranceForCollinearity);
@@ -57,22 +57,22 @@ void FlybyPoint::setSignOfOrbitNormalFrameVector(int signOfOrbitNormalFrameVecto
     this->algorithm.setSignOfOrbitNormalFrameVector(signOfOrbitNormalFrameVector);
 }
 
-void FlybyPoint::setMaximumRateThreshold(double maximumRateThreshold) {
-    if (maximumRateThreshold <= 0.0) {
+void FlybyPoint::setMaximumRateThreshold(float maximumRateThreshold) {
+    if (maximumRateThreshold <= 0.0f) {
         FSW_THROW_INVALID_ARGUMENT("flybyPoint: maximumRateThreshold must be > 0");
     }
     this->algorithm.setMaximumRateThreshold(maximumRateThreshold);
 }
 
-void FlybyPoint::setMaximumAccelerationThreshold(double maximumAccelerationThreshold) {
-    if (maximumAccelerationThreshold <= 0.0) {
+void FlybyPoint::setMaximumAccelerationThreshold(float maximumAccelerationThreshold) {
+    if (maximumAccelerationThreshold <= 0.0f) {
         FSW_THROW_INVALID_ARGUMENT("flybyPoint: maximumAccelerationThreshold must be > 0");
     }
     this->algorithm.setMaximumAccelerationThreshold(maximumAccelerationThreshold);
 }
 
-void FlybyPoint::setPositionKnowledgeSigma(double positionKnowledgeStd) {
-    if (positionKnowledgeStd <= 0.0) {
+void FlybyPoint::setPositionKnowledgeSigma(float positionKnowledgeStd) {
+    if (positionKnowledgeStd <= 0.0f) {
         FSW_THROW_INVALID_ARGUMENT("flybyPoint: positionKnowledgeSigma must be > 0");
     }
     this->algorithm.setPositionKnowledgeSigma(positionKnowledgeStd);
@@ -80,12 +80,12 @@ void FlybyPoint::setPositionKnowledgeSigma(double positionKnowledgeStd) {
 
 double FlybyPoint::getTimeBetweenFilterData() const { return this->algorithm.getTimeBetweenFilterData(); }
 
-double FlybyPoint::getToleranceForCollinearity() const { return this->algorithm.getToleranceForCollinearity(); }
+float FlybyPoint::getToleranceForCollinearity() const { return this->algorithm.getToleranceForCollinearity(); }
 
 int FlybyPoint::getSignOfOrbitNormalFrameVector() const { return this->algorithm.getSignOfOrbitNormalFrameVector(); }
 
-double FlybyPoint::getMaximumAccelerationThreshold() const { return this->algorithm.getMaximumAccelerationThreshold(); }
+float FlybyPoint::getMaximumAccelerationThreshold() const { return this->algorithm.getMaximumAccelerationThreshold(); }
 
-double FlybyPoint::getMaximumRateThreshold() const { return this->algorithm.getMaximumRateThreshold(); }
+float FlybyPoint::getMaximumRateThreshold() const { return this->algorithm.getMaximumRateThreshold(); }
 
-double FlybyPoint::getPositionKnowledgeSigma() const { return this->algorithm.getPositionKnowledgeSigma(); }
+float FlybyPoint::getPositionKnowledgeSigma() const { return this->algorithm.getPositionKnowledgeSigma(); }
