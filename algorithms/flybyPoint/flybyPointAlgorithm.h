@@ -66,7 +66,7 @@ class FlybyPointConfig final {
     float getPositionKnowledgeSigma() const { return positionKnowledgeSigma; }
 
    private:
-    FlybyPointConfig(double timeBetweenFilterData,
+    FlybyPointConfig(double timeBetweenFilterData,  // NOLINT(bugprone-easily-swappable-parameters)
                      float toleranceForCollinearity,
                      int signOfOrbitNormalFrameVector,
                      float maximumRateThreshold,
