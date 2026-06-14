@@ -1,6 +1,5 @@
 #include "flybyPoint.h"
 #include "utilities/fsw/eigenSupport.h"
-#include <stdexcept>
 
 FlybyPoint::FlybyPoint() { this->algorithm = FlybyPointAlgorithm(); }
 
@@ -40,7 +39,7 @@ void FlybyPoint::setTimeBetweenFilterData(double timeBetweenFilterData) {
     this->algorithm.setTimeBetweenFilterData(timeBetweenFilterData);
 }
 
-void FlybyPoint::setToleranceForCollinearity(double toleranceForCollinearity) {
+void FlybyPoint::setToleranceForCollinearity(float toleranceForCollinearity) {
     this->algorithm.setToleranceForCollinearity(toleranceForCollinearity);
 }
 
@@ -48,26 +47,26 @@ void FlybyPoint::setSignOfOrbitNormalFrameVector(int signOfOrbitNormalFrameVecto
     this->algorithm.setSignOfOrbitNormalFrameVector(signOfOrbitNormalFrameVector);
 }
 
-void FlybyPoint::setMaximumRateThreshold(double maximumRateThreshold) {
+void FlybyPoint::setMaximumRateThreshold(float maximumRateThreshold) {
     this->algorithm.setMaximumRateThreshold(maximumRateThreshold);
 }
 
-void FlybyPoint::setMaximumAccelerationThreshold(double maximumAccelerationThreshold) {
+void FlybyPoint::setMaximumAccelerationThreshold(float maximumAccelerationThreshold) {
     this->algorithm.setMaximumAccelerationThreshold(maximumAccelerationThreshold);
 }
 
-void FlybyPoint::setPositionKnowledgeSigma(double positionKnowledgeStd) {
+void FlybyPoint::setPositionKnowledgeSigma(float positionKnowledgeStd) {
     this->algorithm.setPositionKnowledgeSigma(positionKnowledgeStd);
 }
 
 double FlybyPoint::getTimeBetweenFilterData() const { return this->algorithm.getTimeBetweenFilterData(); }
 
-double FlybyPoint::getToleranceForCollinearity() const { return this->algorithm.getToleranceForCollinearity(); }
+float FlybyPoint::getToleranceForCollinearity() const { return this->algorithm.getToleranceForCollinearity(); }
 
 int FlybyPoint::getSignOfOrbitNormalFrameVector() const { return this->algorithm.getSignOfOrbitNormalFrameVector(); }
 
-double FlybyPoint::getMaximumAccelerationThreshold() const { return this->algorithm.getMaximumAccelerationThreshold(); }
+float FlybyPoint::getMaximumAccelerationThreshold() const { return this->algorithm.getMaximumAccelerationThreshold(); }
 
-double FlybyPoint::getMaximumRateThreshold() const { return this->algorithm.getMaximumRateThreshold(); }
+float FlybyPoint::getMaximumRateThreshold() const { return this->algorithm.getMaximumRateThreshold(); }
 
-double FlybyPoint::getPositionKnowledgeSigma() const { return this->algorithm.getPositionKnowledgeSigma(); }
+float FlybyPoint::getPositionKnowledgeSigma() const { return this->algorithm.getPositionKnowledgeSigma(); }

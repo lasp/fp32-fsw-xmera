@@ -18,16 +18,16 @@ class FlybyPoint : public SysModel {
     std::tuple<Eigen::Vector3d, Eigen::Vector3d> readRelativeState();
     double getTimeBetweenFilterData() const;
     void setTimeBetweenFilterData(double timeBetweenFilterData);
-    double getToleranceForCollinearity() const;
-    void setToleranceForCollinearity(double toleranceForCollinearity);
+    float getToleranceForCollinearity() const;
+    void setToleranceForCollinearity(float toleranceForCollinearity);
     int getSignOfOrbitNormalFrameVector() const;
     void setSignOfOrbitNormalFrameVector(int signOfOrbitNormalFrameVector);
-    double getMaximumAccelerationThreshold() const;
-    void setMaximumAccelerationThreshold(double maxAccelerationThreshold);
-    double getMaximumRateThreshold() const;
-    void setMaximumRateThreshold(double maxRateThreshold);
-    double getPositionKnowledgeSigma() const;
-    void setPositionKnowledgeSigma(double positionKnowledgeStd);
+    float getMaximumAccelerationThreshold() const;
+    void setMaximumAccelerationThreshold(float maxAccelerationThreshold);
+    float getMaximumRateThreshold() const;
+    void setMaximumRateThreshold(float maxRateThreshold);
+    float getPositionKnowledgeSigma() const;
+    void setPositionKnowledgeSigma(float positionKnowledgeStd);
 
     ReadFunctor<NavTransMsgF32Payload> filterInMsg;               //!< input msg relative position w.r.t. asteroid
     Message<AttRefMsgF32Payload> attRefOutMsg;                    //!< Attitude reference output message
