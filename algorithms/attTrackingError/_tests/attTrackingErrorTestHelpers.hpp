@@ -4,7 +4,6 @@
 #include "attTrackingErrorAlgorithm.h"
 #include "utilities/fsw/eigenSupport.h"
 #include "utilities/fsw/rigidBodyKinematics.hpp"
-
 #include <gtest/gtest.h>
 #include <math.h>
 #include <Eigen/Core>

@@ -3,6 +3,8 @@
 
 algorithms/attTrackingError/attTrackingError.h
 algorithms/attTrackingError/attTrackingError.cpp
+algorithms/attTrackingError/attTrackingErrorAlgorithm_c.h
+algorithms/attTrackingError/attTrackingErrorAlgorithm_c.cpp
 algorithms/averageMimuData/averageMimuData.h
 algorithms/averageMimuData/averageMimuData.cpp
 algorithms/bodyRateMiscompare/bodyRateMiscompare.h
