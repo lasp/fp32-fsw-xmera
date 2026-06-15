@@ -24,6 +24,16 @@ struct AttGuidOutput {
     Eigen::Vector3f domega_RN_B = Eigen::Vector3f::Zero();
 };
 
+/*! @brief Configuration for the attitude tracking error algorithm. The algorithm has no tunable
+ * parameters, so the config carries no state; it exists for lifecycle and C-shim uniformity. */
+class AttTrackingErrorConfig final {
+   public:
+    static AttTrackingErrorConfig create() { return AttTrackingErrorConfig{}; }
+
+   private:
+    AttTrackingErrorConfig() = default;
+};
+
 class AttTrackingErrorAlgorithm {
    public:
     AttGuidOutput update(const AttNavInput& navIn, const AttRefInput& refIn);  //!< Algorithm update method
