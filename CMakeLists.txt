@@ -101,6 +101,7 @@ set(algorithms
     "celestialTwoBodyPoint"
     "convertStPlatformToBody"
     "cssComm"
+    "dvAccumulation"
     "dvGuidance"
     "ephemeridesRecenter"
     "forceTorqueThrForceMapping"
