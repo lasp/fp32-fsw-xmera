@@ -27,7 +27,7 @@ class AttTrackingError : public SysModel {
     ReadFunctor<AttRefMsgF32Payload> attRefInMsg;  //!< Input msg of reference attitude
 
    private:
-    AttTrackingErrorAlgorithm algorithm{};
+    AttTrackingErrorAlgorithm algorithm{AttTrackingErrorConfig::create()};
 };
 
 #endif

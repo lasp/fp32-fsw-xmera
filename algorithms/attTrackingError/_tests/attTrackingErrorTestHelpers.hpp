@@ -54,7 +54,7 @@ inline void regressionTestAttTrackingError(const Eigen::Vector3f& sigma_BN,
                                            const Eigen::Vector3f& omega_RN_N,
                                            const Eigen::Vector3f& domega_RN_N) {
     // --- Regression test using expected update algorithm ---
-    AttTrackingErrorAlgorithm alg{};
+    AttTrackingErrorAlgorithm alg{AttTrackingErrorConfig::create()};
 
     AttNavInput navIn{};
     AttRefInput refIn{};
@@ -111,7 +111,7 @@ inline void regressionTestAttTrackingError(const Eigen::Vector3f& sigma_BN,
 // angular rates are zero, the attitude and angular velocity errors are also zero.
 
 inline void zeroPropertyTest(const Eigen::Vector3f& sigma_BN) {
-    AttTrackingErrorAlgorithm alg{};
+    AttTrackingErrorAlgorithm alg{AttTrackingErrorConfig::create()};
 
     AttNavInput navIn{};
     AttRefInput refIn{};
@@ -138,7 +138,7 @@ inline void zeroPropertyTest(const Eigen::Vector3f& sigma_BN) {
 // So, transforming reference angular velocity and acceleration to the body frame should yield identical values.
 
 inline void identityPropertyTest(const Eigen::Vector3f& omega_RN_N, const Eigen::Vector3f& domega_RN_N) {
-    AttTrackingErrorAlgorithm alg{};
+    AttTrackingErrorAlgorithm alg{AttTrackingErrorConfig::create()};
 
     AttNavInput navIn{};
     AttRefInput refIn{};
@@ -166,7 +166,7 @@ inline void finitenessPropertyTest(const Eigen::Vector3f& sigma_BN,
                                    const Eigen::Vector3f& sigma_RN,
                                    const Eigen::Vector3f& omega_RN_N,
                                    const Eigen::Vector3f& domega_RN_N) {
-    AttTrackingErrorAlgorithm alg{};
+    AttTrackingErrorAlgorithm alg{AttTrackingErrorConfig::create()};
 
     AttNavInput navIn{};
     AttRefInput refIn{};

@@ -5,7 +5,7 @@
 
 AttTrackingErrorAlgorithmHandle* AttTrackingErrorAlgorithm_create(void) {
     // clang-format off
-    return reinterpret_cast<AttTrackingErrorAlgorithmHandle*>(new ::AttTrackingErrorAlgorithm());  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+    return reinterpret_cast<AttTrackingErrorAlgorithmHandle*>(new ::AttTrackingErrorAlgorithm(AttTrackingErrorConfig::create()));  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
     // clang-format on
 }
 

@@ -2,6 +2,12 @@
 
 #include "utilities/fsw/rigidBodyKinematics.hpp"
 
+AttTrackingErrorAlgorithm::AttTrackingErrorAlgorithm(const AttTrackingErrorConfig& config) : cfg(config) {
+    setConfig(config);
+}
+
+void AttTrackingErrorAlgorithm::setConfig(const AttTrackingErrorConfig& config) { this->cfg = config; }
+
 /*! This method computes the attitude and rate tracking errors between the spacecraft navigation attitude and the
  reference attitude and outputs the corresponding guidance errors.
  @param navIn navigation attitude inputs (sigma_BN and omega_BN_B)
@@ -9,7 +15,7 @@
  @return AttGuidOutput guidance outputs (sigma_BR, omega_BR_B, omega_RN_B and domega_RN_B)
 */
 // clang-format off
-AttGuidOutput AttTrackingErrorAlgorithm::update(const AttNavInput& navIn, const AttRefInput& refIn) {  // NOLINT(readability-convert-member-functions-to-static)
+AttGuidOutput AttTrackingErrorAlgorithm::update(const AttNavInput& navIn, const AttRefInput& refIn) const {  // NOLINT(readability-convert-member-functions-to-static)
     // clang-format on
     AttGuidOutput output{};
 

@@ -34,9 +34,14 @@ class AttTrackingErrorConfig final {
     AttTrackingErrorConfig() = default;
 };
 
-class AttTrackingErrorAlgorithm {
+class AttTrackingErrorAlgorithm final {
    public:
-    AttGuidOutput update(const AttNavInput& navIn, const AttRefInput& refIn);  //!< Algorithm update method
+    explicit AttTrackingErrorAlgorithm(const AttTrackingErrorConfig& config);
+    void setConfig(const AttTrackingErrorConfig& config);
+    AttGuidOutput update(const AttNavInput& navIn, const AttRefInput& refIn) const;  //!< Algorithm update method
+
+   private:
+    AttTrackingErrorConfig cfg;
 };
 
 #endif
