@@ -5,7 +5,7 @@
 
 void ConvertStPlatformToBody::reset(uint64_t callTime) {
     if (!this->stSensorInMsg.isLinked()) {
-        this->bskLogger.bskLog(BSK_ERROR, "Error: convertStPlatformToBody.stSensorInMsg wasn't connected.");
+        throw std::invalid_argument("convertStPlatformToBody.stSensorInMsg wasn't connected.");
     }
 }
 

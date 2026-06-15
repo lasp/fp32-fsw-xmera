@@ -7,7 +7,6 @@
 #include <architecture/messaging/messaging.h>
 #include <architecture/msgPayloadDef/STAttMsgPayload.h>
 #include <architecture/msgPayloadDef/STSensorMsgPayload.h>
-#include <architecture/utilities/bskLogging.h>
 
 #include <Eigen/Core>
 
@@ -27,8 +26,6 @@ class ConvertStPlatformToBody : public SysModel {
 
     ReadFunctor<STSensorMsgPayload> stSensorInMsg;  //!< Input msg
     Message<STAttMsgPayload> stAttOutMsg;           //!< Output msg
-
-    BSKLogger bskLogger{};  //!< BSK Logging
 
    private:
     ConvertStPlatformToBodyAlgorithm algorithm{};
