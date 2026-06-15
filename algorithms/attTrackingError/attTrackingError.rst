@@ -24,13 +24,13 @@ The following table lists all the module input and output messages:
       - Msg Type
       - Description
     * - attGuidOutMsg
-      - :ref:`AttGuidMsgPayload`
+      - :ref:`AttGuidMsgF32Payload`
       - Attitude guidance tracking errors output message
     * - attNavInMsg
-      - :ref:`NavAttMsgPayload`
+      - :ref:`NavAttMsgF32Payload`
       - Attitude navigation input message
     * - attRefInMsg
-      - :ref:`AttRefMsgPayload`
+      - :ref:`AttRefMsgF32Payload`
       - Attitude reference input message
 
 
@@ -41,13 +41,12 @@ Module Functions
 Below is a list of operations that this module performs:
 
 - Reads the incoming attitude navigation and attitude reference messages
-- Converts messages from double precision to floats precision
-- Converts C arrays to Eigen vectors to perform mathematical operations
+- Converts the message C arrays to Eigen vectors to perform mathematical operations
 - Computes the attitude tracking error between the spacecraft body and reference frames
 - Transforms the reference angular velocity to body frame components
 - Computes the angular velocity tracking error
 - Transforms the reference angular velocity and acceleration to body frame components
-- Converts the float guidance message back into doubles to match the message system format
+- Converts the Eigen outputs back to C arrays for the output payload
 - Writes the guidance module output message to be used by downstream FSW modules
 
 
@@ -69,19 +68,18 @@ The algorithm represents the pure mathematical logic of the module, while the ad
 The adapter allows for FSW interface and it's responsible of:
 
 - Initializing the module by checking that input messages are properly linked using `reset()` function
+- Constructing the algorithm from a validated `AttTrackingErrorConfig` in `reset()` (two-phase initialization)
 - Reporting an error condition and preventing module execution in case of unlinked input messages
 - Reading the input messages (`attNavInMsg`, `attRefInMsg`)
-- Converting the message data from double to floats
-- Converting C arrays to Eigen vector
+- Converting the message C arrays to Eigen vectors
 - Adding inputs into structs (`AttNavInput` and `AttRefInput`)
 - Calling the attitude tracking error algorithm `AttTrackingErrorAlgorithm`
 - Converting outputs back to C arrays
-- Converting output message data back to doubles to pass them into the output message payload
 - Write the attitude guidance output message `attGuidOutMsg`
 
 **2.Algorithm Layer**
 
-The algorithm performs the core mathematical computations and it is designed to be separated from the FSW messaging framework. It operates using input and output float struct that are defined in :ref:`attTrackingErrorTypes.h` file.
+The algorithm performs the core mathematical computations and it is designed to be separated from the FSW messaging framework. It operates using the input and output float structs (`AttNavInput`, `AttRefInput`, and `AttGuidOutput`) defined in the algorithm header `attTrackingErrorAlgorithm.h`. The algorithm has no tunable parameters, so its `AttTrackingErrorConfig` carries no state; it exists for lifecycle uniformity and is built once per `reset()`.
 
 
 -------------------------------------
@@ -138,7 +136,7 @@ Module Interaction Diagram
 
 The diagram illustrates how the module acts as a bridge to connect between navigation and control systems. It takes the current spacecraft attitude and angular velocity from the navigation message and the desired attitude, angular velocity, and angular acceleration from the reference message. It then computes the attitude and angular velocity tracking errors expressed in the body frame and outputs them in the guidance message. These outputs are then used by downstream control modules (e.g. mrpPD).
 
-.. figure:: attTrackingError.drawio.png
+.. figure:: ./_Documentation/Images/attTrackingError.drawio.png
    :align: center
    :width: 100%
 
