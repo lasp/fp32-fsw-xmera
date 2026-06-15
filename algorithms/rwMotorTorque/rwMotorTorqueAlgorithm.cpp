@@ -1,135 +1,183 @@
 #include "rwMotorTorqueAlgorithm.h"
 #include "utilities/freestandingInvalidArgument.h"
-#include <architecture/utilities/eigenSupport.h>
-#include <stdint.h>
-#include <Eigen/LU>
+#include <Eigen/SVD>
+#include <algorithm>
+#include <cstdint>
+#include <limits>
+#include <optional>
 
-/*! This method configures the module by populating any necessary class members.
- @return void
- @param rwParamsInMsg struct to store message containing RW config parameters
- @param wheelsAvailability availability of reaction wheels
- @param rwAvailIsLinked boolean indicating whether RWAvailabilityMsg is linked
- */
-void RwMotorTorqueAlgorithm::configure(RWArrayConfigMsgF32Payload& rwParamsInMsg,
-                                       RWAvailabilityMsgPayload& wheelsAvailability,
-                                       bool rwAvailIsLinked) {
-    // wheelAvailability set to 0 (AVAILABLE) by default
+namespace {
 
-    /*!- configure the number of axes that are controlled.
-     This is determined by checking for a zero row to determinate search */
-    this->numControlAxes = 0U;
+// The configuration-dependent maps precomputed by computeRwMapping() and applied by update().
+struct RwMotorTorqueMapping {
+    Eigen::Matrix<float, kMaxNumRw, 3> motorTorqueMap{
+        Eigen::Matrix<float, kMaxNumRw, 3>::Zero()};  //!< [-] body control torque -> per-RW motor torques
+    Eigen::Matrix<float, kMaxNumRw, kMaxNumRw> tau{
+        Eigen::Matrix<float, kMaxNumRw, kMaxNumRw>::Zero()};  //!< [-] RW null-space projection
+};
+
+// Configurations whose pseudo-inverted operator -- [CGs] for the control map, [Gs] for the null-space
+// projector -- has a condition number above 1 / kConditioningTol = 100 are rejected, so a near-degenerate
+// layout (which would amplify command and fp32 error, or yield an unreliable null-space) can never be configured.
+constexpr float kConditioningTol = 1e-2F;
+
+/*! Builds the RW null-space projection [tau], the orthogonal projector onto the null space of the available-
+ wheel spin-axis matrix [Gs] (in-position, zero columns for unavailable wheels). [tau] is built from the right
+ singular vectors of [Gs] -- [tau] = [I] - [Vr][Vr]^T where [Vr] spans the row space -- so [Gs][tau] == 0 to
+ machine precision. Returns the zero matrix (null-space disabled) when there are three or fewer available wheels,
+ and nullopt when more than three available wheels are ill-conditioned (cond([Gs]) > 100, which also covers a
+ rank-deficient array that does not span 3-D). */
+std::optional<Eigen::Matrix<float, kMaxNumRw, kMaxNumRw>> computeNullSpaceProjection(
+    const Eigen::Matrix<float, 3, kMaxNumRw>& G_s_B,
+    uint32_t numAvailRW) {
+    if (numAvailRW <= 3U) {
+        return Eigen::Matrix<float, kMaxNumRw, kMaxNumRw>::Zero();
+    }
+
+    const Eigen::JacobiSVD<Eigen::Matrix<float, 3, kMaxNumRw>> gsSvd(G_s_B, Eigen::ComputeFullV);
+    const Eigen::Vector3f& gsSingularValues = gsSvd.singularValues();
+    if (gsSingularValues(2) <= gsSingularValues(0) * kConditioningTol) {
+        return std::nullopt;
+    }
+
+    const Eigen::Matrix<float, kMaxNumRw, 3> Vr = gsSvd.matrixV().leftCols<3>();
+    return Eigen::Matrix<float, kMaxNumRw, kMaxNumRw>{Eigen::Matrix<float, kMaxNumRw, kMaxNumRw>::Identity() -
+                                                      Vr * Vr.transpose()};
+}
+
+/*! Computes the per-RW motor-torque map and the null-space projection [tau] from a validated, canonicalized
+ configuration (orthonormal control axes, unit spin axes). Returns nullopt when a control axis is not
+ reachable by the available reaction wheels (rank-deficient control mapping). */
+std::optional<RwMotorTorqueMapping> computeRwMapping(const Eigen::Matrix3f& controlAxes_B,
+                                                     const RwMotorTorqueArrayConfiguration& rwConfiguration,
+                                                     const RwMotorTorqueAvailability& availability) {
+    const std::array<FSWdeviceAvailability, kMaxNumRw>& wheelsAvailability = availability.wheelAvailability;
+
+    // Compact the non-zero (controlled) rows to the top; only the controlled subspace matters, so the row
+    // positions in the configured matrix are irrelevant.
+    Eigen::Matrix3f compactControlAxes{Eigen::Matrix3f::Zero()};
+    uint32_t numControlAxes = 0U;
     for (uint32_t i = 0U; i < 3U; ++i) {
-        if (this->controlAxes_B.row(i).norm() > 0.0) {
-            if (this->numControlAxes < i) {
-                FSW_THROW_INVALID_ARGUMENT(
-                    "rwMotorTorque: found empty control axis. "
-                    "Make sure to fill controlAxes matrix from top to bottom, "
-                    "with zero axes (no control) at the bottom.");
+        if (controlAxes_B.row(i).norm() > 0.0F) {
+            compactControlAxes.row(numControlAxes) = controlAxes_B.row(i);
+            numControlAxes += 1U;
+        }
+    }
+
+    // [Gs] from the available RWs, each in its original column (unavailable wheels stay zero). The config
+    // stores unit spin axes, so no normalization is needed here.
+    Eigen::Matrix<float, 3, kMaxNumRw> G_s_B{Eigen::Matrix<float, 3, kMaxNumRw>::Zero()};
+    uint32_t numAvailRW = 0U;
+    for (uint32_t i = 0U; i < rwConfiguration.numRW; ++i) {
+        if (wheelsAvailability[i] == AVAILABLE) {
+            G_s_B.col(i) = rwConfiguration.GsMatrix_B.col(i);
+            numAvailRW += 1U;
+        }
+    }
+
+    const Eigen::Matrix<float, 3, kMaxNumRw> CGs = compactControlAxes * G_s_B;
+    const Eigen::MatrixXf CGsActive = CGs.topRows(numControlAxes);
+
+    // SVD of the control mapping [CGs] = [CB][Gs] (numControlAxes x kMaxNumRw, with zero columns for
+    // unavailable wheels), reused for the controllability check and the pseudo-inverse below. Singular values
+    // below a relative tolerance are treated as zero.
+    const Eigen::JacobiSVD<Eigen::MatrixXf> svd(CGsActive, Eigen::ComputeThinU | Eigen::ComputeThinV);
+    const Eigen::VectorXf& singularValues = svd.singularValues();
+    const Eigen::MatrixXf& leftSingularVectors = svd.matrixU();
+    const float singularValueTol = singularValues(0) * std::numeric_limits<float>::epsilon() *
+                                   static_cast<float>(std::max(numControlAxes, kMaxNumRw));
+
+    // Controllability cross-check: every control axis must be reachable by the available reaction wheels.
+    // A control axis with a significant projection onto the left-null-space of [CGs] is not reachable.
+    constexpr float kControllabilityResidualSqTol = 1e-6F;
+    for (uint32_t axis = 0U; axis < numControlAxes; ++axis) {
+        float nullSpaceResidualSq = 0.0F;
+        for (uint32_t k = 0U; k < numControlAxes; ++k) {
+            if (singularValues(k) <= singularValueTol) {
+                nullSpaceResidualSq += leftSingularVectors(axis, k) * leftSingularVectors(axis, k);
             }
-            this->numControlAxes += 1U;
         }
-    }
-    if (this->numControlAxes == 0U) {
-        FSW_THROW_INVALID_ARGUMENT("rwMotorTorque is not setup to control any axes.");
-    }
-
-    /*! - Read static RW config data message and store it in module variables */
-    this->rwConfigParams = rwParamsInMsg;
-
-    /*! - Check if RW availability message is available.
-     If no info is provided about RW availability we'll assume that all are available. */
-    Eigen::Matrix<float, 3, RW_EFF_CNT> G_s_B{Eigen::Matrix<float, 3, RW_EFF_CNT>::Zero()};
-    if (rwAvailIsLinked) {
-        uint32_t numAvailWheels = 0U;
-        std::ranges::copy(std::begin(wheelsAvailability.wheelAvailability),
-                          std::end(wheelsAvailability.wheelAvailability),
-                          std::begin(this->wheelsAvailability));
-
-        /*! - create the current [Gs] projection matrix with the available RWs */
-        for (Eigen::Index i = 0; i < this->rwConfigParams.numRW; ++i) {
-            if (this->wheelsAvailability[static_cast<uint32_t>(i)] == AVAILABLE) {
-                G_s_B.col(numAvailWheels) = cArrayToEigenVector3(&this->rwConfigParams.GsMatrix_B[i * 3]);
-                G_s_B.col(numAvailWheels).normalize();
-                numAvailWheels += 1U;
-            }
-        }
-        /*! - update the number of currently available RWs */
-        this->numAvailRW = numAvailWheels;
-    } else {
-        this->numAvailRW = static_cast<uint32_t>(this->rwConfigParams.numRW);
-        G_s_B.leftCols(this->numAvailRW) =
-            cArrayToEigenMatrix<float, 3, RW_EFF_CNT>(this->rwConfigParams.GsMatrix_B).leftCols(this->numAvailRW);
-        for (uint32_t i = 0U; i < this->numAvailRW; ++i) {
-            G_s_B.col(i).normalize();
+        if (nullSpaceResidualSq > kControllabilityResidualSqTol) {
+            return std::nullopt;
         }
     }
 
-    this->CGs = this->controlAxes_B * G_s_B;
-    const Eigen::FullPivLU<Eigen::MatrixXf> lu_decomp(CGs);
-    const auto controlMappingRank = static_cast<uint32_t>(lu_decomp.rank());
+    // Reject ill-conditioned control geometry: even at full rank, a small smallest-to-largest singular value
+    // ratio makes the pseudo-inverse amplify both the command and fp32 error. cond([CGs]) = sv(0) / sv(min).
+    if (singularValues(numControlAxes - 1U) <= singularValues(0) * kConditioningTol) {
+        return std::nullopt;
+    }
 
-    if (controlMappingRank < this->numControlAxes) {
-        FSW_THROW_INVALID_ARGUMENT("rwMotorTorque: control mapping matrix [CB][G_s] is not full rank.");
+    // Control map = pseudo-inverse([CGs]) * (-[CB]) via a truncated SVD ([V][S^-1][U]^T), folding the control-
+    // axis projection and the minimum-norm inverse into one matrix.
+    Eigen::VectorXf invSingularValues = Eigen::VectorXf::Zero(singularValues.size());
+    for (Eigen::Index i = 0; i < singularValues.size(); ++i) {
+        if (singularValues(i) > singularValueTol) {
+            invSingularValues(i) = 1.0F / singularValues(i);
+        }
+    }
+    RwMotorTorqueMapping mapping{};
+    mapping.motorTorqueMap = svd.matrixV() * invSingularValues.asDiagonal() * leftSingularVectors.transpose() *
+                             (-compactControlAxes.topRows(numControlAxes));
+
+    const std::optional<Eigen::Matrix<float, kMaxNumRw, kMaxNumRw>> tau = computeNullSpaceProjection(G_s_B, numAvailRW);
+    if (!tau.has_value()) {
+        return std::nullopt;
+    }
+    mapping.tau = *tau;
+
+    // Zero the rows of excluded wheels (beyond numRW or unavailable). Their [CGs]/[Gs] columns are zero, so
+    // these rows are zero in exact arithmetic; mask them so an excluded wheel is commanded exactly zero torque.
+    for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
+        if (i >= rwConfiguration.numRW || wheelsAvailability[i] != AVAILABLE) {
+            mapping.motorTorqueMap.row(i).setZero();
+            mapping.tau.row(i).setZero();
+        }
+    }
+
+    return mapping;
+}
+
+}  // namespace
+
+bool RwMotorTorqueConfig::isValidMapping(const Eigen::Matrix3f& controlAxes_B,
+                                         const RwMotorTorqueArrayConfiguration& rwConfiguration,
+                                         const RwMotorTorqueAvailability& availability) {
+    return computeRwMapping(controlAxes_B, rwConfiguration, availability).has_value();
+}
+
+RwMotorTorqueAlgorithm::RwMotorTorqueAlgorithm(const RwMotorTorqueConfig& config)  // NOLINT(modernize-pass-by-value)
+    : cfg(config) {
+    const std::optional<RwMotorTorqueMapping> mapping =
+        computeRwMapping(this->cfg.getControlAxes(), this->cfg.getRwConfiguration(), this->cfg.getAvailability());
+    if (mapping.has_value()) {
+        this->motorTorqueMap = mapping->motorTorqueMap;
+        this->tau = mapping->tau;
     }
 }
 
-/*! Computes the reaction wheel torques given a commanded torque on the spacecraft
- @return RwMotorTorqueMsgF32Payload
- @param LrInputMsg commanded torque on spacecraft
- @param LrInput2Msg second commanded torque on spacecraft
- @param cmdTorque2IsLinked boolean indicating whether a second CmdTorqueBodyMsg is linked
+void RwMotorTorqueAlgorithm::setConfig(const RwMotorTorqueConfig& config) {
+    this->cfg = config;
+    const std::optional<RwMotorTorqueMapping> mapping =
+        computeRwMapping(this->cfg.getControlAxes(), this->cfg.getRwConfiguration(), this->cfg.getAvailability());
+    if (mapping.has_value()) {
+        this->motorTorqueMap = mapping->motorTorqueMap;
+        this->tau = mapping->tau;
+    }
+}
+
+/*! Maps the commanded body torque to per-RW motor torques and adds the null-space torque.
+ @param Lr_B commanded control torque on the spacecraft, body frame [N-m]
+ @param speeds current and desired RW speeds for the null-space term
+ @return per-RW motor torques [N-m]
  */
-RwMotorTorqueMsgF32Payload RwMotorTorqueAlgorithm::update(CmdTorqueBodyMsgF32Payload& LrInputMsg,
-                                                          CmdTorqueBodyMsgF32Payload& LrInput2Msg,
-                                                          bool cmdTorque2IsLinked) {
-    /*! - zero control torque and RW motor torque variables */
-    Eigen::Vector<float, RW_EFF_CNT> us = Eigen::Vector<float, RW_EFF_CNT>::Zero();
+Eigen::Vector<float, kMaxNumRw> RwMotorTorqueAlgorithm::update(const Eigen::Vector3f& Lr_B,
+                                                               const RwMotorTorqueSpeeds& speeds) const {
+    const Eigen::Vector<float, kMaxNumRw> controlTorque = this->motorTorqueMap * Lr_B;
 
-    Eigen::Vector3f Lr_B = cArrayToEigenVector(LrInputMsg.torqueRequestBody);
+    // Null-space term: [tau] projects the wheel-speed feedback so it adds no body torque.
+    const Eigen::Vector<float, kMaxNumRw> d = -this->cfg.getOmegaGain() * (speeds.rwSpeeds - speeds.rwDesiredSpeeds);
+    const Eigen::Vector<float, kMaxNumRw> nullSpaceTorque = this->tau * d;
 
-    /*! - Check if the optional second message is provided */
-    if (cmdTorque2IsLinked) {
-        Lr_B += cArrayToEigenVector(LrInput2Msg.torqueRequestBody);
-    }
-
-    /*! - Compute minimum norm inverse for us = [CGs].T inv([CGs][CGs].T) [Lr_C] */
-    const uint32_t numRows = this->numControlAxes;
-    const uint32_t numCols = this->numAvailRW;
-
-    Eigen::Vector3f Lr_C{Eigen::Vector3f::Zero()};
-    Lr_C.head(numRows) = -this->controlAxes_B.topRows(numRows) * Lr_B;
-
-    Eigen::Vector<float, RW_EFF_CNT> us_avail{Eigen::Vector<float, RW_EFF_CNT>::Zero()};
-    us_avail.topRows(numCols) =
-        this->CGs.topLeftCorner(numRows, numCols).transpose() *
-        (this->CGs.topLeftCorner(numRows, numCols) * this->CGs.topLeftCorner(numRows, numCols).transpose()).inverse() *
-        Lr_C.topRows(numRows);
-
-    /*! - map the desired RW motor torques to the available RWs */
-    Eigen::Index j = 0;
-    for (Eigen::Index i = 0; i < this->rwConfigParams.numRW; ++i) {
-        if (this->wheelsAvailability[static_cast<uint32_t>(i)] == AVAILABLE) {
-            us[i] = us_avail[j];
-            j += 1;
-        }
-    }
-
-    RwMotorTorqueMsgF32Payload rwMotorTorques{};
-    eigenVectorToCArray(us, rwMotorTorques.motorTorque);
-
-    return rwMotorTorques;
+    return controlTorque + nullSpaceTorque;
 }
-
-/*! Setter method for the control axes mapping matrix CB, where each row includes the transpose of a control axis.
- The matrix needs to be 3x3, so if only 2 axes are controlled, the third row should be all zeros.
- @return void
- @param controlMappingMatrix Known external torque expressed in body frame components
-*/
-void RwMotorTorqueAlgorithm::setControlAxes(const Eigen::Matrix3f& controlMappingMatrix) {
-    this->controlAxes_B = controlMappingMatrix;
-}
-
-/*! Getter method for the control axes mapping matrix CB.
- @return const Eigen::Matrix3f
-*/
-Eigen::Matrix3f RwMotorTorqueAlgorithm::getControlAxes() const { return this->controlAxes_B; }

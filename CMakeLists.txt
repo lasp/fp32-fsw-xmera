@@ -114,7 +114,6 @@ set(algorithms
     "oeStateEphem"
     "rateControl"
     "rwMotorVoltage"
-    "rwNullSpace"
     "solarArrayReference"
     "stepperMotorController"
     "sunlineEphem"

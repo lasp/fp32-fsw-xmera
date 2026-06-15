@@ -47,10 +47,10 @@ algorithms/rateControl/rateControl.h
 algorithms/rateControl/rateControl.cpp
 algorithms/rwMotorTorque/rwMotorTorque.h
 algorithms/rwMotorTorque/rwMotorTorque.cpp
+algorithms/rwMotorTorque/rwMotorTorqueAlgorithm_c.h
+algorithms/rwMotorTorque/rwMotorTorqueAlgorithm_c.cpp
 algorithms/rwMotorVoltage/rwMotorVoltage.h
 algorithms/rwMotorVoltage/rwMotorVoltage.cpp
-algorithms/rwNullSpace/rwNullSpace.h
-algorithms/rwNullSpace/rwNullSpace.cpp
 algorithms/solarArrayReference/solarArrayReference.h
 algorithms/solarArrayReference/solarArrayReference.cpp
 algorithms/stepperMotorController/stepperMotorController.h

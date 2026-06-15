@@ -1,17 +1,18 @@
 #ifndef F32XMERA_RW_MOTOR_TORQUE_H
 #define F32XMERA_RW_MOTOR_TORQUE_H
 
-#include <stdint.h>
-
 #include "msgPayloadDef/CmdTorqueBodyMsgF32Payload.h"
 #include "msgPayloadDef/RWArrayConfigMsgF32Payload.h"
+#include "msgPayloadDef/RWSpeedMsgF32Payload.h"
 #include "msgPayloadDef/RwMotorTorqueMsgF32Payload.h"
 #include "rwMotorTorqueAlgorithm.h"
+
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
 #include <architecture/msgPayloadDef/RWAvailabilityMsgPayload.h>
-
 #include <Eigen/Core>
+#include <cstdint>
+#include <memory>
 
 /*! @brief Top level structure for the sub-module routines. */
 class RwMotorTorque : public SysModel {
@@ -22,8 +23,8 @@ class RwMotorTorque : public SysModel {
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
 
-    void setControlAxes(const Eigen::Matrix3f& controlMappingMatrix);
-    Eigen::Matrix3f getControlAxes() const;
+    Eigen::Matrix3f controlAxes_B{Eigen::Matrix3f::Zero()};  //!< [-] control axes mapping matrix CB
+    float omegaGain{};  //!< [-] RW null-space feedback gain (>= 0; 0 disables the null-space term)
 
     /* declare module IO interfaces */
     Message<RwMotorTorqueMsgF32Payload> rwMotorTorqueOutMsg;   //!< RW motor torque output message
@@ -31,9 +32,11 @@ class RwMotorTorque : public SysModel {
     ReadFunctor<CmdTorqueBodyMsgF32Payload> vehControlIn2Msg;  //!<  optional vehicle control input message
     ReadFunctor<RWArrayConfigMsgF32Payload> rwParamsInMsg;     //!<  RW Array input message
     ReadFunctor<RWAvailabilityMsgPayload> rwAvailInMsg;        //!< optional RWs availability input message
+    ReadFunctor<RWSpeedMsgF32Payload> rwSpeedsInMsg;           //!< optional current RW speeds (null-space)
+    ReadFunctor<RWSpeedMsgF32Payload> rwDesiredSpeedsInMsg;    //!< optional desired RW speeds (null-space)
 
    private:
-    RwMotorTorqueAlgorithm algorithm{};
+    std::unique_ptr<RwMotorTorqueAlgorithm> algorithm = nullptr;
 };
 
 #endif
