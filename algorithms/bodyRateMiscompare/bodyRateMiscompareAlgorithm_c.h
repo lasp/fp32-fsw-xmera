@@ -1,10 +1,8 @@
 #ifndef F32XMERA_BODYRATEMISCOMPAREALGORITHM_C_H
 #define F32XMERA_BODYRATEMISCOMPAREALGORITHM_C_H
 
+#include "bodyRateMiscompareTypes.h"
 #include "utilities/fsw/plainCAlgorithmDataTypes.h"
-
-#include <stdbool.h>
-#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -16,18 +14,11 @@ extern "C" {
 typedef struct BodyRateMiscompareAlgorithmHandle BodyRateMiscompareAlgorithmHandle;
 
 /**
- * @brief POD representation of the BodyRateMiscompareOutput.
- */
-typedef struct {
-    float omega_BN_B[3];
-    bool bodyRateFaultDetected;
-} BodyRateMiscompareOutput_c;
-
-/**
- * @brief Construct a new BodyRateMiscompareAlgorithm instance.
+ * @brief Construct a new BodyRateMiscompareAlgorithm instance from the supplied configuration.
+ * @param config Pointer to the configuration to apply (validated; throws on invalid input).
  * @return Pointer to a new BodyRateMiscompareAlgorithm (must be destroyed).
  */
-BodyRateMiscompareAlgorithmHandle* BodyRateMiscompareAlgorithm_create(void);
+BodyRateMiscompareAlgorithmHandle* BodyRateMiscompareAlgorithm_create(const BodyRateMiscompareConfig_c* config);
 
 /**
  * @brief Destroy a previously created BodyRateMiscompareAlgorithm.
@@ -36,10 +27,24 @@ BodyRateMiscompareAlgorithmHandle* BodyRateMiscompareAlgorithm_create(void);
 void BodyRateMiscompareAlgorithm_destroy(BodyRateMiscompareAlgorithmHandle* self);
 
 /**
- * @brief Reset the persistence counter to zero.
+ * @brief Apply a new configuration, resetting the latched fault state.
+ * @param self   Pointer to the instance.
+ * @param config Pointer to the configuration to apply (validated; throws on invalid input).
+ */
+void BodyRateMiscompareAlgorithm_setConfig(BodyRateMiscompareAlgorithmHandle* self,
+                                           const BodyRateMiscompareConfig_c* config);
+
+/**
+ * @brief Clear the persistence counter only; a latched fault is preserved.
  * @param self Pointer to the instance.
  */
-void BodyRateMiscompareAlgorithm_reset(BodyRateMiscompareAlgorithmHandle* self);
+void BodyRateMiscompareAlgorithm_reInitialize(BodyRateMiscompareAlgorithmHandle* self);
+
+/**
+ * @brief Clear the persistence counter and re-arm the latched fault from configuration.
+ * @param self Pointer to the instance.
+ */
+void BodyRateMiscompareAlgorithm_reInitializeAll(BodyRateMiscompareAlgorithmHandle* self);
 
 /**
  * @brief Run the update step.
@@ -51,49 +56,6 @@ void BodyRateMiscompareAlgorithm_reset(BodyRateMiscompareAlgorithmHandle* self);
 BodyRateMiscompareOutput_c BodyRateMiscompareAlgorithm_update(BodyRateMiscompareAlgorithmHandle* self,
                                                               Vector3f_c imuOmega,
                                                               Vector3f_c stOmega);
-
-/**
- * @brief Set the body rate threshold.
- * @param self               Pointer to the instance.
- * @param bodyRateThreshold  Threshold value.
- */
-void BodyRateMiscompareAlgorithm_setBodyRateThreshold(BodyRateMiscompareAlgorithmHandle* self, float bodyRateThreshold);
-
-/**
- * @brief Get the current body rate threshold.
- * @param self Pointer to the instance.
- * @return float  The current threshold value.
- */
-float BodyRateMiscompareAlgorithm_getBodyRateThreshold(const BodyRateMiscompareAlgorithmHandle* self);
-
-/**
- * @brief Set the fault persistence count.
- * @param self              Pointer to the instance.
- * @param faultPersistenceLimit  Number of consecutive update calls needed to trigger the fault.
- */
-void BodyRateMiscompareAlgorithm_setFaultPersistenceLimit(BodyRateMiscompareAlgorithmHandle* self,
-                                                          uint32_t faultPersistenceLimit);
-
-/**
- * @brief Get the current fault persistence count.
- * @param self Pointer to the instance.
- * @return uint32_t  The current fault persistence value.
- */
-uint32_t BodyRateMiscompareAlgorithm_getFaultPersistenceLimit(const BodyRateMiscompareAlgorithmHandle* self);
-
-/**
- * @brief Set the useImuRates flag.
- * @param self         Pointer to the instance.
- * @param useImuRates  If true, always output IMU rates regardless of miscompare.
- */
-void BodyRateMiscompareAlgorithm_setUseImuRates(BodyRateMiscompareAlgorithmHandle* self, bool useImuRates);
-
-/**
- * @brief Get the current useImuRates flag.
- * @param self Pointer to the instance.
- * @return bool  The current useImuRates value.
- */
-bool BodyRateMiscompareAlgorithm_getUseImuRates(const BodyRateMiscompareAlgorithmHandle* self);
 
 #ifdef __cplusplus
 }  // extern "C"

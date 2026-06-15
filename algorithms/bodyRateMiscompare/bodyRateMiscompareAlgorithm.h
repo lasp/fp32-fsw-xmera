@@ -9,8 +9,8 @@
 
 /*! @brief Structure containing the body frame angular rate and body rate fault output */
 struct BodyRateMiscompareOutput {
-    Eigen::Vector3f omega_BN_B; /*!< body frame angular rate */
-    bool bodyRateFaultDetected; /*!< body rate fault */
+    Eigen::Vector3f omega_BN_B = Eigen::Vector3f::Zero(); /*!< body frame angular rate */
+    bool bodyRateFaultDetected = false;                   /*!< body rate fault */
 };
 
 /*!
@@ -42,10 +42,12 @@ class BodyRateMiscompareConfig final {
     bool getUseImuRates() const { return useImuRates; }
 
    private:
+    // NOLINTBEGIN(bugprone-easily-swappable-parameters)
     BodyRateMiscompareConfig(float bodyRateThreshold, uint32_t faultPersistenceLimit, bool useImuRates)
         : bodyRateThreshold(bodyRateThreshold),
           faultPersistenceLimit(faultPersistenceLimit),
           useImuRates(useImuRates) {}
+    // NOLINTEND(bugprone-easily-swappable-parameters)
 
     float bodyRateThreshold;
     uint32_t faultPersistenceLimit;
@@ -53,24 +55,18 @@ class BodyRateMiscompareConfig final {
 };
 
 /*!@brief Module to compare the imu and star tracker rates and fall back to the imu solution if they disagree */
-class BodyRateMiscompareAlgorithm {
+class BodyRateMiscompareAlgorithm final {
    public:
-    void reset();
+    explicit BodyRateMiscompareAlgorithm(const BodyRateMiscompareConfig& config);
+    void setConfig(const BodyRateMiscompareConfig& config);
+    void reInitialize();     //!< clears the persistence counter only; a latched fault is preserved
+    void reInitializeAll();  //!< clears the persistence counter and re-arms the latched fault from config
     BodyRateMiscompareOutput update(const Eigen::Vector3f& imuOmega_BN_B, const Eigen::Vector3f& stOmega_BN_B);
-    void setBodyRateThreshold(float bodyRateThresholdIn);
-    float getBodyRateThreshold() const;
-    void setFaultPersistenceLimit(uint32_t faultPersistenceLimitIn);
-    uint32_t getFaultPersistenceLimit() const;
-    void setUseImuRates(bool useImuRatesIn);
-    bool getUseImuRates() const;
 
    private:
-    float bodyRateThreshold{};            // rate threshold to trigger body rate miscompare fault
-    uint32_t faultPersistenceLimit = 1U;  // number of consecutive update calls needed to trigger the fault
-    bool useImuRates{};                   // force to use IMU rates, even if rates agree and no fault is triggered
-
+    BodyRateMiscompareConfig cfg;
     uint32_t faultPersistenceCount{};
-    bool useImuRatesInternal{};  // this separate variable can change without changing the settable parameter
+    bool useImuRatesInternal{};  //!< latched fault state; may change without changing the configured useImuRates
 };
 
 #endif

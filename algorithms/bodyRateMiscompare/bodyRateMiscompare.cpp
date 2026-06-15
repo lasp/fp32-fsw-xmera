@@ -3,6 +3,7 @@
 #include "msgPayloadDef/STAttMsgF32Payload.h"
 #include "utilities/fsw/eigenSupport.h"
 #include "utilities/fsw/timeConstants.h"
+#include "utilities/xmera/xmeraLifecycleException.h"
 
 template <size_t N>
 static void convertArray(const double (&src)[N], float (&dst)[N]) {
@@ -31,7 +32,9 @@ void BodyRateMiscompare::reset(uint64_t const callTime) {
         throw std::invalid_argument("The stSensInMsg was not linked and is required for execution");
     }
 
-    this->algorithm.reset();
+    auto config =
+        BodyRateMiscompareConfig::create(this->bodyRateThreshold, this->faultPersistenceLimit, this->useImuRates);
+    this->algorithm = std::make_unique<BodyRateMiscompareAlgorithm>(config);
 }
 
 /*! This method reads the IMU and star tracker messages, calls the body rate miscompare algorithm, and writes the
@@ -40,6 +43,10 @@ void BodyRateMiscompare::reset(uint64_t const callTime) {
  @param callTime The clock time at which the function was called [nanoseconds]
  */
 void BodyRateMiscompare::updateState(uint64_t const callTime) {
+    if (!this->algorithm) {
+        throw XmeraLifecycleException("BodyRateMiscompare reset() has not been called.");
+    }
+
     // Retrieve the updated messages from the imuPayload and star tracker
     IMUSensorBodyMsgF32Payload imuPayload = this->imuSensorBodyInMsg();
 
@@ -47,8 +54,8 @@ void BodyRateMiscompare::updateState(uint64_t const callTime) {
     convert(this->stBodyInMsg(), stAttMsgF32Payload);
 
     // Call the algorithm to get the measured body rates
-    auto [omega_BN_B, bodyRateFaultDetected] = this->algorithm.update(
-        Eigen::Map<Eigen::Vector3f>(imuPayload.AngVelBody), Eigen::Map<Eigen::Vector3f>(stAttMsgF32Payload.omega_BN_B));
+    auto [omega_BN_B, bodyRateFaultDetected] = this->algorithm->update(
+        cArrayToEigenVector(imuPayload.AngVelBody), cArrayToEigenVector(stAttMsgF32Payload.omega_BN_B));
 
     NavAttMsgF32Payload navAttMsgPayload{};
     eigenVectorToCArray(omega_BN_B, navAttMsgPayload.omega_BN_B);
@@ -57,43 +64,22 @@ void BodyRateMiscompare::updateState(uint64_t const callTime) {
     BodyRateFaultMsgPayload bodyRateFaultPayload{};
     bodyRateFaultPayload.faultDetected = bodyRateFaultDetected;
 
-    this->navAttOutMsg.write(&navAttMsgPayload, this->moduleID, callTime);
-    this->rateFaultOutMsg.write(&bodyRateFaultPayload, this->moduleID, callTime);
+    this->navAttOutMsg.write(navAttMsgPayload, this->moduleID, callTime);
+    this->rateFaultOutMsg.write(bodyRateFaultPayload, this->moduleID, callTime);
 }
 
-/*! Setter method for bodyRateThreshold. Converts from double to float for the algorithm.
- @return void
- @param bodyRateThreshold [rad/s] threshold for rate miscompare detection
- */
-void BodyRateMiscompare::setBodyRateThreshold(double const bodyRateThreshold) {
-    this->algorithm.setBodyRateThreshold(static_cast<float>(bodyRateThreshold));
+/*! @brief Clear the algorithm's persistence counter, preserving any latched fault. */
+void BodyRateMiscompare::reInitialize() {
+    if (!this->algorithm) {
+        throw XmeraLifecycleException("BodyRateMiscompare reset() has not been called.");
+    }
+    this->algorithm->reInitialize();
 }
 
-/*! Getter method for bodyRateThreshold.
- @return double
- */
-double BodyRateMiscompare::getBodyRateThreshold() const { return this->algorithm.getBodyRateThreshold(); }
-
-/*! Setter method for faultPersistenceLimit.
- @return void
- @param faultPersistenceLimit number of consecutive threshold violations before fault is declared
- */
-void BodyRateMiscompare::setFaultPersistenceLimit(uint32_t const faultPersistenceLimit) {
-    this->algorithm.setFaultPersistenceLimit(faultPersistenceLimit);
+/*! @brief Fully reset the algorithm state: clear the persistence counter and the latched fault. */
+void BodyRateMiscompare::reInitializeAll() {
+    if (!this->algorithm) {
+        throw XmeraLifecycleException("BodyRateMiscompare reset() has not been called.");
+    }
+    this->algorithm->reInitializeAll();
 }
-
-/*! Getter method for faultPersistenceLimit.
- @return uint32_t
- */
-uint32_t BodyRateMiscompare::getFaultPersistenceLimit() const { return this->algorithm.getFaultPersistenceLimit(); }
-
-/*! Setter method for useImuRates.
- @return void
- @param useImuRates flag to force IMU rate output
- */
-void BodyRateMiscompare::setUseImuRates(bool const useImuRates) { this->algorithm.setUseImuRates(useImuRates); }
-
-/*! Getter method for useImuRates.
- @return bool
- */
-bool BodyRateMiscompare::getUseImuRates() const { return this->algorithm.getUseImuRates(); }
