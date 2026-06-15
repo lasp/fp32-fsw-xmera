@@ -9,6 +9,8 @@ algorithms/averageMimuData/averageMimuData.h
 algorithms/averageMimuData/averageMimuData.cpp
 algorithms/bodyRateMiscompare/bodyRateMiscompare.h
 algorithms/bodyRateMiscompare/bodyRateMiscompare.cpp
+algorithms/bodyRateMiscompare/bodyRateMiscompareAlgorithm_c.h
+algorithms/bodyRateMiscompare/bodyRateMiscompareAlgorithm_c.cpp
 algorithms/celestialTwoBodyPoint/celestialTwoBodyPoint.h
 algorithms/celestialTwoBodyPoint/celestialTwoBodyPoint.cpp
 algorithms/convertStPlatformToBody/convertStPlatformToBody.h
