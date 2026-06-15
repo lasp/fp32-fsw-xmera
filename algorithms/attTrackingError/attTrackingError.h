@@ -11,6 +11,8 @@
 
 #include <stdint.h>
 
+#include <memory>
+
 /*!@brief Data structure for module to compute the attitude tracking error between the spacecraft attitude and the
  * reference.
  */
@@ -27,7 +29,7 @@ class AttTrackingError : public SysModel {
     ReadFunctor<AttRefMsgF32Payload> attRefInMsg;  //!< Input msg of reference attitude
 
    private:
-    AttTrackingErrorAlgorithm algorithm{};
+    std::unique_ptr<AttTrackingErrorAlgorithm> algorithm = nullptr;
 };
 
 #endif

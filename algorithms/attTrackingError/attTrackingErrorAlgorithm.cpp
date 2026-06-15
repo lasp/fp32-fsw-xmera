@@ -8,9 +8,7 @@
  @param refIn reference attitude inputs (sigma_RN, omega_RN_N and domega_RN_N)
  @return AttGuidOutput guidance outputs (sigma_BR, omega_BR_B, omega_RN_B and domega_RN_B)
 */
-// clang-format off
-AttGuidOutput AttTrackingErrorAlgorithm::update(const AttNavInput& navIn, const AttRefInput& refIn) {  // NOLINT(readability-convert-member-functions-to-static)
-    // clang-format on
+AttGuidOutput AttTrackingErrorAlgorithm::update(const AttNavInput& navIn, const AttRefInput& refIn) {
     AttGuidOutput output{};
 
     // Compute attitude tracking error sigma_BR

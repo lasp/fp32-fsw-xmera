@@ -1,5 +1,7 @@
 #include "attTrackingErrorAlgorithm_c.h"
 #include "attTrackingErrorAlgorithm.h"
+#include "attTrackingErrorTypes.h"
+#include "utilities/fsw/eigenSupport.h"
 
 #include <Eigen/Core>
 
@@ -18,28 +20,24 @@ void AttTrackingErrorAlgorithm_destroy(AttTrackingErrorAlgorithmHandle* self) {
 AttGuidOutput_c AttTrackingErrorAlgorithm_update(AttTrackingErrorAlgorithmHandle* self,
                                                  AttNavInput_c navIn,
                                                  AttRefInput_c refIn) {
-    // Convert C navigation input to Eigen-based struct
     AttNavInput nav{};
-    nav.sigma_BN << navIn.sigma_BN.data[0], navIn.sigma_BN.data[1], navIn.sigma_BN.data[2];
-    nav.omega_BN_B << navIn.omega_BN_B.data[0], navIn.omega_BN_B.data[1], navIn.omega_BN_B.data[2];
+    nav.sigma_BN = cArrayToEigenVector3<float>(navIn.sigma_BN.data);
+    nav.omega_BN_B = cArrayToEigenVector3<float>(navIn.omega_BN_B.data);
 
-    // Convert C reference input to Eigen-based struct
     AttRefInput ref{};
-    ref.sigma_RN << refIn.sigma_RN.data[0], refIn.sigma_RN.data[1], refIn.sigma_RN.data[2];
-    ref.omega_RN_N << refIn.omega_RN_N.data[0], refIn.omega_RN_N.data[1], refIn.omega_RN_N.data[2];
-    ref.domega_RN_N << refIn.domega_RN_N.data[0], refIn.domega_RN_N.data[1], refIn.domega_RN_N.data[2];
+    ref.sigma_RN = cArrayToEigenVector3<float>(refIn.sigma_RN.data);
+    ref.omega_RN_N = cArrayToEigenVector3<float>(refIn.omega_RN_N.data);
+    ref.domega_RN_N = cArrayToEigenVector3<float>(refIn.domega_RN_N.data);
 
-    // Call the algorithm
     // clang-format off
     const AttGuidOutput output = reinterpret_cast<::AttTrackingErrorAlgorithm*>(self)->update(nav, ref);  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
     // clang-format on
 
-    // Convert Eigen output back to C-compatible struct
     AttGuidOutput_c out{};
-    out.sigma_BR = {output.sigma_BR[0], output.sigma_BR[1], output.sigma_BR[2]};
-    out.omega_BR_B = {output.omega_BR_B[0], output.omega_BR_B[1], output.omega_BR_B[2]};
-    out.omega_RN_B = {output.omega_RN_B[0], output.omega_RN_B[1], output.omega_RN_B[2]};
-    out.domega_RN_B = {output.domega_RN_B[0], output.domega_RN_B[1], output.domega_RN_B[2]};
+    eigenVectorToCArray(output.sigma_BR, out.sigma_BR.data);
+    eigenVectorToCArray(output.omega_BR_B, out.omega_BR_B.data);
+    eigenVectorToCArray(output.omega_RN_B, out.omega_RN_B.data);
+    eigenVectorToCArray(output.domega_RN_B, out.domega_RN_B.data);
 
     return out;
 }

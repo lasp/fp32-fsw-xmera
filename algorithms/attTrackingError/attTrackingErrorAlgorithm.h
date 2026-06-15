@@ -24,9 +24,9 @@ struct AttGuidOutput {
     Eigen::Vector3f domega_RN_B = Eigen::Vector3f::Zero();
 };
 
-class AttTrackingErrorAlgorithm {
+class AttTrackingErrorAlgorithm final {
    public:
-    AttGuidOutput update(const AttNavInput& navIn, const AttRefInput& refIn);  //!< Algorithm update method
+    static AttGuidOutput update(const AttNavInput& navIn, const AttRefInput& refIn);  //!< Algorithm update method
 };
 
 #endif
