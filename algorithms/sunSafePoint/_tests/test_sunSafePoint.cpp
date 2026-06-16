@@ -351,3 +351,28 @@ TEST(SunSafePointTest, StaysSearchingBelowThreshold) {
     checkSearch(25.0F, Eigen::Vector3f{0.0F, 0.0F, 0.3F});  // rotation 3 about b3
     checkSearch(35.0F, Eigen::Vector3f{0.4F, 0.0F, 0.0F});  // rotation 4 about b1
 }
+
+TEST(SunSafePointTest, ForcedTransitionAfterAllRotations) {
+    const auto rotations = buildRotations({10.0F, 10.0F, 10.0F, 10.0F}, {0.1F, 0.2F, 0.3F, 0.4F}, {0, 1, 2, 0});
+    // sHatBdyCmd {0,0,1}, spin rate 0 -> pointing omega_RN_B = 0
+    const auto cfg = makeSearchConfig(rotations);
+    SunSafePointAlgorithm alg{cfg};
+
+    const uint64_t startTime = 1000U;
+    const Eigen::Vector3f sun{1.0F, 1.0F, 0.0F};
+    const Eigen::Vector3f omega_BN_B = Eigen::Vector3f::Zero();
+    (void)alg.update(startTime, Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(), 0);  // latch start
+
+    // Past the full 40 s sequence with observations never exceeding threshold: forced POINT.
+    const uint64_t pastSequence = startTime + static_cast<uint64_t>(45.0F * kSec2NanoF);
+    const SunSafePointOutput out = alg.update(pastSequence, sun, omega_BN_B, 0);
+
+    // Pointing output (matches the reference), NOT the held last-rotation rate (0.4 about b1).
+    const auto reference = referenceUpdate(sun, omega_BN_B, 0.0F, cfg.getSHatBdyCmd(), Eigen::Vector3f::Zero());
+    EXPECT_GT(out.sigma_BR.norm(), 0.0F);
+    for (int i = 0; i < 3; ++i) {
+        EXPECT_NEAR(out.sigma_BR[i], reference.sigma_BR[i], 1e-5F);
+    }
+    EXPECT_NEAR(out.omega_RN_B.norm(), 0.0F, 1e-6F);
+    EXPECT_TRUE(out.faultDetected);  // search failed (sun never acquired) -> fault latched
+}
