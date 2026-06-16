@@ -49,25 +49,25 @@ configured before the module is used.
       - [-]
       - 0
       - Number of CSS sensors in the constellation
-      - Must be in [1, MAX_NUM_CSS_SENSORS] (checked in setter)
+      - Must be in [1, MAX_NUM_CSS_SENSORS] (validated when the config is built in ``reset()``)
     * - maxSensorValue (required)
-      - float
+      - double
       - [-]
       - 0
       - Maximum raw sensor output value used to normalize measurements
-      - Must be positive (checked in setter)
+      - Must be finite and positive (validated when the config is built in ``reset()``)
     * - chebyCount (required)
       - uint32_t
       - [-]
       - 0
       - Number of Chebyshev polynomial coefficients to use
-      - Must be in [1, 32] (checked in setter)
+      - Must be in [1, MAX_NUM_CHEBY_POLYS] (validated when the config is built in ``reset()``)
     * - chebyPolynomials (required)
-      - std::array<float, 32>
+      - std::array<double, MAX_NUM_CHEBY_POLYS>
       - [-]
       - all zeros
       - Pre-calibrated Chebyshev polynomial coefficients :math:`C_i`
-      - None
+      - All coefficients must be finite
 
 Module Assumptions and Limitations
 -----------------------------------
@@ -87,9 +87,13 @@ The module is configured by::
     module.numSensors = num_sensors
     module.maxSensorValue = max_sensor_value
     module.chebyCount = len(cheby_list)
-    module.chebyPolynomials = cheby_list + [0] * (32 - len(cheby_list))
+    padded = cheby_list + [0.0] * (MAX_NUM_CHEBY_POLYS - len(cheby_list))
+    module.chebyPolynomials = cssCommF32.DoubleArrayCheby(padded)
 
-The ``chebyPolynomials`` array must be padded with zeros to fill all 32 entries.
+The ``chebyPolynomials`` array must contain exactly ``MAX_NUM_CHEBY_POLYS`` (11) entries; pad the calibrated
+coefficient list with trailing zeros (which are inert in the Chebyshev sum). All configuration parameters must be
+set before ``reset()`` is called, at which point the module builds and validates its immutable configuration
+(raising on invalid values).
 
 Detailed Module Description
 ---------------------------
