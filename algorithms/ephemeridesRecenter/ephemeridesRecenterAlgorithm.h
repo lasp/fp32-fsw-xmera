@@ -78,6 +78,7 @@ class EphemeridesRecenterConfig final {
     }
 
     //! Returns the index of bodySpiceId in the body list, or bodyCount if it is not present.
+    // NOLINTNEXTLINE(bugprone-easily-swappable-parameters) -- bodyCount and bodySpiceId have distinct roles.
     static size_t findIndex(const std::array<int, MAX_NUM_CHANGE_BODIES>& bodyIds, size_t bodyCount, int bodySpiceId) {
         for (size_t i = 0U; i < bodyCount; ++i) {
             if (bodyIds.at(i) == bodySpiceId) {
@@ -94,6 +95,9 @@ class EphemeridesRecenterConfig final {
     size_t getBodyCount() const { return bodyCount; }
 
    private:
+    // The config fields have distinct meanings but several share a type; construction is funneled through the
+    // named create() factory, which makes the argument roles explicit at every call site.
+    // NOLINTBEGIN(bugprone-easily-swappable-parameters)
     EphemeridesRecenterConfig(int newCentralBodyId,
                               int previousCentralBodyId,
                               const std::array<int, MAX_NUM_CHANGE_BODIES>& bodyIds,
@@ -104,6 +108,7 @@ class EphemeridesRecenterConfig final {
           bodyIds(bodyIds),
           originalCentralBodyIds(originalCentralBodyIds),
           bodyCount(bodyCount) {}
+    // NOLINTEND(bugprone-easily-swappable-parameters)
 
     int newCentralBodyId;
     int previousCentralBodyId;
@@ -132,34 +137,23 @@ class BodyEphemerisPayload {
  * This class processes a set of body ephemerides and recomputes their
  * positions and velocities relative to a new central body.
  */
-class EphemeridesRecenterAlgorithm {
+class EphemeridesRecenterAlgorithm final {
    public:
-    void reset();
+    explicit EphemeridesRecenterAlgorithm(const EphemeridesRecenterConfig& config);
+    void setConfig(const EphemeridesRecenterConfig& config);
     std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES> updateState(
         const std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES>& newBodies) const;
-    void setNewZeroBaseId(int bodySpiceId);
-    int getNewZeroBase() const;
-    void setPreviousCommonZeroBase(int bodySpiceId);
-    int getPreviousCommonZeroBase() const;
-    size_t getNumberOfBodies() const;
-    std::array<int, MAX_NUM_CHANGE_BODIES> getAllIds() const;
-    void addBodyEphemerisToRecenter(const BodyToRecenter& body);
-    void clearAllBodies();
-    size_t findBodyIndex(int bodySpiceId) const;
 
    private:
-    void checkConfiguration();
+    //! Derive the moon-hierarchy lookup tables from the (already validated) configuration.
+    void precompute();
 
-    int newCentralBodyId{};
-    std::array<int, MAX_NUM_CHANGE_BODIES> bodyIds{};
-    std::array<int, MAX_NUM_CHANGE_BODIES> originalCentralBodyIds{};
-    size_t celestialBodyCount{};  //!< Number of primary bodies
+    EphemeridesRecenterConfig cfg;
     size_t newCentralIndex{};
     bool newCentralIsMoon{false};                                     //!< Whether the new central body is a moon
     size_t newCentralParentIndex{};                                   //!< Index of new central's parent
     std::array<MoonIndexFound, MAX_NUM_CHANGE_BODIES> moonIndices{};  //!< moonIndices[i] = moon of body i
     std::array<bool, MAX_NUM_CHANGE_BODIES> isMoonAtIndex{};          //!< true if body at index i is a moon
-    int previousCentralBodyId{};
 };
 
 #endif
