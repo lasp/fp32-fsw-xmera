@@ -1,30 +1,32 @@
 #ifndef F32XMERA_CONVERT_ST_PLATFORM_TO_BODY_TYPES_H
 #define F32XMERA_CONVERT_ST_PLATFORM_TO_BODY_TYPES_H
 
-#include <stdint.h>
+#include "utilities/fsw/plainCAlgorithmDataTypes.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-/*! @brief Star tracker sensor angular velocity for the platform-to-body conversion algorithm */
+/*! @brief C-compatible mirror of the C++ ConvertStPlatformToBodyConfig. */
 typedef struct {
-    uint64_t timeTag; /*!< [ns] Time tag associated with measurement */
-    float dq_CN[4];   /*!< [rad/s] Case-frame angular velocity w.r.t. inertial */
-} PlatformAngularVelocity;
+    Matrix3f_c dcm_CB; /*!< [-] body-to-case mounting DCM (orthonormal, det +1) */
+} ConvertStPlatformToBodyConfig_c;
 
-/*! @brief Star tracker sensor attitude solution for the platform-to-body conversion algorithm */
+/*! @brief Star tracker sensor attitude solution for the platform-to-body conversion algorithm. */
 typedef struct {
-    uint64_t timeTag; /*!< [ns] Time tag associated with measurement */
-    float q_CN[4];    /*!< [-] Quaternion from inertial to case frame */
-} PlatformAttitude;
+    float q_CN[4]; /*!< [-] quaternion from inertial to case frame (scalar-first) */
+} PlatformAttitude_c;
 
-/*! @brief Star tracker body-frame attitude output from the platform-to-body conversion algorithm */
+/*! @brief Star tracker sensor angular velocity for the platform-to-body conversion algorithm. */
 typedef struct {
-    uint64_t timeTag;    /*!< [ns] Time tag associated with measurement */
+    float dq_CN[4]; /*!< [-] case-frame delta quaternion w.r.t. inertial (scalar-last) */
+} PlatformAngularVelocity_c;
+
+/*! @brief Star tracker body-frame attitude output from the platform-to-body conversion algorithm. */
+typedef struct {
     float sigma_BN[3];   /*!< [-] MRP from inertial to body frame */
-    float omega_BN_B[3]; /*!< [rad/s] Body-frame angular velocity w.r.t. inertial */
-} StAttitudeOutput;
+    float omega_BN_B[3]; /*!< [rad/s] body-frame angular velocity w.r.t. inertial */
+} StAttitudeOutput_c;
 
 #ifdef __cplusplus
 }  // extern "C"

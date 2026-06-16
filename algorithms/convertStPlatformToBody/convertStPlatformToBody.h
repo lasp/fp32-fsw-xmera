@@ -12,6 +12,8 @@
 
 #include <stdint.h>
 
+#include <memory>
+
 /*! @brief Convert STSensorMsgPayload to STAttMsgPayload Class */
 class ConvertStPlatformToBody : public SysModel {
    public:
@@ -21,14 +23,13 @@ class ConvertStPlatformToBody : public SysModel {
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
 
-    void setDcmCB(const Eigen::Matrix3d& dcm_CB);
-    Eigen::Matrix3d getDcmCB() const;
+    Eigen::Matrix3f dcm_CB = Eigen::Matrix3f::Identity();  //!< [-] body-to-case mounting DCM (orthonormal, det +1)
 
     ReadFunctor<STSensorMsgPayload> stSensorInMsg;  //!< Input msg
     Message<STAttMsgPayload> stAttOutMsg;           //!< Output msg
 
    private:
-    ConvertStPlatformToBodyAlgorithm algorithm{};
+    std::unique_ptr<ConvertStPlatformToBodyAlgorithm> algorithm = nullptr;
 };
 
 #endif

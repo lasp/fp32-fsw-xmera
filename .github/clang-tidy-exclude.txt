@@ -15,6 +15,8 @@ algorithms/celestialTwoBodyPoint/celestialTwoBodyPoint.h
 algorithms/celestialTwoBodyPoint/celestialTwoBodyPoint.cpp
 algorithms/convertStPlatformToBody/convertStPlatformToBody.h
 algorithms/convertStPlatformToBody/convertStPlatformToBody.cpp
+algorithms/convertStPlatformToBody/convertStPlatformToBodyAlgorithm_c.h
+algorithms/convertStPlatformToBody/convertStPlatformToBodyAlgorithm_c.cpp
 algorithms/cssComm/cssComm.h
 algorithms/cssComm/cssComm.cpp
 algorithms/dvGuidance/dvGuidance.h
