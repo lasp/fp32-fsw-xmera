@@ -1,6 +1,6 @@
 Executive Summary
 -----------------
-This module provides a MRP based PD attitude control module. It is similar to :ref:`mrpFeedback`, but without the RW or the integral feedback option. The feedback control is able to asymptotically track a reference attitude if there are no unknown dynamics and the attitude control torque is implemented with a thruster set.
+This module provides a MRP based PD attitude control module. It is similar to :ref:`mrpFeedback`, but without the RW or the integral feedback option. The feedback control is able to asymptotically track a reference attitude if there are no unknown dynamics and the attitude control torque is implemented with a thruster set. All quantities are single precision (float).
 
 Message Connection Descriptions
 -------------------------------
@@ -15,15 +15,44 @@ provides information on what this message is used for.
     * - Msg Variable Name
       - Msg Type
       - Description
-    * - vehConfigInMsg
-      - :ref:`VehicleConfigMsgPayload`
-      - Attitude guidance input message
     * - guidInMsg
-      - :ref:`AttGuidMsgPayload`
-      - Vehicle configuration input message
+      - :ref:`AttGuidMsgF32Payload`
+      - Attitude guidance input message (sigma_BR, omega_BR_B, domega_RN_B)
+    * - vehConfigInMsg
+      - :ref:`VehicleConfigMsgF32Payload`
+      - Vehicle configuration input message (provides the spacecraft inertia ISCPntB_B)
     * - cmdTorqueOutMsg
-      - :ref:`CmdTorqueBodyMsgPayload`
+      - :ref:`CmdTorqueBodyMsgF32Payload`
       - Commanded torque output message
+
+
+Module Parameters
+-----------------
+
+.. list-table:: Module Parameters
+    :widths: 25 20 10 45
+    :header-rows: 1
+
+    * - Parameter Name
+      - Type
+      - Default
+      - Description
+    * - K
+      - float
+      - 0
+      - proportional gain applied to MRP errors; must be >= 0
+    * - P
+      - float
+      - 0
+      - rate-error feedback (derivative) gain; must be >= 0
+    * - knownTorquePntB_B
+      - Eigen::Vector3f
+      - zero
+      - known external torque in body-frame components; must be finite
+
+The spacecraft inertia ``ISCPntB_B`` is not a user property: it is read from ``vehConfigInMsg`` at ``reset()`` (an
+identity matrix is used if that message has not been written) and must be a valid inertia matrix. All four values are
+validated when the configuration is built in ``reset()``.
 
 
 Detailed Module Description
@@ -46,8 +75,14 @@ User Guide
 ----------
 The required module configuration is::
 
-    module = mrpPD.mrpPD()
+    module = mrpPDF32.MrpPD()
     module.modelTag = "mrpPD"
-    module.setProportionalGainK(K)
-    module.setDerivativeGainP(P)
-    module.setKnownTorquePntB_B(knownTorquePntB_B)
+    module.K = K
+    module.P = P
+    module.knownTorquePntB_B = knownTorquePntB_B
+
+    module.guidInMsg.subscribeTo(guidance_msg)
+    module.vehConfigInMsg.subscribeTo(vehicle_config_msg)
+
+The gains and known torque must be set, and the input messages connected, before ``reset()`` is called: the module
+builds and validates its immutable configuration at reset (reading the inertia from ``vehConfigInMsg``).
