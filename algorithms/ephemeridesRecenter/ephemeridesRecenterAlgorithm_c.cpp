@@ -1,20 +1,34 @@
 #include "ephemeridesRecenterAlgorithm_c.h"
 #include "ephemeridesRecenterAlgorithm.h"
 
-#include <Eigen/Core>
 #include <array>
 #include <cstddef>
 
-EphemeridesRecenterAlgorithmHandle* EphemeridesRecenterAlgorithm_create(void) {
-    return reinterpret_cast<EphemeridesRecenterAlgorithmHandle*>(new ::EphemeridesRecenterAlgorithm());
+namespace {
+EphemeridesRecenterConfig configFromC(const EphemeridesRecenterConfig_c& c) {
+    std::array<int, MAX_NUM_CHANGE_BODIES> bodyIds{};
+    std::array<int, MAX_NUM_CHANGE_BODIES> originalCentralBodyIds{};
+    for (std::size_t i = 0U; i < MAX_NUM_CHANGE_BODIES; ++i) {
+        bodyIds.at(i) = c.bodyIds[i];
+        originalCentralBodyIds.at(i) = c.originalCentralBodyIds[i];
+    }
+    return EphemeridesRecenterConfig::create(
+        c.newCentralBodyId, c.previousCentralBodyId, bodyIds, originalCentralBodyIds, c.bodyCount);
+}
+}  // namespace
+
+EphemeridesRecenterAlgorithmHandle* EphemeridesRecenterAlgorithm_create(const EphemeridesRecenterConfig_c* config) {
+    return reinterpret_cast<EphemeridesRecenterAlgorithmHandle*>(
+        new ::EphemeridesRecenterAlgorithm(configFromC(*config)));
 }
 
 void EphemeridesRecenterAlgorithm_destroy(EphemeridesRecenterAlgorithmHandle* self) {
     delete reinterpret_cast<::EphemeridesRecenterAlgorithm*>(self);
 }
 
-void EphemeridesRecenterAlgorithm_reset(EphemeridesRecenterAlgorithmHandle* self) {
-    reinterpret_cast<::EphemeridesRecenterAlgorithm*>(self)->reset();
+void EphemeridesRecenterAlgorithm_setConfig(EphemeridesRecenterAlgorithmHandle* self,
+                                            const EphemeridesRecenterConfig_c* config) {
+    reinterpret_cast<::EphemeridesRecenterAlgorithm*>(self)->setConfig(configFromC(*config));
 }
 
 BodyEphemerisPayloadArray20_c EphemeridesRecenterAlgorithm_updateState(EphemeridesRecenterAlgorithmHandle* self,
@@ -56,52 +70,6 @@ BodyEphemerisPayloadArray20_c EphemeridesRecenterAlgorithm_updateState(Ephemerid
         dst.output_v[2] = src.output_v[2];
     }
     return out;
-}
-
-void EphemeridesRecenterAlgorithm_setNewZeroBaseId(EphemeridesRecenterAlgorithmHandle* self, const int bodySpiceId) {
-    reinterpret_cast<::EphemeridesRecenterAlgorithm*>(self)->setNewZeroBaseId(bodySpiceId);
-}
-
-int EphemeridesRecenterAlgorithm_getNewZeroBase(const EphemeridesRecenterAlgorithmHandle* self) {
-    return reinterpret_cast<const ::EphemeridesRecenterAlgorithm*>(self)->getNewZeroBase();
-}
-
-void EphemeridesRecenterAlgorithm_setPreviousCommonZeroBase(EphemeridesRecenterAlgorithmHandle* self,
-                                                            const int bodySpiceId) {
-    reinterpret_cast<::EphemeridesRecenterAlgorithm*>(self)->setPreviousCommonZeroBase(bodySpiceId);
-}
-
-int EphemeridesRecenterAlgorithm_getPreviousCommonZeroBase(const EphemeridesRecenterAlgorithmHandle* self) {
-    return reinterpret_cast<const ::EphemeridesRecenterAlgorithm*>(self)->getPreviousCommonZeroBase();
-}
-
-uint32_t EphemeridesRecenterAlgorithm_getNumberOfBodies(const EphemeridesRecenterAlgorithmHandle* self) {
-    return static_cast<uint32_t>(reinterpret_cast<const ::EphemeridesRecenterAlgorithm*>(self)->getNumberOfBodies());
-}
-
-IntArray20_c EphemeridesRecenterAlgorithm_getAllIds(const EphemeridesRecenterAlgorithmHandle* self) {
-    std::array<int, MAX_NUM_CHANGE_BODIES> ids =
-        reinterpret_cast<const ::EphemeridesRecenterAlgorithm*>(self)->getAllIds();
-    IntArray20_c out{};
-    for (std::size_t i = 0U; i < MAX_NUM_CHANGE_BODIES; ++i) {
-        out.id[i] = ids.at(i);
-    }
-    return out;
-}
-
-void EphemeridesRecenterAlgorithm_addBodyEphemerisToRecenter(EphemeridesRecenterAlgorithmHandle* self,
-                                                             const BodyToRecenter* body) {
-    reinterpret_cast<::EphemeridesRecenterAlgorithm*>(self)->addBodyEphemerisToRecenter(*body);
-}
-
-void EphemeridesRecenterAlgorithm_clearAllBodies(EphemeridesRecenterAlgorithmHandle* self) {
-    reinterpret_cast<::EphemeridesRecenterAlgorithm*>(self)->clearAllBodies();
-}
-
-uint32_t EphemeridesRecenterAlgorithm_findBodyIndex(const EphemeridesRecenterAlgorithmHandle* self,
-                                                    const int bodySpiceId) {
-    return static_cast<uint32_t>(
-        reinterpret_cast<const ::EphemeridesRecenterAlgorithm*>(self)->findBodyIndex(bodySpiceId));
 }
 
 uint32_t EphemeridesRecenterAlgorithm_getMaxNumChangeBodies(void) { return MAX_NUM_CHANGE_BODIES; }
