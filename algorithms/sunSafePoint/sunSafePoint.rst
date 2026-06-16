@@ -28,7 +28,7 @@ provides information on what this message is used for.
     * - sunDirectionInMsg
       - :ref:`NavAttMsgF32Payload`
       - input message containing the sun direction vector :math:`\mathbf s` in body frame coordinates
-    * - imuInMsg
+    * - rateInMsg
       - :ref:`NavAttMsgF32Payload`
       - input message containing the inertial body angular velocity :math:`\mathbf\omega_{B/N}`
     * - attGuidanceOutMsg

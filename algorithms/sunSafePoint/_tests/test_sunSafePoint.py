@@ -91,11 +91,11 @@ def test_sun_safe_point(show_plots, case):
     input_sun_vec_data.vehSunPntBdy = sun_vec_B
     sun_in_msg = messaging.NavAttMsgF32().write(input_sun_vec_data)
 
-    # Create sunSafePoint IMU input message
-    input_imu_data = messaging.NavAttMsgF32Payload()
+    # Create sunSafePoint body rate input message
+    input_rate_data = messaging.NavAttMsgF32Payload()
     omega_BN_B = np.array([0.01, 0.50, -0.2])
-    input_imu_data.omega_BN_B = omega_BN_B
-    imu_in_msg = messaging.NavAttMsgF32().write(input_imu_data)
+    input_rate_data.omega_BN_B = omega_BN_B
+    rate_in_msg = messaging.NavAttMsgF32().write(input_rate_data)
 
     # Set up data logging
     att_guid_out_msg_data_log = sun_safe_point.attGuidanceOutMsg.recorder()
@@ -103,7 +103,7 @@ def test_sun_safe_point(show_plots, case):
 
     # Connect messages
     sun_safe_point.sunDirectionInMsg.subscribeTo(sun_in_msg)
-    sun_safe_point.imuInMsg.subscribeTo(imu_in_msg)
+    sun_safe_point.rateInMsg.subscribeTo(rate_in_msg)
 
     # Run the simulation
     unit_test_sim.InitializeSimulation()
