@@ -465,3 +465,25 @@ TEST(SunSafePointTest, PointResumesPointingWhenSunReturns) {
         EXPECT_NEAR(pointing2.sigma_BR[i], reference.sigma_BR[i], 1e-5F);
     }
 }
+
+TEST(SunSafePointTest, ForcedTransitionWithoutSunUsesFallbackRate) {
+    const auto rotations = buildRotations({10.0F, 10.0F, 10.0F, 10.0F}, {0.1F, 0.2F, 0.3F, 0.4F}, {0, 1, 2, 0});
+    // sHatBdyCmd {0,0,1}, spin rate 0, configured fallback tumble {0,0,0.1}, threshold 4
+    SunSafePointAlgorithm alg{
+        makeSearchConfig(rotations, Eigen::Vector3f{0.0F, 0.0F, 1.0F}, 0.0F, Eigen::Vector3f{0.0F, 0.0F, 0.1F})};
+
+    const uint64_t startTime = 1000U;
+    const Eigen::Vector3f omega_BN_B = Eigen::Vector3f::Zero();
+    (void)alg.update(startTime, Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(), 0);  // latch start
+
+    // Search times out (observations never exceed threshold) and the sun is not visible: the
+    // forced transition lands in POINT's zero-sun branch -> configured fallback rate.
+    const uint64_t pastSequence = startTime + static_cast<uint64_t>(45.0F * kSec2NanoF);
+    const SunSafePointOutput out = alg.update(pastSequence, Eigen::Vector3f::Zero(), omega_BN_B, 0);
+
+    EXPECT_FLOAT_EQ(out.sigma_BR.norm(), 0.0F);
+    EXPECT_NEAR(out.omega_RN_B[0], 0.0F, 1e-6F);
+    EXPECT_NEAR(out.omega_RN_B[1], 0.0F, 1e-6F);
+    EXPECT_NEAR(out.omega_RN_B[2], 0.1F, 1e-6F);  // fallback, not the 0.4 hold or zero
+    EXPECT_TRUE(out.faultDetected);               // search failed (threshold never met) -> fault latched
+}
