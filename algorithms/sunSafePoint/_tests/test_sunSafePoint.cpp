@@ -405,3 +405,30 @@ TEST(SunSafePointTest, TransitionsToPointAtThreshold) {
         EXPECT_FALSE(out.faultDetected);  // sun acquired -> healthy transition, no fault
     }
 }
+
+TEST(SunSafePointTest, PointIsTerminalNoReturnToSearch) {
+    const auto rotations = buildRotations({10.0F, 10.0F, 10.0F, 10.0F}, {0.1F, 0.2F, 0.3F, 0.4F}, {0, 1, 2, 0});
+    // sHatBdyCmd {0,0,1}, threshold 4
+    const auto cfg = makeSearchConfig(rotations);
+    SunSafePointAlgorithm alg{cfg};
+
+    const uint64_t startTime = 1000U;
+    const Eigen::Vector3f sun{1.0F, 1.0F, 0.0F};
+    const Eigen::Vector3f omega_BN_B = Eigen::Vector3f::Zero();
+    (void)alg.update(startTime, Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(), 0);  // latch start
+
+    // Enter POINT during rotation 2 by exceeding the threshold.
+    const uint64_t enterPoint = startTime + static_cast<uint64_t>(15.0F * kSec2NanoF);
+    (void)alg.update(enterPoint, sun, omega_BN_B, 5);
+
+    // Later, still inside the nominal sequence, observations drop to 0: must stay POINT.
+    const uint64_t later = startTime + static_cast<uint64_t>(18.0F * kSec2NanoF);
+    const SunSafePointOutput out = alg.update(later, sun, omega_BN_B, 0);
+
+    const auto reference = referenceUpdate(sun, omega_BN_B, 0.0F, cfg.getSHatBdyCmd(), Eigen::Vector3f::Zero());
+    EXPECT_GT(out.sigma_BR.norm(), 0.0F);  // pointing, not a search rate
+    for (int i = 0; i < 3; ++i) {
+        EXPECT_NEAR(out.sigma_BR[i], reference.sigma_BR[i], 1e-5F);
+    }
+    EXPECT_FALSE(out.faultDetected);  // entered POINT via sun acquisition, not search failure
+}
