@@ -1,7 +1,6 @@
 #ifndef F32XMERA_INERTIAL3D_ALGORITHM_H
 #define F32XMERA_INERTIAL3D_ALGORITHM_H
 
-#include "msgPayloadDef/AttRefMsgF32Payload.h"
 #include "utilities/fsw/freestandingInvalidArgument.h"
 #include <Eigen/Core>
 
@@ -33,12 +32,12 @@ class Inertial3DConfig final {
  */
 class Inertial3DAlgorithm final {
    public:
-    AttRefMsgF32Payload update() const;
-    void setSigmaRN(const Eigen::Vector3f& sigmaInput_RN);
-    Eigen::Vector3f getSigmaRN() const;
+    explicit Inertial3DAlgorithm(const Inertial3DConfig& config);
+    void setConfig(const Inertial3DConfig& config);
+    Eigen::Vector3f update() const;  //!< [-] returns the fixed reference-attitude MRP sigma_RN
 
    private:
-    Eigen::Vector3f sigma_RN{Eigen::Vector3f::Zero()};  //!<  MRP from inertial frame N to reference frame R
+    Inertial3DConfig cfg;
 };
 
 #endif
