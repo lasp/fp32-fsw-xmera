@@ -6,6 +6,8 @@
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
 
+#include <memory>
+
 /*! @brief Top level structure for the CSS sensor interface system.  Contains all parameters for the
  CSS interface*/
 class CssComm : public SysModel {
@@ -16,20 +18,16 @@ class CssComm : public SysModel {
     void updateState(uint64_t callTime) override;
     void reset(uint64_t callTime) override;
 
-    void setNumSensors(uint32_t numberOfSensors);
-    uint32_t getNumSensors() const;
-    void setMaxSensorValue(double maxValue);
-    double getMaxSensorValue() const;
-    void setChebyCount(uint32_t count);
-    uint32_t getChebyCount() const;
-    void setChebyPolynomials(const std::array<double, kMaxNumChebyPolys>& polynomials);
-    std::array<double, kMaxNumChebyPolys> getChebyPolynomials() const;
+    uint32_t numSensors{};    //!< [-] number of CSS sensors to process
+    double maxSensorValue{};  //!< [-] scale factor to go from sensor values to cosine
+    uint32_t chebyCount{};    //!< [-] number of Chebyshev polynomials used for the correction fit
+    std::array<double, kMaxNumChebyPolys> chebyPolynomials{};  //!< [-] Chebyshev polynomials fitting output to cosine
 
     ReadFunctor<CSSArraySensorMsgF32Payload> sensorListInMsg;  //!< input message that contains CSS data
     Message<CSSArraySensorMsgF32Payload> cssArrayOutMsg;       //!< output message of corrected CSS data
 
    private:
-    CssCommAlgorithm algorithm{};
+    std::unique_ptr<CssCommAlgorithm> algorithm = nullptr;
 };
 
 #endif

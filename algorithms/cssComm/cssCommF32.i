@@ -12,24 +12,7 @@
 %template(DoubleArrayCss) std::array<double, MAX_NUM_CSS_SENSORS>;
 %template(DoubleArrayCheby) std::array<double, MAX_NUM_CHEBY_POLYS>;
 
-%include <attribute.i>
-%attribute(CssComm, uint32_t, numSensors, getNumSensors, setNumSensors)
-%attribute(CssComm, double, maxSensorValue, getMaxSensorValue, setMaxSensorValue)
-%attribute(CssComm, uint32_t, chebyCount, getChebyCount, setChebyCount)
-
 %include "cssComm.h"
 %include "cssCommAlgorithm.h"
-
-%extend CssComm {
-%pythoncode %{
-    @property
-    def chebyPolynomials(self):
-        return self.getChebyPolynomials()
-
-    @chebyPolynomials.setter
-    def chebyPolynomials(self, value):
-        self.setChebyPolynomials(value)
-%}
-}
 
 %include "msgPayloadDef/CSSArraySensorMsgF32Payload.h"

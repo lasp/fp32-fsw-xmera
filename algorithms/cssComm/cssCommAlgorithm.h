@@ -49,8 +49,7 @@ class CssCommConfig final {
         return chebyCount >= 1U && chebyCount <= static_cast<uint32_t>(kMaxNumChebyPolys);
     }
     static bool isValidChebyPolynomials(const std::array<double, kMaxNumChebyPolys>& chebyPolynomials) {
-        return std::all_of(
-            chebyPolynomials.begin(), chebyPolynomials.end(), [](double coeff) { return fsw::is_finite(coeff); });
+        return std::ranges::all_of(chebyPolynomials, [](double coeff) { return fsw::is_finite(coeff); });
     }
 
     uint32_t getNumSensors() const { return numSensors; }
@@ -59,6 +58,9 @@ class CssCommConfig final {
     const std::array<double, kMaxNumChebyPolys>& getChebyPolynomials() const { return chebyPolynomials; }
 
    private:
+    // The scalar config fields have distinct meanings but mutually convertible types; construction is funneled
+    // through the named create() factory, which makes the argument roles explicit at every call site.
+    // NOLINTBEGIN(bugprone-easily-swappable-parameters)
     CssCommConfig(uint32_t numSensors,
                   double maxSensorValue,
                   uint32_t chebyCount,
@@ -67,6 +69,7 @@ class CssCommConfig final {
           maxSensorValue(maxSensorValue),
           chebyCount(chebyCount),
           chebyPolynomials(chebyPolynomials) {}
+    // NOLINTEND(bugprone-easily-swappable-parameters)
 
     uint32_t numSensors;
     double maxSensorValue;
@@ -78,22 +81,12 @@ class CssCommConfig final {
  CSS interface*/
 class CssCommAlgorithm final {
    public:
+    explicit CssCommAlgorithm(const CssCommConfig& config);
+    void setConfig(const CssCommConfig& config);
     std::array<double, kMaxNumCssSensors> update(const std::array<double, kMaxNumCssSensors>& inputValues) const;
 
-    void setNumSensors(uint32_t numberOfSensors);
-    uint32_t getNumSensors() const;
-    void setMaxSensorValue(double maxValue);
-    double getMaxSensorValue() const;
-    void setChebyCount(uint32_t count);
-    uint32_t getChebyCount() const;
-    void setChebyPolynomials(const std::array<double, kMaxNumChebyPolys>& polynomials);
-    std::array<double, kMaxNumChebyPolys> getChebyPolynomials() const;
-
    private:
-    uint32_t numSensors{};                                     //!< The number of sensors we are processing
-    double maxSensorValue{};                                   //!< Scale factor to go from sensor values to cosine
-    uint32_t chebyCount{};                                     //!< Count on the number of chebyshev polynomials we have
-    std::array<double, kMaxNumChebyPolys> chebyPolynomials{};  //!< Chebyshev polynomials to fit output to cosine
+    CssCommConfig cfg;
 };
 
 #endif
