@@ -432,3 +432,36 @@ TEST(SunSafePointTest, PointIsTerminalNoReturnToSearch) {
     }
     EXPECT_FALSE(out.faultDetected);  // entered POINT via sun acquisition, not search failure
 }
+
+TEST(SunSafePointTest, PointResumesPointingWhenSunReturns) {
+    const auto rotations = buildRotations({10.0F, 10.0F, 10.0F, 10.0F}, {0.1F, 0.2F, 0.3F, 0.4F}, {0, 1, 2, 0});
+    // sHatBdyCmd {0,0,1}, spin rate 0, zero-sun fallback rate {0,0,0.1}, threshold 4
+    const auto cfg =
+        makeSearchConfig(rotations, Eigen::Vector3f{0.0F, 0.0F, 1.0F}, 0.0F, Eigen::Vector3f{0.0F, 0.0F, 0.1F});
+    SunSafePointAlgorithm alg{cfg};
+
+    const uint64_t startTime = 1000U;
+    const Eigen::Vector3f sun{1.0F, 1.0F, 0.0F};
+    const Eigen::Vector3f omega_BN_B = Eigen::Vector3f::Zero();
+    (void)alg.update(startTime, Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(), 0);  // latch start
+
+    // Enter POINT with a visible sun.
+    const uint64_t t1 = startTime + static_cast<uint64_t>(15.0F * kSec2NanoF);
+    const SunSafePointOutput pointing1 = alg.update(t1, sun, omega_BN_B, 5);
+    EXPECT_GT(pointing1.sigma_BR.norm(), 0.0F);
+
+    // Sun lost: fallback branch (sigma 0, omega_RN_B = configured fallback).
+    const uint64_t t2 = startTime + static_cast<uint64_t>(16.0F * kSec2NanoF);
+    const SunSafePointOutput fallback = alg.update(t2, Eigen::Vector3f::Zero(), omega_BN_B, 0);
+    EXPECT_FLOAT_EQ(fallback.sigma_BR.norm(), 0.0F);
+    EXPECT_NEAR(fallback.omega_RN_B[2], 0.1F, 1e-6F);
+
+    // Sun returns: pointing resumes (the fallback is evaluated per-update, not latched).
+    const uint64_t t3 = startTime + static_cast<uint64_t>(17.0F * kSec2NanoF);
+    const SunSafePointOutput pointing2 = alg.update(t3, sun, omega_BN_B, 0);
+    EXPECT_GT(pointing2.sigma_BR.norm(), 0.0F);
+    const auto reference = referenceUpdate(sun, omega_BN_B, 0.0F, cfg.getSHatBdyCmd(), Eigen::Vector3f::Zero());
+    for (int i = 0; i < 3; ++i) {
+        EXPECT_NEAR(pointing2.sigma_BR[i], reference.sigma_BR[i], 1e-5F);
+    }
+}
