@@ -46,6 +46,9 @@ class MrpPDConfig final {
     const Eigen::Matrix3f& getInertia() const { return ISCPntB_B; }
 
    private:
+    // The two gains share a type but have distinct roles; construction is funneled through the named create()
+    // factory, which makes the argument roles explicit at every call site.
+    // NOLINTBEGIN(bugprone-easily-swappable-parameters)
     MrpPDConfig(float proportionalGainK,
                 float derivativeGainP,
                 const Eigen::Vector3f& knownTorquePntB_B,
@@ -54,6 +57,7 @@ class MrpPDConfig final {
           derivativeGainP(derivativeGainP),
           knownTorquePntB_B(knownTorquePntB_B),
           ISCPntB_B(ISCPntB_B) {}
+    // NOLINTEND(bugprone-easily-swappable-parameters)
 
     float proportionalGainK;
     float derivativeGainP;
@@ -62,30 +66,17 @@ class MrpPDConfig final {
 };
 
 /*! @brief MRP PD control algorithm class. */
-class MrpPDAlgorithm {
+class MrpPDAlgorithm final {
    public:
-    MrpPDAlgorithm() = default;
-    ~MrpPDAlgorithm() = default;
+    explicit MrpPDAlgorithm(const MrpPDConfig& config);
+    void setConfig(const MrpPDConfig& config);
 
     Eigen::Vector3f update(const Eigen::Vector3f& sigma_BR,
                            const Eigen::Vector3f& omega_BR_B,
                            const Eigen::Vector3f& domega_RN_B) const;
-    void setSpacecraftInertia(const Eigen::Matrix3f& inertia);
-    Eigen::Matrix3f getSpacecraftInertia() const;
-    void setDerivativeGainP(float P);
-    float getDerivativeGainP() const;
-    void setKnownTorquePntB_B(const Eigen::Vector3f& knownTorquePntB_B);
-    const Eigen::Vector3f& getKnownTorquePntB_B() const;
-    void setProportionalGainK(float K);
-    float getProportionalGainK() const;
 
    private:
-    float proportionalGain{};  //!< [rad/s] Proportional gain applied to MRP errors
-    float feedbackGain{};      //!< [N*m*s] Rate error feedback gain applied
-    Eigen::Vector3f knownTorquePntB_B =
-        Eigen::Vector3f::Zero();  //!< [N*m] Known external torque expressed in body frame components
-    Eigen::Matrix3f ISCPntB_B =
-        Eigen::Matrix3f::Identity();  //!< [kg*m^2] Spacecraft inertia about point B expressed in body frame components
+    MrpPDConfig cfg;
 };
 
 #endif

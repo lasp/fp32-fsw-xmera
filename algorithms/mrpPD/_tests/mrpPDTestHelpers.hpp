@@ -5,18 +5,16 @@
 #include "utilities/fsw/eigenSupport.h"
 #include "utilities/fsw/freestandingInvalidArgument.h"
 #include <gtest/gtest.h>
-#include <math.h>
 #include <Eigen/Core>
-#include <numbers>
+#include <cmath>
 
-// Reference computation for update
-inline Eigen::Vector3f referenceUpdate(const MrpPDAlgorithm& alg,
+// Reference computation for update, derived directly from the configuration values.
+inline Eigen::Vector3f referenceUpdate(const MrpPDConfig& cfg,
                                        const Eigen::Vector3f& sigma_BR,
                                        const Eigen::Vector3f& omega_BR_B,
                                        const Eigen::Vector3f& domega_RN_B) {
-    const Eigen::Vector3f Lr = -alg.getProportionalGainK() * sigma_BR - alg.getDerivativeGainP() * omega_BR_B +
-                               alg.getSpacecraftInertia() * domega_RN_B - alg.getKnownTorquePntB_B();
-
+    const Eigen::Vector3f Lr = -cfg.getProportionalGainK() * sigma_BR - cfg.getDerivativeGainP() * omega_BR_B +
+                               cfg.getInertia() * domega_RN_B - cfg.getKnownTorquePntB_B();
     return Lr;
 }
 
@@ -26,25 +24,16 @@ inline void regressionTestMrpPD(float K,
                                 const Eigen::Vector3f& sigma_BR,
                                 const Eigen::Vector3f& omega_BR_B,
                                 const Eigen::Vector3f& domega_RN_B) {
-    // --- Regression test using expected update algorithm ---
+    // Identity inertia (the default vehicle configuration used by these regression scenarios).
+    const MrpPDConfig cfg = MrpPDConfig::create(K, P, torque, Eigen::Matrix3f::Identity());
+    MrpPDAlgorithm alg{cfg};
 
-    MrpPDAlgorithm alg{};
-
-    alg.setProportionalGainK(K);
-    alg.setDerivativeGainP(P);
-    alg.setKnownTorquePntB_B(torque);
-
-    // Reference
     Eigen::Vector3f outputTorque = Eigen::Vector3f::Zero();
-    Eigen::Vector3f referenceTorque = Eigen::Vector3f::Zero();
     EXPECT_NO_THROW(outputTorque = alg.update(sigma_BR, omega_BR_B, domega_RN_B));
-    EXPECT_NO_THROW(referenceTorque = referenceUpdate(alg, sigma_BR, omega_BR_B, domega_RN_B));
+    const Eigen::Vector3f referenceTorque = referenceUpdate(cfg, sigma_BR, omega_BR_B, domega_RN_B);
 
     for (int i = 0; i < 3; ++i) {
-        // Reference correctness
         EXPECT_NEAR(outputTorque[i], referenceTorque[i], 1e-6);
-
-        // Finiteness
         EXPECT_TRUE(std::isfinite(outputTorque[i]));
     }
 }
