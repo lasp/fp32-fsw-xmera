@@ -19,6 +19,8 @@ algorithms/convertStPlatformToBody/convertStPlatformToBodyAlgorithm_c.h
 algorithms/convertStPlatformToBody/convertStPlatformToBodyAlgorithm_c.cpp
 algorithms/cssComm/cssComm.h
 algorithms/cssComm/cssComm.cpp
+algorithms/cssComm/cssCommAlgorithm_c.h
+algorithms/cssComm/cssCommAlgorithm_c.cpp
 algorithms/dvGuidance/dvGuidance.h
 algorithms/dvGuidance/dvGuidance.cpp
 algorithms/dvGuidance/dvGuidanceAlgorithm_c.h

@@ -67,16 +67,11 @@ inline void regressionTestCssComm(uint32_t numSensors,
                                   uint32_t chebyCount,
                                   std::vector<double> chebyCoeffs,
                                   std::vector<double> sensorInputRatios) {
-    CssCommAlgorithm alg{};
-    alg.setNumSensors(numSensors);
-    alg.setMaxSensorValue(maxSensorValue);
-    alg.setChebyCount(chebyCount);
-
     std::array<double, kMaxNumChebyPolys> polynomials{};
     for (std::size_t i = 0; i < chebyCoeffs.size() && i < kMaxNumChebyPolys; ++i) {
         polynomials[i] = chebyCoeffs[i];
     }
-    alg.setChebyPolynomials(polynomials);
+    CssCommAlgorithm alg{CssCommConfig::create(numSensors, maxSensorValue, chebyCount, polynomials)};
 
     std::array<double, MAX_NUM_CSS_SENSORS> inputValues{};
     for (std::size_t i = 0; i < sensorInputRatios.size() && i < MAX_NUM_CSS_SENSORS; ++i) {

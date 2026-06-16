@@ -16,38 +16,37 @@ TEST(CssCommTest, RegressionTest) {
 }
 
 TEST(CssCommTest, SetupTest) {
-    CssCommAlgorithm alg{};
-
-    // numSensors: 0 and above-max should throw
-    EXPECT_THROW(alg.setNumSensors(0), fsw::invalid_argument);
-    EXPECT_THROW(alg.setNumSensors(MAX_NUM_CSS_SENSORS + 1), fsw::invalid_argument);
-
-    // maxSensorValue: 0 and negative should throw
-    EXPECT_THROW(alg.setMaxSensorValue(0.0), fsw::invalid_argument);
-    EXPECT_THROW(alg.setMaxSensorValue(-1.0), fsw::invalid_argument);
-
-    // chebyCount: 0 and above-max should throw
-    EXPECT_THROW(alg.setChebyCount(0), fsw::invalid_argument);
-    EXPECT_THROW(alg.setChebyCount(kMaxNumChebyPolys + 1), fsw::invalid_argument);
-
-    // Getter/setter round-trips
-    alg.setNumSensors(4);
-    EXPECT_EQ(alg.getNumSensors(), 4u);
-
-    alg.setMaxSensorValue(500e-6);
-    EXPECT_DOUBLE_EQ(alg.getMaxSensorValue(), 500e-6);
-
-    alg.setChebyCount(3);
-    EXPECT_EQ(alg.getChebyCount(), 3u);
-
     std::array<double, kMaxNumChebyPolys> polys{};
     polys[0] = 0.1;
     polys[1] = -0.2;
-    alg.setChebyPolynomials(polys);
-    auto retrieved = alg.getChebyPolynomials();
+
+    // A valid configuration round-trips its values
+    const auto config = CssCommConfig::create(4, 500e-6, 3, polys);
+    EXPECT_EQ(config.getNumSensors(), 4u);
+    EXPECT_DOUBLE_EQ(config.getMaxSensorValue(), 500e-6);
+    EXPECT_EQ(config.getChebyCount(), 3u);
     for (std::size_t i = 0; i < kMaxNumChebyPolys; ++i) {
-        EXPECT_DOUBLE_EQ(retrieved[i], polys[i]);
+        EXPECT_DOUBLE_EQ(config.getChebyPolynomials()[i], polys[i]);
     }
+
+    // numSensors: 0 and above-max are rejected
+    EXPECT_THROW(CssCommConfig::create(0, 500e-6, 3, polys), fsw::invalid_argument);
+    EXPECT_THROW(CssCommConfig::create(MAX_NUM_CSS_SENSORS + 1, 500e-6, 3, polys), fsw::invalid_argument);
+
+    // maxSensorValue: 0 and negative are rejected
+    EXPECT_THROW(CssCommConfig::create(4, 0.0, 3, polys), fsw::invalid_argument);
+    EXPECT_THROW(CssCommConfig::create(4, -1.0, 3, polys), fsw::invalid_argument);
+
+    // chebyCount: 0 and above-max are rejected
+    EXPECT_THROW(CssCommConfig::create(4, 500e-6, 0, polys), fsw::invalid_argument);
+    EXPECT_THROW(CssCommConfig::create(4, 500e-6, kMaxNumChebyPolys + 1, polys), fsw::invalid_argument);
+
+    EXPECT_TRUE(CssCommConfig::isValidNumSensors(4));
+    EXPECT_FALSE(CssCommConfig::isValidNumSensors(0));
+    EXPECT_TRUE(CssCommConfig::isValidMaxSensorValue(500e-6));
+    EXPECT_FALSE(CssCommConfig::isValidMaxSensorValue(0.0));
+    EXPECT_TRUE(CssCommConfig::isValidChebyCount(3));
+    EXPECT_FALSE(CssCommConfig::isValidChebyCount(0));
 }
 
 // ---------------------------------------------------------------------------
@@ -56,16 +55,11 @@ TEST(CssCommTest, SetupTest) {
 
 // When input/maxSensorValue + correction > 1.0, output is clamped to 1.0.
 TEST(CssCommTest, SaturationClampingToOne) {
-    CssCommAlgorithm alg{};
-    alg.setNumSensors(1);
-    alg.setMaxSensorValue(1.0);
-    alg.setChebyCount(1);
-
     // With chebyPolynomials[0] = 2.0 and input = 1.0:
     // scaled = 1.0, correction = 2.0, corrected = 3.0 → clamped to 1.0
     std::array<double, kMaxNumChebyPolys> polys{};
     polys[0] = 2.0;
-    alg.setChebyPolynomials(polys);
+    CssCommAlgorithm alg{CssCommConfig::create(1, 1.0, 1, polys)};
 
     std::array<double, MAX_NUM_CSS_SENSORS> input{};
     input[0] = 1.0;
@@ -76,17 +70,12 @@ TEST(CssCommTest, SaturationClampingToOne) {
 
 // For any valid configuration and inputs, every output is in [0.0, 1.0].
 TEST(CssCommTest, OutputAlwaysInUnitRange) {
-    CssCommAlgorithm alg{};
-    alg.setNumSensors(MAX_NUM_CSS_SENSORS);
-    alg.setMaxSensorValue(100.0);
-    alg.setChebyCount(4);
-
     std::array<double, kMaxNumChebyPolys> polys{};
     polys[0] = 1e4;
     polys[1] = -5e3;
     polys[2] = 2e3;
     polys[3] = -1e3;
-    alg.setChebyPolynomials(polys);
+    CssCommAlgorithm alg{CssCommConfig::create(MAX_NUM_CSS_SENSORS, 100.0, 4, polys)};
 
     std::array<double, MAX_NUM_CSS_SENSORS> input{};
     for (uint32_t i = 0; i < MAX_NUM_CSS_SENSORS; ++i) {
@@ -103,14 +92,9 @@ TEST(CssCommTest, OutputAlwaysInUnitRange) {
 
 // Output elements beyond numSensors are always 0.0.
 TEST(CssCommTest, UnusedSensorsRemainZero) {
-    CssCommAlgorithm alg{};
-    alg.setNumSensors(2);
-    alg.setMaxSensorValue(1.0);
-    alg.setChebyCount(1);
-
     std::array<double, kMaxNumChebyPolys> polys{};
     polys[0] = 0.5;
-    alg.setChebyPolynomials(polys);
+    CssCommAlgorithm alg{CssCommConfig::create(2, 1.0, 1, polys)};
 
     std::array<double, MAX_NUM_CSS_SENSORS> input{};
     for (auto& v : input) {
@@ -131,16 +115,11 @@ TEST(CssCommTest, UnusedSensorsRemainZero) {
 // When all sensor inputs are zero, scaled = 0, so the output equals
 // clamp(chebyshevCorrection(0), 0, 1).
 TEST(CssCommTest, ZeroInputIsChebyCorrection) {
-    CssCommAlgorithm alg{};
-    alg.setNumSensors(4);
-    alg.setMaxSensorValue(1.0);
-    alg.setChebyCount(3);
-
     std::array<double, kMaxNumChebyPolys> polys{};
     polys[0] = 0.3;
     polys[1] = 0.1;
     polys[2] = 0.05;
-    alg.setChebyPolynomials(polys);
+    CssCommAlgorithm alg{CssCommConfig::create(4, 1.0, 3, polys)};
 
     std::array<double, MAX_NUM_CSS_SENSORS> input{};  // all zeros
     auto output = alg.update(input);
@@ -156,13 +135,8 @@ TEST(CssCommTest, ZeroInputIsChebyCorrection) {
 // When all Chebyshev coefficients are 0, output equals input/maxSensorValue
 // clamped to [0, 1].
 TEST(CssCommTest, ZeroChebyIsIdentity) {
-    CssCommAlgorithm alg{};
-    alg.setNumSensors(5);
-    alg.setMaxSensorValue(100.0);
-    alg.setChebyCount(3);
-
     std::array<double, kMaxNumChebyPolys> polys{};  // all zeros
-    alg.setChebyPolynomials(polys);
+    CssCommAlgorithm alg{CssCommConfig::create(5, 100.0, 3, polys)};
 
     std::array<double, MAX_NUM_CSS_SENSORS> input{};
     input[0] = 50.0;   // scaled = 0.5
@@ -186,14 +160,9 @@ TEST(CssCommTest, ZeroChebyIsIdentity) {
 // With a single Chebyshev coefficient (constant term), the correction is
 // always coefficients[0] regardless of input.
 TEST(CssCommTest, SingleChebyCoefficient) {
-    CssCommAlgorithm alg{};
-    alg.setNumSensors(3);
-    alg.setMaxSensorValue(1.0);
-    alg.setChebyCount(1);
-
     std::array<double, kMaxNumChebyPolys> polys{};
     polys[0] = 0.2;
-    alg.setChebyPolynomials(polys);
+    CssCommAlgorithm alg{CssCommConfig::create(3, 1.0, 1, polys)};
 
     std::array<double, MAX_NUM_CSS_SENSORS> input{};
     input[0] = 0.0;
@@ -209,15 +178,10 @@ TEST(CssCommTest, SingleChebyCoefficient) {
 
 // When input exactly equals maxSensorValue, scaled = 1.0.
 TEST(CssCommTest, InputEqualsMaxSensorValue) {
-    CssCommAlgorithm alg{};
-    alg.setNumSensors(1);
-    alg.setMaxSensorValue(500e-6);
-    alg.setChebyCount(2);
-
     std::array<double, kMaxNumChebyPolys> polys{};
     polys[0] = -0.1;
     polys[1] = 0.05;
-    alg.setChebyPolynomials(polys);
+    CssCommAlgorithm alg{CssCommConfig::create(1, 500e-6, 2, polys)};
 
     std::array<double, MAX_NUM_CSS_SENSORS> input{};
     input[0] = 500e-6;  // scaled = 1.0 exactly
@@ -230,16 +194,11 @@ TEST(CssCommTest, InputEqualsMaxSensorValue) {
 
 // All active sensors with identical input should produce identical output.
 TEST(CssCommTest, IdenticalSensorsIdenticalOutput) {
-    CssCommAlgorithm alg{};
-    alg.setNumSensors(MAX_NUM_CSS_SENSORS);
-    alg.setMaxSensorValue(1.0);
-    alg.setChebyCount(3);
-
     std::array<double, kMaxNumChebyPolys> polys{};
     polys[0] = 0.1;
     polys[1] = -0.05;
     polys[2] = 0.02;
-    alg.setChebyPolynomials(polys);
+    CssCommAlgorithm alg{CssCommConfig::create(MAX_NUM_CSS_SENSORS, 1.0, 3, polys)};
 
     std::array<double, MAX_NUM_CSS_SENSORS> input{};
     for (auto& v : input) {
