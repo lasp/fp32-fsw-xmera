@@ -12,8 +12,8 @@ void SunSafePoint::reset(uint64_t callTime) {
     if (!this->sunDirectionInMsg.isLinked()) {
         throw std::invalid_argument("sunSafePoint.sunDirectionInMsg wasn't connected.");
     }
-    if (!this->imuInMsg.isLinked()) {
-        throw std::invalid_argument("sunSafePoint.imuInMsg wasn't connected.");
+    if (!this->rateInMsg.isLinked()) {
+        throw std::invalid_argument("sunSafePoint.rateInMsg wasn't connected.");
     }
 }
 
@@ -22,9 +22,9 @@ void SunSafePoint::reset(uint64_t callTime) {
  @param callTime [ns] Time the method is called
 */
 void SunSafePoint::updateState(uint64_t callTime) {
-    auto imuMsgPayload = NavAttMsgF32Payload();
-    if (this->imuInMsg.isWritten()) {
-        imuMsgPayload = this->imuInMsg();
+    auto rateMsgPayload = NavAttMsgF32Payload();
+    if (this->rateInMsg.isWritten()) {
+        rateMsgPayload = this->rateInMsg();
     }
     auto sunDirectionMsgPayload = NavAttMsgF32Payload();
     if (this->sunDirectionInMsg.isWritten()) {
@@ -32,7 +32,7 @@ void SunSafePoint::updateState(uint64_t callTime) {
     }
 
     Eigen::Vector3f const vehSunPntBdy = cArrayToEigenVector(sunDirectionMsgPayload.vehSunPntBdy);
-    Eigen::Vector3f const omega_BN_B = cArrayToEigenVector(imuMsgPayload.omega_BN_B);
+    Eigen::Vector3f const omega_BN_B = cArrayToEigenVector(rateMsgPayload.omega_BN_B);
 
     // Call the algorithm update method
     SunSafePointOutput output = this->algorithm.update(vehSunPntBdy, omega_BN_B);

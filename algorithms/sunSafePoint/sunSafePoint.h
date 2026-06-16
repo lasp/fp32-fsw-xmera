@@ -25,7 +25,7 @@ class SunSafePoint : public SysModel {
     void setOmega_RN_B(const Eigen::Vector3f& omega);
     void setSHatBdyCmd(const Eigen::Vector3f& sHat);
 
-    ReadFunctor<NavAttMsgF32Payload> imuInMsg;           //!< IMU attitude guidance input message
+    ReadFunctor<NavAttMsgF32Payload> rateInMsg;          //!< Body angular velocity input message
     ReadFunctor<NavAttMsgF32Payload> sunDirectionInMsg;  //!< Sun attitude guidance input message
     Message<AttGuidMsgF32Payload> attGuidanceOutMsg;     //!< Attitude guidance output message
 
