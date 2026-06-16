@@ -3,6 +3,8 @@ Ephemerides Recenter
 
 This module provides functionality to transform the ephemerides of a collection of bodies
 so that they are expressed relative to a new central body, rather than their original reference (e.g., Sun or Earth).
+Positions and velocities are computed in double precision; the ``EphemerisMsgF32Payload`` messages it reads and writes
+also carry double-precision ``r_BdyZero_N`` / ``v_BdyZero_N`` fields.
 
 Assumptions and Limitations
 ---------------
@@ -18,21 +20,46 @@ moon is relative to its parent body).
 Module Overview
 ---------------
 
-The module is implemented in C++ and consists of:
+The module is split into two layers:
 
-- ``BodyEphemerisPayload``: A container representing a body and its ephemeris messages.
-- ``EphemeridesRecenterAlgorithm``: The module class
+- ``EphemeridesRecenter`` (adapter): owns the per-body input/output messages and the build/query API. Each body is
+  registered with ``addBodyEphemerisToRecenter``, which also creates that body's output message.
+- ``EphemeridesRecenterAlgorithm`` (algorithm): the pure recentering math. It is constructed from a validated
+  ``EphemeridesRecenterConfig`` and exposes ``updateState``.
 
-When building a body with the BodyEphemeris class, use:
+When building a body with the ``BodyEphemeris`` class, set:
 
-- ``bodySpiceName``: the name of the new body
-- ``originalCentralBodyName``: its original zero-base (of the input message data)
-- add it to the CelestialEphemerisRecenter module with ``addBodyEphemerisToRecenter``
+- ``bodySpiceId``: the SPICE ID of the body
+- ``originalCentralBodyId``: the SPICE ID of the body's original zero-base (of the input message data)
+- ``inputEphemerisMsg``: subscribe it to the body's input ephemeris message
+- add it to the module with ``addBodyEphemerisToRecenter``
 
 When setting up the module:
 
-- ``setNewZeroBase``: sets the zero base that the spacecraft is using and for all the other bodies to switch to
-- ``setPreviousCommonZeroBase``: identify the previous zero base
+- ``setNewZeroBase``: the SPICE ID of the new zero base the spacecraft (and all other bodies) switch to
+- ``setPreviousCommonZeroBase``: the SPICE ID of the previous common zero base
+
+Two-phase initialization: all bodies and both zero bases are set first; then ``reset()`` builds and validates the
+immutable ``EphemeridesRecenterConfig`` (rejecting an unknown new central body, an orphan moon, a moon-of-moon, or
+more than one moon per parent) and constructs the algorithm. ``updateState()`` raises if called before ``reset()``.
+
+-------------------------------
+Module Input/Output Messages
+-------------------------------
+
+.. list-table:: Module I/O Messages
+    :widths: 35 30 50
+    :header-rows: 1
+
+    * - Msg Variable Name
+      - Msg Type
+      - Description
+    * - ``BodyEphemeris::inputEphemerisMsg`` (one per body)
+      - :ref:`EphemerisMsgF32Payload`
+      - input ephemeris for a body, expressed about its original central body
+    * - ``recenteredEphemerisOutputMsgs[i]``
+      - :ref:`EphemerisMsgF32Payload`
+      - recentered ephemeris for body ``i``, expressed about the new central body (created per body added)
 
 Algorithm Logic
 -------------
@@ -51,29 +78,30 @@ Illustration Figure
 Usage Example
 -------------
 
-Below is an example of using the Python interface (mocked for testing) to interact with the C++ module:
+Below is an example of configuring the module from Python:
 
 .. code-block:: python
 
-    from celestialEphemerisRecenter import CelestialEphemerisRecenter, BodyEphemeris
+    from xmera.fp32 import ephemeridesRecenterF32
+    from xmera.architecture import messaging
 
-    # Create module and celestial body
-    module = CelestialEphemerisRecenter()
-    body = BodyEphemeris()
-    body.bodySpiceName = "Mars"
-    body.originalCentralBodyName = "Sun"
+    module = ephemeridesRecenterF32.EphemeridesRecenter()
+    module.modelTag = "ephemeridesRecenter"
 
-    # Attach message functors (e.g., input/output links in Basilisk)
-    body.inputEphemerisMsg = YourInputMsgFunctor()
-    body.outputEphemerisMsg = YourOutputMsg()
+    # Build and register each body; addBodyEphemerisToRecenter creates that body's output message.
+    earthBody = ephemeridesRecenterF32.BodyEphemeris()
+    earthBody.bodySpiceId = EARTH_ID
+    earthBody.originalCentralBodyId = SUN_ID
+    earthBody.inputEphemerisMsg.subscribeTo(earthInputMessage)
+    module.addBodyEphemerisToRecenter(earthBody)
+    # ... register the remaining bodies the same way ...
 
-    # Register body and configure module
-    module.addBodyEphemerisToRecenter(body)
-    module.setNewZeroBase("Mars")
-    module.setPreviousCommonZeroBase("Sun")
+    # Set both zero bases before reset() (the simulation calls reset() at initialization).
+    module.setPreviousCommonZeroBase(SUN_ID)
+    module.setNewZeroBase(MARS_ID)
 
-    # Run module (e.g., in Basilisk dynamics loop)
-    module.updateState(callTime)
+    # After execution, each body's recentered output is available by registration index:
+    recorder = module.recenteredEphemerisOutputMsgs[index].recorder()
 
 Notes
 -----
