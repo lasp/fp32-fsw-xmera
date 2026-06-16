@@ -301,3 +301,29 @@ TEST(SunSafePointTest, ConfigPreservesAxisAndRateRoundTrip) {
         EXPECT_EQ(cfg.getRotations().at(i).rotationAxis, rotations[i].rotationAxis);
     }
 }
+
+// ---------------------------------------------------------------------------
+// State-machine tests (search -> point transition)
+// Canonical search config: four 10 s rotations -> rotationEndTimes = {10, 20, 30, 40} s.
+// ---------------------------------------------------------------------------
+
+TEST(SunSafePointTest, NoTransitionDuringFirstRotation) {
+    const auto rotations = buildRotations({10.0F, 10.0F, 10.0F, 10.0F}, {0.1F, 0.2F, 0.3F, 0.4F}, {0, 1, 2, 0});
+    SunSafePointAlgorithm alg{makeSearchConfig(rotations)};
+
+    const uint64_t startTime = 1000U;
+    (void)alg.update(startTime, Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(), 0);  // latch start
+
+    // Mid rotation 1 (5 s), observations far above threshold: must NOT transition yet.
+    const uint64_t midRotation1 = startTime + static_cast<uint64_t>(5.0F * kSec2NanoF);
+    const Eigen::Vector3f sun{1.0F, 1.0F, 0.0F};
+    const Eigen::Vector3f omega_BN_B{0.01F, -0.02F, 0.03F};
+    const SunSafePointOutput out = alg.update(midRotation1, sun, omega_BN_B, 100);
+
+    // Still SEARCH: zero attitude error, omega_RN_B = rotation-1 rate (0.1 about b1), no fault.
+    EXPECT_FLOAT_EQ(out.sigma_BR.norm(), 0.0F);
+    EXPECT_NEAR(out.omega_RN_B[0], 0.1F, 1e-6F);
+    EXPECT_NEAR(out.omega_RN_B[1], 0.0F, 1e-6F);
+    EXPECT_NEAR(out.omega_RN_B[2], 0.0F, 1e-6F);
+    EXPECT_FALSE(out.faultDetected);
+}
