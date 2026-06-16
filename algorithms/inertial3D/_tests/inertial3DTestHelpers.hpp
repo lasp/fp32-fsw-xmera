@@ -2,41 +2,20 @@
 #define TEST_INERTIAL3D_H
 
 #include "inertial3DAlgorithm.h"
-#include "msgPayloadDef/AttRefMsgF32Payload.h"
-#include "utilities/fsw/eigenSupport.h"
 #include <gtest/gtest.h>
 #include <Eigen/Core>
+#include <cmath>
 
-// Reference computation for update
-AttRefMsgF32Payload referenceUpdate(const Inertial3DAlgorithm& alg) {
-    const Eigen::Vector3f sigma_RN = alg.getSigmaRN();
+// The fixed inertial-3D reference simply echoes the configured MRP.
+inline void testInertial3D(const Eigen::Vector3f& sigma_RN) {
+    Inertial3DAlgorithm alg{Inertial3DConfig::create(sigma_RN)};
 
-    AttRefMsgF32Payload out{};
-    eigenVectorToCArray(sigma_RN, out.sigma_RN);
-    return out;
-}
-
-void testInertial3D(const Eigen::Vector3f& sigma_RN) {
-    Inertial3DAlgorithm alg;
-    alg.setSigmaRN(sigma_RN);
-
-    AttRefMsgF32Payload out;
+    Eigen::Vector3f out;
     EXPECT_NO_THROW(out = alg.update());
-    AttRefMsgF32Payload ref;
-    EXPECT_NO_THROW(ref = referenceUpdate(alg));
 
     for (int i = 0; i < 3; ++i) {
-        // --- General tests ---
-
-        // Reference correctness
-        EXPECT_NEAR(out.sigma_RN[i], ref.sigma_RN[i], 1e-6);
-        EXPECT_NEAR(out.omega_RN_N[i], ref.omega_RN_N[i], 1e-6);
-        EXPECT_NEAR(out.domega_RN_N[i], ref.domega_RN_N[i], 1e-6);
-
-        // Safety invariants
-        EXPECT_TRUE(std::isfinite(out.sigma_RN[i]));
-        EXPECT_TRUE(std::isfinite(out.omega_RN_N[i]));
-        EXPECT_TRUE(std::isfinite(out.domega_RN_N[i]));
+        EXPECT_NEAR(out[i], sigma_RN[i], 1e-6);
+        EXPECT_TRUE(std::isfinite(out[i]));
     }
 }
 

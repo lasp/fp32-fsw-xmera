@@ -37,6 +37,8 @@ algorithms/hillPoint/hillPoint.h
 algorithms/hillPoint/hillPoint.cpp
 algorithms/inertial3D/inertial3D.h
 algorithms/inertial3D/inertial3D.cpp
+algorithms/inertial3D/inertial3DAlgorithm_c.h
+algorithms/inertial3D/inertial3DAlgorithm_c.cpp
 algorithms/mimuMajorityVote/mimuMajorityVote.h
 algorithms/mimuMajorityVote/mimuMajorityVote.cpp
 algorithms/mrpFeedback/mrpFeedback.h
