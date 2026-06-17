@@ -13,8 +13,11 @@
 #include <fswAlgorithms/fswUtilities/fswDefinitions.h>
 #include <gtest/gtest.h>
 #include <Eigen/Core>
+#include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <numbers>
+#include <optional>
 #include <vector>
 
 typedef struct {
@@ -23,36 +26,36 @@ typedef struct {
 } ReferenceOutput;
 
 // Reference computation for update
-ReferenceOutput referenceUpdate(const MrpSteeringAlgorithm& alg,
-                                RWArrayConfigMsgF32Payload rwConfigParams,
-                                const Eigen::Matrix3f& ISCPntB_B,
-                                Eigen::Vector3f z,
-                                const float dt,
-                                AttGuidMsgF32Payload guidCmd,
-                                const RWSpeedMsgF32Payload& wheelSpeeds,
-                                const RWAvailabilityMsgPayload& wheelsAvailability) {
+inline ReferenceOutput referenceUpdate(const MrpSteeringControlParameters& params,
+                                       const Eigen::Vector3f& knownTorquePntB_B,
+                                       RWArrayConfigMsgF32Payload rwConfigParams,
+                                       const Eigen::Matrix3f& ISCPntB_B,
+                                       Eigen::Vector3f z,
+                                       AttGuidMsgF32Payload guidCmd,
+                                       const RWSpeedMsgF32Payload& wheelSpeeds,
+                                       const RWAvailabilityMsgPayload& wheelsAvailability) {
     const Eigen::Vector3f sigma_BR = cArrayToEigenVector(guidCmd.sigma_BR);
     Eigen::Vector3f omega_BastR_B{};
     Eigen::Vector3f omegap_BastR_B{Eigen::Vector3f::Zero()};
 
     for (int i = 0; i < 3; ++i) {
         const float sigma_i = sigma_BR[i];
-        const float f_i = atanf(static_cast<float>(std::numbers::pi) / 2 / alg.getOmegaMax() *
-                                (alg.getK1() * sigma_i + alg.getK3() * powf(sigma_i, 3))) /
-                          (static_cast<float>(std::numbers::pi) / 2) * alg.getOmegaMax();
+        const float f_i = atanf(static_cast<float>(std::numbers::pi) / 2 / params.omegaMax *
+                                (params.K1 * sigma_i + params.K3 * powf(sigma_i, 3))) /
+                          (static_cast<float>(std::numbers::pi) / 2) * params.omegaMax;
         omega_BastR_B[i] = -f_i;
     }
 
-    if (!alg.getIgnoreFeedforward()) {
+    if (!params.ignoreOuterLoopFeedforward) {
         Eigen::Matrix3f B = bmatMrp(sigma_BR);
 
         Eigen::Vector3f sigmaDot_BR = 0.25 * B * omega_BastR_B;
 
         for (int i = 0; i < 3; ++i) {
             const float sigma_i = sigma_BR[i];
-            const float f_i = (3 * alg.getK3() * powf(sigma_i, 2) + alg.getK1()) /
-                              (powf(static_cast<float>(std::numbers::pi / 2) / alg.getOmegaMax() *
-                                        (alg.getK1() * sigma_i + alg.getK3() * powf(sigma_i, 3)),
+            const float f_i = (3 * params.K3 * powf(sigma_i, 2) + params.K1) /
+                              (powf(static_cast<float>(std::numbers::pi / 2) / params.omegaMax *
+                                        (params.K1 * sigma_i + params.K3 * powf(sigma_i, 3)),
                                     2) +
                                1);
             omegap_BastR_B[i] = -f_i * sigmaDot_BR[i];
@@ -71,12 +74,12 @@ ReferenceOutput referenceUpdate(const MrpSteeringAlgorithm& alg,
     const Eigen::Vector3f omega_BBast_B = omega_BN_B - omega_BastN_B;
 
     /*! - integrate rate tracking error  */
-    if (alg.getKi() > 0.0F) { /* check if integral feedback is turned on  */
-        z += omega_BBast_B * dt;
+    if (params.Ki > 0.0F) { /* check if integral feedback is turned on  */
+        z += omega_BBast_B * params.controlPeriod;
         for (Eigen::Index i = 0; i < 3; ++i) {
             const float intLimCheck = fabs(z[i]);
-            if (intLimCheck > alg.getIntegralLimit()) {
-                z[i] *= alg.getIntegralLimit() / intLimCheck;
+            if (intLimCheck > params.integralLimit) {
+                z[i] *= params.integralLimit / intLimCheck;
             }
         }
     } else {
@@ -98,9 +101,9 @@ ReferenceOutput referenceUpdate(const MrpSteeringAlgorithm& alg,
     }
 
     /*! - evaluate required attitude control torque Lc */
-    const Eigen::Vector3f Lc = alg.getP() * omega_BBast_B + alg.getKi() * z - omega_BastN_B.cross(H_B) -
+    const Eigen::Vector3f Lc = params.P * omega_BBast_B + params.Ki * z - omega_BastN_B.cross(H_B) -
                                ISCPntB_B * (omegap_BastR_B + domega_RN_B - omega_BN_B.cross(omega_RN_B)) +
-                               alg.getKnownTorquePntB_B();
+                               knownTorquePntB_B;
 
     /* Change sign to compute the net positive control torque onto the spacecraft */
     const Eigen::Vector3f Lr = -Lc;
@@ -113,30 +116,63 @@ ReferenceOutput referenceUpdate(const MrpSteeringAlgorithm& alg,
     return out;
 }
 
+inline MrpSteeringControlParameters makeValidControlParameters() {
+    return MrpSteeringControlParameters{
+        .K1 = 1.0F,
+        .K3 = 1.0F,
+        .omegaMax = 1.0F,
+        .ignoreOuterLoopFeedforward = false,
+        .P = 1.0F,
+        .Ki = 1.0F,
+        .integralLimit = 1.0F,
+        .controlPeriod = 0.1F,
+    };
+}
+
 inline void testMrpSteeringSetup() {
-    MrpSteeringAlgorithm alg{};
+    const Eigen::Vector3f knownTorque = Eigen::Vector3f::Zero();
+    const Eigen::Matrix3f goodInertia = Eigen::Matrix3f::Identity();
+    const InputRwData rwData{};
 
-    // --- Test expected exceptions ---
+    // --- Valid baseline does not throw ---
+    EXPECT_NO_THROW(MrpSteeringConfig::create(makeValidControlParameters(), knownTorque, goodInertia, rwData, false));
 
-    // Negative feedback gains or integral limit
-    EXPECT_THROW(alg.setK1(-0.1), fsw::invalid_argument);
-    EXPECT_THROW(alg.setK3(-0.1), fsw::invalid_argument);
-    EXPECT_THROW(alg.setP(-0.1), fsw::invalid_argument);
-    EXPECT_THROW(alg.setKi(-0.1), fsw::invalid_argument);
-    EXPECT_THROW(alg.setIntegralLimit(-0.1), fsw::invalid_argument);
-    // Non-positive maximum rate
-    EXPECT_THROW(alg.setOmegaMax(0.0), fsw::invalid_argument);
-    EXPECT_THROW(alg.setOmegaMax(-0.1), fsw::invalid_argument);
-    // Non-positive control period
-    EXPECT_THROW(alg.setControlPeriod(-0.1), fsw::invalid_argument);
-    // Invalid inertia matrix
+    // --- Negative feedback gains or integral limit ---
+    for (float MrpSteeringControlParameters::* gain : {&MrpSteeringControlParameters::K1,
+                                                       &MrpSteeringControlParameters::K3,
+                                                       &MrpSteeringControlParameters::P,
+                                                       &MrpSteeringControlParameters::Ki,
+                                                       &MrpSteeringControlParameters::integralLimit}) {
+        MrpSteeringControlParameters params = makeValidControlParameters();
+        params.*gain = -0.1F;
+        EXPECT_THROW(MrpSteeringConfig::create(params, knownTorque, goodInertia, rwData, false), fsw::invalid_argument);
+    }
+
+    // --- Non-positive maximum rate ---
+    for (const float badOmegaMax : {0.0F, -0.1F}) {
+        MrpSteeringControlParameters params = makeValidControlParameters();
+        params.omegaMax = badOmegaMax;
+        EXPECT_THROW(MrpSteeringConfig::create(params, knownTorque, goodInertia, rwData, false), fsw::invalid_argument);
+    }
+
+    // --- Non-positive control period ---
+    {
+        MrpSteeringControlParameters params = makeValidControlParameters();
+        params.controlPeriod = -0.1F;
+        EXPECT_THROW(MrpSteeringConfig::create(params, knownTorque, goodInertia, rwData, false), fsw::invalid_argument);
+    }
+
+    // --- Invalid inertia matrix ---
     Eigen::Matrix3f badInertia{};
     badInertia << 1, 0, 0, 0, 1, 0, 0, 0, 0;
-    EXPECT_THROW(alg.setSpacecraftInertia(badInertia), fsw::invalid_argument);
+    EXPECT_THROW(MrpSteeringConfig::create(makeValidControlParameters(), knownTorque, badInertia, rwData, false),
+                 fsw::invalid_argument);
     badInertia << 1, 0, 0, 0, 1, 0, 0, 1, 1;
-    EXPECT_THROW(alg.setSpacecraftInertia(badInertia), fsw::invalid_argument);
+    EXPECT_THROW(MrpSteeringConfig::create(makeValidControlParameters(), knownTorque, badInertia, rwData, false),
+                 fsw::invalid_argument);
     badInertia << 3, 0, 0, 0, 1, 0, 0, 0, 1;
-    EXPECT_THROW(alg.setSpacecraftInertia(badInertia), fsw::invalid_argument);
+    EXPECT_THROW(MrpSteeringConfig::create(makeValidControlParameters(), knownTorque, badInertia, rwData, false),
+                 fsw::invalid_argument);
 }
 
 inline void testMrpSteering(const Eigen::Vector3f& sigma,
@@ -159,25 +195,37 @@ inline void testMrpSteering(const Eigen::Vector3f& sigma,
                             std::vector<float> ISCPntB_B,
                             bool rwIsLinked,
                             float dt) {
-    MrpSteeringAlgorithm alg{};
+    const Eigen::Matrix3f ISC_B = cArrayToEigenMatrix3(ISCPntB_B.data());
 
-    alg.setK1(K1);
-    alg.setK3(K3);
-    alg.setOmegaMax(omegaMax);
-    alg.setIgnoreFeedforward(ignoreFF);
-    alg.setP(P);
-    alg.setKi(Ki);
-    alg.setIntegralLimit(integralLimit);
-    alg.setKnownTorquePntB_B(knownTorquePntB_B);
-    alg.setControlPeriod(dt);
+    // Build the RW spin-axis configuration. Fill provided entries column-major into a zero matrix (matching
+    // the messaging-layer Eigen::Map layout) so a short GsMatrix_B vector never reads out of bounds.
+    InputRwData rwInputData{};
+    const std::size_t numGs = std::min<std::size_t>(GsMatrix_B.size(), static_cast<std::size_t>(RW_EFF_CNT) * 3U);
+    for (std::size_t k = 0; k < numGs; ++k) {
+        rwInputData.GsMatrix_B(static_cast<Eigen::Index>(k % 3), static_cast<Eigen::Index>(k / 3)) = GsMatrix_B[k];
+    }
+    std::copy(std::begin(JsList), std::end(JsList), std::begin(rwInputData.JsList));
+    rwInputData.numRW = static_cast<uint32_t>(numRW);
 
-    Eigen::Matrix3f ISC_B = cArrayToEigenMatrix3(ISCPntB_B.data());
-    // Try setting inertia matrix. If invalid, skip test.
+    const MrpSteeringControlParameters params{
+        .K1 = K1,
+        .K3 = K3,
+        .omegaMax = omegaMax,
+        .ignoreOuterLoopFeedforward = ignoreFF,
+        .P = P,
+        .Ki = Ki,
+        .integralLimit = integralLimit,
+        .controlPeriod = dt,
+    };
+
+    // Build the validated configuration. If it is invalid (e.g. a degenerate inertia matrix), skip this case.
+    std::optional<MrpSteeringConfig> config;
     try {
-        alg.setSpacecraftInertia(ISC_B);
-    } catch (fsw::invalid_argument) {
+        config = MrpSteeringConfig::create(params, knownTorquePntB_B, ISC_B, rwInputData, rwIsLinked);
+    } catch (const fsw::invalid_argument&) {
         return;
     }
+    MrpSteeringAlgorithm alg{*config};
 
     // Populate messages
     AttGuidMsgF32Payload guidCmdMsg{};
@@ -203,9 +251,6 @@ inline void testMrpSteering(const Eigen::Vector3f& sigma,
         std::copy(GsMatrix_B.begin(), GsMatrix_B.end(), rwConfigMsg.GsMatrix_B);
     }
 
-    VehicleConfigMsgF32Payload vehConfigMsg{};
-    std::copy(ISCPntB_B.begin(), ISCPntB_B.end(), vehConfigMsg.ISCPntB_B);
-
     // populate module input structs
     InputGuidanceData attGuidInputData{};
     attGuidInputData.sigma_BR = sigma;
@@ -223,14 +268,6 @@ inline void testMrpSteering(const Eigen::Vector3f& sigma,
         }
     }
 
-    InputRwData rwInputData{};
-    rwInputData.GsMatrix_B = Eigen::Map<Eigen::Matrix<float, 3, RW_EFF_CNT>>(GsMatrix_B.data());
-    std::copy(std::begin(JsList), std::end(JsList), std::begin(rwInputData.JsList));
-    rwInputData.numRW = static_cast<uint32_t>(numRW);
-
-    // Reset module
-    EXPECT_NO_THROW(alg.reset(rwInputData, rwIsLinked));
-
     Eigen::Vector3f z{Eigen::Vector3f::Zero()};
 
     // Test over a few time steps
@@ -241,8 +278,9 @@ inline void testMrpSteering(const Eigen::Vector3f& sigma,
         Eigen::Vector3f out{};
         ReferenceOutput refOutput{};
         EXPECT_NO_THROW(out = alg.update(attGuidInputData, wheelSpeeds, wheelAvailability));
-        EXPECT_NO_THROW(refOutput = referenceUpdate(
-                            alg, rwConfigMsg, ISC_B, z, dt, guidCmdMsg, wheelSpeedsMsg, wheelsAvailabilityMsg));
+        EXPECT_NO_THROW(
+            refOutput = referenceUpdate(
+                params, knownTorquePntB_B, rwConfigMsg, ISC_B, z, guidCmdMsg, wheelSpeedsMsg, wheelsAvailabilityMsg));
         Eigen::Vector3f ref = refOutput.Lr;
         z = refOutput.z;
 

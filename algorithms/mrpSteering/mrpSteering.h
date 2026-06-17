@@ -12,8 +12,9 @@
 #include <architecture/msgPayloadDef/RWAvailabilityMsgPayload.h>
 #include <stdint.h>
 #include <Eigen/Core>
+#include <memory>
 
-/*! @brief Data structure for the MRP feedback attitude control routine. */
+/*! @brief MRP steering attitude control adapter. */
 class MrpSteering final : public SysModel {
    public:
     MrpSteering() = default;
@@ -21,25 +22,18 @@ class MrpSteering final : public SysModel {
 
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
+    void reInitialize();
 
-    void setK1(float gain);
-    float getK1() const;
-    void setK3(float gain);
-    float getK3() const;
-    void setOmegaMax(float omega);
-    float getOmegaMax() const;
-    void setIgnoreFeedforward(bool ignore);
-    bool getIgnoreFeedforward() const;
-    void setP(float gain);
-    float getP() const;
-    void setKi(float gain);
-    float getKi() const;
-    void setIntegralLimit(float limit);
-    float getIntegralLimit() const;
-    void setKnownTorquePntB_B(const Eigen::Vector3f& torque);
-    Eigen::Vector3f getKnownTorquePntB_B() const;
-    void setControlPeriod(float period);
-    float getControlPeriod() const;
+    // Phase 1: public config properties -- set before reset().
+    float K1{};                         //!< [rad/s] proportional gain applied to MRP errors
+    float K3{};                         //!< [rad/s] cubic gain applied to MRP error in steering saturation function
+    float omegaMax{};                   //!< [rad/s] maximum rate command of steering control
+    bool ignoreOuterLoopFeedforward{};  //!< [-] whether the outer-loop feedforward term is excluded
+    float P{};                          //!< [N*m*s] rate error feedback gain
+    float Ki{};                         //!< [N*m] integral feedback gain on the rate error
+    float integralLimit{};              //!< [N*m] integral limit to avoid wind-up
+    Eigen::Vector3f knownTorquePntB_B = Eigen::Vector3f::Zero();  //!< [N*m] known external torque in body frame
+    float controlPeriod{};                                        //!< [s] time between two algorithm update calls
 
     Message<CmdTorqueBodyMsgF32Payload> cmdTorqueOutMsg;     //!< commanded torque output message
     ReadFunctor<AttGuidMsgF32Payload> guidInMsg;             //!< attitude guidance input message
@@ -49,7 +43,7 @@ class MrpSteering final : public SysModel {
     ReadFunctor<RWArrayConfigMsgF32Payload> rwParamsInMsg;   //!< (optional) RW configuration parameter input message
 
    private:
-    MrpSteeringAlgorithm algorithm{};
+    std::unique_ptr<MrpSteeringAlgorithm> algorithm = nullptr;
 };
 
 #endif
