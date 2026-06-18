@@ -6,6 +6,7 @@ Executive Summary
 -----------------
 The intend of this module is to implement an MRP attitude steering law with a maximum angular rate of the spacecraft
 with respect to the reference frame. The module determines and outputs the control torque vector on the spacecraft.
+All quantities are computed in single precision (float).
 
 Message Connection Descriptions
 -------------------------------
@@ -21,22 +22,22 @@ provides information on what this message is used for.
       - Msg Type
       - Description
     * - guidInMsg
-      - :ref:`AttGuidMsgPayload`
+      - :ref:`AttGuidMsgF32Payload`
       - attitude guidance input message
     * - vehConfigInMsg
-      - :ref:`VehicleConfigMsgPayload`
-      - vehicle configuration input message
+      - :ref:`VehicleConfigMsgF32Payload`
+      - vehicle configuration input message (provides the spacecraft inertia ISCPntB_B, read at reset)
     * - rwSpeedsInMsg
-      - :ref:`RWSpeedMsgPayload`
+      - :ref:`RWSpeedMsgF32Payload`
       - (optional) RW speed input message
     * - rwAvailInMsg
       - :ref:`RWAvailabilityMsgPayload`
       - (optional) RW availability input message
     * - rwParamsInMsg
-      - :ref:`RWArrayConfigMsgPayload`
+      - :ref:`RWArrayConfigMsgF32Payload`
       - (optional) RW configuration parameter input message
     * - cmdTorqueOutMsg
-      - :ref:`CmdTorqueBodyMsgPayload`
+      - :ref:`CmdTorqueBodyMsgF32Payload`
       - commanded torque output message
 
 Module Parameters
@@ -59,19 +60,19 @@ The following table lists all the module parameters than can be set. The paramet
       - [rad/s]
       - 0
       - Proportional gain applied to MRP errors
-      - Must not be negative (checked in setter)
+      - Must not be negative (validated at reset())
     * - K3
       - float
       - [rad/s]
       - 0
       - Cubic gain applied to MRP errors
-      - Must not be negative (checked in setter)
+      - Must not be negative (validated at reset())
     * - omegaMax (required)
       - float
       - [rad/s]
       - 0
       - Maximum rate command of steering control
-      - Must be greater than zero (checked in setter)
+      - Must be greater than zero (validated at reset())
     * - ignoreOuterLoopFeedforward
       - bool
       - [-]
@@ -83,42 +84,61 @@ The following table lists all the module parameters than can be set. The paramet
       - [N m s]
       - 0
       - Rate error feedback gain
-      - Must not be negative (checked in setter)
+      - Must not be negative (validated at reset())
     * - Ki
       - float
       - [N m]
       - 0
       - Integral feedback gain
-      - Must not be negative (checked in setter). If 0, no integral feedback is applied and the corresponding computation is skipped
+      - Must not be negative (validated at reset()). If 0, no integral feedback is applied and the corresponding computation is skipped
     * - integralLimit
       - float
       - [rad]
       - 0
       - Limit for integral feedback term (term will be capped by integralLimit)
-      - Must not be negative (checked in setter)
+      - Must not be negative (validated at reset())
     * - knownTorquePntB_B
       - Eigen::Vector3f
       - [N m]
       - [0, 0, 0]
       - Known external torque in body frame components
       - None
-    * - controlPeriod
+    * - controlPeriod (required)
       - float
       - [s]
       - 0
       - control period (1/fsw_rate)
-      - Must be greater than 0
+      - Must be greater than zero (validated at reset())
+
+The spacecraft inertia ``ISCPntB_B`` is not a user property: it is read from ``vehConfigInMsg`` at ``reset()`` and must
+be a valid inertia matrix. The reaction-wheel configuration (spin-axis matrix, wheel inertias and per-wheel
+availability) is likewise read from ``rwParamsInMsg``/``rwAvailInMsg`` at ``reset()`` when those messages are
+connected; each active spin axis must be a unit vector (within ``1e-3``) and is normalized when the configuration is
+built. All parameters above, together with the message-derived inertia and reaction-wheel configuration, are validated
+when the immutable configuration is built at ``reset()`` (an invalid value throws ``fsw::invalid_argument``).
 
 Module Assumptions and Limitations
 ----------------------------------
 This control assumes the spacecraft is rigid and that the control gains of the attitude control (P, Ki) are chosen such
 that the decay time is much faster than that of the body rate computation (K1, K3).
 
+Module Architecture
+-------------------
+The module is split into a pure algorithm (``MrpSteeringAlgorithm``, Eigen-typed and free of any messaging or
+framework dependencies) and an Xmera adapter (``MrpSteering``, a ``SysModel``) that owns the message I/O and converts
+between the single-precision message payloads and Eigen types at the boundary. The adapter follows a two-phase
+initialization pattern: the configuration properties and message connections are set first, then ``reset()`` builds
+and validates the immutable ``MrpSteeringConfig`` (reading the spacecraft inertia from ``vehConfigInMsg`` and, when
+connected, the reaction-wheel configuration from ``rwParamsInMsg``/``rwAvailInMsg``) and constructs the algorithm.
+The integral state of the rate tracking error is zeroed at every ``reset()``. A C shim
+(``mrpSteeringAlgorithm_c.h``) exposes the algorithm to Ada via ``extern "C"`` bindings.
+
 Initialization
 --------------
-The module is configured by::
+The gains, ``omegaMax`` and ``controlPeriod`` must be set, and the required input messages connected, before
+``reset()`` is called. The module is configured by::
 
-    module = mrpSteering.MrpSteering()
+    module = mrpSteeringF32.MrpSteering()
     module.modelTag = "mrpSteering"
     module.K1 = K1
     module.K3 = K3
@@ -127,10 +147,21 @@ The module is configured by::
     module.Ki = Ki
     module.integralLimit = integral_limit
     module.knownTorquePntB_B = known_torque
+    module.controlPeriod = control_period
+
+    module.guidInMsg.subscribeTo(guidance_msg)
+    module.vehConfigInMsg.subscribeTo(vehicle_config_msg)
 
 If the feed-forward term should be ignored::
 
     module.ignoreOuterLoopFeedforward = True
+
+The reaction-wheel messages are optional; connect them to include RW gyroscopic effects in the control torque
+(``rwSpeedsInMsg`` must be connected whenever ``rwParamsInMsg`` is)::
+
+    module.rwParamsInMsg.subscribeTo(rw_config_msg)
+    module.rwSpeedsInMsg.subscribeTo(rw_speed_msg)
+    module.rwAvailInMsg.subscribeTo(rw_avail_msg)
 
 Detailed Module Description
 ---------------------------
