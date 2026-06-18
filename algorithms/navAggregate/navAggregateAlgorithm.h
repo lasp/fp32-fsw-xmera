@@ -3,12 +3,34 @@
 
 #include <stdint.h>
 
-#include "navAggregateOutput.h"
+#include <Eigen/Core>
 #include <array>
 
 #define MAX_AGG_NAV_MSG 10U
 
 namespace f32 {
+
+/*! Struct containing the attitude navigation input needed by the algorithm. */
+struct InputNavAttData {
+    double timeTag{};
+    Eigen::Vector3f sigma_BN = Eigen::Vector3f::Zero();
+    Eigen::Vector3f omega_BN_B = Eigen::Vector3f::Zero();
+    Eigen::Vector3f vehSunPntBdy = Eigen::Vector3f::Zero();
+};
+
+/*! Struct containing the translational navigation input needed by the algorithm. */
+struct InputNavTransData {
+    double timeTag{};
+    Eigen::Vector3d r_BN_N = Eigen::Vector3d::Zero();
+    Eigen::Vector3d v_BN_N = Eigen::Vector3d::Zero();
+    Eigen::Vector3f vehAccumDV = Eigen::Vector3f::Zero();
+};
+
+/*! structure containing the attitude and translational navigation outputs */
+struct AggregateOutput {
+    InputNavAttData navAttOut;     /*!< attitude navigation output */
+    InputNavTransData navTransOut; /*!< translation navigation output */
+};
 
 class NavAggregateAlgorithm {
    public:
