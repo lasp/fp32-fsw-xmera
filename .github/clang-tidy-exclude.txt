@@ -53,6 +53,8 @@ algorithms/mrpRotation/mrpRotationAlgorithm_c.h
 algorithms/mrpRotation/mrpRotationAlgorithm_c.cpp
 algorithms/mrpSteering/mrpSteering.h
 algorithms/mrpSteering/mrpSteering.cpp
+algorithms/mrpSteering/mrpSteeringAlgorithm_c.h
+algorithms/mrpSteering/mrpSteeringAlgorithm_c.cpp
 algorithms/navAggregate/navAggregate.h
 algorithms/navAggregate/navAggregate.cpp
 algorithms/oeStateEphem/oeStateEphem.h
