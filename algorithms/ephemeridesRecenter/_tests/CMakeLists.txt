@@ -4,7 +4,6 @@ add_executable(test_ephemeridesRecenter
   test_ephemeridesRecenter.cpp
 )
 
-target_include_directories(test_ephemeridesRecenter PRIVATE "../..")
 target_include_directories(test_ephemeridesRecenter PRIVATE "..")
 target_include_directories(test_ephemeridesRecenter PRIVATE "${CMAKE_SOURCE_DIR}")
 
@@ -24,7 +23,6 @@ if(XMERA_ENABLE_FUZZTESTS)
     test_ephemeridesRecenter_fuzz.cpp
   )
 
-  target_include_directories(test_ephemeridesRecenter_fuzz PRIVATE "../..")
   target_include_directories(test_ephemeridesRecenter_fuzz PRIVATE "..")
   target_include_directories(test_ephemeridesRecenter_fuzz PRIVATE "${CMAKE_SOURCE_DIR}")
 

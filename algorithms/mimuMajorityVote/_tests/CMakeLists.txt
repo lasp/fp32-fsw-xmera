@@ -4,7 +4,6 @@ add_executable(test_mimuMajorityVote
   test_mimuMajorityVote.cpp
 )
 
-target_include_directories(test_mimuMajorityVote PRIVATE "../..")
 target_include_directories(test_mimuMajorityVote PRIVATE "..")
 target_include_directories(test_mimuMajorityVote PRIVATE "${CMAKE_SOURCE_DIR}")
 
@@ -24,9 +23,7 @@ if(XMERA_ENABLE_FUZZTESTS)
     test_mimuMajorityVote_fuzz.cpp
   )
 
-  target_include_directories(test_mimuMajorityVote_fuzz PRIVATE "../..")
   target_include_directories(test_mimuMajorityVote_fuzz PRIVATE "..")
-  target_include_directories(test_mimuMajorityVote_fuzz PRIVATE "../../..")
   target_include_directories(test_mimuMajorityVote_fuzz PRIVATE "${CMAKE_SOURCE_DIR}")
 
   target_link_libraries(test_mimuMajorityVote_fuzz PRIVATE

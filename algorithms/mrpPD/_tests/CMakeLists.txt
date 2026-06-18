@@ -4,7 +4,6 @@ add_executable(test_mrpPD
   test_mrpPD.cpp
 )
 
-target_include_directories(test_mrpPD PRIVATE "../..")
 target_include_directories(test_mrpPD PRIVATE "..")
 target_include_directories(test_mrpPD PRIVATE "${CMAKE_SOURCE_DIR}")
 
@@ -24,9 +23,7 @@ if(XMERA_ENABLE_FUZZTESTS)
     test_mrpPD_fuzz.cpp
   )
 
-  target_include_directories(test_mrpPD_fuzz PRIVATE "../..")
   target_include_directories(test_mrpPD_fuzz PRIVATE "..")
-  target_include_directories(test_mrpPD_fuzz PRIVATE "../../..")
   target_include_directories(test_mrpPD_fuzz PRIVATE "${CMAKE_SOURCE_DIR}")
 
   target_link_libraries(test_mrpPD_fuzz PRIVATE

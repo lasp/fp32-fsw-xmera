@@ -4,9 +4,7 @@ add_executable(test_forceTorqueThrForceMapping
   test_forceTorqueThrForceMapping.cpp
 )
 
-target_include_directories(test_forceTorqueThrForceMapping PRIVATE "../..")
 target_include_directories(test_forceTorqueThrForceMapping PRIVATE "..")
-target_include_directories(test_forceTorqueThrForceMapping PRIVATE "../../..")
 target_include_directories(test_forceTorqueThrForceMapping PRIVATE "${CMAKE_SOURCE_DIR}")
 
 target_link_libraries(test_forceTorqueThrForceMapping PRIVATE
@@ -25,9 +23,7 @@ if(XMERA_ENABLE_FUZZTESTS)
     test_forceTorqueThrForceMapping_fuzz.cpp
   )
 
-  target_include_directories(test_forceTorqueThrForceMapping_fuzz PRIVATE "../..")
   target_include_directories(test_forceTorqueThrForceMapping_fuzz PRIVATE "..")
-  target_include_directories(test_forceTorqueThrForceMapping_fuzz PRIVATE "../../..")
   target_include_directories(test_forceTorqueThrForceMapping_fuzz PRIVATE "${CMAKE_SOURCE_DIR}")
 
   target_link_libraries(test_forceTorqueThrForceMapping_fuzz PRIVATE

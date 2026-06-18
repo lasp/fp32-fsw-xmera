@@ -1,11 +1,9 @@
 add_executable(test_solarArrayReference
                ../solarArrayReferenceAlgorithm.cpp
-               ../../utilities/fsw/safeMath.h
                solarArrayReferenceTestHelpers.hpp
                test_solarArrayReference.cpp
 )
 
-target_include_directories(test_solarArrayReference PRIVATE "../..")
 target_include_directories(test_solarArrayReference PRIVATE "..")
 target_include_directories(test_solarArrayReference PRIVATE "${CMAKE_SOURCE_DIR}")
 
@@ -21,12 +19,10 @@ if(XMERA_ENABLE_FUZZTESTS)
 
   add_executable(test_solarArrayReference_fuzz
     ../solarArrayReferenceAlgorithm.cpp
-    ../../utilities/fsw/safeMath.h
     solarArrayReferenceTestHelpers.hpp
     test_solarArrayReference_fuzz.cpp
   )
 
-  target_include_directories(test_solarArrayReference_fuzz PRIVATE "../..")
   target_include_directories(test_solarArrayReference_fuzz PRIVATE "..")
   target_include_directories(test_solarArrayReference_fuzz PRIVATE "${CMAKE_SOURCE_DIR}")
 

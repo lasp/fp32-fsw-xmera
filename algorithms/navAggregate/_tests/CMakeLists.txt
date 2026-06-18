@@ -4,7 +4,6 @@ add_executable(test_navAggregate
   test_navAggregate.cpp
 )
 
-target_include_directories(test_navAggregate PRIVATE "../..")
 target_include_directories(test_navAggregate PRIVATE "..")
 target_include_directories(test_navAggregate PRIVATE "${CMAKE_SOURCE_DIR}")
 
@@ -24,9 +23,7 @@ if(XMERA_ENABLE_FUZZTESTS)
     test_navAggregate_fuzz.cpp
   )
 
-  target_include_directories(test_navAggregate_fuzz PRIVATE "../..")
   target_include_directories(test_navAggregate_fuzz PRIVATE "..")
-  target_include_directories(test_navAggregate_fuzz PRIVATE "../../..")
   target_include_directories(test_navAggregate_fuzz PRIVATE "${CMAKE_SOURCE_DIR}")
 
   target_link_libraries(test_navAggregate_fuzz PRIVATE

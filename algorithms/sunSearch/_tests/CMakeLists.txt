@@ -4,7 +4,6 @@ add_executable(test_sunSearch
   test_sunSearch.cpp
 )
 
-target_include_directories(test_sunSearch PRIVATE "../..")
 target_include_directories(test_sunSearch PRIVATE "..")
 target_include_directories(test_sunSearch PRIVATE "${CMAKE_SOURCE_DIR}")
 
@@ -24,7 +23,6 @@ if(XMERA_ENABLE_FUZZTESTS)
     test_sunSearch_fuzz.cpp
   )
 
-  target_include_directories(test_sunSearch_fuzz PRIVATE "../..")
   target_include_directories(test_sunSearch_fuzz PRIVATE "..")
   target_include_directories(test_sunSearch_fuzz PRIVATE "${CMAKE_SOURCE_DIR}")
 

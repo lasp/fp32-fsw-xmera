@@ -4,7 +4,6 @@ add_executable(test_rwMotorTorque
   test_rwMotorTorque.cpp
 )
 
-target_include_directories(test_rwMotorTorque PRIVATE "../..")
 target_include_directories(test_rwMotorTorque PRIVATE "..")
 target_include_directories(test_rwMotorTorque PRIVATE "${CMAKE_SOURCE_DIR}")
 
@@ -24,9 +23,7 @@ if(XMERA_ENABLE_FUZZTESTS)
     test_rwMotorTorque_fuzz.cpp
   )
 
-  target_include_directories(test_rwMotorTorque_fuzz PRIVATE "../..")
   target_include_directories(test_rwMotorTorque_fuzz PRIVATE "..")
-  target_include_directories(test_rwMotorTorque_fuzz PRIVATE "../../..")
   target_include_directories(test_rwMotorTorque_fuzz PRIVATE "${CMAKE_SOURCE_DIR}")
 
   target_link_libraries(test_rwMotorTorque_fuzz PRIVATE

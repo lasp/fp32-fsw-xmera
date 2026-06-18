@@ -4,7 +4,6 @@ add_executable(test_cssComm
   test_cssComm.cpp
 )
 
-target_include_directories(test_cssComm PRIVATE "../..")
 target_include_directories(test_cssComm PRIVATE "..")
 target_include_directories(test_cssComm PRIVATE "${CMAKE_SOURCE_DIR}")
 
@@ -19,12 +18,10 @@ if(XMERA_ENABLE_FUZZTESTS)
 
   add_executable(test_cssComm_fuzz
     ../cssCommAlgorithm.cpp
-    ../../utilities/fsw/chebyshevUtilities.h
     cssCommTestHelpers.hpp
     test_cssComm_fuzz.cpp
   )
 
-  target_include_directories(test_cssComm_fuzz PRIVATE "../..")
   target_include_directories(test_cssComm_fuzz PRIVATE "..")
   target_include_directories(test_cssComm_fuzz PRIVATE "${CMAKE_SOURCE_DIR}")
 

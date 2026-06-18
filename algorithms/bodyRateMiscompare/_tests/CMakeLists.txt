@@ -4,7 +4,6 @@ add_executable(test_bodyRateMiscompare
   test_bodyRateMiscompare.cpp
 )
 
-target_include_directories(test_bodyRateMiscompare PRIVATE "../..")
 target_include_directories(test_bodyRateMiscompare PRIVATE "..")
 target_include_directories(test_bodyRateMiscompare PRIVATE "${CMAKE_SOURCE_DIR}")
 
@@ -24,9 +23,7 @@ if(XMERA_ENABLE_FUZZTESTS)
     test_bodyRateMiscompare_fuzz.cpp
   )
 
-  target_include_directories(test_bodyRateMiscompare_fuzz PRIVATE "../..")
   target_include_directories(test_bodyRateMiscompare_fuzz PRIVATE "..")
-  target_include_directories(test_bodyRateMiscompare_fuzz PRIVATE "../../..")
   target_include_directories(test_bodyRateMiscompare_fuzz PRIVATE "${CMAKE_SOURCE_DIR}")
 
   target_link_libraries(test_bodyRateMiscompare_fuzz PRIVATE

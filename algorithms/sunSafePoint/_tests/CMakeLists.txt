@@ -4,7 +4,6 @@ add_executable(test_sunSafePoint
   test_sunSafePoint.cpp
 )
 
-target_include_directories(test_sunSafePoint PRIVATE "../..")
 target_include_directories(test_sunSafePoint PRIVATE "..")
 target_include_directories(test_sunSafePoint PRIVATE "${CMAKE_SOURCE_DIR}")
 
@@ -24,7 +23,6 @@ if(XMERA_ENABLE_FUZZTESTS)
     test_sunSafePoint_fuzz.cpp
   )
 
-  target_include_directories(test_sunSafePoint_fuzz PRIVATE "../..")
   target_include_directories(test_sunSafePoint_fuzz PRIVATE "..")
   target_include_directories(test_sunSafePoint_fuzz PRIVATE "${CMAKE_SOURCE_DIR}")
 
