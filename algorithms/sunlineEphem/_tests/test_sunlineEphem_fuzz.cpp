@@ -1,5 +1,5 @@
-#include "architecture/testUtilities/eigenFuzzDomains.hpp"
 #include "sunlineEphemTestHelpers.hpp"
+#include "utilities/testUtilities/eigenFuzzDomains.hpp"
 
 #include <fuzztest/fuzztest.h>
 

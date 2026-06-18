@@ -1,7 +1,7 @@
 #include "mrpFeedbackAlgorithm_c.h"
-#include "architecture/utilities/eigenSupport.h"
 #include "mrpFeedbackAlgorithm.h"
 #include "mrpFeedbackTypes.h"
+#include "utilities/fsw/eigenSupport.h"
 
 #include <Eigen/Core>
 

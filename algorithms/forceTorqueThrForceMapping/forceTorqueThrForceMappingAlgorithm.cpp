@@ -1,5 +1,5 @@
 #include "forceTorqueThrForceMappingAlgorithm.h"
-#include "utilities/freestandingInvalidArgument.h"
+#include "utilities/fsw/freestandingInvalidArgument.h"
 
 #include <Eigen/Geometry>
 #include <Eigen/SVD>

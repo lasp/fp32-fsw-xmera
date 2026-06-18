@@ -1,9 +1,9 @@
 #ifndef TEST_DV_GUIDANCE_HELPERS_H
 #define TEST_DV_GUIDANCE_HELPERS_H
 
-#include "architecture/utilities/rigidBodyKinematics.hpp"
 #include "dvGuidanceAlgorithm.h"
 #include "dvGuidanceTypes.h"
+#include "utilities/fsw/rigidBodyKinematics.hpp"
 
 #include <gtest/gtest.h>
 #include <Eigen/Core>

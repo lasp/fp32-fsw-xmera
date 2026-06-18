@@ -1,6 +1,6 @@
 #include "dvGuidance.h"
-#include "architecture/utilities/eigenSupport.h"
-#include "utilities/xmeraLifecycleException.h"
+#include "utilities/fsw/eigenSupport.h"
+#include "utilities/xmera/xmeraLifecycleException.h"
 
 #include <memory>
 #include <stdexcept>

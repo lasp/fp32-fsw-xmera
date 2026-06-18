@@ -1,7 +1,6 @@
 #ifndef TEST_MRPFEEDBACK_H
 #define TEST_MRPFEEDBACK_H
 
-#include "architecture/utilities/eigenSupport.h"
 #include "mrpFeedbackAlgorithm.h"
 #include "mrpFeedbackTypes.h"
 #include "msgPayloadDef/AttGuidMsgF32Payload.h"
@@ -10,8 +9,9 @@
 #include "msgPayloadDef/RWAvailabilityMsgPayload.h"
 #include "msgPayloadDef/RWSpeedMsgF32Payload.h"
 #include "msgPayloadDef/VehicleConfigMsgF32Payload.h"
-#include "utilities/freestandingInvalidArgument.h"
-#include "utilities/timeConstants.h"
+#include "utilities/fsw/eigenSupport.h"
+#include "utilities/fsw/freestandingInvalidArgument.h"
+#include "utilities/fsw/timeConstants.h"
 #include <gtest/gtest.h>
 #include <Eigen/Core>
 #include <cmath>

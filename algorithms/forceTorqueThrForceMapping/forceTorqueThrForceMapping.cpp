@@ -1,7 +1,7 @@
 #include "forceTorqueThrForceMapping.h"
+#include "utilities/fsw/eigenSupport.h"
+#include "utilities/xmera/xmeraLifecycleException.h"
 
-#include "utilities/xmeraLifecycleException.h"
-#include <architecture/utilities/eigenSupport.h>
 #include <stdexcept>
 
 /*! This method performs a complete reset of the module.  Local module variables that retain

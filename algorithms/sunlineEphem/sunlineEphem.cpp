@@ -1,6 +1,6 @@
 #include "sunlineEphem.h"
 
-#include <architecture/utilities/eigenSupport.h>
+#include <utilities/fsw/eigenSupport.h>
 #include <stdexcept>
 
 void SunlineEphem::reset(uint64_t callTime) {

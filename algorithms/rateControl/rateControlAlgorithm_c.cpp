@@ -1,6 +1,6 @@
 #include "rateControlAlgorithm_c.h"
-#include "architecture/utilities/eigenSupport.h"
 #include "rateControlAlgorithm.h"
+#include "utilities/fsw/eigenSupport.h"
 
 #include <Eigen/Core>
 

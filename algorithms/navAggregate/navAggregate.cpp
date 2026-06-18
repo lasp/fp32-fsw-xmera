@@ -1,5 +1,5 @@
 #include "navAggregate.h"
-#include "architecture/utilities/eigenSupport.h"
+#include "utilities/fsw/eigenSupport.h"
 #include <array>
 #include <stdexcept>
 

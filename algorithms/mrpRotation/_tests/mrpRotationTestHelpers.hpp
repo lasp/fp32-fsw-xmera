@@ -1,14 +1,12 @@
 #ifndef TEST_MRPROTATION_H
 #define TEST_MRPROTATION_H
 
-#include "architecture/utilities/rigidBodyKinematics.hpp"
 #include "mrpRotationAlgorithm.h"
-#include "utilities/freestandingInvalidArgument.h"
-#include "utilities/timeConstants.h"
+#include "utilities/fsw/rigidBodyKinematics.hpp"
+
 #include <gtest/gtest.h>
 #include <Eigen/Core>
 #include <algorithm>
-#include <cstdint>
 
 // Reference implementation that independently computes one update step of the MRP rotation
 // algorithm. Mirrors the production algorithm's formulation:

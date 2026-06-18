@@ -1,8 +1,8 @@
 #include "bodyRateMiscompare.h"
 
-#include "architecture/utilities/eigenSupport.h"
 #include "msgPayloadDef/STAttMsgF32Payload.h"
-#include "utilities/timeConstants.h"
+#include "utilities/fsw/eigenSupport.h"
+#include "utilities/fsw/timeConstants.h"
 
 template <size_t N>
 static void convertArray(const double (&src)[N], float (&dst)[N]) {

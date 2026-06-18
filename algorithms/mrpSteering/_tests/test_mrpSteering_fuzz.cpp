@@ -1,5 +1,5 @@
-#include "architecture/testUtilities/eigenFuzzDomains.hpp"
 #include "mrpSteeringTestHelpers.hpp"
+#include "utilities/testUtilities/eigenFuzzDomains.hpp"
 #include <fuzztest/fuzztest.h>
 
 FUZZ_TEST(MrpSteeringAlgorithmFuzz, testMrpSteering)

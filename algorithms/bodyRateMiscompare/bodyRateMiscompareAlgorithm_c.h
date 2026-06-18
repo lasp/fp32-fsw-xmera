@@ -1,7 +1,7 @@
 #ifndef F32XMERA_BODYRATEMISCOMPAREALGORITHM_C_H
 #define F32XMERA_BODYRATEMISCOMPAREALGORITHM_C_H
 
-#include "utilities/plainCAlgorithmDataTypes.h"
+#include "utilities/fsw/plainCAlgorithmDataTypes.h"
 
 #include <stdbool.h>
 #include <stdint.h>

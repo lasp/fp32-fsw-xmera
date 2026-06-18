@@ -4,8 +4,8 @@
  */
 
 #include "rwMotorTorque.h"
-#include "utilities/xmeraLifecycleException.h"
-#include <architecture/utilities/eigenSupport.h>
+#include "utilities/fsw/eigenSupport.h"
+#include "utilities/xmera/xmeraLifecycleException.h"
 
 #include <stdexcept>
 

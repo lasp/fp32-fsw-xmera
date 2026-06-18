@@ -1,6 +1,5 @@
 add_executable(test_sunSafePoint
   ../sunSafePointAlgorithm.cpp
-  ../../utilities/safeMath.h
   sunSafePointTestHelpers.hpp
   test_sunSafePoint.cpp
 )
@@ -21,7 +20,6 @@ if(XMERA_ENABLE_FUZZTESTS)
 
   add_executable(test_sunSafePoint_fuzz
     ../sunSafePointAlgorithm.cpp
-    ../../utilities/safeMath.h
     sunSafePointTestHelpers.hpp
     test_sunSafePoint_fuzz.cpp
   )

@@ -1,4 +1,4 @@
-#include "../validDcmCheck.h"
+#include "utilities/fsw/validDcmCheck.h"
 #include <gtest/gtest.h>
 
 #include "utilitiesHelpers.hpp"

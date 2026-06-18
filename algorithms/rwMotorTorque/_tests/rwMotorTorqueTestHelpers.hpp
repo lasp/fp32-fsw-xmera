@@ -1,16 +1,20 @@
 #ifndef TEST_RW_MOTOR_TORQUE_H
 #define TEST_RW_MOTOR_TORQUE_H
 
-#include "architecture/utilities/eigenSupport.h"
+#include "msgPayloadDef/CmdTorqueBodyMsgF32Payload.h"
+#include "msgPayloadDef/RWArrayConfigMsgF32Payload.h"
+#include "msgPayloadDef/RwMotorTorqueMsgF32Payload.h"
 #include "rwMotorTorqueAlgorithm.h"
-#include "utilities/freestandingInvalidArgument.h"
+#include "utilities/fsw/eigenSupport.h"
+#include "utilities/fsw/freestandingInvalidArgument.h"
+#include "utilities/fsw/rigidBodyKinematics.hpp"
+#include <architecture/msgPayloadDef/RWAvailabilityMsgPayload.h>
 
 #include <gtest/gtest.h>
 #include <Eigen/Core>
 #include <Eigen/SVD>
 #include <algorithm>
 #include <cmath>
-#include <cstdint>
 #include <limits>
 #include <vector>
 

@@ -1,6 +1,6 @@
 add_executable(test_cssComm
   ../cssCommAlgorithm.cpp
-  ../../utilities/chebyshevUtilities.h
+  ../../utilities/fsw/chebyshevUtilities.h
   cssCommTestHelpers.hpp
   test_cssComm.cpp
 )
@@ -20,7 +20,7 @@ if(XMERA_ENABLE_FUZZTESTS)
 
   add_executable(test_cssComm_fuzz
     ../cssCommAlgorithm.cpp
-    ../../utilities/chebyshevUtilities.h
+    ../../utilities/fsw/chebyshevUtilities.h
     cssCommTestHelpers.hpp
     test_cssComm_fuzz.cpp
   )

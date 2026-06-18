@@ -1,8 +1,8 @@
 #include "sunSafePointAlgorithm.h"
 
-#include "../utilities/safeMath.h"
-#include "architecture/utilities/rigidBodyKinematics.hpp"
-#include "utilities/freestandingInvalidArgument.h"
+#include "utilities/fsw/freestandingInvalidArgument.h"
+#include "utilities/fsw/rigidBodyKinematics.hpp"
+#include "utilities/fsw/safeMath.h"
 #include <math.h>
 #include <Eigen/Geometry>
 #include <numbers>

@@ -1,6 +1,6 @@
 #include "dvGuidanceAlgorithm_c.h"
-#include "architecture/utilities/eigenSupport.h"
 #include "dvGuidanceAlgorithm.h"
+#include "utilities/fsw/eigenSupport.h"
 
 #include <Eigen/Core>
 

@@ -1,10 +1,10 @@
 #ifndef TEST_SUNSAFEPOINT_H
 #define TEST_SUNSAFEPOINT_H
 
-#include "architecture/utilities/rigidBodyKinematics.hpp"
 #include "sunSafePointAlgorithm.h"
 #include "sunSafePointTypes.h"
-#include "utilities/freestandingInvalidArgument.h"
+#include "utilities/fsw/freestandingInvalidArgument.h"
+#include "utilities/fsw/rigidBodyKinematics.hpp"
 #include <gtest/gtest.h>
 #include <Eigen/Core>
 #include <Eigen/Geometry>

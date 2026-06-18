@@ -1,6 +1,6 @@
 #include "navAggregateAlgorithm.h"
 
-#include "utilities/freestandingInvalidArgument.h"
+#include "utilities/fsw/freestandingInvalidArgument.h"
 #include <algorithm>
 
 using namespace f32;

@@ -1,7 +1,7 @@
 #include "attTrackingErrorAlgorithm.h"
 #include "attTrackingErrorTypes.h"
 
-#include "architecture/utilities/rigidBodyKinematics.hpp"
+#include "utilities/fsw/rigidBodyKinematics.hpp"
 
 /*! This method computes the attitude and rate tracking errors between the spacecraft navigation attitude and the
  reference attitude and outputs the corresponding guidance errors.

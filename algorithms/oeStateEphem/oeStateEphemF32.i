@@ -1,7 +1,7 @@
 %module oeStateEphemF32
 %{
+#include "utilities/fsw/timeConstants.h"
    #include "oeStateEphem.h"
-   #include "utilities/timeConstants.h"
 %}
 
 %include <architecture/_GeneralModuleFiles/sys_model.i>

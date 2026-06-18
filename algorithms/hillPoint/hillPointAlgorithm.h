@@ -1,8 +1,8 @@
 #ifndef F32XMERA_HILL_POINT_ALGORITHM_H
 #define F32XMERA_HILL_POINT_ALGORITHM_H
 
-#include "hillPointTypes.h"
 #include <Eigen/Core>
+#include "hillPointTypes.h"
 
 struct HillPointOutput {
     Eigen::Vector3f sigma_RN = Eigen::Vector3f::Zero();

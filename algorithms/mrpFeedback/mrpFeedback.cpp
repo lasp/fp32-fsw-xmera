@@ -1,6 +1,6 @@
 #include "mrpFeedback.h"
 
-#include "utilities/xmeraLifecycleException.h"
+#include "utilities/xmera/xmeraLifecycleException.h"
 #include <stdexcept>
 
 void MrpFeedback::reset(const uint64_t callTime) {

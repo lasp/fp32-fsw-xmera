@@ -1,5 +1,5 @@
-#include "architecture/testUtilities/eigenFuzzDomains.hpp"
 #include "attTrackingErrorTestHelpers.hpp"
+#include "utilities/testUtilities/eigenFuzzDomains.hpp"
 #include <fuzztest/fuzztest.h>
 
 FUZZ_TEST(attTrackingErrorAlgorithmFuzz, regressionTestAttTrackingError)

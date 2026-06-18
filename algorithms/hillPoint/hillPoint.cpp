@@ -1,5 +1,5 @@
 #include "hillPoint.h"
-#include "architecture/utilities/eigenSupport.h"
+#include "utilities/fsw/eigenSupport.h"
 #include <stdexcept>
 
 namespace {

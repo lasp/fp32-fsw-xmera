@@ -2,7 +2,7 @@
 #define F32XMERA_SOLARARRAYREFERENCEALGORITHM_C_H
 
 #include "solarArrayReferenceTypes.h"
-#include "utilities/plainCAlgorithmDataTypes.h"
+#include "utilities/fsw/plainCAlgorithmDataTypes.h"
 
 #ifdef __cplusplus
 extern "C" {

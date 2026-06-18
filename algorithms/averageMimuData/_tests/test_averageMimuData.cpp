@@ -1,4 +1,5 @@
 #include "averageMimuDataTestHelpers.hpp"
+#include "utilities/fsw/freestandingInvalidArgument.h"
 #include <gtest/gtest.h>
 
 TEST(averageMimuDataTest, RegressionTest) {

@@ -1,6 +1,6 @@
 #include "convertStPlatformToBodyAlgorithm_c.h"
-#include "architecture/utilities/eigenSupport.h"
 #include "convertStPlatformToBodyAlgorithm.h"
+#include "utilities/fsw/eigenSupport.h"
 
 #include <Eigen/Core>
 

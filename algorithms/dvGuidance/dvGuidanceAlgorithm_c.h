@@ -2,7 +2,7 @@
 #define F32XMERA_DVGUIDANCEALGORITHM_C_H
 
 #include "msgPayloadDef/AttRefMsgF32Payload.h"
-#include "utilities/plainCAlgorithmDataTypes.h"
+#include "utilities/fsw/plainCAlgorithmDataTypes.h"
 #include <stdint.h>
 
 #ifdef __cplusplus

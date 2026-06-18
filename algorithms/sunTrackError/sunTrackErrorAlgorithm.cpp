@@ -1,9 +1,9 @@
 #include "sunTrackErrorAlgorithm.h"
-#include "architecture/utilities/eigenMRP.h"
-#include "architecture/utilities/eigenSupport.h"
-#include "architecture/utilities/rigidBodyKinematics.hpp"
-#include "utilities/safeMath.h"
-#include "utilities/timeConstants.h"
+#include "utilities/fsw/eigenMRP.h"
+#include "utilities/fsw/eigenSupport.h"
+#include "utilities/fsw/rigidBodyKinematics.hpp"
+#include "utilities/fsw/safeMath.h"
+#include "utilities/fsw/timeConstants.h"
 #include <numbers>
 
 /*! This method performs a complete reset of the module.  Local module variables that retain

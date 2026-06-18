@@ -1,7 +1,7 @@
 %module celestialTwoBodyPointF32
 %{
+#include "utilities/fsw/timeConstants.h"
    #include "celestialTwoBodyPoint.h"
-   #include "utilities/timeConstants.h"
 %}
 
 %include <architecture/_GeneralModuleFiles/sys_model.i>

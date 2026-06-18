@@ -1,5 +1,5 @@
-#include "../architecture/testUtilities/eigenFuzzDomains.hpp"
 #include "rateControlTestHelpers.hpp"
+#include "utilities/testUtilities/eigenFuzzDomains.hpp"
 #include <fuzztest/fuzztest.h>
 
 static auto Vec3(double lo, double hi) { return fuzztest::ArrayOf<3>(fuzztest::InRange(lo, hi)); }

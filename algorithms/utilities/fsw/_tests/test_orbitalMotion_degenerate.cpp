@@ -6,8 +6,8 @@
    - Near-rectilinear (h -> 0+)
 */
 
-#include "../freestandingInvalidArgument.h"
-#include "../orbitalMotion.hpp"
+#include "utilities/fsw/freestandingInvalidArgument.h"
+#include "utilities/fsw/orbitalMotion.hpp"
 
 #include <gtest/gtest.h>
 

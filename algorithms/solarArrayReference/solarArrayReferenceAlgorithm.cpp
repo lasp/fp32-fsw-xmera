@@ -1,10 +1,10 @@
 #include "solarArrayReferenceAlgorithm.h"
-#include "utilities/freestandingInvalidArgument.h"
-#include "utilities/safeMath.h"
+#include "utilities/fsw/freestandingInvalidArgument.h"
+#include "utilities/fsw/safeMath.h"
 #include <math.h>
 #include <numbers>
 
-#include "architecture/utilities/rigidBodyKinematics.hpp"
+#include "utilities/fsw/rigidBodyKinematics.hpp"
 
 /*! This method computes the updated rotation angle reference based on current attitude, reference attitude, and current
  rotation angle

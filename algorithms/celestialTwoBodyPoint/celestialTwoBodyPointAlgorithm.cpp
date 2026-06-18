@@ -1,8 +1,8 @@
 #include "celestialTwoBodyPointAlgorithm.h"
-#include "../utilities/safeMath.h"
-#include "architecture/utilities/eigenSupport.h"
-#include "architecture/utilities/rigidBodyKinematics.hpp"
-#include "utilities/freestandingInvalidArgument.h"
+#include "utilities/fsw/eigenSupport.h"
+#include "utilities/fsw/freestandingInvalidArgument.h"
+#include "utilities/fsw/rigidBodyKinematics.hpp"
+#include "utilities/fsw/safeMath.h"
 
 void CelestialTwoBodyPointAlgorithm::reset(const bool secCelBodyIsLinked) {
     this->secCelBodyIsLinked = secCelBodyIsLinked;

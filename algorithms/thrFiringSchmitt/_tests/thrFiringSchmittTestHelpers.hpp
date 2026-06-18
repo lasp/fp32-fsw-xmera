@@ -2,8 +2,8 @@
 #define TEST_THR_FIRING_SCHMITT_H
 
 #include "thrFiringSchmittAlgorithm.h"
-#include "utilities/freestandingInvalidArgument.h"
-#include "utilities/timeConstants.h"
+#include "utilities/fsw/freestandingInvalidArgument.h"
+#include "utilities/fsw/timeConstants.h"
 #include <gtest/gtest.h>
 #include <math.h>
 #include <stdint.h>

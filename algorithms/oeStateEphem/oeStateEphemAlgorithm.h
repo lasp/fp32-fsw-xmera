@@ -2,7 +2,7 @@
 #define F32XIMERA_OE_STATE_EPHEM_ALGORITHM_H
 
 #include "oeStateEphemTypes.h"
-#include "utilities/orbitalMotion.hpp"
+#include "utilities/fsw/orbitalMotion.hpp"
 #include <array>
 #include <cstddef>
 

@@ -1,5 +1,5 @@
-#include "../validDcmCheck.h"
-#include "../validInertiaCheck.h"
+#include "utilities/fsw/validDcmCheck.h"
+#include "utilities/fsw/validInertiaCheck.h"
 
 #include <gtest/gtest.h>
 #include <Eigen/Core>

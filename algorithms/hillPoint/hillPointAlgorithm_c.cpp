@@ -1,6 +1,6 @@
 #include "hillPointAlgorithm_c.h"
-#include "architecture/utilities/eigenSupport.h"
 #include "hillPointAlgorithm.h"
+#include "utilities/fsw/eigenSupport.h"
 
 #include <Eigen/Core>
 

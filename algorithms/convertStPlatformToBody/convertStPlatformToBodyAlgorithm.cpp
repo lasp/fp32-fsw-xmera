@@ -1,8 +1,8 @@
 #include "convertStPlatformToBodyAlgorithm.h"
 
-#include "../utilities/safeMath.h"
-#include "architecture/utilities/eigenSupport.h"
-#include "architecture/utilities/rigidBodyKinematics.hpp"
+#include "utilities/fsw/eigenSupport.h"
+#include "utilities/fsw/rigidBodyKinematics.hpp"
+#include "utilities/fsw/safeMath.h"
 
 StAttitudeOutput ConvertStPlatformToBodyAlgorithm::update(const PlatformAttitude& platformAttitude,
                                                           const PlatformAngularVelocity& platformAngularRate) const {

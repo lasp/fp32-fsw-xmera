@@ -1,7 +1,7 @@
 #include "convertStPlatformToBody.h"
 
-#include "architecture/utilities/eigenSupport.h"
-#include "utilities/timeConstants.h"
+#include "utilities/fsw/eigenSupport.h"
+#include "utilities/fsw/timeConstants.h"
 
 void ConvertStPlatformToBody::reset(uint64_t callTime) {
     if (!this->stSensorInMsg.isLinked()) {

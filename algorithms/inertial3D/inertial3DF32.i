@@ -1,7 +1,7 @@
 %module inertial3DF32
 %{
+#include "utilities/fsw/timeConstants.h"
    #include "inertial3D.h"
-   #include "utilities/timeConstants.h"
 %}
 
 %include <attribute.i>

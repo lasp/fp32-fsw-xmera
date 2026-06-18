@@ -6,7 +6,7 @@
 // state must move toward the observation (or not at all) and the
 // covariance must remain symmetric PSD with non-increasing trace.
 
-#include <utilities/validPSDCheck.h>
+#include <utilities/fsw/validPSDCheck.h>
 #include <filteringCore/srukf.hpp>
 #include <filteringCore/state.hpp>
 

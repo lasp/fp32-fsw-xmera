@@ -1,7 +1,7 @@
 #include "sunSearchAlgorithm.h"
 #include "sunSearchTestHelpers.hpp"
 #include "sunSearchTypes.h"
-#include "utilities/timeConstants.h"
+#include "utilities/fsw/timeConstants.h"
 
 #include <gtest/gtest.h>
 #include <Eigen/Core>

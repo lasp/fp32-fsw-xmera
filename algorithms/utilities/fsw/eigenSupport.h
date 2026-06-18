@@ -5,7 +5,7 @@
 #ifndef EIGEN_SUPPORT
 #define EIGEN_SUPPORT
 
-#include <architecture/utilities/eigenMRP.h>
+#include "eigenMRP.h"
 
 #include <Eigen/Core>
 #include <exception>

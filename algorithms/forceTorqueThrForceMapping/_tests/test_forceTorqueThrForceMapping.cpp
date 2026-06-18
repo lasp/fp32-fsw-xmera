@@ -1,5 +1,5 @@
 #include "forceTorqueThrForceMappingTestHelpers.hpp"
-#include "utilities/freestandingInvalidArgument.h"
+#include "utilities/fsw/freestandingInvalidArgument.h"
 #include <gtest/gtest.h>
 #include <array>
 #include <limits>

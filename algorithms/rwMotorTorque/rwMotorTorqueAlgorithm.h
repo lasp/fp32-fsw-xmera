@@ -2,8 +2,8 @@
 #define F32XMERA_RW_MOTOR_TORQUE_ALGORITHM_H
 
 #include "rwMotorTorqueTypes.h"
-#include "utilities/freestandingInvalidArgument.h"
-#include "utilities/freestandingIsFinite.hpp"
+#include "utilities/fsw/freestandingInvalidArgument.h"
+#include "utilities/fsw/freestandingIsFinite.hpp"
 #include <fswAlgorithms/fswUtilities/fswDefinitions.h>
 #include <math.h>
 

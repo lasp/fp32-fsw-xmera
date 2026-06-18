@@ -2,11 +2,12 @@
 #define TEST_CSSCOMM_H
 
 #include "cssCommAlgorithm.h"
-#include "utilities/chebyshevUtilities.h"
-#include "utilities/freestandingInvalidArgument.h"
-#include <gtest/gtest.h>
+#include "utilities/fsw/freestandingInvalidArgument.h"
 #include <algorithm>
 #include <cmath>
+#include "utilities/fsw/chebyshevUtilities.h"
+
+#include <gtest/gtest.h>
 #include <vector>
 
 // Reference computation that independently reimplements the cssComm algorithm

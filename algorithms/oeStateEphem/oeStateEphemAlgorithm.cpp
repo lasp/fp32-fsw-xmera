@@ -1,8 +1,8 @@
 #include "oeStateEphemAlgorithm.h"
 
-#include "utilities/chebyshevUtilities.h"
-#include "utilities/freestandingInvalidArgument.h"
-#include "utilities/timeConstants.h"
+#include "utilities/fsw/chebyshevUtilities.h"
+#include "utilities/fsw/freestandingInvalidArgument.h"
+#include "utilities/fsw/timeConstants.h"
 #include <algorithm>
 
 /*! This method finds the Chebyshev fit arc that is closest in time to the current ephemeris time.

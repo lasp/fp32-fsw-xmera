@@ -3,7 +3,7 @@
 
 #include "stepperMotorControllerAlgorithm.h"
 #include "stepperMotorControllerTypes.h"
-#include "utilities/freestandingInvalidArgument.h"
+#include "utilities/fsw/freestandingInvalidArgument.h"
 #include <gtest/gtest.h>
 #include <cmath>
 #include <numbers>

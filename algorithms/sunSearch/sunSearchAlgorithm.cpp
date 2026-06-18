@@ -1,6 +1,6 @@
 #include "sunSearchAlgorithm.h"
 
-#include "utilities/timeConstants.h"
+#include "utilities/fsw/timeConstants.h"
 
 SunSearchAlgorithm::SunSearchAlgorithm(const SunSearchConfig& config) : cfg(config) { this->precomputeEndTimes(); }
 

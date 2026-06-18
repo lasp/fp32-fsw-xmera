@@ -4,7 +4,7 @@
 #ifndef FILTERING_CORE_SRUKF_HPP
 #define FILTERING_CORE_SRUKF_HPP
 
-#include <utilities/validPSDCheck.h>
+#include <utilities/fsw/validPSDCheck.h>
 #include <filteringCore/concepts.hpp>
 #include <filteringCore/dynamicsModel.hpp>
 

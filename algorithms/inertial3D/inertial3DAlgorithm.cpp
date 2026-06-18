@@ -1,6 +1,6 @@
 #include "inertial3DAlgorithm.h"
-#include "architecture/utilities/eigenSupport.h"
 #include "msgPayloadDef/AttRefMsgF32Payload.h"
+#include "utilities/fsw/eigenSupport.h"
 #include <Eigen/Core>
 
 /*! This method creates a fixed attitude reference message.  The desired orientation is defined within the module.

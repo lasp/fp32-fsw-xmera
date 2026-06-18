@@ -24,8 +24,8 @@
 //    ./run_tests --gtest_filter=-FloatExhaustive.*
 //============================================================================
 
-#include "freestandingIsFinite.hpp"
 #include "freestandingIsFinite_static_tests.hpp"  // compile-time checks fire here too
+#include "utilities/fsw/freestandingIsFinite.hpp"
 
 #include <gtest/gtest.h>
 

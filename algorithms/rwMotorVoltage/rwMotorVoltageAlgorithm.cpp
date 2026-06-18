@@ -1,7 +1,7 @@
 #include "rwMotorVoltageAlgorithm.h"
-#include "utilities/timeConstants.h"
+#include "utilities/fsw/timeConstants.h"
 
-#include "utilities/freestandingInvalidArgument.h"
+#include "utilities/fsw/freestandingInvalidArgument.h"
 #include <algorithm>
 
 /**

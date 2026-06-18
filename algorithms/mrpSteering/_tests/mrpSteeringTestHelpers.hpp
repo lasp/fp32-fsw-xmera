@@ -1,14 +1,14 @@
 #ifndef TEST_MRPSTEERING_H
 #define TEST_MRPSTEERING_H
 
-#include "architecture/utilities/eigenSupport.h"
-#include "architecture/utilities/rigidBodyKinematics.hpp"
 #include "mrpSteeringAlgorithm.h"
 #include "msgPayloadDef/AttGuidMsgF32Payload.h"
 #include "msgPayloadDef/RWArrayConfigMsgF32Payload.h"
 #include "msgPayloadDef/RWSpeedMsgF32Payload.h"
 #include "msgPayloadDef/VehicleConfigMsgF32Payload.h"
-#include "utilities/freestandingInvalidArgument.h"
+#include "utilities/fsw/eigenSupport.h"
+#include "utilities/fsw/freestandingInvalidArgument.h"
+#include "utilities/fsw/rigidBodyKinematics.hpp"
 #include <architecture/msgPayloadDef/RWAvailabilityMsgPayload.h>
 #include <fswAlgorithms/fswUtilities/fswDefinitions.h>
 #include <gtest/gtest.h>

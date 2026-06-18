@@ -1,5 +1,5 @@
-#include "architecture/testUtilities/eigenFuzzDomains.hpp"
 #include "bodyRateMiscompareTestHelpers.hpp"
+#include "utilities/testUtilities/eigenFuzzDomains.hpp"
 #include <fuzztest/fuzztest.h>
 
 FUZZ_TEST(BodyRateMiscompareAlgorithmFuzz, runRegressionCase)

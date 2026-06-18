@@ -1,7 +1,7 @@
 %module averageMimuDataF32
 %{
    #include "averageMimuData.h"
-   #include "utilities/timeConstants.h"
+   #include "utilities/fsw/timeConstants.h"
 %}
 
 %include <std_string.i>

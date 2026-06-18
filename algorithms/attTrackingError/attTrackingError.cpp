@@ -1,8 +1,8 @@
 #include "attTrackingError.h"
-
-#include "../../architecture/utilities/messageConversionHelpers.hpp"
-#include "architecture/utilities/eigenSupport.h"
 #include "attTrackingErrorTypes.h"
+
+#include "utilities/fsw/eigenSupport.h"
+#include "utilities/fsw/messageConversionHelpers.hpp"
 
 /*! This method performs a complete reset of the module. Local module variables that retain time varying states between
  function calls are reset to their default values.

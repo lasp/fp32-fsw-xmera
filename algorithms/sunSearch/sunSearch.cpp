@@ -1,7 +1,7 @@
 #include "sunSearch.h"
 
-#include "architecture/utilities/eigenSupport.h"
-#include "utilities/xmeraLifecycleException.h"
+#include "utilities/fsw/eigenSupport.h"
+#include "utilities/xmera/xmeraLifecycleException.h"
 
 #include <stdexcept>
 

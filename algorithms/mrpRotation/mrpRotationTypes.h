@@ -1,7 +1,7 @@
 #ifndef F32XMERA_MRP_ROTATION_TYPES_H
 #define F32XMERA_MRP_ROTATION_TYPES_H
 
-#include "utilities/plainCAlgorithmDataTypes.h"
+#include "utilities/fsw/plainCAlgorithmDataTypes.h"
 
 #ifdef __cplusplus
 extern "C" {

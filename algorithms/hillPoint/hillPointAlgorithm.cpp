@@ -1,5 +1,5 @@
 #include "hillPointAlgorithm.h"
-#include "architecture/utilities/rigidBodyKinematics.hpp"
+#include "utilities/fsw/rigidBodyKinematics.hpp"
 
 HillPointAlgorithm::HillPointAlgorithm(const HillPointConfig& config) : cfg(config) {}
 

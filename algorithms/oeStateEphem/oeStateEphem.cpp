@@ -1,6 +1,6 @@
 #include "oeStateEphem.h"
-#include "utilities/timeConstants.h"
-#include <architecture/utilities/eigenSupport.h>
+#include "utilities/fsw/timeConstants.h"
+#include <utilities/fsw/eigenSupport.h>
 
 /*!
  @return void

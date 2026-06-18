@@ -1,6 +1,6 @@
 add_executable(test_solarArrayReference
   ../solarArrayReferenceAlgorithm.cpp
-  ../../utilities/safeMath.h
+  ../../utilities/fsw/safeMath.h
   solarArrayReferenceTestHelpers.hpp
   test_solarArrayReference.cpp
 )
@@ -21,7 +21,7 @@ if(XMERA_ENABLE_FUZZTESTS)
 
   add_executable(test_solarArrayReference_fuzz
     ../solarArrayReferenceAlgorithm.cpp
-    ../../utilities/safeMath.h
+    ../../utilities/fsw/safeMath.h
     solarArrayReferenceTestHelpers.hpp
     test_solarArrayReference_fuzz.cpp
   )

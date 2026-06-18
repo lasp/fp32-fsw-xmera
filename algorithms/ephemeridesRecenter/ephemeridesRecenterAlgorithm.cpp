@@ -1,5 +1,5 @@
 #include "ephemeridesRecenterAlgorithm.h"
-#include "utilities/freestandingInvalidArgument.h"
+#include "utilities/fsw/freestandingInvalidArgument.h"
 
 void EphemeridesRecenterAlgorithm::reset() { this->checkConfiguration(); }
 

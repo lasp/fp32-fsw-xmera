@@ -11,12 +11,16 @@ macro(add_algorithm name)
   add_library(${target_name} OBJECT ${source_files})
 
   target_include_directories(${target_name} PRIVATE ${PROJECT_SOURCE_DIR}/algorithms/${name})
-  target_include_directories(${target_name} PRIVATE
-                             ${PROJECT_SOURCE_DIR}/architecture/utilities
-                             ${PROJECT_SOURCE_DIR}/algorithms)
   target_include_directories(${target_name} PRIVATE ${PROJECT_SOURCE_DIR})
   target_include_directories(${target_name} PRIVATE ${EIGEN3_DIR})
 
+  # FswUtilities supplies the "utilities/fsw/..." include prefix (the algorithms/
+  # dir) as a usage requirement, the same way the xmera module build consumes it.
+  target_link_libraries(${target_name} PRIVATE FswUtilities)
+
+  # The freestanding compile setup is specific to this standalone build path
+  # (the xmera module build uses hosted Eigen), so it lives here, not on the
+  # shared FswUtilities target.
   # Included via -include to ensure it's included before any other translation unit
   target_compile_options(${target_name} PRIVATE
     -include ${EIGEN3_DIR}/Eigen/src/Freestanding/all_freestanding.hpp
@@ -41,7 +45,6 @@ macro(generate_ada_spec algorithm_name ada_specs)
             "-C" "${PROJECT_SOURCE_DIR}/algorithms/${algorithm_name}/${algorithm_name}Algorithm_c.h"
             -I${PROJECT_SOURCE_DIR}
             -I${PROJECT_SOURCE_DIR}/algorithms/${algorithm_name}
-            -I${PROJECT_SOURCE_DIR}/architecture/utilities
             -I${PROJECT_SOURCE_DIR}/algorithms
             -I${EIGEN3_DIR}
             "-DEIGEN_FREESTANDING=1"
@@ -93,6 +96,12 @@ if(NOT IS_DIRECTORY "${EIGEN3_DIR}/Eigen")
   message(FATAL_ERROR "Eigen not found under ${EIGEN3_DIR}")
 endif()
 
+# Define the header-only FswUtilities target before add_algorithm() links it.
+# It carries only the "utilities/fsw/..." include prefix; Eigen and the
+# freestanding flags are added per-algorithm above (this build is freestanding;
+# the xmera module build is not, which is why those are not on the target).
+add_subdirectory(algorithms/utilities/fsw)
+
 # "rwMotorVoltage" "stepperMotorController"
 set(algorithms
     "attTrackingError"
@@ -141,8 +150,7 @@ set_target_properties(gncAlgorithms PROPERTIES
   ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib
 )
 
-add_subdirectory("architecture/utilities")
-target_link_libraries(gncAlgorithms PUBLIC utilities)
+target_link_libraries(gncAlgorithms PUBLIC FswUtilities)
 
 if(GENERATE_ADA_BINDINGS)
   # 8) Generate Ada bindings (always, for both Linux and RISC-V)

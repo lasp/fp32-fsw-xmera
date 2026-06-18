@@ -1,5 +1,5 @@
-#include "../freestandingInvalidArgument.h"
-#include "../orbitalMotion.hpp"
+#include "utilities/fsw/freestandingInvalidArgument.h"
+#include "utilities/fsw/orbitalMotion.hpp"
 
 #include <fuzztest/fuzztest.h>
 #include <gtest/gtest.h>

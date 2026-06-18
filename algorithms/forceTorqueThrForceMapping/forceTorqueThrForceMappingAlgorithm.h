@@ -1,13 +1,15 @@
 #ifndef F32XMERA_FORCE_TORQUE_THR_FORCE_MAPPING_ALGORITHM_H
 #define F32XMERA_FORCE_TORQUE_THR_FORCE_MAPPING_ALGORITHM_H
 
+#include "forceTorqueThrForceMappingTypes.h"
+
 #include "msgPayloadDef/definitions.h"
-#include "utilities/freestandingInvalidArgument.h"
-#include <math.h>
-#include <stdint.h>
+#include "utilities/fsw/freestandingInvalidArgument.h"
+
 #include <Eigen/Core>
+
+#include <math.h>
 #include <array>
-#include <cstdint>
 
 /*! @brief Single thruster configuration */
 struct ThrusterConfiguration {

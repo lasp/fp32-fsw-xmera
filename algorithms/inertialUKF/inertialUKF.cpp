@@ -1,6 +1,6 @@
 #include "inertialUKF.h"
 
-#include <architecture/utilities/eigenSupport.h>
+#include <utilities/fsw/eigenSupport.h>
 #include <stdexcept>
 
 void InertialUKF::reset(uint64_t callTime) {

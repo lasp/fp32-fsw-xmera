@@ -1,7 +1,7 @@
 #include "mrpRotationAlgorithm_c.h"
-#include "architecture/utilities/eigenSupport.h"
 #include "mrpRotationAlgorithm.h"
 #include "mrpRotationTypes.h"
+#include "utilities/fsw/eigenSupport.h"
 
 #include <Eigen/Core>
 

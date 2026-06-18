@@ -1,7 +1,7 @@
 #include "solarArrayReference.h"
 #include <stdexcept>
 
-#include <architecture/utilities/eigenSupport.h>
+#include <utilities/fsw/eigenSupport.h>
 
 void SolarArrayReference::reset(uint64_t callTime) {
     if (!this->attNavInMsg.isLinked()) {
