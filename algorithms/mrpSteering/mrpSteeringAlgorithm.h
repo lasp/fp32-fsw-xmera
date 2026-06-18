@@ -14,8 +14,6 @@
 #include <array>
 #include <optional>
 
-inline constexpr uint32_t kMaxNumRw = RW_EFF_CNT;
-
 /*! Struct containing the reaction wheel inputs needed by the algorithm. */
 struct InputRwData {
     Eigen::Matrix<float, 3, RW_EFF_CNT> GsMatrix_B = Eigen::Matrix<float, 3, RW_EFF_CNT>::Zero();
@@ -54,6 +52,8 @@ struct MrpSteeringControlParameters {
  */
 class MrpSteeringConfig final {
    public:
+    static constexpr uint32_t kMaxNumRw = RW_EFF_CNT;  //!< [-] compile-time maximum number of reaction wheels
+
     static MrpSteeringConfig create(const MrpSteeringControlParameters& controlParameters,
                                     const Eigen::Vector3f& knownTorquePntB_B,
                                     const Eigen::Matrix3f& ISCPntB_B,
