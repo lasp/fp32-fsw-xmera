@@ -64,63 +64,90 @@ The following table lists all the module parameters than can be set. The paramet
       - [-]
       - 0
       - index of message to use for attitude message time
-      - attTimeIdx < MAX_AGG_NAV_MSG (checked in setter)
+      - attTimeIdx < MAX_AGG_NAV_MSG (validated at reset())
     * - transTimeIdx
       - uint32_t
       - [-]
       - 0
       - index of message to use for translation message time
-      - transTimeIdx < MAX_AGG_NAV_MSG (checked in setter)
+      - transTimeIdx < MAX_AGG_NAV_MSG (validated at reset())
     * - attIdx
       - uint32_t
       - [-]
       - 0
       - index of message to use for inertial MRP ``sigma_BN``
-      - attIdx < MAX_AGG_NAV_MSG (checked in setter)
+      - attIdx < MAX_AGG_NAV_MSG (validated at reset())
     * - rateIdx
       - uint32_t
       - [-]
       - 0
       - index of message to use for attitude rate ``omega_BN_B``
-      - rateIdx < MAX_AGG_NAV_MSG (checked in setter)
+      - rateIdx < MAX_AGG_NAV_MSG (validated at reset())
     * - posIdx
       - uint32_t
       - [-]
       - 0
       - index of message to use for inertial position ``r_BN_N``
-      - posIdx < MAX_AGG_NAV_MSG (checked in setter)
+      - posIdx < MAX_AGG_NAV_MSG (validated at reset())
     * - velIdx
       - uint32_t
       - [-]
       - 0
       - index of message to use for inertial velocity ``v_BN_N``
-      - velIdx < MAX_AGG_NAV_MSG (checked in setter)
+      - velIdx < MAX_AGG_NAV_MSG (validated at reset())
     * - dvIdx
       - uint32_t
       - [-]
       - 0
       - index of message to use for accumulated :math:`\Delta V`
-      - dvIdx < MAX_AGG_NAV_MSG (checked in setter)
+      - dvIdx < MAX_AGG_NAV_MSG (validated at reset())
     * - sunIdx
       - uint32_t
       - [-]
       - 0
       - index of message to use for sun direction in body frame
-      - sunIdx < MAX_AGG_NAV_MSG (checked in setter)
+      - sunIdx < MAX_AGG_NAV_MSG (validated at reset())
     * - attMsgCount
       - uint32_t
       - [-]
       - 0
       - total number of attitude messages available as inputs
-      - attMsgCount :math:`\le` MAX_AGG_NAV_MSG (checked in setter)
+      - attMsgCount :math:`\le` MAX_AGG_NAV_MSG (validated at reset())
     * - transMsgCount
       - uint32_t
       - [-]
       - 0
       - total number of translational messages available as inputs
-      - transMsgCount :math:`\le` MAX_AGG_NAV_MSG (checked in setter)
+      - transMsgCount :math:`\le` MAX_AGG_NAV_MSG (validated at reset())
 
 Where ``MAX_AGG_NAV_MSG`` is equal to 10.
+
+Module Architecture
+===================
+The module is split into a pure algorithm (``NavAggregateAlgorithm``, free of any messaging or framework
+dependencies) and an Xmera adapter (``NavAggregate``, a ``SysModel``) that owns the message I/O and converts between
+the navigation message payloads and the algorithm's Eigen-typed input/output structs at the boundary. Attitude
+quantities (``sigma_BN``, ``omega_BN_B``, sun vector) are single precision (float); translational position and
+velocity (``r_BN_N``, ``v_BN_N``) are double precision.
+
+The adapter follows a two-phase initialization pattern: the selection-index and message-count properties and the
+message connections are set first, then ``reset()`` builds and validates the immutable ``NavAggregateConfig`` (its
+indices and counts grouped into an attitude and a translation selection) and constructs the algorithm. An invalid
+index or count throws ``fsw::invalid_argument`` at ``reset()``. A C shim (``navAggregateAlgorithm_c.h``) exposes the
+algorithm to Ada via ``extern "C"`` bindings.
+
+The selection properties and message connections must be set before ``reset()`` is called::
+
+    module = navAggregateF32.NavAggregate()
+    module.modelTag = "navAggregate"
+    module.attMsgCount = num_att
+    module.transMsgCount = num_trans
+    module.attIdx = att_source_index
+    module.rateIdx = rate_source_index
+    # ... remaining selection indices ...
+
+    module.attMsgs[0].navAttInMsg.subscribeTo(att_in_msg)
+    module.transMsgs[0].navTransInMsg.subscribeTo(trans_in_msg)
 
 Algorithm Flow
 ==============
