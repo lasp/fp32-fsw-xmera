@@ -7,6 +7,7 @@
 #include "utilities/fsw/freestandingIsFinite.hpp"
 #include "utilities/fsw/validInertiaCheck.h"
 
+#include <math.h>
 #include <stdint.h>
 #include <Eigen/Core>
 #include <algorithm>
@@ -69,10 +70,17 @@ class MrpSteeringConfig final {
         }
         if (!isValidRwConfiguration(rwConfiguration)) {
             FSW_THROW_INVALID_ARGUMENT(
-                "mrpSteering: rwConfiguration.numRW must not exceed the compile-time maximum, and the spin-axis "
-                "matrix and wheel inertias must be finite.");
+                "mrpSteering: rwConfiguration.numRW must not exceed the compile-time maximum, the spin-axis matrix "
+                "and wheel inertias must be finite, and each active spin axis must be a unit vector.");
         }
-        return {controlParameters, knownTorquePntB_B, ISCPntB_B, rwConfiguration, rwIsConfigured};
+
+        // Normalize the validated (near-)unit spin axes so downstream code can rely on exact unit vectors; this
+        // only removes rounding. Inactive columns (index >= numRW) are left untouched.
+        InputRwData normalizedRwConfiguration = rwConfiguration;
+        for (uint32_t i = 0U; i < normalizedRwConfiguration.numRW; ++i) {
+            normalizedRwConfiguration.GsMatrix_B.col(static_cast<int>(i)).normalize();
+        }
+        return {controlParameters, knownTorquePntB_B, ISCPntB_B, normalizedRwConfiguration, rwIsConfigured};
     }
 
     static bool isValidControlParameters(const MrpSteeringControlParameters& controlParameters) {
@@ -97,7 +105,17 @@ class MrpSteeringConfig final {
         if (rwConfiguration.numRW > kMaxNumRw || !rwConfiguration.GsMatrix_B.allFinite()) {
             return false;
         }
-        return std::ranges::all_of(rwConfiguration.JsList, [](float Js) { return fsw::is_finite(Js); });
+        if (!std::ranges::all_of(rwConfiguration.JsList, [](float Js) { return fsw::is_finite(Js); })) {
+            return false;
+        }
+        // Each active spin axis must be (close to) a unit vector.
+        constexpr float kUnitNormTol = 1e-3F;
+        for (uint32_t i = 0U; i < rwConfiguration.numRW; ++i) {
+            if (fabsf(rwConfiguration.GsMatrix_B.col(static_cast<int>(i)).stableNorm() - 1.0F) > kUnitNormTol) {
+                return false;
+            }
+        }
+        return true;
     }
     // No isValidRwIsConfigured -- any bool is valid.
 

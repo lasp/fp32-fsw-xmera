@@ -93,7 +93,7 @@ inline ReferenceOutput referenceUpdate(const MrpSteeringControlParameters& param
     Eigen::Vector3f H_B = ISCPntB_B * omega_BN_B;
     for (Eigen::Index i = 0; i < rwConfigParams.numRW; ++i) {
         if (wheelsAvailability.wheelAvailability[i] == AVAILABLE) { /* check if wheel is available */
-            const Eigen::Vector3f G_s_B_i = G_s_B.col(i);
+            const Eigen::Vector3f G_s_B_i = G_s_B.col(i).normalized();
             const Eigen::Vector3f h_s_i =
                 rwConfigParams.JsList[i] * (omega_BN_B.dot(G_s_B_i) + wheelSpeeds.wheelSpeeds[i]) * G_s_B_i;
             H_B += h_s_i;
@@ -197,15 +197,28 @@ inline void testMrpSteering(const Eigen::Vector3f& sigma,
                             float dt) {
     const Eigen::Matrix3f ISC_B = cArrayToEigenMatrix3(ISCPntB_B.data());
 
-    // Build the RW spin-axis configuration. Fill provided entries column-major into a zero matrix (matching
-    // the messaging-layer Eigen::Map layout) so a short GsMatrix_B vector never reads out of bounds.
+    // Build the RW spin-axis configuration, mirroring the adapter: it is only populated when the RW config
+    // message is linked. Fill provided entries column-major into a zero matrix (matching the messaging-layer
+    // Eigen::Map layout) so a short GsMatrix_B vector never reads out of bounds.
     InputRwData rwInputData{};
-    const std::size_t numGs = std::min<std::size_t>(GsMatrix_B.size(), static_cast<std::size_t>(RW_EFF_CNT) * 3U);
-    for (std::size_t k = 0; k < numGs; ++k) {
-        rwInputData.GsMatrix_B(static_cast<Eigen::Index>(k % 3), static_cast<Eigen::Index>(k / 3)) = GsMatrix_B[k];
+    if (rwIsLinked) {
+        const std::size_t numGs = std::min<std::size_t>(GsMatrix_B.size(), static_cast<std::size_t>(RW_EFF_CNT) * 3U);
+        for (std::size_t k = 0; k < numGs; ++k) {
+            rwInputData.GsMatrix_B(static_cast<Eigen::Index>(k % 3), static_cast<Eigen::Index>(k / 3)) = GsMatrix_B[k];
+        }
+        std::copy(std::begin(JsList), std::end(JsList), std::begin(rwInputData.JsList));
+        rwInputData.numRW = static_cast<uint32_t>(numRW);
+
+        // The config requires (near-)unit spin axes; normalize the active columns before constructing it. Skip
+        // inputs with a degenerate (near-zero) spin axis that cannot be normalized.
+        for (uint32_t i = 0U; i < rwInputData.numRW; ++i) {
+            const float colNorm = rwInputData.GsMatrix_B.col(static_cast<int>(i)).norm();
+            if (colNorm < 1e-6F) {
+                return;
+            }
+            rwInputData.GsMatrix_B.col(static_cast<int>(i)) /= colNorm;
+        }
     }
-    std::copy(std::begin(JsList), std::end(JsList), std::begin(rwInputData.JsList));
-    rwInputData.numRW = static_cast<uint32_t>(numRW);
 
     const MrpSteeringControlParameters params{
         .K1 = K1,
@@ -248,7 +261,11 @@ inline void testMrpSteering(const Eigen::Vector3f& sigma,
     if (rwIsLinked) {
         rwConfigMsg.numRW = numRW;
         std::copy(JsList.begin(), JsList.end(), rwConfigMsg.JsList);
-        std::copy(GsMatrix_B.begin(), GsMatrix_B.end(), rwConfigMsg.GsMatrix_B);
+        // Feed the reference the same pre-normalized spin axes the algorithm uses (column-major), so its
+        // normalization matches the config's and the reaction-wheel momentum term stays bit-identical.
+        std::copy(rwInputData.GsMatrix_B.data(),
+                  rwInputData.GsMatrix_B.data() + rwInputData.GsMatrix_B.size(),
+                  rwConfigMsg.GsMatrix_B);
     }
 
     // populate module input structs
