@@ -97,42 +97,17 @@ class NavAggregateConfig final {
     NavAggregateTransSelection transSelection;
 };
 
-class NavAggregateAlgorithm {
+class NavAggregateAlgorithm final {
    public:
+    explicit NavAggregateAlgorithm(const NavAggregateConfig& config);
+
+    void setConfig(const NavAggregateConfig& config);
+
     AggregateOutput update(std::array<InputNavAttData, MAX_AGG_NAV_MSG> attInputs,
                            std::array<InputNavTransData, MAX_AGG_NAV_MSG> transInputs) const;
-    void setAttTimeIdx(uint32_t idx);
-    uint32_t getAttTimeIdx() const;
-    void setTransTimeIdx(uint32_t idx);
-    uint32_t getTransTimeIdx() const;
-    void setAttIdx(uint32_t idx);
-    uint32_t getAttIdx() const;
-    void setRateIdx(uint32_t idx);
-    uint32_t getRateIdx() const;
-    void setPosIdx(uint32_t idx);
-    uint32_t getPosIdx() const;
-    void setVelIdx(uint32_t idx);
-    uint32_t getVelIdx() const;
-    void setDvIdx(uint32_t idx);
-    uint32_t getDvIdx() const;
-    void setSunIdx(uint32_t idx);
-    uint32_t getSunIdx() const;
-    void setAttMsgCount(uint32_t msgCount);
-    uint32_t getAttMsgCount() const;
-    void setTransMsgCount(uint32_t msgCount);
-    uint32_t getTransMsgCount() const;
 
    private:
-    uint32_t attTimeIdx{};    /*!< [-] The index of the message to use for attitude message time */
-    uint32_t transTimeIdx{};  /*!< [-] The index of the message to use for translation message time */
-    uint32_t attIdx{};        /*!< [-] The index of the message to use for inertial MRP*/
-    uint32_t rateIdx{};       /*!< [-] The index of the message to use for attitude rate*/
-    uint32_t posIdx{};        /*!< [-] The index of the message to use for inertial position*/
-    uint32_t velIdx{};        /*!< [-] The index of the message to use for inertial velocity*/
-    uint32_t dvIdx{};         /*!< [-] The index of the message to use for accumulated DV */
-    uint32_t sunIdx{};        /*!< [-] The index of the message to use for sun pointing*/
-    uint32_t attMsgCount{};   /*!< [-] The total number of messages available as inputs */
-    uint32_t transMsgCount{}; /*!< [-] The total number of messages available as inputs */
+    NavAggregateConfig cfg;  //!< [-] validated configuration (selection indices and message counts)
 };
 
 }  // namespace f32

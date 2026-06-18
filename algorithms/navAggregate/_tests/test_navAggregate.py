@@ -79,13 +79,13 @@ def test_nav_aggregate(show_plots, num_att_nav, num_trans_nav):
     nav_trans1 = navAggregateF32.AggregateTransInput()
     nav_trans2 = navAggregateF32.AggregateTransInput()
 
-    module.setAttMsgCount(num_att_nav)
+    module.attMsgCount = num_att_nav
     if num_att_nav == 3:       # here the index asks to read from an empty (zero) message
-        module.setAttMsgCount(2)
+        module.attMsgCount = 2
 
-    module.setTransMsgCount(num_trans_nav)
+    module.transMsgCount = num_trans_nav
     if num_trans_nav == 3:     # here the index asks to read from an empty (zero) message
-        module.setTransMsgCount(2)
+        module.transMsgCount = 2
 
     if num_att_nav <= navAggregateF32.MAX_AGG_NAV_MSG:
         module.attMsgs = [nav_att1, nav_att2]
@@ -105,15 +105,15 @@ def test_nav_aggregate(show_plots, num_att_nav, num_trans_nav):
             module.transMsgs[i].navTransInMsg.subscribeTo(nav_trans1_in_msg)
 
     if num_att_nav > 1:       # always read from the last message counter
-        module.setAttTimeIdx(num_att_nav - 1)
-        module.setAttIdx(num_att_nav - 1)
-        module.setRateIdx(num_att_nav - 1)
-        module.setSunIdx(num_att_nav - 1)
+        module.attTimeIdx = num_att_nav - 1
+        module.attIdx = num_att_nav - 1
+        module.rateIdx = num_att_nav - 1
+        module.sunIdx = num_att_nav - 1
     if num_trans_nav > 1:     # always read from the last message counter
-        module.setTransTimeIdx(num_trans_nav - 1)
-        module.setPosIdx(num_trans_nav - 1)
-        module.setVelIdx(num_trans_nav - 1)
-        module.setDvIdx(num_trans_nav - 1)
+        module.transTimeIdx = num_trans_nav - 1
+        module.posIdx = num_trans_nav - 1
+        module.velIdx = num_trans_nav - 1
+        module.dvIdx = num_trans_nav - 1
 
     # Setup logging on the test module output message so that we get all the writes to it
     data_att_log = module.navAttOutMsg.recorder()
