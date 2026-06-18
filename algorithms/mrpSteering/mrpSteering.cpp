@@ -2,6 +2,7 @@
 #include "utilities/fsw/eigenSupport.h"
 #include "utilities/xmera/xmeraLifecycleException.h"
 #include <algorithm>
+#include <optional>
 #include <stdexcept>
 
 /*! @brief Validate that the required input messages are linked, build the algorithm's configuration from
@@ -24,21 +25,20 @@ void MrpSteering::reset(const uint64_t callTime) {
 
     const Eigen::Matrix3f inertia = cArrayToEigenMatrix3(this->vehConfigInMsg().ISCPntB_B);
 
-    InputRwData rwConfiguration{};
-    bool rwIsConfigured{};
+    std::optional<InputRwData> rwConfiguration;
     if (this->rwParamsInMsg.isLinked()) {
         const RWArrayConfigMsgF32Payload rwConfigParams = this->rwParamsInMsg();
-        rwConfiguration.GsMatrix_B = cArrayToEigenMatrix<float, 3, RW_EFF_CNT>(rwConfigParams.GsMatrix_B);
-        std::copy(
-            std::begin(rwConfigParams.JsList), std::end(rwConfigParams.JsList), std::begin(rwConfiguration.JsList));
-        rwConfiguration.numRW = static_cast<uint32_t>(rwConfigParams.numRW);
+        InputRwData rwData{};
+        rwData.GsMatrix_B = cArrayToEigenMatrix<float, 3, RW_EFF_CNT>(rwConfigParams.GsMatrix_B);
+        std::copy(std::begin(rwConfigParams.JsList), std::end(rwConfigParams.JsList), std::begin(rwData.JsList));
+        rwData.numRW = static_cast<uint32_t>(rwConfigParams.numRW);
         if (this->rwAvailInMsg.isLinked()) {
             const RWAvailabilityMsgPayload wheelAvailabilityMsg = this->rwAvailInMsg();
             std::copy(std::begin(wheelAvailabilityMsg.wheelAvailability),
                       std::end(wheelAvailabilityMsg.wheelAvailability),
-                      std::begin(rwConfiguration.wheelAvailability));
+                      std::begin(rwData.wheelAvailability));
         }
-        rwIsConfigured = true;
+        rwConfiguration = rwData;
     }
 
     const MrpSteeringControlParameters controlParameters{
@@ -53,7 +53,7 @@ void MrpSteering::reset(const uint64_t callTime) {
     };
 
     const MrpSteeringConfig config =
-        MrpSteeringConfig::create(controlParameters, this->knownTorquePntB_B, inertia, rwConfiguration, rwIsConfigured);
+        MrpSteeringConfig::create(controlParameters, this->knownTorquePntB_B, inertia, rwConfiguration);
     this->algorithm = std::make_unique<MrpSteeringAlgorithm>(config);
 }
 
