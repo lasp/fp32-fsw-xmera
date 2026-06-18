@@ -32,6 +32,12 @@ void MrpSteering::reset(const uint64_t callTime) {
         std::copy(
             std::begin(rwConfigParams.JsList), std::end(rwConfigParams.JsList), std::begin(rwConfiguration.JsList));
         rwConfiguration.numRW = static_cast<uint32_t>(rwConfigParams.numRW);
+        if (this->rwAvailInMsg.isLinked()) {
+            const RWAvailabilityMsgPayload wheelAvailabilityMsg = this->rwAvailInMsg();
+            std::copy(std::begin(wheelAvailabilityMsg.wheelAvailability),
+                      std::end(wheelAvailabilityMsg.wheelAvailability),
+                      std::begin(rwConfiguration.wheelAvailability));
+        }
         rwIsConfigured = true;
     }
 
@@ -76,20 +82,13 @@ void MrpSteering::updateState(const uint64_t callTime) {
     };
 
     std::array<float, RW_EFF_CNT> wheelSpeeds{};
-    std::array<FSWdeviceAvailability, RW_EFF_CNT> wheelAvailability{};
     if (this->rwParamsInMsg.isLinked()) {
         const RWSpeedMsgF32Payload wheelSpeedsMsg = this->rwSpeedsInMsg();
         std::copy(
             std::begin(wheelSpeedsMsg.wheelSpeeds), std::end(wheelSpeedsMsg.wheelSpeeds), std::begin(wheelSpeeds));
-        if (this->rwAvailInMsg.isLinked()) {
-            const RWAvailabilityMsgPayload wheelAvailabilityMsg = this->rwAvailInMsg();
-            std::copy(std::begin(wheelAvailabilityMsg.wheelAvailability),
-                      std::end(wheelAvailabilityMsg.wheelAvailability),
-                      std::begin(wheelAvailability));
-        }
     }
 
-    const Eigen::Vector3f Lr = this->algorithm->update(attGuidInputData, wheelSpeeds, wheelAvailability);
+    const Eigen::Vector3f Lr = this->algorithm->update(attGuidInputData, wheelSpeeds);
 
     CmdTorqueBodyMsgF32Payload controlOut{};
     eigenVectorToCArray(Lr, controlOut.torqueRequestBody);

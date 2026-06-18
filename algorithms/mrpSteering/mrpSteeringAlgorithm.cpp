@@ -28,12 +28,10 @@ void MrpSteeringAlgorithm::reInitialize() { this->z = Eigen::Vector3f::Zero(); }
  reference-frame rates and acceleration, and compute the required control torque Lr.
  @param attGuidInput Attitude guidance input (sigma_BR, omega_BR_B, omega_RN_B, domega_RN_B).
  @param wheelSpeeds Reaction wheel speeds.
- @param wheelAvailability Reaction wheel availability flags.
  @return Eigen::Vector3f Commanded control torque Lr in body-frame components.
  */
 Eigen::Vector3f MrpSteeringAlgorithm::update(const InputGuidanceData& attGuidInput,
-                                             const std::array<float, RW_EFF_CNT>& wheelSpeeds,
-                                             const std::array<FSWdeviceAvailability, RW_EFF_CNT>& wheelAvailability) {
+                                             const std::array<float, RW_EFF_CNT>& wheelSpeeds) {
     const MrpSteeringControlParameters& params = this->cfg.getControlParameters();
     const Eigen::Matrix3f& ISCPntB_B = this->cfg.getSpacecraftInertia();
     const InputRwData& rwConfigParams = this->cfg.getRwConfiguration();
@@ -96,7 +94,7 @@ Eigen::Vector3f MrpSteeringAlgorithm::update(const InputGuidanceData& attGuidInp
 
     if (this->cfg.getRwIsConfigured()) {
         for (uint32_t i = 0U; i < rwConfigParams.numRW; ++i) {
-            if (wheelAvailability.at(i) == AVAILABLE) { /* check if wheel is available */
+            if (rwConfigParams.wheelAvailability.at(i) == AVAILABLE) { /* check if wheel is available */
                 const Eigen::Vector3f G_s_B_i = rwConfigParams.GsMatrix_B.col(static_cast<int>(i));
                 const Eigen::Vector3f h_s_i =
                     rwConfigParams.JsList.at(i) * (omega_BN_B.dot(G_s_B_i) + wheelSpeeds.at(i)) * G_s_B_i;

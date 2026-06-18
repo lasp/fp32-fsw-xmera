@@ -19,6 +19,7 @@ inline constexpr uint32_t kMaxNumRw = RW_EFF_CNT;
 struct InputRwData {
     Eigen::Matrix<float, 3, RW_EFF_CNT> GsMatrix_B = Eigen::Matrix<float, 3, RW_EFF_CNT>::Zero();
     std::array<float, RW_EFF_CNT> JsList{};
+    std::array<FSWdeviceAvailability, RW_EFF_CNT> wheelAvailability{};  //!< per-wheel availability (fixed at reset)
     uint32_t numRW{};
 };
 
@@ -154,9 +155,7 @@ class MrpSteeringAlgorithm final {
     //! Reset the integrating runtime state (zero the integral of the rate tracking error).
     void reInitialize();
 
-    Eigen::Vector3f update(const InputGuidanceData& attGuidInput,
-                           const std::array<float, RW_EFF_CNT>& wheelSpeeds,
-                           const std::array<FSWdeviceAvailability, RW_EFF_CNT>& wheelAvailability);
+    Eigen::Vector3f update(const InputGuidanceData& attGuidInput, const std::array<float, RW_EFF_CNT>& wheelSpeeds);
 
    private:
     MrpSteeringConfig cfg;                       //!< [-] validated configuration
