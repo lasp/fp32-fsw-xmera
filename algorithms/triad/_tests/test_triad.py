@@ -67,7 +67,7 @@ def test_triad(show_plots, case):
 
     unit_test_sim.AddModelToTask(unit_task_name, module)
     module.a1Hat_B = a1_B
-    module.h1Hat_B = h1_B
+    module.hHat_N = eh_N
 
     sigma_BN = np.array([0.1, -0.2, 0.1])
     BN = rbk.MRP2C(sigma_BN)
@@ -78,15 +78,10 @@ def test_triad(show_plots, case):
     nav_att_msg = messaging.NavAttMsgF32().write(nav_att_data)
     module.attNavInMsg.subscribeTo(nav_att_msg)
 
-    trans_nav_data = messaging.NavTransMsgF32Payload()
-    trans_nav_data.r_BN_N = r_BN_N
-    trans_nav_msg = messaging.NavTransMsgF32().write(trans_nav_data)
-    module.transNavInMsg.subscribeTo(trans_nav_msg)
-
-    ephemeris_data = messaging.EphemerisMsgF32Payload()
-    ephemeris_data.r_BdyZero_N = r_EN_N
-    ephemeris_msg = messaging.EphemerisMsgF32().write(ephemeris_data)
-    module.ephemerisInMsg.subscribeTo(ephemeris_msg)
+    thrust_body_msg_data = messaging.BodyHeadingMsgF32Payload()
+    thrust_body_msg_data.rHat_XB_B = h1_B
+    thrust_body_msg = messaging.BodyHeadingMsgF32().write(thrust_body_msg_data)
+    module.bodyHeadingInMsg.subscribeTo(thrust_body_msg)
 
     data_log = module.attRefOutMsg.recorder()
     unit_test_sim.AddModelToTask(unit_task_name, data_log)

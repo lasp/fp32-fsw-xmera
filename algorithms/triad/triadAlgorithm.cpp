@@ -30,10 +30,10 @@ void TriadAlgorithm::setConfig(const TriadConfig& config) { this->cfg = config; 
 
 Eigen::Vector3f TriadAlgorithm::update(const Eigen::Vector3f& sigma_BN,
                                        const Eigen::Vector3f& rHat_SB_B,
-                                       const Eigen::Vector3f& hReqHat_N,
                                        const Eigen::Vector3f& hRefHat_B) const {
     const Eigen::Matrix3f dcm_BN = mrpToDcm(sigma_BN);
     const Eigen::Vector3f rHat_SB_N = (dcm_BN.transpose() * rHat_SB_B).normalized();
+    const Eigen::Vector3f hReqHat_N = this->cfg.getHHat_N();
     if (const float SPE = SPE_angle(rHat_SB_N, hReqHat_N); fabsf(SPE) < kSpeParallelThresholdDeg) {
         throw std::runtime_error("sun and earth reference vectors are parallel, Triad can not be used");
     }
