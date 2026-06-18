@@ -4,16 +4,11 @@
 #include "architecture/utilities/eigenSupport.h"
 #include "mrpFeedbackAlgorithm.h"
 #include "mrpFeedbackTypes.h"
-#include "msgPayloadDef/AttGuidMsgF32Payload.h"
-#include "msgPayloadDef/CmdTorqueBodyMsgF32Payload.h"
 #include "msgPayloadDef/RWArrayConfigMsgF32Payload.h"
-#include "msgPayloadDef/RWAvailabilityMsgPayload.h"
-#include "msgPayloadDef/RWSpeedMsgF32Payload.h"
-#include "msgPayloadDef/VehicleConfigMsgF32Payload.h"
-#include "utilities/freestandingInvalidArgument.h"
 #include "utilities/timeConstants.h"
 #include <gtest/gtest.h>
 #include <Eigen/Core>
+#include <array>
 #include <cmath>
 #include <vector>
 
@@ -29,9 +24,9 @@ inline ReferenceOutput referenceUpdate(const MrpFeedbackConfig& cfg,
                                        Eigen::Vector3f int_sigma,
                                        uint64_t priorTime,
                                        const uint64_t callTime,
-                                       AttGuidMsgF32Payload guidCmd,
-                                       const RWSpeedMsgF32Payload& wheelSpeeds,
-                                       const RWAvailabilityMsgPayload& wheelsAvailability) {
+                                       const MrpFeedbackGuidInput& guid,
+                                       const Eigen::Vector<float, RW_EFF_CNT>& wheelSpeeds,
+                                       const std::array<bool, RW_EFF_CNT>& wheelAvailability) {
     const float K = cfg.getK();
     const float P = cfg.getP();
     const float Ki = cfg.getKi();
@@ -47,10 +42,10 @@ inline ReferenceOutput referenceUpdate(const MrpFeedbackConfig& cfg,
     }
     priorTime = callTime;
 
-    const Eigen::Vector3f sigma_BR = cArrayToEigenVector(guidCmd.sigma_BR);
-    const Eigen::Vector3f omega_BR_B = cArrayToEigenVector(guidCmd.omega_BR_B);
-    const Eigen::Vector3f omega_RN_B = cArrayToEigenVector(guidCmd.omega_RN_B);
-    const Eigen::Vector3f domega_RN_B = cArrayToEigenVector(guidCmd.domega_RN_B);
+    const Eigen::Vector3f& sigma_BR = guid.sigma_BR;
+    const Eigen::Vector3f& omega_BR_B = guid.omega_BR_B;
+    const Eigen::Vector3f& omega_RN_B = guid.omega_RN_B;
+    const Eigen::Vector3f& domega_RN_B = guid.domega_RN_B;
 
     const Eigen::Vector3f omega_BN_B = omega_BR_B + omega_RN_B;
 
@@ -71,10 +66,10 @@ inline ReferenceOutput referenceUpdate(const MrpFeedbackConfig& cfg,
 
     Eigen::Vector3f H_B = ISCPntB_B * omega_BN_B;
     for (Eigen::Index i = 0; i < rwConfigParams.numRW; ++i) {
-        if (wheelsAvailability.wheelAvailability[i] == AVAILABLE) {
+        if (wheelAvailability[i]) {
             const Eigen::Vector3f G_s_B_i = G_s_B.col(i);
             const Eigen::Vector3f h_s_i =
-                rwConfigParams.JsList[i] * (omega_BN_B.dot(G_s_B_i) + wheelSpeeds.wheelSpeeds[i]) * G_s_B_i;
+                rwConfigParams.JsList[i] * (omega_BN_B.dot(G_s_B_i) + wheelSpeeds[i]) * G_s_B_i;
             H_B += h_s_i;
         }
     }
@@ -93,31 +88,47 @@ inline ReferenceOutput referenceUpdate(const MrpFeedbackConfig& cfg,
     const Eigen::Vector3f Li = -(P * Ki * z);
 
     ReferenceOutput out{};
-    eigenVectorToCArray(Lr, out.mrpFeedbackOut.controlOut.torqueRequestBody);
-    eigenVectorToCArray(Li, out.mrpFeedbackOut.intFeedbackOut.torqueRequestBody);
+    out.mrpFeedbackOut.controlTorque = Lr;
+    out.mrpFeedbackOut.intFeedbackTorque = Li;
     out.int_sigma = int_sigma;
     out.priorTime = priorTime;
     return out;
 }
 
 inline void testMrpFeedbackSetup() {
+    const Eigen::Matrix3f validInertia = Eigen::Matrix3f::Identity();
+
     // Valid config builds without throwing.
     EXPECT_NO_THROW({
-        const MrpFeedbackConfig cfg =
-            MrpFeedbackConfig::create(0.0F, 0.0F, 0.0F, 0.0F, ControlLawType::NORMAL, Eigen::Vector3f::Zero());
+        const MrpFeedbackConfig cfg = MrpFeedbackConfig::create(
+            0.0F, 0.0F, 0.0F, 0.0F, ControlLawType::NORMAL, Eigen::Vector3f::Zero(), validInertia);
         const MrpFeedbackAlgorithm alg(cfg);
         (void)alg;
     });
 
     // Negative gains/limit are rejected by the Config factory.
-    EXPECT_ANY_THROW(
-        { (void)MrpFeedbackConfig::create(-0.1F, 0.0F, 0.0F, 0.0F, ControlLawType::NORMAL, Eigen::Vector3f::Zero()); });
-    EXPECT_ANY_THROW(
-        { (void)MrpFeedbackConfig::create(0.0F, -0.1F, 0.0F, 0.0F, ControlLawType::NORMAL, Eigen::Vector3f::Zero()); });
-    EXPECT_ANY_THROW(
-        { (void)MrpFeedbackConfig::create(0.0F, 0.0F, -0.1F, 0.0F, ControlLawType::NORMAL, Eigen::Vector3f::Zero()); });
-    EXPECT_ANY_THROW(
-        { (void)MrpFeedbackConfig::create(0.0F, 0.0F, 0.0F, -0.1F, ControlLawType::NORMAL, Eigen::Vector3f::Zero()); });
+    EXPECT_ANY_THROW({
+        (void)MrpFeedbackConfig::create(
+            -0.1F, 0.0F, 0.0F, 0.0F, ControlLawType::NORMAL, Eigen::Vector3f::Zero(), validInertia);
+    });
+    EXPECT_ANY_THROW({
+        (void)MrpFeedbackConfig::create(
+            0.0F, -0.1F, 0.0F, 0.0F, ControlLawType::NORMAL, Eigen::Vector3f::Zero(), validInertia);
+    });
+    EXPECT_ANY_THROW({
+        (void)MrpFeedbackConfig::create(
+            0.0F, 0.0F, -0.1F, 0.0F, ControlLawType::NORMAL, Eigen::Vector3f::Zero(), validInertia);
+    });
+    EXPECT_ANY_THROW({
+        (void)MrpFeedbackConfig::create(
+            0.0F, 0.0F, 0.0F, -0.1F, ControlLawType::NORMAL, Eigen::Vector3f::Zero(), validInertia);
+    });
+
+    // A non-physical inertia (here all-zero: not positive-definite) is rejected by the Config factory.
+    EXPECT_ANY_THROW({
+        (void)MrpFeedbackConfig::create(
+            0.0F, 0.0F, 0.0F, 0.0F, ControlLawType::NORMAL, Eigen::Vector3f::Zero(), Eigen::Matrix3f::Zero());
+    });
 }
 
 inline void testMrpFeedback(const Eigen::Vector3f& sigma,
@@ -142,26 +153,10 @@ inline void testMrpFeedback(const Eigen::Vector3f& sigma,
     const ControlLawType controlLawTypeAlg =
         (controlLawType == 0) ? ControlLawType::NORMAL : ControlLawType::SIMPLE_INTEGRAL;
 
-    const MrpFeedbackConfig cfg =
-        MrpFeedbackConfig::create(K, P, Ki, integralLimit, controlLawTypeAlg, knownTorquePntB_B);
-    MrpFeedbackAlgorithm alg(cfg);
+    const Eigen::Matrix3f ISC_B = cArrayToEigenMatrix3(ISCPntB_B.data());
 
-    AttGuidMsgF32Payload guidCmdMsg{};
-    eigenVectorToCArray(sigma, guidCmdMsg.sigma_BR);
-    eigenVectorToCArray(omega_BR_B, guidCmdMsg.omega_BR_B);
-    eigenVectorToCArray(omega_RN_B, guidCmdMsg.omega_RN_B);
-    eigenVectorToCArray(domega_RN_B, guidCmdMsg.domega_RN_B);
-
-    RWSpeedMsgF32Payload wheelSpeedsMsg{};
-    std::copy(wheelSpeeds.begin(), wheelSpeeds.end(), wheelSpeedsMsg.wheelSpeeds);
-
-    RWAvailabilityMsgPayload wheelsAvailabilityMsg{};
-    for (uint32_t i = 0U; i < wheelAvailabilityBool.size(); ++i) {
-        if (wheelAvailabilityBool[i]) {
-            wheelsAvailabilityMsg.wheelAvailability[i] = UNAVAILABLE;
-        }
-    }
-
+    // The RW array config is now part of the immutable config. Build the (fully RW_EFF_CNT-sized)
+    // payload first so it stays the canonical source for both the config inputs and the reference.
     RWArrayConfigMsgF32Payload rwConfigMsg{};
     if (rwIsLinked) {
         rwConfigMsg.numRW = numRW;
@@ -169,13 +164,49 @@ inline void testMrpFeedback(const Eigen::Vector3f& sigma,
         std::copy(JsList.begin(), JsList.end(), rwConfigMsg.JsList);
         std::copy(GsMatrix_B.begin(), GsMatrix_B.end(), rwConfigMsg.GsMatrix_B);
     }
+    const Eigen::Matrix<float, 3, RW_EFF_CNT> Gs_B = cArrayToEigenMatrix<float, 3, RW_EFF_CNT>(rwConfigMsg.GsMatrix_B);
+    std::array<float, RW_EFF_CNT> jsListArr{};
+    std::copy(std::begin(rwConfigMsg.JsList), std::end(rwConfigMsg.JsList), jsListArr.begin());
 
-    VehicleConfigMsgF32Payload vehConfigMsg{};
-    std::copy(ISCPntB_B.begin(), ISCPntB_B.end(), vehConfigMsg.ISCPntB_B);
+    // Inertia is now part of the validated config. The fuzz harness feeds arbitrary 3x3 data, so a
+    // non-physical inertia must be rejected by the Config factory; confirm that and stop.
+    if (!inertiaIsValid(ISC_B)) {
+        EXPECT_ANY_THROW({
+            (void)MrpFeedbackConfig::create(K,
+                                            P,
+                                            Ki,
+                                            integralLimit,
+                                            controlLawTypeAlg,
+                                            knownTorquePntB_B,
+                                            ISC_B,
+                                            rwConfigMsg.numRW,
+                                            Gs_B,
+                                            jsListArr);
+        });
+        return;
+    }
 
-    const Eigen::Matrix3f ISC_B = cArrayToEigenMatrix3(ISCPntB_B.data());
+    const MrpFeedbackConfig cfg = MrpFeedbackConfig::create(
+        K, P, Ki, integralLimit, controlLawTypeAlg, knownTorquePntB_B, ISC_B, rwConfigMsg.numRW, Gs_B, jsListArr);
+    MrpFeedbackAlgorithm alg(cfg);
 
-    EXPECT_NO_THROW(alg.reset(vehConfigMsg, rwConfigMsg, rwIsLinked));
+    MrpFeedbackGuidInput guid;
+    guid.sigma_BR = sigma;
+    guid.omega_BR_B = omega_BR_B;
+    guid.omega_RN_B = omega_RN_B;
+    guid.domega_RN_B = domega_RN_B;
+
+    Eigen::Vector<float, RW_EFF_CNT> wheelSpeedsVec = Eigen::Vector<float, RW_EFF_CNT>::Zero();
+    for (std::size_t i = 0U; i < wheelSpeeds.size() && i < RW_EFF_CNT; ++i) {
+        wheelSpeedsVec[static_cast<Eigen::Index>(i)] = wheelSpeeds[i];
+    }
+
+    std::array<bool, RW_EFF_CNT> wheelAvailabilityArr{};  // false = unavailable
+    for (std::size_t i = 0U; i < wheelAvailabilityBool.size() && i < RW_EFF_CNT; ++i) {
+        wheelAvailabilityArr[i] = wheelAvailabilityBool[i];
+    }
+
+    EXPECT_NO_THROW(alg.reset());
 
     Eigen::Vector3f int_sigma{Eigen::Vector3f::Zero()};
     uint64_t priorTime{};
@@ -186,26 +217,20 @@ inline void testMrpFeedback(const Eigen::Vector3f& sigma,
 
         MrpFeedbackOutput out{};
         ReferenceOutput refOutput{};
-        EXPECT_NO_THROW(out = alg.update(callTime, guidCmdMsg, wheelSpeedsMsg, wheelsAvailabilityMsg));
-        EXPECT_NO_THROW(refOutput = referenceUpdate(cfg,
-                                                    rwConfigMsg,
-                                                    ISC_B,
-                                                    int_sigma,
-                                                    priorTime,
-                                                    callTime,
-                                                    guidCmdMsg,
-                                                    wheelSpeedsMsg,
-                                                    wheelsAvailabilityMsg));
+        EXPECT_NO_THROW(out = alg.update(callTime, guid, wheelSpeedsVec, wheelAvailabilityArr));
+        EXPECT_NO_THROW(
+            refOutput = referenceUpdate(
+                cfg, rwConfigMsg, ISC_B, int_sigma, priorTime, callTime, guid, wheelSpeedsVec, wheelAvailabilityArr));
         const MrpFeedbackOutput ref = refOutput.mrpFeedbackOut;
         int_sigma = refOutput.int_sigma;
         priorTime = refOutput.priorTime;
 
         for (int i = 0; i < 3; ++i) {
-            EXPECT_NEAR(out.controlOut.torqueRequestBody[i], ref.controlOut.torqueRequestBody[i], 1e-6);
-            EXPECT_NEAR(out.intFeedbackOut.torqueRequestBody[i], ref.intFeedbackOut.torqueRequestBody[i], 1e-6);
+            EXPECT_NEAR(out.controlTorque[i], ref.controlTorque[i], 1e-6);
+            EXPECT_NEAR(out.intFeedbackTorque[i], ref.intFeedbackTorque[i], 1e-6);
 
-            EXPECT_TRUE(std::isfinite(out.controlOut.torqueRequestBody[i]));
-            EXPECT_TRUE(std::isfinite(out.intFeedbackOut.torqueRequestBody[i]));
+            EXPECT_TRUE(std::isfinite(out.controlTorque[i]));
+            EXPECT_TRUE(std::isfinite(out.intFeedbackTorque[i]));
         }
     }
 }

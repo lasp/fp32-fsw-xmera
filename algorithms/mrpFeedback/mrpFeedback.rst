@@ -51,8 +51,10 @@ listed below and constructs the algorithm via the two-phase init pattern.
 Configuration
 ~~~~~~~~~~~~~
 
-All configurable parameters are validated at ``reset()`` time via ``MrpFeedbackConfig::create``. A negative gain or
-limit causes the factory to throw before the algorithm is constructed.
+All configuration is validated at ``reset()`` time via ``MrpFeedbackConfig::create``, which now also owns the
+spacecraft inertia (from ``vehConfigInMsg``) and the reaction-wheel array configuration (from ``rwParamsInMsg``).
+A negative gain or limit, a non-physical inertia tensor, or an out-of-range wheel count causes the factory to throw
+before the algorithm is constructed.
 
 .. list-table:: Configuration parameters
     :widths: 22 14 14 14 36
@@ -119,8 +121,10 @@ Subscribe inputs and set the public configuration properties before ``reset()`` 
     sim.ExecuteSimulation()
 
 If a required input message has not been connected when ``reset()`` runs, an ``std::invalid_argument`` is thrown.
-If any of the gain or limit parameters fail validation (negative value), ``MrpFeedbackConfig::create`` throws an
-``fsw::invalid_argument``. If ``updateState()`` is called before ``reset()``, an ``XmeraLifecycleException`` is thrown.
+If any configuration fails validation -- a negative gain or limit, a non-physical inertia tensor (not symmetric
+positive-definite, or violating the triangle inequality), or a wheel count outside ``[0, RW_EFF_CNT]`` --
+``MrpFeedbackConfig::create`` throws an ``fsw::invalid_argument``. If ``updateState()`` is called before ``reset()``,
+an ``XmeraLifecycleException`` is thrown.
 
 Mathematical Formulation
 ------------------------
