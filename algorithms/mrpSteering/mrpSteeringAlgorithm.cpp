@@ -5,6 +5,7 @@
 #include <math.h>
 #include <Eigen/Core>
 #include <numbers>
+#include <optional>
 
 /*! @brief Construct the algorithm with a validated configuration. The integral state of the rate
  tracking error starts at zero.
@@ -34,7 +35,6 @@ Eigen::Vector3f MrpSteeringAlgorithm::update(const InputGuidanceData& attGuidInp
                                              const std::array<float, RW_EFF_CNT>& wheelSpeeds) {
     const MrpSteeringControlParameters& params = this->cfg.getControlParameters();
     const Eigen::Matrix3f& ISCPntB_B = this->cfg.getSpacecraftInertia();
-    const InputRwData& rwConfigParams = this->cfg.getRwConfiguration();
 
     const Eigen::Vector3f sigma_BR = attGuidInput.sigma_BR;
 
@@ -92,7 +92,9 @@ Eigen::Vector3f MrpSteeringAlgorithm::update(const InputGuidanceData& attGuidInp
     /*! - compute momentum  */
     Eigen::Vector3f H_B = ISCPntB_B * omega_BN_B;
 
-    if (this->cfg.getRwIsConfigured()) {
+    const std::optional<InputRwData>& rwConfiguration = this->cfg.getRwConfiguration();
+    if (rwConfiguration.has_value()) {
+        const InputRwData& rwConfigParams = *rwConfiguration;
         for (uint32_t i = 0U; i < rwConfigParams.numRW; ++i) {
             if (rwConfigParams.wheelAvailability.at(i) == AVAILABLE) { /* check if wheel is available */
                 const Eigen::Vector3f G_s_B_i = rwConfigParams.GsMatrix_B.col(static_cast<int>(i));

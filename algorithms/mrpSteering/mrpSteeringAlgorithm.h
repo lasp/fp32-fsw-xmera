@@ -12,6 +12,7 @@
 #include <Eigen/Core>
 #include <algorithm>
 #include <array>
+#include <optional>
 
 inline constexpr uint32_t kMaxNumRw = RW_EFF_CNT;
 
@@ -56,8 +57,7 @@ class MrpSteeringConfig final {
     static MrpSteeringConfig create(const MrpSteeringControlParameters& controlParameters,
                                     const Eigen::Vector3f& knownTorquePntB_B,
                                     const Eigen::Matrix3f& ISCPntB_B,
-                                    const InputRwData& rwConfiguration,
-                                    bool rwIsConfigured) {
+                                    const std::optional<InputRwData>& rwConfiguration = std::nullopt) {
         if (!isValidControlParameters(controlParameters)) {
             FSW_THROW_INVALID_ARGUMENT(
                 "mrpSteering: control gains K1, K3, P, Ki, integralLimit must be finite and non-negative, and "
@@ -69,7 +69,7 @@ class MrpSteeringConfig final {
         if (!isValidInertia(ISCPntB_B)) {
             FSW_THROW_INVALID_ARGUMENT("mrpSteering: ISCPntB_B must be a valid inertia matrix.");
         }
-        if (!isValidRwConfiguration(rwConfiguration)) {
+        if (rwConfiguration.has_value() && !isValidRwConfiguration(*rwConfiguration)) {
             FSW_THROW_INVALID_ARGUMENT(
                 "mrpSteering: rwConfiguration.numRW must not exceed the compile-time maximum, the spin-axis matrix "
                 "and wheel inertias must be finite, and each active spin axis must be a unit vector.");
@@ -77,11 +77,13 @@ class MrpSteeringConfig final {
 
         // Normalize the validated (near-)unit spin axes so downstream code can rely on exact unit vectors; this
         // only removes rounding. Inactive columns (index >= numRW) are left untouched.
-        InputRwData normalizedRwConfiguration = rwConfiguration;
-        for (uint32_t i = 0U; i < normalizedRwConfiguration.numRW; ++i) {
-            normalizedRwConfiguration.GsMatrix_B.col(static_cast<int>(i)).normalize();
+        std::optional<InputRwData> normalizedRwConfiguration = rwConfiguration;
+        if (normalizedRwConfiguration.has_value()) {
+            for (uint32_t i = 0U; i < normalizedRwConfiguration->numRW; ++i) {
+                normalizedRwConfiguration->GsMatrix_B.col(static_cast<int>(i)).normalize();
+            }
         }
-        return {controlParameters, knownTorquePntB_B, ISCPntB_B, normalizedRwConfiguration, rwIsConfigured};
+        return {controlParameters, knownTorquePntB_B, ISCPntB_B, normalizedRwConfiguration};
     }
 
     static bool isValidControlParameters(const MrpSteeringControlParameters& controlParameters) {
@@ -123,26 +125,22 @@ class MrpSteeringConfig final {
     const MrpSteeringControlParameters& getControlParameters() const { return this->controlParameters; }
     const Eigen::Vector3f& getKnownTorquePntB_B() const { return this->knownTorquePntB_B; }
     const Eigen::Matrix3f& getSpacecraftInertia() const { return this->ISCPntB_B; }
-    const InputRwData& getRwConfiguration() const { return this->rwConfiguration; }
-    bool getRwIsConfigured() const { return this->rwIsConfigured; }
+    const std::optional<InputRwData>& getRwConfiguration() const { return this->rwConfiguration; }
 
    private:
     MrpSteeringConfig(const MrpSteeringControlParameters& controlParameters,
                       const Eigen::Vector3f& knownTorquePntB_B,
                       const Eigen::Matrix3f& ISCPntB_B,
-                      const InputRwData& rwConfiguration,
-                      bool rwIsConfigured)
+                      const std::optional<InputRwData>& rwConfiguration)
         : controlParameters(controlParameters),
           knownTorquePntB_B(knownTorquePntB_B),
           ISCPntB_B(ISCPntB_B),
-          rwConfiguration(rwConfiguration),
-          rwIsConfigured(rwIsConfigured) {}
+          rwConfiguration(rwConfiguration) {}
 
     MrpSteeringControlParameters controlParameters;
     Eigen::Vector3f knownTorquePntB_B;
     Eigen::Matrix3f ISCPntB_B;
-    InputRwData rwConfiguration;
-    bool rwIsConfigured;
+    std::optional<InputRwData> rwConfiguration;
 };
 
 /*! @brief MRP steering attitude control algorithm. */

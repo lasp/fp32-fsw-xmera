@@ -132,10 +132,9 @@ inline MrpSteeringControlParameters makeValidControlParameters() {
 inline void testMrpSteeringSetup() {
     const Eigen::Vector3f knownTorque = Eigen::Vector3f::Zero();
     const Eigen::Matrix3f goodInertia = Eigen::Matrix3f::Identity();
-    const InputRwData rwData{};
 
     // --- Valid baseline does not throw ---
-    EXPECT_NO_THROW(MrpSteeringConfig::create(makeValidControlParameters(), knownTorque, goodInertia, rwData, false));
+    EXPECT_NO_THROW(MrpSteeringConfig::create(makeValidControlParameters(), knownTorque, goodInertia));
 
     // --- Negative feedback gains or integral limit ---
     for (float MrpSteeringControlParameters::* gain : {&MrpSteeringControlParameters::K1,
@@ -145,33 +144,33 @@ inline void testMrpSteeringSetup() {
                                                        &MrpSteeringControlParameters::integralLimit}) {
         MrpSteeringControlParameters params = makeValidControlParameters();
         params.*gain = -0.1F;
-        EXPECT_THROW(MrpSteeringConfig::create(params, knownTorque, goodInertia, rwData, false), fsw::invalid_argument);
+        EXPECT_THROW(MrpSteeringConfig::create(params, knownTorque, goodInertia), fsw::invalid_argument);
     }
 
     // --- Non-positive maximum rate ---
     for (const float badOmegaMax : {0.0F, -0.1F}) {
         MrpSteeringControlParameters params = makeValidControlParameters();
         params.omegaMax = badOmegaMax;
-        EXPECT_THROW(MrpSteeringConfig::create(params, knownTorque, goodInertia, rwData, false), fsw::invalid_argument);
+        EXPECT_THROW(MrpSteeringConfig::create(params, knownTorque, goodInertia), fsw::invalid_argument);
     }
 
     // --- Non-positive control period ---
     {
         MrpSteeringControlParameters params = makeValidControlParameters();
         params.controlPeriod = -0.1F;
-        EXPECT_THROW(MrpSteeringConfig::create(params, knownTorque, goodInertia, rwData, false), fsw::invalid_argument);
+        EXPECT_THROW(MrpSteeringConfig::create(params, knownTorque, goodInertia), fsw::invalid_argument);
     }
 
     // --- Invalid inertia matrix ---
     Eigen::Matrix3f badInertia{};
     badInertia << 1, 0, 0, 0, 1, 0, 0, 0, 0;
-    EXPECT_THROW(MrpSteeringConfig::create(makeValidControlParameters(), knownTorque, badInertia, rwData, false),
+    EXPECT_THROW(MrpSteeringConfig::create(makeValidControlParameters(), knownTorque, badInertia),
                  fsw::invalid_argument);
     badInertia << 1, 0, 0, 0, 1, 0, 0, 1, 1;
-    EXPECT_THROW(MrpSteeringConfig::create(makeValidControlParameters(), knownTorque, badInertia, rwData, false),
+    EXPECT_THROW(MrpSteeringConfig::create(makeValidControlParameters(), knownTorque, badInertia),
                  fsw::invalid_argument);
     badInertia << 3, 0, 0, 0, 1, 0, 0, 0, 1;
-    EXPECT_THROW(MrpSteeringConfig::create(makeValidControlParameters(), knownTorque, badInertia, rwData, false),
+    EXPECT_THROW(MrpSteeringConfig::create(makeValidControlParameters(), knownTorque, badInertia),
                  fsw::invalid_argument);
 }
 
@@ -239,7 +238,8 @@ inline void testMrpSteering(const Eigen::Vector3f& sigma,
     // Build the validated configuration. If it is invalid (e.g. a degenerate inertia matrix), skip this case.
     std::optional<MrpSteeringConfig> config;
     try {
-        config = MrpSteeringConfig::create(params, knownTorquePntB_B, ISC_B, rwInputData, rwIsLinked);
+        config = MrpSteeringConfig::create(
+            params, knownTorquePntB_B, ISC_B, rwIsLinked ? std::optional<InputRwData>(rwInputData) : std::nullopt);
     } catch (const fsw::invalid_argument&) {
         return;
     }
