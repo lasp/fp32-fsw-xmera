@@ -27,19 +27,21 @@ inline void testNavAggregate(double attTimeTag,
                              uint32_t sunIdx,
                              uint32_t attMsgCount,
                              uint32_t transMsgCount) {
-    NavAggregateAlgorithm alg{};
-
-    // Set up module
-    alg.setAttTimeIdx(attTimeIndex);
-    alg.setTransTimeIdx(transTimeIndex);
-    alg.setAttIdx(attIdx);
-    alg.setRateIdx(rateIdx);
-    alg.setPosIdx(posIdx);
-    alg.setVelIdx(velIdx);
-    alg.setDvIdx(dvIdx);
-    alg.setSunIdx(sunIdx);
-    alg.setAttMsgCount(attMsgCount);
-    alg.setTransMsgCount(transMsgCount);
+    const NavAggregateAttSelection attSelection{
+        .attTimeIdx = attTimeIndex,
+        .attIdx = attIdx,
+        .rateIdx = rateIdx,
+        .sunIdx = sunIdx,
+        .attMsgCount = attMsgCount,
+    };
+    const NavAggregateTransSelection transSelection{
+        .transTimeIdx = transTimeIndex,
+        .posIdx = posIdx,
+        .velIdx = velIdx,
+        .dvIdx = dvIdx,
+        .transMsgCount = transMsgCount,
+    };
+    NavAggregateAlgorithm alg{NavAggregateConfig::create(attSelection, transSelection)};
 
     // Populate messages
     std::array<InputNavAttData, MAX_AGG_NAV_MSG> attInputs{};
