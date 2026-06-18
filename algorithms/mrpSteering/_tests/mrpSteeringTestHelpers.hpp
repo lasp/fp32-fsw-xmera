@@ -208,6 +208,11 @@ inline void testMrpSteering(const Eigen::Vector3f& sigma,
         }
         std::copy(std::begin(JsList), std::end(JsList), std::begin(rwInputData.JsList));
         rwInputData.numRW = static_cast<uint32_t>(numRW);
+        for (uint32_t i = 0U; i < wheelAvailabilityBool.size(); ++i) {
+            if (wheelAvailabilityBool[i]) {
+                rwInputData.wheelAvailability[i] = UNAVAILABLE;
+            }
+        }
 
         // The config requires (near-)unit spin axes; normalize the active columns before constructing it. Skip
         // inputs with a degenerate (near-zero) spin axis that cannot be normalized.
@@ -278,13 +283,6 @@ inline void testMrpSteering(const Eigen::Vector3f& sigma,
     std::array<float, RW_EFF_CNT> wheelSpeeds{};
     std::copy(wheelSpeedsVec.begin(), wheelSpeedsVec.end(), wheelSpeeds.begin());
 
-    std::array<FSWdeviceAvailability, RW_EFF_CNT> wheelAvailability{};
-    for (uint32_t i = 0U; i < wheelAvailabilityBool.size(); ++i) {
-        if (wheelAvailabilityBool[i]) {
-            wheelAvailability[i] = UNAVAILABLE;
-        }
-    }
-
     Eigen::Vector3f z{Eigen::Vector3f::Zero()};
 
     // Test over a few time steps
@@ -294,7 +292,7 @@ inline void testMrpSteering(const Eigen::Vector3f& sigma,
         // Reference
         Eigen::Vector3f out{};
         ReferenceOutput refOutput{};
-        EXPECT_NO_THROW(out = alg.update(attGuidInputData, wheelSpeeds, wheelAvailability));
+        EXPECT_NO_THROW(out = alg.update(attGuidInputData, wheelSpeeds));
         EXPECT_NO_THROW(
             refOutput = referenceUpdate(
                 params, knownTorquePntB_B, rwConfigMsg, ISC_B, z, guidCmdMsg, wheelSpeedsMsg, wheelsAvailabilityMsg));
