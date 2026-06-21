@@ -27,6 +27,7 @@ struct SunSafePointOutput {
     Eigen::Vector3f sigma_BR;    //!< attitude error (MRPs) of B relative to R
     Eigen::Vector3f omega_BR_B;  //!< [rad/s] body rate error of B relative to R in B frame
     Eigen::Vector3f omega_RN_B;  //!< [rad/s] reference frame rate of R relative to N in B frame
+    bool faultDetected{false};   //!< [-] true once the search fails to acquire the sun (forced to pointing)
 };
 
 /**
@@ -132,6 +133,7 @@ class SunSafePointAlgorithm final {
     uint64_t searchStartTime{};                              //!< [ns] time at which the rotation sequence begins
     bool firstPass{true};                                    //!< [-] true until the start time has been captured
     Phase phase{Phase::Searching};                           //!< [-] current guidance phase (Pointing is terminal)
+    bool searchFailed{false};  //!< [-] latched true if the sequence elapsed without acquiring the sun
 };
 
 #endif

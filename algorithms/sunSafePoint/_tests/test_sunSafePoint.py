@@ -117,6 +117,8 @@ def test_sun_safe_point(show_plots, case):
     # Set up data logging
     att_guid_out_msg_data_log = sun_safe_point.attGuidanceOutMsg.recorder()
     unit_test_sim.AddModelToTask(unit_task_name, att_guid_out_msg_data_log)
+    fault_out_msg_data_log = sun_safe_point.sunSafePointFaultOutMsg.recorder()
+    unit_test_sim.AddModelToTask(unit_task_name, fault_out_msg_data_log)
 
     # Connect messages
     sun_safe_point.sunDirectionInMsg.subscribeTo(sun_in_msg)
@@ -161,6 +163,10 @@ def test_sun_safe_point(show_plots, case):
                                rtol=tolerance, atol=tolerance, verbose=True)
     np.testing.assert_allclose(att_guid_out_msg_data_log.domega_RN_B[-1], domega_RN_B_truth,
                                rtol=tolerance, atol=tolerance, verbose=True)
+
+    # The run never reaches the observation threshold, so the search fails and forces POINT,
+    # latching the search-failure fault.
+    assert fault_out_msg_data_log.faultDetected[-1] == True
 
     # Parameter round-trips (scalar attributes + SWIG rotation-config binding)
     np.testing.assert_allclose(sun_safe_point.sunAxisSpinRate, sunAxisSpinRate, rtol=tolerance, atol=tolerance)
