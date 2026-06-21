@@ -18,3 +18,4 @@ STRUCTASLIST(RotationProperties)
 struct NavAttMsgF32_C;
 %include "msgPayloadDef/AttGuidMsgF32Payload.h"
 %include "msgPayloadDef/FilterResidualsMsgF32Payload.h"
+%include "msgPayloadDef/SunSafePointFaultMsgPayload.h"

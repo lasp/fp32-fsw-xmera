@@ -4,6 +4,7 @@
 #include "msgPayloadDef/AttGuidMsgF32Payload.h"
 #include "msgPayloadDef/FilterResidualsMsgF32Payload.h"
 #include "msgPayloadDef/NavAttMsgF32Payload.h"
+#include "msgPayloadDef/SunSafePointFaultMsgPayload.h"
 #include "sunSafePointAlgorithm.h"
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
@@ -35,6 +36,7 @@ class SunSafePoint final : public SysModel {
     ReadFunctor<NavAttMsgF32Payload> sunDirectionInMsg;              //!< Sun direction input message
     ReadFunctor<FilterResidualsMsgF32Payload> filterResidualsInMsg;  //!< Filter residuals input (CSS observation count)
     Message<AttGuidMsgF32Payload> attGuidanceOutMsg;                 //!< Attitude guidance output message
+    Message<SunSafePointFaultMsgPayload> sunSafePointFaultOutMsg;    //!< Search-failure fault output message
 
    private:
     std::unique_ptr<SunSafePointAlgorithm> algorithm = nullptr;

@@ -40,15 +40,19 @@ SunSafePointOutput SunSafePointAlgorithm::update(const uint64_t callTime,
         const bool firstRotationComplete = elapsedTimeNs >= this->rotationEndTimes.at(0);
         const bool sequenceComplete = elapsedTimeNs >= this->rotationEndTimes.at(kNumRotations - 1U);
         const bool sunAcquired = firstRotationComplete && (numCssViewingSun >= this->cfg.getObservationThreshold());
-        if (sunAcquired || sequenceComplete) {
+        if (sunAcquired) {
             this->phase = Phase::Pointing;
+        } else if (sequenceComplete) {
+            // Full sequence elapsed without acquiring the sun: the search failed. Latch the fault.
+            this->phase = Phase::Pointing;
+            this->searchFailed = true;
         }
     }
 
-    if (this->phase == Phase::Pointing) {
-        return this->computePointing(rHat_SB_B, omega_BN_B);
-    }
-    return this->computeSearch(callTime, omega_BN_B);
+    SunSafePointOutput output = (this->phase == Phase::Pointing) ? this->computePointing(rHat_SB_B, omega_BN_B)
+                                                                 : this->computeSearch(callTime, omega_BN_B);
+    output.faultDetected = this->searchFailed;
+    return output;
 }
 
 /*! Compute the search-phase guidance: a constant reference rate about the active rotation's body
@@ -144,4 +148,5 @@ void SunSafePointAlgorithm::setConfig(const SunSafePointConfig& config) {
 void SunSafePointAlgorithm::reInitialize() {
     this->firstPass = true;
     this->phase = Phase::Searching;
+    this->searchFailed = false;
 }

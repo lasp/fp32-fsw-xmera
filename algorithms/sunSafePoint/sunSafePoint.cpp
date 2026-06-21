@@ -85,6 +85,9 @@ void SunSafePoint::updateState(uint64_t callTime) {
     eigenVectorToCArray(output.omega_RN_B, attGuidanceOutBuffer.omega_RN_B);
 
     this->attGuidanceOutMsg.write(attGuidanceOutBuffer, moduleID, callTime);
+
+    const SunSafePointFaultMsgPayload faultBuffer{output.faultDetected};
+    this->sunSafePointFaultOutMsg.write(faultBuffer, moduleID, callTime);
 }
 
 /*! Setter for a single rotation in the sun-search sequence. Applied at the next reset().

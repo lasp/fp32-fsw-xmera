@@ -55,5 +55,6 @@ SunSafePointOutput_c SunSafePointAlgorithm_update(SunSafePointAlgorithmHandle* s
     eigenVectorToCArray(out.sigma_BR, result.sigma_BR.data);
     eigenVectorToCArray(out.omega_BR_B, result.omega_BR_B.data);
     eigenVectorToCArray(out.omega_RN_B, result.omega_RN_B.data);
+    result.faultDetected = out.faultDetected;
     return result;
 }
