@@ -9,7 +9,8 @@ runs a small state machine (OFF / IDLE / MOVING / STOPPING / SETTLING) that deci
 changed reference should interrupt the current move, and how long to wait after a stop before accepting new commands.
 The controller always commands the shortest path around a full revolution, so a reference on the opposite side of the
 motor is reached via the smaller of the two directions. The current motor position and motion status are read each tick
-from a stepper motor dynamics module via the ``stepperMotorInMsg`` input.
+from a stepper motor dynamics module via the ``stepperMotorInMsg`` input. All quantities are computed in single
+precision (float angles, integer step counts).
 
 Message Connection Descriptions
 -------------------------------
@@ -36,8 +37,10 @@ Python.
 
 Algorithm Parameters
 -------------------------------
-The following table lists the parameters on the pure algorithm (``StepperMotorControllerAlgorithm``). The Xmera
-adapter re-exposes all of these parameters through same-named setters/getters that forward to the algorithm.
+The following table lists the configuration parameters. They are held in the validated immutable
+``StepperMotorControllerConfig`` (built and validated at ``reset()``); the Xmera adapter exposes them as same-named
+public properties that are set before ``reset()``. The integer steps-per-revolution and the full-circle flag are
+*derived* from ``stepAngle`` and the angle range by the algorithm — they are not configuration inputs.
 
 .. list-table:: Algorithm Parameters
     :widths: 32 15 10 10 40 30
@@ -54,7 +57,7 @@ adapter re-exposes all of these parameters through same-named setters/getters th
       - [rad/step]
       - 0 (must be set)
       - Angle traversed per motor step
-      - Must be in :math:`[2\pi / 100000,\, 2\pi]` (checked in setter; the lower bound caps
+      - Must be in :math:`[2\pi / 100000,\, 2\pi]` (validated at reset(); the lower bound caps
         ``stepsPerRev`` at 100k so the fp32 round-trip in ``angleToSteps`` stays within rounding
         tolerance)
     * - minAngle
@@ -62,19 +65,19 @@ adapter re-exposes all of these parameters through same-named setters/getters th
       - [rad]
       - 0
       - Lower bound of the motor's travel range; reference angles below this are rejected
-      - Must be in :math:`[-2\pi,\, 2\pi]` and strictly less than ``maxAngle`` (checked in ``setMotorAngleRange``)
+      - Must be in :math:`[-2\pi,\, 2\pi]` and strictly less than ``maxAngle`` (validated at reset())
     * - maxAngle
       - float
       - [rad]
       - :math:`2\pi`
       - Upper bound of the motor's travel range; reference angles above this are rejected
-      - Must be in :math:`[-2\pi,\, 2\pi]` and strictly greater than ``minAngle`` (checked in ``setMotorAngleRange``)
+      - Must be in :math:`[-2\pi,\, 2\pi]` and strictly greater than ``minAngle`` (validated at reset())
     * - settleCountMax
       - uint32_t
       - [ticks]
       - 10
       - Number of control ticks to remain in ``SETTLING`` before returning to ``IDLE``
-      - Non-negative by type (uint32_t)
+      - Any value accepted (no constraint beyond the uint32_t type)
     * - minStepCommand
       - uint32_t
       - [steps]
@@ -82,13 +85,18 @@ adapter re-exposes all of these parameters through same-named setters/getters th
       - Minimum step delta magnitude that triggers a ``MOVE`` from ``IDLE`` or a
         ``STOP``-and-replan from ``MOVING``. Step deltas with magnitude below this value are
         treated as too small to act on.
-      - Must be greater than 0 (checked in ``setMinStepCommand``)
+      - Must be greater than 0 (validated at reset())
 
-Module Parameters
+Module Architecture
 -------------------------------
-The Xmera adapter (``StepperMotorController``) exposes only the algorithm parameters listed in the previous table; it
-has no additional parameters of its own. The motor's absolute position is read each tick from
-``stepperMotorInMsg.motorPosition``, so the adapter does not need to be configured with an initial angle.
+The module is split into a pure algorithm (``StepperMotorControllerAlgorithm``, free of any messaging or framework
+dependencies) and an Xmera adapter (``StepperMotorController``, a ``SysModel``) that owns the message I/O. The adapter
+follows a two-phase initialization pattern: the public configuration properties (``stepAngle``, ``minAngle``,
+``maxAngle``, ``settleCountMax``, ``minStepCommand``) and the input messages are set first, then ``reset()`` builds and
+validates the immutable ``StepperMotorControllerConfig`` and constructs the algorithm. An invalid parameter throws
+``fsw::invalid_argument`` at ``reset()``. The adapter exposes no parameters of its own; the motor's absolute position is
+read each tick from ``stepperMotorInMsg.motorPosition``, so it needs no initial-angle configuration. A C shim
+(``stepperMotorControllerAlgorithm_c.h``) exposes the algorithm to Ada via ``extern "C"`` bindings.
 
 Algorithm Input/Output
 -------------------------------
@@ -249,7 +257,8 @@ The ``StepperMotorController`` Xmera adapter provides the simulation integration
 
 - Reads ``motorRefAngleInMsg`` to obtain the reference angle each tick.
 - Reads ``stepperMotorInMsg`` to obtain the motor's absolute ``motorPosition`` and ``isMotorMoving`` each tick.
-- On ``reset()``, requires both input messages to be linked and resets the underlying algorithm state.
+- On ``reset()``, builds and validates the immutable configuration from the public properties, constructs the
+  algorithm, requires both input messages to be linked, and re-initializes the algorithm's state machine.
 - On each ``updateState()``, calls the algorithm with the feedback ``motorPosition``, the reference angle, and the
   feedback ``isMotorMoving``.
 - On a ``MOVE`` output, writes ``motorStepCommandOutMsg`` with the commanded step delta and ``stopMotorCommand=false``.
@@ -259,12 +268,13 @@ The ``StepperMotorController`` Xmera adapter provides the simulation integration
 
 User Guide
 ----------
-Typical usage in Python is::
+Typical usage in Python is (the configuration properties and message connections must be set before ``reset()``)::
 
     module = stepperMotorControllerF32.StepperMotorController()
     module.modelTag = "stepperMotorController"
     module.stepAngle = math.radians(1.0)             # [rad/step] (1 deg/step = 360 steps/rev)
-    module.setMotorAngleRange(0.0, 2 * math.pi)      # full circle (default); use a partial range for bounded steppers
+    module.minAngle = 0.0                            # full circle (default); use a partial range for bounded steppers
+    module.maxAngle = 2 * math.pi
     module.settleCountMax = 2
     module.minStepCommand = 1
 
