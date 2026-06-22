@@ -62,6 +62,16 @@ struct StepperMotorSim {
 
 inline int angleToSteps(float angle, float stepAngle) { return static_cast<int>(round(angle / stepAngle)); }
 
+// Build a controller from individual parameters via the validated configuration.
+inline StepperMotorControllerAlgorithm makeStepperMotorControllerAlgorithm(float stepAngle,
+                                                                           float minAngle,
+                                                                           float maxAngle,
+                                                                           uint32_t settleCountMax,
+                                                                           uint32_t minStepCommand) {
+    return StepperMotorControllerAlgorithm{StepperMotorControllerConfig::create(
+        stepAngle, StepperMotorAngleRange{minAngle, maxAngle}, settleCountMax, minStepCommand)};
+}
+
 // True if the configured minStepCommand maps to a meaningful angular threshold for the
 // configured motor: the corresponding minAngleCommand = minStepCommand * stepAngle must be
 // greater than stepAngle (so the threshold is more than a single step) and smaller than the
@@ -194,12 +204,7 @@ inline void regressionTestMultiStep(float stepAngle,
     const bool isFullCircle = ((maxAngle - minAngle) >= (2.0F * std::numbers::pi_v<float> - kMinStepAngle));
 
     // Setup algorithm
-    StepperMotorControllerAlgorithm alg{};
-    alg.setStepAngle(stepAngle);
-    alg.setMotorAngleRange(minAngle, maxAngle);
-    alg.setSettleCountMax(settleCountMax);
-    alg.setMinStepCommand(minStepCommand);
-    alg.reset();
+    auto alg = makeStepperMotorControllerAlgorithm(stepAngle, minAngle, maxAngle, settleCountMax, minStepCommand);
 
     StepperMotorSim algSim{};
     algSim.controlFrequency = controlFrequency;
@@ -260,12 +265,7 @@ inline void propertyOutputCommandTypeIsValid(float stepAngle,
         return;
     }
     const int stepsPerRevolution = static_cast<int>(round(2.0F * std::numbers::pi_v<float> / stepAngle));
-    StepperMotorControllerAlgorithm alg{};
-    alg.setStepAngle(stepAngle);
-    alg.setMotorAngleRange(minAngle, maxAngle);
-    alg.setSettleCountMax(settleCountMax);
-    alg.setMinStepCommand(minStepCommand);
-    alg.reset();
+    auto alg = makeStepperMotorControllerAlgorithm(stepAngle, minAngle, maxAngle, settleCountMax, minStepCommand);
 
     StepperMotorSim sim{};
     sim.controlFrequency = controlFrequency;
@@ -303,11 +303,7 @@ inline void propertyMoveStepsWithinHalfRevolution(float stepAngle,
     if (!isFullCircle) {
         return;
     }
-    StepperMotorControllerAlgorithm alg{};
-    alg.setStepAngle(stepAngle);
-    alg.setMotorAngleRange(minAngle, maxAngle);
-    alg.setMinStepCommand(minStepCommand);
-    alg.reset();
+    auto alg = makeStepperMotorControllerAlgorithm(stepAngle, minAngle, maxAngle, 10U, minStepCommand);
 
     const int initialStep = angleToSteps(initialAngle, stepAngle);
     const auto out = alg.update(initialStep, referenceAngle, false);
@@ -336,12 +332,7 @@ inline void propertyMotorReachesTarget(float stepAngle,
         return;
     }
     const int stepsPerRevolution = static_cast<int>(round(2.0F * std::numbers::pi_v<float> / stepAngle));
-    StepperMotorControllerAlgorithm alg{};
-    alg.setStepAngle(stepAngle);
-    alg.setMotorAngleRange(minAngle, maxAngle);
-    alg.setSettleCountMax(settleCountMax);
-    alg.setMinStepCommand(minStepCommand);
-    alg.reset();
+    auto alg = makeStepperMotorControllerAlgorithm(stepAngle, minAngle, maxAngle, settleCountMax, minStepCommand);
 
     StepperMotorSim sim{};
     sim.controlFrequency = controlFrequency;
