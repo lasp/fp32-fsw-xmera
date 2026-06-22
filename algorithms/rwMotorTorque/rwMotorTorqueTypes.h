@@ -1,7 +1,7 @@
 #ifndef F32XMERA_RW_MOTOR_TORQUE_TYPES_H
 #define F32XMERA_RW_MOTOR_TORQUE_TYPES_H
 
-#include "utilities/plainCAlgorithmDataTypes.h"
+#include "utilities/fsw/plainCAlgorithmDataTypes.h"
 #include <fswAlgorithms/fswUtilities/fswDefinitions.h>
 
 #include <stdint.h>

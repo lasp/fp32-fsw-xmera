@@ -2,8 +2,7 @@
 #define F32XMERA_MRPROTATIONALGORITHM_C_H
 
 #include "mrpRotationTypes.h"
-#include "utilities/plainCAlgorithmDataTypes.h"
-#include <stdint.h>
+#include "utilities/fsw/plainCAlgorithmDataTypes.h"
 
 #ifdef __cplusplus
 extern "C" {

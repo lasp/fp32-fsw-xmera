@@ -1,7 +1,6 @@
 %module bodyRateMiscompareF32
 %{
    #include "bodyRateMiscompare.h"
-   #include "utilities/timeConstants.h"
 %}
 
 %include <attribute.i>

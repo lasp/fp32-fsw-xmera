@@ -6,12 +6,12 @@
 #define TEST_OE_STATE_EPHEM_HELPERS_H
 
 #include "oeStateEphemAlgorithm.h"
-#include "utilities/orbitalMotion.hpp"
-#include "utilities/safeMath.h"
-#include "utilities/timeConstants.h"
+#include "utilities/fsw/orbitalMotion.hpp"
+#include "utilities/fsw/safeMath.h"
+#include "utilities/fsw/timeConstants.h"
+
 #include <gtest/gtest.h>
 #include <cmath>
-#include <numbers>
 
 using orbitalMotion::CartesianState;
 

@@ -1,9 +1,8 @@
 #ifndef TEST_SOLARARRAYREFERENCE_H
 #define TEST_SOLARARRAYREFERENCE_H
 
-#include "architecture/utilities/rigidBodyKinematics.hpp"
 #include "solarArrayReferenceAlgorithm.h"
-#include "utilities/freestandingInvalidArgument.h"
+#include "utilities/fsw/rigidBodyKinematics.hpp"
 #include <gtest/gtest.h>
 #include <Eigen/Core>
 #include <cmath>

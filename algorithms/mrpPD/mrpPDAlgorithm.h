@@ -1,8 +1,8 @@
 #ifndef XMERAF32_MRP_PD_ALGORITHM_H
 #define XMERAF32_MRP_PD_ALGORITHM_H
 
-#include "utilities/freestandingInvalidArgument.h"
-#include "utilities/validInertiaCheck.h"
+#include "utilities/fsw/freestandingInvalidArgument.h"
+#include "utilities/fsw/validInertiaCheck.h"
 #include <stdint.h>
 #include <Eigen/Core>
 

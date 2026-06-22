@@ -1,11 +1,11 @@
 #ifndef F32XMERA_MRP_ROTATION_ALGORITHM_H
 #define F32XMERA_MRP_ROTATION_ALGORITHM_H
 
-#include "utilities/freestandingInvalidArgument.h"
-#include "utilities/freestandingIsFinite.hpp"
-#include <stdint.h>
+#include "utilities/fsw/freestandingInvalidArgument.h"
+#include "utilities/fsw/freestandingIsFinite.hpp"
+#include "utilities/fsw/rigidBodyKinematics.hpp"
+
 #include <Eigen/Core>
-#include <architecture/utilities/rigidBodyKinematics.hpp>
 
 /*! @brief Algorithm-native input bundle that mirrors AttRefMsgF32Payload. The adapter converts the
  *  payload's float[3] arrays into Eigen vectors via eigenSupport.h before calling update().

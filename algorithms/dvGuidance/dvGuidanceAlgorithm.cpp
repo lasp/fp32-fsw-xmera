@@ -1,6 +1,6 @@
 #include "dvGuidanceAlgorithm.h"
-#include "architecture/utilities/rigidBodyKinematics.hpp"
-#include "utilities/timeConstants.h"
+#include "utilities/fsw/rigidBodyKinematics.hpp"
+#include "utilities/fsw/timeConstants.h"
 #include <math.h>
 
 DvGuidanceAlgorithm::DvGuidanceAlgorithm(const DvGuidanceConfig& config) : cfg(config) {}

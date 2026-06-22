@@ -14,8 +14,3 @@ target_include_directories("${module}" PUBLIC
   ".."
   "../.."
 )
-
-target_link_libraries("${module}" PRIVATE
-  ArchitectureUtilities
-  AlgorithmUtilities
-)

@@ -2,7 +2,7 @@
 #define TEST_MIMU_MAJORITY_VOTE_H
 
 #include "mimuMajorityVoteAlgorithm.h"
-#include "utilities/freestandingInvalidArgument.h"
+#include "utilities/fsw/freestandingInvalidArgument.h"
 #include <gtest/gtest.h>
 #include <math.h>
 #include <Eigen/Core>

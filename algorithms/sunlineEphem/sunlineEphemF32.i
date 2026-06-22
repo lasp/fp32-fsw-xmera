@@ -1,7 +1,6 @@
 %module sunlineEphemF32
 %{
     #include "sunlineEphem.h"
-    #include "utilities/timeConstants.h"
 %}
 
 %include <architecture/_GeneralModuleFiles/sys_model.i>

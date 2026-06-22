@@ -1,6 +1,6 @@
 #include "sunlineEphemAlgorithm.h"
 
-#include "architecture/utilities/rigidBodyKinematics.hpp"
+#include "utilities/fsw/rigidBodyKinematics.hpp"
 
 #include <Eigen/Core>
 

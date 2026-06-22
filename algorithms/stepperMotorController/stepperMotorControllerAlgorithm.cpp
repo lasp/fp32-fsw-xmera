@@ -1,5 +1,5 @@
 #include "stepperMotorControllerAlgorithm.h"
-#include "utilities/freestandingInvalidArgument.h"
+#include "utilities/fsw/freestandingInvalidArgument.h"
 
 #include <math.h>
 #include <stdlib.h>

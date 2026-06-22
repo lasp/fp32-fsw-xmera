@@ -1,6 +1,6 @@
 #include "mrpFeedbackAlgorithm.h"
-#include "architecture/utilities/eigenSupport.h"
-#include "utilities/timeConstants.h"
+#include "utilities/fsw/eigenSupport.h"
+#include "utilities/fsw/timeConstants.h"
 
 #include <math.h>
 #include <utility>

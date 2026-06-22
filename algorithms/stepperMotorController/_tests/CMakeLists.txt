@@ -4,7 +4,6 @@ add_executable(test_stepperMotorController
   test_stepperMotorController.cpp
 )
 
-target_include_directories(test_stepperMotorController PRIVATE "../..")
 target_include_directories(test_stepperMotorController PRIVATE "..")
 target_include_directories(test_stepperMotorController PRIVATE "${CMAKE_SOURCE_DIR}")
 
@@ -23,7 +22,6 @@ if(XMERA_ENABLE_FUZZTESTS)
     test_stepperMotorController_fuzz.cpp
   )
 
-  target_include_directories(test_stepperMotorController_fuzz PRIVATE "../..")
   target_include_directories(test_stepperMotorController_fuzz PRIVATE "..")
   target_include_directories(test_stepperMotorController_fuzz PRIVATE "${CMAKE_SOURCE_DIR}")
 

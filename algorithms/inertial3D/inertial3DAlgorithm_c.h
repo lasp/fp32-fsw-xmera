@@ -2,7 +2,7 @@
 #define F32XMERA_INERTIAL3DALGORITHM_C_H
 
 #include "msgPayloadDef/AttRefMsgF32Payload.h"
-#include "utilities/plainCAlgorithmDataTypes.h"
+#include "utilities/fsw/plainCAlgorithmDataTypes.h"
 
 #ifdef __cplusplus
 extern "C" {

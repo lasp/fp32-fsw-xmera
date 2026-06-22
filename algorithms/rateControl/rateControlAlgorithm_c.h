@@ -1,7 +1,7 @@
 #ifndef F32XMERA_RATE_CONTROL_ALGORITHM_C_H
 #define F32XMERA_RATE_CONTROL_ALGORITHM_C_H
 
-#include "utilities/plainCAlgorithmDataTypes.h"
+#include "utilities/fsw/plainCAlgorithmDataTypes.h"
 
 #ifdef __cplusplus
 extern "C" {

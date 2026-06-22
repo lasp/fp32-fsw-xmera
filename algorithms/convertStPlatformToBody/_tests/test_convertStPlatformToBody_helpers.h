@@ -2,7 +2,7 @@
 #define F32XIMERA_TEST_CONVERT_ST_PLATFORM_TO_BODY_HELPERS_H
 
 #include "../convertStPlatformToBodyAlgorithm.h"
-#include "architecture/utilities/rigidBodyKinematics.hpp"
+#include "utilities/fsw/rigidBodyKinematics.hpp"
 
 #include <gtest/gtest.h>
 #include <Eigen/Core>

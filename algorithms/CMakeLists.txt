@@ -1,6 +1,13 @@
 add_subdirectory(msgPayloadDef)
-add_subdirectory(utilities)
+
 add_subdirectory(filteringCore)
+add_subdirectory(utilities/fsw)
+
+# Every algorithm module (and its tests) consumes the fsw utilities, which carry
+# the "utilities/fsw/..." include prefix and Eigen as usage requirements. Apply
+# the contract once here so it is inherited by all algorithm subdirectories below
+# (directory-scoped: only affects targets created after this point).
+link_libraries(FswUtilities)
 
 add_subdirectory(attTrackingError)
 add_subdirectory(averageMimuData)

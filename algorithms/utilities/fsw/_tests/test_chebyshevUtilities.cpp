@@ -1,4 +1,4 @@
-#include "../chebyshevUtilities.h"
+#include "utilities/fsw/chebyshevUtilities.h"
 
 #include <gtest/gtest.h>
 #include <array>

@@ -2,7 +2,7 @@
 #define F32XMERA_CONVERTSTPLATFORMTOBODYALGORITHM_C_H
 
 #include "convertStPlatformToBodyTypes.h"
-#include "utilities/plainCAlgorithmDataTypes.h"
+#include "utilities/fsw/plainCAlgorithmDataTypes.h"
 
 #ifdef __cplusplus
 extern "C" {

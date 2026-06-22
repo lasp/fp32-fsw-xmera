@@ -1,7 +1,6 @@
 %module inertialUKFF32
 %{
     #include "inertialUKF.h"
-    #include "utilities/timeConstants.h"
 %}
 
 %include <architecture/_GeneralModuleFiles/sys_model.i>

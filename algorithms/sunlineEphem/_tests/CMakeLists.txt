@@ -4,7 +4,6 @@ add_executable(test_sunlineEphem
   test_sunlineEphem.cpp
 )
 
-target_include_directories(test_sunlineEphem PRIVATE "../..")
 target_include_directories(test_sunlineEphem PRIVATE "..")
 target_include_directories(test_sunlineEphem PRIVATE "${CMAKE_SOURCE_DIR}")
 
@@ -24,9 +23,7 @@ if(XMERA_ENABLE_FUZZTESTS)
     test_sunlineEphem_fuzz.cpp
   )
 
-  target_include_directories(test_sunlineEphem_fuzz PRIVATE "../..")
   target_include_directories(test_sunlineEphem_fuzz PRIVATE "..")
-  target_include_directories(test_sunlineEphem_fuzz PRIVATE "../../..")
   target_include_directories(test_sunlineEphem_fuzz PRIVATE "${CMAKE_SOURCE_DIR}")
 
   target_link_libraries(test_sunlineEphem_fuzz PRIVATE

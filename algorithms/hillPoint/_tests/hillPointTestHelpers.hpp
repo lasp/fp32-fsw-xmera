@@ -1,9 +1,9 @@
 #ifndef TEST_HILL_POINT_HELPERS_H
 #define TEST_HILL_POINT_HELPERS_H
 
-#include "architecture/utilities/rigidBodyKinematics.hpp"
 #include "hillPointAlgorithm.h"
 #include "hillPointTypes.h"
+#include "utilities/fsw/rigidBodyKinematics.hpp"
 
 #include <gtest/gtest.h>
 #include <Eigen/Core>

@@ -1,8 +1,8 @@
 #include "forceTorqueThrForceMappingAlgorithm_c.h"
 
-#include "architecture/utilities/eigenSupport.h"
 #include "forceTorqueThrForceMappingAlgorithm.h"
 #include "forceTorqueThrForceMappingTypes.h"
+#include "utilities/fsw/eigenSupport.h"
 
 #include <Eigen/Core>
 #include <array>

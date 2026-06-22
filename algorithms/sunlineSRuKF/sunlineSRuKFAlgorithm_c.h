@@ -1,7 +1,7 @@
 #ifndef F32XMERA_SUNLINESRUKFALGORITHM_C_H
 #define F32XMERA_SUNLINESRUKFALGORITHM_C_H
 
-#include "utilities/plainCAlgorithmDataTypes.h"
+#include "utilities/fsw/plainCAlgorithmDataTypes.h"
 #include <stdint.h>
 
 #define SUNLINE_SRUKF_MAX_NUM_CSS 32

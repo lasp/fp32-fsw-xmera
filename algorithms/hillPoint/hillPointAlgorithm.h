@@ -1,7 +1,6 @@
 #ifndef F32XMERA_HILL_POINT_ALGORITHM_H
 #define F32XMERA_HILL_POINT_ALGORITHM_H
 
-#include "hillPointTypes.h"
 #include <Eigen/Core>
 
 struct HillPointOutput {

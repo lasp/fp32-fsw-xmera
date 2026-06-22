@@ -1,5 +1,6 @@
 #include "mrpRotationAlgorithm.h"
-#include <architecture/utilities/rigidBodyKinematics.hpp>
+#include <utilities/fsw/eigenSupport.h>
+#include <utilities/fsw/rigidBodyKinematics.hpp>
 
 /*! @brief Construct the algorithm with a validated configuration. Seeds the integrating runtime
  state (sigma_RR0, omega_RR0_R) from the configured initial values so the first update produces a

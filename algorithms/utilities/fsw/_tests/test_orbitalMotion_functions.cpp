@@ -1,4 +1,4 @@
-#include "../orbitalMotion.hpp"
+#include "utilities/fsw/orbitalMotion.hpp"
 #include <gtest/gtest.h>
 #include <Eigen/Dense>
 #include <cmath>

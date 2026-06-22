@@ -1,4 +1,5 @@
 #include "solarArrayReferenceTestHelpers.hpp"
+#include "utilities/fsw/freestandingInvalidArgument.h"
 #include <numbers>
 
 // ---------------------------------------------------------------------------

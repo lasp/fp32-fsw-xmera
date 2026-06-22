@@ -1,7 +1,7 @@
 #include "mimuMajorityVoteAlgorithm.h"
 
-#include "architecture/utilities/eigenSupport.h"
-#include "utilities/freestandingInvalidArgument.h"
+#include "utilities/fsw/eigenSupport.h"
+#include "utilities/fsw/freestandingInvalidArgument.h"
 
 void MimuMajorityVoteAlgorithm::reset() { this->faultPersistenceCount.fill(0U); }
 

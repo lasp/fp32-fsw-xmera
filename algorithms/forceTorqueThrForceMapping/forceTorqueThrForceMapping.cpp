@@ -1,7 +1,7 @@
 #include "forceTorqueThrForceMapping.h"
+#include "utilities/fsw/eigenSupport.h"
+#include "utilities/xmera/xmeraLifecycleException.h"
 
-#include "utilities/xmeraLifecycleException.h"
-#include <architecture/utilities/eigenSupport.h>
 #include <stdexcept>
 
 /*! This method performs a complete reset of the module.  Local module variables that retain
@@ -67,7 +67,7 @@ void ForceTorqueThrForceMapping::updateState(const uint64_t callTime) {
 
     THRArrayCmdForceMsgF32Payload thrForceCmdOut{};
     eigenVectorToCArray(thrForce, thrForceCmdOut.thrForce);
-    this->thrForceCmdOutMsg.write(&thrForceCmdOut, this->moduleID, callTime);
+    this->thrForceCmdOutMsg.write(thrForceCmdOut, this->moduleID, callTime);
 }
 
 /*! Setter for the desiredControlAxes_B controllability assertion vector. See the algorithm class for

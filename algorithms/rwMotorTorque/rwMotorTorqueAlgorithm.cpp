@@ -1,5 +1,8 @@
 #include "rwMotorTorqueAlgorithm.h"
-#include "utilities/freestandingInvalidArgument.h"
+
+#include "utilities/fsw/freestandingInvalidArgument.h"
+#include <utilities/fsw/eigenSupport.h>
+#include <Eigen/LU>
 #include <Eigen/SVD>
 #include <algorithm>
 #include <cstdint>

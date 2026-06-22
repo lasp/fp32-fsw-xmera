@@ -1,4 +1,4 @@
-#include "../validInertiaCheck.h"
+#include "utilities/fsw/validInertiaCheck.h"
 #include <gtest/gtest.h>
 
 TEST(ValidateInertiaTest, SetupTest) {

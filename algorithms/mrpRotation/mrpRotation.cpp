@@ -1,6 +1,7 @@
 #include "mrpRotation.h"
-#include "utilities/xmeraLifecycleException.h"
-#include <architecture/utilities/eigenSupport.h>
+#include "utilities/fsw/eigenSupport.h"
+#include "utilities/xmera/xmeraLifecycleException.h"
+
 #include <stdexcept>
 
 /*! @brief Validate that the required input message is linked, build the algorithm's configuration

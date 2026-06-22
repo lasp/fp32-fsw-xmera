@@ -1,6 +1,6 @@
 #include "mimuMajorityVote.h"
 
-#include "architecture/utilities/eigenSupport.h"
+#include "utilities/fsw/eigenSupport.h"
 
 void MimuMajorityVote::reset(uint64_t const callTime) {
     if (this->actualNumberOfImus != kMimuCount) {

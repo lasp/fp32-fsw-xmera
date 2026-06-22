@@ -1,8 +1,7 @@
 #include "attTrackingError.h"
 
-#include "../../architecture/utilities/messageConversionHelpers.hpp"
-#include "architecture/utilities/eigenSupport.h"
-#include "attTrackingErrorTypes.h"
+#include "utilities/fsw/eigenSupport.h"
+#include "utilities/fsw/messageConversionHelpers.hpp"
 
 /*! This method performs a complete reset of the module. Local module variables that retain time varying states between
  function calls are reset to their default values.
@@ -60,5 +59,5 @@ void AttTrackingError::updateState(uint64_t callTime) {
     eigenVectorToCArray(guidOut.domega_RN_B, attGuidOutF32.domega_RN_B);
 
     // Write the attitude guidance float output message
-    this->attGuidOutMsg.write(&attGuidOutF32, this->moduleID, callTime);
+    this->attGuidOutMsg.write(attGuidOutF32, this->moduleID, callTime);
 }

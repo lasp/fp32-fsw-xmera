@@ -1,6 +1,6 @@
 #include "rateControlAlgorithm.h"
-#include "../utilities/validInertiaCheck.h"
-#include "utilities/freestandingInvalidArgument.h"
+#include "utilities/fsw/freestandingInvalidArgument.h"
+#include "utilities/fsw/validInertiaCheck.h"
 
 /*! Computes the required control torque Lr from the attitude rate error and the reference frame angular acceleration.
  @param omega_BR_B the angular velocity of the body frame relative to the reference frame,

@@ -1,9 +1,9 @@
 #ifndef TEST_INERTIAL3D_H
 #define TEST_INERTIAL3D_H
 
-#include "architecture/utilities/eigenSupport.h"
 #include "inertial3DAlgorithm.h"
 #include "msgPayloadDef/AttRefMsgF32Payload.h"
+#include "utilities/fsw/eigenSupport.h"
 #include <gtest/gtest.h>
 #include <Eigen/Core>
 

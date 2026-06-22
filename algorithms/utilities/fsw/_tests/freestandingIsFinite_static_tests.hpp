@@ -16,7 +16,7 @@
 //  these ill-formed, so this header is also a partial UB check.
 //============================================================================
 
-#include "freestandingIsFinite.hpp"
+#include "utilities/fsw/freestandingIsFinite.hpp"
 #include <bit>
 #include <cstdint>
 

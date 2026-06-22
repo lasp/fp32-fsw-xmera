@@ -1,5 +1,5 @@
 #include "hillPoint.h"
-#include "architecture/utilities/eigenSupport.h"
+#include "utilities/fsw/eigenSupport.h"
 #include <stdexcept>
 
 namespace {
@@ -43,5 +43,5 @@ void HillPoint::updateState(const uint64_t currentSimNanos) {
     eigenVectorToCArray(out.omega_RN_N, attRefOut.omega_RN_N);
     eigenVectorToCArray(out.domega_RN_N, attRefOut.domega_RN_N);
 
-    this->attRefOutMsg.write(&attRefOut, moduleID, currentSimNanos);
+    this->attRefOutMsg.write(attRefOut, moduleID, currentSimNanos);
 }

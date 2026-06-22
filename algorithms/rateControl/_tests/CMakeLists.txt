@@ -4,7 +4,6 @@ add_executable(test_rateControl
   test_rateControl.cpp
 )
 
-target_include_directories(test_rateControl PRIVATE "../..")
 target_include_directories(test_rateControl PRIVATE "..")
 target_include_directories(test_rateControl PRIVATE "${CMAKE_SOURCE_DIR}")
 
@@ -24,7 +23,6 @@ if(XMERA_ENABLE_FUZZTESTS)
     test_rateControl_fuzz.cpp
   )
 
-  target_include_directories(test_rateControl_fuzz PRIVATE "../..")
   target_include_directories(test_rateControl_fuzz PRIVATE "..")
   target_include_directories(test_rateControl_fuzz PRIVATE "${CMAKE_SOURCE_DIR}")
 

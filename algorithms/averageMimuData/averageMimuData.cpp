@@ -1,5 +1,5 @@
 #include "averageMimuData.h"
-#include "architecture/utilities/eigenSupport.h"
+#include "utilities/fsw/eigenSupport.h"
 
 void AverageMimuData::reset(uint64_t const callTime) {
     // check if the required message has not been connected

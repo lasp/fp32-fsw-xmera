@@ -3,7 +3,6 @@ add_executable(test_convertStPlatformToBody
   test_convertStPlatformToBody.cpp
 )
 
-target_include_directories(test_convertStPlatformToBody PRIVATE "../..")
 target_include_directories(test_convertStPlatformToBody PRIVATE "..")
 target_include_directories(test_convertStPlatformToBody PRIVATE "${CMAKE_SOURCE_DIR}")
 
@@ -22,7 +21,6 @@ if(XMERA_ENABLE_FUZZTESTS)
     test_convertStPlatformToBody_fuzz.cpp
   )
 
-  target_include_directories(test_convertStPlatformToBody_fuzz PRIVATE "../..")
   target_include_directories(test_convertStPlatformToBody_fuzz PRIVATE "..")
   target_include_directories(test_convertStPlatformToBody_fuzz PRIVATE "${CMAKE_SOURCE_DIR}")
 

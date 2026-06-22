@@ -1,7 +1,6 @@
 %module mrpFeedbackF32
 %{
    #include "mrpFeedback.h"
-   #include "utilities/timeConstants.h"
 %}
 
 %include <architecture/_GeneralModuleFiles/sys_model.i>

@@ -4,7 +4,6 @@ add_executable(test_thrFiringSchmitt
   test_thrFiringSchmitt.cpp
 )
 
-target_include_directories(test_thrFiringSchmitt PRIVATE "../..")
 target_include_directories(test_thrFiringSchmitt PRIVATE "..")
 target_include_directories(test_thrFiringSchmitt PRIVATE "${CMAKE_SOURCE_DIR}")
 
@@ -23,7 +22,6 @@ if(XMERA_ENABLE_FUZZTESTS)
     test_thrFiringSchmitt_fuzz.cpp
   )
 
-  target_include_directories(test_thrFiringSchmitt_fuzz PRIVATE "../..")
   target_include_directories(test_thrFiringSchmitt_fuzz PRIVATE "..")
   target_include_directories(test_thrFiringSchmitt_fuzz PRIVATE "${CMAKE_SOURCE_DIR}")
 

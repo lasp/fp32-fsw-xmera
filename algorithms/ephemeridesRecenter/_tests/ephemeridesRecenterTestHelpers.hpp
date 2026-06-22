@@ -1,9 +1,9 @@
 #ifndef TEST_EPHEMERIDESRECENTER_H
 #define TEST_EPHEMERIDESRECENTER_H
 
-#include "architecture/utilities/eigenSupport.h"
 #include "ephemeridesRecenterAlgorithm.h"
-#include "utilities/freestandingInvalidArgument.h"
+#include "utilities/fsw/eigenSupport.h"
+#include "utilities/fsw/freestandingInvalidArgument.h"
 #include <gtest/gtest.h>
 #include <math.h>
 #include <Eigen/Core>

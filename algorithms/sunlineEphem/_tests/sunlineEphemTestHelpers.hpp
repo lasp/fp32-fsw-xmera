@@ -1,8 +1,8 @@
 #ifndef TEST_SUNLINE_EPHEM_H
 #define TEST_SUNLINE_EPHEM_H
 
-#include "architecture/utilities/rigidBodyKinematics.hpp"
 #include "sunlineEphemAlgorithm.h"
+#include "utilities/fsw/rigidBodyKinematics.hpp"
 
 #include <gtest/gtest.h>
 #include <Eigen/Core>

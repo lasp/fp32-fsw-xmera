@@ -1,7 +1,7 @@
 #include "thrFiringRemainderAlgorithm.h"
 #include "thrFiringRemainderTypes.h"
 
-#include "utilities/freestandingInvalidArgument.h"
+#include "utilities/fsw/freestandingInvalidArgument.h"
 
 #include <algorithm>
 #include <array>

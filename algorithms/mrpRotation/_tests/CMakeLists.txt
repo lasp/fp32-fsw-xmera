@@ -4,7 +4,6 @@ add_executable(test_mrpRotation
   test_mrpRotation.cpp
 )
 
-target_include_directories(test_mrpRotation PRIVATE "../..")
 target_include_directories(test_mrpRotation PRIVATE "..")
 target_include_directories(test_mrpRotation PRIVATE "${CMAKE_SOURCE_DIR}")
 
@@ -24,7 +23,6 @@ if(XMERA_ENABLE_FUZZTESTS)
     test_mrpRotation_fuzz.cpp
   )
 
-  target_include_directories(test_mrpRotation_fuzz PRIVATE "../..")
   target_include_directories(test_mrpRotation_fuzz PRIVATE "..")
   target_include_directories(test_mrpRotation_fuzz PRIVATE "${CMAKE_SOURCE_DIR}")
 

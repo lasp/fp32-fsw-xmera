@@ -3,7 +3,7 @@
  */
 
 #include "test_oeStateEphem_helpers.h"
-#include "utilities/freestandingInvalidArgument.h"
+#include "utilities/fsw/freestandingInvalidArgument.h"
 
 // ============================================================================
 // FIXTURE CLASS

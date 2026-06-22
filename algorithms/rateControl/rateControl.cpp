@@ -1,5 +1,5 @@
 #include "rateControl.h"
-#include "architecture/utilities/eigenSupport.h"
+#include "utilities/fsw/eigenSupport.h"
 #include <stdint.h>
 #include <stdexcept>
 

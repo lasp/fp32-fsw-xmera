@@ -1,3 +1,7 @@
+# Every test here links the header-only FswUtilities contract so it resolves
+# the canonical "utilities/fsw/..." include prefix the same way the algorithms do.
+link_libraries(FswUtilities)
+
 add_executable(test_validDcm
                test_validDcm.cpp
   utilitiesHelpers.hpp

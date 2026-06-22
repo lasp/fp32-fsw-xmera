@@ -1,6 +1,6 @@
 #include "sunSafePoint.h"
 
-#include <architecture/utilities/eigenSupport.h>
+#include <utilities/fsw/eigenSupport.h>
 #include <stdexcept>
 
 /*! Reset method for the BSK module adapter interface. Validates that required input messages

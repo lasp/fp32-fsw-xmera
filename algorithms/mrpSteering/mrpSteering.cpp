@@ -1,5 +1,5 @@
 #include "mrpSteering.h"
-#include "architecture/utilities/eigenSupport.h"
+#include "utilities/fsw/eigenSupport.h"
 #include <algorithm>
 #include <stdexcept>
 

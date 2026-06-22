@@ -1,7 +1,7 @@
 #ifndef F32XMERA_SUN_SEARCH_TYPES_H
 #define F32XMERA_SUN_SEARCH_TYPES_H
 
-#include "utilities/plainCAlgorithmDataTypes.h"
+#include "utilities/fsw/plainCAlgorithmDataTypes.h"
 
 #include <stdint.h>
 

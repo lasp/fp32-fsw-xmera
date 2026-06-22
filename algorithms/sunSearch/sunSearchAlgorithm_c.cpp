@@ -1,7 +1,7 @@
 #include "sunSearchAlgorithm_c.h"
-#include "architecture/utilities/eigenSupport.h"
 #include "sunSearchAlgorithm.h"
 #include "sunSearchTypes.h"
+#include "utilities/fsw/eigenSupport.h"
 
 #include <Eigen/Core>
 #include <array>

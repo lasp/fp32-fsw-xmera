@@ -1,10 +1,10 @@
 #ifndef TEST_ATT_TRACKING_ERROR_H
 #define TEST_ATT_TRACKING_ERROR_H
 
-#include "architecture/utilities/eigenSupport.h"
-#include "architecture/utilities/rigidBodyKinematics.hpp"
 #include "attTrackingErrorAlgorithm.h"
-#include "attTrackingErrorTypes.h"
+#include "utilities/fsw/eigenSupport.h"
+#include "utilities/fsw/rigidBodyKinematics.hpp"
+
 #include <gtest/gtest.h>
 #include <math.h>
 #include <Eigen/Core>

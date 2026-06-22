@@ -1,7 +1,6 @@
 %module mrpPDF32
 %{
    #include "mrpPD.h"
-   #include "utilities/timeConstants.h"
 %}
 
 %include <attribute.i>

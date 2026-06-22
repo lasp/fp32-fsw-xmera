@@ -1,7 +1,7 @@
 #include "rwMotorTorqueAlgorithm_c.h"
-#include "architecture/utilities/eigenSupport.h"
 #include "rwMotorTorqueAlgorithm.h"
 #include "rwMotorTorqueTypes.h"
+#include "utilities/fsw/eigenSupport.h"
 
 #include <Eigen/Core>
 

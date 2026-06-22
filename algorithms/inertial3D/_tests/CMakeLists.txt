@@ -4,7 +4,6 @@ add_executable(test_inertial3D
   test_inertial3D.cpp
 )
 
-target_include_directories(test_inertial3D PRIVATE "../..")
 target_include_directories(test_inertial3D PRIVATE "..")
 target_include_directories(test_inertial3D PRIVATE "${CMAKE_SOURCE_DIR}")
 
@@ -24,9 +23,7 @@ if(XMERA_ENABLE_FUZZTESTS)
     test_inertial3D_fuzz.cpp
   )
 
-  target_include_directories(test_inertial3D_fuzz PRIVATE "../..")
   target_include_directories(test_inertial3D_fuzz PRIVATE "..")
-  target_include_directories(test_inertial3D_fuzz PRIVATE "../../..")
   target_include_directories(test_inertial3D_fuzz PRIVATE "${CMAKE_SOURCE_DIR}")
 
   target_link_libraries(test_inertial3D_fuzz

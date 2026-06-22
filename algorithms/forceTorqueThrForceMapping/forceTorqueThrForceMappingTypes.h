@@ -2,7 +2,7 @@
 #define F32XMERA_FORCE_TORQUE_THR_FORCE_MAPPING_TYPES_H
 
 #include "msgPayloadDef/definitions.h"
-#include "utilities/plainCAlgorithmDataTypes.h"
+#include "utilities/fsw/plainCAlgorithmDataTypes.h"
 
 #include <stdint.h>
 

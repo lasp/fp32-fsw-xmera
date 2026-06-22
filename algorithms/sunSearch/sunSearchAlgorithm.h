@@ -2,8 +2,8 @@
 #define F32XMERA_SUN_SEARCH_ALGORITHM_H
 
 #include "sunSearchTypes.h"
-#include "utilities/freestandingInvalidArgument.h"
-#include "utilities/freestandingIsFinite.hpp"
+#include "utilities/fsw/freestandingInvalidArgument.h"
+#include "utilities/fsw/freestandingIsFinite.hpp"
 
 #include <Eigen/Core>
 #include <array>

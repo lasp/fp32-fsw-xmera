@@ -1,11 +1,10 @@
 #include "averageMimuDataAlgorithm.h"
-#include "architecture/utilities/eigenSupport.h"
-#include "utilities/freestandingInvalidArgument.h"
-#include "utilities/timeConstants.h"
-#include "utilities/validDcmCheck.h"
+#include "utilities/fsw/eigenSupport.h"
+#include "utilities/fsw/freestandingInvalidArgument.h"
+#include "utilities/fsw/timeConstants.h"
+#include "utilities/fsw/validDcmCheck.h"
 
 #include <algorithm>
-#include <cstdint>
 
 /*! @brief Average recent gyro/accel samples and output them in the body frame.
  *  Uses the newest packet time as a reference, then averages all packets whose

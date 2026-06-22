@@ -1,7 +1,6 @@
 %module thrFiringRemainderF32
 %{
    #include "thrFiringRemainder.h"
-   #include "utilities/timeConstants.h"
 %}
 
 %include <architecture/_GeneralModuleFiles/sys_model.i>

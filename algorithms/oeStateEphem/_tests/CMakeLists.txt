@@ -1,10 +1,8 @@
 add_executable(test_oeStateEphem
   ../oeStateEphemAlgorithm.cpp
-  ../../utilities/chebyshevUtilities.h
   test_oeStateEphem.cpp
 )
 
-target_include_directories(test_oeStateEphem PRIVATE "../..")
 target_include_directories(test_oeStateEphem PRIVATE "..")
 target_include_directories(test_oeStateEphem PRIVATE "${CMAKE_SOURCE_DIR}")
 
@@ -20,11 +18,9 @@ if(XMERA_ENABLE_FUZZTESTS)
 
   add_executable(test_oeStateEphem_fuzz
     ../oeStateEphemAlgorithm.cpp
-    ../../utilities/chebyshevUtilities.h
     test_oeStateEphem_fuzz.cpp
   )
 
-  target_include_directories(test_oeStateEphem_fuzz PRIVATE "../..")
   target_include_directories(test_oeStateEphem_fuzz PRIVATE "..")
   target_include_directories(test_oeStateEphem_fuzz PRIVATE "${CMAKE_SOURCE_DIR}")
 

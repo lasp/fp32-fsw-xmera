@@ -11,10 +11,6 @@ target_sources("${module}" PRIVATE
   rwMotorTorqueAlgorithm.cpp
 )
 
-target_link_libraries("${module}" PRIVATE
-  ArchitectureUtilities
-)
-
 target_include_directories("${module}" PUBLIC "..")
 
 add_subdirectory(_tests)
