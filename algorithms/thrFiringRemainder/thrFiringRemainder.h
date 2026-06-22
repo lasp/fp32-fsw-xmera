@@ -8,7 +8,6 @@
 #include "msgPayloadDef/THRArrayOnTimeCmdMsgF32Payload.h"
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
-#include <architecture/utilities/bskLogging.h>
 
 #include <stdint.h>
 
@@ -36,7 +35,6 @@ class ThrFiringRemainder : public SysModel {
     ReadFunctor<THRArrayCmdForceMsgF32Payload> thrForceInMsg;  //!< The name of the Input message
     Message<THRArrayOnTimeCmdMsgF32Payload> onTimeOutMsg;      //!< The name of the output message, onTimeOutMsg
     ReadFunctor<THRArrayConfigMsgF32Payload> thrConfInMsg;     //!< The name of the thruster cluster Input message
-    BSKLogger bskLogger = {};                                  //!< BSK Logging
 
    private:
     ThrFiringRemainderAlgorithm algorithm{};
