@@ -1,7 +1,9 @@
 #include "stepperMotorController.h"
+#include "utilities/xmera/xmeraLifecycleException.h"
 #include <stdexcept>
 
-/*! Reset the module. Checks that the input messages are linked.
+/*! Reset the module. Builds and validates the immutable configuration from the adapter's stored properties,
+ (re)constructs the controller, and verifies the input messages are linked.
  @return void
  @param callTime [ns] Time the method is called
 */
@@ -12,7 +14,20 @@ void StepperMotorController::reset(const uint64_t callTime) {
     if (!this->stepperMotorInMsg.isLinked()) {
         throw std::invalid_argument("StepperMotorController.stepperMotorInMsg wasn't connected.");
     }
-    this->algorithm.reset();
+
+    const StepperMotorControllerConfig config =
+        StepperMotorControllerConfig::create(this->stepAngle,
+                                             StepperMotorAngleRange{this->minAngle, this->maxAngle},
+                                             this->settleCountMax,
+                                             this->minStepCommand);
+    this->algorithm = std::make_unique<StepperMotorControllerAlgorithm>(config);
+}
+
+void StepperMotorController::reInitialize() {
+    if (!this->algorithm) {
+        throw XmeraLifecycleException("StepperMotorController reset() has not been called.");
+    }
+    this->algorithm->reInitialize();
 }
 
 /*! Read input messages, run the state machine, and write output commands.
@@ -20,6 +35,10 @@ void StepperMotorController::reset(const uint64_t callTime) {
  @param callTime [ns] Time the method is called
 */
 void StepperMotorController::updateState(const uint64_t callTime) {
+    if (!this->algorithm) {
+        throw XmeraLifecycleException("StepperMotorController reset() has not been called.");
+    }
+
     float referenceAngle{};
     if (this->motorRefAngleInMsg.isWritten()) {
         const MotorAngleRefMsgF32Payload motorRefAngleIn = this->motorRefAngleInMsg();
@@ -34,39 +53,17 @@ void StepperMotorController::updateState(const uint64_t callTime) {
         isMotorMoving = stepperMotorIn.isMotorMoving;
     }
 
-    const StepperMotorControllerOutput output = this->algorithm.update(currentPosition, referenceAngle, isMotorMoving);
+    const StepperMotorControllerOutput output = this->algorithm->update(currentPosition, referenceAngle, isMotorMoving);
 
     if (output.commandType == StepperMotorCommandType::MOVE) {
         MotorStepCommandMsgPayload motorStepCommandOut{};
         motorStepCommandOut.stepsCommanded = output.stepsToMove;
         motorStepCommandOut.stopMotorCommand = false;
-        this->motorStepCommandOutMsg.write(&motorStepCommandOut, moduleID, callTime);
+        this->motorStepCommandOutMsg.write(motorStepCommandOut, moduleID, callTime);
     } else if (output.commandType == StepperMotorCommandType::STOP) {
         MotorStepCommandMsgPayload motorStepCommandOut{};
         motorStepCommandOut.stepsCommanded = 0;
         motorStepCommandOut.stopMotorCommand = true;
-        this->motorStepCommandOutMsg.write(&motorStepCommandOut, moduleID, callTime);
+        this->motorStepCommandOutMsg.write(motorStepCommandOut, moduleID, callTime);
     }
 }
-
-void StepperMotorController::setStepAngle(const float stepAngleIn) { this->algorithm.setStepAngle(stepAngleIn); }
-
-float StepperMotorController::getStepAngle() const { return this->algorithm.getStepAngle(); }
-
-void StepperMotorController::setMotorAngleRange(const float minAngleIn, const float maxAngleIn) {
-    this->algorithm.setMotorAngleRange(minAngleIn, maxAngleIn);
-}
-
-std::array<float, 2> StepperMotorController::getMotorAngleRange() const { return this->algorithm.getMotorAngleRange(); }
-
-void StepperMotorController::setSettleCountMax(const uint32_t settleCountMaxIn) {
-    this->algorithm.setSettleCountMax(settleCountMaxIn);
-}
-
-uint32_t StepperMotorController::getSettleCountMax() const { return this->algorithm.getSettleCountMax(); }
-
-void StepperMotorController::setMinStepCommand(const uint32_t minStepCommandIn) {
-    this->algorithm.setMinStepCommand(minStepCommandIn);
-}
-
-uint32_t StepperMotorController::getMinStepCommand() const { return this->algorithm.getMinStepCommand(); }

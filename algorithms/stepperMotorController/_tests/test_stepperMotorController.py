@@ -72,7 +72,8 @@ def test_stepper_motor_controller_nominal(show_plots, step_angle, theta_init_deg
     motor_controller = stepperMotorControllerF32.StepperMotorController()
     motor_controller.modelTag = "stepperMotorController"
     motor_controller.stepAngle = step_angle
-    motor_controller.setMotorAngleRange(0.0, 2 * math.pi)
+    motor_controller.minAngle = 0.0
+    motor_controller.maxAngle = 2 * math.pi
     motor_controller.minStepCommand = 1
     sim.AddModelToTask("unitTask", motor_controller)
 
@@ -122,7 +123,8 @@ def test_stepper_motor_controller_shortest_path(show_plots, theta_init_deg, thet
     motor_controller = stepperMotorControllerF32.StepperMotorController()
     motor_controller.modelTag = "stepperMotorController"
     motor_controller.stepAngle = step_angle
-    motor_controller.setMotorAngleRange(0.0, 2 * math.pi)
+    motor_controller.minAngle = 0.0
+    motor_controller.maxAngle = 2 * math.pi
     motor_controller.minStepCommand = 1
     sim.AddModelToTask("unitTask", motor_controller)
 
@@ -166,7 +168,8 @@ def test_stepper_motor_controller_below_min_step_command(show_plots):
     motor_controller = stepperMotorControllerF32.StepperMotorController()
     motor_controller.modelTag = "stepperMotorController"
     motor_controller.stepAngle = step_angle
-    motor_controller.setMotorAngleRange(0.0, 2 * math.pi)
+    motor_controller.minAngle = 0.0
+    motor_controller.maxAngle = 2 * math.pi
     motor_controller.minStepCommand = 5
     sim.AddModelToTask("unitTask", motor_controller)
 
@@ -211,7 +214,8 @@ def test_stepper_motor_controller_interrupt(show_plots):
     motor_controller = stepperMotorControllerF32.StepperMotorController()
     motor_controller.modelTag = "stepperMotorController"
     motor_controller.stepAngle = step_angle
-    motor_controller.setMotorAngleRange(0.0, 2 * math.pi)
+    motor_controller.minAngle = 0.0
+    motor_controller.maxAngle = 2 * math.pi
     motor_controller.minStepCommand = 1
     motor_controller.settleCountMax = settle_ticks
     sim.AddModelToTask("unitTask", motor_controller)
@@ -274,7 +278,8 @@ def test_stepper_motor_controller_position_tracking(show_plots):
     motor_controller = stepperMotorControllerF32.StepperMotorController()
     motor_controller.modelTag = "stepperMotorController"
     motor_controller.stepAngle = step_angle
-    motor_controller.setMotorAngleRange(0.0, 2 * math.pi)
+    motor_controller.minAngle = 0.0
+    motor_controller.maxAngle = 2 * math.pi
     motor_controller.minStepCommand = 1
     motor_controller.settleCountMax = 0
     sim.AddModelToTask("unitTask", motor_controller)
@@ -328,7 +333,8 @@ def test_stepper_motor_controller_out_of_range(show_plots, ref_deg):
     motor_controller = stepperMotorControllerF32.StepperMotorController()
     motor_controller.modelTag = "stepperMotorController"
     motor_controller.stepAngle = step_angle
-    motor_controller.setMotorAngleRange(math.radians(45.0), math.radians(90.0))
+    motor_controller.minAngle = math.radians(45.0)
+    motor_controller.maxAngle = math.radians(90.0)
     motor_controller.minStepCommand = 1
     sim.AddModelToTask("unitTask", motor_controller)
 

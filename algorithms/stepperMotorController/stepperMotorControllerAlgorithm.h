@@ -4,7 +4,6 @@
 #include "stepperMotorControllerTypes.h"
 #include "utilities/fsw/freestandingInvalidArgument.h"
 #include <math.h>
-#include <array>
 #include <cstdint>
 #include <numbers>
 
@@ -97,41 +96,30 @@ class StepperMotorControllerConfig final {
  * shortest-path wrap-around; for a partial range it uses a linear delta so the motor cannot
  * cross the out-of-range boundary.
  */
-class StepperMotorControllerAlgorithm {
+class StepperMotorControllerAlgorithm final {
    public:
-    void reset();
-    StepperMotorControllerOutput update(int currentPosition, float referenceAngle, bool isMotorMoving);
+    explicit StepperMotorControllerAlgorithm(const StepperMotorControllerConfig& config);
 
-    void setStepAngle(float stepAngleIn);
-    float getStepAngle() const;
-    void setMotorAngleRange(float minAngleIn, float maxAngleIn);
-    std::array<float, 2> getMotorAngleRange() const;
-    void setSettleCountMax(uint32_t settleCountMaxIn);
-    uint32_t getSettleCountMax() const;
-    void setMinStepCommand(uint32_t minStepCommandIn);
-    uint32_t getMinStepCommand() const;
+    void setConfig(const StepperMotorControllerConfig& config);
+
+    //! Reset the controller state machine to IDLE and clear cached positions.
+    void reInitialize();
+
+    StepperMotorControllerOutput update(int currentPosition, float referenceAngle, bool isMotorMoving);
 
     int angleToSteps(float angle) const;
 
    private:
+    //! Recompute the cached values derived from the configuration (steps per revolution, full-circle flag).
+    void cacheDerivedValues();
     int wrapDelta(int delta) const;
     int stepDelta(int delta) const;
 
-    /// Cap on stepsPerRev so the fp32 round-trip in angleToSteps stays within rounding tolerance
-    /// (error grows as O(N^2 * eps); at N=100k the expected drift is ~0.19 steps, safely within
-    /// the half-step round() margin).
-    static constexpr uint32_t kMaxStepsPerRev = 100000U;
-    static constexpr float kMinStepAngle = 2.0F * std::numbers::pi_v<float> / static_cast<float>(kMaxStepsPerRev);
+    StepperMotorControllerConfig cfg;  //!< [-] validated configuration
 
-    // Parameters
-    float stepAngle{};     //!< [rad/step] Angle per motor step (must be set via setStepAngle)
-    int stepsPerRev{};     //!< [steps] Derived: round(2*pi / stepAngle), cached by setStepAngle for wrap math
-    float minAngle{0.0F};  //!< [rad] Lower bound of motor travel range
-    float maxAngle{2.0F * std::numbers::pi_v<float>};  //!< [rad] Upper bound of motor travel range
-    bool isFullCircle{true};      //!< Derived: (maxAngle - minAngle) within eps of 2*pi; enables wrap-around
-    uint32_t settleCountMax{10};  //!< [ticks] Settling duration after stop
-    uint32_t minStepCommand{1};   //!< [steps] Minimum step delta magnitude that triggers a MOVE (from IDLE)
-                                  //!< or a STOP-and-replan (from MOVING); must be > 0
+    // Cached values derived from the configuration (recomputed on construction and setConfig).
+    int stepsPerRev{};    //!< [steps] derived round(2*pi / stepAngle), used for wrap math
+    bool isFullCircle{};  //!< derived: range within eps of 2*pi; enables shortest-path wrap-around
 
     // State
     StepperMotorState state{StepperMotorState::IDLE};
