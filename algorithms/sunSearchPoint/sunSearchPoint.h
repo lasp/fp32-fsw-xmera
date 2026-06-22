@@ -1,11 +1,11 @@
-#ifndef F32XMERA_SUN_SAFE_POINT_H
-#define F32XMERA_SUN_SAFE_POINT_H
+#ifndef F32XMERA_SUN_SEARCH_POINT_H
+#define F32XMERA_SUN_SEARCH_POINT_H
 
 #include "msgPayloadDef/AttGuidMsgF32Payload.h"
 #include "msgPayloadDef/FilterResidualsMsgF32Payload.h"
 #include "msgPayloadDef/NavAttMsgF32Payload.h"
-#include "msgPayloadDef/SunSafePointFaultMsgPayload.h"
-#include "sunSafePointAlgorithm.h"
+#include "msgPayloadDef/SunSearchPointFaultMsgPayload.h"
+#include "sunSearchPointAlgorithm.h"
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
 #include <stdint.h>
@@ -13,11 +13,11 @@
 #include <array>
 #include <memory>
 
-/*! @brief Sun safe point attitude guidance class. */
-class SunSafePoint final : public SysModel {
+/*! @brief Sun search point attitude guidance class. */
+class SunSearchPoint final : public SysModel {
    public:
-    SunSafePoint() = default;
-    ~SunSafePoint() = default;
+    SunSearchPoint() = default;
+    ~SunSearchPoint() = default;
 
     void reset(uint64_t currentSimNanos) override;
     void updateState(uint64_t currentSimNanos) override;
@@ -36,10 +36,10 @@ class SunSafePoint final : public SysModel {
     ReadFunctor<NavAttMsgF32Payload> sunDirectionInMsg;              //!< Sun direction input message
     ReadFunctor<FilterResidualsMsgF32Payload> filterResidualsInMsg;  //!< Filter residuals input (CSS observation count)
     Message<AttGuidMsgF32Payload> attGuidanceOutMsg;                 //!< Attitude guidance output message
-    Message<SunSafePointFaultMsgPayload> sunSafePointFaultOutMsg;    //!< Search-failure fault output message
+    Message<SunSearchPointFaultMsgPayload> sunSearchPointFaultOutMsg;  //!< Search-failure fault output message
 
    private:
-    std::unique_ptr<SunSafePointAlgorithm> algorithm = nullptr;
+    std::unique_ptr<SunSearchPointAlgorithm> algorithm = nullptr;
     std::array<RotationProperties, kNumRotations> rotations{};
 };
 

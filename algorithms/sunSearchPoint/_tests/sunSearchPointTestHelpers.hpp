@@ -1,8 +1,8 @@
-#ifndef TEST_SUNSAFEPOINT_H
-#define TEST_SUNSAFEPOINT_H
+#ifndef TEST_SUNSEARCHPOINT_H
+#define TEST_SUNSEARCHPOINT_H
 
-#include "sunSafePointAlgorithm.h"
-#include "sunSafePointTypes.h"
+#include "sunSearchPointAlgorithm.h"
+#include "sunSearchPointTypes.h"
 #include "utilities/fsw/freestandingInvalidArgument.h"
 #include "utilities/fsw/rigidBodyKinematics.hpp"
 #include "utilities/fsw/timeConstants.h"
@@ -18,9 +18,9 @@
 // Drive a fresh algorithm into the terminal POINT phase and return the pointing output for the
 // given sun/rate. The default search sequence is 4 s, so a callTime past it forces the POINT
 // transition regardless of the observation count; the first call latches the sequence start.
-inline SunSafePointOutput pointUpdate(SunSafePointAlgorithm& alg,
-                                      const Eigen::Vector3f& vehSunPntBdy,
-                                      const Eigen::Vector3f& omega_BN_B) {
+inline SunSearchPointOutput pointUpdate(SunSearchPointAlgorithm& alg,
+                                        const Eigen::Vector3f& vehSunPntBdy,
+                                        const Eigen::Vector3f& omega_BN_B) {
     constexpr uint64_t kPastSequenceNs = 5'000'000'000ULL;  // 5 s > default 4 s sequence
     (void)alg.update(0U, Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(), 0);
     return alg.update(kPastSequenceNs, vehSunPntBdy, omega_BN_B, 0);
@@ -38,25 +38,25 @@ inline std::array<RotationProperties, kNumRotations> defaultRotations() {
 }
 
 // Build a full config with pointing-parameter defaults; tests override only what they exercise.
-inline SunSafePointConfig makeSearchConfig(const std::array<RotationProperties, kNumRotations>& rotations,
-                                           const Eigen::Vector3f& sHatBdyCmd = Eigen::Vector3f{0.0F, 0.0F, 1.0F},
-                                           float sunAxisSpinRate = 0.0F,
-                                           const Eigen::Vector3f& omega_RN_B = Eigen::Vector3f::Zero(),
-                                           int observationThreshold = 4) {
-    return SunSafePointConfig::create(rotations, sHatBdyCmd, sunAxisSpinRate, omega_RN_B, observationThreshold);
+inline SunSearchPointConfig makeSearchConfig(const std::array<RotationProperties, kNumRotations>& rotations,
+                                             const Eigen::Vector3f& sHatBdyCmd = Eigen::Vector3f{0.0F, 0.0F, 1.0F},
+                                             float sunAxisSpinRate = 0.0F,
+                                             const Eigen::Vector3f& omega_RN_B = Eigen::Vector3f::Zero(),
+                                             int observationThreshold = 4) {
+    return SunSearchPointConfig::create(rotations, sHatBdyCmd, sunAxisSpinRate, omega_RN_B, observationThreshold);
 }
 
 // A valid no-op search config (default pointing params); pointUpdate runs past its 4 s sequence to
 // force the POINT transition.
-inline SunSafePointConfig defaultSearchConfig() { return makeSearchConfig(defaultRotations()); }
+inline SunSearchPointConfig defaultSearchConfig() { return makeSearchConfig(defaultRotations()); }
 
-// Reference computation that independently reimplements the sunSafePoint pointing logic
-inline SunSafePointOutput referenceUpdate(const Eigen::Vector3f& vehSunPntBdy,
-                                          const Eigen::Vector3f& omega_BN_B,
-                                          float sunAxisSpinRate,
-                                          const Eigen::Vector3f& sHatBdyCmd,
-                                          const Eigen::Vector3f& omega_RN_B_cfg) {
-    SunSafePointOutput output{};
+// Reference computation that independently reimplements the sunSearchPoint pointing logic
+inline SunSearchPointOutput referenceUpdate(const Eigen::Vector3f& vehSunPntBdy,
+                                            const Eigen::Vector3f& omega_BN_B,
+                                            float sunAxisSpinRate,
+                                            const Eigen::Vector3f& sHatBdyCmd,
+                                            const Eigen::Vector3f& omega_RN_B_cfg) {
+    SunSearchPointOutput output{};
 
     Eigen::Vector3f rHat_SB_B = vehSunPntBdy.stableNormalized();
     if (rHat_SB_B.stableNorm() > 0.0F) {
@@ -92,11 +92,11 @@ inline SunSafePointOutput referenceUpdate(const Eigen::Vector3f& vehSunPntBdy,
 // Regression test helper function
 // ---------------------------------------------------------------------------
 
-inline void regressionTestSunSafePoint(std::vector<float> sunVector,
-                                       std::vector<float> omega_BN_B_Vec,
-                                       float sunAxisSpinRate,
-                                       std::vector<float> sHatBdyCmdVec,
-                                       std::vector<float> omega_RN_B_cfgVec) {
+inline void regressionTestSunSearchPoint(std::vector<float> sunVector,
+                                         std::vector<float> omega_BN_B_Vec,
+                                         float sunAxisSpinRate,
+                                         std::vector<float> sHatBdyCmdVec,
+                                         std::vector<float> omega_RN_B_cfgVec) {
     // The setter requires a (near-)unit vector; normalize the fuzz-generated input first.
     Eigen::Vector3f sHatBdyCmd(sHatBdyCmdVec[0], sHatBdyCmdVec[1], sHatBdyCmdVec[2]);
     if (sHatBdyCmd.norm() < 1e-3f) {
@@ -108,11 +108,11 @@ inline void regressionTestSunSafePoint(std::vector<float> sunVector,
     Eigen::Vector3f omega_BN_B(omega_BN_B_Vec[0], omega_BN_B_Vec[1], omega_BN_B_Vec[2]);
     Eigen::Vector3f omega_RN_B_cfg(omega_RN_B_cfgVec[0], omega_RN_B_cfgVec[1], omega_RN_B_cfgVec[2]);
 
-    SunSafePointAlgorithm alg{makeSearchConfig(defaultRotations(), normalizedSHat, sunAxisSpinRate, omega_RN_B_cfg)};
+    SunSearchPointAlgorithm alg{makeSearchConfig(defaultRotations(), normalizedSHat, sunAxisSpinRate, omega_RN_B_cfg)};
 
     Eigen::Vector3f algSHat = normalizedSHat;
 
-    SunSafePointOutput output{};
+    SunSearchPointOutput output{};
     EXPECT_NO_THROW(output = pointUpdate(alg, sunVec, omega_BN_B));
 
     auto reference = referenceUpdate(sunVec, omega_BN_B, sunAxisSpinRate, algSHat, omega_RN_B_cfg);
@@ -155,7 +155,7 @@ inline void regressionTestSunSafePoint(std::vector<float> sunVector,
 inline void propertySigmaBrNormBounded(std::vector<float> sunVector) {
     Eigen::Vector3f sunVec(sunVector[0], sunVector[1], sunVector[2]);
 
-    SunSafePointAlgorithm alg{defaultSearchConfig()};
+    SunSearchPointAlgorithm alg{defaultSearchConfig()};
 
     Eigen::Vector3f omega_BN_B{0.01F, -0.02F, 0.03F};
     auto output = pointUpdate(alg, sunVec, omega_BN_B);
@@ -167,7 +167,7 @@ inline void propertyOmegaBrIdentity(std::vector<float> sunVector, std::vector<fl
     Eigen::Vector3f sunVec(sunVector[0], sunVector[1], sunVector[2]);
     Eigen::Vector3f omega_BN_B(omega_BN_B_Vec[0], omega_BN_B_Vec[1], omega_BN_B_Vec[2]);
 
-    SunSafePointAlgorithm alg{makeSearchConfig(
+    SunSearchPointAlgorithm alg{makeSearchConfig(
         defaultRotations(), Eigen::Vector3f{0.0F, 0.0F, 1.0F}, 0.5F, Eigen::Vector3f{0.1F, -0.2F, 0.3F})};
 
     auto output = pointUpdate(alg, sunVec, omega_BN_B);
@@ -181,7 +181,7 @@ inline void propertyOmegaBrIdentity(std::vector<float> sunVector, std::vector<fl
 inline void propertyOutputIsFinite(std::vector<float> sunVector) {
     Eigen::Vector3f sunVec(sunVector[0], sunVector[1], sunVector[2]);
 
-    SunSafePointAlgorithm alg{makeSearchConfig(
+    SunSearchPointAlgorithm alg{makeSearchConfig(
         defaultRotations(), Eigen::Vector3f{0.0F, 0.0F, 1.0F}, 1.0F, Eigen::Vector3f{0.1F, 0.2F, 0.3F})};
 
     Eigen::Vector3f omega_BN_B{5.0F, -3.0F, 1.0F};
@@ -202,7 +202,7 @@ struct SearchReference {
     Eigen::Vector3d omega_BR_B{Eigen::Vector3d::Zero()};
 };
 
-inline SearchReference referenceSearchOutput(const SunSafePointConfig& cfg,
+inline SearchReference referenceSearchOutput(const SunSearchPointConfig& cfg,
                                              uint64_t searchStartTime,
                                              uint64_t callTime,
                                              const Eigen::Vector3d& omega_BN_B) {
@@ -265,8 +265,8 @@ inline void searchConfigValidationChecks() {
 
     // Valid config builds and installs without throwing.
     EXPECT_NO_THROW({
-        const SunSafePointConfig cfg = makeSearchConfig(makeValidRotations());
-        SunSafePointAlgorithm alg{cfg};
+        const SunSearchPointConfig cfg = makeSearchConfig(makeValidRotations());
+        SunSearchPointAlgorithm alg{cfg};
     });
 
     // rotationDuration must be finite and > 0.
@@ -323,8 +323,8 @@ inline void testSearchSequence(const std::vector<float>& rotationTimes,
                                float dt,
                                int numSteps) {
     const auto rotations = buildRotations(rotationTimes, rotationRates, rotationAxesInts);
-    const SunSafePointConfig cfg = makeSearchConfig(rotations);
-    SunSafePointAlgorithm alg{cfg};
+    const SunSearchPointConfig cfg = makeSearchConfig(rotations);
+    SunSearchPointAlgorithm alg{cfg};
 
     const auto dtNanos = static_cast<uint64_t>(dt * kSec2NanoF);
     const uint64_t searchStartTime = 1000U;  // arbitrary non-zero start
@@ -332,7 +332,7 @@ inline void testSearchSequence(const std::vector<float>& rotationTimes,
     for (int step = 0; step < numSteps; ++step) {
         const uint64_t callTime = searchStartTime + static_cast<uint64_t>(step) * dtNanos;
 
-        SunSafePointOutput algOut{};
+        SunSearchPointOutput algOut{};
         EXPECT_NO_THROW(algOut = alg.update(callTime, Eigen::Vector3f::Zero(), omega_BN_B, 0));
         const SearchReference refOut = referenceSearchOutput(cfg, searchStartTime, callTime, omega_BN_B.cast<double>());
 
@@ -345,4 +345,4 @@ inline void testSearchSequence(const std::vector<float>& rotationTimes,
     }
 }
 
-#endif  // TEST_SUNSAFEPOINT_H
+#endif  // TEST_SUNSEARCHPOINT_H

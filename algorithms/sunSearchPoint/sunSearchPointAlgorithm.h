@@ -1,7 +1,7 @@
-#ifndef F32XMERA_SUN_SAFE_POINT_ALGORITHM_H
-#define F32XMERA_SUN_SAFE_POINT_ALGORITHM_H
+#ifndef F32XMERA_SUN_SEARCH_POINT_ALGORITHM_H
+#define F32XMERA_SUN_SEARCH_POINT_ALGORITHM_H
 
-#include "sunSafePointTypes.h"
+#include "sunSearchPointTypes.h"
 #include "utilities/fsw/freestandingInvalidArgument.h"
 #include "utilities/fsw/freestandingIsFinite.hpp"
 
@@ -11,7 +11,7 @@
 #include <array>
 #include <cstdint>
 
-inline constexpr uint32_t kNumRotations = SUN_SAFE_POINT_NUM_ROTATIONS;
+inline constexpr uint32_t kNumRotations = SUN_SEARCH_POINT_NUM_ROTATIONS;
 
 enum class RotationAxis { b1Hat_B = 0, b2Hat_B = 1, b3Hat_B = 2 };
 
@@ -22,8 +22,8 @@ struct RotationProperties {
     RotationAxis rotationAxis{RotationAxis::b1Hat_B}; /*!< [-] axis about which to rotate */
 };
 
-/*! @brief Structure containing the sun safe point attitude guidance output. */
-struct SunSafePointOutput {
+/*! @brief Structure containing the sun search point attitude guidance output. */
+struct SunSearchPointOutput {
     Eigen::Vector3f sigma_BR;    //!< attitude error (MRPs) of B relative to R
     Eigen::Vector3f omega_BR_B;  //!< [rad/s] body rate error of B relative to R in B frame
     Eigen::Vector3f omega_RN_B;  //!< [rad/s] reference frame rate of R relative to N in B frame
@@ -31,35 +31,35 @@ struct SunSafePointOutput {
 };
 
 /**
- * @brief Validated configuration for the sun safe point algorithm.
+ * @brief Validated configuration for the sun search point algorithm.
  *
  * Holds the sun-search rotation sequence and the pointing parameters. An instance can only exist if
  * every rotation has a finite, positive duration, a finite commanded rate, and a valid axis, and if
- * sHatBdyCmd has unit norm (within 1e-3). Construct via SunSafePointConfig::create(...).
+ * sHatBdyCmd has unit norm (within 1e-3). Construct via SunSearchPointConfig::create(...).
  */
-class SunSafePointConfig final {
+class SunSearchPointConfig final {
    public:
     // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
-    static SunSafePointConfig create(const std::array<RotationProperties, kNumRotations>& rotations,
-                                     const Eigen::Vector3f& sHatBdyCmd,
-                                     float sunAxisSpinRate,
-                                     const Eigen::Vector3f& omega_RN_B,
-                                     int observationThreshold) {
+    static SunSearchPointConfig create(const std::array<RotationProperties, kNumRotations>& rotations,
+                                       const Eigen::Vector3f& sHatBdyCmd,
+                                       float sunAxisSpinRate,
+                                       const Eigen::Vector3f& omega_RN_B,
+                                       int observationThreshold) {
         for (auto [rotationDuration, rotationRate, rotationAxis] : rotations) {
             if (!isValidRotationDuration(rotationDuration)) {
-                FSW_THROW_INVALID_ARGUMENT("sunSafePoint: rotationDuration must be finite and > 0");
+                FSW_THROW_INVALID_ARGUMENT("sunSearchPoint: rotationDuration must be finite and > 0");
             }
             if (!isValidRotationRate(rotationRate)) {
-                FSW_THROW_INVALID_ARGUMENT("sunSafePoint: rotationRate must be finite");
+                FSW_THROW_INVALID_ARGUMENT("sunSearchPoint: rotationRate must be finite");
             }
             if (!isValidRotationAxis(rotationAxis)) {
-                FSW_THROW_INVALID_ARGUMENT("sunSafePoint: rotationAxis must be b1Hat_B, b2Hat_B, or b3Hat_B");
+                FSW_THROW_INVALID_ARGUMENT("sunSearchPoint: rotationAxis must be b1Hat_B, b2Hat_B, or b3Hat_B");
             }
         }
         if (!isValidSHatBdyCmd(sHatBdyCmd)) {
-            FSW_THROW_INVALID_ARGUMENT("sunSafePoint: sHatBdyCmd norm must be within 1e-3 of 1.0");
+            FSW_THROW_INVALID_ARGUMENT("sunSearchPoint: sHatBdyCmd norm must be within 1e-3 of 1.0");
         }
-        return SunSafePointConfig{
+        return SunSearchPointConfig{
             rotations, sHatBdyCmd.normalized(), sunAxisSpinRate, omega_RN_B, observationThreshold};
     }
 
@@ -81,11 +81,11 @@ class SunSafePointConfig final {
 
    private:
     // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
-    SunSafePointConfig(const std::array<RotationProperties, kNumRotations>& rotationsIn,
-                       const Eigen::Vector3f& sHatBdyCmdIn,
-                       float sunAxisSpinRateIn,
-                       const Eigen::Vector3f& omega_RN_BIn,
-                       int observationThresholdIn)
+    SunSearchPointConfig(const std::array<RotationProperties, kNumRotations>& rotationsIn,
+                         const Eigen::Vector3f& sHatBdyCmdIn,
+                         float sunAxisSpinRateIn,
+                         const Eigen::Vector3f& omega_RN_BIn,
+                         int observationThresholdIn)
         : rotations(rotationsIn),
           sHatBdyCmd(sHatBdyCmdIn),
           sunAxisSpinRate(sunAxisSpinRateIn),
@@ -100,7 +100,7 @@ class SunSafePointConfig final {
 };
 
 /**
- * @brief Sun safe point attitude guidance algorithm.
+ * @brief Sun search point attitude guidance algorithm.
  *
  * Drives a one-way safe-mode startup: a scripted sun-search rotation sequence followed by
  * closed-loop sun pointing. The first rotation always runs to completion; after that, the
@@ -108,27 +108,27 @@ class SunSafePointConfig final {
  * configured threshold, or unconditionally once the full rotation sequence has elapsed. The
  * pointing phase is terminal (re-armed only via reset()).
  */
-class SunSafePointAlgorithm final {
+class SunSearchPointAlgorithm final {
    public:
-    explicit SunSafePointAlgorithm(const SunSafePointConfig& config);
-    ~SunSafePointAlgorithm() = default;
+    explicit SunSearchPointAlgorithm(const SunSearchPointConfig& config);
+    ~SunSearchPointAlgorithm() = default;
 
-    SunSafePointOutput update(uint64_t callTime,
-                              const Eigen::Vector3f& rHat_SB_B,
-                              const Eigen::Vector3f& omega_BN_B,
-                              int numCssViewingSun);
+    SunSearchPointOutput update(uint64_t callTime,
+                                const Eigen::Vector3f& rHat_SB_B,
+                                const Eigen::Vector3f& omega_BN_B,
+                                int numCssViewingSun);
 
-    void setConfig(const SunSafePointConfig& config);
+    void setConfig(const SunSearchPointConfig& config);
     void reInitialize();
 
    private:
     enum class Phase { Searching, Pointing };
 
-    SunSafePointOutput computeSearch(uint64_t callTime, const Eigen::Vector3f& omega_BN_B) const;
-    SunSafePointOutput computePointing(const Eigen::Vector3f& rHat_SB_B, const Eigen::Vector3f& omega_BN_B) const;
+    SunSearchPointOutput computeSearch(uint64_t callTime, const Eigen::Vector3f& omega_BN_B) const;
+    SunSearchPointOutput computePointing(const Eigen::Vector3f& rHat_SB_B, const Eigen::Vector3f& omega_BN_B) const;
     void precomputeEndTimes();
 
-    SunSafePointConfig cfg;                                  //!< validated configuration (rotations + pointing params)
+    SunSearchPointConfig cfg;                                //!< validated configuration (rotations + pointing params)
     std::array<uint64_t, kNumRotations> rotationEndTimes{};  //!< [ns] cumulative end time of each rotation
     uint64_t searchStartTime{};                              //!< [ns] time at which the rotation sequence begins
     bool firstPass{true};                                    //!< [-] true until the start time has been captured

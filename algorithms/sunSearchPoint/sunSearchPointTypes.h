@@ -1,5 +1,5 @@
-#ifndef F32XMERA_SUN_SAFE_POINT_TYPES_H
-#define F32XMERA_SUN_SAFE_POINT_TYPES_H
+#ifndef F32XMERA_SUN_SEARCH_POINT_TYPES_H
+#define F32XMERA_SUN_SEARCH_POINT_TYPES_H
 
 #include "utilities/fsw/plainCAlgorithmDataTypes.h"
 
@@ -9,12 +9,12 @@
 extern "C" {
 #endif
 
-#define SUN_SAFE_POINT_NUM_ROTATIONS 4
+#define SUN_SEARCH_POINT_NUM_ROTATIONS 4
 
 /**
  * @brief C-compatible enumeration of body axes for the sun-search rotations.
  *
- * Numeric values must stay in lockstep with the C++ enum class in sunSafePointAlgorithm.h.
+ * Numeric values must stay in lockstep with the C++ enum class in sunSearchPointAlgorithm.h.
  */
 typedef enum { ROTATION_AXIS_B1HAT_B_C = 0, ROTATION_AXIS_B2HAT_B_C = 1, ROTATION_AXIS_B3HAT_B_C = 2 } RotationAxis_c;
 
@@ -32,10 +32,10 @@ typedef struct {
 } RotationProperties_c;
 
 /**
- * @brief Plain-old-data mirror of the full C++ SunSafePointConfig.
+ * @brief Plain-old-data mirror of the full C++ SunSearchPointConfig.
  *
- * Caller fills this struct and passes it to SunSafePointAlgorithm_create / _setConfig. The C++ side
- * validates it via SunSafePointConfig::create (rotations and sHatBdyCmd norm) and throws on invalid
+ * Caller fills this struct and passes it to SunSearchPointAlgorithm_create / _setConfig. The C++ side
+ * validates it via SunSearchPointConfig::create (rotations and sHatBdyCmd norm) and throws on invalid
  * input.
  *
  *  - sHatBdyCmd norm must be within 1e-3 of 1.0 (renormalized on storage)
@@ -43,15 +43,15 @@ typedef struct {
  *  - observationThreshold is the CSS count at or above which to transition to pointing
  */
 typedef struct {
-    RotationProperties_c rotations[SUN_SAFE_POINT_NUM_ROTATIONS]; /*!< [-] sun-search rotation sequence */
-    Vector3f_c sHatBdyCmd;                                        /*!< [-] commanded body vector to point at the sun */
+    RotationProperties_c rotations[SUN_SEARCH_POINT_NUM_ROTATIONS]; /*!< [-] sun-search rotation sequence */
+    Vector3f_c sHatBdyCmd;    /*!< [-] commanded body vector to point at the sun */
     float sunAxisSpinRate;    /*!< [rad/s] constant spin rate about the sun heading vector */
     Vector3f_c omega_RN_B;    /*!< [rad/s] fallback body rate when no sun direction is available */
     int observationThreshold; /*!< [-] CSS count at or above which to transition to pointing */
-} SunSafePointConfig_c;
+} SunSearchPointConfig_c;
 
 #ifdef __cplusplus
 }  // extern "C"
 #endif
 
-#endif /* F32XMERA_SUN_SAFE_POINT_TYPES_H */
+#endif /* F32XMERA_SUN_SEARCH_POINT_TYPES_H */

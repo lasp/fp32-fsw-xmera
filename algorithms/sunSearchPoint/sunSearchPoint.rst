@@ -1,6 +1,6 @@
 .. raw:: latex
 
-    {\LARGE \textbf{sunSafePoint}}
+    {\LARGE \textbf{sunSearchPoint}}
 
 Executive Summary
 -----------------
@@ -50,8 +50,8 @@ The following table lists all the module input and output messages.
     * - attGuidanceOutMsg
       - :ref:`AttGuidMsgF32Payload`
       - output message of attitude tracking errors and reference frame states
-    * - sunSafePointFaultOutMsg
-      - :ref:`SunSafePointFaultMsgPayload`
+    * - sunSearchPointFaultOutMsg
+      - :ref:`SunSearchPointFaultMsgPayload`
       - output message whose ``faultDetected`` flag latches ``true`` if the search sequence elapses
         without acquiring the sun (the forced transition to pointing); re-armed only by ``reset()``
 
@@ -107,17 +107,17 @@ Initialization
 --------------
 The module is configured by::
 
-    module = sunSafePointF32.SunSafePoint()
-    module.modelTag = "sunSafePoint"
+    module = sunSearchPointF32.SunSearchPoint()
+    module.modelTag = "sunSearchPoint"
     module.sHatBdyCmd = [0.0, 0.0, 1.0]
     module.sunAxisSpinRate = 0.0
     module.omega_RN_B = [0.0, 0.0, 0.0]
     module.observationThreshold = 4
 
-    rotation = sunSafePointF32.RotationProperties()
+    rotation = sunSearchPointF32.RotationProperties()
     rotation.rotationDuration = 30.0
     rotation.rotationRate = 0.1
-    rotation.rotationAxis = sunSafePointF32.RotationAxis_b1Hat_B
+    rotation.rotationAxis = sunSearchPointF32.RotationAxis_b1Hat_B
     module.setRotation(0, rotation)
     # ... repeat for indices 1..3
 
@@ -144,7 +144,7 @@ enters the SEARCH phase. Let :math:`t_e` be the elapsed time since the start and
 where :math:`N` is the number of rotations. POINT is terminal. When the transition is *forced* by
 the second condition alone — the full sequence elapses (:math:`t_e \geq T_{N-1}`) without the
 observation count ever reaching the threshold — the search has failed to acquire the sun. In that
-case the module latches a fault: ``sunSafePointFaultOutMsg.faultDetected`` is set ``true`` and stays
+case the module latches a fault: ``sunSearchPointFaultOutMsg.faultDetected`` is set ``true`` and stays
 ``true`` for the rest of the run (even if the sun is later seen), cleared only by ``reset()``.
 
 Search Phase

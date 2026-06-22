@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 
 from xmera.utilities import SimulationBaseClass
-from xmera.fp32 import sunSafePointF32
+from xmera.fp32 import sunSearchPointF32
 from xmera.architecture import messaging
 from xmera.utilities import macros as mc
 
@@ -29,7 +29,7 @@ def unit_orthogonal(v):
     ,(7)        # sun is visible, vectors not aligned, nominal spin rate specified about sun heading vector
 ])
 
-def test_sun_safe_point(show_plots, case):
+def test_sun_search_point(show_plots, case):
     """Exercises the terminal POINT phase. The module always runs the search sequence first, so the
     test runs past the full sequence (forcing the POINT transition) and checks the steady-state
     (final) logged sample against the pointing truth."""
@@ -44,12 +44,12 @@ def test_sun_safe_point(show_plots, case):
     test_proc = unit_test_sim.CreateNewProcess(unit_process_name)
     test_proc.addTask(unit_test_sim.CreateNewTask(unit_task_name, test_process_rate))
 
-    # Create the sunSafePoint module
-    sun_safe_point = sunSafePointF32.SunSafePoint()
-    sun_safe_point.modelTag = "sunSafePoint"
-    unit_test_sim.AddModelToTask(unit_task_name, sun_safe_point)
+    # Create the sunSearchPoint module
+    sun_search_point = sunSearchPointF32.SunSearchPoint()
+    sun_search_point.modelTag = "sunSearchPoint"
+    unit_test_sim.AddModelToTask(unit_task_name, sun_search_point)
 
-    # Initialize sunSafePoint module configuration data
+    # Initialize sunSearchPoint module configuration data
     omega_RN_B_Search = np.array([0.0, 0.0, 0.0])
     sunAxisSpinRate = 0.0
     if case == 1:  # Sun visible, vectors not aligned
@@ -85,50 +85,50 @@ def test_sun_safe_point(show_plots, case):
         sunAxisSpinRate = 1.5*mc.D2R
         omega_RN_B_Search = sun_vec_B/np.linalg.norm(sun_vec_B) * sunAxisSpinRate
 
-    sun_safe_point.sHatBdyCmd = sHat_cmd_B
-    sun_safe_point.omega_RN_B = omega_RN_B_Search
-    sun_safe_point.sunAxisSpinRate = sunAxisSpinRate
-    sun_safe_point.observationThreshold = 4
+    sun_search_point.sHatBdyCmd = sHat_cmd_B
+    sun_search_point.omega_RN_B = omega_RN_B_Search
+    sun_search_point.sunAxisSpinRate = sunAxisSpinRate
+    sun_search_point.observationThreshold = 4
 
     # Configure a (no-op) search sequence; the run advances past it to force the POINT transition.
     for i in range(4):
-        rotation = sunSafePointF32.RotationProperties()
+        rotation = sunSearchPointF32.RotationProperties()
         rotation.rotationDuration = 1.0
         rotation.rotationRate = 0.0
-        rotation.rotationAxis = sunSafePointF32.RotationAxis_b1Hat_B
-        sun_safe_point.setRotation(i, rotation)
+        rotation.rotationAxis = sunSearchPointF32.RotationAxis_b1Hat_B
+        sun_search_point.setRotation(i, rotation)
 
-    # Create sunSafePoint sun direction input messages
+    # Create sunSearchPoint sun direction input messages
     input_sun_vec_data = messaging.NavAttMsgF32Payload()
     input_sun_vec_data.vehSunPntBdy = sun_vec_B
     sun_in_msg = messaging.NavAttMsgF32().write(input_sun_vec_data)
 
-    # Create sunSafePoint body rate input message
+    # Create sunSearchPoint body rate input message
     input_rate_data = messaging.NavAttMsgF32Payload()
     omega_BN_B = np.array([0.01, 0.50, -0.2])
     input_rate_data.omega_BN_B = omega_BN_B
     rate_in_msg = messaging.NavAttMsgF32().write(input_rate_data)
 
-    # Create sunSafePoint filter residuals input message (CSS observation count)
+    # Create sunSearchPoint filter residuals input message (CSS observation count)
     input_residuals_data = messaging.FilterResidualsMsgF32Payload()
     input_residuals_data.sizeOfObservations = 0
     residuals_in_msg = messaging.FilterResidualsMsgF32().write(input_residuals_data)
 
     # Set up data logging
-    att_guid_out_msg_data_log = sun_safe_point.attGuidanceOutMsg.recorder()
+    att_guid_out_msg_data_log = sun_search_point.attGuidanceOutMsg.recorder()
     unit_test_sim.AddModelToTask(unit_task_name, att_guid_out_msg_data_log)
-    fault_out_msg_data_log = sun_safe_point.sunSafePointFaultOutMsg.recorder()
+    fault_out_msg_data_log = sun_search_point.sunSearchPointFaultOutMsg.recorder()
     unit_test_sim.AddModelToTask(unit_task_name, fault_out_msg_data_log)
 
     # Connect messages
-    sun_safe_point.sunDirectionInMsg.subscribeTo(sun_in_msg)
-    sun_safe_point.rateInMsg.subscribeTo(rate_in_msg)
-    sun_safe_point.filterResidualsInMsg.subscribeTo(residuals_in_msg)
+    sun_search_point.sunDirectionInMsg.subscribeTo(sun_in_msg)
+    sun_search_point.rateInMsg.subscribeTo(rate_in_msg)
+    sun_search_point.filterResidualsInMsg.subscribeTo(residuals_in_msg)
 
     # Run the simulation past the 4 s search sequence so the final sample is in the POINT phase
     unit_test_sim.InitializeSimulation()
     unit_test_sim.ConfigureStopTime(mc.sec2nano(5.))
-    sun_safe_point.reset(0)
+    sun_search_point.reset(0)
     unit_test_sim.ExecuteSimulation()
 
     # Build the pointing-phase truth for the final (steady-state) sample
@@ -169,14 +169,14 @@ def test_sun_safe_point(show_plots, case):
     assert fault_out_msg_data_log.faultDetected[-1] == True
 
     # Parameter round-trips (scalar attributes + SWIG rotation-config binding)
-    np.testing.assert_allclose(sun_safe_point.sunAxisSpinRate, sunAxisSpinRate, rtol=tolerance, atol=tolerance)
-    np.testing.assert_allclose(np.array(sun_safe_point.omega_RN_B).flatten(), omega_RN_B_Search, rtol=tolerance, atol=tolerance)
-    np.testing.assert_allclose(np.array(sun_safe_point.sHatBdyCmd).flatten(), sHat_cmd_B, rtol=tolerance, atol=tolerance)
-    assert sun_safe_point.observationThreshold == 4
-    read_rotation = sun_safe_point.getRotation(1)
+    np.testing.assert_allclose(sun_search_point.sunAxisSpinRate, sunAxisSpinRate, rtol=tolerance, atol=tolerance)
+    np.testing.assert_allclose(np.array(sun_search_point.omega_RN_B).flatten(), omega_RN_B_Search, rtol=tolerance, atol=tolerance)
+    np.testing.assert_allclose(np.array(sun_search_point.sHatBdyCmd).flatten(), sHat_cmd_B, rtol=tolerance, atol=tolerance)
+    assert sun_search_point.observationThreshold == 4
+    read_rotation = sun_search_point.getRotation(1)
     np.testing.assert_allclose(read_rotation.rotationDuration, 1.0, rtol=tolerance, atol=tolerance)
     np.testing.assert_allclose(read_rotation.rotationRate, 0.0, rtol=tolerance, atol=tolerance)
-    assert read_rotation.rotationAxis == sunSafePointF32.RotationAxis_b1Hat_B
+    assert read_rotation.rotationAxis == sunSearchPointF32.RotationAxis_b1Hat_B
 
 def test_search_then_point(show_plots):
     """Adapter wiring: stepping callTime with the filter-residuals observation count drives the
@@ -190,24 +190,24 @@ def test_search_then_point(show_plots):
     test_proc = unit_test_sim.CreateNewProcess(unit_process_name)
     test_proc.addTask(unit_test_sim.CreateNewTask(unit_task_name, test_process_rate))
 
-    sun_safe_point = sunSafePointF32.SunSafePoint()
-    sun_safe_point.modelTag = "sunSafePoint"
-    unit_test_sim.AddModelToTask(unit_task_name, sun_safe_point)
+    sun_search_point = sunSearchPointF32.SunSearchPoint()
+    sun_search_point.modelTag = "sunSearchPoint"
+    unit_test_sim.AddModelToTask(unit_task_name, sun_search_point)
 
     sHat_cmd_B = np.array([0.0, 0.0, 1.0])
     sun_vec_B = np.array([1.0, 1.0, 0.0])
-    sun_safe_point.sHatBdyCmd = sHat_cmd_B
-    sun_safe_point.sunAxisSpinRate = 0.0
-    sun_safe_point.observationThreshold = 4
+    sun_search_point.sHatBdyCmd = sHat_cmd_B
+    sun_search_point.sunAxisSpinRate = 0.0
+    sun_search_point.observationThreshold = 4
 
     # Search sequence: rotation 1 spins at 0.2 rad/s about b1 for 1 s, remaining rotations no-op.
     rates = [0.2, 0.0, 0.0, 0.0]
     for i in range(4):
-        rotation = sunSafePointF32.RotationProperties()
+        rotation = sunSearchPointF32.RotationProperties()
         rotation.rotationDuration = 1.0
         rotation.rotationRate = rates[i]
-        rotation.rotationAxis = sunSafePointF32.RotationAxis_b1Hat_B
-        sun_safe_point.setRotation(i, rotation)
+        rotation.rotationAxis = sunSearchPointF32.RotationAxis_b1Hat_B
+        sun_search_point.setRotation(i, rotation)
 
     input_sun_vec_data = messaging.NavAttMsgF32Payload()
     input_sun_vec_data.vehSunPntBdy = sun_vec_B
@@ -222,18 +222,18 @@ def test_search_then_point(show_plots):
     input_residuals_data.sizeOfObservations = 10
     residuals_in_msg = messaging.FilterResidualsMsgF32().write(input_residuals_data)
 
-    att_guid_out_msg_data_log = sun_safe_point.attGuidanceOutMsg.recorder()
+    att_guid_out_msg_data_log = sun_search_point.attGuidanceOutMsg.recorder()
     unit_test_sim.AddModelToTask(unit_task_name, att_guid_out_msg_data_log)
-    fault_out_msg_data_log = sun_safe_point.sunSafePointFaultOutMsg.recorder()
+    fault_out_msg_data_log = sun_search_point.sunSearchPointFaultOutMsg.recorder()
     unit_test_sim.AddModelToTask(unit_task_name, fault_out_msg_data_log)
 
-    sun_safe_point.sunDirectionInMsg.subscribeTo(sun_in_msg)
-    sun_safe_point.rateInMsg.subscribeTo(rate_in_msg)
-    sun_safe_point.filterResidualsInMsg.subscribeTo(residuals_in_msg)
+    sun_search_point.sunDirectionInMsg.subscribeTo(sun_in_msg)
+    sun_search_point.rateInMsg.subscribeTo(rate_in_msg)
+    sun_search_point.filterResidualsInMsg.subscribeTo(residuals_in_msg)
 
     unit_test_sim.InitializeSimulation()
     unit_test_sim.ConfigureStopTime(mc.sec2nano(3.))
-    sun_safe_point.reset(0)
+    sun_search_point.reset(0)
     unit_test_sim.ExecuteSimulation()
 
     times = att_guid_out_msg_data_log.times() * mc.NANO2SEC
@@ -279,23 +279,23 @@ def test_reconfigure_applies_params(show_plots):
     test_proc = unit_test_sim.CreateNewProcess(unit_process_name)
     test_proc.addTask(unit_test_sim.CreateNewTask(unit_task_name, test_process_rate))
 
-    sun_safe_point = sunSafePointF32.SunSafePoint()
-    sun_safe_point.modelTag = "sunSafePoint"
-    unit_test_sim.AddModelToTask(unit_task_name, sun_safe_point)
+    sun_search_point = sunSearchPointF32.SunSearchPoint()
+    sun_search_point.modelTag = "sunSearchPoint"
+    unit_test_sim.AddModelToTask(unit_task_name, sun_search_point)
 
     sHat_cmd_B = np.array([0.0, 0.0, 1.0])
     sun_vec_B = np.array([1.0, 1.0, 0.0])
-    sun_safe_point.sHatBdyCmd = sHat_cmd_B
-    sun_safe_point.sunAxisSpinRate = 0.0
-    sun_safe_point.observationThreshold = 4
+    sun_search_point.sHatBdyCmd = sHat_cmd_B
+    sun_search_point.sunAxisSpinRate = 0.0
+    sun_search_point.observationThreshold = 4
 
     # No-op search sequence; the run advances past it to force the POINT transition.
     for i in range(4):
-        rotation = sunSafePointF32.RotationProperties()
+        rotation = sunSearchPointF32.RotationProperties()
         rotation.rotationDuration = 1.0
         rotation.rotationRate = 0.0
-        rotation.rotationAxis = sunSafePointF32.RotationAxis_b1Hat_B
-        sun_safe_point.setRotation(i, rotation)
+        rotation.rotationAxis = sunSearchPointF32.RotationAxis_b1Hat_B
+        sun_search_point.setRotation(i, rotation)
 
     input_sun_vec_data = messaging.NavAttMsgF32Payload()
     input_sun_vec_data.vehSunPntBdy = sun_vec_B
@@ -309,25 +309,25 @@ def test_reconfigure_applies_params(show_plots):
     input_residuals_data.sizeOfObservations = 0
     residuals_in_msg = messaging.FilterResidualsMsgF32().write(input_residuals_data)
 
-    att_guid_out_msg_data_log = sun_safe_point.attGuidanceOutMsg.recorder()
+    att_guid_out_msg_data_log = sun_search_point.attGuidanceOutMsg.recorder()
     unit_test_sim.AddModelToTask(unit_task_name, att_guid_out_msg_data_log)
 
-    sun_safe_point.sunDirectionInMsg.subscribeTo(sun_in_msg)
-    sun_safe_point.rateInMsg.subscribeTo(rate_in_msg)
-    sun_safe_point.filterResidualsInMsg.subscribeTo(residuals_in_msg)
+    sun_search_point.sunDirectionInMsg.subscribeTo(sun_in_msg)
+    sun_search_point.rateInMsg.subscribeTo(rate_in_msg)
+    sun_search_point.filterResidualsInMsg.subscribeTo(residuals_in_msg)
 
     # Run past the 4 s search so the module is in terminal POINT (spin rate 0 -> omega_RN_B = 0).
     unit_test_sim.InitializeSimulation()
     unit_test_sim.ConfigureStopTime(mc.sec2nano(5.0))
-    sun_safe_point.reset(0)
+    sun_search_point.reset(0)
     unit_test_sim.ExecuteSimulation()
     np.testing.assert_allclose(att_guid_out_msg_data_log.omega_RN_B[-1], [0.0, 0.0, 0.0], rtol=1e-6, atol=1e-6)
 
     # Change the spin rate and reConfigure (no reset): applies to the live algorithm without
     # re-initializing, so the module stays in POINT and now spins about the sun heading.
     spin_rate = 1.5 * mc.D2R
-    sun_safe_point.sunAxisSpinRate = spin_rate
-    sun_safe_point.reConfigure()
+    sun_search_point.sunAxisSpinRate = spin_rate
+    sun_search_point.reConfigure()
     unit_test_sim.ConfigureStopTime(mc.sec2nano(6.0))
     unit_test_sim.ExecuteSimulation()
 
@@ -348,25 +348,25 @@ def test_reinitialize_rearms_search(show_plots):
     test_proc = unit_test_sim.CreateNewProcess(unit_process_name)
     test_proc.addTask(unit_test_sim.CreateNewTask(unit_task_name, test_process_rate))
 
-    sun_safe_point = sunSafePointF32.SunSafePoint()
-    sun_safe_point.modelTag = "sunSafePoint"
-    unit_test_sim.AddModelToTask(unit_task_name, sun_safe_point)
+    sun_search_point = sunSearchPointF32.SunSearchPoint()
+    sun_search_point.modelTag = "sunSearchPoint"
+    unit_test_sim.AddModelToTask(unit_task_name, sun_search_point)
 
     sHat_cmd_B = np.array([0.0, 0.0, 1.0])
     sun_vec_B = np.array([1.0, 1.0, 0.0])
-    sun_safe_point.sHatBdyCmd = sHat_cmd_B
-    sun_safe_point.sunAxisSpinRate = 0.0
-    sun_safe_point.observationThreshold = 4
+    sun_search_point.sHatBdyCmd = sHat_cmd_B
+    sun_search_point.sunAxisSpinRate = 0.0
+    sun_search_point.observationThreshold = 4
 
     # Search sequence with a non-zero first-rotation rate so the SEARCH output (omega_RN_B about
     # b1Hat_B) is distinguishable from the spin-0 POINT output (omega_RN_B == 0).
     search_rate = 0.5
     for i in range(4):
-        rotation = sunSafePointF32.RotationProperties()
+        rotation = sunSearchPointF32.RotationProperties()
         rotation.rotationDuration = 10.0
         rotation.rotationRate = search_rate
-        rotation.rotationAxis = sunSafePointF32.RotationAxis_b1Hat_B
-        sun_safe_point.setRotation(i, rotation)
+        rotation.rotationAxis = sunSearchPointF32.RotationAxis_b1Hat_B
+        sun_search_point.setRotation(i, rotation)
 
     input_sun_vec_data = messaging.NavAttMsgF32Payload()
     input_sun_vec_data.vehSunPntBdy = sun_vec_B
@@ -380,24 +380,24 @@ def test_reinitialize_rearms_search(show_plots):
     input_residuals_data.sizeOfObservations = 10
     residuals_in_msg = messaging.FilterResidualsMsgF32().write(input_residuals_data)
 
-    att_guid_out_msg_data_log = sun_safe_point.attGuidanceOutMsg.recorder()
+    att_guid_out_msg_data_log = sun_search_point.attGuidanceOutMsg.recorder()
     unit_test_sim.AddModelToTask(unit_task_name, att_guid_out_msg_data_log)
 
-    sun_safe_point.sunDirectionInMsg.subscribeTo(sun_in_msg)
-    sun_safe_point.rateInMsg.subscribeTo(rate_in_msg)
-    sun_safe_point.filterResidualsInMsg.subscribeTo(residuals_in_msg)
+    sun_search_point.sunDirectionInMsg.subscribeTo(sun_in_msg)
+    sun_search_point.rateInMsg.subscribeTo(rate_in_msg)
+    sun_search_point.filterResidualsInMsg.subscribeTo(residuals_in_msg)
 
     # Run past the first rotation (10 s) with observations above threshold: the module acquires the
     # sun and enters the terminal POINT phase (spin rate 0 -> omega_RN_B == 0).
     unit_test_sim.InitializeSimulation()
     unit_test_sim.ConfigureStopTime(mc.sec2nano(12.0))
-    sun_safe_point.reset(0)
+    sun_search_point.reset(0)
     unit_test_sim.ExecuteSimulation()
     np.testing.assert_allclose(att_guid_out_msg_data_log.omega_RN_B[-1], [0.0, 0.0, 0.0], rtol=1e-6, atol=1e-6)
 
     # reInitialize re-arms the search machine: the next update restarts the sequence at the first
     # rotation, so omega_RN_B is the slot-0 search rate about b1Hat_B (not the POINT output).
-    sun_safe_point.reInitialize()
+    sun_search_point.reInitialize()
     unit_test_sim.ConfigureStopTime(mc.sec2nano(13.0))
     unit_test_sim.ExecuteSimulation()
     np.testing.assert_allclose(
@@ -405,7 +405,7 @@ def test_reinitialize_rearms_search(show_plots):
 
 
 if __name__ == "__main__":
-    test_sun_safe_point(False, 1)
+    test_sun_search_point(False, 1)
     test_search_then_point(False)
     test_reconfigure_applies_params(False)
     test_reinitialize_rearms_search(False)
