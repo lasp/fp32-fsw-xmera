@@ -9,24 +9,25 @@
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
 #include <stdint.h>
-#include <array>
+#include <Eigen/Core>
+#include <memory>
 
 /*! @brief adapter for the solar array reference algorithm. */
-class SolarArrayReference : public SysModel {
+class SolarArrayReference final : public SysModel {
    public:
+    SolarArrayReference() = default;
+    ~SolarArrayReference() override = default;
+
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
 
-    void setSolarArrayAxes_B(const Eigen::Vector3f& driveAxis, const Eigen::Vector3f& surfaceNormal);
-    std::array<Eigen::Vector3f, 2> getSolarArrayAxes_B() const;
-    void setAlignmentThreshold(float threshold);
-    float getAlignmentThreshold() const;
-    void setTrackingMode(TrackingMode mode);
-    TrackingMode getTrackingMode() const;
-    void setSpecifiedArrayAngle(float angle);
-    float getSpecifiedArrayAngle() const;
-    void setOffsetAngle(float angle);
-    float getOffsetAngle() const;
+    // Phase 1: public config properties -- set before reset().
+    Eigen::Vector3f driveAxis = Eigen::Vector3f::Zero();      //!< [-] solar array drive axis in body frame
+    Eigen::Vector3f surfaceNormal = Eigen::Vector3f::Zero();  //!< [-] solar array surface normal at zero rotation
+    float alignmentThreshold = 1e-3F;  //!< [rad] alignment threshold angle between sun direction and drive axis
+    TrackingMode trackingMode = TrackingMode::AUTO_TRACK;  //!< array tracking mode
+    float specifiedArrayAngle{};  //!< [rad] specified reference array angle when tracking mode is specified angle
+    float offsetAngle{};          //!< [rad] offset angle added to the determined reference angle
 
     /* declare module IO interfaces */
     ReadFunctor<NavAttMsgF32Payload> attNavInMsg;                    //!< input msg measured attitude
@@ -35,7 +36,7 @@ class SolarArrayReference : public SysModel {
     Message<MotorAngleRefMsgF32Payload> solarArrayRefOutMsg;  //!< output msg containing the solar array reference angle
 
    private:
-    SolarArrayReferenceAlgorithm algorithm{};  //!< algorithm instance
+    std::unique_ptr<SolarArrayReferenceAlgorithm> algorithm = nullptr;  //!< algorithm instance
 };
 
 #endif  // F32XMERA_SOLAR_ARRAY_REFERENCE_H
