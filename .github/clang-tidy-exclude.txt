@@ -73,6 +73,8 @@ algorithms/rwMotorVoltage/rwMotorVoltage.h
 algorithms/rwMotorVoltage/rwMotorVoltage.cpp
 algorithms/solarArrayReference/solarArrayReference.h
 algorithms/solarArrayReference/solarArrayReference.cpp
+algorithms/solarArrayReference/solarArrayReferenceAlgorithm_c.h
+algorithms/solarArrayReference/solarArrayReferenceAlgorithm_c.cpp
 algorithms/stepperMotorController/stepperMotorController.h
 algorithms/stepperMotorController/stepperMotorController.cpp
 algorithms/sunSafePoint/sunSafePoint.h
