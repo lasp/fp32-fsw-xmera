@@ -21,14 +21,12 @@ inline float referenceUpdate(const Eigen::Vector3f& sigma_BN,
     const Eigen::Matrix3f dcm_BN = mrpToDcm(sigma_BN);
     const Eigen::Matrix3f dcm_RN = mrpToDcm(sigma_RN);
     const Eigen::Matrix3f dcm_RB = dcm_RN * dcm_BN.transpose();
-    Eigen::Vector3f rHat_SB_R = (dcm_RB * rHat_SB_Bc).stableNormalized();
+    const Eigen::Vector3f rHat_SB_R = (dcm_RB * rHat_SB_Bc).stableNormalized();
 
-    // a1Hat_B and a2Hat_B are already normalized and orthogonalized by the setter — use directly
+    // a1Hat_B and a2Hat_B are already normalized and orthogonalized by the setter; complete the right-handed frame.
     const Eigen::Vector3f a1 = a1Hat_B;
     const Eigen::Vector3f a2 = a2Hat_B;
-
-    const float dotP = a1.dot(rHat_SB_R);
-    Eigen::Vector3f a2Hat_R = rHat_SB_R - dotP * a1;
+    const Eigen::Vector3f a3 = a1.cross(a2);
 
     const float sunDriveAngle = acosf(fminf(fmaxf(fabsf(rHat_SB_R.dot(a1)), -1.0F), 1.0F));
 
@@ -37,14 +35,9 @@ inline float referenceUpdate(const Eigen::Vector3f& sigma_BN,
         // sun aligned with drive axis: keep current angle (offset is not applied; wrap happens below)
         thetaRef = theta;
     } else {
-        a2Hat_R.stableNormalize();
-        const Eigen::Vector3f a1Hat_R = a2.cross(a2Hat_R);
-        // acosf returns [0, pi]; negating gives [-pi, 0], so output is naturally in [-pi, pi]
-        thetaRef = acosf(fminf(fmaxf(a2.dot(a2Hat_R), -1.0F), 1.0F));
-        if (a1.dot(a1Hat_R) < 0) {
-            thetaRef = -thetaRef;
-        }
-        thetaRef += offsetAngle;
+        // Extract the array angle from the sun direction's (a2, a3) components; atan2 is well-conditioned for all
+        // geometries, matching the algorithm's own computation.
+        thetaRef = atan2f(a3.dot(rHat_SB_R), a2.dot(rHat_SB_R)) + offsetAngle;
     }
 
     return atan2f(sinf(thetaRef), cosf(thetaRef));
