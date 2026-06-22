@@ -77,6 +77,8 @@ algorithms/solarArrayReference/solarArrayReferenceAlgorithm_c.h
 algorithms/solarArrayReference/solarArrayReferenceAlgorithm_c.cpp
 algorithms/stepperMotorController/stepperMotorController.h
 algorithms/stepperMotorController/stepperMotorController.cpp
+algorithms/stepperMotorController/stepperMotorControllerAlgorithm_c.h
+algorithms/stepperMotorController/stepperMotorControllerAlgorithm_c.cpp
 algorithms/sunSafePoint/sunSafePoint.h
 algorithms/sunSafePoint/sunSafePoint.cpp
 algorithms/sunSearch/sunSearch.h
