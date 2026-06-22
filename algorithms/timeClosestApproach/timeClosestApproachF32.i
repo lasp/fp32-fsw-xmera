@@ -13,6 +13,7 @@
 %include <architecture/_GeneralModuleFiles/swig_conly_data.i>
 
 %include "timeClosestApproach.h"
+%include "timeClosestApproachAlgorithm.h"
 
 %include "msgPayloadDef/NavTransMsgF32Payload.h"
 %include "msgPayloadDef/FilterMsgF32Payload.h"

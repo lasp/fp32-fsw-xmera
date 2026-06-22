@@ -4,6 +4,8 @@
 #ifndef F32XMERA_TIME_CA_H
 #define F32XMERA_TIME_CA_H
 
+#include "timeClosestApproachAlgorithm.h"
+
 #include "msgPayloadDef/FilterMsgF32Payload.h"
 #include "msgPayloadDef/NavTransMsgF32Payload.h"
 #include "msgPayloadDef/TimeClosestApproachMsgF32Payload.h"
@@ -25,18 +27,8 @@ class TimeClosestApproach : public SysModel {
     Message<TimeClosestApproachMsgF32Payload> tcaOutMsg;  //!< time of closest approach output message
 
    private:
-    void readMessages();
-    void computeGeometry();
-    double computeTca() const;
-    double computeTcaStandardDeviation() const;
+    TimeClosestApproachAlgorithm algorithm{};
     void writeMessages(double tCA, double sigmaTca, uint64_t currentSimNanos);
-
-    Eigen::Vector3d v_BN_N;              //!< spacecraft velocity estimate in inertial coordinates
-    Eigen::Vector3d r_BN_N;              //!< spacecraft position estimate in inertial coordinates
-    Eigen::MatrixXd filterCovariance;    //!< filter covariance
-    double flightPathAngle = -M_PI / 2;  //!< flight path angle of the spacecraft at time of read [rad]
-    double ratio = 0;                    //!< ratio between relative velocity and position norms at time of read [Hz]
-    int numberOfStates = 0;              //!< Number of states in the filter estimate
 };
 
 #endif
