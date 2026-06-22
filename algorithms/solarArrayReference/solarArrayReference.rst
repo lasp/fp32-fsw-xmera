@@ -8,7 +8,8 @@ This module computes the reference rotation angle :math:`\theta_R` for a single-
 default ``AUTO_TRACK`` mode, :math:`\theta_R` is the angle that aligns the solar array surface normal with the Sun
 direction as well as possible (perfect incidence is achievable when the drive axis and the Sun direction are
 perpendicular). In ``SPECIFIED_ANGLE`` mode, the module ignores the Sun direction and outputs a user-supplied fixed
-angle. In both modes, an optional offset angle is added before the result is wrapped to :math:`[-\pi, \pi]`.
+angle. In both modes, an optional offset angle is added before the result is wrapped to :math:`[-\pi, \pi]`. All
+quantities are computed in single precision (float).
 
 Message Connection Descriptions
 -------------------------------
@@ -56,15 +57,13 @@ The following table lists all the module parameters than can be set. The paramet
       - Eigen::Vector3f
       - [-]
       - zero
-      - Solar array drive axis :math:`{}^\mathcal{B}\hat{\mathbf a}_1` in body frame, set via
-        ``setSolarArrayAxes_B``
-      - Norm must be within ``1e-3`` of 1.0 (checked in setter; renormalized on storage)
+      - Solar array drive axis :math:`{}^\mathcal{B}\hat{\mathbf a}_1` in body frame
+      - Norm must be within ``1e-3`` of 1.0 (validated at reset(); renormalized on storage)
     * - surfaceNormal (required)
       - Eigen::Vector3f
       - [-]
       - zero
-      - Solar array surface normal :math:`{}^\mathcal{B}\hat{\mathbf a}_2` at zero rotation, set via
-        ``setSolarArrayAxes_B``
+      - Solar array surface normal :math:`{}^\mathcal{B}\hat{\mathbf a}_2` at zero rotation
       - Norm must be within ``1e-3`` of 1.0 and orthogonal to ``driveAxis`` (absolute value of dot product
         less than ``1e-5`` after normalization); re-orthogonalized against ``driveAxis`` on storage
     * - alignmentThreshold
@@ -73,7 +72,7 @@ The following table lists all the module parameters than can be set. The paramet
       - ``1e-3``
       - Threshold angle :math:`\epsilon_a` between the Sun direction and the drive axis below which the Sun is
         considered aligned with the drive axis (no preferred rotation)
-      - Must be in :math:`[10^{-3},\, \pi/2]` (checked in setter). The lower bound matches the fp32 precision
+      - Must be in :math:`[10^{-3},\, \pi/2]` (validated at reset()). The lower bound matches the fp32 precision
         floor of the alignment check: unit-vector rounding of :math:`\mathcal{O}(\varepsilon_{\text{f32}})
         \approx 10^{-7}` produces a dot product :math:`1 - \mathcal{O}(10^{-7})`, and :math:`\arccos`
         amplifies this to :math:`\sqrt{2\cdot 10^{-7}} \approx 5\times 10^{-4}` rad, so any threshold below
@@ -89,13 +88,13 @@ The following table lists all the module parameters than can be set. The paramet
       - [rad]
       - 0
       - Reference angle returned when ``trackingMode`` is ``SPECIFIED_ANGLE``
-      - Must be in :math:`[-\pi, \pi]` (checked in setter)
+      - Must be in :math:`[-\pi, \pi]` (validated at reset())
     * - offsetAngle
       - float
       - [rad]
       - 0
       - Offset added to the computed reference angle before wrapping
-      - Must be in :math:`[-\pi, \pi]` (checked in setter)
+      - Must be in :math:`[-\pi, \pi]` (validated at reset())
 
 Module Assumptions and Limitations
 ----------------------------------
@@ -112,19 +111,36 @@ angle is computed in the frame that the spacecraft will occupy at the end of the
 
 The output reference angle :math:`\theta_R` is always wrapped to :math:`[-\pi, \pi]`.
 
+Module Architecture
+-------------------
+The module is split into a pure algorithm (``SolarArrayReferenceAlgorithm``, Eigen-typed and free of any messaging
+or framework dependencies) and an Xmera adapter (``SolarArrayReference``, a ``SysModel``) that owns the message I/O
+and converts between the single-precision message payloads and Eigen types at the boundary. The adapter follows a
+two-phase initialization pattern: the configuration properties and message connections are set first, then
+``reset()`` builds and validates the immutable ``SolarArrayReferenceConfig`` (canonicalizing the drive axis and
+surface normal into a right-handed orthonormal frame) and constructs the algorithm. An invalid parameter throws
+``fsw::invalid_argument`` at ``reset()``. A C shim (``solarArrayReferenceAlgorithm_c.h``) exposes the algorithm to
+Ada via ``extern "C"`` bindings.
+
 Initialization
 --------------
-The module is configured by::
+The configuration properties and input messages must be set before ``reset()`` is called. The module is
+configured by::
 
     module = solarArrayReferenceF32.SolarArrayReference()
     module.modelTag = "solarArrayReference"
-    module.setSolarArrayAxes_B([1.0, 0.0, 0.0], [0.0, 1.0, 0.0])
+    module.driveAxis = [1.0, 0.0, 0.0]
+    module.surfaceNormal = [0.0, 1.0, 0.0]
     module.alignmentThreshold = 1e-3
     module.offsetAngle = 0.0
 
+    module.attNavInMsg.subscribeTo(att_nav_msg)
+    module.attRefInMsg.subscribeTo(att_ref_msg)
+    module.hingedRigidBodyInMsg.subscribeTo(hinged_rigid_body_msg)
+
 For ``AUTO_TRACK`` mode (the default), no further configuration is required. To use ``SPECIFIED_ANGLE`` mode::
 
-    module.trackingMode = solarArrayReferenceF32.TrackingMode_SPECIFIED_ANGLE
+    module.trackingMode = solarArrayReferenceF32.SPECIFIED_ANGLE
     module.specifiedArrayAngle = 0.5
 
 Detailed Module Description
@@ -134,9 +150,9 @@ For this module to operate, the user provides two body-fixed unit directions:
 - :math:`{}^\mathcal{B}\hat{\mathbf a}_1`: drive axis, about which the array rotates;
 - :math:`{}^\mathcal{B}\hat{\mathbf a}_2`: surface normal at zero rotation.
 
-These vectors must be (near-)unit length and orthogonal. The setter ``setSolarArrayAxes_B`` validates the norms,
-verifies orthogonality, normalizes both inputs, and re-orthogonalizes :math:`\hat{\mathbf a}_2` against
-:math:`\hat{\mathbf a}_1` for exact orthogonality on storage.
+These vectors must be (near-)unit length and orthogonal. When the configuration is built at ``reset()``, the
+factory validates the norms, verifies orthogonality, normalizes both inputs, and re-orthogonalizes
+:math:`\hat{\mathbf a}_2` against :math:`\hat{\mathbf a}_1` for exact orthogonality.
 
 Algorithm Flow
 ^^^^^^^^^^^^^^
@@ -180,8 +196,8 @@ At every update cycle, the ``solarArrayReference`` module performs the following
 
    The :math:`\hat{\mathbf a}_1`-component of :math:`{}^\mathcal{R}\hat{\mathbf r}_S` drops out because
    :math:`\hat{\mathbf a}_2` and :math:`\hat{\mathbf a}_3` are both perpendicular to :math:`\hat{\mathbf a}_1`,
-   so no explicit projection/normalization is required. :math:`\hat{\mathbf a}_3` is computed once in the setter
-   and cached.
+   so no explicit projection/normalization is required. :math:`\hat{\mathbf a}_3` is computed once when the
+   configuration is built and cached.
 
 5. **Apply offset and wrap**: when the Sun was not aligned with the drive axis (and in ``SPECIFIED_ANGLE`` mode),
    add the configured offset angle. In all cases, wrap the result to :math:`[-\pi, \pi]`:
