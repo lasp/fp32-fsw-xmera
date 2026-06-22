@@ -97,7 +97,7 @@ inline void regressionTestSolarArrayReference(std::vector<float> sigma_BN_Vec,
                                       theta);
 
     float tol = 1e-5F;
-    float tolerance = tol + abs(reference) * tol;
+    float tolerance = tol + fabsf(reference) * tol;
     // Wrap the difference into [-pi, pi] to handle equivalent angles differing by multiples of 2*pi
     float diff = result - reference;
     float wrappedDiff = atan2f(sinf(diff), cosf(diff));
@@ -159,7 +159,7 @@ inline void propertyAlignedSunReturnsCurrentTheta(std::vector<float> a1Hat_B_Vec
                                                   float alignmentThreshold,
                                                   float theta) {
     Eigen::Vector3f a1Hat_B_f(a1Hat_B_Vec[0], a1Hat_B_Vec[1], a1Hat_B_Vec[2]);
-    if (abs(a1Hat_B_f.norm() - 1.0F) > 1e-3F) {
+    if (fabsf(a1Hat_B_f.norm() - 1.0F) > 1e-3F) {
         return;
     }
 
