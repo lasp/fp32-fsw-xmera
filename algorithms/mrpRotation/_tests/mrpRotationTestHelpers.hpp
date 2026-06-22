@@ -2,11 +2,14 @@
 #define TEST_MRPROTATION_H
 
 #include "mrpRotationAlgorithm.h"
+#include "utilities/fsw/freestandingInvalidArgument.h"
 #include "utilities/fsw/rigidBodyKinematics.hpp"
-
+#include "utilities/fsw/timeConstants.h"
 #include <gtest/gtest.h>
 #include <Eigen/Core>
 #include <algorithm>
+#include <cstdint>
+#include <limits>
 
 // Reference implementation that independently computes one update step of the MRP rotation
 // algorithm. Mirrors the production algorithm's formulation:
@@ -209,7 +212,15 @@ inline void propertyOmegaRNDecomposesCorrectly(const Eigen::Vector3f& initialSig
 
     const MrpRotationAttRefInputs attRef{sigma_R0N, omega_R0N_N, Eigen::Vector3f::Zero()};
 
-    constexpr float tol = 1e-5F;
+    // Per-component fp32 error of this check is ~ N * eps * (||omegaRR0R|| + ||omega_R0N_N||), summing the three
+    // rounding sources: the omega_RN_N = omega_RR0_N + omega_R0N_N sum/subtract cancellation (~2 ops), the 3-term
+    // dcm_RN^T * omegaRR0R matvec (~3 ops, the standard gamma_3 bound), and the reconstructed-DCM round-trip
+    // mrpToDcm(dcmToMrp(...)) (~3 ops), so N ~ 8. A 2x safety margin guards the adversarial fuzz corners; the
+    // 1e-5 floor covers the small-rate base noise.
+    constexpr float kRoundingOps = 8.0F;
+    constexpr float kSafetyMargin = 2.0F;
+    constexpr float kRelTol = kSafetyMargin * kRoundingOps * std::numeric_limits<float>::epsilon();
+    const float tol = 1e-5F + kRelTol * (omegaRR0R.norm() + omega_R0N_N.norm());
     for (int k = 0; k < kNumSteps; ++k) {
         const MrpRotationOutput out = alg.update(attRef);
         const Eigen::Matrix3f dcm_RN = mrpToDcm(out.sigma_RN);
