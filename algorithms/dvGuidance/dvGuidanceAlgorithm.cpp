@@ -3,7 +3,7 @@
 #include "utilities/fsw/timeConstants.h"
 #include <math.h>
 
-DvGuidanceAlgorithm::DvGuidanceAlgorithm(const DvGuidanceConfig& config) : cfg(config) {}
+DvGuidanceAlgorithm::DvGuidanceAlgorithm(const DvGuidanceConfig& config) : cfg(config) { setConfig(config); }
 
 void DvGuidanceAlgorithm::setConfig(const DvGuidanceConfig& config) { this->cfg = config; }
 
