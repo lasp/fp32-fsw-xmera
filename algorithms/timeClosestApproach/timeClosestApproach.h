@@ -14,12 +14,13 @@
 #include <architecture/utilities/eigenSupport.h>
 
 #include <Eigen/Core>
+#include <memory>
 
 /*! @brief A class to perform time of closest approach estimation during a rectilinear flyby */
 class TimeClosestApproach : public SysModel {
    public:
-    TimeClosestApproach();
-    ~TimeClosestApproach() override;
+    TimeClosestApproach() = default;
+    ~TimeClosestApproach() override = default;
     void reset(uint64_t callTime) override;
     void updateState(uint64_t currentSimNanos) override;
 
@@ -28,7 +29,7 @@ class TimeClosestApproach : public SysModel {
     Message<TimeClosestApproachMsgF32Payload> tcaOutMsg;  //!< time of closest approach output message
 
    private:
-    TimeClosestApproachAlgorithm algorithm{};
+    std::unique_ptr<TimeClosestApproachAlgorithm> algorithm = nullptr;
     void writeMessages(double tCA, double sigmaTca, uint64_t currentSimNanos);
 };
 

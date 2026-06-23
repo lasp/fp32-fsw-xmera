@@ -48,7 +48,7 @@ inline ReferenceTimeClosestApproachOutput referenceTimeClosestApproach(const Eig
 inline void testTimeClosestApproach(const Eigen::Vector3d& r_BN_N,
                                     const Eigen::Vector3d& v_BN_N,
                                     const Eigen::MatrixXf& filterCovariance) {
-    TimeClosestApproachAlgorithm const alg;
+    TimeClosestApproachAlgorithm const alg(TimeClosestApproachConfig::create());
     TimeClosestApproachOutput out;
     EXPECT_NO_THROW(out = alg.update(r_BN_N, v_BN_N, filterCovariance));
 

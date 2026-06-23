@@ -2,12 +2,7 @@
 // Copyright (c) 2025, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
 
 #include "timeClosestApproach.h"
-
-/*! Module constructor */
-TimeClosestApproach::TimeClosestApproach() = default;
-
-/*! Module destructor */
-TimeClosestApproach::~TimeClosestApproach() = default;
+#include "utilities/xmera/xmeraLifecycleException.h"
 
 /*! Write output messages.
 * @return void
@@ -37,6 +32,9 @@ void TimeClosestApproach::reset(const uint64_t callTime) {
     if (!this->navFilterMsg.isLinked()) {
         throw std::invalid_argument("timeClosestApproach.navFilterMsg wasn't connected.");
     }
+
+    auto config = TimeClosestApproachConfig::create();
+    this->algorithm = std::make_unique<TimeClosestApproachAlgorithm>(config);
 }
 
 /*! This method is the main carrier for the time of closest approach calculation
@@ -44,6 +42,10 @@ void TimeClosestApproach::reset(const uint64_t callTime) {
  @param currentSimNanos The current simulation time for system
  */
 void TimeClosestApproach::updateState(const uint64_t currentSimNanos) {
+    if (!this->algorithm) {
+        throw XmeraLifecycleException("TimeClosestApproach reset() has not been called.");
+    }
+
     auto filterStatePayload = this->filterInMsg();
     auto navFilterMsgPayload = this->navFilterMsg();
 
@@ -52,6 +54,6 @@ void TimeClosestApproach::updateState(const uint64_t currentSimNanos) {
     Eigen::Vector3d v_BN_N = cArrayToEigenVector(navFilterMsgPayload.v_BN_N).cast<double>();
     Eigen::MatrixXf filterCovariance = cArrayToEigenMatrixX(filterStatePayload.covar, numberOfStates, numberOfStates);
 
-    TimeClosestApproachOutput out_algo = this->algorithm.update(r_BN_N, v_BN_N, filterCovariance);
+    TimeClosestApproachOutput out_algo = this->algorithm->update(r_BN_N, v_BN_N, filterCovariance);
     this->writeMessages(out_algo.tCA, out_algo.sigmaTca, currentSimNanos);
 }
