@@ -64,7 +64,8 @@ def test_thr_firing_schmitt(show_plots, reset_check, thrust_pulsing_regime):
     # Initialize the test module configuration data
     module.thrMinFireTime = thr_min_fire_time
     module.thrustPulsingRegime = thrust_pulsing_regime
-    module.setLevelsOnOff(level_on, level_off)
+    module.levelOn = level_on
+    module.levelOff = level_off
     module.controlPeriod = control_period
     module.onTimeSaturationFactor = on_time_saturation_factor
 
@@ -215,9 +216,8 @@ def test_thr_firing_schmitt(show_plots, reset_check, thrust_pulsing_regime):
     numpy.testing.assert_equal(module.thrustPulsingRegime, thrust_pulsing_regime)
     numpy.testing.assert_allclose(module.controlPeriod, control_period, atol=1e-6)
     numpy.testing.assert_allclose(module.onTimeSaturationFactor, on_time_saturation_factor, atol=1e-6)
-    levels = module.getLevelsOnOff()
-    numpy.testing.assert_allclose(levels[0], level_on, atol=1e-6)
-    numpy.testing.assert_allclose(levels[1], level_off, atol=1e-6)
+    numpy.testing.assert_allclose(module.levelOn, level_on, atol=1e-6)
+    numpy.testing.assert_allclose(module.levelOff, level_off, atol=1e-6)
 
 
 #
