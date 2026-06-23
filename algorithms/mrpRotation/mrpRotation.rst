@@ -23,7 +23,7 @@ The module is split into two layers:
   configuration, builds an immutable ``MrpRotationConfig`` from public properties, and constructs the algorithm via
   two-phase initialization. The adapter is also the **payload ↔ Eigen conversion boundary**: it reads the input
   ``AttRefMsgF32Payload``, converts each ``float[3]`` field to ``Eigen::Vector3f`` via
-  ``architecture/utilities/eigenSupport.h`` (``cArrayToEigenVector``), passes the resulting algorithm-native input
+  ``utilities/fsw/eigenSupport.h`` (``cArrayToEigenVector``), passes the resulting algorithm-native input
   struct into the algorithm, and packs the algorithm's output struct back into the output ``AttRefMsgF32Payload``
   via ``eigenVectorToCArray``.
 - The **algorithm** (``mrpRotationAlgorithm.h``/``.cpp``) is a pure C++23 class with no framework dependencies and no
