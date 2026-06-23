@@ -97,6 +97,8 @@ algorithms/thrFiringRemainder/thrFiringRemainderAlgorithm_c.h
 algorithms/thrFiringRemainder/thrFiringRemainderAlgorithm_c.cpp
 algorithms/thrFiringSchmitt/thrFiringSchmitt.h
 algorithms/thrFiringSchmitt/thrFiringSchmitt.cpp
+algorithms/thrFiringSchmitt/thrFiringSchmittAlgorithm_c.h
+algorithms/thrFiringSchmitt/thrFiringSchmittAlgorithm_c.cpp
 algorithms/timeClosestApproach/timeClosestApproach.h
 algorithms/timeClosestApproach/timeClosestApproach.cpp
 algorithms/timeClosestApproach/timeClosestApproachAlgorithm_c.h
