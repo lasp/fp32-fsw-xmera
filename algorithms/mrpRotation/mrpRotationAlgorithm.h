@@ -68,13 +68,14 @@ class MrpRotationAlgorithm final {
 
     void setConfig(const MrpRotationConfig& config);
 
+    void reInitialize();
+
     MrpRotationOutput update(const MrpRotationAttRefInputs& attRef);
 
    private:
     MrpRotationConfig cfg;
 
-    Eigen::Vector3f sigma_RR0{Eigen::Vector3f::Zero()};    //!< [-] integrated MRP attitude relative to input ref
-    Eigen::Vector3f omega_RR0_R{Eigen::Vector3f::Zero()};  //!< [rad/s] active angular velocity relative to input ref
+    Eigen::Vector3f sigma_RR0{Eigen::Vector3f::Zero()};  //!< [-] integrated MRP attitude relative to input ref
 };
 
 #endif

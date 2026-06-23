@@ -2,24 +2,27 @@
 #include <utilities/fsw/eigenSupport.h>
 #include <utilities/fsw/rigidBodyKinematics.hpp>
 
-/*! @brief Construct the algorithm with a validated configuration. Seeds the integrating runtime
- state (sigma_RR0, omega_RR0_R) from the configured initial values so the first update produces a
- sensible result.
+/*! @brief Construct the algorithm with a validated configuration. Stores the configuration and seeds
+ the integrating runtime state (sigma_RR0) from the configured initial value via reInitialize() so the
+ first update produces a sensible result.
  @param config Validated configuration (initial sigma_RR0, omega_RR0_R, and integration controlPeriod).
  */
-MrpRotationAlgorithm::MrpRotationAlgorithm(const MrpRotationConfig& config)
-    : cfg(config), sigma_RR0(config.getInitialSigmaRR0()), omega_RR0_R(config.getOmegaRR0R()) {}
+MrpRotationAlgorithm::MrpRotationAlgorithm(const MrpRotationConfig& config) : cfg(config) {
+    setConfig(config);
+    reInitialize();
+}
 
-/*! @brief Replace the algorithm's stored configuration at runtime and re-seed the runtime integrator
- state (sigma_RR0, omega_RR0_R) from the new configuration's initial values, so every reconfiguration
- restarts the rotating reference from its configured seed.
+/*! @brief Replace the algorithm's stored configuration at runtime. The runtime integrator state
+ (sigma_RR0) is preserved; call reInitialize() to restart the rotating reference from the configured seed.
  @param config New validated configuration to apply.
  */
-void MrpRotationAlgorithm::setConfig(const MrpRotationConfig& config) {
-    this->cfg = config;
-    this->sigma_RR0 = this->cfg.getInitialSigmaRR0();
-    this->omega_RR0_R = this->cfg.getOmegaRR0R();
-}
+void MrpRotationAlgorithm::setConfig(const MrpRotationConfig& config) { this->cfg = config; }
+
+/*! @brief Re-seed the runtime integrator state (sigma_RR0) from the current configuration's initial
+ value, restarting the rotating reference from its configured seed. The constant angular velocity
+ omega_RR0_R is read from the configuration directly and needs no runtime copy.
+ */
+void MrpRotationAlgorithm::reInitialize() { this->sigma_RR0 = this->cfg.getInitialSigmaRR0(); }
 
 /*! @brief Take the input attitude reference frame and superimpose the algorithm's MRP rotation on
  top of it: advance sigma_RR0 by one forward-Euler step (using the configured controlPeriod as dt),
@@ -32,7 +35,7 @@ void MrpRotationAlgorithm::setConfig(const MrpRotationConfig& config) {
 MrpRotationOutput MrpRotationAlgorithm::update(const MrpRotationAttRefInputs& attRef) {
     /*! - Advance sigma_RR0 one forward-Euler step using the MRP kinematic differential equation,
      *    then shadow-switch to keep the representation bounded. */
-    const Eigen::Vector3f sigmaDot_RR0 = dmrp(this->sigma_RR0, this->omega_RR0_R);
+    const Eigen::Vector3f sigmaDot_RR0 = dmrp(this->sigma_RR0, this->cfg.getOmegaRR0R());
     const Eigen::Vector3f mrpSetNew = this->sigma_RR0 + (sigmaDot_RR0 * this->cfg.getControlPeriod());
     this->sigma_RR0 = mrpSwitch(mrpSetNew);
 
@@ -41,7 +44,7 @@ MrpRotationOutput MrpRotationAlgorithm::update(const MrpRotationAttRefInputs& at
     const Eigen::Matrix3f dcm_R0N = mrpToDcm(attRef.sigma_R0N);
     const Eigen::Matrix3f dcm_RN = dcm_RR0 * dcm_R0N;
 
-    const Eigen::Vector3f omega_RR0_N = dcm_RN.transpose() * this->omega_RR0_R;
+    const Eigen::Vector3f omega_RR0_N = dcm_RN.transpose() * this->cfg.getOmegaRR0R();
     const Eigen::Vector3f domega_RR0_N = attRef.omega_R0N_N.cross(omega_RR0_N);
 
     const Eigen::Vector3f sigma_RN = dcmToMrp(dcm_RN);
