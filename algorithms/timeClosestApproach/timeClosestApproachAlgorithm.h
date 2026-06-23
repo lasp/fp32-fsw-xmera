@@ -7,15 +7,14 @@
 #include <Eigen/Core>
 
 struct TimeClosestApproachOutput {
-    float tCA{};
-    float sigmaTca{};
+    float tCA;       //!< the predicted time of closest approach [s]
+    float sigmaTca;  //!< the predicted time of closest approach standard deviation [s]
 };
 
-/*! @brief Pure computation for time of closest approach estimation during a rectilinear flyby. */
 class TimeClosestApproachAlgorithm {
    public:
-    static TimeClosestApproachOutput update(const Eigen::Vector3f& r_BN_N,
-                                            const Eigen::Vector3f& v_BN_N,
+    static TimeClosestApproachOutput update(const Eigen::Vector3d& r_BN_N,
+                                            const Eigen::Vector3d& v_BN_N,
                                             const Eigen::MatrixXf& filterCovariance);
 };
 
