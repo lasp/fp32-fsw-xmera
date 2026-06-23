@@ -7,7 +7,7 @@ endif()
 xmera_add_swig_module("${module}")
 target_sources("${module}" PRIVATE
   timeClosestApproach.cpp
-        timeClosestApproachAlgorithm.cpp
+  timeClosestApproachAlgorithm.cpp
 )
 
 target_include_directories("${module}" PUBLIC "..")
