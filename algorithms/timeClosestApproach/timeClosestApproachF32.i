@@ -15,6 +15,5 @@
 %include "timeClosestApproach.h"
 %include "timeClosestApproachAlgorithm.h"
 
-%include "msgPayloadDef/NavTransMsgF32Payload.h"
 %include "msgPayloadDef/FilterMsgF32Payload.h"
 %include "msgPayloadDef/TimeClosestApproachMsgF32Payload.h"

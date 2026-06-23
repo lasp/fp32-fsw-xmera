@@ -7,7 +7,6 @@
 #include "timeClosestApproachAlgorithm.h"
 
 #include "msgPayloadDef/FilterMsgF32Payload.h"
-#include "msgPayloadDef/NavTransMsgF32Payload.h"
 #include "msgPayloadDef/TimeClosestApproachMsgF32Payload.h"
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
@@ -24,8 +23,7 @@ class TimeClosestApproach : public SysModel {
     void reset(uint64_t callTime) override;
     void updateState(uint64_t currentSimNanos) override;
 
-    ReadFunctor<FilterMsgF32Payload> filterInMsg;  //!< relative state and covariance input msg
-    ReadFunctor<NavTransMsgF32Payload> navFilterMsg;
+    ReadFunctor<FilterMsgF32Payload> filterInMsg;         //!< relative state and covariance input msg
     Message<TimeClosestApproachMsgF32Payload> tcaOutMsg;  //!< time of closest approach output message
 
    private:

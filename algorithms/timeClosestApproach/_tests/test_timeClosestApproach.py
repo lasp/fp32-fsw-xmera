@@ -43,15 +43,11 @@ def test_time_closest_approach(show_plots, position, velocity, filter_covariance
 
     # Create the input messages.
     input_filter_data = messaging.FilterMsgF32Payload()
-    input_nav_data = messaging.NavTransMsgF32Payload()
-    input_nav_data.r_BN_N = state_vector.tolist()[0:3]
-    input_nav_data.v_BN_N = state_vector.tolist()[3:6]
     input_filter_data.numberOfStates = len(filter_covariance[:,0])
     input_filter_data.covar = filter_covariance.flatten().tolist()
+    input_filter_data.state = state_vector.tolist()
     filter_in_msg = messaging.FilterMsgF32().write(input_filter_data)
-    nav_in_msg = messaging.NavTransMsgF32().write(input_nav_data)
     tca_module.filterInMsg.subscribeTo(filter_in_msg)
-    tca_module.navFilterMsg.subscribeTo(nav_in_msg)
 
     # Output messages.
     data_log_tca = tca_module.tcaOutMsg.recorder()

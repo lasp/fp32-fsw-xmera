@@ -29,9 +29,6 @@ void TimeClosestApproach::reset(const uint64_t callTime) {
     if (!this->filterInMsg.isLinked()) {
         throw std::invalid_argument("timeClosestApproach.filterInMsg wasn't connected.");
     }
-    if (!this->navFilterMsg.isLinked()) {
-        throw std::invalid_argument("timeClosestApproach.navFilterMsg wasn't connected.");
-    }
 
     auto config = TimeClosestApproachConfig::create();
     this->algorithm = std::make_unique<TimeClosestApproachAlgorithm>(config);
@@ -47,10 +44,9 @@ void TimeClosestApproach::updateState(const uint64_t currentSimNanos) {
     }
 
     auto filterStatePayload = this->filterInMsg();
-    auto navFilterMsgPayload = this->navFilterMsg();
 
-    Eigen::Vector3d r_BN_N = cArrayToEigenVector(navFilterMsgPayload.r_BN_N).cast<double>();
-    Eigen::Vector3d v_BN_N = cArrayToEigenVector(navFilterMsgPayload.v_BN_N).cast<double>();
+    Eigen::Vector3d r_BN_N = cArrayToEigenVector3<double>(filterStatePayload.state);
+    Eigen::Vector3d v_BN_N = cArrayToEigenVector3<double>(filterStatePayload.state + 3);
     Eigen::Matrix<double, 6, 6> filterCovariance = Eigen::Matrix<double, 6, 6>::Zero();
     filterCovariance = cArrayToEigenMatrix<double, 6, 6>(filterStatePayload.covar);
 
