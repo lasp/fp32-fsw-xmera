@@ -1,7 +1,7 @@
 #include "hillPointAlgorithm.h"
 #include "utilities/fsw/rigidBodyKinematics.hpp"
 
-HillPointAlgorithm::HillPointAlgorithm(const HillPointConfig& config) : cfg(config) {}
+HillPointAlgorithm::HillPointAlgorithm(const HillPointConfig& config) : cfg(config) { setConfig(config); }
 
 void HillPointAlgorithm::setConfig(const HillPointConfig& config) { this->cfg = config; }
 
