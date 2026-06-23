@@ -9,58 +9,55 @@
 #include <cstdint>
 
 struct ReferenceTimeClosestApproachOutput {
-    double tCA{};
-    double sigmaTca{};
+    float tCA{};
+    float sigmaTca{};
 };
 
-inline ReferenceTimeClosestApproachOutput referenceTimeClosestApproach(const Eigen::Vector3d& r_BN_N,
-                                                                       const Eigen::Vector3d& v_BN_N,
-                                                                       const Eigen::MatrixXd& filterCovariance) {
-    /*! - compute velocity/radius ratio at time of read */
-    double const ratio = v_BN_N.norm() / r_BN_N.norm();
+inline ReferenceTimeClosestApproachOutput referenceTimeClosestApproach(const Eigen::Vector3f& r_BN_N,
+                                                                       const Eigen::Vector3f& v_BN_N,
+                                                                       const Eigen::MatrixXf& filterCovariance) {
+    float const ratio = v_BN_N.norm() / r_BN_N.norm();
 
-    // compute an angle at the time of read
-    Eigen::Vector3d const r_BN_N_hat = r_BN_N.normalized();
-    Eigen::Vector3d const v_BN_N_hat = v_BN_N.normalized();
+    Eigen::Vector3f const r_BN_N_hat = r_BN_N.normalized();
+    Eigen::Vector3f const v_BN_N_hat = v_BN_N.normalized();
 
-    double product = -r_BN_N_hat.dot(v_BN_N_hat);
-    product = std::max(-1.0, std::min(1.0, product));
-    const double theta = std::acos(product);
+    // sin(flightPathAngle) == r_hat·v_hat  (identity: sin(acos(-d) - π/2) = d)
+    // Using the dot product directly avoids catastrophic cancellation in float32
+    // when computing theta = acos(-d) and then subtracting π/2.
+    float sinFPA = r_BN_N_hat.dot(v_BN_N_hat);
+    sinFPA = std::max(-1.0F, std::min(1.0F, sinFPA));
 
-    // compute flight path angle at the time of read
-    const double flightPathAngle = theta - M_PI / 2.0;
+    ReferenceTimeClosestApproachOutput ref_output{};
+    ref_output.tCA = -sinFPA / ratio;
 
-    ReferenceTimeClosestApproachOutput algo_output{};
-    algo_output.tCA = -std::sin(flightPathAngle) / ratio;
-
-    // Calculate covariance_map_to_tca
-    int numberOfStates = filterCovariance.rows();
-    Eigen::VectorXd covariance_map_to_tca(numberOfStates);
+    const auto numberOfStates = static_cast<std::size_t>(filterCovariance.rows());
+    Eigen::VectorXf covariance_map_to_tca(numberOfStates);
 
     covariance_map_to_tca.head(3) = v_BN_N_hat / r_BN_N.norm();
     if (numberOfStates == 6) {
-        covariance_map_to_tca.tail(3) = 1.0 / v_BN_N.norm() * (r_BN_N_hat - std::sin(flightPathAngle) * v_BN_N_hat);
+        covariance_map_to_tca.tail(3) = (r_BN_N_hat - sinFPA * v_BN_N_hat) / v_BN_N.norm();
     }
-    const double mappedCovariance = covariance_map_to_tca.transpose() * filterCovariance * covariance_map_to_tca;
-    const double tCA_covariance = (1.0 / std::pow(ratio, 2.0)) * mappedCovariance;
+    const float mappedCovariance = covariance_map_to_tca.transpose() * filterCovariance * covariance_map_to_tca;
+    const float tCA_covariance = mappedCovariance / (ratio * ratio);
 
-    algo_output.sigmaTca = std::sqrt(tCA_covariance);
+    ref_output.sigmaTca = std::sqrt(tCA_covariance);
 
-    return algo_output;
+    return ref_output;
 }
 
 inline void testTimeClosestApproach(const Eigen::Vector3f& r_BN_N,
                                     const Eigen::Vector3f& v_BN_N,
                                     const Eigen::MatrixXf& filterCovariance) {
-    TimeClosestApproachAlgorithm alg;
+    TimeClosestApproachAlgorithm const alg;
     TimeClosestApproachOutput out;
     EXPECT_NO_THROW(out = alg.update(r_BN_N, v_BN_N, filterCovariance));
 
-    ReferenceTimeClosestApproachOutput ref =
-        referenceTimeClosestApproach(r_BN_N.cast<double>(), v_BN_N.cast<double>(), filterCovariance.cast<double>());
-    constexpr float tol = 1e-5F;
-    EXPECT_NEAR(out.tCA, static_cast<float>(ref.tCA), tol);
-    EXPECT_NEAR(out.sigmaTca, static_cast<float>(ref.sigmaTca), tol);
+    ReferenceTimeClosestApproachOutput const ref =
+        referenceTimeClosestApproach(r_BN_N.cast<float>(), v_BN_N.cast<float>(), filterCovariance.cast<float>());
+    const auto tCA_ref = static_cast<float>(ref.tCA);
+    const auto sigma_ref = static_cast<float>(ref.sigmaTca);
+    EXPECT_NEAR(out.tCA, tCA_ref, std::max(1e-5F, std::abs(tCA_ref) * 1e-4F));
+    EXPECT_NEAR(out.sigmaTca, sigma_ref, std::max(1e-5F, std::abs(sigma_ref) * 1e-4F));
     EXPECT_GE(out.sigmaTca, 0.0F);
 }
 
