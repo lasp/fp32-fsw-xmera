@@ -168,9 +168,9 @@ TEST(MrpRotationTest, ZeroOmegaHoldsSigmaRR0) {
     }
 }
 
-// setConfig() re-seeds runtime state from config: re-applying the same config returns the algorithm
-// to its initial state, so a second pass after reconfiguring matches the first pass.
-TEST(MrpRotationTest, SetConfigReseedsForRepeatability) {
+// reInitialize() re-seeds runtime state from the current config: it returns the algorithm to its
+// initial state, so a second pass after reInitialize matches the first pass.
+TEST(MrpRotationTest, ReInitializeReseedsForRepeatability) {
     const Eigen::Vector3f initialSigmaRR0{0.1F, -0.2F, 0.3F};
     const Eigen::Vector3f omegaRR0R{0.01F, 0.0F, 0.0F};
 
@@ -186,7 +186,7 @@ TEST(MrpRotationTest, SetConfigReseedsForRepeatability) {
     const MrpRotationOutput first0 = alg.update(attRef);
     const MrpRotationOutput first1 = alg.update(attRef);
 
-    alg.setConfig(cfg);  // re-seed runtime state back to the configured initial values
+    alg.reInitialize();  // re-seed runtime state back to the configured initial values
     const MrpRotationOutput second0 = alg.update(attRef);
     const MrpRotationOutput second1 = alg.update(attRef);
 
@@ -197,12 +197,12 @@ TEST(MrpRotationTest, SetConfigReseedsForRepeatability) {
     }
 }
 
-// setConfig() re-seeds the runtime integrator state from the new configuration. To verify, run one
-// step under cfgA (advancing runtime sigma_RR0 / omega_RR0_R away from its seed), swap in cfgB with
-// deliberately different initial values and a different controlPeriod, then run another step. The
-// output must match an independent reference that integrates from cfgB's *initial* sigma / omega
-// (the prior runtime state is discarded), stepped by cfgB's controlPeriod.
-TEST(MrpRotationTest, SetConfigReseedsRuntimeState) {
+// reInitialize() re-seeds the runtime integrator state from the current configuration. To verify, run
+// one step under cfgA (advancing runtime sigma_RR0 away from its seed), swap in cfgB (setConfig) with
+// deliberately different initial values and a different controlPeriod, call reInitialize(), then run
+// another step. The output must match an independent reference that integrates from cfgB's *initial*
+// sigma / omega (the prior runtime state is discarded), stepped by cfgB's controlPeriod.
+TEST(MrpRotationTest, ReInitializeReseedsAfterSetConfig) {
     const Eigen::Vector3f initialSigmaRR0_A{0.1F, 0.0F, 0.0F};
     const Eigen::Vector3f omegaRR0R_A{0.05F, 0.0F, 0.0F};
     constexpr float kPeriodA = 0.5F;
@@ -221,10 +221,11 @@ TEST(MrpRotationTest, SetConfigReseedsRuntimeState) {
     constexpr float kPeriodB = 0.25F;
     const auto cfgB = MrpRotationConfig::create(initialSigmaRR0_B, omegaRR0R_B, kPeriodB);
     alg.setConfig(cfgB);
+    alg.reInitialize();
 
     const MrpRotationOutput secondOut = alg.update(identityRef);
 
-    // Independent reference: setConfig re-seeded runtime state to cfgB's initial sigma / omega
+    // Independent reference: reInitialize re-seeded runtime state to cfgB's initial sigma / omega
     // (discarding the post-firstStep state), so the step integrates from there using cfgB's period.
     // create() bounds the seed MRP via mrpSwitch, so mirror that here.
     MrpRotationReferenceState refState{mrpSwitch(initialSigmaRR0_B), omegaRR0R_B};
@@ -237,10 +238,10 @@ TEST(MrpRotationTest, SetConfigReseedsRuntimeState) {
     }
 }
 
-// setConfig() must read its seed values from the *new* configuration. After setConfig(cfgB), the
-// runtime state should be re-seeded from cfgB, not from cfgA (the original) and not from cached
-// construction-time values.
-TEST(MrpRotationTest, SetConfigUsesNewInitialValues) {
+// reInitialize() must read its seed values from the *current* configuration. After setConfig(cfgB) +
+// reInitialize(), the runtime state should be re-seeded from cfgB, not from cfgA (the original) and
+// not from cached construction-time values.
+TEST(MrpRotationTest, ReInitializeUsesUpdatedConfigInitialValues) {
     const Eigen::Vector3f initialSigmaRR0_A{0.1F, 0.0F, 0.0F};
     const Eigen::Vector3f omegaRR0R_A{0.05F, 0.0F, 0.0F};
     const auto cfgA = MrpRotationConfig::create(initialSigmaRR0_A, omegaRR0R_A, 0.5F);
@@ -248,11 +249,12 @@ TEST(MrpRotationTest, SetConfigUsesNewInitialValues) {
     MrpRotationAlgorithm alg{cfgA};
     alg.update(MrpRotationAttRefInputs{});  // advance runtime state away from initial
 
-    // setConfig re-seeds from cfgB; cfgB has zero omega so the next step holds sigma_RR0 at cfgB's initial.
+    // reInitialize re-seeds from cfgB; cfgB has zero omega so the next step holds sigma_RR0 at cfgB's initial.
     const Eigen::Vector3f initialSigmaRR0_B{0.3F, -0.2F, 0.1F};
     const Eigen::Vector3f omegaRR0R_B = Eigen::Vector3f::Zero();
     const auto cfgB = MrpRotationConfig::create(initialSigmaRR0_B, omegaRR0R_B, 0.5F);
     alg.setConfig(cfgB);
+    alg.reInitialize();
 
     // With sigma_R0N = 0 and omegaRR0R = 0, sigma_RN equals the re-seeded sigma_RR0, which must
     // come from cfgB.
@@ -261,6 +263,37 @@ TEST(MrpRotationTest, SetConfigUsesNewInitialValues) {
     constexpr float tol = 1e-5F;
     for (int i = 0; i < 3; ++i) {
         EXPECT_NEAR(out.sigma_RN(i), initialSigmaRR0_B(i), tol);
+    }
+}
+
+// setConfig() swaps the configuration but PRESERVES the runtime integrator state: it does not
+// re-seed. Two algorithms advanced identically stay identical after one of them calls setConfig with
+// the same configuration; only reInitialize() restarts the rotating reference.
+TEST(MrpRotationTest, SetConfigPreservesRuntimeState) {
+    const Eigen::Vector3f initialSigmaRR0{0.1F, -0.2F, 0.3F};
+    const Eigen::Vector3f omegaRR0R{0.01F, 0.0F, 0.0F};
+    const auto cfg = MrpRotationConfig::create(initialSigmaRR0, omegaRR0R, 0.5F);
+
+    MrpRotationAlgorithm withSetConfig{cfg};
+    MrpRotationAlgorithm reference{cfg};
+
+    const MrpRotationAttRefInputs attRef{
+        Eigen::Vector3f{0.05F, 0.0F, 0.0F},
+        Eigen::Vector3f::Zero(),
+        Eigen::Vector3f::Zero(),
+    };
+
+    withSetConfig.update(attRef);
+    reference.update(attRef);
+
+    withSetConfig.setConfig(cfg);  // must NOT reset the advanced runtime state
+
+    const MrpRotationOutput a = withSetConfig.update(attRef);
+    const MrpRotationOutput b = reference.update(attRef);
+
+    constexpr float tol = 1e-6F;
+    for (int i = 0; i < 3; ++i) {
+        EXPECT_NEAR(a.sigma_RN(i), b.sigma_RN(i), tol);
     }
 }
 
