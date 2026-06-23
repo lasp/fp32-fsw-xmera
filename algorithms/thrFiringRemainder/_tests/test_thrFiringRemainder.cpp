@@ -3,8 +3,7 @@
 #include "utilities/fsw/freestandingInvalidArgument.h"
 #include <gtest/gtest.h>
 #include <algorithm>
-#include <array>
-#include <cmath>
+#include <cstdint>
 #include <random>
 #include <vector>
 
@@ -17,39 +16,13 @@ constexpr size_t kTotalSteps = static_cast<size_t>(kFinalTime / kControlPeriod) 
 constexpr float kOnTimeOversaturationFactor = 1.1F;
 constexpr unsigned int kRandomSeed = 42U;
 
-std::vector<ThrusterConfig> generateRandomThrusters(std::mt19937& rng, const size_t numThrusters, float maxThrust) {
-    std::uniform_real_distribution positionDist(-2.0F, 2.0F);
-    std::normal_distribution directionDist(0.0F, 1.0F);
-
-    std::vector<ThrusterConfig> thrusters(numThrusters);
-    for (auto& thr : thrusters) {
-        for (size_t j = 0; j < 3; ++j) {
-            thr.rThrust_B[j] = positionDist(rng);
-            thr.tHatThrust_B[j] = directionDist(rng);
-        }
-        // Normalize direction vector
-        const float norm =
-            std::sqrt((thr.tHatThrust_B[0] * thr.tHatThrust_B[0]) + (thr.tHatThrust_B[1] * thr.tHatThrust_B[1]) +
-                      (thr.tHatThrust_B[2] * thr.tHatThrust_B[2]));
-        for (size_t j = 0; j < 3; ++j) {
-            thr.tHatThrust_B[j] /= norm;
-        }
-        thr.maxThrust = maxThrust;
+ThrFiringRemainderThrusterArray makeUniformThrusterArray(size_t numThrusters, float maxThrust) {
+    ThrFiringRemainderThrusterArray thrusterArray{};
+    thrusterArray.numThrusters = static_cast<uint32_t>(numThrusters);
+    for (size_t i = 0; i < numThrusters; ++i) {
+        thrusterArray.maxThrust.at(i) = maxThrust;
     }
-    return thrusters;
-}
-
-ThrusterArrayConfig createThrusterArrayConfig(const std::vector<ThrusterConfig>& thrusters) {
-    ThrusterArrayConfig config{};
-    config.numThrusters = static_cast<uint32_t>(thrusters.size());
-    for (size_t i = 0; i < thrusters.size(); ++i) {
-        std::copy(thrusters[i].rThrust_B.begin(), thrusters[i].rThrust_B.end(), config.thrusters[i].rThrust_B.begin());
-        std::copy(thrusters[i].tHatThrust_B.begin(),
-                  thrusters[i].tHatThrust_B.end(),
-                  config.thrusters[i].tHatThrust_B.begin());
-        config.thrusters[i].maxThrust = thrusters[i].maxThrust;
-    }
-    return config;
+    return thrusterArray;
 }
 
 ThrusterForceCmd createThrusterForceCmd(std::mt19937& rng,
@@ -71,27 +44,26 @@ ThrusterForceCmd createThrusterForceCmd(std::mt19937& rng,
     return forces;
 }
 
-std::vector<std::vector<float>> computeExpectedOutputs(const std::vector<ThrusterConfig>& thrusters,
+std::vector<std::vector<float>> computeExpectedOutputs(size_t numThrusters,
+                                                       float maxThrust,
                                                        const ThrusterForceCmd& thrForce,
                                                        ThrustPulsingRegime regime,
                                                        float controlPeriod,
                                                        float thrMinFireTime,
                                                        float onTimeSaturationFactor,
                                                        size_t totalSteps) {
-    const size_t numThrusters = thrusters.size();
     std::vector<float> pulseRemainder(numThrusters, 0.0F);
     std::vector<std::vector<float>> expected(totalSteps, std::vector<float>(numThrusters));
 
     for (size_t idx = 0; idx < totalSteps; ++idx) {
         for (size_t thrIdx = 0; thrIdx < numThrusters; ++thrIdx) {
-            float thrMaxThrust = thrusters[thrIdx].maxThrust;
             float thrust = thrForce.thrForce[thrIdx];
             if (regime == ThrustPulsingRegime::OFF_PULSING) {
-                thrust += thrMaxThrust;
+                thrust += maxThrust;
             }
             thrust = std::max(thrust, 0.0F);
 
-            float onTime = thrust / thrMaxThrust * controlPeriod;
+            float onTime = thrust / maxThrust * controlPeriod;
             onTime += pulseRemainder[thrIdx] * thrMinFireTime;
             pulseRemainder[thrIdx] = 0.0F;
 
@@ -118,23 +90,23 @@ TEST_P(ThrFiringRemainderTest, ComputesCorrectOnTimes) {
     std::uniform_int_distribution<size_t> numThrustersDist(1, MAX_EFF_CNT);
     const size_t numThrusters = numThrustersDist(rng);
 
-    // Generate random thruster configuration and forces
-    const auto thrusters = generateRandomThrusters(rng, numThrusters, kMaxThrust);
-    const auto thrConfig = createThrusterArrayConfig(thrusters);
+    // Generate thruster configuration and forces
+    const auto thrusterArray = makeUniformThrusterArray(numThrusters, kMaxThrust);
     const auto thrForce = createThrusterForceCmd(rng, numThrusters, kMaxThrust, regime);
 
     // Compute expected outputs
-    const auto expected = computeExpectedOutputs(
-        thrusters, thrForce, regime, kControlPeriod, kThrMinFireTime, kOnTimeOversaturationFactor, kTotalSteps);
+    const auto expected = computeExpectedOutputs(numThrusters,
+                                                 kMaxThrust,
+                                                 thrForce,
+                                                 regime,
+                                                 kControlPeriod,
+                                                 kThrMinFireTime,
+                                                 kOnTimeOversaturationFactor,
+                                                 kTotalSteps);
 
     // Configure and run algorithm
-    ThrFiringRemainderAlgorithm algorithm{};
-    algorithm.setThrMinFireTime(kThrMinFireTime);
-    algorithm.setControlPeriod(kControlPeriod);
-    algorithm.setThrustPulsingRegime(regime);
-    algorithm.setOnTimeSaturationFactor(kOnTimeOversaturationFactor);
-    algorithm.setThrusters(thrConfig);
-    algorithm.reset();
+    const ThrFiringControlParameters params{kThrMinFireTime, kControlPeriod, kOnTimeOversaturationFactor, regime};
+    ThrFiringRemainderAlgorithm algorithm{ThrFiringRemainderConfig::create(thrusterArray, params)};
 
     // Run algorithm and collect outputs
     std::vector<std::vector<float>> actual(kTotalSteps, std::vector<float>(numThrusters));
@@ -155,31 +127,51 @@ TEST_P(ThrFiringRemainderTest, ComputesCorrectOnTimes) {
     }
 }
 
-TEST(ThrFiringRemainderTest, SetupTest) {
-    ThrFiringRemainderAlgorithm alg{};
+TEST(ThrFiringRemainderConfigTest, RejectsInvalidParameters) {
+    ThrFiringRemainderThrusterArray validArray{};
+    validArray.numThrusters = 1;
+    validArray.maxThrust.at(0) = kMaxThrust;
+    const ThrFiringControlParameters validParams{
+        kThrMinFireTime, kControlPeriod, kOnTimeOversaturationFactor, ThrustPulsingRegime::ON_PULSING};
 
     // Negative thrMinFireTime
-    EXPECT_THROW(alg.setThrMinFireTime(-0.1), fsw::invalid_argument);
+    EXPECT_THROW(ThrFiringRemainderConfig::create(
+                     validArray, {-0.1F, kControlPeriod, kOnTimeOversaturationFactor, ThrustPulsingRegime::ON_PULSING}),
+                 fsw::invalid_argument);
 
     // Non-positive controlPeriod
-    EXPECT_THROW(alg.setControlPeriod(-0.1), fsw::invalid_argument);
-    EXPECT_THROW(alg.setControlPeriod(0.0), fsw::invalid_argument);
+    EXPECT_THROW(
+        ThrFiringRemainderConfig::create(
+            validArray, {kThrMinFireTime, -0.1F, kOnTimeOversaturationFactor, ThrustPulsingRegime::ON_PULSING}),
+        fsw::invalid_argument);
+    EXPECT_THROW(ThrFiringRemainderConfig::create(
+                     validArray, {kThrMinFireTime, 0.0F, kOnTimeOversaturationFactor, ThrustPulsingRegime::ON_PULSING}),
+                 fsw::invalid_argument);
 
     // onTimeSaturationFactor must be >= 1.0
-    EXPECT_THROW(alg.setOnTimeSaturationFactor(0.5), fsw::invalid_argument);
-    EXPECT_THROW(alg.setOnTimeSaturationFactor(0.99), fsw::invalid_argument);
-    EXPECT_NO_THROW(alg.setOnTimeSaturationFactor(1.0));
-    EXPECT_NO_THROW(alg.setOnTimeSaturationFactor(1.1));
+    EXPECT_THROW(ThrFiringRemainderConfig::create(
+                     validArray, {kThrMinFireTime, kControlPeriod, 0.99F, ThrustPulsingRegime::ON_PULSING}),
+                 fsw::invalid_argument);
+
+    // numThrusters exceeding the compile-time maximum
+    ThrFiringRemainderThrusterArray tooManyArray{};
+    tooManyArray.numThrusters = kMaxThrusterCount + 1U;
+    EXPECT_THROW(ThrFiringRemainderConfig::create(tooManyArray, validParams), fsw::invalid_argument);
+
     // Negative maxThrust
-    ThrusterArrayConfig negThrustConfig{};
-    negThrustConfig.numThrusters = 1;
-    negThrustConfig.thrusters.at(0).maxThrust = -0.1F;
-    EXPECT_THROW(alg.setThrusters(negThrustConfig), fsw::invalid_argument);
+    ThrFiringRemainderThrusterArray negThrustArray{};
+    negThrustArray.numThrusters = 1;
+    negThrustArray.maxThrust.at(0) = -0.1F;
+    EXPECT_THROW(ThrFiringRemainderConfig::create(negThrustArray, validParams), fsw::invalid_argument);
+
+    // Valid configuration is accepted
+    EXPECT_NO_THROW(ThrFiringRemainderConfig::create(validArray, validParams));
+
     // Zero maxThrust is allowed
-    ThrusterArrayConfig zeroThrustConfig{};
-    zeroThrustConfig.numThrusters = 1;
-    zeroThrustConfig.thrusters.at(0).maxThrust = 0.0F;
-    EXPECT_NO_THROW(alg.setThrusters(zeroThrustConfig));
+    ThrFiringRemainderThrusterArray zeroThrustArray{};
+    zeroThrustArray.numThrusters = 1;
+    zeroThrustArray.maxThrust.at(0) = 0.0F;
+    EXPECT_NO_THROW(ThrFiringRemainderConfig::create(zeroThrustArray, validParams));
 }
 
 INSTANTIATE_TEST_SUITE_P(ThrFiringRemainder,

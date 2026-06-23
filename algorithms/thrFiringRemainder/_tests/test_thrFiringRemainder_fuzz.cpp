@@ -3,28 +3,24 @@
 #include <fuzztest/fuzztest.h>
 #include <gtest/gtest.h>
 #include <algorithm>
-#include <array>
 #include <cmath>
+#include <cstdint>
+#include <tuple>
 #include <vector>
 
 namespace {
 constexpr float kOnTimeOversaturationFactor = 1.1F;
 
-using ThrusterConfigTuple =
-    std::tuple<std::size_t, std::vector<std::vector<float>>, std::vector<std::vector<float>>, std::vector<float>>;
+using ThrusterConfigTuple = std::tuple<std::size_t, std::vector<float>>;
 
-ThrusterArrayConfig BuildThrusterArrayConfig(const ThrusterConfigTuple& inputTuple) {
-    const auto& [numThrustersLocal, positions, directions, maxThrusts] = inputTuple;
-    ThrusterArrayConfig config{};
-    config.numThrusters = static_cast<uint32_t>(numThrustersLocal);
-    for (size_t i = 0; i < numThrustersLocal; i++) {
-        for (size_t j = 0; j < 3; j++) {
-            config.thrusters[i].rThrust_B[j] = positions[i][j];
-            config.thrusters[i].tHatThrust_B[j] = directions[i][j];
-        }
-        config.thrusters[i].maxThrust = std::max(maxThrusts[i], 1e-6F);
+ThrFiringRemainderThrusterArray BuildThrusterArray(const ThrusterConfigTuple& inputTuple) {
+    const auto& [numThrusters, maxThrusts] = inputTuple;
+    ThrFiringRemainderThrusterArray thrusterArray{};
+    thrusterArray.numThrusters = static_cast<uint32_t>(numThrusters);
+    for (size_t i = 0; i < numThrusters && i < kMaxThrusterCount; i++) {
+        thrusterArray.maxThrust.at(i) = std::max(maxThrusts[i], 1e-6F);
     }
-    return config;
+    return thrusterArray;
 }
 
 ThrusterForceCmd BuildThrusterForceCmd(size_t numThrusters, const std::vector<float>& forces) {
@@ -36,16 +32,19 @@ ThrusterForceCmd BuildThrusterForceCmd(size_t numThrusters, const std::vector<fl
     return payload;
 }
 
+ThrFiringRemainderAlgorithm MakeAlgorithm(const ThrFiringRemainderThrusterArray& thrusterArray,
+                                          float thrMinFireTime,
+                                          float controlPeriod,
+                                          ThrustPulsingRegime regime) {
+    const ThrFiringControlParameters params{thrMinFireTime, controlPeriod, kOnTimeOversaturationFactor, regime};
+    return ThrFiringRemainderAlgorithm{ThrFiringRemainderConfig::create(thrusterArray, params)};
+}
+
 fuzztest::Domain<ThrusterConfigTuple> ThrusterConfigDomain() {
     return fuzztest::FlatMap(
         [](const std::size_t numThrusters) {
-            return fuzztest::TupleOf(
-                fuzztest::Just(numThrusters),
-                fuzztest::VectorOf(fuzztest::VectorOf(fuzztest::InRange(-10.0F, 10.0F)).WithSize(3))
-                    .WithSize(numThrusters),
-                fuzztest::VectorOf(fuzztest::VectorOf(fuzztest::InRange(-1.0F, 1.0F)).WithSize(3))
-                    .WithSize(numThrusters),
-                fuzztest::VectorOf(fuzztest::InRange(1e-3F, 1e3F)).WithSize(numThrusters));
+            return fuzztest::TupleOf(fuzztest::Just(numThrusters),
+                                     fuzztest::VectorOf(fuzztest::InRange(1e-3F, 1e3F)).WithSize(numThrusters));
         },
         fuzztest::InRange<std::size_t>(1, MAX_EFF_CNT));
 }
@@ -63,17 +62,11 @@ void OutputsAreWithinBounds(const ThrusterConfigTuple& configTuple,
                             const float thrMinFireTime,
                             const float controlPeriod,
                             const ThrustPulsingRegime regime) {
-    const auto config = BuildThrusterArrayConfig(configTuple);
-    const auto [numThrusters, positions, directions, maxThrusts] = configTuple;
+    const auto thrusterArray = BuildThrusterArray(configTuple);
+    const auto& [numThrusters, maxThrusts] = configTuple;
     const auto thrForceCmd = BuildThrusterForceCmd(numThrusters, forces);
 
-    ThrFiringRemainderAlgorithm algorithm{};
-    algorithm.setThrMinFireTime(thrMinFireTime);
-    algorithm.setControlPeriod(controlPeriod);
-    algorithm.setThrustPulsingRegime(regime);
-    algorithm.setOnTimeSaturationFactor(kOnTimeOversaturationFactor);
-    algorithm.setThrusters(config);
-    algorithm.reset();
+    ThrFiringRemainderAlgorithm algorithm = MakeAlgorithm(thrusterArray, thrMinFireTime, controlPeriod, regime);
 
     const auto output = algorithm.update(thrForceCmd);
     const float maxBound = kOnTimeOversaturationFactor * controlPeriod;
@@ -100,17 +93,11 @@ void NonZeroOutputsExceedMinFireTime(const ThrusterConfigTuple& configTuple,
                                      const float thrMinFireTime,
                                      const float controlPeriod,
                                      const ThrustPulsingRegime regime) {
-    const auto config = BuildThrusterArrayConfig(configTuple);
-    const auto& [numThrusters, positions, directions, maxThrusts] = configTuple;
+    const auto thrusterArray = BuildThrusterArray(configTuple);
+    const auto& [numThrusters, maxThrusts] = configTuple;
     const auto thrForceCmd = BuildThrusterForceCmd(numThrusters, forces);
 
-    ThrFiringRemainderAlgorithm algorithm{};
-    algorithm.setThrMinFireTime(thrMinFireTime);
-    algorithm.setControlPeriod(controlPeriod);
-    algorithm.setThrustPulsingRegime(regime);
-    algorithm.setOnTimeSaturationFactor(kOnTimeOversaturationFactor);
-    algorithm.setThrusters(config);
-    algorithm.reset();
+    ThrFiringRemainderAlgorithm algorithm = MakeAlgorithm(thrusterArray, thrMinFireTime, controlPeriod, regime);
 
     const auto [onTimeRequest] = algorithm.update(thrForceCmd);
 
@@ -139,8 +126,8 @@ void SaturatedInputsProduceOversaturatedOutput(const ThrusterConfigTuple& config
                                                const float thrMinFireTime,
                                                const float controlPeriod,
                                                const ThrustPulsingRegime regime) {
-    const auto config = BuildThrusterArrayConfig(configTuple);
-    const auto& [numThrusters, positions, directions, maxThrusts] = configTuple;
+    const auto thrusterArray = BuildThrusterArray(configTuple);
+    const auto& [numThrusters, maxThrusts] = configTuple;
 
     // Create forces that will saturate: >= maxThrust for ON_PULSING, >= 0 for OFF_PULSING
     ThrusterForceCmd thrForceCmd{};
@@ -152,13 +139,7 @@ void SaturatedInputsProduceOversaturatedOutput(const ThrusterConfigTuple& config
         }
     }
 
-    ThrFiringRemainderAlgorithm algorithm{};
-    algorithm.setThrMinFireTime(thrMinFireTime);
-    algorithm.setControlPeriod(controlPeriod);
-    algorithm.setThrustPulsingRegime(regime);
-    algorithm.setOnTimeSaturationFactor(kOnTimeOversaturationFactor);
-    algorithm.setThrusters(config);
-    algorithm.reset();
+    ThrFiringRemainderAlgorithm algorithm = MakeAlgorithm(thrusterArray, thrMinFireTime, controlPeriod, regime);
 
     const auto [onTimeRequest] = algorithm.update(thrForceCmd);
 
@@ -187,8 +168,8 @@ FUZZ_TEST(ThrFiringRemainderProperties, SaturatedInputsProduceOversaturatedOutpu
 void ZeroForceProducesZeroOutput(const ThrusterConfigTuple& configTuple,
                                  const float thrMinFireTime,
                                  const float controlPeriod) {
-    const auto config = BuildThrusterArrayConfig(configTuple);
-    const auto& [numThrusters, positions, directions, maxThrusts] = configTuple;
+    const auto thrusterArray = BuildThrusterArray(configTuple);
+    const auto& [numThrusters, maxThrusts] = configTuple;
 
     // Zero forces
     ThrusterForceCmd thrForceCmd{};
@@ -196,13 +177,8 @@ void ZeroForceProducesZeroOutput(const ThrusterConfigTuple& configTuple,
         thrForceCmd.thrForce[i] = 0.0F;
     }
 
-    ThrFiringRemainderAlgorithm algorithm{};
-    algorithm.setThrMinFireTime(thrMinFireTime);
-    algorithm.setControlPeriod(controlPeriod);
-    algorithm.setThrustPulsingRegime(ThrustPulsingRegime::ON_PULSING);
-    algorithm.setOnTimeSaturationFactor(kOnTimeOversaturationFactor);
-    algorithm.setThrusters(config);
-    algorithm.reset();
+    ThrFiringRemainderAlgorithm algorithm =
+        MakeAlgorithm(thrusterArray, thrMinFireTime, controlPeriod, ThrustPulsingRegime::ON_PULSING);
 
     const auto [onTimeRequest] = algorithm.update(thrForceCmd);
 
@@ -221,8 +197,8 @@ void NegativeEffectiveForceProducesZeroOutput(const ThrusterConfigTuple& configT
                                               const float thrMinFireTime,
                                               const float controlPeriod,
                                               const ThrustPulsingRegime regime) {
-    const auto config = BuildThrusterArrayConfig(configTuple);
-    const auto& [numThrusters, positions, directions, maxThrusts] = configTuple;
+    const auto thrusterArray = BuildThrusterArray(configTuple);
+    const auto& [numThrusters, maxThrusts] = configTuple;
 
     // Create forces that will be negative after adjustment
     ThrusterForceCmd thrForceCmd{};
@@ -237,13 +213,7 @@ void NegativeEffectiveForceProducesZeroOutput(const ThrusterConfigTuple& configT
         }
     }
 
-    ThrFiringRemainderAlgorithm algorithm{};
-    algorithm.setThrMinFireTime(thrMinFireTime);
-    algorithm.setControlPeriod(controlPeriod);
-    algorithm.setThrustPulsingRegime(regime);
-    algorithm.setOnTimeSaturationFactor(kOnTimeOversaturationFactor);
-    algorithm.setThrusters(config);
-    algorithm.reset();
+    ThrFiringRemainderAlgorithm algorithm = MakeAlgorithm(thrusterArray, thrMinFireTime, controlPeriod, regime);
 
     const auto [onTimeRequest] = algorithm.update(thrForceCmd);
 
@@ -260,43 +230,37 @@ FUZZ_TEST(ThrFiringRemainderProperties, NegativeEffectiveForceProducesZeroOutput
                  ThrustPulsingRegimeDomain());
 
 // =============================================================================
-// Property 6: Reset clears state - same inputs after reset produce same outputs
+// Property 6: reInitialize clears state - same inputs after reInitialize produce same outputs
 // =============================================================================
-void ResetClearsState(const ThrusterConfigTuple& configTuple,
-                      const std::vector<float>& forces,
-                      const float thrMinFireTime,
-                      const float controlPeriod,
-                      const ThrustPulsingRegime regime) {
-    const auto config = BuildThrusterArrayConfig(configTuple);
-    const auto& [numThrusters, positions, directions, maxThrusts] = configTuple;
+void ReInitializeClearsState(const ThrusterConfigTuple& configTuple,
+                             const std::vector<float>& forces,
+                             const float thrMinFireTime,
+                             const float controlPeriod,
+                             const ThrustPulsingRegime regime) {
+    const auto thrusterArray = BuildThrusterArray(configTuple);
+    const auto& [numThrusters, maxThrusts] = configTuple;
     const auto thrForceCmd = BuildThrusterForceCmd(numThrusters, forces);
 
-    ThrFiringRemainderAlgorithm algorithm{};
-    algorithm.setThrMinFireTime(thrMinFireTime);
-    algorithm.setControlPeriod(controlPeriod);
-    algorithm.setThrustPulsingRegime(regime);
-    algorithm.setOnTimeSaturationFactor(kOnTimeOversaturationFactor);
-    algorithm.setThrusters(config);
+    ThrFiringRemainderAlgorithm algorithm = MakeAlgorithm(thrusterArray, thrMinFireTime, controlPeriod, regime);
 
     // First run
-    algorithm.reset();
     const auto [onTimeRequest1] = algorithm.update(thrForceCmd);
 
     // Run a few more updates to accumulate state
     algorithm.update(thrForceCmd);
     algorithm.update(thrForceCmd);
 
-    // Reset and run again
-    algorithm.setThrusters(config);
-    algorithm.reset();
+    // Re-initialize and run again
+    algorithm.reInitialize();
     const auto [onTimeRequest2] = algorithm.update(thrForceCmd);
 
     for (size_t i = 0; i < numThrusters; i++) {
-        EXPECT_FLOAT_EQ(onTimeRequest1[i], onTimeRequest2[i]) << "onTimeRequest[" << i << "] differs after reset";
+        EXPECT_FLOAT_EQ(onTimeRequest1[i], onTimeRequest2[i])
+            << "onTimeRequest[" << i << "] differs after reInitialize";
     }
 }
 
-FUZZ_TEST(ThrFiringRemainderProperties, ResetClearsState)
+FUZZ_TEST(ThrFiringRemainderProperties, ReInitializeClearsState)
     .WithDomains(ThrusterConfigDomain(),
                  fuzztest::VectorOf(fuzztest::InRange(-1e3F, 1e3F)).WithMaxSize(MAX_EFF_CNT),
                  fuzztest::InRange(1e-6F, 1.0F),
@@ -310,8 +274,8 @@ FUZZ_TEST(ThrFiringRemainderProperties, ResetClearsState)
 void SmallRequestsEventuallyFire(const ThrusterConfigTuple& configTuple,
                                  const float thrMinFireTime,
                                  const float controlPeriod) {
-    const auto config = BuildThrusterArrayConfig(configTuple);
-    const auto& [numThrusters, positions, directions, maxThrusts] = configTuple;
+    const auto thrusterArray = BuildThrusterArray(configTuple);
+    const auto& [numThrusters, maxThrusts] = configTuple;
 
     // Create small but non-zero forces (40% of what would produce thrMinFireTime on-time)
     ThrusterForceCmd thrForceCmd{};
@@ -322,13 +286,8 @@ void SmallRequestsEventuallyFire(const ThrusterConfigTuple& configTuple,
         thrForceCmd.thrForce[i] = (targetOnTime / controlPeriod) * maxThrusts[i];
     }
 
-    ThrFiringRemainderAlgorithm algorithm{};
-    algorithm.setThrMinFireTime(thrMinFireTime);
-    algorithm.setControlPeriod(controlPeriod);
-    algorithm.setThrustPulsingRegime(ThrustPulsingRegime::ON_PULSING);
-    algorithm.setOnTimeSaturationFactor(kOnTimeOversaturationFactor);
-    algorithm.setThrusters(config);
-    algorithm.reset();
+    ThrFiringRemainderAlgorithm algorithm =
+        MakeAlgorithm(thrusterArray, thrMinFireTime, controlPeriod, ThrustPulsingRegime::ON_PULSING);
 
     // Run multiple updates - remainder should accumulate and eventually fire
     bool anyFired = false;

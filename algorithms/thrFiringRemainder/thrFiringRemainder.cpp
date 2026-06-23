@@ -2,8 +2,10 @@
 
 #include "msgPayloadDef/THRArrayCmdForceMsgF32Payload.h"
 #include "msgPayloadDef/THRArrayConfigMsgF32Payload.h"
+#include "utilities/xmera/xmeraLifecycleException.h"
 
 #include <algorithm>
+#include <memory>
 #include <stdexcept>
 
 /*! This method performs a complete reset of the module.  Local module variables that retain
@@ -20,20 +22,26 @@ void ThrFiringRemainder::reset(uint64_t callTime) {
         throw std::invalid_argument("thrFiringRemainder.thrForceInMsg wasn't connected.");
     }
 
-    /*! - read in the support messages and map to freestanding type */
+    /*! - read in the thruster configuration message and map to the validated thruster array */
     const auto [numThrusters, thrusters] = this->thrConfInMsg();
-    ThrusterArrayConfig thrusterConfig{};
-    thrusterConfig.numThrusters = numThrusters;
-    for (std::uint32_t i = 0; i < numThrusters; ++i) {
-        thrusterConfig.thrusters.at(i).rThrust_B = {
-            thrusters[i].rThrust_B[0], thrusters[i].rThrust_B[1], thrusters[i].rThrust_B[2]};
-        thrusterConfig.thrusters.at(i).tHatThrust_B = {
-            thrusters[i].tHatThrust_B[0], thrusters[i].tHatThrust_B[1], thrusters[i].tHatThrust_B[2]};
-        thrusterConfig.thrusters.at(i).maxThrust = thrusters[i].maxThrust;
+    ThrFiringRemainderThrusterArray thrusterArray{};
+    thrusterArray.numThrusters = numThrusters;
+    for (std::uint32_t i = 0U; i < numThrusters && i < kMaxThrusterCount; ++i) {
+        thrusterArray.maxThrust.at(i) = thrusters[i].maxThrust;
     }
 
-    this->algorithm.setThrusters(thrusterConfig);
-    this->algorithm.reset();
+    const ThrFiringControlParameters controlParameters{
+        this->thrMinFireTime, this->controlPeriod, this->onTimeSaturationFactor, this->thrustPulsingRegime};
+
+    const auto config = ThrFiringRemainderConfig::create(thrusterArray, controlParameters);
+    this->algorithm = std::make_unique<ThrFiringRemainderAlgorithm>(config);
+}
+
+void ThrFiringRemainder::reInitialize() {
+    if (!this->algorithm) {
+        throw XmeraLifecycleException("ThrFiringRemainder reset() has not been called.");
+    }
+    this->algorithm->reInitialize();
 }
 
 /*! This method maps the input thruster command forces into thruster on times using a remainder tracking logic.
@@ -41,70 +49,20 @@ void ThrFiringRemainder::reset(uint64_t callTime) {
  @param callTime The clock time at which the function was called (nanoseconds)
  */
 void ThrFiringRemainder::updateState(const uint64_t callTime) {
+    if (!this->algorithm) {
+        throw XmeraLifecycleException("ThrFiringRemainder reset() has not been called.");
+    }
+
     /*! - read in the force command message and map to freestanding type */
     const auto [thrForce] = this->thrForceInMsg();
     ThrusterForceCmd thrusterForceCmd{};
     std::ranges::copy(thrForce, thrusterForceCmd.thrForce.begin());
 
     /*! - call algorithm update */
-    const auto [onTimeRequest] = this->algorithm.update(thrusterForceCmd);
+    const auto [onTimeRequest] = this->algorithm->update(thrusterForceCmd);
 
     /*! - map freestanding type back to message payload and write */
     THRArrayOnTimeCmdMsgF32Payload onTimeMsgOut{};
     std::ranges::copy(onTimeRequest, onTimeMsgOut.onTimeRequest);
-    this->onTimeOutMsg.write(&onTimeMsgOut, this->moduleID, callTime);
+    this->onTimeOutMsg.write(onTimeMsgOut, this->moduleID, callTime);
 }
-
-/*! Setter method for thrMinFireTime.
- @return void
- @param thrMinFireTime
-*/
-void ThrFiringRemainder::setThrMinFireTime(const double thrMinFireTime) {
-    this->algorithm.setThrMinFireTime(static_cast<float>(thrMinFireTime));
-}
-
-/*! Getter method for thrMinFireTime.
- @return const double
-*/
-double ThrFiringRemainder::getThrMinFireTime() const { return this->algorithm.getThrMinFireTime(); }
-
-/*! Setter method for thrustPulsingRegime.
- @return void
- @param thrustPulsingRegime
-*/
-void ThrFiringRemainder::setThrustPulsingRegime(const ThrustPulsingRegime thrustPulsingRegime) {
-    this->algorithm.setThrustPulsingRegime(thrustPulsingRegime);
-}
-
-/*! Getter method for thrustPulsingRegime.
- @return ThrustPulsingRegime
-*/
-ThrustPulsingRegime ThrFiringRemainder::getThrustPulsingRegime() const {
-    return this->algorithm.getThrustPulsingRegime();
-}
-
-/*! Setter method for controlPeriod.
- @return void
- @param controlPeriod
-*/
-void ThrFiringRemainder::setControlPeriod(const double controlPeriod) {
-    this->algorithm.setControlPeriod(static_cast<float>(controlPeriod));
-}
-
-/*! Getter method for controlPeriod.
- @return const double
-*/
-double ThrFiringRemainder::getControlPeriod() const { return this->algorithm.getControlPeriod(); }
-
-/*! Setter method for onTimeSaturationFactor.
- @return void
- @param factor [-] Factor to multiply the control period by when ontime is saturated
-*/
-void ThrFiringRemainder::setOnTimeSaturationFactor(const double factor) {
-    this->algorithm.setOnTimeSaturationFactor(static_cast<float>(factor));
-}
-
-/*! Getter method for onTimeSaturationFactor.
- @return const double
-*/
-double ThrFiringRemainder::getOnTimeSaturationFactor() const { return this->algorithm.getOnTimeSaturationFactor(); }
