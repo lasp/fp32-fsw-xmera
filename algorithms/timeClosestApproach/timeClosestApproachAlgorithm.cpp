@@ -1,6 +1,3 @@
-// SPDX-License-Identifier: ISC
-// Copyright (c) 2025, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
-
 #include "timeClosestApproachAlgorithm.h"
 #include "utilities/fsw/freestandingIsFinite.hpp"
 #include "utilities/fsw/safeMath.h"
@@ -15,12 +12,10 @@ void TimeClosestApproachAlgorithm::setConfig(const TimeClosestApproachConfig& co
  @param filterCovariance filter covariance
  @return the predicted time of closest approach [s] and its standard deviation [s]
 */
-// NOLINTBEGIN(readability-convert-member-functions-to-static)
-TimeClosestApproachOutput TimeClosestApproachAlgorithm::update(
-    const Eigen::Vector3d& r_BN_N,
-    const Eigen::Vector3d& v_BN_N,
-    const Eigen::Matrix<double, 6, 6>& filterCovariance) const {
-    TimeClosestApproachOutput algo_output{.tCA = 0.0F, .sigmaTca = 0.0F};
+TimeClosestApproachOutput TimeClosestApproachAlgorithm::update(const Eigen::Vector3d& r_BN_N,
+                                                               const Eigen::Vector3d& v_BN_N,
+                                                               const Eigen::Matrix<double, 6, 6>& filterCovariance) {
+    TimeClosestApproachOutput algoOutput{.tCA = 0.0F, .sigmaTca = 0.0F};
 
     double const r_BN_N_norm = r_BN_N.stableNorm();
     double const v_BN_N_norm = v_BN_N.stableNorm();
@@ -30,23 +25,21 @@ TimeClosestApproachOutput TimeClosestApproachAlgorithm::update(
         Eigen::Vector3d const v_BN_N_hat = v_BN_N / v_BN_N_norm;
         double sinFPA = r_BN_N_hat.dot(v_BN_N_hat);
         sinFPA = std::max(-1.0, std::min(1.0, sinFPA));
-        const auto tCA_predict = static_cast<float>(-sinFPA / ratio);
+        const auto tCABuffer = static_cast<float>(-sinFPA / ratio);
 
-        if (fsw::is_finite(tCA_predict)) {
-            algo_output.tCA = tCA_predict;
+        if (fsw::is_finite(tCABuffer)) {
+            algoOutput.tCA = tCABuffer;
 
-            Eigen::Matrix<double, 6, 1> covariance_map_to_tca;
-            covariance_map_to_tca.head(3) = (v_BN_N_hat / r_BN_N_norm);
-            covariance_map_to_tca.tail(3) = ((r_BN_N_hat - sinFPA * v_BN_N_hat) / v_BN_N_norm);
-            const double mappedCovariance =
-                covariance_map_to_tca.transpose() * filterCovariance * covariance_map_to_tca;
+            Eigen::Matrix<double, 6, 1> covarianceMapToTca;
+            covarianceMapToTca.head(3) = (v_BN_N_hat / r_BN_N_norm);
+            covarianceMapToTca.tail(3) = ((r_BN_N_hat - sinFPA * v_BN_N_hat) / v_BN_N_norm);
+            const double mappedCovariance = covarianceMapToTca.transpose() * filterCovariance * covarianceMapToTca;
             const auto tCA_covariance = static_cast<float>(mappedCovariance / (ratio * ratio));
             if (fsw::is_finite(tCA_covariance)) {
-                algo_output.sigmaTca = safeSqrtf(tCA_covariance);
+                algoOutput.sigmaTca = safeSqrtf(tCA_covariance);
             }
         }
     }
 
-    return algo_output;
+    return algoOutput;
 }
-// NOLINTEND(readability-convert-member-functions-to-static)

@@ -1,6 +1,3 @@
-// SPDX-License-Identifier: ISC
-// Copyright (c) 2025, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
-
 #ifndef F32XMERA_TIME_CA_ALGORITHM_H
 #define F32XMERA_TIME_CA_ALGORITHM_H
 
@@ -31,13 +28,12 @@ class TimeClosestApproachAlgorithm final {
 
     void setConfig(const TimeClosestApproachConfig& config);
 
-    // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
-    TimeClosestApproachOutput update(const Eigen::Vector3d& r_BN_N,
-                                     const Eigen::Vector3d& v_BN_N,
-                                     const Eigen::Matrix<double, 6, 6>& filterCovariance) const;
+    static TimeClosestApproachOutput update(const Eigen::Vector3d& r_BN_N,
+                                            const Eigen::Vector3d& v_BN_N,
+                                            const Eigen::Matrix<double, 6, 6>& filterCovariance);
 
    private:
-    TimeClosestApproachConfig cfg;
+    [[no_unique_address]] TimeClosestApproachConfig cfg;
 };
 
 #endif
