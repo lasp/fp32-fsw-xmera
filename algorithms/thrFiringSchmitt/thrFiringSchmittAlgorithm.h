@@ -2,10 +2,11 @@
 #define F32XMERA_THR_FIRING_SCHMITT_ALGORITHM_H
 
 #include "msgPayloadDef/definitions.h"
-#include "thrFiringSchmittTypes.h"
 #include <stdint.h>
 #include <array>
 #include <cstdint>
+
+enum class ThrustPulsingRegime : std::uint8_t { ON_PULSING = 0U, OFF_PULSING = 1U };
 
 /*! @brief Single thruster configuration */
 struct ThrusterConfig {

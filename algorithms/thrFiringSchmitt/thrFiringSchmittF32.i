@@ -18,7 +18,6 @@
 
 %include "thrFiringSchmittAlgorithm.h"
 %include "thrFiringSchmitt.h"
-%include "thrFiringSchmittTypes.h"
 
 %include "msgPayloadDef/THRArrayConfigMsgF32Payload.h"
 %include "msgPayloadDef/THRArrayCmdForceMsgF32Payload.h"
