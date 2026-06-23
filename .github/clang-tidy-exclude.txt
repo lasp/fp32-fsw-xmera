@@ -93,6 +93,8 @@ algorithms/sunAvoidance/sunAvoidanceAlgorithm_c.h
 algorithms/sunAvoidance/sunAvoidanceAlgorithm_c.cpp
 algorithms/thrFiringRemainder/thrFiringRemainder.h
 algorithms/thrFiringRemainder/thrFiringRemainder.cpp
+algorithms/thrFiringRemainder/thrFiringRemainderAlgorithm_c.h
+algorithms/thrFiringRemainder/thrFiringRemainderAlgorithm_c.cpp
 algorithms/thrFiringSchmitt/thrFiringSchmitt.h
 algorithms/thrFiringSchmitt/thrFiringSchmitt.cpp
 algorithms/timeClosestApproach/timeClosestApproach.h
