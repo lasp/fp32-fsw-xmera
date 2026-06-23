@@ -3,6 +3,7 @@
 
 #include "timeClosestApproach.h"
 #include "utilities/xmera/xmeraLifecycleException.h"
+#include <architecture/utilities/eigenSupport.h>
 
 /*! Write output messages.
 * @return void

@@ -6,11 +6,7 @@
 #include "utilities/fsw/safeMath.h"
 
 #include <gtest/gtest.h>
-#include <Eigen/Core>
-#include <Eigen/Eigenvalues>
 #include <cmath>
-#include <cstdint>
-#include <limits>
 
 struct ReferenceTimeClosestApproachOutput {
     double tCA{};

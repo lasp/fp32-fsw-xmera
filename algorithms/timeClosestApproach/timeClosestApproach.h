@@ -10,9 +10,6 @@
 #include "msgPayloadDef/TimeClosestApproachMsgF32Payload.h"
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
-#include <architecture/utilities/eigenSupport.h>
-
-#include <Eigen/Core>
 #include <memory>
 
 /*! @brief A class to perform time of closest approach estimation during a rectilinear flyby */
