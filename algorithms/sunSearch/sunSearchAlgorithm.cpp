@@ -2,7 +2,7 @@
 
 #include "utilities/fsw/timeConstants.h"
 
-SunSearchAlgorithm::SunSearchAlgorithm(const SunSearchConfig& config) : cfg(config) { this->precomputeEndTimes(); }
+SunSearchAlgorithm::SunSearchAlgorithm(const SunSearchConfig& config) : cfg(config) { setConfig(config); }
 
 void SunSearchAlgorithm::setConfig(const SunSearchConfig& config) {
     this->cfg = config;
