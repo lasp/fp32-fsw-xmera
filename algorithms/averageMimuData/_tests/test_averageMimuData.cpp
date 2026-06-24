@@ -1,26 +1,23 @@
 #include "averageMimuDataTestHelpers.hpp"
-#include "utilities/fsw/freestandingInvalidArgument.h"
-#include "utilities/fsw/timeConstants.h"
 #include <gtest/gtest.h>
+#include <utilities/fsw/freestandingInvalidArgument.h>
+#include <utilities/fsw/timeConstants.h>
 
 #include <array>
 
 namespace {
-
 // Sample period in nanoseconds (10 ms at 100 Hz).
 constexpr std::uint64_t kPeriodNs = AverageMimuDataAlgorithm::kMimuSamplePeriodNs;
 constexpr std::size_t kSamplesPerPkt = MAX_MIMU_SAMPLES_PER_PKT_C;
 
 // Build a 10-element gyro array where sample s = base + s * step.
-inline std::array<Eigen::Vector3f, kSamplesPerPkt>
-makeRamp(Eigen::Vector3f const& base, Eigen::Vector3f const& step) {
+inline std::array<Eigen::Vector3f, kSamplesPerPkt> makeRamp(Eigen::Vector3f const& base, Eigen::Vector3f const& step) {
     std::array<Eigen::Vector3f, kSamplesPerPkt> out{};
     for (std::size_t s = 0; s < kSamplesPerPkt; ++s) {
-        out[s] = base + (static_cast<float>(s) * step);
+        out.at(s) = base + (static_cast<float>(s) * step);
     }
     return out;
 }
-
 }  // namespace
 
 TEST(averageMimuDataTest, RegressionTest) {
@@ -41,7 +38,7 @@ TEST(averageMimuDataTest, PropertyKnownSolution) {
     // single packet (ages 30, 20, 10, 0 ms within the packet's 90 ms span).
     AverageMimuDataAlgorithm alg;
     Eigen::Matrix3f dcm_BP;
-    dcm_BP << 0.f, -1.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f;  // 90 deg about +Z
+    dcm_BP << 0.0F, -1.0F, 0.0F, 1.0F, 0.0F, 0.0F, 0.0F, 0.0F, 1.0F;  // 90 deg about +Z
     alg.setDcmPltfToBdy(dcm_BP);
     alg.setGyroAveragingWindow(0.035);
     alg.setAccelAveragingWindow(0.035);
@@ -50,12 +47,12 @@ TEST(averageMimuDataTest, PropertyKnownSolution) {
     std::array<Eigen::Vector3f, kSamplesPerPkt> gyros{};
     std::array<Eigen::Vector3f, kSamplesPerPkt> accels{};
     for (std::size_t s = 0; s < kSamplesPerPkt; ++s) {
-        gyros[s] = Eigen::Vector3f{static_cast<float>(s), 2.f * static_cast<float>(s), 3.f * static_cast<float>(s)};
-        accels[s] = Eigen::Vector3f{4.f, static_cast<float>(s), 0.f};
+        gyros[s] = Eigen::Vector3f{static_cast<float>(s), 2.0F * static_cast<float>(s), 3.0F * static_cast<float>(s)};
+        accels[s] = Eigen::Vector3f{4.0F, static_cast<float>(s), 0.0F};
     }
     fillPacket(in, 0, kSec2Nano, gyros, accels);
 
-    const OutputAverageAccelAngleVel out = alg.update(in);
+    const auto [accel_B, gyroOmega_B] = alg.update(in);
 
     // Samples 6..9 qualify (ages 30, 20, 10, 0 ms from maxTimeTag = first + 90ms).
     Eigen::Vector3f gyroSum_P = Eigen::Vector3f::Zero();
@@ -64,11 +61,11 @@ TEST(averageMimuDataTest, PropertyKnownSolution) {
         gyroSum_P += gyros[s];
         accelSum_P += accels[s];
     }
-    const Eigen::Vector3f gyroTrue_B = dcm_BP * (gyroSum_P / 4.F);
-    const Eigen::Vector3f accTrue_B = dcm_BP * (accelSum_P / 4.F);
+    const Eigen::Vector3f gyroTrue_B = dcm_BP * (gyroSum_P / 4.0F);
+    const Eigen::Vector3f accTrue_B = dcm_BP * (accelSum_P / 4.0F);
 
-    EXPECT_EQ(out.gyroOmega_B, gyroTrue_B);
-    EXPECT_EQ(out.accel_B, accTrue_B);
+    EXPECT_EQ(gyroOmega_B, gyroTrue_B);
+    EXPECT_EQ(accel_B, accTrue_B);
 }
 
 TEST(averageMimuDataTest, SeparateGyroAccelWindows) {
@@ -136,7 +133,7 @@ TEST(averageMimuDataTest, PropertyZeroAveragingWindow) {
     // window = 0 -> only the last sample (sample 9, at maxTimeTag) qualifies.
     AverageMimuDataAlgorithm alg;
     Eigen::Matrix3f dcm_BP;
-    dcm_BP << 0.f, -1.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f;
+    dcm_BP << 0.0F, -1.0F, 0.0F, 1.0F, 0.0F, 0.0F, 0.0F, 0.0F, 1.0F;
     alg.setDcmPltfToBdy(dcm_BP);
     alg.setGyroAveragingWindow(0.0);
     alg.setAccelAveragingWindow(0.0);
@@ -145,15 +142,15 @@ TEST(averageMimuDataTest, PropertyZeroAveragingWindow) {
     std::array<Eigen::Vector3f, kSamplesPerPkt> gyros{};
     std::array<Eigen::Vector3f, kSamplesPerPkt> accels{};
     for (std::size_t s = 0; s < kSamplesPerPkt; ++s) {
-        gyros[s] = Eigen::Vector3f{static_cast<float>(s + 1), 2.f, 3.f};
-        accels[s] = Eigen::Vector3f{4.f, static_cast<float>(s + 1), 0.f};
+        gyros[s] = Eigen::Vector3f{static_cast<float>(s + 1), 2.0F, 3.0F};
+        accels[s] = Eigen::Vector3f{4.0F, static_cast<float>(s + 1), 0.0F};
     }
     fillPacket(in, 0, kSec2Nano, gyros, accels);
 
-    const OutputAverageAccelAngleVel out = alg.update(in);
+    const auto [accel_B, gyroOmega_B] = alg.update(in);
 
-    EXPECT_EQ(out.gyroOmega_B, dcm_BP * gyros[9]);
-    EXPECT_EQ(out.accel_B, dcm_BP * accels[9]);
+    EXPECT_EQ(gyroOmega_B, dcm_BP * gyros[9]);
+    EXPECT_EQ(accel_B, dcm_BP * accels[9]);
 }
 
 TEST(averageMimuDataTest, EmptyRingReturnsZero) {
@@ -180,14 +177,14 @@ TEST(averageMimuDataTest, ZeroMeasTimePacketSkipped) {
     std::array<Eigen::Vector3f, kSamplesPerPkt> gyros{};
     std::array<Eigen::Vector3f, kSamplesPerPkt> accels{};
     for (std::size_t s = 0; s < kSamplesPerPkt; ++s) {
-        gyros[s] = Eigen::Vector3f{1.f, 2.f, 3.f};
-        accels[s] = Eigen::Vector3f{4.f, 5.f, 6.f};
+        gyros[s] = Eigen::Vector3f{1.0F, 2.0F, 3.0F};
+        accels[s] = Eigen::Vector3f{4.0F, 5.0F, 6.0F};
     }
     fillPacket(in, 0, 0U, gyros, accels);  // measTime=0 -> skipped
 
-    const OutputAverageAccelAngleVel out = alg.update(in);
-    EXPECT_EQ(out.gyroOmega_B, Eigen::Vector3f::Zero());
-    EXPECT_EQ(out.accel_B, Eigen::Vector3f::Zero());
+    const auto [accel_B, gyroOmega_B] = alg.update(in);
+    EXPECT_EQ(gyroOmega_B, Eigen::Vector3f::Zero());
+    EXPECT_EQ(accel_B, Eigen::Vector3f::Zero());
 }
 
 TEST(averageMimuDataTest, InvalidPacketSkipsAllItsSamples) {
@@ -200,8 +197,8 @@ TEST(averageMimuDataTest, InvalidPacketSkipsAllItsSamples) {
     InputPktsData in{};
     std::array<Eigen::Vector3f, kSamplesPerPkt> gyrosLoud{};
     std::array<Eigen::Vector3f, kSamplesPerPkt> accelsLoud{};
-    gyrosLoud.fill(Eigen::Vector3f{99.f, 99.f, 99.f});
-    accelsLoud.fill(Eigen::Vector3f{99.f, 99.f, 99.f});
+    gyrosLoud.fill(Eigen::Vector3f{99.0F, 99.0F, 99.0F});
+    accelsLoud.fill(Eigen::Vector3f{99.0F, 99.0F, 99.0F});
 
     // Packet 0: data set but isValid stays false.
     in.packets[0].isValid = false;
@@ -214,13 +211,13 @@ TEST(averageMimuDataTest, InvalidPacketSkipsAllItsSamples) {
     // Packet 1: valid; flat ramp.
     std::array<Eigen::Vector3f, kSamplesPerPkt> gyrosQuiet{};
     std::array<Eigen::Vector3f, kSamplesPerPkt> accelsQuiet{};
-    gyrosQuiet.fill(Eigen::Vector3f{1.f, 1.f, 1.f});
-    accelsQuiet.fill(Eigen::Vector3f{2.f, 2.f, 2.f});
+    gyrosQuiet.fill(Eigen::Vector3f{1.0F, 1.0F, 1.0F});
+    accelsQuiet.fill(Eigen::Vector3f{2.0F, 2.0F, 2.0F});
     fillPacket(in, 1, kSec2Nano + 100U, gyrosQuiet, accelsQuiet);
 
-    const OutputAverageAccelAngleVel out = alg.update(in);
-    EXPECT_EQ(out.gyroOmega_B, gyrosQuiet[0]);
-    EXPECT_EQ(out.accel_B, accelsQuiet[0]);
+    const auto [accel_B, gyroOmega_B] = alg.update(in);
+    EXPECT_EQ(gyroOmega_B, gyrosQuiet[0]);
+    EXPECT_EQ(accel_B, accelsQuiet[0]);
 }
 
 TEST(averageMimuDataTest, AveragesAcrossMultiplePackets) {
@@ -235,21 +232,21 @@ TEST(averageMimuDataTest, AveragesAcrossMultiplePackets) {
     std::array<Eigen::Vector3f, kSamplesPerPkt> a0{};
     std::array<Eigen::Vector3f, kSamplesPerPkt> g2{};
     std::array<Eigen::Vector3f, kSamplesPerPkt> a2{};
-    g0.fill(Eigen::Vector3f{1.f, 0.f, 0.f});
-    a0.fill(Eigen::Vector3f{1.f, 1.f, 0.f});
-    g2.fill(Eigen::Vector3f{0.f, 1.f, 0.f});
-    a2.fill(Eigen::Vector3f{0.f, 1.f, 1.f});
+    g0.fill(Eigen::Vector3f{1.0F, 0.0F, 0.0F});
+    a0.fill(Eigen::Vector3f{1.0F, 1.0F, 0.0F});
+    g2.fill(Eigen::Vector3f{0.0F, 1.0F, 0.0F});
+    a2.fill(Eigen::Vector3f{0.0F, 1.0F, 1.0F});
 
     // Packet 0 at t_ref, packet 2 one packet-span later so both fit in the 1 s window.
     fillPacket(in, 0, kSec2Nano, g0, a0);
     fillPacket(in, 2, kSec2Nano + (kPeriodNs * kSamplesPerPkt), g2, a2);
 
-    const OutputAverageAccelAngleVel out = alg.update(in);
+    const auto [accel_B, gyroOmega_B] = alg.update(in);
 
-    const Eigen::Vector3f gyroExpected = (g0[0] + g2[0]) / 2.f;
-    const Eigen::Vector3f accExpected = (a0[0] + a2[0]) / 2.f;
-    EXPECT_EQ(out.gyroOmega_B, gyroExpected);
-    EXPECT_EQ(out.accel_B, accExpected);
+    const Eigen::Vector3f gyroExpected = (g0[0] + g2[0]) / 2.0F;
+    const Eigen::Vector3f accExpected = (a0[0] + a2[0]) / 2.0F;
+    EXPECT_EQ(gyroOmega_B, gyroExpected);
+    EXPECT_EQ(accel_B, accExpected);
 }
 
 TEST(averageMimuDataTest, RingBufferFillSequence) {
@@ -267,7 +264,7 @@ TEST(averageMimuDataTest, RingBufferFillSequence) {
 
     // Step 1: empty buffer -> zero output.
     {
-        InputPktsData in{};
+        const InputPktsData in{};
         const OutputAverageAccelAngleVel out_alg = alg.update(in);
         const OutputAverageAccelAngleVel out_ref = ref.update(in);
         EXPECT_EQ(out_alg.gyroOmega_B, Eigen::Vector3f::Zero());
@@ -281,9 +278,9 @@ TEST(averageMimuDataTest, RingBufferFillSequence) {
         std::array<Eigen::Vector3f, kSamplesPerPkt> gyros{};
         std::array<Eigen::Vector3f, kSamplesPerPkt> accels{};
         for (std::size_t s = 0; s < kSamplesPerPkt; ++s) {
-            const float v = static_cast<float>((cycle * kSamplesPerPkt) + s);
-            gyros[s] = Eigen::Vector3f{v, v + 1.f, v + 2.f};
-            accels[s] = Eigen::Vector3f{v + 0.5f, v + 1.5f, v + 2.5f};
+            const auto v = static_cast<float>((cycle * kSamplesPerPkt) + s);
+            gyros[s] = Eigen::Vector3f{v, v + 1.0F, v + 2.0F};
+            accels[s] = Eigen::Vector3f{v + 0.5F, v + 1.5F, v + 2.5F};
         }
         fillPacket(in, 0, t_base + (cycle * packetSpan), gyros, accels);
         const OutputAverageAccelAngleVel out_alg = alg.update(in);
@@ -298,16 +295,16 @@ TEST(averageMimuDataTest, SetupTest) {
 
     EXPECT_THROW(alg.setGyroAveragingWindow(-0.1), fsw::invalid_argument);
     EXPECT_NO_THROW(alg.setGyroAveragingWindow(static_cast<double>(AverageMimuDataAlgorithm::kMaxAveragingWindowSec)));
-    EXPECT_THROW(alg.setGyroAveragingWindow(
-                     static_cast<double>(AverageMimuDataAlgorithm::kMaxAveragingWindowSec) + 0.001),
-                 fsw::invalid_argument);
+    EXPECT_THROW(
+        alg.setGyroAveragingWindow(static_cast<double>(AverageMimuDataAlgorithm::kMaxAveragingWindowSec) + 0.001),
+        fsw::invalid_argument);
     EXPECT_NO_THROW(alg.setGyroAveragingWindow(0.25));
 
     EXPECT_THROW(alg.setAccelAveragingWindow(-0.1), fsw::invalid_argument);
     EXPECT_NO_THROW(alg.setAccelAveragingWindow(static_cast<double>(AverageMimuDataAlgorithm::kMaxAveragingWindowSec)));
-    EXPECT_THROW(alg.setAccelAveragingWindow(
-                     static_cast<double>(AverageMimuDataAlgorithm::kMaxAveragingWindowSec) + 0.001),
-                 fsw::invalid_argument);
+    EXPECT_THROW(
+        alg.setAccelAveragingWindow(static_cast<double>(AverageMimuDataAlgorithm::kMaxAveragingWindowSec) + 0.001),
+        fsw::invalid_argument);
     EXPECT_NO_THROW(alg.setAccelAveragingWindow(0.5));
 
     Eigen::Matrix3f badOrtho = Eigen::Matrix3f::Identity();
@@ -326,8 +323,8 @@ TEST(averageMimuDataTest, SetupTest) {
     InputPktsData in{};
     std::array<Eigen::Vector3f, kSamplesPerPkt> gyros{};
     std::array<Eigen::Vector3f, kSamplesPerPkt> accels{};
-    gyros.fill(Eigen::Vector3f{1.0f, 2.0f, 3.0f});
-    accels.fill(Eigen::Vector3f{4.0f, 5.0f, 6.0f});
+    gyros.fill(Eigen::Vector3f{1.0F, 2.0F, 3.0F});
+    accels.fill(Eigen::Vector3f{4.0F, 5.0F, 6.0F});
     fillPacket(in, 0, kSec2Nano, gyros, accels);
 
     EXPECT_NO_THROW((void)alg.update(in));
@@ -343,8 +340,8 @@ TEST(averageMimuDataTest, StrictMonotonicDropsRepeatedSnapshot) {
     InputPktsData in{};
     std::array<Eigen::Vector3f, kSamplesPerPkt> gyros{};
     std::array<Eigen::Vector3f, kSamplesPerPkt> accels{};
-    gyros.fill(Eigen::Vector3f{1.f, 2.f, 3.f});
-    accels.fill(Eigen::Vector3f{4.f, 5.f, 6.f});
+    gyros.fill(Eigen::Vector3f{1.0F, 2.0F, 3.0F});
+    accels.fill(Eigen::Vector3f{4.0F, 5.0F, 6.0F});
     fillPacket(in, 0, kSec2Nano, gyros, accels);
 
     const OutputAverageAccelAngleVel out_first = alg.update(in);
@@ -377,10 +374,10 @@ TEST(averageMimuDataTest, OverflowOverwritesOldest) {
         std::array<Eigen::Vector3f, kSamplesPerPkt> gyros{};
         std::array<Eigen::Vector3f, kSamplesPerPkt> accels{};
         for (std::size_t s = 0; s < kSamplesPerPkt; ++s) {
-            const float fi = static_cast<float>(i);
-            const float fs = static_cast<float>(s);
+            const auto fi = static_cast<float>(i);
+            const auto fs = static_cast<float>(s);
             gyros[s] = Eigen::Vector3f{fi, fs, fi + fs};
-            accels[s] = Eigen::Vector3f{fi - fs, fi + 1.f, fs + 1.f};
+            accels[s] = Eigen::Vector3f{fi - fs, fi + 1.0F, fs + 1.0F};
             if (i >= kPacketsToFeed - AverageMimuDataAlgorithm::kRingCapacity) {
                 gyroSumRetained += gyros[s];
                 accelSumRetained += accels[s];
@@ -406,12 +403,12 @@ TEST(averageMimuDataTest, EmptySnapshotReEmitsRingAverage) {
     InputPktsData in{};
     std::array<Eigen::Vector3f, kSamplesPerPkt> gyros{};
     std::array<Eigen::Vector3f, kSamplesPerPkt> accels{};
-    gyros.fill(Eigen::Vector3f{1.f, -2.f, 3.f});
-    accels.fill(Eigen::Vector3f{4.f, -5.f, 6.f});
+    gyros.fill(Eigen::Vector3f{1.0F, -2.0F, 3.0F});
+    accels.fill(Eigen::Vector3f{4.0F, -5.0F, 6.0F});
     fillPacket(in, 0, kSec2Nano, gyros, accels);
     const OutputAverageAccelAngleVel out_first = alg.update(in);
 
-    InputPktsData empty{};
+    const InputPktsData empty{};
     const OutputAverageAccelAngleVel out_second = alg.update(empty);
 
     EXPECT_EQ(out_second.gyroOmega_B, out_first.gyroOmega_B);
@@ -430,16 +427,16 @@ TEST(averageMimuDataTest, WindowShrinkMidStream) {
     InputPktsData in1{};
     std::array<Eigen::Vector3f, kSamplesPerPkt> gOld{};
     std::array<Eigen::Vector3f, kSamplesPerPkt> aOld{};
-    gOld.fill(Eigen::Vector3f{2.f, 4.f, 6.f});
-    aOld.fill(Eigen::Vector3f{8.f, 10.f, 12.f});
+    gOld.fill(Eigen::Vector3f{2.0F, 4.0F, 6.0F});
+    aOld.fill(Eigen::Vector3f{8.0F, 10.0F, 12.0F});
     fillPacket(in1, 0, kSec2Nano, gOld, aOld);
     (void)alg.update(in1);
 
     InputPktsData in2{};
     std::array<Eigen::Vector3f, kSamplesPerPkt> gNew{};
     std::array<Eigen::Vector3f, kSamplesPerPkt> aNew{};
-    gNew.fill(Eigen::Vector3f{1.f, 3.f, 5.f});
-    aNew.fill(Eigen::Vector3f{7.f, 9.f, 11.f});
+    gNew.fill(Eigen::Vector3f{1.0F, 3.0F, 5.0F});
+    aNew.fill(Eigen::Vector3f{7.0F, 9.0F, 11.0F});
     // 500 ms later: still within wide window for now.
     fillPacket(in2, 0, kSec2Nano + (50U * kPeriodNs), gNew, aNew);
     (void)alg.update(in2);
@@ -448,10 +445,10 @@ TEST(averageMimuDataTest, WindowShrinkMidStream) {
     // maxTimeTag) drop out. New packet's 10 samples all qualify.
     alg.setGyroAveragingWindow(0.1);
     alg.setAccelAveragingWindow(0.1);
-    InputPktsData empty{};
-    const OutputAverageAccelAngleVel out = alg.update(empty);
-    EXPECT_EQ(out.gyroOmega_B, gNew[0]);
-    EXPECT_EQ(out.accel_B, aNew[0]);
+    const InputPktsData empty{};
+    const auto [accel_B, gyroOmega_B] = alg.update(empty);
+    EXPECT_EQ(gyroOmega_B, gNew[0]);
+    EXPECT_EQ(accel_B, aNew[0]);
 }
 
 TEST(averageMimuDataTest, WindowGrowMidStream) {
@@ -464,16 +461,16 @@ TEST(averageMimuDataTest, WindowGrowMidStream) {
     InputPktsData in1{};
     std::array<Eigen::Vector3f, kSamplesPerPkt> gOld{};
     std::array<Eigen::Vector3f, kSamplesPerPkt> aOld{};
-    gOld.fill(Eigen::Vector3f{1.f, 1.f, 1.f});
-    aOld.fill(Eigen::Vector3f{2.f, 2.f, 2.f});
+    gOld.fill(Eigen::Vector3f{1.0F, 1.0F, 1.0F});
+    aOld.fill(Eigen::Vector3f{2.0F, 2.0F, 2.0F});
     fillPacket(in1, 0, kSec2Nano, gOld, aOld);
     (void)alg.update(in1);
 
     InputPktsData in2{};
     std::array<Eigen::Vector3f, kSamplesPerPkt> gNew{};
     std::array<Eigen::Vector3f, kSamplesPerPkt> aNew{};
-    gNew.fill(Eigen::Vector3f{3.f, 3.f, 3.f});
-    aNew.fill(Eigen::Vector3f{4.f, 4.f, 4.f});
+    gNew.fill(Eigen::Vector3f{3.0F, 3.0F, 3.0F});
+    aNew.fill(Eigen::Vector3f{4.0F, 4.0F, 4.0F});
     fillPacket(in2, 0, kSec2Nano + (50U * kPeriodNs), gNew, aNew);
     const OutputAverageAccelAngleVel out_tight = alg.update(in2);
 
@@ -483,11 +480,11 @@ TEST(averageMimuDataTest, WindowGrowMidStream) {
     // Grow window so both packets' samples qualify.
     alg.setGyroAveragingWindow(1.0);
     alg.setAccelAveragingWindow(1.0);
-    InputPktsData empty{};
+    const InputPktsData empty{};
     const OutputAverageAccelAngleVel out_wide = alg.update(empty);
 
-    EXPECT_EQ(out_wide.gyroOmega_B, (gOld[0] + gNew[0]) / 2.f);
-    EXPECT_EQ(out_wide.accel_B, (aOld[0] + aNew[0]) / 2.f);
+    EXPECT_EQ(out_wide.gyroOmega_B, (gOld[0] + gNew[0]) / 2.0F);
+    EXPECT_EQ(out_wide.accel_B, (aOld[0] + aNew[0]) / 2.0F);
 }
 
 TEST(averageMimuDataTest, OutOfOrderPacketDropped) {
@@ -500,16 +497,16 @@ TEST(averageMimuDataTest, OutOfOrderPacketDropped) {
     InputPktsData in1{};
     std::array<Eigen::Vector3f, kSamplesPerPkt> gOk{};
     std::array<Eigen::Vector3f, kSamplesPerPkt> aOk{};
-    gOk.fill(Eigen::Vector3f{5.f, 6.f, 7.f});
-    aOk.fill(Eigen::Vector3f{8.f, 9.f, 10.f});
+    gOk.fill(Eigen::Vector3f{5.0F, 6.0F, 7.0F});
+    aOk.fill(Eigen::Vector3f{8.0F, 9.0F, 10.0F});
     fillPacket(in1, 0, kSec2Nano, gOk, aOk);
     (void)alg.update(in1);
 
     InputPktsData in2{};
     std::array<Eigen::Vector3f, kSamplesPerPkt> gLoud{};
     std::array<Eigen::Vector3f, kSamplesPerPkt> aLoud{};
-    gLoud.fill(Eigen::Vector3f{99.f, 99.f, 99.f});
-    aLoud.fill(Eigen::Vector3f{99.f, 99.f, 99.f});
+    gLoud.fill(Eigen::Vector3f{99.0F, 99.0F, 99.0F});
+    aLoud.fill(Eigen::Vector3f{99.0F, 99.0F, 99.0F});
     fillPacket(in2, 0, kSec2Nano - (10U * kPeriodNs), gLoud, aLoud);
     const OutputAverageAccelAngleVel out = alg.update(in2);
 

@@ -1,7 +1,7 @@
 #ifndef F32XMERA_AVERAGE_MIMU_DATA_TYPES_H
 #define F32XMERA_AVERAGE_MIMU_DATA_TYPES_H
 
-#include "utilities/fsw/plainCAlgorithmDataTypes.h"
+#include <utilities/fsw/plainCAlgorithmDataTypes.h>
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -53,7 +53,6 @@ typedef struct {
     Vector3f_c accel_B;
     Vector3f_c gyroOmega_B;
 } OutputAverageAccelAngleVel_c;
-
 
 #ifdef __cplusplus
 }  // extern "C"

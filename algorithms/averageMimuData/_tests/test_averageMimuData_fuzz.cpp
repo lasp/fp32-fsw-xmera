@@ -1,7 +1,7 @@
-#include "../architecture/testUtilities/eigenFuzzDomains.hpp"
 #include "averageMimuDataTestHelpers.hpp"
 #include "averageMimuDataTypes.h"
 #include <fuzztest/fuzztest.h>
+#include <utilities/testUtilities/eigenFuzzDomains.hpp>
 
 namespace {
 auto sampleDomain() {
@@ -10,15 +10,13 @@ auto sampleDomain() {
 }
 
 auto inputPacketDomain() {
-    return fuzztest::StructOf<InputPacket>(
-        fuzztest::Arbitrary<bool>(),
-        fuzztest::Arbitrary<uint64_t>(),
-        fuzztest::ArrayOf<MAX_MIMU_SAMPLES_PER_PKT_C>(sampleDomain()));
+    return fuzztest::StructOf<InputPacket>(fuzztest::Arbitrary<bool>(),
+                                           fuzztest::Arbitrary<uint64_t>(),
+                                           fuzztest::ArrayOf<MAX_MIMU_SAMPLES_PER_PKT_C>(sampleDomain()));
 }
 
 auto inputPktsDataDomain() {
-    return fuzztest::StructOf<InputPktsData>(
-        fuzztest::ArrayOf<MAX_MIMU_PKT_C>(inputPacketDomain()));
+    return fuzztest::StructOf<InputPktsData>(fuzztest::ArrayOf<MAX_MIMU_PKT_C>(inputPacketDomain()));
 }
 }  // namespace
 

@@ -1,5 +1,5 @@
 #include "averageMimuData.h"
-#include "utilities/fsw/eigenSupport.h"
+#include <utilities/fsw/eigenSupport.h>
 
 void AverageMimuData::reset(uint64_t const callTime) {
     // check if the required message has not been connected
@@ -24,10 +24,8 @@ void AverageMimuData::updateState(uint64_t const callTime) {
         in.packets[p].measTime = packets[p].measTime;
         for (std::size_t s = 0; s < MAX_MIMU_SAMPLES_PER_PKT; ++s) {
             const auto& sample = packets[p].samples[s];
-            in.packets[p].samples[s].gyro_P =
-                Eigen::Vector3f(sample.gyro_B[0], sample.gyro_B[1], sample.gyro_B[2]);
-            in.packets[p].samples[s].accel_P =
-                Eigen::Vector3f(sample.accel_B[0], sample.accel_B[1], sample.accel_B[2]);
+            in.packets[p].samples[s].gyro_P = Eigen::Vector3f(sample.gyro_B[0], sample.gyro_B[1], sample.gyro_B[2]);
+            in.packets[p].samples[s].accel_P = Eigen::Vector3f(sample.accel_B[0], sample.accel_B[1], sample.accel_B[2]);
         }
     }
     const auto [accel_B, gyroOmega_B] = this->algorithm.update(in);

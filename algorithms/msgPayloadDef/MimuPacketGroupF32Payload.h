@@ -16,8 +16,9 @@
  *         for legacy consumers but the group-level `measTime` is the
  *         canonical timestamp for this packet. */
 typedef struct {
-    uint64_t measTime;                                          //!< [ns] First sample's measurement time
-    AccPktDataMsgF32Payload samples[MAX_MIMU_SAMPLES_PER_PKT];  //!< [-] Time-tagged MIMU samples (per-sample measTime is legacy)
+    uint64_t measTime;  //!< [ns] First sample's measurement time
+    AccPktDataMsgF32Payload
+        samples[MAX_MIMU_SAMPLES_PER_PKT];  //!< [-] Time-tagged MIMU samples (per-sample measTime is legacy)
 } MimuPacketGroupF32Payload;
 
 #endif

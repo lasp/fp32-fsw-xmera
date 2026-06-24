@@ -2,10 +2,9 @@
 #define TEST_AVERAGE_MIMU_DATA_HELPERS_H
 
 #include "averageMimuDataAlgorithm.h"
-#include "utilities/fsw/eigenSupport.h"
-#include "utilities/fsw/freestandingInvalidArgument.h"
+#include <utilities/fsw/eigenSupport.h>
+#include <utilities/fsw/freestandingInvalidArgument.h>
 
-#include <architecture/utilities/macroDefinitions.h>
 #include <gtest/gtest.h>
 
 #include <array>
@@ -18,11 +17,11 @@
  *  via getters at each update() call. */
 class ReferenceAverager {
    public:
-    explicit ReferenceAverager(AverageMimuDataAlgorithm const& alg) : alg_(alg) {}
+    explicit ReferenceAverager(AverageMimuDataAlgorithm const& alg) : alg(alg) {}
 
     OutputAverageAccelAngleVel update(InputPktsData const& localPkts) {
         // Phase 1: ingest. Freeze prior max for the duration of this call.
-        const std::uint64_t priorMax = lastIngestedMaxMeasTime_;
+        const std::uint64_t priorMax = this->lastIngestedMaxMeasTime;
         for (auto const& packet : localPkts.packets) {
             if (!packet.isValid) {
                 continue;
@@ -32,22 +31,22 @@ class ReferenceAverager {
                 continue;
             }
 
-            ring_[insertIdx_].isValid = true;
-            ring_[insertIdx_].measTime = firstSampleTime;
-            ring_[insertIdx_].samples = packet.samples;
-            insertIdx_ = (insertIdx_ + 1U) % AverageMimuDataAlgorithm::kRingCapacity;
-            lastIngestedMaxMeasTime_ = std::max(lastIngestedMaxMeasTime_, firstSampleTime);
+            this->ring[this->insertIdx].isValid = true;
+            this->ring[this->insertIdx].measTime = firstSampleTime;
+            this->ring[this->insertIdx].samples = packet.samples;
+            this->insertIdx = (this->insertIdx + 1U) % AverageMimuDataAlgorithm::kRingCapacity;
+            this->lastIngestedMaxMeasTime = std::max(this->lastIngestedMaxMeasTime, firstSampleTime);
         }
 
         // Phase 2: max-tail-time + per-modality window filter, derived sample
         // schedule. Convert each window to ns once and compare in integer.
         const std::uint64_t gyroAveragingWindowNs =
-            static_cast<std::uint64_t>(alg_.getGyroAveragingWindow() * 1.0e9);
+            static_cast<std::uint64_t>(this->alg.getGyroAveragingWindow() * 1.0e9);
         const std::uint64_t accelAveragingWindowNs =
-            static_cast<std::uint64_t>(alg_.getAccelAveragingWindow() * 1.0e9);
+            static_cast<std::uint64_t>(this->alg.getAccelAveragingWindow() * 1.0e9);
 
         std::uint64_t maxSlotMeasTime = 0U;
-        for (auto const& slot : ring_) {
+        for (auto const& slot : this->ring) {
             if (slot.isValid && (slot.measTime > maxSlotMeasTime)) {
                 maxSlotMeasTime = slot.measTime;
             }
@@ -59,15 +58,14 @@ class ReferenceAverager {
         }
 
         const std::uint64_t maxTimeTag =
-            maxSlotMeasTime
-            + ((MAX_MIMU_SAMPLES_PER_PKT_C - 1U) * AverageMimuDataAlgorithm::kMimuSamplePeriodNs);
+            maxSlotMeasTime + ((MAX_MIMU_SAMPLES_PER_PKT_C - 1U) * AverageMimuDataAlgorithm::kMimuSamplePeriodNs);
 
         Eigen::Vector3f gyroSum_P = Eigen::Vector3f::Zero();
         Eigen::Vector3f accelSum_P = Eigen::Vector3f::Zero();
         std::uint64_t gyroAvgCount = 0U;
         std::uint64_t accelAvgCount = 0U;
 
-        for (auto const& slot : ring_) {
+        for (auto const& slot : this->ring) {
             if (!slot.isValid) {
                 continue;
             }
@@ -88,11 +86,11 @@ class ReferenceAverager {
 
         if (gyroAvgCount > 0U) {
             gyroSum_P /= static_cast<float>(gyroAvgCount);
-            out.gyroOmega_B = alg_.getDcmPltfToBdy() * gyroSum_P;
+            out.gyroOmega_B = this->alg.getDcmPltfToBdy() * gyroSum_P;
         }
         if (accelAvgCount > 0U) {
             accelSum_P /= static_cast<float>(accelAvgCount);
-            out.accel_B = alg_.getDcmPltfToBdy() * accelSum_P;
+            out.accel_B = this->alg.getDcmPltfToBdy() * accelSum_P;
         }
 
         return out;
@@ -105,10 +103,10 @@ class ReferenceAverager {
         std::array<Sample, MAX_MIMU_SAMPLES_PER_PKT_C> samples{};
     };
 
-    AverageMimuDataAlgorithm const& alg_;
-    std::array<RingPacket, AverageMimuDataAlgorithm::kRingCapacity> ring_{};
-    std::size_t insertIdx_{0U};
-    std::uint64_t lastIngestedMaxMeasTime_{0U};
+    AverageMimuDataAlgorithm const& alg;
+    std::array<RingPacket, AverageMimuDataAlgorithm::kRingCapacity> ring{};
+    std::size_t insertIdx{0U};
+    std::uint64_t lastIngestedMaxMeasTime{0U};
 };
 
 /*! @brief Fill packet `p` of `in` with the given first-sample timestamp and

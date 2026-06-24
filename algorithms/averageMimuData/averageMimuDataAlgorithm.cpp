@@ -1,8 +1,8 @@
 #include "averageMimuDataAlgorithm.h"
-#include "utilities/fsw/eigenSupport.h"
-#include "utilities/fsw/freestandingInvalidArgument.h"
-#include "utilities/fsw/timeConstants.h"
-#include "utilities/fsw/validDcmCheck.h"
+#include <utilities/fsw/eigenSupport.h>
+#include <utilities/fsw/freestandingInvalidArgument.h>
+#include <utilities/fsw/timeConstants.h>
+#include <utilities/fsw/validDcmCheck.h>
 
 #include <algorithm>
 
@@ -10,7 +10,7 @@
  *  then return the rolling average of fresh samples currently in the ring.
  *
  *  Phase 1 (ingest): Each input packet carries a `measTime` that is the
- *  first sample's timestamp (`firstSampleTime`). A packet is ingested iff
+ *  first sample's timestamp (`firstSampleTime`). A packet is ingested only if
  *  its `firstSampleTime` is strictly greater than the largest first-sample
  *  time ever ingested before this update() call. The whole packet is
  *  copied into the next ring slot, overwriting the oldest slot when
@@ -20,7 +20,7 @@
  *  Phase 2 (average): Per-sample times are derived from each ring slot's
  *  `measTime` plus `s * kMimuSamplePeriodNs`. The maxTimeTag is the
  *  newest slot's tail sample: `max(slot.measTime) + (N - 1) * period_ns`.
- *  Gyro and acceleration are averaged independently: a sample contributes to
+ *  Gyro and acceleration data are averaged independently: a sample contributes to
  *  the gyro mean when its age relative to maxTimeTag is within
  *  `gyroAveragingWindowNs`, and to the accel mean when within
  *  `accelAveragingWindowNs`. Each mean is rotated to the body frame via
@@ -30,27 +30,26 @@
  *  @return OutputAverageAccelAngleVel: body-frame rolling average.
  */
 OutputAverageAccelAngleVel AverageMimuDataAlgorithm::update(InputPktsData const& localPkts) {
-    // Phase 1: ingest. Freeze prior max so within one snapshot all packets
-    // are evaluated against the previous-call boundary, not against each
-    // other - this lets multiple new packets in the same snapshot all land.
+    // Phase 1: Ingest packets. Freeze prior maximum time so within one snapshot
+    // all packets are evaluated against the previous-call boundary.
     const uint64_t priorMax = this->lastIngestedMaxMeasTime;
-    for (auto const& packet : localPkts.packets) {
-        if (!packet.isValid) {
+    for (const auto& [isValid, measTime, samples] : localPkts.packets) {
+        if (!isValid) {
             continue;
         }
-        const uint64_t firstSampleTime = packet.measTime;
-        if ((firstSampleTime == 0U) || (firstSampleTime <= priorMax)) {
+        const uint64_t firstSampleTime = measTime;
+        if (firstSampleTime == 0U || firstSampleTime <= priorMax) {
             continue;
         }
 
         this->ring.at(this->insertIdx).isValid = true;
         this->ring.at(this->insertIdx).measTime = firstSampleTime;
-        this->ring.at(this->insertIdx).samples = packet.samples;
+        this->ring.at(this->insertIdx).samples = samples;
         this->insertIdx = (this->insertIdx + 1U) % kRingCapacity;
         this->lastIngestedMaxMeasTime = std::max(this->lastIngestedMaxMeasTime, firstSampleTime);
     }
 
-    // Phase 2: derive maxTimeTag from the newest stored packet's tail sample.
+    // Phase 2: compute the maxTimeTag from the newest stored packet's tail sample.
     // Per-sample measTimes are reconstructed from slot.measTime + s * period_ns.
     uint64_t maxSlotMeasTime = 0U;
     for (auto const& slot : this->ring) {
@@ -64,8 +63,7 @@ OutputAverageAccelAngleVel AverageMimuDataAlgorithm::update(InputPktsData const&
         return out;
     }
 
-    const uint64_t maxTimeTag =
-        maxSlotMeasTime + ((MAX_MIMU_SAMPLES_PER_PKT_C - 1U) * kMimuSamplePeriodNs);
+    const uint64_t maxTimeTag = maxSlotMeasTime + ((MAX_MIMU_SAMPLES_PER_PKT_C - 1U) * kMimuSamplePeriodNs);
 
     // Gyro and accel each accumulate over their own window, so a sample may
     // contribute to one running mean and not the other.
@@ -74,19 +72,19 @@ OutputAverageAccelAngleVel AverageMimuDataAlgorithm::update(InputPktsData const&
     uint64_t gyroAvgCount = 0U;
     uint64_t accelAvgCount = 0U;
 
-    for (auto const& slot : this->ring) {
-        if (!slot.isValid) {
+    for (const auto& [isValid, measTime, samples] : this->ring) {
+        if (!isValid) {
             continue;
         }
         for (std::size_t s = 0; s < MAX_MIMU_SAMPLES_PER_PKT_C; ++s) {
-            const uint64_t sampleMeasTime = slot.measTime + (s * kMimuSamplePeriodNs);
+            const uint64_t sampleMeasTime = measTime + (s * kMimuSamplePeriodNs);
             const uint64_t age = maxTimeTag - sampleMeasTime;
             if (age <= this->gyroAveragingWindowNs) {
-                gyroSum_P += slot.samples.at(s).gyro_P;
+                gyroSum_P += samples.at(s).gyro_P;
                 gyroAvgCount++;
             }
             if (age <= this->accelAveragingWindowNs) {
-                accelSum_P += slot.samples.at(s).accel_P;
+                accelSum_P += samples.at(s).accel_P;
                 accelAvgCount++;
             }
         }

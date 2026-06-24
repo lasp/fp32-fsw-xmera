@@ -1,7 +1,7 @@
 #ifndef F32XMERA_AVERAGEMIMUDATAALGORITHM_C_H
 #define F32XMERA_AVERAGEMIMUDATAALGORITHM_C_H
 
-#include "utilities/fsw/plainCAlgorithmDataTypes.h"
+#include <utilities/fsw/plainCAlgorithmDataTypes.h>
 
 #include "averageMimuDataTypes.h"
 
