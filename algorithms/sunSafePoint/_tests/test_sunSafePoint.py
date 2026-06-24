@@ -266,6 +266,76 @@ def test_search_then_point(show_plots):
     assert fault_out_msg_data_log.faultDetected[-1] == False
 
 
+def test_reconfigure_applies_params(show_plots):
+    """Adapter reConfigure(): pushes an updated module parameter onto the live algorithm via
+    setConfig() without re-initializing the search state machine. After the module is already
+    pointing, change the spin rate and reConfigure(); the new spin rate takes effect while the
+    module stays in the pointing phase (a reInitialize would have restarted the search)."""
+    unit_task_name = "unitTask"
+    unit_process_name = "TestProcess"
+
+    unit_test_sim = SimulationBaseClass.SimBaseClass()
+    test_process_rate = mc.sec2nano(0.5)
+    test_proc = unit_test_sim.CreateNewProcess(unit_process_name)
+    test_proc.addTask(unit_test_sim.CreateNewTask(unit_task_name, test_process_rate))
+
+    sun_safe_point = sunSafePointF32.SunSafePoint()
+    sun_safe_point.modelTag = "sunSafePoint"
+    unit_test_sim.AddModelToTask(unit_task_name, sun_safe_point)
+
+    sHat_cmd_B = np.array([0.0, 0.0, 1.0])
+    sun_vec_B = np.array([1.0, 1.0, 0.0])
+    sun_safe_point.sHatBdyCmd = sHat_cmd_B
+    sun_safe_point.sunAxisSpinRate = 0.0
+    sun_safe_point.observationThreshold = 4
+
+    # No-op search sequence; the run advances past it to force the POINT transition.
+    for i in range(4):
+        rotation = sunSafePointF32.RotationProperties()
+        rotation.rotationDuration = 1.0
+        rotation.rotationRate = 0.0
+        rotation.rotationAxis = sunSafePointF32.RotationAxis_b1Hat_B
+        sun_safe_point.setRotation(i, rotation)
+
+    input_sun_vec_data = messaging.NavAttMsgF32Payload()
+    input_sun_vec_data.vehSunPntBdy = sun_vec_B
+    sun_in_msg = messaging.NavAttMsgF32().write(input_sun_vec_data)
+
+    input_rate_data = messaging.NavAttMsgF32Payload()
+    input_rate_data.omega_BN_B = np.array([0.0, 0.0, 0.0])
+    rate_in_msg = messaging.NavAttMsgF32().write(input_rate_data)
+
+    input_residuals_data = messaging.FilterResidualsMsgF32Payload()
+    input_residuals_data.sizeOfObservations = 0
+    residuals_in_msg = messaging.FilterResidualsMsgF32().write(input_residuals_data)
+
+    att_guid_out_msg_data_log = sun_safe_point.attGuidanceOutMsg.recorder()
+    unit_test_sim.AddModelToTask(unit_task_name, att_guid_out_msg_data_log)
+
+    sun_safe_point.sunDirectionInMsg.subscribeTo(sun_in_msg)
+    sun_safe_point.rateInMsg.subscribeTo(rate_in_msg)
+    sun_safe_point.filterResidualsInMsg.subscribeTo(residuals_in_msg)
+
+    # Run past the 4 s search so the module is in terminal POINT (spin rate 0 -> omega_RN_B = 0).
+    unit_test_sim.InitializeSimulation()
+    unit_test_sim.ConfigureStopTime(mc.sec2nano(5.0))
+    sun_safe_point.reset(0)
+    unit_test_sim.ExecuteSimulation()
+    np.testing.assert_allclose(att_guid_out_msg_data_log.omega_RN_B[-1], [0.0, 0.0, 0.0], rtol=1e-6, atol=1e-6)
+
+    # Change the spin rate and reConfigure (no reset): applies to the live algorithm without
+    # re-initializing, so the module stays in POINT and now spins about the sun heading.
+    spin_rate = 1.5 * mc.D2R
+    sun_safe_point.sunAxisSpinRate = spin_rate
+    sun_safe_point.reConfigure()
+    unit_test_sim.ConfigureStopTime(mc.sec2nano(6.0))
+    unit_test_sim.ExecuteSimulation()
+
+    expected_omega = sun_vec_B / np.linalg.norm(sun_vec_B) * spin_rate
+    np.testing.assert_allclose(att_guid_out_msg_data_log.omega_RN_B[-1], expected_omega, rtol=1e-6, atol=1e-6)
+
+
 if __name__ == "__main__":
     test_sun_safe_point(False, 1)
     test_search_then_point(False)
+    test_reconfigure_applies_params(False)
