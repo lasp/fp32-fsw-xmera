@@ -335,7 +335,77 @@ def test_reconfigure_applies_params(show_plots):
     np.testing.assert_allclose(att_guid_out_msg_data_log.omega_RN_B[-1], expected_omega, rtol=1e-6, atol=1e-6)
 
 
+def test_reinitialize_rearms_search(show_plots):
+    """Adapter reInitialize(): pass-through to the algorithm's reInitialize(), which re-arms the
+    search state machine without rebuilding the config. After the module has acquired the sun and
+    entered the terminal POINT phase, reInitialize() restarts the scripted search sequence from the
+    first rotation (a reConfigure would have left it pointing)."""
+    unit_task_name = "unitTask"
+    unit_process_name = "TestProcess"
+
+    unit_test_sim = SimulationBaseClass.SimBaseClass()
+    test_process_rate = mc.sec2nano(0.5)
+    test_proc = unit_test_sim.CreateNewProcess(unit_process_name)
+    test_proc.addTask(unit_test_sim.CreateNewTask(unit_task_name, test_process_rate))
+
+    sun_safe_point = sunSafePointF32.SunSafePoint()
+    sun_safe_point.modelTag = "sunSafePoint"
+    unit_test_sim.AddModelToTask(unit_task_name, sun_safe_point)
+
+    sHat_cmd_B = np.array([0.0, 0.0, 1.0])
+    sun_vec_B = np.array([1.0, 1.0, 0.0])
+    sun_safe_point.sHatBdyCmd = sHat_cmd_B
+    sun_safe_point.sunAxisSpinRate = 0.0
+    sun_safe_point.observationThreshold = 4
+
+    # Search sequence with a non-zero first-rotation rate so the SEARCH output (omega_RN_B about
+    # b1Hat_B) is distinguishable from the spin-0 POINT output (omega_RN_B == 0).
+    search_rate = 0.5
+    for i in range(4):
+        rotation = sunSafePointF32.RotationProperties()
+        rotation.rotationDuration = 10.0
+        rotation.rotationRate = search_rate
+        rotation.rotationAxis = sunSafePointF32.RotationAxis_b1Hat_B
+        sun_safe_point.setRotation(i, rotation)
+
+    input_sun_vec_data = messaging.NavAttMsgF32Payload()
+    input_sun_vec_data.vehSunPntBdy = sun_vec_B
+    sun_in_msg = messaging.NavAttMsgF32().write(input_sun_vec_data)
+
+    input_rate_data = messaging.NavAttMsgF32Payload()
+    input_rate_data.omega_BN_B = np.array([0.0, 0.0, 0.0])
+    rate_in_msg = messaging.NavAttMsgF32().write(input_rate_data)
+
+    input_residuals_data = messaging.FilterResidualsMsgF32Payload()
+    input_residuals_data.sizeOfObservations = 10
+    residuals_in_msg = messaging.FilterResidualsMsgF32().write(input_residuals_data)
+
+    att_guid_out_msg_data_log = sun_safe_point.attGuidanceOutMsg.recorder()
+    unit_test_sim.AddModelToTask(unit_task_name, att_guid_out_msg_data_log)
+
+    sun_safe_point.sunDirectionInMsg.subscribeTo(sun_in_msg)
+    sun_safe_point.rateInMsg.subscribeTo(rate_in_msg)
+    sun_safe_point.filterResidualsInMsg.subscribeTo(residuals_in_msg)
+
+    # Run past the first rotation (10 s) with observations above threshold: the module acquires the
+    # sun and enters the terminal POINT phase (spin rate 0 -> omega_RN_B == 0).
+    unit_test_sim.InitializeSimulation()
+    unit_test_sim.ConfigureStopTime(mc.sec2nano(12.0))
+    sun_safe_point.reset(0)
+    unit_test_sim.ExecuteSimulation()
+    np.testing.assert_allclose(att_guid_out_msg_data_log.omega_RN_B[-1], [0.0, 0.0, 0.0], rtol=1e-6, atol=1e-6)
+
+    # reInitialize re-arms the search machine: the next update restarts the sequence at the first
+    # rotation, so omega_RN_B is the slot-0 search rate about b1Hat_B (not the POINT output).
+    sun_safe_point.reInitialize()
+    unit_test_sim.ConfigureStopTime(mc.sec2nano(13.0))
+    unit_test_sim.ExecuteSimulation()
+    np.testing.assert_allclose(
+        att_guid_out_msg_data_log.omega_RN_B[-1], [search_rate, 0.0, 0.0], rtol=1e-6, atol=1e-6)
+
+
 if __name__ == "__main__":
     test_sun_safe_point(False, 1)
     test_search_then_point(False)
     test_reconfigure_applies_params(False)
+    test_reinitialize_rearms_search(False)
