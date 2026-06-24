@@ -45,6 +45,14 @@ inline Eigen::Vector3f referenceTriad(const Eigen::Vector3f& sigma_BN,
     /*! If sun direction and thrust inertial reference are nearly parallel, cross the second triad axis instead with the configured inertial z-axis */
     if (fabsf(sunToThrustRefAngle) < kParallelThresholdRad) {
         const Eigen::Vector3f zHat_N = (signOfZHat_N * Eigen::Vector3f::UnitZ()).normalized();
+
+        /*! Return current attitude if the fallback inertial z-axis is nearly parallel to the thrust reference
+         * direction, since the fallback cross product would be degenerate */
+        const float zToThrustRefAngle = safeAcosf(fabsf(zHat_N.dot(d2Hat_N)));
+        if (zToThrustRefAngle < kParallelThresholdRad) {
+            return mrpSwitch(sigma_BN, 1.0F);
+        }
+
         d3Hat_N = zHat_N.cross(d2Hat_N).normalized();
         d1Hat_N = d2Hat_N.cross(d3Hat_N).normalized();
     } else {

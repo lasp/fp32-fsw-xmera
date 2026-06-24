@@ -78,6 +78,19 @@ void fuzzPropertyBodyHeadingAlignedToInertialHeading(const Eigen::Vector3f& sigm
         return;
     }
 
+    // Skip the degenerate fallback: when the sun direction is parallel to the thrust reference (so the algorithm
+    // crosses with the configured inertial z-axis) and that z-axis is itself parallel to the thrust reference, the
+    // algorithm returns the current attitude (no alignment guarantee)
+    const Eigen::Vector3f thrustReqHatUnit_N = thrustReqHat_N.stableNormalized();
+    const Eigen::Matrix3f dcm_BN = mrpToDcm(sigma_BN);
+    const Eigen::Vector3f rHat_SB_N = (dcm_BN.transpose() * rHatUnit_SB_B).normalized();
+    const float sunToThrustRefAngle = safeAcosf(fabsf(rHat_SB_N.dot(thrustReqHatUnit_N)));
+    const Eigen::Vector3f zHat_N = (copysignf(1.0F, signOfZHat_N) * Eigen::Vector3f::UnitZ()).normalized();
+    const float zToThrustRefAngle = safeAcosf(fabsf(zHat_N.dot(thrustReqHatUnit_N)));
+    if (sunToThrustRefAngle < kParallelThresholdRad && zToThrustRefAngle < kParallelThresholdRad) {
+        return;
+    }
+
     propertyBodyHeadingAlignedToInertialHeading(
         sigma_BN, rHatUnit_SB_B, thrustHatUnit_B, sadaHatUnit_B, thrustReqHat_N.stableNormalized(), signOfZHat_N);
 }
