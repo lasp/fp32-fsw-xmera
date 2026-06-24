@@ -821,7 +821,7 @@ Eigen::Vector3<ScalarT> addMrp(const Eigen::Vector3<ScalarT>& mrp1, const Eigen:
     Eigen::Vector3<ScalarT> mrp = numerator / denominator;
 
     // Map MRP to the inner set
-    mrp = mrpSwitch<ScalarT>(mrp, 1.0);
+    mrp = mrpSwitch<ScalarT>(mrp);
 
     return mrp;
 }
@@ -864,7 +864,7 @@ Eigen::Vector3<ScalarT> subMrp(const Eigen::Vector3<ScalarT>& mrp1, const Eigen:
                 ScalarT(2) * mrp1Shadow.cross(mrp2);
     Eigen::Vector3<ScalarT> mrp = numerator / denominator;
     /* map mrp to inner set */
-    mrp = mrpSwitch(mrp, ScalarT(1));
+    mrp = mrpSwitch(mrp);
 
     return mrp;
 }
