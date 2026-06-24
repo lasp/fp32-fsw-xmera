@@ -7,11 +7,12 @@
 #include "sunlineEphemAlgorithm.h"
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
+#include <memory>
 
 class SunlineEphem final : public SysModel {
    public:
     SunlineEphem() = default;
-    ~SunlineEphem() = default;
+    ~SunlineEphem() override = default;
 
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
@@ -21,7 +22,7 @@ class SunlineEphem final : public SysModel {
     ReadFunctor<NavAttMsgF32Payload> scAttitudeInMsg;      //!< The name of the spacecraft attitude input message
 
    private:
-    SunlineEphemAlgorithm algorithm{};
+    std::unique_ptr<SunlineEphemAlgorithm> algorithm = nullptr;
 };
 
 #endif

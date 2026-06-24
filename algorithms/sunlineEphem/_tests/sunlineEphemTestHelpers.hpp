@@ -23,7 +23,7 @@ Eigen::Vector3d referenceUpdate(const Eigen::Vector3d& r_SN_N,
 }
 
 void testSunlineEphem(const Eigen::Vector3d& r_SN_N, const Eigen::Vector3d& r_BN_N, const Eigen::Vector3f& sigma_BN) {
-    SunlineEphemAlgorithm alg{};
+    SunlineEphemAlgorithm alg{SunlineEphemConfig::create()};
 
     Eigen::Vector3f out;
     EXPECT_NO_THROW(out = alg.update(r_SN_N, r_BN_N, sigma_BN));
