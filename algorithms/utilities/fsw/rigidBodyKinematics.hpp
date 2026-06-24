@@ -28,7 +28,7 @@ Eigen::Vector3<ScalarT> mrpShadow(const Eigen::Vector3<ScalarT>& mrp) {
  * @return Eigen::Vector3d
  */
 template <typename ScalarT>
-Eigen::Vector3<ScalarT> mrpSwitch(const Eigen::Vector3<ScalarT>& mrp, const ScalarT s) {
+Eigen::Vector3<ScalarT> mrpSwitch(const Eigen::Vector3<ScalarT>& mrp, const ScalarT s = 1.0) {
     if (mrp.squaredNorm() > s * s) {
         return mrpShadow(mrp);
     }
