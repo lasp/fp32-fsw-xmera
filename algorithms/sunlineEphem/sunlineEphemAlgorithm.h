@@ -3,6 +3,16 @@
 
 #include <Eigen/Core>
 
+// sunlineEphem has no tunable parameters; the Config class is intentionally empty so the
+// algorithm can still follow the standard two-phase init pattern.
+class SunlineEphemConfig final {
+   public:
+    static SunlineEphemConfig create() { return {}; }
+
+   private:
+    SunlineEphemConfig() = default;
+};
+
 class SunlineEphemAlgorithm {
    public:
     static Eigen::Vector3f update(const Eigen::Vector3d& r_SN_N,
