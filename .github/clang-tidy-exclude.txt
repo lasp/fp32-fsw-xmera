@@ -87,6 +87,8 @@ algorithms/sunSearch/sunSearchAlgorithm_c.h
 algorithms/sunSearch/sunSearchAlgorithm_c.cpp
 algorithms/sunlineEphem/sunlineEphem.h
 algorithms/sunlineEphem/sunlineEphem.cpp
+algorithms/sunlineEphem/sunlineEphemAlgorithm_c.h
+algorithms/sunlineEphem/sunlineEphemAlgorithm_c.cpp
 algorithms/sunTrackError/sunTrackError.h
 algorithms/sunTrackError/sunTrackError.cpp
 algorithms/thrFiringRemainder/thrFiringRemainder.h
