@@ -35,7 +35,7 @@ inline MrpRotationReferenceOutput referenceUpdate(MrpRotationReferenceState& sta
     const Eigen::Matrix3f B = bmatMrp(state.sigma_RR0);
     const Eigen::Vector3f sigmaDot_RR0 = 0.25F * B * state.omega_RR0_R;
     const Eigen::Vector3f mrpSetNew = state.sigma_RR0 + sigmaDot_RR0 * dt;
-    state.sigma_RR0 = mrpSwitch(mrpSetNew, 1.0F);
+    state.sigma_RR0 = mrpSwitch(mrpSetNew);
 
     const Eigen::Matrix3f dcm_RR0 = mrpToDcm(state.sigma_RR0);
     const Eigen::Matrix3f dcm_R0N = mrpToDcm(sigma_R0N);
@@ -68,7 +68,7 @@ inline void regressionTestMrpRotation(const Eigen::Vector3f& initialSigmaRR0,
 
     // The algorithm bounds the seed MRP via mrpSwitch in MrpRotationConfig::create, so the
     // reference must start from the same bounded representative to stay in lock-step.
-    MrpRotationReferenceState refState{mrpSwitch(initialSigmaRR0, 1.0F), omegaRR0R};
+    MrpRotationReferenceState refState{mrpSwitch(initialSigmaRR0), omegaRR0R};
 
     const MrpRotationAttRefInputs attRef{sigma_R0N, omega_R0N_N, domega_R0N_N};
 
@@ -149,7 +149,7 @@ inline void propertySigmaRNEqualsSigmaRR0WhenInputRefIsIdentity(const Eigen::Vec
     };
     // The algorithm bounds the seed MRP via mrpSwitch in MrpRotationConfig::create, so the
     // reference must start from the same bounded representative to stay in lock-step.
-    MrpRotationReferenceState refState{mrpSwitch(initialSigmaRR0, 1.0F), omegaRR0R};
+    MrpRotationReferenceState refState{mrpSwitch(initialSigmaRR0), omegaRR0R};
 
     constexpr float tol = 1e-5F;
     for (int k = 0; k < kNumSteps; ++k) {

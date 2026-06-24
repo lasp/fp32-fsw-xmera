@@ -35,7 +35,7 @@ inline SunSafePointOutput referenceUpdate(const Eigen::Vector3f& vehSunPntBdy,
         }
         Eigen::Vector3f sunMnvrVec = e_hat.stableNormalized();
         Eigen::Vector3f sigma_BR = std::tan(sunAngleErr * 0.25f) * sunMnvrVec;
-        sigma_BR = mrpSwitch(sigma_BR, 1.0f);
+        sigma_BR = mrpSwitch(sigma_BR);
 
         output.sigma_BR = sigma_BR;
         output.omega_RN_B = sunAxisSpinRate * rHat_SB_B;

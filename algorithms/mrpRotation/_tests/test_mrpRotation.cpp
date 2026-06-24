@@ -227,7 +227,7 @@ TEST(MrpRotationTest, SetConfigReseedsRuntimeState) {
     // Independent reference: setConfig re-seeded runtime state to cfgB's initial sigma / omega
     // (discarding the post-firstStep state), so the step integrates from there using cfgB's period.
     // create() bounds the seed MRP via mrpSwitch, so mirror that here.
-    MrpRotationReferenceState refState{mrpSwitch(initialSigmaRR0_B, 1.0F), omegaRR0R_B};
+    MrpRotationReferenceState refState{mrpSwitch(initialSigmaRR0_B), omegaRR0R_B};
     const auto refOut =
         referenceUpdate(refState, Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(), kPeriodB);
 

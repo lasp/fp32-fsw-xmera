@@ -37,7 +37,7 @@ SunSafePointOutput SunSafePointAlgorithm::update(const Eigen::Vector3f& vehSunPn
         }
         Eigen::Vector3f const e_hat = e_axis.stableNormalized();
         Eigen::Vector3f sigma_BR = safeTanf(sunAngleErr * 0.25F) * e_hat;
-        sigma_BR = mrpSwitch(sigma_BR, 1.0F);
+        sigma_BR = mrpSwitch(sigma_BR);
 
         output.sigma_BR = sigma_BR;
         // Rate tracking error is the body rate to bring spacecraft to rest
