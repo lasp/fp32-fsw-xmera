@@ -2,6 +2,7 @@
 #define TEST_TIME_CA_HELPERS_H
 
 #include "timeClosestApproachAlgorithm.h"
+#include "utilities/fsw/freestandingIsFinite.hpp"
 #include "utilities/fsw/safeMath.h"
 
 #include <gtest/gtest.h>
@@ -20,26 +21,31 @@ inline ReferenceTimeClosestApproachOutput referenceTimeClosestApproach(
     const Eigen::Vector3d& r_BN_N,
     const Eigen::Vector3d& v_BN_N,
     const Eigen::Matrix<double, 6, 6>& filterCovariance) {
-    double const ratio = v_BN_N.norm() / r_BN_N.norm();
+    ReferenceTimeClosestApproachOutput ref_output{.tCA = 0.0, .sigmaTca = 0.0};
+    double const r_BN_N_norm = r_BN_N.stableNorm();
+    double const v_BN_N_norm = v_BN_N.stableNorm();
+    if (r_BN_N_norm >= kMinVectorNorm && v_BN_N_norm >= kMinVectorNorm) {
+        double const ratio = v_BN_N_norm / r_BN_N_norm;
+        Eigen::Vector3d const r_BN_N_hat = r_BN_N / r_BN_N_norm;
+        Eigen::Vector3d const v_BN_N_hat = v_BN_N / v_BN_N_norm;
+        double sinFPA = r_BN_N_hat.dot(v_BN_N_hat);
+        sinFPA = std::max(-1.0, std::min(1.0, sinFPA));
+        const auto tCA_predict = static_cast<float>(-sinFPA / ratio);
 
-    Eigen::Vector3d const r_BN_N_hat = r_BN_N.normalized();
-    Eigen::Vector3d const v_BN_N_hat = v_BN_N.normalized();
+        if (fsw::is_finite(tCA_predict)) {
+            ref_output.tCA = tCA_predict;
 
-    double sinFPA = r_BN_N_hat.dot(v_BN_N_hat);
-    sinFPA = std::max(-1.0, std::min(1.0, sinFPA));
-
-    ReferenceTimeClosestApproachOutput ref_output{};
-    ref_output.tCA = -sinFPA / ratio;
-
-    Eigen::Matrix<double, 6, 1> covariance_map_to_tca;
-
-    covariance_map_to_tca.head(3) = v_BN_N_hat / r_BN_N.norm();
-    covariance_map_to_tca.tail(3) = (r_BN_N_hat - sinFPA * v_BN_N_hat) / v_BN_N.norm();
-    const double mappedCovariance = covariance_map_to_tca.transpose() * filterCovariance * covariance_map_to_tca;
-    const double tCA_covariance = mappedCovariance / (ratio * ratio);
-
-    ref_output.sigmaTca = safeSqrt(tCA_covariance);
-
+            Eigen::Matrix<double, 6, 1> covariance_map_to_tca;
+            covariance_map_to_tca.head(3) = (v_BN_N_hat / r_BN_N_norm);
+            covariance_map_to_tca.tail(3) = ((r_BN_N_hat - sinFPA * v_BN_N_hat) / v_BN_N_norm);
+            const double mappedCovariance =
+                covariance_map_to_tca.transpose() * filterCovariance * covariance_map_to_tca;
+            const auto tCA_covariance = static_cast<float>(mappedCovariance / (ratio * ratio));
+            if (fsw::is_finite(tCA_covariance)) {
+                ref_output.sigmaTca = safeSqrtf(tCA_covariance);
+            }
+        }
+    }
     return ref_output;
 }
 
@@ -47,7 +53,7 @@ inline void testTimeClosestApproach(const Eigen::Vector3d& r_BN_N,
                                     const Eigen::Vector3d& v_BN_N,
                                     const Eigen::Matrix<double, 6, 6>& filterCovariance) {
     TimeClosestApproachAlgorithm const alg(TimeClosestApproachConfig::create());
-    TimeClosestApproachOutput out;
+    TimeClosestApproachOutput out{};
     EXPECT_NO_THROW(out = alg.update(r_BN_N, v_BN_N, filterCovariance));
 
     ReferenceTimeClosestApproachOutput const ref = referenceTimeClosestApproach(r_BN_N, v_BN_N, filterCovariance);
@@ -61,8 +67,8 @@ inline void testTimeClosestApproach(const Eigen::Vector3d& r_BN_N,
     // and the float sqrt contribute error — 1e-6 relative, 1e-7 absolute floor.
     EXPECT_NEAR(out.sigmaTca, sigma_ref, std::max(1e-7F, std::abs(sigma_ref) * 1e-6F));
 
-    ASSERT_TRUE(std::isfinite(out.tCA));
-    ASSERT_TRUE(std::isfinite(out.sigmaTca));
+    ASSERT_TRUE(fsw::is_finite(out.tCA));
+    ASSERT_TRUE(fsw::is_finite(out.sigmaTca));
     EXPECT_GE(out.sigmaTca, 0.0F);
 }
 
