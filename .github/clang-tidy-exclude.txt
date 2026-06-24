@@ -85,6 +85,8 @@ algorithms/sunSearchPoint/sunSearchPointAlgorithm_c.h
 algorithms/sunSearchPoint/sunSearchPointAlgorithm_c.cpp
 algorithms/sunlineEphem/sunlineEphem.h
 algorithms/sunlineEphem/sunlineEphem.cpp
+algorithms/sunlineEphem/sunlineEphemAlgorithm_c.h
+algorithms/sunlineEphem/sunlineEphemAlgorithm_c.cpp
 algorithms/sunAvoidance/sunAvoidance.h
 algorithms/sunAvoidance/sunAvoidance.cpp
 algorithms/sunAvoidance/sunAvoidanceAlgorithm_c.h

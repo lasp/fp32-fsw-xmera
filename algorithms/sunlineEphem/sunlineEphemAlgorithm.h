@@ -3,7 +3,7 @@
 
 #include <Eigen/Core>
 
-class SunlineEphemAlgorithm {
+class SunlineEphemAlgorithm final {
    public:
     static Eigen::Vector3f update(const Eigen::Vector3d& r_SN_N,
                                   const Eigen::Vector3d& r_BN_N,
