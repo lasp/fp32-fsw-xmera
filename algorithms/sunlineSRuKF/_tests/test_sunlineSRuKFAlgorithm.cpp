@@ -261,6 +261,38 @@ TEST(SunlineSRuKFAlgorithmUpdate, CssBelowThresholdNotProcessed) {
     EXPECT_EQ(out.cssResiduals.numberOfActiveCss, 0);
 }
 
+TEST(SunlineSRuKFAlgorithmReInit, ReInitializePreservesEstimateReInitializeAllResetsIt) {
+    SunlineSRuKFAlgorithm algo(threeCssConfig(
+        makeState(Eigen::Vector3d(0, 0, 1), Eigen::Vector3d(0.01, 0, 0), 1.0), diagCovariance(1E-2, 1E-2, 1E-1), 0.0));
+
+    State const initialState = algo.getState();
+    Matrix7 const initialCovariance = algo.getCovariance();
+
+    CssData css;
+    css.timeTag = 1.0;
+    css.cosValues(0) = 0.5;
+    css.cosValues(1) = 0.5;
+    css.cosValues(2) = 0.707;
+    RateData rate;
+    rate.timeTag = 1.0;
+    rate.rate = Eigen::Vector3d(0.01, 0.0, 0.0);
+    algo.update(2.0, css, rate);
+
+    State const movedState = algo.getState();
+    Matrix7 const movedCovariance = algo.getCovariance();
+    ASSERT_FALSE(movedCovariance.isApprox(initialCovariance));
+    EXPECT_TRUE(algo.getLastCssResiduals().valid);
+
+    algo.reInitialize();
+    EXPECT_TRUE(algo.getState().raw().isApprox(movedState.raw()));
+    EXPECT_TRUE(algo.getCovariance().isApprox(movedCovariance));
+    EXPECT_FALSE(algo.getLastCssResiduals().valid);
+
+    algo.reInitializeAll();
+    EXPECT_TRUE(algo.getState().raw().isApprox(initialState.raw()));
+    EXPECT_TRUE(algo.getCovariance().isApprox(initialCovariance));
+}
+
 // ============================================================================
 // SRuKF static helpers: numerical helpers.
 // ============================================================================

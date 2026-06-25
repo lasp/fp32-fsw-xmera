@@ -65,27 +65,35 @@ static_assert(filtering::Measurement<RateMeasurementModel, State>);
  *  @param config [-] validated SunlineSRuKFConfig */
 SunlineSRuKFAlgorithm::SunlineSRuKFAlgorithm(const SunlineSRuKFConfig& config) : cfg(config) {
     this->setConfig(config);
-    this->reInitialize();
+    this->reInitializeAll();
 }
 
-/*! Swap in a new validated configuration. Takes effect at the next reInitialize().
+/*! Store the configuration and push the constant filter parameters into the SRuKF.
  *  @param config [-] validated SunlineSRuKFConfig */
-void SunlineSRuKFAlgorithm::setConfig(SunlineSRuKFConfig const& config) { this->cfg = config; }
+void SunlineSRuKFAlgorithm::setConfig(SunlineSRuKFConfig const& config) {
+    this->cfg = config;
+    this->srukf.setAlpha(config.getAlpha());
+    this->srukf.setBeta(config.getBeta());
+    this->srukf.setProcessNoise(config.getProcessNoise());
+    this->srukf.setInitialState(config.getInitialState());
+    this->srukf.setInitialCovariance(config.getInitialCovariance());
+    this->srukf.dynamics = SunlineDynamics{};
+}
 
-/*! Re-seed the filter from the configuration and clear any state carried from a previous run.
+/*! Clear the internal runtime state (pending measurements and residual snapshots); the filter state
+ *  and covariance are preserved.
  *  @return void */
 void SunlineSRuKFAlgorithm::reInitialize() {
-    this->srukf.setAlpha(this->cfg.getAlpha());
-    this->srukf.setBeta(this->cfg.getBeta());
-    this->srukf.setProcessNoise(this->cfg.getProcessNoise());
-    this->srukf.setInitialState(this->cfg.getInitialState());
-    this->srukf.setInitialCovariance(this->cfg.getInitialCovariance());
-    this->srukf.dynamics = SunlineDynamics{};
-
-    this->srukf.reset();
     this->measurements.clear();
     this->lastCssResiduals = CssResidualsOutput{};
     this->lastRateResiduals = RateResidualsOutput{};
+}
+
+/*! reInitialize() and additionally re-seed the filter state and covariance from the configuration.
+ *  @return void */
+void SunlineSRuKFAlgorithm::reInitializeAll() {
+    this->reInitialize();
+    this->srukf.reset();
 }
 
 /*! Main entrypoint. Enqueues whichever measurements are present, empties
