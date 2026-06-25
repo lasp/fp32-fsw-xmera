@@ -61,6 +61,8 @@ algorithms/navAggregate/navAggregateAlgorithm_c.h
 algorithms/navAggregate/navAggregateAlgorithm_c.cpp
 algorithms/oeStateEphem/oeStateEphem.h
 algorithms/oeStateEphem/oeStateEphem.cpp
+algorithms/oeStateEphem/oeStateEphemAlgorithm_c.h
+algorithms/oeStateEphem/oeStateEphemAlgorithm_c.cpp
 algorithms/rateControl/rateControl.h
 algorithms/rateControl/rateControl.cpp
 algorithms/rwMotorTorque/rwMotorTorque.h
