@@ -39,7 +39,7 @@ inline void testTriadRegression(const Eigen::Vector3f& a1Hat_B,
                                 const Eigen::Vector3f& h1Hat_B,
                                 const Eigen::Vector3f& rHat_SB_N,
                                 const Eigen::Vector3f& hReqHat_N) {
-    auto config = TriadConfig::create(a1Hat_B, h1Hat_B, Eigen::Vector3f::Zero(), CelestialBody::NotSun);
+    auto config = TriadConfig::create(a1Hat_B, h1Hat_B, Eigen::Vector3f::Zero());
     TriadAlgorithm alg(config);
 
     const Eigen::Vector3f result = alg.update(rHat_SB_N, hReqHat_N, h1Hat_B);
@@ -53,23 +53,20 @@ inline void testTriadRegression(const Eigen::Vector3f& a1Hat_B,
 
 inline void testTriadSetup() {
     // Valid config should not throw
-    EXPECT_NO_THROW(TriadConfig::create(
-        Eigen::Vector3f::UnitX(), Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(), CelestialBody::NotSun));
+    EXPECT_NO_THROW(TriadConfig::create(Eigen::Vector3f::UnitX(), Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero()));
 
     // Zero a1Hat_B should throw
-    EXPECT_THROW(TriadConfig::create(
-                     Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(), CelestialBody::NotSun),
+    EXPECT_THROW(TriadConfig::create(Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero()),
                  fsw::invalid_argument);
 
     // Config round-trip
     const Eigen::Vector3f a1 = Eigen::Vector3f(1.0F, 2.0F, 3.0F);
     const Eigen::Vector3f h1 = Eigen::Vector3f(0.0F, 1.0F, 0.0F);
     const Eigen::Vector3f hN = Eigen::Vector3f(0.0F, 0.0F, 1.0F);
-    auto config = TriadConfig::create(a1, h1, hN, CelestialBody::Sun);
+    auto config = TriadConfig::create(a1, h1, hN);
     EXPECT_EQ(config.getA1Hat_B(), a1);
     EXPECT_EQ(config.getH1Hat_B(), h1);
     EXPECT_EQ(config.getHHat_N(), hN);
-    EXPECT_EQ(config.getCelestialBodyInput(), CelestialBody::Sun);
 
     // Static validators
     EXPECT_TRUE(TriadConfig::isValidA1Hat_B(Eigen::Vector3f::UnitX()));

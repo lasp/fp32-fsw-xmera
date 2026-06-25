@@ -29,7 +29,7 @@ TEST(TriadTest, OutputIsFinite) {
     const Eigen::Vector3f sun = Eigen::Vector3f(1.0F, 1.0F, 0.0F).normalized();
     const Eigen::Vector3f earth = Eigen::Vector3f(0.0F, 0.0F, 1.0F).normalized();
 
-    auto config = TriadConfig::create(a1, h1, Eigen::Vector3f::Zero(), CelestialBody::NotSun);
+    auto config = TriadConfig::create(a1, h1, Eigen::Vector3f::Zero());
     TriadAlgorithm alg(config);
     const Eigen::Vector3f result = alg.update(sun, earth, h1);
 
@@ -45,7 +45,7 @@ TEST(TriadTest, ParallelVectorsThrows) {
     const Eigen::Vector3f sun = Eigen::Vector3f::UnitZ();
     const Eigen::Vector3f earth = Eigen::Vector3f::UnitZ();
 
-    auto config = TriadConfig::create(a1, h1, Eigen::Vector3f::Zero(), CelestialBody::NotSun);
+    auto config = TriadConfig::create(a1, h1, Eigen::Vector3f::Zero());
     TriadAlgorithm alg(config);
     EXPECT_THROW(alg.update(sun, earth, h1), std::runtime_error);
 }
@@ -58,7 +58,7 @@ TEST(TriadTest, BodyHeadingAlignedToInertialHeading) {
     const Eigen::Vector3f sun = Eigen::Vector3f(1.0F, 0.0F, 0.0F);
     const Eigen::Vector3f earth = Eigen::Vector3f(0.0F, 1.0F, 0.0F);
 
-    auto config = TriadConfig::create(a1, h1, Eigen::Vector3f::Zero(), CelestialBody::NotSun);
+    auto config = TriadConfig::create(a1, h1, Eigen::Vector3f::Zero());
     TriadAlgorithm alg(config);
     const Eigen::Vector3f sigma_RN = alg.update(sun, earth, h1);
 
@@ -69,11 +69,9 @@ TEST(TriadTest, BodyHeadingAlignedToInertialHeading) {
 }
 
 TEST(TriadTest, ConfigSetConfig) {
-    auto config1 = TriadConfig::create(Eigen::Vector3f::UnitX(), Eigen::Vector3f::Zero(),
-                                       Eigen::Vector3f::Zero(), CelestialBody::NotSun);
+    auto config1 = TriadConfig::create(Eigen::Vector3f::UnitX(), Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero());
     TriadAlgorithm alg(config1);
 
-    auto config2 = TriadConfig::create(Eigen::Vector3f::UnitZ(), Eigen::Vector3f::UnitY(),
-                                       Eigen::Vector3f::Zero(), CelestialBody::Sun);
+    auto config2 = TriadConfig::create(Eigen::Vector3f::UnitZ(), Eigen::Vector3f::UnitY(), Eigen::Vector3f::Zero());
     EXPECT_NO_THROW(alg.setConfig(config2));
 }

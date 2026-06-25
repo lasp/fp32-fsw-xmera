@@ -7,8 +7,8 @@
 
 #include <Eigen/Core>
 
-#include <architecture/utilities/eigenSupport.h>
 #include "architecture/utilities/rigidBodyKinematics.hpp"
+#include <architecture/utilities/eigenSupport.h>
 
 static constexpr float kNormEpsilon = 1e-6F;
 
@@ -51,7 +51,7 @@ void Triad::reset(const uint64_t callTime) {
     }
 
     // Phase 2: Validate config and create algorithm
-    auto config = TriadConfig::create(this->a1Hat_B, this->h1Hat_B, this->hHat_N, this->celestialBodyInput);
+    auto config = TriadConfig::create(this->a1Hat_B, this->h1Hat_B, this->hHat_N);
     this->algorithm = std::make_unique<TriadAlgorithm>(config);
 }
 

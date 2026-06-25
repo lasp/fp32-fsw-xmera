@@ -42,7 +42,6 @@ class Triad final : public SysModel {
     Eigen::Vector3f a1Hat_B = Eigen::Vector3f::Zero();
     Eigen::Vector3f h1Hat_B = Eigen::Vector3f::Zero();
     Eigen::Vector3f hHat_N = Eigen::Vector3f::Zero();
-    CelestialBody celestialBodyInput{};
 
    private:
     std::unique_ptr<TriadAlgorithm> algorithm = nullptr;
