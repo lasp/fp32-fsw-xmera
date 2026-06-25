@@ -13,6 +13,13 @@ struct CelestialTwoBodyPointOutput {
     Eigen::Vector3f domega_RN_N = Eigen::Vector3f::Zero();  //!< [rad/s^2] Reference frame angular acceleration
 };
 
+/*!@brief Inertial translational state (position and velocity) of a body, expressed in inertial frame N components.
+ */
+struct InertialStateInput {
+    Eigen::Vector3d r_N = Eigen::Vector3d::Zero();  //!< [m] inertial position
+    Eigen::Vector3d v_N = Eigen::Vector3d::Zero();  //!< [m/s] inertial velocity
+};
+
 /*!@brief Validated configuration for the two-body celestial pointing algorithm.
  */
 class CelestialTwoBodyPointConfig final {
@@ -61,19 +68,13 @@ class CelestialTwoBodyPointAlgorithm final {
 
     /*! @brief Compute the attitude reference that points at the primary celestial body while
         constraining a second axis toward the secondary celestial body when possible
-        @param r_PN_N [m] primary celestial body inertial position
-        @param v_PN_N [m/s] primary celestial body inertial velocity
-        @param r_SN_N [m] secondary celestial body inertial position
-        @param v_SN_N [m/s] secondary celestial body inertial velocity
-        @param r_BN_N [m] spacecraft inertial position
-        @param v_BN_N [m/s] spacecraft inertial velocity
+        @param primaryBodyState [m, m/s] primary celestial body inertial position and velocity
+        @param secondaryBodyState [m, m/s] secondary celestial body inertial position and velocity
+        @param spacecraftState [m, m/s] spacecraft inertial position and velocity
         @return attitude reference output */
-    CelestialTwoBodyPointOutput update(const Eigen::Vector3d &r_PN_N,
-                                       const Eigen::Vector3d &v_PN_N,
-                                       const Eigen::Vector3d &r_SN_N,
-                                       const Eigen::Vector3d &v_SN_N,
-                                       const Eigen::Vector3d &r_BN_N,
-                                       const Eigen::Vector3d &v_BN_N) const;
+    CelestialTwoBodyPointOutput update(const InertialStateInput &primaryBodyState,
+                                       const InertialStateInput &secondaryBodyState,
+                                       const InertialStateInput &spacecraftState) const;
 
     /*! @brief Compute the reference attitude, angular velocity, and angular acceleration from the
         relative position and velocity of the primary and secondary celestial bodies

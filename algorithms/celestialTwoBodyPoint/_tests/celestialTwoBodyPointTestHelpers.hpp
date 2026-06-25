@@ -133,7 +133,7 @@ inline void testCelestialTwoBodyPointRegression(const Eigen::Vector3d& r_PN_N,
     auto config = CelestialTwoBodyPointConfig::create(celestialBodyAlignmentThreshold);
     const CelestialTwoBodyPointAlgorithm alg(config);
 
-    CelestialTwoBodyPointOutput result = alg.update(r_PN_N, v_PN_N, r_SN_N, v_SN_N, r_BN_N, v_BN_N);
+    CelestialTwoBodyPointOutput result = alg.update({r_PN_N, v_PN_N}, {r_SN_N, v_SN_N}, {r_BN_N, v_BN_N});
     ReferenceCelestialTwoBodyPointOutput expected =
         referenceCelestialTwoBodyPoint(r_PN_N, v_PN_N, r_SN_N, v_SN_N, r_BN_N, v_BN_N, celestialBodyAlignmentThreshold);
 
@@ -173,7 +173,7 @@ inline void propertyOutputIsFinite(const Eigen::Vector3d& r_PN_N,
     auto config = CelestialTwoBodyPointConfig::create(celestialBodyAlignmentThreshold);
     const CelestialTwoBodyPointAlgorithm alg(config);
 
-    CelestialTwoBodyPointOutput result = alg.update(r_PN_N, v_PN_N, r_SN_N, v_SN_N, r_BN_N, v_BN_N);
+    CelestialTwoBodyPointOutput result = alg.update({r_PN_N, v_PN_N}, {r_SN_N, v_SN_N}, {r_BN_N, v_BN_N});
     for (int i = 0; i < 3; ++i) {
         EXPECT_TRUE(std::isfinite(result.sigma_RN[i]));
         EXPECT_TRUE(std::isfinite(result.omega_RN_N[i]));
@@ -192,7 +192,7 @@ inline void propertySigmaNormBounded(const Eigen::Vector3d& r_PN_N,
     auto config = CelestialTwoBodyPointConfig::create(celestialBodyAlignmentThreshold);
     const CelestialTwoBodyPointAlgorithm alg(config);
 
-    CelestialTwoBodyPointOutput result = alg.update(r_PN_N, v_PN_N, r_SN_N, v_SN_N, r_BN_N, v_BN_N);
+    CelestialTwoBodyPointOutput result = alg.update({r_PN_N, v_PN_N}, {r_SN_N, v_SN_N}, {r_BN_N, v_BN_N});
     EXPECT_LE(result.sigma_RN.norm(), 1.0F + 1e-6F);
 }
 

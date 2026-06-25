@@ -15,27 +15,21 @@ void CelestialTwoBodyPointAlgorithm::setConfig(const CelestialTwoBodyPointConfig
  celestial body while aligning a second axis as close as possible toward the secondary
  celestial body. It generates the commanded attitude and assumes that the control errors are
  computed downstream.
- @param r_PN_N [m] primary celestial body inertial position
- @param v_PN_N [m/s] primary celestial body inertial velocity
- @param r_SN_N [m] secondary celestial body inertial position
- @param v_SN_N [m/s] secondary celestial body inertial velocity
- @param r_BN_N [m] spacecraft inertial position
- @param v_BN_N [m/s] spacecraft inertial velocity
+ @param primaryBodyState [m, m/s] primary celestial body inertial position and velocity
+ @param secondaryBodyState [m, m/s] secondary celestial body inertial position and velocity
+ @param spacecraftState [m, m/s] spacecraft inertial position and velocity
  @return attitude reference output
  */
 // NOLINTBEGIN(bugprone-easily-swappable-parameters)
-// bugprone-easily-swappable-parameters: the Vector3d position/velocity inputs are documented in
-// the header and follow the standard (primary, secondary, spacecraft) ordering.
-CelestialTwoBodyPointOutput CelestialTwoBodyPointAlgorithm::update(const Eigen::Vector3d &r_PN_N,
-                                                                   const Eigen::Vector3d &v_PN_N,
-                                                                   const Eigen::Vector3d &r_SN_N,
-                                                                   const Eigen::Vector3d &v_SN_N,
-                                                                   const Eigen::Vector3d &r_BN_N,
-                                                                   const Eigen::Vector3d &v_BN_N) const {
-    const Eigen::Vector3d r_PB_N = r_PN_N - r_BN_N;
-    const Eigen::Vector3d v_PB_N = v_PN_N - v_BN_N;
-    Eigen::Vector3d r_SB_N = r_SN_N - r_BN_N;
-    Eigen::Vector3d v_SB_N = v_SN_N - v_BN_N;
+// bugprone-easily-swappable-parameters: the InertialStateInput inputs are documented in the header and
+// follow the standard (primary, secondary, spacecraft) ordering.
+CelestialTwoBodyPointOutput CelestialTwoBodyPointAlgorithm::update(const InertialStateInput &primaryBodyState,
+                                                                   const InertialStateInput &secondaryBodyState,
+                                                                   const InertialStateInput &spacecraftState) const {
+    const Eigen::Vector3d r_PB_N = primaryBodyState.r_N - spacecraftState.r_N;
+    const Eigen::Vector3d v_PB_N = primaryBodyState.v_N - spacecraftState.v_N;
+    Eigen::Vector3d r_SB_N = secondaryBodyState.r_N - spacecraftState.r_N;
+    Eigen::Vector3d v_SB_N = secondaryBodyState.v_N - spacecraftState.v_N;
 
     /*! Default reference output */
     CelestialTwoBodyPointOutput attRefOut{};

@@ -44,8 +44,12 @@ AttRefMsgF32Payload CelestialTwoBodyPointAlgorithm_update(const CelestialTwoBody
     const Eigen::Vector3d r_BN_N_e = cArrayToEigenVector3<double>(r_BN_N.data);
     const Eigen::Vector3d v_BN_N_e = cArrayToEigenVector3<double>(v_BN_N.data);
 
+    const ::InertialStateInput primaryBodyState{r_PN_N_e, v_PN_N_e};
+    const ::InertialStateInput secondaryBodyState{r_SN_N_e, v_SN_N_e};
+    const ::InertialStateInput spacecraftState{r_BN_N_e, v_BN_N_e};
+
     // clang-format off
-    const CelestialTwoBodyPointOutput out = reinterpret_cast<const ::CelestialTwoBodyPointAlgorithm*>(self)->update(r_PN_N_e, v_PN_N_e, r_SN_N_e, v_SN_N_e, r_BN_N_e, v_BN_N_e);  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+    const CelestialTwoBodyPointOutput out = reinterpret_cast<const ::CelestialTwoBodyPointAlgorithm*>(self)->update(primaryBodyState, secondaryBodyState, spacecraftState);  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
     // clang-format on
 
     AttRefMsgF32Payload payload{};
