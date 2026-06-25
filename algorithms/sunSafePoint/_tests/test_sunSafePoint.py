@@ -30,6 +30,9 @@ def unit_orthogonal(v):
 ])
 
 def test_sun_safe_point(show_plots, case):
+    """Exercises the terminal POINT phase. The module always runs the search sequence first, so the
+    test runs past the full sequence (forcing the POINT transition) and checks the steady-state
+    (final) logged sample against the pointing truth."""
     unit_task_name = "unitTask"
     unit_process_name = "TestProcess"
 
@@ -85,6 +88,15 @@ def test_sun_safe_point(show_plots, case):
     sun_safe_point.sHatBdyCmd = sHat_cmd_B
     sun_safe_point.omega_RN_B = omega_RN_B_Search
     sun_safe_point.sunAxisSpinRate = sunAxisSpinRate
+    sun_safe_point.observationThreshold = 4
+
+    # Configure a (no-op) search sequence; the run advances past it to force the POINT transition.
+    for i in range(4):
+        rotation = sunSafePointF32.RotationProperties()
+        rotation.rotationDuration = 1.0
+        rotation.rotationRate = 0.0
+        rotation.rotationAxis = sunSafePointF32.RotationAxis_b1Hat_B
+        sun_safe_point.setRotation(i, rotation)
 
     # Create sunSafePoint sun direction input messages
     input_sun_vec_data = messaging.NavAttMsgF32Payload()
@@ -97,6 +109,11 @@ def test_sun_safe_point(show_plots, case):
     input_rate_data.omega_BN_B = omega_BN_B
     rate_in_msg = messaging.NavAttMsgF32().write(input_rate_data)
 
+    # Create sunSafePoint filter residuals input message (CSS observation count)
+    input_residuals_data = messaging.FilterResidualsMsgF32Payload()
+    input_residuals_data.sizeOfObservations = 0
+    residuals_in_msg = messaging.FilterResidualsMsgF32().write(input_residuals_data)
+
     # Set up data logging
     att_guid_out_msg_data_log = sun_safe_point.attGuidanceOutMsg.recorder()
     unit_test_sim.AddModelToTask(unit_task_name, att_guid_out_msg_data_log)
@@ -104,111 +121,56 @@ def test_sun_safe_point(show_plots, case):
     # Connect messages
     sun_safe_point.sunDirectionInMsg.subscribeTo(sun_in_msg)
     sun_safe_point.rateInMsg.subscribeTo(rate_in_msg)
+    sun_safe_point.filterResidualsInMsg.subscribeTo(residuals_in_msg)
 
-    # Run the simulation
+    # Run the simulation past the 4 s search sequence so the final sample is in the POINT phase
     unit_test_sim.InitializeSimulation()
-    unit_test_sim.ConfigureStopTime(mc.sec2nano(1.))
+    unit_test_sim.ConfigureStopTime(mc.sec2nano(5.))
     sun_safe_point.reset(0)
     unit_test_sim.ExecuteSimulation()
 
-    # Check sigma_BR
-    # Set the filtered output truth states
+    # Build the pointing-phase truth for the final (steady-state) sample
     if case == 1 or case == 7:
         eHat = np.cross(sun_vec_B, sHat_cmd_B)
         eHat = eHat / np.linalg.norm(eHat)
         phi = np.arccos(np.dot(sun_vec_B / np.linalg.norm(sun_vec_B), sHat_cmd_B))
-        sigma_true = eHat * np.tan(phi / 4.0)
-        sigma_BR_truth = [
-                    sigma_true.tolist(),
-                    sigma_true.tolist(),
-                    sigma_true.tolist()
-                   ]
+        sigma_BR_truth = eHat * np.tan(phi / 4.0)
     if case == 2 or case == 3 or case == 6:
-        sigma_BR_truth = [
-            [0, 0, 0],
-            [0, 0, 0],
-            [0, 0, 0]
-        ]
+        sigma_BR_truth = np.array([0.0, 0.0, 0.0])
     if case == 4 or case == 5:
         eHat = unit_orthogonal(sHat_cmd_B)
         phi = np.arccos(np.dot(sun_vec_B / np.linalg.norm(sun_vec_B), sHat_cmd_B))
-        sigma_true = eHat * np.tan(phi / 4.0)
-        sigma_BR_truth = [
-                    sigma_true.tolist(),
-                    sigma_true.tolist(),
-                    sigma_true.tolist()
-               ]
+        sigma_BR_truth = eHat * np.tan(phi / 4.0)
 
-    # Compare the module results to the truth values
+    if case == 1 or case == 3 or case == 4 or case == 5 or case == 6:
+        omega_RN_B_truth = np.array([0.0, 0.0, 0.0])
+        omega_BR_B_truth = omega_BN_B
+    if case == 2 or case == 7:
+        omega_RN_B_truth = omega_RN_B_Search
+        omega_BR_B_truth = omega_BN_B - omega_RN_B_Search
+
+    domega_RN_B_truth = np.array([0.0, 0.0, 0.0])
+
+    # Compare the final (POINT) sample to the truth values
     tolerance = 1e-6
-    np.testing.assert_allclose(sigma_BR_truth,
-                               att_guid_out_msg_data_log.sigma_BR,
-                               rtol=tolerance,
-                               atol=tolerance,
-                               verbose=True)
+    np.testing.assert_allclose(att_guid_out_msg_data_log.sigma_BR[-1], sigma_BR_truth,
+                               rtol=tolerance, atol=tolerance, verbose=True)
+    np.testing.assert_allclose(att_guid_out_msg_data_log.omega_BR_B[-1], omega_BR_B_truth,
+                               rtol=tolerance, atol=tolerance, verbose=True)
+    np.testing.assert_allclose(att_guid_out_msg_data_log.omega_RN_B[-1], omega_RN_B_truth,
+                               rtol=tolerance, atol=tolerance, verbose=True)
+    np.testing.assert_allclose(att_guid_out_msg_data_log.domega_RN_B[-1], domega_RN_B_truth,
+                               rtol=tolerance, atol=tolerance, verbose=True)
 
-    # Check omega_BR_B
-    # Set the filtered output truth states
-    if case == 1 or case == 3 or case == 4 or case == 5 or case == 6:
-        omega_BR_B_truth = [
-            omega_BN_B.tolist(),
-            omega_BN_B.tolist(),
-            omega_BN_B.tolist()
-        ]
-    if case == 2 or case == 7:
-        omega_BR_B_truth = [
-            (omega_BN_B - omega_RN_B_Search).tolist(),
-            (omega_BN_B - omega_RN_B_Search).tolist(),
-            (omega_BN_B - omega_RN_B_Search).tolist()
-        ]
-
-    # Compare the module results to the truth values
-    np.testing.assert_allclose(omega_BR_B_truth,
-                               att_guid_out_msg_data_log.omega_BR_B,
-                               rtol=tolerance,
-                               atol=tolerance,
-                               verbose=True)
-
-    # Check omega_RN_B
-    # Set the filtered output truth states
-    if case == 1 or case == 3 or case == 4 or case == 5 or case == 6:
-        omega_RN_B_truth = [
-            [0.0, 0.0, 0.0],
-            [0.0, 0.0, 0.0],
-            [0.0, 0.0, 0.0]
-        ]
-    if case == 2 or case == 7:
-        omega_RN_B_truth = [
-            omega_RN_B_Search,
-            omega_RN_B_Search,
-            omega_RN_B_Search
-        ]
-
-    # Compare the module results to the truth values
-    np.testing.assert_allclose(omega_RN_B_truth,
-                               att_guid_out_msg_data_log.omega_RN_B,
-                               rtol=tolerance,
-                               atol=tolerance,
-                               verbose=True)
-
-    # Check domega_RN_B
-    # Set the filtered output truth states
-    domega_RN_B_truth = [
-               [0.0, 0.0, 0.0],
-               [0.0, 0.0, 0.0],
-               [0.0, 0.0, 0.0]
-               ]
-
-    # Compare the module results to the truth values
-    np.testing.assert_allclose(domega_RN_B_truth,
-                               att_guid_out_msg_data_log.domega_RN_B,
-                               rtol=tolerance,
-                               atol=tolerance,
-                               verbose=True)
-
+    # Parameter round-trips (scalar attributes + SWIG rotation-config binding)
     np.testing.assert_allclose(sun_safe_point.sunAxisSpinRate, sunAxisSpinRate, rtol=tolerance, atol=tolerance)
     np.testing.assert_allclose(np.array(sun_safe_point.omega_RN_B).flatten(), omega_RN_B_Search, rtol=tolerance, atol=tolerance)
     np.testing.assert_allclose(np.array(sun_safe_point.sHatBdyCmd).flatten(), sHat_cmd_B, rtol=tolerance, atol=tolerance)
+    assert sun_safe_point.observationThreshold == 4
+    read_rotation = sun_safe_point.getRotation(1)
+    np.testing.assert_allclose(read_rotation.rotationDuration, 1.0, rtol=tolerance, atol=tolerance)
+    np.testing.assert_allclose(read_rotation.rotationRate, 0.0, rtol=tolerance, atol=tolerance)
+    assert read_rotation.rotationAxis == sunSafePointF32.RotationAxis_b1Hat_B
 
 if __name__ == "__main__":
     test_sun_safe_point(False, 1)
