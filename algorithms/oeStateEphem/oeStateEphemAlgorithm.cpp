@@ -115,23 +115,23 @@ orbitalMotion::CartesianState OEStateEphemAlgorithm::update(const uint64_t callT
     orbitalMotion::CartesianState outputCartesianState{};
     outputCartesianState.position = Eigen::Vector3d::Zero();
     outputCartesianState.velocity = Eigen::Vector3d::Zero();
-    /*! If all of the radius of periapsis components are zero, this is the central body and should return all zeros*/
-    if (this->allParametersNull()) {
-        return outputCartesianState;
+
+    /*! Only evaluate the fit when this is not a central body (central bodies have all radius-of-periapsis
+        coefficients zero and keep the zero-initialized state). */
+    if (!this->allParametersNull()) {
+        /*! - compute time for fitting interval, clamped to be non-negative */
+        double currentEphTime = (static_cast<double>(callTime) * kNano2Sec) + this->cfg.getEphemerisTimeJ2000() -
+                                this->cfg.getVehicleTimeOffset();
+        currentEphTime = std::max<double>(currentEphTime, 0);
+
+        const auto currentArc = this->findCurrentArc(currentEphTime);
+        const auto currentScaledValue = scaleEphemerisTime(currentArc, currentEphTime);
+        const auto orbitalElements = evaluateCoefficients(currentScaledValue, currentArc);
+
+        /*! - Determine position and velocity vectors */
+        outputCartesianState =
+            orbitalMotion::elementsToCartesianState(this->cfg.getCentralBodyGravitationalParameter(), orbitalElements);
     }
-
-    /*! - compute time for fitting interval, clamped to be non-negative */
-    double currentEphTime = (static_cast<double>(callTime) * kNano2Sec) + this->cfg.getEphemerisTimeJ2000() -
-                            this->cfg.getVehicleTimeOffset();
-    currentEphTime = std::max<double>(currentEphTime, 0);
-
-    const auto currentArc = this->findCurrentArc(currentEphTime);
-    const auto currentScaledValue = scaleEphemerisTime(currentArc, currentEphTime);
-    const auto orbitalElements = evaluateCoefficients(currentScaledValue, currentArc);
-
-    /*! - Determine position and velocity vectors */
-    outputCartesianState =
-        orbitalMotion::elementsToCartesianState(this->cfg.getCentralBodyGravitationalParameter(), orbitalElements);
 
     return outputCartesianState;
 }
