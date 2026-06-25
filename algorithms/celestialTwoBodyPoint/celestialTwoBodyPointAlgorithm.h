@@ -23,13 +23,13 @@ class CelestialTwoBodyPointConfig final {
         @return validated configuration object */
     static CelestialTwoBodyPointConfig create(const float celestialBodyAlignmentThreshold) {
         if (!isValidCelestialBodyAlignmentThreshold(celestialBodyAlignmentThreshold)) {
-            FSW_THROW_INVALID_ARGUMENT("celestialTwoBodyPoint: celestialBodyAlignmentThreshold must be >= 0");
+            FSW_THROW_INVALID_ARGUMENT("celestialTwoBodyPoint: celestialBodyAlignmentThreshold must be >= 1e-6");
         }
         return {celestialBodyAlignmentThreshold};
     }
 
     static bool isValidCelestialBodyAlignmentThreshold(const float celestialBodyAlignmentThreshold) {
-        return celestialBodyAlignmentThreshold >= 0.0F;
+        return celestialBodyAlignmentThreshold >= 1e-6F;
     }
     float getCelestialBodyAlignmentThreshold() const { return celestialBodyAlignmentThreshold; }
 
