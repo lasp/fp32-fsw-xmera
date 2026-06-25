@@ -214,6 +214,7 @@ class SunlineFilterAlgorithm {
     SunlineFilterOutput update(double currentSeconds, CssData const& cssData, RateData const& rateData);
 
     void reInitialize();
+    void reInitializeAll();
     void timeUpdate(double dt);
     void measurementUpdate(Measurement const& measurement);
 

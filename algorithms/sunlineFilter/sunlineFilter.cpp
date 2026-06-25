@@ -73,13 +73,22 @@ void SunlineFilter::reset(uint64_t currentSimNanos) {
     this->lastCssTimeTag = 0;
 }
 
-/*! Re-seed the filter runtime state from the configuration.
+/*! Clear the filter's internal runtime state; state and covariance are preserved.
  *  @return void */
 void SunlineFilter::reInitialize() {
     if (!this->algorithm) {
         throw XmeraLifecycleException("SunlineFilter reset() has not been called.");
     }
     this->algorithm->reInitialize();
+}
+
+/*! reInitialize() and additionally re-seed the filter state and covariance from the configuration.
+ *  @return void */
+void SunlineFilter::reInitializeAll() {
+    if (!this->algorithm) {
+        throw XmeraLifecycleException("SunlineFilter reset() has not been called.");
+    }
+    this->algorithm->reInitializeAll();
 }
 
 /*! Read NavAtt and CSS messages, call algorithm update, and
