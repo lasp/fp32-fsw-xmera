@@ -25,7 +25,7 @@ TEST(CelestialTwoBodyPointTest, RegressionTest) {
 TEST(CelestialTwoBodyPointTest, SetupTest) {
     // Valid config should not throw
     EXPECT_NO_THROW(CelestialTwoBodyPointConfig::create(0.017F));
-    
+
     // Negative or zero celestialBodyAlignmentThreshold should throw
     EXPECT_THROW(CelestialTwoBodyPointConfig::create(-1.0F), fsw::invalid_argument);
     EXPECT_THROW(CelestialTwoBodyPointConfig::create(0.0F), fsw::invalid_argument);
@@ -96,7 +96,7 @@ TEST(CelestialTwoBodyPointTest, SpacecraftAtPrimaryReturnsZero) {
     auto config = CelestialTwoBodyPointConfig::create(celestialBodyAlignmentThreshold);
     const CelestialTwoBodyPointAlgorithm alg(config);
 
-    CelestialTwoBodyPointOutput result = alg.update(r_PN_N, v_PN_N, r_SN_N, v_SN_N, r_BN_N, v_BN_N);
+    CelestialTwoBodyPointOutput result = alg.update({r_PN_N, v_PN_N}, {r_SN_N, v_SN_N}, {r_BN_N, v_BN_N});
 
     constexpr float tol = 1e-6F;
     for (int i = 0; i < 3; ++i) {
@@ -120,7 +120,7 @@ TEST(CelestialTwoBodyPointTest, SpacecraftAtSecondaryReturnsZero) {
     auto config = CelestialTwoBodyPointConfig::create(celestialBodyAlignmentThreshold);
     const CelestialTwoBodyPointAlgorithm alg(config);
 
-    CelestialTwoBodyPointOutput result = alg.update(r_PN_N, v_PN_N, r_SN_N, v_SN_N, r_BN_N, v_BN_N);
+    CelestialTwoBodyPointOutput result = alg.update({r_PN_N, v_PN_N}, {r_SN_N, v_SN_N}, {r_BN_N, v_BN_N});
 
     constexpr float tol = 1e-6F;
     for (int i = 0; i < 3; ++i) {
@@ -144,7 +144,7 @@ TEST(CelestialTwoBodyPointTest, CelestialBodiesAlignedUsesFixedConstraintAxis) {
     auto config = CelestialTwoBodyPointConfig::create(celestialBodyAlignmentThreshold);
     const CelestialTwoBodyPointAlgorithm alg(config);
 
-    CelestialTwoBodyPointOutput result = alg.update(r_PN_N, v_PN_N, r_SN_N, v_SN_N, r_BN_N, v_BN_N);
+    CelestialTwoBodyPointOutput result = alg.update({r_PN_N, v_PN_N}, {r_SN_N, v_SN_N}, {r_BN_N, v_BN_N});
     ReferenceCelestialTwoBodyPointOutput expected =
         referenceCelestialTwoBodyPoint(r_PN_N, v_PN_N, r_SN_N, v_SN_N, r_BN_N, v_BN_N, celestialBodyAlignmentThreshold);
 
@@ -170,7 +170,7 @@ TEST(CelestialTwoBodyPointTest, CelestialBodiesAlignedFallbackUndefinedReturnsZe
     auto config = CelestialTwoBodyPointConfig::create(celestialBodyAlignmentThreshold);
     const CelestialTwoBodyPointAlgorithm alg(config);
 
-    CelestialTwoBodyPointOutput result = alg.update(r_PN_N, v_PN_N, r_SN_N, v_SN_N, r_BN_N, v_BN_N);
+    CelestialTwoBodyPointOutput result = alg.update({r_PN_N, v_PN_N}, {r_SN_N, v_SN_N}, {r_BN_N, v_BN_N});
 
     constexpr float tol = 1e-6F;
     for (int i = 0; i < 3; ++i) {

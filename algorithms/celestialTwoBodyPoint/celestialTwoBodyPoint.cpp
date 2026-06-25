@@ -51,7 +51,8 @@ void CelestialTwoBodyPoint::updateState(const uint64_t callTime) {
     const Eigen::Vector3d r_SN_N = cArrayToEigenVector3<double>(secondaryCelBodyIn.r_BdyZero_N);
     const Eigen::Vector3d v_SN_N = cArrayToEigenVector3<double>(secondaryCelBodyIn.v_BdyZero_N);
 
-    const CelestialTwoBodyPointOutput out = this->algorithm->update(r_PN_N, v_PN_N, r_SN_N, v_SN_N, r_BN_N, v_BN_N);
+    const CelestialTwoBodyPointOutput out = this->algorithm->update(
+        InertialStateInput{r_PN_N, v_PN_N}, InertialStateInput{r_SN_N, v_SN_N}, InertialStateInput{r_BN_N, v_BN_N});
 
     /*! - Write the output message */
     AttRefMsgF32Payload attRefOut{};
