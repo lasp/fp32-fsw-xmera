@@ -90,6 +90,23 @@ SunlineSRuKFConfig noCssConfig(State const& initial, Matrix7 const& P) {
                                       1E-3);
 }
 
+// noCssConfig with an explicit process noise (for exercising process-noise-driven covariance growth).
+SunlineSRuKFConfig noCssConfigWithProcessNoise(State const& initial, Matrix7 const& P, Matrix7 const& processNoise) {
+    return SunlineSRuKFConfig::create(kAlpha,
+                                      kBeta,
+                                      processNoise,
+                                      initial,
+                                      P,
+                                      kBiasLowerBound,
+                                      kBiasUpperBound,
+                                      Eigen::Matrix<double, MaxCss, 3>::Zero(),
+                                      Eigen::Vector<double, MaxCss>::Zero(),
+                                      0,
+                                      0.0,
+                                      1E-2,
+                                      1E-3);
+}
+
 // Validated config with the three-CSS geometry, CBias = 1, and the given sensor threshold.
 SunlineSRuKFConfig threeCssConfig(State const& initial, Matrix7 const& P, double sensorThreshold) {
     return SunlineSRuKFConfig::create(kAlpha,
@@ -291,6 +308,27 @@ TEST(SunlineSRuKFAlgorithmReInit, ReInitializePreservesEstimateReInitializeAllRe
     algo.reInitializeAll();
     EXPECT_TRUE(algo.getState().raw().isApprox(initialState.raw()));
     EXPECT_TRUE(algo.getCovariance().isApprox(initialCovariance));
+}
+
+// A filter reconfigured to a larger process noise must behave like one constructed with it.
+TEST(SunlineSRuKFAlgorithmReInit, SetConfigReDerivesProcessNoise) {
+    State const initial = makeState(Eigen::Vector3d(0, 0, 1), Eigen::Vector3d::Zero(), 1.0);
+    Matrix7 const P0 = diagCovariance(1E-2, 1E-2, 1E-1);
+    Matrix7 const smallProcessNoise = Matrix7::Identity() * 1E-12;
+    Matrix7 const largeProcessNoise = Matrix7::Identity() * 1E-2;
+    constexpr double dt = 1.0;
+
+    SunlineSRuKFAlgorithm reference(noCssConfigWithProcessNoise(initial, P0, largeProcessNoise));
+    reference.timeUpdate(dt);
+
+    SunlineSRuKFAlgorithm smallOnly(noCssConfigWithProcessNoise(initial, P0, smallProcessNoise));
+    smallOnly.timeUpdate(dt);
+    ASSERT_FALSE(smallOnly.getCovariance().isApprox(reference.getCovariance()));
+
+    SunlineSRuKFAlgorithm algo(noCssConfigWithProcessNoise(initial, P0, smallProcessNoise));
+    algo.setConfig(noCssConfigWithProcessNoise(initial, P0, largeProcessNoise));
+    algo.timeUpdate(dt);
+    EXPECT_TRUE(algo.getCovariance().isApprox(reference.getCovariance()));
 }
 
 // ============================================================================
