@@ -1,0 +1,39 @@
+#ifndef F32XMERA_TIME_CA_ALGORITHM_H
+#define F32XMERA_TIME_CA_ALGORITHM_H
+
+#include "timeClosestApproachTypes.h"
+#include <Eigen/Core>
+
+/** @brief Minimum Euclidean norm [m or m/s] for r_BN_N and v_BN_N inputs. */
+inline constexpr double kMinVectorNorm = 1.0e-3;
+
+struct TimeClosestApproachOutput {
+    float tCA;       //!< the predicted time of closest approach [s]
+    float sigmaTca;  //!< the predicted time of closest approach standard deviation [s]
+};
+
+// timeClosestApproach has no tunable parameters; the Config class is intentionally empty so the
+// algorithm can still follow the standard two-phase init pattern.
+class TimeClosestApproachConfig final {
+   public:
+    static TimeClosestApproachConfig create() { return {}; }
+
+   private:
+    TimeClosestApproachConfig() = default;
+};
+
+class TimeClosestApproachAlgorithm final {
+   public:
+    explicit TimeClosestApproachAlgorithm(const TimeClosestApproachConfig& config);
+
+    void setConfig(const TimeClosestApproachConfig& config);
+
+    static TimeClosestApproachOutput update(const Eigen::Vector3d& r_BN_N,
+                                            const Eigen::Vector3d& v_BN_N,
+                                            const Eigen::Matrix<double, 6, 6>& filterCovariance);
+
+   private:
+    [[no_unique_address]] TimeClosestApproachConfig cfg;
+};
+
+#endif
