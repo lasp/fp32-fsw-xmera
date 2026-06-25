@@ -107,65 +107,24 @@ class OEStateEphemConfig final {
     std::array<ChebyshevFitArc, kMaxOeRecords> fitCoefficients;
 };
 
-/*! @brief Top level structure for the Chebyshev position ephemeris
-           fit system.  Allows the user to specify a set of chebyshev
-           coefficients and then use the input time to determine where
-           a given body is in space
+/*! @brief Top level structure for the Chebyshev position ephemeris fit system. Evaluates the configured
+           Chebyshev coefficients at the requested time to determine where a given body is in space.
 */
-class OEStateEphemAlgorithm {
+class OEStateEphemAlgorithm final {
    public:
-    orbitalMotion::CartesianState update(uint64_t callTime);
+    explicit OEStateEphemAlgorithm(const OEStateEphemConfig& config);
 
-    void setCentralBodyGravitationalParameter(double gravitationalParameter);
-    double getCentralBodyGravitationalParameter() const;
-    void setNumberOfArcs(unsigned int arcs);
-    unsigned int getNumberOfArcs() const;
-    void setEphemerisTimeJ2000(double ephemerisJ2000);
-    double getEphemerisTimeJ2000() const;
-    void setVehicleTimeOffset(double timeOffset);
-    double getVehicleTimeOffset() const;
+    void setConfig(const OEStateEphemConfig& config);
 
-    void setArcNumberOfCoefficients(unsigned int arcNumber, unsigned int numberOfCoefficients);
-    unsigned int getArcNumberOfCoefficients(unsigned int arcNumber) const;
-
-    void setArcMiddleTime(unsigned int arcNumber, double timeMiddle);
-    double getArcMiddleTime(unsigned int arcNumber) const;
-
-    void setArcRadiusTime(unsigned int arcNumber, double timeRadius);
-    double getArcRadiusTime(unsigned int arcNumber) const;
-
-    void setArcAnomalyFlag(unsigned int arcNumber, const AnomalyType& anomalyFlag);
-    AnomalyType getArcAnomalyFlag(unsigned int arcNumber) const;
-
-    void setArcRadiusPeriapsisCoefficients(unsigned int arcNumber,
-                                           const std::array<double, kMaxOeCoeff>& radiusPeriapsisCoefficients);
-    std::array<double, kMaxOeCoeff> getArcRadiusPeriapsisCoefficients(unsigned int arcNumber) const;
-    void setArcEccentricityCoefficients(unsigned int arcNumber,
-                                        const std::array<double, kMaxOeCoeff>& eccentricityCoefficients);
-    std::array<double, kMaxOeCoeff> getArcEccentricityCoefficients(unsigned int arcNumber) const;
-    void setArcInclinationCoefficients(unsigned int arcNumber,
-                                       const std::array<double, kMaxOeCoeff>& inclinationCoefficients);
-    std::array<double, kMaxOeCoeff> getArcInclinationCoefficients(unsigned int arcNumber) const;
-    void setArcArgPeriapsisCoefficients(unsigned int arcNumber,
-                                        const std::array<double, kMaxOeCoeff>& argPeriapsisCoefficients);
-    std::array<double, kMaxOeCoeff> getArcArgPeriapsisCoefficients(unsigned int arcNumber) const;
-    void setArcRaanCoefficients(unsigned int arcNumber, const std::array<double, kMaxOeCoeff>& raanCoefficients);
-    std::array<double, kMaxOeCoeff> getArcRaanCoefficients(unsigned int arcNumber) const;
-    void setArcTrueAnomalyCoefficients(unsigned int arcNumber,
-                                       const std::array<double, kMaxOeCoeff>& trueAnomalyCoefficients);
-    std::array<double, kMaxOeCoeff> getArcTrueAnomalyCoefficients(unsigned int arcNumber) const;
+    orbitalMotion::CartesianState update(uint64_t callTime) const;
 
    private:
-    ChebyshevFitArc findCurrentArc(uint64_t spacecraftClockTime);
-    double scaleEphemerisTime(const ChebyshevFitArc& arc) const;
+    ChebyshevFitArc findCurrentArc(double currentEphTime) const;
+    static double scaleEphemerisTime(const ChebyshevFitArc& arc, double currentEphTime);
     static orbitalMotion::ClassicalElements evaluateCoefficients(double currentScaledValue, const ChebyshevFitArc& arc);
     bool allParametersNull() const;
-    unsigned int numberOfArcs{};
-    double currentEphTime{};
-    double mu{};  //!< [m3/s^2] Gravitational parameter for center of orbital elements
-    std::array<ChebyshevFitArc, kMaxOeRecords> fitCoefficients{};  //!< [-] Array of Chebyshev records for ephemeris
-    double ephemerisTime{};
-    double vehicleTimeOffset{};
+
+    OEStateEphemConfig cfg;
 };
 
 #endif

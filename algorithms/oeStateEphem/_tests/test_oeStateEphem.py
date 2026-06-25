@@ -46,7 +46,7 @@ def test_zero_inputs(show_plots):
     oe_ephemeris_module.modelTag = "oe_ephemeris_module"
     sim.AddModelToTask(task_name, oe_ephemeris_module)
 
-    oe_ephemeris_module.setCentralBodyGravitationalParameter(0)
+    oe_ephemeris_module.centralBodyGravitationalParameter = 0
 
     oe_ephemeris_module.setArcRadiusPeriapsisCoefficients(0, [0] * 20)
     oe_ephemeris_module.setArcEccentricityCoefficients(0, [0] * 20)
@@ -161,7 +161,7 @@ def cheby_fit(show_plots, valid_curve, anomaly_flag):
     oe_ephemeris_module.modelTag = "oe_ephemeris_module"
     sim.AddModelToTask(task_name, oe_ephemeris_module)
 
-    oe_ephemeris_module.setCentralBodyGravitationalParameter(central_body_mu)
+    oe_ephemeris_module.centralBodyGravitationalParameter = central_body_mu
 
     oe_ephemeris_module.setArcRadiusPeriapsisCoefficients(0, radius_periasis_fit.tolist() + [0] * (20 - number_cheby_coefficients))
     oe_ephemeris_module.setArcEccentricityCoefficients(0, eccentricity_fit.tolist() + [0] * (20 - number_cheby_coefficients))

@@ -92,6 +92,39 @@ elementsToCartesianStateDouble(double mu, double a, double e, double i, double O
 }
 
 // ---------------------------------------------------------------------------
+// Config / arc construction helpers
+// ---------------------------------------------------------------------------
+
+inline ChebyshevFitArc makeConstantArc(double r_p_m,
+                                       double eccentricity,
+                                       double inclination,
+                                       double arg_periapsis,
+                                       double raan,
+                                       double anomaly_angle,
+                                       AnomalyType anomaly_type,
+                                       double middle_time,
+                                       double radius_time) {
+    ChebyshevFitArc arc{};
+    arc.numberChebCoefficients = 1;
+    arc.ephemerisTimeMiddle = middle_time;
+    arc.ephemerisTimeRadius = radius_time;
+    arc.anomalyFlag = anomaly_type;
+    arc.radiusPeriapsisCoefficients[0] = r_p_m;
+    arc.eccentricityCoefficients[0] = eccentricity;
+    arc.inclinationCoefficients[0] = inclination;
+    arc.argPeriapsisCoefficients[0] = arg_periapsis;
+    arc.raanCoefficients[0] = raan;
+    arc.trueAnomalyCoefficients[0] = anomaly_angle;
+    return arc;
+}
+
+inline std::array<ChebyshevFitArc, kMaxOeRecords> singleValidArcTable() {
+    std::array<ChebyshevFitArc, kMaxOeRecords> arcs{};
+    arcs[0] = makeConstantArc(7000000.0, 0.1, 0.0, 0.0, 0.0, 0.0, AnomalyType::TRUE_ANOMALY, 1000.0, 2000.0);
+    return arcs;
+}
+
+// ---------------------------------------------------------------------------
 // Shared test helper
 // ---------------------------------------------------------------------------
 
@@ -126,12 +159,6 @@ inline void testOEStateEphemUpdate(double mu,
                                    double ephemeris_time = 0.0,
                                    double vehicle_time = 0.0,
                                    double arc_radius_time = 1000.0) {
-    OEStateEphemAlgorithm algorithm;
-
-    algorithm.setCentralBodyGravitationalParameter(mu);
-    algorithm.setEphemerisTimeJ2000(ephemeris_time);
-    algorithm.setVehicleTimeOffset(vehicle_time);
-
     const double arcSpacing = 2.0 * arc_radius_time;
 
     // Replicate the algorithm's clamp of currentEphTime to >= 0
@@ -143,39 +170,23 @@ inline void testOEStateEphemUpdate(double mu,
 
     double const arcMiddleTimeToUse = arcToPopulate * arcSpacing + arc_radius_time / 4;
 
-    // Setup relevant arc with constant coefficients (only first coefficient non-zero)
-    algorithm.setNumberOfArcs(arcToPopulate + 1);
-    for (auto arcIdx = 0; arcIdx < arcToPopulate + 1; arcIdx++) {
-        algorithm.setArcNumberOfCoefficients(arcIdx, 1);
-        algorithm.setArcMiddleTime(arcIdx, arcMiddleTimeToUse);
-        algorithm.setArcRadiusTime(arcIdx, arc_radius_time);
-        algorithm.setArcAnomalyFlag(arcIdx, anomaly_type);
-
-        // Set constant coefficients (first one) of each orbital element
-        std::array<double, kMaxOeCoeff> rpCoeffs{};
-        rpCoeffs[0] = r_p_m;
-        algorithm.setArcRadiusPeriapsisCoefficients(arcIdx, rpCoeffs);
-
-        std::array<double, kMaxOeCoeff> eCoeffs{};
-        eCoeffs[0] = eccentricity;
-        algorithm.setArcEccentricityCoefficients(arcIdx, eCoeffs);
-
-        std::array<double, kMaxOeCoeff> iCoeffs{};
-        iCoeffs[0] = inclination;
-        algorithm.setArcInclinationCoefficients(arcIdx, iCoeffs);
-
-        std::array<double, kMaxOeCoeff> omegaCoeffs{};
-        omegaCoeffs[0] = arg_periapsis;
-        algorithm.setArcArgPeriapsisCoefficients(arcIdx, omegaCoeffs);
-
-        std::array<double, kMaxOeCoeff> raanCoeffs{};
-        raanCoeffs[0] = raan;
-        algorithm.setArcRaanCoefficients(arcIdx, raanCoeffs);
-
-        std::array<double, kMaxOeCoeff> nuCoeffs{};
-        nuCoeffs[0] = anomaly_angle;
-        algorithm.setArcTrueAnomalyCoefficients(arcIdx, nuCoeffs);
+    // Build the arc table with constant coefficients (only the first coefficient non-zero)
+    std::array<ChebyshevFitArc, kMaxOeRecords> arcs{};
+    for (unsigned int arcIdx = 0; arcIdx < arcToPopulate + 1; ++arcIdx) {
+        arcs.at(arcIdx) = makeConstantArc(r_p_m,
+                                          eccentricity,
+                                          inclination,
+                                          arg_periapsis,
+                                          raan,
+                                          anomaly_angle,
+                                          anomaly_type,
+                                          arcMiddleTimeToUse,
+                                          arc_radius_time);
     }
+
+    const OEStateEphemAlgorithm algorithm{
+        OEStateEphemConfig::create(mu, arcToPopulate + 1, ephemeris_time, vehicle_time, arcs)};
+
     // Call the update function
     CartesianState computed_state = algorithm.update(testEphTime / kNano2Sec);
 
