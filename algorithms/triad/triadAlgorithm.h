@@ -1,11 +1,9 @@
 #ifndef F32XMERA_TRIAD_ALGORITHM_H
 #define F32XMERA_TRIAD_ALGORITHM_H
 
-#include "freestandingInvalidArgument.h"
-
-#include <Eigen/Core>
-
+#include "utilities/fsw/freestandingInvalidArgument.h"
 #include <stdint.h>
+#include <Eigen/Core>
 
 enum class CelestialBody : uint8_t { NotSun = 0, Sun = 1 };
 

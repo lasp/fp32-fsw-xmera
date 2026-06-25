@@ -1,13 +1,11 @@
 #include "triadAlgorithm.h"
 
+#include "architecture/utilities/rigidBodyKinematics.hpp"
+#include "utilities/fsw/safeMath.h"
 #include <math.h>
+#include <Eigen/Core>
 #include <numbers>
 #include <stdexcept>
-
-#include <Eigen/Core>
-
-#include "architecture/utilities/rigidBodyKinematics.hpp"
-#include "utilities/safeMath.h"
 
 static constexpr float kSpeParallelThresholdDeg = 0.5F;
 static constexpr float kRadToDeg = 180.0F / std::numbers::pi_v<float>;
@@ -26,12 +24,9 @@ static float SPE_angle(const Eigen::Vector3f& v1, const Eigen::Vector3f& v2) {
     return angle;
 }
 
-TriadAlgorithm::TriadAlgorithm(const TriadConfig& config)
-    : cfg(config) {}
+TriadAlgorithm::TriadAlgorithm(const TriadConfig& config) : cfg(config) {}
 
-void TriadAlgorithm::setConfig(const TriadConfig& config) {
-    this->cfg = config;
-}
+void TriadAlgorithm::setConfig(const TriadConfig& config) { this->cfg = config; }
 
 Eigen::Vector3f TriadAlgorithm::update(const Eigen::Vector3f& rHat_SB_N,
                                        const Eigen::Vector3f& hReqHat_N,
