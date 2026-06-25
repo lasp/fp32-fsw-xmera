@@ -327,3 +327,27 @@ TEST(SunSafePointTest, NoTransitionDuringFirstRotation) {
     EXPECT_NEAR(out.omega_RN_B[2], 0.0F, 1e-6F);
     EXPECT_FALSE(out.faultDetected);
 }
+
+TEST(SunSafePointTest, StaysSearchingBelowThreshold) {
+    const auto rotations = buildRotations({10.0F, 10.0F, 10.0F, 10.0F}, {0.1F, 0.2F, 0.3F, 0.4F}, {0, 1, 2, 0});
+    SunSafePointAlgorithm alg{makeSearchConfig(rotations)};
+
+    const uint64_t startTime = 1000U;
+    const Eigen::Vector3f sun{1.0F, 1.0F, 0.0F};
+    (void)alg.update(startTime, Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(), 3);  // latch start
+
+    // Observations below the threshold (3 < 4) must NOT transition. Sample inside rotations 2, 3
+    // and 4 (all before the 40 s sequence end): the gate stays closed and search advances
+    // rotation-by-rotation.
+    auto checkSearch = [&](float tSec, const Eigen::Vector3f& expectedOmegaRN) {
+        const uint64_t callTime = startTime + static_cast<uint64_t>(tSec * kSec2NanoF);
+        const SunSafePointOutput out = alg.update(callTime, sun, Eigen::Vector3f::Zero(), 3);
+        EXPECT_FLOAT_EQ(out.sigma_BR.norm(), 0.0F);
+        EXPECT_NEAR(out.omega_RN_B[0], expectedOmegaRN[0], 1e-6F);
+        EXPECT_NEAR(out.omega_RN_B[1], expectedOmegaRN[1], 1e-6F);
+        EXPECT_NEAR(out.omega_RN_B[2], expectedOmegaRN[2], 1e-6F);
+    };
+    checkSearch(15.0F, Eigen::Vector3f{0.0F, 0.2F, 0.0F});  // rotation 2 about b2
+    checkSearch(25.0F, Eigen::Vector3f{0.0F, 0.0F, 0.3F});  // rotation 3 about b3
+    checkSearch(35.0F, Eigen::Vector3f{0.4F, 0.0F, 0.0F});  // rotation 4 about b1
+}
