@@ -37,30 +37,36 @@ CelestialTwoBodyPointOutput CelestialTwoBodyPointAlgorithm::update(const Eigen::
     Eigen::Vector3d r_SB_N = r_SN_N - r_BN_N;
     Eigen::Vector3d v_SB_N = v_SN_N - v_BN_N;
 
-    /*! Return identity reference attitude and zero reference rates if either r_PB_N or r_SB_N are zero */
-    if (r_PB_N.squaredNorm() < kMinNormSq || r_SB_N.squaredNorm() < kMinNormSq) {
-        return CelestialTwoBodyPointOutput{};
-    }
+    /*! Default reference output */
+    CelestialTwoBodyPointOutput attRefOut{};
 
-    /*! Compute angle between celestial bodies */
-    const auto dotProduct1 = static_cast<float>(r_SB_N.normalized().dot(r_PB_N.normalized()));
-    const float celestialBodySeparationAngle = safeAcosf(fabsf(dotProduct1)); /* Angle between r_PB_N and r_SB_N */
+    /*! Return default reference output if either celestial body is not resolved (if r_PB_N or r_SB_N are zero) */
+    const bool celestialBodiesResolved = r_PB_N.squaredNorm() >= kMinNormSq && r_SB_N.squaredNorm() >= kMinNormSq;
 
-    /*! Update r_SB_N and v_SB_N if celestial bodies are aligned */
-    if (celestialBodySeparationAngle < this->cfg.getCelestialBodyAlignmentThreshold()) {
-        /*! Return identity reference attitude and zero reference rates if r_PB_N and v_PB_N are aligned */
-        const auto dotProduct2 = static_cast<float>(r_PB_N.normalized().dot(v_PB_N.normalized()));
-        const float posVelSeparationAngle = safeAcosf(fabsf(dotProduct2)); /* Angle between r_PB_N and v_PB_N */
-        if (posVelSeparationAngle < kSmallAngle) {
-            return CelestialTwoBodyPointOutput{};
+    if (celestialBodiesResolved) {
+        /*! Compute angle between celestial bodies */
+        const auto dotProduct1 = static_cast<float>(r_SB_N.normalized().dot(r_PB_N.normalized()));
+        const float celestialBodySeparationAngle = safeAcosf(fabsf(dotProduct1)); /* Angle between r_PB_N and r_SB_N */
+
+        bool constraintAxisValid = true;
+
+        /*! Update r_SB_N and v_SB_N if celestial bodies are aligned, unless r_PB_N and v_PB_N are collinear (fallback
+         * constraint axis undefined) */
+        if (celestialBodySeparationAngle < this->cfg.getCelestialBodyAlignmentThreshold()) {
+            const auto dotProduct2 = static_cast<float>(r_PB_N.normalized().dot(v_PB_N.normalized()));
+            const float posVelSeparationAngle = safeAcosf(fabsf(dotProduct2)); /* Angle between r_PB_N and v_PB_N */
+            constraintAxisValid = posVelSeparationAngle >= kSmallAngle;
+            if (constraintAxisValid) {
+                r_SB_N = r_PB_N.cross(v_PB_N);
+                v_SB_N = Eigen::Vector3d::Zero();
+            }
         }
 
-        r_SB_N = r_PB_N.cross(v_PB_N);
-        v_SB_N = Eigen::Vector3d::Zero();
+        /*! Nominal algorithm flow if both celestial bodies are resolved and constraint axes are valid */
+        if (constraintAxisValid) {
+            attRefOut = rateAndAccelCalc(r_PB_N, v_PB_N, r_SB_N, v_SB_N);
+        }
     }
-
-    CelestialTwoBodyPointOutput attRefOut =
-        CelestialTwoBodyPointAlgorithm::rateAndAccelCalc(r_PB_N, v_PB_N, r_SB_N, v_SB_N);
 
     return attRefOut;
 }
