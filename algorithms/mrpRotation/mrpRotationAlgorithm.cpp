@@ -31,14 +31,13 @@ void MrpRotationAlgorithm::setConfig(const MrpRotationConfig& config) {
  */
 MrpRotationOutput MrpRotationAlgorithm::update(const MrpRotationAttRefInputs& attRef) {
     constexpr float kMrpKinematicGain = 0.25F;
-    constexpr float kMrpShadowSwitchNorm = 1.0F;
 
     /*! - Advance sigma_RR0 one forward-Euler step using the MRP kinematic differential equation,
      *    then shadow-switch to keep the representation bounded. */
     const Eigen::Matrix3f B = bmatMrp(this->sigma_RR0);
     const Eigen::Vector3f sigmaDot_RR0 = kMrpKinematicGain * B * this->omega_RR0_R;
     const Eigen::Vector3f mrpSetNew = this->sigma_RR0 + (sigmaDot_RR0 * this->cfg.getControlPeriod());
-    this->sigma_RR0 = mrpSwitch(mrpSetNew, kMrpShadowSwitchNorm);
+    this->sigma_RR0 = mrpSwitch(mrpSetNew);
 
     /*! - Compose with the input reference frame to produce the output R/N attitude and rates. */
     const Eigen::Matrix3f dcm_RR0 = mrpToDcm(this->sigma_RR0);

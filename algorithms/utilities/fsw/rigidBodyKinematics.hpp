@@ -28,7 +28,7 @@ Eigen::Vector3<ScalarT> mrpShadow(const Eigen::Vector3<ScalarT>& mrp) {
  * @return Eigen::Vector3d
  */
 template <typename ScalarT>
-Eigen::Vector3<ScalarT> mrpSwitch(const Eigen::Vector3<ScalarT>& mrp, const ScalarT s) {
+Eigen::Vector3<ScalarT> mrpSwitch(const Eigen::Vector3<ScalarT>& mrp, const ScalarT s = 1.0) {
     if (mrp.squaredNorm() > s * s) {
         return mrpShadow(mrp);
     }
@@ -821,7 +821,7 @@ Eigen::Vector3<ScalarT> addMrp(const Eigen::Vector3<ScalarT>& mrp1, const Eigen:
     Eigen::Vector3<ScalarT> mrp = numerator / denominator;
 
     // Map MRP to the inner set
-    mrp = mrpSwitch<ScalarT>(mrp, 1.0);
+    mrp = mrpSwitch<ScalarT>(mrp);
 
     return mrp;
 }
@@ -864,7 +864,7 @@ Eigen::Vector3<ScalarT> subMrp(const Eigen::Vector3<ScalarT>& mrp1, const Eigen:
                 ScalarT(2) * mrp1Shadow.cross(mrp2);
     Eigen::Vector3<ScalarT> mrp = numerator / denominator;
     /* map mrp to inner set */
-    mrp = mrpSwitch(mrp, ScalarT(1));
+    mrp = mrpSwitch(mrp);
 
     return mrp;
 }

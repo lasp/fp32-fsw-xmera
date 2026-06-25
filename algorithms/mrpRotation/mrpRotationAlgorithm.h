@@ -41,7 +41,7 @@ class MrpRotationConfig final {
         }
         // Bound the seed MRP to the principal set (norm <= 1) by switching to the shadow set if
         // needed, so the stored initial attitude is always a well-conditioned MRP representation.
-        return {mrpSwitch(initialSigmaRR0, 1.0F), omegaRR0R, controlPeriod};
+        return {mrpSwitch(initialSigmaRR0), omegaRR0R, controlPeriod};
     }
 
     static bool isValidInitialSigmaRR0(const Eigen::Vector3f& sigma) { return sigma.allFinite(); }
