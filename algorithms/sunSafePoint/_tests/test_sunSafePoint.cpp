@@ -376,3 +376,32 @@ TEST(SunSafePointTest, ForcedTransitionAfterAllRotations) {
     EXPECT_NEAR(out.omega_RN_B.norm(), 0.0F, 1e-6F);
     EXPECT_TRUE(out.faultDetected);  // search failed (sun never acquired) -> fault latched
 }
+
+TEST(SunSafePointTest, TransitionsToPointAtThreshold) {
+    const auto rotations = buildRotations({10.0F, 10.0F, 10.0F, 10.0F}, {0.1F, 0.2F, 0.3F, 0.4F}, {0, 1, 2, 0});
+    const Eigen::Vector3f sun{1.0F, 1.0F, 0.0F};
+    const Eigen::Vector3f omega_BN_B = Eigen::Vector3f::Zero();
+
+    // The threshold can trigger the transition during any rotation after the first; use a fresh
+    // instance per sub-case because POINT is terminal.
+    for (float tSec : {15.0F, 25.0F, 35.0F}) {
+        // sHatBdyCmd {0,0,1}, threshold 4
+        const auto cfg = makeSearchConfig(rotations);
+        SunSafePointAlgorithm alg{cfg};
+
+        const uint64_t startTime = 1000U;
+        (void)alg.update(startTime, Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(), 0);  // latch start
+
+        // Observations at the threshold (4) past rotation 1: transition to POINT (rule is >=).
+        const uint64_t callTime = startTime + static_cast<uint64_t>(tSec * kSec2NanoF);
+        const SunSafePointOutput out = alg.update(callTime, sun, omega_BN_B, 4);
+
+        const auto reference = referenceUpdate(sun, omega_BN_B, 0.0F, cfg.getSHatBdyCmd(), Eigen::Vector3f::Zero());
+        EXPECT_GT(out.sigma_BR.norm(), 0.0F);
+        for (int i = 0; i < 3; ++i) {
+            EXPECT_NEAR(out.sigma_BR[i], reference.sigma_BR[i], 1e-5F);
+        }
+        EXPECT_NEAR(out.omega_RN_B.norm(), 0.0F, 1e-6F);
+        EXPECT_FALSE(out.faultDetected);  // sun acquired -> healthy transition, no fault
+    }
+}
