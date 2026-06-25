@@ -1,86 +1,59 @@
 #include "sunSafePointAlgorithm_c.h"
 #include "sunSafePointAlgorithm.h"
+#include "sunSafePointTypes.h"
+#include "utilities/fsw/eigenSupport.h"
 
 #include <Eigen/Core>
+#include <array>
 
-SunSafePointAlgorithmHandle* SunSafePointAlgorithm_create(void) {
-    // clang-format off
-    return reinterpret_cast<SunSafePointAlgorithmHandle*>(new ::SunSafePointAlgorithm());  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
-    // clang-format on
+namespace {
+SunSafePointConfig configFromC(const SunSafePointConfig_c& c) {
+    std::array<RotationProperties, kNumRotations> rotations{};
+    for (uint32_t i = 0U; i < kNumRotations; ++i) {
+        rotations[i].rotationDuration = c.rotations[i].rotationDuration;
+        rotations[i].rotationRate = c.rotations[i].rotationRate;
+        rotations[i].rotationAxis = static_cast<RotationAxis>(c.rotations[i].rotationAxis);
+    }
+    return SunSafePointConfig::create(rotations,
+                                      cArrayToEigenVector3<float>(c.sHatBdyCmd.data),
+                                      c.sunAxisSpinRate,
+                                      cArrayToEigenVector3<float>(c.omega_RN_B.data),
+                                      c.observationThreshold);
+}
+}  // namespace
+
+uint32_t SunSafePointAlgorithm_getNumRotations(void) { return SUN_SAFE_POINT_NUM_ROTATIONS; }
+
+SunSafePointAlgorithmHandle* SunSafePointAlgorithm_create(const SunSafePointConfig_c* config) {
+    return reinterpret_cast<SunSafePointAlgorithmHandle*>(new ::SunSafePointAlgorithm(configFromC(*config)));
 }
 
 void SunSafePointAlgorithm_destroy(SunSafePointAlgorithmHandle* self) {
-    // clang-format off
-    delete reinterpret_cast<::SunSafePointAlgorithm*>(self);  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast, cppcoreguidelines-owning-memory)
-    // clang-format on
+    delete reinterpret_cast<::SunSafePointAlgorithm*>(self);
 }
 
-SunSafePointOutput_c SunSafePointAlgorithm_update(const SunSafePointAlgorithmHandle* self,
-                                                  const Vector3f_c vehSunPntBdy,
-                                                  const Vector3f_c omega_BN_B) {
-    Eigen::Vector3f sun{};
-    sun << vehSunPntBdy.data[0], vehSunPntBdy.data[1], vehSunPntBdy.data[2];
-
-    Eigen::Vector3f omega{};
-    omega << omega_BN_B.data[0], omega_BN_B.data[1], omega_BN_B.data[2];
-
-    // clang-format off
-    const SunSafePointOutput output = reinterpret_cast<const ::SunSafePointAlgorithm*>(self)->update(sun, omega);  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
-    // clang-format on
-
-    SunSafePointOutput_c out{};
-    out.sigma_BR = {output.sigma_BR[0], output.sigma_BR[1], output.sigma_BR[2]};
-    out.omega_BR_B = {output.omega_BR_B[0], output.omega_BR_B[1], output.omega_BR_B[2]};
-    out.omega_RN_B = {output.omega_RN_B[0], output.omega_RN_B[1], output.omega_RN_B[2]};
-    return out;
+void SunSafePointAlgorithm_setConfig(SunSafePointAlgorithmHandle* self, const SunSafePointConfig_c* config) {
+    reinterpret_cast<::SunSafePointAlgorithm*>(self)->setConfig(configFromC(*config));
 }
 
-void SunSafePointAlgorithm_setSunAxisSpinRate(SunSafePointAlgorithmHandle* self, const float rate) {
-    // clang-format off
-    reinterpret_cast<::SunSafePointAlgorithm*>(self)->setSunAxisSpinRate(rate);  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
-    // clang-format on
+void SunSafePointAlgorithm_reInitialize(SunSafePointAlgorithmHandle* self) {
+    reinterpret_cast<::SunSafePointAlgorithm*>(self)->reInitialize();
 }
 
-float SunSafePointAlgorithm_getSunAxisSpinRate(const SunSafePointAlgorithmHandle* self) {
-    // clang-format off
-    return reinterpret_cast<const ::SunSafePointAlgorithm*>(self)->getSunAxisSpinRate();  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
-    // clang-format on
-}
+SunSafePointOutput_c SunSafePointAlgorithm_update(SunSafePointAlgorithmHandle* self,
+                                                  const uint64_t callTime,
+                                                  const Vector3f_c rHat_SB_B,
+                                                  const Vector3f_c omega_BN_B,
+                                                  const int numCssViewingSun) {
+    const SunSafePointOutput out =
+        reinterpret_cast<::SunSafePointAlgorithm*>(self)->update(callTime,
+                                                                 cArrayToEigenVector3<float>(rHat_SB_B.data),
+                                                                 cArrayToEigenVector3<float>(omega_BN_B.data),
+                                                                 numCssViewingSun);
 
-void SunSafePointAlgorithm_setOmega_RN_B(SunSafePointAlgorithmHandle* self, const Vector3f_c omega) {
-    Eigen::Vector3f eigenOmega{};
-    eigenOmega << omega.data[0], omega.data[1], omega.data[2];
-    // clang-format off
-    reinterpret_cast<::SunSafePointAlgorithm*>(self)->setOmega_RN_B(eigenOmega);  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
-    // clang-format on
-}
-
-Vector3f_c SunSafePointAlgorithm_getOmega_RN_B(const SunSafePointAlgorithmHandle* self) {
-    // clang-format off
-    const Eigen::Vector3f omega = reinterpret_cast<const ::SunSafePointAlgorithm*>(self)->getOmega_RN_B();  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
-    // clang-format on
-    Vector3f_c out{};
-    out.data[0] = omega[0];
-    out.data[1] = omega[1];
-    out.data[2] = omega[2];
-    return out;
-}
-
-void SunSafePointAlgorithm_setSHatBdyCmd(SunSafePointAlgorithmHandle* self, const Vector3f_c sHat) {
-    Eigen::Vector3f eigenSHat{};
-    eigenSHat << sHat.data[0], sHat.data[1], sHat.data[2];
-    // clang-format off
-    reinterpret_cast<::SunSafePointAlgorithm*>(self)->setSHatBdyCmd(eigenSHat);  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
-    // clang-format on
-}
-
-Vector3f_c SunSafePointAlgorithm_getSHatBdyCmd(const SunSafePointAlgorithmHandle* self) {
-    // clang-format off
-    const Eigen::Vector3f sHat = reinterpret_cast<const ::SunSafePointAlgorithm*>(self)->getSHatBdyCmd();  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
-    // clang-format on
-    Vector3f_c out{};
-    out.data[0] = sHat[0];
-    out.data[1] = sHat[1];
-    out.data[2] = sHat[2];
-    return out;
+    SunSafePointOutput_c result{};
+    eigenVectorToCArray(out.sigma_BR, result.sigma_BR.data);
+    eigenVectorToCArray(out.omega_BR_B, result.omega_BR_B.data);
+    eigenVectorToCArray(out.omega_RN_B, result.omega_RN_B.data);
+    return result;
 }

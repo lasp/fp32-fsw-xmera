@@ -1,7 +1,9 @@
 #ifndef F32XMERA_SUNSAFEPOINTALGORITHM_C_H
 #define F32XMERA_SUNSAFEPOINTALGORITHM_C_H
 
-#include "utilities/fsw/plainCAlgorithmDataTypes.h"
+#include "sunSafePointTypes.h"
+
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -22,10 +24,17 @@ typedef struct {
 } SunSafePointOutput_c;
 
 /**
- * @brief Construct a new SunSafePointAlgorithm instance.
+ * @brief Get the SUN_SAFE_POINT_NUM_ROTATIONS constant for Ada validation.
+ * @return The number of rotation slots in the sun-search sequence.
+ */
+uint32_t SunSafePointAlgorithm_getNumRotations(void);
+
+/**
+ * @brief Construct a new SunSafePointAlgorithm instance from the supplied configuration.
+ * @param config Pointer to the rotation-sequence configuration (validated; throws on invalid input).
  * @return Pointer to a new SunSafePointAlgorithm (must be destroyed).
  */
-SunSafePointAlgorithmHandle* SunSafePointAlgorithm_create(void);
+SunSafePointAlgorithmHandle* SunSafePointAlgorithm_create(const SunSafePointConfig_c* config);
 
 /**
  * @brief Destroy a previously created SunSafePointAlgorithm.
@@ -34,57 +43,33 @@ SunSafePointAlgorithmHandle* SunSafePointAlgorithm_create(void);
 void SunSafePointAlgorithm_destroy(SunSafePointAlgorithmHandle* self);
 
 /**
+ * @brief Install the sun-search rotation sequence configuration (parameters only; call _reInitialize
+ *        to re-arm the search phase).
+ * @param self   Pointer to the instance.
+ * @param config Pointer to the configuration to apply (validated; throws on invalid input).
+ */
+void SunSafePointAlgorithm_setConfig(SunSafePointAlgorithmHandle* self, const SunSafePointConfig_c* config);
+
+/**
+ * @brief Re-arm the runtime state machine so the next update begins a fresh search sequence.
+ * @param self Pointer to the instance.
+ */
+void SunSafePointAlgorithm_reInitialize(SunSafePointAlgorithmHandle* self);
+
+/**
  * @brief Run the update step.
- * @param self         Pointer to the instance.
- * @param vehSunPntBdy Sun direction vector in body frame.
- * @param omega_BN_B   Inertial body angular velocity in body frame.
+ * @param self              Pointer to the instance.
+ * @param callTime          Current simulation time [ns].
+ * @param rHat_SB_B      Sun direction vector in body frame.
+ * @param omega_BN_B        Inertial body angular velocity in body frame.
+ * @param numCssViewingSun Number of valid coarse-sun-sensor observations this cycle.
  * @return SunSafePointOutput_c  The computed guidance output.
  */
-SunSafePointOutput_c SunSafePointAlgorithm_update(const SunSafePointAlgorithmHandle* self,
-                                                  Vector3f_c vehSunPntBdy,
-                                                  Vector3f_c omega_BN_B);
-
-/**
- * @brief Set the desired constant spin rate about the sun heading vector.
- * @param self Pointer to the instance.
- * @param rate Desired constant spin rate [rad/s].
- */
-void SunSafePointAlgorithm_setSunAxisSpinRate(SunSafePointAlgorithmHandle* self, float rate);
-
-/**
- * @brief Get the desired constant spin rate about the sun heading vector.
- * @param self Pointer to the instance.
- * @return float  Current sun axis spin rate [rad/s].
- */
-float SunSafePointAlgorithm_getSunAxisSpinRate(const SunSafePointAlgorithmHandle* self);
-
-/**
- * @brief Set the desired body rate vector used when no sun direction is available.
- * @param self  Pointer to the instance.
- * @param omega Desired body rate vector [rad/s].
- */
-void SunSafePointAlgorithm_setOmega_RN_B(SunSafePointAlgorithmHandle* self, Vector3f_c omega);
-
-/**
- * @brief Get the desired body rate vector used when no sun direction is available.
- * @param self Pointer to the instance.
- * @return Vector3f_c  Current desired body rate vector [rad/s].
- */
-Vector3f_c SunSafePointAlgorithm_getOmega_RN_B(const SunSafePointAlgorithmHandle* self);
-
-/**
- * @brief Set the commanded body unit vector to point at the sun.
- * @param self Pointer to the instance.
- * @param sHat Commanded body unit vector (norm must be within 1e-3 of 1.0).
- */
-void SunSafePointAlgorithm_setSHatBdyCmd(SunSafePointAlgorithmHandle* self, Vector3f_c sHat);
-
-/**
- * @brief Get the commanded body unit vector to point at the sun.
- * @param self Pointer to the instance.
- * @return Vector3f_c  Current commanded body unit vector.
- */
-Vector3f_c SunSafePointAlgorithm_getSHatBdyCmd(const SunSafePointAlgorithmHandle* self);
+SunSafePointOutput_c SunSafePointAlgorithm_update(SunSafePointAlgorithmHandle* self,
+                                                  uint64_t callTime,
+                                                  Vector3f_c rHat_SB_B,
+                                                  Vector3f_c omega_BN_B,
+                                                  int numCssViewingSun);
 
 #ifdef __cplusplus
 }  // extern "C"

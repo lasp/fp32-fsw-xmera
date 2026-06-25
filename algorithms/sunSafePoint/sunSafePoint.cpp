@@ -1,10 +1,12 @@
 #include "sunSafePoint.h"
 
+#include "utilities/xmera/xmeraLifecycleException.h"
 #include <utilities/fsw/eigenSupport.h>
 #include <stdexcept>
 
-/*! Reset method for the BSK module adapter interface. Validates that required input messages
- are linked.
+/*! Reset method for the BSK module adapter interface. Validates that required input messages are
+ linked and (re)builds the algorithm from the configured parameters; an unconfigured rotation
+ sequence is rejected here by SunSafePointConfig::create.
  @return void
  @param callTime [ns] Time the method is called
 */
@@ -15,6 +17,36 @@ void SunSafePoint::reset(uint64_t callTime) {
     if (!this->rateInMsg.isLinked()) {
         throw std::invalid_argument("sunSafePoint.rateInMsg wasn't connected.");
     }
+    if (!this->filterResidualsInMsg.isLinked()) {
+        throw std::invalid_argument("sunSafePoint.filterResidualsInMsg wasn't connected.");
+    }
+
+    this->algorithm = std::make_unique<SunSafePointAlgorithm>(SunSafePointConfig::create(
+        this->rotations, this->sHatBdyCmd, this->sunAxisSpinRate, this->omega_RN_B, this->observationThreshold));
+}
+
+/*! Re-validate the current module parameters and push them onto the live algorithm without
+ re-initializing its runtime state (the search phase is preserved). Rebuilds the validated config
+ from the public members and installs it via setConfig().
+ @return void
+*/
+void SunSafePoint::reConfigure() {
+    if (!this->algorithm) {
+        throw XmeraLifecycleException("SunSafePoint reConfigure() before reset().");
+    }
+    this->algorithm->setConfig(SunSafePointConfig::create(
+        this->rotations, this->sHatBdyCmd, this->sunAxisSpinRate, this->omega_RN_B, this->observationThreshold));
+}
+
+/*! Re-arm the algorithm's runtime state machine (the search phase) without rebuilding the config; a
+ simple pass-through to the algorithm's reInitialize().
+ @return void
+*/
+void SunSafePoint::reInitialize() {
+    if (!this->algorithm) {
+        throw XmeraLifecycleException("SunSafePoint reInitialize() before reset().");
+    }
+    this->algorithm->reInitialize();
 }
 
 /*! Update method for the BSK module adapter interface. This method also calls the algorithm update method.
@@ -22,6 +54,10 @@ void SunSafePoint::reset(uint64_t callTime) {
  @param callTime [ns] Time the method is called
 */
 void SunSafePoint::updateState(uint64_t callTime) {
+    if (!this->algorithm) {
+        throw XmeraLifecycleException("SunSafePoint reset() has not been called.");
+    }
+
     auto rateMsgPayload = NavAttMsgF32Payload();
     if (this->rateInMsg.isWritten()) {
         rateMsgPayload = this->rateInMsg();
@@ -30,12 +66,17 @@ void SunSafePoint::updateState(uint64_t callTime) {
     if (this->sunDirectionInMsg.isWritten()) {
         sunDirectionMsgPayload = this->sunDirectionInMsg();
     }
+    auto filterResidualsMsgPayload = FilterResidualsMsgF32Payload();
+    if (this->filterResidualsInMsg.isWritten()) {
+        filterResidualsMsgPayload = this->filterResidualsInMsg();
+    }
 
     Eigen::Vector3f const vehSunPntBdy = cArrayToEigenVector(sunDirectionMsgPayload.vehSunPntBdy);
     Eigen::Vector3f const omega_BN_B = cArrayToEigenVector(rateMsgPayload.omega_BN_B);
 
     // Call the algorithm update method
-    SunSafePointOutput output = this->algorithm.update(vehSunPntBdy, omega_BN_B);
+    SunSafePointOutput output =
+        this->algorithm->update(callTime, vehSunPntBdy, omega_BN_B, filterResidualsMsgPayload.sizeOfObservations);
 
     // Convert algorithm output to MsgPayload
     AttGuidMsgF32Payload attGuidanceOutBuffer{};
@@ -43,38 +84,20 @@ void SunSafePoint::updateState(uint64_t callTime) {
     eigenVectorToCArray(output.omega_BR_B, attGuidanceOutBuffer.omega_BR_B);
     eigenVectorToCArray(output.omega_RN_B, attGuidanceOutBuffer.omega_RN_B);
 
-    this->attGuidanceOutMsg.write(&attGuidanceOutBuffer, moduleID, callTime);
+    this->attGuidanceOutMsg.write(attGuidanceOutBuffer, moduleID, callTime);
 }
 
-/*! Getter method for the desired constant spin rate about sun heading vector.
- @return float
-*/
-float SunSafePoint::getSunAxisSpinRate() const { return this->algorithm.getSunAxisSpinRate(); }
-
-/*! Getter method for the desired body rate vector if no sun direction is available.
- @return Eigen::Vector3f
-*/
-Eigen::Vector3f SunSafePoint::getOmega_RN_B() const { return this->algorithm.getOmega_RN_B(); }
-
-/*! Getter method for the desired body vector to point at the sun.
- @return Eigen::Vector3f
-*/
-Eigen::Vector3f SunSafePoint::getSHatBdyCmd() const { return this->algorithm.getSHatBdyCmd(); }
-
-/*! Setter method for the desired constant spin rate about sun heading vector.
+/*! Setter for a single rotation in the sun-search sequence. Applied at the next reset().
  @return void
- @param rate [rad/s] Desired constant spin rate about sun heading vector
+ @param index Rotation slot index
+ @param rotation Rotation properties to store
 */
-void SunSafePoint::setSunAxisSpinRate(const float rate) { this->algorithm.setSunAxisSpinRate(rate); }
+void SunSafePoint::setRotation(const uint32_t index, const RotationProperties& rotation) {
+    this->rotations.at(index) = rotation;
+}
 
-/*! Setter method for the desired body rate vector if no sun direction is available.
- @return void
- @param omega [rad/s] Desired body rate vector if no sun direction is available
+/*! Getter for a single rotation in the sun-search sequence.
+ @return RotationProperties
+ @param index Rotation slot index
 */
-void SunSafePoint::setOmega_RN_B(const Eigen::Vector3f& omega) { this->algorithm.setOmega_RN_B(omega); }
-
-/*! Setter method for the desired body vector to point at the sun.
- @return void
- @param sHat Desired body vector to point at the sun
-*/
-void SunSafePoint::setSHatBdyCmd(const Eigen::Vector3f& sHat) { this->algorithm.setSHatBdyCmd(sHat); }
+RotationProperties SunSafePoint::getRotation(const uint32_t index) const { return this->rotations.at(index); }
