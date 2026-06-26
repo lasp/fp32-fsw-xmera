@@ -127,10 +127,15 @@ which the parent ``algorithms/`` include path resolves.
      ``srukf::timeUpdate<State, D>``, ``srukf::measurementUpdate<State, M>``;
    - a **stateful facade** — ``SRuKF<State, Dyn>``, which holds a
      ``SrukfStorage`` and a settable ``dynamics`` member and exposes
-     ``reset()`` / ``timeUpdate(dt)`` / ``measurementUpdate<M>(m)`` plus
-     setters/getters and a ``getStateAtLastMeasurement()`` /
-     ``setStateLastMeasurement()`` pair for the rolling last-measurement
-     state.
+     ``reConfigure()`` / ``reset()`` / ``timeUpdate(dt)`` /
+     ``measurementUpdate<M>(m)`` plus setters/getters and a
+     ``getStateAtLastMeasurement()`` / ``setStateLastMeasurement()`` pair for
+     the rolling last-measurement state.
+
+   ``reConfigure()`` re-derives the sigma-point spread (lambda, eta), the sigma
+   weights, and the process-noise Cholesky from alpha, beta, and the process
+   noise, leaving the estimate untouched; ``reset()`` calls ``reConfigure()``
+   and additionally seeds the state and covariance from the initial conditions.
 
    ``timeUpdate(dt)`` always propagates **from the saved last-measurement
    state**, which it leaves untouched, so it is idempotent in ``dt`` — calling
@@ -145,8 +150,9 @@ host adapter
 ``SunlineSRuKF`` is a ``SysModel`` that owns the message ports and holds the
 algorithm behind a ``std::unique_ptr`` (forward-declared, so the SWIG-parsed
 header never sees the concept-heavy core). At ``reset`` it latches the CSS
-geometry (``nHat``, ``CBias``, count) from ``cssConfigInMsg`` into the
-algorithm. Each ``updateState`` it reads the gyro (``navAttInMsg``) and CSS
+geometry (boresights, per-sensor scale factors, count) from ``cssConfigInMsg``,
+builds and validates a ``SunlineSRuKFConfig``, and constructs the algorithm.
+Each ``updateState`` it reads the gyro (``navAttInMsg``) and CSS
 array (``cssDataInMsg``) payloads into ``RateData`` / ``CssData`` (skipping
 stale readings via per-channel timeTag tracking) and drives the filter over the
 window with a single ``update(currentSeconds, cssData, rateData)`` call. The
@@ -156,7 +162,8 @@ call; ``applySequential`` decides per step whether to ``timeUpdate`` (predict)
 or ``measurementUpdate``. The adapter then writes the returned
 ``SunlineSRuKFOutput`` (state + covariance + per-kind residuals) back into the
 ``navAttOutMsg`` / ``filterOutMsg`` / ``filterGyroResOutMsg`` /
-``filterCssResOutMsg`` payloads.
+``filterCssResOutMsg`` payloads. It also exposes ``reInitialize()`` /
+``reInitializeAll()`` pass-throughs for restarting the filter at runtime.
 
 How the pieces compose
 --------------------------------------------
@@ -441,30 +448,21 @@ xmera):
 
    using namespace filtering::sunlineSRuKF;
 
-   SunlineSRuKFAlgorithm algo;          // owns the SRUKF + measurement_queue
-   algo.setAlpha(0.02);
-   algo.setBeta(2.0);
-   algo.setProcessNoise(Q);             // 7x7
-   algo.setInitialCovariance(P0);       // 7x7
-
-   // CSS geometry + noise (the host adapter latches these from CSSConfig at reset)
-   algo.setCssNHat(nHat);               // MaxCss x 3 unit vectors (body)
-   algo.setCssCBias(cBias);             // MaxCss per-sensor calibration biases
-   algo.setNumberOfCss(numCss);         // 0 .. MaxCss
-   algo.setSensorThreshold(0.1);        // min cosValue to count a CSS as active
-   algo.setCssMeasurementNoiseStd(sigmaCss);
-   algo.setGyroMeasurementNoiseStd(sigmaGyro);
-   algo.setBiasLowerBound(0.5);
-   algo.setBiasUpperBound(1.5);
-
    SunlineSRuKFAlgorithm::State x0;
    x0.set<filtering::Position<3>>(sHat0);                       // sun heading (unit)
    x0.set<filtering::Velocity<3>>(omega0);                      // body rate
-   x0.set<filtering::Bias<1>>(Eigen::Vector<double, 1>{1.0});   // CSS bias
-   algo.setInitialState(x0);
+   x0.set<filtering::Bias<1>>(Eigen::Vector<double, 1>{1.0});   // bias state
 
-   algo.reset();                        // pushes config into the SRUKF, installs
-                                        // dynamics, clears the queue
+   // Build a validated configuration (throws on invalid input). CSS geometry
+   // (boresights, per-sensor scale factors, count) is latched from CSSConfig by
+   // the host adapter at reset; here it is supplied directly.
+   SunlineSRuKFConfig cfg = SunlineSRuKFConfig::create(
+       0.02, 2.0, Q, x0, P0,            // alpha, beta, processNoise (7x7), initialState, initialCovariance (7x7)
+       0.5, 1.5,                        // biasLowerBound, biasUpperBound
+       nHat, scaleFactor, numCss,       // MaxCss x 3 boresights, MaxCss scale factors, count (0 .. MaxCss)
+       0.1, sigmaCss, sigmaGyro);       // sensorThreshold, cssMeasurementNoiseStd, gyroMeasurementNoiseStd
+
+   SunlineSRuKFAlgorithm algo(cfg);     // owns the SRUKF + measurement_queue; construction seeds the filter
 
    // Queue-driven path: hand the raw readings to one drive call. update() packs
    // whichever readings are present (timeTag > 0), enqueues them, and runs
@@ -478,6 +476,11 @@ xmera):
    // what applySequential calls under the hood).
    algo.timeUpdate(dt);                            // predict
    algo.measurementUpdate(RateMeasurement{...});   // fold a measurement in directly
+
+   // Runtime resets / reconfiguration:
+   algo.reInitialize();        // clear pending measurements + residuals; keep state and covariance
+   algo.reInitializeAll();     // the above plus re-seed state and covariance from the config
+   algo.setConfig(newCfg);     // swap the config and re-derive the SRUKF parameters in place
 
    FilterStateOutput   state   = out.filterState;   // mean + covariance
    CssResidualsOutput  cssRes  = out.cssResiduals;   // pre/post-fit; valid only if CSS fired
@@ -495,9 +498,10 @@ How to add a new filter
    functor that satisfies ``Dynamics<D, State>``. A multi-kind filter also
    names its ``Measurement`` variant here.
 #. **Write the algorithm class** — the single composition root. Holds a
-   ``SRuKF<State, Dyn>``, the retained configuration with
-   setter/getter implementations, ``reset()``, the ``SequentialFilter``
-   pair (``timeUpdate(dt)`` / ``measurementUpdate(m)``), the readouts
+   ``SRuKF<State, Dyn>`` and an immutable validated ``Config`` (built by a
+   static ``create()`` factory, supplied at construction and swappable via
+   ``setConfig()``), ``reInitialize()`` / ``reInitializeAll()``, the
+   ``SequentialFilter`` pair (``timeUpdate(dt)`` / ``measurementUpdate(m)``), the readouts
    (``getFilterOutput`` / ``getCovariance`` / per-kind residuals), a
    ``measurement_queue<Measurement, CAPACITY>``, plus a single-call
    ``update(...)`` that runs

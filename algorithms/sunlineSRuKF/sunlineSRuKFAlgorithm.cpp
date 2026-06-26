@@ -101,8 +101,8 @@ void SunlineSRuKFAlgorithm::reInitializeAll() {
  *  the queue through the SRuKF, then sanitizes the state.
  *  @return Snapshot of post-update filter state and residuals.
  *  @param currentSeconds [s] simulation time the filter is advancing to
- *  @param cssData        [-] CSS array reading + validity flag
- *  @param rateData       [-] gyro reading + validity flag */
+ *  @param cssData        [-] CSS array reading + time tag
+ *  @param rateData       [-] gyro reading + time tag */
 SunlineSRuKFOutput SunlineSRuKFAlgorithm::update(double currentSeconds,
                                                  CssData const& cssData,
                                                  RateData const& rateData) {

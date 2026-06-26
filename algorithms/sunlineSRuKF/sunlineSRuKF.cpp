@@ -29,7 +29,8 @@ SunlineSRuKF::SunlineSRuKF() {
 SunlineSRuKF::~SunlineSRuKF() = default;
 
 /*! Validate message connections, build a validated config from the public properties and the CSS
- *  geometry latched from cssConfigInMsg, construct the algorithm, and reset it.
+ *  geometry latched from cssConfigInMsg, and construct the algorithm (its constructor seeds the
+ *  filter state and covariance).
  *  @return void
  *  @param currentSimNanos [ns] sim time at which reset was called */
 void SunlineSRuKF::reset(uint64_t currentSimNanos) {
