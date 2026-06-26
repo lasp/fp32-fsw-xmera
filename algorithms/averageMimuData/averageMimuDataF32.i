@@ -11,4 +11,8 @@
 %include <sys_model.i>
 %include "averageMimuData.h"
 
-%include "msgPayloadDef/AccDataMsgF32Payload.h"
+STRUCTASLIST(AccPktDataMsgF32Payload)
+STRUCTASLIST(MimuPacketGroupF32Payload)
+
+%include "msgPayloadDef/MimuPacketGroupF32Payload.h"
+%include "msgPayloadDef/MimuPacketF32Payload.h"

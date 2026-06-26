@@ -1,9 +1,9 @@
 #ifndef F32XMERA_AVERAGEMIMUDATAALGORITHM_C_H
 #define F32XMERA_AVERAGEMIMUDATAALGORITHM_C_H
 
-#include "utilities/fsw/plainCAlgorithmDataTypes.h"
+#include <utilities/fsw/plainCAlgorithmDataTypes.h>
 
-#include <stdint.h>
+#include "averageMimuDataTypes.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -14,30 +14,17 @@ extern "C" {
  */
 typedef struct AverageMimuDataAlgorithmHandle AverageMimuDataAlgorithmHandle;
 
-#define MAX_BUF_PKT_C 120
+/**
+ * @brief Get the MAX_MIMU_PKT constant for Ada validation.
+ * @return The maximum mimu packet count (MAX_MIMU_PKT_C).
+ */
+uint32_t AverageMimuDataAlgorithm_getMaxMimuPkt(void);
 
 /**
- * @brief POD equivalent of InputPktsData.
+ * @brief Get the MAX_MIMU_SAMPLES_PER_PKT constant for Ada validation.
+ * @return The maximum number of samples per packet (MAX_MIMU_SAMPLES_PER_PKT_C).
  */
-typedef struct {
-    uint64_t measTime[MAX_BUF_PKT_C];
-    Vector3f_c gyro_P[MAX_BUF_PKT_C];
-    Vector3f_c accel_P[MAX_BUF_PKT_C];
-} InputPktsData_c;
-
-/**
- * @brief POD equivalent of OutputAverageAccelAngleVel.
- */
-typedef struct {
-    Vector3f_c accel_B;
-    Vector3f_c gyroOmega_B;
-} OutputAverageAccelAngleVel_c;
-
-/**
- * @brief Get the MAX_BUF_PKT constant for Ada validation.
- * @return The maximum buffer packet count (MAX_BUF_PKT_C).
- */
-uint32_t AverageMimuDataAlgorithm_getMaxBufPkt(void);
+uint32_t AverageMimuDataAlgorithm_getMaxMimuSamplesPerPkt(void);
 
 /**
  * @brief Construct a new AverageMimuDataAlgorithm instance.
@@ -57,22 +44,36 @@ void AverageMimuDataAlgorithm_destroy(AverageMimuDataAlgorithmHandle* self);
  * @param input     Pointer to input packets data.
  * @return OutputAverageAccelAngleVel_c  The computed body-frame averages.
  */
-OutputAverageAccelAngleVel_c AverageMimuDataAlgorithm_update(const AverageMimuDataAlgorithmHandle* self,
+OutputAverageAccelAngleVel_c AverageMimuDataAlgorithm_update(AverageMimuDataAlgorithmHandle* self,
                                                              const InputPktsData_c* input);
 
 /**
- * @brief Set the averaging window duration.
+ * @brief Set the gyro averaging window duration.
  * @param self   Pointer to the instance.
- * @param window Averaging window duration in seconds.
+ * @param window Gyro averaging window duration in seconds.
  */
-void AverageMimuDataAlgorithm_setAveragingWindow(AverageMimuDataAlgorithmHandle* self, float window);
+void AverageMimuDataAlgorithm_setGyroAveragingWindow(AverageMimuDataAlgorithmHandle* self, double window);
 
 /**
- * @brief Get the current averaging window duration.
+ * @brief Get the current gyro averaging window duration.
  * @param self Pointer to the instance.
- * @return float  The current averaging window in seconds.
+ * @return double  The current gyro averaging window in seconds.
  */
-float AverageMimuDataAlgorithm_getAveragingWindow(const AverageMimuDataAlgorithmHandle* self);
+double AverageMimuDataAlgorithm_getGyroAveragingWindow(const AverageMimuDataAlgorithmHandle* self);
+
+/**
+ * @brief Set the accel averaging window duration.
+ * @param self   Pointer to the instance.
+ * @param window Accel averaging window duration in seconds.
+ */
+void AverageMimuDataAlgorithm_setAccelAveragingWindow(AverageMimuDataAlgorithmHandle* self, double window);
+
+/**
+ * @brief Get the current accel averaging window duration.
+ * @param self Pointer to the instance.
+ * @return double  The current accel averaging window in seconds.
+ */
+double AverageMimuDataAlgorithm_getAccelAveragingWindow(const AverageMimuDataAlgorithmHandle* self);
 
 /**
  * @brief Set the DCM from platform frame to body frame.

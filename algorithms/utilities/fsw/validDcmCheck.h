@@ -3,6 +3,7 @@
 
 #include <math.h>
 #include <Eigen/Core>
+#include <Eigen/LU>
 
 inline constexpr float kToleranceF = 1.0e-5F;
 

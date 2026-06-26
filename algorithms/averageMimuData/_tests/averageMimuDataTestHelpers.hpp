@@ -1,87 +1,173 @@
-#ifndef TEST_EPHEMERIDESRECENTER_H
-#define TEST_EPHEMERIDESRECENTER_H
+#ifndef TEST_AVERAGE_MIMU_DATA_HELPERS_H
+#define TEST_AVERAGE_MIMU_DATA_HELPERS_H
 
 #include "averageMimuDataAlgorithm.h"
-#include "utilities/fsw/eigenSupport.h"
+#include <utilities/fsw/eigenSupport.h>
+#include <utilities/fsw/freestandingInvalidArgument.h>
 
-#include <architecture/utilities/macroDefinitions.h>
 #include <gtest/gtest.h>
 
-OutputAverageAccelAngleVel referenceUpdate(InputPktsData const& localPkts, const AverageMimuDataAlgorithm& alg) {
-    uint64_t maxTimeTag = 0U;
-    for (std::size_t i = 0; i < MAX_ACC_BUF_PKT; ++i) {
-        maxTimeTag = std::max(localPkts.measTime[i], maxTimeTag);
-    }
+#include <array>
+#include <vector>
 
-    Eigen::Vector3f gyroSum_P = Eigen::Vector3f::Zero();
-    Eigen::Vector3f accelSum_P = Eigen::Vector3f::Zero();
-    uint64_t measAvgCount = 0U;
+/*! @brief Independent reimplementation of AverageMimuDataAlgorithm's two-phase
+ *  update used by the regression and fuzz harnesses. Holds its own ring with
+ *  the same capacity as the algorithm so cross-cycle behavior matches
+ *  bit-for-bit. The gyroAveragingWindow and dcm_BP are read from the algorithm
+ *  via getters at each update() call. */
+class ReferenceAverager {
+   public:
+    explicit ReferenceAverager(AverageMimuDataAlgorithm const& alg) : alg(alg) {}
 
-    for (std::size_t i = 0; i < MAX_ACC_BUF_PKT; ++i) {
-        const uint64_t measTime = localPkts.measTime[i];
+    OutputAverageAccelAngleVel update(InputPktsData const& localPkts) {
+        // Phase 1: ingest. Freeze prior max for the duration of this call.
+        const std::uint64_t priorMax = this->lastIngestedMaxMeasTime;
+        for (auto const& packet : localPkts.packets) {
+            if (!packet.isValid) {
+                continue;
+            }
+            const std::uint64_t firstSampleTime = packet.measTime;
+            if ((firstSampleTime == 0U) || (firstSampleTime <= priorMax)) {
+                continue;
+            }
 
-        // Rolling average with averaging window as window width or the maximum buffer size
-        if (static_cast<float>(maxTimeTag - measTime) * NANO2SEC <= alg.getAveragingWindow()) {
-            gyroSum_P += localPkts.gyro_P[i];
-            accelSum_P += localPkts.accel_P[i];
-            measAvgCount++;
+            this->ring[this->insertIdx].isValid = true;
+            this->ring[this->insertIdx].measTime = firstSampleTime;
+            this->ring[this->insertIdx].samples = packet.samples;
+            this->insertIdx = (this->insertIdx + 1U) % AverageMimuDataAlgorithm::kRingCapacity;
+            this->lastIngestedMaxMeasTime = std::max(this->lastIngestedMaxMeasTime, firstSampleTime);
         }
+
+        // Phase 2: max-tail-time + per-modality window filter, derived sample
+        // schedule. Convert each window to ns once and compare in integer.
+        const std::uint64_t gyroAveragingWindowNs =
+            static_cast<std::uint64_t>(this->alg.getGyroAveragingWindow() * 1.0e9);
+        const std::uint64_t accelAveragingWindowNs =
+            static_cast<std::uint64_t>(this->alg.getAccelAveragingWindow() * 1.0e9);
+
+        std::uint64_t maxSlotMeasTime = 0U;
+        for (auto const& slot : this->ring) {
+            if (slot.isValid && (slot.measTime > maxSlotMeasTime)) {
+                maxSlotMeasTime = slot.measTime;
+            }
+        }
+
+        OutputAverageAccelAngleVel out{};
+        if (maxSlotMeasTime == 0U) {
+            return out;
+        }
+
+        const std::uint64_t maxTimeTag =
+            maxSlotMeasTime + ((MAX_MIMU_SAMPLES_PER_PKT_C - 1U) * AverageMimuDataAlgorithm::kMimuSamplePeriodNs);
+
+        Eigen::Vector3f gyroSum_P = Eigen::Vector3f::Zero();
+        Eigen::Vector3f accelSum_P = Eigen::Vector3f::Zero();
+        std::uint64_t gyroAvgCount = 0U;
+        std::uint64_t accelAvgCount = 0U;
+
+        for (auto const& slot : this->ring) {
+            if (!slot.isValid) {
+                continue;
+            }
+            for (std::size_t s = 0; s < MAX_MIMU_SAMPLES_PER_PKT_C; ++s) {
+                const std::uint64_t sampleMeasTime =
+                    slot.measTime + (s * AverageMimuDataAlgorithm::kMimuSamplePeriodNs);
+                const std::uint64_t age = maxTimeTag - sampleMeasTime;
+                if (age <= gyroAveragingWindowNs) {
+                    gyroSum_P += slot.samples[s].gyro_P;
+                    gyroAvgCount++;
+                }
+                if (age <= accelAveragingWindowNs) {
+                    accelSum_P += slot.samples[s].accel_P;
+                    accelAvgCount++;
+                }
+            }
+        }
+
+        if (gyroAvgCount > 0U) {
+            gyroSum_P /= static_cast<float>(gyroAvgCount);
+            out.gyroOmega_B = this->alg.getDcmPltfToBdy() * gyroSum_P;
+        }
+        if (accelAvgCount > 0U) {
+            accelSum_P /= static_cast<float>(accelAvgCount);
+            out.accel_B = this->alg.getDcmPltfToBdy() * accelSum_P;
+        }
+
+        return out;
     }
 
-    OutputAverageAccelAngleVel out{};
-    if (measAvgCount > 0U) {
-        gyroSum_P /= static_cast<float>(measAvgCount);
-        Eigen::Vector3f const gyroSum_B = alg.getDcmPltfToBdy() * gyroSum_P;
-        accelSum_P /= static_cast<float>(measAvgCount);
-        Eigen::Vector3f const accelSum_B = alg.getDcmPltfToBdy() * accelSum_P;
-        out.gyroOmega_B = gyroSum_B;
-        out.accel_B = accelSum_B;
-    }
+   private:
+    struct RingPacket {
+        bool isValid{false};
+        std::uint64_t measTime{0U};
+        std::array<Sample, MAX_MIMU_SAMPLES_PER_PKT_C> samples{};
+    };
 
-    return out;
-}
-
-using Vec3Arr = std::array<float, 3>;
-
-inline Eigen::Vector3f toVec3(Vec3Arr const& a) { return Eigen::Vector3f{a[0], a[1], a[2]}; }
-
-struct InputData {
-    uint64_t measTime = 0U;
-    Vec3Arr gyro_P{{0.0F, 0.0F, 0.0F}};
-    Vec3Arr accel_P{{0.0F, 0.0F, 0.0F}};
+    AverageMimuDataAlgorithm const& alg;
+    std::array<RingPacket, AverageMimuDataAlgorithm::kRingCapacity> ring{};
+    std::size_t insertIdx{0U};
+    std::uint64_t lastIngestedMaxMeasTime{0U};
 };
 
-inline void regressionTestAverageMimuData(std::size_t N,
-                                          float window,
-                                          std::array<InputData, MAX_ACC_BUF_PKT> const& input) {
+/*! @brief Fill packet `p` of `in` with the given first-sample timestamp and
+ *  per-sample gyro/accel pairs. Marks the packet valid. */
+inline void fillPacket(InputPktsData& in,
+                       std::size_t p,
+                       std::uint64_t firstSampleTimeNs,
+                       std::array<Eigen::Vector3f, MAX_MIMU_SAMPLES_PER_PKT_C> const& gyros,
+                       std::array<Eigen::Vector3f, MAX_MIMU_SAMPLES_PER_PKT_C> const& accels) {
+    in.packets[p].isValid = true;
+    in.packets[p].measTime = firstSampleTimeNs;
+    for (std::size_t s = 0; s < MAX_MIMU_SAMPLES_PER_PKT_C; ++s) {
+        in.packets[p].samples[s].gyro_P = gyros[s];
+        in.packets[p].samples[s].accel_P = accels[s];
+    }
+}
+
+inline void regressionTestAverageMimuDataWindows(float gyroWindow, float accelWindow, InputPktsData const& in) {
     AverageMimuDataAlgorithm alg;
     alg.setDcmPltfToBdy(Eigen::Matrix3f::Identity());
-    alg.setAveragingWindow(window);
+    alg.setGyroAveragingWindow(gyroWindow);
+    alg.setAccelAveragingWindow(accelWindow);
 
-    // Clamp N to valid range
-    if (N > MAX_ACC_BUF_PKT) {
-        N = MAX_ACC_BUF_PKT;
-    }
-    // Build the algorithm input buffer (max size), but only populate first N.
-    // The rest are neutral so they cannot affect maxTimeTag or the average.
-    InputPktsData in{};
-    for (std::size_t i = 0; i < MAX_ACC_BUF_PKT; ++i) {
-        in.measTime[i] = 0U;
-        in.gyro_P[i] = Eigen::Vector3f::Zero();
-        in.accel_P[i] = Eigen::Vector3f::Zero();
-    }
-
-    for (std::size_t i = 0; i < N; ++i) {
-        in.measTime[i] = input[i].measTime;
-        in.gyro_P[i] = toVec3(input[i].gyro_P);
-        in.accel_P[i] = toVec3(input[i].accel_P);
-    }
+    ReferenceAverager ref(alg);
 
     const OutputAverageAccelAngleVel out_alg = alg.update(in);
-    const OutputAverageAccelAngleVel out_ref = referenceUpdate(in, alg);
+    const OutputAverageAccelAngleVel out_ref = ref.update(in);
 
     EXPECT_EQ(out_alg.gyroOmega_B, out_ref.gyroOmega_B);
     EXPECT_EQ(out_alg.accel_B, out_ref.accel_B);
+}
+
+inline void regressionTestAverageMimuData(float window, InputPktsData const& in) {
+    regressionTestAverageMimuDataWindows(window, window, in);
+}
+
+/*! @brief Drives the algorithm and the reference across a sequence of
+ *  snapshots. Both maintain their own internal ring; the cycle-by-cycle
+ *  outputs are compared to catch any drift in the staleness / window-filter
+ *  logic across cycles or in the ingestion / overflow rules. */
+inline void sequencedRegressionTestAverageMimuDataWindows(float gyroWindow,
+                                                          float accelWindow,
+                                                          std::vector<InputPktsData> const& frames) {
+    AverageMimuDataAlgorithm alg;
+    alg.setDcmPltfToBdy(Eigen::Matrix3f::Identity());
+    alg.setGyroAveragingWindow(gyroWindow);
+    alg.setAccelAveragingWindow(accelWindow);
+
+    ReferenceAverager ref(alg);
+
+    for (auto const& in : frames) {
+        const OutputAverageAccelAngleVel out_alg = alg.update(in);
+        const OutputAverageAccelAngleVel out_ref = ref.update(in);
+
+        EXPECT_EQ(out_alg.gyroOmega_B, out_ref.gyroOmega_B);
+        EXPECT_EQ(out_alg.accel_B, out_ref.accel_B);
+    }
+}
+
+inline void sequencedRegressionTestAverageMimuData(float window, std::vector<InputPktsData> const& frames) {
+    sequencedRegressionTestAverageMimuDataWindows(window, window, frames);
 }
 
 #endif
