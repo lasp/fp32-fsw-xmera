@@ -3,16 +3,17 @@
 
 #include "architecture/utilities/rigidBodyKinematics.hpp"
 #include "celestialTwoBodyPointAlgorithm.h"
-
+#include "utilities/fsw/safeMath.h"
 #include <gtest/gtest.h>
+#include <math.h>
 #include <Eigen/Core>
 #include <algorithm>
 #include <cmath>
 
 struct ReferenceCelestialTwoBodyPointOutput {
-    Eigen::Vector3d sigma_RN;
-    Eigen::Vector3d omega_RN_N;
-    Eigen::Vector3d domega_RN_N;
+    Eigen::Vector3f sigma_RN;
+    Eigen::Vector3f omega_RN_N;
+    Eigen::Vector3f domega_RN_N;
 };
 
 // Reference implementation of the celestial two-body point algorithm
@@ -67,9 +68,9 @@ inline ReferenceCelestialTwoBodyPointOutput referenceRateAndAccelCalc(const Eige
     omegaDot_RN_R[2] = r2HatDot_N.dot(r1HatDot_N) + r2Hat_N.dot(r1HatDDot_N) - omega_RN_R.dot(r3HatDot_N);
 
     return {
-        dcmToMrp(dcm_RN),
-        dcm_RN.transpose() * omega_RN_R,
-        dcm_RN.transpose() * omegaDot_RN_R,
+        dcmToMrp(Eigen::Matrix3f(dcm_RN.cast<float>())),
+        (dcm_RN.transpose() * omega_RN_R).cast<float>(),
+        (dcm_RN.transpose() * omegaDot_RN_R).cast<float>(),
     };
 }
 
@@ -88,24 +89,26 @@ inline ReferenceCelestialTwoBodyPointOutput referenceCelestialTwoBodyPoint(
     Eigen::Vector3d v_SB_N = v_SN_N - v_BN_N;
 
     /*! Return identity reference attitude and zero reference rates if either r_PB_N or r_SB_N are zero */
-    if (r_PB_N.squaredNorm() < static_cast<double>(CelestialTwoBodyPointAlgorithm::kMinNormSq) ||
-        r_SB_N.squaredNorm() < static_cast<double>(CelestialTwoBodyPointAlgorithm::kMinNormSq)) {
+    if (r_PB_N.squaredNorm() < CelestialTwoBodyPointAlgorithm::kMinNormSq ||
+        r_SB_N.squaredNorm() < CelestialTwoBodyPointAlgorithm::kMinNormSq) {
         const ReferenceCelestialTwoBodyPointOutput safeDefault = {
-            Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero()};
+            Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero()};
 
         return safeDefault;
     }
 
     /*! Compute angle between celestial bodies */
-    double celestialBodySeparationAngle = std::acos(std::abs(r_SB_N.normalized().dot(r_PB_N.normalized())));
+    const auto dotProduct1 = static_cast<float>(r_SB_N.normalized().dot(r_PB_N.normalized()));
+    const float celestialBodySeparationAngle = safeAcosf(fabsf(dotProduct1)); /* Angle between r_PB_N and r_SB_N */
 
     /*! Update r_SB_N and v_SB_N if celestial bodies are aligned */
     if (celestialBodySeparationAngle < celestialBodyAlignmentThreshold) {
         /*! Return identity reference attitude and zero reference rates if r_PB_N and v_PB_N are aligned */
-        const float posVelSeparationAngle = std::acos(std::abs(r_PB_N.normalized().dot(v_PB_N.normalized())));
-        if (posVelSeparationAngle < static_cast<double>(CelestialTwoBodyPointAlgorithm::kSmallAngle)) {
+        const auto dotProduct2 = static_cast<float>(r_PB_N.normalized().dot(v_PB_N.normalized()));
+        const float posVelSeparationAngle = safeAcosf(fabsf(dotProduct2)); /* Angle between r_PB_N and v_PB_N */
+        if (posVelSeparationAngle < CelestialTwoBodyPointAlgorithm::kSmallAngle) {
             const ReferenceCelestialTwoBodyPointOutput safeDefault = {
-                Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero()};
+                Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero()};
 
             return safeDefault;
         }
@@ -143,14 +146,11 @@ inline void testCelestialTwoBodyPointRegression(const Eigen::Vector3d& r_PN_N,
         large-magnitude outputs because a single float32 ULP can exceed it. */
     constexpr float absTol = 1e-5F;
     constexpr float relTol = 1e-5F;
-    const auto tolFor = [&](double expectedVal) {
-        return std::max(absTol, relTol * std::abs(static_cast<float>(expectedVal)));
-    };
+    const auto tolFor = [&](float expectedVal) { return std::max(absTol, relTol * std::abs(expectedVal)); };
     for (int i = 0; i < 3; ++i) {
-        EXPECT_NEAR(result.sigma_RN[i], static_cast<float>(expected.sigma_RN[i]), tolFor(expected.sigma_RN[i]));
-        EXPECT_NEAR(result.omega_RN_N[i], static_cast<float>(expected.omega_RN_N[i]), tolFor(expected.omega_RN_N[i]));
-        EXPECT_NEAR(
-            result.domega_RN_N[i], static_cast<float>(expected.domega_RN_N[i]), tolFor(expected.domega_RN_N[i]));
+        EXPECT_NEAR(result.sigma_RN[i], expected.sigma_RN[i], tolFor(expected.sigma_RN[i]));
+        EXPECT_NEAR(result.omega_RN_N[i], expected.omega_RN_N[i], tolFor(expected.omega_RN_N[i]));
+        EXPECT_NEAR(result.domega_RN_N[i], expected.domega_RN_N[i], tolFor(expected.domega_RN_N[i]));
 
         EXPECT_TRUE(std::isfinite(result.sigma_RN[i]));
         EXPECT_TRUE(std::isfinite(result.omega_RN_N[i]));
