@@ -1,5 +1,6 @@
 #include "cssCommTestHelpers.hpp"
 #include "utilities/fsw/freestandingInvalidArgument.h"
+#include <algorithm>
 
 TEST(CssCommTest, RegressionTest) {
     uint32_t numSensors = 4;
