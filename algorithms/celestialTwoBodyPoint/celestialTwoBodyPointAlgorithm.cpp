@@ -11,6 +11,12 @@ CelestialTwoBodyPointAlgorithm::CelestialTwoBodyPointAlgorithm(const CelestialTw
 
 void CelestialTwoBodyPointAlgorithm::setConfig(const CelestialTwoBodyPointConfig &config) { this->cfg = config; }
 
+/*! This method resets the algorithm state. */
+void CelestialTwoBodyPointAlgorithm::reInitialize() {}
+
+/*! This method fully resets the algorithm state. */
+void CelestialTwoBodyPointAlgorithm::reInitializeAll() { reInitialize(); }
+
 /*! This method computes the attitude reference that points the primary axis at the primary
  celestial body while aligning a second axis as close as possible toward the secondary
  celestial body. It generates the commanded attitude and assumes that the control errors are

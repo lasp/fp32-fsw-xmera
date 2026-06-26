@@ -32,6 +32,22 @@ void CelestialTwoBodyPoint::reconfigure() const {
     this->algorithm->setConfig(this->toConfig());
 }
 
+/*! @brief Resets algorithm internal states that don't ever have to carry over the next state. */
+void CelestialTwoBodyPoint::reInitialize() {
+    if (!this->algorithm) {
+        throw XmeraLifecycleException("CelestialTwoBodyPoint reset() has not been called.");
+    }
+    this->algorithm->reInitialize();
+}
+
+/*! @brief Fully reset the algorithm state. */
+void CelestialTwoBodyPoint::reInitializeAll() {
+    if (!this->algorithm) {
+        throw XmeraLifecycleException("CelestialTwoBodyPoint reset() has not been called.");
+    }
+    this->algorithm->reInitializeAll();
+}
+
 /*! This method reads the input messages, computes the two-body celestial pointing attitude
  reference, and writes the attitude reference output message.
  @param callTime The clock time at which the function was called (nanoseconds)

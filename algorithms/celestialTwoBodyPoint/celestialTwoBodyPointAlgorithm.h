@@ -65,6 +65,8 @@ class CelestialTwoBodyPointAlgorithm final {
     /*! @brief Replace the algorithm configuration
         @param config validated configuration object */
     void setConfig(const CelestialTwoBodyPointConfig &config);
+    void reInitialize();
+    void reInitializeAll();
 
     /*! @brief Compute the attitude reference that points at the primary celestial body while
         constraining a second axis toward the secondary celestial body when possible

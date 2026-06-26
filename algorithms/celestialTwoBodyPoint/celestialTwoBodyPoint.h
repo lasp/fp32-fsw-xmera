@@ -21,6 +21,8 @@ class CelestialTwoBodyPoint final : public SysModel {
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
     void reconfigure() const;
+    void reInitialize();
+    void reInitializeAll();
 
     // Phase 1: Public config properties — set before reset()
     float celestialBodyAlignmentThreshold =
