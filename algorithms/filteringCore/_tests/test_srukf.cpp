@@ -187,6 +187,7 @@ TEST(SrukfApi, ResetCopiesInitialStateAndCovarianceToWorkingState) {
     filter.setProcessNoise(0.1 * Eigen::Matrix3d::Identity());
 
     filter.reset();
+    filter.reConfigure();
 
     // Working state and last-measurement state are both stateInitial.
     EXPECT_TRUE(filter.getState().raw().isApprox(s0.raw(), 1e-12)) << "state";
@@ -206,6 +207,7 @@ TEST(SrukfTimeUpdate, RewindsToLastMeasurementMakingTimeUpdateIdempotent) {
     filter.setInitialCovariance(Eigen::Matrix3d::Identity());
     filter.setProcessNoise(0.1 * Eigen::Matrix3d::Identity());
     filter.reset();
+    filter.reConfigure();
 
     // First timeUpdate from anchor produces stateA / covA.
     filter.timeUpdate(2.0);
@@ -231,6 +233,7 @@ TEST(SrukfTimeUpdate, CovarianceUnderTimeUpdate) {
     filter.setInitialCovariance(P0);
     filter.setProcessNoise(0.1 * Eigen::Matrix3d::Identity());
     filter.reset();
+    filter.reConfigure();
 
     filter.timeUpdate(0.0);
     EXPECT_TRUE(filter.getCovariance().isApprox(P0, 1e-10)) << "dt=0 should leave covariance unchanged";
@@ -253,6 +256,7 @@ TEST(SrukfMeasurementUpdate, InformativeMeasurementUpdatesStateAndShrinksCovaria
     filter.setInitialCovariance(Eigen::Matrix3d::Identity());
     filter.setProcessNoise(Eigen::Matrix3d::Zero());
     filter.reset();
+    filter.reConfigure();
     filter.timeUpdate(0.0);  // populates sigma points around the anchor
 
     PositionMeasurement m;
@@ -287,6 +291,7 @@ TEST(SrukfMeasurementUpdate, HighMeasurementNoiseLeavesStateNearlyUnchanged) {
     filter.setInitialCovariance(Eigen::Matrix3d::Identity());
     filter.setProcessNoise(Eigen::Matrix3d::Zero());
     filter.reset();
+    filter.reConfigure();
     filter.timeUpdate(0.0);
 
     TestState const stateBefore = filter.getState();

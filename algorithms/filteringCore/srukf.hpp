@@ -147,20 +147,13 @@ class SRuKF {
     /*! @return true iff the configured process noise is symmetric PSD */
     bool processNoiseIsValid() const { return isPositiveSemiDefinite(this->processNoise); }
 
-    /*! Initialize from initial conditions; seeds the rolling
-     *  last-measurement state and derives lambda, eta, sigma weights. */
-    void reset() {
+    /*! Derive the sigma-point spread (lambda, eta), the sigma weights, and the
+     *  process-noise Cholesky from alpha, beta, and the process noise. The estimate
+     *  (state and covariance) is left untouched. */
+    void reConfigure() {
         constexpr int N = State::size;
         constexpr int numSigmaPoints = 2 * N + 1;
         constexpr auto Ndouble = static_cast<double>(N);
-
-        this->state = this->stateInitial;
-        this->covariance = this->covarianceInitial;
-        this->sqrtCovar = choleskyDecomposition<N>(this->covarianceInitial);
-
-        this->stateLastMeasurement = this->state;
-        this->covarianceLastMeasurement = this->covariance;
-        this->sqrtCovarLastMeasurement = this->sqrtCovar;
 
         this->cholProcessNoise = choleskyDecomposition<N>(this->processNoise);
 
@@ -173,6 +166,20 @@ class SRuKF {
             this->wM(i) = 1.0 / (2.0 * (Ndouble + this->lambda));
             this->wC(i) = this->wM(i);
         }
+    }
+
+    /*! Seed the estimate from initial conditions and re-derive the filter parameters
+     *  (reConfigure() plus a state/covariance reset). */
+    void reset() {
+        constexpr int N = State::size;
+        
+        this->state = this->stateInitial;
+        this->covariance = this->covarianceInitial;
+        this->sqrtCovar = choleskyDecomposition<N>(this->covarianceInitial);
+
+        this->stateLastMeasurement = this->state;
+        this->covarianceLastMeasurement = this->covariance;
+        this->sqrtCovarLastMeasurement = this->sqrtCovar;
     }
 
     /*! Rewind to the last-measurement state and propagate by dt. If dt = 0
