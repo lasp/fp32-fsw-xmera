@@ -43,7 +43,7 @@ def test_css_comm(num_sensors, sensor_data):
     module = cssCommF32.CssComm()
     module.modelTag = "cssComm"
     module.numSensors = num_sensors
-    module.maxSensorValue = 500e-6
+    module.maxSensorValues = cssCommF32.DoubleArrayCss([500e-6] * _MAX_CSS)
 
     # 10 active coefficients + trailing zero so the list length matches
     # MAX_NUM_CHEBY_POLYS = 11 (the SWIG-generated
@@ -101,7 +101,7 @@ def test_css_comm(num_sensors, sensor_data):
 
     # Getter/setter round-trips
     np.testing.assert_allclose(module.numSensors, num_sensors, atol=accuracy, rtol=accuracy)
-    np.testing.assert_allclose(module.maxSensorValue, 500e-6, atol=accuracy, rtol=accuracy)
+    np.testing.assert_allclose(module.maxSensorValues, [500e-6] * _MAX_CSS, atol=accuracy, rtol=accuracy)
     np.testing.assert_allclose(module.chebyCount, len(cheby_list), atol=accuracy, rtol=accuracy)
     np.testing.assert_allclose(module.chebyPolynomials, cheby_list, atol=accuracy, rtol=accuracy)
 

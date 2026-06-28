@@ -8,7 +8,9 @@ namespace {
 CssCommConfig configFromC(const CssCommConfig_c& c) {
     std::array<double, kMaxNumChebyPolys> chebyPolynomials{};
     std::copy(c.chebyPolynomials, c.chebyPolynomials + kMaxNumChebyPolys, chebyPolynomials.begin());
-    return CssCommConfig::create(c.numSensors, c.maxSensorValue, c.chebyCount, chebyPolynomials);
+    std::array<double, kMaxNumCssSensors> maxSensorValues{};
+    std::copy(c.maxSensorValues, c.maxSensorValues + kMaxNumCssSensors, maxSensorValues.begin());
+    return CssCommConfig::create(c.numSensors, maxSensorValues, c.chebyCount, chebyPolynomials);
 }
 }  // namespace
 

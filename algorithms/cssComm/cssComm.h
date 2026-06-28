@@ -18,9 +18,10 @@ class CssComm : public SysModel {
     void updateState(uint64_t callTime) override;
     void reset(uint64_t callTime) override;
 
-    uint32_t numSensors{};    //!< [-] number of CSS sensors to process
-    double maxSensorValue{};  //!< [-] scale factor to go from sensor values to cosine
-    uint32_t chebyCount{};    //!< [-] number of Chebyshev polynomials used for the correction fit
+    uint32_t numSensors{};  //!< [-] number of CSS sensors to process
+    std::array<double, kMaxNumCssSensors>
+        maxSensorValues{};  //!< [-] per-sensor scale factor from sensor value to cosine
+    uint32_t chebyCount{};  //!< [-] number of Chebyshev polynomials used for the correction fit
     std::array<double, kMaxNumChebyPolys> chebyPolynomials{};  //!< [-] Chebyshev polynomials fitting output to cosine
 
     ReadFunctor<CSSArraySensorMsgF32Payload> sensorListInMsg;  //!< input message that contains CSS data
