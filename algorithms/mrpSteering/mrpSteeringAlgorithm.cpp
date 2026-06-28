@@ -51,8 +51,7 @@ Eigen::Vector3f MrpSteeringAlgorithm::update(const InputGuidanceData& attGuidInp
         omega_BastR_B[i] = -f_i;
     }
     if (!params.ignoreOuterLoopFeedforward) {
-        const Eigen::Matrix3f B = bmatMrp(sigma_BR);
-        const Eigen::Vector3f sigmaDot_BR = 0.25 * B * omega_BastR_B;
+        const Eigen::Vector3f sigmaDot_BR = dmrp(sigma_BR, omega_BastR_B);
 
         for (Eigen::Index i = 0; i < 3; ++i) {
             const float sigma_i = sigma_BR[i];
