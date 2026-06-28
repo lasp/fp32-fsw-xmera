@@ -20,15 +20,9 @@ extern "C" {
 typedef struct {
     uint32_t numRW;                                   /*!< [-]   number of reaction wheels on the vehicle */
     float GsMatrix_B[3 * RW_MOTOR_TORQUE_MAX_NUM_RW]; /*!< [-]   RW spin axes in body frame, three per wheel */
-} RwMotorTorqueArrayConfiguration_c;
-
-/**
- * @brief Plain-old-data mirror of the C++ RwMotorTorqueAvailability.
- */
-typedef struct {
     FSWdeviceAvailability
         wheelAvailability[RW_MOTOR_TORQUE_MAX_NUM_RW]; /*!< [-]   AVAILABLE / UNAVAILABLE state of each wheel */
-} RwMotorTorqueAvailability_c;
+} RwMotorTorqueArrayConfiguration_c;
 
 /**
  * @brief Plain-old-data mirror of the C++ RwMotorTorqueConfig.
@@ -40,7 +34,6 @@ typedef struct {
 typedef struct {
     Matrix3f_c controlAxes_B;                          /*!< [-] control axes mapping matrix CB */
     RwMotorTorqueArrayConfiguration_c rwConfiguration; /*!< [-] reaction-wheel spin-axis configuration */
-    RwMotorTorqueAvailability_c availability;          /*!< [-] per-wheel availability */
     float omegaGain;                                   /*!< [-] RW null-space feedback gain (>= 0) */
 } RwMotorTorqueConfig_c;
 

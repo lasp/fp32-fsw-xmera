@@ -52,9 +52,8 @@ std::optional<Eigen::Matrix<float, kMaxNumRw, kMaxNumRw>> computeNullSpaceProjec
  configuration (orthonormal control axes, unit spin axes). Returns nullopt when a control axis is not
  reachable by the available reaction wheels (rank-deficient control mapping). */
 std::optional<RwMotorTorqueMapping> computeRwMapping(const Eigen::Matrix3f& controlAxes_B,
-                                                     const RwMotorTorqueArrayConfiguration& rwConfiguration,
-                                                     const RwMotorTorqueAvailability& availability) {
-    const std::array<FSWdeviceAvailability, kMaxNumRw>& wheelsAvailability = availability.wheelAvailability;
+                                                     const RwMotorTorqueArrayConfiguration& rwConfiguration) {
+    const std::array<FSWdeviceAvailability, kMaxNumRw>& wheelsAvailability = rwConfiguration.wheelAvailability;
 
     // Compact the non-zero (controlled) rows to the top; only the controlled subspace matters, so the row
     // positions in the configured matrix are irrelevant.
@@ -144,15 +143,14 @@ std::optional<RwMotorTorqueMapping> computeRwMapping(const Eigen::Matrix3f& cont
 }  // namespace
 
 bool RwMotorTorqueConfig::isValidMapping(const Eigen::Matrix3f& controlAxes_B,
-                                         const RwMotorTorqueArrayConfiguration& rwConfiguration,
-                                         const RwMotorTorqueAvailability& availability) {
-    return computeRwMapping(controlAxes_B, rwConfiguration, availability).has_value();
+                                         const RwMotorTorqueArrayConfiguration& rwConfiguration) {
+    return computeRwMapping(controlAxes_B, rwConfiguration).has_value();
 }
 
 RwMotorTorqueAlgorithm::RwMotorTorqueAlgorithm(const RwMotorTorqueConfig& config)  // NOLINT(modernize-pass-by-value)
     : cfg(config) {
     const std::optional<RwMotorTorqueMapping> mapping =
-        computeRwMapping(this->cfg.getControlAxes(), this->cfg.getRwConfiguration(), this->cfg.getAvailability());
+        computeRwMapping(this->cfg.getControlAxes(), this->cfg.getRwConfiguration());
     if (mapping.has_value()) {
         this->motorTorqueMap = mapping->motorTorqueMap;
         this->tau = mapping->tau;
@@ -162,7 +160,7 @@ RwMotorTorqueAlgorithm::RwMotorTorqueAlgorithm(const RwMotorTorqueConfig& config
 void RwMotorTorqueAlgorithm::setConfig(const RwMotorTorqueConfig& config) {
     this->cfg = config;
     const std::optional<RwMotorTorqueMapping> mapping =
-        computeRwMapping(this->cfg.getControlAxes(), this->cfg.getRwConfiguration(), this->cfg.getAvailability());
+        computeRwMapping(this->cfg.getControlAxes(), this->cfg.getRwConfiguration());
     if (mapping.has_value()) {
         this->motorTorqueMap = mapping->motorTorqueMap;
         this->tau = mapping->tau;

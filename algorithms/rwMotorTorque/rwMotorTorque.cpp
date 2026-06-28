@@ -27,25 +27,22 @@ void RwMotorTorque::reset(const uint64_t callTime) {
         throw std::invalid_argument("rwMotorTorque.vehControlInMsg wasn't connected.");
     }
 
-    /*! - Read static RW config data message and convert it to the algorithm's own types */
+    /*! - Read static RW config data message and convert it to the algorithm's own types. Availability
+     defaults to all wheels AVAILABLE; if the optional message is linked, copy its flags into the config. */
     const RWArrayConfigMsgF32Payload rwParams = this->rwParamsInMsg();
     RwMotorTorqueArrayConfiguration rwConfiguration{};
     rwConfiguration.numRW = static_cast<uint32_t>(rwParams.numRW);
     rwConfiguration.GsMatrix_B = cArrayToEigenMatrix<float, 3, kMaxNumRw>(rwParams.GsMatrix_B);
-
-    /*! - Availability defaults to all wheels AVAILABLE; if the optional message is linked, copy its flags. */
-    RwMotorTorqueAvailability availability{};
     if (this->rwAvailInMsg.isLinked()) {
         const RWAvailabilityMsgPayload wheelsAvailability = this->rwAvailInMsg();
         for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
-            availability.wheelAvailability[i] = wheelsAvailability.wheelAvailability[i];
+            rwConfiguration.wheelAvailability[i] = wheelsAvailability.wheelAvailability[i];
         }
     }
 
     /*! - Build the validated configuration and (re)create the algorithm (computes the mapping and
      projection; throws on an invalid config). */
-    const auto config =
-        RwMotorTorqueConfig::create(this->controlAxes_B, rwConfiguration, availability, this->omegaGain);
+    const auto config = RwMotorTorqueConfig::create(this->controlAxes_B, rwConfiguration, this->omegaGain);
     this->algorithm = std::make_unique<RwMotorTorqueAlgorithm>(config);
 }
 
