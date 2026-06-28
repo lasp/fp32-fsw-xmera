@@ -38,8 +38,8 @@ std::optional<Eigen::Matrix<float, kMaxNumRw, kMaxNumRw>> computeNullSpaceProjec
     }
 
     const Eigen::JacobiSVD<Eigen::Matrix<float, 3, kMaxNumRw>> gsSvd(G_s_B, Eigen::ComputeFullV);
-    const Eigen::Vector3f& gsSingularValues = gsSvd.singularValues();
-    if (gsSingularValues(2) <= gsSingularValues(0) * kConditioningTol) {
+    if (const Eigen::Vector3f& gsSingularValues = gsSvd.singularValues();
+        gsSingularValues(2) <= gsSingularValues(0) * kConditioningTol) {
         return std::nullopt;
     }
 
