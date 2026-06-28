@@ -42,33 +42,30 @@ TEST(RwMotorTorqueTest, RegressionNullSpace) {
 
 TEST(RwMotorTorqueTest, SetupTest) {
     const RwMotorTorqueArrayConfiguration rwConfiguration{};
-    const RwMotorTorqueAvailability availability{};
 
     // A non-unit control axis is rejected.
     Eigen::Matrix3f controlAxes_B{Eigen::Matrix3f::Zero()};
     controlAxes_B.row(0) = Eigen::Vector3f{2.0F, 0.0F, 0.0F};
-    EXPECT_THROW(RwMotorTorqueConfig::create(controlAxes_B, rwConfiguration, availability), fsw::invalid_argument);
+    EXPECT_THROW(RwMotorTorqueConfig::create(controlAxes_B, rwConfiguration), fsw::invalid_argument);
 
     // Non-orthogonal control axes are rejected.
     controlAxes_B = Eigen::Matrix3f::Zero();
     controlAxes_B.row(0) = Eigen::Vector3f{1.0F, 0.0F, 0.0F};
     controlAxes_B.row(1) = Eigen::Vector3f{0.70710678F, 0.70710678F, 0.0F};
-    EXPECT_THROW(RwMotorTorqueConfig::create(controlAxes_B, rwConfiguration, availability), fsw::invalid_argument);
+    EXPECT_THROW(RwMotorTorqueConfig::create(controlAxes_B, rwConfiguration), fsw::invalid_argument);
 
     // A non-unit RW spin axis is rejected.
     RwMotorTorqueArrayConfiguration nonUnitRw{};
     nonUnitRw.numRW = 1U;
     nonUnitRw.GsMatrix_B.col(0) = Eigen::Vector3f{2.0F, 0.0F, 0.0F};
-    EXPECT_THROW(RwMotorTorqueConfig::create(makeControlAxes(1U), nonUnitRw, availability), fsw::invalid_argument);
+    EXPECT_THROW(RwMotorTorqueConfig::create(makeControlAxes(1U), nonUnitRw), fsw::invalid_argument);
 
     // A negative null-space feedback gain is rejected.
-    EXPECT_THROW(RwMotorTorqueConfig::create(makeControlAxes(1U), rwConfiguration, availability, -1.0F),
-                 fsw::invalid_argument);
+    EXPECT_THROW(RwMotorTorqueConfig::create(makeControlAxes(1U), rwConfiguration, -1.0F), fsw::invalid_argument);
 
     // Control mapping not full rank (3 control axes but no reaction wheels): create() validates the mapping
     // and rejects the rank-deficient configuration.
-    EXPECT_THROW(RwMotorTorqueConfig::create(makeControlAxes(3U), rwConfiguration, availability),
-                 fsw::invalid_argument);
+    EXPECT_THROW(RwMotorTorqueConfig::create(makeControlAxes(3U), rwConfiguration), fsw::invalid_argument);
 }
 
 // ---------------------------------------------------------------------------
@@ -155,8 +152,7 @@ TEST(RwMotorTorqueTest, ThreeSpanningWheelsHaveNoNullSpace) {
     rwConfiguration.GsMatrix_B.col(1) = Eigen::Vector3f{0.0F, 1.0F, 0.0F};
     rwConfiguration.GsMatrix_B.col(2) = Eigen::Vector3f{0.0F, 0.0F, 1.0F};
 
-    const RwMotorTorqueAlgorithm alg{
-        RwMotorTorqueConfig::create(makeControlAxes(3U), rwConfiguration, RwMotorTorqueAvailability{}, 0.5F)};
+    const RwMotorTorqueAlgorithm alg{RwMotorTorqueConfig::create(makeControlAxes(3U), rwConfiguration, 0.5F)};
 
     RwMotorTorqueSpeeds speeds{};
     speeds.rwSpeeds.head<3>() = Eigen::Vector3f{100.0F, -50.0F, 30.0F};
@@ -178,7 +174,6 @@ TEST(RwMotorTorqueTest, NonContiguousControlAxes) {
     rwConfiguration.GsMatrix_B.col(0) = Eigen::Vector3f{1.0F, 0.0F, 0.0F};
     rwConfiguration.GsMatrix_B.col(1) = Eigen::Vector3f{0.0F, 1.0F, 0.0F};
     rwConfiguration.GsMatrix_B.col(2) = Eigen::Vector3f{0.0F, 0.0F, 1.0F};
-    const RwMotorTorqueAvailability availability{};
 
     Eigen::Matrix3f contiguous{Eigen::Matrix3f::Zero()};
     contiguous.row(0) = Eigen::Vector3f{1.0F, 0.0F, 0.0F};
@@ -188,9 +183,8 @@ TEST(RwMotorTorqueTest, NonContiguousControlAxes) {
     nonContiguous.row(0) = Eigen::Vector3f{1.0F, 0.0F, 0.0F};
     nonContiguous.row(2) = Eigen::Vector3f{0.0F, 0.0F, 1.0F};
 
-    const RwMotorTorqueAlgorithm algContiguous{RwMotorTorqueConfig::create(contiguous, rwConfiguration, availability)};
-    const RwMotorTorqueAlgorithm algNonContiguous{
-        RwMotorTorqueConfig::create(nonContiguous, rwConfiguration, availability)};
+    const RwMotorTorqueAlgorithm algContiguous{RwMotorTorqueConfig::create(contiguous, rwConfiguration)};
+    const RwMotorTorqueAlgorithm algNonContiguous{RwMotorTorqueConfig::create(nonContiguous, rwConfiguration)};
 
     const Eigen::Vector3f Lr_B{0.3F, -0.5F, 0.8F};
     const Eigen::Vector<float, kMaxNumRw> outContiguous = algContiguous.update(Lr_B, RwMotorTorqueSpeeds{});
@@ -215,8 +209,7 @@ TEST(RwMotorTorqueTest, ControlAxesAreOrthonormalized) {
     rwConfiguration.GsMatrix_B.col(1) = Eigen::Vector3f{0.0F, 1.0F, 0.0F};
     rwConfiguration.GsMatrix_B.col(2) = Eigen::Vector3f{0.0F, 0.0F, 1.0F};
 
-    const RwMotorTorqueConfig config =
-        RwMotorTorqueConfig::create(controlAxes, rwConfiguration, RwMotorTorqueAvailability{});
+    const RwMotorTorqueConfig config = RwMotorTorqueConfig::create(controlAxes, rwConfiguration);
     const Eigen::Matrix3f& stored = config.getControlAxes();
 
     EXPECT_NEAR(stored.row(0).norm(), 1.0F, 1e-6);
@@ -238,8 +231,7 @@ TEST(RwMotorTorqueTest, IllConditionedControlMappingRejected) {
     controlAxes.row(0) = Eigen::Vector3f{1.0F, 0.0F, 0.0F};
     controlAxes.row(1) = Eigen::Vector3f{0.0F, 1.0F, 0.0F};
 
-    EXPECT_THROW(RwMotorTorqueConfig::create(controlAxes, rwConfiguration, RwMotorTorqueAvailability{}),
-                 fsw::invalid_argument);
+    EXPECT_THROW(RwMotorTorqueConfig::create(controlAxes, rwConfiguration), fsw::invalid_argument);
 }
 
 // Four near-coplanar wheels: the control mapping (body x, y) is well-conditioned, but the null-space
@@ -253,8 +245,7 @@ TEST(RwMotorTorqueTest, IllConditionedNullSpaceGeometryRejected) {
     rwConfiguration.GsMatrix_B.col(2) = Eigen::Vector3f{-1.0F, 0.0F, kOutOfPlane}.normalized();
     rwConfiguration.GsMatrix_B.col(3) = Eigen::Vector3f{0.0F, -1.0F, kOutOfPlane}.normalized();
 
-    EXPECT_THROW(RwMotorTorqueConfig::create(makeControlAxes(2U), rwConfiguration, RwMotorTorqueAvailability{}, 0.5F),
-                 fsw::invalid_argument);
+    EXPECT_THROW(RwMotorTorqueConfig::create(makeControlAxes(2U), rwConfiguration, 0.5F), fsw::invalid_argument);
 }
 
 // With every wheel marked unavailable there is nothing to control with, so the (otherwise valid) configuration
@@ -266,13 +257,11 @@ TEST(RwMotorTorqueTest, AllWheelsUnavailableRejected) {
     rwConfiguration.GsMatrix_B.col(1) = Eigen::Vector3f{0.0F, 1.0F, 0.0F};
     rwConfiguration.GsMatrix_B.col(2) = Eigen::Vector3f{0.0F, 0.0F, 1.0F};
 
-    RwMotorTorqueAvailability availability{};
-    availability.wheelAvailability[0] = UNAVAILABLE;
-    availability.wheelAvailability[1] = UNAVAILABLE;
-    availability.wheelAvailability[2] = UNAVAILABLE;
+    rwConfiguration.wheelAvailability[0] = UNAVAILABLE;
+    rwConfiguration.wheelAvailability[1] = UNAVAILABLE;
+    rwConfiguration.wheelAvailability[2] = UNAVAILABLE;
 
-    EXPECT_THROW(RwMotorTorqueConfig::create(makeControlAxes(3U), rwConfiguration, availability),
-                 fsw::invalid_argument);
+    EXPECT_THROW(RwMotorTorqueConfig::create(makeControlAxes(3U), rwConfiguration), fsw::invalid_argument);
 }
 
 // Determined case: three orthogonal wheels and three control axes give a square mapping with no null space, so
@@ -284,8 +273,7 @@ TEST(RwMotorTorqueTest, SquareMappingIsExact) {
     rwConfiguration.GsMatrix_B.col(1) = Eigen::Vector3f{0.0F, 1.0F, 0.0F};
     rwConfiguration.GsMatrix_B.col(2) = Eigen::Vector3f{0.0F, 0.0F, 1.0F};
 
-    const RwMotorTorqueAlgorithm alg{
-        RwMotorTorqueConfig::create(makeControlAxes(3U), rwConfiguration, RwMotorTorqueAvailability{})};
+    const RwMotorTorqueAlgorithm alg{RwMotorTorqueConfig::create(makeControlAxes(3U), rwConfiguration)};
 
     const Eigen::Vector3f Lr_B{0.3F, -0.5F, 0.8F};
     const Eigen::Vector<float, kMaxNumRw> out = alg.update(Lr_B, RwMotorTorqueSpeeds{});
@@ -306,7 +294,7 @@ TEST(RwMotorTorqueTest, SetConfigSwitchesConfiguration) {
     rwA.GsMatrix_B.col(0) = Eigen::Vector3f{1.0F, 0.0F, 0.0F};
     rwA.GsMatrix_B.col(1) = Eigen::Vector3f{0.0F, 1.0F, 0.0F};
     rwA.GsMatrix_B.col(2) = Eigen::Vector3f{0.0F, 0.0F, 1.0F};
-    RwMotorTorqueAlgorithm alg{RwMotorTorqueConfig::create(makeControlAxes(3U), rwA, RwMotorTorqueAvailability{})};
+    RwMotorTorqueAlgorithm alg{RwMotorTorqueConfig::create(makeControlAxes(3U), rwA)};
 
     RwMotorTorqueArrayConfiguration rwB{};
     rwB.numRW = 4U;
@@ -314,9 +302,8 @@ TEST(RwMotorTorqueTest, SetConfigSwitchesConfiguration) {
     rwB.GsMatrix_B.col(1) = Eigen::Vector3f{0.0F, 1.0F, 0.0F};
     rwB.GsMatrix_B.col(2) = Eigen::Vector3f{0.0F, 0.0F, 1.0F};
     rwB.GsMatrix_B.col(3) = Eigen::Vector3f{1.0F, 1.0F, 1.0F}.normalized();
-    const RwMotorTorqueAvailability availabilityB{};
     constexpr float kOmegaGain = 0.5F;
-    alg.setConfig(RwMotorTorqueConfig::create(makeControlAxes(3U), rwB, availabilityB, kOmegaGain));
+    alg.setConfig(RwMotorTorqueConfig::create(makeControlAxes(3U), rwB, kOmegaGain));
 
     RwMotorTorqueSpeeds speeds{};
     speeds.rwSpeeds.head<4>() = Eigen::Vector4f{100.0F, -50.0F, 30.0F, 80.0F};
@@ -326,7 +313,7 @@ TEST(RwMotorTorqueTest, SetConfigSwitchesConfiguration) {
     const Eigen::Vector<double, kMaxNumRw> ref = referenceUpdate(makeControlAxes(3U).cast<double>(),
                                                                  rwB.GsMatrix_B.cast<double>(),
                                                                  rwB.numRW,
-                                                                 availabilityB,
+                                                                 rwB.wheelAvailability,
                                                                  Lr_B.cast<double>(),
                                                                  speeds.rwSpeeds.cast<double>(),
                                                                  speeds.rwDesiredSpeeds.cast<double>(),
@@ -348,8 +335,7 @@ TEST(RwMotorTorqueTest, NullSpaceZeroAtDesiredSpeed) {
     rwConfiguration.GsMatrix_B.col(2) = Eigen::Vector3f{0.0F, 0.0F, 1.0F};
     rwConfiguration.GsMatrix_B.col(3) = Eigen::Vector3f{1.0F, 1.0F, 1.0F}.normalized();
 
-    const RwMotorTorqueAlgorithm alg{
-        RwMotorTorqueConfig::create(makeControlAxes(3U), rwConfiguration, RwMotorTorqueAvailability{}, 0.5F)};
+    const RwMotorTorqueAlgorithm alg{RwMotorTorqueConfig::create(makeControlAxes(3U), rwConfiguration, 0.5F)};
 
     RwMotorTorqueSpeeds speeds{};
     speeds.rwSpeeds.head<4>() = Eigen::Vector4f{100.0F, -50.0F, 30.0F, 80.0F};
