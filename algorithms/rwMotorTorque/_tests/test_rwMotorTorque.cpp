@@ -43,16 +43,8 @@ TEST(RwMotorTorqueTest, RegressionNullSpace) {
 TEST(RwMotorTorqueTest, SetupTest) {
     const RwMotorTorqueArrayConfiguration rwConfiguration{};
 
-    // A non-unit control axis is rejected.
-    Eigen::Matrix3f controlAxes_B{Eigen::Matrix3f::Zero()};
-    controlAxes_B.row(0) = Eigen::Vector3f{2.0F, 0.0F, 0.0F};
-    EXPECT_THROW(RwMotorTorqueConfig::create(controlAxes_B, rwConfiguration), fsw::invalid_argument);
-
-    // Non-orthogonal control axes are rejected.
-    controlAxes_B = Eigen::Matrix3f::Zero();
-    controlAxes_B.row(0) = Eigen::Vector3f{1.0F, 0.0F, 0.0F};
-    controlAxes_B.row(1) = Eigen::Vector3f{0.70710678F, 0.70710678F, 0.0F};
-    EXPECT_THROW(RwMotorTorqueConfig::create(controlAxes_B, rwConfiguration), fsw::invalid_argument);
+    // No control axis selected is rejected.
+    EXPECT_THROW(RwMotorTorqueConfig::create({false, false, false}, rwConfiguration), fsw::invalid_argument);
 
     // A non-unit RW spin axis is rejected.
     RwMotorTorqueArrayConfiguration nonUnitRw{};
@@ -166,58 +158,6 @@ TEST(RwMotorTorqueTest, ThreeSpanningWheelsHaveNoNullSpace) {
     }
 }
 
-// Control axes may sit in any rows; only the spanned subspace matters. Controlling body x and z via
-// non-contiguous rows {0, 2} must produce the same motor torques as the contiguous rows {0, 1}.
-TEST(RwMotorTorqueTest, NonContiguousControlAxes) {
-    RwMotorTorqueArrayConfiguration rwConfiguration{};
-    rwConfiguration.numRW = 3U;
-    rwConfiguration.GsMatrix_B.col(0) = Eigen::Vector3f{1.0F, 0.0F, 0.0F};
-    rwConfiguration.GsMatrix_B.col(1) = Eigen::Vector3f{0.0F, 1.0F, 0.0F};
-    rwConfiguration.GsMatrix_B.col(2) = Eigen::Vector3f{0.0F, 0.0F, 1.0F};
-
-    Eigen::Matrix3f contiguous{Eigen::Matrix3f::Zero()};
-    contiguous.row(0) = Eigen::Vector3f{1.0F, 0.0F, 0.0F};
-    contiguous.row(1) = Eigen::Vector3f{0.0F, 0.0F, 1.0F};
-
-    Eigen::Matrix3f nonContiguous{Eigen::Matrix3f::Zero()};
-    nonContiguous.row(0) = Eigen::Vector3f{1.0F, 0.0F, 0.0F};
-    nonContiguous.row(2) = Eigen::Vector3f{0.0F, 0.0F, 1.0F};
-
-    const RwMotorTorqueAlgorithm algContiguous{RwMotorTorqueConfig::create(contiguous, rwConfiguration)};
-    const RwMotorTorqueAlgorithm algNonContiguous{RwMotorTorqueConfig::create(nonContiguous, rwConfiguration)};
-
-    const Eigen::Vector3f Lr_B{0.3F, -0.5F, 0.8F};
-    const Eigen::Vector<float, kMaxNumRw> outContiguous = algContiguous.update(Lr_B, RwMotorTorqueSpeeds{});
-    const Eigen::Vector<float, kMaxNumRw> outNonContiguous = algNonContiguous.update(Lr_B, RwMotorTorqueSpeeds{});
-
-    for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
-        EXPECT_NEAR(outContiguous[i], outNonContiguous[i], 1e-6);
-    }
-}
-
-// Control axes that are unit but slightly non-orthogonal (within the validation tolerance) are stored
-// orthonormalized, and zero (uncontrolled) rows stay zero.
-TEST(RwMotorTorqueTest, ControlAxesAreOrthonormalized) {
-    Eigen::Matrix3f controlAxes{Eigen::Matrix3f::Zero()};
-    controlAxes.row(0) = Eigen::Vector3f{1.0F, 0.0F, 0.0F};
-    controlAxes.row(1) = Eigen::Vector3f{8e-4F, 1.0F, 0.0F}.normalized();  // unit, ~8e-4 off orthogonal to row 0
-
-    // Three wheels spanning body x, y, z so create() accepts the (controllable) configuration.
-    RwMotorTorqueArrayConfiguration rwConfiguration{};
-    rwConfiguration.numRW = 3U;
-    rwConfiguration.GsMatrix_B.col(0) = Eigen::Vector3f{1.0F, 0.0F, 0.0F};
-    rwConfiguration.GsMatrix_B.col(1) = Eigen::Vector3f{0.0F, 1.0F, 0.0F};
-    rwConfiguration.GsMatrix_B.col(2) = Eigen::Vector3f{0.0F, 0.0F, 1.0F};
-
-    const RwMotorTorqueConfig config = RwMotorTorqueConfig::create(controlAxes, rwConfiguration);
-    const Eigen::Matrix3f& stored = config.getControlAxes();
-
-    EXPECT_NEAR(stored.row(0).norm(), 1.0F, 1e-6);
-    EXPECT_NEAR(stored.row(1).norm(), 1.0F, 1e-6);
-    EXPECT_NEAR(stored.row(0).dot(stored.row(1)), 0.0F, 1e-6);  // exactly orthogonal after Gram-Schmidt
-    EXPECT_NEAR(stored.row(2).norm(), 0.0F, 1e-6);              // uncontrolled row untouched
-}
-
 // A near-degenerate control geometry (two wheels nearly aligned, so the second control axis is barely
 // reachable) is rejected by create(): cond([CGs]) exceeds the limit even though the mapping is full rank.
 TEST(RwMotorTorqueTest, IllConditionedControlMappingRejected) {
@@ -227,11 +167,7 @@ TEST(RwMotorTorqueTest, IllConditionedControlMappingRejected) {
     rwConfiguration.GsMatrix_B.col(1) = Eigen::Vector3f{1.0F, 5e-3F, 0.0F}.normalized();  // ~0.3 deg off wheel 0
 
     // Control body x and y: y is reachable only through the tiny y-component of the near-parallel wheels.
-    Eigen::Matrix3f controlAxes{Eigen::Matrix3f::Zero()};
-    controlAxes.row(0) = Eigen::Vector3f{1.0F, 0.0F, 0.0F};
-    controlAxes.row(1) = Eigen::Vector3f{0.0F, 1.0F, 0.0F};
-
-    EXPECT_THROW(RwMotorTorqueConfig::create(controlAxes, rwConfiguration), fsw::invalid_argument);
+    EXPECT_THROW(RwMotorTorqueConfig::create(makeControlAxes(2U), rwConfiguration), fsw::invalid_argument);
 }
 
 // Four near-coplanar wheels: the control mapping (body x, y) is well-conditioned, but the null-space
@@ -286,6 +222,29 @@ TEST(RwMotorTorqueTest, SquareMappingIsExact) {
     }
 }
 
+// Non-consecutive control axes: selecting body x and z (skipping y) must control exactly those axes. Exercises
+// the "pack selected axes to the top" approach in computeRwMapping for a gapped selection -- a bug that
+// controlled x and y instead would fail the z assertion.
+TEST(RwMotorTorqueTest, NonConsecutiveControlAxes) {
+    RwMotorTorqueArrayConfiguration rwConfiguration{};
+    rwConfiguration.numRW = 3U;
+    rwConfiguration.GsMatrix_B.col(0) = Eigen::Vector3f{1.0F, 0.0F, 0.0F};
+    rwConfiguration.GsMatrix_B.col(1) = Eigen::Vector3f{0.0F, 1.0F, 0.0F};
+    rwConfiguration.GsMatrix_B.col(2) = Eigen::Vector3f{0.0F, 0.0F, 1.0F};
+
+    const RwMotorTorqueConfig config = RwMotorTorqueConfig::create({true, false, true}, rwConfiguration);
+    const RwMotorTorqueAlgorithm alg{config};
+
+    const Eigen::Vector3f Lr_B{0.3F, -0.5F, 0.8F};
+    const Eigen::Vector3f bodyTorque = availableGs(config) * alg.update(Lr_B, RwMotorTorqueSpeeds{});
+
+    // The controlled axes x and z realize the commanded torque (-Lr); the uncontrolled y axis is left alone
+    // (its orthogonal wheel is commanded zero, so no body torque about y).
+    EXPECT_NEAR(bodyTorque[0], -Lr_B[0], 1e-5F);
+    EXPECT_NEAR(bodyTorque[2], -Lr_B[2], 1e-5F);
+    EXPECT_NEAR(bodyTorque[1], 0.0F, 1e-5F);
+}
+
 // setConfig swaps in a new configuration: the algorithm recomputes the mapping, so update() matches the new
 // configuration's reference (here switching from three wheels to four with an active null-space).
 TEST(RwMotorTorqueTest, SetConfigSwitchesConfiguration) {
@@ -310,7 +269,7 @@ TEST(RwMotorTorqueTest, SetConfigSwitchesConfiguration) {
 
     const Eigen::Vector3f Lr_B{0.3F, -0.5F, 0.8F};
     const Eigen::Vector<float, kMaxNumRw> out = alg.update(Lr_B, speeds);
-    const Eigen::Vector<double, kMaxNumRw> ref = referenceUpdate(makeControlAxes(3U).cast<double>(),
+    const Eigen::Vector<double, kMaxNumRw> ref = referenceUpdate(makeControlAxes(3U),
                                                                  rwB.GsMatrix_B.cast<double>(),
                                                                  rwB.numRW,
                                                                  rwB.wheelAvailability,

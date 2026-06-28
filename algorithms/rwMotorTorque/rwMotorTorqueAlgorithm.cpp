@@ -48,20 +48,20 @@ std::optional<Eigen::Matrix<float, kMaxNumRw, kMaxNumRw>> computeNullSpaceProjec
                                                       Vr * Vr.transpose()};
 }
 
-/*! Computes the per-RW motor-torque map and the null-space projection [tau] from a validated, canonicalized
- configuration (orthonormal control axes, unit spin axes). Returns nullopt when a control axis is not
- reachable by the available reaction wheels (rank-deficient control mapping). */
-std::optional<RwMotorTorqueMapping> computeRwMapping(const Eigen::Matrix3f& controlAxes_B,
+/*! Computes the per-RW motor-torque map and the null-space projection [tau] from a validated configuration
+ (selected body control axes, unit spin axes). Returns nullopt when a selected control axis is not reachable
+ by the available reaction wheels (rank-deficient control mapping). */
+std::optional<RwMotorTorqueMapping> computeRwMapping(const std::array<bool, 3>& desiredControlAxes_B,
                                                      const RwMotorTorqueArrayConfiguration& rwConfiguration) {
     const std::array<FSWdeviceAvailability, kMaxNumRw>& wheelsAvailability = rwConfiguration.wheelAvailability;
 
-    // Compact the non-zero (controlled) rows to the top; only the controlled subspace matters, so the row
-    // positions in the configured matrix are irrelevant.
+    // Build the compact control-axes matrix: each selected body axis (x, y, z) contributes its standard-basis
+    // row, packed to the top. Unselected axes are simply omitted.
     Eigen::Matrix3f compactControlAxes{Eigen::Matrix3f::Zero()};
     uint32_t numControlAxes = 0U;
     for (uint32_t i = 0U; i < 3U; ++i) {
-        if (controlAxes_B.row(i).norm() > 0.0F) {
-            compactControlAxes.row(numControlAxes) = controlAxes_B.row(i);
+        if (desiredControlAxes_B[i]) {
+            compactControlAxes(numControlAxes, i) = 1.0F;
             numControlAxes += 1U;
         }
     }
@@ -142,15 +142,15 @@ std::optional<RwMotorTorqueMapping> computeRwMapping(const Eigen::Matrix3f& cont
 
 }  // namespace
 
-bool RwMotorTorqueConfig::isValidMapping(const Eigen::Matrix3f& controlAxes_B,
+bool RwMotorTorqueConfig::isValidMapping(const std::array<bool, 3>& desiredControlAxes_B,
                                          const RwMotorTorqueArrayConfiguration& rwConfiguration) {
-    return computeRwMapping(controlAxes_B, rwConfiguration).has_value();
+    return computeRwMapping(desiredControlAxes_B, rwConfiguration).has_value();
 }
 
 RwMotorTorqueAlgorithm::RwMotorTorqueAlgorithm(const RwMotorTorqueConfig& config)  // NOLINT(modernize-pass-by-value)
     : cfg(config) {
     const std::optional<RwMotorTorqueMapping> mapping =
-        computeRwMapping(this->cfg.getControlAxes(), this->cfg.getRwConfiguration());
+        computeRwMapping(this->cfg.getDesiredControlAxes(), this->cfg.getRwConfiguration());
     if (mapping.has_value()) {
         this->motorTorqueMap = mapping->motorTorqueMap;
         this->tau = mapping->tau;
@@ -160,7 +160,7 @@ RwMotorTorqueAlgorithm::RwMotorTorqueAlgorithm(const RwMotorTorqueConfig& config
 void RwMotorTorqueAlgorithm::setConfig(const RwMotorTorqueConfig& config) {
     this->cfg = config;
     const std::optional<RwMotorTorqueMapping> mapping =
-        computeRwMapping(this->cfg.getControlAxes(), this->cfg.getRwConfiguration());
+        computeRwMapping(this->cfg.getDesiredControlAxes(), this->cfg.getRwConfiguration());
     if (mapping.has_value()) {
         this->motorTorqueMap = mapping->motorTorqueMap;
         this->tau = mapping->tau;

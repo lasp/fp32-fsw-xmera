@@ -42,7 +42,7 @@ void RwMotorTorque::reset(const uint64_t callTime) {
 
     /*! - Build the validated configuration and (re)create the algorithm (computes the mapping and
      projection; throws on an invalid config). */
-    const auto config = RwMotorTorqueConfig::create(this->controlAxes_B, rwConfiguration, this->omegaGain);
+    const auto config = RwMotorTorqueConfig::create(this->desiredControlAxes_B, rwConfiguration, this->omegaGain);
     this->algorithm = std::make_unique<RwMotorTorqueAlgorithm>(config);
 }
 
@@ -80,3 +80,11 @@ void RwMotorTorque::updateState(const uint64_t callTime) {
     eigenVectorToCArray(motorTorque, rwMotorTorques.motorTorque);
     this->rwMotorTorqueOutMsg.write(&rwMotorTorques, this->moduleID, callTime);
 }
+
+/*! Setter for the desiredControlAxes_B body-axis controllability selection (which of body x, y, z to control). */
+void RwMotorTorque::setDesiredControlAxes(const std::array<bool, 3>& desiredControlAxes) {
+    this->desiredControlAxes_B = desiredControlAxes;
+}
+
+/*! Getter for the desiredControlAxes_B body-axis controllability selection. */
+std::array<bool, 3> RwMotorTorque::getDesiredControlAxes() const { return this->desiredControlAxes_B; }
