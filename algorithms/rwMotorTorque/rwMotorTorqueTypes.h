@@ -27,12 +27,11 @@ typedef struct {
 /**
  * @brief Plain-old-data mirror of the C++ RwMotorTorqueConfig.
  *
- *  - controlAxes_B must be finite and define at least one control axis: each non-zero row a unit
- *    vector, the non-zero rows mutually orthogonal, with zero (uncontrolled) rows allowed anywhere.
+ *  - desiredControlAxes selects which body axes (x, y, z) to control; at least one must be nonzero.
  *  - rwConfiguration.numRW must not exceed RW_MOTOR_TORQUE_MAX_NUM_RW.
  */
 typedef struct {
-    Matrix3f_c controlAxes_B;                          /*!< [-] control axes mapping matrix CB */
+    uint8_t desiredControlAxes[3];                     /*!< [-] control body axis (x, y, z); nonzero = controlled */
     RwMotorTorqueArrayConfiguration_c rwConfiguration; /*!< [-] reaction-wheel spin-axis configuration */
     float omegaGain;                                   /*!< [-] RW null-space feedback gain (>= 0) */
 } RwMotorTorqueConfig_c;

@@ -10,7 +10,7 @@
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
 #include <architecture/msgPayloadDef/RWAvailabilityMsgPayload.h>
-#include <Eigen/Core>
+#include <array>
 #include <cstdint>
 #include <memory>
 
@@ -23,7 +23,9 @@ class RwMotorTorque : public SysModel {
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
 
-    Eigen::Matrix3f controlAxes_B{Eigen::Matrix3f::Zero()};  //!< [-] control axes mapping matrix CB
+    void setDesiredControlAxes(const std::array<bool, 3>& desiredControlAxes);
+    std::array<bool, 3> getDesiredControlAxes() const;
+
     float omegaGain{};  //!< [-] RW null-space feedback gain (>= 0; 0 disables the null-space term)
 
     /* declare module IO interfaces */
@@ -36,6 +38,7 @@ class RwMotorTorque : public SysModel {
     ReadFunctor<RWSpeedMsgF32Payload> rwDesiredSpeedsInMsg;    //!< optional desired RW speeds (null-space)
 
    private:
+    std::array<bool, 3> desiredControlAxes_B{true, true, true};  //!< [-] which body axes (x, y, z) to control
     std::unique_ptr<RwMotorTorqueAlgorithm> algorithm = nullptr;
 };
 

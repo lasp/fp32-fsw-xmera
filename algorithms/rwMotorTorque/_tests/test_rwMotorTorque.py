@@ -56,7 +56,8 @@ def test_rw_motor_torque(show_plots, num_control_axes, num_wheels, num_input_cmd
     else:
         control_axes_B = [[0, 0, 0], [0, 0, 0], [0, 0, 0]]
 
-    module.controlAxes_B = control_axes_B
+    # Select which body axes (x, y, z) to control; the reference uses control_axes_B (the equivalent matrix).
+    module.desiredControlAxes_B = [num_control_axes >= 1, num_control_axes >= 2, num_control_axes >= 3]
     module.omegaGain = omega_gain  # RW null-space feedback gain (0 disables the null-space term)
 
     # Add test module to runtime call list

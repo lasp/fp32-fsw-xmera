@@ -17,8 +17,9 @@ RwMotorTorqueArrayConfiguration arrayConfigurationFromC(const RwMotorTorqueArray
 }
 
 RwMotorTorqueConfig configFromC(const RwMotorTorqueConfig_c& c) {
-    return RwMotorTorqueConfig::create(
-        c2DArrayToEigenMatrix3(c.controlAxes_B.data), arrayConfigurationFromC(c.rwConfiguration), c.omegaGain);
+    const std::array<bool, 3> desiredControlAxes_B{
+        c.desiredControlAxes[0] != 0, c.desiredControlAxes[1] != 0, c.desiredControlAxes[2] != 0};
+    return RwMotorTorqueConfig::create(desiredControlAxes_B, arrayConfigurationFromC(c.rwConfiguration), c.omegaGain);
 }
 }  // namespace
 
