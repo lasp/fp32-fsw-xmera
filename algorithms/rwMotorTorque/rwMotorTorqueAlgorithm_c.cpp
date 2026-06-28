@@ -10,11 +10,6 @@ RwMotorTorqueArrayConfiguration arrayConfigurationFromC(const RwMotorTorqueArray
     RwMotorTorqueArrayConfiguration out{};
     out.numRW = c.numRW;
     out.GsMatrix_B = cArrayToEigenMatrix<float, 3, kMaxNumRw>(c.GsMatrix_B);
-    return out;
-}
-
-RwMotorTorqueAvailability availabilityFromC(const RwMotorTorqueAvailability_c& c) {
-    RwMotorTorqueAvailability out{};
     for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
         out.wheelAvailability[i] = c.wheelAvailability[i];
     }
@@ -22,10 +17,9 @@ RwMotorTorqueAvailability availabilityFromC(const RwMotorTorqueAvailability_c& c
 }
 
 RwMotorTorqueConfig configFromC(const RwMotorTorqueConfig_c& c) {
-    return RwMotorTorqueConfig::create(c2DArrayToEigenMatrix3(c.controlAxes_B.data),
-                                       arrayConfigurationFromC(c.rwConfiguration),
-                                       availabilityFromC(c.availability),
-                                       c.omegaGain);
+    const std::array<bool, 3> desiredControlAxes_B{
+        c.desiredControlAxes[0] != 0, c.desiredControlAxes[1] != 0, c.desiredControlAxes[2] != 0};
+    return RwMotorTorqueConfig::create(desiredControlAxes_B, arrayConfigurationFromC(c.rwConfiguration), c.omegaGain);
 }
 }  // namespace
 
