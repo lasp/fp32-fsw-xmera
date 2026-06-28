@@ -12,6 +12,12 @@
 %template(DoubleArrayCss) std::array<double, MAX_NUM_CSS_SENSORS>;
 %template(DoubleArrayCheby) std::array<double, MAX_NUM_CHEBY_POLYS>;
 
+// kMaxNumCssSensors is defined in msgPayloadDef/definitions.h, which SWIG only #includes (it does not parse
+// the constexpr). Map it to the macro so std::array<double, kMaxNumCssSensors> members/returns resolve to the
+// DoubleArrayCss instantiation above. (kMaxNumChebyPolys needs no such mapping: it is parsed from the
+// %included cssCommAlgorithm.h.)
+#define kMaxNumCssSensors MAX_NUM_CSS_SENSORS
+
 %include "cssComm.h"
 %include "cssCommAlgorithm.h"
 

@@ -14,7 +14,7 @@ void CssComm::reset(uint64_t callTime) {
         throw std::invalid_argument("cssComm.sensorListInMsg wasn't connected.");
     }
     auto config =
-        CssCommConfig::create(this->numSensors, this->maxSensorValue, this->chebyCount, this->chebyPolynomials);
+        CssCommConfig::create(this->numSensors, this->maxSensorValues, this->chebyCount, this->chebyPolynomials);
     this->algorithm = std::make_unique<CssCommAlgorithm>(config);
 }
 

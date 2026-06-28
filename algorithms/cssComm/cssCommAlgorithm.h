@@ -17,20 +17,20 @@ inline constexpr std::size_t kMaxNumChebyPolys = MAX_NUM_CHEBY_POLYS;
  * @brief Validated configuration for the CSS communication algorithm.
  *
  * An instance can only exist with: a sensor count in [1, kMaxNumCssSensors]; a finite, strictly positive
- * maximum sensor value; a Chebyshev polynomial count in [1, kMaxNumChebyPolys]; and finite polynomial
- * coefficients. Construct via CssCommConfig::create(...).
+ * maximum value for each active sensor; a Chebyshev polynomial count in [1, kMaxNumChebyPolys]; and finite
+ * polynomial coefficients. Construct via CssCommConfig::create(...).
  */
 class CssCommConfig final {
    public:
     static CssCommConfig create(uint32_t numSensors,
-                                double maxSensorValue,
+                                const std::array<double, kMaxNumCssSensors>& maxSensorValues,
                                 uint32_t chebyCount,
                                 const std::array<double, kMaxNumChebyPolys>& chebyPolynomials) {
         if (!isValidNumSensors(numSensors)) {
             FSW_THROW_INVALID_ARGUMENT("cssComm: numSensors must be in [1, kMaxNumCssSensors]");
         }
-        if (!isValidMaxSensorValue(maxSensorValue)) {
-            FSW_THROW_INVALID_ARGUMENT("cssComm: maxSensorValue must be finite and > 0");
+        if (!isValidMaxSensorValues(maxSensorValues, numSensors)) {
+            FSW_THROW_INVALID_ARGUMENT("cssComm: each active sensor's maxSensorValue must be finite and > 0");
         }
         if (!isValidChebyCount(chebyCount)) {
             FSW_THROW_INVALID_ARGUMENT("cssComm: chebyCount must be in [1, kMaxNumChebyPolys]");
@@ -38,12 +38,18 @@ class CssCommConfig final {
         if (!isValidChebyPolynomials(chebyPolynomials)) {
             FSW_THROW_INVALID_ARGUMENT("cssComm: chebyPolynomials must all be finite");
         }
-        return {numSensors, maxSensorValue, chebyCount, chebyPolynomials};
+        return {numSensors, maxSensorValues, chebyCount, chebyPolynomials};
     }
 
     static bool isValidNumSensors(uint32_t numSensors) { return numSensors >= 1U && numSensors <= kMaxNumCssSensors; }
-    static bool isValidMaxSensorValue(double maxSensorValue) {
-        return fsw::is_finite(maxSensorValue) && maxSensorValue > 0.0;
+    static bool isValidMaxSensorValues(const std::array<double, kMaxNumCssSensors>& maxSensorValues,
+                                       uint32_t numSensors) {
+        for (uint32_t i = 0U; i < numSensors && i < maxSensorValues.size(); ++i) {
+            if (!fsw::is_finite(maxSensorValues.at(i)) || maxSensorValues.at(i) <= 0.0) {
+                return false;
+            }
+        }
+        return true;
     }
     static bool isValidChebyCount(uint32_t chebyCount) {
         return chebyCount >= 1U && chebyCount <= static_cast<uint32_t>(kMaxNumChebyPolys);
@@ -53,7 +59,7 @@ class CssCommConfig final {
     }
 
     uint32_t getNumSensors() const { return numSensors; }
-    double getMaxSensorValue() const { return maxSensorValue; }
+    const std::array<double, kMaxNumCssSensors>& getMaxSensorValues() const { return maxSensorValues; }
     uint32_t getChebyCount() const { return chebyCount; }
     const std::array<double, kMaxNumChebyPolys>& getChebyPolynomials() const { return chebyPolynomials; }
 
@@ -62,17 +68,17 @@ class CssCommConfig final {
     // through the named create() factory, which makes the argument roles explicit at every call site.
     // NOLINTBEGIN(bugprone-easily-swappable-parameters)
     CssCommConfig(uint32_t numSensors,
-                  double maxSensorValue,
+                  const std::array<double, kMaxNumCssSensors>& maxSensorValues,
                   uint32_t chebyCount,
                   const std::array<double, kMaxNumChebyPolys>& chebyPolynomials)
         : numSensors(numSensors),
-          maxSensorValue(maxSensorValue),
+          maxSensorValues(maxSensorValues),
           chebyCount(chebyCount),
           chebyPolynomials(chebyPolynomials) {}
     // NOLINTEND(bugprone-easily-swappable-parameters)
 
     uint32_t numSensors;
-    double maxSensorValue;
+    std::array<double, kMaxNumCssSensors> maxSensorValues;
     uint32_t chebyCount;
     std::array<double, kMaxNumChebyPolys> chebyPolynomials;
 };
