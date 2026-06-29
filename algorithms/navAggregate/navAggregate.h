@@ -8,6 +8,7 @@
 #include <architecture/messaging/messaging.h>
 
 #include <stdint.h>
+#include <memory>
 
 namespace f32 {
 
@@ -23,33 +24,27 @@ typedef struct {
     NavTransMsgF32Payload msgStorage;                 /*!< [-] Local buffer to store nav message*/
 } AggregateTransInput;
 
-class NavAggregate : public SysModel {
+class NavAggregate final : public SysModel {
    public:
     NavAggregate() = default;
-    ~NavAggregate() = default;
+    ~NavAggregate() override = default;
 
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
-    void setAttTimeIdx(uint32_t idx);
-    uint32_t getAttTimeIdx() const;
-    void setTransTimeIdx(uint32_t idx);
-    uint32_t getTransTimeIdx() const;
-    void setAttIdx(uint32_t idx);
-    uint32_t getAttIdx() const;
-    void setRateIdx(uint32_t idx);
-    uint32_t getRateIdx() const;
-    void setPosIdx(uint32_t idx);
-    uint32_t getPosIdx() const;
-    void setVelIdx(uint32_t idx);
-    uint32_t getVelIdx() const;
-    void setDvIdx(uint32_t idx);
-    uint32_t getDvIdx() const;
-    void setSunIdx(uint32_t idx);
-    uint32_t getSunIdx() const;
-    void setAttMsgCount(uint32_t msgCount);
-    uint32_t getAttMsgCount() const;
-    void setTransMsgCount(uint32_t msgCount);
-    uint32_t getTransMsgCount() const;
+
+    void reconfigure() const;
+
+    // Phase 1: public config properties -- set before reset().
+    uint32_t attTimeIdx{};     //!< [-] index of the message providing the attitude message time
+    uint32_t transTimeIdx{};   //!< [-] index of the message providing the translation message time
+    uint32_t attIdx{};         //!< [-] index of the message providing the inertial MRP
+    uint32_t rateIdx{};        //!< [-] index of the message providing the attitude rate
+    uint32_t posIdx{};         //!< [-] index of the message providing the inertial position
+    uint32_t velIdx{};         //!< [-] index of the message providing the inertial velocity
+    uint32_t dvIdx{};          //!< [-] index of the message providing the accumulated DV
+    uint32_t sunIdx{};         //!< [-] index of the message providing the sun-pointing vector
+    uint32_t attMsgCount{};    //!< [-] number of attitude messages available as inputs
+    uint32_t transMsgCount{};  //!< [-] number of translation messages available as inputs
 
     AggregateAttInput attMsgs[MAX_AGG_NAV_MSG];     /*!< [-] The incoming nav message buffer */
     AggregateTransInput transMsgs[MAX_AGG_NAV_MSG]; /*!< [-] The incoming nav message buffer */
@@ -57,7 +52,8 @@ class NavAggregate : public SysModel {
     Message<NavTransMsgF32Payload> navTransOutMsg;  /*!< blended translation navigation output message */
 
    private:
-    NavAggregateAlgorithm algorithm{};
+    NavAggregateConfig toConfig() const;
+    std::unique_ptr<NavAggregateAlgorithm> algorithm = nullptr;
 };
 
 }  // namespace f32

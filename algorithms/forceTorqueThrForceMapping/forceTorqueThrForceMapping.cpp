@@ -39,6 +39,35 @@ void ForceTorqueThrForceMapping::reset(const uint64_t callTime) {
         thrusterConfiguration, cArrayToEigenVector(vehConfigIn.CoM_B), this->desiredControlAxes_B));
 }
 
+ForceTorqueThrForceMappingConfig ForceTorqueThrForceMapping::toConfig() {
+    VehicleConfigMsgF32Payload vehConfigIn = this->vehConfigInMsg();
+    THRArrayConfigMsgF32Payload thrConfigIn = this->thrConfigInMsg();
+
+    ThrusterArrayConfiguration thrusterConfiguration{};
+    thrusterConfiguration.numThrusters = thrConfigIn.numThrusters;
+    for (uint32_t i = 0; i < thrConfigIn.numThrusters; ++i) {
+        if (thrConfigIn.thrusters[i].maxThrust <= 0.0F) {
+            throw std::invalid_argument(
+                "forceTorqueThrForceMapping: A configured thruster has a non-sensible "
+                "saturation limit of <= 0 N!");
+        }
+        for (uint32_t j = 0; j < 3; ++j) {
+            thrusterConfiguration.thrusters.at(i).r_TB_B.at(j) = thrConfigIn.thrusters[i].rThrust_B[j];
+            thrusterConfiguration.thrusters.at(i).tHat_B.at(j) = thrConfigIn.thrusters[i].tHatThrust_B[j];
+        }
+    }
+
+    return ForceTorqueThrForceMappingConfig::create(
+        thrusterConfiguration, cArrayToEigenVector(vehConfigIn.CoM_B), this->desiredControlAxes_B);
+}
+
+void ForceTorqueThrForceMapping::reconfigure() {
+    if (!this->algorithm) {
+        throw XmeraLifecycleException("ForceTorqueThrForceMapping reset() has not been called.");
+    }
+    this->algorithm->setConfig(this->toConfig());
+}
+
 /*! Add a description of what this main Update() routine does for this module
  @return void
  @param callTime The clock time at which the function was called (nanoseconds)

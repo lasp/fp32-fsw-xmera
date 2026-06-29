@@ -49,33 +49,33 @@ configured before the module is used.
       - [-]
       - 0
       - Number of CSS sensors in the constellation
-      - Must be in [1, MAX_NUM_CSS_SENSORS] (checked in setter)
-    * - maxSensorValue (required)
-      - float
+      - Must be in [1, MAX_NUM_CSS_SENSORS] (validated when the config is built in ``reset()``)
+    * - maxSensorValues (required)
+      - double[MAX_NUM_CSS_SENSORS]
       - [-]
       - 0
-      - Maximum raw sensor output value used to normalize measurements
-      - Must be positive (checked in setter)
+      - Per-sensor maximum raw output value used to normalize each sensor's measurement
+      - Each active sensor's entry must be finite and positive (validated when the config is built in ``reset()``)
     * - chebyCount (required)
       - uint32_t
       - [-]
       - 0
       - Number of Chebyshev polynomial coefficients to use
-      - Must be in [1, 32] (checked in setter)
+      - Must be in [1, MAX_NUM_CHEBY_POLYS] (validated when the config is built in ``reset()``)
     * - chebyPolynomials (required)
-      - std::array<float, 32>
+      - std::array<double, MAX_NUM_CHEBY_POLYS>
       - [-]
       - all zeros
       - Pre-calibrated Chebyshev polynomial coefficients :math:`C_i`
-      - None
+      - All coefficients must be finite
 
 Module Assumptions and Limitations
 -----------------------------------
 - The Chebyshev residual function is calibrated to a single distance from the sun. As the spacecraft moves
   farther from the calibration distance, the model loses accuracy. These discrepancies grow increasingly
   apparent at high sun angles.
-- The module assumes ``maxSensorValue`` is representative of the actual peak sensor output. If this value is
-  incorrect, the normalization and subsequent correction will be inaccurate.
+- The module assumes each ``maxSensorValues`` entry is representative of that sensor's actual peak output. If a
+  value is incorrect, the normalization and subsequent correction for that sensor will be inaccurate.
 - The Chebyshev correction is applied independently to each sensor. No cross-sensor coupling is modeled.
 
 Initialization
@@ -85,11 +85,15 @@ The module is configured by::
     module = cssCommF32.CssComm()
     module.modelTag = "cssComm"
     module.numSensors = num_sensors
-    module.maxSensorValue = max_sensor_value
+    module.maxSensorValues = cssCommF32.DoubleArrayCss(max_sensor_values)
     module.chebyCount = len(cheby_list)
-    module.chebyPolynomials = cheby_list + [0] * (32 - len(cheby_list))
+    padded = cheby_list + [0.0] * (MAX_NUM_CHEBY_POLYS - len(cheby_list))
+    module.chebyPolynomials = cssCommF32.DoubleArrayCheby(padded)
 
-The ``chebyPolynomials`` array must be padded with zeros to fill all 32 entries.
+The ``chebyPolynomials`` array must contain exactly ``MAX_NUM_CHEBY_POLYS`` (11) entries; pad the calibrated
+coefficient list with trailing zeros (which are inert in the Chebyshev sum). All configuration parameters must be
+set before ``reset()`` is called, at which point the module builds and validates its immutable configuration
+(raising on invalid values).
 
 Detailed Module Description
 ---------------------------
@@ -99,11 +103,11 @@ Algorithm Flow
 At every update cycle, the ``cssComm`` module performs the following steps for each of the ``numSensors``
 sensor measurements:
 
-1. **Normalize** the raw sensor reading by ``maxSensorValue``:
+1. **Normalize** the raw sensor reading by that sensor's ``maxSensorValues`` entry:
 
    .. math::
 
-      x_{\text{meas}} = \frac{\text{raw}_i}{\text{maxSensorValue}}
+      x_{\text{meas}} = \frac{\text{raw}_i}{\text{maxSensorValues}_i}
 
 2. **Compute the Chebyshev correction** :math:`\delta x` using the pre-calibrated coefficients:
 
@@ -194,4 +198,4 @@ After the Chebyshev correction is applied, the result is clamped to the range [0
 that the corrected output represents a valid cosine value. Clamping handles edge cases such as:
 
 - Negative raw sensor readings (e.g. sensor noise) that would produce negative corrected values.
-- Sensor readings above ``maxSensorValue`` whose scaled value exceeds 1.0 after correction.
+- Sensor readings above that sensor's ``maxSensorValues`` entry whose scaled value exceeds 1.0 after correction.

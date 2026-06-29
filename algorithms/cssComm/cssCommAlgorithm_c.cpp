@@ -2,12 +2,27 @@
 #include "cssCommAlgorithm.h"
 
 #include <algorithm>
+#include <array>
 
-CssCommAlgorithmHandle* CssCommAlgorithm_create(void) {
-    return reinterpret_cast<CssCommAlgorithmHandle*>(new ::CssCommAlgorithm());
+namespace {
+CssCommConfig configFromC(const CssCommConfig_c& c) {
+    std::array<double, kMaxNumChebyPolys> chebyPolynomials{};
+    std::copy(c.chebyPolynomials, c.chebyPolynomials + kMaxNumChebyPolys, chebyPolynomials.begin());
+    std::array<double, kMaxNumCssSensors> maxSensorValues{};
+    std::copy(c.maxSensorValues, c.maxSensorValues + kMaxNumCssSensors, maxSensorValues.begin());
+    return CssCommConfig::create(c.numSensors, maxSensorValues, c.chebyCount, chebyPolynomials);
+}
+}  // namespace
+
+CssCommAlgorithmHandle* CssCommAlgorithm_create(const CssCommConfig_c* config) {
+    return reinterpret_cast<CssCommAlgorithmHandle*>(new ::CssCommAlgorithm(configFromC(*config)));
 }
 
 void CssCommAlgorithm_destroy(CssCommAlgorithmHandle* self) { delete reinterpret_cast<::CssCommAlgorithm*>(self); }
+
+void CssCommAlgorithm_setConfig(CssCommAlgorithmHandle* self, const CssCommConfig_c* config) {
+    reinterpret_cast<::CssCommAlgorithm*>(self)->setConfig(configFromC(*config));
+}
 
 CssSensorValues_c CssCommAlgorithm_update(const CssCommAlgorithmHandle* self, const CssSensorValues_c* inputValues) {
     std::array<double, kMaxNumCssSensors> input{};
@@ -17,44 +32,6 @@ CssSensorValues_c CssCommAlgorithm_update(const CssCommAlgorithmHandle* self, co
 
     CssSensorValues_c out{};
     std::copy(result.begin(), result.end(), out.data);
-    return out;
-}
-
-void CssCommAlgorithm_setNumSensors(CssCommAlgorithmHandle* self, const uint32_t numberOfSensors) {
-    reinterpret_cast<::CssCommAlgorithm*>(self)->setNumSensors(numberOfSensors);
-}
-
-uint32_t CssCommAlgorithm_getNumSensors(const CssCommAlgorithmHandle* self) {
-    return reinterpret_cast<const ::CssCommAlgorithm*>(self)->getNumSensors();
-}
-
-void CssCommAlgorithm_setMaxSensorValue(CssCommAlgorithmHandle* self, const double maxValue) {
-    reinterpret_cast<::CssCommAlgorithm*>(self)->setMaxSensorValue(maxValue);
-}
-
-double CssCommAlgorithm_getMaxSensorValue(const CssCommAlgorithmHandle* self) {
-    return reinterpret_cast<const ::CssCommAlgorithm*>(self)->getMaxSensorValue();
-}
-
-void CssCommAlgorithm_setChebyCount(CssCommAlgorithmHandle* self, const uint32_t count) {
-    reinterpret_cast<::CssCommAlgorithm*>(self)->setChebyCount(count);
-}
-
-uint32_t CssCommAlgorithm_getChebyCount(const CssCommAlgorithmHandle* self) {
-    return reinterpret_cast<const ::CssCommAlgorithm*>(self)->getChebyCount();
-}
-
-void CssCommAlgorithm_setChebyPolynomials(CssCommAlgorithmHandle* self, const ChebyPolynomials_c* polynomials) {
-    std::array<double, kMaxNumChebyPolys> arr{};
-    std::copy(polynomials->data, polynomials->data + kMaxNumChebyPolys, arr.begin());
-    reinterpret_cast<::CssCommAlgorithm*>(self)->setChebyPolynomials(arr);
-}
-
-ChebyPolynomials_c CssCommAlgorithm_getChebyPolynomials(const CssCommAlgorithmHandle* self) {
-    std::array<double, kMaxNumChebyPolys> arr =
-        reinterpret_cast<const ::CssCommAlgorithm*>(self)->getChebyPolynomials();
-    ChebyPolynomials_c out{};
-    std::copy(arr.begin(), arr.end(), out.data);
     return out;
 }
 

@@ -9,6 +9,7 @@
 #include "msgPayloadDef/NavAttMsgF32Payload.h"
 
 #include <cstdint>
+#include <memory>
 
 /*!@brief Module to call the bodyRateMisompare algorithm */
 class BodyRateMiscompare final : public SysModel {
@@ -19,12 +20,13 @@ class BodyRateMiscompare final : public SysModel {
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
 
-    void setBodyRateThreshold(double bodyRateThreshold);
-    double getBodyRateThreshold() const;
-    void setFaultPersistenceLimit(uint32_t faultPersistenceLimit);
-    uint32_t getFaultPersistenceLimit() const;
-    void setUseImuRates(bool useImuRates);
-    bool getUseImuRates() const;
+    void reconfigure() const;
+    void reInitialize();
+    void reInitializeAll();
+
+    float bodyRateThreshold{};            //!< [rad/s] rate threshold to trigger a body rate miscompare fault
+    uint32_t faultPersistenceLimit = 1U;  //!< [-] consecutive update calls above threshold needed to trigger the fault
+    bool useImuRates{};  //!< [-] force the IMU rates even when the rates agree and no fault is triggered
 
     ReadFunctor<IMUSensorBodyMsgF32Payload> imuSensorBodyInMsg;  //!< imu input message
     ReadFunctor<STAttMsgPayload> stBodyInMsg;                    //!< star tracker input message
@@ -32,7 +34,8 @@ class BodyRateMiscompare final : public SysModel {
     Message<BodyRateFaultMsgPayload> rateFaultOutMsg;            //!< The rate fault output message
 
    private:
-    BodyRateMiscompareAlgorithm algorithm{};
+    BodyRateMiscompareConfig toConfig() const;
+    std::unique_ptr<BodyRateMiscompareAlgorithm> algorithm = nullptr;
 };
 
 #endif

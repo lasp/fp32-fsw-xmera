@@ -1,6 +1,7 @@
 Executive Summary
 -----------------
-This attitude guidance module create a reference attitude message that points in a fixed inertial direction.
+This attitude guidance module creates a reference attitude message that points in a fixed inertial direction.
+All quantities are single precision (float).
 
 Message Connection Descriptions
 -------------------------------
@@ -16,8 +17,26 @@ provides information on what this message is used for.
       - Msg Type
       - Description
     * - attRefOutMsg
-      - :ref:`AttRefMsgPayload`
-      - attitude reference output message
+      - :ref:`AttRefMsgF32Payload`
+      - attitude reference output message (only ``sigma_RN`` is set; ``omega_RN_N`` and ``domega_RN_N`` stay zero)
+
+
+Module Parameters
+-----------------
+
+.. list-table:: Module Parameters
+    :widths: 20 20 10 50
+    :header-rows: 1
+
+    * - Parameter Name
+      - Type
+      - Default
+      - Description
+    * - sigma_RN
+      - Eigen::Vector3f
+      - zero
+      - reference-attitude MRP from inertial frame N to reference frame R; must be finite (validated when the
+        configuration is built in ``reset()``)
 
 
 Reference Frame Generation
@@ -36,3 +55,6 @@ The required module configuration is::
 
     module = inertial3DF32.Inertial3D()
     module.sigma_RN = sigma_input_RN
+
+``sigma_RN`` must be set before ``reset()`` is called: the module builds and validates its immutable configuration
+at reset (raising if ``sigma_RN`` is non-finite).

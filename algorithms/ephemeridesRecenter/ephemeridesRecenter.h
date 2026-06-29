@@ -7,6 +7,7 @@
 #include <architecture/messaging/messaging.h>
 #include <Eigen/Core>
 #include <array>
+#include <memory>
 
 /*! @brief Container class for the input and output messages that will be re-centered on the base ephemeris. */
 class BodyEphemeris {
@@ -21,6 +22,8 @@ class BodyEphemeris {
 class EphemeridesRecenter : public SysModel {
    public:
     void updateState(uint64_t callTime) override;
+
+    void reconfigure() const;
     void reset(uint64_t callTime) override;
 
     void addBodyEphemerisToRecenter(const BodyEphemeris& ephemerisBody);
@@ -37,7 +40,10 @@ class EphemeridesRecenter : public SysModel {
    private:
     size_t ephemeridesNumber{};
     std::array<BodyEphemeris, MAX_NUM_CHANGE_BODIES> ephemerides{};
-    EphemeridesRecenterAlgorithm algorithm{};
+    int newCentralBodyId{};
+    int previousCentralBodyId{};
+    EphemeridesRecenterConfig toConfig() const;
+    std::unique_ptr<EphemeridesRecenterAlgorithm> algorithm = nullptr;
 };
 
 #endif

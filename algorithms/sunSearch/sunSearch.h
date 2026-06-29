@@ -15,6 +15,8 @@ class SunSearch : public SysModel {
    public:
     void reset(uint64_t callTime) final;
     void updateState(uint64_t callTime) final;
+
+    void reconfigure() const;
     void setRotation(uint32_t index, const RotationProperties& rotation);
     RotationProperties getRotation(uint32_t index) const;
 
@@ -22,6 +24,7 @@ class SunSearch : public SysModel {
     Message<AttGuidMsgF32Payload> attGuidOutMsg;   //!< Attitude reference output message
 
    private:
+    SunSearchConfig toConfig() const;
     std::unique_ptr<SunSearchAlgorithm> algorithm = nullptr;
     std::array<RotationProperties, kNumRotations> rotations{};
 };

@@ -19,7 +19,6 @@
 STRUCTASLIST(f32::AggregateAttInput)
 STRUCTASLIST(f32::AggregateTransInput)
 
-%include "navAggregateOutput.h"
 %include "navAggregateAlgorithm.h"
 %include "navAggregate.h"
 

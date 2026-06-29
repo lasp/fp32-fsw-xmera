@@ -102,7 +102,8 @@ def test_solarArrayReference(show_plots, rHat_SB_N, sigma_BN, sigma_RN, accuracy
     unit_test_sim.AddModelToTask(unit_task_name, solar_array)
 
     # Initialize the test module configuration data
-    solar_array.setSolarArrayAxes_B(a1Hat_B, a2Hat_B)
+    solar_array.driveAxis = a1Hat_B
+    solar_array.surfaceNormal = a2Hat_B
 
     # Create input attitude navigation message
     nav_att_in_msg_data = messaging.NavAttMsgF32Payload()
@@ -175,7 +176,8 @@ def test_solarArrayReference_specifiedAngle(show_plots, specifiedAngle, offsetAn
     solar_array.modelTag = "solarArrayReference"
     unit_test_sim.AddModelToTask(unit_task_name, solar_array)
 
-    solar_array.setSolarArrayAxes_B(a1Hat_B, a2Hat_B)
+    solar_array.driveAxis = a1Hat_B
+    solar_array.surfaceNormal = a2Hat_B
     solar_array.trackingMode = solarArrayReferenceF32.SPECIFIED_ANGLE
     solar_array.specifiedArrayAngle = specifiedAngle
     solar_array.offsetAngle = offsetAngle

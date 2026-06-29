@@ -1,11 +1,24 @@
 #include "bodyRateMiscompareAlgorithm.h"
 
-#include "utilities/fsw/freestandingInvalidArgument.h"
+BodyRateMiscompareAlgorithm::BodyRateMiscompareAlgorithm(const BodyRateMiscompareConfig& config) : cfg(config) {
+    setConfig(config);
+    reInitializeAll();
+}
 
-/*! This method resets the algorithm state. The persistence counter is reset to zero.
- @return void
+void BodyRateMiscompareAlgorithm::setConfig(const BodyRateMiscompareConfig& config) { this->cfg = config; }
+
+/*! This method resets the algorithm state. Only the persistence counter is cleared; a latched fault
+ (useImuRatesInternal) is intentionally preserved across a reset.
  */
-void BodyRateMiscompareAlgorithm::reset() { this->faultPersistenceCount = 0U; }
+void BodyRateMiscompareAlgorithm::reInitialize() { this->faultPersistenceCount = 0U; }
+
+/*! This method fully resets the algorithm state: it clears the persistence counter and re-arms the
+ latched fault state (useImuRatesInternal) from the configured useImuRates value.
+ */
+void BodyRateMiscompareAlgorithm::reInitializeAll() {
+    reInitialize();
+    this->useImuRatesInternal = this->cfg.getUseImuRates();
+}
 
 /*! This method compares IMU and star tracker body rates and selects the output rate.
  @return BodyRateMiscompareOutput containing the selected body rate and fault flag
@@ -16,12 +29,12 @@ BodyRateMiscompareOutput BodyRateMiscompareAlgorithm::update(const Eigen::Vector
                                                              const Eigen::Vector3f& stOmega_BN_B) {
     if (!this->useImuRatesInternal) {
         if (const Eigen::Vector3f bodyRateDifference = stOmega_BN_B - imuOmega_BN_B;
-            bodyRateDifference.norm() > this->bodyRateThreshold) {
+            bodyRateDifference.norm() > this->cfg.getBodyRateThreshold()) {
             this->faultPersistenceCount += 1U;
         } else {
             this->faultPersistenceCount = 0U;
         }
-        this->useImuRatesInternal = this->faultPersistenceCount >= this->faultPersistenceLimit;
+        this->useImuRatesInternal = this->faultPersistenceCount >= this->cfg.getFaultPersistenceLimit();
     }
 
     BodyRateMiscompareOutput bodyRateOut{};
@@ -37,49 +50,3 @@ BodyRateMiscompareOutput BodyRateMiscompareAlgorithm::update(const Eigen::Vector
 
     return bodyRateOut;
 }
-
-/*! Setter method for bodyRateThreshold.
- @return void
- @param bodyRateThresholdIn [rad/s] threshold for rate miscompare detection
- */
-void BodyRateMiscompareAlgorithm::setBodyRateThreshold(float const bodyRateThresholdIn) {
-    if (bodyRateThresholdIn <= 0.0F) {
-        FSW_THROW_INVALID_ARGUMENT("Zero or negative bodyRateThreshold is not valid");
-    }
-    this->bodyRateThreshold = bodyRateThresholdIn;
-}
-
-/*! Getter method for bodyRateThreshold.
- @return float
- */
-float BodyRateMiscompareAlgorithm::getBodyRateThreshold() const { return this->bodyRateThreshold; }
-
-/*! Setter method for faultPersistenceLimit.
- @return void
- @param faultPersistenceLimitIn number of consecutive threshold violations before fault is declared
- */
-void BodyRateMiscompareAlgorithm::setFaultPersistenceLimit(uint32_t const faultPersistenceLimitIn) {
-    if (faultPersistenceLimitIn <= 0U) {
-        FSW_THROW_INVALID_ARGUMENT("faultPersistenceLimit must be positive");
-    }
-    this->faultPersistenceLimit = faultPersistenceLimitIn;
-}
-
-/*! Getter method for faultPersistenceLimit.
- @return uint32_t
- */
-uint32_t BodyRateMiscompareAlgorithm::getFaultPersistenceLimit() const { return this->faultPersistenceLimit; }
-
-/*! Setter method for useImuRates. Sets both the settable parameter and the internal flag.
- @return void
- @param useImuRatesIn flag to force IMU rate output
- */
-void BodyRateMiscompareAlgorithm::setUseImuRates(bool const useImuRatesIn) {
-    this->useImuRates = useImuRatesIn;
-    this->useImuRatesInternal = this->useImuRates;
-}
-
-/*! Getter method for useImuRates.
- @return bool
- */
-bool BodyRateMiscompareAlgorithm::getUseImuRates() const { return this->useImuRates; }

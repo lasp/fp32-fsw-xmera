@@ -61,6 +61,12 @@ void MrpRotationAlgorithm_setConfig(MrpRotationAlgorithmHandle* self, const MrpR
 MrpRotationOutput_c MrpRotationAlgorithm_update(MrpRotationAlgorithmHandle* self,
                                                 const MrpRotationAttRefInputs_c* attRef);
 
+/**
+ * @brief Re-seed the rotating reference MRP set (sigma_RR0) from the configured initial value.
+ * @param self Pointer to the instance.
+ */
+void MrpRotationAlgorithm_reInitialize(MrpRotationAlgorithmHandle* self);
+
 #ifdef __cplusplus
 }  // extern "C"
 #endif

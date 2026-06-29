@@ -23,6 +23,8 @@ class ForceTorqueThrForceMapping final : public SysModel {
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
 
+    void reconfigure();
+
     void setDesiredControlAxes(const std::array<bool, 6>& desiredControlAxes);
     std::array<bool, 6> getDesiredControlAxes() const;
 
@@ -34,6 +36,7 @@ class ForceTorqueThrForceMapping final : public SysModel {
     Message<THRArrayCmdForceMsgF32Payload> thrForceCmdOutMsg;  //!< thruster force command output message
 
    private:
+    ForceTorqueThrForceMappingConfig toConfig();
     std::unique_ptr<ForceTorqueThrForceMappingAlgorithm> algorithm = nullptr;
     //! per-axis controllability assertions (torque xyz then force xyz, all in body frame B)
     std::array<bool, 6> desiredControlAxes_B{true, true, true, true, true, true};

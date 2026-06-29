@@ -10,7 +10,7 @@ TEST(SunlineEphemTest, ReferenceTest) {
 
 TEST(SunlineEphemTest, Colocation) {
     // When sun and spacecraft are at the same position, the output should be a zero vector
-    SunlineEphemAlgorithm alg{};
+    SunlineEphemAlgorithm alg{SunlineEphemConfig::create()};
 
     Eigen::Vector3d r_SN_N(1.0, 2.0, 3.0);
     Eigen::Vector3d r_BN_N(1.0, 2.0, 3.0);
@@ -29,7 +29,7 @@ TEST(SunlineEphemTest, TinyRelativePosition) {
     // squaring underflow threshold (~1e-154). Squaring the components underflows to zero, so
     // regular norm() returns zero and normalized() produces NaN. stableNormalized() scales
     // before squaring and should still return the same unit direction.
-    SunlineEphemAlgorithm alg{};
+    SunlineEphemAlgorithm alg{SunlineEphemConfig::create()};
 
     const Eigen::Vector3d r_SN_N_base(1.0, 2.0, 3.0);
     const Eigen::Vector3d r_BN_N_base(4.0, 5.0, 6.0);
@@ -49,7 +49,7 @@ TEST(SunlineEphemTest, HugeRelativePosition) {
     // Scale reasonable positions by a huge factor so squaring the components overflows to inf.
     // Regular norm() returns inf and normalized() produces NaN.
     // stableNormalized() scales by the max component first and should still return the same unit direction.
-    SunlineEphemAlgorithm alg{};
+    SunlineEphemAlgorithm alg{SunlineEphemConfig::create()};
 
     const Eigen::Vector3d r_SN_N_base(1.0, 2.0, 3.0);
     const Eigen::Vector3d r_BN_N_base(4.0, 5.0, 6.0);
@@ -68,7 +68,7 @@ TEST(SunlineEphemTest, HugeRelativePosition) {
 TEST(SunlineEphemTest, IdentityAttitude) {
     // With identity attitude (sigma_BN = 0), DCM is identity,
     // so the body-frame output sun direction should equal the sun direction in inertial-frame components
-    SunlineEphemAlgorithm alg{};
+    SunlineEphemAlgorithm alg{SunlineEphemConfig::create()};
 
     Eigen::Vector3d r_SN_N(1.0e6, 2.0e6, 3.0e6);
     Eigen::Vector3d r_BN_N(1.0e3, -2.0e3, 0.5e3);

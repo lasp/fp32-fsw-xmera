@@ -73,7 +73,7 @@ def test_rotated_dcm():
     mount_angle = np.pi/4.0
     ep_mount = np.array([np.cos(mount_angle/2), 0, 0, np.sin(mount_angle/2)])
     dcm_CB = rbk.EP2C(ep_mount)
-    module.setDcmCB(dcm_CB.tolist())
+    module.dcm_CB = dcm_CB
 
     # Star tracker reports 60-degree rotation about x, with some angular velocity
     st_angle = np.pi/3.0
@@ -152,9 +152,9 @@ def test_dcm_pass_through():
     angle = np.pi/6.0
     ep = np.array([np.cos(angle/2), 0, 0, np.sin(angle/2)])
     dcm_CB = rbk.EP2C(ep)
-    module.setDcmCB(dcm_CB.tolist())
+    module.dcm_CB = dcm_CB
 
-    dcm_out = np.array(module.getDcmCB())
+    dcm_out = np.array(module.dcm_CB)
     np.testing.assert_allclose(dcm_out, dcm_CB, atol=1e-6,
                                err_msg="DCM round-trip mismatch")
 

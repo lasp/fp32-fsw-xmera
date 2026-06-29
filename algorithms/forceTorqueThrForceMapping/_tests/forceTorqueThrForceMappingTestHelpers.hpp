@@ -102,7 +102,8 @@ inline Eigen::Vector<float, MAX_EFF_CNT> referenceUpdate(std::uint32_t numThrust
                                                          const std::vector<Eigen::Vector3f>& directions,
                                                          const Eigen::Vector3f& CoM_B,
                                                          const Eigen::Vector3f& cmdTorque_B,
-                                                         const Eigen::Vector3f& cmdForce_B) {
+                                                         const Eigen::Vector3f& cmdForce_B,
+                                                         float* absErrorScale = nullptr) {
     Eigen::Vector<float, MAX_EFF_CNT> result = Eigen::Vector<float, MAX_EFF_CNT>::Zero();
     if (numThrusters < 1U || numThrusters > MAX_EFF_CNT) {
         return result;
@@ -128,13 +129,23 @@ inline Eigen::Vector<float, MAX_EFF_CNT> referenceUpdate(std::uint32_t numThrust
         sv(0) * static_cast<double>(std::numeric_limits<float>::epsilon()) * static_cast<double>(kMaxDim);
 
     Eigen::Matrix<double, 6, 1> invSv = Eigen::Matrix<double, 6, 1>::Zero();
+    double minKeptSv = sv(0);
     for (int i = 0; i < 6; ++i) {
         if (sv(i) > tol) {
             invSv(i) = 1.0 / sv(i);
+            minKeptSv = sv(i);  // sv is sorted descending, so this ends on the smallest kept value
         }
     }
     const Eigen::Matrix<double, MAX_EFF_CNT, 1> thrForces =
         svd.matrixV().leftCols<6>() * invSv.asDiagonal() * svd.matrixU().transpose() * ft;
+
+    // Error scale for the fp32-vs-fp64 comparison: cond * ||F_pre||_inf. The fp32 solver's relative
+    // error ~eps*cond makes the absolute per-entry error ~eps*cond*||F_pre||_inf.
+    if (absErrorScale != nullptr) {
+        const double cond = sv(0) / minKeptSv;
+        const double preShiftMaxAbs = thrForces.head(numThrusters).cwiseAbs().maxCoeff();
+        *absErrorScale = static_cast<float>(cond * preShiftMaxAbs);
+    }
 
     // min-shift over the active head only, matching the algorithm.
     const double minForce = thrForces.head(numThrusters).minCoeff();
@@ -171,17 +182,21 @@ inline void runRegressionCase(std::uint32_t numThrusters,
         unitDirs[i] = Eigen::Vector3f(
             config.thrusters.at(i).tHat_B[0], config.thrusters.at(i).tHat_B[1], config.thrusters.at(i).tHat_B[2]);
     }
+    float absErrorScale = 0.0F;
     const Eigen::Vector<float, MAX_EFF_CNT> ref =
-        referenceUpdate(numThrusters, positions, unitDirs, CoM, cmdTorque, cmdForce);
+        referenceUpdate(numThrusters, positions, unitDirs, CoM, cmdTorque, cmdForce, &absErrorScale);
 
-    // create() already rejected ill-conditioned layouts (gated above), so the kept singular subspace has
-    // condition number <= 100 and the fp32 solve agrees with the fp64 reference to ~1e-3.
+    // Flat 1e-3 budget plus the fp32 algorithm error floor sqrt(n)*eps*absErrorScale: absolute error is
+    // ~eps*cond*||F_pre||_inf (= absErrorScale), and sqrt(n) is the inf<-2 norm conversion bounding
+    // the per-entry error. This term dominates for large commands on near-cond-100 layouts.
     constexpr float kAtol = 1e-3F;
     constexpr float kRtol = 1e-3F;
+    const float fpErrorTol =
+        std::sqrt(static_cast<float>(numThrusters)) * std::numeric_limits<float>::epsilon() * absErrorScale;
     for (std::uint32_t i = 0; i < numThrusters; ++i) {
         const int idx = static_cast<int>(i);
         EXPECT_TRUE(std::isfinite(out[idx]));
-        EXPECT_NEAR(out[idx], ref[idx], combinedTolerance(ref[idx], kAtol, kRtol));
+        EXPECT_NEAR(out[idx], ref[idx], combinedTolerance(ref[idx], kAtol, kRtol) + fpErrorTol);
     }
     for (int i = static_cast<int>(numThrusters); i < MAX_EFF_CNT; ++i) {
         EXPECT_FLOAT_EQ(out[i], 0.0F);

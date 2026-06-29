@@ -28,21 +28,21 @@ TEST(BodyRateMiscompareTest, RegressionTestUseImuRatesFalse) {
 }
 
 TEST(BodyRateMiscompareTest, SetupTest) {
-    BodyRateMiscompareAlgorithm alg{};
-    alg.setBodyRateThreshold(0.25F);
-    EXPECT_NEAR(alg.getBodyRateThreshold(), 0.25F, 1e-6);
+    // A valid configuration round-trips its values.
+    const auto config = BodyRateMiscompareConfig::create(0.25F, 5U, true);
+    EXPECT_NEAR(config.getBodyRateThreshold(), 0.25F, 1e-6);
+    EXPECT_EQ(config.getFaultPersistenceLimit(), 5U);
+    EXPECT_TRUE(config.getUseImuRates());
 
-    alg.setFaultPersistenceLimit(5);
-    EXPECT_EQ(alg.getFaultPersistenceLimit(), 5u);
+    // Invalid threshold and persistence limit are rejected at construction.
+    EXPECT_THROW(BodyRateMiscompareConfig::create(0.0F, 1U, false), fsw::invalid_argument);
+    EXPECT_THROW(BodyRateMiscompareConfig::create(-0.1F, 1U, false), fsw::invalid_argument);
+    EXPECT_THROW(BodyRateMiscompareConfig::create(0.25F, 0U, false), fsw::invalid_argument);
 
-    EXPECT_THROW(alg.setBodyRateThreshold(0), fsw::invalid_argument);
-    EXPECT_THROW(alg.setBodyRateThreshold(-0.1), fsw::invalid_argument);
-
-    EXPECT_THROW(alg.setFaultPersistenceLimit(0), fsw::invalid_argument);
-
-    EXPECT_FALSE(alg.getUseImuRates());
-    alg.setUseImuRates(true);
-    EXPECT_TRUE(alg.getUseImuRates());
+    EXPECT_TRUE(BodyRateMiscompareConfig::isValidBodyRateThreshold(0.25F));
+    EXPECT_FALSE(BodyRateMiscompareConfig::isValidBodyRateThreshold(0.0F));
+    EXPECT_TRUE(BodyRateMiscompareConfig::isValidFaultPersistenceLimit(1U));
+    EXPECT_FALSE(BodyRateMiscompareConfig::isValidFaultPersistenceLimit(0U));
 }
 
 // ---------------------------------------------------------------------------
@@ -81,7 +81,7 @@ TEST(BodyRateMiscompareTest, OutputIsAlwaysFinite) {
 
 // Both inputs are zero vectors — no fault, output is zero.
 TEST(BodyRateMiscompareTest, ZeroInputsBothSources) {
-    BodyRateMiscompareAlgorithm alg{};
+    BodyRateMiscompareAlgorithm alg{BodyRateMiscompareConfig::create(0.5F, 1, false)};
     const Eigen::Vector3f zero = Eigen::Vector3f::Zero();
 
     auto out = alg.update(zero, zero);
@@ -92,9 +92,7 @@ TEST(BodyRateMiscompareTest, ZeroInputsBothSources) {
 // Difference norm exactly at threshold (strict >) should NOT trigger fault.
 TEST(BodyRateMiscompareTest, ExactlyAtThreshold) {
     const float threshold = 1.0F;
-    BodyRateMiscompareAlgorithm alg{};
-    alg.setBodyRateThreshold(threshold);
-    alg.setFaultPersistenceLimit(1);
+    BodyRateMiscompareAlgorithm alg{BodyRateMiscompareConfig::create(threshold, 1, false)};
 
     // Place difference exactly at threshold along x-axis
     const Eigen::Vector3f imu(0.0F, 0.0F, 0.0F);
@@ -110,9 +108,7 @@ TEST(BodyRateMiscompareTest, ExactlyAtThreshold) {
 // Difference norm just above threshold triggers fault with persistence=1.
 TEST(BodyRateMiscompareTest, JustAboveThreshold) {
     const float threshold = 1.0F;
-    BodyRateMiscompareAlgorithm alg{};
-    alg.setBodyRateThreshold(threshold);
-    alg.setFaultPersistenceLimit(1);
+    BodyRateMiscompareAlgorithm alg{BodyRateMiscompareConfig::create(threshold, 1, false)};
 
     const Eigen::Vector3f imu(0.0F, 0.0F, 0.0F);
     const Eigen::Vector3f st(threshold + 1e-6F, 0.0F, 0.0F);
@@ -124,9 +120,7 @@ TEST(BodyRateMiscompareTest, JustAboveThreshold) {
 
 // Alternating above/below threshold resets persistence counter, never reaching limit.
 TEST(BodyRateMiscompareTest, PersistenceCounterResetsOnGoodStep) {
-    BodyRateMiscompareAlgorithm alg{};
-    alg.setBodyRateThreshold(0.5F);
-    alg.setFaultPersistenceLimit(3);
+    BodyRateMiscompareAlgorithm alg{BodyRateMiscompareConfig::create(0.5F, 3, false)};
 
     const Eigen::Vector3f imu(0.0F, 0.0F, 0.0F);
     const Eigen::Vector3f stFar(1.0F, 0.0F, 0.0F);    // above threshold
@@ -142,9 +136,7 @@ TEST(BodyRateMiscompareTest, PersistenceCounterResetsOnGoodStep) {
 
 // After fault triggers, even identical inputs still output IMU.
 TEST(BodyRateMiscompareTest, StickyFaultIgnoresSubsequentGoodSteps) {
-    BodyRateMiscompareAlgorithm alg{};
-    alg.setBodyRateThreshold(0.5F);
-    alg.setFaultPersistenceLimit(1);
+    BodyRateMiscompareAlgorithm alg{BodyRateMiscompareConfig::create(0.5F, 1, false)};
 
     const Eigen::Vector3f imu(0.1F, 0.2F, 0.3F);
     const Eigen::Vector3f stFar(10.0F, 0.0F, 0.0F);
@@ -163,10 +155,7 @@ TEST(BodyRateMiscompareTest, StickyFaultIgnoresSubsequentGoodSteps) {
 
 // Setting useImuRates forces IMU output even when inputs agree.
 TEST(BodyRateMiscompareTest, UseImuRatesForceOutput) {
-    BodyRateMiscompareAlgorithm alg{};
-    alg.setBodyRateThreshold(1.0F);
-    alg.setFaultPersistenceLimit(1);
-    alg.setUseImuRates(true);
+    BodyRateMiscompareAlgorithm alg{BodyRateMiscompareConfig::create(1.0F, 1, true)};
 
     const Eigen::Vector3f imu(0.1F, 0.2F, 0.3F);
     const Eigen::Vector3f st(0.1F, 0.2F, 0.31F);  // no miscompare
@@ -178,11 +167,9 @@ TEST(BodyRateMiscompareTest, UseImuRatesForceOutput) {
     }
 }
 
-// Reset clears the persistence counter, preventing fault from triggering.
-TEST(BodyRateMiscompareTest, ResetClearsPersistenceCounter) {
-    BodyRateMiscompareAlgorithm alg{};
-    alg.setBodyRateThreshold(0.5F);
-    alg.setFaultPersistenceLimit(3);
+// reInitialize() clears the persistence counter, preventing fault from triggering.
+TEST(BodyRateMiscompareTest, ReInitializeClearsPersistenceCounter) {
+    BodyRateMiscompareAlgorithm alg{BodyRateMiscompareConfig::create(0.5F, 3, false)};
 
     const Eigen::Vector3f imu(0.0F, 0.0F, 0.0F);
     const Eigen::Vector3f stFar(1.0F, 0.0F, 0.0F);  // above threshold
@@ -191,8 +178,8 @@ TEST(BodyRateMiscompareTest, ResetClearsPersistenceCounter) {
     alg.update(imu, stFar);
     alg.update(imu, stFar);
 
-    // Reset clears the counter
-    alg.reset();
+    // reInitialize clears the counter
+    alg.reInitialize();
 
     // Now need 3 more consecutive violations to trigger fault
     auto out1 = alg.update(imu, stFar);
@@ -203,11 +190,9 @@ TEST(BodyRateMiscompareTest, ResetClearsPersistenceCounter) {
     EXPECT_TRUE(out3.bodyRateFaultDetected);
 }
 
-// Reset does not clear the internal fault state — a detected fault persists after reset.
-TEST(BodyRateMiscompareTest, ResetDoesNotClearInternalFaultState) {
-    BodyRateMiscompareAlgorithm alg{};
-    alg.setBodyRateThreshold(0.5F);
-    alg.setFaultPersistenceLimit(1);
+// reInitialize() does not clear the latched fault state — a detected fault persists.
+TEST(BodyRateMiscompareTest, ReInitializePreservesLatchedFault) {
+    BodyRateMiscompareAlgorithm alg{BodyRateMiscompareConfig::create(0.5F, 1, false)};
 
     const Eigen::Vector3f imu(0.1F, 0.2F, 0.3F);
     const Eigen::Vector3f stFar(10.0F, 0.0F, 0.0F);
@@ -215,14 +200,45 @@ TEST(BodyRateMiscompareTest, ResetDoesNotClearInternalFaultState) {
     // Trigger fault
     auto out1 = alg.update(imu, stFar);
     EXPECT_TRUE(out1.bodyRateFaultDetected);
-    EXPECT_FALSE(alg.getUseImuRates());  // settable parameter unchanged by update
 
-    // Reset only clears counter, not useImuRates
-    alg.reset();
-    EXPECT_FALSE(alg.getUseImuRates());
+    // reInitialize only clears the counter, not the latched fault
+    alg.reInitialize();
 
     // Output still uses IMU (does not reset internal fault state)
     auto out2 = alg.update(imu, imu);
     EXPECT_TRUE(out2.bodyRateFaultDetected);
     EXPECT_EQ(out2.omega_BN_B, imu);
+}
+
+// reInitializeAll re-arms both the persistence counter and the latched fault (unlike reInitialize).
+TEST(BodyRateMiscompareTest, ReInitializeAllReArmsLatchedFault) {
+    BodyRateMiscompareAlgorithm alg{BodyRateMiscompareConfig::create(0.5F, 1, false)};
+
+    const Eigen::Vector3f imu(0.1F, 0.2F, 0.3F);
+    const Eigen::Vector3f stFar(10.0F, 0.0F, 0.0F);
+
+    EXPECT_TRUE(alg.update(imu, stFar).bodyRateFaultDetected);
+
+    // reInitializeAll clears the latch; agreeing inputs no longer report a fault.
+    alg.reInitializeAll();
+    auto out = alg.update(imu, imu);
+    EXPECT_FALSE(out.bodyRateFaultDetected);
+    EXPECT_EQ(out.omega_BN_B, imu);
+}
+
+// setConfig() swaps the configuration but preserves the runtime state: it does not clear the latched
+// fault or the persistence counter. After a latched fault, setConfig leaves the fault latched.
+TEST(BodyRateMiscompareTest, SetConfigPreservesLatchedFault) {
+    BodyRateMiscompareAlgorithm alg{BodyRateMiscompareConfig::create(0.5F, 1, false)};
+
+    const Eigen::Vector3f imu(0.1F, 0.2F, 0.3F);
+    const Eigen::Vector3f stFar(10.0F, 0.0F, 0.0F);
+
+    EXPECT_TRUE(alg.update(imu, stFar).bodyRateFaultDetected);
+
+    // setConfig only swaps the configuration; the latched fault is preserved.
+    alg.setConfig(BodyRateMiscompareConfig::create(0.5F, 1, false));
+    const auto out = alg.update(imu, imu);
+    EXPECT_TRUE(out.bodyRateFaultDetected);
+    EXPECT_EQ(out.omega_BN_B, imu);
 }

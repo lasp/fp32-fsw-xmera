@@ -2,45 +2,75 @@
 #include <gtest/gtest.h>
 
 // ---------------------------------------------------------------------------
-// Setup test
+// Config validation
 // ---------------------------------------------------------------------------
 
-TEST(ThrFiringSchmittTest, SetupTest) {
-    ThrFiringSchmittAlgorithm alg{};
-
-    // --- Test expected exceptions ---
+TEST(ThrFiringSchmittConfigTest, RejectsInvalidParameters) {
+    ThrFiringSchmittThrusterArray validArray{};
+    validArray.numThrusters = 1;
+    validArray.maxThrust.at(0) = 1.0F;
+    const ThrFiringSchmittControlParameters validParams{
+        0.75F, 0.25F, 0.2F, 0.5F, 1.0F, ThrustPulsingRegime::ON_PULSING};
 
     // levelOn out of bounds
-    EXPECT_THROW(alg.setLevelsOnOff(-0.1, 0.3), fsw::invalid_argument);
-    EXPECT_THROW(alg.setLevelsOnOff(0.0, 0.3), fsw::invalid_argument);
-    EXPECT_THROW(alg.setLevelsOnOff(1.1, 0.3), fsw::invalid_argument);
+    EXPECT_THROW(
+        ThrFiringSchmittConfig::create(validArray, {-0.1F, 0.25F, 0.2F, 0.5F, 1.0F, ThrustPulsingRegime::ON_PULSING}),
+        fsw::invalid_argument);
+    EXPECT_THROW(
+        ThrFiringSchmittConfig::create(validArray, {0.0F, 0.25F, 0.2F, 0.5F, 1.0F, ThrustPulsingRegime::ON_PULSING}),
+        fsw::invalid_argument);
+    EXPECT_THROW(
+        ThrFiringSchmittConfig::create(validArray, {1.1F, 0.25F, 0.2F, 0.5F, 1.0F, ThrustPulsingRegime::ON_PULSING}),
+        fsw::invalid_argument);
     // levelOff out of bounds
-    EXPECT_THROW(alg.setLevelsOnOff(0.7, -0.1), fsw::invalid_argument);
-    EXPECT_THROW(alg.setLevelsOnOff(0.7, 1.0), fsw::invalid_argument);
-    EXPECT_THROW(alg.setLevelsOnOff(0.7, 1.1), fsw::invalid_argument);
+    EXPECT_THROW(
+        ThrFiringSchmittConfig::create(validArray, {0.7F, -0.1F, 0.2F, 0.5F, 1.0F, ThrustPulsingRegime::ON_PULSING}),
+        fsw::invalid_argument);
+    EXPECT_THROW(
+        ThrFiringSchmittConfig::create(validArray, {0.7F, 1.0F, 0.2F, 0.5F, 1.0F, ThrustPulsingRegime::ON_PULSING}),
+        fsw::invalid_argument);
     // levelOn less than levelOff
-    EXPECT_THROW(alg.setLevelsOnOff(0.1, 0.2), fsw::invalid_argument);
+    EXPECT_THROW(
+        ThrFiringSchmittConfig::create(validArray, {0.1F, 0.2F, 0.2F, 0.5F, 1.0F, ThrustPulsingRegime::ON_PULSING}),
+        fsw::invalid_argument);
     // Negative or zero thrMinFireTime
-    EXPECT_THROW(alg.setThrMinFireTime(-0.1), fsw::invalid_argument);
-    EXPECT_THROW(alg.setThrMinFireTime(0.0), fsw::invalid_argument);
+    EXPECT_THROW(
+        ThrFiringSchmittConfig::create(validArray, {0.75F, 0.25F, -0.1F, 0.5F, 1.0F, ThrustPulsingRegime::ON_PULSING}),
+        fsw::invalid_argument);
+    EXPECT_THROW(
+        ThrFiringSchmittConfig::create(validArray, {0.75F, 0.25F, 0.0F, 0.5F, 1.0F, ThrustPulsingRegime::ON_PULSING}),
+        fsw::invalid_argument);
     // Negative or zero controlPeriod
-    EXPECT_THROW(alg.setControlPeriod(-0.1), fsw::invalid_argument);
-    EXPECT_THROW(alg.setControlPeriod(0.0), fsw::invalid_argument);
+    EXPECT_THROW(
+        ThrFiringSchmittConfig::create(validArray, {0.75F, 0.25F, 0.2F, -0.1F, 1.0F, ThrustPulsingRegime::ON_PULSING}),
+        fsw::invalid_argument);
+    EXPECT_THROW(
+        ThrFiringSchmittConfig::create(validArray, {0.75F, 0.25F, 0.2F, 0.0F, 1.0F, ThrustPulsingRegime::ON_PULSING}),
+        fsw::invalid_argument);
     // onTimeSaturationFactor must be >= 1.0
-    EXPECT_THROW(alg.setOnTimeSaturationFactor(0.5), fsw::invalid_argument);
-    EXPECT_THROW(alg.setOnTimeSaturationFactor(0.99), fsw::invalid_argument);
-    EXPECT_NO_THROW(alg.setOnTimeSaturationFactor(1.0));
-    EXPECT_NO_THROW(alg.setOnTimeSaturationFactor(1.1));
+    EXPECT_THROW(
+        ThrFiringSchmittConfig::create(validArray, {0.75F, 0.25F, 0.2F, 0.5F, 0.99F, ThrustPulsingRegime::ON_PULSING}),
+        fsw::invalid_argument);
+    // numThrusters exceeding the compile-time maximum
+    ThrFiringSchmittThrusterArray tooManyArray{};
+    tooManyArray.numThrusters = kMaxThrusterCount + 1U;
+    EXPECT_THROW(ThrFiringSchmittConfig::create(tooManyArray, validParams), fsw::invalid_argument);
     // Negative maxThrust
-    ThrusterArrayConfig negThrustConfig{};
-    negThrustConfig.numThrusters = 1;
-    negThrustConfig.thrusters.at(0).maxThrust = -0.1F;
-    EXPECT_THROW(alg.setupThrusters(negThrustConfig), fsw::invalid_argument);
+    ThrFiringSchmittThrusterArray negThrustArray{};
+    negThrustArray.numThrusters = 1;
+    negThrustArray.maxThrust.at(0) = -0.1F;
+    EXPECT_THROW(ThrFiringSchmittConfig::create(negThrustArray, validParams), fsw::invalid_argument);
+
+    // Valid configuration is accepted
+    EXPECT_NO_THROW(ThrFiringSchmittConfig::create(validArray, validParams));
+    // onTimeSaturationFactor == 1.0 is allowed
+    EXPECT_NO_THROW(
+        ThrFiringSchmittConfig::create(validArray, {0.75F, 0.25F, 0.2F, 0.5F, 1.0F, ThrustPulsingRegime::ON_PULSING}));
     // Zero maxThrust is allowed
-    ThrusterArrayConfig zeroThrustConfig{};
-    zeroThrustConfig.numThrusters = 1;
-    zeroThrustConfig.thrusters.at(0).maxThrust = 0.0F;
-    EXPECT_NO_THROW(alg.setupThrusters(zeroThrustConfig));
+    ThrFiringSchmittThrusterArray zeroThrustArray{};
+    zeroThrustArray.numThrusters = 1;
+    zeroThrustArray.maxThrust.at(0) = 0.0F;
+    EXPECT_NO_THROW(ThrFiringSchmittConfig::create(zeroThrustArray, validParams));
 }
 
 // ---------------------------------------------------------------------------
@@ -118,17 +148,7 @@ TEST(ThrFiringSchmittTest, ZeroForceProducesZeroOutput) { propertyZeroForceProdu
 
 // Level exactly at levelOn threshold (strict >=) should turn thruster ON.
 TEST(ThrFiringSchmittTest, ExactlyAtLevelOn) {
-    ThrFiringSchmittAlgorithm alg{};
-    alg.setLevelsOnOff(0.75F, 0.25F);
-    alg.setThrMinFireTime(0.2F);
-    alg.setControlPeriod(0.5F);
-    alg.setThrustPulsingRegime(ThrustPulsingRegime::ON_PULSING);
-
-    ThrusterArrayConfig config{};
-    config.numThrusters = 1;
-    config.thrusters.at(0).maxThrust = 1.0F;
-    alg.setupThrusters(config);
-    alg.reset();
+    auto alg = makeSchmittAlgorithm(0.75F, 0.25F, 0.2F, ThrustPulsingRegime::ON_PULSING, 0.5F, 1.0F, 1U, {1.0F});
 
     // onTime = F/Fmax * dt = F * 0.5; we want level = onTime/thrMinFireTime = 0.75
     // onTime = 0.75 * 0.2 = 0.15, so F = 0.15 / 0.5 = 0.3
@@ -141,17 +161,7 @@ TEST(ThrFiringSchmittTest, ExactlyAtLevelOn) {
 
 // Level exactly at levelOff threshold (strict <=) should turn thruster OFF.
 TEST(ThrFiringSchmittTest, ExactlyAtLevelOff) {
-    ThrFiringSchmittAlgorithm alg{};
-    alg.setLevelsOnOff(0.75F, 0.25F);
-    alg.setThrMinFireTime(0.2F);
-    alg.setControlPeriod(0.5F);
-    alg.setThrustPulsingRegime(ThrustPulsingRegime::ON_PULSING);
-
-    ThrusterArrayConfig config{};
-    config.numThrusters = 1;
-    config.thrusters.at(0).maxThrust = 1.0F;
-    alg.setupThrusters(config);
-    alg.reset();
+    auto alg = makeSchmittAlgorithm(0.75F, 0.25F, 0.2F, ThrustPulsingRegime::ON_PULSING, 0.5F, 1.0F, 1U, {1.0F});
 
     // level = 0.25, onTime = 0.25 * 0.2 = 0.05, F = 0.05 / 0.5 = 0.1
     ThrusterForceCmd cmd{};
@@ -163,17 +173,7 @@ TEST(ThrFiringSchmittTest, ExactlyAtLevelOff) {
 
 // Hysteresis: once ON via Schmitt, stays ON in the hysteresis band.
 TEST(ThrFiringSchmittTest, HysteresisStaysOn) {
-    ThrFiringSchmittAlgorithm alg{};
-    alg.setLevelsOnOff(0.75F, 0.25F);
-    alg.setThrMinFireTime(0.2F);
-    alg.setControlPeriod(0.5F);
-    alg.setThrustPulsingRegime(ThrustPulsingRegime::ON_PULSING);
-
-    ThrusterArrayConfig config{};
-    config.numThrusters = 1;
-    config.thrusters.at(0).maxThrust = 1.0F;
-    alg.setupThrusters(config);
-    alg.reset();
+    auto alg = makeSchmittAlgorithm(0.75F, 0.25F, 0.2F, ThrustPulsingRegime::ON_PULSING, 0.5F, 1.0F, 1U, {1.0F});
 
     // First: level = 0.75 (at levelOn) -> turns ON
     ThrusterForceCmd cmdOn{};
@@ -190,17 +190,7 @@ TEST(ThrFiringSchmittTest, HysteresisStaysOn) {
 
 // Hysteresis: once OFF via Schmitt, stays OFF in the hysteresis band.
 TEST(ThrFiringSchmittTest, HysteresisStaysOff) {
-    ThrFiringSchmittAlgorithm alg{};
-    alg.setLevelsOnOff(0.75F, 0.25F);
-    alg.setThrMinFireTime(0.2F);
-    alg.setControlPeriod(0.5F);
-    alg.setThrustPulsingRegime(ThrustPulsingRegime::ON_PULSING);
-
-    ThrusterArrayConfig config{};
-    config.numThrusters = 1;
-    config.thrusters.at(0).maxThrust = 1.0F;
-    alg.setupThrusters(config);
-    alg.reset();
+    auto alg = makeSchmittAlgorithm(0.75F, 0.25F, 0.2F, ThrustPulsingRegime::ON_PULSING, 0.5F, 1.0F, 1U, {1.0F});
 
     // First: level = 0.25 (at levelOff) -> turns OFF
     ThrusterForceCmd cmdOff{};
@@ -217,18 +207,7 @@ TEST(ThrFiringSchmittTest, HysteresisStaysOff) {
 
 // On-time exactly at controlPeriod triggers saturation (strict >=).
 TEST(ThrFiringSchmittTest, ExactlyAtControlPeriod) {
-    ThrFiringSchmittAlgorithm alg{};
-    alg.setLevelsOnOff(0.75F, 0.25F);
-    alg.setThrMinFireTime(0.02F);
-    alg.setControlPeriod(0.5F);
-    alg.setOnTimeSaturationFactor(1.1F);
-    alg.setThrustPulsingRegime(ThrustPulsingRegime::ON_PULSING);
-
-    ThrusterArrayConfig config{};
-    config.numThrusters = 1;
-    config.thrusters.at(0).maxThrust = 1.0F;
-    alg.setupThrusters(config);
-    alg.reset();
+    auto alg = makeSchmittAlgorithm(0.75F, 0.25F, 0.02F, ThrustPulsingRegime::ON_PULSING, 0.5F, 1.1F, 1U, {1.0F});
 
     // F = maxThrust -> onTime = 1.0/1.0 * 0.5 = 0.5 == controlPeriod -> saturates
     ThrusterForceCmd cmd{};
@@ -240,17 +219,7 @@ TEST(ThrFiringSchmittTest, ExactlyAtControlPeriod) {
 
 // On-time exactly at thrMinFireTime is in normal range (not Schmitt trigger).
 TEST(ThrFiringSchmittTest, ExactlyAtMinFireTime) {
-    ThrFiringSchmittAlgorithm alg{};
-    alg.setLevelsOnOff(0.75F, 0.25F);
-    alg.setThrMinFireTime(0.2F);
-    alg.setControlPeriod(0.5F);
-    alg.setThrustPulsingRegime(ThrustPulsingRegime::ON_PULSING);
-
-    ThrusterArrayConfig config{};
-    config.numThrusters = 1;
-    config.thrusters.at(0).maxThrust = 1.0F;
-    alg.setupThrusters(config);
-    alg.reset();
+    auto alg = makeSchmittAlgorithm(0.75F, 0.25F, 0.2F, ThrustPulsingRegime::ON_PULSING, 0.5F, 1.0F, 1U, {1.0F});
 
     // onTime = F/Fmax * dt = F * 0.5; want onTime = 0.2, so F = 0.4
     ThrusterForceCmd cmd{};
@@ -262,16 +231,7 @@ TEST(ThrFiringSchmittTest, ExactlyAtMinFireTime) {
 
 // Zero thrusters produces empty (all-zero) output.
 TEST(ThrFiringSchmittTest, ZeroThrusters) {
-    ThrFiringSchmittAlgorithm alg{};
-    alg.setLevelsOnOff(0.75F, 0.25F);
-    alg.setThrMinFireTime(0.02F);
-    alg.setControlPeriod(0.5F);
-    alg.setThrustPulsingRegime(ThrustPulsingRegime::ON_PULSING);
-
-    ThrusterArrayConfig config{};
-    config.numThrusters = 0;
-    alg.setupThrusters(config);
-    alg.reset();
+    auto alg = makeSchmittAlgorithm(0.75F, 0.25F, 0.02F, ThrustPulsingRegime::ON_PULSING, 0.5F, 1.0F, 0U, {});
 
     ThrusterForceCmd cmd{};
     auto out = alg.update(cmd);
@@ -283,17 +243,7 @@ TEST(ThrFiringSchmittTest, ZeroThrusters) {
 
 // Off-pulsing: force of -maxThrust produces zero output (effective force = 0 after clamp).
 TEST(ThrFiringSchmittTest, OffPulsingMaxNegativeForce) {
-    ThrFiringSchmittAlgorithm alg{};
-    alg.setLevelsOnOff(0.75F, 0.25F);
-    alg.setThrMinFireTime(0.02F);
-    alg.setControlPeriod(0.5F);
-    alg.setThrustPulsingRegime(ThrustPulsingRegime::OFF_PULSING);
-
-    ThrusterArrayConfig config{};
-    config.numThrusters = 1;
-    config.thrusters.at(0).maxThrust = 0.5F;
-    alg.setupThrusters(config);
-    alg.reset();
+    auto alg = makeSchmittAlgorithm(0.75F, 0.25F, 0.02F, ThrustPulsingRegime::OFF_PULSING, 0.5F, 1.0F, 1U, {0.5F});
 
     // F = -0.5, after adding maxThrust: 0.0, onTime = 0.0 -> zero
     ThrusterForceCmd cmd{};

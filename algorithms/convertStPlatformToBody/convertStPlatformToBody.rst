@@ -51,10 +51,11 @@ The following table lists all the module parameters that can be set.
       - Default
       - Description
     * - dcm_CB
-      - Eigen::Matrix3d (adapter) / Eigen::Matrix3f (algorithm)
+      - Eigen::Matrix3f
       - [-]
       - Identity
-      - Direction cosine matrix mapping body-frame components to case-frame components
+      - Direction cosine matrix mapping body-frame components to case-frame components. Must be a valid
+        DCM (orthonormal, det +1); validated when the configuration is built in ``reset()``.
 
 
 -------------------------------
@@ -73,26 +74,27 @@ interface.
 
 The adapter (``ConvertStPlatformToBody``) provides the Xmera-facing interface and is responsible for:
 
-- Initializing the module by verifying that input messages are properly linked in ``reset()``
-- Logging an error condition if ``stSensorInMsg`` is not connected
+- Initializing the module by verifying that input messages are properly linked in ``reset()``, throwing
+  ``std::invalid_argument`` if ``stSensorInMsg`` is not connected
+- Building a validated ``ConvertStPlatformToBodyConfig`` from the ``dcm_CB`` property and constructing the algorithm
+  in ``reset()`` (two-phase initialization); ``updateState()`` raises ``XmeraLifecycleException`` if called first
 - Reading the input message ``stSensorInMsg``
-- Converting the sensor message data from ``double`` to ``float``
-- Converting the message time tag from seconds (``double``) to nanoseconds (``uint64_t``)
-- Packing the float data into the ``PlatformAttitude`` and ``PlatformAngularVelocity`` structs
-- Converting the case-frame angular velocity on the incoming message to a delta quaternion
-  ``dq_CN`` before handing it to the algorithm
+- Converting the inertial-to-case quaternion from ``double`` to a ``float`` ``Eigen::Vector4f``
+- Converting the message time tag from seconds (``double``) to nanoseconds (``uint64_t``) for the output message
+- Converting the case-frame angular velocity on the incoming message to a unit delta quaternion ``dq_CN``
+  (``Eigen::Vector4f``) before handing it to the algorithm
 - Calling the algorithm layer ``ConvertStPlatformToBodyAlgorithm::update``
-- Converting the ``StAttitudeOutput`` struct fields back to ``double``
+- Converting the ``StAttitudeOutput`` Eigen fields back to ``double`` for the output payload
 - Writing the ``stAttOutMsg`` output message
-- Accepting the ``dcm_CB`` mounting matrix from Python as a ``double`` and forwarding it to the algorithm as ``float``
 
 **2. Algorithm Layer**
 
 The algorithm (``ConvertStPlatformToBodyAlgorithm``) performs the core mathematical computations and is fully decoupled
-from the Xmera framework. It operates exclusively on the float input and output structs defined in
-:ref:`convertStPlatformToBodyTypes.h` — ``PlatformAttitude`` (inertial-to-case attitude), ``PlatformAngularVelocity``
-(case-frame delta quaternion), and ``StAttitudeOutput`` (inertial-to-body MRP and body-frame angular velocity) —
-and has no dependency on ``SysModel``, message readers, or writers.
+from the Xmera framework. Its ``update`` takes the inertial-to-case quaternion and case-frame delta quaternion as
+``Eigen::Vector4f`` values and returns the ``StAttitudeOutput`` struct (inertial-to-body MRP and body-frame angular
+velocity, both ``Eigen::Vector3f``) declared in ``convertStPlatformToBodyAlgorithm.h``. It has no dependency on
+``SysModel``, message readers, or writers. The pure-C POD mirrors used by the C shim live in
+:ref:`convertStPlatformToBodyTypes.h`.
 
 
 -------------------------------------
@@ -170,7 +172,7 @@ The module is configured from Python as::
 
     module = convertStPlatformToBodyF32.ConvertStPlatformToBody()
     module.modelTag = "stPlatformToBody"
-    module.setDcmCB(dcm_CB)
+    module.dcm_CB = dcm_CB
     module.stSensorInMsg.subscribeTo(stSensorMsg)
 
 The ``dcm_CB`` mounting matrix must be set before ``reset()`` is called so that the algorithm uses the

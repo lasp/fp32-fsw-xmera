@@ -1,15 +1,40 @@
 #include "stepperMotorControllerAlgorithm.h"
-#include "utilities/fsw/freestandingInvalidArgument.h"
 
 #include <math.h>
 #include <stdlib.h>
 #include <numbers>
 #include <utility>
 
+/*! @brief Construct the controller with a validated configuration. The state machine starts in IDLE with cleared
+ cached positions. */
+StepperMotorControllerAlgorithm::StepperMotorControllerAlgorithm(const StepperMotorControllerConfig& config)
+    : cfg(config) {
+    setConfig(config);
+    reInitialize();
+}
+
+/*! @brief Replace the stored configuration at runtime. The state machine and cached positions are preserved. */
+void StepperMotorControllerAlgorithm::setConfig(const StepperMotorControllerConfig& config) {
+    this->cfg = config;
+    this->cacheDerivedValues();
+}
+
+/*! Recompute the cached values derived from the configuration: the integer steps per revolution and the
+ full-circle flag.
+ @return void
+*/
+void StepperMotorControllerAlgorithm::cacheDerivedValues() {
+    constexpr float twoPi = 2.0F * std::numbers::pi_v<float>;
+    this->stepsPerRev = static_cast<int>(round(twoPi / this->cfg.getStepAngle()));
+    const StepperMotorAngleRange& angleRange = this->cfg.getAngleRange();
+    this->isFullCircle =
+        (angleRange.maxAngle - angleRange.minAngle) >= (twoPi - StepperMotorControllerConfig::kMinStepAngle);
+}
+
 /*! Reset the controller to its initial state.
  @return void
 */
-void StepperMotorControllerAlgorithm::reset() {
+void StepperMotorControllerAlgorithm::reInitialize() {
     this->state = StepperMotorState::IDLE;
     this->commandedPosition = 0;
     this->desiredPosition = 0;
@@ -26,6 +51,8 @@ StepperMotorControllerOutput StepperMotorControllerAlgorithm::update(
     const int currentPosition,  // NOLINT(bugprone-easily-swappable-parameters)
     const float referenceAngle,
     const bool isMotorMoving) {
+    const StepperMotorAngleRange& angleRange = this->cfg.getAngleRange();
+
     StepperMotorControllerOutput output{};
 
     // For a full-circle range, any reference angle is acceptable — wrap-around math handles the
@@ -33,7 +60,7 @@ StepperMotorControllerOutput StepperMotorControllerAlgorithm::update(
     // leave desiredPosition unchanged so the state machine ignores them, keeping the motor
     // quiescent rather than driving it across the forbidden seam.
     const bool isReferenceInRange =
-        this->isFullCircle || (referenceAngle >= this->minAngle && referenceAngle <= this->maxAngle);
+        this->isFullCircle || (referenceAngle >= angleRange.minAngle && referenceAngle <= angleRange.maxAngle);
     if (isReferenceInRange) {
         this->desiredPosition = this->angleToSteps(referenceAngle);
     }
@@ -47,7 +74,7 @@ StepperMotorControllerOutput StepperMotorControllerAlgorithm::update(
                 break;
             }
             const int steps = this->stepDelta(this->desiredPosition - currentPosition);
-            if (std::cmp_greater_equal(abs(steps), this->minStepCommand)) {
+            if (std::cmp_greater_equal(abs(steps), this->cfg.getMinStepCommand())) {
                 output.commandType = StepperMotorCommandType::MOVE;
                 output.stepsToMove = steps;
                 this->commandedPosition = this->desiredPosition;
@@ -59,7 +86,7 @@ StepperMotorControllerOutput StepperMotorControllerAlgorithm::update(
         case StepperMotorState::MOVING: {
             // Desired position changed by at least the minimum commandable step delta
             if (std::cmp_greater_equal(abs(this->stepDelta(this->commandedPosition - this->desiredPosition)),
-                                       this->minStepCommand)) {
+                                       this->cfg.getMinStepCommand())) {
                 output.commandType = StepperMotorCommandType::STOP;
                 this->state = StepperMotorState::STOPPING;
             }
@@ -79,7 +106,7 @@ StepperMotorControllerOutput StepperMotorControllerAlgorithm::update(
             break;
 
         case StepperMotorState::SETTLING:
-            if (this->settleCount >= this->settleCountMax) {
+            if (this->settleCount >= this->cfg.getSettleCountMax()) {
                 this->state = StepperMotorState::IDLE;
             } else {
                 this->settleCount++;
@@ -95,7 +122,7 @@ StepperMotorControllerOutput StepperMotorControllerAlgorithm::update(
  @param angle [rad] reference angle
 */
 int StepperMotorControllerAlgorithm::angleToSteps(const float angle) const {
-    return static_cast<int>(round(angle / this->stepAngle));
+    return static_cast<int>(round(angle / this->cfg.getStepAngle()));
 }
 
 /*! Wrap a step delta to the shortest path within [-stepsPerRev/2, +stepsPerRev/2].
@@ -123,84 +150,3 @@ int StepperMotorControllerAlgorithm::wrapDelta(int delta) const {
 int StepperMotorControllerAlgorithm::stepDelta(const int delta) const {
     return this->isFullCircle ? this->wrapDelta(delta) : delta;
 }
-
-/*! Setter for the angle per motor step.
- @return void
- @param stepAngleIn [rad/step] motor step angle, must be in [kMinStepAngle, 2*pi]
-*/
-void StepperMotorControllerAlgorithm::setStepAngle(const float stepAngleIn) {
-    constexpr float twoPi = 2.0F * std::numbers::pi_v<float>;
-    if (stepAngleIn < StepperMotorControllerAlgorithm::kMinStepAngle || stepAngleIn > twoPi) {
-        FSW_THROW_INVALID_ARGUMENT("stepAngle must be in [2*pi/kMaxStepsPerRev, 2*pi]");
-    }
-    this->stepAngle = stepAngleIn;
-    this->stepsPerRev = static_cast<int>(round(twoPi / stepAngleIn));
-}
-
-/*! Getter for the angle per motor step.
- @return float [rad/step]
-*/
-float StepperMotorControllerAlgorithm::getStepAngle() const { return this->stepAngle; }
-
-/*! Setter for the motor travel range
- @return void
- @param minAngleIn [rad] lower bound, must be in [-2*pi, 2*pi]
- @param maxAngleIn [rad] upper bound, must be in [-2*pi, 2*pi] and strictly greater than minAngleIn
-*/
-void StepperMotorControllerAlgorithm::setMotorAngleRange(const float minAngleIn, const float maxAngleIn) {
-    constexpr float twoPi = 2.0F * std::numbers::pi_v<float>;
-    if (minAngleIn < -twoPi || minAngleIn > twoPi) {
-        FSW_THROW_INVALID_ARGUMENT("minAngle must be in [-2*pi, 2*pi]");
-    }
-    if (maxAngleIn < -twoPi || maxAngleIn > twoPi) {
-        FSW_THROW_INVALID_ARGUMENT("maxAngle must be in [-2*pi, 2*pi]");
-    }
-    if (minAngleIn >= maxAngleIn) {
-        FSW_THROW_INVALID_ARGUMENT("minAngle must be strictly less than maxAngle");
-    }
-    this->minAngle = minAngleIn;
-    this->maxAngle = maxAngleIn;
-    this->isFullCircle = ((maxAngleIn - minAngleIn) >= (twoPi - StepperMotorControllerAlgorithm::kMinStepAngle));
-}
-
-/*! Getter for the motor travel range.
- @return std::array<float, 2> {minAngle, maxAngle} in radians
-*/
-std::array<float, 2> StepperMotorControllerAlgorithm::getMotorAngleRange() const {
-    return {this->minAngle, this->maxAngle};
-}
-
-/*! Setter for the maximum settling tick count.
- @return void
- @param settleCountMaxIn [ticks] number of ticks to wait during settling
-*/
-void StepperMotorControllerAlgorithm::setSettleCountMax(const uint32_t settleCountMaxIn) {
-    // NOLINTNEXTLINE(clang-diagnostic-tautological-unsigned-zero-compare)
-    if (settleCountMaxIn < 0) {
-        FSW_THROW_INVALID_ARGUMENT("settleCountMax must be non-negative");
-    }
-    this->settleCountMax = settleCountMaxIn;
-}
-
-/*! Getter for the maximum settling tick count.
- @return uint32_t
-*/
-uint32_t StepperMotorControllerAlgorithm::getSettleCountMax() const { return this->settleCountMax; }
-
-/*! Setter for the minimum commandable step delta. A delta with magnitude greater than or equal to
- *  this value triggers a MOVE from IDLE or a STOP-and-replan from MOVING. Must be strictly positive
- *  so that zero-magnitude step deltas never trigger a command.
- @return void
- @param minStepCommandIn [steps] minimum step delta magnitude that warrants a command (must be > 0)
-*/
-void StepperMotorControllerAlgorithm::setMinStepCommand(const uint32_t minStepCommandIn) {
-    if (minStepCommandIn <= 0U) {
-        FSW_THROW_INVALID_ARGUMENT("minStepCommand must be greater than zero");
-    }
-    this->minStepCommand = minStepCommandIn;
-}
-
-/*! Getter for the minimum commandable step delta.
- @return uint32_t
-*/
-uint32_t StepperMotorControllerAlgorithm::getMinStepCommand() const { return this->minStepCommand; }

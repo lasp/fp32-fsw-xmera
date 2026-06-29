@@ -1,8 +1,13 @@
 #include "solarArrayReference.h"
+#include "utilities/xmera/xmeraLifecycleException.h"
 #include <stdexcept>
 
 #include <utilities/fsw/eigenSupport.h>
 
+/*! Validate that the required input messages are linked, build the algorithm's configuration from the adapter's
+ stored properties, and (re)construct the embedded algorithm.
+ @param callTime The clock time at which the function was called (nanoseconds)
+ */
 void SolarArrayReference::reset(uint64_t callTime) {
     if (!this->attNavInMsg.isLinked()) {
         throw std::invalid_argument("solarArrayReference.attNavInMsg wasn't connected.");
@@ -13,9 +18,40 @@ void SolarArrayReference::reset(uint64_t callTime) {
     if (!this->hingedRigidBodyInMsg.isLinked()) {
         throw std::invalid_argument("solarArrayReference.hingedRigidBodyInMsg wasn't connected.");
     }
+
+    const SolarArrayReferenceConfig config =
+        SolarArrayReferenceConfig::create(SolarArrayAxes{this->driveAxis, this->surfaceNormal},
+                                          this->alignmentThreshold,
+                                          this->trackingMode,
+                                          this->specifiedArrayAngle,
+                                          this->offsetAngle);
+    this->algorithm = std::make_unique<SolarArrayReferenceAlgorithm>(config);
 }
 
+SolarArrayReferenceConfig SolarArrayReference::toConfig() const {
+    return SolarArrayReferenceConfig::create(SolarArrayAxes{this->driveAxis, this->surfaceNormal},
+                                             this->alignmentThreshold,
+                                             this->trackingMode,
+                                             this->specifiedArrayAngle,
+                                             this->offsetAngle);
+}
+
+void SolarArrayReference::reconfigure() const {
+    if (!this->algorithm) {
+        throw XmeraLifecycleException("SolarArrayReference reset() has not been called.");
+    }
+    this->algorithm->setConfig(this->toConfig());
+}
+
+/*! Read the navigation, reference, and hinged-rigid-body messages, run the solar array reference law, and write the
+ commanded array reference angle output message.
+ @param callTime The clock time at which the function was called (nanoseconds)
+ */
 void SolarArrayReference::updateState(uint64_t callTime) {
+    if (!this->algorithm) {
+        throw XmeraLifecycleException("SolarArrayReference reset() has not been called.");
+    }
+
     NavAttMsgF32Payload attNavIn = this->attNavInMsg();
     AttRefMsgF32Payload attRefIn = this->attRefInMsg();
     HingedRigidBodyMsgF32Payload hingedRigidBodyIn = this->hingedRigidBodyInMsg();
@@ -24,66 +60,9 @@ void SolarArrayReference::updateState(uint64_t callTime) {
     const Eigen::Vector3f sigma_RN = cArrayToEigenVector(attRefIn.sigma_RN);
     const Eigen::Vector3f rHatIn_SB_B = cArrayToEigenVector(attNavIn.vehSunPntBdy);
 
-    const float thetaRef = this->algorithm.update(sigma_BN, sigma_RN, rHatIn_SB_B, hingedRigidBodyIn.theta);
+    const float thetaRef = this->algorithm->update(sigma_BN, sigma_RN, rHatIn_SB_B, hingedRigidBodyIn.theta);
 
     MotorAngleRefMsgF32Payload solarArrayRefOut = {};
     solarArrayRefOut.theta = thetaRef;
-    this->solarArrayRefOutMsg.write(&solarArrayRefOut, this->moduleID, callTime);
+    this->solarArrayRefOutMsg.write(solarArrayRefOut, this->moduleID, callTime);
 }
-
-/*! Set the solar array drive axis and surface normal in body frame coordinates.
- *  @param driveAxis [-] solar array drive axis in body frame coordinates
- *  @param surfaceNormal [-] solar array surface normal at zero rotation
- */
-void SolarArrayReference::setSolarArrayAxes_B(const Eigen::Vector3f& driveAxis, const Eigen::Vector3f& surfaceNormal) {
-    this->algorithm.setSolarArrayAxes_B(driveAxis, surfaceNormal);
-}
-
-/*! Get the solar array drive axis and surface normal in body frame coordinates.
- *  @return std::array<Eigen::Vector3f, 2> [driveAxis, surfaceNormal]
- */
-std::array<Eigen::Vector3f, 2> SolarArrayReference::getSolarArrayAxes_B() const {
-    return this->algorithm.getSolarArrayAxes_B();
-}
-
-/*! Set the alignment threshold angle between sun direction and drive axis.
- *  @param threshold [rad] angle threshold in [1e-3, pi/2]
- */
-void SolarArrayReference::setAlignmentThreshold(const float threshold) {
-    this->algorithm.setAlignmentThreshold(threshold);
-}
-
-/*! Get the alignment threshold angle between sun direction and drive axis.
- *  @return float [rad] alignment threshold
- */
-float SolarArrayReference::getAlignmentThreshold() const { return this->algorithm.getAlignmentThreshold(); }
-
-/*! Set the tracking mode of the solar array.
- *  @param mode tracking mode (AUTO_TRACK or SPECIFIED_ANGLE)
- */
-void SolarArrayReference::setTrackingMode(const TrackingMode mode) { this->algorithm.setTrackingMode(mode); }
-
-/*! Get the tracking mode of the solar array.
- *  @return TrackingMode current tracking mode
- */
-TrackingMode SolarArrayReference::getTrackingMode() const { return this->algorithm.getTrackingMode(); }
-
-/*! Set the specified reference array angle (used when trackingMode is SPECIFIED_ANGLE).
- *  @param angle [rad] specified reference array angle
- */
-void SolarArrayReference::setSpecifiedArrayAngle(const float angle) { this->algorithm.setSpecifiedArrayAngle(angle); }
-
-/*! Get the specified reference array angle.
- *  @return float [rad] specified reference array angle
- */
-float SolarArrayReference::getSpecifiedArrayAngle() const { return this->algorithm.getSpecifiedArrayAngle(); }
-
-/*! Set the offset angle added to the computed reference angle before wrapping.
- *  @param angle [rad] offset angle
- */
-void SolarArrayReference::setOffsetAngle(const float angle) { this->algorithm.setOffsetAngle(angle); }
-
-/*! Get the offset angle.
- *  @return float [rad] offset angle
- */
-float SolarArrayReference::getOffsetAngle() const { return this->algorithm.getOffsetAngle(); }

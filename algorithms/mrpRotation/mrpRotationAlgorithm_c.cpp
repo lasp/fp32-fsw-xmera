@@ -54,3 +54,9 @@ MrpRotationOutput_c MrpRotationAlgorithm_update(MrpRotationAlgorithmHandle* self
     // clang-format on
     return outputToC(out);
 }
+
+void MrpRotationAlgorithm_reInitialize(MrpRotationAlgorithmHandle* self) {
+    // clang-format off
+    reinterpret_cast<::MrpRotationAlgorithm*>(self)->reInitialize();  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+    // clang-format on
+}

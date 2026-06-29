@@ -151,12 +151,7 @@ bool RwMotorTorqueConfig::isValidMapping(const Eigen::Matrix3f& controlAxes_B,
 
 RwMotorTorqueAlgorithm::RwMotorTorqueAlgorithm(const RwMotorTorqueConfig& config)  // NOLINT(modernize-pass-by-value)
     : cfg(config) {
-    const std::optional<RwMotorTorqueMapping> mapping =
-        computeRwMapping(this->cfg.getControlAxes(), this->cfg.getRwConfiguration(), this->cfg.getAvailability());
-    if (mapping.has_value()) {
-        this->motorTorqueMap = mapping->motorTorqueMap;
-        this->tau = mapping->tau;
-    }
+    setConfig(config);
 }
 
 void RwMotorTorqueAlgorithm::setConfig(const RwMotorTorqueConfig& config) {

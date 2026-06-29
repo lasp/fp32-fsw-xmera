@@ -106,11 +106,7 @@ bool ForceTorqueThrForceMappingConfig::isValidMapping(const ThrusterArrayConfigu
 ForceTorqueThrForceMappingAlgorithm::ForceTorqueThrForceMappingAlgorithm(
     const ForceTorqueThrForceMappingConfig& config)  // NOLINT(modernize-pass-by-value)
     : cfg(config) {
-    const std::optional<Eigen::Matrix<float, MAX_EFF_CNT, 6>> mapping = computeThrusterMapping(
-        this->cfg.getThrusters(), this->cfg.getCenterOfMass_B(), this->cfg.getDesiredControlAxes());
-    if (mapping.has_value()) {
-        this->pseudoInverseDG = *mapping;
-    }
+    setConfig(config);
 }
 
 //! Replace the configuration and recompute the thruster mapping matrix.

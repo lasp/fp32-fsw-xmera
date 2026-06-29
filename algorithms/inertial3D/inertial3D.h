@@ -7,6 +7,7 @@
 #include <architecture/messaging/messaging.h>
 #include <Eigen/Core>
 #include <cstdint>
+#include <memory>
 
 /*!@brief Data structure for module to compute the Inertial-3D pointing navigation solution.
  */
@@ -15,14 +16,18 @@ class Inertial3D final : public SysModel {
     Inertial3D() = default;
     ~Inertial3D() override = default;
 
+    void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
-    void setSigmaRN(const Eigen::Vector3f& sigma_RN);
-    Eigen::Vector3f getSigmaRN() const;
+
+    void reconfigure() const;
+
+    Eigen::Vector3f sigma_RN = Eigen::Vector3f::Zero();  //!< [-] MRP from inertial frame N to reference frame R
 
     Message<AttRefMsgF32Payload> attRefOutMsg;  //!< reference attitude output message
 
    private:
-    Inertial3DAlgorithm algorithm{};
+    Inertial3DConfig toConfig() const;
+    std::unique_ptr<Inertial3DAlgorithm> algorithm = nullptr;
 };
 
 #endif

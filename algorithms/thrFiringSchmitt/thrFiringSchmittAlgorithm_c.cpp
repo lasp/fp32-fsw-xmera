@@ -4,101 +4,56 @@
 #include <algorithm>
 
 static_assert(THR_FIRING_SCHMITT_MAX_THRUSTER_COUNT == kMaxThrusterCount,
-              "C shim THR_FIRING_SCHMITT_MAX_THRUSTER_COUNT must match C++ kMaxThrusterCount");
+              "C-shim thruster count must match the algorithm's kMaxThrusterCount");
+
+namespace {
+ThrFiringSchmittConfig toConfig(const ThrFiringSchmittConfig_c* config) {
+    ThrFiringSchmittThrusterArray thrusterArray{};
+    thrusterArray.numThrusters = config->thrusterArray.numThrusters;
+    const uint32_t copyCount = std::min(thrusterArray.numThrusters, kMaxThrusterCount);
+    for (uint32_t i = 0U; i < copyCount; ++i) {
+        thrusterArray.maxThrust.at(i) = config->thrusterArray.maxThrust[i];
+    }
+
+    const ThrFiringSchmittControlParameters params{
+        config->controlParameters.levelOn,
+        config->controlParameters.levelOff,
+        config->controlParameters.thrMinFireTime,
+        config->controlParameters.controlPeriod,
+        config->controlParameters.onTimeSaturationFactor,
+        static_cast<ThrustPulsingRegime>(config->controlParameters.pulsingRegime)};
+
+    return ThrFiringSchmittConfig::create(thrusterArray, params);
+}
+}  // namespace
 
 uint32_t ThrFiringSchmittAlgorithm_getMaxThrusterCount(void) { return THR_FIRING_SCHMITT_MAX_THRUSTER_COUNT; }
 
-ThrFiringSchmittAlgorithmHandle* ThrFiringSchmittAlgorithm_create(void) {
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-    return reinterpret_cast<ThrFiringSchmittAlgorithmHandle*>(new ::ThrFiringSchmittAlgorithm());
+ThrFiringSchmittAlgorithmHandle* ThrFiringSchmittAlgorithm_create(const ThrFiringSchmittConfig_c* config) {
+    return reinterpret_cast<ThrFiringSchmittAlgorithmHandle*>(new ::ThrFiringSchmittAlgorithm(toConfig(config)));
 }
 
 void ThrFiringSchmittAlgorithm_destroy(ThrFiringSchmittAlgorithmHandle* self) {
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast, cppcoreguidelines-owning-memory)
     delete reinterpret_cast<::ThrFiringSchmittAlgorithm*>(self);
 }
 
-void ThrFiringSchmittAlgorithm_reset(ThrFiringSchmittAlgorithmHandle* self) {
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-    reinterpret_cast<::ThrFiringSchmittAlgorithm*>(self)->reset();
+void ThrFiringSchmittAlgorithm_setConfig(ThrFiringSchmittAlgorithmHandle* self,
+                                         const ThrFiringSchmittConfig_c* config) {
+    reinterpret_cast<::ThrFiringSchmittAlgorithm*>(self)->setConfig(toConfig(config));
 }
 
-ThrusterOnTimeCmd_c ThrFiringSchmittAlgorithm_update(ThrFiringSchmittAlgorithmHandle* self,
-                                                     const ThrusterForceCmd_c* thrusterForceCmd) {
+void ThrFiringSchmittAlgorithm_reInitialize(ThrFiringSchmittAlgorithmHandle* self) {
+    reinterpret_cast<::ThrFiringSchmittAlgorithm*>(self)->reInitialize();
+}
+
+ThrFiringSchmittOnTimeCmd ThrFiringSchmittAlgorithm_update(ThrFiringSchmittAlgorithmHandle* self,
+                                                           const ThrFiringSchmittForceCmd* forceCmd) {
     ThrusterForceCmd cppCmd{};
-    std::ranges::copy_n(thrusterForceCmd->thrForce, kMaxThrusterCount, cppCmd.thrForce.data());
+    std::ranges::copy_n(forceCmd->thrForce, kMaxThrusterCount, cppCmd.thrForce.data());
 
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-    auto [onTimeRequest] = reinterpret_cast<::ThrFiringSchmittAlgorithm*>(self)->update(cppCmd);
+    const auto [onTimeRequest] = reinterpret_cast<::ThrFiringSchmittAlgorithm*>(self)->update(cppCmd);
 
-    ThrusterOnTimeCmd_c out{};
-    std::ranges::copy_n(onTimeRequest.data(), kMaxThrusterCount, out.onTimeRequest);
-    return out;
-}
-
-void ThrFiringSchmittAlgorithm_setupThrusters(ThrFiringSchmittAlgorithmHandle* self,
-                                              const ThrusterArrayConfig_c* thrusterConfig) {
-    ThrusterArrayConfig cppConfig{};
-    cppConfig.numThrusters = thrusterConfig->numThrusters;
-    for (uint32_t i = 0U; i < thrusterConfig->numThrusters; ++i) {
-        std::ranges::copy_n(thrusterConfig->thrusters[i].rThrust_B, 3, cppConfig.thrusters[i].rThrust_B.data());
-        std::ranges::copy_n(thrusterConfig->thrusters[i].tHatThrust_B, 3, cppConfig.thrusters[i].tHatThrust_B.data());
-        cppConfig.thrusters[i].maxThrust = thrusterConfig->thrusters[i].maxThrust;
-    }
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-    reinterpret_cast<::ThrFiringSchmittAlgorithm*>(self)->setupThrusters(cppConfig);
-}
-
-LevelsOnOff_c ThrFiringSchmittAlgorithm_getLevelsOnOff(const ThrFiringSchmittAlgorithmHandle* self) {
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-    const std::array<float, 2U> levels = reinterpret_cast<const ::ThrFiringSchmittAlgorithm*>(self)->getLevelsOnOff();
-    return {levels[0], levels[1]};
-}
-
-void ThrFiringSchmittAlgorithm_setLevelsOnOff(ThrFiringSchmittAlgorithmHandle* self,
-                                              const float levelOn,
-                                              const float levelOff) {
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-    reinterpret_cast<::ThrFiringSchmittAlgorithm*>(self)->setLevelsOnOff(levelOn, levelOff);
-}
-
-float ThrFiringSchmittAlgorithm_getThrMinFireTime(const ThrFiringSchmittAlgorithmHandle* self) {
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-    return reinterpret_cast<const ::ThrFiringSchmittAlgorithm*>(self)->getThrMinFireTime();
-}
-
-void ThrFiringSchmittAlgorithm_setThrMinFireTime(ThrFiringSchmittAlgorithmHandle* self, const float time) {
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-    reinterpret_cast<::ThrFiringSchmittAlgorithm*>(self)->setThrMinFireTime(time);
-}
-
-ThrustPulsingRegime ThrFiringSchmittAlgorithm_getThrustPulsingRegime(const ThrFiringSchmittAlgorithmHandle* self) {
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-    return reinterpret_cast<const ::ThrFiringSchmittAlgorithm*>(self)->getThrustPulsingRegime();
-}
-
-void ThrFiringSchmittAlgorithm_setThrustPulsingRegime(ThrFiringSchmittAlgorithmHandle* self,
-                                                      const ThrustPulsingRegime pulsingRegime) {
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-    reinterpret_cast<::ThrFiringSchmittAlgorithm*>(self)->setThrustPulsingRegime(pulsingRegime);
-}
-
-float ThrFiringSchmittAlgorithm_getControlPeriod(const ThrFiringSchmittAlgorithmHandle* self) {
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-    return reinterpret_cast<const ::ThrFiringSchmittAlgorithm*>(self)->getControlPeriod();
-}
-
-void ThrFiringSchmittAlgorithm_setControlPeriod(ThrFiringSchmittAlgorithmHandle* self, const float period) {
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-    reinterpret_cast<::ThrFiringSchmittAlgorithm*>(self)->setControlPeriod(period);
-}
-
-float ThrFiringSchmittAlgorithm_getOnTimeSaturationFactor(const ThrFiringSchmittAlgorithmHandle* self) {
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-    return reinterpret_cast<const ::ThrFiringSchmittAlgorithm*>(self)->getOnTimeSaturationFactor();
-}
-
-void ThrFiringSchmittAlgorithm_setOnTimeSaturationFactor(ThrFiringSchmittAlgorithmHandle* self, const float factor) {
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-    reinterpret_cast<::ThrFiringSchmittAlgorithm*>(self)->setOnTimeSaturationFactor(factor);
+    ThrFiringSchmittOnTimeCmd result{};
+    std::ranges::copy_n(onTimeRequest.data(), kMaxThrusterCount, result.onTimeRequest);
+    return result;
 }

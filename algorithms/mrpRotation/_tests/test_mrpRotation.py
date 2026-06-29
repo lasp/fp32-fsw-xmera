@@ -53,7 +53,7 @@ def compute_truth(sigma_RR0_init, omega_RR0_R, ref_state_in_data, dt, num_steps_
         truth_omega_RN_N.append(omega_RN_N.tolist())
         truth_domega_RN_N.append(domega_RN_N.tolist())
 
-    # reset() re-seeds the algorithm's runtime sigma_RR0 / omega_RR0_R from the configured initial
+    # reset() reconstructs the algorithm, re-seeding its runtime sigma_RR0 from the configured initial
     # values, so the post-reset integration restarts from sigma_RR0_init.
     if num_steps_post_reset > 0:
         sigma_RR0 = np.array(sigma_RR0_init, dtype=float)

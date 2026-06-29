@@ -4,7 +4,7 @@
 #include <Eigen/Core>
 
 SunlineEphemAlgorithmHandle* SunlineEphemAlgorithm_create(void) {
-    return reinterpret_cast<SunlineEphemAlgorithmHandle*>(new ::SunlineEphemAlgorithm());
+    return reinterpret_cast<SunlineEphemAlgorithmHandle*>(new ::SunlineEphemAlgorithm(SunlineEphemConfig::create()));
 }
 
 void SunlineEphemAlgorithm_destroy(SunlineEphemAlgorithmHandle* self) {

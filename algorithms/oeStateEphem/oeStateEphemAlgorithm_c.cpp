@@ -2,17 +2,58 @@
 #include "oeStateEphemAlgorithm.h"
 
 #include <algorithm>
+#include <array>
+#include <cstddef>
 
-OEStateEphemAlgorithmHandle* OEStateEphemAlgorithm_create(void) {
-    return reinterpret_cast<OEStateEphemAlgorithmHandle*>(new ::OEStateEphemAlgorithm());
+namespace {
+OEStateEphemConfig configFromC(const OEStateEphemConfig_c& config) {
+    std::array<ChebyshevFitArc, kMaxOeRecords> arcs{};
+    for (std::size_t i = 0; i < kMaxOeRecords; ++i) {
+        const ChebyshevFitArc_c& src = config.fitCoefficients[i];
+        ChebyshevFitArc& dst = arcs.at(i);
+        dst.numberChebCoefficients = src.numberChebCoefficients;
+        dst.ephemerisTimeMiddle = src.ephemerisTimeMiddle;
+        dst.ephemerisTimeRadius = src.ephemerisTimeRadius;
+        std::copy(std::begin(src.radiusPeriapsisCoefficients),
+                  std::end(src.radiusPeriapsisCoefficients),
+                  dst.radiusPeriapsisCoefficients.begin());
+        std::copy(std::begin(src.eccentricityCoefficients),
+                  std::end(src.eccentricityCoefficients),
+                  dst.eccentricityCoefficients.begin());
+        std::copy(std::begin(src.inclinationCoefficients),
+                  std::end(src.inclinationCoefficients),
+                  dst.inclinationCoefficients.begin());
+        std::copy(std::begin(src.argPeriapsisCoefficients),
+                  std::end(src.argPeriapsisCoefficients),
+                  dst.argPeriapsisCoefficients.begin());
+        std::copy(std::begin(src.raanCoefficients), std::end(src.raanCoefficients), dst.raanCoefficients.begin());
+        std::copy(std::begin(src.trueAnomalyCoefficients),
+                  std::end(src.trueAnomalyCoefficients),
+                  dst.trueAnomalyCoefficients.begin());
+        dst.anomalyFlag = src.anomalyFlag;
+    }
+    return OEStateEphemConfig::create(config.centralBodyGravitationalParameter,
+                                      config.numberOfArcs,
+                                      config.ephemerisTimeJ2000,
+                                      config.vehicleTimeOffset,
+                                      arcs);
+}
+}  // namespace
+
+OEStateEphemAlgorithmHandle* OEStateEphemAlgorithm_create(const OEStateEphemConfig_c* config) {
+    return reinterpret_cast<OEStateEphemAlgorithmHandle*>(new ::OEStateEphemAlgorithm(configFromC(*config)));
 }
 
 void OEStateEphemAlgorithm_destroy(OEStateEphemAlgorithmHandle* self) {
     delete reinterpret_cast<::OEStateEphemAlgorithm*>(self);
 }
 
+void OEStateEphemAlgorithm_setConfig(OEStateEphemAlgorithmHandle* self, const OEStateEphemConfig_c* config) {
+    reinterpret_cast<::OEStateEphemAlgorithm*>(self)->setConfig(configFromC(*config));
+}
+
 CartesianState_c OEStateEphemAlgorithm_update(OEStateEphemAlgorithmHandle* self, const uint64_t callTime) {
-    orbitalMotion::CartesianState result = reinterpret_cast<::OEStateEphemAlgorithm*>(self)->update(callTime);
+    const orbitalMotion::CartesianState result = reinterpret_cast<::OEStateEphemAlgorithm*>(self)->update(callTime);
     CartesianState_c out;
     out.position[0] = result.position[0];
     out.position[1] = result.position[1];
@@ -20,177 +61,6 @@ CartesianState_c OEStateEphemAlgorithm_update(OEStateEphemAlgorithmHandle* self,
     out.velocity[0] = result.velocity[0];
     out.velocity[1] = result.velocity[1];
     out.velocity[2] = result.velocity[2];
-    return out;
-}
-
-void OEStateEphemAlgorithm_setCentralBodyGravitationalParameter(OEStateEphemAlgorithmHandle* self,
-                                                                const double gravitationalParameter) {
-    reinterpret_cast<::OEStateEphemAlgorithm*>(self)->setCentralBodyGravitationalParameter(gravitationalParameter);
-}
-
-double OEStateEphemAlgorithm_getCentralBodyGravitationalParameter(const OEStateEphemAlgorithmHandle* self) {
-    return reinterpret_cast<const ::OEStateEphemAlgorithm*>(self)->getCentralBodyGravitationalParameter();
-}
-
-void OEStateEphemAlgorithm_setNumberOfArcs(OEStateEphemAlgorithmHandle* self, const unsigned int arcs) {
-    reinterpret_cast<::OEStateEphemAlgorithm*>(self)->setNumberOfArcs(arcs);
-}
-
-unsigned int OEStateEphemAlgorithm_getNumberOfArcs(const OEStateEphemAlgorithmHandle* self) {
-    return reinterpret_cast<const ::OEStateEphemAlgorithm*>(self)->getNumberOfArcs();
-}
-
-void OEStateEphemAlgorithm_setEphemerisTimeJ2000(OEStateEphemAlgorithmHandle* self, const double ephemerisJ2000) {
-    reinterpret_cast<::OEStateEphemAlgorithm*>(self)->setEphemerisTimeJ2000(ephemerisJ2000);
-}
-
-double OEStateEphemAlgorithm_getEphemerisTimeJ2000(const OEStateEphemAlgorithmHandle* self) {
-    return reinterpret_cast<const ::OEStateEphemAlgorithm*>(self)->getEphemerisTimeJ2000();
-}
-
-void OEStateEphemAlgorithm_setVehicleTimeOffset(OEStateEphemAlgorithmHandle* self, const double timeOffset) {
-    reinterpret_cast<::OEStateEphemAlgorithm*>(self)->setVehicleTimeOffset(timeOffset);
-}
-
-double OEStateEphemAlgorithm_getVehicleTimeOffset(const OEStateEphemAlgorithmHandle* self) {
-    return reinterpret_cast<const ::OEStateEphemAlgorithm*>(self)->getVehicleTimeOffset();
-}
-
-void OEStateEphemAlgorithm_setArcNumberOfCoefficients(OEStateEphemAlgorithmHandle* self,
-                                                      const unsigned int arcNumber,
-                                                      const unsigned int numberOfCoefficients) {
-    reinterpret_cast<::OEStateEphemAlgorithm*>(self)->setArcNumberOfCoefficients(arcNumber, numberOfCoefficients);
-}
-
-unsigned int OEStateEphemAlgorithm_getArcNumberOfCoefficients(const OEStateEphemAlgorithmHandle* self,
-                                                              const unsigned int arcNumber) {
-    return reinterpret_cast<const ::OEStateEphemAlgorithm*>(self)->getArcNumberOfCoefficients(arcNumber);
-}
-
-void OEStateEphemAlgorithm_setArcMiddleTime(OEStateEphemAlgorithmHandle* self,
-                                            const unsigned int arcNumber,
-                                            const double timeMiddle) {
-    reinterpret_cast<::OEStateEphemAlgorithm*>(self)->setArcMiddleTime(arcNumber, timeMiddle);
-}
-
-double OEStateEphemAlgorithm_getArcMiddleTime(const OEStateEphemAlgorithmHandle* self, const unsigned int arcNumber) {
-    return reinterpret_cast<const ::OEStateEphemAlgorithm*>(self)->getArcMiddleTime(arcNumber);
-}
-
-void OEStateEphemAlgorithm_setArcRadiusTime(OEStateEphemAlgorithmHandle* self,
-                                            const unsigned int arcNumber,
-                                            const double timeRadius) {
-    reinterpret_cast<::OEStateEphemAlgorithm*>(self)->setArcRadiusTime(arcNumber, timeRadius);
-}
-
-double OEStateEphemAlgorithm_getArcRadiusTime(const OEStateEphemAlgorithmHandle* self, const unsigned int arcNumber) {
-    return reinterpret_cast<const ::OEStateEphemAlgorithm*>(self)->getArcRadiusTime(arcNumber);
-}
-
-void OEStateEphemAlgorithm_setArcAnomalyFlag(OEStateEphemAlgorithmHandle* self,
-                                             const unsigned int arcNumber,
-                                             const AnomalyType anomalyFlag) {
-    reinterpret_cast<::OEStateEphemAlgorithm*>(self)->setArcAnomalyFlag(arcNumber, anomalyFlag);
-}
-
-AnomalyType OEStateEphemAlgorithm_getArcAnomalyFlag(const OEStateEphemAlgorithmHandle* self,
-                                                    const unsigned int arcNumber) {
-    return reinterpret_cast<const ::OEStateEphemAlgorithm*>(self)->getArcAnomalyFlag(arcNumber);
-}
-
-void OEStateEphemAlgorithm_setArcRadiusPeriapsisCoefficients(OEStateEphemAlgorithmHandle* self,
-                                                             const unsigned int arcNumber,
-                                                             const OeCoefficients* coefficients) {
-    std::array<double, kMaxOeCoeff> arr;
-    std::copy(coefficients->data, coefficients->data + kMaxOeCoeff, arr.begin());
-    reinterpret_cast<::OEStateEphemAlgorithm*>(self)->setArcRadiusPeriapsisCoefficients(arcNumber, arr);
-}
-
-OeCoefficients OEStateEphemAlgorithm_getArcRadiusPeriapsisCoefficients(const OEStateEphemAlgorithmHandle* self,
-                                                                       const unsigned int arcNumber) {
-    auto arr = reinterpret_cast<const ::OEStateEphemAlgorithm*>(self)->getArcRadiusPeriapsisCoefficients(arcNumber);
-    OeCoefficients out;
-    std::copy(arr.begin(), arr.end(), out.data);
-    return out;
-}
-
-void OEStateEphemAlgorithm_setArcEccentricityCoefficients(OEStateEphemAlgorithmHandle* self,
-                                                          const unsigned int arcNumber,
-                                                          const OeCoefficients* coefficients) {
-    std::array<double, kMaxOeCoeff> arr;
-    std::copy(coefficients->data, coefficients->data + kMaxOeCoeff, arr.begin());
-    reinterpret_cast<::OEStateEphemAlgorithm*>(self)->setArcEccentricityCoefficients(arcNumber, arr);
-}
-
-OeCoefficients OEStateEphemAlgorithm_getArcEccentricityCoefficients(const OEStateEphemAlgorithmHandle* self,
-                                                                    const unsigned int arcNumber) {
-    auto arr = reinterpret_cast<const ::OEStateEphemAlgorithm*>(self)->getArcEccentricityCoefficients(arcNumber);
-    OeCoefficients out;
-    std::copy(arr.begin(), arr.end(), out.data);
-    return out;
-}
-
-void OEStateEphemAlgorithm_setArcInclinationCoefficients(OEStateEphemAlgorithmHandle* self,
-                                                         const unsigned int arcNumber,
-                                                         const OeCoefficients* coefficients) {
-    std::array<double, kMaxOeCoeff> arr;
-    std::copy(coefficients->data, coefficients->data + kMaxOeCoeff, arr.begin());
-    reinterpret_cast<::OEStateEphemAlgorithm*>(self)->setArcInclinationCoefficients(arcNumber, arr);
-}
-
-OeCoefficients OEStateEphemAlgorithm_getArcInclinationCoefficients(const OEStateEphemAlgorithmHandle* self,
-                                                                   const unsigned int arcNumber) {
-    auto arr = reinterpret_cast<const ::OEStateEphemAlgorithm*>(self)->getArcInclinationCoefficients(arcNumber);
-    OeCoefficients out;
-    std::copy(arr.begin(), arr.end(), out.data);
-    return out;
-}
-
-void OEStateEphemAlgorithm_setArcArgPeriapsisCoefficients(OEStateEphemAlgorithmHandle* self,
-                                                          const unsigned int arcNumber,
-                                                          const OeCoefficients* coefficients) {
-    std::array<double, kMaxOeCoeff> arr;
-    std::copy(coefficients->data, coefficients->data + kMaxOeCoeff, arr.begin());
-    reinterpret_cast<::OEStateEphemAlgorithm*>(self)->setArcArgPeriapsisCoefficients(arcNumber, arr);
-}
-
-OeCoefficients OEStateEphemAlgorithm_getArcArgPeriapsisCoefficients(const OEStateEphemAlgorithmHandle* self,
-                                                                    const unsigned int arcNumber) {
-    auto arr = reinterpret_cast<const ::OEStateEphemAlgorithm*>(self)->getArcArgPeriapsisCoefficients(arcNumber);
-    OeCoefficients out;
-    std::copy(arr.begin(), arr.end(), out.data);
-    return out;
-}
-
-void OEStateEphemAlgorithm_setArcRaanCoefficients(OEStateEphemAlgorithmHandle* self,
-                                                  const unsigned int arcNumber,
-                                                  const OeCoefficients* coefficients) {
-    std::array<double, kMaxOeCoeff> arr;
-    std::copy(coefficients->data, coefficients->data + kMaxOeCoeff, arr.begin());
-    reinterpret_cast<::OEStateEphemAlgorithm*>(self)->setArcRaanCoefficients(arcNumber, arr);
-}
-
-OeCoefficients OEStateEphemAlgorithm_getArcRaanCoefficients(const OEStateEphemAlgorithmHandle* self,
-                                                            const unsigned int arcNumber) {
-    auto arr = reinterpret_cast<const ::OEStateEphemAlgorithm*>(self)->getArcRaanCoefficients(arcNumber);
-    OeCoefficients out;
-    std::copy(arr.begin(), arr.end(), out.data);
-    return out;
-}
-
-void OEStateEphemAlgorithm_setArcTrueAnomalyCoefficients(OEStateEphemAlgorithmHandle* self,
-                                                         const unsigned int arcNumber,
-                                                         const OeCoefficients* coefficients) {
-    std::array<double, kMaxOeCoeff> arr;
-    std::copy(coefficients->data, coefficients->data + kMaxOeCoeff, arr.begin());
-    reinterpret_cast<::OEStateEphemAlgorithm*>(self)->setArcTrueAnomalyCoefficients(arcNumber, arr);
-}
-
-OeCoefficients OEStateEphemAlgorithm_getArcTrueAnomalyCoefficients(const OEStateEphemAlgorithmHandle* self,
-                                                                   const unsigned int arcNumber) {
-    auto arr = reinterpret_cast<const ::OEStateEphemAlgorithm*>(self)->getArcTrueAnomalyCoefficients(arcNumber);
-    OeCoefficients out;
-    std::copy(arr.begin(), arr.end(), out.data);
     return out;
 }
 

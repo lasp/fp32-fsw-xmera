@@ -7,29 +7,32 @@
 #include <architecture/messaging/messaging.h>
 #include <architecture/msgPayloadDef/MotorStepCommandMsgPayload.h>
 #include <architecture/msgPayloadDef/StepperMotorMsgPayload.h>
-#include <array>
+#include <stdint.h>
+#include <memory>
+#include <numbers>
 
 /*! @brief Stepper Motor Controller Xmera Adapter
  *
  * Reads the motor's absolute step position and motion status from the stepper motor dynamics
  * module and delegates controller decisions to StepperMotorControllerAlgorithm.
  */
-class StepperMotorController : public SysModel {
+class StepperMotorController final : public SysModel {
    public:
     StepperMotorController() = default;
-    ~StepperMotorController() final = default;
+    ~StepperMotorController() override = default;
 
-    void reset(uint64_t currentSimNanos) override;
-    void updateState(uint64_t currentSimNanos) override;
+    void reset(uint64_t callTime) override;
+    void updateState(uint64_t callTime) override;
 
-    void setStepAngle(float stepAngleIn);
-    float getStepAngle() const;
-    void setMotorAngleRange(float minAngleIn, float maxAngleIn);
-    std::array<float, 2> getMotorAngleRange() const;
-    void setSettleCountMax(uint32_t settleCountMaxIn);
-    uint32_t getSettleCountMax() const;
-    void setMinStepCommand(uint32_t minStepCommandIn);
-    uint32_t getMinStepCommand() const;
+    void reconfigure() const;
+    void reInitialize();
+
+    // Phase 1: public config properties -- set before reset().
+    float stepAngle{};                                 //!< [rad/step] angle per motor step (must be set before reset())
+    float minAngle{0.0F};                              //!< [rad] lower bound of the motor travel range
+    float maxAngle{2.0F * std::numbers::pi_v<float>};  //!< [rad] upper bound of the motor travel range
+    uint32_t settleCountMax{10};                       //!< [ticks] settling duration after stop
+    uint32_t minStepCommand{1};  //!< [steps] minimum step delta magnitude that triggers a command (must be > 0)
 
     ReadFunctor<MotorAngleRefMsgF32Payload> motorRefAngleInMsg;  //!< Input msg for the motor reference angle
     ReadFunctor<StepperMotorMsgPayload>
@@ -37,7 +40,8 @@ class StepperMotorController : public SysModel {
     Message<MotorStepCommandMsgPayload> motorStepCommandOutMsg;  //!< Output msg for commanded motor steps
 
    private:
-    StepperMotorControllerAlgorithm algorithm{};
+    StepperMotorControllerConfig toConfig() const;
+    std::unique_ptr<StepperMotorControllerAlgorithm> algorithm = nullptr;
 };
 
 #endif

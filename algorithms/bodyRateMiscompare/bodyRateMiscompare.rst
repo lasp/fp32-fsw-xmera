@@ -2,7 +2,8 @@ Executive Summary
 -----------------
 This module compares body rate estimates from an IMU and a star tracker. If the two rates differ by more than a
 configurable threshold for a configurable number of consecutive updates, the module reports a fault and outputs the IMU
-rate. Otherwise it outputs the star tracker rate. Once a fault is declared it persists until the module is reset.
+rate. Otherwise it outputs the star tracker rate. Once a fault is declared it persists across resets; re-applying the
+configuration clears it.
 
 Message Connection Descriptions
 -------------------------------
@@ -22,10 +23,10 @@ user from Python.
     * - stBodyInMsg
       - :ref:`STAttMsgPayload`
       - star tracker attitude input message (uses omega_BN_B)
-    * - navAttMsg
-      - :ref:`NavAttMsgPayload`
+    * - navAttOutMsg
+      - :ref:`NavAttMsgF32Payload`
       - navigation output message containing the selected body rate
-    * - rateFaultMsg
+    * - rateFaultOutMsg
       - :ref:`BodyRateFaultMsgPayload`
       - fault output message indicating IMU and star tracker miscompare
 
@@ -48,13 +49,13 @@ The following table lists all the module parameters that can be set.
       - [rad/s]
       - 0.0
       - Euclidean norm threshold for rate miscompare detection
-      - Must be strictly positive (checked in setter)
+      - Must be finite and strictly positive (validated when the config is built in ``reset()``)
     * - faultPersistenceLimit
       - uint32_t
       - [-]
       - 1
       - Number of consecutive threshold violations required to declare a fault
-      - Must be >= 1 (checked in setter)
+      - Must be >= 1 (validated when the config is built in ``reset()``)
     * - useImuRates
       - bool
       - [-]
@@ -125,21 +126,23 @@ a fault and outputs the IMU rate. Otherwise, it outputs the star tracker rate. T
 indicating whether the fault was detected.
 
 Once a fault has been declared, the algorithm continues to output the IMU rate on all subsequent calls. The persistence
-counter is no longer evaluated. Note that the settable ``useImuRates`` parameter is not modified by the algorithm
-internally; instead, an internal flag tracks the fault state. To fully recover from a detected fault, the caller must
-call ``reset()`` to clear the persistence counter and ``setUseImuRates(false)`` to clear the internal fault state and
-re-enable the miscompare logic.
+counter is no longer evaluated. The configured ``useImuRates`` value is held in the immutable configuration; an internal
+flag tracks the latched fault state separately. To fully recover from a detected fault, the caller can call
+``reInitializeAll()`` (which clears both the persistence counter and the latched fault), or trigger a module ``reset()``
+(which reconstructs the algorithm and likewise clears all state).
 
-The ``reset()`` method sets the persistence counter back to zero but does not clear the internal fault state. This
-allows the user to reset the counter independently of the rate source selection.
+The ``reInitialize()`` method sets the persistence counter back to zero but preserves the latched fault state,
+allowing the counter to be cleared independently of the rate source selection. ``reInitializeAll()`` clears both, and
+the module-level ``reset()`` reconstructs the algorithm to produce a fully cleared state.
 
-The ``useImuRates`` parameter can be set by the user to force the algorithm to output IMU rates without waiting for a
-fault to be detected. When set to true, the algorithm bypasses the miscompare logic and always outputs the IMU rate.
+The ``useImuRates`` configuration value forces the algorithm to output IMU rates without waiting for a fault to be
+detected. When set to true, the algorithm bypasses the miscompare logic and always outputs the IMU rate.
 
 Algorithm Assumptions and Limitations
 -------------------------------------
 - The two input rates must be expressed in the same frame and units.
-- A declared fault persists until both ``reset()`` and ``setUseImuRates(false)`` are called.
+- A declared fault persists across ``reInitialize()`` (which clears only the persistence counter); ``reInitializeAll()``
+  (or a module ``reset()``, which reconstructs the algorithm) clears the latched fault.
 - The algorithm does not validate the physical plausibility of the input rates beyond finite arithmetic.
 
 Module Description (Xmera Usage)
@@ -166,7 +169,10 @@ Typical usage in Python is::
     module.imuSensorBodyInMsg.subscribeTo(imu_msg)
     module.stBodyInMsg.subscribeTo(st_msg)
 
-The output body rate is available on `navAttMsg`, and the fault status is available on `rateFaultMsg`.
+The configuration properties (``bodyRateThreshold``, ``faultPersistenceLimit``, ``useImuRates``) must be set before
+``reset()`` is called: the adapter builds and validates the immutable configuration at reset, raising on invalid values.
+
+The output body rate is available on `navAttOutMsg`, and the fault status is available on `rateFaultOutMsg`.
 
 The ``faultPersistenceLimit`` parameter (default 1) controls how many consecutive threshold violations are required
 before the fault is declared. Setting it to 1 means the fault triggers on the first violation.

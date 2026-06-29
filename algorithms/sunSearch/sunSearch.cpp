@@ -13,6 +13,15 @@ void SunSearch::reset(const uint64_t callTime) {
     this->algorithm = std::make_unique<SunSearchAlgorithm>(config);
 }
 
+SunSearchConfig SunSearch::toConfig() const { return SunSearchConfig::create(this->rotations); }
+
+void SunSearch::reconfigure() const {
+    if (!this->algorithm) {
+        throw XmeraLifecycleException("SunSearch reset() has not been called.");
+    }
+    this->algorithm->setConfig(this->toConfig());
+}
+
 void SunSearch::updateState(const uint64_t callTime) {
     if (!this->algorithm) {
         throw XmeraLifecycleException("SunSearch reset() has not been called.");
