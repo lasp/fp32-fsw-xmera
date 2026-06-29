@@ -21,15 +21,19 @@ struct CallLog {
     std::vector<std::pair<Kind, double>> entries;
 };
 
-// Filter which records the time/measruement update calls
+// Filter which records the time/measruement update calls. timeUpdate /
+// measurementUpdate return true (valid) so applySequential follows its success path.
 struct RecordingFilter {
     CallLog* log = nullptr;
-    void timeUpdate(double dt) {
+    bool timeUpdate(double dt) {
         if (log) log->entries.push_back({CallLog::Kind::TimeUpdate, dt});
+        return true;
     }
-    void measurementUpdate(double const& m) {
+    bool measurementUpdate(double const& m) {
         if (log) log->entries.push_back({CallLog::Kind::MeasurementUpdate, m});
+        return true;
     }
+    void clear() {}
 };
 
 static_assert(SequentialFilter<RecordingFilter, double>);

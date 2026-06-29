@@ -22,12 +22,15 @@ struct CallLog {
 
 struct RecordingFilter {
     CallLog* log = nullptr;
-    void timeUpdate(double dt) {
+    bool timeUpdate(double dt) {
         if (log) log->entries.push_back({CallLog::Kind::TimeUpdate, dt});
+        return true;
     }
-    void measurementUpdate(double const&) {
+    bool measurementUpdate(double const&) {
         if (log) log->entries.push_back({CallLog::Kind::MeasurementUpdate, 0.0});
+        return true;
     }
+    void clear() {}
 };
 
 }  // namespace
