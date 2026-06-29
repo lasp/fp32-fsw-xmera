@@ -10,6 +10,7 @@
 
 #include <Eigen/Core>
 
+#include <cmath>
 #include <math.h>
 #include <cmath>
 
