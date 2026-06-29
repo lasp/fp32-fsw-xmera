@@ -142,18 +142,19 @@ Standalone Algorithm (C++ API)
 
 **Configuration**
 
-The detection threshold is set via ``setOmegaThreshold()`` / ``getOmegaThreshold()``.
-The threshold must be strictly positive; a zero or negative value throws ``fsw::invalid_argument``.
+Configuration is supplied as an immutable ``MimuMajorityVoteConfig``, built via the validating
+factory ``MimuMajorityVoteConfig::create(omegaThreshold, faultPersistenceLimit)``:
 
-The fault persistence limit is set via ``setFaultPersistenceLimit()`` / ``getFaultPersistenceLimit()``.
-It must be at least 1 (default); zero throws ``fsw::invalid_argument``. A value of 1
-triggers the fault immediately on first detection.
+- ``omegaThreshold`` (rad/s) must be finite and strictly positive.
+- ``faultPersistenceLimit`` must be strictly positive; a value of 1 triggers the fault immediately
+  on first detection.
+
+``create()`` throws ``fsw::invalid_argument`` on any invalid parameter. Constructing the algorithm
+from a config validates and arms it; ``reInitialize()`` clears the fault persistence counters.
 
 .. code-block:: cpp
 
-    MimuMajorityVoteAlgorithm alg{};
-    alg.setOmegaThreshold(0.05F);        // rad/s
-    alg.setFaultPersistenceLimit(3U);    // require 3 consecutive detections
+    MimuMajorityVoteAlgorithm alg{MimuMajorityVoteConfig::create(0.05F, 3U)};  // 0.05 rad/s, 3 detections
 
     std::array<Eigen::Vector3f, kMimuCount> imuOmegas_BN_B{};
     imuOmegas_BN_B.at(0) = omega0;
@@ -194,8 +195,9 @@ The Xmera module is instantiated and configured from Python as follows::
     module = mimuMajorityVoteF32.MimuMajorityVote()
     module.modelTag = "mimuMajorityVote"
 
-    # Set the detection threshold (rad/s)
-    module.omegaThreshold = omegaThresholdRadPerSec
+    # Set the detection parameters (validated when the module is reset)
+    module.omegaThreshold = omegaThresholdRadPerSec   # rad/s, must be > 0
+    module.faultPersistenceLimit = 3                  # must be >= 1
 
     # Connect exactly 3 ImuMessage objects
     for imu_msg in imu_input_messages:  # must have exactly 3 entries
@@ -204,6 +206,11 @@ The Xmera module is instantiated and configured from Python as follows::
         module.addImuInput(imu_entry)
 
     scSim.AddModelToTask(taskName, module)
+
+``reset()`` builds the validated configuration from the public parameters (raising
+``fsw::invalid_argument`` if a parameter is invalid) and constructs the algorithm. ``reConfigure()``
+re-applies the current public parameters to the running algorithm, and ``reInitialize()`` clears its
+fault persistence counters.
 
 The voted angular velocity is available on ``module.imuSensorBodyOutMsg`` and the
 fault status on ``module.mimuFaultMsg``. The ``mimuFaultMsg`` payload fields are:
