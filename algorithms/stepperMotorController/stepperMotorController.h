@@ -23,6 +23,8 @@ class StepperMotorController final : public SysModel {
 
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
+
+    void reconfigure() const;
     void reInitialize();
 
     // Phase 1: public config properties -- set before reset().
@@ -38,6 +40,7 @@ class StepperMotorController final : public SysModel {
     Message<MotorStepCommandMsgPayload> motorStepCommandOutMsg;  //!< Output msg for commanded motor steps
 
    private:
+    StepperMotorControllerConfig toConfig() const;
     std::unique_ptr<StepperMotorControllerAlgorithm> algorithm = nullptr;
 };
 

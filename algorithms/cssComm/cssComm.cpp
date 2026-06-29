@@ -18,6 +18,17 @@ void CssComm::reset(uint64_t callTime) {
     this->algorithm = std::make_unique<CssCommAlgorithm>(config);
 }
 
+CssCommConfig CssComm::toConfig() const {
+    return CssCommConfig::create(this->numSensors, this->maxSensorValues, this->chebyCount, this->chebyPolynomials);
+}
+
+void CssComm::reconfigure() const {
+    if (!this->algorithm) {
+        throw XmeraLifecycleException("CssComm reset() has not been called.");
+    }
+    this->algorithm->setConfig(this->toConfig());
+}
+
 /*! This method takes the raw sensor data from the coarse sun sensors and
  converts that information to the format used by the CSS nav.
  @return void

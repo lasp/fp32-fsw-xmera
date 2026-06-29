@@ -20,6 +20,8 @@ class OEStateEphem : public SysModel {
     ~OEStateEphem() override = default;
 
     void updateState(uint64_t callTime) override;
+
+    void reconfigure();
     void reset(uint64_t callTime) override;
 
     Message<EphemerisMsgF32Payload> stateFitOutMsg;                    //!< [-] output navigation message for pos/vel
@@ -62,6 +64,7 @@ class OEStateEphem : public SysModel {
 
    private:
     std::array<ChebyshevFitArc, kMaxOeRecords> fitCoefficients{};
+    OEStateEphemConfig toConfig();
     std::unique_ptr<OEStateEphemAlgorithm> algorithm = nullptr;
 };
 

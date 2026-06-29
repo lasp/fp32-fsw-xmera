@@ -49,6 +49,30 @@ void RwMotorTorque::reset(const uint64_t callTime) {
     this->algorithm = std::make_unique<RwMotorTorqueAlgorithm>(config);
 }
 
+RwMotorTorqueConfig RwMotorTorque::toConfig() {
+    const RWArrayConfigMsgF32Payload rwParams = this->rwParamsInMsg();
+    RwMotorTorqueArrayConfiguration rwConfiguration{};
+    rwConfiguration.numRW = static_cast<uint32_t>(rwParams.numRW);
+    rwConfiguration.GsMatrix_B = cArrayToEigenMatrix<float, 3, kMaxNumRw>(rwParams.GsMatrix_B);
+
+    RwMotorTorqueAvailability availability{};
+    if (this->rwAvailInMsg.isLinked()) {
+        const RWAvailabilityMsgPayload wheelsAvailability = this->rwAvailInMsg();
+        for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
+            availability.wheelAvailability[i] = wheelsAvailability.wheelAvailability[i];
+        }
+    }
+
+    return RwMotorTorqueConfig::create(this->controlAxes_B, rwConfiguration, availability, this->omegaGain);
+}
+
+void RwMotorTorque::reconfigure() {
+    if (!this->algorithm) {
+        throw XmeraLifecycleException("RwMotorTorque reset() has not been called.");
+    }
+    this->algorithm->setConfig(this->toConfig());
+}
+
 /*! Computes the reaction wheel torques given a commanded torque on the spacecraft
  @return void
  @param callTime The clock time at which the function was called (nanoseconds)

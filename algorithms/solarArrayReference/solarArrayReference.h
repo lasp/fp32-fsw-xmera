@@ -21,6 +21,8 @@ class SolarArrayReference final : public SysModel {
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
 
+    void reconfigure() const;
+
     // Phase 1: public config properties -- set before reset().
     Eigen::Vector3f driveAxis = Eigen::Vector3f::Zero();      //!< [-] solar array drive axis in body frame
     Eigen::Vector3f surfaceNormal = Eigen::Vector3f::Zero();  //!< [-] solar array surface normal at zero rotation
@@ -36,6 +38,7 @@ class SolarArrayReference final : public SysModel {
     Message<MotorAngleRefMsgF32Payload> solarArrayRefOutMsg;  //!< output msg containing the solar array reference angle
 
    private:
+    SolarArrayReferenceConfig toConfig() const;
     std::unique_ptr<SolarArrayReferenceAlgorithm> algorithm = nullptr;  //!< algorithm instance
 };
 

@@ -17,6 +17,8 @@ class ThrFiringRemainder final : public SysModel {
    public:
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
+
+    void reconfigure();
     void reInitialize();
 
     // Phase 1: public config properties — set before reset()
@@ -32,6 +34,7 @@ class ThrFiringRemainder final : public SysModel {
     ReadFunctor<THRArrayConfigMsgF32Payload> thrConfInMsg;     //!< The name of the thruster cluster Input message
 
    private:
+    ThrFiringRemainderConfig toConfig();
     std::unique_ptr<ThrFiringRemainderAlgorithm> algorithm = nullptr;
 };
 

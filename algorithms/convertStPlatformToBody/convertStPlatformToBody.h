@@ -23,12 +23,15 @@ class ConvertStPlatformToBody : public SysModel {
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
 
+    void reconfigure() const;
+
     Eigen::Matrix3f dcm_CB = Eigen::Matrix3f::Identity();  //!< [-] body-to-case mounting DCM (orthonormal, det +1)
 
     ReadFunctor<STSensorMsgPayload> stSensorInMsg;  //!< Input msg
     Message<STAttMsgPayload> stAttOutMsg;           //!< Output msg
 
    private:
+    ConvertStPlatformToBodyConfig toConfig() const;
     std::unique_ptr<ConvertStPlatformToBodyAlgorithm> algorithm = nullptr;
 };
 

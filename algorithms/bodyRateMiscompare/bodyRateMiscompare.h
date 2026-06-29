@@ -19,6 +19,8 @@ class BodyRateMiscompare final : public SysModel {
 
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
+
+    void reconfigure() const;
     void reInitialize();
     void reInitializeAll();
 
@@ -32,6 +34,7 @@ class BodyRateMiscompare final : public SysModel {
     Message<BodyRateFaultMsgPayload> rateFaultOutMsg;            //!< The rate fault output message
 
    private:
+    BodyRateMiscompareConfig toConfig() const;
     std::unique_ptr<BodyRateMiscompareAlgorithm> algorithm = nullptr;
 };
 

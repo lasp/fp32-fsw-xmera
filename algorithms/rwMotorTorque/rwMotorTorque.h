@@ -23,6 +23,8 @@ class RwMotorTorque : public SysModel {
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
 
+    void reconfigure();
+
     Eigen::Matrix3f controlAxes_B{Eigen::Matrix3f::Zero()};  //!< [-] control axes mapping matrix CB
     float omegaGain{};  //!< [-] RW null-space feedback gain (>= 0; 0 disables the null-space term)
 
@@ -36,6 +38,7 @@ class RwMotorTorque : public SysModel {
     ReadFunctor<RWSpeedMsgF32Payload> rwDesiredSpeedsInMsg;    //!< optional desired RW speeds (null-space)
 
    private:
+    RwMotorTorqueConfig toConfig();
     std::unique_ptr<RwMotorTorqueAlgorithm> algorithm = nullptr;
 };
 

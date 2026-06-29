@@ -37,6 +37,17 @@ void BodyRateMiscompare::reset(uint64_t const callTime) {
     this->algorithm = std::make_unique<BodyRateMiscompareAlgorithm>(config);
 }
 
+BodyRateMiscompareConfig BodyRateMiscompare::toConfig() const {
+    return BodyRateMiscompareConfig::create(this->bodyRateThreshold, this->faultPersistenceLimit, this->useImuRates);
+}
+
+void BodyRateMiscompare::reconfigure() const {
+    if (!this->algorithm) {
+        throw XmeraLifecycleException("BodyRateMiscompare reset() has not been called.");
+    }
+    this->algorithm->setConfig(this->toConfig());
+}
+
 /*! This method reads the IMU and star tracker messages, calls the body rate miscompare algorithm, and writes the
  output messages.
  @return void

@@ -16,6 +16,8 @@ class CssComm : public SysModel {
     ~CssComm() override = default;
 
     void updateState(uint64_t callTime) override;
+
+    void reconfigure() const;
     void reset(uint64_t callTime) override;
 
     uint32_t numSensors{};  //!< [-] number of CSS sensors to process
@@ -28,6 +30,7 @@ class CssComm : public SysModel {
     Message<CSSArraySensorMsgF32Payload> cssArrayOutMsg;       //!< output message of corrected CSS data
 
    private:
+    CssCommConfig toConfig() const;
     std::unique_ptr<CssCommAlgorithm> algorithm = nullptr;
 };
 

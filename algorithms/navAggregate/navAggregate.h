@@ -32,6 +32,8 @@ class NavAggregate final : public SysModel {
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
 
+    void reconfigure() const;
+
     // Phase 1: public config properties -- set before reset().
     uint32_t attTimeIdx{};     //!< [-] index of the message providing the attitude message time
     uint32_t transTimeIdx{};   //!< [-] index of the message providing the translation message time
@@ -50,6 +52,7 @@ class NavAggregate final : public SysModel {
     Message<NavTransMsgF32Payload> navTransOutMsg;  /*!< blended translation navigation output message */
 
    private:
+    NavAggregateConfig toConfig() const;
     std::unique_ptr<NavAggregateAlgorithm> algorithm = nullptr;
 };
 

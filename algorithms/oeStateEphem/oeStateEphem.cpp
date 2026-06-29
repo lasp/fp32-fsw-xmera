@@ -25,6 +25,22 @@ void OEStateEphem::reset(uint64_t callTime) {
     this->algorithm = std::make_unique<OEStateEphemAlgorithm>(config);
 }
 
+OEStateEphemConfig OEStateEphem::toConfig() {
+    const auto timePayload = this->clockCorrInMsg();
+    return OEStateEphemConfig::create(this->centralBodyGravitationalParameter,
+                                      this->numberOfArcs,
+                                      timePayload.ephemerisTime,
+                                      timePayload.vehicleClockTime,
+                                      this->fitCoefficients);
+}
+
+void OEStateEphem::reconfigure() {
+    if (!this->algorithm) {
+        throw XmeraLifecycleException("OEStateEphem reset() has not been called.");
+    }
+    this->algorithm->setConfig(this->toConfig());
+}
+
 /*! This method takes the current time and computes the state of the object using that time and the stored
     Chebyshev coefficients. If the time provided is outside the specified range, the position vectors rail
     high/low appropriately.

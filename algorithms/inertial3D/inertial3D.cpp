@@ -12,6 +12,15 @@ void Inertial3D::reset(const uint64_t callTime) {
     this->algorithm = std::make_unique<Inertial3DAlgorithm>(config);
 }
 
+Inertial3DConfig Inertial3D::toConfig() const { return Inertial3DConfig::create(this->sigma_RN); }
+
+void Inertial3D::reconfigure() const {
+    if (!this->algorithm) {
+        throw XmeraLifecycleException("Inertial3D reset() has not been called.");
+    }
+    this->algorithm->setConfig(this->toConfig());
+}
+
 /*! This method creates a fixed attitude reference message. The desired orientation is
     defined by the module's sigma_RN configuration.
  @return void

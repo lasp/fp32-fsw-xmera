@@ -19,6 +19,17 @@ void MrpRotation::reset(const uint64_t callTime) {
     this->algorithm = std::make_unique<MrpRotationAlgorithm>(config);
 }
 
+MrpRotationConfig MrpRotation::toConfig() const {
+    return MrpRotationConfig::create(this->sigma_RR0, this->omega_RR0_R, this->controlPeriod);
+}
+
+void MrpRotation::reconfigure() const {
+    if (!this->algorithm) {
+        throw XmeraLifecycleException("MrpRotation reset() has not been called.");
+    }
+    this->algorithm->setConfig(this->toConfig());
+}
+
 /*! @brief Take the input attitude reference frame and superimpose the algorithm's MRP rotation on
  top of it, producing the output guidance reference message.
  @param callTime The clock time at which the function was called (nanoseconds).

@@ -57,6 +57,46 @@ void MrpSteering::reset(const uint64_t callTime) {
     this->algorithm = std::make_unique<MrpSteeringAlgorithm>(config);
 }
 
+MrpSteeringConfig MrpSteering::toConfig() {
+    const Eigen::Matrix3f inertia = cArrayToEigenMatrix3(this->vehConfigInMsg().ISCPntB_B);
+
+    std::optional<InputRwData> rwConfiguration;
+    if (this->rwParamsInMsg.isLinked()) {
+        const RWArrayConfigMsgF32Payload rwConfigParams = this->rwParamsInMsg();
+        InputRwData rwData{};
+        rwData.GsMatrix_B = cArrayToEigenMatrix<float, 3, RW_EFF_CNT>(rwConfigParams.GsMatrix_B);
+        std::copy(std::begin(rwConfigParams.JsList), std::end(rwConfigParams.JsList), std::begin(rwData.JsList));
+        rwData.numRW = static_cast<uint32_t>(rwConfigParams.numRW);
+        if (this->rwAvailInMsg.isLinked()) {
+            const RWAvailabilityMsgPayload wheelAvailabilityMsg = this->rwAvailInMsg();
+            std::copy(std::begin(wheelAvailabilityMsg.wheelAvailability),
+                      std::end(wheelAvailabilityMsg.wheelAvailability),
+                      std::begin(rwData.wheelAvailability));
+        }
+        rwConfiguration = rwData;
+    }
+
+    const MrpSteeringControlParameters controlParameters{
+        .K1 = this->K1,
+        .K3 = this->K3,
+        .omegaMax = this->omegaMax,
+        .ignoreOuterLoopFeedforward = this->ignoreOuterLoopFeedforward,
+        .P = this->P,
+        .Ki = this->Ki,
+        .integralLimit = this->integralLimit,
+        .controlPeriod = this->controlPeriod,
+    };
+
+    return MrpSteeringConfig::create(controlParameters, this->knownTorquePntB_B, inertia, rwConfiguration);
+}
+
+void MrpSteering::reconfigure() {
+    if (!this->algorithm) {
+        throw XmeraLifecycleException("MrpSteering reset() has not been called.");
+    }
+    this->algorithm->setConfig(this->toConfig());
+}
+
 void MrpSteering::reInitialize() {
     if (!this->algorithm) {
         throw XmeraLifecycleException("MrpSteering reset() has not been called.");

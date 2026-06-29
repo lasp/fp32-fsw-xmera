@@ -24,6 +24,22 @@ void MrpPD::reset(uint64_t callTime) {
     this->algorithm = std::make_unique<MrpPDAlgorithm>(config);
 }
 
+MrpPDConfig MrpPD::toConfig() {
+    Eigen::Matrix3f inertia = Eigen::Matrix3f::Identity();
+    if (this->vehConfigInMsg.isWritten()) {
+        inertia = cArrayToEigenMatrix3(this->vehConfigInMsg().ISCPntB_B);
+    }
+
+    return MrpPDConfig::create(this->K, this->P, this->knownTorquePntB_B, inertia);
+}
+
+void MrpPD::reconfigure() {
+    if (!this->algorithm) {
+        throw XmeraLifecycleException("MrpPD reset() has not been called.");
+    }
+    this->algorithm->setConfig(this->toConfig());
+}
+
 /*! Update method for the BSK module adapter interface. This method also calls the algorithm update method.
  @return void
  @param callTime [ns] Time the method is called

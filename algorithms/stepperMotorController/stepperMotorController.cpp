@@ -23,6 +23,20 @@ void StepperMotorController::reset(const uint64_t callTime) {
     this->algorithm = std::make_unique<StepperMotorControllerAlgorithm>(config);
 }
 
+StepperMotorControllerConfig StepperMotorController::toConfig() const {
+    return StepperMotorControllerConfig::create(this->stepAngle,
+                                                StepperMotorAngleRange{this->minAngle, this->maxAngle},
+                                                this->settleCountMax,
+                                                this->minStepCommand);
+}
+
+void StepperMotorController::reconfigure() const {
+    if (!this->algorithm) {
+        throw XmeraLifecycleException("StepperMotorController reset() has not been called.");
+    }
+    this->algorithm->setConfig(this->toConfig());
+}
+
 void StepperMotorController::reInitialize() {
     if (!this->algorithm) {
         throw XmeraLifecycleException("StepperMotorController reset() has not been called.");

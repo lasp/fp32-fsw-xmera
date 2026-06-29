@@ -42,6 +42,31 @@ void ThrFiringSchmitt::reset(uint64_t callTime) {
     this->algorithm = std::make_unique<ThrFiringSchmittAlgorithm>(config);
 }
 
+ThrFiringSchmittConfig ThrFiringSchmitt::toConfig() {
+    const auto [numThrusters, thrusters] = this->thrConfInMsg();
+    ThrFiringSchmittThrusterArray thrusterArray{};
+    thrusterArray.numThrusters = numThrusters;
+    for (std::uint32_t i = 0U; i < numThrusters && i < kMaxThrusterCount; ++i) {
+        thrusterArray.maxThrust.at(i) = thrusters[i].maxThrust;
+    }
+
+    const ThrFiringSchmittControlParameters controlParameters{this->levelOn,
+                                                              this->levelOff,
+                                                              this->thrMinFireTime,
+                                                              this->controlPeriod,
+                                                              this->onTimeSaturationFactor,
+                                                              this->thrustPulsingRegime};
+
+    return ThrFiringSchmittConfig::create(thrusterArray, controlParameters);
+}
+
+void ThrFiringSchmitt::reconfigure() {
+    if (!this->algorithm) {
+        throw XmeraLifecycleException("ThrFiringSchmitt reset() has not been called.");
+    }
+    this->algorithm->setConfig(this->toConfig());
+}
+
 void ThrFiringSchmitt::reInitialize() {
     if (!this->algorithm) {
         throw XmeraLifecycleException("ThrFiringSchmitt reset() has not been called.");
