@@ -22,6 +22,8 @@ class MrpSteering final : public SysModel {
 
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
+
+    void reconfigure();
     void reInitialize();
 
     // Phase 1: public config properties -- set before reset().
@@ -43,6 +45,7 @@ class MrpSteering final : public SysModel {
     ReadFunctor<RWArrayConfigMsgF32Payload> rwParamsInMsg;   //!< (optional) RW configuration parameter input message
 
    private:
+    MrpSteeringConfig toConfig();
     std::unique_ptr<MrpSteeringAlgorithm> algorithm = nullptr;
 };
 

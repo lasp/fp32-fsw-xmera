@@ -22,6 +22,8 @@ class BodyEphemeris {
 class EphemeridesRecenter : public SysModel {
    public:
     void updateState(uint64_t callTime) override;
+
+    void reconfigure() const;
     void reset(uint64_t callTime) override;
 
     void addBodyEphemerisToRecenter(const BodyEphemeris& ephemerisBody);
@@ -40,6 +42,7 @@ class EphemeridesRecenter : public SysModel {
     std::array<BodyEphemeris, MAX_NUM_CHANGE_BODIES> ephemerides{};
     int newCentralBodyId{};
     int previousCentralBodyId{};
+    EphemeridesRecenterConfig toConfig() const;
     std::unique_ptr<EphemeridesRecenterAlgorithm> algorithm = nullptr;
 };
 

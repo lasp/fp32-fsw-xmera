@@ -53,6 +53,31 @@ void NavAggregate::reset(uint64_t callTime) {
     }
 }
 
+NavAggregateConfig NavAggregate::toConfig() const {
+    const NavAggregateAttSelection attSelection{
+        .attTimeIdx = this->attTimeIdx,
+        .attIdx = this->attIdx,
+        .rateIdx = this->rateIdx,
+        .sunIdx = this->sunIdx,
+        .attMsgCount = this->attMsgCount,
+    };
+    const NavAggregateTransSelection transSelection{
+        .transTimeIdx = this->transTimeIdx,
+        .posIdx = this->posIdx,
+        .velIdx = this->velIdx,
+        .dvIdx = this->dvIdx,
+        .transMsgCount = this->transMsgCount,
+    };
+    return NavAggregateConfig::create(attSelection, transSelection);
+}
+
+void NavAggregate::reconfigure() const {
+    if (!this->algorithm) {
+        throw XmeraLifecycleException("NavAggregate reset() has not been called.");
+    }
+    this->algorithm->setConfig(this->toConfig());
+}
+
 /*! This method takes the navigation message snippets created by the various
     navigation components in the FSW and aggregates them into a single complete
     navigation message.

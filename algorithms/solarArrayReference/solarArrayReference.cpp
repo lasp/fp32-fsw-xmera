@@ -28,6 +28,21 @@ void SolarArrayReference::reset(uint64_t callTime) {
     this->algorithm = std::make_unique<SolarArrayReferenceAlgorithm>(config);
 }
 
+SolarArrayReferenceConfig SolarArrayReference::toConfig() const {
+    return SolarArrayReferenceConfig::create(SolarArrayAxes{this->driveAxis, this->surfaceNormal},
+                                             this->alignmentThreshold,
+                                             this->trackingMode,
+                                             this->specifiedArrayAngle,
+                                             this->offsetAngle);
+}
+
+void SolarArrayReference::reconfigure() const {
+    if (!this->algorithm) {
+        throw XmeraLifecycleException("SolarArrayReference reset() has not been called.");
+    }
+    this->algorithm->setConfig(this->toConfig());
+}
+
 /*! Read the navigation, reference, and hinged-rigid-body messages, run the solar array reference law, and write the
  commanded array reference angle output message.
  @param callTime The clock time at which the function was called (nanoseconds)

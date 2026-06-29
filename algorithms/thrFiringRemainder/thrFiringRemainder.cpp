@@ -37,6 +37,27 @@ void ThrFiringRemainder::reset(uint64_t callTime) {
     this->algorithm = std::make_unique<ThrFiringRemainderAlgorithm>(config);
 }
 
+ThrFiringRemainderConfig ThrFiringRemainder::toConfig() {
+    const auto [numThrusters, thrusters] = this->thrConfInMsg();
+    ThrFiringRemainderThrusterArray thrusterArray{};
+    thrusterArray.numThrusters = numThrusters;
+    for (std::uint32_t i = 0U; i < numThrusters && i < kMaxThrusterCount; ++i) {
+        thrusterArray.maxThrust.at(i) = thrusters[i].maxThrust;
+    }
+
+    const ThrFiringControlParameters controlParameters{
+        this->thrMinFireTime, this->controlPeriod, this->onTimeSaturationFactor, this->thrustPulsingRegime};
+
+    return ThrFiringRemainderConfig::create(thrusterArray, controlParameters);
+}
+
+void ThrFiringRemainder::reconfigure() {
+    if (!this->algorithm) {
+        throw XmeraLifecycleException("ThrFiringRemainder reset() has not been called.");
+    }
+    this->algorithm->setConfig(this->toConfig());
+}
+
 void ThrFiringRemainder::reInitialize() {
     if (!this->algorithm) {
         throw XmeraLifecycleException("ThrFiringRemainder reset() has not been called.");

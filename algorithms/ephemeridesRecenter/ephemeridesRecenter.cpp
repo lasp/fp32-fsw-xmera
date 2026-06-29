@@ -26,6 +26,24 @@ void EphemeridesRecenter::reset(const uint64_t callTime) {
     this->algorithm = std::make_unique<EphemeridesRecenterAlgorithm>(config);
 }
 
+EphemeridesRecenterConfig EphemeridesRecenter::toConfig() const {
+    std::array<int, MAX_NUM_CHANGE_BODIES> bodyIds{};
+    std::array<int, MAX_NUM_CHANGE_BODIES> originalCentralBodyIds{};
+    for (size_t i = 0U; i < this->ephemeridesNumber; ++i) {
+        bodyIds.at(i) = this->ephemerides.at(i).bodySpiceId;
+        originalCentralBodyIds.at(i) = this->ephemerides.at(i).originalCentralBodyId;
+    }
+    return EphemeridesRecenterConfig::create(
+        this->newCentralBodyId, this->previousCentralBodyId, bodyIds, originalCentralBodyIds, this->ephemeridesNumber);
+}
+
+void EphemeridesRecenter::reconfigure() const {
+    if (!this->algorithm) {
+        throw XmeraLifecycleException("EphemeridesRecenter reset() has not been called.");
+    }
+    this->algorithm->setConfig(this->toConfig());
+}
+
 /*! @brief This method recomputes the body positions and velocities relative to
     the base body ephemeris and writes out updated ephemeris position and velocity
     for each body.

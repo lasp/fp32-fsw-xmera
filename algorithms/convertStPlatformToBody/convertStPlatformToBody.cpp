@@ -12,6 +12,17 @@ void ConvertStPlatformToBody::reset(uint64_t callTime) {
     this->algorithm = std::make_unique<ConvertStPlatformToBodyAlgorithm>(config);
 }
 
+ConvertStPlatformToBodyConfig ConvertStPlatformToBody::toConfig() const {
+    return ConvertStPlatformToBodyConfig::create(this->dcm_CB);
+}
+
+void ConvertStPlatformToBody::reconfigure() const {
+    if (!this->algorithm) {
+        throw XmeraLifecycleException("ConvertStPlatformToBody reset() has not been called.");
+    }
+    this->algorithm->setConfig(this->toConfig());
+}
+
 void ConvertStPlatformToBody::updateState(const uint64_t callTime) {
     if (!this->algorithm) {
         throw XmeraLifecycleException("ConvertStPlatformToBody reset() has not been called.");

@@ -19,11 +19,14 @@ class Inertial3D final : public SysModel {
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
 
+    void reconfigure() const;
+
     Eigen::Vector3f sigma_RN = Eigen::Vector3f::Zero();  //!< [-] MRP from inertial frame N to reference frame R
 
     Message<AttRefMsgF32Payload> attRefOutMsg;  //!< reference attitude output message
 
    private:
+    Inertial3DConfig toConfig() const;
     std::unique_ptr<Inertial3DAlgorithm> algorithm = nullptr;
 };
 

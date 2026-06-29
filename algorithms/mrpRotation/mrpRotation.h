@@ -17,6 +17,8 @@ class MrpRotation final : public SysModel {
 
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
+
+    void reconfigure() const;
     void reInitialize();
 
     // Phase 1: public config properties -- set before reset().
@@ -28,6 +30,7 @@ class MrpRotation final : public SysModel {
     ReadFunctor<AttRefMsgF32Payload> attRefInMsg;  //!< guidance reference input message
 
    private:
+    MrpRotationConfig toConfig() const;
     std::unique_ptr<MrpRotationAlgorithm> algorithm = nullptr;
 };
 

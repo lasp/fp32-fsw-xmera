@@ -23,6 +23,8 @@ class MrpPD : public SysModel {
     void reset(uint64_t currentSimNanos) override;
     void updateState(uint64_t currentSimNanos) override;
 
+    void reconfigure();
+
     float K{};  //!< [rad/s] proportional gain applied to MRP errors
     float P{};  //!< [N*m*s] rate-error feedback (derivative) gain
     Eigen::Vector3f knownTorquePntB_B =
@@ -33,6 +35,7 @@ class MrpPD : public SysModel {
     Message<CmdTorqueBodyMsgF32Payload> cmdTorqueOutMsg;     //!< Commanded torque output message
 
    private:
+    MrpPDConfig toConfig();
     std::unique_ptr<MrpPDAlgorithm> algorithm = nullptr;
 };
 
