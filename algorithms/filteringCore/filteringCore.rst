@@ -438,6 +438,35 @@ A worked, compiling reference (real SRUKF, two observation sizes ``MaxCss``
 and 3) lives in
 ``algorithms/sunlineSRuKF/_tests/test_sunlineSRuKFAlgorithm.cpp``.
 
+Assumptions and Limitations
+---------------------------
+
+Heterogeneous rates share one anchor
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+``applySequential`` keeps a single last-measurement anchor
+(``queue.getTimeOfLastMeasurement()``) for **all** measurement kinds, and it
+drops any queued measurement whose ``timeTag`` is earlier than that anchor (the
+``if m.timeTag < tLast: continue`` guard). When two kinds are ingested at
+different frequencies, the faster kind repeatedly advances the shared anchor; if
+the filter time step is small enough that a slower kind's sample then lands *in
+the past* relative to the already-advanced anchor, that slower measurement is
+silently skipped and never folded into the state.
+
+To keep every kind observed you must either:
+
+- **size the filter time step so at least one of each of the N measurement kinds
+  falls within a single** ``update`` **call** — then all kinds are enqueued
+  together and applied in time order, so none lands behind the anchor; or
+- **reduce the rate of the faster kind** relative to the time step.
+
+In other words, avoid time steps so small that a window can hold several
+fast-kind samples but no slow-kind sample.
+
+*Future work* (TBD): track a separate previous-measurement time per measurement
+kind, so a slow kind is sequenced against its own last time rather than against a
+global anchor shared with faster kinds.
+
 How to use a filter
 -------------------
 
