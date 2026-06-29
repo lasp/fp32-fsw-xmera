@@ -30,13 +30,10 @@ class measurement_queue final {
     bool enqueue(double timeTag, Measurement&& measurement) {
         if (this->isFull()) return false;
 
-        std::size_t insertionIndex = this->size;
-        while (insertionIndex > 0) {
+        std::size_t insertionIndex = 0;
+        for (insertionIndex = this->size; insertionIndex > 0; --insertionIndex) {
             if (timeTag <= this->measurements[insertionIndex - 1].value().first) break;
-
             this->measurements[insertionIndex] = std::move(this->measurements[insertionIndex - 1]);
-
-            insertionIndex -= 1;
         }
 
         this->measurements[insertionIndex] = {timeTag, std::move(measurement)};
