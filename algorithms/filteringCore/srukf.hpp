@@ -4,6 +4,7 @@
 #ifndef FILTERING_CORE_SRUKF_HPP
 #define FILTERING_CORE_SRUKF_HPP
 
+#include <utilities/fsw/safeMath.h>
 #include <utilities/fsw/validPSDCheck.h>
 #include <filteringCore/concepts.hpp>
 #include <filteringCore/dynamicsModel.hpp>
@@ -158,7 +159,7 @@ class SRuKF {
         this->cholProcessNoise = choleskyDecomposition<N>(this->processNoise);
 
         this->lambda = Ndouble * (this->alpha * this->alpha - 1.0);
-        this->eta = sqrt(Ndouble + this->lambda);
+        this->eta = safeSqrt(Ndouble + this->lambda);
 
         this->wM(0) = this->lambda / (Ndouble + this->lambda);
         this->wC(0) = this->lambda / (Ndouble + this->lambda) + (1.0 - this->alpha * this->alpha + this->beta);
