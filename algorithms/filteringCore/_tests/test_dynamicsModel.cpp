@@ -11,6 +11,7 @@
 #include <Eigen/Core>
 
 #include <math.h>
+#include <cmath>
 
 namespace filtering {
 namespace {
@@ -117,6 +118,27 @@ TEST(Propagate, HarmonicOscillatorInvariants) {
         EXPECT_NEAR(sFinal.get<Position<1>>()(0), 0.0, 5e-3) << "quarter-period x";
         EXPECT_NEAR(sFinal.get<Velocity<1>>()(0), -1.0, 5e-3) << "quarter-period v";
     }
+}
+
+// The optional integrationStep is honored: a finer sub-step integrates the harmonic
+// oscillator more accurately (less energy drift) than a coarse one, and passing the
+// default explicitly matches omitting the argument.
+TEST(Propagate, IntegrationStepIsHonored) {
+    SpringMassState s0;
+    s0.set<Position<1>>(Eigen::Vector<double, 1>(1.0));  // x0 = 1, v0 = 0
+    double const E0 = energy(s0);
+    SpringMassDyn const d;
+
+    // Steps stay under the kMaxNumberOfSteps cap over one period (T/0.1 ~ 63 < 100).
+    double const coarseDrift = std::abs(energy(propagate(d, s0, {0.0, kSHOPeriod}, 1.0)) - E0);
+    double const fineDrift = std::abs(energy(propagate(d, s0, {0.0, kSHOPeriod}, 0.1)) - E0);
+    EXPECT_LT(fineDrift, coarseDrift) << "smaller integration step should integrate more accurately";
+
+    // Passing the default explicitly equals omitting the argument.
+    SpringMassState const withDefault = propagate(d, s0, {0.0, kSHOPeriod}, kIntegrationStep);
+    SpringMassState const omitted = propagate(d, s0, {0.0, kSHOPeriod});
+    EXPECT_TRUE(withDefault.raw().isApprox(omitted.raw(), 1e-15))
+        << "default argument should match explicit kIntegrationStep";
 }
 
 }  // namespace filtering

@@ -28,22 +28,33 @@ constexpr State rk4(D const& dynamics, State const& X0, double t0, double dt) {
     return X0.add(k1.scale(dt / 6.).add(k2.scale(dt / 3.)).add(k3.scale(dt / 3.)).add(k4.scale(dt / 6.)));
 }
 
-/*! Fixed RK4 sub-step used by `propagate`. */
+/*! Fixed RK4 max steps used by `propagate`. */
+inline constexpr double kMaxNumberOfSteps = 100;
+
+/*! Default RK4 sub-step size used by `propagate` when none is supplied. */
 inline constexpr double kIntegrationStep = 0.2;
 
 /*! Propagate state across a time interval in RK4 sub-steps.
  *  @return state at interval[1]
  *  @param dynamics [-]   callable (t, x) -> dx/dt
  *  @param state    [-]   state at interval[0]
- *  @param interval [s,s] {start, end} time pair */
+ *  @param interval [s,s] {start, end} time pair
+ *  @param integrationStep [s] integration time step (optional, defaults to kIntegrationStep) */
 template <LinearlyCombinable State, Dynamics<State> D>
-constexpr State propagate(D const& dynamics, State state, std::array<double, 2> interval) {
+constexpr State propagate(D const& dynamics,
+                          State state,
+                          std::array<double, 2> interval,
+                          double integrationStep = kIntegrationStep) {
     double t = interval[0];
     double const tFinal = interval[1];
 
-    double const N = ceil((tFinal - t) / kIntegrationStep);
+    double N = ceil((tFinal - t) / integrationStep);
+    if (N > kMaxNumberOfSteps) {
+        integrationStep = (tFinal - t) / kMaxNumberOfSteps;
+        N = kMaxNumberOfSteps;
+    }
     for (int i = 0; i < N; ++i) {
-        double const step = std::min(kIntegrationStep, tFinal - t);
+        double const step = std::min(integrationStep, tFinal - t);
         state = rk4(dynamics, state, t, step);
         t += step;
     }
