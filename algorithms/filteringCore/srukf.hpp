@@ -183,6 +183,17 @@ class SRuKF {
         this->sqrtCovarLastMeasurement = this->sqrtCovar;
     }
 
+    /*! Return the filter state to the previous measurement in the case of a bad update.
+     * Re-configure in case a value became corrupted.
+     */
+    void clear() {
+        this->state = this->stateLastMeasurement;
+        this->covariance = this->covarianceLastMeasurement;
+        this->sqrtCovar = this->sqrtCovarLastMeasurement;
+
+        this->reConfigure();
+    }
+
     /*! Rewind to the last-measurement state and propagate by dt. If dt = 0
      *  the sigma points are populated around the last-measurement state for the
      *  next measurementUpdate but the timeUpdate math isn't done
