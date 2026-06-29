@@ -112,12 +112,34 @@ which the parent ``algorithms/`` include path resolves.
    template (see ``kalmanFilter.hpp``).
 
 ``kalmanFilter.hpp``
-   The ``SequentialFilter<F, M>`` concept — the contract a Kalman-style filter
-   satisfies (``timeUpdate(dt)`` + ``measurementUpdate(m)``).
-   It also defines ``applySequential(queue, filter, callTime)`` — the canonical scheduler
-   that interleaves time and measurement updates relative to the queue's
-   last-measurement time. Alternative scheduling styles (batch, iterated, ...)
-   drop in as new ``apply_*`` free templates without touching the queue.
+   The ``SequentialFilter<F, M>`` concept plus the scheduling free functions.
+   The concept is **deliberately non-prescriptive**: it only requires that a
+   filter *has* a ``timeUpdate(dt)`` and a ``measurementUpdate(m)`` — it says
+   nothing about their return types or side effects. What those methods must
+   actually *do* is fixed instead by the **scheduler you choose**, so the
+   scheduler — not the concept — is where the real contract on the filter's
+   methods lives:
+
+   - ``applySequential(queue, filter, callTime)`` — the basic scheduler.
+     It interleaves ``timeUpdate`` / ``measurementUpdate`` relative to the
+     queue's last-measurement time and **ignores their return values**, so the
+     updates may return ``void``. It trusts every update and always advances the
+     anchor.
+   - ``applySequentialRobust(queue, filter, callTime)`` — the robust scheduler.
+     It **reads each update's outcome**, so ``timeUpdate`` and
+     ``measurementUpdate`` must return a bool-convertible validity (``true`` /
+     has-value on success), and the filter must expose a ``clear()`` that rewinds
+     it to its last good state. On a failed update it calls ``clear()`` and
+     leaves the anchor in place, so a bad measurement can neither corrupt the
+     estimate nor advance the timeline.
+
+   The upshot: the concept keeps the core open — any two update methods satisfy
+   it — while the chosen scheduler *drives the design* of those methods. Pick
+   ``applySequentialRobust`` and you are obliged to make your updates report
+   validity and to implement ``clear()``; pick ``applySequential`` and plain
+   ``void`` updates suffice. Other scheduling styles (batch, iterated, ...) drop
+   in as further ``apply_*`` free templates, each imposing its own method
+   contract, without touching the queue.
 
 ``srukf.hpp``
    The square-root uKF (van der Merwe & Wan, ICASSP 2001) in two layers:
