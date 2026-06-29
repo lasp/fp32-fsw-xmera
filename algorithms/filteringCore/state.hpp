@@ -92,6 +92,9 @@ class StateVector {
     /*! @return const reference to the underlying flat Eigen vector */
     Storage const& raw() const { return this->data; }
 
+    /*! @return true iff every element of the underlying vector is finite */
+    bool allFinite() const { return this->data.allFinite(); }
+
     StateVector add(StateVector const& other) const { return StateVector(this->data + other.data); }
     StateVector scale(double scalar) const { return StateVector(this->data * scalar); }
 
