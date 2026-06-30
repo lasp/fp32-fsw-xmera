@@ -1,120 +1,133 @@
 #include "celestialTwoBodyPointAlgorithm.h"
-#include "utilities/fsw/eigenSupport.h"
-#include "utilities/fsw/freestandingInvalidArgument.h"
 #include "utilities/fsw/rigidBodyKinematics.hpp"
 #include "utilities/fsw/safeMath.h"
+#include <math.h>
+#include <numbers>
 
-void CelestialTwoBodyPointAlgorithm::reset(const bool secCelBodyIsLinked) {
-    this->secCelBodyIsLinked = secCelBodyIsLinked;
+CelestialTwoBodyPointAlgorithm::CelestialTwoBodyPointAlgorithm(const CelestialTwoBodyPointConfig &config)
+    : cfg(config) {
+    setConfig(config);
 }
 
-/*! This method takes the spacecraft and points a specified axis at a named
- celestial body specified in the configuration data.  It generates the
- commanded attitude and assumes that the control errors are computed
- downstream.
- @return AttRefMsgF32Payload
+void CelestialTwoBodyPointAlgorithm::setConfig(const CelestialTwoBodyPointConfig &config) { this->cfg = config; }
+
+/*! This method resets the algorithm state. */
+void CelestialTwoBodyPointAlgorithm::reInitialize() {}
+
+/*! This method fully resets the algorithm state. */
+void CelestialTwoBodyPointAlgorithm::reInitializeAll() { reInitialize(); }
+
+/*! This method computes the attitude reference that points the primary axis at the primary
+ celestial body while aligning a second axis as close as possible toward the secondary
+ celestial body. It generates the commanded attitude and assumes that the control errors are
+ computed downstream.
+ @param primaryBodyState [m, m/s] primary celestial body inertial position and velocity
+ @param secondaryBodyState [m, m/s] secondary celestial body inertial position and velocity
+ @param spacecraftState [m, m/s] spacecraft inertial position and velocity
+ @return attitude reference output
  */
-AttRefMsgF32Payload CelestialTwoBodyPointAlgorithm::update(EphemerisMsgF32Payload& celBodyIn,
-                                                           EphemerisMsgF32Payload& secCelBodyIn,
-                                                           NavTransMsgF32Payload& transNavIn) const {
-    float platAngDiff{}; /* Angle between r_P1 and r_P2 */
+// NOLINTBEGIN(bugprone-easily-swappable-parameters)
+// bugprone-easily-swappable-parameters: the InertialStateInput inputs are documented in the header and
+// follow the standard (primary, secondary, spacecraft) ordering.
+CelestialTwoBodyPointOutput CelestialTwoBodyPointAlgorithm::update(const InertialStateInput &primaryBodyState,
+                                                                   const InertialStateInput &secondaryBodyState,
+                                                                   const InertialStateInput &spacecraftState) const {
+    const Eigen::Vector3d r_PB_N = primaryBodyState.r_N - spacecraftState.r_N;
+    const Eigen::Vector3d v_PB_N = primaryBodyState.v_N - spacecraftState.v_N;
+    Eigen::Vector3d r_SB_N = secondaryBodyState.r_N - spacecraftState.r_N;
+    Eigen::Vector3d v_SB_N = secondaryBodyState.v_N - spacecraftState.v_N;
 
-    const Eigen::Vector3d R_P1B_N =
-        Eigen::Map<const Eigen::Vector3d>(celBodyIn.r_BdyZero_N) - Eigen::Map<const Eigen::Vector3d>(transNavIn.r_BN_N);
-    const Eigen::Vector3d v_P1B_N =
-        Eigen::Map<const Eigen::Vector3d>(celBodyIn.v_BdyZero_N) - Eigen::Map<const Eigen::Vector3d>(transNavIn.v_BN_N);
+    /*! Default reference output */
+    CelestialTwoBodyPointOutput attRefOut{};
 
-    Eigen::Vector3d R_P2B_N{};
-    Eigen::Vector3d v_P2B_N{};
+    /*! Return default reference output if either celestial body is not resolved (if r_PB_N or r_SB_N are zero) */
+    const bool celestialBodiesResolved = r_PB_N.squaredNorm() >= kMinNormSq && r_SB_N.squaredNorm() >= kMinNormSq;
 
-    if (this->secCelBodyIsLinked) {
-        R_P2B_N = Eigen::Map<const Eigen::Vector3d>(secCelBodyIn.r_BdyZero_N) -
-                  Eigen::Map<const Eigen::Vector3d>(transNavIn.r_BN_N);
-        v_P2B_N = Eigen::Map<const Eigen::Vector3d>(secCelBodyIn.v_BdyZero_N) -
-                  Eigen::Map<const Eigen::Vector3d>(transNavIn.v_BN_N);
+    if (celestialBodiesResolved) {
+        /*! Compute angle between celestial bodies */
+        const auto dotProduct1 = static_cast<float>(r_SB_N.normalized().dot(r_PB_N.normalized()));
+        const float celestialBodySeparationAngle = safeAcosf(fabsf(dotProduct1)); /* Angle between r_PB_N and r_SB_N */
 
-        Eigen::Vector3f const R_P2B_N_hat = R_P2B_N.normalized().cast<float>();
-        Eigen::Vector3f const R_P1B_N_hat = R_P1B_N.normalized().cast<float>();
-        const float dotProduct = R_P2B_N_hat.dot(R_P1B_N_hat);
-        platAngDiff = safeAcosf(dotProduct);
+        bool constraintAxisValid = true;
+
+        /*! Update r_SB_N and v_SB_N if celestial bodies are aligned, unless r_PB_N and v_PB_N are collinear (fallback
+         * constraint axis undefined) */
+        if (celestialBodySeparationAngle < this->cfg.getCelestialBodyAlignmentThreshold()) {
+            const auto dotProduct2 = static_cast<float>(r_PB_N.normalized().dot(v_PB_N.normalized()));
+            const float posVelSeparationAngle = safeAcosf(fabsf(dotProduct2)); /* Angle between r_PB_N and v_PB_N */
+            constraintAxisValid = posVelSeparationAngle >= kSmallAngle;
+            if (constraintAxisValid) {
+                r_SB_N = r_PB_N.cross(v_PB_N);
+                v_SB_N = Eigen::Vector3d::Zero();
+            }
+        }
+
+        /*! Nominal algorithm flow if both celestial bodies are resolved and constraint axes are valid */
+        if (constraintAxisValid) {
+            attRefOut = rateAndAccelCalc(r_PB_N, v_PB_N, r_SB_N, v_SB_N);
+        }
     }
-
-    /*! - Cross the P1 states to get R_P2, v_p2 and a_P2 */
-    if (!this->secCelBodyIsLinked || fabsf(platAngDiff) < this->singularityThresh ||
-        fabsf(platAngDiff) > M_PI - this->singularityThresh) {
-        R_P2B_N = R_P1B_N.cross(v_P1B_N);
-        v_P2B_N = Eigen::Vector3d::Zero();
-    }
-
-    AttRefMsgF32Payload attRefOut{};
-
-    /* - Initial computations: R_n, v_n, a_n */
-    const Eigen::Vector3d R_N = R_P1B_N.cross(R_P2B_N);
-    const Eigen::Vector3d v_N = v_P1B_N.cross(R_P2B_N) + R_P1B_N.cross(v_P2B_N);
-    const Eigen::Vector3d a_N = 2 * v_P1B_N.cross(v_P2B_N);
-
-    /* - Reference Frame computation */
-    const Eigen::Vector3f r1_N_hat = R_P1B_N.normalized().cast<float>();
-    const Eigen::Vector3f r3_N_hat = R_N.normalized().cast<float>();
-    const Eigen::Vector3f r2_N_hat = (r3_N_hat.cross(r1_N_hat)).normalized().cast<float>();
-    Eigen::Matrix3f dcm_RN{};
-    dcm_RN.row(0) = r1_N_hat;
-    dcm_RN.row(1) = r2_N_hat;
-    dcm_RN.row(2) = r3_N_hat;
-
-    /* - MRP computation */
-    const Eigen::Vector3f sigma_RN = dcmToMrp(dcm_RN);
-    eigenVectorToCArray(sigma_RN, attRefOut.sigma_RN);
-
-    /* - Reference base-vectors first time-derivative */
-    const Eigen::Vector3f dr1_N_hat =
-        (Eigen::Matrix3f::Identity() - r1_N_hat * r1_N_hat.transpose()) * (v_P1B_N / R_P1B_N.norm()).cast<float>();
-    const Eigen::Vector3f dr3_N_hat =
-        (Eigen::Matrix3f::Identity() - r3_N_hat * r3_N_hat.transpose()) * (v_N / R_N.norm()).cast<float>();
-    const Eigen::Vector3f dr2_N_hat = dr3_N_hat.cross(r1_N_hat) + r3_N_hat.cross(dr1_N_hat);
-
-    /* - Angular velocity computation */
-    Eigen::Vector3f omega_RN_R{};
-    omega_RN_R[0] = r3_N_hat.dot(dr2_N_hat);
-    omega_RN_R[1] = r1_N_hat.dot(dr3_N_hat);
-    omega_RN_R[2] = r2_N_hat.dot(dr1_N_hat);
-    const Eigen::Vector3f omega_RN_N = dcm_RN.transpose() * omega_RN_R;
-    eigenVectorToCArray(omega_RN_N, attRefOut.omega_RN_N);
-
-    /* - Reference base-vectors second time-derivative */
-    const Eigen::Vector3f ddr1_N_hat = -(2 * dr1_N_hat * r1_N_hat.transpose() + r1_N_hat * dr1_N_hat.transpose()) *
-                                       (v_P1B_N / R_P1B_N.norm()).cast<float>();
-    const Eigen::Vector3f ddr3_N_hat =
-        ((Eigen::Matrix3f::Identity() - r3_N_hat * r3_N_hat.transpose()) * a_N.cast<float>() -
-         (2 * dr3_N_hat * r3_N_hat.transpose() + r3_N_hat * dr3_N_hat.transpose()) * v_N.cast<float>()) /
-        R_N.norm();
-    const Eigen::Vector3f ddr2_N_hat =
-        ddr3_N_hat.cross(r1_N_hat) + r3_N_hat.cross(ddr1_N_hat) + 2 * dr3_N_hat.cross(dr1_N_hat);
-
-    /* - Angular acceleration computation */
-    Eigen::Vector3f domega_RN_R{};
-    domega_RN_R[0] = dr3_N_hat.dot(dr2_N_hat) + r3_N_hat.dot(ddr2_N_hat) - omega_RN_R.dot(dr1_N_hat);
-    domega_RN_R[1] = dr1_N_hat.dot(dr3_N_hat) + r1_N_hat.dot(ddr3_N_hat) - omega_RN_R.dot(dr2_N_hat);
-    domega_RN_R[2] = dr2_N_hat.dot(dr1_N_hat) + r2_N_hat.dot(ddr1_N_hat) - omega_RN_R.dot(dr3_N_hat);
-    const Eigen::Vector3f domega_RN_N = dcm_RN.transpose() * domega_RN_R;
-    eigenVectorToCArray(domega_RN_N, attRefOut.domega_RN_N);
 
     return attRefOut;
 }
+// NOLINTEND(bugprone-easily-swappable-parameters)
 
-/**
- * @brief Set the singularity threshold
- * @param thresh singularity threshold
- */
-void CelestialTwoBodyPointAlgorithm::setSingularityThresh(const float thresh) {
-    if (thresh < 0.0) {
-        FSW_THROW_INVALID_ARGUMENT("Singularity threshold must not be negative");
-    }
-    this->singularityThresh = thresh;
+CelestialTwoBodyPointOutput CelestialTwoBodyPointAlgorithm::rateAndAccelCalc(const Eigen::Vector3d &r_PB_N,
+                                                                             const Eigen::Vector3d &v_PB_N,
+                                                                             const Eigen::Vector3d &r_SB_N,
+                                                                             const Eigen::Vector3d &v_SB_N) {
+    /* Compute normal vector to plane of r_PB_N and r_SB_N */
+    const Eigen::Vector3d normalVec_N = r_PB_N.cross(r_SB_N);
+
+    /* Compute inertial time derivative of normal vector */
+    const Eigen::Vector3d normalVecDot_N = v_PB_N.cross(r_SB_N) + r_PB_N.cross(v_SB_N);
+
+    /* Compute inertial acceleration of normal vector */
+    const Eigen::Vector3d normalVecDDot_N = 2 * v_PB_N.cross(v_SB_N);
+
+    /* Reference frame computation */
+    const Eigen::Vector3d r1Hat_N = r_PB_N.normalized();
+    const Eigen::Vector3d r3Hat_N = normalVec_N.normalized();
+    const Eigen::Vector3d r2Hat_N = r3Hat_N.cross(r1Hat_N).normalized();
+    Eigen::Matrix3d dcm_RN = Eigen::Matrix3d::Identity();
+    dcm_RN.row(0) = r1Hat_N;
+    dcm_RN.row(1) = r2Hat_N;
+    dcm_RN.row(2) = r3Hat_N;
+
+    // Construct algorithm output message
+    CelestialTwoBodyPointOutput attRefOut{};
+    attRefOut.sigma_RN = dcmToMrp(Eigen::Matrix3f(dcm_RN.cast<float>()));
+
+    /* Compute inertial time derivative of reference frame basis vectors */
+    const Eigen::Vector3d r1HatDot_N =
+        (Eigen::Matrix3d::Identity() - r1Hat_N * r1Hat_N.transpose()) * v_PB_N / r_PB_N.norm();
+    const Eigen::Vector3d r3HatDot_N =
+        (Eigen::Matrix3d::Identity() - r3Hat_N * r3Hat_N.transpose()) * normalVecDot_N / normalVec_N.norm();
+    const Eigen::Vector3d r2HatDot_N = r3HatDot_N.cross(r1Hat_N) + r3Hat_N.cross(r1HatDot_N);
+
+    /* Reference angular velocity computation */
+    Eigen::Vector3d omega_RN_R = Eigen::Vector3d::Zero();
+    omega_RN_R[0] = r3Hat_N.dot(r2HatDot_N);
+    omega_RN_R[1] = r1Hat_N.dot(r3HatDot_N);
+    omega_RN_R[2] = r2Hat_N.dot(r1HatDot_N);
+    attRefOut.omega_RN_N = (dcm_RN.transpose() * omega_RN_R).cast<float>();
+
+    /* Compute inertial acceleration of reference frame basis vectors */
+    const Eigen::Vector3d r1HatDDot_N =
+        -(2 * r1HatDot_N * r1Hat_N.transpose() + r1Hat_N * r1HatDot_N.transpose()) * v_PB_N / r_PB_N.norm();
+    const Eigen::Vector3d r3HatDDot_N =
+        ((Eigen::Matrix3d::Identity() - r3Hat_N * r3Hat_N.transpose()) * normalVecDDot_N -
+         (2 * r3HatDot_N * r3Hat_N.transpose() + r3Hat_N * r3HatDot_N.transpose()) * normalVecDot_N) /
+        normalVec_N.norm();
+    const Eigen::Vector3d r2HatDDot_N =
+        r3HatDDot_N.cross(r1Hat_N) + r3Hat_N.cross(r1HatDDot_N) + 2 * r3HatDot_N.cross(r1HatDot_N);
+
+    /* Reference angular acceleration computation */
+    Eigen::Vector3d omegaDot_RN_R{};
+    omegaDot_RN_R[0] = r3HatDot_N.dot(r2HatDot_N) + r3Hat_N.dot(r2HatDDot_N) - omega_RN_R.dot(r1HatDot_N);
+    omegaDot_RN_R[1] = r1HatDot_N.dot(r3HatDot_N) + r1Hat_N.dot(r3HatDDot_N) - omega_RN_R.dot(r2HatDot_N);
+    omegaDot_RN_R[2] = r2HatDot_N.dot(r1HatDot_N) + r2Hat_N.dot(r1HatDDot_N) - omega_RN_R.dot(r3HatDot_N);
+    attRefOut.domega_RN_N = (dcm_RN.transpose() * omegaDot_RN_R).cast<float>();
+
+    return attRefOut;
 }
-
-/**
- * @brief Get the singularity threshold
- * @return float singularity threshold
- */
-float CelestialTwoBodyPointAlgorithm::getSingularityThresh() const { return this->singularityThresh; }

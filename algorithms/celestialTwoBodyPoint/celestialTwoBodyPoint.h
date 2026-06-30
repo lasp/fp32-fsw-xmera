@@ -1,5 +1,5 @@
-#ifndef F32XIMERA_CELESTIAL_BODY_POINT_H
-#define F32XIMERA_CELESTIAL_BODY_POINT_H
+#ifndef F32XMERA_CELESTIAL_BODY_POINT_H
+#define F32XMERA_CELESTIAL_BODY_POINT_H
 
 #include <stdint.h>
 
@@ -9,27 +9,33 @@
 #include "msgPayloadDef/NavTransMsgF32Payload.h"
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
+#include <memory>
 
-/*!@brief Data structure for module to compute the two-body celestial pointing navigation solution.
+/*!@brief Celestial two-body pointing attitude guidance adapter.
  */
-class CelestialTwoBodyPoint : public SysModel {
+class CelestialTwoBodyPoint final : public SysModel {
    public:
     CelestialTwoBodyPoint() = default;
     ~CelestialTwoBodyPoint() = default;
 
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
-    void setSingularityThresh(float thresh);
-    float getSingularityThresh() const;
+    void reconfigure() const;
+    void reInitialize();
+    void reInitializeAll();
 
-    Message<AttRefMsgF32Payload> attRefOutMsg;            //!< The name of the output message*/
-    ReadFunctor<EphemerisMsgF32Payload> celBodyInMsg;     //!< The name of the celestial body message*/
-    ReadFunctor<EphemerisMsgF32Payload> secCelBodyInMsg;  //!< The name of the secondary body to constrain point*/
-    ReadFunctor<NavTransMsgF32Payload> transNavInMsg;     //!< The name of the incoming attitude command*/
+    // Phase 1: Public config properties — set before reset()
+    float celestialBodyAlignmentThreshold =
+        1e-3F;  //!< [rad] Angle threshold for primary and secondary celestial body alignment check
+
+    Message<AttRefMsgF32Payload> attRefOutMsg;                  //!< Attitude reference output message
+    ReadFunctor<EphemerisMsgF32Payload> primaryCelBodyInMsg;    //!< Primary celestial body ephemeris input message
+    ReadFunctor<EphemerisMsgF32Payload> secondaryCelBodyInMsg;  //!< Secondary celestial body ephemeris input message
+    ReadFunctor<NavTransMsgF32Payload> transNavInMsg;           //!< Spacecraft translational navigation input message
 
    private:
-    bool secCelBodyIsLinked{};
-    CelestialTwoBodyPointAlgorithm algorithm{};
+    std::unique_ptr<CelestialTwoBodyPointAlgorithm> algorithm = nullptr;
+    CelestialTwoBodyPointConfig toConfig() const;
 };
 
 #endif

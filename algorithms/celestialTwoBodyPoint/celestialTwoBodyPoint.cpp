@@ -1,50 +1,79 @@
 #include "celestialTwoBodyPoint.h"
+#include "architecture/utilities/eigenSupport.h"
+#include "utilities/xmera/xmeraLifecycleException.h"
 
 #include <stdexcept>
 
 void CelestialTwoBodyPoint::reset(const uint64_t callTime) {
-    this->secCelBodyIsLinked = this->secCelBodyInMsg.isLinked();
-
-    // check if required input messages have been included
     if (!this->transNavInMsg.isLinked()) {
         throw std::invalid_argument("celestialTwoBodyPoint.transNavInMsg was not linked.");
     }
-    if (!this->celBodyInMsg.isLinked()) {
-        throw std::invalid_argument("celestialTwoBodyPoint.celBodyInMsg was not linked.");
+    if (!this->primaryCelBodyInMsg.isLinked()) {
+        throw std::invalid_argument("celestialTwoBodyPoint.primaryCelBodyInMsg was not linked.");
+    }
+    if (!this->secondaryCelBodyInMsg.isLinked()) {
+        throw std::invalid_argument("celestialTwoBodyPoint.secondaryCelBodyInMsg was not linked.");
     }
 
-    this->algorithm.reset(this->secCelBodyIsLinked);
+    // Phase 2: Validate config and create algorithm
+    auto config = CelestialTwoBodyPointConfig::create(this->celestialBodyAlignmentThreshold);
+    this->algorithm = std::make_unique<CelestialTwoBodyPointAlgorithm>(config);
 }
 
-/*! This method takes the spacecraft and points a specified axis at a named
- celestial body specified in the configuration data.  It generates the
- commanded attitude and assumes that the control errors are computed
- downstream.
- @return void
+CelestialTwoBodyPointConfig CelestialTwoBodyPoint::toConfig() const {
+    return CelestialTwoBodyPointConfig::create(this->celestialBodyAlignmentThreshold);
+}
+
+void CelestialTwoBodyPoint::reconfigure() const {
+    if (!this->algorithm) {
+        throw XmeraLifecycleException("CelestialTwoBodyPoint reset() has not been called.");
+    }
+
+    this->algorithm->setConfig(this->toConfig());
+}
+
+/*! @brief Resets algorithm internal states that don't ever have to carry over the next state. */
+void CelestialTwoBodyPoint::reInitialize() {
+    if (!this->algorithm) {
+        throw XmeraLifecycleException("CelestialTwoBodyPoint reset() has not been called.");
+    }
+    this->algorithm->reInitialize();
+}
+
+/*! @brief Fully reset the algorithm state. */
+void CelestialTwoBodyPoint::reInitializeAll() {
+    if (!this->algorithm) {
+        throw XmeraLifecycleException("CelestialTwoBodyPoint reset() has not been called.");
+    }
+    this->algorithm->reInitializeAll();
+}
+
+/*! This method reads the input messages, computes the two-body celestial pointing attitude
+ reference, and writes the attitude reference output message.
  @param callTime The clock time at which the function was called (nanoseconds)
  */
 void CelestialTwoBodyPoint::updateState(const uint64_t callTime) {
-    NavTransMsgF32Payload transNavIn = this->transNavInMsg();
-    EphemerisMsgF32Payload celBodyIn = this->celBodyInMsg();
-    EphemerisMsgF32Payload secCelBodyIn{};
-    if (this->secCelBodyIsLinked) {
-        secCelBodyIn = this->secCelBodyInMsg();
+    if (!this->algorithm) {
+        throw XmeraLifecycleException("CelestialTwoBodyPoint reset() has not been called.");
     }
 
-    AttRefMsgF32Payload attRefOut = this->algorithm.update(celBodyIn, secCelBodyIn, transNavIn);
+    const NavTransMsgF32Payload transNavIn = this->transNavInMsg();
+    const EphemerisMsgF32Payload primaryCelBodyIn = this->primaryCelBodyInMsg();
+    const EphemerisMsgF32Payload secondaryCelBodyIn = this->secondaryCelBodyInMsg();
+    const Eigen::Vector3d r_BN_N = cArrayToEigenVector3<double>(transNavIn.r_BN_N);
+    const Eigen::Vector3d v_BN_N = cArrayToEigenVector3<double>(transNavIn.v_BN_N);
+    const Eigen::Vector3d r_PN_N = cArrayToEigenVector3<double>(primaryCelBodyIn.r_BdyZero_N);
+    const Eigen::Vector3d v_PN_N = cArrayToEigenVector3<double>(primaryCelBodyIn.v_BdyZero_N);
+    const Eigen::Vector3d r_SN_N = cArrayToEigenVector3<double>(secondaryCelBodyIn.r_BdyZero_N);
+    const Eigen::Vector3d v_SN_N = cArrayToEigenVector3<double>(secondaryCelBodyIn.v_BdyZero_N);
+
+    const CelestialTwoBodyPointOutput out = this->algorithm->update(
+        InertialStateInput{r_PN_N, v_PN_N}, InertialStateInput{r_SN_N, v_SN_N}, InertialStateInput{r_BN_N, v_BN_N});
 
     /*! - Write the output message */
-    this->attRefOutMsg.write(&attRefOut, this->moduleID, callTime);
+    AttRefMsgF32Payload attRefOut{};
+    eigenVectorToCArray(out.sigma_RN, attRefOut.sigma_RN);
+    eigenVectorToCArray(out.omega_RN_N, attRefOut.omega_RN_N);
+    eigenVectorToCArray(out.domega_RN_N, attRefOut.domega_RN_N);
+    this->attRefOutMsg.write(attRefOut, this->moduleID, callTime);
 }
-
-/**
- * @brief Set the singularity threshold
- * @param thresh singularity threshold
- */
-void CelestialTwoBodyPoint::setSingularityThresh(const float thresh) { this->algorithm.setSingularityThresh(thresh); }
-
-/**
- * @brief Get the singularity threshold
- * @return float singularity threshold
- */
-float CelestialTwoBodyPoint::getSingularityThresh() const { return this->algorithm.getSingularityThresh(); }

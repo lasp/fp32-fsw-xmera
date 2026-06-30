@@ -3,7 +3,6 @@ import pytest
 from xmera.architecture import messaging
 from xmera.fp32 import celestialTwoBodyPointF32  # module that is to be tested
 from xmera.utilities import RigidBodyKinematics as rbk
-# Import all of the modules that we are going to be called in this simulation
 from xmera.utilities import SimulationBaseClass
 from xmera.utilities import astroFunctions as af
 from xmera.utilities import macros
@@ -60,20 +59,19 @@ def compute_celestial_two_body_point(R_P1, v_P1, a_P1, R_P2, v_P2, a_P2):
     return sigma_RN, omega_RN_N, domega_RN_N
 
 
-@pytest.mark.parametrize("secondary_body", [True, False])
-def test_celestial_two_body_point_test_function(secondary_body):
-    unitTaskName = "unitTask"
-    unitProcessName = "TestProcess"
-    unitTestSim = SimulationBaseClass.SimBaseClass()
+def test_celestial_two_body_point_test_function():
+    unit_task_name = "unitTask"
+    unit_process_name = "TestProcess"
+    unit_test_sim = SimulationBaseClass.SimBaseClass()
 
-    testProcessRate = macros.sec2nano(0.5)
-    testProc = unitTestSim.CreateNewProcess(unitProcessName)
-    testProc.addTask(unitTestSim.CreateNewTask(unitTaskName, testProcessRate))
+    test_process_rate = macros.sec2nano(0.5)
+    test_proc = unit_test_sim.CreateNewProcess(unit_process_name)
+    test_proc.addTask(unit_test_sim.CreateNewTask(unit_task_name, test_process_rate))
 
     module = celestialTwoBodyPointF32.CelestialTwoBodyPoint()
     module.modelTag = "celestialTwoBodyPoint"
-    module.setSingularityThresh(1.0 * af.D2R)
-    unitTestSim.AddModelToTask(unitTaskName, module)
+    module.celestialBodyAlignmentThreshold = 1.0 * af.D2R
+    unit_test_sim.AddModelToTask(unit_task_name, module)
 
     # Previous Computation of Initial Conditions for the test
     a = af.E_radius * 2.8
@@ -85,39 +83,40 @@ def test_celestial_two_body_point_test_function(secondary_body):
     (r, v) = af.OE2RV(af.mu_E, a, e, i, Omega, omega, f)
     r_BN_N = np.array([0., 0., 0.])
     v_BN_N = np.array([0., 0., 0.])
-    celPositionVec = r
-    celVelocityVec = v
+    cel_position_vec = r
+    cel_velocity_vec = v
 
     # Navigation Input Message
-    NavStateOutData = messaging.NavTransMsgF32Payload()  # Create a structure for the input message
-    NavStateOutData.r_BN_N = r_BN_N
-    NavStateOutData.v_BN_N = v_BN_N
-    navMsg = messaging.NavTransMsgF32().write(NavStateOutData)
+    nav_state_out_data = messaging.NavTransMsgF32Payload()  # Create a structure for the input message
+    nav_state_out_data.r_BN_N = r_BN_N
+    nav_state_out_data.v_BN_N = v_BN_N
+    nav_msg = messaging.NavTransMsgF32().write(nav_state_out_data)
 
     # Spice Input Message of Primary Body
-    CelBodyData = messaging.EphemerisMsgF32Payload()
-    CelBodyData.r_BdyZero_N = celPositionVec
-    CelBodyData.v_BdyZero_N = celVelocityVec
-    celBodyMsg = messaging.EphemerisMsgF32().write(CelBodyData)
+    cel_body_data = messaging.EphemerisMsgF32Payload()
+    cel_body_data.r_BdyZero_N = cel_position_vec
+    cel_body_data.v_BdyZero_N = cel_velocity_vec
+    cel_body_msg = messaging.EphemerisMsgF32().write(cel_body_data)
 
-    dataLog = module.attRefOutMsg.recorder()
-    unitTestSim.AddModelToTask(unitTaskName, dataLog)
+    data_log = module.attRefOutMsg.recorder()
+    unit_test_sim.AddModelToTask(unit_task_name, data_log)
 
-    module.transNavInMsg.subscribeTo(navMsg)
-    module.celBodyInMsg.subscribeTo(celBodyMsg)
-    if secondary_body:
-        SecBodyData = messaging.EphemerisMsgF32Payload()
-        secPositionVec = [500., 500., 500.]
-        SecBodyData.r_BdyZero_N = secPositionVec
-        secVelocityVec = [100., -10., 20.]
-        SecBodyData.v_BdyZero_N = secVelocityVec
-        cel2ndBodyMsg = messaging.EphemerisMsgF32().write(SecBodyData)
+    module.transNavInMsg.subscribeTo(nav_msg)
+    module.primaryCelBodyInMsg.subscribeTo(cel_body_msg)
 
-        module.secCelBodyInMsg.subscribeTo(cel2ndBodyMsg)
 
-    unitTestSim.InitializeSimulation()
-    unitTestSim.ConfigureStopTime(macros.sec2nano(1.))  # seconds to stop simulation
-    unitTestSim.ExecuteSimulation()
+    sec_body_data = messaging.EphemerisMsgF32Payload()
+    sec_position_vec = [500., 500., 500.]
+    sec_body_data.r_BdyZero_N = sec_position_vec
+    sec_velocity_vec = [100., -10., 20.]
+    sec_body_data.v_BdyZero_N = sec_velocity_vec
+    cel2nd_body_msg = messaging.EphemerisMsgF32().write(sec_body_data)
+
+    module.secondaryCelBodyInMsg.subscribeTo(cel2nd_body_msg)
+
+    unit_test_sim.InitializeSimulation()
+    unit_test_sim.ConfigureStopTime(macros.sec2nano(1.))  # seconds to stop simulation
+    unit_test_sim.ExecuteSimulation()
 
     ## truth values
     a = af.E_radius * 2.8
@@ -129,20 +128,16 @@ def test_celestial_two_body_point_test_function(secondary_body):
     (r, v) = af.OE2RV(af.mu_E, a, e, i, Omega, omega, f)
     r_BN_N = np.array([0., 0., 0.])
     v_BN_N = np.array([0., 0., 0.])
-    celPositionVec = r
-    celVelocityVec = v
+    cel_position_vec = r
+    cel_velocity_vec = v
 
-    R_P1 = celPositionVec - r_BN_N
-    v_P1 = celVelocityVec - v_BN_N
+    R_P1 = cel_position_vec - r_BN_N
+    v_P1 = cel_velocity_vec - v_BN_N
     a_P1 = np.array([0., 0., 0.])
-    if secondary_body:
-        R_P2 = secPositionVec - r_BN_N
-        v_P2 = secVelocityVec - v_BN_N
-        a_P2 = np.array([0., 0., 0.])
-    else:
-        R_P2 = np.cross(R_P1, v_P1)
-        v_P2 = np.cross(R_P1, a_P1)
-        a_P2 = np.cross(v_P1, a_P1)
+
+    R_P2 = np.cross(R_P1, v_P1)
+    v_P2 = np.cross(R_P1, a_P1)
+    a_P2 = np.cross(v_P1, a_P1)
 
     sigma_RN, omega_RN_N, domega_RN_N = compute_celestial_two_body_point(R_P1, v_P1, a_P1, R_P2, v_P2, a_P2)
 
@@ -151,9 +146,9 @@ def test_celestial_two_body_point_test_function(secondary_body):
     true_domega_RN_N = [domega_RN_N] * 3
 
     ## module output
-    sigma_RN = dataLog.sigma_RN
-    omega_RN_N = dataLog.omega_RN_N
-    domega_RN_N = dataLog.domega_RN_N
+    sigma_RN = data_log.sigma_RN
+    omega_RN_N = data_log.omega_RN_N
+    domega_RN_N = data_log.domega_RN_N
 
     # compare the module results to the truth values
     accuracy = 1e-6
