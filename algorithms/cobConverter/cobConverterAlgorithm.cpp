@@ -5,6 +5,13 @@
 #include "utilities/fsw/timeConstants.h"
 #include <numbers>
 
+// Lambertian phase-angle correction factor (Bhaskaran 1998)
+static constexpr double kLambertianPhaseCoeff = 3.0 * std::numbers::pi / 16.0;
+// Binary phase-angle correction factor (binarized image model)
+static constexpr double kBinaryPhaseCoeff = 4.0 / (3.0 * std::numbers::pi);
+// Full solid angle of a sphere [sr], used in pixel uncertainty scale factor
+static constexpr double kSphereSolidAngle = 4.0 * std::numbers::pi;
+
 /**
  * @brief Compute total COB covariance in image space given unit-vector covariances.
  *
@@ -128,11 +135,11 @@ void CobConverterAlgorithm::computePhaseAngleCorrection(const FilterMsgPayload& 
     this->phi = atan2(shat_C[1], shat_C[0]);                  // sun direction in image plane
     if (this->phaseAngleCorrectionMethod == PhaseAngleCorrectionMethodAlgorithm::LambertianAlg) {
         // Using phase angle correction assuming Lambertian reflectance sphere (Bhaskaran 1998)
-        this->gamma = 3.0 * std::numbers::pi / 16.0 * ((cos(this->alphaPA) + 1.0) * sin(this->alphaPA)) /
+        this->gamma = kLambertianPhaseCoeff * ((cos(this->alphaPA) + 1.0) * sin(this->alphaPA)) /
                       (sin(this->alphaPA) + (std::numbers::pi - this->alphaPA) * cos(this->alphaPA));
     } else if (this->phaseAngleCorrectionMethod == PhaseAngleCorrectionMethodAlgorithm::BinaryAlg) {
         // Using phase angle correction assuming a binarized image (brightness either 0 or 1)
-        this->gamma = 4.0 / (3.0 * std::numbers::pi) * (1.0 - cos(this->alphaPA));
+        this->gamma = kBinaryPhaseCoeff * (1.0 - cos(this->alphaPA));
     }
     this->spacecraftRange = this->sc_position.norm();
     this->Rc = this->objectRadius * this->dX / this->spacecraftRange;  // object radius in pixels
@@ -223,14 +230,13 @@ void CobConverterAlgorithm::computeCameraFrameUncertainty(const FilterMsgPayload
     std::ranges::copy(filterMsgBuffer.covar, std::begin(covariance));
 
     // Compute partials of the phase angle and Geometric model correction
-    const double scaleFactor = sqrt(pixelsFound / (4 * std::numbers::pi));
+    const double scaleFactor = sqrt(pixelsFound / kSphereSolidAngle);
     this->covar_B.setZero();
     if (phaseAngleCorrectionMethod == PhaseAngleCorrectionMethodAlgorithm::BinaryAlg &&
         this->objectRadiusUncertainty > 0) {
         const double constants_deltaR =
-            (4 * this->objectRadius / (3 * std::numbers::pi * this->sc_position.norm()) * (1 - cos(this->alphaPA)) /
-             (1 + pow(4.0 * this->objectRadius / (3.0 * std::numbers::pi * this->sc_position.norm()) *
-                          (1.0 - cos(this->alphaPA)),
+            (kBinaryPhaseCoeff * this->objectRadius / this->sc_position.norm() * (1 - cos(this->alphaPA)) /
+             (1 + pow(kBinaryPhaseCoeff * this->objectRadius / this->sc_position.norm() * (1.0 - cos(this->alphaPA)),
                       2.0)));
 
         const Eigen::RowVector3d deltaBinary_delta_r =
@@ -239,9 +245,8 @@ void CobConverterAlgorithm::computeCameraFrameUncertainty(const FilterMsgPayload
         const double deltaBinary_delta_R = (constants_deltaR / this->objectRadius);
 
         const double deltaBinary_deltaAlpha =
-            (4 * this->objectRadius / (3 * std::numbers::pi * this->sc_position.norm()) /
-             (1 + pow(4.0 * this->objectRadius / (3.0 * std::numbers::pi * this->sc_position.norm()) *
-                          (1.0 - cos(this->alphaPA)),
+            (kBinaryPhaseCoeff * this->objectRadius / this->sc_position.norm() /
+             (1 + pow(kBinaryPhaseCoeff * this->objectRadius / this->sc_position.norm() * (1.0 - cos(this->alphaPA)),
                       2.0)));
 
         const Eigen::Matrix<double, 3, 3> I = Eigen::Matrix3d::Identity();
