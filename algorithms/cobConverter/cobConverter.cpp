@@ -19,7 +19,7 @@ CobConverter::~CobConverter() = default;
  * @throws std::invalid_argument If any required input message link is missing.
  */
 void CobConverter::reset(uint64_t currentSimNanos) {
-    // check that the required message has not been connected
+    // throw if any required message is not connected
     if (!this->opnavCOBInMsg.isLinked()) {
         throw std::invalid_argument("CobConverter.opnavCOBInMsg wasn't connected.");
     }
@@ -70,6 +70,7 @@ void CobConverter::updateState(const uint64_t currentSimNanos) {
 /**
  * @brief Set the object radius.
  * @param radius Object radius in meters (must be > 0).
+ * @throws std::invalid_argument If radius is not > 0.
  */
 void CobConverter::setRadius(const double radius) {
     if (radius <= 0) {
@@ -89,6 +90,7 @@ double CobConverter::getRadius() const {
 /**
  * @brief Set the object radius uncertainty.
  * @param radiusUncertainty Object radius uncertainty in meters (>= 0).
+ * @throws std::invalid_argument If radiusUncertainty is < 0.
  */
 void CobConverter::setRadiusUncertainty(const double radiusUncertainty) {
     if (radiusUncertainty < 0) {
@@ -120,6 +122,7 @@ Eigen::Matrix3d CobConverter::getAttitudeCovariance() const { return this->algor
 /**
  * @brief Set the number of standard deviations for outlier gating.
  * @param num Number of sigmas (> 0).
+ * @throws std::invalid_argument If num is not > 0.
  */
 void CobConverter::setNumStandardDeviations(const double num) {
     if (num <= 0.0) {
@@ -138,6 +141,7 @@ double CobConverter::getNumStandardDeviations() const { return this->algorithm.g
  * @brief Set an explicit standard deviation for the expected COB error.
  * @param num Standard deviation (> 0).
  * @note When set, outlier detection will use this fixed value instead of deriving one.
+ * @throws std::invalid_argument If num is not > 0.
  */
 void CobConverter::setStandardDeviation(const double num) {
     if (num <= 0.0) {

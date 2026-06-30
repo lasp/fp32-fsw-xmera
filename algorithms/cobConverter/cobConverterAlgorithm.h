@@ -70,7 +70,7 @@ class CobConverterAlgorithm {
                              CobConverterDiagnosticMsgPayload& cobConverterDiagnosticBuffer);
     void computeCameraParameters(const CameraModelMsgPayload& cameraSpecs);
     void computeRotations(const NavAttMsgPayload& navAttBuffer);
-    void computePhaseAngleCorrection(const FilterMsgPayload& filterBuffer, const NavAttMsgPayload& sunBuffer);
+    void computePhaseAngleCorrection(const FilterMsgPayload& filterMsgBuffer, const NavAttMsgPayload& sunBuffer);
     std::tuple<Eigen::Vector3d, Eigen::Vector3d> computeCentersOfInterest(const OpNavCOBMsgPayload& cobMsgBuffer) const;
     void computeRelevantVectors(const Eigen::Vector3d& centerOfBrightness, const Eigen::Vector3d& centerOfMass);
     void computeCameraFrameUncertainty(const FilterMsgPayload& filterMsgBuffer, double pixelsFound);
@@ -79,7 +79,7 @@ class CobConverterAlgorithm {
         uint64_t timeTag,
         const Eigen::Vector3d& centerOfMass,
         const Eigen::Vector3d& centerOfBrightness,
-        OpNavUnitVecMsgPayload& uVecCOBMsgBuffer,
+        OpNavUnitVecMsgPayload& uVecMsgBuffer,
         OpNavCOMMsgPayload& comMsgBuffer);
 
     PhaseAngleCorrectionMethodAlgorithm phaseAngleCorrectionMethod;

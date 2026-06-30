@@ -336,6 +336,11 @@ std::tuple<OpNavUnitVecMsgPayload, OpNavCOMMsgPayload> CobConverterAlgorithm::po
  * COM metadata.
  *
  * @param currentSimNanos Current simulation time in nanoseconds.
+ * @param cameraSpecs Camera model specifications.
+ * @param cobMsgBuffer COB measurement payload.
+ * @param navAttBuffer Navigation attitude payload containing MRP sigma_BN.
+ * @param sunBuffer Sun-pointing attitude payload containing vehSunPntBdy.
+ * @param filterMsgBuffer Filter state and covariance payload.
  */
 std::tuple<OpNavUnitVecMsgPayload, OpNavCOMMsgPayload, CobConverterDiagnosticMsgPayload>
 CobConverterAlgorithm::updateState(const uint64_t currentSimNanos,
@@ -406,6 +411,7 @@ static Eigen::Matrix3d computeTotalCobCovariance(const Eigen::Matrix3d& covarNav
  * combined image covariance to perform a sigma-based gate.
  *
  * @param filterMsgBuffer Filter message buffer containing state and covariance.
+ * @param cobConverterDiagnosticBuffer Diagnostic payload populated with the outlier gate result.
  */
 void CobConverterAlgorithm::cobOutlierDetection(const FilterMsgPayload& filterMsgBuffer,
                                                 CobConverterDiagnosticMsgPayload& cobConverterDiagnosticBuffer) {
@@ -458,6 +464,7 @@ void CobConverterAlgorithm::cobOutlierDetection(const FilterMsgPayload& filterMs
 /**
  * @brief Set the object radius.
  * @param radius Object radius in meters (must be > 0).
+ * @throws std::invalid_argument If radius is not > 0.
  */
 void CobConverterAlgorithm::setRadius(const double radius) {
     if (radius <= 0) {
@@ -475,6 +482,7 @@ double CobConverterAlgorithm::getRadius() const { return this->objectRadius; }
 /**
  * @brief Set the object radius uncertainty.
  * @param radiusUncertainty Object radius uncertainty in meters (>= 0).
+ * @throws std::invalid_argument If radiusUncertainty is < 0.
  */
 void CobConverterAlgorithm::setRadiusUncertainty(const double radiusUncertainty) {
     if (radiusUncertainty < 0) {
@@ -506,6 +514,7 @@ Eigen::Matrix3d CobConverterAlgorithm::getAttitudeCovariance() const { return th
 /**
  * @brief Set the number of standard deviations for outlier gating.
  * @param num Number of sigmas (> 0).
+ * @throws std::invalid_argument If num is not > 0.
  */
 void CobConverterAlgorithm::setNumStandardDeviations(const double num) {
     if (num <= 0.0) {
@@ -524,6 +533,7 @@ double CobConverterAlgorithm::getNumStandardDeviations() const { return this->nu
  * @brief Set an explicit standard deviation for the expected COB error.
  * @param num Standard deviation (> 0).
  * @note When set, outlier detection will use this fixed value instead of deriving one.
+ * @throws std::invalid_argument If num is not > 0.
  */
 void CobConverterAlgorithm::setStandardDeviation(const double num) {
     if (num <= 0.0) {
