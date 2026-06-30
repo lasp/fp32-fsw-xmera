@@ -13,8 +13,7 @@ void propertyOutputAlwaysFinite(const Eigen::Vector3f& angVel1,
                                 const Eigen::Vector3f& angVel2,
                                 const Eigen::Vector3f& angVel3,
                                 float omegaThreshold) {
-    MimuMajorityVoteAlgorithm alg{};
-    alg.setOmegaThreshold(omegaThreshold);
+    MimuMajorityVoteAlgorithm alg{MimuMajorityVoteConfig::create(omegaThreshold, 1U)};
 
     std::array<Eigen::Vector3f, kMimuCount> imuOmegas_BN_B{};
     imuOmegas_BN_B.at(0) = angVel1;
@@ -36,8 +35,7 @@ void propertyFaultAndValidConsistency(const Eigen::Vector3f& angVel1,
                                       const Eigen::Vector3f& angVel2,
                                       const Eigen::Vector3f& angVel3,
                                       float omegaThreshold) {
-    MimuMajorityVoteAlgorithm alg{};
-    alg.setOmegaThreshold(omegaThreshold);
+    MimuMajorityVoteAlgorithm alg{MimuMajorityVoteConfig::create(omegaThreshold, 1U)};
 
     std::array<Eigen::Vector3f, kMimuCount> imuOmegas_BN_B{};
     imuOmegas_BN_B.at(0) = angVel1;
@@ -102,8 +100,7 @@ void propertyAverageIsCorrect(const Eigen::Vector3f& angVel1,
                               const Eigen::Vector3f& angVel2,
                               const Eigen::Vector3f& angVel3,
                               float omegaThreshold) {
-    MimuMajorityVoteAlgorithm alg{};
-    alg.setOmegaThreshold(omegaThreshold);
+    MimuMajorityVoteAlgorithm alg{MimuMajorityVoteConfig::create(omegaThreshold, 1U)};
 
     std::array<Eigen::Vector3f, kMimuCount> imuOmegas_BN_B{};
     imuOmegas_BN_B.at(0) = angVel1;
@@ -128,8 +125,7 @@ void propertyAverageIsCorrect(const Eigen::Vector3f& angVel1,
 }
 
 void propertyIdenticalIMUsNoFault(const Eigen::Vector3f& angVel, float omegaThreshold) {
-    MimuMajorityVoteAlgorithm alg{};
-    alg.setOmegaThreshold(omegaThreshold);
+    MimuMajorityVoteAlgorithm alg{MimuMajorityVoteConfig::create(omegaThreshold, 1U)};
 
     std::array<Eigen::Vector3f, kMimuCount> imuOmegas_BN_B{};
     for (size_t i = 0U; i < kMimuCount; ++i) {
@@ -151,8 +147,7 @@ void propertyIdenticalIMUsNoFault(const Eigen::Vector3f& angVel, float omegaThre
 void propertyClearSingleOutlier(const Eigen::Vector3f& baseAngVel, size_t outlierIndex, float omegaThreshold) {
     constexpr float kOutlierFactor = 10.0F;
 
-    MimuMajorityVoteAlgorithm alg{};
-    alg.setOmegaThreshold(omegaThreshold);
+    MimuMajorityVoteAlgorithm alg{MimuMajorityVoteConfig::create(omegaThreshold, 1U)};
 
     std::array<Eigen::Vector3f, kMimuCount> imuOmegas_BN_B{};
     for (size_t i = 0U; i < kMimuCount; ++i) {
@@ -176,8 +171,7 @@ void propertyCyclicPermutationInvariant(const Eigen::Vector3f& angVel1,
                                         const Eigen::Vector3f& angVel2,
                                         const Eigen::Vector3f& angVel3,
                                         float omegaThreshold) {
-    MimuMajorityVoteAlgorithm alg{};
-    alg.setOmegaThreshold(omegaThreshold);
+    MimuMajorityVoteAlgorithm alg{MimuMajorityVoteConfig::create(omegaThreshold, 1U)};
 
     std::array<Eigen::Vector3f, kMimuCount> imuOmegas_BN_B{};
     imuOmegas_BN_B.at(0) = angVel1;

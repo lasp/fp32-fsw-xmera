@@ -1,20 +1,32 @@
 #include "mimuMajorityVoteAlgorithm_c.h"
 #include "mimuMajorityVoteAlgorithm.h"
+#include "mimuMajorityVoteTypes.h"
 
 #include <Eigen/Core>
 
+namespace {
+MimuMajorityVoteConfig configFromC(const MimuMajorityVoteConfig_c& c) {
+    return MimuMajorityVoteConfig::create(c.omegaThreshold, c.faultPersistenceLimit);
+}
+}  // namespace
+
 uint32_t MimuMajorityVoteAlgorithm_getMimuCount(void) { return MIMU_COUNT_C; }
 
-MimuMajorityVoteAlgorithmHandle* MimuMajorityVoteAlgorithm_create(void) {
-    return reinterpret_cast<MimuMajorityVoteAlgorithmHandle*>(new ::MimuMajorityVoteAlgorithm());
+MimuMajorityVoteAlgorithmHandle* MimuMajorityVoteAlgorithm_create(const MimuMajorityVoteConfig_c* config) {
+    return reinterpret_cast<MimuMajorityVoteAlgorithmHandle*>(new ::MimuMajorityVoteAlgorithm(configFromC(*config)));
 }
 
 void MimuMajorityVoteAlgorithm_destroy(MimuMajorityVoteAlgorithmHandle* self) {
     delete reinterpret_cast<::MimuMajorityVoteAlgorithm*>(self);
 }
 
-void MimuMajorityVoteAlgorithm_reset(MimuMajorityVoteAlgorithmHandle* self) {
-    reinterpret_cast<::MimuMajorityVoteAlgorithm*>(self)->reset();
+void MimuMajorityVoteAlgorithm_setConfig(MimuMajorityVoteAlgorithmHandle* self,
+                                         const MimuMajorityVoteConfig_c* config) {
+    reinterpret_cast<::MimuMajorityVoteAlgorithm*>(self)->setConfig(configFromC(*config));
+}
+
+void MimuMajorityVoteAlgorithm_reInitialize(MimuMajorityVoteAlgorithmHandle* self) {
+    reinterpret_cast<::MimuMajorityVoteAlgorithm*>(self)->reInitialize();
 }
 
 MimuMajorityVoteOutput_c MimuMajorityVoteAlgorithm_update(MimuMajorityVoteAlgorithmHandle* self,
@@ -49,20 +61,4 @@ MimuMajorityVoteOutput_c MimuMajorityVoteAlgorithm_update(MimuMajorityVoteAlgori
     }
 
     return out;
-}
-
-void MimuMajorityVoteAlgorithm_setOmegaThreshold(MimuMajorityVoteAlgorithmHandle* self, float value) {
-    reinterpret_cast<::MimuMajorityVoteAlgorithm*>(self)->setOmegaThreshold(value);
-}
-
-float MimuMajorityVoteAlgorithm_getOmegaThreshold(const MimuMajorityVoteAlgorithmHandle* self) {
-    return reinterpret_cast<const ::MimuMajorityVoteAlgorithm*>(self)->getOmegaThreshold();
-}
-
-void MimuMajorityVoteAlgorithm_setFaultPersistenceLimit(MimuMajorityVoteAlgorithmHandle* self, uint32_t value) {
-    reinterpret_cast<::MimuMajorityVoteAlgorithm*>(self)->setFaultPersistenceLimit(value);
-}
-
-uint32_t MimuMajorityVoteAlgorithm_getFaultPersistenceLimit(const MimuMajorityVoteAlgorithmHandle* self) {
-    return reinterpret_cast<const ::MimuMajorityVoteAlgorithm*>(self)->getFaultPersistenceLimit();
 }

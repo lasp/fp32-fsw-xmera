@@ -1,9 +1,13 @@
 #include "mimuMajorityVoteAlgorithm.h"
 
-#include "utilities/fsw/eigenSupport.h"
-#include "utilities/fsw/freestandingInvalidArgument.h"
+MimuMajorityVoteAlgorithm::MimuMajorityVoteAlgorithm(const MimuMajorityVoteConfig& config) : cfg(config) {
+    this->setConfig(config);
+    this->reInitialize();
+}
 
-void MimuMajorityVoteAlgorithm::reset() { this->faultPersistenceCount.fill(0U); }
+void MimuMajorityVoteAlgorithm::setConfig(const MimuMajorityVoteConfig& config) { this->cfg = config; }
+
+void MimuMajorityVoteAlgorithm::reInitialize() { this->faultPersistenceCount.fill(0U); }
 
 MimuMajorityVoteOutput MimuMajorityVoteAlgorithm::update(
     const std::array<Eigen::Vector3f, kMimuCount>& imuOmegas_BN_B) {
@@ -26,11 +30,11 @@ MimuMajorityVoteOutput MimuMajorityVoteAlgorithm::update(
 
     // Update persistence counter for the worst outlier
     bool faultDetected = false;
-    if (output.omegaDifferencesMag.at(maxDiffIndex) >= this->omegaThreshold) {
+    if (output.omegaDifferencesMag.at(maxDiffIndex) >= this->cfg.getOmegaThreshold()) {
         ++this->faultPersistenceCount.at(maxDiffIndex);
 
         // Determine if the outlier has persisted long enough to be faulted
-        if (this->faultPersistenceCount.at(maxDiffIndex) >= this->faultPersistenceLimit) {
+        if (this->faultPersistenceCount.at(maxDiffIndex) >= this->cfg.getFaultPersistenceLimit()) {
             faultDetected = true;
             output.validImus.at(maxDiffIndex) = false;
         }
@@ -57,21 +61,3 @@ MimuMajorityVoteOutput MimuMajorityVoteAlgorithm::update(
 
     return output;
 }
-
-void MimuMajorityVoteAlgorithm::setOmegaThreshold(const float omegaThresholdIn) {
-    if (omegaThresholdIn <= 0.0F) {
-        FSW_THROW_INVALID_ARGUMENT("Zero or negative omegaThreshold is not valid");
-    }
-    this->omegaThreshold = omegaThresholdIn;
-}
-
-float MimuMajorityVoteAlgorithm::getOmegaThreshold() const { return this->omegaThreshold; }
-
-void MimuMajorityVoteAlgorithm::setFaultPersistenceLimit(const uint32_t faultPersistenceLimitIn) {
-    if (faultPersistenceLimitIn <= 0U) {
-        FSW_THROW_INVALID_ARGUMENT("faultPersistenceLimit must be at least 1");
-    }
-    this->faultPersistenceLimit = faultPersistenceLimitIn;
-}
-
-uint32_t MimuMajorityVoteAlgorithm::getFaultPersistenceLimit() const { return this->faultPersistenceLimit; }
