@@ -1,5 +1,5 @@
 #include "flybyPoint.h"
-#include <architecture/utilities/eigenSupport.h>
+#include "utilities/fsw/eigenSupport.h"
 
 FlybyPoint::FlybyPoint() { this->algorithm = FlybyPointAlgorithm(); }
 

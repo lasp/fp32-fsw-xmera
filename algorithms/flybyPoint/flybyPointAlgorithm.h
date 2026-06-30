@@ -1,5 +1,5 @@
-#ifndef _FLYBY_POINT_ALGORITHM_H
-#define _FLYBY_POINT_ALGORITHM_H
+#ifndef F32XMERA_FLYBY_POINT_ALGORITHM_H
+#define F32XMERA_FLYBY_POINT_ALGORITHM_H
 
 #include <architecture/msgPayloadDef/AttRefMsgPayload.h>
 #include <architecture/msgPayloadDef/FlybyDiagnosticMsgPayload.h>
@@ -53,4 +53,4 @@ class FlybyPointAlgorithm {
     double positionKnowledgeSigma = 0;                 //!< Last position used to create profile
 };
 
-#endif
+#endif  // F32XMERA_FLYBY_POINT_ALGORITHM_H

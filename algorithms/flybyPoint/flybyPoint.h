@@ -1,5 +1,5 @@
-#ifndef FLYBY_POINT_H
-#define FLYBY_POINT_H
+#ifndef F32XMERA_FLYBY_POINT_H
+#define F32XMERA_FLYBY_POINT_H
 
 #include "flybyPointAlgorithm.h"
 #include <architecture/_GeneralModuleFiles/sys_model.h>
@@ -39,4 +39,4 @@ class FlybyPoint : public SysModel {
     FlybyPointAlgorithm algorithm;
 };
 
-#endif
+#endif  // F32XMERA_FLYBY_POINT_H

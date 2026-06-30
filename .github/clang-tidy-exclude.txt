@@ -29,6 +29,8 @@ algorithms/ephemeridesRecenter/ephemeridesRecenter.h
 algorithms/ephemeridesRecenter/ephemeridesRecenter.cpp
 algorithms/ephemeridesRecenter/ephemeridesRecenterAlgorithm_c.h
 algorithms/ephemeridesRecenter/ephemeridesRecenterAlgorithm_c.cpp
+algorithms/flybyPoint/flybyPoint.h
+algorithms/flybyPoint/flybyPoint.cpp
 algorithms/forceTorqueThrForceMapping/forceTorqueThrForceMapping.h
 algorithms/forceTorqueThrForceMapping/forceTorqueThrForceMapping.cpp
 algorithms/forceTorqueThrForceMapping/forceTorqueThrForceMappingAlgorithm_c.h
