@@ -1,8 +1,7 @@
 #include "flybyPointAlgorithm.h"
-#include "architecture/utilities/rigidBodyKinematics.hpp"
 #include "utilities/fsw/safeMath.h"
-#include <architecture/utilities/macroDefinitions.h>
 #include "utilities/fsw/rigidBodyKinematics.hpp"
+#include "utilities/fsw/timeConstants.h"
 #include <numbers>
 
 FlybyPointAlgorithm::FlybyPointAlgorithm(const FlybyPointConfig& config) : cfg(config) {}
@@ -32,11 +31,11 @@ AttGuideOutput FlybyPointAlgorithm::updateState(uint64_t currentSimNanos,
     /*! init diagnostic message */
     AttGuideOutput output{};
     /*! compute dt from current time and last filter read time and get new states*/
-    this->dt = static_cast<double>(currentSimNanos - this->lastFilterReadTime) * NANO2SEC;
+    this->dt = static_cast<double>(currentSimNanos - this->lastFilterReadTime) * kNano2Sec;
     if ((this->dt >= this->cfg.getTimeBetweenFilterData()) || this->firstRead) {
         /*! If this is the first read, seed the algorithm with the solution  */
         if (this->firstRead) {
-            this->timeOfFirstRead = static_cast<double>(currentSimNanos) * NANO2SEC;
+            this->timeOfFirstRead = static_cast<double>(currentSimNanos) * kNano2Sec;
             this->firstNavPosition = r_BN_N;
             this->firstNavVelocity = v_BN_N;
             this->computeFlybyParameters(r_BN_N, v_BN_N);
@@ -112,7 +111,7 @@ bool FlybyPointAlgorithm::checkValidity(uint64_t currentSimNanos,
     }
 
     /*! check if the position error exceeds a-priori sigma bound */
-    const double deltaT = static_cast<double>(currentSimNanos) * NANO2SEC - this->timeOfFirstRead;
+    const double deltaT = static_cast<double>(currentSimNanos) * kNano2Sec - this->timeOfFirstRead;
     const double deltaPositionNorm = (r_BN_N - (this->firstNavPosition + deltaT * this->firstNavVelocity)).norm();
     if (deltaPositionNorm > this->cfg.getPositionKnowledgeSigma() && this->cfg.getPositionKnowledgeSigma() > 0) {
         valid = false;
