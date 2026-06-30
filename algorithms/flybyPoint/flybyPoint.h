@@ -2,11 +2,11 @@
 #define F32XMERA_FLYBY_POINT_H
 
 #include "flybyPointAlgorithm.h"
+#include "msgPayloadDef/AttRefMsgF32Payload.h"
+#include "msgPayloadDef/FlybyDiagnosticMsgF32Payload.h"
+#include "msgPayloadDef/NavTransMsgF32Payload.h"
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
-#include <architecture/msgPayloadDef/AttRefMsgPayload.h>
-#include <architecture/msgPayloadDef/FlybyDiagnosticMsgPayload.h>
-#include <architecture/msgPayloadDef/NavTransMsgPayload.h>
 #include <Eigen/Dense>
 
 /*! @brief A class to perform flyby pointing */
@@ -29,9 +29,9 @@ class FlybyPoint : public SysModel {
     double getPositionKnowledgeSigma() const;
     void setPositionKnowledgeSigma(double positionKnowledgeStd);
 
-    ReadFunctor<NavTransMsgPayload> filterInMsg;               //!< input msg relative position w.r.t. asteroid
-    Message<AttRefMsgPayload> attRefOutMsg;                    //!< Attitude reference output message
-    Message<FlybyDiagnosticMsgPayload> flybyDiagnosticOutMsg;  //!< Flyby diagnostic output message
+    ReadFunctor<NavTransMsgF32Payload> filterInMsg;               //!< input msg relative position w.r.t. asteroid
+    Message<AttRefMsgF32Payload> attRefOutMsg;                    //!< Attitude reference output message
+    Message<FlybyDiagnosticMsgF32Payload> flybyDiagnosticOutMsg;  //!< Flyby diagnostic output message
 
    private:
     FlybyPointAlgorithm algorithm;

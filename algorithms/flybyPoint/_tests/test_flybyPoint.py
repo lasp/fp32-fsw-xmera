@@ -62,9 +62,9 @@ def test_flybyPoint_diagnostic_collinearity(
     flyby_guidance.setPositionKnowledgeSigma(pos_knowledge)
     unit_test_sim.AddModelToTask("unit_task", flyby_guidance)
 
-    input_data = messaging.NavTransMsgPayload()
+    input_data = messaging.NavTransMsgF32Payload()
     input_data.v_BN_N = np.array(initial_velocity)
-    filter_msg = messaging.NavTransMsg()
+    filter_msg = messaging.NavTransMsgF32()
     flyby_guidance.filterInMsg.subscribeTo(filter_msg)
 
     # Setup data logging before the simulation is initialized
@@ -125,9 +125,9 @@ def test_flybyPoint_maxrate(
     flyby_guidance.setPositionKnowledgeSigma(pos_knowledge)
     unit_test_sim.AddModelToTask("unit_task", flyby_guidance)
 
-    input_data = messaging.NavTransMsgPayload()
+    input_data = messaging.NavTransMsgF32Payload()
     input_data.v_BN_N = np.array(initial_velocity)
-    filter_msg = messaging.NavTransMsg()
+    filter_msg = messaging.NavTransMsgF32()
     flyby_guidance.filterInMsg.subscribeTo(filter_msg)
 
     # Setup data logging before the simulation is initialized
@@ -188,9 +188,9 @@ def test_flybyPoint_maxacc(
     flyby_guidance.setPositionKnowledgeSigma(pos_knowledge)
     unit_test_sim.AddModelToTask("unit_task", flyby_guidance)
 
-    input_data = messaging.NavTransMsgPayload()
+    input_data = messaging.NavTransMsgF32Payload()
     input_data.v_BN_N = np.array(initial_velocity)
-    filter_msg = messaging.NavTransMsg()
+    filter_msg = messaging.NavTransMsgF32()
     flyby_guidance.filterInMsg.subscribeTo(filter_msg)
 
     # Setup data logging before the simulation is initialized
@@ -252,9 +252,9 @@ def test_flybyPoint_diagnostic_positionknowledge(
     flyby_guidance.setPositionKnowledgeSigma(pos_knowledge)
     unit_test_sim.AddModelToTask("unit_task", flyby_guidance)
 
-    input_data = messaging.NavTransMsgPayload()
+    input_data = messaging.NavTransMsgF32Payload()
     input_data.v_BN_N = np.array(initial_velocity)
-    filter_msg = messaging.NavTransMsg()
+    filter_msg = messaging.NavTransMsgF32()
     flyby_guidance.filterInMsg.subscribeTo(filter_msg)
 
     # Setup data logging before the simulation is initialized
@@ -314,9 +314,9 @@ def flybyPointTestFunction(show_plots, initial_position, initial_velocity, filte
     np.testing.assert_equal(flyby_guidance.getPositionKnowledgeSigma(), pos_knowledge)
     unit_test_sim.AddModelToTask("unit_task", flyby_guidance)
 
-    input_data = messaging.NavTransMsgPayload()
+    input_data = messaging.NavTransMsgF32Payload()
     input_data.v_BN_N = np.array(initial_velocity)
-    filter_msg = messaging.NavTransMsg()
+    filter_msg = messaging.NavTransMsgF32()
     flyby_guidance.filterInMsg.subscribeTo(filter_msg)
 
     # Setup data logging before the simulation is initialized
