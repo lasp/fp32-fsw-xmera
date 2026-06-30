@@ -86,6 +86,42 @@ TEST(MimuMajorityVoteTest, PropertyTestOffNominal) {
     EXPECT_TRUE(out.gyro.imuValid.at(2));
 }
 
+TEST(MimuMajorityVoteTest, IndependentGyroAndAccelVotes) {
+    // The gyro and accel votes are independent: IMU 1 is a clean gyro but an accelerometer outlier,
+    // so it must be reported gyro-valid yet accel-faulted (and excluded only from the accel average).
+    MimuMajorityVoteAlgorithm alg{MimuMajorityVoteConfig::create(0.05F, 1U, 0.05F, 1U)};
+
+    const Eigen::Vector3f baseRate(-0.1F, 0.25F, 0.3F);
+    const Eigen::Vector3f baseAccel(0.0F, 0.0F, 9.8F);
+
+    // All three IMUs agree on angular velocity (no gyro fault).
+    std::array<Eigen::Vector3f, kMimuCount> imuOmegas_BN_B{baseRate, baseRate, baseRate};
+
+    // IMU 1 is a large acceleration outlier; IMUs 0 and 2 agree.
+    std::array<Eigen::Vector3f, kMimuCount> imuAccels_B{
+        baseAccel, baseAccel + Eigen::Vector3f(2.0F, 2.0F, 2.0F), baseAccel};
+
+    auto out = alg.update(imuOmegas_BN_B, imuAccels_B);
+
+    // Gyro vote: no fault, all IMUs valid, full average.
+    EXPECT_FALSE(out.gyro.faultDetected);
+    for (size_t i = 0U; i < kMimuCount; ++i) {
+        EXPECT_TRUE(out.gyro.imuValid.at(i));
+    }
+    for (int i = 0; i < 3; ++i) {
+        EXPECT_NEAR(out.gyro.average[i], baseRate[i], 1e-6);
+    }
+
+    // Accel vote: IMU 1 faulted/excluded, IMUs 0 and 2 valid; accel average excludes IMU 1.
+    EXPECT_TRUE(out.accel.faultDetected);
+    EXPECT_TRUE(out.accel.imuValid.at(0));
+    EXPECT_FALSE(out.accel.imuValid.at(1));
+    EXPECT_TRUE(out.accel.imuValid.at(2));
+    for (int i = 0; i < 3; ++i) {
+        EXPECT_NEAR(out.accel.average[i], baseAccel[i], 1e-6);
+    }
+}
+
 TEST(MimuMajorityVoteTest, PersistenceFaultAndRecovery) {
     MimuMajorityVoteAlgorithm alg{MimuMajorityVoteConfig::create(0.05F, 3U, 1.0F, 1U)};
 
