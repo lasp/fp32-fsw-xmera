@@ -38,8 +38,14 @@ State makeState(Eigen::Vector3d const& sigma, Eigen::Vector3d const& omega) {
 
 // Build a validated configuration from fuzzed scalars. Domains below keep every argument
 // inside its valid range so create() never throws.
-InertialSRuKFConfig makeConfig(double alpha, double beta, double pAtt, double pRate, double q, double stStd,
-                               double gyroStd, State const& initial) {
+InertialSRuKFConfig makeConfig(double alpha,
+                               double beta,
+                               double pAtt,
+                               double pRate,
+                               double q,
+                               double stStd,
+                               double gyroStd,
+                               State const& initial) {
     Eigen::Matrix<double, 6, 1> diag;
     diag << pAtt, pAtt, pAtt, pRate, pRate, pRate;
     Matrix6 const initialCovariance = diag.asDiagonal();
@@ -63,12 +69,28 @@ constexpr double kTol = 1e-9;
 // valid, moves the state toward the measurement, shrinks its covariance block, and keeps
 // the covariance symmetric + PSD + finite.
 // ============================================================================
-void fuzzTimeAndMeasurementUpdates(double alpha, double beta, double pAtt, double pRate, double q, double stStd,
-                                   double gyroStd, double s0x, double s0y, double s0z, double w0x, double w0y,
-                                   double w0z, double msx, double msy, double msz, double mwx, double mwy, double mwz,
+void fuzzTimeAndMeasurementUpdates(double alpha,
+                                   double beta,
+                                   double pAtt,
+                                   double pRate,
+                                   double q,
+                                   double stStd,
+                                   double gyroStd,
+                                   double s0x,
+                                   double s0y,
+                                   double s0z,
+                                   double w0x,
+                                   double w0y,
+                                   double w0z,
+                                   double msx,
+                                   double msy,
+                                   double msz,
+                                   double mwx,
+                                   double mwy,
+                                   double mwz,
                                    double dt) {
-    InertialSRuKFAlgorithm algo(makeConfig(alpha, beta, pAtt, pRate, q, stStd, gyroStd,
-                                           makeState({s0x, s0y, s0z}, {w0x, w0y, w0z})));
+    InertialSRuKFAlgorithm algo(
+        makeConfig(alpha, beta, pAtt, pRate, q, stStd, gyroStd, makeState({s0x, s0y, s0z}, {w0x, w0y, w0z})));
 
     Eigen::Vector3d const stObservation(msx, msy, msz);
     Eigen::Vector3d const rateObservation(mwx, mwy, mwz);
@@ -115,33 +137,43 @@ void fuzzTimeAndMeasurementUpdates(double alpha, double beta, double pAtt, doubl
     EXPECT_LE(rateTrace(afterRate), rateTracePrior + kTol) << "rate covariance should shrink";
 }
 FUZZ_TEST(InertialSRuKFFuzz, fuzzTimeAndMeasurementUpdates)
-    .WithDomains(fuzztest::InRange(1e-2, 1.0),    // alpha
-                 fuzztest::InRange(0.0, 2.0),     // beta
-                 fuzztest::InRange(1e-4, 1e-1),   // initial attitude variance
-                 fuzztest::InRange(1e-6, 1e-2),   // initial rate variance
-                 fuzztest::InRange(0.0, 1e-4),    // process noise
-                 fuzztest::InRange(1e-5, 1e-1),   // ST measurement noise std
-                 fuzztest::InRange(1e-5, 1e-1),   // gyro measurement noise std
-                 fuzztest::InRange(-0.3, 0.3),    // initial sigma x/y/z
+    .WithDomains(fuzztest::InRange(1e-2, 1.0),   // alpha
+                 fuzztest::InRange(0.0, 2.0),    // beta
+                 fuzztest::InRange(1e-4, 1e-1),  // initial attitude variance
+                 fuzztest::InRange(1e-6, 1e-2),  // initial rate variance
+                 fuzztest::InRange(0.0, 1e-4),   // process noise
+                 fuzztest::InRange(1e-5, 1e-1),  // ST measurement noise std
+                 fuzztest::InRange(1e-5, 1e-1),  // gyro measurement noise std
+                 fuzztest::InRange(-0.3, 0.3),   // initial sigma x/y/z
                  fuzztest::InRange(-0.3, 0.3),
                  fuzztest::InRange(-0.3, 0.3),
-                 fuzztest::InRange(-0.1, 0.1),    // initial omega x/y/z
+                 fuzztest::InRange(-0.1, 0.1),  // initial omega x/y/z
                  fuzztest::InRange(-0.1, 0.1),
                  fuzztest::InRange(-0.1, 0.1),
-                 fuzztest::InRange(-0.3, 0.3),    // ST observation sigma x/y/z
+                 fuzztest::InRange(-0.3, 0.3),  // ST observation sigma x/y/z
                  fuzztest::InRange(-0.3, 0.3),
                  fuzztest::InRange(-0.3, 0.3),
-                 fuzztest::InRange(-0.1, 0.1),    // rate observation x/y/z
+                 fuzztest::InRange(-0.1, 0.1),  // rate observation x/y/z
                  fuzztest::InRange(-0.1, 0.1),
                  fuzztest::InRange(-0.1, 0.1),
-                 fuzztest::InRange(0.0, 2.0));    // dt
+                 fuzztest::InRange(0.0, 2.0));  // dt
 
 // ============================================================================
 // Targeted: a time update keeps the covariance symmetric + PSD + finite and does not
 // shrink it (process noise can only grow it).
 // ============================================================================
-void fuzzTimeUpdateGrowsCovariance(double alpha, double beta, double pAtt, double pRate, double q, double s0x,
-                                   double s0y, double s0z, double w0x, double w0y, double w0z, double dt) {
+void fuzzTimeUpdateGrowsCovariance(double alpha,
+                                   double beta,
+                                   double pAtt,
+                                   double pRate,
+                                   double q,
+                                   double s0x,
+                                   double s0y,
+                                   double s0z,
+                                   double w0x,
+                                   double w0y,
+                                   double w0z,
+                                   double dt) {
     InertialSRuKFAlgorithm algo(
         makeConfig(alpha, beta, pAtt, pRate, q, 1e-3, 1e-3, makeState({s0x, s0y, s0z}, {w0x, w0y, w0z})));
 
@@ -153,28 +185,38 @@ void fuzzTimeUpdateGrowsCovariance(double alpha, double beta, double pAtt, doubl
     EXPECT_GE(P.trace(), tracePrior - kTol) << "process noise should not shrink the covariance";
 }
 FUZZ_TEST(InertialSRuKFFuzz, fuzzTimeUpdateGrowsCovariance)
-    .WithDomains(fuzztest::InRange(1e-2, 1.0),    // alpha
-                 fuzztest::InRange(0.0, 2.0),     // beta
-                 fuzztest::InRange(1e-4, 1e-1),   // initial attitude variance
-                 fuzztest::InRange(1e-6, 1e-2),   // initial rate variance
-                 fuzztest::InRange(0.0, 1e-4),    // process noise
-                 fuzztest::InRange(-0.3, 0.3),    // initial sigma x/y/z
+    .WithDomains(fuzztest::InRange(1e-2, 1.0),   // alpha
+                 fuzztest::InRange(0.0, 2.0),    // beta
+                 fuzztest::InRange(1e-4, 1e-1),  // initial attitude variance
+                 fuzztest::InRange(1e-6, 1e-2),  // initial rate variance
+                 fuzztest::InRange(0.0, 1e-4),   // process noise
+                 fuzztest::InRange(-0.3, 0.3),   // initial sigma x/y/z
                  fuzztest::InRange(-0.3, 0.3),
                  fuzztest::InRange(-0.3, 0.3),
-                 fuzztest::InRange(-0.1, 0.1),    // initial omega x/y/z
+                 fuzztest::InRange(-0.1, 0.1),  // initial omega x/y/z
                  fuzztest::InRange(-0.1, 0.1),
                  fuzztest::InRange(-0.1, 0.1),
-                 fuzztest::InRange(0.0, 2.0));    // dt
+                 fuzztest::InRange(0.0, 2.0));  // dt
 
 // ============================================================================
 // Targeted: regularization keeps the MRP attitude inside the unit sphere after update(),
 // even when the initial attitude ranges past |sigma| = 1, and the state stays finite.
 // ============================================================================
-void fuzzRegularizationKeepsMrpBounded(double alpha, double beta, double pAtt, double pRate, double q, double stStd,
-                                       double s0x, double s0y, double s0z, double msx, double msy, double msz,
+void fuzzRegularizationKeepsMrpBounded(double alpha,
+                                       double beta,
+                                       double pAtt,
+                                       double pRate,
+                                       double q,
+                                       double stStd,
+                                       double s0x,
+                                       double s0y,
+                                       double s0z,
+                                       double msx,
+                                       double msy,
+                                       double msz,
                                        double dt) {
-    InertialSRuKFAlgorithm algo(makeConfig(alpha, beta, pAtt, pRate, q, stStd, 1e-3,
-                                           makeState({s0x, s0y, s0z}, Eigen::Vector3d::Zero())));
+    InertialSRuKFAlgorithm algo(
+        makeConfig(alpha, beta, pAtt, pRate, q, stStd, 1e-3, makeState({s0x, s0y, s0z}, Eigen::Vector3d::Zero())));
 
     StAttData st;
     st.timeTag = (dt > 0.0) ? dt : 1.0;
@@ -186,18 +228,18 @@ void fuzzRegularizationKeepsMrpBounded(double alpha, double beta, double pAtt, d
         << "regularization must keep |sigma| <= 1";
 }
 FUZZ_TEST(InertialSRuKFFuzz, fuzzRegularizationKeepsMrpBounded)
-    .WithDomains(fuzztest::InRange(1e-2, 1.0),    // alpha
-                 fuzztest::InRange(0.0, 2.0),     // beta
-                 fuzztest::InRange(1e-4, 1e-1),   // initial attitude variance
-                 fuzztest::InRange(1e-6, 1e-2),   // initial rate variance
-                 fuzztest::InRange(0.0, 1e-4),    // process noise
-                 fuzztest::InRange(1e-5, 1e-1),   // ST measurement noise std
-                 fuzztest::InRange(-1.2, 1.2),    // initial sigma x/y/z (ranges past |sigma|=1)
+    .WithDomains(fuzztest::InRange(1e-2, 1.0),   // alpha
+                 fuzztest::InRange(0.0, 2.0),    // beta
+                 fuzztest::InRange(1e-4, 1e-1),  // initial attitude variance
+                 fuzztest::InRange(1e-6, 1e-2),  // initial rate variance
+                 fuzztest::InRange(0.0, 1e-4),   // process noise
+                 fuzztest::InRange(1e-5, 1e-1),  // ST measurement noise std
+                 fuzztest::InRange(-1.2, 1.2),   // initial sigma x/y/z (ranges past |sigma|=1)
                  fuzztest::InRange(-1.2, 1.2),
                  fuzztest::InRange(-1.2, 1.2),
-                 fuzztest::InRange(-0.3, 0.3),    // ST observation sigma x/y/z
+                 fuzztest::InRange(-0.3, 0.3),  // ST observation sigma x/y/z
                  fuzztest::InRange(-0.3, 0.3),
                  fuzztest::InRange(-0.3, 0.3),
-                 fuzztest::InRange(0.0, 2.0));    // dt
+                 fuzztest::InRange(0.0, 2.0));  // dt
 
 }  // namespace filtering::inertialSRuKF
