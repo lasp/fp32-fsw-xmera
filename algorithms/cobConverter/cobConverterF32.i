@@ -3,6 +3,13 @@
    #include "cobConverter.h"
 %}
 
+%include <attribute.i>
+%attribute(CobConverter, double, radius, getRadius, setRadius)
+%attribute(CobConverter, double, radiusUncertainty, getRadiusUncertainty, setRadiusUncertainty)
+%attribute(CobConverter, double, numStandardDeviations, getNumStandardDeviations, setNumStandardDeviations)
+%attribute(CobConverter, double, standardDeviation, getStandardDeviation, setStandardDeviation)
+%attribute(CobConverter, bool, outlierDetectionEnabled, isOutlierDetectionEnabled, setOutlierDetectionEnabled)
+
 %include <architecture/_GeneralModuleFiles/sys_model.i>
 %include <architecture/_GeneralModuleFiles/swig_conly_data.i>
 %include <architecture/_GeneralModuleFiles/swig_eigen.i>

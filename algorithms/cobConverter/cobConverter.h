@@ -50,8 +50,7 @@ class CobConverter : public SysModel {
     void setStandardDeviation(double num);
     double getStandardDeviation() const;
     bool isStandardDeviationSpecified() const;
-    void enableOutlierDetection();
-    void disableOutlierDetection();
+    void setOutlierDetectionEnabled(bool enable);
     bool isOutlierDetectionEnabled() const;
     void setBrownConradyCoefficients(const CalibrationCoefficients& coefficients);
     CalibrationCoefficients getBrownConradyCoefficients() const;

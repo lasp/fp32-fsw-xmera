@@ -151,11 +151,11 @@ def cob_converter_test_function(show_plots, cameraResolution, centerOfBrightness
     att_sigma = 0.001
     covar_att_B = np.diag([att_sigma**2, (0.9*att_sigma)**2, (0.95*att_sigma)**2])
     module = cobConverter.CobConverter(method, R_object)
-    module.setRadiusUncertainty(R_object_uncer)
+    module.radiusUncertainty = R_object_uncer
     module.setAttitudeCovariance(covar_att_B)
-    module.setNumStandardDeviations(3)
-    module.setStandardDeviation(100)
-    module.enableOutlierDetection()
+    module.numStandardDeviations = 3
+    module.standardDeviation = 100
+    module.outlierDetectionEnabled = True
     unitTestSim.AddModelToTask(unitTaskName, module, module)
 
     r_BdyZero_N = np.array([-distance, -300. * 1e3, 0.])
@@ -229,7 +229,7 @@ def cob_converter_test_function(show_plots, cameraResolution, centerOfBrightness
     # This compares the input COB with the expected COB
     cobCenter = np.array(cameraResolution) / 2
     cobErrorCenter = np.linalg.norm(np.array(centerOfBrightness) - cobCenter)
-    acceptedCobError = module.getNumStandardDeviations() * module.getStandardDeviation()
+    acceptedCobError = module.numStandardDeviations * module.standardDeviation
 
     # Truth Values
     if numberOfPixels > 0:
@@ -343,11 +343,11 @@ def test_coberror_outlier(
     att_sigma = 0.001
     covar_att_B = np.diag([att_sigma**2, (0.9*att_sigma)**2, (0.95*att_sigma)**2])
     module = cobConverter.CobConverter(method, R_object)
-    module.setRadiusUncertainty(R_object_uncer)
+    module.radiusUncertainty = R_object_uncer
     module.setAttitudeCovariance(covar_att_B)
-    module.setNumStandardDeviations(3)
-    module.setStandardDeviation(100)
-    module.enableOutlierDetection()
+    module.numStandardDeviations = 3
+    module.standardDeviation = 100
+    module.outlierDetectionEnabled = True
     unitTestSim.AddModelToTask(unitTaskName, module, module)
 
     r_BdyZero_N = np.array([-distance, -300. * 1e3, 0.])
@@ -413,13 +413,13 @@ def test_coberror_outlier(
     dataDiagnostic = module.cobConverterDiagnosticOutMsg.recorder()
     unitTestSim.AddModelToTask(unitTaskName, dataDiagnostic)
 
-    module.setNumStandardDeviations(100)
+    module.numStandardDeviations = 100
     unitTestSim.InitializeSimulation()
     unitTestSim.ConfigureStopTime(testProcessRate)
     unitTestSim.ExecuteSimulation()
     np.testing.assert_equal(dataDiagnostic.coberrorOutlierTrigger, False, err_msg='coberrorOutlierTrigger should be False')
 
-    module.setNumStandardDeviations(0.01)
+    module.numStandardDeviations = 0.01
     unitTestSim.InitializeSimulation()
     unitTestSim.ConfigureStopTime(testProcessRate)
     unitTestSim.ExecuteSimulation()

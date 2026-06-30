@@ -200,14 +200,16 @@ double CobConverter::getStandardDeviation() const { return this->algorithm.getSt
 bool CobConverter::isStandardDeviationSpecified() const { return this->algorithm.isStandardDeviationSpecified(); }
 
 /**
- * @brief Enable COB outlier detection.
+ * @brief Enable or disable COB outlier detection.
+ * @param enable True to enable, false to disable.
  */
-void CobConverter::enableOutlierDetection() { this->algorithm.enableOutlierDetection(); }
-
-/**
- * @brief Disable COB outlier detection.
- */
-void CobConverter::disableOutlierDetection() { this->algorithm.disableOutlierDetection(); }
+void CobConverter::setOutlierDetectionEnabled(const bool enable) {
+    if (enable) {
+        this->algorithm.enableOutlierDetection();
+    } else {
+        this->algorithm.disableOutlierDetection();
+    }
+}
 
 /**
  * @brief Check whether COB outlier detection is enabled.
