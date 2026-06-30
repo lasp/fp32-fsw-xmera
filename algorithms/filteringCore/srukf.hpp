@@ -173,7 +173,7 @@ class SRuKF {
      *  (reConfigure() plus a state/covariance reset). */
     void reset() {
         constexpr int N = State::size;
-        
+
         this->state = this->stateInitial;
         this->covariance = this->covarianceInitial;
         this->sqrtCovar = choleskyDecomposition<N>(this->covarianceInitial);
@@ -263,80 +263,92 @@ class SRuKF {
      *  @return pre- and post-fit residuals
      *  @param measurement [-] satisfies Measurement<M, State> */
     template <Measurement<State> M>
-    UpdateResult<M> measurementUpdate(M const& measurement) {
+    std::optional<UpdateResult<M>> measurementUpdate(M const& measurement) {
         constexpr int N = State::size;
         constexpr int numSigma = 2 * N + 1;
         constexpr int MSize = M::size;
 
+        std::optional<UpdateResult<M>> residuals = {};
+
         //! > Read the observation
         auto const observation = measurement.observation();
 
-        //! > Using the measurement model, get the Y matrix (expected measurement) of each sigma point (eq 22)
-        Eigen::Matrix<double, MSize, numSigma> yMeasPre;
-        for (int j = 0; j < numSigma; ++j) {
-            yMeasPre.col(j) = measurement.model(this->sigmaPoints[j]);
+        //! > Skip the update on non-finite inputs so a bad measurement cannot propagate NaNs/Infs into the state.
+        bool const inputsFinite = observation.allFinite() and measurement.noise().allFinite() and
+                                  this->state.allFinite() and this->sqrtCovar.allFinite();
+
+        if (inputsFinite) {
+            //! > Using the measurement model, get the Y matrix (expected measurement) of each sigma point (eq 22)
+            Eigen::Matrix<double, MSize, numSigma> yMeasPre;
+            for (int j = 0; j < numSigma; ++j) {
+                yMeasPre.col(j) = measurement.model(this->sigmaPoints[j]);
+            }
+            //! > Like eq 19, the measurement expected is the weighted sum of the Sigma points transformed (eq 23)
+            Eigen::Vector<double, MSize> yBarPre = Eigen::Vector<double, MSize>::Zero();
+            for (int i = 0; i < numSigma; ++i) {
+                yBarPre += this->wM(i) * yMeasPre.col(i);
+            }
+
+            //! > Before moving to the update, computed the prefits
+            Eigen::Vector<double, MSize> const preFit = measurement.subtract(observation, yBarPre);
+
+            //! > Sqrt the measurement noise, this could theoretically be different at every time step
+            Eigen::Matrix<double, MSize, MSize> const cholMeasNoise = choleskyDecomposition<MSize>(measurement.noise());
+
+            //! > Symmetrically to the time update, populate the A matrix for a qr decomposition (eq 24)
+            Eigen::Matrix<double, MSize, 2 * N + MSize> A;
+            for (int i = 1; i < numSigma; ++i) {
+                A.col(i - 1) = sqrt(this->wC(1)) * (yMeasPre.col(i) - yBarPre);
+            }
+            A.template block<MSize, MSize>(0, numSigma - 1) = cholMeasNoise;
+
+            //! > Qr decomposition of A (eq 24)
+            Eigen::Matrix<double, MSize, MSize> sy = qrDecompositionJustR<MSize, 2 * N + MSize>(A);
+
+            //! > Cholesky-downDate the covariance and the measurement error
+            Eigen::Vector<double, MSize> const yError0 = yMeasPre.col(0) - yBarPre;
+            sy = choleskyUpDownDate<MSize>(sy, yError0, this->wC(0));
+
+            //! > Covariance of prior prediction computation eq 26
+            Eigen::Matrix<double, N, MSize> pXY = Eigen::Matrix<double, N, MSize>::Zero();
+            for (int i = 0; i < numSigma; ++i) {
+                Eigen::Vector<double, N> const xError = this->sigmaPoints[i].raw() - this->xBar.raw();
+                Eigen::Vector<double, MSize> const yError = yMeasPre.col(i) - yBarPre;
+                pXY += this->wC(i) * xError * yError.transpose();
+            }
+
+            //! > Calculate Kalman gain eq 27
+            Eigen::Matrix<double, MSize, N> const pXYT = pXY.transpose();
+            Eigen::Matrix<double, MSize, N> const stKt = forwardSubstitution<MSize, N>(sy, pXYT);
+            Eigen::Matrix<double, MSize, MSize> const syT = sy.transpose();
+            Eigen::Matrix<double, N, MSize> const kMat = backSubstitution<MSize, N>(syT, stKt).transpose();
+
+            //! > Calculate surprise factor and update state
+            Eigen::Vector<double, MSize> const innovation = measurement.subtract(observation, yBarPre);
+            this->state = State(this->xBar.raw() + kMat * innovation);
+
+            //! > Cholesky downDate to get the update covariance (eq 29)
+            Eigen::Matrix<double, N, MSize> const Umat = kMat * sy;
+            for (int i = 0; i < MSize; ++i) {
+                Eigen::Vector<double, N> const col = Umat.col(i);
+                this->sqrtCovar = choleskyUpDownDate<N>(this->sqrtCovar, col, -1.0);
+            }
+            this->covariance = this->sqrtCovar * this->sqrtCovar.transpose();
+
+            if (this->state.allFinite() and this->sqrtCovar.allFinite()) {
+                //! > Move the state and covariance of last measuremnts up
+                this->stateLastMeasurement = this->state;
+                this->covarianceLastMeasurement = this->covariance;
+                this->sqrtCovarLastMeasurement = this->sqrtCovar;
+
+                //! > Now that update is done compute post fit residuals
+                Eigen::Vector<double, MSize> const postFit =
+                    measurement.subtract(observation, measurement.model(this->state));
+
+                residuals = {.preFit = preFit, .postFit = postFit};
+            }
         }
-        //! > Like eq 19, the measurement expected is the weighted sum of the Sigma points transformed (eq 23)
-        Eigen::Vector<double, MSize> yBarPre = Eigen::Vector<double, MSize>::Zero();
-        for (int i = 0; i < numSigma; ++i) {
-            yBarPre += this->wM(i) * yMeasPre.col(i);
-        }
-
-        //! > Before moving to the update, computed the prefits
-        Eigen::Vector<double, MSize> const preFit = measurement.subtract(observation, yBarPre);
-
-        //! > Sqrt the measurement noise, this could theoretically be different at every time step
-        Eigen::Matrix<double, MSize, MSize> const cholMeasNoise = choleskyDecomposition<MSize>(measurement.noise());
-
-        //! > Symmetrically to the time update, populate the A matrix for a qr decomposition (eq 24)
-        Eigen::Matrix<double, MSize, 2 * N + MSize> A;
-        for (int i = 1; i < numSigma; ++i) {
-            A.col(i - 1) = sqrt(this->wC(1)) * (yMeasPre.col(i) - yBarPre);
-        }
-        A.template block<MSize, MSize>(0, numSigma - 1) = cholMeasNoise;
-
-        //! > Qr decomposition of A (eq 24)
-        Eigen::Matrix<double, MSize, MSize> sy = qrDecompositionJustR<MSize, 2 * N + MSize>(A);
-
-        //! > Cholesky-downDate the covariance and the measurement error
-        Eigen::Vector<double, MSize> const yError0 = yMeasPre.col(0) - yBarPre;
-        sy = choleskyUpDownDate<MSize>(sy, yError0, this->wC(0));
-
-        //! > Covariance of prior prediction computation eq 26
-        Eigen::Matrix<double, N, MSize> pXY = Eigen::Matrix<double, N, MSize>::Zero();
-        for (int i = 0; i < numSigma; ++i) {
-            Eigen::Vector<double, N> const xError = this->sigmaPoints[i].raw() - this->xBar.raw();
-            Eigen::Vector<double, MSize> const yError = yMeasPre.col(i) - yBarPre;
-            pXY += this->wC(i) * xError * yError.transpose();
-        }
-
-        //! > Calculate Kalman gain eq 27
-        Eigen::Matrix<double, MSize, N> const pXYT = pXY.transpose();
-        Eigen::Matrix<double, MSize, N> const stKt = forwardSubstitution<MSize, N>(sy, pXYT);
-        Eigen::Matrix<double, MSize, MSize> const syT = sy.transpose();
-        Eigen::Matrix<double, N, MSize> const kMat = backSubstitution<MSize, N>(syT, stKt).transpose();
-
-        //! > Calculate surprise factor and update state
-        Eigen::Vector<double, MSize> const innovation = measurement.subtract(observation, yBarPre);
-        this->state = State(this->xBar.raw() + kMat * innovation);
-
-        //! > Cholesky downDate to get the update covariance (eq 29)
-        Eigen::Matrix<double, N, MSize> const Umat = kMat * sy;
-        for (int i = 0; i < MSize; ++i) {
-            Eigen::Vector<double, N> const col = Umat.col(i);
-            this->sqrtCovar = choleskyUpDownDate<N>(this->sqrtCovar, col, -1.0);
-        }
-        this->covariance = this->sqrtCovar * this->sqrtCovar.transpose();
-
-        //! > Move the state and covariance of last measuremnts up
-        this->stateLastMeasurement = this->state;
-        this->covarianceLastMeasurement = this->covariance;
-        this->sqrtCovarLastMeasurement = this->sqrtCovar;
-
-        //! > Now that update is done compute post fit residuals
-        Eigen::Vector<double, MSize> const postFit = measurement.subtract(observation, measurement.model(this->state));
-
-        return {.preFit = preFit, .postFit = postFit};
+        return residuals;
     }
 
     /*! @return current filter state */

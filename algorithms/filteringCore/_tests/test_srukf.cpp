@@ -19,6 +19,8 @@
 
 #include <Eigen/Core>
 
+#include <limits>
+
 namespace filtering {
 namespace {
 
@@ -263,14 +265,16 @@ TEST(SrukfMeasurementUpdate, InformativeMeasurementUpdatesStateAndShrinksCovaria
     m.observed = Eigen::Vector3d(1.0, 0.0, 0.0);
     m.noiseCov = 0.01 * Eigen::Matrix3d::Identity();
 
+    // A nominal update returns the pre/post-fit residuals.
     auto const result = filter.measurementUpdate(m);
+    ASSERT_TRUE(result.has_value()) << "measurement update should be valid";
 
     // Pre-fit: observation - model(prior anchor at 0) = (1, 0, 0).
-    EXPECT_TRUE(result.preFit.isApprox(Eigen::Vector3d(1.0, 0.0, 0.0), 1e-9))
+    EXPECT_TRUE(result->preFit.isApprox(Eigen::Vector3d(1.0, 0.0, 0.0), 1e-9))
         << "preFit should equal observation when prior state is zero";
 
     // Post-fit less than pre-fit
-    EXPECT_LT(result.postFit.norm(), result.preFit.norm()) << "informative measurement should reduce residual";
+    EXPECT_LT(result->postFit.norm(), result->preFit.norm()) << "informative measurement should reduce residual";
 
     // Covariance shrunk (initial trace was 3.0).
     Eigen::Matrix3d const P = filter.getCovariance();
@@ -301,10 +305,30 @@ TEST(SrukfMeasurementUpdate, HighMeasurementNoiseLeavesStateNearlyUnchanged) {
     m.noiseCov = 1e8 * Eigen::Matrix3d::Identity();  // R ≫ P → Kalman gain ≈ 0
 
     auto const result = filter.measurementUpdate(m);
+    ASSERT_TRUE(result.has_value()) << "measurement update should be valid";
 
     EXPECT_LT((filter.getState().raw() - stateBefore.raw()).norm(), 1e-5)
         << "state should barely move when R much greater than P";
-    EXPECT_TRUE(result.postFit.isApprox(result.preFit, 1e-5)) << "postFit ≈ preFit when R very large";
+    EXPECT_TRUE(result->postFit.isApprox(result->preFit, 1e-5)) << "postFit ≈ preFit when R very large";
+}
+
+// NaNs in the measurement propagate into the state, so measurementUpdate returns no value.
+TEST(SrukfMeasurementUpdate, NaNMeasurementReturnsNoValue) {
+    SRuKFType filter;
+    filter.setAlpha(0.5);
+    filter.setBeta(2.0);
+    filter.setInitialCovariance(Eigen::Matrix3d::Identity());
+    filter.setProcessNoise(Eigen::Matrix3d::Zero());
+    filter.reset();
+    filter.reConfigure();
+    filter.timeUpdate(0.0);
+
+    PositionMeasurement m;
+    m.observed = Eigen::Vector3d::Constant(std::numeric_limits<double>::quiet_NaN());
+    m.noiseCov = 0.01 * Eigen::Matrix3d::Identity();
+
+    EXPECT_FALSE(filter.measurementUpdate(m).has_value())
+        << "measurementUpdate should not return a value for a bad (NaN) update";
 }
 
 }  // namespace filtering
