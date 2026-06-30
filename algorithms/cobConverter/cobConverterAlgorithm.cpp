@@ -60,16 +60,16 @@ void CobConverterAlgorithm::computeCameraParameters(const CameraModelMsgPayload&
     this->dcm_CB = mrpToDcm(cArrayToEigenVector3(sigma_camera));
 
     // Camera parameters
-    double alpha = 0;
-    double fieldOfView = cameraSpecs.fieldOfView[0];
-    double resolutionX = cameraSpecs.resolution[0];
-    double resolutionY = cameraSpecs.resolution[1];
-    double pX = 2. * tan(fieldOfView / 2.0);
-    double pY = 2. * tan(fieldOfView * resolutionY / resolutionX / 2.0);
+    const double alpha = 0;
+    const double fieldOfView = cameraSpecs.fieldOfView[0];
+    const double resolutionX = cameraSpecs.resolution[0];
+    const double resolutionY = cameraSpecs.resolution[1];
+    const double pX = 2. * tan(fieldOfView / 2.0);
+    const double pY = 2. * tan(fieldOfView * resolutionY / resolutionX / 2.0);
     this->dX = resolutionX / pX;
-    double dY = resolutionY / pY;
-    double up = resolutionX / 2;
-    double vp = resolutionY / 2;
+    const double dY = resolutionY / pY;
+    const double up = resolutionX / 2;
+    const double vp = resolutionY / 2;
     this->X = 1 / this->dX;
     this->Y = 1 / dY;
     this->ifov_x = fieldOfView / this->dX * pX;
@@ -118,10 +118,10 @@ void CobConverterAlgorithm::computePhaseAngleCorrection(const FilterMsgPayload& 
     std::ranges::copy(sunBuffer.vehSunPntBdy, std::begin(sun_B));
 
     this->sc_position = cArrayToEigenMatrix<double, 6, 1>(filter_state).col(0).head(3);
-    Eigen::Vector3d rhat_N = this->sc_position.normalized();
-    Eigen::Vector3d shat_B = cArrayToEigenVector3(sun_B).normalized();
+    const Eigen::Vector3d rhat_N = this->sc_position.normalized();
+    const Eigen::Vector3d shat_B = cArrayToEigenVector3(sun_B).normalized();
     this->shat_N = dcm_BN.transpose() * shat_B;
-    Eigen::Vector3d shat_C = dcm_CB * shat_B;
+    const Eigen::Vector3d shat_C = dcm_CB * shat_B;
 
     this->alphaPA = acos(rhat_N.transpose() * this->shat_N);  // phase angle
     this->phi = atan2(shat_C[1], shat_C[0]);                  // sun direction in image plane
@@ -216,7 +216,8 @@ void CobConverterAlgorithm::computeRelevantVectors(const Eigen::Vector3d& center
  * @param filterMsgBuffer Filter state and covariance.
  * @param pixelsFound Number of detected pixels (for scale factor).
  */
-void CobConverterAlgorithm::computeCameraFrameUncertainty(const FilterMsgPayload& filterMsgBuffer, double pixelsFound) {
+void CobConverterAlgorithm::computeCameraFrameUncertainty(const FilterMsgPayload& filterMsgBuffer,
+                                                          const double pixelsFound) {
     double covariance[MAX_STATES_VECTOR * MAX_STATES_VECTOR];
     std::ranges::copy(filterMsgBuffer.covar, std::begin(covariance));
 
@@ -298,11 +299,11 @@ std::tuple<OpNavUnitVecMsgPayload, OpNavCOMMsgPayload> CobConverterAlgorithm::po
     const Eigen::Vector3d& centerOfMass,
     const Eigen::Vector3d& centerOfBrightness,
     OpNavUnitVecMsgPayload& uVecMsgBuffer,
-    OpNavCOMMsgPayload& comMsgBuffer) {
-    Eigen::Vector3d rhatCOM_N = this->dcm_NC * this->rhatCOM_C;
-    Eigen::Vector3d rhatCOM_B = this->dcm_BN * rhatCOM_N;
-    Eigen::Matrix3d covar_N = this->dcm_BN.transpose() * this->covar_B * this->dcm_BN;
-    Eigen::Matrix3d covar_C = this->dcm_NC.transpose() * covar_N * this->dcm_NC;
+    OpNavCOMMsgPayload& comMsgBuffer) const {
+    const Eigen::Vector3d rhatCOM_N = this->dcm_NC * this->rhatCOM_C;
+    const Eigen::Vector3d rhatCOM_B = this->dcm_BN * rhatCOM_N;
+    const Eigen::Matrix3d covar_N = this->dcm_BN.transpose() * this->covar_B * this->dcm_BN;
+    const Eigen::Matrix3d covar_C = this->dcm_NC.transpose() * covar_N * this->dcm_NC;
 
     eigenMatrixToCArray(covar_N, uVecMsgBuffer.covar_N);
     eigenMatrixToCArray(covar_C, uVecMsgBuffer.covar_C);
@@ -420,25 +421,25 @@ void CobConverterAlgorithm::cobOutlierDetection(const FilterMsgPayload& filterMs
     std::ranges::copy(filterMsgBuffer.state, std::begin(state));
     std::ranges::copy(filterMsgBuffer.covar, std::begin(covariance));
 
-    int numberOfStates = filterMsgBuffer.numberOfStates;
-    Eigen::VectorXd filterState = cArrayToEigenMatrixX(state, numberOfStates, 1);
-    Eigen::Vector3d rNav_BN_N = filterState.segment(0, 3);
-    Eigen::Vector3d rhatNav_N = rNav_BN_N.normalized();
-    Eigen::MatrixXd filterCovariance = cArrayToEigenMatrixX(covariance, numberOfStates, numberOfStates);
-    Eigen::Matrix3d covarNav_N = filterCovariance.block(0, 0, 3, 3) / pow(rNav_BN_N.norm(), 2);
+    const int numberOfStates = filterMsgBuffer.numberOfStates;
+    const Eigen::VectorXd filterState = cArrayToEigenMatrixX(state, numberOfStates, 1);
+    const Eigen::Vector3d rNav_BN_N = filterState.segment(0, 3);
+    const Eigen::Vector3d rhatNav_N = rNav_BN_N.normalized();
+    const Eigen::MatrixXd filterCovariance = cArrayToEigenMatrixX(covariance, numberOfStates, numberOfStates);
+    const Eigen::Matrix3d covarNav_N = filterCovariance.block(0, 0, 3, 3) / pow(rNav_BN_N.norm(), 2);
 
     Eigen::Vector3d rhatCOB_C =
         -this->rhatCOB_C;       // turn unit vector from asteroid to camera into unit vector from camera to asteroid
     rhatCOB_C /= rhatCOB_C[2];  // make z-component 1 for image plane
-    Eigen::Vector3d cob = this->cameraCalibrationMatrix * rhatCOB_C;
+    const Eigen::Vector3d cob = this->cameraCalibrationMatrix * rhatCOB_C;
 
     // assume that the time of the last filter update corresponds to the current timestep (so no propagation required)
     Eigen::Vector3d rhatNav_C = (this->dcm_NC.transpose() * rhatNav_N);
     rhatNav_C *= -1;
     rhatNav_C /= rhatNav_C[2];
-    Eigen::Vector3d cobNav = this->cameraCalibrationMatrix * rhatNav_C;
+    const Eigen::Vector3d cobNav = this->cameraCalibrationMatrix * rhatNav_C;
 
-    double cobErrorPrediction = (cob - cobNav).norm();
+    const double cobErrorPrediction = (cob - cobNav).norm();
     double sigma;
     if (this->specifiedStandardDeviation) {
         sigma = this->standardDeviation;

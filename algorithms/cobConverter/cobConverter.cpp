@@ -47,11 +47,11 @@ void CobConverter::reset(uint64_t currentSimNanos) {
  * @param currentSimNanos Current simulation time in nanoseconds.
  */
 void CobConverter::updateState(const uint64_t currentSimNanos) {
-    CameraModelMsgPayload cameraModelInMsg = this->cameraConfigInMsg();
-    OpNavCOBMsgPayload cobMsgBuffer = this->opnavCOBInMsg();
-    NavAttMsgPayload navAttBuffer = this->navAttInMsg();
-    NavAttMsgPayload sunBuffer = this->sunInMsg();
-    FilterMsgPayload filterMsgBuffer = this->opnavFilterInMsg();
+    const CameraModelMsgPayload cameraModelInMsg = this->cameraConfigInMsg();
+    const OpNavCOBMsgPayload cobMsgBuffer = this->opnavCOBInMsg();
+    const NavAttMsgPayload navAttBuffer = this->navAttInMsg();
+    const NavAttMsgPayload sunBuffer = this->sunInMsg();
+    const FilterMsgPayload filterMsgBuffer = this->opnavFilterInMsg();
 
     OpNavUnitVecMsgPayload uVecOutMsgBuffer{};
     OpNavCOMMsgPayload comMsgBuffer{};

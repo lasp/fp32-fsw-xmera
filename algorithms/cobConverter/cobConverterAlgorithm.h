@@ -80,7 +80,7 @@ class CobConverterAlgorithm {
         const Eigen::Vector3d& centerOfMass,
         const Eigen::Vector3d& centerOfBrightness,
         OpNavUnitVecMsgPayload& uVecMsgBuffer,
-        OpNavCOMMsgPayload& comMsgBuffer);
+        OpNavCOMMsgPayload& comMsgBuffer) const;
 
     PhaseAngleCorrectionMethodAlgorithm phaseAngleCorrectionMethod;
     CalibrationCoefficients calibrationCoefficients{};
