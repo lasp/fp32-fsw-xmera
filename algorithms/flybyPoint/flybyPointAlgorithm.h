@@ -2,6 +2,7 @@
 #define F32XMERA_FLYBY_POINT_ALGORITHM_H
 
 #include "utilities/fsw/freestandingInvalidArgument.h"
+#include "flybyPointTypes.h"
 #include <Eigen/Dense>
 
 /*! @brief Structure containing the attitude guidance output of the algorithm */
