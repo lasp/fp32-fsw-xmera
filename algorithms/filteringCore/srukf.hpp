@@ -198,7 +198,7 @@ class SRuKF {
      *  the sigma points are populated around the last-measurement state for the
      *  next measurementUpdate but the timeUpdate math isn't done
      *  @param dt [s] elapsed time since the last measurement */
-    void timeUpdate(const double dt) {
+    bool timeUpdate(const double dt) {
         constexpr int N = State::size;
         constexpr int numSigmaPoints = 2 * N + 1;
 
@@ -251,7 +251,12 @@ class SRuKF {
             this->sqrtCovar = choleskyUpDownDate<N>(sBar, xError, this->wC(0));
             this->covariance = this->sqrtCovar * this->sqrtCovar.transpose();
             this->state = this->sigmaPoints[0];
+
+            if (!this->state.allFinite() || !this->sqrtCovar.allFinite()) {
+                return false;
+            }
         }
+        return true;
     }
 
     /*! Process a measurement. Update the last-measurement state and the time-state
