@@ -50,10 +50,12 @@ void MimuMajorityVoteAlgorithm_reInitialize(MimuMajorityVoteAlgorithmHandle* sel
  * @brief Run the majority vote update step.
  * @param self      Pointer to the instance.
  * @param imuOmegas_BN_B IMU angular velocity 3-vectors.
- * @return MimuMajorityVoteOutput_c  The computed majority vote output.
+ * @param imuAccels_B    IMU apparent acceleration 3-vectors.
+ * @return MimuMajorityVoteOutput_c  The computed majority vote output (gyro + accel).
  */
 MimuMajorityVoteOutput_c MimuMajorityVoteAlgorithm_update(MimuMajorityVoteAlgorithmHandle* self,
-                                                          const Vector3fArray3_c* imuOmegas_BN_B);
+                                                          const Vector3fArray3_c* imuOmegas_BN_B,
+                                                          const Vector3fArray3_c* imuAccels_B);
 
 #ifdef __cplusplus
 }  // extern "C"

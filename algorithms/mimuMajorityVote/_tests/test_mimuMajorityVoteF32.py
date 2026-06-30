@@ -115,12 +115,18 @@ def run_test(
     module.modelTag = "mimuMajorityVote"
 
     module.omegaThreshold = omega_threshold_rad_per_sec
-    module.faultPersistenceLimit = fault_persistence_limit
+    module.gyroFaultPersistenceLimit = fault_persistence_limit
+    module.accelThreshold = 1.0  # m/s^2
+    module.accelFaultPersistenceLimit = 1
+
+    # All IMUs report the same acceleration, so the (independent) accel vote never faults.
+    acceleration = np.array([0.0, 0.0, 9.8])
 
     unit_test_sim.AddModelToTask(unit_task_name, module)
 
     input_message_data_1 = messaging.IMUSensorBodyMsgF32Payload()
     input_message_data_1.AngVelBody = angular_velocity_1.tolist()
+    input_message_data_1.AccelBody = acceleration.tolist()
     in_msg_1 = messaging.IMUSensorBodyMsgF32().write(input_message_data_1)
 
     imu_message_1 = mimuMajorityVoteF32.ImuMessage()
@@ -129,6 +135,7 @@ def run_test(
 
     input_message_data_2 = messaging.IMUSensorBodyMsgF32Payload()
     input_message_data_2.AngVelBody = angular_velocity_2.tolist()
+    input_message_data_2.AccelBody = acceleration.tolist()
     in_msg_2 = messaging.IMUSensorBodyMsgF32().write(input_message_data_2)
 
     imu_message_2 = mimuMajorityVoteF32.ImuMessage()
@@ -137,6 +144,7 @@ def run_test(
 
     input_message_data_3 = messaging.IMUSensorBodyMsgF32Payload()
     input_message_data_3.AngVelBody = angular_velocity_3.tolist()
+    input_message_data_3.AccelBody = acceleration.tolist()
     in_msg_3 = messaging.IMUSensorBodyMsgF32().write(input_message_data_3)
 
     imu_message_3 = mimuMajorityVoteF32.ImuMessage()
@@ -155,8 +163,8 @@ def run_test(
     unit_test_sim.ExecuteSimulation()
 
     module_output_angular_velocity = rate_data_log.AngVelBody
-    module_output_fault = fault_data_log.faultDetected
-    module_output_valid_imus = fault_data_log.validImus
+    module_output_fault = fault_data_log.gyroFaultDetected
+    module_output_valid_imus = fault_data_log.gyroImuValid
 
     np.testing.assert_allclose(
         module_output_angular_velocity[-1], expected_angular_velocity, rtol=0, atol=1e-7, verbose=True
@@ -164,7 +172,16 @@ def run_test(
     np.testing.assert_allclose(module_output_fault[-1], expected_output_fault, verbose=True)
     np.testing.assert_array_equal(module_output_valid_imus[-1], expected_valid_imus)
     np.testing.assert_allclose(module.omegaThreshold, omega_threshold_rad_per_sec, rtol=0, atol=1e-7, verbose=True)
-    np.testing.assert_array_equal(module.faultPersistenceLimit, fault_persistence_limit)
+    np.testing.assert_array_equal(module.gyroFaultPersistenceLimit, fault_persistence_limit)
+
+    # Independent accel vote: identical accel inputs average through with no fault.
+    module_output_acceleration = rate_data_log.AccelBody
+    module_output_accel_fault = fault_data_log.accelFaultDetected
+    module_output_accel_valid_imus = fault_data_log.accelImuValid
+
+    np.testing.assert_allclose(module_output_acceleration[-1], acceleration, rtol=0, atol=1e-7, verbose=True)
+    np.testing.assert_allclose(module_output_accel_fault[-1], False, verbose=True)
+    np.testing.assert_array_equal(module_output_accel_valid_imus[-1], [True, True, True])
 
 
 if __name__ == "__main__":
