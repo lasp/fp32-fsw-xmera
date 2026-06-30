@@ -1,5 +1,6 @@
 #include "flybyPointAlgorithm.h"
 #include "architecture/utilities/rigidBodyKinematics.hpp"
+#include "utilities/fsw/safeMath.h"
 #include <architecture/utilities/macroDefinitions.h>
 #include "utilities/fsw/rigidBodyKinematics.hpp"
 #include <numbers>
@@ -67,7 +68,7 @@ void FlybyPointAlgorithm::computeFlybyParameters(const Eigen::Vector3d& r_BN_N, 
     const Eigen::Vector3d ut_N = uh_N.cross(ur_N).normalized();
 
     // compute flight path angle at the time of read
-    this->gamma0 = std::atan(v_BN_N.dot(ur_N) / v_BN_N.dot(ut_N));
+    this->gamma0 = safeAtan2(v_BN_N.dot(ur_N), v_BN_N.dot(ut_N));
 }
 
 bool FlybyPointAlgorithm::checkValidity(uint64_t currentSimNanos,
@@ -79,7 +80,7 @@ bool FlybyPointAlgorithm::checkValidity(uint64_t currentSimNanos,
     const Eigen::Vector3d uv_N = v_BN_N.normalized();
 
     /*! assert r and v are not collinear (collision trajectory) */
-    if (std::abs(1 - ur_N.dot(uv_N)) < this->toleranceForCollinearity) {
+    if (fabs(1.0 - ur_N.dot(uv_N)) < this->toleranceForCollinearity) {
         valid = false;
         output.collinearityTrigger = true;
     } else {
@@ -87,7 +88,7 @@ bool FlybyPointAlgorithm::checkValidity(uint64_t currentSimNanos,
     }
 
     /*! check if the predicted rate exceeds the maximum rate of the spacecraft */
-    const double distanceClosestApproach = -r_BN_N.norm() * std::sin(this->gamma0);
+    const double distanceClosestApproach = -r_BN_N.norm() * safeSin(this->gamma0);
     const double maxPredictedRate = v_BN_N.norm() / distanceClosestApproach * kRad2Deg;
     if (maxPredictedRate > this->maxRate && this->maxRate > 0) {
         valid = false;
@@ -134,8 +135,7 @@ void FlybyPointAlgorithm::computeRN(const Eigen::Vector3d& r_BN_N, const Eigen::
 
 std::tuple<Eigen::Vector3d, Eigen::Vector3d, Eigen::Vector3d> FlybyPointAlgorithm::computeGuidanceSolution() const {
     /*! compute DCM (RtR0) of reference frame from last read time */
-    const double theta =
-        std::atan(std::tan(this->gamma0) + this->f0 / std::cos(this->gamma0) * this->dt) - this->gamma0;
+    const double theta = safeAtan(safeTan(this->gamma0) + this->f0 / safeCos(this->gamma0) * this->dt) - this->gamma0;
     const Eigen::Vector3d PRV_theta{0, 0, theta};
     const Eigen::Matrix3d RtR0 = prvToDcm(PRV_theta);
 
@@ -143,10 +143,11 @@ std::tuple<Eigen::Vector3d, Eigen::Vector3d, Eigen::Vector3d> FlybyPointAlgorith
     const Eigen::Matrix3d RtN = RtR0 * this->R0N;
 
     /*! compute scalar angular rate and acceleration of the reference frame in R-frame coordinates */
-    const double den = (this->f0 * this->f0 * this->dt * this->dt + 2 * this->f0 * sin(this->gamma0) * this->dt + 1);
-    const double thetaDot = this->f0 * cos(this->gamma0) / den;
+    const double den =
+        (this->f0 * this->f0 * this->dt * this->dt + 2 * this->f0 * safeSin(this->gamma0) * this->dt + 1);
+    const double thetaDot = this->f0 * safeCos(this->gamma0) / den;
     const double thetaDDot =
-        -2 * this->f0 * this->f0 * cos(this->gamma0) * (this->f0 * this->dt + sin(this->gamma0)) / (den * den);
+        -2 * this->f0 * this->f0 * safeCos(this->gamma0) * (this->f0 * this->dt + safeSin(this->gamma0)) / (den * den);
     const Eigen::Vector3d omega_RN_R{0, 0, thetaDot};
     const Eigen::Vector3d omegaDot_RN_R{0, 0, thetaDDot};
 
