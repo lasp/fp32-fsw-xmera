@@ -19,10 +19,8 @@ class BodyEphemerisPayload {
     int bodySpiceId{};            //!< SPICE ID of the body
     int originalCentralBodyId{};  //!< Original reference body SPICE ID for ephemeris data
     bool isMoon{false};           //!< Body is moon of another body in the list
-    Eigen::Vector3d input_r = Eigen::Vector3d::Zero();
-    Eigen::Vector3d input_v = Eigen::Vector3d::Zero();
-    Eigen::Vector3d output_r = Eigen::Vector3d::Zero();
-    Eigen::Vector3d output_v = Eigen::Vector3d::Zero();
+    Eigen::Vector3d position = Eigen::Vector3d::Zero();
+    Eigen::Vector3d velocity = Eigen::Vector3d::Zero();
 };
 
 /**
