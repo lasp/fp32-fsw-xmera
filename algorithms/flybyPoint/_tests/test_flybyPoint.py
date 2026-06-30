@@ -5,7 +5,7 @@ import numpy as np
 import pytest
 from xmera import __path__
 from xmera.architecture import messaging
-from xmera.fswAlgorithms import flybyPoint
+from xmera.fp32 import flybyPointF32
 from xmera.utilities import RigidBodyKinematics as rbk
 from xmera.utilities import SimulationBaseClass, macros, unitTestSupport
 
@@ -52,7 +52,7 @@ def test_flybyPoint_diagnostic_collinearity(
     test_process.addTask(unit_test_sim.CreateNewTask("unit_task", process_rate))
 
     # setup flybyPoint guidance module
-    flyby_guidance = flybyPoint.FlybyPoint()
+    flyby_guidance = flybyPointF32.FlybyPoint()
     flyby_guidance.modelTag = "flybyPoint"
     flyby_guidance.setTimeBetweenFilterData(filter_dt)
     flyby_guidance.setToleranceForCollinearity(1E-5)
@@ -115,7 +115,7 @@ def test_flybyPoint_maxrate(
     test_process.addTask(unit_test_sim.CreateNewTask("unit_task", process_rate))
 
     # setup flybyPoint guidance module
-    flyby_guidance = flybyPoint.FlybyPoint()
+    flyby_guidance = flybyPointF32.FlybyPoint()
     flyby_guidance.modelTag = "flybyPoint"
     flyby_guidance.setTimeBetweenFilterData(filter_dt)
     flyby_guidance.setToleranceForCollinearity(1E-5)
@@ -178,7 +178,7 @@ def test_flybyPoint_maxacc(
     test_process.addTask(unit_test_sim.CreateNewTask("unit_task", process_rate))
 
     # setup flybyPoint guidance module
-    flyby_guidance = flybyPoint.FlybyPoint()
+    flyby_guidance = flybyPointF32.FlybyPoint()
     flyby_guidance.modelTag = "flybyPoint"
     flyby_guidance.setTimeBetweenFilterData(filter_dt)
     flyby_guidance.setToleranceForCollinearity(1E-5)
@@ -242,7 +242,7 @@ def test_flybyPoint_diagnostic_positionknowledge(
     test_process.addTask(unit_test_sim.CreateNewTask("unit_task", process_rate))
 
     # setup flybyPoint guidance module
-    flyby_guidance = flybyPoint.FlybyPoint()
+    flyby_guidance = flybyPointF32.FlybyPoint()
     flyby_guidance.modelTag = "flybyPoint"
     flyby_guidance.setTimeBetweenFilterData(filter_dt)
     flyby_guidance.setToleranceForCollinearity(1E-5)
@@ -298,7 +298,7 @@ def flybyPointTestFunction(show_plots, initial_position, initial_velocity, filte
     test_process.addTask(unit_test_sim.CreateNewTask("unit_task", process_rate))
 
     # setup flybyPoint guidance module
-    flyby_guidance = flybyPoint.FlybyPoint()
+    flyby_guidance = flybyPointF32.FlybyPoint()
     flyby_guidance.modelTag = "flybyPoint"
     flyby_guidance.setTimeBetweenFilterData(filter_dt)
     np.testing.assert_equal(flyby_guidance.getTimeBetweenFilterData(), filter_dt)

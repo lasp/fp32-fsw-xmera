@@ -1,7 +1,7 @@
 #include "flybyPointAlgorithm.h"
 #include <architecture/utilities/eigenSupport.h>
 #include <architecture/utilities/macroDefinitions.h>
-#include <architecture/utilities/rigidBodyKinematics.hpp>
+#include "utilities/fsw/rigidBodyKinematics.hpp"
 
 /*! This method is used to reset the module.
  @return void

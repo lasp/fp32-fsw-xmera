@@ -1,4 +1,4 @@
-%module flybyPoint
+%module flybyPointF32
 %{
    #include "flybyPoint.h"
 %}
