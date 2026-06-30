@@ -173,7 +173,7 @@ class SRuKF {
      *  (reConfigure() plus a state/covariance reset). */
     void reset() {
         constexpr int N = State::size;
-        
+
         this->state = this->stateInitial;
         this->covariance = this->covarianceInitial;
         this->sqrtCovar = choleskyDecomposition<N>(this->covarianceInitial);
@@ -263,7 +263,7 @@ class SRuKF {
      *  @return pre- and post-fit residuals
      *  @param measurement [-] satisfies Measurement<M, State> */
     template <Measurement<State> M>
-    UpdateResult<M> measurementUpdate(M const& measurement) {
+    std::optional<UpdateResult<M>> measurementUpdate(M const& measurement) {
         constexpr int N = State::size;
         constexpr int numSigma = 2 * N + 1;
         constexpr int MSize = M::size;
@@ -328,15 +328,21 @@ class SRuKF {
         }
         this->covariance = this->sqrtCovar * this->sqrtCovar.transpose();
 
-        //! > Move the state and covariance of last measuremnts up
-        this->stateLastMeasurement = this->state;
-        this->covarianceLastMeasurement = this->covariance;
-        this->sqrtCovarLastMeasurement = this->sqrtCovar;
+        std::optional<UpdateResult<M>> residuals = {};
 
-        //! > Now that update is done compute post fit residuals
-        Eigen::Vector<double, MSize> const postFit = measurement.subtract(observation, measurement.model(this->state));
+        if (this->state.allFinite() and this->sqrtCovar.allFinite()) {
+            //! > Move the state and covariance of last measuremnts up
+            this->stateLastMeasurement = this->state;
+            this->covarianceLastMeasurement = this->covariance;
+            this->sqrtCovarLastMeasurement = this->sqrtCovar;
 
-        return {.preFit = preFit, .postFit = postFit};
+            //! > Now that update is done compute post fit residuals
+            Eigen::Vector<double, MSize> const postFit =
+                measurement.subtract(observation, measurement.model(this->state));
+
+            residuals = {.preFit = preFit, .postFit = postFit};
+        }
+        return residuals;
     }
 
     /*! @return current filter state */
