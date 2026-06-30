@@ -82,17 +82,18 @@ class CobConverterAlgorithm {
         OpNavUnitVecMsgPayload& uVecMsgBuffer,
         OpNavCOMMsgPayload& comMsgBuffer) const;
 
-    PhaseAngleCorrectionMethodAlgorithm phaseAngleCorrectionMethod;
+    PhaseAngleCorrectionMethodAlgorithm phaseAngleCorrectionMethod =
+        PhaseAngleCorrectionMethodAlgorithm::NoCorrectionAlg;
     CalibrationCoefficients calibrationCoefficients{};
     double objectRadius{};
     double objectRadiusUncertainty{};
-    Eigen::Matrix3d covarAtt_BN_B{};
-    Eigen::Matrix3d dcm_NC{};
-    Eigen::Matrix3d dcm_CB{};
-    Eigen::Matrix3d dcm_BN{};
-    Eigen::Matrix3d cameraCalibrationMatrix{};
-    Eigen::Matrix3d cameraCalibrationMatrixInverse{};
-    Eigen::Matrix3d covar_B{};
+    Eigen::Matrix3d covarAtt_BN_B = Eigen::Matrix3d::Zero();
+    Eigen::Matrix3d dcm_NC = Eigen::Matrix3d::Zero();
+    Eigen::Matrix3d dcm_CB = Eigen::Matrix3d::Zero();
+    Eigen::Matrix3d dcm_BN = Eigen::Matrix3d::Zero();
+    Eigen::Matrix3d cameraCalibrationMatrix = Eigen::Matrix3d::Zero();
+    Eigen::Matrix3d cameraCalibrationMatrixInverse = Eigen::Matrix3d::Zero();
+    Eigen::Matrix3d covar_B = Eigen::Matrix3d::Zero();
     double numStandardDeviations = 3;
     double standardDeviation{};
     bool specifiedStandardDeviation{};
@@ -107,10 +108,10 @@ class CobConverterAlgorithm {
     double gamma = 0;
     double phi = 0;
     double alphaPA = 0;
-    Eigen::Vector3d rhatCOB_C{};
-    Eigen::Vector3d rhatCOM_C{};
-    Eigen::Vector3d sc_position{};
-    Eigen::Vector3d shat_N{};
+    Eigen::Vector3d rhatCOB_C = Eigen::Vector3d::Zero();
+    Eigen::Vector3d rhatCOM_C = Eigen::Vector3d::Zero();
+    Eigen::Vector3d sc_position = Eigen::Vector3d::Zero();
+    Eigen::Vector3d shat_N = Eigen::Vector3d::Zero();
     double rhatCOBNorm = 0;
     double spacecraftRange = 0;
     int cameraId = 0;
