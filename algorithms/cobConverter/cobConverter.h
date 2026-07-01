@@ -3,15 +3,14 @@
 
 #include <architecture/messaging/messaging.h>
 
-#include <architecture/msgPayloadDef/CameraModelMsgPayload.h>
-#include <architecture/msgPayloadDef/CobConverterDiagnosticMsgPayload.h>
-#include <architecture/msgPayloadDef/FilterMsgPayload.h>
-#include <architecture/msgPayloadDef/NavAttMsgPayload.h>
-#include <architecture/msgPayloadDef/OpNavCOBMsgPayload.h>
-#include <architecture/msgPayloadDef/OpNavCOMMsgPayload.h>
-#include <architecture/msgPayloadDef/OpNavUnitVecMsgPayload.h>
-
 #include "cobConverterAlgorithm.h"
+#include "msgPayloadDef/CameraModelMsgF32Payload.h"
+#include "msgPayloadDef/CobConverterDiagnosticMsgF32Payload.h"
+#include "msgPayloadDef/FilterMsgF32Payload.h"
+#include "msgPayloadDef/NavAttMsgF32Payload.h"
+#include "msgPayloadDef/OpNavCOBMsgF32Payload.h"
+#include "msgPayloadDef/OpNavCOMMsgF32Payload.h"
+#include "msgPayloadDef/OpNavUnitVecMsgF32Payload.h"
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 
 /**
@@ -33,22 +32,22 @@ const std::map<PhaseAngleCorrectionMethod, PhaseAngleCorrectionMethodAlgorithm> 
  */
 class CobConverter : public SysModel {
    public:
-    CobConverter(PhaseAngleCorrectionMethod method, double radiusObject);
+    CobConverter(PhaseAngleCorrectionMethod method, float radiusObject);
     ~CobConverter() final;
 
     void updateState(uint64_t currentSimNanos) override;
     void reset(uint64_t currentSimNanos) override;
 
-    void setRadius(double radius);
-    double getRadius() const;
-    void setRadiusUncertainty(double radiusUncertainty);
-    double getRadiusUncertainty() const;
-    void setAttitudeCovariance(const Eigen::Matrix3d& covAtt_BN_B);
-    Eigen::Matrix3d getAttitudeCovariance() const;
-    void setNumStandardDeviations(double num);
-    double getNumStandardDeviations() const;
-    void setStandardDeviation(double num);
-    double getStandardDeviation() const;
+    void setRadius(float radius);
+    float getRadius() const;
+    void setRadiusUncertainty(float radiusUncertainty);
+    float getRadiusUncertainty() const;
+    void setAttitudeCovariance(const Eigen::Matrix3f& covAtt_BN_B);
+    Eigen::Matrix3f getAttitudeCovariance() const;
+    void setNumStandardDeviations(float num);
+    float getNumStandardDeviations() const;
+    void setStandardDeviation(float num);
+    float getStandardDeviation() const;
     bool isStandardDeviationSpecified() const;
     void setOutlierDetectionEnabled(bool enable);
     bool isOutlierDetectionEnabled() const;
@@ -57,16 +56,16 @@ class CobConverter : public SysModel {
 
    public:
     // Output messages
-    Message<OpNavUnitVecMsgPayload> opnavUnitVecOutMsg;
-    Message<OpNavCOMMsgPayload> comCorrectionOutMsg;
-    Message<CobConverterDiagnosticMsgPayload> cobConverterDiagnosticOutMsg;
+    Message<OpNavUnitVecMsgF32Payload> opnavUnitVecOutMsg;
+    Message<OpNavCOMMsgF32Payload> comCorrectionOutMsg;
+    Message<CobConverterDiagnosticMsgF32Payload> cobConverterDiagnosticOutMsg;
 
     // Input messages
-    ReadFunctor<OpNavCOBMsgPayload> opnavCOBInMsg;
-    ReadFunctor<FilterMsgPayload> opnavFilterInMsg;
-    ReadFunctor<CameraModelMsgPayload> cameraConfigInMsg;
-    ReadFunctor<NavAttMsgPayload> navAttInMsg;
-    ReadFunctor<NavAttMsgPayload> sunInMsg;
+    ReadFunctor<OpNavCOBMsgF32Payload> opnavCOBInMsg;
+    ReadFunctor<FilterMsgF32Payload> opnavFilterInMsg;
+    ReadFunctor<CameraModelMsgF32Payload> cameraConfigInMsg;
+    ReadFunctor<NavAttMsgF32Payload> navAttInMsg;
+    ReadFunctor<NavAttMsgF32Payload> sunInMsg;
 
    private:
     CobConverterAlgorithm algorithm;

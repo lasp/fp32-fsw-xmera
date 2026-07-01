@@ -174,18 +174,18 @@ def cob_converter_test_function(show_plots, cameraResolution, centerOfBrightness
     sigma_CB = rbk.C2MRP(dcm_CB)
 
     # Create the input messages.
-    inputCamera = messaging.CameraModelMsgPayload()
-    inputCob = messaging.OpNavCOBMsgPayload()
-    inputFilter = messaging.FilterMsgPayload()
-    inputAtt = messaging.NavAttMsgPayload()
-    inputSun = messaging.NavAttMsgPayload()
+    inputCamera = messaging.CameraModelMsgF32Payload()
+    inputCob = messaging.OpNavCOBMsgF32Payload()
+    inputFilter = messaging.FilterMsgF32Payload()
+    inputAtt = messaging.NavAttMsgF32Payload()
+    inputSun = messaging.NavAttMsgF32Payload()
 
     # Set camera parameters
     inputCamera.fieldOfView = [np.deg2rad(20.0), np.deg2rad(20.0)]
     inputCamera.resolution = cameraResolution
     inputCamera.bodyToCameraMrp = sigma_CB
     inputCamera.focalLength = 0.10
-    camInMsg = messaging.CameraModelMsg().write(inputCamera)
+    camInMsg = messaging.CameraModelMsgF32().write(inputCamera)
     module.cameraConfigInMsg.subscribeTo(camInMsg)
 
     # Set center of brightness
@@ -193,7 +193,7 @@ def cob_converter_test_function(show_plots, cameraResolution, centerOfBrightness
     inputCob.pixelsFound = numberOfPixels
     inputCob.timeTag = 12345
     inputCob.valid = (numberOfPixels > 0)
-    cobInMsg = messaging.OpNavCOBMsg().write(inputCob)
+    cobInMsg = messaging.OpNavCOBMsgF32().write(inputCob)
     module.opnavCOBInMsg.subscribeTo(cobInMsg)
 
     # Set filter message
@@ -202,17 +202,17 @@ def cob_converter_test_function(show_plots, cameraResolution, centerOfBrightness
     inputFilter.state = np.array([r_BdyZero_N, v_BdyZero_N]).flatten()
     inputFilter.covar = full_covariance.flatten()
     position_covar = full_covariance[:3,:3]
-    filterInMsg = messaging.FilterMsg().write(inputFilter)
+    filterInMsg = messaging.FilterMsgF32().write(inputFilter)
     module.opnavFilterInMsg.subscribeTo(filterInMsg)
     vehSunPntN = np.array(sunDirection) / np.linalg.norm(np.array(sunDirection))  # unit vector from SC to Sun
 
     # Set body attitude relative to inertial
     inputAtt.sigma_BN = sigma_BN
-    attInMsg = messaging.NavAttMsg().write(inputAtt)
+    attInMsg = messaging.NavAttMsgF32().write(inputAtt)
     module.navAttInMsg.subscribeTo(attInMsg)
 
     inputSun.vehSunPntBdy = dcm_BN @ vehSunPntN
-    sunInMsg = messaging.NavAttMsg().write(inputSun)
+    sunInMsg = messaging.NavAttMsgF32().write(inputSun)
     module.sunInMsg.subscribeTo(sunInMsg)
 
     dataLogUnitVec = module.opnavUnitVecOutMsg.recorder()
@@ -290,19 +290,23 @@ def cob_converter_test_function(show_plots, cameraResolution, centerOfBrightness
     covar_N = dataLogUnitVec.covar_N[0]
 
     # make sure module output data is correct
-    tolerance = 1e-9  #atol=1e-9 due to floating point precision limits
+    tolerance = 1e-6  #atol=1e-9 due to floating point precision limits
     np.testing.assert_((np.linalg.norm(covar_COM_C_true) + tolerance >= np.linalg.norm(covar_COB_C_true)), "Some elements in A are less than in B")
 
 
+    # covar_N spans ~16 orders of magnitude (dominated by filterVehPositionCovariance),
+    # and sigma_BN/vehSunPntBdy are now float32, so large entries carry ~1e-7 relative
+    # float error that a pure atol check can't absorb. Add rtol for the large entries;
+    # atol still covers the near-zero ones.
     np.testing.assert_allclose(covar_N,
                                covar_N_true,
-                               rtol=0,
+                               rtol=1e-5,
                                atol=tolerance,
                                err_msg='Variable: covar_N',
                                verbose=True)
     np.testing.assert_allclose(com,
                                com_true,
-                               rtol=0,
+                               rtol=1e-5,
                                atol=tolerance,
                                err_msg='Variable: com',
                                verbose=True)
@@ -366,18 +370,18 @@ def test_coberror_outlier(
     sigma_CB = rbk.C2MRP(dcm_CB)
 
     # Create the input messages.
-    inputCamera = messaging.CameraModelMsgPayload()
-    inputCob = messaging.OpNavCOBMsgPayload()
-    inputFilter = messaging.FilterMsgPayload()
-    inputAtt = messaging.NavAttMsgPayload()
-    inputSun = messaging.NavAttMsgPayload()
+    inputCamera = messaging.CameraModelMsgF32Payload()
+    inputCob = messaging.OpNavCOBMsgF32Payload()
+    inputFilter = messaging.FilterMsgF32Payload()
+    inputAtt = messaging.NavAttMsgF32Payload()
+    inputSun = messaging.NavAttMsgF32Payload()
 
     # Set camera parameters
     inputCamera.fieldOfView = [np.deg2rad(20.0), np.deg2rad(20.0)]
     inputCamera.resolution = cameraResolution
     inputCamera.bodyToCameraMrp = sigma_CB
     inputCamera.focalLength = 0.10
-    camInMsg = messaging.CameraModelMsg().write(inputCamera)
+    camInMsg = messaging.CameraModelMsgF32().write(inputCamera)
     module.cameraConfigInMsg.subscribeTo(camInMsg)
 
     # Set center of brightness
@@ -385,7 +389,7 @@ def test_coberror_outlier(
     inputCob.pixelsFound = numberOfPixels
     inputCob.timeTag = 12345
     inputCob.valid = (numberOfPixels > 0)
-    cobInMsg = messaging.OpNavCOBMsg().write(inputCob)
+    cobInMsg = messaging.OpNavCOBMsgF32().write(inputCob)
     module.opnavCOBInMsg.subscribeTo(cobInMsg)
 
     # Set filter message
@@ -393,17 +397,17 @@ def test_coberror_outlier(
     inputFilter.numberOfStates = 6
     inputFilter.state = np.array([r_BdyZero_N, v_BdyZero_N]).flatten()
     inputFilter.covar = full_covariance.flatten()
-    filterInMsg = messaging.FilterMsg().write(inputFilter)
+    filterInMsg = messaging.FilterMsgF32().write(inputFilter)
     module.opnavFilterInMsg.subscribeTo(filterInMsg)
     vehSunPntN = np.array(sunDirection) / np.linalg.norm(np.array(sunDirection))  # unit vector from SC to Sun
 
     # Set body attitude relative to inertial
     inputAtt.sigma_BN = sigma_BN
-    attInMsg = messaging.NavAttMsg().write(inputAtt)
+    attInMsg = messaging.NavAttMsgF32().write(inputAtt)
     module.navAttInMsg.subscribeTo(attInMsg)
 
     inputSun.vehSunPntBdy = dcm_BN @ vehSunPntN
-    sunInMsg = messaging.NavAttMsg().write(inputSun)
+    sunInMsg = messaging.NavAttMsgF32().write(inputSun)
     module.sunInMsg.subscribeTo(sunInMsg)
 
     dataLogUnitVec = module.opnavUnitVecOutMsg.recorder()
@@ -524,40 +528,40 @@ def test_brown_conrady_calibration(k1, k2, k3, p1, p2, label, centerOfBrightness
     dcm_CB = np.array([[0.0, 1.0, 0.0], [0.0, 0.0, -1.0], [-1.0, 0.0, 0.0]])
     sigma_CB = rbk.C2MRP(dcm_CB)
 
-    inputCamera = messaging.CameraModelMsgPayload()
-    inputCob = messaging.OpNavCOBMsgPayload()
-    inputFilter = messaging.FilterMsgPayload()
-    inputAtt = messaging.NavAttMsgPayload()
-    inputSun = messaging.NavAttMsgPayload()
+    inputCamera = messaging.CameraModelMsgF32Payload()
+    inputCob = messaging.OpNavCOBMsgF32Payload()
+    inputFilter = messaging.FilterMsgF32Payload()
+    inputAtt = messaging.NavAttMsgF32Payload()
+    inputSun = messaging.NavAttMsgF32Payload()
 
     inputCamera.fieldOfView = [np.deg2rad(20.0), np.deg2rad(20.0)]
     inputCamera.resolution = cameraResolution
     inputCamera.bodyToCameraMrp = sigma_CB
     inputCamera.focalLength = 0.10
-    camInMsg = messaging.CameraModelMsg().write(inputCamera)
+    camInMsg = messaging.CameraModelMsgF32().write(inputCamera)
     module.cameraConfigInMsg.subscribeTo(camInMsg)
 
     inputCob.centerOfBrightness = centerOfBrightness
     inputCob.pixelsFound = numberOfPixels
     inputCob.timeTag = 12345
     inputCob.valid = True
-    cobInMsg = messaging.OpNavCOBMsg().write(inputCob)
+    cobInMsg = messaging.OpNavCOBMsgF32().write(inputCob)
     module.opnavCOBInMsg.subscribeTo(cobInMsg)
 
     full_covariance = np.diag([50e3, 50e3, 50e3, 0.01, 0.01, 0.01])
     inputFilter.numberOfStates = 6
     inputFilter.state = np.array([r_BdyZero_N, v_BdyZero_N]).flatten()
     inputFilter.covar = full_covariance.flatten()
-    filterInMsg = messaging.FilterMsg().write(inputFilter)
+    filterInMsg = messaging.FilterMsgF32().write(inputFilter)
     module.opnavFilterInMsg.subscribeTo(filterInMsg)
 
     vehSunPntN = np.array(sunDirection) / np.linalg.norm(np.array(sunDirection))
     inputAtt.sigma_BN = sigma_BN
-    attInMsg = messaging.NavAttMsg().write(inputAtt)
+    attInMsg = messaging.NavAttMsgF32().write(inputAtt)
     module.navAttInMsg.subscribeTo(attInMsg)
 
     inputSun.vehSunPntBdy = dcm_BN @ vehSunPntN
-    sunInMsg = messaging.NavAttMsg().write(inputSun)
+    sunInMsg = messaging.NavAttMsgF32().write(inputSun)
     module.sunInMsg.subscribeTo(sunInMsg)
 
     dataLogUnitVec = module.opnavUnitVecOutMsg.recorder()
@@ -574,7 +578,7 @@ def test_brown_conrady_calibration(k1, k2, k3, p1, p2, label, centerOfBrightness
     rhat_COM_C_out = dataLogUnitVec.rhat_BN_C[0]
     rhat_COM_N_out = dataLogUnitVec.rhat_BN_N[0]
 
-    tolerance = 1e-9
+    tolerance = 1e-6
     np.testing.assert_allclose(rhat_COM_C_out, rhat_COB_C_true, rtol=0, atol=tolerance,
                                err_msg=f"rhat_BN_C ({label})")
     np.testing.assert_allclose(rhat_COM_N_out, rhat_COB_N_true, rtol=0, atol=tolerance,

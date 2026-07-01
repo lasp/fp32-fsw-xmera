@@ -34,7 +34,7 @@ def get_analytical_sigma(sunDirection, distance):
     vehSunPntN = np.array(sunDirection) / np.linalg.norm(np.array(sunDirection))
     alpha = np.arccos(-np.dot(r_BdyZero_N.T / np.linalg.norm(r_BdyZero_N), vehSunPntN))
 
-    inputFilter = messaging.FilterMsgPayload()
+    inputFilter = messaging.FilterMsgF32Payload()
     inputEphem = messaging.EphemerisMsgPayload()
 
     full_covariance = np.diag([sigma_r**2, sigma_r**2, sigma_r**2, 0.01, 0.01, 0.01])
