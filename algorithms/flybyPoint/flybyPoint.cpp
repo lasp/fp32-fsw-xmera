@@ -1,10 +1,13 @@
 #include "flybyPoint.h"
 #include "utilities/fsw/eigenSupport.h"
+#include <stdexcept>
 
 FlybyPoint::FlybyPoint() { this->algorithm = FlybyPointAlgorithm(); }
 
 void FlybyPoint::reset(uint64_t currentSimNanos) {
-    assert(this->filterInMsg.isLinked());
+    if (!this->filterInMsg.isLinked()) {
+        throw std::runtime_error("flybyPoint.filterInMsg wasn't connected.");
+    }
     this->algorithm.reset();
 }
 
