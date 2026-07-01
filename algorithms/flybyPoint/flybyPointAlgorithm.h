@@ -1,8 +1,8 @@
 #ifndef F32XMERA_FLYBY_POINT_ALGORITHM_H
 #define F32XMERA_FLYBY_POINT_ALGORITHM_H
 
-#include "utilities/fsw/freestandingInvalidArgument.h"
 #include "flybyPointTypes.h"
+#include "utilities/fsw/freestandingInvalidArgument.h"
 #include <Eigen/Dense>
 
 /*! @brief Structure containing the attitude guidance output of the algorithm */
@@ -15,6 +15,7 @@ struct AttGuideOutput {
     bool maxAccelerationTrigger = false;  // true if the predicted acceleration exceeds the maximum acceleration of the
                                           // spacecraft
     bool positionKnowledgeExceedTrigger = false;  // true if the position error exceeds a-priori sigma bound
+    bool validOutput = false;
 };
 
 class FlybyPointConfig final {
