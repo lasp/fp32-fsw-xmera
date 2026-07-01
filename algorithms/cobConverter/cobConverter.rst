@@ -1,0 +1,303 @@
+Executive Summary
+-----------------
+
+Module reads in a message containing the pixel data extracted from the center of brightness (COB) measurement and
+transforms into a position measurement. The written message contains a heading (unit vector) and a covariance
+(measurement noise).
+
+Additionally, the center of mass (COM) can be estimated using a Sun phase angle correction. In this case, another unit
+vector message is written containing the heading and covariance for the COM, as well as a message containing information
+about the COM offset.
+
+The center of mass correction can be applied using the "Lambertian" or "Binary" method. If no correction should be
+performed, the method needs to be "NoCorrection". The Lambertian method assumes that the body is a sphere with
+lambertian reflectance, while the Binary method assumes a brightness of either 1 or 0 in the image of the body.
+
+Optionally, Brown-Conrady distortion coefficients can be provided to correct the normalized image-plane coordinate
+for lens distortion before the heading vector is computed.
+
+Message Connection Descriptions
+-------------------------------
+The following table lists all the module input and output messages.  The module msg connection is set by the
+user from python.  The msg type contains a link to the message structure definition, while the description
+provides information on what this message is used for:
+
+.. list-table:: Module I/O Messages
+    :widths: 25 25 50
+    :header-rows: 1
+
+    * - Msg Variable Name
+      - Msg Type
+      - Description
+    * - cameraConfigInMsg
+      - :ref:`CameraModelMsgPayload`
+      - Input camera model message
+    * - opnavCOBInMsg
+      - :ref:`OpNavCOBMsgPayload`
+      - Input center of brightness message written out by the image processing module
+    * - opnavFilterInMsg
+      - :ref:`FilterMsgPayload`
+      - Input filter message (used for outlier detection and COM phase-angle uncertainty)
+    * - navAttInMsg
+      - :ref:`NavAttMsgPayload`
+      - Input navigation message containing the spacecraft attitude in the inertial frame
+    * - sunInMsg
+      - :ref:`NavAttMsgPayload`
+      - Input Sun-pointing message containing the Sun direction in the body frame
+    * - opnavUnitVecOutMsg
+      - :ref:`OpNavUnitVecMsgPayload`
+      - Output heading vector and covariance in multiple frames; carries the COM heading when a phase-angle correction is active, otherwise the COB heading
+    * - comCorrectionOutMsg
+      - :ref:`OpNavCOMMsgPayload`
+      - Output message containing information about the COM offset due to the phase angle correction
+    * - cobConverterDiagnosticOutMsg
+      - :ref:`CobConverterDiagnosticMsgPayload`
+      - Output diagnostic message reporting whether the COB outlier check was triggered
+
+Detailed Module Description
+---------------------------
+
+Measurement mapping
+^^^^^^^^^^^^^^^^^^^
+
+This module models the measurement that will be ingested by the following filter. This is essentially a stand-alone
+measurement model for the filter composed via messaging.
+
+After reading the input center of brightness message which contains the pixel location of the center
+of brightness and the number of pixels that were found, the module reads the camera parameters and uses
+them to compute all necessary optics values.
+
+The main relations used between all of the camera values can be found in `this paper by J. A. Christian
+<https://doi.org/10.1109/ACCESS.2021.3051914>`__.
+
+With this, the unit vector in the camera frame from focal point to center of brightness in the image plane is found by
+(equivalent to setting z=1):
+
+.. math::
+
+    \mathbf{r}_{COB}^C &= [K]^{-1} \mathbf{\bar{u}}_{COB}
+
+where :math:`\mathbf{\bar{u}}_{COB} = [\mathrm{cob}_x, \mathrm{cob}_y, 1]^T` with the pixel coordinates of the center of
+brightness :math:`\mathrm{cob}_x` and :math:`\mathrm{cob}_y`, :math:`[K]` is the camera calibration matrix and
+:math:`\mathbf{r}_{COB}^C` is the unit vector describing the physical heading to the target in the camera frame.
+
+The covariance of the COB error is found using the number of detected pixels and the camera parameters, given by:
+
+.. math::
+
+    P = \frac{\mathrm{numPixels}}{4 \pi \cdot \left\| \mathbf{\bar{u}}_{COB} \right\|^2}
+    \left(
+    \left[
+    \begin{array}{ccc}
+    d_x^2 & 0 & 0 \\
+    0 & d_y^2 & 0 \\
+    0 & 0 & 1
+    \end{array}
+    \right]
+    \right)
+
+
+where :math:`d_x` and :math:`d_y` are the first and second diagonal elements of the camera calibration matrix
+:math:`[K]`. This covariance matrix is then transformed into the body frame and added to the covariance of the attitude
+error.
+
+
+If a COM correction is to be performed, the offset factor :math:`\gamma` due to the Sun phase angle correction is
+obtained for a phase angle :math:`\alpha` using
+
+.. math::
+
+    \gamma = \frac{4}{3 \pi} (1 - \cos\alpha)
+
+for the Binary method or
+
+.. math::
+
+    \gamma = \frac{3 \pi}{16} \left[ \frac{(\cos\alpha + 1) \sin\alpha}{\sin\alpha + (\pi - \alpha) \cos\alpha} \right]
+
+for the Lambertian method. If no correction is to be performed, then :math:`\gamma = 0`. The correction for the COM
+location is performed according to `this paper by S. Bhaskaran <https://doi.org/10.1109/AERO.1998.687921>`__. First, the
+object radius :math:`R` in meters is converted to the object radius in pixel units :math:`R_c` by
+
+.. math::
+
+    R_c = \frac{R K_x f}{\rho} = \frac{R d_x}{\rho}
+
+where :math:`K_x = d_x/f`, :math:`f` is the focal length in meters, and :math:`\rho` is the distance from the
+body center to the spacecraft in meters. Using the sun direction in the image plane :math:`\phi`, the COM location in
+pixel space is then computed using
+
+.. math::
+
+    \mathrm{com}_x = \mathrm{cob}_x - \gamma R_c \cos\phi \\
+    \mathrm{com}_y = \mathrm{cob}_y - \gamma R_c \sin\phi
+
+Finally, similar to the COB unit vector, the COM unit vector is obtained by
+
+.. math::
+
+    \mathbf{r}_{COM}^C &= [K]^{-1} \mathbf{\bar{u}}_{COM}
+
+where :math:`\mathbf{\bar{u}}_{COM} = [\mathrm{com}_x, \mathrm{com}_y, 1]^T`.
+
+
+The covariance of the COM error is found by firstly computing the total derivative of the angular error. Which can be
+found by calculating the partials of the Geometric model correction with respect to the flyby and asteroid states:
+
+.. math::
+
+    \frac{\partial \beta_G}{\partial \mathbf{r}} = -\frac{4R}{3\pi r}  \: \frac{(1 - \cos \alpha)}{1 +
+    \left( \frac{4R}{3\pi r} (1 - \cos \alpha) \right)^2}   \: \frac{    \mathbf{\hat{r}}  ^T}{r}
+
+
+
+    \frac{\partial \beta_G}{\partial R} = \frac{4}{3\pi r}   \: \frac{(1 - \cos \alpha)}{1 + \left( \frac{4R}{3\pi r}
+    (1 - \cos \alpha) \right)^2}
+
+
+
+    \frac{\partial \beta_G}{\partial \alpha} = \frac{4R}{3\pi r}   \:  \frac{\sin \alpha}{1 + \left( \frac{4R}{3\pi r}
+    (1 - \cos \alpha) \right)^2}
+
+
+The next equation shows the partial of the phase angle with respect to the flyby and asteroid states:
+
+.. math::
+
+    \frac{\partial \alpha}{\partial \mathbf{r}} = \frac{ -  \mathbf{\hat{s}}  ^T}{r \sin \alpha}
+    \left( \mathbf{I}  -  \mathbf{\hat{r}}     \mathbf{\hat{r}}  ^T \right)
+
+
+This leads to standard deviation equation which is done by gathering the partials in the following equation:
+
+.. math::
+
+    \sigma_{\beta}^2 = \left( \frac{\partial \beta}{\partial \mathbf{r}} + \frac{\partial \beta}{\partial \alpha}
+    \frac{\partial \alpha}{\partial \mathbf{r}} \right) [\mathbf{P}] \left( \frac{\partial \beta}{\partial \mathbf{r}} +
+    \frac{\partial \beta}{\partial \alpha} \frac{\partial \alpha}{\partial \mathbf{r}} \right)^T +
+    \left( \frac{\partial \beta}{\partial R}\right)^2 \sigma_{R}^2
+
+
+
+where :math:`[P]` is the filter position covariance matrix and :math:`\sigma_{R}^2` is the object's radius uncertainty. The
+following equation is used to find the COM covariance matrix:
+
+
+.. math::
+
+    W_{\text{correction}} = \left(
+    \left[
+    \begin{array}{ccc}
+    d_x^2 + \dfrac{\sigma_{\beta}^2}{\psi_{i,x}} \cos \phi & 0 & 0 \\
+    0 & d_y^2 + \dfrac{\sigma_{\beta}^2}{\psi_{i,y}} \sin \phi & 0 \\
+    0 & 0 & 1
+    \end{array}
+    \right]
+    \right)
+
+
+where :math:`\psi_{i,x}` and :math:`\psi_{i,y}` are the iFOV. This matrix is then transformed into the body frame and
+added to the covariance of the attitude error and COB error. All individual covariance matrices, and thus the total
+covariance matrix, describe the measurement noise of a unit vector.
+
+By reading the camera orientation and the current body attitude in the inertial frame, the final step is to rotate
+the covariance and heading vector in all the relevant frames for modules downstream. This is done simply by
+converting MRPs to DCMs and performing the matrix multiplication.
+If the incoming image is not valid, the module writes empty messages.
+
+Camera distortion calibration
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+After mapping the pixel coordinates into the normalized image plane via :math:`[K]^{-1}`, the resulting coordinate
+:math:`(x, y)` can be corrected for lens distortion using the Brown-Conrady model. With
+:math:`r^2 = x^2 + y^2`, the corrected coordinate :math:`(x', y')` is given by
+
+.. math::
+
+    x' &= x \left( 1 + k_1 r^2 + k_2 r^4 + k_3 r^6 \right) + 2 p_1 x y + p_2 \left( r^2 + 2 x^2 \right) \\
+    y' &= y \left( 1 + k_1 r^2 + k_2 r^4 + k_3 r^6 \right) + 2 p_2 x y + p_1 \left( r^2 + 2 y^2 \right)
+
+where :math:`k_1, k_2, k_3` are the radial distortion coefficients and :math:`p_1, p_2` are the tangential
+distortion coefficients. The radial polynomial :math:`1 + k_1 r^2 + k_2 r^4 + k_3 r^6` characterizes the type of
+radial distortion: a polynomial that is monotonically decreasing in :math:`r` represents barrel distortion (image
+features pulled toward the optical center), while a monotonically increasing polynomial represents pincushion
+distortion (features pushed away from the optical center). All coefficients default to zero, in which case the
+correction reduces to the identity and the module behaves as an ideal pinhole camera.
+
+An outlier detection may be performed for the COB. In this case, the filter message :ref:`FilterMsgPayload` is used to
+predict the location of the COB. If the location of the COB coming from the image is significantly different from the
+predicted COB, it is considered an outlier and the output unit vector is invalidated. For the output message to be
+valid, the following condition must be fulfilled:
+
+.. math::
+
+    e_{COB} = | \mathbf{u}_{COB} - \mathbf{u}_{COB, predicted} | \le n_\sigma \cdot \sigma
+
+where :math:`\mathbf{u}_{COB} = [\mathrm{cob}_x, \mathrm{cob}_y]^T` are the x-y coordinates of the COB coming from the
+image, :math:`\mathbf{u}_{COB, predicted}` are the x-y coordinates of the predicted COB, :math:`n_\sigma` are the number
+of standard deviations specified by the module input "numStandardDeviations". The standard deviation :math:`\sigma` is
+either set using the setStandardDeviation setter function, or automatically obtained by the module using the attitude
+covariance matrix (specified as parameter of the module) as well as the covariance of the COB estimation and the filter
+covariance (both of which are automatically computed).
+
+User Guide
+----------
+This section is to outline the steps needed to setup a center of brightness converter in Python.
+
+#. Import the module:
+
+.. code-block:: python
+
+    from Xmera.fswAlgorithms import cobConverter
+
+#. Create an instantiation of converter class. The COM/COB correction method and object radius need to be specified:
+
+.. code-block:: python
+
+    module = cobConverter.CobConverter(cobConverter.PhaseAngleCorrectionMethod_NoCorrection, R_obj)  # no correction
+    # module = cobConverter.CobConverter(cobConverter.PhaseAngleCorrectionMethod_Lambertian, R_obj)  # Lambertian method
+    # module = cobConverter.CobConverter(cobConverter.PhaseAngleCorrectionMethod_Binary, R_obj)  # Binary method
+
+#. The attitude error covariance matrix is set by::
+
+    module.setAttitudeCovariance(covar_att_BN_B)
+
+#. The object radius in units of meters for the phase angle correction can be updated by::
+
+    module.setRadius(R_obj)
+
+#. The COB outlier detection is enabled by::
+
+    module.enableOutlierDetection()
+
+#. The number of acceptable standard deviations and the standard deviation itself for COB outlier detection are set by:
+
+.. code-block:: python
+
+    module.setNumStandardDeviations(3)  # default 3
+    module.setStandardDeviation(100)  # if not set, then the standard deviation is dynamically updated by the module
+
+#. The Brown-Conrady distortion coefficients are optional and default to zero. To apply a lens calibration,
+   populate a ``CalibrationCoefficients`` struct and pass it to the module:
+
+.. code-block:: python
+
+    coefficients = cobConverter.CalibrationCoefficients()
+    coefficients.k1 = k1  # radial
+    coefficients.k2 = k2
+    coefficients.k3 = k3
+    coefficients.p1 = p1  # tangential
+    coefficients.p2 = p2
+    module.setBrownConradyCoefficients(coefficients)
+
+#. Subscribe to the messages::
+
+    module.cameraConfigInMsg.subscribeTo(camInMsg)
+    module.opnavCOBInMsg.subscribeTo(cobInMsg)
+    module.opnavFilterInMsg.subscribeTo(filterInMsg)
+    module.navAttInMsg.subscribeTo(attInMsg)
+    module.sunInMsg.subscribeTo(sunInMsg)
+
+#. Add model to task::
+
+    sim.AddModelToTask(taskName, module)
