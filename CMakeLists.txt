@@ -112,6 +112,7 @@ set(algorithms
     "cssComm"
     "dvGuidance"
     "ephemeridesRecenter"
+    "flybyPoint"
     "forceTorqueThrForceMapping"
     "hillPoint"
     "inertial3D"
