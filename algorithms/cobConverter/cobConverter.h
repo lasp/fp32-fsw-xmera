@@ -1,5 +1,5 @@
-#ifndef _COB_CONVERT_H_
-#define _COB_CONVERT_H_
+#ifndef F32XMERA_COB_CONVERTER_H
+#define F32XMERA_COB_CONVERTER_H
 
 #include <architecture/messaging/messaging.h>
 
@@ -73,4 +73,4 @@ class CobConverter : public SysModel {
     CobConverterAlgorithm algorithm;
 };
 
-#endif
+#endif  // F32XMERA_COB_CONVERTER_H

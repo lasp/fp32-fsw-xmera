@@ -9,6 +9,7 @@ add_subdirectory(utilities/fsw)
 # (directory-scoped: only affects targets created after this point).
 link_libraries(FswUtilities)
 
+add_subdirectory(cobConverter)
 add_subdirectory(attTrackingError)
 add_subdirectory(averageMimuData)
 add_subdirectory(bodyRateMiscompare)

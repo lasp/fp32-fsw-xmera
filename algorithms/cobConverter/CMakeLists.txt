@@ -1,4 +1,4 @@
-set(module "fswAlgorithms.opticalNavigation.cobConverter")
+set(module "fp32.cobConverterF32")
 xmera_is_module_enabled("${module}" _is_enabled)
 if(NOT _is_enabled)
   return()
@@ -9,6 +9,8 @@ target_sources("${module}" PRIVATE
   cobConverter.cpp
   cobConverterAlgorithm.cpp
 )
+
+target_include_directories("${module}" PUBLIC "..")
 
 target_link_libraries("${module}" PRIVATE
   Eigen3::Eigen

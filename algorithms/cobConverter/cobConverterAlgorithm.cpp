@@ -1,7 +1,7 @@
 #include "cobConverterAlgorithm.h"
-#include <architecture/utilities/eigenSupport.h>
-#include <architecture/utilities/macroDefinitions.h>
-#include <architecture/utilities/rigidBodyKinematics.hpp>
+#include "utilities/fsw/eigenSupport.h"
+#include "utilities/fsw/rigidBodyKinematics.hpp"
+#include "utilities/fsw/timeConstants.h"
 
 /**
  * @brief Compute total COB covariance in image space given unit-vector covariances.
@@ -307,7 +307,7 @@ std::tuple<OpNavUnitVecMsgPayload, OpNavCOMMsgPayload> CobConverterAlgorithm::po
     eigenVectorToCArray(rhatCOM_N, uVecMsgBuffer.rhat_BN_N);
     eigenVectorToCArray(this->rhatCOM_C, uVecMsgBuffer.rhat_BN_C);
     eigenVectorToCArray(rhatCOM_B, uVecMsgBuffer.rhat_BN_B);
-    uVecMsgBuffer.timeTag = static_cast<double>(timeTag) * NANO2SEC;
+    uVecMsgBuffer.timeTag = static_cast<double>(timeTag) * kNano2Sec;
     uVecMsgBuffer.valid = (this->validCOM && this->goodOutlierCheck);
 
     comMsgBuffer.centerOfBrightness[0] = centerOfBrightness[0];

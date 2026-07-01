@@ -1,5 +1,5 @@
-#ifndef _COB_CONVERT_ALGORITHM_H_
-#define _COB_CONVERT_ALGORITHM_H_
+#ifndef F32XMERA_COB_CONVERTER_ALGORITHM_H
+#define F32XMERA_COB_CONVERTER_ALGORITHM_H
 
 #include <Eigen/Dense>
 #include <cstdint>
@@ -117,4 +117,4 @@ class CobConverterAlgorithm {
     bool goodOutlierCheck = true;
 };
 
-#endif
+#endif  // F32XMERA_COB_CONVERTER_ALGORITHM_H

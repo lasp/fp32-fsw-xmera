@@ -3,9 +3,9 @@ import numpy as np
 import os
 import pytest
 from xmera.architecture import messaging
-from xmera.fswAlgorithms import cobConverter
+from xmera.fp32 import cobConverterF32 as cobConverter
 from xmera.utilities import RigidBodyKinematics as rbk
-from xmera.utilities import SimulationBaseClass, unitTestSupport, macros
+from xmera.utilities import SimulationBaseClass, macros
 
 filename = inspect.getframeinfo(inspect.currentframe()).filename
 path = os.path.dirname(os.path.abspath(filename))

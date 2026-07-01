@@ -3,7 +3,7 @@ import numpy as np
 import os
 import pytest
 from xmera.architecture import messaging
-from xmera.utilities import SimulationBaseClass, unitTestSupport, macros
+from xmera.utilities import SimulationBaseClass, macros
 import matplotlib
 import matplotlib.pyplot as plt
 
