@@ -1,6 +1,6 @@
 #include "flybyPointAlgorithm.h"
-#include "utilities/fsw/safeMath.h"
 #include "utilities/fsw/rigidBodyKinematics.hpp"
+#include "utilities/fsw/safeMath.h"
 #include "utilities/fsw/timeConstants.h"
 #include <numbers>
 
@@ -30,6 +30,9 @@ AttGuideOutput FlybyPointAlgorithm::updateState(uint64_t currentSimNanos,
                                                 const Eigen::Vector3d& v_BN_N) {
     /*! init diagnostic message */
     AttGuideOutput output{};
+    if (r_BN_N.stableNorm() < 1e-3 || v_BN_N.stableNorm() < 1e-3) {
+        return output;
+    }
     /*! compute dt from current time and last filter read time and get new states*/
     this->dt = static_cast<double>(currentSimNanos - this->lastFilterReadTime) * kNano2Sec;
     if ((this->dt >= this->cfg.getTimeBetweenFilterData()) || this->firstRead) {
@@ -57,6 +60,7 @@ AttGuideOutput FlybyPointAlgorithm::updateState(uint64_t currentSimNanos,
     output.sigma_RN = sigma_RN.cast<float>();
     output.omega_RN_N = omega_RN_N.cast<float>();
     output.domega_RN_N = omegaDot_RN_N.cast<float>();
+    output.validOutput = output.sigma_RN.allFinite() && output.omega_RN_N.allFinite() && output.domega_RN_N.allFinite();
     return output;
 }
 
