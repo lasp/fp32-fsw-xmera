@@ -115,7 +115,7 @@ bool FlybyPointAlgorithm::checkValidity(uint64_t currentSimNanos,
     }
 
     /*! check if the position error exceeds a-priori sigma bound */
-    const double deltaT = static_cast<double>(currentSimNanos) * kNano2Sec - this->timeOfFirstRead;
+    const double deltaT = (static_cast<double>(currentSimNanos) * kNano2Sec) - this->timeOfFirstRead;
     const double deltaPositionNorm = (r_BN_N - (this->firstNavPosition + deltaT * this->firstNavVelocity)).norm();
     if (deltaPositionNorm > this->cfg.getPositionKnowledgeSigma() && this->cfg.getPositionKnowledgeSigma() > 0) {
         valid = false;
