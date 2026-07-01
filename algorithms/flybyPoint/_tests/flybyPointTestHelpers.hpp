@@ -171,19 +171,36 @@ inline ReferenceFlybyOutput referenceUpdateState(ReferenceFlybyState& s,
  *  Both are seeded together at t=0 and then stepped in lock-step. The reference handles all
  *  branches of the state machine (extrapolation and re-seeding) so there is no constraint on
  *  stepNanos or numSteps relative to timeBetweenFilterData.
+ *
+ *  Tolerance strategy (per PRECISION_GUIDELINES.md §7.5):
+ *  - sigma_RN    : absolute kSigmaTol. MRP magnitude is bounded by 1 after shadow-set mapping,
+ *                  so a fixed absolute floor is appropriate.
+ *  - omega_RN_N  : relative kRelTol * |ref| + kAbsFloor. thetaDot = f0*cos(gamma0)/den scales
+ *                  with f0 = v/r and is unbounded for large v or small r, so a fixed absolute
+ *                  tolerance would fail for high-rate trajectories.
+ *  - domega_RN_N : same relative+floor formula as omega_RN_N. thetaDDot has the same scaling.
+ *
+ *  Derivation of kRelTol (PRECISION_GUIDELINES.md §7.2, §7.5):
+ *  The dominant error source is computeRN() storing unit vectors as float32
+ *  (unit_vector.cast<float>()), introducing ~1 ULP ~ 1.19e-7 relative error per DCM row.
+ *  computeGuidanceSolution() casts R0N back to double and multiplies by a 3-vector (~3 ops),
+ *  giving ~4 * 1.19e-7 ~ 4.8e-7 relative error in omega and domega. A 20x safety margin
+ *  yields kRelTol = 1e-5F.
  @param config Algorithm configuration
  @param r_BN_N The relative position state passed at every call [m]
  @param v_BN_N The relative velocity state passed at every call [m/s]
  @param stepNanos Time between successive updateState calls [ns]
  @param numSteps Number of steps to run after the initial seed at t=0
- @param tol Per-component absolute tolerance for EXPECT_NEAR comparisons
  */
 inline void regressionTestFlybyPoint(const FlybyPointConfig& config,
                                      const Eigen::Vector3d& r_BN_N,
                                      const Eigen::Vector3d& v_BN_N,
                                      uint64_t stepNanos,
-                                     int numSteps,
-                                     float tol = 1e-5F) {
+                                     int numSteps) {
+    static constexpr float kSigmaTol = 1e-6F;  // absolute: sigma bounded by |sigma| <= 1
+    static constexpr float kRelTol = 1e-5F;    // relative: ~4 ops * float_eps * 20x margin
+    static constexpr float kAbsFloor = 1e-5F;  // floor for near-zero omega/domega values
+
     FlybyPointAlgorithm alg(config);
     alg.reset();
 
@@ -199,16 +216,36 @@ inline void regressionTestFlybyPoint(const FlybyPointConfig& config,
         const AttGuideOutput out = alg.updateState(simNanos, r_BN_N, v_BN_N);
         const ReferenceFlybyOutput ref = referenceUpdateState(refState, simNanos, r_BN_N, v_BN_N, config);
 
-        for (int i = 0; i < 3; ++i) {
-            EXPECT_NEAR(out.sigma_RN[i], static_cast<float>(ref.sigma_RN[i]), tol)
-                << "step " << k << " sigma_RN[" << i << "]";
-            EXPECT_NEAR(out.omega_RN_N[i], static_cast<float>(ref.omega_RN_N[i]), tol)
-                << "step " << k << " omega_RN_N[" << i << "]";
-            EXPECT_NEAR(out.domega_RN_N[i], static_cast<float>(ref.domega_RN_N[i]), tol)
-                << "step " << k << " domega_RN_N[" << i << "]";
-            EXPECT_TRUE(std::isfinite(out.sigma_RN[i]));
-            EXPECT_TRUE(std::isfinite(out.omega_RN_N[i]));
-            EXPECT_TRUE(std::isfinite(out.domega_RN_N[i]));
+        if (out.validOutput) {
+            // Compare MRPs using nominal and shadow representations
+            Eigen::Vector3d sigma_out = out.sigma_RN.cast<double>();
+            Eigen::Vector3d sigma_ref = ref.sigma_RN;
+            Eigen::Vector3d sigma_ref_shadow = sigma_ref;
+
+            if (sigma_ref.squaredNorm() > 1e-12) {
+                sigma_ref_shadow = -sigma_ref / sigma_ref.squaredNorm();
+            }
+
+            double error_norm = (sigma_out - sigma_ref).norm();
+            double error_shadow = (sigma_out - sigma_ref_shadow).norm();
+
+            EXPECT_TRUE(error_norm < 1e-6 || error_shadow < 1e-6);
+
+            Eigen::Vector3d sigma_compared = sigma_ref;
+            if (error_shadow < error_norm) {
+                sigma_compared = sigma_ref_shadow;
+            }
+
+            for (int i = 0; i < 3; ++i) {
+                const float refOmega = static_cast<float>(ref.omega_RN_N[i]);
+                const float refDomega = static_cast<float>(ref.domega_RN_N[i]);
+                EXPECT_NEAR(sigma_out[i], sigma_compared[i], kSigmaTol);
+                EXPECT_NEAR(out.omega_RN_N[i], refOmega, kRelTol * std::abs(refOmega) + kAbsFloor);
+                EXPECT_NEAR(out.domega_RN_N[i], refDomega, kRelTol * std::abs(refDomega) + kAbsFloor);
+                EXPECT_TRUE(std::isfinite(out.sigma_RN[i]));
+                EXPECT_TRUE(std::isfinite(out.omega_RN_N[i]));
+                EXPECT_TRUE(std::isfinite(out.domega_RN_N[i]));
+            }
         }
     }
 }
