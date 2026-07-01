@@ -58,6 +58,106 @@ TEST(FlybyPointTest,
     }
 }
 
+// checkValidity() rejecting a reseed doesn't invalidate the output -- it should keep
+// extrapolating the last-good solution. Each test below trips exactly one trigger and checks
+// (a) only that trigger fires and (b) the output matches extrapolating the original seed, not a reseed off the new
+// (bad) reading.
+TEST(FlybyPointTest, CollinearityRejectsReseed) {
+    const Eigen::Vector3d r_BN_N{-5e7, 7.5e6, 5e5};
+    const Eigen::Vector3d v_BN_N{2e4, 0, 0};
+    const FlybyPointConfig cfg = FlybyPointConfig::create(0.5, 1e-3F, 1, 10.0F, 1.0F, 1e9F);
+
+    FlybyPointAlgorithm alg(cfg);
+    alg.updateState(0U, r_BN_N, v_BN_N);
+
+    // Radial-only velocity at the same position: r and v become exactly collinear.
+    const Eigen::Vector3d collinearV = r_BN_N.normalized() * v_BN_N.norm();
+    const AttGuideOutput out = alg.updateState(600'000'000ULL, r_BN_N, collinearV);
+
+    EXPECT_TRUE(out.collinearityTrigger);
+    EXPECT_FALSE(out.maxRateTrigger);
+    EXPECT_FALSE(out.maxAccelerationTrigger);
+    EXPECT_FALSE(out.positionKnowledgeExceedTrigger);
+    ASSERT_TRUE(out.validOutput);
+
+    expectMatchesExtrapolation(
+        out,
+        expectedExtrapolatedOutput(
+            cfg.getTimeBetweenFilterData(), r_BN_N, v_BN_N, cfg.getSignOfOrbitNormalFrameVector()));
+}
+
+TEST(FlybyPointTest, MaxRateRejectsReseed) {
+    const Eigen::Vector3d r_BN_N{-5e7, 7.5e6, 5e5};
+    const Eigen::Vector3d v_BN_N{2e4, 0, 0};
+    // maximumRateThreshold set below small value
+    // maximumAccelerationThreshold left loose so only the rate trigger fires.
+    const FlybyPointConfig cfg = FlybyPointConfig::create(0.5, 1e-3F, 1, 1e-6F, 1.0F, 1e9F);
+
+    FlybyPointAlgorithm alg(cfg);
+    alg.updateState(0U, r_BN_N, v_BN_N);
+    const AttGuideOutput out = alg.updateState(600'000'000ULL, r_BN_N, v_BN_N);
+
+    EXPECT_TRUE(out.maxRateTrigger);
+    EXPECT_FALSE(out.collinearityTrigger);
+    EXPECT_FALSE(out.maxAccelerationTrigger);
+    EXPECT_FALSE(out.positionKnowledgeExceedTrigger);
+    ASSERT_TRUE(out.validOutput);
+
+    expectMatchesExtrapolation(
+        out,
+        expectedExtrapolatedOutput(
+            cfg.getTimeBetweenFilterData(), r_BN_N, v_BN_N, cfg.getSignOfOrbitNormalFrameVector()));
+}
+
+TEST(FlybyPointTest, MaxAccelerationRejectsReseed) {
+    const Eigen::Vector3d r_BN_N{-5e7, 7.5e6, 5e5};
+    const Eigen::Vector3d v_BN_N{2e4, 0, 0};
+    // maximumAccelerationThreshold set below small value
+    // maximumRateThreshold left loose so only the accel trigger fires.
+    const FlybyPointConfig cfg = FlybyPointConfig::create(0.5, 1e-3F, 1, 10.0F, 1e-6F, 1e9F);
+
+    FlybyPointAlgorithm alg(cfg);
+    alg.updateState(0U, r_BN_N, v_BN_N);
+    const AttGuideOutput out = alg.updateState(600'000'000ULL, r_BN_N, v_BN_N);
+
+    EXPECT_TRUE(out.maxAccelerationTrigger);
+    EXPECT_FALSE(out.collinearityTrigger);
+    EXPECT_FALSE(out.maxRateTrigger);
+    EXPECT_FALSE(out.positionKnowledgeExceedTrigger);
+    ASSERT_TRUE(out.validOutput);
+
+    expectMatchesExtrapolation(
+        out,
+        expectedExtrapolatedOutput(
+            cfg.getTimeBetweenFilterData(), r_BN_N, v_BN_N, cfg.getSignOfOrbitNormalFrameVector()));
+}
+
+TEST(FlybyPointTest, PositionKnowledgeRejectsReseed) {
+    const Eigen::Vector3d r_BN_N{-5e7, 7.5e6, 5e5};
+    const Eigen::Vector3d v_BN_N{2e4, 0, 0};
+    // positionKnowledgeSigma tight enough that a position far off the straight-line prediction
+    // (firstNavPosition + dt*firstNavVelocity) is rejected, while direction/speed stay close
+    // enough to the seed that the rate/accel/collinearity checks stay well clear.
+    const FlybyPointConfig cfg = FlybyPointConfig::create(0.5, 1e-3F, 1, 10.0F, 1.0F, 1.0F);
+
+    FlybyPointAlgorithm alg(cfg);
+    alg.updateState(0U, r_BN_N, v_BN_N);
+
+    const Eigen::Vector3d offPredictionR = r_BN_N + Eigen::Vector3d{0, 0, 2e5};
+    const AttGuideOutput out = alg.updateState(600'000'000ULL, offPredictionR, v_BN_N);
+
+    EXPECT_TRUE(out.positionKnowledgeExceedTrigger);
+    EXPECT_FALSE(out.collinearityTrigger);
+    EXPECT_FALSE(out.maxRateTrigger);
+    EXPECT_FALSE(out.maxAccelerationTrigger);
+    ASSERT_TRUE(out.validOutput);
+
+    expectMatchesExtrapolation(
+        out,
+        expectedExtrapolatedOutput(
+            cfg.getTimeBetweenFilterData(), r_BN_N, v_BN_N, cfg.getSignOfOrbitNormalFrameVector()));
+}
+
 TEST(FlybyPointTest, SetupTest) {
     // Valid config builds without throwing.
     EXPECT_NO_THROW({
