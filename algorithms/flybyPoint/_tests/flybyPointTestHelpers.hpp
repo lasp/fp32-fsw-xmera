@@ -250,4 +250,42 @@ inline void regressionTestFlybyPoint(const FlybyPointConfig& config,
     }
 }
 
+// Expected output if the algorithm keeps extrapolating the (seedR, seedV) solution for dt > timeBetweenFilterData
+// (the reseed-attempt time used by the trigger tests below) instead of re-seeding -- i.e. what
+// a rejected reseed (checkValidity == false) should produce.
+inline ReferenceFlybyOutput expectedExtrapolatedOutput(const double timeBetweenFilterData,
+                                                       const Eigen::Vector3d& seedR,
+                                                       const Eigen::Vector3d& seedV,
+                                                       int signOfOrbitNormal) {
+    ReferenceFlybyState s{};
+    referenceComputeFlybyParameters(s, seedR, seedV);
+    referenceComputeRN(s, seedR, seedV);
+    s.dt = timeBetweenFilterData + 0.1;
+    return referenceGuidanceSolution(s, signOfOrbitNormal);
+}
+
+inline void expectMatchesExtrapolation(const AttGuideOutput& out, const ReferenceFlybyOutput& ref) {
+    static constexpr float kSigmaTol = 1e-6F;
+    static constexpr float kRelTol = 1e-5F;
+    static constexpr float kAbsFloor = 1e-5F;
+
+    const Eigen::Vector3d sigmaOut = out.sigma_RN.cast<double>();
+    Eigen::Vector3d sigmaRefShadow = ref.sigma_RN;
+    if (ref.sigma_RN.squaredNorm() > 1e-12) {
+        sigmaRefShadow = -ref.sigma_RN / ref.sigma_RN.squaredNorm();
+    }
+    const double errorNorm = (sigmaOut - ref.sigma_RN).norm();
+    const double errorShadow = (sigmaOut - sigmaRefShadow).norm();
+    ASSERT_TRUE(errorNorm < 1e-6 || errorShadow < 1e-6);
+    const Eigen::Vector3d& sigmaCompared = (errorShadow < errorNorm) ? sigmaRefShadow : ref.sigma_RN;
+
+    for (int i = 0; i < 3; ++i) {
+        const float refOmega = static_cast<float>(ref.omega_RN_N[i]);
+        const float refDomega = static_cast<float>(ref.domega_RN_N[i]);
+        EXPECT_NEAR(sigmaOut[i], sigmaCompared[i], kSigmaTol);
+        EXPECT_NEAR(out.omega_RN_N[i], refOmega, kRelTol * std::abs(refOmega) + kAbsFloor);
+        EXPECT_NEAR(out.domega_RN_N[i], refDomega, kRelTol * std::abs(refDomega) + kAbsFloor);
+    }
+}
+
 #endif  // TEST_FLYBY_POINT_HELPERS_H
