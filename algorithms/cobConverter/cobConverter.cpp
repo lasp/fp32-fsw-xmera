@@ -1,5 +1,6 @@
 #include "cobConverter.h"
 #include <stdexcept>
+#include "utilities/fsw/eigenSupport.h"
 
 /**
  * @brief Construct a CobConverter.
@@ -47,20 +48,56 @@ void CobConverter::reset(uint64_t currentSimNanos) {
  * @param currentSimNanos Current simulation time in nanoseconds.
  */
 void CobConverter::updateState(const uint64_t currentSimNanos) {
-    const CameraModelMsgPayload cameraModelInMsg = this->cameraConfigInMsg();
-    const OpNavCOBMsgPayload cobMsgBuffer = this->opnavCOBInMsg();
-    const NavAttMsgPayload navAttBuffer = this->navAttInMsg();
-    const NavAttMsgPayload sunBuffer = this->sunInMsg();
-    const FilterMsgPayload filterMsgBuffer = this->opnavFilterInMsg();
+    const CameraModelMsgPayload cameraMsg = this->cameraConfigInMsg();
+    const OpNavCOBMsgPayload cobMsg = this->opnavCOBInMsg();
+    const NavAttMsgPayload navAttMsg = this->navAttInMsg();
+    const NavAttMsgPayload sunMsg = this->sunInMsg();
+    const FilterMsgPayload filterMsg = this->opnavFilterInMsg();
+
+    CobConverterInput input;
+    input.currentSimNanos = currentSimNanos;
+    input.bodyToCameraMrp = Eigen::Map<const Eigen::Vector3d>(cameraMsg.bodyToCameraMrp);
+    input.fieldOfView = cameraMsg.fieldOfView[0];
+    input.resolutionX = cameraMsg.resolution[0];
+    input.resolutionY = cameraMsg.resolution[1];
+    input.cameraId = cameraMsg.cameraId;
+    input.cobValid = cobMsg.valid;
+    input.cobPixelsFound = cobMsg.pixelsFound;
+    input.cobCenterOfBrightness = Eigen::Map<const Eigen::Vector2d>(cobMsg.centerOfBrightness);
+    input.cobTimeTag = cobMsg.timeTag;
+    input.sigma_BN = Eigen::Map<const Eigen::Vector3d>(navAttMsg.sigma_BN);
+    input.vehSunPntBdy = Eigen::Map<const Eigen::Vector3d>(sunMsg.vehSunPntBdy);
+    input.filterState = Eigen::Map<const Eigen::VectorXd>(filterMsg.state, filterMsg.numberOfStates);
+    input.filterCovariance =
+        Eigen::Map<const Eigen::MatrixXd>(filterMsg.covar, filterMsg.numberOfStates, filterMsg.numberOfStates);
+
+    const CobConverterOutput out = this->algorithm.updateState(input);
 
     OpNavUnitVecMsgPayload uVecOutMsgBuffer{};
-    OpNavCOMMsgPayload comMsgBuffer{};
-    CobConverterDiagnosticMsgPayload diagnosticMsgBuffer{};
+    eigenMatrixToCArray(out.covar_N, uVecOutMsgBuffer.covar_N);
+    eigenMatrixToCArray(out.covar_C, uVecOutMsgBuffer.covar_C);
+    eigenMatrixToCArray(out.covar_B, uVecOutMsgBuffer.covar_B);
+    eigenVectorToCArray(out.rhat_BN_N, uVecOutMsgBuffer.rhat_BN_N);
+    eigenVectorToCArray(out.rhat_BN_C, uVecOutMsgBuffer.rhat_BN_C);
+    eigenVectorToCArray(out.rhat_BN_B, uVecOutMsgBuffer.rhat_BN_B);
+    uVecOutMsgBuffer.timeTag = out.unitVecTimeTag;
+    uVecOutMsgBuffer.valid = out.unitVecValid;
 
-    if (cobMsgBuffer.valid && cobMsgBuffer.pixelsFound != 0) {
-        std::tie(uVecOutMsgBuffer, comMsgBuffer, diagnosticMsgBuffer) = this->algorithm.updateState(
-            currentSimNanos, cameraModelInMsg, cobMsgBuffer, navAttBuffer, sunBuffer, filterMsgBuffer);
-    }
+    OpNavCOMMsgPayload comMsgBuffer{};
+    comMsgBuffer.centerOfBrightness[0] = out.centerOfBrightness[0];
+    comMsgBuffer.centerOfBrightness[1] = out.centerOfBrightness[1];
+    comMsgBuffer.centerOfMass[0] = out.centerOfMass[0];
+    comMsgBuffer.centerOfMass[1] = out.centerOfMass[1];
+    comMsgBuffer.offsetFactor = out.offsetFactor;
+    comMsgBuffer.objectPixelRadius = out.objectPixelRadius;
+    comMsgBuffer.phaseAngle = out.phaseAngle;
+    comMsgBuffer.sunDirection = out.sunDirection;
+    comMsgBuffer.cameraID = out.cameraID;
+    comMsgBuffer.timeTag = out.comTimeTag;
+    comMsgBuffer.valid = out.comValid;
+
+    CobConverterDiagnosticMsgPayload diagnosticMsgBuffer{};
+    diagnosticMsgBuffer.coberrorOutlierTrigger = out.coberrorOutlierTrigger;
 
     this->opnavUnitVecOutMsg.write(&uVecOutMsgBuffer, this->moduleID, currentSimNanos);
     this->comCorrectionOutMsg.write(&comMsgBuffer, this->moduleID, currentSimNanos);

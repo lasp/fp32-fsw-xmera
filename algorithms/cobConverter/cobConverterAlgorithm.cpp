@@ -1,5 +1,4 @@
 #include "cobConverterAlgorithm.h"
-#include "utilities/fsw/eigenSupport.h"
 #include "utilities/fsw/freestandingInvalidArgument.h"
 #include "utilities/fsw/rigidBodyKinematics.hpp"
 #include "utilities/fsw/timeConstants.h"
@@ -60,29 +59,24 @@ CobConverterAlgorithm::~CobConverterAlgorithm() = default;
  *  - Camera calibration matrix K and its inverse
  *  - Pixel scale, IFOV, and other camera parameters
  *
- * @param cameraSpecs Camera model specifications.
+ * @param input Camera model specifications.
  */
-void CobConverterAlgorithm::computeCameraParameters(const CameraModelMsgPayload& cameraSpecs) {
-    double sigma_camera[3];
-    std::ranges::copy(cameraSpecs.bodyToCameraMrp, std::begin(sigma_camera));
-    this->dcm_CB = mrpToDcm(cArrayToEigenVector3(sigma_camera));
+void CobConverterAlgorithm::computeCameraParameters(const CobConverterInput& input) {
+    this->dcm_CB = mrpToDcm(input.bodyToCameraMrp);
 
     // Camera parameters
     const double alpha = 0;
-    const double fieldOfView = cameraSpecs.fieldOfView[0];
-    const double resolutionX = cameraSpecs.resolution[0];
-    const double resolutionY = cameraSpecs.resolution[1];
-    const double pX = 2. * tan(fieldOfView / 2.0);
-    const double pY = 2. * tan(fieldOfView * resolutionY / resolutionX / 2.0);
-    this->dX = resolutionX / pX;
-    const double dY = resolutionY / pY;
-    const double up = resolutionX / 2;
-    const double vp = resolutionY / 2;
+    const double pX = 2. * tan(input.fieldOfView / 2.0);
+    const double pY = 2. * tan(input.fieldOfView * input.resolutionY / input.resolutionX / 2.0);
+    this->dX = input.resolutionX / pX;
+    const double dY = input.resolutionY / pY;
+    const double up = input.resolutionX / 2;
+    const double vp = input.resolutionY / 2;
     this->X = 1 / this->dX;
     this->Y = 1 / dY;
-    this->ifov_x = fieldOfView / this->dX * pX;
-    this->ifov_y = fieldOfView / dY * pY;
-    this->cameraId = cameraSpecs.cameraId;
+    this->ifov_x = input.fieldOfView / this->dX * pX;
+    this->ifov_y = input.fieldOfView / dY * pY;
+    this->cameraId = input.cameraId;
 
     // Build K and K^{-1}
     this->cameraCalibrationMatrix << this->dX, alpha, up, 0., dY, vp, 0., 0., 1.;
@@ -97,13 +91,10 @@ void CobConverterAlgorithm::computeCameraParameters(const CameraModelMsgPayload&
  *  - Body->Inertial (B->N) DCMs
  *  - Inertial->Camera (N->C) DCM
  *
- * @param navAttBuffer Navigation attitude buffer containing MRP sigma_BN.
+ * @param input Navigation attitude buffer containing MRP sigma_BN.
  */
-void CobConverterAlgorithm::computeRotations(const NavAttMsgPayload& navAttBuffer) {
-    double sigma_BN[3];
-    std::ranges::copy(navAttBuffer.sigma_BN, std::begin(sigma_BN));
-    // Extract rotations from relevant messages
-    this->dcm_BN = mrpToDcm(cArrayToEigenVector3(sigma_BN));
+void CobConverterAlgorithm::computeRotations(const CobConverterInput& input) {
+    this->dcm_BN = mrpToDcm(input.sigma_BN);
     this->dcm_NC = this->dcm_BN.transpose() * this->dcm_CB.transpose();
 }
 
@@ -114,20 +105,13 @@ void CobConverterAlgorithm::computeRotations(const NavAttMsgPayload& navAttBuffe
  * (Lambertian or Binary) and the sun direction angle @c phi in the image plane.
  * Also sets @c validCOM when a correction is applied.
  *
- * @param filterMsgBuffer Filter data containing the spacecraft orbit state.
- * @param sunBuffer Sun-pointing attitude buffer with vehSunPntBdy.
+ * @param input Spacecraft position (input.filterState) and sun-pointing attitude (input.vehSunPntBdy)
  * @note Computes and stores: @c alphaPA, @c phi, @c gamma, @c spacecraftRange, @c Rc.
  */
-void CobConverterAlgorithm::computePhaseAngleCorrection(const FilterMsgPayload& filterMsgBuffer,
-                                                        const NavAttMsgPayload& sunBuffer) {
-    double filter_state[MAX_STATES_VECTOR];
-    double sun_B[3];
-    std::ranges::copy(filterMsgBuffer.state, std::begin(filter_state));
-    std::ranges::copy(sunBuffer.vehSunPntBdy, std::begin(sun_B));
-
-    this->sc_position = cArrayToEigenMatrix<double, 6, 1>(filter_state).col(0).head(3);
+void CobConverterAlgorithm::computePhaseAngleCorrection(const CobConverterInput& input) {
+    this->sc_position = input.filterState.head(3);
     const Eigen::Vector3d rhat_N = this->sc_position.normalized();
-    const Eigen::Vector3d shat_B = cArrayToEigenVector3(sun_B).normalized();
+    const Eigen::Vector3d shat_B = input.vehSunPntBdy.normalized();
     this->shat_N = dcm_BN.transpose() * shat_B;
     const Eigen::Vector3d shat_C = dcm_CB * shat_B;
 
@@ -147,15 +131,15 @@ void CobConverterAlgorithm::computePhaseAngleCorrection(const FilterMsgPayload& 
 
 /**
  * @brief Compute centers of brightness and mass in pixel coordinates.
- * @param cobMsgBuffer COB message payload (pixel-based center of brightness).
+ * @param input COB message payload (pixel-based center of brightness).
  * @return Tuple of (centerOfBrightness, centerOfMass) as 3-vectors in homogeneous pixel coords.
  */
 std::tuple<Eigen::Vector3d, Eigen::Vector3d> CobConverterAlgorithm::computeCentersOfInterest(
-    const OpNavCOBMsgPayload& cobMsgBuffer) const {
+    const CobConverterInput& input) const {
     // Center of Brightness in pixel space
     Eigen::Vector3d centerOfBrightness;
-    centerOfBrightness[0] = cobMsgBuffer.centerOfBrightness[0];
-    centerOfBrightness[1] = cobMsgBuffer.centerOfBrightness[1];
+    centerOfBrightness[0] = input.cobCenterOfBrightness[0];
+    centerOfBrightness[1] = input.cobCenterOfBrightness[1];
     centerOfBrightness[2] = 1.0;
 
     // Center of Mass in pixel space (offset by phase-angle correction)
@@ -221,16 +205,11 @@ void CobConverterAlgorithm::computeRelevantVectors(const Eigen::Vector3d& center
  * Otherwise, uses a diagonal COB covariance scaled by the number of pixels found,
  * then rotates it into the body frame and adds attitude covariance.
  *
- * @param filterMsgBuffer Filter state and covariance.
- * @param pixelsFound Number of detected pixels (for scale factor).
+ * @param input Filter position covariance and detected-pixel count.
  */
-void CobConverterAlgorithm::computeCameraFrameUncertainty(const FilterMsgPayload& filterMsgBuffer,
-                                                          const double pixelsFound) {
-    double covariance[MAX_STATES_VECTOR * MAX_STATES_VECTOR];
-    std::ranges::copy(filterMsgBuffer.covar, std::begin(covariance));
-
+void CobConverterAlgorithm::computeCameraFrameUncertainty(const CobConverterInput& input) {
     // Compute partials of the phase angle and Geometric model correction
-    const double scaleFactor = sqrt(pixelsFound / kSphereSolidAngle);
+    const double scaleFactor = sqrt(input.cobPixelsFound / kSphereSolidAngle);
     this->covar_B.setZero();
     if (phaseAngleCorrectionMethod == PhaseAngleCorrectionMethodAlgorithm::BinaryAlg &&
         this->objectRadiusUncertainty > 0) {
@@ -256,9 +235,7 @@ void CobConverterAlgorithm::computeCameraFrameUncertainty(const FilterMsgPayload
         const Eigen::RowVector3d deltaAlpha_delta_R = sr * rr;
 
         // Compute COM uncertainty direction
-        const Eigen::Matrix<double, 6, 6> Covariance =
-            cArrayToEigenMatrixX(covariance, filterMsgBuffer.numberOfStates, filterMsgBuffer.numberOfStates);
-        const Eigen::Matrix3d positionCovariance = Covariance.topLeftCorner(3, 3);
+        const Eigen::Matrix3d positionCovariance = input.filterCovariance.topLeftCorner(3, 3);
 
         const Eigen::RowVector3d deltaBinary_r = deltaBinary_delta_r + (deltaBinary_deltaAlpha * deltaAlpha_delta_R);
 
@@ -293,98 +270,72 @@ void CobConverterAlgorithm::computeCameraFrameUncertainty(const FilterMsgPayload
 }
 
 /**
- * @brief Populate and return output message payloads for COB, COM, and COM metadata.
+ * @brief Populate a CobConverterOutput with unit-vector and COM fields.
  *
  * @param timeTag Measurement timestamp (nanoseconds).
- * @param centerOfMass COM in pixel coordinates (homogeneous).
- * @param centerOfBrightness COB in pixel coordinates (homogeneous).
- * @param uVecMsgBuffer Output COM unit-vector payload (to be filled).
- * @param comMsgBuffer Output COM metadata payload (to be filled).
- * @return Tuple of populated (uVecCOMMsgBuffer, comMsgBuffer).
+ * @param centerOfMass COM in homogeneous pixel coordinates.
+ * @param centerOfBrightness COB in homogeneous pixel coordinates.
+ * @param output CobConverterOutput to fill (coberrorOutlierTrigger is left untouched).
  */
-std::tuple<OpNavUnitVecMsgPayload, OpNavCOMMsgPayload> CobConverterAlgorithm::populateOutputMessages(
-    const uint64_t timeTag,
-    const Eigen::Vector3d& centerOfMass,
-    const Eigen::Vector3d& centerOfBrightness,
-    OpNavUnitVecMsgPayload& uVecMsgBuffer,
-    OpNavCOMMsgPayload& comMsgBuffer) const {
+void CobConverterAlgorithm::populateOutputMessages(const uint64_t timeTag,
+                                                   const Eigen::Vector3d& centerOfMass,
+                                                   const Eigen::Vector3d& centerOfBrightness,
+                                                   CobConverterOutput& output) const {
     const Eigen::Vector3d rhatCOM_N = this->dcm_NC * this->rhatCOM_C;
     const Eigen::Vector3d rhatCOM_B = this->dcm_BN * rhatCOM_N;
-    const Eigen::Matrix3d covar_N = this->dcm_BN.transpose() * this->covar_B * this->dcm_BN;
-    const Eigen::Matrix3d covar_C = this->dcm_NC.transpose() * covar_N * this->dcm_NC;
-
-    eigenMatrixToCArray(covar_N, uVecMsgBuffer.covar_N);
-    eigenMatrixToCArray(covar_C, uVecMsgBuffer.covar_C);
-    eigenMatrixToCArray(this->covar_B, uVecMsgBuffer.covar_B);
-    eigenVectorToCArray(rhatCOM_N, uVecMsgBuffer.rhat_BN_N);
-    eigenVectorToCArray(this->rhatCOM_C, uVecMsgBuffer.rhat_BN_C);
-    eigenVectorToCArray(rhatCOM_B, uVecMsgBuffer.rhat_BN_B);
-    uVecMsgBuffer.timeTag = static_cast<double>(timeTag) * kNano2Sec;
-    uVecMsgBuffer.valid = (this->validCOM && this->goodOutlierCheck);
-
-    comMsgBuffer.centerOfBrightness[0] = centerOfBrightness[0];
-    comMsgBuffer.centerOfBrightness[1] = centerOfBrightness[1];
-    comMsgBuffer.centerOfMass[0] = centerOfMass[0];
-    comMsgBuffer.centerOfMass[1] = centerOfMass[1];
-    comMsgBuffer.offsetFactor = this->gamma;
-    comMsgBuffer.objectPixelRadius = static_cast<int>(this->Rc);
-    comMsgBuffer.phaseAngle = this->alphaPA;
-    comMsgBuffer.sunDirection = this->phi;
-    comMsgBuffer.cameraID = this->cameraId;
-    comMsgBuffer.timeTag = timeTag;
-    comMsgBuffer.valid = this->validCOM;
-
-    return {uVecMsgBuffer, comMsgBuffer};
+    output.covar_N = this->dcm_BN.transpose() * this->covar_B * this->dcm_BN;
+    output.covar_C = this->dcm_NC.transpose() * output.covar_N * this->dcm_NC;
+    output.covar_B = this->covar_B;
+    output.rhat_BN_N = rhatCOM_N;
+    output.rhat_BN_C = this->rhatCOM_C;
+    output.rhat_BN_B = rhatCOM_B;
+    output.unitVecTimeTag = static_cast<double>(timeTag) * kNano2Sec;
+    output.unitVecValid = (this->validCOM && this->goodOutlierCheck);
+    output.centerOfBrightness = centerOfBrightness.head<2>();
+    output.centerOfMass = centerOfMass.head<2>();
+    output.offsetFactor = this->gamma;
+    output.objectPixelRadius = static_cast<int>(this->Rc);
+    output.phaseAngle = this->alphaPA;
+    output.sunDirection = this->phi;
+    output.cameraID = this->cameraId;
+    output.comTimeTag = timeTag;
+    output.comValid = this->validCOM;
 }
 
 /**
- * @brief Update step: convert pixel-based COB into unit vectors and outputs.
+ * @brief Update step: convert pixel-based COB into unit vectors and return all outputs.
  *
- * Reads inputs, computes parameters and corrections, performs optional outlier
- * detection, and writes out three payloads: COB unit vector, COM unit vector, and
- * COM metadata.
+ * Computes camera parameters, rotations, optional phase-angle correction,
+ * outlier detection, and populates a CobConverterOutput struct.
  *
- * @param currentSimNanos Current simulation time in nanoseconds.
- * @param cameraSpecs Camera model specifications.
- * @param cobMsgBuffer COB measurement payload.
- * @param navAttBuffer Navigation attitude payload containing MRP sigma_BN.
- * @param sunBuffer Sun-pointing attitude payload containing vehSunPntBdy.
- * @param filterMsgBuffer Filter state and covariance payload.
+ * @param input All input message payloads bundled as a CobConverterInput.
+ * @return Populated CobConverterOutput (zeroed if input.cobValid is false or input.cobPixelsFound is zero).
  */
-std::tuple<OpNavUnitVecMsgPayload, OpNavCOMMsgPayload, CobConverterDiagnosticMsgPayload>
-CobConverterAlgorithm::updateState(const uint64_t currentSimNanos,
-                                   const CameraModelMsgPayload& cameraSpecs,
-                                   const OpNavCOBMsgPayload& cobMsgBuffer,
-                                   const NavAttMsgPayload& navAttBuffer,
-                                   const NavAttMsgPayload& sunBuffer,
-                                   const FilterMsgPayload& filterMsgBuffer) {
-    OpNavUnitVecMsgPayload uVecMsgBuffer{};
-    OpNavCOMMsgPayload comMsgBuffer{};
-    CobConverterDiagnosticMsgPayload cobConverterDiagnosticBuffer{false};
+CobConverterOutput CobConverterAlgorithm::updateState(const CobConverterInput& input) {
+    CobConverterOutput output;
 
-    if (cobMsgBuffer.valid && cobMsgBuffer.pixelsFound != 0) {
-        this->computeCameraParameters(cameraSpecs);
-        this->computeRotations(navAttBuffer);
+    if (input.cobValid && input.cobPixelsFound != 0) {
+        this->computeCameraParameters(input);
+        this->computeRotations(input);
 
         // Phase angle correction
         if (this->phaseAngleCorrectionMethod != PhaseAngleCorrectionMethodAlgorithm::NoCorrectionAlg) {
             this->validCOM = true;
-            this->computePhaseAngleCorrection(filterMsgBuffer, sunBuffer);
+            this->computePhaseAngleCorrection(input);
         }
 
-        auto [centerOfBrightness, centerOfMass] = this->computeCentersOfInterest(cobMsgBuffer);
+        auto [centerOfBrightness, centerOfMass] = this->computeCentersOfInterest(input);
         this->computeRelevantVectors(centerOfBrightness, centerOfMass);
-        this->computeCameraFrameUncertainty(filterMsgBuffer, cobMsgBuffer.pixelsFound);
+        this->computeCameraFrameUncertainty(input);
 
         if (this->performOutlierDetection) {
-            this->cobOutlierDetection(filterMsgBuffer, cobConverterDiagnosticBuffer);
+            this->cobOutlierDetection(input, output);
         }
 
-        std::tie(uVecMsgBuffer, comMsgBuffer) = this->populateOutputMessages(
-            cobMsgBuffer.timeTag, centerOfMass, centerOfBrightness, uVecMsgBuffer, comMsgBuffer);
+        this->populateOutputMessages(input.cobTimeTag, centerOfMass, centerOfBrightness, output);
     }
 
-    return {uVecMsgBuffer, comMsgBuffer, cobConverterDiagnosticBuffer};
+    return output;
 }
 
 /**
@@ -419,22 +370,13 @@ static Eigen::Matrix3d computeTotalCobCovariance(const Eigen::Matrix3d& covarNav
  * measured COB. Uses either a specified standard deviation or one derived from the
  * combined image covariance to perform a sigma-based gate.
  *
- * @param filterMsgBuffer Filter message buffer containing state and covariance.
- * @param cobConverterDiagnosticBuffer Diagnostic payload populated with the outlier gate result.
+ * @param input Filter position and position covariance
+ * @param output CobConverterOutput whose coberrorOutlierTrigger field is set.
  */
-void CobConverterAlgorithm::cobOutlierDetection(const FilterMsgPayload& filterMsgBuffer,
-                                                CobConverterDiagnosticMsgPayload& cobConverterDiagnosticBuffer) {
-    double state[MAX_STATES_VECTOR];
-    double covariance[MAX_STATES_VECTOR * MAX_STATES_VECTOR];
-    std::ranges::copy(filterMsgBuffer.state, std::begin(state));
-    std::ranges::copy(filterMsgBuffer.covar, std::begin(covariance));
-
-    const int numberOfStates = filterMsgBuffer.numberOfStates;
-    const Eigen::VectorXd filterState = cArrayToEigenMatrixX(state, numberOfStates, 1);
-    const Eigen::Vector3d rNav_BN_N = filterState.segment(0, 3);
+void CobConverterAlgorithm::cobOutlierDetection(const CobConverterInput& input, CobConverterOutput& output) {
+    const Eigen::Vector3d rNav_BN_N = input.filterState.segment(0, 3);
     const Eigen::Vector3d rhatNav_N = rNav_BN_N.normalized();
-    const Eigen::MatrixXd filterCovariance = cArrayToEigenMatrixX(covariance, numberOfStates, numberOfStates);
-    const Eigen::Matrix3d covarNav_N = filterCovariance.block(0, 0, 3, 3) / pow(rNav_BN_N.norm(), 2);
+    const Eigen::Matrix3d covarNav_N = input.filterCovariance.block(0, 0, 3, 3) / pow(rNav_BN_N.norm(), 2);
 
     Eigen::Vector3d rhatCOB_C =
         -this->rhatCOB_C;       // turn unit vector from asteroid to camera into unit vector from camera to asteroid
@@ -464,9 +406,9 @@ void CobConverterAlgorithm::cobOutlierDetection(const FilterMsgPayload& filterMs
 
     if (cobErrorPrediction < this->numStandardDeviations * sigma) {
         this->goodOutlierCheck = true;
-        cobConverterDiagnosticBuffer.coberrorOutlierTrigger = false;
+        output.coberrorOutlierTrigger = false;
     } else {
-        cobConverterDiagnosticBuffer.coberrorOutlierTrigger = true;
+        output.coberrorOutlierTrigger = true;
     }
 }
 
