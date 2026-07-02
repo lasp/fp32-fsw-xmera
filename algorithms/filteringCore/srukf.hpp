@@ -5,7 +5,6 @@
 #define FILTERING_CORE_SRUKF_HPP
 
 #include <utilities/fsw/safeMath.h>
-#include <utilities/fsw/validPSDCheck.h>
 #include <filteringCore/concepts.hpp>
 #include <filteringCore/dynamicsModel.hpp>
 
@@ -136,17 +135,11 @@ class SRuKF {
 
     // ---- Validity checks ----------------------------------------------------
 
-    /*! @return true iff alpha is in [0, 1] */
-    bool alphaIsValid() const { return this->alpha >= 0.0 && this->alpha <= 1.0; }
+    /*! @return true iff alpha is in (0, 1) */
+    static bool alphaIsValid(double alpha) { return alpha > 0.0 && alpha < 1.0; }
 
     /*! @return true iff beta is in [0, 2] */
-    bool betaIsValid() const { return this->beta >= 0.0 && this->beta <= 2.0; }
-
-    /*! @return true iff the configured initial covariance is symmetric PSD */
-    bool initialCovarianceIsValid() const { return isPositiveSemiDefinite(this->covarianceInitial); }
-
-    /*! @return true iff the configured process noise is symmetric PSD */
-    bool processNoiseIsValid() const { return isPositiveSemiDefinite(this->processNoise); }
+    static bool betaIsValid(double beta) { return beta >= 0.0 && beta <= 2.0; }
 
     /*! Derive the sigma-point spread (lambda, eta), the sigma weights, and the
      *  process-noise Cholesky from alpha, beta, and the process noise. The estimate

@@ -12,6 +12,7 @@
 //
 // Time and measurement updates are the heavy ones; left as scaffolding.
 
+#include <utilities/fsw/validPSDCheck.h>
 #include <filteringCore/srukf.hpp>
 #include <filteringCore/state.hpp>
 
@@ -131,46 +132,20 @@ TEST(SrukfApi, SetGetRoundtripsForAlphaAndBeta) {
     EXPECT_DOUBLE_EQ(filter.getBeta(), 2.0);
 }
 
-// Valid inputs
+// Valid inputs. The validators are static: they take the term to check and can be called
+// without an SRuKF instance (e.g. from a filter's config validation in another file).
 TEST(SrukfApi, ValidityChecks) {
-    SRuKFType filter;
+    // (1) alphaIsValid: true iff alpha in (0, 1) (endpoints excluded).
+    EXPECT_TRUE(SRuKFType::alphaIsValid(0.5)) << "alpha=0.5 in range";
+    EXPECT_FALSE(SRuKFType::alphaIsValid(0.0)) << "alpha=0 excluded";
+    EXPECT_FALSE(SRuKFType::alphaIsValid(1.0)) << "alpha=1 excluded";
+    EXPECT_FALSE(SRuKFType::alphaIsValid(-0.1)) << "alpha<0";
+    EXPECT_FALSE(SRuKFType::alphaIsValid(1.5)) << "alpha>1";
 
-    // (1) alphaIsValid: true iff alpha in [0, 1].
-    {
-        filter.setAlpha(0.5);
-        EXPECT_TRUE(filter.alphaIsValid()) << "alpha=0.5 in range";
-        filter.setAlpha(-0.1);
-        EXPECT_FALSE(filter.alphaIsValid()) << "alpha<0";
-        filter.setAlpha(1.5);
-        EXPECT_FALSE(filter.alphaIsValid()) << "alpha>1";
-    }
     // (2) betaIsValid: true iff beta in [0, 2].
-    {
-        filter.setBeta(1.0);
-        EXPECT_TRUE(filter.betaIsValid()) << "beta=1 in range";
-        filter.setBeta(-0.5);
-        EXPECT_FALSE(filter.betaIsValid()) << "beta<0";
-        filter.setBeta(2.5);
-        EXPECT_FALSE(filter.betaIsValid()) << "beta>2";
-    }
-    // (3) initialCovarianceIsValid: true iff PSD.
-    {
-        filter.setInitialCovariance(Eigen::Matrix3d::Identity());
-        EXPECT_TRUE(filter.initialCovarianceIsValid()) << "identity is PSD";
-
-        Eigen::Matrix3d P_neg = -Eigen::Matrix3d::Identity();
-        filter.setInitialCovariance(P_neg);
-        EXPECT_FALSE(filter.initialCovarianceIsValid()) << "negative eigenvalue";
-    }
-    // (4) processNoiseIsValid: true iff PSD.
-    {
-        filter.setProcessNoise(Eigen::Matrix3d::Identity());
-        EXPECT_TRUE(filter.processNoiseIsValid()) << "identity is PSD";
-
-        Eigen::Matrix3d Q_neg = -Eigen::Matrix3d::Identity();
-        filter.setProcessNoise(Q_neg);
-        EXPECT_FALSE(filter.processNoiseIsValid()) << "negative eigenvalue";
-    }
+    EXPECT_TRUE(SRuKFType::betaIsValid(1.0)) << "beta=1 in range";
+    EXPECT_FALSE(SRuKFType::betaIsValid(-0.5)) << "beta<0";
+    EXPECT_FALSE(SRuKFType::betaIsValid(2.5)) << "beta>2";
 }
 
 // Reset
