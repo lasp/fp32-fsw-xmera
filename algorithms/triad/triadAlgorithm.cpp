@@ -44,6 +44,14 @@ Eigen::Vector3f TriadAlgorithm::update(const Eigen::Vector3f& rHat_SB_N, const E
      * configured inertial z-axis */
     if (fabsf(sunToThrustRefAngle) < kParallelThresholdRad) {
         const Eigen::Vector3f n3Hat_N = (this->cfg.getSignOfN3Hat_N() * Eigen::Vector3f::UnitZ()).normalized();
+
+        /*! Return zero MRP attitude if the fallback inertial z-axis is nearly parallel to the thrust reference
+         * direction, since the fallback cross product would be degenerate */
+        const float zToThrustRefAngle = safeAcosf(fabsf(n3Hat_N.dot(d2Hat_N)));
+        if (zToThrustRefAngle < kParallelThresholdRad) {
+            return Eigen::Vector3f::Zero();
+        }
+
         d3Hat_N = n3Hat_N.cross(d2Hat_N).normalized();
         d1Hat_N = d2Hat_N.cross(d3Hat_N).normalized();
     } else {
