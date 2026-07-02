@@ -109,6 +109,8 @@ algorithms/thrusterPlatformReference/thrusterPlatformReferenceAlgorithm_c.h
 algorithms/thrusterPlatformReference/thrusterPlatformReferenceAlgorithm_c.cpp
 algorithms/cobConverter/cobConverter.h
 algorithms/cobConverter/cobConverter.cpp
+algorithms/cobConverter/cobConverterAlgorithm_c.h
+algorithms/cobConverter/cobConverterAlgorithm_c.cpp
 algorithms/timeClosestApproach/timeClosestApproach.h
 algorithms/timeClosestApproach/timeClosestApproach.cpp
 algorithms/timeClosestApproach/timeClosestApproachAlgorithm_c.h
