@@ -1,12 +1,8 @@
 #include "triadAlgorithm.h"
-
-#include <cmath>
+#include "architecture/utilities/rigidBodyKinematics.hpp"
+#include <Eigen/Core>
 #include <numbers>
 #include <stdexcept>
-
-#include <Eigen/Core>
-
-#include <architecture/utilities/rigidBodyKinematics.hpp>
 
 static constexpr float kSpeParallelThresholdDeg = 0.5F;
 static constexpr float kRadToDeg = 180.0F / std::numbers::pi_v<float>;
