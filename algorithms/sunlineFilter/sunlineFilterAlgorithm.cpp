@@ -22,20 +22,20 @@ struct CssMeasurementModel {
     // the filtering::Measurement concept. Public data is the point of the type,
     // so the private-member guidance does not apply here.
     // NOLINTBEGIN(misc-non-private-member-variables-in-classes)
-    Eigen::Vector<double, MaxCss> observed = Eigen::Vector<double, MaxCss>::Zero();
-    Eigen::Matrix<double, MaxCss, 3> hMatrix = Eigen::Matrix<double, MaxCss, 3>::Zero();
-    Eigen::Matrix<double, MaxCss, MaxCss> measNoise = Eigen::Matrix<double, MaxCss, MaxCss>::Identity();
+    Eigen::Vector<double, size> observed = Eigen::Vector<double, size>::Zero();
+    Eigen::Matrix<double, size, 3> hMatrix = Eigen::Matrix<double, size, 3>::Zero();
+    Eigen::Matrix<double, size, size> measNoise = Eigen::Matrix<double, size, size>::Identity();
     // NOLINTEND(misc-non-private-member-variables-in-classes)
 
-    Eigen::Vector<double, MaxCss> observation() const { return this->observed; }
-    Eigen::Vector<double, MaxCss> model(State const& state) const {
+    Eigen::Vector<double, size> observation() const { return this->observed; }
+    Eigen::Vector<double, size> model(State const& state) const {
         double const bias = state.get<filtering::Bias<1>>()(0);
         Eigen::Vector3d const sHat = state.get<filtering::Position<3>>();
         return bias * (this->hMatrix * sHat);
     }
-    Eigen::Matrix<double, MaxCss, MaxCss> noise() const { return this->measNoise; }
-    static Eigen::Vector<double, MaxCss> subtract(Eigen::Vector<double, MaxCss> const& a,
-                                                  Eigen::Vector<double, MaxCss> const& b) {
+    Eigen::Matrix<double, size, size> noise() const { return this->measNoise; }
+    static Eigen::Vector<double, size> subtract(Eigen::Vector<double, size> const& a,
+                                                Eigen::Vector<double, size> const& b) {
         return a - b;
     }
 };
