@@ -9,9 +9,8 @@ Additionally, the center of mass (COM) can be estimated using a Sun phase angle 
 vector message is written containing the heading and covariance for the COM, as well as a message containing information
 about the COM offset.
 
-The center of mass correction can be applied using the "Lambertian" or "Binary" method. If no correction should be
-performed, the method needs to be "NoCorrection". The Lambertian method assumes that the body is a sphere with
-lambertian reflectance, while the Binary method assumes a brightness of either 1 or 0 in the image of the body.
+The center of mass correction can be applied using the "Binary" method, which assumes a brightness of either 1 or 0
+in the image of the body. If no correction should be performed, the method needs to be "NoCorrection".
 
 Optionally, Brown-Conrady distortion coefficients can be provided to correct the normalized image-plane coordinate
 for lens distortion before the heading vector is computed.
@@ -109,13 +108,7 @@ obtained for a phase angle :math:`\alpha` using
 
     \gamma = \frac{4}{3 \pi} (1 - \cos\alpha)
 
-for the Binary method or
-
-.. math::
-
-    \gamma = \frac{3 \pi}{16} \left[ \frac{(\cos\alpha + 1) \sin\alpha}{\sin\alpha + (\pi - \alpha) \cos\alpha} \right]
-
-for the Lambertian method. If no correction is to be performed, then :math:`\gamma = 0`. The correction for the COM
+for the Binary method. If no correction is to be performed, then :math:`\gamma = 0`. The correction for the COM
 location is performed according to `this paper by S. Bhaskaran <https://doi.org/10.1109/AERO.1998.687921>`__. First, the
 object radius :math:`R` in meters is converted to the object radius in pixel units :math:`R_c` by
 
@@ -255,7 +248,6 @@ This section is to outline the steps needed to setup a center of brightness conv
 .. code-block:: python
 
     module = cobConverter.CobConverter(cobConverter.PhaseAngleCorrectionMethod_NoCorrection, R_obj)  # no correction
-    # module = cobConverter.CobConverter(cobConverter.PhaseAngleCorrectionMethod_Lambertian, R_obj)  # Lambertian method
     # module = cobConverter.CobConverter(cobConverter.PhaseAngleCorrectionMethod_Binary, R_obj)  # Binary method
 
 #. The attitude error covariance matrix is set by::

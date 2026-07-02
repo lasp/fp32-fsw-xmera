@@ -12,7 +12,6 @@ path = os.path.dirname(os.path.abspath(filename))
 
 noCorr = cobConverter.PhaseAngleCorrectionMethod_NoCorrection
 binary = cobConverter.PhaseAngleCorrectionMethod_Binary
-lambertian = cobConverter.PhaseAngleCorrectionMethod_Lambertian
 
 
 def mapState(state, input_camera):
@@ -112,16 +111,13 @@ def phase_angle_correction(alpha, method):
     """Secondary method to compute the phase angle correction for COB/COM offset"""
     if method == binary:
         gamma = 4 / (3 * np.pi) * (1 - np.cos(alpha))
-    elif method == lambertian:
-        gamma = 3 * np.pi / 16 * ((np.cos(alpha) + 1.0) * np.sin(alpha)) / \
-                (np.sin(alpha) + (np.pi - alpha) * np.cos(alpha))
     else:
         gamma = 0.0
 
     return gamma
 
 
-@pytest.mark.parametrize("method", [noCorr, binary, lambertian])
+@pytest.mark.parametrize("method", [noCorr, binary])
 @pytest.mark.parametrize("distance", [500e3, 5000e3, 50000e3])
 @pytest.mark.parametrize("cameraResolution, centerOfBrightness, numberOfPixels, sunDirection",
                          [([512, 512], [152, 251], 75, [-1., -1., 0.]),
@@ -275,7 +271,7 @@ def cob_converter_test_function(show_plots, cameraResolution, centerOfBrightness
     covar_N_true = np.dot(dcm_BN.T, np.dot(covar_B_true, dcm_BN)).flatten() * goodPixels
 
     # Center of Mass Message and Unit Vector
-    if goodPixels and (method == binary or method == lambertian):
+    if goodPixels and method == binary:
         valid_COM_true = True
         rhat_COM_N_true = np.dot(dcm_NC, rhat_COM_C_true)
     else:

@@ -17,11 +17,10 @@
  * @enum PhaseAngleCorrectionMethod
  * @brief Phase-angle correction models for converting COB to COM.
  */
-enum class PhaseAngleCorrectionMethod { NoCorrection, Lambertian, Binary };
+enum class PhaseAngleCorrectionMethod { NoCorrection, Binary };
 
 const std::map<PhaseAngleCorrectionMethod, PhaseAngleCorrectionMethodAlgorithm> enumMap = {
     {PhaseAngleCorrectionMethod::NoCorrection, PhaseAngleCorrectionMethodAlgorithm::NoCorrectionAlg},
-    {PhaseAngleCorrectionMethod::Lambertian, PhaseAngleCorrectionMethodAlgorithm::LambertianAlg},
     {PhaseAngleCorrectionMethod::Binary, PhaseAngleCorrectionMethodAlgorithm::BinaryAlg}};
 
 /**

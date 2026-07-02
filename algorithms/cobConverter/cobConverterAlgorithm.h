@@ -19,7 +19,7 @@ struct CalibrationCoefficients {
  * @enum PhaseAngleCorrectionMethodAlgorithm
  * @brief Phase-angle correction models for converting COB to COM.
  */
-enum class PhaseAngleCorrectionMethodAlgorithm { NoCorrectionAlg, LambertianAlg, BinaryAlg };
+enum class PhaseAngleCorrectionMethodAlgorithm { NoCorrectionAlg, BinaryAlg };
 
 /*! Structure containing all COB converter algorithm inputs. */
 struct CobConverterInput {

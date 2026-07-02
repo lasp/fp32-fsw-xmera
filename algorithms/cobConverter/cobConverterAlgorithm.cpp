@@ -6,8 +6,6 @@
 #include <math.h>
 #include <numbers>
 
-// Lambertian phase-angle correction factor (Bhaskaran 1998)
-static constexpr double kLambertianPhaseCoeff = 3.0 * std::numbers::pi / 16.0;
 // Binary phase-angle correction factor (binarized image model)
 static constexpr float kBinaryPhaseCoeff = 4.0F / (3.0F * std::numbers::pi_v<float>);
 // Full solid angle of a sphere [sr], used in pixel uncertainty scale factor
@@ -106,7 +104,7 @@ void CobConverterAlgorithm::computeRotations(const CobConverterInput& input) {
  * @brief Compute phase-angle correction term and related angles.
  *
  * Depending on the configured method, computes a brightness offset factor @c gamma
- * (Lambertian or Binary) and the sun direction angle @c phi in the image plane.
+ * (Binary) and the sun direction angle @c phi in the image plane.
  * Also sets @c validCOM when a correction is applied.
  *
  * @param input Spacecraft position (input.filterState) and sun-pointing attitude (input.vehSunPntBdy)
@@ -121,11 +119,7 @@ void CobConverterAlgorithm::computePhaseAngleCorrection(const CobConverterInput&
 
     this->alphaPA = safeAcosf(rhat_N.transpose() * this->shat_N);  // phase angle
     this->phi = safeAtan2f(shat_C[1], shat_C[0]);                  // sun direction in image plane
-    if (this->phaseAngleCorrectionMethod == PhaseAngleCorrectionMethodAlgorithm::LambertianAlg) {
-        // Using phase angle correction assuming Lambertian reflectance sphere (Bhaskaran 1998)
-        this->gamma = kLambertianPhaseCoeff * ((cos(this->alphaPA) + 1.0) * sin(this->alphaPA)) /
-                      (sin(this->alphaPA) + (std::numbers::pi - this->alphaPA) * cos(this->alphaPA));
-    } else if (this->phaseAngleCorrectionMethod == PhaseAngleCorrectionMethodAlgorithm::BinaryAlg) {
+    if (this->phaseAngleCorrectionMethod == PhaseAngleCorrectionMethodAlgorithm::BinaryAlg) {
         // Using phase angle correction assuming a binarized image (brightness either 0 or 1)
         const float oneMinusCosAlpha = 2.0F * powf(safeSinf(this->alphaPA / 2.0F), 2.0F);
         this->gamma = kBinaryPhaseCoeff * oneMinusCosAlpha;
