@@ -53,3 +53,18 @@ TEST(TriadTest, SetupTest) {
     EXPECT_TRUE(TriadConfig::isValidSignOfN3Hat_N(-2.0F));
     EXPECT_FALSE(TriadConfig::isValidSignOfN3Hat_N(0.0F));
 }
+
+// ---------------------------------------------------------------------------
+// Property tests
+// ---------------------------------------------------------------------------
+
+// All output components are finite for valid inputs.
+TEST(TriadTest, OutputIsFinite) {
+    const Eigen::Vector3f rHat_SB_N = Eigen::Vector3f(1.0F, 1.0F, 0.0F).normalized();
+    const Eigen::Vector3f thrustHat_B = Eigen::Vector3f::UnitX();
+    const Eigen::Vector3f sadaHat_B = Eigen::Vector3f::UnitY();
+    const Eigen::Vector3f thrustReqHat_N = Eigen::Vector3f::UnitZ();
+    const float signOfN3Hat_N = 1.0F;
+
+    propertyOutputIsFinite(rHat_SB_N, thrustHat_B, sadaHat_B, thrustReqHat_N, signOfN3Hat_N);
+}
