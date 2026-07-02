@@ -182,7 +182,7 @@ Eigen::Vector3f CobConverterAlgorithm::calibrateDistortions(const Eigen::Vector3
  * @brief Compute unit vectors in the camera frame from pixel coordinates.
  * @param centerOfBrightness 3-vector (homogeneous) pixel coordinates of COB.
  * @param centerOfMass 3-vector (homogeneous) pixel coordinates of COM.
- * @note Populates @c rhatCOB_C, @c rhatCOM_C and caches @c rhatCOBNorm.
+ * @note Populates @c rhatCOB_C and @c rhatCOM_C.
  */
 void CobConverterAlgorithm::computeRelevantVectors(const Eigen::Vector3f& centerOfBrightness,
                                                    const Eigen::Vector3f& centerOfMass) {

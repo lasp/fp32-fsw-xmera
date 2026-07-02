@@ -183,7 +183,6 @@ def cob_converter_test_function(show_plots, cameraResolution, centerOfBrightness
     inputCamera.fieldOfView = [np.deg2rad(20.0), np.deg2rad(20.0)]
     inputCamera.resolution = cameraResolution
     inputCamera.bodyToCameraMrp = sigma_CB
-    inputCamera.focalLength = 0.10
     camInMsg = messaging.CameraModelMsgF32().write(inputCamera)
     module.cameraConfigInMsg.subscribeTo(camInMsg)
 
@@ -248,8 +247,7 @@ def cob_converter_test_function(show_plots, cameraResolution, centerOfBrightness
     phi = np.arctan2(shat_C[1], shat_C[0])  # sun direction in image plane
     K = compute_camera_calibration_matrix(inputCamera)
     dX = K[0, 0]
-    Kx = dX / inputCamera.focalLength
-    Rc = R_object * Kx * inputCamera.focalLength / np.linalg.norm(r_BdyZero_N)  # object radius in pixels
+    Rc = R_object * dX / np.linalg.norm(r_BdyZero_N)  # object radius in pixels
     com_true = [None] * 2  # COM location in image
     com_true[0] = cob_true[0] - gamma * Rc * np.cos(phi) * goodPixels
     com_true[1] = cob_true[1] - gamma * Rc * np.sin(phi) * goodPixels
@@ -382,7 +380,6 @@ def test_coberror_outlier(
     inputCamera.fieldOfView = [np.deg2rad(20.0), np.deg2rad(20.0)]
     inputCamera.resolution = cameraResolution
     inputCamera.bodyToCameraMrp = sigma_CB
-    inputCamera.focalLength = 0.10
     camInMsg = messaging.CameraModelMsgF32().write(inputCamera)
     module.cameraConfigInMsg.subscribeTo(camInMsg)
 
@@ -541,7 +538,6 @@ def test_brown_conrady_calibration(k1, k2, k3, p1, p2, label, centerOfBrightness
     inputCamera.fieldOfView = [np.deg2rad(20.0), np.deg2rad(20.0)]
     inputCamera.resolution = cameraResolution
     inputCamera.bodyToCameraMrp = sigma_CB
-    inputCamera.focalLength = 0.10
     camInMsg = messaging.CameraModelMsgF32().write(inputCamera)
     module.cameraConfigInMsg.subscribeTo(camInMsg)
 
