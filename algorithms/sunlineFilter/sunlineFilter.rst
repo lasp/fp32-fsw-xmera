@@ -159,7 +159,7 @@ Configuration parameters
       - gyro measurement noise standard deviation
       - >= 0
 
-The CSS geometry is not set directly: ``numberOfCss`` (:math:`0 \le n \le` ``MaxCss``), the per-sensor
+The CSS geometry is not set directly: ``numberOfCss`` (:math:`1 \le n \le` ``MaxCss``), the per-sensor
 boresights (each of the first ``numberOfCss`` rows must be unit length within 1e-3), and the per-sensor
 scale factors (each :math:`\ge 0`) are latched from ``cssConfigInMsg`` at ``reset()``.
 

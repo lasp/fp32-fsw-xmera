@@ -73,8 +73,16 @@ Eigen::Matrix<double, MaxCss, 3> threeCssNHat() {
     return nHat;
 }
 
-// Validated config with no CSS sensors; for dynamics / timeUpdate / rate-only tests.
-SunlineFilterConfig noCssConfig(State const& initial, Matrix7 const& P) {
+// Single-boresight CSS geometry for rate-only tests. numberOfCss must be >= 1, but
+// these tests never feed a CSS measurement, so the lone boresight is inert.
+Eigen::Matrix<double, MaxCss, 3> oneCssNHat() {
+    Eigen::Matrix<double, MaxCss, 3> nHat = Eigen::Matrix<double, MaxCss, 3>::Zero();
+    nHat.row(0) = Eigen::RowVector3d(0.0, 0.0, 1.0);
+    return nHat;
+}
+
+// Validated config with a single (unused) CSS sensor; for dynamics / timeUpdate / rate-only tests.
+SunlineFilterConfig rateOnlyConfig(State const& initial, Matrix7 const& P) {
     return SunlineFilterConfig::create(kAlpha,
                                        kBeta,
                                        smallProcessNoise(),
@@ -82,16 +90,18 @@ SunlineFilterConfig noCssConfig(State const& initial, Matrix7 const& P) {
                                        P,
                                        kBiasLowerBound,
                                        kBiasUpperBound,
-                                       Eigen::Matrix<double, MaxCss, 3>::Zero(),
-                                       Eigen::Vector<double, MaxCss>::Zero(),
-                                       0,
+                                       oneCssNHat(),
+                                       Eigen::Vector<double, MaxCss>::Ones(),
+                                       1,
                                        0.0,
                                        1E-2,
                                        1E-3);
 }
 
-// noCssConfig with an explicit process noise (for exercising process-noise-driven covariance growth).
-SunlineFilterConfig noCssConfigWithProcessNoise(State const& initial, Matrix7 const& P, Matrix7 const& processNoise) {
+// rateOnlyConfig with an explicit process noise (for exercising process-noise-driven covariance growth).
+SunlineFilterConfig rateOnlyConfigWithProcessNoise(State const& initial,
+                                                   Matrix7 const& P,
+                                                   Matrix7 const& processNoise) {
     return SunlineFilterConfig::create(kAlpha,
                                        kBeta,
                                        processNoise,
@@ -99,9 +109,9 @@ SunlineFilterConfig noCssConfigWithProcessNoise(State const& initial, Matrix7 co
                                        P,
                                        kBiasLowerBound,
                                        kBiasUpperBound,
-                                       Eigen::Matrix<double, MaxCss, 3>::Zero(),
-                                       Eigen::Vector<double, MaxCss>::Zero(),
-                                       0,
+                                       oneCssNHat(),
+                                       Eigen::Vector<double, MaxCss>::Ones(),
+                                       1,
                                        0.0,
                                        1E-2,
                                        1E-3);
@@ -156,7 +166,7 @@ TEST(SunlineFilterAlgorithmDynamics, HeadingMagnitudePreservedOverSmallTimeUpdat
     Eigen::Vector3d const sHat0 = Eigen::Vector3d(0.0, 0.0, 1.0);
     Eigen::Vector3d const omega0 = Eigen::Vector3d(0.02, -0.005, 0.01);
 
-    SunlineFilterAlgorithm algo(noCssConfig(makeState(sHat0, omega0, 0.6), diagCovariance(1E-2, 1E-3, 1E-2)));
+    SunlineFilterAlgorithm algo(rateOnlyConfig(makeState(sHat0, omega0, 0.6), diagCovariance(1E-2, 1E-3, 1E-2)));
 
     algo.timeUpdate(1.0);
 
@@ -172,7 +182,7 @@ TEST(SunlineFilterAlgorithmDynamics, HeadingMagnitudePreservedOverSmallTimeUpdat
 TEST(SunlineFilterAlgorithmTimeUpdate, ZeroRateLeavesHeadingFixed) {
     Eigen::Vector3d const sHat0 = Eigen::Vector3d(0.0, 1.0, 0.0).normalized();
     SunlineFilterAlgorithm algo(
-        noCssConfig(makeState(sHat0, Eigen::Vector3d::Zero(), 1.0), diagCovariance(1E-2, 1E-3, 1E-2)));
+        rateOnlyConfig(makeState(sHat0, Eigen::Vector3d::Zero(), 1.0), diagCovariance(1E-2, 1E-3, 1E-2)));
 
     algo.timeUpdate(10.0);
     Eigen::Vector3d const sHat = algo.getState().get<filtering::Position<3>>();
@@ -185,7 +195,7 @@ TEST(SunlineFilterAlgorithmTimeUpdate, ZeroDtCollapsesToAnchor) {
     Eigen::Vector3d const sHat0 = Eigen::Vector3d(0.0, 0.0, 1.0);
     Eigen::Vector3d const omega0 = Eigen::Vector3d(0.1, 0.0, 0.0);
 
-    SunlineFilterAlgorithm algo(noCssConfig(makeState(sHat0, omega0, 1.0), diagCovariance(1E-2, 1E-3, 1E-2)));
+    SunlineFilterAlgorithm algo(rateOnlyConfig(makeState(sHat0, omega0, 1.0), diagCovariance(1E-2, 1E-3, 1E-2)));
 
     algo.timeUpdate(0.0);
     State const s = algo.getState();
@@ -206,7 +216,7 @@ TEST(SunlineFilterAlgorithmMeasurementUpdate, RateMeasurementShrinksRateCovarian
     Eigen::Vector3d const sHat0 = Eigen::Vector3d(0.0, 0.0, 1.0);
     Eigen::Vector3d const omega0 = Eigen::Vector3d(0.01, 0.01, 0.01);
 
-    SunlineFilterAlgorithm algo(noCssConfig(makeState(sHat0, omega0, 1.0), diagCovariance(1E-2, 1E-1, 1E-1)));
+    SunlineFilterAlgorithm algo(rateOnlyConfig(makeState(sHat0, omega0, 1.0), diagCovariance(1E-2, 1E-1, 1E-1)));
 
     Matrix7 const covar0 = algo.getCovariance();
 
@@ -318,15 +328,15 @@ TEST(SunlineFilterAlgorithmReInit, SetConfigReDerivesProcessNoise) {
     Matrix7 const largeProcessNoise = Matrix7::Identity() * 1E-2;
     constexpr double dt = 1.0;
 
-    SunlineFilterAlgorithm reference(noCssConfigWithProcessNoise(initial, P0, largeProcessNoise));
+    SunlineFilterAlgorithm reference(rateOnlyConfigWithProcessNoise(initial, P0, largeProcessNoise));
     reference.timeUpdate(dt);
 
-    SunlineFilterAlgorithm smallOnly(noCssConfigWithProcessNoise(initial, P0, smallProcessNoise));
+    SunlineFilterAlgorithm smallOnly(rateOnlyConfigWithProcessNoise(initial, P0, smallProcessNoise));
     smallOnly.timeUpdate(dt);
     ASSERT_FALSE(smallOnly.getCovariance().isApprox(reference.getCovariance()));
 
-    SunlineFilterAlgorithm algo(noCssConfigWithProcessNoise(initial, P0, smallProcessNoise));
-    algo.setConfig(noCssConfigWithProcessNoise(initial, P0, largeProcessNoise));
+    SunlineFilterAlgorithm algo(rateOnlyConfigWithProcessNoise(initial, P0, smallProcessNoise));
+    algo.setConfig(rateOnlyConfigWithProcessNoise(initial, P0, largeProcessNoise));
     algo.timeUpdate(dt);
     EXPECT_TRUE(algo.getCovariance().isApprox(reference.getCovariance()));
 }
@@ -492,6 +502,10 @@ TEST(SunlineFilterConfig, RejectsNumberOfCssOutOfRange) {
     negative.numberOfCss = -1;
     EXPECT_THROW(buildConfig(negative), fsw::invalid_argument);
 
+    ConfigInputs zero;
+    zero.numberOfCss = 0;
+    EXPECT_THROW(buildConfig(zero), fsw::invalid_argument);
+
     ConfigInputs tooMany;
     tooMany.numberOfCss = MaxCss + 1;
     EXPECT_THROW(buildConfig(tooMany), fsw::invalid_argument);
@@ -550,7 +564,8 @@ TEST(SunlineFilterConfig, StaticValidatorsCheckBoundaries) {
     EXPECT_FALSE(SunlineFilterConfig::isValidSensorThreshold(-1E-9));
     EXPECT_TRUE(SunlineFilterConfig::isValidCssMeasurementNoiseStd(0.0));
     EXPECT_FALSE(SunlineFilterConfig::isValidGyroMeasurementNoiseStd(-1E-9));
-    EXPECT_TRUE(SunlineFilterConfig::isValidNumberOfCss(0));
+    EXPECT_FALSE(SunlineFilterConfig::isValidNumberOfCss(0));
+    EXPECT_TRUE(SunlineFilterConfig::isValidNumberOfCss(1));
     EXPECT_TRUE(SunlineFilterConfig::isValidNumberOfCss(MaxCss));
     EXPECT_FALSE(SunlineFilterConfig::isValidNumberOfCss(MaxCss + 1));
     EXPECT_TRUE(SunlineFilterConfig::isValidProcessNoise(Matrix7::Identity()));
@@ -578,9 +593,7 @@ TEST(SunlineFilterConfig, GettersRoundTripAndNormalizeNHat) {
 TEST(SunlineFilterConfig, SetConfigSwapsConfiguration) {
     SunlineFilterAlgorithm algo(buildConfig({}));
     ConfigInputs other;
-    other.numberOfCss = 0;
-    other.cssNHat = Eigen::Matrix<double, MaxCss, 3>::Zero();
-    other.cssScaleFactor = Eigen::Vector<double, MaxCss>::Zero();
+    other.numberOfCss = 2;
     EXPECT_NO_THROW(algo.setConfig(buildConfig(other)));
 }
 

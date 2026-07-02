@@ -73,7 +73,7 @@ class SunlineFilterConfig final {
             FSW_THROW_INVALID_ARGUMENT("sunlineFilter: bias lower bound must be less than bias upper bound");
         }
         if (!isValidNumberOfCss(numberOfCss)) {
-            FSW_THROW_INVALID_ARGUMENT("sunlineFilter: numberOfCss must be in [0, MaxCss]");
+            FSW_THROW_INVALID_ARGUMENT("sunlineFilter: numberOfCss must be in [1, MaxCss]");
         }
         if (!isValidCssNHat(cssNHat, numberOfCss)) {
             FSW_THROW_INVALID_ARGUMENT(
@@ -128,7 +128,7 @@ class SunlineFilterConfig final {
     static bool isValidCssScaleFactor(Eigen::Vector<double, MaxCss> const& cssScaleFactor) {
         return (cssScaleFactor.array() >= 0.0).all();
     }
-    static bool isValidNumberOfCss(int count) { return count >= 0 && count <= MaxCss; }
+    static bool isValidNumberOfCss(int count) { return count > 0 && count <= MaxCss; }
     static bool isValidSensorThreshold(double threshold) { return threshold >= 0.0; }
     static bool isValidCssMeasurementNoiseStd(double noiseStd) { return noiseStd >= 0.0; }
     static bool isValidGyroMeasurementNoiseStd(double noiseStd) { return noiseStd >= 0.0; }
