@@ -146,11 +146,14 @@ def cob_converter_test_function(show_plots, cameraResolution, centerOfBrightness
     R_object_uncer = 8 * 1e3
     att_sigma = 0.001
     covar_att_B = np.diag([att_sigma**2, (0.9*att_sigma)**2, (0.95*att_sigma)**2])
-    module = cobConverter.CobConverter(method, R_object)
+    module = cobConverter.CobConverter()
+    module.phaseAngleCorrectionMethod = method
+    module.radius = R_object
     module.radiusUncertainty = R_object_uncer
-    module.setAttitudeCovariance(covar_att_B)
+    module.attitudeCovariance = covar_att_B
     module.numStandardDeviations = 3
     module.standardDeviation = 100
+    module.specifiedStandardDeviation = True
     module.outlierDetectionEnabled = True
     unitTestSim.AddModelToTask(unitTaskName, module, module)
 
@@ -342,11 +345,14 @@ def test_coberror_outlier(
     R_object_uncer = 8 * 1e3
     att_sigma = 0.001
     covar_att_B = np.diag([att_sigma**2, (0.9*att_sigma)**2, (0.95*att_sigma)**2])
-    module = cobConverter.CobConverter(method, R_object)
+    module = cobConverter.CobConverter()
+    module.phaseAngleCorrectionMethod = method
+    module.radius = R_object
     module.radiusUncertainty = R_object_uncer
-    module.setAttitudeCovariance(covar_att_B)
+    module.attitudeCovariance = covar_att_B
     module.numStandardDeviations = 3
     module.standardDeviation = 100
+    module.specifiedStandardDeviation = True
     module.outlierDetectionEnabled = True
     unitTestSim.AddModelToTask(unitTaskName, module, module)
 
@@ -498,8 +504,10 @@ def test_brown_conrady_calibration(k1, k2, k3, p1, p2, label, centerOfBrightness
     testProc.addTask(unitTestSim.CreateNewTask(unitTaskName, testProcessRate))
 
     R_object = 25.0 * 1e3
-    module = cobConverter.CobConverter(noCorr, R_object)
-    module.setAttitudeCovariance(np.zeros((3, 3)))
+    module = cobConverter.CobConverter()
+    module.phaseAngleCorrectionMethod = noCorr
+    module.radius = R_object
+    module.attitudeCovariance = np.zeros((3, 3))
 
     coefficients = cobConverter.CalibrationCoefficients()
     coefficients.k1 = k1
@@ -507,7 +515,7 @@ def test_brown_conrady_calibration(k1, k2, k3, p1, p2, label, centerOfBrightness
     coefficients.k3 = k3
     coefficients.p1 = p1
     coefficients.p2 = p2
-    module.setBrownConradyCoefficients(coefficients)
+    module.calibrationCoefficients = coefficients
 
     unitTestSim.AddModelToTask(unitTaskName, module, module)
 

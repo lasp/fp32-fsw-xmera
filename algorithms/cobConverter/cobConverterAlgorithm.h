@@ -189,27 +189,11 @@ class CobConverterConfig final {
  */
 class CobConverterAlgorithm {
    public:
-    CobConverterAlgorithm(PhaseAngleCorrectionMethodAlgorithm method, float radiusObject);
+    explicit CobConverterAlgorithm(CobConverterConfig config);
     ~CobConverterAlgorithm();
 
+    void setConfig(const CobConverterConfig& config);
     CobConverterOutput updateState(const CobConverterInput& input);
-
-    void setRadius(float radius);
-    float getRadius() const;
-    void setRadiusUncertainty(float radiusUncertainty);
-    float getRadiusUncertainty() const;
-    void setAttitudeCovariance(const Eigen::Matrix3f& covAtt_BN_B);
-    Eigen::Matrix3f getAttitudeCovariance() const;
-    void setNumStandardDeviations(float num);
-    float getNumStandardDeviations() const;
-    void setStandardDeviation(float num);
-    float getStandardDeviation() const;
-    bool isStandardDeviationSpecified() const;
-    void enableOutlierDetection();
-    void disableOutlierDetection();
-    bool isOutlierDetectionEnabled() const;
-    void setBrownConradyCoefficients(const CalibrationCoefficients& coefficients);
-    CalibrationCoefficients getBrownConradyCoefficients() const;
 
    private:
     void cobOutlierDetection(const CobConverterInput& input, CobConverterOutput& output);
@@ -225,22 +209,13 @@ class CobConverterAlgorithm {
                                 const Eigen::Vector3f& centerOfBrightness,
                                 CobConverterOutput& output) const;
 
-    PhaseAngleCorrectionMethodAlgorithm phaseAngleCorrectionMethod =
-        PhaseAngleCorrectionMethodAlgorithm::NoCorrectionAlg;
-    CalibrationCoefficients calibrationCoefficients{};
-    float objectRadius{};
-    float objectRadiusUncertainty{};
-    Eigen::Matrix3f covarAtt_BN_B = Eigen::Matrix3f::Zero();
+    CobConverterConfig cfg;
     Eigen::Matrix3f dcm_NC = Eigen::Matrix3f::Zero();
     Eigen::Matrix3f dcm_CB = Eigen::Matrix3f::Zero();
     Eigen::Matrix3f dcm_BN = Eigen::Matrix3f::Zero();
     Eigen::Matrix3f cameraCalibrationMatrix = Eigen::Matrix3f::Zero();
     Eigen::Matrix3f cameraCalibrationMatrixInverse = Eigen::Matrix3f::Zero();
     Eigen::Matrix3f covar_B = Eigen::Matrix3f::Zero();
-    float numStandardDeviations = 3;
-    float standardDeviation{};
-    bool specifiedStandardDeviation{};
-    bool performOutlierDetection{};
     bool validCOM = false;
     float dX{};
     float X{};

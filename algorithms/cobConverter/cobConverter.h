@@ -2,6 +2,7 @@
 #define F32XMERA_COB_CONVERTER_H
 
 #include <architecture/messaging/messaging.h>
+#include <memory>
 
 #include "cobConverterAlgorithm.h"
 #include "msgPayloadDef/CameraModelMsgF32Payload.h"
@@ -29,31 +30,25 @@ const std::map<PhaseAngleCorrectionMethod, PhaseAngleCorrectionMethodAlgorithm> 
  *        (camera, body, inertial frames), with optional phase-angle correction
  *        and outlier detection.
  */
-class CobConverter : public SysModel {
+class CobConverter final : public SysModel {
    public:
-    CobConverter(PhaseAngleCorrectionMethod method, float radiusObject);
-    ~CobConverter() final;
+    CobConverter() = default;
+    ~CobConverter() override = default;
 
-    void updateState(uint64_t currentSimNanos) override;
     void reset(uint64_t currentSimNanos) override;
+    void updateState(uint64_t currentSimNanos) override;
 
-    void setRadius(float radius);
-    float getRadius() const;
-    void setRadiusUncertainty(float radiusUncertainty);
-    float getRadiusUncertainty() const;
-    void setAttitudeCovariance(const Eigen::Matrix3f& covAtt_BN_B);
-    Eigen::Matrix3f getAttitudeCovariance() const;
-    void setNumStandardDeviations(float num);
-    float getNumStandardDeviations() const;
-    void setStandardDeviation(float num);
-    float getStandardDeviation() const;
-    bool isStandardDeviationSpecified() const;
-    void setOutlierDetectionEnabled(bool enable);
-    bool isOutlierDetectionEnabled() const;
-    void setBrownConradyCoefficients(const CalibrationCoefficients& coefficients);
-    CalibrationCoefficients getBrownConradyCoefficients() const;
+    // Phase 1: public config properties -- set before reset().
+    PhaseAngleCorrectionMethod phaseAngleCorrectionMethod = PhaseAngleCorrectionMethod::NoCorrection;
+    float radius = 0.0F;
+    float radiusUncertainty = 0.0F;
+    Eigen::Matrix3f attitudeCovariance = Eigen::Matrix3f::Zero();
+    float numStandardDeviations = 3.0F;
+    float standardDeviation = 0.0F;
+    bool specifiedStandardDeviation = false;
+    bool outlierDetectionEnabled = false;
+    CalibrationCoefficients calibrationCoefficients{};
 
-   public:
     // Output messages
     Message<OpNavUnitVecMsgF32Payload> opnavUnitVecOutMsg;
     Message<OpNavCOMMsgF32Payload> comCorrectionOutMsg;
@@ -67,7 +62,7 @@ class CobConverter : public SysModel {
     ReadFunctor<NavAttMsgF32Payload> sunInMsg;
 
    private:
-    CobConverterAlgorithm algorithm;
+    std::unique_ptr<CobConverterAlgorithm> algorithm = nullptr;
 };
 
 #endif  // F32XMERA_COB_CONVERTER_H
