@@ -2,7 +2,6 @@
 #define F32XMERA_COB_CONVERTER_ALGORITHM_H
 
 #include <Eigen/Dense>
-#include <cstdint>
 
 #include "utilities/fsw/freestandingInvalidArgument.h"
 #include "utilities/fsw/freestandingIsFinite.hpp"
@@ -22,7 +21,7 @@ struct CalibrationCoefficients {
  * @enum PhaseAngleCorrectionMethodAlgorithm
  * @brief Phase-angle correction models for converting COB to COM.
  */
-enum class PhaseAngleCorrectionMethodAlgorithm { NoCorrectionAlg, BinaryAlg };
+enum class PhaseAngleCorrectionMethodAlgorithm : std::uint8_t { NoCorrectionAlg, BinaryAlg };
 
 /*! Structure containing all COB converter algorithm inputs. */
 struct CobConverterInput {
@@ -152,10 +151,10 @@ class CobConverterConfig final {
 
    private:
     CobConverterConfig(PhaseAngleCorrectionMethodAlgorithm phaseAngleCorrectionMethod,
-                       float radius,
+                       float radius,  // NOLINT(bugprone-easily-swappable-parameters)
                        float radiusUncertainty,
-                       const Eigen::Matrix3f& attitudeCovariance,
-                       float numStandardDeviations,
+                       const Eigen::Matrix3f& attitudeCovariance,  // NOLINT(modernize-pass-by-value)
+                       float numStandardDeviations,                // NOLINT(bugprone-easily-swappable-parameters)
                        float standardDeviation,
                        bool specifiedStandardDeviation,
                        bool outlierDetectionEnabled,
@@ -190,7 +189,6 @@ class CobConverterConfig final {
 class CobConverterAlgorithm {
    public:
     explicit CobConverterAlgorithm(CobConverterConfig config);
-    ~CobConverterAlgorithm();
 
     void setConfig(const CobConverterConfig& config);
     CobConverterOutput updateState(const CobConverterInput& input);
