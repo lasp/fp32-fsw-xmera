@@ -121,4 +121,23 @@ inline void propertyOutputIsFinite(const Eigen::Vector3f& rHat_SB_N,
     }
 }
 
+// Thrust body axis should align with thrust inertial heading direction
+inline void propertyThrustBodyHeadingAlignedToThrustInertialHeading(const Eigen::Vector3f& rHat_SB_N,
+                                                                    const Eigen::Vector3f& thrustHat_B,
+                                                                    const Eigen::Vector3f& sadaHat_B,
+                                                                    const Eigen::Vector3f& thrustReqHat_N,
+                                                                    const float signOfN3Hat_N) {
+    auto config = TriadConfig::create(sadaHat_B, thrustReqHat_N, signOfN3Hat_N);
+    TriadAlgorithm alg(config);
+
+    const Eigen::Vector3f sigma_RN = alg.update(rHat_SB_N, thrustHat_B);
+    const Eigen::Matrix3f dcm_RN = mrpToDcm(sigma_RN);
+
+    Eigen::Vector3f thrustReqHat_B = (dcm_RN * thrustReqHat_N).stableNormalized();
+
+    for (int i = 0; i < 3; ++i) {
+        EXPECT_NEAR(thrustReqHat_B(i), thrustHat_B(i), 1e-6F);
+    }
+}
+
 #endif  // TEST_TRIAD_H
