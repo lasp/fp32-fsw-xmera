@@ -4,6 +4,9 @@
 #include <Eigen/Dense>
 #include <cstdint>
 
+#include "utilities/fsw/freestandingInvalidArgument.h"
+#include "utilities/fsw/freestandingIsFinite.hpp"
+
 /**
  * @brief Camera calibration to pinhole Brown-Conrady coefficients
  */
@@ -65,6 +68,117 @@ struct CobConverterOutput {
     uint64_t comTimeTag{};                                         //!< [ns] measurement timestamp
     bool comValid{};                                               //!< [--] COM validity flag
     bool coberrorOutlierTrigger{};  //!< [--] true if COB error exceeded outlier threshold
+};
+
+/**
+ * @class CobConverterConfig
+ * @brief Validated configuration parameters for CobConverterAlgorithm.
+ */
+class CobConverterConfig final {
+   public:
+    static CobConverterConfig create(PhaseAngleCorrectionMethodAlgorithm phaseAngleCorrectionMethod,
+                                     float radius,
+                                     float radiusUncertainty,
+                                     const Eigen::Matrix3f& attitudeCovariance,
+                                     float numStandardDeviations,
+                                     float standardDeviation,
+                                     bool specifiedStandardDeviation,
+                                     bool outlierDetectionEnabled,
+                                     const CalibrationCoefficients& calibrationCoefficients) {
+        if (!isValidPhaseAngleCorrectionMethod(phaseAngleCorrectionMethod)) {
+            FSW_THROW_INVALID_ARGUMENT("cobConverter: phaseAngleCorrectionMethod must be NoCorrectionAlg or BinaryAlg");
+        }
+        if (!isValidRadius(radius)) {
+            FSW_THROW_INVALID_ARGUMENT("cobConverter: radius must be > 0");
+        }
+        if (!isValidRadiusUncertainty(radiusUncertainty)) {
+            FSW_THROW_INVALID_ARGUMENT("cobConverter: radiusUncertainty must be >= 0");
+        }
+        if (!isValidAttitudeCovariance(attitudeCovariance)) {
+            FSW_THROW_INVALID_ARGUMENT("cobConverter: attitudeCovariance must be finite");
+        }
+        if (!isValidNumStandardDeviations(numStandardDeviations)) {
+            FSW_THROW_INVALID_ARGUMENT("cobConverter: numStandardDeviations must be > 0");
+        }
+        if (!isValidStandardDeviation(standardDeviation, specifiedStandardDeviation)) {
+            FSW_THROW_INVALID_ARGUMENT("cobConverter: standardDeviation must be > 0 when specified");
+        }
+        if (!isValidCalibrationCoefficients(calibrationCoefficients)) {
+            FSW_THROW_INVALID_ARGUMENT("cobConverter: calibrationCoefficients must be finite");
+        }
+        return {phaseAngleCorrectionMethod,
+                radius,
+                radiusUncertainty,
+                attitudeCovariance,
+                numStandardDeviations,
+                standardDeviation,
+                specifiedStandardDeviation,
+                outlierDetectionEnabled,
+                calibrationCoefficients};
+    }
+
+    static bool isValidPhaseAngleCorrectionMethod(PhaseAngleCorrectionMethodAlgorithm method) {
+        return method == PhaseAngleCorrectionMethodAlgorithm::NoCorrectionAlg ||
+               method == PhaseAngleCorrectionMethodAlgorithm::BinaryAlg;
+    }
+    static bool isValidRadius(float radius) { return fsw::is_finite(radius) && radius > 0.0F; }
+    static bool isValidRadiusUncertainty(float radiusUncertainty) {
+        return fsw::is_finite(radiusUncertainty) && radiusUncertainty >= 0.0F;
+    }
+    static bool isValidAttitudeCovariance(const Eigen::Matrix3f& attitudeCovariance) {
+        return attitudeCovariance.allFinite();
+    }
+    static bool isValidNumStandardDeviations(float numStandardDeviations) {
+        return fsw::is_finite(numStandardDeviations) && numStandardDeviations > 0.0F;
+    }
+    static bool isValidStandardDeviation(float standardDeviation, bool specifiedStandardDeviation) {
+        return !specifiedStandardDeviation || (fsw::is_finite(standardDeviation) && standardDeviation > 0.0F);
+    }
+    // No isValidOutlierDetectionEnabled — any bool value is valid.
+    static bool isValidCalibrationCoefficients(const CalibrationCoefficients& coefficients) {
+        return fsw::is_finite(coefficients.k1) && fsw::is_finite(coefficients.k2) && fsw::is_finite(coefficients.k3) &&
+               fsw::is_finite(coefficients.p1) && fsw::is_finite(coefficients.p2);
+    }
+
+    PhaseAngleCorrectionMethodAlgorithm getPhaseAngleCorrectionMethod() const { return phaseAngleCorrectionMethod; }
+    float getRadius() const { return radius; }
+    float getRadiusUncertainty() const { return radiusUncertainty; }
+    Eigen::Matrix3f getAttitudeCovariance() const { return attitudeCovariance; }
+    float getNumStandardDeviations() const { return numStandardDeviations; }
+    float getStandardDeviation() const { return standardDeviation; }
+    bool isStandardDeviationSpecified() const { return specifiedStandardDeviation; }
+    bool isOutlierDetectionEnabled() const { return outlierDetectionEnabled; }
+    CalibrationCoefficients getCalibrationCoefficients() const { return calibrationCoefficients; }
+
+   private:
+    CobConverterConfig(PhaseAngleCorrectionMethodAlgorithm phaseAngleCorrectionMethod,
+                       float radius,
+                       float radiusUncertainty,
+                       const Eigen::Matrix3f& attitudeCovariance,
+                       float numStandardDeviations,
+                       float standardDeviation,
+                       bool specifiedStandardDeviation,
+                       bool outlierDetectionEnabled,
+                       const CalibrationCoefficients& calibrationCoefficients)
+        : phaseAngleCorrectionMethod(phaseAngleCorrectionMethod),
+          radius(radius),
+          radiusUncertainty(radiusUncertainty),
+          attitudeCovariance(attitudeCovariance),
+          numStandardDeviations(numStandardDeviations),
+          standardDeviation(standardDeviation),
+          specifiedStandardDeviation(specifiedStandardDeviation),
+          outlierDetectionEnabled(outlierDetectionEnabled),
+          calibrationCoefficients(calibrationCoefficients) {}
+
+    PhaseAngleCorrectionMethodAlgorithm phaseAngleCorrectionMethod;
+    float radius;
+    float radiusUncertainty;
+    Eigen::Matrix3f attitudeCovariance;
+    float numStandardDeviations;
+    float standardDeviation;
+    bool specifiedStandardDeviation;
+    bool outlierDetectionEnabled;
+    CalibrationCoefficients calibrationCoefficients;
 };
 
 /**
