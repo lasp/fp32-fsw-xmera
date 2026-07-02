@@ -9,8 +9,8 @@
 #include "triadAlgorithm.h"
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
-#include <Eigen/Core>
 #include <stdint.h>
+#include <Eigen/Core>
 #include <memory>
 
 class Triad final : public SysModel {
@@ -26,6 +26,7 @@ class Triad final : public SysModel {
 
     Eigen::Vector3f a1Hat_B = Eigen::Vector3f::Zero();
     Eigen::Vector3f hHat_N = Eigen::Vector3f::Zero();
+    float signOfN3Hat_N = 1.0F;
 
    private:
     std::unique_ptr<TriadAlgorithm> algorithm = nullptr;

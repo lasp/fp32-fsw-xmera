@@ -3,10 +3,9 @@
 
 #include "triad.h"
 #include "architecture/utilities/rigidBodyKinematics.hpp"
-#include <stdexcept>
-#include <Eigen/Core>
 #include <architecture/utilities/eigenSupport.h>
-
+#include <Eigen/Core>
+#include <stdexcept>
 
 class XmeraLifecycleException : public std::runtime_error {
    public:
@@ -21,14 +20,11 @@ void Triad::reset(const uint64_t callTime) {
         throw std::invalid_argument("triad.bodyHeadingInMsg wasn't connected.");
     }
 
-    auto config = TriadConfig::create(this->a1Hat_B, this->hHat_N);
+    auto config = TriadConfig::create(this->a1Hat_B, this->hHat_N, this->signOfN3Hat_N);
     this->algorithm = std::make_unique<TriadAlgorithm>(config);
 }
 
-TriadConfig Triad::toConfig() const {
-    return TriadConfig::create(
-        this->a1Hat_B, this->hHat_N);
-}
+TriadConfig Triad::toConfig() const { return TriadConfig::create(this->a1Hat_B, this->hHat_N, this->signOfN3Hat_N); }
 
 void Triad::reconfigure() const {
     if (!this->algorithm) {

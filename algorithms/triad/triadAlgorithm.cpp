@@ -6,14 +6,12 @@
 #include <numbers>
 #include <stdexcept>
 
-TriadAlgorithm::TriadAlgorithm(const TriadConfig& config)
-    : cfg(config) {}
+TriadAlgorithm::TriadAlgorithm(const TriadConfig& config) : cfg(config) {}
 
 void TriadAlgorithm::setConfig(const TriadConfig& config) { this->cfg = config; }
 
-Eigen::Vector3f TriadAlgorithm::update(const Eigen::Vector3f& rHat_SB_N,
-                                       const Eigen::Vector3f& hRefHat_B) const {
-    const Eigen::Vector3f hReqHat_N =  this->cfg.getHHat_N();
+Eigen::Vector3f TriadAlgorithm::update(const Eigen::Vector3f& rHat_SB_N, const Eigen::Vector3f& hRefHat_B) const {
+    const Eigen::Vector3f hReqHat_N = this->cfg.getHHat_N();
 
     const float SPE = safeAcosf(fabsf(rHat_SB_N.dot(hReqHat_N)));
     if (SPE < kParallelThresholdRad) {
