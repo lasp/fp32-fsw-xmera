@@ -44,10 +44,10 @@ void SunlineFilter::reset(uint64_t currentSimNanos) {
     }
 
     auto const cssConfig = this->cssConfigInMsg();
-    int const numCss = static_cast<int>(cssConfig.nCSS);
+    uint32_t const numCss = cssConfig.nCSS;
     Eigen::Matrix<double, MaxCss, 3> nHat = Eigen::Matrix<double, MaxCss, 3>::Zero();
     Eigen::Vector<double, MaxCss> cssScaleFactor = Eigen::Vector<double, MaxCss>::Zero();
-    for (int i = 0; i < numCss; ++i) {
+    for (uint32_t i = 0; i < numCss; ++i) {
         cssScaleFactor(i) = cssConfig.cssVals[i].CBias;
         for (int j = 0; j < 3; ++j) {
             nHat(i, j) = cssConfig.cssVals[i].nHat_B[j];
@@ -114,7 +114,7 @@ void SunlineFilter::updateState(uint64_t currentSimNanos) {
 
     if (auto const [timeTag, CosValue] = this->cssDataInMsg(); timeTag > this->lastCssTimeTag) {
         Eigen::Vector<double, MaxCss> sensorMeasurements{};
-        for (int i = 0; i < this->numberOfCss; ++i) {
+        for (uint32_t i = 0; i < this->numberOfCss; ++i) {
             sensorMeasurements[i] = CosValue[i];
         }
         cssData.timeTag = timeTag;

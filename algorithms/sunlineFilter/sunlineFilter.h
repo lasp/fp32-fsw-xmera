@@ -57,7 +57,7 @@ class SunlineFilter : public SysModel {
 
     std::unique_ptr<filtering::sunlineFilter::SunlineFilterAlgorithm> algorithm = nullptr;
 
-    int numberOfCss = 0;            //!< [-] CSS count latched from cssConfigInMsg at reset()
+    uint32_t numberOfCss = 0;       //!< [-] CSS count latched from cssConfigInMsg at reset()
     double lastNavAttTimeTag = -1;  //!< [s] last NavAtt payload timeTag consumed; -1
     double lastCssTimeTag = -1;     //!< [s] last CSS payload timeTag consumed; -1
 };

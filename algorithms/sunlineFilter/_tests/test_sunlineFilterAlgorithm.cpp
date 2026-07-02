@@ -437,7 +437,7 @@ struct ConfigInputs {
     double biasUpperBound = kBiasUpperBound;
     Eigen::Matrix<double, MaxCss, 3> cssNHat = threeCssNHat();
     Eigen::Vector<double, MaxCss> cssScaleFactor = Eigen::Vector<double, MaxCss>::Ones();
-    int numberOfCss = 3;
+    uint32_t numberOfCss = 3;
     double sensorThreshold = 0.0;
     double cssMeasStd = 1E-2;
     double gyroStd = 1E-3;
@@ -498,10 +498,6 @@ TEST(SunlineFilterConfig, RejectsNegativeCssScaleFactor) {
 }
 
 TEST(SunlineFilterConfig, RejectsNumberOfCssOutOfRange) {
-    ConfigInputs negative;
-    negative.numberOfCss = -1;
-    EXPECT_THROW(buildConfig(negative), fsw::invalid_argument);
-
     ConfigInputs zero;
     zero.numberOfCss = 0;
     EXPECT_THROW(buildConfig(zero), fsw::invalid_argument);

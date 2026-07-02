@@ -12,6 +12,7 @@
 #include <math.h>
 
 #include <Eigen/Core>
+#include <cstdint>
 
 namespace filtering::sunlineFilter {
 
@@ -53,7 +54,7 @@ class SunlineFilterConfig final {
                                       double biasUpperBound,
                                       Eigen::Matrix<double, MaxCss, 3> const& cssNHat,
                                       Eigen::Vector<double, MaxCss> const& cssScaleFactor,
-                                      int numberOfCss,
+                                      uint32_t numberOfCss,
                                       double sensorThreshold,
                                       double cssMeasurementNoiseStd,
                                       double gyroMeasurementNoiseStd) {
@@ -115,9 +116,9 @@ class SunlineFilterConfig final {
     static bool isValidBiasLowerBound(double bound) { return bound > 0.0; }
     static bool isValidBiasUpperBound(double bound) { return bound > 0.0; }
     static bool isValidBiasBounds(double lowerBound, double upperBound) { return lowerBound < upperBound; }
-    static bool isValidCssNHat(Eigen::Matrix<double, MaxCss, 3> const& cssNHat, int numberOfCss) {
+    static bool isValidCssNHat(Eigen::Matrix<double, MaxCss, 3> const& cssNHat, uint32_t numberOfCss) {
         constexpr double normTolerance = 1e-3;
-        for (int i = 0; i < numberOfCss; ++i) {
+        for (uint32_t i = 0; i < numberOfCss; ++i) {
             Eigen::Vector3d const row = cssNHat.row(i).transpose();
             if (fabs(row.stableNorm() - 1.0) > normTolerance) {
                 return false;
@@ -128,7 +129,7 @@ class SunlineFilterConfig final {
     static bool isValidCssScaleFactor(Eigen::Vector<double, MaxCss> const& cssScaleFactor) {
         return (cssScaleFactor.array() >= 0.0).all();
     }
-    static bool isValidNumberOfCss(int count) { return count > 0 && count <= MaxCss; }
+    static bool isValidNumberOfCss(uint32_t count) { return count > 0 && count <= static_cast<uint32_t>(MaxCss); }
     static bool isValidSensorThreshold(double threshold) { return threshold >= 0.0; }
     static bool isValidCssMeasurementNoiseStd(double noiseStd) { return noiseStd >= 0.0; }
     static bool isValidGyroMeasurementNoiseStd(double noiseStd) { return noiseStd >= 0.0; }
@@ -142,7 +143,7 @@ class SunlineFilterConfig final {
     double getBiasUpperBound() const { return this->biasUpperBound; }
     Eigen::Matrix<double, MaxCss, 3> const& getCssNHat() const { return this->cssNHat; }
     Eigen::Vector<double, MaxCss> const& getCssScaleFactor() const { return this->cssScaleFactor; }
-    int getNumberOfCss() const { return this->numberOfCss; }
+    uint32_t getNumberOfCss() const { return this->numberOfCss; }
     double getSensorThreshold() const { return this->sensorThreshold; }
     double getCssMeasurementNoiseStd() const { return this->cssMeasNoiseStd; }
     double getGyroMeasurementNoiseStd() const { return this->gyroMeasNoiseStd; }
@@ -157,7 +158,7 @@ class SunlineFilterConfig final {
                         double biasUpperBound,
                         Eigen::Matrix<double, MaxCss, 3> const& cssNHat,
                         Eigen::Vector<double, MaxCss> const& cssScaleFactor,
-                        int numberOfCss,
+                        uint32_t numberOfCss,
                         double sensorThreshold,
                         double cssMeasurementNoiseStd,
                         double gyroMeasurementNoiseStd)
@@ -176,9 +177,9 @@ class SunlineFilterConfig final {
           gyroMeasNoiseStd(gyroMeasurementNoiseStd) {}
 
     static Eigen::Matrix<double, MaxCss, 3> normalizeCssNHat(Eigen::Matrix<double, MaxCss, 3> const& cssNHat,
-                                                             int numberOfCss) {
+                                                             uint32_t numberOfCss) {
         Eigen::Matrix<double, MaxCss, 3> normalized = Eigen::Matrix<double, MaxCss, 3>::Zero();
-        for (int i = 0; i < numberOfCss; ++i) {
+        for (uint32_t i = 0; i < numberOfCss; ++i) {
             Eigen::Vector3d const row = cssNHat.row(i).transpose();
             normalized.row(i) = row.stableNormalized().transpose();
         }
@@ -194,7 +195,7 @@ class SunlineFilterConfig final {
     double biasUpperBound;
     Eigen::Matrix<double, MaxCss, 3> cssNHat;
     Eigen::Vector<double, MaxCss> cssScaleFactor;
-    int numberOfCss;
+    uint32_t numberOfCss;
     double sensorThreshold;
     double cssMeasNoiseStd;
     double gyroMeasNoiseStd;

@@ -188,7 +188,7 @@ CssMeasurement SunlineFilterAlgorithm::packCssMeasurement(CssData const& cssData
     packed.covar = (cssMeasNoiseStd * cssMeasNoiseStd) * Eigen::Matrix<double, MaxCss, MaxCss>::Identity();
 
     int active = 0;
-    for (int i = 0; i < this->cfg.getNumberOfCss() && active < MaxCss; ++i) {
+    for (uint32_t i = 0; i < this->cfg.getNumberOfCss() && active < MaxCss; ++i) {
         if (cssData.cosValues(i) <= this->cfg.getSensorThreshold()) {
             continue;
         }
