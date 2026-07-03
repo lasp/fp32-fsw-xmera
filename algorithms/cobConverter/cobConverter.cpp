@@ -1,10 +1,11 @@
 #include "cobConverter.h"
+#include <stdexcept>
 
 /**
  * @brief Construct a CobConverter.
  * @param method Phase-angle correction method to apply.
  * @param radiusObject Object radius in meters (must be > 0).
- * @note The radius is validated with an assertion.
+ * @throws std::invalid_argument If radiusObject is not > 0.
  */
 CobConverter::CobConverter(const PhaseAngleCorrectionMethod method, const double radiusObject)
     : algorithm(enumMap.at(method), radiusObject) {}
@@ -71,7 +72,9 @@ void CobConverter::updateState(const uint64_t currentSimNanos) {
  * @param radius Object radius in meters (must be > 0).
  */
 void CobConverter::setRadius(const double radius) {
-    assert(radius > 0);
+    if (radius <= 0) {
+        throw std::invalid_argument("cobConverter: radius must be > 0");
+    }
     this->algorithm.setRadius(radius);
 }
 
@@ -88,7 +91,9 @@ double CobConverter::getRadius() const {
  * @param radiusUncertainty Object radius uncertainty in meters (>= 0).
  */
 void CobConverter::setRadiusUncertainty(const double radiusUncertainty) {
-    assert(radiusUncertainty >= 0);
+    if (radiusUncertainty < 0) {
+        throw std::invalid_argument("cobConverter: radiusUncertainty must be >= 0");
+    }
     this->algorithm.setRadiusUncertainty(radiusUncertainty);
 }
 
@@ -117,7 +122,9 @@ Eigen::Matrix3d CobConverter::getAttitudeCovariance() const { return this->algor
  * @param num Number of sigmas (> 0).
  */
 void CobConverter::setNumStandardDeviations(const double num) {
-    assert(num > 0.0);
+    if (num <= 0.0) {
+        throw std::invalid_argument("cobConverter: numStandardDeviations must be > 0");
+    }
     this->algorithm.setNumStandardDeviations(num);
 }
 
@@ -133,7 +140,9 @@ double CobConverter::getNumStandardDeviations() const { return this->algorithm.g
  * @note When set, outlier detection will use this fixed value instead of deriving one.
  */
 void CobConverter::setStandardDeviation(const double num) {
-    assert(num > 0.0);
+    if (num <= 0.0) {
+        throw std::invalid_argument("cobConverter: standardDeviation must be > 0");
+    }
     this->algorithm.setStandardDeviation(num);
 }
 

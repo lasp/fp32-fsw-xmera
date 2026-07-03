@@ -1,5 +1,6 @@
 #include "cobConverterAlgorithm.h"
 #include "utilities/fsw/eigenSupport.h"
+#include "utilities/fsw/freestandingInvalidArgument.h"
 #include "utilities/fsw/rigidBodyKinematics.hpp"
 #include "utilities/fsw/timeConstants.h"
 
@@ -29,12 +30,14 @@ static Eigen::Matrix3d computeTotalCobCovariance(const Eigen::Matrix3d& covarNav
  * @brief Construct a CobConverterAlgorithm.
  * @param method Phase-angle correction method to apply.
  * @param radiusObject Object radius in meters (must be > 0).
- * @note The radius is validated with an assertion.
+ * @throws std::invalid_argument If radiusObject is not > 0.
  */
 CobConverterAlgorithm::CobConverterAlgorithm(const PhaseAngleCorrectionMethodAlgorithm method,
                                              const double radiusObject) {
     this->phaseAngleCorrectionMethod = method;
-    assert(radiusObject > 0);
+    if (radiusObject <= 0) {
+        FSW_THROW_INVALID_ARGUMENT("cobConverter: radiusObject must be > 0");
+    }
     this->objectRadius = radiusObject;
 }
 
@@ -457,7 +460,9 @@ void CobConverterAlgorithm::cobOutlierDetection(const FilterMsgPayload& filterMs
  * @param radius Object radius in meters (must be > 0).
  */
 void CobConverterAlgorithm::setRadius(const double radius) {
-    assert(radius > 0);
+    if (radius <= 0) {
+        FSW_THROW_INVALID_ARGUMENT("cobConverter: radius must be > 0");
+    }
     this->objectRadius = radius;
 }
 
@@ -472,7 +477,9 @@ double CobConverterAlgorithm::getRadius() const { return this->objectRadius; }
  * @param radiusUncertainty Object radius uncertainty in meters (>= 0).
  */
 void CobConverterAlgorithm::setRadiusUncertainty(const double radiusUncertainty) {
-    assert(radiusUncertainty >= 0);
+    if (radiusUncertainty < 0) {
+        FSW_THROW_INVALID_ARGUMENT("cobConverter: radiusUncertainty must be >= 0");
+    }
     this->objectRadiusUncertainty = radiusUncertainty;
 }
 
@@ -501,7 +508,9 @@ Eigen::Matrix3d CobConverterAlgorithm::getAttitudeCovariance() const { return th
  * @param num Number of sigmas (> 0).
  */
 void CobConverterAlgorithm::setNumStandardDeviations(const double num) {
-    assert(num > 0.0);
+    if (num <= 0.0) {
+        FSW_THROW_INVALID_ARGUMENT("cobConverter: numStandardDeviations must be > 0");
+    }
     this->numStandardDeviations = num;
 }
 
@@ -517,7 +526,9 @@ double CobConverterAlgorithm::getNumStandardDeviations() const { return this->nu
  * @note When set, outlier detection will use this fixed value instead of deriving one.
  */
 void CobConverterAlgorithm::setStandardDeviation(const double num) {
-    assert(num > 0.0);
+    if (num <= 0.0) {
+        FSW_THROW_INVALID_ARGUMENT("cobConverter: standardDeviation must be > 0");
+    }
     this->standardDeviation = num;
     this->specifiedStandardDeviation = true;
 }
