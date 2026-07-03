@@ -1,7 +1,7 @@
 #include "cobConverter.h"
-#include <stdexcept>
 #include "utilities/fsw/eigenSupport.h"
 #include "utilities/xmera/xmeraLifecycleException.h"
+#include <stdexcept>
 
 /**
  * @brief Reset internal state, validate required input connections, and construct the algorithm from the
