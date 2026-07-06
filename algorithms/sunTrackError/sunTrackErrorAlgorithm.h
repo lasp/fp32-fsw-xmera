@@ -1,28 +1,38 @@
 #ifndef F32XMERA_SUN_TRACK_ERROR_ALGORITHM_H
 #define F32XMERA_SUN_TRACK_ERROR_ALGORITHM_H
 
-#include "msgPayloadDef/AttGuidMsgF32Payload.h"
-#include "msgPayloadDef/AttRefMsgF32Payload.h"
-#include "msgPayloadDef/EphemerisMsgF32Payload.h"
-#include "msgPayloadDef/NavAttMsgF32Payload.h"
-#include "msgPayloadDef/NavTransMsgF32Payload.h"
 #include <stdint.h>
 #include <Eigen/Core>
+
+struct SunTrackErrorNavAttInputs {
+    Eigen::Vector3f sigma_BN{Eigen::Vector3f::Zero()};    //!< [-] measured MRP attitude of B wrt inertial N
+    Eigen::Vector3f omega_BN_B{Eigen::Vector3f::Zero()};  //!< [r/s] measured body rate of B wrt N in B frame
+};
+
+struct SunTrackErrorAttRefInputs {
+    Eigen::Vector3f sigma_RN{Eigen::Vector3f::Zero()};     //!< [-] reference MRP attitude of R wrt inertial N
+    Eigen::Vector3f omega_RN_N{Eigen::Vector3f::Zero()};   //!< [r/s] reference rate of R wrt N in N frame
+    Eigen::Vector3f domega_RN_N{Eigen::Vector3f::Zero()};  //!< [r/s^2] reference angular acceleration in N frame
+};
+
+struct SunTrackErrorOutput {
+    Eigen::Vector3f sigma_BR{Eigen::Vector3f::Zero()};     //!< [-] attitude error MRP of B wrt R
+    Eigen::Vector3f omega_BR_B{Eigen::Vector3f::Zero()};   //!< [r/s] body rate error of B wrt R in B frame
+    Eigen::Vector3f omega_RN_B{Eigen::Vector3f::Zero()};   //!< [r/s] reference rate of R wrt N in B frame
+    Eigen::Vector3f domega_RN_B{Eigen::Vector3f::Zero()};  //!< [r/s^2] reference angular acceleration in B frame
+};
 
 /*!@brief Module to compute the attitude tracking error for sun avoidance.
  */
 class SunTrackErrorAlgorithm final {
    public:
     void reset(bool computeStartAngle);
-    AttGuidMsgF32Payload update(AttRefMsgF32Payload& ref,
-                                NavAttMsgF32Payload& nav,
-                                NavTransMsgF32Payload& navTrans,
-                                EphemerisMsgF32Payload& celState,
-                                uint64_t callTime);
+    SunTrackErrorOutput update(const SunTrackErrorNavAttInputs& nav,
+                               const SunTrackErrorAttRefInputs& ref,
+                               const Eigen::Vector3f& r_BN_N,
+                               const Eigen::Vector3f& r_SN_N,
+                               uint64_t callTime);
 
-    AttGuidMsgF32Payload computeSunTrackError(NavAttMsgF32Payload& nav,
-                                              AttRefMsgF32Payload& ref,
-                                              uint64_t callTime) const;
     void setSigma_R0R(const Eigen::Vector3f& sigma);
     Eigen::Vector3f getSigma_R0R() const;
     void setSensitiveHat_B(const Eigen::Vector3f& sensitiveDirection);
@@ -31,6 +41,10 @@ class SunTrackErrorAlgorithm final {
     float getAngleRate() const;
 
    private:
+    SunTrackErrorOutput computeSunTrackError(const SunTrackErrorNavAttInputs& nav,
+                                             const SunTrackErrorAttRefInputs& ref,
+                                             uint64_t callTime) const;
+
     Eigen::Vector3f sigma_R0R{Eigen::Vector3f::Zero()}; /*!< MRP from corrected reference frame to original frame R0
                                                            This is the same as [BcB] going from primary body frame B
                                                            to the corrected body frame Bc */

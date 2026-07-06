@@ -1,4 +1,5 @@
 #include "sunTrackError.h"
+#include "utilities/fsw/eigenSupport.h"
 #include <stdexcept>
 
 /*! This method performs a complete reset of the module.  Local module variables that retain
@@ -24,17 +25,28 @@ void SunTrackError::reset(uint64_t callTime) {
  @param callTime The clock time at which the function was called (nanoseconds)
  */
 void SunTrackError::updateState(uint64_t callTime) {
-    AttRefMsgF32Payload ref = this->attRefInMsg();  //!< reference guidance message
-    NavAttMsgF32Payload nav = this->attNavInMsg();  //!< attitude navigation message
-    NavTransMsgF32Payload navTrans{};               //!< spacecraft position
-    EphemerisMsgF32Payload celState{};              //!< sun position
+    const NavAttMsgF32Payload nav = this->attNavInMsg();  //!< attitude navigation message
+    const AttRefMsgF32Payload ref = this->attRefInMsg();  //!< reference guidance message
 
+    const SunTrackErrorNavAttInputs navInputs{cArrayToEigenVector3(nav.sigma_BN), cArrayToEigenVector3(nav.omega_BN_B)};
+    const SunTrackErrorAttRefInputs refInputs{cArrayToEigenVector3(ref.sigma_RN),
+                                              cArrayToEigenVector3(ref.omega_RN_N),
+                                              cArrayToEigenVector3(ref.domega_RN_N)};
+
+    Eigen::Vector3f r_BN_N = Eigen::Vector3f::Zero();  //!< spacecraft position
+    Eigen::Vector3f r_SN_N = Eigen::Vector3f::Zero();  //!< sun position
     if (this->transNavInMsg.isLinked() && this->ephemerisInMsg.isLinked()) {
-        navTrans = this->transNavInMsg();
-        celState = this->ephemerisInMsg();
+        r_BN_N = cArrayToEigenVector3(this->transNavInMsg().r_BN_N).cast<float>();
+        r_SN_N = cArrayToEigenVector3(this->ephemerisInMsg().r_BdyZero_N).cast<float>();
     }
 
-    AttGuidMsgF32Payload attGuid = this->algorithm.update(ref, nav, navTrans, celState, callTime);
+    const SunTrackErrorOutput out = this->algorithm.update(navInputs, refInputs, r_BN_N, r_SN_N, callTime);
+
+    AttGuidMsgF32Payload attGuid{};
+    eigenVectorToCArray(out.sigma_BR, attGuid.sigma_BR);
+    eigenVectorToCArray(out.omega_BR_B, attGuid.omega_BR_B);
+    eigenVectorToCArray(out.omega_RN_B, attGuid.omega_RN_B);
+    eigenVectorToCArray(out.domega_RN_B, attGuid.domega_RN_B);
 
     /*! write output message */
     this->attGuidOutMsg.write(&attGuid, this->moduleID, callTime);
