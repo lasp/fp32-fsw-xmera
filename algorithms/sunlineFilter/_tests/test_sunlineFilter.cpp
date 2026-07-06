@@ -1,19 +1,15 @@
 // Unit tests for SunlineFilterAlgorithm and the SRUKF numerical helpers.
 //
-// Covers:
-// - Sunline dynamics: |s_hat| is conserved under propagation (the natural
-//   "energy" invariant of ds/dt = s × omega).
-// - timeUpdate(): simple-invariant checks under known initial conditions.
-// - measurementUpdate(): single rate measurement shrinks the rate-block of
-//   the covariance.
-// - update(currentSeconds, CssData, RateData): both per-kind residual slots
-//   drive valid when both kinds carry data; CSS threshold gating excludes
-//   below-threshold readings.
-// - SRuKF static helpers: forward/back substitution, Cholesky, QR-just-R,
-//   and Cholesky up/down-date.
+// Organized like the other modules:
+// - Setup: construction seeds the filter from the validated config.
+// - Property: invariants that hold for any valid config and bounded inputs
+//   (shared with the fuzz harness via sunlineFilterTestHelpers.hpp).
+// - Edge cases: dynamics/timeUpdate/measurementUpdate boundary behaviors.
+// - Regression: a fixed end-to-end scenario the filter must reproduce.
+// - Config: factory validation, static validators, and round-trip.
+// - SrukfDetail: the SRUKF static numerical helpers.
 
-#include "sunlineFilterAlgorithm.h"
-#include "sunlineFilterSpecs.h"
+#include "sunlineFilterTestHelpers.hpp"
 
 #include <filteringCore/srukf.hpp>
 
@@ -27,119 +23,77 @@ namespace filtering::sunlineFilter {
 namespace {
 
 using State = SunlineFilterAlgorithm::State;
-using Vector7 = Eigen::Matrix<double, 7, 1>;
-using Matrix7 = Eigen::Matrix<double, 7, 7>;
 
-// Alias for invoking the numerical helpers (static methods on the SRuKF
-// class template). The State/Dynamics arguments don't affect the helpers'
-// behavior; any valid instantiation works.
+// Alias for invoking the numerical helpers (static methods on the SRuKF class
+// template). The State/Dynamics arguments don't affect the helpers' behavior;
+// any valid instantiation works.
 using SRuKF = ::filtering::SRuKF<SunlineState, SunlineDynamics>;
-
-constexpr double kAlpha = 0.02;
-constexpr double kBeta = 2.0;
-constexpr double kBiasLowerBound = 0.5;
-constexpr double kBiasUpperBound = 1.5;
-
-State makeState(Eigen::Vector3d const& sHat, Eigen::Vector3d const& omega, double bias) {
-    State s;
-    s.set<filtering::Position<3>>(sHat);
-    s.set<filtering::Velocity<3>>(omega);
-    Eigen::Vector<double, 1> b;
-    b(0) = bias;
-    s.set<filtering::Bias<1>>(b);
-    return s;
-}
-
-Matrix7 diagCovariance(double posStd, double velStd, double biasStd) {
-    Vector7 d;
-    d << posStd * posStd, posStd * posStd, posStd * posStd, velStd * velStd, velStd * velStd, velStd * velStd,
-        biasStd * biasStd;
-    return d.asDiagonal();
-}
-
-Matrix7 smallProcessNoise() {
-    double const q = 1E-10;
-    Vector7 d;
-    d << q, q, q, q, q, q, q;
-    return d.asDiagonal();
-}
-
-// Three-CSS geometry (unit boresights in rows 0..2; remaining rows unused/zero).
-Eigen::Matrix<double, MaxCss, 3> threeCssNHat() {
-    Eigen::Matrix<double, MaxCss, 3> nHat = Eigen::Matrix<double, MaxCss, 3>::Zero();
-    nHat.row(0) = Eigen::RowVector3d(0.707, -0.5, 0.5);
-    nHat.row(1) = Eigen::RowVector3d(0.707, 0.5, 0.5);
-    nHat.row(2) = Eigen::RowVector3d(-0.707, 0.0, 0.707);
-    return nHat;
-}
-
-// Single-boresight CSS geometry for rate-only tests. numberOfCss must be >= 1, but
-// these tests never feed a CSS measurement, so the lone boresight is inert.
-Eigen::Matrix<double, MaxCss, 3> oneCssNHat() {
-    Eigen::Matrix<double, MaxCss, 3> nHat = Eigen::Matrix<double, MaxCss, 3>::Zero();
-    nHat.row(0) = Eigen::RowVector3d(0.0, 0.0, 1.0);
-    return nHat;
-}
-
-// Validated config with a single (unused) CSS sensor; for dynamics / timeUpdate / rate-only tests.
-SunlineFilterConfig rateOnlyConfig(State const& initial, Matrix7 const& P) {
-    return SunlineFilterConfig::create(kAlpha,
-                                       kBeta,
-                                       smallProcessNoise(),
-                                       initial,
-                                       P,
-                                       kBiasLowerBound,
-                                       kBiasUpperBound,
-                                       oneCssNHat(),
-                                       Eigen::Vector<double, MaxCss>::Ones(),
-                                       1,
-                                       0.0,
-                                       1E-2,
-                                       1E-3);
-}
-
-// rateOnlyConfig with an explicit process noise (for exercising process-noise-driven covariance growth).
-SunlineFilterConfig rateOnlyConfigWithProcessNoise(State const& initial,
-                                                   Matrix7 const& P,
-                                                   Matrix7 const& processNoise) {
-    return SunlineFilterConfig::create(kAlpha,
-                                       kBeta,
-                                       processNoise,
-                                       initial,
-                                       P,
-                                       kBiasLowerBound,
-                                       kBiasUpperBound,
-                                       oneCssNHat(),
-                                       Eigen::Vector<double, MaxCss>::Ones(),
-                                       1,
-                                       0.0,
-                                       1E-2,
-                                       1E-3);
-}
-
-// Validated config with the three-CSS geometry, CBias = 1, and the given sensor threshold.
-SunlineFilterConfig threeCssConfig(State const& initial, Matrix7 const& P, double sensorThreshold) {
-    return SunlineFilterConfig::create(kAlpha,
-                                       kBeta,
-                                       smallProcessNoise(),
-                                       initial,
-                                       P,
-                                       kBiasLowerBound,
-                                       kBiasUpperBound,
-                                       threeCssNHat(),
-                                       Eigen::Vector<double, MaxCss>::Ones(),
-                                       3,
-                                       sensorThreshold,
-                                       1E-2,
-                                       1E-3);
-}
 
 }  // namespace
 
 // ============================================================================
-// Dynamics: |s_hat| is a conserved quantity under ds/dt = s × omega.
+// Setup: construction runs the two-phase init — the filter state and covariance
+// are seeded from the validated config, and the config round-trips.
 // ============================================================================
 
+TEST(SunlineFilterAlgorithmSetup, ConstructionSeedsStateAndCovarianceFromConfig) {
+    State const initial = makeState(Eigen::Vector3d(0.0, 0.0, 1.0), Eigen::Vector3d(0.01, -0.02, 0.0), 1.1);
+    Matrix7 const P0 = diagCovariance(1E-2, 1E-3, 1E-2);
+    SunlineFilterConfig const cfg = threeCssConfig(initial, P0, 0.0);
+
+    SunlineFilterAlgorithm const algo(cfg);
+
+    EXPECT_TRUE(algo.getState().raw().isApprox(initial.raw()));
+    EXPECT_TRUE(algo.getCovariance().isApprox(P0));
+    EXPECT_FALSE(algo.getLastCssResiduals().valid);
+    EXPECT_FALSE(algo.getLastRateResiduals().valid);
+}
+
+// ============================================================================
+// Property tests: each drives a shared helper (see sunlineFilterTestHelpers.hpp)
+// with fixed inputs. The fuzz harness re-runs the same helpers over random
+// inputs.
+// ============================================================================
+
+TEST(SunlineFilterAlgorithmProperty, UpdateKeepsStateValidAndBounded) {
+    propertyUpdateKeepsStateValidAndBounded(
+        Eigen::Vector3d(0.2, -0.3, 0.9),
+        Eigen::Vector3d(0.01, 0.0, -0.02),
+        1.2,
+        (Vector7() << 1E-2, 1E-2, 1E-2, 1E-3, 1E-3, 1E-3, 1E-2).finished(),
+        (Eigen::Vector<double, MaxCss>() << 0.6, 0.5, 0.7, 0, 0, 0, 0, 0).finished(),
+        Eigen::Vector3d(0.01, 0.0, -0.02),
+        0.5);
+}
+
+TEST(SunlineFilterAlgorithmProperty, ArbitraryMeasurementsPreserveState) {
+    double const nan = std::numeric_limits<double>::quiet_NaN();
+    double const inf = std::numeric_limits<double>::infinity();
+    // Non-finite CSS cos-values and rate must be skipped, not folded in.
+    propertyArbitraryMeasurementsPreserveState(
+        Eigen::Vector3d(0.0, 0.0, 1.0),
+        Eigen::Vector3d(0.01, 0.0, 0.0),
+        1.0,
+        (Vector7() << 1E-2, 1E-2, 1E-2, 1E-3, 1E-3, 1E-3, 1E-2).finished(),
+        (Eigen::Vector<double, MaxCss>() << nan, 0.5, 0.7, 0, 0, 0, 0, 0).finished(),
+        Eigen::Vector3d(inf, 0.0, 0.0),
+        0.5);
+}
+
+TEST(SunlineFilterAlgorithmProperty, RateMeasurementDoesNotIncreaseCovariance) {
+    propertyRateMeasurementDoesNotIncreaseCovariance(Eigen::Vector3d(0.0, 0.0, 1.0),
+                                                     Eigen::Vector3d(0.01, 0.01, 0.01),
+                                                     1.0,
+                                                     (Vector7() << 1E-2, 1E-2, 1E-2, 1E-1, 1E-1, 1E-1, 1E-1).finished(),
+                                                     Eigen::Vector3d(0.012, 0.008, 0.011));
+}
+
+// ============================================================================
+// Edge cases.
+// ============================================================================
+
+// Dynamics: |s_hat| is a conserved quantity under ds/dt = s × omega.
+//
 // Pure analytical check: the derivative the dynamics functor returns must be
 // orthogonal to s (so d/dt(s·s) = 2 s·(ds/dt) = 0), and omega/bias derivatives
 // must be zero. No integrator involved — this isolates the dynamics from any
@@ -174,10 +128,6 @@ TEST(SunlineFilterAlgorithmDynamics, HeadingMagnitudePreservedOverSmallTimeUpdat
     EXPECT_NEAR(sHat.norm(), sHat0.norm(), 1E-8);
 }
 
-// ============================================================================
-// timeUpdate: simple invariants.
-// ============================================================================
-
 // With omega = 0 the heading must not move.
 TEST(SunlineFilterAlgorithmTimeUpdate, ZeroRateLeavesHeadingFixed) {
     Eigen::Vector3d const sHat0 = Eigen::Vector3d(0.0, 1.0, 0.0).normalized();
@@ -204,14 +154,10 @@ TEST(SunlineFilterAlgorithmTimeUpdate, ZeroDtCollapsesToAnchor) {
     EXPECT_DOUBLE_EQ(s.get<filtering::Bias<1>>()(0), 1.0);
 }
 
-// ============================================================================
-// measurementUpdate: a single rate measurement shrinks the rate-block of P.
-//
-// Drives the SequentialFilter pair directly (timeUpdate + measurementUpdate)
-// rather than going through the queue-driven update() — keeps the test focused
-// on the SRUKF math, independent of the pack/queue plumbing.
-// ============================================================================
-
+// A single rate measurement shrinks the rate-block of P. Drives the
+// SequentialFilter pair directly (timeUpdate + measurementUpdate) rather than
+// going through the queue-driven update() — keeps the test focused on the SRUKF
+// math, independent of the pack/queue plumbing.
 TEST(SunlineFilterAlgorithmMeasurementUpdate, RateMeasurementShrinksRateCovariance) {
     Eigen::Vector3d const sHat0 = Eigen::Vector3d(0.0, 0.0, 1.0);
     Eigen::Vector3d const omega0 = Eigen::Vector3d(0.01, 0.01, 0.01);
@@ -239,13 +185,32 @@ TEST(SunlineFilterAlgorithmMeasurementUpdate, RateMeasurementShrinksRateCovarian
     EXPECT_TRUE(algo.getLastRateResiduals().valid);
 }
 
-// ============================================================================
-// update(currentSeconds, CssData, RateData): drives the queue-based path. Both
-// per-kind residual slots in the returned SunlineFilterOutput must end valid
-// when both kinds carry data — the regression case that motivated splitting
-// Residuals into per-kind storage.
-// ============================================================================
+// A non-finite rate measurement is skipped by the SRUKF: the estimate is left
+// untouched and no residual is reported valid (exercises the std::optional
+// no-value path in applyMeasurement).
+TEST(SunlineFilterAlgorithmMeasurementUpdate, NonFiniteRateMeasurementIsSkipped) {
+    Eigen::Vector3d const sHat0 = Eigen::Vector3d(0.0, 0.0, 1.0);
+    SunlineFilterAlgorithm algo(
+        rateOnlyConfig(makeState(sHat0, Eigen::Vector3d::Zero(), 1.0), diagCovariance(1E-2, 1E-1, 1E-1)));
+    algo.timeUpdate(0.0);
+    Matrix7 const covarBefore = algo.getCovariance();
+    Vector7 const stateBefore = algo.getState().raw();
 
+    RateMeasurement r;
+    r.timeTag = 0.0;
+    r.omega_BN_B = Eigen::Vector3d(std::numeric_limits<double>::quiet_NaN(), 0.0, 0.0);
+    r.covar = (1E-3 * 1E-3) * Eigen::Matrix3d::Identity();
+    r.valid = true;
+    algo.measurementUpdate(r);
+
+    EXPECT_TRUE(algo.getState().raw().isApprox(stateBefore));
+    EXPECT_TRUE(algo.getCovariance().isApprox(covarBefore));
+    EXPECT_FALSE(algo.getLastRateResiduals().valid);
+}
+
+// Queue-driven path: both per-kind residual slots in the returned
+// SunlineFilterOutput end valid when both kinds carry data — the regression case
+// that motivated splitting Residuals into per-kind storage.
 TEST(SunlineFilterAlgorithmUpdate, UpdateWithRateAndCssExposesBothResiduals) {
     Eigen::Vector3d const sHat0 = Eigen::Vector3d(0.0, 0.0, 1.0);
     SunlineFilterAlgorithm algo(
@@ -266,9 +231,9 @@ TEST(SunlineFilterAlgorithmUpdate, UpdateWithRateAndCssExposesBothResiduals) {
     EXPECT_EQ(out.cssResiduals.numberOfActiveCss, 3);
 }
 
-// CSS readings all below the configured threshold must produce an
-// `valid = false` CSS residual (the pack method's threshold gate), while the
-// rate channel — which has no threshold — still fires.
+// CSS readings all below the configured threshold must produce a `valid = false`
+// CSS residual (the pack method's threshold gate), while the rate channel —
+// which has no threshold — still fires.
 TEST(SunlineFilterAlgorithmUpdate, CssBelowThresholdNotProcessed) {
     SunlineFilterAlgorithm algo(threeCssConfig(
         makeState(Eigen::Vector3d(0, 0, 1), Eigen::Vector3d(0.01, 0, 0), 1.0), diagCovariance(1E-2, 1E-2, 1E-1), 0.5));
@@ -339,6 +304,47 @@ TEST(SunlineFilterAlgorithmReInit, SetConfigReDerivesProcessNoise) {
     algo.setConfig(rateOnlyConfigWithProcessNoise(initial, P0, largeProcessNoise));
     algo.timeUpdate(dt);
     EXPECT_TRUE(algo.getCovariance().isApprox(reference.getCovariance()));
+}
+
+// ============================================================================
+// Regression: a fixed, deterministic scenario. With three CSS boresights
+// observing a constant sun direction (scale factor 1, so cos_i = nHat_i · sTrue)
+// and a zero body rate, repeated updates must drive the heading estimate from a
+// wrong initial guess to the true sun direction.
+// ============================================================================
+
+TEST(SunlineFilterAlgorithmRegression, ConvergesToConstantSunDirection) {
+    Eigen::Matrix<double, MaxCss, 3> const nHat = threeCssNHat();
+    Eigen::Vector3d const sTrue = Eigen::Vector3d(0.2, -0.1, 1.0).normalized();
+
+    // Start the estimate away from the truth.
+    Eigen::Vector3d const sGuess = Eigen::Vector3d(-0.3, 0.4, 0.85).normalized();
+    SunlineFilterAlgorithm algo(
+        threeCssConfig(makeState(sGuess, Eigen::Vector3d::Zero(), 1.0), diagCovariance(3E-1, 1E-3, 1E-2), 0.0));
+
+    double const angleBefore = std::acos(std::clamp(sGuess.dot(sTrue), -1.0, 1.0));
+
+    // Noise-free CSS cos-values consistent with the true sun direction.
+    CssData css;
+    css.timeTag = 0.0;
+    for (int i = 0; i < 3; ++i) {
+        css.cosValues(i) = nHat.row(i).dot(sTrue.transpose());
+    }
+    RateData const noRate;  // timeTag 0 -> not enqueued; pure CSS updates
+
+    double t = 0.0;
+    for (int step = 0; step < 40; ++step) {
+        t += 1.0;
+        css.timeTag = t;
+        algo.update(t, css, noRate);
+    }
+
+    Eigen::Vector3d const sEst = algo.getState().get<filtering::Position<3>>();
+    double const angleAfter = std::acos(std::clamp(sEst.dot(sTrue), -1.0, 1.0));
+
+    EXPECT_LT(angleAfter, angleBefore);
+    EXPECT_LT(angleAfter, 1E-2) << "estimate did not converge to the true sun direction";
+    EXPECT_NEAR(sEst.norm(), 1.0, 1E-6);
 }
 
 // ============================================================================
@@ -422,44 +428,6 @@ TEST(SrukfDetail, CholeskyUpDownDateMatchesExplicitUpdate) {
 // ============================================================================
 // SunlineFilterConfig: factory validation, static validators, and round-trip.
 // ============================================================================
-
-namespace {
-
-// A complete set of valid Config inputs; individual tests override one field to
-// drive a specific validation branch.
-struct ConfigInputs {
-    double alpha = kAlpha;
-    double beta = kBeta;
-    Matrix7 processNoise = smallProcessNoise();
-    State initialState = makeState(Eigen::Vector3d(0.0, 0.0, 1.0), Eigen::Vector3d::Zero(), 1.0);
-    Matrix7 initialCovariance = diagCovariance(1E-2, 1E-3, 1E-2);
-    double biasLowerBound = kBiasLowerBound;
-    double biasUpperBound = kBiasUpperBound;
-    Eigen::Matrix<double, MaxCss, 3> cssNHat = threeCssNHat();
-    Eigen::Vector<double, MaxCss> cssScaleFactor = Eigen::Vector<double, MaxCss>::Ones();
-    uint32_t numberOfCss = 3;
-    double sensorThreshold = 0.0;
-    double cssMeasStd = 1E-2;
-    double gyroStd = 1E-3;
-};
-
-SunlineFilterConfig buildConfig(ConfigInputs const& in) {
-    return SunlineFilterConfig::create(in.alpha,
-                                       in.beta,
-                                       in.processNoise,
-                                       in.initialState,
-                                       in.initialCovariance,
-                                       in.biasLowerBound,
-                                       in.biasUpperBound,
-                                       in.cssNHat,
-                                       in.cssScaleFactor,
-                                       in.numberOfCss,
-                                       in.sensorThreshold,
-                                       in.cssMeasStd,
-                                       in.gyroStd);
-}
-
-}  // namespace
 
 TEST(SunlineFilterConfig, ValidInputsDoNotThrow) { EXPECT_NO_THROW(buildConfig({})); }
 
