@@ -3,7 +3,7 @@
 # source directly and links only filteringCore.
 
 add_executable(test_sunlineFilterAlgorithm
-  test_sunlineFilterAlgorithm.cpp
+  test_sunlineFilter.cpp
   ../sunlineFilterAlgorithm.cpp
 )
 target_include_directories(test_sunlineFilterAlgorithm PRIVATE ..)
