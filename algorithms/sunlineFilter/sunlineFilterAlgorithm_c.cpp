@@ -1,37 +1,159 @@
 #include "sunlineFilterAlgorithm_c.h"
 #include "sunlineFilterAlgorithm.h"
+#include "sunlineFilterTypes.h"
 
 #include <Eigen/Core>
 
-uint32_t SunlineFilterAlgorithm_getMaxNumCss(void) { return SUNLINE_FILTER_MAX_NUM_CSS; }
+using filtering::sunlineFilter::CssData;
+using filtering::sunlineFilter::CssResidualsOutput;
+using filtering::sunlineFilter::FilterStateOutput;
+using filtering::sunlineFilter::MaxCss;
+using filtering::sunlineFilter::RateData;
+using filtering::sunlineFilter::RateResidualsOutput;
+using filtering::sunlineFilter::StateMatrix;
+using filtering::sunlineFilter::SunlineFilterAlgorithm;
+using filtering::sunlineFilter::SunlineFilterConfig;
+using filtering::sunlineFilter::SunlineFilterOutput;
+using filtering::sunlineFilter::SunlineState;
 
-SunlineFilterOutput_c SunlineFilterAlgorithm_updateState(const SunlineFilterInput_c* input) {
-    // Convert C POD input to C++ input
-    SunlineFilterInput cppInput{};
-    cppInput.timeTag = input->timeTag;
-    cppInput.sigma_BN << input->sigma_BN.data[0], input->sigma_BN.data[1], input->sigma_BN.data[2];
-    cppInput.omega_BN_B << input->omega_BN_B.data[0], input->omega_BN_B.data[1], input->omega_BN_B.data[2];
-    cppInput.vehSunPntBdy << input->vehSunPntBdy.data[0], input->vehSunPntBdy.data[1], input->vehSunPntBdy.data[2];
-    cppInput.nCSS = input->nCSS;
-    for (uint32_t i = 0; i < SUNLINE_FILTER_MAX_NUM_CSS; ++i) {
-        cppInput.cosValues[i] = input->cosValues[i];
+namespace {
+
+constexpr int N = SunlineFilterAlgorithm::N;
+
+SunlineFilterConfig configFromC(const SunlineFilterConfig_c& c) {
+    StateMatrix processNoise;
+    StateMatrix initialCovariance;
+    for (int i = 0; i < N; ++i) {
+        for (int j = 0; j < N; ++j) {
+            processNoise(i, j) = c.processNoise[i][j];
+            initialCovariance(i, j) = c.initialCovariance[i][j];
+        }
     }
 
-    // Call static algorithm method
-    const SunlineFilterOutput cppOutput = ::SunlineFilterAlgorithm::updateState(cppInput);
+    Eigen::Vector<double, N> stateSeed;
+    for (int i = 0; i < N; ++i) {
+        stateSeed(i) = c.initialState[i];
+    }
 
-    // Convert C++ output to C POD output
-    SunlineFilterOutput_c output{};
-    output.timeTag = cppOutput.timeTag;
-    output.sigma_BN.data[0] = cppOutput.sigma_BN[0];
-    output.sigma_BN.data[1] = cppOutput.sigma_BN[1];
-    output.sigma_BN.data[2] = cppOutput.sigma_BN[2];
-    output.omega_BN_B.data[0] = cppOutput.omega_BN_B[0];
-    output.omega_BN_B.data[1] = cppOutput.omega_BN_B[1];
-    output.omega_BN_B.data[2] = cppOutput.omega_BN_B[2];
-    output.vehSunPntBdy.data[0] = cppOutput.vehSunPntBdy[0];
-    output.vehSunPntBdy.data[1] = cppOutput.vehSunPntBdy[1];
-    output.vehSunPntBdy.data[2] = cppOutput.vehSunPntBdy[2];
+    Eigen::Matrix<double, MaxCss, 3> cssNHat;
+    Eigen::Vector<double, MaxCss> cssScaleFactor;
+    for (int i = 0; i < MaxCss; ++i) {
+        cssScaleFactor(i) = c.cssScaleFactor[i];
+        for (int j = 0; j < 3; ++j) {
+            cssNHat(i, j) = c.cssNHat[i][j];
+        }
+    }
 
-    return output;
+    return SunlineFilterConfig::create(c.alpha,
+                                       c.beta,
+                                       processNoise,
+                                       SunlineState{stateSeed},
+                                       initialCovariance,
+                                       c.biasLowerBound,
+                                       c.biasUpperBound,
+                                       cssNHat,
+                                       cssScaleFactor,
+                                       c.numberOfCss,
+                                       c.sensorThreshold,
+                                       c.cssMeasurementNoiseStd,
+                                       c.gyroMeasurementNoiseStd);
+}
+
+SunlineFilterStateOutput_c filterStateToC(const FilterStateOutput& in) {
+    SunlineFilterStateOutput_c out{};
+    for (int i = 0; i < N; ++i) {
+        out.state[i] = in.state(i);
+        for (int j = 0; j < N; ++j) {
+            out.covariance[i][j] = in.covariance(i, j);
+        }
+    }
+    return out;
+}
+
+SunlineCssResidualsOutput_c cssResidualsToC(const CssResidualsOutput& in) {
+    SunlineCssResidualsOutput_c out{};
+    out.valid = in.valid;
+    out.numberOfActiveCss = in.numberOfActiveCss;
+    for (int i = 0; i < MaxCss; ++i) {
+        out.observation[i] = in.observation(i);
+        out.preFit[i] = in.preFit(i);
+        out.postFit[i] = in.postFit(i);
+    }
+    return out;
+}
+
+SunlineRateResidualsOutput_c rateResidualsToC(const RateResidualsOutput& in) {
+    SunlineRateResidualsOutput_c out{};
+    out.valid = in.valid;
+    for (int i = 0; i < 3; ++i) {
+        out.observation[i] = in.observation(i);
+        out.preFit[i] = in.preFit(i);
+        out.postFit[i] = in.postFit(i);
+    }
+    return out;
+}
+
+SunlineFilterOutput_c outputToC(const SunlineFilterOutput& out) {
+    SunlineFilterOutput_c result{};
+    result.filterState = filterStateToC(out.filterState);
+    result.cssResiduals = cssResidualsToC(out.cssResiduals);
+    result.rateResiduals = rateResidualsToC(out.rateResiduals);
+    return result;
+}
+
+}  // namespace
+
+uint32_t SunlineFilterAlgorithm_getMaxCss(void) { return SUNLINE_FILTER_MAX_CSS; }
+
+uint32_t SunlineFilterAlgorithm_getNumStates(void) { return SUNLINE_FILTER_NUM_STATES; }
+
+SunlineFilterAlgorithmHandle* SunlineFilterAlgorithm_create(const SunlineFilterConfig_c* config) {
+    return reinterpret_cast<SunlineFilterAlgorithmHandle*>(new ::SunlineFilterAlgorithm(configFromC(*config)));
+}
+
+void SunlineFilterAlgorithm_destroy(SunlineFilterAlgorithmHandle* self) {
+    delete reinterpret_cast<::SunlineFilterAlgorithm*>(self);
+}
+
+void SunlineFilterAlgorithm_setConfig(SunlineFilterAlgorithmHandle* self, const SunlineFilterConfig_c* config) {
+    reinterpret_cast<::SunlineFilterAlgorithm*>(self)->setConfig(configFromC(*config));
+}
+
+SunlineFilterOutput_c SunlineFilterAlgorithm_update(SunlineFilterAlgorithmHandle* self,
+                                                    const double currentSeconds,
+                                                    const SunlineCssData_c* cssData,
+                                                    const SunlineRateData_c* rateData) {
+    CssData cssDataCpp{};
+    cssDataCpp.timeTag = cssData->timeTag;
+    for (int i = 0; i < MaxCss; ++i) {
+        cssDataCpp.cosValues(i) = cssData->cosValues[i];
+    }
+
+    RateData rateDataCpp{};
+    rateDataCpp.timeTag = rateData->timeTag;
+    rateDataCpp.rate << rateData->rate[0], rateData->rate[1], rateData->rate[2];
+
+    const SunlineFilterOutput out =
+        reinterpret_cast<::SunlineFilterAlgorithm*>(self)->update(currentSeconds, cssDataCpp, rateDataCpp);
+    return outputToC(out);
+}
+
+void SunlineFilterAlgorithm_reInitialize(SunlineFilterAlgorithmHandle* self) {
+    reinterpret_cast<::SunlineFilterAlgorithm*>(self)->reInitialize();
+}
+
+void SunlineFilterAlgorithm_reInitializeAll(SunlineFilterAlgorithmHandle* self) {
+    reinterpret_cast<::SunlineFilterAlgorithm*>(self)->reInitializeAll();
+}
+
+SunlineFilterStateOutput_c SunlineFilterAlgorithm_getFilterOutput(const SunlineFilterAlgorithmHandle* self) {
+    return filterStateToC(reinterpret_cast<const ::SunlineFilterAlgorithm*>(self)->getFilterOutput());
+}
+
+SunlineCssResidualsOutput_c SunlineFilterAlgorithm_getLastCssResiduals(const SunlineFilterAlgorithmHandle* self) {
+    return cssResidualsToC(reinterpret_cast<const ::SunlineFilterAlgorithm*>(self)->getLastCssResiduals());
+}
+
+SunlineRateResidualsOutput_c SunlineFilterAlgorithm_getLastRateResiduals(const SunlineFilterAlgorithmHandle* self) {
+    return rateResidualsToC(reinterpret_cast<const ::SunlineFilterAlgorithm*>(self)->getLastRateResiduals());
 }

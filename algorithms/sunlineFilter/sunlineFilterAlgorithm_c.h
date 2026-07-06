@@ -1,49 +1,106 @@
 #ifndef F32XMERA_SUNLINEFILTERALGORITHM_C_H
 #define F32XMERA_SUNLINEFILTERALGORITHM_C_H
 
-#include "utilities/fsw/plainCAlgorithmDataTypes.h"
-#include <stdint.h>
+#include "sunlineFilterTypes.h"
 
-#define SUNLINE_FILTER_MAX_NUM_CSS 32
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 /**
- * @brief C-compatible input structure for the sunline SRuKF algorithm.
+ * @brief Opaque handle to the C++ SunlineFilterAlgorithm instance.
  */
-typedef struct {
-    double timeTag;                              /*!< [s] Time tag */
-    Vector3f_c sigma_BN;                         /*!< [-] Inertial-to-body MRP */
-    Vector3f_c omega_BN_B;                       /*!< [rad/s] Body rate in body frame */
-    Vector3f_c vehSunPntBdy;                     /*!< [-] Sun pointing vector in body frame */
-    uint32_t nCSS;                               /*!< [-] Number of coarse sun sensors */
-    float cosValues[SUNLINE_FILTER_MAX_NUM_CSS]; /*!< [-] CSS cosine measurement values */
-} SunlineFilterInput_c;
+typedef struct SunlineFilterAlgorithmHandle SunlineFilterAlgorithmHandle;
 
 /**
- * @brief C-compatible output structure for the sunline SRuKF algorithm.
+ * @brief Get the SUNLINE_FILTER_MAX_CSS constant for Ada validation.
+ * @return The maximum number of coarse sun sensors.
  */
-typedef struct {
-    double timeTag;          /*!< [s] Time tag */
-    Vector3f_c sigma_BN;     /*!< [-] Inertial-to-body MRP */
-    Vector3f_c omega_BN_B;   /*!< [rad/s] Body rate in body frame */
-    Vector3f_c vehSunPntBdy; /*!< [-] Sun pointing vector in body frame */
-} SunlineFilterOutput_c;
+uint32_t SunlineFilterAlgorithm_getMaxCss(void);
 
 /**
- * @brief Get the maximum number of CSS sensors.
- * @return The maximum CSS count (SUNLINE_FILTER_MAX_NUM_CSS).
+ * @brief Get the SUNLINE_FILTER_NUM_STATES constant for Ada validation.
+ * @return The filter state dimension.
  */
-uint32_t SunlineFilterAlgorithm_getMaxNumCss(void);
+uint32_t SunlineFilterAlgorithm_getNumStates(void);
 
 /**
- * @brief Run the sunline SRuKF update step (stateless).
- * @param input Pointer to the input structure (read-only).
- * @return SunlineFilterOutput_c  The computed output.
+ * @brief Construct a new SunlineFilterAlgorithm from the supplied configuration.
+ *
+ * The configuration is validated (SunlineFilterConfig::create); an invalid
+ * configuration throws, propagating to the caller. The constructor seeds the
+ * filter state and covariance from the configuration.
+ *
+ * @param config Pointer to the configuration to apply (validated).
+ * @return Pointer to a new SunlineFilterAlgorithm (must be destroyed).
  */
-SunlineFilterOutput_c SunlineFilterAlgorithm_updateState(const SunlineFilterInput_c* input);
+SunlineFilterAlgorithmHandle* SunlineFilterAlgorithm_create(const SunlineFilterConfig_c* config);
+
+/**
+ * @brief Destroy a previously created SunlineFilterAlgorithm.
+ * @param self Pointer to the instance to destroy.
+ */
+void SunlineFilterAlgorithm_destroy(SunlineFilterAlgorithmHandle* self);
+
+/**
+ * @brief Replace the algorithm's configuration and re-derive filter parameters.
+ * @param self   Pointer to the instance.
+ * @param config Pointer to the configuration to apply (validated; throws on invalid input).
+ */
+void SunlineFilterAlgorithm_setConfig(SunlineFilterAlgorithmHandle* self, const SunlineFilterConfig_c* config);
+
+/**
+ * @brief Advance the filter to currentSeconds using the supplied measurements.
+ *
+ * A measurement whose timeTag does not advance beyond the last consumed reading
+ * is ignored by the filter; the caller signals "no new reading" by leaving the
+ * corresponding struct's timeTag unchanged.
+ *
+ * @param self           Pointer to the instance.
+ * @param currentSeconds [s] time the filter is advancing to.
+ * @param cssData        Pointer to the CSS array reading.
+ * @param rateData       Pointer to the gyro rate reading.
+ * @return SunlineFilterOutput_c  Post-update filter state and per-kind residuals.
+ */
+SunlineFilterOutput_c SunlineFilterAlgorithm_update(SunlineFilterAlgorithmHandle* self,
+                                                    double currentSeconds,
+                                                    const SunlineCssData_c* cssData,
+                                                    const SunlineRateData_c* rateData);
+
+/**
+ * @brief Clear the filter's internal runtime state; state and covariance are preserved.
+ * @param self Pointer to the instance.
+ */
+void SunlineFilterAlgorithm_reInitialize(SunlineFilterAlgorithmHandle* self);
+
+/**
+ * @brief reInitialize() and additionally re-seed state and covariance from the configuration.
+ * @param self Pointer to the instance.
+ */
+void SunlineFilterAlgorithm_reInitializeAll(SunlineFilterAlgorithmHandle* self);
+
+/**
+ * @brief Get the current filter state and covariance snapshot.
+ * @param self Pointer to the instance.
+ * @return SunlineFilterStateOutput_c  The filter state and covariance.
+ */
+SunlineFilterStateOutput_c SunlineFilterAlgorithm_getFilterOutput(const SunlineFilterAlgorithmHandle* self);
+
+/**
+ * @brief Get the residuals from the most recent CSS measurement update.
+ * @param self Pointer to the instance.
+ * @return SunlineCssResidualsOutput_c  The latest CSS residuals (valid=false if none fired).
+ */
+SunlineCssResidualsOutput_c SunlineFilterAlgorithm_getLastCssResiduals(const SunlineFilterAlgorithmHandle* self);
+
+/**
+ * @brief Get the residuals from the most recent rate measurement update.
+ * @param self Pointer to the instance.
+ * @return SunlineRateResidualsOutput_c  The latest rate residuals (valid=false if none fired).
+ */
+SunlineRateResidualsOutput_c SunlineFilterAlgorithm_getLastRateResiduals(const SunlineFilterAlgorithmHandle* self);
 
 #ifdef __cplusplus
 }  // extern "C"

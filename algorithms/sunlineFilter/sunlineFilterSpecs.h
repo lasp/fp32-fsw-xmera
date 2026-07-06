@@ -1,6 +1,8 @@
 #ifndef F32XMERA_SUNLINEFILTERSPECS_H
 #define F32XMERA_SUNLINEFILTERSPECS_H
 
+#include "sunlineFilterTypes.h"
+
 #include <filteringCore/state.hpp>
 
 #include <Eigen/Core>
@@ -9,11 +11,14 @@
 
 namespace filtering::sunlineFilter {
 
-inline constexpr int MaxCss = 8;
+inline constexpr int MaxCss = SUNLINE_FILTER_MAX_CSS;
 inline constexpr int BatchSize = 2;
 
 // State: [s_hat (3), omega_BN_B (3), bias (1)].
 using SunlineState = filtering::StateVector<filtering::Position<3>, filtering::Velocity<3>, filtering::Bias<1>>;
+
+static_assert(SunlineState::size == SUNLINE_FILTER_NUM_STATES,
+              "SUNLINE_FILTER_NUM_STATES must match the SunlineState dimension");
 
 // N x N filter matrix (process noise, covariance) where N = SunlineState::size.
 using StateMatrix = Eigen::Matrix<double, SunlineState::size, SunlineState::size>;
