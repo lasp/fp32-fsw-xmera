@@ -63,6 +63,8 @@ algorithms/sunlineEphem/sunlineEphem.h
 algorithms/sunlineEphem/sunlineEphem.cpp
 algorithms/sunTrackError/sunTrackError.h
 algorithms/sunTrackError/sunTrackError.cpp
+algorithms/sunTrackError/sunTrackErrorAlgorithm_c.h
+algorithms/sunTrackError/sunTrackErrorAlgorithm_c.cpp
 algorithms/thrFiringRemainder/thrFiringRemainder.h
 algorithms/thrFiringRemainder/thrFiringRemainder.cpp
 algorithms/thrFiringSchmitt/thrFiringSchmitt.h
