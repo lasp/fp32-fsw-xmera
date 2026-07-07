@@ -121,8 +121,17 @@ inline void regressionTestSunTrackError(const Eigen::Vector3f& sensitiveHat_B,
         const SunTrackErrorOutput refOut =
             ref.update(sigma_BN, sigma_RN, omega_RN_N, domega_RN_N, r_BN_N, r_SN_N, callTime);
 
+        // Compare the adjusted-reference attitude via its DCM: at a ~180-deg attitude the two
+        // independent dcmToMrp evaluations can land on opposite (equivalent) MRP shadow-set
+        // representatives. The rate vectors are unambiguous.
+        const Eigen::Matrix3f dcm_alg = mrpToDcm(algOut.sigma_RN);
+        const Eigen::Matrix3f dcm_ref = mrpToDcm(refOut.sigma_RN);
+        for (int r = 0; r < 3; ++r) {
+            for (int c = 0; c < 3; ++c) {
+                EXPECT_NEAR(dcm_alg(r, c), dcm_ref(r, c), tol) << "sigma_RN (dcm) mismatch at step " << k;
+            }
+        }
         for (int i = 0; i < 3; ++i) {
-            EXPECT_NEAR(algOut.sigma_RN(i), refOut.sigma_RN(i), tol) << "sigma_RN mismatch at step " << k;
             EXPECT_NEAR(algOut.omega_RN_N(i), refOut.omega_RN_N(i), tol) << "omega_RN_N mismatch at step " << k;
             EXPECT_NEAR(algOut.domega_RN_N(i), refOut.domega_RN_N(i), tol) << "domega_RN_N mismatch at step " << k;
         }
@@ -247,6 +256,25 @@ inline void propertyReInitializeRestartsManeuver(const Eigen::Vector3f& sigma_BN
         EXPECT_NEAR(afterReinit.omega_RN_N(i), first.omega_RN_N(i), tol);
         EXPECT_NEAR(afterReinit.domega_RN_N(i), first.domega_RN_N(i), tol);
     }
+}
+
+// Fuzz entry point: exercise the shared regressionTestSunTrackError on the pass-through path (maneuver
+// disabled) for arbitrary finite navigation attitude and reference frame.
+inline void fuzzRegressionSunTrackError(const Eigen::Vector3f& sigma_BN,
+                                        const Eigen::Vector3f& sigma_RN,
+                                        const Eigen::Vector3f& omega_RN_N,
+                                        const Eigen::Vector3f& domega_RN_N) {
+    regressionTestSunTrackError(Eigen::Vector3f::Zero(),
+                                0.0F,
+                                false,
+                                sigma_BN,
+                                sigma_RN,
+                                omega_RN_N,
+                                domega_RN_N,
+                                Eigen::Vector3f::Zero(),
+                                Eigen::Vector3f::Zero(),
+                                detail::kStepNs,
+                                3);
 }
 
 #endif  // F32XMERA_SUN_TRACK_ERROR_TEST_HELPERS_H
