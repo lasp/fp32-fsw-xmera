@@ -26,7 +26,7 @@ void SunTrackError::reset(uint64_t callTime) {
  */
 SunTrackErrorConfig SunTrackError::toConfig() const {
     const bool computeAngleStart = this->transNavInMsg.isLinked() && this->ephemerisInMsg.isLinked();
-    return SunTrackErrorConfig::create(this->sigma_R0R, this->sensitiveHat_B, this->angleRate, computeAngleStart);
+    return SunTrackErrorConfig::create(this->sensitiveHat_B, this->angleRate, computeAngleStart);
 }
 
 /*! Push a fresh configuration into the algorithm without re-seeding its runtime maneuver state.

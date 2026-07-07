@@ -7,7 +7,7 @@
 
 /*! Construct the algorithm with a validated configuration. Stores the configuration and clears the
  runtime maneuver state via reInitialize() so the maneuver is initialized on the first update.
- @param config Validated configuration (sigma_R0R, sensitiveHat_B, angleRate, computeAngleStart)
+ @param config Validated configuration (sensitiveHat_B, angleRate, computeAngleStart)
  */
 SunTrackErrorAlgorithm::SunTrackErrorAlgorithm(const SunTrackErrorConfig& config) : cfg(config) {
     setConfig(config);
@@ -43,8 +43,7 @@ SunTrackErrorOutput SunTrackErrorAlgorithm::update(const SunTrackErrorNavAttInpu
         if (this->cfg.getComputeAngleStart()) {
             const Eigen::Vector3f sensitiveHat_B = this->cfg.getSensitiveHat_B();
             const Eigen::MRPf sigma_BN(nav.sigma_BN);
-            const Eigen::MRPf sigma_R0N(ref.sigma_RN);
-            const Eigen::MRPf sigmaLocal_R0R(this->cfg.getSigma_R0R());
+            const Eigen::MRPf sigma_RN(ref.sigma_RN);
 
             const Eigen::Vector3f sHat_N = (r_SN_N - r_BN_N).normalized();  //!< inertial sun direction
 
@@ -52,9 +51,8 @@ SunTrackErrorOutput SunTrackErrorAlgorithm::update(const SunTrackErrorNavAttInpu
             // Define initial sensitive sun direction
             const Eigen::Vector3f senstiveInitial_N = dcm_BN.transpose() * sensitiveHat_B;
 
-            const Eigen::Matrix3f dcm_R0N = sigma_R0N.toRotationMatrix().transpose();
-            const Eigen::Matrix3f dcm_R0R = sigmaLocal_R0R.toRotationMatrix().transpose();
-            const Eigen::Matrix3f dcm_BNFinal = (dcm_R0N.transpose() * dcm_R0R).transpose();
+            // The final body attitude aligns with the reference frame
+            const Eigen::Matrix3f dcm_BNFinal = sigma_RN.toRotationMatrix().transpose();
             // Define final sensitive sun direction
             const Eigen::Vector3f senstiveFinal_N = dcm_BNFinal.transpose() * sensitiveHat_B;
 
@@ -106,18 +104,13 @@ SunTrackErrorOutput SunTrackErrorAlgorithm::computeSunTrackError(const SunTrackE
                                                                  const uint64_t callTime) const {
     const Eigen::MRPf sigmaLocal_BN(nav.sigma_BN);
     const Eigen::Vector3f omegaLocal_BN_B = nav.omega_BN_B;
-    const Eigen::MRPf sigmaLocal_R0N(ref.sigma_RN);
+    const Eigen::MRPf sigmaLocal_RN(ref.sigma_RN);
     const Eigen::Vector3f omegaLocal_RN_N = ref.omega_RN_N;
     const Eigen::Vector3f domegaLocal_RN_N = ref.domega_RN_N;
-    const Eigen::MRPf sigmaLocal_R0R(this->cfg.getSigma_R0R());
 
     // Convert mrps to dcms
     const Eigen::Matrix3f dcm_BN = sigmaLocal_BN.toRotationMatrix().transpose();
-    const Eigen::Matrix3f dcm_R0N = sigmaLocal_R0N.toRotationMatrix().transpose();
-    const Eigen::Matrix3f dcm_R0R = sigmaLocal_R0R.toRotationMatrix().transpose();
-
-    // This calculation can be seen in attitude tracking documentation
-    const Eigen::Matrix3f dcm_RN = (dcm_R0N.transpose() * dcm_R0R).transpose();
+    const Eigen::Matrix3f dcm_RN = sigmaLocal_RN.toRotationMatrix().transpose();
 
     const float dtSeconds = static_cast<float>(callTime - this->mnvrStartTime) * kNano2SecF;
 

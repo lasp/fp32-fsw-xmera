@@ -7,10 +7,8 @@
 
 namespace {
 SunTrackErrorConfig configFromC(const SunTrackErrorConfig_c& c) {
-    return SunTrackErrorConfig::create(cArrayToEigenVector3<float>(c.sigma_R0R.data),
-                                       cArrayToEigenVector3<float>(c.sensitiveHat_B.data),
-                                       c.angleRate,
-                                       c.computeAngleStart);
+    return SunTrackErrorConfig::create(
+        cArrayToEigenVector3<float>(c.sensitiveHat_B.data), c.angleRate, c.computeAngleStart);
 }
 
 SunTrackErrorNavAttInputs navFromC(const SunTrackErrorNavAttInputs_c& c) {

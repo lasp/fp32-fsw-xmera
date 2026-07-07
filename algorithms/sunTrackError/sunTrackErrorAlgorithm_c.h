@@ -21,14 +21,12 @@ typedef struct SunTrackErrorAlgorithmHandle SunTrackErrorAlgorithmHandle;
  *
  * Caller fills this struct and passes it to SunTrackErrorAlgorithm_create or _setConfig. The C++
  * side validates each field via SunTrackErrorConfig::create and throws on invalid input.
- *  - sigma_R0R must be finite
  *  - sensitiveHat_B must be finite (stored normalized)
  *  - angleRate [r/s] must be finite
  *  - computeAngleStart selects whether the initial maneuver angle is computed from the sun geometry
  *    (true when the trans/ephemeris messages are connected) or assumed to be 0
  */
 typedef struct {
-    Vector3f_c sigma_R0R;
     Vector3f_c sensitiveHat_B;
     float angleRate;
     bool computeAngleStart;

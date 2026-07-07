@@ -127,12 +127,10 @@ class SunTrackErrorReference {
 // ---------------------------------------------------------------------------
 // Integrated regression helper: drive the sunTrackError algorithm and the independent
 // reference through a time sequence with fixed, representative navigation/reference
-// inputs, and assert agreement at every step. The corrected-reference offset (sigma_R0R),
-// the optional-message-derived Sun geometry (r_BN_N, r_SN_N), and the computeAngleStart
-// flag are varied by the caller.
+// inputs, and assert agreement at every step. The optional-message-derived Sun geometry
+// (r_BN_N, r_SN_N) and the computeAngleStart flag are varied by the caller.
 // ---------------------------------------------------------------------------
-inline void integratedRegression(const Eigen::Vector3f& sigma_R0R,
-                                 const Eigen::Vector3f& sensitiveHat_B,
+inline void integratedRegression(const Eigen::Vector3f& sensitiveHat_B,
                                  float angleRate,
                                  bool computeAngleStart,
                                  const Eigen::Vector3f& r_BN_N,
@@ -145,9 +143,11 @@ inline void integratedRegression(const Eigen::Vector3f& sigma_R0R,
     const Eigen::Vector3f omega_RN_N{0.018F, -0.032F, 0.015F};
     const Eigen::Vector3f domega_RN_N{0.048F, -0.022F, 0.025F};
 
-    const auto config = SunTrackErrorConfig::create(sigma_R0R, sensitiveHat_B, angleRate, computeAngleStart);
+    const auto config = SunTrackErrorConfig::create(sensitiveHat_B, angleRate, computeAngleStart);
     SunTrackErrorAlgorithm alg{config};
-    SunTrackErrorReference ref{sigma_R0R, sensitiveHat_B, angleRate, computeAngleStart};
+    // sunTrackError no longer applies a corrected-reference offset, so the reference frame is the
+    // input reference directly (sigma_R0R == 0).
+    SunTrackErrorReference ref{Eigen::Vector3f::Zero(), sensitiveHat_B, angleRate, computeAngleStart};
 
     const SunTrackErrorNavAttInputs navIn{sigma_BN, omega_BN_B};
     const SunTrackErrorAttRefInputs refIn{sigma_RN, omega_RN_N, domega_RN_N};

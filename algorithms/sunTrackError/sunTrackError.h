@@ -26,7 +26,6 @@ class SunTrackError final : public SysModel {
     void reInitialize();
 
     // Phase 1: public config properties -- set before reset().
-    Eigen::Vector3f sigma_R0R = Eigen::Vector3f::Zero();       //!< [-] MRP from corrected reference frame to frame R0
     Eigen::Vector3f sensitiveHat_B = Eigen::Vector3f::Zero();  //!< [-] body vector to exclude from the Sun
     float angleRate = 0.0F;                                    //!< [r/s] rate at which we maneuver to Sun point
 

@@ -27,13 +27,7 @@ struct SunTrackErrorOutput {
 
 class SunTrackErrorConfig final {
    public:
-    static SunTrackErrorConfig create(const Eigen::Vector3f& sigma_R0R,
-                                      const Eigen::Vector3f& sensitiveHat_B,
-                                      float angleRate,
-                                      bool computeAngleStart) {
-        if (!isValidSigma_R0R(sigma_R0R)) {
-            FSW_THROW_INVALID_ARGUMENT("sunTrackError: sigma_R0R must be finite");
-        }
+    static SunTrackErrorConfig create(const Eigen::Vector3f& sensitiveHat_B, float angleRate, bool computeAngleStart) {
         // sensitiveHat_B is only used when the Sun-avoidance maneuver is enabled; validate it only then.
         if (computeAngleStart && !isValidSensitiveHat_B(sensitiveHat_B)) {
             FSW_THROW_INVALID_ARGUMENT("sunTrackError: sensitiveHat_B must be finite and within 1e-3 of unit length");
@@ -41,32 +35,23 @@ class SunTrackErrorConfig final {
         if (!isValidAngleRate(angleRate)) {
             FSW_THROW_INVALID_ARGUMENT("sunTrackError: angleRate must be finite");
         }
-        return {sigma_R0R, sensitiveHat_B.normalized(), angleRate, computeAngleStart};
+        return {sensitiveHat_B.normalized(), angleRate, computeAngleStart};
     }
 
-    static bool isValidSigma_R0R(const Eigen::Vector3f& sigma) { return sigma.allFinite(); }
     static bool isValidSensitiveHat_B(const Eigen::Vector3f& sensitiveHat_B) {
         constexpr float kNormTolerance = 1e-3F;
         return sensitiveHat_B.allFinite() && fabsf(sensitiveHat_B.stableNorm() - 1.0F) < kNormTolerance;
     }
     static bool isValidAngleRate(float angleRate) { return fsw::is_finite(angleRate); }
 
-    Eigen::Vector3f getSigma_R0R() const { return sigma_R0R; }
     Eigen::Vector3f getSensitiveHat_B() const { return sensitiveHat_B; }
     float getAngleRate() const { return angleRate; }
     bool getComputeAngleStart() const { return computeAngleStart; }
 
    private:
-    SunTrackErrorConfig(const Eigen::Vector3f& sigma_R0R,
-                        const Eigen::Vector3f& sensitiveHat_B,
-                        float angleRate,
-                        bool computeAngleStart)
-        : sigma_R0R(sigma_R0R),
-          sensitiveHat_B(sensitiveHat_B),
-          angleRate(angleRate),
-          computeAngleStart(computeAngleStart) {}
+    SunTrackErrorConfig(const Eigen::Vector3f& sensitiveHat_B, float angleRate, bool computeAngleStart)
+        : sensitiveHat_B(sensitiveHat_B), angleRate(angleRate), computeAngleStart(computeAngleStart) {}
 
-    Eigen::Vector3f sigma_R0R;
     Eigen::Vector3f sensitiveHat_B;
     float angleRate;
     bool computeAngleStart;
