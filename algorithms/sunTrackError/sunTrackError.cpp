@@ -1,10 +1,12 @@
 #include "sunTrackError.h"
 #include "utilities/fsw/eigenSupport.h"
+#include "utilities/xmera/xmeraLifecycleException.h"
 #include <stdexcept>
 
-/*! This method performs a complete reset of the module.  Local module variables that retain
- time varying states between function calls are reset to their default values.
- @return void
+/*! Validate that the required input messages are linked, build the algorithm's configuration from
+ the adapter's stored properties (which captures whether the optional trans/ephemeris messages are
+ connected), and (re)construct the embedded algorithm.
+ @param callTime The clock time at which the function was called (nanoseconds).
  */
 void SunTrackError::reset(uint64_t callTime) {
     // check if the required input messages are included
@@ -15,9 +17,36 @@ void SunTrackError::reset(uint64_t callTime) {
         throw std::invalid_argument("sunTrackError.attNavInMsg wasn't connected.");
     }
 
-    const bool computeStartAngle = this->transNavInMsg.isLinked() && this->ephemerisInMsg.isLinked();
+    this->algorithm = std::make_unique<SunTrackErrorAlgorithm>(this->toConfig());
+}
 
-    this->algorithm.reset(computeStartAngle);
+/*! Build a validated SunTrackErrorConfig from the adapter's stored properties. The computeAngleStart
+ flag is derived from whether the optional trans/ephemeris messages are connected.
+ @return SunTrackErrorConfig validated configuration.
+ */
+SunTrackErrorConfig SunTrackError::toConfig() const {
+    const bool computeAngleStart = this->transNavInMsg.isLinked() && this->ephemerisInMsg.isLinked();
+    return SunTrackErrorConfig::create(this->sigma_R0R, this->sensitiveHat_B, this->angleRate, computeAngleStart);
+}
+
+/*! Push a fresh configuration into the algorithm without re-seeding its runtime maneuver state.
+ @return void
+ */
+void SunTrackError::reconfigure() const {
+    if (!this->algorithm) {
+        throw XmeraLifecycleException("SunTrackError reset() has not been called.");
+    }
+    this->algorithm->setConfig(this->toConfig());
+}
+
+/*! Re-seed the algorithm's runtime maneuver state so the maneuver reinitializes on the next update.
+ @return void
+ */
+void SunTrackError::reInitialize() {
+    if (!this->algorithm) {
+        throw XmeraLifecycleException("SunTrackError reset() has not been called.");
+    }
+    this->algorithm->reInitialize();
 }
 
 /*! This method computes the attitude tracking error for sun avoidance
@@ -25,6 +54,10 @@ void SunTrackError::reset(uint64_t callTime) {
  @param callTime The clock time at which the function was called (nanoseconds)
  */
 void SunTrackError::updateState(uint64_t callTime) {
+    if (!this->algorithm) {
+        throw XmeraLifecycleException("SunTrackError reset() has not been called.");
+    }
+
     const NavAttMsgF32Payload nav = this->attNavInMsg();  //!< attitude navigation message
     const AttRefMsgF32Payload ref = this->attRefInMsg();  //!< reference guidance message
 
@@ -40,7 +73,7 @@ void SunTrackError::updateState(uint64_t callTime) {
         r_SN_N = cArrayToEigenVector3(this->ephemerisInMsg().r_BdyZero_N).cast<float>();
     }
 
-    const SunTrackErrorOutput out = this->algorithm.update(navInputs, refInputs, r_BN_N, r_SN_N, callTime);
+    const SunTrackErrorOutput out = this->algorithm->update(navInputs, refInputs, r_BN_N, r_SN_N, callTime);
 
     AttGuidMsgF32Payload attGuid{};
     eigenVectorToCArray(out.sigma_BR, attGuid.sigma_BR);
@@ -51,38 +84,3 @@ void SunTrackError::updateState(uint64_t callTime) {
     /*! write output message */
     this->attGuidOutMsg.write(&attGuid, this->moduleID, callTime);
 }
-
-/*! Set the MRP from corrected reference frame to original frame R0.
- @return void
- @param sigma [-] The MRP from corrected reference frame to original frame R0
-*/
-void SunTrackError::setSigma_R0R(const Eigen::Vector3f& sigma) { this->algorithm.setSigma_R0R(sigma); }
-
-/*! Get the MRP from corrected reference frame to original frame R0.
- @return const Eigen::Vector3f
-*/
-Eigen::Vector3f SunTrackError::getSigma_R0R() const { return this->algorithm.getSigma_R0R(); }
-
-/*! Set the direction to exclude from the Sun in body frame components.
- @return void
- @param sensitiveDirection [-] The direction to exclude from the Sun in body frame components
-*/
-void SunTrackError::setSensitiveHat_B(const Eigen::Vector3f& sensitiveDirection) {
-    this->algorithm.setSensitiveHat_B(sensitiveDirection);
-}
-
-/*! Get the direction to exclude from the Sun in body frame components.
- @return const Eigen::Vector3f
-*/
-Eigen::Vector3f SunTrackError::getSensitiveHat_B() const { return this->algorithm.getSensitiveHat_B(); }
-
-/*! Set the rate at which we maneuver to Sun point.
- @return void
- @param rate [rad/s] The rate at which we maneuver to Sun point
-*/
-void SunTrackError::setAngleRate(const float rate) { this->algorithm.setAngleRate(rate); }
-
-/*! Get the rate at which we maneuver to Sun point.
- @return const float
-*/
-float SunTrackError::getAngleRate() const { return this->algorithm.getAngleRate(); }

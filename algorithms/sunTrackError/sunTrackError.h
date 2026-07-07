@@ -10,6 +10,7 @@
 #include <architecture/messaging/messaging.h>
 #include <stdint.h>
 #include <Eigen/Core>
+#include <memory>
 
 /*!@brief Module to compute the attitude tracking error for sun avoidance.
  */
@@ -21,12 +22,13 @@ class SunTrackError final : public SysModel {
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
 
-    void setSigma_R0R(const Eigen::Vector3f& sigma);
-    Eigen::Vector3f getSigma_R0R() const;
-    void setSensitiveHat_B(const Eigen::Vector3f& sensitiveDirection);
-    Eigen::Vector3f getSensitiveHat_B() const;
-    void setAngleRate(float rate);
-    float getAngleRate() const;
+    void reconfigure() const;
+    void reInitialize();
+
+    // Phase 1: public config properties -- set before reset().
+    Eigen::Vector3f sigma_R0R = Eigen::Vector3f::Zero();       //!< [-] MRP from corrected reference frame to frame R0
+    Eigen::Vector3f sensitiveHat_B = Eigen::Vector3f::Zero();  //!< [-] body vector to exclude from the Sun
+    float angleRate = 0.0F;                                    //!< [r/s] rate at which we maneuver to Sun point
 
     ReadFunctor<NavAttMsgF32Payload> attNavInMsg;        //!< input msg measured attitude
     ReadFunctor<AttRefMsgF32Payload> attRefInMsg;        //!< input msg of reference attitude
@@ -35,7 +37,8 @@ class SunTrackError final : public SysModel {
     Message<AttGuidMsgF32Payload> attGuidOutMsg;         //!< output msg of attitude guidance
 
    private:
-    SunTrackErrorAlgorithm algorithm{};
+    SunTrackErrorConfig toConfig() const;
+    std::unique_ptr<SunTrackErrorAlgorithm> algorithm = nullptr;
 };
 
 #endif

@@ -76,37 +76,28 @@ class SunTrackErrorConfig final {
  */
 class SunTrackErrorAlgorithm final {
    public:
-    void reset(bool computeStartAngle);
+    explicit SunTrackErrorAlgorithm(const SunTrackErrorConfig& config);
+
+    void setConfig(const SunTrackErrorConfig& config);
+
+    void reInitialize();
     SunTrackErrorOutput update(const SunTrackErrorNavAttInputs& nav,
                                const SunTrackErrorAttRefInputs& ref,
                                const Eigen::Vector3f& r_BN_N,
                                const Eigen::Vector3f& r_SN_N,
                                uint64_t callTime);
 
-    void setSigma_R0R(const Eigen::Vector3f& sigma);
-    Eigen::Vector3f getSigma_R0R() const;
-    void setSensitiveHat_B(const Eigen::Vector3f& sensitiveDirection);
-    Eigen::Vector3f getSensitiveHat_B() const;
-    void setAngleRate(float rate);
-    float getAngleRate() const;
-
    private:
     SunTrackErrorOutput computeSunTrackError(const SunTrackErrorNavAttInputs& nav,
                                              const SunTrackErrorAttRefInputs& ref,
                                              uint64_t callTime) const;
 
-    Eigen::Vector3f sigma_R0R{Eigen::Vector3f::Zero()}; /*!< MRP from corrected reference frame to original frame R0
-                                                           This is the same as [BcB] going from primary body frame B
-                                                           to the corrected body frame Bc */
-    Eigen::Vector3f sensitiveHat_B{Eigen::Vector3f::Zero()};  //!< [-] Vehicle body vector to exclude from sun*/
-    float angleRate{};                                        //!< [r/s] The rate at which we maneuver to Sun point*/
-    Eigen::Vector3f mnvrAxis_B{Eigen::Vector3f::Zero()};      //!< [-] Eigen axis that we are maneuvering on*/
-    float angleStart{};                                       //!< [r] The angle remaining in the attitude maneuver*/
-    bool maneuverInitialized{};                               //!< [-] Flag indicating if maneuver has been set*/
-    uint64_t mnvrStartTime{};                                 //!< [ns] Time at which the maneuver was begun*/
-    bool computeAngleStart{};                                 /*!< [-] indicator whether angleStart should be computed
-                                                               (if NavTransMsg and EphemerisMsg is linked)
-                                                               or assumed to be 0 */
+    SunTrackErrorConfig cfg;
+
+    Eigen::Vector3f mnvrAxis_B{Eigen::Vector3f::Zero()};  //!< [-] Eigen axis that we are maneuvering on*/
+    float angleStart{};                                   //!< [r] The angle remaining in the attitude maneuver*/
+    bool maneuverInitialized{};                           //!< [-] Flag indicating if maneuver has been set*/
+    uint64_t mnvrStartTime{};                             //!< [ns] Time at which the maneuver was begun*/
 };
 
 #endif
