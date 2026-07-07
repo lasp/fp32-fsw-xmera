@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: ISC
 // Copyright (c) 2026, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
 
-// Property-based fuzz tests for filtering::applySequential.
+// Property-based fuzz tests for filtering::applySequential and applySequentialRobust.
 
 #include <filteringCore/measurementQueue.h>
 #include <filteringCore/kalmanFilter.hpp>
@@ -10,23 +10,33 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <array>
 #include <vector>
 
 namespace filtering {
 namespace {
 
 struct CallLog {
-    enum class Kind { TimeUpdate, MeasurementUpdate };
+    enum class Kind { TimeUpdate, MeasurementUpdate, Clear };
     std::vector<std::pair<Kind, double>> entries;
 };
 
+// Records time/measurement update and clear() calls. measurementUpdate logs the measurement
+// value; when failOnNegativeMeasurement is set, a value < 0 reports an invalid update, which
+// lets the sign of a fuzzed value drive the robust scheduler down its failure path.
 struct RecordingFilter {
     CallLog* log = nullptr;
-    void timeUpdate(double dt) {
+    bool failOnNegativeMeasurement = false;
+    bool timeUpdate(double dt) {
         if (log) log->entries.push_back({CallLog::Kind::TimeUpdate, dt});
+        return true;
     }
-    void measurementUpdate(double const&) {
-        if (log) log->entries.push_back({CallLog::Kind::MeasurementUpdate, 0.0});
+    bool measurementUpdate(double const& m) {
+        if (log) log->entries.push_back({CallLog::Kind::MeasurementUpdate, m});
+        return !(failOnNegativeMeasurement && m < 0.0);
+    }
+    void clear() {
+        if (log) log->entries.push_back({CallLog::Kind::Clear, 0.0});
     }
 };
 
@@ -78,5 +88,73 @@ FUZZ_TEST(ApplySequentialFuzz, fuzzApplySequentialInvariants)
                  fuzztest::InRange(-1e4, 1e4),
                  fuzztest::InRange(0.0, 1e4),
                  fuzztest::InRange(0.0, 1e4));
+
+// Robust scheduling under a fuzzed failure pattern: the sign of each measurement value
+// decides whether its update succeeds (>= 0) or fails (< 0). Regardless of the pattern:
+//   * every timeUpdate dt is non-negative (a held anchor never steps backwards),
+//   * clear() fires exactly once per failed measurement, immediately after it, and
+//   * the anchor ends at the last successfully-processed measurement time.
+void fuzzApplySequentialRobustInvariants(double t0,
+                                         double t1,
+                                         double t2,
+                                         double v0,
+                                         double v1,
+                                         double v2,
+                                         double initialAnchor,
+                                         double extraCallTime) {
+    double const callTime = initialAnchor + extraCallTime;
+
+    CallLog log;
+    RecordingFilter filter{&log};
+    filter.failOnNegativeMeasurement = true;
+    measurement_queue<double, 4> q;
+    q.setTimeOfLastMeasurement(initialAnchor);
+    q.enqueue(t0, double{v0});
+    q.enqueue(t1, double{v1});
+    q.enqueue(t2, double{v2});
+
+    applySequentialRobust(q, filter, callTime);
+
+    // (1) non-negative dt everywhere; (2) each clear immediately follows a failed
+    //     (value < 0) measurement update, and clears count equals failed measurements.
+    int clears = 0;
+    int failedMeasurements = 0;
+    for (std::size_t i = 0; i < log.entries.size(); ++i) {
+        auto const& [kind, value] = log.entries[i];
+        if (kind == CallLog::Kind::TimeUpdate) {
+            EXPECT_GE(value, 0.0) << "negative dt";
+        } else if (kind == CallLog::Kind::MeasurementUpdate) {
+            if (value < 0.0) ++failedMeasurements;
+        } else {  // Clear
+            ++clears;
+            ASSERT_GT(i, 0u);
+            EXPECT_EQ(log.entries[i - 1].first, CallLog::Kind::MeasurementUpdate)
+                << "clear must follow a measurement update";
+            EXPECT_LT(log.entries[i - 1].second, 0.0) << "clear must follow a failed (value < 0) measurement";
+        }
+    }
+    EXPECT_EQ(clears, failedMeasurements) << "exactly one clear per failed measurement";
+
+    // (3) reference model: the anchor advances only through successfully-processed
+    //     measurements (timeUpdate always succeeds here; a measurement succeeds iff v >= 0).
+    std::array<std::pair<double, double>, 3> measurements{{{t0, v0}, {t1, v1}, {t2, v2}}};
+    std::sort(measurements.begin(), measurements.end(), [](auto const& a, auto const& b) { return a.first < b.first; });
+    double cursor = initialAnchor;
+    for (auto const& [timeTag, value] : measurements) {
+        if (timeTag < cursor) continue;  // stale: before the running anchor
+        if (value >= 0.0) cursor = timeTag;
+    }
+    EXPECT_DOUBLE_EQ(q.getTimeOfLastMeasurement(), cursor)
+        << "anchor must equal the last successfully-processed measurement time";
+}
+FUZZ_TEST(ApplySequentialFuzz, fuzzApplySequentialRobustInvariants)
+    .WithDomains(fuzztest::InRange(-1e4, 1e4),  // t0
+                 fuzztest::InRange(-1e4, 1e4),  // t1
+                 fuzztest::InRange(-1e4, 1e4),  // t2
+                 fuzztest::InRange(-1e4, 1e4),  // v0 (sign selects success/failure)
+                 fuzztest::InRange(-1e4, 1e4),  // v1
+                 fuzztest::InRange(-1e4, 1e4),  // v2
+                 fuzztest::InRange(0.0, 1e4),   // initialAnchor
+                 fuzztest::InRange(0.0, 1e4));  // extraCallTime
 
 }  // namespace filtering

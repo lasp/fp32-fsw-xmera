@@ -16,7 +16,7 @@ Background
 This filtering core exists to create and interface in order to compose filters with ease
 and be able to rely on the previously tested math and business logic required by filter families.
 
-For example, the kalmanFilter header file contains the applySequential function which orchestrates the
+For example, the kalmanFilter header file contains the applySequential and applySequentialRobust functions which orchestrate the
 calls of time and measurement updates on a queue of measurements. These functions can call the srukf (other header)
 definitions of those functions to perform those specific updates.
 
@@ -56,21 +56,21 @@ Composable structure
    +-------------------------------------------------------------+
                   depends only on Eigen + the C++ stdlib
 
-The host adapter and the algorithm library live in the **same directory**
+The host adapter and the algorithm library live in the same directory
 (``algorithms/sunlineSRuKF``) and compile into one SWIG module, but they stay
-cleanly separable: ``sunlineSRuKF.{h,cpp}`` is the only xmera-aware translation
+seperate: ``sunlineSRuKF.{h,cpp}`` is the xmera translation
 unit, and ``sunlineSRuKFAlgorithm.{h,cpp}`` / ``sunlineSRuKFSpecs.h`` depend
 only on ``filteringCore``.
 
 filteringCore
 ~~~~~~~~~~~~~~~
 
-Header-only ``INTERFACE`` library (``algorithms/filteringCore``). The headers
+Header-only interface library (``algorithms/filteringCore``). The headers
 sit at the top of that directory and are included as ``<filteringCore/...>``,
 which the parent ``algorithms/`` include path resolves.
 
 ``state.hpp``
-   ``StateVector<Components...>`` is a variadic, type-composed state vector laid
+   ``StateVector<Components...>`` is a type-composed state vector laid
    out contiguously in a single fixed-size ``Eigen::Vector``. Components are
    addressed by their tag type at compile time:
 
@@ -90,7 +90,7 @@ which the parent ``algorithms/`` include path resolves.
 
 ``concepts.hpp``
    The C++20 concepts that define the interfaces, so filters compose by
-   *satisfying an interface* rather than by inheritance:
+   satisfying an interface rather than by inheritance:
 
    - ``LinearlyCombinable<T>`` — has ``scale(k)`` and ``add(other)``.
    - ``FilterState<S>`` — ``LinearlyCombinable`` plus ``S::size`` and ``raw()``.
@@ -100,7 +100,7 @@ which the parent ``algorithms/`` include path resolves.
 
 ``dynamicsModel.hpp``
    ``DynamicsModel<State>`` (a ``std::function`` alias) plus ``rk4()`` and
-   ``propagate()`` — concept-constrained RK4 integration usable on any
+   ``propagate()`` — RK4 integration usable on any
    ``LinearlyCombinable`` state.
 
 ``measurementQueue.h``
@@ -112,25 +112,52 @@ which the parent ``algorithms/`` include path resolves.
    template (see ``kalmanFilter.hpp``).
 
 ``kalmanFilter.hpp``
-   The ``SequentialFilter<F, M>`` concept — the contract a Kalman-style filter
-   satisfies (``timeUpdate(dt)`` + ``measurementUpdate(m)``).
-   It also defines ``applySequential(queue, filter, callTime)`` — the canonical scheduler
-   that interleaves time and measurement updates relative to the queue's
-   last-measurement time. Alternative scheduling styles (batch, iterated, ...)
-   drop in as new ``apply_*`` free templates without touching the queue.
+   The ``SequentialFilter<F, M>`` concept plus the scheduling free functions.
+   The concept is deliberately non-prescriptive: it only requires that a
+   filter has a ``timeUpdate(dt)`` and a ``measurementUpdate(m)``. It does not
+   constrain their return types. What those methods must
+   actually return is fixed instead by the **scheduler you choose**, so the
+   scheduler — not the concept — is where the final contract on the filter's
+   methods lives:
+
+   - ``applySequential(queue, filter, callTime)`` — the basic scheduler.
+     It interleaves ``timeUpdate`` / ``measurementUpdate`` relative to the
+     queue's last-measurement time, so the
+     updates should return ``void``. It trusts every update and always advances the
+     anchor.
+   - ``applySequentialRobust(queue, filter, callTime)`` — the robust scheduler.
+     It reads each update's outcome, so ``timeUpdate`` and
+     ``measurementUpdate`` must return a bool validity (``true`` /
+     has-value on success), and the filter must expose a ``clear()`` that rewinds
+     it to its last good state. On a failed update it calls ``clear()`` and
+     leaves the anchor in place, so a bad measurement can neither corrupt the
+     estimate nor advance the timeline.
+
+   The upshot: the concept keeps the core open — any two update methods satisfy
+   it — while the chosen scheduler drives the design of those methods. Pick
+   ``applySequentialRobust`` and you are obliged to make your updates report
+   validity and to implement ``clear()``; pick ``applySequential`` and plain
+   ``void`` updates suffice. Other scheduling styles (batch, iterated, ...) drop
+   in as further ``apply_*`` free templates, each imposing its own method
+   contract, without touching the queue.
 
 ``srukf.hpp``
    The square-root uKF (van der Merwe & Wan, ICASSP 2001) in two layers:
 
-   - a **functional core** — ``SrukfStorage<State>`` (plain data, all
+   - a functional core — ``SrukfStorage<State>`` (plain data, all
      fixed-size) and free functions ``srukf::reset``,
      ``srukf::timeUpdate<State, D>``, ``srukf::measurementUpdate<State, M>``;
-   - a **stateful facade** — ``SRuKF<State, Dyn>``, which holds a
+   - a state container — ``SRuKF<State, Dyn>``, which holds a
      ``SrukfStorage`` and a settable ``dynamics`` member and exposes
-     ``reset()`` / ``timeUpdate(dt)`` / ``measurementUpdate<M>(m)`` plus
-     setters/getters and a ``getStateAtLastMeasurement()`` /
-     ``setStateLastMeasurement()`` pair for the rolling last-measurement
-     state.
+     ``reConfigure()`` / ``reset()`` / ``timeUpdate(dt)`` /
+     ``measurementUpdate<M>(m)`` plus setters/getters and a
+     ``getStateAtLastMeasurement()`` / ``setStateLastMeasurement()`` pair for
+     the rolling last-measurement state.
+
+   ``reConfigure()`` re-derives the sigma-point spread (lambda, eta), the sigma
+   weights, and the process-noise Cholesky from alpha, beta, and the process
+   noise, leaving the estimate untouched; ``reset()`` calls ``reConfigure()``
+   and additionally seeds the state and covariance from the initial conditions.
 
    ``timeUpdate(dt)`` always propagates **from the saved last-measurement
    state**, which it leaves untouched, so it is idempotent in ``dt`` — calling
@@ -141,22 +168,11 @@ which the parent ``algorithms/`` include path resolves.
 host adapter
 ~~~~~~~~~~~~
 
-``algorithms/sunlineSRuKF/sunlineSRuKF.{h,cpp}`` is the only xmera-aware layer.
+``algorithms/sunlineSRuKF/sunlineSRuKF.{h,cpp}`` is the only xmera layer.
 ``SunlineSRuKF`` is a ``SysModel`` that owns the message ports and holds the
 algorithm behind a ``std::unique_ptr`` (forward-declared, so the SWIG-parsed
-header never sees the concept-heavy core). At ``reset`` it latches the CSS
-geometry (``nHat``, ``CBias``, count) from ``cssConfigInMsg`` into the
-algorithm. Each ``updateState`` it reads the gyro (``navAttInMsg``) and CSS
-array (``cssDataInMsg``) payloads into ``RateData`` / ``CssData`` (skipping
-stale readings via per-channel timeTag tracking) and drives the filter over the
-window with a single ``update(currentSeconds, cssData, rateData)`` call. The
-algorithm owns the ``measurement_queue`` and runs
-``applySequential(measurements, *this, currentSeconds)`` inside that ``update``
-call; ``applySequential`` decides per step whether to ``timeUpdate`` (predict)
-or ``measurementUpdate``. The adapter then writes the returned
-``SunlineSRuKFOutput`` (state + covariance + per-kind residuals) back into the
-``navAttOutMsg`` / ``filterOutMsg`` / ``filterGyroResOutMsg`` /
-``filterCssResOutMsg`` payloads.
+header never sees the concept-heavy core). See filter implementation examples
+for more details.
 
 How the pieces compose
 --------------------------------------------
@@ -167,40 +183,6 @@ measurement scheduler, and the C++20 concepts that define the interfaces; a conc
 filter supplies only what is genuinely filter-specific: what is estimated, how
 it evolves, and how it is observed.
 
-Roles, interfaces, and what sunline provides
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. list-table::
-   :header-rows: 1
-   :widths: 24 28 24 24
-
-   * - Role
-     - Contract (concept)
-     - Core consumer
-     - SunlineSRuKF supplies
-   * - What is estimated
-     - ``FilterState<S>``
-     - ``SRuKF<State, Dyn>``, ``propagate``
-     - ``StateVector<Position<3>, Velocity<3>, Bias<1>>``
-   * - How the state evolves
-     - ``Dynamics<D, State>``
-     - ``rk4`` / ``propagate`` (in ``srukf::timeUpdate``)
-     - ``SunlineDynamics`` (``ds/dt = s × ω``)
-   * - How the state is observed
-     - ``Measurement<M, State>``
-     - ``srukf::measurementUpdate``
-     - ``CssMeasurementModel`` and ``RateMeasurementModel``
-   * - The drivable filter
-     - ``SequentialFilter<F, M>`` (``timeUpdate`` + ``measurementUpdate``)
-     - ``applySequential`` (free template)
-     - ``SunlineSRuKFAlgorithm``
-   * - When to time-update vs. measurement-update
-     - — (concrete, not a concept)
-     - ``measurement_queue`` (container) + ``applySequential`` (free function)
-     - ``SunlineSRuKFAlgorithm`` owns one ``measurement_queue<Measurement, BatchSize>`` and runs ``applySequential(measurements, *this, currentSeconds)`` from its ``update``
-
-The first three rows are the interfaces a new filter must implement; everything
-in the "Core consumer" column is reused unchanged.
 
 Static view: concepts as interfaces
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -234,74 +216,6 @@ the estimate physically meaningful, it post-processes after the queue drains —
 sunline's ``regularize()`` renormalizes the heading to a unit vector and clamps
 the CSS bias to its configured bounds; the SRUKF itself stays agnostic to that.
 
-Runtime view: one update window
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-A single ``update(currentSeconds, cssData, rateData)`` call does three things:
-it enqueues the fresh readings, drains the queue through the filter in time
-order, and returns the post-update snapshot. The four schematics below break
-that down — first the top-level flow across the layers, then what
-``applySequential`` drives, then the two update call chains it drives into.
-
-**1. Top-level flow — one call across the layers**
-
-::
-
-   Xmera adapter                         SunlineSRuKFAlgorithm
-   ------------                          ---------------------
-   read NavAtt + CSS msgs
-   build RateData / CssData
-   algo.update(t, css, rate) ─────────►  enqueue fresh readings
-                                         applySequential(queue, *this, t)
-                                         (drives the two updates below)
-   write output msgs         ◄─────────  return SunlineSRuKFOutput
-                                         (state + covariance + residuals)
-
-**2. What ``applySequential`` drives, per queued step**
-
-It walks the queue earliest-first and is the only thing that decides whether the
-next action is a prediction or a correction:
-
-::
-
-   for each queued measurement m (earliest first):
-       filter.timeUpdate(m.timeTag - tLast)   // advance to m's time
-       filter.measurementUpdate(m)            // fold m in
-       tLast = m.timeTag
-   filter.timeUpdate(t - tLast)               // advance to the output time
-
-**3. A time update — the prediction call chain**
-
-::
-
-   algo.timeUpdate(dt)
-     └─ srukf.timeUpdate(dt)
-          └─ srukf::timeUpdate
-               └─ propagate ─► rk4 ─► dynamics(t, x):  ṡ = s × ω
-
-**4. A measurement update — the correction call chain**
-
-The measurement is a ``std::variant``; ``std::visit`` dispatches to the overload
-for the kind that arrived, which builds that kind's model and hands it to the
-estimator:
-
-::
-
-   algo.measurementUpdate(m)         // m : variant<CssMeasurement, RateMeasurement>
-     └─ std::visit ─► applyMeasurement(kind)
-          └─ srukf.measurementUpdate(model)
-               └─ srukf::measurementUpdate
-                    └─ model.model(x) / model.noise() / model.subtract(a, b)
-
-The queue is just a container, and the algorithm doesn't sequence anything
-itself — it only exposes the ``SequentialFilter`` pair that ``applySequential``
-calls. A filter family that wants different scheduling (batch, iterated,
-particle resample, ...) gets a different ``apply_*`` free template (constrained
-on whatever concept that family needs) and reuses the same container.
-The estimator behind the algorithm is likewise an internal detail: it only has
-to make ``timeUpdate`` / ``measurementUpdate`` do the right thing, and the
-queue, the scheduling function, the integrator, and the concepts don't depend
-on which estimator is inside.
 
 Time bookkeeping: queue ↔ SRUKF
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -316,7 +230,7 @@ that stay in lockstep:
   ``srukf::measurementUpdate``.
 
 This anchor is the last estimate the filter fully trusts, and it is never
-compromised by a prediction. ``timeUpdate(dt)`` propagates a *working copy* of
+compromised by a prediction. ``timeUpdate(dt)`` propagates a working copy of
 the anchor forward by ``dt`` to produce the current output; the anchor itself is
 left intact. Only ``measurementUpdate`` advances it — once a new measurement is
 folded in, that posterior becomes the new anchor. So ``dt`` is always measured
@@ -348,12 +262,12 @@ After the loop above runs against m1 then m2:
 - inside the SRUKF: ``stateLastMeasurement`` (the anchor) = post-update state at t=4;
 - on the queue: ``getTimeOfLastMeasurement() == 4``;
 - the final ``filter.timeUpdate(callTime - 4) == timeUpdate(3)`` advances a
-  working copy to t=7 **without** moving the anchor. The output messages read
+  working copy to t=7 without moving the anchor. The output messages read
   this propagated value.
 
 On the next call, if a new measurement arrives at t=10, the scheduler issues
 ``filter.timeUpdate(10 - 4) == timeUpdate(6)`` — the SRUKF propagates 6 s
-forward from its preserved t=4 anchor, **not** 3 s past the previously-output
+forward from its preserved t=4 anchor, not 3 s past the previously-output
 t=7 value. Because the anchor was never compromised, no drift accumulates from
 the output-only propagation.
 
@@ -388,10 +302,10 @@ Why the pattern is generic
 Heterogeneous measurements
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-A multi-sensor filter consumes more than one *kind* of measurement on one
-timeline. ``sunlineSRuKF`` is exactly this case — it folds CSS array readings
+A multi-sensor filter consumes more than one kind of measurement on one
+timeline. ``sunlineSRuKF`` is an example — it folds CSS array readings
 and gyro rates into the same state on a shared timeline. No core change is
-needed for this; the core is kind-agnostic:
+needed for this; the core is agnostic of the measurement type:
 
 - ``measurement_queue``, ``applySequential``, and ``SequentialFilter`` all
   operate over an arbitrary ``Measurement`` type.
@@ -401,10 +315,8 @@ needed for this; the core is kind-agnostic:
   is size 3, both driven through the same path).
 
 ``std::variant`` is freestanding on the target toolchain (GCC 14+ / C++26
-P2407, ``__cpp_lib_freestanding_variant``), so it is an appropriate closed-set
-mechanism here. The filter that knows its kinds names the set as a
-``std::variant`` and dispatches with ``std::visit`` — fixed-size, no heap, no
-virtual:
+P2407, ``__cpp_lib_freestanding_variant``). The filter that knows its kinds names the set as a
+``std::variant`` and dispatches with ``std::visit``
 
 .. code-block:: cpp
 
@@ -419,17 +331,38 @@ virtual:
    void applyMeasurement(RateMeasurement const&);
 
 Because every kind shares the one queue timeline, ``applySequential``
-interleaves them in time order. The variant is over the **input structs**; each
-``applyMeasurement`` overload builds that kind's **model** (the
+interleaves them in time order. The variant is over the input structs; each
+``applyMeasurement`` overload builds that kind's model (the
 ``Measurement<M, State>`` object) and calls ``srukf.measurementUpdate`` — the
 same input-struct-vs-model split a single-kind filter would use. Each overload also
 records its own residuals (``lastCssResiduals`` / ``lastRateResiduals``), so the
 bundled ``SunlineSRuKFOutput`` reports only the kinds that actually fired this
 cycle.
 
-A worked, compiling reference (real SRUKF, two observation sizes ``MaxCss``
-and 3) lives in
-``algorithms/sunlineSRuKF/_tests/test_sunlineSRuKFAlgorithm.cpp``.
+Assumptions and Limitations
+---------------------------
+
+Heterogeneous rates share one anchor
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+``applySequential`` keeps a single last-measurement anchor
+(``queue.getTimeOfLastMeasurement()``) for all measurement kinds, and it
+drops any queued measurement whose ``timeTag`` is earlier than that anchor (the
+``if m.timeTag < tLast: continue`` guard). When two kinds are ingested at
+different frequencies, the faster kind repeatedly advances the shared anchor; if
+the filter time step is small enough that a slower kind's sample then lands *in
+the past* relative to the already-advanced anchor, that slower measurement is
+silently skipped and never folded into the state.
+
+To keep every kind observed you must either:
+
+- **size the filter time step** so at least one of each of the N measurement kinds
+  falls within a single ``update`` **call** — then all kinds are enqueued
+  together and applied in time order, so none lands behind the anchor; or
+- **reduce the rate of the faster kind** relative to the time step.
+
+In other words, avoid time steps so small that a window can hold several
+fast-kind samples but no slow-kind sample.
 
 How to use a filter
 -------------------
@@ -441,30 +374,21 @@ xmera):
 
    using namespace filtering::sunlineSRuKF;
 
-   SunlineSRuKFAlgorithm algo;          // owns the SRUKF + measurement_queue
-   algo.setAlpha(0.02);
-   algo.setBeta(2.0);
-   algo.setProcessNoise(Q);             // 7x7
-   algo.setInitialCovariance(P0);       // 7x7
-
-   // CSS geometry + noise (the host adapter latches these from CSSConfig at reset)
-   algo.setCssNHat(nHat);               // MaxCss x 3 unit vectors (body)
-   algo.setCssCBias(cBias);             // MaxCss per-sensor calibration biases
-   algo.setNumberOfCss(numCss);         // 0 .. MaxCss
-   algo.setSensorThreshold(0.1);        // min cosValue to count a CSS as active
-   algo.setCssMeasurementNoiseStd(sigmaCss);
-   algo.setGyroMeasurementNoiseStd(sigmaGyro);
-   algo.setBiasLowerBound(0.5);
-   algo.setBiasUpperBound(1.5);
-
    SunlineSRuKFAlgorithm::State x0;
    x0.set<filtering::Position<3>>(sHat0);                       // sun heading (unit)
    x0.set<filtering::Velocity<3>>(omega0);                      // body rate
-   x0.set<filtering::Bias<1>>(Eigen::Vector<double, 1>{1.0});   // CSS bias
-   algo.setInitialState(x0);
+   x0.set<filtering::Bias<1>>(Eigen::Vector<double, 1>{1.0});   // bias state
 
-   algo.reset();                        // pushes config into the SRUKF, installs
-                                        // dynamics, clears the queue
+   // Build a validated configuration (throws on invalid input). CSS geometry
+   // (boresights, per-sensor scale factors, count) is latched from CSSConfig by
+   // the host adapter at reset; here it is supplied directly.
+   SunlineSRuKFConfig cfg = SunlineSRuKFConfig::create(
+       0.02, 2.0, Q, x0, P0,            // alpha, beta, processNoise (7x7), initialState, initialCovariance (7x7)
+       0.5, 1.5,                        // biasLowerBound, biasUpperBound
+       nHat, scaleFactor, numCss,       // MaxCss x 3 boresights, MaxCss scale factors, count (0 .. MaxCss)
+       0.1, sigmaCss, sigmaGyro);       // sensorThreshold, cssMeasurementNoiseStd, gyroMeasurementNoiseStd
+
+   SunlineSRuKFAlgorithm algo(cfg);     // owns the SRUKF + measurement_queue; construction seeds the filter
 
    // Queue-driven path: hand the raw readings to one drive call. update() packs
    // whichever readings are present (timeTag > 0), enqueues them, and runs
@@ -478,6 +402,11 @@ xmera):
    // what applySequential calls under the hood).
    algo.timeUpdate(dt);                            // predict
    algo.measurementUpdate(RateMeasurement{...});   // fold a measurement in directly
+
+   // Runtime resets / reconfiguration:
+   algo.reInitialize();        // clear pending measurements + residuals; keep state and covariance
+   algo.reInitializeAll();     // the above plus re-seed state and covariance from the config
+   algo.setConfig(newCfg);     // swap the config and re-derive the SRUKF parameters in place
 
    FilterStateOutput   state   = out.filterState;   // mean + covariance
    CssResidualsOutput  cssRes  = out.cssResiduals;   // pre/post-fit; valid only if CSS fired
@@ -495,9 +424,10 @@ How to add a new filter
    functor that satisfies ``Dynamics<D, State>``. A multi-kind filter also
    names its ``Measurement`` variant here.
 #. **Write the algorithm class** — the single composition root. Holds a
-   ``SRuKF<State, Dyn>``, the retained configuration with
-   setter/getter implementations, ``reset()``, the ``SequentialFilter``
-   pair (``timeUpdate(dt)`` / ``measurementUpdate(m)``), the readouts
+   ``SRuKF<State, Dyn>`` and an immutable validated ``Config`` (built by a
+   static ``create()`` factory, supplied at construction and swappable via
+   ``setConfig()``), ``reInitialize()`` / ``reInitializeAll()``, the
+   ``SequentialFilter`` pair (``timeUpdate(dt)`` / ``measurementUpdate(m)``), the readouts
    (``getFilterOutput`` / ``getCovariance`` / per-kind residuals), a
    ``measurement_queue<Measurement, CAPACITY>``, plus a single-call
    ``update(...)`` that runs
@@ -518,13 +448,3 @@ How to add a new filter
    ``algorithms/sunlineSRuKF/_tests``.
 #. **Write the host adapter** under ``algorithms/<filter>`` that marshals
    messages to and from the plain-data I/O types and links the algorithm library.
-
-.. note::
-
-   **Variable-size measurements** (e.g. a varying number of active coarse sun
-   sensors) are handled with a fixed-capacity ``Eigen::Vector<double, MAX>`` and
-   a runtime count, sliced with ``.head()`` / ``.topRows()`` — not a dynamically
-   sized Eigen type. ``sunlineSRuKF`` exercises this directly: its
-   ``CssMeasurement`` carries an ``Eigen::Vector<double, MaxCss>`` plus a
-   ``numberOfActiveCss`` count, and ``packCssMeasurement`` fills only the active
-   leading rows (those above ``sensorUseThresh``).

@@ -12,12 +12,15 @@
 //
 // Time and measurement updates are the heavy ones; left as scaffolding.
 
+#include <utilities/fsw/validPSDCheck.h>
 #include <filteringCore/srukf.hpp>
 #include <filteringCore/state.hpp>
 
 #include <gtest/gtest.h>
 
 #include <Eigen/Core>
+
+#include <limits>
 
 namespace filtering {
 namespace {
@@ -129,46 +132,20 @@ TEST(SrukfApi, SetGetRoundtripsForAlphaAndBeta) {
     EXPECT_DOUBLE_EQ(filter.getBeta(), 2.0);
 }
 
-// Valid inputs
+// Valid inputs. The validators are static: they take the term to check and can be called
+// without an SRuKF instance (e.g. from a filter's config validation in another file).
 TEST(SrukfApi, ValidityChecks) {
-    SRuKFType filter;
+    // (1) alphaIsValid: true iff alpha in (0, 1) (endpoints excluded).
+    EXPECT_TRUE(SRuKFType::alphaIsValid(0.5)) << "alpha=0.5 in range";
+    EXPECT_FALSE(SRuKFType::alphaIsValid(0.0)) << "alpha=0 excluded";
+    EXPECT_FALSE(SRuKFType::alphaIsValid(1.0)) << "alpha=1 excluded";
+    EXPECT_FALSE(SRuKFType::alphaIsValid(-0.1)) << "alpha<0";
+    EXPECT_FALSE(SRuKFType::alphaIsValid(1.5)) << "alpha>1";
 
-    // (1) alphaIsValid: true iff alpha in [0, 1].
-    {
-        filter.setAlpha(0.5);
-        EXPECT_TRUE(filter.alphaIsValid()) << "alpha=0.5 in range";
-        filter.setAlpha(-0.1);
-        EXPECT_FALSE(filter.alphaIsValid()) << "alpha<0";
-        filter.setAlpha(1.5);
-        EXPECT_FALSE(filter.alphaIsValid()) << "alpha>1";
-    }
     // (2) betaIsValid: true iff beta in [0, 2].
-    {
-        filter.setBeta(1.0);
-        EXPECT_TRUE(filter.betaIsValid()) << "beta=1 in range";
-        filter.setBeta(-0.5);
-        EXPECT_FALSE(filter.betaIsValid()) << "beta<0";
-        filter.setBeta(2.5);
-        EXPECT_FALSE(filter.betaIsValid()) << "beta>2";
-    }
-    // (3) initialCovarianceIsValid: true iff PSD.
-    {
-        filter.setInitialCovariance(Eigen::Matrix3d::Identity());
-        EXPECT_TRUE(filter.initialCovarianceIsValid()) << "identity is PSD";
-
-        Eigen::Matrix3d P_neg = -Eigen::Matrix3d::Identity();
-        filter.setInitialCovariance(P_neg);
-        EXPECT_FALSE(filter.initialCovarianceIsValid()) << "negative eigenvalue";
-    }
-    // (4) processNoiseIsValid: true iff PSD.
-    {
-        filter.setProcessNoise(Eigen::Matrix3d::Identity());
-        EXPECT_TRUE(filter.processNoiseIsValid()) << "identity is PSD";
-
-        Eigen::Matrix3d Q_neg = -Eigen::Matrix3d::Identity();
-        filter.setProcessNoise(Q_neg);
-        EXPECT_FALSE(filter.processNoiseIsValid()) << "negative eigenvalue";
-    }
+    EXPECT_TRUE(SRuKFType::betaIsValid(1.0)) << "beta=1 in range";
+    EXPECT_FALSE(SRuKFType::betaIsValid(-0.5)) << "beta<0";
+    EXPECT_FALSE(SRuKFType::betaIsValid(2.5)) << "beta>2";
 }
 
 // Reset
@@ -187,6 +164,7 @@ TEST(SrukfApi, ResetCopiesInitialStateAndCovarianceToWorkingState) {
     filter.setProcessNoise(0.1 * Eigen::Matrix3d::Identity());
 
     filter.reset();
+    filter.reConfigure();
 
     // Working state and last-measurement state are both stateInitial.
     EXPECT_TRUE(filter.getState().raw().isApprox(s0.raw(), 1e-12)) << "state";
@@ -206,6 +184,7 @@ TEST(SrukfTimeUpdate, RewindsToLastMeasurementMakingTimeUpdateIdempotent) {
     filter.setInitialCovariance(Eigen::Matrix3d::Identity());
     filter.setProcessNoise(0.1 * Eigen::Matrix3d::Identity());
     filter.reset();
+    filter.reConfigure();
 
     // First timeUpdate from anchor produces stateA / covA.
     filter.timeUpdate(2.0);
@@ -231,6 +210,7 @@ TEST(SrukfTimeUpdate, CovarianceUnderTimeUpdate) {
     filter.setInitialCovariance(P0);
     filter.setProcessNoise(0.1 * Eigen::Matrix3d::Identity());
     filter.reset();
+    filter.reConfigure();
 
     filter.timeUpdate(0.0);
     EXPECT_TRUE(filter.getCovariance().isApprox(P0, 1e-10)) << "dt=0 should leave covariance unchanged";
@@ -253,20 +233,23 @@ TEST(SrukfMeasurementUpdate, InformativeMeasurementUpdatesStateAndShrinksCovaria
     filter.setInitialCovariance(Eigen::Matrix3d::Identity());
     filter.setProcessNoise(Eigen::Matrix3d::Zero());
     filter.reset();
+    filter.reConfigure();
     filter.timeUpdate(0.0);  // populates sigma points around the anchor
 
     PositionMeasurement m;
     m.observed = Eigen::Vector3d(1.0, 0.0, 0.0);
     m.noiseCov = 0.01 * Eigen::Matrix3d::Identity();
 
+    // A nominal update returns the pre/post-fit residuals.
     auto const result = filter.measurementUpdate(m);
+    ASSERT_TRUE(result.has_value()) << "measurement update should be valid";
 
     // Pre-fit: observation - model(prior anchor at 0) = (1, 0, 0).
-    EXPECT_TRUE(result.preFit.isApprox(Eigen::Vector3d(1.0, 0.0, 0.0), 1e-9))
+    EXPECT_TRUE(result->preFit.isApprox(Eigen::Vector3d(1.0, 0.0, 0.0), 1e-9))
         << "preFit should equal observation when prior state is zero";
 
     // Post-fit less than pre-fit
-    EXPECT_LT(result.postFit.norm(), result.preFit.norm()) << "informative measurement should reduce residual";
+    EXPECT_LT(result->postFit.norm(), result->preFit.norm()) << "informative measurement should reduce residual";
 
     // Covariance shrunk (initial trace was 3.0).
     Eigen::Matrix3d const P = filter.getCovariance();
@@ -287,6 +270,7 @@ TEST(SrukfMeasurementUpdate, HighMeasurementNoiseLeavesStateNearlyUnchanged) {
     filter.setInitialCovariance(Eigen::Matrix3d::Identity());
     filter.setProcessNoise(Eigen::Matrix3d::Zero());
     filter.reset();
+    filter.reConfigure();
     filter.timeUpdate(0.0);
 
     TestState const stateBefore = filter.getState();
@@ -296,10 +280,30 @@ TEST(SrukfMeasurementUpdate, HighMeasurementNoiseLeavesStateNearlyUnchanged) {
     m.noiseCov = 1e8 * Eigen::Matrix3d::Identity();  // R ≫ P → Kalman gain ≈ 0
 
     auto const result = filter.measurementUpdate(m);
+    ASSERT_TRUE(result.has_value()) << "measurement update should be valid";
 
     EXPECT_LT((filter.getState().raw() - stateBefore.raw()).norm(), 1e-5)
         << "state should barely move when R much greater than P";
-    EXPECT_TRUE(result.postFit.isApprox(result.preFit, 1e-5)) << "postFit ≈ preFit when R very large";
+    EXPECT_TRUE(result->postFit.isApprox(result->preFit, 1e-5)) << "postFit ≈ preFit when R very large";
+}
+
+// NaNs in the measurement propagate into the state, so measurementUpdate returns no value.
+TEST(SrukfMeasurementUpdate, NaNMeasurementReturnsNoValue) {
+    SRuKFType filter;
+    filter.setAlpha(0.5);
+    filter.setBeta(2.0);
+    filter.setInitialCovariance(Eigen::Matrix3d::Identity());
+    filter.setProcessNoise(Eigen::Matrix3d::Zero());
+    filter.reset();
+    filter.reConfigure();
+    filter.timeUpdate(0.0);
+
+    PositionMeasurement m;
+    m.observed = Eigen::Vector3d::Constant(std::numeric_limits<double>::quiet_NaN());
+    m.noiseCov = 0.01 * Eigen::Matrix3d::Identity();
+
+    EXPECT_FALSE(filter.measurementUpdate(m).has_value())
+        << "measurementUpdate should not return a value for a bad (NaN) update";
 }
 
 }  // namespace filtering
