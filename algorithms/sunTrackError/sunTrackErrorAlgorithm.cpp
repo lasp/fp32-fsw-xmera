@@ -1,5 +1,4 @@
 #include "sunTrackErrorAlgorithm.h"
-#include "utilities/fsw/eigenMRP.h"
 #include "utilities/fsw/rigidBodyKinematics.hpp"
 #include "utilities/fsw/safeMath.h"
 #include "utilities/fsw/timeConstants.h"
@@ -47,12 +46,12 @@ SunTrackErrorOutput SunTrackErrorAlgorithm::update(const Eigen::Vector3f& sigma_
 
             const Eigen::Vector3f sHat_N = (r_SN_N - r_BN_N).normalized();  //!< inertial sun direction
 
-            const Eigen::Matrix3f dcm_BN = Eigen::MRPf(sigma_BN).toRotationMatrix().transpose();
+            const Eigen::Matrix3f dcm_BN = mrpToDcm(sigma_BN);
             // Define initial sensitive sun direction
             const Eigen::Vector3f senstiveInitial_N = dcm_BN.transpose() * sensitiveHat_B;
 
             // The final body attitude aligns with the reference frame
-            const Eigen::Matrix3f dcm_BNFinal = Eigen::MRPf(ref.sigma_RN).toRotationMatrix().transpose();
+            const Eigen::Matrix3f dcm_BNFinal = mrpToDcm(ref.sigma_RN);
             // Define final sensitive sun direction
             const Eigen::Vector3f senstiveFinal_N = dcm_BNFinal.transpose() * sensitiveHat_B;
 
@@ -105,8 +104,8 @@ SunTrackErrorOutput SunTrackErrorAlgorithm::computeAdjustedReference(const Eigen
                                                                      const SunTrackErrorAttRefInputs& ref,
                                                                      const uint64_t callTime) const {
     // Convert mrps to dcms
-    const Eigen::Matrix3f dcm_BN = Eigen::MRPf(sigma_BN).toRotationMatrix().transpose();
-    const Eigen::Matrix3f dcm_RN = Eigen::MRPf(ref.sigma_RN).toRotationMatrix().transpose();
+    const Eigen::Matrix3f dcm_BN = mrpToDcm(sigma_BN);
+    const Eigen::Matrix3f dcm_RN = mrpToDcm(ref.sigma_RN);
 
     const float dtSeconds = static_cast<float>(callTime - this->mnvrStartTime) * kNano2SecF;
 
