@@ -95,6 +95,63 @@ TEST(SunTrackErrorConfigTest, AcceptsValidInputs) {
     EXPECT_NO_THROW((void)SunTrackErrorConfig::create(Eigen::Vector3f::Zero(), 0.0F, false));
 }
 
+// ---------------------------------------------------------------------------
+// Property tests.
+// ---------------------------------------------------------------------------
+
+TEST(SunTrackErrorTest, PropertyPassThroughEqualsInputRef) {
+    propertyPassThroughEqualsInputRef(kSigmaBN, kSigmaRN, kOmegaRNN, kDomegaRNN);
+}
+
+TEST(SunTrackErrorTest, PropertyManeuverOutputBoundedAndFinite) {
+    propertyManeuverOutputBoundedAndFinite(kSigmaBN, kSigmaRN, kOmegaRNN, kDomegaRNN);
+}
+
+TEST(SunTrackErrorTest, PropertyDecayedManeuverEqualsInputRef) {
+    propertyDecayedManeuverEqualsInputRef(kSigmaBN, kSigmaRN, kOmegaRNN, kDomegaRNN);
+}
+
+TEST(SunTrackErrorTest, PropertyReInitializeRestartsManeuver) {
+    propertyReInitializeRestartsManeuver(kSigmaBN, kSigmaRN, kOmegaRNN, kDomegaRNN);
+}
+
+// ---------------------------------------------------------------------------
+// Edge case tests.
+// ---------------------------------------------------------------------------
+
+// Zero maneuver rate: the initial maneuver angle never decays, so the adjusted reference is constant
+// across every step.
+TEST(SunTrackErrorTest, EdgeZeroAngleRate) {
+    const auto config = SunTrackErrorConfig::create(kSensitiveHat_B, 0.0F, true);
+    SunTrackErrorAlgorithm alg{config};
+    const SunTrackErrorAttRefInputs refIn{kSigmaRN, kOmegaRNN, kDomegaRNN};
+
+    const SunTrackErrorOutput first = alg.update(kSigmaBN, refIn, kRBN_N, kRSN_N, 0);
+    constexpr float tol = 1e-6F;
+    for (int k = 1; k < 12; ++k) {
+        const SunTrackErrorOutput out =
+            alg.update(kSigmaBN, refIn, kRBN_N, kRSN_N, static_cast<uint64_t>(k) * kHalfSecNs);
+        for (int i = 0; i < 3; ++i) {
+            EXPECT_NEAR(out.sigma_RN(i), first.sigma_RN(i), tol);
+            EXPECT_NEAR(out.omega_RN_N(i), first.omega_RN_N(i), tol);
+            EXPECT_NEAR(out.domega_RN_N(i), first.domega_RN_N(i), tol);
+        }
+    }
+}
+
+// Zero navigation and reference inputs with the maneuver disabled: the output reference is zero.
+TEST(SunTrackErrorTest, EdgeZeroInputsPassThrough) {
+    propertyPassThroughEqualsInputRef(
+        Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero());
+}
+
+// Body attitude close to the reference: a small but well-defined maneuver angle; output stays finite
+// and bounded.
+TEST(SunTrackErrorTest, EdgeSmallManeuverNearAlignment) {
+    const Eigen::Vector3f sigmaBN_near = kSigmaRN + Eigen::Vector3f{0.02F, -0.01F, 0.015F};
+    propertyManeuverOutputBoundedAndFinite(sigmaBN_near, kSigmaRN, kOmegaRNN, kDomegaRNN);
+}
+
 TEST(SunTrackErrorConfigTest, GettersRoundTrip) {
     // sensitiveHat_B is renormalized on storage; a near-unit input (within the 1e-3 tolerance) must come
     // back as the exact unit direction.
