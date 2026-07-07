@@ -1,6 +1,7 @@
 #ifndef TEST_SUNTRACKERROR_H
 #define TEST_SUNTRACKERROR_H
 
+#include "attTrackingError/attTrackingErrorAlgorithm.h"
 #include "sunTrackErrorAlgorithm.h"
 #include "utilities/fsw/rigidBodyKinematics.hpp"
 #include "utilities/fsw/safeMath.h"
@@ -145,22 +146,38 @@ inline void integratedRegression(const Eigen::Vector3f& sensitiveHat_B,
 
     const auto config = SunTrackErrorConfig::create(sensitiveHat_B, angleRate, computeAngleStart);
     SunTrackErrorAlgorithm alg{config};
-    // sunTrackError no longer applies a corrected-reference offset, so the reference frame is the
-    // input reference directly (sigma_R0R == 0).
+    AttTrackingErrorAlgorithm attError{};
+    // The reference model computes the COMBINED behavior. sunTrackError no longer applies a
+    // corrected-reference offset, so the reference frame is the input reference directly (sigma_R0R == 0).
     SunTrackErrorReference ref{Eigen::Vector3f::Zero(), sensitiveHat_B, angleRate, computeAngleStart};
 
-    const SunTrackErrorNavAttInputs navIn{sigma_BN, omega_BN_B};
     const SunTrackErrorAttRefInputs refIn{sigma_RN, omega_RN_N, domega_RN_N};
 
     constexpr float tol = 1e-5F;
     for (int k = 0; k < numSteps; ++k) {
         const uint64_t callTime = static_cast<uint64_t>(k) * stepNs;
-        const SunTrackErrorOutput algOut = alg.update(navIn, refIn, r_BN_N, r_SN_N, callTime);
+
+        // sunTrackError produces the maneuver-adjusted reference frame ...
+        const SunTrackErrorOutput adjustedRef = alg.update(sigma_BN, refIn, r_BN_N, r_SN_N, callTime);
+        // ... and attTrackingError forms the attitude tracking error from it and the navigation attitude.
+        const AttGuidOutput algOut =
+            attError.update(AttNavInput{sigma_BN, omega_BN_B},
+                            AttRefInput{adjustedRef.sigma_RN, adjustedRef.omega_RN_N, adjustedRef.domega_RN_N});
+
         const SunTrackErrorReferenceOutput refOut =
             ref.update(sigma_BN, omega_BN_B, sigma_RN, omega_RN_N, domega_RN_N, r_BN_N, r_SN_N, callTime);
 
+        // attTrackingError forms sigma_BR via subMrp while the reference uses dcmToMrp; at large errors
+        // these can pick different (physically identical) MRP shadow-set representatives, so compare the
+        // attitude through its DCM, which is shadow-set invariant. The rate vectors are unambiguous.
+        const Eigen::Matrix3f dcmBR_alg = mrpToDcm(algOut.sigma_BR);
+        const Eigen::Matrix3f dcmBR_ref = mrpToDcm(refOut.sigma_BR);
+        for (int r = 0; r < 3; ++r) {
+            for (int c = 0; c < 3; ++c) {
+                EXPECT_NEAR(dcmBR_alg(r, c), dcmBR_ref(r, c), tol) << "sigma_BR (dcm) mismatch at step " << k;
+            }
+        }
         for (int i = 0; i < 3; ++i) {
-            EXPECT_NEAR(algOut.sigma_BR(i), refOut.sigma_BR(i), tol) << "sigma_BR mismatch at step " << k;
             EXPECT_NEAR(algOut.omega_BR_B(i), refOut.omega_BR_B(i), tol) << "omega_BR_B mismatch at step " << k;
             EXPECT_NEAR(algOut.omega_RN_B(i), refOut.omega_RN_B(i), tol) << "omega_RN_B mismatch at step " << k;
             EXPECT_NEAR(algOut.domega_RN_B(i), refOut.domega_RN_B(i), tol) << "domega_RN_B mismatch at step " << k;

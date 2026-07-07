@@ -1,7 +1,6 @@
 #ifndef F32XMERA_SUN_TRACK_ERROR_H
 #define F32XMERA_SUN_TRACK_ERROR_H
 
-#include "msgPayloadDef/AttGuidMsgF32Payload.h"
 #include "msgPayloadDef/AttRefMsgF32Payload.h"
 #include "msgPayloadDef/EphemerisMsgF32Payload.h"
 #include "msgPayloadDef/NavAttMsgF32Payload.h"
@@ -33,7 +32,7 @@ class SunTrackError final : public SysModel {
     ReadFunctor<AttRefMsgF32Payload> attRefInMsg;        //!< input msg of reference attitude
     ReadFunctor<NavTransMsgF32Payload> transNavInMsg;    //!< input msg measured position
     ReadFunctor<EphemerisMsgF32Payload> ephemerisInMsg;  //!< input ephemeris msg
-    Message<AttGuidMsgF32Payload> attGuidOutMsg;         //!< output msg of attitude guidance
+    Message<AttRefMsgF32Payload> attRefOutMsg;           //!< output msg of the maneuver-adjusted reference
 
    private:
     SunTrackErrorConfig toConfig() const;

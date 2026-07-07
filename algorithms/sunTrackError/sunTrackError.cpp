@@ -61,7 +61,7 @@ void SunTrackError::updateState(uint64_t callTime) {
     const NavAttMsgF32Payload nav = this->attNavInMsg();  //!< attitude navigation message
     const AttRefMsgF32Payload ref = this->attRefInMsg();  //!< reference guidance message
 
-    const SunTrackErrorNavAttInputs navInputs{cArrayToEigenVector3(nav.sigma_BN), cArrayToEigenVector3(nav.omega_BN_B)};
+    const Eigen::Vector3f sigma_BN = cArrayToEigenVector3(nav.sigma_BN);
     const SunTrackErrorAttRefInputs refInputs{cArrayToEigenVector3(ref.sigma_RN),
                                               cArrayToEigenVector3(ref.omega_RN_N),
                                               cArrayToEigenVector3(ref.domega_RN_N)};
@@ -73,14 +73,13 @@ void SunTrackError::updateState(uint64_t callTime) {
         r_SN_N = cArrayToEigenVector3(this->ephemerisInMsg().r_BdyZero_N).cast<float>();
     }
 
-    const SunTrackErrorOutput out = this->algorithm->update(navInputs, refInputs, r_BN_N, r_SN_N, callTime);
+    const SunTrackErrorOutput out = this->algorithm->update(sigma_BN, refInputs, r_BN_N, r_SN_N, callTime);
 
-    AttGuidMsgF32Payload attGuid{};
-    eigenVectorToCArray(out.sigma_BR, attGuid.sigma_BR);
-    eigenVectorToCArray(out.omega_BR_B, attGuid.omega_BR_B);
-    eigenVectorToCArray(out.omega_RN_B, attGuid.omega_RN_B);
-    eigenVectorToCArray(out.domega_RN_B, attGuid.domega_RN_B);
+    AttRefMsgF32Payload attRef{};
+    eigenVectorToCArray(out.sigma_RN, attRef.sigma_RN);
+    eigenVectorToCArray(out.omega_RN_N, attRef.omega_RN_N);
+    eigenVectorToCArray(out.domega_RN_N, attRef.domega_RN_N);
 
     /*! write output message */
-    this->attGuidOutMsg.write(&attGuid, this->moduleID, callTime);
+    this->attRefOutMsg.write(&attRef, this->moduleID, callTime);
 }

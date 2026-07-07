@@ -2,9 +2,11 @@
 #   Unit Test Script
 #   Module Name: sunTrackError
 #
-#   The combined algorithm input->output behavior is covered by the C++ integrated regression
-#   test (test_sunTrackError_integrated.cpp). This pytest covers the adapter layer: SWIG property
-#   round-trips, the message I/O boundary, and the optional-message-driven maneuver selection.
+#   sunTrackError produces the Sun-avoidance maneuver-adjusted reference frame; attTrackingError is
+#   chained downstream to form the attitude tracking error. The combined algorithm behavior is covered
+#   by the C++ integrated regression test (test_sunTrackError_integrated.cpp). This pytest covers the
+#   adapter layer: SWIG property round-trips, the message I/O boundary, and the optional-message-driven
+#   maneuver selection.
 #
 
 import numpy as np
@@ -12,7 +14,6 @@ import numpy as np
 from xmera.utilities import SimulationBaseClass
 from xmera.fp32 import sunTrackErrorF32
 from xmera.utilities import macros
-from xmera.utilities import RigidBodyKinematics as rbk
 from xmera.architecture import messaging
 
 # Fixed, representative navigation/reference inputs shared by the adapter tests.
@@ -61,7 +62,7 @@ def _run_sim(sun_avoidance):
         ephemerisMsg = messaging.EphemerisMsgF32().write(ephemerisData)
         module.ephemerisInMsg.subscribeTo(ephemerisMsg)
 
-    dataLog = module.attGuidOutMsg.recorder()
+    dataLog = module.attRefOutMsg.recorder()
     unitTestSim.AddModelToTask("unitTask", dataLog)
 
     unitTestSim.InitializeSimulation()
@@ -87,45 +88,36 @@ def test_sunTrackError_config_roundtrip():
     )
 
 
-def test_sunTrackError_no_maneuver_matches_tracking_error():
-    """Without the optional messages, computeAngleStart is false and the module reduces to a plain
-    attitude tracking error about the input reference frame. Verifies the adapter message I/O and
-    the no-maneuver path end to end against an independent truth."""
+def test_sunTrackError_no_maneuver_passes_reference_through():
+    """Without the optional messages, computeAngleStart is false and no maneuver is applied, so the
+    output reference frame equals the input reference. Verifies the adapter message I/O end to end."""
     dataLog = _run_sim(sun_avoidance=False)
 
-    BN = rbk.MRP2C(np.array(sigma_BN))
-    RN = rbk.MRP2C(np.array(sigma_RN))
-    BR = np.dot(BN, RN.T)
-
     tol = 1e-6
-    np.testing.assert_allclose(dataLog.sigma_BR[-1], rbk.C2MRP(BR), rtol=tol, atol=tol)
-    np.testing.assert_allclose(dataLog.omega_RN_B[-1], np.dot(BN, np.array(omega_RN_N)), rtol=tol, atol=tol)
-    np.testing.assert_allclose(
-        dataLog.omega_BR_B[-1], np.array(omega_BN_B) - np.dot(BN, np.array(omega_RN_N)), rtol=tol, atol=tol
-    )
-    np.testing.assert_allclose(dataLog.domega_RN_B[-1], np.dot(BN, np.array(domega_RN_N)), rtol=tol, atol=tol)
+    np.testing.assert_allclose(dataLog.sigma_RN[-1], sigma_RN, rtol=tol, atol=tol)
+    np.testing.assert_allclose(dataLog.omega_RN_N[-1], omega_RN_N, rtol=tol, atol=tol)
+    np.testing.assert_allclose(dataLog.domega_RN_N[-1], domega_RN_N, rtol=tol, atol=tol)
 
 
 def test_sunTrackError_optional_messages_engage_maneuver():
     """Subscribing the optional trans/ephemeris messages engages the Sun-avoidance maneuver
-    (computeAngleStart is derived from the link state), shifting the guidance output away from the
-    no-maneuver tracking error. Exercises the optional-message wiring and the double[3]->float
+    (computeAngleStart is derived from the link state), which rotates the output reference frame away
+    from the input reference. Exercises the optional-message wiring and the double[3]->float
     position/ephemeris conversion path."""
-    off = _run_sim(sun_avoidance=False)
     on = _run_sim(sun_avoidance=True)
 
-    assert np.all(np.isfinite(on.sigma_BR))
-    assert np.all(np.isfinite(on.omega_BR_B))
-    assert np.all(np.isfinite(on.omega_RN_B))
-    assert np.all(np.isfinite(on.domega_RN_B))
+    assert np.all(np.isfinite(on.sigma_RN))
+    assert np.all(np.isfinite(on.omega_RN_N))
+    assert np.all(np.isfinite(on.domega_RN_N))
 
-    # The engaged maneuver changes the attitude error and the reference rate relative to
-    # the maneuver-off tracking error.
-    assert not np.allclose(on.sigma_BR, off.sigma_BR, atol=1e-4)
-    assert not np.allclose(on.omega_RN_B, off.omega_RN_B, atol=1e-4)
+    # The engaged maneuver rotates the reference attitude and adds a feed-forward rate.
+    assert not np.allclose(on.sigma_RN, sigma_RN, atol=1e-4)
+    assert not np.allclose(on.omega_RN_N, omega_RN_N, atol=1e-4)
+    # The constant-rate maneuver adds no angular acceleration.
+    np.testing.assert_allclose(on.domega_RN_N[-1], domega_RN_N, rtol=1e-6, atol=1e-6)
 
 
 if __name__ == "__main__":
     test_sunTrackError_config_roundtrip()
-    test_sunTrackError_no_maneuver_matches_tracking_error()
+    test_sunTrackError_no_maneuver_passes_reference_through()
     test_sunTrackError_optional_messages_engage_maneuver()

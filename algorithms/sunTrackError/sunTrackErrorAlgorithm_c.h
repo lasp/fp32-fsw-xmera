@@ -59,17 +59,17 @@ void SunTrackErrorAlgorithm_setConfig(SunTrackErrorAlgorithmHandle* self, const 
 void SunTrackErrorAlgorithm_reInitialize(SunTrackErrorAlgorithmHandle* self);
 
 /**
- * @brief Compute the attitude tracking error for sun avoidance.
+ * @brief Compute the Sun-avoidance maneuver-adjusted reference frame.
  * @param self     Pointer to the instance.
- * @param nav      Attitude navigation inputs (algorithm-native POD, mirrors NavAttMsgF32Payload).
+ * @param sigma_BN Measured MRP attitude of the body wrt inertial N.
  * @param ref      Attitude reference inputs (algorithm-native POD, mirrors AttRefMsgF32Payload).
  * @param r_BN_N   Spacecraft inertial position [m].
  * @param r_SN_N   Sun inertial position [m].
  * @param callTime The clock time at which the function was called (nanoseconds).
- * @return SunTrackErrorOutput_c  Output attitude guidance error.
+ * @return SunTrackErrorOutput_c  The maneuver-adjusted reference frame.
  */
 SunTrackErrorOutput_c SunTrackErrorAlgorithm_update(SunTrackErrorAlgorithmHandle* self,
-                                                    const SunTrackErrorNavAttInputs_c* nav,
+                                                    const Vector3f_c* sigma_BN,
                                                     const SunTrackErrorAttRefInputs_c* ref,
                                                     const Vector3f_c* r_BN_N,
                                                     const Vector3f_c* r_SN_N,

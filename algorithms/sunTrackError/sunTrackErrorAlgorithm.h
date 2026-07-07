@@ -7,22 +7,17 @@
 #include <stdint.h>
 #include <Eigen/Core>
 
-struct SunTrackErrorNavAttInputs {
-    Eigen::Vector3f sigma_BN{Eigen::Vector3f::Zero()};    //!< [-] measured MRP attitude of B wrt inertial N
-    Eigen::Vector3f omega_BN_B{Eigen::Vector3f::Zero()};  //!< [r/s] measured body rate of B wrt N in B frame
-};
-
 struct SunTrackErrorAttRefInputs {
     Eigen::Vector3f sigma_RN{Eigen::Vector3f::Zero()};     //!< [-] reference MRP attitude of R wrt inertial N
     Eigen::Vector3f omega_RN_N{Eigen::Vector3f::Zero()};   //!< [r/s] reference rate of R wrt N in N frame
     Eigen::Vector3f domega_RN_N{Eigen::Vector3f::Zero()};  //!< [r/s^2] reference angular acceleration in N frame
 };
 
+// The maneuver-adjusted reference frame: the input reference rotated by the Sun-avoidance maneuver.
 struct SunTrackErrorOutput {
-    Eigen::Vector3f sigma_BR{Eigen::Vector3f::Zero()};     //!< [-] attitude error MRP of B wrt R
-    Eigen::Vector3f omega_BR_B{Eigen::Vector3f::Zero()};   //!< [r/s] body rate error of B wrt R in B frame
-    Eigen::Vector3f omega_RN_B{Eigen::Vector3f::Zero()};   //!< [r/s] reference rate of R wrt N in B frame
-    Eigen::Vector3f domega_RN_B{Eigen::Vector3f::Zero()};  //!< [r/s^2] reference angular acceleration in B frame
+    Eigen::Vector3f sigma_RN{Eigen::Vector3f::Zero()};     //!< [-] adjusted reference MRP wrt inertial N
+    Eigen::Vector3f omega_RN_N{Eigen::Vector3f::Zero()};   //!< [r/s] adjusted reference rate, N-frame components
+    Eigen::Vector3f domega_RN_N{Eigen::Vector3f::Zero()};  //!< [r/s^2] adjusted reference angular acceleration, N frame
 };
 
 class SunTrackErrorConfig final {
@@ -66,16 +61,16 @@ class SunTrackErrorAlgorithm final {
     void setConfig(const SunTrackErrorConfig& config);
 
     void reInitialize();
-    SunTrackErrorOutput update(const SunTrackErrorNavAttInputs& nav,
+    SunTrackErrorOutput update(const Eigen::Vector3f& sigma_BN,
                                const SunTrackErrorAttRefInputs& ref,
                                const Eigen::Vector3f& r_BN_N,
                                const Eigen::Vector3f& r_SN_N,
                                uint64_t callTime);
 
    private:
-    SunTrackErrorOutput computeSunTrackError(const SunTrackErrorNavAttInputs& nav,
-                                             const SunTrackErrorAttRefInputs& ref,
-                                             uint64_t callTime) const;
+    SunTrackErrorOutput computeAdjustedReference(const Eigen::Vector3f& sigma_BN,
+                                                 const SunTrackErrorAttRefInputs& ref,
+                                                 uint64_t callTime) const;
 
     SunTrackErrorConfig cfg;
 

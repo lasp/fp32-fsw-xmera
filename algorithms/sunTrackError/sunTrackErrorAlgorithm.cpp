@@ -26,15 +26,17 @@ void SunTrackErrorAlgorithm::setConfig(const SunTrackErrorConfig& config) { this
  */
 void SunTrackErrorAlgorithm::reInitialize() { this->maneuverInitialized = false; }
 
-/*! This method computes the attitude tracking error for sun avoidance
- @return SunTrackErrorOutput
- @param nav attitude navigation inputs
+/*! This method computes the Sun-avoidance maneuver-adjusted reference frame. On the first call the
+ maneuver angle and axis are initialized from the Sun geometry; the residual angle is then fed forward
+ at the configured rate on subsequent calls.
+ @return SunTrackErrorOutput the maneuver-adjusted reference frame (sigma_RN, omega_RN_N, domega_RN_N)
+ @param sigma_BN measured MRP attitude of the body wrt inertial N
  @param ref attitude reference inputs
  @param r_BN_N spacecraft inertial position
  @param r_SN_N sun inertial position
  @param callTime The clock time at which the function was called (nanoseconds)
  */
-SunTrackErrorOutput SunTrackErrorAlgorithm::update(const SunTrackErrorNavAttInputs& nav,
+SunTrackErrorOutput SunTrackErrorAlgorithm::update(const Eigen::Vector3f& sigma_BN,
                                                    const SunTrackErrorAttRefInputs& ref,
                                                    const Eigen::Vector3f& r_BN_N,
                                                    const Eigen::Vector3f& r_SN_N,
@@ -42,17 +44,15 @@ SunTrackErrorOutput SunTrackErrorAlgorithm::update(const SunTrackErrorNavAttInpu
     if (!this->maneuverInitialized) {
         if (this->cfg.getComputeAngleStart()) {
             const Eigen::Vector3f sensitiveHat_B = this->cfg.getSensitiveHat_B();
-            const Eigen::MRPf sigma_BN(nav.sigma_BN);
-            const Eigen::MRPf sigma_RN(ref.sigma_RN);
 
             const Eigen::Vector3f sHat_N = (r_SN_N - r_BN_N).normalized();  //!< inertial sun direction
 
-            const Eigen::Matrix3f dcm_BN = sigma_BN.toRotationMatrix().transpose();
+            const Eigen::Matrix3f dcm_BN = Eigen::MRPf(sigma_BN).toRotationMatrix().transpose();
             // Define initial sensitive sun direction
             const Eigen::Vector3f senstiveInitial_N = dcm_BN.transpose() * sensitiveHat_B;
 
             // The final body attitude aligns with the reference frame
-            const Eigen::Matrix3f dcm_BNFinal = sigma_RN.toRotationMatrix().transpose();
+            const Eigen::Matrix3f dcm_BNFinal = Eigen::MRPf(ref.sigma_RN).toRotationMatrix().transpose();
             // Define final sensitive sun direction
             const Eigen::Vector3f senstiveFinal_N = dcm_BNFinal.transpose() * sensitiveHat_B;
 
@@ -90,27 +90,23 @@ SunTrackErrorOutput SunTrackErrorAlgorithm::update(const SunTrackErrorNavAttInpu
         this->maneuverInitialized = true;
     }
 
-    return computeSunTrackError(nav, ref, callTime);
+    return computeAdjustedReference(sigma_BN, ref, callTime);
 }
 
-/*! This method computes the sun tracking error
- @return SunTrackErrorOutput
- @param nav attitude navigation inputs
+/*! This method superimposes the current maneuver rotation on the input reference frame, producing the
+ maneuver-adjusted reference frame. Downstream, attTrackingError forms the attitude tracking error from
+ this adjusted reference and the navigation attitude.
+ @return SunTrackErrorOutput the maneuver-adjusted reference frame (sigma_RN, omega_RN_N, domega_RN_N)
+ @param sigma_BN measured MRP attitude of the body wrt inertial N
  @param ref attitude reference inputs
  @param callTime The clock time at which the function was called (nanoseconds)
  */
-SunTrackErrorOutput SunTrackErrorAlgorithm::computeSunTrackError(const SunTrackErrorNavAttInputs& nav,
-                                                                 const SunTrackErrorAttRefInputs& ref,
-                                                                 const uint64_t callTime) const {
-    const Eigen::MRPf sigmaLocal_BN(nav.sigma_BN);
-    const Eigen::Vector3f omegaLocal_BN_B = nav.omega_BN_B;
-    const Eigen::MRPf sigmaLocal_RN(ref.sigma_RN);
-    const Eigen::Vector3f omegaLocal_RN_N = ref.omega_RN_N;
-    const Eigen::Vector3f domegaLocal_RN_N = ref.domega_RN_N;
-
+SunTrackErrorOutput SunTrackErrorAlgorithm::computeAdjustedReference(const Eigen::Vector3f& sigma_BN,
+                                                                     const SunTrackErrorAttRefInputs& ref,
+                                                                     const uint64_t callTime) const {
     // Convert mrps to dcms
-    const Eigen::Matrix3f dcm_BN = sigmaLocal_BN.toRotationMatrix().transpose();
-    const Eigen::Matrix3f dcm_RN = sigmaLocal_RN.toRotationMatrix().transpose();
+    const Eigen::Matrix3f dcm_BN = Eigen::MRPf(sigma_BN).toRotationMatrix().transpose();
+    const Eigen::Matrix3f dcm_RN = Eigen::MRPf(ref.sigma_RN).toRotationMatrix().transpose();
 
     const float dtSeconds = static_cast<float>(callTime - this->mnvrStartTime) * kNano2SecF;
 
@@ -121,26 +117,21 @@ SunTrackErrorOutput SunTrackErrorAlgorithm::computeSunTrackError(const SunTrackE
 
     SunTrackErrorOutput out{};
 
-    // This calculation can be seen in attitude tracking documentation
+    // Rotate the input reference frame by the current maneuver rotation to get the adjusted reference
     const Eigen::Vector3f prv_BR = relativeAngleCurr * this->mnvrAxis_B;
     const Eigen::Matrix3f dcmCmd_BR = prvToDcm(prv_BR);
-    const Eigen::Matrix3f dcm_BR = dcm_BN * (dcmCmd_BR * dcm_RN).transpose();
-    out.sigma_BR = dcmToMrp(dcm_BR);
+    const Eigen::Matrix3f dcm_RcN = dcmCmd_BR * dcm_RN;
+    out.sigma_RN = dcmToMrp(dcm_RcN);
 
-    // This calculation can be seen in attitude tracking documentation
-    Eigen::Vector3f omegaLocal_RN_B = dcm_BN * omegaLocal_RN_N;
-
-    const Eigen::Vector3f omegaCatchup_BN_B = -this->cfg.getAngleRate() * this->mnvrAxis_B;
-    // Logic to provide the feedforward rate
+    // Feed the maneuver rate forward as an extra reference angular velocity (expressed in N frame)
+    Eigen::Vector3f omega_RcN_N = ref.omega_RN_N;
     if (relativeAngleCurr > 0.0F) {
-        omegaLocal_RN_B += omegaCatchup_BN_B;
+        omega_RcN_N += -this->cfg.getAngleRate() * (dcm_BN.transpose() * this->mnvrAxis_B);
     }
-    out.omega_RN_B = omegaLocal_RN_B;
+    out.omega_RN_N = omega_RcN_N;
 
-    // Perform remaining attitude tracking calculations
-    out.omega_BR_B = omegaLocal_BN_B - omegaLocal_RN_B;
-
-    out.domega_RN_B = dcm_BN * domegaLocal_RN_N;  //!< reference d(omega)/dt in body frame components
+    // The constant-rate maneuver adds no angular acceleration, so the reference acceleration is unchanged
+    out.domega_RN_N = ref.domega_RN_N;
 
     return out;
 }
