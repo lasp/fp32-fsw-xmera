@@ -78,10 +78,10 @@ class SunTrackErrorAlgorithm final {
 
     SunTrackErrorConfig cfg;
 
-    Eigen::Vector3f mnvrAxis_B{Eigen::Vector3f::Zero()};  //!< [-] Eigen axis that we are maneuvering on*/
-    float angleStart{};                                   //!< [r] The angle remaining in the attitude maneuver*/
-    bool maneuverInitialized{};                           //!< [-] Flag indicating if maneuver has been set*/
-    uint64_t mnvrStartTime{};                             //!< [ns] Time at which the maneuver was begun*/
+    Eigen::Vector3f maneuverAxis_B{Eigen::Vector3f::Zero()};  //!< [-] principal rotation axis of the maneuver
+    float maneuverAngle{};         //!< [rad] total maneuver rotation angle, set at initialization
+    bool maneuverInitialized{};    //!< [-] whether the maneuver has been initialized
+    uint64_t maneuverStartTime{};  //!< [ns] time at which the maneuver began
 };
 
 #endif
