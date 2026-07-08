@@ -65,29 +65,29 @@ void SunTrackErrorAlgorithm::initializeManeuver(const Eigen::Vector3f& sigma_BN,
 
     const Eigen::Matrix3f dcm_BN = mrpToDcm(sigma_BN);
     // Define initial sensitive sun direction
-    const Eigen::Vector3f senstiveInitial_N = dcm_BN.transpose() * sensitiveHat_B;
+    const Eigen::Vector3f sensitiveInitial_N = dcm_BN.transpose() * sensitiveHat_B;
 
     // The final body attitude aligns with the reference frame
     const Eigen::Matrix3f dcm_BNFinal = mrpToDcm(ref.sigma_RN);
     // Define final sensitive sun direction
-    const Eigen::Vector3f senstiveFinal_N = dcm_BNFinal.transpose() * sensitiveHat_B;
+    const Eigen::Vector3f sensitiveFinal_N = dcm_BNFinal.transpose() * sensitiveHat_B;
 
     // Define axis of rotation for sensitive sun direction
-    const Eigen::Vector3f senstiveAxis_N = (senstiveInitial_N.cross(senstiveFinal_N)).normalized();
-    // Perform a Gram-Schmidt process to get a unit vector in the direction of sHat with no senstiveAxis_N comp
-    const Eigen::Vector3f pHat_N = (sHat_N - (senstiveAxis_N.dot(sHat_N)) * senstiveAxis_N).normalized();
+    const Eigen::Vector3f sensitiveAxis_N = (sensitiveInitial_N.cross(sensitiveFinal_N)).normalized();
+    // Perform a Gram-Schmidt process to get a unit vector in the direction of sHat with no sensitiveAxis_N comp
+    const Eigen::Vector3f pHat_N = (sHat_N - (sensitiveAxis_N.dot(sHat_N)) * sensitiveAxis_N).normalized();
 
-    // Define total angle between initial and final directions of senstive surface
-    const float initMnvrAngle = safeAcosf(senstiveInitial_N.dot(senstiveFinal_N));
+    // Define total angle between initial and final directions of sensitive surface
+    const float initMnvrAngle = safeAcosf(sensitiveInitial_N.dot(sensitiveFinal_N));
     // Define the angle between the sHatDirection not in the rotation axis and initial sensitive direction
-    const float initCelAngle = safeAcosf(pHat_N.dot(senstiveInitial_N));
+    const float initCelAngle = safeAcosf(pHat_N.dot(sensitiveInitial_N));
 
     const Eigen::Matrix3f dcm_BR = dcm_BN * dcm_BNFinal.transpose();
     const Eigen::Vector3f prv_BR = dcmToPrv(dcm_BR);
     this->angleStart = prv_BR.norm();        //!< Find the principal rotation angle
     this->mnvrAxis_B = prv_BR.normalized();  //!< Find the principal rotation axis
 
-    const Eigen::Vector3f sensToSunAxis_N = (senstiveInitial_N.cross(sHat_N)).normalized();
+    const Eigen::Vector3f sensToSunAxis_N = (sensitiveInitial_N.cross(sHat_N)).normalized();
     const Eigen::Vector3f mnvrAxis_N = dcm_BN.transpose() * this->mnvrAxis_B;
     // Define dot product between the angle between how close the sun could move to the sensitive surface
     const float finalCelAngle = sensToSunAxis_N.dot(mnvrAxis_N);
