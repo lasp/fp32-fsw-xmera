@@ -28,8 +28,12 @@ void SunSafePoint::reset(uint64_t callTime) {
  @return SunSafePointConfig validated configuration
 */
 SunSafePointConfig SunSafePoint::toConfig() const {
-    return SunSafePointConfig::create(
-        this->rotations, this->sHatBdyCmd, this->sunAxisSpinRate, this->omega_RN_B, this->observationThreshold);
+    return SunSafePointConfig::create(this->rotations,
+                                      this->sHatBdyCmd,
+                                      this->sunAxisSpinRate,
+                                      this->omega_RN_B,
+                                      this->observationThreshold,
+                                      this->controlPeriod);
 }
 
 /*! Re-validate the current module parameters and push them onto the live algorithm without
@@ -82,7 +86,7 @@ void SunSafePoint::updateState(uint64_t callTime) {
 
     // Call the algorithm update method
     SunSafePointOutput output =
-        this->algorithm->update(callTime, vehSunPntBdy, omega_BN_B, filterResidualsMsgPayload.sizeOfObservations);
+        this->algorithm->update(vehSunPntBdy, omega_BN_B, filterResidualsMsgPayload.sizeOfObservations);
 
     // Convert algorithm output to MsgPayload
     AttGuidMsgF32Payload attGuidanceOutBuffer{};

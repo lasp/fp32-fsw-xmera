@@ -89,6 +89,7 @@ def test_sun_safe_point(show_plots, case):
     sun_safe_point.omega_RN_B = omega_RN_B_Search
     sun_safe_point.sunAxisSpinRate = sunAxisSpinRate
     sun_safe_point.observationThreshold = 4
+    sun_safe_point.controlPeriod = 0.5  # matches the 0.5 s task rate
 
     # Configure a (no-op) search sequence; the run advances past it to force the POINT transition.
     for i in range(4):
@@ -179,9 +180,9 @@ def test_sun_safe_point(show_plots, case):
     assert read_rotation.rotationAxis == sunSafePointF32.RotationAxis_b1Hat_B
 
 def test_search_then_point(show_plots):
-    """Adapter wiring: stepping callTime with the filter-residuals observation count drives the
-    output from the search sequence into sun pointing. Confirms the adapter threads callTime through
-    and reads sizeOfObservations from filterResidualsInMsg (it would fail if either were dropped)."""
+    """Adapter wiring: running the task advances the search sequence (one controlPeriod per update)
+    and the filter-residuals observation count drives the transition into sun pointing. Confirms the
+    adapter reads sizeOfObservations from filterResidualsInMsg (it would fail if it were dropped)."""
     unit_task_name = "unitTask"
     unit_process_name = "TestProcess"
 
@@ -199,6 +200,7 @@ def test_search_then_point(show_plots):
     sun_safe_point.sHatBdyCmd = sHat_cmd_B
     sun_safe_point.sunAxisSpinRate = 0.0
     sun_safe_point.observationThreshold = 4
+    sun_safe_point.controlPeriod = 0.5  # matches the 0.5 s task rate
 
     # Search sequence: rotation 1 spins at 0.2 rad/s about b1 for 1 s, remaining rotations no-op.
     rates = [0.2, 0.0, 0.0, 0.0]
@@ -288,6 +290,7 @@ def test_reconfigure_applies_params(show_plots):
     sun_safe_point.sHatBdyCmd = sHat_cmd_B
     sun_safe_point.sunAxisSpinRate = 0.0
     sun_safe_point.observationThreshold = 4
+    sun_safe_point.controlPeriod = 0.5  # matches the 0.5 s task rate
 
     # No-op search sequence; the run advances past it to force the POINT transition.
     for i in range(4):
@@ -357,6 +360,7 @@ def test_reinitialize_rearms_search(show_plots):
     sun_safe_point.sHatBdyCmd = sHat_cmd_B
     sun_safe_point.sunAxisSpinRate = 0.0
     sun_safe_point.observationThreshold = 4
+    sun_safe_point.controlPeriod = 0.5  # matches the 0.5 s task rate
 
     # Search sequence with a non-zero first-rotation rate so the SEARCH output (omega_RN_B about
     # b1Hat_B) is distinguishable from the spin-0 POINT output (omega_RN_B == 0).

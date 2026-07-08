@@ -87,6 +87,12 @@ Module Parameters
       - [-]
       - 4
       - CSS observation count at or above which the sun is considered acquired
+    * - controlPeriod (required)
+      - float
+      - [s]
+      - zero
+      - Module update/control period. The search timeline advances by one ``controlPeriod`` per
+        update, so this must equal the module's scheduling rate (must be finite and > 0)
     * - rotations
       - RotationProperties[4]
       - --
@@ -102,6 +108,9 @@ Module Assumptions and Limitations
 - The sun-pointing condition is under-determined (2 DOF): the rotation about :math:`\mathbf s` is arbitrary.
 - Each rotation's duration must be finite and strictly positive; the commanded rate must be finite
   (any sign). Invalid sequences are rejected when the configuration is installed.
+- The search timeline is advanced by one ``controlPeriod`` per update rather than from an absolute
+  clock, so ``controlPeriod`` must equal the rate at which the module is scheduled; a mismatch makes
+  the rotation durations elapse faster or slower than wall-clock time.
 
 Initialization
 --------------
@@ -113,6 +122,7 @@ The module is configured by::
     module.sunAxisSpinRate = 0.0
     module.omega_RN_B = [0.0, 0.0, 0.0]
     module.observationThreshold = 4
+    module.controlPeriod = 0.5  # must match the task update rate
 
     rotation = sunSafePointF32.RotationProperties()
     rotation.rotationDuration = 30.0
@@ -132,9 +142,10 @@ Detailed Module Description
 
 Phase State Machine
 ^^^^^^^^^^^^^^^^^^^
-On the first update after ``reset()`` the module latches the current time as the search start and
-enters the SEARCH phase. Let :math:`t_e` be the elapsed time since the start and
-:math:`T_k` the cumulative end time of rotation :math:`k`. The transition to POINT occurs when
+On ``reset()`` (and on ``reInitialize()``) the elapsed-time counter is zeroed and the module
+enters the SEARCH phase. Each ``updateState()`` advances the counter by one ``controlPeriod``; let
+:math:`t_e` be that accumulated elapsed time and :math:`T_k` the cumulative end time of rotation
+:math:`k`. The transition to POINT occurs when
 
 .. math::
 

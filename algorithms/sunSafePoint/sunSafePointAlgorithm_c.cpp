@@ -18,7 +18,8 @@ SunSafePointConfig configFromC(const SunSafePointConfig_c& c) {
                                       cArrayToEigenVector3<float>(c.sHatBdyCmd.data),
                                       c.sunAxisSpinRate,
                                       cArrayToEigenVector3<float>(c.omega_RN_B.data),
-                                      c.observationThreshold);
+                                      c.observationThreshold,
+                                      c.controlPeriod);
 }
 }  // namespace
 
@@ -41,15 +42,11 @@ void SunSafePointAlgorithm_reInitialize(SunSafePointAlgorithmHandle* self) {
 }
 
 SunSafePointOutput_c SunSafePointAlgorithm_update(SunSafePointAlgorithmHandle* self,
-                                                  const uint64_t callTime,
                                                   const Vector3f_c rHat_SB_B,
                                                   const Vector3f_c omega_BN_B,
                                                   const int numCssViewingSun) {
-    const SunSafePointOutput out =
-        reinterpret_cast<::SunSafePointAlgorithm*>(self)->update(callTime,
-                                                                 cArrayToEigenVector3<float>(rHat_SB_B.data),
-                                                                 cArrayToEigenVector3<float>(omega_BN_B.data),
-                                                                 numCssViewingSun);
+    const SunSafePointOutput out = reinterpret_cast<::SunSafePointAlgorithm*>(self)->update(
+        cArrayToEigenVector3<float>(rHat_SB_B.data), cArrayToEigenVector3<float>(omega_BN_B.data), numCssViewingSun);
 
     SunSafePointOutput_c result{};
     eigenVectorToCArray(out.sigma_BR, result.sigma_BR.data);

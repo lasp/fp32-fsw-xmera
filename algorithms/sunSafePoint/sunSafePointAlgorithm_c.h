@@ -61,14 +61,12 @@ void SunSafePointAlgorithm_reInitialize(SunSafePointAlgorithmHandle* self);
 /**
  * @brief Run the update step.
  * @param self              Pointer to the instance.
- * @param callTime          Current simulation time [ns].
  * @param rHat_SB_B      Sun direction vector in body frame.
  * @param omega_BN_B        Inertial body angular velocity in body frame.
  * @param numCssViewingSun Number of valid coarse-sun-sensor observations this cycle.
  * @return SunSafePointOutput_c  The computed guidance output.
  */
 SunSafePointOutput_c SunSafePointAlgorithm_update(SunSafePointAlgorithmHandle* self,
-                                                  uint64_t callTime,
                                                   Vector3f_c rHat_SB_B,
                                                   Vector3f_c omega_BN_B,
                                                   int numCssViewingSun);

@@ -44,7 +44,8 @@ class SunSafePointConfig final {
                                      const Eigen::Vector3f& sHatBdyCmd,
                                      float sunAxisSpinRate,
                                      const Eigen::Vector3f& omega_RN_B,
-                                     int observationThreshold) {
+                                     int observationThreshold,
+                                     float controlPeriod) {
         for (auto [rotationDuration, rotationRate, rotationAxis] : rotations) {
             if (!isValidRotationDuration(rotationDuration)) {
                 FSW_THROW_INVALID_ARGUMENT("sunSafePoint: rotationDuration must be finite and > 0");
@@ -59,8 +60,11 @@ class SunSafePointConfig final {
         if (!isValidSHatBdyCmd(sHatBdyCmd)) {
             FSW_THROW_INVALID_ARGUMENT("sunSafePoint: sHatBdyCmd norm must be within 1e-3 of 1.0");
         }
+        if (!isValidControlPeriod(controlPeriod)) {
+            FSW_THROW_INVALID_ARGUMENT("sunSafePoint: controlPeriod must be finite and > 0");
+        }
         return SunSafePointConfig{
-            rotations, sHatBdyCmd.normalized(), sunAxisSpinRate, omega_RN_B, observationThreshold};
+            rotations, sHatBdyCmd.normalized(), sunAxisSpinRate, omega_RN_B, observationThreshold, controlPeriod};
     }
 
     static bool isValidRotationDuration(float time) { return fsw::is_finite(time) && time > 0.0F; }
@@ -72,12 +76,16 @@ class SunSafePointConfig final {
         constexpr float kUnitNormTol = 1e-3F;
         return fabsf(sHatBdyCmd.norm() - 1.0F) <= kUnitNormTol;
     }
+    static bool isValidControlPeriod(float controlPeriod) {
+        return fsw::is_finite(controlPeriod) && controlPeriod > 0.0F;
+    }
 
     const std::array<RotationProperties, kNumRotations>& getRotations() const { return rotations; }
     const Eigen::Vector3f& getSHatBdyCmd() const { return sHatBdyCmd; }
     float getSunAxisSpinRate() const { return sunAxisSpinRate; }
     const Eigen::Vector3f& getOmega_RN_B() const { return omega_RN_B; }
     int getObservationThreshold() const { return observationThreshold; }
+    float getControlPeriod() const { return controlPeriod; }
 
    private:
     // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
@@ -85,18 +93,21 @@ class SunSafePointConfig final {
                        const Eigen::Vector3f& sHatBdyCmdIn,
                        float sunAxisSpinRateIn,
                        const Eigen::Vector3f& omega_RN_BIn,
-                       int observationThresholdIn)
+                       int observationThresholdIn,
+                       float controlPeriodIn)
         : rotations(rotationsIn),
           sHatBdyCmd(sHatBdyCmdIn),
           sunAxisSpinRate(sunAxisSpinRateIn),
           omega_RN_B(omega_RN_BIn),
-          observationThreshold(observationThresholdIn) {}
+          observationThreshold(observationThresholdIn),
+          controlPeriod(controlPeriodIn) {}
 
     std::array<RotationProperties, kNumRotations> rotations;
     Eigen::Vector3f sHatBdyCmd;
     float sunAxisSpinRate;
     Eigen::Vector3f omega_RN_B;
     int observationThreshold;
+    float controlPeriod;
 };
 
 /**
@@ -113,8 +124,7 @@ class SunSafePointAlgorithm final {
     explicit SunSafePointAlgorithm(const SunSafePointConfig& config);
     ~SunSafePointAlgorithm() = default;
 
-    SunSafePointOutput update(uint64_t callTime,
-                              const Eigen::Vector3f& rHat_SB_B,
+    SunSafePointOutput update(const Eigen::Vector3f& rHat_SB_B,
                               const Eigen::Vector3f& omega_BN_B,
                               int numCssViewingSun);
 
@@ -124,14 +134,14 @@ class SunSafePointAlgorithm final {
    private:
     enum class Phase { Searching, Pointing };
 
-    SunSafePointOutput computeSearch(uint64_t callTime, const Eigen::Vector3f& omega_BN_B) const;
+    SunSafePointOutput computeSearch(const Eigen::Vector3f& omega_BN_B) const;
     SunSafePointOutput computePointing(const Eigen::Vector3f& rHat_SB_B, const Eigen::Vector3f& omega_BN_B) const;
     void precomputeEndTimes();
 
     SunSafePointConfig cfg;                                  //!< validated configuration (rotations + pointing params)
     std::array<uint64_t, kNumRotations> rotationEndTimes{};  //!< [ns] cumulative end time of each rotation
-    uint64_t searchStartTime{};                              //!< [ns] time at which the rotation sequence begins
-    bool firstPass{true};                                    //!< [-] true until the start time has been captured
+    uint64_t controlPeriodNs{};                              //!< [ns] elapsed time added per update() call
+    uint64_t elapsedTimeNs{};                                //!< [ns] time elapsed in the search sequence so far
     Phase phase{Phase::Searching};                           //!< [-] current guidance phase (Pointing is terminal)
     bool searchFailed{false};  //!< [-] latched true if the sequence elapsed without acquiring the sun
 };

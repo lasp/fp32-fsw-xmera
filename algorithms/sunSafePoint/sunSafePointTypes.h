@@ -41,6 +41,7 @@ typedef struct {
  *  - sHatBdyCmd norm must be within 1e-3 of 1.0 (renormalized on storage)
  *  - sunAxisSpinRate and omega_RN_B are unconstrained
  *  - observationThreshold is the CSS count at or above which to transition to pointing
+ *  - controlPeriod is the per-update time step [s] (must be finite and > 0)
  */
 typedef struct {
     RotationProperties_c rotations[SUN_SAFE_POINT_NUM_ROTATIONS]; /*!< [-] sun-search rotation sequence */
@@ -48,6 +49,7 @@ typedef struct {
     float sunAxisSpinRate;    /*!< [rad/s] constant spin rate about the sun heading vector */
     Vector3f_c omega_RN_B;    /*!< [rad/s] fallback body rate when no sun direction is available */
     int observationThreshold; /*!< [-] CSS count at or above which to transition to pointing */
+    float controlPeriod;      /*!< [s] per-update time step; advances the search timeline (> 0) */
 } SunSafePointConfig_c;
 
 #ifdef __cplusplus

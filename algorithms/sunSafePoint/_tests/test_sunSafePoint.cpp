@@ -259,33 +259,29 @@ TEST(SunSafePointTest, NegativeRateProducesSignedOmegaComponent) {
     const auto rotations = buildRotations({10.0F, 10.0F, 10.0F, 10.0F}, {-0.5F, 0.1F, 0.1F, 0.1F}, {2, 0, 0, 0});
     SunSafePointAlgorithm alg{makeSearchConfig(rotations)};
 
-    const uint64_t startTime = 1000U;
-    (void)alg.update(startTime, Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(), 0);
-
-    const uint64_t midSlotZero = startTime + static_cast<uint64_t>(5.0F * kSec2NanoF);
-    const SunSafePointOutput out = alg.update(midSlotZero, Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(), 0);
+    // Mid slot 0 (5 s into the first 10 s rotation): signed rate -0.5 about b3Hat_B.
+    const SunSafePointOutput out = advanceTo(alg, secToNs(5.0), Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(), 0);
     EXPECT_NEAR(out.omega_RN_B[2], -0.5F, 1e-6);  // b3Hat_B
     EXPECT_NEAR(out.omega_RN_B[0], 0.0F, 1e-6);
     EXPECT_NEAR(out.omega_RN_B[1], 0.0F, 1e-6);
 }
 
-TEST(SunSafePointTest, ReInitializeReArmsStartTime) {
-    // After setConfig + reInitialize, the next update() must latch a fresh sequence start time so the
-    // new sequence begins from elapsed = 0.
+TEST(SunSafePointTest, ReInitializeRestartsSearch) {
+    // reInitialize() zeroes the elapsed-time counter, so after setConfig + reInitialize the next
+    // update() begins the new sequence from slot 0.
     const auto rotations1 = buildRotations({1.0F, 1.0F, 1.0F, 1.0F}, {0.1F, 0.2F, 0.3F, 0.4F}, {0, 1, 2, 0});
     SunSafePointAlgorithm alg{makeSearchConfig(rotations1)};
 
-    (void)alg.update(1000U, Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(), 0);
-    (void)alg.update(
-        1000U + static_cast<uint64_t>(0.5F * kSec2NanoF), Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(), 0);
+    // Advance partway into the first sequence.
+    (void)alg.update(Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(), 0);
+    (void)alg.update(Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(), 0);
 
     const auto rotations2 = buildRotations({2.0F, 2.0F, 2.0F, 2.0F}, {1.0F, 1.0F, 1.0F, 1.0F}, {1, 1, 1, 1});
     alg.setConfig(makeSearchConfig(rotations2));
     alg.reInitialize();
 
-    // Far-future absolute time; if start was re-armed, elapsed = 0 and we are in slot 0 of cfg2.
-    const uint64_t newCall = 1000U + static_cast<uint64_t>(100.0F * kSec2NanoF);
-    const SunSafePointOutput out = alg.update(newCall, Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(), 0);
+    // Counter zeroed: the next update() sees elapsed = 0 and is in slot 0 of cfg2.
+    const SunSafePointOutput out = alg.update(Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(), 0);
     EXPECT_NEAR(out.omega_RN_B[1], 1.0F, 1e-6);  // slot 0 of cfg2: rate 1 about b2Hat_B
     EXPECT_NEAR(out.omega_RN_B[0], 0.0F, 1e-6);
     EXPECT_NEAR(out.omega_RN_B[2], 0.0F, 1e-6);
@@ -311,14 +307,10 @@ TEST(SunSafePointTest, NoTransitionDuringFirstRotation) {
     const auto rotations = buildRotations({10.0F, 10.0F, 10.0F, 10.0F}, {0.1F, 0.2F, 0.3F, 0.4F}, {0, 1, 2, 0});
     SunSafePointAlgorithm alg{makeSearchConfig(rotations)};
 
-    const uint64_t startTime = 1000U;
-    (void)alg.update(startTime, Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(), 0);  // latch start
-
     // Mid rotation 1 (5 s), observations far above threshold: must NOT transition yet.
-    const uint64_t midRotation1 = startTime + static_cast<uint64_t>(5.0F * kSec2NanoF);
     const Eigen::Vector3f sun{1.0F, 1.0F, 0.0F};
     const Eigen::Vector3f omega_BN_B{0.01F, -0.02F, 0.03F};
-    const SunSafePointOutput out = alg.update(midRotation1, sun, omega_BN_B, 100);
+    const SunSafePointOutput out = advanceTo(alg, secToNs(5.0), sun, omega_BN_B, 100);
 
     // Still SEARCH: zero attitude error, omega_RN_B = rotation-1 rate (0.1 about b1), no fault.
     EXPECT_FLOAT_EQ(out.sigma_BR.norm(), 0.0F);
@@ -332,24 +324,22 @@ TEST(SunSafePointTest, StaysSearchingBelowThreshold) {
     const auto rotations = buildRotations({10.0F, 10.0F, 10.0F, 10.0F}, {0.1F, 0.2F, 0.3F, 0.4F}, {0, 1, 2, 0});
     SunSafePointAlgorithm alg{makeSearchConfig(rotations)};
 
-    const uint64_t startTime = 1000U;
     const Eigen::Vector3f sun{1.0F, 1.0F, 0.0F};
-    (void)alg.update(startTime, Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(), 3);  // latch start
+    uint64_t nextElapsed = 0U;
 
     // Observations below the threshold (3 < 4) must NOT transition. Sample inside rotations 2, 3
     // and 4 (all before the 40 s sequence end): the gate stays closed and search advances
     // rotation-by-rotation.
-    auto checkSearch = [&](float tSec, const Eigen::Vector3f& expectedOmegaRN) {
-        const uint64_t callTime = startTime + static_cast<uint64_t>(tSec * kSec2NanoF);
-        const SunSafePointOutput out = alg.update(callTime, sun, Eigen::Vector3f::Zero(), 3);
+    auto checkSearch = [&](double tSec, const Eigen::Vector3f& expectedOmegaRN) {
+        const SunSafePointOutput out = observeAt(alg, nextElapsed, secToNs(tSec), sun, Eigen::Vector3f::Zero(), 3);
         EXPECT_FLOAT_EQ(out.sigma_BR.norm(), 0.0F);
         EXPECT_NEAR(out.omega_RN_B[0], expectedOmegaRN[0], 1e-6F);
         EXPECT_NEAR(out.omega_RN_B[1], expectedOmegaRN[1], 1e-6F);
         EXPECT_NEAR(out.omega_RN_B[2], expectedOmegaRN[2], 1e-6F);
     };
-    checkSearch(15.0F, Eigen::Vector3f{0.0F, 0.2F, 0.0F});  // rotation 2 about b2
-    checkSearch(25.0F, Eigen::Vector3f{0.0F, 0.0F, 0.3F});  // rotation 3 about b3
-    checkSearch(35.0F, Eigen::Vector3f{0.4F, 0.0F, 0.0F});  // rotation 4 about b1
+    checkSearch(15.0, Eigen::Vector3f{0.0F, 0.2F, 0.0F});  // rotation 2 about b2
+    checkSearch(25.0, Eigen::Vector3f{0.0F, 0.0F, 0.3F});  // rotation 3 about b3
+    checkSearch(35.0, Eigen::Vector3f{0.4F, 0.0F, 0.0F});  // rotation 4 about b1
 }
 
 TEST(SunSafePointTest, ForcedTransitionAfterAllRotations) {
@@ -358,14 +348,11 @@ TEST(SunSafePointTest, ForcedTransitionAfterAllRotations) {
     const auto cfg = makeSearchConfig(rotations);
     SunSafePointAlgorithm alg{cfg};
 
-    const uint64_t startTime = 1000U;
     const Eigen::Vector3f sun{1.0F, 1.0F, 0.0F};
     const Eigen::Vector3f omega_BN_B = Eigen::Vector3f::Zero();
-    (void)alg.update(startTime, Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(), 0);  // latch start
 
-    // Past the full 40 s sequence with observations never exceeding threshold: forced POINT.
-    const uint64_t pastSequence = startTime + static_cast<uint64_t>(45.0F * kSec2NanoF);
-    const SunSafePointOutput out = alg.update(pastSequence, sun, omega_BN_B, 0);
+    // Reaching the full 40 s sequence end with observations never exceeding threshold: forced POINT.
+    const SunSafePointOutput out = advanceTo(alg, secToNs(40.0), sun, omega_BN_B, 0);
 
     // Pointing output (matches the reference), NOT the held last-rotation rate (0.4 about b1).
     const auto reference = referenceUpdate(sun, omega_BN_B, 0.0F, cfg.getSHatBdyCmd(), Eigen::Vector3f::Zero());
@@ -384,17 +371,13 @@ TEST(SunSafePointTest, TransitionsToPointAtThreshold) {
 
     // The threshold can trigger the transition during any rotation after the first; use a fresh
     // instance per sub-case because POINT is terminal.
-    for (float tSec : {15.0F, 25.0F, 35.0F}) {
+    for (double tSec : {15.0, 25.0, 35.0}) {
         // sHatBdyCmd {0,0,1}, threshold 4
         const auto cfg = makeSearchConfig(rotations);
         SunSafePointAlgorithm alg{cfg};
 
-        const uint64_t startTime = 1000U;
-        (void)alg.update(startTime, Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(), 0);  // latch start
-
         // Observations at the threshold (4) past rotation 1: transition to POINT (rule is >=).
-        const uint64_t callTime = startTime + static_cast<uint64_t>(tSec * kSec2NanoF);
-        const SunSafePointOutput out = alg.update(callTime, sun, omega_BN_B, 4);
+        const SunSafePointOutput out = advanceTo(alg, secToNs(tSec), sun, omega_BN_B, 4);
 
         const auto reference = referenceUpdate(sun, omega_BN_B, 0.0F, cfg.getSHatBdyCmd(), Eigen::Vector3f::Zero());
         EXPECT_GT(out.sigma_BR.norm(), 0.0F);
@@ -412,18 +395,15 @@ TEST(SunSafePointTest, PointIsTerminalNoReturnToSearch) {
     const auto cfg = makeSearchConfig(rotations);
     SunSafePointAlgorithm alg{cfg};
 
-    const uint64_t startTime = 1000U;
     const Eigen::Vector3f sun{1.0F, 1.0F, 0.0F};
     const Eigen::Vector3f omega_BN_B = Eigen::Vector3f::Zero();
-    (void)alg.update(startTime, Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(), 0);  // latch start
+    uint64_t nextElapsed = 0U;
 
     // Enter POINT during rotation 2 by exceeding the threshold.
-    const uint64_t enterPoint = startTime + static_cast<uint64_t>(15.0F * kSec2NanoF);
-    (void)alg.update(enterPoint, sun, omega_BN_B, 5);
+    (void)observeAt(alg, nextElapsed, secToNs(15.0), sun, omega_BN_B, 5);
 
     // Later, still inside the nominal sequence, observations drop to 0: must stay POINT.
-    const uint64_t later = startTime + static_cast<uint64_t>(18.0F * kSec2NanoF);
-    const SunSafePointOutput out = alg.update(later, sun, omega_BN_B, 0);
+    const SunSafePointOutput out = observeAt(alg, nextElapsed, secToNs(18.0), sun, omega_BN_B, 0);
 
     const auto reference = referenceUpdate(sun, omega_BN_B, 0.0F, cfg.getSHatBdyCmd(), Eigen::Vector3f::Zero());
     EXPECT_GT(out.sigma_BR.norm(), 0.0F);  // pointing, not a search rate
@@ -440,25 +420,22 @@ TEST(SunSafePointTest, PointResumesPointingWhenSunReturns) {
         makeSearchConfig(rotations, Eigen::Vector3f{0.0F, 0.0F, 1.0F}, 0.0F, Eigen::Vector3f{0.0F, 0.0F, 0.1F});
     SunSafePointAlgorithm alg{cfg};
 
-    const uint64_t startTime = 1000U;
     const Eigen::Vector3f sun{1.0F, 1.0F, 0.0F};
     const Eigen::Vector3f omega_BN_B = Eigen::Vector3f::Zero();
-    (void)alg.update(startTime, Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(), 0);  // latch start
+    uint64_t nextElapsed = 0U;
 
     // Enter POINT with a visible sun.
-    const uint64_t t1 = startTime + static_cast<uint64_t>(15.0F * kSec2NanoF);
-    const SunSafePointOutput pointing1 = alg.update(t1, sun, omega_BN_B, 5);
+    const SunSafePointOutput pointing1 = observeAt(alg, nextElapsed, secToNs(15.0), sun, omega_BN_B, 5);
     EXPECT_GT(pointing1.sigma_BR.norm(), 0.0F);
 
     // Sun lost: fallback branch (sigma 0, omega_RN_B = configured fallback).
-    const uint64_t t2 = startTime + static_cast<uint64_t>(16.0F * kSec2NanoF);
-    const SunSafePointOutput fallback = alg.update(t2, Eigen::Vector3f::Zero(), omega_BN_B, 0);
+    const SunSafePointOutput fallback =
+        observeAt(alg, nextElapsed, secToNs(16.0), Eigen::Vector3f::Zero(), omega_BN_B, 0);
     EXPECT_FLOAT_EQ(fallback.sigma_BR.norm(), 0.0F);
     EXPECT_NEAR(fallback.omega_RN_B[2], 0.1F, 1e-6F);
 
     // Sun returns: pointing resumes (the fallback is evaluated per-update, not latched).
-    const uint64_t t3 = startTime + static_cast<uint64_t>(17.0F * kSec2NanoF);
-    const SunSafePointOutput pointing2 = alg.update(t3, sun, omega_BN_B, 0);
+    const SunSafePointOutput pointing2 = observeAt(alg, nextElapsed, secToNs(17.0), sun, omega_BN_B, 0);
     EXPECT_GT(pointing2.sigma_BR.norm(), 0.0F);
     const auto reference = referenceUpdate(sun, omega_BN_B, 0.0F, cfg.getSHatBdyCmd(), Eigen::Vector3f::Zero());
     for (int i = 0; i < 3; ++i) {
@@ -472,14 +449,11 @@ TEST(SunSafePointTest, ForcedTransitionWithoutSunUsesFallbackRate) {
     SunSafePointAlgorithm alg{
         makeSearchConfig(rotations, Eigen::Vector3f{0.0F, 0.0F, 1.0F}, 0.0F, Eigen::Vector3f{0.0F, 0.0F, 0.1F})};
 
-    const uint64_t startTime = 1000U;
     const Eigen::Vector3f omega_BN_B = Eigen::Vector3f::Zero();
-    (void)alg.update(startTime, Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(), 0);  // latch start
 
     // Search times out (observations never exceed threshold) and the sun is not visible: the
     // forced transition lands in POINT's zero-sun branch -> configured fallback rate.
-    const uint64_t pastSequence = startTime + static_cast<uint64_t>(45.0F * kSec2NanoF);
-    const SunSafePointOutput out = alg.update(pastSequence, Eigen::Vector3f::Zero(), omega_BN_B, 0);
+    const SunSafePointOutput out = advanceTo(alg, secToNs(40.0), Eigen::Vector3f::Zero(), omega_BN_B, 0);
 
     EXPECT_FLOAT_EQ(out.sigma_BR.norm(), 0.0F);
     EXPECT_NEAR(out.omega_RN_B[0], 0.0F, 1e-6F);

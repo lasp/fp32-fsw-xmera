@@ -15,15 +15,54 @@
 #include <limits>
 #include <vector>
 
+// Nominal test control period (matches the 0.5 s task rate used by the module tests).
+inline constexpr float kTestControlPeriodSec = 0.5F;
+inline constexpr uint64_t kTestControlPeriodNs = 500'000'000ULL;
+
+// Exact seconds->nanoseconds for test target times (double avoids float-rounding off-by-one at
+// control-period boundaries).
+inline uint64_t secToNs(double sec) { return static_cast<uint64_t>(sec * 1e9); }
+
+// Advance `alg` (whose next update() observes internal elapsed == nextElapsedNs) with benign inputs
+// until it reaches targetNs, then issue one observation call carrying the given inputs. Because the
+// algorithm advances the timeline one control period per update(), the boundary-crossing observation
+// is the returned call, so any SEARCH->POINT transition fires on it. nextElapsedNs is advanced past
+// the observation. targetNs must be a multiple of controlPeriodNs and >= nextElapsedNs.
+inline SunSafePointOutput observeAt(SunSafePointAlgorithm& alg,
+                                    uint64_t& nextElapsedNs,
+                                    uint64_t targetNs,
+                                    const Eigen::Vector3f& sun,
+                                    const Eigen::Vector3f& omega,
+                                    int css,
+                                    uint64_t controlPeriodNs = kTestControlPeriodNs) {
+    while (nextElapsedNs < targetNs) {
+        (void)alg.update(Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(), 0);
+        nextElapsedNs += controlPeriodNs;
+    }
+    SunSafePointOutput out = alg.update(sun, omega, css);
+    nextElapsedNs += controlPeriodNs;
+    return out;
+}
+
+// Convenience for a fresh algorithm: advance from elapsed 0 to targetNs and observe once.
+inline SunSafePointOutput advanceTo(SunSafePointAlgorithm& alg,
+                                    uint64_t targetNs,
+                                    const Eigen::Vector3f& sun,
+                                    const Eigen::Vector3f& omega,
+                                    int css,
+                                    uint64_t controlPeriodNs = kTestControlPeriodNs) {
+    uint64_t nextElapsedNs = 0U;
+    return observeAt(alg, nextElapsedNs, targetNs, sun, omega, css, controlPeriodNs);
+}
+
 // Drive a fresh algorithm into the terminal POINT phase and return the pointing output for the
-// given sun/rate. The default search sequence is 4 s, so a callTime past it forces the POINT
-// transition regardless of the observation count; the first call latches the sequence start.
+// given sun/rate. The default search sequence is 4 s, so advancing to it forces the POINT
+// transition regardless of the observation count.
 inline SunSafePointOutput pointUpdate(SunSafePointAlgorithm& alg,
                                       const Eigen::Vector3f& vehSunPntBdy,
                                       const Eigen::Vector3f& omega_BN_B) {
-    constexpr uint64_t kPastSequenceNs = 5'000'000'000ULL;  // 5 s > default 4 s sequence
-    (void)alg.update(0U, Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(), 0);
-    return alg.update(kPastSequenceNs, vehSunPntBdy, omega_BN_B, 0);
+    constexpr uint64_t kDefaultSequenceEndNs = 4'000'000'000ULL;  // default 4 s sequence
+    return advanceTo(alg, kDefaultSequenceEndNs, vehSunPntBdy, omega_BN_B, 0);
 }
 
 // Four 1 s no-op rotations (4 s sequence) for tests that only exercise the pointing phase.
@@ -42,8 +81,10 @@ inline SunSafePointConfig makeSearchConfig(const std::array<RotationProperties, 
                                            const Eigen::Vector3f& sHatBdyCmd = Eigen::Vector3f{0.0F, 0.0F, 1.0F},
                                            float sunAxisSpinRate = 0.0F,
                                            const Eigen::Vector3f& omega_RN_B = Eigen::Vector3f::Zero(),
-                                           int observationThreshold = 4) {
-    return SunSafePointConfig::create(rotations, sHatBdyCmd, sunAxisSpinRate, omega_RN_B, observationThreshold);
+                                           int observationThreshold = 4,
+                                           float controlPeriod = kTestControlPeriodSec) {
+    return SunSafePointConfig::create(
+        rotations, sHatBdyCmd, sunAxisSpinRate, omega_RN_B, observationThreshold, controlPeriod);
 }
 
 // A valid no-op search config (default pointing params); pointUpdate runs past its 4 s sequence to
@@ -207,10 +248,9 @@ struct SearchReference {
 };
 
 inline SearchReference referenceSearchOutput(const SunSafePointConfig& cfg,
-                                             uint64_t searchStartTime,
-                                             uint64_t callTime,
+                                             uint64_t elapsedNs,
                                              const Eigen::Vector3d& omega_BN_B) {
-    const double elapsedTime = static_cast<double>(callTime - searchStartTime) * kNano2Sec;
+    const double elapsedTime = static_cast<double>(elapsedNs) * kNano2Sec;
 
     const auto& rotations = cfg.getRotations();
     double cumulative = 0.0;
@@ -316,6 +356,14 @@ inline void searchConfigValidationChecks() {
     EXPECT_ANY_THROW((void)makeSearchConfig(makeValidRotations(), Eigen::Vector3f::Zero()));
     EXPECT_ANY_THROW((void)makeSearchConfig(makeValidRotations(), Eigen::Vector3f{2.0F, 0.0F, 0.0F}));
     EXPECT_NO_THROW((void)makeSearchConfig(makeValidRotations(), Eigen::Vector3f{0.0F, 1.0F, 0.0F}));
+
+    // controlPeriod must be finite and > 0.
+    const Eigen::Vector3f validSHat{0.0F, 0.0F, 1.0F};
+    EXPECT_ANY_THROW((void)makeSearchConfig(makeValidRotations(), validSHat, 0.0F, Eigen::Vector3f::Zero(), 4, 0.0F));
+    EXPECT_ANY_THROW((void)makeSearchConfig(makeValidRotations(), validSHat, 0.0F, Eigen::Vector3f::Zero(), 4, -0.5F));
+    EXPECT_ANY_THROW((void)makeSearchConfig(
+        makeValidRotations(), validSHat, 0.0F, Eigen::Vector3f::Zero(), 4, std::numeric_limits<float>::infinity()));
+    EXPECT_NO_THROW((void)makeSearchConfig(makeValidRotations(), validSHat, 0.0F, Eigen::Vector3f::Zero(), 4, 0.25F));
 }
 
 // Steps a fresh algorithm through the search sequence (observations below threshold, time range
@@ -327,18 +375,20 @@ inline void testSearchSequence(const std::vector<float>& rotationTimes,
                                float dt,
                                int numSteps) {
     const auto rotations = buildRotations(rotationTimes, rotationRates, rotationAxesInts);
-    const SunSafePointConfig cfg = makeSearchConfig(rotations);
+    // The control period drives the search timeline: one dt is added per update() call.
+    const SunSafePointConfig cfg =
+        makeSearchConfig(rotations, Eigen::Vector3f{0.0F, 0.0F, 1.0F}, 0.0F, Eigen::Vector3f::Zero(), 4, dt);
     SunSafePointAlgorithm alg{cfg};
 
-    const auto dtNanos = static_cast<uint64_t>(dt * kSec2NanoF);
-    const uint64_t searchStartTime = 1000U;  // arbitrary non-zero start
+    // Compute the per-step nanoseconds exactly as the algorithm does so the reference stays aligned.
+    const auto controlPeriodNs = static_cast<uint64_t>(static_cast<double>(dt) * kSec2Nano);
 
     for (int step = 0; step < numSteps; ++step) {
-        const uint64_t callTime = searchStartTime + static_cast<uint64_t>(step) * dtNanos;
+        const uint64_t elapsedNs = static_cast<uint64_t>(step) * controlPeriodNs;
 
         SunSafePointOutput algOut{};
-        EXPECT_NO_THROW(algOut = alg.update(callTime, Eigen::Vector3f::Zero(), omega_BN_B, 0));
-        const SearchReference refOut = referenceSearchOutput(cfg, searchStartTime, callTime, omega_BN_B.cast<double>());
+        EXPECT_NO_THROW(algOut = alg.update(Eigen::Vector3f::Zero(), omega_BN_B, 0));
+        const SearchReference refOut = referenceSearchOutput(cfg, elapsedNs, omega_BN_B.cast<double>());
 
         for (int i = 0; i < 3; ++i) {
             EXPECT_NEAR(algOut.omega_RN_B[i], static_cast<float>(refOut.omega_RN_B[i]), 1e-5);
