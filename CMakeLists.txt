@@ -128,7 +128,7 @@ set(algorithms
     "sunlineEphem"
     "sunlineSRuKF"
     "sunTrackError"
-    "sunSafePoint"
+    "sunSearchPoint"
     "thrFiringRemainder"
     "thrFiringSchmitt"
     "timeClosestApproach"

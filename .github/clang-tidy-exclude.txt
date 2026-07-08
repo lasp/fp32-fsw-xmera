@@ -55,10 +55,10 @@ algorithms/solarArrayReference/solarArrayReference.h
 algorithms/solarArrayReference/solarArrayReference.cpp
 algorithms/stepperMotorController/stepperMotorController.h
 algorithms/stepperMotorController/stepperMotorController.cpp
-algorithms/sunSafePoint/sunSafePoint.h
-algorithms/sunSafePoint/sunSafePoint.cpp
-algorithms/sunSafePoint/sunSafePointAlgorithm_c.h
-algorithms/sunSafePoint/sunSafePointAlgorithm_c.cpp
+algorithms/sunSearchPoint/sunSearchPoint.h
+algorithms/sunSearchPoint/sunSearchPoint.cpp
+algorithms/sunSearchPoint/sunSearchPointAlgorithm_c.h
+algorithms/sunSearchPoint/sunSearchPointAlgorithm_c.cpp
 algorithms/sunlineEphem/sunlineEphem.h
 algorithms/sunlineEphem/sunlineEphem.cpp
 algorithms/sunTrackError/sunTrackError.h

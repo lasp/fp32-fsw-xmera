@@ -40,7 +40,7 @@ xmera_add_swig_message(RwMotorVoltageMsgF32Payload)
 xmera_add_swig_message(RWSpeedMsgF32Payload)
 xmera_add_swig_message(STAttMsgF32Payload)
 xmera_add_swig_message(STSensorMsgF32Payload)
-xmera_add_swig_message(SunSafePointFaultMsgPayload)
+xmera_add_swig_message(SunSearchPointFaultMsgPayload)
 xmera_add_swig_message(THRArrayCmdForceMsgF32Payload)
 xmera_add_swig_message(THRArrayConfigMsgF32Payload
                        TEMPLATE

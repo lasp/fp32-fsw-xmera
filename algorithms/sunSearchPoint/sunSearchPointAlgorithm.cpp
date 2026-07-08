@@ -1,4 +1,4 @@
-#include "sunSafePointAlgorithm.h"
+#include "sunSearchPointAlgorithm.h"
 
 #include "utilities/fsw/rigidBodyKinematics.hpp"
 #include "utilities/fsw/safeMath.h"
@@ -7,7 +7,7 @@
 #include <Eigen/Geometry>
 #include <numbers>
 
-SunSafePointAlgorithm::SunSafePointAlgorithm(const SunSafePointConfig& config) : cfg(config) {
+SunSearchPointAlgorithm::SunSearchPointAlgorithm(const SunSearchPointConfig& config) : cfg(config) {
     this->setConfig(config);
     this->reInitialize();
 }
@@ -17,14 +17,14 @@ SunSafePointAlgorithm::SunSafePointAlgorithm(const SunSafePointConfig& config) :
  @return void
  @param config Validated rotation-sequence configuration
 */
-void SunSafePointAlgorithm::setConfig(const SunSafePointConfig& config) {
+void SunSearchPointAlgorithm::setConfig(const SunSearchPointConfig& config) {
     this->cfg = config;
     this->controlPeriodNs = static_cast<uint64_t>(static_cast<double>(config.getControlPeriod()) * kSec2Nano);
     this->precomputeEndTimes();
 }
 
 /*! Precompute the cumulative end time (in nanoseconds) of each rotation in the search sequence. */
-void SunSafePointAlgorithm::precomputeEndTimes() {
+void SunSearchPointAlgorithm::precomputeEndTimes() {
     uint64_t cumulativeEndTimeNs = 0U;
     for (uint32_t i = 0U; i < kNumRotations; ++i) {
         cumulativeEndTimeNs +=
@@ -37,24 +37,24 @@ void SunSafePointAlgorithm::precomputeEndTimes() {
  again in search. Does not touch configuration.
  @return void
 */
-void SunSafePointAlgorithm::reInitialize() {
+void SunSearchPointAlgorithm::reInitialize() {
     this->elapsedTimeNs = 0U;
     this->phase = Phase::Searching;
     this->searchFailed = false;
 }
 
-/*! Update method for the sunSafePoint guidance algorithm. Runs the sun-search rotation sequence
+/*! Update method for the sunSearchPoint guidance algorithm. Runs the sun-search rotation sequence
  until the sun is acquired (observation count reaches the threshold after the first rotation) or
  the sequence elapses, then performs closed-loop sun pointing.
- @return SunSafePointOutput Attitude guidance output
+ @return SunSearchPointOutput Attitude guidance output
  @param rHat_SB_B Sun direction vector in body frame
  @param omega_BN_B Body angular velocity vector
  @param numCssViewingSun Number of valid coarse-sun-sensor observations this cycle
 */
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
-SunSafePointOutput SunSafePointAlgorithm::update(const Eigen::Vector3f& rHat_SB_B,
-                                                 const Eigen::Vector3f& omega_BN_B,
-                                                 const int numCssViewingSun) {
+SunSearchPointOutput SunSearchPointAlgorithm::update(const Eigen::Vector3f& rHat_SB_B,
+                                                     const Eigen::Vector3f& omega_BN_B,
+                                                     const int numCssViewingSun) {
     // Evaluate the one-way SEARCH -> POINT transition. The first rotation always runs to
     // completion; after that, a sufficient observation count transitions to pointing, and the
     // full sequence elapsing forces the transition regardless of observations.
@@ -71,8 +71,8 @@ SunSafePointOutput SunSafePointAlgorithm::update(const Eigen::Vector3f& rHat_SB_
         }
     }
 
-    SunSafePointOutput output = (this->phase == Phase::Pointing) ? this->computePointing(rHat_SB_B, omega_BN_B)
-                                                                 : this->computeSearch(omega_BN_B);
+    SunSearchPointOutput output = (this->phase == Phase::Pointing) ? this->computePointing(rHat_SB_B, omega_BN_B)
+                                                                   : this->computeSearch(omega_BN_B);
     output.faultDetected = this->searchFailed;
 
     // Advance the search timeline by one control period for the next update() call.
@@ -82,7 +82,7 @@ SunSafePointOutput SunSafePointAlgorithm::update(const Eigen::Vector3f& rHat_SB_
 
 /*! Compute the search-phase guidance: a constant reference rate about the active rotation's body
  axis and zero attitude error. */
-SunSafePointOutput SunSafePointAlgorithm::computeSearch(const Eigen::Vector3f& omega_BN_B) const {
+SunSearchPointOutput SunSearchPointAlgorithm::computeSearch(const Eigen::Vector3f& omega_BN_B) const {
     // Select the first rotation whose cumulative end time has not yet been reached; hold the last
     // rotation once the sequence has finished (only reachable transiently before the transition).
     uint32_t activeIndex = kNumRotations - 1U;
@@ -96,17 +96,17 @@ SunSafePointOutput SunSafePointAlgorithm::computeSearch(const Eigen::Vector3f& o
     const Eigen::Vector3f omega_RN_B_search =
         Eigen::Vector3f::Unit(static_cast<Eigen::Index>(rot.rotationAxis)) * rot.rotationRate;
 
-    return SunSafePointOutput{.sigma_BR = Eigen::Vector3f::Zero(),
-                              .omega_BR_B = omega_BN_B - omega_RN_B_search,
-                              .omega_RN_B = omega_RN_B_search};
+    return SunSearchPointOutput{.sigma_BR = Eigen::Vector3f::Zero(),
+                                .omega_BR_B = omega_BN_B - omega_RN_B_search,
+                                .omega_RN_B = omega_RN_B_search};
 }
 
 /*! Compute the pointing-phase guidance: the attitude/attitude-rate errors that align the commanded
  body axis with the sun heading, or the configured fallback rate if no sun direction is available. */
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
-SunSafePointOutput SunSafePointAlgorithm::computePointing(const Eigen::Vector3f& rHat_SB_B,
-                                                          const Eigen::Vector3f& omega_BN_B) const {
-    SunSafePointOutput output{};
+SunSearchPointOutput SunSearchPointAlgorithm::computePointing(const Eigen::Vector3f& rHat_SB_B,
+                                                              const Eigen::Vector3f& omega_BN_B) const {
+    SunSearchPointOutput output{};
 
     const Eigen::Vector3f rHatNormalized_SB_B = rHat_SB_B.stableNormalized();
 

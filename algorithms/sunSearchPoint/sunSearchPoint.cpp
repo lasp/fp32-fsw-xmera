@@ -1,4 +1,4 @@
-#include "sunSafePoint.h"
+#include "sunSearchPoint.h"
 
 #include "utilities/xmera/xmeraLifecycleException.h"
 #include <utilities/fsw/eigenSupport.h>
@@ -6,34 +6,34 @@
 
 /*! Reset method for the BSK module adapter interface. Validates that required input messages are
  linked and (re)builds the algorithm from the configured parameters; an unconfigured rotation
- sequence is rejected here by SunSafePointConfig::create.
+ sequence is rejected here by SunSearchPointConfig::create.
  @return void
  @param callTime [ns] Time the method is called
 */
-void SunSafePoint::reset(uint64_t callTime) {
+void SunSearchPoint::reset(uint64_t callTime) {
     if (!this->sunDirectionInMsg.isLinked()) {
-        throw std::invalid_argument("sunSafePoint.sunDirectionInMsg wasn't connected.");
+        throw std::invalid_argument("sunSearchPoint.sunDirectionInMsg wasn't connected.");
     }
     if (!this->rateInMsg.isLinked()) {
-        throw std::invalid_argument("sunSafePoint.rateInMsg wasn't connected.");
+        throw std::invalid_argument("sunSearchPoint.rateInMsg wasn't connected.");
     }
     if (!this->filterResidualsInMsg.isLinked()) {
-        throw std::invalid_argument("sunSafePoint.filterResidualsInMsg wasn't connected.");
+        throw std::invalid_argument("sunSearchPoint.filterResidualsInMsg wasn't connected.");
     }
 
-    this->algorithm = std::make_unique<SunSafePointAlgorithm>(this->toConfig());
+    this->algorithm = std::make_unique<SunSearchPointAlgorithm>(this->toConfig());
 }
 
 /*! Build a validated algorithm configuration from the current module parameters.
- @return SunSafePointConfig validated configuration
+ @return SunSearchPointConfig validated configuration
 */
-SunSafePointConfig SunSafePoint::toConfig() const {
-    return SunSafePointConfig::create(this->rotations,
-                                      this->sHatBdyCmd,
-                                      this->sunAxisSpinRate,
-                                      this->omega_RN_B,
-                                      this->observationThreshold,
-                                      this->controlPeriod);
+SunSearchPointConfig SunSearchPoint::toConfig() const {
+    return SunSearchPointConfig::create(this->rotations,
+                                        this->sHatBdyCmd,
+                                        this->sunAxisSpinRate,
+                                        this->omega_RN_B,
+                                        this->observationThreshold,
+                                        this->controlPeriod);
 }
 
 /*! Re-validate the current module parameters and push them onto the live algorithm without
@@ -41,9 +41,9 @@ SunSafePointConfig SunSafePoint::toConfig() const {
  from the public members and installs it via setConfig().
  @return void
 */
-void SunSafePoint::reconfigure() {
+void SunSearchPoint::reconfigure() {
     if (!this->algorithm) {
-        throw XmeraLifecycleException("SunSafePoint reconfigure() before reset().");
+        throw XmeraLifecycleException("SunSearchPoint reconfigure() before reset().");
     }
     this->algorithm->setConfig(this->toConfig());
 }
@@ -52,9 +52,9 @@ void SunSafePoint::reconfigure() {
  simple pass-through to the algorithm's reInitialize().
  @return void
 */
-void SunSafePoint::reInitialize() {
+void SunSearchPoint::reInitialize() {
     if (!this->algorithm) {
-        throw XmeraLifecycleException("SunSafePoint reInitialize() before reset().");
+        throw XmeraLifecycleException("SunSearchPoint reInitialize() before reset().");
     }
     this->algorithm->reInitialize();
 }
@@ -63,9 +63,9 @@ void SunSafePoint::reInitialize() {
  @return void
  @param callTime [ns] Time the method is called
 */
-void SunSafePoint::updateState(uint64_t callTime) {
+void SunSearchPoint::updateState(uint64_t callTime) {
     if (!this->algorithm) {
-        throw XmeraLifecycleException("SunSafePoint reset() has not been called.");
+        throw XmeraLifecycleException("SunSearchPoint reset() has not been called.");
     }
 
     auto rateMsgPayload = NavAttMsgF32Payload();
@@ -85,7 +85,7 @@ void SunSafePoint::updateState(uint64_t callTime) {
     Eigen::Vector3f const omega_BN_B = cArrayToEigenVector(rateMsgPayload.omega_BN_B);
 
     // Call the algorithm update method
-    SunSafePointOutput output =
+    SunSearchPointOutput output =
         this->algorithm->update(vehSunPntBdy, omega_BN_B, filterResidualsMsgPayload.sizeOfObservations);
 
     // Convert algorithm output to MsgPayload
@@ -96,8 +96,8 @@ void SunSafePoint::updateState(uint64_t callTime) {
 
     this->attGuidanceOutMsg.write(attGuidanceOutBuffer, moduleID, callTime);
 
-    const SunSafePointFaultMsgPayload faultBuffer{output.faultDetected};
-    this->sunSafePointFaultOutMsg.write(faultBuffer, moduleID, callTime);
+    const SunSearchPointFaultMsgPayload faultBuffer{output.faultDetected};
+    this->sunSearchPointFaultOutMsg.write(faultBuffer, moduleID, callTime);
 }
 
 /*! Setter for a single rotation in the sun-search sequence. Applied at the next reset().
@@ -105,7 +105,7 @@ void SunSafePoint::updateState(uint64_t callTime) {
  @param index Rotation slot index
  @param rotation Rotation properties to store
 */
-void SunSafePoint::setRotation(const uint32_t index, const RotationProperties& rotation) {
+void SunSearchPoint::setRotation(const uint32_t index, const RotationProperties& rotation) {
     this->rotations.at(index) = rotation;
 }
 
@@ -113,4 +113,4 @@ void SunSafePoint::setRotation(const uint32_t index, const RotationProperties& r
  @return RotationProperties
  @param index Rotation slot index
 */
-RotationProperties SunSafePoint::getRotation(const uint32_t index) const { return this->rotations.at(index); }
+RotationProperties SunSearchPoint::getRotation(const uint32_t index) const { return this->rotations.at(index); }

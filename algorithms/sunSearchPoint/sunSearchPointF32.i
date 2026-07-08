@@ -1,6 +1,6 @@
-%module sunSafePointF32
+%module sunSearchPointF32
 %{
-   #include "sunSafePoint.h"
+   #include "sunSearchPoint.h"
 %}
 
 %include "std_string.i"
@@ -10,11 +10,11 @@
 STRUCTASLIST(RotationProperties)
 
 %include "sys_model.i"
-%include "sunSafePointAlgorithm.h"
-%include "sunSafePoint.h"
+%include "sunSearchPointAlgorithm.h"
+%include "sunSearchPoint.h"
 
 %include "msgPayloadDef/NavAttMsgF32Payload.h"
 struct NavAttMsgF32_C;
 %include "msgPayloadDef/AttGuidMsgF32Payload.h"
 %include "msgPayloadDef/FilterResidualsMsgF32Payload.h"
-%include "msgPayloadDef/SunSafePointFaultMsgPayload.h"
+%include "msgPayloadDef/SunSearchPointFaultMsgPayload.h"
