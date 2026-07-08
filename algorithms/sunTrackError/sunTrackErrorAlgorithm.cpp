@@ -104,7 +104,6 @@ void SunTrackErrorAlgorithm::initializeManeuver(const Eigen::Vector3f& sigma_BN,
 SunTrackErrorOutput SunTrackErrorAlgorithm::computeAdjustedReference(const Eigen::Vector3f& sigma_BN,
                                                                      const SunTrackErrorAttRefInputs& ref,
                                                                      const uint64_t callTime) const {
-    const Eigen::Matrix3f dcm_BN = mrpToDcm(sigma_BN);
     const Eigen::Matrix3f dcm_RN = mrpToDcm(ref.sigma_RN);
 
     // Residual maneuver angle, fed forward at the configured rate and clamped at zero.
@@ -123,7 +122,8 @@ SunTrackErrorOutput SunTrackErrorAlgorithm::computeAdjustedReference(const Eigen
     // Feed-forward maneuver rate (N frame), applied while the maneuver is active.
     Eigen::Vector3f omega_RcN_N = ref.omega_RN_N;
     if (remainingManeuverAngle > 0.0F) {
-        omega_RcN_N += -this->cfg.getAngleRate() * (dcm_BN.transpose() * this->maneuverAxis_B);
+        const Eigen::Matrix3f dcm_BN = mrpToDcm(sigma_BN);
+        omega_RcN_N -= this->cfg.getAngleRate() * (dcm_BN.transpose() * this->maneuverAxis_B);
     }
     out.omega_RN_N = omega_RcN_N;
 
