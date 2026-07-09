@@ -154,6 +154,17 @@ TEST(SunlineFilterAlgorithmTimeUpdate, ZeroDtCollapsesToAnchor) {
     EXPECT_DOUBLE_EQ(s.get<filtering::Bias<1>>()(0), 1.0);
 }
 
+TEST(SunlineFilterAlgorithmTimeUpdate, NaNDtReturnsTrueAndLeavesStateUnchanged) {
+    Eigen::Vector3d const sHat0 = Eigen::Vector3d(0.0, 0.0, 1.0);
+    Eigen::Vector3d const omega0 = Eigen::Vector3d(0.01, 0.0, -0.02);
+    SunlineFilterAlgorithm algo(rateOnlyConfig(makeState(sHat0, omega0, 1.0), diagCovariance(1E-2, 1E-3, 1E-2)));
+    State const before = algo.getState();
+
+    EXPECT_TRUE(algo.timeUpdate(std::numeric_limits<double>::quiet_NaN()))
+        << "a NaN dt is a no-op (zero sub-steps), so timeUpdate stays valid";
+    EXPECT_TRUE(algo.getState().raw().isApprox(before.raw(), 1E-12)) << "a NaN dt should leave the state unchanged";
+}
+
 // A single rate measurement shrinks the rate-block of P. Drives the
 // SequentialFilter pair directly (timeUpdate + measurementUpdate) rather than
 // going through the queue-driven update() — keeps the test focused on the SRUKF
@@ -201,7 +212,7 @@ TEST(SunlineFilterAlgorithmMeasurementUpdate, NonFiniteRateMeasurementIsSkipped)
     r.omega_BN_B = Eigen::Vector3d(std::numeric_limits<double>::quiet_NaN(), 0.0, 0.0);
     r.covar = (1E-3 * 1E-3) * Eigen::Matrix3d::Identity();
     r.valid = true;
-    algo.measurementUpdate(r);
+    EXPECT_FALSE(algo.measurementUpdate(r)) << "a non-finite measurement update must report false";
 
     EXPECT_TRUE(algo.getState().raw().isApprox(stateBefore));
     EXPECT_TRUE(algo.getCovariance().isApprox(covarBefore));
@@ -251,6 +262,47 @@ TEST(SunlineFilterAlgorithmUpdate, CssBelowThresholdNotProcessed) {
     SunlineFilterOutput const out = algo.update(2.0, css, rate);
 
     EXPECT_EQ(out.cssResiduals.numberOfActiveCss, 0);
+}
+
+// Through the queue-driven update(), a bad CSS reading is rejected by applySequentialRobust
+// (which calls clear()) and the filter recovers: the residual is invalid, the state stays finite,
+// and a normal update right after is processed cleanly.
+TEST(SunlineFilterAlgorithmUpdate, BadMeasurementIsRejectedAndFilterRecovers) {
+    SunlineFilterAlgorithm algo(threeCssConfig(
+        makeState(Eigen::Vector3d(0, 0, 1), Eigen::Vector3d(0.01, 0, 0), 1.0), diagCovariance(1E-1, 1E-2, 1E-1), 0.0));
+
+    // A good update first, to establish a finite anchor.
+    CssData good;
+    good.timeTag = 1.0;
+    good.cosValues(0) = 0.5;
+    good.cosValues(1) = 0.5;
+    good.cosValues(2) = 0.707;
+    algo.update(1.0, good, RateData{});
+
+    // A NaN CSS reading must not corrupt the filter.
+    CssData bad;
+    bad.timeTag = 2.0;
+    bad.cosValues(0) = std::numeric_limits<double>::quiet_NaN();
+    bad.cosValues(1) = 0.5;
+    bad.cosValues(2) = 0.707;
+    SunlineFilterOutput const out = algo.update(2.0, bad, RateData{});
+
+    EXPECT_FALSE(out.cssResiduals.valid) << "bad measurement must not produce a valid residual";
+    EXPECT_TRUE(algo.getState().raw().allFinite()) << "filter state must stay finite after a bad update";
+    EXPECT_TRUE(algo.getCovariance().allFinite()) << "filter covariance must stay finite after a bad update";
+
+    // A normal update right after the bad one must be processed cleanly -- confirming clear() left
+    // no NaNs behind: the residual is valid and the state/residuals stay finite.
+    CssData recover;
+    recover.timeTag = 3.0;
+    recover.cosValues(0) = 0.5;
+    recover.cosValues(1) = 0.5;
+    recover.cosValues(2) = 0.707;
+    SunlineFilterOutput const recovered = algo.update(3.0, recover, RateData{});
+
+    EXPECT_TRUE(recovered.cssResiduals.valid) << "the post-recovery measurement must be applied";
+    EXPECT_TRUE(recovered.cssResiduals.postFit.allFinite()) << "residuals must be finite after recovery";
+    EXPECT_TRUE(algo.getState().raw().allFinite()) << "state must be finite after recovery";
 }
 
 TEST(SunlineFilterAlgorithmReInit, ReInitializePreservesEstimateReInitializeAllResetsIt) {

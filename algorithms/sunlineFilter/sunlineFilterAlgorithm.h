@@ -226,8 +226,9 @@ class SunlineFilterAlgorithm {
 
     void reInitialize();
     void reInitializeAll();
-    void timeUpdate(double dt);
-    void measurementUpdate(Measurement const& measurement);
+    bool timeUpdate(double dt);
+    bool measurementUpdate(Measurement const& measurement);
+    void clear();
 
     FilterStateOutput getFilterOutput() const;
     CssResidualsOutput const& getLastCssResiduals() const;
@@ -236,8 +237,8 @@ class SunlineFilterAlgorithm {
     Eigen::Matrix<double, N, N> getCovariance() const;
 
    private:
-    void applyMeasurement(CssMeasurement const& measurement);
-    void applyMeasurement(RateMeasurement const& measurement);
+    bool applyMeasurement(CssMeasurement const& measurement);
+    bool applyMeasurement(RateMeasurement const& measurement);
 
     CssMeasurement packCssMeasurement(CssData const& cssData) const;
     RateMeasurement packRateMeasurement(RateData const& rateData) const;

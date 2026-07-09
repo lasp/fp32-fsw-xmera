@@ -115,7 +115,7 @@ SunlineFilterOutput SunlineFilterAlgorithm::update(double currentSeconds,
     if (rateData.timeTag > 0) {
         this->measurements.enqueue(rateData.timeTag, this->packRateMeasurement(rateData));
     }
-    applySequential(this->measurements, *this, currentSeconds);
+    applySequentialRobust(this->measurements, *this, currentSeconds);
     this->srukf.setState(this->regularize(this->srukf.getState()));
     this->srukf.setStateLastMeasurement(this->regularize(this->srukf.getStateAtLastMeasurement()));
 
@@ -127,53 +127,62 @@ SunlineFilterOutput SunlineFilterAlgorithm::update(double currentSeconds,
 }
 
 /*! Propagate the state from the last-measurement anchor by dt.
- *  @return void
+ *  @return false if the propagated state/covariance is non-finite
  *  @param dt [s] elapsed time since the last measurement */
-void SunlineFilterAlgorithm::timeUpdate(double dt) { this->srukf.timeUpdate(dt); }
+bool SunlineFilterAlgorithm::timeUpdate(double dt) { return this->srukf.timeUpdate(dt); }
 
 /*! Fold a single measurement into the filter; dispatches per-kind.
- *  @return void
+ *  @return false if the resulting state/covariance is non-finite
  *  @param measurement [-] CSS- or rate-kind measurement to apply */
-void SunlineFilterAlgorithm::measurementUpdate(Measurement const& measurement) {
-    std::visit([this](auto const& meas) { this->applyMeasurement(meas); }, measurement);
+bool SunlineFilterAlgorithm::measurementUpdate(Measurement const& measurement) {
+    return std::visit([this](auto const& meas) { return this->applyMeasurement(meas); }, measurement);
 }
 
-/*! Apply a CSS measurement and record its residuals.
- *  @return void
+/*! Restore the filter to its last good (last-measurement) state after a bad update. */
+void SunlineFilterAlgorithm::clear() {
+    this->srukf.clear();
+    this->lastCssResiduals.valid = false;
+    this->lastRateResiduals.valid = false;
+}
+
+/*! Apply a CSS measurement and record its residuals. The SRuKF returns the residuals only on a
+ *  good update; an unsuccessful update yields no value and returns false to applySequential.
+ *  @return true iff the update was applied (state/covariance finite)
  *  @param measurement [-] packed CSS measurement (cosValues, H, noise) */
-void SunlineFilterAlgorithm::applyMeasurement(CssMeasurement const& measurement) {
+bool SunlineFilterAlgorithm::applyMeasurement(CssMeasurement const& measurement) {
     CssMeasurementModel model;
     model.observed = measurement.cssCosValues;
     model.hMatrix = measurement.hMatrix;
     model.measNoise = measurement.covar;
 
     auto const result = this->srukf.measurementUpdate(model);
-
-    this->lastCssResiduals.valid = measurement.valid && result.has_value();
     this->lastCssResiduals.numberOfActiveCss = measurement.numberOfActiveCss;
     this->lastCssResiduals.observation = model.observed;
     if (result.has_value()) {
+        this->lastCssResiduals.valid = measurement.valid;
         this->lastCssResiduals.preFit = result->preFit;
         this->lastCssResiduals.postFit = result->postFit;
     }
+    return result.has_value();
 }
 
-/*! Apply a rate measurement and record its residuals.
- *  @return void
+/*! Apply a rate measurement and record its residuals. See applyMeasurement(CssMeasurement)
+ *  for the bad-update handling.
+ *  @return true iff the update was applied (state/covariance finite)
  *  @param measurement [-] packed rate measurement (omega, noise) */
-void SunlineFilterAlgorithm::applyMeasurement(RateMeasurement const& measurement) {
+bool SunlineFilterAlgorithm::applyMeasurement(RateMeasurement const& measurement) {
     RateMeasurementModel model;
     model.observed = measurement.omega_BN_B;
     model.measNoise = measurement.covar;
 
     auto const result = this->srukf.measurementUpdate(model);
-
-    this->lastRateResiduals.valid = measurement.valid && result.has_value();
     this->lastRateResiduals.observation = model.observed;
     if (result.has_value()) {
+        this->lastRateResiduals.valid = measurement.valid;
         this->lastRateResiduals.preFit = result->preFit;
         this->lastRateResiduals.postFit = result->postFit;
     }
+    return result.has_value();
 }
 
 /*! Pack CSS readings into a CssMeasurement: active rows
