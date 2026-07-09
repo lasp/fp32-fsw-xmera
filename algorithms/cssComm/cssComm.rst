@@ -56,12 +56,6 @@ configured before the module is used.
       - 0
       - Per-sensor maximum raw output value used to normalize each sensor's measurement
       - Each active sensor's entry must be finite and positive (validated when the config is built in ``reset()``)
-    * - chebyCount (required)
-      - uint32_t
-      - [-]
-      - 0
-      - Number of Chebyshev polynomial coefficients to use
-      - Must be in [1, MAX_NUM_CHEBY_POLYS] (validated when the config is built in ``reset()``)
     * - chebyPolynomials (required)
       - std::array<double, MAX_NUM_CHEBY_POLYS>
       - [-]
@@ -86,7 +80,6 @@ The module is configured by::
     module.modelTag = "cssComm"
     module.numSensors = num_sensors
     module.maxSensorValues = cssCommF32.DoubleArrayCss(max_sensor_values)
-    module.chebyCount = len(cheby_list)
     padded = cheby_list + [0.0] * (MAX_NUM_CHEBY_POLYS - len(cheby_list))
     module.chebyPolynomials = cssCommF32.DoubleArrayCheby(padded)
 

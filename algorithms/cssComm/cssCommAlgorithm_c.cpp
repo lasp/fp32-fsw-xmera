@@ -10,7 +10,7 @@ CssCommConfig configFromC(const CssCommConfig_c& c) {
     std::copy(c.chebyPolynomials, c.chebyPolynomials + kMaxNumChebyPolys, chebyPolynomials.begin());
     std::array<double, kMaxNumCssSensors> maxSensorValues{};
     std::copy(c.maxSensorValues, c.maxSensorValues + kMaxNumCssSensors, maxSensorValues.begin());
-    return CssCommConfig::create(c.numSensors, maxSensorValues, c.chebyCount, chebyPolynomials);
+    return CssCommConfig::create(c.numSensors, maxSensorValues, chebyPolynomials);
 }
 }  // namespace
 

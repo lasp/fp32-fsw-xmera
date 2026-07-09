@@ -19,7 +19,6 @@ inline std::array<double, MAX_NUM_CSS_SENSORS> uniformMaxValues(double value) {
 inline std::array<double, MAX_NUM_CSS_SENSORS> referenceUpdate(
     uint32_t numSensors,
     const std::array<double, MAX_NUM_CSS_SENSORS>& maxSensorValues,
-    uint32_t chebyCount,
     const std::array<double, kMaxNumChebyPolys>& chebyPolynomials,
     const std::array<double, MAX_NUM_CSS_SENSORS>& inputValues) {
     uint32_t i, j;
@@ -35,14 +34,11 @@ inline std::array<double, MAX_NUM_CSS_SENSORS> referenceUpdate(
         ValueMult = 2.0 * output[i];
         ChebyPrev = 1.0;
         ChebyNow = output[i];
-        ChebyDiffFactor = 0.0;
-        ChebyDiffFactor =
-            chebyCount > 0 ? ChebyPrev * chebyPolynomials[0] : ChebyDiffFactor; /* if only first order correction */
-        ChebyDiffFactor = chebyCount > 1 ? ChebyNow * chebyPolynomials[1] + ChebyDiffFactor
-                                         : ChebyDiffFactor; /* if higher order (> first) corrections */
+        ChebyDiffFactor = ChebyPrev * chebyPolynomials[0]; /* first-order term */
+        ChebyDiffFactor += ChebyNow * chebyPolynomials[1]; /* second-order term */
 
         /* Loop over remaining polynomials and add in values */
-        for (j = 2; j < chebyCount; j = j + 1) {
+        for (j = 2; j < kMaxNumChebyPolys; j = j + 1) {
             ChebyLocalPrev = ChebyNow;
             ChebyNow = ValueMult * ChebyNow - ChebyPrev;
             ChebyPrev = ChebyLocalPrev;
@@ -63,7 +59,6 @@ inline std::array<double, MAX_NUM_CSS_SENSORS> referenceUpdate(
 
 inline void regressionTestCssComm(uint32_t numSensors,
                                   std::vector<double> maxSensorValues,
-                                  uint32_t chebyCount,
                                   std::vector<double> chebyCoeffs,
                                   std::vector<double> sensorInputRatios) {
     std::array<double, kMaxNumChebyPolys> polynomials{};
@@ -76,7 +71,7 @@ inline void regressionTestCssComm(uint32_t numSensors,
         maxValues[i] = maxSensorValues[i];
     }
 
-    CssCommAlgorithm alg{CssCommConfig::create(numSensors, maxValues, chebyCount, polynomials)};
+    CssCommAlgorithm alg{CssCommConfig::create(numSensors, maxValues, polynomials)};
 
     std::array<double, MAX_NUM_CSS_SENSORS> inputValues{};
     for (std::size_t i = 0; i < sensorInputRatios.size() && i < MAX_NUM_CSS_SENSORS; ++i) {
@@ -86,7 +81,7 @@ inline void regressionTestCssComm(uint32_t numSensors,
     std::array<double, MAX_NUM_CSS_SENSORS> output{};
     EXPECT_NO_THROW(output = alg.update(inputValues));
 
-    auto reference = referenceUpdate(numSensors, maxValues, chebyCount, polynomials, inputValues);
+    auto reference = referenceUpdate(numSensors, maxValues, polynomials, inputValues);
 
     for (uint32_t i = 0; i < MAX_NUM_CSS_SENSORS; ++i) {
         EXPECT_NEAR(output[i], reference[i], 1e-12);

@@ -56,7 +56,6 @@ def test_css_comm(num_sensors, sensor_data):
                   -4.919712500291216e+05, 2.318436583511218e+05,
                   -9.376105045529010e+04, 3.177536873430168e+04,
                   0.0]
-    module.chebyCount = len(cheby_list)
     module.chebyPolynomials = cssCommF32.DoubleArrayCheby(cheby_list)
 
     # Add the module to the task
@@ -102,7 +101,6 @@ def test_css_comm(num_sensors, sensor_data):
     # Getter/setter round-trips
     np.testing.assert_allclose(module.numSensors, num_sensors, atol=accuracy, rtol=accuracy)
     np.testing.assert_allclose(module.maxSensorValues, [500e-6] * _MAX_CSS, atol=accuracy, rtol=accuracy)
-    np.testing.assert_allclose(module.chebyCount, len(cheby_list), atol=accuracy, rtol=accuracy)
     np.testing.assert_allclose(module.chebyPolynomials, cheby_list, atol=accuracy, rtol=accuracy)
 
 

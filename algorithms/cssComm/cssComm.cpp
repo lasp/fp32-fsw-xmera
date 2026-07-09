@@ -13,13 +13,12 @@ void CssComm::reset(uint64_t callTime) {
     if (!this->sensorListInMsg.isLinked()) {
         throw std::invalid_argument("cssComm.sensorListInMsg wasn't connected.");
     }
-    auto config =
-        CssCommConfig::create(this->numSensors, this->maxSensorValues, this->chebyCount, this->chebyPolynomials);
+    auto config = CssCommConfig::create(this->numSensors, this->maxSensorValues, this->chebyPolynomials);
     this->algorithm = std::make_unique<CssCommAlgorithm>(config);
 }
 
 CssCommConfig CssComm::toConfig() const {
-    return CssCommConfig::create(this->numSensors, this->maxSensorValues, this->chebyCount, this->chebyPolynomials);
+    return CssCommConfig::create(this->numSensors, this->maxSensorValues, this->chebyPolynomials);
 }
 
 void CssComm::reconfigure() const {

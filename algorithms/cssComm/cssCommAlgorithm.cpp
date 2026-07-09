@@ -18,8 +18,8 @@ std::array<double, kMaxNumCssSensors> CssCommAlgorithm::update(
         double const measuredValue = inputValues.at(i) / this->cfg.getMaxSensorValues().at(i); /* Scale Sensor Data */
 
         /* Calculate correction using Chebyshev polynomial */
-        double const correction =
-            calculateChebyValue(this->cfg.getChebyPolynomials(), this->cfg.getChebyCount(), measuredValue);
+        double const correction = calculateChebyValue(
+            this->cfg.getChebyPolynomials(), static_cast<unsigned int>(kMaxNumChebyPolys), measuredValue);
 
         double correctedValue = measuredValue + correction;
 
