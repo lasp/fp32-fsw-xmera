@@ -431,6 +431,22 @@ TEST(SrukfDetail, CholeskyUpDownDateMatchesExplicitUpdate) {
 
 TEST(SunlineFilterConfig, ValidInputsDoNotThrow) { EXPECT_NO_THROW(buildConfig({})); }
 
+TEST(SunlineFilterConfig, RejectsAlphaOutsideOpenUnitInterval) {
+    for (double bad : {0.0, 1.0, -0.1, 1.5}) {  // (0, 1) open interval: endpoints excluded
+        ConfigInputs in;
+        in.alpha = bad;
+        EXPECT_THROW(buildConfig(in), fsw::invalid_argument) << "alpha=" << bad;
+    }
+}
+
+TEST(SunlineFilterConfig, RejectsBetaOutsideRange) {
+    for (double bad : {-0.1, 2.5}) {  // [0, 2] closed interval
+        ConfigInputs in;
+        in.beta = bad;
+        EXPECT_THROW(buildConfig(in), fsw::invalid_argument) << "beta=" << bad;
+    }
+}
+
 TEST(SunlineFilterConfig, RejectsNonPositiveSemiDefiniteProcessNoise) {
     ConfigInputs in;
     in.processNoise = -Matrix7::Identity();  // negative definite

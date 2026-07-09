@@ -41,10 +41,14 @@ struct SunlineFilterOutput {
 };
 
 /*! Validated, immutable configuration for SunlineFilterAlgorithm. create() validates every constrained
- *  parameter and normalizes the CSS boresights; the algorithm trusts the Config thereafter. Parameters
- *  without a meaningful constraint (alpha, beta, initialState) have no validator. */
+ *  parameter -- alpha and beta through the shared SRuKF validators -- and normalizes the CSS boresights;
+ *  the algorithm trusts the Config thereafter. The only parameter without a meaningful constraint
+ *  (initialState) has no validator. */
 class SunlineFilterConfig final {
    public:
+    // Reuse the framework SRuKF's static validators so filter-parameter checks live in one place.
+    using Srukf = SRuKF<SunlineState, SunlineDynamics>;
+
     static SunlineFilterConfig create(double alpha,
                                       double beta,
                                       StateMatrix const& processNoise,
@@ -58,6 +62,12 @@ class SunlineFilterConfig final {
                                       double sensorThreshold,
                                       double cssMeasurementNoiseStd,
                                       double gyroMeasurementNoiseStd) {
+        if (!Srukf::alphaIsValid(alpha)) {
+            FSW_THROW_INVALID_ARGUMENT("sunlineFilter: alpha must be in (0, 1)");
+        }
+        if (!Srukf::betaIsValid(beta)) {
+            FSW_THROW_INVALID_ARGUMENT("sunlineFilter: beta must be in [0, 2]");
+        }
         if (!isValidProcessNoise(processNoise)) {
             FSW_THROW_INVALID_ARGUMENT("sunlineFilter: process noise must be positive semi-definite");
         }
