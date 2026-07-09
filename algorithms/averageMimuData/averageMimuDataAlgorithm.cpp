@@ -1,10 +1,24 @@
 #include "averageMimuDataAlgorithm.h"
-#include <utilities/fsw/eigenSupport.h>
-#include <utilities/fsw/freestandingInvalidArgument.h>
 #include <utilities/fsw/timeConstants.h>
-#include <utilities/fsw/validDcmCheck.h>
 
 #include <algorithm>
+
+AverageMimuDataAlgorithm::AverageMimuDataAlgorithm(const AverageMimuDataConfig& config) : cfg(config) {
+    this->setConfig(config);
+    this->reInitialize();
+}
+
+void AverageMimuDataAlgorithm::setConfig(const AverageMimuDataConfig& config) {
+    this->cfg = config;
+    this->gyroAveragingWindowNs = static_cast<std::uint64_t>(config.getGyroAveragingWindow() * kSec2Nano);
+    this->accelAveragingWindowNs = static_cast<std::uint64_t>(config.getAccelAveragingWindow() * kSec2Nano);
+}
+
+void AverageMimuDataAlgorithm::reInitialize() {
+    this->ring = {};
+    this->insertIdx = 0U;
+    this->lastIngestedMaxMeasTime = 0U;
+}
 
 /*! @brief Ingest new packets from the input snapshot into the internal ring,
  *  then return the rolling average of fresh samples currently in the ring.
@@ -92,43 +106,12 @@ OutputAverageAccelAngleVel AverageMimuDataAlgorithm::update(InputPktsData const&
 
     if (gyroAvgCount > 0U) {
         gyroSum_P /= static_cast<float>(gyroAvgCount);
-        out.gyroOmega_B = this->dcm_BP * gyroSum_P;
+        out.gyroOmega_B = this->cfg.getDcmPltfToBdy() * gyroSum_P;
     }
     if (accelAvgCount > 0U) {
         accelSum_P /= static_cast<float>(accelAvgCount);
-        out.accel_B = this->dcm_BP * accelSum_P;
+        out.accel_B = this->cfg.getDcmPltfToBdy() * accelSum_P;
     }
 
     return out;
 }
-
-void AverageMimuDataAlgorithm::setGyroAveragingWindow(double const window) {
-    if (window < 0.0 || window > kMaxAveragingWindowSec) {
-        FSW_THROW_INVALID_ARGUMENT("gyroAveragingWindow cannot be smaller than 0.0 or greater than 2.0 seconds");
-    }
-    this->gyroAveragingWindowNs = static_cast<std::uint64_t>(window * kSec2Nano);
-}
-
-double AverageMimuDataAlgorithm::getGyroAveragingWindow() const {
-    return static_cast<double>(this->gyroAveragingWindowNs) * kNano2Sec;
-}
-
-void AverageMimuDataAlgorithm::setAccelAveragingWindow(double const window) {
-    if (window < 0.0 || window > kMaxAveragingWindowSec) {
-        FSW_THROW_INVALID_ARGUMENT("accelAveragingWindow cannot be smaller than 0.0 or greater than 2.0 seconds");
-    }
-    this->accelAveragingWindowNs = static_cast<std::uint64_t>(window * kSec2Nano);
-}
-
-double AverageMimuDataAlgorithm::getAccelAveragingWindow() const {
-    return static_cast<double>(this->accelAveragingWindowNs) * kNano2Sec;
-}
-
-void AverageMimuDataAlgorithm::setDcmPltfToBdy(Eigen::Matrix3f const& dcm_BPIn) {
-    if (!isValidDcm(dcm_BPIn)) {
-        FSW_THROW_INVALID_ARGUMENT("dcm_BP must be orthonormal with det=+1.");
-    }
-    this->dcm_BP = dcm_BPIn;
-}
-
-Eigen::Matrix3f AverageMimuDataAlgorithm::getDcmPltfToBdy() const { return this->dcm_BP; }

@@ -34,9 +34,9 @@ def test_average_mimu_data():
     module.modelTag = "averageMimuData"
 
     dcm_pltf_to_body = RigidBodyKinematics.euler3212C([0.01, -0.04, 0.06]).astype(np.float32)
-    module.setDcmPltfToBdy(dcm_pltf_to_body)
-    module.setGyroAveragingWindow(_MAX_AVG_WINDOW_SEC)  # 2 s window covers the full ring
-    module.setAccelAveragingWindow(_MAX_AVG_WINDOW_SEC)  # accel uses the same full-ring window here
+    module.dcm_BP = dcm_pltf_to_body
+    module.gyroAveragingWindow = _MAX_AVG_WINDOW_SEC  # 2 s window covers the full ring
+    module.accelAveragingWindow = _MAX_AVG_WINDOW_SEC  # accel uses the same full-ring window here
 
     mimu_pkt = messaging.MimuPacketF32Payload()
     mimu_pkt_msg = messaging.MimuPacketF32().write(mimu_pkt, time=0)
@@ -93,8 +93,8 @@ def test_average_mimu_data():
         unit_test_sim.ConfigureStopTime(macros.sec2nano(sim_time))
         unit_test_sim.ExecuteSimulation()
 
-    np.testing.assert_allclose(_MAX_AVG_WINDOW_SEC, module.getGyroAveragingWindow(), rtol=1e-8, atol=1e-9, verbose=True)
-    np.testing.assert_allclose(dcm_pltf_to_body, module.getDcmPltfToBdy(), rtol=1e-8, atol=1e-6, verbose=True)
+    np.testing.assert_allclose(_MAX_AVG_WINDOW_SEC, module.gyroAveragingWindow, rtol=1e-8, atol=1e-9, verbose=True)
+    np.testing.assert_allclose(dcm_pltf_to_body, module.dcm_BP, rtol=1e-8, atol=1e-6, verbose=True)
 
     module_output_accel = data_log.AccelBody
     module_output_angular_velocity = data_log.AngVelBody
@@ -130,9 +130,9 @@ def test_average_mimu_data_buffer_fill():
     module.modelTag = "averageMimuData"
 
     dcm_pltf_to_body = np.eye(3, dtype=np.float32)
-    module.setDcmPltfToBdy(dcm_pltf_to_body)
-    module.setGyroAveragingWindow(_MAX_AVG_WINDOW_SEC)  # 2 s covers the full ring
-    module.setAccelAveragingWindow(_MAX_AVG_WINDOW_SEC)  # accel uses the same full-ring window here
+    module.dcm_BP = dcm_pltf_to_body
+    module.gyroAveragingWindow = _MAX_AVG_WINDOW_SEC  # 2 s covers the full ring
+    module.accelAveragingWindow = _MAX_AVG_WINDOW_SEC  # accel uses the same full-ring window here
 
     mimu_pkt = messaging.MimuPacketF32Payload()
     mimu_pkt_msg = messaging.MimuPacketF32().write(mimu_pkt, time=0)

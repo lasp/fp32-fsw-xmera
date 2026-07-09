@@ -13,11 +13,11 @@
 /*! @brief Independent reimplementation of AverageMimuDataAlgorithm's two-phase
  *  update used by the regression and fuzz harnesses. Holds its own ring with
  *  the same capacity as the algorithm so cross-cycle behavior matches
- *  bit-for-bit. The gyroAveragingWindow and dcm_BP are read from the algorithm
- *  via getters at each update() call. */
+ *  bit-for-bit. The gyroAveragingWindow and dcm_BP are read from the same
+ *  config the algorithm was constructed with. */
 class ReferenceAverager {
    public:
-    explicit ReferenceAverager(AverageMimuDataAlgorithm const& alg) : alg(alg) {}
+    explicit ReferenceAverager(AverageMimuDataConfig const& cfg) : cfg(cfg) {}
 
     OutputAverageAccelAngleVel update(InputPktsData const& localPkts) {
         // Phase 1: ingest. Freeze prior max for the duration of this call.
@@ -41,9 +41,9 @@ class ReferenceAverager {
         // Phase 2: max-tail-time + per-modality window filter, derived sample
         // schedule. Convert each window to ns once and compare in integer.
         const std::uint64_t gyroAveragingWindowNs =
-            static_cast<std::uint64_t>(this->alg.getGyroAveragingWindow() * 1.0e9);
+            static_cast<std::uint64_t>(this->cfg.getGyroAveragingWindow() * 1.0e9);
         const std::uint64_t accelAveragingWindowNs =
-            static_cast<std::uint64_t>(this->alg.getAccelAveragingWindow() * 1.0e9);
+            static_cast<std::uint64_t>(this->cfg.getAccelAveragingWindow() * 1.0e9);
 
         std::uint64_t maxSlotMeasTime = 0U;
         for (auto const& slot : this->ring) {
@@ -86,11 +86,11 @@ class ReferenceAverager {
 
         if (gyroAvgCount > 0U) {
             gyroSum_P /= static_cast<float>(gyroAvgCount);
-            out.gyroOmega_B = this->alg.getDcmPltfToBdy() * gyroSum_P;
+            out.gyroOmega_B = this->cfg.getDcmPltfToBdy() * gyroSum_P;
         }
         if (accelAvgCount > 0U) {
             accelSum_P /= static_cast<float>(accelAvgCount);
-            out.accel_B = this->alg.getDcmPltfToBdy() * accelSum_P;
+            out.accel_B = this->cfg.getDcmPltfToBdy() * accelSum_P;
         }
 
         return out;
@@ -103,7 +103,7 @@ class ReferenceAverager {
         std::array<Sample, MAX_MIMU_SAMPLES_PER_PKT_C> samples{};
     };
 
-    AverageMimuDataAlgorithm const& alg;
+    AverageMimuDataConfig cfg;
     std::array<RingPacket, AverageMimuDataAlgorithm::kRingCapacity> ring{};
     std::size_t insertIdx{0U};
     std::uint64_t lastIngestedMaxMeasTime{0U};
@@ -125,12 +125,11 @@ inline void fillPacket(InputPktsData& in,
 }
 
 inline void regressionTestAverageMimuDataWindows(float gyroWindow, float accelWindow, InputPktsData const& in) {
-    AverageMimuDataAlgorithm alg;
-    alg.setDcmPltfToBdy(Eigen::Matrix3f::Identity());
-    alg.setGyroAveragingWindow(gyroWindow);
-    alg.setAccelAveragingWindow(accelWindow);
+    const AverageMimuDataConfig cfg =
+        AverageMimuDataConfig::create(gyroWindow, accelWindow, Eigen::Matrix3f::Identity());
+    AverageMimuDataAlgorithm alg(cfg);
 
-    ReferenceAverager ref(alg);
+    ReferenceAverager ref(cfg);
 
     const OutputAverageAccelAngleVel out_alg = alg.update(in);
     const OutputAverageAccelAngleVel out_ref = ref.update(in);
@@ -150,12 +149,11 @@ inline void regressionTestAverageMimuData(float window, InputPktsData const& in)
 inline void sequencedRegressionTestAverageMimuDataWindows(float gyroWindow,
                                                           float accelWindow,
                                                           std::vector<InputPktsData> const& frames) {
-    AverageMimuDataAlgorithm alg;
-    alg.setDcmPltfToBdy(Eigen::Matrix3f::Identity());
-    alg.setGyroAveragingWindow(gyroWindow);
-    alg.setAccelAveragingWindow(accelWindow);
+    const AverageMimuDataConfig cfg =
+        AverageMimuDataConfig::create(gyroWindow, accelWindow, Eigen::Matrix3f::Identity());
+    AverageMimuDataAlgorithm alg(cfg);
 
-    ReferenceAverager ref(alg);
+    ReferenceAverager ref(cfg);
 
     for (auto const& in : frames) {
         const OutputAverageAccelAngleVel out_alg = alg.update(in);

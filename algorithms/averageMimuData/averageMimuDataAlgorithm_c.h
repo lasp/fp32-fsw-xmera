@@ -15,6 +15,18 @@ extern "C" {
 typedef struct AverageMimuDataAlgorithmHandle AverageMimuDataAlgorithmHandle;
 
 /**
+ * @brief POD mirror of AverageMimuDataConfig.
+ *
+ * gyroAveragingWindow / accelAveragingWindow are in seconds; dcm_BP is the
+ * platform-to-body rotation in row-major POD format.
+ */
+typedef struct {
+    double gyroAveragingWindow;
+    double accelAveragingWindow;
+    Matrix3f_c dcm_BP;
+} AverageMimuDataConfig_c;
+
+/**
  * @brief Get the MAX_MIMU_PKT constant for Ada validation.
  * @return The maximum mimu packet count (MAX_MIMU_PKT_C).
  */
@@ -27,16 +39,30 @@ uint32_t AverageMimuDataAlgorithm_getMaxMimuPkt(void);
 uint32_t AverageMimuDataAlgorithm_getMaxMimuSamplesPerPkt(void);
 
 /**
- * @brief Construct a new AverageMimuDataAlgorithm instance.
+ * @brief Construct a new AverageMimuDataAlgorithm instance from a validated config.
+ * @param config Pointer to the configuration to apply.
  * @return Pointer to a new AverageMimuDataAlgorithm (must be destroyed).
  */
-AverageMimuDataAlgorithmHandle* AverageMimuDataAlgorithm_create(void);
+AverageMimuDataAlgorithmHandle* AverageMimuDataAlgorithm_create(const AverageMimuDataConfig_c* config);
 
 /**
  * @brief Destroy a previously created AverageMimuDataAlgorithm.
  * @param self Pointer to the instance to destroy.
  */
 void AverageMimuDataAlgorithm_destroy(AverageMimuDataAlgorithmHandle* self);
+
+/**
+ * @brief Replace the configuration of an existing instance; runtime state is untouched.
+ * @param self   Pointer to the instance.
+ * @param config Pointer to the new configuration to apply.
+ */
+void AverageMimuDataAlgorithm_setConfig(AverageMimuDataAlgorithmHandle* self, const AverageMimuDataConfig_c* config);
+
+/**
+ * @brief Clear the internal ring and new-packet tracking of an existing instance.
+ * @param self Pointer to the instance.
+ */
+void AverageMimuDataAlgorithm_reInitialize(AverageMimuDataAlgorithmHandle* self);
 
 /**
  * @brief Run the update step to compute averaged MIMU data.
@@ -46,48 +72,6 @@ void AverageMimuDataAlgorithm_destroy(AverageMimuDataAlgorithmHandle* self);
  */
 OutputAverageAccelAngleVel_c AverageMimuDataAlgorithm_update(AverageMimuDataAlgorithmHandle* self,
                                                              const InputPktsData_c* input);
-
-/**
- * @brief Set the gyro averaging window duration.
- * @param self   Pointer to the instance.
- * @param window Gyro averaging window duration in seconds.
- */
-void AverageMimuDataAlgorithm_setGyroAveragingWindow(AverageMimuDataAlgorithmHandle* self, double window);
-
-/**
- * @brief Get the current gyro averaging window duration.
- * @param self Pointer to the instance.
- * @return double  The current gyro averaging window in seconds.
- */
-double AverageMimuDataAlgorithm_getGyroAveragingWindow(const AverageMimuDataAlgorithmHandle* self);
-
-/**
- * @brief Set the accel averaging window duration.
- * @param self   Pointer to the instance.
- * @param window Accel averaging window duration in seconds.
- */
-void AverageMimuDataAlgorithm_setAccelAveragingWindow(AverageMimuDataAlgorithmHandle* self, double window);
-
-/**
- * @brief Get the current accel averaging window duration.
- * @param self Pointer to the instance.
- * @return double  The current accel averaging window in seconds.
- */
-double AverageMimuDataAlgorithm_getAccelAveragingWindow(const AverageMimuDataAlgorithmHandle* self);
-
-/**
- * @brief Set the DCM from platform frame to body frame.
- * @param self   Pointer to the instance.
- * @param dcm_BP 3x3 rotation matrix in row-major POD format.
- */
-void AverageMimuDataAlgorithm_setDcmPltfToBdy(AverageMimuDataAlgorithmHandle* self, Matrix3f_c dcm_BP);
-
-/**
- * @brief Get the current DCM from platform frame to body frame.
- * @param self Pointer to the instance.
- * @return Matrix3f_c  3x3 rotation matrix in row-major POD format.
- */
-Matrix3f_c AverageMimuDataAlgorithm_getDcmPltfToBdy(const AverageMimuDataAlgorithmHandle* self);
 
 #ifdef __cplusplus
 }  // extern "C"

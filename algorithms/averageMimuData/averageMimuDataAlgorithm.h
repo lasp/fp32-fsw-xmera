@@ -103,19 +103,16 @@ class AverageMimuDataConfig final {
     Eigen::Matrix3f dcm_BP;
 };
 
-class AverageMimuDataAlgorithm {
+class AverageMimuDataAlgorithm final {
    public:
     static constexpr float kMimuSampleRateHz = average_mimu_detail::kMimuSampleRateHz;
     static constexpr std::uint64_t kMimuSamplePeriodNs = average_mimu_detail::kMimuSamplePeriodNs;
     static constexpr float kMaxAveragingWindowSec = average_mimu_detail::kMaxAveragingWindowSec;
     static constexpr std::size_t kRingCapacity = average_mimu_detail::kRingCapacity;
 
-    void setGyroAveragingWindow(double window);             //!< [s] Setter method for gyro windowSec
-    double getGyroAveragingWindow() const;                  //!< [s] Getter method for gyro windowSec
-    void setAccelAveragingWindow(double window);            //!< [s] Setter method for accel windowSec
-    double getAccelAveragingWindow() const;                 //!< [s] Getter method for accel windowSec
-    void setDcmPltfToBdy(Eigen::Matrix3f const& dcm_BPIn);  //!< Setter method for dcm from platform to body
-    Eigen::Matrix3f getDcmPltfToBdy() const;                //!< Getter method for dcm from platform to body
+    explicit AverageMimuDataAlgorithm(const AverageMimuDataConfig& config);
+    void setConfig(const AverageMimuDataConfig& config);  //!< Replace the configuration; runtime state is untouched
+    void reInitialize();                                  //!< Clear the ring and new-packet tracking
 
     // Ingests new packets from the snapshot into the internal ring (strict
     // monotonic by per-packet representative time) and returns the rolling
@@ -132,11 +129,11 @@ class AverageMimuDataAlgorithm {
         std::array<Sample, MAX_MIMU_SAMPLES_PER_PKT_C> samples{};
     };
 
-    // Stored as nanoseconds so the per-sample comparison in update() is a
-    // pure uint64_t compare. Float is only used at the public seconds-based API.
-    std::uint64_t gyroAveragingWindowNs{0U};               //!< [ns] Gyro: allowable time difference from "latest"
-    std::uint64_t accelAveragingWindowNs{0U};              //!< [ns] Accel: allowable time difference from "latest"
-    Eigen::Matrix3f dcm_BP = Eigen::Matrix3f::Identity();  //!< [-] Transformation from the platform frame to body
+    AverageMimuDataConfig cfg;
+    // Config-derived: window seconds converted to nanoseconds once in setConfig()
+    // so the per-sample staleness comparison in update() stays in integer math.
+    std::uint64_t gyroAveragingWindowNs{0U};       //!< [ns] Gyro: allowable time difference from "latest"
+    std::uint64_t accelAveragingWindowNs{0U};      //!< [ns] Accel: allowable time difference from "latest"
     std::array<RingPacket, kRingCapacity> ring{};  //!< Internal ring of recent packets (overwrites oldest on insert)
     std::size_t insertIdx{0U};                     //!< Next ring slot to overwrite
     std::uint64_t lastIngestedMaxMeasTime{0U};  //!< Newest representative time ever ingested (for new-packet detection)
