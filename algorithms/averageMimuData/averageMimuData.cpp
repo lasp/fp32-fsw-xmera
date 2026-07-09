@@ -57,5 +57,5 @@ void AverageMimuData::updateState(uint64_t const callTime) {
     eigenVectorToCArray(gyroOmega_B, localOutput.AngVelBody);
     eigenVectorToCArray(accel_B, localOutput.AccelBody);
 
-    this->imuOutMsg.write(&localOutput, this->moduleID, callTime);
+    this->imuOutMsg.write(localOutput, this->moduleID, callTime);
 }
