@@ -165,6 +165,27 @@ TEST(SunlineFilterAlgorithmTimeUpdate, NaNDtReturnsTrueAndLeavesStateUnchanged) 
     EXPECT_TRUE(algo.getState().raw().isApprox(before.raw(), 1E-12)) << "a NaN dt should leave the state unchanged";
 }
 
+TEST(SunlineFilterAlgorithmTimeUpdate, ZeroDtLeavesCovarianceUnchanged) {
+    Matrix7 const P0 = diagCovariance(1E-2, 1E-3, 1E-2);
+    SunlineFilterAlgorithm algo(rateOnlyConfigWithProcessNoise(
+        makeState(Eigen::Vector3d(0, 0, 1), Eigen::Vector3d::Zero(), 1.0), P0, Matrix7::Identity() * 1E-2));
+
+    EXPECT_TRUE(algo.timeUpdate(0.0));
+    EXPECT_TRUE(algo.getCovariance().isApprox(P0, 1E-10));
+}
+
+TEST(SunlineFilterAlgorithmTimeUpdate, GrowsCovarianceWithProcessNoise) {
+    Matrix7 const P0 = diagCovariance(1E-2, 1E-3, 1E-2);
+    SunlineFilterAlgorithm algo(rateOnlyConfigWithProcessNoise(
+        makeState(Eigen::Vector3d(0, 0, 1), Eigen::Vector3d::Zero(), 1.0), P0, Matrix7::Identity() * 1E-2));
+
+    EXPECT_TRUE(algo.timeUpdate(1.0));
+    Matrix7 const P = algo.getCovariance();
+    EXPECT_GT(P.trace(), P0.trace()) << "process noise should grow covariance";
+    EXPECT_TRUE(P.isApprox(P.transpose(), 1E-10)) << "covariance not symmetric";
+    EXPECT_TRUE(SunlineFilterConfig::isValidInitialCovariance(P)) << "covariance not PSD";
+}
+
 // A single rate measurement shrinks the rate-block of P. Drives the
 // SequentialFilter pair directly (timeUpdate + measurementUpdate) rather than
 // going through the queue-driven update() — keeps the test focused on the SRUKF
@@ -217,6 +238,112 @@ TEST(SunlineFilterAlgorithmMeasurementUpdate, NonFiniteRateMeasurementIsSkipped)
     EXPECT_TRUE(algo.getState().raw().isApprox(stateBefore));
     EXPECT_TRUE(algo.getCovariance().isApprox(covarBefore));
     EXPECT_FALSE(algo.getLastRateResiduals().valid);
+}
+
+// With the measurement covariance R >> the state covariance P, the rate update is nearly
+// uninformative: the state barely moves and the post-fit residual approximates the pre-fit.
+TEST(SunlineFilterAlgorithmMeasurementUpdate, HighMeasurementNoiseLeavesStateNearlyUnchanged) {
+    SunlineFilterAlgorithm algo(rateOnlyConfig(makeState(Eigen::Vector3d(0, 0, 1), Eigen::Vector3d::Zero(), 1.0),
+                                               diagCovariance(1E-2, 1E-2, 1E-2)));
+    EXPECT_TRUE(algo.timeUpdate(0.0));
+    State const before = algo.getState();
+
+    RateMeasurement r;
+    r.timeTag = 0.0;
+    r.omega_BN_B = Eigen::Vector3d(0.5, 0.0, 0.0);  // far from the prior
+    r.covar = 1E8 * Eigen::Matrix3d::Identity();    // R >> P
+    r.valid = true;
+    EXPECT_TRUE(algo.measurementUpdate(r));
+
+    EXPECT_LT((algo.getState().raw() - before.raw()).norm(), 1E-5) << "state moved despite R >> P";
+    RateResidualsOutput const res = algo.getLastRateResiduals();
+    EXPECT_TRUE(res.postFit.isApprox(res.preFit, 1E-4)) << "postFit should approx preFit when R >> P";
+}
+
+// ============================================================================
+// Measurement packing + application (through the public update() path) and
+// residual recording.
+// ============================================================================
+
+// An informative rate update pulls the estimate toward the measurement, so the post-fit
+// residual is smaller than the pre-fit.
+TEST(SunlineFilterAlgorithmMeasurements, InformativeMeasurementReducesResidual) {
+    SunlineFilterAlgorithm algo(rateOnlyConfig(makeState(Eigen::Vector3d(0, 0, 1), Eigen::Vector3d::Zero(), 1.0),
+                                               diagCovariance(1E-2, 1E-1, 1E-2)));
+    EXPECT_TRUE(algo.timeUpdate(0.0));
+
+    RateMeasurement r;
+    r.timeTag = 0.0;
+    r.omega_BN_B = Eigen::Vector3d(0.05, -0.05, 0.05);
+    r.covar = (1E-3 * 1E-3) * Eigen::Matrix3d::Identity();
+    r.valid = true;
+    EXPECT_TRUE(algo.measurementUpdate(r));
+
+    RateResidualsOutput const res = algo.getLastRateResiduals();
+    EXPECT_TRUE(res.valid);
+    EXPECT_LT(res.postFit.norm(), res.preFit.norm());
+}
+
+// A rate reading fires a residual only when fresh (timeTag > 0); a stale/empty reading is
+// dropped and the recorded observation echoes the input rate.
+TEST(SunlineFilterAlgorithmMeasurements, RateDataFiresResidualOnlyWhenFresh) {
+    SunlineFilterAlgorithm algo(rateOnlyConfig(makeState(Eigen::Vector3d(0, 0, 1), Eigen::Vector3d::Zero(), 1.0),
+                                               diagCovariance(1E-2, 1E-1, 1E-2)));
+
+    SunlineFilterOutput const stale = algo.update(1.0, CssData{}, RateData{});
+    EXPECT_FALSE(stale.rateResiduals.valid);
+
+    RateData rate;
+    rate.timeTag = 2.0;
+    rate.rate = Eigen::Vector3d(0.02, -0.01, 0.015);
+    SunlineFilterOutput const fresh = algo.update(2.0, CssData{}, rate);
+    EXPECT_TRUE(fresh.rateResiduals.valid);
+    EXPECT_TRUE(fresh.rateResiduals.observation.isApprox(rate.rate, 1E-12));
+}
+
+// A CSS reading fires a residual only when fresh (timeTag > 0); a stale/empty reading is dropped.
+TEST(SunlineFilterAlgorithmMeasurements, CssDataFiresResidualOnlyWhenFresh) {
+    SunlineFilterAlgorithm algo(threeCssConfig(
+        makeState(Eigen::Vector3d(0, 0, 1), Eigen::Vector3d::Zero(), 1.0), diagCovariance(1E-2, 1E-2, 1E-1), 0.0));
+
+    SunlineFilterOutput const stale = algo.update(1.0, CssData{}, RateData{});
+    EXPECT_FALSE(stale.cssResiduals.valid);
+
+    CssData css;
+    css.timeTag = 2.0;
+    css.cosValues(0) = 0.5;
+    css.cosValues(1) = 0.5;
+    css.cosValues(2) = 0.707;
+    SunlineFilterOutput const fresh = algo.update(2.0, css, RateData{});
+    EXPECT_TRUE(fresh.cssResiduals.valid);
+    EXPECT_EQ(fresh.cssResiduals.numberOfActiveCss, 3);
+}
+
+// Packing threads the configured gyro-noise std into the measurement covariance: a larger std
+// makes the rate update less informative, so the rate block of the covariance shrinks less.
+TEST(SunlineFilterAlgorithmMeasurements, LargerMeasurementNoiseStdShrinksCovarianceLess) {
+    auto const rateBlockTrace = [](Matrix7 const& P) { return P(3, 3) + P(4, 4) + P(5, 5); };
+
+    ConfigInputs base;
+    base.initialState = makeState(Eigen::Vector3d(0, 0, 1), Eigen::Vector3d::Zero(), 1.0);
+    base.initialCovariance = diagCovariance(1E-2, 1E-1, 1E-2);
+
+    RateData rate;
+    rate.timeTag = 1.0;
+    rate.rate = Eigen::Vector3d(0.01, 0.0, 0.0);
+
+    ConfigInputs sharpIn = base;
+    sharpIn.gyroStd = 1E-3;
+    SunlineFilterAlgorithm sharp(buildConfig(sharpIn));
+    sharp.update(1.0, CssData{}, rate);
+
+    ConfigInputs looseIn = base;
+    looseIn.gyroStd = 1E-1;
+    SunlineFilterAlgorithm loose(buildConfig(looseIn));
+    loose.update(1.0, CssData{}, rate);
+
+    EXPECT_LT(rateBlockTrace(sharp.getCovariance()), rateBlockTrace(loose.getCovariance()));
+    EXPECT_LT(rateBlockTrace(loose.getCovariance()), rateBlockTrace(base.initialCovariance));
 }
 
 // Queue-driven path: both per-kind residual slots in the returned
@@ -303,6 +430,25 @@ TEST(SunlineFilterAlgorithmUpdate, BadMeasurementIsRejectedAndFilterRecovers) {
     EXPECT_TRUE(recovered.cssResiduals.valid) << "the post-recovery measurement must be applied";
     EXPECT_TRUE(recovered.cssResiduals.postFit.allFinite()) << "residuals must be finite after recovery";
     EXPECT_TRUE(algo.getState().raw().allFinite()) << "state must be finite after recovery";
+}
+
+// Each update() with empty measurements re-propagates from the unchanged anchor to
+// currentSeconds, so with process noise the covariance trace grows with currentSeconds.
+TEST(SunlineFilterAlgorithmUpdate, WithoutMeasurementsGrowsCovarianceMonotonically) {
+    Matrix7 const P0 = diagCovariance(1E-2, 1E-3, 1E-2);
+    SunlineFilterAlgorithm algo(rateOnlyConfigWithProcessNoise(
+        makeState(Eigen::Vector3d(0, 0, 1), Eigen::Vector3d::Zero(), 1.0), P0, Matrix7::Identity() * 1E-3));
+
+    algo.update(1.0, CssData{}, RateData{});
+    double const trace1 = algo.getCovariance().trace();
+    algo.update(4.0, CssData{}, RateData{});
+    double const trace4 = algo.getCovariance().trace();
+    algo.update(9.0, CssData{}, RateData{});
+    double const trace9 = algo.getCovariance().trace();
+
+    EXPECT_GT(trace1, P0.trace());
+    EXPECT_GT(trace4, trace1);
+    EXPECT_GT(trace9, trace4);
 }
 
 TEST(SunlineFilterAlgorithmReInit, ReInitializePreservesEstimateReInitializeAllResetsIt) {
