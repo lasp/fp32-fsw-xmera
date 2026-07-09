@@ -20,22 +20,16 @@ class ReferenceAverager {
     explicit ReferenceAverager(AverageMimuDataConfig const& cfg) : cfg(cfg) {}
 
     OutputAverageAccelAngleVel update(InputPktsData const& localPkts) {
-        // Phase 1: ingest. Freeze prior max for the duration of this call.
-        const std::uint64_t priorMax = this->lastIngestedMaxMeasTime;
+        // Phase 1: ingest valid, nonzero-measTime packets, including out-of-order ones.
         for (auto const& packet : localPkts.packets) {
-            if (!packet.isValid) {
-                continue;
-            }
-            const std::uint64_t firstSampleTime = packet.measTime;
-            if ((firstSampleTime == 0U) || (firstSampleTime <= priorMax)) {
+            if (!packet.isValid || (packet.measTime == 0U)) {
                 continue;
             }
 
             this->ring[this->insertIdx].isValid = true;
-            this->ring[this->insertIdx].measTime = firstSampleTime;
+            this->ring[this->insertIdx].measTime = packet.measTime;
             this->ring[this->insertIdx].samples = packet.samples;
             this->insertIdx = (this->insertIdx + 1U) % AverageMimuDataAlgorithm::kRingCapacity;
-            this->lastIngestedMaxMeasTime = std::max(this->lastIngestedMaxMeasTime, firstSampleTime);
         }
 
         // Phase 2: max-tail-time + per-modality window filter, derived sample
@@ -106,7 +100,6 @@ class ReferenceAverager {
     AverageMimuDataConfig cfg;
     std::array<RingPacket, AverageMimuDataAlgorithm::kRingCapacity> ring{};
     std::size_t insertIdx{0U};
-    std::uint64_t lastIngestedMaxMeasTime{0U};
 };
 
 /*! @brief Fill packet `p` of `in` with the given first-sample timestamp and

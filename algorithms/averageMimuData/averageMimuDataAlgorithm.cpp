@@ -1,8 +1,6 @@
 #include "averageMimuDataAlgorithm.h"
 #include <utilities/fsw/timeConstants.h>
 
-#include <algorithm>
-
 AverageMimuDataAlgorithm::AverageMimuDataAlgorithm(const AverageMimuDataConfig& config) : cfg(config) {
     this->setConfig(config);
     this->reInitialize();
@@ -17,19 +15,16 @@ void AverageMimuDataAlgorithm::setConfig(const AverageMimuDataConfig& config) {
 void AverageMimuDataAlgorithm::reInitialize() {
     this->ring = {};
     this->insertIdx = 0U;
-    this->lastIngestedMaxMeasTime = 0U;
 }
 
 /*! @brief Ingest new packets from the input snapshot into the internal ring,
  *  then return the rolling average of fresh samples currently in the ring.
  *
  *  Phase 1 (ingest): Each input packet carries a `measTime` that is the
- *  first sample's timestamp (`firstSampleTime`). A packet is ingested only if
- *  its `firstSampleTime` is strictly greater than the largest first-sample
- *  time ever ingested before this update() call. The whole packet is
- *  copied into the next ring slot, overwriting the oldest slot when
- *  capacity is reached. Multiple packets within one snapshot can be
- *  ingested; already-seen or older-than-prior-max packets are dropped.
+ *  first sample's timestamp. A packet is ingested if it is valid and carries a
+ *  nonzero `measTime`, including out-of-order packets. The whole packet is
+ *  copied into the next ring slot, overwriting the oldest slot when capacity is
+ *  reached. Multiple packets within one snapshot can be ingested.
  *
  *  Phase 2 (average): Per-sample times are derived from each ring slot's
  *  `measTime` plus `s * kMimuSamplePeriodNs`. The maxTimeTag is the
@@ -44,23 +39,17 @@ void AverageMimuDataAlgorithm::reInitialize() {
  *  @return OutputAverageAccelAngleVel: body-frame rolling average.
  */
 OutputAverageAccelAngleVel AverageMimuDataAlgorithm::update(InputPktsData const& localPkts) {
-    // Phase 1: Ingest packets. Freeze prior maximum time so within one snapshot
-    // all packets are evaluated against the previous-call boundary.
-    const uint64_t priorMax = this->lastIngestedMaxMeasTime;
+    // Phase 1: Ingest packets. A packet enters the ring only if it is valid and
+    // carries a nonzero measTime; out-of-order packets are accepted.
     for (const auto& [isValid, measTime, samples] : localPkts.packets) {
-        if (!isValid) {
-            continue;
-        }
-        const uint64_t firstSampleTime = measTime;
-        if (firstSampleTime == 0U || firstSampleTime <= priorMax) {
+        if (!isValid || measTime == 0U) {
             continue;
         }
 
         this->ring.at(this->insertIdx).isValid = true;
-        this->ring.at(this->insertIdx).measTime = firstSampleTime;
+        this->ring.at(this->insertIdx).measTime = measTime;
         this->ring.at(this->insertIdx).samples = samples;
         this->insertIdx = (this->insertIdx + 1U) % kRingCapacity;
-        this->lastIngestedMaxMeasTime = std::max(this->lastIngestedMaxMeasTime, firstSampleTime);
     }
 
     // Phase 2: compute the maxTimeTag from the newest stored packet's tail sample.

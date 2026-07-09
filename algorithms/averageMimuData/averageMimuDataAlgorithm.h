@@ -137,7 +137,6 @@ class AverageMimuDataAlgorithm final {
     std::uint64_t accelAveragingWindowNs{0U};      //!< [ns] Accel: allowable time difference from "latest"
     std::array<RingPacket, kRingCapacity> ring{};  //!< Internal ring of recent packets (overwrites oldest on insert)
     std::size_t insertIdx{0U};                     //!< Next ring slot to overwrite
-    std::uint64_t lastIngestedMaxMeasTime{0U};  //!< Newest representative time ever ingested (for new-packet detection)
 };
 
 #endif

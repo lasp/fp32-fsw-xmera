@@ -302,26 +302,6 @@ TEST(averageMimuDataTest, SetupTest) {
     EXPECT_NO_THROW((void)alg.update(in));
 }
 
-TEST(averageMimuDataTest, StrictMonotonicDropsRepeatedSnapshot) {
-    // Re-feeding the exact same snapshot must not double-count.
-    AverageMimuDataAlgorithm alg(AverageMimuDataConfig::create(1.0, 1.0, Eigen::Matrix3f::Identity()));
-
-    InputPktsData in{};
-    std::array<Eigen::Vector3f, kSamplesPerPkt> gyros{};
-    std::array<Eigen::Vector3f, kSamplesPerPkt> accels{};
-    gyros.fill(Eigen::Vector3f{1.0F, 2.0F, 3.0F});
-    accels.fill(Eigen::Vector3f{4.0F, 5.0F, 6.0F});
-    fillPacket(in, 0, kSec2Nano, gyros, accels);
-
-    const OutputAverageAccelAngleVel out_first = alg.update(in);
-    const OutputAverageAccelAngleVel out_second = alg.update(in);
-
-    EXPECT_EQ(out_first.gyroOmega_B, gyros[0]);
-    EXPECT_EQ(out_first.accel_B, accels[0]);
-    EXPECT_EQ(out_second.gyroOmega_B, out_first.gyroOmega_B);
-    EXPECT_EQ(out_second.accel_B, out_first.accel_B);
-}
-
 TEST(averageMimuDataTest, OverflowOverwritesOldest) {
     // Drive kRingCapacity + 2 monotonically-newer single-packet snapshots.
     constexpr double kMax = static_cast<double>(AverageMimuDataAlgorithm::kMaxAveragingWindowSec);
@@ -443,8 +423,9 @@ TEST(averageMimuDataTest, WindowGrowMidStream) {
     EXPECT_EQ(out_wide.accel_B, (aOld[0] + aNew[0]) / 2.0F);
 }
 
-TEST(averageMimuDataTest, OutOfOrderPacketDropped) {
-    // A packet whose measTime <= the prior max is dropped at ingest.
+TEST(averageMimuDataTest, OutOfOrderPacketIngested) {
+    // An out-of-order packet with a new measTime is ingested; both packets'
+    // samples fall within the window, so the output is their mean.
     AverageMimuDataAlgorithm alg(AverageMimuDataConfig::create(1.0, 1.0, Eigen::Matrix3f::Identity()));
 
     InputPktsData in1{};
@@ -463,6 +444,6 @@ TEST(averageMimuDataTest, OutOfOrderPacketDropped) {
     fillPacket(in2, 0, kSec2Nano - (10U * kPeriodNs), gLoud, aLoud);
     const OutputAverageAccelAngleVel out = alg.update(in2);
 
-    EXPECT_EQ(out.gyroOmega_B, gOk[0]);
-    EXPECT_EQ(out.accel_B, aOk[0]);
+    EXPECT_EQ(out.gyroOmega_B, (gOk[0] + gLoud[0]) / 2.0F);
+    EXPECT_EQ(out.accel_B, (aOk[0] + aLoud[0]) / 2.0F);
 }
