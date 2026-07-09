@@ -76,6 +76,8 @@ OutputAverageAccelAngleVel AverageMimuDataAlgorithm::update(InputPktsData const&
     uint64_t accelAvgCount = 0U;
 
     for (const auto& [isValid, measTime, samples] : this->ring) {
+        // Only valid measurements are ever stored, so isValid here just skips
+        // ring slots that have not been written yet.
         if (!isValid) {
             continue;
         }
