@@ -1,7 +1,7 @@
-#include "sunSafePointTestHelpers.hpp"
+#include "sunSearchPointTestHelpers.hpp"
 #include <fuzztest/fuzztest.h>
 
-FUZZ_TEST(SunSafePointAlgorithmFuzz, regressionTestSunSafePoint)
+FUZZ_TEST(SunSearchPointAlgorithmFuzz, regressionTestSunSearchPoint)
     .WithDomains(fuzztest::VectorOf(fuzztest::InRange(-10.0F, 10.0F)).WithSize(3),  // sunVec
                  fuzztest::VectorOf(fuzztest::InRange(-5.0F, 5.0F)).WithSize(3),    // omega_BN_B
                  fuzztest::InRange(-5.0F, 5.0F),                                    // sunAxisSpinRate
@@ -12,12 +12,12 @@ FUZZ_TEST(SunSafePointAlgorithmFuzz, regressionTestSunSafePoint)
 // Property fuzz tests
 // ---------------------------------------------------------------------------
 
-FUZZ_TEST(SunSafePointPropertyFuzz, propertySigmaBrNormBounded)
+FUZZ_TEST(SunSearchPointPropertyFuzz, propertySigmaBrNormBounded)
     .WithDomains(fuzztest::VectorOf(fuzztest::InRange(-10.0F, 10.0F)).WithSize(3));
 
-FUZZ_TEST(SunSafePointPropertyFuzz, propertyOmegaBrIdentity)
+FUZZ_TEST(SunSearchPointPropertyFuzz, propertyOmegaBrIdentity)
     .WithDomains(fuzztest::VectorOf(fuzztest::InRange(-10.0F, 10.0F)).WithSize(3),
                  fuzztest::VectorOf(fuzztest::InRange(-5.0F, 5.0F)).WithSize(3));
 
-FUZZ_TEST(SunSafePointPropertyFuzz, propertyOutputIsFinite)
+FUZZ_TEST(SunSearchPointPropertyFuzz, propertyOutputIsFinite)
     .WithDomains(fuzztest::VectorOf(fuzztest::InRange(-10.0F, 10.0F)).WithSize(3));
