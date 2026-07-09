@@ -113,6 +113,7 @@ set(algorithms
     "dvAccumulation"
     "dvGuidance"
     "ephemeridesRecenter"
+    "flybyFilter"
     "forceTorqueThrForceMapping"
     "hillPoint"
     "inertial3D"
