@@ -9,6 +9,13 @@ typedef struct {
 } Vector3f_c;
 
 /**
+ * @brief POD representation of a double-precision 3-vector (Eigen::Vector3d).
+ */
+typedef struct {
+    double data[3];
+} Vector3d_c;
+
+/**
  * @brief POD representation of a 3x3 matrix (Eigen::Matrix3f).
  */
 typedef struct {

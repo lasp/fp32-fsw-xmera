@@ -71,8 +71,8 @@ void SunTrackErrorAlgorithm_reInitialize(SunTrackErrorAlgorithmHandle* self);
 SunTrackErrorOutput_c SunTrackErrorAlgorithm_update(SunTrackErrorAlgorithmHandle* self,
                                                     const Vector3f_c* sigma_BN,
                                                     const SunTrackErrorAttRefInputs_c* ref,
-                                                    const Vector3f_c* r_BN_N,
-                                                    const Vector3f_c* r_SN_N,
+                                                    const Vector3d_c* r_BN_N,
+                                                    const Vector3d_c* r_SN_N,
                                                     uint64_t callTime);
 
 #ifdef __cplusplus

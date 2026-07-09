@@ -48,13 +48,13 @@ class SunTrackErrorReference {
                                         const Eigen::Vector3f& sigma_RN,
                                         const Eigen::Vector3f& omega_RN_N,
                                         const Eigen::Vector3f& domega_RN_N,
-                                        const Eigen::Vector3f& r_BN_N,
-                                        const Eigen::Vector3f& r_SN_N,
+                                        const Eigen::Vector3d& r_BN_N,
+                                        const Eigen::Vector3d& r_SN_N,
                                         uint64_t callTime) {
         if (!this->maneuverInitialized) {
             if (this->computeAngleStart) {
                 const Eigen::Matrix3f dcm_BN = mrpToDcm(sigma_BN);
-                const Eigen::Vector3f sHat_N = (r_SN_N - r_BN_N).normalized();
+                const Eigen::Vector3f sHat_N = (r_SN_N - r_BN_N).normalized().cast<float>();
                 const Eigen::Vector3f sensInitial_N = dcm_BN.transpose() * this->sensitiveHat_B;
 
                 const Eigen::Matrix3f dcm_R0N = mrpToDcm(sigma_RN);
@@ -134,8 +134,8 @@ class SunTrackErrorReference {
 inline void integratedRegression(const Eigen::Vector3f& sensitiveHat_B,
                                  float angleRate,
                                  bool computeAngleStart,
-                                 const Eigen::Vector3f& r_BN_N,
-                                 const Eigen::Vector3f& r_SN_N,
+                                 const Eigen::Vector3d& r_BN_N,
+                                 const Eigen::Vector3d& r_SN_N,
                                  uint64_t stepNs,
                                  int numSteps) {
     const Eigen::Vector3f sigma_BN{0.25F, -0.45F, 0.75F};

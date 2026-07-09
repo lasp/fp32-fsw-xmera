@@ -63,8 +63,8 @@ class SunTrackErrorAlgorithm final {
     void reInitialize();
     SunTrackErrorOutput update(const Eigen::Vector3f& sigma_BN,
                                const SunTrackErrorAttRefInputs& ref,
-                               const Eigen::Vector3f& r_BN_N,
-                               const Eigen::Vector3f& r_SN_N,
+                               const Eigen::Vector3d& r_BN_N,
+                               const Eigen::Vector3d& r_SN_N,
                                uint64_t callTime);
 
    private:

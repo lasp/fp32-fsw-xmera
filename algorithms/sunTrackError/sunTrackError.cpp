@@ -66,11 +66,11 @@ void SunTrackError::updateState(uint64_t callTime) {
                                               cArrayToEigenVector3(ref.omega_RN_N),
                                               cArrayToEigenVector3(ref.domega_RN_N)};
 
-    Eigen::Vector3f r_BN_N = Eigen::Vector3f::Zero();  //!< spacecraft position
-    Eigen::Vector3f r_SN_N = Eigen::Vector3f::Zero();  //!< sun position
+    Eigen::Vector3d r_BN_N = Eigen::Vector3d::Zero();  //!< spacecraft position
+    Eigen::Vector3d r_SN_N = Eigen::Vector3d::Zero();  //!< sun position
     if (this->transNavInMsg.isLinked() && this->ephemerisInMsg.isLinked()) {
-        r_BN_N = cArrayToEigenVector3(this->transNavInMsg().r_BN_N).cast<float>();
-        r_SN_N = cArrayToEigenVector3(this->ephemerisInMsg().r_BdyZero_N).cast<float>();
+        r_BN_N = cArrayToEigenVector3(this->transNavInMsg().r_BN_N);
+        r_SN_N = cArrayToEigenVector3(this->ephemerisInMsg().r_BdyZero_N);
     }
 
     const SunTrackErrorOutput out = this->algorithm->update(sigma_BN, refInputs, r_BN_N, r_SN_N, callTime);

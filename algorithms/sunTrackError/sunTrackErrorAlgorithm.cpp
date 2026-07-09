@@ -27,12 +27,13 @@ void SunTrackErrorAlgorithm::reInitialize() { this->maneuverInitialized = false;
  */
 SunTrackErrorOutput SunTrackErrorAlgorithm::update(const Eigen::Vector3f& sigma_BN,
                                                    const SunTrackErrorAttRefInputs& ref,
-                                                   const Eigen::Vector3f& r_BN_N,
-                                                   const Eigen::Vector3f& r_SN_N,
+                                                   const Eigen::Vector3d& r_BN_N,
+                                                   const Eigen::Vector3d& r_SN_N,
                                                    const uint64_t callTime) {
     if (!this->maneuverInitialized) {
         if (this->cfg.getComputeAngleStart()) {
-            const Eigen::Vector3f sHat_N = (r_SN_N - r_BN_N).normalized();
+            // Difference the large inertial positions in double precision, then reduce the unit direction to float.
+            const Eigen::Vector3f sHat_N = (r_SN_N - r_BN_N).normalized().cast<float>();
             initializeManeuver(sigma_BN, ref, sHat_N);
         } else {
             this->maneuverAngle = 0.0F;

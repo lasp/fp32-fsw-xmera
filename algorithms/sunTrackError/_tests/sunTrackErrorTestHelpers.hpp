@@ -24,13 +24,13 @@ class SunTrackErrorReference {
                                const Eigen::Vector3f& sigma_RN,
                                const Eigen::Vector3f& omega_RN_N,
                                const Eigen::Vector3f& domega_RN_N,
-                               const Eigen::Vector3f& r_BN_N,
-                               const Eigen::Vector3f& r_SN_N,
+                               const Eigen::Vector3d& r_BN_N,
+                               const Eigen::Vector3d& r_SN_N,
                                uint64_t callTime) {
         if (!this->maneuverInitialized) {
             if (this->computeAngleStart) {
                 const Eigen::Matrix3f dcm_BN = mrpToDcm(sigma_BN);
-                const Eigen::Vector3f sHat_N = (r_SN_N - r_BN_N).normalized();
+                const Eigen::Vector3f sHat_N = (r_SN_N - r_BN_N).normalized().cast<float>();
                 const Eigen::Vector3f sensInitial_N = dcm_BN.transpose() * this->sensitiveHat_B;
                 const Eigen::Matrix3f dcm_RN = mrpToDcm(sigma_RN);
                 const Eigen::Vector3f sensFinal_N = dcm_RN.transpose() * this->sensitiveHat_B;
@@ -104,8 +104,8 @@ inline void regressionTestSunTrackError(const Eigen::Vector3f& sensitiveHat_B,
                                         const Eigen::Vector3f& sigma_RN,
                                         const Eigen::Vector3f& omega_RN_N,
                                         const Eigen::Vector3f& domega_RN_N,
-                                        const Eigen::Vector3f& r_BN_N,
-                                        const Eigen::Vector3f& r_SN_N,
+                                        const Eigen::Vector3d& r_BN_N,
+                                        const Eigen::Vector3d& r_SN_N,
                                         uint64_t stepNs,
                                         int numSteps) {
     const auto config = SunTrackErrorConfig::create(sensitiveHat_B, angleRate, computeAngleStart);
@@ -146,8 +146,8 @@ namespace detail {
 constexpr uint64_t kStepNs = 500000000ULL;                           // 0.5 s
 constexpr float kManeuverRate = std::numbers::pi_v<float> / 180.0F;  // 1 deg/s
 inline Eigen::Vector3f sensitiveHat_B() { return Eigen::Vector3f{0.0F, -1.0F, 0.0F}; }
-inline Eigen::Vector3f rBN_N() { return Eigen::Vector3f{-30.0F, 20.0F, -50.0F}; }
-inline Eigen::Vector3f rSN_N() { return Eigen::Vector3f{1.0F, 2.0F, 3.0F}; }
+inline Eigen::Vector3d rBN_N() { return Eigen::Vector3d{-30.0, 20.0, -50.0}; }
+inline Eigen::Vector3d rSN_N() { return Eigen::Vector3d{1.0, 2.0, 3.0}; }
 }  // namespace detail
 
 // With the maneuver disabled (computeAngleStart == false), the adjusted reference equals the input
@@ -166,8 +166,8 @@ inline void propertyPassThroughEqualsInputRef(const Eigen::Vector3f& sigma_BN,
     for (int k = 0; k < 3; ++k) {
         const SunTrackErrorOutput out = alg.update(sigma_BN,
                                                    refIn,
-                                                   Eigen::Vector3f::Zero(),
-                                                   Eigen::Vector3f::Zero(),
+                                                   Eigen::Vector3d::Zero(),
+                                                   Eigen::Vector3d::Zero(),
                                                    static_cast<uint64_t>(k) * detail::kStepNs);
         const Eigen::Matrix3f dcm_RN_out = mrpToDcm(out.sigma_RN);
         for (int r = 0; r < 3; ++r) {
@@ -271,8 +271,8 @@ inline void fuzzRegressionSunTrackError(const Eigen::Vector3f& sigma_BN,
                                 sigma_RN,
                                 omega_RN_N,
                                 domega_RN_N,
-                                Eigen::Vector3f::Zero(),
-                                Eigen::Vector3f::Zero(),
+                                Eigen::Vector3d::Zero(),
+                                Eigen::Vector3d::Zero(),
                                 detail::kStepNs,
                                 3);
 }

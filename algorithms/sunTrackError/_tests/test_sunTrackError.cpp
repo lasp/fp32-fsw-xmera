@@ -13,8 +13,8 @@ const Eigen::Vector3f kSigmaBN{0.25F, -0.45F, 0.75F};
 const Eigen::Vector3f kSigmaRN{0.35F, -0.25F, 0.15F};
 const Eigen::Vector3f kOmegaRNN{0.018F, -0.032F, 0.015F};
 const Eigen::Vector3f kDomegaRNN{0.048F, -0.022F, 0.025F};
-const Eigen::Vector3f kRBN_N{-30.0F, 20.0F, -50.0F};
-const Eigen::Vector3f kRSN_N{1.0F, 2.0F, 3.0F};
+const Eigen::Vector3d kRBN_N{-30.0, 20.0, -50.0};
+const Eigen::Vector3d kRSN_N{1.0, 2.0, 3.0};
 const Eigen::Vector3f kSensitiveHat_B{0.0F, -1.0F, 0.0F};
 }  // namespace
 
@@ -31,8 +31,8 @@ TEST(SunTrackErrorTest, RegressionPassThrough) {
                                 kSigmaRN,
                                 kOmegaRNN,
                                 kDomegaRNN,
-                                Eigen::Vector3f::Zero(),
-                                Eigen::Vector3f::Zero(),
+                                Eigen::Vector3d::Zero(),
+                                Eigen::Vector3d::Zero(),
                                 kHalfSecNs,
                                 12);
 }

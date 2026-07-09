@@ -55,13 +55,13 @@ void SunTrackErrorAlgorithm_reInitialize(SunTrackErrorAlgorithmHandle* self) {
 SunTrackErrorOutput_c SunTrackErrorAlgorithm_update(SunTrackErrorAlgorithmHandle* self,
                                                     const Vector3f_c* sigma_BN,
                                                     const SunTrackErrorAttRefInputs_c* ref,
-                                                    const Vector3f_c* r_BN_N,
-                                                    const Vector3f_c* r_SN_N,
+                                                    const Vector3d_c* r_BN_N,
+                                                    const Vector3d_c* r_SN_N,
                                                     uint64_t callTime) {
     // clang-format off
     const SunTrackErrorOutput out = reinterpret_cast<::SunTrackErrorAlgorithm*>(self)->update(  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
-        cArrayToEigenVector3<float>(sigma_BN->data), refFromC(*ref), cArrayToEigenVector3<float>(r_BN_N->data),
-        cArrayToEigenVector3<float>(r_SN_N->data), callTime);
+        cArrayToEigenVector3<float>(sigma_BN->data), refFromC(*ref), cArrayToEigenVector3<double>(r_BN_N->data),
+        cArrayToEigenVector3<double>(r_SN_N->data), callTime);
     // clang-format on
     return outputToC(out);
 }

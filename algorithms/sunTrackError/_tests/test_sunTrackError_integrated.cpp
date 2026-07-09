@@ -9,8 +9,8 @@ constexpr float kManeuverRate = std::numbers::pi_v<float> / 180.0F;  // 1 deg/s 
 
 // Representative Sun geometry (spacecraft and Sun inertial positions) that engages the
 // avoidance maneuver.
-const Eigen::Vector3f kRBN_N{-30.0F, 20.0F, -50.0F};
-const Eigen::Vector3f kRSN_N{1.0F, 2.0F, 3.0F};
+const Eigen::Vector3d kRBN_N{-30.0, 20.0, -50.0};
+const Eigen::Vector3d kRSN_N{1.0, 2.0, 3.0};
 const Eigen::Vector3f kSensitiveHat_B{0.0F, -1.0F, 0.0F};
 }  // namespace
 
@@ -22,8 +22,8 @@ TEST(SunTrackErrorIntegrated, TrackingErrorOnly) {
     integratedRegression(Eigen::Vector3f::Zero(),  // sensitiveHat_B (unused)
                          0.0F,                     // angleRate
                          false,                    // computeAngleStart
-                         Eigen::Vector3f::Zero(),  // r_BN_N (unused)
-                         Eigen::Vector3f::Zero(),  // r_SN_N (unused)
+                         Eigen::Vector3d::Zero(),  // r_BN_N (unused)
+                         Eigen::Vector3d::Zero(),  // r_SN_N (unused)
                          kHalfSecNs,
                          12);
 }
