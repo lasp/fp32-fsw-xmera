@@ -26,8 +26,7 @@ class AverageMimuData final : public SysModel {
    private:
     AverageMimuDataConfig toConfig() const;
 
-    uint64_t prevInMsgTime = 0;  /*!< [ns] Measurement time of the previous message*/
-    uint64_t staleDataCount = 0; /*!< [-] Counter for cases where measurement data was stale*/
+    uint64_t prevInMsgTime = 0; /*!< [ns] Measurement time of the previous message*/
 
     std::unique_ptr<AverageMimuDataAlgorithm> algorithm = nullptr;
 };

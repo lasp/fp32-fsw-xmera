@@ -11,6 +11,7 @@ void AverageMimuData::reset(uint64_t const callTime) {
     if (!this->mimuPacketInMsg.isLinked()) {
         throw std::invalid_argument("A mimuPacket input message name was not linked and is required for execution");
     }
+    this->prevInMsgTime = 0;
     this->algorithm = std::make_unique<AverageMimuDataAlgorithm>(this->toConfig());
 }
 
@@ -33,10 +34,9 @@ void AverageMimuData::updateState(uint64_t const callTime) {
         throw XmeraLifecycleException("AverageMimuData reset() has not been called.");
     }
 
-    // Tracking the number of times that you do not receive new acceleration data
+    // Skip when the input message has not been updated since the last call.
     const uint64_t writeTime = this->mimuPacketInMsg.timeWritten();
     if (writeTime == this->prevInMsgTime) {
-        this->staleDataCount++;
         return;
     }
     this->prevInMsgTime = writeTime;
