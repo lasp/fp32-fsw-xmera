@@ -2,10 +2,6 @@
 #include "utilities/fsw/freestandingIsFinite.hpp"
 #include "utilities/fsw/safeMath.h"
 
-TimeClosestApproachAlgorithm::TimeClosestApproachAlgorithm(const TimeClosestApproachConfig& config) : cfg(config) {}
-
-void TimeClosestApproachAlgorithm::setConfig(const TimeClosestApproachConfig& config) { this->cfg = config; }
-
 /*! Computes time of closest approach estimation during a rectilinear flyby
  @param r_BN_N spacecraft position estimate in inertial coordinates [m]
  @param v_BN_N spacecraft velocity estimate in inertial coordinates [m/s]

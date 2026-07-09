@@ -14,8 +14,7 @@ void HillPoint::reset(const uint64_t currentSimNanos) {
         throw std::invalid_argument("hillPoint.transNavInMsg wasn't connected.");
     }
     this->planetMsgIsLinked = this->celBodyInMsg.isLinked();
-    auto config = HillPointConfig::create();
-    this->algorithm = std::make_unique<HillPointAlgorithm>(config);
+    this->algorithm = std::make_unique<HillPointAlgorithm>();
 }
 
 /*! Computes a Hill-frame attitude reference from the spacecraft's inertial position and velocity. */

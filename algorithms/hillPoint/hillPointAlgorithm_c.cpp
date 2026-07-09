@@ -6,7 +6,7 @@
 
 HillPointAlgorithmHandle* HillPointAlgorithm_create(void) {
     // clang-format off
-    return reinterpret_cast<HillPointAlgorithmHandle*>(new ::HillPointAlgorithm(HillPointConfig::create()));  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast, cppcoreguidelines-owning-memory)
+    return reinterpret_cast<HillPointAlgorithmHandle*>(new ::HillPointAlgorithm());  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast, cppcoreguidelines-owning-memory)
     // clang-format on
 }
 

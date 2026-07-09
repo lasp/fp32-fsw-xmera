@@ -6,8 +6,7 @@
 uint32_t TimeClosestApproachAlgorithm_getMaxFilterStates(void) { return 6U; }
 
 TimeClosestApproachAlgorithmHandle* TimeClosestApproachAlgorithm_create(void) {
-    return reinterpret_cast<TimeClosestApproachAlgorithmHandle*>(
-        new ::TimeClosestApproachAlgorithm(TimeClosestApproachConfig::create()));
+    return reinterpret_cast<TimeClosestApproachAlgorithmHandle*>(new ::TimeClosestApproachAlgorithm());
 }
 
 void TimeClosestApproachAlgorithm_destroy(TimeClosestApproachAlgorithmHandle* self) {

@@ -44,8 +44,7 @@ is connected at ``reset()`` time, then constructs the algorithm via the two-phas
 Configuration
 ~~~~~~~~~~~~~
 
-``DvGuidanceAlgorithm`` has no tunable parameters. The empty ``DvGuidanceConfig`` class is provided to keep the
-algorithm consistent with the standard two-phase init pattern in this codebase.
+``DvGuidanceAlgorithm`` has no tunable parameters or configuration; all inputs come from ``burnDataInMsg``.
 
 .. list-table:: Configuration parameters
     :widths: 25 25 50

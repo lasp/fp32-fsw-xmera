@@ -9,8 +9,7 @@ void DvGuidance::reset(const uint64_t callTime) {
     if (!this->burnDataInMsg.isLinked()) {
         throw std::invalid_argument("dvGuidance.burnDataInMsg wasn't connected.");
     }
-    auto config = DvGuidanceConfig::create();
-    this->algorithm = std::make_unique<DvGuidanceAlgorithm>(config);
+    this->algorithm = std::make_unique<DvGuidanceAlgorithm>();
 }
 
 void DvGuidance::updateState(const uint64_t callTime) {

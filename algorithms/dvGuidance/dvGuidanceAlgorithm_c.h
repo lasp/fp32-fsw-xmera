@@ -15,10 +15,9 @@ extern "C" {
 typedef struct DvGuidanceAlgorithmHandle DvGuidanceAlgorithmHandle;
 
 /**
- * @brief Construct a new DvGuidanceAlgorithm instance with a default-built config.
+ * @brief Construct a new DvGuidanceAlgorithm instance.
  *
- * The dvGuidance algorithm has no tunable parameters, so the empty DvGuidanceConfig is
- * built internally; callers do not pass anything.
+ * The dvGuidance algorithm has no tunable parameters or state; callers do not pass anything.
  *
  * @return Pointer to a new DvGuidanceAlgorithm (must be destroyed).
  */
