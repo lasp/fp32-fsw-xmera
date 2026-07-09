@@ -32,7 +32,8 @@ SunTrackErrorOutput SunTrackErrorAlgorithm::update(const Eigen::Vector3f& sigma_
                                                    const uint64_t callTime) {
     if (!this->maneuverInitialized) {
         if (this->cfg.getComputeAngleStart()) {
-            initializeManeuver(sigma_BN, ref, r_BN_N, r_SN_N);
+            const Eigen::Vector3f sHat_N = (r_SN_N - r_BN_N).normalized();
+            initializeManeuver(sigma_BN, ref, sHat_N);
         } else {
             this->maneuverAngle = 0.0F;
         }
@@ -47,17 +48,12 @@ SunTrackErrorOutput SunTrackErrorAlgorithm::update(const Eigen::Vector3f& sigma_
  final body attitude to coincide with the reference frame.
  @param sigma_BN measured MRP attitude of B wrt N
  @param ref attitude reference inputs
- @param r_BN_N spacecraft inertial position
- @param r_SN_N sun inertial position
+ @param sHat_N inertial unit vector from the spacecraft to the Sun
  */
 void SunTrackErrorAlgorithm::initializeManeuver(const Eigen::Vector3f& sigma_BN,
                                                 const SunTrackErrorAttRefInputs& ref,
-                                                const Eigen::Vector3f& r_BN_N,
-                                                const Eigen::Vector3f& r_SN_N) {
+                                                const Eigen::Vector3f& sHat_N) {
     const Eigen::Vector3f sensitiveHat_B = this->cfg.getSensitiveHat_B();
-
-    // Inertial Sun direction.
-    const Eigen::Vector3f sHat_N = (r_SN_N - r_BN_N).normalized();
 
     // Sensitive axis (inertial) at the start (body) and end (reference) attitudes.
     const Eigen::Matrix3f dcm_BN = mrpToDcm(sigma_BN);

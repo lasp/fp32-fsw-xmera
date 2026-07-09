@@ -70,8 +70,7 @@ class SunTrackErrorAlgorithm final {
    private:
     void initializeManeuver(const Eigen::Vector3f& sigma_BN,
                             const SunTrackErrorAttRefInputs& ref,
-                            const Eigen::Vector3f& r_BN_N,
-                            const Eigen::Vector3f& r_SN_N);
+                            const Eigen::Vector3f& sHat_N);
     SunTrackErrorOutput computeAdjustedReference(const Eigen::Vector3f& sigma_BN,
                                                  const SunTrackErrorAttRefInputs& ref,
                                                  uint64_t callTime) const;
