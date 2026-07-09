@@ -2,6 +2,8 @@
 #define AVERAGE_MIMU_DATA_ALGORITHM_H
 
 #include "averageMimuDataTypes.h"
+#include <utilities/fsw/freestandingInvalidArgument.h>
+#include <utilities/fsw/validDcmCheck.h>
 
 #include <Eigen/Core>
 #include <array>
@@ -39,29 +41,74 @@ struct OutputAverageAccelAngleVel {
 };
 
 namespace average_mimu_detail {
+// MIMU device sample rate (compile-time fixed). Period in nanoseconds is
+// precomputed so the per-sample staleness check stays in integer math.
+constexpr float kMimuSampleRateHz = 100.0F;
+constexpr std::uint64_t kMimuSamplePeriodNs = 10'000'000U;  // 1e9 / 100
+
+// Compile-time cap on the configured averaging window. Ring capacity is
+// sized to hold exactly this many seconds of samples at the MIMU rate.
+constexpr float kMaxAveragingWindowSec = 2.0F;
+
 // Ceiling division so `rateHz * windowSec` samples round up to whole packets.
 constexpr std::size_t ceilDivSamplesToPackets(float rateHz, float windowSec, std::size_t samplesPerPkt) {
     const float totalSamples = rateHz * windowSec;
     const std::size_t pkts = static_cast<std::size_t>(totalSamples) / samplesPerPkt;
     return (static_cast<float>(pkts * samplesPerPkt) < totalSamples) ? pkts + 1U : pkts;
 }
+
+constexpr std::size_t kRingCapacity =
+    ceilDivSamplesToPackets(kMimuSampleRateHz, kMaxAveragingWindowSec, MAX_MIMU_SAMPLES_PER_PKT_C);
 }  // namespace average_mimu_detail
+
+/*! @brief Validated configuration for AverageMimuDataAlgorithm. Constructed via create(), which
+ *         enforces the averaging-window bounds and DCM orthonormality before freezing the values. */
+class AverageMimuDataConfig final {
+   public:
+    static AverageMimuDataConfig create(double gyroAveragingWindow,
+                                        double accelAveragingWindow,
+                                        const Eigen::Matrix3f& dcm_BP) {
+        if (!isValidGyroAveragingWindow(gyroAveragingWindow)) {
+            FSW_THROW_INVALID_ARGUMENT(
+                "averageMimuData: gyroAveragingWindow must be in [0, kMaxAveragingWindowSec] seconds");
+        }
+        if (!isValidAccelAveragingWindow(accelAveragingWindow)) {
+            FSW_THROW_INVALID_ARGUMENT(
+                "averageMimuData: accelAveragingWindow must be in [0, kMaxAveragingWindowSec] seconds");
+        }
+        if (!isValidDcmPltfToBdy(dcm_BP)) {
+            FSW_THROW_INVALID_ARGUMENT("averageMimuData: dcm_BP must be orthonormal with det=+1");
+        }
+        return {gyroAveragingWindow, accelAveragingWindow, dcm_BP};
+    }
+
+    static bool isValidGyroAveragingWindow(double window) {
+        return window >= 0.0 && window <= average_mimu_detail::kMaxAveragingWindowSec;
+    }
+    static bool isValidAccelAveragingWindow(double window) {
+        return window >= 0.0 && window <= average_mimu_detail::kMaxAveragingWindowSec;
+    }
+    static bool isValidDcmPltfToBdy(const Eigen::Matrix3f& dcm_BP) { return isValidDcm(dcm_BP); }
+
+    double getGyroAveragingWindow() const { return this->gyroAveragingWindow; }
+    double getAccelAveragingWindow() const { return this->accelAveragingWindow; }
+    const Eigen::Matrix3f& getDcmPltfToBdy() const { return this->dcm_BP; }
+
+   private:
+    AverageMimuDataConfig(double gyroAveragingWindow, double accelAveragingWindow, const Eigen::Matrix3f& dcm_BP)
+        : gyroAveragingWindow(gyroAveragingWindow), accelAveragingWindow(accelAveragingWindow), dcm_BP(dcm_BP) {}
+
+    double gyroAveragingWindow;
+    double accelAveragingWindow;
+    Eigen::Matrix3f dcm_BP;
+};
 
 class AverageMimuDataAlgorithm {
    public:
-    // MIMU device sample rate (compile-time fixed). Period in nanoseconds
-    // is precomputed so the per-sample staleness check stays in integer math.
-    static constexpr float kMimuSampleRateHz = 100.0F;
-    static constexpr std::uint64_t kMimuSamplePeriodNs = 10'000'000U;  // 1e9 / 100
-
-    // Compile-time cap on the configured averaging window. Ring capacity is
-    // sized to hold exactly this many seconds of samples at the MIMU rate.
-    static constexpr float kMaxAveragingWindowSec = 2.0F;
-
-    static constexpr std::size_t kRingCapacity =
-        average_mimu_detail::ceilDivSamplesToPackets(kMimuSampleRateHz,
-                                                     kMaxAveragingWindowSec,
-                                                     MAX_MIMU_SAMPLES_PER_PKT_C);
+    static constexpr float kMimuSampleRateHz = average_mimu_detail::kMimuSampleRateHz;
+    static constexpr std::uint64_t kMimuSamplePeriodNs = average_mimu_detail::kMimuSamplePeriodNs;
+    static constexpr float kMaxAveragingWindowSec = average_mimu_detail::kMaxAveragingWindowSec;
+    static constexpr std::size_t kRingCapacity = average_mimu_detail::kRingCapacity;
 
     void setGyroAveragingWindow(double window);             //!< [s] Setter method for gyro windowSec
     double getGyroAveragingWindow() const;                  //!< [s] Getter method for gyro windowSec
