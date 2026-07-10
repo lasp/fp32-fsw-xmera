@@ -188,6 +188,77 @@ TEST(SunTrackErrorTest, EdgeNoSunInformationPassThrough) {
     }
 }
 
+// Body attitude exactly equal to the reference: the principal rotation is zero and the sensitive axes
+// are parallel, so no maneuver is needed and the adjusted reference passes through (and stays finite).
+TEST(SunTrackErrorTest, EdgeBodyAtReferencePassThrough) {
+    const auto config = SunTrackErrorConfig::create(kSensitiveHat_B, kManeuverRate, true);
+    SunTrackErrorAlgorithm alg{config};
+    const SunTrackErrorAttRefInputs refIn{kSigmaRN, kOmegaRNN, kDomegaRNN};
+    const Eigen::Matrix3f dcm_RN_in = mrpToDcm(kSigmaRN);
+
+    constexpr float tol = 1e-5F;
+    for (int k = 0; k < 5; ++k) {
+        // sigma_BN == sigma_RN with the maneuver enabled and valid Sun geometry.
+        const SunTrackErrorOutput out =
+            alg.update(kSigmaRN, refIn, kRBN_N, kRSN_N, static_cast<uint64_t>(k) * kHalfSecNs);
+        EXPECT_TRUE(out.sigma_RN.allFinite());
+        const Eigen::Matrix3f dcm_RN_out = mrpToDcm(out.sigma_RN);
+        for (int r = 0; r < 3; ++r) {
+            for (int c = 0; c < 3; ++c) {
+                EXPECT_NEAR(dcm_RN_out(r, c), dcm_RN_in(r, c), tol);
+            }
+        }
+    }
+}
+
+// Degenerate avoidance geometry: the Sun aligned with the initial sensitive axis, or perpendicular to
+// the sweep plane. The maneuver stays finite and bounded (falls through to the short way).
+TEST(SunTrackErrorTest, EdgeDegenerateAvoidanceGeometryBoundedAndFinite) {
+    const Eigen::Vector3f sensitiveInitial_N = mrpToDcm(kSigmaBN).transpose() * kSensitiveHat_B;
+    const Eigen::Vector3f sensitiveFinal_N = mrpToDcm(kSigmaRN).transpose() * kSensitiveHat_B;
+    const Eigen::Vector3f sweepAxis_N = sensitiveInitial_N.cross(sensitiveFinal_N).normalized();
+
+    // r_BN_N = 0 makes the Sun direction equal to the (unit) Sun position.
+    const std::array<Eigen::Vector3d, 2> sunPositions{{
+        sensitiveInitial_N.cast<double>(),  // Sun along the initial sensitive axis
+        sweepAxis_N.cast<double>(),         // Sun perpendicular to the sweep plane
+    }};
+
+    const auto config = SunTrackErrorConfig::create(kSensitiveHat_B, kManeuverRate, true);
+    const SunTrackErrorAttRefInputs refIn{kSigmaRN, kOmegaRNN, kDomegaRNN};
+    constexpr float normBound = 1.0F + 1e-5F;
+    for (const auto& r_SN_N : sunPositions) {
+        SunTrackErrorAlgorithm alg{config};
+        for (int k = 0; k < 10; ++k) {
+            const SunTrackErrorOutput out =
+                alg.update(kSigmaBN, refIn, Eigen::Vector3d::Zero(), r_SN_N, static_cast<uint64_t>(k) * kHalfSecNs);
+            EXPECT_TRUE(out.sigma_RN.allFinite());
+            EXPECT_TRUE(out.omega_RN_N.allFinite());
+            EXPECT_LE(out.sigma_RN.norm(), normBound);
+        }
+    }
+}
+
+// Initial and final sensitive axes exactly anti-parallel (a 180-degree flip of the sensitive axis): the
+// sweep axis is undefined (cross product of anti-parallel vectors is zero), so the avoidance test is
+// skipped and the short-way maneuver stays finite and bounded.
+TEST(SunTrackErrorTest, EdgeAntiParallelSensitiveAxes) {
+    const Eigen::Vector3f sigmaBN = Eigen::Vector3f::Zero();  // identity attitude
+    const Eigen::Vector3f sigmaRN{1.0F, 0.0F, 0.0F};          // 180 deg about X: flips the y sensitive axis
+    const auto config = SunTrackErrorConfig::create(kSensitiveHat_B, kManeuverRate, true);
+    SunTrackErrorAlgorithm alg{config};
+    const SunTrackErrorAttRefInputs refIn{sigmaRN, kOmegaRNN, kDomegaRNN};
+
+    constexpr float normBound = 1.0F + 1e-5F;
+    for (int k = 0; k < 10; ++k) {
+        const SunTrackErrorOutput out =
+            alg.update(sigmaBN, refIn, kRBN_N, kRSN_N, static_cast<uint64_t>(k) * kHalfSecNs);
+        EXPECT_TRUE(out.sigma_RN.allFinite());
+        EXPECT_TRUE(out.omega_RN_N.allFinite());
+        EXPECT_LE(out.sigma_RN.norm(), normBound);
+    }
+}
+
 TEST(SunTrackErrorConfigTest, GettersRoundTrip) {
     // sensitiveHat_B is renormalized on storage; a near-unit input (within the 1e-3 tolerance) must come
     // back as the exact unit direction.

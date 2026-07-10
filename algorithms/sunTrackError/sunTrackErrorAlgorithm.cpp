@@ -59,11 +59,13 @@ SunTrackErrorAlgorithm::Maneuver SunTrackErrorAlgorithm::initializeManeuver(cons
                                                                             const SunTrackErrorAttRefInputs& ref,
                                                                             const Eigen::Vector3f& sHat_N) const {
     // Phase 1: compute the maneuver -- the short-way principal rotation from the body to the reference.
+    // stableNormalized/stableNorm keep a zero rotation (body already at the reference) finite, not NaN.
     const Eigen::Matrix3f dcm_BN = mrpToDcm(sigma_BN);
     const Eigen::Matrix3f dcm_RN = mrpToDcm(ref.sigma_RN);
     const Eigen::Matrix3f dcm_BR = dcm_BN * dcm_RN.transpose();
     const Eigen::Vector3f prv_BR = dcmToPrv(dcm_BR);
-    Maneuver maneuver{.axis_B = prv_BR.normalized(), .angle = prv_BR.norm()};  // magnitude = angle, direction = axis
+    Maneuver maneuver{.axis_B = prv_BR.stableNormalized(),
+                      .angle = prv_BR.stableNorm()};  // magnitude = angle, direction = axis
 
     // Phase 2: determine short vs long way -- reverse the maneuver if the short slew would sweep the
     // sensitive axis across the Sun.
@@ -72,24 +74,29 @@ SunTrackErrorAlgorithm::Maneuver SunTrackErrorAlgorithm::initializeManeuver(cons
     const Eigen::Vector3f sensitiveInitial_N = dcm_BN.transpose() * sensitiveHat_B;
     const Eigen::Vector3f sensitiveFinal_N = dcm_RN.transpose() * sensitiveHat_B;
 
-    // Sensitive-axis sweep plane, and the Sun projected into it.
-    const Eigen::Vector3f sensitiveSweepAxis_N = (sensitiveInitial_N.cross(sensitiveFinal_N)).normalized();
+    // The long-way test needs three well-defined directions; stableNormalized() returns a zero vector when
+    // any degenerates, and a zero in any of them keeps us on the short way:
+    //  - sweep axis: zero when the initial and final sensitive axes are parallel or anti-parallel
+    //  - Sun in the sweep plane: zero when the Sun is parallel to the sweep axis,
+    //  - initial-to-Sun axis: zero when the Sun is parallel to the initial sensitive axis.
+    const Eigen::Vector3f sensitiveSweepAxis_N = (sensitiveInitial_N.cross(sensitiveFinal_N)).stableNormalized();
     const Eigen::Vector3f sunInSweepPlane_N =
-        (sHat_N - (sensitiveSweepAxis_N.dot(sHat_N)) * sensitiveSweepAxis_N).normalized();
+        (sHat_N - (sensitiveSweepAxis_N.dot(sHat_N)) * sensitiveSweepAxis_N).stableNormalized();
+    const Eigen::Vector3f initialToSunAxis_N = (sensitiveInitial_N.cross(sHat_N)).stableNormalized();
+    const bool avoidanceGeometryDefined = sensitiveSweepAxis_N.stableNorm() > 0.0F &&
+                                          sunInSweepPlane_N.stableNorm() > 0.0F &&
+                                          initialToSunAxis_N.stableNorm() > 0.0F;
 
-    // Sweep extent, and the Sun's angular position along it from the start.
+    // Sweep extent, the Sun's position along it, and whether the maneuver (initial -> reference) turns the
+    // sensitive axis toward the Sun. maneuver.axis_B is reference -> initial, so the maneuver is its reverse.
     const float sensitiveSweepAngle = safeAcosf(sensitiveInitial_N.dot(sensitiveFinal_N));
     const float initialToSunAngle = safeAcosf(sensitiveInitial_N.dot(sunInSweepPlane_N));
-
-    // Whether the maneuver (initial -> reference) turns the sensitive axis toward the Sun. maneuver.axis_B is
-    // reference -> initial, so the maneuver is its reverse.
-    const Eigen::Vector3f initialToSunAxis_N = (sensitiveInitial_N.cross(sHat_N)).normalized();
     const Eigen::Vector3f initialToReferenceAxis_N = -(dcm_BN.transpose() * maneuver.axis_B);
     const bool maneuverTowardSun = initialToSunAxis_N.dot(initialToReferenceAxis_N) > 0.0F;
 
-    // Reverse to the long way around when the short slew would sweep the sensitive axis across the Sun,
-    // i.e. it turns toward the Sun and the Sun lies within the swept arc.
-    if (maneuverTowardSun && initialToSunAngle < sensitiveSweepAngle) {
+    // Reverse to the long way when the maneuver turns the sensitive axis toward the Sun and the Sun lies
+    // within the swept arc. Degenerate geometry leaves this decision ambiguous, so the short way is kept.
+    if (avoidanceGeometryDefined && maneuverTowardSun && initialToSunAngle < sensitiveSweepAngle) {
         maneuver.angle = (2.0F * std::numbers::pi_v<float>)-maneuver.angle;
         maneuver.axis_B = -maneuver.axis_B;
     }
