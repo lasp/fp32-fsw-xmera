@@ -15,7 +15,8 @@ void MimuMajorityVote::reset(uint64_t const callTime) {
 
 /*! Build a validated algorithm configuration from the current module parameters. */
 MimuMajorityVoteConfig MimuMajorityVote::toConfig() const {
-    return MimuMajorityVoteConfig::create(this->omegaThreshold, this->gyroFaultPersistenceLimit);
+    return MimuMajorityVoteConfig::create(
+        this->omegaThreshold, this->gyroFaultPersistenceLimit, this->accelThreshold, this->accelFaultPersistenceLimit);
 }
 
 void MimuMajorityVote::updateState(uint64_t const callTime) {
@@ -23,24 +24,30 @@ void MimuMajorityVote::updateState(uint64_t const callTime) {
         throw XmeraLifecycleException("MimuMajorityVote reset() has not been called.");
     }
 
-    // Convert message payloads to algorithm input type
+    // Convert message payloads to algorithm input types (angular velocity and acceleration)
     std::array<Eigen::Vector3f, kMimuCount> imuOmegas_BN_B = {};
+    std::array<Eigen::Vector3f, kMimuCount> imuAccels_B = {};
     for (size_t index = 0U; index < kMimuCount; ++index) {
         auto payload = this->imuMessages.at(index).imuSensorBodyInMsg();
         imuOmegas_BN_B.at(index) = cArrayToEigenVector(payload.AngVelBody);
+        imuAccels_B.at(index) = cArrayToEigenVector(payload.AccelBody);
     }
 
-    MimuMajorityVoteOutput output = this->algorithm->update(imuOmegas_BN_B);
+    MimuMajorityVoteOutput output = this->algorithm->update(imuOmegas_BN_B, imuAccels_B);
 
     // Convert algorithm output to message payloads
     IMUSensorBodyMsgF32Payload imuOutPayload{};
-    eigenVectorToCArray(output.avgOmega_BN_B, imuOutPayload.AngVelBody);
+    eigenVectorToCArray(output.gyro.average, imuOutPayload.AngVelBody);
+    eigenVectorToCArray(output.accel.average, imuOutPayload.AccelBody);
 
     MimuFaultMsgPayload faultPayload{};
-    faultPayload.gyroFaultDetected = output.faultDetected;
+    faultPayload.gyroFaultDetected = output.gyro.faultDetected;
+    faultPayload.accelFaultDetected = output.accel.faultDetected;
     for (size_t i = 0U; i < kMimuCount; ++i) {
-        faultPayload.gyroImuValid[i] = output.validImus.at(i);
-        faultPayload.gyroImuDifferenceMag[i] = output.omegaDifferencesMag.at(i);
+        faultPayload.gyroImuValid[i] = output.gyro.imuValid.at(i);
+        faultPayload.gyroImuDifferenceMag[i] = output.gyro.imuDifferenceMag.at(i);
+        faultPayload.accelImuValid[i] = output.accel.imuValid.at(i);
+        faultPayload.accelImuDifferenceMag[i] = output.accel.imuDifferenceMag.at(i);
     }
 
     this->imuSensorBodyOutMsg.write(imuOutPayload, this->moduleID, callTime);

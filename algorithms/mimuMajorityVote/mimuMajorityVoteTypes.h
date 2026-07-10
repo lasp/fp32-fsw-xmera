@@ -21,17 +21,29 @@ typedef struct {
 } Vector3fArray3_c;
 
 /**
- * @brief POD output from the MIMU majority vote algorithm.
+ * @brief POD result of one majority vote (gyro or accel), mirroring the C++ MimuVoteResult.
  *
- * Layout must match the Adamant Mimu_Majority_Vote_Output packed record:
- *   Avg_Ang_Vel_Body : Packed_F32x3  (3 floats)
- *   Fault_Detected   : Unsigned_8    (0 = false, nonzero = true)
- *   Mimu_Index_Faulted : Integer_32  (-1 if no fault)
+ * Layout must match the Adamant Mimu_Vote_Result packed record:
+ *   Average            : Packed_F32x3             (3 floats)
+ *   Fault_Detected     : Unsigned_8               (0 = false, nonzero = true)
+ *   Imu_Difference_Mag : array of F32             (MIMU_COUNT_C floats)
+ *   Imu_Valid          : array of Unsigned_8      (MIMU_COUNT_C, 0/1 per IMU)
  */
 typedef struct {
-    Vector3f_c avgOmega_BN_B; /*!< [rad/s] Averaged angular velocity in body frame */
-    uint8_t faultDetected;    /*!< Whether a MIMU fault was detected */
-    int32_t mimuIndexFaulted; /*!< Index of faulted MIMU (-1 if no fault) */
+    Vector3f_c average;                   /*!< Averaged measurement (outlier-excluded once a fault persists) */
+    uint8_t faultDetected;                /*!< Whether an IMU was rejected for this quantity (0/1) */
+    float imuDifferenceMag[MIMU_COUNT_C]; /*!< Each IMU's difference magnitude from the 3-IMU average */
+    uint8_t imuValid[MIMU_COUNT_C];       /*!< Whether each IMU is valid for this quantity (0/1) */
+} MimuVoteResult_c;
+
+/**
+ * @brief POD output from the MIMU majority vote algorithm: independent gyro and accel votes.
+ *
+ * Layout must match the Adamant Mimu_Majority_Vote_Output packed record (gyro result, then accel).
+ */
+typedef struct {
+    MimuVoteResult_c gyro;  /*!< [rad/s] Angular-velocity vote */
+    MimuVoteResult_c accel; /*!< [m/s^2] Acceleration vote */
 } MimuMajorityVoteOutput_c;
 
 #ifdef __cplusplus

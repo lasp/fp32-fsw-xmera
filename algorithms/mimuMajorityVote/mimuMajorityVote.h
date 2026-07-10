@@ -29,8 +29,10 @@ class MimuMajorityVote final : public SysModel {
     void reInitialize();                      //!< Reset the algorithm's fault persistence counters
     void addImuInput(const ImuMessage& imu);  //!< Method to add imus to the computation
 
-    float omegaThreshold{};                //!< [rad/s] threshold to determine if a MIMU is faulted (must be > 0)
-    uint32_t gyroFaultPersistenceLimit{};  //!< [-] consecutive faults needed to trigger faultDetected (> 0)
+    float omegaThreshold{};                 //!< [rad/s] gyro threshold to determine if a MIMU is faulted (must be > 0)
+    uint32_t gyroFaultPersistenceLimit{};   //!< [-] consecutive gyro faults needed to trigger gyroFaultDetected (> 0)
+    float accelThreshold{};                 //!< [m/s^2] accel threshold to determine if a MIMU is faulted (must be > 0)
+    uint32_t accelFaultPersistenceLimit{};  //!< [-] consecutive accel faults needed to trigger accelFaultDetected (> 0)
 
     Message<IMUSensorBodyMsgF32Payload> imuSensorBodyOutMsg;
     Message<MimuFaultMsgPayload> mimuFaultMsg;
