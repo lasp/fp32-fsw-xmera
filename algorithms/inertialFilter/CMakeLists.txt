@@ -8,6 +8,7 @@ xmera_add_swig_module("${module}")
 target_sources("${module}" PRIVATE
   inertialFilter.cpp
   inertialFilterAlgorithm.cpp
+  inertialFilterAlgorithm_c.cpp
 )
 
 target_link_libraries("${module}" PRIVATE
