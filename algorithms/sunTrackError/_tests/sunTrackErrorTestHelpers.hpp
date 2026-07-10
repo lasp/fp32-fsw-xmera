@@ -8,6 +8,7 @@
 
 #include <gtest/gtest.h>
 #include <Eigen/Core>
+#include <cmath>
 #include <cstdint>
 #include <numbers>
 
@@ -92,10 +93,64 @@ class SunTrackErrorReference {
     uint64_t mnvrStartTime = 0;
 };
 
+// Whether the maneuver-path geometry is near a degeneracy or near the discrete short/long-way decision
+// boundary. Near these, an independent fp32 reference can select the opposite (equally valid) maneuver, so
+// the regression helper skips such inputs rather than compare against an ambiguous branch. Mirrors the
+// quantities the algorithm's short/long-way decision turns on.
+inline bool nearManeuverDecisionBoundary(const Eigen::Vector3f& sensitiveHat_B,
+                                         const Eigen::Vector3f& sigma_BN,
+                                         const Eigen::Vector3f& sigma_RN,
+                                         const Eigen::Vector3d& r_BN_N,
+                                         const Eigen::Vector3d& r_SN_N) {
+    constexpr float kMargin = 1e-2F;  // comfortably above fp32 noise; excludes only thin shells
+
+    const Eigen::Vector3f sHat_N = (r_SN_N - r_BN_N).stableNormalized().cast<float>();
+    if (r_SN_N.stableNorm() <= 0.0 || sHat_N.stableNorm() <= 0.0F) {
+        return true;  // no usable Sun information (the algorithm passes through)
+    }
+
+    const Eigen::Vector3f sensitive_B = sensitiveHat_B.normalized();
+    const Eigen::Matrix3f dcm_BN = mrpToDcm(sigma_BN);
+    const Eigen::Matrix3f dcm_RN = mrpToDcm(sigma_RN);
+    const Eigen::Vector3f sensitiveInitial_N = dcm_BN.transpose() * sensitive_B;
+    const Eigen::Vector3f sensitiveFinal_N = dcm_RN.transpose() * sensitive_B;
+
+    // Degeneracies: each raw magnitude is a sin(angle) that stableNormalized() would collapse to zero.
+    const Eigen::Vector3f sweepAxisRaw = sensitiveInitial_N.cross(sensitiveFinal_N);
+    if (sweepAxisRaw.norm() < kMargin) {
+        return true;  // initial and final sensitive axes near parallel / anti-parallel
+    }
+    const Eigen::Vector3f sweepAxis_N = sweepAxisRaw.normalized();
+    const Eigen::Vector3f sunInPlaneRaw = sHat_N - (sweepAxis_N.dot(sHat_N)) * sweepAxis_N;
+    if (sunInPlaneRaw.norm() < kMargin) {
+        return true;  // Sun near parallel to the sweep axis
+    }
+    const Eigen::Vector3f initialToSunAxisRaw = sensitiveInitial_N.cross(sHat_N);
+    if (initialToSunAxisRaw.norm() < kMargin) {
+        return true;  // Sun near parallel to the initial sensitive axis
+    }
+
+    // Decision ties: the two comparisons the short/long-way branch turns on.
+    const float sensitiveSweepAngle = safeAcosf(sensitiveInitial_N.dot(sensitiveFinal_N));
+    const float initialToSunAngle = safeAcosf(sensitiveInitial_N.dot(sunInPlaneRaw.normalized()));
+    if (std::fabs(initialToSunAngle - sensitiveSweepAngle) < kMargin) {
+        return true;  // Sun near the edge of the swept arc
+    }
+    const Eigen::Matrix3f dcm_BR = dcm_BN * dcm_RN.transpose();
+    const Eigen::Vector3f maneuverAxis_B = dcmToPrv(dcm_BR).stableNormalized();
+    const Eigen::Vector3f initialToReferenceAxis_N = -(dcm_BN.transpose() * maneuverAxis_B);
+    if (std::fabs(initialToSunAxisRaw.normalized().dot(initialToReferenceAxis_N)) < kMargin) {
+        return true;  // maneuver near perpendicular to the Sun (toward / away tie)
+    }
+
+    return false;
+}
+
 // ---------------------------------------------------------------------------
 // Regression helper: drive the algorithm and the independent reference through a time sequence with
 // the given configuration, navigation attitude, reference frame and Sun geometry, and assert the
-// adjusted-reference output agrees at every step.
+// adjusted-reference output agrees at every step. On the maneuver path, inputs near a degeneracy or the
+// discrete short/long-way decision boundary are skipped (see nearManeuverDecisionBoundary).
 // ---------------------------------------------------------------------------
 inline void regressionTestSunTrackError(const Eigen::Vector3f& sensitiveHat_B,
                                         float angleRate,
@@ -108,6 +163,10 @@ inline void regressionTestSunTrackError(const Eigen::Vector3f& sensitiveHat_B,
                                         const Eigen::Vector3d& r_SN_N,
                                         uint64_t stepNs,
                                         int numSteps) {
+    if (computeAngleStart && nearManeuverDecisionBoundary(sensitiveHat_B, sigma_BN, sigma_RN, r_BN_N, r_SN_N)) {
+        return;  // ambiguous short/long-way branch: skip
+    }
+
     const auto config = SunTrackErrorConfig::create(sensitiveHat_B, angleRate, computeAngleStart);
     SunTrackErrorAlgorithm alg{config};
     SunTrackErrorReference ref{sensitiveHat_B, angleRate, computeAngleStart};
@@ -120,6 +179,10 @@ inline void regressionTestSunTrackError(const Eigen::Vector3f& sensitiveHat_B,
         const SunTrackErrorOutput algOut = alg.update(sigma_BN, refIn, r_BN_N, r_SN_N, callTime);
         const SunTrackErrorOutput refOut =
             ref.update(sigma_BN, sigma_RN, omega_RN_N, domega_RN_N, r_BN_N, r_SN_N, callTime);
+
+        EXPECT_TRUE(algOut.sigma_RN.allFinite()) << "sigma_RN not finite at step " << k;
+        EXPECT_TRUE(algOut.omega_RN_N.allFinite()) << "omega_RN_N not finite at step " << k;
+        EXPECT_TRUE(algOut.domega_RN_N.allFinite()) << "domega_RN_N not finite at step " << k;
 
         // Compare the adjusted-reference attitude via its DCM: at a ~180-deg attitude the two
         // independent dcmToMrp evaluations can land on opposite (equivalent) MRP shadow-set
@@ -258,23 +321,28 @@ inline void propertyReInitializeRestartsManeuver(const Eigen::Vector3f& sigma_BN
     }
 }
 
-// Fuzz entry point: exercise the shared regressionTestSunTrackError on the pass-through path (maneuver
-// disabled) for arbitrary finite navigation attitude and reference frame.
+// Fuzz entry point: exercise the shared regressionTestSunTrackError on the maneuver path (computeAngleStart
+// = true) for arbitrary attitudes and realistic Sun geometry. The helper skips inputs near a degeneracy or
+// near the discrete short/long-way decision boundary (see nearManeuverDecisionBoundary), where an
+// independent fp32 reference can select the opposite (equally valid) maneuver; away from those the algorithm
+// and reference agree, and the output is checked finite at every step.
 inline void fuzzRegressionSunTrackError(const Eigen::Vector3f& sigma_BN,
                                         const Eigen::Vector3f& sigma_RN,
                                         const Eigen::Vector3f& omega_RN_N,
-                                        const Eigen::Vector3f& domega_RN_N) {
-    regressionTestSunTrackError(Eigen::Vector3f::Zero(),
-                                0.0F,
-                                false,
+                                        const Eigen::Vector3f& domega_RN_N,
+                                        const Eigen::Vector3d& r_BN_N,
+                                        const Eigen::Vector3d& r_SN_N) {
+    regressionTestSunTrackError(detail::sensitiveHat_B(),
+                                detail::kManeuverRate,
+                                true,
                                 sigma_BN,
                                 sigma_RN,
                                 omega_RN_N,
                                 domega_RN_N,
-                                Eigen::Vector3d::Zero(),
-                                Eigen::Vector3d::Zero(),
+                                r_BN_N,
+                                r_SN_N,
                                 detail::kStepNs,
-                                3);
+                                12);
 }
 
 #endif  // F32XMERA_SUN_TRACK_ERROR_TEST_HELPERS_H
