@@ -1,9 +1,11 @@
 #include "sunTrackErrorTestHelpers.hpp"
 
 #include <Eigen/Core>
+#include <array>
 #include <cmath>
 #include <limits>
 #include <numbers>
+#include <utility>
 
 namespace {
 constexpr uint64_t kHalfSecNs = 500000000ULL;                        // 0.5 s update period
@@ -150,6 +152,40 @@ TEST(SunTrackErrorTest, EdgeZeroInputsPassThrough) {
 TEST(SunTrackErrorTest, EdgeSmallManeuverNearAlignment) {
     const Eigen::Vector3f sigmaBN_near = kSigmaRN + Eigen::Vector3f{0.02F, -0.01F, 0.015F};
     propertyManeuverOutputBoundedAndFinite(sigmaBN_near, kSigmaRN, kOmegaRNN, kDomegaRNN);
+}
+
+// No usable Sun information with the maneuver enabled: a Sun position coincident with the spacecraft
+// (undefined direction) or a zero Sun position (no ephemeris). Both skip the maneuver, so the adjusted
+// reference passes through.
+TEST(SunTrackErrorTest, EdgeNoSunInformationPassThrough) {
+    const auto config = SunTrackErrorConfig::create(kSensitiveHat_B, kManeuverRate, true);
+    const SunTrackErrorAttRefInputs refIn{kSigmaRN, kOmegaRNN, kDomegaRNN};
+    const Eigen::Matrix3f dcm_RN_in = mrpToDcm(kSigmaRN);
+    constexpr float tol = 1e-5F;
+
+    const std::array<std::pair<Eigen::Vector3d, Eigen::Vector3d>, 2> degenerateGeometry{{
+        {Eigen::Vector3d{10.0, -20.0, 30.0}, Eigen::Vector3d{10.0, -20.0, 30.0}},  // r_SN_N == r_BN_N
+        {Eigen::Vector3d{10.0, -20.0, 30.0}, Eigen::Vector3d::Zero()},             // r_SN_N == 0
+    }};
+
+    for (const auto& [r_BN_N, r_SN_N] : degenerateGeometry) {
+        SunTrackErrorAlgorithm alg{config};
+        for (int k = 0; k < 5; ++k) {
+            const SunTrackErrorOutput out =
+                alg.update(kSigmaBN, refIn, r_BN_N, r_SN_N, static_cast<uint64_t>(k) * kHalfSecNs);
+            EXPECT_TRUE(out.sigma_RN.allFinite());
+            const Eigen::Matrix3f dcm_RN_out = mrpToDcm(out.sigma_RN);
+            for (int r = 0; r < 3; ++r) {
+                for (int c = 0; c < 3; ++c) {
+                    EXPECT_NEAR(dcm_RN_out(r, c), dcm_RN_in(r, c), tol);
+                }
+            }
+            for (int i = 0; i < 3; ++i) {
+                EXPECT_NEAR(out.omega_RN_N(i), kOmegaRNN(i), tol);
+                EXPECT_NEAR(out.domega_RN_N(i), kDomegaRNN(i), tol);
+            }
+        }
+    }
 }
 
 TEST(SunTrackErrorConfigTest, GettersRoundTrip) {
