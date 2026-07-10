@@ -6,6 +6,7 @@
 #include <math.h>
 #include <stdint.h>
 #include <Eigen/Core>
+#include <optional>
 
 struct SunTrackErrorAttRefInputs {
     Eigen::Vector3f sigma_RN{Eigen::Vector3f::Zero()};     //!< [-] reference MRP attitude of R wrt inertial N
@@ -68,19 +69,22 @@ class SunTrackErrorAlgorithm final {
                                uint64_t callTime);
 
    private:
-    void initializeManeuver(const Eigen::Vector3f& sigma_BN,
-                            const SunTrackErrorAttRefInputs& ref,
-                            const Eigen::Vector3f& sHat_N);
+    struct Maneuver {
+        Eigen::Vector3f axis_B{Eigen::Vector3f::Zero()};  //!< [-] principal rotation axis of the maneuver
+        float angle{};                                    //!< [rad] total maneuver rotation angle
+        uint64_t startTime{};                             //!< [ns] time at which the maneuver began
+    };
+
+    Maneuver initializeManeuver(const Eigen::Vector3f& sigma_BN,
+                                const SunTrackErrorAttRefInputs& ref,
+                                const Eigen::Vector3f& sHat_N) const;
     SunTrackErrorOutput computeAdjustedReference(const Eigen::Vector3f& sigma_BN,
                                                  const SunTrackErrorAttRefInputs& ref,
                                                  uint64_t callTime) const;
 
     SunTrackErrorConfig cfg;
 
-    Eigen::Vector3f maneuverAxis_B{Eigen::Vector3f::Zero()};  //!< [-] principal rotation axis of the maneuver
-    float maneuverAngle{};         //!< [rad] total maneuver rotation angle, set at initialization
-    bool maneuverInitialized{};    //!< [-] whether the maneuver has been initialized
-    uint64_t maneuverStartTime{};  //!< [ns] time at which the maneuver began
+    std::optional<Maneuver> maneuver;  //!< runtime maneuver state; empty until initialized
 };
 
 #endif
