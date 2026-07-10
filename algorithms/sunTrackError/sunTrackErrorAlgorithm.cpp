@@ -58,12 +58,18 @@ SunTrackErrorOutput SunTrackErrorAlgorithm::update(const Eigen::Vector3f& sigma_
 SunTrackErrorAlgorithm::Maneuver SunTrackErrorAlgorithm::initializeManeuver(const Eigen::Vector3f& sigma_BN,
                                                                             const SunTrackErrorAttRefInputs& ref,
                                                                             const Eigen::Vector3f& sHat_N) const {
-    const Eigen::Vector3f sensitiveHat_B = this->cfg.getSensitiveHat_B();
-
-    // Sensitive axis (inertial) at the start (body) and end (reference) attitudes.
+    // Phase 1: compute the maneuver -- the short-way principal rotation from the body to the reference.
     const Eigen::Matrix3f dcm_BN = mrpToDcm(sigma_BN);
-    const Eigen::Vector3f sensitiveInitial_N = dcm_BN.transpose() * sensitiveHat_B;
     const Eigen::Matrix3f dcm_RN = mrpToDcm(ref.sigma_RN);
+    const Eigen::Matrix3f dcm_BR = dcm_BN * dcm_RN.transpose();
+    const Eigen::Vector3f prv_BR = dcmToPrv(dcm_BR);
+    Maneuver maneuver{.axis_B = prv_BR.normalized(), .angle = prv_BR.norm()};  // magnitude = angle, direction = axis
+
+    // Phase 2: determine short vs long way -- reverse the maneuver if the short slew would sweep the
+    // sensitive axis across the Sun.
+    const Eigen::Vector3f sensitiveHat_B = this->cfg.getSensitiveHat_B();
+    // Sensitive axis (inertial) at the start (body) and end (reference) attitudes.
+    const Eigen::Vector3f sensitiveInitial_N = dcm_BN.transpose() * sensitiveHat_B;
     const Eigen::Vector3f sensitiveFinal_N = dcm_RN.transpose() * sensitiveHat_B;
 
     // Sensitive-axis sweep plane, and the Sun projected into it.
@@ -74,11 +80,6 @@ SunTrackErrorAlgorithm::Maneuver SunTrackErrorAlgorithm::initializeManeuver(cons
     // Sweep extent, and the Sun's angular position along it from the start.
     const float sensitiveSweepAngle = safeAcosf(sensitiveInitial_N.dot(sensitiveFinal_N));
     const float initialToSunAngle = safeAcosf(sensitiveInitial_N.dot(sunInSweepPlane_N));
-
-    // Body-relative-to-reference principal rotation: magnitude = maneuver angle, direction = maneuver axis.
-    const Eigen::Matrix3f dcm_BR = dcm_BN * dcm_RN.transpose();
-    const Eigen::Vector3f prv_BR = dcmToPrv(dcm_BR);
-    Maneuver maneuver{.axis_B = prv_BR.normalized(), .angle = prv_BR.norm()};
 
     // Whether the maneuver (initial -> reference) turns the sensitive axis toward the Sun. maneuver.axis_B is
     // reference -> initial, so the maneuver is its reverse.
