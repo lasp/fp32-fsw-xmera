@@ -1,7 +1,7 @@
 #include <stdint.h>
 
-#ifndef ACC_DATA_MESSAGE_F32_H
-#define ACC_DATA_MESSAGE_F32_H
+#ifndef ACC_PKT_DATA_MESSAGE_F32_H
+#define ACC_PKT_DATA_MESSAGE_F32_H
 
 /*! @brief Structure used to define accelerometer package data */
 typedef struct {
