@@ -4,7 +4,7 @@ MimuMajorityVoteAlgorithm::MimuMajorityVoteAlgorithm(const MimuMajorityVoteConfi
 
 void MimuMajorityVoteAlgorithm::setConfig(const MimuMajorityVoteConfig& config) { this->cfg = config; }
 
-void MimuMajorityVoteAlgorithm::reInitialize() { this->faultPersistenceCount.fill(0U); }
+void MimuMajorityVoteAlgorithm::reInitialize() { this->gyroFaultPersistenceCount.fill(0U); }
 
 MimuMajorityVoteOutput MimuMajorityVoteAlgorithm::update(
     const std::array<Eigen::Vector3f, kMimuCount>& imuOmegas_BN_B) {
@@ -28,21 +28,21 @@ MimuMajorityVoteOutput MimuMajorityVoteAlgorithm::update(
     // Update persistence counter for the worst outlier
     bool faultDetected = false;
     if (output.omegaDifferencesMag.at(maxDiffIndex) >= this->cfg.getOmegaThreshold()) {
-        ++this->faultPersistenceCount.at(maxDiffIndex);
+        ++this->gyroFaultPersistenceCount.at(maxDiffIndex);
 
         // Determine if the outlier has persisted long enough to be faulted
-        if (this->faultPersistenceCount.at(maxDiffIndex) >= this->cfg.getFaultPersistenceLimit()) {
+        if (this->gyroFaultPersistenceCount.at(maxDiffIndex) >= this->cfg.getGyroFaultPersistenceLimit()) {
             faultDetected = true;
             output.validImus.at(maxDiffIndex) = false;
         }
     } else {
-        this->faultPersistenceCount.at(maxDiffIndex) = 0U;
+        this->gyroFaultPersistenceCount.at(maxDiffIndex) = 0U;
     }
 
     // Reset counters for non-outlier IMUs
     for (size_t i = 0U; i < kMimuCount; ++i) {
         if (i != maxDiffIndex) {
-            this->faultPersistenceCount.at(i) = 0U;
+            this->gyroFaultPersistenceCount.at(i) = 0U;
         }
     }
 

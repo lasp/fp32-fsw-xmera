@@ -23,21 +23,21 @@ uint32_t MimuMajorityVoteAlgorithm_getMimuCount(void);
 /**
  * @brief Report whether a configuration would be accepted by create/setConfig.
  * @param omegaThreshold        [rad/s] gyro threshold; must be finite and > 0.
- * @param faultPersistenceLimit [-] consecutive faults to trigger; must be > 0.
+ * @param gyroFaultPersistenceLimit [-] consecutive faults to trigger; must be > 0.
  * @return true when the configuration is valid. Never throws, so it can guard the
  *         throwing create/setConfig from an invalid configuration.
  */
-bool MimuMajorityVoteAlgorithm_validateConfig(float omegaThreshold, uint32_t faultPersistenceLimit);
+bool MimuMajorityVoteAlgorithm_validateConfig(float omegaThreshold, uint32_t gyroFaultPersistenceLimit);
 
 /**
  * @brief Construct a new MimuMajorityVoteAlgorithm instance from the supplied configuration.
  * @param omegaThreshold        [rad/s] gyro threshold; must be finite and > 0.
- * @param faultPersistenceLimit [-] consecutive faults to trigger; must be > 0.
+ * @param gyroFaultPersistenceLimit [-] consecutive faults to trigger; must be > 0.
  * @return Pointer to a new MimuMajorityVoteAlgorithm (must be destroyed).
  * Validate the values with validateConfig first; invalid input throws.
  */
 MimuMajorityVoteAlgorithmHandle* MimuMajorityVoteAlgorithm_create(float omegaThreshold,
-                                                                  uint32_t faultPersistenceLimit);
+                                                                  uint32_t gyroFaultPersistenceLimit);
 
 /**
  * @brief Destroy a previously created MimuMajorityVoteAlgorithm.
@@ -50,12 +50,12 @@ void MimuMajorityVoteAlgorithm_destroy(MimuMajorityVoteAlgorithmHandle* self);
  *        reset the persistence counters).
  * @param self                  Pointer to the instance.
  * @param omegaThreshold        [rad/s] gyro threshold; must be finite and > 0.
- * @param faultPersistenceLimit [-] consecutive faults to trigger; must be > 0.
+ * @param gyroFaultPersistenceLimit [-] consecutive faults to trigger; must be > 0.
  * Validate the values with validateConfig first; invalid input throws.
  */
 void MimuMajorityVoteAlgorithm_setConfig(MimuMajorityVoteAlgorithmHandle* self,
                                          float omegaThreshold,
-                                         uint32_t faultPersistenceLimit);
+                                         uint32_t gyroFaultPersistenceLimit);
 
 /**
  * @brief Reset fault persistence counters to zero.

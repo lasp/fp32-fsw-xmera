@@ -15,7 +15,7 @@ void MimuMajorityVote::reset(uint64_t const callTime) {
 
 /*! Build a validated algorithm configuration from the current module parameters. */
 MimuMajorityVoteConfig MimuMajorityVote::toConfig() const {
-    return MimuMajorityVoteConfig::create(this->omegaThreshold, this->faultPersistenceLimit);
+    return MimuMajorityVoteConfig::create(this->omegaThreshold, this->gyroFaultPersistenceLimit);
 }
 
 void MimuMajorityVote::updateState(uint64_t const callTime) {
@@ -37,10 +37,10 @@ void MimuMajorityVote::updateState(uint64_t const callTime) {
     eigenVectorToCArray(output.avgOmega_BN_B, imuOutPayload.AngVelBody);
 
     MimuFaultMsgPayload faultPayload{};
-    faultPayload.faultDetected = output.faultDetected;
+    faultPayload.gyroFaultDetected = output.faultDetected;
     for (size_t i = 0U; i < kMimuCount; ++i) {
-        faultPayload.validImus[i] = output.validImus.at(i);
-        faultPayload.omegaDifferencesMag[i] = output.omegaDifferencesMag.at(i);
+        faultPayload.gyroImuValid[i] = output.validImus.at(i);
+        faultPayload.gyroImuDifferenceMag[i] = output.omegaDifferencesMag.at(i);
     }
 
     this->imuSensorBodyOutMsg.write(imuOutPayload, this->moduleID, callTime);

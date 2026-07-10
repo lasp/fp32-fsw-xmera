@@ -115,7 +115,7 @@ def run_test(
     module.modelTag = "mimuMajorityVote"
 
     module.omegaThreshold = omega_threshold_rad_per_sec
-    module.faultPersistenceLimit = fault_persistence_limit
+    module.gyroFaultPersistenceLimit = fault_persistence_limit
 
     unit_test_sim.AddModelToTask(unit_task_name, module)
 
@@ -155,8 +155,8 @@ def run_test(
     unit_test_sim.ExecuteSimulation()
 
     module_output_angular_velocity = rate_data_log.AngVelBody
-    module_output_fault = fault_data_log.faultDetected
-    module_output_valid_imus = fault_data_log.validImus
+    module_output_fault = fault_data_log.gyroFaultDetected
+    module_output_valid_imus = fault_data_log.gyroImuValid
 
     np.testing.assert_allclose(
         module_output_angular_velocity[-1], expected_angular_velocity, rtol=0, atol=1e-7, verbose=True
@@ -164,7 +164,7 @@ def run_test(
     np.testing.assert_allclose(module_output_fault[-1], expected_output_fault, verbose=True)
     np.testing.assert_array_equal(module_output_valid_imus[-1], expected_valid_imus)
     np.testing.assert_allclose(module.omegaThreshold, omega_threshold_rad_per_sec, rtol=0, atol=1e-7, verbose=True)
-    np.testing.assert_array_equal(module.faultPersistenceLimit, fault_persistence_limit)
+    np.testing.assert_array_equal(module.gyroFaultPersistenceLimit, fault_persistence_limit)
 
 
 if __name__ == "__main__":

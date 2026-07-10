@@ -201,7 +201,7 @@ TEST(MimuMajorityVoteTest, ReInitializeClearsPersistence) {
 }
 
 TEST(MimuMajorityVoteTest, SetupTest) {
-    // Config validation rejects a zero/negative omegaThreshold and a zero faultPersistenceLimit.
+    // Config validation rejects a zero/negative omegaThreshold and a zero gyroFaultPersistenceLimit.
     EXPECT_THROW((void)MimuMajorityVoteConfig::create(0.0F, 1U), fsw::invalid_argument);
     EXPECT_THROW((void)MimuMajorityVoteConfig::create(-0.1F, 1U), fsw::invalid_argument);
     EXPECT_THROW((void)MimuMajorityVoteConfig::create(0.5F, 0U), fsw::invalid_argument);
@@ -210,5 +210,5 @@ TEST(MimuMajorityVoteTest, SetupTest) {
     const float threshold = 0.5F;
     const MimuMajorityVoteConfig cfg = MimuMajorityVoteConfig::create(threshold, 2U);
     EXPECT_NEAR(cfg.getOmegaThreshold(), threshold, 1e-6);
-    EXPECT_EQ(cfg.getFaultPersistenceLimit(), 2U);
+    EXPECT_EQ(cfg.getGyroFaultPersistenceLimit(), 2U);
 }

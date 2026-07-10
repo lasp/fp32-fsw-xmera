@@ -31,31 +31,33 @@ struct MimuMajorityVoteOutput {
  */
 class MimuMajorityVoteConfig final {
    public:
-    static MimuMajorityVoteConfig create(float omegaThreshold, uint32_t faultPersistenceLimit) {
+    static MimuMajorityVoteConfig create(float omegaThreshold, uint32_t gyroFaultPersistenceLimit) {
         if (!isValidOmegaThreshold(omegaThreshold)) {
             FSW_THROW_INVALID_ARGUMENT("mimuMajorityVote: omegaThreshold must be finite and > 0");
         }
-        if (!isValidFaultPersistenceLimit(faultPersistenceLimit)) {
-            FSW_THROW_INVALID_ARGUMENT("mimuMajorityVote: faultPersistenceLimit must be > 0");
+        if (!isValidGyroFaultPersistenceLimit(gyroFaultPersistenceLimit)) {
+            FSW_THROW_INVALID_ARGUMENT("mimuMajorityVote: gyroFaultPersistenceLimit must be > 0");
         }
-        return {omegaThreshold, faultPersistenceLimit};
+        return {omegaThreshold, gyroFaultPersistenceLimit};
     }
 
     static bool isValidOmegaThreshold(float omegaThreshold) {
         return fsw::is_finite(omegaThreshold) && omegaThreshold > 0.0F;
     }
-    static bool isValidFaultPersistenceLimit(uint32_t faultPersistenceLimit) { return faultPersistenceLimit > 0U; }
+    static bool isValidGyroFaultPersistenceLimit(uint32_t gyroFaultPersistenceLimit) {
+        return gyroFaultPersistenceLimit > 0U;
+    }
 
     float getOmegaThreshold() const { return omegaThreshold; }
-    uint32_t getFaultPersistenceLimit() const { return faultPersistenceLimit; }
+    uint32_t getGyroFaultPersistenceLimit() const { return gyroFaultPersistenceLimit; }
 
    private:
     // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
-    MimuMajorityVoteConfig(float omegaThreshold, uint32_t faultPersistenceLimit)
-        : omegaThreshold(omegaThreshold), faultPersistenceLimit(faultPersistenceLimit) {}
+    MimuMajorityVoteConfig(float omegaThreshold, uint32_t gyroFaultPersistenceLimit)
+        : omegaThreshold(omegaThreshold), gyroFaultPersistenceLimit(gyroFaultPersistenceLimit) {}
 
     float omegaThreshold;
-    uint32_t faultPersistenceLimit;
+    uint32_t gyroFaultPersistenceLimit;
 };
 
 /*!@brief Module to compute the majority vote of the mimus. */
@@ -68,7 +70,7 @@ class MimuMajorityVoteAlgorithm final {
 
    private:
     MimuMajorityVoteConfig cfg;
-    std::array<uint32_t, kMimuCount> faultPersistenceCount{};
+    std::array<uint32_t, kMimuCount> gyroFaultPersistenceCount{};
 };
 
 #endif

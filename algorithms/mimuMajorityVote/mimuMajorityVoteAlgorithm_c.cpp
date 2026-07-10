@@ -7,19 +7,19 @@
 
 uint32_t MimuMajorityVoteAlgorithm_getMimuCount(void) { return MIMU_COUNT_C; }
 
-
-MimuMajorityVoteAlgorithmHandle* MimuMajorityVoteAlgorithm_create(void) {
-    return fsw::createHandle<::MimuMajorityVoteAlgorithm, MimuMajorityVoteAlgorithmHandle>(
-        MimuMajorityVoteConfig::create(omegaThreshold, faultPersistenceLimit));
-}
-
-bool MimuMajorityVoteAlgorithm_validateConfig(float omegaThreshold, uint32_t faultPersistenceLimit) {
+bool MimuMajorityVoteAlgorithm_validateConfig(float omegaThreshold, uint32_t gyroFaultPersistenceLimit) {
     try {
-        (void) MimuMajorityVoteConfig::create(omegaThreshold, faultPersistenceLimit);
+        (void) MimuMajorityVoteConfig::create(omegaThreshold, gyroFaultPersistenceLimit);
         return true;
     } catch (const fsw::invalid_argument&) {
         return false;
     }
+}
+
+MimuMajorityVoteAlgorithmHandle* MimuMajorityVoteAlgorithm_create(float omegaThreshold,
+                                                                  uint32_t gyroFaultPersistenceLimit) {
+    return reinterpret_cast<MimuMajorityVoteAlgorithmHandle*>(
+        new ::MimuMajorityVoteAlgorithm(MimuMajorityVoteConfig::create(omegaThreshold, gyroFaultPersistenceLimit)));
 }
 
 void MimuMajorityVoteAlgorithm_destroy(MimuMajorityVoteAlgorithmHandle* self) {
@@ -28,8 +28,8 @@ void MimuMajorityVoteAlgorithm_destroy(MimuMajorityVoteAlgorithmHandle* self) {
 
 void MimuMajorityVoteAlgorithm_setConfig(MimuMajorityVoteAlgorithmHandle* self,
                                          float omegaThreshold,
-                                         uint32_t faultPersistenceLimit) {
-    fsw::fromHandle<::MimuMajorityVoteAlgorithm>(self)->setConfig(omegaThreshold, faultPersistenceLimit);
+                                         uint32_t gyroFaultPersistenceLimit) {
+    fsw::fromHandle<::MimuMajorityVoteAlgorithm>(self)->setConfig(omegaThreshold, gyroFaultPersistenceLimit);
 }
 
 void MimuMajorityVoteAlgorithm_reInitialize(MimuMajorityVoteAlgorithmHandle* self) {
