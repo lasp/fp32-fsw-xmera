@@ -21,9 +21,8 @@ TEST(MimuMajorityVoteTest, RegressionTestOffNominal) {
 
 TEST(MimuMajorityVoteTest, PropertyTestNominal) {
     // When all IMUs agree within threshold, output should be simple average with no fault
-    MimuMajorityVoteAlgorithm alg{};
-    float threshold = 1.0F;
-    alg.setOmegaThreshold(threshold);
+    const float threshold = 1.0F;
+    MimuMajorityVoteAlgorithm alg{MimuMajorityVoteConfig::create(threshold, 1U)};
 
     Eigen::Vector3f baseRate(-0.1F, 0.25F, 0.3F);
 
@@ -47,9 +46,8 @@ TEST(MimuMajorityVoteTest, PropertyTestNominal) {
 
 TEST(MimuMajorityVoteTest, PropertyTestOffNominal) {
     // When one IMU is far off, it should be detected as faulted and excluded from average
-    MimuMajorityVoteAlgorithm alg{};
-    float threshold = 0.05F;
-    alg.setOmegaThreshold(threshold);
+    const float threshold = 0.05F;
+    MimuMajorityVoteAlgorithm alg{MimuMajorityVoteConfig::create(threshold, 1U)};
 
     Eigen::Vector3f baseRate(-0.1F, 0.25F, 0.3F);
     Eigen::Vector3f outlierRate = baseRate + Eigen::Vector3f(2.0F, 2.0F, 2.0F);
@@ -74,9 +72,7 @@ TEST(MimuMajorityVoteTest, PropertyTestOffNominal) {
 }
 
 TEST(MimuMajorityVoteTest, PersistenceFaultAndRecovery) {
-    MimuMajorityVoteAlgorithm alg{};
-    alg.setOmegaThreshold(0.05F);
-    alg.setFaultPersistenceLimit(3U);
+    MimuMajorityVoteAlgorithm alg{MimuMajorityVoteConfig::create(0.05F, 3U)};
 
     Eigen::Vector3f baseRate(-0.1F, 0.25F, 0.3F);
     Eigen::Vector3f outlierRate = baseRate + Eigen::Vector3f(2.0F, 2.0F, 2.0F);
@@ -152,10 +148,8 @@ TEST(MimuMajorityVoteTest, PersistenceFaultAndRecovery) {
     }
 }
 
-TEST(MimuMajorityVoteTest, ResetClearsPersistence) {
-    MimuMajorityVoteAlgorithm alg{};
-    alg.setOmegaThreshold(0.05F);
-    alg.setFaultPersistenceLimit(3U);
+TEST(MimuMajorityVoteTest, ReInitializeClearsPersistence) {
+    MimuMajorityVoteAlgorithm alg{MimuMajorityVoteConfig::create(0.05F, 3U)};
 
     Eigen::Vector3f baseRate(-0.1F, 0.25F, 0.3F);
     Eigen::Vector3f outlierRate = baseRate + Eigen::Vector3f(2.0F, 2.0F, 2.0F);
@@ -180,8 +174,8 @@ TEST(MimuMajorityVoteTest, ResetClearsPersistence) {
         }
     }
 
-    // Reset clears persistence counters
-    alg.reset();
+    // reInitialize clears persistence counters
+    alg.reInitialize();
 
     // Same outlier inputs — counter starts from zero again, no fault
     for (uint32_t call = 0U; call < 2U; ++call) {
@@ -207,16 +201,14 @@ TEST(MimuMajorityVoteTest, ResetClearsPersistence) {
 }
 
 TEST(MimuMajorityVoteTest, SetupTest) {
-    MimuMajorityVoteAlgorithm alg{};
+    // Config validation rejects a zero/negative omegaThreshold and a zero faultPersistenceLimit.
+    EXPECT_THROW((void)MimuMajorityVoteConfig::create(0.0F, 1U), fsw::invalid_argument);
+    EXPECT_THROW((void)MimuMajorityVoteConfig::create(-0.1F, 1U), fsw::invalid_argument);
+    EXPECT_THROW((void)MimuMajorityVoteConfig::create(0.5F, 0U), fsw::invalid_argument);
 
-    // --- Test expected exceptions for omegaThreshold ---
-
-    // Zero or negative omegaThreshold
-    EXPECT_THROW(alg.setOmegaThreshold(0.0F), fsw::invalid_argument);
-    EXPECT_THROW(alg.setOmegaThreshold(-0.1F), fsw::invalid_argument);
-
-    // Valid threshold
-    float threshold = 0.5F;
-    EXPECT_NO_THROW(alg.setOmegaThreshold(threshold));
-    EXPECT_NEAR(alg.getOmegaThreshold(), threshold, 1e-6);
+    // A valid config exposes exactly the supplied parameters.
+    const float threshold = 0.5F;
+    const MimuMajorityVoteConfig cfg = MimuMajorityVoteConfig::create(threshold, 2U);
+    EXPECT_NEAR(cfg.getOmegaThreshold(), threshold, 1e-6);
+    EXPECT_EQ(cfg.getFaultPersistenceLimit(), 2U);
 }

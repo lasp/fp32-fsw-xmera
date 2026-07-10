@@ -1,7 +1,8 @@
 #ifndef F32XMERA_MIMUMAJORITYVOTEALGORITHM_C_H
 #define F32XMERA_MIMUMAJORITYVOTEALGORITHM_C_H
 
-#include "utilities/fsw/plainCAlgorithmDataTypes.h"
+#include "mimuMajorityVoteTypes.h"
+#include <stdbool.h>
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -14,42 +15,29 @@ extern "C" {
 typedef struct MimuMajorityVoteAlgorithmHandle MimuMajorityVoteAlgorithmHandle;
 
 /**
- * @brief Number of IMUs.
- */
-#define MIMU_COUNT_C 3
-
-/**
- * @brief Sized array of 3-vectors.
- */
-typedef struct {
-    Vector3f_c vec[MIMU_COUNT_C];
-} Vector3fArray3_c;
-
-/**
- * @brief POD output from the MIMU majority vote algorithm.
- *
- * Layout must match the Adamant Mimu_Majority_Vote_Output packed record:
- *   Avg_Ang_Vel_Body : Packed_F32x3  (3 floats)
- *   Fault_Detected   : Unsigned_8    (0 = false, nonzero = true)
- *   Mimu_Index_Faulted : Integer_32  (-1 if no fault)
- */
-typedef struct {
-    Vector3f_c avgOmega_BN_B; /*!< [rad/s] Averaged angular velocity in body frame */
-    uint8_t faultDetected;    /*!< Whether a MIMU fault was detected */
-    int32_t mimuIndexFaulted; /*!< Index of faulted MIMU (-1 if no fault) */
-} MimuMajorityVoteOutput_c;
-
-/**
  * @brief Get the kMimuCount constant for Ada validation.
  * @return The IMU count (MIMU_COUNT_C).
  */
 uint32_t MimuMajorityVoteAlgorithm_getMimuCount(void);
 
 /**
- * @brief Construct a new MimuMajorityVoteAlgorithm instance.
- * @return Pointer to a new MimuMajorityVoteAlgorithm (must be destroyed).
+ * @brief Report whether a configuration would be accepted by create/setConfig.
+ * @param omegaThreshold        [rad/s] gyro threshold; must be finite and > 0.
+ * @param faultPersistenceLimit [-] consecutive faults to trigger; must be > 0.
+ * @return true when the configuration is valid. Never throws, so it can guard the
+ *         throwing create/setConfig from an invalid configuration.
  */
-MimuMajorityVoteAlgorithmHandle* MimuMajorityVoteAlgorithm_create(void);
+bool MimuMajorityVoteAlgorithm_validateConfig(float omegaThreshold, uint32_t faultPersistenceLimit);
+
+/**
+ * @brief Construct a new MimuMajorityVoteAlgorithm instance from the supplied configuration.
+ * @param omegaThreshold        [rad/s] gyro threshold; must be finite and > 0.
+ * @param faultPersistenceLimit [-] consecutive faults to trigger; must be > 0.
+ * @return Pointer to a new MimuMajorityVoteAlgorithm (must be destroyed).
+ * Validate the values with validateConfig first; invalid input throws.
+ */
+MimuMajorityVoteAlgorithmHandle* MimuMajorityVoteAlgorithm_create(float omegaThreshold,
+                                                                  uint32_t faultPersistenceLimit);
 
 /**
  * @brief Destroy a previously created MimuMajorityVoteAlgorithm.
@@ -58,10 +46,22 @@ MimuMajorityVoteAlgorithmHandle* MimuMajorityVoteAlgorithm_create(void);
 void MimuMajorityVoteAlgorithm_destroy(MimuMajorityVoteAlgorithmHandle* self);
 
 /**
+ * @brief Install the configuration on an existing instance (parameters only; call _reInitialize to
+ *        reset the persistence counters).
+ * @param self                  Pointer to the instance.
+ * @param omegaThreshold        [rad/s] gyro threshold; must be finite and > 0.
+ * @param faultPersistenceLimit [-] consecutive faults to trigger; must be > 0.
+ * Validate the values with validateConfig first; invalid input throws.
+ */
+void MimuMajorityVoteAlgorithm_setConfig(MimuMajorityVoteAlgorithmHandle* self,
+                                         float omegaThreshold,
+                                         uint32_t faultPersistenceLimit);
+
+/**
  * @brief Reset fault persistence counters to zero.
  * @param self Pointer to the instance.
  */
-void MimuMajorityVoteAlgorithm_reset(MimuMajorityVoteAlgorithmHandle* self);
+void MimuMajorityVoteAlgorithm_reInitialize(MimuMajorityVoteAlgorithmHandle* self);
 
 /**
  * @brief Run the majority vote update step.
@@ -71,34 +71,6 @@ void MimuMajorityVoteAlgorithm_reset(MimuMajorityVoteAlgorithmHandle* self);
  */
 MimuMajorityVoteOutput_c MimuMajorityVoteAlgorithm_update(MimuMajorityVoteAlgorithmHandle* self,
                                                           const Vector3fArray3_c* imuOmegas_BN_B);
-
-/**
- * @brief Set the omega threshold for fault detection.
- * @param self  Pointer to the instance.
- * @param value The new omega threshold value [rad/s].
- */
-void MimuMajorityVoteAlgorithm_setOmegaThreshold(MimuMajorityVoteAlgorithmHandle* self, float value);
-
-/**
- * @brief Get the current omega threshold.
- * @param self Pointer to the instance.
- * @return float  The current omega threshold [rad/s].
- */
-float MimuMajorityVoteAlgorithm_getOmegaThreshold(const MimuMajorityVoteAlgorithmHandle* self);
-
-/**
- * @brief Set the fault persistence limit.
- * @param self  Pointer to the instance.
- * @param value The new fault persistence limit.
- */
-void MimuMajorityVoteAlgorithm_setFaultPersistenceLimit(MimuMajorityVoteAlgorithmHandle* self, uint32_t value);
-
-/**
- * @brief Get the current fault persistence limit.
- * @param self Pointer to the instance.
- * @return uint32_t  The current fault persistence limit.
- */
-uint32_t MimuMajorityVoteAlgorithm_getFaultPersistenceLimit(const MimuMajorityVoteAlgorithmHandle* self);
 
 #ifdef __cplusplus
 }  // extern "C"

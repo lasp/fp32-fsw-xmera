@@ -69,9 +69,7 @@ inline void regressionTestMimuMajorityVote(float omegaThreshold,
                                            const Eigen::Vector3f& angVel1,
                                            const Eigen::Vector3f& angVel2,
                                            const Eigen::Vector3f& angVel3) {
-    MimuMajorityVoteAlgorithm alg{};
-    alg.setOmegaThreshold(omegaThreshold);
-    alg.setFaultPersistenceLimit(persistenceLimit);
+    MimuMajorityVoteAlgorithm alg{MimuMajorityVoteConfig::create(omegaThreshold, persistenceLimit)};
 
     std::array<Eigen::Vector3f, kMimuCount> imuOmegas_BN_B{};
     imuOmegas_BN_B.at(0) = angVel1;

@@ -1,21 +1,39 @@
 #include "mimuMajorityVoteAlgorithm_c.h"
 #include "mimuMajorityVoteAlgorithm.h"
+#include "mimuMajorityVoteTypes.h"
 #include "utilities/fsw/opaqueHandle.h"
 
 #include <Eigen/Core>
 
 uint32_t MimuMajorityVoteAlgorithm_getMimuCount(void) { return MIMU_COUNT_C; }
 
+
 MimuMajorityVoteAlgorithmHandle* MimuMajorityVoteAlgorithm_create(void) {
-    return fsw::createHandle<::MimuMajorityVoteAlgorithm, MimuMajorityVoteAlgorithmHandle>();
+    return fsw::createHandle<::MimuMajorityVoteAlgorithm, MimuMajorityVoteAlgorithmHandle>(
+        MimuMajorityVoteConfig::create(omegaThreshold, faultPersistenceLimit));
+}
+
+bool MimuMajorityVoteAlgorithm_validateConfig(float omegaThreshold, uint32_t faultPersistenceLimit) {
+    try {
+        (void) MimuMajorityVoteConfig::create(omegaThreshold, faultPersistenceLimit);
+        return true;
+    } catch (const fsw::invalid_argument&) {
+        return false;
+    }
 }
 
 void MimuMajorityVoteAlgorithm_destroy(MimuMajorityVoteAlgorithmHandle* self) {
     fsw::deleteHandle<::MimuMajorityVoteAlgorithm>(self);
 }
 
-void MimuMajorityVoteAlgorithm_reset(MimuMajorityVoteAlgorithmHandle* self) {
-    fsw::fromHandle<::MimuMajorityVoteAlgorithm>(self)->reset();
+void MimuMajorityVoteAlgorithm_setConfig(MimuMajorityVoteAlgorithmHandle* self,
+                                         float omegaThreshold,
+                                         uint32_t faultPersistenceLimit) {
+    fsw::fromHandle<::MimuMajorityVoteAlgorithm>(self)->setConfig(omegaThreshold, faultPersistenceLimit);
+}
+
+void MimuMajorityVoteAlgorithm_reInitialize(MimuMajorityVoteAlgorithmHandle* self) {
+    fsw::fromHandle<::MimuMajorityVoteAlgorithm>(self)->reInitialize();
 }
 
 MimuMajorityVoteOutput_c MimuMajorityVoteAlgorithm_update(MimuMajorityVoteAlgorithmHandle* self,
@@ -50,20 +68,4 @@ MimuMajorityVoteOutput_c MimuMajorityVoteAlgorithm_update(MimuMajorityVoteAlgori
     }
 
     return out;
-}
-
-void MimuMajorityVoteAlgorithm_setOmegaThreshold(MimuMajorityVoteAlgorithmHandle* self, float value) {
-    fsw::fromHandle<::MimuMajorityVoteAlgorithm>(self)->setOmegaThreshold(value);
-}
-
-float MimuMajorityVoteAlgorithm_getOmegaThreshold(const MimuMajorityVoteAlgorithmHandle* self) {
-    return fsw::fromHandle<const ::MimuMajorityVoteAlgorithm>(self)->getOmegaThreshold();
-}
-
-void MimuMajorityVoteAlgorithm_setFaultPersistenceLimit(MimuMajorityVoteAlgorithmHandle* self, uint32_t value) {
-    fsw::fromHandle<::MimuMajorityVoteAlgorithm>(self)->setFaultPersistenceLimit(value);
-}
-
-uint32_t MimuMajorityVoteAlgorithm_getFaultPersistenceLimit(const MimuMajorityVoteAlgorithmHandle* self) {
-    return fsw::fromHandle<const ::MimuMajorityVoteAlgorithm>(self)->getFaultPersistenceLimit();
 }
