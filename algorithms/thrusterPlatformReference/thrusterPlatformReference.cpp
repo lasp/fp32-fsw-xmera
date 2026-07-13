@@ -46,7 +46,9 @@ void ThrusterPlatformReference::reset(uint64_t callTime) {
     this->priorTime = callTime;
 }
 
-/*! This method updates the platformAngles message based on the updated information about the system center of mass
+/*! This method computes the reference platform tip and tilt angles that align the thruster with the system center of
+ mass (optionally offset to dump reaction wheel momentum) and writes the platform, body-heading, thruster-torque and
+ thruster-configuration output messages.
  @return void
  @param callTime The clock time at which the function was called (nanoseconds)
 */
