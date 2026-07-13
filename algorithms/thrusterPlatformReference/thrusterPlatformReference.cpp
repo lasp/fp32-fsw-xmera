@@ -17,7 +17,7 @@ void tprComputeSecondRotation(double r_CM_F[3],
 void tprComputeThirdRotation(double e_theta[3], double F2M[3][3], double F3F2[3][3]);
 void tprComputeFinalRotation(double r_CM_M[3], double r_TM_F[3], double T_F[3], double FM[3][3]);
 
-const double epsilon = 1e-12;  // module tolerance for zero
+static constexpr double kZeroTolerance = 1e-12;  // module tolerance for treating a quantity as zero
 
 /*! This method performs a complete reset of the module.  Local module variables that retain
  time varying states between function calls are reset to their default values.
@@ -129,14 +129,14 @@ void ThrusterPlatformReference::updateState(const uint64_t callTime) {
     double theta2 = atan2(FM[2][0], FM[0][0]);
 
     /*! bound reference angles between limits */
-    if ((this->theta1Max > epsilon) && (theta1 > this->theta1Max)) {
+    if ((this->theta1Max > kZeroTolerance) && (theta1 > this->theta1Max)) {
         theta1 = this->theta1Max;
-    } else if ((this->theta1Max > epsilon) && (theta1 < -this->theta1Max)) {
+    } else if ((this->theta1Max > kZeroTolerance) && (theta1 < -this->theta1Max)) {
         theta1 = -this->theta1Max;
     }
-    if ((this->theta2Max > epsilon) && (theta2 > this->theta2Max)) {
+    if ((this->theta2Max > kZeroTolerance) && (theta2 > this->theta2Max)) {
         theta2 = this->theta2Max;
-    } else if ((this->theta2Max > epsilon) && (theta2 < -this->theta2Max)) {
+    } else if ((this->theta2Max > kZeroTolerance) && (theta2 < -this->theta2Max)) {
         theta2 = -this->theta2Max;
     }
 
@@ -197,13 +197,13 @@ void tprComputeFirstRotation(double THat_F[3], double rHat_CM_F[3], double F1M[3
     double e_phi[3];
     v3Cross(THat_F, rHat_CM_F, e_phi);
     // If phi = PI, e_phi can be any vector perpendicular to F_current_B
-    if (fabs(phi - std::numbers::pi) < epsilon) {
+    if (fabs(phi - std::numbers::pi) < kZeroTolerance) {
         phi = std::numbers::pi;
-        if (fabs(THat_F[0]) > epsilon) {
+        if (fabs(THat_F[0]) > kZeroTolerance) {
             e_phi[0] = -(THat_F[1] + THat_F[2]) / THat_F[0];
             e_phi[1] = 1;
             e_phi[2] = 1;
-        } else if (fabs(THat_F[1]) > epsilon) {
+        } else if (fabs(THat_F[1]) > kZeroTolerance) {
             e_phi[0] = 1;
             e_phi[1] = -(THat_F[0] + THat_F[2]) / THat_F[1];
             e_phi[2] = 1;
@@ -212,7 +212,7 @@ void tprComputeFirstRotation(double THat_F[3], double rHat_CM_F[3], double F1M[3
             e_phi[1] = 1;
             e_phi[2] = -(THat_F[0] + THat_F[1]) / THat_F[2];
         }
-    } else if (fabs(phi) < epsilon) {
+    } else if (fabs(phi) < kZeroTolerance) {
         phi = 0;
     }
     // normalize e_phi
@@ -242,7 +242,7 @@ void tprComputeSecondRotation(double r_CM_F[3],
     double c1 = v3Norm(r_CT_F);
 
     double psi;
-    if (fabs(a) < epsilon) {
+    if (fabs(a) < kZeroTolerance) {
         // if offset a = 0, second rotation is null
         psi = 0;
     } else {
@@ -279,8 +279,8 @@ void tprComputeThirdRotation(double e_theta[3], double F2M[3][3], double F3F2[3]
 
     /* compute exact solution or best solution depending on Delta */
     double t, t1, t2, y, y1, y2, theta;
-    if (fabs(A) < epsilon) {
-        if (fabs(B) < epsilon) {
+    if (fabs(A) < kZeroTolerance) {
+        if (fabs(B) < kZeroTolerance) {
             // zero-th order equation has no solution
             // the solution of the minimum problem is theta = pi
             theta = std::numbers::pi;
@@ -293,7 +293,7 @@ void tprComputeThirdRotation(double e_theta[3], double F2M[3][3], double F3F2[3]
         if (Delta < 0) {
             // second order equation has no solution
             // the solution of the minimum problem is found
-            if (fabs(B) < epsilon) {
+            if (fabs(B) < kZeroTolerance) {
                 t = 0.0;
             } else {
                 double q = (A - C) / B;
