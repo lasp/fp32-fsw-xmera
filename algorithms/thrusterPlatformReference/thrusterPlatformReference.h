@@ -1,6 +1,7 @@
 #ifndef F32XMERA_THRUSTER_PLATFORM_REFERENCE_H
 #define F32XMERA_THRUSTER_PLATFORM_REFERENCE_H
 
+#include "thrusterPlatformReferenceAlgorithm.h"
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
 #include <architecture/msgPayloadDef/BodyHeadingMsgPayload.h>
@@ -12,34 +13,24 @@
 #include <architecture/msgPayloadDef/VehicleConfigMsgPayload.h>
 #include <stdint.h>
 
-enum momentumDumping { Yes = 0, No = 1 };
-
-/*! @brief Top level structure for the sub-module routines. */
+/*! @brief Adapter for the thruster platform reference algorithm. */
 class ThrusterPlatformReference : public SysModel {
    public:
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
 
-    /*! declare these user-defined quantities */
-    double sigma_MB[3]{};  //!< orientation of the M frame w.r.t. the B frame
-    double r_BM_M[3]{};    //!< position of B frame origin w.r.t. M frame origin, in M frame coordinates
-    double r_FM_F[3]{};    //!< position of F frame origin w.r.t. M frame origin, in F frame coordinates
+    /*! user-defined configuration quantities */
+    Eigen::Vector3d sigma_MB{Eigen::Vector3d::Zero()};  //!< orientation of the M frame w.r.t. the B frame
+    Eigen::Vector3d r_BM_M{
+        Eigen::Vector3d::Zero()};  //!< position of B frame origin w.r.t. M frame origin, in M frame coordinates
+    Eigen::Vector3d r_FM_F{
+        Eigen::Vector3d::Zero()};  //!< position of F frame origin w.r.t. M frame origin, in F frame coordinates
+    double K{};                    //!< momentum dumping proportional gain [1/s]
+    double Ki{};                   //!< momentum dumping integral gain [1]
+    double theta1Max{};            //!< absolute bound on tip angle [rad]
+    double theta2Max{};            //!< absolute bound on tilt angle [rad]
 
-    double K{};   //!< momentum dumping proportional gain [1/s]
-    double Ki{};  //!< momentum dumping integral gain [1]
-
-    double theta1Max{};  //!< absolute bound on tip angle [rad]
-    double theta2Max{};  //!< absolute bound on tilt angle [rad]
-
-    /*! declare variables for internal module calculations */
-    RWArrayConfigMsgPayload
-        rwConfigParams{};   //!< struct to store message containing RW config parameters in body B frame
-    int momentumDumping{};  //!< flag that assesses whether RW information is provided to perform momentum dumping
-    double hsInt_M[3]{};    //!< integral of RW momentum
-    double priorHs_M[3]{};  //!< prior RW momentum
-    uint64_t priorTime{};   //!< prior call time
-
-    /*! declare module IO interfaces */
+    /*! module IO interfaces */
     ReadFunctor<VehicleConfigMsgPayload>
         vehConfigInMsg;  //!< input msg vehicle configuration msg (needed for CM location)
     ReadFunctor<THRConfigMsgPayload> thrusterConfigFInMsg;   //!< input thruster configuration msg
@@ -55,6 +46,9 @@ class ThrusterPlatformReference : public SysModel {
         thrusterTorqueOutMsg;  //!< output msg containing the opposite of the thruster torque to be compensated by RW's
     Message<THRConfigMsgPayload>
         thrusterConfigBOutMsg;  //!< output msg containing the thruster configuration infor in B-frame
+
+   private:
+    ThrusterPlatformReferenceAlgorithm algorithm{};  //!< algorithm instance
 };
 
-#endif
+#endif  // F32XMERA_THRUSTER_PLATFORM_REFERENCE_H

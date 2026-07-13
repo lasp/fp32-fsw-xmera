@@ -7,6 +7,7 @@ endif()
 xmera_add_swig_module("${module}")
 target_sources("${module}" PRIVATE
   thrusterPlatformReference.cpp
+  thrusterPlatformReferenceAlgorithm.cpp
 )
 
 target_include_directories("${module}" PUBLIC
@@ -15,6 +16,5 @@ target_include_directories("${module}" PUBLIC
 )
 
 target_link_libraries("${module}" PRIVATE
-  ArchitectureUtilities
   Eigen3::Eigen
 )
