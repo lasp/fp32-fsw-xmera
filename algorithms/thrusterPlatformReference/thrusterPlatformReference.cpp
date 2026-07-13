@@ -27,9 +27,9 @@ void ThrusterPlatformReference::reset(const uint64_t callTime) {
 
     if (this->rwConfigDataInMsg.isLinked() && this->rwSpeedsInMsg.isLinked()) {
         this->algorithm.momentumDumping = true;
-        const RWArrayConfigMsgPayload rwConfigParams = this->rwConfigDataInMsg();
+        const RWArrayConfigMsgF32Payload rwConfigParams = this->rwConfigDataInMsg();
         this->algorithm.rwConfig.numRW = static_cast<uint32_t>(rwConfigParams.numRW);
-        this->algorithm.rwConfig.GsMatrix_B = cArrayToEigenMatrix<double, 3, kMaxNumRw>(rwConfigParams.GsMatrix_B);
+        this->algorithm.rwConfig.GsMatrix_B = cArrayToEigenMatrix<float, 3, kMaxNumRw>(rwConfigParams.GsMatrix_B);
         this->algorithm.rwConfig.JsList = cArrayToEigenVector(rwConfigParams.JsList);
     } else {
         this->algorithm.momentumDumping = false;
@@ -45,40 +45,40 @@ void ThrusterPlatformReference::reset(const uint64_t callTime) {
  @param callTime The clock time at which the function was called (nanoseconds)
 */
 void ThrusterPlatformReference::updateState(const uint64_t callTime) {
-    const VehicleConfigMsgPayload vehConfigMsgIn = this->vehConfigInMsg();
-    const THRConfigMsgPayload thrusterConfigFIn = this->thrusterConfigFInMsg();
+    const VehicleConfigMsgF32Payload vehConfigMsgIn = this->vehConfigInMsg();
+    const THRConfigMsgF32Payload thrusterConfigFIn = this->thrusterConfigFInMsg();
 
     ThrusterPlatformReferenceInputs inputs{};
-    inputs.r_CB_B = cArrayToEigenVector3<double>(vehConfigMsgIn.CoM_B);
-    inputs.rThrust_F = cArrayToEigenVector3<double>(thrusterConfigFIn.rThrust_B);
-    inputs.tHatThrust_F = cArrayToEigenVector3<double>(thrusterConfigFIn.tHatThrust_B);
+    inputs.r_CB_B = cArrayToEigenVector3<float>(vehConfigMsgIn.CoM_B);
+    inputs.rThrust_F = cArrayToEigenVector3<float>(thrusterConfigFIn.rThrust_B);
+    inputs.tHatThrust_F = cArrayToEigenVector3<float>(thrusterConfigFIn.tHatThrust_B);
     inputs.maxThrust = thrusterConfigFIn.maxThrust;
     if (this->rwSpeedsInMsg.isLinked()) {
-        const RWSpeedMsgPayload rwSpeedMsgIn = this->rwSpeedsInMsg();
+        const RWSpeedMsgF32Payload rwSpeedMsgIn = this->rwSpeedsInMsg();
         inputs.wheelSpeeds = cArrayToEigenVector(rwSpeedMsgIn.wheelSpeeds);
     }
 
     const ThrusterPlatformReferenceOutput out = this->algorithm.update(inputs, callTime);
 
-    HingedRigidBodyMsgPayload hingedRigidBodyRef1Out{};
+    HingedRigidBodyMsgF32Payload hingedRigidBodyRef1Out{};
     hingedRigidBodyRef1Out.theta = out.theta1;
-    hingedRigidBodyRef1Out.thetaDot = 0.0;
+    hingedRigidBodyRef1Out.thetaDot = 0.0F;
     this->hingedRigidBodyRef1OutMsg.write(&hingedRigidBodyRef1Out, this->moduleID, callTime);
 
-    HingedRigidBodyMsgPayload hingedRigidBodyRef2Out{};
+    HingedRigidBodyMsgF32Payload hingedRigidBodyRef2Out{};
     hingedRigidBodyRef2Out.theta = out.theta2;
-    hingedRigidBodyRef2Out.thetaDot = 0.0;
+    hingedRigidBodyRef2Out.thetaDot = 0.0F;
     this->hingedRigidBodyRef2OutMsg.write(&hingedRigidBodyRef2Out, this->moduleID, callTime);
 
-    BodyHeadingMsgPayload bodyHeadingOut{};
+    BodyHeadingMsgF32Payload bodyHeadingOut{};
     eigenVectorToCArray(out.rHat_XB_B, bodyHeadingOut.rHat_XB_B);
     this->bodyHeadingOutMsg.write(&bodyHeadingOut, this->moduleID, callTime);
 
-    CmdTorqueBodyMsgPayload thrusterTorqueOut{};
+    CmdTorqueBodyMsgF32Payload thrusterTorqueOut{};
     eigenVectorToCArray(out.torqueRequestBody, thrusterTorqueOut.torqueRequestBody);
     this->thrusterTorqueOutMsg.write(&thrusterTorqueOut, this->moduleID, callTime);
 
-    THRConfigMsgPayload thrusterConfigOut{};
+    THRConfigMsgF32Payload thrusterConfigOut{};
     eigenVectorToCArray(out.rThrust_B, thrusterConfigOut.rThrust_B);
     eigenVectorToCArray(out.tHatThrust_B, thrusterConfigOut.tHatThrust_B);
     thrusterConfigOut.maxThrust = out.maxThrust;

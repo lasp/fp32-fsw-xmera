@@ -25,7 +25,7 @@ from xmera.architecture import sim_model
 @pytest.mark.parametrize("delta_CM", [0.1, 0.2, 0.3])
 @pytest.mark.parametrize("K", [0,1,5,10])
 @pytest.mark.parametrize("thetaMax", [-1, np.pi/36])
-@pytest.mark.parametrize("accuracy", [1e-10])
+@pytest.mark.parametrize("accuracy", [1e-4])
 # update "module" in this function name to reflect the module name
 def test_platformRotation(show_plots, delta_CM, K, thetaMax, seed, accuracy):
     r"""
@@ -112,32 +112,32 @@ def platformRotationTestFunction(show_plots, delta_CM, K, thetaMax, seed, accura
     platform.theta2Max = thetaMax
 
     # Create input vehicle configuration msg
-    inputVehConfigMsgData = messaging.VehicleConfigMsgPayload()
+    inputVehConfigMsgData = messaging.VehicleConfigMsgF32Payload()
     inputVehConfigMsgData.CoM_B = r_CB_B
-    inputVehConfigMsg = messaging.VehicleConfigMsg().write(inputVehConfigMsgData)
+    inputVehConfigMsg = messaging.VehicleConfigMsgF32().write(inputVehConfigMsgData)
     platform.vehConfigInMsg.subscribeTo(inputVehConfigMsg)
 
     # Create input THR Config Msg
-    THRConfig = messaging.THRConfigMsgPayload()
+    THRConfig = messaging.THRConfigMsgF32Payload()
     THRConfig.rThrust_B = r_TF_F
     THRConfig.maxThrust = np.linalg.norm(T_F)
     THRConfig.tHatThrust_B = T_F / THRConfig.maxThrust
-    thrConfigFMsg = messaging.THRConfigMsg().write(THRConfig)
+    thrConfigFMsg = messaging.THRConfigMsgF32().write(THRConfig)
     platform.thrusterConfigFInMsg.subscribeTo(thrConfigFMsg)
 
     # Create input RW configuration msg
-    inputRWConfigMsgData = messaging.RWArrayConfigMsgPayload()
+    inputRWConfigMsgData = messaging.RWArrayConfigMsgF32Payload()
     inputRWConfigMsgData.GsMatrix_B = [1,0,0,0,1,0,0,0,1]
     inputRWConfigMsgData.JsList = [0.01, 0.01, 0.01]
     inputRWConfigMsgData.numRW = 3
     inputRWConfigMsgData.uMax = [0.001, 0.001, 0.001]
-    inputRWConfigMsg = messaging.RWArrayConfigMsg().write(inputRWConfigMsgData)
+    inputRWConfigMsg = messaging.RWArrayConfigMsgF32().write(inputRWConfigMsgData)
     platform.rwConfigDataInMsg.subscribeTo(inputRWConfigMsg)
 
     # Create input RW speeds msg
-    inputRWSpeedsMsgData = messaging.RWSpeedMsgPayload()
+    inputRWSpeedsMsgData = messaging.RWSpeedMsgF32Payload()
     inputRWSpeedsMsgData.wheelSpeeds = [100, 100, 100]
-    inputRWSpeedsMsg = messaging.RWSpeedMsg().write(inputRWSpeedsMsgData)
+    inputRWSpeedsMsg = messaging.RWSpeedMsgF32().write(inputRWSpeedsMsgData)
     platform.rwSpeedsInMsg.subscribeTo(inputRWSpeedsMsg)
 
     # Setup logging on the test module output messages so that we get all the writes to it
@@ -224,5 +224,5 @@ if __name__ == "__main__":
                  0,                       # K
                  -1,                      # thetaMax
                  np.random.rand(1)[0],    # seed
-                 1e-10                    # accuracy
+                 1e-4                     # accuracy
                )

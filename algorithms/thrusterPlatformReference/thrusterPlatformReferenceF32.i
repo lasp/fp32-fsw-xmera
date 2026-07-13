@@ -9,10 +9,10 @@
 
 %include "thrusterPlatformReference.h"
 
-%include <architecture/msgPayloadDef/VehicleConfigMsgPayload.h>
-%include <architecture/msgPayloadDef/THRConfigMsgPayload.h>
-%include <architecture/msgPayloadDef/RWArrayConfigMsgPayload.h>
-%include <architecture/msgPayloadDef/RWSpeedMsgPayload.h>
-%include <architecture/msgPayloadDef/CmdTorqueBodyMsgPayload.h>
-%include <architecture/msgPayloadDef/HingedRigidBodyMsgPayload.h>
-%include <architecture/msgPayloadDef/BodyHeadingMsgPayload.h>
+%include "msgPayloadDef/VehicleConfigMsgF32Payload.h"
+%include "msgPayloadDef/THRConfigMsgF32Payload.h"
+%include "msgPayloadDef/RWArrayConfigMsgF32Payload.h"
+%include "msgPayloadDef/RWSpeedMsgF32Payload.h"
+%include "msgPayloadDef/CmdTorqueBodyMsgF32Payload.h"
+%include "msgPayloadDef/HingedRigidBodyMsgF32Payload.h"
+%include "msgPayloadDef/BodyHeadingMsgF32Payload.h"
