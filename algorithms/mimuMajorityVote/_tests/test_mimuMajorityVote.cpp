@@ -1,7 +1,7 @@
 #include "mimuMajorityVoteTestHelpers.hpp"
 #include <gtest/gtest.h>
 
-TEST(MimuMajorityVoteTest, RegressionTest) {
+TEST(MimuMajorityVoteTest, RegressionTestNominal) {
     // Nominal: gyro and accel inputs both agree within their thresholds — no fault on either vote.
     regressionTestMimuMajorityVote(/* omegaThreshold */ 1.0F,
                                    /* gyroFaultPersistenceLimit */ 1U,
@@ -32,7 +32,7 @@ TEST(MimuMajorityVoteTest, RegressionTestOffNominal) {
                                    /* accel3 */ Eigen::Vector3f{2.0F, 2.0F, 11.8F});
 }
 
-TEST(MimuMajorityVoteTest, PropertyTestNominal) {
+TEST(MimuMajorityVoteTest, NoFaultAveragesAllImus) {
     // When all IMUs agree within threshold, output should be simple average with no fault
     const float threshold = 1.0F;
     MimuMajorityVoteAlgorithm alg{MimuMajorityVoteConfig::create(threshold, 1U, threshold, 1U)};
@@ -58,7 +58,7 @@ TEST(MimuMajorityVoteTest, PropertyTestNominal) {
     }
 }
 
-TEST(MimuMajorityVoteTest, PropertyTestOffNominal) {
+TEST(MimuMajorityVoteTest, OutlierFaultedAndExcluded) {
     // When one IMU is far off, it should be detected as faulted and excluded from average
     const float threshold = 0.05F;
     MimuMajorityVoteAlgorithm alg{MimuMajorityVoteConfig::create(threshold, 1U, threshold, 1U)};
@@ -288,7 +288,7 @@ TEST(MimuMajorityVoteTest, ReInitializeClearsPersistence) {
     }
 }
 
-TEST(MimuMajorityVoteTest, SetupTest) {
+TEST(MimuMajorityVoteTest, ConfigValidation) {
     // Config validation rejects a zero/negative threshold and a zero persistence limit, for both
     // the gyro and accel parameters.
     EXPECT_THROW((void)MimuMajorityVoteConfig::create(0.0F, 1U, 1.0F, 1U), fsw::invalid_argument);
