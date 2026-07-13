@@ -1,5 +1,5 @@
-#ifndef F32XMERA_SUN_TRACK_ERROR_ALGORITHM_H
-#define F32XMERA_SUN_TRACK_ERROR_ALGORITHM_H
+#ifndef F32XMERA_SUN_AVOIDANCE_ALGORITHM_H
+#define F32XMERA_SUN_AVOIDANCE_ALGORITHM_H
 
 #include "utilities/fsw/freestandingInvalidArgument.h"
 #include "utilities/fsw/freestandingIsFinite.hpp"
@@ -8,28 +8,28 @@
 #include <Eigen/Core>
 #include <optional>
 
-struct SunTrackErrorAttRefInputs {
+struct SunAvoidanceAttRefInputs {
     Eigen::Vector3f sigma_RN{Eigen::Vector3f::Zero()};     //!< [-] reference MRP attitude of R wrt inertial N
     Eigen::Vector3f omega_RN_N{Eigen::Vector3f::Zero()};   //!< [r/s] reference rate of R wrt N in N frame
     Eigen::Vector3f domega_RN_N{Eigen::Vector3f::Zero()};  //!< [r/s^2] reference angular acceleration in N frame
 };
 
 // The maneuver-adjusted reference frame: the input reference rotated by the Sun-avoidance maneuver.
-struct SunTrackErrorOutput {
+struct SunAvoidanceOutput {
     Eigen::Vector3f sigma_RN{Eigen::Vector3f::Zero()};     //!< [-] adjusted reference MRP wrt inertial N
     Eigen::Vector3f omega_RN_N{Eigen::Vector3f::Zero()};   //!< [r/s] adjusted reference rate, N-frame components
     Eigen::Vector3f domega_RN_N{Eigen::Vector3f::Zero()};  //!< [r/s^2] adjusted reference angular acceleration, N frame
 };
 
-class SunTrackErrorConfig final {
+class SunAvoidanceConfig final {
    public:
-    static SunTrackErrorConfig create(const Eigen::Vector3f& sensitiveHat_B, float angleRate, bool computeAngleStart) {
+    static SunAvoidanceConfig create(const Eigen::Vector3f& sensitiveHat_B, float angleRate, bool computeAngleStart) {
         // sensitiveHat_B is only used when the Sun-avoidance maneuver is enabled; validate it only then.
         if (computeAngleStart && !isValidSensitiveHat_B(sensitiveHat_B)) {
-            FSW_THROW_INVALID_ARGUMENT("sunTrackError: sensitiveHat_B must be finite and within 1e-3 of unit length");
+            FSW_THROW_INVALID_ARGUMENT("sunAvoidance: sensitiveHat_B must be finite and within 1e-3 of unit length");
         }
         if (!isValidAngleRate(angleRate)) {
-            FSW_THROW_INVALID_ARGUMENT("sunTrackError: angleRate must be finite");
+            FSW_THROW_INVALID_ARGUMENT("sunAvoidance: angleRate must be finite");
         }
         return {sensitiveHat_B.normalized(), angleRate, computeAngleStart};
     }
@@ -45,7 +45,7 @@ class SunTrackErrorConfig final {
     bool getComputeAngleStart() const { return computeAngleStart; }
 
    private:
-    SunTrackErrorConfig(const Eigen::Vector3f& sensitiveHat_B, float angleRate, bool computeAngleStart)
+    SunAvoidanceConfig(const Eigen::Vector3f& sensitiveHat_B, float angleRate, bool computeAngleStart)
         : sensitiveHat_B(sensitiveHat_B), angleRate(angleRate), computeAngleStart(computeAngleStart) {}
 
     Eigen::Vector3f sensitiveHat_B;
@@ -55,18 +55,18 @@ class SunTrackErrorConfig final {
 
 /*!@brief Module to compute the attitude tracking error for sun avoidance.
  */
-class SunTrackErrorAlgorithm final {
+class SunAvoidanceAlgorithm final {
    public:
-    explicit SunTrackErrorAlgorithm(const SunTrackErrorConfig& config);
+    explicit SunAvoidanceAlgorithm(const SunAvoidanceConfig& config);
 
-    void setConfig(const SunTrackErrorConfig& config);
+    void setConfig(const SunAvoidanceConfig& config);
 
     void reInitialize();
-    SunTrackErrorOutput update(const Eigen::Vector3f& sigma_BN,
-                               const SunTrackErrorAttRefInputs& ref,
-                               const Eigen::Vector3d& r_BN_N,
-                               const Eigen::Vector3d& r_SN_N,
-                               uint64_t callTime);
+    SunAvoidanceOutput update(const Eigen::Vector3f& sigma_BN,
+                              const SunAvoidanceAttRefInputs& ref,
+                              const Eigen::Vector3d& r_BN_N,
+                              const Eigen::Vector3d& r_SN_N,
+                              uint64_t callTime);
 
    private:
     struct Maneuver {
@@ -76,13 +76,13 @@ class SunTrackErrorAlgorithm final {
     };
 
     Maneuver initializeManeuver(const Eigen::Vector3f& sigma_BN,
-                                const SunTrackErrorAttRefInputs& ref,
+                                const SunAvoidanceAttRefInputs& ref,
                                 const Eigen::Vector3f& sHat_N) const;
-    SunTrackErrorOutput computeAdjustedReference(const Eigen::Vector3f& sigma_BN,
-                                                 const SunTrackErrorAttRefInputs& ref,
-                                                 uint64_t callTime) const;
+    SunAvoidanceOutput computeAdjustedReference(const Eigen::Vector3f& sigma_BN,
+                                                const SunAvoidanceAttRefInputs& ref,
+                                                uint64_t callTime) const;
 
-    SunTrackErrorConfig cfg;
+    SunAvoidanceConfig cfg;
 
     std::optional<Maneuver> maneuver;  //!< runtime maneuver state; empty until initialized
 };

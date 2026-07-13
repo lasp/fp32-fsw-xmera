@@ -1,20 +1,20 @@
-#include "sunTrackErrorAlgorithm.h"
+#include "sunAvoidanceAlgorithm.h"
 #include "utilities/fsw/rigidBodyKinematics.hpp"
 #include "utilities/fsw/safeMath.h"
 #include "utilities/fsw/timeConstants.h"
 #include <numbers>
 
 /*! Construct from a validated configuration and seed the runtime maneuver state. */
-SunTrackErrorAlgorithm::SunTrackErrorAlgorithm(const SunTrackErrorConfig& config) : cfg(config) {
+SunAvoidanceAlgorithm::SunAvoidanceAlgorithm(const SunAvoidanceConfig& config) : cfg(config) {
     setConfig(config);
     reInitialize();
 }
 
 /*! Replace the configuration at runtime; the runtime maneuver state is preserved. */
-void SunTrackErrorAlgorithm::setConfig(const SunTrackErrorConfig& config) { this->cfg = config; }
+void SunAvoidanceAlgorithm::setConfig(const SunAvoidanceConfig& config) { this->cfg = config; }
 
 /*! Re-seed the runtime maneuver state so the next update re-initializes the maneuver. */
-void SunTrackErrorAlgorithm::reInitialize() { this->maneuver.reset(); }
+void SunAvoidanceAlgorithm::reInitialize() { this->maneuver.reset(); }
 
 /*! Compute the Sun-avoidance maneuver-adjusted reference frame; the maneuver is initialized on the
  first call and fed forward at the configured rate thereafter.
@@ -25,11 +25,11 @@ void SunTrackErrorAlgorithm::reInitialize() { this->maneuver.reset(); }
  @param callTime call time (nanoseconds)
  @return the maneuver-adjusted reference frame
  */
-SunTrackErrorOutput SunTrackErrorAlgorithm::update(const Eigen::Vector3f& sigma_BN,
-                                                   const SunTrackErrorAttRefInputs& ref,
-                                                   const Eigen::Vector3d& r_BN_N,
-                                                   const Eigen::Vector3d& r_SN_N,
-                                                   const uint64_t callTime) {
+SunAvoidanceOutput SunAvoidanceAlgorithm::update(const Eigen::Vector3f& sigma_BN,
+                                                 const SunAvoidanceAttRefInputs& ref,
+                                                 const Eigen::Vector3d& r_BN_N,
+                                                 const Eigen::Vector3d& r_SN_N,
+                                                 const uint64_t callTime) {
     if (!this->maneuver.has_value()) {
         Maneuver m{};
         if (this->cfg.getComputeAngleStart()) {
@@ -55,9 +55,9 @@ SunTrackErrorOutput SunTrackErrorAlgorithm::update(const Eigen::Vector3f& sigma_
  @param sHat_N inertial unit vector from the spacecraft to the Sun
  @return the initialized maneuver (axis and angle; start time is set by the caller)
  */
-SunTrackErrorAlgorithm::Maneuver SunTrackErrorAlgorithm::initializeManeuver(const Eigen::Vector3f& sigma_BN,
-                                                                            const SunTrackErrorAttRefInputs& ref,
-                                                                            const Eigen::Vector3f& sHat_N) const {
+SunAvoidanceAlgorithm::Maneuver SunAvoidanceAlgorithm::initializeManeuver(const Eigen::Vector3f& sigma_BN,
+                                                                          const SunAvoidanceAttRefInputs& ref,
+                                                                          const Eigen::Vector3f& sHat_N) const {
     // Phase 1: compute the maneuver -- the short-way principal rotation from the body to the reference.
     // stableNormalized/stableNorm keep a zero rotation (body already at the reference) finite, not NaN.
     const Eigen::Matrix3f dcm_BN = mrpToDcm(sigma_BN);
@@ -111,9 +111,9 @@ SunTrackErrorAlgorithm::Maneuver SunTrackErrorAlgorithm::initializeManeuver(cons
  @param callTime call time (nanoseconds)
  @return the maneuver-adjusted reference frame
  */
-SunTrackErrorOutput SunTrackErrorAlgorithm::computeAdjustedReference(const Eigen::Vector3f& sigma_BN,
-                                                                     const SunTrackErrorAttRefInputs& ref,
-                                                                     const uint64_t callTime) const {
+SunAvoidanceOutput SunAvoidanceAlgorithm::computeAdjustedReference(const Eigen::Vector3f& sigma_BN,
+                                                                   const SunAvoidanceAttRefInputs& ref,
+                                                                   const uint64_t callTime) const {
     const Eigen::Matrix3f dcm_RN = mrpToDcm(ref.sigma_RN);
 
     // update() always initializes the maneuver before this runs; value_or keeps a default (zero-angle,
@@ -125,7 +125,7 @@ SunTrackErrorOutput SunTrackErrorAlgorithm::computeAdjustedReference(const Eigen
     float remainingManeuverAngle = maneuver.angle - (this->cfg.getAngleRate() * dtSeconds);
     remainingManeuverAngle = remainingManeuverAngle < 0.0F ? 0.0F : remainingManeuverAngle;
 
-    SunTrackErrorOutput out{};
+    SunAvoidanceOutput out{};
 
     // Adjusted reference attitude: input reference rotated by the residual maneuver.
     const Eigen::Vector3f prv_RcR = remainingManeuverAngle * maneuver.axis_B;

@@ -128,7 +128,7 @@ set(algorithms
     "stepperMotorController"
     "sunlineEphem"
     "sunlineSRuKF"
-    "sunTrackError"
+    "sunAvoidance"
     "sunSearchPoint"
     "thrFiringRemainder"
     "thrFiringSchmitt"

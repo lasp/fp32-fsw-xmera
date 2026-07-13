@@ -1,6 +1,6 @@
 .. raw:: latex
 
-    {\LARGE \textbf{sunTrackError}}
+    {\LARGE \textbf{sunAvoidance}}
 
 Executive Summary
 -----------------
@@ -92,8 +92,8 @@ Initialization
 --------------
 The module is configured by::
 
-    module = sunTrackErrorF32.SunTrackError()
-    module.modelTag = "sunTrackError"
+    module = sunAvoidanceF32.SunAvoidance()
+    module.modelTag = "sunAvoidance"
     module.sensitiveHat_B = [0.0, -1.0, 0.0]
     module.angleRate = 0.017453  # 1 deg/s
 
@@ -238,5 +238,5 @@ geometries (missing Sun information, body at the reference, Sun along the sensit
 plane, and anti-parallel sensitive axes). The maneuver path is additionally regression-fuzzed with realistic Sun
 geometry; the shared regression helper skips inputs near a degeneracy or near the discrete short/long-way decision
 boundary, where an independent fp32 reference can select the opposite (equally valid) maneuver. A separate integrated
-test pins the combined ``sunTrackError`` :math:`\rightarrow` :ref:`attTrackingError` pipeline against a reference model
+test pins the combined ``sunAvoidance`` :math:`\rightarrow` :ref:`attTrackingError` pipeline against a reference model
 of the combined behavior.

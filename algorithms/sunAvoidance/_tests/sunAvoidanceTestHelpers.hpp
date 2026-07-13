@@ -1,7 +1,7 @@
-#ifndef F32XMERA_SUN_TRACK_ERROR_TEST_HELPERS_H
-#define F32XMERA_SUN_TRACK_ERROR_TEST_HELPERS_H
+#ifndef F32XMERA_SUN_AVOIDANCE_TEST_HELPERS_H
+#define F32XMERA_SUN_AVOIDANCE_TEST_HELPERS_H
 
-#include "sunTrackErrorAlgorithm.h"
+#include "sunAvoidanceAlgorithm.h"
 #include "utilities/fsw/rigidBodyKinematics.hpp"
 #include "utilities/fsw/safeMath.h"
 #include "utilities/fsw/timeConstants.h"
@@ -13,21 +13,21 @@
 #include <numbers>
 
 // ---------------------------------------------------------------------------
-// Independent reference implementation of the sunTrackError algorithm's output: the Sun-avoidance
+// Independent reference implementation of the sunAvoidance algorithm's output: the Sun-avoidance
 // maneuver-adjusted reference frame (sigma_RN, omega_RN_N, domega_RN_N).
 // ---------------------------------------------------------------------------
-class SunTrackErrorReference {
+class SunAvoidanceReference {
    public:
-    SunTrackErrorReference(const Eigen::Vector3f& sensitiveHat_B, float angleRate, bool computeAngleStart)
+    SunAvoidanceReference(const Eigen::Vector3f& sensitiveHat_B, float angleRate, bool computeAngleStart)
         : sensitiveHat_B(sensitiveHat_B.normalized()), angleRate(angleRate), computeAngleStart(computeAngleStart) {}
 
-    SunTrackErrorOutput update(const Eigen::Vector3f& sigma_BN,
-                               const Eigen::Vector3f& sigma_RN,
-                               const Eigen::Vector3f& omega_RN_N,
-                               const Eigen::Vector3f& domega_RN_N,
-                               const Eigen::Vector3d& r_BN_N,
-                               const Eigen::Vector3d& r_SN_N,
-                               uint64_t callTime) {
+    SunAvoidanceOutput update(const Eigen::Vector3f& sigma_BN,
+                              const Eigen::Vector3f& sigma_RN,
+                              const Eigen::Vector3f& omega_RN_N,
+                              const Eigen::Vector3f& domega_RN_N,
+                              const Eigen::Vector3d& r_BN_N,
+                              const Eigen::Vector3d& r_SN_N,
+                              uint64_t callTime) {
         if (!this->maneuverInitialized) {
             if (this->computeAngleStart) {
                 const Eigen::Matrix3f dcm_BN = mrpToDcm(sigma_BN);
@@ -67,7 +67,7 @@ class SunTrackErrorReference {
         float relativeAngleCurr = this->angleStart - (this->angleRate * dtSeconds);
         relativeAngleCurr = relativeAngleCurr < 0.0F ? 0.0F : relativeAngleCurr;
 
-        SunTrackErrorOutput out{};
+        SunAvoidanceOutput out{};
         const Eigen::Vector3f prv_cmd = relativeAngleCurr * this->mnvrAxis_B;
         const Eigen::Matrix3f dcmCmd = prvToDcm(prv_cmd);
         const Eigen::Matrix3f dcm_RcN = dcmCmd * dcm_RN;
@@ -152,32 +152,32 @@ inline bool nearManeuverDecisionBoundary(const Eigen::Vector3f& sensitiveHat_B,
 // adjusted-reference output agrees at every step. On the maneuver path, inputs near a degeneracy or the
 // discrete short/long-way decision boundary are skipped (see nearManeuverDecisionBoundary).
 // ---------------------------------------------------------------------------
-inline void regressionTestSunTrackError(const Eigen::Vector3f& sensitiveHat_B,
-                                        float angleRate,
-                                        bool computeAngleStart,
-                                        const Eigen::Vector3f& sigma_BN,
-                                        const Eigen::Vector3f& sigma_RN,
-                                        const Eigen::Vector3f& omega_RN_N,
-                                        const Eigen::Vector3f& domega_RN_N,
-                                        const Eigen::Vector3d& r_BN_N,
-                                        const Eigen::Vector3d& r_SN_N,
-                                        uint64_t stepNs,
-                                        int numSteps) {
+inline void regressionTestSunAvoidance(const Eigen::Vector3f& sensitiveHat_B,
+                                       float angleRate,
+                                       bool computeAngleStart,
+                                       const Eigen::Vector3f& sigma_BN,
+                                       const Eigen::Vector3f& sigma_RN,
+                                       const Eigen::Vector3f& omega_RN_N,
+                                       const Eigen::Vector3f& domega_RN_N,
+                                       const Eigen::Vector3d& r_BN_N,
+                                       const Eigen::Vector3d& r_SN_N,
+                                       uint64_t stepNs,
+                                       int numSteps) {
     if (computeAngleStart && nearManeuverDecisionBoundary(sensitiveHat_B, sigma_BN, sigma_RN, r_BN_N, r_SN_N)) {
         return;  // ambiguous short/long-way branch: skip
     }
 
-    const auto config = SunTrackErrorConfig::create(sensitiveHat_B, angleRate, computeAngleStart);
-    SunTrackErrorAlgorithm alg{config};
-    SunTrackErrorReference ref{sensitiveHat_B, angleRate, computeAngleStart};
+    const auto config = SunAvoidanceConfig::create(sensitiveHat_B, angleRate, computeAngleStart);
+    SunAvoidanceAlgorithm alg{config};
+    SunAvoidanceReference ref{sensitiveHat_B, angleRate, computeAngleStart};
 
-    const SunTrackErrorAttRefInputs refIn{sigma_RN, omega_RN_N, domega_RN_N};
+    const SunAvoidanceAttRefInputs refIn{sigma_RN, omega_RN_N, domega_RN_N};
 
     constexpr float tol = 1e-5F;
     for (int k = 0; k < numSteps; ++k) {
         const uint64_t callTime = static_cast<uint64_t>(k) * stepNs;
-        const SunTrackErrorOutput algOut = alg.update(sigma_BN, refIn, r_BN_N, r_SN_N, callTime);
-        const SunTrackErrorOutput refOut =
+        const SunAvoidanceOutput algOut = alg.update(sigma_BN, refIn, r_BN_N, r_SN_N, callTime);
+        const SunAvoidanceOutput refOut =
             ref.update(sigma_BN, sigma_RN, omega_RN_N, domega_RN_N, r_BN_N, r_SN_N, callTime);
 
         EXPECT_TRUE(algOut.sigma_RN.allFinite()) << "sigma_RN not finite at step " << k;
@@ -220,18 +220,18 @@ inline void propertyPassThroughEqualsInputRef(const Eigen::Vector3f& sigma_BN,
                                               const Eigen::Vector3f& sigma_RN,
                                               const Eigen::Vector3f& omega_RN_N,
                                               const Eigen::Vector3f& domega_RN_N) {
-    const auto config = SunTrackErrorConfig::create(Eigen::Vector3f::Zero(), 0.0F, false);
-    SunTrackErrorAlgorithm alg{config};
-    const SunTrackErrorAttRefInputs refIn{sigma_RN, omega_RN_N, domega_RN_N};
+    const auto config = SunAvoidanceConfig::create(Eigen::Vector3f::Zero(), 0.0F, false);
+    SunAvoidanceAlgorithm alg{config};
+    const SunAvoidanceAttRefInputs refIn{sigma_RN, omega_RN_N, domega_RN_N};
     const Eigen::Matrix3f dcm_RN_in = mrpToDcm(sigma_RN);
 
     constexpr float tol = 1e-5F;
     for (int k = 0; k < 3; ++k) {
-        const SunTrackErrorOutput out = alg.update(sigma_BN,
-                                                   refIn,
-                                                   Eigen::Vector3d::Zero(),
-                                                   Eigen::Vector3d::Zero(),
-                                                   static_cast<uint64_t>(k) * detail::kStepNs);
+        const SunAvoidanceOutput out = alg.update(sigma_BN,
+                                                  refIn,
+                                                  Eigen::Vector3d::Zero(),
+                                                  Eigen::Vector3d::Zero(),
+                                                  static_cast<uint64_t>(k) * detail::kStepNs);
         const Eigen::Matrix3f dcm_RN_out = mrpToDcm(out.sigma_RN);
         for (int r = 0; r < 3; ++r) {
             for (int c = 0; c < 3; ++c) {
@@ -252,13 +252,13 @@ inline void propertyManeuverOutputBoundedAndFinite(const Eigen::Vector3f& sigma_
                                                    const Eigen::Vector3f& sigma_RN,
                                                    const Eigen::Vector3f& omega_RN_N,
                                                    const Eigen::Vector3f& domega_RN_N) {
-    const auto config = SunTrackErrorConfig::create(detail::sensitiveHat_B(), detail::kManeuverRate, true);
-    SunTrackErrorAlgorithm alg{config};
-    const SunTrackErrorAttRefInputs refIn{sigma_RN, omega_RN_N, domega_RN_N};
+    const auto config = SunAvoidanceConfig::create(detail::sensitiveHat_B(), detail::kManeuverRate, true);
+    SunAvoidanceAlgorithm alg{config};
+    const SunAvoidanceAttRefInputs refIn{sigma_RN, omega_RN_N, domega_RN_N};
 
     constexpr float normBound = 1.0F + 1e-5F;
     for (int k = 0; k < 20; ++k) {
-        const SunTrackErrorOutput out =
+        const SunAvoidanceOutput out =
             alg.update(sigma_BN, refIn, detail::rBN_N(), detail::rSN_N(), static_cast<uint64_t>(k) * detail::kStepNs);
         EXPECT_TRUE(out.sigma_RN.allFinite());
         EXPECT_TRUE(out.omega_RN_N.allFinite());
@@ -272,13 +272,13 @@ inline void propertyDecayedManeuverEqualsInputRef(const Eigen::Vector3f& sigma_B
                                                   const Eigen::Vector3f& sigma_RN,
                                                   const Eigen::Vector3f& omega_RN_N,
                                                   const Eigen::Vector3f& domega_RN_N) {
-    const auto config = SunTrackErrorConfig::create(detail::sensitiveHat_B(), detail::kManeuverRate, true);
-    SunTrackErrorAlgorithm alg{config};
-    const SunTrackErrorAttRefInputs refIn{sigma_RN, omega_RN_N, domega_RN_N};
+    const auto config = SunAvoidanceConfig::create(detail::sensitiveHat_B(), detail::kManeuverRate, true);
+    SunAvoidanceAlgorithm alg{config};
+    const SunAvoidanceAttRefInputs refIn{sigma_RN, omega_RN_N, domega_RN_N};
     const Eigen::Matrix3f dcm_RN_in = mrpToDcm(sigma_RN);
 
     // A full 2*pi maneuver at 1 deg/s decays in <= 360 s; 800 half-second steps guarantees completion.
-    SunTrackErrorOutput out{};
+    SunAvoidanceOutput out{};
     for (int k = 0; k < 800; ++k) {
         out = alg.update(sigma_BN, refIn, detail::rBN_N(), detail::rSN_N(), static_cast<uint64_t>(k) * detail::kStepNs);
     }
@@ -302,16 +302,16 @@ inline void propertyReInitializeRestartsManeuver(const Eigen::Vector3f& sigma_BN
                                                  const Eigen::Vector3f& sigma_RN,
                                                  const Eigen::Vector3f& omega_RN_N,
                                                  const Eigen::Vector3f& domega_RN_N) {
-    const auto config = SunTrackErrorConfig::create(detail::sensitiveHat_B(), detail::kManeuverRate, true);
-    SunTrackErrorAlgorithm alg{config};
-    const SunTrackErrorAttRefInputs refIn{sigma_RN, omega_RN_N, domega_RN_N};
+    const auto config = SunAvoidanceConfig::create(detail::sensitiveHat_B(), detail::kManeuverRate, true);
+    SunAvoidanceAlgorithm alg{config};
+    const SunAvoidanceAttRefInputs refIn{sigma_RN, omega_RN_N, domega_RN_N};
 
-    const SunTrackErrorOutput first = alg.update(sigma_BN, refIn, detail::rBN_N(), detail::rSN_N(), 0);
+    const SunAvoidanceOutput first = alg.update(sigma_BN, refIn, detail::rBN_N(), detail::rSN_N(), 0);
     for (int k = 1; k < 5; ++k) {
         (void)alg.update(sigma_BN, refIn, detail::rBN_N(), detail::rSN_N(), static_cast<uint64_t>(k) * detail::kStepNs);
     }
     alg.reInitialize();
-    const SunTrackErrorOutput afterReinit = alg.update(sigma_BN, refIn, detail::rBN_N(), detail::rSN_N(), 0);
+    const SunAvoidanceOutput afterReinit = alg.update(sigma_BN, refIn, detail::rBN_N(), detail::rSN_N(), 0);
 
     constexpr float tol = 1e-6F;
     for (int i = 0; i < 3; ++i) {
@@ -321,28 +321,28 @@ inline void propertyReInitializeRestartsManeuver(const Eigen::Vector3f& sigma_BN
     }
 }
 
-// Fuzz entry point: exercise the shared regressionTestSunTrackError on the maneuver path (computeAngleStart
+// Fuzz entry point: exercise the shared regressionTestSunAvoidance on the maneuver path (computeAngleStart
 // = true) for arbitrary attitudes and realistic Sun geometry. The helper skips inputs near a degeneracy or
 // near the discrete short/long-way decision boundary (see nearManeuverDecisionBoundary), where an
 // independent fp32 reference can select the opposite (equally valid) maneuver; away from those the algorithm
 // and reference agree, and the output is checked finite at every step.
-inline void fuzzRegressionSunTrackError(const Eigen::Vector3f& sigma_BN,
-                                        const Eigen::Vector3f& sigma_RN,
-                                        const Eigen::Vector3f& omega_RN_N,
-                                        const Eigen::Vector3f& domega_RN_N,
-                                        const Eigen::Vector3d& r_BN_N,
-                                        const Eigen::Vector3d& r_SN_N) {
-    regressionTestSunTrackError(detail::sensitiveHat_B(),
-                                detail::kManeuverRate,
-                                true,
-                                sigma_BN,
-                                sigma_RN,
-                                omega_RN_N,
-                                domega_RN_N,
-                                r_BN_N,
-                                r_SN_N,
-                                detail::kStepNs,
-                                12);
+inline void fuzzRegressionSunAvoidance(const Eigen::Vector3f& sigma_BN,
+                                       const Eigen::Vector3f& sigma_RN,
+                                       const Eigen::Vector3f& omega_RN_N,
+                                       const Eigen::Vector3f& domega_RN_N,
+                                       const Eigen::Vector3d& r_BN_N,
+                                       const Eigen::Vector3d& r_SN_N) {
+    regressionTestSunAvoidance(detail::sensitiveHat_B(),
+                               detail::kManeuverRate,
+                               true,
+                               sigma_BN,
+                               sigma_RN,
+                               omega_RN_N,
+                               domega_RN_N,
+                               r_BN_N,
+                               r_SN_N,
+                               detail::kStepNs,
+                               12);
 }
 
-#endif  // F32XMERA_SUN_TRACK_ERROR_TEST_HELPERS_H
+#endif  // F32XMERA_SUN_AVOIDANCE_TEST_HELPERS_H

@@ -1,10 +1,10 @@
 #
 #   Unit Test Script
-#   Module Name: sunTrackError
+#   Module Name: sunAvoidance
 #
-#   sunTrackError produces the Sun-avoidance maneuver-adjusted reference frame; attTrackingError is
+#   sunAvoidance produces the Sun-avoidance maneuver-adjusted reference frame; attTrackingError is
 #   chained downstream to form the attitude tracking error. The combined algorithm behavior is covered
-#   by the C++ integrated regression test (test_sunTrackError_integrated.cpp). This pytest covers the
+#   by the C++ integrated regression test (test_sunAvoidance_integrated.cpp). This pytest covers the
 #   adapter layer: SWIG property round-trips, the message I/O boundary, and the optional-message-driven
 #   maneuver selection.
 #
@@ -12,7 +12,7 @@
 import numpy as np
 
 from xmera.utilities import SimulationBaseClass
-from xmera.fp32 import sunTrackErrorF32
+from xmera.fp32 import sunAvoidanceF32
 from xmera.utilities import macros
 from xmera.architecture import messaging
 
@@ -32,8 +32,8 @@ def _run_sim(sun_avoidance):
     testProc = unitTestSim.CreateNewProcess("TestProcess")
     testProc.addTask(unitTestSim.CreateNewTask("unitTask", testProcessRate))
 
-    module = sunTrackErrorF32.SunTrackError()
-    module.modelTag = "sunTrackError"
+    module = sunAvoidanceF32.SunAvoidance()
+    module.modelTag = "sunAvoidance"
     unitTestSim.AddModelToTask("unitTask", module)
 
     NavStateOutData = messaging.NavAttMsgF32Payload()
@@ -72,10 +72,10 @@ def _run_sim(sun_avoidance):
     return dataLog
 
 
-def test_sunTrackError_config_roundtrip():
+def test_sunAvoidance_config_roundtrip():
     """Public configuration properties round-trip through the SWIG interface."""
-    module = sunTrackErrorF32.SunTrackError()
-    module.modelTag = "sunTrackError"
+    module = sunAvoidanceF32.SunAvoidance()
+    module.modelTag = "sunAvoidance"
 
     angleRate = 0.0123
     module.angleRate = angleRate
@@ -88,7 +88,7 @@ def test_sunTrackError_config_roundtrip():
     )
 
 
-def test_sunTrackError_no_maneuver_passes_reference_through():
+def test_sunAvoidance_no_maneuver_passes_reference_through():
     """Without the optional messages, computeAngleStart is false and no maneuver is applied, so the
     output reference frame equals the input reference. Verifies the adapter message I/O end to end."""
     dataLog = _run_sim(sun_avoidance=False)
@@ -99,7 +99,7 @@ def test_sunTrackError_no_maneuver_passes_reference_through():
     np.testing.assert_allclose(dataLog.domega_RN_N[-1], domega_RN_N, rtol=tol, atol=tol)
 
 
-def test_sunTrackError_optional_messages_engage_maneuver():
+def test_sunAvoidance_optional_messages_engage_maneuver():
     """Subscribing the optional trans/ephemeris messages engages the Sun-avoidance maneuver
     (computeAngleStart is derived from the link state), which rotates the output reference frame away
     from the input reference. Exercises the optional-message wiring and the double[3]->float
@@ -118,6 +118,6 @@ def test_sunTrackError_optional_messages_engage_maneuver():
 
 
 if __name__ == "__main__":
-    test_sunTrackError_config_roundtrip()
-    test_sunTrackError_no_maneuver_passes_reference_through()
-    test_sunTrackError_optional_messages_engage_maneuver()
+    test_sunAvoidance_config_roundtrip()
+    test_sunAvoidance_no_maneuver_passes_reference_through()
+    test_sunAvoidance_optional_messages_engage_maneuver()

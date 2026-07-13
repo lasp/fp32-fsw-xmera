@@ -1,11 +1,11 @@
-#ifndef F32XMERA_SUN_TRACK_ERROR_H
-#define F32XMERA_SUN_TRACK_ERROR_H
+#ifndef F32XMERA_SUN_AVOIDANCE_H
+#define F32XMERA_SUN_AVOIDANCE_H
 
 #include "msgPayloadDef/AttRefMsgF32Payload.h"
 #include "msgPayloadDef/EphemerisMsgF32Payload.h"
 #include "msgPayloadDef/NavAttMsgF32Payload.h"
 #include "msgPayloadDef/NavTransMsgF32Payload.h"
-#include "sunTrackErrorAlgorithm.h"
+#include "sunAvoidanceAlgorithm.h"
 #include <architecture/messaging/messaging.h>
 #include <stdint.h>
 #include <Eigen/Core>
@@ -13,10 +13,10 @@
 
 /*!@brief Module to compute the attitude tracking error for sun avoidance.
  */
-class SunTrackError final : public SysModel {
+class SunAvoidance final : public SysModel {
    public:
-    SunTrackError() = default;
-    ~SunTrackError() override = default;
+    SunAvoidance() = default;
+    ~SunAvoidance() override = default;
 
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
@@ -35,8 +35,8 @@ class SunTrackError final : public SysModel {
     Message<AttRefMsgF32Payload> attRefOutMsg;           //!< output msg of the maneuver-adjusted reference
 
    private:
-    SunTrackErrorConfig toConfig() const;
-    std::unique_ptr<SunTrackErrorAlgorithm> algorithm = nullptr;
+    SunAvoidanceConfig toConfig() const;
+    std::unique_ptr<SunAvoidanceAlgorithm> algorithm = nullptr;
 };
 
 #endif

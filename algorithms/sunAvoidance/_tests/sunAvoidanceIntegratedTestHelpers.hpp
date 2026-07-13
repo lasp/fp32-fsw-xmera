@@ -1,8 +1,8 @@
-#ifndef TEST_SUNTRACKERROR_H
-#define TEST_SUNTRACKERROR_H
+#ifndef TEST_SUNAVOIDANCE_H
+#define TEST_SUNAVOIDANCE_H
 
 #include "attTrackingError/attTrackingErrorAlgorithm.h"
-#include "sunTrackErrorAlgorithm.h"
+#include "sunAvoidanceAlgorithm.h"
 #include "utilities/fsw/rigidBodyKinematics.hpp"
 #include "utilities/fsw/safeMath.h"
 #include "utilities/fsw/timeConstants.h"
@@ -13,44 +13,44 @@
 #include <numbers>
 
 // ---------------------------------------------------------------------------
-// Independent reference implementation of the COMBINED sunTrackError behavior
+// Independent reference implementation of the COMBINED sunAvoidance behavior
 // (Sun-avoidance maneuver initialization + attitude tracking error). It is written
 // only in terms of rigidBodyKinematics primitives and mirrors the current, monolithic
-// sunTrackError algorithm -- which today performs both the Sun-avoidance reference
+// sunAvoidance algorithm -- which today performs both the Sun-avoidance reference
 // generation and the attitude-tracking-error computation in a single module.
 //
-// sunTrackError is slated to be split so the tracking-error stage is delegated to the
+// sunAvoidance is slated to be split so the tracking-error stage is delegated to the
 // separate attTrackingError module. This reference pins the combined input->output
-// behavior so the eventual pipeline (sunTrackError -> attTrackingError) can be verified
+// behavior so the eventual pipeline (sunAvoidance -> attTrackingError) can be verified
 // to reproduce it. The reference is stateful: the maneuver is initialized on the first
 // update() and fed forward at the configured rate on subsequent calls.
 // ---------------------------------------------------------------------------
-struct SunTrackErrorReferenceOutput {
+struct SunAvoidanceReferenceOutput {
     Eigen::Vector3f sigma_BR = Eigen::Vector3f::Zero();
     Eigen::Vector3f omega_BR_B = Eigen::Vector3f::Zero();
     Eigen::Vector3f omega_RN_B = Eigen::Vector3f::Zero();
     Eigen::Vector3f domega_RN_B = Eigen::Vector3f::Zero();
 };
 
-class SunTrackErrorReference {
+class SunAvoidanceReference {
    public:
-    SunTrackErrorReference(const Eigen::Vector3f& sigma_R0R,
-                           const Eigen::Vector3f& sensitiveHat_B,
-                           float angleRate,
-                           bool computeAngleStart)
+    SunAvoidanceReference(const Eigen::Vector3f& sigma_R0R,
+                          const Eigen::Vector3f& sensitiveHat_B,
+                          float angleRate,
+                          bool computeAngleStart)
         : sigma_R0R(sigma_R0R),
           sensitiveHat_B(sensitiveHat_B.normalized()),
           angleRate(angleRate),
           computeAngleStart(computeAngleStart) {}
 
-    SunTrackErrorReferenceOutput update(const Eigen::Vector3f& sigma_BN,
-                                        const Eigen::Vector3f& omega_BN_B,
-                                        const Eigen::Vector3f& sigma_RN,
-                                        const Eigen::Vector3f& omega_RN_N,
-                                        const Eigen::Vector3f& domega_RN_N,
-                                        const Eigen::Vector3d& r_BN_N,
-                                        const Eigen::Vector3d& r_SN_N,
-                                        uint64_t callTime) {
+    SunAvoidanceReferenceOutput update(const Eigen::Vector3f& sigma_BN,
+                                       const Eigen::Vector3f& omega_BN_B,
+                                       const Eigen::Vector3f& sigma_RN,
+                                       const Eigen::Vector3f& omega_RN_N,
+                                       const Eigen::Vector3f& domega_RN_N,
+                                       const Eigen::Vector3d& r_BN_N,
+                                       const Eigen::Vector3d& r_SN_N,
+                                       uint64_t callTime) {
         if (!this->maneuverInitialized) {
             if (this->computeAngleStart) {
                 const Eigen::Matrix3f dcm_BN = mrpToDcm(sigma_BN);
@@ -97,7 +97,7 @@ class SunTrackErrorReference {
         float relativeAngleCurr = this->angleStart - (this->angleRate * dtSeconds);
         relativeAngleCurr = relativeAngleCurr < 0.0F ? 0.0F : relativeAngleCurr;
 
-        SunTrackErrorReferenceOutput out{};
+        SunAvoidanceReferenceOutput out{};
         const Eigen::Vector3f prv_BR = relativeAngleCurr * this->mnvrAxis_B;
         const Eigen::Matrix3f dcmCmd_BR = prvToDcm(prv_BR);
         const Eigen::Matrix3f dcm_BR = dcm_BN * (dcmCmd_BR * dcm_RN).transpose();
@@ -126,7 +126,7 @@ class SunTrackErrorReference {
 };
 
 // ---------------------------------------------------------------------------
-// Integrated regression helper: drive the sunTrackError algorithm and the independent
+// Integrated regression helper: drive the sunAvoidance algorithm and the independent
 // reference through a time sequence with fixed, representative navigation/reference
 // inputs, and assert agreement at every step. The optional-message-derived Sun geometry
 // (r_BN_N, r_SN_N) and the computeAngleStart flag are varied by the caller.
@@ -144,27 +144,27 @@ inline void integratedRegression(const Eigen::Vector3f& sensitiveHat_B,
     const Eigen::Vector3f omega_RN_N{0.018F, -0.032F, 0.015F};
     const Eigen::Vector3f domega_RN_N{0.048F, -0.022F, 0.025F};
 
-    const auto config = SunTrackErrorConfig::create(sensitiveHat_B, angleRate, computeAngleStart);
-    SunTrackErrorAlgorithm alg{config};
+    const auto config = SunAvoidanceConfig::create(sensitiveHat_B, angleRate, computeAngleStart);
+    SunAvoidanceAlgorithm alg{config};
     AttTrackingErrorAlgorithm attError{};
-    // The reference model computes the COMBINED behavior. sunTrackError no longer applies a
+    // The reference model computes the COMBINED behavior. sunAvoidance no longer applies a
     // corrected-reference offset, so the reference frame is the input reference directly (sigma_R0R == 0).
-    SunTrackErrorReference ref{Eigen::Vector3f::Zero(), sensitiveHat_B, angleRate, computeAngleStart};
+    SunAvoidanceReference ref{Eigen::Vector3f::Zero(), sensitiveHat_B, angleRate, computeAngleStart};
 
-    const SunTrackErrorAttRefInputs refIn{sigma_RN, omega_RN_N, domega_RN_N};
+    const SunAvoidanceAttRefInputs refIn{sigma_RN, omega_RN_N, domega_RN_N};
 
     constexpr float tol = 1e-5F;
     for (int k = 0; k < numSteps; ++k) {
         const uint64_t callTime = static_cast<uint64_t>(k) * stepNs;
 
-        // sunTrackError produces the maneuver-adjusted reference frame ...
-        const SunTrackErrorOutput adjustedRef = alg.update(sigma_BN, refIn, r_BN_N, r_SN_N, callTime);
+        // sunAvoidance produces the maneuver-adjusted reference frame ...
+        const SunAvoidanceOutput adjustedRef = alg.update(sigma_BN, refIn, r_BN_N, r_SN_N, callTime);
         // ... and attTrackingError forms the attitude tracking error from it and the navigation attitude.
         const AttGuidOutput algOut =
             attError.update(AttNavInput{sigma_BN, omega_BN_B},
                             AttRefInput{adjustedRef.sigma_RN, adjustedRef.omega_RN_N, adjustedRef.domega_RN_N});
 
-        const SunTrackErrorReferenceOutput refOut =
+        const SunAvoidanceReferenceOutput refOut =
             ref.update(sigma_BN, omega_BN_B, sigma_RN, omega_RN_N, domega_RN_N, r_BN_N, r_SN_N, callTime);
 
         // attTrackingError forms sigma_BR via subMrp while the reference uses dcmToMrp; at large errors
@@ -185,4 +185,4 @@ inline void integratedRegression(const Eigen::Vector3f& sensitiveHat_B,
     }
 }
 
-#endif  // TEST_SUNTRACKERROR_H
+#endif  // TEST_SUNAVOIDANCE_H

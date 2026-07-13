@@ -1,14 +1,14 @@
-%module sunTrackErrorF32
+%module sunAvoidanceF32
 %{
-   #include "sunTrackError.h"
+   #include "sunAvoidance.h"
 %}
 
 %include <architecture/_GeneralModuleFiles/sys_model.i>
 %include <architecture/_GeneralModuleFiles/swig_conly_data.i>
 %include <architecture/_GeneralModuleFiles/swig_eigen.i>
 
-%include "sunTrackError.h"
-%include "sunTrackErrorAlgorithm.h"
+%include "sunAvoidance.h"
+%include "sunAvoidanceAlgorithm.h"
 
 %include "msgPayloadDef/NavAttMsgF32Payload.h"
 %include "msgPayloadDef/AttRefMsgF32Payload.h"

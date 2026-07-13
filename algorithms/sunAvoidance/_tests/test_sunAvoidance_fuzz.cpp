@@ -1,4 +1,4 @@
-#include "sunTrackErrorTestHelpers.hpp"
+#include "sunAvoidanceTestHelpers.hpp"
 #include "utilities/testUtilities/eigenFuzzDomains.hpp"
 #include <fuzztest/fuzztest.h>
 
@@ -8,7 +8,7 @@
 // discrete short/long-way decision boundary, the algorithm must agree with the independent reference and
 // stay finite. (Near-boundary inputs are skipped in the helper -- see nearManeuverDecisionBoundary.)
 // ---------------------------------------------------------------------------
-FUZZ_TEST(SunTrackErrorFuzz, fuzzRegressionSunTrackError)
+FUZZ_TEST(SunAvoidanceFuzz, fuzzRegressionSunAvoidance)
     .WithDomains(xmera::fuzz::Vector3fInRange(-1e1F, 1e1F),   // sigma_BN
                  xmera::fuzz::Vector3fInRange(-1e1F, 1e1F),   // sigma_RN
                  xmera::fuzz::Vector3fInRange(-1e1F, 1e1F),   // omega_RN_N

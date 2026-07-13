@@ -1,4 +1,4 @@
-#include "sunTrackErrorTestHelpers.hpp"
+#include "sunAvoidanceTestHelpers.hpp"
 
 #include <Eigen/Core>
 #include <array>
@@ -25,48 +25,48 @@ const Eigen::Vector3f kSensitiveHat_B{0.0F, -1.0F, 0.0F};
 // ---------------------------------------------------------------------------
 
 // No optional messages -> no maneuver: the adjusted reference is the input reference unchanged.
-TEST(SunTrackErrorTest, RegressionPassThrough) {
-    regressionTestSunTrackError(Eigen::Vector3f::Zero(),
-                                0.0F,
-                                false,
-                                kSigmaBN,
-                                kSigmaRN,
-                                kOmegaRNN,
-                                kDomegaRNN,
-                                Eigen::Vector3d::Zero(),
-                                Eigen::Vector3d::Zero(),
-                                kHalfSecNs,
-                                12);
+TEST(SunAvoidanceTest, RegressionPassThrough) {
+    regressionTestSunAvoidance(Eigen::Vector3f::Zero(),
+                               0.0F,
+                               false,
+                               kSigmaBN,
+                               kSigmaRN,
+                               kOmegaRNN,
+                               kDomegaRNN,
+                               Eigen::Vector3d::Zero(),
+                               Eigen::Vector3d::Zero(),
+                               kHalfSecNs,
+                               12);
 }
 
 // Sun-avoidance maneuver actively feeding forward (residual angle > 0 throughout).
-TEST(SunTrackErrorTest, RegressionSunAvoidanceFeedingForward) {
-    regressionTestSunTrackError(kSensitiveHat_B,
-                                kManeuverRate,
-                                true,
-                                kSigmaBN,
-                                kSigmaRN,
-                                kOmegaRNN,
-                                kDomegaRNN,
-                                kRBN_N,
-                                kRSN_N,
-                                kHalfSecNs,
-                                12);
+TEST(SunAvoidanceTest, RegressionSunAvoidanceFeedingForward) {
+    regressionTestSunAvoidance(kSensitiveHat_B,
+                               kManeuverRate,
+                               true,
+                               kSigmaBN,
+                               kSigmaRN,
+                               kOmegaRNN,
+                               kDomegaRNN,
+                               kRBN_N,
+                               kRSN_N,
+                               kHalfSecNs,
+                               12);
 }
 
 // Long run: the residual maneuver angle decays to zero and stays clamped.
-TEST(SunTrackErrorTest, RegressionSunAvoidanceDecaysToZero) {
-    regressionTestSunTrackError(kSensitiveHat_B,
-                                kManeuverRate,
-                                true,
-                                kSigmaBN,
-                                kSigmaRN,
-                                kOmegaRNN,
-                                kDomegaRNN,
-                                kRBN_N,
-                                kRSN_N,
-                                kHalfSecNs,
-                                400);
+TEST(SunAvoidanceTest, RegressionSunAvoidanceDecaysToZero) {
+    regressionTestSunAvoidance(kSensitiveHat_B,
+                               kManeuverRate,
+                               true,
+                               kSigmaBN,
+                               kSigmaRN,
+                               kOmegaRNN,
+                               kDomegaRNN,
+                               kRBN_N,
+                               kRSN_N,
+                               kHalfSecNs,
+                               400);
 }
 
 // ---------------------------------------------------------------------------
@@ -74,46 +74,46 @@ TEST(SunTrackErrorTest, RegressionSunAvoidanceDecaysToZero) {
 // ---------------------------------------------------------------------------
 
 // sensitiveHat_B is validated only when the maneuver is enabled (computeAngleStart == true).
-TEST(SunTrackErrorConfigTest, RejectsNonFiniteSensitiveHat) {
+TEST(SunAvoidanceConfigTest, RejectsNonFiniteSensitiveHat) {
     const Eigen::Vector3f bad{std::nanf(""), 0.0F, 0.0F};
-    EXPECT_THROW((void)SunTrackErrorConfig::create(bad, 0.0F, true), fsw::invalid_argument);
+    EXPECT_THROW((void)SunAvoidanceConfig::create(bad, 0.0F, true), fsw::invalid_argument);
 }
 
 // A grossly non-unit sensitiveHat_B is rejected when the maneuver is enabled (must be within 1e-3 of unit).
-TEST(SunTrackErrorConfigTest, RejectsNonUnitSensitiveHat) {
+TEST(SunAvoidanceConfigTest, RejectsNonUnitSensitiveHat) {
     const Eigen::Vector3f nonUnit{0.0F, -2.0F, 0.0F};
-    EXPECT_THROW((void)SunTrackErrorConfig::create(nonUnit, kManeuverRate, true), fsw::invalid_argument);
+    EXPECT_THROW((void)SunAvoidanceConfig::create(nonUnit, kManeuverRate, true), fsw::invalid_argument);
 }
 
-TEST(SunTrackErrorConfigTest, RejectsNonFiniteAngleRate) {
-    EXPECT_THROW((void)SunTrackErrorConfig::create(kSensitiveHat_B, std::numeric_limits<float>::infinity(), false),
+TEST(SunAvoidanceConfigTest, RejectsNonFiniteAngleRate) {
+    EXPECT_THROW((void)SunAvoidanceConfig::create(kSensitiveHat_B, std::numeric_limits<float>::infinity(), false),
                  fsw::invalid_argument);
-    EXPECT_THROW((void)SunTrackErrorConfig::create(kSensitiveHat_B, std::nanf(""), false), fsw::invalid_argument);
+    EXPECT_THROW((void)SunAvoidanceConfig::create(kSensitiveHat_B, std::nanf(""), false), fsw::invalid_argument);
 }
 
-TEST(SunTrackErrorConfigTest, AcceptsValidInputs) {
-    EXPECT_NO_THROW((void)SunTrackErrorConfig::create(kSensitiveHat_B, kManeuverRate, true));
+TEST(SunAvoidanceConfigTest, AcceptsValidInputs) {
+    EXPECT_NO_THROW((void)SunAvoidanceConfig::create(kSensitiveHat_B, kManeuverRate, true));
     // sensitiveHat_B is unused when the maneuver is disabled, so it is not unit-length checked.
-    EXPECT_NO_THROW((void)SunTrackErrorConfig::create(Eigen::Vector3f::Zero(), 0.0F, false));
+    EXPECT_NO_THROW((void)SunAvoidanceConfig::create(Eigen::Vector3f::Zero(), 0.0F, false));
 }
 
 // ---------------------------------------------------------------------------
 // Property tests.
 // ---------------------------------------------------------------------------
 
-TEST(SunTrackErrorTest, PropertyPassThroughEqualsInputRef) {
+TEST(SunAvoidanceTest, PropertyPassThroughEqualsInputRef) {
     propertyPassThroughEqualsInputRef(kSigmaBN, kSigmaRN, kOmegaRNN, kDomegaRNN);
 }
 
-TEST(SunTrackErrorTest, PropertyManeuverOutputBoundedAndFinite) {
+TEST(SunAvoidanceTest, PropertyManeuverOutputBoundedAndFinite) {
     propertyManeuverOutputBoundedAndFinite(kSigmaBN, kSigmaRN, kOmegaRNN, kDomegaRNN);
 }
 
-TEST(SunTrackErrorTest, PropertyDecayedManeuverEqualsInputRef) {
+TEST(SunAvoidanceTest, PropertyDecayedManeuverEqualsInputRef) {
     propertyDecayedManeuverEqualsInputRef(kSigmaBN, kSigmaRN, kOmegaRNN, kDomegaRNN);
 }
 
-TEST(SunTrackErrorTest, PropertyReInitializeRestartsManeuver) {
+TEST(SunAvoidanceTest, PropertyReInitializeRestartsManeuver) {
     propertyReInitializeRestartsManeuver(kSigmaBN, kSigmaRN, kOmegaRNN, kDomegaRNN);
 }
 
@@ -123,15 +123,15 @@ TEST(SunTrackErrorTest, PropertyReInitializeRestartsManeuver) {
 
 // Zero maneuver rate: the initial maneuver angle never decays, so the adjusted reference is constant
 // across every step.
-TEST(SunTrackErrorTest, EdgeZeroAngleRate) {
-    const auto config = SunTrackErrorConfig::create(kSensitiveHat_B, 0.0F, true);
-    SunTrackErrorAlgorithm alg{config};
-    const SunTrackErrorAttRefInputs refIn{kSigmaRN, kOmegaRNN, kDomegaRNN};
+TEST(SunAvoidanceTest, EdgeZeroAngleRate) {
+    const auto config = SunAvoidanceConfig::create(kSensitiveHat_B, 0.0F, true);
+    SunAvoidanceAlgorithm alg{config};
+    const SunAvoidanceAttRefInputs refIn{kSigmaRN, kOmegaRNN, kDomegaRNN};
 
-    const SunTrackErrorOutput first = alg.update(kSigmaBN, refIn, kRBN_N, kRSN_N, 0);
+    const SunAvoidanceOutput first = alg.update(kSigmaBN, refIn, kRBN_N, kRSN_N, 0);
     constexpr float tol = 1e-6F;
     for (int k = 1; k < 12; ++k) {
-        const SunTrackErrorOutput out =
+        const SunAvoidanceOutput out =
             alg.update(kSigmaBN, refIn, kRBN_N, kRSN_N, static_cast<uint64_t>(k) * kHalfSecNs);
         for (int i = 0; i < 3; ++i) {
             EXPECT_NEAR(out.sigma_RN(i), first.sigma_RN(i), tol);
@@ -142,14 +142,14 @@ TEST(SunTrackErrorTest, EdgeZeroAngleRate) {
 }
 
 // Zero navigation and reference inputs with the maneuver disabled: the output reference is zero.
-TEST(SunTrackErrorTest, EdgeZeroInputsPassThrough) {
+TEST(SunAvoidanceTest, EdgeZeroInputsPassThrough) {
     propertyPassThroughEqualsInputRef(
         Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero());
 }
 
 // Body attitude close to the reference: a small but well-defined maneuver angle; output stays finite
 // and bounded.
-TEST(SunTrackErrorTest, EdgeSmallManeuverNearAlignment) {
+TEST(SunAvoidanceTest, EdgeSmallManeuverNearAlignment) {
     const Eigen::Vector3f sigmaBN_near = kSigmaRN + Eigen::Vector3f{0.02F, -0.01F, 0.015F};
     propertyManeuverOutputBoundedAndFinite(sigmaBN_near, kSigmaRN, kOmegaRNN, kDomegaRNN);
 }
@@ -157,9 +157,9 @@ TEST(SunTrackErrorTest, EdgeSmallManeuverNearAlignment) {
 // No usable Sun information with the maneuver enabled: a Sun position coincident with the spacecraft
 // (undefined direction) or a zero Sun position (no ephemeris). Both skip the maneuver, so the adjusted
 // reference passes through.
-TEST(SunTrackErrorTest, EdgeNoSunInformationPassThrough) {
-    const auto config = SunTrackErrorConfig::create(kSensitiveHat_B, kManeuverRate, true);
-    const SunTrackErrorAttRefInputs refIn{kSigmaRN, kOmegaRNN, kDomegaRNN};
+TEST(SunAvoidanceTest, EdgeNoSunInformationPassThrough) {
+    const auto config = SunAvoidanceConfig::create(kSensitiveHat_B, kManeuverRate, true);
+    const SunAvoidanceAttRefInputs refIn{kSigmaRN, kOmegaRNN, kDomegaRNN};
     const Eigen::Matrix3f dcm_RN_in = mrpToDcm(kSigmaRN);
     constexpr float tol = 1e-5F;
 
@@ -169,9 +169,9 @@ TEST(SunTrackErrorTest, EdgeNoSunInformationPassThrough) {
     }};
 
     for (const auto& [r_BN_N, r_SN_N] : degenerateGeometry) {
-        SunTrackErrorAlgorithm alg{config};
+        SunAvoidanceAlgorithm alg{config};
         for (int k = 0; k < 5; ++k) {
-            const SunTrackErrorOutput out =
+            const SunAvoidanceOutput out =
                 alg.update(kSigmaBN, refIn, r_BN_N, r_SN_N, static_cast<uint64_t>(k) * kHalfSecNs);
             EXPECT_TRUE(out.sigma_RN.allFinite());
             const Eigen::Matrix3f dcm_RN_out = mrpToDcm(out.sigma_RN);
@@ -190,16 +190,16 @@ TEST(SunTrackErrorTest, EdgeNoSunInformationPassThrough) {
 
 // Body attitude exactly equal to the reference: the principal rotation is zero and the sensitive axes
 // are parallel, so no maneuver is needed and the adjusted reference passes through (and stays finite).
-TEST(SunTrackErrorTest, EdgeBodyAtReferencePassThrough) {
-    const auto config = SunTrackErrorConfig::create(kSensitiveHat_B, kManeuverRate, true);
-    SunTrackErrorAlgorithm alg{config};
-    const SunTrackErrorAttRefInputs refIn{kSigmaRN, kOmegaRNN, kDomegaRNN};
+TEST(SunAvoidanceTest, EdgeBodyAtReferencePassThrough) {
+    const auto config = SunAvoidanceConfig::create(kSensitiveHat_B, kManeuverRate, true);
+    SunAvoidanceAlgorithm alg{config};
+    const SunAvoidanceAttRefInputs refIn{kSigmaRN, kOmegaRNN, kDomegaRNN};
     const Eigen::Matrix3f dcm_RN_in = mrpToDcm(kSigmaRN);
 
     constexpr float tol = 1e-5F;
     for (int k = 0; k < 5; ++k) {
         // sigma_BN == sigma_RN with the maneuver enabled and valid Sun geometry.
-        const SunTrackErrorOutput out =
+        const SunAvoidanceOutput out =
             alg.update(kSigmaRN, refIn, kRBN_N, kRSN_N, static_cast<uint64_t>(k) * kHalfSecNs);
         EXPECT_TRUE(out.sigma_RN.allFinite());
         const Eigen::Matrix3f dcm_RN_out = mrpToDcm(out.sigma_RN);
@@ -213,7 +213,7 @@ TEST(SunTrackErrorTest, EdgeBodyAtReferencePassThrough) {
 
 // Degenerate avoidance geometry: the Sun aligned with the initial sensitive axis, or perpendicular to
 // the sweep plane. The maneuver stays finite and bounded (falls through to the short way).
-TEST(SunTrackErrorTest, EdgeDegenerateAvoidanceGeometryBoundedAndFinite) {
+TEST(SunAvoidanceTest, EdgeDegenerateAvoidanceGeometryBoundedAndFinite) {
     const Eigen::Vector3f sensitiveInitial_N = mrpToDcm(kSigmaBN).transpose() * kSensitiveHat_B;
     const Eigen::Vector3f sensitiveFinal_N = mrpToDcm(kSigmaRN).transpose() * kSensitiveHat_B;
     const Eigen::Vector3f sweepAxis_N = sensitiveInitial_N.cross(sensitiveFinal_N).normalized();
@@ -224,13 +224,13 @@ TEST(SunTrackErrorTest, EdgeDegenerateAvoidanceGeometryBoundedAndFinite) {
         sweepAxis_N.cast<double>(),         // Sun perpendicular to the sweep plane
     }};
 
-    const auto config = SunTrackErrorConfig::create(kSensitiveHat_B, kManeuverRate, true);
-    const SunTrackErrorAttRefInputs refIn{kSigmaRN, kOmegaRNN, kDomegaRNN};
+    const auto config = SunAvoidanceConfig::create(kSensitiveHat_B, kManeuverRate, true);
+    const SunAvoidanceAttRefInputs refIn{kSigmaRN, kOmegaRNN, kDomegaRNN};
     constexpr float normBound = 1.0F + 1e-5F;
     for (const auto& r_SN_N : sunPositions) {
-        SunTrackErrorAlgorithm alg{config};
+        SunAvoidanceAlgorithm alg{config};
         for (int k = 0; k < 10; ++k) {
-            const SunTrackErrorOutput out =
+            const SunAvoidanceOutput out =
                 alg.update(kSigmaBN, refIn, Eigen::Vector3d::Zero(), r_SN_N, static_cast<uint64_t>(k) * kHalfSecNs);
             EXPECT_TRUE(out.sigma_RN.allFinite());
             EXPECT_TRUE(out.omega_RN_N.allFinite());
@@ -242,16 +242,16 @@ TEST(SunTrackErrorTest, EdgeDegenerateAvoidanceGeometryBoundedAndFinite) {
 // Initial and final sensitive axes exactly anti-parallel (a 180-degree flip of the sensitive axis): the
 // sweep axis is undefined (cross product of anti-parallel vectors is zero), so the avoidance test is
 // skipped and the short-way maneuver stays finite and bounded.
-TEST(SunTrackErrorTest, EdgeAntiParallelSensitiveAxes) {
+TEST(SunAvoidanceTest, EdgeAntiParallelSensitiveAxes) {
     const Eigen::Vector3f sigmaBN = Eigen::Vector3f::Zero();  // identity attitude
     const Eigen::Vector3f sigmaRN{1.0F, 0.0F, 0.0F};          // 180 deg about X: flips the y sensitive axis
-    const auto config = SunTrackErrorConfig::create(kSensitiveHat_B, kManeuverRate, true);
-    SunTrackErrorAlgorithm alg{config};
-    const SunTrackErrorAttRefInputs refIn{sigmaRN, kOmegaRNN, kDomegaRNN};
+    const auto config = SunAvoidanceConfig::create(kSensitiveHat_B, kManeuverRate, true);
+    SunAvoidanceAlgorithm alg{config};
+    const SunAvoidanceAttRefInputs refIn{sigmaRN, kOmegaRNN, kDomegaRNN};
 
     constexpr float normBound = 1.0F + 1e-5F;
     for (int k = 0; k < 10; ++k) {
-        const SunTrackErrorOutput out =
+        const SunAvoidanceOutput out =
             alg.update(sigmaBN, refIn, kRBN_N, kRSN_N, static_cast<uint64_t>(k) * kHalfSecNs);
         EXPECT_TRUE(out.sigma_RN.allFinite());
         EXPECT_TRUE(out.omega_RN_N.allFinite());
@@ -259,11 +259,11 @@ TEST(SunTrackErrorTest, EdgeAntiParallelSensitiveAxes) {
     }
 }
 
-TEST(SunTrackErrorConfigTest, GettersRoundTrip) {
+TEST(SunAvoidanceConfigTest, GettersRoundTrip) {
     // sensitiveHat_B is renormalized on storage; a near-unit input (within the 1e-3 tolerance) must come
     // back as the exact unit direction.
     const Eigen::Vector3f rawSensitive{0.0F, -1.0005F, 0.0F};
-    const auto config = SunTrackErrorConfig::create(rawSensitive, kManeuverRate, true);
+    const auto config = SunAvoidanceConfig::create(rawSensitive, kManeuverRate, true);
 
     constexpr float tol = 1e-6F;
     const Eigen::Vector3f expectedSensitive = rawSensitive.normalized();
@@ -273,6 +273,6 @@ TEST(SunTrackErrorConfigTest, GettersRoundTrip) {
     EXPECT_NEAR(config.getAngleRate(), kManeuverRate, tol);
     EXPECT_TRUE(config.getComputeAngleStart());
 
-    const auto configNoManeuver = SunTrackErrorConfig::create(kSensitiveHat_B, 0.0F, false);
+    const auto configNoManeuver = SunAvoidanceConfig::create(kSensitiveHat_B, 0.0F, false);
     EXPECT_FALSE(configNoManeuver.getComputeAngleStart());
 }
