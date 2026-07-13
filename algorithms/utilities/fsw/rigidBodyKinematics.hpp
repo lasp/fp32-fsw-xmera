@@ -681,6 +681,27 @@ Eigen::Matrix3<ScalarT> eulerAngles321ToDcm(const Eigen::Vector3<ScalarT>& euler
 }
 
 /**
+ * Return the direction cosine matrix corresponding to a 123 Euler angle rotation.
+ * @param euler123
+ * @return Eigen::Matrix3d
+ */
+template <typename ScalarT>
+Eigen::Matrix3<ScalarT> eulerAngles123ToDcm(const Eigen::Vector3<ScalarT>& euler123) {
+    ScalarT sin1 = std::sin(euler123(0));
+    ScalarT sin2 = std::sin(euler123(1));
+    ScalarT sin3 = std::sin(euler123(2));
+    ScalarT cos1 = std::cos(euler123(0));
+    ScalarT cos2 = std::cos(euler123(1));
+    ScalarT cos3 = std::cos(euler123(2));
+
+    Eigen::Matrix3<ScalarT> dcm;
+    dcm << cos2 * cos3, cos3 * sin1 * sin2 + cos1 * sin3, sin1 * sin3 - cos1 * cos3 * sin2, -cos2 * sin3,
+        cos1 * cos3 - sin1 * sin2 * sin3, cos3 * sin1 + cos1 * sin2 * sin3, sin2, -cos2 * sin1, cos1 * cos2;
+
+    return dcm;
+}
+
+/**
  * Translate a 321 Euler angle vector into the Euler parameter vector.
  * @param euler321
  * @return Eigen::Vector4d
