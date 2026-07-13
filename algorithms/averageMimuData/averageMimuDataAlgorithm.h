@@ -11,12 +11,12 @@
 #include <cstdint>
 
 /*! @brief One MIMU sample at the algorithm-internal layer: a gyro/accel
- *         pair in the platform frame. Per-sample timestamps are derived
+ *         pair in the CHU frame. Per-sample timestamps are derived
  *         from the enclosing packet's `measTime` plus the device sample
  *         period (kMimuSamplePeriodNs); the sample itself stores no time. */
 struct Sample {
-    Eigen::Vector3f gyro_P{Eigen::Vector3f::Zero()};
-    Eigen::Vector3f accel_P{Eigen::Vector3f::Zero()};
+    Eigen::Vector3f gyro_C{Eigen::Vector3f::Zero()};
+    Eigen::Vector3f accel_C{Eigen::Vector3f::Zero()};
 };
 
 /*! @brief Algorithm-internal view of one MIMU packet. `measTime` is the
@@ -68,7 +68,7 @@ class AverageMimuDataConfig final {
    public:
     static AverageMimuDataConfig create(double gyroAveragingWindow,
                                         double accelAveragingWindow,
-                                        const Eigen::Matrix3f& dcm_BP) {
+                                        const Eigen::Matrix3f& dcm_BC) {
         if (!isValidGyroAveragingWindow(gyroAveragingWindow)) {
             FSW_THROW_INVALID_ARGUMENT(
                 "averageMimuData: gyroAveragingWindow must be in [0, kMaxAveragingWindowSec] seconds");
@@ -77,10 +77,10 @@ class AverageMimuDataConfig final {
             FSW_THROW_INVALID_ARGUMENT(
                 "averageMimuData: accelAveragingWindow must be in [0, kMaxAveragingWindowSec] seconds");
         }
-        if (!isValidDcmPltfToBdy(dcm_BP)) {
-            FSW_THROW_INVALID_ARGUMENT("averageMimuData: dcm_BP must be orthonormal with det=+1");
+        if (!isValidDcmChuToBody(dcm_BC)) {
+            FSW_THROW_INVALID_ARGUMENT("averageMimuData: dcm_BC must be orthonormal with det=+1");
         }
-        return {gyroAveragingWindow, accelAveragingWindow, dcm_BP};
+        return {gyroAveragingWindow, accelAveragingWindow, dcm_BC};
     }
 
     static bool isValidGyroAveragingWindow(double window) {
@@ -89,19 +89,19 @@ class AverageMimuDataConfig final {
     static bool isValidAccelAveragingWindow(double window) {
         return window >= 0.0 && window <= average_mimu_detail::kMaxAveragingWindowSec;
     }
-    static bool isValidDcmPltfToBdy(const Eigen::Matrix3f& dcm_BP) { return isValidDcm(dcm_BP); }
+    static bool isValidDcmChuToBody(const Eigen::Matrix3f& dcm_BC) { return isValidDcm(dcm_BC); }
 
     double getGyroAveragingWindow() const { return this->gyroAveragingWindow; }
     double getAccelAveragingWindow() const { return this->accelAveragingWindow; }
-    const Eigen::Matrix3f& getDcmPltfToBdy() const { return this->dcm_BP; }
+    const Eigen::Matrix3f& getDcmChuToBody() const { return this->dcm_BC; }
 
    private:
-    AverageMimuDataConfig(double gyroAveragingWindow, double accelAveragingWindow, const Eigen::Matrix3f& dcm_BP)
-        : gyroAveragingWindow(gyroAveragingWindow), accelAveragingWindow(accelAveragingWindow), dcm_BP(dcm_BP) {}
+    AverageMimuDataConfig(double gyroAveragingWindow, double accelAveragingWindow, const Eigen::Matrix3f& dcm_BC)
+        : gyroAveragingWindow(gyroAveragingWindow), accelAveragingWindow(accelAveragingWindow), dcm_BC(dcm_BC) {}
 
     double gyroAveragingWindow;
     double accelAveragingWindow;
-    Eigen::Matrix3f dcm_BP;
+    Eigen::Matrix3f dcm_BC;
 };
 
 class AverageMimuDataAlgorithm final {

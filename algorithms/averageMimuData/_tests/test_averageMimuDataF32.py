@@ -33,8 +33,8 @@ def test_average_mimu_data():
     module = averageMimuDataF32.AverageMimuData()
     module.modelTag = "averageMimuData"
 
-    dcm_pltf_to_body = RigidBodyKinematics.euler3212C([0.01, -0.04, 0.06]).astype(np.float32)
-    module.dcm_BP = dcm_pltf_to_body
+    dcm_chu_to_body = RigidBodyKinematics.euler3212C([0.01, -0.04, 0.06]).astype(np.float32)
+    module.dcm_BC = dcm_chu_to_body
     module.gyroAveragingWindow = _MAX_AVG_WINDOW_SEC  # 2 s window covers the full ring
     module.accelAveragingWindow = _MAX_AVG_WINDOW_SEC  # accel uses the same full-ring window here
 
@@ -85,8 +85,8 @@ def test_average_mimu_data():
         cumulative_accel = np.sum(cycle_accel_sums[first_retained : index + 1], axis=0)
         sample_count = cycles_in_ring * _MAX_MIMU_PKT * _MAX_MIMU_SAMPLES_PER_PKT
 
-        expected_gyro[index, :] = np.dot(dcm_pltf_to_body, cumulative_gyro / sample_count)
-        expected_accel[index, :] = np.dot(dcm_pltf_to_body, cumulative_accel / sample_count)
+        expected_gyro[index, :] = np.dot(dcm_chu_to_body, cumulative_gyro / sample_count)
+        expected_accel[index, :] = np.dot(dcm_chu_to_body, cumulative_accel / sample_count)
         sim_time += delta_time_sim
         mimu_pkt_msg = messaging.MimuPacketF32().write(mimu_pkt, time=macros.sec2nano(sim_time))
         module.mimuPacketInMsg.subscribeTo(mimu_pkt_msg)
@@ -94,7 +94,7 @@ def test_average_mimu_data():
         unit_test_sim.ExecuteSimulation()
 
     np.testing.assert_allclose(_MAX_AVG_WINDOW_SEC, module.gyroAveragingWindow, rtol=1e-8, atol=1e-9, verbose=True)
-    np.testing.assert_allclose(dcm_pltf_to_body, module.dcm_BP, rtol=1e-8, atol=1e-6, verbose=True)
+    np.testing.assert_allclose(dcm_chu_to_body, module.dcm_BC, rtol=1e-8, atol=1e-6, verbose=True)
 
     module_output_accel = data_log.AccelBody
     module_output_angular_velocity = data_log.AngVelBody
@@ -128,8 +128,8 @@ def test_average_mimu_data_buffer_fill():
     module = averageMimuDataF32.AverageMimuData()
     module.modelTag = "averageMimuData"
 
-    dcm_pltf_to_body = np.eye(3, dtype=np.float32)
-    module.dcm_BP = dcm_pltf_to_body
+    dcm_chu_to_body = np.eye(3, dtype=np.float32)
+    module.dcm_BC = dcm_chu_to_body
     module.gyroAveragingWindow = _MAX_AVG_WINDOW_SEC  # 2 s covers the full ring
     module.accelAveragingWindow = _MAX_AVG_WINDOW_SEC  # accel uses the same full-ring window here
 

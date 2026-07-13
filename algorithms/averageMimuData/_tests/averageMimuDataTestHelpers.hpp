@@ -13,7 +13,7 @@
 /*! @brief Independent reimplementation of AverageMimuDataAlgorithm's two-phase
  *  update used by the regression and fuzz harnesses. Holds its own ring with
  *  the same capacity as the algorithm so cross-cycle behavior matches
- *  bit-for-bit. The gyroAveragingWindow and dcm_BP are read from the same
+ *  bit-for-bit. The gyroAveragingWindow and dcm_BC are read from the same
  *  config the algorithm was constructed with. */
 class ReferenceAverager {
    public:
@@ -54,8 +54,8 @@ class ReferenceAverager {
         const std::uint64_t maxTimeTag =
             maxSlotMeasTime + ((MAX_MIMU_SAMPLES_PER_PKT_C - 1U) * AverageMimuDataAlgorithm::kMimuSamplePeriodNs);
 
-        Eigen::Vector3f gyroSum_P = Eigen::Vector3f::Zero();
-        Eigen::Vector3f accelSum_P = Eigen::Vector3f::Zero();
+        Eigen::Vector3f gyroSum_C = Eigen::Vector3f::Zero();
+        Eigen::Vector3f accelSum_C = Eigen::Vector3f::Zero();
         std::uint64_t gyroAvgCount = 0U;
         std::uint64_t accelAvgCount = 0U;
 
@@ -68,23 +68,23 @@ class ReferenceAverager {
                     slot.measTime + (s * AverageMimuDataAlgorithm::kMimuSamplePeriodNs);
                 const std::uint64_t age = maxTimeTag - sampleMeasTime;
                 if (age <= gyroAveragingWindowNs) {
-                    gyroSum_P += slot.samples[s].gyro_P;
+                    gyroSum_C += slot.samples[s].gyro_C;
                     gyroAvgCount++;
                 }
                 if (age <= accelAveragingWindowNs) {
-                    accelSum_P += slot.samples[s].accel_P;
+                    accelSum_C += slot.samples[s].accel_C;
                     accelAvgCount++;
                 }
             }
         }
 
         if (gyroAvgCount > 0U) {
-            gyroSum_P /= static_cast<float>(gyroAvgCount);
-            out.gyroOmega_B = this->cfg.getDcmPltfToBdy() * gyroSum_P;
+            gyroSum_C /= static_cast<float>(gyroAvgCount);
+            out.gyroOmega_B = this->cfg.getDcmChuToBody() * gyroSum_C;
         }
         if (accelAvgCount > 0U) {
-            accelSum_P /= static_cast<float>(accelAvgCount);
-            out.accel_B = this->cfg.getDcmPltfToBdy() * accelSum_P;
+            accelSum_C /= static_cast<float>(accelAvgCount);
+            out.accel_B = this->cfg.getDcmChuToBody() * accelSum_C;
         }
 
         return out;
@@ -112,8 +112,8 @@ inline void fillPacket(InputPktsData& in,
     in.packets[p].isValid = true;
     in.packets[p].measTime = firstSampleTimeNs;
     for (std::size_t s = 0; s < MAX_MIMU_SAMPLES_PER_PKT_C; ++s) {
-        in.packets[p].samples[s].gyro_P = gyros[s];
-        in.packets[p].samples[s].accel_P = accels[s];
+        in.packets[p].samples[s].gyro_C = gyros[s];
+        in.packets[p].samples[s].accel_C = accels[s];
     }
 }
 

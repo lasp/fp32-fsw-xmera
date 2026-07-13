@@ -17,13 +17,13 @@ typedef struct AverageMimuDataAlgorithmHandle AverageMimuDataAlgorithmHandle;
 /**
  * @brief POD mirror of AverageMimuDataConfig.
  *
- * gyroAveragingWindow / accelAveragingWindow are in seconds; dcm_BP is the
- * platform-to-body rotation in row-major POD format.
+ * gyroAveragingWindow / accelAveragingWindow are in seconds; dcm_BC is the
+ * CHU-to-body rotation in row-major POD format.
  */
 typedef struct {
     double gyroAveragingWindow;
     double accelAveragingWindow;
-    Matrix3f_c dcm_BP;
+    Matrix3f_c dcm_BC;
 } AverageMimuDataConfig_c;
 
 /**

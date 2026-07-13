@@ -33,7 +33,7 @@ void AverageMimuDataAlgorithm::reInitialize() {
  *  the gyro mean when its age relative to maxTimeTag is within
  *  `gyroAveragingWindowNs`, and to the accel mean when within
  *  `accelAveragingWindowNs`. Each mean is rotated to the body frame via
- *  `dcm_BP`. Components with no in-window samples (or an empty ring) stay zero.
+ *  `dcm_BC`. Components with no in-window samples (or an empty ring) stay zero.
  *
  *  @param localPkts InputPktsData: 4-packet snapshot from the caller.
  *  @return OutputAverageAccelAngleVel: body-frame rolling average.
@@ -70,8 +70,8 @@ OutputAverageAccelAngleVel AverageMimuDataAlgorithm::update(InputPktsData const&
 
     // Gyro and accel each accumulate over their own window, so a sample may
     // contribute to one running mean and not the other.
-    Eigen::Vector3f gyroSum_P = Eigen::Vector3f::Zero();
-    Eigen::Vector3f accelSum_P = Eigen::Vector3f::Zero();
+    Eigen::Vector3f gyroSum_C = Eigen::Vector3f::Zero();
+    Eigen::Vector3f accelSum_C = Eigen::Vector3f::Zero();
     uint64_t gyroAvgCount = 0U;
     uint64_t accelAvgCount = 0U;
 
@@ -85,23 +85,23 @@ OutputAverageAccelAngleVel AverageMimuDataAlgorithm::update(InputPktsData const&
             const uint64_t sampleMeasTime = measTime + (s * kMimuSamplePeriodNs);
             const uint64_t age = maxTimeTag - sampleMeasTime;
             if (age <= this->gyroAveragingWindowNs) {
-                gyroSum_P += samples.at(s).gyro_P;
+                gyroSum_C += samples.at(s).gyro_C;
                 gyroAvgCount++;
             }
             if (age <= this->accelAveragingWindowNs) {
-                accelSum_P += samples.at(s).accel_P;
+                accelSum_C += samples.at(s).accel_C;
                 accelAvgCount++;
             }
         }
     }
 
     if (gyroAvgCount > 0U) {
-        gyroSum_P /= static_cast<float>(gyroAvgCount);
-        out.gyroOmega_B = this->cfg.getDcmPltfToBdy() * gyroSum_P;
+        gyroSum_C /= static_cast<float>(gyroAvgCount);
+        out.gyroOmega_B = this->cfg.getDcmChuToBody() * gyroSum_C;
     }
     if (accelAvgCount > 0U) {
-        accelSum_P /= static_cast<float>(accelAvgCount);
-        out.accel_B = this->cfg.getDcmPltfToBdy() * accelSum_P;
+        accelSum_C /= static_cast<float>(accelAvgCount);
+        out.accel_B = this->cfg.getDcmChuToBody() * accelSum_C;
     }
 
     return out;

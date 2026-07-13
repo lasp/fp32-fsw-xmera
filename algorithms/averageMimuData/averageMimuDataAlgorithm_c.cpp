@@ -8,7 +8,7 @@
 namespace {
 AverageMimuDataConfig toConfig(const AverageMimuDataConfig_c& config) {
     return AverageMimuDataConfig::create(
-        config.gyroAveragingWindow, config.accelAveragingWindow, c2DArrayToEigenMatrix3(config.dcm_BP.data));
+        config.gyroAveragingWindow, config.accelAveragingWindow, c2DArrayToEigenMatrix3(config.dcm_BC.data));
 }
 }  // namespace
 
@@ -41,10 +41,10 @@ OutputAverageAccelAngleVel_c AverageMimuDataAlgorithm_update(AverageMimuDataAlgo
         in.packets[p].measTime = src.measTime;
         for (size_t s = 0; s < MAX_MIMU_SAMPLES_PER_PKT_C; s++) {
             const Sample_c& srcSample = src.samples[s];
-            in.packets[p].samples[s].gyro_P =
-                Eigen::Vector3f(srcSample.gyro_P.data[0], srcSample.gyro_P.data[1], srcSample.gyro_P.data[2]);
-            in.packets[p].samples[s].accel_P =
-                Eigen::Vector3f(srcSample.accel_P.data[0], srcSample.accel_P.data[1], srcSample.accel_P.data[2]);
+            in.packets[p].samples[s].gyro_C =
+                Eigen::Vector3f(srcSample.gyro_C.data[0], srcSample.gyro_C.data[1], srcSample.gyro_C.data[2]);
+            in.packets[p].samples[s].accel_C =
+                Eigen::Vector3f(srcSample.accel_C.data[0], srcSample.accel_C.data[1], srcSample.accel_C.data[2]);
         }
     }
 
