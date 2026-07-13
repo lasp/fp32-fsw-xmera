@@ -10,7 +10,6 @@
 #include <architecture/msgPayloadDef/RWSpeedMsgPayload.h>
 #include <architecture/msgPayloadDef/THRConfigMsgPayload.h>
 #include <architecture/msgPayloadDef/VehicleConfigMsgPayload.h>
-#include <architecture/utilities/bskLogging.h>
 #include <stdint.h>
 
 enum momentumDumping { Yes = 0, No = 1 };
@@ -56,8 +55,6 @@ class ThrusterPlatformReference : public SysModel {
         thrusterTorqueOutMsg;  //!< output msg containing the opposite of the thruster torque to be compensated by RW's
     Message<THRConfigMsgPayload>
         thrusterConfigBOutMsg;  //!< output msg containing the thruster configuration infor in B-frame
-
-    BSKLogger bskLogger = {};  //!< BSK Logging
 };
 
 #endif

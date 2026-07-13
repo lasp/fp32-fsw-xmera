@@ -1,6 +1,7 @@
 #include "thrusterPlatformReference.h"
 
 #include <math.h>
+#include <stdexcept>
 
 #include <architecture/utilities/astroConstants.h>
 #include <architecture/utilities/linearAlgebra.h>
@@ -25,10 +26,10 @@ const double epsilon = 1e-12;  // module tolerance for zero
 */
 void ThrusterPlatformReference::reset(uint64_t callTime) {
     if (!this->vehConfigInMsg.isLinked()) {
-        this->bskLogger.bskLog(BSK_ERROR, " thrusterPlatformReference.vehConfigInMsg wasn't connected.");
+        throw std::invalid_argument("thrusterPlatformReference.vehConfigInMsg wasn't connected.");
     }
     if (!this->thrusterConfigFInMsg.isLinked()) {
-        this->bskLogger.bskLog(BSK_ERROR, " thrusterPlatformReference.thrusterConfigFInMsg wasn't connected.");
+        throw std::invalid_argument("thrusterPlatformReference.thrusterConfigFInMsg wasn't connected.");
     }
     if (this->rwConfigDataInMsg.isLinked() && this->rwSpeedsInMsg.isLinked()) {
         this->momentumDumping = Yes;
