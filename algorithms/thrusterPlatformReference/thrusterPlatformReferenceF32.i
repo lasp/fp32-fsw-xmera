@@ -1,4 +1,4 @@
-%module thrusterPlatformReference
+%module thrusterPlatformReferenceF32
 %{
    #include "thrusterPlatformReference.h"
 %}

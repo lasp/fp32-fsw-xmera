@@ -1,5 +1,5 @@
-#ifndef _THRUSTER_PLATFORM_REFERENCE_
-#define _THRUSTER_PLATFORM_REFERENCE_
+#ifndef F32XMERA_THRUSTER_PLATFORM_REFERENCE_H
+#define F32XMERA_THRUSTER_PLATFORM_REFERENCE_H
 
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>

@@ -10,7 +10,7 @@ splitPath = path.split(bskName)
 
 # Import all the modules that are going to be called in this simulation
 from xmera.utilities import SimulationBaseClass
-from xmera.fswAlgorithms import thrusterPlatformReference
+from xmera.fp32 import thrusterPlatformReferenceF32
 from xmera.utilities import macros
 from xmera.utilities import RigidBodyKinematics as rbk
 from xmera.architecture import messaging
@@ -96,7 +96,7 @@ def platformRotationTestFunction(show_plots, delta_CM, K, thetaMax, seed, accura
     testProc.addTask(unitTestSim.CreateNewTask(unitTaskName, testProcessRate))
 
     # Construct algorithm and associated C++ container
-    platform = thrusterPlatformReference.ThrusterPlatformReference()
+    platform = thrusterPlatformReferenceF32.ThrusterPlatformReference()
     platform.modelTag = "platformReference"
 
     # Add test module to runtime call list
