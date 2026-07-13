@@ -44,7 +44,7 @@ struct OutputAverageAccelAngleVel {
 namespace average_mimu_detail {
 // MIMU device sample rate (compile-time fixed). Period in nanoseconds is
 // precomputed so the per-sample staleness check stays in integer math.
-constexpr float kMimuSampleRateHz = 100.0F;
+constexpr double kMimuSampleRateHz = 100.0;
 constexpr std::uint64_t kMimuSamplePeriodNs = static_cast<std::uint64_t>(kSec2Nano / kMimuSampleRateHz);
 
 // Compile-time cap on the configured averaging window. Ring capacity is
@@ -52,10 +52,10 @@ constexpr std::uint64_t kMimuSamplePeriodNs = static_cast<std::uint64_t>(kSec2Na
 constexpr float kMaxAveragingWindowSec = 2.0F;
 
 // Ceiling division so `rateHz * windowSec` samples round up to whole packets.
-constexpr std::size_t ceilDivSamplesToPackets(float rateHz, float windowSec, std::size_t samplesPerPkt) {
-    const float totalSamples = rateHz * windowSec;
+constexpr std::size_t ceilDivSamplesToPackets(double rateHz, float windowSec, std::size_t samplesPerPkt) {
+    const double totalSamples = rateHz * windowSec;
     const std::size_t pkts = static_cast<std::size_t>(totalSamples) / samplesPerPkt;
-    return (static_cast<float>(pkts * samplesPerPkt) < totalSamples) ? pkts + 1U : pkts;
+    return (static_cast<double>(pkts * samplesPerPkt) < totalSamples) ? pkts + 1U : pkts;
 }
 
 constexpr std::size_t kRingCapacity =
@@ -106,7 +106,7 @@ class AverageMimuDataConfig final {
 
 class AverageMimuDataAlgorithm final {
    public:
-    static constexpr float kMimuSampleRateHz = average_mimu_detail::kMimuSampleRateHz;
+    static constexpr double kMimuSampleRateHz = average_mimu_detail::kMimuSampleRateHz;
     static constexpr std::uint64_t kMimuSamplePeriodNs = average_mimu_detail::kMimuSamplePeriodNs;
     static constexpr float kMaxAveragingWindowSec = average_mimu_detail::kMaxAveragingWindowSec;
     static constexpr std::size_t kRingCapacity = average_mimu_detail::kRingCapacity;
