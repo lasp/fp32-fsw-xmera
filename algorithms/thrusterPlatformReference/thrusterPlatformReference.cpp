@@ -1,9 +1,9 @@
 #include "thrusterPlatformReference.h"
 
 #include <math.h>
+#include <numbers>
 #include <stdexcept>
 
-#include <architecture/utilities/astroConstants.h>
 #include <architecture/utilities/linearAlgebra.h>
 #include <architecture/utilities/macroDefinitions.h>
 #include <architecture/utilities/rigidBodyKinematics.h>
@@ -197,8 +197,8 @@ void tprComputeFirstRotation(double THat_F[3], double rHat_CM_F[3], double F1M[3
     double e_phi[3];
     v3Cross(THat_F, rHat_CM_F, e_phi);
     // If phi = PI, e_phi can be any vector perpendicular to F_current_B
-    if (fabs(phi - MPI) < epsilon) {
-        phi = MPI;
+    if (fabs(phi - std::numbers::pi) < epsilon) {
+        phi = std::numbers::pi;
         if (fabs(THat_F[0]) > epsilon) {
             e_phi[0] = -(THat_F[1] + THat_F[2]) / THat_F[0];
             e_phi[1] = 1;
@@ -282,8 +282,8 @@ void tprComputeThirdRotation(double e_theta[3], double F2M[3][3], double F3F2[3]
     if (fabs(A) < epsilon) {
         if (fabs(B) < epsilon) {
             // zero-th order equation has no solution
-            // the solution of the minimum problem is theta = MPI
-            theta = MPI;
+            // the solution of the minimum problem is theta = pi
+            theta = std::numbers::pi;
         } else {
             // first order equation
             t = -C / B;
@@ -310,9 +310,9 @@ void tprComputeThirdRotation(double e_theta[3], double F2M[3][3], double F3F2[3]
             }
             theta = 2 * atan(t);
             y = (A * t * t + B * t + C) / (1 + t * t);
-            // check if the absolute fcn minimum is for theta = MPI
+            // check if the absolute fcn minimum is for theta = pi
             if (fabs(A) < fabs(y)) {
-                theta = MPI;
+                theta = std::numbers::pi;
             }
         } else {
             t1 = (-B + sqrt(Delta)) / (2 * A);
