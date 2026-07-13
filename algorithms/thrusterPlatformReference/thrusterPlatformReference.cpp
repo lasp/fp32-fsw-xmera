@@ -24,7 +24,7 @@ const double epsilon = 1e-12;  // module tolerance for zero
  @return void
  @param callTime [ns] time the method is called
 */
-void ThrusterPlatformReference::reset(uint64_t callTime) {
+void ThrusterPlatformReference::reset(const uint64_t callTime) {
     if (!this->vehConfigInMsg.isLinked()) {
         throw std::invalid_argument("thrusterPlatformReference.vehConfigInMsg wasn't connected.");
     }
@@ -52,7 +52,7 @@ void ThrusterPlatformReference::reset(uint64_t callTime) {
  @return void
  @param callTime The clock time at which the function was called (nanoseconds)
 */
-void ThrusterPlatformReference::updateState(uint64_t callTime) {
+void ThrusterPlatformReference::updateState(const uint64_t callTime) {
     /*! - Create and assign message buffers */
     VehicleConfigMsgPayload vehConfigMsgIn = this->vehConfigInMsg();
     THRConfigMsgPayload thrusterConfigFIn = this->thrusterConfigFInMsg();
