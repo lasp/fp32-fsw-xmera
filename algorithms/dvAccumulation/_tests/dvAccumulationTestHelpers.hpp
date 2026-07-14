@@ -1,10 +1,10 @@
 #ifndef TEST_DV_ACCUMULATION_HELPERS_H
 #define TEST_DV_ACCUMULATION_HELPERS_H
 
-#include "architecture/utilities/eigenSupport.h"
 #include "dvAccumulation/dvAccumulationAlgorithm.h"
 #include "msgPayloadDef/AccDataMsgF32Payload.h"
-#include "utilities/timeConstants.h"
+#include "utilities/fsw/eigenSupport.h"
+#include "utilities/fsw/timeConstants.h"
 
 #include <gtest/gtest.h>
 #include <Eigen/Core>

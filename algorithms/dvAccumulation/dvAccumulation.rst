@@ -72,7 +72,7 @@ Three-layer split:
   for Ada FFI: opaque handle plus ``DvAccumulationAlgorithm_create``/``_destroy``/``_resetState``/
   ``_update``. ``dvAccumulationTypes.h`` (pure C) declares ``DvAccumulationOutput_c``, which is
   the POD mirror of the C++ output using the shared ``Vector3f_c`` from
-  ``utilities/algorithmCShimTypes.h``. The shim exposes
+  ``utilities/fsw/plainCAlgorithmDataTypes.h``. The shim exposes
   ``DvAccumulationAlgorithm_getMaxAccBufPkt()`` for Ada elaboration-time validation against
   ``MAX_ACC_BUF_PKT``.
 

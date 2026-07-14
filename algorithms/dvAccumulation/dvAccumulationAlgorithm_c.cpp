@@ -1,7 +1,7 @@
 #include "dvAccumulationAlgorithm_c.h"
-#include "architecture/utilities/eigenSupport.h"
 #include "dvAccumulationAlgorithm.h"
 #include "msgPayloadDef/AccDataMsgF32Payload.h"
+#include "utilities/fsw/eigenSupport.h"
 
 uint32_t DvAccumulationAlgorithm_getMaxAccBufPkt(void) { return MAX_ACC_BUF_PKT; }
 

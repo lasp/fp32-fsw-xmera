@@ -1,7 +1,7 @@
 #ifndef F32XMERA_DV_ACCUMULATION_TYPES_H
 #define F32XMERA_DV_ACCUMULATION_TYPES_H
 
-#include "utilities/algorithmCShimTypes.h"
+#include "utilities/fsw/plainCAlgorithmDataTypes.h"
 
 #ifdef __cplusplus
 extern "C" {
