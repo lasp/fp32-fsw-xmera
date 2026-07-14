@@ -124,15 +124,27 @@ Eigen::Matrix3f tprComputeFinalRotation(const Eigen::Vector3f& r_CM_M,
 }
 }  // namespace
 
-/*! This method performs a complete reset of the algorithm.  State variables that retain time varying states between
- function calls are reset to their default values.
- @return void
- @param callTime [ns] time the method is called
+/*! @brief Construct the algorithm with a validated configuration and seed the runtime integrator state.
+ @param config Validated configuration (geometry, gains, angle bounds, RW configuration).
 */
-void ThrusterPlatformReferenceAlgorithm::reset(const uint64_t callTime) {
+ThrusterPlatformReferenceAlgorithm::ThrusterPlatformReferenceAlgorithm(const ThrusterPlatformReferenceConfig& config)
+    : cfg(config) {
+    this->setConfig(config);
+    this->reInitialize();
+}
+
+/*! @brief Replace the stored configuration at runtime without disturbing the runtime integrator state.
+ @param config New validated configuration to apply.
+*/
+void ThrusterPlatformReferenceAlgorithm::setConfig(const ThrusterPlatformReferenceConfig& config) {
+    this->cfg = config;
+}
+
+/*! @brief Re-seed the runtime integrator state (RW momentum integral, prior sample) to its initial values. */
+void ThrusterPlatformReferenceAlgorithm::reInitialize() {
     this->hsInt_M.setZero();
     this->priorHs_M.setZero();
-    this->priorTime = callTime;
+    this->priorTime = 0;
 }
 
 /*! This method computes the reference platform tip and tilt angles that align the thruster with the system center of
@@ -146,33 +158,35 @@ ThrusterPlatformReferenceOutput ThrusterPlatformReferenceAlgorithm::update(const
                                                                            const uint64_t callTime) {
     ThrusterPlatformReferenceOutput out{};
 
-    const Eigen::Matrix3f MB = mrpToDcm(this->sigma_MB);         // B to M DCM
-    const Eigen::Vector3f r_CB_M = MB * in.r_CB_B;               // position of C w.r.t. B in M-frame coordinates
-    const Eigen::Vector3f r_CM_M = r_CB_M + this->r_BM_M;        // position of C w.r.t. M in M-frame coordinates
-    const Eigen::Vector3f r_TM_F = this->r_FM_F + in.rThrust_F;  // position of T w.r.t. M in F-frame coordinates
-    const Eigen::Vector3f T_F = in.maxThrust * in.tHatThrust_F;  // thrust vector in F-frame coordinates
+    const Eigen::Matrix3f MB = mrpToDcm(this->cfg.getSigma_MB());   // B to M DCM
+    const Eigen::Vector3f r_CB_M = MB * in.r_CB_B;                  // position of C w.r.t. B in M-frame coordinates
+    const Eigen::Vector3f r_CM_M = r_CB_M + this->cfg.getR_BM_M();  // position of C w.r.t. M in M-frame coordinates
+    const Eigen::Vector3f r_TM_F = this->cfg.getR_FM_F() + in.rThrust_F;  // position of T w.r.t. M, F coordinates
+    const Eigen::Vector3f T_F = in.maxThrust * in.tHatThrust_F;           // thrust vector in F-frame coordinates
 
     Eigen::Matrix3f FM = tprComputeFinalRotation(r_CM_M, r_TM_F, T_F);
 
-    if (this->momentumDumping) {
+    if (this->cfg.getMomentumDumping()) {
+        const ThrusterPlatformReferenceRwArrayConfig& rwConfig = this->cfg.getRwConfig();
+
         // compute net RW momentum in body frame
         Eigen::Vector3f hs_B = Eigen::Vector3f::Zero();
-        for (uint32_t i = 0; i < this->rwConfig.numRW; ++i) {
-            hs_B += this->rwConfig.JsList(i) * in.wheelSpeeds(i) * this->rwConfig.GsMatrix_B.col(i);
+        for (uint32_t i = 0; i < rwConfig.numRW; ++i) {
+            hs_B += rwConfig.JsList(i) * in.wheelSpeeds(i) * rwConfig.GsMatrix_B.col(i);
         }
         const Eigen::Vector3f hs_M = MB * hs_B;
 
-        // update the trapezoidal integral of the RW momentum
-        const float dt = static_cast<float>(callTime - this->priorTime) * kNano2SecF;
+        // update the trapezoidal integral of the RW momentum (dt is zero on the first call)
+        const float dt = (this->priorTime == 0) ? 0.0F : static_cast<float>(callTime - this->priorTime) * kNano2SecF;
         this->hsInt_M += 0.5F * dt * (this->priorHs_M + hs_M);
         this->priorHs_M = hs_M;
         this->priorTime = callTime;
 
         // compute the offset vector that shifts the effective CM to produce the desired dumping torque
         const Eigen::Vector3f T_M = FM.transpose() * T_F;
-        Eigen::Vector3f H = this->K * hs_M;
-        if (this->Ki > 0.0F) {
-            H += this->Ki * this->hsInt_M;
+        Eigen::Vector3f H = this->cfg.getK() * hs_M;
+        if (this->cfg.getKi() > 0.0F) {
+            H += this->cfg.getKi() * this->hsInt_M;
         }
         const Eigen::Vector3f d_M = -1.0F / T_M.dot(T_M) * T_M.cross(H);
 
@@ -185,15 +199,17 @@ ThrusterPlatformReferenceOutput ThrusterPlatformReferenceAlgorithm::update(const
     float theta2 = safeAtan2f(FM(2, 0), FM(0, 0));
 
     // bound the reference angles between the allowed limits
-    if ((this->theta1Max > kZeroTolerance) && (theta1 > this->theta1Max)) {
-        theta1 = this->theta1Max;
-    } else if ((this->theta1Max > kZeroTolerance) && (theta1 < -this->theta1Max)) {
-        theta1 = -this->theta1Max;
+    const float theta1Max = this->cfg.getTheta1Max();
+    const float theta2Max = this->cfg.getTheta2Max();
+    if ((theta1Max > kZeroTolerance) && (theta1 > theta1Max)) {
+        theta1 = theta1Max;
+    } else if ((theta1Max > kZeroTolerance) && (theta1 < -theta1Max)) {
+        theta1 = -theta1Max;
     }
-    if ((this->theta2Max > kZeroTolerance) && (theta2 > this->theta2Max)) {
-        theta2 = this->theta2Max;
-    } else if ((this->theta2Max > kZeroTolerance) && (theta2 < -this->theta2Max)) {
-        theta2 = -this->theta2Max;
+    if ((theta2Max > kZeroTolerance) && (theta2 > theta2Max)) {
+        theta2 = theta2Max;
+    } else if ((theta2Max > kZeroTolerance) && (theta2 < -theta2Max)) {
+        theta2 = -theta2Max;
     }
 
     // rebuild the platform DCM with the bounded angles

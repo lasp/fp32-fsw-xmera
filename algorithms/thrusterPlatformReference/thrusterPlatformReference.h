@@ -13,13 +13,20 @@
 #include <architecture/messaging/messaging.h>
 #include <stdint.h>
 
+#include <memory>
+
 /*! @brief Adapter for the thruster platform reference algorithm. */
-class ThrusterPlatformReference : public SysModel {
+class ThrusterPlatformReference final : public SysModel {
    public:
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
 
-    /*! user-defined configuration quantities */
+    /*! Re-push the current configuration properties into the running algorithm without re-seeding its state. */
+    void reconfigure();
+    /*! Re-seed the running algorithm's runtime integrator state from its configured initial values. */
+    void reInitialize();
+
+    /*! Phase 1: user-defined configuration properties, set before reset() */
     Eigen::Vector3f sigma_MB{Eigen::Vector3f::Zero()};  //!< orientation of the M frame w.r.t. the B frame
     Eigen::Vector3f r_BM_M{
         Eigen::Vector3f::Zero()};  //!< position of B frame origin w.r.t. M frame origin, in M frame coordinates
@@ -48,7 +55,8 @@ class ThrusterPlatformReference : public SysModel {
         thrusterConfigBOutMsg;  //!< output msg containing the thruster configuration infor in B-frame
 
    private:
-    ThrusterPlatformReferenceAlgorithm algorithm{};  //!< algorithm instance
+    ThrusterPlatformReferenceConfig toConfig();
+    std::unique_ptr<ThrusterPlatformReferenceAlgorithm> algorithm = nullptr;  //!< algorithm instance
 };
 
 #endif  // F32XMERA_THRUSTER_PLATFORM_REFERENCE_H

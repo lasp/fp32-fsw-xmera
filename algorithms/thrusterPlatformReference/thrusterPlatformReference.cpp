@@ -1,11 +1,37 @@
 #include "thrusterPlatformReference.h"
+#include "utilities/fsw/eigenSupport.h"
+#include "utilities/xmera/xmeraLifecycleException.h"
 
 #include <stdexcept>
 
-#include <architecture/utilities/eigenSupport.h>
+/*! @brief Build the validated configuration from the public properties and the reaction-wheel input messages.
+ Momentum dumping is enabled only when both the RW configuration and RW speed messages are linked.
+ @return ThrusterPlatformReferenceConfig validated configuration
+*/
+ThrusterPlatformReferenceConfig ThrusterPlatformReference::toConfig() {
+    const bool momentumDumping = this->rwConfigDataInMsg.isLinked() && this->rwSpeedsInMsg.isLinked();
 
-/*! This method performs a complete reset of the module.  Local module variables that retain
- time varying states between function calls are reset to their default values.
+    ThrusterPlatformReferenceRwArrayConfig rwConfig{};
+    if (momentumDumping) {
+        const RWArrayConfigMsgF32Payload rwConfigParams = this->rwConfigDataInMsg();
+        rwConfig.numRW = static_cast<uint32_t>(rwConfigParams.numRW);
+        rwConfig.GsMatrix_B = cArrayToEigenMatrix<float, 3, kMaxNumRw>(rwConfigParams.GsMatrix_B);
+        rwConfig.JsList = cArrayToEigenVector(rwConfigParams.JsList);
+    }
+
+    return ThrusterPlatformReferenceConfig::create(this->sigma_MB,
+                                                   this->r_BM_M,
+                                                   this->r_FM_F,
+                                                   this->K,
+                                                   this->Ki,
+                                                   this->theta1Max,
+                                                   this->theta2Max,
+                                                   momentumDumping,
+                                                   rwConfig);
+}
+
+/*! This method performs a complete reset of the module: it validates the required input messages and (re)creates
+ the algorithm from the current configuration.
  @return void
  @param callTime [ns] time the method is called
 */
@@ -17,25 +43,27 @@ void ThrusterPlatformReference::reset(const uint64_t callTime) {
         throw std::invalid_argument("thrusterPlatformReference.thrusterConfigFInMsg wasn't connected.");
     }
 
-    this->algorithm.sigma_MB = this->sigma_MB;
-    this->algorithm.r_BM_M = this->r_BM_M;
-    this->algorithm.r_FM_F = this->r_FM_F;
-    this->algorithm.K = this->K;
-    this->algorithm.Ki = this->Ki;
-    this->algorithm.theta1Max = this->theta1Max;
-    this->algorithm.theta2Max = this->theta2Max;
+    this->algorithm = std::make_unique<ThrusterPlatformReferenceAlgorithm>(this->toConfig());
+}
 
-    if (this->rwConfigDataInMsg.isLinked() && this->rwSpeedsInMsg.isLinked()) {
-        this->algorithm.momentumDumping = true;
-        const RWArrayConfigMsgF32Payload rwConfigParams = this->rwConfigDataInMsg();
-        this->algorithm.rwConfig.numRW = static_cast<uint32_t>(rwConfigParams.numRW);
-        this->algorithm.rwConfig.GsMatrix_B = cArrayToEigenMatrix<float, 3, kMaxNumRw>(rwConfigParams.GsMatrix_B);
-        this->algorithm.rwConfig.JsList = cArrayToEigenVector(rwConfigParams.JsList);
-    } else {
-        this->algorithm.momentumDumping = false;
+/*! @brief Re-push the current configuration properties into the running algorithm, keeping its runtime state.
+ @return void
+*/
+void ThrusterPlatformReference::reconfigure() {
+    if (!this->algorithm) {
+        throw XmeraLifecycleException("ThrusterPlatformReference reset() has not been called.");
     }
+    this->algorithm->setConfig(this->toConfig());
+}
 
-    this->algorithm.reset(callTime);
+/*! @brief Re-seed the running algorithm's runtime integrator state from its configured initial values.
+ @return void
+*/
+void ThrusterPlatformReference::reInitialize() {
+    if (!this->algorithm) {
+        throw XmeraLifecycleException("ThrusterPlatformReference reset() has not been called.");
+    }
+    this->algorithm->reInitialize();
 }
 
 /*! This method computes the reference platform tip and tilt angles that align the thruster with the system center of
@@ -45,6 +73,10 @@ void ThrusterPlatformReference::reset(const uint64_t callTime) {
  @param callTime The clock time at which the function was called (nanoseconds)
 */
 void ThrusterPlatformReference::updateState(const uint64_t callTime) {
+    if (!this->algorithm) {
+        throw XmeraLifecycleException("ThrusterPlatformReference reset() has not been called.");
+    }
+
     const VehicleConfigMsgF32Payload vehConfigMsgIn = this->vehConfigInMsg();
     const THRConfigMsgF32Payload thrusterConfigFIn = this->thrusterConfigFInMsg();
 
@@ -58,7 +90,7 @@ void ThrusterPlatformReference::updateState(const uint64_t callTime) {
         inputs.wheelSpeeds = cArrayToEigenVector(rwSpeedMsgIn.wheelSpeeds);
     }
 
-    const ThrusterPlatformReferenceOutput out = this->algorithm.update(inputs, callTime);
+    const ThrusterPlatformReferenceOutput out = this->algorithm->update(inputs, callTime);
 
     HingedRigidBodyMsgF32Payload hingedRigidBodyRef1Out{};
     hingedRigidBodyRef1Out.theta = out.theta1;
