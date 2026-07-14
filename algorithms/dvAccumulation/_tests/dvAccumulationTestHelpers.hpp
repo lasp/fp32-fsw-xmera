@@ -8,9 +8,9 @@
 
 #include <gtest/gtest.h>
 #include <Eigen/Core>
-#include <algorithm>
+#include <array>
 #include <cstdint>
-#include <ranges>
+#include <utility>
 #include <vector>
 
 /*! @brief Reference algorithm state, mirroring DvAccumulationAlgorithm's private members. */
@@ -19,6 +19,48 @@ struct ReferenceState {
     uint64_t previousTime{0U};
     uint32_t dvInitialized{0U};
 };
+
+/*! @brief Reference sort mirroring the algorithm's iterative quicksort exactly, so the reference
+ *         agrees with the algorithm on the order of equal-measTime packets (integration is
+ *         order-sensitive when timestamps repeat). */
+inline void referenceSortByMeasTime(AccDataMsgF32Payload& accData) {
+    std::array<int, MAX_ACC_BUF_PKT> indexStack{};
+    int top = -1;
+    ++top;
+    indexStack[static_cast<size_t>(top)] = 0;
+    ++top;
+    indexStack[static_cast<size_t>(top)] = MAX_ACC_BUF_PKT - 1;
+
+    while (top >= 1) {
+        auto const end = indexStack[static_cast<size_t>(top)];
+        auto const start = indexStack[static_cast<size_t>(top - 1)];
+        top -= 2;
+
+        auto const pivot = accData.accPkts[static_cast<size_t>(end)].measTime;
+        int partitionIndex = start;
+        for (int i = start; i < end; ++i) {
+            if (accData.accPkts[static_cast<size_t>(i)].measTime <= pivot) {
+                std::swap(accData.accPkts[static_cast<size_t>(i)],
+                          accData.accPkts[static_cast<size_t>(partitionIndex)]);
+                ++partitionIndex;
+            }
+        }
+        std::swap(accData.accPkts[static_cast<size_t>(partitionIndex)], accData.accPkts[static_cast<size_t>(end)]);
+
+        if (partitionIndex - 1 > start) {
+            ++top;
+            indexStack[static_cast<size_t>(top)] = start;
+            ++top;
+            indexStack[static_cast<size_t>(top)] = partitionIndex - 1;
+        }
+        if (partitionIndex + 1 < end) {
+            ++top;
+            indexStack[static_cast<size_t>(top)] = partitionIndex + 1;
+            ++top;
+            indexStack[static_cast<size_t>(top)] = end;
+        }
+    }
+}
 
 /*! @brief Reference resetState: zero accumulator, seed previousTime from the latest non-zero
  *         measTime in the sorted buffer, mark un-initialized so the first update() will skip
@@ -29,7 +71,7 @@ inline void referenceResetState(ReferenceState& s, const AccDataMsgF32Payload& a
     s.dvInitialized = 0U;
 
     AccDataMsgF32Payload sorted = accData;
-    std::ranges::sort(sorted.accPkts, std::ranges::less{}, &AccPktDataMsgF32Payload::measTime);
+    referenceSortByMeasTime(sorted);
     for (int i = (MAX_ACC_BUF_PKT - 1); i >= 0; i--) {
         if (sorted.accPkts[i].measTime > 0) {
             s.previousTime = sorted.accPkts[i].measTime;
@@ -42,7 +84,7 @@ inline void referenceResetState(ReferenceState& s, const AccDataMsgF32Payload& a
  *         newer packet), then integrate every subsequent packet via dt * accel. */
 inline DvAccumulationOutput referenceUpdate(ReferenceState& s, const AccDataMsgF32Payload& accData) {
     AccDataMsgF32Payload sorted = accData;
-    std::ranges::sort(sorted.accPkts, std::ranges::less{}, &AccPktDataMsgF32Payload::measTime);
+    referenceSortByMeasTime(sorted);
 
     if (s.dvInitialized == 0U) {
         for (uint32_t i = 0U; i < MAX_ACC_BUF_PKT; i++) {
