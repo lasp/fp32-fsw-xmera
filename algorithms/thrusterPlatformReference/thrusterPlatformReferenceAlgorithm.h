@@ -1,6 +1,7 @@
 #ifndef F32XMERA_THRUSTER_PLATFORM_REFERENCE_ALGORITHM_H
 #define F32XMERA_THRUSTER_PLATFORM_REFERENCE_ALGORITHM_H
 
+#include "thrusterPlatformReferenceTypes.h"
 #include "utilities/fsw/freestandingInvalidArgument.h"
 #include "utilities/fsw/freestandingIsFinite.hpp"
 #include <math.h>
@@ -8,7 +9,7 @@
 
 #include <Eigen/Core>
 
-inline constexpr int kMaxNumRw = 36;  //!< [-] maximum number of reaction wheels (must match RW_EFF_CNT)
+inline constexpr int kMaxNumRw = THRUSTER_PLATFORM_REFERENCE_MAX_NUM_RW;  //!< [-] maximum number of reaction wheels
 
 /*! @brief Reaction-wheel spin-axis configuration used for momentum dumping. */
 struct ThrusterPlatformReferenceRwArrayConfig {

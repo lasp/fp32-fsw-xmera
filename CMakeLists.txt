@@ -135,6 +135,7 @@ set(algorithms
     "sunSearchPoint"
     "thrFiringRemainder"
     "thrFiringSchmitt"
+    "thrusterPlatformReference"
     "timeClosestApproach"
 )
 foreach(algorithm_name IN LISTS algorithms)
