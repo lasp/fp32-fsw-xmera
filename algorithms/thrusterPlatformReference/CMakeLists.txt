@@ -18,3 +18,5 @@ target_include_directories("${module}" PUBLIC
 target_link_libraries("${module}" PRIVATE
   Eigen3::Eigen
 )
+
+add_subdirectory(_tests)
