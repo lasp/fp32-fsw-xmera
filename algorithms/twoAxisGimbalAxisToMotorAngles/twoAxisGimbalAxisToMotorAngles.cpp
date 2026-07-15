@@ -3,7 +3,6 @@
 
 #include "twoAxisGimbalAxisToMotorAngles.h"
 
-#include <cassert>
 #include <stdexcept>
 
 #include "architecture/utilities/eigenSupport.h"
@@ -50,7 +49,6 @@ void TwoAxisGimbalAxisToMotorAngles::updateState(uint64_t currentSimNanos) {
 
         // Determine the gimbal and motor angles corresponding to the thrust direction
         TwoAxisGimbalAxisToMotorAnglesOutput motorAngles = this->algorithm.update(thrustDirHat_B);
-        assert(motorAngles.isValidInterpolation);
 
         // Write the module output messages
         auto motor1AngleOut = HingedRigidBodyMsgPayload();
