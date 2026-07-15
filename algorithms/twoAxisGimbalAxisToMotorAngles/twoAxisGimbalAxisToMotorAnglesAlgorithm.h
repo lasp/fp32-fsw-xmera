@@ -11,7 +11,7 @@
 #define NUM_GIMBAL_TO_MOTOR_TABLE_ROWS 111
 #define NUM_GIMBAL_TO_MOTOR_TABLE_COLS 76
 
-const double DEG2RAD = M_PI / 180.0;
+const double DEG2RAD = std::numbers::pi / 180.0;
 
 enum class FixedAngle { ANGLE_1_FIXED, ANGLE_2_FIXED };
 
