@@ -204,17 +204,12 @@ MotorAngles TwoAxisGimbalLookupTables::linearlyInterpolateAngles(double gimbalAn
     // Determine the bounding angles for linear interpolation
     MotorAngles lowerMotorBounds{};
     MotorAngles upperMotorBounds{};
-    switch (fixedAngle) {
-        case FixedAngle::ANGLE_1_FIXED:
-            lowerMotorBounds = this->pullAngles(gimbalAngle1, gimbalAngleLBound);
-            upperMotorBounds = this->pullAngles(gimbalAngle1, gimbalAngleUBound);
-
-            break;
-        case FixedAngle::ANGLE_2_FIXED:
-            lowerMotorBounds = this->pullAngles(gimbalAngleLBound, gimbalAngle2);
-            upperMotorBounds = this->pullAngles(gimbalAngleUBound, gimbalAngle2);
-
-            break;
+    if (fixedAngle == FixedAngle::ANGLE_1_FIXED) {
+        lowerMotorBounds = this->pullAngles(gimbalAngle1, gimbalAngleLBound);
+        upperMotorBounds = this->pullAngles(gimbalAngle1, gimbalAngleUBound);
+    } else {
+        lowerMotorBounds = this->pullAngles(gimbalAngleLBound, gimbalAngle2);
+        upperMotorBounds = this->pullAngles(gimbalAngleUBound, gimbalAngle2);
     }
 
     double motor1AngleLBound = lowerMotorBounds.angle1;
