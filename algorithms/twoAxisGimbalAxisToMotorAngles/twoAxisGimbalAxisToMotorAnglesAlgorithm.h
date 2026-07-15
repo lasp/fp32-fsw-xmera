@@ -59,8 +59,12 @@ class TwoAxisGimbalAxisToMotorAnglesAlgorithm final {
     MotorAngles bilinearlyInterpolateAngles(double gimbalAngle1, double gimbalAngle2) const;
     MotorAngles linearlyInterpolateAngles(double gimbalAngle1, double gimbalAngle2, FixedAngle fixedAngle) const;
 
+    static constexpr double kTableStepAngleDeg = 0.5;  //!< [deg] Interpolation table motor discretization step
+    static constexpr double kInterpolationRemainderTolerance =
+        1e-3;  //!< Tolerance for treating a normalized gimbal angle as landing exactly on a table node
+
     Eigen::Matrix3d dcm_MB;  //!< Attitude DCM for the gimbal mount frame (hub-fixed) relative to the hub body B frame
-    double tableStepAngle{0.5 * DEG2RAD};  //!< [rad] Interpolation table motor discretization angle
+    double tableStepAngle{kTableStepAngleDeg * DEG2RAD};  //!< [rad] Interpolation table motor discretization angle
     std::array<std::array<double, NUM_GIMBAL_TO_MOTOR_TABLE_COLS>, NUM_GIMBAL_TO_MOTOR_TABLE_ROWS>
         gimbalAnglesToMotor1AngleData;  //!< [rad] Gimbal-to-motor 1 angle interpolation table storage array
     std::array<std::array<double, NUM_GIMBAL_TO_MOTOR_TABLE_COLS>, NUM_GIMBAL_TO_MOTOR_TABLE_ROWS>

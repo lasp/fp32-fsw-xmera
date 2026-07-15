@@ -120,7 +120,7 @@ bool TwoAxisGimbalAxisToMotorAnglesAlgorithm::bilinearInterpolationRequired(cons
     const double motor2Exact = fabs(gimbalAngle2 / this->tableStepAngle);
     const double motor2Remainder = fabs(motor2Exact - motor2Rounded);
 
-    return motor1Remainder >= 1e-3 && motor2Remainder >= 1e-3;
+    return motor1Remainder >= kInterpolationRemainderTolerance && motor2Remainder >= kInterpolationRemainderTolerance;
 }
 
 /*! This method determines if no interpolation is required to obtain the desired angles.
@@ -138,7 +138,7 @@ bool TwoAxisGimbalAxisToMotorAnglesAlgorithm::noInterpolationRequired(const doub
     const double motor2Exact = fabs(gimbalAngle2 / this->tableStepAngle);
     const double motor2Remainder = fabs(motor2Exact - motor2Rounded);
 
-    return motor1Remainder < 1e-3 && motor2Remainder < 1e-3;
+    return motor1Remainder < kInterpolationRemainderTolerance && motor2Remainder < kInterpolationRemainderTolerance;
 }
 
 /*! This method determines if linear interpolation is required to obtain the desired angles.
@@ -150,7 +150,7 @@ bool TwoAxisGimbalAxisToMotorAnglesAlgorithm::linearInterpolationRequired(const 
     const double exact = fabs(angle / this->tableStepAngle);
     const double remainder = fabs(exact - rounded);
 
-    return remainder < 1e-3;
+    return remainder < kInterpolationRemainderTolerance;
 }
 
 /*! This method bilinearly interpolates the motor angles from the four surrounding interpolation-table entries. If
