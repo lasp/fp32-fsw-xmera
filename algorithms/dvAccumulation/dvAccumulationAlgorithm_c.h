@@ -20,9 +20,9 @@ typedef struct DvAccumulationAlgorithmHandle DvAccumulationAlgorithmHandle;
 uint32_t DvAccumulationAlgorithm_getMaxAccBufPkt(void);
 
 /*!
- * @brief Construct a new DvAccumulationAlgorithm with a default-built empty config.
+ * @brief Construct a new DvAccumulationAlgorithm.
  *
- * dvAccumulation has no tunable parameters; the Config is built internally.
+ * dvAccumulation has no tunable parameters, so there is nothing to configure.
  *
  * @return Pointer to a new DvAccumulationAlgorithm (must be destroyed).
  */
@@ -35,12 +35,18 @@ DvAccumulationAlgorithmHandle* DvAccumulationAlgorithm_create(void);
 void DvAccumulationAlgorithm_destroy(DvAccumulationAlgorithmHandle* self);
 
 /*!
- * @brief Re-initialise the accumulator and seed previousTime from the input snapshot's latest
- *        measTime so the next update() only integrates strictly newer packets.
- * @param self    Pointer to the instance.
- * @param accData Input accelerometer-packet snapshot.
+ * @brief Reset all state: the accumulator plus the persistent integration bookkeeping
+ *        (previousTime, dvInitialized).
+ * @param self Pointer to the instance.
  */
-void DvAccumulationAlgorithm_resetState(DvAccumulationAlgorithmHandle* self, const AccDataMsgF32Payload* accData);
+void DvAccumulationAlgorithm_reInitialize(DvAccumulationAlgorithmHandle* self);
+
+/*!
+ * @brief Reset only the non-persistent accumulator, keeping previousTime and dvInitialized so a
+ *        continuously-running module ignores the backlog already ingested.
+ * @param self Pointer to the instance.
+ */
+void DvAccumulationAlgorithm_reInitializeExceptPersistentStates(DvAccumulationAlgorithmHandle* self);
 
 /*!
  * @brief Integrate any packets newer than the previously-seen latest measTime into the running

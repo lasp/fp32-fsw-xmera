@@ -6,16 +6,19 @@
 uint32_t DvAccumulationAlgorithm_getMaxAccBufPkt(void) { return MAX_ACC_BUF_PKT; }
 
 DvAccumulationAlgorithmHandle* DvAccumulationAlgorithm_create(void) {
-    return reinterpret_cast<DvAccumulationAlgorithmHandle*>(
-        new ::DvAccumulationAlgorithm(DvAccumulationConfig::create()));
+    return reinterpret_cast<DvAccumulationAlgorithmHandle*>(new ::DvAccumulationAlgorithm());
 }
 
 void DvAccumulationAlgorithm_destroy(DvAccumulationAlgorithmHandle* self) {
     delete reinterpret_cast<::DvAccumulationAlgorithm*>(self);
 }
 
-void DvAccumulationAlgorithm_resetState(DvAccumulationAlgorithmHandle* self, const AccDataMsgF32Payload* accData) {
-    reinterpret_cast<::DvAccumulationAlgorithm*>(self)->resetState(*accData);
+void DvAccumulationAlgorithm_reInitialize(DvAccumulationAlgorithmHandle* self) {
+    reinterpret_cast<::DvAccumulationAlgorithm*>(self)->reInitialize();
+}
+
+void DvAccumulationAlgorithm_reInitializeExceptPersistentStates(DvAccumulationAlgorithmHandle* self) {
+    reinterpret_cast<::DvAccumulationAlgorithm*>(self)->reInitializeExceptPersistentStates();
 }
 
 DvAccumulationOutput_c DvAccumulationAlgorithm_update(DvAccumulationAlgorithmHandle* self,

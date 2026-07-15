@@ -16,6 +16,8 @@ class DvAccumulation final : public SysModel {
    public:
     void reset(uint64_t callTime) final;
     void updateState(uint64_t callTime) final;
+    void reInitialize();                        //!< Reset all algorithm state (state-transition hook)
+    void reInitializeExceptPersistentStates();  //!< Reset only non-persistent algorithm state
 
     Message<NavTransMsgF32Payload> dvAcumOutMsg;    //!< accumulated DV output message
     ReadFunctor<AccDataMsgF32Payload> accPktInMsg;  //!< [-] input accelerometer message

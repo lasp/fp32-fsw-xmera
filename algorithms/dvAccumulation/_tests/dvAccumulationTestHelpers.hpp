@@ -62,22 +62,12 @@ inline void referenceSortByMeasTime(AccDataMsgF32Payload& accData) {
     }
 }
 
-/*! @brief Reference resetState: zero accumulator, seed previousTime from the latest non-zero
- *         measTime in the sorted buffer, mark un-initialized so the first update() will skip
- *         the first newer packet (the algorithm's bootstrap behavior). */
-inline void referenceResetState(ReferenceState& s, const AccDataMsgF32Payload& accData) {
+/*! @brief Reference reInitialize: reset all state (accumulator, previousTime, dvInitialized), so the
+ *         first update() bootstraps on the first newer packet (the algorithm's bootstrap behavior). */
+inline void referenceReInitialize(ReferenceState& s) {
     s.vehAccumDV_B = Eigen::Vector3f::Zero();
     s.previousTime = 0U;
     s.dvInitialized = 0U;
-
-    AccDataMsgF32Payload sorted = accData;
-    referenceSortByMeasTime(sorted);
-    for (int i = (MAX_ACC_BUF_PKT - 1); i >= 0; i--) {
-        if (sorted.accPkts[i].measTime > 0) {
-            s.previousTime = sorted.accPkts[i].measTime;
-            break;
-        }
-    }
 }
 
 /*! @brief Reference update: sort by measTime, run the dvInitialized bootstrap (skips the first
@@ -139,15 +129,14 @@ inline void testDvAccumulationFuzz(const std::vector<uint64_t>& measTimes, const
     }
 
     const AccDataMsgF32Payload snap = buildAccData(measTimes, accels);
-    const AccDataMsgF32Payload emptyReset = buildAccData({}, {});
 
-    DvAccumulationAlgorithm alg(DvAccumulationConfig::create());
-    alg.resetState(emptyReset);
+    DvAccumulationAlgorithm alg{};
+    alg.reInitialize();
     DvAccumulationOutput algOut{};
     EXPECT_NO_THROW(algOut = alg.update(snap));
 
     ReferenceState ref{};
-    referenceResetState(ref, emptyReset);
+    referenceReInitialize(ref);
     const DvAccumulationOutput refOut = referenceUpdate(ref, snap);
 
     for (int i = 0; i < 3; ++i) {
@@ -159,13 +148,12 @@ inline void testDvAccumulationFuzz(const std::vector<uint64_t>& measTimes, const
 
 /*! @brief Drive the algorithm through a sequence of input snapshots and compare to the reference
  *         at every step. */
-inline void testDvAccumulation(const std::vector<AccDataMsgF32Payload>& snapshots,
-                               const AccDataMsgF32Payload& resetSnapshot) {
-    DvAccumulationAlgorithm alg(DvAccumulationConfig::create());
-    alg.resetState(resetSnapshot);
+inline void testDvAccumulation(const std::vector<AccDataMsgF32Payload>& snapshots) {
+    DvAccumulationAlgorithm alg{};
+    alg.reInitialize();
 
     ReferenceState ref{};
-    referenceResetState(ref, resetSnapshot);
+    referenceReInitialize(ref);
 
     for (const AccDataMsgF32Payload& snap : snapshots) {
         DvAccumulationOutput algOut{};
@@ -180,12 +168,10 @@ inline void testDvAccumulation(const std::vector<AccDataMsgF32Payload>& snapshot
     }
 }
 
-/*! @brief Empty-Config exercise: the Config factory always returns a valid instance, and the
- *         algorithm constructor accepts it. */
+/*! @brief Construction exercise: the algorithm default-constructs without throwing. */
 inline void testDvAccumulationSetup() {
     EXPECT_NO_THROW({
-        const DvAccumulationConfig cfg = DvAccumulationConfig::create();
-        const DvAccumulationAlgorithm alg(cfg);
+        const DvAccumulationAlgorithm alg{};
         (void)alg;
     });
 }

@@ -9,13 +9,19 @@ void DvAccumulation::reset(const uint64_t callTime) {
         throw std::invalid_argument("dvAccumulation.accPktInMsg wasn't connected.");
     }
 
-    auto config = DvAccumulationConfig::create();
-    this->algorithm = std::make_unique<DvAccumulationAlgorithm>(config);
+    this->algorithm = std::make_unique<DvAccumulationAlgorithm>();
+}
 
-    /*! - seed the algorithm's previousTime from the current input buffer so future updates only
-     *    integrate truly new packets */
-    const AccDataMsgF32Payload inputAccData = this->accPktInMsg();
-    this->algorithm->resetState(inputAccData);
+void DvAccumulation::reInitialize() {
+    if (this->algorithm) {
+        this->algorithm->reInitialize();
+    }
+}
+
+void DvAccumulation::reInitializeExceptPersistentStates() {
+    if (this->algorithm) {
+        this->algorithm->reInitializeExceptPersistentStates();
+    }
 }
 
 void DvAccumulation::updateState(const uint64_t callTime) {

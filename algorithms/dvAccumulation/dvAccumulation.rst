@@ -32,23 +32,23 @@ Message Connection Descriptions
 
 Module Parameters
 -----------------
-``dvAccumulation`` has no tunable parameters. The Config class
-(``DvAccumulationConfig``) is intentionally empty — its only role is to keep the algorithm
-shape uniform with every other ported algorithm (two-phase init: ``Config::create()`` in
-the adapter's ``reset()``, passed to the algorithm constructor).
+``dvAccumulation`` has no tunable parameters, so there is no Config class — the algorithm is
+default-constructed by the adapter's ``reset()``.
 
 Module Assumptions and Limitations
 ----------------------------------
 - ``measTime`` is in nanoseconds.
-- The algorithm holds running state (``vehAccumDV_B``, ``previousTime``, ``dvInitialized``). The
-  state is zeroed on ``reset()``; outside of that boundary the accumulator only grows.
-- Reset semantics: ``resetState(accData)`` seeds ``previousTime`` to the latest non-zero
-  ``measTime`` in the input snapshot so the first ``update()`` after reset integrates only
-  packets that arrived after that latch.
-- Bootstrap: on the first ``update()`` after a reset, the first packet with ``measTime`` greater
-  than the seeded ``previousTime`` is *consumed* by the bootstrap (it becomes the new
-  ``previousTime``, no integration), and only subsequent packets contribute. This is faithful
-  to the original Xmera module semantics.
+- The algorithm holds running state split into **non-persistent** (``vehAccumDV_B``) and
+  **persistent** (``previousTime``, ``dvInitialized``). ``reInitialize()`` resets all of it;
+  ``reInitializeExceptPersistentStates()`` resets only ``vehAccumDV_B``, keeping the integration
+  bookkeeping so a continuously-running module ignores the backlog already ingested.
+- Lifecycle: the adapter constructs the algorithm in ``reset()`` (startup only). State-transition
+  hooks call ``reInitialize()`` / ``reInitializeExceptPersistentStates()``; ``reset()`` is not
+  re-invoked on transitions.
+- Bootstrap: on the first ``update()`` after ``reInitialize()`` (``dvInitialized == 0``,
+  ``previousTime == 0``), the first packet with ``measTime`` greater than ``previousTime`` is
+  *consumed* by the bootstrap (it becomes the new ``previousTime``, no integration), and only
+  subsequent packets contribute. This is faithful to the original Xmera module semantics.
 - Packets with ``measTime`` not strictly greater than ``previousTime`` are dropped at ingest, so
   out-of-order or repeated input is safe (sorting is done inside the algorithm).
 - If the ring is empty or no packet beats ``previousTime`` on a given snapshot, the output
@@ -67,10 +67,11 @@ Three-layer split:
 - **Algorithm (``dvAccumulationAlgorithm.h/.cpp``, ``class DvAccumulationAlgorithm``).** Pure
   algorithm — no SysModel, no messaging. Takes ``AccDataMsgF32Payload`` and returns a
   ``DvAccumulationOutput`` carrying ``timeTag`` (double, s) and ``vehAccumDV_B``
-  (``Eigen::Vector3f``, m/s). The empty ``DvAccumulationConfig`` flows through the constructor.
+  (``Eigen::Vector3f``, m/s). Default-constructed — no configuration.
 - **C shim (``dvAccumulationAlgorithm_c.h/.cpp``, ``dvAccumulationTypes.h``).** Pure-C interface
-  for Ada FFI: opaque handle plus ``DvAccumulationAlgorithm_create``/``_destroy``/``_resetState``/
-  ``_update``. ``dvAccumulationTypes.h`` (pure C) declares ``DvAccumulationOutput_c``, which is
+  for Ada FFI: opaque handle plus ``DvAccumulationAlgorithm_create``/``_destroy``/
+  ``_reInitialize``/``_reInitializeExceptPersistentStates``/``_update``. ``dvAccumulationTypes.h``
+  (pure C) declares ``DvAccumulationOutput_c``, which is
   the POD mirror of the C++ output using the shared ``Vector3f_c`` from
   ``utilities/fsw/plainCAlgorithmDataTypes.h``. The shim exposes
   ``DvAccumulationAlgorithm_getMaxAccBufPkt()`` for Ada elaboration-time validation against
@@ -80,10 +81,11 @@ Algorithm Layer
 ---------------
 Given an input snapshot ``localPkts`` and the previously-seen latest time ``previousTime``:
 
-1. Sort ``localPkts.accPkts`` in place (well, a local copy) by ascending ``measTime`` using
-   ``std::ranges::sort``.
-2. On the first ``update()`` after a reset (``dvInitialized == 0``), scan the sorted buffer
-   for the first packet with ``measTime > previousTime`` and latch it as the new
+1. Sort ``localPkts.accPkts`` in place (a local copy) by ascending ``measTime`` using an
+   iterative quicksort (a hand-written sort is used rather than ``std::ranges::sort`` to avoid a
+   libstdc++ ``clang-analyzer-security.ArrayBound`` false positive on the raw C array).
+2. On the first ``update()`` after ``reInitialize()`` (``dvInitialized == 0``), scan the sorted
+   buffer for the first packet with ``measTime > previousTime`` and latch it as the new
    ``previousTime`` (consuming that packet — it doesn't integrate). Mark ``dvInitialized = 1``.
 3. Iterate the sorted buffer. For each packet with ``measTime > previousTime``:
 

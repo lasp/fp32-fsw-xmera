@@ -54,28 +54,18 @@ void sortByMeasTime(AccDataMsgF32Payload& accData) {
 }
 }  // namespace
 
-DvAccumulationAlgorithm::DvAccumulationAlgorithm(const DvAccumulationConfig& config) : cfg(config) {}
+DvAccumulationAlgorithm::DvAccumulationAlgorithm() { this->reInitialize(); }
 
-void DvAccumulationAlgorithm::setConfig(const DvAccumulationConfig& config) { this->cfg = config; }
-
-void DvAccumulationAlgorithm::resetState(const AccDataMsgF32Payload& accData) {
-    /*! - reset accumulator and bookkeeping */
+void DvAccumulationAlgorithm::reInitializeExceptPersistentStates() {
+    /*! - reset only the non-persistent accumulator; previousTime and dvInitialized persist */
     this->vehAccumDV_B = Eigen::Vector3f::Zero();
+}
+
+void DvAccumulationAlgorithm::reInitialize() {
+    /*! - reset all state, including the persistent integration bookkeeping */
+    this->reInitializeExceptPersistentStates();
     this->previousTime = 0U;
     this->dvInitialized = 0U;
-
-    /*! - sort a local copy so the caller's buffer is untouched */
-    AccDataMsgF32Payload sorted = accData;
-    sortByMeasTime(sorted);
-
-    /*! - seed previousTime to the latest non-zero measTime in the buffer so the first update() only
-     *    integrates packets that arrived after reset */
-    for (int i = MAX_ACC_BUF_PKT - 1; i >= 0; --i) {
-        if (sorted.accPkts[i].measTime > 0) {
-            this->previousTime = sorted.accPkts[i].measTime;
-            break;
-        }
-    }
 }
 
 DvAccumulationOutput DvAccumulationAlgorithm::update(const AccDataMsgF32Payload& accData) {
