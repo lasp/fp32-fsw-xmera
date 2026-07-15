@@ -99,3 +99,109 @@ TEST(ThrusterPlatformReferenceTest, RwSpinAxisNormalized) {
         ThrusterPlatformReferenceConfig::create(zero, zero, zero, 1.0F, 0.0F, -1.0F, -1.0F, true, rw);
     EXPECT_NEAR(cfg.getRwConfig().GsMatrix_B.col(0).norm(), 1.0F, 1e-6F);
 }
+
+// The configuration getters return the values supplied to create().
+TEST(ThrusterPlatformReferenceTest, ConfigRoundTrip) {
+    const Eigen::Vector3f sigma_MB(0.1F, -0.2F, 0.3F);
+    const Eigen::Vector3f r_BM_M(0.0F, 0.1F, 1.4F);
+    const Eigen::Vector3f r_FM_F(0.0F, 0.0F, -0.1F);
+    const ThrusterPlatformReferenceConfig cfg = ThrusterPlatformReferenceConfig::create(
+        sigma_MB, r_BM_M, r_FM_F, 5.0F, 0.5F, 0.2F, 0.3F, false, ThrusterPlatformReferenceRwArrayConfig{});
+    EXPECT_TRUE(cfg.getSigma_MB().isApprox(sigma_MB));
+    EXPECT_TRUE(cfg.getR_BM_M().isApprox(r_BM_M));
+    EXPECT_TRUE(cfg.getR_FM_F().isApprox(r_FM_F));
+    EXPECT_FLOAT_EQ(cfg.getK(), 5.0F);
+    EXPECT_FLOAT_EQ(cfg.getKi(), 0.5F);
+    EXPECT_FLOAT_EQ(cfg.getTheta1Max(), 0.2F);
+    EXPECT_FLOAT_EQ(cfg.getTheta2Max(), 0.3F);
+    EXPECT_FALSE(cfg.getMomentumDumping());
+}
+
+// ---------------------------------------------------------------------------
+// Property tests
+// ---------------------------------------------------------------------------
+
+// All outputs are finite for an arbitrary valid configuration and input.
+TEST(ThrusterPlatformReferenceTest, PropertyOutputsFinite) {
+    ThrusterPlatformReferenceAlgorithm alg{
+        makeAlignmentConfig({0.1F, -0.2F, 0.3F}, {0.0F, 0.1F, 1.4F}, {0.0F, 0.0F, -0.1F}, -1.0F, -1.0F)};
+    const ThrusterPlatformReferenceOutput out =
+        alg.update(makeInputs({0.2F, -0.1F, 0.15F}, {-0.01F, 0.03F, 0.02F}, {1.0F, 1.0F, 10.0F}, 10.0F), 0);
+
+    EXPECT_TRUE(std::isfinite(out.theta1));
+    EXPECT_TRUE(std::isfinite(out.theta2));
+    EXPECT_TRUE(out.rHat_XB_B.allFinite());
+    EXPECT_TRUE(out.torqueRequestBody.allFinite());
+    EXPECT_TRUE(out.rThrust_B.allFinite());
+    EXPECT_TRUE(out.tHatThrust_B.allFinite());
+    EXPECT_TRUE(std::isfinite(out.maxThrust));
+}
+
+// The reported thrust headings are unit vectors and the reported thrust magnitude matches the input.
+TEST(ThrusterPlatformReferenceTest, PropertyHeadingsAreUnitAndThrustPreserved) {
+    ThrusterPlatformReferenceAlgorithm alg{
+        makeAlignmentConfig({0.05F, 0.1F, -0.2F}, {0.0F, 0.1F, 1.4F}, {0.0F, 0.0F, -0.1F}, -1.0F, -1.0F)};
+    const ThrusterPlatformReferenceOutput out =
+        alg.update(makeInputs({0.1F, 0.2F, -0.1F}, {-0.01F, 0.03F, 0.02F}, {2.0F, -1.0F, 8.0F}, 7.5F), 0);
+
+    EXPECT_NEAR(out.rHat_XB_B.norm(), 1.0F, 1e-5F);
+    EXPECT_NEAR(out.tHatThrust_B.norm(), 1.0F, 1e-5F);
+    EXPECT_NEAR(out.maxThrust, 7.5F, 1e-5F);
+}
+
+// When angle bounds are set, the reported tip/tilt angles stay within them.
+TEST(ThrusterPlatformReferenceTest, PropertyAngleBoundsRespected) {
+    constexpr float bound = 0.05F;
+    ThrusterPlatformReferenceAlgorithm alg{
+        makeAlignmentConfig({0.0F, 0.0F, 0.0F}, {0.0F, 0.5F, 1.4F}, {0.0F, 0.0F, -0.1F}, bound, bound)};
+    const ThrusterPlatformReferenceOutput out =
+        alg.update(makeInputs({0.4F, 0.3F, 0.1F}, {-0.05F, 0.06F, 0.02F}, {1.0F, 1.0F, 3.0F}, 5.0F), 0);
+
+    EXPECT_LE(std::fabs(out.theta1), bound + 1e-5F);
+    EXPECT_LE(std::fabs(out.theta2), bound + 1e-5F);
+}
+
+// The momentum-dumping path (K > 0 with a valid RW configuration) produces finite outputs.
+TEST(ThrusterPlatformReferenceTest, PropertyMomentumDumpingFinite) {
+    ThrusterPlatformReferenceRwArrayConfig rw{};
+    rw.numRW = 3U;
+    rw.GsMatrix_B.col(0) = Eigen::Vector3f(1.0F, 0.0F, 0.0F);
+    rw.GsMatrix_B.col(1) = Eigen::Vector3f(0.0F, 1.0F, 0.0F);
+    rw.GsMatrix_B.col(2) = Eigen::Vector3f(0.0F, 0.0F, 1.0F);
+    rw.JsList(0) = 0.01F;
+    rw.JsList(1) = 0.01F;
+    rw.JsList(2) = 0.01F;
+    ThrusterPlatformReferenceAlgorithm alg{ThrusterPlatformReferenceConfig::create(
+        {0.0F, 0.0F, 0.0F}, {0.0F, 0.1F, 1.4F}, {0.0F, 0.0F, -0.1F}, 5.0F, 1.0F, -1.0F, -1.0F, true, rw)};
+
+    ThrusterPlatformReferenceInputs in =
+        makeInputs({0.1F, 0.05F, 0.1F}, {-0.01F, 0.03F, 0.02F}, {1.0F, 1.0F, 10.0F}, 10.0F);
+    in.wheelSpeeds(0) = 100.0F;
+    in.wheelSpeeds(1) = 100.0F;
+    in.wheelSpeeds(2) = 100.0F;
+
+    // advance two steps so the integral term accumulates a non-zero dt (1 s in nanoseconds)
+    constexpr uint64_t stepNs = 1000000000ULL;
+    alg.update(in, stepNs);
+    const ThrusterPlatformReferenceOutput out = alg.update(in, 2ULL * stepNs);
+
+    EXPECT_TRUE(std::isfinite(out.theta1));
+    EXPECT_TRUE(std::isfinite(out.theta2));
+    EXPECT_TRUE(out.torqueRequestBody.allFinite());
+}
+
+// ---------------------------------------------------------------------------
+// Edge cases
+// ---------------------------------------------------------------------------
+
+// With the center of mass already on the thrust line the reference angles are near zero.
+TEST(ThrusterPlatformReferenceTest, EdgeCenterOfMassOnThrustLine) {
+    // M == B, thruster fires along +z from the F origin, CM placed straight ahead on that axis.
+    ThrusterPlatformReferenceAlgorithm alg{
+        makeAlignmentConfig({0.0F, 0.0F, 0.0F}, {0.0F, 0.0F, 1.0F}, {0.0F, 0.0F, 0.0F}, -1.0F, -1.0F)};
+    const ThrusterPlatformReferenceOutput out =
+        alg.update(makeInputs({0.0F, 0.0F, 0.0F}, {0.0F, 0.0F, 0.0F}, {0.0F, 0.0F, 1.0F}, 5.0F), 0);
+
+    EXPECT_NEAR(out.theta1, 0.0F, 1e-5F);
+    EXPECT_NEAR(out.theta2, 0.0F, 1e-5F);
+}
