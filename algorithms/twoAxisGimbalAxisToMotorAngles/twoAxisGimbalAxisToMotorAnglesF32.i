@@ -12,8 +12,10 @@
 %include <swig_eigen.i>
 %include <sys_model.i>
 
+%include "twoAxisGimbalAxisToMotorAnglesTypes.h"
+
 %template(GimbalMotorTableRow) std::array<float, 76>;
-%template(GimbalMotorTable) std::array<std::array<float, 76>, 111>;
+%template(GimbalMotorTable2D) std::array<std::array<float, 76>, 111>;
 
 %include "twoAxisGimbalAxisToMotorAnglesAlgorithm.h"
 %include "twoAxisGimbalAxisToMotorAngles.h"
