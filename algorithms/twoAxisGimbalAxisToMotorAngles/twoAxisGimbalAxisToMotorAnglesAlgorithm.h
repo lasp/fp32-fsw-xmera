@@ -42,24 +42,22 @@ class TwoAxisGimbalAxisToMotorAnglesAlgorithm final {
             gimbalToMotor2Data);  //!< Constructor; populates the gimbal-to-motor interpolation tables
 
     TwoAxisGimbalAxisToMotorAnglesOutput update(
-        const Eigen::Vector3d& thrustDirHat_B);  //!< Determine the gimbal and motor angles for a thrust direction
+        const Eigen::Vector3d& thrustDirHat_B) const;  //!< Determine the gimbal and motor angles for a thrust direction
 
     void setDcmMB(const Eigen::Matrix3d& dcm_MB);  //!< Setter for dcm_MB (DCM from body frame to gimbal mount frame)
     const Eigen::Matrix3d& getDcmMB() const;       //!< Getter for dcm_MB (DCM from body frame to gimbal mount frame)
 
    private:
-    MotorAngles gimbalAnglesToMotorAngles(double gimbalTipAngle,
-                                          double gimbalTiltAngle);  //!< Method to determine the stepper motor angles
-    //!< given the gimbal sequential tip and tilt angles
+    MotorAngles gimbalAnglesToMotorAngles(double gimbalTipAngle, double gimbalTiltAngle)
+        const;  //!< Method to determine the stepper motor angles given the gimbal sequential tip and tilt angles
     MotorAngles pullAngles(double gimbalAngle1, double gimbalAngle2) const;
-    bool bilinearInterpolationRequired(
-        double gimbalAngle1,
-        double gimbalAngle2);  //!< Method to determine if bilinear interpolation is required
+    bool bilinearInterpolationRequired(double gimbalAngle1, double gimbalAngle2)
+        const;  //!< Method to determine if bilinear interpolation is required
     bool noInterpolationRequired(double gimbalAngle1,
-                                 double gimbalAngle2);  //!< Method to determine if no interpolation is required
-    bool linearInterpolationRequired(double angle);     //!< Method to determine if linear interpolation is required
-    MotorAngles bilinearlyInterpolateAngles(double gimbalAngle1, double gimbalAngle2);
-    MotorAngles linearlyInterpolateAngles(double gimbalAngle1, double gimbalAngle2, FixedAngle fixedAngle);
+                                 double gimbalAngle2) const;  //!< Method to determine if no interpolation is required
+    bool linearInterpolationRequired(double angle) const;  //!< Method to determine if linear interpolation is required
+    MotorAngles bilinearlyInterpolateAngles(double gimbalAngle1, double gimbalAngle2) const;
+    MotorAngles linearlyInterpolateAngles(double gimbalAngle1, double gimbalAngle2, FixedAngle fixedAngle) const;
 
     Eigen::Matrix3d dcm_MB;  //!< Attitude DCM for the gimbal mount frame (hub-fixed) relative to the hub body B frame
     double tableStepAngle{0.5 * DEG2RAD};  //!< [rad] Interpolation table motor discretization angle
