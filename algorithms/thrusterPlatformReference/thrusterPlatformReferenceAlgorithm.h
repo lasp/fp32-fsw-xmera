@@ -129,6 +129,11 @@ class ThrusterPlatformReferenceConfig final {
     const ThrusterPlatformReferenceRwArrayConfig& getRwConfig() const { return rwConfig; }
 
    private:
+    // NOLINTBEGIN(bugprone-easily-swappable-parameters, modernize-pass-by-value)
+    // bugprone-easily-swappable-parameters: the geometry vectors and gains mirror the documented physical
+    //   configuration; reordering them would be a caller error caught by the field-specific validators.
+    // modernize-pass-by-value: this is a private constructor invoked only from create() with already-validated
+    //   arguments; the small Eigen vectors are stored by copy without a move for clarity.
     ThrusterPlatformReferenceConfig(const Eigen::Vector3f& sigma_MB,
                                     const Eigen::Vector3f& r_BM_M,
                                     const Eigen::Vector3f& r_FM_F,
@@ -147,6 +152,7 @@ class ThrusterPlatformReferenceConfig final {
           theta2Max(theta2Max),
           momentumDumping(momentumDumping),
           rwConfig(rwConfig) {}
+    // NOLINTEND(bugprone-easily-swappable-parameters, modernize-pass-by-value)
 
     Eigen::Vector3f sigma_MB;
     Eigen::Vector3f r_BM_M;

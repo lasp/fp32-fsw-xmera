@@ -45,10 +45,10 @@ Eigen::Matrix3f tprComputeSecondRotation(const Eigen::Vector3f& r_CM_F,
     if (fabsf(a) >= kZeroTolerance) {
         const float beta = safeAcosf(-r_TM_F.dot(THat_F) / a);
         const float nu = safeAcosf(-r_TM_F.dot(r_CT_F) / (a * c1));
-        const float c2 = a * safeCosf(beta) + safeSqrtf(b * b - a * a * safeSinf(beta) * safeSinf(beta));
-        const float cosGamma1 = (a * a + b * b - c1 * c1) / (2.0F * a * b);
-        const float cosGamma2 = (a * a + b * b - c2 * c2) / (2.0F * a * b);
-        psi = safeAsinf((c1 * safeSinf(nu) * cosGamma2 - c2 * safeSinf(beta) * cosGamma1) / b);
+        const float c2 = (a * safeCosf(beta)) + safeSqrtf((b * b) - (a * a * safeSinf(beta) * safeSinf(beta)));
+        const float cosGamma1 = ((a * a) + (b * b) - (c1 * c1)) / (2.0F * a * b);
+        const float cosGamma2 = ((a * a) + (b * b) - (c2 * c2)) / (2.0F * a * b);
+        psi = safeAsinf(((c1 * safeSinf(nu) * cosGamma2) - (c2 * safeSinf(beta) * cosGamma1)) / b);
     }
 
     Eigen::Vector3f e_psi = THat_F.cross(r_CT_F);
@@ -63,10 +63,10 @@ Eigen::Matrix3f tprComputeThirdRotation(const Eigen::Vector3f& e_theta, const Ei
     const float e2 = e_theta(1);
     const float e3 = e_theta(2);
 
-    const float A = 2.0F * (F2M(1, 0) * e2 * e2 + F2M(0, 0) * e1 * e2 + F2M(2, 0) * e2 * e3) - F2M(1, 0);
-    const float B = 2.0F * (F2M(2, 0) * e1 - F2M(0, 0) * e3);
+    const float A = (2.0F * ((F2M(1, 0) * e2 * e2) + (F2M(0, 0) * e1 * e2) + (F2M(2, 0) * e2 * e3))) - F2M(1, 0);
+    const float B = 2.0F * ((F2M(2, 0) * e1) - (F2M(0, 0) * e3));
     const float C = F2M(1, 0);
-    const float Delta = B * B - 4.0F * A * C;
+    const float Delta = (B * B) - (4.0F * A * C);
 
     float theta = 0.0F;
     if (fabsf(A) < kZeroTolerance) {
@@ -82,15 +82,15 @@ Eigen::Matrix3f tprComputeThirdRotation(const Eigen::Vector3f& e_theta, const Ei
         float t = 0.0F;
         if (fabsf(B) >= kZeroTolerance) {
             const float q = (A - C) / B;
-            const float t1 = q + safeSqrtf(q * q + 1.0F);
-            const float t2 = q - safeSqrtf(q * q + 1.0F);
-            const float y1 = (A * t1 * t1 + B * t1 + C) / (1.0F + t1 * t1);
-            const float y2 = (A * t2 * t2 + B * t2 + C) / (1.0F + t2 * t2);
+            const float t1 = q + safeSqrtf((q * q) + 1.0F);
+            const float t2 = q - safeSqrtf((q * q) + 1.0F);
+            const float y1 = ((A * t1 * t1) + (B * t1) + C) / (1.0F + (t1 * t1));
+            const float y2 = ((A * t2 * t2) + (B * t2) + C) / (1.0F + (t2 * t2));
             // choose the root that yields the smaller function value
             t = (fabsf(y2) < fabsf(y1)) ? t2 : t1;
         }
         theta = 2.0F * safeAtanf(t);
-        const float y = (A * t * t + B * t + C) / (1.0F + t * t);
+        const float y = ((A * t * t) + (B * t) + C) / (1.0F + (t * t));
         // check whether the absolute function minimum is at theta = pi
         if (fabsf(A) < fabsf(y)) {
             theta = std::numbers::pi_v<float>;
@@ -107,6 +107,7 @@ Eigen::Matrix3f tprComputeThirdRotation(const Eigen::Vector3f& e_theta, const Ei
 }
 
 /*! Compose the three rotations into the platform-frame DCM that aligns the thruster with the center of mass. */
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters) -- the vectors are distinct by frame and documented.
 Eigen::Matrix3f tprComputeFinalRotation(const Eigen::Vector3f& r_CM_M,
                                         const Eigen::Vector3f& r_TM_F,
                                         const Eigen::Vector3f& T_F) {
