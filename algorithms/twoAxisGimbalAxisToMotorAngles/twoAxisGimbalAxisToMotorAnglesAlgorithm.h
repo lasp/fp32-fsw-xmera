@@ -63,12 +63,13 @@ class TwoAxisGimbalAxisToMotorAnglesAlgorithm final {
     static constexpr double kInterpolationRemainderTolerance =
         1e-3;  //!< Tolerance for treating a normalized gimbal angle as landing exactly on a table node
 
-    Eigen::Matrix3d dcm_MB;  //!< Attitude DCM for the gimbal mount frame (hub-fixed) relative to the hub body B frame
-    double tableStepAngle{kTableStepAngleDeg * DEG2RAD};  //!< [rad] Interpolation table motor discretization angle
+    Eigen::Matrix3d dcm_MB = Eigen::Matrix3d::Identity();  //!< Attitude DCM for the gimbal mount frame (hub-fixed)
+                                                           //!< relative to the hub body B frame
+    double tableStepAngle{kTableStepAngleDeg * DEG2RAD};   //!< [rad] Interpolation table motor discretization angle
     std::array<std::array<double, NUM_GIMBAL_TO_MOTOR_TABLE_COLS>, NUM_GIMBAL_TO_MOTOR_TABLE_ROWS>
-        gimbalAnglesToMotor1AngleData;  //!< [rad] Gimbal-to-motor 1 angle interpolation table storage array
+        gimbalAnglesToMotor1AngleData{};  //!< [rad] Gimbal-to-motor 1 angle interpolation table storage array
     std::array<std::array<double, NUM_GIMBAL_TO_MOTOR_TABLE_COLS>, NUM_GIMBAL_TO_MOTOR_TABLE_ROWS>
-        gimbalAnglesToMotor2AngleData;  //!< [rad] Gimbal-to-motor 2 angle interpolation table storage array
+        gimbalAnglesToMotor2AngleData{};  //!< [rad] Gimbal-to-motor 2 angle interpolation table storage array
 };
 
 #endif /* F32XMERA_TWO_AXIS_GIMBAL_AXIS_TO_MOTOR_ANGLES_ALGORITHM_H */
