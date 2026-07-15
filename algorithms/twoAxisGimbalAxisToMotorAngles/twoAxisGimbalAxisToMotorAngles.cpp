@@ -31,8 +31,9 @@ void TwoAxisGimbalAxisToMotorAngles::reset(uint64_t currentSimNanos) {
     this->previousWrittenTime = -1.0;
 }
 
-/*! This method determines the gimbal sequential tip and tilt angles corresponding to the given thrust direction vector
-in spacecraft body frame components.
+/*! This method reads the commanded body-frame thrust direction message, delegates the gimbal and stepper motor
+angle computation to the algorithm, and writes the resulting gimbal tip/tilt angles and the two motor angles to the
+output messages.
  @return void
  @param currentSimNanos [ns] The current time of simulation
 */

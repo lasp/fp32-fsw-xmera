@@ -151,10 +151,12 @@ bool TwoAxisGimbalAxisToMotorAnglesAlgorithm::linearInterpolationRequired(double
     return remainder < 1e-3;
 }
 
-/*! This method calls the bilinear interpolation function to interpolate the desired angles from the given angles.
-The case where the gimbal angles are at the edge of the interpolation table is checked and the method
-computeTableEdgeCase() is called to determine the appropriate motor angles.
- @return void
+/*! This method bilinearly interpolates the motor angles from the four surrounding interpolation-table entries. If
+any of the four bounding motor 1 angles is negative (an out-of-range table entry), the interpolation is flagged as
+invalid.
+ @return MotorAngles
+ @param gimbalAngle1 [rad]
+ @param gimbalAngle2 [rad]
 */
 MotorAngles TwoAxisGimbalAxisToMotorAnglesAlgorithm::bilinearlyInterpolateAngles(double gimbalAngle1,
                                                                                  double gimbalAngle2) {
