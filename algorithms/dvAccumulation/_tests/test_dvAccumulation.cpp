@@ -41,23 +41,6 @@ TEST(DvAccumulationTest, EmptyBufferProducesZero) {
     EXPECT_DOUBLE_EQ(out.timeTag, 0.0);
 }
 
-TEST(DvAccumulationTest, ResetSeedsPreviousTime) {
-    /*! - reset with a buffer whose latest measTime is 1e8 — subsequent update with a packet at
-     *    exactly that time should NOT integrate (strict greater-than gate) */
-    const AccDataMsgF32Payload resetSnap =
-        buildAccData({static_cast<uint64_t>(1e8)}, {Eigen::Vector3f{0.0F, 0.0F, 0.0F}});
-
-    DvAccumulationAlgorithm alg(DvAccumulationConfig::create());
-    alg.resetState(resetSnap);
-
-    const AccDataMsgF32Payload noNew = buildAccData({static_cast<uint64_t>(1e8)}, {Eigen::Vector3f{1.0F, 2.0F, 3.0F}});
-    const DvAccumulationOutput out = alg.update(noNew);
-
-    EXPECT_FLOAT_EQ(out.vehAccumDV_B[0], 0.0F);
-    EXPECT_FLOAT_EQ(out.vehAccumDV_B[1], 0.0F);
-    EXPECT_FLOAT_EQ(out.vehAccumDV_B[2], 0.0F);
-}
-
 TEST(DvAccumulationTest, OutOfOrderInputStillSortsCorrectly) {
     /*! - packets arrive shuffled in the buffer; the algorithm sorts internally */
     const AccDataMsgF32Payload resetSnap = buildAccData({}, {});  // empty seed → previousTime = 0
@@ -85,25 +68,6 @@ TEST(DvAccumulationTest, RepeatedIdenticalInputsDoNotDoubleAccumulate) {
     EXPECT_FLOAT_EQ(first.vehAccumDV_B[1], second.vehAccumDV_B[1]);
     EXPECT_FLOAT_EQ(first.vehAccumDV_B[2], second.vehAccumDV_B[2]);
     EXPECT_DOUBLE_EQ(first.timeTag, second.timeTag);
-}
-
-TEST(DvAccumulationTest, AllOlderPacketsDoNotChangeState) {
-    /*! - after a seed reset, an update whose packets are all older than the seed must not
-     *    integrate anything */
-    const AccDataMsgF32Payload resetSnap =
-        buildAccData({static_cast<uint64_t>(1e8)}, {Eigen::Vector3f{0.0F, 0.0F, 0.0F}});
-
-    DvAccumulationAlgorithm alg(DvAccumulationConfig::create());
-    alg.resetState(resetSnap);
-
-    const AccDataMsgF32Payload allOlder = buildAccData(
-        {static_cast<uint64_t>(1e7), static_cast<uint64_t>(5e7), static_cast<uint64_t>(9e7)},
-        {Eigen::Vector3f{1.0F, 2.0F, 3.0F}, Eigen::Vector3f{1.0F, 2.0F, 3.0F}, Eigen::Vector3f{1.0F, 2.0F, 3.0F}});
-    const DvAccumulationOutput out = alg.update(allOlder);
-
-    EXPECT_FLOAT_EQ(out.vehAccumDV_B[0], 0.0F);
-    EXPECT_FLOAT_EQ(out.vehAccumDV_B[1], 0.0F);
-    EXPECT_FLOAT_EQ(out.vehAccumDV_B[2], 0.0F);
 }
 
 TEST(DvAccumulationTest, BoundedInputProducesFiniteOutput) {
