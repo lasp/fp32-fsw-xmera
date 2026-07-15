@@ -9,11 +9,9 @@
 #include <array>
 #include <numbers>
 
+#include "twoAxisGimbalAxisToMotorAnglesTypes.h"
 #include "utilities/fsw/freestandingInvalidArgument.h"
 #include "utilities/fsw/validDcmCheck.h"
-
-#define NUM_GIMBAL_TO_MOTOR_TABLE_ROWS 111
-#define NUM_GIMBAL_TO_MOTOR_TABLE_COLS 76
 
 const float DEG2RAD = std::numbers::pi_v<float> / 180.0F;
 
@@ -23,15 +21,6 @@ struct MotorAngles {
     float angle1;
     float angle2;
     bool isValidInterpolation;
-};
-
-/*! @brief Output of the twoAxisGimbalAxisToMotorAngles algorithm. */
-struct TwoAxisGimbalAxisToMotorAnglesOutput {
-    float gimbalTipAngle{};       //!< [rad] Gimbal tip angle (sequential angle 1)
-    float gimbalTiltAngle{};      //!< [rad] Gimbal tilt angle (sequential angle 2)
-    float motorAngle1{};          //!< [rad] Motor 1 angle
-    float motorAngle2{};          //!< [rad] Motor 2 angle
-    bool isValidInterpolation{};  //!< Whether the interpolation produced a valid result
 };
 
 //!< Gimbal-to-motor interpolation table storage type

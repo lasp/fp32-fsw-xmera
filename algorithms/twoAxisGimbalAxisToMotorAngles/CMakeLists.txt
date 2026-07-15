@@ -5,6 +5,7 @@ if(_is_enabled)
   target_sources("${module}" PRIVATE
     twoAxisGimbalAxisToMotorAngles.cpp
     twoAxisGimbalAxisToMotorAnglesAlgorithm.cpp
+    twoAxisGimbalAxisToMotorAnglesAlgorithm_c.cpp
   )
 
   target_include_directories("${module}" PUBLIC
