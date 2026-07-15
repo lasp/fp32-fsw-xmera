@@ -12,17 +12,20 @@
 const int tipAngleIdxOffset = 38;
 const int tiltAngleIdxOffset = 55;
 
-/*! Algorithm constructor. The gimbal-to-motor interpolation table data must be provided.
- @param gimbalToMotor1Data Gimbal-to-motor 1 angle data table
- @param gimbalToMotor2Data Gimbal-to-motor 2 angle data table
+/*! Algorithm constructor.
+ @param config Validated configuration (DCM and gimbal-to-motor interpolation tables)
 */
 TwoAxisGimbalAxisToMotorAnglesAlgorithm::TwoAxisGimbalAxisToMotorAnglesAlgorithm(
-    const std::array<std::array<float, NUM_GIMBAL_TO_MOTOR_TABLE_COLS>, NUM_GIMBAL_TO_MOTOR_TABLE_ROWS>&
-        gimbalToMotor1Data,
-    const std::array<std::array<float, NUM_GIMBAL_TO_MOTOR_TABLE_COLS>, NUM_GIMBAL_TO_MOTOR_TABLE_ROWS>&
-        gimbalToMotor2Data) {
-    this->gimbalAnglesToMotor1AngleData = gimbalToMotor1Data;
-    this->gimbalAnglesToMotor2AngleData = gimbalToMotor2Data;
+    const TwoAxisGimbalAxisToMotorAnglesConfig& config)
+    : cfg(config) {
+    setConfig(config);
+}
+
+/*! Replaces the algorithm's configuration for runtime reconfiguration.
+ @param config Validated configuration (DCM and gimbal-to-motor interpolation tables)
+*/
+void TwoAxisGimbalAxisToMotorAnglesAlgorithm::setConfig(const TwoAxisGimbalAxisToMotorAnglesConfig& config) {
+    this->cfg = config;
 }
 
 /*! This method determines the gimbal sequential tip and tilt angles corresponding to the given thrust direction vector
@@ -33,7 +36,7 @@ in spacecraft body frame components, then interpolates the corresponding stepper
 TwoAxisGimbalAxisToMotorAnglesOutput TwoAxisGimbalAxisToMotorAnglesAlgorithm::update(
     const Eigen::Vector3f& thrustDirHat_B) const {
     // Convert the commanded thrust direction vector to gimbal mount frame (hub-fixed) components
-    const Eigen::Vector3f thrustDirHat_M = this->dcm_MB * thrustDirHat_B;
+    const Eigen::Vector3f thrustDirHat_M = this->cfg.getDcmMB() * thrustDirHat_B;
 
     // Determine the corresponding gimbal tip and tilt angles
     const float gimbalTipAngle = safeAtanf(-thrustDirHat_M[1] / thrustDirHat_M[2]);
@@ -51,17 +54,6 @@ TwoAxisGimbalAxisToMotorAnglesOutput TwoAxisGimbalAxisToMotorAnglesAlgorithm::up
 
     return output;
 }
-
-/*!  Setter method for dcm_MB (DCM from body frame to gimbal mount frame).
- @return void
- @param dcm_MB DCM from body frame to gimbal mount frame
-*/
-void TwoAxisGimbalAxisToMotorAnglesAlgorithm::setDcmMB(const Eigen::Matrix3f& dcm_MB) { this->dcm_MB = dcm_MB; }
-
-/*! Getter method for dcm_MB (DCM from body frame to gimbal mount frame).
- @return const Eigen::Matrix3f
-*/
-const Eigen::Matrix3f& TwoAxisGimbalAxisToMotorAnglesAlgorithm::getDcmMB() const { return this->dcm_MB; }
 
 /*! This method determines the stepper motor angles given the gimbal sequential tip and tilt angles.
  @return MotorAngles
@@ -95,8 +87,8 @@ MotorAngles TwoAxisGimbalAxisToMotorAnglesAlgorithm::pullAngles(float gimbalAngl
     const auto index1 = static_cast<int>(roundf(gimbalAngle1 / this->tableStepAngle));
     const auto index2 = static_cast<int>(roundf(gimbalAngle2 / this->tableStepAngle));
 
-    const float motor1Angle = this->gimbalAnglesToMotor1AngleData[index2][index1];
-    const float motor2Angle = this->gimbalAnglesToMotor2AngleData[index2][index1];
+    const float motor1Angle = this->cfg.getGimbalToMotor1Data()[index2][index1];
+    const float motor2Angle = this->cfg.getGimbalToMotor2Data()[index2][index1];
 
     MotorAngles motorAngles;
     motorAngles.angle1 = motor1Angle;

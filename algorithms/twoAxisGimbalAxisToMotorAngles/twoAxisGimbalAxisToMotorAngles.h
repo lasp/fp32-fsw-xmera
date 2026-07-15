@@ -19,16 +19,13 @@ direction message, delegates the angle computation to TwoAxisGimbalAxisToMotorAn
 writes the corresponding gimbal and stepper motor angles to the output messages. */
 class TwoAxisGimbalAxisToMotorAngles : public SysModel {
    public:
-    TwoAxisGimbalAxisToMotorAngles(
-        const std::array<std::array<float, NUM_GIMBAL_TO_MOTOR_TABLE_COLS>, NUM_GIMBAL_TO_MOTOR_TABLE_ROWS>&
-            gimbalToMotor1Data,
-        const std::array<std::array<float, NUM_GIMBAL_TO_MOTOR_TABLE_COLS>, NUM_GIMBAL_TO_MOTOR_TABLE_ROWS>&
-            gimbalToMotor2Data);                          //!< Constructor
-    ~TwoAxisGimbalAxisToMotorAngles() = default;          //!< Destructor
-    void reset(uint64_t currentSimNanos) override;        //!< Reset member function
-    void updateState(uint64_t currentSimNanos) override;  //!< Update member function
+    TwoAxisGimbalAxisToMotorAngles(const GimbalMotorTable& gimbalToMotor1Data,
+                                   const GimbalMotorTable& gimbalToMotor2Data);  //!< Constructor
+    ~TwoAxisGimbalAxisToMotorAngles() = default;                                 //!< Destructor
+    void reset(uint64_t currentSimNanos) override;                               //!< Reset member function
+    void updateState(uint64_t currentSimNanos) override;                         //!< Update member function
     void setDcmMB(
-        const Eigen::Matrix3f dcm_MB);        //!< Setter method for dcm_MB (DCM from body frame to gimbal mount frame)
+        const Eigen::Matrix3f& dcm_MB);       //!< Setter method for dcm_MB (DCM from body frame to gimbal mount frame)
     const Eigen::Matrix3f& getDcmMB() const;  //!< Getter method for dcm_MB (DCM from body frame to gimbal mount frame)
 
     ReadFunctor<BodyHeadingMsgF32Payload>
@@ -39,8 +36,16 @@ class TwoAxisGimbalAxisToMotorAngles : public SysModel {
     Message<HingedRigidBodyMsgF32Payload> motor2AngleOutMsg;  //!< Output message for the motor 2 angle
 
    private:
-    double previousWrittenTime{-1.0};                   //!< [s] Time the previous input message was written
-    TwoAxisGimbalAxisToMotorAnglesAlgorithm algorithm;  //!< Algorithm that performs the angle computation
+    void rebuildAlgorithmConfig();  //!< Rebuild the algorithm's Config from the stored parameters
+
+    double previousWrittenTime{-1.0};                      //!< [s] Time the previous input message was written
+    Eigen::Matrix3f dcm_MB = Eigen::Matrix3f::Identity();  //!< DCM from body frame to gimbal mount frame
+    GimbalMotorTable gimbalToMotor1Data{};                 //!< [rad] Gimbal-to-motor 1 angle interpolation table
+    GimbalMotorTable gimbalToMotor2Data{};                 //!< [rad] Gimbal-to-motor 2 angle interpolation table
+    TwoAxisGimbalAxisToMotorAnglesAlgorithm algorithm{
+        TwoAxisGimbalAxisToMotorAnglesConfig::create(Eigen::Matrix3f::Identity(),
+                                                     GimbalMotorTable{},
+                                                     GimbalMotorTable{})};  //!< Angle computation algorithm
 };
 
 #endif /* TWOAXISGIMBALAXISTOMOTORANGLES */

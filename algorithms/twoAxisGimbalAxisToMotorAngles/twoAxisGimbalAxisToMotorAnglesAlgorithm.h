@@ -89,17 +89,12 @@ class TwoAxisGimbalAxisToMotorAnglesConfig final {
  * gimbal-to-motor lookup tables. */
 class TwoAxisGimbalAxisToMotorAnglesAlgorithm final {
    public:
-    TwoAxisGimbalAxisToMotorAnglesAlgorithm(
-        const std::array<std::array<float, NUM_GIMBAL_TO_MOTOR_TABLE_COLS>, NUM_GIMBAL_TO_MOTOR_TABLE_ROWS>&
-            gimbalToMotor1Data,
-        const std::array<std::array<float, NUM_GIMBAL_TO_MOTOR_TABLE_COLS>, NUM_GIMBAL_TO_MOTOR_TABLE_ROWS>&
-            gimbalToMotor2Data);  //!< Constructor; populates the gimbal-to-motor interpolation tables
+    explicit TwoAxisGimbalAxisToMotorAnglesAlgorithm(const TwoAxisGimbalAxisToMotorAnglesConfig& config);
+
+    void setConfig(const TwoAxisGimbalAxisToMotorAnglesConfig& config);  //!< Runtime reconfiguration
 
     TwoAxisGimbalAxisToMotorAnglesOutput update(
         const Eigen::Vector3f& thrustDirHat_B) const;  //!< Determine the gimbal and motor angles for a thrust direction
-
-    void setDcmMB(const Eigen::Matrix3f& dcm_MB);  //!< Setter for dcm_MB (DCM from body frame to gimbal mount frame)
-    const Eigen::Matrix3f& getDcmMB() const;       //!< Getter for dcm_MB (DCM from body frame to gimbal mount frame)
 
    private:
     MotorAngles gimbalAnglesToMotorAngles(float gimbalTipAngle, float gimbalTiltAngle)
@@ -117,13 +112,8 @@ class TwoAxisGimbalAxisToMotorAnglesAlgorithm final {
     static constexpr float kInterpolationRemainderTolerance =
         1e-3F;  //!< Tolerance for treating a normalized gimbal angle as landing exactly on a table node
 
-    Eigen::Matrix3f dcm_MB = Eigen::Matrix3f::Identity();  //!< Attitude DCM for the gimbal mount frame (hub-fixed)
-                                                           //!< relative to the hub body B frame
-    float tableStepAngle{kTableStepAngleDeg * DEG2RAD};    //!< [rad] Interpolation table motor discretization angle
-    std::array<std::array<float, NUM_GIMBAL_TO_MOTOR_TABLE_COLS>, NUM_GIMBAL_TO_MOTOR_TABLE_ROWS>
-        gimbalAnglesToMotor1AngleData{};  //!< [rad] Gimbal-to-motor 1 angle interpolation table storage array
-    std::array<std::array<float, NUM_GIMBAL_TO_MOTOR_TABLE_COLS>, NUM_GIMBAL_TO_MOTOR_TABLE_ROWS>
-        gimbalAnglesToMotor2AngleData{};  //!< [rad] Gimbal-to-motor 2 angle interpolation table storage array
+    float tableStepAngle{kTableStepAngleDeg * DEG2RAD};  //!< [rad] Interpolation table motor discretization angle
+    TwoAxisGimbalAxisToMotorAnglesConfig cfg;            //!< Validated configuration (DCM + interpolation tables)
 };
 
 #endif /* F32XMERA_TWO_AXIS_GIMBAL_AXIS_TO_MOTOR_ANGLES_ALGORITHM_H */
