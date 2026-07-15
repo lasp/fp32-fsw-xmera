@@ -4,6 +4,7 @@
 #include "twoAxisGimbalAxisToMotorAngles.h"
 
 #include <cassert>
+#include <stdexcept>
 
 #include "architecture/utilities/eigenSupport.h"
 
@@ -25,7 +26,7 @@ default values.
 */
 void TwoAxisGimbalAxisToMotorAngles::reset(uint64_t currentSimNanos) {
     if (!this->thrustDirectionInMsg.isLinked()) {
-        this->bskLogger->bskLog(BSK_ERROR, "TwoAxisGimbalAxisToMotorAngles.thrustDirectionInMsg wasn't connected.");
+        throw std::invalid_argument("twoAxisGimbalAxisToMotorAngles.thrustDirectionInMsg wasn't connected.");
     }
 
     this->previousWrittenTime = -1.0;

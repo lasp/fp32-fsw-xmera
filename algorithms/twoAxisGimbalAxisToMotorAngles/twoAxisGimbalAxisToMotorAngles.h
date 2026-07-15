@@ -12,7 +12,6 @@
 #include "architecture/msgPayloadDef/BodyHeadingMsgPayload.h"
 #include "architecture/msgPayloadDef/HingedRigidBodyMsgPayload.h"
 #include "architecture/msgPayloadDef/TwoAxisGimbalMsgPayload.h"
-#include "architecture/utilities/bskLogging.h"
 #include "twoAxisGimbalAxisToMotorAnglesAlgorithm.h"
 
 /*! @brief Two-Axis Gimbal Axis-To-Motor Angles adapter. Reads the requested body-frame thrust
@@ -38,8 +37,6 @@ class TwoAxisGimbalAxisToMotorAngles : public SysModel {
         twoAxisGimbalOutMsg;  //!< Output msg for the corresponding gimbal tip and tilt angles
     Message<HingedRigidBodyMsgPayload> motor1AngleOutMsg;  //!< Output message for the motor 1 angle
     Message<HingedRigidBodyMsgPayload> motor2AngleOutMsg;  //!< Output message for the motor 2 angle
-
-    BSKLogger* bskLogger;  //!< BSK Logging
 
    private:
     double previousWrittenTime{-1.0};                   //!< [s] Time the previous input message was written
