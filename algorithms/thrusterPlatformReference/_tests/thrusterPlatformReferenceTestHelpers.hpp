@@ -73,4 +73,37 @@ inline void regressionTestThrusterPlatformReference(const Eigen::Vector3f& sigma
     EXPECT_NEAR(out.maxThrust, T_F.norm(), accuracy);
 }
 
+// Property helper: for finite, non-degenerate geometry the platform reference is well defined, so every output
+// is finite and the reported thrust headings are unit vectors. Perfect center-of-mass alignment is not asserted
+// because a solution is not guaranteed for arbitrary geometry.
+inline void propertyOutputsFinite(const Eigen::Vector3f& sigma_MB,
+                                  const Eigen::Vector3f& r_BM_M,
+                                  const Eigen::Vector3f& r_FM_F,
+                                  const Eigen::Vector3f& r_CB_B,
+                                  const Eigen::Vector3f& rThrust_F,
+                                  const Eigen::Vector3f& tHatThrust_F,
+                                  float maxThrust) {
+    // Skip degenerate geometry: a zero thrust direction or center-of-mass position has no defined solution.
+    constexpr float degenerateTol = 1e-3F;
+    if (tHatThrust_F.norm() < degenerateTol || maxThrust < degenerateTol) {
+        return;
+    }
+    if ((mrpToDcm(sigma_MB) * r_CB_B + r_BM_M).norm() < degenerateTol) {
+        return;
+    }
+
+    ThrusterPlatformReferenceAlgorithm alg{makeAlignmentConfig(sigma_MB, r_BM_M, r_FM_F, -1.0F, -1.0F)};
+    const ThrusterPlatformReferenceOutput out = alg.update(makeInputs(r_CB_B, rThrust_F, tHatThrust_F, maxThrust), 0);
+
+    EXPECT_TRUE(std::isfinite(out.theta1));
+    EXPECT_TRUE(std::isfinite(out.theta2));
+    EXPECT_TRUE(out.rHat_XB_B.allFinite());
+    EXPECT_TRUE(out.torqueRequestBody.allFinite());
+    EXPECT_TRUE(out.rThrust_B.allFinite());
+    EXPECT_TRUE(out.tHatThrust_B.allFinite());
+    EXPECT_TRUE(std::isfinite(out.maxThrust));
+    EXPECT_NEAR(out.rHat_XB_B.norm(), 1.0F, 1e-3F);
+    EXPECT_NEAR(out.tHatThrust_B.norm(), 1.0F, 1e-3F);
+}
+
 #endif  // TEST_THRUSTER_PLATFORM_REFERENCE_H
