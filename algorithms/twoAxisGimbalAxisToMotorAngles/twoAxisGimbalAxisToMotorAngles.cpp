@@ -3,23 +3,14 @@
 
 #include "twoAxisGimbalAxisToMotorAngles.h"
 
+#include <memory>
 #include <stdexcept>
 
 #include "architecture/utilities/eigenSupport.h"
-#include "utilities/fsw/freestandingInvalidArgument.h"
+#include "utilities/xmera/xmeraLifecycleException.h"
 
-/*! Module constructor. The gimbal-to-motor interpolation table data must be specified.
- @param gimbalToMotor1Data Gimbal-to-motor 1 angle data table
- @param gimbalToMotor2Data Gimbal-to-motor 2 angle data table
-*/
-TwoAxisGimbalAxisToMotorAngles::TwoAxisGimbalAxisToMotorAngles(const GimbalMotorTable& gimbalToMotor1Data,
-                                                               const GimbalMotorTable& gimbalToMotor2Data)
-    : gimbalToMotor1Data(gimbalToMotor1Data), gimbalToMotor2Data(gimbalToMotor2Data) {
-    this->rebuildAlgorithmConfig();
-}
-
-/*! This method checks the input message to ensure it is linked. This method also resets module parameters to
-default values.
+/*! This method checks the input message to ensure it is linked and builds the algorithm from the
+configured parameters.
  @return void
  @param currentSimNanos [ns] Time the method is called
 */
@@ -28,16 +19,23 @@ void TwoAxisGimbalAxisToMotorAngles::reset(uint64_t currentSimNanos) {
         throw std::invalid_argument("twoAxisGimbalAxisToMotorAngles.thrustDirectionInMsg wasn't connected.");
     }
 
-    this->rebuildAlgorithmConfig();
+    const auto config =
+        TwoAxisGimbalAxisToMotorAnglesConfig::create(this->dcm_MB, this->gimbalToMotor1Data, this->gimbalToMotor2Data);
+    this->algorithm = std::make_unique<TwoAxisGimbalAxisToMotorAnglesAlgorithm>(config);
     this->previousWrittenTime = -1.0;
 }
 
-/*! Rebuilds the algorithm's validated configuration from the stored module parameters.
- @return void
-*/
-void TwoAxisGimbalAxisToMotorAngles::rebuildAlgorithmConfig() {
-    this->algorithm.setConfig(
-        TwoAxisGimbalAxisToMotorAnglesConfig::create(this->dcm_MB, this->gimbalToMotor1Data, this->gimbalToMotor2Data));
+TwoAxisGimbalAxisToMotorAnglesConfig TwoAxisGimbalAxisToMotorAngles::toConfig() const {
+    return TwoAxisGimbalAxisToMotorAnglesConfig::create(
+        this->dcm_MB, this->gimbalToMotor1Data, this->gimbalToMotor2Data);
+}
+
+void TwoAxisGimbalAxisToMotorAngles::reconfigure() const {
+    if (!this->algorithm) {
+        throw XmeraLifecycleException("TwoAxisGimbalAxisToMotorAngles reset() has not been called.");
+    }
+
+    this->algorithm->setConfig(this->toConfig());
 }
 
 /*! This method reads the commanded body-frame thrust direction message, delegates the gimbal and stepper motor
@@ -47,6 +45,10 @@ output messages.
  @param currentSimNanos [ns] The current time of simulation
 */
 void TwoAxisGimbalAxisToMotorAngles::updateState(uint64_t currentSimNanos) {
+    if (!this->algorithm) {
+        throw XmeraLifecycleException("TwoAxisGimbalAxisToMotorAngles reset() has not been called.");
+    }
+
     // Read the input message
     if (this->thrustDirectionInMsg.isWritten() &&
         (this->previousWrittenTime < this->thrustDirectionInMsg.timeWritten())) {
@@ -58,7 +60,7 @@ void TwoAxisGimbalAxisToMotorAngles::updateState(uint64_t currentSimNanos) {
         const Eigen::Vector3f thrustDirHat_B = cArrayToEigenVector3<float>(thrustDirectionIn.rHat_XB_B);
 
         // Determine the gimbal and motor angles corresponding to the thrust direction
-        const TwoAxisGimbalAxisToMotorAnglesOutput motorAngles = this->algorithm.update(thrustDirHat_B);
+        const TwoAxisGimbalAxisToMotorAnglesOutput motorAngles = this->algorithm->update(thrustDirHat_B);
 
         // Write the module output messages
         auto motor1AngleOut = HingedRigidBodyMsgF32Payload();
@@ -75,20 +77,3 @@ void TwoAxisGimbalAxisToMotorAngles::updateState(uint64_t currentSimNanos) {
         this->twoAxisGimbalOutMsg.write(twoAxisGimbalOut, moduleID, currentSimNanos);
     }
 }
-
-/*!  Setter method for dcm_MB (DCM from body frame to gimbal mount frame).
- @return void
- @param dcm_MB DCM from body frame to gimbal mount frame
-*/
-void TwoAxisGimbalAxisToMotorAngles::setDcmMB(const Eigen::Matrix3f& dcm_MB) {
-    if (!TwoAxisGimbalAxisToMotorAnglesConfig::isValidDcmMB(dcm_MB)) {
-        FSW_THROW_INVALID_ARGUMENT("twoAxisGimbalAxisToMotorAngles: dcm_MB must be a valid DCM");
-    }
-    this->dcm_MB = dcm_MB;
-    this->rebuildAlgorithmConfig();
-}
-
-/*! Getter method for dcm_MB (DCM from body frame to gimbal mount frame).
- @return const Eigen::Matrix3f
-*/
-const Eigen::Matrix3f& TwoAxisGimbalAxisToMotorAngles::getDcmMB() const { return this->dcm_MB; }
