@@ -1,4 +1,4 @@
-set(module "fp32.twoAxisGimbalAxisToMotorAngles")
+set(module "fp32.twoAxisGimbalAxisToMotorAnglesF32")
 xmera_is_module_enabled("${module}" _is_enabled)
 if(_is_enabled)
   xmera_add_swig_module("${module}")
