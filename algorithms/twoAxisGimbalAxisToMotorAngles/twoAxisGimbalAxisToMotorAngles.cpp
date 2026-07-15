@@ -12,9 +12,9 @@
  @param gimbalToMotor2Data Gimbal-to-motor 2 angle data table
 */
 TwoAxisGimbalAxisToMotorAngles::TwoAxisGimbalAxisToMotorAngles(
-    const std::array<std::array<double, NUM_GIMBAL_TO_MOTOR_TABLE_COLS>, NUM_GIMBAL_TO_MOTOR_TABLE_ROWS>&
+    const std::array<std::array<float, NUM_GIMBAL_TO_MOTOR_TABLE_COLS>, NUM_GIMBAL_TO_MOTOR_TABLE_ROWS>&
         gimbalToMotor1Data,
-    const std::array<std::array<double, NUM_GIMBAL_TO_MOTOR_TABLE_COLS>, NUM_GIMBAL_TO_MOTOR_TABLE_ROWS>&
+    const std::array<std::array<float, NUM_GIMBAL_TO_MOTOR_TABLE_COLS>, NUM_GIMBAL_TO_MOTOR_TABLE_ROWS>&
         gimbalToMotor2Data)
     : algorithm(gimbalToMotor1Data, gimbalToMotor2Data) {}
 
@@ -46,21 +46,21 @@ void TwoAxisGimbalAxisToMotorAngles::updateState(uint64_t currentSimNanos) {
 
         // Store the thrust direction command vector in body frame components
         const auto thrustDirectionIn = this->thrustDirectionInMsg();
-        const Eigen::Vector3d thrustDirHat_B = cArrayToEigenVector3(thrustDirectionIn.rHat_XB_B);
+        const Eigen::Vector3f thrustDirHat_B = cArrayToEigenVector3<float>(thrustDirectionIn.rHat_XB_B);
 
         // Determine the gimbal and motor angles corresponding to the thrust direction
         const TwoAxisGimbalAxisToMotorAnglesOutput motorAngles = this->algorithm.update(thrustDirHat_B);
 
         // Write the module output messages
-        auto motor1AngleOut = HingedRigidBodyMsgPayload();
+        auto motor1AngleOut = HingedRigidBodyMsgF32Payload();
         motor1AngleOut.theta = motorAngles.motorAngle1;
         this->motor1AngleOutMsg.write(motor1AngleOut, moduleID, currentSimNanos);
 
-        auto motor2AngleOut = HingedRigidBodyMsgPayload();
+        auto motor2AngleOut = HingedRigidBodyMsgF32Payload();
         motor2AngleOut.theta = motorAngles.motorAngle2;
         this->motor2AngleOutMsg.write(motor2AngleOut, moduleID, currentSimNanos);
 
-        auto twoAxisGimbalOut = TwoAxisGimbalMsgPayload();
+        auto twoAxisGimbalOut = TwoAxisGimbalMsgF32Payload();
         twoAxisGimbalOut.theta1 = motorAngles.gimbalTipAngle;
         twoAxisGimbalOut.theta2 = motorAngles.gimbalTiltAngle;
         this->twoAxisGimbalOutMsg.write(twoAxisGimbalOut, moduleID, currentSimNanos);
@@ -71,9 +71,9 @@ void TwoAxisGimbalAxisToMotorAngles::updateState(uint64_t currentSimNanos) {
  @return void
  @param dcm_MB DCM from body frame to gimbal mount frame
 */
-void TwoAxisGimbalAxisToMotorAngles::setDcmMB(const Eigen::Matrix3d dcm_MB) { this->algorithm.setDcmMB(dcm_MB); }
+void TwoAxisGimbalAxisToMotorAngles::setDcmMB(const Eigen::Matrix3f dcm_MB) { this->algorithm.setDcmMB(dcm_MB); }
 
 /*! Getter method for dcm_MB (DCM from body frame to gimbal mount frame).
- @return const Eigen::Matrix3d
+ @return const Eigen::Matrix3f
 */
-const Eigen::Matrix3d& TwoAxisGimbalAxisToMotorAngles::getDcmMB() const { return this->algorithm.getDcmMB(); }
+const Eigen::Matrix3f& TwoAxisGimbalAxisToMotorAngles::getDcmMB() const { return this->algorithm.getDcmMB(); }

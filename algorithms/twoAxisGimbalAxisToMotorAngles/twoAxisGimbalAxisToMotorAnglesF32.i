@@ -7,12 +7,17 @@
 %}
 
 %include <std_string.i>
+%include <std_array.i>
 %include <swig_conly_data.i>
 %include <swig_eigen.i>
 %include <sys_model.i>
 
+%template(GimbalMotorTableRow) std::array<float, 76>;
+%template(GimbalMotorTable) std::array<std::array<float, 76>, 111>;
+
+%include "twoAxisGimbalAxisToMotorAnglesAlgorithm.h"
 %include "twoAxisGimbalAxisToMotorAngles.h"
 
-%include <architecture/msgPayloadDef/BodyHeadingMsgPayload.h>
-%include <architecture/msgPayloadDef/HingedRigidBodyMsgPayload.h>
-%include <architecture/msgPayloadDef/TwoAxisGimbalMsgPayload.h>
+%include "msgPayloadDef/BodyHeadingMsgF32Payload.h"
+%include "msgPayloadDef/HingedRigidBodyMsgF32Payload.h"
+%include "msgPayloadDef/TwoAxisGimbalMsgF32Payload.h"

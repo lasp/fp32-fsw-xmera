@@ -11,22 +11,22 @@
 #define NUM_GIMBAL_TO_MOTOR_TABLE_ROWS 111
 #define NUM_GIMBAL_TO_MOTOR_TABLE_COLS 76
 
-const double DEG2RAD = std::numbers::pi / 180.0;
+const float DEG2RAD = std::numbers::pi_v<float> / 180.0F;
 
 enum class FixedAngle { ANGLE_1_FIXED, ANGLE_2_FIXED };
 
 struct MotorAngles {
-    double angle1;
-    double angle2;
+    float angle1;
+    float angle2;
     bool isValidInterpolation;
 };
 
 /*! @brief Output of the twoAxisGimbalAxisToMotorAngles algorithm. */
 struct TwoAxisGimbalAxisToMotorAnglesOutput {
-    double gimbalTipAngle{};      //!< [rad] Gimbal tip angle (sequential angle 1)
-    double gimbalTiltAngle{};     //!< [rad] Gimbal tilt angle (sequential angle 2)
-    double motorAngle1{};         //!< [rad] Motor 1 angle
-    double motorAngle2{};         //!< [rad] Motor 2 angle
+    float gimbalTipAngle{};       //!< [rad] Gimbal tip angle (sequential angle 1)
+    float gimbalTiltAngle{};      //!< [rad] Gimbal tilt angle (sequential angle 2)
+    float motorAngle1{};          //!< [rad] Motor 1 angle
+    float motorAngle2{};          //!< [rad] Motor 2 angle
     bool isValidInterpolation{};  //!< Whether the interpolation produced a valid result
 };
 
@@ -36,39 +36,39 @@ struct TwoAxisGimbalAxisToMotorAnglesOutput {
 class TwoAxisGimbalAxisToMotorAnglesAlgorithm final {
    public:
     TwoAxisGimbalAxisToMotorAnglesAlgorithm(
-        const std::array<std::array<double, NUM_GIMBAL_TO_MOTOR_TABLE_COLS>, NUM_GIMBAL_TO_MOTOR_TABLE_ROWS>&
+        const std::array<std::array<float, NUM_GIMBAL_TO_MOTOR_TABLE_COLS>, NUM_GIMBAL_TO_MOTOR_TABLE_ROWS>&
             gimbalToMotor1Data,
-        const std::array<std::array<double, NUM_GIMBAL_TO_MOTOR_TABLE_COLS>, NUM_GIMBAL_TO_MOTOR_TABLE_ROWS>&
+        const std::array<std::array<float, NUM_GIMBAL_TO_MOTOR_TABLE_COLS>, NUM_GIMBAL_TO_MOTOR_TABLE_ROWS>&
             gimbalToMotor2Data);  //!< Constructor; populates the gimbal-to-motor interpolation tables
 
     TwoAxisGimbalAxisToMotorAnglesOutput update(
-        const Eigen::Vector3d& thrustDirHat_B) const;  //!< Determine the gimbal and motor angles for a thrust direction
+        const Eigen::Vector3f& thrustDirHat_B) const;  //!< Determine the gimbal and motor angles for a thrust direction
 
-    void setDcmMB(const Eigen::Matrix3d& dcm_MB);  //!< Setter for dcm_MB (DCM from body frame to gimbal mount frame)
-    const Eigen::Matrix3d& getDcmMB() const;       //!< Getter for dcm_MB (DCM from body frame to gimbal mount frame)
+    void setDcmMB(const Eigen::Matrix3f& dcm_MB);  //!< Setter for dcm_MB (DCM from body frame to gimbal mount frame)
+    const Eigen::Matrix3f& getDcmMB() const;       //!< Getter for dcm_MB (DCM from body frame to gimbal mount frame)
 
    private:
-    MotorAngles gimbalAnglesToMotorAngles(double gimbalTipAngle, double gimbalTiltAngle)
+    MotorAngles gimbalAnglesToMotorAngles(float gimbalTipAngle, float gimbalTiltAngle)
         const;  //!< Method to determine the stepper motor angles given the gimbal sequential tip and tilt angles
-    MotorAngles pullAngles(double gimbalAngle1, double gimbalAngle2) const;
-    bool bilinearInterpolationRequired(double gimbalAngle1, double gimbalAngle2)
+    MotorAngles pullAngles(float gimbalAngle1, float gimbalAngle2) const;
+    bool bilinearInterpolationRequired(float gimbalAngle1, float gimbalAngle2)
         const;  //!< Method to determine if bilinear interpolation is required
-    bool noInterpolationRequired(double gimbalAngle1,
-                                 double gimbalAngle2) const;  //!< Method to determine if no interpolation is required
-    bool linearInterpolationRequired(double angle) const;  //!< Method to determine if linear interpolation is required
-    MotorAngles bilinearlyInterpolateAngles(double gimbalAngle1, double gimbalAngle2) const;
-    MotorAngles linearlyInterpolateAngles(double gimbalAngle1, double gimbalAngle2, FixedAngle fixedAngle) const;
+    bool noInterpolationRequired(float gimbalAngle1,
+                                 float gimbalAngle2) const;  //!< Method to determine if no interpolation is required
+    bool linearInterpolationRequired(float angle) const;  //!< Method to determine if linear interpolation is required
+    MotorAngles bilinearlyInterpolateAngles(float gimbalAngle1, float gimbalAngle2) const;
+    MotorAngles linearlyInterpolateAngles(float gimbalAngle1, float gimbalAngle2, FixedAngle fixedAngle) const;
 
-    static constexpr double kTableStepAngleDeg = 0.5;  //!< [deg] Interpolation table motor discretization step
-    static constexpr double kInterpolationRemainderTolerance =
-        1e-3;  //!< Tolerance for treating a normalized gimbal angle as landing exactly on a table node
+    static constexpr float kTableStepAngleDeg = 0.5F;  //!< [deg] Interpolation table motor discretization step
+    static constexpr float kInterpolationRemainderTolerance =
+        1e-3F;  //!< Tolerance for treating a normalized gimbal angle as landing exactly on a table node
 
-    Eigen::Matrix3d dcm_MB = Eigen::Matrix3d::Identity();  //!< Attitude DCM for the gimbal mount frame (hub-fixed)
+    Eigen::Matrix3f dcm_MB = Eigen::Matrix3f::Identity();  //!< Attitude DCM for the gimbal mount frame (hub-fixed)
                                                            //!< relative to the hub body B frame
-    double tableStepAngle{kTableStepAngleDeg * DEG2RAD};   //!< [rad] Interpolation table motor discretization angle
-    std::array<std::array<double, NUM_GIMBAL_TO_MOTOR_TABLE_COLS>, NUM_GIMBAL_TO_MOTOR_TABLE_ROWS>
+    float tableStepAngle{kTableStepAngleDeg * DEG2RAD};    //!< [rad] Interpolation table motor discretization angle
+    std::array<std::array<float, NUM_GIMBAL_TO_MOTOR_TABLE_COLS>, NUM_GIMBAL_TO_MOTOR_TABLE_ROWS>
         gimbalAnglesToMotor1AngleData{};  //!< [rad] Gimbal-to-motor 1 angle interpolation table storage array
-    std::array<std::array<double, NUM_GIMBAL_TO_MOTOR_TABLE_COLS>, NUM_GIMBAL_TO_MOTOR_TABLE_ROWS>
+    std::array<std::array<float, NUM_GIMBAL_TO_MOTOR_TABLE_COLS>, NUM_GIMBAL_TO_MOTOR_TABLE_ROWS>
         gimbalAnglesToMotor2AngleData{};  //!< [rad] Gimbal-to-motor 2 angle interpolation table storage array
 };
 
