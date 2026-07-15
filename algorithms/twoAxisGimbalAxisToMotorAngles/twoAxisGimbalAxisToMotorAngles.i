@@ -10,7 +10,6 @@
 %include <swig_conly_data.i>
 %include <swig_eigen.i>
 %include <sys_model.i>
-%include "twoAxisGimbalAxisToMotorAngles/twoAxisGimbalLookupTables.i"
 
 %include "twoAxisGimbalAxisToMotorAngles.h"
 
