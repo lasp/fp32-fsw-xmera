@@ -115,6 +115,7 @@ set(algorithms
     "forceTorqueThrForceMapping"
     "hillPoint"
     "inertial3D"
+    "inertialFilter"
     "inertialUKF"
     "mimuMajorityVote"
     "mrpFeedback"
