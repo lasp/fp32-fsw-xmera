@@ -28,7 +28,6 @@ TwoAxisGimbalLookupTables::TwoAxisGimbalLookupTables(
 */
 MotorAngles TwoAxisGimbalLookupTables::gimbalAnglesToMotorAngles(double gimbalTipAngle, double gimbalTiltAngle) {
     MotorAngles motorAngles{};
-
     if (this->bilinearInterpolationRequired(gimbalTipAngle, gimbalTiltAngle)) {
         motorAngles = this->bilinearlyInterpolateAngles(gimbalTipAngle, gimbalTiltAngle);
     } else if (this->noInterpolationRequired(gimbalTipAngle, gimbalTiltAngle)) {
@@ -50,7 +49,6 @@ MotorAngles TwoAxisGimbalLookupTables::gimbalAnglesToMotorAngles(double gimbalTi
 MotorAngles TwoAxisGimbalLookupTables::pullAngles(double gimbalAngle1, double gimbalAngle2) const {
     gimbalAngle1 += tipAngleIdxOffset * this->tableStepAngle;
     gimbalAngle2 += tiltAngleIdxOffset * this->tableStepAngle;
-
     auto index1 = static_cast<int>(round(gimbalAngle1 / this->tableStepAngle));
     auto index2 = static_cast<int>(round(gimbalAngle2 / this->tableStepAngle));
 
@@ -128,12 +126,10 @@ MotorAngles TwoAxisGimbalLookupTables::bilinearlyInterpolateAngles(double gimbal
     MotorAngles motorLUBounds = this->pullAngles(gimbalAngle1LBound, gimbalAngle2UBound);
     MotorAngles motorULBounds = this->pullAngles(gimbalAngle1UBound, gimbalAngle2LBound);
     MotorAngles motorUUBounds = this->pullAngles(gimbalAngle1UBound, gimbalAngle2UBound);
-
     double motor1AngleLLBound = motorLLBounds.angle1;
     double motor1AngleLUBound = motorLUBounds.angle1;
     double motor1AngleULBound = motorULBounds.angle1;
     double motor1AngleUUBound = motorUUBounds.angle1;
-
     double motor2AngleLLBound = motorLLBounds.angle2;
     double motor2AngleLUBound = motorLUBounds.angle2;
     double motor2AngleULBound = motorULBounds.angle2;
@@ -154,7 +150,6 @@ MotorAngles TwoAxisGimbalLookupTables::bilinearlyInterpolateAngles(double gimbal
                                             motor1AngleUUBound,
                                             gimbalAngle1,
                                             gimbalAngle2);
-
         motor2Angle = bilinearInterpolation(gimbalAngle1LBound,
                                             gimbalAngle1UBound,
                                             gimbalAngle2LBound,
@@ -214,7 +209,6 @@ MotorAngles TwoAxisGimbalLookupTables::linearlyInterpolateAngles(double gimbalAn
 
     double motor1AngleLBound = lowerMotorBounds.angle1;
     double motor1AngleUBound = upperMotorBounds.angle1;
-
     double motor2AngleLBound = lowerMotorBounds.angle2;
     double motor2AngleUBound = upperMotorBounds.angle2;
 
