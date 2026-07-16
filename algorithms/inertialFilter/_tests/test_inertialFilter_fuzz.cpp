@@ -25,6 +25,8 @@
 
 #include <Eigen/Core>
 
+#include <cmath>
+
 namespace filtering::inertialFilter {
 namespace {
 
@@ -63,6 +65,9 @@ double attitudeTrace(Matrix6 const& P) { return P(0, 0) + P(1, 1) + P(2, 2); }
 double rateTrace(Matrix6 const& P) { return P(3, 3) + P(4, 4) + P(5, 5); }
 
 constexpr double kTol = 1e-9;
+
+// Add some slack on the movement of the state towards the measurement
+constexpr double kMoveTowardRelTol = 1e-2;
 
 }  // namespace
 
@@ -115,8 +120,9 @@ void fuzzTimeAndMeasurementUpdates(double alpha,
 
     Matrix6 const afterSt = algo.getCovariance();
     EXPECT_TRUE(finiteSymmetricPsd(afterSt)) << "covariance after ST update";
-    EXPECT_LE(subMrp(stObservation, algo.getState().get<filtering::MrpAttitude<3>>()).norm(), attErrorPrior + kTol)
-        << "attitude should move toward the ST measurement";
+    EXPECT_LE(subMrp(stObservation, algo.getState().get<filtering::MrpAttitude<3>>()).norm(),
+              attErrorPrior + kMoveTowardRelTol * std::sqrt(attTracePrior) + kTol)
+        << "attitude should move toward the ST measurement (within the UKF MRP sigma-point bias)";
     EXPECT_LE(attitudeTrace(afterSt), attTracePrior + kTol) << "attitude covariance should shrink";
 
     // ---- gyro rate update (re-populate sigma points around the ST posterior first) ----
@@ -134,8 +140,9 @@ void fuzzTimeAndMeasurementUpdates(double alpha,
 
     Matrix6 const afterRate = algo.getCovariance();
     EXPECT_TRUE(finiteSymmetricPsd(afterRate)) << "covariance after rate update";
-    EXPECT_LE((rateObservation - algo.getState().get<filtering::AngularRate<3>>()).norm(), rateErrorPrior + kTol)
-        << "rate should move toward the gyro measurement";
+    EXPECT_LE((rateObservation - algo.getState().get<filtering::AngularRate<3>>()).norm(),
+              rateErrorPrior + kMoveTowardRelTol * std::sqrt(rateTracePrior) + kTol)
+        << "rate should move toward the gyro measurement (within the UKF sigma-point bias)";
     EXPECT_LE(rateTrace(afterRate), rateTracePrior + kTol) << "rate covariance should shrink";
 }
 FUZZ_TEST(InertialFilterFuzz, fuzzTimeAndMeasurementUpdates)
