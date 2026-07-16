@@ -65,7 +65,7 @@ static_assert(filtering::Measurement<RateMeasurementModel, State>);
  *  @param config [-] validated SunlineFilterConfig */
 SunlineFilterAlgorithm::SunlineFilterAlgorithm(const SunlineFilterConfig& config) : cfg(config) {
     this->setConfig(config);
-    this->reInitializeAll();
+    this->reInitialize();
 }
 
 /*! Store the configuration and push the constant filter parameters into the SRuKF.
@@ -84,16 +84,17 @@ void SunlineFilterAlgorithm::setConfig(SunlineFilterConfig const& config) {
 /*! Clear the internal runtime state (pending measurements and residual snapshots); the filter state
  *  and covariance are preserved.
  *  @return void */
-void SunlineFilterAlgorithm::reInitialize() {
+void SunlineFilterAlgorithm::reInitializeExceptPersistentStates() {
     this->measurements.clear();
     this->lastCssResiduals = CssResidualsOutput{};
     this->lastRateResiduals = RateResidualsOutput{};
 }
 
-/*! reInitialize() and additionally re-seed the filter state and covariance from the configuration.
+/*! reInitializeExceptPersistentStates() and additionally re-seed the filter state and covariance from the
+ * configuration.
  *  @return void */
-void SunlineFilterAlgorithm::reInitializeAll() {
-    this->reInitialize();
+void SunlineFilterAlgorithm::reInitialize() {
+    this->reInitializeExceptPersistentStates();
     this->srukf.reset();
 }
 

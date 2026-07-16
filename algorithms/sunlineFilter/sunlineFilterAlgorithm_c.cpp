@@ -138,12 +138,12 @@ SunlineFilterOutput_c SunlineFilterAlgorithm_update(SunlineFilterAlgorithmHandle
     return outputToC(out);
 }
 
-void SunlineFilterAlgorithm_reInitialize(SunlineFilterAlgorithmHandle* self) {
-    reinterpret_cast<::SunlineFilterAlgorithm*>(self)->reInitialize();
+void SunlineFilterAlgorithm_reInitializeExceptPersistentStates(SunlineFilterAlgorithmHandle* self) {
+    reinterpret_cast<::SunlineFilterAlgorithm*>(self)->reInitializeExceptPersistentStates();
 }
 
-void SunlineFilterAlgorithm_reInitializeAll(SunlineFilterAlgorithmHandle* self) {
-    reinterpret_cast<::SunlineFilterAlgorithm*>(self)->reInitializeAll();
+void SunlineFilterAlgorithm_reInitialize(SunlineFilterAlgorithmHandle* self) {
+    reinterpret_cast<::SunlineFilterAlgorithm*>(self)->reInitialize();
 }
 
 SunlineFilterStateOutput_c SunlineFilterAlgorithm_getFilterOutput(const SunlineFilterAlgorithmHandle* self) {

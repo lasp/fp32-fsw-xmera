@@ -92,8 +92,8 @@ predicted CSS measurements are:
 Module Architecture
 -------------------
 ``SunlineFilterAlgorithm`` is framework-agnostic: it holds a ``filtering::SRuKF`` and a validated
-``SunlineFilterConfig``, owns the ``measurement_queue``, and exposes ``update()``, ``reInitialize()``,
-and ``reInitializeAll()``. ``SunlineFilter`` is the xmera adapter: it owns the message ports, converts
+``SunlineFilterConfig``, owns the ``measurement_queue``, and exposes ``update()``, ``reInitializeExceptPersistentStates()``,
+and ``reInitialize()``. ``SunlineFilter`` is the xmera adapter: it owns the message ports, converts
 payloads to/from the algorithm's Eigen types, and drives the lifecycle.
 
 Configuration is immutable once built. ``SunlineFilterConfig::create(...)`` validates every constrained
@@ -114,9 +114,9 @@ The adapter follows a two-phase initialization:
 
 Two runtime reset entry points are exposed on both the algorithm and the adapter:
 
-- ``reInitialize()`` clears the internal runtime (the pending-measurement queue and the residual
+- ``reInitializeExceptPersistentStates()`` clears the internal runtime (the pending-measurement queue and the residual
   snapshots) while **preserving** the filter state and covariance.
-- ``reInitializeAll()`` performs ``reInitialize()`` and additionally re-seeds the filter state and
+- ``reInitialize()`` performs ``reInitializeExceptPersistentStates()`` and additionally re-seeds the filter state and
   covariance from the configured initial values.
 
 Configuration parameters
@@ -199,5 +199,5 @@ configuration::
 
     # Connect the input/output messages (navAttInMsg, cssDataInMsg, cssConfigInMsg, ...), then the
     # simulation calls reset() once before stepping. To restart the filter at runtime, call
-    # reInitializeAll() (state + covariance reset to the configured seed) or reInitialize() (keep the
+    # reInitialize() (state + covariance reset to the configured seed) or reInitializeExceptPersistentStates() (keep the
     # current estimate, clear only the pending measurements and residual snapshots).

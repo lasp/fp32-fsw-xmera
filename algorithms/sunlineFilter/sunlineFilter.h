@@ -26,8 +26,8 @@ class SunlineFilter : public SysModel {
 
     void reset(uint64_t currentSimNanos) override;
     void updateState(uint64_t currentSimNanos) override;
+    void reInitializeExceptPersistentStates();
     void reInitialize();
-    void reInitializeAll();
 
     // Phase 1: public config properties -- set before reset(). The matrix/vector
     // properties are sized to their defaults (zero / identity) in the constructor.

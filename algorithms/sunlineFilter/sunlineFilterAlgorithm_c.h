@@ -73,13 +73,13 @@ SunlineFilterOutput_c SunlineFilterAlgorithm_update(SunlineFilterAlgorithmHandle
  * @brief Clear the filter's internal runtime state; state and covariance are preserved.
  * @param self Pointer to the instance.
  */
-void SunlineFilterAlgorithm_reInitialize(SunlineFilterAlgorithmHandle* self);
+void SunlineFilterAlgorithm_reInitializeExceptPersistentStates(SunlineFilterAlgorithmHandle* self);
 
 /**
- * @brief reInitialize() and additionally re-seed state and covariance from the configuration.
+ * @brief reInitializeExceptPersistentStates() and additionally re-seed state and covariance from the configuration.
  * @param self Pointer to the instance.
  */
-void SunlineFilterAlgorithm_reInitializeAll(SunlineFilterAlgorithmHandle* self);
+void SunlineFilterAlgorithm_reInitialize(SunlineFilterAlgorithmHandle* self);
 
 /**
  * @brief Get the current filter state and covariance snapshot.

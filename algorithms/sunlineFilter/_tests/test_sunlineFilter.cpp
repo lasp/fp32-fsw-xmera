@@ -473,12 +473,12 @@ TEST(SunlineFilterAlgorithmReInit, ReInitializePreservesEstimateReInitializeAllR
     ASSERT_FALSE(movedCovariance.isApprox(initialCovariance));
     EXPECT_TRUE(algo.getLastCssResiduals().valid);
 
-    algo.reInitialize();
+    algo.reInitializeExceptPersistentStates();
     EXPECT_TRUE(algo.getState().raw().isApprox(movedState.raw()));
     EXPECT_TRUE(algo.getCovariance().isApprox(movedCovariance));
     EXPECT_FALSE(algo.getLastCssResiduals().valid);
 
-    algo.reInitializeAll();
+    algo.reInitialize();
     EXPECT_TRUE(algo.getState().raw().isApprox(initialState.raw()));
     EXPECT_TRUE(algo.getCovariance().isApprox(initialCovariance));
 }
