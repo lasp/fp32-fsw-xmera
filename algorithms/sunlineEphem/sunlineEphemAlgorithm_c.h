@@ -14,13 +14,6 @@ extern "C" {
 typedef struct SunlineEphemAlgorithmHandle SunlineEphemAlgorithmHandle;
 
 /**
- * @brief POD representation of a 3-vector (Eigen::Vector3d).
- */
-typedef struct {
-    double data[3];
-} Vector3d_c;
-
-/**
  * @brief Construct a new SunlineEphemAlgorithm instance.
  * @return Pointer to a new SunlineEphemAlgorithm (must be destroyed).
  */

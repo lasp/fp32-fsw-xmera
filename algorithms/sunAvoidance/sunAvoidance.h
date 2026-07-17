@@ -1,41 +1,42 @@
-#ifndef F32XMERA_SUN_TRACK_ERROR_H
-#define F32XMERA_SUN_TRACK_ERROR_H
+#ifndef F32XMERA_SUN_AVOIDANCE_H
+#define F32XMERA_SUN_AVOIDANCE_H
 
-#include "msgPayloadDef/AttGuidMsgF32Payload.h"
 #include "msgPayloadDef/AttRefMsgF32Payload.h"
 #include "msgPayloadDef/EphemerisMsgF32Payload.h"
 #include "msgPayloadDef/NavAttMsgF32Payload.h"
 #include "msgPayloadDef/NavTransMsgF32Payload.h"
-#include "sunTrackErrorAlgorithm.h"
+#include "sunAvoidanceAlgorithm.h"
 #include <architecture/messaging/messaging.h>
 #include <stdint.h>
 #include <Eigen/Core>
+#include <memory>
 
 /*!@brief Module to compute the attitude tracking error for sun avoidance.
  */
-class SunTrackError final : public SysModel {
+class SunAvoidance final : public SysModel {
    public:
-    SunTrackError() = default;
-    ~SunTrackError() override = default;
+    SunAvoidance() = default;
+    ~SunAvoidance() override = default;
 
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
 
-    void setSigma_R0R(const Eigen::Vector3f& sigma);
-    Eigen::Vector3f getSigma_R0R() const;
-    void setSensitiveHat_B(const Eigen::Vector3f& sensitiveDirection);
-    Eigen::Vector3f getSensitiveHat_B() const;
-    void setAngleRate(float rate);
-    float getAngleRate() const;
+    void reconfigure() const;
+    void reInitialize();
+
+    // Phase 1: public config properties -- set before reset().
+    Eigen::Vector3f sensitiveHat_B = Eigen::Vector3f::Zero();  //!< [-] body vector to exclude from the Sun
+    float angleRate = 0.0F;                                    //!< [r/s] rate at which we maneuver to Sun point
 
     ReadFunctor<NavAttMsgF32Payload> attNavInMsg;        //!< input msg measured attitude
     ReadFunctor<AttRefMsgF32Payload> attRefInMsg;        //!< input msg of reference attitude
     ReadFunctor<NavTransMsgF32Payload> transNavInMsg;    //!< input msg measured position
     ReadFunctor<EphemerisMsgF32Payload> ephemerisInMsg;  //!< input ephemeris msg
-    Message<AttGuidMsgF32Payload> attGuidOutMsg;         //!< output msg of attitude guidance
+    Message<AttRefMsgF32Payload> attRefOutMsg;           //!< output msg of the maneuver-adjusted reference
 
    private:
-    SunTrackErrorAlgorithm algorithm{};
+    SunAvoidanceConfig toConfig() const;
+    std::unique_ptr<SunAvoidanceAlgorithm> algorithm = nullptr;
 };
 
 #endif

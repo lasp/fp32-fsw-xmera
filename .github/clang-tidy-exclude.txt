@@ -61,8 +61,10 @@ algorithms/sunSearchPoint/sunSearchPointAlgorithm_c.h
 algorithms/sunSearchPoint/sunSearchPointAlgorithm_c.cpp
 algorithms/sunlineEphem/sunlineEphem.h
 algorithms/sunlineEphem/sunlineEphem.cpp
-algorithms/sunTrackError/sunTrackError.h
-algorithms/sunTrackError/sunTrackError.cpp
+algorithms/sunAvoidance/sunAvoidance.h
+algorithms/sunAvoidance/sunAvoidance.cpp
+algorithms/sunAvoidance/sunAvoidanceAlgorithm_c.h
+algorithms/sunAvoidance/sunAvoidanceAlgorithm_c.cpp
 algorithms/thrFiringRemainder/thrFiringRemainder.h
 algorithms/thrFiringRemainder/thrFiringRemainder.cpp
 algorithms/thrFiringSchmitt/thrFiringSchmitt.h
