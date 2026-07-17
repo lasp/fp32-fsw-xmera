@@ -127,6 +127,30 @@ TEST(TriadTest, ReturnedOutputMatchesPrecomputedReference) {
     }
 }
 
+// Comparing final inertial sada axis with pre-computed known inertial sada axis direction
+TEST(TriadTest, InertialSadaAxisMatchesPrecomputedAxis) {
+    const Eigen::Vector3f rHat_SB_N = Eigen::Vector3f(-1.0F, 0.0F, 1.0F).normalized();
+    const float thrustYZOffsetAngleRad = 15.0F * std::numbers::pi_v<float> / 180.0F;
+    const Eigen::Vector3f thrustHat_B =
+        Eigen::Vector3f(safeSinf(thrustYZOffsetAngleRad), 0.0F, -safeCosf(thrustYZOffsetAngleRad));
+    const Eigen::Vector3f sadaHat_B = Eigen::Vector3f::UnitX();
+    const Eigen::Vector3f thrustReqHat_N = -Eigen::Vector3f::UnitZ();
+    const float signOfN3Hat_N = 1.0F;
+
+    auto config = TriadConfig::create(sadaHat_B, thrustReqHat_N, signOfN3Hat_N);
+    TriadAlgorithm alg(config);
+    const Eigen::Vector3f sigma_RN = alg.update(rHat_SB_N, thrustHat_B);
+
+    // Compute SADA axis in inertial frame components
+    const Eigen::Matrix3f dcm_RN = mrpToDcm(sigma_RN);
+    Eigen::Vector3f sadaHatResult_N = (dcm_RN.transpose() * sadaHat_B).stableNormalized();
+
+    Eigen::Vector3f sadaHatExpected_N =
+        Eigen::Vector3f(0.0F, -safeCosf(thrustYZOffsetAngleRad), -safeSinf(thrustYZOffsetAngleRad));
+
+    EXPECT_NEAR(fabsf(sadaHatResult_N.dot(sadaHatExpected_N)), 1.0F, 1e-6F);
+}
+
 // ---------------------------------------------------------------------------
 // Edge-case tests
 // ---------------------------------------------------------------------------
