@@ -27,7 +27,7 @@ jobs:
       # Uncomment/set to pin adamant-xmera-components for THIS branch's CI
       # runs. The workflow_dispatch input still wins over a PIN; revert (or
       # comment back) before merging.
-      # ADAMANT_XMERA_COMPONENTS_REF_PIN: 'your-branch-here'
+      ADAMANT_XMERA_COMPONENTS_REF_PIN: 'feature/EMAGNCFSW-1117-add-acceleration-to-mimu-majority-vote-component'
     container:
       image: ghcr.io/lasp/adamant:0.2
       options: --user root
