@@ -260,3 +260,25 @@ TEST(TriadTest, SadaOrthogonalToSunWhenOrthogonalToBodyThrust) {
 
     EXPECT_NEAR(sadaHat_B.dot(rHat_SB_R), 0.0F, 1e-6F);
 }
+
+// The array-Sun orthogonality constraint is met when the Sun direction is orthogonal to the thrust inertial reference
+TEST(TriadTest, SadaAxisOrthogonalToSunWhenSunAndThrustRefAligned) {
+    const Eigen::Vector3f rHat_SB_N = Eigen::Vector3f::UnitY();
+    const float thrustYZOffsetAngleRad = 15.0F * std::numbers::pi_v<float> / 180.0F;
+    const Eigen::Vector3f thrustHat_B =
+        Eigen::Vector3f(safeSinf(thrustYZOffsetAngleRad), 0.0F, -safeCosf(thrustYZOffsetAngleRad));
+    const Eigen::Vector3f sadaHat_B = Eigen::Vector3f::UnitX();
+    const Eigen::Vector3f thrustReqHat_N = Eigen::Vector3f(1.0F, 0.0F, 1.0F).normalized();
+    const float signOfN3Hat_N = 1.0F;
+
+    auto config = TriadConfig::create(sadaHat_B, thrustReqHat_N, signOfN3Hat_N);
+    TriadAlgorithm alg(config);
+
+    const Eigen::Vector3f sigma_RN = alg.update(rHat_SB_N, thrustHat_B);
+
+    // Compute Sun direction vector in reference body frame components
+    const Eigen::Matrix3f dcm_RN = mrpToDcm(sigma_RN);
+    Eigen::Vector3f rHat_SB_R = (dcm_RN * rHat_SB_N).stableNormalized();
+
+    EXPECT_NEAR(sadaHat_B.dot(rHat_SB_R), 0.0F, 1e-6F);
+}
