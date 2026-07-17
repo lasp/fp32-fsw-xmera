@@ -38,8 +38,8 @@ std::optional<Eigen::Matrix<float, kMaxNumRw, kMaxNumRw>> computeNullSpaceProjec
     }
 
     const Eigen::JacobiSVD<Eigen::Matrix<float, 3, kMaxNumRw>> gsSvd(G_s_B, Eigen::ComputeFullV);
-    const Eigen::Vector3f& gsSingularValues = gsSvd.singularValues();
-    if (gsSingularValues(2) <= gsSingularValues(0) * kConditioningTol) {
+    if (const Eigen::Vector3f& gsSingularValues = gsSvd.singularValues();
+        gsSingularValues(2) <= gsSingularValues(0) * kConditioningTol) {
         return std::nullopt;
     }
 
@@ -48,21 +48,20 @@ std::optional<Eigen::Matrix<float, kMaxNumRw, kMaxNumRw>> computeNullSpaceProjec
                                                       Vr * Vr.transpose()};
 }
 
-/*! Computes the per-RW motor-torque map and the null-space projection [tau] from a validated, canonicalized
- configuration (orthonormal control axes, unit spin axes). Returns nullopt when a control axis is not
- reachable by the available reaction wheels (rank-deficient control mapping). */
-std::optional<RwMotorTorqueMapping> computeRwMapping(const Eigen::Matrix3f& controlAxes_B,
-                                                     const RwMotorTorqueArrayConfiguration& rwConfiguration,
-                                                     const RwMotorTorqueAvailability& availability) {
-    const std::array<FSWdeviceAvailability, kMaxNumRw>& wheelsAvailability = availability.wheelAvailability;
+/*! Computes the per-RW motor-torque map and the null-space projection [tau] from a validated configuration
+ (selected body control axes, unit spin axes). Returns nullopt when a selected control axis is not reachable
+ by the available reaction wheels (rank-deficient control mapping). */
+std::optional<RwMotorTorqueMapping> computeRwMapping(const std::array<bool, 3>& desiredControlAxes_B,
+                                                     const RwMotorTorqueArrayConfiguration& rwConfiguration) {
+    const std::array<FSWdeviceAvailability, kMaxNumRw>& wheelsAvailability = rwConfiguration.wheelAvailability;
 
-    // Compact the non-zero (controlled) rows to the top; only the controlled subspace matters, so the row
-    // positions in the configured matrix are irrelevant.
+    // Build the compact control-axes matrix: each selected body axis (x, y, z) contributes its standard-basis
+    // row, packed to the top. Unselected axes are simply omitted.
     Eigen::Matrix3f compactControlAxes{Eigen::Matrix3f::Zero()};
     uint32_t numControlAxes = 0U;
     for (uint32_t i = 0U; i < 3U; ++i) {
-        if (controlAxes_B.row(i).norm() > 0.0F) {
-            compactControlAxes.row(numControlAxes) = controlAxes_B.row(i);
+        if (desiredControlAxes_B[i]) {
+            compactControlAxes(numControlAxes, i) = 1.0F;
             numControlAxes += 1U;
         }
     }
@@ -79,14 +78,14 @@ std::optional<RwMotorTorqueMapping> computeRwMapping(const Eigen::Matrix3f& cont
     }
 
     const Eigen::Matrix<float, 3, kMaxNumRw> CGs = compactControlAxes * G_s_B;
-    const Eigen::MatrixXf CGsActive = CGs.topRows(numControlAxes);
 
-    // SVD of the control mapping [CGs] = [CB][Gs] (numControlAxes x kMaxNumRw, with zero columns for
-    // unavailable wheels), reused for the controllability check and the pseudo-inverse below. Singular values
-    // below a relative tolerance are treated as zero.
-    const Eigen::JacobiSVD<Eigen::MatrixXf> svd(CGsActive, Eigen::ComputeThinU | Eigen::ComputeThinV);
-    const Eigen::VectorXf& singularValues = svd.singularValues();
-    const Eigen::MatrixXf& leftSingularVectors = svd.matrixU();
+    // SVD of the control mapping [CGs] = [CB][Gs] (3 x kMaxNumRw; uncontrolled axes are zero rows, unavailable
+    // wheels zero columns), reused for the controllability check and the pseudo-inverse below. Full U/V keep the
+    // decomposition fixed-size (thin unitaries require a dynamic column count); the zero rows/columns produce
+    // zero singular values, which the relative tolerance below treats as zero.
+    const Eigen::JacobiSVD<Eigen::Matrix<float, 3, kMaxNumRw>> svd(CGs, Eigen::ComputeFullU | Eigen::ComputeFullV);
+    const Eigen::Vector3f& singularValues = svd.singularValues();
+    const Eigen::Matrix3f& leftSingularVectors = svd.matrixU();
     const float singularValueTol = singularValues(0) * std::numeric_limits<float>::epsilon() *
                                    static_cast<float>(std::max(numControlAxes, kMaxNumRw));
 
@@ -113,15 +112,15 @@ std::optional<RwMotorTorqueMapping> computeRwMapping(const Eigen::Matrix3f& cont
 
     // Control map = pseudo-inverse([CGs]) * (-[CB]) via a truncated SVD ([V][S^-1][U]^T), folding the control-
     // axis projection and the minimum-norm inverse into one matrix.
-    Eigen::VectorXf invSingularValues = Eigen::VectorXf::Zero(singularValues.size());
+    Eigen::Vector3f invSingularValues = Eigen::Vector3f::Zero();
     for (Eigen::Index i = 0; i < singularValues.size(); ++i) {
         if (singularValues(i) > singularValueTol) {
             invSingularValues(i) = 1.0F / singularValues(i);
         }
     }
     RwMotorTorqueMapping mapping{};
-    mapping.motorTorqueMap = svd.matrixV() * invSingularValues.asDiagonal() * leftSingularVectors.transpose() *
-                             (-compactControlAxes.topRows(numControlAxes));
+    mapping.motorTorqueMap = svd.matrixV().leftCols<3>() * invSingularValues.asDiagonal() *
+                             leftSingularVectors.transpose() * (-compactControlAxes);
 
     const std::optional<Eigen::Matrix<float, kMaxNumRw, kMaxNumRw>> tau = computeNullSpaceProjection(G_s_B, numAvailRW);
     if (!tau.has_value()) {
@@ -143,16 +142,15 @@ std::optional<RwMotorTorqueMapping> computeRwMapping(const Eigen::Matrix3f& cont
 
 }  // namespace
 
-bool RwMotorTorqueConfig::isValidMapping(const Eigen::Matrix3f& controlAxes_B,
-                                         const RwMotorTorqueArrayConfiguration& rwConfiguration,
-                                         const RwMotorTorqueAvailability& availability) {
-    return computeRwMapping(controlAxes_B, rwConfiguration, availability).has_value();
+bool RwMotorTorqueConfig::isValidMapping(const std::array<bool, 3>& desiredControlAxes_B,
+                                         const RwMotorTorqueArrayConfiguration& rwConfiguration) {
+    return computeRwMapping(desiredControlAxes_B, rwConfiguration).has_value();
 }
 
 RwMotorTorqueAlgorithm::RwMotorTorqueAlgorithm(const RwMotorTorqueConfig& config)  // NOLINT(modernize-pass-by-value)
     : cfg(config) {
     const std::optional<RwMotorTorqueMapping> mapping =
-        computeRwMapping(this->cfg.getControlAxes(), this->cfg.getRwConfiguration(), this->cfg.getAvailability());
+        computeRwMapping(this->cfg.getDesiredControlAxes(), this->cfg.getRwConfiguration());
     if (mapping.has_value()) {
         this->motorTorqueMap = mapping->motorTorqueMap;
         this->tau = mapping->tau;
@@ -162,7 +160,7 @@ RwMotorTorqueAlgorithm::RwMotorTorqueAlgorithm(const RwMotorTorqueConfig& config
 void RwMotorTorqueAlgorithm::setConfig(const RwMotorTorqueConfig& config) {
     this->cfg = config;
     const std::optional<RwMotorTorqueMapping> mapping =
-        computeRwMapping(this->cfg.getControlAxes(), this->cfg.getRwConfiguration(), this->cfg.getAvailability());
+        computeRwMapping(this->cfg.getDesiredControlAxes(), this->cfg.getRwConfiguration());
     if (mapping.has_value()) {
         this->motorTorqueMap = mapping->motorTorqueMap;
         this->tau = mapping->tau;

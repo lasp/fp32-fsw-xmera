@@ -18,12 +18,8 @@ struct RwMotorTorqueArrayConfiguration {
     uint32_t numRW{};  //!< [-] number of reaction wheels on the vehicle
     Eigen::Matrix<float, 3, kMaxNumRw> GsMatrix_B{
         Eigen::Matrix<float, 3, kMaxNumRw>::Zero()};  //!< [-] RW spin axes in body frame, one column per wheel
-};
-
-/*! @brief Per-wheel reaction-wheel availability. */
-struct RwMotorTorqueAvailability {
     std::array<FSWdeviceAvailability, kMaxNumRw>
-        wheelAvailability{};  //!< [-] AVAILABLE / UNAVAILABLE state of each reaction wheel
+        wheelAvailability{};  //!< [-] AVAILABLE / UNAVAILABLE state of each reaction wheel (fixed at reset)
 };
 
 /*! @brief Per-update reaction-wheel speeds for the null-space term. */
@@ -36,25 +32,20 @@ struct RwMotorTorqueSpeeds {
 /*!
  * @brief Validated configuration for the RW motor torque algorithm.
  *
- * Bundles the control axes mapping matrix, the reaction-wheel spin-axis configuration, and the per-wheel
- * availability. An instance can only exist if: the control axes mapping matrix is finite and defines at least
- * one control axis (each non-zero row a unit vector, the non-zero rows mutually orthogonal, zero/uncontrolled
- * rows allowed in any position); the reaction-wheel count does not exceed the compile-time maximum and each
- * spin axis is a unit vector; and the configuration yields a realizable, well-conditioned control mapping
- * (every control axis reachable by the available wheels, with neither the control mapping nor the null-space
+ * Bundles the desired control-axis selection (which of body x, y, z to control), the reaction-wheel
+ * spin-axis configuration, and the per-wheel availability. An instance can only exist if: at least one
+ * control axis is selected; the reaction-wheel count does not exceed the compile-time maximum and each spin
+ * axis is a unit vector; and the configuration yields a realizable, well-conditioned control mapping (every
+ * selected control axis reachable by the available wheels, with neither the control mapping nor the
  * null-space geometry ill-conditioned). Construct via RwMotorTorqueConfig::create(...).
  */
 class RwMotorTorqueConfig final {
    public:
-    static RwMotorTorqueConfig create(const Eigen::Matrix3f& controlAxes_B,
+    static RwMotorTorqueConfig create(const std::array<bool, 3>& desiredControlAxes_B,
                                       const RwMotorTorqueArrayConfiguration& rwConfiguration,
-                                      const RwMotorTorqueAvailability& availability,
                                       float omegaGain = 0.0F) {
-        if (!isValidControlAxes(controlAxes_B)) {
-            FSW_THROW_INVALID_ARGUMENT(
-                "rwMotorTorque: controlAxes_B must contain only finite values and define at least one control "
-                "axis, each non-zero row a unit vector and the non-zero rows mutually orthogonal (zero rows mark "
-                "uncontrolled axes).");
+        if (!isValidControlAxes(desiredControlAxes_B)) {
+            FSW_THROW_INVALID_ARGUMENT("rwMotorTorque: desiredControlAxes_B must select at least one control axis.");
         }
         if (!isValidRwConfiguration(rwConfiguration)) {
             FSW_THROW_INVALID_ARGUMENT(
@@ -66,66 +57,30 @@ class RwMotorTorqueConfig final {
                 "rwMotorTorque: omegaGain (RW null-space feedback gain) must be finite and non-negative.");
         }
 
-        // Canonicalize the validated inputs so downstream code can rely on exact unit vectors. The control
-        // axes are orthonormalized (Gram-Schmidt over the non-zero rows; zero/uncontrolled rows stay in
-        // place), and the RW spin axes are normalized. The inputs are validated (near-)unit and (near-)
-        // orthogonal, so this only removes rounding.
-        Eigen::Matrix3f orthonormalControlAxes = controlAxes_B;
-        for (uint32_t i = 0U; i < 3U; ++i) {
-            if (orthonormalControlAxes.row(i).norm() <= 0.0F) {
-                continue;
-            }
-            for (uint32_t k = 0U; k < i; ++k) {
-                if (orthonormalControlAxes.row(k).norm() > 0.0F) {
-                    orthonormalControlAxes.row(i) -= orthonormalControlAxes.row(i).dot(orthonormalControlAxes.row(k)) *
-                                                     orthonormalControlAxes.row(k);
-                }
-            }
-            orthonormalControlAxes.row(i).normalize();
-        }
+        // Normalize the RW spin axes so downstream code can rely on exact unit vectors. The inputs are validated
+        // (near-)unit, so this only removes rounding.
         RwMotorTorqueArrayConfiguration normalizedRwConfiguration = rwConfiguration;
         for (uint32_t i = 0U; i < normalizedRwConfiguration.numRW; ++i) {
             normalizedRwConfiguration.GsMatrix_B.col(i).normalize();
         }
 
-        // Reject configurations whose control mapping cannot be realized: a control axis is unreachable by the
-        // available reaction wheels, or the control mapping or null-space geometry is ill-conditioned
+        // Reject configurations whose control mapping cannot be realized: a selected control axis is unreachable
+        // by the available reaction wheels, or the control mapping or null-space geometry is ill-conditioned
         // (condition number above 100). This is the only place such an invalid argument is thrown -- once
         // constructed, a RwMotorTorqueConfig always yields a usable mapping.
-        if (!isValidMapping(orthonormalControlAxes, normalizedRwConfiguration, availability)) {
+        if (!isValidMapping(desiredControlAxes_B, normalizedRwConfiguration)) {
             FSW_THROW_INVALID_ARGUMENT(
-                "rwMotorTorque: the configuration does not yield a valid control mapping -- a control axis is not "
-                "reachable by the available reaction wheels, or the control mapping or null-space "
+                "rwMotorTorque: the configuration does not yield a valid control mapping -- a selected control "
+                "axis is not reachable by the available reaction wheels, or the control mapping or null-space "
                 "geometry is ill-conditioned.");
         }
 
-        return RwMotorTorqueConfig{orthonormalControlAxes, normalizedRwConfiguration, availability, omegaGain};
+        return RwMotorTorqueConfig{desiredControlAxes_B, normalizedRwConfiguration, omegaGain};
     }
 
-    static bool isValidControlAxes(const Eigen::Matrix3f& controlAxes_B) {
-        if (!controlAxes_B.allFinite()) {
-            return false;
-        }
-        // Each non-zero row is a control axis (in any position); the control axes must be unit vectors
-        // and mutually orthogonal. Zero rows mark uncontrolled body directions.
-        constexpr float kOrthonormalTol = 1e-3F;
-        uint32_t numControlAxes = 0U;
-        for (uint32_t i = 0U; i < 3U; ++i) {
-            if (controlAxes_B.row(i).norm() <= 0.0F) {
-                continue;
-            }
-            numControlAxes += 1U;
-            if (fabsf(controlAxes_B.row(i).norm() - 1.0F) > kOrthonormalTol) {
-                return false;
-            }
-            for (uint32_t k = i + 1U; k < 3U; ++k) {
-                if (controlAxes_B.row(k).norm() > 0.0F &&
-                    fabsf(controlAxes_B.row(i).dot(controlAxes_B.row(k))) > kOrthonormalTol) {
-                    return false;
-                }
-            }
-        }
-        return numControlAxes > 0U;
+    //! At least one body axis (x, y, z) must be selected for control.
+    static bool isValidControlAxes(const std::array<bool, 3>& desiredControlAxes_B) {
+        return desiredControlAxes_B[0] || desiredControlAxes_B[1] || desiredControlAxes_B[2];
     }
 
     static bool isValidRwConfiguration(const RwMotorTorqueArrayConfiguration& rwConfiguration) {
@@ -149,28 +104,21 @@ class RwMotorTorqueConfig final {
     // reachable by the available reaction wheels, and both the control mapping and the null-space
     // geometry are well-conditioned (condition number below 100). Defined in the .cpp because it shares the
     // mapping computation with the algorithm.
-    static bool isValidMapping(const Eigen::Matrix3f& controlAxes_B,
-                               const RwMotorTorqueArrayConfiguration& rwConfiguration,
-                               const RwMotorTorqueAvailability& availability);
+    static bool isValidMapping(const std::array<bool, 3>& desiredControlAxes_B,
+                               const RwMotorTorqueArrayConfiguration& rwConfiguration);
 
-    const Eigen::Matrix3f& getControlAxes() const { return this->controlAxes_B; }
+    const std::array<bool, 3>& getDesiredControlAxes() const { return this->desiredControlAxes_B; }
     const RwMotorTorqueArrayConfiguration& getRwConfiguration() const { return this->rwConfiguration; }
-    const RwMotorTorqueAvailability& getAvailability() const { return this->availability; }
     float getOmegaGain() const { return this->omegaGain; }
 
    private:
-    RwMotorTorqueConfig(const Eigen::Matrix3f& controlAxes_B,
+    RwMotorTorqueConfig(const std::array<bool, 3>& desiredControlAxes_B,
                         const RwMotorTorqueArrayConfiguration& rwConfiguration,
-                        const RwMotorTorqueAvailability& availability,
                         float omegaGain)
-        : controlAxes_B(controlAxes_B),
-          rwConfiguration(rwConfiguration),
-          availability(availability),
-          omegaGain(omegaGain) {}
+        : desiredControlAxes_B(desiredControlAxes_B), rwConfiguration(rwConfiguration), omegaGain(omegaGain) {}
 
-    Eigen::Matrix3f controlAxes_B;
+    std::array<bool, 3> desiredControlAxes_B;
     RwMotorTorqueArrayConfiguration rwConfiguration;
-    RwMotorTorqueAvailability availability;
     float omegaGain;  //!< [-] RW null-space feedback gain (>= 0; 0 disables the null-space term)
 };
 

@@ -72,11 +72,11 @@ The following table lists all the module parameters than can be set. The paramet
       - Default
       - Description
       - Bounds
-    * - controlAxes_B (required)
-      - Eigen::Matrix3f
+    * - desiredControlAxes_B
+      - bool[3]
       - [-]
-      - :math:`[0]_{3x3}`
-      - array of the control unit axes (axis in each row)
+      - ``[True, True, True]``
+      - which body axes (x, y, z) to control; at least one must be ``True``
       - N/A
     * - omegaGain
       - float
@@ -96,9 +96,9 @@ This code makes the following assumptions:
   the configuration is created.
 - It is assumed that the availability of the reaction wheels is known at the time of reset, and does not change after
   that.
-- The control axes and RW spin axes are expected to be unit vectors. They are validated when the configuration is
-  created (a non-unit spin axis is rejected) and canonicalized before use: the RW spin axes are normalized and the
-  control axes are orthonormalized (Gram-Schmidt).
+- The control axes are the body axes (x, y, z) selected by ``desiredControlAxes_B``; at least one must be selected.
+  The RW spin axes are expected to be unit vectors, validated when the configuration is created (a non-unit spin axis
+  is rejected) and normalized before use.
 - The null-space term requires more than three *available* reaction wheels spanning 3-D for a non-trivial
   null space. With three (or fewer) available spanning wheels the null space is empty, :math:`[\tau]` is zero, and
   the null-space term has no effect. A zero ``omegaGain`` (the default) likewise disables the null-space term. The
@@ -111,8 +111,7 @@ The module is configured by::
 
     module = rwMotorTorque.RwMotorTorque()
     module.modelTag = "rwMotorTorque"
-    control_axes_B = [[1, 0, 0], [0, 1, 0], [0, 0, 0]]
-    module.controlAxes_B = control_axes_B
+    module.desiredControlAxes_B = [True, True, False]  # control body x and y
 
 Detailed Model Description
 --------------------------
