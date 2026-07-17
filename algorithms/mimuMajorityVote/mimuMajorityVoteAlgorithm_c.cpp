@@ -19,10 +19,10 @@ std::array<Eigen::Vector3f, MIMU_COUNT_C> toEigenArray(const Vector3fArray3_c& i
 MimuVoteResult_c toResultC(const MimuVoteResult& result) {
     MimuVoteResult_c out{};
     eigenVectorToCArray(result.average, out.average.data);
-    out.faultDetected = result.faultDetected ? 1U : 0U;
+    out.faultDetected = result.faultDetected;
     for (uint32_t i = 0; i < MIMU_COUNT_C; ++i) {
         out.imuDifferenceMag[i] = result.imuDifferenceMag.at(i);
-        out.imuValid[i] = result.imuValid.at(i) ? 1U : 0U;
+        out.imuValid[i] = result.imuValid.at(i);
     }
     return out;
 }

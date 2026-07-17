@@ -2,6 +2,7 @@
 #define F32XMERA_MIMU_MAJORITY_VOTE_TYPES_H
 
 #include "utilities/fsw/plainCAlgorithmDataTypes.h"
+#include <stdbool.h>
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -25,15 +26,15 @@ typedef struct {
  *
  * Layout must match the Adamant Mimu_Vote_Result packed record:
  *   Average            : Packed_F32x3             (3 floats)
- *   Fault_Detected     : Unsigned_8               (0 = false, nonzero = true)
+ *   Fault_Detected     : Boolean                  (C99 bool / _Bool, 0/1)
  *   Imu_Difference_Mag : array of F32             (MIMU_COUNT_C floats)
- *   Imu_Valid          : array of Unsigned_8      (MIMU_COUNT_C, 0/1 per IMU)
+ *   Imu_Valid          : array of Boolean         (MIMU_COUNT_C, C99 bool, 0/1 per IMU)
  */
 typedef struct {
     Vector3f_c average;                   /*!< Averaged measurement (outlier-excluded once a fault persists) */
-    uint8_t faultDetected;                /*!< Whether an IMU was rejected for this quantity (0/1) */
+    bool faultDetected;                   /*!< Whether an IMU was rejected for this quantity (0/1) */
     float imuDifferenceMag[MIMU_COUNT_C]; /*!< Each IMU's difference magnitude from the 3-IMU average */
-    uint8_t imuValid[MIMU_COUNT_C];       /*!< Whether each IMU is valid for this quantity (0/1) */
+    bool imuValid[MIMU_COUNT_C];          /*!< Whether each IMU is valid for this quantity (0/1) */
 } MimuVoteResult_c;
 
 /**
