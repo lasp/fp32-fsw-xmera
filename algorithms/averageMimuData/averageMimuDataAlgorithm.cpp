@@ -61,15 +61,11 @@ OutputAverageAccelAngleVel AverageMimuDataAlgorithm::update(InputPktsData const&
         }
     }
 
-    OutputAverageAccelAngleVel out{};
-    if (maxSlotMeasTime == 0U) {
-        return out;
-    }
-
     const uint64_t maxTimeTag = maxSlotMeasTime + ((MAX_MIMU_SAMPLES_PER_PKT_C - 1U) * kMimuSamplePeriodNs);
 
     // Gyro and accel each accumulate over their own window, so a sample may
-    // contribute to one running mean and not the other.
+    // contribute to one running mean and not the other. An empty ring leaves
+    // both counts at zero, so the zero-initialized output is returned unchanged.
     Eigen::Vector3f gyroSum_C = Eigen::Vector3f::Zero();
     Eigen::Vector3f accelSum_C = Eigen::Vector3f::Zero();
     uint64_t gyroAvgCount = 0U;
@@ -95,6 +91,7 @@ OutputAverageAccelAngleVel AverageMimuDataAlgorithm::update(InputPktsData const&
         }
     }
 
+    OutputAverageAccelAngleVel out{};
     if (gyroAvgCount > 0U) {
         gyroSum_C /= static_cast<float>(gyroAvgCount);
         out.gyroOmega_B = this->cfg.getDcmChuToBody() * gyroSum_C;
