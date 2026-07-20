@@ -66,55 +66,50 @@ TEST(StepperMotorControllerTest, RegressionLargeMove) {
 }
 
 // ---------------------------------------------------------------------------
-// Setup tests (setter validation + round-trip)
+// Setup tests (config validation + round-trip)
 // ---------------------------------------------------------------------------
 
 TEST(StepperMotorControllerTest, SetupTest) {
-    StepperMotorControllerAlgorithm alg{};
-
-    // stepAngle: reject < kMinStepAngle or > 2*pi
     constexpr float twoPi = 2.0F * std::numbers::pi_v<float>;
-    EXPECT_THROW(alg.setStepAngle(0.0F), fsw::invalid_argument);
-    EXPECT_THROW(alg.setStepAngle(-0.1F), fsw::invalid_argument);
-    EXPECT_THROW(alg.setStepAngle(twoPi + 0.1F), fsw::invalid_argument);
-    EXPECT_THROW(alg.setStepAngle(twoPi / 100001.0F), fsw::invalid_argument);  // stepsPerRev > 100k
-    EXPECT_NO_THROW(alg.setStepAngle(twoPi / 100000.0F));                      // stepsPerRev = 100k (boundary)
-    EXPECT_NO_THROW(alg.setStepAngle(twoPi / 200.0F));
-    EXPECT_FLOAT_EQ(alg.getStepAngle(), twoPi / 200.0F);
+    const StepperMotorAngleRange fullRange{0.0F, twoPi};
 
-    // settleCountMax: round-trip (non-negativity is enforced by uint32_t parameter type)
-    EXPECT_NO_THROW(alg.setSettleCountMax(0U));
-    EXPECT_EQ(alg.getSettleCountMax(), 0U);
-    EXPECT_NO_THROW(alg.setSettleCountMax(10U));
-    EXPECT_EQ(alg.getSettleCountMax(), 10U);
+    const auto makeConfig = [&](float stepAngle, const StepperMotorAngleRange& range, uint32_t minStepCommand) {
+        return StepperMotorControllerConfig::create(stepAngle, range, 10U, minStepCommand);
+    };
 
-    // minStepCommand: reject 0, round-trip positive values
-    EXPECT_THROW(alg.setMinStepCommand(0U), fsw::invalid_argument);
-    EXPECT_NO_THROW(alg.setMinStepCommand(1U));
-    EXPECT_EQ(alg.getMinStepCommand(), 1U);
-    EXPECT_NO_THROW(alg.setMinStepCommand(5U));
-    EXPECT_EQ(alg.getMinStepCommand(), 5U);
+    // stepAngle must be in [2*pi/kMaxStepsPerRev, 2*pi].
+    EXPECT_THROW(makeConfig(0.0F, fullRange, 1U), fsw::invalid_argument);
+    EXPECT_THROW(makeConfig(-0.1F, fullRange, 1U), fsw::invalid_argument);
+    EXPECT_THROW(makeConfig(twoPi + 0.1F, fullRange, 1U), fsw::invalid_argument);
+    EXPECT_THROW(makeConfig(twoPi / 100001.0F, fullRange, 1U), fsw::invalid_argument);  // stepsPerRev > 100k
+    EXPECT_NO_THROW(makeConfig(twoPi / 100000.0F, fullRange, 1U));                      // stepsPerRev = 100k (boundary)
+    EXPECT_NO_THROW(makeConfig(twoPi / 200.0F, fullRange, 1U));
 
-    // motor angle range: reject min < -2pi, max > 2pi, min >= max
-    EXPECT_THROW(alg.setMotorAngleRange(-twoPi - 0.1F, 1.0F), fsw::invalid_argument);
-    EXPECT_THROW(alg.setMotorAngleRange(1.0F, twoPi + 0.1F), fsw::invalid_argument);
-    EXPECT_THROW(alg.setMotorAngleRange(2.0F, 1.0F), fsw::invalid_argument);
-    EXPECT_THROW(alg.setMotorAngleRange(1.0F, 1.0F), fsw::invalid_argument);
-    EXPECT_NO_THROW(alg.setMotorAngleRange(0.0F, twoPi));
-    EXPECT_NO_THROW(alg.setMotorAngleRange(-twoPi, twoPi));
-    EXPECT_NO_THROW(alg.setMotorAngleRange(-1.0F, 1.0F));
-    EXPECT_NO_THROW(alg.setMotorAngleRange(0.5F, 1.5F));
-    const auto range = alg.getMotorAngleRange();
-    EXPECT_FLOAT_EQ(range[0], 0.5F);
-    EXPECT_FLOAT_EQ(range[1], 1.5F);
+    // minStepCommand must be greater than zero (settleCountMax has no constraint).
+    EXPECT_THROW(makeConfig(twoPi / 200.0F, fullRange, 0U), fsw::invalid_argument);
+    EXPECT_NO_THROW(makeConfig(twoPi / 200.0F, fullRange, 1U));
+
+    // Motor angle range: reject min < -2pi, max > 2pi, min >= max.
+    EXPECT_THROW(makeConfig(twoPi / 200.0F, StepperMotorAngleRange{-twoPi - 0.1F, 1.0F}, 1U), fsw::invalid_argument);
+    EXPECT_THROW(makeConfig(twoPi / 200.0F, StepperMotorAngleRange{1.0F, twoPi + 0.1F}, 1U), fsw::invalid_argument);
+    EXPECT_THROW(makeConfig(twoPi / 200.0F, StepperMotorAngleRange{2.0F, 1.0F}, 1U), fsw::invalid_argument);
+    EXPECT_THROW(makeConfig(twoPi / 200.0F, StepperMotorAngleRange{1.0F, 1.0F}, 1U), fsw::invalid_argument);
+    EXPECT_NO_THROW(makeConfig(twoPi / 200.0F, StepperMotorAngleRange{-twoPi, twoPi}, 1U));
+    EXPECT_NO_THROW(makeConfig(twoPi / 200.0F, StepperMotorAngleRange{-1.0F, 1.0F}, 1U));
+
+    // Getter round-trips. The derived stepsPerRev / full-circle values are algorithm-internal and exercised
+    // behaviorally by the WrapAtExactlyHalfRevolution and RangeUsesLinearDeltaForPartialRange tests.
+    const auto cfg = StepperMotorControllerConfig::create(twoPi / 200.0F, StepperMotorAngleRange{0.5F, 1.5F}, 7U, 5U);
+    EXPECT_FLOAT_EQ(cfg.getStepAngle(), twoPi / 200.0F);
+    EXPECT_EQ(cfg.getSettleCountMax(), 7U);
+    EXPECT_EQ(cfg.getMinStepCommand(), 5U);
+    EXPECT_FLOAT_EQ(cfg.getAngleRange().minAngle, 0.5F);
+    EXPECT_FLOAT_EQ(cfg.getAngleRange().maxAngle, 1.5F);
 }
 
 TEST(StepperMotorControllerTest, ResetBehavior) {
-    StepperMotorControllerAlgorithm alg{};
-    alg.setStepAngle(2.0F * std::numbers::pi_v<float> / 360.0F);
-    alg.setMinStepCommand(1);
-    alg.setSettleCountMax(0);
-    alg.reset();
+    constexpr float twoPi = 2.0F * std::numbers::pi_v<float>;
+    auto alg = makeStepperMotorControllerAlgorithm(twoPi / 360.0F, 0.0F, twoPi, 0U, 1U);
 
     // Drive the algorithm through a full cycle at currentPosition=0 → 30
     constexpr float thirtyDeg = 30.0F * static_cast<float>(std::numbers::pi) / 180.0F;
@@ -130,12 +125,12 @@ TEST(StepperMotorControllerTest, ResetBehavior) {
     }
     // Motor is now at position 30
 
-    // Reset should restore algorithm state machine to IDLE regardless of past state
-    alg.reset();
+    // reInitialize should restore the algorithm state machine to IDLE regardless of past state
+    alg.reInitialize();
     // Caller provides the fresh currentPosition (back to 0) on next update
     auto out = alg.update(0, tenDeg, false);
 
-    // After reset, IDLE sees currentPosition=0, desired=10 → MOVE(10)
+    // After reInitialize, IDLE sees currentPosition=0, desired=10 → MOVE(10)
     EXPECT_EQ(out.commandType, StepperMotorCommandType::MOVE);
     EXPECT_EQ(out.stepsToMove, 10);
 }
@@ -180,10 +175,8 @@ TEST(StepperMotorControllerTest, MotorReachesTargetFractionalFreq) {
 // ---------------------------------------------------------------------------
 
 TEST(StepperMotorControllerTest, ZeroStepMove) {
-    StepperMotorControllerAlgorithm alg{};
-    alg.setStepAngle(2.0F * std::numbers::pi_v<float> / 360.0F);
-    alg.setMinStepCommand(1);
-    alg.reset();
+    constexpr float twoPi = 2.0F * std::numbers::pi_v<float>;
+    auto alg = makeStepperMotorControllerAlgorithm(twoPi / 360.0F, 0.0F, twoPi, 10U, 1U);
 
     auto out = alg.update(0, 0.0F, false);
     EXPECT_EQ(out.commandType, StepperMotorCommandType::NONE);
@@ -191,10 +184,8 @@ TEST(StepperMotorControllerTest, ZeroStepMove) {
 }
 
 TEST(StepperMotorControllerTest, BelowMinStepCommand) {
-    StepperMotorControllerAlgorithm alg{};
-    alg.setStepAngle(2.0F * std::numbers::pi_v<float> / 360.0F);
-    alg.setMinStepCommand(6);
-    alg.reset();
+    constexpr float twoPi = 2.0F * std::numbers::pi_v<float>;
+    auto alg = makeStepperMotorControllerAlgorithm(twoPi / 360.0F, 0.0F, twoPi, 10U, 6U);
 
     // 5 deg = 5 steps, minStepCommand = 6, abs(5) is NOT >= 6 → no MOVE
     constexpr float fiveDeg = 5.0F * static_cast<float>(std::numbers::pi) / 180.0F;
@@ -203,10 +194,8 @@ TEST(StepperMotorControllerTest, BelowMinStepCommand) {
 }
 
 TEST(StepperMotorControllerTest, AtMinStepCommand) {
-    StepperMotorControllerAlgorithm alg{};
-    alg.setStepAngle(2.0F * std::numbers::pi_v<float> / 360.0F);
-    alg.setMinStepCommand(6);
-    alg.reset();
+    constexpr float twoPi = 2.0F * std::numbers::pi_v<float>;
+    auto alg = makeStepperMotorControllerAlgorithm(twoPi / 360.0F, 0.0F, twoPi, 10U, 6U);
 
     // 6 deg = 6 steps, minStepCommand = 6, abs(6) >= 6 → MOVE
     constexpr float sixDeg = 6.0F * static_cast<float>(std::numbers::pi) / 180.0F;
@@ -216,10 +205,8 @@ TEST(StepperMotorControllerTest, AtMinStepCommand) {
 }
 
 TEST(StepperMotorControllerTest, WrapAtExactlyHalfRevolution) {
-    StepperMotorControllerAlgorithm alg{};
-    alg.setStepAngle(2.0F * std::numbers::pi_v<float> / 360.0F);
-    alg.setMinStepCommand(1);
-    alg.reset();
+    constexpr float twoPi = 2.0F * std::numbers::pi_v<float>;
+    auto alg = makeStepperMotorControllerAlgorithm(twoPi / 360.0F, 0.0F, twoPi, 10U, 1U);
 
     // 180 deg = 180 steps = exactly half revolution
     constexpr float pi = static_cast<float>(std::numbers::pi);
@@ -230,10 +217,8 @@ TEST(StepperMotorControllerTest, WrapAtExactlyHalfRevolution) {
 }
 
 TEST(StepperMotorControllerTest, NegativeWrap) {
-    StepperMotorControllerAlgorithm alg{};
-    alg.setStepAngle(2.0F * std::numbers::pi_v<float> / 360.0F);
-    alg.setMinStepCommand(1);
-    alg.reset();
+    constexpr float twoPi = 2.0F * std::numbers::pi_v<float>;
+    auto alg = makeStepperMotorControllerAlgorithm(twoPi / 360.0F, 0.0F, twoPi, 10U, 1U);
 
     // 181 deg: naive steps = 181, wrapDelta(181, 360) = 181 > 180 → 181 - 360 = -179
     constexpr float deg181 = 181.0F * static_cast<float>(std::numbers::pi) / 180.0F;
@@ -244,11 +229,8 @@ TEST(StepperMotorControllerTest, NegativeWrap) {
 }
 
 TEST(StepperMotorControllerTest, DesiredChangeMidMove) {
-    StepperMotorControllerAlgorithm alg{};
-    alg.setStepAngle(2.0F * std::numbers::pi_v<float> / 360.0F);
-    alg.setMinStepCommand(1);
-    alg.setSettleCountMax(0);
-    alg.reset();
+    constexpr float twoPi = 2.0F * std::numbers::pi_v<float>;
+    auto alg = makeStepperMotorControllerAlgorithm(twoPi / 360.0F, 0.0F, twoPi, 0U, 1U);
 
     StepperMotorSim sim{};
     sim.controlFrequency = 10.0F;
@@ -278,11 +260,9 @@ TEST(StepperMotorControllerTest, DesiredChangeMidMove) {
 }
 
 TEST(StepperMotorControllerTest, DesiredChangeBelowMinStepCommand) {
-    StepperMotorControllerAlgorithm alg{};
-    alg.setStepAngle(2.0F * std::numbers::pi_v<float> / 360.0F);
-    alg.setMinStepCommand(4);  // allow small changes (< 4 steps) without interrupting
-    alg.setSettleCountMax(0);
-    alg.reset();
+    constexpr float twoPi = 2.0F * std::numbers::pi_v<float>;
+    // minStepCommand = 4: allow small changes (< 4 steps) without interrupting
+    auto alg = makeStepperMotorControllerAlgorithm(twoPi / 360.0F, 0.0F, twoPi, 0U, 4U);
 
     StepperMotorSim sim{};
     sim.controlFrequency = 10.0F;
@@ -305,11 +285,8 @@ TEST(StepperMotorControllerTest, DesiredChangeBelowMinStepCommand) {
 }
 
 TEST(StepperMotorControllerTest, StepAccumulatorFractionalRatio) {
-    StepperMotorControllerAlgorithm alg{};
-    alg.setStepAngle(2.0F * std::numbers::pi_v<float> / 360.0F);
-    alg.setMinStepCommand(1);
-    alg.setSettleCountMax(0);
-    alg.reset();
+    constexpr float twoPi = 2.0F * std::numbers::pi_v<float>;
+    auto alg = makeStepperMotorControllerAlgorithm(twoPi / 360.0F, 0.0F, twoPi, 0U, 1U);
 
     StepperMotorSim sim{};
     sim.controlFrequency = 10.0F;
@@ -351,11 +328,8 @@ TEST(StepperMotorControllerTest, StepAccumulatorFractionalRatio) {
 }
 
 TEST(StepperMotorControllerTest, SettleCountZero) {
-    StepperMotorControllerAlgorithm alg{};
-    alg.setStepAngle(2.0F * std::numbers::pi_v<float> / 360.0F);
-    alg.setMinStepCommand(1);
-    alg.setSettleCountMax(0);
-    alg.reset();
+    constexpr float twoPi = 2.0F * std::numbers::pi_v<float>;
+    auto alg = makeStepperMotorControllerAlgorithm(twoPi / 360.0F, 0.0F, twoPi, 0U, 1U);
 
     StepperMotorSim sim{};
     sim.controlFrequency = 10.0F;
@@ -392,11 +366,8 @@ TEST(StepperMotorControllerTest, SettleCountZero) {
 // Out-of-range references (above max and below min) are rejected: no MOVE issued, motor stays put.
 TEST(StepperMotorControllerTest, RangeRejectsOutOfBoundsReference) {
     constexpr float pi = static_cast<float>(std::numbers::pi);
-    StepperMotorControllerAlgorithm alg{};
-    alg.setStepAngle(std::numbers::pi_v<float> / 180.0F);
-    alg.setMotorAngleRange(pi / 4.0F, pi / 2.0F);  // [45 deg, 90 deg]
-    alg.setMinStepCommand(1);
-    alg.reset();
+    auto alg = makeStepperMotorControllerAlgorithm(
+        std::numbers::pi_v<float> / 180.0F, pi / 4.0F, pi / 2.0F, 10U, 1U);  // [45 deg, 90 deg]
 
     // Reference below minAngle: 30 deg
     auto out = alg.update(50, 30.0F * pi / 180.0F, false);
@@ -418,12 +389,8 @@ TEST(StepperMotorControllerTest, RangeRejectsOutOfBoundsReference) {
 // motor continues toward the previously-commanded valid target.
 TEST(StepperMotorControllerTest, RangeIgnoresOutOfBoundsRefDuringMove) {
     constexpr float pi = static_cast<float>(std::numbers::pi);
-    StepperMotorControllerAlgorithm alg{};
-    alg.setStepAngle(std::numbers::pi_v<float> / 180.0F);
-    alg.setMotorAngleRange(pi / 4.0F, pi / 2.0F);  // [45 deg, 90 deg]
-    alg.setMinStepCommand(1);
-    alg.setSettleCountMax(0);
-    alg.reset();
+    auto alg = makeStepperMotorControllerAlgorithm(
+        std::numbers::pi_v<float> / 180.0F, pi / 4.0F, pi / 2.0F, 0U, 1U);  // [45 deg, 90 deg]
 
     StepperMotorSim sim{};
     sim.controlFrequency = 10.0F;
@@ -446,11 +413,8 @@ TEST(StepperMotorControllerTest, RangeIgnoresOutOfBoundsRefDuringMove) {
 // commanded delta equals desired - current even when |delta| > stepsPerRev/2.
 TEST(StepperMotorControllerTest, RangeUsesLinearDeltaForPartialRange) {
     constexpr float pi = static_cast<float>(std::numbers::pi);
-    StepperMotorControllerAlgorithm alg{};
-    alg.setStepAngle(std::numbers::pi_v<float> / 180.0F);
-    alg.setMotorAngleRange(pi / 6.0F, 11.0F * pi / 6.0F);  // [30 deg, 330 deg], span 300 deg
-    alg.setMinStepCommand(1);
-    alg.reset();
+    auto alg = makeStepperMotorControllerAlgorithm(
+        std::numbers::pi_v<float> / 180.0F, pi / 6.0F, 11.0F * pi / 6.0F, 10U, 1U);  // [30 deg, 330 deg], span 300 deg
 
     // Move from 40 deg to 320 deg. Linear delta = +280 (forward).
     // If wrap were used, delta would be -80 (backward through forbidden 30 deg seam) -- WRONG.

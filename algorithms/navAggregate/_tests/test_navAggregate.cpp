@@ -23,20 +23,41 @@ TEST(NavAggregateTest, ReferenceTest) {
 }
 
 TEST(NavAggregateTest, SetupTest) {
-    NavAggregateAlgorithm alg{};
+    const NavAggregateAttSelection validAtt{};
+    const NavAggregateTransSelection validTrans{};
 
-    // --- Test expected exceptions ---
+    // --- Valid baseline does not throw ---
+    EXPECT_NO_THROW(NavAggregateConfig::create(validAtt, validTrans));
 
-    // MsgIdx equal to or greater than max message count
-    EXPECT_THROW(alg.setAttTimeIdx(MAX_AGG_NAV_MSG), fsw::invalid_argument);
-    EXPECT_THROW(alg.setTransTimeIdx(MAX_AGG_NAV_MSG), fsw::invalid_argument);
-    EXPECT_THROW(alg.setAttIdx(MAX_AGG_NAV_MSG), fsw::invalid_argument);
-    EXPECT_THROW(alg.setRateIdx(MAX_AGG_NAV_MSG), fsw::invalid_argument);
-    EXPECT_THROW(alg.setPosIdx(MAX_AGG_NAV_MSG), fsw::invalid_argument);
-    EXPECT_THROW(alg.setVelIdx(MAX_AGG_NAV_MSG), fsw::invalid_argument);
-    EXPECT_THROW(alg.setDvIdx(MAX_AGG_NAV_MSG), fsw::invalid_argument);
-    EXPECT_THROW(alg.setSunIdx(MAX_AGG_NAV_MSG), fsw::invalid_argument);
-    // MsgCount greater than max message count
-    EXPECT_THROW(alg.setAttMsgCount(MAX_AGG_NAV_MSG + 1), fsw::invalid_argument);
-    EXPECT_THROW(alg.setTransMsgCount(MAX_AGG_NAV_MSG + 1), fsw::invalid_argument);
+    // --- An attitude selection index equal to or greater than the max message count throws ---
+    for (uint32_t NavAggregateAttSelection::* idx : {&NavAggregateAttSelection::attTimeIdx,
+                                                     &NavAggregateAttSelection::attIdx,
+                                                     &NavAggregateAttSelection::rateIdx,
+                                                     &NavAggregateAttSelection::sunIdx}) {
+        NavAggregateAttSelection att{};
+        att.*idx = MAX_AGG_NAV_MSG;
+        EXPECT_THROW(NavAggregateConfig::create(att, validTrans), fsw::invalid_argument);
+    }
+
+    // --- A translation selection index equal to or greater than the max message count throws ---
+    for (uint32_t NavAggregateTransSelection::* idx : {&NavAggregateTransSelection::transTimeIdx,
+                                                       &NavAggregateTransSelection::posIdx,
+                                                       &NavAggregateTransSelection::velIdx,
+                                                       &NavAggregateTransSelection::dvIdx}) {
+        NavAggregateTransSelection trans{};
+        trans.*idx = MAX_AGG_NAV_MSG;
+        EXPECT_THROW(NavAggregateConfig::create(validAtt, trans), fsw::invalid_argument);
+    }
+
+    // --- A message count greater than the max message count throws ---
+    {
+        NavAggregateAttSelection att{};
+        att.attMsgCount = MAX_AGG_NAV_MSG + 1U;
+        EXPECT_THROW(NavAggregateConfig::create(att, validTrans), fsw::invalid_argument);
+    }
+    {
+        NavAggregateTransSelection trans{};
+        trans.transMsgCount = MAX_AGG_NAV_MSG + 1U;
+        EXPECT_THROW(NavAggregateConfig::create(validAtt, trans), fsw::invalid_argument);
+    }
 }

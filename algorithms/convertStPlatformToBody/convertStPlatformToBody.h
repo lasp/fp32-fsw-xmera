@@ -7,11 +7,12 @@
 #include <architecture/messaging/messaging.h>
 #include <architecture/msgPayloadDef/STAttMsgPayload.h>
 #include <architecture/msgPayloadDef/STSensorMsgPayload.h>
-#include <architecture/utilities/bskLogging.h>
 
 #include <Eigen/Core>
 
 #include <stdint.h>
+
+#include <memory>
 
 /*! @brief Convert STSensorMsgPayload to STAttMsgPayload Class */
 class ConvertStPlatformToBody : public SysModel {
@@ -22,16 +23,16 @@ class ConvertStPlatformToBody : public SysModel {
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
 
-    void setDcmCB(const Eigen::Matrix3d& dcm_CB);
-    Eigen::Matrix3d getDcmCB() const;
+    void reconfigure() const;
+
+    Eigen::Matrix3f dcm_CB = Eigen::Matrix3f::Identity();  //!< [-] body-to-case mounting DCM (orthonormal, det +1)
 
     ReadFunctor<STSensorMsgPayload> stSensorInMsg;  //!< Input msg
     Message<STAttMsgPayload> stAttOutMsg;           //!< Output msg
 
-    BSKLogger bskLogger{};  //!< BSK Logging
-
    private:
-    ConvertStPlatformToBodyAlgorithm algorithm{};
+    ConvertStPlatformToBodyConfig toConfig() const;
+    std::unique_ptr<ConvertStPlatformToBodyAlgorithm> algorithm = nullptr;
 };
 
 #endif

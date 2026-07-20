@@ -1,5 +1,5 @@
-#ifndef CSS_ARRAY_SENSOR_MESSAGE_H
-#define CSS_ARRAY_SENSOR_MESSAGE_H
+#ifndef CSS_ARRAY_SENSOR_MESSAGE_F32_H
+#define CSS_ARRAY_SENSOR_MESSAGE_F32_H
 
 #include "definitions.h"
 

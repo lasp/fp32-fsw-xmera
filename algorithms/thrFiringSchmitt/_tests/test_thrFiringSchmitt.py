@@ -31,10 +31,10 @@ def create_thruster_array_config_msg(thrusters: list[dict]) -> THRArrayConfigMsg
 
 
 @pytest.mark.parametrize("reset_check, thrust_pulsing_regime", [
-    (False, thrFiringSchmittF32.ON_PULSING),
-    (True, thrFiringSchmittF32.ON_PULSING),
-    (False, thrFiringSchmittF32.OFF_PULSING),
-    (True, thrFiringSchmittF32.OFF_PULSING),
+    (False, thrFiringSchmittF32.ThrustPulsingRegime_ON_PULSING),
+    (True, thrFiringSchmittF32.ThrustPulsingRegime_ON_PULSING),
+    (False, thrFiringSchmittF32.ThrustPulsingRegime_OFF_PULSING),
+    (True, thrFiringSchmittF32.ThrustPulsingRegime_OFF_PULSING),
 ])
 def test_thr_firing_schmitt(show_plots, reset_check, thrust_pulsing_regime):
     unit_task_name = "unitTask"               # arbitrary name (don't change)
@@ -64,7 +64,8 @@ def test_thr_firing_schmitt(show_plots, reset_check, thrust_pulsing_regime):
     # Initialize the test module configuration data
     module.thrMinFireTime = thr_min_fire_time
     module.thrustPulsingRegime = thrust_pulsing_regime
-    module.setLevelsOnOff(level_on, level_off)
+    module.levelOn = level_on
+    module.levelOff = level_off
     module.controlPeriod = control_period
     module.onTimeSaturationFactor = on_time_saturation_factor
 
@@ -100,7 +101,7 @@ def test_thr_firing_schmitt(show_plots, reset_check, thrust_pulsing_regime):
     # simulation is stopped at the next logging event on or after the
     # simulation end time.
 
-    if thrust_pulsing_regime == thrFiringSchmittF32.OFF_PULSING:
+    if thrust_pulsing_regime == thrFiringSchmittF32.ThrustPulsingRegime_OFF_PULSING:
         eff_req1 = [0.0, -0.1, -0.2, -0.3, -0.349, -0.351, -0.451, -0.5]
         eff_req2 = [0.0, -0.1, -0.2, -0.3, -0.351, -0.351, -0.451, -0.5]
         eff_req3 = [0.0, -0.1, -0.2, -0.3, -0.5, -0.351, -0.451, -0.5]
@@ -145,7 +146,7 @@ def test_thr_firing_schmitt(show_plots, reset_check, thrust_pulsing_regime):
 
     # set the filtered output truth states
     if reset_check:
-        if thrust_pulsing_regime == thrFiringSchmittF32.OFF_PULSING:
+        if thrust_pulsing_regime == thrFiringSchmittF32.ThrustPulsingRegime_OFF_PULSING:
             true_vector = [
                    [0.55, 0.4, 0.3, 0.2, 0.2, 0.0, 0.0, 0.0],
                    [0.55, 0.4, 0.3, 0.2, 0.2, 0.0, 0.0, 0.0],
@@ -177,7 +178,7 @@ def test_thr_firing_schmitt(show_plots, reset_check, thrust_pulsing_regime):
                    ]
 
     else:
-        if thrust_pulsing_regime == thrFiringSchmittF32.OFF_PULSING:
+        if thrust_pulsing_regime == thrFiringSchmittF32.ThrustPulsingRegime_OFF_PULSING:
             true_vector = [
                    [0.55, 0.4, 0.3, 0.2, 0.2, 0.0, 0.0, 0.0],
                    [0.55, 0.4, 0.3, 0.2, 0.2, 0.0, 0.0, 0.0],
@@ -215,9 +216,8 @@ def test_thr_firing_schmitt(show_plots, reset_check, thrust_pulsing_regime):
     numpy.testing.assert_equal(module.thrustPulsingRegime, thrust_pulsing_regime)
     numpy.testing.assert_allclose(module.controlPeriod, control_period, atol=1e-6)
     numpy.testing.assert_allclose(module.onTimeSaturationFactor, on_time_saturation_factor, atol=1e-6)
-    levels = module.getLevelsOnOff()
-    numpy.testing.assert_allclose(levels[0], level_on, atol=1e-6)
-    numpy.testing.assert_allclose(levels[1], level_off, atol=1e-6)
+    numpy.testing.assert_allclose(module.levelOn, level_on, atol=1e-6)
+    numpy.testing.assert_allclose(module.levelOff, level_off, atol=1e-6)
 
 
 #
@@ -225,4 +225,4 @@ def test_thr_firing_schmitt(show_plots, reset_check, thrust_pulsing_regime):
 # stand-along python script
 #
 if __name__ == "__main__":
-    test_thr_firing_schmitt(False, True, thrFiringSchmittF32.ON_PULSING)
+    test_thr_firing_schmitt(False, True, thrFiringSchmittF32.ThrustPulsingRegime_ON_PULSING)

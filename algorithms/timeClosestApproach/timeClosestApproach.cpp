@@ -31,8 +31,7 @@ void TimeClosestApproach::reset(const uint64_t callTime) {
         throw std::invalid_argument("timeClosestApproach.filterInMsg wasn't connected.");
     }
 
-    auto config = TimeClosestApproachConfig::create();
-    this->algorithm = std::make_unique<TimeClosestApproachAlgorithm>(config);
+    this->algorithm = std::make_unique<TimeClosestApproachAlgorithm>();
 }
 
 /*! This method is the main carrier for the time of closest approach calculation

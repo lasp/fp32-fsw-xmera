@@ -65,7 +65,7 @@ inline void testDvGuidance(const Eigen::Vector3f& dvInrtlCmd,
                            float dvRotVecMag,
                            uint64_t burnStartTime,
                            uint64_t callTime) {
-    DvGuidanceAlgorithm alg(DvGuidanceConfig::create());
+    DvGuidanceAlgorithm alg;
 
     DvGuidanceOutput out;
     EXPECT_NO_THROW(out = alg.update(dvInrtlCmd, dvRotVecUnit, dvRotVecMag, burnStartTime, callTime));
@@ -113,8 +113,7 @@ inline void testDvGuidance(const Eigen::Vector3f& dvInrtlCmd,
 
 inline void testDvGuidanceSetup() {
     EXPECT_NO_THROW({
-        const DvGuidanceConfig cfg = DvGuidanceConfig::create();
-        const DvGuidanceAlgorithm alg(cfg);
+        const DvGuidanceAlgorithm alg;
         (void)alg;
     });
 }

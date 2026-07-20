@@ -137,19 +137,15 @@ void fuzzConvertStPlatformToBodyDeltaQuaternion(double dqx,
         dq /= norm;
     }
 
-    ConvertStPlatformToBodyAlgorithm algorithm;
-    algorithm.setDcmCB(makeDcm(yaw, pitch, roll).cast<float>());
+    ConvertStPlatformToBodyAlgorithm algorithm{
+        ConvertStPlatformToBodyConfig::create(makeDcm(yaw, pitch, roll).cast<float>())};
 
-    PlatformAttitude attitude{};
-    attitude.q_CN[0] = 1.0F;  // identity inertial attitude — isolate δq path
-    PlatformAngularVelocity angularVelocity{};
-    angularVelocity.dq_CN[0] = static_cast<float>(dq(0));
-    angularVelocity.dq_CN[1] = static_cast<float>(dq(1));
-    angularVelocity.dq_CN[2] = static_cast<float>(dq(2));
-    angularVelocity.dq_CN[3] = static_cast<float>(dq(3));
+    const Eigen::Vector4f q_CN(1.0F, 0.0F, 0.0F, 0.0F);  // identity inertial attitude — isolate δq path
+    const Eigen::Vector4f dq_CN(
+        static_cast<float>(dq(0)), static_cast<float>(dq(1)), static_cast<float>(dq(2)), static_cast<float>(dq(3)));
 
     StAttitudeOutput result;
-    EXPECT_NO_THROW(result = algorithm.update(attitude, angularVelocity));
+    EXPECT_NO_THROW(result = algorithm.update(q_CN, dq_CN));
     for (int i = 0; i < 3; ++i) {
         EXPECT_TRUE(std::isfinite(result.sigma_BN[i]));
         EXPECT_TRUE(std::isfinite(result.omega_BN_B[i]));

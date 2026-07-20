@@ -3,20 +3,14 @@
 #include "utilities/fsw/timeConstants.h"
 #include <math.h>
 
-DvGuidanceAlgorithm::DvGuidanceAlgorithm(const DvGuidanceConfig& config) : cfg(config) {}
-
-void DvGuidanceAlgorithm::setConfig(const DvGuidanceConfig& config) { this->cfg = config; }
-
-// NOLINTBEGIN(readability-convert-member-functions-to-static, bugprone-easily-swappable-parameters)
-// readability-convert-member-functions-to-static: DvGuidanceConfig is intentionally empty for this
-// algorithm; the cfg member is held for API consistency with the standard two-phase-init pattern.
+// NOLINTBEGIN(bugprone-easily-swappable-parameters)
 // bugprone-easily-swappable-parameters: the Vector3f / float / uint64 inputs are documented in the
 // header and follow the burn-command struct ordering.
 DvGuidanceOutput DvGuidanceAlgorithm::update(const Eigen::Vector3f& dvInrtlCmd,
                                              const Eigen::Vector3f& dvRotVecUnit,
                                              const float dvRotVecMag,
                                              const uint64_t burnStartTime,
-                                             const uint64_t callTime) const {
+                                             const uint64_t callTime) {
     // Guard: a near-zero delta-V has no defined direction. Hold attitude (identity, zero rates)
     // rather than propagating NaN through dvInrtlCmd.stableNormalized().
     if (dvInrtlCmd.squaredNorm() < kMinNormSq) {
@@ -60,4 +54,4 @@ DvGuidanceOutput DvGuidanceAlgorithm::update(const Eigen::Vector3f& dvInrtlCmd,
     out.domega_RN_N = Eigen::Vector3f::Zero();
     return out;
 }
-// NOLINTEND(readability-convert-member-functions-to-static, bugprone-easily-swappable-parameters)
+// NOLINTEND(bugprone-easily-swappable-parameters)

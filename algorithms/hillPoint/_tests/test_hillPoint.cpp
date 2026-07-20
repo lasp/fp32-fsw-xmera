@@ -24,7 +24,7 @@ TEST(HillPointTest, ReferenceTestPlanetOffset) {
 TEST(HillPointTest, BelowThresholdRadius) {
     // Relative orbital radius below the 1 m robustness threshold: rates must be zero and the
     // attitude output must remain finite (no NaN from divide-by-near-zero).
-    HillPointAlgorithm alg(HillPointConfig::create());
+    HillPointAlgorithm alg;
 
     HillPointOutput out;
     EXPECT_NO_THROW(out = alg.update(Eigen::Vector3d{0.5, 0.0, 0.0},  // r_BN_N: 0.5 m radius
@@ -55,7 +55,7 @@ TEST(HillPointTest, CircularEquatorialOrbit) {
     const double speed = std::sqrt(mu_E / a);
     const double f_rad = 60.0 * M_PI / 180.0;
 
-    HillPointAlgorithm alg(HillPointConfig::create());
+    HillPointAlgorithm alg;
     HillPointOutput out;
     EXPECT_NO_THROW(out = alg.update(Eigen::Vector3d{a * std::cos(f_rad), a * std::sin(f_rad), 0.0},
                                      Eigen::Vector3d{-speed * std::sin(f_rad), speed * std::cos(f_rad), 0.0},

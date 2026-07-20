@@ -45,8 +45,7 @@ input is connected at ``reset()`` time, then constructs the algorithm via the tw
 Configuration
 ~~~~~~~~~~~~~
 
-``HillPointAlgorithm`` has no tunable parameters. The empty ``HillPointConfig`` class is provided to keep the
-algorithm consistent with the standard two-phase init pattern in this codebase.
+``HillPointAlgorithm`` has no tunable parameters or configuration; all inputs come from the module messages.
 
 .. list-table:: Configuration parameters
     :widths: 25 25 50

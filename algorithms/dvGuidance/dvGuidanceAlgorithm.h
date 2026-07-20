@@ -13,16 +13,6 @@ struct DvGuidanceOutput {
     Eigen::Vector3f domega_RN_N = Eigen::Vector3f::Zero();  ///< Reference angular acceleration, inertial frame.
 };
 
-/// Configuration for DvGuidanceAlgorithm. dvGuidance has no tunable parameters; this class is
-/// intentionally empty so the algorithm still follows the standard two-phase init pattern.
-class DvGuidanceConfig final {
-   public:
-    static DvGuidanceConfig create() { return {}; }
-
-   private:
-    DvGuidanceConfig() = default;
-};
-
 /// Computes the delta-V burn-frame attitude reference from a commanded delta-V, a rotation axis,
 /// and a rotation rate. All math is single-precision (FP32). Degenerate inputs are guarded so the
 /// module never propagates NaN or numerical noise downstream; see dvGuidance.rst for the rationale
@@ -38,10 +28,6 @@ class DvGuidanceAlgorithm final {
     /// than the FP32 noise that would otherwise dominate the sub-threshold deviation.
     static constexpr float kSmallAngle = 1e-5F;
 
-    explicit DvGuidanceAlgorithm(const DvGuidanceConfig& config);
-
-    void setConfig(const DvGuidanceConfig& config);
-
     /// Computes the burn-frame attitude reference.
     /// @param dvInrtlCmd    Commanded delta-V in inertial frame [m/s]; defines the 1st burn-frame axis.
     /// @param dvRotVecUnit  Rotation axis seed; only its direction is used (need not be unit).
@@ -50,14 +36,11 @@ class DvGuidanceAlgorithm final {
     /// @param callTime      Evaluation time [ns]; (callTime - burnStartTime) is the elapsed burn time.
     /// @return The attitude reference, or a default (identity, zero-rate) DvGuidanceOutput when
     ///         @p dvInrtlCmd is near-zero or @p dvRotVecUnit is (anti)parallel to it.
-    DvGuidanceOutput update(const Eigen::Vector3f& dvInrtlCmd,
-                            const Eigen::Vector3f& dvRotVecUnit,
-                            float dvRotVecMag,
-                            uint64_t burnStartTime,
-                            uint64_t callTime) const;
-
-   private:
-    DvGuidanceConfig cfg;
+    static DvGuidanceOutput update(const Eigen::Vector3f& dvInrtlCmd,
+                                   const Eigen::Vector3f& dvRotVecUnit,
+                                   float dvRotVecMag,
+                                   uint64_t burnStartTime,
+                                   uint64_t callTime);
 };
 
 #endif

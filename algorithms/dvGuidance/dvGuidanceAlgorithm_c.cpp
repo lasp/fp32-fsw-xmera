@@ -6,7 +6,7 @@
 
 DvGuidanceAlgorithmHandle* DvGuidanceAlgorithm_create(void) {
     // clang-format off
-    return reinterpret_cast<DvGuidanceAlgorithmHandle*>(new ::DvGuidanceAlgorithm(DvGuidanceConfig::create()));  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast, cppcoreguidelines-owning-memory)
+    return reinterpret_cast<DvGuidanceAlgorithmHandle*>(new ::DvGuidanceAlgorithm());  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast, cppcoreguidelines-owning-memory)
     // clang-format on
 }
 

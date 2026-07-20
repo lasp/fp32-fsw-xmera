@@ -3,43 +3,28 @@
  */
 
 #include "test_convertStPlatformToBody_helpers.h"
+#include "utilities/fsw/freestandingInvalidArgument.h"
 
 #include <cmath>
 #include <cstdint>
 
-// ─── Getter / Setter Tests ──────────────────────────────────────────────────
+// ─── Config Tests ───────────────────────────────────────────────────────────
 
-TEST(ConvertStPlatformToBody, DefaultDcmIsIdentity) {
-    ConvertStPlatformToBodyAlgorithm algorithm;
-    Eigen::Matrix3f dcm = algorithm.getDcmCB();
-    EXPECT_TRUE(dcm.isApprox(Eigen::Matrix3f::Identity(), 1e-7F));
-}
-
-TEST(ConvertStPlatformToBody, SetGetDcmCB) {
-    ConvertStPlatformToBodyAlgorithm algorithm;
-
+TEST(ConvertStPlatformToBody, ConfigRoundTripsDcm) {
     // 90-degree rotation about z-axis
     Eigen::Matrix3f dcm;
     dcm << 0, 1, 0, -1, 0, 0, 0, 0, 1;
-    algorithm.setDcmCB(dcm);
-
-    Eigen::Matrix3f result = algorithm.getDcmCB();
-    EXPECT_TRUE(result.isApprox(dcm, 1e-7F));
+    const auto config = ConvertStPlatformToBodyConfig::create(dcm);
+    EXPECT_TRUE(config.getDcmCB().isApprox(dcm, 1e-7F));
 }
 
-TEST(ConvertStPlatformToBody, TimeTagPassThrough) {
-    ConvertStPlatformToBodyAlgorithm algorithm;
-
-    PlatformAttitude attitude{};
-    attitude.timeTag = 42'500'000'000ULL;
-    attitude.q_CN[0] = 1.0F;  // identity quaternion (scalar-first)
-
-    PlatformAngularVelocity angularVelocity{};
-    angularVelocity.timeTag = 42'500'000'000ULL;
-    angularVelocity.dq_CN[3] = 1.0F;  // identity delta quaternion (scalar-last)
-
-    StAttitudeOutput result = algorithm.update(attitude, angularVelocity);
-    EXPECT_EQ(result.timeTag, 42'500'000'000ULL);
+TEST(ConvertStPlatformToBody, ConfigRejectsInvalidDcm) {
+    // Non-orthonormal matrix is not a valid DCM
+    Eigen::Matrix3f bad = Eigen::Matrix3f::Identity();
+    bad(0, 0) = 2.0F;
+    EXPECT_FALSE(ConvertStPlatformToBodyConfig::isValidDcmCB(bad));
+    EXPECT_THROW(ConvertStPlatformToBodyConfig::create(bad), fsw::invalid_argument);
+    EXPECT_TRUE(ConvertStPlatformToBodyConfig::isValidDcmCB(Eigen::Matrix3f::Identity()));
 }
 
 // ─── Identity DCM Tests ─────────────────────────────────────────────────────
@@ -116,12 +101,10 @@ TEST(ConvertStPlatformToBody, ZeroOmega_NonTrivialAttitude) {
 // ─── Zero Input Tests ───────────────────────────────────────────────────────
 
 TEST(ConvertStPlatformToBody, ZeroedInputPayload) {
-    ConvertStPlatformToBodyAlgorithm algorithm;
-    PlatformAttitude attitude{};
-    PlatformAngularVelocity angularVelocity{};
+    ConvertStPlatformToBodyAlgorithm algorithm{ConvertStPlatformToBodyConfig::create(Eigen::Matrix3f::Identity())};
     // All zeros — invalid quaternion and zero-vector delta quaternion, but algorithm
     // must not crash or emit non-finite outputs.
-    StAttitudeOutput result = algorithm.update(attitude, angularVelocity);
+    StAttitudeOutput result = algorithm.update(Eigen::Vector4f::Zero(), Eigen::Vector4f::Zero());
     for (int i = 0; i < 3; ++i) {
         EXPECT_TRUE(std::isfinite(result.sigma_BN[i]) || result.sigma_BN[i] == 0.0F);
         EXPECT_TRUE(std::isfinite(result.omega_BN_B[i]));
@@ -133,16 +116,13 @@ TEST(ConvertStPlatformToBody, ZeroedInputPayload) {
 TEST(ConvertStPlatformToBody, IdentityDeltaQuaternion_ProducesZeroOmega) {
     // dq_CN = [0, 0, 0, 1] (scalar-last identity rotation) must map to zero angular
     // velocity for any mounting DCM.
-    ConvertStPlatformToBodyAlgorithm algorithm;
     Eigen::Matrix3f dcm_CB = epToDcm(axisAngleToEp(Eigen::Vector3d(0.3, -0.7, 0.5), 0.9)).cast<float>();
-    algorithm.setDcmCB(dcm_CB);
+    ConvertStPlatformToBodyAlgorithm algorithm{ConvertStPlatformToBodyConfig::create(dcm_CB)};
 
-    PlatformAttitude attitude{};
-    attitude.q_CN[0] = 1.0F;
-    PlatformAngularVelocity angularVelocity{};
-    angularVelocity.dq_CN[3] = 1.0F;
+    const Eigen::Vector4f q_CN(1.0F, 0.0F, 0.0F, 0.0F);
+    const Eigen::Vector4f dq_CN(0.0F, 0.0F, 0.0F, 1.0F);
 
-    StAttitudeOutput result = algorithm.update(attitude, angularVelocity);
+    StAttitudeOutput result = algorithm.update(q_CN, dq_CN);
     for (int i = 0; i < 3; ++i) {
         EXPECT_NEAR(result.omega_BN_B[i], 0.0F, OMEGA_TOLERANCE);
     }
@@ -152,13 +132,12 @@ TEST(ConvertStPlatformToBody, ZeroDeltaQuaternion_ProducesZeroOmega) {
     // dq_CN = [0, 0, 0, 0] is what a default-initialized PlatformAngularVelocity carries.
     // The algorithm's ‖vec‖ > 0 guard must fire and produce ω = 0 without letting the
     // dq[3]=0 branch (acos(0)=π/2) combine with a zero denominator to emit NaN/Inf.
-    ConvertStPlatformToBodyAlgorithm algorithm;
+    ConvertStPlatformToBodyAlgorithm algorithm{ConvertStPlatformToBodyConfig::create(Eigen::Matrix3f::Identity())};
 
-    PlatformAttitude attitude{};
-    attitude.q_CN[0] = 1.0F;
-    PlatformAngularVelocity angularVelocity{};  // all four dq_CN components = 0
+    const Eigen::Vector4f q_CN(1.0F, 0.0F, 0.0F, 0.0F);
+    const Eigen::Vector4f dq_CN = Eigen::Vector4f::Zero();  // all four dq_CN components = 0
 
-    StAttitudeOutput result = algorithm.update(attitude, angularVelocity);
+    StAttitudeOutput result = algorithm.update(q_CN, dq_CN);
     for (int i = 0; i < 3; ++i) {
         EXPECT_TRUE(std::isfinite(result.omega_BN_B[i]));
         EXPECT_NEAR(result.omega_BN_B[i], 0.0F, OMEGA_TOLERANCE);
@@ -168,19 +147,16 @@ TEST(ConvertStPlatformToBody, ZeroDeltaQuaternion_ProducesZeroOmega) {
 TEST(ConvertStPlatformToBody, DeltaQuaternionHalfPi_MatchesExpectedOmega) {
     // Drive the algorithm with an explicit unit delta quaternion for θ = π/2 about +x.
     // Expected recovered angular velocity is (π/2, 0, 0) with identity mounting.
-    ConvertStPlatformToBodyAlgorithm algorithm;  // identity dcm_CB
+    // identity dcm_CB
+    ConvertStPlatformToBodyAlgorithm algorithm{ConvertStPlatformToBodyConfig::create(Eigen::Matrix3f::Identity())};
 
     const double theta = M_PI / 2.0;
-    PlatformAttitude attitude{};
-    attitude.q_CN[0] = 1.0F;
+    const Eigen::Vector4f q_CN(1.0F, 0.0F, 0.0F, 0.0F);
 
-    PlatformAngularVelocity angularVelocity{};
-    angularVelocity.dq_CN[0] = static_cast<float>(std::sin(theta / 2.0));
-    angularVelocity.dq_CN[1] = 0.0F;
-    angularVelocity.dq_CN[2] = 0.0F;
-    angularVelocity.dq_CN[3] = static_cast<float>(std::cos(theta / 2.0));
+    const Eigen::Vector4f dq_CN(
+        static_cast<float>(std::sin(theta / 2.0)), 0.0F, 0.0F, static_cast<float>(std::cos(theta / 2.0)));
 
-    StAttitudeOutput result = algorithm.update(attitude, angularVelocity);
+    StAttitudeOutput result = algorithm.update(q_CN, dq_CN);
     EXPECT_NEAR(result.omega_BN_B[0], static_cast<float>(theta), OMEGA_TOLERANCE);
     EXPECT_NEAR(result.omega_BN_B[1], 0.0F, OMEGA_TOLERANCE);
     EXPECT_NEAR(result.omega_BN_B[2], 0.0F, OMEGA_TOLERANCE);
@@ -189,23 +165,21 @@ TEST(ConvertStPlatformToBody, DeltaQuaternionHalfPi_MatchesExpectedOmega) {
 TEST(ConvertStPlatformToBody, DeltaQuaternionNearPi_MatchesExpectedOmega) {
     // θ ≈ π − 0.01 about (1,2,3)/‖(1,2,3)‖. Near-π is a well-conditioned regime for
     // acos (derivative ≈ −1 near dq_CN[3] ≈ 0), so tight OMEGA_TOLERANCE is appropriate.
-    ConvertStPlatformToBodyAlgorithm algorithm;
+    ConvertStPlatformToBodyAlgorithm algorithm{ConvertStPlatformToBodyConfig::create(Eigen::Matrix3f::Identity())};
 
     const double theta = M_PI - 0.01;
     const Eigen::Vector3d axis = Eigen::Vector3d(1.0, 2.0, 3.0).normalized();
     const Eigen::Vector3d omegaExpected = theta * axis;
 
-    PlatformAttitude attitude{};
-    attitude.q_CN[0] = 1.0F;
+    const Eigen::Vector4f q_CN(1.0F, 0.0F, 0.0F, 0.0F);
 
-    PlatformAngularVelocity angularVelocity{};
     const double s = std::sin(theta / 2.0);
-    angularVelocity.dq_CN[0] = static_cast<float>(s * axis(0));
-    angularVelocity.dq_CN[1] = static_cast<float>(s * axis(1));
-    angularVelocity.dq_CN[2] = static_cast<float>(s * axis(2));
-    angularVelocity.dq_CN[3] = static_cast<float>(std::cos(theta / 2.0));
+    const Eigen::Vector4f dq_CN(static_cast<float>(s * axis(0)),
+                                static_cast<float>(s * axis(1)),
+                                static_cast<float>(s * axis(2)),
+                                static_cast<float>(std::cos(theta / 2.0)));
 
-    StAttitudeOutput result = algorithm.update(attitude, angularVelocity);
+    StAttitudeOutput result = algorithm.update(q_CN, dq_CN);
     for (int i = 0; i < 3; ++i) {
         EXPECT_NEAR(result.omega_BN_B[i], static_cast<float>(omegaExpected(i)), OMEGA_TOLERANCE);
     }

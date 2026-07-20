@@ -20,7 +20,7 @@ typedef struct {
 } Vector3d_c;
 
 /**
- * @brief Construct a new HillPointAlgorithm instance with a default-built config.
+ * @brief Construct a new HillPointAlgorithm instance.
  * @return Pointer to a new HillPointAlgorithm (must be destroyed).
  */
 HillPointAlgorithmHandle* HillPointAlgorithm_create(void);

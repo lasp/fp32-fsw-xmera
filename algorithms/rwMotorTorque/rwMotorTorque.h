@@ -23,6 +23,8 @@ class RwMotorTorque : public SysModel {
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
 
+    void reconfigure();
+
     void setDesiredControlAxes(const std::array<bool, 3>& desiredControlAxes);
     std::array<bool, 3> getDesiredControlAxes() const;
 
@@ -39,6 +41,7 @@ class RwMotorTorque : public SysModel {
 
    private:
     std::array<bool, 3> desiredControlAxes_B{true, true, true};  //!< [-] which body axes (x, y, z) to control
+    RwMotorTorqueConfig toConfig();
     std::unique_ptr<RwMotorTorqueAlgorithm> algorithm = nullptr;
 };
 

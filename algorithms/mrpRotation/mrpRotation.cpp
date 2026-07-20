@@ -6,7 +6,7 @@
 
 /*! @brief Validate that the required input message is linked, build the algorithm's configuration
  from the adapter's stored properties, and (re)construct the embedded algorithm. Construction seeds
- the algorithm's runtime state (sigma_RR0, omega_RR0_R) from the configured initial values.
+ the algorithm's runtime state (sigma_RR0) from the configured initial value.
  @param callTime The clock time at which the function was called (nanoseconds).
  */
 void MrpRotation::reset(const uint64_t callTime) {
@@ -17,6 +17,17 @@ void MrpRotation::reset(const uint64_t callTime) {
 
     auto config = MrpRotationConfig::create(this->sigma_RR0, this->omega_RR0_R, this->controlPeriod);
     this->algorithm = std::make_unique<MrpRotationAlgorithm>(config);
+}
+
+MrpRotationConfig MrpRotation::toConfig() const {
+    return MrpRotationConfig::create(this->sigma_RR0, this->omega_RR0_R, this->controlPeriod);
+}
+
+void MrpRotation::reconfigure() const {
+    if (!this->algorithm) {
+        throw XmeraLifecycleException("MrpRotation reset() has not been called.");
+    }
+    this->algorithm->setConfig(this->toConfig());
 }
 
 /*! @brief Take the input attitude reference frame and superimpose the algorithm's MRP rotation on
@@ -45,4 +56,12 @@ void MrpRotation::updateState(const uint64_t callTime) {
 
     /*! - write attitude guidance reference output */
     this->attRefOutMsg.write(&attRefOut, this->moduleID, callTime);
+}
+
+/*! @brief Re-seed the algorithm's runtime integrator state from the configured initial values. */
+void MrpRotation::reInitialize() {
+    if (!this->algorithm) {
+        throw XmeraLifecycleException("MrpRotation reset() has not been called.");
+    }
+    this->algorithm->reInitialize();
 }

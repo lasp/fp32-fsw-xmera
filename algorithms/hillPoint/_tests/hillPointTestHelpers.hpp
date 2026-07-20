@@ -55,7 +55,7 @@ inline void testHillPoint(const Eigen::Vector3d& r_BN_N,
                           const Eigen::Vector3d& v_BN_N,
                           const Eigen::Vector3d& r_planet_N,
                           const Eigen::Vector3d& v_planet_N) {
-    HillPointAlgorithm alg(HillPointConfig::create());
+    HillPointAlgorithm alg;
 
     HillPointOutput out;
     EXPECT_NO_THROW(out = alg.update(r_BN_N, v_BN_N, r_planet_N, v_planet_N));
@@ -89,8 +89,7 @@ inline void testHillPoint(const Eigen::Vector3d& r_BN_N,
 
 inline void testHillPointSetup() {
     EXPECT_NO_THROW({
-        const HillPointConfig cfg = HillPointConfig::create();
-        const HillPointAlgorithm alg(cfg);
+        const HillPointAlgorithm alg;
         (void)alg;
     });
 }

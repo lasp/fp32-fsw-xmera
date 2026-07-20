@@ -7,6 +7,7 @@
 
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
+#include <memory>
 
 /*! @brief Top level structure for the Chebyshev position ephemeris
            fit system.  Allows the user to specify a set of chebyshev
@@ -19,22 +20,17 @@ class OEStateEphem : public SysModel {
     ~OEStateEphem() override = default;
 
     void updateState(uint64_t callTime) override;
+
+    void reconfigure();
     void reset(uint64_t callTime) override;
 
     Message<EphemerisMsgF32Payload> stateFitOutMsg;                    //!< [-] output navigation message for pos/vel
     ReadFunctor<TDBVehicleClockCorrelationMsgPayload> clockCorrInMsg;  //!< clock correlation input message
 
-    void setCentralBodyGravitationalParameter(double gravitationalParameter);
-    double getCentralBodyGravitationalParameter() const;
-
-    void setNumberOfArcs(unsigned int arcs);
-    unsigned int getNumberOfArcs() const;
-
-    void setSpiceBodyId(int spiceId);
-    int getSpiceBodyId() const;
-
-    void setCentralBodyId(int centralBody);
-    int getCentralBodyId() const;
+    double centralBodyGravitationalParameter{};  //!< [m^3/s^2] gravitational parameter of the central body
+    unsigned int numberOfArcs{1};                //!< [-] number of populated Chebyshev fit arcs
+    int spiceBodyId{};                           //!< [-] SPICE ID written to the output ephemeris message
+    int centralBodyId{};                         //!< [-] central-body SPICE ID written to the output message
 
     void setArcNumberOfCoefficients(unsigned int arcNumber, unsigned int numberOfCoefficients);
     unsigned int getArcNumberOfCoefficients(unsigned int arcNumber) const;
@@ -67,9 +63,9 @@ class OEStateEphem : public SysModel {
     std::array<double, kMaxOeCoeff> getArcTrueAnomalyCoefficients(unsigned int arcNumber);
 
    private:
-    OEStateEphemAlgorithm algorithm{};
-    int spiceBodyId{};
-    int centralBodyId{};
+    std::array<ChebyshevFitArc, kMaxOeRecords> fitCoefficients{};
+    OEStateEphemConfig toConfig();
+    std::unique_ptr<OEStateEphemAlgorithm> algorithm = nullptr;
 };
 
 #endif

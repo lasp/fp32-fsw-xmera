@@ -111,34 +111,38 @@ The ephemeris computation proceeds as follows:
 User Guide
 ----------
 
-Module setup requires specifying the gravitational parameter and Chebyshev coefficients for each arc:
+The central-body gravitational parameter and the number of arcs are public properties set before
+``Reset``. Each arc's parameters and Chebyshev coefficients are set through the indexed ``setArc*`` methods;
+the coefficient arrays always have length ``MAX_OE_COEFF`` (20), padded with zeros beyond the active count.
+The ephemeris and vehicle time offsets are read once at ``Reset`` from ``clockCorrInMsg``.
 
 .. code-block:: python
 
-    from Basilisk.fswAlgorithms import oeStateEphem
+    from xmera.fp32 import oeStateEphemF32
 
-    ephemObject = oeStateEphem.OEStateEphem()
-    ephemObject.ModelTag = "spacecraftEphemeris"
-    ephemObject.muCentral = 3.986004418e14  # m^3/s^2 (Earth)
+    ephemObject = oeStateEphemF32.OEStateEphem()
+    ephemObject.modelTag = "spacecraftEphemeris"
+    ephemObject.centralBodyGravitationalParameter = 3.986004418e14  # m^3/s^2 (Earth)
 
-    # Configure arc 0
+    # Configure arc 0 (units: m for r_p, radians for angles)
     arcIndex = 0
-    ephemObject.nChebCoeff[arcIndex] = 5
-    ephemObject.t_middle[arcIndex] = 1000.0  # seconds
-    ephemObject.t_radius[arcIndex] = 500.0   # seconds
-    ephemObject.anomalyFlag[arcIndex] = AnomalyType.TRUE_ANOMALY    # or AnomalyType.MEAN_ANOMALY
+    nCheb = 5
+    pad = [0.0] * (20 - nCheb)
+    ephemObject.setArcNumberOfCoefficients(arcIndex, nCheb)
+    ephemObject.setArcMiddleTime(arcIndex, 1000.0)  # seconds
+    ephemObject.setArcRadiusTime(arcIndex, 500.0)   # seconds
+    ephemObject.setArcAnomalyFlag(arcIndex, oeStateEphemF32.TRUE_ANOMALY)  # or oeStateEphemF32.MEAN_ANOMALY
 
-    # Set Chebyshev coefficients (units: m for r_p, radians for angles)
-    ephemObject.r_p_cheb[arcIndex] = [7000000.0, 0.0, 0.0, 0.0, 0.0]
-    ephemObject.e_cheb[arcIndex] = [0.001, 0.0, 0.0, 0.0, 0.0]
-    ephemObject.i_cheb[arcIndex] = [0.5, 0.0, 0.0, 0.0, 0.0]
-    ephemObject.omega_cheb[arcIndex] = [0.0, 0.0, 0.0, 0.0, 0.0]
-    ephemObject.Omega_cheb[arcIndex] = [0.0, 0.0, 0.0, 0.0, 0.0]
-    ephemObject.f_cheb[arcIndex] = [0.0, 0.1, 0.0, 0.0, 0.0]
+    ephemObject.setArcRadiusPeriapsisCoefficients(arcIndex, [7000000.0, 0.0, 0.0, 0.0, 0.0] + pad)
+    ephemObject.setArcEccentricityCoefficients(arcIndex, [0.001, 0.0, 0.0, 0.0, 0.0] + pad)
+    ephemObject.setArcInclinationCoefficients(arcIndex, [0.5, 0.0, 0.0, 0.0, 0.0] + pad)
+    ephemObject.setArcArgPeriapsisCoefficients(arcIndex, [0.0, 0.0, 0.0, 0.0, 0.0] + pad)
+    ephemObject.setArcRaanCoefficients(arcIndex, [0.0, 0.0, 0.0, 0.0, 0.0] + pad)
+    ephemObject.setArcTrueAnomalyCoefficients(arcIndex, [0.0, 0.1, 0.0, 0.0, 0.0] + pad)
 
     # Connect messages
     ephemObject.clockCorrInMsg.subscribeTo(clockCorrMsg)
 
-For trajectories requiring multiple arcs, configure additional arc indices with appropriate time ranges
-and coefficients. The module automatically selects the nearest arc during evaluation. Consult the module's
-Python test files for additional configuration examples.
+For trajectories requiring multiple arcs, set ``ephemObject.numberOfArcs`` and configure additional arc
+indices with appropriate time ranges and coefficients. The module automatically selects the nearest arc
+during evaluation. Consult the module's Python test files for additional configuration examples.

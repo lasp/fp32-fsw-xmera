@@ -12,28 +12,11 @@ struct TimeClosestApproachOutput {
     float sigmaTca;  //!< the predicted time of closest approach standard deviation [s]
 };
 
-// timeClosestApproach has no tunable parameters; the Config class is intentionally empty so the
-// algorithm can still follow the standard two-phase init pattern.
-class TimeClosestApproachConfig final {
-   public:
-    static TimeClosestApproachConfig create() { return {}; }
-
-   private:
-    TimeClosestApproachConfig() = default;
-};
-
 class TimeClosestApproachAlgorithm final {
    public:
-    explicit TimeClosestApproachAlgorithm(const TimeClosestApproachConfig& config);
-
-    void setConfig(const TimeClosestApproachConfig& config);
-
     static TimeClosestApproachOutput update(const Eigen::Vector3d& r_BN_N,
                                             const Eigen::Vector3d& v_BN_N,
                                             const Eigen::Matrix<double, 6, 6>& filterCovariance);
-
-   private:
-    [[no_unique_address]] TimeClosestApproachConfig cfg;
 };
 
 #endif

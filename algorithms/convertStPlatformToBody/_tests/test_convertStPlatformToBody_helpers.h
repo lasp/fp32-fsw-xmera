@@ -15,9 +15,6 @@ inline constexpr float ATTITUDE_TOLERANCE = 1e-6F;
 /// Tolerance for angular velocity computations
 inline constexpr float OMEGA_TOLERANCE = 1e-6F;
 
-/// Representative nanosecond time tag used by the unit tests
-inline constexpr uint64_t TEST_TIME_TAG_NS = 100'000'000'000ULL;
-
 /*!
  * @brief Build a unit quaternion [q0, q1, q2, q3] from an axis-angle rotation.
  *
@@ -39,21 +36,17 @@ inline Eigen::Vector4d axisAngleToEp(const Eigen::Vector3d& axis, double angle) 
  * ConvertStPlatformToBodyAlgorithm. Returns [0, 0, 0, 1] (identity rotation) when
  * ‖ω‖ is below a small threshold.
  */
-inline void omegaToDeltaQuaternion(const Eigen::Vector3d& omega_CN_C, float dq_CN[4]) {
+inline Eigen::Vector4f omegaToDeltaQuaternion(const Eigen::Vector3d& omega_CN_C) {
     const double angle = omega_CN_C.norm();
     if (angle < 1e-12) {
-        dq_CN[0] = 0.0F;
-        dq_CN[1] = 0.0F;
-        dq_CN[2] = 0.0F;
-        dq_CN[3] = 1.0F;
-        return;
+        return {0.0F, 0.0F, 0.0F, 1.0F};
     }
     const Eigen::Vector3d axis = omega_CN_C / angle;
     const double s = std::sin(angle / 2.0);
-    dq_CN[0] = static_cast<float>(s * axis(0));
-    dq_CN[1] = static_cast<float>(s * axis(1));
-    dq_CN[2] = static_cast<float>(s * axis(2));
-    dq_CN[3] = static_cast<float>(std::cos(angle / 2.0));
+    return {static_cast<float>(s * axis(0)),
+            static_cast<float>(s * axis(1)),
+            static_cast<float>(s * axis(2)),
+            static_cast<float>(std::cos(angle / 2.0))};
 }
 
 /*!
@@ -102,27 +95,16 @@ inline void testConvertStPlatformToBody(const Eigen::Vector4d& ep_CN,
     Eigen::Vector3d omega_BN_B_truth;
     computeTruthValues(ep_CN, omega_CN_C, dcm_CB, sigma_BN_truth, omega_BN_B_truth);
 
-    // Build float-precision inputs
-    PlatformAttitude attitude{};
-    attitude.timeTag = TEST_TIME_TAG_NS;
-    for (int i = 0; i < 4; ++i) {
-        attitude.q_CN[i] = static_cast<float>(ep_CN(i));
-    }
-
-    PlatformAngularVelocity angularVelocity{};
-    angularVelocity.timeTag = TEST_TIME_TAG_NS;
-    omegaToDeltaQuaternion(omega_CN_C, angularVelocity.dq_CN);
+    // Build float-precision Eigen inputs
+    const Eigen::Vector4f q_CN = ep_CN.cast<float>();
+    const Eigen::Vector4f dq_CN = omegaToDeltaQuaternion(omega_CN_C);
 
     // Configure and run algorithm
-    ConvertStPlatformToBodyAlgorithm algorithm;
-    algorithm.setDcmCB(dcm_CB.cast<float>());
-    StAttitudeOutput result = algorithm.update(attitude, angularVelocity);
-
-    // Verify timeTag pass-through
-    EXPECT_EQ(result.timeTag, TEST_TIME_TAG_NS);
+    ConvertStPlatformToBodyAlgorithm algorithm{ConvertStPlatformToBodyConfig::create(dcm_CB.cast<float>())};
+    StAttitudeOutput result = algorithm.update(q_CN, dq_CN);
 
     // Verify MRP (account for shadow set ambiguity near |σ|=1)
-    Eigen::Vector3f sigma_result(result.sigma_BN[0], result.sigma_BN[1], result.sigma_BN[2]);
+    Eigen::Vector3f sigma_result = result.sigma_BN;
     Eigen::Vector3f sigma_expected = sigma_BN_truth.cast<float>();
     if ((sigma_result - mrpShadow(sigma_expected)).squaredNorm() < (sigma_result - sigma_expected).squaredNorm()) {
         sigma_expected = mrpShadow(sigma_expected);
