@@ -17,7 +17,6 @@
 struct ReferenceState {
     Eigen::Vector3f vehAccumDV_B{Eigen::Vector3f::Zero()};
     uint64_t previousTime{0U};
-    uint32_t dvInitialized{0U};
 };
 
 /*! @brief Reference sort mirroring the algorithm's iterative quicksort exactly, so the reference
@@ -62,25 +61,24 @@ inline void referenceSortByMeasTime(AccDataMsgF32Payload& accData) {
     }
 }
 
-/*! @brief Reference reInitialize: reset all state (accumulator, previousTime, dvInitialized), so the
- *         first update() bootstraps on the first newer packet (the algorithm's bootstrap behavior). */
+/*! @brief Reference reInitialize: reset all state (accumulator, previousTime), so the first update()
+ *         sets the time reference from the first newer packet. */
 inline void referenceReInitialize(ReferenceState& s) {
     s.vehAccumDV_B = Eigen::Vector3f::Zero();
     s.previousTime = 0U;
-    s.dvInitialized = 0U;
 }
 
-/*! @brief Reference update: sort by measTime, run the dvInitialized bootstrap (skips the first
- *         newer packet), then integrate every subsequent packet via dt * accel. */
+/*! @brief Reference update: sort by measTime; on the first call (previousTime == 0) set the time
+ *         reference from the first newer packet (skip it), then integrate every subsequent packet
+ *         via dt * accel. */
 inline DvAccumulationOutput referenceUpdate(ReferenceState& s, const AccDataMsgF32Payload& accData) {
     AccDataMsgF32Payload sorted = accData;
     referenceSortByMeasTime(sorted);
 
-    if (s.dvInitialized == 0U) {
+    if (s.previousTime == 0U) {
         for (uint32_t i = 0U; i < MAX_ACC_BUF_PKT; i++) {
             if (sorted.accPkts[i].measTime > s.previousTime) {
                 s.previousTime = sorted.accPkts[i].measTime;
-                s.dvInitialized = 1U;
                 break;
             }
         }

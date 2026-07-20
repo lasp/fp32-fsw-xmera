@@ -57,7 +57,7 @@ void sortByMeasTime(AccDataMsgF32Payload& accData) {
 DvAccumulationAlgorithm::DvAccumulationAlgorithm() { this->reInitialize(); }
 
 void DvAccumulationAlgorithm::reInitializeExceptPersistentStates() {
-    /*! - reset only the non-persistent accumulator; previousTime and dvInitialized persist */
+    /*! - reset only the non-persistent accumulator; previousTime persists */
     this->vehAccumDV_B = Eigen::Vector3f::Zero();
 }
 
@@ -65,7 +65,6 @@ void DvAccumulationAlgorithm::reInitialize() {
     /*! - reset all state, including the persistent integration bookkeeping */
     this->reInitializeExceptPersistentStates();
     this->previousTime = 0U;
-    this->dvInitialized = 0U;
 }
 
 DvAccumulationOutput DvAccumulationAlgorithm::update(const AccDataMsgF32Payload& accData) {
@@ -73,13 +72,12 @@ DvAccumulationOutput DvAccumulationAlgorithm::update(const AccDataMsgF32Payload&
     AccDataMsgF32Payload sorted = accData;
     sortByMeasTime(sorted);
 
-    /*! - On the first call ever, if reset's seed found nothing, latch onto the first new measTime
-     *    here so dt doesn't blow up against a zero baseline */
-    if (this->dvInitialized == 0U) {
+    /*! - On the first call after a reInitialize (previousTime == 0), latch onto the first new
+     *    measTime here so dt doesn't blow up against a zero baseline */
+    if (this->previousTime == 0U) {
         for (auto const& accPkt : sorted.accPkts) {
             if (accPkt.measTime > this->previousTime) {
                 this->previousTime = accPkt.measTime;
-                this->dvInitialized = 1U;
                 break;
             }
         }

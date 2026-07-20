@@ -20,21 +20,21 @@ struct DvAccumulationOutput {
  * to the running accumulator.
  *
  * dvAccumulation has no tunable parameters, so there is no Config. State splits into persistent
- * (previousTime, dvInitialized — carried across a re-initialization so a continuously-running
- * module ignores the backlog already ingested) and non-persistent (vehAccumDV_B).
+ * (previousTime — carried across a re-initialization so a continuously-running module ignores the
+ * backlog already ingested) and non-persistent (vehAccumDV_B). previousTime == 0 doubles as the
+ * "time reference not yet set" marker for the first update() after a reInitialize().
  */
 class DvAccumulationAlgorithm final {
    public:
     DvAccumulationAlgorithm();
 
-    void reInitialize();                        //!< Reset all state: accumulator, previousTime, dvInitialized
+    void reInitialize();                        //!< Reset all state: accumulator and previousTime
     void reInitializeExceptPersistentStates();  //!< Reset only non-persistent state: the accumulator
     DvAccumulationOutput update(const AccDataMsgF32Payload& accData);
 
    private:
     Eigen::Vector3f vehAccumDV_B{Eigen::Vector3f::Zero()};  //!< [m/s] running Delta-V accumulator (non-persistent)
     uint64_t previousTime{};                                //!< [ns] latest measTime ingested so far (persistent)
-    uint32_t dvInitialized{};  //!< [-] non-zero once at least one packet has been ingested (persistent)
 };
 
 #endif
