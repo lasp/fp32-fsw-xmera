@@ -3,6 +3,12 @@ name: "Downstream Build (adamant-xmera-components)"
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+    inputs:
+      adamant_xmera_components_ref:
+        description: "adamant-xmera-components ref (default: repo default branch)"
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -15,7 +21,13 @@ jobs:
   downstream-test:
     name: adamant-xmera-components test_all
     runs-on: ubuntu-latest
-    if: ${{ github.event.pull_request.draft == false }}
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.pull_request.draft == false }}
+    env:
+      # === Per-CI-run pin ===
+      # Uncomment/set to pin adamant-xmera-components for THIS branch's CI
+      # runs. The workflow_dispatch input still wins over a PIN; revert (or
+      # comment back) before merging.
+      # ADAMANT_XMERA_COMPONENTS_REF_PIN: 'your-branch-here'
     container:
       image: ghcr.io/lasp/adamant:0.2
       options: --user root
@@ -25,6 +37,7 @@ jobs:
         with:
           set-safe-directory: true
           repository: lasp/adamant-xmera-components
+          ref: ${{ inputs.adamant_xmera_components_ref || env.ADAMANT_XMERA_COMPONENTS_REF_PIN || '' }}
           path: adamant-xmera-components
           persist-credentials: false
 
@@ -32,7 +45,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           set-safe-directory: true
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           path: fp32-fsw-xmera
           persist-credentials: false
 
