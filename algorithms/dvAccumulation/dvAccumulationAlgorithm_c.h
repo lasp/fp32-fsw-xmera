@@ -2,7 +2,6 @@
 #define F32XMERA_DV_ACCUMULATION_ALGORITHM_C_H
 
 #include "dvAccumulationTypes.h"
-#include "msgPayloadDef/AccDataMsgF32Payload.h"
 
 #include <stdint.h>
 
@@ -12,12 +11,6 @@ extern "C" {
 
 /*! @brief Opaque handle to the C++ DvAccumulationAlgorithm instance. */
 typedef struct DvAccumulationAlgorithmHandle DvAccumulationAlgorithmHandle;
-
-/*!
- * @brief Get the MAX_ACC_BUF_PKT constant for Ada elaboration-time validation.
- * @return The number of accelerometer packet slots per input snapshot.
- */
-uint32_t DvAccumulationAlgorithm_getMaxAccBufPkt(void);
 
 /*!
  * @brief Construct a new DvAccumulationAlgorithm.
@@ -35,29 +28,30 @@ DvAccumulationAlgorithmHandle* DvAccumulationAlgorithm_create(void);
 void DvAccumulationAlgorithm_destroy(DvAccumulationAlgorithmHandle* self);
 
 /*!
- * @brief Reset all state: the accumulator plus the persistent integration bookkeeping
- *        (previousTime, dvInitialized).
+ * @brief Reset all state: the accumulator plus the persistent time reference (previousTime).
  * @param self Pointer to the instance.
  */
 void DvAccumulationAlgorithm_reInitialize(DvAccumulationAlgorithmHandle* self);
 
 /*!
- * @brief Reset only the non-persistent accumulator, keeping previousTime and dvInitialized so a
- *        continuously-running module ignores the backlog already ingested.
+ * @brief Reset only the non-persistent accumulator, keeping previousTime so a continuously-running
+ *        module keeps its time reference.
  * @param self Pointer to the instance.
  */
 void DvAccumulationAlgorithm_reInitializeExceptPersistentStates(DvAccumulationAlgorithmHandle* self);
 
 /*!
- * @brief Integrate any packets newer than the previously-seen latest measTime into the running
- *        Delta-V accumulator and return the current accumulator plus the time-tag of the most
- *        recently ingested sample.
- * @param self    Pointer to the instance.
- * @param accData Input accelerometer-packet snapshot.
+ * @brief Integrate one body-frame acceleration sample over the step since the previous call into
+ *        the running Delta-V accumulator and return the current accumulator plus the time-tag of
+ *        the most recently ingested sample.
+ * @param self                 Pointer to the instance.
+ * @param callTime             Module call time (nanoseconds).
+ * @param rDDotNoGravity_BN_B  Body-frame non-gravitational acceleration (m/s^2).
  * @return DvAccumulationOutput_c  timeTag (seconds) plus body-frame Delta-V (m/s).
  */
 DvAccumulationOutput_c DvAccumulationAlgorithm_update(DvAccumulationAlgorithmHandle* self,
-                                                      const AccDataMsgF32Payload* accData);
+                                                      uint64_t callTime,
+                                                      const Vector3f_c* rDDotNoGravity_BN_B);
 
 #ifdef __cplusplus
 } /* extern "C" */

@@ -8,5 +8,4 @@
 %include "dvAccumulation.h"
 
 %include "msgPayloadDef/NavTransMsgF32Payload.h"
-%include "msgPayloadDef/AccDataMsgF32Payload.h"
-%include "msgPayloadDef/AccPktDataMsgF32Payload.h"
+%include "msgPayloadDef/IMUSensorBodyMsgF32Payload.h"
