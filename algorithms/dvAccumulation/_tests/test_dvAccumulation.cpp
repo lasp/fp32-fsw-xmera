@@ -67,3 +67,20 @@ TEST(DvAccumulationTest, BoundedInputProducesFiniteOutput) {
     }
     EXPECT_TRUE(std::isfinite(out.timeTag));
 }
+
+TEST(DvAccumulationTest, KnownAccelerationProducesExpectedDeltaV) {
+    /*! - checks the integration against a hand-computed expected value. The first call only sets the
+     *    time reference; the second, 0.5 s later, integrates dt * accel = 0.5 * [2, -4, 0] = [1, -2, 0]. */
+    DvAccumulationAlgorithm alg{};
+    alg.reInitialize();
+
+    const uint64_t t0 = static_cast<uint64_t>(1e9);                                       // 1.0 s
+    const uint64_t t1 = static_cast<uint64_t>(15e8);                                      // 1.5 s  (dt = 0.5 s)
+    alg.update(t0, Eigen::Vector3f::Zero());                                              // sets the time reference
+    const DvAccumulationOutput out = alg.update(t1, Eigen::Vector3f{2.0F, -4.0F, 0.0F});  // integrate dt * accel
+
+    EXPECT_NEAR(out.vehAccumDV_B[0], 1.0F, 1e-5F);
+    EXPECT_NEAR(out.vehAccumDV_B[1], -2.0F, 1e-5F);
+    EXPECT_NEAR(out.vehAccumDV_B[2], 0.0F, 1e-5F);
+    EXPECT_NEAR(out.timeTag, 1.5, 1e-9);
+}
