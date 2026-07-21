@@ -107,6 +107,10 @@ algorithms/timeClosestApproach/timeClosestApproach.h
 algorithms/timeClosestApproach/timeClosestApproach.cpp
 algorithms/timeClosestApproach/timeClosestApproachAlgorithm_c.h
 algorithms/timeClosestApproach/timeClosestApproachAlgorithm_c.cpp
+algorithms/twoAxisGimbalAxisToMotorAngles/twoAxisGimbalAxisToMotorAngles.h
+algorithms/twoAxisGimbalAxisToMotorAngles/twoAxisGimbalAxisToMotorAngles.cpp
+algorithms/twoAxisGimbalAxisToMotorAngles/twoAxisGimbalAxisToMotorAnglesAlgorithm_c.h
+algorithms/twoAxisGimbalAxisToMotorAngles/twoAxisGimbalAxisToMotorAnglesAlgorithm_c.cpp
 
 // Remove the files below this line once the actual algorithms are added
 algorithms/inertialUKF/inertialUKF.cpp
