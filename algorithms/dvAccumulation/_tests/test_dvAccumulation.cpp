@@ -145,3 +145,22 @@ TEST(DvAccumulationTest, ReInitializeResetsTimeReference) {
     EXPECT_FLOAT_EQ(after.vehAccumDV_B[2], 0.0F);
     EXPECT_NEAR(after.timeTag, 2.0, 1e-9);  // reference re-set to the new callTime
 }
+
+TEST(DvAccumulationTest, BackwardCallTimeIsIgnored) {
+    /*! - a callTime strictly earlier than previousTime (clock stepped backward / out-of-order) is
+     *    dropped by the strictly-greater gate: accumulator and time reference stay unchanged. */
+    DvAccumulationAlgorithm alg{};
+    alg.reInitialize();
+
+    const Eigen::Vector3f accel{2.0F, 0.0F, 0.0F};
+    alg.update(static_cast<uint64_t>(1e9), accel);  // callTime 1.0 s: sets ref
+    const DvAccumulationOutput forward =
+        alg.update(static_cast<uint64_t>(2e9), accel);  // callTime 2.0 s: dt=1.0 -> [2,0,0]
+    const DvAccumulationOutput backward =
+        alg.update(static_cast<uint64_t>(15e8), accel);  // callTime 1.5 s < 2.0 s: ignored
+
+    EXPECT_FLOAT_EQ(backward.vehAccumDV_B[0], forward.vehAccumDV_B[0]);  // accumulator unchanged
+    EXPECT_FLOAT_EQ(backward.vehAccumDV_B[1], forward.vehAccumDV_B[1]);
+    EXPECT_FLOAT_EQ(backward.vehAccumDV_B[2], forward.vehAccumDV_B[2]);
+    EXPECT_DOUBLE_EQ(backward.timeTag, forward.timeTag);  // time reference unchanged (still 2.0 s)
+}
