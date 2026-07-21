@@ -2,6 +2,7 @@
 
 #include "utilities/fsw/rigidBodyKinematics.hpp"
 
+#include <utility>
 #include <variant>
 
 namespace filtering::inertialFilter {
@@ -14,40 +15,40 @@ using State = InertialFilterAlgorithm::State;
  *  concept for use inside the SRuKF. subtract() forms the MRP-difference
  *  (shadow-set aware) so the innovation stays small across the |sigma| = 1
  *  boundary. */
-// A concept-model helper: members are public by design (aggregate) and some accessors are only
-// odr-used through the SRuKF template, so silence the resulting internal-linkage diagnostics.
-// NOLINTBEGIN(misc-non-private-member-variables-in-classes, clang-diagnostic-unused-member-function,
-// clang-diagnostic-unused-variable)
-struct StAttMeasurementModel {
+class StAttMeasurementModel {
+   public:
     static constexpr int size = 3;
 
-    Eigen::Vector3d observed = Eigen::Vector3d::Zero();
-    Eigen::Matrix3d measNoise = Eigen::Matrix3d::Identity();
+    StAttMeasurementModel(Eigen::Vector3d observation, Eigen::Matrix3d noise)
+        : observed(std::move(observation)), measNoise(std::move(noise)) {}
 
     Eigen::Vector3d observation() const { return this->observed; }
     static Eigen::Vector3d model(State const& state) { return state.get<filtering::MrpAttitude<3>>(); }
     Eigen::Matrix3d noise() const { return this->measNoise; }
     static Eigen::Vector3d subtract(Eigen::Vector3d const& a, Eigen::Vector3d const& b) { return subMrp(a, b); }
+
+   private:
+    Eigen::Vector3d observed;
+    Eigen::Matrix3d measNoise;
 };
-// NOLINTEND(misc-non-private-member-variables-in-classes, clang-diagnostic-unused-member-function,
-// clang-diagnostic-unused-variable)
 
 /*! Predicted gyro observation = omega_BN_B. Satisfies the Measurement concept. */
-// NOLINTBEGIN(misc-non-private-member-variables-in-classes, clang-diagnostic-unused-member-function,
-// clang-diagnostic-unused-variable)
-struct RateMeasurementModel {
+class RateMeasurementModel {
+   public:
     static constexpr int size = 3;
 
-    Eigen::Vector3d observed = Eigen::Vector3d::Zero();
-    Eigen::Matrix3d measNoise = Eigen::Matrix3d::Identity();
+    RateMeasurementModel(Eigen::Vector3d observation, Eigen::Matrix3d noise)
+        : observed(std::move(observation)), measNoise(std::move(noise)) {}
 
     Eigen::Vector3d observation() const { return this->observed; }
     static Eigen::Vector3d model(State const& state) { return state.get<filtering::AngularRate<3>>(); }
     Eigen::Matrix3d noise() const { return this->measNoise; }
     static Eigen::Vector3d subtract(Eigen::Vector3d const& a, Eigen::Vector3d const& b) { return a - b; }
+
+   private:
+    Eigen::Vector3d observed;
+    Eigen::Matrix3d measNoise;
 };
-// NOLINTEND(misc-non-private-member-variables-in-classes, clang-diagnostic-unused-member-function,
-// clang-diagnostic-unused-variable)
 
 static_assert(filtering::Measurement<StAttMeasurementModel, State>);
 static_assert(filtering::Measurement<RateMeasurementModel, State>);
@@ -144,12 +145,10 @@ void InertialFilterAlgorithm::clear() {
  *  @return true iff the update was applied (state/covariance finite)
  *  @param measurement [-] packed ST measurement (sigma_BN, noise) */
 bool InertialFilterAlgorithm::applyMeasurement(StAttMeasurement const& measurement) {
-    StAttMeasurementModel model;
-    model.observed = measurement.sigma_BN;
-    model.measNoise = measurement.covar;
+    StAttMeasurementModel const model{measurement.sigma_BN, measurement.covar};
 
     auto const result = this->srukf.measurementUpdate(model);
-    this->lastStAttResiduals.observation = model.observed;
+    this->lastStAttResiduals.observation = model.observation();
     if (result.has_value()) {
         this->lastStAttResiduals.valid = measurement.valid;
         this->lastStAttResiduals.preFit = result->preFit;
@@ -163,12 +162,10 @@ bool InertialFilterAlgorithm::applyMeasurement(StAttMeasurement const& measureme
  *  @return true iff the update was applied (state/covariance finite)
  *  @param measurement [-] packed rate measurement (omega, noise) */
 bool InertialFilterAlgorithm::applyMeasurement(RateMeasurement const& measurement) {
-    RateMeasurementModel model;
-    model.observed = measurement.omega_BN_B;
-    model.measNoise = measurement.covar;
+    RateMeasurementModel const model{measurement.omega_BN_B, measurement.covar};
 
     auto const result = this->srukf.measurementUpdate(model);
-    this->lastRateResiduals.observation = model.observed;
+    this->lastRateResiduals.observation = model.observation();
     if (result.has_value()) {
         this->lastRateResiduals.valid = measurement.valid;
         this->lastRateResiduals.preFit = result->preFit;
