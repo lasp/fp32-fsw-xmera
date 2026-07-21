@@ -125,3 +125,23 @@ TEST(DvAccumulationTest, ReInitializeExceptPersistentStatesKeepsTimeReference) {
     EXPECT_NEAR(after.vehAccumDV_B[2], 0.0F, 1e-5F);
     EXPECT_NEAR(after.timeTag, 2.0, 1e-9);
 }
+
+TEST(DvAccumulationTest, ReInitializeResetsTimeReference) {
+    /*! - reInitialize (unlike reInitializeExceptPersistentStates) also resets previousTime, so the next
+     *    update re-sets the time reference: zero DV, no integration, regardless of elapsed time. Contrast
+     *    with ReInitializeExceptPersistentStatesKeepsTimeReference, whose next call yields [1,0,0]. */
+    DvAccumulationAlgorithm alg{};
+    alg.reInitialize();
+
+    const Eigen::Vector3f accel{2.0F, 0.0F, 0.0F};
+    alg.update(static_cast<uint64_t>(1e9), accel);   // callTime 1.0 s: sets ref
+    alg.update(static_cast<uint64_t>(15e8), accel);  // callTime 1.5 s: dt=0.5 -> [1,0,0]
+
+    alg.reInitialize();  // accumulator->0 AND previousTime->0
+
+    const DvAccumulationOutput after = alg.update(static_cast<uint64_t>(2e9), accel);  // callTime 2.0 s: re-sets ref
+    EXPECT_FLOAT_EQ(after.vehAccumDV_B[0], 0.0F);
+    EXPECT_FLOAT_EQ(after.vehAccumDV_B[1], 0.0F);
+    EXPECT_FLOAT_EQ(after.vehAccumDV_B[2], 0.0F);
+    EXPECT_NEAR(after.timeTag, 2.0, 1e-9);  // reference re-set to the new callTime
+}
