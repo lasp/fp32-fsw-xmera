@@ -47,7 +47,6 @@ jobs:
         with:
           files: |
             algorithms/**
-            architecture/**
           files_ignore: |
             **/_tests/**
             **/_test/**
