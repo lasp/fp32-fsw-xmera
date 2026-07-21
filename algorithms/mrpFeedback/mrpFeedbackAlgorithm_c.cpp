@@ -2,6 +2,7 @@
 #include "mrpFeedbackAlgorithm.h"
 #include "mrpFeedbackTypes.h"
 #include "utilities/fsw/eigenSupport.h"
+#include "utilities/fsw/opaqueHandle.h"
 
 #include <Eigen/Core>
 
@@ -17,30 +18,20 @@ MrpFeedbackConfig configFromC(const MrpFeedbackConfig_c& c) {
 }  // namespace
 
 MrpFeedbackAlgorithmHandle* MrpFeedbackAlgorithm_create(const MrpFeedbackConfig_c* config) {
-    // clang-format off
-    return reinterpret_cast<MrpFeedbackAlgorithmHandle*>(new ::MrpFeedbackAlgorithm(configFromC(*config)));  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast, cppcoreguidelines-owning-memory)
-    // clang-format on
+    return fsw::createHandle<::MrpFeedbackAlgorithm, MrpFeedbackAlgorithmHandle>(configFromC(*config));
 }
 
-void MrpFeedbackAlgorithm_destroy(MrpFeedbackAlgorithmHandle* self) {
-    // clang-format off
-    delete reinterpret_cast<::MrpFeedbackAlgorithm*>(self);  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast, cppcoreguidelines-owning-memory)
-    // clang-format on
-}
+void MrpFeedbackAlgorithm_destroy(MrpFeedbackAlgorithmHandle* self) { fsw::deleteHandle<::MrpFeedbackAlgorithm>(self); }
 
 void MrpFeedbackAlgorithm_setConfig(MrpFeedbackAlgorithmHandle* self, const MrpFeedbackConfig_c* config) {
-    // clang-format off
-    reinterpret_cast<::MrpFeedbackAlgorithm*>(self)->setConfig(configFromC(*config));  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
-    // clang-format on
+    fsw::fromHandle<::MrpFeedbackAlgorithm>(self)->setConfig(configFromC(*config));
 }
 
 void MrpFeedbackAlgorithm_reset(MrpFeedbackAlgorithmHandle* self,
                                 const VehicleConfigMsgF32Payload* vehConfigMsg,
                                 const RWArrayConfigMsgF32Payload* rwConfigMsg,
                                 int rwIsLinked) {
-    // clang-format off
-    reinterpret_cast<::MrpFeedbackAlgorithm*>(self)->reset(*vehConfigMsg, *rwConfigMsg, rwIsLinked != 0);  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
-    // clang-format on
+    fsw::fromHandle<::MrpFeedbackAlgorithm>(self)->reset(*vehConfigMsg, *rwConfigMsg, rwIsLinked != 0);
 }
 
 MrpFeedbackOutput_c MrpFeedbackAlgorithm_update(MrpFeedbackAlgorithmHandle* self,
@@ -48,9 +39,8 @@ MrpFeedbackOutput_c MrpFeedbackAlgorithm_update(MrpFeedbackAlgorithmHandle* self
                                                 const AttGuidMsgF32Payload* guidCmd,
                                                 const RWSpeedMsgF32Payload* wheelSpeeds,
                                                 const RWAvailabilityMsgPayload* wheelsAvailability) {
-    // clang-format off
-    const MrpFeedbackOutput out = reinterpret_cast<::MrpFeedbackAlgorithm*>(self)->update(callTime, *guidCmd, *wheelSpeeds, *wheelsAvailability);  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
-    // clang-format on
+    const MrpFeedbackOutput out =
+        fsw::fromHandle<::MrpFeedbackAlgorithm>(self)->update(callTime, *guidCmd, *wheelSpeeds, *wheelsAvailability);
 
     MrpFeedbackOutput_c result{};
     result.controlOut = out.controlOut;

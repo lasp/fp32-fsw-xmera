@@ -1,5 +1,6 @@
 #include "averageMimuDataAlgorithm_c.h"
 #include "averageMimuDataAlgorithm.h"
+#include "utilities/fsw/opaqueHandle.h"
 
 #include <Eigen/Core>
 
@@ -8,11 +9,11 @@ uint32_t AverageMimuDataAlgorithm_getMaxMimuPkt(void) { return MAX_MIMU_PKT_C; }
 uint32_t AverageMimuDataAlgorithm_getMaxMimuSamplesPerPkt(void) { return MAX_MIMU_SAMPLES_PER_PKT_C; }
 
 AverageMimuDataAlgorithmHandle* AverageMimuDataAlgorithm_create(void) {
-    return reinterpret_cast<AverageMimuDataAlgorithmHandle*>(new ::AverageMimuDataAlgorithm());
+    return fsw::createHandle<::AverageMimuDataAlgorithm, AverageMimuDataAlgorithmHandle>();
 }
 
 void AverageMimuDataAlgorithm_destroy(AverageMimuDataAlgorithmHandle* self) {
-    delete reinterpret_cast<::AverageMimuDataAlgorithm*>(self);
+    fsw::deleteHandle<::AverageMimuDataAlgorithm>(self);
 }
 
 OutputAverageAccelAngleVel_c AverageMimuDataAlgorithm_update(AverageMimuDataAlgorithmHandle* self,
@@ -31,7 +32,7 @@ OutputAverageAccelAngleVel_c AverageMimuDataAlgorithm_update(AverageMimuDataAlgo
         }
     }
 
-    const auto [accel_B, gyroOmega_B] = reinterpret_cast<::AverageMimuDataAlgorithm*>(self)->update(in);
+    const auto [accel_B, gyroOmega_B] = fsw::fromHandle<::AverageMimuDataAlgorithm>(self)->update(in);
 
     OutputAverageAccelAngleVel_c result{};
     result.accel_B = Vector3f_c{{accel_B[0], accel_B[1], accel_B[2]}};
@@ -40,19 +41,19 @@ OutputAverageAccelAngleVel_c AverageMimuDataAlgorithm_update(AverageMimuDataAlgo
 }
 
 void AverageMimuDataAlgorithm_setGyroAveragingWindow(AverageMimuDataAlgorithmHandle* self, double window) {
-    reinterpret_cast<::AverageMimuDataAlgorithm*>(self)->setGyroAveragingWindow(window);
+    fsw::fromHandle<::AverageMimuDataAlgorithm>(self)->setGyroAveragingWindow(window);
 }
 
 double AverageMimuDataAlgorithm_getGyroAveragingWindow(const AverageMimuDataAlgorithmHandle* self) {
-    return reinterpret_cast<const ::AverageMimuDataAlgorithm*>(self)->getGyroAveragingWindow();
+    return fsw::fromHandle<const ::AverageMimuDataAlgorithm>(self)->getGyroAveragingWindow();
 }
 
 void AverageMimuDataAlgorithm_setAccelAveragingWindow(AverageMimuDataAlgorithmHandle* self, double window) {
-    reinterpret_cast<::AverageMimuDataAlgorithm*>(self)->setAccelAveragingWindow(window);
+    fsw::fromHandle<::AverageMimuDataAlgorithm>(self)->setAccelAveragingWindow(window);
 }
 
 double AverageMimuDataAlgorithm_getAccelAveragingWindow(const AverageMimuDataAlgorithmHandle* self) {
-    return reinterpret_cast<const ::AverageMimuDataAlgorithm*>(self)->getAccelAveragingWindow();
+    return fsw::fromHandle<const ::AverageMimuDataAlgorithm>(self)->getAccelAveragingWindow();
 }
 
 void AverageMimuDataAlgorithm_setDcmPltfToBdy(AverageMimuDataAlgorithmHandle* self, Matrix3f_c dcm_BP) {
@@ -62,11 +63,11 @@ void AverageMimuDataAlgorithm_setDcmPltfToBdy(AverageMimuDataAlgorithmHandle* se
             mat(i, j) = dcm_BP.data[i][j];
         }
     }
-    reinterpret_cast<::AverageMimuDataAlgorithm*>(self)->setDcmPltfToBdy(mat);
+    fsw::fromHandle<::AverageMimuDataAlgorithm>(self)->setDcmPltfToBdy(mat);
 }
 
 Matrix3f_c AverageMimuDataAlgorithm_getDcmPltfToBdy(const AverageMimuDataAlgorithmHandle* self) {
-    Eigen::Matrix3f mat = reinterpret_cast<const ::AverageMimuDataAlgorithm*>(self)->getDcmPltfToBdy();
+    Eigen::Matrix3f mat = fsw::fromHandle<const ::AverageMimuDataAlgorithm>(self)->getDcmPltfToBdy();
     Matrix3f_c out;
     for (int i = 0; i < 3; i++) {
         for (int j = 0; j < 3; j++) {

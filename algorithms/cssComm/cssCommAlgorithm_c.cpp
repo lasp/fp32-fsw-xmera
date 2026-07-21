@@ -1,5 +1,6 @@
 #include "cssCommAlgorithm_c.h"
 #include "cssCommAlgorithm.h"
+#include "utilities/fsw/opaqueHandle.h"
 
 #include <algorithm>
 #include <array>
@@ -15,20 +16,20 @@ CssCommConfig configFromC(const CssCommConfig_c& c) {
 }  // namespace
 
 CssCommAlgorithmHandle* CssCommAlgorithm_create(const CssCommConfig_c* config) {
-    return reinterpret_cast<CssCommAlgorithmHandle*>(new ::CssCommAlgorithm(configFromC(*config)));
+    return fsw::createHandle<::CssCommAlgorithm, CssCommAlgorithmHandle>(configFromC(*config));
 }
 
-void CssCommAlgorithm_destroy(CssCommAlgorithmHandle* self) { delete reinterpret_cast<::CssCommAlgorithm*>(self); }
+void CssCommAlgorithm_destroy(CssCommAlgorithmHandle* self) { fsw::deleteHandle<::CssCommAlgorithm>(self); }
 
 void CssCommAlgorithm_setConfig(CssCommAlgorithmHandle* self, const CssCommConfig_c* config) {
-    reinterpret_cast<::CssCommAlgorithm*>(self)->setConfig(configFromC(*config));
+    fsw::fromHandle<::CssCommAlgorithm>(self)->setConfig(configFromC(*config));
 }
 
 CssSensorValues_c CssCommAlgorithm_update(const CssCommAlgorithmHandle* self, const CssSensorValues_c* inputValues) {
     std::array<double, kMaxNumCssSensors> input{};
     std::copy(inputValues->data, inputValues->data + kMaxNumCssSensors, input.begin());
 
-    std::array<double, kMaxNumCssSensors> result = reinterpret_cast<const ::CssCommAlgorithm*>(self)->update(input);
+    std::array<double, kMaxNumCssSensors> result = fsw::fromHandle<const ::CssCommAlgorithm>(self)->update(input);
 
     CssSensorValues_c out{};
     std::copy(result.begin(), result.end(), out.data);
