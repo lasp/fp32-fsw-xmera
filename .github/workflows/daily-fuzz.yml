@@ -52,7 +52,7 @@ jobs:
 
       - name: Restore fuzz corpus cache
         id: fuzz-corpus-cache
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         with:
           path: .fuzztest_corpus
           key: fuzz-corpus-${{ runner.os }}-${{ github.run_id }}

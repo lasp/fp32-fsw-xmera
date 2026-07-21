@@ -153,7 +153,7 @@ jobs:
           VCPKG_CMAKE_CONFIGURE_OPTIONS: "-DCMAKE_POLICY_VERSION_MINIMUM=3.5"
 
       - name: Cache vcpkg build artifacts
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             ${{ github.workspace }}/b/vcpkg/installed
