@@ -22,13 +22,13 @@ CobConverterConfig configFromC(const CobConverterConfig_c& c) {
                                       c.specifiedStandardDeviation,
                                       c.outlierDetectionEnabled,
                                       calibrationCoefficients,
-                                      c.cameraId);
+                                      c.cameraId,
+                                      c.fieldOfView);
 }
 
 CobConverterInput inputFromC(const CobConverterInput_c& c) {
     CobConverterInput input;
     input.bodyToCameraMrp = cArrayToEigenVector3<float>(c.bodyToCameraMrp.data);
-    input.fieldOfView = c.fieldOfView;
     input.resolutionX = c.resolutionX;
     input.resolutionY = c.resolutionY;
     input.cobValid = c.cobValid;

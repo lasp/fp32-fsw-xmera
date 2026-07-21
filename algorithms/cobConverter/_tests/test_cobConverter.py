@@ -155,6 +155,7 @@ def cob_converter_test_function(show_plots, cameraResolution, centerOfBrightness
     module.standardDeviation = 100
     module.specifiedStandardDeviation = True
     module.outlierDetectionEnabled = True
+    module.fieldOfView = np.deg2rad(20.0)
     unitTestSim.AddModelToTask(unitTaskName, module, module)
 
     r_BdyZero_N = np.array([-distance, -300. * 1e3, 0.])
@@ -352,6 +353,7 @@ def test_coberror_outlier(
     module.standardDeviation = 100
     module.specifiedStandardDeviation = True
     module.outlierDetectionEnabled = True
+    module.fieldOfView = np.deg2rad(20.0)
     unitTestSim.AddModelToTask(unitTaskName, module, module)
 
     r_BdyZero_N = np.array([-distance, -300. * 1e3, 0.])
@@ -505,6 +507,7 @@ def test_brown_conrady_calibration(k1, k2, k3, p1, p2, label, centerOfBrightness
     module.phaseAngleCorrectionMethod = noCorr
     module.radius = R_object
     module.attitudeCovariance = np.zeros((3, 3))
+    module.fieldOfView = np.deg2rad(20.0)
 
     coefficients = cobConverter.CalibrationCoefficients()
     coefficients.k1 = k1
@@ -535,7 +538,7 @@ def test_brown_conrady_calibration(k1, k2, k3, p1, p2, label, centerOfBrightness
     inputAtt = messaging.NavAttMsgF32Payload()
     inputSun = messaging.NavAttMsgF32Payload()
 
-    inputCamera.fieldOfView = [np.deg2rad(20.0), np.deg2rad(20.0)]
+    inputCamera.fieldOfView = [module.fieldOfView, module.fieldOfView]
     inputCamera.resolution = cameraResolution
     inputCamera.bodyToCameraMrp = sigma_CB
     camInMsg = messaging.CameraModelMsgF32().write(inputCamera)

@@ -49,6 +49,7 @@ class CobConverter final : public SysModel {
     bool outlierDetectionEnabled = false;
     CalibrationCoefficients calibrationCoefficients{};
     int cameraId = 0;
+    float fieldOfView = 0.0F;
 
     // Output messages
     Message<OpNavUnitVecMsgF32Payload> opnavUnitVecOutMsg;

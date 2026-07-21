@@ -69,6 +69,7 @@ typedef struct {
     bool outlierDetectionEnabled;                      /*!< [-] enable COB outlier detection */
     CalibrationCoefficients_c calibrationCoefficients; /*!< [-] Brown-Conrady distortion coefficients */
     int32_t cameraId;                                  /*!< [-] camera identifier */
+    float fieldOfView;                                 /*!< [rad] camera field of view */
 } CobConverterConfig_c;
 
 /**
@@ -76,7 +77,6 @@ typedef struct {
  */
 typedef struct {
     Vector3f_c bodyToCameraMrp;             /*!< [-] MRP body-to-camera */
-    float fieldOfView;                      /*!< [rad] camera field of view */
     float resolutionX;                      /*!< [px] horizontal resolution */
     float resolutionY;                      /*!< [px] vertical resolution */
     bool cobValid;                          /*!< [-] validity flag */
