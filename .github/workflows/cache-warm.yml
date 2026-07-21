@@ -35,10 +35,10 @@ jobs:
         os: [ubuntu-24.04, macos-14]
     steps:
       - name: Checkout fp32-fsw-xmera
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Checkout Xmera core
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: lasp/basilisk
           path: xmera
