@@ -36,5 +36,5 @@ void DvAccumulation::updateState(const uint64_t callTime) {
     outputData.timeTag = out.timeTag;
     eigenVectorToCArray(out.vehAccumDV_B, outputData.vehAccumDV);
 
-    this->dvAcumOutMsg.write(outputData, this->moduleID, callTime);
+    this->dvAccumulationOutMsg.write(outputData, this->moduleID, callTime);
 }

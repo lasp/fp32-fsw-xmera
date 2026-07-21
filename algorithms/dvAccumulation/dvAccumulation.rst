@@ -25,7 +25,7 @@ Message Connection Descriptions
       - ``AccDataMsgF32Payload``
       - Input snapshot of up to 120 accelerometer packets, each carrying a ``measTime`` (uint64 ns)
         and a body-frame ``accel_B`` (float[3]).
-    * - dvAcumOutMsg
+    * - dvAccumulationOutMsg
       - ``NavTransMsgF32Payload``
       - Output navigation message. The algorithm populates ``timeTag`` (seconds, double) and
         ``vehAccumDV`` (m/s, float[3]); the position and velocity fields are left zero.
@@ -106,7 +106,7 @@ The required module configuration is::
     module = dvAccumulationF32.DvAccumulation()
     module.modelTag = "dvAccumulation"
     module.accPktInMsg.subscribeTo(accPktSource)
-    # Subscribe a downstream consumer to module.dvAcumOutMsg.
+    # Subscribe a downstream consumer to module.dvAccumulationOutMsg.
 
 There is no further setup — no parameters to set, no validators to satisfy. Call
 ``reset(callTime)`` once before the first ``updateState(callTime)``; ``reset`` throws

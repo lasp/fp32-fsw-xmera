@@ -42,7 +42,7 @@ def test_dv_accumulation():
     module.modelTag = "dvAccumulation"
     unitTestSim.AddModelToTask("unitTask", module)
 
-    dataLog = module.dvAcumOutMsg.recorder()
+    dataLog = module.dvAccumulationOutMsg.recorder()
     unitTestSim.AddModelToTask("unitTask", dataLog)
 
     # First snapshot
