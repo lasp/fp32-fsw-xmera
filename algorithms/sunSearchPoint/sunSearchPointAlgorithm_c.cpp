@@ -2,6 +2,7 @@
 #include "sunSearchPointAlgorithm.h"
 #include "sunSearchPointTypes.h"
 #include "utilities/fsw/eigenSupport.h"
+#include "utilities/fsw/opaqueHandle.h"
 
 #include <Eigen/Core>
 #include <array>
@@ -26,26 +27,26 @@ SunSearchPointConfig configFromC(const SunSearchPointConfig_c& c) {
 uint32_t SunSearchPointAlgorithm_getNumRotations(void) { return SUN_SEARCH_POINT_NUM_ROTATIONS; }
 
 SunSearchPointAlgorithmHandle* SunSearchPointAlgorithm_create(const SunSearchPointConfig_c* config) {
-    return reinterpret_cast<SunSearchPointAlgorithmHandle*>(new ::SunSearchPointAlgorithm(configFromC(*config)));
+    return fsw::createHandle<::SunSearchPointAlgorithm, SunSearchPointAlgorithmHandle>(configFromC(*config));
 }
 
 void SunSearchPointAlgorithm_destroy(SunSearchPointAlgorithmHandle* self) {
-    delete reinterpret_cast<::SunSearchPointAlgorithm*>(self);
+    fsw::deleteHandle<::SunSearchPointAlgorithm>(self);
 }
 
 void SunSearchPointAlgorithm_setConfig(SunSearchPointAlgorithmHandle* self, const SunSearchPointConfig_c* config) {
-    reinterpret_cast<::SunSearchPointAlgorithm*>(self)->setConfig(configFromC(*config));
+    fsw::fromHandle<::SunSearchPointAlgorithm>(self)->setConfig(configFromC(*config));
 }
 
 void SunSearchPointAlgorithm_reInitialize(SunSearchPointAlgorithmHandle* self) {
-    reinterpret_cast<::SunSearchPointAlgorithm*>(self)->reInitialize();
+    fsw::fromHandle<::SunSearchPointAlgorithm>(self)->reInitialize();
 }
 
 SunSearchPointOutput_c SunSearchPointAlgorithm_update(SunSearchPointAlgorithmHandle* self,
                                                       const Vector3f_c rHat_SB_B,
                                                       const Vector3f_c omega_BN_B,
                                                       const int numCssViewingSun) {
-    const SunSearchPointOutput out = reinterpret_cast<::SunSearchPointAlgorithm*>(self)->update(
+    const SunSearchPointOutput out = fsw::fromHandle<::SunSearchPointAlgorithm>(self)->update(
         cArrayToEigenVector3<float>(rHat_SB_B.data), cArrayToEigenVector3<float>(omega_BN_B.data), numCssViewingSun);
 
     SunSearchPointOutput_c result{};
