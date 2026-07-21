@@ -2,6 +2,7 @@
 #include "mrpPDAlgorithm.h"
 #include "mrpPDTypes.h"
 #include "utilities/fsw/eigenSupport.h"
+#include "utilities/fsw/opaqueHandle.h"
 
 #include <Eigen/Core>
 
@@ -13,13 +14,13 @@ MrpPDConfig configFromC(const MrpPDConfig_c& c) {
 }  // namespace
 
 MrpPDAlgorithmHandle* MrpPDAlgorithm_create(const MrpPDConfig_c* config) {
-    return reinterpret_cast<MrpPDAlgorithmHandle*>(new ::MrpPDAlgorithm(configFromC(*config)));
+    return fsw::createHandle<::MrpPDAlgorithm, MrpPDAlgorithmHandle>(configFromC(*config));
 }
 
-void MrpPDAlgorithm_destroy(MrpPDAlgorithmHandle* self) { delete reinterpret_cast<::MrpPDAlgorithm*>(self); }
+void MrpPDAlgorithm_destroy(MrpPDAlgorithmHandle* self) { fsw::deleteHandle<::MrpPDAlgorithm>(self); }
 
 void MrpPDAlgorithm_setConfig(MrpPDAlgorithmHandle* self, const MrpPDConfig_c* config) {
-    reinterpret_cast<::MrpPDAlgorithm*>(self)->setConfig(configFromC(*config));
+    fsw::fromHandle<::MrpPDAlgorithm>(self)->setConfig(configFromC(*config));
 }
 
 Vector3f_c MrpPDAlgorithm_update(const MrpPDAlgorithmHandle* self,
@@ -27,9 +28,9 @@ Vector3f_c MrpPDAlgorithm_update(const MrpPDAlgorithmHandle* self,
                                  Vector3f_c omega_BR_B,
                                  Vector3f_c domega_RN_B) {
     const Eigen::Vector3f torque =
-        reinterpret_cast<const ::MrpPDAlgorithm*>(self)->update(cArrayToEigenVector3<float>(sigma_BR.data),
-                                                                cArrayToEigenVector3<float>(omega_BR_B.data),
-                                                                cArrayToEigenVector3<float>(domega_RN_B.data));
+        fsw::fromHandle<const ::MrpPDAlgorithm>(self)->update(cArrayToEigenVector3<float>(sigma_BR.data),
+                                                              cArrayToEigenVector3<float>(omega_BR_B.data),
+                                                              cArrayToEigenVector3<float>(domega_RN_B.data));
 
     Vector3f_c out{};
     eigenVectorToCArray(torque, out.data);

@@ -1,6 +1,7 @@
 #include "sunlineFilterAlgorithm_c.h"
 #include "sunlineFilterAlgorithm.h"
 #include "sunlineFilterTypes.h"
+#include "utilities/fsw/opaqueHandle.h"
 
 #include <Eigen/Core>
 
@@ -108,15 +109,15 @@ uint32_t SunlineFilterAlgorithm_getMaxCss(void) { return SUNLINE_FILTER_MAX_CSS;
 uint32_t SunlineFilterAlgorithm_getNumStates(void) { return SUNLINE_FILTER_NUM_STATES; }
 
 SunlineFilterAlgorithmHandle* SunlineFilterAlgorithm_create(const SunlineFilterConfig_c* config) {
-    return reinterpret_cast<SunlineFilterAlgorithmHandle*>(new ::SunlineFilterAlgorithm(configFromC(*config)));
+    return fsw::createHandle<::SunlineFilterAlgorithm, SunlineFilterAlgorithmHandle>(configFromC(*config));
 }
 
 void SunlineFilterAlgorithm_destroy(SunlineFilterAlgorithmHandle* self) {
-    delete reinterpret_cast<::SunlineFilterAlgorithm*>(self);
+    fsw::deleteHandle<::SunlineFilterAlgorithm>(self);
 }
 
 void SunlineFilterAlgorithm_setConfig(SunlineFilterAlgorithmHandle* self, const SunlineFilterConfig_c* config) {
-    reinterpret_cast<::SunlineFilterAlgorithm*>(self)->setConfig(configFromC(*config));
+    fsw::fromHandle<::SunlineFilterAlgorithm>(self)->setConfig(configFromC(*config));
 }
 
 SunlineFilterOutput_c SunlineFilterAlgorithm_update(SunlineFilterAlgorithmHandle* self,
@@ -134,26 +135,26 @@ SunlineFilterOutput_c SunlineFilterAlgorithm_update(SunlineFilterAlgorithmHandle
     rateDataCpp.rate << rateData->rate[0], rateData->rate[1], rateData->rate[2];
 
     const SunlineFilterOutput out =
-        reinterpret_cast<::SunlineFilterAlgorithm*>(self)->update(currentSeconds, cssDataCpp, rateDataCpp);
+        fsw::fromHandle<::SunlineFilterAlgorithm>(self)->update(currentSeconds, cssDataCpp, rateDataCpp);
     return outputToC(out);
 }
 
 void SunlineFilterAlgorithm_reInitializeExceptPersistentStates(SunlineFilterAlgorithmHandle* self) {
-    reinterpret_cast<::SunlineFilterAlgorithm*>(self)->reInitializeExceptPersistentStates();
+    fsw::fromHandle<::SunlineFilterAlgorithm>(self)->reInitializeExceptPersistentStates();
 }
 
 void SunlineFilterAlgorithm_reInitialize(SunlineFilterAlgorithmHandle* self) {
-    reinterpret_cast<::SunlineFilterAlgorithm*>(self)->reInitialize();
+    fsw::fromHandle<::SunlineFilterAlgorithm>(self)->reInitialize();
 }
 
 SunlineFilterStateOutput_c SunlineFilterAlgorithm_getFilterOutput(const SunlineFilterAlgorithmHandle* self) {
-    return filterStateToC(reinterpret_cast<const ::SunlineFilterAlgorithm*>(self)->getFilterOutput());
+    return filterStateToC(fsw::fromHandle<const ::SunlineFilterAlgorithm>(self)->getFilterOutput());
 }
 
 SunlineCssResidualsOutput_c SunlineFilterAlgorithm_getLastCssResiduals(const SunlineFilterAlgorithmHandle* self) {
-    return cssResidualsToC(reinterpret_cast<const ::SunlineFilterAlgorithm*>(self)->getLastCssResiduals());
+    return cssResidualsToC(fsw::fromHandle<const ::SunlineFilterAlgorithm>(self)->getLastCssResiduals());
 }
 
 SunlineRateResidualsOutput_c SunlineFilterAlgorithm_getLastRateResiduals(const SunlineFilterAlgorithmHandle* self) {
-    return rateResidualsToC(reinterpret_cast<const ::SunlineFilterAlgorithm*>(self)->getLastRateResiduals());
+    return rateResidualsToC(fsw::fromHandle<const ::SunlineFilterAlgorithm>(self)->getLastRateResiduals());
 }

@@ -2,6 +2,7 @@
 #include "mrpSteeringAlgorithm.h"
 #include "mrpSteeringTypes.h"
 #include "utilities/fsw/eigenSupport.h"
+#include "utilities/fsw/opaqueHandle.h"
 
 #include <Eigen/Core>
 #include <optional>
@@ -49,19 +50,17 @@ MrpSteeringConfig configFromC(const MrpSteeringConfig_c& c) {
 uint32_t MrpSteeringAlgorithm_getMaxNumRw(void) { return MRP_STEERING_MAX_NUM_RW; }
 
 MrpSteeringAlgorithmHandle* MrpSteeringAlgorithm_create(const MrpSteeringConfig_c* config) {
-    return reinterpret_cast<MrpSteeringAlgorithmHandle*>(new ::MrpSteeringAlgorithm(configFromC(*config)));
+    return fsw::createHandle<::MrpSteeringAlgorithm, MrpSteeringAlgorithmHandle>(configFromC(*config));
 }
 
-void MrpSteeringAlgorithm_destroy(MrpSteeringAlgorithmHandle* self) {
-    delete reinterpret_cast<::MrpSteeringAlgorithm*>(self);
-}
+void MrpSteeringAlgorithm_destroy(MrpSteeringAlgorithmHandle* self) { fsw::deleteHandle<::MrpSteeringAlgorithm>(self); }
 
 void MrpSteeringAlgorithm_setConfig(MrpSteeringAlgorithmHandle* self, const MrpSteeringConfig_c* config) {
-    reinterpret_cast<::MrpSteeringAlgorithm*>(self)->setConfig(configFromC(*config));
+    fsw::fromHandle<::MrpSteeringAlgorithm>(self)->setConfig(configFromC(*config));
 }
 
 void MrpSteeringAlgorithm_reInitialize(MrpSteeringAlgorithmHandle* self) {
-    reinterpret_cast<::MrpSteeringAlgorithm*>(self)->reInitialize();
+    fsw::fromHandle<::MrpSteeringAlgorithm>(self)->reInitialize();
 }
 
 Vector3f_c MrpSteeringAlgorithm_update(MrpSteeringAlgorithmHandle* self,
@@ -78,7 +77,7 @@ Vector3f_c MrpSteeringAlgorithm_update(MrpSteeringAlgorithmHandle* self,
         speeds[i] = wheelSpeeds->wheelSpeeds[i];
     }
 
-    const Eigen::Vector3f torque = reinterpret_cast<::MrpSteeringAlgorithm*>(self)->update(attGuidInputData, speeds);
+    const Eigen::Vector3f torque = fsw::fromHandle<::MrpSteeringAlgorithm>(self)->update(attGuidInputData, speeds);
 
     Vector3f_c out{};
     eigenVectorToCArray(torque, out.data);

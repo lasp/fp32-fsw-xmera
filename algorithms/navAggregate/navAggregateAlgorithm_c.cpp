@@ -2,6 +2,7 @@
 #include "navAggregateAlgorithm.h"
 #include "navAggregateTypes.h"
 #include "utilities/fsw/eigenSupport.h"
+#include "utilities/fsw/opaqueHandle.h"
 
 #include <array>
 
@@ -32,15 +33,15 @@ f32::NavAggregateConfig configFromC(const NavAggregateConfig_c& c) {
 uint32_t NavAggregateAlgorithm_getMaxAggNavMsg(void) { return MAX_AGG_NAV_MSG; }
 
 NavAggregateAlgorithmHandle* NavAggregateAlgorithm_create(const NavAggregateConfig_c* config) {
-    return reinterpret_cast<NavAggregateAlgorithmHandle*>(new ::f32::NavAggregateAlgorithm(configFromC(*config)));
+    return fsw::createHandle<::f32::NavAggregateAlgorithm, NavAggregateAlgorithmHandle>(configFromC(*config));
 }
 
 void NavAggregateAlgorithm_destroy(NavAggregateAlgorithmHandle* self) {
-    delete reinterpret_cast<::f32::NavAggregateAlgorithm*>(self);
+    fsw::deleteHandle<::f32::NavAggregateAlgorithm>(self);
 }
 
 void NavAggregateAlgorithm_setConfig(NavAggregateAlgorithmHandle* self, const NavAggregateConfig_c* config) {
-    reinterpret_cast<::f32::NavAggregateAlgorithm*>(self)->setConfig(configFromC(*config));
+    fsw::fromHandle<::f32::NavAggregateAlgorithm>(self)->setConfig(configFromC(*config));
 }
 
 AggregateOutput_c NavAggregateAlgorithm_update(const NavAggregateAlgorithmHandle* self,
@@ -63,7 +64,7 @@ AggregateOutput_c NavAggregateAlgorithm_update(const NavAggregateAlgorithmHandle
     }
 
     const f32::AggregateOutput result =
-        reinterpret_cast<const ::f32::NavAggregateAlgorithm*>(self)->update(attArray, transArray);
+        fsw::fromHandle<const ::f32::NavAggregateAlgorithm>(self)->update(attArray, transArray);
 
     /* Convert Eigen-based output back to C-compatible POD types */
     AggregateOutput_c out{};

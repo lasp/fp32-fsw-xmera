@@ -1,16 +1,17 @@
 #include "timeClosestApproachAlgorithm_c.h"
 #include "timeClosestApproachAlgorithm.h"
+#include "utilities/fsw/opaqueHandle.h"
 
 #include <Eigen/Core>
 
 uint32_t TimeClosestApproachAlgorithm_getMaxFilterStates(void) { return 6U; }
 
 TimeClosestApproachAlgorithmHandle* TimeClosestApproachAlgorithm_create(void) {
-    return reinterpret_cast<TimeClosestApproachAlgorithmHandle*>(new ::TimeClosestApproachAlgorithm());
+    return fsw::createHandle<::TimeClosestApproachAlgorithm, TimeClosestApproachAlgorithmHandle>();
 }
 
 void TimeClosestApproachAlgorithm_destroy(TimeClosestApproachAlgorithmHandle* self) {
-    delete reinterpret_cast<::TimeClosestApproachAlgorithm*>(self);
+    fsw::deleteHandle<::TimeClosestApproachAlgorithm>(self);
 }
 
 TimeClosestApproachOutput_c TimeClosestApproachAlgorithm_update(const TimeClosestApproachAlgorithmHandle* self,
@@ -21,8 +22,7 @@ TimeClosestApproachOutput_c TimeClosestApproachAlgorithm_update(const TimeCloses
     const Eigen::Vector3d v = Eigen::Map<const Eigen::Vector3d>(v_BN_N->data);
     const Eigen::Matrix<double, 6, 6> P = Eigen::Map<const Eigen::Matrix<float, 6, 6>>(covariance->data).cast<double>();
 
-    const TimeClosestApproachOutput out =
-        reinterpret_cast<const ::TimeClosestApproachAlgorithm*>(self)->update(r, v, P);
+    const TimeClosestApproachOutput out = fsw::fromHandle<const ::TimeClosestApproachAlgorithm>(self)->update(r, v, P);
 
     TimeClosestApproachOutput_c result{};
     result.tCA = out.tCA;

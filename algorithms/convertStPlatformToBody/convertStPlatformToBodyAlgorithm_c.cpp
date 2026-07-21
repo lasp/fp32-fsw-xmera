@@ -2,6 +2,7 @@
 #include "convertStPlatformToBodyAlgorithm.h"
 #include "convertStPlatformToBodyTypes.h"
 #include "utilities/fsw/eigenSupport.h"
+#include "utilities/fsw/opaqueHandle.h"
 
 #include <Eigen/Core>
 
@@ -13,17 +14,17 @@ ConvertStPlatformToBodyConfig configFromC(const ConvertStPlatformToBodyConfig_c&
 
 ConvertStPlatformToBodyAlgorithmHandle* ConvertStPlatformToBodyAlgorithm_create(
     const ConvertStPlatformToBodyConfig_c* config) {
-    return reinterpret_cast<ConvertStPlatformToBodyAlgorithmHandle*>(
-        new ::ConvertStPlatformToBodyAlgorithm(configFromC(*config)));
+    return fsw::createHandle<::ConvertStPlatformToBodyAlgorithm, ConvertStPlatformToBodyAlgorithmHandle>(
+        configFromC(*config));
 }
 
 void ConvertStPlatformToBodyAlgorithm_destroy(ConvertStPlatformToBodyAlgorithmHandle* self) {
-    delete reinterpret_cast<::ConvertStPlatformToBodyAlgorithm*>(self);
+    fsw::deleteHandle<::ConvertStPlatformToBodyAlgorithm>(self);
 }
 
 void ConvertStPlatformToBodyAlgorithm_setConfig(ConvertStPlatformToBodyAlgorithmHandle* self,
                                                 const ConvertStPlatformToBodyConfig_c* config) {
-    reinterpret_cast<::ConvertStPlatformToBodyAlgorithm*>(self)->setConfig(configFromC(*config));
+    fsw::fromHandle<::ConvertStPlatformToBodyAlgorithm>(self)->setConfig(configFromC(*config));
 }
 
 StAttitudeOutput_c ConvertStPlatformToBodyAlgorithm_update(ConvertStPlatformToBodyAlgorithmHandle* self,
@@ -32,7 +33,7 @@ StAttitudeOutput_c ConvertStPlatformToBodyAlgorithm_update(ConvertStPlatformToBo
     const Eigen::Vector4f q_CN = cArrayToEigenVector(platformAttitude->q_CN);
     const Eigen::Vector4f dq_CN = cArrayToEigenVector(platformAngularRate->dq_CN);
 
-    const StAttitudeOutput out = reinterpret_cast<::ConvertStPlatformToBodyAlgorithm*>(self)->update(q_CN, dq_CN);
+    const StAttitudeOutput out = fsw::fromHandle<::ConvertStPlatformToBodyAlgorithm>(self)->update(q_CN, dq_CN);
 
     StAttitudeOutput_c result{};
     eigenVectorToCArray(out.sigma_BN, result.sigma_BN);

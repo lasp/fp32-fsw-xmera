@@ -1,5 +1,6 @@
 #include "oeStateEphemAlgorithm_c.h"
 #include "oeStateEphemAlgorithm.h"
+#include "utilities/fsw/opaqueHandle.h"
 
 #include <algorithm>
 #include <array>
@@ -41,19 +42,19 @@ OEStateEphemConfig configFromC(const OEStateEphemConfig_c& config) {
 }  // namespace
 
 OEStateEphemAlgorithmHandle* OEStateEphemAlgorithm_create(const OEStateEphemConfig_c* config) {
-    return reinterpret_cast<OEStateEphemAlgorithmHandle*>(new ::OEStateEphemAlgorithm(configFromC(*config)));
+    return fsw::createHandle<::OEStateEphemAlgorithm, OEStateEphemAlgorithmHandle>(configFromC(*config));
 }
 
 void OEStateEphemAlgorithm_destroy(OEStateEphemAlgorithmHandle* self) {
-    delete reinterpret_cast<::OEStateEphemAlgorithm*>(self);
+    fsw::deleteHandle<::OEStateEphemAlgorithm>(self);
 }
 
 void OEStateEphemAlgorithm_setConfig(OEStateEphemAlgorithmHandle* self, const OEStateEphemConfig_c* config) {
-    reinterpret_cast<::OEStateEphemAlgorithm*>(self)->setConfig(configFromC(*config));
+    fsw::fromHandle<::OEStateEphemAlgorithm>(self)->setConfig(configFromC(*config));
 }
 
 CartesianState_c OEStateEphemAlgorithm_update(OEStateEphemAlgorithmHandle* self, const uint64_t callTime) {
-    const orbitalMotion::CartesianState result = reinterpret_cast<::OEStateEphemAlgorithm*>(self)->update(callTime);
+    const orbitalMotion::CartesianState result = fsw::fromHandle<::OEStateEphemAlgorithm>(self)->update(callTime);
     CartesianState_c out;
     out.position[0] = result.position[0];
     out.position[1] = result.position[1];

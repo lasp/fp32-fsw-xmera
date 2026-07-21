@@ -1,5 +1,6 @@
 #include "thrFiringSchmittAlgorithm_c.h"
 #include "thrFiringSchmittAlgorithm.h"
+#include "utilities/fsw/opaqueHandle.h"
 
 #include <algorithm>
 
@@ -30,20 +31,20 @@ ThrFiringSchmittConfig toConfig(const ThrFiringSchmittConfig_c* config) {
 uint32_t ThrFiringSchmittAlgorithm_getMaxThrusterCount(void) { return THR_FIRING_SCHMITT_MAX_THRUSTER_COUNT; }
 
 ThrFiringSchmittAlgorithmHandle* ThrFiringSchmittAlgorithm_create(const ThrFiringSchmittConfig_c* config) {
-    return reinterpret_cast<ThrFiringSchmittAlgorithmHandle*>(new ::ThrFiringSchmittAlgorithm(toConfig(config)));
+    return fsw::createHandle<::ThrFiringSchmittAlgorithm, ThrFiringSchmittAlgorithmHandle>(toConfig(config));
 }
 
 void ThrFiringSchmittAlgorithm_destroy(ThrFiringSchmittAlgorithmHandle* self) {
-    delete reinterpret_cast<::ThrFiringSchmittAlgorithm*>(self);
+    fsw::deleteHandle<::ThrFiringSchmittAlgorithm>(self);
 }
 
 void ThrFiringSchmittAlgorithm_setConfig(ThrFiringSchmittAlgorithmHandle* self,
                                          const ThrFiringSchmittConfig_c* config) {
-    reinterpret_cast<::ThrFiringSchmittAlgorithm*>(self)->setConfig(toConfig(config));
+    fsw::fromHandle<::ThrFiringSchmittAlgorithm>(self)->setConfig(toConfig(config));
 }
 
 void ThrFiringSchmittAlgorithm_reInitialize(ThrFiringSchmittAlgorithmHandle* self) {
-    reinterpret_cast<::ThrFiringSchmittAlgorithm*>(self)->reInitialize();
+    fsw::fromHandle<::ThrFiringSchmittAlgorithm>(self)->reInitialize();
 }
 
 ThrFiringSchmittOnTimeCmd ThrFiringSchmittAlgorithm_update(ThrFiringSchmittAlgorithmHandle* self,
@@ -51,7 +52,7 @@ ThrFiringSchmittOnTimeCmd ThrFiringSchmittAlgorithm_update(ThrFiringSchmittAlgor
     ThrusterForceCmd cppCmd{};
     std::ranges::copy_n(forceCmd->thrForce, kMaxThrusterCount, cppCmd.thrForce.data());
 
-    const auto [onTimeRequest] = reinterpret_cast<::ThrFiringSchmittAlgorithm*>(self)->update(cppCmd);
+    const auto [onTimeRequest] = fsw::fromHandle<::ThrFiringSchmittAlgorithm>(self)->update(cppCmd);
 
     ThrFiringSchmittOnTimeCmd result{};
     std::ranges::copy_n(onTimeRequest.data(), kMaxThrusterCount, result.onTimeRequest);

@@ -1,14 +1,15 @@
 #include "sunlineEphemAlgorithm_c.h"
 #include "sunlineEphemAlgorithm.h"
+#include "utilities/fsw/opaqueHandle.h"
 
 #include <Eigen/Core>
 
 SunlineEphemAlgorithmHandle* SunlineEphemAlgorithm_create(void) {
-    return reinterpret_cast<SunlineEphemAlgorithmHandle*>(new ::SunlineEphemAlgorithm());
+    return fsw::createHandle<::SunlineEphemAlgorithm, SunlineEphemAlgorithmHandle>();
 }
 
 void SunlineEphemAlgorithm_destroy(SunlineEphemAlgorithmHandle* self) {
-    delete reinterpret_cast<::SunlineEphemAlgorithm*>(self);
+    fsw::deleteHandle<::SunlineEphemAlgorithm>(self);
 }
 
 void SunlineEphemAlgorithm_update(const SunlineEphemAlgorithmHandle* self,
@@ -26,7 +27,7 @@ void SunlineEphemAlgorithm_update(const SunlineEphemAlgorithmHandle* self,
     sigma_BN << sigmaBN->data[0], sigmaBN->data[1], sigmaBN->data[2];
 
     const Eigen::Vector3f rHat_SB_B =
-        reinterpret_cast<const ::SunlineEphemAlgorithm*>(self)->update(r_SN_N, r_BN_N, sigma_BN);
+        fsw::fromHandle<const ::SunlineEphemAlgorithm>(self)->update(r_SN_N, r_BN_N, sigma_BN);
 
     result->data[0] = rHat_SB_B[0];
     result->data[1] = rHat_SB_B[1];

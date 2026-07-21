@@ -1,6 +1,7 @@
 #include "inertialFilterAlgorithm_c.h"
 
 #include "inertialFilterAlgorithm.h"
+#include "utilities/fsw/opaqueHandle.h"
 
 #include <Eigen/Core>
 
@@ -68,23 +69,19 @@ InertialFilterOutput_c outputToC(const InertialFilterOutput& out) {
 uint32_t InertialFilterAlgorithm_getNumStates(void) { return INERTIAL_FILTER_NUM_STATES; }
 
 InertialFilterAlgorithmHandle* InertialFilterAlgorithm_create(const InertialFilterConfig_c* config) {
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast, cppcoreguidelines-owning-memory)
-    return reinterpret_cast<InertialFilterAlgorithmHandle*>(new InertialFilterAlgorithm(configFromC(*config)));
+    return fsw::createHandle<InertialFilterAlgorithm, InertialFilterAlgorithmHandle>(configFromC(*config));
 }
 
 void InertialFilterAlgorithm_destroy(InertialFilterAlgorithmHandle* self) {
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast, cppcoreguidelines-owning-memory)
-    delete reinterpret_cast<InertialFilterAlgorithm*>(self);
+    fsw::deleteHandle<InertialFilterAlgorithm>(self);
 }
 
 void InertialFilterAlgorithm_reInitializeExceptPersistentStates(InertialFilterAlgorithmHandle* self) {
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-    reinterpret_cast<InertialFilterAlgorithm*>(self)->reInitializeExceptPersistentStates();
+    fsw::fromHandle<InertialFilterAlgorithm>(self)->reInitializeExceptPersistentStates();
 }
 
 void InertialFilterAlgorithm_reInitialize(InertialFilterAlgorithmHandle* self) {
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-    reinterpret_cast<InertialFilterAlgorithm*>(self)->reInitialize();
+    fsw::fromHandle<InertialFilterAlgorithm>(self)->reInitialize();
 }
 
 InertialFilterOutput_c InertialFilterAlgorithm_update(InertialFilterAlgorithmHandle* self,
@@ -99,8 +96,7 @@ InertialFilterOutput_c InertialFilterAlgorithm_update(InertialFilterAlgorithmHan
     rateIn.timeTag = rate->timeTag;
     rateIn.rate = Eigen::Vector3d(rate->rate[0], rate->rate[1], rate->rate[2]);
 
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-    auto* algo = reinterpret_cast<InertialFilterAlgorithm*>(self);
+    auto* algo = fsw::fromHandle<InertialFilterAlgorithm>(self);
     const InertialFilterOutput out = algo->update(currentSeconds, stIn, rateIn);
     return outputToC(out);
 }

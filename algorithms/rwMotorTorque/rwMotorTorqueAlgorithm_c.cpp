@@ -2,6 +2,7 @@
 #include "rwMotorTorqueAlgorithm.h"
 #include "rwMotorTorqueTypes.h"
 #include "utilities/fsw/eigenSupport.h"
+#include "utilities/fsw/opaqueHandle.h"
 
 #include <Eigen/Core>
 
@@ -26,15 +27,15 @@ RwMotorTorqueConfig configFromC(const RwMotorTorqueConfig_c& c) {
 uint32_t RwMotorTorqueAlgorithm_getMaxNumRw(void) { return RW_MOTOR_TORQUE_MAX_NUM_RW; }
 
 RwMotorTorqueAlgorithmHandle* RwMotorTorqueAlgorithm_create(const RwMotorTorqueConfig_c* config) {
-    return reinterpret_cast<RwMotorTorqueAlgorithmHandle*>(new ::RwMotorTorqueAlgorithm(configFromC(*config)));
+    return fsw::createHandle<::RwMotorTorqueAlgorithm, RwMotorTorqueAlgorithmHandle>(configFromC(*config));
 }
 
 void RwMotorTorqueAlgorithm_destroy(RwMotorTorqueAlgorithmHandle* self) {
-    delete reinterpret_cast<::RwMotorTorqueAlgorithm*>(self);
+    fsw::deleteHandle<::RwMotorTorqueAlgorithm>(self);
 }
 
 void RwMotorTorqueAlgorithm_setConfig(RwMotorTorqueAlgorithmHandle* self, const RwMotorTorqueConfig_c* config) {
-    reinterpret_cast<::RwMotorTorqueAlgorithm*>(self)->setConfig(configFromC(*config));
+    fsw::fromHandle<::RwMotorTorqueAlgorithm>(self)->setConfig(configFromC(*config));
 }
 
 RwMotorTorqueOutput_c RwMotorTorqueAlgorithm_update(const RwMotorTorqueAlgorithmHandle* self,
@@ -46,7 +47,7 @@ RwMotorTorqueOutput_c RwMotorTorqueAlgorithm_update(const RwMotorTorqueAlgorithm
     speeds.rwDesiredSpeeds = cArrayToEigenVector(rwDesiredSpeeds->wheelSpeeds);
 
     const Eigen::Vector<float, kMaxNumRw> out =
-        reinterpret_cast<const ::RwMotorTorqueAlgorithm*>(self)->update(cArrayToEigenVector3<float>(Lr_B.data), speeds);
+        fsw::fromHandle<const ::RwMotorTorqueAlgorithm>(self)->update(cArrayToEigenVector3<float>(Lr_B.data), speeds);
 
     RwMotorTorqueOutput_c result{};
     eigenVectorToCArray(out, result.motorTorque);

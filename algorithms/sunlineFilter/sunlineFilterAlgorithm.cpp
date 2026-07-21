@@ -4,6 +4,7 @@
 #include "utilities/fsw/validPSDCheck.h"
 
 #include <algorithm>
+#include <utility>
 #include <variant>
 
 namespace filtering::sunlineFilter {
@@ -14,18 +15,14 @@ using State = SunlineFilterAlgorithm::State;
 
 /*! CSS observation = bias * H * s_hat. Satisfies the Measurement
  *  concept for use inside the SRuKF. */
-struct CssMeasurementModel {
+class CssMeasurementModel {
+   public:
     static constexpr int size = MaxCss;
 
-    // Concept-model aggregate: these fields are populated directly by
-    // applyMeasurement() and read back through the accessors below to satisfy
-    // the filtering::Measurement concept. Public data is the point of the type,
-    // so the private-member guidance does not apply here.
-    // NOLINTBEGIN(misc-non-private-member-variables-in-classes)
-    Eigen::Vector<double, size> observed = Eigen::Vector<double, size>::Zero();
-    Eigen::Matrix<double, size, 3> hMatrix = Eigen::Matrix<double, size, 3>::Zero();
-    Eigen::Matrix<double, size, size> measNoise = Eigen::Matrix<double, size, size>::Identity();
-    // NOLINTEND(misc-non-private-member-variables-in-classes)
+    CssMeasurementModel(Eigen::Vector<double, size> observation,
+                        Eigen::Matrix<double, size, 3> hMatrix,
+                        Eigen::Matrix<double, size, size> noise)
+        : observed(std::move(observation)), hMatrix(std::move(hMatrix)), measNoise(std::move(noise)) {}
 
     Eigen::Vector<double, size> observation() const { return this->observed; }
     Eigen::Vector<double, size> model(State const& state) const {
@@ -38,22 +35,29 @@ struct CssMeasurementModel {
                                                 Eigen::Vector<double, size> const& b) {
         return a - b;
     }
+
+   private:
+    Eigen::Vector<double, size> observed;
+    Eigen::Matrix<double, size, 3> hMatrix;
+    Eigen::Matrix<double, size, size> measNoise;
 };
 
 /*! Predicted gyro observation = omega_BN_B. Satisfies the Measurement concept. */
-struct RateMeasurementModel {
+class RateMeasurementModel {
+   public:
     static constexpr int size = 3;
 
-    // Concept-model aggregate; see CssMeasurementModel for the rationale.
-    // NOLINTBEGIN(misc-non-private-member-variables-in-classes)
-    Eigen::Vector3d observed = Eigen::Vector3d::Zero();
-    Eigen::Matrix3d measNoise = Eigen::Matrix3d::Identity();
-    // NOLINTEND(misc-non-private-member-variables-in-classes)
+    RateMeasurementModel(Eigen::Vector3d observation, Eigen::Matrix3d noise)
+        : observed(std::move(observation)), measNoise(std::move(noise)) {}
 
     Eigen::Vector3d observation() const { return this->observed; }
     static Eigen::Vector3d model(State const& state) { return state.get<filtering::Velocity<3>>(); }
     Eigen::Matrix3d noise() const { return this->measNoise; }
     static Eigen::Vector3d subtract(Eigen::Vector3d const& a, Eigen::Vector3d const& b) { return a - b; }
+
+   private:
+    Eigen::Vector3d observed;
+    Eigen::Matrix3d measNoise;
 };
 
 static_assert(filtering::Measurement<CssMeasurementModel, State>);
@@ -151,14 +155,11 @@ void SunlineFilterAlgorithm::clear() {
  *  @return true iff the update was applied (state/covariance finite)
  *  @param measurement [-] packed CSS measurement (cosValues, H, noise) */
 bool SunlineFilterAlgorithm::applyMeasurement(CssMeasurement const& measurement) {
-    CssMeasurementModel model;
-    model.observed = measurement.cssCosValues;
-    model.hMatrix = measurement.hMatrix;
-    model.measNoise = measurement.covar;
+    CssMeasurementModel const model{measurement.cssCosValues, measurement.hMatrix, measurement.covar};
 
     auto const result = this->srukf.measurementUpdate(model);
     this->lastCssResiduals.numberOfActiveCss = measurement.numberOfActiveCss;
-    this->lastCssResiduals.observation = model.observed;
+    this->lastCssResiduals.observation = model.observation();
     if (result.has_value()) {
         this->lastCssResiduals.valid = measurement.valid;
         this->lastCssResiduals.preFit = result->preFit;
@@ -172,12 +173,10 @@ bool SunlineFilterAlgorithm::applyMeasurement(CssMeasurement const& measurement)
  *  @return true iff the update was applied (state/covariance finite)
  *  @param measurement [-] packed rate measurement (omega, noise) */
 bool SunlineFilterAlgorithm::applyMeasurement(RateMeasurement const& measurement) {
-    RateMeasurementModel model;
-    model.observed = measurement.omega_BN_B;
-    model.measNoise = measurement.covar;
+    RateMeasurementModel const model{measurement.omega_BN_B, measurement.covar};
 
     auto const result = this->srukf.measurementUpdate(model);
-    this->lastRateResiduals.observation = model.observed;
+    this->lastRateResiduals.observation = model.observation();
     if (result.has_value()) {
         this->lastRateResiduals.valid = measurement.valid;
         this->lastRateResiduals.preFit = result->preFit;

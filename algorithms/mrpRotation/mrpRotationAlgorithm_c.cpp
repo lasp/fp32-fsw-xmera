@@ -2,6 +2,7 @@
 #include "mrpRotationAlgorithm.h"
 #include "mrpRotationTypes.h"
 #include "utilities/fsw/eigenSupport.h"
+#include "utilities/fsw/opaqueHandle.h"
 
 #include <Eigen/Core>
 
@@ -30,33 +31,21 @@ MrpRotationOutput_c outputToC(const MrpRotationOutput& out) {
 }  // namespace
 
 MrpRotationAlgorithmHandle* MrpRotationAlgorithm_create(const MrpRotationConfig_c* config) {
-    // clang-format off
-    return reinterpret_cast<MrpRotationAlgorithmHandle*>(new ::MrpRotationAlgorithm(configFromC(*config)));  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast, cppcoreguidelines-owning-memory)
-    // clang-format on
+    return fsw::createHandle<::MrpRotationAlgorithm, MrpRotationAlgorithmHandle>(configFromC(*config));
 }
 
-void MrpRotationAlgorithm_destroy(MrpRotationAlgorithmHandle* self) {
-    // clang-format off
-    delete reinterpret_cast<::MrpRotationAlgorithm*>(self);  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast, cppcoreguidelines-owning-memory)
-    // clang-format on
-}
+void MrpRotationAlgorithm_destroy(MrpRotationAlgorithmHandle* self) { fsw::deleteHandle<::MrpRotationAlgorithm>(self); }
 
 void MrpRotationAlgorithm_setConfig(MrpRotationAlgorithmHandle* self, const MrpRotationConfig_c* config) {
-    // clang-format off
-    reinterpret_cast<::MrpRotationAlgorithm*>(self)->setConfig(configFromC(*config));  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
-    // clang-format on
+    fsw::fromHandle<::MrpRotationAlgorithm>(self)->setConfig(configFromC(*config));
 }
 
 MrpRotationOutput_c MrpRotationAlgorithm_update(MrpRotationAlgorithmHandle* self,
                                                 const MrpRotationAttRefInputs_c* attRef) {
-    // clang-format off
-    const MrpRotationOutput out = reinterpret_cast<::MrpRotationAlgorithm*>(self)->update(attRefFromC(*attRef));  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
-    // clang-format on
+    const MrpRotationOutput out = fsw::fromHandle<::MrpRotationAlgorithm>(self)->update(attRefFromC(*attRef));
     return outputToC(out);
 }
 
 void MrpRotationAlgorithm_reInitialize(MrpRotationAlgorithmHandle* self) {
-    // clang-format off
-    reinterpret_cast<::MrpRotationAlgorithm*>(self)->reInitialize();  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
-    // clang-format on
+    fsw::fromHandle<::MrpRotationAlgorithm>(self)->reInitialize();
 }

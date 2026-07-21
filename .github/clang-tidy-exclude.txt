@@ -3,8 +3,6 @@
 
 algorithms/attTrackingError/attTrackingError.h
 algorithms/attTrackingError/attTrackingError.cpp
-algorithms/attTrackingError/attTrackingErrorAlgorithm_c.h
-algorithms/attTrackingError/attTrackingErrorAlgorithm_c.cpp
 algorithms/averageMimuData/averageMimuData.h
 algorithms/averageMimuData/averageMimuData.cpp
 algorithms/bodyRateMiscompare/bodyRateMiscompare.h
@@ -85,8 +83,6 @@ algorithms/stepperMotorController/stepperMotorControllerAlgorithm_c.h
 algorithms/stepperMotorController/stepperMotorControllerAlgorithm_c.cpp
 algorithms/sunSearchPoint/sunSearchPoint.h
 algorithms/sunSearchPoint/sunSearchPoint.cpp
-algorithms/sunSearchPoint/sunSearchPointAlgorithm_c.h
-algorithms/sunSearchPoint/sunSearchPointAlgorithm_c.cpp
 algorithms/sunlineEphem/sunlineEphem.h
 algorithms/sunlineEphem/sunlineEphem.cpp
 algorithms/sunlineEphem/sunlineEphemAlgorithm_c.h

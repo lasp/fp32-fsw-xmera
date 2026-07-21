@@ -3,6 +3,7 @@
 #include "forceTorqueThrForceMappingAlgorithm.h"
 #include "forceTorqueThrForceMappingTypes.h"
 #include "utilities/fsw/eigenSupport.h"
+#include "utilities/fsw/opaqueHandle.h"
 
 #include <Eigen/Core>
 #include <array>
@@ -31,32 +32,27 @@ ForceTorqueThrForceMappingConfig configFromC(const ForceTorqueThrForceMappingCon
 
 uint32_t ForceTorqueThrForceMappingAlgorithm_getMaxEffCnt(void) { return MAX_EFF_CNT; }
 
-ForceTorqueThrForceMappingAlgorithm* ForceTorqueThrForceMappingAlgorithm_create(
+ForceTorqueThrForceMappingAlgorithmHandle* ForceTorqueThrForceMappingAlgorithm_create(
     const ForceTorqueThrForceMappingConfig_c* config) {
-    // clang-format off
-    return reinterpret_cast<ForceTorqueThrForceMappingAlgorithm*>(new ::ForceTorqueThrForceMappingAlgorithm(configFromC(*config)));  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast, cppcoreguidelines-owning-memory)
-    // clang-format on
+    return fsw::createHandle<::ForceTorqueThrForceMappingAlgorithm, ForceTorqueThrForceMappingAlgorithmHandle>(
+        configFromC(*config));
 }
 
-void ForceTorqueThrForceMappingAlgorithm_destroy(ForceTorqueThrForceMappingAlgorithm* self) {
-    // clang-format off
-    delete reinterpret_cast<::ForceTorqueThrForceMappingAlgorithm*>(self);  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast, cppcoreguidelines-owning-memory)
-    // clang-format on
+void ForceTorqueThrForceMappingAlgorithm_destroy(ForceTorqueThrForceMappingAlgorithmHandle* self) {
+    fsw::deleteHandle<::ForceTorqueThrForceMappingAlgorithm>(self);
 }
 
-void ForceTorqueThrForceMappingAlgorithm_setConfig(ForceTorqueThrForceMappingAlgorithm* self,
+void ForceTorqueThrForceMappingAlgorithm_setConfig(ForceTorqueThrForceMappingAlgorithmHandle* self,
                                                    const ForceTorqueThrForceMappingConfig_c* config) {
-    // clang-format off
-    reinterpret_cast<::ForceTorqueThrForceMappingAlgorithm*>(self)->setConfig(configFromC(*config));  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
-    // clang-format on
+    fsw::fromHandle<::ForceTorqueThrForceMappingAlgorithm>(self)->setConfig(configFromC(*config));
 }
 
-ThrForceArray_c ForceTorqueThrForceMappingAlgorithm_update(const ForceTorqueThrForceMappingAlgorithm* self,
+ThrForceArray_c ForceTorqueThrForceMappingAlgorithm_update(const ForceTorqueThrForceMappingAlgorithmHandle* self,
                                                            const Vector3f_c cmdTorque_B,
                                                            const Vector3f_c cmdForce_B) {
-    // clang-format off
-    const Eigen::Vector<float, MAX_EFF_CNT> out = reinterpret_cast<const ::ForceTorqueThrForceMappingAlgorithm*>(self)->update(cArrayToEigenVector3<float>(cmdTorque_B.data), cArrayToEigenVector3<float>(cmdForce_B.data));  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
-    // clang-format on
+    const Eigen::Vector<float, MAX_EFF_CNT> out =
+        fsw::fromHandle<const ::ForceTorqueThrForceMappingAlgorithm>(self)->update(
+            cArrayToEigenVector3<float>(cmdTorque_B.data), cArrayToEigenVector3<float>(cmdForce_B.data));
 
     ThrForceArray_c result{};
     eigenVectorToCArray(out, result.thrForce);

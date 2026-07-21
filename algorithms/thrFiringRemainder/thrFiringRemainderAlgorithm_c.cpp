@@ -1,5 +1,6 @@
 #include "thrFiringRemainderAlgorithm_c.h"
 #include "thrFiringRemainderAlgorithm.h"
+#include "utilities/fsw/opaqueHandle.h"
 
 #include <algorithm>
 
@@ -27,20 +28,20 @@ ThrFiringRemainderConfig toConfig(const ThrFiringRemainderConfig_c* config) {
 uint32_t ThrFiringRemainderAlgorithm_getMaxThrusterCount(void) { return THR_FIRING_REMAINDER_MAX_THRUSTER_COUNT; }
 
 ThrFiringRemainderAlgorithmHandle* ThrFiringRemainderAlgorithm_create(const ThrFiringRemainderConfig_c* config) {
-    return reinterpret_cast<ThrFiringRemainderAlgorithmHandle*>(new ::ThrFiringRemainderAlgorithm(toConfig(config)));
+    return fsw::createHandle<::ThrFiringRemainderAlgorithm, ThrFiringRemainderAlgorithmHandle>(toConfig(config));
 }
 
 void ThrFiringRemainderAlgorithm_destroy(ThrFiringRemainderAlgorithmHandle* self) {
-    delete reinterpret_cast<::ThrFiringRemainderAlgorithm*>(self);
+    fsw::deleteHandle<::ThrFiringRemainderAlgorithm>(self);
 }
 
 void ThrFiringRemainderAlgorithm_setConfig(ThrFiringRemainderAlgorithmHandle* self,
                                            const ThrFiringRemainderConfig_c* config) {
-    reinterpret_cast<::ThrFiringRemainderAlgorithm*>(self)->setConfig(toConfig(config));
+    fsw::fromHandle<::ThrFiringRemainderAlgorithm>(self)->setConfig(toConfig(config));
 }
 
 void ThrFiringRemainderAlgorithm_reInitialize(ThrFiringRemainderAlgorithmHandle* self) {
-    reinterpret_cast<::ThrFiringRemainderAlgorithm*>(self)->reInitialize();
+    fsw::fromHandle<::ThrFiringRemainderAlgorithm>(self)->reInitialize();
 }
 
 ThrFiringRemainderOnTimeCmd ThrFiringRemainderAlgorithm_update(ThrFiringRemainderAlgorithmHandle* self,
@@ -48,7 +49,7 @@ ThrFiringRemainderOnTimeCmd ThrFiringRemainderAlgorithm_update(ThrFiringRemainde
     ThrusterForceCmd cppCmd{};
     std::ranges::copy_n(forceCmd->thrForce, kMaxThrusterCount, cppCmd.thrForce.data());
 
-    const auto [onTimeRequest] = reinterpret_cast<::ThrFiringRemainderAlgorithm*>(self)->update(cppCmd);
+    const auto [onTimeRequest] = fsw::fromHandle<::ThrFiringRemainderAlgorithm>(self)->update(cppCmd);
 
     ThrFiringRemainderOnTimeCmd result{};
     std::ranges::copy_n(onTimeRequest.data(), kMaxThrusterCount, result.onTimeRequest);

@@ -1,6 +1,7 @@
 #include "flybyFilterAlgorithm_c.h"
 
 #include "flybyFilterAlgorithm.h"
+#include "utilities/fsw/opaqueHandle.h"
 
 #include <Eigen/Core>
 
@@ -57,23 +58,17 @@ FlybyFilterOutput_c outputToC(const FlybyFilterOutput& out) {
 uint32_t FlybyFilterAlgorithm_getNumStates(void) { return FLYBY_FILTER_NUM_STATES; }
 
 FlybyFilterAlgorithmHandle* FlybyFilterAlgorithm_create(const FlybyFilterConfig_c* config) {
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast, cppcoreguidelines-owning-memory)
-    return reinterpret_cast<FlybyFilterAlgorithmHandle*>(new FlybyFilterAlgorithm(configFromC(*config)));
+    return fsw::createHandle<FlybyFilterAlgorithm, FlybyFilterAlgorithmHandle>(configFromC(*config));
 }
 
-void FlybyFilterAlgorithm_destroy(FlybyFilterAlgorithmHandle* self) {
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast, cppcoreguidelines-owning-memory)
-    delete reinterpret_cast<FlybyFilterAlgorithm*>(self);
-}
+void FlybyFilterAlgorithm_destroy(FlybyFilterAlgorithmHandle* self) { fsw::deleteHandle<FlybyFilterAlgorithm>(self); }
 
 void FlybyFilterAlgorithm_reInitializeExceptPersistentStates(FlybyFilterAlgorithmHandle* self) {
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-    reinterpret_cast<FlybyFilterAlgorithm*>(self)->reInitializeExceptPersistentStates();
+    fsw::fromHandle<FlybyFilterAlgorithm>(self)->reInitializeExceptPersistentStates();
 }
 
 void FlybyFilterAlgorithm_reInitialize(FlybyFilterAlgorithmHandle* self) {
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-    reinterpret_cast<FlybyFilterAlgorithm*>(self)->reInitialize();
+    fsw::fromHandle<FlybyFilterAlgorithm>(self)->reInitialize();
 }
 
 FlybyFilterOutput_c FlybyFilterAlgorithm_update(FlybyFilterAlgorithmHandle* self,
@@ -83,8 +78,7 @@ FlybyFilterOutput_c FlybyFilterAlgorithm_update(FlybyFilterAlgorithmHandle* self
     in.timeTag = heading->timeTag;
     in.rhat_BN_N = Eigen::Vector3d(heading->rhat_BN_N[0], heading->rhat_BN_N[1], heading->rhat_BN_N[2]);
 
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-    auto* algo = reinterpret_cast<FlybyFilterAlgorithm*>(self);
+    auto* algo = fsw::fromHandle<FlybyFilterAlgorithm>(self);
     const FlybyFilterOutput out = algo->update(currentSeconds, in);
     return outputToC(out);
 }

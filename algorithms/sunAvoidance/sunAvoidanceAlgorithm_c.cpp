@@ -2,6 +2,7 @@
 #include "sunAvoidanceAlgorithm.h"
 #include "sunAvoidanceTypes.h"
 #include "utilities/fsw/eigenSupport.h"
+#include "utilities/fsw/opaqueHandle.h"
 
 #include <Eigen/Core>
 
@@ -29,27 +30,19 @@ SunAvoidanceOutput_c outputToC(const SunAvoidanceOutput& out) {
 }  // namespace
 
 SunAvoidanceAlgorithmHandle* SunAvoidanceAlgorithm_create(const SunAvoidanceConfig_c* config) {
-    // clang-format off
-    return reinterpret_cast<SunAvoidanceAlgorithmHandle*>(new ::SunAvoidanceAlgorithm(configFromC(*config)));  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast, cppcoreguidelines-owning-memory)
-    // clang-format on
+    return fsw::createHandle<::SunAvoidanceAlgorithm, SunAvoidanceAlgorithmHandle>(configFromC(*config));
 }
 
 void SunAvoidanceAlgorithm_destroy(SunAvoidanceAlgorithmHandle* self) {
-    // clang-format off
-    delete reinterpret_cast<::SunAvoidanceAlgorithm*>(self);  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast, cppcoreguidelines-owning-memory)
-    // clang-format on
+    fsw::deleteHandle<::SunAvoidanceAlgorithm>(self);
 }
 
 void SunAvoidanceAlgorithm_setConfig(SunAvoidanceAlgorithmHandle* self, const SunAvoidanceConfig_c* config) {
-    // clang-format off
-    reinterpret_cast<::SunAvoidanceAlgorithm*>(self)->setConfig(configFromC(*config));  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
-    // clang-format on
+    fsw::fromHandle<::SunAvoidanceAlgorithm>(self)->setConfig(configFromC(*config));
 }
 
 void SunAvoidanceAlgorithm_reInitialize(SunAvoidanceAlgorithmHandle* self) {
-    // clang-format off
-    reinterpret_cast<::SunAvoidanceAlgorithm*>(self)->reInitialize();  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
-    // clang-format on
+    fsw::fromHandle<::SunAvoidanceAlgorithm>(self)->reInitialize();
 }
 
 SunAvoidanceOutput_c SunAvoidanceAlgorithm_update(SunAvoidanceAlgorithmHandle* self,
@@ -58,10 +51,11 @@ SunAvoidanceOutput_c SunAvoidanceAlgorithm_update(SunAvoidanceAlgorithmHandle* s
                                                   const Vector3d_c* r_BN_N,
                                                   const Vector3d_c* r_SN_N,
                                                   uint64_t callTime) {
-    // clang-format off
-    const SunAvoidanceOutput out = reinterpret_cast<::SunAvoidanceAlgorithm*>(self)->update(  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
-        cArrayToEigenVector3<float>(sigma_BN->data), refFromC(*ref), cArrayToEigenVector3<double>(r_BN_N->data),
-        cArrayToEigenVector3<double>(r_SN_N->data), callTime);
-    // clang-format on
+    const SunAvoidanceOutput out =
+        fsw::fromHandle<::SunAvoidanceAlgorithm>(self)->update(cArrayToEigenVector3<float>(sigma_BN->data),
+                                                               refFromC(*ref),
+                                                               cArrayToEigenVector3<double>(r_BN_N->data),
+                                                               cArrayToEigenVector3<double>(r_SN_N->data),
+                                                               callTime);
     return outputToC(out);
 }

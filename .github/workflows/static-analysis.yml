@@ -35,7 +35,7 @@ jobs:
       all_changed_files: ${{ steps.changed-files.outputs.all_changed_files }}
     steps:
       - name: Checkout fp32-fsw-xmera
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
@@ -47,7 +47,6 @@ jobs:
         with:
           files: |
             algorithms/**
-            architecture/**
           files_ignore: |
             **/_tests/**
             **/_test/**
@@ -69,14 +68,14 @@ jobs:
       pull-requests: write
     steps:
       - name: Checkout fp32-fsw-xmera
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
           persist-credentials: false
 
       - name: Checkout Xmera core
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: lasp/xmera
           path: xmera
@@ -94,7 +93,7 @@ jobs:
 
       - name: Set up Python
         id: setup-py
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.11"
           cache: "pip"
@@ -263,7 +262,7 @@ jobs:
           changed_rel_paths=(${{ needs.detect-changes.outputs.all_changed_files }})
 
           if [ "${#changed_rel_paths[@]}" -eq 0 ]; then
-            echo "No algorithms/architecture files changed in this PR; skipping clang-tidy."
+            echo "No algorithms files changed in this PR; skipping clang-tidy."
             : > reports/clang-tidy.log
             exit 0
           fi
@@ -306,7 +305,7 @@ jobs:
             echo "No exclusion file found at ${exclude_file}; analyzing all changed files."
           fi
 
-          # Gather algorithm + architecture sources that are tracked and skip *.cxx
+          # Gather algorithm sources that are tracked and skip *.cxx
           files=()
           excluded_files=()
           while IFS= read -r path; do
@@ -322,7 +321,7 @@ jobs:
               files+=("$path")
             fi
           done < <(jq -r '.[].file' xmera/build/compile_commands.json \
-            | grep -E '(^|/)(algorithms|architecture)/' \
+            | grep -E '(^|/)(algorithms)/' \
             | grep -vE '\.cxx$' || true)
 
           if [ "${#excluded_files[@]}" -gt 0 ]; then
@@ -331,10 +330,10 @@ jobs:
           fi
 
           if [ "${#files[@]}" -eq 0 ]; then
-            echo "No tracked source files (algorithms/architecture) to analyze after filtering generated outputs."
+            echo "No tracked source files (algorithms) to analyze after filtering generated outputs."
             : > reports/clang-tidy.log
           else
-            echo "Analyzing ${#files[@]} tracked files in algorithms/ + architecture/ (excluding generated .cxx)."
+            echo "Analyzing ${#files[@]} tracked files in algorithms/ (excluding generated .cxx)."
             RUN_CLANG_TIDY_BIN="run-clang-tidy"
             CLANG_TIDY_BIN="clang-tidy-21"
             if command -v run-clang-tidy-21 >/dev/null 2>&1; then
@@ -379,7 +378,7 @@ jobs:
           exit 1
 
       - name: Upload clang-tidy artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: clang-tidy-log
           path: reports/clang-tidy.log

@@ -39,12 +39,12 @@ jobs:
       actions: read
     steps:
       - name: Checkout fp32-fsw-xmera
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
 
       - name: Checkout Xmera core
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: lasp/xmera
           path: xmera
@@ -52,7 +52,7 @@ jobs:
 
       - name: Restore fuzz corpus cache
         id: fuzz-corpus-cache
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         with:
           path: .fuzztest_corpus
           key: fuzz-corpus-${{ runner.os }}-${{ github.run_id }}
@@ -83,7 +83,7 @@ jobs:
 
       - name: Set up Python 3.11
         id: setup-py
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: '3.11'
           cache: 'pip'

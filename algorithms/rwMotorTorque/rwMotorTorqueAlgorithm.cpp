@@ -147,6 +147,7 @@ bool RwMotorTorqueConfig::isValidMapping(const std::array<bool, 3>& desiredContr
     return computeRwMapping(desiredControlAxes_B, rwConfiguration).has_value();
 }
 
+// Config is fixed-size/trivially copyable, so move == copy; pass-by-value would only add an extra copy.
 RwMotorTorqueAlgorithm::RwMotorTorqueAlgorithm(const RwMotorTorqueConfig& config)  // NOLINT(modernize-pass-by-value)
     : cfg(config) {
     setConfig(config);

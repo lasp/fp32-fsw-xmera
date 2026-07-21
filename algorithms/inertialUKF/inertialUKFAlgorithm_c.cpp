@@ -1,5 +1,6 @@
 #include "inertialUKFAlgorithm_c.h"
 #include "inertialUKFAlgorithm.h"
+#include "utilities/fsw/opaqueHandle.h"
 
 #include <Eigen/Core>
 

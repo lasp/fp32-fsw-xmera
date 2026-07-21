@@ -1,5 +1,6 @@
 #include "ephemeridesRecenterAlgorithm_c.h"
 #include "ephemeridesRecenterAlgorithm.h"
+#include "utilities/fsw/opaqueHandle.h"
 
 #include <array>
 #include <cstddef>
@@ -18,17 +19,16 @@ EphemeridesRecenterConfig configFromC(const EphemeridesRecenterConfig_c& c) {
 }  // namespace
 
 EphemeridesRecenterAlgorithmHandle* EphemeridesRecenterAlgorithm_create(const EphemeridesRecenterConfig_c* config) {
-    return reinterpret_cast<EphemeridesRecenterAlgorithmHandle*>(
-        new ::EphemeridesRecenterAlgorithm(configFromC(*config)));
+    return fsw::createHandle<::EphemeridesRecenterAlgorithm, EphemeridesRecenterAlgorithmHandle>(configFromC(*config));
 }
 
 void EphemeridesRecenterAlgorithm_destroy(EphemeridesRecenterAlgorithmHandle* self) {
-    delete reinterpret_cast<::EphemeridesRecenterAlgorithm*>(self);
+    fsw::deleteHandle<::EphemeridesRecenterAlgorithm>(self);
 }
 
 void EphemeridesRecenterAlgorithm_setConfig(EphemeridesRecenterAlgorithmHandle* self,
                                             const EphemeridesRecenterConfig_c* config) {
-    reinterpret_cast<::EphemeridesRecenterAlgorithm*>(self)->setConfig(configFromC(*config));
+    fsw::fromHandle<::EphemeridesRecenterAlgorithm>(self)->setConfig(configFromC(*config));
 }
 
 BodyEphemerisPayloadArray20_c EphemeridesRecenterAlgorithm_updateState(EphemeridesRecenterAlgorithmHandle* self,
@@ -45,7 +45,7 @@ BodyEphemerisPayloadArray20_c EphemeridesRecenterAlgorithm_updateState(Ephemerid
     }
 
     std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES> result =
-        reinterpret_cast<::EphemeridesRecenterAlgorithm*>(self)->updateState(input);
+        fsw::fromHandle<::EphemeridesRecenterAlgorithm>(self)->updateState(input);
 
     BodyEphemerisPayloadArray20_c out{};
     for (std::size_t i = 0U; i < MAX_NUM_CHANGE_BODIES; ++i) {

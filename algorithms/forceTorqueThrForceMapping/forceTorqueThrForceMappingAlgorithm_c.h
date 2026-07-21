@@ -12,7 +12,7 @@ extern "C" {
 /**
  * @brief Opaque handle to the C++ ForceTorqueThrForceMappingAlgorithm instance.
  */
-typedef struct ForceTorqueThrForceMappingAlgorithm ForceTorqueThrForceMappingAlgorithm;
+typedef struct ForceTorqueThrForceMappingAlgorithmHandle ForceTorqueThrForceMappingAlgorithmHandle;
 
 /**
  * @brief Get the MAX_EFF_CNT constant for Ada validation.
@@ -30,21 +30,21 @@ uint32_t ForceTorqueThrForceMappingAlgorithm_getMaxEffCnt(void);
  * @param config Pointer to the configuration to apply (validated; throws on invalid input).
  * @return Pointer to a new ForceTorqueThrForceMappingAlgorithm (must be destroyed).
  */
-ForceTorqueThrForceMappingAlgorithm* ForceTorqueThrForceMappingAlgorithm_create(
+ForceTorqueThrForceMappingAlgorithmHandle* ForceTorqueThrForceMappingAlgorithm_create(
     const ForceTorqueThrForceMappingConfig_c* config);
 
 /**
  * @brief Destroy a previously created ForceTorqueThrForceMappingAlgorithm.
  * @param self Pointer to the instance to destroy.
  */
-void ForceTorqueThrForceMappingAlgorithm_destroy(ForceTorqueThrForceMappingAlgorithm* self);
+void ForceTorqueThrForceMappingAlgorithm_destroy(ForceTorqueThrForceMappingAlgorithmHandle* self);
 
 /**
  * @brief Replace the configuration at runtime and recompute the thruster mapping matrix.
  * @param self   Pointer to the instance.
  * @param config Pointer to the configuration to apply (validated; throws on invalid input).
  */
-void ForceTorqueThrForceMappingAlgorithm_setConfig(ForceTorqueThrForceMappingAlgorithm* self,
+void ForceTorqueThrForceMappingAlgorithm_setConfig(ForceTorqueThrForceMappingAlgorithmHandle* self,
                                                    const ForceTorqueThrForceMappingConfig_c* config);
 
 /**
@@ -58,7 +58,7 @@ void ForceTorqueThrForceMappingAlgorithm_setConfig(ForceTorqueThrForceMappingAlg
  * @param cmdForce_B  [N]  requested control force in body frame
  * @return ThrForceArray_c per-thruster force commands.
  */
-ThrForceArray_c ForceTorqueThrForceMappingAlgorithm_update(const ForceTorqueThrForceMappingAlgorithm* self,
+ThrForceArray_c ForceTorqueThrForceMappingAlgorithm_update(const ForceTorqueThrForceMappingAlgorithmHandle* self,
                                                            Vector3f_c cmdTorque_B,
                                                            Vector3f_c cmdForce_B);
 
