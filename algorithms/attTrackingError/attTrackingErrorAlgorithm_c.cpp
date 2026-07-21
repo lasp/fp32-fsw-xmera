@@ -2,22 +2,19 @@
 #include "attTrackingErrorAlgorithm.h"
 #include "attTrackingErrorTypes.h"
 #include "utilities/fsw/eigenSupport.h"
+#include "utilities/fsw/opaqueHandle.h"
 
 #include <Eigen/Core>
 
 AttTrackingErrorAlgorithmHandle* AttTrackingErrorAlgorithm_create(void) {
-    // clang-format off
-    return reinterpret_cast<AttTrackingErrorAlgorithmHandle*>(new ::AttTrackingErrorAlgorithm());  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
-    // clang-format on
+    return fsw::createHandle<::AttTrackingErrorAlgorithm, AttTrackingErrorAlgorithmHandle>();
 }
 
 void AttTrackingErrorAlgorithm_destroy(AttTrackingErrorAlgorithmHandle* self) {
-    // clang-format off
-    delete reinterpret_cast<::AttTrackingErrorAlgorithm*>(self);  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast, cppcoreguidelines-owning-memory)
-    // clang-format on
+    fsw::deleteHandle<::AttTrackingErrorAlgorithm>(self);
 }
 
-AttGuidOutput_c AttTrackingErrorAlgorithm_update(AttTrackingErrorAlgorithmHandle* self,
+AttGuidOutput_c AttTrackingErrorAlgorithm_update([[maybe_unused]] AttTrackingErrorAlgorithmHandle* self,
                                                  AttNavInput_c navIn,
                                                  AttRefInput_c refIn) {
     AttNavInput nav{};
@@ -29,9 +26,7 @@ AttGuidOutput_c AttTrackingErrorAlgorithm_update(AttTrackingErrorAlgorithmHandle
     ref.omega_RN_N = cArrayToEigenVector3<float>(refIn.omega_RN_N.data);
     ref.domega_RN_N = cArrayToEigenVector3<float>(refIn.domega_RN_N.data);
 
-    // clang-format off
-    const AttGuidOutput output = reinterpret_cast<::AttTrackingErrorAlgorithm*>(self)->update(nav, ref);  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
-    // clang-format on
+    const AttGuidOutput output = ::AttTrackingErrorAlgorithm::update(nav, ref);
 
     AttGuidOutput_c out{};
     eigenVectorToCArray(output.sigma_BR, out.sigma_BR.data);
