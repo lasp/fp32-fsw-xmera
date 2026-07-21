@@ -4,6 +4,7 @@
 
 #include <gtest/gtest.h>
 #include <Eigen/Core>
+#include <array>
 #include <cmath>
 #include <cstdint>
 
@@ -83,4 +84,20 @@ TEST(DvAccumulationTest, KnownAccelerationProducesExpectedDeltaV) {
     EXPECT_NEAR(out.vehAccumDV_B[1], -2.0F, 1e-5F);
     EXPECT_NEAR(out.vehAccumDV_B[2], 0.0F, 1e-5F);
     EXPECT_NEAR(out.timeTag, 1.5, 1e-9);
+}
+
+TEST(DvAccumulationTest, FirstCallIgnoresAcceleration) {
+    /*! - the first update after reInitialize never integrates, whatever acceleration it carries: it only
+     *    sets the time reference. Sweep extreme magnitudes; every one must yield zero accumulated DV. */
+    const std::array<Eigen::Vector3f, 3> firstCallAccels{
+        Eigen::Vector3f{1.0e6F, -1.0e6F, 1.0e6F}, Eigen::Vector3f{-1.0e9F, 1.0e9F, -1.0e9F}, Eigen::Vector3f::Zero()};
+
+    for (const Eigen::Vector3f& accel : firstCallAccels) {
+        DvAccumulationAlgorithm alg{};
+        alg.reInitialize();
+        const DvAccumulationOutput out = alg.update(static_cast<uint64_t>(5e7), accel);
+        EXPECT_FLOAT_EQ(out.vehAccumDV_B[0], 0.0F);
+        EXPECT_FLOAT_EQ(out.vehAccumDV_B[1], 0.0F);
+        EXPECT_FLOAT_EQ(out.vehAccumDV_B[2], 0.0F);
+    }
 }
