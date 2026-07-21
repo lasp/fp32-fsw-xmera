@@ -1,18 +1,26 @@
 #include "flybyPoint.h"
 #include "utilities/fsw/eigenSupport.h"
-
-FlybyPoint::FlybyPoint() { this->algorithm = FlybyPointAlgorithm(); }
+#include "utilities/xmera/xmeraLifecycleException.h"
 
 void FlybyPoint::reset(uint64_t currentSimNanos) {
     if (!this->filterInMsg.isLinked()) {
         throw std::runtime_error("flybyPoint.filterInMsg wasn't connected.");
     }
-    this->algorithm.reset();
+    auto config = FlybyPointConfig::create(this->timeBetweenFilterData,
+                                           this->toleranceForCollinearity,
+                                           this->signOfOrbitNormalFrameVector,
+                                           this->maximumRateThreshold,
+                                           this->maximumAccelerationThreshold,
+                                           this->positionKnowledgeSigma);
+    this->algorithm = std::make_unique<FlybyPointAlgorithm>(config);
 }
 
 void FlybyPoint::updateState(uint64_t currentSimNanos) {
+    if (!this->algorithm) {
+        throw XmeraLifecycleException("FlybyPoint reset() has not been called.");
+    }
     auto [r_BN_N, v_BN_N] = this->readRelativeState();
-    auto algo_output = this->algorithm.updateState(currentSimNanos, r_BN_N, v_BN_N);
+    auto algo_output = this->algorithm->updateState(currentSimNanos, r_BN_N, v_BN_N);
     AttRefMsgF32Payload attMsgBuffer{};
     eigenVectorToCArray(algo_output.sigma_RN, attMsgBuffer.sigma_RN);
     eigenVectorToCArray(algo_output.omega_RN_N, attMsgBuffer.omega_RN_N);
@@ -34,39 +42,3 @@ std::tuple<Eigen::Vector3d, Eigen::Vector3d> FlybyPoint::readRelativeState() {
 
     return {r_BN_N, v_BN_N};
 }
-
-void FlybyPoint::setTimeBetweenFilterData(double timeBetweenFilterData) {
-    this->algorithm.setTimeBetweenFilterData(timeBetweenFilterData);
-}
-
-void FlybyPoint::setToleranceForCollinearity(float toleranceForCollinearity) {
-    this->algorithm.setToleranceForCollinearity(toleranceForCollinearity);
-}
-
-void FlybyPoint::setSignOfOrbitNormalFrameVector(int signOfOrbitNormalFrameVector) {
-    this->algorithm.setSignOfOrbitNormalFrameVector(signOfOrbitNormalFrameVector);
-}
-
-void FlybyPoint::setMaximumRateThreshold(float maximumRateThreshold) {
-    this->algorithm.setMaximumRateThreshold(maximumRateThreshold);
-}
-
-void FlybyPoint::setMaximumAccelerationThreshold(float maximumAccelerationThreshold) {
-    this->algorithm.setMaximumAccelerationThreshold(maximumAccelerationThreshold);
-}
-
-void FlybyPoint::setPositionKnowledgeSigma(float positionKnowledgeStd) {
-    this->algorithm.setPositionKnowledgeSigma(positionKnowledgeStd);
-}
-
-double FlybyPoint::getTimeBetweenFilterData() const { return this->algorithm.getTimeBetweenFilterData(); }
-
-float FlybyPoint::getToleranceForCollinearity() const { return this->algorithm.getToleranceForCollinearity(); }
-
-int FlybyPoint::getSignOfOrbitNormalFrameVector() const { return this->algorithm.getSignOfOrbitNormalFrameVector(); }
-
-float FlybyPoint::getMaximumAccelerationThreshold() const { return this->algorithm.getMaximumAccelerationThreshold(); }
-
-float FlybyPoint::getMaximumRateThreshold() const { return this->algorithm.getMaximumRateThreshold(); }
-
-float FlybyPoint::getPositionKnowledgeSigma() const { return this->algorithm.getPositionKnowledgeSigma(); }

@@ -5,6 +5,10 @@
 #include "utilities/fsw/rigidBodyKinematics.hpp"
 #include <numbers>
 
+FlybyPointAlgorithm::FlybyPointAlgorithm(const FlybyPointConfig& config) : cfg(config) {}
+
+void FlybyPointAlgorithm::setConfig(const FlybyPointConfig& config) { this->cfg = config; }
+
 static constexpr double kRad2Deg = 180.0 / std::numbers::pi;
 static constexpr double kMaxAccelCoeff = 3.0 * std::numbers::sqrt3 / 8.0;
 
@@ -29,7 +33,7 @@ AttGuideOutput FlybyPointAlgorithm::updateState(uint64_t currentSimNanos,
     AttGuideOutput output{};
     /*! compute dt from current time and last filter read time and get new states*/
     this->dt = (currentSimNanos - this->lastFilterReadTime) * NANO2SEC;
-    if ((this->dt >= this->timeBetweenFilterData) || this->firstRead) {
+    if ((this->dt >= this->cfg.getTimeBetweenFilterData()) || this->firstRead) {
         /*! If this is the first read, seed the algorithm with the solution  */
         if (this->firstRead) {
             this->timeOfFirstRead = currentSimNanos * NANO2SEC;
@@ -80,7 +84,7 @@ bool FlybyPointAlgorithm::checkValidity(uint64_t currentSimNanos,
     const Eigen::Vector3d uv_N = v_BN_N.normalized();
 
     /*! assert r and v are not collinear (collision trajectory) */
-    if (fabs(1.0 - ur_N.dot(uv_N)) < this->toleranceForCollinearity) {
+    if (fabs(1.0 - ur_N.dot(uv_N)) < this->cfg.getToleranceForCollinearity()) {
         valid = false;
         output.collinearityTrigger = true;
     } else {
@@ -90,7 +94,7 @@ bool FlybyPointAlgorithm::checkValidity(uint64_t currentSimNanos,
     /*! check if the predicted rate exceeds the maximum rate of the spacecraft */
     const double distanceClosestApproach = -r_BN_N.norm() * safeSin(this->gamma0);
     const double maxPredictedRate = v_BN_N.norm() / distanceClosestApproach * kRad2Deg;
-    if (maxPredictedRate > this->maxRate && this->maxRate > 0) {
+    if (maxPredictedRate > this->cfg.getMaximumRateThreshold() && this->cfg.getMaximumRateThreshold() > 0) {
         valid = false;
         output.maxRateTrigger = true;
     } else {
@@ -99,7 +103,8 @@ bool FlybyPointAlgorithm::checkValidity(uint64_t currentSimNanos,
 
     /*! check if the predicted acceleration exceeds the maximum acceleration of the spacecraft */
     const double maxPredictedAcceleration = kMaxAccelCoeff * pow(v_BN_N.norm() / distanceClosestApproach, 2) * kRad2Deg;
-    if (maxPredictedAcceleration > this->maxAcceleration && this->maxAcceleration > 0) {
+    if (maxPredictedAcceleration > this->cfg.getMaximumAccelerationThreshold() &&
+        this->cfg.getMaximumAccelerationThreshold() > 0) {
         valid = false;
         output.maxAccelerationTrigger = true;
     } else {
@@ -109,7 +114,7 @@ bool FlybyPointAlgorithm::checkValidity(uint64_t currentSimNanos,
     /*! check if the position error exceeds a-priori sigma bound */
     const double deltaT = currentSimNanos * NANO2SEC - this->timeOfFirstRead;
     const double deltaPositionNorm = (r_BN_N - (this->firstNavPosition + deltaT * this->firstNavVelocity)).norm();
-    if (deltaPositionNorm > this->positionKnowledgeSigma && this->positionKnowledgeSigma > 0) {
+    if (deltaPositionNorm > this->cfg.getPositionKnowledgeSigma() && this->cfg.getPositionKnowledgeSigma() > 0) {
         valid = false;
         output.positionKnowledgeExceedTrigger = true;
     } else {
@@ -154,7 +159,7 @@ std::tuple<Eigen::Vector3d, Eigen::Vector3d, Eigen::Vector3d> FlybyPointAlgorith
     /*! populate attRefOut with reference frame information */
     Eigen::Vector3d sigma_RN = dcmToMrp(RtN);
 
-    if (this->signOfOrbitNormalFrameVector == -1) {
+    if (this->cfg.getSignOfOrbitNormalFrameVector() == -1) {
         Eigen::Vector3d halfRotationX{1, 0, 0};
         sigma_RN = addMrp(sigma_RN, halfRotationX);
     }
@@ -162,56 +167,4 @@ std::tuple<Eigen::Vector3d, Eigen::Vector3d, Eigen::Vector3d> FlybyPointAlgorith
     const Eigen::Vector3d omegaDot_RN_N = RtN.transpose() * omegaDot_RN_R;
 
     return {sigma_RN, omega_RN_N, omegaDot_RN_N};
-}
-
-double FlybyPointAlgorithm::getTimeBetweenFilterData() const { return this->timeBetweenFilterData; }
-
-void FlybyPointAlgorithm::setTimeBetweenFilterData(double time) { this->timeBetweenFilterData = time; }
-
-float FlybyPointAlgorithm::getToleranceForCollinearity() const { return this->toleranceForCollinearity; }
-
-void FlybyPointAlgorithm::setToleranceForCollinearity(float tolerance) { this->toleranceForCollinearity = tolerance; }
-
-/*! Get the sign (+1 or -1) of the axis of rotation of the Z axis during the flyby
- @return int sign (+1 or -1)
- */
-int FlybyPointAlgorithm::getSignOfOrbitNormalFrameVector() const { return this->signOfOrbitNormalFrameVector; }
-
-/*! Set the sign (+1 or -1) of the axis of rotation of the Z axis during the flyby
- @param int sign (+1 or -1)
- */
-void FlybyPointAlgorithm::setSignOfOrbitNormalFrameVector(int sign) { this->signOfOrbitNormalFrameVector = sign; }
-
-/*! Get the maximum acceleration threshold to consider a solution invalid
- @return double maximum acceleration
- */
-float FlybyPointAlgorithm::getMaximumAccelerationThreshold() const { return this->maxAcceleration; }
-
-/*! Set the maximum acceleration threshold to consider a solution invalid
- @param float maximum acceleration
- */
-void FlybyPointAlgorithm::setMaximumAccelerationThreshold(float maxAccelerationThreshold) {
-    this->maxAcceleration = maxAccelerationThreshold;
-}
-
-/*! Get the maximum rate threshold to consider a solution invalid
- @return maximum rate
- */
-float FlybyPointAlgorithm::getMaximumRateThreshold() const { return this->maxRate; }
-
-/*! Set the maximum rate threshold to consider a solution invalid
- @param maximum rate
- */
-void FlybyPointAlgorithm::setMaximumRateThreshold(float maxRateThreshold) { this->maxRate = maxRateThreshold; }
-
-/*! Get the ground based positional knowledge standard deviation
- @return sigma
- */
-float FlybyPointAlgorithm::getPositionKnowledgeSigma() const { return this->positionKnowledgeSigma; }
-
-/*! Set the ground based positional knowledge sigma
- @param sigma
- */
-void FlybyPointAlgorithm::setPositionKnowledgeSigma(float positionKnowledgeStd) {
-    this->positionKnowledgeSigma = positionKnowledgeStd;
 }
