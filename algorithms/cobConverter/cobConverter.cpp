@@ -36,6 +36,9 @@ void CobConverter::reset(uint64_t currentSimNanos) {
     if (!this->sunInMsg.isLinked()) {
         throw std::invalid_argument("CobConverter.sunInMsg wasn't connected.");
     }
+    if (this->opnavFilterInMsg.isLinked() && this->opnavFilterInMsg().numberOfStates != 6) {
+        throw std::invalid_argument("CobConverter.opnavFilterInMsg: numberOfStates must be 6.");
+    }
 }
 
 /**
@@ -55,7 +58,6 @@ void CobConverter::updateState(const uint64_t currentSimNanos) {
     const FilterMsgPayload filterMsg = this->opnavFilterInMsg();
 
     CobConverterInput input;
-    input.currentSimNanos = currentSimNanos;
     input.bodyToCameraMrp = Eigen::Map<const Eigen::Vector3d>(cameraMsg.bodyToCameraMrp);
     input.fieldOfView = cameraMsg.fieldOfView[0];
     input.resolutionX = cameraMsg.resolution[0];
@@ -67,9 +69,8 @@ void CobConverter::updateState(const uint64_t currentSimNanos) {
     input.cobTimeTag = cobMsg.timeTag;
     input.sigma_BN = Eigen::Map<const Eigen::Vector3d>(navAttMsg.sigma_BN);
     input.vehSunPntBdy = Eigen::Map<const Eigen::Vector3d>(sunMsg.vehSunPntBdy);
-    input.filterState = Eigen::Map<const Eigen::VectorXd>(filterMsg.state, filterMsg.numberOfStates);
-    input.filterCovariance =
-        Eigen::Map<const Eigen::MatrixXd>(filterMsg.covar, filterMsg.numberOfStates, filterMsg.numberOfStates);
+    input.filterVehPosition = cArrayToEigenVector3<double>(filterMsg.state);
+    input.filterVehPositionCovariance = cArrayToEigenMatrix<double, 6, 6>(filterMsg.covar).topLeftCorner<3, 3>();
 
     const CobConverterOutput out = this->algorithm.updateState(input);
 

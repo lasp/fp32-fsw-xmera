@@ -23,7 +23,6 @@ enum class PhaseAngleCorrectionMethodAlgorithm { NoCorrectionAlg, LambertianAlg,
 
 /*! Structure containing all COB converter algorithm inputs. */
 struct CobConverterInput {
-    uint64_t currentSimNanos{};  //!< [ns]  current simulation time
     // camera model
     Eigen::Vector3d bodyToCameraMrp = Eigen::Vector3d::Zero();  //!< [--] MRP body-to-camera
     double fieldOfView{};                                       //!< [rad] camera field of view
@@ -39,9 +38,11 @@ struct CobConverterInput {
     Eigen::Vector3d sigma_BN = Eigen::Vector3d::Zero();  //!< [--] body-to-inertial MRP
     // sun attitude
     Eigen::Vector3d vehSunPntBdy = Eigen::Vector3d::Zero();  //!< [--] sun direction, body frame
-    // filter state
-    Eigen::VectorXd filterState;       //!< [--] filter state vector
-    Eigen::MatrixXd filterCovariance;  //!< [--] filter covariance matrix
+    // filter state: only position (and its covariance) is consumed by this algorithm.
+    // The upstream filter state is a fixed 6-d [position (3), velocity (3)]; velocity is unused.
+    Eigen::Vector3d filterVehPosition = Eigen::Vector3d::Zero();  //!< [m] spacecraft position, inertial frame
+    Eigen::Matrix3d filterVehPositionCovariance =
+        Eigen::Matrix3d::Zero();  //!< [m^2] spacecraft position covariance, inertial frame
 };
 
 /*! Structure containing all COB converter algorithm outputs. */

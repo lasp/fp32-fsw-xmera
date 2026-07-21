@@ -109,7 +109,7 @@ void CobConverterAlgorithm::computeRotations(const CobConverterInput& input) {
  * @note Computes and stores: @c alphaPA, @c phi, @c gamma, @c spacecraftRange, @c Rc.
  */
 void CobConverterAlgorithm::computePhaseAngleCorrection(const CobConverterInput& input) {
-    this->sc_position = input.filterState.head(3);
+    this->sc_position = input.filterVehPosition;
     const Eigen::Vector3d rhat_N = this->sc_position.normalized();
     const Eigen::Vector3d shat_B = input.vehSunPntBdy.normalized();
     this->shat_N = dcm_BN.transpose() * shat_B;
@@ -234,12 +234,10 @@ void CobConverterAlgorithm::computeCameraFrameUncertainty(const CobConverterInpu
             I - (this->sc_position.normalized() * this->sc_position.normalized().transpose());
         const Eigen::RowVector3d deltaAlpha_delta_R = sr * rr;
 
-        // Compute COM uncertainty direction
-        const Eigen::Matrix3d positionCovariance = input.filterCovariance.topLeftCorner(3, 3);
-
         const Eigen::RowVector3d deltaBinary_r = deltaBinary_delta_r + (deltaBinary_deltaAlpha * deltaAlpha_delta_R);
 
-        double total_deltaBinary_partials = deltaBinary_r * positionCovariance * deltaBinary_r.transpose();
+        double total_deltaBinary_partials =
+            deltaBinary_r * input.filterVehPositionCovariance * deltaBinary_r.transpose();
         double term2 = pow(deltaBinary_delta_R, 2) * pow(this->objectRadiusUncertainty, 2);
         double sigma_beta_squared = total_deltaBinary_partials + term2;
 
@@ -374,9 +372,9 @@ static Eigen::Matrix3d computeTotalCobCovariance(const Eigen::Matrix3d& covarNav
  * @param output CobConverterOutput whose coberrorOutlierTrigger field is set.
  */
 void CobConverterAlgorithm::cobOutlierDetection(const CobConverterInput& input, CobConverterOutput& output) {
-    const Eigen::Vector3d rNav_BN_N = input.filterState.segment(0, 3);
+    const Eigen::Vector3d rNav_BN_N = input.filterVehPosition;
     const Eigen::Vector3d rhatNav_N = rNav_BN_N.normalized();
-    const Eigen::Matrix3d covarNav_N = input.filterCovariance.block(0, 0, 3, 3) / pow(rNav_BN_N.norm(), 2);
+    const Eigen::Matrix3d covarNav_N = input.filterVehPositionCovariance / pow(rNav_BN_N.norm(), 2);
 
     Eigen::Vector3d rhatCOB_C =
         -this->rhatCOB_C;       // turn unit vector from asteroid to camera into unit vector from camera to asteroid
