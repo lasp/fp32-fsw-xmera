@@ -2,6 +2,8 @@
 
 #include <Eigen/Core>
 
+#include <utility>
+
 namespace filtering::flybyFilter {
 
 namespace {
@@ -11,14 +13,12 @@ using State = FlybyFilterAlgorithm::State;
 /*! Optical-navigation heading observation = r/|r| (the unit vector pointing from the spacecraft to
  *  the central body, inertial frame). Satisfies the Measurement concept for use inside the SRuKF.
  *  subtract() is the plain vector difference -- the observation and model both live in R^3. */
-// A concept-model helper: members are public by design
-// NOLINTBEGIN(misc-non-private-member-variables-in-classes, clang-diagnostic-unused-member-function,
-// clang-diagnostic-unused-variable)
-struct HeadingMeasurementModel {
+class HeadingMeasurementModel {
+   public:
     static constexpr int size = 3;
 
-    Eigen::Vector3d observed = Eigen::Vector3d::Zero();
-    Eigen::Matrix3d measNoise = Eigen::Matrix3d::Identity();
+    HeadingMeasurementModel(Eigen::Vector3d observation, Eigen::Matrix3d noise)
+        : observed(std::move(observation)), measNoise(std::move(noise)) {}
 
     Eigen::Vector3d observation() const { return this->observed; }
     static Eigen::Vector3d model(State const& state) {
@@ -27,9 +27,11 @@ struct HeadingMeasurementModel {
     }
     Eigen::Matrix3d noise() const { return this->measNoise; }
     static Eigen::Vector3d subtract(Eigen::Vector3d const& a, Eigen::Vector3d const& b) { return a - b; }
+
+   private:
+    Eigen::Vector3d observed;
+    Eigen::Matrix3d measNoise;
 };
-// NOLINTEND(misc-non-private-member-variables-in-classes, clang-diagnostic-unused-member-function,
-// clang-diagnostic-unused-variable)
 
 static_assert(filtering::Measurement<HeadingMeasurementModel, State>);
 
@@ -114,12 +116,10 @@ void FlybyFilterAlgorithm::clear() {
  *  @return true iff the update was applied (state/covariance finite)
  *  @param measurement [-] packed heading measurement (rhat_BN_N, noise) */
 bool FlybyFilterAlgorithm::applyMeasurement(HeadingMeasurement const& measurement) {
-    HeadingMeasurementModel model;
-    model.observed = measurement.rhat_BN_N;
-    model.measNoise = measurement.covar;
+    HeadingMeasurementModel const model{measurement.rhat_BN_N, measurement.covar};
 
     auto const result = this->srukf.measurementUpdate(model);
-    this->lastHeadingResiduals.observation = model.observed;
+    this->lastHeadingResiduals.observation = model.observation();
     if (result.has_value()) {
         this->lastHeadingResiduals.valid = measurement.valid;
         this->lastHeadingResiduals.preFit = result->preFit;
