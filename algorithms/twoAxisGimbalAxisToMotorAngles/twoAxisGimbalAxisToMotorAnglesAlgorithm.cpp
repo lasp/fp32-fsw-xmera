@@ -90,7 +90,7 @@ MotorAngles TwoAxisGimbalAxisToMotorAnglesAlgorithm::pullAngles(float gimbalAngl
     const float motor1Angle = this->cfg.getGimbalToMotor1Data()[index2][index1];
     const float motor2Angle = this->cfg.getGimbalToMotor2Data()[index2][index1];
 
-    MotorAngles motorAngles;
+    MotorAngles motorAngles{};
     motorAngles.angle1 = motor1Angle;
     motorAngles.angle2 = motor2Angle;
     motorAngles.isValidInterpolation = true;
@@ -203,7 +203,7 @@ MotorAngles TwoAxisGimbalAxisToMotorAnglesAlgorithm::bilinearlyInterpolateAngles
         validInterpolation = true;
     }
 
-    MotorAngles motorAngles;
+    MotorAngles motorAngles{};
     motorAngles.angle1 = motor1Angle;
     motorAngles.angle2 = motor2Angle;
     motorAngles.isValidInterpolation = validInterpolation;
@@ -264,7 +264,7 @@ MotorAngles TwoAxisGimbalAxisToMotorAnglesAlgorithm::linearlyInterpolateAngles(c
         validInterpolation = true;
     }
 
-    MotorAngles motorAngles;
+    MotorAngles motorAngles{};
     motorAngles.angle1 = motor1Angle;
     motorAngles.angle2 = motor2Angle;
     motorAngles.isValidInterpolation = validInterpolation;
