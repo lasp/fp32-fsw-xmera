@@ -72,13 +72,13 @@ typedef struct {
     float fieldOfView;                                 /*!< [rad] camera field of view */
     float resolutionX;                                 /*!< [px] horizontal resolution */
     float resolutionY;                                 /*!< [px] vertical resolution */
+    Vector3f_c bodyToCameraMrp;                        /*!< [-] MRP body-to-camera */
 } CobConverterConfig_c;
 
 /**
  * @brief Plain-old-data mirror of the C++ CobConverterInput fields.
  */
 typedef struct {
-    Vector3f_c bodyToCameraMrp;             /*!< [-] MRP body-to-camera */
     bool cobValid;                          /*!< [-] validity flag */
     int32_t cobPixelsFound;                 /*!< [-] bright pixels */
     Vector2f_c cobCenterOfBrightness;       /*!< [px] COB pixel coordinates */

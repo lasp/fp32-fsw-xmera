@@ -25,12 +25,12 @@ CobConverterConfig configFromC(const CobConverterConfig_c& c) {
                                       c.cameraId,
                                       c.fieldOfView,
                                       c.resolutionX,
-                                      c.resolutionY);
+                                      c.resolutionY,
+                                      cArrayToEigenVector3<float>(c.bodyToCameraMrp.data));
 }
 
 CobConverterInput inputFromC(const CobConverterInput_c& c) {
     CobConverterInput input;
-    input.bodyToCameraMrp = cArrayToEigenVector3<float>(c.bodyToCameraMrp.data);
     input.cobValid = c.cobValid;
     input.cobPixelsFound = c.cobPixelsFound;
     input.cobCenterOfBrightness = cArrayToEigenVector(c.cobCenterOfBrightness.data);

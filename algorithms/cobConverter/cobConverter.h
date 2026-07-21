@@ -5,7 +5,6 @@
 #include <memory>
 
 #include "cobConverterAlgorithm.h"
-#include "msgPayloadDef/CameraModelMsgF32Payload.h"
 #include "msgPayloadDef/CobConverterDiagnosticMsgF32Payload.h"
 #include "msgPayloadDef/FilterMsgF32Payload.h"
 #include "msgPayloadDef/NavAttMsgF32Payload.h"
@@ -52,6 +51,7 @@ class CobConverter final : public SysModel {
     float fieldOfView = 0.0F;
     float resolutionX = 0.0F;
     float resolutionY = 0.0F;
+    Eigen::Vector3f bodyToCameraMrp = Eigen::Vector3f::Zero();
 
     // Output messages
     Message<OpNavUnitVecMsgF32Payload> opnavUnitVecOutMsg;
@@ -61,7 +61,6 @@ class CobConverter final : public SysModel {
     // Input messages
     ReadFunctor<OpNavCOBMsgF32Payload> opnavCOBInMsg;
     ReadFunctor<FilterMsgF32Payload> opnavFilterInMsg;
-    ReadFunctor<CameraModelMsgF32Payload> cameraConfigInMsg;
     ReadFunctor<NavAttMsgF32Payload> navAttInMsg;
     ReadFunctor<NavAttMsgF32Payload> sunInMsg;
 

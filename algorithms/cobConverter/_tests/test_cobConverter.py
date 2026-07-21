@@ -2,6 +2,7 @@ import inspect
 import numpy as np
 import os
 import pytest
+from types import SimpleNamespace
 from xmera.architecture import messaging
 from xmera.fp32 import cobConverterF32 as cobConverter
 from xmera.utilities import RigidBodyKinematics as rbk
@@ -174,20 +175,22 @@ def cob_converter_test_function(show_plots, cameraResolution, centerOfBrightness
     # set up camera orientation such that it is pointing at the target
     dcm_CB = np.array([[0.0, 1.0, 0.0], [0.0, 0.0, -1.0], [-1.0, 0.0, 0.0]])
     sigma_CB = rbk.C2MRP(dcm_CB)
+    module.bodyToCameraMrp = sigma_CB
 
-    # Create the input messages.
-    inputCamera = messaging.CameraModelMsgF32Payload()
+    # inputCamera is a plain data holder for computing truth values below; the module now
+    # sources fieldOfView/resolution/bodyToCameraMrp from its own config properties, not a message.
+    # Read fieldOfView/bodyToCameraMrp back from the module (instead of using the raw Python
+    # values) so the truth calc uses the exact float32-rounded value the module stored, with
+    # no risk of the two independently drifting apart.
+    inputCamera = SimpleNamespace()
     inputCob = messaging.OpNavCOBMsgF32Payload()
     inputFilter = messaging.FilterMsgF32Payload()
     inputAtt = messaging.NavAttMsgF32Payload()
     inputSun = messaging.NavAttMsgF32Payload()
 
-    # Set camera parameters
-    inputCamera.fieldOfView = [np.deg2rad(20.0), np.deg2rad(20.0)]
+    inputCamera.fieldOfView = [module.fieldOfView, module.fieldOfView]
     inputCamera.resolution = cameraResolution
-    inputCamera.bodyToCameraMrp = sigma_CB
-    camInMsg = messaging.CameraModelMsgF32().write(inputCamera)
-    module.cameraConfigInMsg.subscribeTo(camInMsg)
+    inputCamera.bodyToCameraMrp = np.array(module.bodyToCameraMrp).flatten()
 
     # Set center of brightness
     inputCob.centerOfBrightness = centerOfBrightness
@@ -374,20 +377,22 @@ def test_coberror_outlier(
     # set up camera orientation such that it is pointing at the target
     dcm_CB = np.array([[0.0, 1.0, 0.0], [0.0, 0.0, -1.0], [-1.0, 0.0, 0.0]])
     sigma_CB = rbk.C2MRP(dcm_CB)
+    module.bodyToCameraMrp = sigma_CB
 
-    # Create the input messages.
-    inputCamera = messaging.CameraModelMsgF32Payload()
+    # inputCamera is a plain data holder for computing truth values below; the module now
+    # sources fieldOfView/resolution/bodyToCameraMrp from its own config properties, not a message.
+    # Read fieldOfView/bodyToCameraMrp back from the module (instead of using the raw Python
+    # values) so the truth calc uses the exact float32-rounded value the module stored, with
+    # no risk of the two independently drifting apart.
+    inputCamera = SimpleNamespace()
     inputCob = messaging.OpNavCOBMsgF32Payload()
     inputFilter = messaging.FilterMsgF32Payload()
     inputAtt = messaging.NavAttMsgF32Payload()
     inputSun = messaging.NavAttMsgF32Payload()
 
-    # Set camera parameters
-    inputCamera.fieldOfView = [np.deg2rad(20.0), np.deg2rad(20.0)]
+    inputCamera.fieldOfView = [module.fieldOfView, module.fieldOfView]
     inputCamera.resolution = cameraResolution
-    inputCamera.bodyToCameraMrp = sigma_CB
-    camInMsg = messaging.CameraModelMsgF32().write(inputCamera)
-    module.cameraConfigInMsg.subscribeTo(camInMsg)
+    inputCamera.bodyToCameraMrp = np.array(module.bodyToCameraMrp).flatten()
 
     # Set center of brightness
     inputCob.centerOfBrightness = centerOfBrightness
@@ -537,8 +542,14 @@ def test_brown_conrady_calibration(k1, k2, k3, p1, p2, label, centerOfBrightness
 
     dcm_CB = np.array([[0.0, 1.0, 0.0], [0.0, 0.0, -1.0], [-1.0, 0.0, 0.0]])
     sigma_CB = rbk.C2MRP(dcm_CB)
+    module.bodyToCameraMrp = sigma_CB
 
-    inputCamera = messaging.CameraModelMsgF32Payload()
+    # inputCamera is a plain data holder for computing truth values below; the module now
+    # sources fieldOfView/resolution/bodyToCameraMrp from its own config properties, not a message.
+    # Read fieldOfView/bodyToCameraMrp back from the module (instead of using the raw Python
+    # values) so the truth calc uses the exact float32-rounded value the module stored, with
+    # no risk of the two independently drifting apart.
+    inputCamera = SimpleNamespace()
     inputCob = messaging.OpNavCOBMsgF32Payload()
     inputFilter = messaging.FilterMsgF32Payload()
     inputAtt = messaging.NavAttMsgF32Payload()
@@ -546,9 +557,7 @@ def test_brown_conrady_calibration(k1, k2, k3, p1, p2, label, centerOfBrightness
 
     inputCamera.fieldOfView = [module.fieldOfView, module.fieldOfView]
     inputCamera.resolution = cameraResolution
-    inputCamera.bodyToCameraMrp = sigma_CB
-    camInMsg = messaging.CameraModelMsgF32().write(inputCamera)
-    module.cameraConfigInMsg.subscribeTo(camInMsg)
+    inputCamera.bodyToCameraMrp = np.array(module.bodyToCameraMrp).flatten()
 
     inputCob.centerOfBrightness = centerOfBrightness
     inputCob.pixelsFound = numberOfPixels

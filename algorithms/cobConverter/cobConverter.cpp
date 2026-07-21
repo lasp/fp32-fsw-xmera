@@ -18,9 +18,6 @@ void CobConverter::reset(uint64_t currentSimNanos) {
     if (this->outlierDetectionEnabled && !this->opnavFilterInMsg.isLinked()) {
         throw std::invalid_argument("CobConverter.opnavFilterInMsg wasn't connected.");
     }
-    if (!this->cameraConfigInMsg.isLinked()) {
-        throw std::invalid_argument("CobConverter.cameraConfigInMsg wasn't connected.");
-    }
     if (!this->navAttInMsg.isLinked()) {
         throw std::invalid_argument("CobConverter.navAttInMsg wasn't connected.");
     }
@@ -43,7 +40,8 @@ void CobConverter::reset(uint64_t currentSimNanos) {
                                                    this->cameraId,
                                                    this->fieldOfView,
                                                    this->resolutionX,
-                                                   this->resolutionY);
+                                                   this->resolutionY,
+                                                   this->bodyToCameraMrp);
     this->algorithm = std::make_unique<CobConverterAlgorithm>(config);
 }
 
@@ -61,14 +59,12 @@ void CobConverter::updateState(const uint64_t currentSimNanos) {
         throw XmeraLifecycleException("CobConverter reset() has not been called.");
     }
 
-    const CameraModelMsgF32Payload cameraMsg = this->cameraConfigInMsg();
     const OpNavCOBMsgF32Payload cobMsg = this->opnavCOBInMsg();
     const NavAttMsgF32Payload navAttMsg = this->navAttInMsg();
     const NavAttMsgF32Payload sunMsg = this->sunInMsg();
     const FilterMsgF32Payload filterMsg = this->opnavFilterInMsg();
 
     CobConverterInput input;
-    input.bodyToCameraMrp = cArrayToEigenVector(cameraMsg.bodyToCameraMrp);
     input.cobValid = cobMsg.valid;
     input.cobPixelsFound = cobMsg.pixelsFound;
     input.cobCenterOfBrightness = Eigen::Map<const Eigen::Vector2f>(cobMsg.centerOfBrightness);

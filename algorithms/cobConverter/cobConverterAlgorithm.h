@@ -25,8 +25,6 @@ enum class PhaseAngleCorrectionMethodAlgorithm : std::uint8_t { NoCorrectionAlg,
 
 /*! Structure containing all COB converter algorithm inputs. */
 struct CobConverterInput {
-    // camera model
-    Eigen::Vector3f bodyToCameraMrp = Eigen::Vector3f::Zero();  //!< [--] MRP body-to-camera
     // COB measurement
     bool cobValid{};                                                  //!< [--] validity flag
     int32_t cobPixelsFound{};                                         //!< [--] bright pixels
@@ -82,7 +80,8 @@ class CobConverterConfig final {
                                      int cameraId,
                                      float fieldOfView,
                                      float resolutionX,
-                                     float resolutionY) {
+                                     float resolutionY,
+                                     const Eigen::Vector3f& bodyToCameraMrp) {
         if (!isValidPhaseAngleCorrectionMethod(phaseAngleCorrectionMethod)) {
             FSW_THROW_INVALID_ARGUMENT("cobConverter: phaseAngleCorrectionMethod must be NoCorrectionAlg or BinaryAlg");
         }
@@ -116,7 +115,8 @@ class CobConverterConfig final {
                 cameraId,
                 fieldOfView,
                 resolutionX,
-                resolutionY};
+                resolutionY,
+                bodyToCameraMrp};
     }
 
     static bool isValidPhaseAngleCorrectionMethod(PhaseAngleCorrectionMethodAlgorithm method) {
@@ -155,6 +155,7 @@ class CobConverterConfig final {
     float getFieldOfView() const { return fieldOfView; }
     float getResolutionX() const { return resolutionX; }
     float getResolutionY() const { return resolutionY; }
+    Eigen::Vector3f getBodyToCameraMrp() const { return bodyToCameraMrp; }
 
    private:
     CobConverterConfig(PhaseAngleCorrectionMethodAlgorithm phaseAngleCorrectionMethod,
@@ -169,7 +170,8 @@ class CobConverterConfig final {
                        int cameraId,
                        float fieldOfView,
                        float resolutionX,
-                       float resolutionY)
+                       float resolutionY,
+                       const Eigen::Vector3f& bodyToCameraMrp)
         : phaseAngleCorrectionMethod(phaseAngleCorrectionMethod),
           radius(radius),
           radiusUncertainty(radiusUncertainty),
@@ -182,7 +184,8 @@ class CobConverterConfig final {
           cameraId(cameraId),
           fieldOfView(fieldOfView),
           resolutionX(resolutionX),
-          resolutionY(resolutionY) {}
+          resolutionY(resolutionY),
+          bodyToCameraMrp(bodyToCameraMrp) {}
 
     PhaseAngleCorrectionMethodAlgorithm phaseAngleCorrectionMethod;
     float radius;
@@ -197,6 +200,7 @@ class CobConverterConfig final {
     float fieldOfView;
     float resolutionX;
     float resolutionY;
+    Eigen::Vector3f bodyToCameraMrp;
 };
 
 /**

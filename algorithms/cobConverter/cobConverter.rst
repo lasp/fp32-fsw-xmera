@@ -28,9 +28,6 @@ provides information on what this message is used for:
     * - Msg Variable Name
       - Msg Type
       - Description
-    * - cameraConfigInMsg
-      - :ref:`CameraModelMsgPayload`
-      - Input camera model message
     * - opnavCOBInMsg
       - :ref:`OpNavCOBMsgPayload`
       - Input center of brightness message written out by the image processing module
@@ -63,8 +60,8 @@ This module models the measurement that will be ingested by the following filter
 measurement model for the filter composed via messaging.
 
 After reading the input center of brightness message which contains the pixel location of the center
-of brightness and the number of pixels that were found, the module reads the camera parameters and uses
-them to compute all necessary optics values.
+of brightness and the number of pixels that were found, the module uses the configured camera parameters
+to compute all necessary optics values.
 
 The main relations used between all of the camera values can be found in `this paper by J. A. Christian
 <https://doi.org/10.1109/ACCESS.2021.3051914>`__.
@@ -284,7 +281,6 @@ This section is to outline the steps needed to setup a center of brightness conv
 
 #. Subscribe to the messages::
 
-    module.cameraConfigInMsg.subscribeTo(camInMsg)
     module.opnavCOBInMsg.subscribeTo(cobInMsg)
     module.opnavFilterInMsg.subscribeTo(filterInMsg)
     module.navAttInMsg.subscribeTo(attInMsg)

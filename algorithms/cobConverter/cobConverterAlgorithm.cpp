@@ -59,7 +59,7 @@ void CobConverterAlgorithm::setConfig(const CobConverterConfig& config) { this->
  */
 void CobConverterAlgorithm::computeCameraParameters(const CobConverterInput& input) {
     // apply the mrpToDcm in double precision
-    const Eigen::Vector3d bodyToCameraMrpD = input.bodyToCameraMrp.cast<double>();
+    const Eigen::Vector3d bodyToCameraMrpD = this->cfg.getBodyToCameraMrp().cast<double>();
     this->dcm_CB = mrpToDcm(bodyToCameraMrpD).cast<float>();
 
     // Camera parameters
