@@ -35,7 +35,7 @@ jobs:
       all_changed_files: ${{ steps.changed-files.outputs.all_changed_files }}
     steps:
       - name: Checkout fp32-fsw-xmera
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
@@ -68,14 +68,14 @@ jobs:
       pull-requests: write
     steps:
       - name: Checkout fp32-fsw-xmera
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
           persist-credentials: false
 
       - name: Checkout Xmera core
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: lasp/xmera
           path: xmera
