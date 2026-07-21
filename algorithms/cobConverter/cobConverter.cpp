@@ -41,7 +41,9 @@ void CobConverter::reset(uint64_t currentSimNanos) {
                                                    this->outlierDetectionEnabled,
                                                    this->calibrationCoefficients,
                                                    this->cameraId,
-                                                   this->fieldOfView);
+                                                   this->fieldOfView,
+                                                   this->resolutionX,
+                                                   this->resolutionY);
     this->algorithm = std::make_unique<CobConverterAlgorithm>(config);
 }
 
@@ -67,8 +69,6 @@ void CobConverter::updateState(const uint64_t currentSimNanos) {
 
     CobConverterInput input;
     input.bodyToCameraMrp = cArrayToEigenVector(cameraMsg.bodyToCameraMrp);
-    input.resolutionX = cameraMsg.resolution[0];
-    input.resolutionY = cameraMsg.resolution[1];
     input.cobValid = cobMsg.valid;
     input.cobPixelsFound = cobMsg.pixelsFound;
     input.cobCenterOfBrightness = Eigen::Map<const Eigen::Vector2f>(cobMsg.centerOfBrightness);

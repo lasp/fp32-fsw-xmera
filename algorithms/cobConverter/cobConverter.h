@@ -50,6 +50,8 @@ class CobConverter final : public SysModel {
     CalibrationCoefficients calibrationCoefficients{};
     int cameraId = 0;
     float fieldOfView = 0.0F;
+    float resolutionX = 0.0F;
+    float resolutionY = 0.0F;
 
     // Output messages
     Message<OpNavUnitVecMsgF32Payload> opnavUnitVecOutMsg;

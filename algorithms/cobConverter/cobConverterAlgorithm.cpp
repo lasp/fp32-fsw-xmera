@@ -65,12 +65,14 @@ void CobConverterAlgorithm::computeCameraParameters(const CobConverterInput& inp
     // Camera parameters
     constexpr float alpha = 0.0F;
     const float fieldOfView = this->cfg.getFieldOfView();
+    const float resolutionX = this->cfg.getResolutionX();
+    const float resolutionY = this->cfg.getResolutionY();
     const float pX = 2.0F * safeTanf(fieldOfView / 2.0F);
-    const float pY = 2.0F * safeTanf(fieldOfView * input.resolutionY / input.resolutionX / 2.0F);
-    this->dX = input.resolutionX / pX;
-    const float dY = input.resolutionY / pY;
-    const float up = input.resolutionX / 2.0F;
-    const float vp = input.resolutionY / 2.0F;
+    const float pY = 2.0F * safeTanf(fieldOfView * resolutionY / resolutionX / 2.0F);
+    this->dX = resolutionX / pX;
+    const float dY = resolutionY / pY;
+    const float up = resolutionX / 2.0F;
+    const float vp = resolutionY / 2.0F;
     this->X = 1.0F / this->dX;
     this->Y = 1.0F / dY;
     this->ifov_x = fieldOfView / this->dX * pX;

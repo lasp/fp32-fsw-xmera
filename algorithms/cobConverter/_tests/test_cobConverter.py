@@ -156,6 +156,8 @@ def cob_converter_test_function(show_plots, cameraResolution, centerOfBrightness
     module.specifiedStandardDeviation = True
     module.outlierDetectionEnabled = True
     module.fieldOfView = np.deg2rad(20.0)
+    module.resolutionX = cameraResolution[0]
+    module.resolutionY = cameraResolution[1]
     unitTestSim.AddModelToTask(unitTaskName, module, module)
 
     r_BdyZero_N = np.array([-distance, -300. * 1e3, 0.])
@@ -354,6 +356,8 @@ def test_coberror_outlier(
     module.specifiedStandardDeviation = True
     module.outlierDetectionEnabled = True
     module.fieldOfView = np.deg2rad(20.0)
+    module.resolutionX = cameraResolution[0]
+    module.resolutionY = cameraResolution[1]
     unitTestSim.AddModelToTask(unitTaskName, module, module)
 
     r_BdyZero_N = np.array([-distance, -300. * 1e3, 0.])
@@ -508,6 +512,8 @@ def test_brown_conrady_calibration(k1, k2, k3, p1, p2, label, centerOfBrightness
     module.radius = R_object
     module.attitudeCovariance = np.zeros((3, 3))
     module.fieldOfView = np.deg2rad(20.0)
+    module.resolutionX = cameraResolution[0]
+    module.resolutionY = cameraResolution[1]
 
     coefficients = cobConverter.CalibrationCoefficients()
     coefficients.k1 = k1

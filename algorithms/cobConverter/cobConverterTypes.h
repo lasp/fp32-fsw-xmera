@@ -70,6 +70,8 @@ typedef struct {
     CalibrationCoefficients_c calibrationCoefficients; /*!< [-] Brown-Conrady distortion coefficients */
     int32_t cameraId;                                  /*!< [-] camera identifier */
     float fieldOfView;                                 /*!< [rad] camera field of view */
+    float resolutionX;                                 /*!< [px] horizontal resolution */
+    float resolutionY;                                 /*!< [px] vertical resolution */
 } CobConverterConfig_c;
 
 /**
@@ -77,8 +79,6 @@ typedef struct {
  */
 typedef struct {
     Vector3f_c bodyToCameraMrp;             /*!< [-] MRP body-to-camera */
-    float resolutionX;                      /*!< [px] horizontal resolution */
-    float resolutionY;                      /*!< [px] vertical resolution */
     bool cobValid;                          /*!< [-] validity flag */
     int32_t cobPixelsFound;                 /*!< [-] bright pixels */
     Vector2f_c cobCenterOfBrightness;       /*!< [px] COB pixel coordinates */

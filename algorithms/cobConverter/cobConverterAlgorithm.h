@@ -27,8 +27,6 @@ enum class PhaseAngleCorrectionMethodAlgorithm : std::uint8_t { NoCorrectionAlg,
 struct CobConverterInput {
     // camera model
     Eigen::Vector3f bodyToCameraMrp = Eigen::Vector3f::Zero();  //!< [--] MRP body-to-camera
-    float resolutionX{};                                        //!< [px]  horizontal resolution
-    float resolutionY{};                                        //!< [px]  vertical resolution
     // COB measurement
     bool cobValid{};                                                  //!< [--] validity flag
     int32_t cobPixelsFound{};                                         //!< [--] bright pixels
@@ -82,7 +80,9 @@ class CobConverterConfig final {
                                      bool outlierDetectionEnabled,
                                      const CalibrationCoefficients& calibrationCoefficients,
                                      int cameraId,
-                                     float fieldOfView) {
+                                     float fieldOfView,
+                                     float resolutionX,
+                                     float resolutionY) {
         if (!isValidPhaseAngleCorrectionMethod(phaseAngleCorrectionMethod)) {
             FSW_THROW_INVALID_ARGUMENT("cobConverter: phaseAngleCorrectionMethod must be NoCorrectionAlg or BinaryAlg");
         }
@@ -114,7 +114,9 @@ class CobConverterConfig final {
                 outlierDetectionEnabled,
                 calibrationCoefficients,
                 cameraId,
-                fieldOfView};
+                fieldOfView,
+                resolutionX,
+                resolutionY};
     }
 
     static bool isValidPhaseAngleCorrectionMethod(PhaseAngleCorrectionMethodAlgorithm method) {
@@ -151,6 +153,8 @@ class CobConverterConfig final {
     CalibrationCoefficients getCalibrationCoefficients() const { return calibrationCoefficients; }
     int getCameraId() const { return cameraId; }
     float getFieldOfView() const { return fieldOfView; }
+    float getResolutionX() const { return resolutionX; }
+    float getResolutionY() const { return resolutionY; }
 
    private:
     CobConverterConfig(PhaseAngleCorrectionMethodAlgorithm phaseAngleCorrectionMethod,
@@ -163,7 +167,9 @@ class CobConverterConfig final {
                        bool outlierDetectionEnabled,
                        const CalibrationCoefficients& calibrationCoefficients,
                        int cameraId,
-                       float fieldOfView)
+                       float fieldOfView,
+                       float resolutionX,
+                       float resolutionY)
         : phaseAngleCorrectionMethod(phaseAngleCorrectionMethod),
           radius(radius),
           radiusUncertainty(radiusUncertainty),
@@ -174,7 +180,9 @@ class CobConverterConfig final {
           outlierDetectionEnabled(outlierDetectionEnabled),
           calibrationCoefficients(calibrationCoefficients),
           cameraId(cameraId),
-          fieldOfView(fieldOfView) {}
+          fieldOfView(fieldOfView),
+          resolutionX(resolutionX),
+          resolutionY(resolutionY) {}
 
     PhaseAngleCorrectionMethodAlgorithm phaseAngleCorrectionMethod;
     float radius;
@@ -187,6 +195,8 @@ class CobConverterConfig final {
     CalibrationCoefficients calibrationCoefficients;
     int cameraId;
     float fieldOfView;
+    float resolutionX;
+    float resolutionY;
 };
 
 /**
