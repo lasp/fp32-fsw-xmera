@@ -4,6 +4,8 @@
 #include <architecture/utilities/rigidBodyKinematics.h>
 #include <string.h>
 
+#include <stdexcept>
+
 /*! @brief This resets the module.
  @return void
  @param callTime The clock time at which the function was called (nanoseconds)
@@ -11,10 +13,10 @@
 void DvExecuteGuidance::reset(uint64_t callTime) {
     // check if the required input messages are included
     if (!this->navDataInMsg.isLinked()) {
-        this->bskLogger.bskLog(BSK_ERROR, "Error: dvExecuteGuidance.navDataInMsg wasn't connected.");
+        throw std::invalid_argument("dvExecuteGuidance.navDataInMsg wasn't connected.");
     }
     if (!this->burnDataInMsg.isLinked()) {
-        this->bskLogger.bskLog(BSK_ERROR, "Error: dvExecuteGuidance.burnDataInMsg wasn't connected.");
+        throw std::invalid_argument("dvExecuteGuidance.burnDataInMsg wasn't connected.");
     }
     this->prevCallTime = 0;
 
