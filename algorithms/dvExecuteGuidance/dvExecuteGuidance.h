@@ -31,7 +31,13 @@ class DvExecuteGuidance : public SysModel {
     Message<DvExecutionDataMsgF32Payload> burnExecOutMsg; /*!< [-] burn execution output message */
 
    private:
-    DvExecuteGuidanceAlgorithm algorithm;
+    void rebuildAlgorithmConfig();
+
+    float minTime{};                   ///< [s] minimum burn time allowed to elapse before completion
+    float maxTime{};                   ///< [s] maximum burn time; 0 disables the maximum-time criterion
+    float defaultControlPeriod{2.0F};  ///< [s] control period used for the first call
+
+    DvExecuteGuidanceAlgorithm algorithm{DvExecuteGuidanceConfig::create(0.0F, 0.0F, 2.0F)};
 };
 
 #endif

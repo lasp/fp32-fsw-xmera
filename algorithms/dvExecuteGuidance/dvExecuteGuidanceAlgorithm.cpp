@@ -1,21 +1,19 @@
 #include "dvExecuteGuidanceAlgorithm.h"
 #include "utilities/fsw/timeConstants.h"
 
-//! Default control period [s] used for the first call when the user leaves defaultControlPeriod unset.
-static constexpr float kDefaultControlPeriodSeconds = 2.0F;
+DvExecuteGuidanceAlgorithm::DvExecuteGuidanceAlgorithm(const DvExecuteGuidanceConfig& config) : cfg(config) {
+    this->setConfig(config);
+    this->reInitialize();
+}
 
-void DvExecuteGuidanceAlgorithm::reset() {
+void DvExecuteGuidanceAlgorithm::setConfig(const DvExecuteGuidanceConfig& config) { this->cfg = config; }
+
+void DvExecuteGuidanceAlgorithm::reInitialize() {
     this->prevCallTime = 0;
     this->burnExecuting = 0;
     this->burnComplete = 0;
     this->burnTime = 0.0F;
     this->dvInit = Eigen::Vector3f::Zero();
-
-    /*! - use default value of 2 seconds for control period of first call if not specified.
-     * Control period (FSW rate) is computed dynamically for any subsequent calls.
-     */
-    this->defaultControlPeriod =
-        (0.0F == this->defaultControlPeriod) ? kDefaultControlPeriodSeconds : this->defaultControlPeriod;
 }
 
 DvExecuteGuidanceOutput DvExecuteGuidanceAlgorithm::update(const uint64_t callTime,
@@ -27,7 +25,7 @@ DvExecuteGuidanceOutput DvExecuteGuidanceAlgorithm::update(const uint64_t callTi
     /*! - The first time update() is called there is no information on the time step.
      *    Use control period (FSW time step) as burn time delta-t */
     if (this->prevCallTime == 0) {
-        burnDt = this->defaultControlPeriod;
+        burnDt = this->cfg.getDefaultControlPeriod();
     } else {
         /*! - compute burn time delta-t (control time period) */
         burnDt =
@@ -50,8 +48,8 @@ DvExecuteGuidanceOutput DvExecuteGuidanceAlgorithm::update(const uint64_t callTi
     const float dvMag = dvInrtlCmd.norm();
     const float dvExecuteMag = burnAccum.norm();
     this->burnComplete = this->burnComplete == 1 || dvExecuteMag >= dvMag;
-    this->burnComplete &= this->burnTime > this->minTime;
-    this->burnComplete |= (this->maxTime != 0.0F && this->burnTime > this->maxTime);
+    this->burnComplete &= this->burnTime > this->cfg.getMinTime();
+    this->burnComplete |= (this->cfg.getMaxTime() != 0.0F && this->burnTime > this->cfg.getMaxTime());
     this->burnExecuting = this->burnComplete != 1 && this->burnExecuting == 1;
 
     DvExecuteGuidanceOutput out;

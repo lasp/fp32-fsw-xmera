@@ -1,7 +1,6 @@
 #include "dvExecuteGuidance.h"
 #include "utilities/fsw/eigenSupport.h"
 #include "utilities/fsw/freestandingInvalidArgument.h"
-#include <math.h>
 
 #include <stdexcept>
 
@@ -17,35 +16,45 @@ void DvExecuteGuidance::reset(const uint64_t callTime) {
     if (!this->burnDataInMsg.isLinked()) {
         throw std::invalid_argument("dvExecuteGuidance.burnDataInMsg wasn't connected.");
     }
-    this->algorithm.reset();
+    this->rebuildAlgorithmConfig();
+    this->algorithm.reInitialize();
 }
 
 void DvExecuteGuidance::setMinTime(const float minTime) {
-    if (!(minTime >= 0.0F) || isfinite(minTime) == 0) {
+    if (!DvExecuteGuidanceConfig::isValidMinTime(minTime)) {
         FSW_THROW_INVALID_ARGUMENT("dvExecuteGuidance: minTime must be non-negative and finite.");
     }
-    this->algorithm.minTime = minTime;
+    this->minTime = minTime;
+    this->rebuildAlgorithmConfig();
 }
 
 void DvExecuteGuidance::setMaxTime(const float maxTime) {
-    if (!(maxTime >= 0.0F) || isfinite(maxTime) == 0) {
+    if (!DvExecuteGuidanceConfig::isValidMaxTime(maxTime)) {
         FSW_THROW_INVALID_ARGUMENT("dvExecuteGuidance: maxTime must be non-negative and finite.");
     }
-    this->algorithm.maxTime = maxTime;
+    this->maxTime = maxTime;
+    this->rebuildAlgorithmConfig();
 }
 
 void DvExecuteGuidance::setDefaultControlPeriod(const float defaultControlPeriod) {
-    if (!(defaultControlPeriod >= 0.0F) || isfinite(defaultControlPeriod) == 0) {
-        FSW_THROW_INVALID_ARGUMENT("dvExecuteGuidance: defaultControlPeriod must be non-negative and finite.");
+    if (!DvExecuteGuidanceConfig::isValidDefaultControlPeriod(defaultControlPeriod)) {
+        FSW_THROW_INVALID_ARGUMENT("dvExecuteGuidance: defaultControlPeriod must be positive and finite.");
     }
-    this->algorithm.defaultControlPeriod = defaultControlPeriod;
+    this->defaultControlPeriod = defaultControlPeriod;
+    this->rebuildAlgorithmConfig();
 }
 
-float DvExecuteGuidance::getMinTime() const { return this->algorithm.minTime; }
+float DvExecuteGuidance::getMinTime() const { return this->minTime; }
 
-float DvExecuteGuidance::getMaxTime() const { return this->algorithm.maxTime; }
+float DvExecuteGuidance::getMaxTime() const { return this->maxTime; }
 
-float DvExecuteGuidance::getDefaultControlPeriod() const { return this->algorithm.defaultControlPeriod; }
+float DvExecuteGuidance::getDefaultControlPeriod() const { return this->defaultControlPeriod; }
+
+void DvExecuteGuidance::rebuildAlgorithmConfig() {
+    const DvExecuteGuidanceConfig cfg =
+        DvExecuteGuidanceConfig::create(this->minTime, this->maxTime, this->defaultControlPeriod);
+    this->algorithm.setConfig(cfg);
+}
 
 /*! This method compares the accumulated Delta-V against the commanded Delta-V and, once the burn is complete,
     writes a zeroed thruster on-time command to turn the thrusters off. It also flags whether the burn is

@@ -55,8 +55,13 @@ class DvExecuteGuidanceConfig final {
 /// must be turned off. The module holds its own burn state machine across updates.
 class DvExecuteGuidanceAlgorithm final {
    public:
-    /// Resets the burn state machine and normalizes the default control period.
-    void reset();
+    explicit DvExecuteGuidanceAlgorithm(const DvExecuteGuidanceConfig& config);
+
+    /// Installs the configuration parameters. Does not touch runtime state.
+    void setConfig(const DvExecuteGuidanceConfig& config);
+
+    /// Resets the burn state machine to its initial (pre-burn) condition.
+    void reInitialize();
 
     /// Advances the burn state machine one step.
     /// @param callTime      Evaluation time [ns].
@@ -69,11 +74,8 @@ class DvExecuteGuidanceAlgorithm final {
                                    const Eigen::Vector3f& dvInrtlCmd,
                                    uint64_t burnStartTime);
 
-    float minTime{};               ///< [s] minimum burn time allowed to elapse before completion
-    float maxTime{};               ///< [s] maximum burn time; 0 disables the maximum-time criterion
-    float defaultControlPeriod{};  ///< [s] control period used for the first call
-
    private:
+    DvExecuteGuidanceConfig cfg;
     Eigen::Vector3f dvInit = Eigen::Vector3f::Zero();  ///< [m/s] accumulated delta-V latched at burn start
     uint32_t burnExecuting{};                          ///< [-] burn currently in progress
     uint32_t burnComplete{};                           ///< [-] burn has completed
