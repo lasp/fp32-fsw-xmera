@@ -146,3 +146,23 @@ TEST(TriadTest, SadaAlignedBodyThrustReturnsZero) {
         EXPECT_NEAR(result(i), 0.0F, 1e-6F);
     }
 }
+
+// When the Sun direction is aligned with the thrust inertial reference, the fallback inertial Z-axis is used in
+// the triad frame computation
+TEST(TriadTest, SunAlignedWithThrustRefUsesFallbackZAxis) {
+    const Eigen::Vector3f rHat_SB_N = Eigen::Vector3f::UnitY();
+    const Eigen::Vector3f thrustHat_B = Eigen::Vector3f::UnitX();
+    const Eigen::Vector3f sadaHat_B = Eigen::Vector3f::UnitZ();
+    const Eigen::Vector3f thrustReqHat_N = Eigen::Vector3f::UnitY();
+    const float signOfN3Hat_N = 1.0F;
+
+    auto config = TriadConfig::create(sadaHat_B, thrustReqHat_N, signOfN3Hat_N);
+    TriadAlgorithm alg(config);
+
+    auto result = alg.update(rHat_SB_N, thrustHat_B);
+    Eigen::Vector3f expected = referenceTriad(rHat_SB_N, thrustHat_B, sadaHat_B, thrustReqHat_N, signOfN3Hat_N);
+
+    for (int i = 0; i < 3; ++i) {
+        EXPECT_NEAR(result(i), expected(i), 1e-6F);
+    }
+}
