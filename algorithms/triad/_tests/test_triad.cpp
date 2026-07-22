@@ -129,3 +129,20 @@ TEST(TriadTest, ZeroSunDirectionReturnsZero) {
         EXPECT_NEAR(result(i), 0.0F, 1e-6F);
     }
 }
+
+// When the solar array drive axis is aligned with body thrust direction message, the zero MRP is returned
+TEST(TriadTest, SadaAlignedBodyThrustReturnsZero) {
+    const Eigen::Vector3f rHat_SB_N = Eigen::Vector3f(1.0F, 1.0F, 0.0F).normalized();
+    const Eigen::Vector3f thrustHat_B = Eigen::Vector3f::UnitX();
+    const Eigen::Vector3f sadaHat_B = Eigen::Vector3f::UnitX();
+    const Eigen::Vector3f thrustReqHat_N = Eigen::Vector3f::UnitY();
+    const float signOfN3Hat_N = 1.0F;
+
+    auto config = TriadConfig::create(sadaHat_B, thrustReqHat_N, signOfN3Hat_N);
+    TriadAlgorithm alg(config);
+
+    auto result = alg.update(rHat_SB_N, thrustHat_B);
+    for (int i = 0; i < 3; ++i) {
+        EXPECT_NEAR(result(i), 0.0F, 1e-6F);
+    }
+}
