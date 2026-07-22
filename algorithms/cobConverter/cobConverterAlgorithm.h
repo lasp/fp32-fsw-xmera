@@ -2,6 +2,7 @@
 #define F32XMERA_COB_CONVERTER_ALGORITHM_H
 
 #include <Eigen/Dense>
+#include <numbers>
 
 #include "utilities/fsw/freestandingInvalidArgument.h"
 #include "utilities/fsw/freestandingIsFinite.hpp"
@@ -103,6 +104,18 @@ class CobConverterConfig final {
         if (!isValidCalibrationCoefficients(calibrationCoefficients)) {
             FSW_THROW_INVALID_ARGUMENT("cobConverter: calibrationCoefficients must be finite");
         }
+        if (!isValidFieldOfView(fieldOfView)) {
+            FSW_THROW_INVALID_ARGUMENT("cobConverter: fieldOfView must be > 0 and < pi");
+        }
+        if (!isValidResolutionX(resolutionX)) {
+            FSW_THROW_INVALID_ARGUMENT("cobConverter: resolutionX must be > 0");
+        }
+        if (!isValidResolutionY(resolutionY)) {
+            FSW_THROW_INVALID_ARGUMENT("cobConverter: resolutionY must be > 0");
+        }
+        if (!isValidBodyToCameraMrp(bodyToCameraMrp)) {
+            FSW_THROW_INVALID_ARGUMENT("cobConverter: bodyToCameraMrp must be finite");
+        }
         return {phaseAngleCorrectionMethod,
                 radius,
                 radiusUncertainty,
@@ -141,6 +154,13 @@ class CobConverterConfig final {
         return fsw::is_finite(coefficients.k1) && fsw::is_finite(coefficients.k2) && fsw::is_finite(coefficients.k3) &&
                fsw::is_finite(coefficients.p1) && fsw::is_finite(coefficients.p2);
     }
+    // No isValidCameraId — any int value is valid (camera identifier, no numeric constraint).
+    static bool isValidFieldOfView(float fieldOfView) {
+        return fsw::is_finite(fieldOfView) && fieldOfView > 0.0F && fieldOfView < std::numbers::pi_v<float>;
+    }
+    static bool isValidResolutionX(float resolutionX) { return fsw::is_finite(resolutionX) && resolutionX > 0.0F; }
+    static bool isValidResolutionY(float resolutionY) { return fsw::is_finite(resolutionY) && resolutionY > 0.0F; }
+    static bool isValidBodyToCameraMrp(const Eigen::Vector3f& bodyToCameraMrp) { return bodyToCameraMrp.allFinite(); }
 
     PhaseAngleCorrectionMethodAlgorithm getPhaseAngleCorrectionMethod() const { return phaseAngleCorrectionMethod; }
     float getRadius() const { return radius; }
@@ -209,9 +229,9 @@ class CobConverterConfig final {
  *        (camera, body, inertial frames), with optional phase-angle correction
  *        and outlier detection.
  */
-class CobConverterAlgorithm {
+class CobConverterAlgorithm final {
    public:
-    explicit CobConverterAlgorithm(CobConverterConfig config);
+    explicit CobConverterAlgorithm(const CobConverterConfig& config);
 
     void setConfig(const CobConverterConfig& config);
     CobConverterOutput updateState(const CobConverterInput& input);
@@ -219,7 +239,7 @@ class CobConverterAlgorithm {
 
    private:
     void cobOutlierDetection(const CobConverterInput& input, CobConverterOutput& output);
-    void computeCameraParameters(const CobConverterInput& input);
+    void computeCameraParameters();
     void computeRotations(const CobConverterInput& input);
     void computePhaseAngleCorrection(const CobConverterInput& input);
     std::tuple<Eigen::Vector3f, Eigen::Vector3f> computeCentersOfInterest(const CobConverterInput& input) const;

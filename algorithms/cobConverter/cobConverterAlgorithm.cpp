@@ -4,7 +4,6 @@
 #include "utilities/fsw/timeConstants.h"
 #include <math.h>
 #include <numbers>
-#include <utility>
 
 // Binary phase-angle correction factor (binarized image model)
 static constexpr float kBinaryPhaseCoeff = 4.0F / (3.0F * std::numbers::pi_v<float>);
@@ -39,13 +38,16 @@ Eigen::Matrix3f computeTotalCobCovariance(const Eigen::Matrix3f& covarNav_N,
  * @brief Construct a CobConverterAlgorithm.
  * @param config Validated configuration parameters.
  */
-CobConverterAlgorithm::CobConverterAlgorithm(CobConverterConfig config) : cfg(std::move(config)) {}
+CobConverterAlgorithm::CobConverterAlgorithm(const CobConverterConfig& config) : cfg(config) { setConfig(config); }
 
 /**
  * @brief Replace the algorithm's configuration.
  * @param config Validated configuration parameters.
  */
-void CobConverterAlgorithm::setConfig(const CobConverterConfig& config) { this->cfg = config; }
+void CobConverterAlgorithm::setConfig(const CobConverterConfig& config) {
+    this->cfg = config;
+    this->computeCameraParameters();
+}
 
 /**
  * @brief Compute camera calibration matrix and camera in body DCM
@@ -55,9 +57,11 @@ void CobConverterAlgorithm::setConfig(const CobConverterConfig& config) { this->
  *  - Camera calibration matrix K and its inverse
  *  - Pixel scale, IFOV, and other camera parameters
  *
- * @param input Camera model specifications.
+ * Uses the camera model stored in the current config. Invoked from setConfig() (and thus from
+ * the constructor, which delegates to it) whenever the config changes; not called per update
+ * cycle since these values are invariant between config changes.
  */
-void CobConverterAlgorithm::computeCameraParameters(const CobConverterInput& input) {
+void CobConverterAlgorithm::computeCameraParameters() {
     // apply the mrpToDcm in double precision
     const Eigen::Vector3d bodyToCameraMrpD = this->cfg.getBodyToCameraMrp().cast<double>();
     this->dcm_CB = mrpToDcm(bodyToCameraMrpD).cast<float>();
@@ -299,8 +303,9 @@ void CobConverterAlgorithm::populateOutputMessages(
 /**
  * @brief Update step: convert pixel-based COB into unit vectors and return all outputs.
  *
- * Computes camera parameters, rotations, optional phase-angle correction,
- * outlier detection, and populates a CobConverterOutput struct.
+ * Computes rotations, optional phase-angle correction, outlier detection, and populates a
+ * CobConverterOutput struct. Camera parameters are precomputed by setConfig() and are not
+ * recomputed per cycle.
  *
  * @param input All input message payloads bundled as a CobConverterInput.
  * @return Populated CobConverterOutput (zeroed if input.cobValid is false or input.cobPixelsFound is zero).
@@ -309,7 +314,6 @@ CobConverterOutput CobConverterAlgorithm::updateState(const CobConverterInput& i
     CobConverterOutput output;
 
     if (input.cobValid && input.cobPixelsFound != 0) {
-        this->computeCameraParameters(input);
         this->computeRotations(input);
 
         // Phase angle correction
