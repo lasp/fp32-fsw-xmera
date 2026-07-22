@@ -112,3 +112,20 @@ TEST(TriadTest, ZeroThrustDirectionReturnsZero) {
         EXPECT_NEAR(result(i), 0.0F, 1e-6F);
     }
 }
+
+// When the Sun direction message is zero, the zero MRP is returned
+TEST(TriadTest, ZeroSunDirectionReturnsZero) {
+    const Eigen::Vector3f rHat_SB_N = Eigen::Vector3f::Zero();
+    const Eigen::Vector3f thrustHat_B = Eigen::Vector3f::UnitX();
+    const Eigen::Vector3f sadaHat_B = Eigen::Vector3f::UnitY();
+    const Eigen::Vector3f thrustReqHat_N = Eigen::Vector3f::UnitZ();
+    const float signOfN3Hat_N = 1.0F;
+
+    auto config = TriadConfig::create(sadaHat_B, thrustReqHat_N, signOfN3Hat_N);
+    TriadAlgorithm alg(config);
+
+    auto result = alg.update(rHat_SB_N, thrustHat_B);
+    for (int i = 0; i < 3; ++i) {
+        EXPECT_NEAR(result(i), 0.0F, 1e-6F);
+    }
+}
