@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: ISC
 // Copyright (c) 2026, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
 
-%module twoAxisGimbalAxisToMotorAnglesF32
+%module gimbalAxisToMotorAnglesF32
 %{
-    #include "twoAxisGimbalAxisToMotorAngles.h"
+    #include "gimbalAxisToMotorAngles.h"
 %}
 
 %include <std_string.i>
@@ -12,13 +12,13 @@
 %include <swig_eigen.i>
 %include <sys_model.i>
 
-%include "twoAxisGimbalAxisToMotorAnglesTypes.h"
+%include "gimbalAxisToMotorAnglesTypes.h"
 
 %template(GimbalMotorTableRow) std::array<float, 76>;
 %template(GimbalMotorTable2D) std::array<std::array<float, 76>, 111>;
 
-%include "twoAxisGimbalAxisToMotorAnglesAlgorithm.h"
-%include "twoAxisGimbalAxisToMotorAngles.h"
+%include "gimbalAxisToMotorAnglesAlgorithm.h"
+%include "gimbalAxisToMotorAngles.h"
 
 %include "msgPayloadDef/BodyHeadingMsgF32Payload.h"
 %include "msgPayloadDef/HingedRigidBodyMsgF32Payload.h"

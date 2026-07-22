@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: ISC
 // Copyright (c) 2026, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
 
-#ifndef F32XMERA_TWO_AXIS_GIMBAL_AXIS_TO_MOTOR_ANGLES_ALGORITHM_H
-#define F32XMERA_TWO_AXIS_GIMBAL_AXIS_TO_MOTOR_ANGLES_ALGORITHM_H
+#ifndef F32XMERA_GIMBAL_AXIS_TO_MOTOR_ANGLES_ALGORITHM_H
+#define F32XMERA_GIMBAL_AXIS_TO_MOTOR_ANGLES_ALGORITHM_H
 
 #include <math.h>
 #include <Eigen/Core>
 #include <array>
 #include <numbers>
 
-#include "twoAxisGimbalAxisToMotorAnglesTypes.h"
+#include "gimbalAxisToMotorAnglesTypes.h"
 #include "utilities/fsw/freestandingInvalidArgument.h"
 #include "utilities/fsw/validDcmCheck.h"
 
@@ -26,21 +26,21 @@ struct MotorAngles {
 //!< Gimbal-to-motor interpolation table storage type
 using GimbalMotorTable = std::array<std::array<float, NUM_GIMBAL_TO_MOTOR_TABLE_COLS>, NUM_GIMBAL_TO_MOTOR_TABLE_ROWS>;
 
-/*! @brief Validated configuration for TwoAxisGimbalAxisToMotorAnglesAlgorithm. Holds the gimbal
+/*! @brief Validated configuration for GimbalAxisToMotorAnglesAlgorithm. Holds the gimbal
  * mount-frame DCM and the two gimbal-to-motor interpolation tables. */
-class TwoAxisGimbalAxisToMotorAnglesConfig final {
+class GimbalAxisToMotorAnglesConfig final {
    public:
-    static TwoAxisGimbalAxisToMotorAnglesConfig create(const Eigen::Matrix3f& dcm_MB,
-                                                       const GimbalMotorTable& gimbalToMotor1Data,
-                                                       const GimbalMotorTable& gimbalToMotor2Data) {
+    static GimbalAxisToMotorAnglesConfig create(const Eigen::Matrix3f& dcm_MB,
+                                                const GimbalMotorTable& gimbalToMotor1Data,
+                                                const GimbalMotorTable& gimbalToMotor2Data) {
         if (!isValidDcmMB(dcm_MB)) {
-            FSW_THROW_INVALID_ARGUMENT("twoAxisGimbalAxisToMotorAngles: dcm_MB must be a valid DCM");
+            FSW_THROW_INVALID_ARGUMENT("gimbalAxisToMotorAngles: dcm_MB must be a valid DCM");
         }
         if (!isValidTable(gimbalToMotor1Data)) {
-            FSW_THROW_INVALID_ARGUMENT("twoAxisGimbalAxisToMotorAngles: gimbalToMotor1Data must be finite");
+            FSW_THROW_INVALID_ARGUMENT("gimbalAxisToMotorAngles: gimbalToMotor1Data must be finite");
         }
         if (!isValidTable(gimbalToMotor2Data)) {
-            FSW_THROW_INVALID_ARGUMENT("twoAxisGimbalAxisToMotorAngles: gimbalToMotor2Data must be finite");
+            FSW_THROW_INVALID_ARGUMENT("gimbalAxisToMotorAngles: gimbalToMotor2Data must be finite");
         }
         return {dcm_MB, gimbalToMotor1Data, gimbalToMotor2Data};
     }
@@ -63,9 +63,9 @@ class TwoAxisGimbalAxisToMotorAnglesConfig final {
     const GimbalMotorTable& getGimbalToMotor2Data() const { return this->gimbalToMotor2Data; }
 
    private:
-    TwoAxisGimbalAxisToMotorAnglesConfig(const Eigen::Matrix3f& dcm_MB,
-                                         const GimbalMotorTable& gimbalToMotor1Data,
-                                         const GimbalMotorTable& gimbalToMotor2Data)
+    GimbalAxisToMotorAnglesConfig(const Eigen::Matrix3f& dcm_MB,
+                                  const GimbalMotorTable& gimbalToMotor1Data,
+                                  const GimbalMotorTable& gimbalToMotor2Data)
         : dcm_MB(dcm_MB), gimbalToMotor1Data(gimbalToMotor1Data), gimbalToMotor2Data(gimbalToMotor2Data) {}
 
     Eigen::Matrix3f dcm_MB;               //!< DCM from body frame to gimbal mount frame
@@ -76,13 +76,13 @@ class TwoAxisGimbalAxisToMotorAnglesConfig final {
 /*! @brief Pure algorithm: converts a commanded body-frame thrust direction into the gimbal
  * sequential tip and tilt angles and interpolates the corresponding stepper motor angles from the
  * gimbal-to-motor lookup tables. */
-class TwoAxisGimbalAxisToMotorAnglesAlgorithm final {
+class GimbalAxisToMotorAnglesAlgorithm final {
    public:
-    explicit TwoAxisGimbalAxisToMotorAnglesAlgorithm(const TwoAxisGimbalAxisToMotorAnglesConfig& config);
+    explicit GimbalAxisToMotorAnglesAlgorithm(const GimbalAxisToMotorAnglesConfig& config);
 
-    void setConfig(const TwoAxisGimbalAxisToMotorAnglesConfig& config);  //!< Runtime reconfiguration
+    void setConfig(const GimbalAxisToMotorAnglesConfig& config);  //!< Runtime reconfiguration
 
-    TwoAxisGimbalAxisToMotorAnglesOutput update(
+    GimbalAxisToMotorAnglesOutput update(
         const Eigen::Vector3f& thrustDirHat_B) const;  //!< Determine the gimbal and motor angles for a thrust direction
 
    private:
@@ -102,7 +102,7 @@ class TwoAxisGimbalAxisToMotorAnglesAlgorithm final {
         1e-3F;  //!< Tolerance for treating a normalized gimbal angle as landing exactly on a table node
 
     float tableStepAngle{kTableStepAngleDeg * DEG2RAD};  //!< [rad] Interpolation table motor discretization angle
-    TwoAxisGimbalAxisToMotorAnglesConfig cfg;            //!< Validated configuration (DCM + interpolation tables)
+    GimbalAxisToMotorAnglesConfig cfg;                   //!< Validated configuration (DCM + interpolation tables)
 };
 
-#endif /* F32XMERA_TWO_AXIS_GIMBAL_AXIS_TO_MOTOR_ANGLES_ALGORITHM_H */
+#endif /* F32XMERA_GIMBAL_AXIS_TO_MOTOR_ANGLES_ALGORITHM_H */

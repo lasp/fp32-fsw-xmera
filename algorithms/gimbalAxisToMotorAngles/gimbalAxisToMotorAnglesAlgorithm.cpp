@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: ISC
 // Copyright (c) 2026, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
 
-#include "twoAxisGimbalAxisToMotorAnglesAlgorithm.h"
+#include "gimbalAxisToMotorAnglesAlgorithm.h"
 
 #include <math.h>
 
@@ -15,8 +15,7 @@ const int tiltAngleIdxOffset = 55;
 /*! Algorithm constructor.
  @param config Validated configuration (DCM and gimbal-to-motor interpolation tables)
 */
-TwoAxisGimbalAxisToMotorAnglesAlgorithm::TwoAxisGimbalAxisToMotorAnglesAlgorithm(
-    const TwoAxisGimbalAxisToMotorAnglesConfig& config)
+GimbalAxisToMotorAnglesAlgorithm::GimbalAxisToMotorAnglesAlgorithm(const GimbalAxisToMotorAnglesConfig& config)
     : cfg(config) {
     setConfig(config);
 }
@@ -24,17 +23,14 @@ TwoAxisGimbalAxisToMotorAnglesAlgorithm::TwoAxisGimbalAxisToMotorAnglesAlgorithm
 /*! Replaces the algorithm's configuration for runtime reconfiguration.
  @param config Validated configuration (DCM and gimbal-to-motor interpolation tables)
 */
-void TwoAxisGimbalAxisToMotorAnglesAlgorithm::setConfig(const TwoAxisGimbalAxisToMotorAnglesConfig& config) {
-    this->cfg = config;
-}
+void GimbalAxisToMotorAnglesAlgorithm::setConfig(const GimbalAxisToMotorAnglesConfig& config) { this->cfg = config; }
 
 /*! This method determines the gimbal sequential tip and tilt angles corresponding to the given thrust direction vector
 in spacecraft body frame components, then interpolates the corresponding stepper motor angles.
- @return TwoAxisGimbalAxisToMotorAnglesOutput
+ @return GimbalAxisToMotorAnglesOutput
  @param thrustDirHat_B Commanded thrust direction unit vector in body frame components
 */
-TwoAxisGimbalAxisToMotorAnglesOutput TwoAxisGimbalAxisToMotorAnglesAlgorithm::update(
-    const Eigen::Vector3f& thrustDirHat_B) const {
+GimbalAxisToMotorAnglesOutput GimbalAxisToMotorAnglesAlgorithm::update(const Eigen::Vector3f& thrustDirHat_B) const {
     // Convert the commanded thrust direction vector to gimbal mount frame (hub-fixed) components
     const Eigen::Vector3f thrustDirHat_M = this->cfg.getDcmMB() * thrustDirHat_B;
 
@@ -45,7 +41,7 @@ TwoAxisGimbalAxisToMotorAnglesOutput TwoAxisGimbalAxisToMotorAnglesAlgorithm::up
     // Interpolate the motor angles given the gimbal angles
     const MotorAngles motorAngles = this->gimbalAnglesToMotorAngles(gimbalTipAngle, gimbalTiltAngle);
 
-    TwoAxisGimbalAxisToMotorAnglesOutput output{};
+    GimbalAxisToMotorAnglesOutput output{};
     output.gimbalTipAngle = gimbalTipAngle;
     output.gimbalTiltAngle = gimbalTiltAngle;
     output.motorAngle1 = motorAngles.angle1;
@@ -60,8 +56,8 @@ TwoAxisGimbalAxisToMotorAnglesOutput TwoAxisGimbalAxisToMotorAnglesAlgorithm::up
  @param gimbalTipAngle [rad] Gimbal tip angle
  @param gimbalTiltAngle [rad] Gimbal tilt angle
 */
-MotorAngles TwoAxisGimbalAxisToMotorAnglesAlgorithm::gimbalAnglesToMotorAngles(const float gimbalTipAngle,
-                                                                               const float gimbalTiltAngle) const {
+MotorAngles GimbalAxisToMotorAnglesAlgorithm::gimbalAnglesToMotorAngles(const float gimbalTipAngle,
+                                                                        const float gimbalTiltAngle) const {
     MotorAngles motorAngles{};
     if (this->bilinearInterpolationRequired(gimbalTipAngle, gimbalTiltAngle)) {
         motorAngles = this->bilinearlyInterpolateAngles(gimbalTipAngle, gimbalTiltAngle);
@@ -81,7 +77,7 @@ MotorAngles TwoAxisGimbalAxisToMotorAnglesAlgorithm::gimbalAnglesToMotorAngles(c
  @param gimbalAngle1 [rad]
  @param gimbalAngle2 [rad]
 */
-MotorAngles TwoAxisGimbalAxisToMotorAnglesAlgorithm::pullAngles(float gimbalAngle1, float gimbalAngle2) const {
+MotorAngles GimbalAxisToMotorAnglesAlgorithm::pullAngles(float gimbalAngle1, float gimbalAngle2) const {
     gimbalAngle1 += static_cast<float>(tipAngleIdxOffset) * this->tableStepAngle;
     gimbalAngle2 += static_cast<float>(tiltAngleIdxOffset) * this->tableStepAngle;
     const auto index1 = static_cast<int>(roundf(gimbalAngle1 / this->tableStepAngle));
@@ -103,8 +99,8 @@ MotorAngles TwoAxisGimbalAxisToMotorAnglesAlgorithm::pullAngles(float gimbalAngl
  @param gimbalAngle1 [rad]
  @param gimbalAngle2 [rad]
 */
-bool TwoAxisGimbalAxisToMotorAnglesAlgorithm::bilinearInterpolationRequired(const float gimbalAngle1,
-                                                                            const float gimbalAngle2) const {
+bool GimbalAxisToMotorAnglesAlgorithm::bilinearInterpolationRequired(const float gimbalAngle1,
+                                                                     const float gimbalAngle2) const {
     const float motor1Rounded = roundf(fabsf(gimbalAngle1 / this->tableStepAngle));
     const float motor1Exact = fabsf(gimbalAngle1 / this->tableStepAngle);
     const float motor1Remainder = fabsf(motor1Exact - motor1Rounded);
@@ -121,8 +117,8 @@ bool TwoAxisGimbalAxisToMotorAnglesAlgorithm::bilinearInterpolationRequired(cons
  @param gimbalAngle1 [rad]
  @param gimbalAngle2 [rad]
 */
-bool TwoAxisGimbalAxisToMotorAnglesAlgorithm::noInterpolationRequired(const float gimbalAngle1,
-                                                                      const float gimbalAngle2) const {
+bool GimbalAxisToMotorAnglesAlgorithm::noInterpolationRequired(const float gimbalAngle1,
+                                                               const float gimbalAngle2) const {
     const float motor1Rounded = roundf(fabsf(gimbalAngle1 / this->tableStepAngle));
     const float motor1Exact = fabsf(gimbalAngle1 / this->tableStepAngle);
     const float motor1Remainder = fabsf(motor1Exact - motor1Rounded);
@@ -138,7 +134,7 @@ bool TwoAxisGimbalAxisToMotorAnglesAlgorithm::noInterpolationRequired(const floa
  @return bool
  @param angle [rad]
 */
-bool TwoAxisGimbalAxisToMotorAnglesAlgorithm::linearInterpolationRequired(const float angle) const {
+bool GimbalAxisToMotorAnglesAlgorithm::linearInterpolationRequired(const float angle) const {
     const float rounded = roundf(fabsf(angle / this->tableStepAngle));
     const float exact = fabsf(angle / this->tableStepAngle);
     const float remainder = fabsf(exact - rounded);
@@ -153,8 +149,8 @@ invalid.
  @param gimbalAngle1 [rad]
  @param gimbalAngle2 [rad]
 */
-MotorAngles TwoAxisGimbalAxisToMotorAnglesAlgorithm::bilinearlyInterpolateAngles(const float gimbalAngle1,
-                                                                                 const float gimbalAngle2) const {
+MotorAngles GimbalAxisToMotorAnglesAlgorithm::bilinearlyInterpolateAngles(const float gimbalAngle1,
+                                                                          const float gimbalAngle2) const {
     // Find the upper and lower interpolation table angle bounds using the given angles
     const float gimbalAngle1LBound = this->tableStepAngle * floorf(gimbalAngle1 / this->tableStepAngle);
     const float gimbalAngle1UBound = this->tableStepAngle * ceilf(gimbalAngle1 / this->tableStepAngle);
@@ -221,9 +217,9 @@ used as the result.
  @param gimbalAngle2 [rad] Angle 2 for linear interpolation
  @param fixedAngle Angle that is fixed for linear interpolation
 */
-MotorAngles TwoAxisGimbalAxisToMotorAnglesAlgorithm::linearlyInterpolateAngles(const float gimbalAngle1,
-                                                                               const float gimbalAngle2,
-                                                                               const FixedAngle fixedAngle) const {
+MotorAngles GimbalAxisToMotorAnglesAlgorithm::linearlyInterpolateAngles(const float gimbalAngle1,
+                                                                        const float gimbalAngle2,
+                                                                        const FixedAngle fixedAngle) const {
     // Use the provided fixed angle to save the bounded angle (The bounded angle is the non-fixed angle)
     float boundedAngle{};
     if (fixedAngle == FixedAngle::ANGLE_1_FIXED) {
