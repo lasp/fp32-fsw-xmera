@@ -37,6 +37,8 @@ class CobConverter final : public SysModel {
     void reset(uint64_t currentSimNanos) override;
     void updateState(uint64_t currentSimNanos) override;
 
+    void reconfigure() const;
+
     // Phase 1: public config properties -- set before reset().
     PhaseAngleCorrectionMethod phaseAngleCorrectionMethod = PhaseAngleCorrectionMethod::NoCorrection;
     float radius = 0.0F;
@@ -65,6 +67,7 @@ class CobConverter final : public SysModel {
     ReadFunctor<NavAttMsgF32Payload> sunInMsg;
 
    private:
+    CobConverterConfig toConfig() const;
     std::unique_ptr<CobConverterAlgorithm> algorithm = nullptr;
 };
 

@@ -28,21 +28,38 @@ void CobConverter::reset(uint64_t currentSimNanos) {
         throw std::invalid_argument("CobConverter.opnavFilterInMsg: numberOfStates must be 6.");
     }
 
-    const auto config = CobConverterConfig::create(enumMap.at(this->phaseAngleCorrectionMethod),
-                                                   this->radius,
-                                                   this->radiusUncertainty,
-                                                   this->attitudeCovariance,
-                                                   this->numStandardDeviations,
-                                                   this->standardDeviation,
-                                                   this->specifiedStandardDeviation,
-                                                   this->outlierDetectionEnabled,
-                                                   this->calibrationCoefficients,
-                                                   this->cameraId,
-                                                   this->fieldOfView,
-                                                   this->resolutionX,
-                                                   this->resolutionY,
-                                                   this->bodyToCameraMrp);
-    this->algorithm = std::make_unique<CobConverterAlgorithm>(config);
+    this->algorithm = std::make_unique<CobConverterAlgorithm>(this->toConfig());
+}
+
+/**
+ * @brief Build a validated CobConverterConfig from the adapter's stored properties.
+ * @return CobConverterConfig validated configuration.
+ */
+CobConverterConfig CobConverter::toConfig() const {
+    return CobConverterConfig::create(enumMap.at(this->phaseAngleCorrectionMethod),
+                                      this->radius,
+                                      this->radiusUncertainty,
+                                      this->attitudeCovariance,
+                                      this->numStandardDeviations,
+                                      this->standardDeviation,
+                                      this->specifiedStandardDeviation,
+                                      this->outlierDetectionEnabled,
+                                      this->calibrationCoefficients,
+                                      this->cameraId,
+                                      this->fieldOfView,
+                                      this->resolutionX,
+                                      this->resolutionY,
+                                      this->bodyToCameraMrp);
+}
+
+/**
+ * @brief Push a fresh configuration into the algorithm without reconstructing it.
+ */
+void CobConverter::reconfigure() const {
+    if (!this->algorithm) {
+        throw XmeraLifecycleException("CobConverter reset() has not been called.");
+    }
+    this->algorithm->setConfig(this->toConfig());
 }
 
 /**
