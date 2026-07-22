@@ -32,18 +32,18 @@ using GimbalToMotorAngleTable =
 class GimbalAxisToMotorAnglesConfig final {
    public:
     static GimbalAxisToMotorAnglesConfig create(const Eigen::Matrix3f& dcm_MB,
-                                                const GimbalToMotorAngleTable& gimbalToMotor1Data,
-                                                const GimbalToMotorAngleTable& gimbalToMotor2Data) {
+                                                const GimbalToMotorAngleTable& gimbalToMotor1AngleTable,
+                                                const GimbalToMotorAngleTable& gimbalToMotor2AngleTable) {
         if (!isValidDcmMB(dcm_MB)) {
             FSW_THROW_INVALID_ARGUMENT("gimbalAxisToMotorAngles: dcm_MB must be a valid DCM");
         }
-        if (!isValidTable(gimbalToMotor1Data)) {
-            FSW_THROW_INVALID_ARGUMENT("gimbalAxisToMotorAngles: gimbalToMotor1Data must be finite");
+        if (!isValidTable(gimbalToMotor1AngleTable)) {
+            FSW_THROW_INVALID_ARGUMENT("gimbalAxisToMotorAngles: gimbalToMotor1AngleTable must be finite");
         }
-        if (!isValidTable(gimbalToMotor2Data)) {
-            FSW_THROW_INVALID_ARGUMENT("gimbalAxisToMotorAngles: gimbalToMotor2Data must be finite");
+        if (!isValidTable(gimbalToMotor2AngleTable)) {
+            FSW_THROW_INVALID_ARGUMENT("gimbalAxisToMotorAngles: gimbalToMotor2AngleTable must be finite");
         }
-        return {dcm_MB, gimbalToMotor1Data, gimbalToMotor2Data};
+        return {dcm_MB, gimbalToMotor1AngleTable, gimbalToMotor2AngleTable};
     }
 
     static bool isValidDcmMB(const Eigen::Matrix3f& dcm_MB) { return isValidDcm(dcm_MB); }
@@ -60,18 +60,20 @@ class GimbalAxisToMotorAnglesConfig final {
     }
 
     const Eigen::Matrix3f& getDcmMB() const { return this->dcm_MB; }
-    const GimbalToMotorAngleTable& getGimbalToMotor1Data() const { return this->gimbalToMotor1Data; }
-    const GimbalToMotorAngleTable& getGimbalToMotor2Data() const { return this->gimbalToMotor2Data; }
+    const GimbalToMotorAngleTable& getGimbalToMotor1AngleTable() const { return this->gimbalToMotor1AngleTable; }
+    const GimbalToMotorAngleTable& getGimbalToMotor2AngleTable() const { return this->gimbalToMotor2AngleTable; }
 
    private:
     GimbalAxisToMotorAnglesConfig(const Eigen::Matrix3f& dcm_MB,
-                                  const GimbalToMotorAngleTable& gimbalToMotor1Data,
-                                  const GimbalToMotorAngleTable& gimbalToMotor2Data)
-        : dcm_MB(dcm_MB), gimbalToMotor1Data(gimbalToMotor1Data), gimbalToMotor2Data(gimbalToMotor2Data) {}
+                                  const GimbalToMotorAngleTable& gimbalToMotor1AngleTable,
+                                  const GimbalToMotorAngleTable& gimbalToMotor2AngleTable)
+        : dcm_MB(dcm_MB),
+          gimbalToMotor1AngleTable(gimbalToMotor1AngleTable),
+          gimbalToMotor2AngleTable(gimbalToMotor2AngleTable) {}
 
-    Eigen::Matrix3f dcm_MB;                      //!< DCM from body frame to gimbal mount frame
-    GimbalToMotorAngleTable gimbalToMotor1Data;  //!< [rad] Gimbal-to-motor 1 angle interpolation table
-    GimbalToMotorAngleTable gimbalToMotor2Data;  //!< [rad] Gimbal-to-motor 2 angle interpolation table
+    Eigen::Matrix3f dcm_MB;                            //!< DCM from body frame to gimbal mount frame
+    GimbalToMotorAngleTable gimbalToMotor1AngleTable;  //!< [rad] Gimbal-to-motor 1 angle interpolation table
+    GimbalToMotorAngleTable gimbalToMotor2AngleTable;  //!< [rad] Gimbal-to-motor 2 angle interpolation table
 };
 
 /*! @brief Pure algorithm: converts a commanded body-frame thrust direction into the gimbal

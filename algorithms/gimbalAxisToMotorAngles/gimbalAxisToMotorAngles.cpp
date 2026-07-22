@@ -19,14 +19,15 @@ void GimbalAxisToMotorAngles::reset(uint64_t currentSimNanos) {
         throw std::invalid_argument("gimbalAxisToMotorAngles.thrustDirectionInMsg wasn't connected.");
     }
 
-    const auto config =
-        GimbalAxisToMotorAnglesConfig::create(this->dcm_MB, this->gimbalToMotor1Data, this->gimbalToMotor2Data);
+    const auto config = GimbalAxisToMotorAnglesConfig::create(
+        this->dcm_MB, this->gimbalToMotor1AngleTable, this->gimbalToMotor2AngleTable);
     this->algorithm = std::make_unique<GimbalAxisToMotorAnglesAlgorithm>(config);
     this->previousWrittenTime = -1.0;
 }
 
 GimbalAxisToMotorAnglesConfig GimbalAxisToMotorAngles::toConfig() const {
-    return GimbalAxisToMotorAnglesConfig::create(this->dcm_MB, this->gimbalToMotor1Data, this->gimbalToMotor2Data);
+    return GimbalAxisToMotorAnglesConfig::create(
+        this->dcm_MB, this->gimbalToMotor1AngleTable, this->gimbalToMotor2AngleTable);
 }
 
 void GimbalAxisToMotorAngles::reconfigure() const {

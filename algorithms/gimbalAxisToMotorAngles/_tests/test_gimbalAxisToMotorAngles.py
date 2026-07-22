@@ -81,8 +81,8 @@ def test_gimbal_axis_to_motor_angles(gimbal_tip_angle_ref, gimbal_tilt_angle_ref
     # Create and configure the module under test
     gimbal_controller = gimbalAxisToMotorAnglesF32.GimbalAxisToMotorAngles()
     gimbal_controller.modelTag = "twoAxisGimbalController"
-    gimbal_controller.gimbalToMotor1Data = to_swig_table(gimbal_to_motor_1_table)
-    gimbal_controller.gimbalToMotor2Data = to_swig_table(gimbal_to_motor_2_table)
+    gimbal_controller.gimbalToMotor1AngleTable = to_swig_table(gimbal_to_motor_1_table)
+    gimbal_controller.gimbalToMotor2AngleTable = to_swig_table(gimbal_to_motor_2_table)
     gimbal_controller.dcm_MB = dcm_mb.tolist()
     gimbal_controller.thrustDirectionInMsg.subscribeTo(thrust_direction_message)
     unit_test_sim.AddModelToTask(unit_task_name, gimbal_controller)

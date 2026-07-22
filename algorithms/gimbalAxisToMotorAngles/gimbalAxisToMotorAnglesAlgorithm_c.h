@@ -12,14 +12,14 @@ typedef struct GimbalAxisToMotorAnglesAlgorithmHandle GimbalAxisToMotorAnglesAlg
 
 /** @brief Construct a new algorithm instance from a validated configuration.
  *  @param dcm_MB             [3][3] DCM from body frame to gimbal mount frame (row-major).
- *  @param gimbalToMotor1Data Gimbal-to-motor 1 angle interpolation table.
- *  @param gimbalToMotor2Data Gimbal-to-motor 2 angle interpolation table.
+ *  @param gimbalToMotor1AngleTable Gimbal-to-motor 1 angle interpolation table.
+ *  @param gimbalToMotor2AngleTable Gimbal-to-motor 2 angle interpolation table.
  *  @return Pointer to a new instance (must be destroyed).
  */
 GimbalAxisToMotorAnglesAlgorithmHandle* GimbalAxisToMotorAnglesAlgorithm_create(
     const float dcm_MB[3][3],
-    const GimbalToMotorAngleTable_c* gimbalToMotor1Data,
-    const GimbalToMotorAngleTable_c* gimbalToMotor2Data);
+    const GimbalToMotorAngleTable_c* gimbalToMotor1AngleTable,
+    const GimbalToMotorAngleTable_c* gimbalToMotor2AngleTable);
 
 /** @brief Destroy a previously created instance.
  *  @param self Pointer to the instance to destroy.
@@ -29,13 +29,13 @@ void GimbalAxisToMotorAnglesAlgorithm_destroy(GimbalAxisToMotorAnglesAlgorithmHa
 /** @brief Replace the algorithm's configuration for runtime reconfiguration.
  *  @param self               Pointer to the instance.
  *  @param dcm_MB             [3][3] DCM from body frame to gimbal mount frame (row-major).
- *  @param gimbalToMotor1Data Gimbal-to-motor 1 angle interpolation table.
- *  @param gimbalToMotor2Data Gimbal-to-motor 2 angle interpolation table.
+ *  @param gimbalToMotor1AngleTable Gimbal-to-motor 1 angle interpolation table.
+ *  @param gimbalToMotor2AngleTable Gimbal-to-motor 2 angle interpolation table.
  */
 void GimbalAxisToMotorAnglesAlgorithm_setConfig(GimbalAxisToMotorAnglesAlgorithmHandle* self,
                                                 const float dcm_MB[3][3],
-                                                const GimbalToMotorAngleTable_c* gimbalToMotor1Data,
-                                                const GimbalToMotorAngleTable_c* gimbalToMotor2Data);
+                                                const GimbalToMotorAngleTable_c* gimbalToMotor1AngleTable,
+                                                const GimbalToMotorAngleTable_c* gimbalToMotor2AngleTable);
 
 /** @brief Determine the gimbal and motor angles for a commanded body-frame thrust direction.
  *  @param self           Pointer to the instance.

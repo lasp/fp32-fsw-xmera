@@ -83,8 +83,8 @@ MotorAngles GimbalAxisToMotorAnglesAlgorithm::pullAngles(float gimbalAngle1, flo
     const auto index1 = static_cast<int>(roundf(gimbalAngle1 / this->tableStepAngle));
     const auto index2 = static_cast<int>(roundf(gimbalAngle2 / this->tableStepAngle));
 
-    const float motor1Angle = this->cfg.getGimbalToMotor1Data()[index2][index1];
-    const float motor2Angle = this->cfg.getGimbalToMotor2Data()[index2][index1];
+    const float motor1Angle = this->cfg.getGimbalToMotor1AngleTable()[index2][index1];
+    const float motor2Angle = this->cfg.getGimbalToMotor2AngleTable()[index2][index1];
 
     MotorAngles motorAngles{};
     motorAngles.angle1 = motor1Angle;
