@@ -10,7 +10,7 @@
  @return void
  @param callTime The clock time at which the function was called (nanoseconds)
  */
-void DvExecuteGuidance::reset(uint64_t callTime) {
+void DvExecuteGuidance::reset(const uint64_t callTime) {
     // check if the required input messages are included
     if (!this->navDataInMsg.isLinked()) {
         throw std::invalid_argument("dvExecuteGuidance.navDataInMsg wasn't connected.");
@@ -32,20 +32,13 @@ void DvExecuteGuidance::reset(uint64_t callTime) {
  @return void
  @param callTime The clock time at which the function was called (nanoseconds)
  */
-void DvExecuteGuidance::updateState(uint64_t callTime) {
+void DvExecuteGuidance::updateState(const uint64_t callTime) {
     double burnAccum[3];
-    double dvExecuteMag;
     double burnDt;
-    double dvMag;
-
-    NavTransMsgPayload navData;
-    DvBurnCmdMsgPayload localBurnData;
-    DvExecutionDataMsgPayload localExeData;
-    THRArrayOnTimeCmdMsgPayload effCmd;
 
     // read in messages
-    navData = this->navDataInMsg();
-    localBurnData = this->burnDataInMsg();
+    NavTransMsgPayload navData = this->navDataInMsg();
+    DvBurnCmdMsgPayload localBurnData = this->burnDataInMsg();
 
     /*! - The first time update() is called there is no information on the time step.
      *    Use control period (FSW time step) as burn time delta-t */
@@ -69,22 +62,20 @@ void DvExecuteGuidance::updateState(uint64_t callTime) {
 
     v3Subtract(navData.vehAccumDV, this->dvInit, burnAccum);
 
-    dvMag = v3Norm(localBurnData.dvInrtlCmd);
-    dvExecuteMag = v3Norm(burnAccum);
+    const double dvMag = v3Norm(localBurnData.dvInrtlCmd);
+    const double dvExecuteMag = v3Norm(burnAccum);
     this->burnComplete = this->burnComplete == 1 || dvExecuteMag >= dvMag;
     this->burnComplete &= this->burnTime > this->minTime;
     this->burnComplete |= (this->maxTime != 0.0 && this->burnTime > this->maxTime);
     this->burnExecuting = this->burnComplete != 1 && this->burnExecuting == 1;
 
     if (this->burnComplete || this->burnExecuting != 1) {
-        effCmd = {};
+        const THRArrayOnTimeCmdMsgPayload effCmd = {};
         this->thrCmdOutMsg.write(&effCmd, this->moduleID, callTime);
     }
 
-    localExeData = {};
+    DvExecutionDataMsgPayload localExeData = {};
     localExeData.burnComplete = this->burnComplete;
     localExeData.burnExecuting = this->burnExecuting;
     this->burnExecOutMsg.write(&localExeData, this->moduleID, callTime);
-
-    return;
 }
