@@ -21,9 +21,9 @@ class DvExecuteGuidance final : public SysModel {
     void reInitialize();  //!< state-transition hook (pass-through)
 
     // Phase 1: Public config properties — set before reset()
-    float minTime = 0.0F;              /*!< [s] Minimum burn time allowed to elapse */
-    float maxTime = 0.0F;              /*!< [s] Maximum burn time; 0 disables the maximum-time criterion */
-    float defaultControlPeriod = 2.0F; /*!< [s] Control period used for the first call */
+    float minTime = 0.0F;       /*!< [s] Minimum burn time allowed to elapse */
+    float maxTime = 0.0F;       /*!< [s] Maximum burn time; 0 disables the maximum-time criterion */
+    float controlPeriod = 0.0F; /*!< [s] Control period (FSW time step); must be set > 0 before reset() */
 
     ReadFunctor<NavTransMsgF32Payload>
         navDataInMsg; /*!< [-] navigation input message that includes dv accumulation info */

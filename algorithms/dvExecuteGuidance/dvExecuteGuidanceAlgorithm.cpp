@@ -1,5 +1,4 @@
 #include "dvExecuteGuidanceAlgorithm.h"
-#include "utilities/fsw/timeConstants.h"
 
 DvExecuteGuidanceAlgorithm::DvExecuteGuidanceAlgorithm(const DvExecuteGuidanceConfig& config) : cfg(config) {
     this->setConfig(config);
@@ -9,7 +8,6 @@ DvExecuteGuidanceAlgorithm::DvExecuteGuidanceAlgorithm(const DvExecuteGuidanceCo
 void DvExecuteGuidanceAlgorithm::setConfig(const DvExecuteGuidanceConfig& config) { this->cfg = config; }
 
 void DvExecuteGuidanceAlgorithm::reInitialize() {
-    this->prevCallTime = 0;
     this->burnExecuting = 0;
     this->burnComplete = 0;
     this->burnTime = 0.0F;
@@ -20,18 +18,8 @@ DvExecuteGuidanceOutput DvExecuteGuidanceAlgorithm::update(const uint64_t callTi
                                                            const Eigen::Vector3f& vehAccumDV,
                                                            const Eigen::Vector3f& dvInrtlCmd,
                                                            const uint64_t burnStartTime) {
-    float burnDt;
-
-    /*! - The first time update() is called there is no information on the time step.
-     *    Use control period (FSW time step) as burn time delta-t */
-    if (this->prevCallTime == 0) {
-        burnDt = this->cfg.getDefaultControlPeriod();
-    } else {
-        /*! - compute burn time delta-t (control time period) */
-        burnDt =
-            static_cast<float>(static_cast<int64_t>(callTime) - static_cast<int64_t>(this->prevCallTime)) * kNano2SecF;
-    }
-    this->prevCallTime = callTime;
+    /*! - the control period (FSW time step) is used as the burn time delta-t */
+    const float burnDt = this->cfg.getControlPeriod();
 
     if ((this->burnExecuting == 0 && callTime >= burnStartTime) && this->burnComplete != 1) {
         this->burnExecuting = 1;

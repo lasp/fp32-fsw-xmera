@@ -6,7 +6,7 @@
 #include <stdexcept>
 
 DvExecuteGuidanceConfig DvExecuteGuidance::toConfig() const {
-    return DvExecuteGuidanceConfig::create(this->minTime, this->maxTime, this->defaultControlPeriod);
+    return DvExecuteGuidanceConfig::create(this->minTime, this->maxTime, this->controlPeriod);
 }
 
 /*! @brief This resets the module.

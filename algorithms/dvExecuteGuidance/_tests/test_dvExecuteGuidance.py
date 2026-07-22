@@ -64,7 +64,7 @@ def test_dvExecuteGuidance(show_plots, p1_dv, p2_tmin, p3_tmax, p4_tstart):
     unitTestSim.AddModelToTask(unitTaskName, module)
 
     # Initialize the test module configuration data
-    module.defaultControlPeriod = updateRate
+    module.controlPeriod = updateRate
     module.minTime = p2_tmin
     module.maxTime = p3_tmax
 

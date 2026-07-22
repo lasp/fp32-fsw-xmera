@@ -2,7 +2,7 @@
 #define F32XMERA_DV_EXECUTE_GUIDANCE_ALGORITHM_H
 
 #include "utilities/fsw/freestandingInvalidArgument.h"
-#include <math.h>
+#include "utilities/fsw/freestandingIsFinite.hpp"
 #include <stdint.h>
 #include <Eigen/Core>
 
@@ -18,36 +18,36 @@ struct DvExecuteGuidanceOutput {
 /// enforces the parameter constraints and throws fsw::invalid_argument on a violation.
 class DvExecuteGuidanceConfig final {
    public:
-    static DvExecuteGuidanceConfig create(float minTime, float maxTime, float defaultControlPeriod) {
+    static DvExecuteGuidanceConfig create(float minTime, float maxTime, float controlPeriod) {
         if (!isValidMinTime(minTime)) {
             FSW_THROW_INVALID_ARGUMENT("dvExecuteGuidance: minTime must be non-negative and finite.");
         }
         if (!isValidMaxTime(maxTime)) {
             FSW_THROW_INVALID_ARGUMENT("dvExecuteGuidance: maxTime must be non-negative and finite.");
         }
-        if (!isValidDefaultControlPeriod(defaultControlPeriod)) {
-            FSW_THROW_INVALID_ARGUMENT("dvExecuteGuidance: defaultControlPeriod must be positive and finite.");
+        if (!isValidControlPeriod(controlPeriod)) {
+            FSW_THROW_INVALID_ARGUMENT("dvExecuteGuidance: controlPeriod must be positive and finite.");
         }
-        return {minTime, maxTime, defaultControlPeriod};
+        return {minTime, maxTime, controlPeriod};
     }
 
-    static bool isValidMinTime(float minTime) { return minTime >= 0.0F && isfinite(minTime) != 0; }
-    static bool isValidMaxTime(float maxTime) { return maxTime >= 0.0F && isfinite(maxTime) != 0; }
-    static bool isValidDefaultControlPeriod(float defaultControlPeriod) {
-        return defaultControlPeriod > 0.0F && isfinite(defaultControlPeriod) != 0;
+    static bool isValidMinTime(float minTime) { return minTime >= 0.0F && fsw::is_finite(minTime); }
+    static bool isValidMaxTime(float maxTime) { return maxTime >= 0.0F && fsw::is_finite(maxTime); }
+    static bool isValidControlPeriod(float controlPeriod) {
+        return controlPeriod > 0.0F && fsw::is_finite(controlPeriod);
     }
 
     float getMinTime() const { return minTime; }
     float getMaxTime() const { return maxTime; }
-    float getDefaultControlPeriod() const { return defaultControlPeriod; }
+    float getControlPeriod() const { return controlPeriod; }
 
    private:
-    DvExecuteGuidanceConfig(float minTime, float maxTime, float defaultControlPeriod)
-        : minTime(minTime), maxTime(maxTime), defaultControlPeriod(defaultControlPeriod) {}
+    DvExecuteGuidanceConfig(float minTime, float maxTime, float controlPeriod)
+        : minTime(minTime), maxTime(maxTime), controlPeriod(controlPeriod) {}
 
     float minTime;
     float maxTime;
-    float defaultControlPeriod;
+    float controlPeriod;
 };
 
 /// Executes a delta-V burn: compares the accumulated delta-V against the commanded delta-V and,
@@ -80,7 +80,6 @@ class DvExecuteGuidanceAlgorithm final {
     uint32_t burnExecuting{};                          ///< [-] burn currently in progress
     uint32_t burnComplete{};                           ///< [-] burn has completed
     float burnTime{};                                  ///< [s] elapsed burn time
-    uint64_t prevCallTime{};                           ///< [ns] previous call time, for the time step
 };
 
 #endif
