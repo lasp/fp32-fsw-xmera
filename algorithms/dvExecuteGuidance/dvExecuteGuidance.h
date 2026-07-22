@@ -10,19 +10,20 @@
 #include <architecture/messaging/messaging.h>
 
 #include <stdint.h>
+#include <memory>
 
 /*! @brief Top level structure for the execution of a Delta-V maneuver */
-class DvExecuteGuidance : public SysModel {
+class DvExecuteGuidance final : public SysModel {
    public:
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
+    void reconfigure();   //!< push edited properties into the algorithm
+    void reInitialize();  //!< state-transition hook (pass-through)
 
-    void setMinTime(float minTime);
-    void setMaxTime(float maxTime);
-    void setDefaultControlPeriod(float defaultControlPeriod);
-    float getMinTime() const;
-    float getMaxTime() const;
-    float getDefaultControlPeriod() const;
+    // Phase 1: Public config properties — set before reset()
+    float minTime = 0.0F;              /*!< [s] Minimum burn time allowed to elapse */
+    float maxTime = 0.0F;              /*!< [s] Maximum burn time; 0 disables the maximum-time criterion */
+    float defaultControlPeriod = 2.0F; /*!< [s] Control period used for the first call */
 
     ReadFunctor<NavTransMsgF32Payload>
         navDataInMsg; /*!< [-] navigation input message that includes dv accumulation info */
@@ -31,13 +32,8 @@ class DvExecuteGuidance : public SysModel {
     Message<DvExecutionDataMsgF32Payload> burnExecOutMsg; /*!< [-] burn execution output message */
 
    private:
-    void rebuildAlgorithmConfig();
-
-    float minTime{};                   ///< [s] minimum burn time allowed to elapse before completion
-    float maxTime{};                   ///< [s] maximum burn time; 0 disables the maximum-time criterion
-    float defaultControlPeriod{2.0F};  ///< [s] control period used for the first call
-
-    DvExecuteGuidanceAlgorithm algorithm{DvExecuteGuidanceConfig::create(0.0F, 0.0F, 2.0F)};
+    DvExecuteGuidanceConfig toConfig() const;  //!< single source of truth for reset() + reconfigure()
+    std::unique_ptr<DvExecuteGuidanceAlgorithm> algorithm = nullptr;
 };
 
 #endif
