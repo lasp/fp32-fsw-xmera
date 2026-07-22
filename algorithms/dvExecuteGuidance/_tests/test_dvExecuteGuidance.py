@@ -9,7 +9,7 @@ filename = inspect.getframeinfo(inspect.currentframe()).filename
 path = os.path.dirname(os.path.abspath(filename))
 
 from xmera.utilities import SimulationBaseClass
-from xmera.fswAlgorithms import dvExecuteGuidance
+from xmera.fp32 import dvExecuteGuidanceF32
 from xmera.utilities import macros
 from xmera.architecture import messaging
 
@@ -57,7 +57,7 @@ def test_dvExecuteGuidance(show_plots, p1_dv, p2_tmin, p3_tmax, p4_tstart):
     testProc.addTask(unitTestSim.CreateNewTask(unitTaskName, testProcessRate))
 
     # Construct algorithm and associated C++ container
-    module = dvExecuteGuidance.DvExecuteGuidance()
+    module = dvExecuteGuidanceF32.DvExecuteGuidance()
     module.modelTag = "dvExecuteGuidance"
 
     # Add test module to runtime call list

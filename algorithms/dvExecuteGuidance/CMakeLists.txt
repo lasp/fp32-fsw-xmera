@@ -1,4 +1,4 @@
-set(module "fswAlgorithms.dvGuidance.dvExecuteGuidance")
+set(module "fp32.dvExecuteGuidanceF32")
 xmera_is_module_enabled("${module}" _is_enabled)
 if(NOT _is_enabled)
   return()
@@ -9,6 +9,12 @@ target_sources("${module}" PRIVATE
   dvExecuteGuidance.cpp
 )
 
+target_include_directories("${module}" PUBLIC
+  ".."
+  "../.."
+)
+
 target_link_libraries("${module}" PRIVATE
   ArchitectureUtilities
+  Eigen3::Eigen
 )

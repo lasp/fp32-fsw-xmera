@@ -1,5 +1,5 @@
-#ifndef _DV_EXECUTE_GUIDANCE_H_
-#define _DV_EXECUTE_GUIDANCE_H_
+#ifndef F32XMERA_DV_EXECUTE_GUIDANCE_H
+#define F32XMERA_DV_EXECUTE_GUIDANCE_H
 
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>

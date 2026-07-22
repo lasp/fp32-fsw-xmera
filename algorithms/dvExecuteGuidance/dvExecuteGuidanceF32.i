@@ -1,4 +1,4 @@
-%module dvExecuteGuidance
+%module dvExecuteGuidanceF32
 %{
    #include "dvExecuteGuidance.h"
 %}
