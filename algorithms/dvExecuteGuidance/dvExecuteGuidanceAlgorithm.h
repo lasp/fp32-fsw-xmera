@@ -1,6 +1,8 @@
 #ifndef F32XMERA_DV_EXECUTE_GUIDANCE_ALGORITHM_H
 #define F32XMERA_DV_EXECUTE_GUIDANCE_ALGORITHM_H
 
+#include "utilities/fsw/freestandingInvalidArgument.h"
+#include <math.h>
 #include <stdint.h>
 #include <Eigen/Core>
 
@@ -10,6 +12,42 @@ struct DvExecuteGuidanceOutput {
     uint32_t burnExecuting{};    ///< [-] flag indicating whether the burn is in progress
     uint32_t burnComplete{};     ///< [-] flag indicating whether the burn has completed
     bool commandThrustersOff{};  ///< [-] adapter should write a zeroed thruster on-time command this step
+};
+
+/// Validated, immutable configuration for the delta-V burn executor. Construct via create(), which
+/// enforces the parameter constraints and throws fsw::invalid_argument on a violation.
+class DvExecuteGuidanceConfig final {
+   public:
+    static DvExecuteGuidanceConfig create(float minTime, float maxTime, float defaultControlPeriod) {
+        if (!isValidMinTime(minTime)) {
+            FSW_THROW_INVALID_ARGUMENT("dvExecuteGuidance: minTime must be non-negative and finite.");
+        }
+        if (!isValidMaxTime(maxTime)) {
+            FSW_THROW_INVALID_ARGUMENT("dvExecuteGuidance: maxTime must be non-negative and finite.");
+        }
+        if (!isValidDefaultControlPeriod(defaultControlPeriod)) {
+            FSW_THROW_INVALID_ARGUMENT("dvExecuteGuidance: defaultControlPeriod must be positive and finite.");
+        }
+        return {minTime, maxTime, defaultControlPeriod};
+    }
+
+    static bool isValidMinTime(float minTime) { return minTime >= 0.0F && isfinite(minTime) != 0; }
+    static bool isValidMaxTime(float maxTime) { return maxTime >= 0.0F && isfinite(maxTime) != 0; }
+    static bool isValidDefaultControlPeriod(float defaultControlPeriod) {
+        return defaultControlPeriod > 0.0F && isfinite(defaultControlPeriod) != 0;
+    }
+
+    float getMinTime() const { return minTime; }
+    float getMaxTime() const { return maxTime; }
+    float getDefaultControlPeriod() const { return defaultControlPeriod; }
+
+   private:
+    DvExecuteGuidanceConfig(float minTime, float maxTime, float defaultControlPeriod)
+        : minTime(minTime), maxTime(maxTime), defaultControlPeriod(defaultControlPeriod) {}
+
+    float minTime;
+    float maxTime;
+    float defaultControlPeriod;
 };
 
 /// Executes a delta-V burn: compares the accumulated delta-V against the commanded delta-V and,
