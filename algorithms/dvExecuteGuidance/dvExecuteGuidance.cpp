@@ -6,6 +6,9 @@
 
 #include <stdexcept>
 
+//! Default control period [s] used for the first call when the user leaves defaultControlPeriod unset.
+static constexpr double kDefaultControlPeriodSeconds = 2.0;
+
 /*! @brief This resets the module.
  @return void
  @param callTime The clock time at which the function was called (nanoseconds)
@@ -23,7 +26,8 @@ void DvExecuteGuidance::reset(const uint64_t callTime) {
     /*! - use default value of 2 seconds for control period of first call if not specified.
      * Control period (FSW rate) is computed dynamically for any subsequent calls.
      */
-    this->defaultControlPeriod = (0.0 == this->defaultControlPeriod) ? 2.0 : this->defaultControlPeriod;
+    this->defaultControlPeriod =
+        (0.0 == this->defaultControlPeriod) ? kDefaultControlPeriodSeconds : this->defaultControlPeriod;
 }
 
 /*! This method compares the accumulated Delta-V against the commanded Delta-V and, once the burn is complete,
