@@ -1,31 +1,26 @@
-import inspect
 import itertools
-import os
 
 import numpy as np
 import pytest
 
-filename = inspect.getframeinfo(inspect.currentframe()).filename
-path = os.path.dirname(os.path.abspath(filename))
-
-from xmera.utilities import SimulationBaseClass
-from xmera.fp32 import dvExecuteGuidanceF32
-from xmera.utilities import macros
 from xmera.architecture import messaging
-
+from xmera.fp32 import dvExecuteGuidanceF32
+from xmera.utilities import SimulationBaseClass
+from xmera.utilities import macros
 
 # parameters
-dvMagnitude = [4.3, 5.0, 10.0]
-minTime = [0.0, 4.0]
-maxTime = [0.0, 3.0]
-startTime = [0.0, 1.0]
+dv_magnitude = [4.3, 5.0, 10.0]
+min_time = [0.0, 4.0]
+max_time = [0.0, 3.0]
+start_time = [0.0, 1.0]
 
-paramArray = [dvMagnitude, minTime, maxTime, startTime]
+param_array = [dv_magnitude, min_time, max_time, start_time]
 # create list with all combinations of parameters
-paramList = list(itertools.product(*paramArray))
+param_list = list(itertools.product(*param_array))
 
-@pytest.mark.parametrize("p1_dv, p2_tmin, p3_tmax, p4_tstart", paramList)
-def test_dvExecuteGuidance(show_plots, p1_dv, p2_tmin, p3_tmax, p4_tstart):
+
+@pytest.mark.parametrize("p1_dv, p2_tmin, p3_tmax, p4_tstart", param_list)
+def test_dv_execute_guidance(show_plots, p1_dv, p2_tmin, p3_tmax, p4_tstart):
     r"""
     **Validation Test Description**
 
@@ -46,125 +41,120 @@ def test_dvExecuteGuidance(show_plots, p1_dv, p2_tmin, p3_tmax, p4_tstart):
     The content of the THRArrayOnTimeCmdMsg and DvExecutionDataMsg output messages is compared with the true values.
     """
 
-    unitTaskName = "unitTask"
-    unitProcessName = "TestProcess"
+    task_name = "unitTask"
+    process_name = "TestProcess"
 
-    unitTestSim = SimulationBaseClass.SimBaseClass()
+    sim = SimulationBaseClass.SimBaseClass()
 
-    updateRate = 0.5
-    testProcessRate = macros.sec2nano(updateRate)
-    testProc = unitTestSim.CreateNewProcess(unitProcessName)
-    testProc.addTask(unitTestSim.CreateNewTask(unitTaskName, testProcessRate))
+    update_rate = 0.5
+    test_process_rate = macros.sec2nano(update_rate)
+    test_proc = sim.CreateNewProcess(process_name)
+    test_proc.addTask(sim.CreateNewTask(task_name, test_process_rate))
 
     # Construct algorithm and associated C++ container
     module = dvExecuteGuidanceF32.DvExecuteGuidance()
     module.modelTag = "dvExecuteGuidance"
 
     # Add test module to runtime call list
-    unitTestSim.AddModelToTask(unitTaskName, module)
+    sim.AddModelToTask(task_name, module)
 
     # Initialize the test module configuration data
-    module.controlPeriod = updateRate
+    module.controlPeriod = update_rate
     module.minTime = p2_tmin
     module.maxTime = p3_tmax
 
     # thruster information
-    numThrusters = 6
+    num_thrusters = 6
     acceleration_N = np.array([0.0, 0.0, 2.0])  # acceleration of spacecraft due to thrusters
 
     # Configure input messages
-    navTransMsgData = messaging.NavTransMsgF32Payload()
-    navTransMsgData.vehAccumDV = np.array([0.0, 0.0, 0.0])
-    navTransMsg = messaging.NavTransMsgF32().write(navTransMsgData)
+    nav_trans_msg_data = messaging.NavTransMsgF32Payload()
+    nav_trans_msg_data.vehAccumDV = np.array([0.0, 0.0, 0.0])
+    nav_trans_msg = messaging.NavTransMsgF32().write(nav_trans_msg_data)
 
-    dvBurnCmdMsgData = messaging.DvBurnCmdMsgF32Payload()
-    dvBurnCmdMsgData.dvInrtlCmd = np.array([0.0, 0.0, p1_dv])
-    dvBurnCmdMsgData.burnStartTime = macros.sec2nano(p4_tstart)
-    dvBurnCmdMsg = messaging.DvBurnCmdMsgF32().write(dvBurnCmdMsgData)
+    dv_burn_cmd_msg_data = messaging.DvBurnCmdMsgF32Payload()
+    dv_burn_cmd_msg_data.dvInrtlCmd = np.array([0.0, 0.0, p1_dv])
+    dv_burn_cmd_msg_data.burnStartTime = macros.sec2nano(p4_tstart)
+    dv_burn_cmd_msg = messaging.DvBurnCmdMsgF32().write(dv_burn_cmd_msg_data)
 
     # Create thruster on time message and add the module as author. This allows us to write an initial message that does
     # not come from the module
-    onTimeCmdMsg = messaging.THRArrayOnTimeCmdMsgF32()
-    onTimeCmdMsgData = messaging.THRArrayOnTimeCmdMsgF32Payload()
+    on_time_cmd_msg = messaging.THRArrayOnTimeCmdMsgF32()
+    on_time_cmd_msg_data = messaging.THRArrayOnTimeCmdMsgF32Payload()
     # set on time to some non-zero values to simulate that DV burn is executed. Needs to be stopped/zeroed by module
-    defaultOnTime = np.ones(numThrusters)
-    onTimeCmdMsgData.onTimeRequest = defaultOnTime
-    onTimeCmdMsg.write(onTimeCmdMsgData)
-    module.thrCmdOutMsg = onTimeCmdMsg
+    default_on_time = np.ones(num_thrusters)
+    on_time_cmd_msg_data.onTimeRequest = default_on_time
+    on_time_cmd_msg.write(on_time_cmd_msg_data)
+    module.thrCmdOutMsg = on_time_cmd_msg
 
     # connect messages
-    module.navDataInMsg.subscribeTo(navTransMsg)
-    module.burnDataInMsg.subscribeTo(dvBurnCmdMsg)
+    module.navDataInMsg.subscribeTo(nav_trans_msg)
+    module.burnDataInMsg.subscribeTo(dv_burn_cmd_msg)
 
     # Setup logging on the test module output messages so that we get all the writes to it
-    onTimeDataLog = onTimeCmdMsg.recorder()
-    unitTestSim.AddModelToTask(unitTaskName, onTimeDataLog)
-    burnExecDataLog = module.burnExecOutMsg.recorder()
-    unitTestSim.AddModelToTask(unitTaskName, burnExecDataLog)
+    on_time_data_log = on_time_cmd_msg.recorder()
+    sim.AddModelToTask(task_name, on_time_data_log)
+    burn_exec_data_log = module.burnExecOutMsg.recorder()
+    sim.AddModelToTask(task_name, burn_exec_data_log)
 
-    unitTestSim.InitializeSimulation()
+    sim.InitializeSimulation()
 
     # compute true values
-    numTimeSteps = 10
-    onTimeTrue = np.zeros([numTimeSteps, numThrusters])
-    burnExecutingTrue = np.zeros([numTimeSteps])
-    burnCompleteTrue = np.zeros([numTimeSteps])
-    for i in range(0, numTimeSteps):
-        if updateRate * i > p4_tstart:
-            navTransMsgData.vehAccumDV = acceleration_N * (updateRate * i - p4_tstart)
-        navTransMsg.write(navTransMsgData, unitTestSim.TotalSim.getCurrentNanos())
+    num_time_steps = 10
+    on_time_true = np.zeros([num_time_steps, num_thrusters])
+    burn_executing_true = np.zeros([num_time_steps])
+    burn_complete_true = np.zeros([num_time_steps])
+    for i in range(0, num_time_steps):
+        if update_rate * i > p4_tstart:
+            nav_trans_msg_data.vehAccumDV = acceleration_N * (update_rate * i - p4_tstart)
+        nav_trans_msg.write(nav_trans_msg_data, sim.TotalSim.getCurrentNanos())
 
         # thrusters nominally on, module needs to overwrite and zero if necessary
-        onTimeCmdMsg.write(onTimeCmdMsgData, unitTestSim.TotalSim.getCurrentNanos())
+        on_time_cmd_msg.write(on_time_cmd_msg_data, sim.TotalSim.getCurrentNanos())
 
-        unitTestSim.ConfigureStopTime(i * testProcessRate)
-        unitTestSim.ExecuteSimulation()
+        sim.ConfigureStopTime(i * test_process_rate)
+        sim.ExecuteSimulation()
 
-        if (updateRate * (i+1) <= p4_tstart):
-            onTimeTrue[i] = np.zeros(numThrusters)
-            burnExecutingTrue[i] = 0
-            burnCompleteTrue[i] = 0
-        elif (np.linalg.norm(navTransMsgData.vehAccumDV) >= np.linalg.norm(dvBurnCmdMsgData.dvInrtlCmd)) and \
-                (updateRate * (i+1) - p4_tstart > module.minTime) or \
-                (module.maxTime != 0.0 and updateRate * (i+1) - p4_tstart > module.maxTime):
-            onTimeTrue[i] = np.zeros(numThrusters)
-            burnExecutingTrue[i] = 0
-            burnCompleteTrue[i] = 1
+        if (update_rate * (i + 1) <= p4_tstart):
+            on_time_true[i] = np.zeros(num_thrusters)
+            burn_executing_true[i] = 0
+            burn_complete_true[i] = 0
+        elif (np.linalg.norm(nav_trans_msg_data.vehAccumDV) >= np.linalg.norm(dv_burn_cmd_msg_data.dvInrtlCmd)) and \
+                (update_rate * (i + 1) - p4_tstart > module.minTime) or \
+                (module.maxTime != 0.0 and update_rate * (i + 1) - p4_tstart > module.maxTime):
+            on_time_true[i] = np.zeros(num_thrusters)
+            burn_executing_true[i] = 0
+            burn_complete_true[i] = 1
         else:
-            onTimeTrue[i] = np.ones(numThrusters)
-            burnExecutingTrue[i] = 1
-            burnCompleteTrue[i] = 0
+            on_time_true[i] = np.ones(num_thrusters)
+            burn_executing_true[i] = 1
+            burn_complete_true[i] = 0
 
     # pull module output
-    onTime = onTimeDataLog.onTimeRequest[:, :numThrusters]
-    burnExecuting = burnExecDataLog.burnExecuting
-    burnComplete = burnExecDataLog.burnComplete
-
-    print(onTime)
-    print(onTimeTrue)
-    print(burnExecuting)
-    print(burnExecutingTrue)
+    on_time = on_time_data_log.onTimeRequest[:, :num_thrusters]
+    burn_executing = burn_exec_data_log.burnExecuting
+    burn_complete = burn_exec_data_log.burnComplete
 
     # compare the module results to the truth values
-    paramsString = ' for DV={}, min time={}, max time={}, start time={}'.format(
+    params_string = ' for DV={}, min time={}, max time={}, start time={}'.format(
         str(p1_dv),
         str(p2_tmin),
         str(p3_tmax),
         str(p4_tstart))
 
-    np.testing.assert_equal(onTime,
-                            onTimeTrue,
-                            err_msg=('Variable: onTime' + paramsString),
+    np.testing.assert_equal(on_time,
+                            on_time_true,
+                            err_msg=('Variable: on_time' + params_string),
                             verbose=True)
 
-    np.testing.assert_equal(burnExecuting,
-                            burnExecutingTrue,
-                            err_msg=('Variable: burnExecuting' + paramsString),
+    np.testing.assert_equal(burn_executing,
+                            burn_executing_true,
+                            err_msg=('Variable: burn_executing' + params_string),
                             verbose=True)
 
-    np.testing.assert_equal(burnComplete,
-                            burnCompleteTrue,
-                            err_msg=('Variable: burnComplete' + paramsString),
+    np.testing.assert_equal(burn_complete,
+                            burn_complete_true,
+                            err_msg=('Variable: burn_complete' + params_string),
                             verbose=True)
 
 
@@ -173,4 +163,4 @@ def test_dvExecuteGuidance(show_plots, p1_dv, p2_tmin, p3_tmax, p4_tstart):
 # stand-along python script
 #
 if __name__ == "__main__":
-    test_dvExecuteGuidance(False, dvMagnitude[0], minTime[0], maxTime[0], startTime[1])
+    test_dv_execute_guidance(False, dv_magnitude[0], min_time[0], max_time[0], start_time[1])
