@@ -7,6 +7,7 @@ endif()
 xmera_add_swig_module("${module}")
 target_sources("${module}" PRIVATE
   dvExecuteGuidance.cpp
+  dvExecuteGuidanceAlgorithm.cpp
 )
 
 target_include_directories("${module}" PUBLIC

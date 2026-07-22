@@ -112,6 +112,7 @@ set(algorithms
     "convertStPlatformToBody"
     "cssComm"
     "dvAccumulation"
+    "dvExecuteGuidance"
     "dvGuidance"
     "ephemeridesRecenter"
     "flybyFilter"
