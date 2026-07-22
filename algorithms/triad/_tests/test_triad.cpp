@@ -93,6 +93,41 @@ TEST(TriadTest, SigmaRnNormBounded) {
 }
 
 // ---------------------------------------------------------------------------
+// Algorithm checks with solutions computed by hand
+// ---------------------------------------------------------------------------
+
+// Comparing algorithm output to pre-computed known output
+TEST(TriadTest, ReturnedOutputMatchesPrecomputedReference) {
+    const Eigen::Vector3f rHat_SB_N = Eigen::Vector3f(0.0F, 0.0F, -1.0F);
+    const Eigen::Vector3f thrustHat_B = Eigen::Vector3f(0.0F, 1.0F, 1.0F).normalized();
+    const Eigen::Vector3f sadaHat_B = Eigen::Vector3f::UnitY();
+    const Eigen::Vector3f thrustReqHat_N = Eigen::Vector3f::UnitY();
+    const float signOfN3Hat_N = 1.0F;
+
+    auto config = TriadConfig::create(sadaHat_B, thrustReqHat_N, signOfN3Hat_N);
+    TriadAlgorithm alg(config);
+    const Eigen::Vector3f result = alg.update(rHat_SB_N, thrustHat_B);
+
+    // Compute known output
+    Eigen::Matrix3f dcm_BD;
+    dcm_BD.col(0) = Eigen::Vector3f(0.0F, 1.0F, -1.0F).normalized();
+    dcm_BD.col(1) = thrustHat_B;
+    dcm_BD.col(2) = Eigen::Vector3f::UnitX();
+
+    Eigen::Matrix3f dcm_ND;
+    dcm_ND.col(0) = Eigen::Vector3f::UnitX();
+    dcm_ND.col(1) = thrustReqHat_N;
+    dcm_ND.col(2) = Eigen::Vector3f::UnitZ();
+
+    const Eigen::Matrix3f dcm_RN = dcm_BD * dcm_ND.transpose();
+    const Eigen::Vector3f expected = dcmToMrp(dcm_RN);
+
+    for (int i = 0; i < 3; ++i) {
+        EXPECT_NEAR(result(i), expected(i), 1e-6F);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Edge-case tests
 // ---------------------------------------------------------------------------
 
