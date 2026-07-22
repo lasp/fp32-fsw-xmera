@@ -1,6 +1,3 @@
-// SPDX-License-Identifier: ISC
-// Copyright (c) 2026, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
-
 #ifndef F32XMERA_GIMBAL_AXIS_TO_MOTOR_ANGLES_ALGORITHM_H
 #define F32XMERA_GIMBAL_AXIS_TO_MOTOR_ANGLES_ALGORITHM_H
 
