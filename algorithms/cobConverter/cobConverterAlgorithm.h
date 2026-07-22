@@ -30,7 +30,6 @@ struct CobConverterInput {
     float fieldOfView{};                                        //!< [rad] camera field of view
     float resolutionX{};                                        //!< [px]  horizontal resolution
     float resolutionY{};                                        //!< [px]  vertical resolution
-    int cameraId{};                                             //!< [--]  camera identifier
     // COB measurement
     bool cobValid{};                                                  //!< [--] validity flag
     int32_t cobPixelsFound{};                                         //!< [--] bright pixels
@@ -63,7 +62,6 @@ struct CobConverterOutput {
     int objectPixelRadius{};                                       //!< [px] object radius in pixels
     float phaseAngle{};                                            //!< [rad] phase angle alpha_PA
     float sunDirection{};                                          //!< [rad] sun direction phi in image plane
-    int cameraID{};                                                //!< [--] camera identifier
     uint64_t comTimeTag{};                                         //!< [ns] measurement timestamp
     bool comValid{};                                               //!< [--] COM validity flag
     bool coberrorOutlierTrigger{};  //!< [--] true if COB error exceeded outlier threshold
@@ -83,7 +81,8 @@ class CobConverterConfig final {
                                      float standardDeviation,
                                      bool specifiedStandardDeviation,
                                      bool outlierDetectionEnabled,
-                                     const CalibrationCoefficients& calibrationCoefficients) {
+                                     const CalibrationCoefficients& calibrationCoefficients,
+                                     int cameraId) {
         if (!isValidPhaseAngleCorrectionMethod(phaseAngleCorrectionMethod)) {
             FSW_THROW_INVALID_ARGUMENT("cobConverter: phaseAngleCorrectionMethod must be NoCorrectionAlg or BinaryAlg");
         }
@@ -113,7 +112,8 @@ class CobConverterConfig final {
                 standardDeviation,
                 specifiedStandardDeviation,
                 outlierDetectionEnabled,
-                calibrationCoefficients};
+                calibrationCoefficients,
+                cameraId};
     }
 
     static bool isValidPhaseAngleCorrectionMethod(PhaseAngleCorrectionMethodAlgorithm method) {
@@ -148,6 +148,7 @@ class CobConverterConfig final {
     bool isStandardDeviationSpecified() const { return specifiedStandardDeviation; }
     bool isOutlierDetectionEnabled() const { return outlierDetectionEnabled; }
     CalibrationCoefficients getCalibrationCoefficients() const { return calibrationCoefficients; }
+    int getCameraId() const { return cameraId; }
 
    private:
     CobConverterConfig(PhaseAngleCorrectionMethodAlgorithm phaseAngleCorrectionMethod,
@@ -158,7 +159,8 @@ class CobConverterConfig final {
                        float standardDeviation,
                        bool specifiedStandardDeviation,
                        bool outlierDetectionEnabled,
-                       const CalibrationCoefficients& calibrationCoefficients)
+                       const CalibrationCoefficients& calibrationCoefficients,
+                       int cameraId)
         : phaseAngleCorrectionMethod(phaseAngleCorrectionMethod),
           radius(radius),
           radiusUncertainty(radiusUncertainty),
@@ -167,7 +169,8 @@ class CobConverterConfig final {
           standardDeviation(standardDeviation),
           specifiedStandardDeviation(specifiedStandardDeviation),
           outlierDetectionEnabled(outlierDetectionEnabled),
-          calibrationCoefficients(calibrationCoefficients) {}
+          calibrationCoefficients(calibrationCoefficients),
+          cameraId(cameraId) {}
 
     PhaseAngleCorrectionMethodAlgorithm phaseAngleCorrectionMethod;
     float radius;
@@ -178,6 +181,7 @@ class CobConverterConfig final {
     bool specifiedStandardDeviation;
     bool outlierDetectionEnabled;
     CalibrationCoefficients calibrationCoefficients;
+    int cameraId;
 };
 
 /**
@@ -192,6 +196,7 @@ class CobConverterAlgorithm {
 
     void setConfig(const CobConverterConfig& config);
     CobConverterOutput updateState(const CobConverterInput& input);
+    int getCameraId() const { return this->cfg.getCameraId(); }
 
    private:
     void cobOutlierDetection(const CobConverterInput& input, CobConverterOutput& output);
@@ -229,7 +234,6 @@ class CobConverterAlgorithm {
     Eigen::Vector3d sc_position = Eigen::Vector3d::Zero();
     Eigen::Vector3f shat_N = Eigen::Vector3f::Zero();
     double spacecraftRange = 0;
-    int cameraId = 0;
     bool goodOutlierCheck = true;
 };
 

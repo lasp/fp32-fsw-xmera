@@ -21,7 +21,8 @@ CobConverterConfig configFromC(const CobConverterConfig_c& c) {
                                       c.standardDeviation,
                                       c.specifiedStandardDeviation,
                                       c.outlierDetectionEnabled,
-                                      calibrationCoefficients);
+                                      calibrationCoefficients,
+                                      c.cameraId);
 }
 
 CobConverterInput inputFromC(const CobConverterInput_c& c) {
@@ -30,7 +31,6 @@ CobConverterInput inputFromC(const CobConverterInput_c& c) {
     input.fieldOfView = c.fieldOfView;
     input.resolutionX = c.resolutionX;
     input.resolutionY = c.resolutionY;
-    input.cameraId = c.cameraId;
     input.cobValid = c.cobValid;
     input.cobPixelsFound = c.cobPixelsFound;
     input.cobCenterOfBrightness = cArrayToEigenVector(c.cobCenterOfBrightness.data);
@@ -58,7 +58,6 @@ CobConverterOutput_c outputToC(const CobConverterOutput& out) {
     result.objectPixelRadius = out.objectPixelRadius;
     result.phaseAngle = out.phaseAngle;
     result.sunDirection = out.sunDirection;
-    result.cameraID = out.cameraID;
     result.comTimeTag = out.comTimeTag;
     result.comValid = out.comValid;
     result.coberrorOutlierTrigger = out.coberrorOutlierTrigger;

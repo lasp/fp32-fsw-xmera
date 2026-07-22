@@ -68,6 +68,7 @@ typedef struct {
     bool specifiedStandardDeviation;                   /*!< [-] true if standardDeviation should be used as-is */
     bool outlierDetectionEnabled;                      /*!< [-] enable COB outlier detection */
     CalibrationCoefficients_c calibrationCoefficients; /*!< [-] Brown-Conrady distortion coefficients */
+    int32_t cameraId;                                  /*!< [-] camera identifier */
 } CobConverterConfig_c;
 
 /**
@@ -78,7 +79,6 @@ typedef struct {
     float fieldOfView;                      /*!< [rad] camera field of view */
     float resolutionX;                      /*!< [px] horizontal resolution */
     float resolutionY;                      /*!< [px] vertical resolution */
-    int32_t cameraId;                       /*!< [-] camera identifier */
     bool cobValid;                          /*!< [-] validity flag */
     int32_t cobPixelsFound;                 /*!< [-] bright pixels */
     Vector2f_c cobCenterOfBrightness;       /*!< [px] COB pixel coordinates */
@@ -107,7 +107,6 @@ typedef struct {
     int32_t objectPixelRadius;     /*!< [px] object radius in pixels */
     float phaseAngle;              /*!< [rad] phase angle alpha_PA */
     float sunDirection;            /*!< [rad] sun direction phi in image plane */
-    int32_t cameraID;              /*!< [-] camera identifier */
     uint64_t comTimeTag;           /*!< [ns] measurement timestamp */
     bool comValid;                 /*!< [-] COM validity flag */
     bool coberrorOutlierTrigger;   /*!< [-] true if COB error exceeded outlier threshold */

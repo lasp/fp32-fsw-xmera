@@ -74,7 +74,6 @@ void CobConverterAlgorithm::computeCameraParameters(const CobConverterInput& inp
     this->Y = 1.0F / dY;
     this->ifov_x = input.fieldOfView / this->dX * pX;
     this->ifov_y = input.fieldOfView / dY * pY;
-    this->cameraId = input.cameraId;
 
     // Build K and K^{-1}
     this->cameraCalibrationMatrix << this->dX, alpha, up, 0.0F, dY, vp, 0.0F, 0.0F, 1.0F;
@@ -290,7 +289,6 @@ void CobConverterAlgorithm::populateOutputMessages(
     output.objectPixelRadius = static_cast<int>(this->Rc);
     output.phaseAngle = this->alphaPA;
     output.sunDirection = this->phi;
-    output.cameraID = this->cameraId;
     output.comTimeTag = timeTag;
     output.comValid = this->validCOM;
 }

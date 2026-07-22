@@ -48,6 +48,7 @@ class CobConverter final : public SysModel {
     bool specifiedStandardDeviation = false;
     bool outlierDetectionEnabled = false;
     CalibrationCoefficients calibrationCoefficients{};
+    int cameraId = 0;
 
     // Output messages
     Message<OpNavUnitVecMsgF32Payload> opnavUnitVecOutMsg;
