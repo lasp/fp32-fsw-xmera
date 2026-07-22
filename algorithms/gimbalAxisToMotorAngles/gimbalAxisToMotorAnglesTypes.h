@@ -11,9 +11,9 @@ extern "C" {
 #define NUM_GIMBAL_TO_MOTOR_TABLE_COLS 76
 
 /*! @brief Bounded gimbal-to-motor interpolation table (C-shared POD). */
-typedef struct GimbalMotorTable_c {
+typedef struct GimbalToMotorAngleTable_c {
     float data[NUM_GIMBAL_TO_MOTOR_TABLE_ROWS][NUM_GIMBAL_TO_MOTOR_TABLE_COLS]; /*!< [rad] table entries */
-} GimbalMotorTable_c;
+} GimbalToMotorAngleTable_c;
 
 /*! @brief Output of the gimbal axis-to-motor angles algorithm (C-shared POD). */
 typedef struct GimbalAxisToMotorAnglesOutput {

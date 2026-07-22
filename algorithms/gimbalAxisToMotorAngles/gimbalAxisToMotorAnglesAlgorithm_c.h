@@ -18,8 +18,8 @@ typedef struct GimbalAxisToMotorAnglesAlgorithmHandle GimbalAxisToMotorAnglesAlg
  */
 GimbalAxisToMotorAnglesAlgorithmHandle* GimbalAxisToMotorAnglesAlgorithm_create(
     const float dcm_MB[3][3],
-    const GimbalMotorTable_c* gimbalToMotor1Data,
-    const GimbalMotorTable_c* gimbalToMotor2Data);
+    const GimbalToMotorAngleTable_c* gimbalToMotor1Data,
+    const GimbalToMotorAngleTable_c* gimbalToMotor2Data);
 
 /** @brief Destroy a previously created instance.
  *  @param self Pointer to the instance to destroy.
@@ -34,8 +34,8 @@ void GimbalAxisToMotorAnglesAlgorithm_destroy(GimbalAxisToMotorAnglesAlgorithmHa
  */
 void GimbalAxisToMotorAnglesAlgorithm_setConfig(GimbalAxisToMotorAnglesAlgorithmHandle* self,
                                                 const float dcm_MB[3][3],
-                                                const GimbalMotorTable_c* gimbalToMotor1Data,
-                                                const GimbalMotorTable_c* gimbalToMotor2Data);
+                                                const GimbalToMotorAngleTable_c* gimbalToMotor1Data,
+                                                const GimbalToMotorAngleTable_c* gimbalToMotor2Data);
 
 /** @brief Determine the gimbal and motor angles for a commanded body-frame thrust direction.
  *  @param self           Pointer to the instance.

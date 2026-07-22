@@ -5,8 +5,8 @@
 
 namespace {
 /*! Convert a C-shared table POD into the algorithm's std::array table type. */
-GimbalMotorTable toStdTable(const GimbalMotorTable_c* src) {
-    GimbalMotorTable out{};
+GimbalToMotorAngleTable toStdTable(const GimbalToMotorAngleTable_c* src) {
+    GimbalToMotorAngleTable out{};
     for (int row = 0; row < NUM_GIMBAL_TO_MOTOR_TABLE_ROWS; ++row) {
         for (int col = 0; col < NUM_GIMBAL_TO_MOTOR_TABLE_COLS; ++col) {
             out[row][col] = src->data[row][col];
@@ -17,8 +17,8 @@ GimbalMotorTable toStdTable(const GimbalMotorTable_c* src) {
 
 /*! Build a validated Config from the C-shared configuration inputs. */
 GimbalAxisToMotorAnglesConfig makeConfig(const float dcm_MB[3][3],
-                                         const GimbalMotorTable_c* gimbalToMotor1Data,
-                                         const GimbalMotorTable_c* gimbalToMotor2Data) {
+                                         const GimbalToMotorAngleTable_c* gimbalToMotor1Data,
+                                         const GimbalToMotorAngleTable_c* gimbalToMotor2Data) {
     const Eigen::Matrix3f dcm = cArrayToEigenMatrix3<float>(&dcm_MB[0][0]);
     return GimbalAxisToMotorAnglesConfig::create(dcm, toStdTable(gimbalToMotor1Data), toStdTable(gimbalToMotor2Data));
 }
@@ -26,8 +26,8 @@ GimbalAxisToMotorAnglesConfig makeConfig(const float dcm_MB[3][3],
 
 GimbalAxisToMotorAnglesAlgorithmHandle* GimbalAxisToMotorAnglesAlgorithm_create(
     const float dcm_MB[3][3],
-    const GimbalMotorTable_c* gimbalToMotor1Data,
-    const GimbalMotorTable_c* gimbalToMotor2Data) {
+    const GimbalToMotorAngleTable_c* gimbalToMotor1Data,
+    const GimbalToMotorAngleTable_c* gimbalToMotor2Data) {
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
     return reinterpret_cast<GimbalAxisToMotorAnglesAlgorithmHandle*>(
         new ::GimbalAxisToMotorAnglesAlgorithm(makeConfig(dcm_MB, gimbalToMotor1Data, gimbalToMotor2Data)));
@@ -40,8 +40,8 @@ void GimbalAxisToMotorAnglesAlgorithm_destroy(GimbalAxisToMotorAnglesAlgorithmHa
 
 void GimbalAxisToMotorAnglesAlgorithm_setConfig(GimbalAxisToMotorAnglesAlgorithmHandle* self,
                                                 const float dcm_MB[3][3],
-                                                const GimbalMotorTable_c* gimbalToMotor1Data,
-                                                const GimbalMotorTable_c* gimbalToMotor2Data) {
+                                                const GimbalToMotorAngleTable_c* gimbalToMotor1Data,
+                                                const GimbalToMotorAngleTable_c* gimbalToMotor2Data) {
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
     reinterpret_cast<::GimbalAxisToMotorAnglesAlgorithm*>(self)->setConfig(
         makeConfig(dcm_MB, gimbalToMotor1Data, gimbalToMotor2Data));
