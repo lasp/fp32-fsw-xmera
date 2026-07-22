@@ -26,9 +26,9 @@ void DvExecuteGuidance::reset(uint64_t callTime) {
     this->defaultControlPeriod = (0.0 == this->defaultControlPeriod) ? 2.0 : this->defaultControlPeriod;
 }
 
-/*! This method takes its own internal variables and creates an output attitude
-    command to use for burn execution.  It also flags whether the burn should
-    be happening or not.
+/*! This method compares the accumulated Delta-V against the commanded Delta-V and, once the burn is complete,
+    writes a zeroed thruster on-time command to turn the thrusters off. It also flags whether the burn is
+    executing and whether it has completed.
  @return void
  @param callTime The clock time at which the function was called (nanoseconds)
  */
