@@ -3,6 +3,11 @@
    #include "dvExecuteGuidance.h"
 %}
 
+%include <attribute.i>
+%attribute(DvExecuteGuidance, double, minTime, getMinTime, setMinTime)
+%attribute(DvExecuteGuidance, double, maxTime, getMaxTime, setMaxTime)
+%attribute(DvExecuteGuidance, double, defaultControlPeriod, getDefaultControlPeriod, setDefaultControlPeriod)
+
 %include <architecture/_GeneralModuleFiles/sys_model.i>
 %include <architecture/_GeneralModuleFiles/swig_conly_data.i>
 

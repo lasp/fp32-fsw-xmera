@@ -17,15 +17,18 @@ class DvExecuteGuidance : public SysModel {
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
 
+    void setMinTime(double minTime);
+    void setMaxTime(double maxTime);
+    void setDefaultControlPeriod(double defaultControlPeriod);
+    double getMinTime() const;
+    double getMaxTime() const;
+    double getDefaultControlPeriod() const;
+
     ReadFunctor<NavTransMsgPayload>
         navDataInMsg; /*!< [-] navigation input message that includes dv accumulation info */
     ReadFunctor<DvBurnCmdMsgPayload> burnDataInMsg;    /*!< [-] commanded burn input message */
     Message<THRArrayOnTimeCmdMsgPayload> thrCmdOutMsg; /*!< [-] thruster command on time output message */
     Message<DvExecutionDataMsgPayload> burnExecOutMsg; /*!< [-] burn execution output message */
-
-    double minTime{};              /*!< [s] Minimum count of burn time allowed to elapse*/
-    double maxTime{};              /*!< [s] Maximum count of burn time allowed to elapse*/
-    double defaultControlPeriod{}; /*!< [s] Default control period used for first call*/
 
    private:
     DvExecuteGuidanceAlgorithm algorithm;
