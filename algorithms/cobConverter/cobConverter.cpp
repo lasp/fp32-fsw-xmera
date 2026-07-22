@@ -94,30 +94,30 @@ void CobConverter::updateState(const uint64_t currentSimNanos) {
     const CobConverterOutput out = this->algorithm->updateState(input);
 
     OpNavUnitVecMsgF32Payload uVecOutMsgBuffer{};
-    eigenMatrixToCArray(out.covar_N, uVecOutMsgBuffer.covar_N);
-    eigenMatrixToCArray(out.covar_C, uVecOutMsgBuffer.covar_C);
-    eigenMatrixToCArray(out.covar_B, uVecOutMsgBuffer.covar_B);
-    eigenVectorToCArray(out.rhat_BN_N, uVecOutMsgBuffer.rhat_BN_N);
-    eigenVectorToCArray(out.rhat_BN_C, uVecOutMsgBuffer.rhat_BN_C);
-    eigenVectorToCArray(out.rhat_BN_B, uVecOutMsgBuffer.rhat_BN_B);
-    uVecOutMsgBuffer.timeTag = out.unitVecTimeTag;
-    uVecOutMsgBuffer.valid = out.unitVecValid;
+    eigenMatrixToCArray(out.unitVec.covar_N, uVecOutMsgBuffer.covar_N);
+    eigenMatrixToCArray(out.unitVec.covar_C, uVecOutMsgBuffer.covar_C);
+    eigenMatrixToCArray(out.unitVec.covar_B, uVecOutMsgBuffer.covar_B);
+    eigenVectorToCArray(out.unitVec.rhat_BN_N, uVecOutMsgBuffer.rhat_BN_N);
+    eigenVectorToCArray(out.unitVec.rhat_BN_C, uVecOutMsgBuffer.rhat_BN_C);
+    eigenVectorToCArray(out.unitVec.rhat_BN_B, uVecOutMsgBuffer.rhat_BN_B);
+    uVecOutMsgBuffer.timeTag = out.unitVec.unitVecTimeTag;
+    uVecOutMsgBuffer.valid = out.unitVec.unitVecValid;
 
     OpNavCOMMsgF32Payload comMsgBuffer{};
-    comMsgBuffer.centerOfBrightness[0] = out.centerOfBrightness[0];
-    comMsgBuffer.centerOfBrightness[1] = out.centerOfBrightness[1];
-    comMsgBuffer.centerOfMass[0] = out.centerOfMass[0];
-    comMsgBuffer.centerOfMass[1] = out.centerOfMass[1];
-    comMsgBuffer.offsetFactor = out.offsetFactor;
-    comMsgBuffer.objectPixelRadius = out.objectPixelRadius;
-    comMsgBuffer.phaseAngle = out.phaseAngle;
-    comMsgBuffer.sunDirection = out.sunDirection;
+    comMsgBuffer.centerOfBrightness[0] = out.com.centerOfBrightness[0];
+    comMsgBuffer.centerOfBrightness[1] = out.com.centerOfBrightness[1];
+    comMsgBuffer.centerOfMass[0] = out.com.centerOfMass[0];
+    comMsgBuffer.centerOfMass[1] = out.com.centerOfMass[1];
+    comMsgBuffer.offsetFactor = out.com.offsetFactor;
+    comMsgBuffer.objectPixelRadius = out.com.objectPixelRadius;
+    comMsgBuffer.phaseAngle = out.com.phaseAngle;
+    comMsgBuffer.sunDirection = out.com.sunDirection;
     comMsgBuffer.cameraID = this->algorithm->getCameraId();
-    comMsgBuffer.timeTag = out.comTimeTag;
-    comMsgBuffer.valid = out.comValid;
+    comMsgBuffer.timeTag = out.com.comTimeTag;
+    comMsgBuffer.valid = out.com.comValid;
 
     CobConverterDiagnosticMsgF32Payload diagnosticMsgBuffer{};
-    diagnosticMsgBuffer.coberrorOutlierTrigger = out.coberrorOutlierTrigger;
+    diagnosticMsgBuffer.coberrorOutlierTrigger = out.diagnostic.coberrorOutlierTrigger;
 
     this->opnavUnitVecOutMsg.write(&uVecOutMsgBuffer, this->moduleID, currentSimNanos);
     this->comCorrectionOutMsg.write(&comMsgBuffer, this->moduleID, currentSimNanos);

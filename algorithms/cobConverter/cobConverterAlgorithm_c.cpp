@@ -44,23 +44,23 @@ CobConverterInput inputFromC(const CobConverterInput_c& c) {
 
 CobConverterOutput_c outputToC(const CobConverterOutput& out) {
     CobConverterOutput_c result{};
-    eigenMatrixToCArray2D(out.covar_N, result.covar_N.data);
-    eigenMatrixToCArray2D(out.covar_C, result.covar_C.data);
-    eigenMatrixToCArray2D(out.covar_B, result.covar_B.data);
-    eigenVectorToCArray(out.rhat_BN_N, result.rhat_BN_N.data);
-    eigenVectorToCArray(out.rhat_BN_C, result.rhat_BN_C.data);
-    eigenVectorToCArray(out.rhat_BN_B, result.rhat_BN_B.data);
-    result.unitVecTimeTag = out.unitVecTimeTag;
-    result.unitVecValid = out.unitVecValid;
-    eigenVectorToCArray(out.centerOfBrightness, result.centerOfBrightness.data);
-    eigenVectorToCArray(out.centerOfMass, result.centerOfMass.data);
-    result.offsetFactor = out.offsetFactor;
-    result.objectPixelRadius = out.objectPixelRadius;
-    result.phaseAngle = out.phaseAngle;
-    result.sunDirection = out.sunDirection;
-    result.comTimeTag = out.comTimeTag;
-    result.comValid = out.comValid;
-    result.coberrorOutlierTrigger = out.coberrorOutlierTrigger;
+    eigenMatrixToCArray2D(out.unitVec.covar_N, result.covar_N.data);
+    eigenMatrixToCArray2D(out.unitVec.covar_C, result.covar_C.data);
+    eigenMatrixToCArray2D(out.unitVec.covar_B, result.covar_B.data);
+    eigenVectorToCArray(out.unitVec.rhat_BN_N, result.rhat_BN_N.data);
+    eigenVectorToCArray(out.unitVec.rhat_BN_C, result.rhat_BN_C.data);
+    eigenVectorToCArray(out.unitVec.rhat_BN_B, result.rhat_BN_B.data);
+    result.unitVecTimeTag = out.unitVec.unitVecTimeTag;
+    result.unitVecValid = out.unitVec.unitVecValid;
+    eigenVectorToCArray(out.com.centerOfBrightness, result.centerOfBrightness.data);
+    eigenVectorToCArray(out.com.centerOfMass, result.centerOfMass.data);
+    result.offsetFactor = out.com.offsetFactor;
+    result.objectPixelRadius = out.com.objectPixelRadius;
+    result.phaseAngle = out.com.phaseAngle;
+    result.sunDirection = out.com.sunDirection;
+    result.comTimeTag = out.com.comTimeTag;
+    result.comValid = out.com.comValid;
+    result.coberrorOutlierTrigger = out.diagnostic.coberrorOutlierTrigger;
     return result;
 }
 

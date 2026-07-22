@@ -266,38 +266,40 @@ void CobConverterAlgorithm::computeCameraFrameUncertainty(const CobConverterInpu
 }
 
 /**
- * @brief Populate a CobConverterOutput with unit-vector and COM fields.
+ * @brief Populate the unit-vector and COM output structs.
  *
  * @param timeTag Measurement timestamp (nanoseconds).
  * @param centerOfMass COM in homogeneous pixel coordinates.
  * @param centerOfBrightness COB in homogeneous pixel coordinates.
- * @param output CobConverterOutput to fill (coberrorOutlierTrigger is left untouched).
+ * @param unitVecOutput Unit-vector output to fill.
+ * @param comOutput COM output to fill.
  */
 void CobConverterAlgorithm::populateOutputMessages(
     const uint64_t timeTag,
     const Eigen::Vector3f& centerOfMass,  // NOLINT(bugprone-easily-swappable-parameters)
     const Eigen::Vector3f& centerOfBrightness,
-    CobConverterOutput& output) const {
+    CobConverterUnitVecOutput& unitVecOutput,
+    CobConverterComOutput& comOutput) const {
     const Eigen::Vector3f rhatCOM_N = this->dcm_NC * this->rhatCOM_C;
     const Eigen::Vector3f rhatCOM_B = this->dcm_BN * rhatCOM_N;
-    output.covar_N = this->dcm_BN.transpose() * this->covar_B * this->dcm_BN;
-    output.covar_C = this->dcm_NC.transpose() * output.covar_N * this->dcm_NC;
-    output.covar_B = this->covar_B;
-    output.rhat_BN_N = rhatCOM_N;
-    output.rhat_BN_C = this->rhatCOM_C;
-    output.rhat_BN_B = rhatCOM_B;
-    output.unitVecTimeTag = static_cast<double>(timeTag) * kNano2Sec;
-    output.unitVecValid = (this->validCOM && this->goodOutlierCheck);
+    unitVecOutput.covar_N = this->dcm_BN.transpose() * this->covar_B * this->dcm_BN;
+    unitVecOutput.covar_C = this->dcm_NC.transpose() * unitVecOutput.covar_N * this->dcm_NC;
+    unitVecOutput.covar_B = this->covar_B;
+    unitVecOutput.rhat_BN_N = rhatCOM_N;
+    unitVecOutput.rhat_BN_C = this->rhatCOM_C;
+    unitVecOutput.rhat_BN_B = rhatCOM_B;
+    unitVecOutput.unitVecTimeTag = static_cast<double>(timeTag) * kNano2Sec;
+    unitVecOutput.unitVecValid = (this->validCOM && this->goodOutlierCheck);
     const Eigen::Vector2f centerOfBrightnessXY(centerOfBrightness(0), centerOfBrightness(1));
-    output.centerOfBrightness = centerOfBrightnessXY;
+    comOutput.centerOfBrightness = centerOfBrightnessXY;
     const Eigen::Vector2f centerOfMassXY(centerOfMass(0), centerOfMass(1));
-    output.centerOfMass = centerOfMassXY;
-    output.offsetFactor = this->gamma;
-    output.objectPixelRadius = static_cast<int>(this->Rc);
-    output.phaseAngle = this->alphaPA;
-    output.sunDirection = this->phi;
-    output.comTimeTag = timeTag;
-    output.comValid = this->validCOM;
+    comOutput.centerOfMass = centerOfMassXY;
+    comOutput.offsetFactor = this->gamma;
+    comOutput.objectPixelRadius = static_cast<int>(this->Rc);
+    comOutput.phaseAngle = this->alphaPA;
+    comOutput.sunDirection = this->phi;
+    comOutput.comTimeTag = timeTag;
+    comOutput.comValid = this->validCOM;
 }
 
 /**
@@ -327,10 +329,10 @@ CobConverterOutput CobConverterAlgorithm::updateState(const CobConverterInput& i
         this->computeCameraFrameUncertainty(input);
 
         if (this->cfg.isOutlierDetectionEnabled()) {
-            this->cobOutlierDetection(input, output);
+            this->cobOutlierDetection(input, output.diagnostic);
         }
 
-        this->populateOutputMessages(input.cobTimeTag, centerOfMass, centerOfBrightness, output);
+        this->populateOutputMessages(input.cobTimeTag, centerOfMass, centerOfBrightness, output.unitVec, output.com);
     }
 
     return output;
@@ -372,9 +374,9 @@ Eigen::Matrix3f computeTotalCobCovariance(
  * combined image covariance to perform a sigma-based gate.
  *
  * @param input Filter position and position covariance
- * @param output CobConverterOutput whose coberrorOutlierTrigger field is set.
+ * @param output Diagnostic output whose coberrorOutlierTrigger field is set.
  */
-void CobConverterAlgorithm::cobOutlierDetection(const CobConverterInput& input, CobConverterOutput& output) {
+void CobConverterAlgorithm::cobOutlierDetection(const CobConverterInput& input, CobConverterDiagnosticOutput& output) {
     const Eigen::Vector3d rNav_BN_N = input.filterVehPosition;
     const Eigen::Vector3f rhatNav_N = rNav_BN_N.stableNormalized().cast<float>();
     const Eigen::Matrix3f covarNav_N =

@@ -42,16 +42,22 @@ struct CobConverterInput {
         Eigen::Matrix3d::Zero();  //!< [m^2] spacecraft position covariance, inertial frame
 };
 
-/*! Structure containing all COB converter algorithm outputs. */
-struct CobConverterOutput {
-    Eigen::Matrix3f covar_N = Eigen::Matrix3f::Zero();             //!< [--] COM covariance, inertial frame
-    Eigen::Matrix3f covar_C = Eigen::Matrix3f::Zero();             //!< [--] COM covariance, camera frame
-    Eigen::Matrix3f covar_B = Eigen::Matrix3f::Zero();             //!< [--] COM covariance, body frame
-    Eigen::Vector3f rhat_BN_N = Eigen::Vector3f::Zero();           //!< [--] COM unit vector, inertial frame
-    Eigen::Vector3f rhat_BN_C = Eigen::Vector3f::Zero();           //!< [--] COM unit vector, camera frame
-    Eigen::Vector3f rhat_BN_B = Eigen::Vector3f::Zero();           //!< [--] COM unit vector, body frame
-    double unitVecTimeTag{};                                       //!< [s]  measurement timestamp
-    bool unitVecValid{};                                           //!< [--] COM unit vector validity flag
+/*! Heading measurement output: unit vector and its covariance (uncertainty) in multiple
+    frames. Maps 1:1 onto OpNavUnitVecMsgF32Payload. */
+struct CobConverterUnitVecOutput {
+    Eigen::Matrix3f covar_N = Eigen::Matrix3f::Zero();    //!< [--] COM covariance, inertial frame
+    Eigen::Matrix3f covar_C = Eigen::Matrix3f::Zero();    //!< [--] COM covariance, camera frame
+    Eigen::Matrix3f covar_B = Eigen::Matrix3f::Zero();    //!< [--] COM covariance, body frame
+    Eigen::Vector3f rhat_BN_N = Eigen::Vector3f::Zero();  //!< [--] COM unit vector, inertial frame
+    Eigen::Vector3f rhat_BN_C = Eigen::Vector3f::Zero();  //!< [--] COM unit vector, camera frame
+    Eigen::Vector3f rhat_BN_B = Eigen::Vector3f::Zero();  //!< [--] COM unit vector, body frame
+    double unitVecTimeTag{};                              //!< [s]  measurement timestamp
+    bool unitVecValid{};                                  //!< [--] COM unit vector validity flag
+};
+
+/*! Center-of-mass measurement output: COM/COB pixel locations and phase-angle offset
+    metadata. Maps 1:1 onto OpNavCOMMsgF32Payload. */
+struct CobConverterComOutput {
     Eigen::Vector2f centerOfBrightness = Eigen::Vector2f::Zero();  //!< [px] COB pixel coordinates
     Eigen::Vector2f centerOfMass = Eigen::Vector2f::Zero();        //!< [px] COM pixel coordinates
     float offsetFactor{};                                          //!< [--] phase-angle offset factor (gamma)
@@ -60,7 +66,18 @@ struct CobConverterOutput {
     float sunDirection{};                                          //!< [rad] sun direction phi in image plane
     uint64_t comTimeTag{};                                         //!< [ns] measurement timestamp
     bool comValid{};                                               //!< [--] COM validity flag
+};
+
+/*! Diagnostic output. Maps 1:1 onto CobConverterDiagnosticMsgF32Payload. */
+struct CobConverterDiagnosticOutput {
     bool coberrorOutlierTrigger{};  //!< [--] true if COB error exceeded outlier threshold
+};
+
+/*! Structure containing all COB converter algorithm outputs. */
+struct CobConverterOutput {
+    CobConverterUnitVecOutput unitVec;
+    CobConverterComOutput com;
+    CobConverterDiagnosticOutput diagnostic;
 };
 
 /**
@@ -238,7 +255,7 @@ class CobConverterAlgorithm final {
     int getCameraId() const { return this->cfg.getCameraId(); }
 
    private:
-    void cobOutlierDetection(const CobConverterInput& input, CobConverterOutput& output);
+    void cobOutlierDetection(const CobConverterInput& input, CobConverterDiagnosticOutput& output);
     void computeCameraParameters();
     void computeRotations(const CobConverterInput& input);
     void computePhaseAngleCorrection(const CobConverterInput& input);
@@ -249,7 +266,8 @@ class CobConverterAlgorithm final {
     void populateOutputMessages(uint64_t timeTag,
                                 const Eigen::Vector3f& centerOfMass,
                                 const Eigen::Vector3f& centerOfBrightness,
-                                CobConverterOutput& output) const;
+                                CobConverterUnitVecOutput& unitVecOutput,
+                                CobConverterComOutput& comOutput) const;
 
     CobConverterConfig cfg;
     Eigen::Matrix3f dcm_NC = Eigen::Matrix3f::Zero();
