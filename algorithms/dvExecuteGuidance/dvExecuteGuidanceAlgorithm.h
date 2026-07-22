@@ -27,19 +27,19 @@ class DvExecuteGuidanceAlgorithm final {
     /// @param burnStartTime  Commanded burn start time [ns].
     /// @return Burn execution status and thruster-off command flag for this step.
     DvExecuteGuidanceOutput update(uint64_t callTime,
-                                   const Eigen::Vector3d& vehAccumDV,
-                                   const Eigen::Vector3d& dvInrtlCmd,
+                                   const Eigen::Vector3f& vehAccumDV,
+                                   const Eigen::Vector3f& dvInrtlCmd,
                                    uint64_t burnStartTime);
 
-    double minTime{};               ///< [s] minimum burn time allowed to elapse before completion
-    double maxTime{};               ///< [s] maximum burn time; 0 disables the maximum-time criterion
-    double defaultControlPeriod{};  ///< [s] control period used for the first call
+    float minTime{};               ///< [s] minimum burn time allowed to elapse before completion
+    float maxTime{};               ///< [s] maximum burn time; 0 disables the maximum-time criterion
+    float defaultControlPeriod{};  ///< [s] control period used for the first call
 
    private:
-    Eigen::Vector3d dvInit = Eigen::Vector3d::Zero();  ///< [m/s] accumulated delta-V latched at burn start
+    Eigen::Vector3f dvInit = Eigen::Vector3f::Zero();  ///< [m/s] accumulated delta-V latched at burn start
     uint32_t burnExecuting{};                          ///< [-] burn currently in progress
     uint32_t burnComplete{};                           ///< [-] burn has completed
-    double burnTime{};                                 ///< [s] elapsed burn time
+    float burnTime{};                                  ///< [s] elapsed burn time
     uint64_t prevCallTime{};                           ///< [ns] previous call time, for the time step
 };
 

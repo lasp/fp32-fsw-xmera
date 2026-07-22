@@ -73,22 +73,22 @@ def test_dvExecuteGuidance(show_plots, p1_dv, p2_tmin, p3_tmax, p4_tstart):
     acceleration_N = np.array([0.0, 0.0, 2.0])  # acceleration of spacecraft due to thrusters
 
     # Configure input messages
-    navTransMsgData = messaging.NavTransMsgPayload()
+    navTransMsgData = messaging.NavTransMsgF32Payload()
     navTransMsgData.vehAccumDV = np.array([0.0, 0.0, 0.0])
-    navTransMsg = messaging.NavTransMsg().write(navTransMsgData)
+    navTransMsg = messaging.NavTransMsgF32().write(navTransMsgData)
 
-    dvBurnCmdMsgData = messaging.DvBurnCmdMsgPayload()
+    dvBurnCmdMsgData = messaging.DvBurnCmdMsgF32Payload()
     dvBurnCmdMsgData.dvInrtlCmd = np.array([0.0, 0.0, p1_dv])
     dvBurnCmdMsgData.burnStartTime = macros.sec2nano(p4_tstart)
-    dvBurnCmdMsg = messaging.DvBurnCmdMsg().write(dvBurnCmdMsgData)
+    dvBurnCmdMsg = messaging.DvBurnCmdMsgF32().write(dvBurnCmdMsgData)
 
     # Create thruster on time message and add the module as author. This allows us to write an initial message that does
     # not come from the module
-    onTimeCmdMsg = messaging.THRArrayOnTimeCmdMsg()
-    onTimeCmdMsgData = messaging.THRArrayOnTimeCmdMsgPayload()
+    onTimeCmdMsg = messaging.THRArrayOnTimeCmdMsgF32()
+    onTimeCmdMsgData = messaging.THRArrayOnTimeCmdMsgF32Payload()
     # set on time to some non-zero values to simulate that DV burn is executed. Needs to be stopped/zeroed by module
     defaultOnTime = np.ones(numThrusters)
-    onTimeCmdMsgData.OnTimeRequest = defaultOnTime
+    onTimeCmdMsgData.onTimeRequest = defaultOnTime
     onTimeCmdMsg.write(onTimeCmdMsgData)
     module.thrCmdOutMsg = onTimeCmdMsg
 
@@ -136,7 +136,7 @@ def test_dvExecuteGuidance(show_plots, p1_dv, p2_tmin, p3_tmax, p4_tstart):
             burnCompleteTrue[i] = 0
 
     # pull module output
-    onTime = onTimeDataLog.OnTimeRequest[:, :numThrusters]
+    onTime = onTimeDataLog.onTimeRequest[:, :numThrusters]
     burnExecuting = burnExecDataLog.burnExecuting
     burnComplete = burnExecDataLog.burnComplete
 
