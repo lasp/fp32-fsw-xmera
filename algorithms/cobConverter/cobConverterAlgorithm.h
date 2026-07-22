@@ -196,10 +196,10 @@ class CobConverterConfig final {
 
    private:
     CobConverterConfig(PhaseAngleCorrectionMethodAlgorithm phaseAngleCorrectionMethod,
-                       float radius,  // NOLINT(bugprone-easily-swappable-parameters)
+                       float radius,
                        float radiusUncertainty,
-                       const Eigen::Matrix3f& attitudeCovariance,  // NOLINT(modernize-pass-by-value)
-                       float numStandardDeviations,                // NOLINT(bugprone-easily-swappable-parameters)
+                       const Eigen::Matrix3f& attitudeCovariance,
+                       float numStandardDeviations,
                        float standardDeviation,
                        bool specifiedStandardDeviation,
                        bool outlierDetectionEnabled,
