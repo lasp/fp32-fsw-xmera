@@ -9,7 +9,7 @@ namespace {
 TriadConfig configFromC(const TriadConfig_c& c) {
     return TriadConfig::create(cArrayToEigenVector3<float>(c.sadaHat_B.data),
                                cArrayToEigenVector3<float>(c.thrustReqHat_N.data),
-                               c.signOfN3Hat_N);
+                               static_cast<N3Axis>(c.n3Axis));
 }
 }  // namespace
 

@@ -13,7 +13,7 @@ inline Eigen::Vector3f referenceTriad(const Eigen::Vector3f& rHat_SB_N,
                                       const Eigen::Vector3f& thrustHat_B,
                                       const Eigen::Vector3f& sadaHat_B,
                                       const Eigen::Vector3f& thrustReqHat_N,
-                                      const float signOfN3Hat_N) {
+                                      const N3Axis n3Axis) {
     /*! Compute angle between solar array drive axis and thrust direction */
     const float sadaAxisToThrustAngle = safeAcosf(fabsf(sadaHat_B.dot(thrustHat_B)));
 
@@ -44,7 +44,8 @@ inline Eigen::Vector3f referenceTriad(const Eigen::Vector3f& rHat_SB_N,
     /*! If sun direction and thrust inertial reference are nearly parallel, cross the second triad axis instead with the
      * configured inertial z-axis */
     if (fabsf(sunToThrustRefAngle) < kParallelThresholdRad) {
-        const Eigen::Vector3f n3Hat_N = (signOfN3Hat_N * Eigen::Vector3f::UnitZ()).normalized();
+        const float n3HatSign = (n3Axis == N3Axis::plusZHat_N) ? 1.0F : -1.0F;
+        const Eigen::Vector3f n3Hat_N = (n3HatSign * Eigen::Vector3f::UnitZ()).normalized();
 
         /*! Return zero MRP attitude if the fallback inertial z-axis is nearly parallel to the thrust reference
          * direction, since the fallback cross product would be degenerate */
@@ -79,12 +80,12 @@ inline void testTriadRegression(const Eigen::Vector3f& rHat_SB_N,
                                 const Eigen::Vector3f& thrustHat_B,
                                 const Eigen::Vector3f& sadaHat_B,
                                 const Eigen::Vector3f& thrustReqHat_N,
-                                const float signOfN3Hat_N) {
-    auto config = TriadConfig::create(sadaHat_B, thrustReqHat_N, signOfN3Hat_N);
+                                const N3Axis n3Axis) {
+    auto config = TriadConfig::create(sadaHat_B, thrustReqHat_N, n3Axis);
     TriadAlgorithm alg(config);
 
     const Eigen::Vector3f result = alg.update(rHat_SB_N, thrustHat_B);
-    const Eigen::Vector3f expected = referenceTriad(rHat_SB_N, thrustHat_B, sadaHat_B, thrustReqHat_N, signOfN3Hat_N);
+    const Eigen::Vector3f expected = referenceTriad(rHat_SB_N, thrustHat_B, sadaHat_B, thrustReqHat_N, n3Axis);
 
     // Compare attitudes as DCMs rather than MRP components: dcmToMrp can return either MRP
     // shadow-set representative near |sigma| = 1 (the 180-deg boundary). The DCM is unique through 180 deg.
@@ -111,8 +112,8 @@ inline void propertyOutputIsFinite(const Eigen::Vector3f& rHat_SB_N,
                                    const Eigen::Vector3f& thrustHat_B,
                                    const Eigen::Vector3f& sadaHat_B,
                                    const Eigen::Vector3f& thrustReqHat_N,
-                                   const float signOfN3Hat_N) {
-    auto config = TriadConfig::create(sadaHat_B, thrustReqHat_N, signOfN3Hat_N);
+                                   const N3Axis n3Axis) {
+    auto config = TriadConfig::create(sadaHat_B, thrustReqHat_N, n3Axis);
     TriadAlgorithm alg(config);
 
     auto result = alg.update(rHat_SB_N, thrustHat_B);
@@ -126,8 +127,8 @@ inline void propertyThrustBodyHeadingAlignedToThrustInertialHeading(const Eigen:
                                                                     const Eigen::Vector3f& thrustHat_B,
                                                                     const Eigen::Vector3f& sadaHat_B,
                                                                     const Eigen::Vector3f& thrustReqHat_N,
-                                                                    const float signOfN3Hat_N) {
-    auto config = TriadConfig::create(sadaHat_B, thrustReqHat_N, signOfN3Hat_N);
+                                                                    const N3Axis n3Axis) {
+    auto config = TriadConfig::create(sadaHat_B, thrustReqHat_N, n3Axis);
     TriadAlgorithm alg(config);
 
     const Eigen::Vector3f sigma_RN = alg.update(rHat_SB_N, thrustHat_B);
@@ -145,8 +146,8 @@ inline void propertySigmaNormBounded(const Eigen::Vector3f& rHat_SB_N,
                                      const Eigen::Vector3f& thrustHat_B,
                                      const Eigen::Vector3f& sadaHat_B,
                                      const Eigen::Vector3f& thrustReqHat_N,
-                                     const float signOfN3Hat_N) {
-    auto config = TriadConfig::create(sadaHat_B, thrustReqHat_N, signOfN3Hat_N);
+                                     const N3Axis n3Axis) {
+    auto config = TriadConfig::create(sadaHat_B, thrustReqHat_N, n3Axis);
     TriadAlgorithm alg(config);
 
     auto result = alg.update(rHat_SB_N, thrustHat_B);
@@ -159,8 +160,8 @@ inline void propertySolarArraySunOffsetBoundedByBodyThrustOffset(const Eigen::Ve
                                                                  const Eigen::Vector3f& thrustHat_B,
                                                                  const Eigen::Vector3f& sadaHat_B,
                                                                  const Eigen::Vector3f& thrustReqHat_N,
-                                                                 const float signOfN3Hat_N) {
-    auto config = TriadConfig::create(sadaHat_B, thrustReqHat_N, signOfN3Hat_N);
+                                                                 const N3Axis n3Axis) {
+    auto config = TriadConfig::create(sadaHat_B, thrustReqHat_N, n3Axis);
     TriadAlgorithm alg(config);
 
     const Eigen::Vector3f sigma_RN = alg.update(rHat_SB_N, thrustHat_B);

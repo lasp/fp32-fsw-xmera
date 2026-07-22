@@ -20,13 +20,11 @@ void Triad::reset(const uint64_t callTime) {
         throw std::invalid_argument("triad.bodyHeadingInMsg wasn't connected.");
     }
 
-    auto config = TriadConfig::create(this->sadaHat_B, this->thrustReqHat_N, this->signOfN3Hat_N);
+    auto config = TriadConfig::create(this->sadaHat_B, this->thrustReqHat_N, this->n3Axis);
     this->algorithm = std::make_unique<TriadAlgorithm>(config);
 }
 
-TriadConfig Triad::toConfig() const {
-    return TriadConfig::create(this->sadaHat_B, this->thrustReqHat_N, this->signOfN3Hat_N);
-}
+TriadConfig Triad::toConfig() const { return TriadConfig::create(this->sadaHat_B, this->thrustReqHat_N, this->n3Axis); }
 
 void Triad::reconfigure() const {
     if (!this->algorithm) {

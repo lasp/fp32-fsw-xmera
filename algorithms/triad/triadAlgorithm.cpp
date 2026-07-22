@@ -46,7 +46,8 @@ Eigen::Vector3f TriadAlgorithm::update(const Eigen::Vector3f& rHat_SB_N, const E
          * with the configured inertial z-axis */
         bool isFallbackValid = true;
         if (fabsf(sunToThrustRefAngle) < kParallelThresholdRad) {
-            const Eigen::Vector3f n3Hat_N = (this->cfg.getSignOfN3Hat_N() * Eigen::Vector3f::UnitZ()).normalized();
+            const float n3HatSign = (this->cfg.getN3Axis() == N3Axis::plusZHat_N) ? 1.0F : -1.0F;
+            const Eigen::Vector3f n3Hat_N = (n3HatSign * Eigen::Vector3f::UnitZ()).normalized();
 
             /*! Keep the default current attitude if the fallback inertial z-axis is nearly parallel to the thrust
              * reference direction (undefined) */

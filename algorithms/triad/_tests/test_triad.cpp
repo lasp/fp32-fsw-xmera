@@ -10,9 +10,9 @@ TEST(TriadTest, RegressionTest) {
     const Eigen::Vector3f thrustHat_B = Eigen::Vector3f::UnitY();
     const Eigen::Vector3f sadaHat_B = Eigen::Vector3f::UnitX();
     const Eigen::Vector3f thrustReqHat_N = Eigen::Vector3f(1.0F, -1.0F, -1.0F).normalized();
-    const float signOfN3Hat_N = -1.0F;
+    const N3Axis n3Axis = N3Axis::minusZHat_N;
 
-    testTriadRegression(rHat_SB_N, thrustHat_B, sadaHat_B, thrustReqHat_N, signOfN3Hat_N);
+    testTriadRegression(rHat_SB_N, thrustHat_B, sadaHat_B, thrustReqHat_N, n3Axis);
 }
 
 // ---------------------------------------------------------------------------
@@ -21,37 +21,41 @@ TEST(TriadTest, RegressionTest) {
 
 TEST(TriadTest, SetupTest) {
     // Valid config should not throw
-    EXPECT_NO_THROW(TriadConfig::create(Eigen::Vector3f::UnitX(), Eigen::Vector3f::UnitY(), 1.0F));
+    EXPECT_NO_THROW(TriadConfig::create(Eigen::Vector3f::UnitX(), Eigen::Vector3f::UnitY(), N3Axis::plusZHat_N));
 
     // Zero or non-unit vector sadaHat_B should throw
-    EXPECT_THROW(TriadConfig::create(Eigen::Vector3f::Zero(), Eigen::Vector3f::UnitX(), -1.0F), fsw::invalid_argument);
-    EXPECT_THROW(TriadConfig::create(Eigen::Vector3f(1.0F, 2.0F, 3.0F), Eigen::Vector3f::UnitX(), -1.0F),
+    EXPECT_THROW(TriadConfig::create(Eigen::Vector3f::Zero(), Eigen::Vector3f::UnitX(), N3Axis::minusZHat_N),
+                 fsw::invalid_argument);
+    EXPECT_THROW(TriadConfig::create(Eigen::Vector3f(1.0F, 2.0F, 3.0F), Eigen::Vector3f::UnitX(), N3Axis::minusZHat_N),
                  fsw::invalid_argument);
 
     // Zero or non-unit vector thrustReqHat_N should throw
-    EXPECT_THROW(TriadConfig::create(Eigen::Vector3f::UnitX(), Eigen::Vector3f::Zero(), 2.0F), fsw::invalid_argument);
-    EXPECT_THROW(TriadConfig::create(Eigen::Vector3f::UnitX(), Eigen::Vector3f(1.0F, 2.0F, 3.0F), 2.0F),
+    EXPECT_THROW(TriadConfig::create(Eigen::Vector3f::UnitX(), Eigen::Vector3f::Zero(), N3Axis::plusZHat_N),
+                 fsw::invalid_argument);
+    EXPECT_THROW(TriadConfig::create(Eigen::Vector3f::UnitX(), Eigen::Vector3f(1.0F, 2.0F, 3.0F), N3Axis::plusZHat_N),
                  fsw::invalid_argument);
 
-    // Zero signOfN3Hat_N should throw
-    EXPECT_THROW(TriadConfig::create(Eigen::Vector3f::UnitX(), Eigen::Vector3f::UnitY(), 0.0F), fsw::invalid_argument);
+    // Out-of-range n3Axis should throw
+    EXPECT_THROW(TriadConfig::create(Eigen::Vector3f::UnitX(), Eigen::Vector3f::UnitY(), static_cast<N3Axis>(99)),
+                 fsw::invalid_argument);
 
     // Config round-trip
     const Eigen::Vector3f sadaHat_B = Eigen::Vector3f::UnitX();
     const Eigen::Vector3f thrustReqHat_N = Eigen::Vector3f::UnitZ();
-    const float signOfN3Hat_N = -1.0F;
-    auto config = TriadConfig::create(sadaHat_B, thrustReqHat_N, signOfN3Hat_N);
+    const N3Axis n3Axis = N3Axis::minusZHat_N;
+    auto config = TriadConfig::create(sadaHat_B, thrustReqHat_N, n3Axis);
     EXPECT_EQ(config.getSadaHat_B(), sadaHat_B);
     EXPECT_EQ(config.getThrustReqHat_N(), thrustReqHat_N);
-    EXPECT_EQ(config.getSignOfN3Hat_N(), signOfN3Hat_N);
+    EXPECT_EQ(config.getN3Axis(), n3Axis);
 
     // Static validators
     EXPECT_TRUE(TriadConfig::isValidSadaHat_B(Eigen::Vector3f::UnitX()));
     EXPECT_FALSE(TriadConfig::isValidSadaHat_B(Eigen::Vector3f::Zero()));
     EXPECT_TRUE(TriadConfig::isValidThrustReqHat_N(Eigen::Vector3f::UnitX()));
     EXPECT_FALSE(TriadConfig::isValidThrustReqHat_N(Eigen::Vector3f::Zero()));
-    EXPECT_TRUE(TriadConfig::isValidSignOfN3Hat_N(-2.0F));
-    EXPECT_FALSE(TriadConfig::isValidSignOfN3Hat_N(0.0F));
+    EXPECT_TRUE(TriadConfig::isValidN3Axis(N3Axis::plusZHat_N));
+    EXPECT_TRUE(TriadConfig::isValidN3Axis(N3Axis::minusZHat_N));
+    EXPECT_FALSE(TriadConfig::isValidN3Axis(static_cast<N3Axis>(99)));
 }
 
 // ---------------------------------------------------------------------------
@@ -64,9 +68,9 @@ TEST(TriadTest, OutputIsFinite) {
     const Eigen::Vector3f thrustHat_B = Eigen::Vector3f::UnitX();
     const Eigen::Vector3f sadaHat_B = Eigen::Vector3f::UnitY();
     const Eigen::Vector3f thrustReqHat_N = Eigen::Vector3f::UnitZ();
-    const float signOfN3Hat_N = 1.0F;
+    const N3Axis n3Axis = N3Axis::plusZHat_N;
 
-    propertyOutputIsFinite(rHat_SB_N, thrustHat_B, sadaHat_B, thrustReqHat_N, signOfN3Hat_N);
+    propertyOutputIsFinite(rHat_SB_N, thrustHat_B, sadaHat_B, thrustReqHat_N, n3Axis);
 }
 
 // Thrust body axis should align with thrust inertial heading direction
@@ -75,10 +79,9 @@ TEST(TriadTest, ThrustBodyHeadingAlignedToThrustInertialHeading) {
     const Eigen::Vector3f thrustHat_B = Eigen::Vector3f::UnitX();
     const Eigen::Vector3f sadaHat_B = Eigen::Vector3f::UnitY();
     const Eigen::Vector3f thrustReqHat_N = Eigen::Vector3f::UnitZ();
-    const float signOfN3Hat_N = 1.0F;
+    const N3Axis n3Axis = N3Axis::plusZHat_N;
 
-    propertyThrustBodyHeadingAlignedToThrustInertialHeading(
-        rHat_SB_N, thrustHat_B, sadaHat_B, thrustReqHat_N, signOfN3Hat_N);
+    propertyThrustBodyHeadingAlignedToThrustInertialHeading(rHat_SB_N, thrustHat_B, sadaHat_B, thrustReqHat_N, n3Axis);
 }
 
 // sigma_RN norm is bounded by 1 (inner MRP set) for any inputs
@@ -87,9 +90,9 @@ TEST(TriadTest, SigmaRnNormBounded) {
     const Eigen::Vector3f thrustHat_B = Eigen::Vector3f::UnitX();
     const Eigen::Vector3f sadaHat_B = Eigen::Vector3f::UnitY();
     const Eigen::Vector3f thrustReqHat_N = Eigen::Vector3f::UnitZ();
-    const float signOfN3Hat_N = 1.0F;
+    const N3Axis n3Axis = N3Axis::plusZHat_N;
 
-    propertySigmaNormBounded(rHat_SB_N, thrustHat_B, sadaHat_B, thrustReqHat_N, signOfN3Hat_N);
+    propertySigmaNormBounded(rHat_SB_N, thrustHat_B, sadaHat_B, thrustReqHat_N, n3Axis);
 }
 
 // The solar array offset angle from the Sun is bounded by the body thrust vector offset angle from the plane normal
@@ -101,10 +104,9 @@ TEST(TriadTest, SolarArraySunOffsetBoundedByBodyThrustOffset) {
         Eigen::Vector3f(safeSinf(thrustYZOffsetAngleRad), 0.0F, -safeCosf(thrustYZOffsetAngleRad));
     const Eigen::Vector3f sadaHat_B = Eigen::Vector3f::UnitX();
     const Eigen::Vector3f thrustReqHat_N = Eigen::Vector3f::UnitY();
-    const float signOfN3Hat_N = 1.0F;
+    const N3Axis n3Axis = N3Axis::plusZHat_N;
 
-    propertySolarArraySunOffsetBoundedByBodyThrustOffset(
-        rHat_SB_N, thrustHat_B, sadaHat_B, thrustReqHat_N, signOfN3Hat_N);
+    propertySolarArraySunOffsetBoundedByBodyThrustOffset(rHat_SB_N, thrustHat_B, sadaHat_B, thrustReqHat_N, n3Axis);
 }
 
 // ---------------------------------------------------------------------------
@@ -117,9 +119,9 @@ TEST(TriadTest, ReturnedOutputMatchesPrecomputedReference) {
     const Eigen::Vector3f thrustHat_B = Eigen::Vector3f(0.0F, 1.0F, 1.0F).normalized();
     const Eigen::Vector3f sadaHat_B = Eigen::Vector3f::UnitY();
     const Eigen::Vector3f thrustReqHat_N = Eigen::Vector3f::UnitY();
-    const float signOfN3Hat_N = 1.0F;
+    const N3Axis n3Axis = N3Axis::plusZHat_N;
 
-    auto config = TriadConfig::create(sadaHat_B, thrustReqHat_N, signOfN3Hat_N);
+    auto config = TriadConfig::create(sadaHat_B, thrustReqHat_N, n3Axis);
     TriadAlgorithm alg(config);
     const Eigen::Vector3f result = alg.update(rHat_SB_N, thrustHat_B);
 
@@ -150,9 +152,9 @@ TEST(TriadTest, InertialSadaAxisMatchesPrecomputedAxis) {
         Eigen::Vector3f(safeSinf(thrustYZOffsetAngleRad), 0.0F, -safeCosf(thrustYZOffsetAngleRad));
     const Eigen::Vector3f sadaHat_B = Eigen::Vector3f::UnitX();
     const Eigen::Vector3f thrustReqHat_N = -Eigen::Vector3f::UnitZ();
-    const float signOfN3Hat_N = 1.0F;
+    const N3Axis n3Axis = N3Axis::plusZHat_N;
 
-    auto config = TriadConfig::create(sadaHat_B, thrustReqHat_N, signOfN3Hat_N);
+    auto config = TriadConfig::create(sadaHat_B, thrustReqHat_N, n3Axis);
     TriadAlgorithm alg(config);
     const Eigen::Vector3f sigma_RN = alg.update(rHat_SB_N, thrustHat_B);
 
@@ -176,9 +178,9 @@ TEST(TriadTest, ZeroThrustDirectionReturnsZero) {
     const Eigen::Vector3f thrustHat_B = Eigen::Vector3f::Zero();
     const Eigen::Vector3f sadaHat_B = Eigen::Vector3f::UnitY();
     const Eigen::Vector3f thrustReqHat_N = Eigen::Vector3f::UnitZ();
-    const float signOfN3Hat_N = 1.0F;
+    const N3Axis n3Axis = N3Axis::plusZHat_N;
 
-    auto config = TriadConfig::create(sadaHat_B, thrustReqHat_N, signOfN3Hat_N);
+    auto config = TriadConfig::create(sadaHat_B, thrustReqHat_N, n3Axis);
     TriadAlgorithm alg(config);
 
     auto result = alg.update(rHat_SB_N, thrustHat_B);
@@ -193,9 +195,9 @@ TEST(TriadTest, ZeroSunDirectionReturnsZero) {
     const Eigen::Vector3f thrustHat_B = Eigen::Vector3f::UnitX();
     const Eigen::Vector3f sadaHat_B = Eigen::Vector3f::UnitY();
     const Eigen::Vector3f thrustReqHat_N = Eigen::Vector3f::UnitZ();
-    const float signOfN3Hat_N = 1.0F;
+    const N3Axis n3Axis = N3Axis::plusZHat_N;
 
-    auto config = TriadConfig::create(sadaHat_B, thrustReqHat_N, signOfN3Hat_N);
+    auto config = TriadConfig::create(sadaHat_B, thrustReqHat_N, n3Axis);
     TriadAlgorithm alg(config);
 
     auto result = alg.update(rHat_SB_N, thrustHat_B);
@@ -210,9 +212,9 @@ TEST(TriadTest, SadaAlignedBodyThrustReturnsZero) {
     const Eigen::Vector3f thrustHat_B = Eigen::Vector3f::UnitX();
     const Eigen::Vector3f sadaHat_B = Eigen::Vector3f::UnitX();
     const Eigen::Vector3f thrustReqHat_N = Eigen::Vector3f::UnitY();
-    const float signOfN3Hat_N = 1.0F;
+    const N3Axis n3Axis = N3Axis::plusZHat_N;
 
-    auto config = TriadConfig::create(sadaHat_B, thrustReqHat_N, signOfN3Hat_N);
+    auto config = TriadConfig::create(sadaHat_B, thrustReqHat_N, n3Axis);
     TriadAlgorithm alg(config);
 
     auto result = alg.update(rHat_SB_N, thrustHat_B);
@@ -228,13 +230,13 @@ TEST(TriadTest, SunAlignedWithThrustRefUsesFallbackZAxis) {
     const Eigen::Vector3f thrustHat_B = Eigen::Vector3f::UnitX();
     const Eigen::Vector3f sadaHat_B = Eigen::Vector3f::UnitZ();
     const Eigen::Vector3f thrustReqHat_N = Eigen::Vector3f::UnitY();
-    const float signOfN3Hat_N = 1.0F;
+    const N3Axis n3Axis = N3Axis::plusZHat_N;
 
-    auto config = TriadConfig::create(sadaHat_B, thrustReqHat_N, signOfN3Hat_N);
+    auto config = TriadConfig::create(sadaHat_B, thrustReqHat_N, n3Axis);
     TriadAlgorithm alg(config);
 
     auto result = alg.update(rHat_SB_N, thrustHat_B);
-    Eigen::Vector3f expected = referenceTriad(rHat_SB_N, thrustHat_B, sadaHat_B, thrustReqHat_N, signOfN3Hat_N);
+    Eigen::Vector3f expected = referenceTriad(rHat_SB_N, thrustHat_B, sadaHat_B, thrustReqHat_N, n3Axis);
 
     for (int i = 0; i < 3; ++i) {
         EXPECT_NEAR(result(i), expected(i), 1e-6F);
@@ -247,9 +249,9 @@ TEST(TriadTest, SadaOrthogonalToSunWhenOrthogonalToBodyThrust) {
     const Eigen::Vector3f thrustHat_B = Eigen::Vector3f::UnitZ();
     const Eigen::Vector3f sadaHat_B = Eigen::Vector3f::UnitX();
     const Eigen::Vector3f thrustReqHat_N = Eigen::Vector3f::UnitZ();
-    const float signOfN3Hat_N = 1.0F;
+    const N3Axis n3Axis = N3Axis::plusZHat_N;
 
-    auto config = TriadConfig::create(sadaHat_B, thrustReqHat_N, signOfN3Hat_N);
+    auto config = TriadConfig::create(sadaHat_B, thrustReqHat_N, n3Axis);
     TriadAlgorithm alg(config);
 
     const Eigen::Vector3f sigma_RN = alg.update(rHat_SB_N, thrustHat_B);
@@ -269,9 +271,9 @@ TEST(TriadTest, SadaAxisOrthogonalToSunWhenSunAndThrustRefAligned) {
         Eigen::Vector3f(safeSinf(thrustYZOffsetAngleRad), 0.0F, -safeCosf(thrustYZOffsetAngleRad));
     const Eigen::Vector3f sadaHat_B = Eigen::Vector3f::UnitX();
     const Eigen::Vector3f thrustReqHat_N = Eigen::Vector3f(1.0F, 0.0F, 1.0F).normalized();
-    const float signOfN3Hat_N = 1.0F;
+    const N3Axis n3Axis = N3Axis::plusZHat_N;
 
-    auto config = TriadConfig::create(sadaHat_B, thrustReqHat_N, signOfN3Hat_N);
+    auto config = TriadConfig::create(sadaHat_B, thrustReqHat_N, n3Axis);
     TriadAlgorithm alg(config);
 
     const Eigen::Vector3f sigma_RN = alg.update(rHat_SB_N, thrustHat_B);

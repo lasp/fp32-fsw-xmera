@@ -68,7 +68,7 @@ def test_triad(show_plots, case):
     unit_test_sim.AddModelToTask(unit_task_name, module)
     module.sadaHat_B = a1_B
     module.thrustReqHat_N = eh_N
-    module.signOfN3Hat_N = 1.0
+    module.n3Axis = triadF32.N3Axis_plusZHat_N
 
     sigma_BN = np.array([0.1, -0.2, 0.1])
     BN = rbk.MRP2C(sigma_BN)

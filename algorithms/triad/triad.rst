@@ -92,13 +92,13 @@ The adapter consumes the following messages and public configuration properties:
       - zero
       - Inertial thrust reference direction :math:`{}^\mathcal{N}\hat{t}_\text{ref}`
       - Must be a unit vector (norm within :math:`10^{-3}` of 1); normalized on construction
-    * - signOfN3Hat_N
-      - float
+    * - n3Axis
+      - N3Axis (enum)
       - [-]
-      - +1
-      - Sign of the inertial Z-axis used in fallback computation of the first triad axis when the Sun direction and the
-        inertial thrust reference are nearly parallel
-      - Must be non-zero; stored as :math:`\text{sign}(\cdot)` (:math:`\pm 1`)
+      - plusZHat_N
+      - Selects the inertial Z-axis direction (:math:`+\hat{n}_3` or :math:`-\hat{n}_3`) used in the fallback computation
+        of the first triad axis when the Sun direction and the inertial thrust reference are nearly parallel
+      - Must be ``N3Axis::plusZHat_N`` or ``N3Axis::minusZHat_N``
 
 Algorithm Layer
 ---------------
@@ -172,7 +172,7 @@ reference direction are nearly parallel using the same 5 degree threshold ``kPar
     \theta = \arccos \left( \left| {}^\mathcal{N}\hat{r}_{S/B} \cdot {}^\mathcal{N}\hat{t}_\text{ref} \right| \right)
 
 The second triad frame is ill-defined when these vectors are parallel. In this case, we instead seek to align the first
-triad axis with the positive or negative inertial frame Z-axis, depending on the configured ``signOfN3Hat_N`` parameter.
+triad axis with the positive or negative inertial frame Z-axis, depending on the configured ``n3Axis`` parameter.
 To do so, :math:`{}^\mathcal{N}\hat{d}_3` is instead computed as the cross product between the thrust reference and
 the inertial Z-axis. Crossing the second triad axis with the new third triad axis ensures the first triad axis will
 align as close to the inertial Z-axis as possible.

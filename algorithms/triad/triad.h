@@ -26,7 +26,7 @@ class Triad final : public SysModel {
 
     Eigen::Vector3f sadaHat_B = Eigen::Vector3f::Zero();
     Eigen::Vector3f thrustReqHat_N = Eigen::Vector3f::Zero();
-    float signOfN3Hat_N = 1.0F;
+    N3Axis n3Axis = N3Axis::plusZHat_N;
 
    private:
     std::unique_ptr<TriadAlgorithm> algorithm = nullptr;
