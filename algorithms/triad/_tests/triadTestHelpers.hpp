@@ -153,4 +153,30 @@ inline void propertySigmaNormBounded(const Eigen::Vector3f& rHat_SB_N,
     EXPECT_LE(result.norm(), 1.0F + 1e-6F);
 }
 
+// The solar array offset angle from the Sun is bounded by the body thrust vector offset angle from the plane normal
+// to the sada axis
+inline void propertySolarArraySunOffsetBoundedByBodyThrustOffset(const Eigen::Vector3f& rHat_SB_N,
+                                                                 const Eigen::Vector3f& thrustHat_B,
+                                                                 const Eigen::Vector3f& sadaHat_B,
+                                                                 const Eigen::Vector3f& thrustReqHat_N,
+                                                                 const float signOfN3Hat_N) {
+    auto config = TriadConfig::create(sadaHat_B, thrustReqHat_N, signOfN3Hat_N);
+    TriadAlgorithm alg(config);
+
+    const Eigen::Vector3f sigma_RN = alg.update(rHat_SB_N, thrustHat_B);
+    const Eigen::Matrix3f dcm_RN = mrpToDcm(sigma_RN);
+
+    // Compute Sun direction vector in reference body frame components
+    Eigen::Vector3f rHat_SB_R = (dcm_RN * rHat_SB_N).stableNormalized();
+
+    // Compute the body thrust offset from the plane normal to the sada axis
+    const float thrustOffsetAngle = safeAsinf(fabsf(thrustHat_B.dot(sadaHat_B)));
+
+    // Compute solar array offset from Sun
+    const float solarArraySunOffsetAngle = safeAsinf(fabsf(sadaHat_B.dot(rHat_SB_R)));
+
+    // Check solarArraySunOffsetAngle < thrustYZOffsetAngle
+    EXPECT_LT(solarArraySunOffsetAngle, thrustOffsetAngle);
+}
+
 #endif  // TEST_TRIAD_H
