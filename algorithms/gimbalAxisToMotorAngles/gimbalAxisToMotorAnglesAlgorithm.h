@@ -11,8 +11,6 @@
 #include "utilities/fsw/freestandingIsFinite.hpp"
 #include "utilities/fsw/validDcmCheck.h"
 
-const float DEG2RAD = std::numbers::pi_v<float> / 180.0F;
-
 enum class FixedAngle { ANGLE_1_FIXED, ANGLE_2_FIXED };
 
 struct MotorAngles {
@@ -117,7 +115,8 @@ class GimbalAxisToMotorAnglesAlgorithm final {
     static constexpr float kInterpolationRemainderTolerance =
         1e-3F;  //!< Tolerance for treating a normalized gimbal angle as landing exactly on a table node
 
-    float tableStepAngle{kTableStepAngleDeg * DEG2RAD};  //!< [rad] Interpolation table motor discretization angle
+    float tableStepAngle{kTableStepAngleDeg * std::numbers::pi_v<float> /
+                         180.0F};  //!< [rad] Interpolation table motor discretization angle
     GimbalAxisToMotorAnglesConfig cfg;
 };
 
