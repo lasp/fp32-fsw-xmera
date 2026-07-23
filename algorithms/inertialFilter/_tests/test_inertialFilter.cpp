@@ -62,8 +62,9 @@ double attitudeTrace(Matrix6 const& P) { return P(0, 0) + P(1, 1) + P(2, 2); }
 double rateTrace(Matrix6 const& P) { return P(3, 3) + P(4, 4) + P(5, 5); }
 
 // Validated config for the dynamics / timeUpdate / measurement tests.
-InertialFilterConfig baseConfig(State const& initial, Matrix6 const& P) {
-    return InertialFilterConfig::create(kAlpha, kBeta, smallProcessNoise(), initial, P, kStMeasStd, kGyroMeasStd);
+InertialFilterConfig baseConfig(State const& initial, Matrix6 const& P, double outlierNSigma = 10.0) {
+    return InertialFilterConfig::create(
+        kAlpha, kBeta, smallProcessNoise(), initial, P, kStMeasStd, kGyroMeasStd, outlierNSigma);
 }
 
 // baseConfig with an explicit process noise (for exercising process-noise-driven covariance growth).

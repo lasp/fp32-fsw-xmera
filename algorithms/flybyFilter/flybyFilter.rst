@@ -174,6 +174,10 @@ Configuration parameters
     * - headingMeasurementNoiseStd
       - heading (unit-vector) measurement noise standard deviation
       - >= 0
+    * - outlierNSigma
+      - N-sigma gate rejecting a measurement whose innovation exceeds N sigma (sigma^2 = innovation
+        covariance trace)
+      - > 0
 
 
 User Guide

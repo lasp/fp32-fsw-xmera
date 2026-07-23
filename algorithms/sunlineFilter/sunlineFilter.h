@@ -41,6 +41,7 @@ class SunlineFilter : public SysModel {
     double sensorThreshold = 0.0;          //!< [-] minimum cosValue to count a sensor active (>= 0)
     double cssMeasurementNoiseStd = 0.0;   //!< [-] CSS measurement noise std (>= 0)
     double gyroMeasurementNoiseStd = 0.0;  //!< [rad/s] gyro measurement noise std (>= 0)
+    double outlierNSigma = 10.0;           //!< [-] N-sigma innovation gate for outlier rejection (> 0)
 
     ReadFunctor<NavAttMsgPayload> navAttInMsg;           //!< gyro rate input
     ReadFunctor<CSSArraySensorMsgPayload> cssDataInMsg;  //!< CSS array reading input

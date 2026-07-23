@@ -81,6 +81,7 @@ void SunlineFilterAlgorithm::setConfig(SunlineFilterConfig const& config) {
     this->srukf.setProcessNoise(config.getProcessNoise());
     this->srukf.setInitialState(config.getInitialState());
     this->srukf.setInitialCovariance(config.getInitialCovariance());
+    this->srukf.setOutlierNSigma(config.getOutlierNSigma());
     this->srukf.dynamics = SunlineDynamics{};
     this->srukf.configure();
 }

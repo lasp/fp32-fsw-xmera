@@ -68,7 +68,8 @@ void SunlineFilter::reset(uint64_t currentSimNanos) {
                                                     numCss,
                                                     this->sensorThreshold,
                                                     this->cssMeasurementNoiseStd,
-                                                    this->gyroMeasurementNoiseStd);
+                                                    this->gyroMeasurementNoiseStd,
+                                                    this->outlierNSigma);
     this->algorithm = std::make_unique<SunlineFilterAlgorithm>(config);
     this->lastNavAttTimeTag = 0;
     this->lastCssTimeTag = 0;

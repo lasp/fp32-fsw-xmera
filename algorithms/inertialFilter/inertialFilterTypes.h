@@ -25,6 +25,7 @@ typedef struct {
                             [INERTIAL_FILTER_NUM_STATES]; /*!< N x N initial covariance P0 (PSD) */
     double stMeasurementNoiseStd;                         /*!< star-tracker attitude meas. noise std, >=0 */
     double gyroMeasurementNoiseStd;                       /*!< gyro rate meas. noise std, >=0 */
+    double outlierNSigma;                                 /*!< N-sigma innovation gate for outlier rejection, >0 */
 } InertialFilterConfig_c;
 
 /**

@@ -164,6 +164,13 @@ which the parent ``algorithms/`` include path resolves.
    it twice with the same elapsed time produces the same posterior. Only
    ``measurementUpdate`` advances that saved state.
 
+   ``measurementUpdate`` gates outliers: a measurement whose innovation exceeds
+   ``N`` sigma (``sigma^2`` = trace of the innovation covariance ``P_yy + R``) is
+   skipped, leaving the estimate untouched. Using the innovation covariance keeps
+   the gate from collapsing as the state covariance shrinks. ``N`` defaults to 10
+   and is settable via ``setOutlierNSigma`` / ``getOutlierNSigma`` (exposed on each
+   filter's config and adapter).
+
 
 host adapter
 ~~~~~~~~~~~~

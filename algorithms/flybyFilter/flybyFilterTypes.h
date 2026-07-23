@@ -25,6 +25,7 @@ typedef struct {
     double initialCovariance[FLYBY_FILTER_NUM_STATES]
                             [FLYBY_FILTER_NUM_STATES]; /*!< N x N initial covariance P0 (PSD) */
     double headingMeasurementNoiseStd;                 /*!< heading meas. noise std, >=0 */
+    double outlierNSigma;                              /*!< N-sigma innovation gate for outlier rejection, >0 */
 } FlybyFilterConfig_c;
 
 /**

@@ -54,6 +54,7 @@ void FlybyFilterAlgorithm::setConfig(FlybyFilterConfig const& config) {
     this->srukf.setProcessNoise(config.getProcessNoise());
     this->srukf.setInitialState(config.getInitialState());
     this->srukf.setInitialCovariance(config.getInitialCovariance());
+    this->srukf.setOutlierNSigma(config.getOutlierNSigma());
     this->srukf.dynamics = FlybyDynamics{config.getMu()};
     this->srukf.configure();
 }

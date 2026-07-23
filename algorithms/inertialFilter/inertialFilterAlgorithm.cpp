@@ -71,6 +71,7 @@ void InertialFilterAlgorithm::setConfig(InertialFilterConfig const& config) {
     this->srukf.setProcessNoise(config.getProcessNoise());
     this->srukf.setInitialState(config.getInitialState());
     this->srukf.setInitialCovariance(config.getInitialCovariance());
+    this->srukf.setOutlierNSigma(config.getOutlierNSigma());
     this->srukf.dynamics = InertialDynamics{};
     this->srukf.configure();
 }

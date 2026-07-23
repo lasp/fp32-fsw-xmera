@@ -61,7 +61,8 @@ class SunlineFilterConfig final {
                                       uint32_t numberOfCss,
                                       double sensorThreshold,
                                       double cssMeasurementNoiseStd,
-                                      double gyroMeasurementNoiseStd) {
+                                      double gyroMeasurementNoiseStd,
+                                      double outlierNSigma = 10.0) {
         if (!Srukf::alphaIsValid(alpha)) {
             FSW_THROW_INVALID_ARGUMENT("sunlineFilter: alpha must be in (0, 1)");
         }
@@ -102,6 +103,9 @@ class SunlineFilterConfig final {
         if (!isValidGyroMeasurementNoiseStd(gyroMeasurementNoiseStd)) {
             FSW_THROW_INVALID_ARGUMENT("sunlineFilter: gyro measurement noise std must not be negative");
         }
+        if (!isValidOutlierNSigma(outlierNSigma)) {
+            FSW_THROW_INVALID_ARGUMENT("sunlineFilter: outlier N-sigma must be greater than 0");
+        }
         return {alpha,
                 beta,
                 processNoise,
@@ -114,7 +118,8 @@ class SunlineFilterConfig final {
                 numberOfCss,
                 sensorThreshold,
                 cssMeasurementNoiseStd,
-                gyroMeasurementNoiseStd};
+                gyroMeasurementNoiseStd,
+                outlierNSigma};
     }
 
     static bool isValidProcessNoise(StateMatrix const& processNoise) {
@@ -143,6 +148,7 @@ class SunlineFilterConfig final {
     static bool isValidSensorThreshold(double threshold) { return threshold >= 0.0; }
     static bool isValidCssMeasurementNoiseStd(double noiseStd) { return noiseStd >= 0.0; }
     static bool isValidGyroMeasurementNoiseStd(double noiseStd) { return noiseStd >= 0.0; }
+    static bool isValidOutlierNSigma(double nSigma) { return nSigma > 0.0; }
 
     double getAlpha() const { return this->alpha; }
     double getBeta() const { return this->beta; }
@@ -157,6 +163,7 @@ class SunlineFilterConfig final {
     double getSensorThreshold() const { return this->sensorThreshold; }
     double getCssMeasurementNoiseStd() const { return this->cssMeasNoiseStd; }
     double getGyroMeasurementNoiseStd() const { return this->gyroMeasNoiseStd; }
+    double getOutlierNSigma() const { return this->outlierNSigma; }
 
    private:
     SunlineFilterConfig(double alpha,
@@ -171,7 +178,8 @@ class SunlineFilterConfig final {
                         uint32_t numberOfCss,
                         double sensorThreshold,
                         double cssMeasurementNoiseStd,
-                        double gyroMeasurementNoiseStd)
+                        double gyroMeasurementNoiseStd,
+                        double outlierNSigma)
         : alpha(alpha),
           beta(beta),
           processNoise(processNoise),
@@ -184,7 +192,8 @@ class SunlineFilterConfig final {
           numberOfCss(numberOfCss),
           sensorThreshold(sensorThreshold),
           cssMeasNoiseStd(cssMeasurementNoiseStd),
-          gyroMeasNoiseStd(gyroMeasurementNoiseStd) {}
+          gyroMeasNoiseStd(gyroMeasurementNoiseStd),
+          outlierNSigma(outlierNSigma) {}
 
     static Eigen::Matrix<double, MaxCss, 3> normalizeCssNHat(Eigen::Matrix<double, MaxCss, 3> const& cssNHat,
                                                              uint32_t numberOfCss) {
@@ -209,6 +218,7 @@ class SunlineFilterConfig final {
     double sensorThreshold;
     double cssMeasNoiseStd;
     double gyroMeasNoiseStd;
+    double outlierNSigma;
 };
 
 /*! @brief Sunline square-root UKF. Estimates sun-heading direction, body rate,

@@ -260,6 +260,44 @@ TEST(SunlineFilterAlgorithmMeasurementUpdate, HighMeasurementNoiseLeavesStateNea
     EXPECT_TRUE(res.postFit.isApprox(res.preFit, 1E-4)) << "postFit should approx preFit when R >> P";
 }
 
+// A measurement whose innovation exceeds N sigma (sigma^2 = covariance trace) is rejected as an outlier:
+// measurementUpdate reports false, the estimate is untouched, and no residual is recorded.
+TEST(SunlineFilterAlgorithmMeasurementUpdate, OutlierMeasurementIsRejected) {
+    SunlineFilterAlgorithm algo(rateOnlyConfig(makeState(Eigen::Vector3d(0, 0, 1), Eigen::Vector3d::Zero(), 1.0),
+                                               diagCovariance(1E-2, 1E-2, 1E-2)));
+    EXPECT_TRUE(algo.timeUpdate(0.0));
+    Vector7 const before = algo.getState().raw();
+
+    RateMeasurement r;
+    r.timeTag = 0.0;
+    r.omega_BN_B = Eigen::Vector3d(0.5, 0.0, 0.0);  // many sigma from the prior
+    r.covar = (1E-3 * 1E-3) * Eigen::Matrix3d::Identity();
+    r.valid = true;
+    EXPECT_FALSE(algo.measurementUpdate(r)) << "an outlier beyond N sigma must be rejected";
+
+    EXPECT_TRUE(algo.getState().raw().isApprox(before)) << "a rejected outlier must not move the state";
+    EXPECT_FALSE(algo.getLastRateResiduals().valid);
+}
+
+// The outlier gate widens with N: the same far measurement is rejected at the default N=10 but admitted
+// once N is large enough.
+TEST(SunlineFilterAlgorithmMeasurementUpdate, OutlierGateWidensWithN) {
+    auto const foldsIn = [](double outlierNSigma) {
+        SunlineFilterAlgorithm algo(rateOnlyConfig(makeState(Eigen::Vector3d(0, 0, 1), Eigen::Vector3d::Zero(), 1.0),
+                                                   diagCovariance(1E-2, 1E-2, 1E-2),
+                                                   outlierNSigma));
+        algo.timeUpdate(0.0);
+        RateMeasurement r;
+        r.timeTag = 0.0;
+        r.omega_BN_B = Eigen::Vector3d(0.5, 0.0, 0.0);
+        r.covar = (1E-3 * 1E-3) * Eigen::Matrix3d::Identity();
+        r.valid = true;
+        return algo.measurementUpdate(r);
+    };
+    EXPECT_FALSE(foldsIn(10.0)) << "default gate rejects the far measurement";
+    EXPECT_TRUE(foldsIn(1E3)) << "a wide gate admits the same measurement";
+}
+
 // ============================================================================
 // Measurement packing + application (through the public update() path) and
 // residual recording.

@@ -35,6 +35,7 @@ class FlybyFilter : public SysModel {
     double mu = 0.0;                          //!< [m^3/s^2] central-body gravitational parameter (SI)
     double unitConversion = 1E-3;             //!< [-]       SI -> internal length scale (1e-3 = m -> km)
     double headingMeasurementNoiseStd = 0.0;  //!< [-]       heading (unit-vector) measurement noise std
+    double outlierNSigma = 10.0;              //!< [-]       N-sigma innovation gate for outlier rejection (> 0)
     Eigen::MatrixXd processNoise;             //!< [(m/s^2)^2] N x N process noise covariance Q (SI)
     Eigen::VectorXd initialState;             //!< [m, m/s]  N-element initial state seed (SI)
     Eigen::MatrixXd initialCovariance;        //!< [m^2, (m/s)^2] N x N initial covariance P0 (SI)

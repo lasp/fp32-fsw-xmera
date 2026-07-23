@@ -172,6 +172,10 @@ Configuration parameters
     * - gyroMeasurementNoiseStd
       - gyro measurement noise standard deviation
       - >= 0
+    * - outlierNSigma
+      - N-sigma gate rejecting a measurement whose innovation exceeds N sigma (sigma^2 = innovation
+        covariance trace)
+      - > 0
 
 
 User Guide
