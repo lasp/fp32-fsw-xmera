@@ -29,7 +29,7 @@ constexpr State rk4(D const& dynamics, State const& X0, double t0, double dt) {
 }
 
 /*! Fixed RK4 max steps used by `propagate`. */
-inline constexpr double kMaxNumberOfSteps = 100;
+inline constexpr unsigned int kMaxNumberOfSteps = 100;
 
 /*! Default RK4 sub-step size used by `propagate` when none is supplied. */
 inline constexpr double kIntegrationStep = 0.2;
@@ -48,12 +48,12 @@ constexpr State propagate(D const& dynamics,
     double t = interval[0];
     double const tFinal = interval[1];
 
-    double N = ceil((tFinal - t) / integrationStep);
+    unsigned int N = static_cast<unsigned int>(ceil((tFinal - t) / integrationStep));
     if (N > kMaxNumberOfSteps) {
         integrationStep = (tFinal - t) / kMaxNumberOfSteps;
         N = kMaxNumberOfSteps;
     }
-    for (int i = 0; i < N; ++i) {
+    for (unsigned int i = 0; i < N; ++i) {
         double const step = std::min(integrationStep, tFinal - t);
         state = rk4(dynamics, state, t, step);
         t += step;
