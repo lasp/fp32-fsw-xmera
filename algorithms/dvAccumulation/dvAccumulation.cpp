@@ -4,7 +4,7 @@
 
 #include <stdexcept>
 
-void DvAccumulation::reset(const uint64_t callTime) {
+void DvAccumulation::reset(const uint64_t /*callTime*/) {
     if (!this->accPktInMsg.isLinked()) {
         throw std::invalid_argument("dvAccumulation.accPktInMsg wasn't connected.");
     }
@@ -36,5 +36,5 @@ void DvAccumulation::updateState(const uint64_t callTime) {
     outputData.timeTag = out.timeTag;
     eigenVectorToCArray(out.vehAccumDV_B, outputData.vehAccumDV);
 
-    this->dvAcumOutMsg.write(&outputData, this->moduleID, callTime);
+    this->dvAcumOutMsg.write(outputData, this->moduleID, callTime);
 }
