@@ -18,6 +18,9 @@ struct DvExecuteGuidanceOutput {
 /// enforces the parameter constraints and throws fsw::invalid_argument on a violation.
 class DvExecuteGuidanceConfig final {
    public:
+    // minTime, maxTime, and controlPeriod share the float type but have distinct roles; construction is funneled
+    // through the named create() factory, which makes the argument roles explicit at every call site.
+    // NOLINTBEGIN(bugprone-easily-swappable-parameters)
     static DvExecuteGuidanceConfig create(float minTime, float maxTime, float controlPeriod) {
         if (!isValidMinTime(minTime)) {
             FSW_THROW_INVALID_ARGUMENT("dvExecuteGuidance: minTime must be non-negative and finite.");
@@ -44,6 +47,7 @@ class DvExecuteGuidanceConfig final {
    private:
     DvExecuteGuidanceConfig(float minTime, float maxTime, float controlPeriod)
         : minTime(minTime), maxTime(maxTime), controlPeriod(controlPeriod) {}
+    // NOLINTEND(bugprone-easily-swappable-parameters)
 
     float minTime;
     float maxTime;
