@@ -22,11 +22,11 @@ void GimbalAxisToMotorAnglesAlgorithm::setConfig(const GimbalAxisToMotorAnglesCo
 /*! This method determines the gimbal sequential tip and tilt angles corresponding to the given thrust direction vector
 in spacecraft body frame components, then interpolates the corresponding stepper motor angles.
  @return GimbalAxisToMotorAnglesOutput
- @param thrustDirHat_B Commanded thrust direction unit vector in body frame components
+ @param thrustHat_B Commanded thrust direction unit vector in body frame components
 */
-GimbalAxisToMotorAnglesOutput GimbalAxisToMotorAnglesAlgorithm::update(const Eigen::Vector3f& thrustDirHat_B) const {
+GimbalAxisToMotorAnglesOutput GimbalAxisToMotorAnglesAlgorithm::update(const Eigen::Vector3f& thrustHat_B) const {
     // Determine the required gimbal tip and tilt angles
-    const Eigen::Vector3f thrustDirHat_M = this->cfg.getDcmMB() * thrustDirHat_B;
+    const Eigen::Vector3f thrustDirHat_M = this->cfg.getDcmMB() * thrustHat_B;
     const float gimbalTipAngle = safeAtanf(-thrustDirHat_M[1] / thrustDirHat_M[2]);
     const float gimbalTiltAngle = safeAsinf(thrustDirHat_M[0]);
 

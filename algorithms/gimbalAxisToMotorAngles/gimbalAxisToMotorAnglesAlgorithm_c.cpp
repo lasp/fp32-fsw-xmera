@@ -55,8 +55,8 @@ void GimbalAxisToMotorAnglesAlgorithm_setConfig(GimbalAxisToMotorAnglesAlgorithm
 
 GimbalAxisToMotorAnglesOutput GimbalAxisToMotorAnglesAlgorithm_update(
     const GimbalAxisToMotorAnglesAlgorithmHandle* self,
-    const float thrustDirHat_B[3]) {
-    const Eigen::Vector3f thrustDir = cArrayToEigenVector3<float>(thrustDirHat_B);
+    const float thrustHat_B[3]) {
+    const Eigen::Vector3f thrustDir = cArrayToEigenVector3<float>(thrustHat_B);
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
     return reinterpret_cast<const ::GimbalAxisToMotorAnglesAlgorithm*>(self)->update(thrustDir);
 }

@@ -43,12 +43,12 @@ void GimbalAxisToMotorAnglesAlgorithm_setConfig(GimbalAxisToMotorAnglesAlgorithm
 
 /** @brief Determine the gimbal and motor angles for a commanded body-frame thrust direction.
  *  @param self           Pointer to the instance.
- *  @param thrustDirHat_B [3] Commanded thrust direction unit vector in body frame components.
+ *  @param thrustHat_B [3] Commanded thrust direction unit vector in body frame components.
  *  @return GimbalAxisToMotorAnglesOutput  Gimbal and motor angles plus a validity flag.
  */
 GimbalAxisToMotorAnglesOutput GimbalAxisToMotorAnglesAlgorithm_update(
     const GimbalAxisToMotorAnglesAlgorithmHandle* self,
-    const float thrustDirHat_B[3]);
+    const float thrustHat_B[3]);
 
 #ifdef __cplusplus
 }  // extern "C"

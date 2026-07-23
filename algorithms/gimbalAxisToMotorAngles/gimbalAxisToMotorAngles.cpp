@@ -58,10 +58,10 @@ void GimbalAxisToMotorAngles::updateState(uint64_t currentSimNanos) {
 
         // Store the thrust direction command vector in body frame components
         const auto thrustDirectionIn = this->thrustDirectionInMsg();
-        const Eigen::Vector3f thrustDirHat_B = cArrayToEigenVector3<float>(thrustDirectionIn.rHat_XB_B);
+        const Eigen::Vector3f thrustHat_B = cArrayToEigenVector3<float>(thrustDirectionIn.rHat_XB_B);
 
         // Determine the gimbal and motor angles corresponding to the thrust direction
-        const GimbalAxisToMotorAnglesOutput motorAngles = this->algorithm->update(thrustDirHat_B);
+        const GimbalAxisToMotorAnglesOutput motorAngles = this->algorithm->update(thrustHat_B);
 
         // Write the module output messages
         auto motor1AngleOut = HingedRigidBodyMsgF32Payload();

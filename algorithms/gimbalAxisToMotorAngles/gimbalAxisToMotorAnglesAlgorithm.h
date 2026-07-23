@@ -100,7 +100,7 @@ class GimbalAxisToMotorAnglesAlgorithm final {
    public:
     explicit GimbalAxisToMotorAnglesAlgorithm(const GimbalAxisToMotorAnglesConfig& config);
     void setConfig(const GimbalAxisToMotorAnglesConfig& config);
-    GimbalAxisToMotorAnglesOutput update(const Eigen::Vector3f& thrustDirHat_B) const;
+    GimbalAxisToMotorAnglesOutput update(const Eigen::Vector3f& thrustHat_B) const;
 
    private:
     MotorAngles gimbalAnglesToMotorAngles(float gimbalTipAngle, float gimbalTiltAngle) const;
