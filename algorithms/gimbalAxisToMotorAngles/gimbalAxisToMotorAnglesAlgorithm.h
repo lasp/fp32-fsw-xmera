@@ -105,11 +105,11 @@ class GimbalAxisToMotorAnglesAlgorithm final {
    private:
     MotorAngles gimbalAnglesToMotorAngles(float gimbalTipAngle, float gimbalTiltAngle) const;
     MotorAngles pullAngles(float gimbalAngle1, float gimbalAngle2) const;
-    bool bilinearInterpolationRequired(float gimbalAngle1, float gimbalAngle2) const;
-    bool noInterpolationRequired(float gimbalAngle1, float gimbalAngle2) const;
-    bool linearInterpolationRequired(float angle) const;
-    MotorAngles bilinearlyInterpolateAngles(float gimbalAngle1, float gimbalAngle2) const;
-    MotorAngles linearlyInterpolateAngles(float gimbalAngle1, float gimbalAngle2, FixedAngle fixedAngle) const;
+    bool isBilinearInterpolationRequired(float gimbalAngle1, float gimbalAngle2) const;
+    bool isNoInterpolationRequired(float gimbalAngle1, float gimbalAngle2) const;
+    bool isLinearInterpolationRequired(float angle) const;
+    MotorAngles bilinearlyInterpolateMotorAngles(float gimbalAngle1, float gimbalAngle2) const;
+    MotorAngles linearlyInterpolateMotorAngles(float gimbalAngle1, float gimbalAngle2, FixedAngle fixedAngle) const;
 
     static constexpr float kTableStepAngleDeg = 0.5F;  //!< [deg] Interpolation table motor discretization step
     static constexpr float kInterpolationRemainderTolerance =
