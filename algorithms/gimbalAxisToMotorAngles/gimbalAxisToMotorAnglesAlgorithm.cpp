@@ -168,7 +168,8 @@ MotorAngles GimbalAxisToMotorAnglesAlgorithm::bilinearlyInterpolateMotorAngles(c
     bool validInterpolation{};
     // Interpolate the motor angles if all bounding angles are valid
     if (motor1AngleLLBound >= 0.0F && motor1AngleLUBound >= 0.0F && motor1AngleULBound >= 0.0F &&
-        motor1AngleUUBound >= 0.0F) {
+        motor1AngleUUBound >= 0.0F && motor2AngleLLBound >= 0.0F && motor2AngleLUBound >= 0.0F &&
+        motor2AngleULBound >= 0.0F && motor2AngleUUBound >= 0.0F) {
         motor1Angle = static_cast<float>(bilinearInterpolation(gimbalAngle1LBound,
                                                                gimbalAngle1UBound,
                                                                gimbalAngle2LBound,
@@ -243,7 +244,8 @@ MotorAngles GimbalAxisToMotorAnglesAlgorithm::linearlyInterpolateMotorAngles(con
     float motor2Angle{};
     bool validInterpolation{};
     // Linearly interpolate if the pulled angles are valid
-    if (motor1AngleLBound >= 0.0F && motor1AngleUBound >= 0.0F) {
+    if (motor1AngleLBound >= 0.0F && motor1AngleUBound >= 0.0F && motor2AngleLBound >= 0.0F &&
+        motor2AngleUBound >= 0.0F) {
         motor1Angle = static_cast<float>(linearInterpolation(
             gimbalAngleLBound, gimbalAngleUBound, motor1AngleLBound, motor1AngleUBound, boundedAngle));
         motor2Angle = static_cast<float>(linearInterpolation(
