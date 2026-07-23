@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: ISC
 // Copyright (c) 2026, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
 
-// Property-based fuzz tests for filtering::applySequential and applySequentialRobust.
+// Property-based fuzz tests for filtering::applySequential, applySequentialRobust, and
+// applyTimestepRobust.
 
 #include <filteringCore/measurementQueue.h>
 #include <filteringCore/kalmanFilter.hpp>
@@ -156,5 +157,75 @@ FUZZ_TEST(ApplySequentialFuzz, fuzzApplySequentialRobustInvariants)
                  fuzztest::InRange(-1e4, 1e4),  // v2
                  fuzztest::InRange(0.0, 1e4),   // initialAnchor
                  fuzztest::InRange(0.0, 1e4));  // extraCallTime
+
+// applyTimestepRobust under a fuzzed measurement failure pattern (sign of each value selects
+// success/failure; timeUpdate always succeeds here). Regardless of the pattern:
+//   * the first call is a single timeUpdate over the full elapsed span (initialSpan + dt),
+//   * every other timeUpdate is a zero-dt re-anchor,
+//   * clear() fires exactly once per failed measurement, immediately after it, and
+//   * the elapsed span resets to 0 iff at least one measurement folded in, else keeps initialSpan + dt.
+void fuzzApplyTimestepRobustInvariants(double t0,
+                                       double t1,
+                                       double t2,
+                                       double v0,
+                                       double v1,
+                                       double v2,
+                                       double initialSpan,
+                                       double dt) {
+    CallLog log;
+    RecordingFilter filter{&log};
+    filter.failOnNegativeMeasurement = true;
+    measurement_queue<double, 4> q;
+    q.setTimeOfLastMeasurement(initialSpan);
+    q.enqueue(t0, double{v0});
+    q.enqueue(t1, double{v1});
+    q.enqueue(t2, double{v2});
+
+    double const step = initialSpan + dt;
+    applyTimestepRobust(q, filter, dt);
+
+    ASSERT_FALSE(log.entries.empty());
+    EXPECT_EQ(log.entries[0].first, CallLog::Kind::TimeUpdate);
+    EXPECT_DOUBLE_EQ(log.entries[0].second, step) << "first timeUpdate must span the full elapsed interval";
+
+    int measApplied = 0;
+    int clears = 0;
+    int failed = 0;
+    for (std::size_t i = 0; i < log.entries.size(); ++i) {
+        auto const& [kind, value] = log.entries[i];
+        if (kind == CallLog::Kind::TimeUpdate) {
+            EXPECT_GE(value, 0.0) << "negative dt";
+            if (i > 0) EXPECT_DOUBLE_EQ(value, 0.0) << "in-loop re-anchor must be a zero time update";
+        } else if (kind == CallLog::Kind::MeasurementUpdate) {
+            if (value >= 0.0) {
+                ++measApplied;
+            } else {
+                ++failed;
+            }
+        } else {  // Clear
+            ++clears;
+            ASSERT_GT(i, 0u);
+            EXPECT_EQ(log.entries[i - 1].first, CallLog::Kind::MeasurementUpdate)
+                << "clear must follow a measurement update";
+            EXPECT_LT(log.entries[i - 1].second, 0.0) << "clear must follow a failed (value < 0) measurement";
+        }
+    }
+    EXPECT_EQ(clears, failed) << "exactly one clear per failed measurement";
+
+    if (measApplied > 0) {
+        EXPECT_DOUBLE_EQ(q.getTimeOfLastMeasurement(), 0.0) << "a folded-in measurement resets the span";
+    } else {
+        EXPECT_DOUBLE_EQ(q.getTimeOfLastMeasurement(), step) << "with nothing folded in the span is carried forward";
+    }
+}
+FUZZ_TEST(ApplySequentialFuzz, fuzzApplyTimestepRobustInvariants)
+    .WithDomains(fuzztest::InRange(-1e4, 1e4),  // t0
+                 fuzztest::InRange(-1e4, 1e4),  // t1
+                 fuzztest::InRange(-1e4, 1e4),  // t2
+                 fuzztest::InRange(-1e4, 1e4),  // v0 (sign selects success/failure)
+                 fuzztest::InRange(-1e4, 1e4),  // v1
+                 fuzztest::InRange(-1e4, 1e4),  // v2
+                 fuzztest::InRange(0.0, 1e4),   // initialSpan
+                 fuzztest::InRange(0.0, 1e4));  // dt
 
 }  // namespace filtering
