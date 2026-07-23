@@ -101,21 +101,15 @@ class GimbalAxisToMotorAnglesConfig final {
 class GimbalAxisToMotorAnglesAlgorithm final {
    public:
     explicit GimbalAxisToMotorAnglesAlgorithm(const GimbalAxisToMotorAnglesConfig& config);
-
-    void setConfig(const GimbalAxisToMotorAnglesConfig& config);  //!< Runtime reconfiguration
-
-    GimbalAxisToMotorAnglesOutput update(
-        const Eigen::Vector3f& thrustDirHat_B) const;  //!< Determine the gimbal and motor angles for a thrust direction
+    void setConfig(const GimbalAxisToMotorAnglesConfig& config);
+    GimbalAxisToMotorAnglesOutput update(const Eigen::Vector3f& thrustDirHat_B) const;
 
    private:
-    MotorAngles gimbalAnglesToMotorAngles(float gimbalTipAngle, float gimbalTiltAngle)
-        const;  //!< Method to determine the stepper motor angles given the gimbal sequential tip and tilt angles
+    MotorAngles gimbalAnglesToMotorAngles(float gimbalTipAngle, float gimbalTiltAngle) const;
     MotorAngles pullAngles(float gimbalAngle1, float gimbalAngle2) const;
-    bool bilinearInterpolationRequired(float gimbalAngle1, float gimbalAngle2)
-        const;  //!< Method to determine if bilinear interpolation is required
-    bool noInterpolationRequired(float gimbalAngle1,
-                                 float gimbalAngle2) const;  //!< Method to determine if no interpolation is required
-    bool linearInterpolationRequired(float angle) const;  //!< Method to determine if linear interpolation is required
+    bool bilinearInterpolationRequired(float gimbalAngle1, float gimbalAngle2) const;
+    bool noInterpolationRequired(float gimbalAngle1, float gimbalAngle2) const;
+    bool linearInterpolationRequired(float angle) const;
     MotorAngles bilinearlyInterpolateAngles(float gimbalAngle1, float gimbalAngle2) const;
     MotorAngles linearlyInterpolateAngles(float gimbalAngle1, float gimbalAngle2, FixedAngle fixedAngle) const;
 
@@ -124,7 +118,7 @@ class GimbalAxisToMotorAnglesAlgorithm final {
         1e-3F;  //!< Tolerance for treating a normalized gimbal angle as landing exactly on a table node
 
     float tableStepAngle{kTableStepAngleDeg * DEG2RAD};  //!< [rad] Interpolation table motor discretization angle
-    GimbalAxisToMotorAnglesConfig cfg;                   //!< Validated configuration (DCM + interpolation tables)
+    GimbalAxisToMotorAnglesConfig cfg;
 };
 
 #endif /* F32XMERA_GIMBAL_AXIS_TO_MOTOR_ANGLES_ALGORITHM_H */

@@ -42,7 +42,7 @@ class GimbalAxisToMotorAngles final : public SysModel {
 
    private:
     double previousWrittenTime{-1.0};  //!< [s] Time the previous input message was written
-    std::unique_ptr<GimbalAxisToMotorAnglesAlgorithm> algorithm = nullptr;  //!< Angle computation algorithm
+    std::unique_ptr<GimbalAxisToMotorAnglesAlgorithm> algorithm = nullptr;
     GimbalAxisToMotorAnglesConfig toConfig() const;
 };
 
