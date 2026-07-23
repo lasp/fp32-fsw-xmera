@@ -55,7 +55,7 @@ void FlybyFilterAlgorithm::setConfig(FlybyFilterConfig const& config) {
     this->srukf.setInitialState(config.getInitialState());
     this->srukf.setInitialCovariance(config.getInitialCovariance());
     this->srukf.dynamics = FlybyDynamics{config.getMu()};
-    this->srukf.reConfigure();
+    this->srukf.configure();
 }
 
 /*! Clear the internal runtime state (pending measurements and residual snapshot); the filter state
@@ -71,7 +71,7 @@ void FlybyFilterAlgorithm::reInitializeExceptPersistentStates() {
  *  @return void */
 void FlybyFilterAlgorithm::reInitialize() {
     this->reInitializeExceptPersistentStates();
-    this->srukf.reset();
+    this->srukf.reInitialize();
 }
 
 /*! Main entrypoint. Enqueues a fresh heading reading if present, empties the queue through the SRuKF

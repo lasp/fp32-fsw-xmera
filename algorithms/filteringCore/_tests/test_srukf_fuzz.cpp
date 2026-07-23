@@ -50,7 +50,7 @@ void fuzzMeasurementUpdateInvariants(double x0, double obs, double pDiag, double
     filter.setInitialState(s0);
     filter.setInitialCovariance(pDiag * Eigen::Matrix3d::Identity());
     filter.setProcessNoise(Eigen::Matrix3d::Zero());
-    filter.reset();
+    filter.reInitialize();
     filter.timeUpdate(0.0);
 
     PositionMeasurement m;

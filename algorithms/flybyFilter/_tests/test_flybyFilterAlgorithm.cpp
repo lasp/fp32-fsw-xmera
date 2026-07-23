@@ -182,7 +182,7 @@ TEST(FlybyFilterAlgorithmLifecycle, ConstructorSeedsStateAndCovarianceFromConfig
     EXPECT_TRUE(algo.getCovariance().isApprox(P0, 1E-9));
 }
 
-TEST(FlybyFilterAlgorithmLifecycle, ReInitializePreservesEstimateReInitializeAllResetsIt) {
+TEST(FlybyFilterAlgorithmLifecycle, ReInitializeExceptPersistentStatesPreservesEstimateReInitializeResetsIt) {
     State const initial = nominalTruth();
     Matrix6 const P0 = diagCovariance(100.0, 0.1);
     FlybyFilterAlgorithm algo(baseConfig(initial, P0));

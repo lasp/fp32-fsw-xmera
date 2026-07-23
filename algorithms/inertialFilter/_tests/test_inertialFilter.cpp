@@ -196,7 +196,7 @@ TEST(InertialFilterAlgorithmLifecycle, ConstructorSeedsStateAndCovarianceFromCon
     EXPECT_TRUE(algo.getCovariance().isApprox(P0, 1E-12));
 }
 
-TEST(InertialFilterAlgorithmLifecycle, ReInitializePreservesEstimateReInitializeAllResetsIt) {
+TEST(InertialFilterAlgorithmLifecycle, ReInitializeExceptPersistentStatesPreservesEstimateReInitializeResetsIt) {
     InertialFilterAlgorithm algo(
         baseConfig(makeState(Eigen::Vector3d(0, 0, 0.05), Eigen::Vector3d(0.01, 0, 0)), diagCovariance(1E-2, 1E-2)));
 
@@ -229,7 +229,7 @@ TEST(InertialFilterAlgorithmLifecycle, ReInitializePreservesEstimateReInitialize
     EXPECT_TRUE(algo.getCovariance().isApprox(initialCovariance));
 }
 
-TEST(InertialFilterAlgorithmLifecycle, ReInitializeAllRestoresSeedAfterConvergence) {
+TEST(InertialFilterAlgorithmLifecycle, ReInitializeRestoresSeedAfterConvergence) {
     State const initial = makeState(Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero());
     Matrix6 const P0 = diagCovariance(1E-1, 1E-2);
     InertialFilterAlgorithm algo(baseConfig(initial, P0));

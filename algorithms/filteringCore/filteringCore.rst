@@ -149,14 +149,14 @@ which the parent ``algorithms/`` include path resolves.
      ``srukf::timeUpdate<State, D>``, ``srukf::measurementUpdate<State, M>``;
    - a state container — ``SRuKF<State, Dyn>``, which holds a
      ``SrukfStorage`` and a settable ``dynamics`` member and exposes
-     ``reConfigure()`` / ``reset()`` / ``timeUpdate(dt)`` /
+     ``configure()`` / ``reInitialize()`` / ``timeUpdate(dt)`` /
      ``measurementUpdate<M>(m)`` plus setters/getters and a
      ``getStateAtLastMeasurement()`` / ``setStateLastMeasurement()`` pair for
      the rolling last-measurement state.
 
-   ``reConfigure()`` re-derives the sigma-point spread (lambda, eta), the sigma
+   ``configure()`` re-derives the sigma-point spread (lambda, eta), the sigma
    weights, and the process-noise Cholesky from alpha, beta, and the process
-   noise, leaving the estimate untouched; ``reset()`` calls ``reConfigure()``
+   noise, leaving the estimate untouched; ``reInitialize()`` calls ``configure()``
    and additionally seeds the state and covariance from the initial conditions.
 
    ``timeUpdate(dt)`` always propagates **from the saved last-measurement
@@ -404,8 +404,8 @@ xmera):
    algo.measurementUpdate(RateMeasurement{...});   // fold a measurement in directly
 
    // Runtime resets / reconfiguration:
-   algo.reInitialize();        // clear pending measurements + residuals; keep state and covariance
-   algo.reInitializeAll();     // the above plus re-seed state and covariance from the config
+   algo.reInitializeExceptPersistentStates();  // clear pending measurements + residuals; keep state and covariance
+   algo.reInitialize();                         // the above plus re-seed state and covariance from the config
    algo.setConfig(newCfg);     // swap the config and re-derive the SRUKF parameters in place
 
    FilterStateOutput   state   = out.filterState;   // mean + covariance
@@ -426,7 +426,7 @@ How to add a new filter
 #. **Write the algorithm class** — the single composition root. Holds a
    ``SRuKF<State, Dyn>`` and an immutable validated ``Config`` (built by a
    static ``create()`` factory, supplied at construction and swappable via
-   ``setConfig()``), ``reInitialize()`` / ``reInitializeAll()``, the
+   ``setConfig()``), ``reInitializeExceptPersistentStates()`` / ``reInitialize()``, the
    ``SequentialFilter`` pair (``timeUpdate(dt)`` / ``measurementUpdate(m)``), the readouts
    (``getFilterOutput`` / ``getCovariance`` / per-kind residuals), a
    ``measurement_queue<Measurement, CAPACITY>``, plus a single-call

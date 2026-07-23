@@ -82,7 +82,7 @@ void SunlineFilterAlgorithm::setConfig(SunlineFilterConfig const& config) {
     this->srukf.setInitialState(config.getInitialState());
     this->srukf.setInitialCovariance(config.getInitialCovariance());
     this->srukf.dynamics = SunlineDynamics{};
-    this->srukf.reConfigure();
+    this->srukf.configure();
 }
 
 /*! Clear the internal runtime state (pending measurements and residual snapshots); the filter state
@@ -99,7 +99,7 @@ void SunlineFilterAlgorithm::reInitializeExceptPersistentStates() {
  *  @return void */
 void SunlineFilterAlgorithm::reInitialize() {
     this->reInitializeExceptPersistentStates();
-    this->srukf.reset();
+    this->srukf.reInitialize();
 }
 
 /*! Main entrypoint. Enqueues whichever measurements are present, empties

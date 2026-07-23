@@ -451,7 +451,7 @@ TEST(SunlineFilterAlgorithmUpdate, WithoutMeasurementsGrowsCovarianceMonotonical
     EXPECT_GT(trace9, trace4);
 }
 
-TEST(SunlineFilterAlgorithmReInit, ReInitializePreservesEstimateReInitializeAllResetsIt) {
+TEST(SunlineFilterAlgorithmReInit, ReInitializeExceptPersistentStatesPreservesEstimateReInitializeResetsIt) {
     SunlineFilterAlgorithm algo(threeCssConfig(
         makeState(Eigen::Vector3d(0, 0, 1), Eigen::Vector3d(0.01, 0, 0), 1.0), diagCovariance(1E-2, 1E-2, 1E-1), 0.0));
 

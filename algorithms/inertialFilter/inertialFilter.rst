@@ -93,7 +93,7 @@ algorithm's Eigen types, and drives the lifecycle.
 
 Configuration is immutable once built. ``InertialFilterConfig::create(...)`` validates every constrained
 parameter and throws on invalid input; the algorithm trusts the config thereafter. The constant filter
-parameters are pushed into the SRuKF by ``setConfig()`` (which calls the SRuKF's ``reConfigure()`` to
+parameters are pushed into the SRuKF by ``setConfig()`` (which calls the SRuKF's ``configure()`` to
 re-derive the sigma-point spread, weights, and process-noise Cholesky), so a configuration change takes
 effect immediately while preserving the current estimate.
 
