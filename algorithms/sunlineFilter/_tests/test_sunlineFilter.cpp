@@ -695,6 +695,13 @@ TEST(SunlineFilterConfig, RejectsNonPositiveSemiDefiniteCovariance) {
     EXPECT_THROW(buildConfig(in), fsw::invalid_argument);
 }
 
+TEST(SunlineFilterConfig, RejectsNonFiniteInitialState) {
+    ConfigInputs in;
+    in.initialState =
+        makeState(Eigen::Vector3d(std::numeric_limits<double>::quiet_NaN(), 0.0, 1.0), Eigen::Vector3d::Zero(), 1.0);
+    EXPECT_THROW(buildConfig(in), fsw::invalid_argument);
+}
+
 TEST(SunlineFilterConfig, RejectsNonPositiveBiasBounds) {
     ConfigInputs lower;
     lower.biasLowerBound = 0.0;

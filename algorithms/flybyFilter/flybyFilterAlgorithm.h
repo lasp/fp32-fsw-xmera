@@ -61,6 +61,9 @@ class FlybyFilterConfig final {
         if (!isValidInitialCovariance(initialCovariance)) {
             FSW_THROW_INVALID_ARGUMENT("flybyFilter: initial covariance must be positive semi-definite");
         }
+        if (!isValidInitialState(initialState)) {
+            FSW_THROW_INVALID_ARGUMENT("flybyFilter: initial state must be finite");
+        }
         if (!isValidHeadingMeasurementNoiseStd(headingMeasurementNoiseStd)) {
             FSW_THROW_INVALID_ARGUMENT("flybyFilter: heading measurement noise std must not be negative");
         }
@@ -75,8 +78,9 @@ class FlybyFilterConfig final {
     static bool isValidProcessNoise(StateMatrix const& processNoise) {
         return isPositiveSemiDefinite<FlybyState::size>(processNoise);
     }
+    static bool isValidInitialState(FlybyState const& initialState) { return initialState.allFinite(); }
     static bool isValidInitialCovariance(StateMatrix const& covariance) {
-        return isPositiveSemiDefinite<FlybyState::size>(covariance);
+        return covariance.allFinite() && isPositiveSemiDefinite<FlybyState::size>(covariance);
     }
     static bool isValidHeadingMeasurementNoiseStd(double noiseStd) { return noiseStd >= 0.0; }
     static bool isValidOutlierNSigma(double nSigma) { return nSigma > 0.0; }

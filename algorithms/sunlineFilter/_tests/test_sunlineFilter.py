@@ -250,7 +250,6 @@ def state_update_flyby(initial_error, show_plots=False):
 
     if initial_error:
         sunHeadingFilter.initialState = [1.0, 0.0, 0.0, -0.02, 0.005, -0.01, 1]
-                                              [0.0, 0.0, 0.1, 0.0, 0.0, 0.0, 0.0],
         sunHeadingFilter.initialCovariance = [[1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
                                               [0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
                                               [0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0],

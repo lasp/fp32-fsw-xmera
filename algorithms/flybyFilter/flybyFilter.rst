@@ -167,7 +167,7 @@ Configuration parameters
       - positive semi-definite
     * - initialState
       - N-element initial state seed [m, m/s]
-      - any
+      - finite
     * - initialCovariance
       - N x N initial covariance P0
       - positive semi-definite
