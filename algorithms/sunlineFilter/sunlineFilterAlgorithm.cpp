@@ -102,21 +102,20 @@ void SunlineFilterAlgorithm::reInitialize() {
     this->srukf.reset();
 }
 
-/*! Main entrypoint. Enqueues whichever measurements are present, empties
- *  the queue through the SRuKF, then sanitizes the state.
 /*! Set the fixed time step applied on every update() call.
  *  @param newDt [s] filter time step */
 void SunlineFilterAlgorithm::setDt(double newDt) { this->dt = newDt; }
 
 /*! @return the fixed time step applied on every update() call */
 double SunlineFilterAlgorithm::getDt() const { return this->dt; }
+
+/*! Main entrypoint. Enqueues whichever measurements are present, steps the filter forward by the
+ *  configured dt through the SRuKF folding every queued measurement in at that step, then sanitizes
+ *  the state. No absolute time enters the filter.
  *  @return Snapshot of post-update filter state and residuals.
- *  @param currentSeconds [s] simulation time the filter is advancing to
- *  @param cssData        [-] CSS array reading + time tag
- *  @param rateData       [-] gyro reading + time tag */
-SunlineFilterOutput SunlineFilterAlgorithm::update(double currentSeconds,
-                                                   CssData const& cssData,
-                                                   RateData const& rateData) {
+ *  @param cssData  [-] CSS array reading + time tag
+ *  @param rateData [-] gyro reading + time tag */
+SunlineFilterOutput SunlineFilterAlgorithm::update(CssData const& cssData, RateData const& rateData) {
     this->lastCssResiduals.valid = false;
     this->lastRateResiduals.valid = false;
 
@@ -126,7 +125,7 @@ SunlineFilterOutput SunlineFilterAlgorithm::update(double currentSeconds,
     if (rateData.timeTag > 0) {
         this->measurements.enqueue(rateData.timeTag, this->packRateMeasurement(rateData));
     }
-    applySequentialRobust(this->measurements, *this, currentSeconds);
+    applyTimestepRobust(this->measurements, *this, this->dt);
     this->srukf.setState(this->regularize(this->srukf.getState()));
     this->srukf.setStateLastMeasurement(this->regularize(this->srukf.getStateAtLastMeasurement()));
 
@@ -157,7 +156,7 @@ void SunlineFilterAlgorithm::clear() {
 }
 
 /*! Apply a CSS measurement and record its residuals. The SRuKF returns the residuals only on a
- *  good update; an unsuccessful update yields no value and returns false to applySequential.
+ *  good update; an unsuccessful update yields no value and returns false to applyTimestepRobust.
  *  @return true iff the update was applied (state/covariance finite)
  *  @param measurement [-] packed CSS measurement (cosValues, H, noise) */
 bool SunlineFilterAlgorithm::applyMeasurement(CssMeasurement const& measurement) {

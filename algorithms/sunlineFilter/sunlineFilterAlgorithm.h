@@ -222,9 +222,10 @@ class SunlineFilterAlgorithm {
 
     void setConfig(SunlineFilterConfig const& config);
 
-    SunlineFilterOutput update(double currentSeconds, CssData const& cssData, RateData const& rateData);
     void setDt(double newDt);
     double getDt() const;
+
+    SunlineFilterOutput update(CssData const& cssData, RateData const& rateData);
 
     void reInitializeExceptPersistentStates();
     void reInitialize();

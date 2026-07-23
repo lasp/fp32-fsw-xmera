@@ -120,8 +120,6 @@ void SunlineFilter::updateState(uint64_t currentSimNanos) {
         throw XmeraLifecycleException("SunlineFilter reset() has not been called.");
     }
 
-    double const currentSeconds = static_cast<double>(currentSimNanos) * NANO2SEC;
-
     RateData rateData{};
     CssData cssData{};
 
@@ -141,7 +139,7 @@ void SunlineFilter::updateState(uint64_t currentSimNanos) {
         this->lastCssTimeTag = timeTag;
     }
 
-    SunlineFilterOutput const filterOutput = this->algorithm->update(currentSeconds, cssData, rateData);
+    SunlineFilterOutput const filterOutput = this->algorithm->update(cssData, rateData);
     this->writeOutputMessages(currentSimNanos, filterOutput);
 }
 
