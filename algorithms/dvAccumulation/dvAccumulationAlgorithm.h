@@ -1,9 +1,6 @@
 #ifndef F32XMERA_DV_ACCUMULATION_ALGORITHM_H
 #define F32XMERA_DV_ACCUMULATION_ALGORITHM_H
 
-#include "dvAccumulationTypes.h"
-#include "msgPayloadDef/AccDataMsgF32Payload.h"
-
 #include <Eigen/Core>
 #include <cstdint>
 
@@ -13,28 +10,31 @@ struct DvAccumulationOutput {
     Eigen::Vector3f vehAccumDV_B{Eigen::Vector3f::Zero()};  //!< [m/s] accumulated Delta-V in body-frame components
 };
 
-/*! @brief Pure algorithm: integrates accelerometer packets into a body-frame Delta-V accumulator.
+/*! @brief Pure algorithm: integrates a body-frame acceleration sample into a body-frame Delta-V
+ *         accumulator.
  *
- * On each update() call the input snapshot is sorted by measTime; every packet with measTime
- * strictly greater than the previously-seen latest time is integrated via dt * accel and added
- * to the running accumulator.
+ * Each update() call carries one body-frame non-gravitational acceleration sample plus the
+ * module call time. The time step is dt = callTime - previousTime; the sample is integrated via
+ * dt * accel and added to the running accumulator. The first call after a reInitialize()
+ * (previousTime == 0) only latches the clock, so dt does not blow up against a zero baseline.
  *
  * dvAccumulation has no tunable parameters, so there is no Config. State splits into persistent
- * (previousTime, dvInitialized — carried across a re-initialization so a continuously-running
- * module ignores the backlog already ingested) and non-persistent (vehAccumDV_B).
+ * (previousTime — carried across a re-initialization so a continuously-running module keeps its
+ * time reference) and non-persistent (vehAccumDV_B). previousTime == 0 doubles as the
+ * "time reference not yet set" marker for the first update() after a reInitialize().
  */
 class DvAccumulationAlgorithm final {
    public:
     DvAccumulationAlgorithm();
 
-    void reInitialize();                        //!< Reset all state: accumulator, previousTime, dvInitialized
+    void reInitialize();                        //!< Reset all state: accumulator and previousTime
     void reInitializeExceptPersistentStates();  //!< Reset only non-persistent state: the accumulator
-    DvAccumulationOutput update(const AccDataMsgF32Payload& accData);
+    //! Integrate one body-frame acceleration sample at callTime (ns) into the accumulated Delta-V.
+    DvAccumulationOutput update(uint64_t callTime, const Eigen::Vector3f& rDDotNoGravity_BN_B);
 
    private:
     Eigen::Vector3f vehAccumDV_B{Eigen::Vector3f::Zero()};  //!< [m/s] running Delta-V accumulator (non-persistent)
-    uint64_t previousTime{};                                //!< [ns] latest measTime ingested so far (persistent)
-    uint32_t dvInitialized{};  //!< [-] non-zero once at least one packet has been ingested (persistent)
+    uint64_t previousTime{};                                //!< [ns] latest callTime integrated so far (persistent)
 };
 
 #endif

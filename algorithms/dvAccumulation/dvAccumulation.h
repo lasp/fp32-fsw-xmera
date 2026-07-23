@@ -2,15 +2,15 @@
 #define F32XMERA_DV_ACCUMULATION_H
 
 #include "dvAccumulationAlgorithm.h"
-#include "msgPayloadDef/AccDataMsgF32Payload.h"
+#include "msgPayloadDef/IMUSensorBodyMsgF32Payload.h"
 #include "msgPayloadDef/NavTransMsgF32Payload.h"
 
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
 #include <memory>
 
-/*! @brief SysModel adapter for DvAccumulationAlgorithm. Reads the input accelerometer-packet
- message, runs the algorithm, and writes the accumulated body-frame Delta-V to the output
+/*! @brief SysModel adapter for DvAccumulationAlgorithm. Reads the body-frame acceleration from the
+ input IMU message, runs the algorithm, and writes the accumulated body-frame Delta-V to the output
  navigation message. */
 class DvAccumulation final : public SysModel {
    public:
@@ -19,8 +19,8 @@ class DvAccumulation final : public SysModel {
     void reInitialize();                        //!< Reset all algorithm state (state-transition hook)
     void reInitializeExceptPersistentStates();  //!< Reset only non-persistent algorithm state
 
-    Message<NavTransMsgF32Payload> dvAcumOutMsg;    //!< accumulated DV output message
-    ReadFunctor<AccDataMsgF32Payload> accPktInMsg;  //!< [-] input accelerometer message
+    Message<NavTransMsgF32Payload> dvAccumulationOutMsg;  //!< accumulated DV output message
+    ReadFunctor<IMUSensorBodyMsgF32Payload> imuInMsg;     //!< [-] input IMU body message
 
    private:
     std::unique_ptr<DvAccumulationAlgorithm> algorithm = nullptr;

@@ -2,97 +2,35 @@
 #define TEST_DV_ACCUMULATION_HELPERS_H
 
 #include "dvAccumulation/dvAccumulationAlgorithm.h"
-#include "msgPayloadDef/AccDataMsgF32Payload.h"
-#include "utilities/fsw/eigenSupport.h"
 #include "utilities/fsw/timeConstants.h"
 
 #include <gtest/gtest.h>
 #include <Eigen/Core>
-#include <array>
+#include <cmath>
 #include <cstdint>
-#include <utility>
 #include <vector>
 
 /*! @brief Reference algorithm state, mirroring DvAccumulationAlgorithm's private members. */
 struct ReferenceState {
     Eigen::Vector3f vehAccumDV_B{Eigen::Vector3f::Zero()};
     uint64_t previousTime{0U};
-    uint32_t dvInitialized{0U};
 };
 
-/*! @brief Reference sort mirroring the algorithm's iterative quicksort exactly, so the reference
- *         agrees with the algorithm on the order of equal-measTime packets (integration is
- *         order-sensitive when timestamps repeat). */
-inline void referenceSortByMeasTime(AccDataMsgF32Payload& accData) {
-    std::array<int, MAX_ACC_BUF_PKT> indexStack{};
-    int top = -1;
-    ++top;
-    indexStack[static_cast<size_t>(top)] = 0;
-    ++top;
-    indexStack[static_cast<size_t>(top)] = MAX_ACC_BUF_PKT - 1;
-
-    while (top >= 1) {
-        auto const end = indexStack[static_cast<size_t>(top)];
-        auto const start = indexStack[static_cast<size_t>(top - 1)];
-        top -= 2;
-
-        auto const pivot = accData.accPkts[static_cast<size_t>(end)].measTime;
-        int partitionIndex = start;
-        for (int i = start; i < end; ++i) {
-            if (accData.accPkts[static_cast<size_t>(i)].measTime <= pivot) {
-                std::swap(accData.accPkts[static_cast<size_t>(i)],
-                          accData.accPkts[static_cast<size_t>(partitionIndex)]);
-                ++partitionIndex;
-            }
-        }
-        std::swap(accData.accPkts[static_cast<size_t>(partitionIndex)], accData.accPkts[static_cast<size_t>(end)]);
-
-        if (partitionIndex - 1 > start) {
-            ++top;
-            indexStack[static_cast<size_t>(top)] = start;
-            ++top;
-            indexStack[static_cast<size_t>(top)] = partitionIndex - 1;
-        }
-        if (partitionIndex + 1 < end) {
-            ++top;
-            indexStack[static_cast<size_t>(top)] = partitionIndex + 1;
-            ++top;
-            indexStack[static_cast<size_t>(top)] = end;
-        }
-    }
-}
-
-/*! @brief Reference reInitialize: reset all state (accumulator, previousTime, dvInitialized), so the
- *         first update() bootstraps on the first newer packet (the algorithm's bootstrap behavior). */
+/*! @brief Reference reInitialize: reset all state (accumulator and previousTime). */
 inline void referenceReInitialize(ReferenceState& s) {
     s.vehAccumDV_B = Eigen::Vector3f::Zero();
     s.previousTime = 0U;
-    s.dvInitialized = 0U;
 }
 
-/*! @brief Reference update: sort by measTime, run the dvInitialized bootstrap (skips the first
- *         newer packet), then integrate every subsequent packet via dt * accel. */
-inline DvAccumulationOutput referenceUpdate(ReferenceState& s, const AccDataMsgF32Payload& accData) {
-    AccDataMsgF32Payload sorted = accData;
-    referenceSortByMeasTime(sorted);
-
-    if (s.dvInitialized == 0U) {
-        for (uint32_t i = 0U; i < MAX_ACC_BUF_PKT; i++) {
-            if (sorted.accPkts[i].measTime > s.previousTime) {
-                s.previousTime = sorted.accPkts[i].measTime;
-                s.dvInitialized = 1U;
-                break;
-            }
-        }
-    }
-
-    for (uint32_t i = 0U; i < MAX_ACC_BUF_PKT; i++) {
-        if (sorted.accPkts[i].measTime > s.previousTime) {
-            const float dt = static_cast<float>(sorted.accPkts[i].measTime - s.previousTime) * kNano2SecF;
-            const Eigen::Vector3f accel_B = cArrayToEigenVector3(sorted.accPkts[i].accel_B);
-            s.vehAccumDV_B += dt * accel_B;
-            s.previousTime = sorted.accPkts[i].measTime;
-        }
+/*! @brief Reference update: the first call (previousTime == 0) only sets the time reference; otherwise
+ *         integrate dt * accel over the elapsed step when callTime advances. */
+inline DvAccumulationOutput referenceUpdate(ReferenceState& s, uint64_t callTime, const Eigen::Vector3f& accel_B) {
+    if (s.previousTime == 0U) {
+        s.previousTime = callTime;
+    } else if (callTime > s.previousTime) {
+        const float dt = static_cast<float>(callTime - s.previousTime) * kNano2SecF;
+        s.vehAccumDV_B += dt * accel_B;
+        s.previousTime = callTime;
     }
 
     DvAccumulationOutput out{};
@@ -101,70 +39,57 @@ inline DvAccumulationOutput referenceUpdate(ReferenceState& s, const AccDataMsgF
     return out;
 }
 
-/*! @brief Build a 120-packet AccDataMsgF32Payload from caller-supplied per-packet times and accels.
- *         If `measTimes.size() < MAX_ACC_BUF_PKT`, remaining slots have measTime=0 (invalid). */
-inline AccDataMsgF32Payload buildAccData(const std::vector<uint64_t>& measTimes,
-                                         const std::vector<Eigen::Vector3f>& accels) {
-    EXPECT_EQ(measTimes.size(), accels.size());
-    EXPECT_LE(measTimes.size(), static_cast<size_t>(MAX_ACC_BUF_PKT));
+/*! @brief One (callTime, acceleration) sample driving a single update() call. */
+struct Sample {
+    uint64_t callTime{0U};
+    Eigen::Vector3f accel_B{Eigen::Vector3f::Zero()};
+};
 
-    AccDataMsgF32Payload accData{};
-    for (size_t i = 0; i < measTimes.size(); ++i) {
-        accData.accPkts[i].measTime = measTimes[i];
-        accData.accPkts[i].accel_B[0] = accels[i].x();
-        accData.accPkts[i].accel_B[1] = accels[i].y();
-        accData.accPkts[i].accel_B[2] = accels[i].z();
-    }
-    return accData;
-}
-
-/*! @brief Fuzz-friendly driver: build one snapshot from caller-supplied measTimes/accels and
- *         drive the algorithm + reference for a single update step from an empty reset. */
-inline void testDvAccumulationFuzz(const std::vector<uint64_t>& measTimes, const std::vector<Eigen::Vector3f>& accels) {
-    if (measTimes.size() != accels.size()) {
-        return;  // fuzz domain may produce mismatched lengths; ignore
-    }
-    if (measTimes.size() > static_cast<size_t>(MAX_ACC_BUF_PKT)) {
-        return;  // ignore over-sized inputs
-    }
-
-    const AccDataMsgF32Payload snap = buildAccData(measTimes, accels);
-
-    DvAccumulationAlgorithm alg{};
-    alg.reInitialize();
-    DvAccumulationOutput algOut{};
-    EXPECT_NO_THROW(algOut = alg.update(snap));
-
-    ReferenceState ref{};
-    referenceReInitialize(ref);
-    const DvAccumulationOutput refOut = referenceUpdate(ref, snap);
-
-    for (int i = 0; i < 3; ++i) {
-        EXPECT_NEAR(algOut.vehAccumDV_B[i], refOut.vehAccumDV_B[i], 1e-5F);
-        EXPECT_TRUE(std::isfinite(algOut.vehAccumDV_B[i]));
-    }
-    EXPECT_TRUE(std::isfinite(algOut.timeTag));
-}
-
-/*! @brief Drive the algorithm through a sequence of input snapshots and compare to the reference
- *         at every step. */
-inline void testDvAccumulation(const std::vector<AccDataMsgF32Payload>& snapshots) {
+/*! @brief Drive the algorithm through a sequence of samples and compare to the reference at every
+ *         step. */
+inline void testDvAccumulation(const std::vector<Sample>& samples) {
     DvAccumulationAlgorithm alg{};
     alg.reInitialize();
 
     ReferenceState ref{};
     referenceReInitialize(ref);
 
-    for (const AccDataMsgF32Payload& snap : snapshots) {
+    for (const Sample& sample : samples) {
         DvAccumulationOutput algOut{};
-        EXPECT_NO_THROW(algOut = alg.update(snap));
-        const DvAccumulationOutput refOut = referenceUpdate(ref, snap);
+        EXPECT_NO_THROW(algOut = alg.update(sample.callTime, sample.accel_B));
+        const DvAccumulationOutput refOut = referenceUpdate(ref, sample.callTime, sample.accel_B);
 
         for (int i = 0; i < 3; ++i) {
             EXPECT_NEAR(algOut.vehAccumDV_B[i], refOut.vehAccumDV_B[i], 1e-6F);
             EXPECT_TRUE(std::isfinite(algOut.vehAccumDV_B[i]));
         }
         EXPECT_NEAR(algOut.timeTag, refOut.timeTag, 1e-9);
+    }
+}
+
+/*! @brief Fuzz-friendly driver: drive the algorithm through parallel (callTime, accel) sequences and
+ *         compare to the reference step-by-step (finite output that matches the reference). callTimes
+ *         are not required to be monotonic, so this also exercises the strictly-greater gate. */
+inline void testDvAccumulationFuzz(const std::vector<uint64_t>& callTimes, const std::vector<Eigen::Vector3f>& accels) {
+    if (callTimes.size() != accels.size()) {
+        return;  // fuzz domain may produce mismatched lengths; ignore
+    }
+
+    DvAccumulationAlgorithm alg{};
+    alg.reInitialize();
+    ReferenceState ref{};
+    referenceReInitialize(ref);
+
+    for (size_t k = 0U; k < callTimes.size(); ++k) {
+        DvAccumulationOutput algOut{};
+        EXPECT_NO_THROW(algOut = alg.update(callTimes[k], accels[k]));
+        const DvAccumulationOutput refOut = referenceUpdate(ref, callTimes[k], accels[k]);
+
+        for (int i = 0; i < 3; ++i) {
+            EXPECT_NEAR(algOut.vehAccumDV_B[i], refOut.vehAccumDV_B[i], 1e-5F);
+            EXPECT_TRUE(std::isfinite(algOut.vehAccumDV_B[i]));
+        }
+        EXPECT_TRUE(std::isfinite(algOut.timeTag));
     }
 }
 

@@ -1,10 +1,7 @@
 #include "dvAccumulationAlgorithm_c.h"
 #include "dvAccumulationAlgorithm.h"
-#include "msgPayloadDef/AccDataMsgF32Payload.h"
 #include "utilities/fsw/eigenSupport.h"
 #include "utilities/fsw/opaqueHandle.h"
-
-uint32_t DvAccumulationAlgorithm_getMaxAccBufPkt(void) { return MAX_ACC_BUF_PKT; }
 
 DvAccumulationAlgorithmHandle* DvAccumulationAlgorithm_create(void) {
     return fsw::createHandle<::DvAccumulationAlgorithm, DvAccumulationAlgorithmHandle>();
@@ -23,8 +20,10 @@ void DvAccumulationAlgorithm_reInitializeExceptPersistentStates(DvAccumulationAl
 }
 
 DvAccumulationOutput_c DvAccumulationAlgorithm_update(DvAccumulationAlgorithmHandle* self,
-                                                      const AccDataMsgF32Payload* accData) {
-    const DvAccumulationOutput out = fsw::fromHandle<::DvAccumulationAlgorithm>(self)->update(*accData);
+                                                      uint64_t callTime,
+                                                      const Vector3f_c* rDDotNoGravity_BN_B) {
+    const Eigen::Vector3f accel_B = cArrayToEigenVector3(rDDotNoGravity_BN_B->data);
+    const DvAccumulationOutput out = fsw::fromHandle<::DvAccumulationAlgorithm>(self)->update(callTime, accel_B);
 
     DvAccumulationOutput_c result{};
     result.timeTag = out.timeTag;
