@@ -19,3 +19,5 @@ target_link_libraries("${module}" PRIVATE
   ArchitectureUtilities
   Eigen3::Eigen
 )
+
+add_subdirectory(_tests)
