@@ -21,8 +21,8 @@ extern "C" {
  * carries only the gyro/accel measurement.
  */
 typedef struct {
-    Vector3f_c gyro_P;
-    Vector3f_c accel_P;
+    Vector3f_c gyro_C;
+    Vector3f_c accel_C;
 } Sample_c;
 
 /**

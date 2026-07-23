@@ -6,24 +6,28 @@
 #include "msgPayloadDef/MimuPacketF32Payload.h"
 #include <architecture/messaging/messaging.h>
 
-class AverageMimuData : public SysModel {
+#include <memory>
+
+class AverageMimuData final : public SysModel {
    public:
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
-    void setGyroAveragingWindow(double window);           //!< [s] Setter method for gyroAveragingWindow
-    double getGyroAveragingWindow() const;                //!< [s] Getter method for gyroAveragingWindow
-    void setAccelAveragingWindow(double window);          //!< [s] Setter method for accelAveragingWindow
-    double getAccelAveragingWindow() const;               //!< [s] Getter method for accelAveragingWindow
-    void setDcmPltfToBdy(Eigen::Matrix3f const& dcm_BP);  //!< Setter method for dcm from platform to body
-    Eigen::Matrix3f getDcmPltfToBdy() const;              //!< Getter method for dcm from platform to body
+    void reconfigure() const;  //!< Re-push the config into the running algorithm; runtime state is untouched
+    void reInitialize();       //!< Re-seed the algorithm's runtime state from the configured values
+
+    // Phase 1: public configuration properties -- set before reset().
+    double gyroAveragingWindow = 0.0;                      //!< [s] Gyro averaging window
+    double accelAveragingWindow = 0.0;                     //!< [s] Accel averaging window
+    Eigen::Matrix3f dcm_BC = Eigen::Matrix3f::Identity();  //!< [-] Transformation from the CHU frame to body
 
     Message<IMUSensorBodyMsgF32Payload> imuOutMsg;
     ReadFunctor<MimuPacketF32Payload> mimuPacketInMsg;
 
    private:
-    uint64_t prevInMsgTime = 0;  /*!< [ns] Measurement time of the previous message*/
-    uint64_t staleDataCount = 0; /*!< [-] Counter for cases where measurement data was stale*/
+    AverageMimuDataConfig toConfig() const;
 
-    AverageMimuDataAlgorithm algorithm{};
+    uint64_t prevInMsgTime = 0; /*!< [ns] Measurement time of the previous message*/
+
+    std::unique_ptr<AverageMimuDataAlgorithm> algorithm = nullptr;
 };
 #endif

@@ -33,10 +33,10 @@ def test_average_mimu_data():
     module = averageMimuDataF32.AverageMimuData()
     module.modelTag = "averageMimuData"
 
-    dcm_pltf_to_body = RigidBodyKinematics.euler3212C([0.01, -0.04, 0.06]).astype(np.float32)
-    module.setDcmPltfToBdy(dcm_pltf_to_body)
-    module.setGyroAveragingWindow(_MAX_AVG_WINDOW_SEC)  # 2 s window covers the full ring
-    module.setAccelAveragingWindow(_MAX_AVG_WINDOW_SEC)  # accel uses the same full-ring window here
+    dcm_chu_to_body = RigidBodyKinematics.euler3212C([0.01, -0.04, 0.06]).astype(np.float32)
+    module.dcm_BC = dcm_chu_to_body
+    module.gyroAveragingWindow = _MAX_AVG_WINDOW_SEC  # 2 s window covers the full ring
+    module.accelAveragingWindow = _MAX_AVG_WINDOW_SEC  # accel uses the same full-ring window here
 
     mimu_pkt = messaging.MimuPacketF32Payload()
     mimu_pkt_msg = messaging.MimuPacketF32().write(mimu_pkt, time=0)
@@ -85,16 +85,16 @@ def test_average_mimu_data():
         cumulative_accel = np.sum(cycle_accel_sums[first_retained : index + 1], axis=0)
         sample_count = cycles_in_ring * _MAX_MIMU_PKT * _MAX_MIMU_SAMPLES_PER_PKT
 
-        expected_gyro[index, :] = np.dot(dcm_pltf_to_body, cumulative_gyro / sample_count)
-        expected_accel[index, :] = np.dot(dcm_pltf_to_body, cumulative_accel / sample_count)
+        expected_gyro[index, :] = np.dot(dcm_chu_to_body, cumulative_gyro / sample_count)
+        expected_accel[index, :] = np.dot(dcm_chu_to_body, cumulative_accel / sample_count)
         sim_time += delta_time_sim
         mimu_pkt_msg = messaging.MimuPacketF32().write(mimu_pkt, time=macros.sec2nano(sim_time))
         module.mimuPacketInMsg.subscribeTo(mimu_pkt_msg)
         unit_test_sim.ConfigureStopTime(macros.sec2nano(sim_time))
         unit_test_sim.ExecuteSimulation()
 
-    np.testing.assert_allclose(_MAX_AVG_WINDOW_SEC, module.getGyroAveragingWindow(), rtol=1e-8, atol=1e-9, verbose=True)
-    np.testing.assert_allclose(dcm_pltf_to_body, module.getDcmPltfToBdy(), rtol=1e-8, atol=1e-6, verbose=True)
+    np.testing.assert_allclose(_MAX_AVG_WINDOW_SEC, module.gyroAveragingWindow, rtol=1e-8, atol=1e-9, verbose=True)
+    np.testing.assert_allclose(dcm_chu_to_body, module.dcm_BC, rtol=1e-8, atol=1e-6, verbose=True)
 
     module_output_accel = data_log.AccelBody
     module_output_angular_velocity = data_log.AngVelBody
@@ -109,11 +109,10 @@ def test_average_mimu_data_buffer_fill():
     """Walk the algorithm-owned ring buffer from empty to wrap.
 
     Cycle 0: no valid packets -> zero output.
-    Cycles 1..4: progressively mark packets 0..(cycle-1) valid. Each cycle
-                 only the newest packet (one not yet in the ring) is ingested
-                 due to strict-monotonic by packet measTime.
-    Cycle 5:     wrap. Packet 0's measTime jumps far ahead; only that packet
-                 is ingested as a new ring slot. Other packets are dropped.
+    Cycles 1..4: mark only the newest packet valid each cycle so it is ingested
+                 once; the ring grows by one packet per cycle.
+    Cycle 5:     wrap. Packet 0's measTime jumps ahead and only it is marked
+                 valid, so it is ingested as a fifth ring slot.
     """
     unit_task_name = "unitTask"
     unit_process_name = "TestProcess"
@@ -129,10 +128,10 @@ def test_average_mimu_data_buffer_fill():
     module = averageMimuDataF32.AverageMimuData()
     module.modelTag = "averageMimuData"
 
-    dcm_pltf_to_body = np.eye(3, dtype=np.float32)
-    module.setDcmPltfToBdy(dcm_pltf_to_body)
-    module.setGyroAveragingWindow(_MAX_AVG_WINDOW_SEC)  # 2 s covers the full ring
-    module.setAccelAveragingWindow(_MAX_AVG_WINDOW_SEC)  # accel uses the same full-ring window here
+    dcm_chu_to_body = np.eye(3, dtype=np.float32)
+    module.dcm_BC = dcm_chu_to_body
+    module.gyroAveragingWindow = _MAX_AVG_WINDOW_SEC  # 2 s covers the full ring
+    module.accelAveragingWindow = _MAX_AVG_WINDOW_SEC  # accel uses the same full-ring window here
 
     mimu_pkt = messaging.MimuPacketF32Payload()
     mimu_pkt_msg = messaging.MimuPacketF32().write(mimu_pkt, time=0)
@@ -172,24 +171,24 @@ def test_average_mimu_data_buffer_fill():
             expected_gyro[cycle] = 0.0
             expected_accel[cycle] = 0.0
         elif cycle <= _MAX_MIMU_PKT:
-            # Mark the first `cycle` packets valid. Strict-monotonic ingest
-            # means only the newest (packet `cycle-1`) is added each call;
-            # the earlier packets were already ingested on prior cycles.
-            valid_flags = [i < cycle for i in range(_MAX_MIMU_PKT)]
+            # Mark only the newest packet (packet `cycle-1`) valid so it is
+            # ingested exactly once; earlier packets were ingested on prior
+            # cycles and remain in the ring.
+            valid_flags = [i == (cycle - 1) for i in range(_MAX_MIMU_PKT)]
             valid_pkts = cycle
             sample_count = valid_pkts * _MAX_MIMU_SAMPLES_PER_PKT
             expected_gyro[cycle] = gyros[:valid_pkts].reshape(-1, 3).sum(axis=0) / sample_count
             expected_accel[cycle] = accels[:valid_pkts].reshape(-1, 3).sum(axis=0) / sample_count
         else:
-            # Wrap: packet 0's measTime jumps far ahead. Only this packet is
-            # ingested; the others (still at their original measTimes) are
-            # rejected by the strict-monotonic gate. Ring grows from 4 to 5
-            # slots; each of those 10-sample groups uses the derived
-            # schedule for staleness so all 50 samples qualify.
+            # Wrap: packet 0's measTime jumps ahead and only it is marked valid,
+            # so it is ingested as a fifth ring slot while the earlier packets
+            # remain. Each 10-sample group uses the derived schedule for
+            # staleness so all 50 samples qualify.
             wrap_gyros = gyros[0].copy()
             wrap_accels = accels[0].copy()
             wrap_gyros[0] = np.array([-1.0, -2.0, -3.0], dtype=np.float32)
             wrap_accels[0] = np.array([-4.0, -5.0, -6.0], dtype=np.float32)
+            valid_flags = [i == 0 for i in range(_MAX_MIMU_PKT)]
             mimu_pkt.packets[0].measTime = macros.sec2nano(1.0)
             for s in range(_MAX_MIMU_SAMPLES_PER_PKT):
                 mimu_pkt.packets[0].samples[s].gyro_B = wrap_gyros[s].tolist()

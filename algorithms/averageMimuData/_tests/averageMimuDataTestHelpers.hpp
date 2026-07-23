@@ -13,37 +13,31 @@
 /*! @brief Independent reimplementation of AverageMimuDataAlgorithm's two-phase
  *  update used by the regression and fuzz harnesses. Holds its own ring with
  *  the same capacity as the algorithm so cross-cycle behavior matches
- *  bit-for-bit. The gyroAveragingWindow and dcm_BP are read from the algorithm
- *  via getters at each update() call. */
+ *  bit-for-bit. The gyroAveragingWindow and dcm_BC are read from the same
+ *  config the algorithm was constructed with. */
 class ReferenceAverager {
    public:
-    explicit ReferenceAverager(AverageMimuDataAlgorithm const& alg) : alg(alg) {}
+    explicit ReferenceAverager(AverageMimuDataConfig const& cfg) : cfg(cfg) {}
 
     OutputAverageAccelAngleVel update(InputPktsData const& localPkts) {
-        // Phase 1: ingest. Freeze prior max for the duration of this call.
-        const std::uint64_t priorMax = this->lastIngestedMaxMeasTime;
+        // Phase 1: ingest valid, nonzero-measTime packets, including out-of-order ones.
         for (auto const& packet : localPkts.packets) {
-            if (!packet.isValid) {
-                continue;
-            }
-            const std::uint64_t firstSampleTime = packet.measTime;
-            if ((firstSampleTime == 0U) || (firstSampleTime <= priorMax)) {
+            if (!packet.isValid || (packet.measTime == 0U)) {
                 continue;
             }
 
             this->ring[this->insertIdx].isValid = true;
-            this->ring[this->insertIdx].measTime = firstSampleTime;
+            this->ring[this->insertIdx].measTime = packet.measTime;
             this->ring[this->insertIdx].samples = packet.samples;
             this->insertIdx = (this->insertIdx + 1U) % AverageMimuDataAlgorithm::kRingCapacity;
-            this->lastIngestedMaxMeasTime = std::max(this->lastIngestedMaxMeasTime, firstSampleTime);
         }
 
         // Phase 2: max-tail-time + per-modality window filter, derived sample
         // schedule. Convert each window to ns once and compare in integer.
         const std::uint64_t gyroAveragingWindowNs =
-            static_cast<std::uint64_t>(this->alg.getGyroAveragingWindow() * 1.0e9);
+            static_cast<std::uint64_t>(this->cfg.getGyroAveragingWindow() * 1.0e9);
         const std::uint64_t accelAveragingWindowNs =
-            static_cast<std::uint64_t>(this->alg.getAccelAveragingWindow() * 1.0e9);
+            static_cast<std::uint64_t>(this->cfg.getAccelAveragingWindow() * 1.0e9);
 
         std::uint64_t maxSlotMeasTime = 0U;
         for (auto const& slot : this->ring) {
@@ -60,8 +54,8 @@ class ReferenceAverager {
         const std::uint64_t maxTimeTag =
             maxSlotMeasTime + ((MAX_MIMU_SAMPLES_PER_PKT_C - 1U) * AverageMimuDataAlgorithm::kMimuSamplePeriodNs);
 
-        Eigen::Vector3f gyroSum_P = Eigen::Vector3f::Zero();
-        Eigen::Vector3f accelSum_P = Eigen::Vector3f::Zero();
+        Eigen::Vector3f gyroSum_C = Eigen::Vector3f::Zero();
+        Eigen::Vector3f accelSum_C = Eigen::Vector3f::Zero();
         std::uint64_t gyroAvgCount = 0U;
         std::uint64_t accelAvgCount = 0U;
 
@@ -74,23 +68,23 @@ class ReferenceAverager {
                     slot.measTime + (s * AverageMimuDataAlgorithm::kMimuSamplePeriodNs);
                 const std::uint64_t age = maxTimeTag - sampleMeasTime;
                 if (age <= gyroAveragingWindowNs) {
-                    gyroSum_P += slot.samples[s].gyro_P;
+                    gyroSum_C += slot.samples[s].gyro_C;
                     gyroAvgCount++;
                 }
                 if (age <= accelAveragingWindowNs) {
-                    accelSum_P += slot.samples[s].accel_P;
+                    accelSum_C += slot.samples[s].accel_C;
                     accelAvgCount++;
                 }
             }
         }
 
         if (gyroAvgCount > 0U) {
-            gyroSum_P /= static_cast<float>(gyroAvgCount);
-            out.gyroOmega_B = this->alg.getDcmPltfToBdy() * gyroSum_P;
+            gyroSum_C /= static_cast<float>(gyroAvgCount);
+            out.gyroOmega_B = this->cfg.getDcmChuToBody() * gyroSum_C;
         }
         if (accelAvgCount > 0U) {
-            accelSum_P /= static_cast<float>(accelAvgCount);
-            out.accel_B = this->alg.getDcmPltfToBdy() * accelSum_P;
+            accelSum_C /= static_cast<float>(accelAvgCount);
+            out.accel_B = this->cfg.getDcmChuToBody() * accelSum_C;
         }
 
         return out;
@@ -103,10 +97,9 @@ class ReferenceAverager {
         std::array<Sample, MAX_MIMU_SAMPLES_PER_PKT_C> samples{};
     };
 
-    AverageMimuDataAlgorithm const& alg;
+    AverageMimuDataConfig cfg;
     std::array<RingPacket, AverageMimuDataAlgorithm::kRingCapacity> ring{};
     std::size_t insertIdx{0U};
-    std::uint64_t lastIngestedMaxMeasTime{0U};
 };
 
 /*! @brief Fill packet `p` of `in` with the given first-sample timestamp and
@@ -119,18 +112,17 @@ inline void fillPacket(InputPktsData& in,
     in.packets[p].isValid = true;
     in.packets[p].measTime = firstSampleTimeNs;
     for (std::size_t s = 0; s < MAX_MIMU_SAMPLES_PER_PKT_C; ++s) {
-        in.packets[p].samples[s].gyro_P = gyros[s];
-        in.packets[p].samples[s].accel_P = accels[s];
+        in.packets[p].samples[s].gyro_C = gyros[s];
+        in.packets[p].samples[s].accel_C = accels[s];
     }
 }
 
 inline void regressionTestAverageMimuDataWindows(float gyroWindow, float accelWindow, InputPktsData const& in) {
-    AverageMimuDataAlgorithm alg;
-    alg.setDcmPltfToBdy(Eigen::Matrix3f::Identity());
-    alg.setGyroAveragingWindow(gyroWindow);
-    alg.setAccelAveragingWindow(accelWindow);
+    const AverageMimuDataConfig cfg =
+        AverageMimuDataConfig::create(gyroWindow, accelWindow, Eigen::Matrix3f::Identity());
+    AverageMimuDataAlgorithm alg(cfg);
 
-    ReferenceAverager ref(alg);
+    ReferenceAverager ref(cfg);
 
     const OutputAverageAccelAngleVel out_alg = alg.update(in);
     const OutputAverageAccelAngleVel out_ref = ref.update(in);
@@ -150,12 +142,11 @@ inline void regressionTestAverageMimuData(float window, InputPktsData const& in)
 inline void sequencedRegressionTestAverageMimuDataWindows(float gyroWindow,
                                                           float accelWindow,
                                                           std::vector<InputPktsData> const& frames) {
-    AverageMimuDataAlgorithm alg;
-    alg.setDcmPltfToBdy(Eigen::Matrix3f::Identity());
-    alg.setGyroAveragingWindow(gyroWindow);
-    alg.setAccelAveragingWindow(accelWindow);
+    const AverageMimuDataConfig cfg =
+        AverageMimuDataConfig::create(gyroWindow, accelWindow, Eigen::Matrix3f::Identity());
+    AverageMimuDataAlgorithm alg(cfg);
 
-    ReferenceAverager ref(alg);
+    ReferenceAverager ref(cfg);
 
     for (auto const& in : frames) {
         const OutputAverageAccelAngleVel out_alg = alg.update(in);

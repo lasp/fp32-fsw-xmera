@@ -2,18 +2,21 @@
 #define AVERAGE_MIMU_DATA_ALGORITHM_H
 
 #include "averageMimuDataTypes.h"
+#include <utilities/fsw/freestandingInvalidArgument.h>
+#include <utilities/fsw/timeConstants.h>
+#include <utilities/fsw/validDcmCheck.h>
 
 #include <Eigen/Core>
 #include <array>
 #include <cstdint>
 
 /*! @brief One MIMU sample at the algorithm-internal layer: a gyro/accel
- *         pair in the platform frame. Per-sample timestamps are derived
+ *         pair in the CHU frame. Per-sample timestamps are derived
  *         from the enclosing packet's `measTime` plus the device sample
  *         period (kMimuSamplePeriodNs); the sample itself stores no time. */
 struct Sample {
-    Eigen::Vector3f gyro_P{Eigen::Vector3f::Zero()};
-    Eigen::Vector3f accel_P{Eigen::Vector3f::Zero()};
+    Eigen::Vector3f gyro_C{Eigen::Vector3f::Zero()};
+    Eigen::Vector3f accel_C{Eigen::Vector3f::Zero()};
 };
 
 /*! @brief Algorithm-internal view of one MIMU packet. `measTime` is the
@@ -39,36 +42,78 @@ struct OutputAverageAccelAngleVel {
 };
 
 namespace average_mimu_detail {
+// MIMU device sample rate (compile-time fixed). Period in nanoseconds is
+// precomputed so the per-sample staleness check stays in integer math.
+constexpr double kMimuSampleRateHz = 100.0;
+constexpr std::uint64_t kMimuSamplePeriodNs = static_cast<std::uint64_t>(kSec2Nano / kMimuSampleRateHz);
+
+// Compile-time cap on the configured averaging window. Ring capacity is
+// sized to hold exactly this many seconds of samples at the MIMU rate.
+constexpr float kMaxAveragingWindowSec = 2.0F;
+
 // Ceiling division so `rateHz * windowSec` samples round up to whole packets.
-constexpr std::size_t ceilDivSamplesToPackets(float rateHz, float windowSec, std::size_t samplesPerPkt) {
-    const float totalSamples = rateHz * windowSec;
+constexpr std::size_t ceilDivSamplesToPackets(double rateHz, float windowSec, std::size_t samplesPerPkt) {
+    const double totalSamples = rateHz * windowSec;
     const std::size_t pkts = static_cast<std::size_t>(totalSamples) / samplesPerPkt;
-    return (static_cast<float>(pkts * samplesPerPkt) < totalSamples) ? pkts + 1U : pkts;
+    return (static_cast<double>(pkts * samplesPerPkt) < totalSamples) ? pkts + 1U : pkts;
 }
+
+constexpr std::size_t kRingCapacity =
+    ceilDivSamplesToPackets(kMimuSampleRateHz, kMaxAveragingWindowSec, MAX_MIMU_SAMPLES_PER_PKT_C);
 }  // namespace average_mimu_detail
 
-class AverageMimuDataAlgorithm {
+/*! @brief Validated configuration for AverageMimuDataAlgorithm. Constructed via create(), which
+ *         enforces the averaging-window bounds and DCM orthonormality before freezing the values. */
+class AverageMimuDataConfig final {
    public:
-    // MIMU device sample rate (compile-time fixed). Period in nanoseconds
-    // is precomputed so the per-sample staleness check stays in integer math.
-    static constexpr float kMimuSampleRateHz = 100.0F;
-    static constexpr std::uint64_t kMimuSamplePeriodNs = 10'000'000U;  // 1e9 / 100
+    static AverageMimuDataConfig create(double gyroAveragingWindow,
+                                        double accelAveragingWindow,
+                                        const Eigen::Matrix3f& dcm_BC) {
+        if (!isValidGyroAveragingWindow(gyroAveragingWindow)) {
+            FSW_THROW_INVALID_ARGUMENT(
+                "averageMimuData: gyroAveragingWindow must be in [0, kMaxAveragingWindowSec] seconds");
+        }
+        if (!isValidAccelAveragingWindow(accelAveragingWindow)) {
+            FSW_THROW_INVALID_ARGUMENT(
+                "averageMimuData: accelAveragingWindow must be in [0, kMaxAveragingWindowSec] seconds");
+        }
+        if (!isValidDcmChuToBody(dcm_BC)) {
+            FSW_THROW_INVALID_ARGUMENT("averageMimuData: dcm_BC must be orthonormal with det=+1");
+        }
+        return {gyroAveragingWindow, accelAveragingWindow, dcm_BC};
+    }
 
-    // Compile-time cap on the configured averaging window. Ring capacity is
-    // sized to hold exactly this many seconds of samples at the MIMU rate.
-    static constexpr float kMaxAveragingWindowSec = 2.0F;
+    static bool isValidGyroAveragingWindow(double window) {
+        return window >= 0.0 && window <= average_mimu_detail::kMaxAveragingWindowSec;
+    }
+    static bool isValidAccelAveragingWindow(double window) {
+        return window >= 0.0 && window <= average_mimu_detail::kMaxAveragingWindowSec;
+    }
+    static bool isValidDcmChuToBody(const Eigen::Matrix3f& dcm_BC) { return isValidDcm(dcm_BC); }
 
-    static constexpr std::size_t kRingCapacity =
-        average_mimu_detail::ceilDivSamplesToPackets(kMimuSampleRateHz,
-                                                     kMaxAveragingWindowSec,
-                                                     MAX_MIMU_SAMPLES_PER_PKT_C);
+    double getGyroAveragingWindow() const { return this->gyroAveragingWindow; }
+    double getAccelAveragingWindow() const { return this->accelAveragingWindow; }
+    const Eigen::Matrix3f& getDcmChuToBody() const { return this->dcm_BC; }
 
-    void setGyroAveragingWindow(double window);             //!< [s] Setter method for gyro windowSec
-    double getGyroAveragingWindow() const;                  //!< [s] Getter method for gyro windowSec
-    void setAccelAveragingWindow(double window);            //!< [s] Setter method for accel windowSec
-    double getAccelAveragingWindow() const;                 //!< [s] Getter method for accel windowSec
-    void setDcmPltfToBdy(Eigen::Matrix3f const& dcm_BPIn);  //!< Setter method for dcm from platform to body
-    Eigen::Matrix3f getDcmPltfToBdy() const;                //!< Getter method for dcm from platform to body
+   private:
+    AverageMimuDataConfig(double gyroAveragingWindow, double accelAveragingWindow, const Eigen::Matrix3f& dcm_BC)
+        : gyroAveragingWindow(gyroAveragingWindow), accelAveragingWindow(accelAveragingWindow), dcm_BC(dcm_BC) {}
+
+    double gyroAveragingWindow;
+    double accelAveragingWindow;
+    Eigen::Matrix3f dcm_BC;
+};
+
+class AverageMimuDataAlgorithm final {
+   public:
+    static constexpr double kMimuSampleRateHz = average_mimu_detail::kMimuSampleRateHz;
+    static constexpr std::uint64_t kMimuSamplePeriodNs = average_mimu_detail::kMimuSamplePeriodNs;
+    static constexpr float kMaxAveragingWindowSec = average_mimu_detail::kMaxAveragingWindowSec;
+    static constexpr std::size_t kRingCapacity = average_mimu_detail::kRingCapacity;
+
+    explicit AverageMimuDataAlgorithm(const AverageMimuDataConfig& config);
+    void setConfig(const AverageMimuDataConfig& config);  //!< Replace the configuration; runtime state is untouched
+    void reInitialize();                                  //!< Clear the ring and new-packet tracking
 
     // Ingests new packets from the snapshot into the internal ring (strict
     // monotonic by per-packet representative time) and returns the rolling
@@ -85,14 +130,13 @@ class AverageMimuDataAlgorithm {
         std::array<Sample, MAX_MIMU_SAMPLES_PER_PKT_C> samples{};
     };
 
-    // Stored as nanoseconds so the per-sample comparison in update() is a
-    // pure uint64_t compare. Float is only used at the public seconds-based API.
-    std::uint64_t gyroAveragingWindowNs{0U};               //!< [ns] Gyro: allowable time difference from "latest"
-    std::uint64_t accelAveragingWindowNs{0U};              //!< [ns] Accel: allowable time difference from "latest"
-    Eigen::Matrix3f dcm_BP = Eigen::Matrix3f::Identity();  //!< [-] Transformation from the platform frame to body
+    AverageMimuDataConfig cfg;
+    // Config-derived: window seconds converted to nanoseconds once in setConfig()
+    // so the per-sample staleness comparison in update() stays in integer math.
+    std::uint64_t gyroAveragingWindowNs{0U};       //!< [ns] Gyro: allowable time difference from "latest"
+    std::uint64_t accelAveragingWindowNs{0U};      //!< [ns] Accel: allowable time difference from "latest"
     std::array<RingPacket, kRingCapacity> ring{};  //!< Internal ring of recent packets (overwrites oldest on insert)
     std::size_t insertIdx{0U};                     //!< Next ring slot to overwrite
-    std::uint64_t lastIngestedMaxMeasTime{0U};  //!< Newest representative time ever ingested (for new-packet detection)
 };
 
 #endif
