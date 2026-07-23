@@ -25,20 +25,27 @@ in spacecraft body frame components, then interpolates the corresponding stepper
  @param thrustHat_B Commanded thrust direction unit vector in body frame components
 */
 GimbalAxisToMotorAnglesOutput GimbalAxisToMotorAnglesAlgorithm::update(const Eigen::Vector3f& thrustHat_B) const {
-    // Determine the required gimbal tip and tilt angles
-    const Eigen::Vector3f thrustDirHat_M = this->cfg.getDcmMB() * thrustHat_B;
-    const float gimbalTipAngle = safeAtanf(-thrustDirHat_M[1] / thrustDirHat_M[2]);
-    const float gimbalTiltAngle = safeAsinf(thrustDirHat_M[0]);
-
-    // Determine the required motor angles
-    const MotorAngles motorAngles = this->gimbalAnglesToMotorAngles(gimbalTipAngle, gimbalTiltAngle);
-
+    /*! Set default output */
     GimbalAxisToMotorAnglesOutput output{};
-    output.gimbalTipAngle = gimbalTipAngle;
-    output.gimbalTiltAngle = gimbalTiltAngle;
-    output.motorAngle1 = motorAngles.angle1;
-    output.motorAngle2 = motorAngles.angle2;
-    output.isValidInterpolation = motorAngles.isValidInterpolation;
+
+    /*! Motor angles are only resolveable if the incoming thrust direction is not zero. */
+    const bool isThrustHatResolved = thrustHat_B.stableNorm() != 0.0F;
+
+    if (isThrustHatResolved) {
+        // Determine the required gimbal tip and tilt angles
+        const Eigen::Vector3f thrustDirHat_M = this->cfg.getDcmMB() * thrustHat_B;
+        const float gimbalTipAngle = safeAtanf(-thrustDirHat_M[1] / thrustDirHat_M[2]);
+        const float gimbalTiltAngle = safeAsinf(thrustDirHat_M[0]);
+
+        // Determine the required motor angles
+        const MotorAngles motorAngles = this->gimbalAnglesToMotorAngles(gimbalTipAngle, gimbalTiltAngle);
+
+        output.gimbalTipAngle = gimbalTipAngle;
+        output.gimbalTiltAngle = gimbalTiltAngle;
+        output.motorAngle1 = motorAngles.angle1;
+        output.motorAngle2 = motorAngles.angle2;
+        output.isValidInterpolation = motorAngles.isValidInterpolation;
+    }
 
     return output;
 }
