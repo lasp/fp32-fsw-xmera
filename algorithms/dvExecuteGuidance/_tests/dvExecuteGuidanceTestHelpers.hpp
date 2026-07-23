@@ -95,6 +95,39 @@ inline void regressionTestDvExecuteGuidance(float minTime,
     }
 }
 
+// ---------------------------------------------------------------------------
+// Property test helper: for any finite command / acceleration, the output flags are well-formed on
+// every step — each flag is 0 or 1, burnExecuting and burnComplete are never simultaneously set,
+// and commandThrustersOff is consistent with them.
+// ---------------------------------------------------------------------------
+inline void propertyOutputFlagsWellFormed(const Eigen::Vector3f& dvInrtlCmd, const Eigen::Vector3f& acceleration) {
+    constexpr float kControlPeriod = 0.5F;
+    constexpr uint64_t kBurnStartTime = 500000000U;  // 0.5 s
+    constexpr int kNumSteps = 20;
+
+    const auto config = DvExecuteGuidanceConfig::create(0.0F, 0.0F, kControlPeriod);
+    DvExecuteGuidanceAlgorithm alg{config};
+
+    const auto stepNs = static_cast<uint64_t>(std::llround(static_cast<double>(kControlPeriod) * 1e9));
+
+    for (int k = 0; k < kNumSteps; ++k) {
+        const uint64_t callTime = static_cast<uint64_t>(k) * stepNs;
+
+        Eigen::Vector3f vehAccumDV = Eigen::Vector3f::Zero();
+        if (callTime > kBurnStartTime) {
+            vehAccumDV = acceleration * (static_cast<float>(callTime - kBurnStartTime) * 1e-9F);
+        }
+
+        DvExecuteGuidanceOutput out{};
+        EXPECT_NO_THROW(out = alg.update(callTime, vehAccumDV, dvInrtlCmd, kBurnStartTime));
+
+        EXPECT_LE(out.burnExecuting, 1U);
+        EXPECT_LE(out.burnComplete, 1U);
+        EXPECT_FALSE(out.burnExecuting == 1U && out.burnComplete == 1U);
+        EXPECT_EQ(out.commandThrustersOff, (out.burnComplete == 1U) || (out.burnExecuting != 1U));
+    }
+}
+
 // Setup helper: constructing the algorithm with a valid configuration must not throw.
 inline void testDvExecuteGuidanceSetup() {
     EXPECT_NO_THROW({
