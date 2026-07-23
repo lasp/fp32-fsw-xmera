@@ -104,6 +104,12 @@ void SunlineFilterAlgorithm::reInitialize() {
 
 /*! Main entrypoint. Enqueues whichever measurements are present, empties
  *  the queue through the SRuKF, then sanitizes the state.
+/*! Set the fixed time step applied on every update() call.
+ *  @param newDt [s] filter time step */
+void SunlineFilterAlgorithm::setDt(double newDt) { this->dt = newDt; }
+
+/*! @return the fixed time step applied on every update() call */
+double SunlineFilterAlgorithm::getDt() const { return this->dt; }
  *  @return Snapshot of post-update filter state and residuals.
  *  @param currentSeconds [s] simulation time the filter is advancing to
  *  @param cssData        [-] CSS array reading + time tag

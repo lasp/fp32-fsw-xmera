@@ -42,6 +42,9 @@ void SunlineFilter::reset(uint64_t currentSimNanos) {
     if (!this->cssConfigInMsg.isLinked()) {
         throw std::invalid_argument("sunlineFilter.cssConfigInMsg wasn't connected.");
     }
+    if (this->dt <= 0.0) {
+        throw std::invalid_argument("sunlineFilter.dt must be set to a positive time step.");
+    }
 
     auto const cssConfig = this->cssConfigInMsg();
     uint32_t const numCss = cssConfig.nCSS;
@@ -70,6 +73,7 @@ void SunlineFilter::reset(uint64_t currentSimNanos) {
                                                     this->cssMeasurementNoiseStd,
                                                     this->gyroMeasurementNoiseStd);
     this->algorithm = std::make_unique<SunlineFilterAlgorithm>(config);
+    this->algorithm->setDt(this->dt);
     this->lastNavAttTimeTag = 0;
     this->lastCssTimeTag = 0;
 }
@@ -92,6 +96,20 @@ void SunlineFilter::reInitialize() {
     }
     this->algorithm->reInitialize();
 }
+
+/*! Pass-through to the algorithm's filter time step. The value is retained on the adapter so it can be set
+ *  before reset() (it seeds the algorithm when constructed) and forwarded live once the algorithm exists.
+ *  @return void
+ *  @param newDt [s] filter time step */
+void SunlineFilter::setDt(double newDt) {
+    this->dt = newDt;
+    if (this->algorithm) {
+        this->algorithm->setDt(newDt);
+    }
+}
+
+/*! @return the filter time step, from the live algorithm once constructed, otherwise the pending value */
+double SunlineFilter::getDt() const { return this->algorithm ? this->algorithm->getDt() : this->dt; }
 
 /*! Read NavAtt and CSS messages, call algorithm update, and
  *  write the output state and residuals.
