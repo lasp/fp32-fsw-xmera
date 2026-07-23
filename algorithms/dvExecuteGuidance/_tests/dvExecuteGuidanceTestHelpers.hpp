@@ -95,6 +95,18 @@ inline void regressionTestDvExecuteGuidance(float minTime,
     }
 }
 
+// Fuzz-compatible regression helper: drives regressionTestDvExecuteGuidance with two fuzz-supplied
+// Eigen::Vector3f inputs (commanded delta-V and acceleration) and a fixed valid configuration.
+inline void fuzzRegressionDvExecuteGuidance(const Eigen::Vector3f& dvInrtlCmd, const Eigen::Vector3f& acceleration) {
+    regressionTestDvExecuteGuidance(/* minTime = */ 0.0F,
+                                    /* maxTime = */ 0.0F,
+                                    /* controlPeriod = */ 0.5F,
+                                    /* dvInrtlCmd = */ dvInrtlCmd,
+                                    /* acceleration = */ acceleration,
+                                    /* burnStartTime = */ 500000000U,
+                                    /* numSteps = */ 20);
+}
+
 // ---------------------------------------------------------------------------
 // Property test helper: for any finite command / acceleration, the output flags are well-formed on
 // every step — each flag is 0 or 1, burnExecuting and burnComplete are never simultaneously set,
