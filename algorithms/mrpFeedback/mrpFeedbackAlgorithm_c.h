@@ -1,13 +1,10 @@
-#ifndef F32XMERA_MRPFEEDBACKALGORITHM_C_H
-#define F32XMERA_MRPFEEDBACKALGORITHM_C_H
+#ifndef F32XMERA_MRP_FEEDBACK_ALGORITHM_C_H
+#define F32XMERA_MRP_FEEDBACK_ALGORITHM_C_H
 
-#include "msgPayloadDef/AttGuidMsgF32Payload.h"
-#include "msgPayloadDef/CmdTorqueBodyMsgF32Payload.h"
-#include "msgPayloadDef/RWArrayConfigMsgF32Payload.h"
-#include "msgPayloadDef/RWAvailabilityMsgPayload.h"
-#include "msgPayloadDef/RWSpeedMsgF32Payload.h"
-#include "msgPayloadDef/VehicleConfigMsgF32Payload.h"
+#include "mrpFeedbackTypes.h"
 #include "utilities/fsw/plainCAlgorithmDataTypes.h"
+
+#include <stdbool.h>
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -20,44 +17,50 @@ extern "C" {
 typedef struct MrpFeedbackAlgorithmHandle MrpFeedbackAlgorithmHandle;
 
 /**
- * @brief C-compatible mirror of the C++ ControlLawType enum class.
- *
- * Numeric values must stay in lockstep with the C++ enum class in mrpFeedbackTypes.h.
+ * @brief Get the MRP_FEEDBACK_MAX_NUM_RW constant for Ada validation.
+ * @return The maximum number of reaction wheels handled at the C boundary.
  */
-typedef enum { CONTROL_LAW_TYPE_NORMAL_C = 0, CONTROL_LAW_TYPE_SIMPLE_INTEGRAL_C = 1 } ControlLawType_c;
+uint32_t MrpFeedbackAlgorithm_getMaxNumRw(void);
 
 /**
- * @brief Plain-old-data mirror of the C++ MrpFeedbackConfig fields.
- *
- * Caller fills this struct and passes it to MrpFeedbackAlgorithm_create or _setConfig. The C++
- * side validates each field via MrpFeedbackConfig::create and throws on invalid input.
- *  - K, P, Ki, integralLimit must be >= 0
- *  - controlLawType is unconstrained
- *  - knownTorquePntB_B is unconstrained
+ * @brief Report whether a configuration would be accepted by create/setConfig.
+ * @param K                 [N*m]   proportional gain on the MRP error; must be finite and >= 0.
+ * @param P                 [N*m*s] rate-error feedback gain; must be finite and >= 0.
+ * @param Ki                [N*m]   integral feedback gain; must be finite and >= 0 (0 disables the integral).
+ * @param integralLimit     [N*m*s] anti-windup clamp on the integral state; must be finite and >= 0.
+ * @param controlLawType    [-]     control-law variant; must be NORMAL or SIMPLE_INTEGRAL.
+ * @param controlPeriod     [s]     time between two algorithm update calls; must be finite and > 0.
+ * @param knownTorquePntB_B [N*m]   known external torque, body-frame components; must be finite.
+ * @param ISCPntB_B      [kg*m^2]   spacecraft inertia about point B; must be a valid inertia matrix.
+ * @param rwConfiguration   [-]     reaction-wheel configuration, or NULL to omit the reaction-wheel momentum
+ *                                  term; when supplied, numRW <= max, finite inertias, near-unit spin axes.
+ * @return true when the configuration is valid. Never throws, so it can guard the throwing
+ *         create/setConfig from an invalid configuration.
  */
-typedef struct {
-    float K;
-    float P;
-    float Ki;
-    float integralLimit;
-    ControlLawType_c controlLawType;
-    Vector3f_c knownTorquePntB_B;
-} MrpFeedbackConfig_c;
-
-/**
- * @brief C-compatible mirror of the C++ MrpFeedbackOutput.
- */
-typedef struct {
-    CmdTorqueBodyMsgF32Payload controlOut;     /*!< control torque output */
-    CmdTorqueBodyMsgF32Payload intFeedbackOut; /*!< integral feedback torque output */
-} MrpFeedbackOutput_c;
+bool MrpFeedbackAlgorithm_validateConfig(float K,
+                                         float P,
+                                         float Ki,
+                                         float integralLimit,
+                                         ControlLawType_c controlLawType,
+                                         float controlPeriod,
+                                         const Vector3f_c* knownTorquePntB_B,
+                                         const Matrix3f_c* ISCPntB_B,
+                                         const MrpFeedbackRwConfig_c* rwConfiguration);
 
 /**
  * @brief Construct a new MrpFeedbackAlgorithm instance from the supplied configuration.
- * @param config Pointer to the configuration to apply (validated; throws on invalid input).
+ * Validate the values with validateConfig first; invalid input throws.
  * @return Pointer to a new MrpFeedbackAlgorithm (must be destroyed).
  */
-MrpFeedbackAlgorithmHandle* MrpFeedbackAlgorithm_create(const MrpFeedbackConfig_c* config);
+MrpFeedbackAlgorithmHandle* MrpFeedbackAlgorithm_create(float K,
+                                                        float P,
+                                                        float Ki,
+                                                        float integralLimit,
+                                                        ControlLawType_c controlLawType,
+                                                        float controlPeriod,
+                                                        const Vector3f_c* knownTorquePntB_B,
+                                                        const Matrix3f_c* ISCPntB_B,
+                                                        const MrpFeedbackRwConfig_c* rwConfiguration);
 
 /**
  * @brief Destroy a previously created MrpFeedbackAlgorithm.
@@ -66,42 +69,41 @@ MrpFeedbackAlgorithmHandle* MrpFeedbackAlgorithm_create(const MrpFeedbackConfig_
 void MrpFeedbackAlgorithm_destroy(MrpFeedbackAlgorithmHandle* self);
 
 /**
- * @brief Replace the algorithm's configuration at runtime.
- * @param self   Pointer to the instance.
- * @param config Pointer to the configuration to apply (validated; throws on invalid input).
+ * @brief Replace the algorithm's configuration at runtime. The integral state is preserved.
+ * Validate the values with validateConfig first; invalid input throws.
+ * @param self Pointer to the instance.
  */
-void MrpFeedbackAlgorithm_setConfig(MrpFeedbackAlgorithmHandle* self, const MrpFeedbackConfig_c* config);
+void MrpFeedbackAlgorithm_setConfig(MrpFeedbackAlgorithmHandle* self,
+                                    float K,
+                                    float P,
+                                    float Ki,
+                                    float integralLimit,
+                                    ControlLawType_c controlLawType,
+                                    float controlPeriod,
+                                    const Vector3f_c* knownTorquePntB_B,
+                                    const Matrix3f_c* ISCPntB_B,
+                                    const MrpFeedbackRwConfig_c* rwConfiguration);
 
 /**
- * @brief Reset the algorithm: snapshot the spacecraft inertia and (optional) RW configuration,
- *        and clear the integral state.
- * @param self          Pointer to the instance.
- * @param vehConfigMsg  Spacecraft inertia configuration.
- * @param rwConfigMsg   Reaction-wheel configuration (consumed only when rwIsLinked is non-zero).
- * @param rwIsLinked    Non-zero when rwConfigMsg holds a valid configuration; zero to ignore it.
+ * @brief Reset the integrating runtime state (zero the integral of the MRP tracking error).
+ * @param self Pointer to the instance.
  */
-void MrpFeedbackAlgorithm_reset(MrpFeedbackAlgorithmHandle* self,
-                                const VehicleConfigMsgF32Payload* vehConfigMsg,
-                                const RWArrayConfigMsgF32Payload* rwConfigMsg,
-                                int rwIsLinked);
+void MrpFeedbackAlgorithm_reInitialize(MrpFeedbackAlgorithmHandle* self);
 
 /**
- * @brief Compute the required control torque Lr and integral feedback torque Li.
- * @param self                Pointer to the instance.
- * @param callTime            Time stamp for update [ns].
- * @param guidCmd             Attitude tracking error.
- * @param wheelSpeeds         Reaction-wheel speeds (read only when reset configured numRW > 0).
- * @param wheelsAvailability  Reaction-wheel availability flags.
- * @return MrpFeedbackOutput_c  Control torque and integral feedback torque payloads.
+ * @brief Compute the commanded control torque Lr and integral feedback torque Li for the current guidance and
+ *        reaction-wheel speeds.
+ * @param self         Pointer to the instance.
+ * @param attGuidInput Attitude guidance input (sigma_BR, omega_BR_B, omega_RN_B, domega_RN_B).
+ * @param wheelSpeeds  Current reaction-wheel speeds.
+ * @return MrpFeedbackOutput_c Commanded control torque and integral feedback torque in body-frame components.
  */
 MrpFeedbackOutput_c MrpFeedbackAlgorithm_update(MrpFeedbackAlgorithmHandle* self,
-                                                uint64_t callTime,
-                                                const AttGuidMsgF32Payload* guidCmd,
-                                                const RWSpeedMsgF32Payload* wheelSpeeds,
-                                                const RWAvailabilityMsgPayload* wheelsAvailability);
+                                                const MrpFeedbackInputGuidance_c* attGuidInput,
+                                                const MrpFeedbackRwSpeeds_c* wheelSpeeds);
 
 #ifdef __cplusplus
 }  // extern "C"
 #endif
 
-#endif  // F32XMERA_MRPFEEDBACKALGORITHM_C_H
+#endif /* F32XMERA_MRP_FEEDBACK_ALGORITHM_C_H */
