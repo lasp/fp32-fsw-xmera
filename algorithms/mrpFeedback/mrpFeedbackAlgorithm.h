@@ -1,20 +1,14 @@
 #ifndef F32XMERA_MRP_FEEDBACK_ALGORITHM_H
 #define F32XMERA_MRP_FEEDBACK_ALGORITHM_H
 
+#include "../msgPayloadDef/definitions.h"
 #include "msgPayloadDef/RWAvailabilityMsgPayload.h"
-#include <cstdint>
-
-#include "mrpFeedbackTypes.h"
-#include "msgPayloadDef/AttGuidMsgF32Payload.h"
-#include "msgPayloadDef/CmdTorqueBodyMsgF32Payload.h"
-#include "msgPayloadDef/RWArrayConfigMsgF32Payload.h"
-#include "msgPayloadDef/RWSpeedMsgF32Payload.h"
-#include "msgPayloadDef/VehicleConfigMsgF32Payload.h"
 #include "utilities/fsw/freestandingInvalidArgument.h"
 #include "utilities/fsw/freestandingIsFinite.hpp"
 #include "utilities/fsw/validInertiaCheck.h"
 
 #include <math.h>
+#include <stdint.h>
 #include <Eigen/Core>
 #include <algorithm>
 #include <array>
@@ -22,9 +16,18 @@
 
 enum class ControlLawType { NORMAL = 0, SIMPLE_INTEGRAL = 1 };
 
+/*! Commanded control torque and its integral-feedback component. */
 struct MrpFeedbackOutput {
-    CmdTorqueBodyMsgF32Payload controlOut{};      //!< control torque output
-    CmdTorqueBodyMsgF32Payload intFeedbackOut{};  //!< integral feedback torque output
+    Eigen::Vector3f controlTorque = Eigen::Vector3f::Zero();           //!< [N*m] commanded control torque Lr
+    Eigen::Vector3f integralFeedbackTorque = Eigen::Vector3f::Zero();  //!< [N*m] integral feedback torque Li
+};
+
+/*! Struct containing the guidance inputs needed by the algorithm. */
+struct MrpFeedbackInputGuidance {
+    Eigen::Vector3f sigma_BR = Eigen::Vector3f::Zero();
+    Eigen::Vector3f omega_BR_B = Eigen::Vector3f::Zero();
+    Eigen::Vector3f omega_RN_B = Eigen::Vector3f::Zero();
+    Eigen::Vector3f domega_RN_B = Eigen::Vector3f::Zero();
 };
 
 /*! Struct containing the reaction wheel inputs needed by the algorithm. */
@@ -154,7 +157,8 @@ class MrpFeedbackAlgorithm final {
     void setConfig(const MrpFeedbackConfig& config);
 
     void reset();
-    MrpFeedbackOutput update(const AttGuidMsgF32Payload& guidCmd, const RWSpeedMsgF32Payload& wheelSpeeds);
+    MrpFeedbackOutput update(const MrpFeedbackInputGuidance& attGuidInput,
+                             const std::array<float, RW_EFF_CNT>& wheelSpeeds);
 
    private:
     MrpFeedbackConfig cfg;

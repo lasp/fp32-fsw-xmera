@@ -39,20 +39,20 @@ TEST(MrpFeedbackTest, IntegralFeedbackDisabledWhenKiIsZero) {
     const MrpFeedbackConfig cfg = MrpFeedbackConfig::create(params, Eigen::Vector3f::Zero(), inertia);
     MrpFeedbackAlgorithm alg(cfg);
 
-    AttGuidMsgF32Payload guidCmd{};
-    eigenVectorToCArray(Eigen::Vector3f{0.4F, 0.1F, -0.3F}, guidCmd.sigma_BR);
-    eigenVectorToCArray(Eigen::Vector3f{-0.4F, 0.5F, -0.6F}, guidCmd.omega_BR_B);
-    eigenVectorToCArray(Eigen::Vector3f{0.7F, -0.8F, 0.9F}, guidCmd.omega_RN_B);
-    eigenVectorToCArray(Eigen::Vector3f{-1.0F, 1.1F, -1.2F}, guidCmd.domega_RN_B);
-
-    const RWSpeedMsgF32Payload wheelSpeeds{};
+    const MrpFeedbackInputGuidance guid{
+        Eigen::Vector3f{0.4F, 0.1F, -0.3F},
+        Eigen::Vector3f{-0.4F, 0.5F, -0.6F},
+        Eigen::Vector3f{0.7F, -0.8F, 0.9F},
+        Eigen::Vector3f{-1.0F, 1.1F, -1.2F},
+    };
+    const std::array<float, RW_EFF_CNT> wheelSpeeds{};
     EXPECT_NO_THROW(alg.reset());
     for (int step = 0; step < 5; ++step) {
         MrpFeedbackOutput out{};
-        EXPECT_NO_THROW(out = alg.update(guidCmd, wheelSpeeds));
+        EXPECT_NO_THROW(out = alg.update(guid, wheelSpeeds));
         for (int i = 0; i < 3; ++i) {
-            EXPECT_FLOAT_EQ(out.intFeedbackOut.torqueRequestBody[i], 0.0F);
-            EXPECT_TRUE(std::isfinite(out.controlOut.torqueRequestBody[i]));
+            EXPECT_FLOAT_EQ(out.integralFeedbackTorque[i], 0.0F);
+            EXPECT_TRUE(std::isfinite(out.controlTorque[i]));
         }
     }
 }
@@ -75,28 +75,25 @@ TEST(MrpFeedbackTest, IntegralLimitClampsLargeError) {
         MrpFeedbackConfig::create(params, Eigen::Vector3f::Zero(), Eigen::Matrix3f::Identity());
     MrpFeedbackAlgorithm alg(cfg);
 
-    AttGuidMsgF32Payload guidCmd{};
-    eigenVectorToCArray(Eigen::Vector3f{1.0F, 1.0F, 1.0F}, guidCmd.sigma_BR);
-    eigenVectorToCArray(Eigen::Vector3f::Zero(), guidCmd.omega_BR_B);
-    eigenVectorToCArray(Eigen::Vector3f::Zero(), guidCmd.omega_RN_B);
-    eigenVectorToCArray(Eigen::Vector3f::Zero(), guidCmd.domega_RN_B);
+    MrpFeedbackInputGuidance guid{};
+    guid.sigma_BR = Eigen::Vector3f{1.0F, 1.0F, 1.0F};
 
-    const RWSpeedMsgF32Payload wheelSpeeds{};
+    const std::array<float, RW_EFF_CNT> wheelSpeeds{};
     EXPECT_NO_THROW(alg.reset());
 
     // Drive enough integration steps to saturate (each step accumulates K*controlPeriod*sigma = 1.0 per axis).
     constexpr int steps = 10;
     MrpFeedbackOutput out{};
     for (int step = 0; step < steps; ++step) {
-        EXPECT_NO_THROW(out = alg.update(guidCmd, wheelSpeeds));
+        EXPECT_NO_THROW(out = alg.update(guid, wheelSpeeds));
         for (int i = 0; i < 3; ++i) {
-            EXPECT_TRUE(std::isfinite(out.controlOut.torqueRequestBody[i]));
-            EXPECT_TRUE(std::isfinite(out.intFeedbackOut.torqueRequestBody[i]));
+            EXPECT_TRUE(std::isfinite(out.controlTorque[i]));
+            EXPECT_TRUE(std::isfinite(out.integralFeedbackTorque[i]));
         }
     }
     // After saturation, the integral feedback torque magnitude per axis is bounded by P*Ki*intLimit.
     constexpr float bound = 1.0F * Ki * intLimit + 1e-5F;  // P=1 in this test
     for (int i = 0; i < 3; ++i) {
-        EXPECT_LE(std::abs(out.intFeedbackOut.torqueRequestBody[i]), bound);
+        EXPECT_LE(std::abs(out.integralFeedbackTorque[i]), bound);
     }
 }

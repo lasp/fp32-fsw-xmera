@@ -1,5 +1,4 @@
 #include "mrpFeedbackAlgorithm.h"
-#include "utilities/fsw/eigenSupport.h"
 
 #include <math.h>
 #include <optional>
@@ -14,15 +13,15 @@ void MrpFeedbackAlgorithm::reset() { this->int_sigma = Eigen::Vector3f::Zero(); 
 
 /*! Compute the required control torque Lr from the attitude/rate tracking error and (optional)
     RW state. The MRP error is integrated with the fixed configured control period. */
-MrpFeedbackOutput MrpFeedbackAlgorithm::update(const AttGuidMsgF32Payload& guidCmd,
-                                               const RWSpeedMsgF32Payload& wheelSpeeds) {
+MrpFeedbackOutput MrpFeedbackAlgorithm::update(const MrpFeedbackInputGuidance& attGuidInput,
+                                               const std::array<float, RW_EFF_CNT>& wheelSpeeds) {
     const MrpFeedbackControlParameters& params = this->cfg.getControlParameters();
     const Eigen::Matrix3f& ISCPntB_B = this->cfg.getSpacecraftInertia();
 
-    const Eigen::Vector3f sigma_BR = cArrayToEigenVector(guidCmd.sigma_BR);
-    const Eigen::Vector3f omega_BR_B = cArrayToEigenVector(guidCmd.omega_BR_B);
-    const Eigen::Vector3f omega_RN_B = cArrayToEigenVector(guidCmd.omega_RN_B);
-    const Eigen::Vector3f domega_RN_B = cArrayToEigenVector(guidCmd.domega_RN_B);
+    const Eigen::Vector3f sigma_BR = attGuidInput.sigma_BR;
+    const Eigen::Vector3f omega_BR_B = attGuidInput.omega_BR_B;
+    const Eigen::Vector3f omega_RN_B = attGuidInput.omega_RN_B;
+    const Eigen::Vector3f domega_RN_B = attGuidInput.domega_RN_B;
 
     const Eigen::Vector3f omega_BN_B = omega_BR_B + omega_RN_B;
 
@@ -48,7 +47,7 @@ MrpFeedbackOutput MrpFeedbackAlgorithm::update(const AttGuidMsgF32Payload& guidC
             if (rwConfigParams.wheelAvailability.at(i) == AVAILABLE) {
                 const Eigen::Vector3f G_s_B_i = rwConfigParams.GsMatrix_B.col(static_cast<int>(i));
                 const Eigen::Vector3f h_s_i =
-                    rwConfigParams.JsList.at(i) * (omega_BN_B.dot(G_s_B_i) + wheelSpeeds.wheelSpeeds[i]) * G_s_B_i;
+                    rwConfigParams.JsList.at(i) * (omega_BN_B.dot(G_s_B_i) + wheelSpeeds.at(i)) * G_s_B_i;
                 H_B += h_s_i;
             }
         }
@@ -65,11 +64,8 @@ MrpFeedbackOutput MrpFeedbackAlgorithm::update(const AttGuidMsgF32Payload& guidC
                                momentumContribution + ISCPntB_B * (omega_BN_B.cross(omega_RN_B) - domega_RN_B) +
                                this->cfg.getKnownTorquePntB_B();
 
-    const Eigen::Vector3f Lr = -Lc;
-    const Eigen::Vector3f Li = -(params.P * params.Ki * z);
-
     MrpFeedbackOutput out{};
-    eigenVectorToCArray(Lr, out.controlOut.torqueRequestBody);
-    eigenVectorToCArray(Li, out.intFeedbackOut.torqueRequestBody);
+    out.controlTorque = -Lc;
+    out.integralFeedbackTorque = -(params.P * params.Ki * z);
     return out;
 }

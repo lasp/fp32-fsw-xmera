@@ -81,12 +81,9 @@ inline ReferenceOutput referenceUpdate(const MrpFeedbackConfig& cfg,
     const Eigen::Vector3f Lc = K * sigma_BR + P * omega_BR_B + P * Ki * z - momentumContribution +
                                ISCPntB_B * (omega_BN_B.cross(omega_RN_B) - domega_RN_B) + knownTorquePntB_B;
 
-    const Eigen::Vector3f Lr = -Lc;
-    const Eigen::Vector3f Li = -(P * Ki * z);
-
     ReferenceOutput out{};
-    eigenVectorToCArray(Lr, out.mrpFeedbackOut.controlOut.torqueRequestBody);
-    eigenVectorToCArray(Li, out.mrpFeedbackOut.intFeedbackOut.torqueRequestBody);
+    out.mrpFeedbackOut.controlTorque = -Lc;
+    out.mrpFeedbackOut.integralFeedbackTorque = -(P * Ki * z);
     out.int_sigma = int_sigma;
     return out;
 }
@@ -242,24 +239,29 @@ inline void testMrpFeedback(const Eigen::Vector3f& sigma,
 
     EXPECT_NO_THROW(alg.reset());
 
+    // Algorithm input structs (payload-free interface).
+    const MrpFeedbackInputGuidance attGuidInputData{sigma, omega_BR_B, omega_RN_B, domega_RN_B};
+    std::array<float, RW_EFF_CNT> wheelSpeedsArr{};
+    std::copy(wheelSpeeds.begin(), wheelSpeeds.end(), wheelSpeedsArr.begin());
+
     Eigen::Vector3f int_sigma{Eigen::Vector3f::Zero()};
 
     constexpr int numSteps = 5;
     for (int step = 0; step < numSteps; ++step) {
         MrpFeedbackOutput out{};
         ReferenceOutput refOutput{};
-        EXPECT_NO_THROW(out = alg.update(guidCmdMsg, wheelSpeedsMsg));
+        EXPECT_NO_THROW(out = alg.update(attGuidInputData, wheelSpeedsArr));
         EXPECT_NO_THROW(refOutput = referenceUpdate(
                             cfg, rwConfigMsg, ISC_B, int_sigma, guidCmdMsg, wheelSpeedsMsg, wheelsAvailabilityMsg));
         const MrpFeedbackOutput ref = refOutput.mrpFeedbackOut;
         int_sigma = refOutput.int_sigma;
 
         for (int i = 0; i < 3; ++i) {
-            EXPECT_NEAR(out.controlOut.torqueRequestBody[i], ref.controlOut.torqueRequestBody[i], 1e-6);
-            EXPECT_NEAR(out.intFeedbackOut.torqueRequestBody[i], ref.intFeedbackOut.torqueRequestBody[i], 1e-6);
+            EXPECT_NEAR(out.controlTorque[i], ref.controlTorque[i], 1e-6);
+            EXPECT_NEAR(out.integralFeedbackTorque[i], ref.integralFeedbackTorque[i], 1e-6);
 
-            EXPECT_TRUE(std::isfinite(out.controlOut.torqueRequestBody[i]));
-            EXPECT_TRUE(std::isfinite(out.intFeedbackOut.torqueRequestBody[i]));
+            EXPECT_TRUE(std::isfinite(out.controlTorque[i]));
+            EXPECT_TRUE(std::isfinite(out.integralFeedbackTorque[i]));
         }
     }
 }

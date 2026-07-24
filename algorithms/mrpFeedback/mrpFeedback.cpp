@@ -3,6 +3,7 @@
 #include "utilities/fsw/eigenSupport.h"
 #include "utilities/xmera/xmeraLifecycleException.h"
 #include <algorithm>
+#include <array>
 #include <optional>
 #include <stdexcept>
 
@@ -55,15 +56,28 @@ void MrpFeedback::updateState(const uint64_t callTime) {
         throw XmeraLifecycleException("MrpFeedback reset() has not been called.");
     }
 
-    AttGuidMsgF32Payload guidCmd = this->guidInMsg();
-    RWSpeedMsgF32Payload wheelSpeeds{};
+    const AttGuidMsgF32Payload guidCmd = this->guidInMsg();
+    const MrpFeedbackInputGuidance attGuidInput{
+        cArrayToEigenVector(guidCmd.sigma_BR),
+        cArrayToEigenVector(guidCmd.omega_BR_B),
+        cArrayToEigenVector(guidCmd.omega_RN_B),
+        cArrayToEigenVector(guidCmd.domega_RN_B),
+    };
 
+    std::array<float, RW_EFF_CNT> wheelSpeeds{};
     if (this->numRW > 0U) {
-        wheelSpeeds = this->rwSpeedsInMsg();
+        const RWSpeedMsgF32Payload wheelSpeedsMsg = this->rwSpeedsInMsg();
+        std::copy(
+            std::begin(wheelSpeedsMsg.wheelSpeeds), std::end(wheelSpeedsMsg.wheelSpeeds), std::begin(wheelSpeeds));
     }
 
-    auto [controlOut, intFeedbackOut] = this->algorithm->update(guidCmd, wheelSpeeds);
+    const MrpFeedbackOutput out = this->algorithm->update(attGuidInput, wheelSpeeds);
 
+    CmdTorqueBodyMsgF32Payload controlOut{};
+    eigenVectorToCArray(out.controlTorque, controlOut.torqueRequestBody);
     this->cmdTorqueOutMsg.write(&controlOut, moduleID, callTime);
+
+    CmdTorqueBodyMsgF32Payload intFeedbackOut{};
+    eigenVectorToCArray(out.integralFeedbackTorque, intFeedbackOut.torqueRequestBody);
     this->intFeedbackTorqueOutMsg.write(&intFeedbackOut, this->moduleID, callTime);
 }
