@@ -14,6 +14,7 @@
 #include <gtest/gtest.h>
 #include <Eigen/Core>
 #include <cmath>
+#include <optional>
 #include <vector>
 
 struct ReferenceOutput {
@@ -100,9 +101,12 @@ inline MrpFeedbackControlParameters makeValidControlParameters() {
 }
 
 inline void testMrpFeedbackSetup() {
+    const Eigen::Vector3f knownTorque = Eigen::Vector3f::Zero();
+    const Eigen::Matrix3f goodInertia = Eigen::Matrix3f::Identity();
+
     // Valid config builds without throwing.
     EXPECT_NO_THROW({
-        const MrpFeedbackConfig cfg = MrpFeedbackConfig::create(makeValidControlParameters(), Eigen::Vector3f::Zero());
+        const MrpFeedbackConfig cfg = MrpFeedbackConfig::create(makeValidControlParameters(), knownTorque, goodInertia);
         const MrpFeedbackAlgorithm alg(cfg);
         (void)alg;
     });
@@ -114,15 +118,24 @@ inline void testMrpFeedbackSetup() {
                                                        &MrpFeedbackControlParameters::integralLimit}) {
         MrpFeedbackControlParameters params = makeValidControlParameters();
         params.*gain = -0.1F;
-        EXPECT_ANY_THROW({ (void)MrpFeedbackConfig::create(params, Eigen::Vector3f::Zero()); });
+        EXPECT_ANY_THROW({ (void)MrpFeedbackConfig::create(params, knownTorque, goodInertia); });
     }
 
     // Non-positive control period is rejected.
     for (const float badPeriod : {0.0F, -0.1F}) {
         MrpFeedbackControlParameters params = makeValidControlParameters();
         params.controlPeriod = badPeriod;
-        EXPECT_ANY_THROW({ (void)MrpFeedbackConfig::create(params, Eigen::Vector3f::Zero()); });
+        EXPECT_ANY_THROW({ (void)MrpFeedbackConfig::create(params, knownTorque, goodInertia); });
     }
+
+    // Invalid inertia matrices are rejected.
+    Eigen::Matrix3f badInertia{};
+    badInertia << 1, 0, 0, 0, 1, 0, 0, 0, 0;  // singular
+    EXPECT_ANY_THROW({ (void)MrpFeedbackConfig::create(makeValidControlParameters(), knownTorque, badInertia); });
+    badInertia << 1, 0, 0, 0, 1, 0, 0, 1, 1;  // asymmetric
+    EXPECT_ANY_THROW({ (void)MrpFeedbackConfig::create(makeValidControlParameters(), knownTorque, badInertia); });
+    badInertia << 3, 0, 0, 0, 1, 0, 0, 0, 1;  // violates triangle inequality
+    EXPECT_ANY_THROW({ (void)MrpFeedbackConfig::create(makeValidControlParameters(), knownTorque, badInertia); });
 }
 
 inline void testMrpFeedback(const Eigen::Vector3f& sigma,
@@ -155,8 +168,17 @@ inline void testMrpFeedback(const Eigen::Vector3f& sigma,
         .controlLawType = controlLawTypeAlg,
         .controlPeriod = controlPeriod,
     };
-    const MrpFeedbackConfig cfg = MrpFeedbackConfig::create(params, knownTorquePntB_B);
-    MrpFeedbackAlgorithm alg(cfg);
+    const Eigen::Matrix3f ISC_B = cArrayToEigenMatrix3(ISCPntB_B.data());
+
+    // Skip cases whose inertia matrix fails validation (e.g. random fuzz inputs).
+    std::optional<MrpFeedbackConfig> config;
+    try {
+        config = MrpFeedbackConfig::create(params, knownTorquePntB_B, ISC_B);
+    } catch (const fsw::invalid_argument&) {
+        return;
+    }
+    const MrpFeedbackConfig& cfg = *config;
+    MrpFeedbackAlgorithm alg{cfg};
 
     AttGuidMsgF32Payload guidCmdMsg{};
     eigenVectorToCArray(sigma, guidCmdMsg.sigma_BR);
@@ -182,12 +204,7 @@ inline void testMrpFeedback(const Eigen::Vector3f& sigma,
         std::copy(GsMatrix_B.begin(), GsMatrix_B.end(), rwConfigMsg.GsMatrix_B);
     }
 
-    VehicleConfigMsgF32Payload vehConfigMsg{};
-    std::copy(ISCPntB_B.begin(), ISCPntB_B.end(), vehConfigMsg.ISCPntB_B);
-
-    const Eigen::Matrix3f ISC_B = cArrayToEigenMatrix3(ISCPntB_B.data());
-
-    EXPECT_NO_THROW(alg.reset(vehConfigMsg, rwConfigMsg, rwIsLinked));
+    EXPECT_NO_THROW(alg.reset(rwConfigMsg, rwIsLinked));
 
     Eigen::Vector3f int_sigma{Eigen::Vector3f::Zero()};
 

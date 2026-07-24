@@ -12,6 +12,7 @@
 #include "msgPayloadDef/VehicleConfigMsgF32Payload.h"
 #include "utilities/fsw/freestandingInvalidArgument.h"
 #include "utilities/fsw/freestandingIsFinite.hpp"
+#include "utilities/fsw/validInertiaCheck.h"
 
 #include <Eigen/Core>
 
@@ -35,7 +36,8 @@ struct MrpFeedbackControlParameters {
 class MrpFeedbackConfig final {
    public:
     static MrpFeedbackConfig create(const MrpFeedbackControlParameters& controlParameters,
-                                    const Eigen::Vector3f& knownTorquePntB_B) {
+                                    const Eigen::Vector3f& knownTorquePntB_B,
+                                    const Eigen::Matrix3f& ISCPntB_B) {
         if (!isValidK(controlParameters.K)) {
             FSW_THROW_INVALID_ARGUMENT("mrpFeedback: K must be finite and >= 0");
         }
@@ -57,7 +59,10 @@ class MrpFeedbackConfig final {
         if (!isValidKnownTorque(knownTorquePntB_B)) {
             FSW_THROW_INVALID_ARGUMENT("mrpFeedback: knownTorquePntB_B must be finite");
         }
-        return {controlParameters, knownTorquePntB_B};
+        if (!isValidInertia(ISCPntB_B)) {
+            FSW_THROW_INVALID_ARGUMENT("mrpFeedback: ISCPntB_B must be a valid inertia matrix");
+        }
+        return {controlParameters, knownTorquePntB_B, ISCPntB_B};
     }
 
     static bool isValidK(float K) { return fsw::is_finite(K) && K >= 0.0F; }
@@ -73,16 +78,21 @@ class MrpFeedbackConfig final {
         return controlLawType == ControlLawType::NORMAL || controlLawType == ControlLawType::SIMPLE_INTEGRAL;
     }
     static bool isValidKnownTorque(const Eigen::Vector3f& knownTorquePntB_B) { return knownTorquePntB_B.allFinite(); }
+    static bool isValidInertia(const Eigen::Matrix3f& ISCPntB_B) { return inertiaIsValid(ISCPntB_B); }
 
     const MrpFeedbackControlParameters& getControlParameters() const { return this->controlParameters; }
     const Eigen::Vector3f& getKnownTorquePntB_B() const { return this->knownTorquePntB_B; }
+    const Eigen::Matrix3f& getSpacecraftInertia() const { return this->ISCPntB_B; }
 
    private:
-    MrpFeedbackConfig(const MrpFeedbackControlParameters& controlParameters, const Eigen::Vector3f& knownTorquePntB_B)
-        : controlParameters(controlParameters), knownTorquePntB_B(knownTorquePntB_B) {}
+    MrpFeedbackConfig(const MrpFeedbackControlParameters& controlParameters,
+                      const Eigen::Vector3f& knownTorquePntB_B,
+                      const Eigen::Matrix3f& ISCPntB_B)
+        : controlParameters(controlParameters), knownTorquePntB_B(knownTorquePntB_B), ISCPntB_B(ISCPntB_B) {}
 
     MrpFeedbackControlParameters controlParameters;
     Eigen::Vector3f knownTorquePntB_B;
+    Eigen::Matrix3f ISCPntB_B;
 };
 
 /*! @brief Data configuration structure for the MRP feedback attitude control routine. */
@@ -92,7 +102,7 @@ class MrpFeedbackAlgorithm final {
 
     void setConfig(const MrpFeedbackConfig& config);
 
-    void reset(VehicleConfigMsgF32Payload vehConfigMsg, const RWArrayConfigMsgF32Payload& rwConfigMsg, bool rwIsLinked);
+    void reset(const RWArrayConfigMsgF32Payload& rwConfigMsg, bool rwIsLinked);
     MrpFeedbackOutput update(const AttGuidMsgF32Payload& guidCmd,
                              const RWSpeedMsgF32Payload& wheelSpeeds,
                              const RWAvailabilityMsgPayload& wheelsAvailability);
@@ -100,7 +110,6 @@ class MrpFeedbackAlgorithm final {
    private:
     MrpFeedbackConfig cfg;
     Eigen::Vector3f int_sigma{};                  //!< [s] integral of the MPR attitude error
-    Eigen::Matrix3f ISCPntB_B{};                  //!< [kg m^2] Spacecraft Inertia
     RWArrayConfigMsgF32Payload rwConfigParams{};  //!< RW config snapshot taken at reset() time
 };
 

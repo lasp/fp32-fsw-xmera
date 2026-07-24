@@ -8,13 +8,8 @@ MrpFeedbackAlgorithm::MrpFeedbackAlgorithm(MrpFeedbackConfig config) : cfg(std::
 
 void MrpFeedbackAlgorithm::setConfig(const MrpFeedbackConfig& config) { this->cfg = config; }
 
-/*! Reset the algorithm: snapshot the spacecraft inertia and (optional) RW configuration, and
-    clear the integral state. */
-void MrpFeedbackAlgorithm::reset(VehicleConfigMsgF32Payload vehConfigMsg,
-                                 const RWArrayConfigMsgF32Payload& rwConfigMsg,
-                                 const bool rwIsLinked) {
-    this->ISCPntB_B = cArrayToEigenMatrix3(vehConfigMsg.ISCPntB_B);
-
+/*! Reset the algorithm: snapshot the (optional) RW configuration and clear the integral state. */
+void MrpFeedbackAlgorithm::reset(const RWArrayConfigMsgF32Payload& rwConfigMsg, const bool rwIsLinked) {
     this->rwConfigParams.numRW = 0;
     if (rwIsLinked) {
         this->rwConfigParams = rwConfigMsg;
@@ -29,6 +24,7 @@ MrpFeedbackOutput MrpFeedbackAlgorithm::update(const AttGuidMsgF32Payload& guidC
                                                const RWSpeedMsgF32Payload& wheelSpeeds,
                                                const RWAvailabilityMsgPayload& wheelsAvailability) {
     const MrpFeedbackControlParameters& params = this->cfg.getControlParameters();
+    const Eigen::Matrix3f& ISCPntB_B = this->cfg.getSpacecraftInertia();
 
     const Eigen::Vector3f sigma_BR = cArrayToEigenVector(guidCmd.sigma_BR);
     const Eigen::Vector3f omega_BR_B = cArrayToEigenVector(guidCmd.omega_BR_B);
@@ -48,13 +44,13 @@ MrpFeedbackOutput MrpFeedbackAlgorithm::update(const AttGuidMsgF32Payload& guidC
                 this->int_sigma[i] *= params.integralLimit / intCheck;
             }
         }
-        z = this->int_sigma + this->ISCPntB_B * omega_BR_B;
+        z = this->int_sigma + ISCPntB_B * omega_BR_B;
     }
 
     const Eigen::Matrix<float, 3, RW_EFF_CNT> G_s_B =
         cArrayToEigenMatrix<float, 3, RW_EFF_CNT>(this->rwConfigParams.GsMatrix_B);
 
-    Eigen::Vector3f H_B = this->ISCPntB_B * omega_BN_B;
+    Eigen::Vector3f H_B = ISCPntB_B * omega_BN_B;
     for (Eigen::Index i = 0; i < this->rwConfigParams.numRW; ++i) {
         if (wheelsAvailability.wheelAvailability[i] == AVAILABLE) {
             const Eigen::Vector3f G_s_B_i = G_s_B.col(i);
@@ -72,7 +68,7 @@ MrpFeedbackOutput MrpFeedbackAlgorithm::update(const AttGuidMsgF32Payload& guidC
     }
 
     const Eigen::Vector3f Lc = params.K * sigma_BR + params.P * omega_BR_B + params.P * params.Ki * z -
-                               momentumContribution + this->ISCPntB_B * (omega_BN_B.cross(omega_RN_B) - domega_RN_B) +
+                               momentumContribution + ISCPntB_B * (omega_BN_B.cross(omega_RN_B) - domega_RN_B) +
                                this->cfg.getKnownTorquePntB_B();
 
     const Eigen::Vector3f Lr = -Lc;

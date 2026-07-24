@@ -1,5 +1,6 @@
 #include "mrpFeedback.h"
 
+#include "utilities/fsw/eigenSupport.h"
 #include "utilities/xmera/xmeraLifecycleException.h"
 #include <stdexcept>
 
@@ -14,7 +15,7 @@ void MrpFeedback::reset(const uint64_t callTime) {
         throw std::invalid_argument("MrpFeedback.vehConfigInMsg wasn't connected.");
     }
 
-    const VehicleConfigMsgF32Payload sc = this->vehConfigInMsg();
+    const Eigen::Matrix3f inertia = cArrayToEigenMatrix3(this->vehConfigInMsg().ISCPntB_B);
     RWArrayConfigMsgF32Payload rwConfigParams{};
     bool rwParamsIsLinked{};
     if (this->rwParamsInMsg.isLinked()) {
@@ -31,9 +32,9 @@ void MrpFeedback::reset(const uint64_t callTime) {
         .controlLawType = this->controlLawType,
         .controlPeriod = this->controlPeriod,
     };
-    auto config = MrpFeedbackConfig::create(controlParameters, this->knownTorquePntB_B);
+    auto config = MrpFeedbackConfig::create(controlParameters, this->knownTorquePntB_B, inertia);
     this->algorithm = std::make_unique<MrpFeedbackAlgorithm>(config);
-    this->algorithm->reset(sc, rwConfigParams, rwParamsIsLinked);
+    this->algorithm->reset(rwConfigParams, rwParamsIsLinked);
 }
 
 void MrpFeedback::updateState(const uint64_t callTime) {

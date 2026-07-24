@@ -18,7 +18,7 @@ TEST(MrpFeedbackTest, ReferenceTest) {
                     std::vector<float>{2.3, -2.4, 2.5, -2.6},
                     std::vector<float>{2.7, -2.8, 2.9, -3.0},
                     std::vector<float>{0.4, 0.1, -0.3, 1.2, 0.4, 0.1, -0.3, 1.2, 0.4, 0.1, -0.3, 1.2},
-                    std::vector<float>{0.4, 0.1, -0.3, 0.4, 0.1, -0.3, 0.4, 0.1, -0.3},
+                    std::vector<float>{1000.0, 0.0, 0.0, 0.0, 800.0, 0.0, 0.0, 0.0, 800.0},
                     false,
                     0.1);
 }
@@ -35,7 +35,9 @@ TEST(MrpFeedbackTest, IntegralFeedbackDisabledWhenKiIsZero) {
         .controlLawType = ControlLawType::NORMAL,
         .controlPeriod = 0.1F,
     };
-    const MrpFeedbackConfig cfg = MrpFeedbackConfig::create(params, Eigen::Vector3f::Zero());
+    Eigen::Matrix3f inertia{};
+    inertia << 1000.0F, 0.0F, 0.0F, 0.0F, 800.0F, 0.0F, 0.0F, 0.0F, 800.0F;
+    const MrpFeedbackConfig cfg = MrpFeedbackConfig::create(params, Eigen::Vector3f::Zero(), inertia);
     MrpFeedbackAlgorithm alg(cfg);
 
     AttGuidMsgF32Payload guidCmd{};
@@ -44,15 +46,11 @@ TEST(MrpFeedbackTest, IntegralFeedbackDisabledWhenKiIsZero) {
     eigenVectorToCArray(Eigen::Vector3f{0.7F, -0.8F, 0.9F}, guidCmd.omega_RN_B);
     eigenVectorToCArray(Eigen::Vector3f{-1.0F, 1.1F, -1.2F}, guidCmd.domega_RN_B);
 
-    VehicleConfigMsgF32Payload vehConfig{};
-    const std::vector<float> isc{1000.0F, 0.0F, 0.0F, 0.0F, 800.0F, 0.0F, 0.0F, 0.0F, 800.0F};
-    std::copy(isc.begin(), isc.end(), vehConfig.ISCPntB_B);
-
     const RWArrayConfigMsgF32Payload rwConfig{};
     const RWSpeedMsgF32Payload wheelSpeeds{};
     const RWAvailabilityMsgPayload availability{};
 
-    EXPECT_NO_THROW(alg.reset(vehConfig, rwConfig, /*rwIsLinked=*/false));
+    EXPECT_NO_THROW(alg.reset(rwConfig, /*rwIsLinked=*/false));
     for (int step = 0; step < 5; ++step) {
         MrpFeedbackOutput out{};
         EXPECT_NO_THROW(out = alg.update(guidCmd, wheelSpeeds, availability));
@@ -77,7 +75,8 @@ TEST(MrpFeedbackTest, IntegralLimitClampsLargeError) {
         .controlLawType = ControlLawType::NORMAL,
         .controlPeriod = 1.0F,
     };
-    const MrpFeedbackConfig cfg = MrpFeedbackConfig::create(params, Eigen::Vector3f::Zero());
+    const MrpFeedbackConfig cfg =
+        MrpFeedbackConfig::create(params, Eigen::Vector3f::Zero(), Eigen::Matrix3f::Identity());
     MrpFeedbackAlgorithm alg(cfg);
 
     AttGuidMsgF32Payload guidCmd{};
@@ -86,15 +85,11 @@ TEST(MrpFeedbackTest, IntegralLimitClampsLargeError) {
     eigenVectorToCArray(Eigen::Vector3f::Zero(), guidCmd.omega_RN_B);
     eigenVectorToCArray(Eigen::Vector3f::Zero(), guidCmd.domega_RN_B);
 
-    VehicleConfigMsgF32Payload vehConfig{};
-    const std::vector<float> isc{1.0F, 0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 0.0F, 1.0F};
-    std::copy(isc.begin(), isc.end(), vehConfig.ISCPntB_B);
-
     const RWArrayConfigMsgF32Payload rwConfig{};
     const RWSpeedMsgF32Payload wheelSpeeds{};
     const RWAvailabilityMsgPayload availability{};
 
-    EXPECT_NO_THROW(alg.reset(vehConfig, rwConfig, /*rwIsLinked=*/false));
+    EXPECT_NO_THROW(alg.reset(rwConfig, /*rwIsLinked=*/false));
 
     // Drive enough integration steps to saturate (each step accumulates K*controlPeriod*sigma = 1.0 per axis).
     constexpr int steps = 10;
