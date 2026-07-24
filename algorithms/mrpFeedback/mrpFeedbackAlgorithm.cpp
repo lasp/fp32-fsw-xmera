@@ -2,21 +2,15 @@
 #include "utilities/fsw/eigenSupport.h"
 
 #include <math.h>
+#include <optional>
 #include <utility>
 
 MrpFeedbackAlgorithm::MrpFeedbackAlgorithm(MrpFeedbackConfig config) : cfg(std::move(config)) {}
 
 void MrpFeedbackAlgorithm::setConfig(const MrpFeedbackConfig& config) { this->cfg = config; }
 
-/*! Reset the algorithm: snapshot the (optional) RW configuration and clear the integral state. */
-void MrpFeedbackAlgorithm::reset(const RWArrayConfigMsgF32Payload& rwConfigMsg, const bool rwIsLinked) {
-    this->rwConfigParams.numRW = 0;
-    if (rwIsLinked) {
-        this->rwConfigParams = rwConfigMsg;
-    }
-
-    this->int_sigma = Eigen::Vector3f::Zero();
-}
+/*! Reset the algorithm: clear the integral state. */
+void MrpFeedbackAlgorithm::reset() { this->int_sigma = Eigen::Vector3f::Zero(); }
 
 /*! Compute the required control torque Lr from the attitude/rate tracking error and (optional)
     RW state. The MRP error is integrated with the fixed configured control period. */
@@ -47,16 +41,17 @@ MrpFeedbackOutput MrpFeedbackAlgorithm::update(const AttGuidMsgF32Payload& guidC
         z = this->int_sigma + ISCPntB_B * omega_BR_B;
     }
 
-    const Eigen::Matrix<float, 3, RW_EFF_CNT> G_s_B =
-        cArrayToEigenMatrix<float, 3, RW_EFF_CNT>(this->rwConfigParams.GsMatrix_B);
-
     Eigen::Vector3f H_B = ISCPntB_B * omega_BN_B;
-    for (Eigen::Index i = 0; i < this->rwConfigParams.numRW; ++i) {
-        if (wheelsAvailability.wheelAvailability[i] == AVAILABLE) {
-            const Eigen::Vector3f G_s_B_i = G_s_B.col(i);
-            const Eigen::Vector3f h_s_i =
-                this->rwConfigParams.JsList[i] * (omega_BN_B.dot(G_s_B_i) + wheelSpeeds.wheelSpeeds[i]) * G_s_B_i;
-            H_B += h_s_i;
+    const std::optional<MrpFeedbackInputRwData>& rwConfiguration = this->cfg.getRwConfiguration();
+    if (rwConfiguration.has_value()) {
+        const MrpFeedbackInputRwData& rwConfigParams = *rwConfiguration;
+        for (uint32_t i = 0U; i < rwConfigParams.numRW; ++i) {
+            if (wheelsAvailability.wheelAvailability[i] == AVAILABLE) {
+                const Eigen::Vector3f G_s_B_i = rwConfigParams.GsMatrix_B.col(static_cast<int>(i));
+                const Eigen::Vector3f h_s_i =
+                    rwConfigParams.JsList.at(i) * (omega_BN_B.dot(G_s_B_i) + wheelSpeeds.wheelSpeeds[i]) * G_s_B_i;
+                H_B += h_s_i;
+            }
         }
     }
 

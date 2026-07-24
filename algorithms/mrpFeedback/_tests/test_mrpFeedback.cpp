@@ -15,11 +15,10 @@ TEST(MrpFeedbackTest, ReferenceTest) {
                     std::vector<float>{1.9, -2.0, 2.1, -2.2},
                     std::vector<bool>{false, true, false, false},
                     2,
-                    std::vector<float>{2.3, -2.4, 2.5, -2.6},
                     std::vector<float>{2.7, -2.8, 2.9, -3.0},
                     std::vector<float>{0.4, 0.1, -0.3, 1.2, 0.4, 0.1, -0.3, 1.2, 0.4, 0.1, -0.3, 1.2},
                     std::vector<float>{1000.0, 0.0, 0.0, 0.0, 800.0, 0.0, 0.0, 0.0, 800.0},
-                    false,
+                    true,
                     0.1);
 }
 
@@ -46,11 +45,10 @@ TEST(MrpFeedbackTest, IntegralFeedbackDisabledWhenKiIsZero) {
     eigenVectorToCArray(Eigen::Vector3f{0.7F, -0.8F, 0.9F}, guidCmd.omega_RN_B);
     eigenVectorToCArray(Eigen::Vector3f{-1.0F, 1.1F, -1.2F}, guidCmd.domega_RN_B);
 
-    const RWArrayConfigMsgF32Payload rwConfig{};
     const RWSpeedMsgF32Payload wheelSpeeds{};
     const RWAvailabilityMsgPayload availability{};
 
-    EXPECT_NO_THROW(alg.reset(rwConfig, /*rwIsLinked=*/false));
+    EXPECT_NO_THROW(alg.reset());
     for (int step = 0; step < 5; ++step) {
         MrpFeedbackOutput out{};
         EXPECT_NO_THROW(out = alg.update(guidCmd, wheelSpeeds, availability));
@@ -85,11 +83,10 @@ TEST(MrpFeedbackTest, IntegralLimitClampsLargeError) {
     eigenVectorToCArray(Eigen::Vector3f::Zero(), guidCmd.omega_RN_B);
     eigenVectorToCArray(Eigen::Vector3f::Zero(), guidCmd.domega_RN_B);
 
-    const RWArrayConfigMsgF32Payload rwConfig{};
     const RWSpeedMsgF32Payload wheelSpeeds{};
     const RWAvailabilityMsgPayload availability{};
 
-    EXPECT_NO_THROW(alg.reset(rwConfig, /*rwIsLinked=*/false));
+    EXPECT_NO_THROW(alg.reset());
 
     // Drive enough integration steps to saturate (each step accumulates K*controlPeriod*sigma = 1.0 per axis).
     constexpr int steps = 10;

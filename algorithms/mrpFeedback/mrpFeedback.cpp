@@ -2,6 +2,8 @@
 
 #include "utilities/fsw/eigenSupport.h"
 #include "utilities/xmera/xmeraLifecycleException.h"
+#include <algorithm>
+#include <optional>
 #include <stdexcept>
 
 void MrpFeedback::reset(const uint64_t callTime) {
@@ -16,13 +18,18 @@ void MrpFeedback::reset(const uint64_t callTime) {
     }
 
     const Eigen::Matrix3f inertia = cArrayToEigenMatrix3(this->vehConfigInMsg().ISCPntB_B);
-    RWArrayConfigMsgF32Payload rwConfigParams{};
-    bool rwParamsIsLinked{};
+
+    std::optional<MrpFeedbackInputRwData> rwConfiguration;
+    this->numRW = 0U;
     if (this->rwParamsInMsg.isLinked()) {
-        rwConfigParams = this->rwParamsInMsg();
-        rwParamsIsLinked = true;
+        const RWArrayConfigMsgF32Payload rwConfigParams = this->rwParamsInMsg();
+        MrpFeedbackInputRwData rwData{};
+        rwData.GsMatrix_B = cArrayToEigenMatrix<float, 3, RW_EFF_CNT>(rwConfigParams.GsMatrix_B);
+        std::copy(std::begin(rwConfigParams.JsList), std::end(rwConfigParams.JsList), std::begin(rwData.JsList));
+        rwData.numRW = static_cast<uint32_t>(rwConfigParams.numRW);
+        this->numRW = rwData.numRW;
+        rwConfiguration = rwData;
     }
-    this->numRW = static_cast<uint32_t>(rwConfigParams.numRW);
 
     const MrpFeedbackControlParameters controlParameters{
         .K = this->K,
@@ -32,9 +39,9 @@ void MrpFeedback::reset(const uint64_t callTime) {
         .controlLawType = this->controlLawType,
         .controlPeriod = this->controlPeriod,
     };
-    auto config = MrpFeedbackConfig::create(controlParameters, this->knownTorquePntB_B, inertia);
+    auto config = MrpFeedbackConfig::create(controlParameters, this->knownTorquePntB_B, inertia, rwConfiguration);
     this->algorithm = std::make_unique<MrpFeedbackAlgorithm>(config);
-    this->algorithm->reset(rwConfigParams, rwParamsIsLinked);
+    this->algorithm->reset();
 }
 
 void MrpFeedback::updateState(const uint64_t callTime) {
