@@ -15,6 +15,12 @@ typedef struct GimbalToMotorAngleTable_c {
     float data[NUM_GIMBAL_TO_MOTOR_TABLE_ROWS][NUM_GIMBAL_TO_MOTOR_TABLE_COLS]; /*!< [rad] table entries */
 } GimbalToMotorAngleTable_c;
 
+/*! @brief POD mirror of the C++ StepperMotorAngleRange (motor angular travel range [rad]). */
+typedef struct {
+    float minAngle; /*!< [rad] Lower bound of the motor travel range */
+    float maxAngle; /*!< [rad] Upper bound of the motor travel range */
+} MotorAngleRange_c;
+
 /*! @brief Output of the gimbal axis-to-motor angles algorithm (C-shared POD). */
 typedef struct GimbalAxisToMotorAnglesOutput {
     float gimbalTipAngle;      /*!< [rad] Gimbal tip angle (sequential angle 1) */

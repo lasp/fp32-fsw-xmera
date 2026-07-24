@@ -12,12 +12,14 @@ typedef struct GimbalAxisToMotorAnglesAlgorithmHandle GimbalAxisToMotorAnglesAlg
 
 /** @brief Construct a new algorithm instance from a validated configuration.
  *  @param dcm_MB             [3][3] DCM from body frame to gimbal mount frame (row-major).
+ *  @param angleRange         Motor angular travel range (min/max) in body-frame radians.
  *  @param gimbalToMotor1AngleTable Gimbal-to-motor 1 angle interpolation table.
  *  @param gimbalToMotor2AngleTable Gimbal-to-motor 2 angle interpolation table.
  *  @return Pointer to a new instance (must be destroyed).
  */
 GimbalAxisToMotorAnglesAlgorithmHandle* GimbalAxisToMotorAnglesAlgorithm_create(
     const float dcm_MB[3][3],
+    const MotorAngleRange_c* angleRange,
     const GimbalToMotorAngleTable_c* gimbalToMotor1AngleTable,
     const GimbalToMotorAngleTable_c* gimbalToMotor2AngleTable);
 
@@ -29,11 +31,13 @@ void GimbalAxisToMotorAnglesAlgorithm_destroy(GimbalAxisToMotorAnglesAlgorithmHa
 /** @brief Replace the algorithm's configuration for runtime reconfiguration.
  *  @param self               Pointer to the instance.
  *  @param dcm_MB             [3][3] DCM from body frame to gimbal mount frame (row-major).
+ *  @param angleRange         Motor angular travel range (min/max) in body-frame radians.
  *  @param gimbalToMotor1AngleTable Gimbal-to-motor 1 angle interpolation table.
  *  @param gimbalToMotor2AngleTable Gimbal-to-motor 2 angle interpolation table.
  */
 void GimbalAxisToMotorAnglesAlgorithm_setConfig(GimbalAxisToMotorAnglesAlgorithmHandle* self,
                                                 const float dcm_MB[3][3],
+                                                const MotorAngleRange_c* angleRange,
                                                 const GimbalToMotorAngleTable_c* gimbalToMotor1AngleTable,
                                                 const GimbalToMotorAngleTable_c* gimbalToMotor2AngleTable);
 

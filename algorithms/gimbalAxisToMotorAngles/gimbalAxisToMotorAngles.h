@@ -7,6 +7,7 @@
 #include <Eigen/Core>
 #include <array>
 #include <memory>
+#include <numbers>
 
 #include "architecture/_GeneralModuleFiles/sys_model.h"
 #include "architecture/messaging/messaging.h"
@@ -28,6 +29,8 @@ class GimbalAxisToMotorAngles final : public SysModel {
 
     // Phase 1: public configuration properties -- set before reset().
     Eigen::Matrix3f dcm_MB = Eigen::Matrix3f::Identity();  //!< DCM from body frame to gimbal mount frame
+    float minAngle{0.0F};                                  //!< [rad] lower bound of the motor travel range
+    float maxAngle{2.0F * std::numbers::pi_v<float>};      //!< [rad] upper bound of the motor travel range
     std::array<std::array<float, NUM_GIMBAL_TO_MOTOR_TABLE_COLS>, NUM_GIMBAL_TO_MOTOR_TABLE_ROWS>
         gimbalToMotor1AngleTable{};  //!< [rad] Gimbal-to-motor 1 angle interpolation table
     std::array<std::array<float, NUM_GIMBAL_TO_MOTOR_TABLE_COLS>, NUM_GIMBAL_TO_MOTOR_TABLE_ROWS>

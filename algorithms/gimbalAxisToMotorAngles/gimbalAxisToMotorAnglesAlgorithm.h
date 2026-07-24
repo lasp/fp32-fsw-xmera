@@ -11,6 +11,7 @@
 
 #include "gimbalAxisToMotorAnglesTypes.h"
 #include "utilities/fsw/freestandingInvalidArgument.h"
+#include "utilities/fsw/freestandingIsFinite.hpp"
 #include "utilities/fsw/validDcmCheck.h"
 
 const float DEG2RAD = std::numbers::pi_v<float> / 180.0F;
@@ -23,6 +24,12 @@ struct MotorAngles {
     bool isValidInterpolation;
 };
 
+/*! @brief Motor angular travel range in body-frame radians. */
+struct StepperMotorAngleRange {
+    float minAngle{0.0F};                              //!< [rad] lower bound of the motor travel range
+    float maxAngle{2.0F * std::numbers::pi_v<float>};  //!< [rad] upper bound of the motor travel range
+};
+
 //!< Gimbal-to-motor interpolation table storage type
 using GimbalToMotorAngleTable =
     std::array<std::array<float, NUM_GIMBAL_TO_MOTOR_TABLE_COLS>, NUM_GIMBAL_TO_MOTOR_TABLE_ROWS>;
@@ -32,26 +39,37 @@ using GimbalToMotorAngleTable =
 class GimbalAxisToMotorAnglesConfig final {
    public:
     static GimbalAxisToMotorAnglesConfig create(const Eigen::Matrix3f& dcm_MB,
+                                                const StepperMotorAngleRange& angleRange,
                                                 const GimbalToMotorAngleTable& gimbalToMotor1AngleTable,
                                                 const GimbalToMotorAngleTable& gimbalToMotor2AngleTable) {
         if (!isValidDcmMB(dcm_MB)) {
             FSW_THROW_INVALID_ARGUMENT("gimbalAxisToMotorAngles: dcm_MB must be a valid DCM");
         }
-        if (!isValidTable(gimbalToMotor1AngleTable)) {
-            FSW_THROW_INVALID_ARGUMENT("gimbalAxisToMotorAngles: gimbalToMotor1AngleTable must be finite");
+        if (!isValidAngleRange(angleRange)) {
+            FSW_THROW_INVALID_ARGUMENT(
+                "gimbalAxisToMotorAngles: minAngle and maxAngle must be in [0, 2*pi] with minAngle strictly less "
+                "than maxAngle.");
         }
-        if (!isValidTable(gimbalToMotor2AngleTable)) {
-            FSW_THROW_INVALID_ARGUMENT("gimbalAxisToMotorAngles: gimbalToMotor2AngleTable must be finite");
+        if (!isValidTable(gimbalToMotor1AngleTable, angleRange)) {
+            FSW_THROW_INVALID_ARGUMENT("gimbalAxisToMotorAngles: gimbalToMotor1AngleTable data is not valid");
         }
-        return {dcm_MB, gimbalToMotor1AngleTable, gimbalToMotor2AngleTable};
+        if (!isValidTable(gimbalToMotor2AngleTable, angleRange)) {
+            FSW_THROW_INVALID_ARGUMENT("gimbalAxisToMotorAngles: gimbalToMotor2AngleTable data is not valid");
+        }
+        return {dcm_MB, angleRange, gimbalToMotor1AngleTable, gimbalToMotor2AngleTable};
     }
 
     static bool isValidDcmMB(const Eigen::Matrix3f& dcm_MB) { return isValidDcm(dcm_MB); }
-
-    static bool isValidTable(const GimbalToMotorAngleTable& table) {
+    static bool isValidAngleRange(const StepperMotorAngleRange& angleRange) {
+        constexpr float twoPi = 2.0F * std::numbers::pi_v<float>;
+        return angleRange.minAngle >= 0.0F && angleRange.minAngle <= twoPi && angleRange.maxAngle >= 0.0F &&
+               angleRange.maxAngle <= twoPi && angleRange.minAngle < angleRange.maxAngle;
+    }
+    static bool isValidTable(const GimbalToMotorAngleTable& table, const StepperMotorAngleRange& angleRange) {
         for (const auto& row : table) {
             for (const float value : row) {
-                if (isfinite(value) == 0) {
+                if (!fsw::is_finite(value) ||
+                    (value != -1.0F && (value < angleRange.minAngle || value > angleRange.maxAngle))) {
                     return false;
                 }
             }
@@ -60,18 +78,22 @@ class GimbalAxisToMotorAnglesConfig final {
     }
 
     const Eigen::Matrix3f& getDcmMB() const { return this->dcm_MB; }
+    const StepperMotorAngleRange& getAngleRange() const { return this->angleRange; }
     const GimbalToMotorAngleTable& getGimbalToMotor1AngleTable() const { return this->gimbalToMotor1AngleTable; }
     const GimbalToMotorAngleTable& getGimbalToMotor2AngleTable() const { return this->gimbalToMotor2AngleTable; }
 
    private:
     GimbalAxisToMotorAnglesConfig(const Eigen::Matrix3f& dcm_MB,
+                                  const StepperMotorAngleRange& angleRange,
                                   const GimbalToMotorAngleTable& gimbalToMotor1AngleTable,
                                   const GimbalToMotorAngleTable& gimbalToMotor2AngleTable)
         : dcm_MB(dcm_MB),
+          angleRange(angleRange),
           gimbalToMotor1AngleTable(gimbalToMotor1AngleTable),
           gimbalToMotor2AngleTable(gimbalToMotor2AngleTable) {}
 
     Eigen::Matrix3f dcm_MB;                            //!< DCM from body frame to gimbal mount frame
+    StepperMotorAngleRange angleRange;                 //!< [rad] motor travel range
     GimbalToMotorAngleTable gimbalToMotor1AngleTable;  //!< [rad] Gimbal-to-motor 1 angle interpolation table
     GimbalToMotorAngleTable gimbalToMotor2AngleTable;  //!< [rad] Gimbal-to-motor 2 angle interpolation table
 };
