@@ -27,8 +27,15 @@ TEST(MrpFeedbackTest, SetupTest) { testMrpFeedbackSetup(); }
 
 TEST(MrpFeedbackTest, IntegralFeedbackDisabledWhenKiIsZero) {
     // With Ki = 0, the integral feedback torque must be zero on every cycle.
-    const MrpFeedbackConfig cfg =
-        MrpFeedbackConfig::create(1.0F, 0.5F, 0.0F, 1.0F, ControlLawType::NORMAL, Eigen::Vector3f::Zero());
+    const MrpFeedbackControlParameters params{
+        .K = 1.0F,
+        .P = 0.5F,
+        .Ki = 0.0F,
+        .integralLimit = 1.0F,
+        .controlLawType = ControlLawType::NORMAL,
+        .controlPeriod = 0.1F,
+    };
+    const MrpFeedbackConfig cfg = MrpFeedbackConfig::create(params, Eigen::Vector3f::Zero());
     MrpFeedbackAlgorithm alg(cfg);
 
     AttGuidMsgF32Payload guidCmd{};
@@ -47,9 +54,8 @@ TEST(MrpFeedbackTest, IntegralFeedbackDisabledWhenKiIsZero) {
 
     EXPECT_NO_THROW(alg.reset(vehConfig, rwConfig, /*rwIsLinked=*/false));
     for (int step = 0; step < 5; ++step) {
-        const auto callTime = static_cast<uint64_t>(step + 1) * static_cast<uint64_t>(0.1F / kNano2Sec);
         MrpFeedbackOutput out{};
-        EXPECT_NO_THROW(out = alg.update(callTime, guidCmd, wheelSpeeds, availability));
+        EXPECT_NO_THROW(out = alg.update(guidCmd, wheelSpeeds, availability));
         for (int i = 0; i < 3; ++i) {
             EXPECT_FLOAT_EQ(out.intFeedbackOut.torqueRequestBody[i], 0.0F);
             EXPECT_TRUE(std::isfinite(out.controlOut.torqueRequestBody[i]));
@@ -63,8 +69,15 @@ TEST(MrpFeedbackTest, IntegralLimitClampsLargeError) {
     constexpr float K = 1.0F;
     constexpr float Ki = 1.0F;
     constexpr float intLimit = 0.5F;
-    const MrpFeedbackConfig cfg =
-        MrpFeedbackConfig::create(K, 1.0F, Ki, intLimit, ControlLawType::NORMAL, Eigen::Vector3f::Zero());
+    const MrpFeedbackControlParameters params{
+        .K = K,
+        .P = 1.0F,
+        .Ki = Ki,
+        .integralLimit = intLimit,
+        .controlLawType = ControlLawType::NORMAL,
+        .controlPeriod = 1.0F,
+    };
+    const MrpFeedbackConfig cfg = MrpFeedbackConfig::create(params, Eigen::Vector3f::Zero());
     MrpFeedbackAlgorithm alg(cfg);
 
     AttGuidMsgF32Payload guidCmd{};
@@ -83,13 +96,11 @@ TEST(MrpFeedbackTest, IntegralLimitClampsLargeError) {
 
     EXPECT_NO_THROW(alg.reset(vehConfig, rwConfig, /*rwIsLinked=*/false));
 
-    // Drive enough integration steps to saturate (each step accumulates K*dt*sigma = 1.0 * 1.0 * 1.0 in each axis).
-    constexpr float dt = 1.0F;
+    // Drive enough integration steps to saturate (each step accumulates K*controlPeriod*sigma = 1.0 per axis).
     constexpr int steps = 10;
     MrpFeedbackOutput out{};
     for (int step = 0; step < steps; ++step) {
-        const auto callTime = static_cast<uint64_t>(step + 1) * static_cast<uint64_t>(dt / kNano2Sec);
-        EXPECT_NO_THROW(out = alg.update(callTime, guidCmd, wheelSpeeds, availability));
+        EXPECT_NO_THROW(out = alg.update(guidCmd, wheelSpeeds, availability));
         for (int i = 0; i < 3; ++i) {
             EXPECT_TRUE(std::isfinite(out.controlOut.torqueRequestBody[i]));
             EXPECT_TRUE(std::isfinite(out.intFeedbackOut.torqueRequestBody[i]));

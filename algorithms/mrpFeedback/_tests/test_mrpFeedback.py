@@ -34,6 +34,7 @@ def test_mrp_feedback(int_gain, rw_num, integral_limit, ctrl_law, use_rw_availab
         mrpFeedbackF32.ControlLawType_NORMAL if ctrl_law == 0 else mrpFeedbackF32.ControlLawType_SIMPLE_INTEGRAL
     )
     module.knownTorquePntB_B = [1.0, 1.0, 1.0]
+    module.controlPeriod = 0.5
 
     # Attitude guidance input
     guid_cmd_data = messaging.AttGuidMsgF32Payload()
@@ -134,7 +135,10 @@ def find_true_torques(module, guid_cmd_data, rw_speed_message, vehicle_config_ou
     Lr = []
 
     L = np.asarray(module.knownTorquePntB_B).flatten()
-    steps = [0, 0, 0.5, 0, 0.5]
+    dt = module.controlPeriod
+    # Five logged samples: the integral is zeroed at the initial reset (index 0) and again after the
+    # manual reset() call that precedes the fourth sample (index 3).
+    num_steps = 5
     omega_BR_B = np.asarray(guid_cmd_data.omega_BR_B)
     omega_RN_B = np.asarray(guid_cmd_data.omega_RN_B)
     omega_BN_B = omega_BR_B + omega_RN_B
@@ -149,9 +153,8 @@ def find_true_torques(module, guid_cmd_data, rw_speed_message, vehicle_config_ou
     G_s_B_array = np.reshape(G_s_B_array[0:num_rw * 3], (num_rw, 3))
     sigma_int = np.asarray([0.0, 0.0, 0.0])
 
-    for i in range(len(steps)):
-        dt = steps[i]
-        if dt == 0:
+    for i in range(num_steps):
+        if i == 0 or i == 3:
             sigma_int = np.asarray([0.0, 0.0, 0.0])
 
         if Ki > 0:

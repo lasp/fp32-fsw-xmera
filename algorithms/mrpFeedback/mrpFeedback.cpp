@@ -23,8 +23,15 @@ void MrpFeedback::reset(const uint64_t callTime) {
     }
     this->numRW = static_cast<uint32_t>(rwConfigParams.numRW);
 
-    auto config = MrpFeedbackConfig::create(
-        this->K, this->P, this->Ki, this->integralLimit, this->controlLawType, this->knownTorquePntB_B);
+    const MrpFeedbackControlParameters controlParameters{
+        .K = this->K,
+        .P = this->P,
+        .Ki = this->Ki,
+        .integralLimit = this->integralLimit,
+        .controlLawType = this->controlLawType,
+        .controlPeriod = this->controlPeriod,
+    };
+    auto config = MrpFeedbackConfig::create(controlParameters, this->knownTorquePntB_B);
     this->algorithm = std::make_unique<MrpFeedbackAlgorithm>(config);
     this->algorithm->reset(sc, rwConfigParams, rwParamsIsLinked);
 }
@@ -45,7 +52,7 @@ void MrpFeedback::updateState(const uint64_t callTime) {
         }
     }
 
-    auto [controlOut, intFeedbackOut] = this->algorithm->update(callTime, guidCmd, wheelSpeeds, wheelsAvailability);
+    auto [controlOut, intFeedbackOut] = this->algorithm->update(guidCmd, wheelSpeeds, wheelsAvailability);
 
     this->cmdTorqueOutMsg.write(&controlOut, moduleID, callTime);
     this->intFeedbackTorqueOutMsg.write(&intFeedbackOut, this->moduleID, callTime);

@@ -11,7 +11,6 @@
 #include "msgPayloadDef/VehicleConfigMsgF32Payload.h"
 #include "utilities/fsw/eigenSupport.h"
 #include "utilities/fsw/freestandingInvalidArgument.h"
-#include "utilities/fsw/timeConstants.h"
 #include <gtest/gtest.h>
 #include <Eigen/Core>
 #include <cmath>
@@ -20,32 +19,22 @@
 struct ReferenceOutput {
     MrpFeedbackOutput mrpFeedbackOut;
     Eigen::Vector3f int_sigma;
-    uint64_t priorTime;
 };
 
 inline ReferenceOutput referenceUpdate(const MrpFeedbackConfig& cfg,
                                        const RWArrayConfigMsgF32Payload& rwConfigParams,
                                        const Eigen::Matrix3f& ISCPntB_B,
                                        Eigen::Vector3f int_sigma,
-                                       uint64_t priorTime,
-                                       const uint64_t callTime,
                                        AttGuidMsgF32Payload guidCmd,
                                        const RWSpeedMsgF32Payload& wheelSpeeds,
                                        const RWAvailabilityMsgPayload& wheelsAvailability) {
-    const float K = cfg.getK();
-    const float P = cfg.getP();
-    const float Ki = cfg.getKi();
-    const float integralLimit = cfg.getIntegralLimit();
-    const ControlLawType controlLawType = cfg.getControlLawType();
+    const MrpFeedbackControlParameters& params = cfg.getControlParameters();
+    const float K = params.K;
+    const float P = params.P;
+    const float Ki = params.Ki;
+    const float integralLimit = params.integralLimit;
+    const ControlLawType controlLawType = params.controlLawType;
     const Eigen::Vector3f knownTorquePntB_B = cfg.getKnownTorquePntB_B();
-
-    float dt{};
-    if (priorTime == 0U) {
-        dt = 0.0F;
-    } else {
-        dt = static_cast<float>(static_cast<double>(callTime - priorTime) * kNano2Sec);
-    }
-    priorTime = callTime;
 
     const Eigen::Vector3f sigma_BR = cArrayToEigenVector(guidCmd.sigma_BR);
     const Eigen::Vector3f omega_BR_B = cArrayToEigenVector(guidCmd.omega_BR_B);
@@ -56,7 +45,7 @@ inline ReferenceOutput referenceUpdate(const MrpFeedbackConfig& cfg,
 
     Eigen::Vector3f z{Eigen::Vector3f::Zero()};
     if (Ki > 0.0F) {
-        int_sigma += K * dt * sigma_BR;
+        int_sigma += K * params.controlPeriod * sigma_BR;
         for (Eigen::Index i = 0; i < 3; ++i) {
             const float intCheck = fabsf(int_sigma[i]);
             if (intCheck > integralLimit) {
@@ -96,28 +85,44 @@ inline ReferenceOutput referenceUpdate(const MrpFeedbackConfig& cfg,
     eigenVectorToCArray(Lr, out.mrpFeedbackOut.controlOut.torqueRequestBody);
     eigenVectorToCArray(Li, out.mrpFeedbackOut.intFeedbackOut.torqueRequestBody);
     out.int_sigma = int_sigma;
-    out.priorTime = priorTime;
     return out;
+}
+
+inline MrpFeedbackControlParameters makeValidControlParameters() {
+    return MrpFeedbackControlParameters{
+        .K = 0.0F,
+        .P = 0.0F,
+        .Ki = 0.0F,
+        .integralLimit = 0.0F,
+        .controlLawType = ControlLawType::NORMAL,
+        .controlPeriod = 0.1F,
+    };
 }
 
 inline void testMrpFeedbackSetup() {
     // Valid config builds without throwing.
     EXPECT_NO_THROW({
-        const MrpFeedbackConfig cfg =
-            MrpFeedbackConfig::create(0.0F, 0.0F, 0.0F, 0.0F, ControlLawType::NORMAL, Eigen::Vector3f::Zero());
+        const MrpFeedbackConfig cfg = MrpFeedbackConfig::create(makeValidControlParameters(), Eigen::Vector3f::Zero());
         const MrpFeedbackAlgorithm alg(cfg);
         (void)alg;
     });
 
     // Negative gains/limit are rejected by the Config factory.
-    EXPECT_ANY_THROW(
-        { (void)MrpFeedbackConfig::create(-0.1F, 0.0F, 0.0F, 0.0F, ControlLawType::NORMAL, Eigen::Vector3f::Zero()); });
-    EXPECT_ANY_THROW(
-        { (void)MrpFeedbackConfig::create(0.0F, -0.1F, 0.0F, 0.0F, ControlLawType::NORMAL, Eigen::Vector3f::Zero()); });
-    EXPECT_ANY_THROW(
-        { (void)MrpFeedbackConfig::create(0.0F, 0.0F, -0.1F, 0.0F, ControlLawType::NORMAL, Eigen::Vector3f::Zero()); });
-    EXPECT_ANY_THROW(
-        { (void)MrpFeedbackConfig::create(0.0F, 0.0F, 0.0F, -0.1F, ControlLawType::NORMAL, Eigen::Vector3f::Zero()); });
+    for (float MrpFeedbackControlParameters::* gain : {&MrpFeedbackControlParameters::K,
+                                                       &MrpFeedbackControlParameters::P,
+                                                       &MrpFeedbackControlParameters::Ki,
+                                                       &MrpFeedbackControlParameters::integralLimit}) {
+        MrpFeedbackControlParameters params = makeValidControlParameters();
+        params.*gain = -0.1F;
+        EXPECT_ANY_THROW({ (void)MrpFeedbackConfig::create(params, Eigen::Vector3f::Zero()); });
+    }
+
+    // Non-positive control period is rejected.
+    for (const float badPeriod : {0.0F, -0.1F}) {
+        MrpFeedbackControlParameters params = makeValidControlParameters();
+        params.controlPeriod = badPeriod;
+        EXPECT_ANY_THROW({ (void)MrpFeedbackConfig::create(params, Eigen::Vector3f::Zero()); });
+    }
 }
 
 inline void testMrpFeedback(const Eigen::Vector3f& sigma,
@@ -138,12 +143,19 @@ inline void testMrpFeedback(const Eigen::Vector3f& sigma,
                             std::vector<float> GsMatrix_B,
                             std::vector<float> ISCPntB_B,
                             bool rwIsLinked,
-                            float dt) {
+                            float controlPeriod) {
     const ControlLawType controlLawTypeAlg =
         (controlLawType == 0) ? ControlLawType::NORMAL : ControlLawType::SIMPLE_INTEGRAL;
 
-    const MrpFeedbackConfig cfg =
-        MrpFeedbackConfig::create(K, P, Ki, integralLimit, controlLawTypeAlg, knownTorquePntB_B);
+    const MrpFeedbackControlParameters params{
+        .K = K,
+        .P = P,
+        .Ki = Ki,
+        .integralLimit = integralLimit,
+        .controlLawType = controlLawTypeAlg,
+        .controlPeriod = controlPeriod,
+    };
+    const MrpFeedbackConfig cfg = MrpFeedbackConfig::create(params, knownTorquePntB_B);
     MrpFeedbackAlgorithm alg(cfg);
 
     AttGuidMsgF32Payload guidCmdMsg{};
@@ -178,27 +190,16 @@ inline void testMrpFeedback(const Eigen::Vector3f& sigma,
     EXPECT_NO_THROW(alg.reset(vehConfigMsg, rwConfigMsg, rwIsLinked));
 
     Eigen::Vector3f int_sigma{Eigen::Vector3f::Zero()};
-    uint64_t priorTime{};
 
     constexpr int numSteps = 5;
     for (int step = 0; step < numSteps; ++step) {
-        const uint64_t callTime = priorTime + static_cast<uint64_t>(dt / kNano2Sec);
-
         MrpFeedbackOutput out{};
         ReferenceOutput refOutput{};
-        EXPECT_NO_THROW(out = alg.update(callTime, guidCmdMsg, wheelSpeedsMsg, wheelsAvailabilityMsg));
-        EXPECT_NO_THROW(refOutput = referenceUpdate(cfg,
-                                                    rwConfigMsg,
-                                                    ISC_B,
-                                                    int_sigma,
-                                                    priorTime,
-                                                    callTime,
-                                                    guidCmdMsg,
-                                                    wheelSpeedsMsg,
-                                                    wheelsAvailabilityMsg));
+        EXPECT_NO_THROW(out = alg.update(guidCmdMsg, wheelSpeedsMsg, wheelsAvailabilityMsg));
+        EXPECT_NO_THROW(refOutput = referenceUpdate(
+                            cfg, rwConfigMsg, ISC_B, int_sigma, guidCmdMsg, wheelSpeedsMsg, wheelsAvailabilityMsg));
         const MrpFeedbackOutput ref = refOutput.mrpFeedbackOut;
         int_sigma = refOutput.int_sigma;
-        priorTime = refOutput.priorTime;
 
         for (int i = 0; i < 3; ++i) {
             EXPECT_NEAR(out.controlOut.torqueRequestBody[i], ref.controlOut.torqueRequestBody[i], 1e-6);

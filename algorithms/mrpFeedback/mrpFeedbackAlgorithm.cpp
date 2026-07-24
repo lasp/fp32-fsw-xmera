@@ -1,6 +1,5 @@
 #include "mrpFeedbackAlgorithm.h"
 #include "utilities/fsw/eigenSupport.h"
-#include "utilities/fsw/timeConstants.h"
 
 #include <math.h>
 #include <utility>
@@ -22,23 +21,14 @@ void MrpFeedbackAlgorithm::reset(VehicleConfigMsgF32Payload vehConfigMsg,
     }
 
     this->int_sigma = Eigen::Vector3f::Zero();
-    // priorTime == 0 signals first-call: no time delta is taken on the first update.
-    this->priorTime = 0U;
 }
 
 /*! Compute the required control torque Lr from the attitude/rate tracking error and (optional)
-    RW state. */
-MrpFeedbackOutput MrpFeedbackAlgorithm::update(uint64_t callTime,
-                                               const AttGuidMsgF32Payload& guidCmd,
+    RW state. The MRP error is integrated with the fixed configured control period. */
+MrpFeedbackOutput MrpFeedbackAlgorithm::update(const AttGuidMsgF32Payload& guidCmd,
                                                const RWSpeedMsgF32Payload& wheelSpeeds,
                                                const RWAvailabilityMsgPayload& wheelsAvailability) {
-    float dt{};
-    if (this->priorTime == 0U) {
-        dt = 0.0F;
-    } else {
-        dt = static_cast<float>(static_cast<double>(callTime - this->priorTime) * kNano2Sec);
-    }
-    this->priorTime = callTime;
+    const MrpFeedbackControlParameters& params = this->cfg.getControlParameters();
 
     const Eigen::Vector3f sigma_BR = cArrayToEigenVector(guidCmd.sigma_BR);
     const Eigen::Vector3f omega_BR_B = cArrayToEigenVector(guidCmd.omega_BR_B);
@@ -48,15 +38,14 @@ MrpFeedbackOutput MrpFeedbackAlgorithm::update(uint64_t callTime,
     const Eigen::Vector3f omega_BN_B = omega_BR_B + omega_RN_B;
 
     Eigen::Vector3f z{Eigen::Vector3f::Zero()};
-    if (this->cfg.getKi() > 0.0F) {
-        this->int_sigma += this->cfg.getK() * dt * sigma_BR;
+    if (params.Ki > 0.0F) {
+        this->int_sigma += params.K * params.controlPeriod * sigma_BR;
 
         // Anti-windup clamp on the integral state.
-        const float integralLimit = this->cfg.getIntegralLimit();
         for (Eigen::Index i = 0; i < 3; ++i) {
             const float intCheck = fabsf(this->int_sigma[i]);
-            if (intCheck > integralLimit) {
-                this->int_sigma[i] *= integralLimit / intCheck;
+            if (intCheck > params.integralLimit) {
+                this->int_sigma[i] *= params.integralLimit / intCheck;
             }
         }
         z = this->int_sigma + this->ISCPntB_B * omega_BR_B;
@@ -76,19 +65,18 @@ MrpFeedbackOutput MrpFeedbackAlgorithm::update(uint64_t callTime,
     }
 
     Eigen::Vector3f momentumContribution{};
-    if (this->cfg.getControlLawType() == ControlLawType::NORMAL) {
-        momentumContribution = (omega_RN_B + this->cfg.getKi() * z).cross(H_B);
+    if (params.controlLawType == ControlLawType::NORMAL) {
+        momentumContribution = (omega_RN_B + params.Ki * z).cross(H_B);
     } else {
         momentumContribution = omega_BN_B.cross(H_B);
     }
 
-    const Eigen::Vector3f Lc = this->cfg.getK() * sigma_BR + this->cfg.getP() * omega_BR_B +
-                               this->cfg.getP() * this->cfg.getKi() * z - momentumContribution +
-                               this->ISCPntB_B * (omega_BN_B.cross(omega_RN_B) - domega_RN_B) +
+    const Eigen::Vector3f Lc = params.K * sigma_BR + params.P * omega_BR_B + params.P * params.Ki * z -
+                               momentumContribution + this->ISCPntB_B * (omega_BN_B.cross(omega_RN_B) - domega_RN_B) +
                                this->cfg.getKnownTorquePntB_B();
 
     const Eigen::Vector3f Lr = -Lc;
-    const Eigen::Vector3f Li = -(this->cfg.getP() * this->cfg.getKi() * z);
+    const Eigen::Vector3f Li = -(params.P * params.Ki * z);
 
     MrpFeedbackOutput out{};
     eigenVectorToCArray(Lr, out.controlOut.torqueRequestBody);
