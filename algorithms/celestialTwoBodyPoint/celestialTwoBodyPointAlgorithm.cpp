@@ -23,6 +23,9 @@ void CelestialTwoBodyPointAlgorithm::setConfig(const CelestialTwoBodyPointConfig
  @param v_BN_N [m/s] spacecraft inertial velocity
  @return attitude reference output
  */
+// NOLINTBEGIN(bugprone-easily-swappable-parameters)
+// bugprone-easily-swappable-parameters: the Vector3d position/velocity inputs are documented in
+// the header and follow the standard (primary, secondary, spacecraft) ordering.
 CelestialTwoBodyPointOutput CelestialTwoBodyPointAlgorithm::update(const Eigen::Vector3d &r_celBody_N,
                                                                    const Eigen::Vector3d &v_celBody_N,
                                                                    const Eigen::Vector3d &r_secCelBody_N,
@@ -58,6 +61,7 @@ CelestialTwoBodyPointOutput CelestialTwoBodyPointAlgorithm::update(const Eigen::
 
     return attRefOut;
 }
+// NOLINTEND(bugprone-easily-swappable-parameters)
 
 CelestialTwoBodyPointOutput CelestialTwoBodyPointAlgorithm::rateAndAccelCalc(const Eigen::Vector3d &r_PB_N,
                                                                              const Eigen::Vector3d &v_PB_N,
