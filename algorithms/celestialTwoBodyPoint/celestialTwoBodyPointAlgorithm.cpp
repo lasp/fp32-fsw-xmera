@@ -100,14 +100,14 @@ CelestialTwoBodyPointOutput CelestialTwoBodyPointAlgorithm::rateAndAccelCalc(con
     attRefOut.omega_RN_N = dcm_RN.transpose() * omega_RN_R;
 
     /* - Reference base-vectors second time-derivative */
-    const Eigen::Vector3f ddr1_N_hat = -(2 * dr1_N_hat * r1_N_hat.transpose() + r1_N_hat * dr1_N_hat.transpose()) *
+    const Eigen::Vector3f ddr1_N_hat = -((2 * dr1_N_hat * r1_N_hat.transpose()) + (r1_N_hat * dr1_N_hat.transpose())) *
                                        (v_PB_N / r_PB_N.norm()).cast<float>();
     const Eigen::Vector3f ddr3_N_hat =
-        ((Eigen::Matrix3f::Identity() - r3_N_hat * r3_N_hat.transpose()) * a_N.cast<float>() -
-         (2 * dr3_N_hat * r3_N_hat.transpose() + r3_N_hat * dr3_N_hat.transpose()) * v_N.cast<float>()) /
+        (((Eigen::Matrix3f::Identity() - r3_N_hat * r3_N_hat.transpose()) * a_N.cast<float>()) -
+         (((2 * dr3_N_hat * r3_N_hat.transpose()) + (r3_N_hat * dr3_N_hat.transpose())) * v_N.cast<float>())) /
         R_N.norm();
     const Eigen::Vector3f ddr2_N_hat =
-        ddr3_N_hat.cross(r1_N_hat) + r3_N_hat.cross(ddr1_N_hat) + 2 * dr3_N_hat.cross(dr1_N_hat);
+        ddr3_N_hat.cross(r1_N_hat) + r3_N_hat.cross(ddr1_N_hat) + (2 * dr3_N_hat.cross(dr1_N_hat));
 
     /* - Angular acceleration computation */
     Eigen::Vector3f domega_RN_R{};
