@@ -43,7 +43,7 @@ CelestialTwoBodyPointOutput CelestialTwoBodyPointAlgorithm::update(const Eigen::
         r_SB_N = r_secCelBody_N - r_BN_N;
         v_SB_N = v_secCelBody_N - v_BN_N;
 
-        const float dotProduct = static_cast<float>(r_SB_N.normalized().dot(r_PB_N.normalized()));
+        const auto dotProduct = static_cast<float>(r_SB_N.normalized().dot(r_PB_N.normalized()));
         platAngDiff = safeAcosf(dotProduct);
     }
 
