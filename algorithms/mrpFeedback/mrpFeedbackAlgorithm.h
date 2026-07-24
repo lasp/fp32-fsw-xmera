@@ -152,11 +152,13 @@ class MrpFeedbackConfig final {
 /*! @brief Data configuration structure for the MRP feedback attitude control routine. */
 class MrpFeedbackAlgorithm final {
    public:
-    explicit MrpFeedbackAlgorithm(MrpFeedbackConfig config);
+    explicit MrpFeedbackAlgorithm(const MrpFeedbackConfig& config);
 
     void setConfig(const MrpFeedbackConfig& config);
 
-    void reset();
+    //! Reset the integrating runtime state (zero the integral of the MRP tracking error).
+    void reInitialize();
+
     MrpFeedbackOutput update(const MrpFeedbackInputGuidance& attGuidInput,
                              const std::array<float, RW_EFF_CNT>& wheelSpeeds);
 

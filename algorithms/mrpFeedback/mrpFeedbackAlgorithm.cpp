@@ -2,14 +2,16 @@
 
 #include <math.h>
 #include <optional>
-#include <utility>
 
-MrpFeedbackAlgorithm::MrpFeedbackAlgorithm(MrpFeedbackConfig config) : cfg(std::move(config)) {}
+MrpFeedbackAlgorithm::MrpFeedbackAlgorithm(const MrpFeedbackConfig& config) : cfg(config) {
+    setConfig(config);
+    reInitialize();
+}
 
 void MrpFeedbackAlgorithm::setConfig(const MrpFeedbackConfig& config) { this->cfg = config; }
 
-/*! Reset the algorithm: clear the integral state. */
-void MrpFeedbackAlgorithm::reset() { this->int_sigma = Eigen::Vector3f::Zero(); }
+/*! Reset the integrating runtime state by zeroing the integral of the MRP tracking error. */
+void MrpFeedbackAlgorithm::reInitialize() { this->int_sigma = Eigen::Vector3f::Zero(); }
 
 /*! Compute the required control torque Lr from the attitude/rate tracking error and (optional)
     RW state. The MRP error is integrated with the fixed configured control period. */

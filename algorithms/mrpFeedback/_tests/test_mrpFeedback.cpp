@@ -46,7 +46,6 @@ TEST(MrpFeedbackTest, IntegralFeedbackDisabledWhenKiIsZero) {
         Eigen::Vector3f{-1.0F, 1.1F, -1.2F},
     };
     const std::array<float, RW_EFF_CNT> wheelSpeeds{};
-    EXPECT_NO_THROW(alg.reset());
     for (int step = 0; step < 5; ++step) {
         MrpFeedbackOutput out{};
         EXPECT_NO_THROW(out = alg.update(guid, wheelSpeeds));
@@ -79,7 +78,6 @@ TEST(MrpFeedbackTest, IntegralLimitClampsLargeError) {
     guid.sigma_BR = Eigen::Vector3f{1.0F, 1.0F, 1.0F};
 
     const std::array<float, RW_EFF_CNT> wheelSpeeds{};
-    EXPECT_NO_THROW(alg.reset());
 
     // Drive enough integration steps to saturate (each step accumulates K*controlPeriod*sigma = 1.0 per axis).
     constexpr int steps = 10;

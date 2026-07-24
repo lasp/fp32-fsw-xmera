@@ -25,6 +25,9 @@ class MrpFeedback final : public SysModel {
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
 
+    void reconfigure();
+    void reInitialize();
+
     // Phase 1: public config properties -- set before reset().
     float K = 0.0F;                                               //!< [N*m]    proportional gain on MRP error
     float P = 0.0F;                                               //!< [N*m*s]  rate-error feedback gain
@@ -45,8 +48,8 @@ class MrpFeedback final : public SysModel {
     ReadFunctor<VehicleConfigMsgF32Payload> vehConfigInMsg;  //!< vehicle configuration input message
 
    private:
+    MrpFeedbackConfig toConfig();
     std::unique_ptr<MrpFeedbackAlgorithm> algorithm = nullptr;
-    uint32_t numRW{};
 };
 
 #endif

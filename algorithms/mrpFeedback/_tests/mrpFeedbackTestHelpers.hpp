@@ -237,8 +237,6 @@ inline void testMrpFeedback(const Eigen::Vector3f& sigma,
                   rwConfigMsg.GsMatrix_B);
     }
 
-    EXPECT_NO_THROW(alg.reset());
-
     // Algorithm input structs (payload-free interface).
     const MrpFeedbackInputGuidance attGuidInputData{sigma, omega_BR_B, omega_RN_B, domega_RN_B};
     std::array<float, RW_EFF_CNT> wheelSpeedsArr{};
