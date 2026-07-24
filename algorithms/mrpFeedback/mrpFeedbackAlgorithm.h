@@ -1,13 +1,13 @@
 #ifndef F32XMERA_MRP_FEEDBACK_ALGORITHM_H
 #define F32XMERA_MRP_FEEDBACK_ALGORITHM_H
 
+#include "msgPayloadDef/RWAvailabilityMsgPayload.h"
 #include <cstdint>
 
 #include "mrpFeedbackTypes.h"
 #include "msgPayloadDef/AttGuidMsgF32Payload.h"
 #include "msgPayloadDef/CmdTorqueBodyMsgF32Payload.h"
 #include "msgPayloadDef/RWArrayConfigMsgF32Payload.h"
-#include "msgPayloadDef/RWAvailabilityMsgPayload.h"
 #include "msgPayloadDef/RWSpeedMsgF32Payload.h"
 #include "msgPayloadDef/VehicleConfigMsgF32Payload.h"
 #include "utilities/fsw/freestandingInvalidArgument.h"
@@ -31,6 +31,7 @@ struct MrpFeedbackOutput {
 struct MrpFeedbackInputRwData {
     Eigen::Matrix<float, 3, RW_EFF_CNT> GsMatrix_B = Eigen::Matrix<float, 3, RW_EFF_CNT>::Zero();
     std::array<float, RW_EFF_CNT> JsList{};
+    std::array<int32_t, RW_EFF_CNT> wheelAvailability{};  //!< per-wheel AVAILABLE/UNAVAILABLE (fixed at reset)
     uint32_t numRW{};
 };
 
@@ -153,9 +154,7 @@ class MrpFeedbackAlgorithm final {
     void setConfig(const MrpFeedbackConfig& config);
 
     void reset();
-    MrpFeedbackOutput update(const AttGuidMsgF32Payload& guidCmd,
-                             const RWSpeedMsgF32Payload& wheelSpeeds,
-                             const RWAvailabilityMsgPayload& wheelsAvailability);
+    MrpFeedbackOutput update(const AttGuidMsgF32Payload& guidCmd, const RWSpeedMsgF32Payload& wheelSpeeds);
 
    private:
     MrpFeedbackConfig cfg;

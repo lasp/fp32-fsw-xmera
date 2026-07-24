@@ -46,12 +46,10 @@ TEST(MrpFeedbackTest, IntegralFeedbackDisabledWhenKiIsZero) {
     eigenVectorToCArray(Eigen::Vector3f{-1.0F, 1.1F, -1.2F}, guidCmd.domega_RN_B);
 
     const RWSpeedMsgF32Payload wheelSpeeds{};
-    const RWAvailabilityMsgPayload availability{};
-
     EXPECT_NO_THROW(alg.reset());
     for (int step = 0; step < 5; ++step) {
         MrpFeedbackOutput out{};
-        EXPECT_NO_THROW(out = alg.update(guidCmd, wheelSpeeds, availability));
+        EXPECT_NO_THROW(out = alg.update(guidCmd, wheelSpeeds));
         for (int i = 0; i < 3; ++i) {
             EXPECT_FLOAT_EQ(out.intFeedbackOut.torqueRequestBody[i], 0.0F);
             EXPECT_TRUE(std::isfinite(out.controlOut.torqueRequestBody[i]));
@@ -84,15 +82,13 @@ TEST(MrpFeedbackTest, IntegralLimitClampsLargeError) {
     eigenVectorToCArray(Eigen::Vector3f::Zero(), guidCmd.domega_RN_B);
 
     const RWSpeedMsgF32Payload wheelSpeeds{};
-    const RWAvailabilityMsgPayload availability{};
-
     EXPECT_NO_THROW(alg.reset());
 
     // Drive enough integration steps to saturate (each step accumulates K*controlPeriod*sigma = 1.0 per axis).
     constexpr int steps = 10;
     MrpFeedbackOutput out{};
     for (int step = 0; step < steps; ++step) {
-        EXPECT_NO_THROW(out = alg.update(guidCmd, wheelSpeeds, availability));
+        EXPECT_NO_THROW(out = alg.update(guidCmd, wheelSpeeds));
         for (int i = 0; i < 3; ++i) {
             EXPECT_TRUE(std::isfinite(out.controlOut.torqueRequestBody[i]));
             EXPECT_TRUE(std::isfinite(out.intFeedbackOut.torqueRequestBody[i]));

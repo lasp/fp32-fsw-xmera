@@ -15,8 +15,7 @@ void MrpFeedbackAlgorithm::reset() { this->int_sigma = Eigen::Vector3f::Zero(); 
 /*! Compute the required control torque Lr from the attitude/rate tracking error and (optional)
     RW state. The MRP error is integrated with the fixed configured control period. */
 MrpFeedbackOutput MrpFeedbackAlgorithm::update(const AttGuidMsgF32Payload& guidCmd,
-                                               const RWSpeedMsgF32Payload& wheelSpeeds,
-                                               const RWAvailabilityMsgPayload& wheelsAvailability) {
+                                               const RWSpeedMsgF32Payload& wheelSpeeds) {
     const MrpFeedbackControlParameters& params = this->cfg.getControlParameters();
     const Eigen::Matrix3f& ISCPntB_B = this->cfg.getSpacecraftInertia();
 
@@ -46,7 +45,7 @@ MrpFeedbackOutput MrpFeedbackAlgorithm::update(const AttGuidMsgF32Payload& guidC
     if (rwConfiguration.has_value()) {
         const MrpFeedbackInputRwData& rwConfigParams = *rwConfiguration;
         for (uint32_t i = 0U; i < rwConfigParams.numRW; ++i) {
-            if (wheelsAvailability.wheelAvailability[i] == AVAILABLE) {
+            if (rwConfigParams.wheelAvailability.at(i) == AVAILABLE) {
                 const Eigen::Vector3f G_s_B_i = rwConfigParams.GsMatrix_B.col(static_cast<int>(i));
                 const Eigen::Vector3f h_s_i =
                     rwConfigParams.JsList.at(i) * (omega_BN_B.dot(G_s_B_i) + wheelSpeeds.wheelSpeeds[i]) * G_s_B_i;

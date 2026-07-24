@@ -182,6 +182,11 @@ inline void testMrpFeedback(const Eigen::Vector3f& sigma,
         }
         std::copy(std::begin(JsList), std::end(JsList), std::begin(rwInputData.JsList));
         rwInputData.numRW = static_cast<uint32_t>(numRW);
+        for (uint32_t i = 0U; i < wheelAvailabilityBool.size(); ++i) {
+            if (wheelAvailabilityBool[i]) {
+                rwInputData.wheelAvailability[i] = UNAVAILABLE;
+            }
+        }
 
         // The config requires (near-)unit spin axes; normalize the active columns before constructing it. Skip
         // inputs with a degenerate (near-zero) spin axis that cannot be normalized.
@@ -243,7 +248,7 @@ inline void testMrpFeedback(const Eigen::Vector3f& sigma,
     for (int step = 0; step < numSteps; ++step) {
         MrpFeedbackOutput out{};
         ReferenceOutput refOutput{};
-        EXPECT_NO_THROW(out = alg.update(guidCmdMsg, wheelSpeedsMsg, wheelsAvailabilityMsg));
+        EXPECT_NO_THROW(out = alg.update(guidCmdMsg, wheelSpeedsMsg));
         EXPECT_NO_THROW(refOutput = referenceUpdate(
                             cfg, rwConfigMsg, ISC_B, int_sigma, guidCmdMsg, wheelSpeedsMsg, wheelsAvailabilityMsg));
         const MrpFeedbackOutput ref = refOutput.mrpFeedbackOut;

@@ -27,6 +27,12 @@ void MrpFeedback::reset(const uint64_t callTime) {
         rwData.GsMatrix_B = cArrayToEigenMatrix<float, 3, RW_EFF_CNT>(rwConfigParams.GsMatrix_B);
         std::copy(std::begin(rwConfigParams.JsList), std::end(rwConfigParams.JsList), std::begin(rwData.JsList));
         rwData.numRW = static_cast<uint32_t>(rwConfigParams.numRW);
+        if (this->rwAvailInMsg.isLinked()) {
+            const RWAvailabilityMsgPayload availabilityMsg = this->rwAvailInMsg();
+            std::copy(std::begin(availabilityMsg.wheelAvailability),
+                      std::end(availabilityMsg.wheelAvailability),
+                      std::begin(rwData.wheelAvailability));
+        }
         this->numRW = rwData.numRW;
         rwConfiguration = rwData;
     }
@@ -51,16 +57,12 @@ void MrpFeedback::updateState(const uint64_t callTime) {
 
     AttGuidMsgF32Payload guidCmd = this->guidInMsg();
     RWSpeedMsgF32Payload wheelSpeeds{};
-    RWAvailabilityMsgPayload wheelsAvailability{};
 
     if (this->numRW > 0U) {
         wheelSpeeds = this->rwSpeedsInMsg();
-        if (this->rwAvailInMsg.isLinked()) {
-            wheelsAvailability = this->rwAvailInMsg();
-        }
     }
 
-    auto [controlOut, intFeedbackOut] = this->algorithm->update(guidCmd, wheelSpeeds, wheelsAvailability);
+    auto [controlOut, intFeedbackOut] = this->algorithm->update(guidCmd, wheelSpeeds);
 
     this->cmdTorqueOutMsg.write(&controlOut, moduleID, callTime);
     this->intFeedbackTorqueOutMsg.write(&intFeedbackOut, this->moduleID, callTime);
