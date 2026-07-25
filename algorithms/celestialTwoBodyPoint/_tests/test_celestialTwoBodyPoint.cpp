@@ -1,5 +1,6 @@
 #include "celestialTwoBodyPointTestHelpers.hpp"
 #include <gtest/gtest.h>
+#include <numbers>
 
 // ---------------------------------------------------------------------------
 // Regression test
@@ -26,9 +27,10 @@ TEST(CelestialTwoBodyPointTest, SetupTest) {
     // Valid config should not throw
     EXPECT_NO_THROW(CelestialTwoBodyPointConfig::create(0.017F));
 
-    // Negative or zero celestialBodyAlignmentThreshold should throw
+    // Out-of-range celestialBodyAlignmentThreshold should throw (below 1e-6 or above pi/2)
     EXPECT_THROW(CelestialTwoBodyPointConfig::create(-1.0F), fsw::invalid_argument);
     EXPECT_THROW(CelestialTwoBodyPointConfig::create(0.0F), fsw::invalid_argument);
+    EXPECT_THROW(CelestialTwoBodyPointConfig::create(2.0F), fsw::invalid_argument);
 
     // Config round-trip
     const float celestialBodyAlignmentThreshold = 0.017F;
@@ -37,8 +39,10 @@ TEST(CelestialTwoBodyPointTest, SetupTest) {
 
     // Static validators
     EXPECT_TRUE(CelestialTwoBodyPointConfig::isValidCelestialBodyAlignmentThreshold(1.0F));
+    EXPECT_TRUE(CelestialTwoBodyPointConfig::isValidCelestialBodyAlignmentThreshold(std::numbers::pi_v<float> / 2.0F));
     EXPECT_FALSE(CelestialTwoBodyPointConfig::isValidCelestialBodyAlignmentThreshold(0.0F));
     EXPECT_FALSE(CelestialTwoBodyPointConfig::isValidCelestialBodyAlignmentThreshold(-1.0F));
+    EXPECT_FALSE(CelestialTwoBodyPointConfig::isValidCelestialBodyAlignmentThreshold(2.0F));
 
     // Set config
     const auto config1 = CelestialTwoBodyPointConfig::create(0.017F);

@@ -3,6 +3,7 @@
 
 #include "utilities/fsw/freestandingInvalidArgument.h"
 #include <Eigen/Core>
+#include <numbers>
 
 /*!@brief Output of the two-body celestial pointing algorithm.
  */
@@ -24,18 +25,20 @@ struct InertialStateInput {
 class CelestialTwoBodyPointConfig final {
    public:
     /*! @brief Static factory — validates all parameters, throws on failure
-        @param const celestialBodyAlignmentThreshold [rad] Angle threshold for primary and secondary celestial body
-       alignment check
+        @param celestialBodyAlignmentThreshold [rad] Angle threshold for primary and secondary celestial body
+       alignment check; must be in [1e-6, pi/2]
         @return validated configuration object */
     static CelestialTwoBodyPointConfig create(const float celestialBodyAlignmentThreshold) {
         if (!isValidCelestialBodyAlignmentThreshold(celestialBodyAlignmentThreshold)) {
-            FSW_THROW_INVALID_ARGUMENT("celestialTwoBodyPoint: celestialBodyAlignmentThreshold must be >= 1e-6");
+            FSW_THROW_INVALID_ARGUMENT(
+                "celestialTwoBodyPoint: celestialBodyAlignmentThreshold must be in [1e-6, pi/2]");
         }
         return {celestialBodyAlignmentThreshold};
     }
 
     static bool isValidCelestialBodyAlignmentThreshold(const float celestialBodyAlignmentThreshold) {
-        return celestialBodyAlignmentThreshold >= 1e-6F;
+        constexpr float halfPi = std::numbers::pi_v<float> / 2.0F;
+        return celestialBodyAlignmentThreshold >= 1e-6F && celestialBodyAlignmentThreshold <= halfPi;
     }
     float getCelestialBodyAlignmentThreshold() const { return celestialBodyAlignmentThreshold; }
 

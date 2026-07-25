@@ -2,6 +2,7 @@
 #include "utilities/testUtilities/eigenFuzzDomains.hpp"
 
 #include <fuzztest/fuzztest.h>
+#include <numbers>
 
 // ---------------------------------------------------------------------------
 // Regression fuzz: random configs and reference inputs must agree with the
@@ -9,32 +10,32 @@
 // ---------------------------------------------------------------------------
 
 FUZZ_TEST(CelestialTwoBodyPointAlgorithmFuzz, testCelestialTwoBodyPointRegression)
-    .WithDomains(xmera::fuzz::Vector3dInRange(-1e6F, 1e6F),  // r_PN_N
-                 xmera::fuzz::Vector3dInRange(-1e6F, 1e6F),  // v_PN_N
-                 xmera::fuzz::Vector3dInRange(-1e6F, 1e6F),  // r_SN_N
-                 xmera::fuzz::Vector3dInRange(-1e6F, 1e6F),  // v_SN_N
-                 xmera::fuzz::Vector3dInRange(-1e6F, 1e6F),  // r_BN_N
-                 xmera::fuzz::Vector3dInRange(-1e6F, 1e6F),  // v_BN_N
-                 fuzztest::InRange(1e-6F, 1e6F));            // celestialBodyAlignmentThreshold
+    .WithDomains(xmera::fuzz::Vector3dInRange(-1e6F, 1e6F),                    // r_PN_N
+                 xmera::fuzz::Vector3dInRange(-1e6F, 1e6F),                    // v_PN_N
+                 xmera::fuzz::Vector3dInRange(-1e6F, 1e6F),                    // r_SN_N
+                 xmera::fuzz::Vector3dInRange(-1e6F, 1e6F),                    // v_SN_N
+                 xmera::fuzz::Vector3dInRange(-1e6F, 1e6F),                    // r_BN_N
+                 xmera::fuzz::Vector3dInRange(-1e6F, 1e6F),                    // v_BN_N
+                 fuzztest::InRange(1e-6F, std::numbers::pi_v<float> / 2.0F));  // celestialBodyAlignmentThreshold
 
 // ---------------------------------------------------------------------------
 // Property fuzz tests
 // ---------------------------------------------------------------------------
 
 FUZZ_TEST(CelestialTwoBodyPointPropertyFuzz, propertyOutputIsFinite)
-    .WithDomains(xmera::fuzz::Vector3dInRange(-1e6F, 1e6F),  // r_PN_N
-                 xmera::fuzz::Vector3dInRange(-1e6F, 1e6F),  // v_PN_N
-                 xmera::fuzz::Vector3dInRange(-1e6F, 1e6F),  // r_SN_N
-                 xmera::fuzz::Vector3dInRange(-1e6F, 1e6F),  // v_SN_N
-                 xmera::fuzz::Vector3dInRange(-1e6F, 1e6F),  // r_BN_N
-                 xmera::fuzz::Vector3dInRange(-1e6F, 1e6F),  // v_BN_N
-                 fuzztest::InRange(1e-6F, 1e6F));            // celestialBodyAlignmentThreshold
+    .WithDomains(xmera::fuzz::Vector3dInRange(-1e6F, 1e6F),                    // r_PN_N
+                 xmera::fuzz::Vector3dInRange(-1e6F, 1e6F),                    // v_PN_N
+                 xmera::fuzz::Vector3dInRange(-1e6F, 1e6F),                    // r_SN_N
+                 xmera::fuzz::Vector3dInRange(-1e6F, 1e6F),                    // v_SN_N
+                 xmera::fuzz::Vector3dInRange(-1e6F, 1e6F),                    // r_BN_N
+                 xmera::fuzz::Vector3dInRange(-1e6F, 1e6F),                    // v_BN_N
+                 fuzztest::InRange(1e-6F, std::numbers::pi_v<float> / 2.0F));  // celestialBodyAlignmentThreshold
 
 FUZZ_TEST(CelestialTwoBodyPointPropertyFuzz, propertySigmaNormBounded)
-    .WithDomains(xmera::fuzz::Vector3dInRange(-1e6F, 1e6F),  // r_PN_N
-                 xmera::fuzz::Vector3dInRange(-1e6F, 1e6F),  // v_PN_N
-                 xmera::fuzz::Vector3dInRange(-1e6F, 1e6F),  // r_SN_N
-                 xmera::fuzz::Vector3dInRange(-1e6F, 1e6F),  // v_SN_N
-                 xmera::fuzz::Vector3dInRange(-1e6F, 1e6F),  // r_BN_N
-                 xmera::fuzz::Vector3dInRange(-1e6F, 1e6F),  // v_BN_N
-                 fuzztest::InRange(1e-6F, 1e6F));            // celestialBodyAlignmentThreshold
+    .WithDomains(xmera::fuzz::Vector3dInRange(-1e6F, 1e6F),                    // r_PN_N
+                 xmera::fuzz::Vector3dInRange(-1e6F, 1e6F),                    // v_PN_N
+                 xmera::fuzz::Vector3dInRange(-1e6F, 1e6F),                    // r_SN_N
+                 xmera::fuzz::Vector3dInRange(-1e6F, 1e6F),                    // v_SN_N
+                 xmera::fuzz::Vector3dInRange(-1e6F, 1e6F),                    // r_BN_N
+                 xmera::fuzz::Vector3dInRange(-1e6F, 1e6F),                    // v_BN_N
+                 fuzztest::InRange(1e-6F, std::numbers::pi_v<float> / 2.0F));  // celestialBodyAlignmentThreshold
