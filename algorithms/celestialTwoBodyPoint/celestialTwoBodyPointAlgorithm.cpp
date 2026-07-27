@@ -62,9 +62,10 @@ CelestialTwoBodyPointOutput CelestialTwoBodyPointAlgorithm::rateAndAccelCalc(con
                                                                              const Eigen::Vector3d &v_PB_N,
                                                                              const Eigen::Vector3d &r_SB_N,
                                                                              const Eigen::Vector3d &v_SB_N) {
-    /* Compute normal vector to plane of r_PB_N and r_SB_N. The plane-normal cross products are kept in
-       double: they difference large position/velocity products and cancel near body-alignment. The rest
-       of the kernel runs in float (bounded unit vectors and rates), casting to float once past these. */
+    /* Compute normal vector to plane of r_PB_N and r_SB_N. The rate/acceleration derivative chain is
+       carried in double: it differences large position/velocity products and near-aligned/near-radial
+       geometries, where float loses precision on the angular acceleration. Only the well-conditioned
+       attitude/rotation stage (DCM, sigma, and the R->N rotations of omega/omegaDot) is float. */
     const Eigen::Vector3d normalVec_N = r_PB_N.cross(r_SB_N);
 
     /* Compute inertial time derivative of normal vector */
@@ -74,48 +75,48 @@ CelestialTwoBodyPointOutput CelestialTwoBodyPointAlgorithm::rateAndAccelCalc(con
     const Eigen::Vector3d normalVecDDot_N = 2 * v_PB_N.cross(v_SB_N);
 
     /* Reference frame computation */
-    const Eigen::Vector3f r1Hat_N = r_PB_N.normalized().cast<float>();
-    const Eigen::Vector3f r3Hat_N = normalVec_N.normalized().cast<float>();
-    const Eigen::Vector3f r2Hat_N = r3Hat_N.cross(r1Hat_N).normalized();
+    const Eigen::Vector3d r1Hat_N = r_PB_N.normalized();
+    const Eigen::Vector3d r3Hat_N = normalVec_N.normalized();
+    const Eigen::Vector3d r2Hat_N = r3Hat_N.cross(r1Hat_N).normalized();
     Eigen::Matrix3f dcm_RN = Eigen::Matrix3f::Identity();
-    dcm_RN.row(0) = r1Hat_N;
-    dcm_RN.row(1) = r2Hat_N;
-    dcm_RN.row(2) = r3Hat_N;
+    dcm_RN.row(0) = r1Hat_N.cast<float>();
+    dcm_RN.row(1) = r2Hat_N.cast<float>();
+    dcm_RN.row(2) = r3Hat_N.cast<float>();
 
     // Construct algorithm output message
     CelestialTwoBodyPointOutput attRefOut{};
     attRefOut.sigma_RN = dcmToMrp(dcm_RN);
 
     /* Compute inertial time derivative of reference frame basis vectors */
-    const Eigen::Vector3f r1HatDot_N =
-        (Eigen::Matrix3f::Identity() - r1Hat_N * r1Hat_N.transpose()) * (v_PB_N / r_PB_N.norm()).cast<float>();
-    const Eigen::Vector3f r3HatDot_N = (Eigen::Matrix3f::Identity() - r3Hat_N * r3Hat_N.transpose()) *
-                                       (normalVecDot_N / normalVec_N.norm()).cast<float>();
-    const Eigen::Vector3f r2HatDot_N = r3HatDot_N.cross(r1Hat_N) + r3Hat_N.cross(r1HatDot_N);
+    const Eigen::Vector3d r1HatDot_N =
+        (Eigen::Matrix3d::Identity() - r1Hat_N * r1Hat_N.transpose()) * (v_PB_N / r_PB_N.norm());
+    const Eigen::Vector3d r3HatDot_N =
+        (Eigen::Matrix3d::Identity() - r3Hat_N * r3Hat_N.transpose()) * (normalVecDot_N / normalVec_N.norm());
+    const Eigen::Vector3d r2HatDot_N = r3HatDot_N.cross(r1Hat_N) + r3Hat_N.cross(r1HatDot_N);
 
     /* Reference angular velocity computation */
-    Eigen::Vector3f omega_RN_R = Eigen::Vector3f::Zero();
+    Eigen::Vector3d omega_RN_R = Eigen::Vector3d::Zero();
     omega_RN_R[0] = r3Hat_N.dot(r2HatDot_N);
     omega_RN_R[1] = r1Hat_N.dot(r3HatDot_N);
     omega_RN_R[2] = r2Hat_N.dot(r1HatDot_N);
-    attRefOut.omega_RN_N = dcm_RN.transpose() * omega_RN_R;
+    attRefOut.omega_RN_N = dcm_RN.transpose() * omega_RN_R.cast<float>();
 
     /* Compute inertial acceleration of reference frame basis vectors */
-    const Eigen::Vector3f r1HatDDot_N = -(2 * r1HatDot_N * r1Hat_N.transpose() + r1Hat_N * r1HatDot_N.transpose()) *
-                                        (v_PB_N / r_PB_N.norm()).cast<float>();
-    const Eigen::Vector3f r3HatDDot_N =
-        ((Eigen::Matrix3f::Identity() - r3Hat_N * r3Hat_N.transpose()) * normalVecDDot_N.cast<float>() -
-         (2 * r3HatDot_N * r3Hat_N.transpose() + r3Hat_N * r3HatDot_N.transpose()) * normalVecDot_N.cast<float>()) /
-        static_cast<float>(normalVec_N.norm());
-    const Eigen::Vector3f r2HatDDot_N =
+    const Eigen::Vector3d r1HatDDot_N =
+        -(2 * r1HatDot_N * r1Hat_N.transpose() + r1Hat_N * r1HatDot_N.transpose()) * (v_PB_N / r_PB_N.norm());
+    const Eigen::Vector3d r3HatDDot_N =
+        ((Eigen::Matrix3d::Identity() - r3Hat_N * r3Hat_N.transpose()) * normalVecDDot_N -
+         (2 * r3HatDot_N * r3Hat_N.transpose() + r3Hat_N * r3HatDot_N.transpose()) * normalVecDot_N) /
+        normalVec_N.norm();
+    const Eigen::Vector3d r2HatDDot_N =
         r3HatDDot_N.cross(r1Hat_N) + r3Hat_N.cross(r1HatDDot_N) + 2 * r3HatDot_N.cross(r1HatDot_N);
 
     /* Reference angular acceleration computation */
-    Eigen::Vector3f omegaDot_RN_R{};
+    Eigen::Vector3d omegaDot_RN_R{};
     omegaDot_RN_R[0] = r3HatDot_N.dot(r2HatDot_N) + r3Hat_N.dot(r2HatDDot_N) - omega_RN_R.dot(r1HatDot_N);
     omegaDot_RN_R[1] = r1HatDot_N.dot(r3HatDot_N) + r1Hat_N.dot(r3HatDDot_N) - omega_RN_R.dot(r2HatDot_N);
     omegaDot_RN_R[2] = r2HatDot_N.dot(r1HatDot_N) + r2Hat_N.dot(r1HatDDot_N) - omega_RN_R.dot(r3HatDot_N);
-    attRefOut.domega_RN_N = dcm_RN.transpose() * omegaDot_RN_R;
+    attRefOut.domega_RN_N = dcm_RN.transpose() * omegaDot_RN_R.cast<float>();
 
     return attRefOut;
 }
