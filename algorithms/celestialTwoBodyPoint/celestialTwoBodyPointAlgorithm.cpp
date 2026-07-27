@@ -48,7 +48,9 @@ CelestialTwoBodyPointOutput CelestialTwoBodyPointAlgorithm::update(const Inertia
         if (celestialBodySeparationAngle < this->cfg.getCelestialBodyAlignmentThreshold()) {
             const auto dotProduct2 = static_cast<float>(r_PB_N.normalized().dot(v_PB_N.normalized()));
             const float posVelSeparationAngle = safeAcosf(fabsf(dotProduct2)); /* Angle between r_PB_N and v_PB_N */
-            constraintAxisValid = posVelSeparationAngle >= kSmallAngle;
+            /* The fallback axis r_PB_N x v_PB_N is undefined when v_PB_N is ~zero (the angle check alone
+               misses this: a zero vector normalizes to zero, giving a spurious 90-deg angle) or collinear. */
+            constraintAxisValid = v_PB_N.squaredNorm() >= kMinNormSq && posVelSeparationAngle >= kSmallAngle;
             if (constraintAxisValid) {
                 r_SB_N = r_PB_N.cross(v_PB_N);
                 v_SB_N = Eigen::Vector3d::Zero();

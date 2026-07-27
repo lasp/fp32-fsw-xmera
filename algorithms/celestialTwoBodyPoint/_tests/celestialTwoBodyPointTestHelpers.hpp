@@ -106,7 +106,8 @@ inline ReferenceCelestialTwoBodyPointOutput referenceCelestialTwoBodyPoint(
         /*! Return identity reference attitude and zero reference rates if r_PB_N and v_PB_N are aligned */
         const auto dotProduct2 = static_cast<float>(r_PB_N.normalized().dot(v_PB_N.normalized()));
         const float posVelSeparationAngle = safeAcosf(fabsf(dotProduct2)); /* Angle between r_PB_N and v_PB_N */
-        if (posVelSeparationAngle < CelestialTwoBodyPointAlgorithm::kSmallAngle) {
+        if (v_PB_N.squaredNorm() < CelestialTwoBodyPointAlgorithm::kMinNormSq ||
+            posVelSeparationAngle < CelestialTwoBodyPointAlgorithm::kSmallAngle) {
             const ReferenceCelestialTwoBodyPointOutput safeDefault = {
                 Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero()};
 
