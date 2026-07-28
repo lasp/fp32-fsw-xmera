@@ -186,10 +186,7 @@ ThrusterPlatformReferenceOutput ThrusterPlatformReferenceAlgorithm::update(const
 
         // compute the offset vector that shifts the effective CM to produce the desired dumping torque
         const Eigen::Vector3f thrust_M = dcm_FM.transpose() * thrust_F;
-        Eigen::Vector3f H_M = this->cfg.getK() * hs_M;
-        if (this->cfg.getKi() > 0.0F) {
-            H_M += this->cfg.getKi() * this->hsInt_M;
-        }
+        const Eigen::Vector3f H_M = (this->cfg.getK() * hs_M) + (this->cfg.getKi() * this->hsInt_M);
         const Eigen::Vector3f d_M = -1.0F / thrust_M.dot(thrust_M) * thrust_M.cross(H_M);
 
         // recompute the platform rotation about the offset CM
