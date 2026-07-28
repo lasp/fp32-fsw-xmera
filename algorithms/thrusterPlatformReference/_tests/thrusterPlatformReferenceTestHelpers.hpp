@@ -13,8 +13,15 @@ inline ThrusterPlatformReferenceConfig makeAlignmentConfig(const Eigen::Vector3f
                                                            const Eigen::Vector3f& r_FM_F,
                                                            float theta1Max,
                                                            float theta2Max) {
-    return ThrusterPlatformReferenceConfig::create(
-        sigma_MB, r_BM_M, r_FM_F, 0.0F, 0.0F, theta1Max, theta2Max, false, ThrusterPlatformReferenceRwArrayConfig{});
+    return ThrusterPlatformReferenceConfig::create(sigma_MB,
+                                                   r_BM_M,
+                                                   r_FM_F,
+                                                   0.0F,
+                                                   0.0F,
+                                                   theta1Max,
+                                                   theta2Max,
+                                                   false,
+                                                   ThrusterPlatformReferenceRwArrayConfiguration{});
 }
 
 // Assemble the per-cycle inputs from the center-of-mass position and thruster geometry.
@@ -24,9 +31,9 @@ inline ThrusterPlatformReferenceInputs makeInputs(const Eigen::Vector3f& r_CB_B,
                                                   float maxThrust) {
     ThrusterPlatformReferenceInputs in{};
     in.r_CB_B = r_CB_B;
-    in.rThrust_F = rThrust_F;
-    in.tHatThrust_F = tHatThrust_F.normalized();
-    in.maxThrust = maxThrust;
+    in.r_TF_F = rThrust_F;
+    in.tHat_F = tHatThrust_F.normalized();
+    in.thrust = maxThrust;
     return in;
 }
 
@@ -61,15 +68,15 @@ inline void regressionTestThrusterPlatformReference(const Eigen::Vector3f& sigma
 
     // Body-frame outputs consistent with the reported angles.
     const Eigen::Vector3f tHat_B = (FB.transpose() * T_F).normalized();
-    EXPECT_LT((out.tHatThrust_B - tHat_B).norm(), accuracy);
+    EXPECT_LT((out.tHat_B - tHat_B).norm(), accuracy);
 
     const Eigen::Vector3f torque_B = FB.transpose() * T_F.cross(r_TC_F);
-    EXPECT_LT((out.torqueRequestBody - torque_B).norm(), accuracy);
+    EXPECT_LT((out.Lreq_B - torque_B).norm(), accuracy);
 
     const Eigen::Vector3f rThrust_B = r_CB_B + FB.transpose() * r_TC_F;
-    EXPECT_LT((out.rThrust_B - rThrust_B).norm(), accuracy);
+    EXPECT_LT((out.r_TB_B - rThrust_B).norm(), accuracy);
 
-    EXPECT_NEAR(out.maxThrust, T_F.norm(), accuracy);
+    EXPECT_NEAR(out.thrust, T_F.norm(), accuracy);
 }
 
 // Property helper: for finite, non-degenerate geometry the platform reference is well defined, so every output
@@ -96,11 +103,11 @@ inline void propertyOutputsFinite(const Eigen::Vector3f& sigma_MB,
 
     EXPECT_TRUE(std::isfinite(out.theta1));
     EXPECT_TRUE(std::isfinite(out.theta2));
-    EXPECT_TRUE(out.torqueRequestBody.allFinite());
-    EXPECT_TRUE(out.rThrust_B.allFinite());
-    EXPECT_TRUE(out.tHatThrust_B.allFinite());
-    EXPECT_TRUE(std::isfinite(out.maxThrust));
-    EXPECT_NEAR(out.tHatThrust_B.norm(), 1.0F, 1e-3F);
+    EXPECT_TRUE(out.Lreq_B.allFinite());
+    EXPECT_TRUE(out.r_TB_B.allFinite());
+    EXPECT_TRUE(out.tHat_B.allFinite());
+    EXPECT_TRUE(std::isfinite(out.thrust));
+    EXPECT_NEAR(out.tHat_B.norm(), 1.0F, 1e-3F);
 }
 
 #endif  // TEST_THRUSTER_PLATFORM_REFERENCE_H

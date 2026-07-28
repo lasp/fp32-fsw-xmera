@@ -52,7 +52,7 @@ TEST(ThrusterPlatformReferenceTest, RegressionArbitraryGeometry) {
 
 TEST(ThrusterPlatformReferenceTest, SetupTest) {
     const Eigen::Vector3f zero = Eigen::Vector3f::Zero();
-    const ThrusterPlatformReferenceRwArrayConfig noRw{};
+    const ThrusterPlatformReferenceRwArrayConfiguration noRw{};
     constexpr float nan = std::numeric_limits<float>::quiet_NaN();
     constexpr float inf = std::numeric_limits<float>::infinity();
 
@@ -75,13 +75,13 @@ TEST(ThrusterPlatformReferenceTest, SetupTest) {
                  fsw::invalid_argument);
 
     // Too many reaction wheels is rejected.
-    ThrusterPlatformReferenceRwArrayConfig tooManyRw{};
+    ThrusterPlatformReferenceRwArrayConfiguration tooManyRw{};
     tooManyRw.numRW = static_cast<uint32_t>(kMaxNumRw) + 1U;
     EXPECT_THROW(ThrusterPlatformReferenceConfig::create(zero, zero, zero, 0.0F, 0.0F, -1.0F, -1.0F, true, tooManyRw),
                  fsw::invalid_argument);
 
     // A non-unit reaction-wheel spin axis is rejected.
-    ThrusterPlatformReferenceRwArrayConfig nonUnitRw{};
+    ThrusterPlatformReferenceRwArrayConfiguration nonUnitRw{};
     nonUnitRw.numRW = 1U;
     nonUnitRw.GsMatrix_B.col(0) = Eigen::Vector3f(2.0F, 0.0F, 0.0F);
     EXPECT_THROW(ThrusterPlatformReferenceConfig::create(zero, zero, zero, 0.0F, 0.0F, -1.0F, -1.0F, true, nonUnitRw),
@@ -91,7 +91,7 @@ TEST(ThrusterPlatformReferenceTest, SetupTest) {
 // A reaction-wheel spin axis within tolerance of unit length is normalized exactly on construction.
 TEST(ThrusterPlatformReferenceTest, RwSpinAxisNormalized) {
     const Eigen::Vector3f zero = Eigen::Vector3f::Zero();
-    ThrusterPlatformReferenceRwArrayConfig rw{};
+    ThrusterPlatformReferenceRwArrayConfiguration rw{};
     rw.numRW = 1U;
     rw.GsMatrix_B.col(0) = Eigen::Vector3f(1.0005F, 0.0F, 0.0F);
     rw.JsList(0) = 0.01F;
@@ -106,7 +106,7 @@ TEST(ThrusterPlatformReferenceTest, ConfigRoundTrip) {
     const Eigen::Vector3f r_BM_M(0.0F, 0.1F, 1.4F);
     const Eigen::Vector3f r_FM_F(0.0F, 0.0F, -0.1F);
     const ThrusterPlatformReferenceConfig cfg = ThrusterPlatformReferenceConfig::create(
-        sigma_MB, r_BM_M, r_FM_F, 5.0F, 0.5F, 0.2F, 0.3F, false, ThrusterPlatformReferenceRwArrayConfig{});
+        sigma_MB, r_BM_M, r_FM_F, 5.0F, 0.5F, 0.2F, 0.3F, false, ThrusterPlatformReferenceRwArrayConfiguration{});
     EXPECT_TRUE(cfg.getSigma_MB().isApprox(sigma_MB));
     EXPECT_TRUE(cfg.getR_BM_M().isApprox(r_BM_M));
     EXPECT_TRUE(cfg.getR_FM_F().isApprox(r_FM_F));
@@ -130,10 +130,10 @@ TEST(ThrusterPlatformReferenceTest, PropertyOutputsFinite) {
 
     EXPECT_TRUE(std::isfinite(out.theta1));
     EXPECT_TRUE(std::isfinite(out.theta2));
-    EXPECT_TRUE(out.torqueRequestBody.allFinite());
-    EXPECT_TRUE(out.rThrust_B.allFinite());
-    EXPECT_TRUE(out.tHatThrust_B.allFinite());
-    EXPECT_TRUE(std::isfinite(out.maxThrust));
+    EXPECT_TRUE(out.Lreq_B.allFinite());
+    EXPECT_TRUE(out.r_TB_B.allFinite());
+    EXPECT_TRUE(out.tHat_B.allFinite());
+    EXPECT_TRUE(std::isfinite(out.thrust));
 }
 
 // The reported thrust headings are unit vectors and the reported thrust magnitude matches the input.
@@ -143,8 +143,8 @@ TEST(ThrusterPlatformReferenceTest, PropertyHeadingsAreUnitAndThrustPreserved) {
     const ThrusterPlatformReferenceOutput out =
         alg.update(makeInputs({0.1F, 0.2F, -0.1F}, {-0.01F, 0.03F, 0.02F}, {2.0F, -1.0F, 8.0F}, 7.5F), 0);
 
-    EXPECT_NEAR(out.tHatThrust_B.norm(), 1.0F, 1e-5F);
-    EXPECT_NEAR(out.maxThrust, 7.5F, 1e-5F);
+    EXPECT_NEAR(out.tHat_B.norm(), 1.0F, 1e-5F);
+    EXPECT_NEAR(out.thrust, 7.5F, 1e-5F);
 }
 
 // When angle bounds are set, the reported tip/tilt angles stay within them.
@@ -161,7 +161,7 @@ TEST(ThrusterPlatformReferenceTest, PropertyAngleBoundsRespected) {
 
 // The momentum-dumping path (K > 0 with a valid RW configuration) produces finite outputs.
 TEST(ThrusterPlatformReferenceTest, PropertyMomentumDumpingFinite) {
-    ThrusterPlatformReferenceRwArrayConfig rw{};
+    ThrusterPlatformReferenceRwArrayConfiguration rw{};
     rw.numRW = 3U;
     rw.GsMatrix_B.col(0) = Eigen::Vector3f(1.0F, 0.0F, 0.0F);
     rw.GsMatrix_B.col(1) = Eigen::Vector3f(0.0F, 1.0F, 0.0F);
@@ -185,7 +185,7 @@ TEST(ThrusterPlatformReferenceTest, PropertyMomentumDumpingFinite) {
 
     EXPECT_TRUE(std::isfinite(out.theta1));
     EXPECT_TRUE(std::isfinite(out.theta2));
-    EXPECT_TRUE(out.torqueRequestBody.allFinite());
+    EXPECT_TRUE(out.Lreq_B.allFinite());
 }
 
 // ---------------------------------------------------------------------------

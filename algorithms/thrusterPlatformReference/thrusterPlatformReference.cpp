@@ -15,7 +15,7 @@ static_assert(kMaxNumRw == RW_EFF_CNT, "THRUSTER_PLATFORM_REFERENCE_MAX_NUM_RW m
 ThrusterPlatformReferenceConfig ThrusterPlatformReference::toConfig() {
     const bool momentumDumping = this->rwConfigDataInMsg.isLinked() && this->rwSpeedsInMsg.isLinked();
 
-    ThrusterPlatformReferenceRwArrayConfig rwConfig{};
+    ThrusterPlatformReferenceRwArrayConfiguration rwConfig{};
     if (momentumDumping) {
         const RWArrayConfigMsgF32Payload rwConfigParams = this->rwConfigDataInMsg();
         rwConfig.numRW = static_cast<uint32_t>(rwConfigParams.numRW);
@@ -86,9 +86,9 @@ void ThrusterPlatformReference::updateState(const uint64_t callTime) {
 
     ThrusterPlatformReferenceInputs inputs{};
     inputs.r_CB_B = cArrayToEigenVector3<float>(vehConfigMsgIn.CoM_B);
-    inputs.rThrust_F = cArrayToEigenVector3<float>(thrusterConfigFIn.rThrust_B);
-    inputs.tHatThrust_F = cArrayToEigenVector3<float>(thrusterConfigFIn.tHatThrust_B);
-    inputs.maxThrust = thrusterConfigFIn.maxThrust;
+    inputs.r_TF_F = cArrayToEigenVector3<float>(thrusterConfigFIn.rThrust_B);
+    inputs.tHat_F = cArrayToEigenVector3<float>(thrusterConfigFIn.tHatThrust_B);
+    inputs.thrust = thrusterConfigFIn.maxThrust;
     if (this->rwSpeedsInMsg.isLinked()) {
         const RWSpeedMsgF32Payload rwSpeedMsgIn = this->rwSpeedsInMsg();
         inputs.wheelSpeeds = cArrayToEigenVector(rwSpeedMsgIn.wheelSpeeds);
@@ -108,16 +108,16 @@ void ThrusterPlatformReference::updateState(const uint64_t callTime) {
 
     // the body-frame thrust heading equals the body-frame thrust unit direction
     BodyHeadingMsgF32Payload bodyHeadingOut{};
-    eigenVectorToCArray(out.tHatThrust_B, bodyHeadingOut.rHat_XB_B);
+    eigenVectorToCArray(out.tHat_B, bodyHeadingOut.rHat_XB_B);
     this->bodyHeadingOutMsg.write(&bodyHeadingOut, this->moduleID, callTime);
 
     CmdTorqueBodyMsgF32Payload thrusterTorqueOut{};
-    eigenVectorToCArray(out.torqueRequestBody, thrusterTorqueOut.torqueRequestBody);
+    eigenVectorToCArray(out.Lreq_B, thrusterTorqueOut.torqueRequestBody);
     this->thrusterTorqueOutMsg.write(&thrusterTorqueOut, this->moduleID, callTime);
 
     THRConfigMsgF32Payload thrusterConfigOut{};
-    eigenVectorToCArray(out.rThrust_B, thrusterConfigOut.rThrust_B);
-    eigenVectorToCArray(out.tHatThrust_B, thrusterConfigOut.tHatThrust_B);
-    thrusterConfigOut.maxThrust = out.maxThrust;
+    eigenVectorToCArray(out.r_TB_B, thrusterConfigOut.rThrust_B);
+    eigenVectorToCArray(out.tHat_B, thrusterConfigOut.tHatThrust_B);
+    thrusterConfigOut.maxThrust = out.thrust;
     this->thrusterConfigBOutMsg.write(&thrusterConfigOut, this->moduleID, callTime);
 }

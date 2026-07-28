@@ -12,7 +12,7 @@
 inline constexpr int kMaxNumRw = THRUSTER_PLATFORM_REFERENCE_MAX_NUM_RW;  //!< [-] maximum number of reaction wheels
 
 /*! @brief Reaction-wheel spin-axis configuration used for momentum dumping. */
-struct ThrusterPlatformReferenceRwArrayConfig {
+struct ThrusterPlatformReferenceRwArrayConfiguration {
     uint32_t numRW{};  //!< [-] number of reaction wheels on the vehicle
     Eigen::Matrix<float, 3, kMaxNumRw> GsMatrix_B{
         Eigen::Matrix<float, 3, kMaxNumRw>::Zero()};  //!< [-] RW spin axes in body frame, one column per wheel
@@ -21,22 +21,22 @@ struct ThrusterPlatformReferenceRwArrayConfig {
 
 /*! @brief Per-cycle inputs to the thruster platform reference algorithm. */
 struct ThrusterPlatformReferenceInputs {
-    Eigen::Vector3f r_CB_B{Eigen::Vector3f::Zero()};        //!< [m] center of mass w.r.t. B origin, B frame
-    Eigen::Vector3f rThrust_F{Eigen::Vector3f::Zero()};     //!< [m] thrust application point w.r.t. F origin, F frame
-    Eigen::Vector3f tHatThrust_F{Eigen::Vector3f::Zero()};  //!< [-] thrust unit direction, F frame
-    float maxThrust{};                                      //!< [N] thrust magnitude
+    Eigen::Vector3f r_CB_B{Eigen::Vector3f::Zero()};  //!< [m] center of mass w.r.t. B origin, B frame
+    Eigen::Vector3f r_TF_F{Eigen::Vector3f::Zero()};  //!< [m] thrust application point w.r.t. F origin, F frame
+    Eigen::Vector3f tHat_F{Eigen::Vector3f::Zero()};  //!< [-] thrust unit direction, F frame
+    float thrust{};                                   //!< [N] thrust magnitude
     Eigen::Vector<float, kMaxNumRw> wheelSpeeds{
         Eigen::Vector<float, kMaxNumRw>::Zero()};  //!< [r/s] reaction-wheel speeds
 };
 
 /*! @brief Outputs of the thruster platform reference algorithm. */
 struct ThrusterPlatformReferenceOutput {
-    float theta1{};                                              //!< [rad] platform tip reference angle
-    float theta2{};                                              //!< [rad] platform tilt reference angle
-    Eigen::Vector3f torqueRequestBody{Eigen::Vector3f::Zero()};  //!< [Nm] torque to be compensated by the RWs, B frame
-    Eigen::Vector3f rThrust_B{Eigen::Vector3f::Zero()};     //!< [m] thrust application point w.r.t. B origin, B frame
-    Eigen::Vector3f tHatThrust_B{Eigen::Vector3f::Zero()};  //!< [-] thrust unit direction, B frame
-    float maxThrust{};                                      //!< [N] thrust magnitude
+    float theta1{};                                   //!< [rad] platform tip reference angle
+    float theta2{};                                   //!< [rad] platform tilt reference angle
+    Eigen::Vector3f Lreq_B{Eigen::Vector3f::Zero()};  //!< [Nm] torque to be compensated by the RWs, B frame
+    Eigen::Vector3f r_TB_B{Eigen::Vector3f::Zero()};  //!< [m] thrust application point w.r.t. B origin, B frame
+    Eigen::Vector3f tHat_B{Eigen::Vector3f::Zero()};  //!< [-] thrust unit direction, B frame
+    float thrust{};                                   //!< [N] thrust magnitude
 };
 
 /*!
@@ -58,7 +58,7 @@ class ThrusterPlatformReferenceConfig final {
                                                   float theta1Max,
                                                   float theta2Max,
                                                   bool momentumDumping,
-                                                  const ThrusterPlatformReferenceRwArrayConfig& rwConfig) {
+                                                  const ThrusterPlatformReferenceRwArrayConfiguration& rwConfig) {
         if (!isValidSigma_MB(sigma_MB)) {
             FSW_THROW_INVALID_ARGUMENT("thrusterPlatformReference: sigma_MB must be finite.");
         }
@@ -87,7 +87,7 @@ class ThrusterPlatformReferenceConfig final {
         }
 
         // Store unit-length spin axes so the momentum sum uses exact unit directions.
-        ThrusterPlatformReferenceRwArrayConfig normalizedRwConfig = rwConfig;
+        ThrusterPlatformReferenceRwArrayConfiguration normalizedRwConfig = rwConfig;
         for (uint32_t i = 0U; i < normalizedRwConfig.numRW; ++i) {
             normalizedRwConfig.GsMatrix_B.col(i).normalize();
         }
@@ -102,7 +102,7 @@ class ThrusterPlatformReferenceConfig final {
     static bool isValidKi(float Ki) { return fsw::is_finite(Ki) && Ki >= 0.0F; }
     static bool isValidTheta1Max(float theta1Max) { return fsw::is_finite(theta1Max); }
     static bool isValidTheta2Max(float theta2Max) { return fsw::is_finite(theta2Max); }
-    static bool isValidRwConfig(const ThrusterPlatformReferenceRwArrayConfig& rwConfig) {
+    static bool isValidRwConfig(const ThrusterPlatformReferenceRwArrayConfiguration& rwConfig) {
         if (rwConfig.numRW > static_cast<uint32_t>(kMaxNumRw) || !rwConfig.GsMatrix_B.allFinite() ||
             !rwConfig.JsList.allFinite()) {
             return false;
@@ -125,7 +125,7 @@ class ThrusterPlatformReferenceConfig final {
     float getTheta1Max() const { return theta1Max; }
     float getTheta2Max() const { return theta2Max; }
     bool getMomentumDumping() const { return momentumDumping; }
-    const ThrusterPlatformReferenceRwArrayConfig& getRwConfig() const { return rwConfig; }
+    const ThrusterPlatformReferenceRwArrayConfiguration& getRwConfig() const { return rwConfig; }
 
    private:
     // NOLINTBEGIN(bugprone-easily-swappable-parameters, modernize-pass-by-value)
@@ -141,7 +141,7 @@ class ThrusterPlatformReferenceConfig final {
                                     float theta1Max,
                                     float theta2Max,
                                     bool momentumDumping,
-                                    const ThrusterPlatformReferenceRwArrayConfig& rwConfig)
+                                    const ThrusterPlatformReferenceRwArrayConfiguration& rwConfig)
         : sigma_MB(sigma_MB),
           r_BM_M(r_BM_M),
           r_FM_F(r_FM_F),
@@ -161,7 +161,7 @@ class ThrusterPlatformReferenceConfig final {
     float theta1Max;
     float theta2Max;
     bool momentumDumping;
-    ThrusterPlatformReferenceRwArrayConfig rwConfig;
+    ThrusterPlatformReferenceRwArrayConfiguration rwConfig;
 };
 
 /*! @brief Pure algorithm computing the tip/tilt reference of a dual-gimballed thruster platform. */

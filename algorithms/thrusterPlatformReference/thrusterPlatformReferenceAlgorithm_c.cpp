@@ -6,8 +6,9 @@
 #include <Eigen/Core>
 
 namespace {
-ThrusterPlatformReferenceRwArrayConfig rwArrayConfigFromC(const ThrusterPlatformReferenceRwArrayConfig_c& c) {
-    ThrusterPlatformReferenceRwArrayConfig out{};
+ThrusterPlatformReferenceRwArrayConfiguration rwArrayConfigFromC(
+    const ThrusterPlatformReferenceRwArrayConfiguration_c& c) {
+    ThrusterPlatformReferenceRwArrayConfiguration out{};
     out.numRW = c.numRW;
     out.GsMatrix_B = cArrayToEigenMatrix<float, 3, kMaxNumRw>(c.GsMatrix_B);
     out.JsList = cArrayToEigenVector(c.JsList);
@@ -29,9 +30,9 @@ ThrusterPlatformReferenceConfig configFromC(const ThrusterPlatformReferenceConfi
 ThrusterPlatformReferenceInputs inputsFromC(const ThrusterPlatformReferenceInputs_c& c) {
     ThrusterPlatformReferenceInputs out{};
     out.r_CB_B = cArrayToEigenVector3<float>(c.r_CB_B.data);
-    out.rThrust_F = cArrayToEigenVector3<float>(c.rThrust_F.data);
-    out.tHatThrust_F = cArrayToEigenVector3<float>(c.tHatThrust_F.data);
-    out.maxThrust = c.maxThrust;
+    out.r_TF_F = cArrayToEigenVector3<float>(c.r_TF_F.data);
+    out.tHat_F = cArrayToEigenVector3<float>(c.tHat_F.data);
+    out.thrust = c.thrust;
     out.wheelSpeeds = cArrayToEigenVector(c.wheelSpeeds);
     return out;
 }
@@ -68,9 +69,9 @@ ThrusterPlatformReferenceOutput_c ThrusterPlatformReferenceAlgorithm_update(
     ThrusterPlatformReferenceOutput_c result{};
     result.theta1 = out.theta1;
     result.theta2 = out.theta2;
-    eigenVectorToCArray(out.torqueRequestBody, result.torqueRequestBody.data);
-    eigenVectorToCArray(out.rThrust_B, result.rThrust_B.data);
-    eigenVectorToCArray(out.tHatThrust_B, result.tHatThrust_B.data);
-    result.maxThrust = out.maxThrust;
+    eigenVectorToCArray(out.Lreq_B, result.Lreq_B.data);
+    eigenVectorToCArray(out.r_TB_B, result.r_TB_B.data);
+    eigenVectorToCArray(out.tHat_B, result.tHat_B.data);
+    result.thrust = out.thrust;
     return result;
 }
