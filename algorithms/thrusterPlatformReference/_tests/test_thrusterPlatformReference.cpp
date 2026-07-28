@@ -130,7 +130,6 @@ TEST(ThrusterPlatformReferenceTest, PropertyOutputsFinite) {
 
     EXPECT_TRUE(std::isfinite(out.theta1));
     EXPECT_TRUE(std::isfinite(out.theta2));
-    EXPECT_TRUE(out.rHat_XB_B.allFinite());
     EXPECT_TRUE(out.torqueRequestBody.allFinite());
     EXPECT_TRUE(out.rThrust_B.allFinite());
     EXPECT_TRUE(out.tHatThrust_B.allFinite());
@@ -144,7 +143,6 @@ TEST(ThrusterPlatformReferenceTest, PropertyHeadingsAreUnitAndThrustPreserved) {
     const ThrusterPlatformReferenceOutput out =
         alg.update(makeInputs({0.1F, 0.2F, -0.1F}, {-0.01F, 0.03F, 0.02F}, {2.0F, -1.0F, 8.0F}, 7.5F), 0);
 
-    EXPECT_NEAR(out.rHat_XB_B.norm(), 1.0F, 1e-5F);
     EXPECT_NEAR(out.tHatThrust_B.norm(), 1.0F, 1e-5F);
     EXPECT_NEAR(out.maxThrust, 7.5F, 1e-5F);
 }

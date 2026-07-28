@@ -33,7 +33,6 @@ struct ThrusterPlatformReferenceInputs {
 struct ThrusterPlatformReferenceOutput {
     float theta1{};                                              //!< [rad] platform tip reference angle
     float theta2{};                                              //!< [rad] platform tilt reference angle
-    Eigen::Vector3f rHat_XB_B{Eigen::Vector3f::Zero()};          //!< [-] thrust heading unit vector, B frame
     Eigen::Vector3f torqueRequestBody{Eigen::Vector3f::Zero()};  //!< [Nm] torque to be compensated by the RWs, B frame
     Eigen::Vector3f rThrust_B{Eigen::Vector3f::Zero()};     //!< [m] thrust application point w.r.t. B origin, B frame
     Eigen::Vector3f tHatThrust_B{Eigen::Vector3f::Zero()};  //!< [-] thrust unit direction, B frame

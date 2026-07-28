@@ -61,7 +61,6 @@ inline void regressionTestThrusterPlatformReference(const Eigen::Vector3f& sigma
 
     // Body-frame outputs consistent with the reported angles.
     const Eigen::Vector3f tHat_B = (FB.transpose() * T_F).normalized();
-    EXPECT_LT((out.rHat_XB_B - tHat_B).norm(), accuracy);
     EXPECT_LT((out.tHatThrust_B - tHat_B).norm(), accuracy);
 
     const Eigen::Vector3f torque_B = FB.transpose() * T_F.cross(r_TC_F);
@@ -97,12 +96,10 @@ inline void propertyOutputsFinite(const Eigen::Vector3f& sigma_MB,
 
     EXPECT_TRUE(std::isfinite(out.theta1));
     EXPECT_TRUE(std::isfinite(out.theta2));
-    EXPECT_TRUE(out.rHat_XB_B.allFinite());
     EXPECT_TRUE(out.torqueRequestBody.allFinite());
     EXPECT_TRUE(out.rThrust_B.allFinite());
     EXPECT_TRUE(out.tHatThrust_B.allFinite());
     EXPECT_TRUE(std::isfinite(out.maxThrust));
-    EXPECT_NEAR(out.rHat_XB_B.norm(), 1.0F, 1e-3F);
     EXPECT_NEAR(out.tHatThrust_B.norm(), 1.0F, 1e-3F);
 }
 

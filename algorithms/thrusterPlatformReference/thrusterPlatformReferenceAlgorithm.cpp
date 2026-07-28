@@ -222,9 +222,6 @@ ThrusterPlatformReferenceOutput ThrusterPlatformReferenceAlgorithm::update(const
     // mapping between the final platform frame and the body frame
     const Eigen::Matrix3f FB = FM * MB;
 
-    // thruster direction in body frame coordinates
-    out.rHat_XB_B = (FB.transpose() * T_F).normalized();
-
     // thruster torque on the system in body frame coordinates
     const Eigen::Vector3f r_CM_F = FM * r_CM_M;
     const Eigen::Vector3f r_TC_F = r_TM_F - r_CM_F;

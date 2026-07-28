@@ -68,7 +68,6 @@ ThrusterPlatformReferenceOutput_c ThrusterPlatformReferenceAlgorithm_update(
     ThrusterPlatformReferenceOutput_c result{};
     result.theta1 = out.theta1;
     result.theta2 = out.theta2;
-    eigenVectorToCArray(out.rHat_XB_B, result.rHat_XB_B.data);
     eigenVectorToCArray(out.torqueRequestBody, result.torqueRequestBody.data);
     eigenVectorToCArray(out.rThrust_B, result.rThrust_B.data);
     eigenVectorToCArray(out.tHatThrust_B, result.tHatThrust_B.data);

@@ -64,7 +64,6 @@ typedef struct {
 typedef struct {
     float theta1;                 /*!< [rad] platform tip reference angle */
     float theta2;                 /*!< [rad] platform tilt reference angle */
-    Vector3f_c rHat_XB_B;         /*!< [-]  thrust heading unit vector, B frame */
     Vector3f_c torqueRequestBody; /*!< [Nm] torque to be compensated by the RWs, B frame */
     Vector3f_c rThrust_B;         /*!< [m]  thrust application point w.r.t. B origin, B frame */
     Vector3f_c tHatThrust_B;      /*!< [-]  thrust unit direction, B frame */

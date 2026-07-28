@@ -106,8 +106,9 @@ void ThrusterPlatformReference::updateState(const uint64_t callTime) {
     hingedRigidBodyRef2Out.thetaDot = 0.0F;
     this->hingedRigidBodyRef2OutMsg.write(&hingedRigidBodyRef2Out, this->moduleID, callTime);
 
+    // the body-frame thrust heading equals the body-frame thrust unit direction
     BodyHeadingMsgF32Payload bodyHeadingOut{};
-    eigenVectorToCArray(out.rHat_XB_B, bodyHeadingOut.rHat_XB_B);
+    eigenVectorToCArray(out.tHatThrust_B, bodyHeadingOut.rHat_XB_B);
     this->bodyHeadingOutMsg.write(&bodyHeadingOut, this->moduleID, callTime);
 
     CmdTorqueBodyMsgF32Payload thrusterTorqueOut{};
