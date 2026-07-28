@@ -34,6 +34,7 @@ class ThrusterPlatformReference final : public SysModel {
         Eigen::Vector3f::Zero()};  //!< position of F frame origin w.r.t. M frame origin, in F frame coordinates
     float K{};                     //!< momentum dumping proportional gain [1/s]
     float Ki{};                    //!< momentum dumping integral gain [1]
+    float controlPeriod{};         //!< integration step for the momentum dumping integral [s] (must be > 0)
     float theta1Max{};             //!< absolute bound on tip angle [rad]
     float theta2Max{};             //!< absolute bound on tilt angle [rad]
 

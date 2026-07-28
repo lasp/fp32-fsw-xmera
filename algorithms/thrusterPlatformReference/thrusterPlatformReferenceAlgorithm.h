@@ -56,6 +56,7 @@ class ThrusterPlatformReferenceConfig final {
                                                   const Eigen::Vector3f& r_FM_F,
                                                   float K,
                                                   float Ki,
+                                                  float controlPeriod,
                                                   float theta1Max,
                                                   float theta2Max,
                                                   bool momentumDumping,
@@ -74,6 +75,9 @@ class ThrusterPlatformReferenceConfig final {
         }
         if (!isValidKi(Ki)) {
             FSW_THROW_INVALID_ARGUMENT("thrusterPlatformReference: Ki must be finite and non-negative.");
+        }
+        if (!isValidControlPeriod(controlPeriod)) {
+            FSW_THROW_INVALID_ARGUMENT("thrusterPlatformReference: controlPeriod must be finite and positive.");
         }
         if (!isValidTheta1Max(theta1Max)) {
             FSW_THROW_INVALID_ARGUMENT("thrusterPlatformReference: theta1Max must be finite.");
@@ -95,7 +99,16 @@ class ThrusterPlatformReferenceConfig final {
 
         // Bound sigma_MB to the principal MRP set (norm <= 1) by switching to the shadow set if needed, so the
         // stored orientation is always a well-conditioned MRP representation.
-        return {mrpSwitch(sigma_MB), r_BM_M, r_FM_F, K, Ki, theta1Max, theta2Max, momentumDumping, normalizedRwConfig};
+        return {mrpSwitch(sigma_MB),
+                r_BM_M,
+                r_FM_F,
+                K,
+                Ki,
+                controlPeriod,
+                theta1Max,
+                theta2Max,
+                momentumDumping,
+                normalizedRwConfig};
     }
 
     static bool isValidSigma_MB(const Eigen::Vector3f& sigma_MB) { return sigma_MB.allFinite(); }
@@ -103,6 +116,9 @@ class ThrusterPlatformReferenceConfig final {
     static bool isValidR_FM_F(const Eigen::Vector3f& r_FM_F) { return r_FM_F.allFinite(); }
     static bool isValidK(float K) { return fsw::is_finite(K) && K >= 0.0F; }
     static bool isValidKi(float Ki) { return fsw::is_finite(Ki) && Ki >= 0.0F; }
+    static bool isValidControlPeriod(float controlPeriod) {
+        return fsw::is_finite(controlPeriod) && controlPeriod > 0.0F;
+    }
     static bool isValidTheta1Max(float theta1Max) { return fsw::is_finite(theta1Max); }
     static bool isValidTheta2Max(float theta2Max) { return fsw::is_finite(theta2Max); }
     static bool isValidRwConfig(const ThrusterPlatformReferenceRwArrayConfiguration& rwConfig) {
@@ -125,6 +141,7 @@ class ThrusterPlatformReferenceConfig final {
     const Eigen::Vector3f& getR_FM_F() const { return r_FM_F; }
     float getK() const { return K; }
     float getKi() const { return Ki; }
+    float getControlPeriod() const { return controlPeriod; }
     float getTheta1Max() const { return theta1Max; }
     float getTheta2Max() const { return theta2Max; }
     bool getMomentumDumping() const { return momentumDumping; }
@@ -141,6 +158,7 @@ class ThrusterPlatformReferenceConfig final {
                                     const Eigen::Vector3f& r_FM_F,
                                     float K,
                                     float Ki,
+                                    float controlPeriod,
                                     float theta1Max,
                                     float theta2Max,
                                     bool momentumDumping,
@@ -150,6 +168,7 @@ class ThrusterPlatformReferenceConfig final {
           r_FM_F(r_FM_F),
           K(K),
           Ki(Ki),
+          controlPeriod(controlPeriod),
           theta1Max(theta1Max),
           theta2Max(theta2Max),
           momentumDumping(momentumDumping),
@@ -161,6 +180,7 @@ class ThrusterPlatformReferenceConfig final {
     Eigen::Vector3f r_FM_F;
     float K;
     float Ki;
+    float controlPeriod;
     float theta1Max;
     float theta2Max;
     bool momentumDumping;
@@ -173,13 +193,12 @@ class ThrusterPlatformReferenceAlgorithm final {
     explicit ThrusterPlatformReferenceAlgorithm(const ThrusterPlatformReferenceConfig& config);
     void setConfig(const ThrusterPlatformReferenceConfig& config);
     void reInitialize();
-    ThrusterPlatformReferenceOutput update(const ThrusterPlatformReferenceInputs& in, uint64_t callTime);
+    ThrusterPlatformReferenceOutput update(const ThrusterPlatformReferenceInputs& in);
 
    private:
     ThrusterPlatformReferenceConfig cfg;                 //!< [-] validated configuration
     Eigen::Vector3f hsInt_M{Eigen::Vector3f::Zero()};    //!< [Nms] integral of RW momentum, M frame
     Eigen::Vector3f priorHs_M{Eigen::Vector3f::Zero()};  //!< [Nms] prior RW momentum, M frame
-    uint64_t priorTime{};                                //!< [ns] prior call time
 };
 
 #endif  // F32XMERA_THRUSTER_PLATFORM_REFERENCE_ALGORITHM_H

@@ -107,8 +107,9 @@ where :math:`\boldsymbol{h}_w` is the momentum on the wheels and :math:`\boldsym
 .. math::
     \boldsymbol{H}_w = \int_{t_0}^t \boldsymbol{h}_w \text{d}t.
 
-The integral is accumulated with a trapezoidal rule using the time step derived from successive call times. The
-inputs ``theta1Max`` and ``theta2Max`` bound the output reference angles for the platform. If there are no
+The integral is accumulated with a trapezoidal rule using the configured ``controlPeriod`` as the fixed time step
+(the module is expected to run at that rate). The inputs ``theta1Max`` and ``theta2Max`` bound the output reference
+angles for the platform. If there are no
 mechanical bounds, setting these inputs to a non-positive value bypasses the routine that bounds these angles.
 
 The tip and tilt reference angles :math:`\nu_{1R}` and :math:`\nu_{2R}` are extracted from the final DCM according
@@ -165,6 +166,10 @@ raises ``fsw::invalid_argument``.
       - 0
       - :math:`\geq 0`
       - integral gain of the momentum dumping control loop
+    * - ``controlPeriod``
+      - 0
+      - :math:`> 0`
+      - integration time step [s] for the momentum dumping integral (the module update rate)
     * - ``theta1Max``
       - 0
       - finite
@@ -190,6 +195,7 @@ then add the module to the simulation task (``reset()`` validates and builds the
     platformReference.r_FM_F = r_FM_F
     platformReference.K = K
     platformReference.Ki = Ki
+    platformReference.controlPeriod = controlPeriod
     platformReference.theta1Max = theta1Max
     platformReference.theta2Max = theta2Max
 

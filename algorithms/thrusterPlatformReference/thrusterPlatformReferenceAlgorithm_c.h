@@ -50,15 +50,13 @@ void ThrusterPlatformReferenceAlgorithm_reInitialize(ThrusterPlatformReferenceAl
 
 /**
  * @brief Compute the platform tip/tilt reference and derived body-frame thruster quantities.
- * @param self     Pointer to the instance.
- * @param inputs   Pointer to the per-cycle inputs (algorithm-native POD).
- * @param callTime Time stamp for the update (nanoseconds), used for the momentum-dumping integral.
+ * @param self   Pointer to the instance.
+ * @param inputs Pointer to the per-cycle inputs (algorithm-native POD).
  * @return ThrusterPlatformReferenceOutput_c reference angles and derived body-frame thruster quantities.
  */
 ThrusterPlatformReferenceOutput_c ThrusterPlatformReferenceAlgorithm_update(
     ThrusterPlatformReferenceAlgorithmHandle* self,
-    const ThrusterPlatformReferenceInputs_c* inputs,
-    uint64_t callTime);
+    const ThrusterPlatformReferenceInputs_c* inputs);
 
 #ifdef __cplusplus
 }  // extern "C"

@@ -18,6 +18,7 @@ inline ThrusterPlatformReferenceConfig makeAlignmentConfig(const Eigen::Vector3f
                                                    r_FM_F,
                                                    0.0F,
                                                    0.0F,
+                                                   1.0F,
                                                    theta1Max,
                                                    theta2Max,
                                                    false,
@@ -50,7 +51,7 @@ inline void regressionTestThrusterPlatformReference(const Eigen::Vector3f& sigma
                                                     float accuracy) {
     ThrusterPlatformReferenceAlgorithm alg{makeAlignmentConfig(sigma_MB, r_BM_M, r_FM_F, -1.0F, -1.0F)};
     const ThrusterPlatformReferenceInputs in = makeInputs(r_CB_B, rThrust_F, tHatThrust_F, maxThrust);
-    const ThrusterPlatformReferenceOutput out = alg.update(in, 0);
+    const ThrusterPlatformReferenceOutput out = alg.update(in);
 
     // Recompute the platform geometry from the reported reference angles.
     const Eigen::Matrix3f FM = eulerAngles123ToDcm(Eigen::Vector3f(out.theta1, out.theta2, 0.0F));
@@ -99,7 +100,7 @@ inline void propertyOutputsFinite(const Eigen::Vector3f& sigma_MB,
     }
 
     ThrusterPlatformReferenceAlgorithm alg{makeAlignmentConfig(sigma_MB, r_BM_M, r_FM_F, -1.0F, -1.0F)};
-    const ThrusterPlatformReferenceOutput out = alg.update(makeInputs(r_CB_B, rThrust_F, tHatThrust_F, maxThrust), 0);
+    const ThrusterPlatformReferenceOutput out = alg.update(makeInputs(r_CB_B, rThrust_F, tHatThrust_F, maxThrust));
 
     EXPECT_TRUE(std::isfinite(out.theta1));
     EXPECT_TRUE(std::isfinite(out.theta2));

@@ -28,6 +28,7 @@ ThrusterPlatformReferenceConfig ThrusterPlatformReference::toConfig() {
                                                    this->r_FM_F,
                                                    this->K,
                                                    this->Ki,
+                                                   this->controlPeriod,
                                                    this->theta1Max,
                                                    this->theta2Max,
                                                    momentumDumping,
@@ -94,7 +95,7 @@ void ThrusterPlatformReference::updateState(const uint64_t callTime) {
         inputs.wheelSpeeds = cArrayToEigenVector(rwSpeedMsgIn.wheelSpeeds);
     }
 
-    const ThrusterPlatformReferenceOutput out = this->algorithm->update(inputs, callTime);
+    const ThrusterPlatformReferenceOutput out = this->algorithm->update(inputs);
 
     HingedRigidBodyMsgF32Payload hingedRigidBodyRef1Out{};
     hingedRigidBodyRef1Out.theta = out.theta1;

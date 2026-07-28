@@ -5,7 +5,6 @@
 
 #include "utilities/fsw/rigidBodyKinematics.hpp"
 #include "utilities/fsw/safeMath.h"
-#include "utilities/fsw/timeConstants.h"
 
 namespace {
 constexpr float kZeroTolerance = 1e-6F;  // module tolerance for treating a quantity as zero
@@ -146,7 +145,6 @@ void ThrusterPlatformReferenceAlgorithm::setConfig(const ThrusterPlatformReferen
 void ThrusterPlatformReferenceAlgorithm::reInitialize() {
     this->hsInt_M.setZero();
     this->priorHs_M.setZero();
-    this->priorTime = 0;
 }
 
 /*! This method computes the reference platform tip and tilt angles that align the thruster with the system center of
@@ -154,10 +152,8 @@ void ThrusterPlatformReferenceAlgorithm::reInitialize() {
  thruster-configuration quantities.
  @return ThrusterPlatformReferenceOutput reference angles and derived body-frame thruster quantities
  @param in per-cycle inputs read from the input messages
- @param callTime The clock time at which the function was called (nanoseconds)
 */
-ThrusterPlatformReferenceOutput ThrusterPlatformReferenceAlgorithm::update(const ThrusterPlatformReferenceInputs& in,
-                                                                           const uint64_t callTime) {
+ThrusterPlatformReferenceOutput ThrusterPlatformReferenceAlgorithm::update(const ThrusterPlatformReferenceInputs& in) {
     ThrusterPlatformReferenceOutput out{};
 
     const Eigen::Matrix3f dcm_MB = mrpToDcm(this->cfg.getSigma_MB());  // B to M DCM
@@ -178,11 +174,10 @@ ThrusterPlatformReferenceOutput ThrusterPlatformReferenceAlgorithm::update(const
         }
         const Eigen::Vector3f hs_M = dcm_MB * hs_B;
 
-        // update the trapezoidal integral of the RW momentum (dt is zero on the first call)
-        const float dt = (this->priorTime == 0) ? 0.0F : static_cast<float>(callTime - this->priorTime) * kNano2SecF;
+        // update the trapezoidal integral of the RW momentum using the fixed control period as the time step
+        const float dt = this->cfg.getControlPeriod();
         this->hsInt_M += 0.5F * dt * (this->priorHs_M + hs_M);
         this->priorHs_M = hs_M;
-        this->priorTime = callTime;
 
         // compute the offset vector that shifts the effective CM to produce the desired dumping torque
         const Eigen::Vector3f thrust_M = dcm_FM.transpose() * thrust_F;

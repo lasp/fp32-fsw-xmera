@@ -21,6 +21,7 @@ ThrusterPlatformReferenceConfig configFromC(const ThrusterPlatformReferenceConfi
                                                    cArrayToEigenVector3<float>(c.r_FM_F.data),
                                                    c.K,
                                                    c.Ki,
+                                                   c.controlPeriod,
                                                    c.theta1Max,
                                                    c.theta2Max,
                                                    c.momentumDumping,
@@ -61,10 +62,9 @@ void ThrusterPlatformReferenceAlgorithm_reInitialize(ThrusterPlatformReferenceAl
 
 ThrusterPlatformReferenceOutput_c ThrusterPlatformReferenceAlgorithm_update(
     ThrusterPlatformReferenceAlgorithmHandle* self,
-    const ThrusterPlatformReferenceInputs_c* inputs,
-    const uint64_t callTime) {
+    const ThrusterPlatformReferenceInputs_c* inputs) {
     const ThrusterPlatformReferenceOutput out =
-        reinterpret_cast<::ThrusterPlatformReferenceAlgorithm*>(self)->update(inputsFromC(*inputs), callTime);
+        reinterpret_cast<::ThrusterPlatformReferenceAlgorithm*>(self)->update(inputsFromC(*inputs));
 
     ThrusterPlatformReferenceOutput_c result{};
     result.theta1 = out.theta1;

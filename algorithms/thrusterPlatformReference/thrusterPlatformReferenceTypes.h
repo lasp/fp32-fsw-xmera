@@ -32,6 +32,7 @@ typedef struct {
  * input.
  *  - sigma_MB / r_BM_M / r_FM_F must be finite
  *  - K / Ki must be finite and non-negative
+ *  - controlPeriod [s] must be finite and positive; used as the integration step for the dumping integral
  *  - theta1Max / theta2Max must be finite (a non-positive bound disables clamping on that axis)
  *  - rwConfig.numRW must not exceed THRUSTER_PLATFORM_REFERENCE_MAX_NUM_RW; each spin axis a unit vector
  */
@@ -41,6 +42,7 @@ typedef struct {
     Vector3f_c r_FM_F;    /*!< [m]   F frame origin w.r.t. M frame origin, F frame coordinates */
     float K;              /*!< [1/s] momentum dumping proportional gain */
     float Ki;             /*!< [-]   momentum dumping integral gain */
+    float controlPeriod;  /*!< [s]   integration step for the momentum dumping integral (> 0) */
     float theta1Max;      /*!< [rad] absolute bound on the tip angle */
     float theta2Max;      /*!< [rad] absolute bound on the tilt angle */
     bool momentumDumping; /*!< [-]   whether reaction wheel momentum dumping is active */
