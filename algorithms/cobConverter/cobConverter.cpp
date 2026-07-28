@@ -46,7 +46,8 @@ CobConverterConfig CobConverter::toConfig() const {
                                       this->outlierDetectionEnabled,
                                       this->calibrationCoefficients,
                                       this->cameraId,
-                                      this->fieldOfView,
+                                      this->fieldOfViewX,
+                                      this->fieldOfViewY,
                                       this->resolutionX,
                                       this->resolutionY,
                                       this->bodyToCameraMrp);

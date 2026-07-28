@@ -117,7 +117,8 @@ FUZZ_TEST(CobConverterFuzz, testCobConverter)
                         fuzztest::Just(false)),  // outlierDetectionEnabled
         calibrationCoefficientsDomain(),         // calibrationCoefficients
         fuzztest::Arbitrary<int>(),              // cameraId (unconstrained: no isValidCameraId check)
-        fuzztest::InRange(0.175F, 1.5533F),      // fieldOfView [rad]: ~10 deg (narrow) to 89 deg (wide-angle)
+        fuzztest::InRange(0.175F, 1.5533F),      // fieldOfViewX [rad]: ~10 deg (narrow) to 89 deg (wide-angle)
+        fuzztest::InRange(0.175F, 1.5533F),      // fieldOfViewY [rad]: independent of fieldOfViewX
         fuzztest::InRange(32.0F, 8192.0F),       // resolutionX [px]: small nav camera to large science imager
         fuzztest::InRange(32.0F, 8192.0F),       // resolutionY [px]: independent of resolutionX (see below)
         arbitraryMrpDomain(),                    // bodyToCameraMrp

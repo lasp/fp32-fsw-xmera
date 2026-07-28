@@ -96,7 +96,8 @@ class CobConverterConfig final {
                                      bool outlierDetectionEnabled,
                                      const CalibrationCoefficients& calibrationCoefficients,
                                      int cameraId,
-                                     float fieldOfView,
+                                     float fieldOfViewX,
+                                     float fieldOfViewY,
                                      float resolutionX,
                                      float resolutionY,
                                      const Eigen::Vector3f& bodyToCameraMrp) {
@@ -121,8 +122,11 @@ class CobConverterConfig final {
         if (!isValidCalibrationCoefficients(calibrationCoefficients)) {
             FSW_THROW_INVALID_ARGUMENT("cobConverter: calibrationCoefficients must be finite");
         }
-        if (!isValidFieldOfView(fieldOfView)) {
-            FSW_THROW_INVALID_ARGUMENT("cobConverter: fieldOfView must be > 0 and < pi");
+        if (!isValidFieldOfView(fieldOfViewX)) {
+            FSW_THROW_INVALID_ARGUMENT("cobConverter: fieldOfViewX must be > 0 and < pi");
+        }
+        if (!isValidFieldOfView(fieldOfViewY)) {
+            FSW_THROW_INVALID_ARGUMENT("cobConverter: fieldOfViewY must be > 0 and < pi");
         }
         if (!isValidResolutionX(resolutionX)) {
             FSW_THROW_INVALID_ARGUMENT("cobConverter: resolutionX must be > 0");
@@ -130,9 +134,9 @@ class CobConverterConfig final {
         if (!isValidResolutionY(resolutionY)) {
             FSW_THROW_INVALID_ARGUMENT("cobConverter: resolutionY must be > 0");
         }
-        if (!isValidCameraParam(fieldOfView, resolutionX, resolutionY)) {
+        if (!isValidCameraParam(fieldOfViewX, fieldOfViewY)) {
             FSW_THROW_INVALID_ARGUMENT(
-                "cobConverter: fieldOfView/resolutionX/resolutionY combination pushes the camera "
+                "cobConverter: fieldOfViewX/fieldOfViewY combination pushes the camera "
                 "model's internal tan() argument into the safeTanf clamp zone near +/-pi/2");
         }
         if (!isValidBodyToCameraMrp(bodyToCameraMrp)) {
@@ -148,7 +152,8 @@ class CobConverterConfig final {
                 outlierDetectionEnabled,
                 calibrationCoefficients,
                 cameraId,
-                fieldOfView,
+                fieldOfViewX,
+                fieldOfViewY,
                 resolutionX,
                 resolutionY,
                 bodyToCameraMrp};
@@ -183,18 +188,17 @@ class CobConverterConfig final {
     static bool isValidResolutionX(float resolutionX) { return fsw::is_finite(resolutionX) && resolutionX > 0.0F; }
     static bool isValidResolutionY(float resolutionY) { return fsw::is_finite(resolutionY) && resolutionY > 0.0F; }
     static bool isValidBodyToCameraMrp(const Eigen::Vector3f& bodyToCameraMrp) { return bodyToCameraMrp.allFinite(); }
-    // Rejects fieldOfView/resolutionX/resolutionY combinations whose safeTanf() argument (pX's is
-    // fieldOfView/2, pY's is fieldOfView*resolutionY/resolutionX/2) comes within kMinPoleDistance
-    // of +/-pi/2, since dX/dY inherit tan's ~1/d^2 blowup there and amplify ordinary fp32 rounding
-    // error into large errors.
-    static bool isValidCameraParam(float fieldOfView, float resolutionX, float resolutionY) {
+    // Rejects fieldOfViewX/fieldOfViewY values whose safeTanf() argument (pX's is fieldOfViewX/2,
+    // pY's is fieldOfViewY/2) comes within kMinPoleDistance of +/-pi/2, since dX/dY inherit tan's
+    // ~1/d^2 blowup there and amplify ordinary fp32 rounding error into large errors.
+    static bool isValidCameraParam(float fieldOfViewX, float fieldOfViewY) {
         constexpr float kMinPoleDistance = 0.017453F;  // [rad], ~1.0 deg away from the tan() singularity
         constexpr float halfPi = std::numbers::pi_v<float> / 2.0F;
-        const float argTanX = fieldOfView / 2.0F;
+        const float argTanX = fieldOfViewX / 2.0F;
         if (argTanX < -halfPi + kMinPoleDistance || argTanX > halfPi - kMinPoleDistance) {
             return false;
         }
-        const float argTanY = fieldOfView * resolutionY / resolutionX / 2.0F;
+        const float argTanY = fieldOfViewY / 2.0F;
         if (argTanY < -halfPi + kMinPoleDistance || argTanY > halfPi - kMinPoleDistance) {
             return false;
         }
@@ -211,7 +215,8 @@ class CobConverterConfig final {
     bool isOutlierDetectionEnabled() const { return outlierDetectionEnabled; }
     CalibrationCoefficients getCalibrationCoefficients() const { return calibrationCoefficients; }
     int getCameraId() const { return cameraId; }
-    float getFieldOfView() const { return fieldOfView; }
+    float getFieldOfViewX() const { return fieldOfViewX; }
+    float getFieldOfViewY() const { return fieldOfViewY; }
     float getResolutionX() const { return resolutionX; }
     float getResolutionY() const { return resolutionY; }
     Eigen::Vector3f getBodyToCameraMrp() const { return bodyToCameraMrp; }
@@ -227,7 +232,8 @@ class CobConverterConfig final {
                        bool outlierDetectionEnabled,
                        const CalibrationCoefficients& calibrationCoefficients,
                        int cameraId,
-                       float fieldOfView,
+                       float fieldOfViewX,
+                       float fieldOfViewY,
                        float resolutionX,
                        float resolutionY,
                        const Eigen::Vector3f& bodyToCameraMrp)
@@ -241,7 +247,8 @@ class CobConverterConfig final {
           outlierDetectionEnabled(outlierDetectionEnabled),
           calibrationCoefficients(calibrationCoefficients),
           cameraId(cameraId),
-          fieldOfView(fieldOfView),
+          fieldOfViewX(fieldOfViewX),
+          fieldOfViewY(fieldOfViewY),
           resolutionX(resolutionX),
           resolutionY(resolutionY),
           bodyToCameraMrp(bodyToCameraMrp) {}
@@ -256,7 +263,8 @@ class CobConverterConfig final {
     bool outlierDetectionEnabled;
     CalibrationCoefficients calibrationCoefficients;
     int cameraId;
-    float fieldOfView;
+    float fieldOfViewX;
+    float fieldOfViewY;
     float resolutionX;
     float resolutionY;
     Eigen::Vector3f bodyToCameraMrp;

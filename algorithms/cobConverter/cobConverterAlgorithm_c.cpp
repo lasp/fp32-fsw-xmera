@@ -23,7 +23,8 @@ CobConverterConfig configFromC(const CobConverterConfig_c& c) {
                                       c.outlierDetectionEnabled,
                                       calibrationCoefficients,
                                       c.cameraId,
-                                      c.fieldOfView,
+                                      c.fieldOfViewX,
+                                      c.fieldOfViewY,
                                       c.resolutionX,
                                       c.resolutionY,
                                       cArrayToEigenVector3<float>(c.bodyToCameraMrp.data));

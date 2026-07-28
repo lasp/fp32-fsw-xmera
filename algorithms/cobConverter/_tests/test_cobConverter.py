@@ -50,13 +50,13 @@ def mapComCovar(pixels, input_camera,norm_COB_vector, r_BdyZero_N, R_object, alp
     resX = input_camera.resolution[0]
     resY = input_camera.resolution[1]
     pX = 2. * np.tan(input_camera.fieldOfView[0] / 2.0)
-    pY = 2. * np.tan(input_camera.fieldOfView[0] * resY / resX / 2.0)
+    pY = 2. * np.tan(input_camera.fieldOfView[1] / 2.0)
     dX = resX / pX
     dY = resY / pY
     X = 1 / dX
     Y = 1 / dY
-    ifov_x = input_camera.fieldOfView[0]/ dX * pX
-    ifov_y = input_camera.fieldOfView[0]/ dY * pY
+    ifov_x = input_camera.fieldOfView[0]/ (dX * pX)
+    ifov_y = input_camera.fieldOfView[1]/ (dY * pY)
 
     scale_factor = np.sqrt(pixels / (4 * np.pi))
 
@@ -97,7 +97,7 @@ def compute_camera_calibration_matrix(input_camera):
     resX = input_camera.resolution[0]
     resY = input_camera.resolution[1]
     pX = 2. * np.tan(input_camera.fieldOfView[0] / 2.0)
-    pY = 2. * np.tan(input_camera.fieldOfView[0] * resY / resX / 2.0)
+    pY = 2. * np.tan(input_camera.fieldOfView[1] / 2.0)
     dX = resX / pX
     dY = resY / pY
     up = resX / 2.
@@ -156,7 +156,11 @@ def cob_converter_test_function(show_plots, cameraResolution, centerOfBrightness
     module.standardDeviation = 100
     module.specifiedStandardDeviation = True
     module.outlierDetectionEnabled = True
-    module.fieldOfView = np.deg2rad(20.0)
+    # Distinct X/Y values so this broad, heavily-parametrized regression test actually
+    # exercises independent fields of view, instead of masking a bug where X and Y are
+    # accidentally swapped or still coupled.
+    module.fieldOfViewX = np.deg2rad(20.0)
+    module.fieldOfViewY = np.deg2rad(15.0)
     module.resolutionX = cameraResolution[0]
     module.resolutionY = cameraResolution[1]
     unitTestSim.AddModelToTask(unitTaskName, module, module)
@@ -178,17 +182,18 @@ def cob_converter_test_function(show_plots, cameraResolution, centerOfBrightness
     module.bodyToCameraMrp = sigma_CB
 
     # inputCamera is a plain data holder for computing truth values below; the module now
-    # sources fieldOfView/resolution/bodyToCameraMrp from its own config properties, not a message.
-    # Read fieldOfView/bodyToCameraMrp back from the module (instead of using the raw Python
-    # values) so the truth calc uses the exact float32-rounded value the module stored, with
-    # no risk of the two independently drifting apart.
+    # sources fieldOfViewX/fieldOfViewY/resolution/bodyToCameraMrp from its own config
+    # properties, not a message.
+    # Read fieldOfViewX/fieldOfViewY/bodyToCameraMrp back from the module (instead of using
+    # the raw Python values) so the truth calc uses the exact float32-rounded value the module
+    # stored, with no risk of the two independently drifting apart.
     inputCamera = SimpleNamespace()
     inputCob = messaging.OpNavCOBMsgF32Payload()
     inputFilter = messaging.FilterMsgF32Payload()
     inputAtt = messaging.NavAttMsgF32Payload()
     inputSun = messaging.NavAttMsgF32Payload()
 
-    inputCamera.fieldOfView = [module.fieldOfView, module.fieldOfView]
+    inputCamera.fieldOfView = [module.fieldOfViewX, module.fieldOfViewY]
     inputCamera.resolution = cameraResolution
     inputCamera.bodyToCameraMrp = np.array(module.bodyToCameraMrp).flatten()
 
@@ -358,7 +363,8 @@ def test_coberror_outlier(
     module.standardDeviation = 100
     module.specifiedStandardDeviation = True
     module.outlierDetectionEnabled = True
-    module.fieldOfView = np.deg2rad(20.0)
+    module.fieldOfViewX = np.deg2rad(20.0)
+    module.fieldOfViewY = np.deg2rad(20.0)
     module.resolutionX = cameraResolution[0]
     module.resolutionY = cameraResolution[1]
     unitTestSim.AddModelToTask(unitTaskName, module, module)
@@ -380,17 +386,18 @@ def test_coberror_outlier(
     module.bodyToCameraMrp = sigma_CB
 
     # inputCamera is a plain data holder for computing truth values below; the module now
-    # sources fieldOfView/resolution/bodyToCameraMrp from its own config properties, not a message.
-    # Read fieldOfView/bodyToCameraMrp back from the module (instead of using the raw Python
-    # values) so the truth calc uses the exact float32-rounded value the module stored, with
-    # no risk of the two independently drifting apart.
+    # sources fieldOfViewX/fieldOfViewY/resolution/bodyToCameraMrp from its own config
+    # properties, not a message.
+    # Read fieldOfViewX/fieldOfViewY/bodyToCameraMrp back from the module (instead of using
+    # the raw Python values) so the truth calc uses the exact float32-rounded value the module
+    # stored, with no risk of the two independently drifting apart.
     inputCamera = SimpleNamespace()
     inputCob = messaging.OpNavCOBMsgF32Payload()
     inputFilter = messaging.FilterMsgF32Payload()
     inputAtt = messaging.NavAttMsgF32Payload()
     inputSun = messaging.NavAttMsgF32Payload()
 
-    inputCamera.fieldOfView = [module.fieldOfView, module.fieldOfView]
+    inputCamera.fieldOfView = [module.fieldOfViewX, module.fieldOfViewY]
     inputCamera.resolution = cameraResolution
     inputCamera.bodyToCameraMrp = np.array(module.bodyToCameraMrp).flatten()
 
@@ -516,7 +523,8 @@ def test_brown_conrady_calibration(k1, k2, k3, p1, p2, label, centerOfBrightness
     module.phaseAngleCorrectionMethod = noCorr
     module.radius = R_object
     module.attitudeCovariance = np.zeros((3, 3))
-    module.fieldOfView = np.deg2rad(20.0)
+    module.fieldOfViewX = np.deg2rad(20.0)
+    module.fieldOfViewY = np.deg2rad(20.0)
     module.resolutionX = cameraResolution[0]
     module.resolutionY = cameraResolution[1]
 
@@ -545,17 +553,18 @@ def test_brown_conrady_calibration(k1, k2, k3, p1, p2, label, centerOfBrightness
     module.bodyToCameraMrp = sigma_CB
 
     # inputCamera is a plain data holder for computing truth values below; the module now
-    # sources fieldOfView/resolution/bodyToCameraMrp from its own config properties, not a message.
-    # Read fieldOfView/bodyToCameraMrp back from the module (instead of using the raw Python
-    # values) so the truth calc uses the exact float32-rounded value the module stored, with
-    # no risk of the two independently drifting apart.
+    # sources fieldOfViewX/fieldOfViewY/resolution/bodyToCameraMrp from its own config
+    # properties, not a message.
+    # Read fieldOfViewX/fieldOfViewY/bodyToCameraMrp back from the module (instead of using
+    # the raw Python values) so the truth calc uses the exact float32-rounded value the module
+    # stored, with no risk of the two independently drifting apart.
     inputCamera = SimpleNamespace()
     inputCob = messaging.OpNavCOBMsgF32Payload()
     inputFilter = messaging.FilterMsgF32Payload()
     inputAtt = messaging.NavAttMsgF32Payload()
     inputSun = messaging.NavAttMsgF32Payload()
 
-    inputCamera.fieldOfView = [module.fieldOfView, module.fieldOfView]
+    inputCamera.fieldOfView = [module.fieldOfViewX, module.fieldOfViewY]
     inputCamera.resolution = cameraResolution
     inputCamera.bodyToCameraMrp = np.array(module.bodyToCameraMrp).flatten()
 

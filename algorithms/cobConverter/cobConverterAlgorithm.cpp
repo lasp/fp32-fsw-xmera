@@ -68,22 +68,84 @@ void CobConverterAlgorithm::computeCameraParameters() {
 
     // Camera parameters
     constexpr float alpha = 0.0F;
-    const float fieldOfView = this->cfg.getFieldOfView();
+    const float fieldOfViewX = this->cfg.getFieldOfViewX();  // Full horizontal angular field of view [rad].
+    const float fieldOfViewY = this->cfg.getFieldOfViewY();  // Full vertical angular field of view [rad].
+
+    // Number of pixel columns and rows in the digital image.
     const float resolutionX = this->cfg.getResolutionX();
     const float resolutionY = this->cfg.getResolutionY();
-    const float pX = 2.0F * safeTanf(fieldOfView / 2.0F);
-    const float pY = 2.0F * safeTanf(fieldOfView * resolutionY / resolutionX / 2.0F);
+
+    // Christian Eq. (6) defines the normalized image-plane coordinates as
+    //
+    //     x = tan(beta_H),    y = tan(beta_V).
+    //
+    // Therefore, the full normalized image-plane spans associated with
+    // symmetric angular intervals [-FOV/2, FOV/2] are
+    //
+    //     pX = x_max - x_min = 2 tan(fovX/2),
+    //     pY = y_max - y_min = 2 tan(fovY/2).
+    const float pX = 2.0F * safeTanf(fieldOfViewX / 2.0F);
+    const float pY = 2.0F * safeTanf(fieldOfViewY / 2.0F);
+
+    // Christian Eq. (16) maps normalized image-plane coordinates to pixels:
+    //
+    //     u = dX * x + up,
+    //     v = dY * y + vp.
+    //
+    // Let xLeft and xRight be the normalized coordinates of the horizontal
+    // image boundaries. Subtracting Eq. (16) at the two boundaries gives
+    //
+    //     uRight - uLeft = dX * (xRight - xLeft).
+    //
+    // Here, pX = xRight - xLeft is the full normalized image-plane width,
+    // and the corresponding pixel-space width is modeled as resolutionX.
+    // Therefore,
+    //
+    //     dX = resolutionX / pX.
+    //
+    // Applying the same argument vertically, with
+    //
+    //     pY = yBottom - yTop,
+    //     vBottom - vTop = resolutionY,
+    //
+    // gives
+    //
+    //     dY = resolutionY / pY.
+    //
+    // Thus, dX and dY are scale factors in pixels per unit normalized
+    // image-plane coordinate.
     this->dX = resolutionX / pX;
     const float dY = resolutionY / pY;
+
+    // Assume that the principal point (up, vp) is at the image center.
     const float up = resolutionX / 2.0F;
     const float vp = resolutionY / 2.0F;
+
+    // From the inverse of Christian Eq. (16), one pixel corresponds to
+    // 1/dX and 1/dY in normalized image-plane coordinates.
     this->X = 1.0F / this->dX;
     this->Y = 1.0F / dY;
-    this->ifov_x = fieldOfView / this->dX * pX;
-    this->ifov_y = fieldOfView / dY * pY;
 
-    // Build K and K^{-1}
+    // Average angular field of view per pixel [rad/pixel].
+    //
+    // Since dX * pX = resolutionX and dY * pY = resolutionY,
+    //
+    //     ifov_x = fovX / resolutionX = fovX / (dX * pX),
+    //     ifov_y = fovY / resolutionY = fovY / (dY * pY).
+    //
+    // These are average angular pixel scales; Christian's exact tangent
+    // projection produces a slightly position-dependent local angular scale.
+    this->ifov_x = fieldOfViewX / resolutionX;
+    this->ifov_y = fieldOfViewY / resolutionY;
+
+    // Construct the camera calibration matrix K from Christian Eq. (18):
+    //
+    //         [ dX  alpha  up ]
+    //     K = [  0   dY    vp ].
+    //         [  0    0     1 ]
     this->cameraCalibrationMatrix << this->dX, alpha, up, 0.0F, dY, vp, 0.0F, 0.0F, 1.0F;
+
+    // Construct K^{-1} using Christian Eq. (21).
     this->cameraCalibrationMatrixInverse << 1.0F / this->dX, -alpha / (this->dX * dY),
         ((alpha * vp) - (dY * up)) / (this->dX * dY), 0.0F, 1.0F / dY, -vp / dY, 0.0F, 0.0F, 1.0F;
 }

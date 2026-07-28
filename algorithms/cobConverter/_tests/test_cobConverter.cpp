@@ -10,7 +10,10 @@ TEST(CobConverterTest, RegressionTest) {
     attitudeCovariance(2, 2) = (0.95F * attSigma) * (0.95F * attSigma);
 
     const CalibrationCoefficients coefficients{};  // no distortion
-    const float fieldOfView = static_cast<float>(20.0 * std::numbers::pi / 180.0);
+    // Distinct X/Y values so the regression test actually exercises independent fields of view,
+    // instead of masking a bug where X and Y are accidentally swapped or still coupled.
+    const float fieldOfViewX = static_cast<float>(20.0 * std::numbers::pi / 180.0);
+    const float fieldOfViewY = static_cast<float>(15.0 * std::numbers::pi / 180.0);
 
     // Camera boresight points along -body-x, "up" along body-y (target-pointing geometry).
     Eigen::Matrix3d dcm_CB;
@@ -44,7 +47,8 @@ TEST(CobConverterTest, RegressionTest) {
                      /*outlierDetectionEnabled=*/true,
                      coefficients,
                      /*cameraId=*/0,
-                     fieldOfView,
+                     fieldOfViewX,
+                     fieldOfViewY,
                      /*resolutionX=*/512.0F,
                      /*resolutionY=*/512.0F,
                      bodyToCameraMrp,

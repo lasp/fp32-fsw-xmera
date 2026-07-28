@@ -14,15 +14,18 @@
 // Double-precision reference, transcribed from cobConverterAlgorithm.cpp.
 namespace cobConverterReference {
 
-inline Eigen::Matrix3d computeCameraCalibrationMatrix(double fieldOfView, double resolutionX, double resolutionY) {
+inline Eigen::Matrix3d computeCameraCalibrationMatrix(double fieldOfViewX,
+                                                      double fieldOfViewY,
+                                                      double resolutionX,
+                                                      double resolutionY) {
     constexpr double alpha = 0.0;
     // safeTan (not std::tan) matches CobConverterAlgorithm::computeCameraParameters, which clamps
     // via safeTanf near the +/-pi/2 singularity. Using raw std::tan here would let the reference
-    // diverge sharply from the algorithm's railed value whenever fieldOfView/resolution combine to
-    // push either argument close to the singularity, producing a spurious mismatch that reflects
-    // this helper's precision choice rather than an algorithm defect.
-    const double pX = 2.0 * safeTan(fieldOfView / 2.0);
-    const double pY = 2.0 * safeTan(fieldOfView * resolutionY / resolutionX / 2.0);
+    // diverge sharply from the algorithm's railed value whenever fieldOfViewX/fieldOfViewY combine
+    // to push either argument close to the singularity, producing a spurious mismatch that
+    // reflects this helper's precision choice rather than an algorithm defect.
+    const double pX = 2.0 * safeTan(fieldOfViewX / 2.0);
+    const double pY = 2.0 * safeTan(fieldOfViewY / 2.0);
     const double dX = resolutionX / pX;
     const double dY = resolutionY / pY;
     const double up = resolutionX / 2.0;
@@ -70,7 +73,8 @@ inline Eigen::Matrix3d mapCobCovar(double pixels, double dX, double dY) {
 }
 
 inline Eigen::Matrix3d mapComCovar(double pixels,
-                                   double fieldOfView,
+                                   double fieldOfViewX,
+                                   double fieldOfViewY,
                                    double resolutionX,
                                    double resolutionY,
                                    double dX,
@@ -84,10 +88,8 @@ inline Eigen::Matrix3d mapComCovar(double pixels,
                                    const Eigen::Matrix3d& positionCovar) {
     const double X = 1.0 / dX;
     const double Y = 1.0 / dY;
-    // ifovX = fieldOfView/dX*pX, and pX = resolutionX/dX (dX = resolutionX/pX), so this reduces
-    // to fieldOfView*resolutionX/dX^2 -- caller already has dX/dY, no need to re-derive via tan().
-    const double ifovX = fieldOfView * resolutionX / (dX * dX);
-    const double ifovY = fieldOfView * resolutionY / (dY * dY);
+    const double ifovX = fieldOfViewX / resolutionX;
+    const double ifovY = fieldOfViewY / resolutionY;
     const double scaleFactor = safeSqrt(pixels / (4.0 * std::numbers::pi));
 
     const double positionNorm = position.norm();
@@ -134,11 +136,12 @@ inline CobConverterOutput referenceCobConverterUpdate(const CobConverterConfig& 
     const Eigen::Matrix3d dcm_BN = mrpToDcm(sigma_BN);
     const Eigen::Matrix3d dcm_NC = (dcm_CB * dcm_BN).transpose();
 
-    const double fieldOfView = static_cast<double>(cfg.getFieldOfView());
+    const double fieldOfViewX = static_cast<double>(cfg.getFieldOfViewX());
+    const double fieldOfViewY = static_cast<double>(cfg.getFieldOfViewY());
     const double resolutionX = static_cast<double>(cfg.getResolutionX());
     const double resolutionY = static_cast<double>(cfg.getResolutionY());
     const Eigen::Matrix3d cameraCalibrationMatrix =
-        computeCameraCalibrationMatrix(fieldOfView, resolutionX, resolutionY);
+        computeCameraCalibrationMatrix(fieldOfViewX, fieldOfViewY, resolutionX, resolutionY);
     const double dX = cameraCalibrationMatrix(0, 0);
     const double dY = cameraCalibrationMatrix(1, 1);
 
@@ -184,7 +187,8 @@ inline CobConverterOutput referenceCobConverterUpdate(const CobConverterConfig& 
     if (correctionRequested && cfg.getPhaseAngleCorrectionMethod() == PhaseAngleCorrectionMethodAlgorithm::BinaryAlg &&
         cfg.getRadiusUncertainty() > 0.0F) {
         const Eigen::Matrix3d covarCom_C = mapComCovar(pixelsFound,
-                                                       fieldOfView,
+                                                       fieldOfViewX,
+                                                       fieldOfViewY,
                                                        resolutionX,
                                                        resolutionY,
                                                        dX,
@@ -348,11 +352,11 @@ inline void expectOutputsNear(const CobConverterOutput& out, const CobConverterO
         EXPECT_NEAR(out.unitVec.rhat_BN_C(i), ref.unitVec.rhat_BN_C(i), tol);
         EXPECT_NEAR(out.unitVec.rhat_BN_B(i), ref.unitVec.rhat_BN_B(i), tol);
         // temporarily commented out due to error in the covariance computation
-        // for (int j = 0; j < 3; ++j) {
-        //     expectNear(out.unitVec.covar_N(i, j), ref.unitVec.covar_N(i, j), covarAtol, covarRtol);
-        //     expectNear(out.unitVec.covar_C(i, j), ref.unitVec.covar_C(i, j), covarAtol, covarRtol);
-        //     expectNear(out.unitVec.covar_B(i, j), ref.unitVec.covar_B(i, j), covarAtol, covarRtol);
-        // }
+        for (int j = 0; j < 3; ++j) {
+            expectNear(out.unitVec.covar_N(i, j), ref.unitVec.covar_N(i, j), covarAtol, covarRtol);
+            expectNear(out.unitVec.covar_C(i, j), ref.unitVec.covar_C(i, j), covarAtol, covarRtol);
+            expectNear(out.unitVec.covar_B(i, j), ref.unitVec.covar_B(i, j), covarAtol, covarRtol);
+        }
     }
     EXPECT_NEAR(out.unitVec.unitVecTimeTag, ref.unitVec.unitVecTimeTag, 1e-9);
     EXPECT_EQ(out.unitVec.unitVecValid, ref.unitVec.unitVecValid);
@@ -389,7 +393,8 @@ inline void testCobConverter(PhaseAngleCorrectionMethodAlgorithm phaseAngleCorre
                              bool outlierDetectionEnabled,
                              const CalibrationCoefficients& calibrationCoefficients,
                              int cameraId,
-                             float fieldOfView,
+                             float fieldOfViewX,
+                             float fieldOfViewY,
                              float resolutionX,
                              float resolutionY,
                              const Eigen::Vector3f& bodyToCameraMrp,
@@ -413,7 +418,8 @@ inline void testCobConverter(PhaseAngleCorrectionMethodAlgorithm phaseAngleCorre
                                          outlierDetectionEnabled,
                                          calibrationCoefficients,
                                          cameraId,
-                                         fieldOfView,
+                                         fieldOfViewX,
+                                         fieldOfViewY,
                                          resolutionX,
                                          resolutionY,
                                          bodyToCameraMrp);
@@ -448,7 +454,8 @@ inline void testCobConverterSetup() {
     // Builds a config from a fixed valid baseline, overriding only the fields under test below.
     const auto makeConfig = [&](PhaseAngleCorrectionMethodAlgorithm method,
                                 float radius,
-                                float fieldOfView,
+                                float fieldOfViewX,
+                                float fieldOfViewY,
                                 int cameraId,
                                 float resolutionY) {
         return CobConverterConfig::create(method,
@@ -461,7 +468,8 @@ inline void testCobConverterSetup() {
                                           true,
                                           coefficients,
                                           cameraId,
-                                          fieldOfView,
+                                          fieldOfViewX,
+                                          fieldOfViewY,
                                           512.0F,
                                           resolutionY,
                                           zeroMrp);
@@ -510,7 +518,8 @@ inline void testCobConverterSetup() {
     nanCoefficients.k1 = nan;
     EXPECT_FALSE(CobConverterConfig::isValidCalibrationCoefficients(nanCoefficients));
 
-    // fieldOfView: must be in (0, pi).
+    // fieldOfViewX / fieldOfViewY: each must be in (0, pi), checked independently via the same
+    // isValidFieldOfView helper.
     EXPECT_TRUE(CobConverterConfig::isValidFieldOfView(0.35F));
     EXPECT_FALSE(CobConverterConfig::isValidFieldOfView(0.0F));
     EXPECT_FALSE(CobConverterConfig::isValidFieldOfView(std::numbers::pi_v<float>));
@@ -528,18 +537,29 @@ inline void testCobConverterSetup() {
 
     // create() throws on the first invalid field it encounters.
     EXPECT_THROW(
-        makeConfig(PhaseAngleCorrectionMethodAlgorithm::NoCorrectionAlg, 0.0F /* invalid radius */, 0.35F, 0, 512.0F),
+        makeConfig(
+            PhaseAngleCorrectionMethodAlgorithm::NoCorrectionAlg, 0.0F /* invalid radius */, 0.35F, 0.30F, 0, 512.0F),
         fsw::invalid_argument);
     EXPECT_THROW(makeConfig(PhaseAngleCorrectionMethodAlgorithm::NoCorrectionAlg,
                             25.0e3F,
-                            std::numbers::pi_v<float> /* invalid fieldOfView */,
+                            std::numbers::pi_v<float> /* invalid fieldOfViewX */,
+                            0.30F,
+                            0,
+                            512.0F),
+                 fsw::invalid_argument);
+    EXPECT_THROW(makeConfig(PhaseAngleCorrectionMethodAlgorithm::NoCorrectionAlg,
+                            25.0e3F,
+                            0.35F,
+                            std::numbers::pi_v<float> /* invalid fieldOfViewY */,
                             0,
                             512.0F),
                  fsw::invalid_argument);
 
-    // A fully valid config builds without throwing and round-trips its values through the getters.
+    // A fully valid config builds without throwing and round-trips its values through the
+    // getters. fieldOfViewX/fieldOfViewY are deliberately distinct here to confirm they're
+    // stored and retrieved independently.
     const CobConverterConfig cfg =
-        makeConfig(PhaseAngleCorrectionMethodAlgorithm::BinaryAlg, 25.0e3F, 0.35F, 7, 256.0F);
+        makeConfig(PhaseAngleCorrectionMethodAlgorithm::BinaryAlg, 25.0e3F, 0.35F, 0.30F, 7, 256.0F);
     EXPECT_EQ(cfg.getPhaseAngleCorrectionMethod(), PhaseAngleCorrectionMethodAlgorithm::BinaryAlg);
     EXPECT_FLOAT_EQ(cfg.getRadius(), 25.0e3F);
     EXPECT_FLOAT_EQ(cfg.getRadiusUncertainty(), 8.0e3F);
@@ -548,7 +568,8 @@ inline void testCobConverterSetup() {
     EXPECT_TRUE(cfg.isStandardDeviationSpecified());
     EXPECT_TRUE(cfg.isOutlierDetectionEnabled());
     EXPECT_EQ(cfg.getCameraId(), 7);
-    EXPECT_FLOAT_EQ(cfg.getFieldOfView(), 0.35F);
+    EXPECT_FLOAT_EQ(cfg.getFieldOfViewX(), 0.35F);
+    EXPECT_FLOAT_EQ(cfg.getFieldOfViewY(), 0.30F);
     EXPECT_FLOAT_EQ(cfg.getResolutionX(), 512.0F);
     EXPECT_FLOAT_EQ(cfg.getResolutionY(), 256.0F);
 }
