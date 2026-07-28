@@ -4,6 +4,7 @@
 #include "thrusterPlatformReferenceTypes.h"
 #include "utilities/fsw/freestandingInvalidArgument.h"
 #include "utilities/fsw/freestandingIsFinite.hpp"
+#include "utilities/fsw/rigidBodyKinematics.hpp"
 #include <math.h>
 #include <stdint.h>
 
@@ -92,7 +93,9 @@ class ThrusterPlatformReferenceConfig final {
             normalizedRwConfig.GsMatrix_B.col(i).normalize();
         }
 
-        return {sigma_MB, r_BM_M, r_FM_F, K, Ki, theta1Max, theta2Max, momentumDumping, normalizedRwConfig};
+        // Bound sigma_MB to the principal MRP set (norm <= 1) by switching to the shadow set if needed, so the
+        // stored orientation is always a well-conditioned MRP representation.
+        return {mrpSwitch(sigma_MB), r_BM_M, r_FM_F, K, Ki, theta1Max, theta2Max, momentumDumping, normalizedRwConfig};
     }
 
     static bool isValidSigma_MB(const Eigen::Vector3f& sigma_MB) { return sigma_MB.allFinite(); }

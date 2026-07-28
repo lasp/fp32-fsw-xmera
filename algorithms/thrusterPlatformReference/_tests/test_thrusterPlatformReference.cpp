@@ -117,6 +117,38 @@ TEST(ThrusterPlatformReferenceTest, ConfigRoundTrip) {
     EXPECT_FALSE(cfg.getMomentumDumping());
 }
 
+// create() bounds sigma_MB to the principal MRP set: a value with norm > 1 is stored as its
+// shadow-set representative (-sigma / |sigma|^2), which has norm <= 1.
+TEST(ThrusterPlatformReferenceTest, SigmaMbSwitchedToShadowSetWhenNormExceedsOne) {
+    const Eigen::Vector3f zero = Eigen::Vector3f::Zero();
+    const Eigen::Vector3f largeSigma{0.8F, 0.6F, 0.6F};  // |sigma|^2 = 1.36 > 1
+    ASSERT_GT(largeSigma.norm(), 1.0F) << "Test setup: sigma_MB must exceed the norm-1 boundary";
+
+    const ThrusterPlatformReferenceConfig cfg = ThrusterPlatformReferenceConfig::create(
+        largeSigma, zero, zero, 0.0F, 0.0F, -1.0F, -1.0F, false, ThrusterPlatformReferenceRwArrayConfiguration{});
+    const Eigen::Vector3f stored = cfg.getSigma_MB();
+
+    EXPECT_LE(stored.norm(), 1.0F);
+    const Eigen::Vector3f expectedShadow = -largeSigma / largeSigma.squaredNorm();
+    for (int i = 0; i < 3; ++i) {
+        EXPECT_FLOAT_EQ(stored(i), expectedShadow(i));
+    }
+}
+
+// A sigma_MB already within the principal set (norm <= 1) is stored unchanged.
+TEST(ThrusterPlatformReferenceTest, SigmaMbWithinBoundStoredUnchanged) {
+    const Eigen::Vector3f zero = Eigen::Vector3f::Zero();
+    const Eigen::Vector3f sigma{0.3F, -0.4F, 0.2F};  // norm < 1
+    ASSERT_LE(sigma.norm(), 1.0F);
+
+    const ThrusterPlatformReferenceConfig cfg = ThrusterPlatformReferenceConfig::create(
+        sigma, zero, zero, 0.0F, 0.0F, -1.0F, -1.0F, false, ThrusterPlatformReferenceRwArrayConfiguration{});
+    const Eigen::Vector3f stored = cfg.getSigma_MB();
+    for (int i = 0; i < 3; ++i) {
+        EXPECT_FLOAT_EQ(stored(i), sigma(i));
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Property tests
 // ---------------------------------------------------------------------------
