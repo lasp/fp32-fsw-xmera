@@ -158,10 +158,13 @@ void CobConverterAlgorithm::computeCameraParameters() {
  *  - Inertial->Camera (N->C) DCM
  *
  * @param input Navigation attitude buffer containing MRP sigma_BN.
+ * @return Rotations dcm_BN (B->N) and dcm_NC (N->C) for the current cycle.
  */
-void CobConverterAlgorithm::computeRotations(const CobConverterInput& input) {
-    this->dcm_BN = mrpToDcm(input.sigma_BN);
-    this->dcm_NC = this->dcm_BN.transpose() * this->dcm_CB.transpose();
+Rotations CobConverterAlgorithm::computeRotations(const CobConverterInput& input) const {
+    Rotations rotations;
+    rotations.dcm_BN = mrpToDcm(input.sigma_BN);
+    rotations.dcm_NC = rotations.dcm_BN.transpose() * this->dcm_CB.transpose();
+    return rotations;
 }
 
 /**
@@ -169,42 +172,57 @@ void CobConverterAlgorithm::computeRotations(const CobConverterInput& input) {
  *
  * Depending on the configured method, computes a brightness offset factor @c gamma
  * (Binary) and the sun direction angle @c phi in the image plane.
- * Also sets @c validCOM when a correction is applied.
+ * Also sets @c validCom in the returned result, since a correction is always applied when this
+ * function is called.
  *
  * @param input Spacecraft position (input.filterState) and sun-pointing attitude (input.vehSunPntBdy)
- * @note Computes and stores: @c alphaPA, @c phi, @c gamma, @c spacecraftRange, @c Rc.
+ * @param dcm_BN Body-to-inertial DCM for the current cycle (from computeRotations).
+ * @return Phase-angle correction terms (alphaPA, phi, gamma, spacecraftRange, Rc, validCom) for the
+ *         current cycle. Only called when a correction method is configured, so validCom is always
+ *         true in the result.
  */
-void CobConverterAlgorithm::computePhaseAngleCorrection(const CobConverterInput& input) {
-    this->sc_position = input.filterVehPosition;
-    const Eigen::Vector3f rhat_N = this->sc_position.stableNormalized().cast<float>();
+PhaseAngleCorrectionResult CobConverterAlgorithm::computePhaseAngleCorrection(const CobConverterInput& input,
+                                                                              const Eigen::Matrix3f& dcm_BN) const {
+    PhaseAngleCorrectionResult correction;
+    correction.validCom = true;
+    correction.sc_position = input.filterVehPosition;
+    const Eigen::Vector3f rhat_N = correction.sc_position.stableNormalized().cast<float>();
     const Eigen::Vector3f shat_B = input.vehSunPntBdy.stableNormalized();
-    this->shat_N = this->dcm_BN.transpose() * shat_B;
+    correction.shat_N = dcm_BN.transpose() * shat_B;
     const Eigen::Vector3f shat_C = this->dcm_CB * shat_B;
 
-    this->alphaPA = safeAcosf(rhat_N.transpose() * this->shat_N);  // phase angle
-    this->phi = safeAtan2f(shat_C(1), shat_C(0));                  // sun direction in image plane
+    correction.alphaPA = safeAcosf(rhat_N.transpose() * correction.shat_N);  // phase angle
+    correction.phi = safeAtan2f(shat_C(1), shat_C(0));                       // sun direction in image plane
     if (this->cfg.getPhaseAngleCorrectionMethod() == PhaseAngleCorrectionMethodAlgorithm::BinaryAlg) {
         // Using phase angle correction assuming a binarized image (brightness either 0 or 1)
-        const float oneMinusCosAlpha = 2.0F * powf(safeSinf(this->alphaPA / 2.0F), 2.0F);
-        this->gamma = kBinaryPhaseCoeff * oneMinusCosAlpha;
+        const float oneMinusCosAlpha = 2.0F * powf(safeSinf(correction.alphaPA / 2.0F), 2.0F);
+        correction.gamma = kBinaryPhaseCoeff * oneMinusCosAlpha;
     }
-    this->spacecraftRange = this->sc_position.stableNorm();
-    this->Rc = static_cast<float>(this->cfg.getRadius() * this->dX / this->spacecraftRange);  // object radius in pixels
+    correction.spacecraftRange = correction.sc_position.stableNorm();
+    correction.Rc =
+        static_cast<float>(this->cfg.getRadius() * this->dX / correction.spacecraftRange);  // object radius in pixels
+    return correction;
 }
 
 /**
  * @brief Compute centers of brightness and mass in pixel coordinates.
  * @param input COB message payload (pixel-based center of brightness).
+ * @param gamma Phase-angle offset factor (0 when no correction is configured).
+ * @param Rc Object radius in pixels (0 when no correction is configured).
+ * @param phi Sun direction in the image plane (0 when no correction is configured).
  * @return Tuple of (centerOfBrightness, centerOfMass) as 3-vectors in homogeneous pixel coords.
  */
 std::tuple<Eigen::Vector3f, Eigen::Vector3f> CobConverterAlgorithm::computeCentersOfInterest(
-    const CobConverterInput& input) const {
+    const CobConverterInput& input,
+    const float gamma,
+    const float Rc,
+    const float phi) {
     // Center of Brightness in pixel space
     Eigen::Vector3f centerOfBrightness{input.cobCenterOfBrightness(0), input.cobCenterOfBrightness(1), 1.0F};
 
     // Center of Mass in pixel space (offset by phase-angle correction)
-    Eigen::Vector3f const centerOfMass{centerOfBrightness(0) - (this->gamma * this->Rc * safeCosf(this->phi)),
-                                       centerOfBrightness(1) - (this->gamma * this->Rc * safeSinf(this->phi)),
+    Eigen::Vector3f const centerOfMass{centerOfBrightness(0) - (gamma * Rc * safeCosf(phi)),
+                                       centerOfBrightness(1) - (gamma * Rc * safeSinf(phi)),
                                        1.0F};
     return {centerOfBrightness, centerOfMass};
 }
@@ -244,16 +262,18 @@ Eigen::Vector3f CobConverterAlgorithm::calibrateDistortions(const Eigen::Vector3
  * @brief Compute unit vectors in the camera frame from pixel coordinates.
  * @param centerOfBrightness 3-vector (homogeneous) pixel coordinates of COB.
  * @param centerOfMass 3-vector (homogeneous) pixel coordinates of COM.
- * @note Populates @c rhatCOB_C and @c rhatCOM_C.
+ * @return Tuple of (rhatCOB_C, rhatCOM_C).
  */
-void CobConverterAlgorithm::computeRelevantVectors(const Eigen::Vector3f& centerOfBrightness,
-                                                   const Eigen::Vector3f& centerOfMass) {
+std::tuple<Eigen::Vector3f, Eigen::Vector3f> CobConverterAlgorithm::computeRelevantVectors(
+    const Eigen::Vector3f& centerOfBrightness,
+    const Eigen::Vector3f& centerOfMass) const {
     // Retrieve the vector from target to camera and normalize. When all coefficients
     // are zero calibrateDistortions is a no-op, so we always call it.
-    this->rhatCOB_C = -this->calibrateDistortions(this->cameraCalibrationMatrixInverse * centerOfBrightness);
-    this->rhatCOM_C = -this->calibrateDistortions(this->cameraCalibrationMatrixInverse * centerOfMass);
-    this->rhatCOB_C.stableNormalize();
-    this->rhatCOM_C.stableNormalize();
+    Eigen::Vector3f rhatCOB_C = -this->calibrateDistortions(this->cameraCalibrationMatrixInverse * centerOfBrightness);
+    Eigen::Vector3f rhatCOM_C = -this->calibrateDistortions(this->cameraCalibrationMatrixInverse * centerOfMass);
+    rhatCOB_C.stableNormalize();
+    rhatCOM_C.stableNormalize();
+    return {rhatCOB_C, rhatCOM_C};
 }
 
 /**
@@ -265,32 +285,37 @@ void CobConverterAlgorithm::computeRelevantVectors(const Eigen::Vector3f& center
  * then rotates it into the body frame and adds attitude covariance.
  *
  * @param input Filter position covariance and detected-pixel count.
+ * @param correction Phase-angle correction terms for the current cycle (from
+ *        computePhaseAngleCorrection).
+ * @return Total COM/COB covariance in the body frame for the current cycle.
  */
-void CobConverterAlgorithm::computeCameraFrameUncertainty(const CobConverterInput& input) {
+Eigen::Matrix3f CobConverterAlgorithm::computeCameraFrameUncertainty(
+    const CobConverterInput& input,
+    const PhaseAngleCorrectionResult& correction) const {
     // Compute partials of the phase angle and Geometric model correction
     const float scaleFactor = safeSqrtf(static_cast<float>(input.cobPixelsFound) / kSphereSolidAngle);
-    this->covar_B.setZero();
+    Eigen::Matrix3f covar_B = Eigen::Matrix3f::Zero();
     const float radius = this->cfg.getRadius();
     if (this->cfg.getPhaseAngleCorrectionMethod() == PhaseAngleCorrectionMethodAlgorithm::BinaryAlg &&
         this->cfg.getRadiusUncertainty() > 0) {
-        const float oneMinusCosAlpha = 2.0F * powf(safeSinf(this->alphaPA / 2.0F), 2.0F);
+        const float oneMinusCosAlpha = 2.0F * powf(safeSinf(correction.alphaPA / 2.0F), 2.0F);
         const auto constants_deltaR = static_cast<float>(
-            kBinaryPhaseCoeff * radius / this->sc_position.stableNorm() * oneMinusCosAlpha /
-            (1.0 + pow(kBinaryPhaseCoeff * radius / this->sc_position.stableNorm() * oneMinusCosAlpha, 2.0)));
+            kBinaryPhaseCoeff * radius / correction.spacecraftRange * oneMinusCosAlpha /
+            (1.0 + pow(kBinaryPhaseCoeff * radius / correction.spacecraftRange * oneMinusCosAlpha, 2.0)));
 
         const Eigen::RowVector3d deltaBinary_delta_r =
-            (-this->sc_position.stableNormalized() / this->sc_position.stableNorm() * constants_deltaR);
+            (-correction.sc_position.stableNormalized() / correction.spacecraftRange * constants_deltaR);
 
         const float deltaBinary_delta_R = (constants_deltaR / radius);
 
         const auto deltaBinary_deltaAlpha = static_cast<float>(
-            kBinaryPhaseCoeff * radius / this->sc_position.stableNorm() /
-            (1.0 + pow(kBinaryPhaseCoeff * radius / this->sc_position.stableNorm() * oneMinusCosAlpha, 2.0)));
+            kBinaryPhaseCoeff * radius / correction.spacecraftRange /
+            (1.0 + pow(kBinaryPhaseCoeff * radius / correction.spacecraftRange * oneMinusCosAlpha, 2.0)));
 
         const Eigen::Matrix<double, 3, 3> I = Eigen::Matrix3d::Identity();
-        const Eigen::RowVector3d sr = this->shat_N.cast<double>() / this->sc_position.stableNorm();
+        const Eigen::RowVector3d sr = correction.shat_N.cast<double>() / correction.spacecraftRange;
         const Eigen::Matrix<double, 3, 3> rr =
-            I - (this->sc_position.stableNormalized() * this->sc_position.stableNormalized().transpose());
+            I - (correction.sc_position.stableNormalized() * correction.sc_position.stableNormalized().transpose());
         // deltaAlpha_delta_R is d(alpha)/d(r). The full expression is -s_hat^T/(r*sin(alpha)) *
         // (I - r_hat*r_hat^T) (see cobConverter.rst), but deltaBinary_deltaAlpha above is missing
         // the matching sin(alpha) factor from d(betaG)/d(alpha) -- since the two are only ever
@@ -329,8 +354,8 @@ void CobConverterAlgorithm::computeCameraFrameUncertainty(const CobConverterInpu
         // A congruence transform by a real matrix preserves PSD-ness, and adding the baseline COB
         // pixel-noise diagonal diag(X^2, Y^2) keeps the sum PSD, since the sum of two PSD matrices
         // is PSD.
-        const float cosPhi = safeCosf(this->phi);
-        const float sinPhi = safeSinf(this->phi);
+        const float cosPhi = safeCosf(correction.phi);
+        const float sinPhi = safeSinf(correction.phi);
         const float directionX = this->X / this->ifov_x;
         const float directionY = this->Y / this->ifov_y;
         const double correctionXX = sigma_beta_squared * static_cast<double>(directionX * directionX * cosPhi * cosPhi);
@@ -348,7 +373,7 @@ void CobConverterAlgorithm::computeCameraFrameUncertainty(const CobConverterInpu
         const Eigen::Matrix3f covarCom_B = this->dcm_CB.transpose() * covarCom_C * this->dcm_CB;
 
         // Add COM covariance in B frame to get total covariance
-        this->covar_B = covarCom_B + this->cfg.getAttitudeCovariance();
+        covar_B = covarCom_B + this->cfg.getAttitudeCovariance();
 
     } else {
         // Define diagonal COB covariance
@@ -360,8 +385,9 @@ void CobConverterAlgorithm::computeCameraFrameUncertainty(const CobConverterInpu
         // Scale by number of pixels and rotate to B
         covarCob_C *= scaleFactor;
         const Eigen::Matrix3f covarCom_B = this->dcm_CB.transpose() * covarCob_C * this->dcm_CB;
-        this->covar_B = covarCom_B + this->cfg.getAttitudeCovariance();
+        covar_B = covarCom_B + this->cfg.getAttitudeCovariance();
     }
+    return covar_B;
 }
 
 /**
@@ -370,6 +396,11 @@ void CobConverterAlgorithm::computeCameraFrameUncertainty(const CobConverterInpu
  * @param timeTag Measurement timestamp (nanoseconds).
  * @param centerOfMass COM in homogeneous pixel coordinates.
  * @param centerOfBrightness COB in homogeneous pixel coordinates.
+ * @param rotations dcm_BN/dcm_NC for the current cycle.
+ * @param correction Phase-angle correction terms for the current cycle.
+ * @param rhatCOM_C COM unit vector in the camera frame.
+ * @param covar_B Total COM/COB covariance in the body frame.
+ * @param goodOutlierCheck True unless outlier detection is enabled and flagged this cycle.
  * @param unitVecOutput Unit-vector output to fill.
  * @param comOutput COM output to fill.
  */
@@ -377,28 +408,33 @@ void CobConverterAlgorithm::populateOutputMessages(
     const uint64_t timeTag,
     const Eigen::Vector3f& centerOfMass,  // NOLINT(bugprone-easily-swappable-parameters)
     const Eigen::Vector3f& centerOfBrightness,
+    const Rotations& rotations,
+    const PhaseAngleCorrectionResult& correction,
+    const Eigen::Vector3f& rhatCOM_C,
+    const Eigen::Matrix3f& covar_B,
+    const bool goodOutlierCheck,
     CobConverterUnitVecOutput& unitVecOutput,
-    CobConverterComOutput& comOutput) const {
-    const Eigen::Vector3f rhatCOM_N = this->dcm_NC * this->rhatCOM_C;
-    const Eigen::Vector3f rhatCOM_B = this->dcm_BN * rhatCOM_N;
-    unitVecOutput.covar_N = this->dcm_BN.transpose() * this->covar_B * this->dcm_BN;
-    unitVecOutput.covar_C = this->dcm_NC.transpose() * unitVecOutput.covar_N * this->dcm_NC;
-    unitVecOutput.covar_B = this->covar_B;
+    CobConverterComOutput& comOutput) {
+    const Eigen::Vector3f rhatCOM_N = rotations.dcm_NC * rhatCOM_C;
+    const Eigen::Vector3f rhatCOM_B = rotations.dcm_BN * rhatCOM_N;
+    unitVecOutput.covar_N = rotations.dcm_BN.transpose() * covar_B * rotations.dcm_BN;
+    unitVecOutput.covar_C = rotations.dcm_NC.transpose() * unitVecOutput.covar_N * rotations.dcm_NC;
+    unitVecOutput.covar_B = covar_B;
     unitVecOutput.rhat_BN_N = rhatCOM_N;
-    unitVecOutput.rhat_BN_C = this->rhatCOM_C;
+    unitVecOutput.rhat_BN_C = rhatCOM_C;
     unitVecOutput.rhat_BN_B = rhatCOM_B;
     unitVecOutput.unitVecTimeTag = static_cast<double>(timeTag) * kNano2Sec;
-    unitVecOutput.unitVecValid = (this->validCOM && this->goodOutlierCheck);
+    unitVecOutput.unitVecValid = (correction.validCom && goodOutlierCheck);
     const Eigen::Vector2f centerOfBrightnessXY(centerOfBrightness(0), centerOfBrightness(1));
     comOutput.centerOfBrightness = centerOfBrightnessXY;
     const Eigen::Vector2f centerOfMassXY(centerOfMass(0), centerOfMass(1));
     comOutput.centerOfMass = centerOfMassXY;
-    comOutput.offsetFactor = this->gamma;
-    comOutput.objectPixelRadius = static_cast<int>(this->Rc);
-    comOutput.phaseAngle = this->alphaPA;
-    comOutput.sunDirection = this->phi;
+    comOutput.offsetFactor = correction.gamma;
+    comOutput.objectPixelRadius = static_cast<int>(correction.Rc);
+    comOutput.phaseAngle = correction.alphaPA;
+    comOutput.sunDirection = correction.phi;
     comOutput.comTimeTag = timeTag;
-    comOutput.comValid = this->validCOM;
+    comOutput.comValid = correction.validCom;
 }
 
 /**
@@ -411,27 +447,42 @@ void CobConverterAlgorithm::populateOutputMessages(
  * @param input All input message payloads bundled as a CobConverterInput.
  * @return Populated CobConverterOutput (zeroed if input.cobValid is false or input.cobPixelsFound is zero).
  */
-CobConverterOutput CobConverterAlgorithm::updateState(const CobConverterInput& input) {
+CobConverterOutput CobConverterAlgorithm::updateState(const CobConverterInput& input) const {
     CobConverterOutput output;
 
     if (input.cobValid && input.cobPixelsFound != 0) {
-        this->computeRotations(input);
+        const Rotations rotations = this->computeRotations(input);
 
-        // Phase angle correction
+        // Phase angle correction. PhaseAngleCorrectionResult default-constructs to all-zero/false
+        // (no correction applied) when NoCorrectionAlg is configured, so this cycle's values never
+        // leak stale data from a previous cycle where BinaryAlg happened to be configured -- see
+        // the commit message for the staleness bug this replaced.
+        PhaseAngleCorrectionResult correction;
         if (this->cfg.getPhaseAngleCorrectionMethod() != PhaseAngleCorrectionMethodAlgorithm::NoCorrectionAlg) {
-            this->validCOM = true;
-            this->computePhaseAngleCorrection(input);
+            correction = this->computePhaseAngleCorrection(input, rotations.dcm_BN);
         }
 
-        auto [centerOfBrightness, centerOfMass] = this->computeCentersOfInterest(input);
-        this->computeRelevantVectors(centerOfBrightness, centerOfMass);
-        this->computeCameraFrameUncertainty(input);
+        auto [centerOfBrightness, centerOfMass] =
+            CobConverterAlgorithm::computeCentersOfInterest(input, correction.gamma, correction.Rc, correction.phi);
+        auto [rhatCOB_C, rhatCOM_C] = this->computeRelevantVectors(centerOfBrightness, centerOfMass);
+        const Eigen::Matrix3f covar_B = this->computeCameraFrameUncertainty(input, correction);
 
+        bool goodOutlierCheck = true;
         if (this->cfg.isOutlierDetectionEnabled()) {
-            this->cobOutlierDetection(input, output.diagnostic);
+            goodOutlierCheck = this->cobOutlierDetection(input, covar_B, rhatCOB_C, rotations.dcm_NC);
+            output.diagnostic.coberrorOutlierTrigger = !goodOutlierCheck;
         }
 
-        this->populateOutputMessages(input.cobTimeTag, centerOfMass, centerOfBrightness, output.unitVec, output.com);
+        CobConverterAlgorithm::populateOutputMessages(input.cobTimeTag,
+                                                      centerOfMass,
+                                                      centerOfBrightness,
+                                                      rotations,
+                                                      correction,
+                                                      rhatCOM_C,
+                                                      covar_B,
+                                                      goodOutlierCheck,
+                                                      output.unitVec,
+                                                      output.com);
     }
 
     return output;
@@ -473,21 +524,27 @@ Eigen::Matrix3f computeTotalCobCovariance(
  * combined image covariance to perform a sigma-based gate.
  *
  * @param input Filter position and position covariance
- * @param output Diagnostic output whose coberrorOutlierTrigger field is set.
+ * @param covar_B Total COM/COB covariance in the body frame for the current cycle.
+ * @param rhatCOB_C COB unit vector in the camera frame for the current cycle.
+ * @param dcm_NC Inertial-to-camera DCM for the current cycle.
+ * @return True unless the COB error prediction exceeds the sigma-based gate.
  */
-void CobConverterAlgorithm::cobOutlierDetection(const CobConverterInput& input, CobConverterDiagnosticOutput& output) {
+bool CobConverterAlgorithm::cobOutlierDetection(const CobConverterInput& input,
+                                                const Eigen::Matrix3f& covar_B,
+                                                const Eigen::Vector3f& rhatCOB_C,
+                                                const Eigen::Matrix3f& dcm_NC) const {
     const Eigen::Vector3d rNav_BN_N = input.filterVehPosition;
     const Eigen::Vector3f rhatNav_N = rNav_BN_N.stableNormalized().cast<float>();
     const Eigen::Matrix3f covarNav_N =
         (input.filterVehPositionCovariance / pow(rNav_BN_N.stableNorm(), 2)).cast<float>();
 
     Eigen::Vector3f rhatCOB_C_znorm =
-        -this->rhatCOB_C;  // turn unit vector from asteroid to camera into unit vector from camera to asteroid
+        -rhatCOB_C;  // turn unit vector from asteroid to camera into unit vector from camera to asteroid
     rhatCOB_C_znorm /= rhatCOB_C_znorm(2);  // make z-component 1 for image plane
     const Eigen::Vector3f cob = this->cameraCalibrationMatrix * rhatCOB_C_znorm;
 
     // assume that the time of the last filter update corresponds to the current timestep (so no propagation required)
-    Eigen::Vector3f rhatNav_C = this->dcm_NC.transpose() * (-rhatNav_N);
+    Eigen::Vector3f rhatNav_C = dcm_NC.transpose() * (-rhatNav_N);
     rhatNav_C /= rhatNav_C(2);
     const Eigen::Vector3f cobNav = this->cameraCalibrationMatrix * rhatNav_C;
 
@@ -499,18 +556,11 @@ void CobConverterAlgorithm::cobOutlierDetection(const CobConverterInput& input, 
         Eigen::Matrix3f covarImage =
             computeTotalCobCovariance(covarNav_N,
                                       this->cfg.getAttitudeCovariance(),
-                                      this->dcm_CB.transpose() * this->covar_B * this->dcm_CB.transpose(),
-                                      this->dcm_NC.transpose(),
+                                      this->dcm_CB.transpose() * covar_B * this->dcm_CB.transpose(),
+                                      dcm_NC.transpose(),
                                       this->dcm_CB,
                                       this->cameraCalibrationMatrix);
         sigma = safeSqrtf(std::max(covarImage(0, 0), covarImage(1, 1)));
     }
-
-    if (cobErrorPrediction < this->cfg.getNumStandardDeviations() * sigma) {
-        this->goodOutlierCheck = true;
-        output.coberrorOutlierTrigger = false;
-    } else {
-        this->goodOutlierCheck = false;
-        output.coberrorOutlierTrigger = true;
-    }
+    return cobErrorPrediction < this->cfg.getNumStandardDeviations() * sigma;
 }

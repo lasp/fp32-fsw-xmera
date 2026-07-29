@@ -199,10 +199,7 @@ class CobConverterConfig final {
             return false;
         }
         const float argTanY = fieldOfViewY / 2.0F;
-        if (argTanY < -halfPi + kMinPoleDistance || argTanY > halfPi - kMinPoleDistance) {
-            return false;
-        }
-        return true;
+        return argTanY >= -halfPi + kMinPoleDistance && argTanY <= halfPi - kMinPoleDistance;
     }
 
     PhaseAngleCorrectionMethodAlgorithm getPhaseAngleCorrectionMethod() const { return phaseAngleCorrectionMethod; }
@@ -270,6 +267,27 @@ class CobConverterConfig final {
     Eigen::Vector3f bodyToCameraMrp;
 };
 
+/*! Body-to-inertial and inertial-to-camera rotations for the current cycle, derived from the
+    current attitude input. dcm_CB is config-derived (from bodyToCameraMrp) and cached separately
+    on the algorithm, since it doesn't depend on per-cycle input. */
+struct Rotations {
+    Eigen::Matrix3f dcm_BN = Eigen::Matrix3f::Zero();
+    Eigen::Matrix3f dcm_NC = Eigen::Matrix3f::Zero();
+};
+
+/*! Phase-angle correction terms for the current cycle. Default-constructed (all zero/false) when
+    phaseAngleCorrectionMethod is NoCorrectionAlg, so no correction is applied to COM. */
+struct PhaseAngleCorrectionResult {
+    Eigen::Vector3d sc_position = Eigen::Vector3d::Zero();
+    double spacecraftRange = 0.0;
+    Eigen::Vector3f shat_N = Eigen::Vector3f::Zero();
+    float alphaPA = 0.0F;
+    float phi = 0.0F;
+    float gamma = 0.0F;
+    float Rc = 0.0F;
+    bool validCom = false;
+};
+
 /**
  * @class CobConverterAlgorithm
  * @brief Converts center-of-brightness (COB) pixel measurements into unit vectors
@@ -281,47 +299,47 @@ class CobConverterAlgorithm final {
     explicit CobConverterAlgorithm(const CobConverterConfig& config);
 
     void setConfig(const CobConverterConfig& config);
-    CobConverterOutput updateState(const CobConverterInput& input);
+    CobConverterOutput updateState(const CobConverterInput& input) const;
     int getCameraId() const { return this->cfg.getCameraId(); }
 
    private:
-    void cobOutlierDetection(const CobConverterInput& input, CobConverterDiagnosticOutput& output);
+    bool cobOutlierDetection(const CobConverterInput& input,
+                             const Eigen::Matrix3f& covar_B,
+                             const Eigen::Vector3f& rhatCOB_C,
+                             const Eigen::Matrix3f& dcm_NC) const;
     void computeCameraParameters();
-    void computeRotations(const CobConverterInput& input);
-    void computePhaseAngleCorrection(const CobConverterInput& input);
-    std::tuple<Eigen::Vector3f, Eigen::Vector3f> computeCentersOfInterest(const CobConverterInput& input) const;
-    void computeRelevantVectors(const Eigen::Vector3f& centerOfBrightness, const Eigen::Vector3f& centerOfMass);
-    void computeCameraFrameUncertainty(const CobConverterInput& input);
+    Rotations computeRotations(const CobConverterInput& input) const;
+    PhaseAngleCorrectionResult computePhaseAngleCorrection(const CobConverterInput& input,
+                                                           const Eigen::Matrix3f& dcm_BN) const;
+    static std::tuple<Eigen::Vector3f, Eigen::Vector3f> computeCentersOfInterest(const CobConverterInput& input,
+                                                                                 float gamma,
+                                                                                 float Rc,
+                                                                                 float phi);
+    std::tuple<Eigen::Vector3f, Eigen::Vector3f> computeRelevantVectors(const Eigen::Vector3f& centerOfBrightness,
+                                                                        const Eigen::Vector3f& centerOfMass) const;
+    Eigen::Matrix3f computeCameraFrameUncertainty(const CobConverterInput& input,
+                                                  const PhaseAngleCorrectionResult& correction) const;
     Eigen::Vector3f calibrateDistortions(const Eigen::Vector3f& unCalibratedVector) const;
-    void populateOutputMessages(uint64_t timeTag,
-                                const Eigen::Vector3f& centerOfMass,
-                                const Eigen::Vector3f& centerOfBrightness,
-                                CobConverterUnitVecOutput& unitVecOutput,
-                                CobConverterComOutput& comOutput) const;
+    static void populateOutputMessages(uint64_t timeTag,
+                                       const Eigen::Vector3f& centerOfMass,
+                                       const Eigen::Vector3f& centerOfBrightness,
+                                       const Rotations& rotations,
+                                       const PhaseAngleCorrectionResult& correction,
+                                       const Eigen::Vector3f& rhatCOM_C,
+                                       const Eigen::Matrix3f& covar_B,
+                                       bool goodOutlierCheck,
+                                       CobConverterUnitVecOutput& unitVecOutput,
+                                       CobConverterComOutput& comOutput);
 
     CobConverterConfig cfg;
-    Eigen::Matrix3f dcm_NC = Eigen::Matrix3f::Zero();
     Eigen::Matrix3f dcm_CB = Eigen::Matrix3f::Zero();
-    Eigen::Matrix3f dcm_BN = Eigen::Matrix3f::Zero();
     Eigen::Matrix3f cameraCalibrationMatrix = Eigen::Matrix3f::Zero();
     Eigen::Matrix3f cameraCalibrationMatrixInverse = Eigen::Matrix3f::Zero();
-    Eigen::Matrix3f covar_B = Eigen::Matrix3f::Zero();
-    bool validCOM = false;
     float dX{};
     float X{};
     float Y{};
     float ifov_x{};
     float ifov_y{};
-    float Rc = 0.0F;
-    float gamma = 0.0F;
-    float phi = 0.0F;
-    float alphaPA = 0.0F;
-    Eigen::Vector3f rhatCOB_C = Eigen::Vector3f::Zero();
-    Eigen::Vector3f rhatCOM_C = Eigen::Vector3f::Zero();
-    Eigen::Vector3d sc_position = Eigen::Vector3d::Zero();
-    Eigen::Vector3f shat_N = Eigen::Vector3f::Zero();
-    double spacecraftRange = 0;
-    bool goodOutlierCheck = true;
 };
 
 #endif  // F32XMERA_COB_CONVERTER_ALGORITHM_H
