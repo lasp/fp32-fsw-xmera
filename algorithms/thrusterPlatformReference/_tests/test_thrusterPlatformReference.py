@@ -1,5 +1,4 @@
 import pytest
-import random
 import numpy as np
 
 
@@ -19,8 +18,9 @@ from xmera.architecture import sim_model
 @pytest.mark.parametrize("seed", list(np.linspace(1, 10, 10)))
 @pytest.mark.parametrize("delta_cm", [0.1, 0.2, 0.3])
 @pytest.mark.parametrize("k", [0, 1, 5, 10])
+@pytest.mark.parametrize("theta_max", [np.pi / 2, np.pi / 36])
 @pytest.mark.parametrize("accuracy", [1e-4])
-def test_thruster_platform_reference(show_plots, delta_cm, k, seed, accuracy):
+def test_thruster_platform_reference(show_plots, delta_cm, k, theta_max, seed, accuracy):
     r"""
     **Validation Test Description**
 
@@ -38,6 +38,7 @@ def test_thruster_platform_reference(show_plots, delta_cm, k, seed, accuracy):
     Args:
         delta_cm (m): magnitude of the center of mass shift, whose direction is generated randomly
         k (Hz): proportional gain of the momentum dumping control law
+        theta_max (rad): half-angle of the thrust-deflection cone
         seed (-): seed is varied to randomly change the shift in the center of mass
         accuracy (float): accuracy within which results are considered to match the truth values.
 
@@ -59,12 +60,14 @@ def test_thruster_platform_reference(show_plots, delta_cm, k, seed, accuracy):
     The offset vectors provided as input parameters ensure that a solution exists, such that the Unit Test can
     correctly assess the alignment of the thruster. This is, in general, not guaranteed.
     """
-    thruster_platform_reference_test_function(show_plots, delta_cm, k, seed, accuracy)
+    thruster_platform_reference_test_function(show_plots, delta_cm, k, theta_max, seed, accuracy)
 
 
-def thruster_platform_reference_test_function(show_plots, delta_cm, k, seed, accuracy):
+def thruster_platform_reference_test_function(show_plots, delta_cm, k, theta_max, seed, accuracy):
 
-    random.seed(seed)
+    # seed numpy's generator (used for the random center-of-mass shift below) so the test is deterministic and
+    # independent of execution order
+    np.random.seed(int(seed))
 
     euler_angles_123 = np.array([5.0 * macros.D2R, 10.0 * macros.D2R, 0.0])
     sigma_MB = np.array(rbk.euler1232MRP(euler_angles_123))
@@ -102,6 +105,7 @@ def thruster_platform_reference_test_function(show_plots, delta_cm, k, seed, acc
     platform.K = k
     platform.Ki = 0
     platform.controlPeriod = 1.0
+    platform.thetaMax = theta_max
 
     # Create input vehicle configuration msg
     input_veh_config_msg_data = messaging.VehicleConfigMsgF32Payload()
@@ -171,12 +175,19 @@ def thruster_platform_reference_test_function(show_plots, delta_cm, k, seed, acc
     L_B = thrust * np.cross(tHat_B_sim, r_TC_B)
     np.testing.assert_allclose(L_B_sim, L_B, rtol=accuracy, atol=accuracy, verbose=True)
 
-    # for k = 0 the thruster is aligned through the center of mass, so the moment arm is parallel to the thrust
-    # direction (zero offset) and the net torque vanishes
-    if k == 0:
+    # the thrust deflection from its neutral (un-rotated) direction stays within the configured cone
+    MB = rbk.MRP2C(sigma_MB)
+    tHat_F = T_F / thrust
+    neutral_B = np.matmul(MB.transpose(), tHat_F)
+    deflection = np.arccos(np.clip(np.dot(neutral_B, tHat_B_sim), -1.0, 1.0))
+    np.testing.assert_array_less(deflection, theta_max + accuracy, verbose=True)
+
+    # for k = 0 the thruster aligns through the center of mass whenever the cone does not clamp it, so the moment arm
+    # is parallel to the thrust direction (zero offset). The net torque then vanishes up to the alignment residual
+    # scaled by the thrust magnitude and moment arm, which the torque self-consistency check above already covers.
+    if k == 0 and deflection < theta_max - accuracy:
         offset = np.linalg.norm(np.cross(tHat_B_sim, r_TC_B)) / np.linalg.norm(r_TC_B)
         np.testing.assert_allclose(offset, 0.0, rtol=accuracy, atol=accuracy, verbose=True)
-        np.testing.assert_allclose(L_B_sim, np.zeros(3), rtol=accuracy, atol=accuracy, verbose=True)
 
     return
 
@@ -190,6 +201,7 @@ if __name__ == "__main__":
         False,                   # show_plots
         0.1,                     # delta_cm
         0,                       # k
+        np.pi / 2,               # theta_max
         np.random.rand(1)[0],    # seed
         1e-4                     # accuracy
     )

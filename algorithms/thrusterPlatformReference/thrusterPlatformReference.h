@@ -34,6 +34,7 @@ class ThrusterPlatformReference final : public SysModel {
     float K{};                     //!< momentum dumping proportional gain [1/s]
     float Ki{};                    //!< momentum dumping integral gain [1]
     float controlPeriod{};         //!< integration step for the momentum dumping integral [s] (must be > 0)
+    float thetaMax{};              //!< half-angle of the thrust-deflection cone [rad] (must be in (0, pi))
 
     /*! module IO interfaces */
     ReadFunctor<VehicleConfigMsgF32Payload>

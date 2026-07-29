@@ -33,6 +33,7 @@ typedef struct {
  *  - sigma_MB / r_BM_M / r_FM_F must be finite
  *  - K / Ki must be finite and non-negative
  *  - controlPeriod [s] must be finite and positive; used as the integration step for the dumping integral
+ *  - thetaMax [rad] must lie in the open interval (0, pi); half-angle of the thrust-deflection cone
  *  - rwConfig.numRW must not exceed THRUSTER_PLATFORM_REFERENCE_MAX_NUM_RW; each spin axis a unit vector
  */
 typedef struct {
@@ -42,6 +43,7 @@ typedef struct {
     float K;              /*!< [1/s] momentum dumping proportional gain */
     float Ki;             /*!< [-]   momentum dumping integral gain */
     float controlPeriod;  /*!< [s]   integration step for the momentum dumping integral (> 0) */
+    float thetaMax;       /*!< [rad] half-angle of the thrust-deflection cone, in (0, pi) */
     bool momentumDumping; /*!< [-]   whether reaction wheel momentum dumping is active */
     ThrusterPlatformReferenceRwArrayConfiguration_c rwConfig; /*!< [-] RW configuration used for momentum dumping */
 } ThrusterPlatformReferenceConfig_c;

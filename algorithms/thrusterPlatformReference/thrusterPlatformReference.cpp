@@ -23,8 +23,15 @@ ThrusterPlatformReferenceConfig ThrusterPlatformReference::toConfig() {
         rwConfig.JsList = cArrayToEigenVector(rwConfigParams.JsList);
     }
 
-    return ThrusterPlatformReferenceConfig::create(
-        this->sigma_MB, this->r_BM_M, this->r_FM_F, this->K, this->Ki, this->controlPeriod, momentumDumping, rwConfig);
+    return ThrusterPlatformReferenceConfig::create(this->sigma_MB,
+                                                   this->r_BM_M,
+                                                   this->r_FM_F,
+                                                   this->K,
+                                                   this->Ki,
+                                                   this->controlPeriod,
+                                                   this->thetaMax,
+                                                   momentumDumping,
+                                                   rwConfig);
 }
 
 /*! This method performs a complete reset of the module: it validates the required input messages and (re)creates

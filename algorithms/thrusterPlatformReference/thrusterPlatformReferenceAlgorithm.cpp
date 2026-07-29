@@ -37,6 +37,27 @@ Eigen::Matrix3f alignThrustLine(const Eigen::Vector3f& r_CM_M,
 
     return prvToDcm(prv_FM);
 }
+
+/*! Clamp the reference rotation so the thrust deflection from its neutral direction stays within the cone of
+ half-angle thetaMax. */
+Eigen::Matrix3f clampThrustDeflection(const Eigen::Matrix3f& dcm_FM, const Eigen::Vector3f& tHat_F, float thetaMax) {
+    const Eigen::Vector3f& tHatNeutral_M = tHat_F;                  // neutral thrust direction (F == M), M coordinates
+    const Eigen::Vector3f tHatRef_M = dcm_FM.transpose() * tHat_F;  // reference thrust direction, M coordinates
+    const float deflection = safeAcosf(tHatNeutral_M.dot(tHatRef_M));
+
+    Eigen::Matrix3f dcm_FcM = dcm_FM;  // clamped platform reference frame Fc; equals [FM] while within the cone
+    if (deflection > thetaMax) {
+        // rotate the platform reference from the aligned frame F to the clamped frame Fc, removing the excess
+        // deflection (deflection - thetaMax) so the thrust lands on the cone.
+        Eigen::Vector3f prvAxis_F = dcm_FM * (tHatRef_M.cross(tHatNeutral_M));
+        if (std::numbers::pi_v<float> - deflection < kSmallAngle) {
+            prvAxis_F = tHat_F.unitOrthogonal();  // nearly opposite: any orthogonal axis
+        }
+        const Eigen::Vector3f prv_FcF_F = (deflection - thetaMax) * prvAxis_F.stableNormalized();
+        dcm_FcM = prvToDcm(prv_FcF_F) * dcm_FM;
+    }
+    return dcm_FcM;
+}
 }  // namespace
 
 /*! @brief Construct the algorithm with a validated configuration and seed the runtime integrator state.
@@ -103,6 +124,9 @@ ThrusterPlatformReferenceOutput ThrusterPlatformReferenceAlgorithm::update(const
         const Eigen::Vector3f r_CdM_M = r_CM_M + d_M;
         dcm_FM = alignThrustLine(r_CdM_M, r_TM_F, tHat_F);
     }
+
+    // limit the thrust deflection to the configured cone about its neutral direction
+    dcm_FM = clampThrustDeflection(dcm_FM, tHat_F, this->cfg.getThetaMax());
 
     // mapping between the final platform frame and the body frame
     const Eigen::Matrix3f dcm_FB = dcm_FM * dcm_MB;

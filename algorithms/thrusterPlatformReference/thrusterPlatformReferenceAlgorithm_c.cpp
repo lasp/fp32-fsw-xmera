@@ -22,6 +22,7 @@ ThrusterPlatformReferenceConfig configFromC(const ThrusterPlatformReferenceConfi
                                                    c.K,
                                                    c.Ki,
                                                    c.controlPeriod,
+                                                   c.thetaMax,
                                                    c.momentumDumping,
                                                    rwArrayConfigFromC(c.rwConfig));
 }

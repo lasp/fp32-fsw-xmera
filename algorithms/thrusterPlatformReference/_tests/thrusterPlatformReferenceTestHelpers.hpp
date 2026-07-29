@@ -7,12 +7,14 @@
 #include <Eigen/Core>
 #include <cmath>
 
-// Build a validated configuration with momentum dumping disabled (pure center-of-mass alignment mode).
+// Build a validated configuration with momentum dumping disabled (pure center-of-mass alignment mode). The default
+// deflection cone is wide enough that it does not clamp the geometries used by the alignment tests.
 inline ThrusterPlatformReferenceConfig makeAlignmentConfig(const Eigen::Vector3f& sigma_MB,
                                                            const Eigen::Vector3f& r_BM_M,
-                                                           const Eigen::Vector3f& r_FM_F) {
+                                                           const Eigen::Vector3f& r_FM_F,
+                                                           float thetaMax = 3.0F) {
     return ThrusterPlatformReferenceConfig::create(
-        sigma_MB, r_BM_M, r_FM_F, 0.0F, 0.0F, 1.0F, false, ThrusterPlatformReferenceRwArrayConfiguration{});
+        sigma_MB, r_BM_M, r_FM_F, 0.0F, 0.0F, 1.0F, thetaMax, false, ThrusterPlatformReferenceRwArrayConfiguration{});
 }
 
 // Assemble the per-cycle inputs from the center-of-mass position and thruster geometry.

@@ -157,6 +157,31 @@ where :math:`\boldsymbol{h}_w` is the momentum on the wheels and :math:`\boldsym
 The integral is accumulated with a trapezoidal rule using the configured ``controlPeriod`` as the fixed time step
 (the module is expected to run at that rate).
 
+Deflection cone limit
+^^^^^^^^^^^^^^^^^^^^^
+The reference rotation is finally limited so that the thruster direction stays within a cone of half-angle
+:math:`\theta_\text{max}` (``thetaMax``) about its neutral, un-rotated direction. Let
+:math:`\hat{\boldsymbol{t}}_0 = {}^\mathcal{F}\hat{\boldsymbol{t}}` be the thrust direction at zero deflection
+(:math:`[\mathcal{FM}] = [I]`) and :math:`\hat{\boldsymbol{t}}_r = [\mathcal{FM}]^T {}^\mathcal{F}\hat{\boldsymbol{t}}`
+the thrust direction at the reference orientation, both in mount-frame coordinates. The deflection is
+
+.. math::
+    \delta = \arccos\left( \hat{\boldsymbol{t}}_0 \cdot \hat{\boldsymbol{t}}_r \right).
+
+When :math:`\delta \leq \theta_\text{max}` the reference rotation is left unchanged. Otherwise the aligned thrust
+direction is projected onto the cone by rotating it back toward :math:`\hat{\boldsymbol{t}}_0`, in the plane the two
+directions span, until the deflection equals :math:`\theta_\text{max}`. This is applied to the reference rotation as
+
+.. math::
+    [\mathcal{FM}]' = [\mathcal{FM}]\,[C]^T, \qquad
+    [C] = \text{PRV}\!\left( (\delta - \theta_\text{max})\,
+        \frac{\hat{\boldsymbol{t}}_0 \times \hat{\boldsymbol{t}}_r}{\|\hat{\boldsymbol{t}}_0 \times \hat{\boldsymbol{t}}_r\|} \right),
+
+where :math:`\text{PRV}(\cdot)` denotes the direction cosine matrix of a principal rotation vector. When the aligned
+and neutral directions are nearly antiparallel the rotation plane is ill-defined and an arbitrary axis orthogonal to
+:math:`\hat{\boldsymbol{t}}_0` is used. Because the projection reduces the platform rotation, a clamped reference no
+longer points the thruster exactly through the center of mass, and the resulting net thruster torque is non-zero.
+
 Body-frame outputs
 ^^^^^^^^^^^^^^^^^^
 The body-frame outputs are resolved from the platform frame through the composite direction cosine matrix
@@ -208,6 +233,10 @@ raises ``fsw::invalid_argument``.
       - 0
       - :math:`> 0`
       - integration time step [s] for the momentum dumping integral (the module update rate)
+    * - ``thetaMax``
+      - 0
+      - :math:`(0, \pi)`
+      - half-angle [rad] of the cone limiting the thrust deflection from its neutral direction (mandatory)
 
 In addition, when momentum dumping is enabled the reaction-wheel configuration read from ``rwConfigDataInMsg`` must
 have a wheel count not exceeding the compile-time maximum (``RW_EFF_CNT``) and unit-length spin axes (they are
@@ -226,6 +255,7 @@ then add the module to the simulation task (``reset()`` validates and builds the
     platformReference.K = K
     platformReference.Ki = Ki
     platformReference.controlPeriod = controlPeriod
+    platformReference.thetaMax = thetaMax
 
     platformReference.vehConfigInMsg.subscribeTo(vehConfigMsg)
     platformReference.thrusterConfigFInMsg.subscribeTo(thrConfigFMsg)
@@ -240,6 +270,7 @@ Module Assumptions and Limitations
 The reference rotation exists only when the thruster line of action can reach the center of mass, i.e. when the
 thrust moment arm about the joint :math:`M` does not exceed the distance :math:`b` from the joint to the center of
 mass (the ray-sphere discriminant in *Thrust-line alignment* is non-negative). When the center of mass coincides
-with the joint the reference rotation is undefined and the identity rotation is returned. The module places no bound
-on the platform deflection required to achieve the alignment; enforcing such a limit is the responsibility of the
-downstream module that converts the reported thruster direction into platform gimbal angles.
+with the joint the reference rotation is undefined and the identity rotation is returned. When the alignment would
+require deflecting the thruster beyond the configured cone half-angle :math:`\theta_\text{max}`, the reference is
+clamped to the cone (see *Deflection cone limit*); in that case the thruster is not aligned through the center of
+mass and the reported net torque is non-zero.
