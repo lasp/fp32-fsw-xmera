@@ -1,12 +1,12 @@
 Executive Summary
 -----------------
-This module computes a reference orientation for a dual-gimballed platform connected to the main hub. The platform
-can only perform a tip-and-tilt type of rotation, and therefore one degree of freedom is blocked. A thruster is
-mounted on the platform, whose direction is known in platform-frame coordinates. The goal of this module is to
-compute a reference orientation for the platform which aligns the thruster direction with the system's center of
-mass, to zero the net torque produced by the thruster on the spacecraft. Alternatively, the module can offset the
-thrust direction with respect to the center of mass to produce a net torque that dumps the momentum accumulated on
-the reaction wheels.
+This module computes a reference orientation for a platform connected to the main hub, on which a thruster is
+mounted whose direction is known in platform-frame coordinates. The goal of this module is to compute a reference
+orientation for the platform which aligns the thruster line of action with the system's center of mass, to zero the
+net torque produced by the thruster on the spacecraft. Alternatively, the module can offset the thrust direction
+with respect to the center of mass to produce a net torque that dumps the momentum accumulated on the reaction
+wheels. The module reports the resulting thruster direction in body-frame coordinates; a downstream module is
+responsible for computing the platform gimbal angles that realize it.
 
 All numeric computation is single-precision (``float`` / fp32). The module is a single algorithm
 (``ThrusterPlatformReferenceAlgorithm``) with two interface adapters: a ``SysModel`` adapter that connects it to
@@ -61,12 +61,6 @@ information on what this message is used for.
     * - rwSpeedsInMsg
       - :ref:`RWSpeedMsgPayload`
       - Optional input message containing the speeds of the reaction wheels relative to the hub.
-    * - hingedRigidBodyRef1OutMsg
-      - :ref:`HingedRigidBodyMsgPayload`
-      - Output message containing the reference angle (and zero angle rate) for the tip angle.
-    * - hingedRigidBodyRef2OutMsg
-      - :ref:`HingedRigidBodyMsgPayload`
-      - Output message containing the reference angle (and zero angle rate) for the tilt angle.
     * - bodyHeadingOutMsg
       - :ref:`BodyHeadingMsgPayload`
       - Output message containing the unit direction vector of the thruster in body-frame coordinates.
@@ -86,25 +80,17 @@ A detailed mathematical derivation of the equations implemented in this module c
 `R. Calaon, L. Kiner, C. Allard and H. Schaub, "Momentum Management of a Spacecraft equipped with a Dual-Gimballed
 Electric Thruster" <http://hanspeterschaub.info/Papers/Calaon2023a.pdf>`__.
 
-The algorithm computes a direction cosine matrix :math:`[\mathcal{FM}]` that describes the rotation between the
-platform frame :math:`\mathcal{F}` and the mount frame :math:`\mathcal{M}`. To be compliant with the constraint in
-the motion of the platform, i.e. the dual gimbal, such frame must have a zero in the element (2,1). When such
-condition is met, the reference angles computed from the DCM allow the thruster to align through the system's
-center of mass. The input parameters allow specifying offsets between the origin :math:`M` of the hub-fixed mount
-frame :math:`\mathcal{M}` and the origin :math:`F` of the platform-fixed frame :math:`\mathcal{F}`, the application
-point of the thruster force in the :math:`\mathcal{F}` frame, and the direction, in :math:`\mathcal{F}`-frame
-coordinates, of the thrust vector.
+The algorithm computes a direction cosine matrix :math:`[\mathcal{FM}]` that describes the reference rotation
+between the platform frame :math:`\mathcal{F}` and the mount frame :math:`\mathcal{M}`, chosen so that the thruster
+line of action passes through the system's center of mass. The input parameters allow specifying offsets between the
+origin :math:`M` of the hub-fixed mount frame :math:`\mathcal{M}` and the origin :math:`F` of the platform-fixed
+frame :math:`\mathcal{F}`, the application point of the thruster force in the :math:`\mathcal{F}` frame, and the
+direction, in :math:`\mathcal{F}`-frame coordinates, of the thrust vector.
 
 Platform reference rotation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-The reference DCM is built as the product of two rotations,
-
-.. math::
-    [\mathcal{FM}] = [\mathcal{F}_3\mathcal{F}_2][\mathcal{F}_2\mathcal{M}],
-
-where :math:`[\mathcal{F}_2\mathcal{M}]` aligns the thruster line of action with the system center of mass and
-:math:`[\mathcal{F}_3\mathcal{F}_2]` rotates about that aligned axis to satisfy the tip-and-tilt kinematic
-constraint. The relevant geometry is first assembled in the mount and platform frames:
+The reference DCM :math:`[\mathcal{FM}]` is the single rotation that aligns the thruster line of action with the
+system center of mass (derived below). The relevant geometry is first assembled in the mount and platform frames:
 
 .. math::
     {}^\mathcal{M}\boldsymbol{r}_{C/M} = [\mathcal{MB}]\,{}^\mathcal{B}\boldsymbol{r}_{C/B}
@@ -145,7 +131,7 @@ squared moment arm of the thrust line about :math:`M`; a real intersection exist
 point :math:`{}^\mathcal{F}\boldsymbol{r}_{Ct/M} = {}^\mathcal{F}\boldsymbol{r}_{T/M}
 + c\,{}^\mathcal{F}\hat{\boldsymbol{t}}` is the target position of the center of mass in the platform frame.
 
-The alignment rotation :math:`[\mathcal{F}_2\mathcal{M}]` carries :math:`\hat{\boldsymbol{r}}_{C/M}` onto
+The reference rotation :math:`[\mathcal{FM}]` carries :math:`\hat{\boldsymbol{r}}_{C/M}` onto
 :math:`\hat{\boldsymbol{r}}_{Ct/M}` through the separation angle
 :math:`\phi = \arccos\left(\hat{\boldsymbol{r}}_{C/M}\cdot\hat{\boldsymbol{r}}_{Ct/M}\right)` about the axis
 :math:`\hat{\boldsymbol{e}} = \hat{\boldsymbol{r}}_{Ct/M}\times\hat{\boldsymbol{r}}_{C/M}`, encoded as the principal
@@ -169,26 +155,13 @@ where :math:`\boldsymbol{h}_w` is the momentum on the wheels and :math:`\boldsym
     \boldsymbol{H}_w = \int_{t_0}^t \boldsymbol{h}_w \text{d}t.
 
 The integral is accumulated with a trapezoidal rule using the configured ``controlPeriod`` as the fixed time step
-(the module is expected to run at that rate). The inputs ``theta1Max`` and ``theta2Max`` bound the output reference
-angles for the platform. If there are no
-mechanical bounds, setting these inputs to a non-positive value bypasses the routine that bounds these angles.
-
-Reference angle extraction
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
-The tip and tilt reference angles :math:`\nu_{1R}` and :math:`\nu_{2R}` are extracted from the final DCM according
-to:
-
-.. math::
-    \begin{align}
-        \nu_{1R} &= \arctan \left( \frac{f_{23}}{f_{22}} \right) &
-        \nu_{2R} &= \arctan \left( \frac{f_{31}}{f_{11}} \right)
-    \end{align}
+(the module is expected to run at that rate).
 
 Body-frame outputs
 ^^^^^^^^^^^^^^^^^^
 The body-frame outputs are resolved from the platform frame through the composite direction cosine matrix
 :math:`[\mathcal{FB}] = [\mathcal{FM}][\mathcal{MB}]`, where :math:`[\mathcal{MB}]` is built from ``sigma_MB`` and
-:math:`[\mathcal{FM}]` is rebuilt from the (bounded) reference angles. The thrust unit direction in body-frame
+:math:`[\mathcal{FM}]` is the reference rotation derived above. The thrust unit direction in body-frame
 coordinates is :math:`{}^\mathcal{B}\hat{\boldsymbol{t}} = [\mathcal{FB}]^T {}^\mathcal{F}\hat{\boldsymbol{t}}`
 (written to ``bodyHeadingOutMsg`` and to ``thrusterConfigBOutMsg``), and the thrust application point relative to
 the body-frame origin is :math:`{}^\mathcal{B}\boldsymbol{r}_{T/B} = {}^\mathcal{B}\boldsymbol{r}_{C/B} +
@@ -235,14 +208,6 @@ raises ``fsw::invalid_argument``.
       - 0
       - :math:`> 0`
       - integration time step [s] for the momentum dumping integral (the module update rate)
-    * - ``theta1Max``
-      - 0
-      - finite
-      - absolute bound on the tip angle; a non-positive value disables bounding
-    * - ``theta2Max``
-      - 0
-      - finite
-      - absolute bound on the tilt angle; a non-positive value disables bounding
 
 In addition, when momentum dumping is enabled the reaction-wheel configuration read from ``rwConfigDataInMsg`` must
 have a wheel count not exceeding the compile-time maximum (``RW_EFF_CNT``) and unit-length spin axes (they are
@@ -261,8 +226,6 @@ then add the module to the simulation task (``reset()`` validates and builds the
     platformReference.K = K
     platformReference.Ki = Ki
     platformReference.controlPeriod = controlPeriod
-    platformReference.theta1Max = theta1Max
-    platformReference.theta2Max = theta2Max
 
     platformReference.vehConfigInMsg.subscribeTo(vehConfigMsg)
     platformReference.thrusterConfigFInMsg.subscribeTo(thrConfigFMsg)
@@ -274,10 +237,9 @@ then add the module to the simulation task (``reset()`` validates and builds the
 
 Module Assumptions and Limitations
 ----------------------------------
-As pointed out in the paper referenced above, it is not always guaranteed that a direction cosine matrix exists
-that can satisfy both the pointing requirement on the thrust direction and the kinematic constraint on the
-dual-gimballed platform. When a solution does not exist, a minimum problem is solved to compute the closest
-constraint-incompliant DCM. The tip and tilt reference angles are then extracted from that final DCM without
-checking whether :math:`[\mathcal{FM}]` is constraint compliant. As a result, the angles :math:`\nu_{1R}` and
-:math:`\nu_{2R}` produce a constraint-compliant reference, which however might not align the thruster with the
-desired point in the hub.
+The reference rotation exists only when the thruster line of action can reach the center of mass, i.e. when the
+thrust moment arm about the joint :math:`M` does not exceed the distance :math:`b` from the joint to the center of
+mass (the ray-sphere discriminant in *Thrust-line alignment* is non-negative). When the center of mass coincides
+with the joint the reference rotation is undefined and the identity rotation is returned. The module places no bound
+on the platform deflection required to achieve the alignment; enforcing such a limit is the responsibility of the
+downstream module that converts the reported thruster direction into platform gimbal angles.

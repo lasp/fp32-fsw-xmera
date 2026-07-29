@@ -23,16 +23,8 @@ ThrusterPlatformReferenceConfig ThrusterPlatformReference::toConfig() {
         rwConfig.JsList = cArrayToEigenVector(rwConfigParams.JsList);
     }
 
-    return ThrusterPlatformReferenceConfig::create(this->sigma_MB,
-                                                   this->r_BM_M,
-                                                   this->r_FM_F,
-                                                   this->K,
-                                                   this->Ki,
-                                                   this->controlPeriod,
-                                                   this->theta1Max,
-                                                   this->theta2Max,
-                                                   momentumDumping,
-                                                   rwConfig);
+    return ThrusterPlatformReferenceConfig::create(
+        this->sigma_MB, this->r_BM_M, this->r_FM_F, this->K, this->Ki, this->controlPeriod, momentumDumping, rwConfig);
 }
 
 /*! This method performs a complete reset of the module: it validates the required input messages and (re)creates
@@ -71,8 +63,8 @@ void ThrusterPlatformReference::reInitialize() {
     this->algorithm->reInitialize();
 }
 
-/*! This method computes the reference platform tip and tilt angles that align the thruster with the system center of
- mass (optionally offset to dump reaction wheel momentum) and writes the platform, body-heading, thruster-torque and
+/*! This method computes the platform reference orientation that aligns the thruster line of action with the system
+ center of mass (optionally offset to dump reaction wheel momentum) and writes the body-heading, thruster-torque and
  thruster-configuration output messages.
  @return void
  @param callTime The clock time at which the function was called (nanoseconds)
@@ -96,16 +88,6 @@ void ThrusterPlatformReference::updateState(const uint64_t callTime) {
     }
 
     const ThrusterPlatformReferenceOutput out = this->algorithm->update(inputs);
-
-    HingedRigidBodyMsgF32Payload hingedRigidBodyRef1Out{};
-    hingedRigidBodyRef1Out.theta = out.theta1;
-    hingedRigidBodyRef1Out.thetaDot = 0.0F;
-    this->hingedRigidBodyRef1OutMsg.write(&hingedRigidBodyRef1Out, this->moduleID, callTime);
-
-    HingedRigidBodyMsgF32Payload hingedRigidBodyRef2Out{};
-    hingedRigidBodyRef2Out.theta = out.theta2;
-    hingedRigidBodyRef2Out.thetaDot = 0.0F;
-    this->hingedRigidBodyRef2OutMsg.write(&hingedRigidBodyRef2Out, this->moduleID, callTime);
 
     // the body-frame thrust heading equals the body-frame thrust unit direction
     BodyHeadingMsgF32Payload bodyHeadingOut{};

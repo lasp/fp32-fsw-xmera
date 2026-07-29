@@ -22,8 +22,6 @@ ThrusterPlatformReferenceConfig configFromC(const ThrusterPlatformReferenceConfi
                                                    c.K,
                                                    c.Ki,
                                                    c.controlPeriod,
-                                                   c.theta1Max,
-                                                   c.theta2Max,
                                                    c.momentumDumping,
                                                    rwArrayConfigFromC(c.rwConfig));
 }
@@ -67,8 +65,6 @@ ThrusterPlatformReferenceOutput_c ThrusterPlatformReferenceAlgorithm_update(
         reinterpret_cast<::ThrusterPlatformReferenceAlgorithm*>(self)->update(inputsFromC(*inputs));
 
     ThrusterPlatformReferenceOutput_c result{};
-    result.theta1 = out.theta1;
-    result.theta2 = out.theta2;
     eigenVectorToCArray(out.Lreq_B, result.Lreq_B.data);
     eigenVectorToCArray(out.r_TB_B, result.r_TB_B.data);
     eigenVectorToCArray(out.tHat_B, result.tHat_B.data);

@@ -49,10 +49,10 @@ void ThrusterPlatformReferenceAlgorithm_setConfig(ThrusterPlatformReferenceAlgor
 void ThrusterPlatformReferenceAlgorithm_reInitialize(ThrusterPlatformReferenceAlgorithmHandle* self);
 
 /**
- * @brief Compute the platform tip/tilt reference and derived body-frame thruster quantities.
+ * @brief Compute the platform reference orientation and derived body-frame thruster quantities.
  * @param self   Pointer to the instance.
  * @param inputs Pointer to the per-cycle inputs (algorithm-native POD).
- * @return ThrusterPlatformReferenceOutput_c reference angles and derived body-frame thruster quantities.
+ * @return ThrusterPlatformReferenceOutput_c derived body-frame thruster quantities.
  */
 ThrusterPlatformReferenceOutput_c ThrusterPlatformReferenceAlgorithm_update(
     ThrusterPlatformReferenceAlgorithmHandle* self,
