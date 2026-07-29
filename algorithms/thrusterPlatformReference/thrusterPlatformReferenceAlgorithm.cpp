@@ -8,52 +8,34 @@
 
 namespace {
 constexpr float kZeroTolerance = 1e-6F;  // module tolerance for treating a quantity as zero
+constexpr float kSmallAngle = 1e-3F;     // small angle tolerance [rad]
 
-/*! Compute the first rotation that makes the thrust direction parallel to the center-of-mass direction. */
-Eigen::Matrix3f tprComputeFirstRotation(const Eigen::Vector3f& tHat_F, const Eigen::Vector3f& rHat_CM_F) {
-    float phi = safeAcosf(tHat_F.dot(rHat_CM_F));
-    Eigen::Vector3f e_phi = tHat_F.cross(rHat_CM_F);
-    // if phi = pi, e_phi can be any vector perpendicular to tHat_F
-    if (fabsf(phi - std::numbers::pi_v<float>) < kZeroTolerance) {
-        phi = std::numbers::pi_v<float>;
-        if (fabsf(tHat_F(0)) > kZeroTolerance) {
-            e_phi = Eigen::Vector3f(-(tHat_F(1) + tHat_F(2)) / tHat_F(0), 1.0F, 1.0F);
-        } else if (fabsf(tHat_F(1)) > kZeroTolerance) {
-            e_phi = Eigen::Vector3f(1.0F, -(tHat_F(0) + tHat_F(2)) / tHat_F(1), 1.0F);
-        } else {
-            e_phi = Eigen::Vector3f(1.0F, 1.0F, -(tHat_F(0) + tHat_F(1)) / tHat_F(2));
-        }
-    } else if (fabsf(phi) < kZeroTolerance) {
-        phi = 0.0F;
-    }
-    e_phi.normalize();
-    const Eigen::Vector3f prv = phi * e_phi;
-    return prvToDcm(prv);
-}
+/*! Compute the platform rotation [FM] aligning the thruster line of action with the system center of mass. */
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters) -- the vectors are distinct by frame and documented.
+Eigen::Matrix3f alignThrustLine(const Eigen::Vector3f& r_CM_M,
+                                const Eigen::Vector3f& r_TM_F,
+                                const Eigen::Vector3f& tHat_F) {
+    Eigen::Vector3f prv_FM = Eigen::Vector3f::Zero();  // zero rotation when the center of mass coincides with the joint
 
-/*! Compute the second rotation that zeroes the offset between the thrust direction and the CM-to-thruster vector. */
-Eigen::Matrix3f tprComputeSecondRotation(const Eigen::Vector3f& r_CM_F,
-                                         const Eigen::Vector3f& r_TM_F,
-                                         const Eigen::Vector3f& r_CT_F,
-                                         const Eigen::Vector3f& tHat_F) {
-    const float a = r_TM_F.norm();
-    const float b = r_CM_F.norm();
-    const float c1 = r_CT_F.norm();
+    const float b = r_CM_M.norm();
+    if (b >= kZeroTolerance) {
+        // thrust-ray / center-of-mass-sphere intersection (positive square-root branch)
+        const float rt = r_TM_F.dot(tHat_F);
+        const float ct = -rt + safeSqrtf((rt * rt) - r_TM_F.squaredNorm() + (b * b));
+        const Eigen::Vector3f r_CtM_F = r_TM_F + (ct * tHat_F);
 
-    float psi = 0.0F;
-    if (fabsf(a) >= kZeroTolerance) {
-        const float beta = safeAcosf(-r_TM_F.dot(tHat_F) / a);
-        const float nu = safeAcosf(-r_TM_F.dot(r_CT_F) / (a * c1));
-        const float c2 = (a * safeCosf(beta)) + safeSqrtf((b * b) - (a * a * safeSinf(beta) * safeSinf(beta)));
-        const float cosGamma1 = ((a * a) + (b * b) - (c1 * c1)) / (2.0F * a * b);
-        const float cosGamma2 = ((a * a) + (b * b) - (c2 * c2)) / (2.0F * a * b);
-        psi = safeAsinf(((c1 * safeSinf(nu) * cosGamma2) - (c2 * safeSinf(beta) * cosGamma1)) / b);
+        // rotate r_CM_M onto the intersection point about the cross-product axis
+        const Eigen::Vector3f rHat_CM_M = r_CM_M.stableNormalized();
+        const Eigen::Vector3f rHat_CtM_F = r_CtM_F.stableNormalized();
+        const float angle = safeAcosf(rHat_CM_M.dot(rHat_CtM_F));
+
+        const Eigen::Vector3f e_axis = (std::numbers::pi_v<float> - angle < kSmallAngle)
+                                           ? rHat_CM_M.unitOrthogonal()  // nearly opposite: any orthogonal axis
+                                           : rHat_CtM_F.cross(rHat_CM_M);
+        prv_FM = angle * e_axis.stableNormalized();
     }
 
-    Eigen::Vector3f e_psi = tHat_F.cross(r_CT_F);
-    e_psi.normalize();
-    const Eigen::Vector3f prv = psi * e_psi;
-    return prvToDcm(prv);
+    return prvToDcm(prv_FM);
 }
 
 /*! Compute the third rotation making the frame compliant with the tip-and-tilt platform constraint. */
@@ -106,19 +88,14 @@ Eigen::Matrix3f tprComputeThirdRotation(const Eigen::Vector3f& e_theta, const Ei
     return prvToDcm(prv);
 }
 
-/*! Compose the three rotations into the platform-frame DCM that aligns the thruster with the center of mass. */
+/*! Compose the rotations into the platform-frame DCM that aligns the thruster with the center of mass. */
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters) -- the vectors are distinct by frame and documented.
 Eigen::Matrix3f tprComputeFinalRotation(const Eigen::Vector3f& r_CM_M,
                                         const Eigen::Vector3f& r_TM_F,
                                         const Eigen::Vector3f& thrust_F) {
     const Eigen::Vector3f tHat_F = thrust_F.normalized();
-    const Eigen::Vector3f rHat_CM_F = r_CM_M.normalized();  // assume zero initial rotation between F and M
 
-    const Eigen::Matrix3f dcm_F1M = tprComputeFirstRotation(tHat_F, rHat_CM_F);
-    const Eigen::Vector3f r_CM_F = dcm_F1M * r_CM_M;
-    const Eigen::Vector3f r_CT_F = r_CM_F - r_TM_F;
-    const Eigen::Matrix3f dcm_F2F1 = tprComputeSecondRotation(r_CM_F, r_TM_F, r_CT_F, tHat_F);
-    const Eigen::Matrix3f dcm_F2M = dcm_F2F1 * dcm_F1M;
+    const Eigen::Matrix3f dcm_F2M = alignThrustLine(r_CM_M, r_TM_F, tHat_F);
     const Eigen::Vector3f e_theta = (dcm_F2M * r_CM_M).normalized();
     const Eigen::Matrix3f dcm_F3F2 = tprComputeThirdRotation(e_theta, dcm_F2M);
     return dcm_F3F2 * dcm_F2M;

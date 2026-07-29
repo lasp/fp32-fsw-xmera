@@ -95,6 +95,67 @@ frame :math:`\mathcal{M}` and the origin :math:`F` of the platform-fixed frame :
 point of the thruster force in the :math:`\mathcal{F}` frame, and the direction, in :math:`\mathcal{F}`-frame
 coordinates, of the thrust vector.
 
+Platform reference rotation
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The reference DCM is built as the product of two rotations,
+
+.. math::
+    [\mathcal{FM}] = [\mathcal{F}_3\mathcal{F}_2][\mathcal{F}_2\mathcal{M}],
+
+where :math:`[\mathcal{F}_2\mathcal{M}]` aligns the thruster line of action with the system center of mass and
+:math:`[\mathcal{F}_3\mathcal{F}_2]` rotates about that aligned axis to satisfy the tip-and-tilt kinematic
+constraint. The relevant geometry is first assembled in the mount and platform frames:
+
+.. math::
+    {}^\mathcal{M}\boldsymbol{r}_{C/M} = [\mathcal{MB}]\,{}^\mathcal{B}\boldsymbol{r}_{C/B}
+        + {}^\mathcal{M}\boldsymbol{r}_{B/M}, \qquad
+    {}^\mathcal{F}\boldsymbol{r}_{T/M} = {}^\mathcal{F}\boldsymbol{r}_{F/M} + {}^\mathcal{F}\boldsymbol{r}_{T/F},
+        \qquad
+    {}^\mathcal{F}\boldsymbol{t} = F\,{}^\mathcal{F}\hat{\boldsymbol{t}},
+
+with :math:`[\mathcal{MB}]` built from ``sigma_MB`` and :math:`F` the thrust magnitude.
+
+Thrust-line alignment
+^^^^^^^^^^^^^^^^^^^^^^
+The thrust line of action is fixed in the platform frame as the ray
+:math:`{}^\mathcal{F}\boldsymbol{r}_{T/M} + c\,{}^\mathcal{F}\hat{\boldsymbol{t}}`, with :math:`c \geq 0`. The
+alignment rotation is length preserving, so the rotated center of mass lies on a sphere of radius
+:math:`b = \|\boldsymbol{r}_{C/M}\|` about the joint :math:`M`. Aligning the thrust line through the center of mass
+therefore reduces to intersecting the ray with that sphere,
+
+.. math::
+    \left\| {}^\mathcal{F}\boldsymbol{r}_{T/M} + c\,{}^\mathcal{F}\hat{\boldsymbol{t}} \right\|^2 = b^2,
+
+which, since :math:`\hat{\boldsymbol{t}}` is a unit vector, is a quadratic in :math:`c`,
+
+.. math::
+    c^2 + 2\left(\boldsymbol{r}_{T/M}\cdot\hat{\boldsymbol{t}}\right) c
+        + \left( \|\boldsymbol{r}_{T/M}\|^2 - b^2 \right) = 0,
+
+whose relevant root (taken with the positive square root) is
+
+.. math::
+    c = -\boldsymbol{r}_{T/M}\cdot\hat{\boldsymbol{t}}
+        + \sqrt{\left(\boldsymbol{r}_{T/M}\cdot\hat{\boldsymbol{t}}\right)^2 - \|\boldsymbol{r}_{T/M}\|^2 + b^2}.
+
+The discriminant equals :math:`b^2 - r_\text{arm}^2`, where
+:math:`r_\text{arm}^2 = \|\boldsymbol{r}_{T/M}\|^2 - (\boldsymbol{r}_{T/M}\cdot\hat{\boldsymbol{t}})^2` is the
+squared moment arm of the thrust line about :math:`M`; a real intersection exists whenever
+:math:`b \geq r_\text{arm}`, i.e. when the center of mass is reachable by the thrust direction. The intersection
+point :math:`{}^\mathcal{F}\boldsymbol{r}_{Ct/M} = {}^\mathcal{F}\boldsymbol{r}_{T/M}
++ c\,{}^\mathcal{F}\hat{\boldsymbol{t}}` is the target position of the center of mass in the platform frame.
+
+The alignment rotation :math:`[\mathcal{F}_2\mathcal{M}]` carries :math:`\hat{\boldsymbol{r}}_{C/M}` onto
+:math:`\hat{\boldsymbol{r}}_{Ct/M}` through the separation angle
+:math:`\phi = \arccos\left(\hat{\boldsymbol{r}}_{C/M}\cdot\hat{\boldsymbol{r}}_{Ct/M}\right)` about the axis
+:math:`\hat{\boldsymbol{e}} = \hat{\boldsymbol{r}}_{Ct/M}\times\hat{\boldsymbol{r}}_{C/M}`, encoded as the principal
+rotation vector :math:`\phi\,\hat{\boldsymbol{e}}`. When the two directions are nearly antiparallel the cross
+product is ill-defined and any axis orthogonal to :math:`\hat{\boldsymbol{r}}_{C/M}` is used for the
+:math:`180^\circ` rotation. When the center of mass coincides with the joint (:math:`b \approx 0`) the alignment is
+undefined and the identity rotation is returned.
+
+Momentum dumping
+^^^^^^^^^^^^^^^^
 When the optional reaction-wheel input messages are connected the user can specify the gain :math:`\kappa` (``K``),
 the proportional gain of a control law that computes an offset with respect to the center of mass; this makes the
 thruster apply a torque on the system that dumps the momentum accumulated on the wheels. The control law is:
@@ -112,6 +173,8 @@ The integral is accumulated with a trapezoidal rule using the configured ``contr
 angles for the platform. If there are no
 mechanical bounds, setting these inputs to a non-positive value bypasses the routine that bounds these angles.
 
+Reference angle extraction
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 The tip and tilt reference angles :math:`\nu_{1R}` and :math:`\nu_{2R}` are extracted from the final DCM according
 to:
 
@@ -121,6 +184,8 @@ to:
         \nu_{2R} &= \arctan \left( \frac{f_{31}}{f_{11}} \right)
     \end{align}
 
+Body-frame outputs
+^^^^^^^^^^^^^^^^^^
 The body-frame outputs are resolved from the platform frame through the composite direction cosine matrix
 :math:`[\mathcal{FB}] = [\mathcal{FM}][\mathcal{MB}]`, where :math:`[\mathcal{MB}]` is built from ``sigma_MB`` and
 :math:`[\mathcal{FM}]` is rebuilt from the (bounded) reference angles. The thrust unit direction in body-frame
