@@ -215,7 +215,10 @@ jobs:
         run: |
           set -euo pipefail
 
-          NUGET="$("${VCPKG_EXE}" fetch nuget | awk 'NF{last=$0} END{print last}')"
+          # run-vcpkg sets VCPKG_FORCE_SYSTEM_BINARIES=1 on arm64, which makes
+          # `vcpkg fetch nuget` require a system nuget (absent on macos-15).
+          # Unset it just for this fetch so vcpkg downloads its own nuget.
+          NUGET="$(env -u VCPKG_FORCE_SYSTEM_BINARIES "${VCPKG_EXE}" fetch nuget | awk 'NF{last=$0} END{print last}')"
 
           declare -a NUGET_CMD=()   # <-- make it exist to appease `set -u`
 
@@ -255,7 +258,16 @@ jobs:
 
       - name: Configure Xmera (with external modules)
         working-directory: xmera/src
+        env:
+          # macos-15's Homebrew cmake (which vcpkg uses for port builds) is 4.x,
+          # which dropped support for cmake_minimum_required(VERSION <3.5). Several
+          # vendored ports predate that, so tell cmake to configure them as if the
+          # minimum were 3.5.
+          CMAKE_POLICY_VERSION_MINIMUM: "3.5"
         run: |
+          # run-vcpkg sets VCPKG_FORCE_SYSTEM_BINARIES=1 on arm64; unset it so
+          # vcpkg can fetch its own nuget (for binary caching) on macos-15.
+          unset VCPKG_FORCE_SYSTEM_BINARIES
           ln -s "${GITHUB_WORKSPACE}" .
           args=(
             --preset fuzz-smoke-test
@@ -366,6 +378,21 @@ jobs:
           name: ctest-${{ matrix.os }}
           path: junit/ctest-${{ matrix.os }}.xml
           if-no-files-found: warn
+          retention-days: 7
+
+      - name: Upload CMake/vcpkg logs
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: cmake-logs-${{ matrix.os }}
+          path: |
+            xmera/build/CMakeCache.txt
+            xmera/build/CMakeFiles/CMakeOutput.log
+            xmera/build/CMakeFiles/CMakeError.log
+            xmera/build/vcpkg-manifest-install.log
+            b/vcpkg/buildtrees/**/*.log
+            **/Testing/Temporary/LastTest.log
+          if-no-files-found: ignore
           retention-days: 7
 
       - name: Show ccache stats
