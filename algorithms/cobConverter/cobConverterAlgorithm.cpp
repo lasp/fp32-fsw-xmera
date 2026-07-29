@@ -291,7 +291,14 @@ void CobConverterAlgorithm::computeCameraFrameUncertainty(const CobConverterInpu
         const Eigen::RowVector3d sr = this->shat_N.cast<double>() / this->sc_position.stableNorm();
         const Eigen::Matrix<double, 3, 3> rr =
             I - (this->sc_position.stableNormalized() * this->sc_position.stableNormalized().transpose());
-        const Eigen::RowVector3d deltaAlpha_delta_R = sr * rr;
+        // deltaAlpha_delta_R is d(alpha)/d(r). The full expression is -s_hat^T/(r*sin(alpha)) *
+        // (I - r_hat*r_hat^T) (see cobConverter.rst), but deltaBinary_deltaAlpha above is missing
+        // the matching sin(alpha) factor from d(betaG)/d(alpha) -- since the two are only ever
+        // used together as a product below, sin(alpha) cancels exactly, and the leading minus
+        // sign is the only piece that actually needs to be applied here. Folding in the full
+        // 1/sin(alpha) term instead would introduce a real division that blows up as alpha
+        // approaches 0 or pi, for no benefit once the cancellation is accounted for.
+        const Eigen::RowVector3d deltaAlpha_delta_R = -(sr * rr);
 
         const Eigen::RowVector3d deltaBinary_r = deltaBinary_delta_r + (deltaBinary_deltaAlpha * deltaAlpha_delta_R);
 
@@ -300,12 +307,42 @@ void CobConverterAlgorithm::computeCameraFrameUncertainty(const CobConverterInpu
         const float term2 = powf(deltaBinary_delta_R, 2.0F) * powf(this->cfg.getRadiusUncertainty(), 2.0F);
         const double sigma_beta_squared = total_deltaBinary_partials + static_cast<double>(term2);
 
-        // Define diagonal COM covariance in C and rotate to B
+        // The phase-angle correction moves COM away from COB along the 1-D direction
+        // (cos(phi), sin(phi)) in the image plane, so sigma_beta_squared is the variance of a
+        // single scalar magnitude along that line (zero variance perpendicular to it). Turning
+        // that 1-D angular variance into a 2-D covariance aligned along phi is a similarity
+        // transform by the rotation matrix R(phi) = [cos(phi) -sin(phi); sin(phi) cos(phi)]:
+        //
+        //     Cov_angle = R(phi) * diag(sigma_beta_squared, 0) * R(phi)^T
+        //               = sigma_beta_squared * [cos(phi)^2         cos(phi)*sin(phi);
+        //                                       cos(phi)*sin(phi)  sin(phi)^2       ]
+        //
+        // which is PSD for any phi (a similarity transform of a non-negative diagonal matrix).
+        // Converting from angular units (rad^2) to normalized image-plane units takes two
+        // separate, anisotropic conversions the rest of this file already keeps distinct:
+        // angle -> pixels via ifov_x/ifov_y (rad/px, an average-scale approximation -- see the
+        // comment in computeCameraParameters), then pixels -> normalized image-plane coordinates
+        // via X/Y (the exact, tan-based per-axis pixel scale used for the baseline term below).
+        // These two conversions are NOT interchangeable in general -- X/ifov_x deviates from 1
+        // by ~26% at the wide end of the supported FOV range -- so both steps are needed, applied
+        // as the diagonal congruence transform D * Cov_angle * D with D = diag(X/ifov_x, Y/ifov_y).
+        // A congruence transform by a real matrix preserves PSD-ness, and adding the baseline COB
+        // pixel-noise diagonal diag(X^2, Y^2) keeps the sum PSD, since the sum of two PSD matrices
+        // is PSD.
+        const float cosPhi = safeCosf(this->phi);
+        const float sinPhi = safeSinf(this->phi);
+        const float directionX = this->X / this->ifov_x;
+        const float directionY = this->Y / this->ifov_y;
+        const double correctionXX = sigma_beta_squared * static_cast<double>(directionX * directionX * cosPhi * cosPhi);
+        const double correctionYY = sigma_beta_squared * static_cast<double>(directionY * directionY * sinPhi * sinPhi);
+        const double correctionXY = sigma_beta_squared * static_cast<double>(directionX * directionY * cosPhi * sinPhi);
+
+        // Define COM covariance in C (now with the off-diagonal cross term) and rotate to B
         Eigen::Matrix3f covarCom_C = Eigen::Matrix3f::Zero();
-        covarCom_C(0, 0) =
-            powf(this->X, 2) + static_cast<float>(sigma_beta_squared / powf(this->ifov_x, 2) * safeCosf(this->phi));
-        covarCom_C(1, 1) =
-            powf(this->Y, 2) + static_cast<float>(sigma_beta_squared / powf(this->ifov_y, 2) * safeSinf(this->phi));
+        covarCom_C(0, 0) = powf(this->X, 2) + static_cast<float>(correctionXX);
+        covarCom_C(1, 1) = powf(this->Y, 2) + static_cast<float>(correctionYY);
+        covarCom_C(0, 1) = static_cast<float>(correctionXY);
+        covarCom_C(1, 0) = static_cast<float>(correctionXY);
         covarCom_C(2, 2) = 1.0F;
         covarCom_C *= scaleFactor;
         const Eigen::Matrix3f covarCom_B = this->dcm_CB.transpose() * covarCom_C * this->dcm_CB;

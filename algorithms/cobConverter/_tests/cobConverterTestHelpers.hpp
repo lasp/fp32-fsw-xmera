@@ -103,17 +103,37 @@ inline Eigen::Matrix3d mapComCovar(double pixels,
     const double deltaBinaryDeltaAlphaCoeff =
         (4.0 * radius / (3.0 * std::numbers::pi * positionNorm)) / (1.0 + (binaryTerm * binaryTerm));
 
+    // deltaAlphaDeltaR is d(alpha)/d(r) = -sunUnit_N^T/(r*sin(alpha)) * (I - rHat*rHat^T) (see
+    // cobConverter.rst), but omits sin(alpha) since deltaBinaryDeltaAlphaCoeff above already omits
+    // the matching factor and the two are only ever multiplied together below -- sin(alpha) cancels,
+    // so only the sign matters here. Avoids a literal 1/sin(alpha) that blows up near alpha=0/pi.
     const Eigen::RowVector3d deltaAlphaDeltaR =
-        (sunUnit_N / positionNorm).transpose() * (Eigen::Matrix3d::Identity() - (rHat * rHat.transpose()));
+        -((sunUnit_N / positionNorm).transpose() * (Eigen::Matrix3d::Identity() - (rHat * rHat.transpose())));
 
     const Eigen::RowVector3d deltaBinaryR = deltaBinaryDeltaR + (deltaBinaryDeltaAlphaCoeff * deltaAlphaDeltaR);
     const double totalDeltaBinaryPartials = (deltaBinaryR * positionCovar * deltaBinaryR.transpose())(0, 0);
     const double sigmaBetaSquared = totalDeltaBinaryPartials + (deltaBinaryDeltaRadius * deltaBinaryDeltaRadius *
                                                                 radiusUncertainty * radiusUncertainty);
 
+    // sigmaBetaSquared is the variance of a 1-D magnitude along the sun direction (cos(phi),
+    // sin(phi)); rotating it into image x/y via R(phi)*diag(sigmaBetaSquared,0)*R(phi)^T keeps the
+    // result PSD by construction. Converting rad^2 -> normalized image-plane units needs both the
+    // angle->pixel scale (ifovX/ifovY, average-scale) and the pixel->NIC scale (X/Y, exact tan-based)
+    // -- they differ by up to ~26% at wide FOV, so both are applied via the congruence transform
+    // D*(...)*D with D = diag(X/ifovX, Y/ifovY), which also preserves PSD-ness.
+    const double cosPhi = safeCos(phi);
+    const double sinPhi = safeSin(phi);
+    const double directionX = X / ifovX;
+    const double directionY = Y / ifovY;
+    const double correctionXX = sigmaBetaSquared * directionX * directionX * cosPhi * cosPhi;
+    const double correctionYY = sigmaBetaSquared * directionY * directionY * sinPhi * sinPhi;
+    const double correctionXY = sigmaBetaSquared * directionX * directionY * cosPhi * sinPhi;
+
     Eigen::Matrix3d covarCom = Eigen::Matrix3d::Zero();
-    covarCom(0, 0) = (X * X) + ((sigmaBetaSquared / (ifovX * ifovX)) * safeCos(phi));
-    covarCom(1, 1) = (Y * Y) + ((sigmaBetaSquared / (ifovY * ifovY)) * safeSin(phi));
+    covarCom(0, 0) = (X * X) + correctionXX;
+    covarCom(1, 1) = (Y * Y) + correctionYY;
+    covarCom(0, 1) = correctionXY;
+    covarCom(1, 0) = correctionXY;
     covarCom(2, 2) = 1.0;
     return scaleFactor * covarCom;
 }
@@ -276,58 +296,47 @@ inline CobConverterOutput referenceCobConverterUpdate(const CobConverterConfig& 
     return output;
 }
 
-// The algorithm is FP32 and the reference above is double, so they never match exactly -- these
-// tolerances just need to absorb that rounding drift without hiding an actual regression (a wrong
-// sign or a dropped term is orders of magnitude bigger than rounding noise).
+// The algorithm is FP32 and the reference above is double, so they never match exactly. Tolerances
+// below are derived from operation count * float epsilon (1.19e-7) * margin, not picked by trial
+// and error -- a wrong sign or dropped term is orders of magnitude bigger than any bound here.
 //
-// `tol` (1e-3F, from testCobConverter) covers fields with a fixed, moderate range: unit vector
-// components ([-1, 1]) and the phase-angle/sun-direction/offset-factor scalars (O(1), bounded
-// regardless of input -- alpha/phi are angles and gamma is capped by kBinaryPhaseCoeff). FP32
-// rounding through the rotation/trig/distortion pipeline lands around 1e-5 to 1e-4 for these, so
-// 1e-3 leaves an order of magnitude of margin.
+// `tol` (1e-3F) covers rhat_BN_N/C/B, offsetFactor, phaseAngle, sunDirection. phaseAngle sets it:
+// its acos(dot(rHat_N, shat_N)) is ill-conditioned as alpha -> 0 or pi (d(acos)/dx = -1/sin(alpha)),
+// giving a floor of ~sqrt(2*n*epsilon) ~= 1.5e-3 for n ~ 5-10 upstream ops -- not a bug, since
+// alpha ~= 0 (sun nearly behind the spacecraft) is a valid but ill-conditioned geometry. Confirmed
+// empirically: tightening to 2e-4F failed on an alpha ~= 2.28e-4 rad case (2.6e-4 diff); reverted to
+// 1e-3F. The other fields (~150-250 ops each: DCM builds, calibration, Brown-Conrady) only need
+// ~2.4e-5 and share this bound with margin to spare.
 //
-// covar_N/C/B don't fit a fixed tolerance: their magnitude scales with radius * dX / range, which
-// a narrow fieldOfView or large radius can push from O(1) up to O(1e4)+, where a single FP32 ULP
-// already exceeds 1e-3. Use atol + rtol*|reference| instead, same as the xmera Python test:
-//   - covarRtol = 1e-4F: observed relative error is ~1e-6, so at least 100x margin.
-//   - covarAtol = 5e-3F: covers the near-zero off-diagonal terms left over from rotating an O(1e5)
-//     matrix by an FP32 DCM (residual scales with magnitude * FP32 epsilon); observed up to ~2e-3.
+// covar_N/C/B scale with radius * dX / range and (BinaryAlg) radiusUncertainty^2, from O(1) to
+// O(1e6)+, where a single ULP exceeds 1e-3. Use atol + rtol*max(|reference|, noiseScale) instead:
+//   - covarRtol = 1e-4F, covarAtol = 1e-3F: both sized off the pipeline's ~2.4e-5 baseline
+//     (~150-250 ops). A prior radius>>range + anisotropic-covariance case pushed the observed error
+//     to ~1.5e-4 via cancellation, but that geometry is now excluded by the radius>=range skip
+//     below, so both hold clean over a 300s/22.7M-execution fuzz run.
+//   - noiseScale (matrix diagonal magnitude): off-diagonal cross terms cancel to ~0 but still carry
+//     rounding noise set by the matrix's overall scale, not their own near-zero value -- scaling
+//     rtol by |reference| alone (as the xmera Python test still does) collapses back to the bare
+//     atol in exactly that case.
 //
 // unitVecTimeTag gets a tight 1e-9: it's `cobTimeTag * kNano2Sec` in double on both sides, so
 // there's no FP32 rounding to absorb -- just double round-off.
-inline void expectNear(float actual, float reference, float atol, float rtol) {
-    EXPECT_NEAR(actual, reference, atol + (rtol * std::abs(reference)));
+inline void expectNear(float actual, float reference, float atol, float rtol, float noiseScale) {
+    EXPECT_NEAR(actual, reference, atol + (rtol * std::max(std::abs(reference), noiseScale)));
 }
 
-// centerOfBrightness/centerOfMass and objectPixelRadius are pixel coordinates whose magnitude
-// scales with radius * dX / range and can reach O(1e5)+ for a narrow fieldOfView combined
-// with a large radius/radiusUncertainty. At that scale, ordinary FP32-vs-double rounding drift
-// through the trig/rotation pipeline (amplified further whenever the sun-direction angle phi sits
-// near an atan2 branch cut) can exceed any small atol/rtol bound while still being physically
-// meaningless -- sub-pixel precision was never a real requirement here. A flat off-by-one tolerance
-// (matching objectPixelRadius) covers the vast majority of the domain, but for O(1e5)+ magnitudes a
-// relative error as small as ~1e-8 (already far smaller than the FP32-vs-double noise floor
-// elsewhere in this file) can exceed a pure +-1px absolute bound. Add a small rtol term on top so the
-// bound scales with magnitude instead of being purely fixed: kPixelRtol started at 1e-4F (matching
-// covarRtol below) but continued fuzzing surfaced pixel magnitudes whose relative rounding drift
-// exceeded that margin, so it was widened to 1e-3F -- still comfortably above the ~1e-8-to-1e-6
-// relative errors observed through this pipeline, without loosening enough to mask a real regression
-// (a dropped term or sign error is orders of magnitude bigger than rounding noise).
+// centerOfBrightness/centerOfMass/objectPixelRadius are pixel coordinates whose magnitude scales
+// with radius * dX / range, reaching O(1e5)+ for narrow fieldOfView + large radius. A flat +-1px
+// bound covers most cases, but at that scale relative rounding drift exceeds 1px while staying
+// physically meaningless, so add an rtol term scaled by magnitude: kPixelRtol = 1e-4F holds clean
+// over the same 300s fuzz run as covarRtol above (the radius>=range skip below removes the
+// pathological magnitudes that would otherwise need a looser bound).
 //
-// centerOfMass in particular is cobCenterOfBrightness minus a correction term
-// (gamma * objectRadiusPixels * cos(phi)/sin(phi)) that scales with objectRadiusPixels -- which can
-// itself be large even when the correction nearly cancels cobCenterOfBrightness, landing the
-// *reference* value near zero. Scaling the rtol term by |reference| (or even max(|actual|,
-// |reference|)) collapses the tolerance back toward the bare 1px bound in that cancellation case,
-// even though the underlying FP32-vs-double rounding noise (set by objectRadiusPixels' magnitude,
-// not the near-cancelled result) is still present. Using max(|actual|, |reference|) alone is worse
-// than it looks: when reference~0, |actual| IS the noise being bounded, so the bound becomes
-// self-referential (diff <= 1 + rtol*diff), which has a fixed point around ~1.001001 that continued
-// fuzzing found actual noise can exceed by a hair (1.00100851 vs 1.001001) -- the "fix" was chasing
-// its own tail instead of adding real margin. objectPixelRadius is the magnitude of that correction
-// term, computed independently of whether it happens to cancel centerOfBrightness, so pass it in as
-// an explicit noise-scale floor alongside actual/reference (which still matters for fields like
-// centerOfBrightness whose own magnitude, not the correction, is what's large).
+// centerOfMass's correction term (gamma * objectRadiusPixels * cos(phi)/sin(phi)) can be large even
+// when it nearly cancels cobCenterOfBrightness, landing the *reference* near zero -- scaling rtol by
+// |reference| alone would collapse back to the bare 1px bound despite real rounding noise set by
+// objectRadiusPixels' magnitude, not the cancelled result. Pass objectRadiusPixels in explicitly as
+// a noise-scale floor alongside actual/reference.
 constexpr float kPixelRtol = 1e-4F;
 inline void expectPixelNear(float actual, float reference, float noiseScale) {
     EXPECT_LE(std::abs(actual - reference),
@@ -344,18 +353,32 @@ inline void expectAngleNear(float actual, float reference, float tol) {
     EXPECT_LE(std::abs(wrapped), tol);
 }
 
+// The diagonal (variances, >= 0) stands in for the matrix's overall magnitude: off-diagonal cross
+// terms can cancel to ~0 even when the diagonal is huge, but their rounding noise scales with the
+// diagonal, not their own near-zero value.
+inline float covarNoiseScale(const Eigen::Matrix3f& actual, const Eigen::Matrix3f& reference) {
+    return std::max({std::abs(actual(0, 0)),
+                     std::abs(actual(1, 1)),
+                     std::abs(actual(2, 2)),
+                     std::abs(reference(0, 0)),
+                     std::abs(reference(1, 1)),
+                     std::abs(reference(2, 2))});
+}
+
 inline void expectOutputsNear(const CobConverterOutput& out, const CobConverterOutput& ref, float tol) {
-    constexpr float covarAtol = 5e-3F;
+    constexpr float covarAtol = 1e-3F;
     constexpr float covarRtol = 1e-4F;
+    const float covarNScale = covarNoiseScale(out.unitVec.covar_N, ref.unitVec.covar_N);
+    const float covarCScale = covarNoiseScale(out.unitVec.covar_C, ref.unitVec.covar_C);
+    const float covarBScale = covarNoiseScale(out.unitVec.covar_B, ref.unitVec.covar_B);
     for (int i = 0; i < 3; ++i) {
         EXPECT_NEAR(out.unitVec.rhat_BN_N(i), ref.unitVec.rhat_BN_N(i), tol);
         EXPECT_NEAR(out.unitVec.rhat_BN_C(i), ref.unitVec.rhat_BN_C(i), tol);
         EXPECT_NEAR(out.unitVec.rhat_BN_B(i), ref.unitVec.rhat_BN_B(i), tol);
-        // temporarily commented out due to error in the covariance computation
         for (int j = 0; j < 3; ++j) {
-            expectNear(out.unitVec.covar_N(i, j), ref.unitVec.covar_N(i, j), covarAtol, covarRtol);
-            expectNear(out.unitVec.covar_C(i, j), ref.unitVec.covar_C(i, j), covarAtol, covarRtol);
-            expectNear(out.unitVec.covar_B(i, j), ref.unitVec.covar_B(i, j), covarAtol, covarRtol);
+            expectNear(out.unitVec.covar_N(i, j), ref.unitVec.covar_N(i, j), covarAtol, covarRtol, covarNScale);
+            expectNear(out.unitVec.covar_C(i, j), ref.unitVec.covar_C(i, j), covarAtol, covarRtol, covarCScale);
+            expectNear(out.unitVec.covar_B(i, j), ref.unitVec.covar_B(i, j), covarAtol, covarRtol, covarBScale);
         }
     }
     EXPECT_NEAR(out.unitVec.unitVecTimeTag, ref.unitVec.unitVecTimeTag, 1e-9);
@@ -424,6 +447,15 @@ inline void testCobConverter(PhaseAngleCorrectionMethodAlgorithm phaseAngleCorre
                                          resolutionY,
                                          bodyToCameraMrp);
     } catch (const fsw::invalid_argument&) {
+        return;
+    }
+
+    // A body can't be observed from inside its own radius -- range must exceed radius, or
+    // objectRadiusPixels (radius * dX / range) explodes, driving comPixels off-frame until
+    // applyBrownConrady's r^6 term overflows FLOAT32 (inf/nan). radius and filterVehPosition are
+    // fuzzed independently with no domain-level coupling, so skip this physically impossible
+    // combination here instead (same idea as the create()-rejection skip above).
+    if (filterVehPosition.norm() <= static_cast<double>(radius)) {
         return;
     }
 

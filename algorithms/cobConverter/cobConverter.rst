@@ -93,9 +93,9 @@ The covariance of the COB error is found using the number of detected pixels and
     \right)
 
 
-where :math:`d_x` and :math:`d_y` are the first and second diagonal elements of the camera calibration matrix
-:math:`[K]`. This covariance matrix is then transformed into the body frame and added to the covariance of the attitude
-error.
+where :math:`d_x = 1/K_{11}` and :math:`d_y = 1/K_{22}` are the reciprocals of the first and second diagonal elements
+of the camera calibration matrix :math:`[K]` (i.e. the normalized image-plane extent of one pixel along each axis).
+This covariance matrix is then transformed into the body frame and added to the covariance of the attitude error.
 
 
 If a COM correction is to be performed, the offset factor :math:`\gamma` due to the Sun phase angle correction is
@@ -169,17 +169,75 @@ This leads to standard deviation equation which is done by gathering the partial
 
 
 
-where :math:`[P]` is the filter position covariance matrix and :math:`\sigma_{R}^2` is the object's radius uncertainty. The
-following equation is used to find the COM covariance matrix:
+where :math:`[P]` is the filter position covariance matrix and :math:`\sigma_{R}^2` is the object's radius uncertainty.
 
+.. warning::
+
+    The equation below (historical / incorrect) was the original formula used to find the COM covariance matrix.
+    It applies :math:`\cos \phi` and :math:`\sin \phi` to the first power directly on the diagonal, which is not a
+    valid variance decomposition: since :math:`\phi` ranges over the full :math:`(-\pi, \pi]`, :math:`\cos \phi` (or
+    :math:`\sin \phi`) is negative across roughly half that range, which -- given
+    :math:`\sigma_{\beta}^2 / \psi_i^2` is routinely many orders of magnitude larger than :math:`d_x^2`/:math:`d_y^2`
+    -- would drive these diagonal entries negative, producing a matrix that is not a valid (PSD) covariance. It is
+    kept here only for historical reference; it is superseded by the corrected equation further below.
+
+.. math::
+
+    W_{\text{correction, old/incorrect}} = \left(
+    \left[
+    \begin{array}{ccc}
+    d_x^2 + \dfrac{\sigma_{\beta}^2}{\psi_{i,x}} \cos \phi & 0 & 0 \\
+    0 & d_y^2 + \dfrac{\sigma_{\beta}^2}{\psi_{i,y}} \sin \phi & 0 \\
+    0 & 0 & 1
+    \end{array}
+    \right]
+    \right)
+
+The corrected equation instead treats :math:`\sigma_{\beta}^2` as the variance of a single scalar magnitude directed
+along the sun-line :math:`(\cos \phi, \sin \phi)` in the image plane (zero variance perpendicular to it). Rotating
+that 1-D angular variance into the image :math:`x`/:math:`y` axes is a similarity transform by the rotation matrix
+
+.. math::
+
+    R(\phi) = \left[
+    \begin{array}{cc}
+    \cos \phi & -\sin \phi \\
+    \sin \phi & \cos \phi
+    \end{array}
+    \right]
+
+giving:
+
+.. math::
+
+    R(\phi) \: \mathrm{diag}(\sigma_{\beta}^2, 0) \: R(\phi)^T = \sigma_{\beta}^2
+    \left[
+    \begin{array}{cc}
+    \cos^2 \phi & \cos \phi \sin \phi \\
+    \cos \phi \sin \phi & \sin^2 \phi
+    \end{array}
+    \right]
+
+which is positive semi-definite for any :math:`\phi`, since it is a similarity transform of a non-negative diagonal
+matrix. Converting from angular units (:math:`\mathrm{rad}^2`) to normalized image-plane units takes two separate
+conversions that are kept distinct elsewhere in this derivation: angle to pixels via the iFOV
+:math:`\psi_{i,x}, \psi_{i,y}` (an average-scale approximation), then pixels to normalized image-plane coordinates
+via :math:`d_x, d_y` (the exact, tangent-based per-axis pixel scale used for the baseline term above). These two
+conversions are not interchangeable in general -- :math:`d_x / \psi_{i,x}` deviates from 1 by roughly 26% at the wide
+end of the supported field-of-view range -- so both steps are applied via the diagonal congruence transform
+:math:`D (\cdot) D` with :math:`D = \mathrm{diag}(d_x/\psi_{i,x}, d_y/\psi_{i,y})`, which likewise preserves
+positive semi-definiteness. Adding the baseline COB pixel-noise diagonal keeps the sum positive semi-definite, since
+the sum of two positive semi-definite matrices is positive semi-definite:
 
 .. math::
 
     W_{\text{correction}} = \left(
     \left[
     \begin{array}{ccc}
-    d_x^2 + \dfrac{\sigma_{\beta}^2}{\psi_{i,x}} \cos \phi & 0 & 0 \\
-    0 & d_y^2 + \dfrac{\sigma_{\beta}^2}{\psi_{i,y}} \sin \phi & 0 \\
+    d_x^2 + \sigma_{\beta}^2 \left(\dfrac{d_x}{\psi_{i,x}}\right)^2 \cos^2 \phi &
+    \sigma_{\beta}^2 \dfrac{d_x d_y}{\psi_{i,x} \psi_{i,y}} \cos \phi \sin \phi & 0 \\
+    \sigma_{\beta}^2 \dfrac{d_x d_y}{\psi_{i,x} \psi_{i,y}} \cos \phi \sin \phi &
+    d_y^2 + \sigma_{\beta}^2 \left(\dfrac{d_y}{\psi_{i,y}}\right)^2 \sin^2 \phi & 0 \\
     0 & 0 & 1
     \end{array}
     \right]

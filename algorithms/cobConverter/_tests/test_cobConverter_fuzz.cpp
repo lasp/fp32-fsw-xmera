@@ -7,13 +7,9 @@
 
 namespace {
 
-// attitudeCovariance is the filter's attitude-knowledge covariance, in rad^2.
-// this builds a genuine dense symmetric PSD matrix via A^T*A + eps*I -- the same construction
-// used below for filterVehPositionCovarianceDomain
-// A's elements span the same [0, pi]
-// rad magnitude as the previous isotropic sigma bound (perfect knowledge up to full/no knowledge);
-// squaring via A^T*A keeps the result in variance units (rad^2), and the small +eps*I term
-// guarantees strict positive-definiteness (never exactly singular).
+// attitudeCovariance: real attitude-knowledge covariance is dense and correlated, not diagonal, so
+// build a genuine symmetric PSD matrix via A^T*A + eps*I (A spans +/-pi rad, matching the old
+// isotropic sigma bound); the eps*I term keeps it strictly positive-definite.
 auto attitudeCovarianceDomain() {
     return fuzztest::Map(
         [](const std::vector<float>& elems) -> Eigen::Matrix3f {
@@ -38,59 +34,59 @@ auto calibrationCoefficientsDomain() {
     );
 }
 
-// bodyToCameraMrp is a fixed camera-mounting orientation, so it should range over arbitrary
-// rotations rather than stay near identity. Bounding each component to +/-1/sqrt(3) keeps the
-// worst-case (corner) MRP norm at exactly 1, so every sample lands in the standard "short
-// rotation" MRP convention (norm <= 1, angle <= 180 deg) -- every physical rotation has such a
-// representative, so this loses no orientations, unlike a wide unbounded-looking component range
-// (e.g. +/-1e6), which would instead concentrate almost all samples near a ~360 deg rotation
-// (practically identity, via the shadow set) since norm = tan(angle/4) saturates once any
-// component exceeds ~10-100.
-// Also reused for sigma_BN below: the spacecraft body-to-inertial attitude is likewise an
-// arbitrary (not necessarily near-identity) orientation, so the same "any physical rotation, no
-// shadow-set switch needed" reasoning applies.
+// bodyToCameraMrp/sigma_BN (reused below): arbitrary, not-necessarily-near-identity orientations.
+// +/-1/sqrt(3) per component caps the worst-case MRP norm at 1, the standard "short rotation"
+// convention (angle <= 180 deg) that every physical rotation has a representative in. A much wider
+// range (e.g. +/-1e6) would instead concentrate samples near ~360 deg (practically identity, via
+// the shadow set), since norm = tan(angle/4) saturates once a component exceeds ~10-100.
 const float kMrpComponentBound = 1.0F / safeSqrtf(3.0F);
 auto arbitraryMrpDomain() { return xmera::fuzz::Vector3fInRange(-kMrpComponentBound, kMrpComponentBound); }
 
-constexpr bool kCobValid = true;
-// cobPixelsFound is a count of bright pixels detected by upstream image processing, so it can
-// never be negative. 0 is included deliberately: combined with cobValid=true it exercises the
-// "no pixels found" branch in updateState (input.cobPixelsFound != 0), which still produces a
-// zeroed/invalid output rather than a divide-by-zero -- scaleFactor's argument is 0/kSphereSolidAngle,
-// and safeSqrtf(0) is well-defined. The upper bound (1e6) covers a detection filling a large
-// fraction of even the widest fuzzed resolution (8192x8192) without being physically absurd.
+// vehSunPntBdy: sun direction, a body-frame unit vector. Parameterizing the unit sphere by
+// (z, azimuth) gives an exactly unit-length vector without normalizing near zero (which could
+// hit float32 subnormals and diverge from the double reference).
+auto arbitraryUnitVectorDomain() {
+    constexpr float kPi = 3.14159265358979323846F;
+
+    return fuzztest::Map(
+        [](float z, float azimuth) -> Eigen::Vector3f {
+            const float radial = safeSqrtf(1.0F - z * z);
+            return Eigen::Vector3f{
+                radial * std::cos(azimuth),
+                radial * std::sin(azimuth),
+                z,
+            };
+        },
+        fuzztest::InRange(-1.0F, 1.0F),
+        fuzztest::InRange(-kPi, kPi));
+}
+
+// cobPixelsFound: bright-pixel count, never negative. 0 is included deliberately (with
+// cobValid=true) to exercise the "no pixels found" branch without a divide-by-zero -- both
+// scaleFactor's argument and safeSqrtf(0) are well-defined at 0. 1e6 covers a detection filling
+// most of the widest fuzzed resolution (8192x8192) without being physically absurd.
 auto cobPixelsFoundDomain() { return fuzztest::InRange(0, 1000000); }
-// cobCenterOfBrightness is a pixel coordinate reported by upstream image processing. It's not
-// validated against resolutionX/resolutionY here (no such check exists in CobConverterConfig), so
-// this ranges over the same [0, 8192] span as the widest resolution fuzzed above rather than being
-// coupled to the per-sample resolutionX/resolutionY -- covers on-image detections at any supported
-// resolution plus some off-image/edge values, without requiring a dependent domain.
+
+// cobCenterOfBrightness: a pixel coordinate, not validated against resolutionX/resolutionY (no
+// such check exists in CobConverterConfig), so it ranges over [0, 8192] independent of the
+// per-sample resolution -- covers on-image detections at any resolution plus some off-image values.
 auto cobCenterOfBrightnessDomain() { return xmera::fuzz::EigenVectorOf<float, 2>(fuzztest::InRange(0.0F, 8192.0F)); }
-// filterVehPosition is the spacecraft's inertial position relative to the target body. Its norm
-// (spacecraftRange) is a divisor throughout computePhaseAngleCorrection/computeCameraFrameUncertainty
-// (Rc, constants_deltaR, ...), so sampling each component independently over a range spanning zero
-// risks landing near the origin -- and at exactly (0,0,0), stableNorm()/stableNormalized() produce
-// 0/0 = NaN on both the algorithm and the double reference identically, which EXPECT_NEAR/EXPECT_LE
-// can never accept even though both sides agree. Bound each component's magnitude away from zero
-// instead (never in (-1e3, 1e3)) so the vector's norm is always >= 1e3, no normalization needed to
-// guarantee it: 1e3 to 1e8 m covers close proximity operations (~1 km) out to interplanetary
-// approach/cruise (~100,000 km) for a small-body encounter.
+
+// filterVehPosition: spacecraft position relative to the target. Its norm is a divisor throughout
+// the algorithm, and sampling near the origin risks 0/0 = NaN on both the algorithm and the double
+// reference identically -- which EXPECT_NEAR/EXPECT_LE can never accept even though both sides
+// agree. Bound each component's magnitude away from zero instead, guaranteeing norm >= 1e3: 1e3 to
+// 1e8 m covers close proximity (~1 km) to interplanetary approach/cruise (~100,000 km).
 auto nonZeroAxisDomain(double minAbs, double maxAbs) {
     return fuzztest::OneOf(fuzztest::InRange(-maxAbs, -minAbs), fuzztest::InRange(minAbs, maxAbs));
 }
-auto filterVehPositionDomain() { return xmera::fuzz::EigenVectorOf<double, 3>(nonZeroAxisDomain(1.0e2, 1.0e11)); }
-// filterVehPositionCovariance is the nav filter's position-uncertainty covariance for
-// filterVehPosition, in m^2, propagated through computeCameraFrameUncertainty's partials
-// (deltaBinaryDeltaR * positionCovar * deltaBinaryDeltaR^T) to build the COM covariance. Real OD
-// covariance is anisotropic and correlated (line-of-sight uncertainty typically dwarfs cross-track,
-// with nonzero off-diagonal terms), not diagonal, so this builds a genuine dense symmetric PSD
-// matrix via A^T*A + eps*I -- the same construction timeClosestApproach's fuzz test uses for its
-// 6x6 covariance (timeClosestApproach/_tests/test_timeClosestApproach_fuzz.cpp). A's elements span
-// the same 1-sigma position-uncertainty range as filterVehPosition's magnitude bound above
-// (sub-meter radar/lidar-aided proximity ops up to ~1e5 m during early approach); squaring via
-// A^T*A keeps the result in variance units (m^2), and the small +eps*I term guarantees strict
-// positive-definiteness (never exactly singular) without perturbing physically meaningful
-// magnitudes.
+auto filterVehPositionDomain() { return xmera::fuzz::EigenVectorOf<double, 3>(nonZeroAxisDomain(1.0, 1.0e11)); }
+
+// filterVehPositionCovariance: nav-filter position uncertainty for filterVehPosition, propagated
+// into the COM covariance. Real OD covariance is anisotropic and correlated, not diagonal, so build
+// a genuine symmetric PSD matrix via A^T*A + eps*I (same construction as timeClosestApproach's fuzz
+// test), with A spanning the same magnitude range as filterVehPosition's 1-sigma uncertainty; the
+// eps*I term keeps it strictly positive-definite.
 auto filterVehPositionCovarianceDomain() {
     return fuzztest::Map(
         [](const std::vector<double>& elems) -> Eigen::Matrix3d {
@@ -106,19 +102,19 @@ FUZZ_TEST(CobConverterFuzz, testCobConverter)
     .WithDomains(
         fuzztest::OneOf(fuzztest::Just(PhaseAngleCorrectionMethodAlgorithm::NoCorrectionAlg),
                         fuzztest::Just(PhaseAngleCorrectionMethodAlgorithm::BinaryAlg)),  // phaseAngleCorrectionMethod
-        fuzztest::InRange(1.0F, 1.0e6F),  // radius [m]: ~1 m (small NEO) to ~500 km (Ceres-scale)
-        fuzztest::InRange(0.0F, 1.0e6F),  // radiusUncertainty [m]: perfectly known to Ceres-scale error
-        attitudeCovarianceDomain(),       // attitudeCovariance
-        numStandardDeviationsDomain(),    // numStandardDeviations
-        StandardDeviationsDomain(),       // standardDeviation
+        fuzztest::InRange(1.0F, 1.0e6F),                                                  // radius [m]
+        fuzztest::InRange(0.0F, 1.0e6F),                                                  // radiusUncertainty [m]
+        attitudeCovarianceDomain(),                                                       // attitudeCovariance
+        numStandardDeviationsDomain(),                                                    // numStandardDeviations
+        StandardDeviationsDomain(),                                                       // standardDeviation
         fuzztest::OneOf(fuzztest::Just(true),
                         fuzztest::Just(false)),  // specifiedStandardDeviation
         fuzztest::OneOf(fuzztest::Just(true),
                         fuzztest::Just(false)),  // outlierDetectionEnabled
         calibrationCoefficientsDomain(),         // calibrationCoefficients
         fuzztest::Arbitrary<int>(),              // cameraId (unconstrained: no isValidCameraId check)
-        fuzztest::InRange(0.175F, 1.5533F),      // fieldOfViewX [rad]: ~10 deg (narrow) to 89 deg (wide-angle)
-        fuzztest::InRange(0.175F, 1.5533F),      // fieldOfViewY [rad]: independent of fieldOfViewX
+        fuzztest::InRange(0.175F, 2.967F),       // fieldOfViewX [rad]: ~10 deg (narrow) to ~170 deg (wide-angle)
+        fuzztest::InRange(0.175F, 2.967F),       // fieldOfViewY [rad]: independent of fieldOfViewX
         fuzztest::InRange(32.0F, 8192.0F),       // resolutionX [px]: small nav camera to large science imager
         fuzztest::InRange(32.0F, 8192.0F),       // resolutionY [px]: independent of resolutionX (see below)
         arbitraryMrpDomain(),                    // bodyToCameraMrp
@@ -128,6 +124,6 @@ FUZZ_TEST(CobConverterFuzz, testCobConverter)
         cobCenterOfBrightnessDomain(),           // cobCenterOfBrightness
         fuzztest::Arbitrary<uint64_t>(),         // cobTimeTag
         arbitraryMrpDomain(),                    // sigma_BN
-        arbitraryMrpDomain(),                    // vehSunPntBdy
+        arbitraryUnitVectorDomain(),             // vehSunPntBdy
         filterVehPositionDomain(),               // filterVehPosition
         filterVehPositionCovarianceDomain());    // filterVehPositionCovariance
