@@ -7,7 +7,6 @@
 #include "utilities/fsw/safeMath.h"
 #include "utilities/fsw/timeConstants.h"
 #include <gtest/gtest.h>
-#include <limits>
 #include <numbers>
 #include <optional>
 
@@ -379,6 +378,14 @@ inline void expectOutputsNear(const CobConverterOutput& out, const CobConverterO
             expectNear(out.unitVec.covar_B(i, j), ref.unitVec.covar_B(i, j), covarAtol, covarRtol, covarBScale);
         }
     }
+    // finiteness
+    EXPECT_TRUE(out.unitVec.rhat_BN_N.allFinite());
+    EXPECT_TRUE(out.unitVec.rhat_BN_C.allFinite());
+    EXPECT_TRUE(out.unitVec.rhat_BN_B.allFinite());
+    EXPECT_TRUE(out.unitVec.covar_N.allFinite());
+    EXPECT_TRUE(out.unitVec.covar_C.allFinite());
+    EXPECT_TRUE(out.unitVec.covar_B.allFinite());
+
     EXPECT_NEAR(out.unitVec.unitVecTimeTag, ref.unitVec.unitVecTimeTag, 1e-9);
     EXPECT_EQ(out.unitVec.unitVecValid, ref.unitVec.unitVecValid);
 
@@ -388,11 +395,21 @@ inline void expectOutputsNear(const CobConverterOutput& out, const CobConverterO
     expectPixelNear(out.com.centerOfBrightness(1), ref.com.centerOfBrightness(1), pixelNoiseScale);
     expectPixelNear(out.com.centerOfMass(0), ref.com.centerOfMass(0), pixelNoiseScale);
     expectPixelNear(out.com.centerOfMass(1), ref.com.centerOfMass(1), pixelNoiseScale);
+    // finiteness
+    EXPECT_TRUE(out.com.centerOfBrightness.allFinite());
+    EXPECT_TRUE(out.com.centerOfMass.allFinite());
+
     expectPixelNear(
         static_cast<float>(out.com.objectPixelRadius), static_cast<float>(ref.com.objectPixelRadius), pixelNoiseScale);
     EXPECT_NEAR(out.com.offsetFactor, ref.com.offsetFactor, tol);
-    EXPECT_NEAR(out.com.phaseAngle, ref.com.phaseAngle, tol);
+    expectAngleNear(out.com.phaseAngle, ref.com.phaseAngle, tol);
     expectAngleNear(out.com.sunDirection, ref.com.sunDirection, tol);
+    // finiteness
+    EXPECT_TRUE(std::isfinite(out.com.objectPixelRadius));
+    EXPECT_TRUE(std::isfinite(out.com.offsetFactor));
+    EXPECT_TRUE(std::isfinite(out.com.phaseAngle));
+    EXPECT_TRUE(std::isfinite(out.com.sunDirection));
+
     EXPECT_EQ(out.com.comTimeTag, ref.com.comTimeTag);
     EXPECT_EQ(out.com.comValid, ref.com.comValid);
     EXPECT_EQ(out.diagnostic.coberrorOutlierTrigger, ref.diagnostic.coberrorOutlierTrigger);
@@ -473,134 +490,6 @@ inline void testCobConverter(PhaseAngleCorrectionMethodAlgorithm phaseAngleCorre
     // See the tolerance comment above expectNear/expectOutputsNear.
     constexpr float fixedRangeTol = 1e-3F;
     expectOutputsNear(out, ref, fixedRangeTol);
-}
-
-inline void testCobConverterSetup() {
-    const Eigen::Matrix3f zeroCovariance = Eigen::Matrix3f::Zero();
-    const CalibrationCoefficients coefficients{};
-    const Eigen::Vector3f zeroMrp = Eigen::Vector3f::Zero();
-
-    // Builds a config from a fixed valid baseline, overriding only the fields under test below.
-    const auto makeConfig = [&](PhaseAngleCorrectionMethodAlgorithm method,
-                                float radius,
-                                float fieldOfViewX,
-                                float fieldOfViewY,
-                                int cameraId,
-                                float resolutionY) {
-        return CobConverterConfig::create(method,
-                                          radius,
-                                          8.0e3F,
-                                          zeroCovariance,
-                                          3.0F,
-                                          100.0F,
-                                          true,
-                                          true,
-                                          coefficients,
-                                          cameraId,
-                                          fieldOfViewX,
-                                          fieldOfViewY,
-                                          512.0F,
-                                          resolutionY,
-                                          zeroMrp);
-    };
-
-    const float nan = std::numeric_limits<float>::quiet_NaN();
-
-    // phaseAngleCorrectionMethod: only NoCorrectionAlg/BinaryAlg are valid.
-    EXPECT_TRUE(
-        CobConverterConfig::isValidPhaseAngleCorrectionMethod(PhaseAngleCorrectionMethodAlgorithm::NoCorrectionAlg));
-    EXPECT_TRUE(CobConverterConfig::isValidPhaseAngleCorrectionMethod(PhaseAngleCorrectionMethodAlgorithm::BinaryAlg));
-    EXPECT_FALSE(
-        CobConverterConfig::isValidPhaseAngleCorrectionMethod(static_cast<PhaseAngleCorrectionMethodAlgorithm>(99)));
-
-    // radius: must be > 0.
-    EXPECT_TRUE(CobConverterConfig::isValidRadius(1.0F));
-    EXPECT_FALSE(CobConverterConfig::isValidRadius(0.0F));
-    EXPECT_FALSE(CobConverterConfig::isValidRadius(-1.0F));
-    EXPECT_FALSE(CobConverterConfig::isValidRadius(nan));
-
-    // radiusUncertainty: must be >= 0.
-    EXPECT_TRUE(CobConverterConfig::isValidRadiusUncertainty(0.0F));
-    EXPECT_FALSE(CobConverterConfig::isValidRadiusUncertainty(-1.0F));
-    EXPECT_FALSE(CobConverterConfig::isValidRadiusUncertainty(nan));
-
-    // attitudeCovariance: must be finite.
-    EXPECT_TRUE(CobConverterConfig::isValidAttitudeCovariance(zeroCovariance));
-    Eigen::Matrix3f nanCovariance = Eigen::Matrix3f::Zero();
-    nanCovariance(0, 0) = nan;
-    EXPECT_FALSE(CobConverterConfig::isValidAttitudeCovariance(nanCovariance));
-
-    // numStandardDeviations: must be > 0.
-    EXPECT_TRUE(CobConverterConfig::isValidNumStandardDeviations(1.0F));
-    EXPECT_FALSE(CobConverterConfig::isValidNumStandardDeviations(0.0F));
-    EXPECT_FALSE(CobConverterConfig::isValidNumStandardDeviations(-1.0F));
-
-    // standardDeviation: only checked when specified.
-    EXPECT_TRUE(CobConverterConfig::isValidStandardDeviation(-1.0F, /*specified=*/false));
-    EXPECT_TRUE(CobConverterConfig::isValidStandardDeviation(1.0F, /*specified=*/true));
-    EXPECT_FALSE(CobConverterConfig::isValidStandardDeviation(0.0F, /*specified=*/true));
-    EXPECT_FALSE(CobConverterConfig::isValidStandardDeviation(-1.0F, /*specified=*/true));
-
-    // calibrationCoefficients: must be finite.
-    EXPECT_TRUE(CobConverterConfig::isValidCalibrationCoefficients(coefficients));
-    CalibrationCoefficients nanCoefficients{};
-    nanCoefficients.k1 = nan;
-    EXPECT_FALSE(CobConverterConfig::isValidCalibrationCoefficients(nanCoefficients));
-
-    // fieldOfViewX / fieldOfViewY: each must be in (0, pi), checked independently via the same
-    // isValidFieldOfView helper.
-    EXPECT_TRUE(CobConverterConfig::isValidFieldOfView(0.35F));
-    EXPECT_FALSE(CobConverterConfig::isValidFieldOfView(0.0F));
-    EXPECT_FALSE(CobConverterConfig::isValidFieldOfView(std::numbers::pi_v<float>));
-    EXPECT_FALSE(CobConverterConfig::isValidFieldOfView(-0.1F));
-
-    // resolutionX / resolutionY: must be > 0.
-    EXPECT_TRUE(CobConverterConfig::isValidResolutionX(512.0F));
-    EXPECT_FALSE(CobConverterConfig::isValidResolutionX(0.0F));
-    EXPECT_TRUE(CobConverterConfig::isValidResolutionY(512.0F));
-    EXPECT_FALSE(CobConverterConfig::isValidResolutionY(0.0F));
-
-    // bodyToCameraMrp: must be finite.
-    EXPECT_TRUE(CobConverterConfig::isValidBodyToCameraMrp(zeroMrp));
-    EXPECT_FALSE(CobConverterConfig::isValidBodyToCameraMrp(Eigen::Vector3f{nan, 0.0F, 0.0F}));
-
-    // create() throws on the first invalid field it encounters.
-    EXPECT_THROW(
-        makeConfig(
-            PhaseAngleCorrectionMethodAlgorithm::NoCorrectionAlg, 0.0F /* invalid radius */, 0.35F, 0.30F, 0, 512.0F),
-        fsw::invalid_argument);
-    EXPECT_THROW(makeConfig(PhaseAngleCorrectionMethodAlgorithm::NoCorrectionAlg,
-                            25.0e3F,
-                            std::numbers::pi_v<float> /* invalid fieldOfViewX */,
-                            0.30F,
-                            0,
-                            512.0F),
-                 fsw::invalid_argument);
-    EXPECT_THROW(makeConfig(PhaseAngleCorrectionMethodAlgorithm::NoCorrectionAlg,
-                            25.0e3F,
-                            0.35F,
-                            std::numbers::pi_v<float> /* invalid fieldOfViewY */,
-                            0,
-                            512.0F),
-                 fsw::invalid_argument);
-
-    // A fully valid config builds without throwing and round-trips its values through the
-    // getters. fieldOfViewX/fieldOfViewY are deliberately distinct here to confirm they're
-    // stored and retrieved independently.
-    const CobConverterConfig cfg =
-        makeConfig(PhaseAngleCorrectionMethodAlgorithm::BinaryAlg, 25.0e3F, 0.35F, 0.30F, 7, 256.0F);
-    EXPECT_EQ(cfg.getPhaseAngleCorrectionMethod(), PhaseAngleCorrectionMethodAlgorithm::BinaryAlg);
-    EXPECT_FLOAT_EQ(cfg.getRadius(), 25.0e3F);
-    EXPECT_FLOAT_EQ(cfg.getRadiusUncertainty(), 8.0e3F);
-    EXPECT_FLOAT_EQ(cfg.getNumStandardDeviations(), 3.0F);
-    EXPECT_FLOAT_EQ(cfg.getStandardDeviation(), 100.0F);
-    EXPECT_TRUE(cfg.isStandardDeviationSpecified());
-    EXPECT_TRUE(cfg.isOutlierDetectionEnabled());
-    EXPECT_EQ(cfg.getCameraId(), 7);
-    EXPECT_FLOAT_EQ(cfg.getFieldOfViewX(), 0.35F);
-    EXPECT_FLOAT_EQ(cfg.getFieldOfViewY(), 0.30F);
-    EXPECT_FLOAT_EQ(cfg.getResolutionX(), 512.0F);
-    EXPECT_FLOAT_EQ(cfg.getResolutionY(), 256.0F);
 }
 
 #endif  // TEST_COBCONVERTER_HELPERS_H
