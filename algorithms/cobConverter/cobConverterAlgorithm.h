@@ -303,21 +303,22 @@ class CobConverterAlgorithm final {
     int getCameraId() const { return this->cfg.getCameraId(); }
 
    private:
-    bool cobOutlierDetection(const CobConverterInput& input,
+    bool cobOutlierDetection(const Eigen::Vector3d& filterVehPosition,
+                             const Eigen::Matrix3d& filterVehPositionCovariance,
                              const Eigen::Matrix3f& covar_B,
                              const Eigen::Vector3f& rhatCOB_C,
                              const Eigen::Matrix3f& dcm_NC) const;
     void computeCameraParameters();
-    Rotations computeRotations(const CobConverterInput& input) const;
-    PhaseAngleCorrectionResult computePhaseAngleCorrection(const CobConverterInput& input,
+    Rotations computeRotations(const Eigen::Vector3f& sigma_BN) const;
+    PhaseAngleCorrectionResult computePhaseAngleCorrection(const Eigen::Vector3d& filterVehPosition,
+                                                           const Eigen::Vector3f& vehSunPntBdy,
                                                            const Eigen::Matrix3f& dcm_BN) const;
-    static std::tuple<Eigen::Vector3f, Eigen::Vector3f> computeCentersOfInterest(const CobConverterInput& input,
-                                                                                 float gamma,
-                                                                                 float Rc,
-                                                                                 float phi);
+    static std::tuple<Eigen::Vector3f, Eigen::Vector3f>
+    computeCentersOfInterest(const Eigen::Vector2f& cobCenterOfBrightness, float gamma, float Rc, float phi);
     std::tuple<Eigen::Vector3f, Eigen::Vector3f> computeRelevantVectors(const Eigen::Vector3f& centerOfBrightness,
                                                                         const Eigen::Vector3f& centerOfMass) const;
-    Eigen::Matrix3f computeCameraFrameUncertainty(const CobConverterInput& input,
+    Eigen::Matrix3f computeCameraFrameUncertainty(const int32_t& cobPixelsFound,
+                                                  const Eigen::Matrix3d& filterVehPositionCovariance,
                                                   const PhaseAngleCorrectionResult& correction) const;
     Eigen::Vector3f calibrateDistortions(const Eigen::Vector3f& unCalibratedVector) const;
     static void populateOutputMessages(uint64_t timeTag,
