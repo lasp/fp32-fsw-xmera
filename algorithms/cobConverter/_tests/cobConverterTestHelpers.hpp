@@ -264,9 +264,7 @@ inline CobConverterOutput referenceCobConverterUpdate(const CobConverterConfig& 
         coberrorOutlierTrigger = !(cobErrorPrediction < static_cast<double>(cfg.getNumStandardDeviations()) * sigma);
     }
 
-    // goodOutlierCheck defaults true and cobOutlierDetection never sets it false on a trigger, so
-    // unitVecValid never actually reflects the outlier check. Matches current algorithm behavior.
-    constexpr bool goodOutlierCheck = true;
+    const bool goodOutlierCheck = !coberrorOutlierTrigger;
 
     const Eigen::Vector3d rhatCOM_N = dcm_NC * rhatCOM_C;
     const Eigen::Vector3d rhatCOM_B = dcm_BN * rhatCOM_N;
@@ -397,8 +395,7 @@ inline void expectOutputsNear(const CobConverterOutput& out, const CobConverterO
     expectAngleNear(out.com.sunDirection, ref.com.sunDirection, tol);
     EXPECT_EQ(out.com.comTimeTag, ref.com.comTimeTag);
     EXPECT_EQ(out.com.comValid, ref.com.comValid);
-    // EXPECT_EQ(out.diagnostic.coberrorOutlierTrigger, ref.diagnostic.coberrorOutlierTrigger); // temporarily commented
-    // out
+    EXPECT_EQ(out.diagnostic.coberrorOutlierTrigger, ref.diagnostic.coberrorOutlierTrigger);
 }
 
 // Takes raw config/input fields rather than a pre-built CobConverterConfig so this can later be

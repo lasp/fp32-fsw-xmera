@@ -510,6 +510,7 @@ void CobConverterAlgorithm::cobOutlierDetection(const CobConverterInput& input, 
         this->goodOutlierCheck = true;
         output.coberrorOutlierTrigger = false;
     } else {
+        this->goodOutlierCheck = false;
         output.coberrorOutlierTrigger = true;
     }
 }
