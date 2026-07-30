@@ -66,7 +66,7 @@ ThrusterPlatformReferenceOutput_c ThrusterPlatformReferenceAlgorithm_update(
         reinterpret_cast<::ThrusterPlatformReferenceAlgorithm*>(self)->update(inputsFromC(*inputs));
 
     ThrusterPlatformReferenceOutput_c result{};
-    eigenVectorToCArray(out.Lreq_B, result.Lreq_B.data);
+    eigenVectorToCArray(out.Lcomp_B, result.Lcomp_B.data);
     eigenVectorToCArray(out.r_TB_B, result.r_TB_B.data);
     eigenVectorToCArray(out.tHat_B, result.tHat_B.data);
     result.thrust = out.thrust;

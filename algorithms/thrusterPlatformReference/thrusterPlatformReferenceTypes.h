@@ -63,10 +63,10 @@ typedef struct {
  * @brief Plain-old-data mirror of the C++ ThrusterPlatformReferenceOutput.
  */
 typedef struct {
-    Vector3f_c Lreq_B; /*!< [Nm] torque to be compensated by the RWs, B frame */
-    Vector3f_c r_TB_B; /*!< [m]  thrust application point w.r.t. B origin, B frame */
-    Vector3f_c tHat_B; /*!< [-]  thrust unit direction, B frame */
-    float thrust;      /*!< [N]  thrust magnitude */
+    Vector3f_c Lcomp_B; /*!< [Nm] torque to be compensated by the RWs, B frame */
+    Vector3f_c r_TB_B;  /*!< [m]  thrust application point w.r.t. B origin, B frame */
+    Vector3f_c tHat_B;  /*!< [-]  thrust unit direction, B frame */
+    float thrust;       /*!< [N]  thrust magnitude */
 } ThrusterPlatformReferenceOutput_c;
 
 #ifdef __cplusplus

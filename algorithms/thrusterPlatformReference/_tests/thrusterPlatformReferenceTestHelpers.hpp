@@ -57,7 +57,7 @@ inline void regressionTestThrusterPlatformReference(const Eigen::Vector3f& sigma
     EXPECT_NEAR(offset, 0.0F, accuracy);
 
     // With the thruster aligned through the center of mass the net thruster torque vanishes.
-    EXPECT_LT(out.Lreq_B.norm(), accuracy * maxThrust * r_CT_B.norm());
+    EXPECT_LT(out.Lcomp_B.norm(), accuracy * maxThrust * r_CT_B.norm());
 
     // The thruster-to-center-of-mass distance matches the ray-sphere intersection computed from the raw geometry.
     const Eigen::Matrix3f MB = mrpToDcm(sigma_MB);
@@ -92,7 +92,7 @@ inline void propertyOutputsFinite(const Eigen::Vector3f& sigma_MB,
     ThrusterPlatformReferenceAlgorithm alg{makeAlignmentConfig(sigma_MB, r_BM_M, r_FM_F)};
     const ThrusterPlatformReferenceOutput out = alg.update(makeInputs(r_CB_B, rThrust_F, tHatThrust_F, maxThrust));
 
-    EXPECT_TRUE(out.Lreq_B.allFinite());
+    EXPECT_TRUE(out.Lcomp_B.allFinite());
     EXPECT_TRUE(out.r_TB_B.allFinite());
     EXPECT_TRUE(out.tHat_B.allFinite());
     EXPECT_TRUE(std::isfinite(out.thrust));

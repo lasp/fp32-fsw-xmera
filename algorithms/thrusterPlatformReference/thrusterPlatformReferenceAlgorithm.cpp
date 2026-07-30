@@ -137,8 +137,9 @@ ThrusterPlatformReferenceOutput ThrusterPlatformReferenceAlgorithm::update(const
     // achieved thruster torque on the system in body frame coordinates (can be different from requested due to clamp)
     const Eigen::Vector3f r_CM_F = dcm_FM * r_CM_M;
     const Eigen::Vector3f r_TC_F = r_TM_F - r_CM_F;
-    const Eigen::Vector3f torque_F = thrust_F.cross(r_TC_F);
-    out.Lreq_B = dcm_FB.transpose() * torque_F;
+    const Eigen::Vector3f Lachieved_B = dcm_FB.transpose() * r_TC_F.cross(thrust_F);
+    // torque to be compensated by the wheels (opposite of achieved torque) as feed-forward
+    out.Lcomp_B = -Lachieved_B;
 
     // thruster configuration in body frame coordinates
     const Eigen::Vector3f r_TC_B = dcm_FB.transpose() * r_TC_F;

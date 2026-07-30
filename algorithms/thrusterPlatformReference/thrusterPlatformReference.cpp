@@ -102,7 +102,7 @@ void ThrusterPlatformReference::updateState(const uint64_t callTime) {
     this->bodyHeadingOutMsg.write(&bodyHeadingOut, this->moduleID, callTime);
 
     CmdTorqueBodyMsgF32Payload thrusterTorqueOut{};
-    eigenVectorToCArray(out.Lreq_B, thrusterTorqueOut.torqueRequestBody);
+    eigenVectorToCArray(out.Lcomp_B, thrusterTorqueOut.torqueRequestBody);
     this->thrusterTorqueOutMsg.write(&thrusterTorqueOut, this->moduleID, callTime);
 
     THRConfigMsgF32Payload thrusterConfigOut{};
