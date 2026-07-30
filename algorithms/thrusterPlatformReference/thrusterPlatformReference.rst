@@ -163,10 +163,10 @@ makes the thruster dump the momentum accumulated on the wheels. The desired thru
 where :math:`\boldsymbol{h}_w` is the net momentum on the wheels, :math:`\boldsymbol{H}_w` its integral over time,
 and :math:`\kappa` (``K``) / :math:`\kappa_I` (``Ki``) the proportional and integral gains. The integral is
 accumulated with a trapezoidal rule using the configured ``controlPeriod`` as the fixed time step (the module is
-expected to run at that rate). The torque is evaluated in the mount frame, converted to the platform frame using the
-nominal zero-torque pointing, and passed to the *Thruster pointing* solve above; because that solve reaches the
-requested torque exactly, the thruster produces :math:`\boldsymbol{L}_\text{req}` (up to the component along the
-thrust, which no thruster force can produce).
+expected to run at that rate). The momentum and its integral are tracked in the body frame; the torque is converted
+to the platform frame (through the mount frame, using the nominal zero-torque pointing) and passed to the *Thruster
+pointing* solve above; because that solve reaches the requested torque exactly, the thruster produces
+:math:`\boldsymbol{L}_\text{req}` (up to the component along the thrust, which no thruster force can produce).
 
 Deflection cone limit
 ^^^^^^^^^^^^^^^^^^^^^

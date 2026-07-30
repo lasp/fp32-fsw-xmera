@@ -236,13 +236,13 @@ TEST(ThrusterPlatformReferenceTest, MomentumDumpingAchievesRequestedTorque) {
     in.wheelSpeeds(2) = 10.0F;
     const ThrusterPlatformReferenceOutput out = alg.update(in);
 
-    // expected reported reaction-wheel torque about the CM (M == B); only the component perpendicular to the thrust
-    // is achievable
-    const Eigen::Vector3f hs_M(0.01F * 10.0F, 0.01F * 10.0F, 0.01F * 10.0F);
-    const Eigen::Vector3f Lreq_M = K * hs_M;
-    const Eigen::Vector3f tHat_M = out.tHat_B;  // sigma_MB == 0
-    const Eigen::Vector3f LreqPerp_M = Lreq_M - (tHat_M * tHat_M.dot(Lreq_M));
-    EXPECT_LT((out.Lreq_B - LreqPerp_M).norm(), 1e-3F);
+    // expected reported reaction-wheel torque about the CM (sigma_MB == 0, so B frame); only the component
+    // perpendicular to the thrust is achievable
+    const Eigen::Vector3f hs_B(0.01F * 10.0F, 0.01F * 10.0F, 0.01F * 10.0F);
+    const Eigen::Vector3f Lreq_B = K * hs_B;
+    const Eigen::Vector3f tHat_B = out.tHat_B;
+    const Eigen::Vector3f LreqPerp_B = Lreq_B - (tHat_B * tHat_B.dot(Lreq_B));
+    EXPECT_LT((out.Lreq_B - LreqPerp_B).norm(), 1e-3F);
 }
 
 // A geometry that would require a large deflection is clamped so the thrust direction stays on the cone: the angle

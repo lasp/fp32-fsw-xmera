@@ -84,8 +84,8 @@ void ThrusterPlatformReferenceAlgorithm::setConfig(const ThrusterPlatformReferen
 
 /*! @brief Re-seed the runtime integrator state (RW momentum integral, prior sample) to its initial values. */
 void ThrusterPlatformReferenceAlgorithm::reInitialize() {
-    this->hsInt_M.setZero();
-    this->priorHs_M.setZero();
+    this->hsInt_B.setZero();
+    this->priorHs_B.setZero();
 }
 
 /*! This method computes the platform reference orientation that points the thruster line of action through the
@@ -115,17 +115,16 @@ ThrusterPlatformReferenceOutput ThrusterPlatformReferenceAlgorithm::update(const
         for (uint32_t i = 0; i < rwConfig.numRW; ++i) {
             hs_B += rwConfig.JsList(i) * in.wheelSpeeds(i) * rwConfig.GsMatrix_B.col(i);
         }
-        const Eigen::Vector3f hs_M = dcm_MB * hs_B;
 
         // update the trapezoidal integral of the RW momentum using the fixed control period as the time step
         const float dt = this->cfg.getControlPeriod();
-        this->hsInt_M += 0.5F * dt * (this->priorHs_M + hs_M);
-        this->priorHs_M = hs_M;
+        this->hsInt_B += 0.5F * dt * (this->priorHs_B + hs_B);
+        this->priorHs_B = hs_B;
 
         // desired thruster torque about the center of mass: oppose the accumulated wheel momentum to dump it.
-        // Converted into the platform frame with the nominal zero-torque pointing, then re-point to produce it.
-        const Eigen::Vector3f Lreq_M = -this->cfg.getK() * hs_M - this->cfg.getKi() * this->hsInt_M;
-        const Eigen::Vector3f Lreq_F = dcm_FM * Lreq_M;
+        // Converted from the body frame into the platform frame (via the nominal zero-torque pointing) to re-point.
+        const Eigen::Vector3f Lreq_B = -this->cfg.getK() * hs_B - this->cfg.getKi() * this->hsInt_B;
+        const Eigen::Vector3f Lreq_F = dcm_FM * dcm_MB * Lreq_B;
         dcm_FM = computeThrusterPointing(r_CM_M, r_TM_F, thrust_F, Lreq_F);
     }
 

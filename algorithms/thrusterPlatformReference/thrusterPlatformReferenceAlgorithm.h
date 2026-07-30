@@ -181,8 +181,8 @@ class ThrusterPlatformReferenceAlgorithm final {
 
    private:
     ThrusterPlatformReferenceConfig cfg;                 //!< [-] validated configuration
-    Eigen::Vector3f hsInt_M{Eigen::Vector3f::Zero()};    //!< [Nms] integral of RW momentum, M frame
-    Eigen::Vector3f priorHs_M{Eigen::Vector3f::Zero()};  //!< [Nms] prior RW momentum, M frame
+    Eigen::Vector3f hsInt_B{Eigen::Vector3f::Zero()};    //!< [Nms] integral of RW momentum, B frame
+    Eigen::Vector3f priorHs_B{Eigen::Vector3f::Zero()};  //!< [Nms] prior RW momentum, B frame
 };
 
 #endif  // F32XMERA_THRUSTER_PLATFORM_REFERENCE_ALGORITHM_H
