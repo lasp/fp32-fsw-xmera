@@ -3,6 +3,8 @@
 
 #include "utilities/fsw/plainCAlgorithmDataTypes.h"
 
+#include <stdint.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -14,16 +16,19 @@ typedef struct {
 
 /*! @brief Star tracker sensor attitude solution for the platform-to-body conversion algorithm. */
 typedef struct {
-    float q_CN[4]; /*!< [-] quaternion from inertial to case frame (scalar-first) */
+    uint64_t timeTag; /*!< [ns] time tag of the attitude solution */
+    float q_CN[4];    /*!< [-] quaternion from inertial to case frame (scalar-first) */
 } PlatformAttitude_c;
 
 /*! @brief Star tracker sensor angular velocity for the platform-to-body conversion algorithm. */
 typedef struct {
-    float dq_CN[4]; /*!< [-] case-frame delta quaternion w.r.t. inertial (scalar-last) */
+    uint64_t timeTag; /*!< [ns] time tag of the rate solution */
+    float dq_CN[4];   /*!< [-] case-frame delta quaternion w.r.t. inertial (scalar-last) */
 } PlatformAngularVelocity_c;
 
 /*! @brief Star tracker body-frame attitude output from the platform-to-body conversion algorithm. */
 typedef struct {
+    uint64_t timeTag;    /*!< [ns] time tag associated with the measurement (passed through from input) */
     float sigma_BN[3];   /*!< [-] MRP from inertial to body frame */
     float omega_BN_B[3]; /*!< [rad/s] body-frame angular velocity w.r.t. inertial */
 } StAttitudeOutput_c;
