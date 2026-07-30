@@ -13,15 +13,10 @@ struct DvAccumulationOutput {
 /*! @brief Pure algorithm: integrates a body-frame acceleration sample into a body-frame Delta-V
  *         accumulator.
  *
- * Each update() call carries one body-frame non-gravitational acceleration sample plus the
- * module call time. The time step is dt = callTime - previousTime; the sample is integrated via
- * dt * accel and added to the running accumulator. The first call after a reInitialize()
- * (previousTime == 0) only latches the clock, so dt does not blow up against a zero baseline.
+ * Each update() call carries one body-frame non-gravitational acceleration sample plus the module
+ * call time, integrating dt * accel into the running accumulator over dt = callTime - previousTime.
  *
- * dvAccumulation has no tunable parameters, so there is no Config. State splits into persistent
- * (previousTime — carried across a re-initialization so a continuously-running module keeps its
- * time reference) and non-persistent (vehAccumDV_B). previousTime == 0 doubles as the
- * "time reference not yet set" marker for the first update() after a reInitialize().
+ * No tunable parameters, so there is no Config — the algorithm is default-constructed.
  */
 class DvAccumulationAlgorithm final {
    public:
