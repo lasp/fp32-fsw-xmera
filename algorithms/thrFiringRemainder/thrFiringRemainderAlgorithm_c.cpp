@@ -1,5 +1,6 @@
 #include "thrFiringRemainderAlgorithm_c.h"
 #include "thrFiringRemainderAlgorithm.h"
+#include "utilities/fsw/freestandingInvalidArgument.h"
 #include "utilities/fsw/opaqueHandle.h"
 
 #include <algorithm>
@@ -27,6 +28,23 @@ ThrFiringRemainderConfig configFromC(const uint32_t numThrusters,
 }  // namespace
 
 uint32_t ThrFiringRemainderAlgorithm_getMaxThrusterCount(void) { return THR_FIRING_REMAINDER_MAX_THRUSTER_COUNT; }
+
+bool ThrFiringRemainderAlgorithm_validateConfig(const uint32_t numThrusters,
+                                                float maxThrust[THR_FIRING_REMAINDER_MAX_THRUSTER_COUNT],
+                                                const float thrMinFireTime,
+                                                const float controlPeriod,
+                                                const float onTimeSaturationFactor,
+                                                const ThrFiringRemainderPulsingRegime pulsingRegime) {
+    // Attempt to build the config through the real create path; success means valid,
+    // a throw means invalid. Reusing configFromC keeps validation from drifting.
+    try {
+        (void)configFromC(
+            numThrusters, maxThrust, thrMinFireTime, controlPeriod, onTimeSaturationFactor, pulsingRegime);
+        return true;
+    } catch (const fsw::invalid_argument&) {
+        return false;
+    }
+}
 
 ThrFiringRemainderAlgorithmHandle* ThrFiringRemainderAlgorithm_create(
     const uint32_t numThrusters,
