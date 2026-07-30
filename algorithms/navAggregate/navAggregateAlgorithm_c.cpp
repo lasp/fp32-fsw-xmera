@@ -2,6 +2,7 @@
 #include "navAggregateAlgorithm.h"
 #include "navAggregateTypes.h"
 #include "utilities/fsw/eigenSupport.h"
+#include "utilities/fsw/freestandingInvalidArgument.h"
 #include "utilities/fsw/opaqueHandle.h"
 
 #include <array>
@@ -31,6 +32,17 @@ f32::NavAggregateConfig configFromC(const NavAggregateConfig_c& c) {
 }  // namespace
 
 uint32_t NavAggregateAlgorithm_getMaxAggNavMsg(void) { return MAX_AGG_NAV_MSG; }
+
+bool NavAggregateAlgorithm_validateConfig(const NavAggregateConfig_c* config) {
+    // Attempt to build the config through the real create path; success means valid,
+    // a throw means invalid. Reusing configFromC keeps validation from drifting.
+    try {
+        (void)configFromC(*config);
+        return true;
+    } catch (const fsw::invalid_argument&) {
+        return false;
+    }
+}
 
 NavAggregateAlgorithmHandle* NavAggregateAlgorithm_create(const NavAggregateConfig_c* config) {
     return fsw::createHandle<::f32::NavAggregateAlgorithm, NavAggregateAlgorithmHandle>(configFromC(*config));
