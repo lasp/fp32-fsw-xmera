@@ -15,6 +15,24 @@ extern "C" {
 typedef struct StepperMotorControllerAlgorithmHandle StepperMotorControllerAlgorithmHandle;
 
 /**
+ * @brief Report whether a configuration would be accepted by create/setConfig.
+ * @param stepAngle      [rad/step] Angle per motor step.
+ * @param minAngle       [rad] Lower bound of the motor travel range.
+ * @param maxAngle       [rad] Upper bound of the motor travel range.
+ * @param settleCountMax [ticks] Settling duration after stop.
+ * @param minStepCommand [steps] Minimum step delta magnitude that triggers a command.
+ * @return True if the configuration is valid. Never throws, so it can guard the throwing
+ *         create/setConfig from an invalid configuration.
+ * @note The accepted value ranges are defined by StepperMotorControllerConfig::create; this
+ *       predicate reports whether a candidate set would be accepted, without throwing.
+ */
+bool StepperMotorControllerAlgorithm_validateConfig(float stepAngle,
+                                                    float minAngle,
+                                                    float maxAngle,
+                                                    uint32_t settleCountMax,
+                                                    uint32_t minStepCommand);
+
+/**
  * @brief Construct a new StepperMotorControllerAlgorithm instance from the supplied configuration.
  * Validate the values with validateConfig before calling; throws on invalid input.
  * @param stepAngle      [rad/step] Angle per motor step.
