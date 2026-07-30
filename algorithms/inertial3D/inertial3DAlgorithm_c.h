@@ -1,8 +1,9 @@
 #ifndef F32XMERA_INERTIAL3DALGORITHM_C_H
 #define F32XMERA_INERTIAL3DALGORITHM_C_H
 
-#include "inertial3DTypes.h"
 #include "utilities/fsw/plainCAlgorithmDataTypes.h"
+
+#include <stdbool.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -15,10 +16,10 @@ typedef struct Inertial3DAlgorithmHandle Inertial3DAlgorithmHandle;
 
 /**
  * @brief Construct a new Inertial3DAlgorithm instance from the supplied configuration.
- * @param config Pointer to the configuration to apply (validated; throws on invalid input).
- * @return Pointer to a new Inertial3DAlgorithm (must be destroyed).
+ * @param sigma_RN [-] MRP from inertial frame N to reference frame R.
+ * @return Pointer to a new Inertial3DAlgorithm (must be destroyed). Validated; throws on invalid input.
  */
-Inertial3DAlgorithmHandle* Inertial3DAlgorithm_create(const Inertial3DConfig_c* config);
+Inertial3DAlgorithmHandle* Inertial3DAlgorithm_create(Vector3f_c sigma_RN);
 
 /**
  * @brief Destroy a previously created Inertial3DAlgorithm.
@@ -28,10 +29,11 @@ void Inertial3DAlgorithm_destroy(Inertial3DAlgorithmHandle* self);
 
 /**
  * @brief Apply a new configuration.
- * @param self   Pointer to the instance.
- * @param config Pointer to the configuration to apply (validated; throws on invalid input).
+ * @param self     Pointer to the instance.
+ * @param sigma_RN [-] MRP from inertial frame N to reference frame R.
+ * Validated; throws on invalid input.
  */
-void Inertial3DAlgorithm_setConfig(Inertial3DAlgorithmHandle* self, const Inertial3DConfig_c* config);
+void Inertial3DAlgorithm_setConfig(Inertial3DAlgorithmHandle* self, Vector3f_c sigma_RN);
 
 /**
  * @brief Run the update step.
