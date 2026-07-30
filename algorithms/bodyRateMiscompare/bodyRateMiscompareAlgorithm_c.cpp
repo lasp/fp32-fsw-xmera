@@ -2,6 +2,7 @@
 #include "bodyRateMiscompareAlgorithm.h"
 #include "bodyRateMiscompareTypes.h"
 #include "utilities/fsw/eigenSupport.h"
+#include "utilities/fsw/freestandingInvalidArgument.h"
 #include "utilities/fsw/opaqueHandle.h"
 
 #include <Eigen/Core>
@@ -13,6 +14,19 @@ BodyRateMiscompareConfig configFromC(const float bodyRateThreshold,
     return BodyRateMiscompareConfig::create(bodyRateThreshold, faultPersistenceLimit, useImuRates);
 }
 }  // namespace
+
+bool BodyRateMiscompareAlgorithm_validateConfig(const float bodyRateThreshold,
+                                                const uint32_t faultPersistenceLimit,
+                                                const bool useImuRates) {
+    // Attempt to build the config through the real create path; success means valid,
+    // a throw means invalid. Reusing configFromC keeps validation from drifting.
+    try {
+        (void)configFromC(bodyRateThreshold, faultPersistenceLimit, useImuRates);
+        return true;
+    } catch (const fsw::invalid_argument&) {
+        return false;
+    }
+}
 
 BodyRateMiscompareAlgorithmHandle* BodyRateMiscompareAlgorithm_create(const float bodyRateThreshold,
                                                                       const uint32_t faultPersistenceLimit,
