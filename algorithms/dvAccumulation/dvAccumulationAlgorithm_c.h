@@ -51,7 +51,7 @@ void DvAccumulationAlgorithm_reInitializeExceptPersistentStates(DvAccumulationAl
  */
 DvAccumulationOutput_c DvAccumulationAlgorithm_update(DvAccumulationAlgorithmHandle* self,
                                                       uint64_t callTime,
-                                                      const Vector3f_c* rDDotNoGravity_BN_B);
+                                                      Vector3f_c rDDotNoGravity_BN_B);
 
 #ifdef __cplusplus
 } /* extern "C" */
