@@ -21,8 +21,8 @@ void DvAccumulationAlgorithm_reInitializeExceptPersistentStates(DvAccumulationAl
 
 DvAccumulationOutput_c DvAccumulationAlgorithm_update(DvAccumulationAlgorithmHandle* self,
                                                       uint64_t callTime,
-                                                      const Vector3f_c* rDDotNoGravity_BN_B) {
-    const Eigen::Vector3f accel_B = cArrayToEigenVector3(rDDotNoGravity_BN_B->data);
+                                                      Vector3f_c rDDotNoGravity_BN_B) {
+    const Eigen::Vector3f accel_B = cArrayToEigenVector3(rDDotNoGravity_BN_B.data);
     const DvAccumulationOutput out = fsw::fromHandle<::DvAccumulationAlgorithm>(self)->update(callTime, accel_B);
 
     DvAccumulationOutput_c result{};
