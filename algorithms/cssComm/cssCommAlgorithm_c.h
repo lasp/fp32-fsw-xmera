@@ -15,6 +15,20 @@ extern "C" {
 typedef struct CssCommAlgorithmHandle CssCommAlgorithmHandle;
 
 /**
+ * @brief Report whether a configuration would be accepted by create/setConfig.
+ * @param numSensors       Number of active CSS sensors.
+ * @param maxSensorValues  Per-sensor scale factors.
+ * @param chebyPolynomials Chebyshev polynomial coefficients.
+ * @return true if the configuration is valid. Never throws, so it can guard the
+ *         throwing create/setConfig from an invalid configuration.
+ * @note The accepted value ranges are defined by CssCommConfig::create; this predicate
+ *       reports whether a candidate set would be accepted, without throwing.
+ */
+bool CssCommAlgorithm_validateConfig(uint32_t numSensors,
+                                     double maxSensorValues[MAX_NUM_CSS_SENSORS],
+                                     double chebyPolynomials[MAX_NUM_CHEBY_POLYS]);
+
+/**
  * @brief Construct a new CssCommAlgorithm instance from the supplied configuration.
  * @param numSensors       Number of active CSS sensors.
  * @param maxSensorValues  Per-sensor scale factors.
