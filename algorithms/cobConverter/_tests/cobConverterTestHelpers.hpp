@@ -143,7 +143,8 @@ inline Eigen::Matrix3d mapComCovar(double pixels,
 inline CobConverterOutput referenceCobConverterUpdate(const CobConverterConfig& cfg, const CobConverterInput& input) {
     CobConverterOutput output;
 
-    if (!input.cobValid || input.cobPixelsFound == 0) {
+    if (!input.cobValid || input.cobPixelsFound == 0 ||
+        input.filterVehPosition.norm() <= static_cast<double>(cfg.getRadius())) {
         return output;
     }
 
@@ -171,12 +172,10 @@ inline CobConverterOutput referenceCobConverterUpdate(const CobConverterConfig& 
     double alpha = 0.0;
     double objectRadiusPixels = 0.0;
     Eigen::Vector3d shat_N = Eigen::Vector3d::Zero();
-    bool validCom = false;
 
     const bool correctionRequested =
         cfg.getPhaseAngleCorrectionMethod() != PhaseAngleCorrectionMethodAlgorithm::NoCorrectionAlg;
     if (correctionRequested) {
-        validCom = true;
         const Eigen::Vector3d position = input.filterVehPosition;
         const Eigen::Vector3d rHat_N = position.normalized();
         const Eigen::Vector3d shat_B = input.vehSunPntBdy.cast<double>().normalized();
@@ -195,6 +194,9 @@ inline CobConverterOutput referenceCobConverterUpdate(const CobConverterConfig& 
     const Eigen::Vector2d cobPixels = input.cobCenterOfBrightness.cast<double>();
     const Eigen::Vector2d comPixels(cobPixels(0) - (gamma * objectRadiusPixels * safeCos(phi)),
                                     cobPixels(1) - (gamma * objectRadiusPixels * safeSin(phi)));
+    // Mirrors CobConverterAlgorithm::updateState: validCom means "the resulting COM pixel location
+    // is finite," applied the same way whether or not a correction was requested.
+    const bool validCom = comPixels.allFinite();
 
     const CalibrationCoefficients coefficients = cfg.getCalibrationCoefficients();
     const Eigen::Vector3d rhatCOB_C = mapState(cobPixels, cameraCalibrationMatrix, coefficients);
@@ -277,6 +279,8 @@ inline CobConverterOutput referenceCobConverterUpdate(const CobConverterConfig& 
     output.unitVec.rhat_BN_C = rhatCOM_C.cast<float>();
     output.unitVec.rhat_BN_B = rhatCOM_B.cast<float>();
     output.unitVec.unitVecTimeTag = static_cast<double>(input.cobTimeTag) * kNano2Sec;
+    // Mirrors CobConverterAlgorithm::populateOutputMessages: valid when the COM pixel location is
+    // finite (validCom) and outlier detection didn't flag this cycle.
     output.unitVec.unitVecValid = validCom && goodOutlierCheck;
 
     output.com.centerOfBrightness = cobPixels.cast<float>();
@@ -464,15 +468,6 @@ inline void testCobConverter(PhaseAngleCorrectionMethodAlgorithm phaseAngleCorre
         return;
     }
 
-    // A body can't be observed from inside its own radius -- range must exceed radius, or
-    // objectRadiusPixels (radius * dX / range) explodes, driving comPixels off-frame until
-    // applyBrownConrady's r^6 term overflows FLOAT32 (inf/nan). radius and filterVehPosition are
-    // fuzzed independently with no domain-level coupling, so skip this physically impossible
-    // combination here instead (same idea as the create()-rejection skip above).
-    if (filterVehPosition.norm() <= static_cast<double>(radius)) {
-        return;
-    }
-
     const CobConverterInput input{.cobValid = cobValid,
                                   .cobPixelsFound = cobPixelsFound,
                                   .cobCenterOfBrightness = cobCenterOfBrightness,
@@ -487,9 +482,15 @@ inline void testCobConverter(PhaseAngleCorrectionMethodAlgorithm phaseAngleCorre
     EXPECT_NO_THROW(out = alg.updateState(input));
     const CobConverterOutput ref = referenceCobConverterUpdate(*cfg, input);
 
-    // See the tolerance comment above expectNear/expectOutputsNear.
-    constexpr float fixedRangeTol = 1e-3F;
-    expectOutputsNear(out, ref, fixedRangeTol);
+    // Always check validity agrees with the reference
+    EXPECT_EQ(out.unitVec.unitVecValid, ref.unitVec.unitVecValid);
+    EXPECT_EQ(out.com.comValid, ref.com.comValid);
+
+    if (out.unitVec.unitVecValid && ref.unitVec.unitVecValid) {
+        // See the tolerance comment above expectNear/expectOutputsNear.
+        constexpr float fixedRangeTol = 1e-3F;
+        expectOutputsNear(out, ref, fixedRangeTol);
+    }
 }
 
 #endif  // TEST_COBCONVERTER_HELPERS_H

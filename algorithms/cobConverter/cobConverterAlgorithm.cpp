@@ -186,7 +186,6 @@ PhaseAngleCorrectionResult CobConverterAlgorithm::computePhaseAngleCorrection(co
                                                                               const Eigen::Vector3f& vehSunPntBdy,
                                                                               const Eigen::Matrix3f& dcm_BN) const {
     PhaseAngleCorrectionResult correction;
-    correction.validCom = true;
     correction.sc_position = filterVehPosition;
     const Eigen::Vector3f rhat_N = correction.sc_position.stableNormalized().cast<float>();
     const Eigen::Vector3f shat_B = vehSunPntBdy.stableNormalized();
@@ -195,11 +194,8 @@ PhaseAngleCorrectionResult CobConverterAlgorithm::computePhaseAngleCorrection(co
 
     correction.alphaPA = safeAcosf(rhat_N.transpose() * correction.shat_N);  // phase angle
     correction.phi = safeAtan2f(shat_C(1), shat_C(0));                       // sun direction in image plane
-    if (this->cfg.getPhaseAngleCorrectionMethod() == PhaseAngleCorrectionMethodAlgorithm::BinaryAlg) {
-        // Using phase angle correction assuming a binarized image (brightness either 0 or 1)
-        const float oneMinusCosAlpha = 2.0F * powf(safeSinf(correction.alphaPA / 2.0F), 2.0F);
-        correction.gamma = kBinaryPhaseCoeff * oneMinusCosAlpha;
-    }
+    const float oneMinusCosAlpha = 2.0F * powf(safeSinf(correction.alphaPA / 2.0F), 2.0F);
+    correction.gamma = kBinaryPhaseCoeff * oneMinusCosAlpha;
     correction.spacecraftRange = correction.sc_position.stableNorm();
     correction.Rc =
         static_cast<float>(this->cfg.getRadius() * this->dX / correction.spacecraftRange);  // object radius in pixels
@@ -428,7 +424,8 @@ void CobConverterAlgorithm::populateOutputMessages(
     unitVecOutput.rhat_BN_C = rhatCOM_C;
     unitVecOutput.rhat_BN_B = rhatCOM_B;
     unitVecOutput.unitVecTimeTag = static_cast<double>(timeTag) * kNano2Sec;
-    unitVecOutput.unitVecValid = (correction.validCom && goodOutlierCheck);
+    unitVecOutput.unitVecValid = correction.validCom && goodOutlierCheck;
+
     const Eigen::Vector2f centerOfBrightnessXY(centerOfBrightness(0), centerOfBrightness(1));
     comOutput.centerOfBrightness = centerOfBrightnessXY;
     const Eigen::Vector2f centerOfMassXY(centerOfMass(0), centerOfMass(1));
@@ -454,44 +451,41 @@ void CobConverterAlgorithm::populateOutputMessages(
 CobConverterOutput CobConverterAlgorithm::updateState(const CobConverterInput& input) const {
     CobConverterOutput output;
 
-    if (input.cobValid && input.cobPixelsFound != 0) {
+    if (input.cobValid && input.cobPixelsFound != 0 &&
+        input.filterVehPosition.stableNorm() > static_cast<double>(this->cfg.getRadius())) {
         const Rotations rotations = this->computeRotations(input.sigma_BN);
 
-        // Phase angle correction. PhaseAngleCorrectionResult default-constructs to all-zero/false
-        // (no correction applied) when NoCorrectionAlg is configured, so this cycle's values never
-        // leak stale data from a previous cycle where BinaryAlg happened to be configured -- see
-        // the commit message for the staleness bug this replaced.
         PhaseAngleCorrectionResult correction;
         if (this->cfg.getPhaseAngleCorrectionMethod() != PhaseAngleCorrectionMethodAlgorithm::NoCorrectionAlg) {
             correction =
                 this->computePhaseAngleCorrection(input.filterVehPosition, input.vehSunPntBdy, rotations.dcm_BN);
         }
-
         auto [centerOfBrightness, centerOfMass] = CobConverterAlgorithm::computeCentersOfInterest(
             input.cobCenterOfBrightness, correction.gamma, correction.Rc, correction.phi);
+        correction.validCom = centerOfMass.allFinite();
         auto [rhatCOB_C, rhatCOM_C] = this->computeRelevantVectors(centerOfBrightness, centerOfMass);
         const Eigen::Matrix3f covar_B =
             this->computeCameraFrameUncertainty(input.cobPixelsFound, input.filterVehPositionCovariance, correction);
 
-        bool goodOutlierCheck = true;
-        if (this->cfg.isOutlierDetectionEnabled()) {
-            goodOutlierCheck = this->cobOutlierDetection(
-                input.filterVehPosition, input.filterVehPositionCovariance, covar_B, rhatCOB_C, rotations.dcm_NC);
-            output.diagnostic.coberrorOutlierTrigger = !goodOutlierCheck;
+        if (rhatCOB_C.allFinite() && rhatCOM_C.allFinite() && covar_B.allFinite()) {
+            bool goodOutlierCheck = true;
+            if (this->cfg.isOutlierDetectionEnabled()) {
+                goodOutlierCheck = this->cobOutlierDetection(
+                    input.filterVehPosition, input.filterVehPositionCovariance, covar_B, rhatCOB_C, rotations.dcm_NC);
+                output.diagnostic.coberrorOutlierTrigger = !goodOutlierCheck;
+            }
+            CobConverterAlgorithm::populateOutputMessages(input.cobTimeTag,
+                                                          centerOfMass,
+                                                          centerOfBrightness,
+                                                          rotations,
+                                                          correction,
+                                                          rhatCOM_C,
+                                                          covar_B,
+                                                          goodOutlierCheck,
+                                                          output.unitVec,
+                                                          output.com);
         }
-
-        CobConverterAlgorithm::populateOutputMessages(input.cobTimeTag,
-                                                      centerOfMass,
-                                                      centerOfBrightness,
-                                                      rotations,
-                                                      correction,
-                                                      rhatCOM_C,
-                                                      covar_B,
-                                                      goodOutlierCheck,
-                                                      output.unitVec,
-                                                      output.com);
     }
-
     return output;
 }
 

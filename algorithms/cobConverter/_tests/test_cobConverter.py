@@ -312,12 +312,13 @@ def cob_converter_test_function(show_plots, cameraResolution, centerOfBrightness
 
     covar_N_true = np.dot(dcm_BN.T, np.dot(covar_B_true, dcm_BN)).flatten() * goodPixels
 
-    # Center of Mass Message and Unit Vector
+    # Center of Mass Message and Unit Vector. comValid mirrors
+    # CobConverterAlgorithm::updateState: valid whenever the resulting COM pixel location is
+    # finite, regardless of phaseAngleCorrectionMethod (NoCorrection just means COM == COB).
+    valid_COM_true = bool(goodPixels)
     if goodPixels and method == binary:
-        valid_COM_true = True
         rhat_COM_N_true = np.dot(dcm_NC, rhat_COM_C_true)
     else:
-        valid_COM_true = False
         rhat_COM_N_true = rhat_COB_N_true
 
     # module output
