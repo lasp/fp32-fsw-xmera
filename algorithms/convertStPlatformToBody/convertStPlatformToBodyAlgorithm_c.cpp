@@ -7,24 +7,22 @@
 #include <Eigen/Core>
 
 namespace {
-ConvertStPlatformToBodyConfig configFromC(const ConvertStPlatformToBodyConfig_c& c) {
-    return ConvertStPlatformToBodyConfig::create(c2DArrayToEigenMatrix3(c.dcm_CB.data));
+ConvertStPlatformToBodyConfig configFromC(const Matrix3f_c& dcm_CB) {
+    return ConvertStPlatformToBodyConfig::create(c2DArrayToEigenMatrix3(dcm_CB.data));
 }
 }  // namespace
 
-ConvertStPlatformToBodyAlgorithmHandle* ConvertStPlatformToBodyAlgorithm_create(
-    const ConvertStPlatformToBodyConfig_c* config) {
+ConvertStPlatformToBodyAlgorithmHandle* ConvertStPlatformToBodyAlgorithm_create(const Matrix3f_c dcm_CB) {
     return fsw::createHandle<::ConvertStPlatformToBodyAlgorithm, ConvertStPlatformToBodyAlgorithmHandle>(
-        configFromC(*config));
+        configFromC(dcm_CB));
 }
 
 void ConvertStPlatformToBodyAlgorithm_destroy(ConvertStPlatformToBodyAlgorithmHandle* self) {
     fsw::deleteHandle<::ConvertStPlatformToBodyAlgorithm>(self);
 }
 
-void ConvertStPlatformToBodyAlgorithm_setConfig(ConvertStPlatformToBodyAlgorithmHandle* self,
-                                                const ConvertStPlatformToBodyConfig_c* config) {
-    fsw::fromHandle<::ConvertStPlatformToBodyAlgorithm>(self)->setConfig(configFromC(*config));
+void ConvertStPlatformToBodyAlgorithm_setConfig(ConvertStPlatformToBodyAlgorithmHandle* self, const Matrix3f_c dcm_CB) {
+    fsw::fromHandle<::ConvertStPlatformToBodyAlgorithm>(self)->setConfig(configFromC(dcm_CB));
 }
 
 StAttitudeOutput_c ConvertStPlatformToBodyAlgorithm_update(ConvertStPlatformToBodyAlgorithmHandle* self,

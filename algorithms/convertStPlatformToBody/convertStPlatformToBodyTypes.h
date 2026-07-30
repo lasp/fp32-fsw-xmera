@@ -9,11 +9,6 @@
 extern "C" {
 #endif
 
-/*! @brief C-compatible mirror of the C++ ConvertStPlatformToBodyConfig. */
-typedef struct {
-    Matrix3f_c dcm_CB; /*!< [-] body-to-case mounting DCM (orthonormal, det +1) */
-} ConvertStPlatformToBodyConfig_c;
-
 /*! @brief Star tracker sensor attitude solution for the platform-to-body conversion algorithm. */
 typedef struct {
     uint64_t timeTag; /*!< [ns] time tag of the attitude solution */
