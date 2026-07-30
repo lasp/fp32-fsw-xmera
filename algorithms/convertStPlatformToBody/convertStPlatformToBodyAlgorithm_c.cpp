@@ -36,6 +36,9 @@ StAttitudeOutput_c ConvertStPlatformToBodyAlgorithm_update(ConvertStPlatformToBo
     const StAttitudeOutput out = fsw::fromHandle<::ConvertStPlatformToBodyAlgorithm>(self)->update(q_CN, dq_CN);
 
     StAttitudeOutput_c result{};
+    // The algorithm computes only sigma/omega; the measurement time tag is a
+    // pass-through from the attitude input to the body-frame attitude output.
+    result.timeTag = platformAttitude->timeTag;
     eigenVectorToCArray(out.sigma_BN, result.sigma_BN);
     eigenVectorToCArray(out.omega_BN_B, result.omega_BN_B);
     return result;
