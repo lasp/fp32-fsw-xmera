@@ -15,6 +15,24 @@ extern "C" {
 typedef struct EphemeridesRecenterAlgorithmHandle EphemeridesRecenterAlgorithmHandle;
 
 /**
+ * @brief Report whether a configuration would be accepted by create/setConfig.
+ * @param newCentralBodyId       SPICE ID of the new central body.
+ * @param previousCentralBodyId  SPICE ID of the previous common central body.
+ * @param bodyIds                SPICE IDs of every configured body (first bodyCount entries used).
+ * @param originalCentralBodyIds Original central-body SPICE ID for each configured body.
+ * @param bodyCount              Number of configured bodies.
+ * @return true if the configuration is valid. Never throws, so it can guard the
+ *         throwing create/setConfig from an invalid configuration.
+ * @note The accepted body topology is defined by EphemeridesRecenterConfig::create; this predicate
+ *       reports whether a candidate set would be accepted, without throwing.
+ */
+bool EphemeridesRecenterAlgorithm_validateConfig(int newCentralBodyId,
+                                                 int previousCentralBodyId,
+                                                 int bodyIds[MAX_NUM_CHANGE_BODIES],
+                                                 int originalCentralBodyIds[MAX_NUM_CHANGE_BODIES],
+                                                 uint32_t bodyCount);
+
+/**
  * @brief Construct a new EphemeridesRecenterAlgorithm instance from the supplied configuration.
  * @param newCentralBodyId       SPICE ID of the new central body.
  * @param previousCentralBodyId  SPICE ID of the previous common central body.
