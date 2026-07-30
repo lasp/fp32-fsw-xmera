@@ -2,6 +2,9 @@
 #define F32XMERA_CONVERTSTPLATFORMTOBODYALGORITHM_C_H
 
 #include "convertStPlatformToBodyTypes.h"
+#include "utilities/fsw/plainCAlgorithmDataTypes.h"
+
+#include <stdbool.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -14,11 +17,10 @@ typedef struct ConvertStPlatformToBodyAlgorithmHandle ConvertStPlatformToBodyAlg
 
 /**
  * @brief Construct a new ConvertStPlatformToBodyAlgorithm instance from the supplied configuration.
- * @param config Pointer to the configuration to apply (validated; throws on invalid input).
- * @return Pointer to a new instance (must be destroyed).
+ * @param dcm_CB Body-to-case mounting DCM, row-major 3x3.
+ * @return Pointer to a new instance (must be destroyed). Validated; throws on invalid input.
  */
-ConvertStPlatformToBodyAlgorithmHandle* ConvertStPlatformToBodyAlgorithm_create(
-    const ConvertStPlatformToBodyConfig_c* config);
+ConvertStPlatformToBodyAlgorithmHandle* ConvertStPlatformToBodyAlgorithm_create(Matrix3f_c dcm_CB);
 
 /**
  * @brief Destroy a previously created ConvertStPlatformToBodyAlgorithm.
@@ -29,10 +31,10 @@ void ConvertStPlatformToBodyAlgorithm_destroy(ConvertStPlatformToBodyAlgorithmHa
 /**
  * @brief Apply a new configuration.
  * @param self   Pointer to the instance.
- * @param config Pointer to the configuration to apply (validated; throws on invalid input).
+ * @param dcm_CB Body-to-case mounting DCM, row-major 3x3.
+ * Validated; throws on invalid input.
  */
-void ConvertStPlatformToBodyAlgorithm_setConfig(ConvertStPlatformToBodyAlgorithmHandle* self,
-                                                const ConvertStPlatformToBodyConfig_c* config);
+void ConvertStPlatformToBodyAlgorithm_setConfig(ConvertStPlatformToBodyAlgorithmHandle* self, Matrix3f_c dcm_CB);
 
 /**
  * @brief Run the update step.
