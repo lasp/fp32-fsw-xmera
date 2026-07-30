@@ -17,6 +17,20 @@ extern "C" {
 typedef struct BodyRateMiscompareAlgorithmHandle BodyRateMiscompareAlgorithmHandle;
 
 /**
+ * @brief Report whether a configuration would be accepted by create()/setConfig().
+ * @param bodyRateThreshold     [rad/s] rate threshold to trigger a body rate miscompare fault.
+ * @param faultPersistenceLimit [-] consecutive update calls above threshold needed to trigger the fault.
+ * @param useImuRates           [-] force the IMU rate output even when the rates agree.
+ * @return true if the configuration is valid; false otherwise. Never throws, so it can be
+ *         used to guard the throwing create()/setConfig() from an invalid configuration.
+ * @note The accepted value ranges are defined by BodyRateMiscompareConfig::create; this predicate
+ *       reports whether a candidate set would be accepted, without throwing.
+ */
+bool BodyRateMiscompareAlgorithm_validateConfig(float bodyRateThreshold,
+                                                uint32_t faultPersistenceLimit,
+                                                bool useImuRates);
+
+/**
  * @brief Construct a new BodyRateMiscompareAlgorithm instance from the supplied configuration.
  * @param bodyRateThreshold     [rad/s] rate threshold to trigger a body rate miscompare fault.
  * @param faultPersistenceLimit [-] consecutive update calls above threshold needed to trigger the fault.
