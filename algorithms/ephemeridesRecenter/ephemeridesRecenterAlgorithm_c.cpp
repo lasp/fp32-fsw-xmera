@@ -1,5 +1,6 @@
 #include "ephemeridesRecenterAlgorithm_c.h"
 #include "ephemeridesRecenterAlgorithm.h"
+#include "utilities/fsw/freestandingInvalidArgument.h"
 #include "utilities/fsw/opaqueHandle.h"
 
 #include <array>
@@ -21,6 +22,21 @@ EphemeridesRecenterConfig configFromC(const int newCentralBodyId,
         newCentralBodyId, previousCentralBodyId, bodyIdsArr, originalCentralBodyIdsArr, bodyCount);
 }
 }  // namespace
+
+bool EphemeridesRecenterAlgorithm_validateConfig(const int newCentralBodyId,
+                                                 const int previousCentralBodyId,
+                                                 int bodyIds[MAX_NUM_CHANGE_BODIES],
+                                                 int originalCentralBodyIds[MAX_NUM_CHANGE_BODIES],
+                                                 const uint32_t bodyCount) {
+    // Attempt to build the config through the real create path; success means valid,
+    // a throw means invalid. Reusing configFromC keeps validation from drifting.
+    try {
+        (void)configFromC(newCentralBodyId, previousCentralBodyId, bodyIds, originalCentralBodyIds, bodyCount);
+        return true;
+    } catch (const fsw::invalid_argument&) {
+        return false;
+    }
+}
 
 EphemeridesRecenterAlgorithmHandle* EphemeridesRecenterAlgorithm_create(
     const int newCentralBodyId,
