@@ -164,9 +164,15 @@ where :math:`\boldsymbol{h}_w` is the net momentum on the wheels, :math:`\boldsy
 and :math:`\kappa` (``K``) / :math:`\kappa_I` (``Ki``) the proportional and integral gains. The integral is
 accumulated with a trapezoidal rule using the configured ``controlPeriod`` as the fixed time step (the module is
 expected to run at that rate). The momentum and its integral are tracked in the body frame; the torque is converted
-to the platform frame (through the mount frame, using the nominal zero-torque pointing) and passed to the *Thruster
-pointing* solve above; because that solve reaches the requested torque exactly, the thruster produces
-:math:`\boldsymbol{L}_\text{req}` (up to the component along the thrust, which no thruster force can produce).
+to the platform frame (through the mount frame) and passed to the *Thruster pointing* solve above. Because that solve
+reaches the requested torque exactly, the thruster produces :math:`\boldsymbol{L}_\text{req}` (up to the component
+along the thrust, which no thruster force can produce).
+
+Converting the torque to the platform frame needs :math:`[\mathcal{FM}]`, which is the very quantity being solved
+for. The module breaks this circularity by reusing the **previous cycle's** reference DCM as the conversion estimate;
+on the first cycle, where no prior exists, it is seeded once with the nominal (zero-torque) pointing. The resulting
+one-cycle staleness is a small, bounded error that the momentum-dumping feedback loop absorbs, and it lets each cycle
+run a single pointing solve instead of two.
 
 Deflection cone limit
 ^^^^^^^^^^^^^^^^^^^^^

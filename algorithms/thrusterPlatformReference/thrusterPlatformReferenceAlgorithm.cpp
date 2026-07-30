@@ -82,10 +82,11 @@ void ThrusterPlatformReferenceAlgorithm::setConfig(const ThrusterPlatformReferen
     this->cfg = config;
 }
 
-/*! @brief Re-seed the runtime integrator state (RW momentum integral, prior sample) to its initial values. */
+/*! @brief Re-seed the runtime state (RW momentum integral, prior sample, prior pointing DCM) to its initial values. */
 void ThrusterPlatformReferenceAlgorithm::reInitialize() {
     this->hsInt_B.setZero();
     this->priorHs_B.setZero();
+    this->priorDcm_FM.setZero();
 }
 
 /*! This method computes the platform reference orientation that points the thruster line of action through the
@@ -104,8 +105,7 @@ ThrusterPlatformReferenceOutput ThrusterPlatformReferenceAlgorithm::update(const
     const Eigen::Vector3f thrust_F = in.thrust * in.tHat_F;            // thrust vector in F-frame coordinates
     const Eigen::Vector3f tHat_F = thrust_F.normalized();              // thrust unit direction, F frame
 
-    // zero-torque pointing: align the thruster line of action through the center of mass
-    Eigen::Matrix3f dcm_FM = computeThrusterPointing(r_CM_M, r_TM_F, thrust_F, Eigen::Vector3f::Zero());
+    Eigen::Vector3f Lreq_F = Eigen::Vector3f::Zero();  // requested torque, platform frame (zero -> point through CM)
 
     if (this->cfg.getMomentumDumping()) {
         const ThrusterPlatformReferenceRwArrayConfiguration& rwConfig = this->cfg.getRwConfig();
@@ -122,14 +122,21 @@ ThrusterPlatformReferenceOutput ThrusterPlatformReferenceAlgorithm::update(const
         this->priorHs_B = hs_B;
 
         // desired thruster torque about the center of mass: oppose the accumulated wheel momentum to dump it.
-        // Converted from the body frame into the platform frame (via the nominal zero-torque pointing) to re-point.
         const Eigen::Vector3f Lreq_B = -this->cfg.getK() * hs_B - this->cfg.getKi() * this->hsInt_B;
-        const Eigen::Vector3f Lreq_F = dcm_FM * dcm_MB * Lreq_B;
-        dcm_FM = computeThrusterPointing(r_CM_M, r_TM_F, thrust_F, Lreq_F);
+
+        // Torque is converted from the body frame into the platform frame using the previous cycle's pointing; on the
+        // first cycle there is no prior, so seed it once with the nominal zero-torque pointing.
+        if (this->priorDcm_FM.isZero()) {
+            this->priorDcm_FM = computeThrusterPointing(r_CM_M, r_TM_F, thrust_F, Eigen::Vector3f::Zero());
+        }
+        Lreq_F = this->priorDcm_FM * dcm_MB * Lreq_B;
     }
+
+    Eigen::Matrix3f dcm_FM = computeThrusterPointing(r_CM_M, r_TM_F, thrust_F, Lreq_F);
 
     // limit the thrust deflection to the configured cone about its neutral direction
     dcm_FM = clampThrustDeflection(dcm_FM, tHat_F, this->cfg.getThetaMax());
+    this->priorDcm_FM = dcm_FM;  // save for the next cycle's torque conversion
 
     // mapping between the final platform frame and the body frame
     const Eigen::Matrix3f dcm_FB = dcm_FM * dcm_MB;

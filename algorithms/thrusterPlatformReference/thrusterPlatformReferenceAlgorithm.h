@@ -183,6 +183,8 @@ class ThrusterPlatformReferenceAlgorithm final {
     ThrusterPlatformReferenceConfig cfg;                 //!< [-] validated configuration
     Eigen::Vector3f hsInt_B{Eigen::Vector3f::Zero()};    //!< [Nms] integral of RW momentum, B frame
     Eigen::Vector3f priorHs_B{Eigen::Vector3f::Zero()};  //!< [Nms] prior RW momentum, B frame
+    Eigen::Matrix3f priorDcm_FM{
+        Eigen::Matrix3f::Zero()};  //!< [-] previous cycle's reference DCM [FM] (torque-conversion seed; zero if unset)
 };
 
 #endif  // F32XMERA_THRUSTER_PLATFORM_REFERENCE_ALGORITHM_H
