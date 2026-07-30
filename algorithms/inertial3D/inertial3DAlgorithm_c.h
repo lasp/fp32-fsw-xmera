@@ -15,6 +15,16 @@ extern "C" {
 typedef struct Inertial3DAlgorithmHandle Inertial3DAlgorithmHandle;
 
 /**
+ * @brief Report whether a configuration would be accepted by create/setConfig.
+ * @param sigma_RN [-] MRP from inertial frame N to reference frame R.
+ * @return true if the configuration is valid. Never throws, so it can guard the
+ *         throwing create/setConfig from an invalid configuration.
+ * @note The accepted value ranges are defined by Inertial3DConfig::create; this predicate
+ *       reports whether a candidate set would be accepted, without throwing.
+ */
+bool Inertial3DAlgorithm_validateConfig(Vector3f_c sigma_RN);
+
+/**
  * @brief Construct a new Inertial3DAlgorithm instance from the supplied configuration.
  * @param sigma_RN [-] MRP from inertial frame N to reference frame R.
  * @return Pointer to a new Inertial3DAlgorithm (must be destroyed). Validated; throws on invalid input.
