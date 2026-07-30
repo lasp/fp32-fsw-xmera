@@ -20,6 +20,26 @@ typedef struct ThrFiringRemainderAlgorithmHandle ThrFiringRemainderAlgorithmHand
 uint32_t ThrFiringRemainderAlgorithm_getMaxThrusterCount(void);
 
 /**
+ * @brief Report whether a configuration would be accepted by create/setConfig.
+ * @param numThrusters           [-] number of thrusters on the vehicle.
+ * @param maxThrust              [N] per-thruster maximum thrust.
+ * @param thrMinFireTime         [s] minimum commandable thruster fire time.
+ * @param controlPeriod          [s] control period the force command applies over.
+ * @param onTimeSaturationFactor [-] control-period multiplier applied when on-time saturates.
+ * @param pulsingRegime          [-] on-pulsing or off-pulsing.
+ * @return true if the configuration is valid. Never throws, so it can guard the
+ *         throwing create/setConfig from an invalid configuration.
+ * @note The accepted value ranges are defined by ThrFiringRemainderConfig::create; this predicate
+ *       reports whether a candidate set would be accepted, without throwing.
+ */
+bool ThrFiringRemainderAlgorithm_validateConfig(uint32_t numThrusters,
+                                                float maxThrust[THR_FIRING_REMAINDER_MAX_THRUSTER_COUNT],
+                                                float thrMinFireTime,
+                                                float controlPeriod,
+                                                float onTimeSaturationFactor,
+                                                ThrFiringRemainderPulsingRegime pulsingRegime);
+
+/**
  * @brief Construct a new ThrFiringRemainderAlgorithm instance from the supplied configuration.
  * @param numThrusters           [-] number of thrusters on the vehicle.
  * @param maxThrust              [N] per-thruster maximum thrust.
