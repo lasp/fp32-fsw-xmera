@@ -34,10 +34,10 @@ typedef struct {
     int bodySpiceId;           /*!< SPICE ID of the body */
     int originalCentralBodyId; /*!< SPICE ID of original central body */
     int isMoon;                /*!< 1 if this body is a moon of another listed body, else 0 */
-    double position[3]; /*!< [m] position (input: relative to original central body; output: relative to new central
-                           body) */
-    double velocity[3]; /*!< [m/s] velocity (input: relative to original central body; output: relative to new central
-                           body) */
+    double input_r[3];         /*!< [m] input position in the original central body frame */
+    double input_v[3];         /*!< [m/s] input velocity in the original central body frame */
+    double output_r[3];        /*!< [m] output position in the new central body frame */
+    double output_v[3];        /*!< [m/s] output velocity in the new central body frame */
 } BodyEphemerisPayload_c;
 
 /**
