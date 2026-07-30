@@ -15,6 +15,24 @@ extern "C" {
 typedef struct OEStateEphemAlgorithmHandle OEStateEphemAlgorithmHandle;
 
 /**
+ * @brief Report whether a configuration would be accepted by create/setConfig.
+ * @param centralBodyGravitationalParameter [m^3/s^2] central-body gravitational parameter.
+ * @param numberOfArcs                      [-] number of populated arcs.
+ * @param ephemerisTimeJ2000               [s] ephemeris time offset referenced to J2000.
+ * @param vehicleTimeOffset                [s] vehicle clock time offset.
+ * @param fitCoefficients                  Table of MAX_OE_RECORDS Chebyshev fit arcs.
+ * @return true if the configuration is valid. Never throws, so it can guard the
+ *         throwing create/setConfig from an invalid configuration.
+ * @note The accepted value ranges are defined by OEStateEphemConfig::create; this predicate
+ *       reports whether a candidate set would be accepted, without throwing.
+ */
+bool OEStateEphemAlgorithm_validateConfig(double centralBodyGravitationalParameter,
+                                          unsigned int numberOfArcs,
+                                          double ephemerisTimeJ2000,
+                                          double vehicleTimeOffset,
+                                          ChebyshevFitArc_c fitCoefficients[MAX_OE_RECORDS]);
+
+/**
  * @brief Construct a new OEStateEphemAlgorithm from a validated configuration.
  * @param centralBodyGravitationalParameter [m^3/s^2] central-body gravitational parameter.
  * @param numberOfArcs                      [-] number of populated arcs.

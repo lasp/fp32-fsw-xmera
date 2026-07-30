@@ -1,5 +1,6 @@
 #include "oeStateEphemAlgorithm_c.h"
 #include "oeStateEphemAlgorithm.h"
+#include "utilities/fsw/freestandingInvalidArgument.h"
 #include "utilities/fsw/opaqueHandle.h"
 
 #include <algorithm>
@@ -41,6 +42,22 @@ OEStateEphemConfig configFromC(const double centralBodyGravitationalParameter,
         centralBodyGravitationalParameter, numberOfArcs, ephemerisTimeJ2000, vehicleTimeOffset, arcs);
 }
 }  // namespace
+
+bool OEStateEphemAlgorithm_validateConfig(const double centralBodyGravitationalParameter,
+                                          const unsigned int numberOfArcs,
+                                          const double ephemerisTimeJ2000,
+                                          const double vehicleTimeOffset,
+                                          ChebyshevFitArc_c fitCoefficients[MAX_OE_RECORDS]) {
+    // Attempt to build the config through the real create path; success means valid,
+    // a throw means invalid. Reusing configFromC keeps validation from drifting.
+    try {
+        (void)configFromC(
+            centralBodyGravitationalParameter, numberOfArcs, ephemerisTimeJ2000, vehicleTimeOffset, fitCoefficients);
+        return true;
+    } catch (const fsw::invalid_argument&) {
+        return false;
+    }
+}
 
 OEStateEphemAlgorithmHandle* OEStateEphemAlgorithm_create(const double centralBodyGravitationalParameter,
                                                           const unsigned int numberOfArcs,
