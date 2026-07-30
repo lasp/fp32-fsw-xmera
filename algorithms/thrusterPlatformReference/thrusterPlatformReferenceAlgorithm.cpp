@@ -10,21 +10,27 @@ namespace {
 constexpr float kZeroTolerance = 1e-6F;  // module tolerance for treating a quantity as zero
 constexpr float kSmallAngle = 1e-3F;     // small angle tolerance [rad]
 
-/*! Compute the platform rotation [FM] aligning the thruster line of action with the system center of mass. */
+/*! Compute the platform rotation [FM] that points the thruster so it produces the requested torque Lreq_F (the
+ thruster torque about the system center of mass, r_TC x thrust) on the body. A zero requested torque aligns the
+ thruster line of action through the center of mass. */
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters) -- the vectors are distinct by frame and documented.
-Eigen::Matrix3f alignThrustLine(const Eigen::Vector3f& r_CM_M,
-                                const Eigen::Vector3f& r_TM_F,
-                                const Eigen::Vector3f& tHat_F) {
+Eigen::Matrix3f computeThrusterPointing(const Eigen::Vector3f& r_CM_M,
+                                        const Eigen::Vector3f& r_TM_F,
+                                        const Eigen::Vector3f& thrust_F,
+                                        const Eigen::Vector3f& Lreq_F) {
     Eigen::Vector3f prv_FM = Eigen::Vector3f::Zero();  // zero rotation when the center of mass coincides with the joint
 
-    const float b = r_CM_M.norm();
+    const float b = r_CM_M.norm();  // distance from the joint M to the center of mass (unchanged by any rotation)
     if (b >= kZeroTolerance) {
-        // thrust-ray / center-of-mass-sphere intersection (positive square-root branch)
-        const float rt = r_TM_F.dot(tHat_F);
-        const float ct = -rt + safeSqrtf((rt * rt) - r_TM_F.squaredNorm() + (b * b));
-        const Eigen::Vector3f r_CtM_F = r_TM_F + (ct * tHat_F);
+        const Eigen::Vector3f tHat_F = thrust_F.normalized();
 
-        // rotate r_CM_M onto the intersection point about the cross-product axis
+        // perpendicular arm (in F frame) of the requested-torque line: the CoM positions (in F frame) that give Lreq_F
+        const Eigen::Vector3f r_lineM_F = thrust_F.cross(r_TM_F.cross(thrust_F) - Lreq_F) / thrust_F.squaredNorm();
+        // r_CtM_F: intersect that line with the distance-b locus (arm r_lineM_F plus an offset along the thrust)
+        const float distAlongThrust = safeSqrtf((b * b) - r_lineM_F.squaredNorm());
+        const Eigen::Vector3f r_CtM_F = r_lineM_F + (distAlongThrust * tHat_F);
+
+        // shortest rotation carrying r_CM_M onto r_CtM_F, about their cross-product axis
         const Eigen::Vector3f rHat_CM_M = r_CM_M.stableNormalized();
         const Eigen::Vector3f rHat_CtM_F = r_CtM_F.stableNormalized();
         const float angle = safeAcosf(rHat_CM_M.dot(rHat_CtM_F));
@@ -82,9 +88,9 @@ void ThrusterPlatformReferenceAlgorithm::reInitialize() {
     this->priorHs_M.setZero();
 }
 
-/*! This method computes the platform reference orientation that aligns the thruster line of action with the system
- center of mass (optionally offset to dump reaction wheel momentum) and the associated body-heading, thruster-torque
- and thruster-configuration quantities.
+/*! This method computes the platform reference orientation that points the thruster line of action through the
+ system center of mass (or produces a torque to dump reaction-wheel momentum) and the associated body-heading,
+ thruster-torque and thruster-configuration quantities.
  @return ThrusterPlatformReferenceOutput derived body-frame thruster quantities
  @param in per-cycle inputs read from the input messages
 */
@@ -98,7 +104,8 @@ ThrusterPlatformReferenceOutput ThrusterPlatformReferenceAlgorithm::update(const
     const Eigen::Vector3f thrust_F = in.thrust * in.tHat_F;            // thrust vector in F-frame coordinates
     const Eigen::Vector3f tHat_F = thrust_F.normalized();              // thrust unit direction, F frame
 
-    Eigen::Matrix3f dcm_FM = alignThrustLine(r_CM_M, r_TM_F, tHat_F);
+    // zero-torque pointing: align the thruster line of action through the center of mass
+    Eigen::Matrix3f dcm_FM = computeThrusterPointing(r_CM_M, r_TM_F, thrust_F, Eigen::Vector3f::Zero());
 
     if (this->cfg.getMomentumDumping()) {
         const ThrusterPlatformReferenceRwArrayConfiguration& rwConfig = this->cfg.getRwConfig();
@@ -115,14 +122,11 @@ ThrusterPlatformReferenceOutput ThrusterPlatformReferenceAlgorithm::update(const
         this->hsInt_M += 0.5F * dt * (this->priorHs_M + hs_M);
         this->priorHs_M = hs_M;
 
-        // compute the offset vector that shifts the effective CM to produce the desired dumping torque
-        const Eigen::Vector3f thrust_M = dcm_FM.transpose() * thrust_F;
-        const Eigen::Vector3f H_M = (this->cfg.getK() * hs_M) + (this->cfg.getKi() * this->hsInt_M);
-        const Eigen::Vector3f d_M = -1.0F / thrust_M.dot(thrust_M) * thrust_M.cross(H_M);
-
-        // recompute the platform rotation about the offset CM
-        const Eigen::Vector3f r_CdM_M = r_CM_M + d_M;
-        dcm_FM = alignThrustLine(r_CdM_M, r_TM_F, tHat_F);
+        // desired thruster torque about the center of mass: oppose the accumulated wheel momentum to dump it.
+        // Converted into the platform frame with the nominal zero-torque pointing, then re-point to produce it.
+        const Eigen::Vector3f Lreq_M = -this->cfg.getK() * hs_M - this->cfg.getKi() * this->hsInt_M;
+        const Eigen::Vector3f Lreq_F = dcm_FM * Lreq_M;
+        dcm_FM = computeThrusterPointing(r_CM_M, r_TM_F, thrust_F, Lreq_F);
     }
 
     // limit the thrust deflection to the configured cone about its neutral direction
@@ -131,11 +135,11 @@ ThrusterPlatformReferenceOutput ThrusterPlatformReferenceAlgorithm::update(const
     // mapping between the final platform frame and the body frame
     const Eigen::Matrix3f dcm_FB = dcm_FM * dcm_MB;
 
-    // thruster torque on the system in body frame coordinates
+    // achieved thruster torque on the system in body frame coordinates (can be different from requested due to clamp)
     const Eigen::Vector3f r_CM_F = dcm_FM * r_CM_M;
     const Eigen::Vector3f r_TC_F = r_TM_F - r_CM_F;
-    const Eigen::Vector3f Lreq_F = thrust_F.cross(r_TC_F);
-    out.Lreq_B = dcm_FB.transpose() * Lreq_F;
+    const Eigen::Vector3f torque_F = thrust_F.cross(r_TC_F);
+    out.Lreq_B = dcm_FB.transpose() * torque_F;
 
     // thruster configuration in body frame coordinates
     const Eigen::Vector3f r_TC_B = dcm_FB.transpose() * r_TC_F;

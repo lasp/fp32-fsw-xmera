@@ -211,6 +211,40 @@ TEST(ThrusterPlatformReferenceTest, PropertyMomentumDumpingFinite) {
     EXPECT_TRUE(std::isfinite(out.thrust));
 }
 
+// The momentum-dumping path points the thruster so it produces the desired thruster torque -(K*hs + Ki*hsInt); the
+// reported reaction-wheel torque (out.Lreq_B) is its opposite, K*hs (Ki = 0 here), projected onto the component
+// achievable by the thrust.
+TEST(ThrusterPlatformReferenceTest, MomentumDumpingAchievesRequestedTorque) {
+    const Eigen::Vector3f zero = Eigen::Vector3f::Zero();  // sigma_MB == 0 -> M == B
+    constexpr float K = 1.0F;
+    ThrusterPlatformReferenceRwArrayConfiguration rw{};
+    rw.numRW = 3U;
+    rw.GsMatrix_B.col(0) = Eigen::Vector3f(1.0F, 0.0F, 0.0F);
+    rw.GsMatrix_B.col(1) = Eigen::Vector3f(0.0F, 1.0F, 0.0F);
+    rw.GsMatrix_B.col(2) = Eigen::Vector3f(0.0F, 0.0F, 1.0F);
+    rw.JsList(0) = 0.01F;
+    rw.JsList(1) = 0.01F;
+    rw.JsList(2) = 0.01F;
+    // Ki = 0 so the reported reaction-wheel torque is exactly K * hs (the thruster produces its opposite).
+    ThrusterPlatformReferenceAlgorithm alg{ThrusterPlatformReferenceConfig::create(
+        zero, {0.0F, 0.1F, 1.4F}, {0.0F, 0.0F, -0.1F}, K, 0.0F, 1.0F, 3.0F, true, rw)};
+
+    ThrusterPlatformReferenceInputs in =
+        makeInputs({0.05F, 0.02F, 0.1F}, {-0.01F, 0.03F, 0.02F}, {1.0F, 1.0F, 10.0F}, 10.0F);
+    in.wheelSpeeds(0) = 10.0F;
+    in.wheelSpeeds(1) = 10.0F;
+    in.wheelSpeeds(2) = 10.0F;
+    const ThrusterPlatformReferenceOutput out = alg.update(in);
+
+    // expected reported reaction-wheel torque about the CM (M == B); only the component perpendicular to the thrust
+    // is achievable
+    const Eigen::Vector3f hs_M(0.01F * 10.0F, 0.01F * 10.0F, 0.01F * 10.0F);
+    const Eigen::Vector3f Lreq_M = K * hs_M;
+    const Eigen::Vector3f tHat_M = out.tHat_B;  // sigma_MB == 0
+    const Eigen::Vector3f LreqPerp_M = Lreq_M - (tHat_M * tHat_M.dot(Lreq_M));
+    EXPECT_LT((out.Lreq_B - LreqPerp_M).norm(), 1e-3F);
+}
+
 // A geometry that would require a large deflection is clamped so the thrust direction stays on the cone: the angle
 // between the reported thrust heading and its neutral direction equals thetaMax.
 TEST(ThrusterPlatformReferenceTest, ThrustDeflectionClampedToCone) {

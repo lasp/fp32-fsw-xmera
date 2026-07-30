@@ -70,9 +70,9 @@ void ThrusterPlatformReference::reInitialize() {
     this->algorithm->reInitialize();
 }
 
-/*! This method computes the platform reference orientation that aligns the thruster line of action with the system
- center of mass (optionally offset to dump reaction wheel momentum) and writes the body-heading, thruster-torque and
- thruster-configuration output messages.
+/*! This method computes the platform reference orientation that points the thruster line of action through the
+ system center of mass (or produces a torque to dump reaction-wheel momentum) and writes the body-heading,
+ thruster-torque and thruster-configuration output messages.
  @return void
  @param callTime The clock time at which the function was called (nanoseconds)
 */

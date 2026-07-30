@@ -82,15 +82,16 @@ Electric Thruster" <http://hanspeterschaub.info/Papers/Calaon2023a.pdf>`__.
 
 The algorithm computes a direction cosine matrix :math:`[\mathcal{FM}]` that describes the reference rotation
 between the platform frame :math:`\mathcal{F}` and the mount frame :math:`\mathcal{M}`, chosen so that the thruster
-line of action passes through the system's center of mass. The input parameters allow specifying offsets between the
-origin :math:`M` of the hub-fixed mount frame :math:`\mathcal{M}` and the origin :math:`F` of the platform-fixed
-frame :math:`\mathcal{F}`, the application point of the thruster force in the :math:`\mathcal{F}` frame, and the
-direction, in :math:`\mathcal{F}`-frame coordinates, of the thrust vector.
+produces a requested torque about the system's center of mass (a zero requested torque points the thruster line of
+action through the center of mass). The input parameters allow specifying offsets between the origin :math:`M` of the
+hub-fixed mount frame :math:`\mathcal{M}` and the origin :math:`F` of the platform-fixed frame :math:`\mathcal{F}`,
+the application point of the thruster force in the :math:`\mathcal{F}` frame, and the direction, in
+:math:`\mathcal{F}`-frame coordinates, of the thrust vector.
 
 Platform reference rotation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-The reference DCM :math:`[\mathcal{FM}]` is the single rotation that aligns the thruster line of action with the
-system center of mass (derived below). The relevant geometry is first assembled in the mount and platform frames:
+The reference DCM :math:`[\mathcal{FM}]` is the single rotation that makes the thruster produce the requested torque
+about the center of mass (derived below). The relevant geometry is first assembled in the mount and platform frames:
 
 .. math::
     {}^\mathcal{M}\boldsymbol{r}_{C/M} = [\mathcal{MB}]\,{}^\mathcal{B}\boldsymbol{r}_{C/B}
@@ -101,61 +102,71 @@ system center of mass (derived below). The relevant geometry is first assembled 
 
 with :math:`[\mathcal{MB}]` built from ``sigma_MB`` and :math:`F` the thrust magnitude.
 
-Thrust-line alignment
-^^^^^^^^^^^^^^^^^^^^^^
-The thrust line of action is fixed in the platform frame as the ray
-:math:`{}^\mathcal{F}\boldsymbol{r}_{T/M} + c\,{}^\mathcal{F}\hat{\boldsymbol{t}}`, with :math:`c \geq 0`. The
-alignment rotation is length preserving, so the rotated center of mass lies on a sphere of radius
-:math:`b = \|\boldsymbol{r}_{C/M}\|` about the joint :math:`M`. Aligning the thrust line through the center of mass
-therefore reduces to intersecting the ray with that sphere,
+Thruster pointing
+^^^^^^^^^^^^^^^^^
+The thruster is fixed in the platform frame, so the torque it produces about the center of mass,
+:math:`\boldsymbol{L} = {}^\mathcal{F}\boldsymbol{r}_{T/C} \times {}^\mathcal{F}\boldsymbol{t}` (moment arm times
+force), depends on the reference rotation only through where the center of mass falls in that frame,
+:math:`{}^\mathcal{F}\boldsymbol{r}_{C/M} = [\mathcal{FM}]\,{}^\mathcal{M}\boldsymbol{r}_{C/M}`. The algorithm
+therefore solves for the platform-frame coordinates the center of mass must have to produce a requested torque
+:math:`{}^\mathcal{F}\boldsymbol{L}_\text{req}` (zero for pure center-of-mass alignment), then takes
+:math:`[\mathcal{FM}]` to be the rotation that carries :math:`{}^\mathcal{M}\boldsymbol{r}_{C/M}` there. Two
+conditions pin that target position :math:`{}^\mathcal{F}\boldsymbol{r}_{Ct/M}`.
+
+First, the requested-torque condition
 
 .. math::
-    \left\| {}^\mathcal{F}\boldsymbol{r}_{T/M} + c\,{}^\mathcal{F}\hat{\boldsymbol{t}} \right\|^2 = b^2,
+    \left( {}^\mathcal{F}\boldsymbol{r}_{T/M} - {}^\mathcal{F}\boldsymbol{r}_{Ct/M} \right)
+        \times {}^\mathcal{F}\boldsymbol{t}
+        = {}^\mathcal{F}\boldsymbol{L}_\text{req}
 
-which, since :math:`\hat{\boldsymbol{t}}` is a unit vector, is a quadratic in :math:`c`,
-
-.. math::
-    c^2 + 2\left(\boldsymbol{r}_{T/M}\cdot\hat{\boldsymbol{t}}\right) c
-        + \left( \|\boldsymbol{r}_{T/M}\|^2 - b^2 \right) = 0,
-
-whose relevant root (taken with the positive square root) is
+confines the target to a line parallel to the thrust (a zero torque gives the thrust line itself; a non-zero torque
+shifts it sideways), whose foot perpendicular to the thrust from the joint :math:`M` is
 
 .. math::
-    c = -\boldsymbol{r}_{T/M}\cdot\hat{\boldsymbol{t}}
-        + \sqrt{\left(\boldsymbol{r}_{T/M}\cdot\hat{\boldsymbol{t}}\right)^2 - \|\boldsymbol{r}_{T/M}\|^2 + b^2}.
+    {}^\mathcal{F}\boldsymbol{r}_\perp =
+        \frac{ {}^\mathcal{F}\boldsymbol{t} \times \left( {}^\mathcal{F}\boldsymbol{r}_{T/M}
+        \times {}^\mathcal{F}\boldsymbol{t} - {}^\mathcal{F}\boldsymbol{L}_\text{req} \right)}
+        {\|{}^\mathcal{F}\boldsymbol{t}\|^2}.
 
-The discriminant equals :math:`b^2 - r_\text{arm}^2`, where
-:math:`r_\text{arm}^2 = \|\boldsymbol{r}_{T/M}\|^2 - (\boldsymbol{r}_{T/M}\cdot\hat{\boldsymbol{t}})^2` is the
-squared moment arm of the thrust line about :math:`M`; a real intersection exists whenever
-:math:`b \geq r_\text{arm}`, i.e. when the center of mass is reachable by the thrust direction. The intersection
-point :math:`{}^\mathcal{F}\boldsymbol{r}_{Ct/M} = {}^\mathcal{F}\boldsymbol{r}_{T/M}
-+ c\,{}^\mathcal{F}\hat{\boldsymbol{t}}` is the target position of the center of mass in the platform frame.
+Second, a rotation cannot change the center of mass's distance from the joint, so the target lies at distance
+:math:`b = \|\boldsymbol{r}_{C/M}\|` from :math:`M`; it is therefore the point of the line at that distance,
 
-The reference rotation :math:`[\mathcal{FM}]` carries :math:`\hat{\boldsymbol{r}}_{C/M}` onto
+.. math::
+    {}^\mathcal{F}\boldsymbol{r}_{Ct/M} = {}^\mathcal{F}\boldsymbol{r}_\perp
+        + \sqrt{b^2 - \|{}^\mathcal{F}\boldsymbol{r}_\perp\|^2}\, {}^\mathcal{F}\hat{\boldsymbol{t}}.
+
+A real intersection exists whenever :math:`b \geq \|\boldsymbol{r}_\perp\|`, i.e. when the requested torque is
+achievable given the available moment arm; for :math:`\boldsymbol{L}_\text{req} = 0` this reduces to the thrust line
+through the center of mass and :math:`\|\boldsymbol{r}_\perp\|` is the thrust moment arm about :math:`M`. Only the
+component of :math:`\boldsymbol{L}_\text{req}` perpendicular to the thrust is achievable (a force produces no torque
+about its own line of action); the parallel component is dropped by the construction.
+
+The reference rotation :math:`[\mathcal{FM}]` then carries :math:`\hat{\boldsymbol{r}}_{C/M}` onto
 :math:`\hat{\boldsymbol{r}}_{Ct/M}` through the separation angle
 :math:`\phi = \arccos\left(\hat{\boldsymbol{r}}_{C/M}\cdot\hat{\boldsymbol{r}}_{Ct/M}\right)` about the axis
 :math:`\hat{\boldsymbol{e}} = \hat{\boldsymbol{r}}_{Ct/M}\times\hat{\boldsymbol{r}}_{C/M}`, encoded as the principal
 rotation vector :math:`\phi\,\hat{\boldsymbol{e}}`. When the two directions are nearly antiparallel the cross
 product is ill-defined and any axis orthogonal to :math:`\hat{\boldsymbol{r}}_{C/M}` is used for the
-:math:`180^\circ` rotation. When the center of mass coincides with the joint (:math:`b \approx 0`) the alignment is
+:math:`180^\circ` rotation. When the center of mass coincides with the joint (:math:`b \approx 0`) the pointing is
 undefined and the identity rotation is returned.
 
 Momentum dumping
 ^^^^^^^^^^^^^^^^
-When the optional reaction-wheel input messages are connected the user can specify the gain :math:`\kappa` (``K``),
-the proportional gain of a control law that computes an offset with respect to the center of mass; this makes the
-thruster apply a torque on the system that dumps the momentum accumulated on the wheels. The control law is:
+When the optional reaction-wheel input messages are connected, the requested torque is set by a control law that
+makes the thruster dump the momentum accumulated on the wheels. The desired thruster torque opposes that momentum,
 
 .. math::
-    \boldsymbol{d} = -\frac{1}{t^2} \boldsymbol{t} \times(\kappa \boldsymbol{h}_w + \kappa_I \boldsymbol{H}_w)
+    \boldsymbol{L}_\text{req} = -\left( \kappa\, \boldsymbol{h}_w + \kappa_I\, \boldsymbol{H}_w \right), \qquad
+    \boldsymbol{H}_w = \int_{t_0}^t \boldsymbol{h}_w \,\text{d}t,
 
-where :math:`\boldsymbol{h}_w` is the momentum on the wheels and :math:`\boldsymbol{H}_w` its integral over time:
-
-.. math::
-    \boldsymbol{H}_w = \int_{t_0}^t \boldsymbol{h}_w \text{d}t.
-
-The integral is accumulated with a trapezoidal rule using the configured ``controlPeriod`` as the fixed time step
-(the module is expected to run at that rate).
+where :math:`\boldsymbol{h}_w` is the net momentum on the wheels, :math:`\boldsymbol{H}_w` its integral over time,
+and :math:`\kappa` (``K``) / :math:`\kappa_I` (``Ki``) the proportional and integral gains. The integral is
+accumulated with a trapezoidal rule using the configured ``controlPeriod`` as the fixed time step (the module is
+expected to run at that rate). The torque is evaluated in the mount frame, converted to the platform frame using the
+nominal zero-torque pointing, and passed to the *Thruster pointing* solve above; because that solve reaches the
+requested torque exactly, the thruster produces :math:`\boldsymbol{L}_\text{req}` (up to the component along the
+thrust, which no thruster force can produce).
 
 Deflection cone limit
 ^^^^^^^^^^^^^^^^^^^^^
@@ -267,10 +278,12 @@ then add the module to the simulation task (``reset()`` validates and builds the
 
 Module Assumptions and Limitations
 ----------------------------------
-The reference rotation exists only when the thruster line of action can reach the center of mass, i.e. when the
-thrust moment arm about the joint :math:`M` does not exceed the distance :math:`b` from the joint to the center of
-mass (the ray-sphere discriminant in *Thrust-line alignment* is non-negative). When the center of mass coincides
-with the joint the reference rotation is undefined and the identity rotation is returned. When the alignment would
-require deflecting the thruster beyond the configured cone half-angle :math:`\theta_\text{max}`, the reference is
-clamped to the cone (see *Deflection cone limit*); in that case the thruster is not aligned through the center of
-mass and the reported net torque is non-zero.
+The requested torque is achievable only when the target center-of-mass line reaches the sphere of radius :math:`b`
+about the joint :math:`M`, i.e. when :math:`b \geq \|\boldsymbol{r}_\perp\|` (see *Thruster pointing*); for the
+zero-torque case this is just the requirement that the thruster line of action can reach the center of mass. When the
+center of mass coincides with the joint the pointing is undefined and the identity rotation is returned. When the
+solution would require deflecting the thruster beyond the configured cone half-angle :math:`\theta_\text{max}`, the
+reference is clamped to the cone (see *Deflection cone limit*); in that case the thruster does not produce the
+requested torque exactly. The desired-torque control law is converted from the mount frame to the platform frame
+using the nominal zero-torque pointing, a one-step approximation whose small residual is absorbed by the
+per-cycle momentum-dumping feedback loop.
