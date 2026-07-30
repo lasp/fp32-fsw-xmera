@@ -16,13 +16,12 @@ void DvAccumulationAlgorithm::reInitialize() {
 
 DvAccumulationOutput DvAccumulationAlgorithm::update(const uint64_t callTime,
                                                      const Eigen::Vector3f& rDDotNoGravity_BN_B) {
-    /*! - On the first call after a reInitialize (previousTime == 0), latch the clock so dt doesn't
-     *    blow up against a zero baseline; otherwise integrate over the elapsed step */
-    if (this->previousTime == 0U) {
-        this->previousTime = callTime;
-    } else if (callTime > this->previousTime) {
-        const float dt = static_cast<float>(callTime - this->previousTime) * kNano2SecF;
-        this->vehAccumDV_B += dt * rDDotNoGravity_BN_B;
+    /*! - a non-advancing callTime is ignored; the first call (previousTime == 0) only latches the clock */
+    if (callTime > this->previousTime) {
+        if (this->previousTime != 0U) {
+            const float dt = static_cast<float>(callTime - this->previousTime) * kNano2SecF;
+            this->vehAccumDV_B += dt * rDDotNoGravity_BN_B;
+        }
         this->previousTime = callTime;
     }
 
