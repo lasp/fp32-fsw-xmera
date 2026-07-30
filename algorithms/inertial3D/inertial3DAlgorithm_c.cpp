@@ -1,6 +1,7 @@
 #include "inertial3DAlgorithm_c.h"
 #include "inertial3DAlgorithm.h"
 #include "utilities/fsw/eigenSupport.h"
+#include "utilities/fsw/freestandingInvalidArgument.h"
 #include "utilities/fsw/opaqueHandle.h"
 
 #include <Eigen/Core>
@@ -10,6 +11,17 @@ Inertial3DConfig configFromC(const Vector3f_c& sigma_RN) {
     return Inertial3DConfig::create(cArrayToEigenVector3<float>(sigma_RN.data));
 }
 }  // namespace
+
+bool Inertial3DAlgorithm_validateConfig(const Vector3f_c sigma_RN) {
+    // Attempt to build the config through the real create path; success means valid,
+    // a throw means invalid. Reusing configFromC keeps validation from drifting.
+    try {
+        (void)configFromC(sigma_RN);
+        return true;
+    } catch (const fsw::invalid_argument&) {
+        return false;
+    }
+}
 
 Inertial3DAlgorithmHandle* Inertial3DAlgorithm_create(const Vector3f_c sigma_RN) {
     return fsw::createHandle<::Inertial3DAlgorithm, Inertial3DAlgorithmHandle>(configFromC(sigma_RN));
