@@ -9,19 +9,6 @@ extern "C" {
 #endif
 
 /**
- * @brief Plain-old-data mirror of the C++ BodyRateMiscompareConfig.
- *
- *  - bodyRateThreshold must be finite and > 0
- *  - faultPersistenceLimit must be > 0
- *  - useImuRates forces the IMU rate output regardless of miscompare
- */
-typedef struct {
-    float bodyRateThreshold;        /*!< [rad/s] rate threshold to trigger a body rate miscompare fault */
-    uint32_t faultPersistenceLimit; /*!< [-] consecutive update calls above threshold needed to trigger the fault */
-    bool useImuRates;               /*!< [-] force the IMU rate output even when the rates agree */
-} BodyRateMiscompareConfig_c;
-
-/**
  * @brief POD representation of the BodyRateMiscompareOutput.
  */
 typedef struct {

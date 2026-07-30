@@ -7,13 +7,18 @@
 #include <Eigen/Core>
 
 namespace {
-BodyRateMiscompareConfig configFromC(const BodyRateMiscompareConfig_c& c) {
-    return BodyRateMiscompareConfig::create(c.bodyRateThreshold, c.faultPersistenceLimit, c.useImuRates);
+BodyRateMiscompareConfig configFromC(const float bodyRateThreshold,
+                                     const uint32_t faultPersistenceLimit,
+                                     const bool useImuRates) {
+    return BodyRateMiscompareConfig::create(bodyRateThreshold, faultPersistenceLimit, useImuRates);
 }
 }  // namespace
 
-BodyRateMiscompareAlgorithmHandle* BodyRateMiscompareAlgorithm_create(const BodyRateMiscompareConfig_c* config) {
-    return fsw::createHandle<::BodyRateMiscompareAlgorithm, BodyRateMiscompareAlgorithmHandle>(configFromC(*config));
+BodyRateMiscompareAlgorithmHandle* BodyRateMiscompareAlgorithm_create(const float bodyRateThreshold,
+                                                                      const uint32_t faultPersistenceLimit,
+                                                                      const bool useImuRates) {
+    return fsw::createHandle<::BodyRateMiscompareAlgorithm, BodyRateMiscompareAlgorithmHandle>(
+        configFromC(bodyRateThreshold, faultPersistenceLimit, useImuRates));
 }
 
 void BodyRateMiscompareAlgorithm_destroy(BodyRateMiscompareAlgorithmHandle* self) {
@@ -21,8 +26,11 @@ void BodyRateMiscompareAlgorithm_destroy(BodyRateMiscompareAlgorithmHandle* self
 }
 
 void BodyRateMiscompareAlgorithm_setConfig(BodyRateMiscompareAlgorithmHandle* self,
-                                           const BodyRateMiscompareConfig_c* config) {
-    fsw::fromHandle<::BodyRateMiscompareAlgorithm>(self)->setConfig(configFromC(*config));
+                                           const float bodyRateThreshold,
+                                           const uint32_t faultPersistenceLimit,
+                                           const bool useImuRates) {
+    fsw::fromHandle<::BodyRateMiscompareAlgorithm>(self)->setConfig(
+        configFromC(bodyRateThreshold, faultPersistenceLimit, useImuRates));
 }
 
 void BodyRateMiscompareAlgorithm_reInitializeExceptPersistentStates(BodyRateMiscompareAlgorithmHandle* self) {
