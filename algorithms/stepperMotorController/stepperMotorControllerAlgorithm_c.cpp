@@ -1,6 +1,7 @@
 #include "stepperMotorControllerAlgorithm_c.h"
 #include "stepperMotorControllerAlgorithm.h"
 #include "stepperMotorControllerTypes.h"
+#include "utilities/fsw/freestandingInvalidArgument.h"
 #include "utilities/fsw/opaqueHandle.h"
 
 namespace {
@@ -13,6 +14,21 @@ StepperMotorControllerConfig configFromC(const float stepAngle,
         stepAngle, StepperMotorAngleRange{minAngle, maxAngle}, settleCountMax, minStepCommand);
 }
 }  // namespace
+
+bool StepperMotorControllerAlgorithm_validateConfig(const float stepAngle,
+                                                    const float minAngle,
+                                                    const float maxAngle,
+                                                    const uint32_t settleCountMax,
+                                                    const uint32_t minStepCommand) {
+    // Attempt to build the config through the real create path; success means valid,
+    // a throw means invalid. Reusing configFromC keeps validation from drifting.
+    try {
+        (void)configFromC(stepAngle, minAngle, maxAngle, settleCountMax, minStepCommand);
+        return true;
+    } catch (const fsw::invalid_argument&) {
+        return false;
+    }
+}
 
 StepperMotorControllerAlgorithmHandle* StepperMotorControllerAlgorithm_create(const float stepAngle,
                                                                               const float minAngle,

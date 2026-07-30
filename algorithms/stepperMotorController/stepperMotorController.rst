@@ -98,7 +98,9 @@ validates the immutable ``StepperMotorControllerConfig`` and constructs the algo
 read each tick from ``stepperMotorInMsg.motorPosition``, so it needs no initial-angle configuration. A C shim
 (``stepperMotorControllerAlgorithm_c.h``) exposes the algorithm to Ada via ``extern "C"`` bindings. The shim passes the
 configuration as flat scalar arguments to ``StepperMotorControllerAlgorithm_create`` and
-``StepperMotorControllerAlgorithm_setConfig``; both throw on invalid input.
+``StepperMotorControllerAlgorithm_setConfig``; both throw on invalid input, so callers that cannot handle an exception
+across the FFI boundary should first consult the non-throwing ``StepperMotorControllerAlgorithm_validateConfig``
+predicate, which reports whether the same values would be accepted.
 
 Algorithm Input/Output
 -------------------------------
