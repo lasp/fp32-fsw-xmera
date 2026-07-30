@@ -3,7 +3,6 @@
 
 #include "utilities/fsw/plainCAlgorithmDataTypes.h"
 
-#include <stdbool.h>
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -23,30 +22,6 @@ typedef struct {
                      THRUSTER_PLATFORM_REFERENCE_MAX_NUM_RW]; /*!< [-]   RW spin axes in body frame, three per wheel */
     float JsList[THRUSTER_PLATFORM_REFERENCE_MAX_NUM_RW];     /*!< [kgm2] RW spin-axis inertias */
 } ThrusterPlatformReferenceRwArrayConfiguration_c;
-
-/**
- * @brief Plain-old-data mirror of the C++ ThrusterPlatformReferenceConfig.
- *
- * Caller fills this struct and passes it to ThrusterPlatformReferenceAlgorithm_create or _setConfig.
- * The C++ side validates each field via ThrusterPlatformReferenceConfig::create and throws on invalid
- * input.
- *  - sigma_MB / r_BM_M / r_FM_F must be finite
- *  - K / Ki must be finite and non-negative
- *  - controlPeriod [s] must be finite and positive; used as the integration step for the dumping integral
- *  - thetaMax [rad] must lie in the open interval (0, pi); half-angle of the thrust-deflection cone
- *  - rwConfig.numRW must not exceed THRUSTER_PLATFORM_REFERENCE_MAX_NUM_RW; each spin axis a unit vector
- */
-typedef struct {
-    Vector3f_c sigma_MB;  /*!< [-]   MRP orientation of the M frame w.r.t. the B frame */
-    Vector3f_c r_BM_M;    /*!< [m]   B frame origin w.r.t. M frame origin, M frame coordinates */
-    Vector3f_c r_FM_F;    /*!< [m]   F frame origin w.r.t. M frame origin, F frame coordinates */
-    float K;              /*!< [1/s] momentum dumping proportional gain */
-    float Ki;             /*!< [-]   momentum dumping integral gain */
-    float controlPeriod;  /*!< [s]   integration step for the momentum dumping integral (> 0) */
-    float thetaMax;       /*!< [rad] half-angle of the thrust-deflection cone, in (0, pi) */
-    bool momentumDumping; /*!< [-]   whether reaction wheel momentum dumping is active */
-    ThrusterPlatformReferenceRwArrayConfiguration_c rwConfig; /*!< [-] RW configuration used for momentum dumping */
-} ThrusterPlatformReferenceConfig_c;
 
 /**
  * @brief Plain-old-data mirror of the C++ ThrusterPlatformReferenceInputs.
