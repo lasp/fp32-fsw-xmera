@@ -2,6 +2,7 @@
 #define F32XMERA_CSS_COMM_ALGORITHM_C_H
 
 #include "cssCommTypes.h"
+#include <stdbool.h>
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -15,10 +16,14 @@ typedef struct CssCommAlgorithmHandle CssCommAlgorithmHandle;
 
 /**
  * @brief Construct a new CssCommAlgorithm instance from the supplied configuration.
- * @param config Pointer to the configuration to apply (validated; throws on invalid input).
- * @return Pointer to a new CssCommAlgorithm (must be destroyed).
+ * @param numSensors       Number of active CSS sensors.
+ * @param maxSensorValues  Per-sensor scale factors.
+ * @param chebyPolynomials Chebyshev polynomial coefficients.
+ * @return Pointer to a new CssCommAlgorithm (must be destroyed). Validated; throws on invalid input.
  */
-CssCommAlgorithmHandle* CssCommAlgorithm_create(const CssCommConfig_c* config);
+CssCommAlgorithmHandle* CssCommAlgorithm_create(uint32_t numSensors,
+                                                double maxSensorValues[MAX_NUM_CSS_SENSORS],
+                                                double chebyPolynomials[MAX_NUM_CHEBY_POLYS]);
 
 /**
  * @brief Destroy a previously created CssCommAlgorithm.
@@ -28,10 +33,16 @@ void CssCommAlgorithm_destroy(CssCommAlgorithmHandle* self);
 
 /**
  * @brief Apply a new configuration.
- * @param self   Pointer to the instance.
- * @param config Pointer to the configuration to apply (validated; throws on invalid input).
+ * @param self             Pointer to the instance.
+ * @param numSensors       Number of active CSS sensors.
+ * @param maxSensorValues  Per-sensor scale factors.
+ * @param chebyPolynomials Chebyshev polynomial coefficients.
+ * Validated; throws on invalid input.
  */
-void CssCommAlgorithm_setConfig(CssCommAlgorithmHandle* self, const CssCommConfig_c* config);
+void CssCommAlgorithm_setConfig(CssCommAlgorithmHandle* self,
+                                uint32_t numSensors,
+                                double maxSensorValues[MAX_NUM_CSS_SENSORS],
+                                double chebyPolynomials[MAX_NUM_CHEBY_POLYS]);
 
 /**
  * @brief Run the CSS communication correction update.
