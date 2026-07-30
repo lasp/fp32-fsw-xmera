@@ -7,10 +7,14 @@
 #include <cstddef>
 
 namespace {
-OEStateEphemConfig configFromC(const OEStateEphemConfig_c& config) {
+OEStateEphemConfig configFromC(const double centralBodyGravitationalParameter,
+                               const unsigned int numberOfArcs,
+                               const double ephemerisTimeJ2000,
+                               const double vehicleTimeOffset,
+                               const ChebyshevFitArc_c fitCoefficients[MAX_OE_RECORDS]) {
     std::array<ChebyshevFitArc, kMaxOeRecords> arcs{};
     for (std::size_t i = 0; i < kMaxOeRecords; ++i) {
-        const ChebyshevFitArc_c& src = config.fitCoefficients[i];
+        const ChebyshevFitArc_c& src = fitCoefficients[i];
         ChebyshevFitArc& dst = arcs.at(i);
         dst.numberChebCoefficients = src.numberChebCoefficients;
         dst.ephemerisTimeMiddle = src.ephemerisTimeMiddle;
@@ -33,24 +37,32 @@ OEStateEphemConfig configFromC(const OEStateEphemConfig_c& config) {
                   dst.trueAnomalyCoefficients.begin());
         dst.anomalyFlag = src.anomalyFlag;
     }
-    return OEStateEphemConfig::create(config.centralBodyGravitationalParameter,
-                                      config.numberOfArcs,
-                                      config.ephemerisTimeJ2000,
-                                      config.vehicleTimeOffset,
-                                      arcs);
+    return OEStateEphemConfig::create(
+        centralBodyGravitationalParameter, numberOfArcs, ephemerisTimeJ2000, vehicleTimeOffset, arcs);
 }
 }  // namespace
 
-OEStateEphemAlgorithmHandle* OEStateEphemAlgorithm_create(const OEStateEphemConfig_c* config) {
-    return fsw::createHandle<::OEStateEphemAlgorithm, OEStateEphemAlgorithmHandle>(configFromC(*config));
+OEStateEphemAlgorithmHandle* OEStateEphemAlgorithm_create(const double centralBodyGravitationalParameter,
+                                                          const unsigned int numberOfArcs,
+                                                          const double ephemerisTimeJ2000,
+                                                          const double vehicleTimeOffset,
+                                                          ChebyshevFitArc_c fitCoefficients[MAX_OE_RECORDS]) {
+    return fsw::createHandle<::OEStateEphemAlgorithm, OEStateEphemAlgorithmHandle>(configFromC(
+        centralBodyGravitationalParameter, numberOfArcs, ephemerisTimeJ2000, vehicleTimeOffset, fitCoefficients));
 }
 
 void OEStateEphemAlgorithm_destroy(OEStateEphemAlgorithmHandle* self) {
     fsw::deleteHandle<::OEStateEphemAlgorithm>(self);
 }
 
-void OEStateEphemAlgorithm_setConfig(OEStateEphemAlgorithmHandle* self, const OEStateEphemConfig_c* config) {
-    fsw::fromHandle<::OEStateEphemAlgorithm>(self)->setConfig(configFromC(*config));
+void OEStateEphemAlgorithm_setConfig(OEStateEphemAlgorithmHandle* self,
+                                     const double centralBodyGravitationalParameter,
+                                     const unsigned int numberOfArcs,
+                                     const double ephemerisTimeJ2000,
+                                     const double vehicleTimeOffset,
+                                     ChebyshevFitArc_c fitCoefficients[MAX_OE_RECORDS]) {
+    fsw::fromHandle<::OEStateEphemAlgorithm>(self)->setConfig(configFromC(
+        centralBodyGravitationalParameter, numberOfArcs, ephemerisTimeJ2000, vehicleTimeOffset, fitCoefficients));
 }
 
 CartesianState_c OEStateEphemAlgorithm_update(OEStateEphemAlgorithmHandle* self, const uint64_t callTime) {
@@ -68,3 +80,5 @@ CartesianState_c OEStateEphemAlgorithm_update(OEStateEphemAlgorithmHandle* self,
 uint32_t OEStateEphemAlgorithm_getMaxOeCoeff(void) { return MAX_OE_COEFF; }
 
 uint32_t OEStateEphemAlgorithm_getMaxOeRecords(void) { return MAX_OE_RECORDS; }
+
+uint32_t OEStateEphemAlgorithm_getFitArcSizeBits(void) { return static_cast<uint32_t>(sizeof(ChebyshevFitArc_c) * 8U); }
