@@ -16,6 +16,16 @@ extern "C" {
 typedef struct ConvertStPlatformToBodyAlgorithmHandle ConvertStPlatformToBodyAlgorithmHandle;
 
 /**
+ * @brief Report whether a configuration would be accepted by create/setConfig.
+ * @param dcm_CB Body-to-case mounting DCM, row-major 3x3.
+ * @return true if the configuration is valid. Never throws, so it can guard the
+ *         throwing create/setConfig from an invalid configuration.
+ * @note The accepted value ranges are defined by ConvertStPlatformToBodyConfig::create; this
+ *       predicate reports whether a candidate set would be accepted, without throwing.
+ */
+bool ConvertStPlatformToBodyAlgorithm_validateConfig(Matrix3f_c dcm_CB);
+
+/**
  * @brief Construct a new ConvertStPlatformToBodyAlgorithm instance from the supplied configuration.
  * @param dcm_CB Body-to-case mounting DCM, row-major 3x3.
  * @return Pointer to a new instance (must be destroyed). Validated; throws on invalid input.
