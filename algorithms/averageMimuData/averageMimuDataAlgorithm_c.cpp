@@ -1,6 +1,7 @@
 #include "averageMimuDataAlgorithm_c.h"
 #include "averageMimuDataAlgorithm.h"
 #include "utilities/fsw/eigenSupport.h"
+#include "utilities/fsw/freestandingInvalidArgument.h"
 #include "utilities/fsw/opaqueHandle.h"
 
 #include <Eigen/Core>
@@ -17,6 +18,19 @@ AverageMimuDataConfig configFromC(const double gyroAveragingWindow,
 uint32_t AverageMimuDataAlgorithm_getMaxMimuPkt(void) { return MAX_MIMU_PKT_C; }
 
 uint32_t AverageMimuDataAlgorithm_getMaxMimuSamplesPerPkt(void) { return MAX_MIMU_SAMPLES_PER_PKT_C; }
+
+bool AverageMimuDataAlgorithm_validateConfig(const double gyroAveragingWindow,
+                                             const double accelAveragingWindow,
+                                             const Matrix3f_c dcm_BC) {
+    // Attempt to build the config through the real create path; success means valid,
+    // a throw means invalid. Reusing configFromC keeps validation from drifting.
+    try {
+        (void)configFromC(gyroAveragingWindow, accelAveragingWindow, dcm_BC);
+        return true;
+    } catch (const fsw::invalid_argument&) {
+        return false;
+    }
+}
 
 AverageMimuDataAlgorithmHandle* AverageMimuDataAlgorithm_create(const double gyroAveragingWindow,
                                                                 const double accelAveragingWindow,
