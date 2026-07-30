@@ -180,6 +180,14 @@ class ThrusterPlatformReferenceAlgorithm final {
     ThrusterPlatformReferenceOutput update(const ThrusterPlatformReferenceInputs& in);
 
    private:
+    /*! Advance the RW momentum integrator and return the momentum-dumping torque request in the platform frame. */
+    // NOLINTNEXTLINE(bugprone-easily-swappable-parameters) -- the vectors are distinct by frame and documented.
+    Eigen::Vector3f computeDumpingTorque(const ThrusterPlatformReferenceInputs& in,
+                                         const Eigen::Vector3f& r_CM_M,
+                                         const Eigen::Vector3f& r_TM_F,
+                                         const Eigen::Vector3f& thrust_F,
+                                         const Eigen::Matrix3f& dcm_MB);
+
     ThrusterPlatformReferenceConfig cfg;                 //!< [-] validated configuration
     Eigen::Vector3f hsInt_B{Eigen::Vector3f::Zero()};    //!< [Nms] integral of RW momentum, B frame
     Eigen::Vector3f priorHs_B{Eigen::Vector3f::Zero()};  //!< [Nms] prior RW momentum, B frame

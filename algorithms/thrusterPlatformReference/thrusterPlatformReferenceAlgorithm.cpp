@@ -66,6 +66,41 @@ Eigen::Matrix3f clampThrustDeflection(const Eigen::Matrix3f& dcm_FM, const Eigen
 }
 }  // namespace
 
+/*! @brief Advance the RW momentum integrator and return the momentum-dumping torque request in the platform frame.
+ The desired thruster torque opposes the accumulated reaction-wheel momentum. It is converted from the body frame to
+ the platform frame using the previous cycle's pointing, seeded once with the nominal pointing on the first cycle.
+ @return requested thruster torque, platform-frame coordinates
+*/
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters) -- the vectors are distinct by frame and documented.
+Eigen::Vector3f ThrusterPlatformReferenceAlgorithm::computeDumpingTorque(const ThrusterPlatformReferenceInputs& in,
+                                                                         const Eigen::Vector3f& r_CM_M,
+                                                                         const Eigen::Vector3f& r_TM_F,
+                                                                         const Eigen::Vector3f& thrust_F,
+                                                                         const Eigen::Matrix3f& dcm_MB) {
+    const ThrusterPlatformReferenceRwArrayConfiguration& rwConfig = this->cfg.getRwConfig();
+
+    // compute net RW momentum in body frame
+    Eigen::Vector3f hs_B = Eigen::Vector3f::Zero();
+    for (uint32_t i = 0; i < rwConfig.numRW; ++i) {
+        hs_B += rwConfig.JsList(i) * in.wheelSpeeds(i) * rwConfig.GsMatrix_B.col(i);
+    }
+
+    // update the trapezoidal integral of the RW momentum using the fixed control period as the time step
+    const float dt = this->cfg.getControlPeriod();
+    this->hsInt_B += 0.5F * dt * (this->priorHs_B + hs_B);
+    this->priorHs_B = hs_B;
+
+    // desired thruster torque about the center of mass: oppose the accumulated wheel momentum to dump it.
+    const Eigen::Vector3f Lreq_B = -this->cfg.getK() * hs_B - this->cfg.getKi() * this->hsInt_B;
+
+    // Torque is converted from the body frame into the platform frame using the previous cycle's pointing; on the
+    // first cycle there is no prior, so seed it once with the nominal zero-torque pointing.
+    if (this->priorDcm_FM.isZero()) {
+        this->priorDcm_FM = computeThrusterPointing(r_CM_M, r_TM_F, thrust_F, Eigen::Vector3f::Zero());
+    }
+    return this->priorDcm_FM * dcm_MB * Lreq_B;
+}
+
 /*! @brief Construct the algorithm with a validated configuration and seed the runtime integrator state.
  @param config Validated configuration (geometry, gains, angle bounds, RW configuration).
 */
@@ -105,31 +140,10 @@ ThrusterPlatformReferenceOutput ThrusterPlatformReferenceAlgorithm::update(const
     const Eigen::Vector3f thrust_F = in.thrust * in.tHat_F;            // thrust vector in F-frame coordinates
     const Eigen::Vector3f tHat_F = thrust_F.normalized();              // thrust unit direction, F frame
 
-    Eigen::Vector3f Lreq_F = Eigen::Vector3f::Zero();  // requested torque, platform frame (zero -> point through CM)
-
+    // requested torque, platform frame (zero -> point through CM; non-zero when dumping reaction-wheel momentum)
+    Eigen::Vector3f Lreq_F = Eigen::Vector3f::Zero();
     if (this->cfg.getMomentumDumping()) {
-        const ThrusterPlatformReferenceRwArrayConfiguration& rwConfig = this->cfg.getRwConfig();
-
-        // compute net RW momentum in body frame
-        Eigen::Vector3f hs_B = Eigen::Vector3f::Zero();
-        for (uint32_t i = 0; i < rwConfig.numRW; ++i) {
-            hs_B += rwConfig.JsList(i) * in.wheelSpeeds(i) * rwConfig.GsMatrix_B.col(i);
-        }
-
-        // update the trapezoidal integral of the RW momentum using the fixed control period as the time step
-        const float dt = this->cfg.getControlPeriod();
-        this->hsInt_B += 0.5F * dt * (this->priorHs_B + hs_B);
-        this->priorHs_B = hs_B;
-
-        // desired thruster torque about the center of mass: oppose the accumulated wheel momentum to dump it.
-        const Eigen::Vector3f Lreq_B = -this->cfg.getK() * hs_B - this->cfg.getKi() * this->hsInt_B;
-
-        // Torque is converted from the body frame into the platform frame using the previous cycle's pointing; on the
-        // first cycle there is no prior, so seed it once with the nominal zero-torque pointing.
-        if (this->priorDcm_FM.isZero()) {
-            this->priorDcm_FM = computeThrusterPointing(r_CM_M, r_TM_F, thrust_F, Eigen::Vector3f::Zero());
-        }
-        Lreq_F = this->priorDcm_FM * dcm_MB * Lreq_B;
+        Lreq_F = this->computeDumpingTorque(in, r_CM_M, r_TM_F, thrust_F, dcm_MB);
     }
 
     Eigen::Matrix3f dcm_FM = computeThrusterPointing(r_CM_M, r_TM_F, thrust_F, Lreq_F);
