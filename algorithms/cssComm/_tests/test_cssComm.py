@@ -66,6 +66,9 @@ def test_css_comm(num_sensors, sensor_data):
 
     # NOTE: This is nonsense. These are more or less random numbers
     css_array_msg.CosValue = sensor_data
+
+    input_time_tag = 12.5
+    css_array_msg.timeTag = input_time_tag
     css_in_msg = messaging.CSSArraySensorMsgF32().write(css_array_msg)
     module.sensorListInMsg.subscribeTo(css_in_msg)
 
@@ -95,6 +98,8 @@ def test_css_comm(num_sensors, sensor_data):
 
     # Sensors beyond numSensors must be zero
     assert np.all(output_data[:, num_sensors:] == 0.0)
+
+    assert np.all(data_log.timeTag == input_time_tag)
 
     accuracy = 1e-6
 
