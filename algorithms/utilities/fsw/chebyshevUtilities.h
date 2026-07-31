@@ -1,5 +1,5 @@
-#ifndef _CHEBYSHEV_UTILITIES_FP32_H_
-#define _CHEBYSHEV_UTILITIES_FP32_H_
+#ifndef CHEBYSHEV_UTILITIES_H
+#define CHEBYSHEV_UTILITIES_H
 
 #include "freestandingIsFinite.hpp"
 
