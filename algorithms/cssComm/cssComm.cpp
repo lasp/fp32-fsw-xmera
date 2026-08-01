@@ -49,6 +49,7 @@ void CssComm::updateState(uint64_t callTime) {
     std::array<double, kMaxNumCssSensors> outputValues = this->algorithm->update(inputValues);
 
     CSSArraySensorMsgF32Payload outputBuffer{};
+    outputBuffer.timeTag = inMsgBuffer.timeTag;
     std::ranges::copy(outputValues.begin(), outputValues.end(), std::ranges::begin(outputBuffer.CosValue));
 
     /*! - Write aggregate output into output message */
