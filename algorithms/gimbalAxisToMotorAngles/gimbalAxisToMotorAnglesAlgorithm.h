@@ -111,6 +111,8 @@ class GimbalAxisToMotorAnglesAlgorithm final {
     MotorAngles bilinearlyInterpolateMotorAngles(float gimbalAngle1, float gimbalAngle2) const;
     MotorAngles linearlyInterpolateMotorAngles(float gimbalAngle1, float gimbalAngle2, FixedAngle fixedAngle) const;
 
+    static constexpr int kNumTableRows = NUM_GIMBAL_TO_MOTOR_TABLE_ROWS;
+    static constexpr int kNumTableCols = NUM_GIMBAL_TO_MOTOR_TABLE_COLS;
     static constexpr float kTableStepAngleDeg = 0.5F;  //!< [deg] Interpolation table motor discretization step
     static constexpr float kInterpolationRemainderTolerance =
         1e-3F;  //!< Tolerance for treating a normalized gimbal angle as landing exactly on a table node
