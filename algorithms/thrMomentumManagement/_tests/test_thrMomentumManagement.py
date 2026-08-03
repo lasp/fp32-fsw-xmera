@@ -65,9 +65,9 @@ def thrMomentumManagementTestFunction(show_plots, hsMinCheck):
 
     # Initialize the test module configuration data
     if hsMinCheck:
-        module.hs_min = 1000./6000.*100.               # Nms
+        module.hsMin = 1000./6000.*100.               # Nms
     else:
-        module.hs_min = 100./6000.*100.               # Nms
+        module.hsMin = 100./6000.*100.               # Nms
 
 
     # wheelSpeeds Message

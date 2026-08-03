@@ -4,6 +4,8 @@
 #include "thrMomentumManagementAlgorithm.h"
 #include <stdint.h>
 
+#include <memory>
+
 #include "msgPayloadDef/CmdTorqueBodyMsgF32Payload.h"
 #include "msgPayloadDef/RWArrayConfigMsgF32Payload.h"
 #include "msgPayloadDef/RWSpeedMsgF32Payload.h"
@@ -16,8 +18,14 @@ class ThrMomentumManagement : public SysModel {
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
 
+    //! Re-validate the module properties and push them onto the live algorithm, leaving its state untouched.
+    void reconfigure();
+
+    //! Re-arm the one-shot momentum dumping request; a pass-through to the algorithm's reInitialize().
+    void reInitialize();
+
     /* declare module public variables */
-    float hs_min{};  //!< [Nms]  minimum RW cluster momentum for dumping
+    float hsMin{};  //!< [Nms]  minimum RW cluster momentum for dumping
 
     /* declare module IO interfaces */
     Message<CmdTorqueBodyMsgF32Payload> deltaHOutMsg;           //!< [Nms] requested body-frame momentum change
@@ -25,7 +33,8 @@ class ThrMomentumManagement : public SysModel {
     ReadFunctor<RWArrayConfigMsgF32Payload> rwConfigDataInMsg;  //!< [-] RW array configuration input message
 
    private:
-    ThrMomentumManagementAlgorithm algorithm;  //!< [-] the wrapped momentum management algorithm
+    ThrMomentumManagementConfig toConfig();
+    std::unique_ptr<ThrMomentumManagementAlgorithm> algorithm = nullptr;
 };
 
 #endif

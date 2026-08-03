@@ -89,17 +89,20 @@ class ThrMomentumManagementConfig final {
  */
 class ThrMomentumManagementAlgorithm final {
    public:
+    explicit ThrMomentumManagementAlgorithm(const ThrMomentumManagementConfig& config);
+
+    //! Install the validated configuration; does not touch runtime state.
+    void setConfig(const ThrMomentumManagementConfig& config);
+
     //! Re-arm the one-shot momentum dumping request.
     void reInitialize();
 
     //! [Nms] Requested body-frame angular momentum change, or nullopt once the one-shot check has been spent.
     std::optional<Eigen::Vector3f> update(const Eigen::Vector<float, kMaxNumRw>& wheelSpeeds);
 
-    float hs_min{};                                           //!< [Nms] minimum RW cluster momentum for dumping
-    ThrMomentumManagementRwArrayConfiguration rwArrayConfig;  //!< [-] RW spin axes and spin-axis inertias
-
    private:
-    bool dumpRequested{};  //!< [-] true while the one-shot momentum check is still pending
+    ThrMomentumManagementConfig cfg;  //!< [-] validated configuration (dumping threshold, RW array config)
+    bool dumpRequested{};             //!< [-] true while the one-shot momentum check is still pending
 };
 
 #endif
