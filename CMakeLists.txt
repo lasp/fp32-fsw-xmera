@@ -104,6 +104,7 @@ add_subdirectory(algorithms/utilities/fsw)
 
 # "rwMotorVoltage" "stepperMotorController"
 set(algorithms
+    "cobConverter"
     "attTrackingError"
     "averageMimuData"
     "bodyRateMiscompare"
