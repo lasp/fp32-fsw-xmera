@@ -7,6 +7,8 @@
 #include <architecture/utilities/linearAlgebra.h>
 #include <string.h>
 
+#include <stdexcept>
+
 /*! This method performs a complete reset of the module.  Local module variables that retain
  time varying states between function calls are reset to their default values.
  @return void
@@ -15,10 +17,10 @@
 void ThrMomentumManagement::reset(uint64_t callTime) {
     // check if the required input messages are included
     if (!this->rwConfigDataInMsg.isLinked()) {
-        this->bskLogger.bskLog(BSK_ERROR, "Error: thrMomentumManagement.rwConfigDataInMsg wasn't connected.");
+        throw std::invalid_argument("thrMomentumManagement.rwConfigDataInMsg wasn't connected.");
     }
     if (!this->rwSpeedsInMsg.isLinked()) {
-        this->bskLogger.bskLog(BSK_ERROR, "Error: thrMomentumManagement.rwSpeedsInMsg wasn't connected.");
+        throw std::invalid_argument("thrMomentumManagement.rwSpeedsInMsg wasn't connected.");
     }
 
     /*! - read in the RW configuration message */

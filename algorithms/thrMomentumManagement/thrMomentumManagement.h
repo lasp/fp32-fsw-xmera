@@ -27,8 +27,6 @@ class ThrMomentumManagement : public SysModel {
     Message<CmdTorqueBodyMsgPayload> deltaHOutMsg;           //!< The name of the output message
     ReadFunctor<RWSpeedMsgPayload> rwSpeedsInMsg;            //!< [] The name for the reaction wheel speeds message
     ReadFunctor<RWArrayConfigMsgPayload> rwConfigDataInMsg;  //!< [-] The name of the RWA configuration message
-
-    BSKLogger bskLogger = {};  //!< BSK Logging
 };
 
 #endif
