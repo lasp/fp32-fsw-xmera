@@ -87,9 +87,12 @@ MotorAngles GimbalAxisToMotorAnglesAlgorithm::pullAngles(float gimbalAngle1, flo
     if (index1 >= 0 && index1 < kNumTableCols && index2 >= 0 && index2 < kNumTableRows) {
         const float motor1Angle = this->cfg.getGimbalToMotor1AngleTable()[index2][index1];
         const float motor2Angle = this->cfg.getGimbalToMotor2AngleTable()[index2][index1];
-        motorAngles.angle1 = motor1Angle;
-        motorAngles.angle2 = motor2Angle;
-        motorAngles.isValidInterpolation = true;
+
+        if (motor1Angle >= 0.0F && motor2Angle >= 0.0F) {
+            motorAngles.angle1 = motor1Angle;
+            motorAngles.angle2 = motor2Angle;
+            motorAngles.isValidInterpolation = true;
+        }
     }
 
     return motorAngles;
