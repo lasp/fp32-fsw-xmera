@@ -4,6 +4,7 @@
 #include <array>
 #include <cmath>
 #include <cstddef>
+#include <limits>
 
 namespace {
 
@@ -336,6 +337,42 @@ TEST(CalculateChebyValueF32, TrailingZeroCoefficientsInvariant) {
         EXPECT_NEAR(calculateChebyValue(c, 4, x), base, kFloatTolerance);
         EXPECT_NEAR(calculateChebyValue(c, 10, x), base, kFloatTolerance);
     }
+}
+
+// numberOfCoefficients == 0 returns 0 (double)
+TEST(CalculateChebyValue, ZeroCoefficientsReturnsZero) {
+    const std::array<double, kTestCoeffCount> c = pureTd(2);  // c[2] = 1.0, would be nonzero if misread
+    for (const double x : {-1.0, -0.5, 0.0, 0.5, 1.0}) {
+        EXPECT_DOUBLE_EQ(calculateChebyValue(c, 0, x), 0.0);
+    }
+}
+
+// numberOfCoefficients == 0 returns 0 (float)
+TEST(CalculateChebyValueF32, ZeroCoefficientsReturnsZero) {
+    const std::array<float, kTestCoeffCount> c = pureTf(2);  // c[2] = 1.0, would be nonzero if misread
+    for (const float x : {-1.0f, -0.5f, 0.0f, 0.5f, 1.0f}) {
+        EXPECT_FLOAT_EQ(calculateChebyValue(c, 0, x), 0.0f);
+    }
+}
+
+// non-finite evaluationPoint is treated as 0.0 (double)
+TEST(CalculateChebyValue, NonFiniteEvaluationPointTreatedAsZero) {
+    const std::array<double, kTestCoeffCount> c = pureTd(2);
+    const double atZero = calculateChebyValue(c, 3, 0.0);
+
+    EXPECT_DOUBLE_EQ(calculateChebyValue(c, 3, std::numeric_limits<double>::quiet_NaN()), atZero);
+    EXPECT_DOUBLE_EQ(calculateChebyValue(c, 3, std::numeric_limits<double>::infinity()), atZero);
+    EXPECT_DOUBLE_EQ(calculateChebyValue(c, 3, -std::numeric_limits<double>::infinity()), atZero);
+}
+
+// non-finite evaluationPoint is treated as 0.0 (float)
+TEST(CalculateChebyValueF32, NonFiniteEvaluationPointTreatedAsZero) {
+    const std::array<float, kTestCoeffCount> c = pureTf(2);
+    const float atZero = calculateChebyValue(c, 3, 0.0f);
+
+    EXPECT_FLOAT_EQ(calculateChebyValue(c, 3, std::numeric_limits<float>::quiet_NaN()), atZero);
+    EXPECT_FLOAT_EQ(calculateChebyValue(c, 3, std::numeric_limits<float>::infinity()), atZero);
+    EXPECT_FLOAT_EQ(calculateChebyValue(c, 3, -std::numeric_limits<float>::infinity()), atZero);
 }
 
 }  // namespace
