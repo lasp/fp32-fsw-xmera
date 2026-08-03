@@ -16,7 +16,7 @@ path = os.path.dirname(os.path.abspath(filename))
 # Import all of the modules that we are going to be called in this simulation
 from xmera.utilities import SimulationBaseClass
 from xmera.utilities import unitTestSupport                  # general support file with common unit test functions
-from xmera.fswAlgorithms import thrMomentumManagement            # import the module that is to be tested
+from xmera.fp32 import thrMomentumManagementF32            # import the module that is to be tested
 from xmera.utilities import macros
 from xmera.utilities import fswSetupRW
 from xmera.architecture import messaging
@@ -58,7 +58,7 @@ def thrMomentumManagementTestFunction(show_plots, hsMinCheck):
 
 
     # Construct algorithm and associated C++ container
-    module = thrMomentumManagement.ThrMomentumManagement()
+    module = thrMomentumManagementF32.ThrMomentumManagement()
     module.modelTag = "thrMomentumManagement"
 
     # Add test module to runtime call list

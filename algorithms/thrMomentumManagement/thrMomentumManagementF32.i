@@ -1,4 +1,4 @@
-%module thrMomentumManagement
+%module thrMomentumManagementF32
 %{
    #include "thrMomentumManagement.h"
 %}
