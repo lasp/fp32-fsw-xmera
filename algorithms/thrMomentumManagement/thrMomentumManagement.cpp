@@ -9,8 +9,8 @@
 
 #include <stdexcept>
 
-/*! This method performs a complete reset of the module.  Local module variables that retain
- time varying states between function calls are reset to their default values.
+/*! This method performs a complete reset of the module.  It validates that the required input messages
+ are linked, caches the RW configuration, and re-arms the one-shot momentum dumping request.
  @return void
  @param callTime The clock time at which the function was called (nanoseconds)
  */

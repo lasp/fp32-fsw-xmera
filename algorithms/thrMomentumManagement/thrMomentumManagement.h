@@ -9,14 +9,14 @@
 #include <architecture/msgPayloadDef/RWArrayConfigMsgPayload.h>
 #include <architecture/msgPayloadDef/RWSpeedMsgPayload.h>
 
-/*! @brief Module configuration message definition. */
+/*! @brief Assesses the net reaction wheel momentum and requests the angular momentum change needed to dump it. */
 class ThrMomentumManagement : public SysModel {
    public:
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
 
     /* declare module private variables */
-    int initRequest;  //!< [-] status flag of the momentum dumping management
+    int initRequest;  //!< [-] one-shot latch; 1 requests a momentum check on the next update, cleared once performed
     RWArrayConfigMsgPayload
         rwConfigParams;  //!< [-] struct to store message containing RW config parameters in body B frame
 
@@ -24,9 +24,9 @@ class ThrMomentumManagement : public SysModel {
     double hs_min;  //!< [Nms]  minimum RW cluster momentum for dumping
 
     /* declare module IO interfaces */
-    Message<CmdTorqueBodyMsgPayload> deltaHOutMsg;           //!< The name of the output message
-    ReadFunctor<RWSpeedMsgPayload> rwSpeedsInMsg;            //!< [] The name for the reaction wheel speeds message
-    ReadFunctor<RWArrayConfigMsgPayload> rwConfigDataInMsg;  //!< [-] The name of the RWA configuration message
+    Message<CmdTorqueBodyMsgPayload> deltaHOutMsg;           //!< [Nms] requested body-frame angular momentum change
+    ReadFunctor<RWSpeedMsgPayload> rwSpeedsInMsg;            //!< [r/s] reaction wheel speeds input message
+    ReadFunctor<RWArrayConfigMsgPayload> rwConfigDataInMsg;  //!< [-] RW array configuration input message
 };
 
 #endif
