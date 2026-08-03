@@ -28,10 +28,10 @@ void ThrMomentumManagement::reset(const uint64_t callTime) {
     }
 
     /*! - read in the RW configuration message and convert it to the algorithm's own types */
-    const RWArrayConfigMsgPayload rwConfigParams = this->rwConfigDataInMsg();
+    const RWArrayConfigMsgF32Payload rwConfigParams = this->rwConfigDataInMsg();
     ThrMomentumManagementRwArrayConfiguration rwArrayConfig;
     rwArrayConfig.numRW = static_cast<uint32_t>(rwConfigParams.numRW);
-    rwArrayConfig.GsMatrix_B = cArrayToEigenMatrix<double, 3, kMaxNumRw>(rwConfigParams.GsMatrix_B);
+    rwArrayConfig.GsMatrix_B = cArrayToEigenMatrix<float, 3, kMaxNumRw>(rwConfigParams.GsMatrix_B);
     rwArrayConfig.JsList = cArrayToEigenVector(rwConfigParams.JsList);
     this->algorithm.rwArrayConfig = rwArrayConfig;
     this->algorithm.hs_min = this->hs_min;
@@ -48,14 +48,14 @@ void ThrMomentumManagement::reset(const uint64_t callTime) {
  */
 void ThrMomentumManagement::updateState(const uint64_t callTime) {
     /*! - Read the input messages */
-    const RWSpeedMsgPayload rwSpeedMsg = this->rwSpeedsInMsg(); /* Reaction wheel speed estimate message */
+    const RWSpeedMsgF32Payload rwSpeedMsg = this->rwSpeedsInMsg(); /* Reaction wheel speed estimate message */
 
-    const std::optional<Eigen::Vector3d> Delta_H_B =
+    const std::optional<Eigen::Vector3f> Delta_H_B =
         this->algorithm.update(cArrayToEigenVector(rwSpeedMsg.wheelSpeeds));
 
     /*! - write out the output message only while the one-shot dumping check is armed */
     if (Delta_H_B.has_value()) {
-        CmdTorqueBodyMsgPayload controlOutMsg = {}; /* Control torque output message */
+        CmdTorqueBodyMsgF32Payload controlOutMsg = {}; /* Control torque output message */
         eigenVectorToCArray(*Delta_H_B, controlOutMsg.torqueRequestBody);
 
         this->deltaHOutMsg.write(controlOutMsg, moduleID, callTime);

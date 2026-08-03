@@ -12,10 +12,9 @@ inline constexpr uint32_t kMaxNumRw = THR_MOMENTUM_MANAGEMENT_MAX_NUM_RW;  //!< 
 /*! @brief Reaction-wheel spin-axis configuration used to compute the net cluster momentum. */
 struct ThrMomentumManagementRwArrayConfiguration {
     uint32_t numRW{};  //!< [-] number of reaction wheels on the vehicle
-    Eigen::Matrix<double, 3, kMaxNumRw> GsMatrix_B{
-        Eigen::Matrix<double, 3, kMaxNumRw>::Zero()};  //!< [-] RW spin axes in body frame, one column per wheel
-    Eigen::Vector<double, kMaxNumRw> JsList{
-        Eigen::Vector<double, kMaxNumRw>::Zero()};  //!< [kgm2] RW spin-axis inertias
+    Eigen::Matrix<float, 3, kMaxNumRw> GsMatrix_B{
+        Eigen::Matrix<float, 3, kMaxNumRw>::Zero()};  //!< [-] RW spin axes in body frame, one column per wheel
+    Eigen::Vector<float, kMaxNumRw> JsList{Eigen::Vector<float, kMaxNumRw>::Zero()};  //!< [kgm2] RW spin-axis inertias
 };
 
 /*!
@@ -30,9 +29,9 @@ class ThrMomentumManagementAlgorithm final {
     void reInitialize();
 
     //! [Nms] Requested body-frame angular momentum change, or nullopt once the one-shot check has been spent.
-    std::optional<Eigen::Vector3d> update(const Eigen::Vector<double, kMaxNumRw>& wheelSpeeds);
+    std::optional<Eigen::Vector3f> update(const Eigen::Vector<float, kMaxNumRw>& wheelSpeeds);
 
-    double hs_min{};                                          //!< [Nms] minimum RW cluster momentum for dumping
+    float hs_min{};                                           //!< [Nms] minimum RW cluster momentum for dumping
     ThrMomentumManagementRwArrayConfiguration rwArrayConfig;  //!< [-] RW spin axes and spin-axis inertias
 
    private:

@@ -18,7 +18,6 @@ from xmera.utilities import SimulationBaseClass
 from xmera.utilities import unitTestSupport                  # general support file with common unit test functions
 from xmera.fp32 import thrMomentumManagementF32            # import the module that is to be tested
 from xmera.utilities import macros
-from xmera.utilities import fswSetupRW
 from xmera.architecture import messaging
 
 
@@ -72,19 +71,23 @@ def thrMomentumManagementTestFunction(show_plots, hsMinCheck):
 
 
     # wheelSpeeds Message
-    rwSpeedMessage = messaging.RWSpeedMsgPayload()
+    rwSpeedMessage = messaging.RWSpeedMsgF32Payload()
     rwSpeedMessage.wheelSpeeds = [10.0, -25.0, 50.0, 100.]
-    rwSpeedInMsg = messaging.RWSpeedMsg().write(rwSpeedMessage)
+    rwSpeedInMsg = messaging.RWSpeedMsgF32().write(rwSpeedMessage)
 
 
     # wheelConfigData Message
-    fswSetupRW.clearSetup()
     Js = 0.1
-    fswSetupRW.create([1.0, 0.0, 0.0], Js)
-    fswSetupRW.create([0.0, 1.0, 0.0], Js)
-    fswSetupRW.create([0.0, 0.0, 1.0], Js)
-    fswSetupRW.create([0.5773502691896258, 0.5773502691896258, 0.5773502691896258], Js)
-    rwConfigInMsg = fswSetupRW.writeConfigMessage()
+    rwConfigParams = messaging.RWArrayConfigMsgF32Payload()
+    rwConfigParams.GsMatrix_B = [
+        1.0, 0.0, 0.0,
+        0.0, 1.0, 0.0,
+        0.0, 0.0, 1.0,
+        0.5773502691896258, 0.5773502691896258, 0.5773502691896258
+    ]
+    rwConfigParams.JsList = [Js] * 4
+    rwConfigParams.numRW = 4
+    rwConfigInMsg = messaging.RWArrayConfigMsgF32().write(rwConfigParams)
 
 
 
@@ -119,7 +122,7 @@ def thrMomentumManagementTestFunction(show_plots, hsMinCheck):
                    ]*2
 
     # compare the module results to the truth values
-    accuracy = 1e-12
+    accuracy = 1e-6
     unitTestSupport.writeTeXSnippet("toleranceValue", str(accuracy), path)
     testFailCount, testMessages = unitTestSupport.compareArray(trueVector, dataLog.torqueRequestBody, accuracy,
                                                                "torqueRequestBody", testFailCount, testMessages)

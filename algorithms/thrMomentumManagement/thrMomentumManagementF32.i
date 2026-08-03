@@ -10,6 +10,6 @@
 %include "thrMomentumManagement.h"
 %include "thrMomentumManagementAlgorithm.h"
 
-%include <architecture/msgPayloadDef/RWArrayConfigMsgPayload.h>
-%include <architecture/msgPayloadDef/CmdTorqueBodyMsgPayload.h>
-%include <architecture/msgPayloadDef/RWSpeedMsgPayload.h>
+%include "msgPayloadDef/RWArrayConfigMsgF32Payload.h"
+%include "msgPayloadDef/CmdTorqueBodyMsgF32Payload.h"
+%include "msgPayloadDef/RWSpeedMsgF32Payload.h"
