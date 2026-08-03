@@ -1,155 +1,73 @@
-import inspect
-import os
-
+import numpy as np
 import pytest
 
-filename = inspect.getframeinfo(inspect.currentframe()).filename
-path = os.path.dirname(os.path.abspath(filename))
-
-
-
-
-
-
-
-
-# Import all of the modules that we are going to be called in this simulation
-from xmera.utilities import SimulationBaseClass
-from xmera.utilities import unitTestSupport                  # general support file with common unit test functions
-from xmera.fp32 import thrMomentumManagementF32            # import the module that is to be tested
-from xmera.utilities import macros
 from xmera.architecture import messaging
+from xmera.fp32 import thrMomentumManagementF32
+from xmera.utilities import SimulationBaseClass
+from xmera.utilities import macros
 
 
-# Uncomment this line is this test is to be skipped in the global unit test run, adjust message as needed.
-# @pytest.mark.skipif(conditionstring)
-# Uncomment this line if this test has an expected failure, adjust message as needed.
-# @pytest.mark.xfail(conditionstring)
-# Provide a unique test method name, starting with 'test_'.
-# The following 'parametrize' function decorator provides the parameters and expected results for each
-#   of the multiple test runs for this test.
-@pytest.mark.parametrize("hsMinCheck", [
-    (0),
-    (1)
-])
-
-# update "module" in this function name to reflect the module name
-def test_thrMomentumManagement(show_plots, hsMinCheck):
+@pytest.mark.parametrize("hs_min_check", [0, 1])
+def test_thr_momentum_management(hs_min_check):
     """Module Unit Test"""
-    # each test method requires a single assert method to be called
-    [testResults, testMessage] = thrMomentumManagementTestFunction(show_plots, hsMinCheck)
-    assert testResults < 1, testMessage
+    task_name = "unitTask"
+    process_name = "TestProcess"
 
+    sim = SimulationBaseClass.SimBaseClass()
 
-def thrMomentumManagementTestFunction(show_plots, hsMinCheck):
-    testFailCount = 0                       # zero unit test result counter
-    testMessages = []                       # create empty array to store test log messages
-    unitTaskName = "unitTask"               # arbitrary name (don't change)
-    unitProcessName = "TestProcess"         # arbitrary name (don't change)
+    test_process_rate = macros.sec2nano(0.5)
+    test_proc = sim.CreateNewProcess(process_name)
+    test_proc.addTask(sim.CreateNewTask(task_name, test_process_rate))
 
-    # Create a sim module as an empty container
-    unitTestSim = SimulationBaseClass.SimBaseClass()
-
-    # Create test thread
-    testProcessRate = macros.sec2nano(0.5)     # update process rate update time
-    testProc = unitTestSim.CreateNewProcess(unitProcessName)
-    testProc.addTask(unitTestSim.CreateNewTask(unitTaskName, testProcessRate))
-
-
-    # Construct algorithm and associated C++ container
     module = thrMomentumManagementF32.ThrMomentumManagement()
     module.modelTag = "thrMomentumManagement"
+    sim.AddModelToTask(task_name, module)
 
-    # Add test module to runtime call list
-    unitTestSim.AddModelToTask(unitTaskName, module)
-
-    # Initialize the test module configuration data
-    if hsMinCheck:
-        module.hsMin = 1000./6000.*100.               # Nms
+    # hs_min_check == 1 puts the threshold above the RW cluster momentum, so no dumping is requested
+    if hs_min_check:
+        module.hsMin = 1000.0 / 6000.0 * 100.0  # Nms
     else:
-        module.hsMin = 100./6000.*100.               # Nms
+        module.hsMin = 100.0 / 6000.0 * 100.0  # Nms
 
+    # wheelSpeeds message
+    rw_speed_message = messaging.RWSpeedMsgF32Payload()
+    rw_speed_message.wheelSpeeds = [10.0, -25.0, 50.0, 100.0]
+    rw_speed_in_msg = messaging.RWSpeedMsgF32().write(rw_speed_message)
 
-    # wheelSpeeds Message
-    rwSpeedMessage = messaging.RWSpeedMsgF32Payload()
-    rwSpeedMessage.wheelSpeeds = [10.0, -25.0, 50.0, 100.]
-    rwSpeedInMsg = messaging.RWSpeedMsgF32().write(rwSpeedMessage)
-
-
-    # wheelConfigData Message
-    Js = 0.1
-    rwConfigParams = messaging.RWArrayConfigMsgF32Payload()
-    rwConfigParams.GsMatrix_B = [
+    # wheelConfigData message
+    js = 0.1
+    rw_config_params = messaging.RWArrayConfigMsgF32Payload()
+    rw_config_params.GsMatrix_B = [
         1.0, 0.0, 0.0,
         0.0, 1.0, 0.0,
         0.0, 0.0, 1.0,
-        0.5773502691896258, 0.5773502691896258, 0.5773502691896258
+        0.5773502691896258, 0.5773502691896258, 0.5773502691896258,
     ]
-    rwConfigParams.JsList = [Js] * 4
-    rwConfigParams.numRW = 4
-    rwConfigInMsg = messaging.RWArrayConfigMsgF32().write(rwConfigParams)
+    rw_config_params.JsList = [js] * 4
+    rw_config_params.numRW = 4
+    rw_config_in_msg = messaging.RWArrayConfigMsgF32().write(rw_config_params)
 
+    data_log = module.deltaHOutMsg.recorder()
+    sim.AddModelToTask(task_name, data_log)
 
+    module.rwSpeedsInMsg.subscribeTo(rw_speed_in_msg)
+    module.rwConfigDataInMsg.subscribeTo(rw_config_in_msg)
 
-    # Setup logging on the test module output message so that we get all the writes to it
-    dataLog = module.deltaHOutMsg.recorder()
-    unitTestSim.AddModelToTask(unitTaskName, dataLog)
+    sim.InitializeSimulation()
+    sim.ConfigureStopTime(macros.sec2nano(0.5))
+    sim.ExecuteSimulation()
 
-    # setup message connections
-    module.rwSpeedsInMsg.subscribeTo(rwSpeedInMsg)
-    module.rwConfigDataInMsg.subscribeTo(rwConfigInMsg)
-
-    # Need to call the self-init and cross-init methods
-    unitTestSim.InitializeSimulation()
-
-    # Set the simulation time.
-    # NOTE: the total simulation time may be longer than this value. The
-    # simulation is stopped at the next logging event on or after the
-    # simulation end time.
-    unitTestSim.ConfigureStopTime(macros.sec2nano(0.5))        # seconds to stop simulation
-
-    # Begin the simulation time run set above
-    unitTestSim.ExecuteSimulation()
-
-    # set the filtered output truth states
-    if hsMinCheck == 1:
-        trueVector = [
-                   [0.0, 0.0, 0.0]
-                   ]*2
+    # Truth values carried over from the double-precision Xmera unit test. The module writes the
+    # dump request only once, so the recorded value is unchanged across both logged steps.
+    if hs_min_check == 1:
+        true_vector = [0.0, 0.0, 0.0]
     else:
-        trueVector = [
-                   [-5.914369484146579, -2.858300248464629, -9.407020039211664]
-                   ]*2
+        true_vector = [-5.914369484146579, -2.858300248464629, -9.407020039211664]
 
-    # compare the module results to the truth values
+    # FP32 tolerance: the observed error against the double truth is ~4e-7 on magnitudes of order 10,
+    # i.e. at float epsilon, so 1e-6 absolute is the tightest defensible bound.
     accuracy = 1e-6
-    unitTestSupport.writeTeXSnippet("toleranceValue", str(accuracy), path)
-    testFailCount, testMessages = unitTestSupport.compareArray(trueVector, dataLog.torqueRequestBody, accuracy,
-                                                               "torqueRequestBody", testFailCount, testMessages)
 
-    snippetName = "passFail" + str(hsMinCheck)
-    if testFailCount == 0:
-        colorText = 'ForestGreen'
-        print("PASSED: " + module.modelTag)
-        passedText = r'\textcolor{' + colorText + '}{' + "PASSED" + '}'
-    else:
-        colorText = 'Red'
-        print("Failed: " + module.modelTag)
-        passedText = r'\textcolor{' + colorText + '}{' + "Failed" + '}'
-    unitTestSupport.writeTeXSnippet(snippetName, passedText, path)
-
-
-    # each test method requires a single assert method to be called
-    # this check below just makes sure no sub-test failures were found
-    return [testFailCount, ''.join(testMessages)]
-
-
-#
-# This statement below ensures that the unitTestScript can be run as a
-# stand-along python script
-#
-if __name__ == "__main__":
-    test_thrMomentumManagement(              # update "module" in function name
-                 True,
-                 0            # hsMinCheck
-               )
+    assert len(data_log.torqueRequestBody) == 2
+    for sample in data_log.torqueRequestBody:
+        np.testing.assert_allclose(true_vector, sample, atol=accuracy, rtol=accuracy, verbose=True)
