@@ -7,8 +7,11 @@
 #include "utilities/fsw/eigenSupport.h"
 #include <string.h>
 
-#include <Eigen/Core>
 #include <stdexcept>
+
+// The algorithm's C-boundary RW count must match the system-wide RW_EFF_CNT, otherwise the
+// payload GsMatrix_B / JsList / wheelSpeeds arrays would not map onto the algorithm's fixed-size types.
+static_assert(kMaxNumRw == RW_EFF_CNT, "THR_MOMENTUM_MANAGEMENT_MAX_NUM_RW must match RW_EFF_CNT");
 
 /*! This method performs a complete reset of the module.  It validates that the required input messages
  are linked, caches the RW configuration, and re-arms the one-shot momentum dumping request.
@@ -24,11 +27,17 @@ void ThrMomentumManagement::reset(const uint64_t callTime) {
         throw std::invalid_argument("thrMomentumManagement.rwSpeedsInMsg wasn't connected.");
     }
 
-    /*! - read in the RW configuration message */
-    this->rwConfigParams = this->rwConfigDataInMsg();
+    /*! - read in the RW configuration message and convert it to the algorithm's own types */
+    const RWArrayConfigMsgPayload rwConfigParams = this->rwConfigDataInMsg();
+    ThrMomentumManagementRwArrayConfiguration rwArrayConfig;
+    rwArrayConfig.numRW = static_cast<uint32_t>(rwConfigParams.numRW);
+    rwArrayConfig.GsMatrix_B = cArrayToEigenMatrix<double, 3, kMaxNumRw>(rwConfigParams.GsMatrix_B);
+    rwArrayConfig.JsList = cArrayToEigenVector(rwConfigParams.JsList);
+    this->algorithm.rwArrayConfig = rwArrayConfig;
+    this->algorithm.hs_min = this->hs_min;
 
     /*! - reset the momentum dumping request flag */
-    this->initRequest = 1;
+    this->algorithm.reInitialize();
 }
 
 /*! The RW momentum level is assessed to determine if a momentum dumping maneuver is required.
@@ -38,37 +47,17 @@ void ThrMomentumManagement::reset(const uint64_t callTime) {
  @param callTime The clock time at which the function was called (nanoseconds)
  */
 void ThrMomentumManagement::updateState(const uint64_t callTime) {
-    CmdTorqueBodyMsgPayload controlOutMsg = {}; /* Control torque output message */
-    Eigen::Vector3d hs_B;                       /* RW angular momentum */
-    Eigen::Vector3d Delta_H_B;                  /* [Nms]  net desired angular momentum change */
+    /*! - Read the input messages */
+    const RWSpeedMsgPayload rwSpeedMsg = this->rwSpeedsInMsg(); /* Reaction wheel speed estimate message */
 
-    /*! - check if a momentum dumping check has been requested */
-    if (this->initRequest == 1) {
-        /*! - Read the input messages */
-        const RWSpeedMsgPayload rwSpeedMsg = this->rwSpeedsInMsg(); /* Reaction wheel speed estimate message */
+    const std::optional<Eigen::Vector3d> Delta_H_B =
+        this->algorithm.update(cArrayToEigenVector(rwSpeedMsg.wheelSpeeds));
 
-        /*! - compute net RW momentum magnitude */
-        hs_B.setZero();
-        for (int i = 0; i < this->rwConfigParams.numRW; i++) {
-            hs_B += this->rwConfigParams.JsList[i] * rwSpeedMsg.wheelSpeeds[i] *
-                    cArrayToEigenVector3(&this->rwConfigParams.GsMatrix_B[i * 3]);
-        }
-        const double hs = hs_B.norm(); /* net RW cluster angular momentum magnitude */
-
-        /*! - check if momentum dumping is required */
-        if (hs < this->hs_min) {
-            /* Momentum dumping not required */
-            Delta_H_B.setZero();
-        } else {
-            Delta_H_B = (-(hs - this->hs_min) / hs) * hs_B;
-        }
-        this->initRequest = 0;
-
-        /*! - write out the output message */
-        eigenVectorToCArray(Delta_H_B, controlOutMsg.torqueRequestBody);
+    /*! - write out the output message only while the one-shot dumping check is armed */
+    if (Delta_H_B.has_value()) {
+        CmdTorqueBodyMsgPayload controlOutMsg = {}; /* Control torque output message */
+        eigenVectorToCArray(*Delta_H_B, controlOutMsg.torqueRequestBody);
 
         this->deltaHOutMsg.write(controlOutMsg, moduleID, callTime);
     }
-
-    return;
 }

@@ -1,6 +1,7 @@
 #ifndef F32XMERA_THR_MOMENTUM_MANAGEMENT_H
 #define F32XMERA_THR_MOMENTUM_MANAGEMENT_H
 
+#include "thrMomentumManagementAlgorithm.h"
 #include <stdint.h>
 
 #include <architecture/_GeneralModuleFiles/sys_model.h>
@@ -15,11 +16,6 @@ class ThrMomentumManagement : public SysModel {
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
 
-    /* declare module private variables */
-    int initRequest{};  //!< [-] one-shot latch; 1 requests a momentum check on the next update, cleared once performed
-    RWArrayConfigMsgPayload
-        rwConfigParams{};  //!< [-] struct to store message containing RW config parameters in body B frame
-
     /* declare module public variables */
     double hs_min{};  //!< [Nms]  minimum RW cluster momentum for dumping
 
@@ -27,6 +23,9 @@ class ThrMomentumManagement : public SysModel {
     Message<CmdTorqueBodyMsgPayload> deltaHOutMsg;           //!< [Nms] requested body-frame angular momentum change
     ReadFunctor<RWSpeedMsgPayload> rwSpeedsInMsg;            //!< [r/s] reaction wheel speeds input message
     ReadFunctor<RWArrayConfigMsgPayload> rwConfigDataInMsg;  //!< [-] RW array configuration input message
+
+   private:
+    ThrMomentumManagementAlgorithm algorithm;  //!< [-] the wrapped momentum management algorithm
 };
 
 #endif
