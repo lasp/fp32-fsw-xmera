@@ -1,10 +1,9 @@
 #include "gimbalAxisToMotorAnglesAlgorithm.h"
 
-#include <math.h>
-
-#include "architecture/utilities/bilinearInterpolation.hpp"
-#include "architecture/utilities/linearInterpolation.hpp"
+#include "utilities/fsw/interpolation.h"
 #include "utilities/fsw/safeMath.h"
+#include <math.h>
+#include <optional>
 
 GimbalAxisToMotorAnglesAlgorithm::GimbalAxisToMotorAnglesAlgorithm(const GimbalAxisToMotorAnglesConfig& config)
     : cfg(config) {
@@ -168,30 +167,32 @@ MotorAngles GimbalAxisToMotorAnglesAlgorithm::bilinearlyInterpolateMotorAngles(c
     MotorAngles motorAngles{};
     if (motorLLBounds.isValidInterpolation && motorLUBounds.isValidInterpolation &&
         motorULBounds.isValidInterpolation && motorUUBounds.isValidInterpolation) {
-        const float motor1Angle = static_cast<float>(bilinearInterpolation(gimbalAngle1LBound,
-                                                                           gimbalAngle1UBound,
-                                                                           gimbalAngle2LBound,
-                                                                           gimbalAngle2UBound,
-                                                                           motorLLBounds.angle1,
-                                                                           motorLUBounds.angle1,
-                                                                           motorULBounds.angle1,
-                                                                           motorUUBounds.angle1,
-                                                                           gimbalAngle1,
-                                                                           gimbalAngle2));
-        const float motor2Angle = static_cast<float>(bilinearInterpolation(gimbalAngle1LBound,
-                                                                           gimbalAngle1UBound,
-                                                                           gimbalAngle2LBound,
-                                                                           gimbalAngle2UBound,
-                                                                           motorLLBounds.angle2,
-                                                                           motorLUBounds.angle2,
-                                                                           motorULBounds.angle2,
-                                                                           motorUUBounds.angle2,
-                                                                           gimbalAngle1,
-                                                                           gimbalAngle2));
+        const std::optional<float> motor1Angle = bilinearInterpolation(gimbalAngle1LBound,
+                                                                       gimbalAngle1UBound,
+                                                                       gimbalAngle2LBound,
+                                                                       gimbalAngle2UBound,
+                                                                       motorLLBounds.angle1,
+                                                                       motorLUBounds.angle1,
+                                                                       motorULBounds.angle1,
+                                                                       motorUUBounds.angle1,
+                                                                       gimbalAngle1,
+                                                                       gimbalAngle2);
+        const std::optional<float> motor2Angle = bilinearInterpolation(gimbalAngle1LBound,
+                                                                       gimbalAngle1UBound,
+                                                                       gimbalAngle2LBound,
+                                                                       gimbalAngle2UBound,
+                                                                       motorLLBounds.angle2,
+                                                                       motorLUBounds.angle2,
+                                                                       motorULBounds.angle2,
+                                                                       motorUUBounds.angle2,
+                                                                       gimbalAngle1,
+                                                                       gimbalAngle2);
 
-        motorAngles.angle1 = motor1Angle;
-        motorAngles.angle2 = motor2Angle;
-        motorAngles.isValidInterpolation = true;
+        if (motor1Angle.has_value() && motor2Angle.has_value()) {
+            motorAngles.angle1 = *motor1Angle;
+            motorAngles.angle2 = *motor2Angle;
+            motorAngles.isValidInterpolation = true;
+        }
     }
 
     return motorAngles;
@@ -234,14 +235,16 @@ MotorAngles GimbalAxisToMotorAnglesAlgorithm::linearlyInterpolateMotorAngles(con
     // Linearly interpolate if the pulled angles are valid
     MotorAngles motorAngles{};
     if (lowerMotorBounds.isValidInterpolation && upperMotorBounds.isValidInterpolation) {
-        const float motor1Angle = static_cast<float>(linearInterpolation(
-            gimbalAngleLBound, gimbalAngleUBound, lowerMotorBounds.angle1, upperMotorBounds.angle1, boundedAngle));
-        const float motor2Angle = static_cast<float>(linearInterpolation(
-            gimbalAngleLBound, gimbalAngleUBound, lowerMotorBounds.angle2, upperMotorBounds.angle2, boundedAngle));
+        const std::optional<float> motor1Angle = linearInterpolation(
+            gimbalAngleLBound, gimbalAngleUBound, lowerMotorBounds.angle1, upperMotorBounds.angle1, boundedAngle);
+        const std::optional<float> motor2Angle = linearInterpolation(
+            gimbalAngleLBound, gimbalAngleUBound, lowerMotorBounds.angle2, upperMotorBounds.angle2, boundedAngle);
 
-        motorAngles.angle1 = motor1Angle;
-        motorAngles.angle2 = motor2Angle;
-        motorAngles.isValidInterpolation = true;
+        if (motor1Angle.has_value() && motor2Angle.has_value()) {
+            motorAngles.angle1 = *motor1Angle;
+            motorAngles.angle2 = *motor2Angle;
+            motorAngles.isValidInterpolation = true;
+        }
     }
 
     return motorAngles;
