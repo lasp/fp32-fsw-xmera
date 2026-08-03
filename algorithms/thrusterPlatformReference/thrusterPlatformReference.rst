@@ -1,12 +1,12 @@
 Executive Summary
 -----------------
-This module computes a reference orientation for a dual-gimballed platform connected to the main hub. The platform
-can only perform a tip-and-tilt type of rotation, and therefore one degree of freedom is blocked. A thruster is
-mounted on the platform, whose direction is known in platform-frame coordinates. The goal of this module is to
-compute a reference orientation for the platform which aligns the thruster direction with the system's center of
-mass, to zero the net torque produced by the thruster on the spacecraft. Alternatively, the module can offset the
-thrust direction with respect to the center of mass to produce a net torque that dumps the momentum accumulated on
-the reaction wheels.
+This module computes a reference orientation for a platform connected to the main hub, on which a thruster is
+mounted whose direction is known in platform-frame coordinates. The goal of this module is to compute a reference
+orientation for the platform which aligns the thruster line of action with the system's center of mass, to zero the
+net torque produced by the thruster on the spacecraft. Alternatively, the module can offset the thrust direction
+with respect to the center of mass to produce a net torque that dumps the momentum accumulated on the reaction
+wheels. The module reports the resulting thruster direction in body-frame coordinates; a downstream module is
+responsible for computing the platform gimbal angles that realize it.
 
 All numeric computation is single-precision (``float`` / fp32). The module is a single algorithm
 (``ThrusterPlatformReferenceAlgorithm``) with two interface adapters: a ``SysModel`` adapter that connects it to
@@ -61,12 +61,6 @@ information on what this message is used for.
     * - rwSpeedsInMsg
       - :ref:`RWSpeedMsgPayload`
       - Optional input message containing the speeds of the reaction wheels relative to the hub.
-    * - hingedRigidBodyRef1OutMsg
-      - :ref:`HingedRigidBodyMsgPayload`
-      - Output message containing the reference angle (and zero angle rate) for the tip angle.
-    * - hingedRigidBodyRef2OutMsg
-      - :ref:`HingedRigidBodyMsgPayload`
-      - Output message containing the reference angle (and zero angle rate) for the tilt angle.
     * - bodyHeadingOutMsg
       - :ref:`BodyHeadingMsgPayload`
       - Output message containing the unit direction vector of the thruster in body-frame coordinates.
@@ -86,43 +80,130 @@ A detailed mathematical derivation of the equations implemented in this module c
 `R. Calaon, L. Kiner, C. Allard and H. Schaub, "Momentum Management of a Spacecraft equipped with a Dual-Gimballed
 Electric Thruster" <http://hanspeterschaub.info/Papers/Calaon2023a.pdf>`__.
 
-The algorithm computes a direction cosine matrix :math:`[\mathcal{FM}]` that describes the rotation between the
-platform frame :math:`\mathcal{F}` and the mount frame :math:`\mathcal{M}`. To be compliant with the constraint in
-the motion of the platform, i.e. the dual gimbal, such frame must have a zero in the element (2,1). When such
-condition is met, the reference angles computed from the DCM allow the thruster to align through the system's
-center of mass. The input parameters allow specifying offsets between the origin :math:`M` of the hub-fixed mount
-frame :math:`\mathcal{M}` and the origin :math:`F` of the platform-fixed frame :math:`\mathcal{F}`, the application
-point of the thruster force in the :math:`\mathcal{F}` frame, and the direction, in :math:`\mathcal{F}`-frame
-coordinates, of the thrust vector.
+The algorithm computes a direction cosine matrix :math:`[\mathcal{FM}]` that describes the reference rotation
+between the platform frame :math:`\mathcal{F}` and the mount frame :math:`\mathcal{M}`, chosen so that the thruster
+produces a requested torque about the system's center of mass (a zero requested torque points the thruster line of
+action through the center of mass). The input parameters allow specifying offsets between the origin :math:`M` of the
+hub-fixed mount frame :math:`\mathcal{M}` and the origin :math:`F` of the platform-fixed frame :math:`\mathcal{F}`,
+the application point of the thruster force in the :math:`\mathcal{F}` frame, and the direction, in
+:math:`\mathcal{F}`-frame coordinates, of the thrust vector.
 
-When the optional reaction-wheel input messages are connected the user can specify the gain :math:`\kappa` (``K``),
-the proportional gain of a control law that computes an offset with respect to the center of mass; this makes the
-thruster apply a torque on the system that dumps the momentum accumulated on the wheels. The control law is:
-
-.. math::
-    \boldsymbol{d} = -\frac{1}{t^2} \boldsymbol{t} \times(\kappa \boldsymbol{h}_w + \kappa_I \boldsymbol{H}_w)
-
-where :math:`\boldsymbol{h}_w` is the momentum on the wheels and :math:`\boldsymbol{H}_w` its integral over time:
+Platform reference rotation
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The reference DCM :math:`[\mathcal{FM}]` is the single rotation that makes the thruster produce the requested torque
+about the center of mass (derived below). The relevant geometry is first assembled in the mount and platform frames:
 
 .. math::
-    \boldsymbol{H}_w = \int_{t_0}^t \boldsymbol{h}_w \text{d}t.
+    {}^\mathcal{M}\boldsymbol{r}_{C/M} = [\mathcal{MB}]\,{}^\mathcal{B}\boldsymbol{r}_{C/B}
+        + {}^\mathcal{M}\boldsymbol{r}_{B/M}, \qquad
+    {}^\mathcal{F}\boldsymbol{r}_{T/M} = {}^\mathcal{F}\boldsymbol{r}_{F/M} + {}^\mathcal{F}\boldsymbol{r}_{T/F},
+        \qquad
+    {}^\mathcal{F}\boldsymbol{t} = F\,{}^\mathcal{F}\hat{\boldsymbol{t}},
 
-The integral is accumulated with a trapezoidal rule using the time step derived from successive call times. The
-inputs ``theta1Max`` and ``theta2Max`` bound the output reference angles for the platform. If there are no
-mechanical bounds, setting these inputs to a non-positive value bypasses the routine that bounds these angles.
+with :math:`[\mathcal{MB}]` built from ``sigma_MB`` and :math:`F` the thrust magnitude.
 
-The tip and tilt reference angles :math:`\nu_{1R}` and :math:`\nu_{2R}` are extracted from the final DCM according
-to:
+Thruster pointing
+^^^^^^^^^^^^^^^^^
+The thruster is fixed in the platform frame, so the torque it produces about the center of mass,
+:math:`\boldsymbol{L} = {}^\mathcal{F}\boldsymbol{r}_{T/C} \times {}^\mathcal{F}\boldsymbol{t}` (moment arm times
+force), depends on the reference rotation only through where the center of mass falls in that frame,
+:math:`{}^\mathcal{F}\boldsymbol{r}_{C/M} = [\mathcal{FM}]\,{}^\mathcal{M}\boldsymbol{r}_{C/M}`. The algorithm
+therefore solves for the platform-frame coordinates the center of mass must have to produce a requested torque
+:math:`{}^\mathcal{F}\boldsymbol{L}_\text{req}` (zero for pure center-of-mass alignment), then takes
+:math:`[\mathcal{FM}]` to be the rotation that carries :math:`{}^\mathcal{M}\boldsymbol{r}_{C/M}` there. Two
+conditions pin that target position :math:`{}^\mathcal{F}\boldsymbol{r}_{Ct/M}`.
+
+First, the requested-torque condition
 
 .. math::
-    \begin{align}
-        \nu_{1R} &= \arctan \left( \frac{f_{23}}{f_{22}} \right) &
-        \nu_{2R} &= \arctan \left( \frac{f_{31}}{f_{11}} \right)
-    \end{align}
+    \left( {}^\mathcal{F}\boldsymbol{r}_{T/M} - {}^\mathcal{F}\boldsymbol{r}_{Ct/M} \right)
+        \times {}^\mathcal{F}\boldsymbol{t}
+        = {}^\mathcal{F}\boldsymbol{L}_\text{req}
 
+confines the target to a line parallel to the thrust (a zero torque gives the thrust line itself; a non-zero torque
+shifts it sideways), whose foot perpendicular to the thrust from the joint :math:`M` is
+
+.. math::
+    {}^\mathcal{F}\boldsymbol{r}_\perp =
+        \frac{ {}^\mathcal{F}\boldsymbol{t} \times \left( {}^\mathcal{F}\boldsymbol{r}_{T/M}
+        \times {}^\mathcal{F}\boldsymbol{t} - {}^\mathcal{F}\boldsymbol{L}_\text{req} \right)}
+        {\|{}^\mathcal{F}\boldsymbol{t}\|^2}.
+
+Second, a rotation cannot change the center of mass's distance from the joint, so the target lies at distance
+:math:`b = \|\boldsymbol{r}_{C/M}\|` from :math:`M`; it is therefore the point of the line at that distance,
+
+.. math::
+    {}^\mathcal{F}\boldsymbol{r}_{Ct/M} = {}^\mathcal{F}\boldsymbol{r}_\perp
+        + \sqrt{b^2 - \|{}^\mathcal{F}\boldsymbol{r}_\perp\|^2}\, {}^\mathcal{F}\hat{\boldsymbol{t}}.
+
+A real intersection exists whenever :math:`b \geq \|\boldsymbol{r}_\perp\|`, i.e. when the requested torque is
+achievable given the available moment arm; for :math:`\boldsymbol{L}_\text{req} = 0` this reduces to the thrust line
+through the center of mass and :math:`\|\boldsymbol{r}_\perp\|` is the thrust moment arm about :math:`M`. Only the
+component of :math:`\boldsymbol{L}_\text{req}` perpendicular to the thrust is achievable (a force produces no torque
+about its own line of action); the parallel component is dropped by the construction.
+
+The reference rotation :math:`[\mathcal{FM}]` then carries :math:`\hat{\boldsymbol{r}}_{C/M}` onto
+:math:`\hat{\boldsymbol{r}}_{Ct/M}` through the separation angle
+:math:`\phi = \arccos\left(\hat{\boldsymbol{r}}_{C/M}\cdot\hat{\boldsymbol{r}}_{Ct/M}\right)` about the axis
+:math:`\hat{\boldsymbol{e}} = \hat{\boldsymbol{r}}_{Ct/M}\times\hat{\boldsymbol{r}}_{C/M}`, encoded as the principal
+rotation vector :math:`\phi\,\hat{\boldsymbol{e}}`. When the two directions are nearly antiparallel the cross
+product is ill-defined and any axis orthogonal to :math:`\hat{\boldsymbol{r}}_{C/M}` is used for the
+:math:`180^\circ` rotation. When the center of mass coincides with the joint (:math:`b \approx 0`) the pointing is
+undefined and the identity rotation is returned.
+
+Momentum dumping
+^^^^^^^^^^^^^^^^
+When the optional reaction-wheel input messages are connected, the requested torque is set by a control law that
+makes the thruster dump the momentum accumulated on the wheels. The desired thruster torque opposes that momentum,
+
+.. math::
+    \boldsymbol{L}_\text{req} = -\left( \kappa\, \boldsymbol{h}_w + \kappa_I\, \boldsymbol{H}_w \right), \qquad
+    \boldsymbol{H}_w = \int_{t_0}^t \boldsymbol{h}_w \,\text{d}t,
+
+where :math:`\boldsymbol{h}_w` is the net momentum on the wheels, :math:`\boldsymbol{H}_w` its integral over time,
+and :math:`\kappa` (``K``) / :math:`\kappa_I` (``Ki``) the proportional and integral gains. The integral is
+accumulated with a trapezoidal rule using the configured ``controlPeriod`` as the fixed time step (the module is
+expected to run at that rate). The momentum and its integral are tracked in the body frame; the torque is converted
+to the platform frame (through the mount frame) and passed to the *Thruster pointing* solve above. Because that solve
+reaches the requested torque exactly, the thruster produces :math:`\boldsymbol{L}_\text{req}` (up to the component
+along the thrust, which no thruster force can produce).
+
+Converting the torque to the platform frame needs :math:`[\mathcal{FM}]`, which is the very quantity being solved
+for. The module breaks this circularity by reusing the **previous cycle's** reference DCM as the conversion estimate;
+on the first cycle, where no prior exists, it is seeded once with the nominal (zero-torque) pointing. The resulting
+one-cycle staleness is a small, bounded error that the momentum-dumping feedback loop absorbs, and it lets each cycle
+run a single pointing solve instead of two.
+
+Deflection cone limit
+^^^^^^^^^^^^^^^^^^^^^
+The reference rotation is finally limited so that the thruster direction stays within a cone of half-angle
+:math:`\theta_\text{max}` (``thetaMax``) about its neutral, un-rotated direction. Let
+:math:`\hat{\boldsymbol{t}}_0 = {}^\mathcal{F}\hat{\boldsymbol{t}}` be the thrust direction at zero deflection
+(:math:`[\mathcal{FM}] = [I]`) and :math:`\hat{\boldsymbol{t}}_r = [\mathcal{FM}]^T {}^\mathcal{F}\hat{\boldsymbol{t}}`
+the thrust direction at the reference orientation, both in mount-frame coordinates. The deflection is
+
+.. math::
+    \delta = \arccos\left( \hat{\boldsymbol{t}}_0 \cdot \hat{\boldsymbol{t}}_r \right).
+
+When :math:`\delta \leq \theta_\text{max}` the reference rotation is left unchanged. Otherwise the aligned thrust
+direction is projected onto the cone by rotating it back toward :math:`\hat{\boldsymbol{t}}_0`, in the plane the two
+directions span, until the deflection equals :math:`\theta_\text{max}`. This is applied to the reference rotation as
+
+.. math::
+    [\mathcal{FM}]' = [\mathcal{FM}]\,[C]^T, \qquad
+    [C] = \text{PRV}\!\left( (\delta - \theta_\text{max})\,
+        \frac{\hat{\boldsymbol{t}}_0 \times \hat{\boldsymbol{t}}_r}{\|\hat{\boldsymbol{t}}_0 \times \hat{\boldsymbol{t}}_r\|} \right),
+
+where :math:`\text{PRV}(\cdot)` denotes the direction cosine matrix of a principal rotation vector. When the aligned
+and neutral directions are nearly antiparallel the rotation plane is ill-defined and an arbitrary axis orthogonal to
+:math:`\hat{\boldsymbol{t}}_0` is used. Because the projection reduces the platform rotation, a clamped reference no
+longer points the thruster exactly through the center of mass, and the resulting net thruster torque is non-zero.
+
+Body-frame outputs
+^^^^^^^^^^^^^^^^^^
 The body-frame outputs are resolved from the platform frame through the composite direction cosine matrix
 :math:`[\mathcal{FB}] = [\mathcal{FM}][\mathcal{MB}]`, where :math:`[\mathcal{MB}]` is built from ``sigma_MB`` and
-:math:`[\mathcal{FM}]` is rebuilt from the (bounded) reference angles. The thrust unit direction in body-frame
+:math:`[\mathcal{FM}]` is the reference rotation derived above. The thrust unit direction in body-frame
 coordinates is :math:`{}^\mathcal{B}\hat{\boldsymbol{t}} = [\mathcal{FB}]^T {}^\mathcal{F}\hat{\boldsymbol{t}}`
 (written to ``bodyHeadingOutMsg`` and to ``thrusterConfigBOutMsg``), and the thrust application point relative to
 the body-frame origin is :math:`{}^\mathcal{B}\boldsymbol{r}_{T/B} = {}^\mathcal{B}\boldsymbol{r}_{C/B} +
@@ -165,14 +246,14 @@ raises ``fsw::invalid_argument``.
       - 0
       - :math:`\geq 0`
       - integral gain of the momentum dumping control loop
-    * - ``theta1Max``
+    * - ``controlPeriod``
       - 0
-      - finite
-      - absolute bound on the tip angle; a non-positive value disables bounding
-    * - ``theta2Max``
+      - :math:`> 0`
+      - integration time step [s] for the momentum dumping integral (the module update rate)
+    * - ``thetaMax``
       - 0
-      - finite
-      - absolute bound on the tilt angle; a non-positive value disables bounding
+      - :math:`(0, \pi)`
+      - half-angle [rad] of the cone limiting the thrust deflection from its neutral direction (mandatory)
 
 In addition, when momentum dumping is enabled the reaction-wheel configuration read from ``rwConfigDataInMsg`` must
 have a wheel count not exceeding the compile-time maximum (``RW_EFF_CNT``) and unit-length spin axes (they are
@@ -190,8 +271,8 @@ then add the module to the simulation task (``reset()`` validates and builds the
     platformReference.r_FM_F = r_FM_F
     platformReference.K = K
     platformReference.Ki = Ki
-    platformReference.theta1Max = theta1Max
-    platformReference.theta2Max = theta2Max
+    platformReference.controlPeriod = controlPeriod
+    platformReference.thetaMax = thetaMax
 
     platformReference.vehConfigInMsg.subscribeTo(vehConfigMsg)
     platformReference.thrusterConfigFInMsg.subscribeTo(thrConfigFMsg)
@@ -203,10 +284,17 @@ then add the module to the simulation task (``reset()`` validates and builds the
 
 Module Assumptions and Limitations
 ----------------------------------
-As pointed out in the paper referenced above, it is not always guaranteed that a direction cosine matrix exists
-that can satisfy both the pointing requirement on the thrust direction and the kinematic constraint on the
-dual-gimballed platform. When a solution does not exist, a minimum problem is solved to compute the closest
-constraint-incompliant DCM. The tip and tilt reference angles are then extracted from that final DCM without
-checking whether :math:`[\mathcal{FM}]` is constraint compliant. As a result, the angles :math:`\nu_{1R}` and
-:math:`\nu_{2R}` produce a constraint-compliant reference, which however might not align the thruster with the
-desired point in the hub.
+The requested torque is achievable only when the target center-of-mass line reaches the sphere of radius :math:`b`
+about the joint :math:`M`, i.e. when :math:`b \geq \|\boldsymbol{r}_\perp\|` (see *Thruster pointing*); for the
+zero-torque case this is just the requirement that the thruster line of action can reach the center of mass. When the
+center of mass coincides with the joint the pointing is undefined and the identity rotation is returned. When the
+solution would require deflecting the thruster beyond the configured cone half-angle :math:`\theta_\text{max}`, the
+reference is clamped to the cone (see *Deflection cone limit*); in that case the thruster does not produce the
+requested torque exactly.
+
+The module assumes it is run at a small, fixed control period so that the platform moves little between successive
+calls. Two parts of the momentum-dumping path rely on this: the reaction-wheel momentum is integrated with a
+trapezoidal rule at the fixed ``controlPeriod`` step, and the desired torque is converted into the platform frame
+using the *previous* cycle's pointing (see *Momentum dumping*). Larger inter-cycle motion does not break the pointing
+solve, but it degrades both approximations; the resulting residual is bounded and absorbed by the per-cycle
+momentum-dumping feedback loop.

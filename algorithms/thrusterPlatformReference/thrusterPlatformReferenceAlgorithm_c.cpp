@@ -2,36 +2,46 @@
 #include "thrusterPlatformReferenceAlgorithm.h"
 #include "thrusterPlatformReferenceTypes.h"
 #include "utilities/fsw/eigenSupport.h"
+#include "utilities/fsw/opaqueHandle.h"
 
 #include <Eigen/Core>
 
 namespace {
-ThrusterPlatformReferenceRwArrayConfig rwArrayConfigFromC(const ThrusterPlatformReferenceRwArrayConfig_c& c) {
-    ThrusterPlatformReferenceRwArrayConfig out{};
+ThrusterPlatformReferenceRwArrayConfiguration rwArrayConfigFromC(
+    const ThrusterPlatformReferenceRwArrayConfiguration_c& c) {
+    ThrusterPlatformReferenceRwArrayConfiguration out{};
     out.numRW = c.numRW;
     out.GsMatrix_B = cArrayToEigenMatrix<float, 3, kMaxNumRw>(c.GsMatrix_B);
     out.JsList = cArrayToEigenVector(c.JsList);
     return out;
 }
 
-ThrusterPlatformReferenceConfig configFromC(const ThrusterPlatformReferenceConfig_c& c) {
-    return ThrusterPlatformReferenceConfig::create(cArrayToEigenVector3<float>(c.sigma_MB.data),
-                                                   cArrayToEigenVector3<float>(c.r_BM_M.data),
-                                                   cArrayToEigenVector3<float>(c.r_FM_F.data),
-                                                   c.K,
-                                                   c.Ki,
-                                                   c.theta1Max,
-                                                   c.theta2Max,
-                                                   c.momentumDumping,
-                                                   rwArrayConfigFromC(c.rwConfig));
+ThrusterPlatformReferenceConfig makeConfig(const Vector3f_c& sigma_MB,
+                                           const Vector3f_c& r_BM_M,
+                                           const Vector3f_c& r_FM_F,
+                                           float K,
+                                           float Ki,
+                                           float controlPeriod,
+                                           float thetaMax,
+                                           bool momentumDumping,
+                                           const ThrusterPlatformReferenceRwArrayConfiguration_c& rwConfig) {
+    return ThrusterPlatformReferenceConfig::create(cArrayToEigenVector3<float>(sigma_MB.data),
+                                                   cArrayToEigenVector3<float>(r_BM_M.data),
+                                                   cArrayToEigenVector3<float>(r_FM_F.data),
+                                                   K,
+                                                   Ki,
+                                                   controlPeriod,
+                                                   thetaMax,
+                                                   momentumDumping,
+                                                   rwArrayConfigFromC(rwConfig));
 }
 
 ThrusterPlatformReferenceInputs inputsFromC(const ThrusterPlatformReferenceInputs_c& c) {
     ThrusterPlatformReferenceInputs out{};
     out.r_CB_B = cArrayToEigenVector3<float>(c.r_CB_B.data);
-    out.rThrust_F = cArrayToEigenVector3<float>(c.rThrust_F.data);
-    out.tHatThrust_F = cArrayToEigenVector3<float>(c.tHatThrust_F.data);
-    out.maxThrust = c.maxThrust;
+    out.r_TF_F = cArrayToEigenVector3<float>(c.r_TF_F.data);
+    out.tHat_F = cArrayToEigenVector3<float>(c.tHat_F.data);
+    out.thrust = c.thrust;
     out.wheelSpeeds = cArrayToEigenVector(c.wheelSpeeds);
     return out;
 }
@@ -39,39 +49,70 @@ ThrusterPlatformReferenceInputs inputsFromC(const ThrusterPlatformReferenceInput
 
 uint32_t ThrusterPlatformReferenceAlgorithm_getMaxNumRw(void) { return THRUSTER_PLATFORM_REFERENCE_MAX_NUM_RW; }
 
+bool ThrusterPlatformReferenceAlgorithm_validateConfig(
+    const Vector3f_c* sigma_MB,
+    const Vector3f_c* r_BM_M,
+    const Vector3f_c* r_FM_F,
+    float K,
+    float Ki,
+    float controlPeriod,
+    float thetaMax,
+    bool momentumDumping,
+    const ThrusterPlatformReferenceRwArrayConfiguration_c* rwConfig) {
+    try {
+        (void)makeConfig(*sigma_MB, *r_BM_M, *r_FM_F, K, Ki, controlPeriod, thetaMax, momentumDumping, *rwConfig);
+        return true;
+    } catch (const fsw::invalid_argument&) {
+        return false;
+    }
+}
+
 ThrusterPlatformReferenceAlgorithmHandle* ThrusterPlatformReferenceAlgorithm_create(
-    const ThrusterPlatformReferenceConfig_c* config) {
-    return reinterpret_cast<ThrusterPlatformReferenceAlgorithmHandle*>(
-        new ::ThrusterPlatformReferenceAlgorithm(configFromC(*config)));
+    const Vector3f_c* sigma_MB,
+    const Vector3f_c* r_BM_M,
+    const Vector3f_c* r_FM_F,
+    float K,
+    float Ki,
+    float controlPeriod,
+    float thetaMax,
+    bool momentumDumping,
+    const ThrusterPlatformReferenceRwArrayConfiguration_c* rwConfig) {
+    return reinterpret_cast<ThrusterPlatformReferenceAlgorithmHandle*>(new ::ThrusterPlatformReferenceAlgorithm(
+        makeConfig(*sigma_MB, *r_BM_M, *r_FM_F, K, Ki, controlPeriod, thetaMax, momentumDumping, *rwConfig)));
 }
 
 void ThrusterPlatformReferenceAlgorithm_destroy(ThrusterPlatformReferenceAlgorithmHandle* self) {
-    delete reinterpret_cast<::ThrusterPlatformReferenceAlgorithm*>(self);
+    fsw::deleteHandle<::ThrusterPlatformReferenceAlgorithm>(self);
 }
 
 void ThrusterPlatformReferenceAlgorithm_setConfig(ThrusterPlatformReferenceAlgorithmHandle* self,
-                                                  const ThrusterPlatformReferenceConfig_c* config) {
-    reinterpret_cast<::ThrusterPlatformReferenceAlgorithm*>(self)->setConfig(configFromC(*config));
+                                                  const Vector3f_c* sigma_MB,
+                                                  const Vector3f_c* r_BM_M,
+                                                  const Vector3f_c* r_FM_F,
+                                                  float K,
+                                                  float Ki,
+                                                  float controlPeriod,
+                                                  float thetaMax,
+                                                  bool momentumDumping,
+                                                  const ThrusterPlatformReferenceRwArrayConfiguration_c* rwConfig) {
+    fsw::fromHandle<::ThrusterPlatformReferenceAlgorithm>(self)->setConfig(
+        makeConfig(*sigma_MB, *r_BM_M, *r_FM_F, K, Ki, controlPeriod, thetaMax, momentumDumping, *rwConfig));
 }
 
 void ThrusterPlatformReferenceAlgorithm_reInitialize(ThrusterPlatformReferenceAlgorithmHandle* self) {
-    reinterpret_cast<::ThrusterPlatformReferenceAlgorithm*>(self)->reInitialize();
+    fsw::fromHandle<::ThrusterPlatformReferenceAlgorithm>(self)->reInitialize();
 }
 
 ThrusterPlatformReferenceOutput_c ThrusterPlatformReferenceAlgorithm_update(
     ThrusterPlatformReferenceAlgorithmHandle* self,
-    const ThrusterPlatformReferenceInputs_c* inputs,
-    const uint64_t callTime) {
+    const ThrusterPlatformReferenceInputs_c* inputs) {
     const ThrusterPlatformReferenceOutput out =
-        reinterpret_cast<::ThrusterPlatformReferenceAlgorithm*>(self)->update(inputsFromC(*inputs), callTime);
+        fsw::fromHandle<::ThrusterPlatformReferenceAlgorithm>(self)->update(inputsFromC(*inputs));
 
     ThrusterPlatformReferenceOutput_c result{};
-    result.theta1 = out.theta1;
-    result.theta2 = out.theta2;
-    eigenVectorToCArray(out.rHat_XB_B, result.rHat_XB_B.data);
-    eigenVectorToCArray(out.torqueRequestBody, result.torqueRequestBody.data);
-    eigenVectorToCArray(out.rThrust_B, result.rThrust_B.data);
-    eigenVectorToCArray(out.tHatThrust_B, result.tHatThrust_B.data);
-    result.maxThrust = out.maxThrust;
+    eigenVectorToCArray(out.Lcomp_B, result.Lcomp_B.data);
+    eigenVectorToCArray(out.r_TB_B, result.r_TB_B.data);
+    eigenVectorToCArray(out.tHat_B, result.tHat_B.data);
+    result.thrust = out.thrust;
     return result;
 }

@@ -3,7 +3,6 @@
 
 #include "msgPayloadDef/BodyHeadingMsgF32Payload.h"
 #include "msgPayloadDef/CmdTorqueBodyMsgF32Payload.h"
-#include "msgPayloadDef/HingedRigidBodyMsgF32Payload.h"
 #include "msgPayloadDef/RWArrayConfigMsgF32Payload.h"
 #include "msgPayloadDef/RWSpeedMsgF32Payload.h"
 #include "msgPayloadDef/THRConfigMsgF32Payload.h"
@@ -34,8 +33,8 @@ class ThrusterPlatformReference final : public SysModel {
         Eigen::Vector3f::Zero()};  //!< position of F frame origin w.r.t. M frame origin, in F frame coordinates
     float K{};                     //!< momentum dumping proportional gain [1/s]
     float Ki{};                    //!< momentum dumping integral gain [1]
-    float theta1Max{};             //!< absolute bound on tip angle [rad]
-    float theta2Max{};             //!< absolute bound on tilt angle [rad]
+    float controlPeriod{};         //!< integration step for the momentum dumping integral [s] (must be > 0)
+    float thetaMax{};              //!< half-angle of the thrust-deflection cone [rad] (must be in (0, pi))
 
     /*! module IO interfaces */
     ReadFunctor<VehicleConfigMsgF32Payload>
@@ -43,10 +42,6 @@ class ThrusterPlatformReference final : public SysModel {
     ReadFunctor<THRConfigMsgF32Payload> thrusterConfigFInMsg;   //!< input thruster configuration msg
     ReadFunctor<RWSpeedMsgF32Payload> rwSpeedsInMsg;            //!< input reaction wheel speeds message
     ReadFunctor<RWArrayConfigMsgF32Payload> rwConfigDataInMsg;  //!< input RWA configuration message
-    Message<HingedRigidBodyMsgF32Payload>
-        hingedRigidBodyRef1OutMsg;  //!< output msg containing theta1 reference and thetaDot1 reference
-    Message<HingedRigidBodyMsgF32Payload>
-        hingedRigidBodyRef2OutMsg;  //!< output msg containing theta2 reference and thetaDot2 reference
     Message<BodyHeadingMsgF32Payload>
         bodyHeadingOutMsg;  //!< output msg containing the thrust heading in body frame coordinates
     Message<CmdTorqueBodyMsgF32Payload>
