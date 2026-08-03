@@ -16,12 +16,12 @@ class ThrMomentumManagement : public SysModel {
     void updateState(uint64_t callTime) override;
 
     /* declare module private variables */
-    int initRequest;  //!< [-] one-shot latch; 1 requests a momentum check on the next update, cleared once performed
+    int initRequest{};  //!< [-] one-shot latch; 1 requests a momentum check on the next update, cleared once performed
     RWArrayConfigMsgPayload
-        rwConfigParams;  //!< [-] struct to store message containing RW config parameters in body B frame
+        rwConfigParams{};  //!< [-] struct to store message containing RW config parameters in body B frame
 
     /* declare module public variables */
-    double hs_min;  //!< [Nms]  minimum RW cluster momentum for dumping
+    double hs_min{};  //!< [Nms]  minimum RW cluster momentum for dumping
 
     /* declare module IO interfaces */
     Message<CmdTorqueBodyMsgPayload> deltaHOutMsg;           //!< [Nms] requested body-frame angular momentum change
