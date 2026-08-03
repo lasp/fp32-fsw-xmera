@@ -4,9 +4,10 @@
  */
 
 #include "thrMomentumManagement.h"
-#include <architecture/utilities/linearAlgebra.h>
+#include "utilities/fsw/eigenSupport.h"
 #include <string.h>
 
+#include <Eigen/Core>
 #include <stdexcept>
 
 /*! This method performs a complete reset of the module.  It validates that the required input messages
@@ -38,9 +39,8 @@ void ThrMomentumManagement::reset(const uint64_t callTime) {
  */
 void ThrMomentumManagement::updateState(const uint64_t callTime) {
     CmdTorqueBodyMsgPayload controlOutMsg = {}; /* Control torque output message */
-    double hs_B[3];                             /* RW angular momentum */
-    double vec3[3];                             /* temp vector */
-    double Delta_H_B[3];                        /* [Nms]  net desired angular momentum change */
+    Eigen::Vector3d hs_B;                       /* RW angular momentum */
+    Eigen::Vector3d Delta_H_B;                  /* [Nms]  net desired angular momentum change */
 
     /*! - check if a momentum dumping check has been requested */
     if (this->initRequest == 1) {
@@ -48,26 +48,24 @@ void ThrMomentumManagement::updateState(const uint64_t callTime) {
         const RWSpeedMsgPayload rwSpeedMsg = this->rwSpeedsInMsg(); /* Reaction wheel speed estimate message */
 
         /*! - compute net RW momentum magnitude */
-        v3SetZero(hs_B);
+        hs_B.setZero();
         for (int i = 0; i < this->rwConfigParams.numRW; i++) {
-            v3Scale(this->rwConfigParams.JsList[i] * rwSpeedMsg.wheelSpeeds[i],
-                    &this->rwConfigParams.GsMatrix_B[i * 3],
-                    vec3);
-            v3Add(hs_B, vec3, hs_B);
+            hs_B += this->rwConfigParams.JsList[i] * rwSpeedMsg.wheelSpeeds[i] *
+                    cArrayToEigenVector3(&this->rwConfigParams.GsMatrix_B[i * 3]);
         }
-        const double hs = v3Norm(hs_B); /* net RW cluster angular momentum magnitude */
+        const double hs = hs_B.norm(); /* net RW cluster angular momentum magnitude */
 
         /*! - check if momentum dumping is required */
         if (hs < this->hs_min) {
             /* Momentum dumping not required */
-            v3SetZero(Delta_H_B);
+            Delta_H_B.setZero();
         } else {
-            v3Scale(-(hs - this->hs_min) / hs, hs_B, Delta_H_B);
+            Delta_H_B = (-(hs - this->hs_min) / hs) * hs_B;
         }
         this->initRequest = 0;
 
         /*! - write out the output message */
-        v3Copy(Delta_H_B, controlOutMsg.torqueRequestBody);
+        eigenVectorToCArray(Delta_H_B, controlOutMsg.torqueRequestBody);
 
         this->deltaHOutMsg.write(controlOutMsg, moduleID, callTime);
     }
