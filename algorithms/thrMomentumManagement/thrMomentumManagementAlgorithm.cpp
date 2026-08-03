@@ -5,6 +5,10 @@
 
 #include "thrMomentumManagementAlgorithm.h"
 
+// [Nms] net RW momentum below this magnitude is treated as zero. Only reachable when hs_min is itself
+// zero, since any larger threshold makes the hs < hs_min branch short-circuit first.
+constexpr double kZeroMomentumTolerance = 1e-6;
+
 /*! Re-arm the one-shot momentum dumping request so the next update() assesses the RW cluster momentum.
  @return void
  */
@@ -30,7 +34,7 @@ std::optional<Eigen::Vector3d> ThrMomentumManagementAlgorithm::update(
         const double hs = hs_B.norm(); /* net RW cluster angular momentum magnitude */
 
         /*! - check if momentum dumping is required */
-        if (hs < this->hs_min) {
+        if (hs < this->hs_min || hs < kZeroMomentumTolerance) {
             /* Momentum dumping not required */
             Delta_H_B = Eigen::Vector3d::Zero();
         } else {
