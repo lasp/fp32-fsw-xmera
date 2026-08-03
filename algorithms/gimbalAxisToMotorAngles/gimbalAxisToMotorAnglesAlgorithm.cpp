@@ -6,9 +6,6 @@
 #include "architecture/utilities/linearInterpolation.hpp"
 #include "utilities/fsw/safeMath.h"
 
-const int tipAngleIdxOffset = 38;
-const int tiltAngleIdxOffset = 55;
-
 GimbalAxisToMotorAnglesAlgorithm::GimbalAxisToMotorAnglesAlgorithm(const GimbalAxisToMotorAnglesConfig& config)
     : cfg(config) {
     setConfig(config);
@@ -77,11 +74,11 @@ MotorAngles GimbalAxisToMotorAnglesAlgorithm::gimbalAnglesToMotorAngles(const fl
  @param gimbalAngle2 [rad]
 */
 MotorAngles GimbalAxisToMotorAnglesAlgorithm::pullAngles(float gimbalAngle1, float gimbalAngle2) const {
-    gimbalAngle1 += static_cast<float>(tipAngleIdxOffset) * this->tableStepAngle;
-    gimbalAngle2 += static_cast<float>(tiltAngleIdxOffset) * this->tableStepAngle;
+    gimbalAngle1 += static_cast<float>(kTipColIdxOffset) * kTableStepAngle;
+    gimbalAngle2 += static_cast<float>(kTiltRowIdxOffset) * kTableStepAngle;
 
-    const auto index1 = static_cast<int>(roundf(gimbalAngle1 / this->tableStepAngle));
-    const auto index2 = static_cast<int>(roundf(gimbalAngle2 / this->tableStepAngle));
+    const auto index1 = static_cast<int>(roundf(gimbalAngle1 / kTableStepAngle));
+    const auto index2 = static_cast<int>(roundf(gimbalAngle2 / kTableStepAngle));
 
     MotorAngles motorAngles{};
     if (index1 >= 0 && index1 < kNumTableCols && index2 >= 0 && index2 < kNumTableRows) {
@@ -105,12 +102,12 @@ MotorAngles GimbalAxisToMotorAnglesAlgorithm::pullAngles(float gimbalAngle1, flo
 */
 bool GimbalAxisToMotorAnglesAlgorithm::isBilinearInterpolationRequired(const float gimbalAngle1,
                                                                        const float gimbalAngle2) const {
-    const float motor1Rounded = roundf(fabsf(gimbalAngle1 / this->tableStepAngle));
-    const float motor1Exact = fabsf(gimbalAngle1 / this->tableStepAngle);
+    const float motor1Rounded = roundf(fabsf(gimbalAngle1 / kTableStepAngle));
+    const float motor1Exact = fabsf(gimbalAngle1 / kTableStepAngle);
     const float motor1Remainder = fabsf(motor1Exact - motor1Rounded);
 
-    const float motor2Rounded = roundf(fabsf(gimbalAngle2 / this->tableStepAngle));
-    const float motor2Exact = fabsf(gimbalAngle2 / this->tableStepAngle);
+    const float motor2Rounded = roundf(fabsf(gimbalAngle2 / kTableStepAngle));
+    const float motor2Exact = fabsf(gimbalAngle2 / kTableStepAngle);
     const float motor2Remainder = fabsf(motor2Exact - motor2Rounded);
 
     return motor1Remainder >= kInterpolationRemainderTolerance && motor2Remainder >= kInterpolationRemainderTolerance;
@@ -123,12 +120,12 @@ bool GimbalAxisToMotorAnglesAlgorithm::isBilinearInterpolationRequired(const flo
 */
 bool GimbalAxisToMotorAnglesAlgorithm::isNoInterpolationRequired(const float gimbalAngle1,
                                                                  const float gimbalAngle2) const {
-    const float motor1Rounded = roundf(fabsf(gimbalAngle1 / this->tableStepAngle));
-    const float motor1Exact = fabsf(gimbalAngle1 / this->tableStepAngle);
+    const float motor1Rounded = roundf(fabsf(gimbalAngle1 / kTableStepAngle));
+    const float motor1Exact = fabsf(gimbalAngle1 / kTableStepAngle);
     const float motor1Remainder = fabsf(motor1Exact - motor1Rounded);
 
-    const float motor2Rounded = roundf(fabsf(gimbalAngle2 / this->tableStepAngle));
-    const float motor2Exact = fabsf(gimbalAngle2 / this->tableStepAngle);
+    const float motor2Rounded = roundf(fabsf(gimbalAngle2 / kTableStepAngle));
+    const float motor2Exact = fabsf(gimbalAngle2 / kTableStepAngle);
     const float motor2Remainder = fabsf(motor2Exact - motor2Rounded);
 
     return motor1Remainder < kInterpolationRemainderTolerance && motor2Remainder < kInterpolationRemainderTolerance;
@@ -139,8 +136,8 @@ bool GimbalAxisToMotorAnglesAlgorithm::isNoInterpolationRequired(const float gim
  @param angle [rad]
 */
 bool GimbalAxisToMotorAnglesAlgorithm::isLinearInterpolationRequired(const float angle) const {
-    const float rounded = roundf(fabsf(angle / this->tableStepAngle));
-    const float exact = fabsf(angle / this->tableStepAngle);
+    const float rounded = roundf(fabsf(angle / kTableStepAngle));
+    const float exact = fabsf(angle / kTableStepAngle);
     const float remainder = fabsf(exact - rounded);
 
     return remainder < kInterpolationRemainderTolerance;
@@ -156,10 +153,10 @@ invalid and zero motor angles are returned.
 MotorAngles GimbalAxisToMotorAnglesAlgorithm::bilinearlyInterpolateMotorAngles(const float gimbalAngle1,
                                                                                const float gimbalAngle2) const {
     // Determine the bounding gimbal angles
-    const float gimbalAngle1LBound = this->tableStepAngle * floorf(gimbalAngle1 / this->tableStepAngle);
-    const float gimbalAngle1UBound = this->tableStepAngle * ceilf(gimbalAngle1 / this->tableStepAngle);
-    const float gimbalAngle2LBound = this->tableStepAngle * floorf(gimbalAngle2 / this->tableStepAngle);
-    const float gimbalAngle2UBound = this->tableStepAngle * ceilf(gimbalAngle2 / this->tableStepAngle);
+    const float gimbalAngle1LBound = kTableStepAngle * floorf(gimbalAngle1 / kTableStepAngle);
+    const float gimbalAngle1UBound = kTableStepAngle * ceilf(gimbalAngle1 / kTableStepAngle);
+    const float gimbalAngle2LBound = kTableStepAngle * floorf(gimbalAngle2 / kTableStepAngle);
+    const float gimbalAngle2UBound = kTableStepAngle * ceilf(gimbalAngle2 / kTableStepAngle);
 
     // Determine the bounding motor angles
     const MotorAngles motorLLBounds = this->pullAngles(gimbalAngle1LBound, gimbalAngle2LBound);
@@ -220,8 +217,8 @@ MotorAngles GimbalAxisToMotorAnglesAlgorithm::linearlyInterpolateMotorAngles(con
     }
 
     // Find the upper and lower interpolation table bounds for the bounded angle
-    const float gimbalAngleLBound = this->tableStepAngle * floorf(boundedAngle / this->tableStepAngle);
-    const float gimbalAngleUBound = this->tableStepAngle * ceilf(boundedAngle / this->tableStepAngle);
+    const float gimbalAngleLBound = kTableStepAngle * floorf(boundedAngle / kTableStepAngle);
+    const float gimbalAngleUBound = kTableStepAngle * ceilf(boundedAngle / kTableStepAngle);
 
     // Determine the bounding angles for linear interpolation
     MotorAngles lowerMotorBounds{};

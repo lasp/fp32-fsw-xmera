@@ -113,12 +113,12 @@ class GimbalAxisToMotorAnglesAlgorithm final {
 
     static constexpr int kNumTableRows = NUM_GIMBAL_TO_MOTOR_TABLE_ROWS;
     static constexpr int kNumTableCols = NUM_GIMBAL_TO_MOTOR_TABLE_COLS;
-    static constexpr float kTableStepAngleDeg = 0.5F;  //!< [deg] Interpolation table motor discretization step
+    static constexpr int kTipColIdxOffset = 38;
+    static constexpr int kTiltRowIdxOffset = 55;
+    static constexpr float kTableStepAngle =
+        0.5F * std::numbers::pi_v<float> / 180.0F;  //!< [rad] Interpolation table motor discretization step
     static constexpr float kInterpolationRemainderTolerance =
         1e-3F;  //!< Tolerance for treating a normalized gimbal angle as landing exactly on a table node
-
-    float tableStepAngle{kTableStepAngleDeg * std::numbers::pi_v<float> /
-                         180.0F};  //!< [rad] Interpolation table motor discretization angle
     GimbalAxisToMotorAnglesConfig cfg;
 };
 
