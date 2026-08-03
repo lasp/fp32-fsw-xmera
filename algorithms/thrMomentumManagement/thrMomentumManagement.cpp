@@ -6,7 +6,6 @@
 #include "thrMomentumManagement.h"
 #include "utilities/fsw/eigenSupport.h"
 #include "utilities/xmera/xmeraLifecycleException.h"
-#include <string.h>
 
 #include <memory>
 #include <stdexcept>
