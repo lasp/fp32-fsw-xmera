@@ -290,6 +290,11 @@ zero-torque case this is just the requirement that the thruster line of action c
 center of mass coincides with the joint the pointing is undefined and the identity rotation is returned. When the
 solution would require deflecting the thruster beyond the configured cone half-angle :math:`\theta_\text{max}`, the
 reference is clamped to the cone (see *Deflection cone limit*); in that case the thruster does not produce the
-requested torque exactly. The desired-torque control law is converted from the mount frame to the platform frame
-using the nominal zero-torque pointing, a one-step approximation whose small residual is absorbed by the
-per-cycle momentum-dumping feedback loop.
+requested torque exactly.
+
+The module assumes it is run at a small, fixed control period so that the platform moves little between successive
+calls. Two parts of the momentum-dumping path rely on this: the reaction-wheel momentum is integrated with a
+trapezoidal rule at the fixed ``controlPeriod`` step, and the desired torque is converted into the platform frame
+using the *previous* cycle's pointing (see *Momentum dumping*). Larger inter-cycle motion does not break the pointing
+solve, but it degrades both approximations; the resulting residual is bounded and absorbed by the per-cycle
+momentum-dumping feedback loop.
