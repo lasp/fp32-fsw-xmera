@@ -19,6 +19,10 @@ algorithms/cssComm/cssComm.h
 algorithms/cssComm/cssComm.cpp
 algorithms/cssComm/cssCommAlgorithm_c.h
 algorithms/cssComm/cssCommAlgorithm_c.cpp
+algorithms/dvExecuteGuidance/dvExecuteGuidance.h
+algorithms/dvExecuteGuidance/dvExecuteGuidance.cpp
+algorithms/dvExecuteGuidance/dvExecuteGuidanceAlgorithm_c.h
+algorithms/dvExecuteGuidance/dvExecuteGuidanceAlgorithm_c.cpp
 algorithms/dvGuidance/dvGuidance.h
 algorithms/dvGuidance/dvGuidance.cpp
 algorithms/dvGuidance/dvGuidanceAlgorithm_c.h
