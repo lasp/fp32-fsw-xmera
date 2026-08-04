@@ -1,6 +1,6 @@
 .. raw:: latex
 
-    {\LARGE \textbf{gimbalAxisToMotorAngles}}
+    {\LARGE \textbf{thrustAxisToMotorAngles}}
 
 Executive Summary
 -----------------
@@ -26,15 +26,14 @@ Module Architecture
 
 The module is split into two layers:
 
-- The **adapter** (``gimbalAxisToMotorAngles.h``/``.cpp``) is the SysModel-derived class that handles message
-  I/O, validates
-  configuration, builds an immutable ``gimbalAxisToMotorAnglesConfig`` from public properties, and constructs
-  the algorithm via two-phase initialization.
-- The **algorithm** (``gimbalAxisToMotorAngles.h``/``.cpp``) is a pure C++23 class with no framework
-  dependencies. It takes message payloads as input, computes the attitude reference, and returns a payload struct as
-  output. It must not throw from ``update()``.
+- The **adapter** (``thrustAxisToMotorAngles.h``/``.cpp``) is the SysModel-derived class that handles message
+  I/O, validates configuration, builds an immutable ``ThrustAxisToMotorAnglesConfig`` from public properties, and
+  constructs the algorithm via two-phase initialization.
+- The **algorithm** (``thrustAxisToMotorAnglesAlgorithm.h``/``.cpp``) is a pure C++23 class with no framework
+  dependencies. It takes the commanded body-frame thrust direction as input, computes the gimbal and stepper motor
+  angles, and returns a payload struct as output. It must not throw from ``update()``.
 
-A pure-C shim (``gimbalAxisToMotorAngles_c.h``/``.cpp``) wraps the algorithm class for use by Ada/Adamant
+A pure-C shim (``thrustAxisToMotorAnglesAlgorithm_c.h``/``.cpp``) wraps the algorithm class for use by Ada/Adamant
 components via ``extern "C"`` bindings.
 
 Adapter Layer

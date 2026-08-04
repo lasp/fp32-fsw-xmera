@@ -1,4 +1,4 @@
-#include "gimbalAxisToMotorAngles.h"
+#include "thrustAxisToMotorAngles.h"
 
 #include <memory>
 #include <stdexcept>
@@ -11,29 +11,29 @@ configured parameters.
  @return void
  @param currentSimNanos [ns] Time the method is called
 */
-void GimbalAxisToMotorAngles::reset(uint64_t currentSimNanos) {
+void ThrustAxisToMotorAngles::reset(uint64_t currentSimNanos) {
     if (!this->thrustDirectionInMsg.isLinked()) {
-        throw std::invalid_argument("gimbalAxisToMotorAngles.thrustDirectionInMsg wasn't connected.");
+        throw std::invalid_argument("thrustAxisToMotorAngles.thrustDirectionInMsg wasn't connected.");
     }
 
-    const auto config = GimbalAxisToMotorAnglesConfig::create(this->dcm_MB,
+    const auto config = ThrustAxisToMotorAnglesConfig::create(this->dcm_MB,
                                                               StepperMotorAngleRange{this->minAngle, this->maxAngle},
                                                               this->gimbalToMotor1AngleTable,
                                                               this->gimbalToMotor2AngleTable);
-    this->algorithm = std::make_unique<GimbalAxisToMotorAnglesAlgorithm>(config);
+    this->algorithm = std::make_unique<ThrustAxisToMotorAnglesAlgorithm>(config);
     this->previousWrittenTime = -1.0;
 }
 
-GimbalAxisToMotorAnglesConfig GimbalAxisToMotorAngles::toConfig() const {
-    return GimbalAxisToMotorAnglesConfig::create(this->dcm_MB,
+ThrustAxisToMotorAnglesConfig ThrustAxisToMotorAngles::toConfig() const {
+    return ThrustAxisToMotorAnglesConfig::create(this->dcm_MB,
                                                  StepperMotorAngleRange{this->minAngle, this->maxAngle},
                                                  this->gimbalToMotor1AngleTable,
                                                  this->gimbalToMotor2AngleTable);
 }
 
-void GimbalAxisToMotorAngles::reconfigure() const {
+void ThrustAxisToMotorAngles::reconfigure() const {
     if (!this->algorithm) {
-        throw XmeraLifecycleException("GimbalAxisToMotorAngles reset() has not been called.");
+        throw XmeraLifecycleException("ThrustAxisToMotorAngles reset() has not been called.");
     }
 
     this->algorithm->setConfig(this->toConfig());
@@ -45,9 +45,9 @@ output messages.
  @return void
  @param currentSimNanos [ns] The current time of simulation
 */
-void GimbalAxisToMotorAngles::updateState(uint64_t currentSimNanos) {
+void ThrustAxisToMotorAngles::updateState(uint64_t currentSimNanos) {
     if (!this->algorithm) {
-        throw XmeraLifecycleException("GimbalAxisToMotorAngles reset() has not been called.");
+        throw XmeraLifecycleException("ThrustAxisToMotorAngles reset() has not been called.");
     }
 
     // Read the input message
@@ -61,7 +61,7 @@ void GimbalAxisToMotorAngles::updateState(uint64_t currentSimNanos) {
         const Eigen::Vector3f thrustHat_B = cArrayToEigenVector3<float>(thrustDirectionIn.rHat_XB_B);
 
         // Determine the gimbal and motor angles corresponding to the thrust direction
-        const GimbalAxisToMotorAnglesOutput motorAngles = this->algorithm->update(thrustHat_B);
+        const ThrustAxisToMotorAnglesOutput motorAngles = this->algorithm->update(thrustHat_B);
 
         // Write the module output messages
         auto motor1AngleOut = HingedRigidBodyMsgF32Payload();

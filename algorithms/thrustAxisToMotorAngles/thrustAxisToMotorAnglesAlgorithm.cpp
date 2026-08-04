@@ -1,11 +1,11 @@
-#include "gimbalAxisToMotorAnglesAlgorithm.h"
+#include "thrustAxisToMotorAnglesAlgorithm.h"
 
 #include "utilities/fsw/interpolation.h"
 #include "utilities/fsw/safeMath.h"
 #include <math.h>
 #include <optional>
 
-GimbalAxisToMotorAnglesAlgorithm::GimbalAxisToMotorAnglesAlgorithm(const GimbalAxisToMotorAnglesConfig& config)
+ThrustAxisToMotorAnglesAlgorithm::ThrustAxisToMotorAnglesAlgorithm(const ThrustAxisToMotorAnglesConfig& config)
     : cfg(config) {
     setConfig(config);
 }
@@ -13,16 +13,16 @@ GimbalAxisToMotorAnglesAlgorithm::GimbalAxisToMotorAnglesAlgorithm(const GimbalA
 /*! Replaces the algorithm's configuration for runtime reconfiguration.
  @param config Validated configuration (DCM and gimbal-to-motor interpolation tables)
 */
-void GimbalAxisToMotorAnglesAlgorithm::setConfig(const GimbalAxisToMotorAnglesConfig& config) { this->cfg = config; }
+void ThrustAxisToMotorAnglesAlgorithm::setConfig(const ThrustAxisToMotorAnglesConfig& config) { this->cfg = config; }
 
 /*! This method determines the gimbal sequential tip and tilt angles corresponding to the given thrust direction vector
 in spacecraft body frame components, then interpolates the corresponding stepper motor angles.
- @return GimbalAxisToMotorAnglesOutput
+ @return ThrustAxisToMotorAnglesOutput
  @param thrustHat_B Commanded thrust direction unit vector in body frame components
 */
-GimbalAxisToMotorAnglesOutput GimbalAxisToMotorAnglesAlgorithm::update(const Eigen::Vector3f& thrustHat_B) const {
+ThrustAxisToMotorAnglesOutput ThrustAxisToMotorAnglesAlgorithm::update(const Eigen::Vector3f& thrustHat_B) const {
     /*! Set default output */
-    GimbalAxisToMotorAnglesOutput output{};
+    ThrustAxisToMotorAnglesOutput output{};
 
     /*! Motor angles are only resolveable if the incoming thrust direction is not zero. */
     const bool isThrustHatResolved = thrustHat_B.stableNorm() != 0.0F;
@@ -51,7 +51,7 @@ GimbalAxisToMotorAnglesOutput GimbalAxisToMotorAnglesAlgorithm::update(const Eig
  @param gimbalTipAngle [rad] Gimbal tip angle
  @param gimbalTiltAngle [rad] Gimbal tilt angle
 */
-MotorAngles GimbalAxisToMotorAnglesAlgorithm::gimbalAnglesToMotorAngles(const float gimbalTipAngle,
+MotorAngles ThrustAxisToMotorAnglesAlgorithm::gimbalAnglesToMotorAngles(const float gimbalTipAngle,
                                                                         const float gimbalTiltAngle) const {
     MotorAngles motorAngles{};
     if (this->isBilinearInterpolationRequired(gimbalTipAngle, gimbalTiltAngle)) {
@@ -72,7 +72,7 @@ MotorAngles GimbalAxisToMotorAnglesAlgorithm::gimbalAnglesToMotorAngles(const fl
  @param gimbalAngle1 [rad]
  @param gimbalAngle2 [rad]
 */
-MotorAngles GimbalAxisToMotorAnglesAlgorithm::pullAngles(float gimbalAngle1, float gimbalAngle2) const {
+MotorAngles ThrustAxisToMotorAnglesAlgorithm::pullAngles(float gimbalAngle1, float gimbalAngle2) const {
     gimbalAngle1 += static_cast<float>(kTipColIdxOffset) * kTableStepAngle;
     gimbalAngle2 += static_cast<float>(kTiltRowIdxOffset) * kTableStepAngle;
 
@@ -99,7 +99,7 @@ MotorAngles GimbalAxisToMotorAnglesAlgorithm::pullAngles(float gimbalAngle1, flo
  @param gimbalAngle1 [rad]
  @param gimbalAngle2 [rad]
 */
-bool GimbalAxisToMotorAnglesAlgorithm::isBilinearInterpolationRequired(const float gimbalAngle1,
+bool ThrustAxisToMotorAnglesAlgorithm::isBilinearInterpolationRequired(const float gimbalAngle1,
                                                                        const float gimbalAngle2) const {
     const float motor1Rounded = roundf(fabsf(gimbalAngle1 / kTableStepAngle));
     const float motor1Exact = fabsf(gimbalAngle1 / kTableStepAngle);
@@ -117,7 +117,7 @@ bool GimbalAxisToMotorAnglesAlgorithm::isBilinearInterpolationRequired(const flo
  @param gimbalAngle1 [rad]
  @param gimbalAngle2 [rad]
 */
-bool GimbalAxisToMotorAnglesAlgorithm::isNoInterpolationRequired(const float gimbalAngle1,
+bool ThrustAxisToMotorAnglesAlgorithm::isNoInterpolationRequired(const float gimbalAngle1,
                                                                  const float gimbalAngle2) const {
     const float motor1Rounded = roundf(fabsf(gimbalAngle1 / kTableStepAngle));
     const float motor1Exact = fabsf(gimbalAngle1 / kTableStepAngle);
@@ -134,7 +134,7 @@ bool GimbalAxisToMotorAnglesAlgorithm::isNoInterpolationRequired(const float gim
  @return bool
  @param angle [rad]
 */
-bool GimbalAxisToMotorAnglesAlgorithm::isLinearInterpolationRequired(const float angle) const {
+bool ThrustAxisToMotorAnglesAlgorithm::isLinearInterpolationRequired(const float angle) const {
     const float rounded = roundf(fabsf(angle / kTableStepAngle));
     const float exact = fabsf(angle / kTableStepAngle);
     const float remainder = fabsf(exact - rounded);
@@ -149,7 +149,7 @@ invalid and zero motor angles are returned.
  @param gimbalAngle1 [rad]
  @param gimbalAngle2 [rad]
 */
-MotorAngles GimbalAxisToMotorAnglesAlgorithm::bilinearlyInterpolateMotorAngles(const float gimbalAngle1,
+MotorAngles ThrustAxisToMotorAnglesAlgorithm::bilinearlyInterpolateMotorAngles(const float gimbalAngle1,
                                                                                const float gimbalAngle2) const {
     // Determine the bounding gimbal angles
     const float gimbalAngle1LBound = kTableStepAngle * floorf(gimbalAngle1 / kTableStepAngle);
@@ -206,7 +206,7 @@ angles. Otherwise, the interpolation is flagged as invalid and zero motor angles
  @param gimbalAngle2 [rad] Angle 2 for linear interpolation
  @param fixedAngle Angle that is fixed for linear interpolation
 */
-MotorAngles GimbalAxisToMotorAnglesAlgorithm::linearlyInterpolateMotorAngles(const float gimbalAngle1,
+MotorAngles ThrustAxisToMotorAnglesAlgorithm::linearlyInterpolateMotorAngles(const float gimbalAngle1,
                                                                              const float gimbalAngle2,
                                                                              const FixedAngle fixedAngle) const {
     // Use the provided fixed angle to save the bounded angle (The bounded angle is the non-fixed angle)

@@ -1,12 +1,12 @@
-#ifndef F32XMERA_GIMBAL_AXIS_TO_MOTOR_ANGLES_ALGORITHM_H
-#define F32XMERA_GIMBAL_AXIS_TO_MOTOR_ANGLES_ALGORITHM_H
+#ifndef F32XMERA_THRUST_AXIS_TO_MOTOR_ANGLES_ALGORITHM_H
+#define F32XMERA_THRUST_AXIS_TO_MOTOR_ANGLES_ALGORITHM_H
 
 #include <math.h>
 #include <Eigen/Core>
 #include <array>
 #include <numbers>
 
-#include "gimbalAxisToMotorAnglesTypes.h"
+#include "thrustAxisToMotorAnglesTypes.h"
 #include "utilities/fsw/freestandingInvalidArgument.h"
 #include "utilities/fsw/freestandingIsFinite.hpp"
 #include "utilities/fsw/validDcmCheck.h"
@@ -29,27 +29,27 @@ struct StepperMotorAngleRange {
 using GimbalToMotorAngleTable =
     std::array<std::array<float, NUM_GIMBAL_TO_MOTOR_TABLE_COLS>, NUM_GIMBAL_TO_MOTOR_TABLE_ROWS>;
 
-/*! @brief Validated configuration for GimbalAxisToMotorAnglesAlgorithm. Holds the gimbal
+/*! @brief Validated configuration for ThrustAxisToMotorAnglesAlgorithm. Holds the gimbal
  * mount-frame DCM and the two gimbal-to-motor interpolation tables. */
-class GimbalAxisToMotorAnglesConfig final {
+class ThrustAxisToMotorAnglesConfig final {
    public:
-    static GimbalAxisToMotorAnglesConfig create(const Eigen::Matrix3f& dcm_MB,
+    static ThrustAxisToMotorAnglesConfig create(const Eigen::Matrix3f& dcm_MB,
                                                 const StepperMotorAngleRange& angleRange,
                                                 const GimbalToMotorAngleTable& gimbalToMotor1AngleTable,
                                                 const GimbalToMotorAngleTable& gimbalToMotor2AngleTable) {
         if (!isValidDcmMB(dcm_MB)) {
-            FSW_THROW_INVALID_ARGUMENT("gimbalAxisToMotorAngles: dcm_MB must be a valid DCM");
+            FSW_THROW_INVALID_ARGUMENT("thrustAxisToMotorAngles: dcm_MB must be a valid DCM");
         }
         if (!isValidAngleRange(angleRange)) {
             FSW_THROW_INVALID_ARGUMENT(
-                "gimbalAxisToMotorAngles: minAngle and maxAngle must be in [0, 2*pi] with minAngle strictly less "
+                "thrustAxisToMotorAngles: minAngle and maxAngle must be in [0, 2*pi] with minAngle strictly less "
                 "than maxAngle.");
         }
         if (!isValidTable(gimbalToMotor1AngleTable, angleRange)) {
-            FSW_THROW_INVALID_ARGUMENT("gimbalAxisToMotorAngles: gimbalToMotor1AngleTable data is not valid");
+            FSW_THROW_INVALID_ARGUMENT("thrustAxisToMotorAngles: gimbalToMotor1AngleTable data is not valid");
         }
         if (!isValidTable(gimbalToMotor2AngleTable, angleRange)) {
-            FSW_THROW_INVALID_ARGUMENT("gimbalAxisToMotorAngles: gimbalToMotor2AngleTable data is not valid");
+            FSW_THROW_INVALID_ARGUMENT("thrustAxisToMotorAngles: gimbalToMotor2AngleTable data is not valid");
         }
         return {dcm_MB, angleRange, gimbalToMotor1AngleTable, gimbalToMotor2AngleTable};
     }
@@ -78,7 +78,7 @@ class GimbalAxisToMotorAnglesConfig final {
     const GimbalToMotorAngleTable& getGimbalToMotor2AngleTable() const { return this->gimbalToMotor2AngleTable; }
 
    private:
-    GimbalAxisToMotorAnglesConfig(const Eigen::Matrix3f& dcm_MB,
+    ThrustAxisToMotorAnglesConfig(const Eigen::Matrix3f& dcm_MB,
                                   const StepperMotorAngleRange& angleRange,
                                   const GimbalToMotorAngleTable& gimbalToMotor1AngleTable,
                                   const GimbalToMotorAngleTable& gimbalToMotor2AngleTable)
@@ -96,11 +96,11 @@ class GimbalAxisToMotorAnglesConfig final {
 /*! @brief Pure algorithm: converts a commanded body-frame thrust direction into the gimbal
  * sequential tip and tilt angles and interpolates the corresponding stepper motor angles from the
  * gimbal-to-motor lookup tables. */
-class GimbalAxisToMotorAnglesAlgorithm final {
+class ThrustAxisToMotorAnglesAlgorithm final {
    public:
-    explicit GimbalAxisToMotorAnglesAlgorithm(const GimbalAxisToMotorAnglesConfig& config);
-    void setConfig(const GimbalAxisToMotorAnglesConfig& config);
-    GimbalAxisToMotorAnglesOutput update(const Eigen::Vector3f& thrustHat_B) const;
+    explicit ThrustAxisToMotorAnglesAlgorithm(const ThrustAxisToMotorAnglesConfig& config);
+    void setConfig(const ThrustAxisToMotorAnglesConfig& config);
+    ThrustAxisToMotorAnglesOutput update(const Eigen::Vector3f& thrustHat_B) const;
 
    private:
     MotorAngles gimbalAnglesToMotorAngles(float gimbalTipAngle, float gimbalTiltAngle) const;
@@ -119,7 +119,7 @@ class GimbalAxisToMotorAnglesAlgorithm final {
         0.5F * std::numbers::pi_v<float> / 180.0F;  //!< [rad] Interpolation table motor discretization step
     static constexpr float kInterpolationRemainderTolerance =
         1e-3F;  //!< Tolerance for treating a normalized gimbal angle as landing exactly on a table node
-    GimbalAxisToMotorAnglesConfig cfg;
+    ThrustAxisToMotorAnglesConfig cfg;
 };
 
-#endif /* F32XMERA_GIMBAL_AXIS_TO_MOTOR_ANGLES_ALGORITHM_H */
+#endif /* F32XMERA_THRUST_AXIS_TO_MOTOR_ANGLES_ALGORITHM_H */

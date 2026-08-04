@@ -1,5 +1,5 @@
-#ifndef _GIMBALAXISTOMOTORANGLES_
-#define _GIMBALAXISTOMOTORANGLES_
+#ifndef _THRUSTAXISTOMOTORANGLES_
+#define _THRUSTAXISTOMOTORANGLES_
 
 #include <Eigen/Core>
 #include <array>
@@ -8,18 +8,18 @@
 
 #include "architecture/_GeneralModuleFiles/sys_model.h"
 #include "architecture/messaging/messaging.h"
-#include "gimbalAxisToMotorAnglesAlgorithm.h"
 #include "msgPayloadDef/BodyHeadingMsgF32Payload.h"
 #include "msgPayloadDef/HingedRigidBodyMsgF32Payload.h"
 #include "msgPayloadDef/TwoAxisGimbalMsgF32Payload.h"
+#include "thrustAxisToMotorAnglesAlgorithm.h"
 
-/*! @brief Gimbal Axis-To-Motor Angles adapter. Reads the requested body-frame thrust
-direction message, delegates the angle computation to GimbalAxisToMotorAnglesAlgorithm, and
+/*! @brief Thrust Axis-To-Motor Angles adapter. Reads the requested body-frame thrust
+direction message, delegates the angle computation to ThrustAxisToMotorAnglesAlgorithm, and
 writes the corresponding gimbal and stepper motor angles to the output messages. */
-class GimbalAxisToMotorAngles final : public SysModel {
+class ThrustAxisToMotorAngles final : public SysModel {
    public:
-    GimbalAxisToMotorAngles() = default;                  //!< Constructor
-    ~GimbalAxisToMotorAngles() override = default;        //!< Destructor
+    ThrustAxisToMotorAngles() = default;                  //!< Constructor
+    ~ThrustAxisToMotorAngles() override = default;        //!< Destructor
     void reset(uint64_t currentSimNanos) override;        //!< Reset member function
     void updateState(uint64_t currentSimNanos) override;  //!< Update member function
     void reconfigure() const;
@@ -42,8 +42,8 @@ class GimbalAxisToMotorAngles final : public SysModel {
 
    private:
     double previousWrittenTime{-1.0};  //!< [s] Time the previous input message was written
-    std::unique_ptr<GimbalAxisToMotorAnglesAlgorithm> algorithm = nullptr;
-    GimbalAxisToMotorAnglesConfig toConfig() const;
+    std::unique_ptr<ThrustAxisToMotorAnglesAlgorithm> algorithm = nullptr;
+    ThrustAxisToMotorAnglesConfig toConfig() const;
 };
 
-#endif /* GIMBALAXISTOMOTORANGLES */
+#endif /* THRUSTAXISTOMOTORANGLES */

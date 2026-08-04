@@ -1,14 +1,14 @@
-#ifndef F32XMERA_GIMBALAXISTOMOTORANGLESALGORITHM_C_H
-#define F32XMERA_GIMBALAXISTOMOTORANGLESALGORITHM_C_H
+#ifndef F32XMERA_THRUSTAXISTOMOTORANGLESALGORITHM_C_H
+#define F32XMERA_THRUSTAXISTOMOTORANGLESALGORITHM_C_H
 
-#include "gimbalAxisToMotorAnglesTypes.h"
+#include "thrustAxisToMotorAnglesTypes.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-/** @brief Opaque handle to the C++ GimbalAxisToMotorAnglesAlgorithm instance. */
-typedef struct GimbalAxisToMotorAnglesAlgorithmHandle GimbalAxisToMotorAnglesAlgorithmHandle;
+/** @brief Opaque handle to the C++ ThrustAxisToMotorAnglesAlgorithm instance. */
+typedef struct ThrustAxisToMotorAnglesAlgorithmHandle ThrustAxisToMotorAnglesAlgorithmHandle;
 
 /** @brief Construct a new algorithm instance from a validated configuration.
  *  @param dcm_MB             [3][3] DCM from body frame to gimbal mount frame (row-major).
@@ -17,7 +17,7 @@ typedef struct GimbalAxisToMotorAnglesAlgorithmHandle GimbalAxisToMotorAnglesAlg
  *  @param gimbalToMotor2AngleTable Gimbal-to-motor 2 angle interpolation table.
  *  @return Pointer to a new instance (must be destroyed).
  */
-GimbalAxisToMotorAnglesAlgorithmHandle* GimbalAxisToMotorAnglesAlgorithm_create(
+ThrustAxisToMotorAnglesAlgorithmHandle* ThrustAxisToMotorAnglesAlgorithm_create(
     const float dcm_MB[3][3],
     const MotorAngleRange_c* angleRange,
     const GimbalToMotorAngleTable_c* gimbalToMotor1AngleTable,
@@ -26,7 +26,7 @@ GimbalAxisToMotorAnglesAlgorithmHandle* GimbalAxisToMotorAnglesAlgorithm_create(
 /** @brief Destroy a previously created instance.
  *  @param self Pointer to the instance to destroy.
  */
-void GimbalAxisToMotorAnglesAlgorithm_destroy(GimbalAxisToMotorAnglesAlgorithmHandle* self);
+void ThrustAxisToMotorAnglesAlgorithm_destroy(ThrustAxisToMotorAnglesAlgorithmHandle* self);
 
 /** @brief Replace the algorithm's configuration for runtime reconfiguration.
  *  @param self               Pointer to the instance.
@@ -35,7 +35,7 @@ void GimbalAxisToMotorAnglesAlgorithm_destroy(GimbalAxisToMotorAnglesAlgorithmHa
  *  @param gimbalToMotor1AngleTable Gimbal-to-motor 1 angle interpolation table.
  *  @param gimbalToMotor2AngleTable Gimbal-to-motor 2 angle interpolation table.
  */
-void GimbalAxisToMotorAnglesAlgorithm_setConfig(GimbalAxisToMotorAnglesAlgorithmHandle* self,
+void ThrustAxisToMotorAnglesAlgorithm_setConfig(ThrustAxisToMotorAnglesAlgorithmHandle* self,
                                                 const float dcm_MB[3][3],
                                                 const MotorAngleRange_c* angleRange,
                                                 const GimbalToMotorAngleTable_c* gimbalToMotor1AngleTable,
@@ -44,14 +44,14 @@ void GimbalAxisToMotorAnglesAlgorithm_setConfig(GimbalAxisToMotorAnglesAlgorithm
 /** @brief Determine the gimbal and motor angles for a commanded body-frame thrust direction.
  *  @param self           Pointer to the instance.
  *  @param thrustHat_B [3] Commanded thrust direction unit vector in body frame components.
- *  @return GimbalAxisToMotorAnglesOutput  Gimbal and motor angles plus a validity flag.
+ *  @return ThrustAxisToMotorAnglesOutput  Gimbal and motor angles plus a validity flag.
  */
-GimbalAxisToMotorAnglesOutput GimbalAxisToMotorAnglesAlgorithm_update(
-    const GimbalAxisToMotorAnglesAlgorithmHandle* self,
+ThrustAxisToMotorAnglesOutput ThrustAxisToMotorAnglesAlgorithm_update(
+    const ThrustAxisToMotorAnglesAlgorithmHandle* self,
     const float thrustHat_B[3]);
 
 #ifdef __cplusplus
 }  // extern "C"
 #endif
 
-#endif  // F32XMERA_GIMBALAXISTOMOTORANGLESALGORITHM_C_H
+#endif  // F32XMERA_THRUSTAXISTOMOTORANGLESALGORITHM_C_H
