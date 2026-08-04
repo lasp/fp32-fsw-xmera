@@ -50,8 +50,6 @@ struct MrpFeedbackControlParameters {
 
 class MrpFeedbackConfig final {
    public:
-    static constexpr uint32_t kMaxNumRw = RW_EFF_CNT;  //!< [-] compile-time maximum number of reaction wheels
-
     static MrpFeedbackConfig create(const MrpFeedbackControlParameters& controlParameters,
                                     const Eigen::Vector3f& knownTorquePntB_B,
                                     const Eigen::Matrix3f& ISCPntB_B,

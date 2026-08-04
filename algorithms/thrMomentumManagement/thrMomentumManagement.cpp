@@ -10,10 +10,6 @@
 #include <memory>
 #include <stdexcept>
 
-// The algorithm's C-boundary RW count must match the system-wide RW_EFF_CNT, otherwise the
-// payload GsMatrix_B / JsList / wheelSpeeds arrays would not map onto the algorithm's fixed-size types.
-static_assert(kMaxNumRw == RW_EFF_CNT, "THR_MOMENTUM_MANAGEMENT_MAX_NUM_RW must match RW_EFF_CNT");
-
 /*! This method performs a complete reset of the module.  It validates that the required input messages
  are linked, caches the RW configuration, and re-arms the one-shot momentum dumping request.
  @return void

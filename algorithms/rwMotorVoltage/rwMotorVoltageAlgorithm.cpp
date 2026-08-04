@@ -48,7 +48,7 @@ RwMotorVoltageData RwMotorVoltageAlgorithm::update(const uint64_t callTime,
     RwMotorVoltageData voltageOut{};
 
     /* zero the output voltage vector */
-    Eigen::Vector<float, RW_EFF_CNT> voltage{};
+    Eigen::Vector<float, kMaxNumRw> voltage{};
     voltage.setZero();
 
     /* if the torque closed-loop is on, evaluate the feedback term */
@@ -57,7 +57,7 @@ RwMotorVoltageData RwMotorVoltageAlgorithm::update(const uint64_t callTime,
         if (this->priorTime != 0) {
             const float dt =
                 static_cast<float>(callTime - this->priorTime) * kNano2SecF; /*!< [s]   control update period */
-            Eigen::Vector<float, RW_EFF_CNT> OmegaDot{};
+            Eigen::Vector<float, kMaxNumRw> OmegaDot{};
             OmegaDot.setZero();
             for (int32_t i = 0; i < this->rwConfigParams.numRW; i++) {
                 if (rwAvailability.wheelAvailability[i] == RW_MOTOR_VOLTAGE_AVAILABLE && !this->resetFlag) {

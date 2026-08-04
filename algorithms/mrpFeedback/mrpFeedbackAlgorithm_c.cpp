@@ -7,16 +7,12 @@
 #include <Eigen/Core>
 #include <optional>
 
-// The C-boundary RW count must match the system-wide RW_EFF_CNT, otherwise the fixed-size C arrays and the
-// Eigen conversions below would disagree on the wheel count.
-static_assert(MrpFeedbackConfig::kMaxNumRw == MRP_FEEDBACK_MAX_NUM_RW, "MRP_FEEDBACK_MAX_NUM_RW must match RW_EFF_CNT");
-
 namespace {
 MrpFeedbackInputRwData rwConfigFromC(const MrpFeedbackRwConfig_c& c) {
     MrpFeedbackInputRwData out{};
     out.numRW = c.numRW;
-    out.GsMatrix_B = cArrayToEigenMatrix<float, 3, MrpFeedbackConfig::kMaxNumRw>(c.GsMatrix_B);
-    for (uint32_t i = 0U; i < MrpFeedbackConfig::kMaxNumRw; ++i) {
+    out.GsMatrix_B = cArrayToEigenMatrix<float, 3, kMaxNumRw>(c.GsMatrix_B);
+    for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
         out.JsList[i] = c.JsList[i];
         out.wheelAvailability[i] = c.wheelAvailability[i];
     }
@@ -53,7 +49,7 @@ MrpFeedbackConfig makeConfig(float K,
 }
 }  // namespace
 
-uint32_t MrpFeedbackAlgorithm_getMaxNumRw(void) { return MRP_FEEDBACK_MAX_NUM_RW; }
+uint32_t MrpFeedbackAlgorithm_getMaxNumRw(void) { return kMaxNumRw; }
 
 bool MrpFeedbackAlgorithm_validateConfig(float K,
                                          float P,
@@ -116,7 +112,7 @@ MrpFeedbackOutput_c MrpFeedbackAlgorithm_update(MrpFeedbackAlgorithmHandle* self
     attGuidInputData.domega_RN_B = cArrayToEigenVector3<float>(attGuidInput->domega_RN_B.data);
 
     std::array<float, RW_EFF_CNT> speeds{};
-    for (uint32_t i = 0U; i < MrpFeedbackConfig::kMaxNumRw; ++i) {
+    for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
         speeds[i] = wheelSpeeds->wheelSpeeds[i];
     }
 

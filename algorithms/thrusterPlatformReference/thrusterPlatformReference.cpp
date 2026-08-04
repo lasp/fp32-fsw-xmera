@@ -4,10 +4,6 @@
 
 #include <stdexcept>
 
-// The algorithm's C-boundary RW count must match the system-wide RW_EFF_CNT, otherwise the payload
-// GsMatrix_B / JsList / wheelSpeeds arrays would not map onto the algorithm's fixed-size types.
-static_assert(kMaxNumRw == RW_EFF_CNT, "THRUSTER_PLATFORM_REFERENCE_MAX_NUM_RW must match RW_EFF_CNT");
-
 /*! @brief Build the validated configuration from the public properties and the reaction-wheel input messages.
  Momentum dumping is enabled only when both the RW configuration and RW speed messages are linked.
  @return ThrusterPlatformReferenceConfig validated configuration

@@ -24,7 +24,7 @@ RwMotorTorqueConfig configFromC(const RwMotorTorqueConfig_c& c) {
 }
 }  // namespace
 
-uint32_t RwMotorTorqueAlgorithm_getMaxNumRw(void) { return RW_MOTOR_TORQUE_MAX_NUM_RW; }
+uint32_t RwMotorTorqueAlgorithm_getMaxNumRw(void) { return kMaxNumRw; }
 
 RwMotorTorqueAlgorithmHandle* RwMotorTorqueAlgorithm_create(const RwMotorTorqueConfig_c* config) {
     return fsw::createHandle<::RwMotorTorqueAlgorithm, RwMotorTorqueAlgorithmHandle>(configFromC(*config));

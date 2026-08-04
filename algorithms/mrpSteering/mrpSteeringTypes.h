@@ -1,6 +1,7 @@
 #ifndef F32XMERA_MRP_STEERING_TYPES_H
 #define F32XMERA_MRP_STEERING_TYPES_H
 
+#include "msgPayloadDef/definitions.h"
 #include "utilities/fsw/plainCAlgorithmDataTypes.h"
 #include <fswAlgorithms/fswUtilities/fswDefinitions.h>
 
@@ -10,10 +11,6 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-/* Maximum number of reaction wheels handled at the C boundary. Must match RW_EFF_CNT in
-   msgPayloadDef/definitions.h (enforced by a static_assert in the C shim). */
-#define MRP_STEERING_MAX_NUM_RW 36
 
 /**
  * @brief Plain-old-data mirror of the C++ MrpSteeringControlParameters.
@@ -32,15 +29,14 @@ typedef struct {
 /**
  * @brief Plain-old-data mirror of the C++ InputRwData (reaction-wheel configuration).
  *
- * numRW must not exceed MRP_STEERING_MAX_NUM_RW, and each active spin axis (column of GsMatrix_B) must be a
+ * numRW must not exceed RW_EFF_CNT, and each active spin axis (column of GsMatrix_B) must be a
  * unit vector; the spin axes are normalized when the configuration is built.
  */
 typedef struct {
-    uint32_t numRW;                                /*!< [-] number of reaction wheels on the vehicle */
-    float GsMatrix_B[3 * MRP_STEERING_MAX_NUM_RW]; /*!< [-] RW spin axes in body frame, three per wheel */
-    float JsList[MRP_STEERING_MAX_NUM_RW];         /*!< [kg*m^2] per-wheel spin-axis inertia */
-    FSWdeviceAvailability
-        wheelAvailability[MRP_STEERING_MAX_NUM_RW]; /*!< [-] AVAILABLE / UNAVAILABLE state of each wheel */
+    uint32_t numRW;                                      /*!< [-] number of reaction wheels on the vehicle */
+    float GsMatrix_B[3 * RW_EFF_CNT];                    /*!< [-] RW spin axes in body frame, three per wheel */
+    float JsList[RW_EFF_CNT];                            /*!< [kg*m^2] per-wheel spin-axis inertia */
+    FSWdeviceAvailability wheelAvailability[RW_EFF_CNT]; /*!< [-] AVAILABLE / UNAVAILABLE state of each wheel */
 } MrpSteeringRwConfig_c;
 
 /**
@@ -71,7 +67,7 @@ typedef struct {
  * @brief Plain-old-data carrier for the per-wheel RW speed vector.
  */
 typedef struct {
-    float wheelSpeeds[MRP_STEERING_MAX_NUM_RW]; /*!< [r/s] reaction-wheel speeds */
+    float wheelSpeeds[RW_EFF_CNT]; /*!< [r/s] reaction-wheel speeds */
 } MrpSteeringRwSpeeds_c;
 
 #ifdef __cplusplus

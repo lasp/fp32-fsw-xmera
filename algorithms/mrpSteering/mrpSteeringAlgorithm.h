@@ -16,9 +16,9 @@
 
 /*! Struct containing the reaction wheel inputs needed by the algorithm. */
 struct InputRwData {
-    Eigen::Matrix<float, 3, RW_EFF_CNT> GsMatrix_B = Eigen::Matrix<float, 3, RW_EFF_CNT>::Zero();
-    std::array<float, RW_EFF_CNT> JsList{};
-    std::array<FSWdeviceAvailability, RW_EFF_CNT> wheelAvailability{};  //!< per-wheel availability (fixed at reset)
+    Eigen::Matrix<float, 3, kMaxNumRw> GsMatrix_B = Eigen::Matrix<float, 3, kMaxNumRw>::Zero();
+    std::array<float, kMaxNumRw> JsList{};
+    std::array<FSWdeviceAvailability, kMaxNumRw> wheelAvailability{};  //!< per-wheel availability (fixed at reset)
     uint32_t numRW{};
 };
 
@@ -52,8 +52,6 @@ struct MrpSteeringControlParameters {
  */
 class MrpSteeringConfig final {
    public:
-    static constexpr uint32_t kMaxNumRw = RW_EFF_CNT;  //!< [-] compile-time maximum number of reaction wheels
-
     static MrpSteeringConfig create(const MrpSteeringControlParameters& controlParameters,
                                     const Eigen::Vector3f& knownTorquePntB_B,
                                     const Eigen::Matrix3f& ISCPntB_B,
@@ -153,7 +151,7 @@ class MrpSteeringAlgorithm final {
     //! Reset the integrating runtime state (zero the integral of the rate tracking error).
     void reInitialize();
 
-    Eigen::Vector3f update(const InputGuidanceData& attGuidInput, const std::array<float, RW_EFF_CNT>& wheelSpeeds);
+    Eigen::Vector3f update(const InputGuidanceData& attGuidInput, const std::array<float, kMaxNumRw>& wheelSpeeds);
 
    private:
     MrpSteeringConfig cfg;                       //!< [-] validated configuration

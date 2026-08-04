@@ -32,7 +32,7 @@ void MrpSteeringAlgorithm::reInitialize() { this->z = Eigen::Vector3f::Zero(); }
  @return Eigen::Vector3f Commanded control torque Lr in body-frame components.
  */
 Eigen::Vector3f MrpSteeringAlgorithm::update(const InputGuidanceData& attGuidInput,
-                                             const std::array<float, RW_EFF_CNT>& wheelSpeeds) {
+                                             const std::array<float, kMaxNumRw>& wheelSpeeds) {
     const MrpSteeringControlParameters& params = this->cfg.getControlParameters();
     const Eigen::Matrix3f& ISCPntB_B = this->cfg.getSpacecraftInertia();
 

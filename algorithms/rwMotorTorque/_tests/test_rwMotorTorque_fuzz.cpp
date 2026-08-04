@@ -7,14 +7,14 @@
 FUZZ_TEST(RwMotorTorqueAlgorithmFuzz, runRegressionCase)
     .WithDomains(xmera::fuzz::Vector3fInRange(-1e6F, 1e6F),
                  xmera::fuzz::Vector3fInRange(-1e6F, 1e6F),
-                 fuzztest::VectorOf(fuzztest::Arbitrary<bool>()).WithSize(RW_MOTOR_TORQUE_MAX_NUM_RW),
+                 fuzztest::VectorOf(fuzztest::Arbitrary<bool>()).WithSize(kMaxNumRw),
                  fuzztest::Arbitrary<bool>(),
                  fuzztest::Arbitrary<bool>(),
-                 fuzztest::InRange(0, RW_MOTOR_TORQUE_MAX_NUM_RW),
-                 fuzztest::VectorOf(fuzztest::InRange(-1.0F, 1.0F)).WithSize(RW_MOTOR_TORQUE_MAX_NUM_RW * 3U),
+                 fuzztest::InRange(0, kMaxNumRw),
+                 fuzztest::VectorOf(fuzztest::InRange(-1.0F, 1.0F)).WithSize(kMaxNumRw * 3U),
                  fuzztest::InRange(0, 3),
-                 fuzztest::VectorOf(fuzztest::InRange(-1e3F, 1e3F)).WithSize(RW_MOTOR_TORQUE_MAX_NUM_RW),
-                 fuzztest::VectorOf(fuzztest::InRange(-1e3F, 1e3F)).WithSize(RW_MOTOR_TORQUE_MAX_NUM_RW),
+                 fuzztest::VectorOf(fuzztest::InRange(-1e3F, 1e3F)).WithSize(kMaxNumRw),
+                 fuzztest::VectorOf(fuzztest::InRange(-1e3F, 1e3F)).WithSize(kMaxNumRw),
                  fuzztest::InRange(0.0F, 1e3F));
 
 // ---------------------------------------------------------------------------
@@ -24,59 +24,59 @@ FUZZ_TEST(RwMotorTorqueAlgorithmFuzz, runRegressionCase)
 FUZZ_TEST(RwMotorTorquePropertyFuzz, propertyOutputIsFinite)
     .WithDomains(xmera::fuzz::Vector3fInRange(-1e6F, 1e6F),
                  xmera::fuzz::Vector3fInRange(-1e6F, 1e6F),
-                 fuzztest::VectorOf(fuzztest::Arbitrary<bool>()).WithSize(RW_MOTOR_TORQUE_MAX_NUM_RW),
+                 fuzztest::VectorOf(fuzztest::Arbitrary<bool>()).WithSize(kMaxNumRw),
                  fuzztest::Arbitrary<bool>(),
                  fuzztest::Arbitrary<bool>(),
-                 fuzztest::InRange(0, RW_MOTOR_TORQUE_MAX_NUM_RW),
-                 fuzztest::VectorOf(fuzztest::InRange(-1.0F, 1.0F)).WithSize(RW_MOTOR_TORQUE_MAX_NUM_RW * 3U),
+                 fuzztest::InRange(0, kMaxNumRw),
+                 fuzztest::VectorOf(fuzztest::InRange(-1.0F, 1.0F)).WithSize(kMaxNumRw * 3U),
                  fuzztest::InRange(0, 3),
-                 fuzztest::VectorOf(fuzztest::InRange(-1e3F, 1e3F)).WithSize(RW_MOTOR_TORQUE_MAX_NUM_RW),
-                 fuzztest::VectorOf(fuzztest::InRange(-1e3F, 1e3F)).WithSize(RW_MOTOR_TORQUE_MAX_NUM_RW),
+                 fuzztest::VectorOf(fuzztest::InRange(-1e3F, 1e3F)).WithSize(kMaxNumRw),
+                 fuzztest::VectorOf(fuzztest::InRange(-1e3F, 1e3F)).WithSize(kMaxNumRw),
                  fuzztest::InRange(0.0F, 1e3F));
 
 FUZZ_TEST(RwMotorTorquePropertyFuzz, propertyExcludedWheelsZeroTorque)
     .WithDomains(xmera::fuzz::Vector3fInRange(-1e6F, 1e6F),
                  xmera::fuzz::Vector3fInRange(-1e6F, 1e6F),
-                 fuzztest::VectorOf(fuzztest::Arbitrary<bool>()).WithSize(RW_MOTOR_TORQUE_MAX_NUM_RW),
+                 fuzztest::VectorOf(fuzztest::Arbitrary<bool>()).WithSize(kMaxNumRw),
                  fuzztest::Arbitrary<bool>(),
                  fuzztest::Arbitrary<bool>(),
-                 fuzztest::InRange(0, RW_MOTOR_TORQUE_MAX_NUM_RW),
-                 fuzztest::VectorOf(fuzztest::InRange(-1.0F, 1.0F)).WithSize(RW_MOTOR_TORQUE_MAX_NUM_RW * 3U),
+                 fuzztest::InRange(0, kMaxNumRw),
+                 fuzztest::VectorOf(fuzztest::InRange(-1.0F, 1.0F)).WithSize(kMaxNumRw * 3U),
                  fuzztest::InRange(0, 3),
-                 fuzztest::VectorOf(fuzztest::InRange(-1e3F, 1e3F)).WithSize(RW_MOTOR_TORQUE_MAX_NUM_RW),
-                 fuzztest::VectorOf(fuzztest::InRange(-1e3F, 1e3F)).WithSize(RW_MOTOR_TORQUE_MAX_NUM_RW),
+                 fuzztest::VectorOf(fuzztest::InRange(-1e3F, 1e3F)).WithSize(kMaxNumRw),
+                 fuzztest::VectorOf(fuzztest::InRange(-1e3F, 1e3F)).WithSize(kMaxNumRw),
                  fuzztest::InRange(0.0F, 1e3F));
 
 FUZZ_TEST(RwMotorTorquePropertyFuzz, propertyNullSpaceAddsNoBodyTorque)
-    .WithDomains(fuzztest::VectorOf(fuzztest::Arbitrary<bool>()).WithSize(RW_MOTOR_TORQUE_MAX_NUM_RW),
+    .WithDomains(fuzztest::VectorOf(fuzztest::Arbitrary<bool>()).WithSize(kMaxNumRw),
                  fuzztest::Arbitrary<bool>(),
-                 fuzztest::InRange(0, RW_MOTOR_TORQUE_MAX_NUM_RW),
-                 fuzztest::VectorOf(fuzztest::InRange(-1.0F, 1.0F)).WithSize(RW_MOTOR_TORQUE_MAX_NUM_RW * 3U),
+                 fuzztest::InRange(0, kMaxNumRw),
+                 fuzztest::VectorOf(fuzztest::InRange(-1.0F, 1.0F)).WithSize(kMaxNumRw * 3U),
                  fuzztest::InRange(0, 3),
-                 fuzztest::VectorOf(fuzztest::InRange(-1e3F, 1e3F)).WithSize(RW_MOTOR_TORQUE_MAX_NUM_RW),
-                 fuzztest::VectorOf(fuzztest::InRange(-1e3F, 1e3F)).WithSize(RW_MOTOR_TORQUE_MAX_NUM_RW),
+                 fuzztest::VectorOf(fuzztest::InRange(-1e3F, 1e3F)).WithSize(kMaxNumRw),
+                 fuzztest::VectorOf(fuzztest::InRange(-1e3F, 1e3F)).WithSize(kMaxNumRw),
                  fuzztest::InRange(0.0F, 1e3F));
 
 // No null-space-gain domain — this property forces the gain to zero internally.
 FUZZ_TEST(RwMotorTorquePropertyFuzz, propertyZeroGainDisablesNullSpace)
     .WithDomains(xmera::fuzz::Vector3fInRange(-1e6F, 1e6F),
                  xmera::fuzz::Vector3fInRange(-1e6F, 1e6F),
-                 fuzztest::VectorOf(fuzztest::Arbitrary<bool>()).WithSize(RW_MOTOR_TORQUE_MAX_NUM_RW),
+                 fuzztest::VectorOf(fuzztest::Arbitrary<bool>()).WithSize(kMaxNumRw),
                  fuzztest::Arbitrary<bool>(),
                  fuzztest::Arbitrary<bool>(),
-                 fuzztest::InRange(0, RW_MOTOR_TORQUE_MAX_NUM_RW),
-                 fuzztest::VectorOf(fuzztest::InRange(-1.0F, 1.0F)).WithSize(RW_MOTOR_TORQUE_MAX_NUM_RW * 3U),
+                 fuzztest::InRange(0, kMaxNumRw),
+                 fuzztest::VectorOf(fuzztest::InRange(-1.0F, 1.0F)).WithSize(kMaxNumRw * 3U),
                  fuzztest::InRange(0, 3),
-                 fuzztest::VectorOf(fuzztest::InRange(-1e3F, 1e3F)).WithSize(RW_MOTOR_TORQUE_MAX_NUM_RW),
-                 fuzztest::VectorOf(fuzztest::InRange(-1e3F, 1e3F)).WithSize(RW_MOTOR_TORQUE_MAX_NUM_RW));
+                 fuzztest::VectorOf(fuzztest::InRange(-1e3F, 1e3F)).WithSize(kMaxNumRw),
+                 fuzztest::VectorOf(fuzztest::InRange(-1e3F, 1e3F)).WithSize(kMaxNumRw));
 
 // Control-only property: no RW speed or gain domains (the null-space term is not exercised here).
 FUZZ_TEST(RwMotorTorquePropertyFuzz, propertyControlTorqueRealized)
     .WithDomains(xmera::fuzz::Vector3fInRange(-1e6F, 1e6F),
                  xmera::fuzz::Vector3fInRange(-1e6F, 1e6F),
-                 fuzztest::VectorOf(fuzztest::Arbitrary<bool>()).WithSize(RW_MOTOR_TORQUE_MAX_NUM_RW),
+                 fuzztest::VectorOf(fuzztest::Arbitrary<bool>()).WithSize(kMaxNumRw),
                  fuzztest::Arbitrary<bool>(),
                  fuzztest::Arbitrary<bool>(),
-                 fuzztest::InRange(0, RW_MOTOR_TORQUE_MAX_NUM_RW),
-                 fuzztest::VectorOf(fuzztest::InRange(-1.0F, 1.0F)).WithSize(RW_MOTOR_TORQUE_MAX_NUM_RW * 3U),
+                 fuzztest::InRange(0, kMaxNumRw),
+                 fuzztest::VectorOf(fuzztest::InRange(-1.0F, 1.0F)).WithSize(kMaxNumRw * 3U),
                  fuzztest::InRange(0, 3));

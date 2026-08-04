@@ -20,7 +20,7 @@ ThrMomentumManagementConfig makeConfig(float hsMin, const ThrMomentumManagementR
 
 }  // namespace
 
-uint32_t ThrMomentumManagementAlgorithm_getMaxNumRw(void) { return THR_MOMENTUM_MANAGEMENT_MAX_NUM_RW; }
+uint32_t ThrMomentumManagementAlgorithm_getMaxNumRw(void) { return kMaxNumRw; }
 
 bool ThrMomentumManagementAlgorithm_validateConfig(float hsMin,
                                                    const ThrMomentumManagementRwArrayConfiguration_c* rwArrayConfig) {

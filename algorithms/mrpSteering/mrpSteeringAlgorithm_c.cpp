@@ -7,16 +7,12 @@
 #include <Eigen/Core>
 #include <optional>
 
-// The C-boundary RW count must match the system-wide RW_EFF_CNT, otherwise the fixed-size C arrays and the
-// Eigen conversions below would disagree on the wheel count.
-static_assert(MrpSteeringConfig::kMaxNumRw == MRP_STEERING_MAX_NUM_RW, "MRP_STEERING_MAX_NUM_RW must match RW_EFF_CNT");
-
 namespace {
 InputRwData rwConfigFromC(const MrpSteeringRwConfig_c& c) {
     InputRwData out{};
     out.numRW = c.numRW;
-    out.GsMatrix_B = cArrayToEigenMatrix<float, 3, MrpSteeringConfig::kMaxNumRw>(c.GsMatrix_B);
-    for (uint32_t i = 0U; i < MrpSteeringConfig::kMaxNumRw; ++i) {
+    out.GsMatrix_B = cArrayToEigenMatrix<float, 3, kMaxNumRw>(c.GsMatrix_B);
+    for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
         out.JsList[i] = c.JsList[i];
         out.wheelAvailability[i] = c.wheelAvailability[i];
     }
@@ -47,7 +43,7 @@ MrpSteeringConfig configFromC(const MrpSteeringConfig_c& c) {
 }
 }  // namespace
 
-uint32_t MrpSteeringAlgorithm_getMaxNumRw(void) { return MRP_STEERING_MAX_NUM_RW; }
+uint32_t MrpSteeringAlgorithm_getMaxNumRw(void) { return kMaxNumRw; }
 
 MrpSteeringAlgorithmHandle* MrpSteeringAlgorithm_create(const MrpSteeringConfig_c* config) {
     return fsw::createHandle<::MrpSteeringAlgorithm, MrpSteeringAlgorithmHandle>(configFromC(*config));
@@ -73,7 +69,7 @@ Vector3f_c MrpSteeringAlgorithm_update(MrpSteeringAlgorithmHandle* self,
     attGuidInputData.domega_RN_B = cArrayToEigenVector3<float>(attGuidInput->domega_RN_B.data);
 
     std::array<float, RW_EFF_CNT> speeds{};
-    for (uint32_t i = 0U; i < MrpSteeringConfig::kMaxNumRw; ++i) {
+    for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
         speeds[i] = wheelSpeeds->wheelSpeeds[i];
     }
 

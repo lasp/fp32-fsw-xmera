@@ -15,6 +15,7 @@
 
 inline constexpr std::uint32_t kMaxNumCssSensors = MAX_NUM_CSS_SENSORS;
 inline constexpr std::uint32_t kMaxThrusterCount = MAX_EFF_CNT;
+inline constexpr std::uint32_t kMaxNumRw = RW_EFF_CNT;  //!< [-] maximum number of reaction wheels
 inline constexpr std::uint32_t kMimuCount = 3U;
 
 #endif  // __cplusplus

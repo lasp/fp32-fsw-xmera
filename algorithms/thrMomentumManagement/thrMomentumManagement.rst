@@ -124,9 +124,9 @@ raises ``fsw::invalid_argument`` and the module is not constructed.
       - RW spin axes and spin-axis inertias, read from the input message rather than set as a property.
 
 The reaction-wheel configuration read from ``rwConfigDataInMsg`` must satisfy: ``numRW`` no greater than the
-compile-time maximum ``THR_MOMENTUM_MANAGEMENT_MAX_NUM_RW`` (36, which must match ``RW_EFF_CNT``); the spin axis
-matrix and spin-axis inertias finite; and each of the first ``numRW`` spin axes a unit vector to within
-:math:`10^{-3}`. Valid axes are normalized exactly on construction, so the momentum sum can rely on unit vectors.
+compile-time maximum ``RW_EFF_CNT``; the spin axis matrix and spin-axis inertias finite; and each of the first
+``numRW`` spin axes a unit vector to within :math:`10^{-3}`. Valid axes are normalized exactly on construction,
+so the momentum sum can rely on unit vectors.
 Columns beyond ``numRW`` describe no real wheel and are ignored.
 
 User Guide
