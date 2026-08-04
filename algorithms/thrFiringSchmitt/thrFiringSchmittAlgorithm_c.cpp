@@ -1,11 +1,9 @@
 #include "thrFiringSchmittAlgorithm_c.h"
+#include "msgPayloadDef/definitions.h"
 #include "thrFiringSchmittAlgorithm.h"
 #include "utilities/fsw/opaqueHandle.h"
 
 #include <algorithm>
-
-static_assert(THR_FIRING_SCHMITT_MAX_THRUSTER_COUNT == kMaxThrusterCount,
-              "C-shim thruster count must match the algorithm's kMaxThrusterCount");
 
 namespace {
 ThrFiringSchmittConfig toConfig(const ThrFiringSchmittConfig_c* config) {
@@ -28,7 +26,7 @@ ThrFiringSchmittConfig toConfig(const ThrFiringSchmittConfig_c* config) {
 }
 }  // namespace
 
-uint32_t ThrFiringSchmittAlgorithm_getMaxThrusterCount(void) { return THR_FIRING_SCHMITT_MAX_THRUSTER_COUNT; }
+uint32_t ThrFiringSchmittAlgorithm_getMaxThrusterCount(void) { return kMaxThrusterCount; }
 
 ThrFiringSchmittAlgorithmHandle* ThrFiringSchmittAlgorithm_create(const ThrFiringSchmittConfig_c* config) {
     return fsw::createHandle<::ThrFiringSchmittAlgorithm, ThrFiringSchmittAlgorithmHandle>(toConfig(config));

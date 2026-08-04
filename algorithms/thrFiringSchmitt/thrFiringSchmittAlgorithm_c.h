@@ -14,7 +14,7 @@ typedef struct ThrFiringSchmittAlgorithmHandle ThrFiringSchmittAlgorithmHandle;
 
 /**
  * @brief Get the maximum thruster count constant for validation.
- * @return The maximum thruster count (THR_FIRING_SCHMITT_MAX_THRUSTER_COUNT).
+ * @return The maximum thruster count (MAX_EFF_CNT).
  */
 uint32_t ThrFiringSchmittAlgorithm_getMaxThrusterCount(void);
 

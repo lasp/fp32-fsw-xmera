@@ -19,8 +19,9 @@ struct ThrusterConfiguration {
 
 /*! @brief Thruster array configuration */
 struct ThrusterArrayConfiguration {
-    std::uint32_t numThrusters{};                                //!< [-] number of thrusters
-    std::array<ThrusterConfiguration, MAX_EFF_CNT> thrusters{};  //!< [-] array of thruster configuration information
+    std::uint32_t numThrusters{};  //!< [-] number of thrusters
+    std::array<ThrusterConfiguration, kMaxThrusterCount>
+        thrusters{};  //!< [-] array of thruster configuration information
 };
 
 /*! @brief Validated configuration for the force/torque-to-thruster-force mapping algorithm.
@@ -37,7 +38,7 @@ class ForceTorqueThrForceMappingConfig final {
                                                    const std::array<bool, 6>& desiredControlAxes_B) {
         if (!isValidThrusters(thrusters)) {
             FSW_THROW_INVALID_ARGUMENT(
-                "forceTorqueThrForceMapping: numThrusters must be in [1, MAX_EFF_CNT] and each thruster "
+                "forceTorqueThrForceMapping: numThrusters must be in [1, kMaxThrusterCount] and each thruster "
                 "direction must be a unit vector");
         }
         if (!isValidCenterOfMass_B(centerOfMass_B)) {
@@ -53,7 +54,7 @@ class ForceTorqueThrForceMappingConfig final {
     }
 
     static bool isValidThrusters(const ThrusterArrayConfiguration& thrusters) {
-        if (thrusters.numThrusters == 0 || thrusters.numThrusters > MAX_EFF_CNT) {
+        if (thrusters.numThrusters == 0 || thrusters.numThrusters > kMaxThrusterCount) {
             return false;
         }
         constexpr float normTolerance = 1e-3F;
@@ -99,13 +100,13 @@ class ForceTorqueThrForceMappingAlgorithm final {
 
     void setConfig(const ForceTorqueThrForceMappingConfig& config);
 
-    Eigen::Vector<float, MAX_EFF_CNT> update(const Eigen::Vector3f& cmdTorque_B,
-                                             const Eigen::Vector3f& cmdForce_B) const;
+    Eigen::Vector<float, kMaxThrusterCount> update(const Eigen::Vector3f& cmdTorque_B,
+                                                   const Eigen::Vector3f& cmdForce_B) const;
 
    private:
     ForceTorqueThrForceMappingConfig cfg;  //!< validated configuration (thrusters, CoM, controllability assertions)
-    Eigen::Matrix<float, MAX_EFF_CNT, 6> pseudoInverseDG{
-        Eigen::Matrix<float, MAX_EFF_CNT, 6>::Zero()};  //!< truncated-SVD pseudo-inverse of DG
+    Eigen::Matrix<float, kMaxThrusterCount, 6> pseudoInverseDG{
+        Eigen::Matrix<float, kMaxThrusterCount, 6>::Zero()};  //!< truncated-SVD pseudo-inverse of DG
 };
 
 #endif
