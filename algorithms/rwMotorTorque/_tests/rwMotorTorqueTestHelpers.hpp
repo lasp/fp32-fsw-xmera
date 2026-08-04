@@ -151,8 +151,11 @@ inline Eigen::Matrix<float, 3, kMaxNumRw> availableGs(const RwMotorTorqueConfig&
 // availability. Returns false (caller should skip the input) when the config would be invalid (no control
 // axes, a non-normalizable spin axis) or not realizable (uncontrollable / ill-conditioned mapping). Shared by
 // the regression and property helpers so the fuzz harness drops unusable samples silently.
+// bugprone-easily-swappable-parameters: the two counts keep the order the callers list them in, and every
+// caller passes them from named locals of the same names.
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
 inline bool buildConfig(uint32_t numControlAxes,
-                        int numRW,
+                        uint32_t numRW,
                         const std::vector<float>& GsMatrix_B,
                         const std::vector<bool>& wheelAvailabilityBool,
                         bool rwAvailIsLinked,
@@ -164,7 +167,7 @@ inline bool buildConfig(uint32_t numControlAxes,
     desiredControlAxes_B = makeControlAxes(numControlAxes);
 
     rwConfiguration = RwMotorTorqueArrayConfiguration{};
-    rwConfiguration.numRW = static_cast<uint32_t>(numRW);
+    rwConfiguration.numRW = numRW;
     std::vector<float> paddedGsMatrix_B(3U * static_cast<size_t>(kMaxNumRw), 0.0F);
     std::copy(GsMatrix_B.begin(), GsMatrix_B.end(), paddedGsMatrix_B.begin());
     rwConfiguration.GsMatrix_B = cArrayToEigenMatrix<float, 3, kMaxNumRw>(paddedGsMatrix_B.data());
@@ -198,7 +201,7 @@ inline void runRegressionCase(Eigen::Vector3f Lr1_B,
                               std::vector<bool> wheelAvailabilityBool,
                               bool cmdTorque2IsLinked,
                               bool rwAvailIsLinked,
-                              int numRW,
+                              uint32_t numRW,
                               std::vector<float> GsMatrix_B,
                               uint32_t numControlAxes,
                               std::vector<float> rwSpeeds,
@@ -275,7 +278,7 @@ inline void propertyOutputIsFinite(Eigen::Vector3f Lr1_B,
                                    std::vector<bool> wheelAvailabilityBool,
                                    bool cmdTorque2IsLinked,
                                    bool rwAvailIsLinked,
-                                   int numRW,
+                                   uint32_t numRW,
                                    std::vector<float> GsMatrix_B,
                                    uint32_t numControlAxes,
                                    std::vector<float> rwSpeeds,
@@ -311,7 +314,7 @@ inline void propertyExcludedWheelsZeroTorque(Eigen::Vector3f Lr1_B,
                                              std::vector<bool> wheelAvailabilityBool,
                                              bool cmdTorque2IsLinked,
                                              bool rwAvailIsLinked,
-                                             int numRW,
+                                             uint32_t numRW,
                                              std::vector<float> GsMatrix_B,
                                              uint32_t numControlAxes,
                                              std::vector<float> rwSpeeds,
@@ -347,7 +350,7 @@ inline void propertyExcludedWheelsZeroTorque(Eigen::Vector3f Lr1_B,
 // round-off scaled by the null-space magnitude).
 inline void propertyNullSpaceAddsNoBodyTorque(std::vector<bool> wheelAvailabilityBool,
                                               bool rwAvailIsLinked,
-                                              int numRW,
+                                              uint32_t numRW,
                                               std::vector<float> GsMatrix_B,
                                               uint32_t numControlAxes,
                                               std::vector<float> rwSpeeds,
@@ -389,7 +392,7 @@ inline void propertyZeroGainDisablesNullSpace(Eigen::Vector3f Lr1_B,
                                               std::vector<bool> wheelAvailabilityBool,
                                               bool cmdTorque2IsLinked,
                                               bool rwAvailIsLinked,
-                                              int numRW,
+                                              uint32_t numRW,
                                               std::vector<float> GsMatrix_B,
                                               uint32_t numControlAxes,
                                               std::vector<float> rwSpeeds,
@@ -427,7 +430,7 @@ inline void propertyControlTorqueRealized(Eigen::Vector3f Lr1_B,
                                           std::vector<bool> wheelAvailabilityBool,
                                           bool cmdTorque2IsLinked,
                                           bool rwAvailIsLinked,
-                                          int numRW,
+                                          uint32_t numRW,
                                           std::vector<float> GsMatrix_B,
                                           uint32_t numControlAxes) {
     std::array<bool, 3> desiredControlAxes_B{};
