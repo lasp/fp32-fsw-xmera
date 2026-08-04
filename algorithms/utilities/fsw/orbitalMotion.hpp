@@ -219,17 +219,17 @@ inline CartesianState elementsToCartesianState(double const mu, const ClassicalE
 inline ClassicalElements cartesianStateToElements(const double mu,
                                                   const Eigen::Vector3d& rVec,
                                                   const Eigen::Vector3d& vVec) {
-    const double r = rVec.norm();
-    const double v = vVec.norm();
+    const double r = rVec.stableNorm();
+    const double v = vVec.stableNorm();
     const Eigen::Vector3d hVec = rVec.cross(vVec);
-    const double h = hVec.norm();
+    const double h = hVec.stableNorm();
     const Eigen::Vector3d nVec = Eigen::Vector3d::UnitZ().cross(hVec);
     const Eigen::Vector3d eVec = (((v * v) - (mu / r)) * rVec - (rVec.dot(vVec)) * vVec) / mu;
 
     ClassicalElements elements{};
 
     elements.radiusMagnitude = r;
-    elements.eccentricity = eVec.norm();
+    elements.eccentricity = eVec.stableNorm();
     if (h < kTolerance) {
         elements.inclination = 0.0;  // rectilinear orbit
     } else {
@@ -241,10 +241,10 @@ inline ClassicalElements cartesianStateToElements(const double mu,
     const double Omega = safeAtan2(nVec(1), nVec(0));
     elements.rightAscensionAscendingNode = Omega < 0 ? Omega + (2 * std::numbers::pi) : Omega;
 
-    const double omega = safeAtan2(nVec.cross(eVec).dot(hVec.normalized()), nVec.dot(eVec));
+    const double omega = safeAtan2(nVec.cross(eVec).dot(hVec.stableNormalized()), nVec.dot(eVec));
     elements.argPeriapsis = omega < 0 ? omega + (2 * std::numbers::pi) : omega;
 
-    const double f = safeAtan2(eVec.cross(rVec).dot(hVec.normalized()), eVec.dot(rVec));
+    const double f = safeAtan2(eVec.cross(rVec).dot(hVec.stableNormalized()), eVec.dot(rVec));
     elements.trueAnomaly = f < 0 ? f + (2 * std::numbers::pi) : f;
 
     elements.radiusPeriapsis = h * h / mu / (1 + elements.eccentricity);
