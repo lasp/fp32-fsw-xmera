@@ -208,11 +208,9 @@ inline CartesianState elementsToCartesianState(double const mu, const ClassicalE
 
 /*! @brief Convert a Cartesian position/velocity state to classical orbital elements.
  *         Rectilinear orbits (h < kTolerance) get inclination = 0; parabolic orbits
- *         (|e - 1| < kTolerance) get radiusApoapsis = 0. RAAN and argument of periapsis
- *         are ill-defined for equatorial/circular orbits but degrade to 0 via
- *         safeAtan2(0, 0) rather than producing NaN. Note: inclination uses raw
- *         std::acos rather than safeAcos, so a hVec(2)/h ratio that drifts fractionally
- *         outside [-1, 1] from floating-point rounding can produce NaN here.
+ *         (|e - 1| < kTolerance) get radiusApoapsis = 0. RAAN, argument of periapsis, and
+ *         inclination are ill-defined for equatorial/circular/polar orbits but degrade to
+ *         a defined value (0 via safeAtan2(0, 0), or a rail via safeAcos) rather than NaN.
  *  @param mu Gravitational parameter of the central body
  *  @param rVec Position vector
  *  @param vVec Velocity vector
@@ -235,7 +233,7 @@ inline ClassicalElements cartesianStateToElements(const double mu,
     if (h < kTolerance) {
         elements.inclination = 0.0;  // rectilinear orbit
     } else {
-        elements.inclination = std::acos(hVec(2) / h);
+        elements.inclination = safeAcos(hVec(2) / h);
     }
     elements.alpha = (2 / r) - (v * v / mu);
     elements.semiMajorAxis = fabs(elements.alpha) > kTolerance ? 1 / elements.alpha : 0.0;

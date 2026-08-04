@@ -411,6 +411,28 @@ TEST_F(EdgeCasesTest, PolarOrbit) {
     EXPECT_NEAR(result.inclination, M_PI / 2.0, kAnomalyTol);
 }
 
+// Regression test for using safeAcos: near-equatorial and near-polar
+// orbits can drive hVec(2)/h fractionally outside [-1, 1] via floating-point rounding.
+// safeAcos clamps that ratio instead of letting acos return NaN.
+TEST_F(EdgeCasesTest, InclinationStaysFiniteNearBoundaries) {
+    for (double inclination : {0.0, 1e-10, M_PI / 2.0, M_PI - 1e-10, M_PI}) {
+        ClassicalElements elements;
+        elements.semiMajorAxis = 7000000.0;
+        elements.eccentricity = 0.1;
+        elements.inclination = inclination;
+        elements.rightAscensionAscendingNode = 0.2;
+        elements.argPeriapsis = 0.3;
+        elements.trueAnomaly = 0.4;
+
+        CartesianState state = orbitalMotion::elementsToCartesianState(muEarth, elements);
+        ClassicalElements result = orbitalMotion::cartesianStateToElements(muEarth, state.position, state.velocity);
+
+        ASSERT_TRUE(std::isfinite(result.inclination)) << "inclination=" << inclination;
+        EXPECT_GE(result.inclination, 0.0) << "inclination=" << inclination;
+        EXPECT_LE(result.inclination, M_PI) << "inclination=" << inclination;
+    }
+}
+
 TEST_F(EdgeCasesTest, RetrogradeOrbit) {
     ClassicalElements elements;
     elements.semiMajorAxis = 7000000.0;
