@@ -9,6 +9,8 @@
 extern "C" {
 #endif
 
+/** @brief Number of rotations in the sun-search sequence. Intrinsic to the algorithm,
+    not a mission parameter. C++ callers use kNumSunSearchRotations. */
 #define SUN_SEARCH_POINT_NUM_ROTATIONS 4
 
 /**

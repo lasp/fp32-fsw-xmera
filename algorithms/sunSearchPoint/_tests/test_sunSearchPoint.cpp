@@ -291,7 +291,7 @@ TEST(SunSearchPointTest, ConfigPreservesAxisAndRateRoundTrip) {
     // The Config getter should return exactly what was supplied.
     const auto rotations = buildRotations({1.0F, 2.0F, 3.0F, 4.0F}, {0.1F, -0.2F, 0.3F, -0.4F}, {0, 1, 2, 0});
     const SunSearchPointConfig cfg = makeSearchConfig(rotations);
-    for (uint32_t i = 0U; i < kNumRotations; ++i) {
+    for (uint32_t i = 0U; i < kNumSunSearchRotations; ++i) {
         EXPECT_FLOAT_EQ(cfg.getRotations().at(i).rotationDuration, rotations[i].rotationDuration);
         EXPECT_FLOAT_EQ(cfg.getRotations().at(i).rotationRate, rotations[i].rotationRate);
         EXPECT_EQ(cfg.getRotations().at(i).rotationAxis, rotations[i].rotationAxis);

@@ -9,8 +9,8 @@
 
 namespace {
 SunSearchPointConfig configFromC(const SunSearchPointConfig_c& c) {
-    std::array<RotationProperties, kNumRotations> rotations{};
-    for (uint32_t i = 0U; i < kNumRotations; ++i) {
+    std::array<RotationProperties, kNumSunSearchRotations> rotations{};
+    for (uint32_t i = 0U; i < kNumSunSearchRotations; ++i) {
         rotations[i].rotationDuration = c.rotations[i].rotationDuration;
         rotations[i].rotationRate = c.rotations[i].rotationRate;
         rotations[i].rotationAxis = static_cast<RotationAxis>(c.rotations[i].rotationAxis);
@@ -24,7 +24,7 @@ SunSearchPointConfig configFromC(const SunSearchPointConfig_c& c) {
 }
 }  // namespace
 
-uint32_t SunSearchPointAlgorithm_getNumRotations(void) { return SUN_SEARCH_POINT_NUM_ROTATIONS; }
+uint32_t SunSearchPointAlgorithm_getNumRotations(void) { return kNumSunSearchRotations; }
 
 SunSearchPointAlgorithmHandle* SunSearchPointAlgorithm_create(const SunSearchPointConfig_c* config) {
     return fsw::createHandle<::SunSearchPointAlgorithm, SunSearchPointAlgorithmHandle>(configFromC(*config));

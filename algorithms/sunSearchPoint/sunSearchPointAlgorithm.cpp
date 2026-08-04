@@ -26,7 +26,7 @@ void SunSearchPointAlgorithm::setConfig(const SunSearchPointConfig& config) {
 /*! Precompute the cumulative end time (in nanoseconds) of each rotation in the search sequence. */
 void SunSearchPointAlgorithm::precomputeEndTimes() {
     uint64_t cumulativeEndTimeNs = 0U;
-    for (uint32_t i = 0U; i < kNumRotations; ++i) {
+    for (uint32_t i = 0U; i < kNumSunSearchRotations; ++i) {
         cumulativeEndTimeNs +=
             static_cast<uint64_t>(static_cast<double>(this->cfg.getRotations().at(i).rotationDuration) * kSec2Nano);
         this->rotationEndTimes.at(i) = cumulativeEndTimeNs;
@@ -60,7 +60,7 @@ SunSearchPointOutput SunSearchPointAlgorithm::update(const Eigen::Vector3f& rHat
     // full sequence elapsing forces the transition regardless of observations.
     if (this->phase == Phase::Searching) {
         const bool firstRotationComplete = this->elapsedTimeNs >= this->rotationEndTimes.at(0);
-        const bool sequenceComplete = this->elapsedTimeNs >= this->rotationEndTimes.at(kNumRotations - 1U);
+        const bool sequenceComplete = this->elapsedTimeNs >= this->rotationEndTimes.at(kNumSunSearchRotations - 1U);
         const bool sunAcquired = firstRotationComplete && (numCssViewingSun >= this->cfg.getObservationThreshold());
         if (sunAcquired) {
             this->phase = Phase::Pointing;
@@ -85,8 +85,8 @@ SunSearchPointOutput SunSearchPointAlgorithm::update(const Eigen::Vector3f& rHat
 SunSearchPointOutput SunSearchPointAlgorithm::computeSearch(const Eigen::Vector3f& omega_BN_B) const {
     // Select the first rotation whose cumulative end time has not yet been reached; hold the last
     // rotation once the sequence has finished (only reachable transiently before the transition).
-    uint32_t activeIndex = kNumRotations - 1U;
-    for (uint32_t rotationIndex = 0U; rotationIndex < kNumRotations; ++rotationIndex) {
+    uint32_t activeIndex = kNumSunSearchRotations - 1U;
+    for (uint32_t rotationIndex = 0U; rotationIndex < kNumSunSearchRotations; ++rotationIndex) {
         if (this->elapsedTimeNs < this->rotationEndTimes.at(rotationIndex)) {
             activeIndex = rotationIndex;
             break;

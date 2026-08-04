@@ -66,8 +66,8 @@ inline SunSearchPointOutput pointUpdate(SunSearchPointAlgorithm& alg,
 }
 
 // Four 1 s no-op rotations (4 s sequence) for tests that only exercise the pointing phase.
-inline std::array<RotationProperties, kNumRotations> defaultRotations() {
-    std::array<RotationProperties, kNumRotations> rotations{};
+inline std::array<RotationProperties, kNumSunSearchRotations> defaultRotations() {
+    std::array<RotationProperties, kNumSunSearchRotations> rotations{};
     for (auto& rotation : rotations) {
         rotation.rotationDuration = 1.0F;
         rotation.rotationRate = 0.0F;
@@ -77,7 +77,7 @@ inline std::array<RotationProperties, kNumRotations> defaultRotations() {
 }
 
 // Build a full config with pointing-parameter defaults; tests override only what they exercise.
-inline SunSearchPointConfig makeSearchConfig(const std::array<RotationProperties, kNumRotations>& rotations,
+inline SunSearchPointConfig makeSearchConfig(const std::array<RotationProperties, kNumSunSearchRotations>& rotations,
                                              const Eigen::Vector3f& sHatBdyCmd = Eigen::Vector3f{0.0F, 0.0F, 1.0F},
                                              float sunAxisSpinRate = 0.0F,
                                              const Eigen::Vector3f& omega_RN_B = Eigen::Vector3f::Zero(),
@@ -254,8 +254,8 @@ inline SearchReference referenceSearchOutput(const SunSearchPointConfig& cfg,
 
     const auto& rotations = cfg.getRotations();
     double cumulative = 0.0;
-    uint32_t activeIndex = kNumRotations - 1U;
-    for (uint32_t i = 0U; i < kNumRotations; ++i) {
+    uint32_t activeIndex = kNumSunSearchRotations - 1U;
+    for (uint32_t i = 0U; i < kNumSunSearchRotations; ++i) {
         cumulative += static_cast<double>(rotations.at(i).rotationDuration);
         if (elapsedTime < cumulative) {
             activeIndex = i;
@@ -284,11 +284,11 @@ inline RotationAxis intToRotationAxis(int axisInt) {
     }
 }
 
-inline std::array<RotationProperties, kNumRotations> buildRotations(const std::vector<float>& times,
-                                                                    const std::vector<float>& rates,
-                                                                    const std::vector<int>& axes) {
-    std::array<RotationProperties, kNumRotations> result{};
-    for (uint32_t i = 0U; i < kNumRotations; ++i) {
+inline std::array<RotationProperties, kNumSunSearchRotations> buildRotations(const std::vector<float>& times,
+                                                                             const std::vector<float>& rates,
+                                                                             const std::vector<int>& axes) {
+    std::array<RotationProperties, kNumSunSearchRotations> result{};
+    for (uint32_t i = 0U; i < kNumSunSearchRotations; ++i) {
         result[i].rotationDuration = times[i];
         result[i].rotationRate = rates[i];
         result[i].rotationAxis = intToRotationAxis(axes[i]);
@@ -298,7 +298,7 @@ inline std::array<RotationProperties, kNumRotations> buildRotations(const std::v
 
 inline void searchConfigValidationChecks() {
     auto makeValidRotations = []() {
-        std::array<RotationProperties, kNumRotations> rotations{};
+        std::array<RotationProperties, kNumSunSearchRotations> rotations{};
         for (auto& r : rotations) {
             r.rotationDuration = 1.0F;
             r.rotationRate = 0.1F;
