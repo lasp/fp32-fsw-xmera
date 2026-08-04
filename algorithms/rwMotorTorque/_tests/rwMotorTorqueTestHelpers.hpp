@@ -149,8 +149,10 @@ inline Eigen::Matrix<float, 3, kMaxNumRw> availableGs(const RwMotorTorqueConfig&
 
 // Builds the test config from raw inputs: contiguous control axes, zero-padded + normalized spin axes, and
 // availability. Returns false (caller should skip the input) when the config would be invalid (no control
-// axes, a non-normalizable spin axis) or not realizable (uncontrollable / ill-conditioned mapping). Shared by
-// the regression and property helpers so the fuzz harness drops unusable samples silently.
+// axes, more wheels than the RW array holds, a non-normalizable spin axis) or not realizable
+// (uncontrollable / ill-conditioned mapping). Shared by the regression and property helpers so the fuzz
+// harness drops unusable samples silently. A longer GsMatrix_B than the array holds is truncated, so no
+// caller can read or write past the fixed-size RW arrays.
 // bugprone-easily-swappable-parameters: the two counts keep the order the callers list them in, and every
 // caller passes them from named locals of the same names.
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
@@ -161,7 +163,7 @@ inline bool buildConfig(uint32_t numControlAxes,
                         bool rwAvailIsLinked,
                         std::array<bool, 3>& desiredControlAxes_B,
                         RwMotorTorqueArrayConfiguration& rwConfiguration) {
-    if (numControlAxes == 0U) {
+    if (numControlAxes == 0U || numRW > kMaxNumRw) {
         return false;
     }
     desiredControlAxes_B = makeControlAxes(numControlAxes);
@@ -169,7 +171,9 @@ inline bool buildConfig(uint32_t numControlAxes,
     rwConfiguration = RwMotorTorqueArrayConfiguration{};
     rwConfiguration.numRW = numRW;
     std::vector<float> paddedGsMatrix_B(3U * static_cast<size_t>(kMaxNumRw), 0.0F);
-    std::copy(GsMatrix_B.begin(), GsMatrix_B.end(), paddedGsMatrix_B.begin());
+    for (size_t i = 0U; i < GsMatrix_B.size() && i < paddedGsMatrix_B.size(); ++i) {
+        paddedGsMatrix_B[i] = GsMatrix_B[i];
+    }
     rwConfiguration.GsMatrix_B = cArrayToEigenMatrix<float, 3, kMaxNumRw>(paddedGsMatrix_B.data());
 
     // The config requires unit spin axes; normalize the active columns. A zero column cannot be normalized.

@@ -79,17 +79,19 @@ TEST(RwMotorTorqueTest, PropertyOutputIsFinite) {
                            0.5F);
 }
 
+// Two control axes (x, y) driven by wheels 0 and 1, so both exclusion paths are covered: wheel 2 is marked
+// unavailable and wheel 3 sits beyond numRW.
 TEST(RwMotorTorqueTest, PropertyExcludedWheelsZeroTorque) {
     propertyExcludedWheelsZeroTorque(
         Eigen::Vector3f{0.3F, -0.5F, 0.8F},
         Eigen::Vector3f::Zero(),
-        std::vector<bool>{false, false, true, false, false},
+        std::vector<bool>{false, false, true, false},
         false,
         true,
-        5,
-        std::vector<float>{1.0F, 0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 0.0F, 1.0F, 1.0F, 1.0F, 1.0F, 1.0F, -1.0F, 0.5F},
         3,
-        std::vector<float>{100.0F, -50.0F, 30.0F, 80.0F, -20.0F},
+        std::vector<float>{1.0F, 0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 0.0F, 1.0F, 1.0F, 1.0F, 1.0F},
+        2,
+        std::vector<float>{100.0F, -50.0F, 30.0F, 80.0F},
         std::vector<float>{},
         0.5F);
 }
