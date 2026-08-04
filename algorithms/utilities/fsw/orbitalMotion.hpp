@@ -5,7 +5,6 @@
 #include "safeMath.h"
 #include <math.h>
 #include <Eigen/Core>
-#include <Eigen/Geometry>
 #include <numbers>
 
 namespace orbitalMotion {
