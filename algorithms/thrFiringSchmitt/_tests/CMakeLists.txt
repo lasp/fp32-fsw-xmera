@@ -6,6 +6,7 @@ add_executable(test_thrFiringSchmitt
 
 target_include_directories(test_thrFiringSchmitt PRIVATE "..")
 target_include_directories(test_thrFiringSchmitt PRIVATE "${CMAKE_SOURCE_DIR}")
+target_include_directories(test_thrFiringSchmitt PRIVATE "${XMERA_MISSION_PARAMETERS_DIR}")
 
 target_link_libraries(test_thrFiringSchmitt PRIVATE
     GTest::gtest_main
@@ -24,6 +25,7 @@ if(XMERA_ENABLE_FUZZTESTS)
 
   target_include_directories(test_thrFiringSchmitt_fuzz PRIVATE "..")
   target_include_directories(test_thrFiringSchmitt_fuzz PRIVATE "${CMAKE_SOURCE_DIR}")
+  target_include_directories(test_thrFiringSchmitt_fuzz PRIVATE "${XMERA_MISSION_PARAMETERS_DIR}")
 
   target_link_libraries(test_thrFiringSchmitt_fuzz PRIVATE
     fuzztest::fuzztest

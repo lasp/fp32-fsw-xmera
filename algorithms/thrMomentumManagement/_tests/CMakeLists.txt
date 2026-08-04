@@ -5,6 +5,7 @@ add_executable(test_thrMomentumManagement
 
 target_include_directories(test_thrMomentumManagement PRIVATE "..")
 target_include_directories(test_thrMomentumManagement PRIVATE "${CMAKE_SOURCE_DIR}")
+target_include_directories(test_thrMomentumManagement PRIVATE "${XMERA_MISSION_PARAMETERS_DIR}")
 
 target_link_libraries(test_thrMomentumManagement PRIVATE
     Eigen3::Eigen
@@ -23,6 +24,7 @@ if(XMERA_ENABLE_FUZZTESTS)
 
   target_include_directories(test_thrMomentumManagement_fuzz PRIVATE "..")
   target_include_directories(test_thrMomentumManagement_fuzz PRIVATE "${CMAKE_SOURCE_DIR}")
+  target_include_directories(test_thrMomentumManagement_fuzz PRIVATE "${XMERA_MISSION_PARAMETERS_DIR}")
 
   target_link_libraries(test_thrMomentumManagement_fuzz PRIVATE
     Eigen3::Eigen

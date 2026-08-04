@@ -6,6 +6,7 @@ add_executable(test_mrpFeedback
 
 target_include_directories(test_mrpFeedback PRIVATE "..")
 target_include_directories(test_mrpFeedback PRIVATE "${CMAKE_SOURCE_DIR}")
+target_include_directories(test_mrpFeedback PRIVATE "${XMERA_MISSION_PARAMETERS_DIR}")
 
 target_link_libraries(test_mrpFeedback PRIVATE
     Eigen3::Eigen
@@ -25,6 +26,7 @@ if(XMERA_ENABLE_FUZZTESTS)
 
   target_include_directories(test_mrpFeedback_fuzz PRIVATE "..")
   target_include_directories(test_mrpFeedback_fuzz PRIVATE "${CMAKE_SOURCE_DIR}")
+  target_include_directories(test_mrpFeedback_fuzz PRIVATE "${XMERA_MISSION_PARAMETERS_DIR}")
 
   target_link_libraries(test_mrpFeedback_fuzz PRIVATE
     Eigen3::Eigen

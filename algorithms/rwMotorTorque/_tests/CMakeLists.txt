@@ -6,6 +6,7 @@ add_executable(test_rwMotorTorque
 
 target_include_directories(test_rwMotorTorque PRIVATE "..")
 target_include_directories(test_rwMotorTorque PRIVATE "${CMAKE_SOURCE_DIR}")
+target_include_directories(test_rwMotorTorque PRIVATE "${XMERA_MISSION_PARAMETERS_DIR}")
 
 target_link_libraries(test_rwMotorTorque PRIVATE
     Eigen3::Eigen
@@ -25,6 +26,7 @@ if(XMERA_ENABLE_FUZZTESTS)
 
   target_include_directories(test_rwMotorTorque_fuzz PRIVATE "..")
   target_include_directories(test_rwMotorTorque_fuzz PRIVATE "${CMAKE_SOURCE_DIR}")
+  target_include_directories(test_rwMotorTorque_fuzz PRIVATE "${XMERA_MISSION_PARAMETERS_DIR}")
 
   target_link_libraries(test_rwMotorTorque_fuzz PRIVATE
     Eigen3::Eigen
