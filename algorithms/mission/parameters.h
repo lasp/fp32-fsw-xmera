@@ -7,9 +7,9 @@
 // holding this "mission" folder, so it defines every constant Xmera expects, including
 // ones not used by fp32 algorithms.
 
-#define MAX_NUM_CSS_SENSORS 32
-#define MAX_EFF_CNT 36
-#define RW_EFF_CNT 36
+#define MAX_NUM_CSS_SENSORS 12
+#define MAX_EFF_CNT 12
+#define RW_EFF_CNT 4
 #define MAX_N_CSS_MEAS 32
 
 #define MAX_KEY_POINTS 5000
