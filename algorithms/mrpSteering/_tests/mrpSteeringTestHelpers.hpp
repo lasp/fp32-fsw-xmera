@@ -194,6 +194,14 @@ inline void testMrpSteering(const Eigen::Vector3f& sigma,
                             std::vector<float> ISCPntB_B,
                             bool rwIsLinked,
                             float dt) {
+    // The payloads size their RW arrays from RW_EFF_CNT, so no caller can describe more wheels than the
+    // mission holds. Fail loudly instead of writing past those arrays, and treat a short inertia input as an
+    // error rather than reading past its end.
+    constexpr auto maxRw = static_cast<std::size_t>(RW_EFF_CNT);
+    ASSERT_GE(numRW, 0);
+    ASSERT_LE(numRW, RW_EFF_CNT);
+    ASSERT_EQ(ISCPntB_B.size(), 9U);
+
     const Eigen::Matrix3f ISC_B = cArrayToEigenMatrix3(ISCPntB_B.data());
 
     // Build the RW spin-axis configuration, mirroring the adapter: it is only populated when the RW config
@@ -201,13 +209,13 @@ inline void testMrpSteering(const Eigen::Vector3f& sigma,
     // Eigen::Map layout) so a short GsMatrix_B vector never reads out of bounds.
     InputRwData rwInputData{};
     if (rwIsLinked) {
-        const std::size_t numGs = std::min<std::size_t>(GsMatrix_B.size(), static_cast<std::size_t>(RW_EFF_CNT) * 3U);
+        const std::size_t numGs = std::min<std::size_t>(GsMatrix_B.size(), maxRw * 3U);
         for (std::size_t k = 0; k < numGs; ++k) {
             rwInputData.GsMatrix_B(static_cast<Eigen::Index>(k % 3), static_cast<Eigen::Index>(k / 3)) = GsMatrix_B[k];
         }
-        std::copy(std::begin(JsList), std::end(JsList), std::begin(rwInputData.JsList));
+        std::copy_n(JsList.begin(), std::min(JsList.size(), maxRw), rwInputData.JsList.begin());
         rwInputData.numRW = static_cast<uint32_t>(numRW);
-        for (uint32_t i = 0U; i < wheelAvailabilityBool.size(); ++i) {
+        for (std::size_t i = 0U; i < wheelAvailabilityBool.size() && i < maxRw; ++i) {
             if (wheelAvailabilityBool[i]) {
                 rwInputData.wheelAvailability[i] = UNAVAILABLE;
             }
@@ -253,10 +261,10 @@ inline void testMrpSteering(const Eigen::Vector3f& sigma,
     eigenVectorToCArray(domega_RN_B, guidCmdMsg.domega_RN_B);
 
     RWSpeedMsgF32Payload wheelSpeedsMsg{};
-    std::copy(wheelSpeedsVec.begin(), wheelSpeedsVec.end(), wheelSpeedsMsg.wheelSpeeds);
+    std::copy_n(wheelSpeedsVec.begin(), std::min(wheelSpeedsVec.size(), maxRw), wheelSpeedsMsg.wheelSpeeds);
 
     RWAvailabilityMsgPayload wheelsAvailabilityMsg{};
-    for (uint32_t i = 0U; i < wheelAvailabilityBool.size(); ++i) {
+    for (std::size_t i = 0U; i < wheelAvailabilityBool.size() && i < maxRw; ++i) {
         if (wheelAvailabilityBool[i]) {
             wheelsAvailabilityMsg.wheelAvailability[i] = UNAVAILABLE;
         }
@@ -265,7 +273,7 @@ inline void testMrpSteering(const Eigen::Vector3f& sigma,
     RWArrayConfigMsgF32Payload rwConfigMsg{};
     if (rwIsLinked) {
         rwConfigMsg.numRW = numRW;
-        std::copy(JsList.begin(), JsList.end(), rwConfigMsg.JsList);
+        std::copy_n(JsList.begin(), std::min(JsList.size(), maxRw), rwConfigMsg.JsList);
         // Feed the reference the same pre-normalized spin axes the algorithm uses (column-major), so its
         // normalization matches the config's and the reaction-wheel momentum term stays bit-identical.
         std::copy(rwInputData.GsMatrix_B.data(),
@@ -281,7 +289,7 @@ inline void testMrpSteering(const Eigen::Vector3f& sigma,
     attGuidInputData.domega_RN_B = domega_RN_B;
 
     std::array<float, RW_EFF_CNT> wheelSpeeds{};
-    std::copy(wheelSpeedsVec.begin(), wheelSpeedsVec.end(), wheelSpeeds.begin());
+    std::copy_n(wheelSpeedsVec.begin(), std::min(wheelSpeedsVec.size(), maxRw), wheelSpeeds.begin());
 
     Eigen::Vector3f z{Eigen::Vector3f::Zero()};
 
