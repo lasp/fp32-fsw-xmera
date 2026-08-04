@@ -1,6 +1,5 @@
 #include "mrpFeedbackAlgorithm_c.h"
 #include "mrpFeedbackAlgorithm.h"
-#include "mrpFeedbackTypes.h"
 #include "utilities/fsw/eigenSupport.h"
 #include "utilities/fsw/opaqueHandle.h"
 

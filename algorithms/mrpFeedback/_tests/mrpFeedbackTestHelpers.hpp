@@ -2,7 +2,6 @@
 #define TEST_MRPFEEDBACK_H
 
 #include "mrpFeedbackAlgorithm.h"
-#include "mrpFeedbackTypes.h"
 #include "msgPayloadDef/AttGuidMsgF32Payload.h"
 #include "msgPayloadDef/CmdTorqueBodyMsgF32Payload.h"
 #include "msgPayloadDef/RWArrayConfigMsgF32Payload.h"
