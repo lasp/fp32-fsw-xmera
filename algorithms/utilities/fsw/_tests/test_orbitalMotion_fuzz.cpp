@@ -85,7 +85,7 @@ void fuzzHyperbolicKeplersEquation(double H, double e) {
     EXPECT_DOUBLE_EQ(result, e * sinh(H) - H);
 }
 FUZZ_TEST(OrbitalMotionFuzz, fuzzHyperbolicKeplersEquation)
-    .WithDomains(fuzztest::InRange(-3.0, 3.0), fuzztest::InRange(1.05, 5.0));
+    .WithDomains(fuzztest::InRange(-3.0, 3.0), fuzztest::InRange(1.01, 5.0));
 
 // Hyperbolic mean anomaly is odd: N(-H, e) = -N(H, e).
 void fuzzHyperbolicMeanIsOdd(double H, double e) {
@@ -96,16 +96,18 @@ void fuzzHyperbolicMeanIsOdd(double H, double e) {
     EXPECT_DOUBLE_EQ(neg, -pos);
 }
 FUZZ_TEST(OrbitalMotionFuzz, fuzzHyperbolicMeanIsOdd)
-    .WithDomains(fuzztest::InRange(0.0, 3.0), fuzztest::InRange(1.05, 5.0));
+    .WithDomains(fuzztest::InRange(0.0, 3.0), fuzztest::InRange(1.01, 5.0));
 
-// The Newton-Raphson solver must return H satisfying e*sinh(H) - H = N.
+// The Newton-Raphson solver must return H satisfying e*sinh(H) - H = N. N's range extends
+// past kClamp (7) to exercise the solver's initial-guess clamping branch, which a narrower
+// range would never reach.
 void fuzzMeanToHyperbolicSolvesKepler(double N, double e) {
     const double H = orbitalMotion::meanToHyperbolicAnomaly(N, e);
     ASSERT_TRUE(std::isfinite(H));
     EXPECT_NEAR(e * sinh(H) - H, N, kAnomalyTol);
 }
 FUZZ_TEST(OrbitalMotionFuzz, fuzzMeanToHyperbolicSolvesKepler)
-    .WithDomains(fuzztest::InRange(-5.0, 5.0), fuzztest::InRange(1.0 + 1e-6, 10.0));
+    .WithDomains(fuzztest::InRange(-50.0, 50.0), fuzztest::InRange(1.0 + 1e-6, 10.0));
 
 // H -> f -> H closed-form round-trip.
 void fuzzHyperbolicTrueRoundTrip(double H, double e) {
@@ -118,7 +120,8 @@ void fuzzHyperbolicTrueRoundTrip(double H, double e) {
 FUZZ_TEST(OrbitalMotionFuzz, fuzzHyperbolicTrueRoundTrip)
     .WithDomains(fuzztest::InRange(-2.0, 2.0), fuzztest::InRange(1.01, 10.0));
 
-// N -> H -> N round-trip: meanToHyperbolic then hyperbolicToMean must recover N.
+// N -> H -> N round-trip: meanToHyperbolic then hyperbolicToMean must recover N. N's range
+// extends past kClamp (7) for the same reason as fuzzMeanToHyperbolicSolvesKepler.
 void fuzzHyperbolicMeanRoundTrip(double N, double e) {
     const double H = orbitalMotion::meanToHyperbolicAnomaly(N, e);
     ASSERT_TRUE(std::isfinite(H));
@@ -127,7 +130,7 @@ void fuzzHyperbolicMeanRoundTrip(double N, double e) {
     EXPECT_NEAR(N_back, N, kAnomalyTol);
 }
 FUZZ_TEST(OrbitalMotionFuzz, fuzzHyperbolicMeanRoundTrip)
-    .WithDomains(fuzztest::InRange(-5.0, 5.0), fuzztest::InRange(1.01, 10.0));
+    .WithDomains(fuzztest::InRange(-50.0, 50.0), fuzztest::InRange(1.01, 10.0));
 
 // ============================================================================
 // Keplerian conserved quantities
@@ -349,7 +352,7 @@ void fuzzNearParabolicEllipticAnomalyFinite(double f, double e) {
     EXPECT_TRUE(std::isfinite(M2)) << "trueToMean";
 }
 FUZZ_TEST(OrbitalMotionFuzz, fuzzNearParabolicEllipticAnomalyFinite)
-    .WithDomains(fuzztest::InRange(-0.8, 0.8), fuzztest::InRange(0.9, 0.9999));
+    .WithDomains(fuzztest::InRange(-M_PI, M_PI), fuzztest::InRange(0.9, 0.9999));
 
 // elementsToCartesianState must return a finite Cartesian state for e -> 1-.
 void fuzzNearParabolicCartesianFinite(double e, double f) {
@@ -368,7 +371,7 @@ void fuzzNearParabolicCartesianFinite(double e, double f) {
     }
 }
 FUZZ_TEST(OrbitalMotionFuzz, fuzzNearParabolicCartesianFinite)
-    .WithDomains(fuzztest::InRange(0.9, 0.9999), fuzztest::InRange(0.0, 1.0));
+    .WithDomains(fuzztest::InRange(0.9, 0.9999), fuzztest::InRange(0.0, 2 * M_PI));
 
 // Exactly parabolic (a = 0): orbit equation r = p / (1 + cos f), p = radiusPeriapsis * 2,
 // and zero specific energy v^2/2 - mu/r = 0.
@@ -449,7 +452,7 @@ void fuzzNearParabolicHyperbolicAnomalyFinite(double H, double e) {
     EXPECT_TRUE(std::isfinite(f)) << "hyperbolicToTrue";
 }
 FUZZ_TEST(OrbitalMotionFuzz, fuzzNearParabolicHyperbolicAnomalyFinite)
-    .WithDomains(fuzztest::InRange(-0.5, 0.5), fuzztest::InRange(1.0001, 1.1));
+    .WithDomains(fuzztest::InRange(-5.0, 5.0), fuzztest::InRange(1.0001, 1.1));
 
 // Rectilinear orbit: h=0 singularity. v_transverse = 0, all outputs must be finite.
 void fuzzRectilinearElementsFinite(double v_radial) {
