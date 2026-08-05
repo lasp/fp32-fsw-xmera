@@ -1,7 +1,7 @@
 #include "thrustAxisToMotorAnglesAlgorithm_c.h"
 
-#include "architecture/utilities/eigenSupport.h"
 #include "thrustAxisToMotorAnglesAlgorithm.h"
+#include "utilities/fsw/eigenSupport.h"
 
 namespace {
 /*! Convert a C-shared table POD into the algorithm's std::array table type. */
