@@ -105,9 +105,9 @@ class ThrustAxisToMotorAnglesAlgorithm final {
    private:
     MotorAngles gimbalAnglesToMotorAngles(float gimbalTipAngle, float gimbalTiltAngle) const;
     MotorAngles pullAngles(float gimbalAngle1, float gimbalAngle2) const;
-    bool isBilinearInterpolationRequired(float gimbalAngle1, float gimbalAngle2) const;
-    bool isNoInterpolationRequired(float gimbalAngle1, float gimbalAngle2) const;
-    bool isLinearInterpolationRequired(float angle) const;
+    static bool isBilinearInterpolationRequired(float gimbalAngle1, float gimbalAngle2);
+    static bool isNoInterpolationRequired(float gimbalAngle1, float gimbalAngle2);
+    static bool isLinearInterpolationRequired(float angle);
     MotorAngles bilinearlyInterpolateMotorAngles(float gimbalAngle1, float gimbalAngle2) const;
     MotorAngles linearlyInterpolateMotorAngles(float gimbalAngle1, float gimbalAngle2, FixedAngle fixedAngle) const;
 
