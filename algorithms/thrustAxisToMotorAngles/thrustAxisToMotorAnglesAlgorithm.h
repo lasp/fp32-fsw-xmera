@@ -119,6 +119,7 @@ class ThrustAxisToMotorAnglesAlgorithm final {
         0.5F * std::numbers::pi_v<float> / 180.0F;  //!< [rad] Interpolation table motor discretization step
     static constexpr float kInterpolationRemainderTolerance =
         1e-3F;  //!< Tolerance for treating a normalized gimbal angle as landing exactly on a table node
+    static constexpr float kDefaultMotorAngle = 103.2242F * std::numbers::pi_v<float> / 180.0F;
     ThrustAxisToMotorAnglesConfig cfg;
 };
 

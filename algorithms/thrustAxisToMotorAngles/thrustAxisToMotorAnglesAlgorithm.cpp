@@ -22,7 +22,7 @@ in spacecraft body frame components, then interpolates the corresponding stepper
 */
 ThrustAxisToMotorAnglesOutput ThrustAxisToMotorAnglesAlgorithm::update(const Eigen::Vector3f& thrustHat_B) const {
     /*! Set default output */
-    ThrustAxisToMotorAnglesOutput output{};
+    ThrustAxisToMotorAnglesOutput output{.motorAngle1 = kDefaultMotorAngle, .motorAngle2 = kDefaultMotorAngle};
 
     /*! Motor angles are only resolveable if the incoming thrust direction is not zero. */
     const bool isThrustHatResolved = thrustHat_B.stableNorm() != 0.0F;
@@ -53,18 +53,16 @@ ThrustAxisToMotorAnglesOutput ThrustAxisToMotorAnglesAlgorithm::update(const Eig
 */
 MotorAngles ThrustAxisToMotorAnglesAlgorithm::gimbalAnglesToMotorAngles(const float gimbalTipAngle,
                                                                         const float gimbalTiltAngle) const {
-    MotorAngles motorAngles{};
     if (this->isBilinearInterpolationRequired(gimbalTipAngle, gimbalTiltAngle)) {
-        motorAngles = this->bilinearlyInterpolateMotorAngles(gimbalTipAngle, gimbalTiltAngle);
-    } else if (this->isNoInterpolationRequired(gimbalTipAngle, gimbalTiltAngle)) {
-        motorAngles = this->pullAngles(gimbalTipAngle, gimbalTiltAngle);
-    } else if (this->isLinearInterpolationRequired(gimbalTipAngle)) {
-        motorAngles = this->linearlyInterpolateMotorAngles(gimbalTipAngle, gimbalTiltAngle, FixedAngle::ANGLE_1_FIXED);
-    } else {
-        motorAngles = this->linearlyInterpolateMotorAngles(gimbalTipAngle, gimbalTiltAngle, FixedAngle::ANGLE_2_FIXED);
+        return this->bilinearlyInterpolateMotorAngles(gimbalTipAngle, gimbalTiltAngle);
     }
-
-    return motorAngles;
+    if (this->isNoInterpolationRequired(gimbalTipAngle, gimbalTiltAngle)) {
+        return this->pullAngles(gimbalTipAngle, gimbalTiltAngle);
+    }
+    if (this->isLinearInterpolationRequired(gimbalTipAngle)) {
+        return this->linearlyInterpolateMotorAngles(gimbalTipAngle, gimbalTiltAngle, FixedAngle::ANGLE_1_FIXED);
+    }
+    return this->linearlyInterpolateMotorAngles(gimbalTipAngle, gimbalTiltAngle, FixedAngle::ANGLE_2_FIXED);
 }
 
 /*! This method pulls the motor angles from the provided interpolation tables.
@@ -79,7 +77,7 @@ MotorAngles ThrustAxisToMotorAnglesAlgorithm::pullAngles(float gimbalAngle1, flo
     const auto index1 = static_cast<int>(roundf(gimbalAngle1 / kTableStepAngle));
     const auto index2 = static_cast<int>(roundf(gimbalAngle2 / kTableStepAngle));
 
-    MotorAngles motorAngles{};
+    MotorAngles motorAngles{.angle1 = kDefaultMotorAngle, .angle2 = kDefaultMotorAngle};
     if (index1 >= 0 && index1 < kNumTableCols && index2 >= 0 && index2 < kNumTableRows) {
         const float motor1Angle = this->cfg.getGimbalToMotor1AngleTable()[index2][index1];
         const float motor2Angle = this->cfg.getGimbalToMotor2AngleTable()[index2][index1];
@@ -164,7 +162,7 @@ MotorAngles ThrustAxisToMotorAnglesAlgorithm::bilinearlyInterpolateMotorAngles(c
     const MotorAngles motorUUBounds = this->pullAngles(gimbalAngle1UBound, gimbalAngle2UBound);
 
     // Interpolate the motor angles if all bounding angles are valid
-    MotorAngles motorAngles{};
+    MotorAngles motorAngles{.angle1 = kDefaultMotorAngle, .angle2 = kDefaultMotorAngle};
     if (motorLLBounds.isValidInterpolation && motorLUBounds.isValidInterpolation &&
         motorULBounds.isValidInterpolation && motorUUBounds.isValidInterpolation) {
         const std::optional<float> motor1Angle = bilinearInterpolation(gimbalAngle1LBound,
@@ -233,7 +231,7 @@ MotorAngles ThrustAxisToMotorAnglesAlgorithm::linearlyInterpolateMotorAngles(con
     }
 
     // Linearly interpolate if the pulled angles are valid
-    MotorAngles motorAngles{};
+    MotorAngles motorAngles{.angle1 = kDefaultMotorAngle, .angle2 = kDefaultMotorAngle};
     if (lowerMotorBounds.isValidInterpolation && upperMotorBounds.isValidInterpolation) {
         const std::optional<float> motor1Angle = linearInterpolation(
             gimbalAngleLBound, gimbalAngleUBound, lowerMotorBounds.angle1, upperMotorBounds.angle1, boundedAngle);
