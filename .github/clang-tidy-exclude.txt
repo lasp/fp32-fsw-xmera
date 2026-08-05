@@ -107,6 +107,10 @@ algorithms/thrFiringSchmitt/thrFiringSchmitt.h
 algorithms/thrFiringSchmitt/thrFiringSchmitt.cpp
 algorithms/thrFiringSchmitt/thrFiringSchmittAlgorithm_c.h
 algorithms/thrFiringSchmitt/thrFiringSchmittAlgorithm_c.cpp
+algorithms/thrustAxisToMotorAngles/thrustAxisToMotorAngles.h
+algorithms/thrustAxisToMotorAngles/thrustAxisToMotorAngles.cpp
+algorithms/thrustAxisToMotorAngles/thrustAxisToMotorAnglesAlgorithm_c.h
+algorithms/thrustAxisToMotorAngles/thrustAxisToMotorAnglesAlgorithm_c.cpp
 algorithms/thrusterPlatformReference/thrusterPlatformReference.h
 algorithms/thrusterPlatformReference/thrusterPlatformReference.cpp
 algorithms/thrusterPlatformReference/thrusterPlatformReferenceAlgorithm_c.h
@@ -123,10 +127,6 @@ algorithms/triad/triad.h
 algorithms/triad/triad.cpp
 algorithms/triad/triadAlgorithm_c.h
 algorithms/triad/triadAlgorithm_c.cpp
-algorithms/twoAxisGimbalAxisToMotorAngles/twoAxisGimbalAxisToMotorAngles.h
-algorithms/twoAxisGimbalAxisToMotorAngles/twoAxisGimbalAxisToMotorAngles.cpp
-algorithms/twoAxisGimbalAxisToMotorAngles/twoAxisGimbalAxisToMotorAnglesAlgorithm_c.h
-algorithms/twoAxisGimbalAxisToMotorAngles/twoAxisGimbalAxisToMotorAnglesAlgorithm_c.cpp
 
 // Remove the files below this line once the actual algorithms are added
 algorithms/inertialUKF/inertialUKF.cpp

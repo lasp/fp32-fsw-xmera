@@ -1,0 +1,248 @@
+#include "thrustAxisToMotorAnglesAlgorithm.h"
+
+#include "utilities/fsw/interpolation.h"
+#include "utilities/fsw/safeMath.h"
+#include <math.h>
+#include <optional>
+
+ThrustAxisToMotorAnglesAlgorithm::ThrustAxisToMotorAnglesAlgorithm(const ThrustAxisToMotorAnglesConfig& config)
+    : cfg(config) {
+    setConfig(config);
+}
+
+/*! Replaces the algorithm's configuration for runtime reconfiguration.
+ @param config Validated configuration (DCM and gimbal-to-motor interpolation tables)
+*/
+void ThrustAxisToMotorAnglesAlgorithm::setConfig(const ThrustAxisToMotorAnglesConfig& config) { this->cfg = config; }
+
+/*! This method determines the gimbal sequential tip and tilt angles corresponding to the given thrust direction vector
+in spacecraft body frame components, then interpolates the corresponding stepper motor angles.
+ @return ThrustAxisToMotorAnglesOutput
+ @param thrustHat_B Commanded thrust direction unit vector in body frame components
+*/
+ThrustAxisToMotorAnglesOutput ThrustAxisToMotorAnglesAlgorithm::update(const Eigen::Vector3f& thrustHat_B) const {
+    /*! Set default output */
+    ThrustAxisToMotorAnglesOutput output{.motorAngle1 = kDefaultMotorAngle, .motorAngle2 = kDefaultMotorAngle};
+
+    /*! Motor angles are only resolveable if the incoming thrust direction is not zero. */
+    const bool isThrustHatResolved = thrustHat_B.stableNorm() != 0.0F;
+
+    if (isThrustHatResolved) {
+        // Determine the required gimbal tip and tilt angles
+        const Eigen::Vector3f thrustDirHat_M = this->cfg.getDcmMB() * thrustHat_B;
+        const float gimbalTipAngle = safeAtan2f(-thrustDirHat_M[1], thrustDirHat_M[2]);
+        const float gimbalTiltAngle = safeAsinf(thrustDirHat_M[0]);
+
+        // Determine the required motor angles
+        const MotorAngles motorAngles = this->gimbalAnglesToMotorAngles(gimbalTipAngle, gimbalTiltAngle);
+
+        output.gimbalTipAngle = gimbalTipAngle;
+        output.gimbalTiltAngle = gimbalTiltAngle;
+        output.motorAngle1 = motorAngles.angle1;
+        output.motorAngle2 = motorAngles.angle2;
+        output.isValidInterpolation = motorAngles.isValidInterpolation;
+    }
+
+    return output;
+}
+
+/*! This method determines the stepper motor angles given the gimbal sequential tip and tilt angles.
+ @return MotorAngles
+ @param gimbalTipAngle [rad] Gimbal tip angle
+ @param gimbalTiltAngle [rad] Gimbal tilt angle
+*/
+MotorAngles ThrustAxisToMotorAnglesAlgorithm::gimbalAnglesToMotorAngles(const float gimbalTipAngle,
+                                                                        const float gimbalTiltAngle) const {
+    if (isBilinearInterpolationRequired(gimbalTipAngle, gimbalTiltAngle)) {
+        return this->bilinearlyInterpolateMotorAngles(gimbalTipAngle, gimbalTiltAngle);
+    }
+    if (isNoInterpolationRequired(gimbalTipAngle, gimbalTiltAngle)) {
+        return this->pullAngles(gimbalTipAngle, gimbalTiltAngle);
+    }
+    if (isLinearInterpolationRequired(gimbalTipAngle)) {
+        return this->linearlyInterpolateMotorAngles(gimbalTipAngle, gimbalTiltAngle, FixedAngle::ANGLE_1_FIXED);
+    }
+    return this->linearlyInterpolateMotorAngles(gimbalTipAngle, gimbalTiltAngle, FixedAngle::ANGLE_2_FIXED);
+}
+
+/*! This method pulls the motor angles from the provided interpolation tables.
+ @return MotorAngles
+ @param gimbalAngle1 [rad]
+ @param gimbalAngle2 [rad]
+*/
+MotorAngles ThrustAxisToMotorAnglesAlgorithm::pullAngles(float gimbalAngle1, float gimbalAngle2) const {
+    gimbalAngle1 += static_cast<float>(kTipColIdxOffset) * kTableStepAngle;
+    gimbalAngle2 += static_cast<float>(kTiltRowIdxOffset) * kTableStepAngle;
+
+    const auto index1 = static_cast<int>(roundf(gimbalAngle1 / kTableStepAngle));
+    const auto index2 = static_cast<int>(roundf(gimbalAngle2 / kTableStepAngle));
+
+    MotorAngles motorAngles{.angle1 = kDefaultMotorAngle, .angle2 = kDefaultMotorAngle};
+    if (index1 >= 0 && index1 < kNumTableCols && index2 >= 0 && index2 < kNumTableRows) {
+        const float motor1Angle = this->cfg.getGimbalToMotor1AngleTable()[index2][index1];
+        const float motor2Angle = this->cfg.getGimbalToMotor2AngleTable()[index2][index1];
+
+        if (motor1Angle >= 0.0F && motor2Angle >= 0.0F) {
+            motorAngles.angle1 = motor1Angle;
+            motorAngles.angle2 = motor2Angle;
+            motorAngles.isValidInterpolation = true;
+        }
+    }
+
+    return motorAngles;
+}
+
+/*! This method determines if bilinear interpolation is required to obtain the motor angles.
+ @return bool
+ @param gimbalAngle1 [rad]
+ @param gimbalAngle2 [rad]
+*/
+bool ThrustAxisToMotorAnglesAlgorithm::isBilinearInterpolationRequired(const float gimbalAngle1,
+                                                                       const float gimbalAngle2) {
+    const float motor1Rounded = roundf(fabsf(gimbalAngle1 / kTableStepAngle));
+    const float motor1Exact = fabsf(gimbalAngle1 / kTableStepAngle);
+    const float motor1Remainder = fabsf(motor1Exact - motor1Rounded);
+
+    const float motor2Rounded = roundf(fabsf(gimbalAngle2 / kTableStepAngle));
+    const float motor2Exact = fabsf(gimbalAngle2 / kTableStepAngle);
+    const float motor2Remainder = fabsf(motor2Exact - motor2Rounded);
+
+    return motor1Remainder >= kInterpolationRemainderTolerance && motor2Remainder >= kInterpolationRemainderTolerance;
+}
+
+/*! This method determines if no interpolation is required to obtain the motor angles.
+ @return bool
+ @param gimbalAngle1 [rad]
+ @param gimbalAngle2 [rad]
+*/
+bool ThrustAxisToMotorAnglesAlgorithm::isNoInterpolationRequired(const float gimbalAngle1, const float gimbalAngle2) {
+    const float motor1Rounded = roundf(fabsf(gimbalAngle1 / kTableStepAngle));
+    const float motor1Exact = fabsf(gimbalAngle1 / kTableStepAngle);
+    const float motor1Remainder = fabsf(motor1Exact - motor1Rounded);
+
+    const float motor2Rounded = roundf(fabsf(gimbalAngle2 / kTableStepAngle));
+    const float motor2Exact = fabsf(gimbalAngle2 / kTableStepAngle);
+    const float motor2Remainder = fabsf(motor2Exact - motor2Rounded);
+
+    return motor1Remainder < kInterpolationRemainderTolerance && motor2Remainder < kInterpolationRemainderTolerance;
+}
+
+/*! This method determines if linear interpolation is required to obtain the motor angles.
+ @return bool
+ @param angle [rad]
+*/
+bool ThrustAxisToMotorAnglesAlgorithm::isLinearInterpolationRequired(const float angle) {
+    const float rounded = roundf(fabsf(angle / kTableStepAngle));
+    const float exact = fabsf(angle / kTableStepAngle);
+    const float remainder = fabsf(exact - rounded);
+
+    return remainder < kInterpolationRemainderTolerance;
+}
+
+/*! This method bilinearly interpolates the motor angles from the four surrounding interpolation-table entries. If
+any of the bounding motor angles are negative (an out-of-range table entry), the interpolation is flagged as
+invalid and zero motor angles are returned.
+ @return MotorAngles
+ @param gimbalAngle1 [rad]
+ @param gimbalAngle2 [rad]
+*/
+MotorAngles ThrustAxisToMotorAnglesAlgorithm::bilinearlyInterpolateMotorAngles(const float gimbalAngle1,
+                                                                               const float gimbalAngle2) const {
+    // Determine the bounding gimbal angles
+    const float gimbalAngle1LBound = kTableStepAngle * floorf(gimbalAngle1 / kTableStepAngle);
+    const float gimbalAngle1UBound = kTableStepAngle * ceilf(gimbalAngle1 / kTableStepAngle);
+    const float gimbalAngle2LBound = kTableStepAngle * floorf(gimbalAngle2 / kTableStepAngle);
+    const float gimbalAngle2UBound = kTableStepAngle * ceilf(gimbalAngle2 / kTableStepAngle);
+
+    // Determine the bounding motor angles
+    const MotorAngles motorLLBounds = this->pullAngles(gimbalAngle1LBound, gimbalAngle2LBound);
+    const MotorAngles motorLUBounds = this->pullAngles(gimbalAngle1LBound, gimbalAngle2UBound);
+    const MotorAngles motorULBounds = this->pullAngles(gimbalAngle1UBound, gimbalAngle2LBound);
+    const MotorAngles motorUUBounds = this->pullAngles(gimbalAngle1UBound, gimbalAngle2UBound);
+
+    // Interpolate the motor angles if all bounding angles are valid
+    MotorAngles motorAngles{.angle1 = kDefaultMotorAngle, .angle2 = kDefaultMotorAngle};
+    if (motorLLBounds.isValidInterpolation && motorLUBounds.isValidInterpolation &&
+        motorULBounds.isValidInterpolation && motorUUBounds.isValidInterpolation) {
+        const std::optional<float> motor1Angle = bilinearInterpolation(gimbalAngle1LBound,
+                                                                       gimbalAngle1UBound,
+                                                                       gimbalAngle2LBound,
+                                                                       gimbalAngle2UBound,
+                                                                       motorLLBounds.angle1,
+                                                                       motorLUBounds.angle1,
+                                                                       motorULBounds.angle1,
+                                                                       motorUUBounds.angle1,
+                                                                       gimbalAngle1,
+                                                                       gimbalAngle2);
+        const std::optional<float> motor2Angle = bilinearInterpolation(gimbalAngle1LBound,
+                                                                       gimbalAngle1UBound,
+                                                                       gimbalAngle2LBound,
+                                                                       gimbalAngle2UBound,
+                                                                       motorLLBounds.angle2,
+                                                                       motorLUBounds.angle2,
+                                                                       motorULBounds.angle2,
+                                                                       motorUUBounds.angle2,
+                                                                       gimbalAngle1,
+                                                                       gimbalAngle2);
+
+        if (motor1Angle.has_value() && motor2Angle.has_value()) {
+            motorAngles.angle1 = *motor1Angle;
+            motorAngles.angle2 = *motor2Angle;
+            motorAngles.isValidInterpolation = true;
+        }
+    }
+
+    return motorAngles;
+}
+
+/*! This method calls the linear interpolation function to interpolate the motor angles, given one fixed and one
+bounded gimbal angle. If both pulled motor angles are valid, linear interpolation is used to determine the motor
+angles. Otherwise, the interpolation is flagged as invalid and zero motor angles are returned.
+ @return MotorAngles
+ @param gimbalAngle1 [rad] Angle 1 for linear interpolation
+ @param gimbalAngle2 [rad] Angle 2 for linear interpolation
+ @param fixedAngle Angle that is fixed for linear interpolation
+*/
+MotorAngles ThrustAxisToMotorAnglesAlgorithm::linearlyInterpolateMotorAngles(const float gimbalAngle1,
+                                                                             const float gimbalAngle2,
+                                                                             const FixedAngle fixedAngle) const {
+    // Use the provided fixed angle to save the bounded angle (The bounded angle is the non-fixed angle)
+    float boundedAngle{};
+    if (fixedAngle == FixedAngle::ANGLE_1_FIXED) {
+        boundedAngle = gimbalAngle2;
+    } else {
+        boundedAngle = gimbalAngle1;
+    }
+
+    // Find the upper and lower interpolation table bounds for the bounded angle
+    const float gimbalAngleLBound = kTableStepAngle * floorf(boundedAngle / kTableStepAngle);
+    const float gimbalAngleUBound = kTableStepAngle * ceilf(boundedAngle / kTableStepAngle);
+
+    // Determine the bounding angles for linear interpolation
+    MotorAngles lowerMotorBounds{};
+    MotorAngles upperMotorBounds{};
+    if (fixedAngle == FixedAngle::ANGLE_1_FIXED) {
+        lowerMotorBounds = this->pullAngles(gimbalAngle1, gimbalAngleLBound);
+        upperMotorBounds = this->pullAngles(gimbalAngle1, gimbalAngleUBound);
+    } else {
+        lowerMotorBounds = this->pullAngles(gimbalAngleLBound, gimbalAngle2);
+        upperMotorBounds = this->pullAngles(gimbalAngleUBound, gimbalAngle2);
+    }
+
+    // Linearly interpolate if the pulled angles are valid
+    MotorAngles motorAngles{.angle1 = kDefaultMotorAngle, .angle2 = kDefaultMotorAngle};
+    if (lowerMotorBounds.isValidInterpolation && upperMotorBounds.isValidInterpolation) {
+        const std::optional<float> motor1Angle = linearInterpolation(
+            gimbalAngleLBound, gimbalAngleUBound, lowerMotorBounds.angle1, upperMotorBounds.angle1, boundedAngle);
+        const std::optional<float> motor2Angle = linearInterpolation(
+            gimbalAngleLBound, gimbalAngleUBound, lowerMotorBounds.angle2, upperMotorBounds.angle2, boundedAngle);
+
+        if (motor1Angle.has_value() && motor2Angle.has_value()) {
+            motorAngles.angle1 = *motor1Angle;
+            motorAngles.angle2 = *motor2Angle;
+            motorAngles.isValidInterpolation = true;
+        }
+    }
+
+    return motorAngles;
+}
