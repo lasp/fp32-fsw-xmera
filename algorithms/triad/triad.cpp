@@ -3,14 +3,10 @@
 
 #include "triad.h"
 #include "architecture/utilities/rigidBodyKinematics.hpp"
+#include "utilities/xmera/xmeraLifecycleException.h"
 #include <architecture/utilities/eigenSupport.h>
 #include <Eigen/Core>
 #include <stdexcept>
-
-class XmeraLifecycleException : public std::runtime_error {
-   public:
-    using runtime_error::runtime_error;
-};
 
 void Triad::reset(const uint64_t callTime) {
     if (!this->attNavInMsg.isLinked()) {
