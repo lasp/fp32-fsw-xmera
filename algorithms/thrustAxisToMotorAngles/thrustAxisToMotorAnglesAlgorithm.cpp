@@ -79,10 +79,20 @@ MotorAngles ThrustAxisToMotorAnglesAlgorithm::pullAngles(float gimbalAngle1, flo
 
     MotorAngles motorAngles{.angle1 = kDefaultMotorAngle, .angle2 = kDefaultMotorAngle};
     if (colIdx >= 0 && colIdx < kNumTableCols && rowIdx >= 0 && rowIdx < kNumTableRows) {
-        const float motor1Angle = this->cfg.getGimbalToMotor1AngleTable()[rowIdx][colIdx];
-        const float motor2Angle = this->cfg.getGimbalToMotor2AngleTable()[rowIdx][colIdx];
+        const int rowStartTableIndex = this->cfg.getRowStartStrideIndices()[rowIdx];
+        const int offsetIndex = colIdx - this->cfg.getRowStartColIndices()[rowIdx];
 
-        if (motor1Angle >= 0.0F && motor2Angle >= 0.0F) {
+        int rowLength{};
+        if (rowIdx != NUM_GIMBAL_TO_MOTOR_TABLE_ROWS - 1) {
+            rowLength = this->cfg.getRowStartStrideIndices()[rowIdx + 1] - this->cfg.getRowStartStrideIndices()[rowIdx];
+        } else {
+            rowLength = NUM_GIMBAL_TO_MOTOR_TABLE_ELEMENTS - this->cfg.getRowStartStrideIndices()[rowIdx];
+        }
+
+        if (offsetIndex < rowLength) {
+            const float motorAngleIndex = rowStartTableIndex + offsetIndex;
+            const float motor1Angle = this->cfg.getGimbalToMotor1AngleData()[motorAngleIndex];
+            const float motor2Angle = this->cfg.getGimbalToMotor2AngleData()[motorAngleIndex];
             motorAngles.angle1 = motor1Angle;
             motorAngles.angle2 = motor2Angle;
             motorAngles.isValidInterpolation = true;

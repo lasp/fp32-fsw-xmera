@@ -18,8 +18,10 @@ void ThrustAxisToMotorAngles::reset(uint64_t currentSimNanos) {
 
     const auto config = ThrustAxisToMotorAnglesConfig::create(this->dcm_MB,
                                                               StepperMotorAngleRange{this->minAngle, this->maxAngle},
-                                                              this->gimbalToMotor1AngleTable,
-                                                              this->gimbalToMotor2AngleTable);
+                                                              this->gimbalToMotor1AngleData,
+                                                              this->gimbalToMotor2AngleData,
+                                                              this->rowStartStrideIndices,
+                                                              this->rowStartColIndices);
     this->algorithm = std::make_unique<ThrustAxisToMotorAnglesAlgorithm>(config);
     this->previousWrittenTime = -1.0;
 }
@@ -27,8 +29,10 @@ void ThrustAxisToMotorAngles::reset(uint64_t currentSimNanos) {
 ThrustAxisToMotorAnglesConfig ThrustAxisToMotorAngles::toConfig() const {
     return ThrustAxisToMotorAnglesConfig::create(this->dcm_MB,
                                                  StepperMotorAngleRange{this->minAngle, this->maxAngle},
-                                                 this->gimbalToMotor1AngleTable,
-                                                 this->gimbalToMotor2AngleTable);
+                                                 this->gimbalToMotor1AngleData,
+                                                 this->gimbalToMotor2AngleData,
+                                                 this->rowStartStrideIndices,
+                                                 this->rowStartColIndices);
 }
 
 void ThrustAxisToMotorAngles::reconfigure() const {

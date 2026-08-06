@@ -5,12 +5,19 @@
 
 namespace {
 /*! Convert a C-shared table POD into the algorithm's std::array table type. */
-GimbalToMotorAngleTable toStdTable(const GimbalToMotorAngleTable_c* src) {
+GimbalToMotorAngleTable toStdTable(const GimbalToMotorAngleTableData_c* src) {
     GimbalToMotorAngleTable out{};
-    for (int row = 0; row < NUM_GIMBAL_TO_MOTOR_TABLE_ROWS; ++row) {
-        for (int col = 0; col < NUM_GIMBAL_TO_MOTOR_TABLE_COLS; ++col) {
-            out[row][col] = src->data[row][col];
-        }
+    for (std::size_t index = 0; index < out.size(); ++index) {
+        out[index] = src->data[index];
+    }
+    return out;
+}
+
+/*! Convert a C-shared table row index POD into the algorithm's std::array row layout type. */
+GimbalToMotorAngleTableRowLayout toStdRowLayout(const GimbalToMotorAngleTableRowIndexData_c* src) {
+    GimbalToMotorAngleTableRowLayout out{};
+    for (std::size_t index = 0; index < out.size(); ++index) {
+        out[index] = src->data[index];
     }
     return out;
 }
@@ -18,24 +25,35 @@ GimbalToMotorAngleTable toStdTable(const GimbalToMotorAngleTable_c* src) {
 /*! Build a validated Config from the C-shared configuration inputs. */
 ThrustAxisToMotorAnglesConfig makeConfig(const float dcm_MB[3][3],
                                          const MotorAngleRange_c* angleRange,
-                                         const GimbalToMotorAngleTable_c* gimbalToMotor1AngleTable,
-                                         const GimbalToMotorAngleTable_c* gimbalToMotor2AngleTable) {
+                                         const GimbalToMotorAngleTableData_c* gimbalToMotor1AngleTable,
+                                         const GimbalToMotorAngleTableData_c* gimbalToMotor2AngleTable,
+                                         const GimbalToMotorAngleTableRowIndexData_c* rowStartStrideIndices,
+                                         const GimbalToMotorAngleTableRowIndexData_c* rowStartColIndices) {
     const Eigen::Matrix3f dcm = cArrayToEigenMatrix3<float>(&dcm_MB[0][0]);
     return ThrustAxisToMotorAnglesConfig::create(dcm,
                                                  StepperMotorAngleRange{angleRange->minAngle, angleRange->maxAngle},
                                                  toStdTable(gimbalToMotor1AngleTable),
-                                                 toStdTable(gimbalToMotor2AngleTable));
+                                                 toStdTable(gimbalToMotor2AngleTable),
+                                                 toStdRowLayout(rowStartStrideIndices),
+                                                 toStdRowLayout(rowStartColIndices));
 }
 }  // namespace
 
 ThrustAxisToMotorAnglesAlgorithmHandle* ThrustAxisToMotorAnglesAlgorithm_create(
     const float dcm_MB[3][3],
     const MotorAngleRange_c* angleRange,
-    const GimbalToMotorAngleTable_c* gimbalToMotor1AngleTable,
-    const GimbalToMotorAngleTable_c* gimbalToMotor2AngleTable) {
+    const GimbalToMotorAngleTableData_c* gimbalToMotor1AngleTable,
+    const GimbalToMotorAngleTableData_c* gimbalToMotor2AngleTable,
+    const GimbalToMotorAngleTableRowIndexData_c* rowStartStrideIndices,
+    const GimbalToMotorAngleTableRowIndexData_c* rowStartColIndices) {
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-    return reinterpret_cast<ThrustAxisToMotorAnglesAlgorithmHandle*>(new ::ThrustAxisToMotorAnglesAlgorithm(
-        makeConfig(dcm_MB, angleRange, gimbalToMotor1AngleTable, gimbalToMotor2AngleTable)));
+    return reinterpret_cast<ThrustAxisToMotorAnglesAlgorithmHandle*>(
+        new ::ThrustAxisToMotorAnglesAlgorithm(makeConfig(dcm_MB,
+                                                          angleRange,
+                                                          gimbalToMotor1AngleTable,
+                                                          gimbalToMotor2AngleTable,
+                                                          rowStartStrideIndices,
+                                                          rowStartColIndices)));
 }
 
 void ThrustAxisToMotorAnglesAlgorithm_destroy(ThrustAxisToMotorAnglesAlgorithmHandle* self) {
@@ -46,11 +64,17 @@ void ThrustAxisToMotorAnglesAlgorithm_destroy(ThrustAxisToMotorAnglesAlgorithmHa
 void ThrustAxisToMotorAnglesAlgorithm_setConfig(ThrustAxisToMotorAnglesAlgorithmHandle* self,
                                                 const float dcm_MB[3][3],
                                                 const MotorAngleRange_c* angleRange,
-                                                const GimbalToMotorAngleTable_c* gimbalToMotor1AngleTable,
-                                                const GimbalToMotorAngleTable_c* gimbalToMotor2AngleTable) {
+                                                const GimbalToMotorAngleTableData_c* gimbalToMotor1AngleTable,
+                                                const GimbalToMotorAngleTableData_c* gimbalToMotor2AngleTable,
+                                                const GimbalToMotorAngleTableRowIndexData_c* rowStartStrideIndices,
+                                                const GimbalToMotorAngleTableRowIndexData_c* rowStartColIndices) {
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-    reinterpret_cast<::ThrustAxisToMotorAnglesAlgorithm*>(self)->setConfig(
-        makeConfig(dcm_MB, angleRange, gimbalToMotor1AngleTable, gimbalToMotor2AngleTable));
+    reinterpret_cast<::ThrustAxisToMotorAnglesAlgorithm*>(self)->setConfig(makeConfig(dcm_MB,
+                                                                                      angleRange,
+                                                                                      gimbalToMotor1AngleTable,
+                                                                                      gimbalToMotor2AngleTable,
+                                                                                      rowStartStrideIndices,
+                                                                                      rowStartColIndices));
 }
 
 ThrustAxisToMotorAnglesOutput ThrustAxisToMotorAnglesAlgorithm_update(

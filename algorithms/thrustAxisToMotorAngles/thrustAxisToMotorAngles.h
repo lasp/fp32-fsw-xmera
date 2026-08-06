@@ -28,10 +28,14 @@ class ThrustAxisToMotorAngles final : public SysModel {
     Eigen::Matrix3f dcm_MB = Eigen::Matrix3f::Identity();  //!< DCM from body frame to gimbal mount frame
     float minAngle{0.0F};                                  //!< [rad] lower bound of the motor travel range
     float maxAngle{2.0F * std::numbers::pi_v<float>};      //!< [rad] upper bound of the motor travel range
-    std::array<std::array<float, NUM_GIMBAL_TO_MOTOR_TABLE_COLS>, NUM_GIMBAL_TO_MOTOR_TABLE_ROWS>
-        gimbalToMotor1AngleTable{};  //!< [rad] Gimbal-to-motor 1 angle interpolation table
-    std::array<std::array<float, NUM_GIMBAL_TO_MOTOR_TABLE_COLS>, NUM_GIMBAL_TO_MOTOR_TABLE_ROWS>
-        gimbalToMotor2AngleTable{};  //!< [rad] Gimbal-to-motor 2 angle interpolation table
+    std::array<float, NUM_GIMBAL_TO_MOTOR_TABLE_ELEMENTS>
+        gimbalToMotor1AngleData{};  //!< [rad] Gimbal-to-motor 1 angle interpolation table
+    std::array<float, NUM_GIMBAL_TO_MOTOR_TABLE_ELEMENTS>
+        gimbalToMotor2AngleData{};  //!< [rad] Gimbal-to-motor 2 angle interpolation table
+    std::array<float, NUM_GIMBAL_TO_MOTOR_TABLE_ROWS>
+        rowStartStrideIndices{};  //!< [-] Stride indices for the starting location of the table rows
+    std::array<float, NUM_GIMBAL_TO_MOTOR_TABLE_ROWS>
+        rowStartColIndices{};  //!< [-] Column indices for the starting location of the table rows
 
     ReadFunctor<BodyHeadingMsgF32Payload>
         thrustDirectionInMsg;  //!< Input msg for the requested gimbal body-frame thrust direction vector

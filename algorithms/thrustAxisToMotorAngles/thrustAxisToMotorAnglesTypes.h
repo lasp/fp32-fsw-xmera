@@ -9,11 +9,17 @@ extern "C" {
 
 #define NUM_GIMBAL_TO_MOTOR_TABLE_ROWS 111
 #define NUM_GIMBAL_TO_MOTOR_TABLE_COLS 76
+#define NUM_GIMBAL_TO_MOTOR_TABLE_ELEMENTS 4086
 
-/*! @brief Bounded gimbal-to-motor interpolation table (C-shared POD). */
-typedef struct GimbalToMotorAngleTable_c {
-    float data[NUM_GIMBAL_TO_MOTOR_TABLE_ROWS][NUM_GIMBAL_TO_MOTOR_TABLE_COLS]; /*!< [rad] table entries */
-} GimbalToMotorAngleTable_c;
+/*! @brief POD representation of gimbal-to-motor interpolation table data. */
+typedef struct GimbalToMotorAngleTableData_c {
+    float data[NUM_GIMBAL_TO_MOTOR_TABLE_ELEMENTS]; /*!< [rad] motor angle entries */
+} GimbalToMotorAngleTableData_c;
+
+/*! @brief POD representation of gimbal-to-motor interpolation table row indices. */
+typedef struct GimbalToMotorAngleTableRowIndexData_c {
+    float data[NUM_GIMBAL_TO_MOTOR_TABLE_ROWS]; /*!< [rad] list of table row indices */
+} GimbalToMotorAngleTableRowIndexData_c;
 
 /*! @brief POD mirror of the C++ StepperMotorAngleRange (motor angular travel range [rad]). */
 typedef struct {
