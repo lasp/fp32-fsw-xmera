@@ -74,13 +74,13 @@ MotorAngles ThrustAxisToMotorAnglesAlgorithm::pullAngles(float gimbalAngle1, flo
     gimbalAngle1 += static_cast<float>(kTipColIdxOffset) * kTableStepAngle;
     gimbalAngle2 += static_cast<float>(kTiltRowIdxOffset) * kTableStepAngle;
 
-    const auto index1 = static_cast<int>(roundf(gimbalAngle1 / kTableStepAngle));
-    const auto index2 = static_cast<int>(roundf(gimbalAngle2 / kTableStepAngle));
+    const auto colIdx = static_cast<int>(roundf(gimbalAngle1 / kTableStepAngle));
+    const auto rowIdx = static_cast<int>(roundf(gimbalAngle2 / kTableStepAngle));
 
     MotorAngles motorAngles{.angle1 = kDefaultMotorAngle, .angle2 = kDefaultMotorAngle};
-    if (index1 >= 0 && index1 < kNumTableCols && index2 >= 0 && index2 < kNumTableRows) {
-        const float motor1Angle = this->cfg.getGimbalToMotor1AngleTable()[index2][index1];
-        const float motor2Angle = this->cfg.getGimbalToMotor2AngleTable()[index2][index1];
+    if (colIdx >= 0 && colIdx < kNumTableCols && rowIdx >= 0 && rowIdx < kNumTableRows) {
+        const float motor1Angle = this->cfg.getGimbalToMotor1AngleTable()[rowIdx][colIdx];
+        const float motor2Angle = this->cfg.getGimbalToMotor2AngleTable()[rowIdx][colIdx];
 
         if (motor1Angle >= 0.0F && motor2Angle >= 0.0F) {
             motorAngles.angle1 = motor1Angle;
