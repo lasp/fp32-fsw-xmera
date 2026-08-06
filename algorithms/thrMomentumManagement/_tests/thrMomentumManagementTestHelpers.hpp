@@ -5,6 +5,7 @@
 #include <gtest/gtest.h>
 
 #include <Eigen/Core>
+#include <algorithm>
 #include <cmath>
 #include <optional>
 #include <vector>
@@ -86,6 +87,80 @@ inline void testThrMomentumManagementSetup(float hsMin,
             EXPECT_NEAR(cfg.getRwArrayConfiguration().GsMatrix_B(k, i), expectedAxis[k], accuracy)
                 << "wheel " << i << " component " << k;
         }
+    }
+}
+
+// Net RW cluster momentum for a configuration and speed set, used by the fuzz properties below.
+inline Eigen::Vector3f clusterMomentum(const ThrMomentumManagementRwArrayConfiguration& rwArrayConfig,
+                                       const Eigen::Vector<float, kMaxNumRw>& wheelSpeeds) {
+    Eigen::Vector3f hs_B = Eigen::Vector3f::Zero();
+    for (uint32_t i = 0U; i < rwArrayConfig.numRW; ++i) {
+        hs_B += rwArrayConfig.JsList[i] * wheelSpeeds[i] * rwArrayConfig.GsMatrix_B.col(i);
+    }
+    return hs_B;
+}
+
+// Fuzz property: for any admissible three-wheel geometry the request is finite, and the momentum left
+// behind is exactly min(|hs|, hsMin) -- dumping brings the cluster down to the threshold and no further,
+// and leaves it untouched when already below.
+inline void propertyDumpLeavesMinOfMomentumAndThreshold(const Eigen::Vector3f& axis0,
+                                                        const Eigen::Vector3f& axis1,
+                                                        const Eigen::Vector3f& axis2,
+                                                        const Eigen::Vector3f& speeds,
+                                                        float js,
+                                                        float hsMin) {
+    // A spin axis too short to normalize has no defined direction; the config would reject it.
+    constexpr float degenerateTol = 1e-3F;
+    if (axis0.norm() < degenerateTol || axis1.norm() < degenerateTol || axis2.norm() < degenerateTol) {
+        return;
+    }
+
+    const auto rwArrayConfig = makeRwArrayConfig({axis0, axis1, axis2}, js);
+    const auto wheelSpeeds = makeWheelSpeeds({speeds[0], speeds[1], speeds[2]});
+
+    ThrMomentumManagementAlgorithm alg{ThrMomentumManagementConfig::create(hsMin, rwArrayConfig)};
+    const auto deltaH_B = alg.update(wheelSpeeds);
+
+    ASSERT_TRUE(deltaH_B.has_value());
+    ASSERT_TRUE(deltaH_B->allFinite());
+
+    const Eigen::Vector3f hs_B = clusterMomentum(rwArrayConfig, wheelSpeeds);
+    const float before = hs_B.norm();
+
+    // Negligible momentum takes the zero-tolerance branch, which deliberately declines to dump; that
+    // carve-out is pinned by the edge-case unit tests instead.
+    if (before < 1e-4F) {
+        return;
+    }
+
+    // FP32 error grows with the magnitude being cancelled, so scale the tolerance with it.
+    const float tol = 1e-4F * std::max(1.0F, before);
+    EXPECT_NEAR((hs_B + *deltaH_B).norm(), std::min(before, hsMin), tol);
+}
+
+// Fuzz regression: the algorithm must agree with the reference implementation on any admissible input.
+inline void regressionFuzzThrMomentumManagement(const Eigen::Vector3f& axis0,
+                                                const Eigen::Vector3f& axis1,
+                                                const Eigen::Vector3f& axis2,
+                                                const Eigen::Vector3f& speeds,
+                                                float js,
+                                                float hsMin) {
+    constexpr float degenerateTol = 1e-3F;
+    if (axis0.norm() < degenerateTol || axis1.norm() < degenerateTol || axis2.norm() < degenerateTol) {
+        return;
+    }
+
+    const auto rwArrayConfig = makeRwArrayConfig({axis0, axis1, axis2}, js);
+    const auto wheelSpeeds = makeWheelSpeeds({speeds[0], speeds[1], speeds[2]});
+
+    ThrMomentumManagementAlgorithm alg{ThrMomentumManagementConfig::create(hsMin, rwArrayConfig)};
+    const std::optional<Eigen::Vector3f> actual = alg.update(wheelSpeeds);
+    const std::optional<Eigen::Vector3f> expected = referenceDeltaH(rwArrayConfig, wheelSpeeds, hsMin);
+
+    ASSERT_EQ(actual.has_value(), expected.has_value());
+    const float tol = 1e-4F * std::max(1.0F, clusterMomentum(rwArrayConfig, wheelSpeeds).norm());
+    for (Eigen::Index i = 0; i < 3; ++i) {
+        EXPECT_NEAR((*actual)[i], (*expected)[i], tol) << "component " << i;
     }
 }
 
