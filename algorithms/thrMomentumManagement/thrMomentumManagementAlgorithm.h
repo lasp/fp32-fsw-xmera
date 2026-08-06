@@ -9,6 +9,7 @@
 
 #include <Eigen/Core>
 #include <optional>
+#include <utility>
 
 inline constexpr uint32_t kMaxNumRw = THR_MOMENTUM_MANAGEMENT_MAX_NUM_RW;  //!< [-] maximum number of reaction wheels
 
@@ -50,7 +51,7 @@ class ThrMomentumManagementConfig final {
             normalizedRwArrayConfig.GsMatrix_B.col(i).normalize();
         }
 
-        return {hsMin, normalizedRwArrayConfig};
+        return {hsMin, std::move(normalizedRwArrayConfig)};
     }
 
     static bool isValidHsMin(float hsMin) { return fsw::is_finite(hsMin) && hsMin >= 0.0F; }
@@ -74,8 +75,8 @@ class ThrMomentumManagementConfig final {
     const ThrMomentumManagementRwArrayConfiguration& getRwArrayConfiguration() const { return this->rwArrayConfig; }
 
    private:
-    ThrMomentumManagementConfig(float hsMin, const ThrMomentumManagementRwArrayConfiguration& rwArrayConfig)
-        : hsMin(hsMin), rwArrayConfig(rwArrayConfig) {}
+    ThrMomentumManagementConfig(float hsMin, ThrMomentumManagementRwArrayConfiguration rwArrayConfig)
+        : hsMin(hsMin), rwArrayConfig(std::move(rwArrayConfig)) {}
 
     float hsMin;                                              //!< [Nms] minimum RW cluster momentum for dumping
     ThrMomentumManagementRwArrayConfiguration rwArrayConfig;  //!< [-] RW spin axes and spin-axis inertias
