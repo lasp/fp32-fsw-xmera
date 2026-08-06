@@ -6,11 +6,12 @@
 #include "msgPayloadDef/RWArrayConfigMsgF32Payload.h"
 #include "msgPayloadDef/RWSpeedMsgF32Payload.h"
 #include "msgPayloadDef/VehicleConfigMsgF32Payload.h"
+#include "utilities/fsw/deviceAvailability.h"
 #include "utilities/fsw/eigenSupport.h"
 #include "utilities/fsw/freestandingInvalidArgument.h"
 #include "utilities/fsw/rigidBodyKinematics.hpp"
 #include <architecture/msgPayloadDef/RWAvailabilityMsgPayload.h>
-#include <fswAlgorithms/fswUtilities/fswDefinitions.h>
+
 #include <gtest/gtest.h>
 #include <Eigen/Core>
 #include <algorithm>

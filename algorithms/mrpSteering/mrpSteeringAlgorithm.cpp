@@ -1,7 +1,8 @@
 #include "mrpSteeringAlgorithm.h"
+#include "utilities/fsw/deviceAvailability.h"
 #include "utilities/fsw/rigidBodyKinematics.hpp"
 #include "utilities/fsw/safeMath.h"
-#include <fswAlgorithms/fswUtilities/fswDefinitions.h>
+
 #include <math.h>
 #include <Eigen/Core>
 #include <numbers>

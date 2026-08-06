@@ -2,9 +2,9 @@
 #define F32XMERA_RW_MOTOR_TORQUE_ALGORITHM_H
 
 #include "msgPayloadDef/definitions.h"
+#include "utilities/fsw/deviceAvailability.h"
 #include "utilities/fsw/freestandingInvalidArgument.h"
 #include "utilities/fsw/freestandingIsFinite.hpp"
-#include <fswAlgorithms/fswUtilities/fswDefinitions.h>
 
 #include <math.h>
 #include <Eigen/Core>

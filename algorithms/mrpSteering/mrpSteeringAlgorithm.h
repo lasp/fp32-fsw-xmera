@@ -2,7 +2,7 @@
 #define F32XMERA_MRP_STEERING_ALGORITHM_H
 
 #include "../msgPayloadDef/definitions.h"
-#include "fswAlgorithms/fswUtilities/fswDefinitions.h"
+#include "utilities/fsw/deviceAvailability.h"
 #include "utilities/fsw/freestandingInvalidArgument.h"
 #include "utilities/fsw/freestandingIsFinite.hpp"
 #include "utilities/fsw/validInertiaCheck.h"
