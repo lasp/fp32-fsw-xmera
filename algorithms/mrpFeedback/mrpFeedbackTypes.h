@@ -2,6 +2,7 @@
 #define F32XMERA_MRP_FEEDBACK_TYPES_H
 
 #include "msgPayloadDef/definitions.h"
+#include "utilities/fsw/deviceAvailability.h"
 #include "utilities/fsw/plainCAlgorithmDataTypes.h"
 
 #include <stdint.h>
@@ -24,10 +25,10 @@ typedef enum { CONTROL_LAW_TYPE_NORMAL_C = 0, CONTROL_LAW_TYPE_SIMPLE_INTEGRAL_C
  * unit vector; the spin axes are normalized when the configuration is built.
  */
 typedef struct {
-    uint32_t numRW;                        /*!< [-] number of reaction wheels on the vehicle */
-    float GsMatrix_B[3 * RW_EFF_CNT];      /*!< [-] RW spin axes in body frame, three per wheel */
-    float JsList[RW_EFF_CNT];              /*!< [kg*m^2] per-wheel spin-axis inertia */
-    int32_t wheelAvailability[RW_EFF_CNT]; /*!< [-] AVAILABLE / UNAVAILABLE state of each wheel */
+    uint32_t numRW;                                     /*!< [-] number of reaction wheels on the vehicle */
+    float GsMatrix_B[3 * RW_EFF_CNT];                   /*!< [-] RW spin axes in body frame, three per wheel */
+    float JsList[RW_EFF_CNT];                           /*!< [kg*m^2] per-wheel spin-axis inertia */
+    DeviceAvailability_c wheelAvailability[RW_EFF_CNT]; /*!< [-] AVAILABLE / UNAVAILABLE state of each wheel */
 } MrpFeedbackRwConfig_c;
 
 /**

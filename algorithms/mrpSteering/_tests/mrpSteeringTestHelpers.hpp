@@ -218,7 +218,7 @@ inline void testMrpSteering(const Eigen::Vector3f& sigma,
         rwInputData.numRW = static_cast<uint32_t>(numRW);
         for (std::size_t i = 0U; i < wheelAvailabilityBool.size() && i < maxRw; ++i) {
             if (wheelAvailabilityBool[i]) {
-                rwInputData.wheelAvailability[i] = UNAVAILABLE;
+                rwInputData.wheelAvailability[i] = fsw::DeviceAvailability::Unavailable;
             }
         }
 
@@ -267,7 +267,7 @@ inline void testMrpSteering(const Eigen::Vector3f& sigma,
     RWAvailabilityMsgPayload wheelsAvailabilityMsg{};
     for (std::size_t i = 0U; i < wheelAvailabilityBool.size() && i < maxRw; ++i) {
         if (wheelAvailabilityBool[i]) {
-            wheelsAvailabilityMsg.wheelAvailability[i] = UNAVAILABLE;
+            wheelsAvailabilityMsg.wheelAvailability[i] = FSWdeviceAvailability::UNAVAILABLE;
         }
     }
 

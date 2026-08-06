@@ -46,7 +46,7 @@ MrpFeedbackOutput MrpFeedbackAlgorithm::update(const MrpFeedbackInputGuidance& a
     if (rwConfiguration.has_value()) {
         const MrpFeedbackInputRwData& rwConfigParams = *rwConfiguration;
         for (uint32_t i = 0U; i < rwConfigParams.numRW; ++i) {
-            if (rwConfigParams.wheelAvailability.at(i) == AVAILABLE) {
+            if (rwConfigParams.wheelAvailability.at(i) == fsw::DeviceAvailability::Available) {
                 const Eigen::Vector3f G_s_B_i = rwConfigParams.GsMatrix_B.col(static_cast<int>(i));
                 const Eigen::Vector3f h_s_i =
                     rwConfigParams.JsList.at(i) * (omega_BN_B.dot(G_s_B_i) + wheelSpeeds.at(i)) * G_s_B_i;

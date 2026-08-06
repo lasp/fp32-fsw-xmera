@@ -15,7 +15,7 @@ struct RwMotorTorqueArrayConfiguration {
     uint32_t numRW{};  //!< [-] number of reaction wheels on the vehicle
     Eigen::Matrix<float, 3, kMaxNumRw> GsMatrix_B{
         Eigen::Matrix<float, 3, kMaxNumRw>::Zero()};  //!< [-] RW spin axes in body frame, one column per wheel
-    std::array<FSWdeviceAvailability, kMaxNumRw>
+    std::array<fsw::DeviceAvailability, RW_EFF_CNT>
         wheelAvailability{};  //!< [-] AVAILABLE / UNAVAILABLE state of each reaction wheel (fixed at reset)
 };
 

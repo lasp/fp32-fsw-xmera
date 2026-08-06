@@ -5,11 +5,11 @@
 #include "msgPayloadDef/AttGuidMsgF32Payload.h"
 #include "msgPayloadDef/CmdTorqueBodyMsgF32Payload.h"
 #include "msgPayloadDef/RWArrayConfigMsgF32Payload.h"
-#include "msgPayloadDef/RWAvailabilityMsgPayload.h"
 #include "msgPayloadDef/RWSpeedMsgF32Payload.h"
 #include "msgPayloadDef/VehicleConfigMsgF32Payload.h"
 #include "utilities/fsw/eigenSupport.h"
 #include "utilities/fsw/freestandingInvalidArgument.h"
+#include <architecture/msgPayloadDef/RWAvailabilityMsgPayload.h>
 #include <gtest/gtest.h>
 #include <Eigen/Core>
 #include <algorithm>
@@ -188,7 +188,7 @@ inline void testMrpFeedback(const Eigen::Vector3f& sigma,
         rwInputData.numRW = static_cast<uint32_t>(numRW);
         for (uint32_t i = 0U; i < wheelAvailabilityBool.size(); ++i) {
             if (wheelAvailabilityBool[i]) {
-                rwInputData.wheelAvailability[i] = UNAVAILABLE;
+                rwInputData.wheelAvailability[i] = fsw::DeviceAvailability::Unavailable;
             }
         }
 
@@ -229,7 +229,7 @@ inline void testMrpFeedback(const Eigen::Vector3f& sigma,
     RWAvailabilityMsgPayload wheelsAvailabilityMsg{};
     for (size_t i = 0U; i < wheelAvailabilityBool.size() && i < maxRw; ++i) {
         if (wheelAvailabilityBool[i]) {
-            wheelsAvailabilityMsg.wheelAvailability[i] = UNAVAILABLE;
+            wheelsAvailabilityMsg.wheelAvailability[i] = FSWdeviceAvailability::UNAVAILABLE;
         }
     }
 

@@ -1,6 +1,7 @@
 #include "mrpFeedback.h"
 
 #include "utilities/fsw/eigenSupport.h"
+#include "utilities/xmera/deviceAvailability.h"
 #include "utilities/xmera/xmeraLifecycleException.h"
 #include <algorithm>
 #include <array>
@@ -33,9 +34,9 @@ MrpFeedbackConfig MrpFeedback::toConfig() {
         rwData.numRW = static_cast<uint32_t>(rwConfigParams.numRW);
         if (this->rwAvailInMsg.isLinked()) {
             const RWAvailabilityMsgPayload availabilityMsg = this->rwAvailInMsg();
-            std::copy(std::begin(availabilityMsg.wheelAvailability),
-                      std::end(availabilityMsg.wheelAvailability),
-                      std::begin(rwData.wheelAvailability));
+            std::ranges::transform(availabilityMsg.wheelAvailability,
+                                   std::begin(rwData.wheelAvailability),
+                                   [](const auto& sourceElement) { return fsw::mapStatus(sourceElement); });
         }
         rwConfiguration = rwData;
     }

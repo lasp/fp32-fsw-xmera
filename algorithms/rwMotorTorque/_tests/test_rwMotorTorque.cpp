@@ -195,9 +195,9 @@ TEST(RwMotorTorqueTest, AllWheelsUnavailableRejected) {
     rwConfiguration.GsMatrix_B.col(1) = Eigen::Vector3f{0.0F, 1.0F, 0.0F};
     rwConfiguration.GsMatrix_B.col(2) = Eigen::Vector3f{0.0F, 0.0F, 1.0F};
 
-    rwConfiguration.wheelAvailability[0] = UNAVAILABLE;
-    rwConfiguration.wheelAvailability[1] = UNAVAILABLE;
-    rwConfiguration.wheelAvailability[2] = UNAVAILABLE;
+    rwConfiguration.wheelAvailability[0] = fsw::DeviceAvailability::Unavailable;
+    rwConfiguration.wheelAvailability[1] = fsw::DeviceAvailability::Unavailable;
+    rwConfiguration.wheelAvailability[2] = fsw::DeviceAvailability::Unavailable;
 
     EXPECT_THROW(RwMotorTorqueConfig::create(makeControlAxes(3U), rwConfiguration), fsw::invalid_argument);
 }

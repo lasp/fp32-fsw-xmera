@@ -1,5 +1,6 @@
 #include "mrpSteering.h"
 #include "utilities/fsw/eigenSupport.h"
+#include "utilities/xmera/deviceAvailability.h"
 #include "utilities/xmera/xmeraLifecycleException.h"
 #include <algorithm>
 #include <optional>
@@ -34,9 +35,9 @@ void MrpSteering::reset(const uint64_t callTime) {
         rwData.numRW = static_cast<uint32_t>(rwConfigParams.numRW);
         if (this->rwAvailInMsg.isLinked()) {
             const RWAvailabilityMsgPayload wheelAvailabilityMsg = this->rwAvailInMsg();
-            std::copy(std::begin(wheelAvailabilityMsg.wheelAvailability),
-                      std::end(wheelAvailabilityMsg.wheelAvailability),
-                      std::begin(rwData.wheelAvailability));
+            std::ranges::transform(wheelAvailabilityMsg.wheelAvailability,
+                                   std::begin(rwData.wheelAvailability),
+                                   [](const auto& sourceElement) { return fsw::mapStatus(sourceElement); });
         }
         rwConfiguration = rwData;
     }
@@ -69,9 +70,9 @@ MrpSteeringConfig MrpSteering::toConfig() {
         rwData.numRW = static_cast<uint32_t>(rwConfigParams.numRW);
         if (this->rwAvailInMsg.isLinked()) {
             const RWAvailabilityMsgPayload wheelAvailabilityMsg = this->rwAvailInMsg();
-            std::copy(std::begin(wheelAvailabilityMsg.wheelAvailability),
-                      std::end(wheelAvailabilityMsg.wheelAvailability),
-                      std::begin(rwData.wheelAvailability));
+            std::ranges::transform(wheelAvailabilityMsg.wheelAvailability,
+                                   std::begin(rwData.wheelAvailability),
+                                   [](const auto& sourceElement) { return fsw::mapStatus(sourceElement); });
         }
         rwConfiguration = rwData;
     }

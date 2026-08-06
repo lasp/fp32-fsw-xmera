@@ -2,8 +2,8 @@
 #define F32XMERA_MRP_STEERING_TYPES_H
 
 #include "msgPayloadDef/definitions.h"
+#include "utilities/fsw/deviceAvailability.h"
 #include "utilities/fsw/plainCAlgorithmDataTypes.h"
-#include <fswAlgorithms/fswUtilities/fswDefinitions.h>
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -33,10 +33,10 @@ typedef struct {
  * unit vector; the spin axes are normalized when the configuration is built.
  */
 typedef struct {
-    uint32_t numRW;                                      /*!< [-] number of reaction wheels on the vehicle */
-    float GsMatrix_B[3 * RW_EFF_CNT];                    /*!< [-] RW spin axes in body frame, three per wheel */
-    float JsList[RW_EFF_CNT];                            /*!< [kg*m^2] per-wheel spin-axis inertia */
-    FSWdeviceAvailability wheelAvailability[RW_EFF_CNT]; /*!< [-] AVAILABLE / UNAVAILABLE state of each wheel */
+    uint32_t numRW;                                     /*!< [-] number of reaction wheels on the vehicle */
+    float GsMatrix_B[3 * RW_EFF_CNT];                   /*!< [-] RW spin axes in body frame, three per wheel */
+    float JsList[RW_EFF_CNT];                           /*!< [kg*m^2] per-wheel spin-axis inertia */
+    DeviceAvailability_c wheelAvailability[RW_EFF_CNT]; /*!< [-] AVAILABLE / UNAVAILABLE state of each wheel */
 } MrpSteeringRwConfig_c;
 
 /**

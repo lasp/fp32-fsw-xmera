@@ -5,6 +5,7 @@
 
 #include "rwMotorTorque.h"
 #include "utilities/fsw/eigenSupport.h"
+#include "utilities/xmera/deviceAvailability.h"
 #include "utilities/xmera/xmeraLifecycleException.h"
 
 #include <stdexcept>
@@ -30,9 +31,9 @@ void RwMotorTorque::reset(const uint64_t callTime) {
     rwConfiguration.numRW = static_cast<uint32_t>(rwParams.numRW);
     rwConfiguration.GsMatrix_B = cArrayToEigenMatrix<float, 3, kMaxNumRw>(rwParams.GsMatrix_B);
     if (this->rwAvailInMsg.isLinked()) {
-        const RWAvailabilityMsgPayload wheelsAvailability = this->rwAvailInMsg();
+        const auto [wheelAvailability] = this->rwAvailInMsg();
         for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
-            rwConfiguration.wheelAvailability[i] = wheelsAvailability.wheelAvailability[i];
+            rwConfiguration.wheelAvailability[i] = fsw::mapStatus(wheelAvailability[i]);
         }
     }
 
@@ -51,7 +52,7 @@ RwMotorTorqueConfig RwMotorTorque::toConfig() {
     if (this->rwAvailInMsg.isLinked()) {
         const RWAvailabilityMsgPayload wheelsAvailability = this->rwAvailInMsg();
         for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
-            rwConfiguration.wheelAvailability[i] = wheelsAvailability.wheelAvailability[i];
+            rwConfiguration.wheelAvailability[i] = fsw::mapStatus(wheelsAvailability.wheelAvailability[i]);
         }
     }
 

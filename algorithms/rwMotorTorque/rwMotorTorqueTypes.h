@@ -2,8 +2,8 @@
 #define F32XMERA_RW_MOTOR_TORQUE_TYPES_H
 
 #include "msgPayloadDef/definitions.h"
+#include "utilities/fsw/deviceAvailability.h"
 #include "utilities/fsw/plainCAlgorithmDataTypes.h"
-#include <fswAlgorithms/fswUtilities/fswDefinitions.h>
 
 #include <stdint.h>
 
@@ -15,9 +15,9 @@ extern "C" {
  * @brief Plain-old-data mirror of the C++ RwMotorTorqueArrayConfiguration.
  */
 typedef struct {
-    uint32_t numRW;                                      /*!< [-]   number of reaction wheels on the vehicle */
-    float GsMatrix_B[3 * RW_EFF_CNT];                    /*!< [-]   RW spin axes in body frame, three per wheel */
-    FSWdeviceAvailability wheelAvailability[RW_EFF_CNT]; /*!< [-]   AVAILABLE / UNAVAILABLE state of each wheel */
+    uint32_t numRW;                                     /*!< [-]   number of reaction wheels on the vehicle */
+    float GsMatrix_B[3 * RW_EFF_CNT];                   /*!< [-]   RW spin axes in body frame, three per wheel */
+    DeviceAvailability_c wheelAvailability[RW_EFF_CNT]; /*!< [-]   AVAILABLE / UNAVAILABLE state of each wheel */
 } RwMotorTorqueArrayConfiguration_c;
 
 /**
