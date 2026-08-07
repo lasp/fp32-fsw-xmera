@@ -90,7 +90,7 @@ TEST(ForceTorqueThrForceMappingTest, ConfigValidationAndRoundTrip) {
     EXPECT_THROW(ForceTorqueThrForceMappingConfig::create(bad, CoM, kNoAxisAssertion), fsw::invalid_argument);
 
     bad = config;
-    bad.numThrusters = MAX_EFF_CNT + 1U;
+    bad.numThrusters = kMaxThrusterCount + 1U;
     EXPECT_THROW(ForceTorqueThrForceMappingConfig::create(bad, CoM, kNoAxisAssertion), fsw::invalid_argument);
 
     bad = config;
@@ -192,9 +192,9 @@ TEST(ForceTorqueThrForceMappingTest, UnbalancedLayoutAchievedFTDiffersFromComman
     // commanded (1, 0, 0, 0, 0, 0) on every component.
     const Eigen::Vector3f cmdTorque{1.0F, 0.0F, 0.0F};
     const Eigen::Vector3f cmdForce = Eigen::Vector3f::Zero();
-    const Eigen::Vector<float, MAX_EFF_CNT> out = alg.update(cmdTorque, cmdForce);
+    const Eigen::Vector<float, kMaxThrusterCount> out = alg.update(cmdTorque, cmdForce);
 
-    const Eigen::Matrix<float, 6, MAX_EFF_CNT> DG = buildDG(config, Eigen::Vector3f::Zero());
+    const Eigen::Matrix<float, 6, kMaxThrusterCount> DG = buildDG(config, Eigen::Vector3f::Zero());
     const Eigen::Vector<float, 6> achieved = DG * out;
     Eigen::Vector<float, 6> cmd;
     cmd << cmdTorque, cmdForce;
@@ -218,8 +218,8 @@ TEST(ForceTorqueThrForceMappingTest, ZeroCommandProducesZeroOutput) {
     }
     ForceTorqueThrForceMappingAlgorithm alg = makeMappingAlgorithm(config, {0.1F, 0.1F, 0.1F});
 
-    const Eigen::Vector<float, MAX_EFF_CNT> out = alg.update(Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero());
-    for (int i = 0; i < MAX_EFF_CNT; ++i) {
+    const Eigen::Vector<float, kMaxThrusterCount> out = alg.update(Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero());
+    for (int i = 0; i < kMaxThrusterCount; ++i) {
         EXPECT_NEAR(out[i], 0.0F, 1e-6F);
     }
 }
@@ -239,8 +239,8 @@ TEST(ForceTorqueThrForceMappingTest, AllThrustersParallel) {
     ASSERT_TRUE(buildThrusterConfig(4U, positions, directions, config));
     ForceTorqueThrForceMappingAlgorithm alg = makeMappingAlgorithm(config, Eigen::Vector3f::Zero());
 
-    const Eigen::Vector<float, MAX_EFF_CNT> out = alg.update(Eigen::Vector3f::Zero(), {1.0F, 0.0F, 0.0F});
-    for (int i = 0; i < MAX_EFF_CNT; ++i) {
+    const Eigen::Vector<float, kMaxThrusterCount> out = alg.update(Eigen::Vector3f::Zero(), {1.0F, 0.0F, 0.0F});
+    for (int i = 0; i < kMaxThrusterCount; ++i) {
         EXPECT_NEAR(out[i], 0.0F, 1e-6F);
     }
 }
@@ -256,37 +256,37 @@ TEST(ForceTorqueThrForceMappingTest, CoMCoincidesWithThruster) {
     ASSERT_TRUE(buildThrusterConfig(2U, positions, directions, config));
     ForceTorqueThrForceMappingAlgorithm alg = makeMappingAlgorithm(config, {0.5F, 0.0F, 0.0F});
 
-    const Eigen::Vector<float, MAX_EFF_CNT> out = alg.update(Eigen::Vector3f::Zero(), {0.0F, 1.0F, 0.0F});
+    const Eigen::Vector<float, kMaxThrusterCount> out = alg.update(Eigen::Vector3f::Zero(), {0.0F, 1.0F, 0.0F});
     EXPECT_NEAR(out[0], 1.0F, 1e-5F);
     EXPECT_NEAR(out[1], 0.0F, 1e-5F);
-    for (int i = 2; i < MAX_EFF_CNT; ++i) {
+    for (int i = 2; i < kMaxThrusterCount; ++i) {
         EXPECT_FLOAT_EQ(out[i], 0.0F);
     }
 }
 
-// Smoke test at full MAX_EFF_CNT capacity. Positions and directions are arbitrary but
+// Smoke test at full kMaxThrusterCount capacity. Positions and directions are arbitrary but
 // well-conditioned — asserts no buffer overruns and a finite output over the full 36-thruster array.
 TEST(ForceTorqueThrForceMappingTest, MaxThrusterCount) {
-    std::vector<Eigen::Vector3f> positions(MAX_EFF_CNT);
-    std::vector<Eigen::Vector3f> directions(MAX_EFF_CNT);
-    for (int i = 0; i < MAX_EFF_CNT; ++i) {
+    std::vector<Eigen::Vector3f> positions(kMaxThrusterCount);
+    std::vector<Eigen::Vector3f> directions(kMaxThrusterCount);
+    for (int i = 0; i < kMaxThrusterCount; ++i) {
         const float theta = static_cast<float>(i) * 0.175F;
         positions[static_cast<std::size_t>(i)] = {std::cos(theta), std::sin(theta), 0.1F * static_cast<float>(i % 5)};
         directions[static_cast<std::size_t>(i)] = {-std::sin(theta), std::cos(theta), 0.0F};
     }
-    propertyFiniteOutput(static_cast<std::uint32_t>(MAX_EFF_CNT),
+    propertyFiniteOutput(static_cast<std::uint32_t>(kMaxThrusterCount),
                          positions,
                          directions,
                          {0.0F, 0.0F, 0.0F},
                          {0.3F, 0.2F, 0.1F},
                          {1.0F, 0.5F, 0.2F});
-    propertyNonNegativeForces(static_cast<std::uint32_t>(MAX_EFF_CNT),
+    propertyNonNegativeForces(static_cast<std::uint32_t>(kMaxThrusterCount),
                               positions,
                               directions,
                               {0.0F, 0.0F, 0.0F},
                               {0.3F, 0.2F, 0.1F},
                               {1.0F, 0.5F, 0.2F});
-    propertyPaddingIsZero(static_cast<std::uint32_t>(MAX_EFF_CNT),
+    propertyPaddingIsZero(static_cast<std::uint32_t>(kMaxThrusterCount),
                           positions,
                           directions,
                           {0.0F, 0.0F, 0.0F},
@@ -314,8 +314,8 @@ TEST(ForceTorqueThrForceMappingTest, CommandOnUncontrollableAxis) {
     ASSERT_TRUE(buildThrusterConfig(8U, rcsPositions1(), rcsDirections1(), config));
     ForceTorqueThrForceMappingAlgorithm alg = makeMappingAlgorithm(config, {0.1F, 0.1F, 0.1F});
 
-    const Eigen::Vector<float, MAX_EFF_CNT> out = alg.update(Eigen::Vector3f::Zero(), {1.0F, 0.0F, 0.0F});
-    for (int i = 0; i < MAX_EFF_CNT; ++i) {
+    const Eigen::Vector<float, kMaxThrusterCount> out = alg.update(Eigen::Vector3f::Zero(), {1.0F, 0.0F, 0.0F});
+    for (int i = 0; i < kMaxThrusterCount; ++i) {
         EXPECT_NEAR(out[i], 0.0F, 1e-5F);
     }
 }

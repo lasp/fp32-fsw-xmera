@@ -5,7 +5,7 @@
 
 /*! @brief Structure used to define the output definition for vehicle effectors*/
 typedef struct {
-    float onTimeRequest[MAX_EFF_CNT];  //!< - Control request fraction array
+    float onTimeRequest[kMaxThrusterCount];  //!< - Control request fraction array
 } THRArrayOnTimeCmdMsgF32Payload;
 
 #endif

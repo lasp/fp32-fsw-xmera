@@ -14,7 +14,7 @@ typedef struct ThrFiringRemainderAlgorithmHandle ThrFiringRemainderAlgorithmHand
 
 /**
  * @brief Get the maximum thruster count constant for validation.
- * @return The maximum thruster count (MAX_EFF_CNT).
+ * @return The maximum thruster count (kMaxThrusterCount).
  */
 uint32_t ThrFiringRemainderAlgorithm_getMaxThrusterCount(void);
 

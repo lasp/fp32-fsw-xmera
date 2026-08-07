@@ -87,7 +87,7 @@ TEST_P(ThrFiringRemainderTest, ComputesCorrectOnTimes) {
 
     // Use seeded RNG for reproducibility
     std::mt19937 rng(kRandomSeed);
-    std::uniform_int_distribution<size_t> numThrustersDist(1, MAX_EFF_CNT);
+    std::uniform_int_distribution<size_t> numThrustersDist(1, kMaxThrusterCount);
     const size_t numThrusters = numThrustersDist(rng);
 
     // Generate thruster configuration and forces
