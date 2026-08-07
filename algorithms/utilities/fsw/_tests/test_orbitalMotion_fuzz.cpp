@@ -370,6 +370,77 @@ void fuzzNearParabolicCartesianFinite(double e, double f) {
 FUZZ_TEST(OrbitalMotionFuzz, fuzzNearParabolicCartesianFinite)
     .WithDomains(fuzztest::InRange(0.9, 0.9999), fuzztest::InRange(0.0, 1.0));
 
+// Exactly parabolic (a = 0): orbit equation r = p / (1 + cos f), p = radiusPeriapsis * 2,
+// and zero specific energy v^2/2 - mu/r = 0.
+void fuzzExactParabolicOrbitEquation(double radiusPeriapsis, double i, double Omega, double omega, double f) {
+    ClassicalElements el;
+    el.semiMajorAxis = 0.0;
+    el.eccentricity = 1.0;
+    el.inclination = i;
+    el.rightAscensionAscendingNode = Omega;
+    el.argPeriapsis = omega;
+    el.trueAnomaly = f;
+    el.radiusPeriapsis = radiusPeriapsis;
+
+    const CartesianState state = orbitalMotion::elementsToCartesianState(kMu, el);
+    for (int j = 0; j < 3; ++j) {
+        ASSERT_TRUE(std::isfinite(state.position[j])) << "position[" << j << ']';
+        ASSERT_TRUE(std::isfinite(state.velocity[j])) << "velocity[" << j << ']';
+    }
+
+    const double r = state.position.norm();
+    const double p = radiusPeriapsis * 2.0;  // p = radiusPeriapsis * (1 + e), e == 1
+    const double r_expected = p / (1.0 + std::cos(f));
+    EXPECT_NEAR(r, r_expected, r_expected * kStateRelTol);
+
+    const double energy = state.velocity.squaredNorm() / 2.0 - kMu / r;
+    EXPECT_NEAR(energy, 0.0, (kMu / r) * kStateRelTol);
+}
+FUZZ_TEST(OrbitalMotionFuzz, fuzzExactParabolicOrbitEquation)
+    .WithDomains(fuzztest::InRange(1.0e5, 1.0e8),
+                 fuzztest::InRange(0.0, M_PI),
+                 fuzztest::InRange(0.0, 2 * M_PI),
+                 fuzztest::InRange(0.0, 2 * M_PI),
+                 fuzztest::InRange(-2.5, 2.5));
+
+// Angles are periodic in 2*pi, but cartesianStateToElements normalizes RAAN,
+// argPeriapsis, and trueAnomaly to [0, 2*pi).
+double angleDifference(double a, double b) {
+    double diff = std::fmod(a - b, 2.0 * M_PI);
+    if (diff > M_PI) diff -= 2.0 * M_PI;
+    if (diff < -M_PI) diff += 2.0 * M_PI;
+    return std::abs(diff);
+}
+
+// Exactly parabolic (a = 0) round-trip: elementsToCartesian -> cartesianToElements must
+// recover eccentricity, inclination, RAAN, argPeriapsis, and trueAnomaly.
+void fuzzExactParabolicElementsRoundTrip(double radiusPeriapsis, double i, double Omega, double omega, double f) {
+    ClassicalElements in;
+    in.semiMajorAxis = 0.0;
+    in.eccentricity = 1.0;
+    in.inclination = i;
+    in.rightAscensionAscendingNode = Omega;
+    in.argPeriapsis = omega;
+    in.trueAnomaly = f;
+    in.radiusPeriapsis = radiusPeriapsis;
+
+    const CartesianState state = orbitalMotion::elementsToCartesianState(kMu, in);
+    const ClassicalElements out = orbitalMotion::cartesianStateToElements(kMu, state.position, state.velocity);
+
+    EXPECT_DOUBLE_EQ(out.semiMajorAxis, 0.0);
+    EXPECT_NEAR(out.eccentricity, in.eccentricity, kStateRelTol);
+    EXPECT_NEAR(out.inclination, in.inclination, kStateRelTol);
+    EXPECT_LE(angleDifference(out.rightAscensionAscendingNode, in.rightAscensionAscendingNode), kStateRelTol);
+    EXPECT_LE(angleDifference(out.argPeriapsis, in.argPeriapsis), kStateRelTol);
+    EXPECT_LE(angleDifference(out.trueAnomaly, in.trueAnomaly), kStateRelTol);
+}
+FUZZ_TEST(OrbitalMotionFuzz, fuzzExactParabolicElementsRoundTrip)
+    .WithDomains(fuzztest::InRange(1.0e5, 1.0e8),
+                 fuzztest::InRange(0.05, M_PI - 0.05),
+                 fuzztest::InRange(0.0, 2 * M_PI),
+                 fuzztest::InRange(0.0, 2 * M_PI),
+                 fuzztest::InRange(-2.5, 2.5));
+
 // Hyperbolic anomaly functions must stay finite for e just above 1.
 void fuzzNearParabolicHyperbolicAnomalyFinite(double H, double e) {
     const double N = orbitalMotion::hyperbolicToMeanAnomaly(H, e);

@@ -335,6 +335,104 @@ TEST_F(StateConversionTest, ElementsToCartesian_RoundTrip) {
     EXPECT_NEAR(state.velocity.z(), v_original.z(), std::abs(v_original.z()) * kStateRelTol + kAnomalyTol);
 }
 
+// Parabolic branch (a = 0): round-trip recovers the original position and velocity.
+TEST_F(StateConversionTest, ParabolicRoundTrip_VelocityMatchesOriginal) {
+    // Escape speed => exactly parabolic (alpha = 0).
+    const double r0 = 7000000.0;
+    const double v0 = std::sqrt(2.0 * mu / r0);
+    const Eigen::Vector3d r_original(r0, 0.0, 0.0);
+    const Eigen::Vector3d v_original(0.0, v0, 0.0);
+
+    ClassicalElements elements = orbitalMotion::cartesianStateToElements(mu, r_original, v_original);
+    ASSERT_DOUBLE_EQ(elements.semiMajorAxis, 0.0) << "test setup must actually hit the parabolic (a=0) case";
+
+    CartesianState state = orbitalMotion::elementsToCartesianState(mu, elements);
+
+    EXPECT_NEAR(state.position.x(), r_original.x(), std::abs(r_original.x()) * kStateRelTol + kAnomalyTol);
+    EXPECT_NEAR(state.position.y(), r_original.y(), std::abs(r_original.y()) * kStateRelTol + kAnomalyTol);
+    EXPECT_NEAR(state.position.z(), r_original.z(), std::abs(r_original.z()) * kStateRelTol + kAnomalyTol);
+    EXPECT_NEAR(state.velocity.x(), v_original.x(), std::abs(v_original.x()) * kStateRelTol + kAnomalyTol);
+    EXPECT_NEAR(state.velocity.y(), v_original.y(), std::abs(v_original.y()) * kStateRelTol + kAnomalyTol);
+    EXPECT_NEAR(state.velocity.z(), v_original.z(), std::abs(v_original.z()) * kStateRelTol + kAnomalyTol);
+}
+
+// Direct construction at periapsis: r = radiusPeriapsis, v^2 = 2 * mu / r.
+TEST_F(StateConversionTest, ParabolicOrbit_DirectConstruction_VisViva) {
+    ClassicalElements elements;
+    elements.semiMajorAxis = 0.0;
+    elements.eccentricity = 1.0;
+    elements.inclination = 0.0;
+    elements.rightAscensionAscendingNode = 0.0;
+    elements.argPeriapsis = 0.0;
+    elements.trueAnomaly = 0.0;
+    elements.radiusPeriapsis = 7000000.0;
+
+    CartesianState state = orbitalMotion::elementsToCartesianState(mu, elements);
+    for (int j = 0; j < 3; ++j) {
+        ASSERT_TRUE(std::isfinite(state.position[j]));
+        ASSERT_TRUE(std::isfinite(state.velocity[j]));
+    }
+
+    double const r = state.position.norm();
+    double const v = state.velocity.norm();
+    EXPECT_NEAR(r, elements.radiusPeriapsis, elements.radiusPeriapsis * kStateRelTol);
+    EXPECT_NEAR(v * v, 2.0 * mu / r, (2.0 * mu / r) * kStateRelTol);
+}
+
+// Away from periapsis: r = p / (1 + e*cos f), p = radiusPeriapsis * (1 + e).
+TEST_F(StateConversionTest, ParabolicOrbit_NonZeroTrueAnomaly_MatchesConicEquation) {
+    ClassicalElements elements;
+    elements.semiMajorAxis = 0.0;
+    elements.eccentricity = 1.0;
+    elements.inclination = 0.0;
+    elements.rightAscensionAscendingNode = 0.0;
+    elements.argPeriapsis = 0.0;
+    elements.trueAnomaly = M_PI / 3.0;
+    elements.radiusPeriapsis = 7000000.0;
+
+    CartesianState state = orbitalMotion::elementsToCartesianState(mu, elements);
+    for (int j = 0; j < 3; ++j) {
+        ASSERT_TRUE(std::isfinite(state.position[j]));
+        ASSERT_TRUE(std::isfinite(state.velocity[j]));
+    }
+
+    double const p = elements.radiusPeriapsis * (1.0 + elements.eccentricity);
+    double const r_expected = p / (1.0 + elements.eccentricity * std::cos(elements.trueAnomaly));
+    double const r = state.position.norm();
+    double const v = state.velocity.norm();
+    EXPECT_NEAR(r, r_expected, r_expected * kStateRelTol);
+    EXPECT_NEAR(v * v, 2.0 * mu / r, (2.0 * mu / r) * kStateRelTol);
+}
+
+// Rotated orbit round-trip: cartesianStateToElements recovers e, i, RAAN, argPeriapsis, f.
+TEST_F(StateConversionTest, ParabolicOrbit_RotatedFrame_RoundTrip) {
+    ClassicalElements elements;
+    elements.semiMajorAxis = 0.0;
+    elements.eccentricity = 1.0;
+    elements.inclination = 0.5;
+    elements.rightAscensionAscendingNode = 0.3;
+    elements.argPeriapsis = 0.8;
+    elements.trueAnomaly = M_PI / 4.0;
+    elements.radiusPeriapsis = 6800000.0;
+
+    CartesianState state = orbitalMotion::elementsToCartesianState(mu, elements);
+    for (int j = 0; j < 3; ++j) {
+        ASSERT_TRUE(std::isfinite(state.position[j]));
+        ASSERT_TRUE(std::isfinite(state.velocity[j]));
+    }
+
+    double const r = state.position.norm();
+    double const v = state.velocity.norm();
+    EXPECT_NEAR(v * v, 2.0 * mu / r, (2.0 * mu / r) * kStateRelTol);
+
+    ClassicalElements result = orbitalMotion::cartesianStateToElements(mu, state.position, state.velocity);
+    EXPECT_NEAR(result.eccentricity, elements.eccentricity, kStateRelTol);
+    EXPECT_NEAR(result.inclination, elements.inclination, kStateRelTol);
+    EXPECT_NEAR(result.rightAscensionAscendingNode, elements.rightAscensionAscendingNode, kStateRelTol);
+    EXPECT_NEAR(result.argPeriapsis, elements.argPeriapsis, kStateRelTol);
+    EXPECT_NEAR(result.trueAnomaly, elements.trueAnomaly, kStateRelTol);
+}
+
 TEST_F(StateConversionTest, EquatorialOrbit_NoRAANAmbiguity) {
     ClassicalElements elements;
     elements.semiMajorAxis = 7000000.0;

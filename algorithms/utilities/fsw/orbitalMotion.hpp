@@ -157,9 +157,7 @@ inline double meanToHyperbolicAnomaly(const double N, const double e) {
 }
 
 /*! @brief Convert classical orbital elements to a Cartesian position/velocity state.
- *         Divides by h = sqrt(mu * semiMajorAxis * (1 - eccentricity^2)); a degenerate
- *         input (e.g. semiMajorAxis == 0, as produced for a parabolic orbit by
- *         cartesianStateToElements) drives h to 0 and yields an infinite/NaN velocity.
+ *         p is computed differently for parabolic orbit, indicated by semiMajorAxis = 0.
  *  @param mu Gravitational parameter of the central body
  *  @param elements Classical orbital elements
  *  @return Cartesian position and velocity
@@ -172,7 +170,7 @@ inline CartesianState elementsToCartesianState(double const mu, const ClassicalE
     double const omega = elements.argPeriapsis;
     double const f = elements.trueAnomaly;
 
-    double const p = a * (1 - e * e);
+    double const p = a != 0.0 ? a * (1 - e * e) : elements.radiusPeriapsis * (1 + e);
     double const r = p / (1 + e * safeCos(f));
     double const h = safeSqrt(mu * p);
 
@@ -197,12 +195,9 @@ inline CartesianState elementsToCartesianState(double const mu, const ClassicalE
     double const vy = -mu / h * (sin_O * (sin_theta + e * sin_o) - cos_O * (cos_theta + e * cos_o) * cos_i);
     double const vz = mu / h * (cos_theta + e * cos_o) * sin_i;
 
-    const Eigen::Vector3d vVec = Eigen::Vector3d(vx, vy, vz);
-
     CartesianState state{};
     state.position = rVec;
-    state.velocity = vVec;
-
+    state.velocity = Eigen::Vector3d(vx, vy, vz);
     return state;
 }
 
