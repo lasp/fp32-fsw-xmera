@@ -371,6 +371,26 @@ TEST_F(StateConversionTest, CircularOrbit_NoArgPeriapsisAmbiguity) {
 
 class EdgeCasesTest : public ::testing::Test {};
 
+// Stress test for meanToEccentricAnomaly's Kepler solver.
+TEST_F(EdgeCasesTest, MeanToEccentricAnomaly_ExtremeNearParabolic) {
+    const double e = 1.0 - 1e-12;
+    const double M = 1e-12;
+
+    const double E = orbitalMotion::meanToEccentricAnomaly(M, e);
+    ASSERT_TRUE(std::isfinite(E));
+    EXPECT_NEAR(E - e * std::sin(E), M, kAnomalyTol);
+}
+
+// Stress test for meanToHyperbolicAnomaly's Kepler solver.
+TEST_F(EdgeCasesTest, MeanToHyperbolicAnomaly_NearParabolic) {
+    const double e = 1.000001;
+    const double N = 0.01;
+
+    const double H = orbitalMotion::meanToHyperbolicAnomaly(N, e);
+    ASSERT_TRUE(std::isfinite(H));
+    EXPECT_NEAR(e * std::sinh(H) - H, N, kAnomalyTol);
+}
+
 TEST_F(EdgeCasesTest, NearParabolicOrbit_Eccentricity) {
     double e = 0.9999;
     double f = M_PI / 6.0;

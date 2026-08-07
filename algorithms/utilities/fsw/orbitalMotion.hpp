@@ -148,7 +148,7 @@ inline double meanToHyperbolicAnomaly(const double N, const double e) {
     double H = fabs(N) > kClamp ? kClamp * static_cast<double>(signN) : N;
     for (int i = 0; i < kMaxNumberOfIterations; ++i) {
         const double dH = (e * safeSinH(H) - H - N) / (e * safeCosH(H) - 1);
-        H -= dH;
+        H -= fmax(-0.5, fmin(0.5, dH));  // Clamp step size
         if (fabs(dH) < kTolerance) {
             break;
         }

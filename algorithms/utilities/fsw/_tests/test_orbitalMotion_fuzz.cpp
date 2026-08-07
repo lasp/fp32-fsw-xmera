@@ -105,7 +105,7 @@ void fuzzMeanToHyperbolicSolvesKepler(double N, double e) {
     EXPECT_NEAR(e * sinh(H) - H, N, kAnomalyTol);
 }
 FUZZ_TEST(OrbitalMotionFuzz, fuzzMeanToHyperbolicSolvesKepler)
-    .WithDomains(fuzztest::InRange(-5.0, 5.0), fuzztest::InRange(1.01, 10.0));
+    .WithDomains(fuzztest::InRange(-5.0, 5.0), fuzztest::InRange(1.0 + 1e-6, 10.0));
 
 // H -> f -> H closed-form round-trip.
 void fuzzHyperbolicTrueRoundTrip(double H, double e) {
