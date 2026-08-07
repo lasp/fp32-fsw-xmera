@@ -109,15 +109,16 @@ MotorAngles ThrustAxisToMotorAnglesAlgorithm::pullAngles(float gimbalAngle1, flo
 */
 bool ThrustAxisToMotorAnglesAlgorithm::isBilinearInterpolationRequired(const float gimbalAngle1,
                                                                        const float gimbalAngle2) {
-    const float motor1Rounded = roundf(fabsf(gimbalAngle1 / kTableStepAngle));
-    const float motor1Exact = fabsf(gimbalAngle1 / kTableStepAngle);
-    const float motor1Remainder = fabsf(motor1Exact - motor1Rounded);
+    const float gimbalAngle1Rounded = roundf(fabsf(gimbalAngle1 / kTableStepAngle));
+    const float gimbalAngle1Exact = fabsf(gimbalAngle1 / kTableStepAngle);
+    const float gimbalAngle1Remainder = fabsf(gimbalAngle1Exact - gimbalAngle1Rounded);
 
-    const float motor2Rounded = roundf(fabsf(gimbalAngle2 / kTableStepAngle));
-    const float motor2Exact = fabsf(gimbalAngle2 / kTableStepAngle);
-    const float motor2Remainder = fabsf(motor2Exact - motor2Rounded);
+    const float gimbalAngle2Rounded = roundf(fabsf(gimbalAngle2 / kTableStepAngle));
+    const float gimbalAngle2Exact = fabsf(gimbalAngle2 / kTableStepAngle);
+    const float gimbalAngle2Remainder = fabsf(gimbalAngle2Exact - gimbalAngle2Rounded);
 
-    return motor1Remainder >= kInterpolationRemainderTolerance && motor2Remainder >= kInterpolationRemainderTolerance;
+    return gimbalAngle1Remainder >= kInterpolationRemainderTolerance &&
+           gimbalAngle2Remainder >= kInterpolationRemainderTolerance;
 }
 
 /*! This method determines if no interpolation is required to obtain the motor angles.
@@ -126,15 +127,16 @@ bool ThrustAxisToMotorAnglesAlgorithm::isBilinearInterpolationRequired(const flo
  @param gimbalAngle2 [rad]
 */
 bool ThrustAxisToMotorAnglesAlgorithm::isNoInterpolationRequired(const float gimbalAngle1, const float gimbalAngle2) {
-    const float motor1Rounded = roundf(fabsf(gimbalAngle1 / kTableStepAngle));
-    const float motor1Exact = fabsf(gimbalAngle1 / kTableStepAngle);
-    const float motor1Remainder = fabsf(motor1Exact - motor1Rounded);
+    const float gimbalAngle1Rounded = roundf(fabsf(gimbalAngle1 / kTableStepAngle));
+    const float gimbalAngle1Exact = fabsf(gimbalAngle1 / kTableStepAngle);
+    const float gimbalAngle1Remainder = fabsf(gimbalAngle1Exact - gimbalAngle1Rounded);
 
-    const float motor2Rounded = roundf(fabsf(gimbalAngle2 / kTableStepAngle));
-    const float motor2Exact = fabsf(gimbalAngle2 / kTableStepAngle);
-    const float motor2Remainder = fabsf(motor2Exact - motor2Rounded);
+    const float gimbalAngle2Rounded = roundf(fabsf(gimbalAngle2 / kTableStepAngle));
+    const float gimbalAngle2Exact = fabsf(gimbalAngle2 / kTableStepAngle);
+    const float gimbalAngle2Remainder = fabsf(gimbalAngle2Exact - gimbalAngle2Rounded);
 
-    return motor1Remainder < kInterpolationRemainderTolerance && motor2Remainder < kInterpolationRemainderTolerance;
+    return gimbalAngle1Remainder < kInterpolationRemainderTolerance &&
+           gimbalAngle2Remainder < kInterpolationRemainderTolerance;
 }
 
 /*! This method determines if linear interpolation is required to obtain the motor angles.
