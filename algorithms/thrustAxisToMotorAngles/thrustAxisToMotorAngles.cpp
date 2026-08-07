@@ -20,8 +20,11 @@ void ThrustAxisToMotorAngles::reset(uint64_t currentSimNanos) {
                                                               StepperMotorAngleRange{this->minAngle, this->maxAngle},
                                                               this->gimbalToMotor1AngleData,
                                                               this->gimbalToMotor2AngleData,
-                                                              this->rowStartStrideIndices,
-                                                              this->rowStartColIndices);
+                                                              GimbalToMotorAngleTableLayout{this->rowStartStrideIndices,
+                                                                                            this->rowStartColIndices,
+                                                                                            this->tipColIdxOffset,
+                                                                                            this->tiltRowIdxOffset,
+                                                                                            this->tableStepAngle});
     this->algorithm = std::make_unique<ThrustAxisToMotorAnglesAlgorithm>(config);
     this->previousWrittenTime = -1.0;
 }
@@ -31,8 +34,11 @@ ThrustAxisToMotorAnglesConfig ThrustAxisToMotorAngles::toConfig() const {
                                                  StepperMotorAngleRange{this->minAngle, this->maxAngle},
                                                  this->gimbalToMotor1AngleData,
                                                  this->gimbalToMotor2AngleData,
-                                                 this->rowStartStrideIndices,
-                                                 this->rowStartColIndices);
+                                                 GimbalToMotorAngleTableLayout{this->rowStartStrideIndices,
+                                                                               this->rowStartColIndices,
+                                                                               this->tipColIdxOffset,
+                                                                               this->tiltRowIdxOffset,
+                                                                               this->tableStepAngle});
 }
 
 void ThrustAxisToMotorAngles::reconfigure() const {

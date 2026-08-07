@@ -18,8 +18,19 @@ typedef struct GimbalToMotorAngleTableData_c {
 
 /*! @brief POD representation of gimbal-to-motor interpolation table row indices. */
 typedef struct GimbalToMotorAngleTableRowIndexData_c {
-    float data[NUM_GIMBAL_TO_MOTOR_TABLE_ROWS]; /*!< [rad] list of table row indices */
+    int data[NUM_GIMBAL_TO_MOTOR_TABLE_ROWS]; /*!< [-] list of table row indices */
 } GimbalToMotorAngleTableRowIndexData_c;
+
+/*! @brief POD mirror of the C++ GimbalToMotorAngleTableLayout (table row layout information). */
+typedef struct GimbalToMotorAngleTableLayout_c {
+    GimbalToMotorAngleTableRowIndexData_c
+        rowStartStrideIndices; /*!< [-] Stride indices for the starting location of the table rows */
+    GimbalToMotorAngleTableRowIndexData_c
+        rowStartColIndices; /*!< [-] Column indices for the starting location of the table rows */
+    int tipColIdxOffset;
+    int tiltRowIdxOffset;
+    float tableStepAngle; /*!< [rad] Interpolation table motor discretization step */
+} GimbalToMotorAngleTableLayout_c;
 
 /*! @brief POD mirror of the C++ StepperMotorAngleRange (motor angular travel range [rad]). */
 typedef struct {

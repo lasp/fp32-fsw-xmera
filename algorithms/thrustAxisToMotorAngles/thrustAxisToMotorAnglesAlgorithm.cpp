@@ -71,12 +71,14 @@ MotorAngles ThrustAxisToMotorAnglesAlgorithm::gimbalAnglesToMotorAngles(const fl
 */
 MotorAngles ThrustAxisToMotorAnglesAlgorithm::pullAngles(float gimbalAngle1, float gimbalAngle2) const {
     // Shift the gimbal angles because the diamond is positioned at the center of the data table
-    gimbalAngle1 += static_cast<float>(kTipColIdxOffset) * kTableStepAngle;
-    gimbalAngle2 += static_cast<float>(kTiltRowIdxOffset) * kTableStepAngle;
+    gimbalAngle1 +=
+        static_cast<float>(this->cfg.getTableLayout().tipColIdxOffset) * this->cfg.getTableLayout().tableStepAngle;
+    gimbalAngle2 +=
+        static_cast<float>(this->cfg.getTableLayout().tiltRowIdxOffset) * this->cfg.getTableLayout().tableStepAngle;
 
     // Determine row and column table indices for the gimbal angles
-    const auto colIdx = static_cast<int>(roundf(gimbalAngle1 / kTableStepAngle));
-    const auto rowIdx = static_cast<int>(roundf(gimbalAngle2 / kTableStepAngle));
+    const auto colIdx = static_cast<int>(roundf(gimbalAngle1 / this->cfg.getTableLayout().tableStepAngle));
+    const auto rowIdx = static_cast<int>(roundf(gimbalAngle2 / this->cfg.getTableLayout().tableStepAngle));
 
     // Default returned motor angles
     MotorAngles motorAngles{.angle1 = kDefaultMotorAngle, .angle2 = kDefaultMotorAngle};
@@ -108,21 +110,22 @@ std::optional<int> ThrustAxisToMotorAnglesAlgorithm::getArrayIndex(const int row
     // Determine the length of the row corresponding the queried value
     int rowLength{};
     if (rowIdx != NUM_GIMBAL_TO_MOTOR_TABLE_ROWS - 1) {
-        rowLength = this->cfg.getRowStartStrideIndices()[rowIdx + 1] - this->cfg.getRowStartStrideIndices()[rowIdx];
+        rowLength = this->cfg.getTableLayout().rowStartStrideIndices[rowIdx + 1] -
+                    this->cfg.getTableLayout().rowStartStrideIndices[rowIdx];
     } else {
-        rowLength = NUM_GIMBAL_TO_MOTOR_TABLE_ELEMENTS - this->cfg.getRowStartStrideIndices()[rowIdx];
+        rowLength = NUM_GIMBAL_TO_MOTOR_TABLE_ELEMENTS - this->cfg.getTableLayout().rowStartStrideIndices[rowIdx];
     }
 
     // Determine the offset index of the queried value from the start of the row
-    const int offsetIndex = colIdx - this->cfg.getRowStartColIndices()[rowIdx];
+    const int offsetIndex = colIdx - this->cfg.getTableLayout().rowStartColIndices[rowIdx];
 
     // Invalid if the offset index is greater than or equal to the row length
-    if (offsetIndex >= rowLength) {
+    if (offsetIndex >= rowLength || offsetIndex < 0) {
         return std::nullopt;
     }
 
     // Determine the index of the queried value in the data table arrays
-    const int rowStartTableIndex = this->cfg.getRowStartStrideIndices()[rowIdx];
+    const int rowStartTableIndex = this->cfg.getTableLayout().rowStartStrideIndices[rowIdx];
     const int arrayIndex = rowStartTableIndex + offsetIndex;
 
     return arrayIndex;
@@ -134,13 +137,13 @@ std::optional<int> ThrustAxisToMotorAnglesAlgorithm::getArrayIndex(const int row
  @param gimbalAngle2 [rad]
 */
 bool ThrustAxisToMotorAnglesAlgorithm::isBilinearInterpolationRequired(const float gimbalAngle1,
-                                                                       const float gimbalAngle2) {
-    const float gimbalAngle1Rounded = roundf(fabsf(gimbalAngle1 / kTableStepAngle));
-    const float gimbalAngle1Exact = fabsf(gimbalAngle1 / kTableStepAngle);
+                                                                       const float gimbalAngle2) const {
+    const float gimbalAngle1Rounded = roundf(fabsf(gimbalAngle1 / this->cfg.getTableLayout().tableStepAngle));
+    const float gimbalAngle1Exact = fabsf(gimbalAngle1 / this->cfg.getTableLayout().tableStepAngle);
     const float gimbalAngle1Remainder = fabsf(gimbalAngle1Exact - gimbalAngle1Rounded);
 
-    const float gimbalAngle2Rounded = roundf(fabsf(gimbalAngle2 / kTableStepAngle));
-    const float gimbalAngle2Exact = fabsf(gimbalAngle2 / kTableStepAngle);
+    const float gimbalAngle2Rounded = roundf(fabsf(gimbalAngle2 / this->cfg.getTableLayout().tableStepAngle));
+    const float gimbalAngle2Exact = fabsf(gimbalAngle2 / this->cfg.getTableLayout().tableStepAngle);
     const float gimbalAngle2Remainder = fabsf(gimbalAngle2Exact - gimbalAngle2Rounded);
 
     return gimbalAngle1Remainder >= kInterpolationRemainderTolerance &&
@@ -152,13 +155,14 @@ bool ThrustAxisToMotorAnglesAlgorithm::isBilinearInterpolationRequired(const flo
  @param gimbalAngle1 [rad]
  @param gimbalAngle2 [rad]
 */
-bool ThrustAxisToMotorAnglesAlgorithm::isNoInterpolationRequired(const float gimbalAngle1, const float gimbalAngle2) {
-    const float gimbalAngle1Rounded = roundf(fabsf(gimbalAngle1 / kTableStepAngle));
-    const float gimbalAngle1Exact = fabsf(gimbalAngle1 / kTableStepAngle);
+bool ThrustAxisToMotorAnglesAlgorithm::isNoInterpolationRequired(const float gimbalAngle1,
+                                                                 const float gimbalAngle2) const {
+    const float gimbalAngle1Rounded = roundf(fabsf(gimbalAngle1 / this->cfg.getTableLayout().tableStepAngle));
+    const float gimbalAngle1Exact = fabsf(gimbalAngle1 / this->cfg.getTableLayout().tableStepAngle);
     const float gimbalAngle1Remainder = fabsf(gimbalAngle1Exact - gimbalAngle1Rounded);
 
-    const float gimbalAngle2Rounded = roundf(fabsf(gimbalAngle2 / kTableStepAngle));
-    const float gimbalAngle2Exact = fabsf(gimbalAngle2 / kTableStepAngle);
+    const float gimbalAngle2Rounded = roundf(fabsf(gimbalAngle2 / this->cfg.getTableLayout().tableStepAngle));
+    const float gimbalAngle2Exact = fabsf(gimbalAngle2 / this->cfg.getTableLayout().tableStepAngle);
     const float gimbalAngle2Remainder = fabsf(gimbalAngle2Exact - gimbalAngle2Rounded);
 
     return gimbalAngle1Remainder < kInterpolationRemainderTolerance &&
@@ -169,9 +173,9 @@ bool ThrustAxisToMotorAnglesAlgorithm::isNoInterpolationRequired(const float gim
  @return bool
  @param angle [rad]
 */
-bool ThrustAxisToMotorAnglesAlgorithm::isLinearInterpolationRequired(const float angle) {
-    const float rounded = roundf(fabsf(angle / kTableStepAngle));
-    const float exact = fabsf(angle / kTableStepAngle);
+bool ThrustAxisToMotorAnglesAlgorithm::isLinearInterpolationRequired(const float angle) const {
+    const float rounded = roundf(fabsf(angle / this->cfg.getTableLayout().tableStepAngle));
+    const float exact = fabsf(angle / this->cfg.getTableLayout().tableStepAngle);
     const float remainder = fabsf(exact - rounded);
 
     return remainder < kInterpolationRemainderTolerance;
@@ -187,10 +191,14 @@ invalid and zero motor angles are returned.
 MotorAngles ThrustAxisToMotorAnglesAlgorithm::bilinearlyInterpolateMotorAngles(const float gimbalAngle1,
                                                                                const float gimbalAngle2) const {
     // Determine the bounding gimbal angles
-    const float gimbalAngle1LBound = kTableStepAngle * floorf(gimbalAngle1 / kTableStepAngle);
-    const float gimbalAngle1UBound = kTableStepAngle * ceilf(gimbalAngle1 / kTableStepAngle);
-    const float gimbalAngle2LBound = kTableStepAngle * floorf(gimbalAngle2 / kTableStepAngle);
-    const float gimbalAngle2UBound = kTableStepAngle * ceilf(gimbalAngle2 / kTableStepAngle);
+    const float gimbalAngle1LBound =
+        this->cfg.getTableLayout().tableStepAngle * floorf(gimbalAngle1 / this->cfg.getTableLayout().tableStepAngle);
+    const float gimbalAngle1UBound =
+        this->cfg.getTableLayout().tableStepAngle * ceilf(gimbalAngle1 / this->cfg.getTableLayout().tableStepAngle);
+    const float gimbalAngle2LBound =
+        this->cfg.getTableLayout().tableStepAngle * floorf(gimbalAngle2 / this->cfg.getTableLayout().tableStepAngle);
+    const float gimbalAngle2UBound =
+        this->cfg.getTableLayout().tableStepAngle * ceilf(gimbalAngle2 / this->cfg.getTableLayout().tableStepAngle);
 
     // Determine the bounding motor angles
     const MotorAngles motorLLBounds = this->pullAngles(gimbalAngle1LBound, gimbalAngle2LBound);
@@ -253,8 +261,10 @@ MotorAngles ThrustAxisToMotorAnglesAlgorithm::linearlyInterpolateMotorAngles(con
     }
 
     // Find the upper and lower interpolation table bounds for the bounded angle
-    const float gimbalAngleLBound = kTableStepAngle * floorf(boundedAngle / kTableStepAngle);
-    const float gimbalAngleUBound = kTableStepAngle * ceilf(boundedAngle / kTableStepAngle);
+    const float gimbalAngleLBound =
+        this->cfg.getTableLayout().tableStepAngle * floorf(boundedAngle / this->cfg.getTableLayout().tableStepAngle);
+    const float gimbalAngleUBound =
+        this->cfg.getTableLayout().tableStepAngle * ceilf(boundedAngle / this->cfg.getTableLayout().tableStepAngle);
 
     // Determine the bounding angles for linear interpolation
     MotorAngles lowerMotorBounds{};

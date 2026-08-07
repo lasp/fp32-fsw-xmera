@@ -32,10 +32,14 @@ class ThrustAxisToMotorAngles final : public SysModel {
         gimbalToMotor1AngleData{};  //!< [rad] Gimbal-to-motor 1 angle interpolation table
     std::array<float, NUM_GIMBAL_TO_MOTOR_TABLE_ELEMENTS>
         gimbalToMotor2AngleData{};  //!< [rad] Gimbal-to-motor 2 angle interpolation table
-    std::array<float, NUM_GIMBAL_TO_MOTOR_TABLE_ROWS>
+    std::array<int, NUM_GIMBAL_TO_MOTOR_TABLE_ROWS>
         rowStartStrideIndices{};  //!< [-] Stride indices for the starting location of the table rows
-    std::array<float, NUM_GIMBAL_TO_MOTOR_TABLE_ROWS>
+    std::array<int, NUM_GIMBAL_TO_MOTOR_TABLE_ROWS>
         rowStartColIndices{};  //!< [-] Column indices for the starting location of the table rows
+    int tipColIdxOffset{38};
+    int tiltRowIdxOffset{55};
+    float tableStepAngle{0.5F * std::numbers::pi_v<float> /
+                         180.0F};  //!< [rad] Interpolation table motor discretization step
 
     ReadFunctor<BodyHeadingMsgF32Payload>
         thrustDirectionInMsg;  //!< Input msg for the requested gimbal body-frame thrust direction vector

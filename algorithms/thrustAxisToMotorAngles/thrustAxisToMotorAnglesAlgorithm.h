@@ -3,6 +3,7 @@
 
 #include <math.h>
 #include <Eigen/Core>
+#include <stdlib.h>
 #include <array>
 #include <numbers>
 #include <optional>
@@ -30,9 +31,19 @@ struct StepperMotorAngleRange {
 using GimbalToMotorAngleTable = std::array<float, NUM_GIMBAL_TO_MOTOR_TABLE_ELEMENTS>;
 
 /*! @brief Type alias for table row layout information. */
-using GimbalToMotorAngleTableRowLayout = std::array<float, NUM_GIMBAL_TO_MOTOR_TABLE_ROWS>;
+using GimbalToMotorAngleTableRowLayout = std::array<int, NUM_GIMBAL_TO_MOTOR_TABLE_ROWS>;
+struct GimbalToMotorAngleTableLayout {
+    GimbalToMotorAngleTableRowLayout rowStartStrideIndices;
+    GimbalToMotorAngleTableRowLayout rowStartColIndices;
+    int tipColIdxOffset{38};
+    int tiltRowIdxOffset{55};
+    float tableStepAngle{0.5F * std::numbers::pi_v<float> /
+                         180.0F};  //!< [rad] Interpolation table motor discretization step
+};
 
 static constexpr int kNumTableCols = NUM_GIMBAL_TO_MOTOR_TABLE_COLS;
+static constexpr int kNumTableRows = NUM_GIMBAL_TO_MOTOR_TABLE_ROWS;
+static constexpr int kNumArrayElements = NUM_GIMBAL_TO_MOTOR_TABLE_ELEMENTS;
 
 /*! @brief Validated configuration for ThrustAxisToMotorAnglesAlgorithm. Holds the gimbal
  * mount-frame DCM and the two gimbal-to-motor interpolation tables. */
@@ -42,8 +53,7 @@ class ThrustAxisToMotorAnglesConfig final {
                                                 const StepperMotorAngleRange& angleRange,
                                                 const GimbalToMotorAngleTable& gimbalToMotor1AngleData,
                                                 const GimbalToMotorAngleTable& gimbalToMotor2AngleData,
-                                                const GimbalToMotorAngleTableRowLayout rowStartStrideIndices,
-                                                const GimbalToMotorAngleTableRowLayout rowStartColIndices) {
+                                                const GimbalToMotorAngleTableLayout tableLayout) {
         if (!isValidDcmMB(dcm_MB)) {
             FSW_THROW_INVALID_ARGUMENT("thrustAxisToMotorAngles: dcm_MB must be a valid DCM");
         }
@@ -52,24 +62,14 @@ class ThrustAxisToMotorAnglesConfig final {
                 "thrustAxisToMotorAngles: minAngle and maxAngle must be in [0, 2*pi] with minAngle strictly less "
                 "than maxAngle.");
         }
-        if (!isValidTable(gimbalToMotor1AngleData, angleRange)) {
+        if (!isValidTable(angleRange, gimbalToMotor1AngleData, tableLayout)) {
             FSW_THROW_INVALID_ARGUMENT("thrustAxisToMotorAngles: gimbalToMotor1AngleData data is not valid");
         }
-        if (!isValidTable(gimbalToMotor2AngleData, angleRange)) {
+        if (!isValidTable(angleRange, gimbalToMotor2AngleData, tableLayout)) {
             FSW_THROW_INVALID_ARGUMENT("thrustAxisToMotorAngles: gimbalToMotor2AngleData data is not valid");
         }
-        if (!isValidRowStartStrideIndices(rowStartStrideIndices)) {
-            FSW_THROW_INVALID_ARGUMENT("thrustAxisToMotorAngles: rowStartStrideIndices data is not valid");
-        }
-        if (!isValidRowStartColIndices(rowStartColIndices)) {
-            FSW_THROW_INVALID_ARGUMENT("thrustAxisToMotorAngles: rowStartColIndices data is not valid");
-        }
-        return {dcm_MB,
-                angleRange,
-                gimbalToMotor1AngleData,
-                gimbalToMotor2AngleData,
-                rowStartStrideIndices,
-                rowStartColIndices};
+
+        return {dcm_MB, angleRange, gimbalToMotor1AngleData, gimbalToMotor2AngleData, tableLayout};
     }
 
     static bool isValidDcmMB(const Eigen::Matrix3f& dcm_MB) { return isValidDcm(dcm_MB); }
@@ -78,32 +78,54 @@ class ThrustAxisToMotorAnglesConfig final {
         return angleRange.minAngle >= 0.0F && angleRange.minAngle <= twoPi && angleRange.maxAngle >= 0.0F &&
                angleRange.maxAngle <= twoPi && angleRange.minAngle < angleRange.maxAngle;
     }
-    static bool isValidTable(const GimbalToMotorAngleTable& table, const StepperMotorAngleRange& angleRange) {
+    static bool isValidTable(const StepperMotorAngleRange& angleRange,
+                             const GimbalToMotorAngleTable& table,
+                             const GimbalToMotorAngleTableLayout& tableLayout) {
+        // Table values must be finite and comply with provided motor angle range
         for (const auto& value : table) {
             if (!fsw::is_finite(value) || value < angleRange.minAngle || value > angleRange.maxAngle) {
                 return false;
             }
         }
-        return true;
-    }
-    static bool isValidRowStartStrideIndices(const GimbalToMotorAngleTableRowLayout& rowStartStrideIndices) {
-        if (!fsw::is_finite(rowStartStrideIndices[0])) {
+
+        // |tiltRowIdxOffset| and |tipColIdxOffset| cannot exceed the number of table rows/columns, respectively
+        if (abs(tableLayout.tiltRowIdxOffset) >= kNumTableRows || abs(tableLayout.tipColIdxOffset) >= kNumTableCols) {
             return false;
         }
-        for (std::size_t value = 1; value < rowStartStrideIndices.size(); ++value) {
-            if (!fsw::is_finite(rowStartStrideIndices[value]) ||
-                rowStartStrideIndices[value] <= rowStartStrideIndices[value - 1]) {
+
+        // Gimbal angle ranges cannot exceed +- 90 degrees
+        const float maxGimbalAngle = 90.0F * std::numbers::pi_v<float> / 180.0F;  // [rad]
+        int maxNumData = static_cast<int>(roundf(maxGimbalAngle / tableLayout.tableStepAngle));
+        if (tableLayout.tiltRowIdxOffset > maxNumData &&
+            kNumTableRows - tableLayout.tiltRowIdxOffset - 1 > maxNumData) {
+            return false;
+        }
+        if (tableLayout.tipColIdxOffset > maxNumData && kNumTableCols - tableLayout.tipColIdxOffset - 1 > maxNumData) {
+            return false;
+        }
+
+        // Every rowStartStrideIndices array value must be greater than the previous and cannot be negative
+        if (tableLayout.rowStartStrideIndices[0] < 0) {
+            return false;
+        }
+        for (std::size_t value = 1; value < tableLayout.rowStartStrideIndices.size(); ++value) {
+            if (tableLayout.rowStartStrideIndices[value] <= tableLayout.rowStartStrideIndices[value - 1]) {
                 return false;
             }
         }
-        return true;
-    }
-    static bool isValidRowStartColIndices(const GimbalToMotorAngleTableRowLayout& rowStartColIndices) {
-        for (const auto& value : rowStartColIndices) {
-            if (!fsw::is_finite(value) || value >= kNumTableCols) {
+
+        // rowStartColIndices array values cannot be negative or exceed number of table columns
+        for (const auto& value : tableLayout.rowStartColIndices) {
+            if (value < 0 || value >= kNumTableCols) {
                 return false;
             }
         }
+
+        // tableStepAngle must be finite and greater than zero
+        if (!fsw::is_finite(tableLayout.tableStepAngle) || tableLayout.tableStepAngle <= 0.0F) {
+            return false;
+        }
+
         return true;
     }
 
@@ -111,31 +133,25 @@ class ThrustAxisToMotorAnglesConfig final {
     const StepperMotorAngleRange& getAngleRange() const { return this->angleRange; }
     const GimbalToMotorAngleTable& getGimbalToMotor1AngleData() const { return this->gimbalToMotor1AngleData; }
     const GimbalToMotorAngleTable& getGimbalToMotor2AngleData() const { return this->gimbalToMotor2AngleData; }
-    const GimbalToMotorAngleTableRowLayout& getRowStartStrideIndices() const { return this->rowStartStrideIndices; }
-    const GimbalToMotorAngleTableRowLayout& getRowStartColIndices() const { return this->rowStartColIndices; }
+    const GimbalToMotorAngleTableLayout& getTableLayout() const { return this->tableLayout; }
 
    private:
     ThrustAxisToMotorAnglesConfig(const Eigen::Matrix3f& dcm_MB,
                                   const StepperMotorAngleRange& angleRange,
                                   const GimbalToMotorAngleTable& gimbalToMotor1AngleData,
                                   const GimbalToMotorAngleTable& gimbalToMotor2AngleData,
-                                  const GimbalToMotorAngleTableRowLayout rowStartStrideIndices,
-                                  const GimbalToMotorAngleTableRowLayout rowStartColIndices)
+                                  const GimbalToMotorAngleTableLayout tableLayout)
         : dcm_MB(dcm_MB),
           angleRange(angleRange),
           gimbalToMotor1AngleData(gimbalToMotor1AngleData),
           gimbalToMotor2AngleData(gimbalToMotor2AngleData),
-          rowStartStrideIndices(rowStartStrideIndices),
-          rowStartColIndices(rowStartColIndices) {}
+          tableLayout(tableLayout) {}
 
     Eigen::Matrix3f dcm_MB;                           //!< DCM from body frame to gimbal mount frame
     StepperMotorAngleRange angleRange;                //!< [rad] motor travel range
     GimbalToMotorAngleTable gimbalToMotor1AngleData;  //!< [rad] Gimbal-to-motor 1 angle interpolation table
     GimbalToMotorAngleTable gimbalToMotor2AngleData;  //!< [rad] Gimbal-to-motor 2 angle interpolation table
-    GimbalToMotorAngleTableRowLayout
-        rowStartStrideIndices;  //!< [-] Stride indices for the starting location of the table rows
-    GimbalToMotorAngleTableRowLayout
-        rowStartColIndices;  //!< [-] Column indices for the starting location of the table rows
+    GimbalToMotorAngleTableLayout tableLayout;        //!< [-] Interpolation table layout data
 };
 
 /*! @brief Pure algorithm: converts a commanded body-frame thrust direction into the gimbal
@@ -151,17 +167,12 @@ class ThrustAxisToMotorAnglesAlgorithm final {
     MotorAngles gimbalAnglesToMotorAngles(float gimbalTipAngle, float gimbalTiltAngle) const;
     MotorAngles pullAngles(float gimbalAngle1, float gimbalAngle2) const;
     std::optional<int> getArrayIndex(const int rowIdx, const int colIdx) const;
-    static bool isBilinearInterpolationRequired(float gimbalAngle1, float gimbalAngle2);
-    static bool isNoInterpolationRequired(float gimbalAngle1, float gimbalAngle2);
-    static bool isLinearInterpolationRequired(float angle);
+    bool isBilinearInterpolationRequired(float gimbalAngle1, float gimbalAngle2) const;
+    bool isNoInterpolationRequired(float gimbalAngle1, float gimbalAngle2) const;
+    bool isLinearInterpolationRequired(float angle) const;
     MotorAngles bilinearlyInterpolateMotorAngles(float gimbalAngle1, float gimbalAngle2) const;
     MotorAngles linearlyInterpolateMotorAngles(float gimbalAngle1, float gimbalAngle2, FixedAngle fixedAngle) const;
 
-    static constexpr int kNumTableRows = NUM_GIMBAL_TO_MOTOR_TABLE_ROWS;
-    static constexpr int kTipColIdxOffset = 38;
-    static constexpr int kTiltRowIdxOffset = 55;
-    static constexpr float kTableStepAngle =
-        0.5F * std::numbers::pi_v<float> / 180.0F;  //!< [rad] Interpolation table motor discretization step
     static constexpr float kInterpolationRemainderTolerance =
         1e-3F;  //!< Tolerance for treating a normalized gimbal angle as landing exactly on a table node
     static constexpr float kDefaultMotorAngle = 103.2242F * std::numbers::pi_v<float> / 180.0F;
