@@ -3,7 +3,6 @@
 #include "utilities/fsw/interpolation.h"
 #include "utilities/fsw/safeMath.h"
 #include <math.h>
-#include <optional>
 
 ThrustAxisToMotorAnglesAlgorithm::ThrustAxisToMotorAnglesAlgorithm(const ThrustAxisToMotorAnglesConfig& config)
     : cfg(config) {
@@ -71,35 +70,62 @@ MotorAngles ThrustAxisToMotorAnglesAlgorithm::gimbalAnglesToMotorAngles(const fl
  @param gimbalAngle2 [rad]
 */
 MotorAngles ThrustAxisToMotorAnglesAlgorithm::pullAngles(float gimbalAngle1, float gimbalAngle2) const {
+    // Shift the gimbal angles because the diamond is positioned at the center of the data table
     gimbalAngle1 += static_cast<float>(kTipColIdxOffset) * kTableStepAngle;
     gimbalAngle2 += static_cast<float>(kTiltRowIdxOffset) * kTableStepAngle;
 
+    // Determine row and column table indices for the gimbal angles
     const auto colIdx = static_cast<int>(roundf(gimbalAngle1 / kTableStepAngle));
     const auto rowIdx = static_cast<int>(roundf(gimbalAngle2 / kTableStepAngle));
 
+    // Default returned motor angles
     MotorAngles motorAngles{.angle1 = kDefaultMotorAngle, .angle2 = kDefaultMotorAngle};
-    if (colIdx >= 0 && colIdx < kNumTableCols && rowIdx >= 0 && rowIdx < kNumTableRows) {
-        const int rowStartTableIndex = this->cfg.getRowStartStrideIndices()[rowIdx];
-        const int offsetIndex = colIdx - this->cfg.getRowStartColIndices()[rowIdx];
 
-        int rowLength{};
-        if (rowIdx != NUM_GIMBAL_TO_MOTOR_TABLE_ROWS - 1) {
-            rowLength = this->cfg.getRowStartStrideIndices()[rowIdx + 1] - this->cfg.getRowStartStrideIndices()[rowIdx];
-        } else {
-            rowLength = NUM_GIMBAL_TO_MOTOR_TABLE_ELEMENTS - this->cfg.getRowStartStrideIndices()[rowIdx];
-        }
-
-        if (offsetIndex < rowLength) {
-            const float motorAngleIndex = rowStartTableIndex + offsetIndex;
-            const float motor1Angle = this->cfg.getGimbalToMotor1AngleData()[motorAngleIndex];
-            const float motor2Angle = this->cfg.getGimbalToMotor2AngleData()[motorAngleIndex];
-            motorAngles.angle1 = motor1Angle;
-            motorAngles.angle2 = motor2Angle;
-            motorAngles.isValidInterpolation = true;
-        }
+    // Use the table indices to determine the single index required to pull data from the data table storage arrays
+    const std::optional<int> arrayIndex = this->getArrayIndex(rowIdx, colIdx);
+    if (arrayIndex.has_value()) {
+        const float motor1Angle = this->cfg.getGimbalToMotor1AngleData()[*arrayIndex];
+        const float motor2Angle = this->cfg.getGimbalToMotor2AngleData()[*arrayIndex];
+        motorAngles.angle1 = motor1Angle;
+        motorAngles.angle2 = motor2Angle;
+        motorAngles.isValidInterpolation = true;
     }
 
     return motorAngles;
+}
+
+/*! This method determines the index required to extract the queried angle from the interpolation data table arrays
+ @return std::optional<int>
+ @param rowIdx [-]
+ @param colIdx [-]
+*/
+std::optional<int> ThrustAxisToMotorAnglesAlgorithm::getArrayIndex(const int rowIdx, const int colIdx) const {
+    // Invalid if either rowIdx or colIdx exceeds the table bounds
+    if (colIdx < 0 || colIdx >= kNumTableCols || rowIdx < 0 || rowIdx >= kNumTableRows) {
+        return std::nullopt;
+    }
+
+    // Determine the length of the row corresponding the queried value
+    int rowLength{};
+    if (rowIdx != NUM_GIMBAL_TO_MOTOR_TABLE_ROWS - 1) {
+        rowLength = this->cfg.getRowStartStrideIndices()[rowIdx + 1] - this->cfg.getRowStartStrideIndices()[rowIdx];
+    } else {
+        rowLength = NUM_GIMBAL_TO_MOTOR_TABLE_ELEMENTS - this->cfg.getRowStartStrideIndices()[rowIdx];
+    }
+
+    // Determine the offset index of the queried value from the start of the row
+    const int offsetIndex = colIdx - this->cfg.getRowStartColIndices()[rowIdx];
+
+    // Invalid if the offset index is greater than or equal to the row length
+    if (offsetIndex >= rowLength) {
+        return std::nullopt;
+    }
+
+    // Determine the index of the queried value in the data table arrays
+    const int rowStartTableIndex = this->cfg.getRowStartStrideIndices()[rowIdx];
+    const int arrayIndex = rowStartTableIndex + offsetIndex;
+
+    return arrayIndex;
 }
 
 /*! This method determines if bilinear interpolation is required to obtain the motor angles.

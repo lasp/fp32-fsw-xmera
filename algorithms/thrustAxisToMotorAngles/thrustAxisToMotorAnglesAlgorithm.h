@@ -5,6 +5,7 @@
 #include <Eigen/Core>
 #include <array>
 #include <numbers>
+#include <optional>
 
 #include "thrustAxisToMotorAnglesTypes.h"
 #include "utilities/fsw/freestandingInvalidArgument.h"
@@ -149,6 +150,7 @@ class ThrustAxisToMotorAnglesAlgorithm final {
    private:
     MotorAngles gimbalAnglesToMotorAngles(float gimbalTipAngle, float gimbalTiltAngle) const;
     MotorAngles pullAngles(float gimbalAngle1, float gimbalAngle2) const;
+    std::optional<int> getArrayIndex(const int rowIdx, const int colIdx) const;
     static bool isBilinearInterpolationRequired(float gimbalAngle1, float gimbalAngle2);
     static bool isNoInterpolationRequired(float gimbalAngle1, float gimbalAngle2);
     static bool isLinearInterpolationRequired(float angle);
