@@ -83,7 +83,7 @@ void StepperMotorControllerAlgorithm_reInitialize(StepperMotorControllerAlgorith
  * @param currentPosition [steps] Current motor step position (tracked by the caller).
  * @param referenceAngle  [rad] Reference motor angle.
  * @param isMotorMoving   True if the motor is currently moving.
- * @return StepperMotorControllerOutput  Command type (NONE, MOVE, STOP) and step delta.
+ * @return StepperMotorControllerOutput  Command type (NONE, STOP, MOVE) and step delta.
  */
 StepperMotorControllerOutput StepperMotorControllerAlgorithm_update(StepperMotorControllerAlgorithmHandle* self,
                                                                     int32_t currentPosition,
