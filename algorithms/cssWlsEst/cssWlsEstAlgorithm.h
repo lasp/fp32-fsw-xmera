@@ -1,6 +1,7 @@
 #ifndef F32XMERA_CSS_WLS_EST_ALGORITHM_H
 #define F32XMERA_CSS_WLS_EST_ALGORITHM_H
 
+#include "msgPayloadDef/definitions.h"
 #include "utilities/fsw/freestandingInvalidArgument.h"
 #include "utilities/fsw/freestandingIsFinite.hpp"
 
@@ -8,9 +9,9 @@
 #include <stdint.h>
 #include <Eigen/Core>
 
-/*! Maximum number of coarse sun sensors the estimator can process in one cycle. The adapter asserts
-    that this matches the bound on the CSS array measurement message. */
-inline constexpr int kMaxNumCss = 32;
+/*! Maximum number of coarse sun sensors the estimator can process in one cycle, fixed by the bound on
+    the CSS array measurement message. */
+inline constexpr int kMaxNumCss = MAX_NUM_CSS_SENSORS;
 
 /*! Estimator products for a single update cycle. */
 struct CssWlsEstOutput {

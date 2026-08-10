@@ -3,13 +3,10 @@
 #include "utilities/xmera/xmeraLifecycleException.h"
 #include <utilities/fsw/eigenSupport.h>
 
-#include "msgPayloadDef/definitions.h"
 #include "utilities/fsw/timeConstants.h"
 
 #include <memory>
 #include <stdexcept>
-
-static_assert(kMaxNumCss == MAX_NUM_CSS_SENSORS, "kMaxNumCss must match MAX_NUM_CSS_SENSORS");
 
 /*! Index in the filter status state vector at which the sun heading is written. */
 static constexpr std::size_t kHeadingStateOffset = 0U;
