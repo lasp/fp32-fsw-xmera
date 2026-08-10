@@ -11,6 +11,7 @@ struct HillPointOutput {
 
 class HillPointAlgorithm final {
    public:
+    static constexpr double minOrbitRadius_m = 1.0;  // [m]
     static HillPointOutput update(const Eigen::Vector3d& r_BN_N,
                                   const Eigen::Vector3d& v_BN_N,
                                   const Eigen::Vector3d& r_PN_N,
