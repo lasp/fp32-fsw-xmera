@@ -1,0 +1,40 @@
+#ifndef _CSS_WLS_EST_H_
+#define _CSS_WLS_EST_H_
+
+#include <architecture/_GeneralModuleFiles/sys_model.h>
+#include <architecture/messaging/messaging.h>
+#include <architecture/msgPayloadDef/CSSArraySensorMsgPayload.h>
+#include <architecture/msgPayloadDef/CSSConfigMsgPayload.h>
+#include <architecture/msgPayloadDef/CSSUnitConfigMsgPayload.h>
+#include <architecture/msgPayloadDef/NavAttMsgPayload.h>
+#include <architecture/msgPayloadDef/SunlineFilterMsgPayload.h>
+
+#include <architecture/utilities/bskLogging.h>
+#include <stdint.h>
+
+/*! @brief Top level structure for the CSS weighted least squares estimator.
+ Used to estimate the sun state in the vehicle body frame*/
+class CssWlsEst : public SysModel {
+   public:
+    void reset(uint64_t callTime) override;
+    void updateState(uint64_t callTime) override;
+
+    ReadFunctor<CSSArraySensorMsgPayload> cssDataInMsg;  //!< The name of the CSS sensor input message
+    ReadFunctor<CSSConfigMsgPayload> cssConfigInMsg;     //!< The name of the CSS configuration input message
+    Message<NavAttMsgPayload>
+        navStateOutMsg;  //!< The name of the navigation output message containing the estimated states
+    Message<SunlineFilterMsgPayload> cssWLSFiltResOutMsg;  //!< The name of the CSS filter data out message
+
+    uint32_t numActiveCss;                  //!< [-] Number of currently active CSS sensors
+    uint32_t useWeights;                    //!< Flag indicating whether or not to use weights for least squares
+    uint32_t priorSignalAvailable;          //!< Flag indicating if a recent prior heading estimate is available
+    double dOld[3];                         //!< The prior sun heading estimate
+    double sensorUseThresh;                 //!< Threshold below which we discount sensors
+    uint64_t priorTime;                     //!< [ns] Last time the attitude control is called
+    CSSConfigMsgPayload cssConfigInBuffer;  //!< CSS constellation configuration message buffer
+    SunlineFilterMsgPayload filtStatus;     //!< Filter message
+
+    BSKLogger bskLogger = {};  //!< BSK Logging
+};
+
+#endif
