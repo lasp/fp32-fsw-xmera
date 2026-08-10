@@ -1,7 +1,7 @@
 #include "cssWlsEstAlgorithm.h"
 
-#include <architecture/utilities/macroDefinitions.h>
-#include <architecture/utilities/safeMath.h>
+#include "utilities/fsw/safeMath.h"
+#include "utilities/fsw/timeConstants.h"
 
 #include <math.h>
 #include <Eigen/Geometry>
@@ -9,20 +9,20 @@
 
 /*! Upper limit of the arc-cosine domain. The dot product of two unit vectors can only exceed this
     through round-off, so the principal rotation angle argument is clamped here. */
-static constexpr double kMaxPrincipalAngleCosine = 1.0;
+static constexpr float kMaxPrincipalAngleCosine = 1.0F;
 
 /*! Lower limit of the arc-cosine domain, the negative counterpart of kMaxPrincipalAngleCosine. */
-static constexpr double kMinPrincipalAngleCosine = -1.0;
+static constexpr float kMinPrincipalAngleCosine = -1.0F;
 
 /*! Smallest physically meaningful CSS reading. A coarse sun sensor cannot report a negative cosine,
     so the predicted measurement is floored here before differencing against the observation. */
-static constexpr double kMinCssMeasurement = 0.0;
+static constexpr float kMinCssMeasurement = 0.0F;
 
 /*! Relative tolerance for treating a normal matrix as singular, sized at a few multiples of the
     working precision's machine epsilon. The determinant of an n-by-n matrix scales as the n-th power
     of the matrix norm, so the absolute threshold handed to Eigen is this factor times the norm
     raised to the matrix dimension, which keeps the test scale invariant. */
-static constexpr double kSingularDeterminantRelativeTolerance = 1e-15;
+static constexpr float kSingularDeterminantRelativeTolerance = 1e-6F;
 
 /*! Number of active measurements below which the fit is exactly determined and the measurement
     weights carry no information. */
@@ -48,22 +48,21 @@ void CssWlsEstAlgorithm::reInitialize() {
  @param callTime The clock time at which the function was called (nanoseconds)
  @param cosValues [-] Per-sensor cosine readings, indexed by sensor
  */
-CssWlsEstOutput CssWlsEstAlgorithm::update(const uint64_t callTime,
-                                           const Eigen::Vector<double, kMaxNumCss>& cosValues) {
+CssWlsEstOutput CssWlsEstAlgorithm::update(const uint64_t callTime, const Eigen::Vector<float, kMaxNumCss>& cosValues) {
     CssWlsEstOutput out;
 
     /* The predicted pointing vector for each measurement, compacted to the active sensors */
-    Eigen::Matrix<double, kMaxNumCss, 3> H = Eigen::Matrix<double, kMaxNumCss, 3>::Zero();
+    Eigen::Matrix<float, kMaxNumCss, 3> H = Eigen::Matrix<float, kMaxNumCss, 3>::Zero();
     /* Measurements, compacted to the active sensors */
-    Eigen::Vector<double, kMaxNumCss> y = Eigen::Vector<double, kMaxNumCss>::Zero();
+    Eigen::Vector<float, kMaxNumCss> y = Eigen::Vector<float, kMaxNumCss>::Zero();
     int status = 0; /* Quality of the module estimate */
-    double dt;      /* [s] Control update period */
+    float dt;       /* [s] Control update period */
 
     /*! - Compute control update time */
     if (this->priorTime == 0) {
-        dt = 0.0;
+        dt = 0.0F;
     } else {
-        dt = static_cast<double>(callTime - this->priorTime) * NANO2SEC;
+        dt = static_cast<float>(static_cast<double>(callTime - this->priorTime) * kNano2Sec);
     }
     this->priorTime = callTime;
 
@@ -95,7 +94,7 @@ CssWlsEstOutput CssWlsEstAlgorithm::update(const uint64_t callTime,
         /*! - If at least one CSS got a strong enough signal.  Proceed with the sun heading estimation */
         /*! -# Configuration option to weight the measurements, otherwise set
          weighting matrix to identity*/
-        Eigen::Vector<double, kMaxNumCss> weights = Eigen::Vector<double, kMaxNumCss>::Ones();
+        Eigen::Vector<float, kMaxNumCss> weights = Eigen::Vector<float, kMaxNumCss>::Ones();
         if (this->useWeights > 0) {
             weights = y;
         }
@@ -106,15 +105,15 @@ CssWlsEstOutput CssWlsEstAlgorithm::update(const uint64_t callTime,
         out.sunHeading_B = out.sunHeading_B.stableNormalized();
 
         /*! -# Estimate the inertial angular velocity from the rate of the sun heading measurements */
-        if (this->priorSignalAvailable && dt > 0.0) {
-            const Eigen::Vector3d dHatNew = out.sunHeading_B.stableNormalized();
-            const Eigen::Vector3d dHatOld = this->dOld.stableNormalized();
+        if (this->priorSignalAvailable && dt > 0.0F) {
+            const Eigen::Vector3f dHatNew = out.sunHeading_B.stableNormalized();
+            const Eigen::Vector3f dHatOld = this->dOld.stableNormalized();
             out.omega_BN_B = dHatNew.cross(dHatOld).stableNormalized();
             /* compute principal rotation angle between sun heading measurements */
-            double dOldDotNew = dHatNew.dot(dHatOld);
+            float dOldDotNew = dHatNew.dot(dHatOld);
             if (dOldDotNew > kMaxPrincipalAngleCosine) dOldDotNew = kMaxPrincipalAngleCosine;
             if (dOldDotNew < kMinPrincipalAngleCosine) dOldDotNew = kMinPrincipalAngleCosine;
-            out.omega_BN_B *= safeAcos(dOldDotNew) / dt;
+            out.omega_BN_B *= safeAcosf(dOldDotNew) / dt;
         } else {
             this->priorSignalAvailable = 1;
         }
@@ -143,18 +142,18 @@ CssWlsEstOutput CssWlsEstAlgorithm::update(const uint64_t callTime,
     @param cssMeas The measured values for the CSS sensors
     @param wlsEst The WLS estimate computed for the CSS measurements
 */
-Eigen::Vector<double, kMaxNumCss> CssWlsEstAlgorithm::computeWlsResiduals(
-    const Eigen::Vector<double, kMaxNumCss>& cssMeas,
-    const Eigen::Vector3d& wlsEst) const {
-    Eigen::Vector<double, kMaxNumCss> cssResiduals = Eigen::Vector<double, kMaxNumCss>::Zero();
+Eigen::Vector<float, kMaxNumCss> CssWlsEstAlgorithm::computeWlsResiduals(
+    const Eigen::Vector<float, kMaxNumCss>& cssMeas,
+    const Eigen::Vector3f& wlsEst) const {
+    Eigen::Vector<float, kMaxNumCss> cssResiduals = Eigen::Vector<float, kMaxNumCss>::Zero();
 
     /*! The method loops through the sensors and performs: */
     for (uint32_t i = 0; i < this->numCss; i++) {
         const auto sensor = static_cast<Eigen::Index>(i);
         /*! -# A dot product between the computed estimate with each sensor normal */
-        const double rawDotProd = wlsEst.dot(this->cssNHat_B.row(sensor).transpose());
+        const float rawDotProd = wlsEst.dot(this->cssNHat_B.row(sensor).transpose());
         /*CSS values can't be negative!*/
-        const double cssDotProd = rawDotProd > kMinCssMeasurement ? rawDotProd : kMinCssMeasurement;
+        const float cssDotProd = rawDotProd > kMinCssMeasurement ? rawDotProd : kMinCssMeasurement;
         /*! -# A subtraction between that post-fit measurement estimate and the actual measurement*/
         cssResiduals(sensor) = cssMeas(sensor) - cssDotProd;
         /*! -# This populates the post-fit residuals*/
@@ -173,10 +172,10 @@ Eigen::Vector<double, kMaxNumCss> CssWlsEstAlgorithm::computeWlsResiduals(
  @param x The output least squares fit for the observations
  */
 int CssWlsEstAlgorithm::computeWlsmn(const uint32_t numActiveCss,
-                                     const Eigen::Matrix<double, kMaxNumCss, 3>& H,
-                                     const Eigen::Vector<double, kMaxNumCss>& weights,
-                                     const Eigen::Vector<double, kMaxNumCss>& y,
-                                     Eigen::Vector3d& x) {
+                                     const Eigen::Matrix<float, kMaxNumCss, 3>& H,
+                                     const Eigen::Vector<float, kMaxNumCss>& weights,
+                                     const Eigen::Vector<float, kMaxNumCss>& y,
+                                     Eigen::Vector3f& x) {
     int status = 0;
 
     /*! - If we only have one sensor, output best guess (cone of possiblities)*/
@@ -185,14 +184,14 @@ int CssWlsEstAlgorithm::computeWlsmn(const uint32_t numActiveCss,
         x = H.row(0).transpose() * y(0);
     } else if (numActiveCss == 2) { /*! - If we have two, then do a 2x2 fit */
         /*!   -# Find minimum norm solution */
-        const Eigen::Matrix<double, 2, 3> h = H.topRows<2>();
-        const Eigen::Matrix2d hht = h * h.transpose();
+        const Eigen::Matrix<float, 2, 3> h = H.topRows<2>();
+        const Eigen::Matrix2f hht = h * h.transpose();
 
-        Eigen::Matrix2d hhtInverse = Eigen::Matrix2d::Zero();
-        double determinant = 0.0;
+        Eigen::Matrix2f hhtInverse = Eigen::Matrix2f::Zero();
+        float determinant = 0.0F;
         bool invertible = false;
-        const double hhtNorm = hht.norm();
-        const double hhtThreshold = kSingularDeterminantRelativeTolerance * hhtNorm * hhtNorm;
+        const float hhtNorm = hht.norm();
+        const float hhtThreshold = kSingularDeterminantRelativeTolerance * hhtNorm * hhtNorm;
         hht.computeInverseAndDetWithCheck(hhtInverse, determinant, invertible, hhtThreshold);
         if (!invertible) {
             hhtInverse.setZero();
@@ -203,15 +202,15 @@ int CssWlsEstAlgorithm::computeWlsmn(const uint32_t numActiveCss,
     } else if (numActiveCss >= kMinMeasurementsForWeightedFit) { /*! - If we have more than 2, do true LSQ fit*/
         const auto rows = static_cast<Eigen::Index>(numActiveCss);
         /*!    -# Use the weights to compute (HtWH)^-1HtW*/
-        const Eigen::Matrix<double, Eigen::Dynamic, 3> h = H.topRows(rows);
-        const Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> w = weights.head(rows).asDiagonal();
-        const Eigen::Matrix3d htwh = h.transpose() * w * h;
+        const Eigen::Matrix<float, Eigen::Dynamic, 3> h = H.topRows(rows);
+        const Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic> w = weights.head(rows).asDiagonal();
+        const Eigen::Matrix3f htwh = h.transpose() * w * h;
 
-        Eigen::Matrix3d htwhInverse = Eigen::Matrix3d::Zero();
-        double determinant = 0.0;
+        Eigen::Matrix3f htwhInverse = Eigen::Matrix3f::Zero();
+        float determinant = 0.0F;
         bool invertible = false;
-        const double htwhNorm = htwh.norm();
-        const double htwhThreshold = kSingularDeterminantRelativeTolerance * htwhNorm * htwhNorm * htwhNorm;
+        const float htwhNorm = htwh.norm();
+        const float htwhThreshold = kSingularDeterminantRelativeTolerance * htwhNorm * htwhNorm * htwhNorm;
         htwh.computeInverseAndDetWithCheck(htwhInverse, determinant, invertible, htwhThreshold);
         if (!invertible) {
             htwhInverse.setZero();

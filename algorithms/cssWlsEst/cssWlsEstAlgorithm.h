@@ -11,20 +11,20 @@ inline constexpr int kMaxNumCss = 32;
 /*! Estimator products for a single update cycle. */
 struct CssWlsEstOutput {
     /*! [-] Estimated unit sun heading, body frame components. Zero when no fit was possible. */
-    Eigen::Vector3d sunHeading_B = Eigen::Vector3d::Zero();
+    Eigen::Vector3f sunHeading_B = Eigen::Vector3f::Zero();
 
     /*! [r/s] Inertial angular velocity, body frame components. Only the component orthogonal to the
         sun heading is observable; zero when no prior heading or no elapsed time is available. */
-    Eigen::Vector3d omega_BN_B = Eigen::Vector3d::Zero();
+    Eigen::Vector3f omega_BN_B = Eigen::Vector3f::Zero();
 
     /*! [-] Sun heading as reported on the filter status output. Captured before the singular-fit
         zeroing, so on a degenerate fit it retains the raw estimate for diagnostics while
         sunHeading_B is zero. */
-    Eigen::Vector3d residualStateHeading = Eigen::Vector3d::Zero();
+    Eigen::Vector3f residualStateHeading = Eigen::Vector3f::Zero();
 
     /*! [-] Post-fit measurement residuals, one entry per configured sensor. Entries beyond the
         configured sensor count stay zero. */
-    Eigen::Vector<double, kMaxNumCss> postFitResiduals = Eigen::Vector<double, kMaxNumCss>::Zero();
+    Eigen::Vector<float, kMaxNumCss> postFitResiduals = Eigen::Vector<float, kMaxNumCss>::Zero();
 
     /*! [-] Number of sensors whose reading exceeded the use threshold this cycle. */
     uint32_t numActiveCss{};
@@ -47,13 +47,13 @@ class CssWlsEstAlgorithm final {
         @param callTime  The clock time at which the function was called (nanoseconds)
         @param cosValues [-] Per-sensor cosine readings, indexed by sensor
      */
-    CssWlsEstOutput update(uint64_t callTime, const Eigen::Vector<double, kMaxNumCss>& cosValues);
+    CssWlsEstOutput update(uint64_t callTime, const Eigen::Vector<float, kMaxNumCss>& cosValues);
 
     /*! [-] Per-sensor boresight unit vectors in body frame components, one sensor per row. */
-    Eigen::Matrix<double, kMaxNumCss, 3> cssNHat_B = Eigen::Matrix<double, kMaxNumCss, 3>::Zero();
+    Eigen::Matrix<float, kMaxNumCss, 3> cssNHat_B = Eigen::Matrix<float, kMaxNumCss, 3>::Zero();
 
     /*! [-] Per-sensor calibration scale factor applied to the sensor boresight. */
-    Eigen::Vector<double, kMaxNumCss> cssBias = Eigen::Vector<double, kMaxNumCss>::Zero();
+    Eigen::Vector<float, kMaxNumCss> cssBias = Eigen::Vector<float, kMaxNumCss>::Zero();
 
     /*! [-] Number of configured sensors; only the leading entries of the arrays above are read. */
     uint32_t numCss{};
@@ -62,7 +62,7 @@ class CssWlsEstAlgorithm final {
     uint32_t useWeights{};
 
     /*! [-] Cosine threshold at or below which a sensor reading is discarded. */
-    double sensorUseThresh{};
+    float sensorUseThresh{};
 
    private:
     /*! Solve the least squares fit for the sun heading.
@@ -76,21 +76,21 @@ class CssWlsEstAlgorithm final {
         @param x            The output least squares fit for the observations
      */
     static int computeWlsmn(uint32_t numActiveCss,
-                            const Eigen::Matrix<double, kMaxNumCss, 3>& H,
-                            const Eigen::Vector<double, kMaxNumCss>& weights,
-                            const Eigen::Vector<double, kMaxNumCss>& y,
-                            Eigen::Vector3d& x);
+                            const Eigen::Matrix<float, kMaxNumCss, 3>& H,
+                            const Eigen::Vector<float, kMaxNumCss>& weights,
+                            const Eigen::Vector<float, kMaxNumCss>& y,
+                            Eigen::Vector3f& x);
 
     /*! Compute the post-fit residuals for the WLS estimate.
         @return the per-sensor residuals, zero beyond the configured sensor count
         @param cssMeas The measured values for the CSS sensors
         @param wlsEst  The WLS estimate computed for the CSS measurements
      */
-    Eigen::Vector<double, kMaxNumCss> computeWlsResiduals(const Eigen::Vector<double, kMaxNumCss>& cssMeas,
-                                                          const Eigen::Vector3d& wlsEst) const;
+    Eigen::Vector<float, kMaxNumCss> computeWlsResiduals(const Eigen::Vector<float, kMaxNumCss>& cssMeas,
+                                                         const Eigen::Vector3f& wlsEst) const;
 
     /*! [-] Prior normalized sun heading estimate, body frame components. */
-    Eigen::Vector3d dOld = Eigen::Vector3d::Zero();
+    Eigen::Vector3f dOld = Eigen::Vector3f::Zero();
 
     /*! [-] Flag indicating a prior sun heading estimate is available for the rate difference. */
     uint32_t priorSignalAvailable{};

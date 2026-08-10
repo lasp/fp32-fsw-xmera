@@ -2,8 +2,8 @@
 
 #include <utilities/fsw/eigenSupport.h>
 
-#include <architecture/msgPayloadDef/definitions.h>
-#include <architecture/utilities/macroDefinitions.h>
+#include "msgPayloadDef/definitions.h"
+#include "utilities/fsw/timeConstants.h"
 
 #include <stdexcept>
 
@@ -54,23 +54,23 @@ void CssWlsEst::reset(const uint64_t callTime) {
  */
 void CssWlsEst::updateState(const uint64_t callTime) {
     /*! - Read the input parsed CSS sensor data message*/
-    const CSSArraySensorMsgPayload cssData = this->cssDataInMsg();
+    const CSSArraySensorMsgF32Payload cssData = this->cssDataInMsg();
 
     const CssWlsEstOutput out = this->algorithm.update(callTime, cArrayToEigenVector(cssData.CosValue));
     this->numActiveCss = out.numActiveCss;
 
     /*! - If the residual fit output message is set, then store the residuals in the output message */
     if (this->cssWLSFiltResOutMsg.isLinked()) {
-        SunlineFilterMsgPayload filtStatus = {};
+        SunlineFilterMsgF32Payload filtStatus = {};
         filtStatus.numObs = static_cast<int>(out.numActiveCss);
-        filtStatus.timeTag = static_cast<double>(callTime) * NANO2SEC;
+        filtStatus.timeTag = static_cast<double>(callTime) * kNano2Sec;
         eigenMatrixXInsertCArray(out.residualStateHeading, filtStatus.state, kHeadingStateOffset);
         eigenVectorToCArray(out.postFitResiduals, filtStatus.postFitRes);
         this->cssWLSFiltResOutMsg.write(filtStatus, this->moduleID, callTime);
     }
 
     /*! - Populate the navigation output message with the estimated sun state */
-    NavAttMsgPayload sunlineOutBuffer = {};
+    NavAttMsgF32Payload sunlineOutBuffer = {};
     eigenVectorToCArray(out.sunHeading_B, sunlineOutBuffer.vehSunPntBdy);
     eigenVectorToCArray(out.omega_BN_B, sunlineOutBuffer.omega_BN_B);
     this->navStateOutMsg.write(sunlineOutBuffer, this->moduleID, callTime);

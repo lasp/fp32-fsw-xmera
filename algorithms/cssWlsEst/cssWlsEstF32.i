@@ -10,6 +10,6 @@
 %include "cssWlsEstAlgorithm.h"
 %include "cssWlsEst.h"
 
-%include <architecture/msgPayloadDef/NavAttMsgPayload.h>
-%include <architecture/msgPayloadDef/SunlineFilterMsgPayload.h>
-%include <architecture/msgPayloadDef/CSSArraySensorMsgPayload.h>
+%include "msgPayloadDef/NavAttMsgF32Payload.h"
+%include "msgPayloadDef/SunlineFilterMsgF32Payload.h"
+%include "msgPayloadDef/CSSArraySensorMsgF32Payload.h"
