@@ -1,6 +1,10 @@
 #ifndef F32XMERA_CSS_WLS_EST_ALGORITHM_H
 #define F32XMERA_CSS_WLS_EST_ALGORITHM_H
 
+#include "utilities/fsw/freestandingInvalidArgument.h"
+#include "utilities/fsw/freestandingIsFinite.hpp"
+
+#include <math.h>
 #include <stdint.h>
 #include <Eigen/Core>
 
@@ -28,6 +32,108 @@ struct CssWlsEstOutput {
 
     /*! [-] Number of sensors whose reading exceeded the use threshold this cycle. */
     uint32_t numActiveCss{};
+};
+
+/*! @brief Validated configuration for the CSS weighted least squares estimator.
+
+    Boresights are validated as near-unit and stored normalized, so the estimator can rely on exact
+    unit vectors. */
+class CssWlsEstConfig final {
+   public:
+    /*! Build a validated configuration.
+        @return the validated configuration
+        @param cssNHat_B      [-] per-sensor boresight unit vectors in body frame, one sensor per row
+        @param cssBias        [-] per-sensor calibration scale factors
+        @param numCss         [-] number of configured sensors
+        @param useWeights     [-] whether to weight the measurements in the least squares fit
+        @param sensorUseThresh [-] cosine threshold at or below which a reading is discarded
+     */
+    static CssWlsEstConfig create(const Eigen::Matrix<float, kMaxNumCss, 3>& cssNHat_B,
+                                  const Eigen::Vector<float, kMaxNumCss>& cssBias,
+                                  const uint32_t numCss,
+                                  const bool useWeights,
+                                  const float sensorUseThresh) {
+        if (!isValidNumCss(numCss)) {
+            FSW_THROW_INVALID_ARGUMENT("cssWlsEst: numCss must be in [1, kMaxNumCss]");
+        }
+        if (!isValidCssNHat_B(cssNHat_B, numCss)) {
+            FSW_THROW_INVALID_ARGUMENT("cssWlsEst: the first numCss cssNHat_B rows must be unit vectors within 1e-3");
+        }
+        if (!isValidCssBias(cssBias, numCss)) {
+            FSW_THROW_INVALID_ARGUMENT("cssWlsEst: the first numCss cssBias entries must be finite and non-negative");
+        }
+        if (!isValidSensorUseThresh(sensorUseThresh)) {
+            FSW_THROW_INVALID_ARGUMENT("cssWlsEst: sensorUseThresh must be a cosine in [-1, 1]");
+        }
+        // Normalize the boresights so downstream code can rely on exact unit vectors. The rows are validated
+        // (near-)unit, so this only removes rounding; rows beyond numCss are unused and stay zero.
+        Eigen::Matrix<float, kMaxNumCss, 3> normalizedCssNHat_B = cssNHat_B;
+        for (uint32_t i = 0U; i < numCss; ++i) {
+            normalizedCssNHat_B.row(static_cast<Eigen::Index>(i)).normalize();
+        }
+
+        return {normalizedCssNHat_B, cssBias, numCss, useWeights, sensorUseThresh};
+    }
+
+    static bool isValidNumCss(const uint32_t numCss) {
+        return numCss >= 1U && numCss <= static_cast<uint32_t>(kMaxNumCss);
+    }
+
+    static bool isValidCssNHat_B(const Eigen::Matrix<float, kMaxNumCss, 3>& cssNHat_B, const uint32_t numCss) {
+        if (!isValidNumCss(numCss)) {
+            return false;
+        }
+        for (uint32_t i = 0; i < numCss; ++i) {
+            const Eigen::Vector3f row = cssNHat_B.row(static_cast<Eigen::Index>(i)).transpose();
+            if (!row.allFinite() || fabsf(row.stableNorm() - 1.0F) >= 1e-3F) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    static bool isValidCssBias(const Eigen::Vector<float, kMaxNumCss>& cssBias, const uint32_t numCss) {
+        if (!isValidNumCss(numCss)) {
+            return false;
+        }
+        for (uint32_t i = 0; i < numCss; ++i) {
+            const float bias = cssBias(static_cast<Eigen::Index>(i));
+            if (!fsw::is_finite(bias) || bias < 0.0F) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    static bool isValidSensorUseThresh(const float sensorUseThresh) {
+        return fsw::is_finite(sensorUseThresh) && sensorUseThresh >= -1.0F && sensorUseThresh <= 1.0F;
+    }
+
+    // No isValidUseWeights -- a bool with no semantic constraint, the validator would be vacuous.
+
+    const Eigen::Matrix<float, kMaxNumCss, 3>& getCssNHat_B() const { return cssNHat_B; }
+    const Eigen::Vector<float, kMaxNumCss>& getCssBias() const { return cssBias; }
+    uint32_t getNumCss() const { return numCss; }
+    bool getUseWeights() const { return useWeights; }
+    float getSensorUseThresh() const { return sensorUseThresh; }
+
+   private:
+    CssWlsEstConfig(const Eigen::Matrix<float, kMaxNumCss, 3>& cssNHat_B,
+                    const Eigen::Vector<float, kMaxNumCss>& cssBias,
+                    const uint32_t numCss,
+                    const bool useWeights,
+                    const float sensorUseThresh)
+        : cssNHat_B(cssNHat_B),
+          cssBias(cssBias),
+          numCss(numCss),
+          useWeights(useWeights),
+          sensorUseThresh(sensorUseThresh) {}
+
+    Eigen::Matrix<float, kMaxNumCss, 3> cssNHat_B = Eigen::Matrix<float, kMaxNumCss, 3>::Zero();
+    Eigen::Vector<float, kMaxNumCss> cssBias = Eigen::Vector<float, kMaxNumCss>::Zero();
+    uint32_t numCss{};
+    bool useWeights{};
+    float sensorUseThresh{};
 };
 
 /*! @brief Weighted least squares estimator for the body-relative sun heading.
