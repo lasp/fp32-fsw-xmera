@@ -14,15 +14,15 @@ void HillPointAlgorithm_destroy(HillPointAlgorithmHandle* self) { fsw::deleteHan
 AttRefMsgF32Payload HillPointAlgorithm_update(const HillPointAlgorithmHandle* self,
                                               Vector3d_c r_BN_N,
                                               Vector3d_c v_BN_N,
-                                              Vector3d_c r_planet_N,
-                                              Vector3d_c v_planet_N) {
+                                              Vector3d_c r_PN_N,
+                                              Vector3d_c v_PN_N) {
     const Eigen::Vector3d r_BN_N_e = cArrayToEigenVector3<double>(r_BN_N.data);
     const Eigen::Vector3d v_BN_N_e = cArrayToEigenVector3<double>(v_BN_N.data);
-    const Eigen::Vector3d r_planet_N_e = cArrayToEigenVector3<double>(r_planet_N.data);
-    const Eigen::Vector3d v_planet_N_e = cArrayToEigenVector3<double>(v_planet_N.data);
+    const Eigen::Vector3d r_PN_N_e = cArrayToEigenVector3<double>(r_PN_N.data);
+    const Eigen::Vector3d v_PN_N_e = cArrayToEigenVector3<double>(v_PN_N.data);
 
     const HillPointOutput out =
-        fsw::fromHandle<const ::HillPointAlgorithm>(self)->update(r_BN_N_e, v_BN_N_e, r_planet_N_e, v_planet_N_e);
+        fsw::fromHandle<const ::HillPointAlgorithm>(self)->update(r_BN_N_e, v_BN_N_e, r_PN_N_e, v_PN_N_e);
 
     AttRefMsgF32Payload payload{};
     eigenVectorToCArray(out.sigma_RN, payload.sigma_RN);

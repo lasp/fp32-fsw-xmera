@@ -7,17 +7,17 @@
 // the header and follow the standard (sc, planet) ordering.
 HillPointOutput HillPointAlgorithm::update(const Eigen::Vector3d& r_BN_N,
                                            const Eigen::Vector3d& v_BN_N,
-                                           const Eigen::Vector3d& r_planet_N,
-                                           const Eigen::Vector3d& v_planet_N) {
+                                           const Eigen::Vector3d& r_PN_N,
+                                           const Eigen::Vector3d& v_PN_N) {
     // Position/velocity scale work stays in double to avoid losing precision in
     // difference-of-large-numbers (e.g. heliocentric vectors) and large products
     // like orbitRadius^2.
-    const Eigen::Vector3d relPosVector = r_BN_N - r_planet_N;
-    const Eigen::Vector3d relVelVector = v_BN_N - v_planet_N;
+    const Eigen::Vector3d r_BP_N = r_BN_N - r_PN_N;
+    const Eigen::Vector3d v_BP_N = v_BN_N - v_PN_N;
 
     // Hill-frame unit vectors -- magnitude 1 by construction, so float is fine.
-    const Eigen::Vector3d i_r_d = relPosVector.normalized();
-    const Eigen::Vector3d orbitAngMomentum = relPosVector.cross(relVelVector);
+    const Eigen::Vector3d i_r_d = r_BP_N.normalized();
+    const Eigen::Vector3d orbitAngMomentum = r_BP_N.cross(v_BP_N);
     const Eigen::Vector3d i_h_d = orbitAngMomentum.normalized();
     const Eigen::Vector3d i_theta_d = i_h_d.cross(i_r_d);
 
@@ -27,7 +27,7 @@ HillPointOutput HillPointAlgorithm::update(const Eigen::Vector3d& r_BN_N,
     dcm_RN.row(1) = i_theta_d.cast<float>();
     dcm_RN.row(2) = i_h_d.cast<float>();
 
-    const double orbitRadius = relPosVector.norm();
+    const double orbitRadius = r_BP_N.norm();
 
     // Robustness threshold against divide-by-near-zero. Note the original Xmera comment claimed
     // "1 km" but the value is 1.0 in the same units as r_BN_N, which is meters.
@@ -37,7 +37,7 @@ HillPointOutput HillPointAlgorithm::update(const Eigen::Vector3d& r_BN_N,
     double ddfdt2 = 0.0;  // true anomaly acceleration
     if (orbitRadius > minOrbitRadius_m) {
         dfdt = orbitAngMomentum.norm() / (orbitRadius * orbitRadius);
-        ddfdt2 = -2.0 * relVelVector.dot(i_r_d) / orbitRadius * dfdt;
+        ddfdt2 = -2.0 * v_BP_N.dot(i_r_d) / orbitRadius * dfdt;
     }
     // else: degenerate geometry (radius below threshold) -- leave rates at zero rather than divide by ~0
 

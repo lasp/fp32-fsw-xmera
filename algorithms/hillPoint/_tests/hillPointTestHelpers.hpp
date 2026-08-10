@@ -20,12 +20,12 @@ struct ReferenceHillPointOutput {
 // algorithm's mixed-precision FP32 output to within float tolerance.
 inline ReferenceHillPointOutput referenceHillPoint(const Eigen::Vector3d& r_BN_N,
                                                    const Eigen::Vector3d& v_BN_N,
-                                                   const Eigen::Vector3d& r_planet_N,
-                                                   const Eigen::Vector3d& v_planet_N) {
-    const Eigen::Vector3d rel_r = r_BN_N - r_planet_N;
-    const Eigen::Vector3d rel_v = v_BN_N - v_planet_N;
-    const Eigen::Vector3d i_r = rel_r.normalized();
-    const Eigen::Vector3d h = rel_r.cross(rel_v);
+                                                   const Eigen::Vector3d& r_PN_N,
+                                                   const Eigen::Vector3d& v_PN_N) {
+    const Eigen::Vector3d r_BP_N = r_BN_N - r_PN_N;
+    const Eigen::Vector3d v_BP_N = v_BN_N - v_PN_N;
+    const Eigen::Vector3d i_r = r_BP_N.normalized();
+    const Eigen::Vector3d h = r_BP_N.cross(v_BP_N);
     const Eigen::Vector3d i_h = h.normalized();
     const Eigen::Vector3d i_theta = i_h.cross(i_r);
 
@@ -34,12 +34,12 @@ inline ReferenceHillPointOutput referenceHillPoint(const Eigen::Vector3d& r_BN_N
     dcm_RN.row(1) = i_theta;
     dcm_RN.row(2) = i_h;
 
-    const double r_norm = rel_r.norm();
+    const double r_norm = r_BP_N.norm();
     double dfdt = 0.0;
     double ddfdt2 = 0.0;
     if (r_norm > 1.0) {
         dfdt = h.norm() / (r_norm * r_norm);
-        ddfdt2 = -2.0 * rel_v.dot(i_r) / r_norm * dfdt;
+        ddfdt2 = -2.0 * v_BP_N.dot(i_r) / r_norm * dfdt;
     }
 
     const Eigen::Vector3d omega_RN_R{0.0, 0.0, dfdt};
@@ -54,15 +54,15 @@ inline ReferenceHillPointOutput referenceHillPoint(const Eigen::Vector3d& r_BN_N
 
 inline void testHillPoint(const Eigen::Vector3d& r_BN_N,
                           const Eigen::Vector3d& v_BN_N,
-                          const Eigen::Vector3d& r_planet_N,
-                          const Eigen::Vector3d& v_planet_N) {
+                          const Eigen::Vector3d& r_PN_N,
+                          const Eigen::Vector3d& v_PN_N) {
     HillPointAlgorithm alg;
 
     HillPointOutput out;
-    EXPECT_NO_THROW(out = alg.update(r_BN_N, v_BN_N, r_planet_N, v_planet_N));
+    EXPECT_NO_THROW(out = alg.update(r_BN_N, v_BN_N, r_PN_N, v_PN_N));
 
     ReferenceHillPointOutput ref;
-    EXPECT_NO_THROW(ref = referenceHillPoint(r_BN_N, v_BN_N, r_planet_N, v_planet_N));
+    EXPECT_NO_THROW(ref = referenceHillPoint(r_BN_N, v_BN_N, r_PN_N, v_PN_N));
 
     // dcmToMrp can pick either MRP shadow-set representative when |sigma| is near 1 (180-deg
     // rotation boundary). Pick whichever representative is closer to the algorithm output before
