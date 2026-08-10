@@ -3,6 +3,7 @@
 #include <architecture/utilities/macroDefinitions.h>
 #include <architecture/utilities/safeMath.h>
 #include <string.h>
+#include <stdexcept>
 
 int computeWlsmn(int numActiveCss, double* H, double* W, double* y, double x[3]);
 void computeWlsResiduals(double* cssMeas, CSSConfigMsgPayload* cssConfig, double* wlsEst, double* cssResiduals);
@@ -15,17 +16,15 @@ void computeWlsResiduals(double* cssMeas, CSSConfigMsgPayload* cssConfig, double
 void CssWlsEst::reset(uint64_t callTime) {
     // check that required messages have been included
     if (!this->cssConfigInMsg.isLinked()) {
-        this->bskLogger.bskLog(BSK_ERROR, "Error: cssWIsEst.cssConfigInMsg wasn't connected.");
+        throw std::invalid_argument("cssWlsEst.cssConfigInMsg wasn't connected.");
     }
     if (!this->cssDataInMsg.isLinked()) {
-        this->bskLogger.bskLog(BSK_ERROR, "Error: cssWIsEst.cssDataInMsg wasn't connected.");
+        throw std::invalid_argument("cssWlsEst.cssDataInMsg wasn't connected.");
     }
 
     this->cssConfigInBuffer = this->cssConfigInMsg();
     if (this->cssConfigInBuffer.nCSS > MAX_N_CSS_MEAS) {
-        this->bskLogger.bskLog(BSK_ERROR,
-                               "cssWIsEst.cssDataInMsg.nCSS must not be greater than "
-                               "MAX_N_CSS_MEAS value.");
+        throw std::invalid_argument("cssWlsEst.cssConfigInMsg.nCSS must not be greater than MAX_N_CSS_MEAS.");
     }
 
     this->priorSignalAvailable = 0;
