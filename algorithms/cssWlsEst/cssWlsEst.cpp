@@ -5,6 +5,17 @@
 #include <string.h>
 #include <stdexcept>
 
+/*! Upper limit of the arc-cosine domain. The dot product of two unit vectors can only exceed this
+    through round-off, so the principal rotation angle argument is clamped here. */
+static constexpr double kMaxPrincipalAngleCosine = 1.0;
+
+/*! Lower limit of the arc-cosine domain, the negative counterpart of kMaxPrincipalAngleCosine. */
+static constexpr double kMinPrincipalAngleCosine = -1.0;
+
+/*! Smallest physically meaningful CSS reading. A coarse sun sensor cannot report a negative cosine,
+    so the predicted measurement is floored here before differencing against the observation. */
+static constexpr double kMinCssMeasurement = 0.0;
+
 int computeWlsmn(int numActiveCss, double* H, double* W, double* y, double x[3]);
 void computeWlsResiduals(const double* cssMeas, CSSConfigMsgPayload* cssConfig, double* wlsEst, double* cssResiduals);
 
@@ -126,8 +137,8 @@ void CssWlsEst::updateState(const uint64_t callTime) {
             v3Normalize(sunlineOutBuffer.omega_BN_B, sunlineOutBuffer.omega_BN_B);
             /* compute principal rotation angle between sun heading measurements */
             dOldDotNew = v3Dot(dHatNew, dHatOld);
-            if (dOldDotNew > 1.0) dOldDotNew = 1.0;
-            if (dOldDotNew < -1.0) dOldDotNew = -1.0;
+            if (dOldDotNew > kMaxPrincipalAngleCosine) dOldDotNew = kMaxPrincipalAngleCosine;
+            if (dOldDotNew < kMinPrincipalAngleCosine) dOldDotNew = kMinPrincipalAngleCosine;
             v3Scale(safeAcos(dOldDotNew) / dt, sunlineOutBuffer.omega_BN_B, sunlineOutBuffer.omega_BN_B);
         } else {
             this->priorSignalAvailable = 1;
@@ -172,7 +183,8 @@ void computeWlsResiduals(const double* cssMeas, CSSConfigMsgPayload* cssConfig, 
     for (uint32_t i = 0; i < cssConfig->nCSS; i++) {
         /*! -# A dot product between the computed estimate with each sensor normal */
         const double rawDotProd = v3Dot(wlsEst, cssConfig->cssVals[i].nHat_B);
-        const double cssDotProd = rawDotProd > 0.0 ? rawDotProd : 0.0; /*CSS values can't be negative!*/
+        /*CSS values can't be negative!*/
+        const double cssDotProd = rawDotProd > kMinCssMeasurement ? rawDotProd : kMinCssMeasurement;
         /*! -# A subtraction between that post-fit measurement estimate and the actual measurement*/
         cssResiduals[i] = cssMeas[i] - cssDotProd;
         /*! -# This populates the post-fit residuals*/
