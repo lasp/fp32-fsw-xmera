@@ -71,8 +71,8 @@ CssWlsEstOutput CssWlsEstAlgorithm::update(const uint64_t callTime, const Eigen:
     Eigen::Matrix<float, kMaxNumCss, 3> H = Eigen::Matrix<float, kMaxNumCss, 3>::Zero();
     /* Measurements, compacted to the active sensors */
     Eigen::Vector<float, kMaxNumCss> y = Eigen::Vector<float, kMaxNumCss>::Zero();
-    int status = 0; /* Quality of the module estimate */
-    float dt;       /* [s] Control update period */
+    int status = 0;  /* Quality of the module estimate */
+    float dt = 0.0F; /* [s] Control update period */
 
     /*! - Compute control update time */
     if (this->priorTime == 0) {
@@ -121,7 +121,7 @@ CssWlsEstOutput CssWlsEstAlgorithm::update(const uint64_t callTime, const Eigen:
         out.sunHeading_B = out.sunHeading_B.stableNormalized();
 
         /*! -# Estimate the inertial angular velocity from the rate of the sun heading measurements */
-        if (this->priorSignalAvailable && dt > 0.0F) {
+        if (this->priorSignalAvailable != 0U && dt > 0.0F) {
             const Eigen::Vector3f dHatNew = out.sunHeading_B.stableNormalized();
             const Eigen::Vector3f dHatOld = this->dOld.stableNormalized();
             out.omega_BN_B = dHatNew.cross(dHatOld).stableNormalized();
