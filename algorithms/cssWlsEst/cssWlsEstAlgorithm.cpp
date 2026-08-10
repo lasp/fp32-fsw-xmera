@@ -18,6 +18,12 @@ static constexpr double kMinPrincipalAngleCosine = -1.0;
     so the predicted measurement is floored here before differencing against the observation. */
 static constexpr double kMinCssMeasurement = 0.0;
 
+/*! Relative tolerance for treating a normal matrix as singular, sized at a few multiples of the
+    working precision's machine epsilon. The determinant of an n-by-n matrix scales as the n-th power
+    of the matrix norm, so the absolute threshold handed to Eigen is this factor times the norm
+    raised to the matrix dimension, which keeps the test scale invariant. */
+static constexpr double kSingularDeterminantRelativeTolerance = 1e-15;
+
 /*! Number of active measurements below which the fit is exactly determined and the measurement
     weights carry no information. */
 static constexpr uint32_t kMinMeasurementsForWeightedFit = 3;
@@ -185,7 +191,9 @@ int CssWlsEstAlgorithm::computeWlsmn(const uint32_t numActiveCss,
         Eigen::Matrix2d hhtInverse = Eigen::Matrix2d::Zero();
         double determinant = 0.0;
         bool invertible = false;
-        hht.computeInverseAndDetWithCheck(hhtInverse, determinant, invertible);
+        const double hhtNorm = hht.norm();
+        const double hhtThreshold = kSingularDeterminantRelativeTolerance * hhtNorm * hhtNorm;
+        hht.computeInverseAndDetWithCheck(hhtInverse, determinant, invertible, hhtThreshold);
         if (!invertible) {
             hhtInverse.setZero();
             status = 1;
@@ -202,7 +210,9 @@ int CssWlsEstAlgorithm::computeWlsmn(const uint32_t numActiveCss,
         Eigen::Matrix3d htwhInverse = Eigen::Matrix3d::Zero();
         double determinant = 0.0;
         bool invertible = false;
-        htwh.computeInverseAndDetWithCheck(htwhInverse, determinant, invertible);
+        const double htwhNorm = htwh.norm();
+        const double htwhThreshold = kSingularDeterminantRelativeTolerance * htwhNorm * htwhNorm * htwhNorm;
+        htwh.computeInverseAndDetWithCheck(htwhInverse, determinant, invertible, htwhThreshold);
         if (!invertible) {
             htwhInverse.setZero();
             status = 1;
