@@ -24,14 +24,14 @@ class CssWlsEst : public SysModel {
         navStateOutMsg;  //!< Navigation output message carrying the estimated sun heading and body rate
     Message<SunlineFilterMsgPayload> cssWLSFiltResOutMsg;  //!< Post-fit residual and observation count output message
 
-    uint32_t numActiveCss;          //!< [-] Number of CSS sensors above the use threshold this cycle
-    uint32_t useWeights;            //!< [-] Flag selecting measurement weighting for the least squares fit
-    uint32_t priorSignalAvailable;  //!< [-] Flag indicating a prior sun heading estimate is available
-    double dOld[3];                 //!< [-] Prior normalized sun heading estimate, body frame
-    double sensorUseThresh;         //!< [-] Cosine threshold at or below which a CSS measurement is discarded
-    uint64_t priorTime;             //!< [ns] Time of the previous update; zero until the first call after a reset
-    CSSConfigMsgPayload cssConfigInBuffer;  //!< CSS constellation configuration latched at reset
-    SunlineFilterMsgPayload filtStatus;     //!< Post-fit residual output message buffer
+    uint32_t numActiveCss{};          //!< [-] Number of CSS sensors above the use threshold this cycle
+    uint32_t useWeights{};            //!< [-] Flag selecting measurement weighting for the least squares fit
+    uint32_t priorSignalAvailable{};  //!< [-] Flag indicating a prior sun heading estimate is available
+    double dOld[3]{};                 //!< [-] Prior normalized sun heading estimate, body frame
+    double sensorUseThresh{};         //!< [-] Cosine threshold at or below which a CSS measurement is discarded
+    uint64_t priorTime{};             //!< [ns] Time of the previous update; zero until the first call after a reset
+    CSSConfigMsgPayload cssConfigInBuffer{};  //!< CSS constellation configuration latched at reset
+    SunlineFilterMsgPayload filtStatus{};     //!< Post-fit residual output message buffer
 };
 
 #endif
