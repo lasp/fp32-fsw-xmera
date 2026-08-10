@@ -18,20 +18,20 @@ class CssWlsEst : public SysModel {
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
 
-    ReadFunctor<CSSArraySensorMsgPayload> cssDataInMsg;  //!< The name of the CSS sensor input message
-    ReadFunctor<CSSConfigMsgPayload> cssConfigInMsg;     //!< The name of the CSS configuration input message
+    ReadFunctor<CSSArraySensorMsgPayload> cssDataInMsg;  //!< CSS array measurement input message
+    ReadFunctor<CSSConfigMsgPayload> cssConfigInMsg;     //!< CSS constellation configuration input message
     Message<NavAttMsgPayload>
-        navStateOutMsg;  //!< The name of the navigation output message containing the estimated states
-    Message<SunlineFilterMsgPayload> cssWLSFiltResOutMsg;  //!< The name of the CSS filter data out message
+        navStateOutMsg;  //!< Navigation output message carrying the estimated sun heading and body rate
+    Message<SunlineFilterMsgPayload> cssWLSFiltResOutMsg;  //!< Post-fit residual and observation count output message
 
-    uint32_t numActiveCss;                  //!< [-] Number of currently active CSS sensors
-    uint32_t useWeights;                    //!< Flag indicating whether or not to use weights for least squares
-    uint32_t priorSignalAvailable;          //!< Flag indicating if a recent prior heading estimate is available
-    double dOld[3];                         //!< The prior sun heading estimate
-    double sensorUseThresh;                 //!< Threshold below which we discount sensors
-    uint64_t priorTime;                     //!< [ns] Last time the attitude control is called
-    CSSConfigMsgPayload cssConfigInBuffer;  //!< CSS constellation configuration message buffer
-    SunlineFilterMsgPayload filtStatus;     //!< Filter message
+    uint32_t numActiveCss;          //!< [-] Number of CSS sensors above the use threshold this cycle
+    uint32_t useWeights;            //!< [-] Flag selecting measurement weighting for the least squares fit
+    uint32_t priorSignalAvailable;  //!< [-] Flag indicating a prior sun heading estimate is available
+    double dOld[3];                 //!< [-] Prior normalized sun heading estimate, body frame
+    double sensorUseThresh;         //!< [-] Cosine threshold at or below which a CSS measurement is discarded
+    uint64_t priorTime;             //!< [ns] Time of the previous update; zero until the first call after a reset
+    CSSConfigMsgPayload cssConfigInBuffer;  //!< CSS constellation configuration latched at reset
+    SunlineFilterMsgPayload filtStatus;     //!< Post-fit residual output message buffer
 };
 
 #endif

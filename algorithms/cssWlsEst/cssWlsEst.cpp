@@ -43,7 +43,8 @@ void CssWlsEst::reset(uint64_t callTime) {
 }
 
 /*! This method takes the parsed CSS sensor data and outputs an estimate of the
- sun vector in the ADCS body frame
+ sun vector in the ADCS body frame, along with the inertial angular velocity
+ derived from two successive sun heading estimates
  @return void
  @param callTime The clock time at which the function was called (nanoseconds)
  */
@@ -187,7 +188,8 @@ void computeWlsResiduals(double* cssMeas, CSSConfigMsgPayload* cssConfig, double
  @return success indicator (0 for good, 1 for fail)
  @param numActiveCss The count on input measurements
  @param H The predicted pointing vector for each measurement
- @param W the weighting matrix for the set of measurements
+ @param W the weighting matrix for the set of measurements; only applied when more than two
+        measurements are available, as the one- and two-measurement fits are exactly determined
  @param y the observation vector for the valid sensors
  @param x The output least squares fit for the observations
  */
