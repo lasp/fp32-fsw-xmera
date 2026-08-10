@@ -12,13 +12,18 @@
 #include <Eigen/Core>
 
 #include <stdint.h>
+#include <memory>
 
 /*! @brief Estimates the body-relative sun heading and rate from a coarse sun sensor array. */
-class CssWlsEst : public SysModel {
+class CssWlsEst final : public SysModel {
    public:
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
 
+    void reconfigure();
+    void reInitialize();
+
+    // Phase 1: public config properties -- set before reset()
     /*! [-] Per-sensor boresight unit vectors in body frame components, numCss rows by three columns. */
     Eigen::MatrixXf cssNHat;
 
@@ -29,7 +34,7 @@ class CssWlsEst : public SysModel {
     uint32_t numCss{};
 
     /*! [-] Flag selecting measurement weighting for the least squares fit. */
-    uint32_t useWeights{};
+    bool useWeights{};
 
     /*! [-] Cosine threshold at or below which a CSS measurement is discarded. */
     float sensorUseThresh{};
@@ -44,7 +49,8 @@ class CssWlsEst : public SysModel {
         cssWLSFiltResOutMsg;  //!< Post-fit residual and observation count output message
 
    private:
-    CssWlsEstAlgorithm algorithm;
+    CssWlsEstConfig toConfig() const;
+    std::unique_ptr<CssWlsEstAlgorithm> algorithm = nullptr;
 };
 
 #endif

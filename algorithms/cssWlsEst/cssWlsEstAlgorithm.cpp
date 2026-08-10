@@ -28,6 +28,21 @@ static constexpr float kSingularDeterminantRelativeTolerance = 1e-6F;
     weights carry no information. */
 static constexpr uint32_t kMinMeasurementsForWeightedFit = 3;
 
+/*! Construct the estimator, installing the configuration and clearing all runtime state.
+ @param config the validated configuration to install
+ */
+CssWlsEstAlgorithm::CssWlsEstAlgorithm(const CssWlsEstConfig& config) : cfg(config) {
+    this->setConfig(config);
+    this->reInitialize();
+}
+
+/*! Install a configuration. Parameters only; runtime state is left untouched so a reconfiguration
+ does not disturb an estimate already in progress.
+ @return void
+ @param config the validated configuration to install
+ */
+void CssWlsEstAlgorithm::setConfig(const CssWlsEstConfig& config) { this->cfg = config; }
+
 /*! This method returns all runtime state to its post-construction condition. Local module variables
  that retain time varying states between function calls are reset to their default values.
  @return void
@@ -72,11 +87,11 @@ CssWlsEstOutput CssWlsEstAlgorithm::update(const uint64_t callTime, const Eigen:
     /*! -# Get measurement value into observation vector */
     /*! -# increase the number of valid observations */
     /*! -# Otherwise just continue */
-    for (uint32_t i = 0; i < this->numCss; i = i + 1) {
+    for (uint32_t i = 0; i < this->cfg.getNumCss(); i = i + 1) {
         const auto sensor = static_cast<Eigen::Index>(i);
-        if (cosValues(sensor) > this->sensorUseThresh) {
+        if (cosValues(sensor) > this->cfg.getSensorUseThresh()) {
             const auto active = static_cast<Eigen::Index>(out.numActiveCss);
-            H.row(active) = this->cssBias(sensor) * this->cssNHat_B.row(sensor);
+            H.row(active) = this->cfg.getCssBias()(sensor) * this->cfg.getCssNHat_B().row(sensor);
             y(active) = cosValues(sensor);
             out.numActiveCss = out.numActiveCss + 1;
         }
@@ -95,7 +110,7 @@ CssWlsEstOutput CssWlsEstAlgorithm::update(const uint64_t callTime, const Eigen:
         /*! -# Configuration option to weight the measurements, otherwise set
          weighting matrix to identity*/
         Eigen::Vector<float, kMaxNumCss> weights = Eigen::Vector<float, kMaxNumCss>::Ones();
-        if (this->useWeights > 0) {
+        if (this->cfg.getUseWeights()) {
             weights = y;
         }
         /*! -# Get least squares fit for sun pointing vector*/
@@ -148,10 +163,10 @@ Eigen::Vector<float, kMaxNumCss> CssWlsEstAlgorithm::computeWlsResiduals(
     Eigen::Vector<float, kMaxNumCss> cssResiduals = Eigen::Vector<float, kMaxNumCss>::Zero();
 
     /*! The method loops through the sensors and performs: */
-    for (uint32_t i = 0; i < this->numCss; i++) {
+    for (uint32_t i = 0; i < this->cfg.getNumCss(); i++) {
         const auto sensor = static_cast<Eigen::Index>(i);
         /*! -# A dot product between the computed estimate with each sensor normal */
-        const float rawDotProd = wlsEst.dot(this->cssNHat_B.row(sensor).transpose());
+        const float rawDotProd = wlsEst.dot(this->cfg.getCssNHat_B().row(sensor).transpose());
         /*CSS values can't be negative!*/
         const float cssDotProd = rawDotProd > kMinCssMeasurement ? rawDotProd : kMinCssMeasurement;
         /*! -# A subtraction between that post-fit measurement estimate and the actual measurement*/

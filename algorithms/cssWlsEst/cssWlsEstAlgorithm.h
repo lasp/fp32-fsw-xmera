@@ -145,6 +145,16 @@ class CssWlsEstConfig final {
     orthogonal to the sun heading. */
 class CssWlsEstAlgorithm final {
    public:
+    /*! Construct the estimator from a validated configuration.
+        @param config the validated configuration to install
+     */
+    explicit CssWlsEstAlgorithm(const CssWlsEstConfig& config);
+
+    /*! Install a configuration without disturbing runtime state.
+        @param config the validated configuration to install
+     */
+    void setConfig(const CssWlsEstConfig& config);
+
     /*! Return all runtime state to its post-construction condition. */
     void reInitialize();
 
@@ -154,21 +164,6 @@ class CssWlsEstAlgorithm final {
         @param cosValues [-] Per-sensor cosine readings, indexed by sensor
      */
     CssWlsEstOutput update(uint64_t callTime, const Eigen::Vector<float, kMaxNumCss>& cosValues);
-
-    /*! [-] Per-sensor boresight unit vectors in body frame components, one sensor per row. */
-    Eigen::Matrix<float, kMaxNumCss, 3> cssNHat_B = Eigen::Matrix<float, kMaxNumCss, 3>::Zero();
-
-    /*! [-] Per-sensor calibration scale factor applied to the sensor boresight. */
-    Eigen::Vector<float, kMaxNumCss> cssBias = Eigen::Vector<float, kMaxNumCss>::Zero();
-
-    /*! [-] Number of configured sensors; only the leading entries of the arrays above are read. */
-    uint32_t numCss{};
-
-    /*! [-] Flag selecting measurement weighting for the least squares fit. */
-    uint32_t useWeights{};
-
-    /*! [-] Cosine threshold at or below which a sensor reading is discarded. */
-    float sensorUseThresh{};
 
    private:
     /*! Solve the least squares fit for the sun heading.
@@ -194,6 +189,9 @@ class CssWlsEstAlgorithm final {
      */
     Eigen::Vector<float, kMaxNumCss> computeWlsResiduals(const Eigen::Vector<float, kMaxNumCss>& cssMeas,
                                                          const Eigen::Vector3f& wlsEst) const;
+
+    /*! The validated configuration in force. */
+    CssWlsEstConfig cfg;
 
     /*! [-] Prior normalized sun heading estimate, body frame components. */
     Eigen::Vector3f dOld = Eigen::Vector3f::Zero();
