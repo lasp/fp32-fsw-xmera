@@ -13,8 +13,6 @@
 #include "utilities/fsw/freestandingIsFinite.hpp"
 #include "utilities/fsw/validDcmCheck.h"
 
-enum class FixedAngle { ANGLE_1_FIXED, ANGLE_2_FIXED };
-
 struct MotorAngles {
     float angle1;
     float angle2;
@@ -167,11 +165,7 @@ class ThrustAxisToMotorAnglesAlgorithm final {
     MotorAngles gimbalAnglesToMotorAngles(float gimbalTipAngle, float gimbalTiltAngle) const;
     MotorAngles pullAngles(float gimbalAngle1, float gimbalAngle2) const;
     std::optional<int> getArrayIndex(const int rowIdx, const int colIdx) const;
-    bool isBilinearInterpolationRequired(float gimbalAngle1, float gimbalAngle2) const;
-    bool isNoInterpolationRequired(float gimbalAngle1, float gimbalAngle2) const;
-    bool isLinearInterpolationRequired(float angle) const;
     MotorAngles bilinearlyInterpolateMotorAngles(float gimbalAngle1, float gimbalAngle2) const;
-    MotorAngles linearlyInterpolateMotorAngles(float gimbalAngle1, float gimbalAngle2, FixedAngle fixedAngle) const;
 
     static constexpr float kInterpolationRemainderTolerance =
         1e-3F;  //!< Tolerance for treating a normalized gimbal angle as landing exactly on a table node
