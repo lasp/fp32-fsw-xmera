@@ -6,14 +6,14 @@
 #include <stdexcept>
 
 int computeWlsmn(int numActiveCss, double* H, double* W, double* y, double x[3]);
-void computeWlsResiduals(double* cssMeas, CSSConfigMsgPayload* cssConfig, double* wlsEst, double* cssResiduals);
+void computeWlsResiduals(const double* cssMeas, CSSConfigMsgPayload* cssConfig, double* wlsEst, double* cssResiduals);
 
 /*! This method performs a complete reset of the module.  Local module variables that retain
  time varying states between function calls are reset to their default values.
  @return void
  @param callTime The clock time at which the function was called (nanoseconds)
  */
-void CssWlsEst::reset(uint64_t callTime) {
+void CssWlsEst::reset(const uint64_t callTime) {
     // check that required messages have been included
     if (!this->cssConfigInMsg.isLinked()) {
         throw std::invalid_argument("cssWlsEst.cssConfigInMsg wasn't connected.");
@@ -48,8 +48,7 @@ void CssWlsEst::reset(uint64_t callTime) {
  @return void
  @param callTime The clock time at which the function was called (nanoseconds)
  */
-void CssWlsEst::updateState(uint64_t callTime) {
-    CSSArraySensorMsgPayload InputBuffer;                /* CSS measurements */
+void CssWlsEst::updateState(const uint64_t callTime) {
     double H[MAX_NUM_CSS_SENSORS * 3];                   /* The predicted pointing vector for each measurement */
     double y[MAX_NUM_CSS_SENSORS];                       /* Measurements */
     double W[MAX_NUM_CSS_SENSORS * MAX_NUM_CSS_SENSORS]; /* Matrix of measurement weights */
@@ -62,7 +61,7 @@ void CssWlsEst::updateState(uint64_t callTime) {
 
     /*! Message Read and Setup*/
     /*! - Read the input parsed CSS sensor data message*/
-    InputBuffer = this->cssDataInMsg();
+    const CSSArraySensorMsgPayload InputBuffer = this->cssDataInMsg(); /* CSS measurements */
 
     /*! - Compute control update time */
     if (this->priorTime == 0) {
@@ -167,15 +166,13 @@ void CssWlsEst::updateState(uint64_t callTime) {
     @param wlsEst The WLS estimate computed for the CSS measurements
     @param cssResiduals The measurement residuals output by this function
 */
-void computeWlsResiduals(double* cssMeas, CSSConfigMsgPayload* cssConfig, double* wlsEst, double* cssResiduals) {
-    double cssDotProd;
-
+void computeWlsResiduals(const double* cssMeas, CSSConfigMsgPayload* cssConfig, double* wlsEst, double* cssResiduals) {
     memset(cssResiduals, 0x0, cssConfig->nCSS * sizeof(double));
     /*! The method loops through the sensors and performs: */
     for (uint32_t i = 0; i < cssConfig->nCSS; i++) {
         /*! -# A dot product between the computed estimate with each sensor normal */
-        cssDotProd = v3Dot(wlsEst, cssConfig->cssVals[i].nHat_B);
-        cssDotProd = cssDotProd > 0.0 ? cssDotProd : 0.0; /*CSS values can't be negative!*/
+        const double rawDotProd = v3Dot(wlsEst, cssConfig->cssVals[i].nHat_B);
+        const double cssDotProd = rawDotProd > 0.0 ? rawDotProd : 0.0; /*CSS values can't be negative!*/
         /*! -# A subtraction between that post-fit measurement estimate and the actual measurement*/
         cssResiduals[i] = cssMeas[i] - cssDotProd;
         /*! -# This populates the post-fit residuals*/
@@ -193,7 +190,7 @@ void computeWlsResiduals(double* cssMeas, CSSConfigMsgPayload* cssConfig, double
  @param y the observation vector for the valid sensors
  @param x The output least squares fit for the observations
  */
-int computeWlsmn(int numActiveCss, double* H, double* W, double* y, double x[3]) {
+int computeWlsmn(const int numActiveCss, double* H, double* W, double* y, double x[3]) {
     double m22[2 * 2];
     double m32[3 * 2];
     int status = 0;
