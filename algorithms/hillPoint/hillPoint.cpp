@@ -1,13 +1,6 @@
 #include "hillPoint.h"
 #include "utilities/fsw/eigenSupport.h"
-#include <stdexcept>
-
-namespace {
-class XmeraLifecycleException : public std::runtime_error {
-   public:
-    using runtime_error::runtime_error;
-};
-}  // namespace
+#include "utilities/xmera/xmeraLifecycleException.h"
 
 void HillPoint::reset(const uint64_t currentSimNanos) {
     if (!this->transNavInMsg.isLinked()) {
