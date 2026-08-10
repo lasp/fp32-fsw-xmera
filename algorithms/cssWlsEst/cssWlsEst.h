@@ -1,5 +1,5 @@
-#ifndef _CSS_WLS_EST_H_
-#define _CSS_WLS_EST_H_
+#ifndef F32XMERA_CSS_WLS_EST_H
+#define F32XMERA_CSS_WLS_EST_H
 
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>

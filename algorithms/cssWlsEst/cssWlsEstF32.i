@@ -1,4 +1,4 @@
-%module cssWlsEst
+%module cssWlsEstF32
 %{
    #include "cssWlsEst.h"
 %}

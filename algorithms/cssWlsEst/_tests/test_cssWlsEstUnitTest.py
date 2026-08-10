@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 import numpy
 import pytest
 from xmera.architecture import messaging
-from xmera.fswAlgorithms import cssWlsEst
+from xmera.fp32 import cssWlsEstF32
 # Import all of the modules that we are going to be called in this simulation
 from xmera.utilities import SimulationBaseClass
 from xmera.utilities import macros
@@ -151,7 +151,7 @@ def cssWlsEstTestFunction(show_plots):
     testProc.addTask(unitTestSim.CreateNewTask(unitTaskName, int(1E8)))
 
     # Construct algorithm and associated C++ container
-    CSSWlsEstFSW = cssWlsEst.CssWlsEst()
+    CSSWlsEstFSW = cssWlsEstF32.CssWlsEst()
     CSSWlsEstFSW.modelTag = "CSSWlsEst"
 
     # Add module to runtime call list
@@ -412,7 +412,7 @@ def cssRateTestFunction(show_plots):
     testProc.addTask(unitTestSim.CreateNewTask(unitTaskName, testProcessRate))
 
     # Construct algorithm and associated C++ container
-    module = cssWlsEst.CssWlsEst()
+    module = cssWlsEstF32.CssWlsEst()
     module.modelTag = "CSSWlsEst"
 
     # Add module to runtime call list
