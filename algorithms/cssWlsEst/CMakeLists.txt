@@ -7,6 +7,7 @@ endif()
 xmera_add_swig_module("${module}")
 target_sources("${module}" PRIVATE
   cssWlsEst.cpp
+  cssWlsEstAlgorithm.cpp
 )
 
 target_include_directories("${module}" PUBLIC
