@@ -72,27 +72,21 @@ inline void testHillPoint(const Eigen::Vector3d& r_BN_N,
     ReferenceHillPointOutput ref;
     EXPECT_NO_THROW(ref = referenceHillPoint(r_BN_N, v_BN_N, r_PN_N, v_PN_N));
 
-    // dcmToMrp can pick either MRP shadow-set representative when |sigma| is near 1 (180-deg
-    // rotation boundary). Pick whichever representative is closer to the algorithm output before
-    // the per-component comparison.
-    const Eigen::Vector3d sigma_out = out.sigma_RN.cast<double>();
-    Eigen::Vector3d sigma_ref = ref.sigma_RN;
-    if (sigma_ref.squaredNorm() > 1e-12) {
-        const Eigen::Vector3d sigma_ref_shadow = -sigma_ref / sigma_ref.squaredNorm();
-        if ((sigma_out - sigma_ref_shadow).squaredNorm() < (sigma_out - sigma_ref).squaredNorm()) {
-            sigma_ref = sigma_ref_shadow;
+    // Compare attitudes as DCMs rather than MRP components: dcmToMrp can return either MRP
+    // shadow-set representative near |sigma| = 1 (the 180-deg boundary). The DCM is unique through 180 deg.
+    constexpr float tol = 1e-5F;
+    const Eigen::Matrix3f dcmOut = mrpToDcm(out.sigma_RN);
+    const Eigen::Vector3f sigmaRefFloat = ref.sigma_RN.cast<float>();
+    const Eigen::Matrix3f dcmRef = mrpToDcm(sigmaRefFloat);
+    for (int r = 0; r < 3; ++r) {
+        for (int c = 0; c < 3; ++c) {
+            EXPECT_NEAR(dcmOut(r, c), dcmRef(r, c), tol);
         }
     }
 
-    constexpr float tol = 1e-5F;
     for (int i = 0; i < 3; ++i) {
-        EXPECT_NEAR(out.sigma_RN[i], static_cast<float>(sigma_ref[i]), tol);
         EXPECT_NEAR(out.omega_RN_N[i], static_cast<float>(ref.omega_RN_N[i]), tol);
         EXPECT_NEAR(out.domega_RN_N[i], static_cast<float>(ref.domega_RN_N[i]), tol);
-
-        EXPECT_TRUE(std::isfinite(out.sigma_RN[i]));
-        EXPECT_TRUE(std::isfinite(out.omega_RN_N[i]));
-        EXPECT_TRUE(std::isfinite(out.domega_RN_N[i]));
     }
 }
 
