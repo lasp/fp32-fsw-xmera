@@ -92,3 +92,11 @@ TEST(HillPointTest, CircularEquatorialOrbit) {
     EXPECT_NEAR(out.domega_RN_N[1], 0.0F, tol);
     EXPECT_NEAR(out.domega_RN_N[2], 0.0F, tol);
 }
+
+TEST(HillPointTest, OutputIsFinite) {
+    propertyOutputIsFinite(Eigen::Vector3d{8.92344e6, 1.54618e7, 0.0},  // r_BN_N
+                           Eigen::Vector3d{-5.46e3, 3.15e3, 0.0},       // v_BN_N
+                           Eigen::Vector3d::Zero(),                     // r_PN_N
+                           Eigen::Vector3d::Zero()                      // v_PN_N
+    );
+}

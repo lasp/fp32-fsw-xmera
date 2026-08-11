@@ -98,6 +98,25 @@ inline void testHillPoint(const Eigen::Vector3d& r_BN_N,
     }
 }
 
+// ---------------------------------------------------------------------------
+// Property test helper functions
+// ---------------------------------------------------------------------------
+
+// All output components are finite for valid inputs.
+inline void propertyOutputIsFinite(const Eigen::Vector3d& r_BN_N,
+                                   const Eigen::Vector3d& v_BN_N,
+                                   const Eigen::Vector3d& r_PN_N,
+                                   const Eigen::Vector3d& v_PN_N) {
+    HillPointAlgorithm alg;
+    const HillPointOutput out = alg.update(r_BN_N, v_BN_N, r_PN_N, v_PN_N);
+
+    for (int i = 0; i < 3; ++i) {
+        EXPECT_TRUE(std::isfinite(out.sigma_RN[i]));
+        EXPECT_TRUE(std::isfinite(out.omega_RN_N[i]));
+        EXPECT_TRUE(std::isfinite(out.domega_RN_N[i]));
+    }
+}
+
 inline void testHillPointSetup() {
     EXPECT_NO_THROW({
         const HillPointAlgorithm alg;

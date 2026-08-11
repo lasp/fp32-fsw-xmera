@@ -43,3 +43,20 @@ FUZZ_TEST(HillPointFuzz, fuzzHillPoint)
                          xmera::fuzz::Vector3dInRange(-2e13, 2e13)),
         // Relative spacecraft velocity [m/s]
         xmera::fuzz::Vector3dInRange(-1e5, 1e5));
+
+// ---------------------------------------------------------------------------
+// Property fuzz tests
+// ---------------------------------------------------------------------------
+
+void fuzzPropertyOutputIsFinite(const Eigen::Vector3d& r_PN_N,
+                                const Eigen::Vector3d& v_PN_N,
+                                const Eigen::Vector3d& r_BP_N,
+                                const Eigen::Vector3d& v_BP_N) {
+    propertyOutputIsFinite(r_PN_N + r_BP_N, v_PN_N + v_BP_N, r_PN_N, v_PN_N);
+}
+
+FUZZ_TEST(HillPointPropertyFuzz, fuzzPropertyOutputIsFinite)
+    .WithDomains(xmera::fuzz::Vector3dInRange(-2e13, 2e13),  // r_PN_N
+                 xmera::fuzz::Vector3dInRange(-1e5, 1e5),    // v_PN_N
+                 xmera::fuzz::Vector3dInRange(-2e13, 2e13),  // r_BP_N
+                 xmera::fuzz::Vector3dInRange(-1e5, 1e5));   // v_BP_N
