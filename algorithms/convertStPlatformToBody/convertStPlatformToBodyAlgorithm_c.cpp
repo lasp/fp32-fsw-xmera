@@ -38,17 +38,16 @@ void ConvertStPlatformToBodyAlgorithm_setConfig(ConvertStPlatformToBodyAlgorithm
 }
 
 StAttitudeOutput_c ConvertStPlatformToBodyAlgorithm_update(ConvertStPlatformToBodyAlgorithmHandle* self,
-                                                           const PlatformAttitude_c* platformAttitude,
-                                                           const PlatformAngularVelocity_c* platformAngularRate) {
-    const Eigen::Vector4f q_CN = cArrayToEigenVector(platformAttitude->q_CN);
-    const Eigen::Vector4f dq_CN = cArrayToEigenVector(platformAngularRate->dq_CN);
+                                                           const StPlatformMeasurement_c* measurement) {
+    const Eigen::Vector4f q_CN = cArrayToEigenVector(measurement->q_CN);
+    const Eigen::Vector4f dq_CN = cArrayToEigenVector(measurement->dq_CN);
 
     const StAttitudeOutput out = fsw::fromHandle<::ConvertStPlatformToBodyAlgorithm>(self)->update(q_CN, dq_CN);
 
     StAttitudeOutput_c result{};
     // The algorithm computes only sigma/omega; the measurement time tag is a
-    // pass-through from the attitude input to the body-frame attitude output.
-    result.timeTag = platformAttitude->timeTag;
+    // pass-through from the input to the body-frame attitude output.
+    result.timeTag = measurement->timeTag;
     eigenVectorToCArray(out.sigma_BN, result.sigma_BN);
     eigenVectorToCArray(out.omega_BN_B, result.omega_BN_B);
     return result;

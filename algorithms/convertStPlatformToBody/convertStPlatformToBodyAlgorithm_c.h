@@ -48,14 +48,13 @@ void ConvertStPlatformToBodyAlgorithm_setConfig(ConvertStPlatformToBodyAlgorithm
 
 /**
  * @brief Run the update step.
- * @param self               Pointer to the instance.
- * @param platformAttitude   Pointer to the inertial-to-case attitude input.
- * @param platformAngularRate Pointer to the case-frame delta quaternion input.
+ * @param self        Pointer to the instance.
+ * @param measurement Pointer to the time-tagged inertial-to-case attitude quaternion and
+ *                    case-frame delta quaternion.
  * @return StAttitudeOutput_c  The computed star tracker attitude output.
  */
 StAttitudeOutput_c ConvertStPlatformToBodyAlgorithm_update(ConvertStPlatformToBodyAlgorithmHandle* self,
-                                                           const PlatformAttitude_c* platformAttitude,
-                                                           const PlatformAngularVelocity_c* platformAngularRate);
+                                                           const StPlatformMeasurement_c* measurement);
 
 #ifdef __cplusplus
 }  // extern "C"

@@ -9,17 +9,13 @@
 extern "C" {
 #endif
 
-/*! @brief Star tracker sensor attitude solution for the platform-to-body conversion algorithm. */
+/*! @brief Star tracker case-frame attitude and rate solution consumed by the platform-to-body
+ *         conversion algorithm. */
 typedef struct {
-    uint64_t timeTag; /*!< [ns] time tag of the attitude solution */
+    uint64_t timeTag; /*!< [ns] time tag of the measurement, passed through to the output */
     float q_CN[4];    /*!< [-] quaternion from inertial to case frame (scalar-first) */
-} PlatformAttitude_c;
-
-/*! @brief Star tracker sensor angular velocity for the platform-to-body conversion algorithm. */
-typedef struct {
-    uint64_t timeTag; /*!< [ns] time tag of the rate solution */
     float dq_CN[4];   /*!< [-] case-frame delta quaternion w.r.t. inertial (scalar-last) */
-} PlatformAngularVelocity_c;
+} StPlatformMeasurement_c;
 
 /*! @brief Star tracker body-frame attitude output from the platform-to-body conversion algorithm. */
 typedef struct {
