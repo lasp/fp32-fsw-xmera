@@ -117,6 +117,16 @@ inline void propertyOutputIsFinite(const Eigen::Vector3d& r_BN_N,
     }
 }
 
+// sigma_RN norm is bounded by 1 (inner MRP set) for any inputs
+inline void propertySigmaNormBounded(const Eigen::Vector3d& r_BN_N,
+                                     const Eigen::Vector3d& v_BN_N,
+                                     const Eigen::Vector3d& r_PN_N,
+                                     const Eigen::Vector3d& v_PN_N) {
+    HillPointAlgorithm alg;
+    const HillPointOutput out = alg.update(r_BN_N, v_BN_N, r_PN_N, v_PN_N);
+    EXPECT_LE(out.sigma_RN.stableNorm(), 1.0F + 1e-6F);
+}
+
 inline void testHillPointSetup() {
     EXPECT_NO_THROW({
         const HillPointAlgorithm alg;
