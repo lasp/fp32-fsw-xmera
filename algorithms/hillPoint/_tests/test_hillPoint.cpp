@@ -43,6 +43,29 @@ TEST(HillPointTest, BelowThresholdRadius) {
     EXPECT_FLOAT_EQ(out.domega_RN_N[2], 0.0F);
 }
 
+TEST(HillPointTest, BelowSmallAngleThreshold) {
+    // r and v here are collinear (v is just pointing along the same line as r), so h = r x v is
+    // ~0 and there's no well-defined orbital plane.
+    HillPointAlgorithm alg;
+
+    HillPointOutput out;
+    EXPECT_NO_THROW(out = alg.update(Eigen::Vector3d{8.0e6, 0.0, 0.0},  // r_BN_N: valid radius
+                                     Eigen::Vector3d{100.0, 0.0, 0.0},  // v_BN_N: parallel to r_BN_N
+                                     Eigen::Vector3d::Zero(),
+                                     Eigen::Vector3d::Zero()));
+
+    // Attitude and rates should be exactly zero in this branch
+    EXPECT_FLOAT_EQ(out.sigma_RN[0], 0.0F);
+    EXPECT_FLOAT_EQ(out.sigma_RN[1], 0.0F);
+    EXPECT_FLOAT_EQ(out.sigma_RN[2], 0.0F);
+    EXPECT_FLOAT_EQ(out.omega_RN_N[0], 0.0F);
+    EXPECT_FLOAT_EQ(out.omega_RN_N[1], 0.0F);
+    EXPECT_FLOAT_EQ(out.omega_RN_N[2], 0.0F);
+    EXPECT_FLOAT_EQ(out.domega_RN_N[0], 0.0F);
+    EXPECT_FLOAT_EQ(out.domega_RN_N[1], 0.0F);
+    EXPECT_FLOAT_EQ(out.domega_RN_N[2], 0.0F);
+}
+
 TEST(HillPointTest, CircularEquatorialOrbit) {
     // Truth values match the Python regression test: a = 2.8 R_E, e = 0, i = 0, true anomaly 60 deg.
     // Expected sigma_RN_z = tan(theta/4) where theta = 60 deg => sigma = (0, 0, 2 - sqrt(3)).
