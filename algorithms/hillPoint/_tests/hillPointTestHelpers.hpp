@@ -9,6 +9,7 @@
 #include <gtest/gtest.h>
 #include <Eigen/Core>
 #include <Eigen/Geometry>
+#include <algorithm>
 #include <cmath>
 
 struct ReferenceHillPointOutput {
@@ -84,9 +85,16 @@ inline void testHillPoint(const Eigen::Vector3d& r_BN_N,
         }
     }
 
+    // Use a combined absolute + relative tolerance. The absolute floor handles near-zero outputs,
+    // while the relative term scales the allowed error with the expected magnitude: a fixed
+    // absolute tolerance is unachievable for large-magnitude outputs because a single float32
+    // ULP can exceed it.
+    constexpr float absTol = 1e-5F;
+    constexpr float relTol = 1e-5F;
+    const auto tolFor = [&](float expectedVal) { return std::max(absTol, relTol * std::abs(expectedVal)); };
     for (int i = 0; i < 3; ++i) {
-        EXPECT_NEAR(out.omega_RN_N[i], static_cast<float>(ref.omega_RN_N[i]), tol);
-        EXPECT_NEAR(out.domega_RN_N[i], static_cast<float>(ref.domega_RN_N[i]), tol);
+        EXPECT_NEAR(out.omega_RN_N[i], static_cast<float>(ref.omega_RN_N[i]), tolFor(ref.omega_RN_N[i]));
+        EXPECT_NEAR(out.domega_RN_N[i], static_cast<float>(ref.domega_RN_N[i]), tolFor(ref.domega_RN_N[i]));
     }
 }
 
