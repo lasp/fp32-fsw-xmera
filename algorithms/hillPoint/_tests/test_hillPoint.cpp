@@ -22,8 +22,7 @@ TEST(HillPointTest, ReferenceTestPlanetOffset) {
 }
 
 TEST(HillPointTest, BelowThresholdRadius) {
-    // Relative orbital radius below the 1 m robustness threshold: rates must be zero and the
-    // attitude output must remain finite (no NaN from divide-by-near-zero).
+    // Relative orbital radius below the 1 m robustness threshold: attitude and rates must be zero
     HillPointAlgorithm alg;
 
     HillPointOutput out;
@@ -32,12 +31,10 @@ TEST(HillPointTest, BelowThresholdRadius) {
                                      Eigen::Vector3d::Zero(),
                                      Eigen::Vector3d::Zero()));
 
-    for (int i = 0; i < 3; ++i) {
-        EXPECT_TRUE(std::isfinite(out.sigma_RN[i]));
-        EXPECT_TRUE(std::isfinite(out.omega_RN_N[i]));
-        EXPECT_TRUE(std::isfinite(out.domega_RN_N[i]));
-    }
-    // Rates should be exactly zero in this branch
+    // Attitude and rates should be exactly zero in this branch
+    EXPECT_FLOAT_EQ(out.sigma_RN[0], 0.0F);
+    EXPECT_FLOAT_EQ(out.sigma_RN[1], 0.0F);
+    EXPECT_FLOAT_EQ(out.sigma_RN[2], 0.0F);
     EXPECT_FLOAT_EQ(out.omega_RN_N[0], 0.0F);
     EXPECT_FLOAT_EQ(out.omega_RN_N[1], 0.0F);
     EXPECT_FLOAT_EQ(out.omega_RN_N[2], 0.0F);
