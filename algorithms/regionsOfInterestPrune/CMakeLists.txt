@@ -1,4 +1,4 @@
-set(module "fswAlgorithms.imageProcessing.regionsOfInterestPrune")
+set(module "fp32.regionsOfInterestPruneF32")
 xmera_is_module_enabled("${module}" _is_enabled)
 if(NOT _is_enabled)
     return()
@@ -18,6 +18,7 @@ target_link_libraries("${module}" PRIVATE
 )
 
 # Suppress duplicate library warnings from OpenCV's vcpkg distribution on macOS
+target_include_directories("${module}" PUBLIC "..")
 target_link_options("${module}" PRIVATE
         "$<$<PLATFORM_ID:Darwin>:-Wl,-no_warn_duplicate_libraries>"
 )

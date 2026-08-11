@@ -6,8 +6,8 @@
 // Free helpers
 // ---------------------------------------------------------------------------
 
-// Converts a flat-array slot back to RegionOfInterestMsgPayload for visualization.
-static RegionOfInterestMsgPayload regionAt(const RegionsIdentifiedMsgPayload& msg, uint32_t k) {
+// Converts a flat-array slot back to RegionOfInterestMsgF32Payload for visualization.
+static RegionOfInterestMsgF32Payload regionAt(const RegionsIdentifiedMsgF32Payload& msg, uint32_t k) {
     return {.timeTag = msg.timeTag[k],
             .centerX = msg.centerX[k],
             .centerY = msg.centerY[k],
@@ -32,7 +32,7 @@ void RegionsOfInterestPrune::reset(uint64_t /*callTime*/) {
 void RegionsOfInterestPrune::updateState(uint64_t callTime) {
     if (!this->rowColSumInMsg.isLinked()) return;
 
-    const FpgaRowColSumMsgPayload rcMsg = this->rowColSumInMsg();
+    const FpgaRowColSumMsgF32Payload rcMsg = this->rowColSumInMsg();
     const auto* rowSums = static_cast<const uint16_t*>(rcMsg.rowSumPointer);
     const auto* colSums = static_cast<const uint16_t*>(rcMsg.colSumPointer);
 
@@ -65,12 +65,12 @@ void RegionsOfInterestPrune::updateState(uint64_t callTime) {
  @return BGR cv::Mat of size H×W, or an empty Mat on failure.
  @param rcMsg  Row/col sum message (carries dimensions and fallback data).
 */
-cv::Mat RegionsOfInterestPrune::buildBackground(const FpgaRowColSumMsgPayload& rcMsg) {
+cv::Mat RegionsOfInterestPrune::buildBackground(const FpgaRowColSumMsgF32Payload& rcMsg) {
     const auto H = static_cast<int>(rcMsg.numRows);
     const auto W = static_cast<int>(rcMsg.numCols);
 
     if (this->threshImageInMsg.isLinked()) {
-        const FpgaThreshImageMsgPayload thMsg = this->threshImageInMsg();
+        const FpgaThreshImageMsgF32Payload thMsg = this->threshImageInMsg();
         const auto* bits = reinterpret_cast<const uint8_t*>(thMsg.imagePointer);
         if (bits && thMsg.width == static_cast<uint32_t>(W) && thMsg.height == static_cast<uint32_t>(H)) {
             // Unpack 1-bit-per-pixel (MSB-first) → 8-bit grayscale → BGR.
@@ -113,7 +113,7 @@ cv::Mat RegionsOfInterestPrune::buildBackground(const FpgaRowColSumMsgPayload& r
  @param label      Text label drawn above the box.
 */
 void RegionsOfInterestPrune::drawRegion(cv::Mat& vis,
-                                        const RegionOfInterestMsgPayload& reg,
+                                        const RegionOfInterestMsgF32Payload& reg,
                                         const cv::Scalar& color,
                                         int thickness,
                                         const std::string& label) {
@@ -124,7 +124,7 @@ void RegionsOfInterestPrune::drawRegion(cv::Mat& vis,
     cv::putText(vis, label, cv::Point(x, std::max(y - 6, 12)), cv::FONT_HERSHEY_SIMPLEX, 0.5, color, 1, cv::LINE_AA);
 }
 
-void RegionsOfInterestPrune::saveVisualization(const FpgaRowColSumMsgPayload& rcMsg) {
+void RegionsOfInterestPrune::saveVisualization(const FpgaRowColSumMsgF32Payload& rcMsg) {
     if (rcMsg.numRows == 0 || rcMsg.numCols == 0) return;
 
     cv::Mat vis = buildBackground(rcMsg);

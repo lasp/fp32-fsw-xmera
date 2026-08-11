@@ -26,8 +26,8 @@ importErr = False
 reasonErr = ""
 try:
     import cv2
-    from xmera.fswAlgorithms import fpgaImagePipeline
-    from xmera.fswAlgorithms import regionsOfInterestPrune
+    from xmera.fp32 import fpgaImagePipelineF32 as fpgaImagePipeline
+    from xmera.fp32 import regionsOfInterestPruneF32 as regionsOfInterestPrune
 except ImportError as e:
     importErr = True
     reasonErr = f"Required module not built: {e}"
