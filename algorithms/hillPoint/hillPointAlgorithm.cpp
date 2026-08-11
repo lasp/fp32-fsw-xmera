@@ -1,5 +1,7 @@
 #include "hillPointAlgorithm.h"
 #include "utilities/fsw/rigidBodyKinematics.hpp"
+#include "utilities/fsw/safeMath.h"
+#include <math.h>
 #include <Eigen/Geometry>
 
 // NOLINTBEGIN(bugprone-easily-swappable-parameters)
@@ -18,12 +20,18 @@ HillPointOutput HillPointAlgorithm::update(const Eigen::Vector3d& r_BN_N,
     const double orbitRadius = r_BP_N.stableNorm();
     const Eigen::Vector3d orbitAngMomentum = r_BP_N.cross(v_BP_N);
 
-    HillPointOutput out;  // Outputs default to zero as fallback
-
     // Robustness threshold against divide-by-near-zero. Note the original Xmera comment claimed
     // "1 km" but the value is 1.0 in the same units as r_BN_N, which is meters.
-    const bool isOrbitRadiusValid = orbitRadius > minOrbitRadius_m;
-    if (isOrbitRadiusValid) {
+    const bool isOrbitRadiusValid = orbitRadius > kMinOrbitRadius;
+    // Guard against r/v collinearity: if r_BP_N and v_BP_N are nearly collinear, the orbit
+    // normal is invalid and the Hill frame is undefined.
+    const double dotProduct = r_BP_N.stableNormalized().dot(v_BP_N.stableNormalized());
+    const double posVelSeparationAngle = safeAcos(fabs(dotProduct));
+    const bool isPosVelSeparationValid = posVelSeparationAngle >= kSmallAngleThreshold;
+
+    HillPointOutput out;  // Outputs default to zero as fallback
+
+    if (isOrbitRadiusValid && isPosVelSeparationValid) {
         // Hill-frame unit vectors -- magnitude 1 by construction, so float is fine.
         const Eigen::Vector3d i_r_d = r_BP_N.stableNormalized();
         const Eigen::Vector3d i_h_d = orbitAngMomentum.stableNormalized();
@@ -45,7 +53,9 @@ HillPointOutput HillPointAlgorithm::update(const Eigen::Vector3d& r_BN_N,
         out.omega_RN_N = dcm_RN.transpose() * omega_RN_R;
         out.domega_RN_N = dcm_RN.transpose() * domega_RN_R;
     }
-    // else: degenerate geometry (radius below threshold) -- leave output at the zero default
+    // else: degenerate geometry (either too close to the primary body or velocity is
+    // basically radial so the orbital plane isn't defined) -- leave output at the
+    // zero default rather than divide by ~0 or output NaNs.
     return out;
 }
 // NOLINTEND(bugprone-easily-swappable-parameters)
