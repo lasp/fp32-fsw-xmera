@@ -24,32 +24,34 @@ inline ReferenceHillPointOutput referenceHillPoint(const Eigen::Vector3d& r_BN_N
                                                    const Eigen::Vector3d& v_PN_N) {
     const Eigen::Vector3d r_BP_N = r_BN_N - r_PN_N;
     const Eigen::Vector3d v_BP_N = v_BN_N - v_PN_N;
-    const Eigen::Vector3d i_r = r_BP_N.normalized();
+    const double r_norm = r_BP_N.stableNorm();
     const Eigen::Vector3d h = r_BP_N.cross(v_BP_N);
-    const Eigen::Vector3d i_h = h.normalized();
-    const Eigen::Vector3d i_theta = i_h.cross(i_r);
 
-    Eigen::Matrix3d dcm_RN;
-    dcm_RN.row(0) = i_r;
-    dcm_RN.row(1) = i_theta;
-    dcm_RN.row(2) = i_h;
+    ReferenceHillPointOutput out{Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero()};
 
-    const double r_norm = r_BP_N.norm();
-    double dfdt = 0.0;
-    double ddfdt2 = 0.0;
-    if (r_norm > 1.0) {
-        dfdt = h.norm() / (r_norm * r_norm);
-        ddfdt2 = -2.0 * v_BP_N.dot(i_r) / r_norm * dfdt;
+    if (r_norm > HillPointAlgorithm::minOrbitRadius_m) {
+        const Eigen::Vector3d i_r = r_BP_N.normalized();
+        const Eigen::Vector3d i_h = h.normalized();
+        const Eigen::Vector3d i_theta = i_h.cross(i_r);
+
+        Eigen::Matrix3d dcm_RN;
+        dcm_RN.row(0) = i_r;
+        dcm_RN.row(1) = i_theta;
+        dcm_RN.row(2) = i_h;
+
+        const double dfdt = h.norm() / (r_norm * r_norm);
+        const double ddfdt2 = -2.0 * v_BP_N.dot(i_r) / r_norm * dfdt;
+
+        const Eigen::Vector3d omega_RN_R{0.0, 0.0, dfdt};
+        const Eigen::Vector3d domega_RN_R{0.0, 0.0, ddfdt2};
+
+        out = {
+            dcmToMrp(dcm_RN),
+            dcm_RN.transpose() * omega_RN_R,
+            dcm_RN.transpose() * domega_RN_R,
+        };
     }
-
-    const Eigen::Vector3d omega_RN_R{0.0, 0.0, dfdt};
-    const Eigen::Vector3d domega_RN_R{0.0, 0.0, ddfdt2};
-
-    return {
-        dcmToMrp(dcm_RN),
-        dcm_RN.transpose() * omega_RN_R,
-        dcm_RN.transpose() * domega_RN_R,
-    };
+    return out;
 }
 
 inline void testHillPoint(const Eigen::Vector3d& r_BN_N,
