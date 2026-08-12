@@ -86,8 +86,8 @@ std::vector<RoiCandidateEntry> RegionsOfInterestPruneAlgorithm::buildCandidates(
                                                                                 const AccumVec& C,
                                                                                 const AccumVec& colIdx) {
     std::vector<RoiCandidateEntry> candidates;
-    for (uint32_t ki : rowIdx)
-        for (uint32_t li : colIdx) {
+    for (const uint32_t ki : rowIdx)
+        for (const uint32_t li : colIdx) {
             const auto [r, h] = rowSpans[ki];
             const auto [c, w] = colSpans[li];
             candidates.push_back({r, c, h, w, std::min(R[ki], C[li])});
