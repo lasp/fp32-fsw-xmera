@@ -6,7 +6,9 @@
 #include <utility>
 #include <vector>
 
-static constexpr uint32_t ROI_CANDIDATES_MAX = 16;  //!< Maximum number of candidates retained/published
+static constexpr uint32_t ROI_CANDIDATES_MAX = 16;    //!< Maximum number of candidates retained/published
+static constexpr uint32_t DEFAULT_MAX_ROW_SPANS = 3;  //!< Default value for maxRowSpans
+static constexpr uint32_t DEFAULT_MAX_COL_SPANS = 3;  //!< Default value for maxColSpans
 
 /*! @brief Internal bounding-box candidate (corner coordinates + pixel count). */
 struct RoiCandidateEntry {
@@ -41,8 +43,8 @@ class RegionsOfInterestPruneAlgorithm {
     uint32_t getMaxColSpans() const { return this->maxColSpans; }
 
    private:
-    uint32_t maxRowSpans{3};  //!< Pre-filter: keep this many top row spans before cross-product
-    uint32_t maxColSpans{3};  //!< Pre-filter: keep this many top col spans before cross-product
+    uint32_t maxRowSpans{DEFAULT_MAX_ROW_SPANS};  //!< Pre-filter: keep this many top row spans before cross-product
+    uint32_t maxColSpans{DEFAULT_MAX_COL_SPANS};  //!< Pre-filter: keep this many top col spans before cross-product
 
     using Span = std::pair<uint32_t, uint32_t>;
     using SpanVec = std::vector<Span>;

@@ -3,6 +3,29 @@
 #include <stdexcept>
 #include <string>
 
+// Bits packed per byte in the threshold image's 1-bit-per-pixel encoding
+static constexpr int kBitsPerByte = 8;
+// Grayscale value for an above-threshold ("on") pixel
+static constexpr uint32_t kMaxGrayscale = 255;
+// Visualization: filled center-dot radius [px]
+static constexpr int kCenterDotRadiusPx = 3;
+// Visualization: label vertical offset above the bounding box [px]
+static constexpr int kLabelOffsetPx = 6;
+// Visualization: minimum label y-coordinate, so it isn't clipped off the top of the image [px]
+static constexpr int kLabelMinY = 12;
+// Visualization: label font scale (cv::putText)
+static constexpr double kLabelFontScale = 0.5;
+// Visualization: label text stroke thickness [px]
+static constexpr int kLabelTextThicknessPx = 1;
+// Visualization: outline thickness for all published regions (context) [px]
+static constexpr int kAllRegionsThicknessPx = 1;
+// Visualization: outline thickness for the rank-1/rank-2 highlighted regions [px]
+static constexpr int kRankedThicknessPx = 2;
+// Visualization annotation colors (BGR)
+static const cv::Scalar kCyan(0, 255, 255);
+static const cv::Scalar kRed(0, 0, 255);
+static const cv::Scalar kBlue(255, 0, 0);
+
 // ---------------------------------------------------------------------------
 // Free helpers
 // ---------------------------------------------------------------------------
@@ -83,7 +106,8 @@ cv::Mat RegionsOfInterestPrune::buildBackground(const FpgaRowColSumMsgF32Payload
             cv::Mat gray(H, W, CV_8UC1);
             const int nPix = H * W;
             for (int i = 0; i < nPix; ++i)
-                gray.at<uint8_t>(i / W, i % W) = static_cast<uint8_t>(((bits[i / 8] >> (7 - i % 8)) & 1) * 255);
+                gray.at<uint8_t>(i / W, i % W) = static_cast<uint8_t>(
+                    ((bits[i / kBitsPerByte] >> (kBitsPerByte - 1 - i % kBitsPerByte)) & 1) * kMaxGrayscale);
             cv::Mat bgr;
             cv::cvtColor(gray, bgr, cv::COLOR_GRAY2BGR);
             return bgr;
@@ -104,7 +128,7 @@ cv::Mat RegionsOfInterestPrune::buildBackground(const FpgaRowColSumMsgF32Payload
         for (int r = 0; r < H; ++r)
             for (int c = 0; c < W; ++c)
                 gray.at<uint8_t>(r, c) =
-                    static_cast<uint8_t>(std::min<uint32_t>(rowSums[r], colSums[c]) * 255u / maxVal);
+                    static_cast<uint8_t>(std::min<uint32_t>(rowSums[r], colSums[c]) * kMaxGrayscale / maxVal);
     }
     cv::Mat bgr;
     cv::cvtColor(gray, bgr, cv::COLOR_GRAY2BGR);
@@ -126,8 +150,15 @@ void RegionsOfInterestPrune::drawRegion(cv::Mat& vis,
     const int x = reg.centerX - reg.width / 2;
     const int y = reg.centerY - reg.height / 2;
     cv::rectangle(vis, cv::Point(x, y), cv::Point(x + reg.width, y + reg.height), color, thickness);
-    cv::circle(vis, cv::Point(reg.centerX, reg.centerY), 3, color, -1);
-    cv::putText(vis, label, cv::Point(x, std::max(y - 6, 12)), cv::FONT_HERSHEY_SIMPLEX, 0.5, color, 1, cv::LINE_AA);
+    cv::circle(vis, cv::Point(reg.centerX, reg.centerY), kCenterDotRadiusPx, color, cv::FILLED);
+    cv::putText(vis,
+                label,
+                cv::Point(x, std::max(y - kLabelOffsetPx, kLabelMinY)),
+                cv::FONT_HERSHEY_SIMPLEX,
+                kLabelFontScale,
+                color,
+                kLabelTextThicknessPx,
+                cv::LINE_AA);
 }
 
 void RegionsOfInterestPrune::saveVisualization(const FpgaRowColSumMsgF32Payload& rcMsg) {
@@ -145,19 +176,17 @@ void RegionsOfInterestPrune::saveVisualization(const FpgaRowColSumMsgF32Payload&
         cv::rectangle(vis,
                       cv::Point(x, y),
                       cv::Point(x + this->lastRegionsOutput.width[k], y + this->lastRegionsOutput.height[k]),
-                      cv::Scalar(0, 255, 255),
-                      1);
+                      kCyan,
+                      kAllRegionsThicknessPx);
     }
     // Rank-1 (red) and rank-2 (blue): thicker box + center dot + pixel-count label.
-    static const cv::Scalar kRed(0, 0, 255);
-    static const cv::Scalar kBlue(255, 0, 0);
     if (nDraw >= 1) {
         const auto r1 = regionAt(this->lastRegionsOutput, 0);
-        drawRegion(vis, r1, kRed, 2, "R1 (" + std::to_string(r1.numberOfPixels) + ")");
+        drawRegion(vis, r1, kRed, kRankedThicknessPx, "R1 (" + std::to_string(r1.numberOfPixels) + ")");
     }
     if (nDraw >= 2) {
         const auto r2 = regionAt(this->lastRegionsOutput, 1);
-        drawRegion(vis, r2, kBlue, 2, "R2 (" + std::to_string(r2.numberOfPixels) + ")");
+        drawRegion(vis, r2, kBlue, kRankedThicknessPx, "R2 (" + std::to_string(r2.numberOfPixels) + ")");
     }
 
     cv::imwrite(this->saveDir + "/" + std::to_string(rcMsg.timeTag) + "_pruning_output.png", vis);
