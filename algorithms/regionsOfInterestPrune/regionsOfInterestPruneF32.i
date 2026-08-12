@@ -3,10 +3,6 @@
    #include "regionsOfInterestPrune.h"
 %}
 
-%include <attribute.i>
-%attribute(RegionsOfInterestPrune, uint32_t, maxRowSpans, getMaxRowSpans, setMaxRowSpans)
-%attribute(RegionsOfInterestPrune, uint32_t, maxColSpans, getMaxColSpans, setMaxColSpans)
-
 %include <std_string.i>
 %include <architecture/_GeneralModuleFiles/swig_conly_data.i>
 

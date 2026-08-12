@@ -1,5 +1,7 @@
 #include "regionsOfInterestPrune.h"
 
+#include "utilities/xmera/xmeraLifecycleException.h"
+
 #include <stdexcept>
 #include <string>
 
@@ -46,32 +48,46 @@ static RegionOfInterestMsgF32Payload regionAt(const RegionsIdentifiedMsgF32Paylo
 // BSK adapter interface
 // ---------------------------------------------------------------------------
 
-/*! @brief Reset internal state and validate that rowColSumInMsg is connected.
+/*! @brief Reset internal state, validate that rowColSumInMsg is connected, and construct the algorithm
+ *         from the currently-set config properties.
  *  @param callTime Current simulation time in nanoseconds (unused).
- *  @throws std::invalid_argument If rowColSumInMsg is not connected.
+ *  @throws std::invalid_argument If rowColSumInMsg is not connected, or if a config property is invalid.
  */
 void RegionsOfInterestPrune::reset(uint64_t /*callTime*/) {
     if (!this->rowColSumInMsg.isLinked()) {
         throw std::invalid_argument("RegionsOfInterestPrune.rowColSumInMsg wasn't connected.");
     }
-    this->rebuildAlgorithmConfig();
+    this->algorithm = std::make_unique<RegionsOfInterestPruneAlgorithm>(this->toConfig());
     this->numPublished = 0;
     this->lastRegionsOutput = {};
 }
 
-void RegionsOfInterestPrune::rebuildAlgorithmConfig() {
-    const RegionsOfInterestPruneConfig cfg = RegionsOfInterestPruneConfig::create(this->maxRowSpans, this->maxColSpans);
-    this->algorithm.setConfig(cfg);
+/*! @brief Build a validated RegionsOfInterestPruneConfig from the adapter's stored properties. */
+RegionsOfInterestPruneConfig RegionsOfInterestPrune::toConfig() const {
+    return RegionsOfInterestPruneConfig::create(this->maxRowSpans, this->maxColSpans);
+}
+
+/*! @brief Push a fresh configuration into the algorithm without reconstructing it.
+ *  @throws XmeraLifecycleException If reset() has not been called yet.
+ */
+void RegionsOfInterestPrune::reconfigure() const {
+    if (!this->algorithm) {
+        throw XmeraLifecycleException("RegionsOfInterestPrune reset() has not been called.");
+    }
+    this->algorithm->setConfig(this->toConfig());
 }
 
 void RegionsOfInterestPrune::updateState(uint64_t callTime) {
+    if (!this->algorithm) {
+        throw XmeraLifecycleException("RegionsOfInterestPrune reset() has not been called.");
+    }
     if (!this->rowColSumInMsg.isLinked()) return;
 
     const FpgaRowColSumMsgF32Payload rcMsg = this->rowColSumInMsg();
     const auto* rowSums = static_cast<const uint16_t*>(rcMsg.rowSumPointer);
     const auto* colSums = static_cast<const uint16_t*>(rcMsg.colSumPointer);
 
-    const RoiCandidates candidates = this->algorithm.update(rowSums, rcMsg.numRows, colSums, rcMsg.numCols);
+    const RoiCandidates candidates = this->algorithm->update(rowSums, rcMsg.numRows, colSums, rcMsg.numCols);
 
     this->lastRegionsOutput = {};
     this->numPublished = std::min(candidates.numCandidates, static_cast<uint32_t>(MAX_NUMBER_REGIONS));

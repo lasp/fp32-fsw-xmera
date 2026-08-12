@@ -16,6 +16,8 @@
 
 #include "regionsOfInterestPruneAlgorithm.h"
 
+#include <memory>
+
 /*! @brief Basilisk adapter for the regions-of-interest pruning module.
  *
  *  Reads FpgaRowColSumMsgF32Payload, delegates computation to RegionsOfInterestPruneAlgorithm,
@@ -27,17 +29,11 @@ class RegionsOfInterestPrune : public SysModel {
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
 
-    // --- Pre-filter configuration (forwarded to algorithm) ---
-    void setMaxRowSpans(uint32_t n) {
-        this->maxRowSpans = n;
-        this->rebuildAlgorithmConfig();
-    }
-    uint32_t getMaxRowSpans() const { return this->maxRowSpans; }
-    void setMaxColSpans(uint32_t n) {
-        this->maxColSpans = n;
-        this->rebuildAlgorithmConfig();
-    }
-    uint32_t getMaxColSpans() const { return this->maxColSpans; }
+    void reconfigure() const;
+
+    // Phase 1: Public config properties -- set before reset().
+    uint32_t maxRowSpans = DEFAULT_MAX_ROW_SPANS;
+    uint32_t maxColSpans = DEFAULT_MAX_COL_SPANS;
 
     // --- Save configuration ---
     void setSaveImages(bool save) { saveImages = save; }
@@ -61,13 +57,9 @@ class RegionsOfInterestPrune : public SysModel {
                            const std::string& label);
     void saveVisualization(const FpgaRowColSumMsgF32Payload& rcMsg);
 
-    // Rebuild the algorithm's Config from the stored maxRowSpans/maxColSpans and push it via setConfig().
-    void rebuildAlgorithmConfig();
+    RegionsOfInterestPruneConfig toConfig() const;  //!< Single source of truth for reset() + reconfigure()
+    std::unique_ptr<RegionsOfInterestPruneAlgorithm> algorithm = nullptr;
 
-    uint32_t maxRowSpans{DEFAULT_MAX_ROW_SPANS};
-    uint32_t maxColSpans{DEFAULT_MAX_COL_SPANS};
-    RegionsOfInterestPruneAlgorithm algorithm{
-        RegionsOfInterestPruneConfig::create(DEFAULT_MAX_ROW_SPANS, DEFAULT_MAX_COL_SPANS)};
     uint32_t numPublished{};                             //!< Number of valid entries in lastRegionsOutput
     RegionsIdentifiedMsgF32Payload lastRegionsOutput{};  //!< Published center-coordinate form
     bool saveImages{false};
