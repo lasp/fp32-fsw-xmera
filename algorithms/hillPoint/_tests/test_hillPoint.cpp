@@ -108,3 +108,13 @@ TEST(HillPointTest, SigmaNormBounded) {
                              Eigen::Vector3d::Zero()                      // v_PN_N
     );
 }
+
+TEST(HillPointTest, ZeroVelocityAtValidRadius) {
+    // This test has v_BN_N as zero with a valid r_BN_N orbital radius. Since eigen normalizes a zero vector
+    // to zero instead of producing a NaN, this case falls into the fallback branch, where attitude and
+    // rates must be zero.
+    testHillPointDegenerateFallback(Eigen::Vector3d{8.92344e6, 1.54618e7, 0.0},  // r_BN_N
+                                    Eigen::Vector3d{0.0, 0.0, 0.0},              // v_BN_N
+                                    Eigen::Vector3d::Zero(),                     // r_PN_N
+                                    Eigen::Vector3d::Zero());                    // v_PN_N
+}
