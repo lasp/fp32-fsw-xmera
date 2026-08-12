@@ -1,6 +1,8 @@
 #ifndef F32XMERA_REGIONS_OF_INTEREST_PRUNE_ALGORITHM_H
 #define F32XMERA_REGIONS_OF_INTEREST_PRUNE_ALGORITHM_H
 
+#include "utilities/fsw/freestandingInvalidArgument.h"
+
 #include <array>
 #include <cstdint>
 #include <utility>
@@ -22,6 +24,37 @@ struct RoiCandidateEntry {
 struct RoiCandidates {
     uint32_t numCandidates{};                                        //!< [-] Number of valid entries
     std::array<RoiCandidateEntry, ROI_CANDIDATES_MAX> candidates{};  //!< [-] Sorted by count descending
+};
+
+/*! @brief Validated configuration for the regions-of-interest pruning algorithm.
+ *
+ *  An instance can only exist if both maxRowSpans and maxColSpans are > 0.
+ *  Construct via RegionsOfInterestPruneConfig::create(...).
+ */
+class RegionsOfInterestPruneConfig final {
+   public:
+    static RegionsOfInterestPruneConfig create(uint32_t maxRowSpans, uint32_t maxColSpans) {
+        if (!isValidMaxRowSpans(maxRowSpans)) {
+            FSW_THROW_INVALID_ARGUMENT("regionsOfInterestPrune: maxRowSpans must be > 0");
+        }
+        if (!isValidMaxColSpans(maxColSpans)) {
+            FSW_THROW_INVALID_ARGUMENT("regionsOfInterestPrune: maxColSpans must be > 0");
+        }
+        return {maxRowSpans, maxColSpans};
+    }
+
+    static bool isValidMaxRowSpans(uint32_t maxRowSpans) { return maxRowSpans > 0; }
+    static bool isValidMaxColSpans(uint32_t maxColSpans) { return maxColSpans > 0; }
+
+    uint32_t getMaxRowSpans() const { return maxRowSpans; }
+    uint32_t getMaxColSpans() const { return maxColSpans; }
+
+   private:
+    RegionsOfInterestPruneConfig(uint32_t maxRowSpans, uint32_t maxColSpans)
+        : maxRowSpans(maxRowSpans), maxColSpans(maxColSpans) {}
+
+    uint32_t maxRowSpans;
+    uint32_t maxColSpans;
 };
 
 /*! @brief algorithm for the regions-of-interest pruning stage.
