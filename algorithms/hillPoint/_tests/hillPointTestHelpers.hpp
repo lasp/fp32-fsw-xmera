@@ -101,6 +101,25 @@ inline void testHillPointRegression(const Eigen::Vector3d& r_BN_N,
         EXPECT_NEAR(out.domega_RN_N[i], static_cast<float>(ref.domega_RN_N[i]), tolFor(ref.domega_RN_N[i]));
     }
 }
+// Degenerate-geometry fallback: attitude and rates must all be exactly zero.
+inline void testHillPointDegenerateFallback(const Eigen::Vector3d& r_BN_N,
+                                            const Eigen::Vector3d& v_BN_N,
+                                            const Eigen::Vector3d& r_PN_N,
+                                            const Eigen::Vector3d& v_PN_N) {
+    HillPointAlgorithm alg;
+    HillPointOutput out;
+    EXPECT_NO_THROW(out = alg.update(r_BN_N, v_BN_N, r_PN_N, v_PN_N));
+
+    EXPECT_FLOAT_EQ(out.sigma_RN[0], 0.0F);
+    EXPECT_FLOAT_EQ(out.sigma_RN[1], 0.0F);
+    EXPECT_FLOAT_EQ(out.sigma_RN[2], 0.0F);
+    EXPECT_FLOAT_EQ(out.omega_RN_N[0], 0.0F);
+    EXPECT_FLOAT_EQ(out.omega_RN_N[1], 0.0F);
+    EXPECT_FLOAT_EQ(out.omega_RN_N[2], 0.0F);
+    EXPECT_FLOAT_EQ(out.domega_RN_N[0], 0.0F);
+    EXPECT_FLOAT_EQ(out.domega_RN_N[1], 0.0F);
+    EXPECT_FLOAT_EQ(out.domega_RN_N[2], 0.0F);
+}
 
 // ---------------------------------------------------------------------------
 // Conic-orbit test helper functions

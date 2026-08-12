@@ -25,47 +25,19 @@ TEST(HillPointTest, ReferenceTestPlanetOffset) {
 
 TEST(HillPointTest, BelowThresholdRadius) {
     // Relative orbital radius below the 1 m robustness threshold: attitude and rates must be zero
-    HillPointAlgorithm alg;
-
-    HillPointOutput out;
-    EXPECT_NO_THROW(out = alg.update(Eigen::Vector3d{0.5, 0.0, 0.0},  // r_BN_N: 0.5 m radius
-                                     Eigen::Vector3d{0.0, 0.1, 0.0},  // small v_BN_N
-                                     Eigen::Vector3d::Zero(),
-                                     Eigen::Vector3d::Zero()));
-
-    // Attitude and rates should be exactly zero in this branch
-    EXPECT_FLOAT_EQ(out.sigma_RN[0], 0.0F);
-    EXPECT_FLOAT_EQ(out.sigma_RN[1], 0.0F);
-    EXPECT_FLOAT_EQ(out.sigma_RN[2], 0.0F);
-    EXPECT_FLOAT_EQ(out.omega_RN_N[0], 0.0F);
-    EXPECT_FLOAT_EQ(out.omega_RN_N[1], 0.0F);
-    EXPECT_FLOAT_EQ(out.omega_RN_N[2], 0.0F);
-    EXPECT_FLOAT_EQ(out.domega_RN_N[0], 0.0F);
-    EXPECT_FLOAT_EQ(out.domega_RN_N[1], 0.0F);
-    EXPECT_FLOAT_EQ(out.domega_RN_N[2], 0.0F);
+    testHillPointDegenerateFallback(Eigen::Vector3d{0.5, 0.0, 0.0},  // r_BN_N: 0.5 m radius
+                                    Eigen::Vector3d{0.0, 0.1, 0.0},  // small v_BN_N
+                                    Eigen::Vector3d::Zero(),
+                                    Eigen::Vector3d::Zero());
 }
 
 TEST(HillPointTest, BelowSmallAngleThreshold) {
     // r and v here are collinear (v is just pointing along the same line as r), so h = r x v is
     // ~0 and there's no well-defined orbital plane.
-    HillPointAlgorithm alg;
-
-    HillPointOutput out;
-    EXPECT_NO_THROW(out = alg.update(Eigen::Vector3d{8.0e6, 0.0, 0.0},  // r_BN_N: valid radius
-                                     Eigen::Vector3d{100.0, 0.0, 0.0},  // v_BN_N: parallel to r_BN_N
-                                     Eigen::Vector3d::Zero(),
-                                     Eigen::Vector3d::Zero()));
-
-    // Attitude and rates should be exactly zero in this branch
-    EXPECT_FLOAT_EQ(out.sigma_RN[0], 0.0F);
-    EXPECT_FLOAT_EQ(out.sigma_RN[1], 0.0F);
-    EXPECT_FLOAT_EQ(out.sigma_RN[2], 0.0F);
-    EXPECT_FLOAT_EQ(out.omega_RN_N[0], 0.0F);
-    EXPECT_FLOAT_EQ(out.omega_RN_N[1], 0.0F);
-    EXPECT_FLOAT_EQ(out.omega_RN_N[2], 0.0F);
-    EXPECT_FLOAT_EQ(out.domega_RN_N[0], 0.0F);
-    EXPECT_FLOAT_EQ(out.domega_RN_N[1], 0.0F);
-    EXPECT_FLOAT_EQ(out.domega_RN_N[2], 0.0F);
+    testHillPointDegenerateFallback(Eigen::Vector3d{8.0e6, 0.0, 0.0},  // r_BN_N: valid radius
+                                    Eigen::Vector3d{100.0, 0.0, 0.0},  // v_BN_N: parallel to r_BN_N
+                                    Eigen::Vector3d::Zero(),
+                                    Eigen::Vector3d::Zero());
 }
 
 TEST(HillPointTest, CircularOrbit) {
