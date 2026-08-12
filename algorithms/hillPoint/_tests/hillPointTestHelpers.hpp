@@ -2,7 +2,6 @@
 #define TEST_HILL_POINT_HELPERS_H
 
 #include "hillPointAlgorithm.h"
-#include "hillPointTypes.h"
 #include "utilities/fsw/rigidBodyKinematics.hpp"
 #include "utilities/fsw/safeMath.h"
 
