@@ -6,9 +6,9 @@
 #include <utility>
 #include <vector>
 
-/*! @brief Internal bounding-box candidate (corner coordinates + pixel count). */
-static constexpr uint32_t ROI_CANDIDATES_MAX = 16;
+static constexpr uint32_t ROI_CANDIDATES_MAX = 16;  //!< Maximum number of candidates retained/published
 
+/*! @brief Internal bounding-box candidate (corner coordinates + pixel count). */
 struct RoiCandidateEntry {
     uint32_t row{};     //!< [px] Top-left row of the bounding box
     uint32_t col{};     //!< [px] Top-left column of the bounding box
@@ -62,7 +62,7 @@ class RegionsOfInterestPruneAlgorithm {
                                                           const AccumVec& C,
                                                           const AccumVec& colIdx);
 
-    // Step 4: sort candidates by count descending, truncate, and pack into a message.
+    // Step 4: sort candidates by count descending, truncate, and pack the result.
     static RoiCandidates packOutput(std::vector<RoiCandidateEntry> candidates);
 };
 

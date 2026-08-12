@@ -23,6 +23,10 @@ static RegionOfInterestMsgF32Payload regionAt(const RegionsIdentifiedMsgF32Paylo
 // BSK adapter interface
 // ---------------------------------------------------------------------------
 
+/*! @brief Reset internal state and validate that rowColSumInMsg is connected.
+ *  @param callTime Current simulation time in nanoseconds (unused).
+ *  @throws std::invalid_argument If rowColSumInMsg is not connected.
+ */
 void RegionsOfInterestPrune::reset(uint64_t /*callTime*/) {
     if (!this->rowColSumInMsg.isLinked()) {
         throw std::invalid_argument("RegionsOfInterestPrune.rowColSumInMsg wasn't connected.");

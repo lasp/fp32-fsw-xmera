@@ -53,7 +53,7 @@ RegionsOfInterestPruneAlgorithm::findSpans(const uint16_t* s, uint32_t n) {
 }
 
 /*! Returns the indices of the top-keep entries of vals ordered by descending value.
- *  Uses std::partial_sort so only the retained portion is fully sorted (O(N log keep)).
+ *  Uses std::ranges::partial_sort so only the retained portion is fully sorted (O(N log keep)).
  @return Vector of at most keep indices into vals, sorted by vals[i] descending.
  @param vals  Accumulator values to rank.
  @param keep  Maximum number of top entries to retain.
@@ -95,9 +95,8 @@ std::vector<RoiCandidateEntry> RegionsOfInterestPruneAlgorithm::buildCandidates(
     return candidates;
 }
 
-/*! Sorts candidates by estimated pixel count (descending), use window area for tie break, truncates to
- ROI_CANDIDATES_MAX,
- *  and packs the result into a RoiCandidates ready for publication.
+/*! Sorts candidates by estimated pixel count (descending), uses window area for tie break, truncates
+ *  to ROI_CANDIDATES_MAX, and packs the result into a RoiCandidates ready for publication.
  @return RoiCandidates with numCandidates set and candidates[0] = rank-1.
  @param candidates  Unsorted candidate list (taken by value; sorted in-place).
 */
