@@ -20,8 +20,8 @@ struct RoiCandidateEntry {
 };
 
 struct RoiCandidates {
-    uint32_t numCandidates{};                                      //!< [-] Number of valid entries
-    std::array<RoiCandidateEntry, ROI_CANDIDATES_MAX> candidates;  //!< [-] Sorted by count descending
+    uint32_t numCandidates{};                                        //!< [-] Number of valid entries
+    std::array<RoiCandidateEntry, ROI_CANDIDATES_MAX> candidates{};  //!< [-] Sorted by count descending
 };
 
 /*! @brief algorithm for the regions-of-interest pruning stage.
