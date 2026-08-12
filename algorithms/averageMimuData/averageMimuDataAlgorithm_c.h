@@ -36,9 +36,7 @@ uint32_t AverageMimuDataAlgorithm_getMaxMimuSamplesPerPkt(void);
  * @note The accepted value ranges are defined by AverageMimuDataConfig::create; this predicate
  *       reports whether a candidate set would be accepted, without throwing.
  */
-bool AverageMimuDataAlgorithm_validateConfig(double gyroAveragingWindow,
-                                             double accelAveragingWindow,
-                                             Matrix3f_c dcm_BC);
+bool AverageMimuDataAlgorithm_validateConfig(float gyroAveragingWindow, float accelAveragingWindow, Matrix3f_c dcm_BC);
 
 /**
  * @brief Construct a new AverageMimuDataAlgorithm instance from a validated config.
@@ -47,8 +45,8 @@ bool AverageMimuDataAlgorithm_validateConfig(double gyroAveragingWindow,
  * @param dcm_BC               CHU-to-body rotation, row-major.
  * @return Pointer to a new AverageMimuDataAlgorithm (must be destroyed). Validated; throws on invalid input.
  */
-AverageMimuDataAlgorithmHandle* AverageMimuDataAlgorithm_create(double gyroAveragingWindow,
-                                                                double accelAveragingWindow,
+AverageMimuDataAlgorithmHandle* AverageMimuDataAlgorithm_create(float gyroAveragingWindow,
+                                                                float accelAveragingWindow,
                                                                 Matrix3f_c dcm_BC);
 
 /**
@@ -66,8 +64,8 @@ void AverageMimuDataAlgorithm_destroy(AverageMimuDataAlgorithmHandle* self);
  * Validated; throws on invalid input.
  */
 void AverageMimuDataAlgorithm_setConfig(AverageMimuDataAlgorithmHandle* self,
-                                        double gyroAveragingWindow,
-                                        double accelAveragingWindow,
+                                        float gyroAveragingWindow,
+                                        float accelAveragingWindow,
                                         Matrix3f_c dcm_BC);
 
 /**

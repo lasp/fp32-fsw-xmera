@@ -267,7 +267,7 @@ TEST(averageMimuDataTest, RingBufferFillSequence) {
 
 TEST(averageMimuDataTest, SetupTest) {
     const Eigen::Matrix3f identity = Eigen::Matrix3f::Identity();
-    constexpr double kMax = static_cast<double>(AverageMimuDataAlgorithm::kMaxAveragingWindowSec);
+    constexpr float kMax = AverageMimuDataAlgorithm::kMaxAveragingWindowSec;
 
     EXPECT_THROW((void)AverageMimuDataConfig::create(-0.1, 0.5, identity), fsw::invalid_argument);
     EXPECT_NO_THROW((void)AverageMimuDataConfig::create(kMax, 0.5, identity));
@@ -287,8 +287,8 @@ TEST(averageMimuDataTest, SetupTest) {
 
     // Round-trip the validated values back out of the config.
     const AverageMimuDataConfig cfg = AverageMimuDataConfig::create(0.25, 0.5, identity);
-    EXPECT_DOUBLE_EQ(cfg.getGyroAveragingWindow(), 0.25);
-    EXPECT_DOUBLE_EQ(cfg.getAccelAveragingWindow(), 0.5);
+    EXPECT_FLOAT_EQ(cfg.getGyroAveragingWindow(), 0.25);
+    EXPECT_FLOAT_EQ(cfg.getAccelAveragingWindow(), 0.5);
     EXPECT_EQ(cfg.getDcmChuToBody(), identity);
 
     AverageMimuDataAlgorithm alg(cfg);
