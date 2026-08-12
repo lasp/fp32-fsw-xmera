@@ -165,7 +165,6 @@ class ThrustAxisToMotorAnglesAlgorithm final {
     MotorAngles gimbalAnglesToMotorAngles(float gimbalTipAngle, float gimbalTiltAngle) const;
     MotorAngles pullAngles(float gimbalAngle1, float gimbalAngle2) const;
     std::optional<int> getArrayIndex(const int rowIdx, const int colIdx) const;
-    MotorAngles bilinearlyInterpolateMotorAngles(float gimbalAngle1, float gimbalAngle2) const;
 
     static constexpr float kInterpolationRemainderTolerance =
         1e-3F;  //!< Tolerance for treating a normalized gimbal angle as landing exactly on a table node
