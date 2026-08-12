@@ -33,7 +33,7 @@ struct RoiCandidates {
  *    3. Cross-product of filtered spans → bounding boxes with count = min(R[k], C[l]).
  *    4. Sort by count descending, return top ROI_CANDIDATES_MAX entries.
  */
-class RegionsOfInterestPruneAlgorithm {
+class RegionsOfInterestPruneAlgorithm final {
    public:
     RoiCandidates update(const uint16_t* rowSums, uint32_t numRows, const uint16_t* colSums, uint32_t numCols) const;
 
