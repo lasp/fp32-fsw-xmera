@@ -6,6 +6,10 @@
 
 namespace {
 
+// ---------------------------------------------------------------------------
+// Regression fuzz test
+// ---------------------------------------------------------------------------
+
 // Fuzz the planet state and the *relative* spacecraft state, then reconstruct the absolute
 // spacecraft state. This lets us place a physically meaningful lower bound on the relative
 // orbital radius: dfdt = |h| / r^2 amplifies large relative velocities into unphysically huge
@@ -15,7 +19,7 @@ void fuzzHillPoint(const Eigen::Vector3d& r_PN_N,
                    const Eigen::Vector3d& v_PN_N,
                    const Eigen::Vector3d& r_BP_N,
                    const Eigen::Vector3d& v_BP_N) {
-    testHillPoint(r_PN_N + r_BP_N, v_PN_N + v_BP_N, r_PN_N, v_PN_N);
+    testHillPointRegression(r_PN_N + r_BP_N, v_PN_N + v_BP_N, r_PN_N, v_PN_N);
 }
 
 }  // namespace

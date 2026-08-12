@@ -60,10 +60,14 @@ inline ReferenceHillPointOutput referenceHillPoint(const Eigen::Vector3d& r_BN_N
     return out;
 }
 
-inline void testHillPoint(const Eigen::Vector3d& r_BN_N,
-                          const Eigen::Vector3d& v_BN_N,
-                          const Eigen::Vector3d& r_PN_N,
-                          const Eigen::Vector3d& v_PN_N) {
+// ---------------------------------------------------------------------------
+// Regression test helper functions
+// ---------------------------------------------------------------------------
+
+inline void testHillPointRegression(const Eigen::Vector3d& r_BN_N,
+                                    const Eigen::Vector3d& v_BN_N,
+                                    const Eigen::Vector3d& r_PN_N,
+                                    const Eigen::Vector3d& v_PN_N) {
     HillPointAlgorithm alg;
 
     HillPointOutput out;
