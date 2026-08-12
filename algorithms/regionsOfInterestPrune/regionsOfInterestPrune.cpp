@@ -1,5 +1,6 @@
 #include "regionsOfInterestPrune.h"
 
+#include <stdexcept>
 #include <string>
 
 // ---------------------------------------------------------------------------
@@ -23,8 +24,9 @@ static RegionOfInterestMsgF32Payload regionAt(const RegionsIdentifiedMsgF32Paylo
 // ---------------------------------------------------------------------------
 
 void RegionsOfInterestPrune::reset(uint64_t /*callTime*/) {
-    if (!this->rowColSumInMsg.isLinked())
-        this->bskLogger.bskLog(BSK_WARNING, "RegionsOfInterestPrune: rowColSumInMsg is not linked");
+    if (!this->rowColSumInMsg.isLinked()) {
+        throw std::invalid_argument("RegionsOfInterestPrune.rowColSumInMsg wasn't connected.");
+    }
     this->numPublished = 0;
     this->lastRegionsOutput = {};
 }

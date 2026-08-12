@@ -12,7 +12,6 @@
 #include "msgPayloadDef/RegionsIdentifiedMsgF32Payload.h"
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
-#include <architecture/utilities/bskLogging.h>
 #include <architecture/utilities/macroDefinitions.h>
 
 #include "regionsOfInterestPruneAlgorithm.h"
@@ -44,8 +43,6 @@ class RegionsOfInterestPrune : public SysModel {
     ReadFunctor<FpgaRowColSumMsgF32Payload> rowColSumInMsg;           //!< Row/col accumulators from fpgaImagePipeline
     ReadFunctor<FpgaThreshImageMsgF32Payload> threshImageInMsg;       //!< Optional: threshold image for visualization
     Message<RegionsIdentifiedMsgF32Payload> regionsIdentifiedOutMsg;  //!< Pruned candidates as RegionsIdentifiedMsg
-
-    BSKLogger bskLogger = {};
 
    private:
     // Build the BGR background image from the threshold msg (preferred) or the 1-D sums (fallback).
