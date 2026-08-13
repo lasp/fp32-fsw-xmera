@@ -17,6 +17,5 @@
 %include "thrustAxisToMotorAnglesAlgorithm.h"
 %include "thrustAxisToMotorAngles.h"
 
-%include "msgPayloadDef/BodyHeadingMsgF32Payload.h"
 %include "msgPayloadDef/HingedRigidBodyMsgF32Payload.h"
 %include "msgPayloadDef/TwoAxisGimbalMsgF32Payload.h"

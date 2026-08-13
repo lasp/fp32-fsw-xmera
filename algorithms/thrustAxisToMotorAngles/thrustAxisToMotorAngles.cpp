@@ -3,7 +3,6 @@
 #include <memory>
 #include <stdexcept>
 
-#include "architecture/utilities/eigenSupport.h"
 #include "utilities/xmera/xmeraLifecycleException.h"
 
 /*! This method checks the input message to ensure it is linked and builds the algorithm from the
@@ -12,12 +11,11 @@ configured parameters.
  @param currentSimNanos [ns] Time the method is called
 */
 void ThrustAxisToMotorAngles::reset(uint64_t currentSimNanos) {
-    if (!this->thrustDirectionInMsg.isLinked()) {
-        throw std::invalid_argument("thrustAxisToMotorAngles.thrustDirectionInMsg wasn't connected.");
+    if (!this->twoAxisGimbalInMsg.isLinked()) {
+        throw std::invalid_argument("thrustAxisToMotorAngles.twoAxisGimbalInMsg wasn't connected.");
     }
 
-    const auto config = ThrustAxisToMotorAnglesConfig::create(this->dcm_MB,
-                                                              StepperMotorAngleRange{this->minAngle, this->maxAngle},
+    const auto config = ThrustAxisToMotorAnglesConfig::create(StepperMotorAngleRange{this->minAngle, this->maxAngle},
                                                               this->gimbalToMotor1AngleData,
                                                               this->gimbalToMotor2AngleData,
                                                               GimbalToMotorAngleTableLayout{this->rowStartStrideIndices,
@@ -30,8 +28,7 @@ void ThrustAxisToMotorAngles::reset(uint64_t currentSimNanos) {
 }
 
 ThrustAxisToMotorAnglesConfig ThrustAxisToMotorAngles::toConfig() const {
-    return ThrustAxisToMotorAnglesConfig::create(this->dcm_MB,
-                                                 StepperMotorAngleRange{this->minAngle, this->maxAngle},
+    return ThrustAxisToMotorAnglesConfig::create(StepperMotorAngleRange{this->minAngle, this->maxAngle},
                                                  this->gimbalToMotor1AngleData,
                                                  this->gimbalToMotor2AngleData,
                                                  GimbalToMotorAngleTableLayout{this->rowStartStrideIndices,
@@ -49,9 +46,8 @@ void ThrustAxisToMotorAngles::reconfigure() const {
     this->algorithm->setConfig(this->toConfig());
 }
 
-/*! This method reads the commanded body-frame thrust direction message, delegates the gimbal and stepper motor
-angle computation to the algorithm, and writes the resulting gimbal tip/tilt angles and the two motor angles to the
-output messages.
+/*! This method reads the incoming requested gimbal angles, delegates the gimbal and stepper motor
+angle computation to the algorithm, and writes the resulting motor angles to the output messages.
  @return void
  @param currentSimNanos [ns] The current time of simulation
 */
@@ -61,17 +57,17 @@ void ThrustAxisToMotorAngles::updateState(uint64_t currentSimNanos) {
     }
 
     // Read the input message
-    if (this->thrustDirectionInMsg.isWritten() &&
-        (this->previousWrittenTime < this->thrustDirectionInMsg.timeWritten())) {
+    if (this->twoAxisGimbalInMsg.isWritten() && (this->previousWrittenTime < this->twoAxisGimbalInMsg.timeWritten())) {
         // Update the previous written time to the current message time written
-        this->previousWrittenTime = this->thrustDirectionInMsg.timeWritten();
+        this->previousWrittenTime = this->twoAxisGimbalInMsg.timeWritten();
 
-        // Store the thrust direction command vector in body frame components
-        const auto thrustDirectionIn = this->thrustDirectionInMsg();
-        const Eigen::Vector3f thrustHat_B = cArrayToEigenVector3<float>(thrustDirectionIn.rHat_XB_B);
+        // Store the commanded gimbal tip and tilt angles
+        const auto twoAxisGimbalIn = this->twoAxisGimbalInMsg();
+        const float gimbalTipAngle = twoAxisGimbalIn.theta1;
+        const float gimbalTiltAngle = twoAxisGimbalIn.theta2;
 
-        // Determine the gimbal and motor angles corresponding to the thrust direction
-        const ThrustAxisToMotorAnglesOutput motorAngles = this->algorithm->update(thrustHat_B);
+        // Determine motor angles corresponding to the gimbal angles
+        const ThrustAxisToMotorAnglesOutput motorAngles = this->algorithm->update(gimbalTipAngle, gimbalTiltAngle);
 
         // Write the module output messages
         auto motor1AngleOut = HingedRigidBodyMsgF32Payload();
@@ -81,10 +77,5 @@ void ThrustAxisToMotorAngles::updateState(uint64_t currentSimNanos) {
         auto motor2AngleOut = HingedRigidBodyMsgF32Payload();
         motor2AngleOut.theta = motorAngles.motorAngle2;
         this->motor2AngleOutMsg.write(motor2AngleOut, moduleID, currentSimNanos);
-
-        auto twoAxisGimbalOut = TwoAxisGimbalMsgF32Payload();
-        twoAxisGimbalOut.theta1 = motorAngles.gimbalTipAngle;
-        twoAxisGimbalOut.theta2 = motorAngles.gimbalTiltAngle;
-        this->twoAxisGimbalOutMsg.write(twoAxisGimbalOut, moduleID, currentSimNanos);
     }
 }

@@ -13,7 +13,4 @@ if(_is_enabled)
     "../.."
   )
 
-  target_link_libraries("${module}" PRIVATE
-    Eigen3::Eigen
-  )
 endif()

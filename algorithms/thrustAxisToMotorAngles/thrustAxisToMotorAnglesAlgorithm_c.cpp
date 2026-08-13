@@ -1,7 +1,6 @@
 #include "thrustAxisToMotorAnglesAlgorithm_c.h"
 
 #include "thrustAxisToMotorAnglesAlgorithm.h"
-#include "utilities/fsw/eigenSupport.h"
 
 namespace {
 /*! Convert a C-shared table POD into the algorithm's std::array table type. */
@@ -32,14 +31,11 @@ GimbalToMotorAngleTableLayout toStdTableLayout(const GimbalToMotorAngleTableLayo
 }
 
 /*! Build a validated Config from the C-shared configuration inputs. */
-ThrustAxisToMotorAnglesConfig makeConfig(const float dcm_MB[3][3],
-                                         const MotorAngleRange_c* angleRange,
+ThrustAxisToMotorAnglesConfig makeConfig(const MotorAngleRange_c* angleRange,
                                          const GimbalToMotorAngleTableData_c* gimbalToMotor1AngleTable,
                                          const GimbalToMotorAngleTableData_c* gimbalToMotor2AngleTable,
                                          const GimbalToMotorAngleTableLayout_c* tableLayout) {
-    const Eigen::Matrix3f dcm = cArrayToEigenMatrix3<float>(&dcm_MB[0][0]);
-    return ThrustAxisToMotorAnglesConfig::create(dcm,
-                                                 StepperMotorAngleRange{angleRange->minAngle, angleRange->maxAngle},
+    return ThrustAxisToMotorAnglesConfig::create(StepperMotorAngleRange{angleRange->minAngle, angleRange->maxAngle},
                                                  toStdTable(gimbalToMotor1AngleTable),
                                                  toStdTable(gimbalToMotor2AngleTable),
                                                  toStdTableLayout(tableLayout));
@@ -47,14 +43,13 @@ ThrustAxisToMotorAnglesConfig makeConfig(const float dcm_MB[3][3],
 }  // namespace
 
 ThrustAxisToMotorAnglesAlgorithmHandle* ThrustAxisToMotorAnglesAlgorithm_create(
-    const float dcm_MB[3][3],
     const MotorAngleRange_c* angleRange,
     const GimbalToMotorAngleTableData_c* gimbalToMotor1AngleTable,
     const GimbalToMotorAngleTableData_c* gimbalToMotor2AngleTable,
     const GimbalToMotorAngleTableLayout_c* tableLayout) {
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
     return reinterpret_cast<ThrustAxisToMotorAnglesAlgorithmHandle*>(new ::ThrustAxisToMotorAnglesAlgorithm(
-        makeConfig(dcm_MB, angleRange, gimbalToMotor1AngleTable, gimbalToMotor2AngleTable, tableLayout)));
+        makeConfig(angleRange, gimbalToMotor1AngleTable, gimbalToMotor2AngleTable, tableLayout)));
 }
 
 void ThrustAxisToMotorAnglesAlgorithm_destroy(ThrustAxisToMotorAnglesAlgorithmHandle* self) {
@@ -63,20 +58,19 @@ void ThrustAxisToMotorAnglesAlgorithm_destroy(ThrustAxisToMotorAnglesAlgorithmHa
 }
 
 void ThrustAxisToMotorAnglesAlgorithm_setConfig(ThrustAxisToMotorAnglesAlgorithmHandle* self,
-                                                const float dcm_MB[3][3],
                                                 const MotorAngleRange_c* angleRange,
                                                 const GimbalToMotorAngleTableData_c* gimbalToMotor1AngleTable,
                                                 const GimbalToMotorAngleTableData_c* gimbalToMotor2AngleTable,
                                                 const GimbalToMotorAngleTableLayout_c* tableLayout) {
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
     reinterpret_cast<::ThrustAxisToMotorAnglesAlgorithm*>(self)->setConfig(
-        makeConfig(dcm_MB, angleRange, gimbalToMotor1AngleTable, gimbalToMotor2AngleTable, tableLayout));
+        makeConfig(angleRange, gimbalToMotor1AngleTable, gimbalToMotor2AngleTable, tableLayout));
 }
 
 ThrustAxisToMotorAnglesOutput ThrustAxisToMotorAnglesAlgorithm_update(
     const ThrustAxisToMotorAnglesAlgorithmHandle* self,
-    const float thrustHat_B[3]) {
-    const Eigen::Vector3f thrustDir = cArrayToEigenVector3<float>(thrustHat_B);
+    const float gimbalTipAngle,
+    const float gimbalTiltAngle) {
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-    return reinterpret_cast<const ::ThrustAxisToMotorAnglesAlgorithm*>(self)->update(thrustDir);
+    return reinterpret_cast<const ::ThrustAxisToMotorAnglesAlgorithm*>(self)->update(gimbalTipAngle, gimbalTiltAngle);
 }

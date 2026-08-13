@@ -1,7 +1,6 @@
 #include "thrustAxisToMotorAnglesAlgorithm.h"
 
 #include "utilities/fsw/bilinearInterpolation.h"
-#include "utilities/fsw/safeMath.h"
 #include <math.h>
 
 ThrustAxisToMotorAnglesAlgorithm::ThrustAxisToMotorAnglesAlgorithm(const ThrustAxisToMotorAnglesConfig& config)
@@ -10,37 +9,24 @@ ThrustAxisToMotorAnglesAlgorithm::ThrustAxisToMotorAnglesAlgorithm(const ThrustA
 }
 
 /*! Replaces the algorithm's configuration for runtime reconfiguration.
- @param config Validated configuration (DCM and gimbal-to-motor interpolation tables)
+ @param config Validated configuration
 */
 void ThrustAxisToMotorAnglesAlgorithm::setConfig(const ThrustAxisToMotorAnglesConfig& config) { this->cfg = config; }
 
-/*! This method determines the gimbal sequential tip and tilt angles corresponding to the given thrust direction vector
-in spacecraft body frame components, then interpolates the corresponding stepper motor angles.
+/*! This method determines the stepper motor angles corresponding to the incoming gimbal tip and tilt angles.
  @return ThrustAxisToMotorAnglesOutput
- @param thrustHat_B Commanded thrust direction unit vector in body frame components
+ @param gimbalTipAngle [rad]
+ @param gimbalTiltAngle [rad]
 */
-ThrustAxisToMotorAnglesOutput ThrustAxisToMotorAnglesAlgorithm::update(const Eigen::Vector3f& thrustHat_B) const {
-    /*! Set default output */
-    ThrustAxisToMotorAnglesOutput output{.motorAngle1 = kDefaultMotorAngle, .motorAngle2 = kDefaultMotorAngle};
+ThrustAxisToMotorAnglesOutput ThrustAxisToMotorAnglesAlgorithm::update(float gimbalTipAngle,
+                                                                       float gimbalTiltAngle) const {
+    // Determine the required motor angles
+    const MotorAngles motorAngles = this->gimbalAnglesToMotorAngles(gimbalTipAngle, gimbalTiltAngle);
 
-    /*! Motor angles are only resolveable if the incoming thrust direction is not zero. */
-    const bool isThrustHatResolved = thrustHat_B.stableNorm() != 0.0F;
-
-    if (isThrustHatResolved) {
-        // Determine the required gimbal tip and tilt angles
-        const Eigen::Vector3f thrustHat_M = (this->cfg.getDcmMB() * thrustHat_B).normalized();
-        const float gimbalTipAngle = safeAtan2f(-thrustHat_M[1], thrustHat_M[2]);
-        const float gimbalTiltAngle = safeAsinf(thrustHat_M[0]);
-
-        // Determine the required motor angles
-        const MotorAngles motorAngles = this->gimbalAnglesToMotorAngles(gimbalTipAngle, gimbalTiltAngle);
-
-        output.gimbalTipAngle = gimbalTipAngle;
-        output.gimbalTiltAngle = gimbalTiltAngle;
-        output.motorAngle1 = motorAngles.angle1;
-        output.motorAngle2 = motorAngles.angle2;
-        output.isValidInterpolation = motorAngles.isValidInterpolation;
-    }
+    ThrustAxisToMotorAnglesOutput output{};
+    output.motorAngle1 = motorAngles.angle1;
+    output.motorAngle2 = motorAngles.angle2;
+    output.isValidInterpolation = motorAngles.isValidInterpolation;
 
     return output;
 }
