@@ -142,7 +142,7 @@ class ThrustAxisToMotorAnglesConfig final {
 };
 
 /*! @brief Pure algorithm: interpolates the stepper motor angles corresponding to the commanded
- * gimbal sequential tip and tilt angles from the gimbal-to-motor lookup tables. */
+ * gimbal tip and tilt angles from the gimbal-to-motor lookup tables. */
 class ThrustAxisToMotorAnglesAlgorithm final {
    public:
     explicit ThrustAxisToMotorAnglesAlgorithm(const ThrustAxisToMotorAnglesConfig& config);

@@ -30,7 +30,7 @@ ThrustAxisToMotorAnglesOutput ThrustAxisToMotorAnglesAlgorithm::update(float gim
     return output;
 }
 
-/*! This method determines the stepper motor angles given the gimbal sequential tip and tilt angles.
+/*! This method determines the stepper motor angles given the gimbal tip and tilt angles.
  @return MotorAngles
  @param gimbalAngle1 [rad] Gimbal tip angle
  @param gimbalAngle2 [rad] Gimbal tilt angle
