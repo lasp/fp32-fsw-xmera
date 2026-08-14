@@ -7,8 +7,8 @@
 extern "C" {
 #endif
 
-#define NUM_GIMBAL_TO_MOTOR_TABLE_ROWS 111
-#define NUM_GIMBAL_TO_MOTOR_TABLE_COLS 76
+#define NUM_GIMBAL_TO_MOTOR_TABLE_ROWS 109
+#define NUM_GIMBAL_TO_MOTOR_TABLE_COLS 74
 #define NUM_GIMBAL_TO_MOTOR_TABLE_ELEMENTS 4086
 
 /*! @brief POD representation of gimbal-to-motor interpolation table data. */

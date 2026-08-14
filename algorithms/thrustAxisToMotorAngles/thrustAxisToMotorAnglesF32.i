@@ -11,8 +11,8 @@
 
 %include "thrustAxisToMotorAnglesTypes.h"
 
-%template(GimbalMotorTableRow) std::array<float, 76>;
-%template(GimbalMotorTable2D) std::array<std::array<float, 76>, 111>;
+%template(GimbalMotorTableRow) std::array<float, 74>;
+%template(GimbalMotorTable2D) std::array<std::array<float, 74>, 109>;
 
 %include "thrustAxisToMotorAnglesAlgorithm.h"
 %include "thrustAxisToMotorAngles.h"

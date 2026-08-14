@@ -33,8 +33,8 @@ class ThrustAxisToMotorAngles final : public SysModel {
         rowStartStrideIndices{};  //!< [-] Stride indices for the starting location of the table rows
     std::array<int, NUM_GIMBAL_TO_MOTOR_TABLE_ROWS>
         rowStartColIndices{};  //!< [-] Column indices for the starting location of the table rows
-    int tipColIdxOffset{38};
-    int tiltRowIdxOffset{55};
+    int tipColIdxOffset{37};
+    int tiltRowIdxOffset{54};
     float tableStepAngle{0.5F * std::numbers::pi_v<float> /
                          180.0F};  //!< [rad] Interpolation table motor discretization step
 
