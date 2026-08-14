@@ -50,8 +50,10 @@ def _run_sim(sun_avoidance):
     module.attNavInMsg.subscribeTo(navStateInMsg)
     module.attRefInMsg.subscribeTo(refInMsg)
 
+    # slewRate must be a valid (positive) rate whether or not the maneuver is engaged.
+    module.slewRate = 1 * np.pi / 180.0
+
     if sun_avoidance:
-        module.slewRate = 1 * np.pi / 180.0
         module.sensitiveHat_B = [0.0, -1.0, 0.0]
         transNavData = messaging.NavTransMsgF32Payload()
         transNavData.r_BN_N = [-30, 20, -50]

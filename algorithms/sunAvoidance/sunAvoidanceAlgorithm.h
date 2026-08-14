@@ -29,7 +29,7 @@ class SunAvoidanceConfig final {
             FSW_THROW_INVALID_ARGUMENT("sunAvoidance: sensitiveHat_B must be finite and within 1e-3 of unit length");
         }
         if (!isValidSlewRate(slewRate)) {
-            FSW_THROW_INVALID_ARGUMENT("sunAvoidance: slewRate must be finite");
+            FSW_THROW_INVALID_ARGUMENT("sunAvoidance: slewRate must be finite and greater than zero");
         }
         return {sensitiveHat_B.normalized(), slewRate, computeAngleStart};
     }
@@ -38,7 +38,7 @@ class SunAvoidanceConfig final {
         constexpr float kNormTolerance = 1e-3F;
         return sensitiveHat_B.allFinite() && fabsf(sensitiveHat_B.stableNorm() - 1.0F) < kNormTolerance;
     }
-    static bool isValidSlewRate(float slewRate) { return fsw::is_finite(slewRate); }
+    static bool isValidSlewRate(float slewRate) { return fsw::is_finite(slewRate) && slewRate > 0.0F; }
 
     Eigen::Vector3f getSensitiveHat_B() const { return sensitiveHat_B; }
     float getSlewRate() const { return slewRate; }

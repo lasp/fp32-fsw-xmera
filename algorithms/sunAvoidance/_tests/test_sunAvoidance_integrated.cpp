@@ -20,7 +20,7 @@ const Eigen::Vector3f kSensitiveHat_B{0.0F, -1.0F, 0.0F};
 // ---------------------------------------------------------------------------
 TEST(SunAvoidanceIntegrated, TrackingErrorOnly) {
     integratedRegression(Eigen::Vector3f::Zero(),  // sensitiveHat_B (unused)
-                         0.0F,                     // slewRate
+                         kManeuverRate,            // slewRate (unused: the maneuver angle starts at zero)
                          false,                    // computeAngleStart
                          Eigen::Vector3d::Zero(),  // r_BN_N (unused)
                          Eigen::Vector3d::Zero(),  // r_SN_N (unused)

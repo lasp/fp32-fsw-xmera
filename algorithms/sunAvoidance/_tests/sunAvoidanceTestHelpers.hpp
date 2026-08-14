@@ -216,12 +216,13 @@ inline Eigen::Vector3d rSN_N() { return Eigen::Vector3d{1.0, 2.0, 3.0}; }
 
 // With the maneuver disabled (computeAngleStart == false), the adjusted reference equals the input
 // reference. The attitude is compared via its DCM so the check is independent of which MRP shadow-set
-// representative dcmToMrp returns for a non-principal input.
+// representative dcmToMrp returns for a non-principal input. slewRate must still be a valid (positive)
+// rate, but it has nothing to feed forward: the maneuver angle starts at zero.
 inline void propertyPassThroughEqualsInputRef(const Eigen::Vector3f& sigma_BN,
                                               const Eigen::Vector3f& sigma_RN,
                                               const Eigen::Vector3f& omega_RN_N,
                                               const Eigen::Vector3f& domega_RN_N) {
-    const auto config = SunAvoidanceConfig::create(Eigen::Vector3f::Zero(), 0.0F, false);
+    const auto config = SunAvoidanceConfig::create(Eigen::Vector3f::Zero(), detail::kManeuverRate, false);
     SunAvoidanceAlgorithm alg{config};
     const SunAvoidanceAttRefInputs refIn{sigma_RN, omega_RN_N, domega_RN_N};
     const Eigen::Matrix3f dcm_RN_in = mrpToDcm(sigma_RN);

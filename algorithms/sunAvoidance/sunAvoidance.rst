@@ -68,12 +68,12 @@ The following table lists the module parameters that can be set. They must be co
       - zero
       - Body-fixed sensitive axis :math:`\hat{\mathbf a}_B` to keep off the Sun
       - Must be finite; renormalized on storage
-    * - slewRate
+    * - slewRate (required)
       - float
       - [rad/s]
       - 0
       - Rate :math:`\dot\Phi` at which the maneuver slews toward the input reference
-      - Must be finite
+      - Must be finite and greater than zero (validated at reset())
 
 Module Notes
 ------------

@@ -28,7 +28,7 @@ const Eigen::Vector3f kSensitiveHat_B{0.0F, -1.0F, 0.0F};
 // No optional messages -> no maneuver: the adjusted reference is the input reference unchanged.
 TEST(SunAvoidanceTest, RegressionPassThrough) {
     regressionTestSunAvoidance(Eigen::Vector3f::Zero(),
-                               0.0F,
+                               kManeuverRate,
                                false,
                                kSigmaBN,
                                kSigmaRN,
@@ -92,10 +92,17 @@ TEST(SunAvoidanceConfigTest, RejectsNonFiniteSlewRate) {
     EXPECT_THROW((void)SunAvoidanceConfig::create(kSensitiveHat_B, std::nanf(""), false), fsw::invalid_argument);
 }
 
+// The slew rate is a rate magnitude: zero never completes the maneuver and a negative rate grows the
+// residual angle without bound, so both are rejected.
+TEST(SunAvoidanceConfigTest, RejectsNonPositiveSlewRate) {
+    EXPECT_THROW((void)SunAvoidanceConfig::create(kSensitiveHat_B, 0.0F, true), fsw::invalid_argument);
+    EXPECT_THROW((void)SunAvoidanceConfig::create(kSensitiveHat_B, -kManeuverRate, true), fsw::invalid_argument);
+}
+
 TEST(SunAvoidanceConfigTest, AcceptsValidInputs) {
     EXPECT_NO_THROW((void)SunAvoidanceConfig::create(kSensitiveHat_B, kManeuverRate, true));
     // sensitiveHat_B is unused when the maneuver is disabled, so it is not unit-length checked.
-    EXPECT_NO_THROW((void)SunAvoidanceConfig::create(Eigen::Vector3f::Zero(), 0.0F, false));
+    EXPECT_NO_THROW((void)SunAvoidanceConfig::create(Eigen::Vector3f::Zero(), kManeuverRate, false));
 }
 
 // ---------------------------------------------------------------------------
@@ -122,15 +129,17 @@ TEST(SunAvoidanceTest, PropertyReInitializeRestartsManeuver) {
 // Edge case tests.
 // ---------------------------------------------------------------------------
 
-// Zero maneuver rate: the initial maneuver angle never decays, so the adjusted reference is constant
-// across every step.
-TEST(SunAvoidanceTest, EdgeZeroSlewRate) {
-    const auto config = SunAvoidanceConfig::create(kSensitiveHat_B, 0.0F, true);
+// Smallest useful maneuver rate: the initial maneuver angle decays only slightly over the run, so the
+// adjusted reference stays near its initial value while the feed-forward rate remains engaged throughout.
+TEST(SunAvoidanceTest, EdgeSmallSlewRate) {
+    constexpr float kSmallSlewRate = 1.0e-4F;  // [r/s]
+    const auto config = SunAvoidanceConfig::create(kSensitiveHat_B, kSmallSlewRate, true);
     SunAvoidanceAlgorithm alg{config};
     const SunAvoidanceAttRefInputs refIn{kSigmaRN, kOmegaRNN, kDomegaRNN};
 
     const SunAvoidanceOutput first = alg.update(kSigmaBN, refIn, kRBN_N, kRSN_N, 0);
-    constexpr float tol = 1e-6F;
+    // Total angle decay over the run is kSmallSlewRate * 11 * 0.5 s ~ 5.5e-4 rad.
+    constexpr float tol = 2e-3F;
     for (int k = 1; k < 12; ++k) {
         const SunAvoidanceOutput out =
             alg.update(kSigmaBN, refIn, kRBN_N, kRSN_N, static_cast<uint64_t>(k) * kHalfSecNs);
@@ -274,6 +283,6 @@ TEST(SunAvoidanceConfigTest, GettersRoundTrip) {
     EXPECT_NEAR(config.getSlewRate(), kManeuverRate, tol);
     EXPECT_TRUE(config.getComputeAngleStart());
 
-    const auto configNoManeuver = SunAvoidanceConfig::create(kSensitiveHat_B, 0.0F, false);
+    const auto configNoManeuver = SunAvoidanceConfig::create(kSensitiveHat_B, kManeuverRate, false);
     EXPECT_FALSE(configNoManeuver.getComputeAngleStart());
 }
