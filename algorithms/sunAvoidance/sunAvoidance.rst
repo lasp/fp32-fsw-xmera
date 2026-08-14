@@ -68,7 +68,7 @@ The following table lists the module parameters that can be set. They must be co
       - zero
       - Body-fixed sensitive axis :math:`\hat{\mathbf a}_B` to keep off the Sun
       - Must be finite; renormalized on storage
-    * - angleRate
+    * - slewRate
       - float
       - [rad/s]
       - 0
@@ -95,7 +95,7 @@ The module is configured by::
     module = sunAvoidanceF32.SunAvoidance()
     module.modelTag = "sunAvoidance"
     module.sensitiveHat_B = [0.0, -1.0, 0.0]
-    module.angleRate = 0.017453  # 1 deg/s
+    module.slewRate = 0.017453  # 1 deg/s
 
     # connect attNavInMsg and attRefInMsg (always); connect transNavInMsg and
     # ephemerisInMsg as well to enable the Sun-avoidance maneuver.

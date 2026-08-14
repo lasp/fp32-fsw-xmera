@@ -86,7 +86,7 @@ TEST(SunAvoidanceConfigTest, RejectsNonUnitSensitiveHat) {
     EXPECT_THROW((void)SunAvoidanceConfig::create(nonUnit, kManeuverRate, true), fsw::invalid_argument);
 }
 
-TEST(SunAvoidanceConfigTest, RejectsNonFiniteAngleRate) {
+TEST(SunAvoidanceConfigTest, RejectsNonFiniteSlewRate) {
     EXPECT_THROW((void)SunAvoidanceConfig::create(kSensitiveHat_B, std::numeric_limits<float>::infinity(), false),
                  fsw::invalid_argument);
     EXPECT_THROW((void)SunAvoidanceConfig::create(kSensitiveHat_B, std::nanf(""), false), fsw::invalid_argument);
@@ -124,7 +124,7 @@ TEST(SunAvoidanceTest, PropertyReInitializeRestartsManeuver) {
 
 // Zero maneuver rate: the initial maneuver angle never decays, so the adjusted reference is constant
 // across every step.
-TEST(SunAvoidanceTest, EdgeZeroAngleRate) {
+TEST(SunAvoidanceTest, EdgeZeroSlewRate) {
     const auto config = SunAvoidanceConfig::create(kSensitiveHat_B, 0.0F, true);
     SunAvoidanceAlgorithm alg{config};
     const SunAvoidanceAttRefInputs refIn{kSigmaRN, kOmegaRNN, kDomegaRNN};
@@ -271,7 +271,7 @@ TEST(SunAvoidanceConfigTest, GettersRoundTrip) {
     for (int i = 0; i < 3; ++i) {
         EXPECT_NEAR(config.getSensitiveHat_B()(i), expectedSensitive(i), tol);
     }
-    EXPECT_NEAR(config.getAngleRate(), kManeuverRate, tol);
+    EXPECT_NEAR(config.getSlewRate(), kManeuverRate, tol);
     EXPECT_TRUE(config.getComputeAngleStart());
 
     const auto configNoManeuver = SunAvoidanceConfig::create(kSensitiveHat_B, 0.0F, false);

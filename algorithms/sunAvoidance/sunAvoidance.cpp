@@ -26,7 +26,7 @@ void SunAvoidance::reset(uint64_t callTime) {
  */
 SunAvoidanceConfig SunAvoidance::toConfig() const {
     const bool computeAngleStart = this->transNavInMsg.isLinked() && this->ephemerisInMsg.isLinked();
-    return SunAvoidanceConfig::create(this->sensitiveHat_B, this->angleRate, computeAngleStart);
+    return SunAvoidanceConfig::create(this->sensitiveHat_B, this->slewRate, computeAngleStart);
 }
 
 /*! Push a fresh configuration into the algorithm without re-seeding its runtime maneuver state.

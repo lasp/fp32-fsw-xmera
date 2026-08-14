@@ -19,8 +19,8 @@
 // ---------------------------------------------------------------------------
 class SunAvoidanceReference {
    public:
-    SunAvoidanceReference(const Eigen::Vector3f& sensitiveHat_B, float angleRate, bool computeAngleStart)
-        : sensitiveHat_B(sensitiveHat_B.normalized()), angleRate(angleRate), computeAngleStart(computeAngleStart) {}
+    SunAvoidanceReference(const Eigen::Vector3f& sensitiveHat_B, float slewRate, bool computeAngleStart)
+        : sensitiveHat_B(sensitiveHat_B.normalized()), slewRate(slewRate), computeAngleStart(computeAngleStart) {}
 
     SunAvoidanceOutput update(const Eigen::Vector3f& sigma_BN,
                               const Eigen::Vector3f& sigma_RN,
@@ -65,7 +65,7 @@ class SunAvoidanceReference {
         const Eigen::Matrix3f dcm_RN = mrpToDcm(sigma_RN);
 
         const float dtSeconds = static_cast<float>(callTime - this->mnvrStartTime) * kNano2SecF;
-        float relativeAngleCurr = this->angleStart - (this->angleRate * dtSeconds);
+        float relativeAngleCurr = this->angleStart - (this->slewRate * dtSeconds);
         relativeAngleCurr = relativeAngleCurr < 0.0F ? 0.0F : relativeAngleCurr;
 
         SunAvoidanceOutput out{};
@@ -76,7 +76,7 @@ class SunAvoidanceReference {
 
         Eigen::Vector3f omega_RcN_N = omega_RN_N;
         if (relativeAngleCurr > 0.0F) {
-            omega_RcN_N += -this->angleRate * (dcm_BN.transpose() * this->mnvrAxis_B);
+            omega_RcN_N += -this->slewRate * (dcm_BN.transpose() * this->mnvrAxis_B);
         }
         out.omega_RN_N = omega_RcN_N;
         out.domega_RN_N = domega_RN_N;
@@ -85,7 +85,7 @@ class SunAvoidanceReference {
 
    private:
     Eigen::Vector3f sensitiveHat_B;
-    float angleRate;
+    float slewRate;
     bool computeAngleStart;
 
     bool maneuverInitialized = false;
@@ -154,7 +154,7 @@ inline bool nearManeuverDecisionBoundary(const Eigen::Vector3f& sensitiveHat_B,
 // discrete short/long-way decision boundary are skipped (see nearManeuverDecisionBoundary).
 // ---------------------------------------------------------------------------
 inline void regressionTestSunAvoidance(const Eigen::Vector3f& sensitiveHat_B,
-                                       float angleRate,
+                                       float slewRate,
                                        bool computeAngleStart,
                                        const Eigen::Vector3f& sigma_BN,
                                        const Eigen::Vector3f& sigma_RN,
@@ -168,9 +168,9 @@ inline void regressionTestSunAvoidance(const Eigen::Vector3f& sensitiveHat_B,
         return;  // ambiguous short/long-way branch: skip
     }
 
-    const auto config = SunAvoidanceConfig::create(sensitiveHat_B, angleRate, computeAngleStart);
+    const auto config = SunAvoidanceConfig::create(sensitiveHat_B, slewRate, computeAngleStart);
     SunAvoidanceAlgorithm alg{config};
-    SunAvoidanceReference ref{sensitiveHat_B, angleRate, computeAngleStart};
+    SunAvoidanceReference ref{sensitiveHat_B, slewRate, computeAngleStart};
 
     const SunAvoidanceAttRefInputs refIn{sigma_RN, omega_RN_N, domega_RN_N};
 

@@ -23,33 +23,33 @@ struct SunAvoidanceOutput {
 
 class SunAvoidanceConfig final {
    public:
-    static SunAvoidanceConfig create(const Eigen::Vector3f& sensitiveHat_B, float angleRate, bool computeAngleStart) {
+    static SunAvoidanceConfig create(const Eigen::Vector3f& sensitiveHat_B, float slewRate, bool computeAngleStart) {
         // sensitiveHat_B is only used when the Sun-avoidance maneuver is enabled; validate it only then.
         if (computeAngleStart && !isValidSensitiveHat_B(sensitiveHat_B)) {
             FSW_THROW_INVALID_ARGUMENT("sunAvoidance: sensitiveHat_B must be finite and within 1e-3 of unit length");
         }
-        if (!isValidAngleRate(angleRate)) {
-            FSW_THROW_INVALID_ARGUMENT("sunAvoidance: angleRate must be finite");
+        if (!isValidSlewRate(slewRate)) {
+            FSW_THROW_INVALID_ARGUMENT("sunAvoidance: slewRate must be finite");
         }
-        return {sensitiveHat_B.normalized(), angleRate, computeAngleStart};
+        return {sensitiveHat_B.normalized(), slewRate, computeAngleStart};
     }
 
     static bool isValidSensitiveHat_B(const Eigen::Vector3f& sensitiveHat_B) {
         constexpr float kNormTolerance = 1e-3F;
         return sensitiveHat_B.allFinite() && fabsf(sensitiveHat_B.stableNorm() - 1.0F) < kNormTolerance;
     }
-    static bool isValidAngleRate(float angleRate) { return fsw::is_finite(angleRate); }
+    static bool isValidSlewRate(float slewRate) { return fsw::is_finite(slewRate); }
 
     Eigen::Vector3f getSensitiveHat_B() const { return sensitiveHat_B; }
-    float getAngleRate() const { return angleRate; }
+    float getSlewRate() const { return slewRate; }
     bool getComputeAngleStart() const { return computeAngleStart; }
 
    private:
-    SunAvoidanceConfig(const Eigen::Vector3f& sensitiveHat_B, float angleRate, bool computeAngleStart)
-        : sensitiveHat_B(sensitiveHat_B), angleRate(angleRate), computeAngleStart(computeAngleStart) {}
+    SunAvoidanceConfig(const Eigen::Vector3f& sensitiveHat_B, float slewRate, bool computeAngleStart)
+        : sensitiveHat_B(sensitiveHat_B), slewRate(slewRate), computeAngleStart(computeAngleStart) {}
 
     Eigen::Vector3f sensitiveHat_B;
-    float angleRate;
+    float slewRate;
     bool computeAngleStart;
 };
 

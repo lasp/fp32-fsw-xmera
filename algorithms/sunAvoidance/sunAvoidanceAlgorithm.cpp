@@ -123,7 +123,7 @@ SunAvoidanceOutput SunAvoidanceAlgorithm::computeAdjustedReference(const Eigen::
 
     // Residual maneuver angle, fed forward at the configured rate and clamped at zero.
     const float dtSeconds = static_cast<float>(callTime - maneuver.startTime) * kNano2SecF;
-    float remainingManeuverAngle = maneuver.angle - (this->cfg.getAngleRate() * dtSeconds);
+    float remainingManeuverAngle = maneuver.angle - (this->cfg.getSlewRate() * dtSeconds);
     remainingManeuverAngle = remainingManeuverAngle < 0.0F ? 0.0F : remainingManeuverAngle;
 
     SunAvoidanceOutput out{};
@@ -138,7 +138,7 @@ SunAvoidanceOutput SunAvoidanceAlgorithm::computeAdjustedReference(const Eigen::
     Eigen::Vector3f omega_RcN_N = ref.omega_RN_N;
     if (remainingManeuverAngle > 0.0F) {
         const Eigen::Matrix3f dcm_BN = mrpToDcm(sigma_BN);
-        omega_RcN_N -= this->cfg.getAngleRate() * (dcm_BN.transpose() * maneuver.axis_B);
+        omega_RcN_N -= this->cfg.getSlewRate() * (dcm_BN.transpose() * maneuver.axis_B);
     }
     out.omega_RN_N = omega_RcN_N;
 

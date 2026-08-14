@@ -22,13 +22,13 @@ typedef struct SunAvoidanceAlgorithmHandle SunAvoidanceAlgorithmHandle;
  * Caller fills this struct and passes it to SunAvoidanceAlgorithm_create or _setConfig. The C++
  * side validates each field via SunAvoidanceConfig::create and throws on invalid input.
  *  - sensitiveHat_B must be finite (stored normalized)
- *  - angleRate [r/s] must be finite
+ *  - slewRate [r/s] must be finite
  *  - computeAngleStart selects whether the initial maneuver angle is computed from the sun geometry
  *    (true when the trans/ephemeris messages are connected) or assumed to be 0
  */
 typedef struct {
     Vector3f_c sensitiveHat_B;
-    float angleRate;
+    float slewRate;
     bool computeAngleStart;
 } SunAvoidanceConfig_c;
 

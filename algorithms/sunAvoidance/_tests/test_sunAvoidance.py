@@ -51,7 +51,7 @@ def _run_sim(sun_avoidance):
     module.attRefInMsg.subscribeTo(refInMsg)
 
     if sun_avoidance:
-        module.angleRate = 1 * np.pi / 180.0
+        module.slewRate = 1 * np.pi / 180.0
         module.sensitiveHat_B = [0.0, -1.0, 0.0]
         transNavData = messaging.NavTransMsgF32Payload()
         transNavData.r_BN_N = [-30, 20, -50]
@@ -77,9 +77,9 @@ def test_sunAvoidance_config_roundtrip():
     module = sunAvoidanceF32.SunAvoidance()
     module.modelTag = "sunAvoidance"
 
-    angleRate = 0.0123
-    module.angleRate = angleRate
-    np.testing.assert_allclose(module.angleRate, angleRate, rtol=1e-6, atol=1e-6)
+    slewRate = 0.0123
+    module.slewRate = slewRate
+    np.testing.assert_allclose(module.slewRate, slewRate, rtol=1e-6, atol=1e-6)
 
     sensitiveHat_B = [0.1, -0.9, 0.2]
     module.sensitiveHat_B = sensitiveHat_B

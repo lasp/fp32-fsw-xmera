@@ -26,7 +26,7 @@ class SunAvoidance final : public SysModel {
 
     // Phase 1: public config properties -- set before reset().
     Eigen::Vector3f sensitiveHat_B = Eigen::Vector3f::Zero();  //!< [-] body vector to exclude from the Sun
-    float angleRate = 0.0F;                                    //!< [r/s] rate at which we maneuver to Sun point
+    float slewRate = 0.0F;                                     //!< [r/s] rate at which we maneuver to Sun point
 
     ReadFunctor<NavAttMsgF32Payload> attNavInMsg;        //!< input msg measured attitude
     ReadFunctor<AttRefMsgF32Payload> attRefInMsg;        //!< input msg of reference attitude

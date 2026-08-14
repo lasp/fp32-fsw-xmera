@@ -37,11 +37,11 @@ class SunAvoidanceReference {
    public:
     SunAvoidanceReference(const Eigen::Vector3f& sigma_R0R,
                           const Eigen::Vector3f& sensitiveHat_B,
-                          float angleRate,
+                          float slewRate,
                           bool computeAngleStart)
         : sigma_R0R(sigma_R0R),
           sensitiveHat_B(sensitiveHat_B.normalized()),
-          angleRate(angleRate),
+          slewRate(slewRate),
           computeAngleStart(computeAngleStart) {}
 
     SunAvoidanceReferenceOutput update(const Eigen::Vector3f& sigma_BN,
@@ -95,7 +95,7 @@ class SunAvoidanceReference {
         const Eigen::Matrix3f dcm_RN = (dcm_R0N.transpose() * dcm_R0R).transpose();
 
         const float dtSeconds = static_cast<float>(callTime - this->mnvrStartTime) * kNano2SecF;
-        float relativeAngleCurr = this->angleStart - (this->angleRate * dtSeconds);
+        float relativeAngleCurr = this->angleStart - (this->slewRate * dtSeconds);
         relativeAngleCurr = relativeAngleCurr < 0.0F ? 0.0F : relativeAngleCurr;
 
         SunAvoidanceReferenceOutput out{};
@@ -106,7 +106,7 @@ class SunAvoidanceReference {
 
         Eigen::Vector3f omega_RN_B = dcm_BN * omega_RN_N;
         if (relativeAngleCurr > 0.0F) {
-            omega_RN_B += -this->angleRate * this->mnvrAxis_B;
+            omega_RN_B += -this->slewRate * this->mnvrAxis_B;
         }
         out.omega_RN_B = omega_RN_B;
         out.omega_BR_B = omega_BN_B - omega_RN_B;
@@ -117,7 +117,7 @@ class SunAvoidanceReference {
    private:
     Eigen::Vector3f sigma_R0R;
     Eigen::Vector3f sensitiveHat_B;
-    float angleRate;
+    float slewRate;
     bool computeAngleStart;
 
     bool maneuverInitialized = false;
@@ -133,7 +133,7 @@ class SunAvoidanceReference {
 // (r_BN_N, r_SN_N) and the computeAngleStart flag are varied by the caller.
 // ---------------------------------------------------------------------------
 inline void integratedRegression(const Eigen::Vector3f& sensitiveHat_B,
-                                 float angleRate,
+                                 float slewRate,
                                  bool computeAngleStart,
                                  const Eigen::Vector3d& r_BN_N,
                                  const Eigen::Vector3d& r_SN_N,
@@ -145,12 +145,12 @@ inline void integratedRegression(const Eigen::Vector3f& sensitiveHat_B,
     const Eigen::Vector3f omega_RN_N{0.018F, -0.032F, 0.015F};
     const Eigen::Vector3f domega_RN_N{0.048F, -0.022F, 0.025F};
 
-    const auto config = SunAvoidanceConfig::create(sensitiveHat_B, angleRate, computeAngleStart);
+    const auto config = SunAvoidanceConfig::create(sensitiveHat_B, slewRate, computeAngleStart);
     SunAvoidanceAlgorithm alg{config};
     AttTrackingErrorAlgorithm attError{};
     // The reference model computes the COMBINED behavior. sunAvoidance no longer applies a
     // corrected-reference offset, so the reference frame is the input reference directly (sigma_R0R == 0).
-    SunAvoidanceReference ref{Eigen::Vector3f::Zero(), sensitiveHat_B, angleRate, computeAngleStart};
+    SunAvoidanceReference ref{Eigen::Vector3f::Zero(), sensitiveHat_B, slewRate, computeAngleStart};
 
     const SunAvoidanceAttRefInputs refIn{sigma_RN, omega_RN_N, domega_RN_N};
 
