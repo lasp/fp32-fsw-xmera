@@ -23,15 +23,14 @@ struct SunAvoidanceOutput {
 
 class SunAvoidanceConfig final {
    public:
-    static SunAvoidanceConfig create(const Eigen::Vector3f& sensitiveHat_B, float slewRate, bool computeAngleStart) {
-        // sensitiveHat_B is only used when the Sun-avoidance maneuver is enabled; validate it only then.
-        if (computeAngleStart && !isValidSensitiveHat_B(sensitiveHat_B)) {
+    static SunAvoidanceConfig create(const Eigen::Vector3f& sensitiveHat_B, float slewRate) {
+        if (!isValidSensitiveHat_B(sensitiveHat_B)) {
             FSW_THROW_INVALID_ARGUMENT("sunAvoidance: sensitiveHat_B must be finite and within 1e-3 of unit length");
         }
         if (!isValidSlewRate(slewRate)) {
             FSW_THROW_INVALID_ARGUMENT("sunAvoidance: slewRate must be finite and greater than zero");
         }
-        return {sensitiveHat_B.normalized(), slewRate, computeAngleStart};
+        return {sensitiveHat_B.normalized(), slewRate};
     }
 
     static bool isValidSensitiveHat_B(const Eigen::Vector3f& sensitiveHat_B) {
@@ -42,15 +41,13 @@ class SunAvoidanceConfig final {
 
     Eigen::Vector3f getSensitiveHat_B() const { return sensitiveHat_B; }
     float getSlewRate() const { return slewRate; }
-    bool getComputeAngleStart() const { return computeAngleStart; }
 
    private:
-    SunAvoidanceConfig(const Eigen::Vector3f& sensitiveHat_B, float slewRate, bool computeAngleStart)
-        : sensitiveHat_B(sensitiveHat_B), slewRate(slewRate), computeAngleStart(computeAngleStart) {}
+    SunAvoidanceConfig(const Eigen::Vector3f& sensitiveHat_B, float slewRate)
+        : sensitiveHat_B(sensitiveHat_B), slewRate(slewRate) {}
 
     Eigen::Vector3f sensitiveHat_B;
     float slewRate;
-    bool computeAngleStart;
 };
 
 /*!@brief Module to compute the attitude tracking error for sun avoidance.

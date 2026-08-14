@@ -4,8 +4,7 @@
 #include <stdexcept>
 
 /*! Validate that the required input messages are linked, build the algorithm's configuration from
- the adapter's stored properties (which captures whether the optional trans/ephemeris messages are
- connected), and (re)construct the embedded algorithm.
+ the adapter's stored properties, and (re)construct the embedded algorithm.
  @param callTime The clock time at which the function was called (nanoseconds).
  */
 void SunAvoidance::reset(uint64_t callTime) {
@@ -16,17 +15,21 @@ void SunAvoidance::reset(uint64_t callTime) {
     if (!this->attNavInMsg.isLinked()) {
         throw std::invalid_argument("sunAvoidance.attNavInMsg wasn't connected.");
     }
+    if (!this->transNavInMsg.isLinked()) {
+        throw std::invalid_argument("sunAvoidance.transNavInMsg wasn't connected.");
+    }
+    if (!this->ephemerisInMsg.isLinked()) {
+        throw std::invalid_argument("sunAvoidance.ephemerisInMsg wasn't connected.");
+    }
 
     this->algorithm = std::make_unique<SunAvoidanceAlgorithm>(this->toConfig());
 }
 
-/*! Build a validated SunAvoidanceConfig from the adapter's stored properties. The computeAngleStart
- flag is derived from whether the optional trans/ephemeris messages are connected.
+/*! Build a validated SunAvoidanceConfig from the adapter's stored properties.
  @return SunAvoidanceConfig validated configuration.
  */
 SunAvoidanceConfig SunAvoidance::toConfig() const {
-    const bool computeAngleStart = this->transNavInMsg.isLinked() && this->ephemerisInMsg.isLinked();
-    return SunAvoidanceConfig::create(this->sensitiveHat_B, this->slewRate, computeAngleStart);
+    return SunAvoidanceConfig::create(this->sensitiveHat_B, this->slewRate);
 }
 
 /*! Push a fresh configuration into the algorithm without re-seeding its runtime maneuver state.
@@ -66,12 +69,8 @@ void SunAvoidance::updateState(uint64_t callTime) {
                                              cArrayToEigenVector3(ref.omega_RN_N),
                                              cArrayToEigenVector3(ref.domega_RN_N)};
 
-    Eigen::Vector3d r_BN_N = Eigen::Vector3d::Zero();  //!< spacecraft position
-    Eigen::Vector3d r_SN_N = Eigen::Vector3d::Zero();  //!< sun position
-    if (this->transNavInMsg.isLinked() && this->ephemerisInMsg.isLinked()) {
-        r_BN_N = cArrayToEigenVector3(this->transNavInMsg().r_BN_N);
-        r_SN_N = cArrayToEigenVector3(this->ephemerisInMsg().r_BdyZero_N);
-    }
+    const Eigen::Vector3d r_BN_N = cArrayToEigenVector3(this->transNavInMsg().r_BN_N);        //!< spacecraft position
+    const Eigen::Vector3d r_SN_N = cArrayToEigenVector3(this->ephemerisInMsg().r_BdyZero_N);  //!< sun position
 
     const SunAvoidanceOutput out = this->algorithm->update(sigma_BN, refInputs, r_BN_N, r_SN_N, callTime);
 

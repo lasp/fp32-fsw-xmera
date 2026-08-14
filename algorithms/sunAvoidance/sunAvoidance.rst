@@ -12,9 +12,10 @@ sensitive body axis does not sweep across the Sun during the slew. The adjusted 
 reference message intended to feed :ref:`attTrackingError` downstream, which forms the attitude tracking error from it
 and the navigation attitude.
 
-The Sun-avoidance maneuver is only computed when both optional inputs -- the spacecraft translational state and the Sun
-ephemeris -- are connected and a valid Sun direction is available. Otherwise, and once the maneuver has decayed to zero,
-the input reference is passed through unchanged.
+Sun avoidance is not optional: every input message is required and the maneuver is computed on every ``reset()``. The
+only case in which no maneuver is performed is when the inputs carry no usable Sun direction at all -- a zero Sun
+position (no ephemeris) or a Sun coincident with the spacecraft. In that case, and once the maneuver has decayed to
+zero, the input reference is passed through unchanged.
 
 Message Connection Descriptions
 -------------------------------
@@ -37,16 +38,16 @@ what this message is used for.
       - input reference frame :math:`(\mathbf\sigma_{R/N},\ \mathbf\omega_{R/N},\ \dot{\mathbf\omega}_{R/N})`
     * - transNavInMsg
       - :ref:`NavTransMsgF32Payload`
-      - optional input with the spacecraft inertial position :math:`\mathbf r_{B/N}`
+      - input with the spacecraft inertial position :math:`\mathbf r_{B/N}`
     * - ephemerisInMsg
       - :ref:`EphemerisMsgF32Payload`
-      - optional input with the Sun inertial position :math:`\mathbf r_{S/N}`
+      - input with the Sun inertial position :math:`\mathbf r_{S/N}`
     * - attRefOutMsg
       - :ref:`AttRefMsgF32Payload`
       - output maneuver-adjusted reference frame
 
-The Sun-avoidance maneuver is enabled only when **both** ``transNavInMsg`` and ``ephemerisInMsg`` are connected. When
-either is left unconnected the module outputs the input reference unchanged.
+All four input messages are **required**; ``reset()`` throws if any of them is left unconnected. Sun avoidance is not a
+mode the caller can opt out of by omitting the Sun geometry.
 
 Module Parameters
 -----------------
@@ -62,12 +63,12 @@ The following table lists the module parameters that can be set. They must be co
       - Default
       - Description
       - Bounds
-    * - sensitiveHat_B
+    * - sensitiveHat_B (required)
       - Eigen::Vector3f
       - [-]
       - zero
       - Body-fixed sensitive axis :math:`\hat{\mathbf a}_B` to keep off the Sun
-      - Must be finite; renormalized on storage
+      - Must be finite and within 1e-3 of unit length (validated at reset()); renormalized on storage
     * - slewRate (required)
       - float
       - [rad/s]
@@ -77,9 +78,8 @@ The following table lists the module parameters that can be set. They must be co
 
 Module Notes
 ------------
-- The Sun-avoidance maneuver is enabled only when both optional messages (``transNavInMsg`` and ``ephemerisInMsg``) are
-  connected. The module's behavior when they are absent, or when the geometry is degenerate, is described under Edge
-  Case Handling.
+- Sun avoidance always runs. The module's behavior when the Sun geometry carries no usable direction, or when the
+  geometry is degenerate, is described under Edge Case Handling.
 - The spacecraft and Sun positions are consumed in **double precision**: the large inertial vectors are differenced in
   double and only the resulting unit Sun direction is reduced to single precision, which avoids catastrophic
   cancellation. All other computation is single precision (fp32).
@@ -97,8 +97,8 @@ The module is configured by::
     module.sensitiveHat_B = [0.0, -1.0, 0.0]
     module.slewRate = 0.017453  # 1 deg/s
 
-    # connect attNavInMsg and attRefInMsg (always); connect transNavInMsg and
-    # ephemerisInMsg as well to enable the Sun-avoidance maneuver.
+    # connect all four input messages: attNavInMsg, attRefInMsg,
+    # transNavInMsg and ephemerisInMsg. All are required.
 
 Detailed Module Description
 ---------------------------
@@ -201,7 +201,8 @@ through:
    \qquad
    \dot{\mathbf\omega}_{R_c/N} = \dot{\mathbf\omega}_{R/N}
 
-When the maneuver is disabled or has decayed (:math:`\Phi_r = 0`), the adjusted reference equals the input reference.
+When there is no maneuver to perform, or it has decayed (:math:`\Phi_r = 0`), the adjusted reference equals the input
+reference.
 
 Edge Case Handling
 ^^^^^^^^^^^^^^^^^^^
@@ -215,8 +216,8 @@ finite; the reversal test is evaluated only when its geometry is well defined.
 
     * - Condition
       - Handling
-    * - Optional messages absent, zero Sun position, or Sun coincident with the spacecraft (no usable Sun direction)
-      - Maneuver disabled; the adjusted reference equals the input reference (pass-through).
+    * - Zero Sun position, or Sun coincident with the spacecraft (no usable Sun direction)
+      - No maneuver is performed; the adjusted reference equals the input reference (pass-through).
     * - Body already at the reference (:math:`\boldsymbol{\Phi}_{B/R} \approx \mathbf 0`)
       - Zero maneuver angle; the adjusted reference equals the input reference.
     * - Initial and final sensitive axes parallel or anti-parallel (:math:`\hat{\mathbf n}` undefined)
@@ -232,8 +233,8 @@ Test Description
 ----------------
 The algorithm is verified through regression tests against an independently coded reference implementation (compared
 via the reference-attitude DCM, which is invariant to the MRP shadow set), Config validation and getter setup tests,
-property tests (pass-through when the maneuver is disabled, bounded and finite output while maneuvering, return to the
-input reference after decay, and ``reInitialize`` restarting the maneuver), and edge-case tests for the degenerate
+property tests (pass-through when no Sun direction is available, bounded and finite output while maneuvering, return to
+the input reference after decay, and ``reInitialize`` restarting the maneuver), and edge-case tests for the degenerate
 geometries (missing Sun information, body at the reference, Sun along the sensitive axis, Sun perpendicular to the sweep
 plane, and anti-parallel sensitive axes). The maneuver path is additionally regression-fuzzed with realistic Sun
 geometry; the shared regression helper skips inputs near a degeneracy or near the discrete short/long-way decision

@@ -33,14 +33,12 @@ SunAvoidanceOutput SunAvoidanceAlgorithm::update(const Eigen::Vector3f& sigma_BN
                                                  const uint64_t callTime) {
     if (!this->maneuver.has_value()) {
         Maneuver m{};
-        if (this->cfg.getComputeAngleStart()) {
-            // Difference the large inertial positions in double precision, then reduce the unit direction to float.
-            const Eigen::Vector3f sHat_N = (r_SN_N - r_BN_N).stableNormalized().cast<float>();
-            // Skip the maneuver (pass-through) when no usable Sun information is available: a zero Sun
-            // position (no ephemeris) or a Sun direction coincident with the spacecraft.
-            if (r_SN_N.stableNorm() > 0.0 && sHat_N.stableNorm() > 0.0F) {
-                m = initializeManeuver(sigma_BN, ref, sHat_N);
-            }
+        // Difference the large inertial positions in double precision, then reduce the unit direction to float.
+        const Eigen::Vector3f sHat_N = (r_SN_N - r_BN_N).stableNormalized().cast<float>();
+        // Skip the maneuver (pass-through) when no usable Sun information is available: a zero Sun
+        // position (no ephemeris) or a Sun direction coincident with the spacecraft.
+        if (r_SN_N.stableNorm() > 0.0 && sHat_N.stableNorm() > 0.0F) {
+            m = initializeManeuver(sigma_BN, ref, sHat_N);
         }
         m.startTime = callTime;
         this->maneuver = m;

@@ -35,14 +35,8 @@ struct SunAvoidanceReferenceOutput {
 
 class SunAvoidanceReference {
    public:
-    SunAvoidanceReference(const Eigen::Vector3f& sigma_R0R,
-                          const Eigen::Vector3f& sensitiveHat_B,
-                          float slewRate,
-                          bool computeAngleStart)
-        : sigma_R0R(sigma_R0R),
-          sensitiveHat_B(sensitiveHat_B.normalized()),
-          slewRate(slewRate),
-          computeAngleStart(computeAngleStart) {}
+    SunAvoidanceReference(const Eigen::Vector3f& sigma_R0R, const Eigen::Vector3f& sensitiveHat_B, float slewRate)
+        : sigma_R0R(sigma_R0R), sensitiveHat_B(sensitiveHat_B.normalized()), slewRate(slewRate) {}
 
     SunAvoidanceReferenceOutput update(const Eigen::Vector3f& sigma_BN,
                                        const Eigen::Vector3f& omega_BN_B,
@@ -53,9 +47,12 @@ class SunAvoidanceReference {
                                        const Eigen::Vector3d& r_SN_N,
                                        uint64_t callTime) {
         if (!this->maneuverInitialized) {
-            if (this->computeAngleStart) {
+            // Sun avoidance always runs, but it needs a usable Sun direction: a zero Sun position (no
+            // ephemeris) or a Sun coincident with the spacecraft leaves no maneuver to perform.
+            const Eigen::Vector3d sunFromBody_N = r_SN_N - r_BN_N;
+            if (r_SN_N.norm() > 0.0 && sunFromBody_N.norm() > 0.0) {
                 const Eigen::Matrix3f dcm_BN = mrpToDcm(sigma_BN);
-                const Eigen::Vector3f sHat_N = (r_SN_N - r_BN_N).normalized().cast<float>();
+                const Eigen::Vector3f sHat_N = sunFromBody_N.normalized().cast<float>();
                 const Eigen::Vector3f sensInitial_N = dcm_BN.transpose() * this->sensitiveHat_B;
 
                 const Eigen::Matrix3f dcm_R0N = mrpToDcm(sigma_RN);
@@ -82,8 +79,6 @@ class SunAvoidanceReference {
                     this->angleStart = (2.0F * std::numbers::pi_v<float>)-this->angleStart;
                     this->mnvrAxis_B = -this->mnvrAxis_B;
                 }
-            } else {
-                this->angleStart = 0.0F;
             }
             this->mnvrStartTime = callTime;
             this->maneuverInitialized = true;
@@ -118,7 +113,6 @@ class SunAvoidanceReference {
     Eigen::Vector3f sigma_R0R;
     Eigen::Vector3f sensitiveHat_B;
     float slewRate;
-    bool computeAngleStart;
 
     bool maneuverInitialized = false;
     float angleStart = 0.0F;
@@ -129,12 +123,11 @@ class SunAvoidanceReference {
 // ---------------------------------------------------------------------------
 // Integrated regression helper: drive the sunAvoidance algorithm and the independent
 // reference through a time sequence with fixed, representative navigation/reference
-// inputs, and assert agreement at every step. The optional-message-derived Sun geometry
-// (r_BN_N, r_SN_N) and the computeAngleStart flag are varied by the caller.
+// inputs, and assert agreement at every step. The Sun geometry (r_BN_N, r_SN_N) is
+// varied by the caller.
 // ---------------------------------------------------------------------------
 inline void integratedRegression(const Eigen::Vector3f& sensitiveHat_B,
                                  float slewRate,
-                                 bool computeAngleStart,
                                  const Eigen::Vector3d& r_BN_N,
                                  const Eigen::Vector3d& r_SN_N,
                                  uint64_t stepNs,
@@ -145,12 +138,12 @@ inline void integratedRegression(const Eigen::Vector3f& sensitiveHat_B,
     const Eigen::Vector3f omega_RN_N{0.018F, -0.032F, 0.015F};
     const Eigen::Vector3f domega_RN_N{0.048F, -0.022F, 0.025F};
 
-    const auto config = SunAvoidanceConfig::create(sensitiveHat_B, slewRate, computeAngleStart);
+    const auto config = SunAvoidanceConfig::create(sensitiveHat_B, slewRate);
     SunAvoidanceAlgorithm alg{config};
     AttTrackingErrorAlgorithm attError{};
     // The reference model computes the COMBINED behavior. sunAvoidance no longer applies a
     // corrected-reference offset, so the reference frame is the input reference directly (sigma_R0R == 0).
-    SunAvoidanceReference ref{Eigen::Vector3f::Zero(), sensitiveHat_B, slewRate, computeAngleStart};
+    SunAvoidanceReference ref{Eigen::Vector3f::Zero(), sensitiveHat_B, slewRate};
 
     const SunAvoidanceAttRefInputs refIn{sigma_RN, omega_RN_N, domega_RN_N};
 

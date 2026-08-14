@@ -15,15 +15,14 @@ const Eigen::Vector3f kSensitiveHat_B{0.0F, -1.0F, 0.0F};
 }  // namespace
 
 // ---------------------------------------------------------------------------
-// Plain attitude tracking error (no Sun-avoidance maneuver): the optional trans/ephemeris
-// messages are absent, so computeAngleStart is false and the initial maneuver angle is zero.
+// Plain attitude tracking error (no Sun-avoidance maneuver): a zero Sun position leaves no usable Sun
+// direction, so the initial maneuver angle is zero and the adjusted reference passes through.
 // ---------------------------------------------------------------------------
 TEST(SunAvoidanceIntegrated, TrackingErrorOnly) {
-    integratedRegression(Eigen::Vector3f::Zero(),  // sensitiveHat_B (unused)
-                         kManeuverRate,            // slewRate (unused: the maneuver angle starts at zero)
-                         false,                    // computeAngleStart
-                         Eigen::Vector3d::Zero(),  // r_BN_N (unused)
-                         Eigen::Vector3d::Zero(),  // r_SN_N (unused)
+    integratedRegression(kSensitiveHat_B,
+                         kManeuverRate,            // unused: the maneuver angle starts at zero
+                         Eigen::Vector3d::Zero(),  // r_BN_N
+                         Eigen::Vector3d::Zero(),  // r_SN_N: no Sun information
                          kHalfSecNs,
                          12);
 }
@@ -33,7 +32,7 @@ TEST(SunAvoidanceIntegrated, TrackingErrorOnly) {
 // forward (relativeAngle > 0) throughout, exercising the catch-up rate term.
 // ---------------------------------------------------------------------------
 TEST(SunAvoidanceIntegrated, SunAvoidanceFeedingForward) {
-    integratedRegression(kSensitiveHat_B, kManeuverRate, true, kRBN_N, kRSN_N, kHalfSecNs, 12);
+    integratedRegression(kSensitiveHat_B, kManeuverRate, kRBN_N, kRSN_N, kHalfSecNs, 12);
 }
 
 // ---------------------------------------------------------------------------
@@ -41,5 +40,5 @@ TEST(SunAvoidanceIntegrated, SunAvoidanceFeedingForward) {
 // clamped, exercising the relativeAngle > 0 -> 0 transition and the post-maneuver steady state.
 // ---------------------------------------------------------------------------
 TEST(SunAvoidanceIntegrated, SunAvoidanceDecaysToZero) {
-    integratedRegression(kSensitiveHat_B, kManeuverRate, true, kRBN_N, kRSN_N, kHalfSecNs, 400);
+    integratedRegression(kSensitiveHat_B, kManeuverRate, kRBN_N, kRSN_N, kHalfSecNs, 400);
 }

@@ -8,8 +8,7 @@
 
 namespace {
 SunAvoidanceConfig configFromC(const SunAvoidanceConfig_c& c) {
-    return SunAvoidanceConfig::create(
-        cArrayToEigenVector3<float>(c.sensitiveHat_B.data), c.slewRate, c.computeAngleStart);
+    return SunAvoidanceConfig::create(cArrayToEigenVector3<float>(c.sensitiveHat_B.data), c.slewRate);
 }
 
 SunAvoidanceAttRefInputs refFromC(const SunAvoidanceAttRefInputs_c& c) {
