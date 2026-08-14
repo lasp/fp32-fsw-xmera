@@ -46,6 +46,13 @@ void ThrustAxisToMotorAngles::reconfigure() const {
     this->algorithm->setConfig(this->toConfig());
 }
 
+void ThrustAxisToMotorAngles::reInitialize() {
+    if (!this->algorithm) {
+        throw XmeraLifecycleException("ThrustAxisToMotorAngles reset() has not been called.");
+    }
+    this->algorithm->reInitialize();
+}
+
 /*! This method reads the incoming requested gimbal angles, delegates the gimbal and stepper motor
 angle computation to the algorithm, and writes the resulting motor angles to the output messages.
  @return void

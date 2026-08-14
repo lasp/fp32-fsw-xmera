@@ -21,6 +21,7 @@ class ThrustAxisToMotorAngles final : public SysModel {
     void reset(uint64_t currentSimNanos) override;        //!< Reset member function
     void updateState(uint64_t currentSimNanos) override;  //!< Update member function
     void reconfigure() const;
+    void reInitialize();
 
     // Phase 1: public configuration properties -- set before reset().
     float minAngle{0.0F};                              //!< [rad] lower bound of the motor travel range

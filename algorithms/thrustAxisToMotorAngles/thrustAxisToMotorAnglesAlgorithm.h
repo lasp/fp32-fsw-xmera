@@ -154,11 +154,13 @@ class ThrustAxisToMotorAnglesAlgorithm final {
    public:
     explicit ThrustAxisToMotorAnglesAlgorithm(const ThrustAxisToMotorAnglesConfig& config);
     void setConfig(const ThrustAxisToMotorAnglesConfig& config);
-    ThrustAxisToMotorAnglesOutput update(float gimbalAngle1, float gimbalAngle2) const;
+    void reInitialize();
+    ThrustAxisToMotorAnglesOutput update(float gimbalAngle1, float gimbalAngle2);
 
    private:
     MotorAngles pullAngles(float gimbalAngle1, float gimbalAngle2) const;
     std::optional<int> getArrayIndex(const int rowIdx, const int colIdx) const;
+    ThrustAxisToMotorAnglesOutput previousValidOutput{};  //!< [rad] Last valid algorithm output
     ThrustAxisToMotorAnglesConfig cfg;
 };
 

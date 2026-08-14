@@ -47,10 +47,9 @@ void ThrustAxisToMotorAnglesAlgorithm_setConfig(ThrustAxisToMotorAnglesAlgorithm
  *  @param gimbalAngle2 [rad] Commanded gimbal tilt angle 2.
  *  @return ThrustAxisToMotorAnglesOutput_c  Motor angles.
  */
-ThrustAxisToMotorAnglesOutput_c ThrustAxisToMotorAnglesAlgorithm_update(
-    const ThrustAxisToMotorAnglesAlgorithmHandle* self,
-    float gimbalAngle1,
-    float gimbalAngle2);
+ThrustAxisToMotorAnglesOutput_c ThrustAxisToMotorAnglesAlgorithm_update(ThrustAxisToMotorAnglesAlgorithmHandle* self,
+                                                                        float gimbalAngle1,
+                                                                        float gimbalAngle2);
 
 #ifdef __cplusplus
 }  // extern "C"

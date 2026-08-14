@@ -6,6 +6,7 @@
 ThrustAxisToMotorAnglesAlgorithm::ThrustAxisToMotorAnglesAlgorithm(const ThrustAxisToMotorAnglesConfig& config)
     : cfg(config) {
     setConfig(config);
+    reInitialize();
 }
 
 /*! Replaces the algorithm's configuration for runtime reconfiguration.
@@ -13,14 +14,21 @@ ThrustAxisToMotorAnglesAlgorithm::ThrustAxisToMotorAnglesAlgorithm(const ThrustA
 */
 void ThrustAxisToMotorAnglesAlgorithm::setConfig(const ThrustAxisToMotorAnglesConfig& config) { this->cfg = config; }
 
+/*! Resets the stored motor angles to the default angles corresponding to the gimbal (0,0) home position.
+ @return void
+*/
+void ThrustAxisToMotorAnglesAlgorithm::reInitialize() { this->previousValidOutput = ThrustAxisToMotorAnglesOutput{}; }
+
 /*! This method determines the stepper motor angles corresponding to the incoming gimbal tip and tilt angles.
  @return ThrustAxisToMotorAnglesOutput
  @param gimbalAngle1 [rad]
  @param gimbalAngle2 [rad]
 */
-ThrustAxisToMotorAnglesOutput ThrustAxisToMotorAnglesAlgorithm::update(float gimbalAngle1, float gimbalAngle2) const {
-    // Default algorithm output
-    ThrustAxisToMotorAnglesOutput output{};
+ThrustAxisToMotorAnglesOutput ThrustAxisToMotorAnglesAlgorithm::update(float gimbalAngle1, float gimbalAngle2) {
+    // Set the default motor angles.
+    // On first call, the default motor angles are the angles corresponding to the gimbal (0,0) home position.
+    // For all other calls, the default motor angles are the previously valid motor angles.
+    ThrustAxisToMotorAnglesOutput output{this->previousValidOutput};
 
     // Determine the bounding gimbal angles
     const float gimbalAngle1LBound =
@@ -65,6 +73,9 @@ ThrustAxisToMotorAnglesOutput ThrustAxisToMotorAnglesAlgorithm::update(float gim
         if (motor1Angle.has_value() && motor2Angle.has_value()) {
             output.motorAngle1 = *motor1Angle;
             output.motorAngle2 = *motor2Angle;
+
+            // Store the valid motor angles for the next update call
+            this->previousValidOutput = output;
         }
     }
 
