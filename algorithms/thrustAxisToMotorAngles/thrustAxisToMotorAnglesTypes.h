@@ -40,9 +40,8 @@ typedef struct {
 
 /*! @brief Output of the thrust axis-to-motor angles algorithm (C-shared POD). */
 typedef struct ThrustAxisToMotorAnglesOutput {
-    float motorAngle1;         /*!< [rad] Motor 1 angle */
-    float motorAngle2;         /*!< [rad] Motor 2 angle */
-    bool isValidInterpolation; /*!< Whether the interpolation produced a valid result */
+    float motorAngle1; /*!< [rad] Motor 1 angle */
+    float motorAngle2; /*!< [rad] Motor 2 angle */
 } ThrustAxisToMotorAnglesOutput;
 
 #ifdef __cplusplus

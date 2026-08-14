@@ -25,7 +25,6 @@ ThrustAxisToMotorAnglesOutput ThrustAxisToMotorAnglesAlgorithm::update(float gim
     ThrustAxisToMotorAnglesOutput output{};
     output.motorAngle1 = motorAngles.angle1;
     output.motorAngle2 = motorAngles.angle2;
-    output.isValidInterpolation = motorAngles.isValidInterpolation;
 
     return output;
 }
