@@ -67,9 +67,10 @@ class SunAvoidanceAlgorithm final {
 
    private:
     struct Maneuver {
-        Eigen::Vector3f axis_B{Eigen::Vector3f::Zero()};  //!< [-] principal rotation axis of the maneuver
-        float angle{};                                    //!< [rad] total maneuver rotation angle
-        uint64_t startTime{};                             //!< [ns] time at which the maneuver began
+        //!< [-] principal rotation axis of the maneuver, pointing the way the slew travels (body to reference)
+        Eigen::Vector3f slewAxis_B{Eigen::Vector3f::Zero()};
+        float angle{};         //!< [rad] total maneuver rotation angle
+        uint64_t startTime{};  //!< [ns] time at which the maneuver began
     };
 
     Maneuver initializeManeuver(const Eigen::Vector3f& sigma_BN,

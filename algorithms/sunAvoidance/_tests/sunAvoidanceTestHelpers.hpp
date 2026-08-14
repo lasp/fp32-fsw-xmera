@@ -137,11 +137,18 @@ inline bool nearManeuverDecisionBoundary(const Eigen::Vector3f& sensitiveHat_B,
     if (std::fabs(initialToSunAngle - sensitiveSweepAngle) < kMargin) {
         return true;  // Sun near the edge of the swept arc
     }
-    const Eigen::Matrix3f dcm_BR = dcm_BN * dcm_RN.transpose();
-    const Eigen::Vector3f maneuverAxis_B = dcmToPrv(dcm_BR).stableNormalized();
-    const Eigen::Vector3f initialToReferenceAxis_N = -(dcm_BN.transpose() * maneuverAxis_B);
-    if (std::fabs(initialToSunAxisRaw.normalized().dot(initialToReferenceAxis_N)) < kMargin) {
+    const Eigen::Matrix3f dcm_RB = dcm_RN * dcm_BN.transpose();
+    const Eigen::Vector3f prv_RB = dcmToPrv(dcm_RB);
+    const Eigen::Vector3f slewAxis_N = dcm_BN.transpose() * prv_RB.stableNormalized();
+    if (std::fabs(initialToSunAxisRaw.normalized().dot(slewAxis_N)) < kMargin) {
         return true;  // maneuver near perpendicular to the Sun (toward / away tie)
+    }
+
+    // A 180-degree slew has no preferred direction of travel: a rotation by pi is its own inverse, so
+    // dcm_RB and dcm_BR are the same matrix and the two implementations derive the same principal axis
+    // rather than opposite ones. Both then slew opposite ways around -- equally valid, but not comparable.
+    if (std::fabs(prv_RB.stableNorm() - std::numbers::pi_v<float>) < kMargin) {
+        return true;  // slew direction tie at a half-turn
     }
 
     return false;

@@ -87,6 +87,10 @@ Module Notes
   calls; ``reInitialize()`` clears the state so the next update recomputes it.
 - The short-versus-long-way choice is a discrete decision. Near its boundary the choice is sensitive to rounding; both
   choices are valid maneuvers, but two independent implementations may select opposite ones.
+- A :math:`180^\circ` slew has no preferred direction of travel: a rotation by :math:`\pi` is its own inverse, so
+  :math:`[RB]` and :math:`[BR]` are the same matrix and the principal axis no longer distinguishes the two ways around.
+  The module still picks one direction and remains self-consistent (its attitude path and feed-forward rate agree), but
+  which one it picks is not meaningful there, and another implementation may go the other way.
 
 Initialization
 --------------
@@ -112,14 +116,19 @@ The maneuver is the principal rotation from the current body attitude :math:`\ma
 
 .. math::
 
-   [BR] = [BN]\,[RN]^\top, \qquad
-   \boldsymbol{\Phi}_{B/R} = \mathrm{PRV}([BR]), \qquad
-   \Phi = |\boldsymbol{\Phi}_{B/R}|, \qquad
-   \hat{\mathbf e} = \frac{\boldsymbol{\Phi}_{B/R}}{|\boldsymbol{\Phi}_{B/R}|}
+   [RB] = [RN]\,[BN]^\top, \qquad
+   \boldsymbol{\Phi}_{R/B} = \mathrm{PRV}([RB]), \qquad
+   \Phi = |\boldsymbol{\Phi}_{R/B}|, \qquad
+   \hat{\mathbf e} = \frac{\boldsymbol{\Phi}_{R/B}}{|\boldsymbol{\Phi}_{R/B}|}
 
-:math:`\Phi` is the maneuver angle and :math:`\hat{\mathbf e}` its axis. The normalization uses ``stableNormalized``,
-which returns the zero vector (not ``NaN``) when :math:`\boldsymbol{\Phi}_{B/R}\approx\mathbf 0`, i.e. when the body already
-coincides with the reference and no maneuver is needed.
+:math:`\Phi` is the maneuver angle and :math:`\hat{\mathbf e}` its axis. The rotation is taken from :math:`\mathcal R`
+to :math:`\mathcal B` so that :math:`\hat{\mathbf e}` points the way the slew travels -- the direction the body rotates
+to reach the reference. The normalization uses ``stableNormalized``, which returns the zero vector (not ``NaN``) when
+:math:`\boldsymbol{\Phi}_{R/B}\approx\mathbf 0`, i.e. when the body already coincides with the reference and no
+maneuver is needed.
+
+The principal rotation vector has the same components in :math:`\mathcal B`, :math:`\mathcal R` and the adjusted
+reference :math:`\mathcal R_c`, since the axis is invariant under the rotation that relates them.
 
 Phase 2 -- Short vs Long Way
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -150,21 +159,20 @@ The extent of the sweep and the Sun's angular position along it (from the initia
    \alpha = \arccos(\mathbf a_i \cdot \hat{\mathbf p})
 
 Let :math:`\hat{\mathbf a}_{i\times s}` be the axis that rotates the sensitive direction toward the Sun, and let
-:math:`\hat{\mathbf e}_{i\to r}` be the maneuver's initial-to-reference axis in inertial components -- the negative of
-the stored (reference-to-initial) axis :math:`\hat{\mathbf e}`:
+:math:`\hat{\mathbf e}_N` be the slew axis in inertial components:
 
 .. math::
 
    \hat{\mathbf a}_{i\times s} = \frac{\mathbf a_i \times \hat{\mathbf s}}{|\mathbf a_i \times \hat{\mathbf s}|}, \qquad
-   \hat{\mathbf e}_{i\to r} = -[BN]^\top \hat{\mathbf e}
+   \hat{\mathbf e}_N = [BN]^\top \hat{\mathbf e}
 
-The maneuver turns the sensitive axis toward the Sun when :math:`\hat{\mathbf a}_{i\times s}\cdot\hat{\mathbf e}_{i\to r}
+The maneuver turns the sensitive axis toward the Sun when :math:`\hat{\mathbf a}_{i\times s}\cdot\hat{\mathbf e}_N
 > 0`. The short-way maneuver is reversed to the long way when it turns toward the Sun **and** the Sun lies within the
 swept arc:
 
 .. math::
 
-   \big(\hat{\mathbf a}_{i\times s}\cdot\hat{\mathbf e}_{i\to r} > 0\big) \ \wedge\ (\alpha < \beta)
+   \big(\hat{\mathbf a}_{i\times s}\cdot\hat{\mathbf e}_N > 0\big) \ \wedge\ (\alpha < \beta)
    \quad\Longrightarrow\quad
    \Phi \leftarrow 2\pi - \Phi, \qquad \hat{\mathbf e} \leftarrow -\hat{\mathbf e}
 
@@ -182,20 +190,21 @@ On every update the residual maneuver angle is fed forward at the configured rat
 
    \Phi_r(t) = \max\!\big(0,\ \Phi - \dot\Phi\,(t - t_0)\big)
 
-where :math:`t_0` is the time the maneuver began. The adjusted reference attitude is the input reference rotated by the
-residual maneuver, and while the maneuver is active a feed-forward rate is added; the reference acceleration is passed
-through:
+where :math:`t_0` is the time the maneuver began. The adjusted reference attitude is the input reference rotated
+*back* along the slew axis by the residual angle, so that at :math:`t_0` it coincides with the body attitude and
+decays onto :math:`\mathcal R`. While the maneuver is active a feed-forward rate along the slew axis is added; the
+reference acceleration is passed through:
 
 .. math::
 
-   [R_cN] = \mathrm{dcm}(\Phi_r\,\hat{\mathbf e})\,[RN], \qquad
+   [R_cN] = \mathrm{dcm}(-\Phi_r\,\hat{\mathbf e})\,[RN], \qquad
    \mathbf\sigma_{R_c/N} = \mathrm{MRP}([R_cN])
 
 .. math::
 
    \mathbf\omega_{R_c/N} =
    \begin{cases}
-   \mathbf\omega_{R/N} - \dot\Phi\,[BN]^\top\hat{\mathbf e}, & \Phi_r > 0 \\
+   \mathbf\omega_{R/N} + \dot\Phi\,[BN]^\top\hat{\mathbf e}, & \Phi_r > 0 \\
    \mathbf\omega_{R/N}, & \Phi_r = 0
    \end{cases}
    \qquad
@@ -237,7 +246,8 @@ property tests (pass-through when no Sun direction is available, bounded and fin
 the input reference after decay, and ``reInitialize`` restarting the maneuver), and edge-case tests for the degenerate
 geometries (missing Sun information, body at the reference, Sun along the sensitive axis, Sun perpendicular to the sweep
 plane, and anti-parallel sensitive axes). The maneuver path is additionally regression-fuzzed with realistic Sun
-geometry; the shared regression helper skips inputs near a degeneracy or near the discrete short/long-way decision
-boundary, where an independent fp32 reference can select the opposite (equally valid) maneuver. A separate integrated
+geometry; the shared regression helper skips inputs near a degeneracy, near the discrete short/long-way decision
+boundary, or near a :math:`180^\circ` slew, where an independent fp32 reference can select the opposite (equally valid)
+maneuver. A separate integrated
 test pins the combined ``sunAvoidance`` :math:`\rightarrow` :ref:`attTrackingError` pipeline against a reference model
 of the combined behavior.
