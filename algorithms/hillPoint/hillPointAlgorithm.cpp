@@ -33,7 +33,7 @@ HillPointOutput HillPointAlgorithm::update(const Eigen::Vector3d& r_BN_N,
     // a valid 90 deg.
     const bool isVelocityNonZero = v_BP_N.squaredNorm() > 0.0;
 
-    HillPointOutput out;  // Outputs default to zero as fallback
+    HillPointOutput out{};  // Outputs default to zero as fallback
 
     if (isOrbitRadiusValid && isPosVelSeparationValid && isVelocityNonZero) {
         // Hill-frame unit vectors -- magnitude 1 by construction, so float is fine.
