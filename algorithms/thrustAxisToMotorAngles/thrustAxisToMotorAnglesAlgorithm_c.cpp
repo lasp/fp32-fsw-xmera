@@ -69,8 +69,8 @@ void ThrustAxisToMotorAnglesAlgorithm_setConfig(ThrustAxisToMotorAnglesAlgorithm
 
 ThrustAxisToMotorAnglesOutput ThrustAxisToMotorAnglesAlgorithm_update(
     const ThrustAxisToMotorAnglesAlgorithmHandle* self,
-    const float gimbalTipAngle,
-    const float gimbalTiltAngle) {
+    const float gimbalAngle1,
+    const float gimbalAngle2) {
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-    return reinterpret_cast<const ::ThrustAxisToMotorAnglesAlgorithm*>(self)->update(gimbalTipAngle, gimbalTiltAngle);
+    return reinterpret_cast<const ::ThrustAxisToMotorAnglesAlgorithm*>(self)->update(gimbalAngle1, gimbalAngle2);
 }

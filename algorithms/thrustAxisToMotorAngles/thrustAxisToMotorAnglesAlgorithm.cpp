@@ -15,13 +15,12 @@ void ThrustAxisToMotorAnglesAlgorithm::setConfig(const ThrustAxisToMotorAnglesCo
 
 /*! This method determines the stepper motor angles corresponding to the incoming gimbal tip and tilt angles.
  @return ThrustAxisToMotorAnglesOutput
- @param gimbalTipAngle [rad]
- @param gimbalTiltAngle [rad]
+ @param gimbalAngle1 [rad]
+ @param gimbalAngle2 [rad]
 */
-ThrustAxisToMotorAnglesOutput ThrustAxisToMotorAnglesAlgorithm::update(float gimbalTipAngle,
-                                                                       float gimbalTiltAngle) const {
+ThrustAxisToMotorAnglesOutput ThrustAxisToMotorAnglesAlgorithm::update(float gimbalAngle1, float gimbalAngle2) const {
     // Determine the required motor angles
-    const MotorAngles motorAngles = this->gimbalAnglesToMotorAngles(gimbalTipAngle, gimbalTiltAngle);
+    const MotorAngles motorAngles = this->gimbalAnglesToMotorAngles(gimbalAngle1, gimbalAngle2);
 
     ThrustAxisToMotorAnglesOutput output{};
     output.motorAngle1 = motorAngles.angle1;

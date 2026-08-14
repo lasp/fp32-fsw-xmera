@@ -43,14 +43,14 @@ void ThrustAxisToMotorAnglesAlgorithm_setConfig(ThrustAxisToMotorAnglesAlgorithm
 
 /** @brief Determine the motor angles for the commanded gimbal tip and tilt angles.
  *  @param self            Pointer to the instance.
- *  @param gimbalTipAngle  [rad] Commanded gimbal tip angle (sequential angle 1).
- *  @param gimbalTiltAngle [rad] Commanded gimbal tilt angle (sequential angle 2).
+ *  @param gimbalAngle1  [rad] Commanded gimbal tip angle 1.
+ *  @param gimbalAngle2 [rad] Commanded gimbal tilt angle 2.
  *  @return ThrustAxisToMotorAnglesOutput  Motor angles plus a validity flag.
  */
 ThrustAxisToMotorAnglesOutput ThrustAxisToMotorAnglesAlgorithm_update(
     const ThrustAxisToMotorAnglesAlgorithmHandle* self,
-    float gimbalTipAngle,
-    float gimbalTiltAngle);
+    float gimbalAngle1,
+    float gimbalAngle2);
 
 #ifdef __cplusplus
 }  // extern "C"

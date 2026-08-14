@@ -63,11 +63,11 @@ void ThrustAxisToMotorAngles::updateState(uint64_t currentSimNanos) {
 
         // Store the commanded gimbal tip and tilt angles
         const auto twoAxisGimbalIn = this->twoAxisGimbalInMsg();
-        const float gimbalTipAngle = twoAxisGimbalIn.theta1;
-        const float gimbalTiltAngle = twoAxisGimbalIn.theta2;
+        const float gimbalAngle1 = twoAxisGimbalIn.theta1;
+        const float gimbalAngle2 = twoAxisGimbalIn.theta2;
 
         // Determine motor angles corresponding to the gimbal angles
-        const ThrustAxisToMotorAnglesOutput motorAngles = this->algorithm->update(gimbalTipAngle, gimbalTiltAngle);
+        const ThrustAxisToMotorAnglesOutput motorAngles = this->algorithm->update(gimbalAngle1, gimbalAngle2);
 
         // Write the module output messages
         auto motor1AngleOut = HingedRigidBodyMsgF32Payload();
