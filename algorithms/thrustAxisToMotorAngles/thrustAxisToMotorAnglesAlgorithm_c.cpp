@@ -67,10 +67,16 @@ void ThrustAxisToMotorAnglesAlgorithm_setConfig(ThrustAxisToMotorAnglesAlgorithm
         makeConfig(angleRange, gimbalToMotor1AngleTable, gimbalToMotor2AngleTable, tableLayout));
 }
 
-ThrustAxisToMotorAnglesOutput ThrustAxisToMotorAnglesAlgorithm_update(
+ThrustAxisToMotorAnglesOutput_c ThrustAxisToMotorAnglesAlgorithm_update(
     const ThrustAxisToMotorAnglesAlgorithmHandle* self,
     const float gimbalAngle1,
     const float gimbalAngle2) {
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-    return reinterpret_cast<const ::ThrustAxisToMotorAnglesAlgorithm*>(self)->update(gimbalAngle1, gimbalAngle2);
+    const ThrustAxisToMotorAnglesOutput out =
+        reinterpret_cast<const ::ThrustAxisToMotorAnglesAlgorithm*>(self)->update(gimbalAngle1, gimbalAngle2);
+
+    ThrustAxisToMotorAnglesOutput_c result{};
+    result.motorAngle1 = out.motorAngle1;
+    result.motorAngle2 = out.motorAngle2;
+    return result;
 }

@@ -1,8 +1,6 @@
 #ifndef F32XMERA_THRUST_AXIS_TO_MOTOR_ANGLES_TYPES_H
 #define F32XMERA_THRUST_AXIS_TO_MOTOR_ANGLES_TYPES_H
 
-#include <stdbool.h>
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -38,11 +36,11 @@ typedef struct {
     float maxAngle; /*!< [rad] Upper bound of the motor travel range */
 } MotorAngleRange_c;
 
-/*! @brief Output of the thrust axis-to-motor angles algorithm (C-shared POD). */
-typedef struct ThrustAxisToMotorAnglesOutput {
+/*! @brief Plain-old-data mirror of the C++ ThrustAxisToMotorAnglesOutput. */
+typedef struct {
     float motorAngle1; /*!< [rad] Motor 1 angle */
     float motorAngle2; /*!< [rad] Motor 2 angle */
-} ThrustAxisToMotorAnglesOutput;
+} ThrustAxisToMotorAnglesOutput_c;
 
 #ifdef __cplusplus
 }  // extern "C"

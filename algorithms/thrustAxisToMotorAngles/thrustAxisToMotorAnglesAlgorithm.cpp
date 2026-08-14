@@ -19,23 +19,9 @@ void ThrustAxisToMotorAnglesAlgorithm::setConfig(const ThrustAxisToMotorAnglesCo
  @param gimbalAngle2 [rad]
 */
 ThrustAxisToMotorAnglesOutput ThrustAxisToMotorAnglesAlgorithm::update(float gimbalAngle1, float gimbalAngle2) const {
-    // Determine the required motor angles
-    const MotorAngles motorAngles = this->gimbalAnglesToMotorAngles(gimbalAngle1, gimbalAngle2);
-
+    // Default algorithm output
     ThrustAxisToMotorAnglesOutput output{};
-    output.motorAngle1 = motorAngles.angle1;
-    output.motorAngle2 = motorAngles.angle2;
 
-    return output;
-}
-
-/*! This method determines the stepper motor angles given the gimbal tip and tilt angles.
- @return MotorAngles
- @param gimbalAngle1 [rad] Gimbal tip angle
- @param gimbalAngle2 [rad] Gimbal tilt angle
-*/
-MotorAngles ThrustAxisToMotorAnglesAlgorithm::gimbalAnglesToMotorAngles(const float gimbalAngle1,
-                                                                        const float gimbalAngle2) const {
     // Determine the bounding gimbal angles
     const float gimbalAngle1LBound =
         this->cfg.getTableLayout().tableStepAngle * floorf(gimbalAngle1 / this->cfg.getTableLayout().tableStepAngle);
@@ -53,7 +39,6 @@ MotorAngles ThrustAxisToMotorAnglesAlgorithm::gimbalAnglesToMotorAngles(const fl
     const MotorAngles motorUUBounds = this->pullAngles(gimbalAngle1UBound, gimbalAngle2UBound);
 
     // Interpolate the motor angles if all bounding angles are valid
-    MotorAngles motorAngles{.angle1 = kDefaultMotorAngle, .angle2 = kDefaultMotorAngle};
     if (motorLLBounds.isValidInterpolation && motorLUBounds.isValidInterpolation &&
         motorULBounds.isValidInterpolation && motorUUBounds.isValidInterpolation) {
         const std::optional<float> motor1Angle = bilinearInterpolation(gimbalAngle1LBound,
@@ -78,13 +63,12 @@ MotorAngles ThrustAxisToMotorAnglesAlgorithm::gimbalAnglesToMotorAngles(const fl
                                                                        gimbalAngle2);
 
         if (motor1Angle.has_value() && motor2Angle.has_value()) {
-            motorAngles.angle1 = *motor1Angle;
-            motorAngles.angle2 = *motor2Angle;
-            motorAngles.isValidInterpolation = true;
+            output.motorAngle1 = *motor1Angle;
+            output.motorAngle2 = *motor2Angle;
         }
     }
 
-    return motorAngles;
+    return output;
 }
 
 /*! This method pulls the motor angles from the provided interpolation tables.

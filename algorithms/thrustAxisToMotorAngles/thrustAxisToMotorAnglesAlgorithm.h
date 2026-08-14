@@ -11,6 +11,13 @@
 #include "utilities/fsw/freestandingInvalidArgument.h"
 #include "utilities/fsw/freestandingIsFinite.hpp"
 
+static constexpr float kDefaultMotorAngle = 103.2242F * std::numbers::pi_v<float> / 180.0F;
+
+struct ThrustAxisToMotorAnglesOutput {
+    float motorAngle1{kDefaultMotorAngle}; /*!< [rad] Motor 1 angle */
+    float motorAngle2{kDefaultMotorAngle}; /*!< [rad] Motor 2 angle */
+};
+
 struct MotorAngles {
     float angle1;
     float angle2;
@@ -150,11 +157,8 @@ class ThrustAxisToMotorAnglesAlgorithm final {
     ThrustAxisToMotorAnglesOutput update(float gimbalAngle1, float gimbalAngle2) const;
 
    private:
-    MotorAngles gimbalAnglesToMotorAngles(float gimbalAngle1, float gimbalAngle2) const;
     MotorAngles pullAngles(float gimbalAngle1, float gimbalAngle2) const;
     std::optional<int> getArrayIndex(const int rowIdx, const int colIdx) const;
-
-    static constexpr float kDefaultMotorAngle = 103.2242F * std::numbers::pi_v<float> / 180.0F;
     ThrustAxisToMotorAnglesConfig cfg;
 };
 
