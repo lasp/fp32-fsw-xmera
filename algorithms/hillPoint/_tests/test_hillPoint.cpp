@@ -14,10 +14,11 @@ TEST(HillPointTest, ReferenceTestPlanetAtOrigin) {
 
 TEST(HillPointTest, ReferenceTestPlanetOffset) {
     // Spacecraft orbits a planet that itself has nonzero inertial state
-    testHillPointRegression(Eigen::Vector3d{1.5e11 + 7.0e6, 0.0, 0.0},  // r_BN_N (heliocentric + LEO offset)
-                            Eigen::Vector3d{0.0, 7700.0, 0.0},          // v_BN_N (orbital + tiny ignored)
-                            Eigen::Vector3d{1.5e11, 0.0, 0.0},          // r_PN_N (Earth heliocentric)
-                            Eigen::Vector3d{0.0, 0.0, 0.0}              // v_PN_N (ignored for this test)
+    testHillPointRegression(
+        Eigen::Vector3d{1.5e11 + 7.0e6, 0.0, 0.0},    // r_BN_N (heliocentric + LEO offset)
+        Eigen::Vector3d{0.0, 29800.0 + 7700.0, 0.0},  // v_BN_N (Earth heliocentric + SC relative velocity)
+        Eigen::Vector3d{1.5e11, 0.0, 0.0},            // r_PN_N (Earth heliocentric)
+        Eigen::Vector3d{0.0, 29800.0, 0.0}            // v_PN_N (Earth heliocentric velocity)
     );
 }
 
