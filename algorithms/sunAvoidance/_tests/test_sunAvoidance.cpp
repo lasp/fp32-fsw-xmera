@@ -182,32 +182,40 @@ TEST(SunAvoidanceTest, EdgeBodyAtReferencePassThrough) {
     }
 }
 
-// Degenerate avoidance geometry: the Sun aligned with the initial sensitive axis, or perpendicular to
-// the sweep plane. The maneuver stays finite and bounded (falls through to the short way).
-TEST(SunAvoidanceTest, EdgeDegenerateAvoidanceGeometryBoundedAndFinite) {
+namespace {
+// Drive the maneuver with the given Sun geometry and assert the adjusted reference stays finite and its MRP
+// stays within the principal set. r_BN_N is zero, so the unit r_SN_N doubles as the Sun direction.
+void expectManeuverBoundedAndFinite(const Eigen::Vector3d& r_SN_N) {
+    const auto config = SunAvoidanceConfig::create(kSensitiveHat_B, kManeuverRate);
+    SunAvoidanceAlgorithm alg{config};
+    const SunAvoidanceAttRefInputs refIn{kSigmaRN, kOmegaRNN, kDomegaRNN};
+
+    constexpr float normBound = 1.0F + 1e-5F;
+    for (int k = 0; k < 10; ++k) {
+        const SunAvoidanceOutput out =
+            alg.update(kSigmaBN, refIn, Eigen::Vector3d::Zero(), r_SN_N, static_cast<uint64_t>(k) * kHalfSecNs);
+        EXPECT_TRUE(out.sigma_RN.allFinite());
+        EXPECT_TRUE(out.omega_RN_N.allFinite());
+        EXPECT_LE(out.sigma_RN.norm(), normBound);
+    }
+}
+}  // namespace
+
+// Sun parallel to the initial sensitive axis: the initial-to-Sun axis degenerates, so toward/away is
+// undefined and the reversal test is skipped. The maneuver stays finite and bounded on the short way.
+TEST(SunAvoidanceTest, EdgeSunParallelToInitialSensitiveAxis) {
+    const Eigen::Vector3f sensitiveInitial_N = mrpToDcm(kSigmaBN).transpose() * kSensitiveHat_B;
+    expectManeuverBoundedAndFinite(sensitiveInitial_N.cast<double>());
+}
+
+// Sun parallel to the sweep axis (perpendicular to the sweep plane): the in-plane Sun direction
+// degenerates, the sweep never approaches the Sun, and the reversal test is skipped. The maneuver stays
+// finite and bounded on the short way.
+TEST(SunAvoidanceTest, EdgeSunParallelToSweepAxis) {
     const Eigen::Vector3f sensitiveInitial_N = mrpToDcm(kSigmaBN).transpose() * kSensitiveHat_B;
     const Eigen::Vector3f sensitiveFinal_N = mrpToDcm(kSigmaRN).transpose() * kSensitiveHat_B;
     const Eigen::Vector3f sweepAxis_N = sensitiveInitial_N.cross(sensitiveFinal_N).normalized();
-
-    // r_BN_N = 0 makes the Sun direction equal to the (unit) Sun position.
-    const std::array<Eigen::Vector3d, 2> sunPositions{{
-        sensitiveInitial_N.cast<double>(),  // Sun along the initial sensitive axis
-        sweepAxis_N.cast<double>(),         // Sun perpendicular to the sweep plane
-    }};
-
-    const auto config = SunAvoidanceConfig::create(kSensitiveHat_B, kManeuverRate);
-    const SunAvoidanceAttRefInputs refIn{kSigmaRN, kOmegaRNN, kDomegaRNN};
-    constexpr float normBound = 1.0F + 1e-5F;
-    for (const auto& r_SN_N : sunPositions) {
-        SunAvoidanceAlgorithm alg{config};
-        for (int k = 0; k < 10; ++k) {
-            const SunAvoidanceOutput out =
-                alg.update(kSigmaBN, refIn, Eigen::Vector3d::Zero(), r_SN_N, static_cast<uint64_t>(k) * kHalfSecNs);
-            EXPECT_TRUE(out.sigma_RN.allFinite());
-            EXPECT_TRUE(out.omega_RN_N.allFinite());
-            EXPECT_LE(out.sigma_RN.norm(), normBound);
-        }
-    }
+    expectManeuverBoundedAndFinite(sweepAxis_N.cast<double>());
 }
 
 // Initial and final sensitive axes exactly anti-parallel (a 180-degree flip of the sensitive axis): the
