@@ -10,6 +10,7 @@
 #include <Eigen/Geometry>
 #include <algorithm>
 #include <cmath>
+#include <numbers>
 
 struct ReferenceHillPointOutput {
     Eigen::Vector3d sigma_RN;
@@ -99,6 +100,68 @@ inline void testHillPointRegression(const Eigen::Vector3d& r_BN_N,
         EXPECT_NEAR(out.omega_RN_N[i], static_cast<float>(ref.omega_RN_N[i]), tolFor(ref.omega_RN_N[i]));
         EXPECT_NEAR(out.domega_RN_N[i], static_cast<float>(ref.domega_RN_N[i]), tolFor(ref.domega_RN_N[i]));
     }
+}
+
+// ---------------------------------------------------------------------------
+// Conic-orbit test helper functions
+// ---------------------------------------------------------------------------
+
+// Check that the generated conic state is physically valid & satisfies HillPoint's
+// minimum position/velocity separation angle before running the analytical conic test
+inline bool isConicOrbitGeometryValid(const double eccentricity, const double trueAnomaly) {
+    const double denom = 1.0 + eccentricity * std::cos(trueAnomaly);
+    if (denom <= 0.0) {
+        return false;  // true anomaly lies outside the physical branch of the conic
+    }
+    const double posVelSeparationAngle = std::atan2(denom, std::abs(eccentricity * std::sin(trueAnomaly)));
+    return posVelSeparationAngle >= HillPointAlgorithm::kSmallAngleThreshold;
+}
+
+inline void testHillPointConicOrbit(const double eccentricity,
+                                    const double mu,               // [m^3/s^2]
+                                    const double semiLatusRectum,  // [m]
+                                    const double trueAnomaly) {    // [rad]
+
+    // Construct the conic orbit from p, e, and true anomaly
+    const double r = semiLatusRectum / (1.0 + eccentricity * std::cos(trueAnomaly));  // radius [m]
+    const double h = std::sqrt(mu * semiLatusRectum);  // specific angular momentum [m^2/s]
+
+    // Radial and tangential velocity components
+    const double v_r = (mu / h) * eccentricity * std::sin(trueAnomaly);
+    const double v_theta = h / r;
+
+    // Convert orbital state to cartesian components
+    const Eigen::Vector3d r_BN_N{r * std::cos(trueAnomaly), r * std::sin(trueAnomaly), 0.0};
+    const Eigen::Vector3d v_BN_N{v_r * std::cos(trueAnomaly) - v_theta * std::sin(trueAnomaly),
+                                 v_r * std::sin(trueAnomaly) + v_theta * std::cos(trueAnomaly),
+                                 0.0};
+
+    HillPointAlgorithm alg;
+    HillPointOutput out;
+    EXPECT_NO_THROW(out = alg.update(r_BN_N, v_BN_N, Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero()));
+
+    // Derive the angular velocity and acceleration from conic-orbit relations
+    const double dfdt = h / (r * r);
+    const double ddfdt2 = -2.0 * v_r / r * dfdt;
+
+    constexpr float absTol = 1e-5F;
+    constexpr float relTol = 1e-5F;
+    const auto tolFor = [&](float expectedVal) { return std::max(absTol, relTol * std::abs(expectedVal)); };
+
+    EXPECT_NEAR(out.sigma_RN[0], 0.0F, absTol);
+    EXPECT_NEAR(out.sigma_RN[1], 0.0F, absTol);
+    const float sigmaZExpected = static_cast<float>(std::tan(trueAnomaly / 4.0));
+    EXPECT_NEAR(out.sigma_RN[2], sigmaZExpected, tolFor(sigmaZExpected));
+
+    EXPECT_NEAR(out.omega_RN_N[0], 0.0F, absTol);
+    EXPECT_NEAR(out.omega_RN_N[1], 0.0F, absTol);
+    const float dfdtExpected = static_cast<float>(dfdt);
+    EXPECT_NEAR(out.omega_RN_N[2], dfdtExpected, tolFor(dfdtExpected));
+
+    EXPECT_NEAR(out.domega_RN_N[0], 0.0F, absTol);
+    EXPECT_NEAR(out.domega_RN_N[1], 0.0F, absTol);
+    const float ddfdt2Expected = static_cast<float>(ddfdt2);
+    EXPECT_NEAR(out.domega_RN_N[2], ddfdt2Expected, tolFor(ddfdt2Expected));
 }
 
 // ---------------------------------------------------------------------------

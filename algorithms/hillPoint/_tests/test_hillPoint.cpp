@@ -1,5 +1,6 @@
 #include "hillPointTestHelpers.hpp"
 #include <gtest/gtest.h>
+#include <numbers>
 
 TEST(HillPointTest, Setup) { testHillPointSetup(); }
 
@@ -67,31 +68,24 @@ TEST(HillPointTest, BelowSmallAngleThreshold) {
     EXPECT_FLOAT_EQ(out.domega_RN_N[2], 0.0F);
 }
 
-TEST(HillPointTest, CircularEquatorialOrbit) {
-    // Truth values match the Python regression test: a = 2.8 R_E, e = 0, i = 0, true anomaly 60 deg.
-    // Expected sigma_RN_z = tan(theta/4) where theta = 60 deg => sigma = (0, 0, 2 - sqrt(3)).
-    constexpr double mu_E = 3.986004418e14;      // [m^3/s^2]
-    constexpr double earth_radius = 6.378136e6;  // [m]
-    const double a = earth_radius * 2.8;
-    const double speed = std::sqrt(mu_E / a);
-    const double f_rad = 60.0 * M_PI / 180.0;
+TEST(HillPointTest, CircularOrbit) {
+    testHillPointConicOrbit(
+        0.0, 3.986004418e14, 1.0e7, 45.0 * std::numbers::pi_v<double> / 180.0);  // e = 0.0: circular orbit
+}
 
-    HillPointAlgorithm alg;
-    HillPointOutput out;
-    EXPECT_NO_THROW(out = alg.update(Eigen::Vector3d{a * std::cos(f_rad), a * std::sin(f_rad), 0.0},
-                                     Eigen::Vector3d{-speed * std::sin(f_rad), speed * std::cos(f_rad), 0.0},
-                                     Eigen::Vector3d::Zero(),
-                                     Eigen::Vector3d::Zero()));
+TEST(HillPointTest, EllipticalOrbit) {
+    testHillPointConicOrbit(
+        0.3, 3.986004418e14, 1.0e7, 45.0 * std::numbers::pi_v<double> / 180.0);  // 0 < e < 1: elliptical orbit
+}
 
-    constexpr float tol = 1e-5F;
-    EXPECT_NEAR(out.sigma_RN[0], 0.0F, tol);
-    EXPECT_NEAR(out.sigma_RN[1], 0.0F, tol);
-    EXPECT_NEAR(out.sigma_RN[2], 2.0F - std::sqrt(3.0F), tol);
+TEST(HillPointTest, ParabolicOrbit) {
+    testHillPointConicOrbit(
+        1.0, 3.986004418e14, 1.0e7, 45.0 * std::numbers::pi_v<double> / 180.0);  // e = 1: parabolic orbit
+}
 
-    // In a circular orbit ddot{f} = 0 (radial velocity is zero by construction).
-    EXPECT_NEAR(out.domega_RN_N[0], 0.0F, tol);
-    EXPECT_NEAR(out.domega_RN_N[1], 0.0F, tol);
-    EXPECT_NEAR(out.domega_RN_N[2], 0.0F, tol);
+TEST(HillPointTest, HyperbolicOrbit) {
+    testHillPointConicOrbit(
+        1.5, 3.986004418e14, 1.0e7, 45.0 * std::numbers::pi_v<double> / 180.0);  // e > 1: hyperbolic orbit
 }
 
 TEST(HillPointTest, OutputIsFinite) {

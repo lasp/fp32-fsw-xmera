@@ -3,6 +3,8 @@
 
 #include <fuzztest/fuzztest.h>
 #include <Eigen/Geometry>
+#include <cmath>
+#include <numbers>
 
 namespace {
 
@@ -66,3 +68,20 @@ FUZZ_TEST(HillPointPropertyFuzz, fuzzPropertySigmaNormBounded)
                  xmera::fuzz::Vector3dInRange(-1e5, 1e5),    // v_PN_N
                  xmera::fuzz::Vector3dInRange(-2e13, 2e13),  // r_BP_N
                  xmera::fuzz::Vector3dInRange(-1e5, 1e5));   // v_BP_N
+
+// ---------------------------------------------------------------------------
+// Conic-orbit fuzz test
+// ---------------------------------------------------------------------------
+
+void fuzzHillPointConicOrbit(double eccentricity, double mu, double semiLatusRectum, double trueAnomaly) {
+    if (!isConicOrbitGeometryValid(eccentricity, trueAnomaly)) {
+        return;
+    }
+    testHillPointConicOrbit(eccentricity, mu, semiLatusRectum, trueAnomaly);
+}
+
+FUZZ_TEST(HillPointFuzz, fuzzHillPointConicOrbit)
+    .WithDomains(fuzztest::InRange(0.0, 5.0),        // eccentricity: circular through hyperbolic
+                 fuzztest::InRange(1.0e10, 1.4e20),  // mu [m^3/s^2]: small body through the Sun
+                 fuzztest::InRange(1.0e4, 2.0e13),   // semi-latus rectum [m]
+                 fuzztest::InRange(-std::numbers::pi_v<double>, std::numbers::pi_v<double>));  // true anomaly [rad]
