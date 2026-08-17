@@ -1,26 +1,62 @@
 Executive Summary
 -----------------
 
-The Hill Point attitude guidance module computes a reference attitude that aligns the spacecraft body frame with
-the orbital Hill frame :math:`\mathcal{H}` of the spacecraft about a primary celestial body. It outputs the MRP
-attitude :math:`\boldsymbol{\sigma}_{R/N}`, the angular rate :math:`\boldsymbol{\omega}_{R/N}`, and the angular
-acceleration :math:`\dot{\boldsymbol{\omega}}_{R/N}` of the reference frame :math:`\mathcal{R}` with respect to
-the inertial frame :math:`\mathcal{N}`, all in inertial-frame components.
+The Hill Point attitude guidance module computes the reference attitude, angular rate, and angular acceleration
+needed to align the spacecraft body frame with the orbital Hill frame :math:`\mathcal{H}` of the spacecraft about a
+primary celestial body. It outputs the MRP attitude :math:`\boldsymbol{\sigma}_{R/N}`, along with the angular rate
+:math:`{}^{\mathcal{N}}\boldsymbol{\omega}_{R/N}` and angular acceleration
+:math:`{}^{\mathcal{N}}\dot{\boldsymbol{\omega}}_{R/N}`, with the latter two expressed in inertial-frame components.
 
-The orbit can be any Keplerian motion -- circular, elliptical, or hyperbolic. The primary celestial body's
+The orbit can be any Keplerian motion -- circular, elliptical, parabolic, or hyperbolic. The primary celestial body's
 inertial state is optional; when not connected the body is treated as fixed at the inertial origin.
 
 This is the FP32 port of the Xmera ``hillPointCpp`` module. Position and velocity inputs remain double-precision
-to preserve orbit-scale accuracy; the attitude / rate output is single-precision (FP32).
+to preserve orbit-scale accuracy; the attitude, rate, and acceleration outputs are single-precision (FP32).
+
+Hill Frame Definition
+~~~~~~~~~~~~~~~~~~~~~~
+
+The Hill reference frame takes the spacecraft's orbital plane as the principal one and has its origin at the
+center of the spacecraft. It is defined by the right-handed set of axes
+:math:`\mathcal{H}: \{\hat{\boldsymbol{\imath}}_r, \hat{\boldsymbol{\imath}}_\theta, \hat{\boldsymbol{\imath}}_h\}`,
+where
+
+* :math:`\hat{\boldsymbol{\imath}}_r` points radially outward, in the direction connecting the center of the
+    primary body to the spacecraft;
+* :math:`\hat{\boldsymbol{\imath}}_h` is normal to the orbital plane, in the direction of the orbit angular
+    momentum;
+* :math:`\hat{\boldsymbol{\imath}}_\theta` completes the right-handed triad.
+
+.. _fig1_hillPoint:
+
+.. figure:: _Documentation/Figures/hillPointFig1.jpg
+    :width: 60%
+    :align: center
+
+    Illustration of the Hill orbit frame :math:`\mathcal{H}: \{\hat{\boldsymbol{\imath}}_r,
+    \hat{\boldsymbol{\imath}}_\theta, \hat{\boldsymbol{\imath}}_h\}` and the inertial frame
+    :math:`\mathcal{N}: \{\hat{n}_1, \hat{n}_2, \hat{n}_3\}`, showing the spacecraft position
+    :math:`{}^N\boldsymbol{r}_{B/N}`, the primary body position :math:`{}^N\boldsymbol{r}_{P/N}`,
+    and the relative position :math:`\boldsymbol{r} = {}^N\boldsymbol{r}_{B/P}`.
 
 Module Architecture
 -------------------
 
-The module is split into a thin adapter (``HillPoint``) that handles framework integration and an algorithm class
-(``HillPointAlgorithm``) that contains the pure math.
+The module is split into two layers:
+
+- The **adapter** (``hillPoint.h``/``.cpp``) is the SysModel-derived class that handles message I/O, validates
+  that the required input is connected at ``reset()`` time, and constructs the algorithm via two-phase
+  initialization.
+- The **algorithm** (``hillPointAlgorithm.h``/``.cpp``) is a pure C++ class with no framework dependencies. It
+  takes position/velocity inputs, computes the reference attitude, rate, and acceleration, and returns a
+  payload struct as output.
+
+A pure-C shim (``hillPointAlgorithm_c.h``/``.cpp``) wraps the algorithm class for use by Ada/Adamant components
+via ``extern "C"`` bindings.
+
 
 Adapter Layer
-~~~~~~~~~~~~~
+---------------------------
 
 The adapter inherits from ``SysModel``. It owns the input / output message hooks, validates that the required
 input is connected at ``reset()`` time, then constructs the algorithm via the two-phase init pattern.
@@ -79,26 +115,23 @@ Mathematical Formulation
 ------------------------
 
 The output reference frame :math:`\mathcal{R}` is taken to coincide with the orbital Hill frame
-:math:`\mathcal{H}: \{ \hat{\boldsymbol{\imath}}_r, \hat{\boldsymbol{\imath}}_\theta, \hat{\boldsymbol{\imath}}_h \}`,
-where
-
-* :math:`\hat{\boldsymbol{\imath}}_r` is the radial unit vector pointing from the primary body to the spacecraft,
-* :math:`\hat{\boldsymbol{\imath}}_h` is the orbit angular momentum unit vector normal to the orbital plane,
-* :math:`\hat{\boldsymbol{\imath}}_\theta = \hat{\boldsymbol{\imath}}_h \times \hat{\boldsymbol{\imath}}_r` completes
-  the right-handed triad.
+:math:`\mathcal{H}: \{ \hat{\boldsymbol{\imath}}_r, \hat{\boldsymbol{\imath}}_\theta, \hat{\boldsymbol{\imath}}_h \}`
+defined above.
 
 Relative State
 ~~~~~~~~~~~~~~
 
-Given the spacecraft inertial state :math:`(\boldsymbol{R}_S, \boldsymbol{v}_S)` and the primary body inertial
-state :math:`(\boldsymbol{R}_P, \boldsymbol{v}_P)`, the relative state is
+Given the spacecraft inertial state :math:`({}^N\boldsymbol{r}_{B/N}, {}^N\boldsymbol{v}_{B/N})` and the primary
+body inertial state :math:`({}^N\boldsymbol{r}_{P/N}, {}^N\boldsymbol{v}_{P/N})`, define the spacecraft position
+and velocity relative to the primary body as
 
 .. math::
 
-   \boldsymbol{r} = \boldsymbol{R}_S - \boldsymbol{R}_P, \qquad
-   \boldsymbol{v} = \boldsymbol{v}_S - \boldsymbol{v}_P.
+   \boldsymbol{r} \equiv {}^N\boldsymbol{r}_{B/P} = {}^N\boldsymbol{r}_{B/N} - {}^N\boldsymbol{r}_{P/N}, \qquad
+   \boldsymbol{v} \equiv {}^N\boldsymbol{v}_{B/P} = {}^N\boldsymbol{v}_{B/N} - {}^N\boldsymbol{v}_{P/N},
 
-When ``celBodyInMsg`` is not connected, :math:`\boldsymbol{R}_P` and :math:`\boldsymbol{v}_P` default to zero.
+When ``celBodyInMsg`` is not connected, :math:`{}^N\boldsymbol{r}_{P/N}` and :math:`{}^N\boldsymbol{v}_{P/N}`
+default to zero.
 
 Frame Construction
 ~~~~~~~~~~~~~~~~~~
@@ -133,13 +166,31 @@ the inertial frame are entirely along :math:`\hat{\boldsymbol{\imath}}_h`:
    {}^{\mathcal{R}}\boldsymbol{\omega}_{R/N} = \begin{bmatrix} 0 \\ 0 \\ \dot{f} \end{bmatrix}, \qquad
    {}^{\mathcal{R}}\dot{\boldsymbol{\omega}}_{R/N} = \begin{bmatrix} 0 \\ 0 \\ \ddot{f} \end{bmatrix},
 
-where the true-anomaly rate and acceleration follow from the standard astrodynamics relations
+where :math:`f` is the true anomaly. For unperturbed two-body (Keplerian) motion, the specific angular momentum
+magnitude :math:`h = \| \boldsymbol{r} \times \boldsymbol{v} \|` is conserved. Writing the velocity in polar
+components about the orbital plane, :math:`\boldsymbol{v} = \dot{r}\,\hat{\boldsymbol{\imath}}_r +
+r\dot{f}\,\hat{\boldsymbol{\imath}}_\theta`, so that
 
 .. math::
 
-   \dot{f} = \frac{h}{r^2}, \qquad
-   \ddot{f} = -2 \frac{\boldsymbol{v} \cdot \hat{\boldsymbol{\imath}}_r}{r} \dot{f},
-   \quad h = \| \boldsymbol{r} \times \boldsymbol{v} \|.
+   \boldsymbol{r} \times \boldsymbol{v} = r\,\hat{\boldsymbol{\imath}}_r \times
+       \left( \dot{r}\,\hat{\boldsymbol{\imath}}_r + r\dot{f}\,\hat{\boldsymbol{\imath}}_\theta \right)
+       = r^2 \dot{f}\, \hat{\boldsymbol{\imath}}_h,
+   \qquad \Rightarrow \qquad
+   \dot{f} = \frac{h}{r^2}.
+
+Differentiating and using that :math:`h` is constant along the orbit,
+
+.. math::
+
+   \ddot{f} = \frac{d}{dt}\!\left( \frac{h}{r^2} \right) = -\frac{2h\dot{r}}{r^3}
+     = -2 \frac{\dot{r}}{r} \dot{f},
+
+and since :math:`\dot{r} = \boldsymbol{v} \cdot \hat{\boldsymbol{\imath}}_r` (the radial component of velocity),
+
+.. math::
+
+   \ddot{f} = -2 \frac{\boldsymbol{v} \cdot \hat{\boldsymbol{\imath}}_r}{r} \dot{f}.
 
 The outputs are then rotated into inertial-frame components via :math:`[NR] = [RN]^T`:
 
@@ -151,20 +202,90 @@ The outputs are then rotated into inertial-frame components via :math:`[NR] = [R
 Robustness
 ~~~~~~~~~~
 
-If the relative orbital radius :math:`r` falls below :math:`1.0\,\mathrm{m}`, the angular rate and acceleration
-are forced to zero rather than dividing by an essentially-zero denominator. Note that the original Xmera comment
-described the threshold as "1 km" but the value is :math:`1.0` in the same units as :math:`\boldsymbol{R}_S`,
-which is meters; the FP32 port preserves the original numerical behavior.
+Three degenerate-geometry cases are guarded against, each leaving the attitude, rate, and acceleration outputs at
+zero rather than dividing by zero or propagating non-finite values:
+
+* the relative orbital radius :math:`r` falls below the :math:`1.0\,\mathrm{m}` robustness threshold, protecting
+  against the :math:`r \to 0` singularity. Note that the original Xmera comment described this threshold as
+  "1 km" but the value is :math:`1.0` in the same units as :math:`{}^N\boldsymbol{r}_{B/N}`, which is meters;
+  the FP32 port preserves the original numerical behavior.
+* the relative velocity :math:`\boldsymbol{v}` is exactly zero. Eigen normalizes a zero vector to zero rather
+  than producing NaN, so without this explicit check a zero :math:`\boldsymbol{v}` would silently compute a
+  spurious well-defined (but meaningless) 90-degree separation angle instead of triggering the collinearity
+  guard below.
+* the relative position and velocity vectors are (nearly) collinear, i.e. the angle between
+  :math:`\hat{\boldsymbol{\imath}}_r` and the line along :math:`\boldsymbol{v}` -- computed as
+  :math:`\arccos(|\hat{\boldsymbol{\imath}}_r \cdot \hat{\boldsymbol{v}}|)`, so both parallel and antiparallel
+  :math:`\boldsymbol{r}`/:math:`\boldsymbol{v}` count as collinear -- is below :math:`1.0 \times 10^{-3}\,\mathrm{rad}`.
+  In this case :math:`\boldsymbol{r} \times \boldsymbol{v} \to 0`, leaving the orbit normal
+  :math:`\hat{\boldsymbol{\imath}}_h` undefined, therefore the Hill frame is undefined.
 
 Assumptions and Limitations
 ---------------------------
 
-* The relative position vector :math:`\boldsymbol{r}` and the relative velocity vector :math:`\boldsymbol{v}` must
-  not be collinear. If :math:`\boldsymbol{r} \times \boldsymbol{v} = \boldsymbol{0}`, the orbital plane is not
-  defined and :math:`\hat{\boldsymbol{\imath}}_h` is unobtainable; the algorithm will produce non-finite output
-  in that degenerate case.
-* The spacecraft must not be coincident with the primary body. Inputs satisfying :math:`r \le 1\,\mathrm{m}` are
-  routed to the zero-rate branch instead.
-* Position and velocity inputs are read in double precision to preserve orbit-scale accuracy. The attitude /
-  rate output is single-precision; expect a relative accuracy of :math:`\sim 10^{-7}` on
-  :math:`\boldsymbol{\sigma}_{R/N}` and :math:`\boldsymbol{\omega}_{R/N}`.
+* Position and velocity inputs are read in double precision to preserve orbit-scale accuracy. The attitude,
+  rate, and acceleration outputs are single-precision; expect a relative accuracy of :math:`\sim 10^{-5}` on
+  :math:`\boldsymbol{\sigma}_{R/N}`, :math:`\boldsymbol{\omega}_{R/N}`, and :math:`\dot{\boldsymbol{\omega}}_{R/N}`
+  against the double-precision reference implementation.
+* The angular acceleration :math:`\ddot{f}` assumes :math:`h` stays constant. For a perturbed or thrusting
+  trajectory, :math:`\dot{f}` is still valid, but :math:`\ddot{f}` does not account for changes in
+  :math:`h` (the :math:`\dot{h}/r^2` term).
+* The module assumes ``transNavInMsg`` and ``celBodyInMsg`` are time synchronized and no time alignment is performed
+  between the two inputs, so any timing difference may introduce errors in the relative position and velocity used
+  to construct the Hill frame.
+* ``celBodyInMsg`` is optional and the module does not distinguish between this being intentional or a missing
+  connection, so the expected message connections should be verified during integration.
+
+Test Description
+-----------------
+
+The module is verified through regression tests that compare the algorithm results against a
+double-precision reference implementation. A setup test checks that the algorithm constructs
+without throwing. Fuzz tests are added for the regression and property tests, where the spacecraft and
+primary-body position/velocity are randomized over physically reasonable ranges (bounded by heliosphere-scale
+distances and solar-system-scale velocities).
+
+Regression Tests
+^^^^^^^^^^^^^^^^^
+
+- ReferenceTestPlanetAtOrigin
+    - Checks the algorithm output against the double-precision reference implementation for a
+      circular equatorial orbit with the primary body fixed at the inertial origin.
+
+- ReferenceTestPlanetOffset
+    - Checks the algorithm output against the reference implementation when the primary body itself has a
+      nonzero inertial position and velocity.
+
+- ``CircularOrbit``, ``EllipticalOrbit``, ``ParabolicOrbit``, and ``HyperbolicOrbit``
+    - Verify the Hill-frame attitude, angular velocity, and angular acceleration against
+      analytical conic-orbit relations for eccentricities :math:`e = 0.0`, :math:`0.3`,
+      :math:`1.0`, and :math:`1.5`, respectively.
+    - The spacecraft state is constructed from the semi-latus rectum, eccentricity, and
+      true anomaly using the radial and tangential velocity components.
+    - The non-circular cases have nonzero radial velocity, allowing :math:`\ddot{f}` to be
+      verified against a nonzero analytical value derived from the conic-orbit relations.
+
+Property Tests
+^^^^^^^^^^^^^^
+
+- OutputIsFinite
+    - Checks that all output components are finite for valid inputs.
+
+- SigmaNormBounded
+    - Checks that the output MRP is bounded by 1 (inner MRP set) for any inputs.
+
+Edge Case Tests
+^^^^^^^^^^^^^^^
+
+- BelowThresholdRadius
+    - Checks that the algorithm returns zero attitude, rate, and acceleration when the relative orbital radius is
+      below the robustness threshold (1m).
+
+- BelowSmallAngleThreshold
+    - Checks that the algorithm returns zero attitude, rate, and acceleration when the relative position and
+      velocity are collinear (:math:`\boldsymbol{h} = \boldsymbol{r} \times \boldsymbol{v} \approx \boldsymbol{0}`),
+      leaving the orbital plane undefined.
+
+- ZeroVelocityAtValidRadius
+    - Checks that the algorithm returns zero attitude, rate, and acceleration when the relative velocity is
+      exactly zero, even though the orbital radius itself is valid.
