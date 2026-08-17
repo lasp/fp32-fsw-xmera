@@ -28,8 +28,8 @@ def test_thruster_platform_reference(show_plots, delta_cm, k, wheel_speed, theta
     This unit test script tests the correctness of the platform reference orientation computed by
     :ref:`thrusterPlatformReference`. The correctness of the output is determined based on whether the thruster
     line of action is aligned with the system's center of mass, when the reaction wheels carry no momentum to dump.
-    Moreover, the other module output messages, ``bodyHeadingOutMsg``, ``thrusterTorqueOutMsg`` and
-    ``thrusterConfigBOutMsg`` are checked versus equivalent python code.
+    Moreover, the other module output messages, ``bodyHeadingOutMsg`` and ``thrusterConfigBOutMsg``, are checked
+    versus equivalent python code.
 
     **Test Parameters**
 
@@ -53,9 +53,8 @@ def test_thruster_platform_reference(show_plots, delta_cm, k, wheel_speed, theta
     intentionally offset from the center of mass. This script does not test the integral feedback term, which would
     require running a simulation for an extended period of time.
 
-    For all wheel speeds, the net torque output message is checked against the body-frame moment of the thrust about
-    the reported thruster application point, and the thruster configuration output message is checked to be
-    self-consistent with the body-frame thrust heading and magnitude.
+    For all wheel speeds, the thruster configuration output message is checked to be self-consistent with the
+    body-frame thrust heading and magnitude, and the thrust deflection is checked to stay within the configured cone.
 
     **General Documentation Comments**
 
@@ -141,8 +140,6 @@ def thruster_platform_reference_test_function(show_plots, delta_cm, k, wheel_spe
     # Setup logging on the test module output messages so that we get all the writes to it
     body_heading_log = platform.bodyHeadingOutMsg.recorder()
     unit_test_sim.AddModelToTask(unit_task_name, body_heading_log)
-    thruster_torque_log = platform.thrusterTorqueOutMsg.recorder()
-    unit_test_sim.AddModelToTask(unit_task_name, thruster_torque_log)
     thr_config_b_log = platform.thrusterConfigBOutMsg.recorder()
     unit_test_sim.AddModelToTask(unit_task_name, thr_config_b_log)
 
@@ -160,7 +157,6 @@ def thruster_platform_reference_test_function(show_plots, delta_cm, k, wheel_spe
 
     thrust = np.linalg.norm(T_F)
     tHat_B_sim = body_heading_log.rHat_XB_B[0]
-    L_B_sim = thruster_torque_log.torqueRequestBody[0]
     r_TB_B_sim = thr_config_b_log.rThrust_B[0]
     tHat_B_cfg_sim = thr_config_b_log.tHatThrust_B[0]
     tMax_sim = thr_config_b_log.maxThrust[0]
@@ -172,11 +168,6 @@ def thruster_platform_reference_test_function(show_plots, delta_cm, k, wheel_spe
     # the body-heading and thruster-configuration messages report the same thrust direction
     np.testing.assert_allclose(tHat_B_cfg_sim, tHat_B_sim, rtol=accuracy, atol=accuracy, verbose=True)
 
-    # the reported net torque equals the body-frame moment of the thrust about the reported application point
-    r_TC_B = np.array(r_TB_B_sim) - r_CB_B
-    L_B = thrust * np.cross(tHat_B_sim, r_TC_B)
-    np.testing.assert_allclose(L_B_sim, L_B, rtol=accuracy, atol=accuracy, verbose=True)
-
     # the thrust deflection from its neutral (un-rotated) direction stays within the configured cone
     MB = rbk.MRP2C(sigma_MB)
     tHat_F = T_F / thrust
@@ -185,9 +176,9 @@ def thruster_platform_reference_test_function(show_plots, delta_cm, k, wheel_spe
     np.testing.assert_array_less(deflection, theta_max + accuracy, verbose=True)
 
     # with no wheel momentum to dump the thruster aligns through the center of mass whenever the cone does not clamp
-    # it, so the moment arm is parallel to the thrust direction (zero offset). The net torque then vanishes up to the
-    # alignment residual scaled by the thrust magnitude and moment arm, which the torque check above already covers.
+    # it, so the moment arm is parallel to the thrust direction (zero offset).
     if wheel_speed == 0.0 and deflection < theta_max - accuracy:
+        r_TC_B = np.array(r_TB_B_sim) - r_CB_B
         offset = np.linalg.norm(np.cross(tHat_B_sim, r_TC_B)) / np.linalg.norm(r_TC_B)
         np.testing.assert_allclose(offset, 0.0, rtol=accuracy, atol=accuracy, verbose=True)
 

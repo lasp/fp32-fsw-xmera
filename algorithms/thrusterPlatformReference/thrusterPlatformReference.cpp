@@ -66,8 +66,8 @@ void ThrusterPlatformReference::reInitialize() {
 }
 
 /*! This method computes the platform reference orientation that points the thruster line of action through the
- system center of mass (or produces a torque to dump reaction-wheel momentum) and writes the body-heading,
- thruster-torque and thruster-configuration output messages.
+ system center of mass (or produces a torque to dump reaction-wheel momentum) and writes the body-heading and
+ thruster-configuration output messages.
  @return void
  @param callTime The clock time at which the function was called (nanoseconds)
 */
@@ -92,10 +92,6 @@ void ThrusterPlatformReference::updateState(const uint64_t callTime) {
     BodyHeadingMsgF32Payload bodyHeadingOut{};
     eigenVectorToCArray(out.tHat_B, bodyHeadingOut.rHat_XB_B);
     this->bodyHeadingOutMsg.write(&bodyHeadingOut, this->moduleID, callTime);
-
-    CmdTorqueBodyMsgF32Payload thrusterTorqueOut{};
-    eigenVectorToCArray(out.Lcomp_B, thrusterTorqueOut.torqueRequestBody);
-    this->thrusterTorqueOutMsg.write(&thrusterTorqueOut, this->moduleID, callTime);
 
     THRConfigMsgF32Payload thrusterConfigOut{};
     eigenVectorToCArray(out.r_TB_B, thrusterConfigOut.rThrust_B);

@@ -168,7 +168,6 @@ TEST(ThrusterPlatformReferenceTest, PropertyOutputsFinite) {
     const ThrusterPlatformReferenceOutput out =
         alg.update(makeInputs({0.2F, -0.1F, 0.15F}, {-0.01F, 0.03F, 0.02F}, {1.0F, 1.0F, 10.0F}, 10.0F));
 
-    EXPECT_TRUE(out.Lcomp_B.allFinite());
     EXPECT_TRUE(out.r_TB_B.allFinite());
     EXPECT_TRUE(out.tHat_B.allFinite());
     EXPECT_TRUE(std::isfinite(out.thrust));
@@ -208,15 +207,13 @@ TEST(ThrusterPlatformReferenceTest, PropertyMomentumDumpingFinite) {
     alg.update(in);
     const ThrusterPlatformReferenceOutput out = alg.update(in);
 
-    EXPECT_TRUE(out.Lcomp_B.allFinite());
     EXPECT_TRUE(out.r_TB_B.allFinite());
     EXPECT_TRUE(out.tHat_B.allFinite());
     EXPECT_TRUE(std::isfinite(out.thrust));
 }
 
-// The momentum-dumping path points the thruster so it produces the desired thruster torque -(K*hs + Ki*hsInt); the
-// reported reaction-wheel torque (out.Lcomp_B) is its opposite, K*hs (Ki = 0 here), projected onto the component
-// achievable by the thrust.
+// The momentum-dumping path points the thruster so it produces the desired thruster torque -(K*hs + Ki*hsInt),
+// projected onto the component achievable by the thrust.
 TEST(ThrusterPlatformReferenceTest, MomentumDumpingAchievesRequestedTorque) {
     const Eigen::Vector3f zero = Eigen::Vector3f::Zero();  // sigma_MB == 0 -> M == B
     constexpr float K = 1.0F;
@@ -228,24 +225,26 @@ TEST(ThrusterPlatformReferenceTest, MomentumDumpingAchievesRequestedTorque) {
     rw.JsList(0) = 0.01F;
     rw.JsList(1) = 0.01F;
     rw.JsList(2) = 0.01F;
-    // Ki = 0 so the reported reaction-wheel torque is exactly K * hs (the thruster produces its opposite).
+    // Ki = 0 so the requested thruster torque is exactly -K * hs.
     ThrusterPlatformReferenceAlgorithm alg{ThrusterPlatformReferenceConfig::create(
         zero, {0.0F, -0.1F, -1.4F}, {0.0F, 0.0F, -0.1F}, K, 0.0F, 1.0F, 3.0F, rw)};
 
-    ThrusterPlatformReferenceInputs in =
-        makeInputs({0.05F, 0.02F, 0.1F}, {-0.01F, 0.03F, 0.02F}, {1.0F, 1.0F, 10.0F}, 10.0F);
+    const Eigen::Vector3f r_CB_B(0.05F, 0.02F, 0.1F);
+    ThrusterPlatformReferenceInputs in = makeInputs(r_CB_B, {-0.01F, 0.03F, 0.02F}, {1.0F, 1.0F, 10.0F}, 10.0F);
     in.wheelSpeeds(0) = 10.0F;
     in.wheelSpeeds(1) = 10.0F;
     in.wheelSpeeds(2) = 10.0F;
     const ThrusterPlatformReferenceOutput out = alg.update(in);
 
-    // expected reported reaction-wheel torque about the CM (sigma_MB == 0, so B frame); only the component
-    // perpendicular to the thrust is achievable
+    // requested thruster torque about the CM (sigma_MB == 0, so B frame); only the component perpendicular to the
+    // thrust is achievable
     const Eigen::Vector3f hs_B(0.01F * 10.0F, 0.01F * 10.0F, 0.01F * 10.0F);
-    const Eigen::Vector3f Lcomp_B = K * hs_B;
+    const Eigen::Vector3f Lreq_B = -K * hs_B;
     const Eigen::Vector3f tHat_B = out.tHat_B;
-    const Eigen::Vector3f LcompPerp_B = Lcomp_B - (tHat_B * tHat_B.dot(Lcomp_B));
-    EXPECT_LT((out.Lcomp_B - LcompPerp_B).norm(), 1e-3F);
+    const Eigen::Vector3f LreqPerp_B = Lreq_B - (tHat_B * tHat_B.dot(Lreq_B));
+
+    const Eigen::Vector3f Lachieved_B = (out.r_TB_B - r_CB_B).cross(out.thrust * tHat_B);
+    EXPECT_LT((Lachieved_B - LreqPerp_B).norm(), 1e-3F);
 }
 
 // A geometry that would require a large deflection is clamped so the thrust direction stays on the cone: the angle
@@ -278,5 +277,5 @@ TEST(ThrusterPlatformReferenceTest, EdgeCenterOfMassOnThrustLine) {
         alg.update(makeInputs({0.0F, 0.0F, 0.0F}, {0.0F, 0.0F, 0.0F}, {0.0F, 0.0F, 1.0F}, 5.0F));
 
     EXPECT_LT((out.tHat_B - Eigen::Vector3f(0.0F, 0.0F, 1.0F)).norm(), 1e-5F);
-    EXPECT_LT(out.Lcomp_B.norm(), 1e-5F);
+    EXPECT_LT(out.r_TB_B.cross(out.thrust * out.tHat_B).norm(), 1e-5F);  // CM at the B origin, so r_TC_B == r_TB_B
 }

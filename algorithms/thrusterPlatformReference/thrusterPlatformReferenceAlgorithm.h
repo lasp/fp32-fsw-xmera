@@ -33,10 +33,9 @@ struct ThrusterPlatformReferenceInputs {
 
 /*! @brief Outputs of the thruster platform reference algorithm. */
 struct ThrusterPlatformReferenceOutput {
-    Eigen::Vector3f Lcomp_B{Eigen::Vector3f::Zero()};  //!< [Nm] torque to be compensated by the RWs, B frame
-    Eigen::Vector3f r_TB_B{Eigen::Vector3f::Zero()};   //!< [m] thrust application point w.r.t. B origin, B frame
-    Eigen::Vector3f tHat_B{Eigen::Vector3f::Zero()};   //!< [-] thrust unit direction, B frame
-    float thrust{};                                    //!< [N] thrust magnitude
+    Eigen::Vector3f r_TB_B{Eigen::Vector3f::Zero()};  //!< [m] thrust application point w.r.t. B origin, B frame
+    Eigen::Vector3f tHat_B{Eigen::Vector3f::Zero()};  //!< [-] thrust unit direction, B frame
+    float thrust{};                                   //!< [N] thrust magnitude
 };
 
 /*!

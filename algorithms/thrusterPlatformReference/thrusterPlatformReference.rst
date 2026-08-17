@@ -63,9 +63,6 @@ information on what this message is used for.
     * - bodyHeadingOutMsg
       - :ref:`BodyHeadingMsgPayload`
       - Output message containing the unit direction vector of the thruster in body-frame coordinates.
-    * - thrusterTorqueOutMsg
-      - :ref:`CmdTorqueBodyMsgPayload`
-      - Output message containing the opposite of the net torque produced by the thruster on the system.
     * - thrusterConfigBOutMsg
       - :ref:`THRConfigMsgPayload`
       - Output thruster configuration message containing the thrust direction vector and magnitude in **reference
@@ -208,7 +205,9 @@ coordinates is :math:`{}^\mathcal{B}\hat{\boldsymbol{t}} = [\mathcal{FB}]^T {}^\
 the body-frame origin is :math:`{}^\mathcal{B}\boldsymbol{r}_{T/B} = {}^\mathcal{B}\boldsymbol{r}_{C/B} +
 [\mathcal{FB}]^T {}^\mathcal{F}\boldsymbol{r}_{T/C}` (written to ``thrusterConfigBOutMsg`` as ``rThrust_B``), where
 :math:`{}^\mathcal{F}\boldsymbol{r}_{T/C}` is the thrust application point relative to the center of mass expressed
-in platform-frame coordinates.
+in platform-frame coordinates. The net torque the thruster produces on the system follows from these outputs as
+:math:`{}^\mathcal{B}\boldsymbol{r}_{T/C} \times F\,{}^\mathcal{B}\hat{\boldsymbol{t}}`; the module does not
+report it.
 
 Module Parameters
 -----------------

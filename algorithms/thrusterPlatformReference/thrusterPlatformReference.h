@@ -2,7 +2,6 @@
 #define F32XMERA_THRUSTER_PLATFORM_REFERENCE_H
 
 #include "msgPayloadDef/BodyHeadingMsgF32Payload.h"
-#include "msgPayloadDef/CmdTorqueBodyMsgF32Payload.h"
 #include "msgPayloadDef/RWArrayConfigMsgF32Payload.h"
 #include "msgPayloadDef/RWSpeedMsgF32Payload.h"
 #include "msgPayloadDef/THRConfigMsgF32Payload.h"
@@ -44,8 +43,6 @@ class ThrusterPlatformReference final : public SysModel {
     ReadFunctor<RWArrayConfigMsgF32Payload> rwConfigDataInMsg;  //!< input RWA configuration message (required)
     Message<BodyHeadingMsgF32Payload>
         bodyHeadingOutMsg;  //!< output msg containing the thrust heading in body frame coordinates
-    Message<CmdTorqueBodyMsgF32Payload>
-        thrusterTorqueOutMsg;  //!< output msg containing the opposite of the thruster torque to be compensated by RW's
     Message<THRConfigMsgF32Payload>
         thrusterConfigBOutMsg;  //!< output msg containing the thruster configuration infor in B-frame
 
