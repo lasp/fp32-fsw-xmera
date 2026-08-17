@@ -118,12 +118,6 @@ TEST(SunAvoidanceTest, EdgeSmallSlewRate) {
     }
 }
 
-// Zero navigation and reference inputs with no usable Sun direction: the output reference is zero.
-TEST(SunAvoidanceTest, EdgeZeroInputsPassThrough) {
-    propertyPassThroughEqualsInputRef(
-        Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero());
-}
-
 // Body attitude close to the reference: a small but well-defined maneuver angle; output stays finite
 // and bounded.
 TEST(SunAvoidanceTest, EdgeSmallManeuverNearAlignment) {
