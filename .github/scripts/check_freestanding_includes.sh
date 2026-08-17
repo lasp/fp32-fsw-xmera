@@ -4,17 +4,19 @@
 # Scans production algorithm sources (excluding _tests/ directories) for
 # headers that are not available in a freestanding C++ environment.
 #
-# Usage:  check_freestanding_includes.sh <source_root>
+# Usage:  check_freestanding_includes.sh <path> [<path>...]
+#         Each path may be a directory (swept recursively) or a single file, so
+#         the check can run either as a full sweep or over just the files a
+#         commit touched.
 # Example: check_freestanding_includes.sh algorithms/
+#          check_freestanding_includes.sh algorithms/triad/triadAlgorithm.cpp
 
 set -euo pipefail
 
 if [[ $# -lt 1 ]]; then
-  echo "Usage: $0 <source_root>" >&2
+  echo "Usage: $0 <path> [<path>...]" >&2
   exit 2
 fi
-
-SOURCE_ROOT="$1"
 
 # Headers that fail under -ffreestanding (GCC/GNAT Pro RISC-V).
 BANNED_HEADERS=(
@@ -41,10 +43,13 @@ pattern="#include[[:space:]]*<(${joined})>"
 
 VIOLATIONS=0
 
-while IFS= read -r file; do
+check_file() {
+  local file="$1"
+  local matches match
+
   # Skip test directories
   if [[ "$file" == */_tests/* ]]; then
-    continue
+    return
   fi
 
   if matches=$(grep -nE "$pattern" "$file" 2>/dev/null); then
@@ -53,7 +58,20 @@ while IFS= read -r file; do
       VIOLATIONS=$((VIOLATIONS + 1))
     done <<< "$matches"
   fi
-done < <(find "$SOURCE_ROOT" -type f \( -name '*.h' -o -name '*.hpp' -o -name '*.cpp' \))
+}
+
+for target in "$@"; do
+  if [[ -d "$target" ]]; then
+    while IFS= read -r file; do
+      check_file "$file"
+    done < <(find "$target" -type f \( -name '*.h' -o -name '*.hpp' -o -name '*.cpp' \))
+  elif [[ -f "$target" ]]; then
+    check_file "$target"
+  else
+    echo "No such file or directory: ${target}" >&2
+    exit 2
+  fi
+done
 
 if [[ $VIOLATIONS -gt 0 ]]; then
   echo ""
