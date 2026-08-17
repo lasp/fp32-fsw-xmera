@@ -21,14 +21,7 @@ struct ThrMomentumManagementRwArrayConfiguration {
     Eigen::Vector<float, kMaxNumRw> JsList{Eigen::Vector<float, kMaxNumRw>::Zero()};  //!< [kgm2] RW spin-axis inertias
 };
 
-/*!
- * @brief Validated configuration for the RW momentum management algorithm.
- *
- * Bundles the momentum dumping threshold and the reaction-wheel spin-axis configuration. An instance can only
- * exist if the threshold is finite and non-negative, and if the reaction-wheel count does not exceed the
- * compile-time maximum with finite spin axes and inertias and each spin axis a unit vector. Construct via
- * ThrMomentumManagementConfig::create(...).
- */
+/*! @brief Validated configuration for the RW momentum management algorithm. */
 class ThrMomentumManagementConfig final {
    public:
     static ThrMomentumManagementConfig create(float hsMin,

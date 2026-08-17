@@ -8,8 +8,7 @@
 
 namespace {
 
-//! Build the validated C++ configuration from the flattened C parameters. Shared by
-//! validateConfig / create / setConfig so ThrMomentumManagementConfig::create is spelled once.
+//! Build the validated C++ configuration from the flattened C parameters.
 ThrMomentumManagementConfig makeConfig(float hsMin, const ThrMomentumManagementRwArrayConfiguration_c* rwArrayConfig) {
     ThrMomentumManagementRwArrayConfiguration rwArrayConfigCpp;
     rwArrayConfigCpp.numRW = rwArrayConfig->numRW;

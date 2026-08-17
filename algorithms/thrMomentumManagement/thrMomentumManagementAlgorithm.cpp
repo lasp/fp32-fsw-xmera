@@ -5,8 +5,7 @@
 
 #include "thrMomentumManagementAlgorithm.h"
 
-// [Nms] net RW momentum below this magnitude is treated as zero. Only reachable when hs_min is itself
-// zero, since any larger threshold makes the hs < hs_min branch short-circuit first.
+// [Nms] net RW momentum below this magnitude is treated as zero.
 constexpr float kZeroMomentumTolerance = 1e-6F;
 
 /*! Construct the algorithm from a validated configuration and arm the one-shot momentum dumping request.
