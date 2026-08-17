@@ -137,6 +137,7 @@ set(algorithms
     "sunSearchPoint"
     "thrFiringRemainder"
     "thrFiringSchmitt"
+    "thrMomentumManagement"
     "thrustAxisToMotorAngles"
     "thrusterPlatformReference"
     "timeClosestApproach"
