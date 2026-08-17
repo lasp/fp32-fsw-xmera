@@ -12,5 +12,6 @@ if(_is_enabled)
     ".."
     "../.."
   )
-
+  
+  add_subdirectory(_tests)
 endif()
