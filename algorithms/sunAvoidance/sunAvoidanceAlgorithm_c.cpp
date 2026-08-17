@@ -7,8 +7,8 @@
 #include <Eigen/Core>
 
 namespace {
-SunAvoidanceConfig configFromC(const SunAvoidanceConfig_c& c) {
-    return SunAvoidanceConfig::create(cArrayToEigenVector3<float>(c.sensitiveHat_B.data), c.slewRate);
+SunAvoidanceConfig makeConfig(const Vector3f_c& sensitiveHat_B, float slewRate) {
+    return SunAvoidanceConfig::create(cArrayToEigenVector3<float>(sensitiveHat_B.data), slewRate);
 }
 
 SunAvoidanceAttRefInputs refFromC(const SunAvoidanceAttRefInputs_c& c) {
@@ -28,16 +28,28 @@ SunAvoidanceOutput_c outputToC(const SunAvoidanceOutput& out) {
 }
 }  // namespace
 
-SunAvoidanceAlgorithmHandle* SunAvoidanceAlgorithm_create(const SunAvoidanceConfig_c* config) {
-    return fsw::createHandle<::SunAvoidanceAlgorithm, SunAvoidanceAlgorithmHandle>(configFromC(*config));
+bool SunAvoidanceAlgorithm_validateConfig(const Vector3f_c* sensitiveHat_B, float slewRate) {
+    try {
+        (void)makeConfig(*sensitiveHat_B, slewRate);
+        return true;
+    } catch (const fsw::invalid_argument&) {
+        return false;
+    }
+}
+
+SunAvoidanceAlgorithmHandle* SunAvoidanceAlgorithm_create(const Vector3f_c* sensitiveHat_B, float slewRate) {
+    return fsw::createHandle<::SunAvoidanceAlgorithm, SunAvoidanceAlgorithmHandle>(
+        makeConfig(*sensitiveHat_B, slewRate));
 }
 
 void SunAvoidanceAlgorithm_destroy(SunAvoidanceAlgorithmHandle* self) {
     fsw::deleteHandle<::SunAvoidanceAlgorithm>(self);
 }
 
-void SunAvoidanceAlgorithm_setConfig(SunAvoidanceAlgorithmHandle* self, const SunAvoidanceConfig_c* config) {
-    fsw::fromHandle<::SunAvoidanceAlgorithm>(self)->setConfig(configFromC(*config));
+void SunAvoidanceAlgorithm_setConfig(SunAvoidanceAlgorithmHandle* self,
+                                     const Vector3f_c* sensitiveHat_B,
+                                     float slewRate) {
+    fsw::fromHandle<::SunAvoidanceAlgorithm>(self)->setConfig(makeConfig(*sensitiveHat_B, slewRate));
 }
 
 void SunAvoidanceAlgorithm_reInitialize(SunAvoidanceAlgorithmHandle* self) {
