@@ -241,5 +241,6 @@ TEST(SunAvoidanceConfigTest, GettersRoundTrip) {
     for (int i = 0; i < 3; ++i) {
         EXPECT_NEAR(config.getSensitiveHat_B()(i), expectedSensitive(i), tol);
     }
-    EXPECT_NEAR(config.getSlewRate(), kManeuverRate, tol);
+    // slewRate is stored verbatim, so it must come back bit-identical.
+    EXPECT_EQ(config.getSlewRate(), kManeuverRate);
 }
