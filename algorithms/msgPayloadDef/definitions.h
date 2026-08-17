@@ -11,5 +11,6 @@ inline constexpr std::uint32_t kMimuCount = 3U;
 #define RW_EFF_CNT 36
 #define MAX_MEASUREMENT_NUMBER 5
 #define MAX_MEASUREMENT_VECTOR 5
+#define MAX_NUMBER_REGIONS 3
 
 #endif  // MSG_DEFINITIONS_H
