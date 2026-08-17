@@ -1,6 +1,6 @@
 #include "thrustAxisToMotorAnglesAlgorithm_c.h"
-
 #include "thrustAxisToMotorAnglesAlgorithm.h"
+#include "utilities/fsw/opaqueHandle.h"
 
 namespace {
 /*! Convert a C-shared table POD into the algorithm's std::array table type. */
@@ -30,7 +30,7 @@ GimbalToMotorAngleTableLayout toStdTableLayout(const GimbalToMotorAngleTableLayo
                                          src->tableStepAngle};
 }
 
-/*! Build a validated Config from the C-shared configuration inputs. */
+/*! Build the validated C++ configuration from the flattened C parameters. */
 ThrustAxisToMotorAnglesConfig makeConfig(const MotorAngleRange_c* angleRange,
                                          const GimbalToMotorAngleTableData_c* gimbalToMotor1AngleTable,
                                          const GimbalToMotorAngleTableData_c* gimbalToMotor2AngleTable,
@@ -42,19 +42,35 @@ ThrustAxisToMotorAnglesConfig makeConfig(const MotorAngleRange_c* angleRange,
 }
 }  // namespace
 
+uint32_t ThrustAxisToMotorAnglesAlgorithm_getNumTableRows(void) { return NUM_GIMBAL_TO_MOTOR_TABLE_ROWS; }
+
+uint32_t ThrustAxisToMotorAnglesAlgorithm_getNumTableCols(void) { return NUM_GIMBAL_TO_MOTOR_TABLE_COLS; }
+
+uint32_t ThrustAxisToMotorAnglesAlgorithm_getNumTableElements(void) { return NUM_GIMBAL_TO_MOTOR_TABLE_ELEMENTS; }
+
+bool ThrustAxisToMotorAnglesAlgorithm_validateConfig(const MotorAngleRange_c* angleRange,
+                                                     const GimbalToMotorAngleTableData_c* gimbalToMotor1AngleTable,
+                                                     const GimbalToMotorAngleTableData_c* gimbalToMotor2AngleTable,
+                                                     const GimbalToMotorAngleTableLayout_c* tableLayout) {
+    try {
+        (void)makeConfig(angleRange, gimbalToMotor1AngleTable, gimbalToMotor2AngleTable, tableLayout);
+        return true;
+    } catch (const fsw::invalid_argument&) {
+        return false;
+    }
+}
+
 ThrustAxisToMotorAnglesAlgorithmHandle* ThrustAxisToMotorAnglesAlgorithm_create(
     const MotorAngleRange_c* angleRange,
     const GimbalToMotorAngleTableData_c* gimbalToMotor1AngleTable,
     const GimbalToMotorAngleTableData_c* gimbalToMotor2AngleTable,
     const GimbalToMotorAngleTableLayout_c* tableLayout) {
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-    return reinterpret_cast<ThrustAxisToMotorAnglesAlgorithmHandle*>(new ::ThrustAxisToMotorAnglesAlgorithm(
-        makeConfig(angleRange, gimbalToMotor1AngleTable, gimbalToMotor2AngleTable, tableLayout)));
+    return fsw::createHandle<::ThrustAxisToMotorAnglesAlgorithm, ThrustAxisToMotorAnglesAlgorithmHandle>(
+        makeConfig(angleRange, gimbalToMotor1AngleTable, gimbalToMotor2AngleTable, tableLayout));
 }
 
 void ThrustAxisToMotorAnglesAlgorithm_destroy(ThrustAxisToMotorAnglesAlgorithmHandle* self) {
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast, cppcoreguidelines-owning-memory)
-    delete reinterpret_cast<::ThrustAxisToMotorAnglesAlgorithm*>(self);
+    fsw::deleteHandle<::ThrustAxisToMotorAnglesAlgorithm>(self);
 }
 
 void ThrustAxisToMotorAnglesAlgorithm_setConfig(ThrustAxisToMotorAnglesAlgorithmHandle* self,
@@ -62,17 +78,19 @@ void ThrustAxisToMotorAnglesAlgorithm_setConfig(ThrustAxisToMotorAnglesAlgorithm
                                                 const GimbalToMotorAngleTableData_c* gimbalToMotor1AngleTable,
                                                 const GimbalToMotorAngleTableData_c* gimbalToMotor2AngleTable,
                                                 const GimbalToMotorAngleTableLayout_c* tableLayout) {
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-    reinterpret_cast<::ThrustAxisToMotorAnglesAlgorithm*>(self)->setConfig(
+    fsw::fromHandle<::ThrustAxisToMotorAnglesAlgorithm>(self)->setConfig(
         makeConfig(angleRange, gimbalToMotor1AngleTable, gimbalToMotor2AngleTable, tableLayout));
+}
+
+void ThrustAxisToMotorAnglesAlgorithm_reInitialize(ThrustAxisToMotorAnglesAlgorithmHandle* self) {
+    fsw::fromHandle<::ThrustAxisToMotorAnglesAlgorithm>(self)->reInitialize();
 }
 
 ThrustAxisToMotorAnglesOutput_c ThrustAxisToMotorAnglesAlgorithm_update(ThrustAxisToMotorAnglesAlgorithmHandle* self,
                                                                         const float gimbalAngle1,
                                                                         const float gimbalAngle2) {
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
     const ThrustAxisToMotorAnglesOutput out =
-        reinterpret_cast<::ThrustAxisToMotorAnglesAlgorithm*>(self)->update(gimbalAngle1, gimbalAngle2);
+        fsw::fromHandle<::ThrustAxisToMotorAnglesAlgorithm>(self)->update(gimbalAngle1, gimbalAngle2);
 
     ThrustAxisToMotorAnglesOutput_c result{};
     result.motorAngle1 = out.motorAngle1;
