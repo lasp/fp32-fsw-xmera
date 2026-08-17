@@ -24,7 +24,7 @@ uint32_t ThrusterPlatformReferenceAlgorithm_getMaxNumRw(void);
 /**
  * @brief Report whether a configuration would be accepted by create/setConfig.
  * @param sigma_MB        MRP of the M frame w.r.t. the B frame; must be finite.
- * @param r_BM_M          B frame origin w.r.t. M origin, M coordinates; must be finite.
+ * @param r_MB_B          M frame origin w.r.t. B origin, B coordinates; must be finite.
  * @param r_FM_F          F frame origin w.r.t. M origin, F coordinates; must be finite.
  * @param K               [1/s] momentum-dumping proportional gain; must be finite and >= 0.
  * @param Ki              [-]   momentum-dumping integral gain; must be finite and >= 0.
@@ -36,7 +36,7 @@ uint32_t ThrusterPlatformReferenceAlgorithm_getMaxNumRw(void);
  *         create/setConfig from an invalid configuration.
  */
 bool ThrusterPlatformReferenceAlgorithm_validateConfig(const Vector3f_c* sigma_MB,
-                                                       const Vector3f_c* r_BM_M,
+                                                       const Vector3f_c* r_MB_B,
                                                        const Vector3f_c* r_FM_F,
                                                        float K,
                                                        float Ki,
@@ -52,7 +52,7 @@ bool ThrusterPlatformReferenceAlgorithm_validateConfig(const Vector3f_c* sigma_M
  */
 ThrusterPlatformReferenceAlgorithmHandle* ThrusterPlatformReferenceAlgorithm_create(
     const Vector3f_c* sigma_MB,
-    const Vector3f_c* r_BM_M,
+    const Vector3f_c* r_MB_B,
     const Vector3f_c* r_FM_F,
     float K,
     float Ki,
@@ -74,7 +74,7 @@ void ThrusterPlatformReferenceAlgorithm_destroy(ThrusterPlatformReferenceAlgorit
  */
 void ThrusterPlatformReferenceAlgorithm_setConfig(ThrusterPlatformReferenceAlgorithmHandle* self,
                                                   const Vector3f_c* sigma_MB,
-                                                  const Vector3f_c* r_BM_M,
+                                                  const Vector3f_c* r_MB_B,
                                                   const Vector3f_c* r_FM_F,
                                                   float K,
                                                   float Ki,

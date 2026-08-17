@@ -27,8 +27,8 @@ class ThrusterPlatformReference final : public SysModel {
 
     /*! Phase 1: user-defined configuration properties, set before reset() */
     Eigen::Vector3f sigma_MB{Eigen::Vector3f::Zero()};  //!< orientation of the M frame w.r.t. the B frame
-    Eigen::Vector3f r_BM_M{
-        Eigen::Vector3f::Zero()};  //!< position of B frame origin w.r.t. M frame origin, in M frame coordinates
+    Eigen::Vector3f r_MB_B{
+        Eigen::Vector3f::Zero()};  //!< position of M frame origin w.r.t. B frame origin, in B frame coordinates
     Eigen::Vector3f r_FM_F{
         Eigen::Vector3f::Zero()};  //!< position of F frame origin w.r.t. M frame origin, in F frame coordinates
     float K{};                     //!< momentum dumping proportional gain [1/s]

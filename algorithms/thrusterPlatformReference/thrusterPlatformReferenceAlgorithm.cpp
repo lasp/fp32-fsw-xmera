@@ -134,8 +134,8 @@ ThrusterPlatformReferenceOutput ThrusterPlatformReferenceAlgorithm::update(const
     ThrusterPlatformReferenceOutput out{};
 
     const Eigen::Matrix3f dcm_MB = mrpToDcm(this->cfg.getSigma_MB());  // B to M DCM
-    const Eigen::Vector3f r_CB_M = dcm_MB * in.r_CB_B;                 // position of C w.r.t. B in M-frame coordinates
-    const Eigen::Vector3f r_CM_M = r_CB_M + this->cfg.getR_BM_M();     // position of C w.r.t. M in M-frame coordinates
+    const Eigen::Vector3f r_CM_B = in.r_CB_B - this->cfg.getR_MB_B();  // position of C w.r.t. M, B coordinates
+    const Eigen::Vector3f r_CM_M = dcm_MB * r_CM_B;                    // position of C w.r.t. M, M coordinates
     const Eigen::Vector3f r_TM_F = this->cfg.getR_FM_F() + in.r_TF_F;  // position of T w.r.t. M, F coordinates
     const Eigen::Vector3f thrust_F = in.thrust * in.tHat_F;            // thrust vector in F-frame coordinates
     const Eigen::Vector3f tHat_F = thrust_F.normalized();              // thrust unit direction, F frame

@@ -24,7 +24,7 @@ ThrusterPlatformReferenceConfig ThrusterPlatformReference::toConfig() {
     }
 
     return ThrusterPlatformReferenceConfig::create(this->sigma_MB,
-                                                   this->r_BM_M,
+                                                   this->r_MB_B,
                                                    this->r_FM_F,
                                                    this->K,
                                                    this->Ki,

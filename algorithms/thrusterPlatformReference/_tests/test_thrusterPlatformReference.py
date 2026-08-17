@@ -71,7 +71,7 @@ def thruster_platform_reference_test_function(show_plots, delta_cm, k, theta_max
 
     euler_angles_123 = np.array([5.0 * macros.D2R, 10.0 * macros.D2R, 0.0])
     sigma_MB = np.array(rbk.euler1232MRP(euler_angles_123))
-    r_BM_M = np.array([0.0, 0.1, 1.4])
+    r_MB_B = np.array([0.0, -0.1, -1.4])
     r_FM_F = np.array([0.0, 0.0, -0.1])
     r_TF_F = np.array([-0.01, 0.03, 0.02])
     T_F = np.array([1.0, 1.0, 10.0])
@@ -100,7 +100,7 @@ def thruster_platform_reference_test_function(show_plots, delta_cm, k, theta_max
 
     # Initialize the test module configuration data
     platform.sigma_MB = sigma_MB
-    platform.r_BM_M = r_BM_M
+    platform.r_MB_B = r_MB_B
     platform.r_FM_F = r_FM_F
     platform.K = k
     platform.Ki = 0

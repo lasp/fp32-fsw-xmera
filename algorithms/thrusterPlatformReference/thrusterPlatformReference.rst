@@ -94,8 +94,8 @@ The reference DCM :math:`[\mathcal{FM}]` is the single rotation that makes the t
 about the center of mass (derived below). The relevant geometry is first assembled in the mount and platform frames:
 
 .. math::
-    {}^\mathcal{M}\boldsymbol{r}_{C/M} = [\mathcal{MB}]\,{}^\mathcal{B}\boldsymbol{r}_{C/B}
-        + {}^\mathcal{M}\boldsymbol{r}_{B/M}, \qquad
+    {}^\mathcal{M}\boldsymbol{r}_{C/M} = [\mathcal{MB}]\left( {}^\mathcal{B}\boldsymbol{r}_{C/B}
+        - {}^\mathcal{B}\boldsymbol{r}_{M/B} \right), \qquad
     {}^\mathcal{F}\boldsymbol{r}_{T/M} = {}^\mathcal{F}\boldsymbol{r}_{F/M} + {}^\mathcal{F}\boldsymbol{r}_{T/F},
         \qquad
     {}^\mathcal{F}\boldsymbol{t} = F\,{}^\mathcal{F}\hat{\boldsymbol{t}},
@@ -228,10 +228,10 @@ raises ``fsw::invalid_argument``.
       - [0, 0, 0]
       - finite
       - MRP relative rotation between body-fixed frames :math:`\mathcal{M}` and :math:`\mathcal{B}`
-    * - ``r_BM_M``
+    * - ``r_MB_B``
       - [0, 0, 0]
       - finite
-      - relative position of point :math:`B` with respect to point :math:`M`, in :math:`\mathcal{M}`-frame
+      - relative position of point :math:`M` with respect to point :math:`B`, in :math:`\mathcal{B}`-frame
         coordinates
     * - ``r_FM_F``
       - [0, 0, 0]
@@ -267,7 +267,7 @@ then add the module to the simulation task (``reset()`` validates and builds the
     platformReference = thrusterPlatformReferenceF32.ThrusterPlatformReference()
     platformReference.modelTag = "platformReference"
     platformReference.sigma_MB = sigma_MB
-    platformReference.r_BM_M = r_BM_M
+    platformReference.r_MB_B = r_MB_B
     platformReference.r_FM_F = r_FM_F
     platformReference.K = K
     platformReference.Ki = Ki

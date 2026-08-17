@@ -13,7 +13,7 @@ constexpr float kAccuracy = 1e-4F;
 
 TEST(ThrusterPlatformReferenceTest, RegressionAxisAlignedThrust) {
     regressionTestThrusterPlatformReference({0.0F, 0.0F, 0.0F},      // sigma_MB
-                                            {0.0F, 0.1F, 1.4F},      // r_BM_M
+                                            {0.0F, -0.1F, -1.4F},    // r_MB_B
                                             {0.0F, 0.0F, -0.1F},     // r_FM_F
                                             {0.05F, 0.02F, 0.1F},    // r_CB_B
                                             {-0.01F, 0.03F, 0.02F},  // rThrust_F
@@ -25,7 +25,7 @@ TEST(ThrusterPlatformReferenceTest, RegressionAxisAlignedThrust) {
 TEST(ThrusterPlatformReferenceTest, RegressionTiltedMFrame) {
     const Eigen::Vector3f sigma_MB = dcmToMrp(eulerAngles123ToDcm(Eigen::Vector3f(0.087F, 0.175F, 0.0F)));
     regressionTestThrusterPlatformReference(sigma_MB,                // sigma_MB
-                                            {0.0F, 0.1F, 1.4F},      // r_BM_M
+                                            {0.0F, -0.1F, -1.4F},    // r_MB_B
                                             {0.0F, 0.0F, -0.1F},     // r_FM_F
                                             {0.2F, -0.1F, 0.15F},    // r_CB_B
                                             {-0.01F, 0.03F, 0.02F},  // rThrust_F
@@ -37,7 +37,7 @@ TEST(ThrusterPlatformReferenceTest, RegressionTiltedMFrame) {
 TEST(ThrusterPlatformReferenceTest, RegressionArbitraryGeometry) {
     const Eigen::Vector3f sigma_MB = dcmToMrp(eulerAngles123ToDcm(Eigen::Vector3f(-0.2F, 0.1F, 0.0F)));
     regressionTestThrusterPlatformReference(sigma_MB,                // sigma_MB
-                                            {0.1F, -0.2F, 0.9F},     // r_BM_M
+                                            {-0.1F, 0.2F, -0.9F},    // r_MB_B
                                             {0.02F, -0.05F, -0.2F},  // r_FM_F
                                             {0.3F, 0.25F, -0.1F},    // r_CB_B
                                             {0.04F, -0.02F, 0.05F},  // rThrust_F
@@ -108,12 +108,12 @@ TEST(ThrusterPlatformReferenceTest, RwSpinAxisNormalized) {
 // The configuration getters return the values supplied to create().
 TEST(ThrusterPlatformReferenceTest, ConfigRoundTrip) {
     const Eigen::Vector3f sigma_MB(0.1F, -0.2F, 0.3F);
-    const Eigen::Vector3f r_BM_M(0.0F, 0.1F, 1.4F);
+    const Eigen::Vector3f r_MB_B(0.0F, 0.1F, 1.4F);
     const Eigen::Vector3f r_FM_F(0.0F, 0.0F, -0.1F);
     const ThrusterPlatformReferenceConfig cfg = ThrusterPlatformReferenceConfig::create(
-        sigma_MB, r_BM_M, r_FM_F, 5.0F, 0.5F, 2.0F, 0.7F, false, ThrusterPlatformReferenceRwArrayConfiguration{});
+        sigma_MB, r_MB_B, r_FM_F, 5.0F, 0.5F, 2.0F, 0.7F, false, ThrusterPlatformReferenceRwArrayConfiguration{});
     EXPECT_TRUE(cfg.getSigma_MB().isApprox(sigma_MB));
-    EXPECT_TRUE(cfg.getR_BM_M().isApprox(r_BM_M));
+    EXPECT_TRUE(cfg.getR_MB_B().isApprox(r_MB_B));
     EXPECT_TRUE(cfg.getR_FM_F().isApprox(r_FM_F));
     EXPECT_FLOAT_EQ(cfg.getK(), 5.0F);
     EXPECT_FLOAT_EQ(cfg.getKi(), 0.5F);
@@ -161,7 +161,7 @@ TEST(ThrusterPlatformReferenceTest, SigmaMbWithinBoundStoredUnchanged) {
 // All outputs are finite for an arbitrary valid configuration and input.
 TEST(ThrusterPlatformReferenceTest, PropertyOutputsFinite) {
     ThrusterPlatformReferenceAlgorithm alg{
-        makeAlignmentConfig({0.1F, -0.2F, 0.3F}, {0.0F, 0.1F, 1.4F}, {0.0F, 0.0F, -0.1F})};
+        makeAlignmentConfig({0.1F, -0.2F, 0.3F}, {0.0F, -0.1F, -1.4F}, {0.0F, 0.0F, -0.1F})};
     const ThrusterPlatformReferenceOutput out =
         alg.update(makeInputs({0.2F, -0.1F, 0.15F}, {-0.01F, 0.03F, 0.02F}, {1.0F, 1.0F, 10.0F}, 10.0F));
 
@@ -174,7 +174,7 @@ TEST(ThrusterPlatformReferenceTest, PropertyOutputsFinite) {
 // The reported thrust headings are unit vectors and the reported thrust magnitude matches the input.
 TEST(ThrusterPlatformReferenceTest, PropertyHeadingsAreUnitAndThrustPreserved) {
     ThrusterPlatformReferenceAlgorithm alg{
-        makeAlignmentConfig({0.05F, 0.1F, -0.2F}, {0.0F, 0.1F, 1.4F}, {0.0F, 0.0F, -0.1F})};
+        makeAlignmentConfig({0.05F, 0.1F, -0.2F}, {0.0F, -0.1F, -1.4F}, {0.0F, 0.0F, -0.1F})};
     const ThrusterPlatformReferenceOutput out =
         alg.update(makeInputs({0.1F, 0.2F, -0.1F}, {-0.01F, 0.03F, 0.02F}, {2.0F, -1.0F, 8.0F}, 7.5F));
 
@@ -193,7 +193,7 @@ TEST(ThrusterPlatformReferenceTest, PropertyMomentumDumpingFinite) {
     rw.JsList(1) = 0.01F;
     rw.JsList(2) = 0.01F;
     ThrusterPlatformReferenceAlgorithm alg{ThrusterPlatformReferenceConfig::create(
-        {0.0F, 0.0F, 0.0F}, {0.0F, 0.1F, 1.4F}, {0.0F, 0.0F, -0.1F}, 5.0F, 1.0F, 1.0F, 3.0F, true, rw)};
+        {0.0F, 0.0F, 0.0F}, {0.0F, -0.1F, -1.4F}, {0.0F, 0.0F, -0.1F}, 5.0F, 1.0F, 1.0F, 3.0F, true, rw)};
 
     ThrusterPlatformReferenceInputs in =
         makeInputs({0.1F, 0.05F, 0.1F}, {-0.01F, 0.03F, 0.02F}, {1.0F, 1.0F, 10.0F}, 10.0F);
@@ -227,7 +227,7 @@ TEST(ThrusterPlatformReferenceTest, MomentumDumpingAchievesRequestedTorque) {
     rw.JsList(2) = 0.01F;
     // Ki = 0 so the reported reaction-wheel torque is exactly K * hs (the thruster produces its opposite).
     ThrusterPlatformReferenceAlgorithm alg{ThrusterPlatformReferenceConfig::create(
-        zero, {0.0F, 0.1F, 1.4F}, {0.0F, 0.0F, -0.1F}, K, 0.0F, 1.0F, 3.0F, true, rw)};
+        zero, {0.0F, -0.1F, -1.4F}, {0.0F, 0.0F, -0.1F}, K, 0.0F, 1.0F, 3.0F, true, rw)};
 
     ThrusterPlatformReferenceInputs in =
         makeInputs({0.05F, 0.02F, 0.1F}, {-0.01F, 0.03F, 0.02F}, {1.0F, 1.0F, 10.0F}, 10.0F);
@@ -270,7 +270,7 @@ TEST(ThrusterPlatformReferenceTest, ThrustDeflectionClampedToCone) {
 TEST(ThrusterPlatformReferenceTest, EdgeCenterOfMassOnThrustLine) {
     // M == B, thruster fires along +z from the F origin, CM placed straight ahead on that axis.
     ThrusterPlatformReferenceAlgorithm alg{
-        makeAlignmentConfig({0.0F, 0.0F, 0.0F}, {0.0F, 0.0F, 1.0F}, {0.0F, 0.0F, 0.0F})};
+        makeAlignmentConfig({0.0F, 0.0F, 0.0F}, {0.0F, 0.0F, -1.0F}, {0.0F, 0.0F, 0.0F})};
     const ThrusterPlatformReferenceOutput out =
         alg.update(makeInputs({0.0F, 0.0F, 0.0F}, {0.0F, 0.0F, 0.0F}, {0.0F, 0.0F, 1.0F}, 5.0F));
 

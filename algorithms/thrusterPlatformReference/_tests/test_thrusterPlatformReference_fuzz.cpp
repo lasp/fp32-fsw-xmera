@@ -8,7 +8,7 @@
 
 FUZZ_TEST(ThrusterPlatformReferencePropertyFuzz, propertyOutputsFinite)
     .WithDomains(xmera::fuzz::Vector3fInRange(-1.0F, 1.0F),    // sigma_MB (MRP)
-                 xmera::fuzz::Vector3fInRange(-2.0F, 2.0F),    // r_BM_M
+                 xmera::fuzz::Vector3fInRange(-2.0F, 2.0F),    // r_MB_B
                  xmera::fuzz::Vector3fInRange(-2.0F, 2.0F),    // r_FM_F
                  xmera::fuzz::Vector3fInRange(-2.0F, 2.0F),    // r_CB_B
                  xmera::fuzz::Vector3fInRange(-1.0F, 1.0F),    // rThrust_F

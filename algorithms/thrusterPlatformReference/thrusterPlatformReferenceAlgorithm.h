@@ -51,7 +51,7 @@ struct ThrusterPlatformReferenceOutput {
 class ThrusterPlatformReferenceConfig final {
    public:
     static ThrusterPlatformReferenceConfig create(const Eigen::Vector3f& sigma_MB,
-                                                  const Eigen::Vector3f& r_BM_M,
+                                                  const Eigen::Vector3f& r_MB_B,
                                                   const Eigen::Vector3f& r_FM_F,
                                                   float K,
                                                   float Ki,
@@ -62,8 +62,8 @@ class ThrusterPlatformReferenceConfig final {
         if (!isValidSigma_MB(sigma_MB)) {
             FSW_THROW_INVALID_ARGUMENT("thrusterPlatformReference: sigma_MB must be finite.");
         }
-        if (!isValidR_BM_M(r_BM_M)) {
-            FSW_THROW_INVALID_ARGUMENT("thrusterPlatformReference: r_BM_M must be finite.");
+        if (!isValidR_MB_B(r_MB_B)) {
+            FSW_THROW_INVALID_ARGUMENT("thrusterPlatformReference: r_MB_B must be finite.");
         }
         if (!isValidR_FM_F(r_FM_F)) {
             FSW_THROW_INVALID_ARGUMENT("thrusterPlatformReference: r_FM_F must be finite.");
@@ -95,11 +95,11 @@ class ThrusterPlatformReferenceConfig final {
         // Bound sigma_MB to the principal MRP set (norm <= 1) by switching to the shadow set if needed, so the
         // stored orientation is always a well-conditioned MRP representation.
         return {
-            mrpSwitch(sigma_MB), r_BM_M, r_FM_F, K, Ki, controlPeriod, thetaMax, momentumDumping, normalizedRwConfig};
+            mrpSwitch(sigma_MB), r_MB_B, r_FM_F, K, Ki, controlPeriod, thetaMax, momentumDumping, normalizedRwConfig};
     }
 
     static bool isValidSigma_MB(const Eigen::Vector3f& sigma_MB) { return sigma_MB.allFinite(); }
-    static bool isValidR_BM_M(const Eigen::Vector3f& r_BM_M) { return r_BM_M.allFinite(); }
+    static bool isValidR_MB_B(const Eigen::Vector3f& r_MB_B) { return r_MB_B.allFinite(); }
     static bool isValidR_FM_F(const Eigen::Vector3f& r_FM_F) { return r_FM_F.allFinite(); }
     static bool isValidK(float K) { return fsw::is_finite(K) && K >= 0.0F; }
     static bool isValidKi(float Ki) { return fsw::is_finite(Ki) && Ki >= 0.0F; }
@@ -125,7 +125,7 @@ class ThrusterPlatformReferenceConfig final {
     }
 
     const Eigen::Vector3f& getSigma_MB() const { return sigma_MB; }
-    const Eigen::Vector3f& getR_BM_M() const { return r_BM_M; }
+    const Eigen::Vector3f& getR_MB_B() const { return r_MB_B; }
     const Eigen::Vector3f& getR_FM_F() const { return r_FM_F; }
     float getK() const { return K; }
     float getKi() const { return Ki; }
@@ -141,7 +141,7 @@ class ThrusterPlatformReferenceConfig final {
     // modernize-pass-by-value: this is a private constructor invoked only from create() with already-validated
     //   arguments; the small Eigen vectors are stored by copy without a move for clarity.
     ThrusterPlatformReferenceConfig(const Eigen::Vector3f& sigma_MB,
-                                    const Eigen::Vector3f& r_BM_M,
+                                    const Eigen::Vector3f& r_MB_B,
                                     const Eigen::Vector3f& r_FM_F,
                                     float K,
                                     float Ki,
@@ -150,7 +150,7 @@ class ThrusterPlatformReferenceConfig final {
                                     bool momentumDumping,
                                     const ThrusterPlatformReferenceRwArrayConfiguration& rwConfig)
         : sigma_MB(sigma_MB),
-          r_BM_M(r_BM_M),
+          r_MB_B(r_MB_B),
           r_FM_F(r_FM_F),
           K(K),
           Ki(Ki),
@@ -161,7 +161,7 @@ class ThrusterPlatformReferenceConfig final {
     // NOLINTEND(bugprone-easily-swappable-parameters, modernize-pass-by-value)
 
     Eigen::Vector3f sigma_MB;
-    Eigen::Vector3f r_BM_M;
+    Eigen::Vector3f r_MB_B;
     Eigen::Vector3f r_FM_F;
     float K;
     float Ki;

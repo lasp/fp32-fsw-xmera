@@ -17,7 +17,7 @@ ThrusterPlatformReferenceRwArrayConfiguration rwArrayConfigFromC(
 }
 
 ThrusterPlatformReferenceConfig makeConfig(const Vector3f_c& sigma_MB,
-                                           const Vector3f_c& r_BM_M,
+                                           const Vector3f_c& r_MB_B,
                                            const Vector3f_c& r_FM_F,
                                            float K,
                                            float Ki,
@@ -26,7 +26,7 @@ ThrusterPlatformReferenceConfig makeConfig(const Vector3f_c& sigma_MB,
                                            bool momentumDumping,
                                            const ThrusterPlatformReferenceRwArrayConfiguration_c& rwConfig) {
     return ThrusterPlatformReferenceConfig::create(cArrayToEigenVector3<float>(sigma_MB.data),
-                                                   cArrayToEigenVector3<float>(r_BM_M.data),
+                                                   cArrayToEigenVector3<float>(r_MB_B.data),
                                                    cArrayToEigenVector3<float>(r_FM_F.data),
                                                    K,
                                                    Ki,
@@ -51,7 +51,7 @@ uint32_t ThrusterPlatformReferenceAlgorithm_getMaxNumRw(void) { return THRUSTER_
 
 bool ThrusterPlatformReferenceAlgorithm_validateConfig(
     const Vector3f_c* sigma_MB,
-    const Vector3f_c* r_BM_M,
+    const Vector3f_c* r_MB_B,
     const Vector3f_c* r_FM_F,
     float K,
     float Ki,
@@ -60,7 +60,7 @@ bool ThrusterPlatformReferenceAlgorithm_validateConfig(
     bool momentumDumping,
     const ThrusterPlatformReferenceRwArrayConfiguration_c* rwConfig) {
     try {
-        (void)makeConfig(*sigma_MB, *r_BM_M, *r_FM_F, K, Ki, controlPeriod, thetaMax, momentumDumping, *rwConfig);
+        (void)makeConfig(*sigma_MB, *r_MB_B, *r_FM_F, K, Ki, controlPeriod, thetaMax, momentumDumping, *rwConfig);
         return true;
     } catch (const fsw::invalid_argument&) {
         return false;
@@ -69,7 +69,7 @@ bool ThrusterPlatformReferenceAlgorithm_validateConfig(
 
 ThrusterPlatformReferenceAlgorithmHandle* ThrusterPlatformReferenceAlgorithm_create(
     const Vector3f_c* sigma_MB,
-    const Vector3f_c* r_BM_M,
+    const Vector3f_c* r_MB_B,
     const Vector3f_c* r_FM_F,
     float K,
     float Ki,
@@ -78,7 +78,7 @@ ThrusterPlatformReferenceAlgorithmHandle* ThrusterPlatformReferenceAlgorithm_cre
     bool momentumDumping,
     const ThrusterPlatformReferenceRwArrayConfiguration_c* rwConfig) {
     return reinterpret_cast<ThrusterPlatformReferenceAlgorithmHandle*>(new ::ThrusterPlatformReferenceAlgorithm(
-        makeConfig(*sigma_MB, *r_BM_M, *r_FM_F, K, Ki, controlPeriod, thetaMax, momentumDumping, *rwConfig)));
+        makeConfig(*sigma_MB, *r_MB_B, *r_FM_F, K, Ki, controlPeriod, thetaMax, momentumDumping, *rwConfig)));
 }
 
 void ThrusterPlatformReferenceAlgorithm_destroy(ThrusterPlatformReferenceAlgorithmHandle* self) {
@@ -87,7 +87,7 @@ void ThrusterPlatformReferenceAlgorithm_destroy(ThrusterPlatformReferenceAlgorit
 
 void ThrusterPlatformReferenceAlgorithm_setConfig(ThrusterPlatformReferenceAlgorithmHandle* self,
                                                   const Vector3f_c* sigma_MB,
-                                                  const Vector3f_c* r_BM_M,
+                                                  const Vector3f_c* r_MB_B,
                                                   const Vector3f_c* r_FM_F,
                                                   float K,
                                                   float Ki,
@@ -96,7 +96,7 @@ void ThrusterPlatformReferenceAlgorithm_setConfig(ThrusterPlatformReferenceAlgor
                                                   bool momentumDumping,
                                                   const ThrusterPlatformReferenceRwArrayConfiguration_c* rwConfig) {
     fsw::fromHandle<::ThrusterPlatformReferenceAlgorithm>(self)->setConfig(
-        makeConfig(*sigma_MB, *r_BM_M, *r_FM_F, K, Ki, controlPeriod, thetaMax, momentumDumping, *rwConfig));
+        makeConfig(*sigma_MB, *r_MB_B, *r_FM_F, K, Ki, controlPeriod, thetaMax, momentumDumping, *rwConfig));
 }
 
 void ThrusterPlatformReferenceAlgorithm_reInitialize(ThrusterPlatformReferenceAlgorithmHandle* self) {
