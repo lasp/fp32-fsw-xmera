@@ -31,7 +31,7 @@ class ThrusterPlatformReference final : public SysModel {
         Eigen::Vector3f::Zero()};  //!< position of M frame origin w.r.t. B frame origin, in B frame coordinates
     Eigen::Vector3f r_FM_F{
         Eigen::Vector3f::Zero()};  //!< position of F frame origin w.r.t. M frame origin, in F frame coordinates
-    float K{};                     //!< momentum dumping proportional gain [1/s]
+    float K{};                     //!< momentum dumping proportional gain [1/s] (must be > 0)
     float Ki{};                    //!< momentum dumping integral gain [1]
     float controlPeriod{};         //!< integration step for the momentum dumping integral [s] (must be > 0)
     float thetaMax{};              //!< half-angle of the thrust-deflection cone [rad] (must be in (0, pi))
@@ -40,8 +40,8 @@ class ThrusterPlatformReference final : public SysModel {
     ReadFunctor<VehicleConfigMsgF32Payload>
         vehConfigInMsg;  //!< input msg vehicle configuration msg (needed for CM location)
     ReadFunctor<THRConfigMsgF32Payload> thrusterConfigFInMsg;   //!< input thruster configuration msg
-    ReadFunctor<RWSpeedMsgF32Payload> rwSpeedsInMsg;            //!< input reaction wheel speeds message
-    ReadFunctor<RWArrayConfigMsgF32Payload> rwConfigDataInMsg;  //!< input RWA configuration message
+    ReadFunctor<RWSpeedMsgF32Payload> rwSpeedsInMsg;            //!< input reaction wheel speeds message (required)
+    ReadFunctor<RWArrayConfigMsgF32Payload> rwConfigDataInMsg;  //!< input RWA configuration message (required)
     Message<BodyHeadingMsgF32Payload>
         bodyHeadingOutMsg;  //!< output msg containing the thrust heading in body frame coordinates
     Message<CmdTorqueBodyMsgF32Payload>

@@ -7,14 +7,15 @@
 #include <Eigen/Core>
 #include <cmath>
 
-// Build a validated configuration with momentum dumping disabled (pure center-of-mass alignment mode). The default
-// deflection cone is wide enough that it does not clamp the geometries used by the alignment tests.
+// Build a validated configuration with an empty reaction-wheel array, so the wheel momentum and the requested
+// dumping torque both vanish (pure center-of-mass alignment mode). The default deflection cone is wide enough that
+// it does not clamp the geometries used by the alignment tests.
 inline ThrusterPlatformReferenceConfig makeAlignmentConfig(const Eigen::Vector3f& sigma_MB,
                                                            const Eigen::Vector3f& r_MB_B,
                                                            const Eigen::Vector3f& r_FM_F,
                                                            float thetaMax = 3.0F) {
     return ThrusterPlatformReferenceConfig::create(
-        sigma_MB, r_MB_B, r_FM_F, 0.0F, 0.0F, 1.0F, thetaMax, false, ThrusterPlatformReferenceRwArrayConfiguration{});
+        sigma_MB, r_MB_B, r_FM_F, 1.0F, 0.0F, 1.0F, thetaMax, ThrusterPlatformReferenceRwArrayConfiguration{});
 }
 
 // Assemble the per-cycle inputs from the center-of-mass position and thruster geometry.
@@ -30,10 +31,10 @@ inline ThrusterPlatformReferenceInputs makeInputs(const Eigen::Vector3f& r_CB_B,
     return in;
 }
 
-// Regression helper: with K = 0 the platform aligns the thruster line of action with the system center of mass, so
-// the reported body-frame thrust direction is parallel to the thruster-to-center-of-mass vector and the net
-// thruster torque vanishes. The thruster-to-center-of-mass distance is checked against the ray-sphere intersection
-// computed independently from the raw configuration.
+// Regression helper: with no wheel momentum to dump the platform aligns the thruster line of action with the
+// system center of mass, so the reported body-frame thrust direction is parallel to the
+// thruster-to-center-of-mass vector and the net thruster torque vanishes. The thruster-to-center-of-mass distance
+// is checked against the ray-sphere intersection computed independently from the raw configuration.
 inline void regressionTestThrusterPlatformReference(const Eigen::Vector3f& sigma_MB,
                                                     const Eigen::Vector3f& r_MB_B,
                                                     const Eigen::Vector3f& r_FM_F,

@@ -141,10 +141,7 @@ ThrusterPlatformReferenceOutput ThrusterPlatformReferenceAlgorithm::update(const
     const Eigen::Vector3f tHat_F = thrust_F.normalized();              // thrust unit direction, F frame
 
     // requested torque, platform frame (zero -> point through CM; non-zero when dumping reaction-wheel momentum)
-    Eigen::Vector3f Lreq_F = Eigen::Vector3f::Zero();
-    if (this->cfg.getMomentumDumping()) {
-        Lreq_F = this->computeDumpingTorque(in, r_CM_M, r_TM_F, thrust_F, dcm_MB);
-    }
+    const Eigen::Vector3f Lreq_F = this->computeDumpingTorque(in, r_CM_M, r_TM_F, thrust_F, dcm_MB);
 
     Eigen::Matrix3f dcm_FM = computeThrusterPointing(r_CM_M, r_TM_F, thrust_F, Lreq_F);
 

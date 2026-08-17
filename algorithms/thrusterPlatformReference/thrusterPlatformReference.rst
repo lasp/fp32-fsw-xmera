@@ -2,11 +2,11 @@ Executive Summary
 -----------------
 This module computes a reference orientation for a platform connected to the main hub, on which a thruster is
 mounted whose direction is known in platform-frame coordinates. The goal of this module is to compute a reference
-orientation for the platform which aligns the thruster line of action with the system's center of mass, to zero the
-net torque produced by the thruster on the spacecraft. Alternatively, the module can offset the thrust direction
-with respect to the center of mass to produce a net torque that dumps the momentum accumulated on the reaction
-wheels. The module reports the resulting thruster direction in body-frame coordinates; a downstream module is
-responsible for computing the platform gimbal angles that realize it.
+orientation for the platform which offsets the thrust direction with respect to the center of mass to produce a net
+torque that dumps the momentum accumulated on the reaction wheels. When there is no momentum to dump, this reduces to
+aligning the thruster line of action with the system's center of mass, zeroing the net torque produced by the thruster
+on the spacecraft. The module reports the resulting thruster direction in body-frame coordinates; a downstream module
+is responsible for computing the platform gimbal angles that realize it.
 
 All numeric computation is single-precision (``float`` / fp32). The module is a single algorithm
 (``ThrusterPlatformReferenceAlgorithm``) with two interface adapters: a ``SysModel`` adapter that connects it to
@@ -22,11 +22,11 @@ interface adapters wrap it.
 The **Xmera adapter** (``ThrusterPlatformReference``) inherits from ``SysModel`` and owns all messaging concerns.
 Configuration parameters are exposed as public member variables (two-phase initialization): the caller sets them,
 then calls ``reset()``, which validates that the required input messages are connected and builds a validated
-``ThrusterPlatformReferenceConfig`` from the current property values (deriving the momentum-dumping flag from the
-reaction-wheel message link state and reading the reaction-wheel configuration). ``updateState()`` reads the input
-messages, converts the payload ``float[3]`` arrays to Eigen types via ``eigenSupport.h``, invokes the algorithm,
-and packs the results back into the output payloads. ``reconfigure()`` re-pushes the current properties into the
-running algorithm without disturbing its runtime state, and ``reInitialize()`` re-seeds that runtime state.
+``ThrusterPlatformReferenceConfig`` from the current property values and the reaction-wheel configuration message.
+``updateState()`` reads the input messages, converts the payload ``float[3]`` arrays to Eigen types via
+``eigenSupport.h``, invokes the algorithm, and packs the results back into the output payloads. ``reconfigure()``
+re-pushes the current properties into the running algorithm without disturbing its runtime state, and
+``reInitialize()`` re-seeds that runtime state.
 
 The **Adamant adapter** is a C shim (``thrusterPlatformReferenceAlgorithm_c.h`` / ``.cpp``) that exposes the
 algorithm through an ``extern "C"`` interface so Adamant components can call it via the C/Ada FFI bindings.
@@ -55,12 +55,11 @@ information on what this message is used for.
         (:math:`{}^\mathcal{F}\boldsymbol{r}_{T/F}`).
     * - rwConfigDataInMsg
       - :ref:`RWArrayConfigMsgPayload`
-      - Optional input message containing the number of reaction wheels, their spin-axis inertias and orientations
-        with respect to the body frame. Momentum dumping is enabled only when this message and ``rwSpeedsInMsg``
-        are both connected.
+      - Input message containing the number of reaction wheels, their spin-axis inertias and orientations with
+        respect to the body frame.
     * - rwSpeedsInMsg
       - :ref:`RWSpeedMsgPayload`
-      - Optional input message containing the speeds of the reaction wheels relative to the hub.
+      - Input message containing the speeds of the reaction wheels relative to the hub.
     * - bodyHeadingOutMsg
       - :ref:`BodyHeadingMsgPayload`
       - Output message containing the unit direction vector of the thruster in body-frame coordinates.
@@ -153,8 +152,8 @@ undefined and the identity rotation is returned.
 
 Momentum dumping
 ^^^^^^^^^^^^^^^^
-When the optional reaction-wheel input messages are connected, the requested torque is set by a control law that
-makes the thruster dump the momentum accumulated on the wheels. The desired thruster torque opposes that momentum,
+The requested torque is set by a control law that makes the thruster dump the momentum accumulated on the wheels. The
+desired thruster torque opposes that momentum,
 
 .. math::
     \boldsymbol{L}_\text{req} = -\left( \kappa\, \boldsymbol{h}_w + \kappa_I\, \boldsymbol{H}_w \right), \qquad
@@ -240,7 +239,7 @@ raises ``fsw::invalid_argument``.
         coordinates
     * - ``K``
       - 0
-      - :math:`\geq 0`
+      - :math:`> 0`
       - proportional gain of the momentum dumping control loop
     * - ``Ki``
       - 0
@@ -255,9 +254,8 @@ raises ``fsw::invalid_argument``.
       - :math:`(0, \pi)`
       - half-angle [rad] of the cone limiting the thrust deflection from its neutral direction (mandatory)
 
-In addition, when momentum dumping is enabled the reaction-wheel configuration read from ``rwConfigDataInMsg`` must
-have a wheel count not exceeding the compile-time maximum (``RW_EFF_CNT``) and unit-length spin axes (they are
-normalized on construction).
+In addition, the reaction-wheel configuration read from ``rwConfigDataInMsg`` must have a wheel count not exceeding
+the compile-time maximum (``RW_EFF_CNT``) and unit-length spin axes (they are normalized on construction).
 
 User Guide
 ----------
@@ -276,7 +274,6 @@ then add the module to the simulation task (``reset()`` validates and builds the
 
     platformReference.vehConfigInMsg.subscribeTo(vehConfigMsg)
     platformReference.thrusterConfigFInMsg.subscribeTo(thrConfigFMsg)
-    # momentum dumping is enabled only when both reaction-wheel messages are connected
     platformReference.rwConfigDataInMsg.subscribeTo(rwConfigMsg)
     platformReference.rwSpeedsInMsg.subscribeTo(rwSpeedsMsg)
 

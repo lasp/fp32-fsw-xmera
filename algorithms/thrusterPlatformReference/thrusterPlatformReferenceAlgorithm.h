@@ -44,9 +44,10 @@ struct ThrusterPlatformReferenceOutput {
  *
  * Bundles the platform mounting geometry, the momentum-dumping gains, the thrust-deflection cone limit, and the
  * reaction-wheel configuration used for momentum dumping. An instance can only exist if the geometry vectors are
- * finite, the gains are finite and non-negative, the control period is finite and positive, the deflection cone
- * half-angle lies in (0, pi), and the reaction-wheel configuration count does not exceed the compile-time maximum
- * with finite spin axes and inertias. Construct via ThrusterPlatformReferenceConfig::create(...).
+ * finite, the proportional gain is finite and positive, the integral gain is finite and non-negative, the control
+ * period is finite and positive, the deflection cone half-angle lies in (0, pi), and the reaction-wheel
+ * configuration count does not exceed the compile-time maximum with finite spin axes and inertias. Construct via
+ * ThrusterPlatformReferenceConfig::create(...).
  */
 class ThrusterPlatformReferenceConfig final {
    public:
@@ -57,7 +58,6 @@ class ThrusterPlatformReferenceConfig final {
                                                   float Ki,
                                                   float controlPeriod,
                                                   float thetaMax,
-                                                  bool momentumDumping,
                                                   const ThrusterPlatformReferenceRwArrayConfiguration& rwConfig) {
         if (!isValidSigma_MB(sigma_MB)) {
             FSW_THROW_INVALID_ARGUMENT("thrusterPlatformReference: sigma_MB must be finite.");
@@ -69,7 +69,7 @@ class ThrusterPlatformReferenceConfig final {
             FSW_THROW_INVALID_ARGUMENT("thrusterPlatformReference: r_FM_F must be finite.");
         }
         if (!isValidK(K)) {
-            FSW_THROW_INVALID_ARGUMENT("thrusterPlatformReference: K must be finite and non-negative.");
+            FSW_THROW_INVALID_ARGUMENT("thrusterPlatformReference: K must be finite and positive.");
         }
         if (!isValidKi(Ki)) {
             FSW_THROW_INVALID_ARGUMENT("thrusterPlatformReference: Ki must be finite and non-negative.");
@@ -94,14 +94,13 @@ class ThrusterPlatformReferenceConfig final {
 
         // Bound sigma_MB to the principal MRP set (norm <= 1) by switching to the shadow set if needed, so the
         // stored orientation is always a well-conditioned MRP representation.
-        return {
-            mrpSwitch(sigma_MB), r_MB_B, r_FM_F, K, Ki, controlPeriod, thetaMax, momentumDumping, normalizedRwConfig};
+        return {mrpSwitch(sigma_MB), r_MB_B, r_FM_F, K, Ki, controlPeriod, thetaMax, normalizedRwConfig};
     }
 
     static bool isValidSigma_MB(const Eigen::Vector3f& sigma_MB) { return sigma_MB.allFinite(); }
     static bool isValidR_MB_B(const Eigen::Vector3f& r_MB_B) { return r_MB_B.allFinite(); }
     static bool isValidR_FM_F(const Eigen::Vector3f& r_FM_F) { return r_FM_F.allFinite(); }
-    static bool isValidK(float K) { return fsw::is_finite(K) && K >= 0.0F; }
+    static bool isValidK(float K) { return fsw::is_finite(K) && K > 0.0F; }
     static bool isValidKi(float Ki) { return fsw::is_finite(Ki) && Ki >= 0.0F; }
     static bool isValidControlPeriod(float controlPeriod) {
         return fsw::is_finite(controlPeriod) && controlPeriod > 0.0F;
@@ -131,7 +130,6 @@ class ThrusterPlatformReferenceConfig final {
     float getKi() const { return Ki; }
     float getControlPeriod() const { return controlPeriod; }
     float getThetaMax() const { return thetaMax; }
-    bool getMomentumDumping() const { return momentumDumping; }
     const ThrusterPlatformReferenceRwArrayConfiguration& getRwConfig() const { return rwConfig; }
 
    private:
@@ -147,7 +145,6 @@ class ThrusterPlatformReferenceConfig final {
                                     float Ki,
                                     float controlPeriod,
                                     float thetaMax,
-                                    bool momentumDumping,
                                     const ThrusterPlatformReferenceRwArrayConfiguration& rwConfig)
         : sigma_MB(sigma_MB),
           r_MB_B(r_MB_B),
@@ -156,7 +153,6 @@ class ThrusterPlatformReferenceConfig final {
           Ki(Ki),
           controlPeriod(controlPeriod),
           thetaMax(thetaMax),
-          momentumDumping(momentumDumping),
           rwConfig(rwConfig) {}
     // NOLINTEND(bugprone-easily-swappable-parameters, modernize-pass-by-value)
 
@@ -167,7 +163,6 @@ class ThrusterPlatformReferenceConfig final {
     float Ki;
     float controlPeriod;
     float thetaMax;
-    bool momentumDumping;
     ThrusterPlatformReferenceRwArrayConfiguration rwConfig;
 };
 

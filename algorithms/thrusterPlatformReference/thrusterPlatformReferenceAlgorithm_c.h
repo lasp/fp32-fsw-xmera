@@ -26,11 +26,10 @@ uint32_t ThrusterPlatformReferenceAlgorithm_getMaxNumRw(void);
  * @param sigma_MB        MRP of the M frame w.r.t. the B frame; must be finite.
  * @param r_MB_B          M frame origin w.r.t. B origin, B coordinates; must be finite.
  * @param r_FM_F          F frame origin w.r.t. M origin, F coordinates; must be finite.
- * @param K               [1/s] momentum-dumping proportional gain; must be finite and >= 0.
+ * @param K               [1/s] momentum-dumping proportional gain; must be finite and > 0.
  * @param Ki              [-]   momentum-dumping integral gain; must be finite and >= 0.
  * @param controlPeriod   [s]   dumping-integral time step; must be finite and > 0.
  * @param thetaMax        [rad] thrust-deflection cone half-angle; must lie in the open interval (0, pi).
- * @param momentumDumping [-]   whether reaction-wheel momentum dumping is active.
  * @param rwConfig        RW configuration; numRW <= max, finite inertias, near-unit spin axes.
  * @return true when the configuration is valid. Never throws, so it can guard the throwing
  *         create/setConfig from an invalid configuration.
@@ -42,7 +41,6 @@ bool ThrusterPlatformReferenceAlgorithm_validateConfig(const Vector3f_c* sigma_M
                                                        float Ki,
                                                        float controlPeriod,
                                                        float thetaMax,
-                                                       bool momentumDumping,
                                                        const ThrusterPlatformReferenceRwArrayConfiguration_c* rwConfig);
 
 /**
@@ -58,7 +56,6 @@ ThrusterPlatformReferenceAlgorithmHandle* ThrusterPlatformReferenceAlgorithm_cre
     float Ki,
     float controlPeriod,
     float thetaMax,
-    bool momentumDumping,
     const ThrusterPlatformReferenceRwArrayConfiguration_c* rwConfig);
 
 /**
@@ -80,7 +77,6 @@ void ThrusterPlatformReferenceAlgorithm_setConfig(ThrusterPlatformReferenceAlgor
                                                   float Ki,
                                                   float controlPeriod,
                                                   float thetaMax,
-                                                  bool momentumDumping,
                                                   const ThrusterPlatformReferenceRwArrayConfiguration_c* rwConfig);
 
 /**
