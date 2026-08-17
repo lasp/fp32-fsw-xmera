@@ -90,6 +90,15 @@ Eigen::Vector3f ThrusterPlatformReferenceAlgorithm::computeDumpingTorque(const T
     this->hsInt_B += 0.5F * dt * (this->priorHs_B + hs_B);
     this->priorHs_B = hs_B;
 
+    // anti-windup: clamp each integral component to the configured limit, preserving its sign
+    const float integralLimit = this->cfg.getIntegralLimit();
+    for (int i = 0; i < 3; ++i) {
+        const float magnitude = fabsf(this->hsInt_B(i));
+        if (magnitude > integralLimit) {
+            this->hsInt_B(i) *= integralLimit / magnitude;
+        }
+    }
+
     // desired thruster torque about the center of mass: oppose the accumulated wheel momentum to dump it.
     const Eigen::Vector3f Lreq_B = -this->cfg.getK() * hs_B - this->cfg.getKi() * this->hsInt_B;
 

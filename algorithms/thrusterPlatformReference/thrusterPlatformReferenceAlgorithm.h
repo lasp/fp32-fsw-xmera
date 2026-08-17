@@ -43,9 +43,10 @@ struct ThrusterPlatformReferenceOutput {
  *
  * Bundles the platform mounting geometry, the momentum-dumping gains, the thrust-deflection cone limit, and the
  * reaction-wheel configuration used for momentum dumping. An instance can only exist if the geometry vectors are
- * finite, the proportional gain is finite and positive, the integral gain is finite and non-negative, the control
- * period is finite and positive, the deflection cone half-angle lies in (0, pi), and the reaction-wheel
- * configuration count does not exceed the compile-time maximum with finite spin axes and inertias. Construct via
+ * finite, the proportional gain is finite and positive, the integral gain is finite and non-negative, the momentum
+ * integral limit is finite and non-negative (and positive whenever the integral gain is), the control period is
+ * finite and positive, the deflection cone half-angle lies in (0, pi), and the reaction-wheel configuration count
+ * does not exceed the compile-time maximum with finite spin axes and inertias. Construct via
  * ThrusterPlatformReferenceConfig::create(...).
  */
 class ThrusterPlatformReferenceConfig final {
@@ -55,6 +56,7 @@ class ThrusterPlatformReferenceConfig final {
                                                   const Eigen::Vector3f& r_FM_F,
                                                   float K,
                                                   float Ki,
+                                                  float integralLimit,
                                                   float controlPeriod,
                                                   float thetaMax,
                                                   const ThrusterPlatformReferenceRwArrayConfiguration& rwConfig) {
@@ -72,6 +74,10 @@ class ThrusterPlatformReferenceConfig final {
         }
         if (!isValidKi(Ki)) {
             FSW_THROW_INVALID_ARGUMENT("thrusterPlatformReference: Ki must be finite and non-negative.");
+        }
+        if (!isValidIntegralLimit(integralLimit, Ki)) {
+            FSW_THROW_INVALID_ARGUMENT(
+                "thrusterPlatformReference: integralLimit must be finite and non-negative, and positive when Ki > 0.");
         }
         if (!isValidControlPeriod(controlPeriod)) {
             FSW_THROW_INVALID_ARGUMENT("thrusterPlatformReference: controlPeriod must be finite and positive.");
@@ -93,7 +99,7 @@ class ThrusterPlatformReferenceConfig final {
 
         // Bound sigma_MB to the principal MRP set (norm <= 1) by switching to the shadow set if needed, so the
         // stored orientation is always a well-conditioned MRP representation.
-        return {mrpSwitch(sigma_MB), r_MB_B, r_FM_F, K, Ki, controlPeriod, thetaMax, normalizedRwConfig};
+        return {mrpSwitch(sigma_MB), r_MB_B, r_FM_F, K, Ki, integralLimit, controlPeriod, thetaMax, normalizedRwConfig};
     }
 
     static bool isValidSigma_MB(const Eigen::Vector3f& sigma_MB) { return sigma_MB.allFinite(); }
@@ -101,6 +107,10 @@ class ThrusterPlatformReferenceConfig final {
     static bool isValidR_FM_F(const Eigen::Vector3f& r_FM_F) { return r_FM_F.allFinite(); }
     static bool isValidK(float K) { return fsw::is_finite(K) && K > 0.0F; }
     static bool isValidKi(float Ki) { return fsw::is_finite(Ki) && Ki >= 0.0F; }
+    /*! A zero limit is only allowed when the integral term is switched off (Ki == 0). */
+    static bool isValidIntegralLimit(float integralLimit, float Ki) {
+        return fsw::is_finite(integralLimit) && integralLimit >= 0.0F && (Ki == 0.0F || integralLimit > 0.0F);
+    }
     static bool isValidControlPeriod(float controlPeriod) {
         return fsw::is_finite(controlPeriod) && controlPeriod > 0.0F;
     }
@@ -127,6 +137,7 @@ class ThrusterPlatformReferenceConfig final {
     const Eigen::Vector3f& getR_FM_F() const { return r_FM_F; }
     float getK() const { return K; }
     float getKi() const { return Ki; }
+    float getIntegralLimit() const { return integralLimit; }
     float getControlPeriod() const { return controlPeriod; }
     float getThetaMax() const { return thetaMax; }
     const ThrusterPlatformReferenceRwArrayConfiguration& getRwConfig() const { return rwConfig; }
@@ -142,6 +153,7 @@ class ThrusterPlatformReferenceConfig final {
                                     const Eigen::Vector3f& r_FM_F,
                                     float K,
                                     float Ki,
+                                    float integralLimit,
                                     float controlPeriod,
                                     float thetaMax,
                                     const ThrusterPlatformReferenceRwArrayConfiguration& rwConfig)
@@ -150,6 +162,7 @@ class ThrusterPlatformReferenceConfig final {
           r_FM_F(r_FM_F),
           K(K),
           Ki(Ki),
+          integralLimit(integralLimit),
           controlPeriod(controlPeriod),
           thetaMax(thetaMax),
           rwConfig(rwConfig) {}
@@ -160,6 +173,7 @@ class ThrusterPlatformReferenceConfig final {
     Eigen::Vector3f r_FM_F;
     float K;
     float Ki;
+    float integralLimit;
     float controlPeriod;
     float thetaMax;
     ThrusterPlatformReferenceRwArrayConfiguration rwConfig;
@@ -183,7 +197,7 @@ class ThrusterPlatformReferenceAlgorithm final {
                                          const Eigen::Matrix3f& dcm_MB);
 
     ThrusterPlatformReferenceConfig cfg;                 //!< [-] validated configuration
-    Eigen::Vector3f hsInt_B{Eigen::Vector3f::Zero()};    //!< [Nms] integral of RW momentum, B frame
+    Eigen::Vector3f hsInt_B{Eigen::Vector3f::Zero()};    //!< [Nms2] integral of RW momentum, B frame
     Eigen::Vector3f priorHs_B{Eigen::Vector3f::Zero()};  //!< [Nms] prior RW momentum, B frame
     Eigen::Matrix3f priorDcm_FM{
         Eigen::Matrix3f::Zero()};  //!< [-] previous cycle's reference DCM [FM] (torque-conversion seed; zero if unset)

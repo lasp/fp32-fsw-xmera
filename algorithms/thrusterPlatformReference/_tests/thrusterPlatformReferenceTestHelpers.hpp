@@ -15,7 +15,7 @@ inline ThrusterPlatformReferenceConfig makeAlignmentConfig(const Eigen::Vector3f
                                                            const Eigen::Vector3f& r_FM_F,
                                                            float thetaMax = 3.0F) {
     return ThrusterPlatformReferenceConfig::create(
-        sigma_MB, r_MB_B, r_FM_F, 1.0F, 0.0F, 1.0F, thetaMax, ThrusterPlatformReferenceRwArrayConfiguration{});
+        sigma_MB, r_MB_B, r_FM_F, 1.0F, 0.0F, 0.0F, 1.0F, thetaMax, ThrusterPlatformReferenceRwArrayConfiguration{});
 }
 
 // Assemble the per-cycle inputs from the center-of-mass position and thruster geometry.

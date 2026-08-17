@@ -21,6 +21,7 @@ ThrusterPlatformReferenceConfig makeConfig(const Vector3f_c& sigma_MB,
                                            const Vector3f_c& r_FM_F,
                                            float K,
                                            float Ki,
+                                           float integralLimit,
                                            float controlPeriod,
                                            float thetaMax,
                                            const ThrusterPlatformReferenceRwArrayConfiguration_c& rwConfig) {
@@ -29,6 +30,7 @@ ThrusterPlatformReferenceConfig makeConfig(const Vector3f_c& sigma_MB,
                                                    cArrayToEigenVector3<float>(r_FM_F.data),
                                                    K,
                                                    Ki,
+                                                   integralLimit,
                                                    controlPeriod,
                                                    thetaMax,
                                                    rwArrayConfigFromC(rwConfig));
@@ -53,11 +55,12 @@ bool ThrusterPlatformReferenceAlgorithm_validateConfig(
     const Vector3f_c* r_FM_F,
     float K,
     float Ki,
+    float integralLimit,
     float controlPeriod,
     float thetaMax,
     const ThrusterPlatformReferenceRwArrayConfiguration_c* rwConfig) {
     try {
-        (void)makeConfig(*sigma_MB, *r_MB_B, *r_FM_F, K, Ki, controlPeriod, thetaMax, *rwConfig);
+        (void)makeConfig(*sigma_MB, *r_MB_B, *r_FM_F, K, Ki, integralLimit, controlPeriod, thetaMax, *rwConfig);
         return true;
     } catch (const fsw::invalid_argument&) {
         return false;
@@ -70,11 +73,12 @@ ThrusterPlatformReferenceAlgorithmHandle* ThrusterPlatformReferenceAlgorithm_cre
     const Vector3f_c* r_FM_F,
     float K,
     float Ki,
+    float integralLimit,
     float controlPeriod,
     float thetaMax,
     const ThrusterPlatformReferenceRwArrayConfiguration_c* rwConfig) {
     return reinterpret_cast<ThrusterPlatformReferenceAlgorithmHandle*>(new ::ThrusterPlatformReferenceAlgorithm(
-        makeConfig(*sigma_MB, *r_MB_B, *r_FM_F, K, Ki, controlPeriod, thetaMax, *rwConfig)));
+        makeConfig(*sigma_MB, *r_MB_B, *r_FM_F, K, Ki, integralLimit, controlPeriod, thetaMax, *rwConfig)));
 }
 
 void ThrusterPlatformReferenceAlgorithm_destroy(ThrusterPlatformReferenceAlgorithmHandle* self) {
@@ -87,11 +91,12 @@ void ThrusterPlatformReferenceAlgorithm_setConfig(ThrusterPlatformReferenceAlgor
                                                   const Vector3f_c* r_FM_F,
                                                   float K,
                                                   float Ki,
+                                                  float integralLimit,
                                                   float controlPeriod,
                                                   float thetaMax,
                                                   const ThrusterPlatformReferenceRwArrayConfiguration_c* rwConfig) {
     fsw::fromHandle<::ThrusterPlatformReferenceAlgorithm>(self)->setConfig(
-        makeConfig(*sigma_MB, *r_MB_B, *r_FM_F, K, Ki, controlPeriod, thetaMax, *rwConfig));
+        makeConfig(*sigma_MB, *r_MB_B, *r_FM_F, K, Ki, integralLimit, controlPeriod, thetaMax, *rwConfig));
 }
 
 void ThrusterPlatformReferenceAlgorithm_reInitialize(ThrusterPlatformReferenceAlgorithmHandle* self) {

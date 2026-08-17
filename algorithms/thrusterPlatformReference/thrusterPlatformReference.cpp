@@ -19,8 +19,15 @@ ThrusterPlatformReferenceConfig ThrusterPlatformReference::toConfig() {
     rwConfig.GsMatrix_B = cArrayToEigenMatrix<float, 3, kMaxNumRw>(rwConfigParams.GsMatrix_B);
     rwConfig.JsList = cArrayToEigenVector(rwConfigParams.JsList);
 
-    return ThrusterPlatformReferenceConfig::create(
-        this->sigma_MB, this->r_MB_B, this->r_FM_F, this->K, this->Ki, this->controlPeriod, this->thetaMax, rwConfig);
+    return ThrusterPlatformReferenceConfig::create(this->sigma_MB,
+                                                   this->r_MB_B,
+                                                   this->r_FM_F,
+                                                   this->K,
+                                                   this->Ki,
+                                                   this->integralLimit,
+                                                   this->controlPeriod,
+                                                   this->thetaMax,
+                                                   rwConfig);
 }
 
 /*! This method performs a complete reset of the module: it validates the required input messages and (re)creates

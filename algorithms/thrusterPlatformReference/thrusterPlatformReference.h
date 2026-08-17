@@ -31,7 +31,8 @@ class ThrusterPlatformReference final : public SysModel {
     Eigen::Vector3f r_FM_F{
         Eigen::Vector3f::Zero()};  //!< position of F frame origin w.r.t. M frame origin, in F frame coordinates
     float K{};                     //!< momentum dumping proportional gain [1/s] (must be > 0)
-    float Ki{};                    //!< momentum dumping integral gain [1]
+    float Ki{};                    //!< momentum dumping integral gain [1/s2]
+    float integralLimit{};         //!< [Nms2] anti-windup clamp on each hsInt_B component (must be > 0 if Ki > 0)
     float controlPeriod{};         //!< integration step for the momentum dumping integral [s] (must be > 0)
     float thetaMax{};              //!< half-angle of the thrust-deflection cone [rad] (must be in (0, pi))
 

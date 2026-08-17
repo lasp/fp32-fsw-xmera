@@ -28,6 +28,8 @@ uint32_t ThrusterPlatformReferenceAlgorithm_getMaxNumRw(void);
  * @param r_FM_F          F frame origin w.r.t. M origin, F coordinates; must be finite.
  * @param K               [1/s] momentum-dumping proportional gain; must be finite and > 0.
  * @param Ki              [-]   momentum-dumping integral gain; must be finite and >= 0.
+ * @param integralLimit   [Nms2] anti-windup clamp on each momentum-integral component; must be finite
+ *                        and >= 0, and > 0 when Ki > 0.
  * @param controlPeriod   [s]   dumping-integral time step; must be finite and > 0.
  * @param thetaMax        [rad] thrust-deflection cone half-angle; must lie in the open interval (0, pi).
  * @param rwConfig        RW configuration; numRW <= max, finite inertias, near-unit spin axes.
@@ -39,6 +41,7 @@ bool ThrusterPlatformReferenceAlgorithm_validateConfig(const Vector3f_c* sigma_M
                                                        const Vector3f_c* r_FM_F,
                                                        float K,
                                                        float Ki,
+                                                       float integralLimit,
                                                        float controlPeriod,
                                                        float thetaMax,
                                                        const ThrusterPlatformReferenceRwArrayConfiguration_c* rwConfig);
@@ -54,6 +57,7 @@ ThrusterPlatformReferenceAlgorithmHandle* ThrusterPlatformReferenceAlgorithm_cre
     const Vector3f_c* r_FM_F,
     float K,
     float Ki,
+    float integralLimit,
     float controlPeriod,
     float thetaMax,
     const ThrusterPlatformReferenceRwArrayConfiguration_c* rwConfig);
@@ -75,6 +79,7 @@ void ThrusterPlatformReferenceAlgorithm_setConfig(ThrusterPlatformReferenceAlgor
                                                   const Vector3f_c* r_FM_F,
                                                   float K,
                                                   float Ki,
+                                                  float integralLimit,
                                                   float controlPeriod,
                                                   float thetaMax,
                                                   const ThrusterPlatformReferenceRwArrayConfiguration_c* rwConfig);

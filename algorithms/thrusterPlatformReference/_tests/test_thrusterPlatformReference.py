@@ -104,7 +104,8 @@ def thruster_platform_reference_test_function(show_plots, delta_cm, k, wheel_spe
     platform.r_MB_B = r_MB_B
     platform.r_FM_F = r_FM_F
     platform.K = k
-    platform.Ki = 0
+    platform.Ki = 0.01
+    platform.integralLimit = 10.0
     platform.controlPeriod = 1.0
     platform.thetaMax = theta_max
 

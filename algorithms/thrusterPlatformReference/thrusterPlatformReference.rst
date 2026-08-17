@@ -159,7 +159,9 @@ desired thruster torque opposes that momentum,
 where :math:`\boldsymbol{h}_w` is the net momentum on the wheels, :math:`\boldsymbol{H}_w` its integral over time,
 and :math:`\kappa` (``K``) / :math:`\kappa_I` (``Ki``) the proportional and integral gains. The integral is
 accumulated with a trapezoidal rule using the configured ``controlPeriod`` as the fixed time step (the module is
-expected to run at that rate). The momentum and its integral are tracked in the body frame; the torque is converted
+expected to run at that rate). To keep a sustained momentum from winding the integral term up without bound, every
+component of :math:`\boldsymbol{H}_w` is clamped to :math:`\pm` ``integralLimit`` after each update, preserving its
+sign. The momentum and its integral are tracked in the body frame; the torque is converted
 to the platform frame (through the mount frame) and passed to the *Thruster pointing* solve above. Because that solve
 reaches the requested torque exactly, the thruster produces :math:`\boldsymbol{L}_\text{req}` (up to the component
 along the thrust, which no thruster force can produce).
@@ -244,6 +246,10 @@ raises ``fsw::invalid_argument``.
       - 0
       - :math:`\geq 0`
       - integral gain of the momentum dumping control loop
+    * - ``integralLimit``
+      - 0
+      - :math:`\geq 0`, and :math:`> 0` when ``Ki`` :math:`> 0`
+      - anti-windup clamp [Nms\ :sup:`2`] on each body-frame component of the reaction-wheel momentum integral
     * - ``controlPeriod``
       - 0
       - :math:`> 0`
@@ -268,6 +274,7 @@ then add the module to the simulation task (``reset()`` validates and builds the
     platformReference.r_FM_F = r_FM_F
     platformReference.K = K
     platformReference.Ki = Ki
+    platformReference.integralLimit = integralLimit
     platformReference.controlPeriod = controlPeriod
     platformReference.thetaMax = thetaMax
 
