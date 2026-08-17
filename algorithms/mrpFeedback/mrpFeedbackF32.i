@@ -7,9 +7,8 @@
 %include <architecture/_GeneralModuleFiles/swig_conly_data.i>
 %include <architecture/_GeneralModuleFiles/swig_eigen.i>
 
-%include "mrpFeedbackTypes.h"
-%include "mrpFeedbackAlgorithm.h"
 %include "mrpFeedback.h"
+%include "mrpFeedbackAlgorithm.h"
 
 %include "msgPayloadDef/AttGuidMsgF32Payload.h"
 %include "msgPayloadDef/VehicleConfigMsgF32Payload.h"

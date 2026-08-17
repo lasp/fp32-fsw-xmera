@@ -46,13 +46,14 @@ listed below and constructs the algorithm via the two-phase init pattern.
       - Reaction-wheel speeds (required when ``rwParamsInMsg`` is connected)
     * - rwAvailInMsg
       - :ref:`RWAvailabilityMsgPayload`
-      - Reaction-wheel availability (optional)
+      - Reaction-wheel availability, sampled once at ``reset()`` (optional)
 
 Configuration
 ~~~~~~~~~~~~~
 
 All configurable parameters are validated at ``reset()`` time via ``MrpFeedbackConfig::create``. A negative gain or
-limit causes the factory to throw before the algorithm is constructed.
+limit, a non-positive ``controlPeriod``, an invalid spacecraft inertia matrix, or a reaction-wheel configuration with
+a non-unit spin axis causes the factory to throw before the algorithm is constructed.
 
 .. list-table:: Configuration parameters
     :widths: 22 14 14 14 36
@@ -94,6 +95,11 @@ limit causes the factory to throw before the algorithm is constructed.
       - [N*m]
       - ``[0,0,0]``
       - Feedforward known external torque in body-frame components.
+    * - ``controlPeriod``
+      - float
+      - [s]
+      - 0
+      - Fixed time step used to integrate the MRP error. Must be ``> 0``.
 
 Two-Phase Initialization
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -107,6 +113,7 @@ Subscribe inputs and set the public configuration properties before ``reset()`` 
     module.integralLimit = 20.0
     module.controlLawType = mrpFeedbackF32.ControlLawType_NORMAL
     module.knownTorquePntB_B = [0.0, 0.0, 0.0]
+    module.controlPeriod = 0.5
 
     module.guidInMsg.subscribeTo(guid_msg)
     module.vehConfigInMsg.subscribeTo(veh_config_msg)
@@ -119,8 +126,8 @@ Subscribe inputs and set the public configuration properties before ``reset()`` 
     sim.ExecuteSimulation()
 
 If a required input message has not been connected when ``reset()`` runs, an ``std::invalid_argument`` is thrown.
-If any of the gain or limit parameters fail validation (negative value), ``MrpFeedbackConfig::create`` throws an
-``fsw::invalid_argument``. If ``updateState()`` is called before ``reset()``, an ``XmeraLifecycleException`` is thrown.
+If any configuration parameter fails validation, ``MrpFeedbackConfig::create`` throws an ``fsw::invalid_argument``.
+If ``updateState()`` is called before ``reset()``, an ``XmeraLifecycleException`` is thrown.
 
 Mathematical Formulation
 ------------------------
@@ -139,8 +146,11 @@ Required guidance inputs (read every cycle via ``guidInMsg``):
 - :math:`{}^{B}\dot{\boldsymbol{\omega}}_{R/N}` (``domega_RN_B``)
 
 The spacecraft inertia tensor :math:`[I]` is read once at ``reset()`` from ``vehConfigInMsg``. If ``rwParamsInMsg`` is
-connected, the RW spin-axis matrix :math:`[G_s]` and per-wheel spin-axis inertia :math:`I_{W_{s,i}}` are also captured
-at ``reset()`` time; the per-cycle wheel speeds :math:`\Omega_i` come from ``rwSpeedsInMsg``.
+connected, the RW spin-axis matrix :math:`[G_s]`, per-wheel spin-axis inertia :math:`I_{W_{s,i}}`, and per-wheel
+availability are also captured at ``reset()`` time; the per-cycle wheel speeds :math:`\Omega_i` come from
+``rwSpeedsInMsg``. Per-wheel availability is read from ``rwAvailInMsg``; when that message is not connected, every
+wheel defaults to ``AVAILABLE``. A wheel flagged ``UNAVAILABLE`` at ``reset()`` is excluded from the gyroscopic
+momentum sum.
 
 Control Law (``controlLawType = NORMAL``)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -173,9 +183,10 @@ The integral attitude-error measure :math:`\boldsymbol{z}` is
     \boldsymbol{z} = K \int_{t_{0}}^{t} \boldsymbol{\sigma}_{B/R}\, \mathrm{d}t
                    + [I_{\text{RW}}] \boldsymbol{\omega}_{B/R}.
 
-The element-wise magnitude of :math:`\int \boldsymbol{\sigma}_{B/R}\, \mathrm{d}t` is clamped against
-``integralLimit``, preserving sign per element. The integral term is computed and applied only when ``Ki > 0``;
-setting ``Ki = 0`` skips the integral path entirely.
+The integral :math:`\int \boldsymbol{\sigma}_{B/R}\, \mathrm{d}t` is accumulated with a fixed time step equal to the
+configured ``controlPeriod`` (the module does not measure the elapsed time between calls). Its element-wise magnitude
+is clamped against ``integralLimit``, preserving sign per element. The integral term is computed and applied only when
+``Ki > 0``; setting ``Ki = 0`` skips the integral path entirely.
 
 Control Law (``controlLawType = SIMPLE_INTEGRAL``)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -203,9 +214,9 @@ Reset
 At ``reset()`` the algorithm:
 
 1. Captures :math:`[I]` from ``vehConfigInMsg``.
-2. Captures the RW configuration from ``rwParamsInMsg`` if it is connected; otherwise marks the RW count as zero.
+2. Captures the RW configuration and per-wheel availability from ``rwParamsInMsg`` / ``rwAvailInMsg`` if connected;
+   otherwise the reaction-wheel momentum term is omitted.
 3. Zeros the integral state :math:`\int \boldsymbol{\sigma}_{B/R}\, \mathrm{d}t`.
-4. Resets the prior-call timestamp; the first ``update`` after a reset uses :math:`\Delta t = 0`.
 
 Assumptions and Limitations
 ---------------------------

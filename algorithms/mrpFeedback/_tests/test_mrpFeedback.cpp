@@ -15,11 +15,10 @@ TEST(MrpFeedbackTest, ReferenceTest) {
                     std::vector<float>{1.9, -2.0, 2.1, -2.2},
                     std::vector<bool>{false, true, false, false},
                     2,
-                    std::vector<float>{2.3, -2.4, 2.5, -2.6},
                     std::vector<float>{2.7, -2.8, 2.9, -3.0},
                     std::vector<float>{0.4, 0.1, -0.3, 1.2, 0.4, 0.1, -0.3, 1.2, 0.4, 0.1, -0.3, 1.2},
-                    std::vector<float>{0.4, 0.1, -0.3, 0.4, 0.1, -0.3, 0.4, 0.1, -0.3},
-                    false,
+                    std::vector<float>{1000.0, 0.0, 0.0, 0.0, 800.0, 0.0, 0.0, 0.0, 800.0},
+                    true,
                     0.1);
 }
 
@@ -27,32 +26,32 @@ TEST(MrpFeedbackTest, SetupTest) { testMrpFeedbackSetup(); }
 
 TEST(MrpFeedbackTest, IntegralFeedbackDisabledWhenKiIsZero) {
     // With Ki = 0, the integral feedback torque must be zero on every cycle.
-    const MrpFeedbackConfig cfg =
-        MrpFeedbackConfig::create(1.0F, 0.5F, 0.0F, 1.0F, ControlLawType::NORMAL, Eigen::Vector3f::Zero());
+    const MrpFeedbackControlParameters params{
+        .K = 1.0F,
+        .P = 0.5F,
+        .Ki = 0.0F,
+        .integralLimit = 1.0F,
+        .controlLawType = ControlLawType::NORMAL,
+        .controlPeriod = 0.1F,
+    };
+    Eigen::Matrix3f inertia{};
+    inertia << 1000.0F, 0.0F, 0.0F, 0.0F, 800.0F, 0.0F, 0.0F, 0.0F, 800.0F;
+    const MrpFeedbackConfig cfg = MrpFeedbackConfig::create(params, Eigen::Vector3f::Zero(), inertia);
     MrpFeedbackAlgorithm alg(cfg);
 
-    AttGuidMsgF32Payload guidCmd{};
-    eigenVectorToCArray(Eigen::Vector3f{0.4F, 0.1F, -0.3F}, guidCmd.sigma_BR);
-    eigenVectorToCArray(Eigen::Vector3f{-0.4F, 0.5F, -0.6F}, guidCmd.omega_BR_B);
-    eigenVectorToCArray(Eigen::Vector3f{0.7F, -0.8F, 0.9F}, guidCmd.omega_RN_B);
-    eigenVectorToCArray(Eigen::Vector3f{-1.0F, 1.1F, -1.2F}, guidCmd.domega_RN_B);
-
-    VehicleConfigMsgF32Payload vehConfig{};
-    const std::vector<float> isc{1000.0F, 0.0F, 0.0F, 0.0F, 800.0F, 0.0F, 0.0F, 0.0F, 800.0F};
-    std::copy(isc.begin(), isc.end(), vehConfig.ISCPntB_B);
-
-    const RWArrayConfigMsgF32Payload rwConfig{};
-    const RWSpeedMsgF32Payload wheelSpeeds{};
-    const RWAvailabilityMsgPayload availability{};
-
-    EXPECT_NO_THROW(alg.reset(vehConfig, rwConfig, /*rwIsLinked=*/false));
+    const MrpFeedbackInputGuidance guid{
+        Eigen::Vector3f{0.4F, 0.1F, -0.3F},
+        Eigen::Vector3f{-0.4F, 0.5F, -0.6F},
+        Eigen::Vector3f{0.7F, -0.8F, 0.9F},
+        Eigen::Vector3f{-1.0F, 1.1F, -1.2F},
+    };
+    const std::array<float, RW_EFF_CNT> wheelSpeeds{};
     for (int step = 0; step < 5; ++step) {
-        const auto callTime = static_cast<uint64_t>(step + 1) * static_cast<uint64_t>(0.1F / kNano2Sec);
         MrpFeedbackOutput out{};
-        EXPECT_NO_THROW(out = alg.update(callTime, guidCmd, wheelSpeeds, availability));
+        EXPECT_NO_THROW(out = alg.update(guid, wheelSpeeds));
         for (int i = 0; i < 3; ++i) {
-            EXPECT_FLOAT_EQ(out.intFeedbackOut.torqueRequestBody[i], 0.0F);
-            EXPECT_TRUE(std::isfinite(out.controlOut.torqueRequestBody[i]));
+            EXPECT_FLOAT_EQ(out.integralFeedbackTorque[i], 0.0F);
+            EXPECT_TRUE(std::isfinite(out.controlTorque[i]));
         }
     }
 }
@@ -63,41 +62,36 @@ TEST(MrpFeedbackTest, IntegralLimitClampsLargeError) {
     constexpr float K = 1.0F;
     constexpr float Ki = 1.0F;
     constexpr float intLimit = 0.5F;
+    const MrpFeedbackControlParameters params{
+        .K = K,
+        .P = 1.0F,
+        .Ki = Ki,
+        .integralLimit = intLimit,
+        .controlLawType = ControlLawType::NORMAL,
+        .controlPeriod = 1.0F,
+    };
     const MrpFeedbackConfig cfg =
-        MrpFeedbackConfig::create(K, 1.0F, Ki, intLimit, ControlLawType::NORMAL, Eigen::Vector3f::Zero());
+        MrpFeedbackConfig::create(params, Eigen::Vector3f::Zero(), Eigen::Matrix3f::Identity());
     MrpFeedbackAlgorithm alg(cfg);
 
-    AttGuidMsgF32Payload guidCmd{};
-    eigenVectorToCArray(Eigen::Vector3f{1.0F, 1.0F, 1.0F}, guidCmd.sigma_BR);
-    eigenVectorToCArray(Eigen::Vector3f::Zero(), guidCmd.omega_BR_B);
-    eigenVectorToCArray(Eigen::Vector3f::Zero(), guidCmd.omega_RN_B);
-    eigenVectorToCArray(Eigen::Vector3f::Zero(), guidCmd.domega_RN_B);
+    MrpFeedbackInputGuidance guid{};
+    guid.sigma_BR = Eigen::Vector3f{1.0F, 1.0F, 1.0F};
 
-    VehicleConfigMsgF32Payload vehConfig{};
-    const std::vector<float> isc{1.0F, 0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 0.0F, 1.0F};
-    std::copy(isc.begin(), isc.end(), vehConfig.ISCPntB_B);
+    const std::array<float, RW_EFF_CNT> wheelSpeeds{};
 
-    const RWArrayConfigMsgF32Payload rwConfig{};
-    const RWSpeedMsgF32Payload wheelSpeeds{};
-    const RWAvailabilityMsgPayload availability{};
-
-    EXPECT_NO_THROW(alg.reset(vehConfig, rwConfig, /*rwIsLinked=*/false));
-
-    // Drive enough integration steps to saturate (each step accumulates K*dt*sigma = 1.0 * 1.0 * 1.0 in each axis).
-    constexpr float dt = 1.0F;
+    // Drive enough integration steps to saturate (each step accumulates K*controlPeriod*sigma = 1.0 per axis).
     constexpr int steps = 10;
     MrpFeedbackOutput out{};
     for (int step = 0; step < steps; ++step) {
-        const auto callTime = static_cast<uint64_t>(step + 1) * static_cast<uint64_t>(dt / kNano2Sec);
-        EXPECT_NO_THROW(out = alg.update(callTime, guidCmd, wheelSpeeds, availability));
+        EXPECT_NO_THROW(out = alg.update(guid, wheelSpeeds));
         for (int i = 0; i < 3; ++i) {
-            EXPECT_TRUE(std::isfinite(out.controlOut.torqueRequestBody[i]));
-            EXPECT_TRUE(std::isfinite(out.intFeedbackOut.torqueRequestBody[i]));
+            EXPECT_TRUE(std::isfinite(out.controlTorque[i]));
+            EXPECT_TRUE(std::isfinite(out.integralFeedbackTorque[i]));
         }
     }
     // After saturation, the integral feedback torque magnitude per axis is bounded by P*Ki*intLimit.
     constexpr float bound = 1.0F * Ki * intLimit + 1e-5F;  // P=1 in this test
     for (int i = 0; i < 3; ++i) {
-        EXPECT_LE(std::abs(out.intFeedbackOut.torqueRequestBody[i]), bound);
+        EXPECT_LE(std::abs(out.integralFeedbackTorque[i]), bound);
     }
 }

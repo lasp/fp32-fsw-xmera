@@ -25,6 +25,9 @@ class MrpFeedback final : public SysModel {
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
 
+    void reconfigure();
+    void reInitialize();
+
     // Phase 1: public config properties -- set before reset().
     float K = 0.0F;                                               //!< [N*m]    proportional gain on MRP error
     float P = 0.0F;                                               //!< [N*m*s]  rate-error feedback gain
@@ -32,6 +35,7 @@ class MrpFeedback final : public SysModel {
     float integralLimit = 0.0F;                                   //!< [N*m*s]  anti-windup clamp on int_sigma
     ControlLawType controlLawType = ControlLawType::NORMAL;       //!< control-law variant
     Eigen::Vector3f knownTorquePntB_B = Eigen::Vector3f::Zero();  //!< [N*m]    feedforward known external torque
+    float controlPeriod = 0.0F;                                   //!< [s]      time between two algorithm update calls
 
     ReadFunctor<RWSpeedMsgF32Payload> rwSpeedsInMsg;        //!< RW speed input message (Optional)
     ReadFunctor<RWAvailabilityMsgPayload> rwAvailInMsg;     //!< RW availability input message (Optional)
@@ -44,8 +48,8 @@ class MrpFeedback final : public SysModel {
     ReadFunctor<VehicleConfigMsgF32Payload> vehConfigInMsg;  //!< vehicle configuration input message
 
    private:
+    MrpFeedbackConfig toConfig();
     std::unique_ptr<MrpFeedbackAlgorithm> algorithm = nullptr;
-    uint32_t numRW{};
 };
 
 #endif
