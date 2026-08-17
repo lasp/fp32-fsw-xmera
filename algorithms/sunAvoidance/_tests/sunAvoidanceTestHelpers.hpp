@@ -94,10 +94,27 @@ class SunAvoidanceReference {
     uint64_t mnvrStartTime = 0;
 };
 
-// Whether the maneuver-path geometry is near a degeneracy or near the discrete short/long-way decision
-// boundary. Near these, an independent fp32 reference can select the opposite (equally valid) maneuver, so
-// the regression helper skips such inputs rather than compare against an ambiguous branch. Mirrors the
-// quantities the algorithm's short/long-way decision turns on.
+// Whether the maneuver geometry sits near one of the algorithm's discrete decisions. The regression
+// comparison skips such inputs; nothing else does.
+//
+// The algorithm makes a yes/no choice: sweep the short way (Phi about e) or the long way (2*pi - Phi about
+// -e). Right at the tipping point between them the smallest rounding difference sends two independently
+// coded fp32 implementations opposite ways. Both maneuvers are legitimate, so neither output is the "right"
+// answer to hold the other to, and comparing them there would only measure which way each happened to
+// round. Note this is a limit of comparing two implementations, not fragility in the algorithm: away from
+// the tipping points the two agree to 1e-5.
+//
+// Both choices do reach the same commanded endpoint, but that is not enough to make them comparable,
+// because this test checks every time step. In between, the two commanded attitudes differ by twice the
+// maneuver progress -- 180 degrees apart at the halfway point -- and the feed-forward rate differs by
+// 2 * slewRate from the first step onward.
+//
+// Skipping is NOT a claim that the two choices are equivalent: they sweep complementary halves of the circle
+// the sensitive axis traces, so they can differ in whether they clear the Sun. The property helpers below
+// assert only what holds for either choice, so they run on every input, including these.
+//
+// Mirrors the quantities the decisions turn on: the three degenerate directions, the two comparisons in the
+// short/long-way branch, and the half-turn slew-direction tie.
 inline bool nearManeuverDecisionBoundary(const Eigen::Vector3f& sensitiveHat_B,
                                          const Eigen::Vector3f& sigma_BN,
                                          const Eigen::Vector3f& sigma_RN,

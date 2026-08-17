@@ -87,10 +87,19 @@ Module Notes
   calls; ``reInitialize()`` clears the state so the next update recomputes it.
 - The short-versus-long-way choice is a discrete decision. Near its boundary the choice is sensitive to rounding; both
   choices are valid maneuvers, but two independent implementations may select opposite ones.
-- A :math:`180^\circ` slew has no preferred direction of travel: a rotation by :math:`\pi` is its own inverse, so
-  :math:`[RB]` and :math:`[BR]` are the same matrix and the principal axis no longer distinguishes the two ways around.
-  The module still picks one direction and remains self-consistent (its attitude path and feed-forward rate agree), but
-  which one it picks is not meaningful there, and another implementation may go the other way.
+- The two choices are **not** interchangeable. They reach the same commanded attitude, but they sweep the two
+  complementary halves of the circle the sensitive axis traces, so only one of them may clear the Sun. Sun clearance is
+  a property of the *path*, not of the endpoint.
+- The reversal test judges the sweep by where the sensitive axis **starts and ends**
+  (:math:`\hat{\mathbf n} = \mathbf a_i \times \mathbf a_f`). This is an approximation: the axis actually traverses a
+  cone about the maneuver axis :math:`\hat{\mathbf e}`, and the two coincide only when the sensitive axis is
+  perpendicular to :math:`\hat{\mathbf e}`. The more the sensitive axis tilts away from that, the less the model
+  reflects the true path, and the more often the reversal decision selects the arc that passes closer to the Sun.
+- At a :math:`180^\circ` slew of the sensitive axis, :math:`\mathbf a_i` and :math:`\mathbf a_f` come out exactly
+  opposite, so :math:`\hat{\mathbf n}` vanishes and the reversal test is skipped entirely (see Edge Case Handling).
+  This is the one geometry in which the module can sweep the sensitive axis across the Sun without checking. It requires
+  the two directions to be *bitwise* antipodal, which in practice means exactly axis-aligned attitudes rather than real
+  navigation data.
 
 Initialization
 --------------
@@ -217,7 +226,9 @@ Edge Case Handling
 ^^^^^^^^^^^^^^^^^^^
 Every degenerate geometry falls back to a well-defined maneuver rather than producing ``NaN``. All normalizations use
 ``stableNormalized``, which returns the zero vector (not ``NaN``) for a near-zero argument, so the output is always
-finite; the reversal test is evaluated only when its geometry is well defined.
+finite; the reversal test is evaluated only when its geometry is well defined. Note what this does and does not
+guarantee: the output is always finite and the maneuver always reaches the commanded attitude, but a fallback that
+skips the reversal test does not guarantee the swept path clears the Sun.
 
 .. list-table:: Edge Cases
     :widths: 45 55
@@ -229,8 +240,13 @@ finite; the reversal test is evaluated only when its geometry is well defined.
       - No maneuver is performed; the adjusted reference equals the input reference (pass-through).
     * - Body already at the reference (:math:`\boldsymbol{\Phi}_{B/R} \approx \mathbf 0`)
       - Zero maneuver angle; the adjusted reference equals the input reference.
-    * - Initial and final sensitive axes parallel or anti-parallel (:math:`\hat{\mathbf n}` undefined)
-      - No well-defined sweep plane; keep the short way.
+    * - Initial and final sensitive axes **parallel** (:math:`\hat{\mathbf n}` undefined)
+      - The sensitive axis does not move during the slew, so there is nothing to avoid; keep the short way.
+    * - Initial and final sensitive axes **anti-parallel** (:math:`\hat{\mathbf n}` undefined)
+      - The sensitive axis sweeps a half circle -- the *widest* arc it ever traverses -- but
+        :math:`\mathbf a_i \times \mathbf a_f` is zero for a half turn just as it is for no motion at all, so the two
+        are indistinguishable to the guard and the reversal test is skipped. The short way is kept unchecked and may
+        sweep across the Sun. See Module Notes.
     * - Sun parallel to the sweep axis (:math:`\hat{\mathbf p}` undefined)
       - The sweep never approaches the Sun; keep the short way.
     * - Sun parallel to the initial sensitive axis (:math:`\hat{\mathbf a}_{i\times s}` undefined)
@@ -247,7 +263,10 @@ the input reference after decay, and ``reInitialize`` restarting the maneuver), 
 geometries (missing Sun information, body at the reference, Sun along the sensitive axis, Sun perpendicular to the sweep
 plane, and anti-parallel sensitive axes). The maneuver path is additionally regression-fuzzed with realistic Sun
 geometry; the shared regression helper skips inputs near a degeneracy, near the discrete short/long-way decision
-boundary, or near a :math:`180^\circ` slew, where an independent fp32 reference can select the opposite (equally valid)
-maneuver. A separate integrated
+boundary, or near a :math:`180^\circ` slew. At those inputs the smallest rounding difference sends two independently
+coded implementations opposite ways around, and since both maneuvers are legitimate the comparison would only measure
+which way each happened to round. This gates the implementation comparison only -- the property tests assert what holds
+for either choice and run on every input. No test currently asserts that the swept sensitive axis clears the Sun.
+A separate integrated
 test pins the combined ``sunAvoidance`` :math:`\rightarrow` :ref:`attTrackingError` pipeline against a reference model
 of the combined behavior.
