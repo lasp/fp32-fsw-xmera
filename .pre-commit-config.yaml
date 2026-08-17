@@ -22,7 +22,16 @@ repos:
           name: Check for banned hosted includes
           language: script
           entry: .github/scripts/check_freestanding_includes.sh
-          args: [algorithms/]
-          files: '\.(h|hpp|cpp)$'
+          # Only the sources that compile into the freestanding library. The
+          # script re-applies this scope itself, so this filter is just a way to
+          # avoid running the hook on hosted-only edits. (?x) turns on verbose
+          # mode, which ignores whitespace and enables the trailing comments.
+          files: |-
+            (?x)
+              ^algorithms/(
+                  [^/]+/[^/]*(Algorithm(_c)?\.(h|cpp)|Types\.h)  # algorithm core, C shim, shim POD types
+                | utilities/fsw/[^/]+\.(h|hpp)                   # header-only FswUtilities
+                | filteringCore/[^/]+\.(h|hpp)                   # header-only filter infrastructure
+              )$
           exclude: '/_tests/'
-          pass_filenames: false
+          pass_filenames: true
