@@ -41,23 +41,29 @@ RoiCandidates RegionsOfInterestPruneAlgorithm::update(const uint16_t* rowSums,
  @param s  Pointer to the 1-D sum array.
  @param n  Length of the array.
 */
+// NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic) -- s is a raw C array mirroring the
+// message payload's void* pointer field; indexing it directly is the natural, minimal representation.
 std::pair<RegionsOfInterestPruneAlgorithm::SpanVec, RegionsOfInterestPruneAlgorithm::AccumVec>
 RegionsOfInterestPruneAlgorithm::findSpans(const uint16_t* s, uint32_t n) {
     SpanVec spans;
     AccumVec accum;
     for (uint32_t i = 0; i < n;) {
-        if (s[i]) {
+        if (s[i] != 0) {
             uint32_t j = i;
             uint32_t sum = 0;
-            while (j < n && s[j]) sum += s[j++];
+            while (j < n && s[j] != 0) {
+                sum += s[j++];
+            }
             spans.emplace_back(i, j - i);
             accum.push_back(sum);
             i = j;
-        } else
+        } else {
             ++i;
+        }
     }
     return {spans, accum};
 }
+// NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic)
 
 /*! Returns the indices of the top-keep entries of vals ordered by descending value.
  *  Uses std::ranges::partial_sort so only the retained portion is fully sorted (O(N log keep)).
@@ -68,6 +74,9 @@ RegionsOfInterestPruneAlgorithm::findSpans(const uint16_t* s, uint32_t n) {
 RegionsOfInterestPruneAlgorithm::AccumVec RegionsOfInterestPruneAlgorithm::topIndices(const AccumVec& vals,
                                                                                       uint32_t keep) {
     AccumVec idx(vals.size());
+    // std::ranges::iota isn't implemented in this project's libc++ yet, despite being valid
+    // C++23; plain std::iota is the portable choice.
+    // NOLINTNEXTLINE(modernize-use-ranges)
     std::iota(idx.begin(), idx.end(), 0);
     keep = std::min(keep, static_cast<uint32_t>(vals.size()));
     std::ranges::partial_sort(idx, idx.begin() + keep, std::greater{}, [&vals](uint32_t i) { return vals[i]; });
@@ -86,6 +95,8 @@ RegionsOfInterestPruneAlgorithm::AccumVec RegionsOfInterestPruneAlgorithm::topIn
  @param C         Per-col-span accumulator sums.
  @param colIdx    Indices into colSpans / C selected by the pre-filter (Step 2).
 */
+// NOLINTBEGIN(bugprone-easily-swappable-parameters) -- R/rowIdx and C/colIdx are legitimately paired,
+// documented adjacent inputs (an accumulator plus its pre-filtered index list); this shape is intentional.
 std::vector<RoiCandidateEntry> RegionsOfInterestPruneAlgorithm::buildCandidates(const SpanVec& rowSpans,
                                                                                 const AccumVec& R,
                                                                                 const AccumVec& rowIdx,
@@ -93,14 +104,16 @@ std::vector<RoiCandidateEntry> RegionsOfInterestPruneAlgorithm::buildCandidates(
                                                                                 const AccumVec& C,
                                                                                 const AccumVec& colIdx) {
     std::vector<RoiCandidateEntry> candidates;
-    for (const uint32_t ki : rowIdx)
+    for (const uint32_t ki : rowIdx) {
         for (const uint32_t li : colIdx) {
             const auto [r, h] = rowSpans[ki];
             const auto [c, w] = colSpans[li];
             candidates.push_back({r, c, h, w, std::min(R[ki], C[li])});
         }
+    }
     return candidates;
 }
+// NOLINTEND(bugprone-easily-swappable-parameters)
 
 /*! Sorts candidates by estimated pixel count (descending), uses window area for tie break, truncates
  *  to ROI_CANDIDATES_MAX, and packs the result into a RoiCandidates ready for publication.
@@ -109,13 +122,19 @@ std::vector<RoiCandidateEntry> RegionsOfInterestPruneAlgorithm::buildCandidates(
 */
 RoiCandidates RegionsOfInterestPruneAlgorithm::packOutput(std::vector<RoiCandidateEntry> candidates) {
     std::ranges::sort(candidates, [](const RoiCandidateEntry& a, const RoiCandidateEntry& b) {
-        if (a.count != b.count) return a.count > b.count;
+        if (a.count != b.count) {
+            return a.count > b.count;
+        }
         return a.height * a.width < b.height * b.width;
     });
-    if (candidates.size() > ROI_CANDIDATES_MAX) candidates.resize(ROI_CANDIDATES_MAX);
+    if (candidates.size() > ROI_CANDIDATES_MAX) {
+        candidates.resize(ROI_CANDIDATES_MAX);
+    }
 
     RoiCandidates outRoi{};
     outRoi.numCandidates = static_cast<uint32_t>(candidates.size());
-    for (uint32_t i = 0; i < outRoi.numCandidates; ++i) outRoi.candidates[i] = candidates[i];
+    for (uint32_t i = 0; i < outRoi.numCandidates; ++i) {
+        outRoi.candidates[i] = candidates[i];
+    }
     return outRoi;
 }
