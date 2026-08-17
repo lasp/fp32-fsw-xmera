@@ -12,19 +12,24 @@
 #include "utilities/fsw/freestandingIsFinite.hpp"
 
 static constexpr float kDefaultMotorAngle = 103.2242F * std::numbers::pi_v<float> / 180.0F;
+static constexpr int kNumTableCols = NUM_GIMBAL_TO_MOTOR_TABLE_COLS;
+static constexpr int kNumTableRows = NUM_GIMBAL_TO_MOTOR_TABLE_ROWS;
+static constexpr int kNumArrayElements = NUM_GIMBAL_TO_MOTOR_TABLE_ELEMENTS;
 
+/*! @brief Structure containing the algorithm output. */
 struct ThrustAxisToMotorAnglesOutput {
-    float motorAngle1{kDefaultMotorAngle}; /*!< [rad] Motor 1 angle */
-    float motorAngle2{kDefaultMotorAngle}; /*!< [rad] Motor 2 angle */
+    float motorAngle1{kDefaultMotorAngle};  //!< [rad] Motor 1 angle
+    float motorAngle2{kDefaultMotorAngle};  //!< [rad] Motor 2 angle
 };
 
+/*! @brief Structure containing the motor angles and boolean indicating whether the angles are valid. */
 struct MotorAngles {
-    float angle1;
-    float angle2;
-    bool isValidInterpolation;
+    float angle1;               //!< [rad] Motor 1 angle
+    float angle2;               //!< [rad] Motor 2 angle
+    bool isValidInterpolation;  //!< Boolean indicating whether the motor angles are valid
 };
 
-/*! @brief Motor angular travel range in body-frame radians. */
+/*! @brief Structure containing the motor angular travel range. */
 struct StepperMotorAngleRange {
     float minAngle{0.0F};                              //!< [rad] lower bound of the motor travel range
     float maxAngle{2.0F * std::numbers::pi_v<float>};  //!< [rad] upper bound of the motor travel range
@@ -44,12 +49,8 @@ struct GimbalToMotorAngleTableLayout {
                          180.0F};  //!< [rad] Interpolation table motor discretization step
 };
 
-static constexpr int kNumTableCols = NUM_GIMBAL_TO_MOTOR_TABLE_COLS;
-static constexpr int kNumTableRows = NUM_GIMBAL_TO_MOTOR_TABLE_ROWS;
-static constexpr int kNumArrayElements = NUM_GIMBAL_TO_MOTOR_TABLE_ELEMENTS;
-
-/*! @brief Validated configuration for ThrustAxisToMotorAnglesAlgorithm. Holds the motor travel
- * range and the two gimbal-to-motor interpolation tables. */
+/*! @brief Validated configuration for the thrust axis to motor angles algorithm.
+ * Holds the motor travel range, lookup table data for each motor, and table layout information. */
 class ThrustAxisToMotorAnglesConfig final {
    public:
     static ThrustAxisToMotorAnglesConfig create(const StepperMotorAngleRange& angleRange,
@@ -148,8 +149,8 @@ class ThrustAxisToMotorAnglesConfig final {
     GimbalToMotorAngleTableLayout tableLayout;        //!< [-] Interpolation table layout data
 };
 
-/*! @brief Pure algorithm: interpolates the stepper motor angles corresponding to the commanded
- * gimbal tip and tilt angles from the gimbal-to-motor lookup tables. */
+/*! @brief Pure algorithm: determines the stepper motor angles corresponding to the incoming
+ * gimbal tip and tilt angles. */
 class ThrustAxisToMotorAnglesAlgorithm final {
    public:
     explicit ThrustAxisToMotorAnglesAlgorithm(const ThrustAxisToMotorAnglesConfig& config);
