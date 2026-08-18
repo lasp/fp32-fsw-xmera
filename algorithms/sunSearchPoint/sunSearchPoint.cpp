@@ -43,7 +43,7 @@ SunSearchPointConfig SunSearchPoint::toConfig() const {
 */
 void SunSearchPoint::reconfigure() {
     if (!this->algorithm) {
-        throw XmeraLifecycleException("SunSearchPoint reconfigure() before reset().");
+        throw XmeraLifecycleException("SunSearchPoint reset() has not been called.");
     }
     this->algorithm->setConfig(this->toConfig());
 }
@@ -54,7 +54,7 @@ void SunSearchPoint::reconfigure() {
 */
 void SunSearchPoint::reInitialize() {
     if (!this->algorithm) {
-        throw XmeraLifecycleException("SunSearchPoint reInitialize() before reset().");
+        throw XmeraLifecycleException("SunSearchPoint reset() has not been called.");
     }
     this->algorithm->reInitialize();
 }
