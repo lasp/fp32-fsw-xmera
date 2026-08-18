@@ -58,7 +58,7 @@ def test_thr_momentum_management(hs_min_check):
     sim.ExecuteSimulation()
 
     # Truth values carried over from the double-precision Xmera unit test. The module writes the
-    # dump request only once, so the recorded value is unchanged across both logged steps.
+    # request every update; the wheel speeds are constant, so both logged steps carry the same value.
     if hs_min_check == 1:
         true_vector = [0.0, 0.0, 0.0]
     else:

@@ -4,7 +4,6 @@
 #include "utilities/fsw/opaqueHandle.h"
 
 #include <Eigen/Core>
-#include <optional>
 
 namespace {
 
@@ -49,23 +48,15 @@ void ThrMomentumManagementAlgorithm_setConfig(ThrMomentumManagementAlgorithmHand
     fsw::fromHandle<::ThrMomentumManagementAlgorithm>(self)->setConfig(makeConfig(hsMin, rwArrayConfig));
 }
 
-void ThrMomentumManagementAlgorithm_reInitialize(ThrMomentumManagementAlgorithmHandle* self) {
-    fsw::fromHandle<::ThrMomentumManagementAlgorithm>(self)->reInitialize();
-}
-
-ThrMomentumManagementOutput_c ThrMomentumManagementAlgorithm_update(
-    ThrMomentumManagementAlgorithmHandle* self,
-    const ThrMomentumManagementWheelSpeeds_c* wheelSpeeds) {
+Vector3f_c ThrMomentumManagementAlgorithm_update(const ThrMomentumManagementAlgorithmHandle* self,
+                                                 const ThrMomentumManagementWheelSpeeds_c* wheelSpeeds) {
     const Eigen::Vector<float, kMaxNumRw> wheelSpeedsCpp = cArrayToEigenVector(wheelSpeeds->wheelSpeeds);
 
-    const std::optional<Eigen::Vector3f> Delta_H_B =
-        fsw::fromHandle<::ThrMomentumManagementAlgorithm>(self)->update(wheelSpeedsCpp);
+    const Eigen::Vector3f Delta_H_B =
+        fsw::fromHandle<const ::ThrMomentumManagementAlgorithm>(self)->update(wheelSpeedsCpp);
 
-    // std::optional cannot cross the C boundary: flatten it to the engaged flag plus a zeroed
-    // vector, so deltaH_B is never left indeterminate when no dump was requested.
-    ThrMomentumManagementOutput_c out{};
-    out.dumpRequested = Delta_H_B.has_value();
-    eigenVectorToCArray(Delta_H_B.value_or(Eigen::Vector3f::Zero()), out.deltaH_B.data);
+    Vector3f_c out{};
+    eigenVectorToCArray(Delta_H_B, out.data);
 
     return out;
 }

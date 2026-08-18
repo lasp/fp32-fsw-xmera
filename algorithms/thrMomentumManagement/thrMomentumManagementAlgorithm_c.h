@@ -2,6 +2,7 @@
 #define F32XMERA_THR_MOMENTUM_MANAGEMENT_ALGORITHM_C_H
 
 #include "thrMomentumManagementTypes.h"
+#include "utilities/fsw/plainCAlgorithmDataTypes.h"
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -60,21 +61,13 @@ void ThrMomentumManagementAlgorithm_setConfig(ThrMomentumManagementAlgorithmHand
                                               const ThrMomentumManagementRwArrayConfiguration_c* rwArrayConfig);
 
 /**
- * @brief Re-arm the one-shot momentum dumping request so the next update() assesses the RW momentum.
- * @param self Pointer to the instance.
- */
-void ThrMomentumManagementAlgorithm_reInitialize(ThrMomentumManagementAlgorithmHandle* self);
-
-/**
- * @brief Assess the RW cluster momentum and, while armed, compute the requested momentum change.
+ * @brief Assess the RW cluster momentum and compute the requested momentum change.
  * @param self        Pointer to the instance.
  * @param wheelSpeeds Pointer to the current reaction-wheel speeds.
- * @return ThrMomentumManagementOutput_c the requested momentum change; its dumpRequested field is
- *         false (and deltaH_B zeroed) once the one-shot check has been spent.
+ * @return Vector3f_c [Nms] the requested body-frame angular momentum change.
  */
-ThrMomentumManagementOutput_c ThrMomentumManagementAlgorithm_update(
-    ThrMomentumManagementAlgorithmHandle* self,
-    const ThrMomentumManagementWheelSpeeds_c* wheelSpeeds);
+Vector3f_c ThrMomentumManagementAlgorithm_update(const ThrMomentumManagementAlgorithmHandle* self,
+                                                 const ThrMomentumManagementWheelSpeeds_c* wheelSpeeds);
 
 #ifdef __cplusplus
 }  // extern "C"

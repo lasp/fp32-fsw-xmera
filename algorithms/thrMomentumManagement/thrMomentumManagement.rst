@@ -5,9 +5,7 @@ This module reads in the Reaction Wheel (RW) speeds, determines the net RW angul
 amount of angular momentum that must be dumped. The output is a desired angular momentum change
 :math:`{}^{B}\Delta\bm{H}` expressed in body frame components.
 
-The momentum check is a **one-shot**: it runs on the first update after initialization and is then disarmed, so a
-dump is requested at most once per re-initialization. This is deliberate — the downstream firing logic needs a
-single fixed target to work against, not a continuously revised one.
+The momentum check runs on **every** update, so the requested change tracks the RW speeds as they evolve.
 
 A separate thruster firing logic module, ``thrMomentumDumping``, later computes the thruster on-cycling. The
 intermediate ``thrForceMapping`` module maps the requested momentum change into thruster impulse requests: that
@@ -21,21 +19,19 @@ Module Architecture
 -------------------
 
 The **algorithm** (``ThrMomentumManagementAlgorithm``) is framework-free and Eigen-typed. It holds a validated
-``ThrMomentumManagementConfig`` and the one-shot latch, and implements the dumping law described under
-`Mathematical Formulation`_. Its ``update()`` never throws and returns ``std::optional<Eigen::Vector3f>``: engaged
-with the requested momentum change while the check is armed, and disengaged once it has been spent.
+``ThrMomentumManagementConfig`` and implements the dumping law described under `Mathematical Formulation`_. Its
+``update()`` never throws, carries no runtime state, and returns the requested momentum change as an
+``Eigen::Vector3f``.
 
 The **Xmera adapter** (``ThrMomentumManagement``) inherits from ``SysModel`` and owns all messaging concerns. It
-converts between the message payloads' C arrays and the algorithm's Eigen types, and writes the output message only
-when the algorithm returns an engaged optional — so the message is written once per re-initialization rather than
-every cycle. Configuration uses two-phase initialization: the caller sets the public properties, then ``reset()``
+converts between the message payloads' C arrays and the algorithm's Eigen types, and writes the output message on
+every update. Configuration uses two-phase initialization: the caller sets the public properties, then ``reset()``
 validates the input links, builds the configuration, and constructs the algorithm.
 
 The **Adamant adapter** is a C shim (``thrMomentumManagementAlgorithm_c.h`` / ``.cpp``) exposing the algorithm
-through an opaque handle for Ada FFI. Because ``std::optional`` cannot cross the C boundary, ``update()`` returns a
-``ThrMomentumManagementOutput_c`` POD carrying the momentum change alongside a ``dumpRequested`` flag; the vector is
-zeroed when the flag is false, so a caller that ignores the flag never reads an indeterminate value. A non-throwing
-``validateConfig()`` lets Ada pre-check a configuration before calling the throwing ``create()`` / ``setConfig()``.
+through an opaque handle for Ada FFI. ``update()`` returns the requested momentum change as a ``Vector3f_c`` POD. A
+non-throwing ``validateConfig()`` lets Ada pre-check a configuration before calling the throwing ``create()`` /
+``setConfig()``.
 
 Message Connection Descriptions
 -------------------------------
@@ -53,8 +49,8 @@ information on what this message is used for.
       - Description
     * - deltaHOutMsg
       - :ref:`CmdTorqueBodyMsgF32Payload`
-      - Output message with the requested angular momentum change :math:`{}^{B}\Delta\bm{H}` [Nms]. The payload is a
-        torque-shaped carrier reused here for angular momentum; the units are Nms, not Nm.
+      - Output message with the requested angular momentum change :math:`{}^{B}\Delta\bm{H}` [Nms], written every
+        update. The payload is a torque-shaped carrier reused here for angular momentum; the units are Nms, not Nm.
     * - rwSpeedsInMsg
       - :ref:`RWSpeedMsgF32Payload`
       - Reaction wheel speed input message [r/s], read every update.
@@ -96,9 +92,6 @@ The magnitude :math:`|\bm{h}_{s}|` appears in the denominator, so the implementa
 momentum below :math:`10^{-6}` Nms as zero. That branch is only reachable when :math:`h_{s,\text{min}}` is itself
 zero — for any positive threshold the :math:`|\bm{h}_{s}| < h_{s,\text{min}}` comparison short-circuits first — and
 it prevents a :math:`0/0` division from producing NaN.
-
-The module computes :math:`{}^{B}\Delta\bm{H}` only once per re-initialization: either it is zero or it is
-non-zero. To run the check again, ``reInitialize()`` must be called.
 
 Module Parameters
 -----------------
@@ -149,13 +142,12 @@ The module uses two-phase initialization: set the public configuration propertie
     module.rwSpeedsInMsg.subscribeTo(rw_speed_in_msg)
     module.rwConfigDataInMsg.subscribeTo(rw_config_in_msg)
 
-    # Phase 2: reset() validates the links, builds the config, and arms the momentum check
+    # Phase 2: reset() validates the links and builds the config
     sim.AddModelToTask(task_name, module)
 
 Both input messages are required; ``reset()`` raises if either is unconnected.
 
-To request a second momentum check after the first has been consumed, call ``reInitialize()``. To push edited
-configuration properties onto a running algorithm without re-arming the check, call ``reconfigure()``. Both raise
+To push edited configuration properties onto a running algorithm, call ``reconfigure()``. It raises
 ``XmeraLifecycleException`` if called before ``reset()``.
 
 Module Assumptions and Limitations
@@ -163,13 +155,8 @@ Module Assumptions and Limitations
 
 - The spacecraft is assumed to hold a steady inertial orientation during the momentum dumping maneuver, which is
   what justifies neglecting the :math:`\bm{\omega}_{B/N} \times \bm{h}_{s}` transport term.
-- The momentum check runs once per re-initialization, not continuously. The computed
-  :math:`{}^{B}\Delta\bm{H}` reflects the RW speeds at that single instant and is not revised as they change.
-- The output message is written only on the update that performs the check. Between checks the message retains its
-  previous contents, so downstream consumers see a held value rather than a fresh one.
-- This module and the two cascading modules used to perform momentum dumping do not work when run at simulation
-  time :math:`t = 0`. The user needs to call ``reset()`` at a simulation time :math:`t \neq 0`, at which point the
-  amount of momentum to be dumped is computed.
+- :math:`{}^{B}\Delta\bm{H}` is recomputed from scratch on every update and carries no memory of what has already
+  been dumped, so the downstream firing logic is responsible for tracking delivery.
 - The RW configuration is sampled at ``reset()`` / ``reconfigure()``, not per update, so it is treated as static
   for the life of the configuration.
 - Single-precision arithmetic limits the achievable accuracy to roughly seven significant figures. Against the

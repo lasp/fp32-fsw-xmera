@@ -1,9 +1,6 @@
 #ifndef F32XMERA_THR_MOMENTUM_MANAGEMENT_TYPES_H
 #define F32XMERA_THR_MOMENTUM_MANAGEMENT_TYPES_H
 
-#include "utilities/fsw/plainCAlgorithmDataTypes.h"
-
-#include <stdbool.h>
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -33,18 +30,6 @@ typedef struct {
 typedef struct {
     float wheelSpeeds[THR_MOMENTUM_MANAGEMENT_MAX_NUM_RW]; /*!< [r/s] reaction-wheel speeds */
 } ThrMomentumManagementWheelSpeeds_c;
-
-/**
- * @brief Plain-old-data mirror of the algorithm's optional momentum-change output.
- *
- * The C++ update() returns std::optional<Eigen::Vector3f>, which cannot cross the C boundary.
- * dumpRequested carries the engaged/disengaged state: deltaH_B is meaningful only when it is true,
- * and is zeroed otherwise.
- */
-typedef struct {
-    Vector3f_c deltaH_B; /*!< [Nms] requested body-frame angular momentum change */
-    bool dumpRequested;  /*!< [-]   true when the one-shot momentum check ran on this update */
-} ThrMomentumManagementOutput_c;
 
 #ifdef __cplusplus
 }  // extern "C"

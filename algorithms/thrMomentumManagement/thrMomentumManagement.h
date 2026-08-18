@@ -18,11 +18,8 @@ class ThrMomentumManagement : public SysModel {
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
 
-    //! Re-validate the module properties and push them onto the live algorithm, leaving its state untouched.
+    //! Re-validate the module properties and push them onto the live algorithm.
     void reconfigure();
-
-    //! Re-arm the one-shot momentum dumping request; a pass-through to the algorithm's reInitialize().
-    void reInitialize();
 
     /* declare module public variables */
     float hsMin{};  //!< [Nms]  minimum RW cluster momentum for dumping

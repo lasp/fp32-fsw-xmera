@@ -8,7 +8,6 @@
 #include <stdint.h>
 
 #include <Eigen/Core>
-#include <optional>
 #include <utility>
 
 inline constexpr uint32_t kMaxNumRw = THR_MOMENTUM_MANAGEMENT_MAX_NUM_RW;  //!< [-] maximum number of reaction wheels
@@ -75,28 +74,19 @@ class ThrMomentumManagementConfig final {
     ThrMomentumManagementRwArrayConfiguration rwArrayConfig;  //!< [-] RW spin axes and spin-axis inertias
 };
 
-/*!
- * @brief Assesses the net reaction wheel momentum and computes the angular momentum change needed to dump it.
- *
- * The momentum check is a one-shot: it runs on the first update() after a re-initialization and is then
- * disarmed, so a dump is requested at most once per re-initialization. Call reInitialize() to re-arm it.
- */
+/*! @brief Assesses the net reaction wheel momentum and computes the angular momentum change needed to dump it. */
 class ThrMomentumManagementAlgorithm final {
    public:
     explicit ThrMomentumManagementAlgorithm(const ThrMomentumManagementConfig& config);
 
-    //! Install the validated configuration; does not touch runtime state.
+    //! Install the validated configuration.
     void setConfig(const ThrMomentumManagementConfig& config);
 
-    //! Re-arm the one-shot momentum dumping request.
-    void reInitialize();
-
-    //! [Nms] Requested body-frame angular momentum change, or nullopt once the one-shot check has been spent.
-    std::optional<Eigen::Vector3f> update(const Eigen::Vector<float, kMaxNumRw>& wheelSpeeds);
+    //! [Nms] Requested body-frame angular momentum change for the supplied wheel speeds.
+    Eigen::Vector3f update(const Eigen::Vector<float, kMaxNumRw>& wheelSpeeds) const;
 
    private:
     ThrMomentumManagementConfig cfg;  //!< [-] validated configuration (dumping threshold, RW array config)
-    bool dumpRequested{};             //!< [-] true while the one-shot momentum check is still pending
 };
 
 #endif

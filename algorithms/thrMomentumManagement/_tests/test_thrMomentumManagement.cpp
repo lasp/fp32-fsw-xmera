@@ -22,8 +22,7 @@ TEST(ThrMomentumManagement, NoDumpWhenBelowThreshold) {
 
     const auto deltaH_B = alg.update(makeWheelSpeeds({10.0F, -25.0F, 50.0F, 100.0F}));
 
-    ASSERT_TRUE(deltaH_B.has_value());
-    EXPECT_TRUE(deltaH_B->isZero(kAccuracy));
+    EXPECT_TRUE(deltaH_B.isZero(kAccuracy));
 }
 
 TEST(ThrMomentumManagement, MatchesReferenceAcrossCases) {
@@ -46,10 +45,9 @@ TEST(ThrMomentumManagement, SingleWheelDumpsAlongItsSpinAxis) {
     // hs = 0.2 * 50 = 10 Nms about +z; dumping to hsMin = 1 removes 9 Nms.
     const auto deltaH_B = alg.update(makeWheelSpeeds({50.0F}));
 
-    ASSERT_TRUE(deltaH_B.has_value());
-    EXPECT_NEAR((*deltaH_B)[0], 0.0F, kAccuracy);
-    EXPECT_NEAR((*deltaH_B)[1], 0.0F, kAccuracy);
-    EXPECT_NEAR((*deltaH_B)[2], -9.0F, kAccuracy);
+    EXPECT_NEAR(deltaH_B[0], 0.0F, kAccuracy);
+    EXPECT_NEAR(deltaH_B[1], 0.0F, kAccuracy);
+    EXPECT_NEAR(deltaH_B[2], -9.0F, kAccuracy);
 }
 
 // The requested change is anti-parallel to the momentum and leaves exactly hsMin behind.
@@ -59,7 +57,6 @@ TEST(ThrMomentumManagement, DumpLeavesExactlyHsMin) {
 
     ThrMomentumManagementAlgorithm alg{ThrMomentumManagementConfig::create(kNominalHsMin, rwArrayConfig)};
     const auto deltaH_B = alg.update(wheelSpeeds);
-    ASSERT_TRUE(deltaH_B.has_value());
 
     Eigen::Vector3f hs_B = Eigen::Vector3f::Zero();
     for (uint32_t i = 0U; i < rwArrayConfig.numRW; ++i) {
@@ -67,40 +64,35 @@ TEST(ThrMomentumManagement, DumpLeavesExactlyHsMin) {
     }
 
     // Post-dump momentum magnitude must equal the threshold, and the change must oppose the momentum.
-    EXPECT_NEAR((hs_B + *deltaH_B).norm(), kNominalHsMin, kAccuracy);
-    EXPECT_LT(deltaH_B->normalized().dot(hs_B.normalized()), -1.0F + kAccuracy);
+    EXPECT_NEAR((hs_B + deltaH_B).norm(), kNominalHsMin, kAccuracy);
+    EXPECT_LT(deltaH_B.normalized().dot(hs_B.normalized()), -1.0F + kAccuracy);
 }
 
-// The one-shot latch: update() reports a request once, then disengages until reInitialize().
-TEST(ThrMomentumManagement, LatchIsOneShotUntilReInitialize) {
+// The request is recomputed on every call rather than latched to the first one: repeated updates with the
+// same wheel speeds all report the same non-zero request.
+TEST(ThrMomentumManagement, RequestIsRecomputedEveryUpdate) {
     ThrMomentumManagementAlgorithm alg{ThrMomentumManagementConfig::create(kNominalHsMin, makeStandardRwArrayConfig())};
     const auto wheelSpeeds = makeWheelSpeeds({10.0F, -25.0F, 50.0F, 100.0F});
 
-    EXPECT_TRUE(alg.update(wheelSpeeds).has_value());
-    EXPECT_FALSE(alg.update(wheelSpeeds).has_value());
-    EXPECT_FALSE(alg.update(wheelSpeeds).has_value());
+    const Eigen::Vector3f first = alg.update(wheelSpeeds);
+    ASSERT_FALSE(first.isZero(kAccuracy));
 
-    alg.reInitialize();
-    EXPECT_TRUE(alg.update(wheelSpeeds).has_value());
-    EXPECT_FALSE(alg.update(wheelSpeeds).has_value());
+    for (int cycle = 0; cycle < 4; ++cycle) {
+        EXPECT_TRUE(alg.update(wheelSpeeds).isApprox(first)) << "cycle " << cycle;
+    }
 }
 
-// setConfig replaces the configuration without re-arming the spent latch.
-TEST(ThrMomentumManagement, SetConfigDoesNotReArmTheLatch) {
+// setConfig replaces the configuration, and the very next update uses the new threshold.
+TEST(ThrMomentumManagement, SetConfigTakesEffectOnNextUpdate) {
     const auto rwArrayConfig = makeStandardRwArrayConfig();
     ThrMomentumManagementAlgorithm alg{ThrMomentumManagementConfig::create(kNominalHsMin, rwArrayConfig)};
     const auto wheelSpeeds = makeWheelSpeeds({10.0F, -25.0F, 50.0F, 100.0F});
 
-    EXPECT_TRUE(alg.update(wheelSpeeds).has_value());
+    EXPECT_FALSE(alg.update(wheelSpeeds).isZero(kAccuracy));
 
+    // A threshold above the cluster momentum switches dumping off from the next update onwards.
     alg.setConfig(ThrMomentumManagementConfig::create(1000.0F / 6000.0F * 100.0F, rwArrayConfig));
-    EXPECT_FALSE(alg.update(wheelSpeeds).has_value());
-
-    // Once re-armed, the new threshold is the one in force.
-    alg.reInitialize();
-    const auto deltaH_B = alg.update(wheelSpeeds);
-    ASSERT_TRUE(deltaH_B.has_value());
-    EXPECT_TRUE(deltaH_B->isZero(kAccuracy));
+    EXPECT_TRUE(alg.update(wheelSpeeds).isZero(kAccuracy));
 }
 
 TEST(ThrMomentumManagement, ConfigRoundTrips) {
@@ -204,9 +196,8 @@ TEST(ThrMomentumManagementEdgeCases, ZeroMomentumWithZeroThresholdIsFinite) {
 
     const auto deltaH_B = alg.update(makeWheelSpeeds({0.0F, 0.0F, 0.0F, 0.0F}));
 
-    ASSERT_TRUE(deltaH_B.has_value());
-    EXPECT_TRUE(deltaH_B->allFinite());
-    EXPECT_TRUE(deltaH_B->isZero(kAccuracy));
+    EXPECT_TRUE(deltaH_B.allFinite());
+    EXPECT_TRUE(deltaH_B.isZero(kAccuracy));
 }
 
 // Momentum below the zero tolerance is treated as zero even when the threshold is zero.
@@ -215,9 +206,8 @@ TEST(ThrMomentumManagementEdgeCases, NegligibleMomentumIsFinite) {
 
     const auto deltaH_B = alg.update(makeWheelSpeeds({1e-12F, -1e-12F, 1e-12F, 0.0F}));
 
-    ASSERT_TRUE(deltaH_B.has_value());
-    EXPECT_TRUE(deltaH_B->allFinite());
-    EXPECT_TRUE(deltaH_B->isZero(kAccuracy));
+    EXPECT_TRUE(deltaH_B.allFinite());
+    EXPECT_TRUE(deltaH_B.isZero(kAccuracy));
 }
 
 // A zero threshold with real momentum dumps all of it.
@@ -227,13 +217,12 @@ TEST(ThrMomentumManagementEdgeCases, ZeroThresholdDumpsEverything) {
 
     ThrMomentumManagementAlgorithm alg{ThrMomentumManagementConfig::create(0.0F, rwArrayConfig)};
     const auto deltaH_B = alg.update(wheelSpeeds);
-    ASSERT_TRUE(deltaH_B.has_value());
 
     Eigen::Vector3f hs_B = Eigen::Vector3f::Zero();
     for (uint32_t i = 0U; i < rwArrayConfig.numRW; ++i) {
         hs_B += rwArrayConfig.JsList[i] * wheelSpeeds[i] * rwArrayConfig.GsMatrix_B.col(i);
     }
-    EXPECT_TRUE((hs_B + *deltaH_B).isZero(kAccuracy));
+    EXPECT_TRUE((hs_B + deltaH_B).isZero(kAccuracy));
 }
 
 // Exactly at the threshold the strict comparison yields no dumping.
@@ -244,8 +233,7 @@ TEST(ThrMomentumManagementEdgeCases, MomentumExactlyAtThresholdDoesNotDump) {
 
     const auto deltaH_B = alg.update(makeWheelSpeeds({50.0F}));
 
-    ASSERT_TRUE(deltaH_B.has_value());
-    EXPECT_TRUE(deltaH_B->isZero(kAccuracy));
+    EXPECT_TRUE(deltaH_B.isZero(kAccuracy));
 }
 
 // With no wheels configured there is no momentum to dump.
@@ -255,8 +243,7 @@ TEST(ThrMomentumManagementEdgeCases, NoWheelsProducesZeroRequest) {
 
     const auto deltaH_B = alg.update(makeWheelSpeeds({10.0F, -25.0F, 50.0F, 100.0F}));
 
-    ASSERT_TRUE(deltaH_B.has_value());
-    EXPECT_TRUE(deltaH_B->isZero(kAccuracy));
+    EXPECT_TRUE(deltaH_B.isZero(kAccuracy));
 }
 
 // Speeds in slots past numRW belong to wheels that do not exist and must not contribute.
@@ -269,9 +256,7 @@ TEST(ThrMomentumManagementEdgeCases, SpeedsBeyondNumRwAreIgnored) {
     ThrMomentumManagementAlgorithm alg2{ThrMomentumManagementConfig::create(1.0F, rwArrayConfig)};
     const auto withoutExtra = alg2.update(makeWheelSpeeds({50.0F}));
 
-    ASSERT_TRUE(withExtra.has_value());
-    ASSERT_TRUE(withoutExtra.has_value());
-    EXPECT_TRUE(withExtra->isApprox(*withoutExtra));
+    EXPECT_TRUE(withExtra.isApprox(withoutExtra));
 }
 
 // ---------------------------------------------------------------------------------------------------
@@ -293,8 +278,7 @@ TEST(ThrMomentumManagementProperties, DumpNeverIncreasesMomentum) {
             const auto wheelSpeeds = makeWheelSpeeds(speeds);
             ThrMomentumManagementAlgorithm alg{ThrMomentumManagementConfig::create(hsMin, rwArrayConfig)};
             const auto deltaH_B = alg.update(wheelSpeeds);
-            ASSERT_TRUE(deltaH_B.has_value());
-            EXPECT_TRUE(deltaH_B->allFinite());
+            EXPECT_TRUE(deltaH_B.allFinite());
 
             Eigen::Vector3f hs_B = Eigen::Vector3f::Zero();
             for (uint32_t i = 0U; i < rwArrayConfig.numRW; ++i) {
@@ -302,7 +286,7 @@ TEST(ThrMomentumManagementProperties, DumpNeverIncreasesMomentum) {
             }
 
             const float before = hs_B.norm();
-            const float after = (hs_B + *deltaH_B).norm();
+            const float after = (hs_B + deltaH_B).norm();
             const float tol = kAccuracy * std::max(1.0F, before);
             EXPECT_LE(after, before + tol) << "hsMin " << hsMin;
             EXPECT_GE(after, -tol) << "hsMin " << hsMin;
@@ -321,10 +305,8 @@ TEST(ThrMomentumManagementProperties, IsOddInWheelSpeeds) {
     ThrMomentumManagementAlgorithm alg2{ThrMomentumManagementConfig::create(kNominalHsMin, rwArrayConfig)};
     const auto reversed = alg2.update(Eigen::Vector<float, kMaxNumRw>{-wheelSpeeds});
 
-    ASSERT_TRUE(forward.has_value());
-    ASSERT_TRUE(reversed.has_value());
     for (Eigen::Index i = 0; i < 3; ++i) {
-        EXPECT_NEAR((*reversed)[i], -(*forward)[i], kAccuracy) << "component " << i;
+        EXPECT_NEAR(reversed[i], -forward[i], kAccuracy) << "component " << i;
     }
 }
 
@@ -335,6 +317,5 @@ TEST(ThrMomentumManagementProperties, LargeSpeedsStayFinite) {
 
     const auto deltaH_B = alg.update(makeWheelSpeeds({1e6F, -1e6F, 1e6F, -1e6F}));
 
-    ASSERT_TRUE(deltaH_B.has_value());
-    EXPECT_TRUE(deltaH_B->allFinite());
+    EXPECT_TRUE(deltaH_B.allFinite());
 }

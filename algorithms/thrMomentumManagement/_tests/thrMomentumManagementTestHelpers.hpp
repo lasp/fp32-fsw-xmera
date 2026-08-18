@@ -7,7 +7,6 @@
 #include <Eigen/Core>
 #include <algorithm>
 #include <cmath>
-#include <optional>
 #include <vector>
 
 // Build a reaction-wheel array configuration from a list of spin axes and a common spin-axis inertia.
@@ -39,10 +38,10 @@ inline Eigen::Vector<float, kMaxNumRw> makeWheelSpeeds(const std::vector<float>&
 
 // Independent reference implementation of the momentum dumping law, written directly from the module
 // description rather than from the algorithm source: accumulate the net RW momentum, and request the
-// change that brings its magnitude down to hsMin. Returns nullopt when no dumping is required.
-inline std::optional<Eigen::Vector3f> referenceDeltaH(const ThrMomentumManagementRwArrayConfiguration& rwArrayConfig,
-                                                      const Eigen::Vector<float, kMaxNumRw>& wheelSpeeds,
-                                                      float hsMin) {
+// change that brings its magnitude down to hsMin.
+inline Eigen::Vector3f referenceDeltaH(const ThrMomentumManagementRwArrayConfiguration& rwArrayConfig,
+                                       const Eigen::Vector<float, kMaxNumRw>& wheelSpeeds,
+                                       float hsMin) {
     Eigen::Vector3f hs_B = Eigen::Vector3f::Zero();
     for (uint32_t i = 0U; i < rwArrayConfig.numRW; ++i) {
         hs_B += rwArrayConfig.JsList[i] * wheelSpeeds[i] * rwArrayConfig.GsMatrix_B.col(i);
@@ -55,19 +54,18 @@ inline std::optional<Eigen::Vector3f> referenceDeltaH(const ThrMomentumManagemen
     return Eigen::Vector3f{-(hs - hsMin) / hs * hs_B};
 }
 
-// Regression helper: the algorithm's first (armed) update must match the reference implementation.
+// Regression helper: the algorithm's update must match the reference implementation.
 inline void regressionTestThrMomentumManagement(const ThrMomentumManagementRwArrayConfiguration& rwArrayConfig,
                                                 const Eigen::Vector<float, kMaxNumRw>& wheelSpeeds,
                                                 float hsMin,
                                                 float accuracy) {
     ThrMomentumManagementAlgorithm alg{ThrMomentumManagementConfig::create(hsMin, rwArrayConfig)};
 
-    const std::optional<Eigen::Vector3f> actual = alg.update(wheelSpeeds);
-    const std::optional<Eigen::Vector3f> expected = referenceDeltaH(rwArrayConfig, wheelSpeeds, hsMin);
+    const Eigen::Vector3f actual = alg.update(wheelSpeeds);
+    const Eigen::Vector3f expected = referenceDeltaH(rwArrayConfig, wheelSpeeds, hsMin);
 
-    ASSERT_EQ(actual.has_value(), expected.has_value());
     for (Eigen::Index i = 0; i < 3; ++i) {
-        EXPECT_NEAR((*actual)[i], (*expected)[i], accuracy) << "component " << i;
+        EXPECT_NEAR(actual[i], expected[i], accuracy) << "component " << i;
     }
 }
 
@@ -119,10 +117,9 @@ inline void propertyDumpLeavesMinOfMomentumAndThreshold(const Eigen::Vector3f& a
     const auto wheelSpeeds = makeWheelSpeeds({speeds[0], speeds[1], speeds[2]});
 
     ThrMomentumManagementAlgorithm alg{ThrMomentumManagementConfig::create(hsMin, rwArrayConfig)};
-    const auto deltaH_B = alg.update(wheelSpeeds);
+    const Eigen::Vector3f deltaH_B = alg.update(wheelSpeeds);
 
-    ASSERT_TRUE(deltaH_B.has_value());
-    ASSERT_TRUE(deltaH_B->allFinite());
+    ASSERT_TRUE(deltaH_B.allFinite());
 
     const Eigen::Vector3f hs_B = clusterMomentum(rwArrayConfig, wheelSpeeds);
     const float before = hs_B.norm();
@@ -135,7 +132,7 @@ inline void propertyDumpLeavesMinOfMomentumAndThreshold(const Eigen::Vector3f& a
 
     // FP32 error grows with the magnitude being cancelled, so scale the tolerance with it.
     const float tol = 1e-4F * std::max(1.0F, before);
-    EXPECT_NEAR((hs_B + *deltaH_B).norm(), std::min(before, hsMin), tol);
+    EXPECT_NEAR((hs_B + deltaH_B).norm(), std::min(before, hsMin), tol);
 }
 
 // Fuzz regression: the algorithm must agree with the reference implementation on any admissible input.
@@ -154,13 +151,12 @@ inline void regressionFuzzThrMomentumManagement(const Eigen::Vector3f& axis0,
     const auto wheelSpeeds = makeWheelSpeeds({speeds[0], speeds[1], speeds[2]});
 
     ThrMomentumManagementAlgorithm alg{ThrMomentumManagementConfig::create(hsMin, rwArrayConfig)};
-    const std::optional<Eigen::Vector3f> actual = alg.update(wheelSpeeds);
-    const std::optional<Eigen::Vector3f> expected = referenceDeltaH(rwArrayConfig, wheelSpeeds, hsMin);
+    const Eigen::Vector3f actual = alg.update(wheelSpeeds);
+    const Eigen::Vector3f expected = referenceDeltaH(rwArrayConfig, wheelSpeeds, hsMin);
 
-    ASSERT_EQ(actual.has_value(), expected.has_value());
     const float tol = 1e-4F * std::max(1.0F, clusterMomentum(rwArrayConfig, wheelSpeeds).norm());
     for (Eigen::Index i = 0; i < 3; ++i) {
-        EXPECT_NEAR((*actual)[i], (*expected)[i], tol) << "component " << i;
+        EXPECT_NEAR(actual[i], expected[i], tol) << "component " << i;
     }
 }
 
