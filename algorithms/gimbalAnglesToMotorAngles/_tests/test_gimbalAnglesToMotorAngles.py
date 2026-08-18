@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import pytest
 from xmera.architecture import messaging
-from xmera.fp32 import thrustAxisToMotorAnglesF32
+from xmera.fp32 import gimbalAnglesToMotorAnglesF32
 from xmera.utilities import SimulationBaseClass
 from xmera.utilities import macros
 
@@ -29,7 +29,7 @@ def load_interpolation_tables():
 
 def to_swig_table(np_table):
     """Convert a (111, 76) numpy table into the module's wrapped GimbalMotorTable type."""
-    table = thrustAxisToMotorAnglesF32.GimbalMotorTable2D()
+    table = gimbalAnglesToMotorAnglesF32.GimbalMotorTable2D()
     for row_index in range(np_table.shape[0]):
         table[row_index] = np_table[row_index].astype(float).tolist()
     return table
@@ -37,11 +37,11 @@ def to_swig_table(np_table):
 
 @pytest.mark.parametrize("gimbal_tip_angle_ref", [0.0 * macros.D2R, 10.1 * macros.D2R, -10.9 * macros.D2R])
 @pytest.mark.parametrize("gimbal_tilt_angle_ref", [0.0 * macros.D2R, 10.1 * macros.D2R, -10.9 * macros.D2R])
-def test_thrust_axis_to_motor_angles(gimbal_tip_angle_ref, gimbal_tilt_angle_ref):
+def test_gimbal_angles_to_motor_angles(gimbal_tip_angle_ref, gimbal_tilt_angle_ref):
     r"""
     **Validation Test Description**
 
-    This unit test ensures that the gimbal flight software module thrustAxisToMotorAngles correctly
+    This unit test ensures that the gimbal flight software module gimbalAnglesToMotorAngles correctly
     determines the gimbal sequential tip and tilt angles corresponding to the reference body-frame thrust direction
     vector.
 
@@ -79,7 +79,7 @@ def test_thrust_axis_to_motor_angles(gimbal_tip_angle_ref, gimbal_tilt_angle_ref
     gimbal_to_motor_1_table, gimbal_to_motor_2_table = load_interpolation_tables()
 
     # Create and configure the module under test
-    gimbal_controller = thrustAxisToMotorAnglesF32.ThrustAxisToMotorAngles()
+    gimbal_controller = gimbalAnglesToMotorAnglesF32.GimbalAnglesToMotorAngles()
     gimbal_controller.modelTag = "twoAxisGimbalController"
     gimbal_controller.gimbalToMotor1AngleTable = to_swig_table(gimbal_to_motor_1_table)
     gimbal_controller.gimbalToMotor2AngleTable = to_swig_table(gimbal_to_motor_2_table)
@@ -107,4 +107,4 @@ def test_thrust_axis_to_motor_angles(gimbal_tip_angle_ref, gimbal_tilt_angle_ref
 
 
 if __name__ == "__main__":
-    test_thrust_axis_to_motor_angles(14.6 * macros.D2R, -4.8 * macros.D2R)
+    test_gimbal_angles_to_motor_angles(14.6 * macros.D2R, -4.8 * macros.D2R)

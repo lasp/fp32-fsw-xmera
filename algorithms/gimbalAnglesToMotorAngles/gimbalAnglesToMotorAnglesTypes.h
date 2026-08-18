@@ -1,5 +1,5 @@
-#ifndef F32XMERA_THRUST_AXIS_TO_MOTOR_ANGLES_TYPES_H
-#define F32XMERA_THRUST_AXIS_TO_MOTOR_ANGLES_TYPES_H
+#ifndef F32XMERA_GIMBAL_ANGLES_TO_MOTOR_ANGLES_TYPES_H
+#define F32XMERA_GIMBAL_ANGLES_TO_MOTOR_ANGLES_TYPES_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -36,14 +36,14 @@ typedef struct {
     float maxAngle; /*!< [rad] Upper bound of the motor travel range */
 } MotorAngleRange_c;
 
-/*! @brief Plain-old-data mirror of the C++ ThrustAxisToMotorAnglesOutput. */
+/*! @brief Plain-old-data mirror of the C++ GimbalAnglesToMotorAnglesOutput. */
 typedef struct {
     float motorAngle1; /*!< [rad] Motor 1 angle */
     float motorAngle2; /*!< [rad] Motor 2 angle */
-} ThrustAxisToMotorAnglesOutput_c;
+} GimbalAnglesToMotorAnglesOutput_c;
 
 #ifdef __cplusplus
 }  // extern "C"
 #endif
 
-#endif  // F32XMERA_THRUST_AXIS_TO_MOTOR_ANGLES_TYPES_H
+#endif  // F32XMERA_GIMBAL_ANGLES_TO_MOTOR_ANGLES_TYPES_H

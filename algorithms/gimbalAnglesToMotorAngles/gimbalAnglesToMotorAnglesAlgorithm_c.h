@@ -1,7 +1,7 @@
-#ifndef F32XMERA_THRUSTAXISTOMOTORANGLESALGORITHM_C_H
-#define F32XMERA_THRUSTAXISTOMOTORANGLESALGORITHM_C_H
+#ifndef F32XMERA_GIMBALANGLESTOMOTORANGLESALGORITHM_C_H
+#define F32XMERA_GIMBALANGLESTOMOTORANGLESALGORITHM_C_H
 
-#include "thrustAxisToMotorAnglesTypes.h"
+#include "gimbalAnglesToMotorAnglesTypes.h"
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -11,27 +11,27 @@ extern "C" {
 #endif
 
 /**
- * @brief Opaque handle to the C++ ThrustAxisToMotorAnglesAlgorithm instance.
+ * @brief Opaque handle to the C++ GimbalAnglesToMotorAnglesAlgorithm instance.
  */
-typedef struct ThrustAxisToMotorAnglesAlgorithmHandle ThrustAxisToMotorAnglesAlgorithmHandle;
+typedef struct GimbalAnglesToMotorAnglesAlgorithmHandle GimbalAnglesToMotorAnglesAlgorithmHandle;
 
 /**
  * @brief Get the NUM_GIMBAL_TO_MOTOR_TABLE_ROWS constant for Ada validation.
  * @return The number of interpolation table rows handled at the C boundary.
  */
-uint32_t ThrustAxisToMotorAnglesAlgorithm_getNumTableRows(void);
+uint32_t GimbalAnglesToMotorAnglesAlgorithm_getNumTableRows(void);
 
 /**
  * @brief Get the NUM_GIMBAL_TO_MOTOR_TABLE_COLS constant for Ada validation.
  * @return The number of interpolation table columns handled at the C boundary.
  */
-uint32_t ThrustAxisToMotorAnglesAlgorithm_getNumTableCols(void);
+uint32_t GimbalAnglesToMotorAnglesAlgorithm_getNumTableCols(void);
 
 /**
  * @brief Get the NUM_GIMBAL_TO_MOTOR_TABLE_ELEMENTS constant for Ada validation.
  * @return The number of interpolation table entries handled at the C boundary.
  */
-uint32_t ThrustAxisToMotorAnglesAlgorithm_getNumTableElements(void);
+uint32_t GimbalAnglesToMotorAnglesAlgorithm_getNumTableElements(void);
 
 /**
  * @brief Report whether a configuration would be accepted by create/setConfig.
@@ -48,31 +48,31 @@ uint32_t ThrustAxisToMotorAnglesAlgorithm_getNumTableElements(void);
  * @return true when the configuration is valid. Never throws, so it can guard the throwing
  *         create/setConfig from an invalid configuration.
  */
-bool ThrustAxisToMotorAnglesAlgorithm_validateConfig(const MotorAngleRange_c* angleRange,
-                                                     const GimbalToMotorAngleTableData_c* gimbalToMotor1AngleTable,
-                                                     const GimbalToMotorAngleTableData_c* gimbalToMotor2AngleTable,
-                                                     const GimbalToMotorAngleTableLayout_c* tableLayout);
+bool GimbalAnglesToMotorAnglesAlgorithm_validateConfig(const MotorAngleRange_c* angleRange,
+                                                       const GimbalToMotorAngleTableData_c* gimbalToMotor1AngleTable,
+                                                       const GimbalToMotorAngleTableData_c* gimbalToMotor2AngleTable,
+                                                       const GimbalToMotorAngleTableLayout_c* tableLayout);
 
 /**
- * @brief Construct a new ThrustAxisToMotorAnglesAlgorithm instance from the supplied configuration.
+ * @brief Construct a new GimbalAnglesToMotorAnglesAlgorithm instance from the supplied configuration.
  * @param angleRange               [rad] Motor angular travel range (min/max).
  * @param gimbalToMotor1AngleTable [rad] Gimbal-to-motor 1 angle interpolation table.
  * @param gimbalToMotor2AngleTable [rad] Gimbal-to-motor 2 angle interpolation table.
  * @param tableLayout              [-]   Table row layout information.
- * @return Pointer to a new ThrustAxisToMotorAnglesAlgorithm (must be destroyed).
+ * @return Pointer to a new GimbalAnglesToMotorAnglesAlgorithm (must be destroyed).
  * Validate the configuration with validateConfig first; invalid input throws.
  */
-ThrustAxisToMotorAnglesAlgorithmHandle* ThrustAxisToMotorAnglesAlgorithm_create(
+GimbalAnglesToMotorAnglesAlgorithmHandle* GimbalAnglesToMotorAnglesAlgorithm_create(
     const MotorAngleRange_c* angleRange,
     const GimbalToMotorAngleTableData_c* gimbalToMotor1AngleTable,
     const GimbalToMotorAngleTableData_c* gimbalToMotor2AngleTable,
     const GimbalToMotorAngleTableLayout_c* tableLayout);
 
 /**
- * @brief Destroy a previously created ThrustAxisToMotorAnglesAlgorithm.
+ * @brief Destroy a previously created GimbalAnglesToMotorAnglesAlgorithm.
  * @param self Pointer to the instance to destroy.
  */
-void ThrustAxisToMotorAnglesAlgorithm_destroy(ThrustAxisToMotorAnglesAlgorithmHandle* self);
+void GimbalAnglesToMotorAnglesAlgorithm_destroy(GimbalAnglesToMotorAnglesAlgorithmHandle* self);
 
 /**
  * @brief Replace the algorithm's configuration at runtime. The cached previous valid output is preserved.
@@ -83,31 +83,32 @@ void ThrustAxisToMotorAnglesAlgorithm_destroy(ThrustAxisToMotorAnglesAlgorithmHa
  * @param tableLayout              [-]   Table row layout information.
  * Validate the configuration with validateConfig first; invalid input throws.
  */
-void ThrustAxisToMotorAnglesAlgorithm_setConfig(ThrustAxisToMotorAnglesAlgorithmHandle* self,
-                                                const MotorAngleRange_c* angleRange,
-                                                const GimbalToMotorAngleTableData_c* gimbalToMotor1AngleTable,
-                                                const GimbalToMotorAngleTableData_c* gimbalToMotor2AngleTable,
-                                                const GimbalToMotorAngleTableLayout_c* tableLayout);
+void GimbalAnglesToMotorAnglesAlgorithm_setConfig(GimbalAnglesToMotorAnglesAlgorithmHandle* self,
+                                                  const MotorAngleRange_c* angleRange,
+                                                  const GimbalToMotorAngleTableData_c* gimbalToMotor1AngleTable,
+                                                  const GimbalToMotorAngleTableData_c* gimbalToMotor2AngleTable,
+                                                  const GimbalToMotorAngleTableLayout_c* tableLayout);
 
 /**
  * @brief Reset the cached previous valid output back to the default motor angles.
  * @param self Pointer to the instance.
  */
-void ThrustAxisToMotorAnglesAlgorithm_reInitialize(ThrustAxisToMotorAnglesAlgorithmHandle* self);
+void GimbalAnglesToMotorAnglesAlgorithm_reInitialize(GimbalAnglesToMotorAnglesAlgorithmHandle* self);
 
 /**
  * @brief Determine the motor angles for the commanded gimbal tip and tilt angles.
  * @param self         Pointer to the instance.
  * @param gimbalAngle1 [rad] Commanded gimbal tip angle 1.
  * @param gimbalAngle2 [rad] Commanded gimbal tilt angle 2.
- * @return ThrustAxisToMotorAnglesOutput_c  Motor angles.
+ * @return GimbalAnglesToMotorAnglesOutput_c  Motor angles.
  */
-ThrustAxisToMotorAnglesOutput_c ThrustAxisToMotorAnglesAlgorithm_update(ThrustAxisToMotorAnglesAlgorithmHandle* self,
-                                                                        float gimbalAngle1,
-                                                                        float gimbalAngle2);
+GimbalAnglesToMotorAnglesOutput_c GimbalAnglesToMotorAnglesAlgorithm_update(
+    GimbalAnglesToMotorAnglesAlgorithmHandle* self,
+    float gimbalAngle1,
+    float gimbalAngle2);
 
 #ifdef __cplusplus
 }  // extern "C"
 #endif
 
-#endif  // F32XMERA_THRUSTAXISTOMOTORANGLESALGORITHM_C_H
+#endif  // F32XMERA_GIMBALANGLESTOMOTORANGLESALGORITHM_C_H

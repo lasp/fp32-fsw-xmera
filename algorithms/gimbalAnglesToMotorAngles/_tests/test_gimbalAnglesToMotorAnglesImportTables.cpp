@@ -1,5 +1,5 @@
-#include "../thrustAxisToMotorAnglesAlgorithm.h"
-#include "thrustAxisToMotorAnglesTestHelpers.hpp"
+#include "../gimbalAnglesToMotorAnglesAlgorithm.h"
+#include "gimbalAnglesToMotorAnglesTestHelpers.hpp"
 
 #include <gtest/gtest.h>
 #include <numbers>
@@ -9,11 +9,11 @@
 // ---------------------------------------------------------------------------
 
 // No interpolation outside the gimbal boundary returns home motor angles
-TEST(ThrustAxisToMotorAnglesReadTablesTest, NoInterpolationOutsideBoundaryReturnsHome) {
+TEST(GimbalAnglesToMotorAnglesReadTablesTest, NoInterpolationOutsideBoundaryReturnsHome) {
     const float gimbalAngle1 = -12.0F * degToRad;  // [rad]
     const float gimbalAngle2 = -10.0F * degToRad;  // [rad]
 
-    ThrustAxisToMotorAnglesAlgorithm alg(makeConfig());
+    GimbalAnglesToMotorAnglesAlgorithm alg(makeConfig());
     auto result = alg.update(gimbalAngle1, gimbalAngle2);
 
     EXPECT_NEAR(result.motorAngle1, kReferenceDefaultMotorAngle, 1e-6F);
@@ -21,11 +21,11 @@ TEST(ThrustAxisToMotorAnglesReadTablesTest, NoInterpolationOutsideBoundaryReturn
 }
 
 // Linear interpolation outside the gimbal boundary returns home motor angles
-TEST(ThrustAxisToMotorAnglesReadTablesTest, LinearInterpolationOutsideBoundaryReturnsHome) {
+TEST(GimbalAnglesToMotorAnglesReadTablesTest, LinearInterpolationOutsideBoundaryReturnsHome) {
     const float gimbalAngle1 = 5.0F * degToRad;
     const float gimbalAngle2 = -21.3F * degToRad;
 
-    ThrustAxisToMotorAnglesAlgorithm alg(makeConfig());
+    GimbalAnglesToMotorAnglesAlgorithm alg(makeConfig());
     auto result = alg.update(gimbalAngle1, gimbalAngle2);
 
     EXPECT_NEAR(result.motorAngle1, kReferenceDefaultMotorAngle, 1e-6F);
@@ -33,11 +33,11 @@ TEST(ThrustAxisToMotorAnglesReadTablesTest, LinearInterpolationOutsideBoundaryRe
 }
 
 // Bilinear interpolation outside the gimbal boundary returns home motor angles
-TEST(ThrustAxisToMotorAnglesReadTablesTest, BilinearInterpolationOutsideBoundaryReturnsHome) {
+TEST(GimbalAnglesToMotorAnglesReadTablesTest, BilinearInterpolationOutsideBoundaryReturnsHome) {
     const float gimbalAngle1 = 8.37F * degToRad;
     const float gimbalAngle2 = 16.63F * degToRad;
 
-    ThrustAxisToMotorAnglesAlgorithm alg(makeConfig());
+    GimbalAnglesToMotorAnglesAlgorithm alg(makeConfig());
     auto result = alg.update(gimbalAngle1, gimbalAngle2);
 
     EXPECT_NEAR(result.motorAngle1, kReferenceDefaultMotorAngle, 1e-6F);
@@ -49,11 +49,11 @@ TEST(ThrustAxisToMotorAnglesReadTablesTest, BilinearInterpolationOutsideBoundary
 // --------------------------------------------------------------------------------------------------------
 
 // Linear interpolation along the gimbal boundary returns home motor angles
-TEST(ThrustAxisToMotorAnglesReadTablesTest, LinearInterpolationAlongBoundaryReturnsHome) {
+TEST(GimbalAnglesToMotorAnglesReadTablesTest, LinearInterpolationAlongBoundaryReturnsHome) {
     const float gimbalAngle1 = -0.71F * degToRad;
     const float gimbalAngle2 = 25.5F * degToRad;
 
-    ThrustAxisToMotorAnglesAlgorithm alg(makeConfig());
+    GimbalAnglesToMotorAnglesAlgorithm alg(makeConfig());
     auto result = alg.update(gimbalAngle1, gimbalAngle2);
 
     EXPECT_NEAR(result.motorAngle1, kReferenceDefaultMotorAngle, 1e-6F);
@@ -61,11 +61,11 @@ TEST(ThrustAxisToMotorAnglesReadTablesTest, LinearInterpolationAlongBoundaryRetu
 }
 
 // Bilinear interpolation outside along the gimbal boundary returns home motor angles
-TEST(ThrustAxisToMotorAnglesReadTablesTest, BilinearInterpolationAlongBoundaryReturnsHome) {
+TEST(GimbalAnglesToMotorAnglesReadTablesTest, BilinearInterpolationAlongBoundaryReturnsHome) {
     const float gimbalAngle1 = 1.61F * degToRad;
     const float gimbalAngle2 = 25.81F * degToRad;
 
-    ThrustAxisToMotorAnglesAlgorithm alg(makeConfig());
+    GimbalAnglesToMotorAnglesAlgorithm alg(makeConfig());
     auto result = alg.update(gimbalAngle1, gimbalAngle2);
 
     EXPECT_NEAR(result.motorAngle1, kReferenceDefaultMotorAngle, 1e-6F);
@@ -77,11 +77,11 @@ TEST(ThrustAxisToMotorAnglesReadTablesTest, BilinearInterpolationAlongBoundaryRe
 // ---------------------------------------------------------------------------
 
 // No interpolation inside gimbal boundary returns exact motor angles
-TEST(ThrustAxisToMotorAnglesReadTablesTest, NoInterpolationInsideBoundaryReturnsExact) {
+TEST(GimbalAnglesToMotorAnglesReadTablesTest, NoInterpolationInsideBoundaryReturnsExact) {
     const float gimbalAngle1 = 1.5F * degToRad;
     const float gimbalAngle2 = 4.0F * degToRad;
 
-    ThrustAxisToMotorAnglesAlgorithm alg(makeConfig());
+    GimbalAnglesToMotorAnglesAlgorithm alg(makeConfig());
     auto result = alg.update(gimbalAngle1, gimbalAngle2);
 
     const float motor1Expected = 84.06074422F * degToRad;
@@ -91,11 +91,11 @@ TEST(ThrustAxisToMotorAnglesReadTablesTest, NoInterpolationInsideBoundaryReturns
 }
 
 // Linear interpolation along gimbal tip angle 1 inside gimbal boundary returns exact motor angles
-TEST(ThrustAxisToMotorAnglesReadTablesTest, LinearInterpolationInsideBoundaryAlongTipReturnsExact) {
+TEST(GimbalAnglesToMotorAnglesReadTablesTest, LinearInterpolationInsideBoundaryAlongTipReturnsExact) {
     const float gimbalAngle1 = 2.2F * degToRad;
     const float gimbalAngle2 = 6.5F * degToRad;
 
-    ThrustAxisToMotorAnglesAlgorithm alg(makeConfig());
+    GimbalAnglesToMotorAnglesAlgorithm alg(makeConfig());
     auto result = alg.update(gimbalAngle1, gimbalAngle2);
 
     // Gimbal bounds
@@ -142,11 +142,11 @@ TEST(ThrustAxisToMotorAnglesReadTablesTest, LinearInterpolationInsideBoundaryAlo
 }
 
 // Linear interpolation along gimbal tilt angle 2 inside gimbal boundary returns exact motor angles
-TEST(ThrustAxisToMotorAnglesReadTablesTest, LinearInterpolationInsideBoundaryAlongTiltReturnsExact) {
+TEST(GimbalAnglesToMotorAnglesReadTablesTest, LinearInterpolationInsideBoundaryAlongTiltReturnsExact) {
     const float gimbalAngle1 = 0.5F * degToRad;
     const float gimbalAngle2 = -2.7F * degToRad;
 
-    ThrustAxisToMotorAnglesAlgorithm alg(makeConfig());
+    GimbalAnglesToMotorAnglesAlgorithm alg(makeConfig());
     auto result = alg.update(gimbalAngle1, gimbalAngle2);
 
     // Gimbal bounds
@@ -193,11 +193,11 @@ TEST(ThrustAxisToMotorAnglesReadTablesTest, LinearInterpolationInsideBoundaryAlo
 }
 
 // Bilinear interpolation inside gimbal boundary returns exact motor angles
-TEST(ThrustAxisToMotorAnglesReadTablesTest, BilinearInterpolationInsideBoundaryReturnsExact) {
+TEST(GimbalAnglesToMotorAnglesReadTablesTest, BilinearInterpolationInsideBoundaryReturnsExact) {
     const float gimbalAngle1 = 1.7F * degToRad;
     const float gimbalAngle2 = -2.1F * degToRad;
 
-    ThrustAxisToMotorAnglesAlgorithm alg(makeConfig());
+    GimbalAnglesToMotorAnglesAlgorithm alg(makeConfig());
     auto result = alg.update(gimbalAngle1, gimbalAngle2);
 
     // Gimbal bounds
@@ -250,11 +250,11 @@ TEST(ThrustAxisToMotorAnglesReadTablesTest, BilinearInterpolationInsideBoundaryR
 // ----------------------------------------------------------------------
 
 // Leftmost gimbal boundary angles (psi, phi) = (-18.5, 0) returns exact motor angles
-TEST(ThrustAxisToMotorAnglesReadTablesTest, LeftmostBoundaryRequestReturnsExact) {
+TEST(GimbalAnglesToMotorAnglesReadTablesTest, LeftmostBoundaryRequestReturnsExact) {
     const float gimbalAngle1 = -18.5F * degToRad;
     const float gimbalAngle2 = 0.0F * degToRad;
 
-    ThrustAxisToMotorAnglesAlgorithm alg(makeConfig());
+    GimbalAnglesToMotorAnglesAlgorithm alg(makeConfig());
     auto result = alg.update(gimbalAngle1, gimbalAngle2);
 
     const float motor1Expected = 125.1789051F * degToRad;
@@ -264,11 +264,11 @@ TEST(ThrustAxisToMotorAnglesReadTablesTest, LeftmostBoundaryRequestReturnsExact)
 }
 
 // Rightmost gimbal boundary angles (psi, phi) = (18, 0) returns exact motor angles
-TEST(ThrustAxisToMotorAnglesReadTablesTest, RightmostBoundaryRequestReturnsExact) {
+TEST(GimbalAnglesToMotorAnglesReadTablesTest, RightmostBoundaryRequestReturnsExact) {
     const float gimbalAngle1 = 18.0F * degToRad;
     const float gimbalAngle2 = 0.0F * degToRad;
 
-    ThrustAxisToMotorAnglesAlgorithm alg(makeConfig());
+    GimbalAnglesToMotorAnglesAlgorithm alg(makeConfig());
     auto result = alg.update(gimbalAngle1, gimbalAngle2);
 
     const float motor1Expected = 12.59996263F * degToRad;
@@ -278,11 +278,11 @@ TEST(ThrustAxisToMotorAnglesReadTablesTest, RightmostBoundaryRequestReturnsExact
 }
 
 // Uppermost gimbal boundary angles (psi, phi) = (0.5, 27) returns exact motor angles
-TEST(ThrustAxisToMotorAnglesReadTablesTest, UppermostBoundaryRequestReturnsExact) {
+TEST(GimbalAnglesToMotorAnglesReadTablesTest, UppermostBoundaryRequestReturnsExact) {
     const float gimbalAngle1 = 0.5F * degToRad;
     const float gimbalAngle2 = 27.0F * degToRad;
 
-    ThrustAxisToMotorAnglesAlgorithm alg(makeConfig());
+    GimbalAnglesToMotorAnglesAlgorithm alg(makeConfig());
     auto result = alg.update(gimbalAngle1, gimbalAngle2);
 
     const float motor1Expected = 125.7651741F * degToRad;
@@ -292,11 +292,11 @@ TEST(ThrustAxisToMotorAnglesReadTablesTest, UppermostBoundaryRequestReturnsExact
 }
 
 // Lowermost gimbal boundary angles (psi, phi) = (0.5, -27) returns exact motor angles
-TEST(ThrustAxisToMotorAnglesReadTablesTest, LowermostBoundaryRequestReturnsExact) {
+TEST(GimbalAnglesToMotorAnglesReadTablesTest, LowermostBoundaryRequestReturnsExact) {
     const float gimbalAngle1 = 0.5F * degToRad;
     const float gimbalAngle2 = -27.0F * degToRad;
 
-    ThrustAxisToMotorAnglesAlgorithm alg(makeConfig());
+    GimbalAnglesToMotorAnglesAlgorithm alg(makeConfig());
     auto result = alg.update(gimbalAngle1, gimbalAngle2);
 
     const float motor1Expected = 12.87064698F * degToRad;

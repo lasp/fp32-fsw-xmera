@@ -1,5 +1,5 @@
-#ifndef _THRUSTAXISTOMOTORANGLES_
-#define _THRUSTAXISTOMOTORANGLES_
+#ifndef _GIMBALANGLESTOMOTORANGLES_
+#define _GIMBALANGLESTOMOTORANGLES_
 
 #include <array>
 #include <memory>
@@ -7,17 +7,17 @@
 
 #include "architecture/_GeneralModuleFiles/sys_model.h"
 #include "architecture/messaging/messaging.h"
+#include "gimbalAnglesToMotorAnglesAlgorithm.h"
 #include "msgPayloadDef/HingedRigidBodyMsgF32Payload.h"
 #include "msgPayloadDef/TwoAxisGimbalMsgF32Payload.h"
-#include "thrustAxisToMotorAnglesAlgorithm.h"
 
-/*! @brief Thrust Axis-To-Motor Angles adapter. Reads the requested gimbal tip and tilt angle
-message, delegates the angle computation to ThrustAxisToMotorAnglesAlgorithm, and writes the
+/*! @brief Gimbal Angles-To-Motor Angles adapter. Reads the requested gimbal tip and tilt angle
+message, delegates the angle computation to GimbalAnglesToMotorAnglesAlgorithm, and writes the
 corresponding stepper motor angles to the output messages. */
-class ThrustAxisToMotorAngles final : public SysModel {
+class GimbalAnglesToMotorAngles final : public SysModel {
    public:
-    ThrustAxisToMotorAngles() = default;                  //!< Constructor
-    ~ThrustAxisToMotorAngles() override = default;        //!< Destructor
+    GimbalAnglesToMotorAngles() = default;                //!< Constructor
+    ~GimbalAnglesToMotorAngles() override = default;      //!< Destructor
     void reset(uint64_t currentSimNanos) override;        //!< Reset member function
     void updateState(uint64_t currentSimNanos) override;  //!< Update member function
     void reconfigure() const;
@@ -46,8 +46,8 @@ class ThrustAxisToMotorAngles final : public SysModel {
 
    private:
     double previousWrittenTime{-1.0};  //!< [s] Time the previous input message was written
-    std::unique_ptr<ThrustAxisToMotorAnglesAlgorithm> algorithm = nullptr;
-    ThrustAxisToMotorAnglesConfig toConfig() const;
+    std::unique_ptr<GimbalAnglesToMotorAnglesAlgorithm> algorithm = nullptr;
+    GimbalAnglesToMotorAnglesConfig toConfig() const;
 };
 
-#endif /* THRUSTAXISTOMOTORANGLES */
+#endif /* GIMBALANGLESTOMOTORANGLES */
