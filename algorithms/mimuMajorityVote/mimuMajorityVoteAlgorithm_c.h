@@ -21,6 +21,15 @@ typedef struct MimuMajorityVoteAlgorithmHandle MimuMajorityVoteAlgorithmHandle;
 uint32_t MimuMajorityVoteAlgorithm_getMimuCount(void);
 
 /**
+ * @brief Get the size in bytes of one MimuVoteResult_c for Ada ABI validation.
+ * @return sizeof(MimuVoteResult_c).
+ * @note MimuVoteResult_c is the first POD on this boundary with interior padding (a bool
+ *       followed by a 4-byte-aligned float array), so its total size is checked rather
+ *       than inferred from the field list.
+ */
+uint32_t MimuMajorityVoteAlgorithm_getVoteResultSize(void);
+
+/**
  * @brief Report whether a configuration would be accepted by create/setConfig.
  * @param omegaThreshold             [rad/s] gyro threshold; must be finite and > 0.
  * @param gyroFaultPersistenceLimit  [-] consecutive gyro faults to trigger; must be > 0.

@@ -39,6 +39,8 @@ MimuVoteResult_c toResultC(const MimuVoteResult& result) {
 
 uint32_t MimuMajorityVoteAlgorithm_getMimuCount(void) { return MIMU_COUNT_C; }
 
+uint32_t MimuMajorityVoteAlgorithm_getVoteResultSize(void) { return sizeof(MimuVoteResult_c); }
+
 bool MimuMajorityVoteAlgorithm_validateConfig(const float omegaThreshold,
                                               const uint32_t gyroFaultPersistenceLimit,
                                               const float accelThreshold,
