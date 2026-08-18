@@ -5,6 +5,8 @@
 #include "test_oeStateEphem_helpers.h"
 #include "utilities/fsw/freestandingInvalidArgument.h"
 
+#include <limits>
+
 // ============================================================================
 // CONFIGURATION TESTS
 // ============================================================================
@@ -66,6 +68,51 @@ TEST(OEStateEphemConfigTest, NonPositiveArcMiddleTimeThrows) {
 TEST(OEStateEphemConfigTest, NonPositiveArcRadiusTimeThrows) {
     auto arcs = singleValidArcTable();
     arcs[0].ephemerisTimeRadius = 0.0;
+    EXPECT_THROW(OEStateEphemConfig::create(EARTH_MU, 1, 0.0, 0.0, arcs), fsw::invalid_argument);
+}
+
+TEST(OEStateEphemConfigTest, InfiniteGravitationalParameterThrows) {
+    const double inf = std::numeric_limits<double>::infinity();
+    EXPECT_THROW(OEStateEphemConfig::create(inf, 1, 0.0, 0.0, singleValidArcTable()), fsw::invalid_argument);
+}
+
+TEST(OEStateEphemConfigTest, InfiniteEphemerisTimeThrows) {
+    const double inf = std::numeric_limits<double>::infinity();
+    EXPECT_THROW(OEStateEphemConfig::create(EARTH_MU, 1, inf, 0.0, singleValidArcTable()), fsw::invalid_argument);
+}
+
+TEST(OEStateEphemConfigTest, InfiniteVehicleTimeOffsetThrows) {
+    const double inf = std::numeric_limits<double>::infinity();
+    EXPECT_THROW(OEStateEphemConfig::create(EARTH_MU, 1, 0.0, inf, singleValidArcTable()), fsw::invalid_argument);
+}
+
+TEST(OEStateEphemConfigTest, NonFiniteArcMiddleTimeThrows) {
+    auto arcs = singleValidArcTable();
+    arcs[0].ephemerisTimeMiddle = std::numeric_limits<double>::quiet_NaN();
+    EXPECT_THROW(OEStateEphemConfig::create(EARTH_MU, 1, 0.0, 0.0, arcs), fsw::invalid_argument);
+}
+
+TEST(OEStateEphemConfigTest, NonFiniteActiveCoefficientThrows) {
+    auto arcs = singleValidArcTable();
+    // makeConstantArc sets numberChebCoefficients to 1, so index 0 is active.
+    arcs[0].inclinationCoefficients[0] = std::numeric_limits<double>::quiet_NaN();
+    EXPECT_THROW(OEStateEphemConfig::create(EARTH_MU, 1, 0.0, 0.0, arcs), fsw::invalid_argument);
+}
+
+TEST(OEStateEphemConfigTest, NonFiniteInactiveCoefficientIsAccepted) {
+    auto arcs = singleValidArcTable();
+    // Index 5 is beyond numberChebCoefficients, so it never reaches calculateChebyValue.
+    // Only the active prefix is part of the contract.
+    arcs[0].raanCoefficients[5] = std::numeric_limits<double>::infinity();
+    EXPECT_NO_THROW((void)OEStateEphemConfig::create(EARTH_MU, 1, 0.0, 0.0, arcs));
+}
+
+TEST(OEStateEphemConfigTest, ArcCoefficientCountAboveMaxThrows) {
+    // An unbounded count would index past the coefficient arrays inside
+    // calculateChebyValue, raising std::out_of_range out of update() rather than
+    // fsw::invalid_argument -- past the C shim's catch and across the FFI boundary.
+    auto arcs = singleValidArcTable();
+    arcs[0].numberChebCoefficients = static_cast<unsigned int>(kMaxOeCoeff) + 1U;
     EXPECT_THROW(OEStateEphemConfig::create(EARTH_MU, 1, 0.0, 0.0, arcs), fsw::invalid_argument);
 }
 

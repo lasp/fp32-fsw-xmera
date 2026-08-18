@@ -3,6 +3,7 @@
 
 #include "oeStateEphemTypes.h"
 #include "utilities/fsw/freestandingInvalidArgument.h"
+#include "utilities/fsw/freestandingIsFinite.hpp"
 #include "utilities/fsw/orbitalMotion.hpp"
 #include <array>
 #include <cstddef>
@@ -48,34 +49,56 @@ class OEStateEphemConfig final {
                                      double vehicleTimeOffset,
                                      const std::array<ChebyshevFitArc, kMaxOeRecords>& fitCoefficients) {
         if (!isValidGravitationalParameter(centralBodyGravitationalParameter)) {
-            FSW_THROW_INVALID_ARGUMENT("OEStateEphem: gravitational parameter must be non-negative.");
+            FSW_THROW_INVALID_ARGUMENT("OEStateEphem: gravitational parameter must be finite and non-negative.");
         }
         if (!isValidNumberOfArcs(numberOfArcs)) {
             FSW_THROW_INVALID_ARGUMENT("OEStateEphem: numberOfArcs must be in [1, kMaxOeRecords].");
         }
         if (!isValidTimeOffset(ephemerisTimeJ2000)) {
-            FSW_THROW_INVALID_ARGUMENT("OEStateEphem: ephemeris J2000 time must be non-negative.");
+            FSW_THROW_INVALID_ARGUMENT("OEStateEphem: ephemeris J2000 time must be finite and non-negative.");
         }
         if (!isValidTimeOffset(vehicleTimeOffset)) {
-            FSW_THROW_INVALID_ARGUMENT("OEStateEphem: vehicle time offset must be non-negative.");
+            FSW_THROW_INVALID_ARGUMENT("OEStateEphem: vehicle time offset must be finite and non-negative.");
         }
         for (unsigned int i = 0U; i < numberOfArcs; ++i) {
             if (!isValidArc(fitCoefficients.at(i))) {
                 FSW_THROW_INVALID_ARGUMENT(
-                    "OEStateEphem: each active arc needs numberChebCoefficients >= 1 and positive middle/radius time.");
+                    "OEStateEphem: each active arc needs numberChebCoefficients in [1, kMaxOeCoeff], finite positive "
+                    "middle/radius time, and finite active coefficients.");
             }
         }
         return {
             centralBodyGravitationalParameter, numberOfArcs, ephemerisTimeJ2000, vehicleTimeOffset, fitCoefficients};
     }
 
-    static bool isValidGravitationalParameter(double gravitationalParameter) { return gravitationalParameter >= 0.0; }
+    static bool isValidGravitationalParameter(double gravitationalParameter) {
+        return fsw::is_finite(gravitationalParameter) && gravitationalParameter >= 0.0;
+    }
     static bool isValidNumberOfArcs(unsigned int numberOfArcs) {
         return numberOfArcs >= 1U && numberOfArcs <= kMaxOeRecords;
     }
-    static bool isValidTimeOffset(double timeOffset) { return timeOffset >= 0.0; }
+    static bool isValidTimeOffset(double timeOffset) { return fsw::is_finite(timeOffset) && timeOffset >= 0.0; }
     static bool isValidArc(const ChebyshevFitArc& arc) {
-        return arc.numberChebCoefficients >= 1U && arc.ephemerisTimeMiddle > 0.0 && arc.ephemerisTimeRadius > 0.0;
+        // Bounding the count is load-bearing, not cosmetic: it is what keeps the sweep below and
+        // calculateChebyValue's coefficients.at(i) inside the array. An out-of-range count would
+        // otherwise surface as a std::out_of_range thrown out of update(), which is not an
+        // fsw::invalid_argument and so would cross the FFI boundary uncaught.
+        if (arc.numberChebCoefficients < 1U || static_cast<std::size_t>(arc.numberChebCoefficients) > kMaxOeCoeff) {
+            return false;
+        }
+        if (!fsw::is_finite(arc.ephemerisTimeMiddle) || arc.ephemerisTimeMiddle <= 0.0 ||
+            !fsw::is_finite(arc.ephemerisTimeRadius) || arc.ephemerisTimeRadius <= 0.0) {
+            return false;
+        }
+        // Only the active coefficients are part of the contract. The unused slots are zero-filled
+        // by the caller and must not constrain it -- an arc that fits one coefficient is legal.
+        const unsigned int count = arc.numberChebCoefficients;
+        return areCoefficientsFinite(arc.radiusPeriapsisCoefficients, count) &&
+               areCoefficientsFinite(arc.eccentricityCoefficients, count) &&
+               areCoefficientsFinite(arc.inclinationCoefficients, count) &&
+               areCoefficientsFinite(arc.argPeriapsisCoefficients, count) &&
+               areCoefficientsFinite(arc.raanCoefficients, count) &&
+               areCoefficientsFinite(arc.trueAnomalyCoefficients, count);
     }
 
     double getCentralBodyGravitationalParameter() const { return centralBodyGravitationalParameter; }
@@ -85,6 +108,15 @@ class OEStateEphemConfig final {
     const std::array<ChebyshevFitArc, kMaxOeRecords>& getFitCoefficients() const { return fitCoefficients; }
 
    private:
+    static bool areCoefficientsFinite(const std::array<double, kMaxOeCoeff>& coefficients, const unsigned int count) {
+        for (unsigned int i = 0U; i < count; ++i) {
+            if (!fsw::is_finite(coefficients.at(i))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     // The config fields have distinct meanings but several share a type; construction is funneled through the
     // named create() factory, which makes the argument roles explicit at every call site.
     // NOLINTBEGIN(bugprone-easily-swappable-parameters)
