@@ -2,11 +2,20 @@
 #include "mimuMajorityVoteAlgorithm.h"
 #include "mimuMajorityVoteTypes.h"
 #include "utilities/fsw/eigenSupport.h"
+#include "utilities/fsw/freestandingInvalidArgument.h"
 #include "utilities/fsw/opaqueHandle.h"
 
 #include <Eigen/Core>
 
 namespace {
+MimuMajorityVoteConfig configFromC(const float omegaThreshold,
+                                   const uint32_t gyroFaultPersistenceLimit,
+                                   const float accelThreshold,
+                                   const uint32_t accelFaultPersistenceLimit) {
+    return MimuMajorityVoteConfig::create(
+        omegaThreshold, gyroFaultPersistenceLimit, accelThreshold, accelFaultPersistenceLimit);
+}
+
 std::array<Eigen::Vector3f, MIMU_COUNT_C> toEigenArray(const Vector3fArray3_c& in) {
     std::array<Eigen::Vector3f, MIMU_COUNT_C> out{};
     for (uint32_t i = 0; i < MIMU_COUNT_C; ++i) {
@@ -30,26 +39,26 @@ MimuVoteResult_c toResultC(const MimuVoteResult& result) {
 
 uint32_t MimuMajorityVoteAlgorithm_getMimuCount(void) { return MIMU_COUNT_C; }
 
-bool MimuMajorityVoteAlgorithm_validateConfig(float omegaThreshold,
-                                              uint32_t gyroFaultPersistenceLimit,
-                                              float accelThreshold,
-                                              uint32_t accelFaultPersistenceLimit) {
+bool MimuMajorityVoteAlgorithm_validateConfig(const float omegaThreshold,
+                                              const uint32_t gyroFaultPersistenceLimit,
+                                              const float accelThreshold,
+                                              const uint32_t accelFaultPersistenceLimit) {
+    // Attempt to build the config through the real create path; success means valid,
+    // a throw means invalid. Reusing configFromC keeps validation from drifting.
     try {
-        (void)MimuMajorityVoteConfig::create(
-            omegaThreshold, gyroFaultPersistenceLimit, accelThreshold, accelFaultPersistenceLimit);
+        (void)configFromC(omegaThreshold, gyroFaultPersistenceLimit, accelThreshold, accelFaultPersistenceLimit);
         return true;
     } catch (const fsw::invalid_argument&) {
         return false;
     }
 }
 
-MimuMajorityVoteAlgorithmHandle* MimuMajorityVoteAlgorithm_create(float omegaThreshold,
-                                                                  uint32_t gyroFaultPersistenceLimit,
-                                                                  float accelThreshold,
-                                                                  uint32_t accelFaultPersistenceLimit) {
-    return reinterpret_cast<MimuMajorityVoteAlgorithmHandle*>(
-        new ::MimuMajorityVoteAlgorithm(MimuMajorityVoteConfig::create(
-            omegaThreshold, gyroFaultPersistenceLimit, accelThreshold, accelFaultPersistenceLimit)));
+MimuMajorityVoteAlgorithmHandle* MimuMajorityVoteAlgorithm_create(const float omegaThreshold,
+                                                                  const uint32_t gyroFaultPersistenceLimit,
+                                                                  const float accelThreshold,
+                                                                  const uint32_t accelFaultPersistenceLimit) {
+    return fsw::createHandle<::MimuMajorityVoteAlgorithm, MimuMajorityVoteAlgorithmHandle>(
+        configFromC(omegaThreshold, gyroFaultPersistenceLimit, accelThreshold, accelFaultPersistenceLimit));
 }
 
 void MimuMajorityVoteAlgorithm_destroy(MimuMajorityVoteAlgorithmHandle* self) {
@@ -57,12 +66,12 @@ void MimuMajorityVoteAlgorithm_destroy(MimuMajorityVoteAlgorithmHandle* self) {
 }
 
 void MimuMajorityVoteAlgorithm_setConfig(MimuMajorityVoteAlgorithmHandle* self,
-                                         float omegaThreshold,
-                                         uint32_t gyroFaultPersistenceLimit,
-                                         float accelThreshold,
-                                         uint32_t accelFaultPersistenceLimit) {
-    fsw::fromHandle<::MimuMajorityVoteAlgorithm>(self)->setConfig(MimuMajorityVoteConfig::create(
-        omegaThreshold, gyroFaultPersistenceLimit, accelThreshold, accelFaultPersistenceLimit));
+                                         const float omegaThreshold,
+                                         const uint32_t gyroFaultPersistenceLimit,
+                                         const float accelThreshold,
+                                         const uint32_t accelFaultPersistenceLimit) {
+    fsw::fromHandle<::MimuMajorityVoteAlgorithm>(self)->setConfig(
+        configFromC(omegaThreshold, gyroFaultPersistenceLimit, accelThreshold, accelFaultPersistenceLimit));
 }
 
 void MimuMajorityVoteAlgorithm_reInitialize(MimuMajorityVoteAlgorithmHandle* self) {
