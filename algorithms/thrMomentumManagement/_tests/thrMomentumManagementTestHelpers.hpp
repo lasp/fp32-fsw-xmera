@@ -38,31 +38,50 @@ inline Eigen::Vector<float, kMaxNumRw> makeWheelSpeeds(const std::vector<float>&
 
 // Independent reference implementation of the momentum dumping law, written directly from the module
 // description rather than from the algorithm source: accumulate the net RW momentum, isolate the part held
-// above the threshold, and oppose it with the feedback gain.
+// above the threshold, and oppose it with the proportional and integral gains.
+//
+// The integral is evaluated in closed form rather than by replaying the algorithm's recurrence. For a wheel
+// speed set held constant the excess momentum e is constant, so the trapezoidal integral after numCycles
+// updates is (numCycles - 0.5) * controlPeriod * e: the first update contributes half a period, each later one
+// a full period. Each component of e keeps its sign, so the integral grows monotonically and clamping once at
+// the end gives the same answer as the algorithm's per-update clamp.
 inline Eigen::Vector3f referenceTorque(const ThrMomentumManagementRwArrayConfiguration& rwArrayConfig,
                                        const Eigen::Vector<float, kMaxNumRw>& wheelSpeeds,
-                                       const ThrMomentumManagementControlParameters& params) {
+                                       const ThrMomentumManagementControlParameters& params,
+                                       uint32_t numCycles = 1U) {
     Eigen::Vector3f hs_B = Eigen::Vector3f::Zero();
     for (uint32_t i = 0U; i < rwArrayConfig.numRW; ++i) {
         hs_B += rwArrayConfig.JsList[i] * wheelSpeeds[i] * rwArrayConfig.GsMatrix_B.col(i);
     }
     const float hs = hs_B.norm();
 
-    if (hs < params.hsMin || hs < 1e-6F) {
-        return Eigen::Vector3f::Zero();
+    Eigen::Vector3f hsExcess_B = Eigen::Vector3f::Zero();
+    if (hs >= params.hsMin && hs >= 1e-6F) {
+        hsExcess_B = (hs - params.hsMin) / hs * hs_B;
     }
-    return Eigen::Vector3f{-params.K * (hs - params.hsMin) / hs * hs_B};
+
+    const float elapsed = (static_cast<float>(numCycles) - 0.5F) * params.controlPeriod;
+    Eigen::Vector3f hsInt_B = elapsed * hsExcess_B;
+    for (Eigen::Index i = 0; i < 3; ++i) {
+        hsInt_B[i] = std::clamp(hsInt_B[i], -params.integralLimit, params.integralLimit);
+    }
+
+    return Eigen::Vector3f{-params.K * hsExcess_B - params.Ki * hsInt_B};
 }
 
-// Regression helper: the algorithm's update must match the reference implementation.
+// Regression helper: the algorithm's output after numCycles updates must match the reference implementation.
 inline void regressionTestThrMomentumManagement(const ThrMomentumManagementRwArrayConfiguration& rwArrayConfig,
                                                 const Eigen::Vector<float, kMaxNumRw>& wheelSpeeds,
                                                 const ThrMomentumManagementControlParameters& params,
-                                                float accuracy) {
+                                                float accuracy,
+                                                uint32_t numCycles = 1U) {
     ThrMomentumManagementAlgorithm alg{ThrMomentumManagementConfig::create(params, rwArrayConfig)};
 
-    const Eigen::Vector3f actual = alg.update(wheelSpeeds);
-    const Eigen::Vector3f expected = referenceTorque(rwArrayConfig, wheelSpeeds, params);
+    Eigen::Vector3f actual = Eigen::Vector3f::Zero();
+    for (uint32_t cycle = 0U; cycle < numCycles; ++cycle) {
+        actual = alg.update(wheelSpeeds);
+    }
+    const Eigen::Vector3f expected = referenceTorque(rwArrayConfig, wheelSpeeds, params, numCycles);
 
     for (Eigen::Index i = 0; i < 3; ++i) {
         EXPECT_NEAR(actual[i], expected[i], accuracy) << "component " << i;
@@ -77,6 +96,9 @@ inline void testThrMomentumManagementSetup(const ThrMomentumManagementControlPar
 
     EXPECT_NEAR(cfg.getControlParameters().hsMin, params.hsMin, accuracy);
     EXPECT_NEAR(cfg.getControlParameters().K, params.K, accuracy);
+    EXPECT_NEAR(cfg.getControlParameters().Ki, params.Ki, accuracy);
+    EXPECT_NEAR(cfg.getControlParameters().integralLimit, params.integralLimit, accuracy);
+    EXPECT_NEAR(cfg.getControlParameters().controlPeriod, params.controlPeriod, accuracy);
     EXPECT_EQ(cfg.getRwArrayConfiguration().numRW, rwArrayConfig.numRW);
     for (uint32_t i = 0U; i < rwArrayConfig.numRW; ++i) {
         EXPECT_NEAR(cfg.getRwArrayConfiguration().JsList[i], rwArrayConfig.JsList[i], accuracy) << "wheel " << i;
@@ -99,16 +121,17 @@ inline Eigen::Vector3f clusterMomentum(const ThrMomentumManagementRwArrayConfigu
     return hs_B;
 }
 
-// Fuzz property: for any admissible three-wheel geometry the torque is finite, opposes the stored momentum,
-// and has magnitude K * (|hs| - hsMin) -- it acts on exactly the momentum held above the threshold, and
-// vanishes when the cluster is already below it.
-inline void propertyTorqueOpposesExcessMomentum(const Eigen::Vector3f& axis0,
-                                                const Eigen::Vector3f& axis1,
-                                                const Eigen::Vector3f& axis2,
-                                                const Eigen::Vector3f& speeds,
-                                                float js,
-                                                float hsMin,
-                                                float K) {
+// Fuzz property (proportional law, Ki = 0): for any admissible three-wheel geometry the torque is finite,
+// opposes the stored momentum, and has magnitude K * (|hs| - hsMin) -- it acts on exactly the momentum held
+// above the threshold, and vanishes when the cluster is already below it.
+inline void propertyProportionalTorqueOpposesExcessMomentum(const Eigen::Vector3f& axis0,
+                                                            const Eigen::Vector3f& axis1,
+                                                            const Eigen::Vector3f& axis2,
+                                                            const Eigen::Vector3f& speeds,
+                                                            float js,
+                                                            float hsMin,
+                                                            float K,
+                                                            float controlPeriod) {
     // A spin axis too short to normalize has no defined direction; the config would reject it.
     constexpr float degenerateTol = 1e-3F;
     if (axis0.norm() < degenerateTol || axis1.norm() < degenerateTol || axis2.norm() < degenerateTol) {
@@ -118,7 +141,8 @@ inline void propertyTorqueOpposesExcessMomentum(const Eigen::Vector3f& axis0,
     const auto rwArrayConfig = makeRwArrayConfig({axis0, axis1, axis2}, js);
     const auto wheelSpeeds = makeWheelSpeeds({speeds[0], speeds[1], speeds[2]});
 
-    ThrMomentumManagementAlgorithm alg{ThrMomentumManagementConfig::create({.hsMin = hsMin, .K = K}, rwArrayConfig)};
+    ThrMomentumManagementAlgorithm alg{ThrMomentumManagementConfig::create(
+        {.hsMin = hsMin, .K = K, .Ki = 0.0F, .integralLimit = 0.0F, .controlPeriod = controlPeriod}, rwArrayConfig)};
     const Eigen::Vector3f Lr_B = alg.update(wheelSpeeds);
 
     ASSERT_TRUE(Lr_B.allFinite());
@@ -142,6 +166,54 @@ inline void propertyTorqueOpposesExcessMomentum(const Eigen::Vector3f& axis0,
     }
 }
 
+// Fuzz property (anti-windup): however long a sustained momentum is held, the integral term can never
+// contribute more than Ki * integralLimit to any torque component, so the total request stays bounded by the
+// proportional part plus that clamp. This is the property the anti-windup clamp exists to guarantee.
+inline void propertyIntegralTermStaysBounded(const Eigen::Vector3f& axis0,
+                                             const Eigen::Vector3f& axis1,
+                                             const Eigen::Vector3f& axis2,
+                                             const Eigen::Vector3f& speeds,
+                                             float js,
+                                             float hsMin,
+                                             float K,
+                                             float Ki,
+                                             float integralLimit,
+                                             float controlPeriod) {
+    constexpr float degenerateTol = 1e-3F;
+    if (axis0.norm() < degenerateTol || axis1.norm() < degenerateTol || axis2.norm() < degenerateTol) {
+        return;
+    }
+
+    // An active integral needs a positive step; the config rejects that pair rather than running it.
+    if (Ki > 0.0F && controlPeriod <= 0.0F) {
+        return;
+    }
+
+    const auto rwArrayConfig = makeRwArrayConfig({axis0, axis1, axis2}, js);
+    const auto wheelSpeeds = makeWheelSpeeds({speeds[0], speeds[1], speeds[2]});
+    const ThrMomentumManagementControlParameters params{
+        .hsMin = hsMin, .K = K, .Ki = Ki, .integralLimit = integralLimit, .controlPeriod = controlPeriod};
+
+    ThrMomentumManagementAlgorithm alg{ThrMomentumManagementConfig::create(params, rwArrayConfig)};
+
+    const Eigen::Vector3f hs_B = clusterMomentum(rwArrayConfig, wheelSpeeds);
+    const float hs = hs_B.norm();
+    const Eigen::Vector3f hsExcess_B =
+        (hs >= hsMin && hs >= 1e-6F) ? Eigen::Vector3f{(hs - hsMin) / hs * hs_B} : Eigen::Vector3f::Zero();
+
+    // Run well past the point where an unclamped integral would have blown through the limit.
+    for (uint32_t cycle = 0U; cycle < 50U; ++cycle) {
+        const Eigen::Vector3f Lr_B = alg.update(wheelSpeeds);
+        ASSERT_TRUE(Lr_B.allFinite()) << "cycle " << cycle;
+
+        for (Eigen::Index i = 0; i < 3; ++i) {
+            const float bound = K * std::fabs(hsExcess_B[i]) + Ki * integralLimit;
+            const float tol = 1e-4F * std::max(1.0F, bound);
+            EXPECT_LE(std::fabs(Lr_B[i]), bound + tol) << "cycle " << cycle << " component " << i;
+        }
+    }
+}
+
 // Fuzz regression: the algorithm must agree with the reference implementation on any admissible input.
 inline void regressionFuzzThrMomentumManagement(const Eigen::Vector3f& axis0,
                                                 const Eigen::Vector3f& axis1,
@@ -149,21 +221,37 @@ inline void regressionFuzzThrMomentumManagement(const Eigen::Vector3f& axis0,
                                                 const Eigen::Vector3f& speeds,
                                                 float js,
                                                 float hsMin,
-                                                float K) {
+                                                float K,
+                                                float Ki,
+                                                float integralLimit,
+                                                float controlPeriod,
+                                                uint32_t numCycles) {
     constexpr float degenerateTol = 1e-3F;
     if (axis0.norm() < degenerateTol || axis1.norm() < degenerateTol || axis2.norm() < degenerateTol) {
         return;
     }
 
+    // An active integral needs a positive step; the config rejects that pair rather than running it.
+    if (Ki > 0.0F && controlPeriod <= 0.0F) {
+        return;
+    }
+
     const auto rwArrayConfig = makeRwArrayConfig({axis0, axis1, axis2}, js);
     const auto wheelSpeeds = makeWheelSpeeds({speeds[0], speeds[1], speeds[2]});
-    const ThrMomentumManagementControlParameters params{.hsMin = hsMin, .K = K};
+    const ThrMomentumManagementControlParameters params{
+        .hsMin = hsMin, .K = K, .Ki = Ki, .integralLimit = integralLimit, .controlPeriod = controlPeriod};
 
     ThrMomentumManagementAlgorithm alg{ThrMomentumManagementConfig::create(params, rwArrayConfig)};
-    const Eigen::Vector3f actual = alg.update(wheelSpeeds);
-    const Eigen::Vector3f expected = referenceTorque(rwArrayConfig, wheelSpeeds, params);
+    Eigen::Vector3f actual = Eigen::Vector3f::Zero();
+    for (uint32_t cycle = 0U; cycle < numCycles; ++cycle) {
+        actual = alg.update(wheelSpeeds);
+    }
+    const Eigen::Vector3f expected = referenceTorque(rwArrayConfig, wheelSpeeds, params, numCycles);
 
-    const float tol = 1e-4F * K * std::max(1.0F, clusterMomentum(rwArrayConfig, wheelSpeeds).norm());
+    // The integral accumulates rounding once per cycle, so allow the error to grow with the cycle count.
+    const float hs = clusterMomentum(rwArrayConfig, wheelSpeeds).norm();
+    const float scale = K * std::max(1.0F, hs) + Ki * integralLimit;
+    const float tol = 1e-4F * static_cast<float>(numCycles) * std::max(1.0F, scale);
     for (Eigen::Index i = 0; i < 3; ++i) {
         EXPECT_NEAR(actual[i], expected[i], tol) << "component " << i;
     }

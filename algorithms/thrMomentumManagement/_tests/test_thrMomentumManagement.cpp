@@ -2,6 +2,7 @@
 
 #include <Eigen/Core>
 #include <algorithm>
+#include <cmath>
 #include <limits>
 #include <vector>
 
@@ -22,8 +23,25 @@ constexpr float kNominalK = 0.05F;
 // A threshold above the cluster momentum, used to park the module inside its deadband.
 constexpr float kHighHsMin = 1000.0F / 6000.0F * 100.0F;
 
-ThrMomentumManagementControlParameters nominalParams(float hsMin = kNominalHsMin, float K = kNominalK) {
-    return {.hsMin = hsMin, .K = K};
+// [s] integration step; matches the task rate used by the python integration test.
+constexpr float kControlPeriod = 0.5F;
+
+// [1/s2] nominal integral gain. Over the ~20 cycles exercised here it contributes a torque comparable to the
+// proportional term, so the integral path is clearly visible without leaving physical magnitudes.
+constexpr float kNominalKi = 0.01F;
+
+// [Nms2] anti-windup clamps: one far above anything the tests accumulate, one tight enough to suppress the
+// integral term almost entirely.
+constexpr float kLargeIntegralLimit = 1000.0F;
+constexpr float kTightIntegralLimit = 5.0F;
+
+// The integral is switched off by default so the proportional-law expectations below stand on their own.
+ThrMomentumManagementControlParameters nominalParams(float hsMin = kNominalHsMin,
+                                                     float K = kNominalK,
+                                                     float Ki = 0.0F,
+                                                     float integralLimit = kLargeIntegralLimit,
+                                                     float controlPeriod = kControlPeriod) {
+    return {.hsMin = hsMin, .K = K, .Ki = Ki, .integralLimit = integralLimit, .controlPeriod = controlPeriod};
 }
 
 }  // namespace
@@ -52,6 +70,17 @@ TEST(ThrMomentumManagement, MatchesReferenceAcrossCases) {
     // A gain an order of magnitude away must carry through unchanged.
     regressionTestThrMomentumManagement(
         rwArrayConfig, makeWheelSpeeds({10.0F, -25.0F, 50.0F, 100.0F}), nominalParams(1.0F, 0.005F), kAccuracy);
+    // The integral path accumulated over many cycles, unclamped and clamped.
+    regressionTestThrMomentumManagement(rwArrayConfig,
+                                        makeWheelSpeeds({10.0F, -25.0F, 50.0F, 100.0F}),
+                                        nominalParams(kNominalHsMin, kNominalK, kNominalKi),
+                                        kAccuracy,
+                                        20U);
+    regressionTestThrMomentumManagement(rwArrayConfig,
+                                        makeWheelSpeeds({10.0F, -25.0F, 50.0F, 100.0F}),
+                                        nominalParams(kNominalHsMin, kNominalK, kNominalKi, kTightIntegralLimit),
+                                        kAccuracy,
+                                        20U);
 }
 
 // A single wheel spinning about a body axis is dumped straight back along that axis.
@@ -136,6 +165,112 @@ TEST(ThrMomentumManagement, ConfigRoundTrips) {
 }
 
 // ---------------------------------------------------------------------------------------------------
+// Integral path
+// ---------------------------------------------------------------------------------------------------
+
+// A sustained excess momentum accumulates, so the request grows on every cycle.
+TEST(ThrMomentumManagement, IntegralAccumulatesAcrossCycles) {
+    ThrMomentumManagementAlgorithm alg{ThrMomentumManagementConfig::create(
+        nominalParams(kNominalHsMin, kNominalK, kNominalKi), makeStandardRwArrayConfig())};
+    const auto wheelSpeeds = makeWheelSpeeds({10.0F, -25.0F, 50.0F, 100.0F});
+
+    float previous = 0.0F;
+    for (uint32_t cycle = 0U; cycle < 10U; ++cycle) {
+        const float magnitude = alg.update(wheelSpeeds).norm();
+        EXPECT_GT(magnitude, previous) << "cycle " << cycle;
+        previous = magnitude;
+    }
+}
+
+// With Ki = 0 the request is unchanged cycle after cycle; with Ki > 0 the same input grows.
+TEST(ThrMomentumManagement, ZeroKiDisablesTheIntegral) {
+    const auto rwArrayConfig = makeStandardRwArrayConfig();
+    const auto wheelSpeeds = makeWheelSpeeds({10.0F, -25.0F, 50.0F, 100.0F});
+
+    ThrMomentumManagementAlgorithm withoutIntegral{ThrMomentumManagementConfig::create(nominalParams(), rwArrayConfig)};
+    ThrMomentumManagementAlgorithm withIntegral{
+        ThrMomentumManagementConfig::create(nominalParams(kNominalHsMin, kNominalK, kNominalKi), rwArrayConfig)};
+
+    const Eigen::Vector3f firstWithout = withoutIntegral.update(wheelSpeeds);
+    const Eigen::Vector3f firstWith = withIntegral.update(wheelSpeeds);
+
+    Eigen::Vector3f lastWithout = firstWithout;
+    Eigen::Vector3f lastWith = firstWith;
+    for (uint32_t cycle = 0U; cycle < 10U; ++cycle) {
+        lastWithout = withoutIntegral.update(wheelSpeeds);
+        lastWith = withIntegral.update(wheelSpeeds);
+    }
+
+    EXPECT_TRUE(lastWithout.isApprox(firstWithout));
+    EXPECT_GT(lastWith.norm(), firstWith.norm());
+}
+
+// The anti-windup clamp bounds how far the integral term can move the request, however long the momentum is
+// held: each component is capped at integralLimit, so the shift cannot exceed sqrt(3) * Ki * integralLimit.
+TEST(ThrMomentumManagement, IntegralLimitBoundsTheIntegralTerm) {
+    const auto rwArrayConfig = makeStandardRwArrayConfig();
+    const auto wheelSpeeds = makeWheelSpeeds({10.0F, -25.0F, 50.0F, 100.0F});
+
+    ThrMomentumManagementAlgorithm proportionalOnly{
+        ThrMomentumManagementConfig::create(nominalParams(), rwArrayConfig)};
+    const Eigen::Vector3f LrProportional = proportionalOnly.update(wheelSpeeds);
+
+    ThrMomentumManagementAlgorithm clamped{ThrMomentumManagementConfig::create(
+        nominalParams(kNominalHsMin, kNominalK, kNominalKi, kTightIntegralLimit), rwArrayConfig)};
+    ThrMomentumManagementAlgorithm unlimited{ThrMomentumManagementConfig::create(
+        nominalParams(kNominalHsMin, kNominalK, kNominalKi, kLargeIntegralLimit), rwArrayConfig)};
+
+    Eigen::Vector3f LrClamped = Eigen::Vector3f::Zero();
+    Eigen::Vector3f LrUnlimited = Eigen::Vector3f::Zero();
+    for (uint32_t cycle = 0U; cycle < 20U; ++cycle) {
+        LrClamped = clamped.update(wheelSpeeds);
+        LrUnlimited = unlimited.update(wheelSpeeds);
+    }
+
+    const float clampedBound = std::sqrt(3.0F) * kNominalKi * kTightIntegralLimit;
+    EXPECT_LE((LrClamped - LrProportional).norm(), clampedBound + kAccuracy);
+
+    // The same sustained momentum drives an effectively unlimited integral far past that bound.
+    EXPECT_GT((LrUnlimited - LrProportional).norm(), 10.0F * clampedBound);
+}
+
+// reInitialize() re-seeds the integrator, so the next update reproduces the very first request.
+TEST(ThrMomentumManagement, ReInitializeClearsTheIntegral) {
+    ThrMomentumManagementAlgorithm alg{ThrMomentumManagementConfig::create(
+        nominalParams(kNominalHsMin, kNominalK, kNominalKi), makeStandardRwArrayConfig())};
+    const auto wheelSpeeds = makeWheelSpeeds({10.0F, -25.0F, 50.0F, 100.0F});
+
+    const Eigen::Vector3f first = alg.update(wheelSpeeds);
+    for (uint32_t cycle = 0U; cycle < 10U; ++cycle) {
+        (void)alg.update(wheelSpeeds);
+    }
+    ASSERT_FALSE(alg.update(wheelSpeeds).isApprox(first));
+
+    alg.reInitialize();
+    EXPECT_TRUE(alg.update(wheelSpeeds).isApprox(first));
+}
+
+// setConfig installs new parameters without disturbing the integrator, so accumulation continues.
+TEST(ThrMomentumManagement, SetConfigPreservesIntegratorState) {
+    const auto rwArrayConfig = makeStandardRwArrayConfig();
+    const auto params = nominalParams(kNominalHsMin, kNominalK, kNominalKi);
+    ThrMomentumManagementAlgorithm alg{ThrMomentumManagementConfig::create(params, rwArrayConfig)};
+    const auto wheelSpeeds = makeWheelSpeeds({10.0F, -25.0F, 50.0F, 100.0F});
+
+    const Eigen::Vector3f first = alg.update(wheelSpeeds);
+    Eigen::Vector3f accumulated = first;
+    for (uint32_t cycle = 0U; cycle < 10U; ++cycle) {
+        accumulated = alg.update(wheelSpeeds);
+    }
+
+    alg.setConfig(ThrMomentumManagementConfig::create(params, rwArrayConfig));
+    const Eigen::Vector3f afterSetConfig = alg.update(wheelSpeeds);
+
+    EXPECT_GT(afterSetConfig.norm(), accumulated.norm());
+    EXPECT_FALSE(afterSetConfig.isApprox(first));
+}
+
+// ---------------------------------------------------------------------------------------------------
 // Config validation
 // ---------------------------------------------------------------------------------------------------
 
@@ -184,6 +319,100 @@ TEST(ThrMomentumManagementConfigValidation, AcceptsSmallPositiveK) {
     EXPECT_TRUE(ThrMomentumManagementConfig::isValidK(1e-6F));
     EXPECT_NO_THROW(
         (void)ThrMomentumManagementConfig::create(nominalParams(kNominalHsMin, 1e-6F), makeStandardRwArrayConfig()));
+}
+
+TEST(ThrMomentumManagementConfigValidation, RejectsInvalidKi) {
+    const auto rwArrayConfig = makeStandardRwArrayConfig();
+
+    EXPECT_FALSE(ThrMomentumManagementConfig::isValidKi(-1.0F));
+    EXPECT_FALSE(ThrMomentumManagementConfig::isValidKi(std::numeric_limits<float>::quiet_NaN()));
+    EXPECT_FALSE(ThrMomentumManagementConfig::isValidKi(std::numeric_limits<float>::infinity()));
+
+    EXPECT_THROW(
+        (void)ThrMomentumManagementConfig::create(nominalParams(kNominalHsMin, kNominalK, -1.0F), rwArrayConfig),
+        fsw::invalid_argument);
+    EXPECT_THROW((void)ThrMomentumManagementConfig::create(
+                     nominalParams(kNominalHsMin, kNominalK, std::numeric_limits<float>::quiet_NaN()), rwArrayConfig),
+                 fsw::invalid_argument);
+}
+
+// A zero integral gain switches the integral term off and is a legitimate setting.
+TEST(ThrMomentumManagementConfigValidation, AcceptsZeroKi) {
+    EXPECT_TRUE(ThrMomentumManagementConfig::isValidKi(0.0F));
+    EXPECT_NO_THROW((void)ThrMomentumManagementConfig::create(nominalParams(kNominalHsMin, kNominalK, 0.0F),
+                                                              makeStandardRwArrayConfig()));
+}
+
+// The clamp must be positive whenever the integral is active: a zero limit with Ki > 0 would silently pin the
+// integral term to zero, which is a misconfiguration rather than a way to disable it.
+TEST(ThrMomentumManagementConfigValidation, RejectsInvalidIntegralLimit) {
+    const auto rwArrayConfig = makeStandardRwArrayConfig();
+
+    EXPECT_FALSE(ThrMomentumManagementConfig::isValidIntegralLimit(-1.0F, 0.0F));
+    EXPECT_FALSE(ThrMomentumManagementConfig::isValidIntegralLimit(std::numeric_limits<float>::quiet_NaN(), 0.0F));
+    EXPECT_FALSE(ThrMomentumManagementConfig::isValidIntegralLimit(0.0F, kNominalKi));
+
+    EXPECT_THROW((void)ThrMomentumManagementConfig::create(nominalParams(kNominalHsMin, kNominalK, kNominalKi, 0.0F),
+                                                           rwArrayConfig),
+                 fsw::invalid_argument);
+    EXPECT_THROW((void)ThrMomentumManagementConfig::create(nominalParams(kNominalHsMin, kNominalK, kNominalKi, -1.0F),
+                                                           rwArrayConfig),
+                 fsw::invalid_argument);
+}
+
+// A non-finite step is rejected even with the integral off: it would poison the integral state, and
+// Ki * NaN is NaN even for Ki == 0, so the request would come out non-finite.
+TEST(ThrMomentumManagementConfigValidation, RejectsNonFiniteControlPeriodEvenWhenKiIsZero) {
+    const ThrMomentumManagementControlParameters params{.hsMin = kNominalHsMin,
+                                                        .K = kNominalK,
+                                                        .Ki = 0.0F,
+                                                        .integralLimit = 0.0F,
+                                                        .controlPeriod = std::numeric_limits<float>::quiet_NaN()};
+    EXPECT_THROW((void)ThrMomentumManagementConfig::create(params, makeStandardRwArrayConfig()), fsw::invalid_argument);
+}
+
+// With the integral switched off the clamp is unused, so a zero limit is acceptable.
+TEST(ThrMomentumManagementConfigValidation, AcceptsZeroIntegralLimitWhenKiIsZero) {
+    EXPECT_TRUE(ThrMomentumManagementConfig::isValidIntegralLimit(0.0F, 0.0F));
+    EXPECT_NO_THROW((void)ThrMomentumManagementConfig::create(nominalParams(kNominalHsMin, kNominalK, 0.0F, 0.0F),
+                                                              makeStandardRwArrayConfig()));
+}
+
+TEST(ThrMomentumManagementConfigValidation, RejectsInvalidControlPeriod) {
+    const auto rwArrayConfig = makeStandardRwArrayConfig();
+
+    // A zero step is only rejected while the integral is active.
+    EXPECT_FALSE(ThrMomentumManagementConfig::isValidControlPeriod(0.0F, kNominalKi));
+    EXPECT_FALSE(ThrMomentumManagementConfig::isValidControlPeriod(-1.0F, 0.0F));
+    EXPECT_FALSE(ThrMomentumManagementConfig::isValidControlPeriod(std::numeric_limits<float>::quiet_NaN(), 0.0F));
+    EXPECT_FALSE(ThrMomentumManagementConfig::isValidControlPeriod(std::numeric_limits<float>::infinity(), 0.0F));
+
+    EXPECT_THROW((void)ThrMomentumManagementConfig::create(
+                     nominalParams(kNominalHsMin, kNominalK, kNominalKi, kLargeIntegralLimit, 0.0F), rwArrayConfig),
+                 fsw::invalid_argument);
+    EXPECT_THROW((void)ThrMomentumManagementConfig::create(
+                     nominalParams(kNominalHsMin, kNominalK, kNominalKi, kLargeIntegralLimit, -1.0F), rwArrayConfig),
+                 fsw::invalid_argument);
+}
+
+// Only the integral term consumes the control period, so a purely proportional configuration needs nothing but
+// hsMin and K: it may leave controlPeriod and integralLimit at their zero defaults.
+TEST(ThrMomentumManagementConfigValidation, AcceptsZeroControlPeriodWhenKiIsZero) {
+    EXPECT_TRUE(ThrMomentumManagementConfig::isValidControlPeriod(0.0F, 0.0F));
+
+    const ThrMomentumManagementControlParameters proportionalOnly{
+        .hsMin = kNominalHsMin, .K = kNominalK, .Ki = 0.0F, .integralLimit = 0.0F, .controlPeriod = 0.0F};
+    EXPECT_NO_THROW((void)ThrMomentumManagementConfig::create(proportionalOnly, makeStandardRwArrayConfig()));
+
+    // ...and the request it produces is the plain proportional one.
+    ThrMomentumManagementAlgorithm alg{
+        ThrMomentumManagementConfig::create(proportionalOnly, makeStandardRwArrayConfig())};
+    const auto wheelSpeeds = makeWheelSpeeds({10.0F, -25.0F, 50.0F, 100.0F});
+    const Eigen::Vector3f first = alg.update(wheelSpeeds);
+    EXPECT_TRUE(alg.update(wheelSpeeds).isApprox(first));
+
+    const float hs = clusterMomentum(makeStandardRwArrayConfig(), wheelSpeeds).norm();
+    EXPECT_NEAR(first.norm(), kNominalK * (hs - kNominalHsMin), kAccuracy);
 }
 
 TEST(ThrMomentumManagementConfigValidation, RejectsTooManyWheels) {
@@ -348,7 +577,7 @@ TEST(ThrMomentumManagementProperties, TorqueActsOnExcessMomentumOnly) {
             const float hs = clusterMomentum(rwArrayConfig, wheelSpeeds).norm();
 
             EXPECT_NEAR(Lr_B.norm(), kNominalK * std::max(0.0F, hs - hsMin), kAccuracy) << "hsMin " << hsMin;
-            EXPECT_LE(Lr_B.norm(), (kNominalK * hs) + kAccuracy) << "hsMin " << hsMin;
+            EXPECT_LE(Lr_B.norm(), kNominalK * hs + kAccuracy) << "hsMin " << hsMin;
         }
     }
 }

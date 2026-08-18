@@ -17,7 +17,8 @@ Module Architecture
 
 The **algorithm** (``ThrMomentumManagementAlgorithm``) is framework-free and Eigen-typed. It holds a validated
 ``ThrMomentumManagementConfig`` and implements the dumping law described under `Mathematical Formulation`_. Its
-``update()`` never throws, carries no runtime state, and returns the requested torque as an ``Eigen::Vector3f``.
+``update()`` never throws, returns the requested torque as an ``Eigen::Vector3f``, and advances the
+excess-momentum integrator, which is the module's only runtime state; ``reInitialize()`` re-seeds it.
 
 The **Xmera adapter** (``ThrMomentumManagement``) inherits from ``SysModel`` and owns all messaging concerns. It
 converts between the message payloads' C arrays and the algorithm's Eigen types, and writes the output message on
@@ -86,11 +87,24 @@ a vector along :math:`\bm{h}_{s}` of magnitude :math:`|\bm{h}_{s}| - h_{s,\text{
 
 .. math::
 
-    {}^{B}\bm{L}_r = -K \, {}^{B}\bm{h}_{s,\text{exc}},
+    {}^{B}\bm{L}_r = -K \, {}^{B}\bm{h}_{s,\text{exc}} - K_i \, {}^{B}\bm{H}_{s,\text{exc}},
 
-with :math:`K` the proportional gain of the dumping loop. Because the deadband is applied to the
-momentum *vector* rather than gating the output, a threshold of :math:`h_{s,\text{min}} = 0` reduces the law to
-:math:`{}^{B}\bm{L}_r = -K\, {}^{B}\bm{h}_{s}`, acting on the full stored momentum.
+with :math:`K` the proportional gain of the dumping loop and :math:`K_i` the integral gain acting on
+
+.. math::
+
+    {}^{B}\bm{H}_{s,\text{exc}} = \int_{t_0}^{t} {}^{B}\bm{h}_{s,\text{exc}} \,\text{d}t,
+
+the accumulated excess momentum. The integral is advanced with a trapezoidal rule using the configured
+``controlPeriod`` as a fixed step (the module is expected to run at that rate), and every component of
+:math:`\bm{H}_{s,\text{exc}}` is then clamped to :math:`\pm` ``integralLimit``, preserving its sign, so a
+sustained momentum cannot wind the integral term up without bound. Note that it is the *excess* momentum that is
+integrated, not the raw :math:`\bm{h}_{s}`: were the raw momentum accumulated, the integral would keep growing
+while the cluster sat inside the deadband and would eventually command a dump below the threshold, defeating it.
+
+Because the deadband is applied to the momentum *vector* rather than gating the output, a threshold of
+:math:`h_{s,\text{min}} = 0` reduces the law to
+:math:`{}^{B}\bm{L}_r = -K\, {}^{B}\bm{h}_{s} - K_i\, {}^{B}\bm{H}_{s}`, acting on the full stored momentum.
 
 The magnitude :math:`|\bm{h}_{s}|` appears in the denominator, so the implementation additionally treats a cluster
 momentum below :math:`10^{-6}` Nms as zero. That branch is only reachable when :math:`h_{s,\text{min}}` is itself
@@ -123,6 +137,23 @@ raises ``fsw::invalid_argument`` and the module is not constructed.
         the threshold. Its reciprocal is the time constant of the dump, so :math:`K` should be sized from
         the torque the effectors can actually deliver: an excess of 10 Nms with :math:`K = 0.05`
         :math:`\text{s}^{-1}` asks for 0.5 Nm.
+    * - Ki
+      - float
+      - finite, :math:`\ge 0`
+      - [1/s2] Integral gain :math:`K_i` on the accumulated excess momentum. Zero switches the integral term off.
+    * - integralLimit
+      - float
+      - finite, :math:`\ge 0`, and :math:`> 0` when ``Ki`` :math:`> 0`
+      - [Nms2] Anti-windup clamp applied to each body-frame component of the excess-momentum integral. A zero
+        limit is rejected while the integral is active, because it would silently pin the integral term to zero
+        instead of disabling it -- set ``Ki`` to zero for that.
+    * - controlPeriod
+      - float
+      - finite, :math:`\ge 0`, and :math:`> 0` when ``Ki`` :math:`> 0`
+      - [s] Integration step for the integral term, i.e. the rate at which the module is scheduled. Only the
+        integral term consumes it, so a purely proportional configuration (``Ki`` = 0) may leave it at zero. It
+        must stay finite either way, since a non-finite step would make the request non-finite even with the
+        integral switched off.
     * - rwConfigDataInMsg payload
       - message
       - see below
@@ -150,6 +181,9 @@ The module uses two-phase initialization: set the public configuration propertie
     # Phase 1: configuration properties, set before reset()
     module.hsMin = 100.0 / 6000.0 * 100.0  # [Nms] lower ceiling of the RW cluster momentum
     module.K = 0.05                        # [1/s] dumping loop proportional gain
+    module.Ki = 0.01                       # [1/s2] integral gain (0 disables the integral term)
+    module.integralLimit = 1000.0          # [Nms2] anti-windup clamp per integral component
+    module.controlPeriod = 0.5             # [s] task rate; only needed when Ki > 0
 
     # Connect the required input messages
     module.rwSpeedsInMsg.subscribeTo(rw_speed_in_msg)
@@ -160,7 +194,8 @@ The module uses two-phase initialization: set the public configuration propertie
 
 Both input messages are required; ``reset()`` raises if either is unconnected.
 
-To push edited configuration properties onto a running algorithm, call ``reconfigure()``. It raises
+To push edited configuration properties onto a running algorithm without disturbing the integrator, call
+``reconfigure()``. To re-seed the integrator itself, call ``reInitialize()``. Both raise
 ``XmeraLifecycleException`` if called before ``reset()``.
 
 Module Assumptions and Limitations
@@ -168,8 +203,10 @@ Module Assumptions and Limitations
 
 - The spacecraft is assumed to hold a steady inertial orientation during the momentum dumping maneuver, which is
   what justifies neglecting the :math:`\bm{\omega}_{B/N} \times \bm{h}_{s}` transport term.
-- :math:`{}^{B}\bm{L}_r` is recomputed from scratch on every update and carries no memory of what has already
-  been dumped, so the downstream firing logic is responsible for tracking delivery.
+- The integral is advanced with a fixed ``controlPeriod`` step rather than a measured elapsed time, so the
+  module must actually be scheduled at that rate; a mismatch scales the integral term proportionally.
+- :math:`{}^{B}\bm{L}_r` carries no memory of how much momentum has already been dumped -- only of how long an
+  excess has persisted -- so the downstream firing logic is responsible for tracking delivery.
 - The RW configuration is sampled at ``reset()`` / ``reconfigure()``, not per update, so it is treated as static
   for the life of the configuration.
 - Single-precision arithmetic limits the achievable accuracy to roughly seven significant figures. Against the

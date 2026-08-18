@@ -18,12 +18,18 @@ class ThrMomentumManagement : public SysModel {
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
 
-    //! Re-validate the module properties and push them onto the live algorithm.
+    //! Re-validate the module properties and push them onto the live algorithm, leaving its state untouched.
     void reconfigure();
 
+    //! Re-seed the algorithm's runtime integrator state; a pass-through to the algorithm's reInitialize().
+    void reInitialize();
+
     /* declare module public variables */
-    float hsMin{};  //!< [Nms]  minimum RW cluster momentum for dumping
-    float K{};      //!< [1/s]  proportional gain on the excess momentum (must be > 0)
+    float hsMin{};          //!< [Nms]  minimum RW cluster momentum for dumping
+    float K{};              //!< [1/s]  proportional gain on the excess momentum (must be > 0)
+    float Ki{};             //!< [1/s2] integral gain on the accumulated excess momentum (0 disables it)
+    float integralLimit{};  //!< [Nms2] anti-windup clamp on each integral component (must be > 0 if Ki > 0)
+    float controlPeriod{};  //!< [s]    integration step between updates (must be > 0 if Ki > 0)
 
     /* declare module IO interfaces */
     Message<CmdTorqueBodyMsgF32Payload> cmdTorqueOutMsg;        //!< [Nm] requested body-frame dumping torque

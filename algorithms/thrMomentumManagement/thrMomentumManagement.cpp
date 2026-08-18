@@ -15,7 +15,7 @@
 static_assert(kMaxNumRw == RW_EFF_CNT, "THR_MOMENTUM_MANAGEMENT_MAX_NUM_RW must match RW_EFF_CNT");
 
 /*! This method performs a complete reset of the module.  It validates that the required input messages
- are linked and caches the RW configuration.
+ are linked, caches the RW configuration, and seeds the integrator state.
  @return void
  @param callTime The clock time at which the function was called (nanoseconds)
  */
@@ -28,7 +28,8 @@ void ThrMomentumManagement::reset(const uint64_t callTime) {
         throw std::invalid_argument("thrMomentumManagement.rwSpeedsInMsg wasn't connected.");
     }
 
-    /*! - create the algorithm, whose constructor installs the configuration (throws on an invalid config) */
+    /*! - create the algorithm, whose constructor installs the configuration and seeds the integrator state
+     (throws on an invalid config) */
     this->algorithm = std::make_unique<ThrMomentumManagementAlgorithm>(this->toConfig());
 }
 
@@ -44,20 +45,35 @@ ThrMomentumManagementConfig ThrMomentumManagement::toConfig() {
     rwArrayConfig.GsMatrix_B = cArrayToEigenMatrix<float, 3, kMaxNumRw>(rwConfigParams.GsMatrix_B);
     rwArrayConfig.JsList = cArrayToEigenVector(rwConfigParams.JsList);
 
-    const ThrMomentumManagementControlParameters controlParameters{.hsMin = this->hsMin, .K = this->K};
+    const ThrMomentumManagementControlParameters controlParameters{.hsMin = this->hsMin,
+                                                                   .K = this->K,
+                                                                   .Ki = this->Ki,
+                                                                   .integralLimit = this->integralLimit,
+                                                                   .controlPeriod = this->controlPeriod};
 
     return ThrMomentumManagementConfig::create(controlParameters, rwArrayConfig);
 }
 
-/*! Re-validate the current module properties and push them onto the live algorithm. Rebuilds the validated
- config from the public members and installs it via setConfig().
+/*! Re-validate the current module properties and push them onto the live algorithm without disturbing its
+ integrator state. Rebuilds the validated config from the public members and installs it via setConfig().
  @return void
  */
 void ThrMomentumManagement::reconfigure() {
     if (!this->algorithm) {
-        throw XmeraLifecycleException("ThrMomentumManagement reconfigure() before reset().");
+        throw XmeraLifecycleException("ThrMomentumManagement reset() has not been called.");
     }
     this->algorithm->setConfig(this->toConfig());
+}
+
+/*! Re-seed the algorithm's runtime integrator state without rebuilding the config; a simple pass-through to the
+ algorithm's reInitialize().
+ @return void
+ */
+void ThrMomentumManagement::reInitialize() {
+    if (!this->algorithm) {
+        throw XmeraLifecycleException("ThrMomentumManagement reset() has not been called.");
+    }
+    this->algorithm->reInitialize();
 }
 
 /*! The RW momentum level is assessed on every update to determine the torque required to dump the momentum

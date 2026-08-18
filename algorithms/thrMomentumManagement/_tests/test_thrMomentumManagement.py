@@ -34,6 +34,14 @@ def test_thr_momentum_management(hs_min_check):
     k_gain = 0.05
     module.K = k_gain
 
+    # The integral term is switched off here so the logged request is a pure function of the wheel speeds and
+    # can be checked against the double-precision truth values below; the integral path is covered by the C++
+    # unit tests. Only the integral consumes integralLimit and controlPeriod, so both may stay at zero, but
+    # controlPeriod is set to the task rate anyway to mirror a realistic configuration.
+    module.Ki = 0.0
+    module.integralLimit = 0.0
+    module.controlPeriod = macros.NANO2SEC * test_process_rate
+
     # wheelSpeeds message
     rw_speed_message = messaging.RWSpeedMsgF32Payload()
     rw_speed_message.wheelSpeeds = [10.0, -25.0, 50.0, 100.0]

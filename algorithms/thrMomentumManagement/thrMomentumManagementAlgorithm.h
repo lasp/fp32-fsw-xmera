@@ -20,10 +20,13 @@ struct ThrMomentumManagementRwArrayConfiguration {
     Eigen::Vector<float, kMaxNumRw> JsList{Eigen::Vector<float, kMaxNumRw>::Zero()};  //!< [kgm2] RW spin-axis inertias
 };
 
-/*! @brief Dumping threshold and feedback gain of the momentum management control law. */
+/*! @brief Dumping threshold, feedback gains and integration step of the momentum management control law. */
 struct ThrMomentumManagementControlParameters {
-    float hsMin{};  //!< [Nms] RW cluster momentum below which no dumping is requested
-    float K{};      //!< [1/s] proportional gain mapping the excess wheel momentum onto the requested torque
+    float hsMin{};          //!< [Nms] RW cluster momentum below which no dumping is requested
+    float K{};              //!< [1/s] proportional gain mapping the excess wheel momentum onto the requested torque
+    float Ki{};             //!< [1/s2] integral gain on the accumulated excess momentum (0 disables the integral)
+    float integralLimit{};  //!< [Nms2] anti-windup clamp on each component of the excess-momentum integral
+    float controlPeriod{};  //!< [s] time between two update() calls, the integration step (only used when Ki > 0)
 };
 
 /*! @brief Validated configuration for the RW momentum management algorithm. */
@@ -38,6 +41,17 @@ class ThrMomentumManagementConfig final {
         }
         if (!isValidK(controlParameters.K)) {
             FSW_THROW_INVALID_ARGUMENT("thrMomentumManagement: K must be finite and positive.");
+        }
+        if (!isValidKi(controlParameters.Ki)) {
+            FSW_THROW_INVALID_ARGUMENT("thrMomentumManagement: Ki must be finite and non-negative.");
+        }
+        if (!isValidIntegralLimit(controlParameters.integralLimit, controlParameters.Ki)) {
+            FSW_THROW_INVALID_ARGUMENT(
+                "thrMomentumManagement: integralLimit must be finite and non-negative, and positive when Ki > 0.");
+        }
+        if (!isValidControlPeriod(controlParameters.controlPeriod, controlParameters.Ki)) {
+            FSW_THROW_INVALID_ARGUMENT(
+                "thrMomentumManagement: controlPeriod must be finite and non-negative, and positive when Ki > 0.");
         }
         if (!isValidRwArrayConfiguration(rwArrayConfig)) {
             FSW_THROW_INVALID_ARGUMENT(
@@ -57,6 +71,16 @@ class ThrMomentumManagementConfig final {
 
     static bool isValidHsMin(float hsMin) { return fsw::is_finite(hsMin) && hsMin >= 0.0F; }
     static bool isValidK(float K) { return fsw::is_finite(K) && K > 0.0F; }
+    static bool isValidKi(float Ki) { return fsw::is_finite(Ki) && Ki >= 0.0F; }
+    /*! A zero limit is only allowed when the integral term is switched off (Ki == 0). */
+    static bool isValidIntegralLimit(float integralLimit, float Ki) {
+        return fsw::is_finite(integralLimit) && integralLimit >= 0.0F && (Ki == 0.0F || integralLimit > 0.0F);
+    }
+    /*! Only the integral term consumes the control period, so it may be left at zero when Ki == 0. It must stay
+     finite regardless: a non-finite step would poison the integral, and Ki * NaN is NaN even for Ki == 0. */
+    static bool isValidControlPeriod(float controlPeriod, float Ki) {
+        return fsw::is_finite(controlPeriod) && controlPeriod >= 0.0F && (Ki == 0.0F || controlPeriod > 0.0F);
+    }
 
     static bool isValidRwArrayConfiguration(const ThrMomentumManagementRwArrayConfiguration& rwArrayConfig) {
         if (rwArrayConfig.numRW > kMaxNumRw || !rwArrayConfig.GsMatrix_B.allFinite() ||
@@ -85,19 +109,30 @@ class ThrMomentumManagementConfig final {
     ThrMomentumManagementRwArrayConfiguration rwArrayConfig;   //!< [-] RW spin axes and spin-axis inertias
 };
 
-/*! @brief Assesses the net reaction wheel momentum and computes the torque needed to dump its excess. */
+/*!
+ * @brief Assesses the net reaction wheel momentum and computes the torque needed to dump its excess.
+ *
+ * The control law is proportional-integral on the momentum held above the dumping threshold, so the algorithm
+ * carries the integrator state between updates. Call reInitialize() to re-seed it.
+ */
 class ThrMomentumManagementAlgorithm final {
    public:
     explicit ThrMomentumManagementAlgorithm(const ThrMomentumManagementConfig& config);
 
-    //! Install the validated configuration.
+    //! Install the validated configuration; does not touch runtime state.
     void setConfig(const ThrMomentumManagementConfig& config);
 
+    //! Re-seed the runtime integrator state to its initial values.
+    void reInitialize();
+
     //! [Nm] Requested body-frame torque that dumps the excess wheel momentum for the supplied wheel speeds.
-    Eigen::Vector3f update(const Eigen::Vector<float, kMaxNumRw>& wheelSpeeds) const;
+    Eigen::Vector3f update(const Eigen::Vector<float, kMaxNumRw>& wheelSpeeds);
 
    private:
     ThrMomentumManagementConfig cfg;  //!< [-] validated configuration (control parameters, RW array config)
+    Eigen::Vector3f hsInt_B{Eigen::Vector3f::Zero()};  //!< [Nms2] integral of the excess RW momentum, B frame
+    Eigen::Vector3f priorHsExcess_B{
+        Eigen::Vector3f::Zero()};  //!< [Nms] excess RW momentum from the previous update, B frame
 };
 
 #endif
