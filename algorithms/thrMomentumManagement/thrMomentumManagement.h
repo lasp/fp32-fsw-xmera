@@ -12,7 +12,7 @@
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
 
-/*! @brief Assesses the net reaction wheel momentum and requests the angular momentum change needed to dump it. */
+/*! @brief Assesses the net reaction wheel momentum and requests the torque needed to dump its excess. */
 class ThrMomentumManagement : public SysModel {
    public:
     void reset(uint64_t callTime) override;
@@ -23,9 +23,10 @@ class ThrMomentumManagement : public SysModel {
 
     /* declare module public variables */
     float hsMin{};  //!< [Nms]  minimum RW cluster momentum for dumping
+    float K{};      //!< [1/s]  proportional gain on the excess momentum (must be > 0)
 
     /* declare module IO interfaces */
-    Message<CmdTorqueBodyMsgF32Payload> deltaHOutMsg;           //!< [Nms] requested body-frame momentum change
+    Message<CmdTorqueBodyMsgF32Payload> cmdTorqueOutMsg;        //!< [Nm] requested body-frame dumping torque
     ReadFunctor<RWSpeedMsgF32Payload> rwSpeedsInMsg;            //!< [r/s] reaction wheel speeds input message
     ReadFunctor<RWArrayConfigMsgF32Payload> rwConfigDataInMsg;  //!< [-] RW array configuration input message
 

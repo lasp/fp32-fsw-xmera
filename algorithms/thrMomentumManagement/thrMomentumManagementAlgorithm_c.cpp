@@ -8,13 +8,17 @@
 namespace {
 
 //! Build the validated C++ configuration from the flattened C parameters.
-ThrMomentumManagementConfig makeConfig(float hsMin, const ThrMomentumManagementRwArrayConfiguration_c* rwArrayConfig) {
+ThrMomentumManagementConfig makeConfig(float hsMin,
+                                       float K,
+                                       const ThrMomentumManagementRwArrayConfiguration_c* rwArrayConfig) {
     ThrMomentumManagementRwArrayConfiguration rwArrayConfigCpp;
     rwArrayConfigCpp.numRW = rwArrayConfig->numRW;
     rwArrayConfigCpp.GsMatrix_B = cArrayToEigenMatrix<float, 3, kMaxNumRw>(rwArrayConfig->GsMatrix_B);
     rwArrayConfigCpp.JsList = cArrayToEigenVector(rwArrayConfig->JsList);
 
-    return ThrMomentumManagementConfig::create(hsMin, rwArrayConfigCpp);
+    const ThrMomentumManagementControlParameters controlParameters{.hsMin = hsMin, .K = K};
+
+    return ThrMomentumManagementConfig::create(controlParameters, rwArrayConfigCpp);
 }
 
 }  // namespace
@@ -22,9 +26,10 @@ ThrMomentumManagementConfig makeConfig(float hsMin, const ThrMomentumManagementR
 uint32_t ThrMomentumManagementAlgorithm_getMaxNumRw(void) { return THR_MOMENTUM_MANAGEMENT_MAX_NUM_RW; }
 
 bool ThrMomentumManagementAlgorithm_validateConfig(float hsMin,
+                                                   float K,
                                                    const ThrMomentumManagementRwArrayConfiguration_c* rwArrayConfig) {
     try {
-        (void)makeConfig(hsMin, rwArrayConfig);
+        (void)makeConfig(hsMin, K, rwArrayConfig);
         return true;
     } catch (const fsw::invalid_argument&) {
         return false;
@@ -33,9 +38,10 @@ bool ThrMomentumManagementAlgorithm_validateConfig(float hsMin,
 
 ThrMomentumManagementAlgorithmHandle* ThrMomentumManagementAlgorithm_create(
     float hsMin,
+    float K,
     const ThrMomentumManagementRwArrayConfiguration_c* rwArrayConfig) {
     return fsw::createHandle<::ThrMomentumManagementAlgorithm, ThrMomentumManagementAlgorithmHandle>(
-        makeConfig(hsMin, rwArrayConfig));
+        makeConfig(hsMin, K, rwArrayConfig));
 }
 
 void ThrMomentumManagementAlgorithm_destroy(ThrMomentumManagementAlgorithmHandle* self) {
@@ -44,19 +50,19 @@ void ThrMomentumManagementAlgorithm_destroy(ThrMomentumManagementAlgorithmHandle
 
 void ThrMomentumManagementAlgorithm_setConfig(ThrMomentumManagementAlgorithmHandle* self,
                                               float hsMin,
+                                              float K,
                                               const ThrMomentumManagementRwArrayConfiguration_c* rwArrayConfig) {
-    fsw::fromHandle<::ThrMomentumManagementAlgorithm>(self)->setConfig(makeConfig(hsMin, rwArrayConfig));
+    fsw::fromHandle<::ThrMomentumManagementAlgorithm>(self)->setConfig(makeConfig(hsMin, K, rwArrayConfig));
 }
 
 Vector3f_c ThrMomentumManagementAlgorithm_update(const ThrMomentumManagementAlgorithmHandle* self,
                                                  const ThrMomentumManagementWheelSpeeds_c* wheelSpeeds) {
     const Eigen::Vector<float, kMaxNumRw> wheelSpeedsCpp = cArrayToEigenVector(wheelSpeeds->wheelSpeeds);
 
-    const Eigen::Vector3f Delta_H_B =
-        fsw::fromHandle<const ::ThrMomentumManagementAlgorithm>(self)->update(wheelSpeedsCpp);
+    const Eigen::Vector3f Lr_B = fsw::fromHandle<const ::ThrMomentumManagementAlgorithm>(self)->update(wheelSpeedsCpp);
 
     Vector3f_c out{};
-    eigenVectorToCArray(Delta_H_B, out.data);
+    eigenVectorToCArray(Lr_B, out.data);
 
     return out;
 }

@@ -20,15 +20,24 @@ struct ThrMomentumManagementRwArrayConfiguration {
     Eigen::Vector<float, kMaxNumRw> JsList{Eigen::Vector<float, kMaxNumRw>::Zero()};  //!< [kgm2] RW spin-axis inertias
 };
 
+/*! @brief Dumping threshold and feedback gain of the momentum management control law. */
+struct ThrMomentumManagementControlParameters {
+    float hsMin{};  //!< [Nms] RW cluster momentum below which no dumping is requested
+    float K{};      //!< [1/s] proportional gain mapping the excess wheel momentum onto the requested torque
+};
+
 /*! @brief Validated configuration for the RW momentum management algorithm. */
 class ThrMomentumManagementConfig final {
    public:
-    static ThrMomentumManagementConfig create(float hsMin,
+    static ThrMomentumManagementConfig create(const ThrMomentumManagementControlParameters& controlParameters,
                                               const ThrMomentumManagementRwArrayConfiguration& rwArrayConfig) {
-        if (!isValidHsMin(hsMin)) {
+        if (!isValidHsMin(controlParameters.hsMin)) {
             FSW_THROW_INVALID_ARGUMENT(
                 "thrMomentumManagement: hsMin (minimum RW cluster momentum for dumping) must be finite and "
                 "non-negative.");
+        }
+        if (!isValidK(controlParameters.K)) {
+            FSW_THROW_INVALID_ARGUMENT("thrMomentumManagement: K must be finite and positive.");
         }
         if (!isValidRwArrayConfiguration(rwArrayConfig)) {
             FSW_THROW_INVALID_ARGUMENT(
@@ -43,10 +52,11 @@ class ThrMomentumManagementConfig final {
             normalizedRwArrayConfig.GsMatrix_B.col(i).normalize();
         }
 
-        return {hsMin, std::move(normalizedRwArrayConfig)};
+        return {controlParameters, std::move(normalizedRwArrayConfig)};
     }
 
     static bool isValidHsMin(float hsMin) { return fsw::is_finite(hsMin) && hsMin >= 0.0F; }
+    static bool isValidK(float K) { return fsw::is_finite(K) && K > 0.0F; }
 
     static bool isValidRwArrayConfiguration(const ThrMomentumManagementRwArrayConfiguration& rwArrayConfig) {
         if (rwArrayConfig.numRW > kMaxNumRw || !rwArrayConfig.GsMatrix_B.allFinite() ||
@@ -63,18 +73,19 @@ class ThrMomentumManagementConfig final {
         return true;
     }
 
-    float getHsMin() const { return this->hsMin; }
+    const ThrMomentumManagementControlParameters& getControlParameters() const { return this->controlParameters; }
     const ThrMomentumManagementRwArrayConfiguration& getRwArrayConfiguration() const { return this->rwArrayConfig; }
 
    private:
-    ThrMomentumManagementConfig(float hsMin, ThrMomentumManagementRwArrayConfiguration rwArrayConfig)
-        : hsMin(hsMin), rwArrayConfig(std::move(rwArrayConfig)) {}
+    ThrMomentumManagementConfig(const ThrMomentumManagementControlParameters& controlParameters,
+                                ThrMomentumManagementRwArrayConfiguration rwArrayConfig)
+        : controlParameters(controlParameters), rwArrayConfig(std::move(rwArrayConfig)) {}
 
-    float hsMin;                                              //!< [Nms] minimum RW cluster momentum for dumping
-    ThrMomentumManagementRwArrayConfiguration rwArrayConfig;  //!< [-] RW spin axes and spin-axis inertias
+    ThrMomentumManagementControlParameters controlParameters;  //!< [-] dumping threshold and feedback gain
+    ThrMomentumManagementRwArrayConfiguration rwArrayConfig;   //!< [-] RW spin axes and spin-axis inertias
 };
 
-/*! @brief Assesses the net reaction wheel momentum and computes the angular momentum change needed to dump it. */
+/*! @brief Assesses the net reaction wheel momentum and computes the torque needed to dump its excess. */
 class ThrMomentumManagementAlgorithm final {
    public:
     explicit ThrMomentumManagementAlgorithm(const ThrMomentumManagementConfig& config);
@@ -82,11 +93,11 @@ class ThrMomentumManagementAlgorithm final {
     //! Install the validated configuration.
     void setConfig(const ThrMomentumManagementConfig& config);
 
-    //! [Nms] Requested body-frame angular momentum change for the supplied wheel speeds.
+    //! [Nm] Requested body-frame torque that dumps the excess wheel momentum for the supplied wheel speeds.
     Eigen::Vector3f update(const Eigen::Vector<float, kMaxNumRw>& wheelSpeeds) const;
 
    private:
-    ThrMomentumManagementConfig cfg;  //!< [-] validated configuration (dumping threshold, RW array config)
+    ThrMomentumManagementConfig cfg;  //!< [-] validated configuration (control parameters, RW array config)
 };
 
 #endif

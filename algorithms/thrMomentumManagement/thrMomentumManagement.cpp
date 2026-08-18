@@ -44,7 +44,9 @@ ThrMomentumManagementConfig ThrMomentumManagement::toConfig() {
     rwArrayConfig.GsMatrix_B = cArrayToEigenMatrix<float, 3, kMaxNumRw>(rwConfigParams.GsMatrix_B);
     rwArrayConfig.JsList = cArrayToEigenVector(rwConfigParams.JsList);
 
-    return ThrMomentumManagementConfig::create(this->hsMin, rwArrayConfig);
+    const ThrMomentumManagementControlParameters controlParameters{.hsMin = this->hsMin, .K = this->K};
+
+    return ThrMomentumManagementConfig::create(controlParameters, rwArrayConfig);
 }
 
 /*! Re-validate the current module properties and push them onto the live algorithm. Rebuilds the validated
@@ -58,8 +60,8 @@ void ThrMomentumManagement::reconfigure() {
     this->algorithm->setConfig(this->toConfig());
 }
 
-/*! The RW momentum level is assessed on every update to determine the angular momentum change required to
- dump it.
+/*! The RW momentum level is assessed on every update to determine the torque required to dump the momentum
+ held above the threshold.
  @return void
  @param callTime The clock time at which the function was called (nanoseconds)
  */
@@ -71,11 +73,11 @@ void ThrMomentumManagement::updateState(const uint64_t callTime) {
     /*! - Read the input messages */
     const RWSpeedMsgF32Payload rwSpeedMsg = this->rwSpeedsInMsg(); /* Reaction wheel speed estimate message */
 
-    const Eigen::Vector3f Delta_H_B = this->algorithm->update(cArrayToEigenVector(rwSpeedMsg.wheelSpeeds));
+    const Eigen::Vector3f Lr_B = this->algorithm->update(cArrayToEigenVector(rwSpeedMsg.wheelSpeeds));
 
     /*! - write out the output message */
     CmdTorqueBodyMsgF32Payload controlOutMsg = {}; /* Control torque output message */
-    eigenVectorToCArray(Delta_H_B, controlOutMsg.torqueRequestBody);
+    eigenVectorToCArray(Lr_B, controlOutMsg.torqueRequestBody);
 
-    this->deltaHOutMsg.write(controlOutMsg, moduleID, callTime);
+    this->cmdTorqueOutMsg.write(controlOutMsg, moduleID, callTime);
 }

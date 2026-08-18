@@ -1,17 +1,14 @@
 Executive Summary
 -----------------
 
-This module reads in the Reaction Wheel (RW) speeds, determines the net RW angular momentum, and then determines the
-amount of angular momentum that must be dumped. The output is a desired angular momentum change
-:math:`{}^{B}\Delta\bm{H}` expressed in body frame components.
+This module reads in the Reaction Wheel (RW) speeds, determines the net RW angular momentum, and requests the
+torque that dumps whatever momentum is held above a configured threshold. The output is a commanded torque
+:math:`{}^{B}\bm{L}_r` expressed in body frame components.
 
-The momentum check runs on **every** update, so the requested change tracks the RW speeds as they evolve.
+The momentum check runs on **every** update, so the requested torque tracks the RW speeds as they evolve.
 
-A separate thruster firing logic module, ``thrMomentumDumping``, later computes the thruster on-cycling. The
-intermediate ``thrForceMapping`` module maps the requested momentum change into thruster impulse requests: that
-module maps a control torque vector into thruster forces, and because multiplying both the input torque and the
-output force set by time preserves the relation, the same module also maps a desired angular momentum change into a
-set of thruster impulse requests.
+A downstream mapping module (``forceTorqueThrForceMapping``) converts the commanded torque into per-thruster
+forces, and a thruster firing module converts those into thruster on-times.
 
 All numeric computation is single-precision (``float`` / fp32).
 
@@ -20,8 +17,7 @@ Module Architecture
 
 The **algorithm** (``ThrMomentumManagementAlgorithm``) is framework-free and Eigen-typed. It holds a validated
 ``ThrMomentumManagementConfig`` and implements the dumping law described under `Mathematical Formulation`_. Its
-``update()`` never throws, carries no runtime state, and returns the requested momentum change as an
-``Eigen::Vector3f``.
+``update()`` never throws, carries no runtime state, and returns the requested torque as an ``Eigen::Vector3f``.
 
 The **Xmera adapter** (``ThrMomentumManagement``) inherits from ``SysModel`` and owns all messaging concerns. It
 converts between the message payloads' C arrays and the algorithm's Eigen types, and writes the output message on
@@ -29,9 +25,9 @@ every update. Configuration uses two-phase initialization: the caller sets the p
 validates the input links, builds the configuration, and constructs the algorithm.
 
 The **Adamant adapter** is a C shim (``thrMomentumManagementAlgorithm_c.h`` / ``.cpp``) exposing the algorithm
-through an opaque handle for Ada FFI. ``update()`` returns the requested momentum change as a ``Vector3f_c`` POD. A
-non-throwing ``validateConfig()`` lets Ada pre-check a configuration before calling the throwing ``create()`` /
-``setConfig()``.
+through an opaque handle for Ada FFI. ``update()`` returns the requested torque as a ``Vector3f_c`` POD, and the
+configuration crosses the boundary as flattened scalars. A non-throwing ``validateConfig()`` lets Ada pre-check a
+configuration before calling the throwing ``create()`` / ``setConfig()``.
 
 Message Connection Descriptions
 -------------------------------
@@ -47,10 +43,10 @@ information on what this message is used for.
     * - Msg Variable Name
       - Msg Type
       - Description
-    * - deltaHOutMsg
+    * - cmdTorqueOutMsg
       - :ref:`CmdTorqueBodyMsgF32Payload`
-      - Output message with the requested angular momentum change :math:`{}^{B}\Delta\bm{H}` [Nms], written every
-        update. The payload is a torque-shaped carrier reused here for angular momentum; the units are Nms, not Nm.
+      - Output message with the requested body-frame dumping torque :math:`{}^{B}\bm{L}_r` [Nm], written every
+        update.
     * - rwSpeedsInMsg
       - :ref:`RWSpeedMsgF32Payload`
       - Reaction wheel speed input message [r/s], read every update.
@@ -78,15 +74,23 @@ angular momentum rate can be approximated as
     \dot{\bm{h}}_{s} = \frac{{}^{B}\text{d}\bm{h}_{s}}{\text{d}t} + \bm{\omega}_{B/N} \times \bm{h}_{s}
                      \approx \frac{{}^{B}\text{d}\bm{h}_{s}}{\text{d}t}
 
-Let :math:`h_{s,\text{min}}` be the lower bound the momentum dumping strategy should achieve. The desired net change
-in angular momentum is
+Let :math:`h_{s,\text{min}}` be the lower bound the momentum dumping strategy should achieve. The part of the
+cluster momentum held above that threshold is
 
 .. math::
 
-    {}^{B}\Delta\bm{H} = -\, {}^{B}\bm{h}_{s} \, \frac{|\bm{h}_{s}| - h_{s,\text{min}}}{|\bm{h}_{s}|}
+    {}^{B}\bm{h}_{s,\text{exc}} = {}^{B}\bm{h}_{s} \, \frac{|\bm{h}_{s}| - h_{s,\text{min}}}{|\bm{h}_{s}|},
 
-so the requested change is anti-parallel to the stored momentum and leaves exactly :math:`h_{s,\text{min}}` behind.
-When :math:`|\bm{h}_{s}| < h_{s,\text{min}}` no dumping is required and :math:`{}^{B}\Delta\bm{H}` is zero.
+a vector along :math:`\bm{h}_{s}` of magnitude :math:`|\bm{h}_{s}| - h_{s,\text{min}}`. It is zero whenever
+:math:`|\bm{h}_{s}| < h_{s,\text{min}}`, so the threshold acts as a deadband. The commanded torque opposes it,
+
+.. math::
+
+    {}^{B}\bm{L}_r = -K \, {}^{B}\bm{h}_{s,\text{exc}},
+
+with :math:`K` the proportional gain of the dumping loop. Because the deadband is applied to the
+momentum *vector* rather than gating the output, a threshold of :math:`h_{s,\text{min}} = 0` reduces the law to
+:math:`{}^{B}\bm{L}_r = -K\, {}^{B}\bm{h}_{s}`, acting on the full stored momentum.
 
 The magnitude :math:`|\bm{h}_{s}|` appears in the denominator, so the implementation additionally treats a cluster
 momentum below :math:`10^{-6}` Nms as zero. That branch is only reachable when :math:`h_{s,\text{min}}` is itself
@@ -111,6 +115,14 @@ raises ``fsw::invalid_argument`` and the module is not constructed.
       - float
       - finite, :math:`\ge 0`
       - [Nms] Minimum RW cluster momentum for dumping. Zero is permitted and means "dump all stored momentum".
+    * - K
+      - float
+      - finite, :math:`> 0`
+      - [1/s] Proportional gain :math:`K` mapping the excess momentum onto the requested torque. Zero is
+        rejected because it would disable dumping entirely, and a negative gain would drive the wheels away from
+        the threshold. Its reciprocal is the time constant of the dump, so :math:`K` should be sized from
+        the torque the effectors can actually deliver: an excess of 10 Nms with :math:`K = 0.05`
+        :math:`\text{s}^{-1}` asks for 0.5 Nm.
     * - rwConfigDataInMsg payload
       - message
       - see below
@@ -137,6 +149,7 @@ The module uses two-phase initialization: set the public configuration propertie
 
     # Phase 1: configuration properties, set before reset()
     module.hsMin = 100.0 / 6000.0 * 100.0  # [Nms] lower ceiling of the RW cluster momentum
+    module.K = 0.05                        # [1/s] dumping loop proportional gain
 
     # Connect the required input messages
     module.rwSpeedsInMsg.subscribeTo(rw_speed_in_msg)
@@ -155,10 +168,10 @@ Module Assumptions and Limitations
 
 - The spacecraft is assumed to hold a steady inertial orientation during the momentum dumping maneuver, which is
   what justifies neglecting the :math:`\bm{\omega}_{B/N} \times \bm{h}_{s}` transport term.
-- :math:`{}^{B}\Delta\bm{H}` is recomputed from scratch on every update and carries no memory of what has already
+- :math:`{}^{B}\bm{L}_r` is recomputed from scratch on every update and carries no memory of what has already
   been dumped, so the downstream firing logic is responsible for tracking delivery.
 - The RW configuration is sampled at ``reset()`` / ``reconfigure()``, not per update, so it is treated as static
   for the life of the configuration.
 - Single-precision arithmetic limits the achievable accuracy to roughly seven significant figures. Against the
-  original double-precision implementation the observed error is at float epsilon (~4e-7 absolute on momentum
-  changes of order 10 Nms).
+  original double-precision implementation the observed error is at float epsilon (~4e-7 absolute on excess
+  momenta of order 10 Nms), scaled by the gain :math:`K`.

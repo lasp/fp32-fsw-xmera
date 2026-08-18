@@ -37,45 +37,46 @@ inline Eigen::Vector<float, kMaxNumRw> makeWheelSpeeds(const std::vector<float>&
 }
 
 // Independent reference implementation of the momentum dumping law, written directly from the module
-// description rather than from the algorithm source: accumulate the net RW momentum, and request the
-// change that brings its magnitude down to hsMin.
-inline Eigen::Vector3f referenceDeltaH(const ThrMomentumManagementRwArrayConfiguration& rwArrayConfig,
+// description rather than from the algorithm source: accumulate the net RW momentum, isolate the part held
+// above the threshold, and oppose it with the feedback gain.
+inline Eigen::Vector3f referenceTorque(const ThrMomentumManagementRwArrayConfiguration& rwArrayConfig,
                                        const Eigen::Vector<float, kMaxNumRw>& wheelSpeeds,
-                                       float hsMin) {
+                                       const ThrMomentumManagementControlParameters& params) {
     Eigen::Vector3f hs_B = Eigen::Vector3f::Zero();
     for (uint32_t i = 0U; i < rwArrayConfig.numRW; ++i) {
         hs_B += rwArrayConfig.JsList[i] * wheelSpeeds[i] * rwArrayConfig.GsMatrix_B.col(i);
     }
     const float hs = hs_B.norm();
 
-    if (hs < hsMin || hs < 1e-6F) {
+    if (hs < params.hsMin || hs < 1e-6F) {
         return Eigen::Vector3f::Zero();
     }
-    return Eigen::Vector3f{-(hs - hsMin) / hs * hs_B};
+    return Eigen::Vector3f{-params.K * (hs - params.hsMin) / hs * hs_B};
 }
 
 // Regression helper: the algorithm's update must match the reference implementation.
 inline void regressionTestThrMomentumManagement(const ThrMomentumManagementRwArrayConfiguration& rwArrayConfig,
                                                 const Eigen::Vector<float, kMaxNumRw>& wheelSpeeds,
-                                                float hsMin,
+                                                const ThrMomentumManagementControlParameters& params,
                                                 float accuracy) {
-    ThrMomentumManagementAlgorithm alg{ThrMomentumManagementConfig::create(hsMin, rwArrayConfig)};
+    ThrMomentumManagementAlgorithm alg{ThrMomentumManagementConfig::create(params, rwArrayConfig)};
 
     const Eigen::Vector3f actual = alg.update(wheelSpeeds);
-    const Eigen::Vector3f expected = referenceDeltaH(rwArrayConfig, wheelSpeeds, hsMin);
+    const Eigen::Vector3f expected = referenceTorque(rwArrayConfig, wheelSpeeds, params);
 
     for (Eigen::Index i = 0; i < 3; ++i) {
         EXPECT_NEAR(actual[i], expected[i], accuracy) << "component " << i;
     }
 }
 
-// Config helper: assert that a (hsMin, rwArrayConfig) pair is accepted and round-trips through the getters.
-inline void testThrMomentumManagementSetup(float hsMin,
+// Config helper: assert that a (params, rwArrayConfig) pair is accepted and round-trips through the getters.
+inline void testThrMomentumManagementSetup(const ThrMomentumManagementControlParameters& params,
                                            const ThrMomentumManagementRwArrayConfiguration& rwArrayConfig,
                                            float accuracy) {
-    const ThrMomentumManagementConfig cfg = ThrMomentumManagementConfig::create(hsMin, rwArrayConfig);
+    const ThrMomentumManagementConfig cfg = ThrMomentumManagementConfig::create(params, rwArrayConfig);
 
-    EXPECT_NEAR(cfg.getHsMin(), hsMin, accuracy);
+    EXPECT_NEAR(cfg.getControlParameters().hsMin, params.hsMin, accuracy);
+    EXPECT_NEAR(cfg.getControlParameters().K, params.K, accuracy);
     EXPECT_EQ(cfg.getRwArrayConfiguration().numRW, rwArrayConfig.numRW);
     for (uint32_t i = 0U; i < rwArrayConfig.numRW; ++i) {
         EXPECT_NEAR(cfg.getRwArrayConfiguration().JsList[i], rwArrayConfig.JsList[i], accuracy) << "wheel " << i;
@@ -98,15 +99,16 @@ inline Eigen::Vector3f clusterMomentum(const ThrMomentumManagementRwArrayConfigu
     return hs_B;
 }
 
-// Fuzz property: for any admissible three-wheel geometry the request is finite, and the momentum left
-// behind is exactly min(|hs|, hsMin) -- dumping brings the cluster down to the threshold and no further,
-// and leaves it untouched when already below.
-inline void propertyDumpLeavesMinOfMomentumAndThreshold(const Eigen::Vector3f& axis0,
-                                                        const Eigen::Vector3f& axis1,
-                                                        const Eigen::Vector3f& axis2,
-                                                        const Eigen::Vector3f& speeds,
-                                                        float js,
-                                                        float hsMin) {
+// Fuzz property: for any admissible three-wheel geometry the torque is finite, opposes the stored momentum,
+// and has magnitude K * (|hs| - hsMin) -- it acts on exactly the momentum held above the threshold, and
+// vanishes when the cluster is already below it.
+inline void propertyTorqueOpposesExcessMomentum(const Eigen::Vector3f& axis0,
+                                                const Eigen::Vector3f& axis1,
+                                                const Eigen::Vector3f& axis2,
+                                                const Eigen::Vector3f& speeds,
+                                                float js,
+                                                float hsMin,
+                                                float K) {
     // A spin axis too short to normalize has no defined direction; the config would reject it.
     constexpr float degenerateTol = 1e-3F;
     if (axis0.norm() < degenerateTol || axis1.norm() < degenerateTol || axis2.norm() < degenerateTol) {
@@ -116,23 +118,28 @@ inline void propertyDumpLeavesMinOfMomentumAndThreshold(const Eigen::Vector3f& a
     const auto rwArrayConfig = makeRwArrayConfig({axis0, axis1, axis2}, js);
     const auto wheelSpeeds = makeWheelSpeeds({speeds[0], speeds[1], speeds[2]});
 
-    ThrMomentumManagementAlgorithm alg{ThrMomentumManagementConfig::create(hsMin, rwArrayConfig)};
-    const Eigen::Vector3f deltaH_B = alg.update(wheelSpeeds);
+    ThrMomentumManagementAlgorithm alg{ThrMomentumManagementConfig::create({.hsMin = hsMin, .K = K}, rwArrayConfig)};
+    const Eigen::Vector3f Lr_B = alg.update(wheelSpeeds);
 
-    ASSERT_TRUE(deltaH_B.allFinite());
+    ASSERT_TRUE(Lr_B.allFinite());
 
     const Eigen::Vector3f hs_B = clusterMomentum(rwArrayConfig, wheelSpeeds);
-    const float before = hs_B.norm();
+    const float hs = hs_B.norm();
 
     // Negligible momentum takes the zero-tolerance branch, which deliberately declines to dump; that
     // carve-out is pinned by the edge-case unit tests instead.
-    if (before < 1e-4F) {
+    if (hs < 1e-4F) {
         return;
     }
 
-    // FP32 error grows with the magnitude being cancelled, so scale the tolerance with it.
-    const float tol = 1e-4F * std::max(1.0F, before);
-    EXPECT_NEAR((hs_B + deltaH_B).norm(), std::min(before, hsMin), tol);
+    // FP32 error grows with the momentum magnitude and is amplified by the gain.
+    const float tol = 1e-4F * K * std::max(1.0F, hs);
+    EXPECT_NEAR(Lr_B.norm(), K * std::max(0.0F, hs - hsMin), tol);
+
+    // Above the deadband the torque must point against the stored momentum.
+    if (hs > hsMin + (1e-3F * std::max(1.0F, hs))) {
+        EXPECT_LT(Lr_B.normalized().dot(hs_B.normalized()), 0.0F);
+    }
 }
 
 // Fuzz regression: the algorithm must agree with the reference implementation on any admissible input.
@@ -141,7 +148,8 @@ inline void regressionFuzzThrMomentumManagement(const Eigen::Vector3f& axis0,
                                                 const Eigen::Vector3f& axis2,
                                                 const Eigen::Vector3f& speeds,
                                                 float js,
-                                                float hsMin) {
+                                                float hsMin,
+                                                float K) {
     constexpr float degenerateTol = 1e-3F;
     if (axis0.norm() < degenerateTol || axis1.norm() < degenerateTol || axis2.norm() < degenerateTol) {
         return;
@@ -149,12 +157,13 @@ inline void regressionFuzzThrMomentumManagement(const Eigen::Vector3f& axis0,
 
     const auto rwArrayConfig = makeRwArrayConfig({axis0, axis1, axis2}, js);
     const auto wheelSpeeds = makeWheelSpeeds({speeds[0], speeds[1], speeds[2]});
+    const ThrMomentumManagementControlParameters params{.hsMin = hsMin, .K = K};
 
-    ThrMomentumManagementAlgorithm alg{ThrMomentumManagementConfig::create(hsMin, rwArrayConfig)};
+    ThrMomentumManagementAlgorithm alg{ThrMomentumManagementConfig::create(params, rwArrayConfig)};
     const Eigen::Vector3f actual = alg.update(wheelSpeeds);
-    const Eigen::Vector3f expected = referenceDeltaH(rwArrayConfig, wheelSpeeds, hsMin);
+    const Eigen::Vector3f expected = referenceTorque(rwArrayConfig, wheelSpeeds, params);
 
-    const float tol = 1e-4F * std::max(1.0F, clusterMomentum(rwArrayConfig, wheelSpeeds).norm());
+    const float tol = 1e-4F * K * std::max(1.0F, clusterMomentum(rwArrayConfig, wheelSpeeds).norm());
     for (Eigen::Index i = 0; i < 3; ++i) {
         EXPECT_NEAR(actual[i], expected[i], tol) << "component " << i;
     }
