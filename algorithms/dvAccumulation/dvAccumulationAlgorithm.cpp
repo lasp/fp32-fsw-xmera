@@ -7,16 +7,11 @@ DvAccumulationAlgorithm::DvAccumulationAlgorithm(const DvAccumulationConfig& con
 
 void DvAccumulationAlgorithm::setConfig(const DvAccumulationConfig& config) { this->cfg = config; }
 
-void DvAccumulationAlgorithm::reInitializeExceptPersistentStates() {
-    /*! - reset only the non-persistent accumulator */
-    this->vehAccumDV_B.setZero();
-}
-
 void DvAccumulationAlgorithm::reInitialize() {
     /*! - zero the accumulator and re-arm firstCall together: leaving firstCall set while zeroing the
      *    accumulator would integrate a full step into a fresh window and put the accumulated
      *    Delta-V one interval ahead of the elapsed time */
-    this->reInitializeExceptPersistentStates();
+    this->vehAccumDV_B.setZero();
     this->firstCall = true;
 }
 

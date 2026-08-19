@@ -61,13 +61,13 @@ Module Assumptions and Limitations
   rather than integrating. N samples bound N-1 intervals, so this is the correct interval count, not a
   dropped sample: the accumulated Delta-V equals the acceleration integrated over the elapsed time
   since that first call. It introduces no bias.
-- ``reInitialize()`` zeroes the accumulator and restarts the accumulation window together;
-  ``reInitializeExceptPersistentStates()`` zeroes only the accumulator, leaving the window open so a
-  continuously-running module keeps integrating across the boundary.
+- ``reInitialize()`` zeroes the accumulator and restarts the accumulation window together. They must
+  move together: zeroing the accumulator while leaving the window open would integrate a full step
+  into a fresh window and put the accumulated Delta-V one interval ahead of the elapsed time. These
+  two are the algorithm's entire runtime state, so there is no partial-reset entry point.
 - Lifecycle: the adapter constructs the algorithm in ``reset()`` (startup only). State-transition
-  hooks call ``reInitialize()`` / ``reInitializeExceptPersistentStates()``; ``reset()`` is not
-  re-invoked on transitions. ``reconfigure()`` installs edited parameters without re-arming the
-  accumulation window.
+  hooks call ``reInitialize()``; ``reset()`` is not re-invoked on transitions. ``reconfigure()``
+  installs edited parameters without re-arming the accumulation window.
 - The accumulator is float-precision (``Eigen::Vector3f``), as is ``controlPeriod``, so the whole
   integration is single precision. ``timeTag`` stays double in the output message.
 
@@ -87,7 +87,7 @@ Three-layer split:
   the output message is the adapter's job.
 - **C shim (``dvAccumulationAlgorithm_c.h/.cpp``).** Pure-C interface for Ada FFI: opaque handle
   plus ``DvAccumulationAlgorithm_create``/``_destroy``/``_validateConfig``/``_setConfig``/
-  ``_reInitialize``/``_reInitializeExceptPersistentStates``/``_update``. ``_update`` takes a
+  ``_reInitialize``/``_update``. ``_update`` takes a
   ``Vector3f_c`` acceleration and returns a ``Vector3f_c`` Delta-V, using the shared ``Vector3f_c``
   from ``utilities/fsw/plainCAlgorithmDataTypes.h``.
 
@@ -124,5 +124,5 @@ The required module configuration is::
 ``reset(callTime)`` once before the first ``updateState(callTime)``; ``reset`` throws
 ``std::invalid_argument`` if ``imuInMsg`` is not linked, and ``fsw::invalid_argument`` if
 ``controlPeriod`` is not positive. Editing ``controlPeriod`` after ``reset()`` takes effect on the
-next ``reconfigure()``. On a state transition the flight software calls ``reInitialize()`` (or
-``reInitializeExceptPersistentStates()``) rather than ``reset()``.
+next ``reconfigure()``. On a state transition the flight software calls ``reInitialize()`` rather
+than ``reset()``.
