@@ -15,13 +15,17 @@ void DvAccumulationAlgorithm::reInitialize() {
     this->firstCall = true;
 }
 
-Eigen::Vector3f DvAccumulationAlgorithm::update(const Eigen::Vector3f& rDDotNoGravity_BN_B) {
+Eigen::Vector3f DvAccumulationAlgorithm::update(const Eigen::Vector3f& rDDotNoGravity_BN_B,
+                                                const Eigen::Vector3f& accelBias_B) {
     /*! - the first call starts the accumulation window; N samples bound N-1 intervals, so there is
      *    no elapsed interval to integrate over yet */
     if (this->firstCall) {
         this->firstCall = false;
     } else {
-        this->vehAccumDV_B += this->cfg.getControlPeriod() * rDDotNoGravity_BN_B;
+        /*! - the bias is subtracted before scaling: identical to correcting the accumulated Delta-V
+         *    afterwards for a constant bias, but it keeps the accumulator correct at every step even
+         *    when the caller varies the bias between calls */
+        this->vehAccumDV_B += this->cfg.getControlPeriod() * (rDDotNoGravity_BN_B - accelBias_B);
     }
 
     return this->vehAccumDV_B;

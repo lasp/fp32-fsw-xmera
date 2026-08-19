@@ -26,6 +26,8 @@ def test_dv_accumulation():
     module = dvAccumulationF32.DvAccumulation()
     module.modelTag = "dvAccumulation"
     module.controlPeriod = macros.NANO2SEC * test_process_rate
+    # Exercises the swig_eigen typemap: a python list must marshal into the Eigen::Vector3f property.
+    module.accelBias_B = [0.0, 0.0, 0.0]
     unit_test_sim.AddModelToTask("unitTask", module)
 
     data_log = module.dvAccumulationOutMsg.recorder()
