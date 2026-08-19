@@ -14,8 +14,7 @@ void DvAccumulationAlgorithm::reInitialize() {
     this->previousTime = 0U;
 }
 
-DvAccumulationOutput DvAccumulationAlgorithm::update(const uint64_t callTime,
-                                                     const Eigen::Vector3f& rDDotNoGravity_BN_B) {
+Eigen::Vector3f DvAccumulationAlgorithm::update(const uint64_t callTime, const Eigen::Vector3f& rDDotNoGravity_BN_B) {
     /*! - a non-advancing callTime is ignored; the first call (previousTime == 0) only latches the clock */
     if (callTime > this->previousTime) {
         if (this->previousTime != 0U) {
@@ -25,8 +24,5 @@ DvAccumulationOutput DvAccumulationAlgorithm::update(const uint64_t callTime,
         this->previousTime = callTime;
     }
 
-    DvAccumulationOutput out{};
-    out.timeTag = static_cast<double>(this->previousTime) * kNano2Sec;
-    out.vehAccumDV_B = this->vehAccumDV_B;
-    return out;
+    return this->vehAccumDV_B;
 }

@@ -1,5 +1,6 @@
 #include "dvAccumulation.h"
 #include "utilities/fsw/eigenSupport.h"
+#include "utilities/fsw/timeConstants.h"
 #include "utilities/xmera/xmeraLifecycleException.h"
 
 #include <stdexcept>
@@ -31,11 +32,12 @@ void DvAccumulation::updateState(const uint64_t callTime) {
 
     const IMUSensorBodyMsgF32Payload imuData = this->imuInMsg();
     const Eigen::Vector3f rDDotNoGravity_BN_B = cArrayToEigenVector(imuData.AccelBody);
-    const DvAccumulationOutput out = this->algorithm->update(callTime, rDDotNoGravity_BN_B);
+    const Eigen::Vector3f vehAccumDV_B = this->algorithm->update(callTime, rDDotNoGravity_BN_B);
 
     NavTransMsgF32Payload outputData = NavTransMsgF32Payload();
-    outputData.timeTag = out.timeTag;
-    eigenVectorToCArray(out.vehAccumDV_B, outputData.vehAccumDV);
+    /*! - the adapter owns time-tagging: the algorithm returns only the accumulator */
+    outputData.timeTag = static_cast<double>(callTime) * kNano2Sec;
+    eigenVectorToCArray(vehAccumDV_B, outputData.vehAccumDV);
 
     this->dvAccumulationOutMsg.write(outputData, this->moduleID, callTime);
 }

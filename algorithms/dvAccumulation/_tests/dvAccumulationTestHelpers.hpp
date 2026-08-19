@@ -23,8 +23,8 @@ inline void referenceReInitialize(ReferenceState& s) {
 }
 
 /*! @brief Reference update: the first call (previousTime == 0) only sets the time reference; otherwise
- *         integrate dt * accel over the elapsed step when callTime advances. */
-inline DvAccumulationOutput referenceUpdate(ReferenceState& s, uint64_t callTime, const Eigen::Vector3f& accel_B) {
+ *         integrate dt * accel over the elapsed step when callTime advances. Returns the accumulator. */
+inline Eigen::Vector3f referenceUpdate(ReferenceState& s, uint64_t callTime, const Eigen::Vector3f& accel_B) {
     if (s.previousTime == 0U) {
         s.previousTime = callTime;
     } else if (callTime > s.previousTime) {
@@ -33,10 +33,7 @@ inline DvAccumulationOutput referenceUpdate(ReferenceState& s, uint64_t callTime
         s.previousTime = callTime;
     }
 
-    DvAccumulationOutput out{};
-    out.timeTag = static_cast<double>(s.previousTime) * kNano2Sec;
-    out.vehAccumDV_B = s.vehAccumDV_B;
-    return out;
+    return s.vehAccumDV_B;
 }
 
 /*! @brief One (callTime, acceleration) sample driving a single update() call. */
@@ -55,15 +52,14 @@ inline void testDvAccumulation(const std::vector<Sample>& samples) {
     referenceReInitialize(ref);
 
     for (const Sample& sample : samples) {
-        DvAccumulationOutput algOut{};
+        Eigen::Vector3f algOut = Eigen::Vector3f::Zero();
         EXPECT_NO_THROW(algOut = alg.update(sample.callTime, sample.accel_B));
-        const DvAccumulationOutput refOut = referenceUpdate(ref, sample.callTime, sample.accel_B);
+        const Eigen::Vector3f refOut = referenceUpdate(ref, sample.callTime, sample.accel_B);
 
         for (int i = 0; i < 3; ++i) {
-            EXPECT_NEAR(algOut.vehAccumDV_B[i], refOut.vehAccumDV_B[i], 1e-6F);
-            EXPECT_TRUE(std::isfinite(algOut.vehAccumDV_B[i]));
+            EXPECT_NEAR(algOut[i], refOut[i], 1e-6F);
+            EXPECT_TRUE(std::isfinite(algOut[i]));
         }
-        EXPECT_NEAR(algOut.timeTag, refOut.timeTag, 1e-9);
     }
 }
 
@@ -81,15 +77,14 @@ inline void testDvAccumulationFuzz(const std::vector<uint64_t>& callTimes, const
     referenceReInitialize(ref);
 
     for (size_t k = 0U; k < callTimes.size(); ++k) {
-        DvAccumulationOutput algOut{};
+        Eigen::Vector3f algOut = Eigen::Vector3f::Zero();
         EXPECT_NO_THROW(algOut = alg.update(callTimes[k], accels[k]));
-        const DvAccumulationOutput refOut = referenceUpdate(ref, callTimes[k], accels[k]);
+        const Eigen::Vector3f refOut = referenceUpdate(ref, callTimes[k], accels[k]);
 
         for (int i = 0; i < 3; ++i) {
-            EXPECT_NEAR(algOut.vehAccumDV_B[i], refOut.vehAccumDV_B[i], 1e-5F);
-            EXPECT_TRUE(std::isfinite(algOut.vehAccumDV_B[i]));
+            EXPECT_NEAR(algOut[i], refOut[i], 1e-5F);
+            EXPECT_TRUE(std::isfinite(algOut[i]));
         }
-        EXPECT_TRUE(std::isfinite(algOut.timeTag));
     }
 }
 
