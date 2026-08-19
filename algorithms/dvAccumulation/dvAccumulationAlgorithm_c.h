@@ -50,13 +50,18 @@ void DvAccumulationAlgorithm_destroy(DvAccumulationAlgorithmHandle* self);
 void DvAccumulationAlgorithm_reInitialize(DvAccumulationAlgorithmHandle* self);
 
 /*!
- * @brief Integrate one body-frame acceleration sample over the configured control period into the
- *        running Delta-V accumulator and return the current accumulator.
+ * @brief Subtract the supplied bias from one body-frame acceleration sample, integrate it over the
+ *        configured control period into the running Delta-V accumulator, and return the accumulator.
  * @param self                 Pointer to the instance.
  * @param rDDotNoGravity_BN_B  Body-frame non-gravitational acceleration (m/s^2).
+ * @param accelBias_B          [m/s^2] additive offset present in the measured acceleration,
+ *                             SUBTRACTED from the sample. Pass the zero vector for no correction.
+ *                             Not validated -- a non-finite bias propagates to a non-finite Delta-V.
  * @return Vector3f_c  Accumulated body-frame Delta-V (m/s).
  */
-Vector3f_c DvAccumulationAlgorithm_update(DvAccumulationAlgorithmHandle* self, Vector3f_c rDDotNoGravity_BN_B);
+Vector3f_c DvAccumulationAlgorithm_update(DvAccumulationAlgorithmHandle* self,
+                                          Vector3f_c rDDotNoGravity_BN_B,
+                                          Vector3f_c accelBias_B);
 
 #ifdef __cplusplus
 } /* extern "C" */
