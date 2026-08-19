@@ -5,12 +5,20 @@
 
 #include <stdexcept>
 
+DvAccumulationConfig DvAccumulation::toConfig() const { return DvAccumulationConfig::create(this->controlPeriod); }
+
 void DvAccumulation::reset(const uint64_t /*callTime*/) {
     if (!this->imuInMsg.isLinked()) {
         throw std::invalid_argument("dvAccumulation.imuInMsg wasn't connected.");
     }
 
-    this->algorithm = std::make_unique<DvAccumulationAlgorithm>();
+    this->algorithm = std::make_unique<DvAccumulationAlgorithm>(this->toConfig());
+}
+
+void DvAccumulation::reconfigure() {
+    if (this->algorithm) {
+        this->algorithm->setConfig(this->toConfig());
+    }
 }
 
 void DvAccumulation::reInitialize() {
@@ -32,7 +40,7 @@ void DvAccumulation::updateState(const uint64_t callTime) {
 
     const IMUSensorBodyMsgF32Payload imuData = this->imuInMsg();
     const Eigen::Vector3f rDDotNoGravity_BN_B = cArrayToEigenVector(imuData.AccelBody);
-    const Eigen::Vector3f vehAccumDV_B = this->algorithm->update(callTime, rDDotNoGravity_BN_B);
+    const Eigen::Vector3f vehAccumDV_B = this->algorithm->update(rDDotNoGravity_BN_B);
 
     NavTransMsgF32Payload outputData = NavTransMsgF32Payload();
     /*! - the adapter owns time-tagging: the algorithm returns only the accumulator */

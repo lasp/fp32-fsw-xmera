@@ -2,8 +2,8 @@
 Module Name:        dvAccumulation
 
 Smoke / interface test for the fp32 dvAccumulation module. dvAccumulation integrates a single
-body-frame acceleration sample per update (an IMUSensorBodyMsgF32 input), using the module call time
-for the integration step. This test exercises every interface end-to-end through the SysModel adapter
+body-frame acceleration sample per update (an IMUSensorBodyMsgF32 input), using the configured
+control period as the integration step. This test exercises every interface end-to-end through the SysModel adapter
 -- link the input message, run several steps, and confirm the module executes and produces a finite,
 correctly-signed accumulated Delta-V.
 """
@@ -25,6 +25,7 @@ def test_dv_accumulation():
 
     module = dvAccumulationF32.DvAccumulation()
     module.modelTag = "dvAccumulation"
+    module.controlPeriod = macros.NANO2SEC * test_process_rate
     unit_test_sim.AddModelToTask("unitTask", module)
 
     data_log = module.dvAccumulationOutMsg.recorder()
@@ -49,8 +50,8 @@ def test_dv_accumulation():
     assert np.all(np.isfinite(accum_dv))
     assert np.all(np.isfinite(time_tag))
 
-    # The first call only sets the time reference (no integration), so the final accumulated Delta-V is
-    # positive time * accel: it must be non-zero and share the sign of the input acceleration.
+    # The first call starts the accumulation window (no integration), so the final accumulated Delta-V
+    # is positive time * accel: it must be non-zero and share the sign of the input acceleration.
     final_dv = accum_dv[-1]
     assert np.linalg.norm(final_dv) > 0.0
     assert np.sign(final_dv[0]) == np.sign(accel_body[0])
