@@ -94,6 +94,59 @@ Module Assumptions and Limitations
   installs edited parameters without re-arming the accumulation window.
 - The accumulator is float-precision (``Eigen::Vector3f``), as is ``controlPeriod``, so the whole
   integration is single precision. ``timeTag`` stays double in the output message.
+- Quadrature, not float32, is the real accuracy limit. The rectangle rule holds
+  :math:`\ddot{\mathbf{r}}_{B}` constant across each control period, so a changing acceleration
+  leaves an :math:`O(\Delta t \, \Delta\ddot{r})` residual per step, which dominates the rounding
+  bound below.
+
+Accumulation precision
+~~~~~~~~~~~~~~~~~~~~~~
+
+For an example small acceleration of 0.005 m/s^2 over a bounding 1.5 hour burn with a 0.2 s
+``controlPeriod`` -- 27,000 updates accumulating 27 m/s -- every ``+=`` rounds to the nearest
+representable value, bounding the accumulated error by :math:`N \cdot 2^{-24}` relative for
+``float`` and :math:`N \cdot 2^{-53}` for ``double``:
+
+.. list-table:: Accumulation drift, example 1.5 hour burn at 0.005 m/s^2
+    :widths: 35 25 25
+    :header-rows: 1
+
+    * - Accumulator type
+      - Worst-case drift
+      - Fraction of 27 m/s
+    * - ``float`` (as built)
+      - 4.4e-2 m/s
+      - 0.16%
+    * - ``double`` (reference only)
+      - 8.1e-11 m/s
+      - 3.0e-10%
+
+Single precision is adequate with margin; no ``double`` accumulator or compensated summation is
+warranted.
+
+Range and saturation
+~~~~~~~~~~~~~~~~~~~~
+
+For an example acceleration of 0.5 m/s^2 with a 0.2 s ``controlPeriod``, the per-update increment is
+:math:`\delta = \Delta t \, a = 0.1` m/s and the accumulator has two ceilings:
+
+.. list-table:: Accumulator range limits, example acceleration 0.5 m/s^2
+    :widths: 40 20 35
+    :header-rows: 1
+
+    * - Limit
+      - Value
+      - Reached at 0.5 m/s^2
+    * - Stagnation (increments stop registering)
+      - 1.7e6 m/s
+      - ~39 days of continuous thrust
+    * - IEEE ``float`` overflow to infinity
+      - 3.4e38 m/s
+      - ~2e31 years
+
+Stagnation binds first: an increment is lost once :math:`\delta < \mathrm{ULP}(M)/2`, i.e. above
+:math:`M \approx \delta \cdot 2^{24}` (here 1.7e6 m/s). Past that point the accumulator
+freezes silently -- no trap, no infinity. Neither limit is reachable in operation.
 
 Module Architecture
 -------------------
