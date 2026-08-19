@@ -27,12 +27,6 @@ void DvAccumulation::reInitialize() {
     }
 }
 
-void DvAccumulation::reInitializeExceptPersistentStates() {
-    if (this->algorithm) {
-        this->algorithm->reInitializeExceptPersistentStates();
-    }
-}
-
 void DvAccumulation::updateState(const uint64_t callTime) {
     if (!this->algorithm) {
         throw XmeraLifecycleException("DvAccumulation reset() has not been called.");

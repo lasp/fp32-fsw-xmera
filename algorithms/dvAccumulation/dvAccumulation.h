@@ -16,9 +16,8 @@ class DvAccumulation final : public SysModel {
    public:
     void reset(uint64_t callTime) final;
     void updateState(uint64_t callTime) final;
-    void reconfigure();                         //!< push edited properties into the algorithm
-    void reInitialize();                        //!< Reset all algorithm state (state-transition hook)
-    void reInitializeExceptPersistentStates();  //!< Reset only non-persistent algorithm state
+    void reconfigure();   //!< push edited properties into the algorithm
+    void reInitialize();  //!< Reset all algorithm state (state-transition hook)
 
     // Phase 1: Public config properties — set before reset()
     float controlPeriod = 0.0F;  //!< [s] control period (FSW time step); must be set > 0 before reset()
