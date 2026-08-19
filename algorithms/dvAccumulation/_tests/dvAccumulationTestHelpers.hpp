@@ -22,11 +22,14 @@ inline void referenceReInitialize(ReferenceState& s) {
 
 /*! @brief Reference update: the first call starts the window; every later call integrates
  *         controlPeriod * accel. Returns the accumulator. */
-inline Eigen::Vector3f referenceUpdate(ReferenceState& s, float controlPeriod, const Eigen::Vector3f& accel_B) {
+inline Eigen::Vector3f referenceUpdate(ReferenceState& s,
+                                       float controlPeriod,
+                                       const Eigen::Vector3f& accel_B,
+                                       const Eigen::Vector3f& accelBias_B) {
     if (s.firstCall) {
         s.firstCall = false;
     } else {
-        s.vehAccumDV_B += controlPeriod * accel_B;
+        s.vehAccumDV_B += controlPeriod * (accel_B - accelBias_B);
     }
 
     return s.vehAccumDV_B;
@@ -42,8 +45,8 @@ inline void testDvAccumulation(float controlPeriod, const std::vector<Eigen::Vec
 
     for (const Eigen::Vector3f& accel_B : accels) {
         Eigen::Vector3f algOut = Eigen::Vector3f::Zero();
-        EXPECT_NO_THROW(algOut = alg.update(accel_B));
-        const Eigen::Vector3f refOut = referenceUpdate(ref, controlPeriod, accel_B);
+        EXPECT_NO_THROW(algOut = alg.update(accel_B, Eigen::Vector3f::Zero()));
+        const Eigen::Vector3f refOut = referenceUpdate(ref, controlPeriod, accel_B, Eigen::Vector3f::Zero());
 
         for (int i = 0; i < 3; ++i) {
             EXPECT_NEAR(algOut[i], refOut[i], 1e-6F);
@@ -65,8 +68,8 @@ inline void testDvAccumulationFuzz(float controlPeriod, const std::vector<Eigen:
 
     for (const Eigen::Vector3f& accel_B : accels) {
         Eigen::Vector3f algOut = Eigen::Vector3f::Zero();
-        EXPECT_NO_THROW(algOut = alg.update(accel_B));
-        const Eigen::Vector3f refOut = referenceUpdate(ref, controlPeriod, accel_B);
+        EXPECT_NO_THROW(algOut = alg.update(accel_B, Eigen::Vector3f::Zero()));
+        const Eigen::Vector3f refOut = referenceUpdate(ref, controlPeriod, accel_B, Eigen::Vector3f::Zero());
 
         for (int i = 0; i < 3; ++i) {
             EXPECT_NEAR(algOut[i], refOut[i], 1e-5F);

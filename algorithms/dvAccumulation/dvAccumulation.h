@@ -21,6 +21,11 @@ class DvAccumulation final : public SysModel {
 
     // Phase 1: Public config properties — set before reset()
     float controlPeriod = 0.0F;  //!< [s] control period (FSW time step); must be set > 0 before reset()
+    //! [m/s^2] accelerometer bias present in the measured body-frame acceleration, subtracted from
+    //! each sample. Defaults to zero, so the correction is a no-op until configured. Passed to the
+    //! algorithm on every updateState(), so an edit takes effect on the next call without
+    //! reconfigure().
+    Eigen::Vector3f accelBias_B = Eigen::Vector3f::Zero();
 
     Message<NavTransMsgF32Payload> dvAccumulationOutMsg;  //!< accumulated DV output message
     ReadFunctor<IMUSensorBodyMsgF32Payload> imuInMsg;     //!< [-] input IMU body message
