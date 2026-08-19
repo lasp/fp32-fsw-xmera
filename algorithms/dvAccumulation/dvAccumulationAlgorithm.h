@@ -51,7 +51,6 @@ class DvAccumulationAlgorithm final {
     void setConfig(const DvAccumulationConfig& config);
     //! Re-arm runtime state: zero the accumulator and restart the accumulation window.
     void reInitialize();
-    void reInitializeExceptPersistentStates();  //!< Reset only non-persistent state: the accumulator
     //! Integrate one body-frame acceleration sample; returns accumulated Delta-V [m/s].
     Eigen::Vector3f update(const Eigen::Vector3f& rDDotNoGravity_BN_B);
 

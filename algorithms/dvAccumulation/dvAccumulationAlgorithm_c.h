@@ -50,12 +50,6 @@ void DvAccumulationAlgorithm_destroy(DvAccumulationAlgorithmHandle* self);
 void DvAccumulationAlgorithm_reInitialize(DvAccumulationAlgorithmHandle* self);
 
 /*!
- * @brief Reset only the non-persistent accumulator.
- * @param self Pointer to the instance.
- */
-void DvAccumulationAlgorithm_reInitializeExceptPersistentStates(DvAccumulationAlgorithmHandle* self);
-
-/*!
  * @brief Integrate one body-frame acceleration sample over the configured control period into the
  *        running Delta-V accumulator and return the current accumulator.
  * @param self                 Pointer to the instance.
