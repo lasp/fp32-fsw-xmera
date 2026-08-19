@@ -19,6 +19,46 @@ TEST(DvAccumulationTest, SetupTest) {
     EXPECT_THROW(DvAccumulationConfig::create(std::numeric_limits<float>::infinity()), fsw::invalid_argument);
 }
 
+TEST(DvAccumulationTest, AccelBiasIsSubtractedNotAdded) {
+    /*! - drives an acceleration of exactly twice the bias so the sign is unambiguous: subtracting
+     *    leaves b, adding would leave 3b, and ignoring the bias entirely would leave 2b. The expected
+     *    value is hand-computed rather than taken from the reference oracle, since a hand-written
+     *    oracle can encode the same sign error as the implementation. */
+    constexpr float kControlPeriod = 0.5F;
+    const Eigen::Vector3f bias{0.02F, -0.05F, 0.01F};
+    const Eigen::Vector3f accel = 2.0F * bias;
+
+    DvAccumulationAlgorithm alg{DvAccumulationConfig::create(kControlPeriod)};
+
+    constexpr int kTotalCalls = 5;
+    Eigen::Vector3f out = Eigen::Vector3f::Zero();
+    for (int k = 0; k < kTotalCalls; ++k) {
+        out = alg.update(accel, bias);
+    }
+
+    /*! - N calls bound N-1 intervals, so the expected Delta-V is bias * (N-1) * controlPeriod */
+    const float elapsed = static_cast<float>(kTotalCalls - 1) * kControlPeriod;
+    for (int i = 0; i < 3; ++i) {
+        EXPECT_NEAR(out[i], bias[i] * elapsed, 1e-6F);
+    }
+}
+
+TEST(DvAccumulationTest, BiasEqualToAccelerationYieldsZeroDeltaV) {
+    /*! - a bias equal to the acceleration must zero the accumulated Delta-V outright: the module is
+     *    measuring pure bias and no real thrust */
+    const Eigen::Vector3f accel{0.004166F, -0.01F, 0.002F};
+    DvAccumulationAlgorithm alg{DvAccumulationConfig::create(0.2F)};
+
+    Eigen::Vector3f out = Eigen::Vector3f::Zero();
+    for (int k = 0; k < 100; ++k) {
+        out = alg.update(accel, accel);
+    }
+
+    for (int i = 0; i < 3; ++i) {
+        EXPECT_NEAR(out[i], 0.0F, 1e-6F);
+    }
+}
+
 TEST(DvAccumulationTest, ReferenceTest) {
     /*! - a sequence exercising the window-starting first call and integration over later calls,
      *    compared to the reference at every step */
@@ -41,8 +81,8 @@ TEST(DvAccumulationTest, KnownAccelerationProducesExpectedDeltaV) {
     DvAccumulationAlgorithm alg{DvAccumulationConfig::create(kControlPeriod)};
 
     const Eigen::Vector3f accel{2.0F, -4.0F, 0.0F};
-    alg.update(Eigen::Vector3f::Zero());      // starts the window
-    Eigen::Vector3f out = alg.update(accel);  // integrate dt * accel = [1, -2, 0]
+    alg.update(Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero());      // starts the window
+    Eigen::Vector3f out = alg.update(accel, Eigen::Vector3f::Zero());  // integrate dt * accel = [1, -2, 0]
 
     EXPECT_NEAR(out[0], 1.0F, 1e-5F);
     EXPECT_NEAR(out[1], -2.0F, 1e-5F);
@@ -51,7 +91,7 @@ TEST(DvAccumulationTest, KnownAccelerationProducesExpectedDeltaV) {
     /*! - continue to N total calls and re-check against accel * elapsed */
     constexpr int kTotalCalls = 20;
     for (int k = 2; k < kTotalCalls; ++k) {
-        out = alg.update(accel);
+        out = alg.update(accel, Eigen::Vector3f::Zero());
     }
     const float elapsed = static_cast<float>(kTotalCalls - 1) * kControlPeriod;
     for (int i = 0; i < 3; ++i) {
@@ -67,7 +107,7 @@ TEST(DvAccumulationTest, FirstCallStartsTheAccumulationClock) {
 
     for (const Eigen::Vector3f& accel : firstCallAccels) {
         DvAccumulationAlgorithm alg{DvAccumulationConfig::create(0.2F)};
-        const Eigen::Vector3f out = alg.update(accel);
+        const Eigen::Vector3f out = alg.update(accel, Eigen::Vector3f::Zero());
         EXPECT_FLOAT_EQ(out[0], 0.0F);
         EXPECT_FLOAT_EQ(out[1], 0.0F);
         EXPECT_FLOAT_EQ(out[2], 0.0F);
@@ -82,12 +122,12 @@ TEST(DvAccumulationTest, ReInitializeRestartsTheAccumulationClock) {
     DvAccumulationAlgorithm alg{DvAccumulationConfig::create(0.5F)};
 
     const Eigen::Vector3f accel{2.0F, 0.0F, 0.0F};
-    alg.update(accel);  // starts the window
-    alg.update(accel);  // dt=0.5 -> [1,0,0]
+    alg.update(accel, Eigen::Vector3f::Zero());  // starts the window
+    alg.update(accel, Eigen::Vector3f::Zero());  // dt=0.5 -> [1,0,0]
 
     alg.reInitialize();  // accumulator->0 AND window restarted
 
-    const Eigen::Vector3f after = alg.update(accel);
+    const Eigen::Vector3f after = alg.update(accel, Eigen::Vector3f::Zero());
     EXPECT_FLOAT_EQ(after[0], 0.0F);
     EXPECT_FLOAT_EQ(after[1], 0.0F);
     EXPECT_FLOAT_EQ(after[2], 0.0F);
@@ -95,6 +135,6 @@ TEST(DvAccumulationTest, ReInitializeRestartsTheAccumulationClock) {
     /*! - setConfig swaps the step without re-arming the window, so the very next call integrates at
      *    the new period rather than starting a fresh one */
     alg.setConfig(DvAccumulationConfig::create(1.0F));
-    const Eigen::Vector3f afterSetConfig = alg.update(accel);
+    const Eigen::Vector3f afterSetConfig = alg.update(accel, Eigen::Vector3f::Zero());
     EXPECT_NEAR(afterSetConfig[0], 2.0F, 1e-5F);  // 1.0 s * 2.0 m/s^2, not zero
 }
