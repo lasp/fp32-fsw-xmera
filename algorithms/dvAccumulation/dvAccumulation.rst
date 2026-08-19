@@ -7,10 +7,9 @@ Executive Summary
 ``dvAccumulation`` integrates a single body-frame acceleration sample into a running Delta-V
 accumulator. Each ``updateState()`` reads one ``IMUSensorBodyMsgF32Payload`` and takes its
 ``AccelBody`` field as the body-frame non-gravitational acceleration :math:`\ddot{\mathbf{r}}_{B}`.
-The time step comes from the module call time,
-:math:`\Delta t = (\text{callTime} - \text{previousTime})`, so the sample is integrated via
+The time step is the configured control period :math:`\Delta t`, so the sample is integrated via
 :math:`\Delta\mathbf{v} = \Delta\mathbf{v} + \Delta t \cdot \ddot{\mathbf{r}}_{B}`. The module
-outputs the running accumulator plus the time-tag of the most-recently-ingested sample.
+outputs the running accumulator, time-tagged with the module call time.
 
 Message Connection Descriptions
 -------------------------------
@@ -32,30 +31,45 @@ Message Connection Descriptions
 
 Module Parameters
 -----------------
-``dvAccumulation`` has no tunable parameters, so there is no Config class — the algorithm is
-default-constructed by the adapter's ``reset()``.
+.. list-table:: Module Parameters
+    :widths: 30 15 10 10 40 30
+    :header-rows: 1
+
+    * - Parameter Name
+      - Type
+      - Units
+      - Default
+      - Description
+      - Bounds
+    * - controlPeriod (required)
+      - float
+      - [s]
+      - 0
+      - Control period used as the integration step (time between two ``updateState()`` calls,
+        i.e. 1/fsw_rate)
+      - Must be finite and greater than zero
+
+Bounds are enforced by ``DvAccumulationConfig::create`` at ``reset()``, which throws
+``fsw::invalid_argument`` on a violation.
 
 Module Assumptions and Limitations
 ----------------------------------
-- ``callTime`` is in nanoseconds and is assumed to advance once per new sample. ``dvAccumulation`` runs
-  at the same cadence as its upstream producer and immediately after it, so the acceleration sample is
-  fresh on every call and the call-time delta is the correct integration step.
-- The algorithm holds running state split into **non-persistent** (``vehAccumDV_B``) and
-  **persistent** (``previousTime``). ``reInitialize()`` resets all of it;
-  ``reInitializeExceptPersistentStates()`` resets only ``vehAccumDV_B``, keeping the time reference so
-  a continuously-running module keeps integrating across the boundary.
+- The algorithm does not see time. It integrates over the configured ``controlPeriod`` on every call,
+  so the caller must drive it once per control period; ``dvAccumulation`` runs at the same cadence as
+  its upstream producer and immediately after it, so the acceleration sample is fresh on every call.
+- The first ``update()`` after construction or ``reInitialize()`` **starts the accumulation window**
+  rather than integrating. N samples bound N-1 intervals, so this is the correct interval count, not a
+  dropped sample: the accumulated Delta-V equals the acceleration integrated over the elapsed time
+  since that first call. It introduces no bias.
+- ``reInitialize()`` zeroes the accumulator and restarts the accumulation window together;
+  ``reInitializeExceptPersistentStates()`` zeroes only the accumulator, leaving the window open so a
+  continuously-running module keeps integrating across the boundary.
 - Lifecycle: the adapter constructs the algorithm in ``reset()`` (startup only). State-transition
   hooks call ``reInitialize()`` / ``reInitializeExceptPersistentStates()``; ``reset()`` is not
-  re-invoked on transitions.
-- Time reference: on the first ``update()`` after ``reInitialize()`` (``previousTime == 0``), the call
-  only sets the time reference ``previousTime = callTime`` (no integration), so ``dt`` does not blow up
-  against a zero baseline. ``previousTime == 0`` doubles as the "time reference not yet set" marker, which
-  relies on ``callTime`` being non-zero on the first call after a re-initialization (always true for the
-  flight mission clock).
-- A call whose ``callTime`` is not strictly greater than ``previousTime`` is ignored (no integration),
-  so a repeated or non-advancing call time does not double-count.
-- The accumulator is float-precision (``Eigen::Vector3f``). ``dt`` is computed in float using
-  ``kNano2SecF``. ``timeTag`` stays double in the output message.
+  re-invoked on transitions. ``reconfigure()`` installs edited parameters without re-arming the
+  accumulation window.
+- The accumulator is float-precision (``Eigen::Vector3f``), as is ``controlPeriod``, so the whole
+  integration is single precision. ``timeTag`` stays double in the output message.
 
 Module Architecture
 -------------------
@@ -67,35 +81,34 @@ Three-layer split:
   the algorithm via ``std::unique_ptr`` and constructs it inside ``reset()`` after validating that
   ``imuInMsg`` is linked.
 - **Algorithm (``dvAccumulationAlgorithm.h/.cpp``, ``class DvAccumulationAlgorithm``).** Pure
-  algorithm — no SysModel, no messaging. ``update(callTime, rDDotNoGravity_BN_B)`` takes the call time
-  and an ``Eigen::Vector3f`` and returns the accumulated ``vehAccumDV_B`` (``Eigen::Vector3f``, m/s).
-  Time-tagging the output message is the adapter's job. Default-constructed — no configuration.
+  algorithm — no SysModel, no messaging, no time. ``update(rDDotNoGravity_BN_B)`` takes an
+  ``Eigen::Vector3f`` and returns the accumulated ``vehAccumDV_B`` (``Eigen::Vector3f``, m/s),
+  integrating over the ``controlPeriod`` held in its validated ``DvAccumulationConfig``. Time-tagging
+  the output message is the adapter's job.
 - **C shim (``dvAccumulationAlgorithm_c.h/.cpp``).** Pure-C interface for Ada FFI: opaque handle
-  plus ``DvAccumulationAlgorithm_create``/``_destroy``/``_reInitialize``/
-  ``_reInitializeExceptPersistentStates``/``_update``. ``_update`` takes the call time and a
+  plus ``DvAccumulationAlgorithm_create``/``_destroy``/``_validateConfig``/``_setConfig``/
+  ``_reInitialize``/``_reInitializeExceptPersistentStates``/``_update``. ``_update`` takes a
   ``Vector3f_c`` acceleration and returns a ``Vector3f_c`` Delta-V, using the shared ``Vector3f_c``
   from ``utilities/fsw/plainCAlgorithmDataTypes.h``.
 
 Algorithm Layer
 ---------------
-Given the call time ``callTime``, the body-frame acceleration ``rDDotNoGravity_BN_B``, and the
-previously-seen call time ``previousTime``:
+Given the configured control period :math:`\Delta t` (``controlPeriod``) and the body-frame
+acceleration ``rDDotNoGravity_BN_B``:
 
-1. On the first ``update()`` after ``reInitialize()`` (``previousTime == 0``), latch
-   ``previousTime = callTime`` and return without integrating.
-2. Otherwise, if ``callTime > previousTime``, integrate the elapsed step:
+1. On the first ``update()`` after construction or ``reInitialize()``, start the accumulation window
+   and return without integrating: there is no elapsed interval yet.
+2. On every later call, integrate one control period:
 
    .. math::
 
-      \Delta t = (\text{callTime} - \text{previousTime}) \cdot \mathtt{kNano2SecF}
-      \quad,\quad
       \Delta\mathbf{v} = \Delta\mathbf{v} + \Delta t \cdot \ddot{\mathbf{r}}_{B}
-      \quad,\quad
-      \text{previousTime} \leftarrow \text{callTime}
 
-3. A ``callTime`` that does not advance past ``previousTime`` is ignored (no integration).
-4. Return ``vehAccumDV_B = \Delta\mathbf{v}``. The adapter tags the output message with
+3. Return ``vehAccumDV_B`` = :math:`\Delta\mathbf{v}`. The adapter tags the output message with
    ``timeTag = callTime * kNano2Sec``.
+
+After :math:`N` calls the accumulator therefore holds the acceleration integrated over
+:math:`(N-1)\,\Delta t`, the elapsed time since the window opened.
 
 User Guide
 ----------
@@ -103,10 +116,13 @@ The required module configuration is::
 
     module = dvAccumulationF32.DvAccumulation()
     module.modelTag = "dvAccumulation"
+    module.controlPeriod = 0.2      # [s] integration step; required (> 0), must match the task rate
     module.imuInMsg.subscribeTo(mimuMajorityVote.imuSensorBodyOutMsg)
     # Subscribe a downstream consumer (e.g. dvExecuteGuidance) to module.dvAccumulationOutMsg.
 
-There is no further setup — no parameters to set, no validators to satisfy. Call
+``controlPeriod`` must be set to the rate at which the adapter is driven before ``reset()``. Call
 ``reset(callTime)`` once before the first ``updateState(callTime)``; ``reset`` throws
-``std::invalid_argument`` if ``imuInMsg`` is not linked. On a state transition the flight software
-calls ``reInitialize()`` (or ``reInitializeExceptPersistentStates()``) rather than ``reset()``.
+``std::invalid_argument`` if ``imuInMsg`` is not linked, and ``fsw::invalid_argument`` if
+``controlPeriod`` is not positive. Editing ``controlPeriod`` after ``reset()`` takes effect on the
+next ``reconfigure()``. On a state transition the flight software calls ``reInitialize()`` (or
+``reInitializeExceptPersistentStates()``) rather than ``reset()``.

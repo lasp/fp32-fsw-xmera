@@ -2,59 +2,48 @@
 #define TEST_DV_ACCUMULATION_HELPERS_H
 
 #include "dvAccumulation/dvAccumulationAlgorithm.h"
-#include "utilities/fsw/timeConstants.h"
 
 #include <gtest/gtest.h>
 #include <Eigen/Core>
 #include <cmath>
-#include <cstdint>
 #include <vector>
 
 /*! @brief Reference algorithm state, mirroring DvAccumulationAlgorithm's private members. */
 struct ReferenceState {
     Eigen::Vector3f vehAccumDV_B{Eigen::Vector3f::Zero()};
-    uint64_t previousTime{0U};
+    bool firstCall{true};
 };
 
-/*! @brief Reference reInitialize: reset all state (accumulator and previousTime). */
+/*! @brief Reference reInitialize: zero the accumulator and restart the accumulation window. */
 inline void referenceReInitialize(ReferenceState& s) {
     s.vehAccumDV_B = Eigen::Vector3f::Zero();
-    s.previousTime = 0U;
+    s.firstCall = true;
 }
 
-/*! @brief Reference update: the first call (previousTime == 0) only sets the time reference; otherwise
- *         integrate dt * accel over the elapsed step when callTime advances. Returns the accumulator. */
-inline Eigen::Vector3f referenceUpdate(ReferenceState& s, uint64_t callTime, const Eigen::Vector3f& accel_B) {
-    if (s.previousTime == 0U) {
-        s.previousTime = callTime;
-    } else if (callTime > s.previousTime) {
-        const float dt = static_cast<float>(callTime - s.previousTime) * kNano2SecF;
-        s.vehAccumDV_B += dt * accel_B;
-        s.previousTime = callTime;
+/*! @brief Reference update: the first call starts the window; every later call integrates
+ *         controlPeriod * accel. Returns the accumulator. */
+inline Eigen::Vector3f referenceUpdate(ReferenceState& s, float controlPeriod, const Eigen::Vector3f& accel_B) {
+    if (s.firstCall) {
+        s.firstCall = false;
+    } else {
+        s.vehAccumDV_B += controlPeriod * accel_B;
     }
 
     return s.vehAccumDV_B;
 }
 
-/*! @brief One (callTime, acceleration) sample driving a single update() call. */
-struct Sample {
-    uint64_t callTime{0U};
-    Eigen::Vector3f accel_B{Eigen::Vector3f::Zero()};
-};
-
-/*! @brief Drive the algorithm through a sequence of samples and compare to the reference at every
- *         step. */
-inline void testDvAccumulation(const std::vector<Sample>& samples) {
-    DvAccumulationAlgorithm alg{};
-    alg.reInitialize();
+/*! @brief Drive the algorithm through a sequence of acceleration samples at a fixed control period
+ *         and compare to the reference at every step. */
+inline void testDvAccumulation(float controlPeriod, const std::vector<Eigen::Vector3f>& accels) {
+    DvAccumulationAlgorithm alg{DvAccumulationConfig::create(controlPeriod)};
 
     ReferenceState ref{};
     referenceReInitialize(ref);
 
-    for (const Sample& sample : samples) {
+    for (const Eigen::Vector3f& accel_B : accels) {
         Eigen::Vector3f algOut = Eigen::Vector3f::Zero();
-        EXPECT_NO_THROW(algOut = alg.update(sample.callTime, sample.accel_B));
-        const Eigen::Vector3f refOut = referenceUpdate(ref, sample.callTime, sample.accel_B);
+        EXPECT_NO_THROW(algOut = alg.update(accel_B));
+        const Eigen::Vector3f refOut = referenceUpdate(ref, controlPeriod, accel_B);
 
         for (int i = 0; i < 3; ++i) {
             EXPECT_NEAR(algOut[i], refOut[i], 1e-6F);
@@ -63,23 +52,21 @@ inline void testDvAccumulation(const std::vector<Sample>& samples) {
     }
 }
 
-/*! @brief Fuzz-friendly driver: drive the algorithm through parallel (callTime, accel) sequences and
- *         compare to the reference step-by-step (finite output that matches the reference). callTimes
- *         are not required to be monotonic, so this also exercises the strictly-greater gate. */
-inline void testDvAccumulationFuzz(const std::vector<uint64_t>& callTimes, const std::vector<Eigen::Vector3f>& accels) {
-    if (callTimes.size() != accels.size()) {
-        return;  // fuzz domain may produce mismatched lengths; ignore
+/*! @brief Fuzz-friendly driver: drive the algorithm through a sequence of acceleration samples at a
+ *         generated control period and compare to the reference step-by-step. */
+inline void testDvAccumulationFuzz(float controlPeriod, const std::vector<Eigen::Vector3f>& accels) {
+    if (!DvAccumulationConfig::isValidControlPeriod(controlPeriod)) {
+        return;  // fuzz domain may produce a rejected control period; construction would throw
     }
 
-    DvAccumulationAlgorithm alg{};
-    alg.reInitialize();
+    DvAccumulationAlgorithm alg{DvAccumulationConfig::create(controlPeriod)};
     ReferenceState ref{};
     referenceReInitialize(ref);
 
-    for (size_t k = 0U; k < callTimes.size(); ++k) {
+    for (const Eigen::Vector3f& accel_B : accels) {
         Eigen::Vector3f algOut = Eigen::Vector3f::Zero();
-        EXPECT_NO_THROW(algOut = alg.update(callTimes[k], accels[k]));
-        const Eigen::Vector3f refOut = referenceUpdate(ref, callTimes[k], accels[k]);
+        EXPECT_NO_THROW(algOut = alg.update(accel_B));
+        const Eigen::Vector3f refOut = referenceUpdate(ref, controlPeriod, accel_B);
 
         for (int i = 0; i < 3; ++i) {
             EXPECT_NEAR(algOut[i], refOut[i], 1e-5F);
@@ -88,10 +75,10 @@ inline void testDvAccumulationFuzz(const std::vector<uint64_t>& callTimes, const
     }
 }
 
-/*! @brief Construction exercise: the algorithm default-constructs without throwing. */
+/*! @brief Construction exercise: a valid configuration constructs without throwing. */
 inline void testDvAccumulationSetup() {
     EXPECT_NO_THROW({
-        const DvAccumulationAlgorithm alg{};
+        const DvAccumulationAlgorithm alg{DvAccumulationConfig::create(0.2F)};
         (void)alg;
     });
 }
