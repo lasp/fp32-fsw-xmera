@@ -3,7 +3,7 @@
 
  */
 
-#include "thrMomentumManagementAlgorithm.h"
+#include "momentumManagementAlgorithm.h"
 
 // [Nms] net RW momentum below this magnitude is treated as zero.
 constexpr float kZeroMomentumTolerance = 1e-6F;
@@ -11,8 +11,7 @@ constexpr float kZeroMomentumTolerance = 1e-6F;
 /*! Construct the algorithm from a validated configuration and seed the integrator state.
  @param config the validated configuration
  */
-ThrMomentumManagementAlgorithm::ThrMomentumManagementAlgorithm(const ThrMomentumManagementConfig& config)
-    : cfg(config) {
+MomentumManagementAlgorithm::MomentumManagementAlgorithm(const MomentumManagementConfig& config) : cfg(config) {
     this->setConfig(config);
     this->reInitialize();
 }
@@ -21,12 +20,12 @@ ThrMomentumManagementAlgorithm::ThrMomentumManagementAlgorithm(const ThrMomentum
  @return void
  @param config the validated configuration
  */
-void ThrMomentumManagementAlgorithm::setConfig(const ThrMomentumManagementConfig& config) { this->cfg = config; }
+void MomentumManagementAlgorithm::setConfig(const MomentumManagementConfig& config) { this->cfg = config; }
 
 /*! Re-seed the runtime integrator state (the excess-momentum integral and its previous sample).
  @return void
  */
-void ThrMomentumManagementAlgorithm::reInitialize() {
+void MomentumManagementAlgorithm::reInitialize() {
     this->hsInt_B.setZero();
     this->priorHsExcess_B.setZero();
 }
@@ -36,9 +35,9 @@ void ThrMomentumManagementAlgorithm::reInitialize() {
  @return Eigen::Vector3f [Nm] the requested body-frame torque
  @param wheelSpeeds [r/s] current reaction wheel speeds
  */
-Eigen::Vector3f ThrMomentumManagementAlgorithm::update(const Eigen::Vector<float, kMaxNumRw>& wheelSpeeds) {
+Eigen::Vector3f MomentumManagementAlgorithm::update(const Eigen::Vector<float, kMaxNumRw>& wheelSpeeds) {
     /*! - compute net RW momentum magnitude */
-    const ThrMomentumManagementRwArrayConfiguration& rwArrayConfig = this->cfg.getRwArrayConfiguration();
+    const MomentumManagementRwArrayConfiguration& rwArrayConfig = this->cfg.getRwArrayConfiguration();
     Eigen::Vector3f hs_B = Eigen::Vector3f::Zero(); /* RW angular momentum */
     for (uint32_t i = 0; i < rwArrayConfig.numRW; i++) {
         hs_B += rwArrayConfig.JsList(i) * wheelSpeeds(i) * rwArrayConfig.GsMatrix_B.col(i);
@@ -47,7 +46,7 @@ Eigen::Vector3f ThrMomentumManagementAlgorithm::update(const Eigen::Vector<float
 
     /*! - the momentum held above the threshold, along the cluster momentum. It stays zero inside the deadband,
      which also avoids a 0/0 division when there is no momentum at all */
-    const ThrMomentumManagementControlParameters& params = this->cfg.getControlParameters();
+    const MomentumManagementControlParameters& params = this->cfg.getControlParameters();
     Eigen::Vector3f hsExcess_B = Eigen::Vector3f::Zero(); /* [Nms] excess RW cluster momentum */
     if (hs >= params.hsMin && hs >= kZeroMomentumTolerance) {
         hsExcess_B = (hs - params.hsMin) * hs_B / hs;

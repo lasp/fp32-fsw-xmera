@@ -1,7 +1,7 @@
-#ifndef F32XMERA_THR_MOMENTUM_MANAGEMENT_H
-#define F32XMERA_THR_MOMENTUM_MANAGEMENT_H
+#ifndef F32XMERA_MOMENTUM_MANAGEMENT_H
+#define F32XMERA_MOMENTUM_MANAGEMENT_H
 
-#include "thrMomentumManagementAlgorithm.h"
+#include "momentumManagementAlgorithm.h"
 #include <stdint.h>
 
 #include <memory>
@@ -13,7 +13,7 @@
 #include <architecture/messaging/messaging.h>
 
 /*! @brief Assesses the net reaction wheel momentum and requests the torque needed to dump its excess. */
-class ThrMomentumManagement : public SysModel {
+class MomentumManagement : public SysModel {
    public:
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
@@ -37,8 +37,8 @@ class ThrMomentumManagement : public SysModel {
     ReadFunctor<RWArrayConfigMsgF32Payload> rwConfigDataInMsg;  //!< [-] RW array configuration input message
 
    private:
-    ThrMomentumManagementConfig toConfig();
-    std::unique_ptr<ThrMomentumManagementAlgorithm> algorithm = nullptr;
+    MomentumManagementConfig toConfig();
+    std::unique_ptr<MomentumManagementAlgorithm> algorithm = nullptr;
 };
 
 #endif

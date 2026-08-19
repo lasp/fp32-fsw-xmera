@@ -3,7 +3,7 @@
 
  */
 
-#include "thrMomentumManagement.h"
+#include "momentumManagement.h"
 #include "utilities/fsw/eigenSupport.h"
 #include "utilities/xmera/xmeraLifecycleException.h"
 
@@ -12,55 +12,55 @@
 
 // The algorithm's C-boundary RW count must match the system-wide RW_EFF_CNT, otherwise the
 // payload GsMatrix_B / JsList / wheelSpeeds arrays would not map onto the algorithm's fixed-size types.
-static_assert(kMaxNumRw == RW_EFF_CNT, "THR_MOMENTUM_MANAGEMENT_MAX_NUM_RW must match RW_EFF_CNT");
+static_assert(kMaxNumRw == RW_EFF_CNT, "MOMENTUM_MANAGEMENT_MAX_NUM_RW must match RW_EFF_CNT");
 
 /*! This method performs a complete reset of the module.  It validates that the required input messages
  are linked, caches the RW configuration, and seeds the integrator state.
  @return void
  @param callTime The clock time at which the function was called (nanoseconds)
  */
-void ThrMomentumManagement::reset(const uint64_t callTime) {
+void MomentumManagement::reset(const uint64_t callTime) {
     // check if the required input messages are included
     if (!this->rwConfigDataInMsg.isLinked()) {
-        throw std::invalid_argument("thrMomentumManagement.rwConfigDataInMsg wasn't connected.");
+        throw std::invalid_argument("momentumManagement.rwConfigDataInMsg wasn't connected.");
     }
     if (!this->rwSpeedsInMsg.isLinked()) {
-        throw std::invalid_argument("thrMomentumManagement.rwSpeedsInMsg wasn't connected.");
+        throw std::invalid_argument("momentumManagement.rwSpeedsInMsg wasn't connected.");
     }
 
     /*! - create the algorithm, whose constructor installs the configuration and seeds the integrator state
      (throws on an invalid config) */
-    this->algorithm = std::make_unique<ThrMomentumManagementAlgorithm>(this->toConfig());
+    this->algorithm = std::make_unique<MomentumManagementAlgorithm>(this->toConfig());
 }
 
 /*! Build a validated algorithm configuration from the current module properties and the RW configuration
  message. Not const: it reads the RW configuration input message.
- @return ThrMomentumManagementConfig validated configuration
+ @return MomentumManagementConfig validated configuration
  */
-ThrMomentumManagementConfig ThrMomentumManagement::toConfig() {
+MomentumManagementConfig MomentumManagement::toConfig() {
     /*! - read in the RW configuration message and convert it to the algorithm's own types */
     const RWArrayConfigMsgF32Payload rwConfigParams = this->rwConfigDataInMsg();
-    ThrMomentumManagementRwArrayConfiguration rwArrayConfig;
+    MomentumManagementRwArrayConfiguration rwArrayConfig;
     rwArrayConfig.numRW = static_cast<uint32_t>(rwConfigParams.numRW);
     rwArrayConfig.GsMatrix_B = cArrayToEigenMatrix<float, 3, kMaxNumRw>(rwConfigParams.GsMatrix_B);
     rwArrayConfig.JsList = cArrayToEigenVector(rwConfigParams.JsList);
 
-    const ThrMomentumManagementControlParameters controlParameters{.hsMin = this->hsMin,
-                                                                   .K = this->K,
-                                                                   .Ki = this->Ki,
-                                                                   .integralLimit = this->integralLimit,
-                                                                   .controlPeriod = this->controlPeriod};
+    const MomentumManagementControlParameters controlParameters{.hsMin = this->hsMin,
+                                                                .K = this->K,
+                                                                .Ki = this->Ki,
+                                                                .integralLimit = this->integralLimit,
+                                                                .controlPeriod = this->controlPeriod};
 
-    return ThrMomentumManagementConfig::create(controlParameters, rwArrayConfig);
+    return MomentumManagementConfig::create(controlParameters, rwArrayConfig);
 }
 
 /*! Re-validate the current module properties and push them onto the live algorithm without disturbing its
  integrator state. Rebuilds the validated config from the public members and installs it via setConfig().
  @return void
  */
-void ThrMomentumManagement::reconfigure() {
+void MomentumManagement::reconfigure() {
     if (!this->algorithm) {
-        throw XmeraLifecycleException("ThrMomentumManagement reset() has not been called.");
+        throw XmeraLifecycleException("MomentumManagement reset() has not been called.");
     }
     this->algorithm->setConfig(this->toConfig());
 }
@@ -69,9 +69,9 @@ void ThrMomentumManagement::reconfigure() {
  algorithm's reInitialize().
  @return void
  */
-void ThrMomentumManagement::reInitialize() {
+void MomentumManagement::reInitialize() {
     if (!this->algorithm) {
-        throw XmeraLifecycleException("ThrMomentumManagement reset() has not been called.");
+        throw XmeraLifecycleException("MomentumManagement reset() has not been called.");
     }
     this->algorithm->reInitialize();
 }
@@ -81,9 +81,9 @@ void ThrMomentumManagement::reInitialize() {
  @return void
  @param callTime The clock time at which the function was called (nanoseconds)
  */
-void ThrMomentumManagement::updateState(const uint64_t callTime) {
+void MomentumManagement::updateState(const uint64_t callTime) {
     if (!this->algorithm) {
-        throw XmeraLifecycleException("ThrMomentumManagement reset() has not been called.");
+        throw XmeraLifecycleException("MomentumManagement reset() has not been called.");
     }
 
     /*! - Read the input messages */

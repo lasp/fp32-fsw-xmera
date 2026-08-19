@@ -15,17 +15,17 @@ All numeric computation is single-precision (``float`` / fp32).
 Module Architecture
 -------------------
 
-The **algorithm** (``ThrMomentumManagementAlgorithm``) is framework-free and Eigen-typed. It holds a validated
-``ThrMomentumManagementConfig`` and implements the dumping law described under `Mathematical Formulation`_. Its
+The **algorithm** (``MomentumManagementAlgorithm``) is framework-free and Eigen-typed. It holds a validated
+``MomentumManagementConfig`` and implements the dumping law described under `Mathematical Formulation`_. Its
 ``update()`` never throws, returns the requested torque as an ``Eigen::Vector3f``, and advances the
 excess-momentum integrator, which is the module's only runtime state; ``reInitialize()`` re-seeds it.
 
-The **Xmera adapter** (``ThrMomentumManagement``) inherits from ``SysModel`` and owns all messaging concerns. It
+The **Xmera adapter** (``MomentumManagement``) inherits from ``SysModel`` and owns all messaging concerns. It
 converts between the message payloads' C arrays and the algorithm's Eigen types, and writes the output message on
 every update. Configuration uses two-phase initialization: the caller sets the public properties, then ``reset()``
 validates the input links, builds the configuration, and constructs the algorithm.
 
-The **Adamant adapter** is a C shim (``thrMomentumManagementAlgorithm_c.h`` / ``.cpp``) exposing the algorithm
+The **Adamant adapter** is a C shim (``momentumManagementAlgorithm_c.h`` / ``.cpp``) exposing the algorithm
 through an opaque handle for Ada FFI. ``update()`` returns the requested torque as a ``Vector3f_c`` POD, and the
 configuration crosses the boundary as flattened scalars. A non-throwing ``validateConfig()`` lets Ada pre-check a
 configuration before calling the throwing ``create()`` / ``setConfig()``.
@@ -160,7 +160,7 @@ raises ``fsw::invalid_argument`` and the module is not constructed.
       - RW spin axes and spin-axis inertias, read from the input message rather than set as a property.
 
 The reaction-wheel configuration read from ``rwConfigDataInMsg`` must satisfy: ``numRW`` no greater than the
-compile-time maximum ``THR_MOMENTUM_MANAGEMENT_MAX_NUM_RW`` (36, which must match ``RW_EFF_CNT``); the spin axis
+compile-time maximum ``MOMENTUM_MANAGEMENT_MAX_NUM_RW`` (36, which must match ``RW_EFF_CNT``); the spin axis
 matrix and spin-axis inertias finite; and each of the first ``numRW`` spin axes a unit vector to within
 :math:`10^{-3}`. Valid axes are normalized exactly on construction, so the momentum sum can rely on unit vectors.
 Columns beyond ``numRW`` describe no real wheel and are ignored.
@@ -173,10 +173,10 @@ The module uses two-phase initialization: set the public configuration propertie
 
 .. code-block:: python
 
-    from xmera.fp32 import thrMomentumManagementF32
+    from xmera.fp32 import momentumManagementF32
 
-    module = thrMomentumManagementF32.ThrMomentumManagement()
-    module.modelTag = "thrMomentumManagement"
+    module = momentumManagementF32.MomentumManagement()
+    module.modelTag = "momentumManagement"
 
     # Phase 1: configuration properties, set before reset()
     module.hsMin = 100.0 / 6000.0 * 100.0  # [Nms] lower ceiling of the RW cluster momentum

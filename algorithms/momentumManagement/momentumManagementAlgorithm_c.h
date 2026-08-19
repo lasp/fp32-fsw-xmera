@@ -1,7 +1,7 @@
-#ifndef F32XMERA_THR_MOMENTUM_MANAGEMENT_ALGORITHM_C_H
-#define F32XMERA_THR_MOMENTUM_MANAGEMENT_ALGORITHM_C_H
+#ifndef F32XMERA_MOMENTUM_MANAGEMENT_ALGORITHM_C_H
+#define F32XMERA_MOMENTUM_MANAGEMENT_ALGORITHM_C_H
 
-#include "thrMomentumManagementTypes.h"
+#include "momentumManagementTypes.h"
 #include "utilities/fsw/plainCAlgorithmDataTypes.h"
 
 #include <stdbool.h>
@@ -12,15 +12,15 @@ extern "C" {
 #endif
 
 /**
- * @brief Opaque handle to the C++ ThrMomentumManagementAlgorithm instance.
+ * @brief Opaque handle to the C++ MomentumManagementAlgorithm instance.
  */
-typedef struct ThrMomentumManagementAlgorithmHandle ThrMomentumManagementAlgorithmHandle;
+typedef struct MomentumManagementAlgorithmHandle MomentumManagementAlgorithmHandle;
 
 /**
- * @brief Get the THR_MOMENTUM_MANAGEMENT_MAX_NUM_RW constant for Ada validation.
+ * @brief Get the MOMENTUM_MANAGEMENT_MAX_NUM_RW constant for Ada validation.
  * @return The maximum number of reaction wheels handled at the C boundary.
  */
-uint32_t ThrMomentumManagementAlgorithm_getMaxNumRw(void);
+uint32_t MomentumManagementAlgorithm_getMaxNumRw(void);
 
 /**
  * @brief Report whether a configuration would be accepted by create/setConfig.
@@ -35,15 +35,15 @@ uint32_t ThrMomentumManagementAlgorithm_getMaxNumRw(void);
  * @return true when the configuration is valid. Never throws, so it can guard the
  *         throwing create/setConfig from an invalid configuration.
  */
-bool ThrMomentumManagementAlgorithm_validateConfig(float hsMin,
-                                                   float K,
-                                                   float Ki,
-                                                   float integralLimit,
-                                                   float controlPeriod,
-                                                   const ThrMomentumManagementRwArrayConfiguration_c* rwArrayConfig);
+bool MomentumManagementAlgorithm_validateConfig(float hsMin,
+                                                float K,
+                                                float Ki,
+                                                float integralLimit,
+                                                float controlPeriod,
+                                                const MomentumManagementRwArrayConfiguration_c* rwArrayConfig);
 
 /**
- * @brief Construct a new ThrMomentumManagementAlgorithm instance from the supplied configuration.
+ * @brief Construct a new MomentumManagementAlgorithm instance from the supplied configuration.
  * @param hsMin         [Nms]  minimum RW cluster momentum for dumping; must be finite and non-negative.
  * @param K             [1/s]  proportional gain on the excess momentum; must be finite and positive.
  * @param Ki            [1/s2] integral gain on the accumulated excess momentum; must be finite and non-negative.
@@ -52,22 +52,22 @@ bool ThrMomentumManagementAlgorithm_validateConfig(float hsMin,
  * @param controlPeriod [s]    integration step between update() calls; must be finite and non-negative,
  *                             and positive when Ki > 0 (only the integral term uses it).
  * @param rwArrayConfig Pointer to the reaction-wheel spin-axis configuration.
- * @return Pointer to a new ThrMomentumManagementAlgorithm (must be destroyed).
+ * @return Pointer to a new MomentumManagementAlgorithm (must be destroyed).
  * Validate the configuration with validateConfig first; invalid input throws.
  */
-ThrMomentumManagementAlgorithmHandle* ThrMomentumManagementAlgorithm_create(
+MomentumManagementAlgorithmHandle* MomentumManagementAlgorithm_create(
     float hsMin,
     float K,
     float Ki,
     float integralLimit,
     float controlPeriod,
-    const ThrMomentumManagementRwArrayConfiguration_c* rwArrayConfig);
+    const MomentumManagementRwArrayConfiguration_c* rwArrayConfig);
 
 /**
- * @brief Destroy a previously created ThrMomentumManagementAlgorithm.
+ * @brief Destroy a previously created MomentumManagementAlgorithm.
  * @param self Pointer to the instance to destroy.
  */
-void ThrMomentumManagementAlgorithm_destroy(ThrMomentumManagementAlgorithmHandle* self);
+void MomentumManagementAlgorithm_destroy(MomentumManagementAlgorithmHandle* self);
 
 /**
  * @brief Replace the algorithm's configuration at runtime without disturbing its runtime state.
@@ -82,19 +82,19 @@ void ThrMomentumManagementAlgorithm_destroy(ThrMomentumManagementAlgorithmHandle
  * @param rwArrayConfig Pointer to the reaction-wheel spin-axis configuration.
  * Validate the configuration with validateConfig first; invalid input throws.
  */
-void ThrMomentumManagementAlgorithm_setConfig(ThrMomentumManagementAlgorithmHandle* self,
-                                              float hsMin,
-                                              float K,
-                                              float Ki,
-                                              float integralLimit,
-                                              float controlPeriod,
-                                              const ThrMomentumManagementRwArrayConfiguration_c* rwArrayConfig);
+void MomentumManagementAlgorithm_setConfig(MomentumManagementAlgorithmHandle* self,
+                                           float hsMin,
+                                           float K,
+                                           float Ki,
+                                           float integralLimit,
+                                           float controlPeriod,
+                                           const MomentumManagementRwArrayConfiguration_c* rwArrayConfig);
 
 /**
  * @brief Re-seed the runtime integrator state to its initial values.
  * @param self Pointer to the instance.
  */
-void ThrMomentumManagementAlgorithm_reInitialize(ThrMomentumManagementAlgorithmHandle* self);
+void MomentumManagementAlgorithm_reInitialize(MomentumManagementAlgorithmHandle* self);
 
 /**
  * @brief Assess the RW cluster momentum and compute the torque that dumps its excess.
@@ -103,11 +103,11 @@ void ThrMomentumManagementAlgorithm_reInitialize(ThrMomentumManagementAlgorithmH
  * @param wheelSpeeds Pointer to the current reaction-wheel speeds.
  * @return Vector3f_c [Nm] the requested body-frame torque.
  */
-Vector3f_c ThrMomentumManagementAlgorithm_update(ThrMomentumManagementAlgorithmHandle* self,
-                                                 const ThrMomentumManagementWheelSpeeds_c* wheelSpeeds);
+Vector3f_c MomentumManagementAlgorithm_update(MomentumManagementAlgorithmHandle* self,
+                                              const MomentumManagementWheelSpeeds_c* wheelSpeeds);
 
 #ifdef __cplusplus
 }  // extern "C"
 #endif
 
-#endif /* F32XMERA_THR_MOMENTUM_MANAGEMENT_ALGORITHM_C_H */
+#endif /* F32XMERA_MOMENTUM_MANAGEMENT_ALGORITHM_C_H */

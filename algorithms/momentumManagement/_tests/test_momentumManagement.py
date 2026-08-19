@@ -2,13 +2,13 @@ import numpy as np
 import pytest
 
 from xmera.architecture import messaging
-from xmera.fp32 import thrMomentumManagementF32
+from xmera.fp32 import momentumManagementF32
 from xmera.utilities import SimulationBaseClass
 from xmera.utilities import macros
 
 
 @pytest.mark.parametrize("hs_min_check", [0, 1])
-def test_thr_momentum_management(hs_min_check):
+def test_momentum_management(hs_min_check):
     """Module Unit Test"""
     task_name = "unitTask"
     process_name = "TestProcess"
@@ -19,8 +19,8 @@ def test_thr_momentum_management(hs_min_check):
     test_proc = sim.CreateNewProcess(process_name)
     test_proc.addTask(sim.CreateNewTask(task_name, test_process_rate))
 
-    module = thrMomentumManagementF32.ThrMomentumManagement()
-    module.modelTag = "thrMomentumManagement"
+    module = momentumManagementF32.MomentumManagement()
+    module.modelTag = "momentumManagement"
     sim.AddModelToTask(task_name, module)
 
     # hs_min_check == 1 puts the threshold above the RW cluster momentum, so no dumping is requested
