@@ -58,26 +58,23 @@ TEST(ThrMomentumManagement, NoDumpWhenBelowThreshold) {
 
 TEST(ThrMomentumManagement, MatchesReferenceAcrossCases) {
     const auto rwArrayConfig = makeStandardRwArrayConfig();
+    const auto nominalSpeeds = makeWheelSpeeds({10.0F, -25.0F, 50.0F, 100.0F});
 
-    regressionTestThrMomentumManagement(
-        rwArrayConfig, makeWheelSpeeds({10.0F, -25.0F, 50.0F, 100.0F}), nominalParams(), kAccuracy);
+    regressionTestThrMomentumManagement(rwArrayConfig, nominalSpeeds, nominalParams(), kAccuracy);
     regressionTestThrMomentumManagement(
         rwArrayConfig, makeWheelSpeeds({0.0F, 0.0F, 0.0F, 0.0F}), nominalParams(), kAccuracy);
     regressionTestThrMomentumManagement(
         rwArrayConfig, makeWheelSpeeds({-150.0F, 120.0F, -90.0F, 60.0F}), nominalParams(1.0F), kAccuracy);
     regressionTestThrMomentumManagement(
         rwArrayConfig, makeWheelSpeeds({1.0F, 1.0F, 1.0F, 1.0F}), nominalParams(0.0F), kAccuracy);
-    // A gain an order of magnitude away must carry through unchanged.
-    regressionTestThrMomentumManagement(
-        rwArrayConfig, makeWheelSpeeds({10.0F, -25.0F, 50.0F, 100.0F}), nominalParams(1.0F, 0.005F), kAccuracy);
+    // Gains far from the nominal one must carry through unchanged.
+    regressionTestThrMomentumManagement(rwArrayConfig, nominalSpeeds, nominalParams(1.0F, 0.005F), kAccuracy);
+    regressionTestThrMomentumManagement(rwArrayConfig, nominalSpeeds, nominalParams(1.0F, 1e-9F), kAccuracy);
     // The integral path accumulated over many cycles, unclamped and clamped.
+    regressionTestThrMomentumManagement(
+        rwArrayConfig, nominalSpeeds, nominalParams(kNominalHsMin, kNominalK, kNominalKi), kAccuracy, 20U);
     regressionTestThrMomentumManagement(rwArrayConfig,
-                                        makeWheelSpeeds({10.0F, -25.0F, 50.0F, 100.0F}),
-                                        nominalParams(kNominalHsMin, kNominalK, kNominalKi),
-                                        kAccuracy,
-                                        20U);
-    regressionTestThrMomentumManagement(rwArrayConfig,
-                                        makeWheelSpeeds({10.0F, -25.0F, 50.0F, 100.0F}),
+                                        nominalSpeeds,
                                         nominalParams(kNominalHsMin, kNominalK, kNominalKi, kTightIntegralLimit),
                                         kAccuracy,
                                         20U);
@@ -554,8 +551,9 @@ TEST(ThrMomentumManagementEdgeCases, SpeedsBeyondNumRwAreIgnored) {
 // Properties
 // ---------------------------------------------------------------------------------------------------
 
-// The torque magnitude is the gain times the momentum held above the threshold, and never acts on momentum
-// the cluster does not hold.
+// Each property is implemented in the helpers and also registered as a fuzz target.
+
+// The proportional request acts on exactly the momentum held above the threshold.
 TEST(ThrMomentumManagementProperties, TorqueActsOnExcessMomentumOnly) {
     const auto rwArrayConfig = makeStandardRwArrayConfig();
     // Momenta spanning a negligible cluster up to a fully loaded one (~55 Nms), all realizable.
@@ -568,43 +566,34 @@ TEST(ThrMomentumManagementProperties, TorqueActsOnExcessMomentumOnly) {
 
     for (float hsMin : {0.0F, 0.5F, 5.0F, 50.0F}) {
         for (const auto& speeds : speedCases) {
-            const auto wheelSpeeds = makeWheelSpeeds(speeds);
-            ThrMomentumManagementAlgorithm alg{
-                ThrMomentumManagementConfig::create(nominalParams(hsMin), rwArrayConfig)};
-            const auto Lr_B = alg.update(wheelSpeeds);
-            EXPECT_TRUE(Lr_B.allFinite());
-
-            const float hs = clusterMomentum(rwArrayConfig, wheelSpeeds).norm();
-
-            EXPECT_NEAR(Lr_B.norm(), kNominalK * std::max(0.0F, hs - hsMin), kAccuracy) << "hsMin " << hsMin;
-            EXPECT_LE(Lr_B.norm(), kNominalK * hs + kAccuracy) << "hsMin " << hsMin;
+            testProportionalTorqueOpposesExcessMomentum(rwArrayConfig, makeWheelSpeeds(speeds), nominalParams(hsMin));
         }
     }
 }
 
-// Reversing every wheel speed reverses the requested torque.
+// Reversing every wheel speed reverses the requested torque, with and without the integral engaged.
 TEST(ThrMomentumManagementProperties, IsOddInWheelSpeeds) {
     const auto rwArrayConfig = makeStandardRwArrayConfig();
     const auto wheelSpeeds = makeWheelSpeeds({10.0F, -25.0F, 50.0F, 100.0F});
 
-    ThrMomentumManagementAlgorithm alg1{ThrMomentumManagementConfig::create(nominalParams(), rwArrayConfig)};
-    const auto forward = alg1.update(wheelSpeeds);
+    testTorqueIsOddInWheelSpeeds(rwArrayConfig, wheelSpeeds, nominalParams());
+    testTorqueIsOddInWheelSpeeds(rwArrayConfig, wheelSpeeds, nominalParams(kNominalHsMin, kNominalK, kNominalKi), 20U);
+}
 
-    ThrMomentumManagementAlgorithm alg2{ThrMomentumManagementConfig::create(nominalParams(), rwArrayConfig)};
-    const auto reversed = alg2.update(Eigen::Vector<float, kMaxNumRw>{-wheelSpeeds});
+// The anti-windup bound holds over a long sustained momentum.
+TEST(ThrMomentumManagementProperties, IntegralTermStaysBounded) {
+    const auto rwArrayConfig = makeStandardRwArrayConfig();
+    const auto wheelSpeeds = makeWheelSpeeds({10.0F, -25.0F, 50.0F, 100.0F});
 
-    for (Eigen::Index i = 0; i < 3; ++i) {
-        EXPECT_NEAR(reversed[i], -forward[i], kAccuracy) << "component " << i;
-    }
+    testIntegralTermStaysBounded(
+        rwArrayConfig, wheelSpeeds, nominalParams(kNominalHsMin, kNominalK, kNominalKi, kTightIntegralLimit));
 }
 
 // Deliberately unphysical speeds, far beyond any real wheel: a pure overflow guard, so it asserts only that
 // nothing becomes inf or NaN and makes no accuracy claim.
 TEST(ThrMomentumManagementProperties, LargeSpeedsStayFinite) {
     const auto rwArrayConfig = makeStandardRwArrayConfig();
-    ThrMomentumManagementAlgorithm alg{ThrMomentumManagementConfig::create(nominalParams(1.0F), rwArrayConfig)};
 
-    const auto Lr_B = alg.update(makeWheelSpeeds({1e6F, -1e6F, 1e6F, -1e6F}));
-
-    EXPECT_TRUE(Lr_B.allFinite());
+    testTorqueStaysFinite(
+        rwArrayConfig, makeWheelSpeeds({1e6F, -1e6F, 1e6F, -1e6F}), nominalParams(1.0F, kNominalK, kNominalKi), 20U);
 }
