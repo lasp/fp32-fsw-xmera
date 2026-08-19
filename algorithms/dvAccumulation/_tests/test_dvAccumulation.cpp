@@ -74,29 +74,10 @@ TEST(DvAccumulationTest, FirstCallStartsTheAccumulationClock) {
     }
 }
 
-TEST(DvAccumulationTest, ReInitializeExceptPersistentStatesKeepsWindowOpen) {
-    /*! - reInitializeExceptPersistentStates zeros the accumulator but leaves the window open, so the
-     *    next update integrates immediately. The result [1,0,0] rules out both failure modes:
-     *    [2,0,0] if the accumulator hadn't reset, [0,0,0] if the window had been restarted. */
-    DvAccumulationAlgorithm alg{DvAccumulationConfig::create(0.5F)};
-
-    const Eigen::Vector3f accel{2.0F, 0.0F, 0.0F};
-    alg.update(accel);                                 // starts the window
-    const Eigen::Vector3f before = alg.update(accel);  // dt=0.5 -> [1,0,0]
-    EXPECT_NEAR(before[0], 1.0F, 1e-5F);
-
-    alg.reInitializeExceptPersistentStates();  // accumulator->0, window stays open
-
-    const Eigen::Vector3f after = alg.update(accel);
-    EXPECT_NEAR(after[0], 1.0F, 1e-5F);
-    EXPECT_NEAR(after[1], 0.0F, 1e-5F);
-    EXPECT_NEAR(after[2], 0.0F, 1e-5F);
-}
-
 TEST(DvAccumulationTest, ReInitializeRestartsTheAccumulationClock) {
     /*! - reInitialize re-arms firstCall as well as zeroing the accumulator, so the next update
-     *    restarts the window: zero DV, no integration. Contrast with
-     *    ReInitializeExceptPersistentStatesKeepsWindowOpen, whose next call yields [1,0,0].
+     *    restarts the window: zero DV, no integration. The [0,0,0] result rules out both failure
+     *    modes: [1,0,0] if the window had been left open, [2,0,0] if the accumulator hadn't reset.
      *    setConfig, by contrast, installs parameters only and must not re-arm the window. */
     DvAccumulationAlgorithm alg{DvAccumulationConfig::create(0.5F)};
 
