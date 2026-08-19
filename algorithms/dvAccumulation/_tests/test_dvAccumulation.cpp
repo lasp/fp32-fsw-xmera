@@ -1,6 +1,5 @@
 #include "dvAccumulation/dvAccumulationAlgorithm.h"
 #include "dvAccumulationTestHelpers.hpp"
-#include "utilities/fsw/timeConstants.h"
 
 #include <gtest/gtest.h>
 #include <Eigen/Core>
@@ -23,17 +22,16 @@ TEST(DvAccumulationTest, ReferenceTest) {
 }
 
 TEST(DvAccumulationTest, FirstCallSetsTimeReferenceOnly) {
-    /*! - the first update after reInitialize (previousTime == 0) only sets the time reference: zero DV,
-     *    time-tag set to the call time */
+    /*! - the first update after reInitialize (previousTime == 0) only sets the time reference:
+     *    zero accumulated DV, no integration */
     DvAccumulationAlgorithm alg{};
     alg.reInitialize();
 
-    const DvAccumulationOutput out = alg.update(static_cast<uint64_t>(5e7), Eigen::Vector3f{1.0F, 2.0F, 3.0F});
+    const Eigen::Vector3f out = alg.update(static_cast<uint64_t>(5e7), Eigen::Vector3f{1.0F, 2.0F, 3.0F});
 
-    EXPECT_FLOAT_EQ(out.vehAccumDV_B[0], 0.0F);
-    EXPECT_FLOAT_EQ(out.vehAccumDV_B[1], 0.0F);
-    EXPECT_FLOAT_EQ(out.vehAccumDV_B[2], 0.0F);
-    EXPECT_NEAR(out.timeTag, 5e7 * kNano2Sec, 1e-9);
+    EXPECT_FLOAT_EQ(out[0], 0.0F);
+    EXPECT_FLOAT_EQ(out[1], 0.0F);
+    EXPECT_FLOAT_EQ(out[2], 0.0F);
 }
 
 TEST(DvAccumulationTest, NonAdvancingCallTimeDoesNotAccumulate) {
@@ -42,14 +40,13 @@ TEST(DvAccumulationTest, NonAdvancingCallTimeDoesNotAccumulate) {
     alg.reInitialize();
 
     const Eigen::Vector3f accel{0.5F, 0.0F, 0.0F};
-    alg.update(static_cast<uint64_t>(1e7), accel);                                      // first call: sets ref
-    const DvAccumulationOutput first = alg.update(static_cast<uint64_t>(2e7), accel);   // integrate
-    const DvAccumulationOutput second = alg.update(static_cast<uint64_t>(2e7), accel);  // gated
+    alg.update(static_cast<uint64_t>(1e7), accel);                                 // first call: sets ref
+    const Eigen::Vector3f first = alg.update(static_cast<uint64_t>(2e7), accel);   // integrate
+    const Eigen::Vector3f second = alg.update(static_cast<uint64_t>(2e7), accel);  // gated
 
-    EXPECT_FLOAT_EQ(first.vehAccumDV_B[0], second.vehAccumDV_B[0]);
-    EXPECT_FLOAT_EQ(first.vehAccumDV_B[1], second.vehAccumDV_B[1]);
-    EXPECT_FLOAT_EQ(first.vehAccumDV_B[2], second.vehAccumDV_B[2]);
-    EXPECT_DOUBLE_EQ(first.timeTag, second.timeTag);
+    EXPECT_FLOAT_EQ(first[0], second[0]);
+    EXPECT_FLOAT_EQ(first[1], second[1]);
+    EXPECT_FLOAT_EQ(first[2], second[2]);
 }
 
 TEST(DvAccumulationTest, BoundedInputProducesFiniteOutput) {
@@ -58,15 +55,14 @@ TEST(DvAccumulationTest, BoundedInputProducesFiniteOutput) {
     alg.reInitialize();
 
     const Eigen::Vector3f accel{10.0F, -10.0F, 5.0F};
-    DvAccumulationOutput out{};
+    Eigen::Vector3f out = Eigen::Vector3f::Zero();
     for (uint64_t k = 1U; k <= 10U; ++k) {
         out = alg.update(k * static_cast<uint64_t>(1e7), accel);
     }
 
     for (int i = 0; i < 3; ++i) {
-        EXPECT_TRUE(std::isfinite(out.vehAccumDV_B[i]));
+        EXPECT_TRUE(std::isfinite(out[i]));
     }
-    EXPECT_TRUE(std::isfinite(out.timeTag));
 }
 
 TEST(DvAccumulationTest, KnownAccelerationProducesExpectedDeltaV) {
@@ -75,15 +71,14 @@ TEST(DvAccumulationTest, KnownAccelerationProducesExpectedDeltaV) {
     DvAccumulationAlgorithm alg{};
     alg.reInitialize();
 
-    const uint64_t t0 = static_cast<uint64_t>(1e9);                                       // 1.0 s
-    const uint64_t t1 = static_cast<uint64_t>(15e8);                                      // 1.5 s  (dt = 0.5 s)
-    alg.update(t0, Eigen::Vector3f::Zero());                                              // sets the time reference
-    const DvAccumulationOutput out = alg.update(t1, Eigen::Vector3f{2.0F, -4.0F, 0.0F});  // integrate dt * accel
+    const uint64_t t0 = static_cast<uint64_t>(1e9);                                  // 1.0 s
+    const uint64_t t1 = static_cast<uint64_t>(15e8);                                 // 1.5 s  (dt = 0.5 s)
+    alg.update(t0, Eigen::Vector3f::Zero());                                         // sets the time reference
+    const Eigen::Vector3f out = alg.update(t1, Eigen::Vector3f{2.0F, -4.0F, 0.0F});  // integrate dt * accel
 
-    EXPECT_NEAR(out.vehAccumDV_B[0], 1.0F, 1e-5F);
-    EXPECT_NEAR(out.vehAccumDV_B[1], -2.0F, 1e-5F);
-    EXPECT_NEAR(out.vehAccumDV_B[2], 0.0F, 1e-5F);
-    EXPECT_NEAR(out.timeTag, 1.5, 1e-9);
+    EXPECT_NEAR(out[0], 1.0F, 1e-5F);
+    EXPECT_NEAR(out[1], -2.0F, 1e-5F);
+    EXPECT_NEAR(out[2], 0.0F, 1e-5F);
 }
 
 TEST(DvAccumulationTest, FirstCallIgnoresAcceleration) {
@@ -95,10 +90,10 @@ TEST(DvAccumulationTest, FirstCallIgnoresAcceleration) {
     for (const Eigen::Vector3f& accel : firstCallAccels) {
         DvAccumulationAlgorithm alg{};
         alg.reInitialize();
-        const DvAccumulationOutput out = alg.update(static_cast<uint64_t>(5e7), accel);
-        EXPECT_FLOAT_EQ(out.vehAccumDV_B[0], 0.0F);
-        EXPECT_FLOAT_EQ(out.vehAccumDV_B[1], 0.0F);
-        EXPECT_FLOAT_EQ(out.vehAccumDV_B[2], 0.0F);
+        const Eigen::Vector3f out = alg.update(static_cast<uint64_t>(5e7), accel);
+        EXPECT_FLOAT_EQ(out[0], 0.0F);
+        EXPECT_FLOAT_EQ(out[1], 0.0F);
+        EXPECT_FLOAT_EQ(out[2], 0.0F);
     }
 }
 
@@ -111,19 +106,16 @@ TEST(DvAccumulationTest, ReInitializeExceptPersistentStatesKeepsTimeReference) {
     alg.reInitialize();
 
     const Eigen::Vector3f accel{2.0F, 0.0F, 0.0F};
-    alg.update(static_cast<uint64_t>(1e9), accel);  // callTime 1.0 s: sets ref
-    const DvAccumulationOutput before =
-        alg.update(static_cast<uint64_t>(15e8), accel);  // callTime 1.5 s: dt=0.5 -> [1,0,0]
-    EXPECT_NEAR(before.vehAccumDV_B[0], 1.0F, 1e-5F);
+    alg.update(static_cast<uint64_t>(1e9), accel);                                  // callTime 1.0 s: sets ref
+    const Eigen::Vector3f before = alg.update(static_cast<uint64_t>(15e8), accel);  // callTime 1.5 s: dt=0.5 -> [1,0,0]
+    EXPECT_NEAR(before[0], 1.0F, 1e-5F);
 
     alg.reInitializeExceptPersistentStates();  // accumulator->0, previousTime kept
 
-    const DvAccumulationOutput after =
-        alg.update(static_cast<uint64_t>(2e9), accel);  // callTime 2.0 s: dt=0.5 from 1.5 s
-    EXPECT_NEAR(after.vehAccumDV_B[0], 1.0F, 1e-5F);
-    EXPECT_NEAR(after.vehAccumDV_B[1], 0.0F, 1e-5F);
-    EXPECT_NEAR(after.vehAccumDV_B[2], 0.0F, 1e-5F);
-    EXPECT_NEAR(after.timeTag, 2.0, 1e-9);
+    const Eigen::Vector3f after = alg.update(static_cast<uint64_t>(2e9), accel);  // callTime 2.0 s: dt=0.5 from 1.5 s
+    EXPECT_NEAR(after[0], 1.0F, 1e-5F);
+    EXPECT_NEAR(after[1], 0.0F, 1e-5F);
+    EXPECT_NEAR(after[2], 0.0F, 1e-5F);
 }
 
 TEST(DvAccumulationTest, ReInitializeResetsTimeReference) {
@@ -139,28 +131,24 @@ TEST(DvAccumulationTest, ReInitializeResetsTimeReference) {
 
     alg.reInitialize();  // accumulator->0 AND previousTime->0
 
-    const DvAccumulationOutput after = alg.update(static_cast<uint64_t>(2e9), accel);  // callTime 2.0 s: re-sets ref
-    EXPECT_FLOAT_EQ(after.vehAccumDV_B[0], 0.0F);
-    EXPECT_FLOAT_EQ(after.vehAccumDV_B[1], 0.0F);
-    EXPECT_FLOAT_EQ(after.vehAccumDV_B[2], 0.0F);
-    EXPECT_NEAR(after.timeTag, 2.0, 1e-9);  // reference re-set to the new callTime
+    const Eigen::Vector3f after = alg.update(static_cast<uint64_t>(2e9), accel);  // callTime 2.0 s: re-sets ref
+    EXPECT_FLOAT_EQ(after[0], 0.0F);
+    EXPECT_FLOAT_EQ(after[1], 0.0F);
+    EXPECT_FLOAT_EQ(after[2], 0.0F);
 }
 
 TEST(DvAccumulationTest, BackwardCallTimeIsIgnored) {
     /*! - a callTime strictly earlier than previousTime (clock stepped backward / out-of-order) is
-     *    dropped by the strictly-greater gate: accumulator and time reference stay unchanged. */
+     *    dropped by the strictly-greater gate: the accumulator stays unchanged. */
     DvAccumulationAlgorithm alg{};
     alg.reInitialize();
 
     const Eigen::Vector3f accel{2.0F, 0.0F, 0.0F};
-    alg.update(static_cast<uint64_t>(1e9), accel);  // callTime 1.0 s: sets ref
-    const DvAccumulationOutput forward =
-        alg.update(static_cast<uint64_t>(2e9), accel);  // callTime 2.0 s: dt=1.0 -> [2,0,0]
-    const DvAccumulationOutput backward =
-        alg.update(static_cast<uint64_t>(15e8), accel);  // callTime 1.5 s < 2.0 s: ignored
+    alg.update(static_cast<uint64_t>(1e9), accel);                                  // callTime 1.0 s: sets ref
+    const Eigen::Vector3f forward = alg.update(static_cast<uint64_t>(2e9), accel);  // callTime 2.0 s: dt=1.0 -> [2,0,0]
+    const Eigen::Vector3f backward = alg.update(static_cast<uint64_t>(15e8), accel);  // callTime 1.5 s < 2.0 s: ignored
 
-    EXPECT_FLOAT_EQ(backward.vehAccumDV_B[0], forward.vehAccumDV_B[0]);  // accumulator unchanged
-    EXPECT_FLOAT_EQ(backward.vehAccumDV_B[1], forward.vehAccumDV_B[1]);
-    EXPECT_FLOAT_EQ(backward.vehAccumDV_B[2], forward.vehAccumDV_B[2]);
-    EXPECT_DOUBLE_EQ(backward.timeTag, forward.timeTag);  // time reference unchanged (still 2.0 s)
+    EXPECT_FLOAT_EQ(backward[0], forward[0]);  // accumulator unchanged
+    EXPECT_FLOAT_EQ(backward[1], forward[1]);
+    EXPECT_FLOAT_EQ(backward[2], forward[2]);
 }
