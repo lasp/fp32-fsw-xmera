@@ -1,7 +1,7 @@
 #ifndef F32XMERA_DV_ACCUMULATION_ALGORITHM_C_H
 #define F32XMERA_DV_ACCUMULATION_ALGORITHM_C_H
 
-#include "dvAccumulationTypes.h"
+#include "utilities/fsw/plainCAlgorithmDataTypes.h"
 
 #include <stdint.h>
 
@@ -42,16 +42,15 @@ void DvAccumulationAlgorithm_reInitializeExceptPersistentStates(DvAccumulationAl
 
 /*!
  * @brief Integrate one body-frame acceleration sample over the step since the previous call into
- *        the running Delta-V accumulator and return the current accumulator plus the time-tag of
- *        the most recently ingested sample.
+ *        the running Delta-V accumulator and return the current accumulator.
  * @param self                 Pointer to the instance.
  * @param callTime             Module call time (nanoseconds).
  * @param rDDotNoGravity_BN_B  Body-frame non-gravitational acceleration (m/s^2).
- * @return DvAccumulationOutput_c  timeTag (seconds) plus body-frame Delta-V (m/s).
+ * @return Vector3f_c  Accumulated body-frame Delta-V (m/s).
  */
-DvAccumulationOutput_c DvAccumulationAlgorithm_update(DvAccumulationAlgorithmHandle* self,
-                                                      uint64_t callTime,
-                                                      Vector3f_c rDDotNoGravity_BN_B);
+Vector3f_c DvAccumulationAlgorithm_update(DvAccumulationAlgorithmHandle* self,
+                                          uint64_t callTime,
+                                          Vector3f_c rDDotNoGravity_BN_B);
 
 #ifdef __cplusplus
 } /* extern "C" */

@@ -27,8 +27,8 @@ Message Connection Descriptions
         acceleration) is consumed.
     * - dvAccumulationOutMsg
       - ``NavTransMsgF32Payload``
-      - Output navigation message. The module populates ``timeTag`` (seconds, double) and
-        ``vehAccumDV`` (m/s, float[3]); the position and velocity fields are left zero.
+      - Output navigation message. The adapter populates ``timeTag`` (seconds, double, the module
+        call time) and ``vehAccumDV`` (m/s, float[3]); the position and velocity fields are left zero.
 
 Module Parameters
 -----------------
@@ -68,14 +68,13 @@ Three-layer split:
   ``imuInMsg`` is linked.
 - **Algorithm (``dvAccumulationAlgorithm.h/.cpp``, ``class DvAccumulationAlgorithm``).** Pure
   algorithm — no SysModel, no messaging. ``update(callTime, rDDotNoGravity_BN_B)`` takes the call time
-  and an ``Eigen::Vector3f`` and returns a ``DvAccumulationOutput`` carrying ``timeTag`` (double, s)
-  and ``vehAccumDV_B`` (``Eigen::Vector3f``, m/s). Default-constructed — no configuration.
-- **C shim (``dvAccumulationAlgorithm_c.h/.cpp``, ``dvAccumulationTypes.h``).** Pure-C interface
-  for Ada FFI: opaque handle plus ``DvAccumulationAlgorithm_create``/``_destroy``/
-  ``_reInitialize``/``_reInitializeExceptPersistentStates``/``_update``. ``_update`` takes the call
-  time and a ``Vector3f_c`` acceleration. ``dvAccumulationTypes.h`` (pure C) declares
-  ``DvAccumulationOutput_c``, the POD mirror of the C++ output using the shared ``Vector3f_c`` from
-  ``utilities/fsw/plainCAlgorithmDataTypes.h``.
+  and an ``Eigen::Vector3f`` and returns the accumulated ``vehAccumDV_B`` (``Eigen::Vector3f``, m/s).
+  Time-tagging the output message is the adapter's job. Default-constructed — no configuration.
+- **C shim (``dvAccumulationAlgorithm_c.h/.cpp``).** Pure-C interface for Ada FFI: opaque handle
+  plus ``DvAccumulationAlgorithm_create``/``_destroy``/``_reInitialize``/
+  ``_reInitializeExceptPersistentStates``/``_update``. ``_update`` takes the call time and a
+  ``Vector3f_c`` acceleration and returns a ``Vector3f_c`` Delta-V, using the shared ``Vector3f_c``
+  from ``utilities/fsw/plainCAlgorithmDataTypes.h``.
 
 Algorithm Layer
 ---------------
@@ -95,7 +94,8 @@ previously-seen call time ``previousTime``:
       \text{previousTime} \leftarrow \text{callTime}
 
 3. A ``callTime`` that does not advance past ``previousTime`` is ignored (no integration).
-4. Emit ``timeTag = previousTime * kNano2Sec`` and ``vehAccumDV_B = \Delta\mathbf{v}``.
+4. Return ``vehAccumDV_B = \Delta\mathbf{v}``. The adapter tags the output message with
+   ``timeTag = callTime * kNano2Sec``.
 
 User Guide
 ----------
