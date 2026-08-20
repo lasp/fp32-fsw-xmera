@@ -272,6 +272,7 @@ jobs:
           args=(
             --preset fuzz-smoke-test
             "-DXMERA_MODULE_ROOTS=${GITHUB_WORKSPACE}/xmera/src/fswAlgorithms/;${GITHUB_WORKSPACE}/xmera/src/simulation/;${GITHUB_WORKSPACE}/xmera/src/moduleTemplates/;${GITHUB_WORKSPACE}/xmera/src/fp32-fsw-xmera/algorithms"
+            "-DXMERA_MISSION_PARAMETERS_DIR=${GITHUB_WORKSPACE}/xmera/src/fp32-fsw-xmera/algorithms"
             "-DXMERA_ENABLE_GROUPS=simulation;fswAlgorithms;moduleTemplates;fp32"
           )
           if [[ "${{ runner.os }}" == "Linux" ]]; then
