@@ -5,7 +5,7 @@
 
 /*! @brief Structure used to define the message format of the motor torque */
 typedef struct {
-    float motorTorque[RW_EFF_CNT];  //!< [Nm]  motor torque array
+    float motorTorque[kMaxNumRw];  //!< [Nm]  motor torque array
 } RwMotorTorqueMsgF32Payload;
 
 #endif

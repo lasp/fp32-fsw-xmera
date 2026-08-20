@@ -53,7 +53,7 @@ std::optional<Eigen::Matrix<float, kMaxNumRw, kMaxNumRw>> computeNullSpaceProjec
  by the available reaction wheels (rank-deficient control mapping). */
 std::optional<RwMotorTorqueMapping> computeRwMapping(const std::array<bool, 3>& desiredControlAxes_B,
                                                      const RwMotorTorqueArrayConfiguration& rwConfiguration) {
-    const std::array<fsw::DeviceAvailability, RW_EFF_CNT>& wheelsAvailability = rwConfiguration.wheelAvailability;
+    const std::array<fsw::DeviceAvailability, kMaxNumRw>& wheelsAvailability = rwConfiguration.wheelAvailability;
 
     // Build the compact control-axes matrix: each selected body axis (x, y, z) contributes its standard-basis
     // row, packed to the top. Unselected axes are simply omitted.

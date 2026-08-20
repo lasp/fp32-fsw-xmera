@@ -15,7 +15,7 @@ extern "C" {
 typedef struct RwMotorTorqueAlgorithmHandle RwMotorTorqueAlgorithmHandle;
 
 /**
- * @brief Get the RW_EFF_CNT constant for Ada validation.
+ * @brief Get the kMaxNumRw constant for Ada validation.
  * @return The maximum number of reaction wheels handled at the C boundary.
  */
 uint32_t RwMotorTorqueAlgorithm_getMaxNumRw(void);

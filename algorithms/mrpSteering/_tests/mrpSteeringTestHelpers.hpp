@@ -88,8 +88,8 @@ inline ReferenceOutput referenceUpdate(const MrpSteeringControlParameters& param
         z = Eigen::Vector3f::Zero();
     }
 
-    const Eigen::Matrix<float, 3, RW_EFF_CNT> G_s_B =
-        cArrayToEigenMatrix<float, 3, RW_EFF_CNT>(rwConfigParams.GsMatrix_B);
+    const Eigen::Matrix<float, 3, kMaxNumRw> G_s_B =
+        cArrayToEigenMatrix<float, 3, kMaxNumRw>(rwConfigParams.GsMatrix_B);
 
     Eigen::Vector3f H_B = ISCPntB_B * omega_BN_B;
     for (Eigen::Index i = 0; i < rwConfigParams.numRW; ++i) {
@@ -195,12 +195,12 @@ inline void testMrpSteering(const Eigen::Vector3f& sigma,
                             std::vector<float> ISCPntB_B,
                             bool rwIsLinked,
                             float dt) {
-    // The payloads size their RW arrays from RW_EFF_CNT, so no caller can describe more wheels than the
+    // The payloads size their RW arrays from kMaxNumRw, so no caller can describe more wheels than the
     // mission holds. Fail loudly instead of writing past those arrays, and treat a short inertia input as an
     // error rather than reading past its end.
-    constexpr auto maxRw = static_cast<std::size_t>(RW_EFF_CNT);
+    constexpr auto maxRw = static_cast<std::size_t>(kMaxNumRw);
     ASSERT_GE(numRW, 0);
-    ASSERT_LE(numRW, RW_EFF_CNT);
+    ASSERT_LE(numRW, kMaxNumRw);
     ASSERT_EQ(ISCPntB_B.size(), 9U);
 
     const Eigen::Matrix3f ISC_B = cArrayToEigenMatrix3(ISCPntB_B.data());
@@ -289,7 +289,7 @@ inline void testMrpSteering(const Eigen::Vector3f& sigma,
     attGuidInputData.omega_RN_B = omega_RN_B;
     attGuidInputData.domega_RN_B = domega_RN_B;
 
-    std::array<float, RW_EFF_CNT> wheelSpeeds{};
+    std::array<float, kMaxNumRw> wheelSpeeds{};
     std::copy_n(wheelSpeedsVec.begin(), std::min(wheelSpeedsVec.size(), maxRw), wheelSpeeds.begin());
 
     Eigen::Vector3f z{Eigen::Vector3f::Zero()};

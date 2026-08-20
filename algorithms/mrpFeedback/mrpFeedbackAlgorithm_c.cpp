@@ -110,7 +110,7 @@ MrpFeedbackOutput_c MrpFeedbackAlgorithm_update(MrpFeedbackAlgorithmHandle* self
     attGuidInputData.omega_RN_B = cArrayToEigenVector3<float>(attGuidInput->omega_RN_B.data);
     attGuidInputData.domega_RN_B = cArrayToEigenVector3<float>(attGuidInput->domega_RN_B.data);
 
-    std::array<float, RW_EFF_CNT> speeds{};
+    std::array<float, kMaxNumRw> speeds{};
     for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
         speeds[i] = wheelSpeeds->wheelSpeeds[i];
     }

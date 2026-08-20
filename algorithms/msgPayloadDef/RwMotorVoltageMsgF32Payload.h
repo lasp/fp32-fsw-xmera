@@ -5,7 +5,7 @@
 
 /*! @brief Structure used to define the message format of the motor voltage input  */
 typedef struct {
-    float voltage[RW_EFF_CNT];  //!< [V]     Motor voltage input value
+    float voltage[kMaxNumRw];  //!< [V]     Motor voltage input value
 } RwMotorVoltageMsgF32Payload;
 
 #endif

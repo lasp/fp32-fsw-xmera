@@ -29,7 +29,7 @@ inline std::array<bool, 3> makeControlAxes(uint32_t numControlAxes) {
 inline Eigen::Matrix<double, kMaxNumRw, kMaxNumRw> referenceTau(
     const Eigen::Matrix<double, 3, kMaxNumRw>& GsMatrix_B,
     uint32_t numRW,
-    const std::array<fsw::DeviceAvailability, RW_EFF_CNT>& wheelsAvailability) {
+    const std::array<fsw::DeviceAvailability, kMaxNumRw>& wheelsAvailability) {
     Eigen::Matrix<double, kMaxNumRw, kMaxNumRw> tau{Eigen::Matrix<double, kMaxNumRw, kMaxNumRw>::Zero()};
 
     Eigen::Matrix<double, 3, kMaxNumRw> G_s_B{Eigen::Matrix<double, 3, kMaxNumRw>::Zero()};
@@ -69,7 +69,7 @@ inline Eigen::Vector<double, kMaxNumRw> referenceUpdate(
     const std::array<bool, 3>& desiredControlAxes_B,
     const Eigen::Matrix<double, 3, kMaxNumRw>& GsMatrix_B,
     uint32_t numRW,
-    const std::array<fsw::DeviceAvailability, RW_EFF_CNT>& wheelsAvailability,
+    const std::array<fsw::DeviceAvailability, kMaxNumRw>& wheelsAvailability,
     const Eigen::Vector3d& Lr_B,
     const Eigen::Vector<double, kMaxNumRw>& rwSpeeds,
     const Eigen::Vector<double, kMaxNumRw>& rwDesiredSpeeds,
@@ -137,7 +137,7 @@ inline RwMotorTorqueSpeeds makeSpeeds(const std::vector<float>& rwSpeeds, const 
 // project an output torque vector back onto the body frame.
 inline Eigen::Matrix<float, 3, kMaxNumRw> availableGs(const RwMotorTorqueConfig& config) {
     const RwMotorTorqueArrayConfiguration& rwConfiguration = config.getRwConfiguration();
-    const std::array<fsw::DeviceAvailability, RW_EFF_CNT>& wheelsAvailability = rwConfiguration.wheelAvailability;
+    const std::array<fsw::DeviceAvailability, kMaxNumRw>& wheelsAvailability = rwConfiguration.wheelAvailability;
     Eigen::Matrix<float, 3, kMaxNumRw> Gs{Eigen::Matrix<float, 3, kMaxNumRw>::Zero()};
     for (uint32_t i = 0U; i < rwConfiguration.numRW; ++i) {
         if (wheelsAvailability[i] == fsw::DeviceAvailability::Available) {

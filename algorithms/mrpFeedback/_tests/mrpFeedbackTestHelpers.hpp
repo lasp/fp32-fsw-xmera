@@ -57,8 +57,8 @@ inline ReferenceOutput referenceUpdate(const MrpFeedbackConfig& cfg,
         z = int_sigma + ISCPntB_B * omega_BR_B;
     }
 
-    const Eigen::Matrix<float, 3, RW_EFF_CNT> G_s_B =
-        cArrayToEigenMatrix<float, 3, RW_EFF_CNT>(rwConfigParams.GsMatrix_B);
+    const Eigen::Matrix<float, 3, kMaxNumRw> G_s_B =
+        cArrayToEigenMatrix<float, 3, kMaxNumRw>(rwConfigParams.GsMatrix_B);
 
     Eigen::Vector3f H_B = ISCPntB_B * omega_BN_B;
     for (Eigen::Index i = 0; i < rwConfigParams.numRW; ++i) {
@@ -154,12 +154,12 @@ inline void testMrpFeedback(const Eigen::Vector3f& sigma,
                             std::vector<float> ISCPntB_B,
                             bool rwIsLinked,
                             float controlPeriod) {
-    // The payloads size their RW arrays from RW_EFF_CNT, so no caller can describe more wheels than the
+    // The payloads size their RW arrays from kMaxNumRw, so no caller can describe more wheels than the
     // mission holds. Fail loudly instead of writing past those arrays, and treat a short input as an error
     // rather than reading past its end.
-    constexpr auto maxRw = static_cast<size_t>(RW_EFF_CNT);
+    constexpr auto maxRw = static_cast<size_t>(kMaxNumRw);
     ASSERT_GE(numRW, 0);
-    ASSERT_LE(numRW, RW_EFF_CNT);
+    ASSERT_LE(numRW, kMaxNumRw);
     ASSERT_EQ(ISCPntB_B.size(), 9U);
 
     const ControlLawType controlLawTypeAlg =
@@ -180,7 +180,7 @@ inline void testMrpFeedback(const Eigen::Vector3f& sigma,
     // Eigen::Map layout) so a short GsMatrix_B vector never reads out of bounds.
     MrpFeedbackInputRwData rwInputData{};
     if (rwIsLinked) {
-        const std::size_t numGs = std::min<std::size_t>(GsMatrix_B.size(), static_cast<std::size_t>(RW_EFF_CNT) * 3U);
+        const std::size_t numGs = std::min<std::size_t>(GsMatrix_B.size(), static_cast<std::size_t>(kMaxNumRw) * 3U);
         for (std::size_t k = 0; k < numGs; ++k) {
             rwInputData.GsMatrix_B(static_cast<Eigen::Index>(k % 3), static_cast<Eigen::Index>(k / 3)) = GsMatrix_B[k];
         }

@@ -32,9 +32,9 @@ struct MrpFeedbackInputGuidance {
 
 /*! Struct containing the reaction wheel inputs needed by the algorithm. */
 struct MrpFeedbackInputRwData {
-    Eigen::Matrix<float, 3, RW_EFF_CNT> GsMatrix_B = Eigen::Matrix<float, 3, RW_EFF_CNT>::Zero();
-    std::array<float, RW_EFF_CNT> JsList{};
-    std::array<fsw::DeviceAvailability, RW_EFF_CNT> wheelAvailability{};  //!< per-wheel availability (fixed at reset)
+    Eigen::Matrix<float, 3, kMaxNumRw> GsMatrix_B = Eigen::Matrix<float, 3, kMaxNumRw>::Zero();
+    std::array<float, kMaxNumRw> JsList{};
+    std::array<fsw::DeviceAvailability, kMaxNumRw> wheelAvailability{};  //!< per-wheel availability (fixed at reset)
     uint32_t numRW{};
 };
 
@@ -158,7 +158,7 @@ class MrpFeedbackAlgorithm final {
     void reInitialize();
 
     MrpFeedbackOutput update(const MrpFeedbackInputGuidance& attGuidInput,
-                             const std::array<float, RW_EFF_CNT>& wheelSpeeds);
+                             const std::array<float, kMaxNumRw>& wheelSpeeds);
 
    private:
     MrpFeedbackConfig cfg;
