@@ -90,9 +90,9 @@ void MrpFeedback::updateState(const uint64_t callTime) {
 
     CmdTorqueBodyMsgF32Payload controlOut{};
     eigenVectorToCArray(out.controlTorque, controlOut.torqueRequestBody);
-    this->cmdTorqueOutMsg.write(&controlOut, moduleID, callTime);
+    this->cmdTorqueOutMsg.write(controlOut, moduleID, callTime);
 
     CmdTorqueBodyMsgF32Payload intFeedbackOut{};
     eigenVectorToCArray(out.integralFeedbackTorque, intFeedbackOut.torqueRequestBody);
-    this->intFeedbackTorqueOutMsg.write(&intFeedbackOut, this->moduleID, callTime);
+    this->intFeedbackTorqueOutMsg.write(intFeedbackOut, this->moduleID, callTime);
 }

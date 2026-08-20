@@ -95,15 +95,15 @@ void ThrusterPlatformReference::updateState(const uint64_t callTime) {
     // the body-frame thrust heading equals the body-frame thrust unit direction
     BodyHeadingMsgF32Payload bodyHeadingOut{};
     eigenVectorToCArray(out.tHat_B, bodyHeadingOut.rHat_XB_B);
-    this->bodyHeadingOutMsg.write(&bodyHeadingOut, this->moduleID, callTime);
+    this->bodyHeadingOutMsg.write(bodyHeadingOut, this->moduleID, callTime);
 
     CmdTorqueBodyMsgF32Payload thrusterTorqueOut{};
     eigenVectorToCArray(out.Lcomp_B, thrusterTorqueOut.torqueRequestBody);
-    this->thrusterTorqueOutMsg.write(&thrusterTorqueOut, this->moduleID, callTime);
+    this->thrusterTorqueOutMsg.write(thrusterTorqueOut, this->moduleID, callTime);
 
     THRConfigMsgF32Payload thrusterConfigOut{};
     eigenVectorToCArray(out.r_TB_B, thrusterConfigOut.rThrust_B);
     eigenVectorToCArray(out.tHat_B, thrusterConfigOut.tHatThrust_B);
     thrusterConfigOut.maxThrust = out.thrust;
-    this->thrusterConfigBOutMsg.write(&thrusterConfigOut, this->moduleID, callTime);
+    this->thrusterConfigBOutMsg.write(thrusterConfigOut, this->moduleID, callTime);
 }
