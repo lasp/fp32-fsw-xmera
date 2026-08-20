@@ -35,3 +35,21 @@ repos:
               )$
           exclude: '/_tests/'
           pass_filenames: true
+      -   id: c-boundary
+          name: Check the C boundary still parses as C
+          language: script
+          entry: .github/scripts/check_c_boundary.sh
+          args: ['algorithms/']
+          # The FFI surface, plus the two headers that decide what it is allowed
+          # to name. Editing definitions.h or mission/parameters.h can break
+          # every *Types.h without touching one, so this sweeps the whole
+          # boundary rather than only the changed files; it takes a few seconds.
+          files: |-
+            (?x)
+              ^algorithms/(
+                  [^/]+/[^/]*(Types\.h|Algorithm_c\.h)  # shim POD types, shim declarations
+                | msgPayloadDef/definitions\.h          # where the typed constants are guarded
+                | mission/parameters\.h                 # where the macros come from
+              )$
+          exclude: '/_tests/'
+          pass_filenames: false
