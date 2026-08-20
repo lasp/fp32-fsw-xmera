@@ -256,7 +256,7 @@ raises ``fsw::invalid_argument``.
       - half-angle [rad] of the cone limiting the thrust deflection from its neutral direction (mandatory)
 
 In addition, when momentum dumping is enabled the reaction-wheel configuration read from ``rwConfigDataInMsg`` must
-have a wheel count not exceeding the compile-time maximum (``RW_EFF_CNT``) and unit-length spin axes (they are
+have a wheel count not exceeding the compile-time maximum (``kMaxNumRw``) and unit-length spin axes (they are
 normalized on construction).
 
 User Guide

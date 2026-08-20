@@ -4,9 +4,6 @@
 
 #include <algorithm>
 
-static_assert(THR_FIRING_REMAINDER_MAX_THRUSTER_COUNT == kMaxThrusterCount,
-              "C-shim thruster count must match the algorithm's kMaxThrusterCount");
-
 namespace {
 ThrFiringRemainderConfig toConfig(const ThrFiringRemainderConfig_c* config) {
     ThrFiringRemainderThrusterArray thrusterArray{};
@@ -25,7 +22,7 @@ ThrFiringRemainderConfig toConfig(const ThrFiringRemainderConfig_c* config) {
 }
 }  // namespace
 
-uint32_t ThrFiringRemainderAlgorithm_getMaxThrusterCount(void) { return THR_FIRING_REMAINDER_MAX_THRUSTER_COUNT; }
+uint32_t ThrFiringRemainderAlgorithm_getMaxThrusterCount(void) { return kMaxThrusterCount; }
 
 ThrFiringRemainderAlgorithmHandle* ThrFiringRemainderAlgorithm_create(const ThrFiringRemainderConfig_c* config) {
     return fsw::createHandle<::ThrFiringRemainderAlgorithm, ThrFiringRemainderAlgorithmHandle>(toConfig(config));

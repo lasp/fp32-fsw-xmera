@@ -15,7 +15,7 @@ extern "C" {
 typedef struct ForceTorqueThrForceMappingAlgorithmHandle ForceTorqueThrForceMappingAlgorithmHandle;
 
 /**
- * @brief Get the MAX_EFF_CNT constant for Ada validation.
+ * @brief Get the thruster count constant for Ada validation.
  * @return Maximum number of thruster slots in the configuration array.
  */
 uint32_t ForceTorqueThrForceMappingAlgorithm_getMaxEffCnt(void);

@@ -5,6 +5,7 @@ add_executable(test_thrusterPlatformReference
 
 target_include_directories(test_thrusterPlatformReference PRIVATE "..")
 target_include_directories(test_thrusterPlatformReference PRIVATE "${CMAKE_SOURCE_DIR}")
+target_include_directories(test_thrusterPlatformReference PRIVATE "${XMERA_MISSION_PARAMETERS_DIR}")
 
 target_link_libraries(test_thrusterPlatformReference PRIVATE
     Eigen3::Eigen
@@ -23,6 +24,7 @@ if(XMERA_ENABLE_FUZZTESTS)
 
   target_include_directories(test_thrusterPlatformReference_fuzz PRIVATE "..")
   target_include_directories(test_thrusterPlatformReference_fuzz PRIVATE "${CMAKE_SOURCE_DIR}")
+  target_include_directories(test_thrusterPlatformReference_fuzz PRIVATE "${XMERA_MISSION_PARAMETERS_DIR}")
 
   target_link_libraries(test_thrusterPlatformReference_fuzz PRIVATE
     Eigen3::Eigen

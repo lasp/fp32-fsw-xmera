@@ -17,7 +17,7 @@ extern "C" {
 typedef struct MrpFeedbackAlgorithmHandle MrpFeedbackAlgorithmHandle;
 
 /**
- * @brief Get the MRP_FEEDBACK_MAX_NUM_RW constant for Ada validation.
+ * @brief Get the kMaxNumRw constant for Ada validation.
  * @return The maximum number of reaction wheels handled at the C boundary.
  */
 uint32_t MrpFeedbackAlgorithm_getMaxNumRw(void);

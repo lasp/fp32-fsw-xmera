@@ -53,7 +53,7 @@ std::optional<Eigen::Matrix<float, kMaxNumRw, kMaxNumRw>> computeNullSpaceProjec
  by the available reaction wheels (rank-deficient control mapping). */
 std::optional<RwMotorTorqueMapping> computeRwMapping(const std::array<bool, 3>& desiredControlAxes_B,
                                                      const RwMotorTorqueArrayConfiguration& rwConfiguration) {
-    const std::array<FSWdeviceAvailability, kMaxNumRw>& wheelsAvailability = rwConfiguration.wheelAvailability;
+    const std::array<fsw::DeviceAvailability, kMaxNumRw>& wheelsAvailability = rwConfiguration.wheelAvailability;
 
     // Build the compact control-axes matrix: each selected body axis (x, y, z) contributes its standard-basis
     // row, packed to the top. Unselected axes are simply omitted.
@@ -71,7 +71,7 @@ std::optional<RwMotorTorqueMapping> computeRwMapping(const std::array<bool, 3>& 
     Eigen::Matrix<float, 3, kMaxNumRw> G_s_B{Eigen::Matrix<float, 3, kMaxNumRw>::Zero()};
     uint32_t numAvailRW = 0U;
     for (uint32_t i = 0U; i < rwConfiguration.numRW; ++i) {
-        if (wheelsAvailability[i] == AVAILABLE) {
+        if (wheelsAvailability[i] == fsw::DeviceAvailability::Available) {
             G_s_B.col(i) = rwConfiguration.GsMatrix_B.col(i);
             numAvailRW += 1U;
         }
@@ -131,7 +131,7 @@ std::optional<RwMotorTorqueMapping> computeRwMapping(const std::array<bool, 3>& 
     // Zero the rows of excluded wheels (beyond numRW or unavailable). Their [CGs]/[Gs] columns are zero, so
     // these rows are zero in exact arithmetic; mask them so an excluded wheel is commanded exactly zero torque.
     for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
-        if (i >= rwConfiguration.numRW || wheelsAvailability[i] != AVAILABLE) {
+        if (i >= rwConfiguration.numRW || wheelsAvailability[i] != fsw::DeviceAvailability::Available) {
             mapping.motorTorqueMap.row(i).setZero();
             mapping.tau.row(i).setZero();
         }

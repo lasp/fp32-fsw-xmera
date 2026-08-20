@@ -11,7 +11,7 @@
 
 %include <architecture/_GeneralModuleFiles/swig_conly_data.i>
 
-%include <architecture/msgPayloadDef/definitions.h>
+%include <mission/parameters.h>
 STRUCTASLIST(AccPktDataMsgF32Payload)
 STRUCTASLIST(MimuPacketGroupF32Payload)
 

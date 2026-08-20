@@ -47,7 +47,7 @@ ThrusterPlatformReferenceInputs inputsFromC(const ThrusterPlatformReferenceInput
 }
 }  // namespace
 
-uint32_t ThrusterPlatformReferenceAlgorithm_getMaxNumRw(void) { return THRUSTER_PLATFORM_REFERENCE_MAX_NUM_RW; }
+uint32_t ThrusterPlatformReferenceAlgorithm_getMaxNumRw(void) { return kMaxNumRw; }
 
 bool ThrusterPlatformReferenceAlgorithm_validateConfig(
     const Vector3f_c* sigma_MB,

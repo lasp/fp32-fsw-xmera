@@ -5,7 +5,7 @@
 
 /*! @brief Message used to define a vector of thruster force commands */
 typedef struct {
-    float thrForce[MAX_EFF_CNT];  //!< [N] array of thruster force values
+    float thrForce[kMaxThrusterCount];  //!< [N] array of thruster force values
 } THRArrayCmdForceMsgF32Payload;
 
 #endif

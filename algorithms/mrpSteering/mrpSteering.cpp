@@ -1,5 +1,6 @@
 #include "mrpSteering.h"
 #include "utilities/fsw/eigenSupport.h"
+#include "utilities/xmera/deviceAvailability.h"
 #include "utilities/xmera/xmeraLifecycleException.h"
 #include <algorithm>
 #include <optional>
@@ -29,14 +30,14 @@ void MrpSteering::reset(const uint64_t callTime) {
     if (this->rwParamsInMsg.isLinked()) {
         const RWArrayConfigMsgF32Payload rwConfigParams = this->rwParamsInMsg();
         InputRwData rwData{};
-        rwData.GsMatrix_B = cArrayToEigenMatrix<float, 3, RW_EFF_CNT>(rwConfigParams.GsMatrix_B);
+        rwData.GsMatrix_B = cArrayToEigenMatrix<float, 3, kMaxNumRw>(rwConfigParams.GsMatrix_B);
         std::copy(std::begin(rwConfigParams.JsList), std::end(rwConfigParams.JsList), std::begin(rwData.JsList));
         rwData.numRW = static_cast<uint32_t>(rwConfigParams.numRW);
         if (this->rwAvailInMsg.isLinked()) {
             const RWAvailabilityMsgPayload wheelAvailabilityMsg = this->rwAvailInMsg();
-            std::copy(std::begin(wheelAvailabilityMsg.wheelAvailability),
-                      std::end(wheelAvailabilityMsg.wheelAvailability),
-                      std::begin(rwData.wheelAvailability));
+            std::ranges::transform(wheelAvailabilityMsg.wheelAvailability,
+                                   std::begin(rwData.wheelAvailability),
+                                   [](const auto& sourceElement) { return fsw::mapStatus(sourceElement); });
         }
         rwConfiguration = rwData;
     }
@@ -64,14 +65,14 @@ MrpSteeringConfig MrpSteering::toConfig() {
     if (this->rwParamsInMsg.isLinked()) {
         const RWArrayConfigMsgF32Payload rwConfigParams = this->rwParamsInMsg();
         InputRwData rwData{};
-        rwData.GsMatrix_B = cArrayToEigenMatrix<float, 3, RW_EFF_CNT>(rwConfigParams.GsMatrix_B);
+        rwData.GsMatrix_B = cArrayToEigenMatrix<float, 3, kMaxNumRw>(rwConfigParams.GsMatrix_B);
         std::copy(std::begin(rwConfigParams.JsList), std::end(rwConfigParams.JsList), std::begin(rwData.JsList));
         rwData.numRW = static_cast<uint32_t>(rwConfigParams.numRW);
         if (this->rwAvailInMsg.isLinked()) {
             const RWAvailabilityMsgPayload wheelAvailabilityMsg = this->rwAvailInMsg();
-            std::copy(std::begin(wheelAvailabilityMsg.wheelAvailability),
-                      std::end(wheelAvailabilityMsg.wheelAvailability),
-                      std::begin(rwData.wheelAvailability));
+            std::ranges::transform(wheelAvailabilityMsg.wheelAvailability,
+                                   std::begin(rwData.wheelAvailability),
+                                   [](const auto& sourceElement) { return fsw::mapStatus(sourceElement); });
         }
         rwConfiguration = rwData;
     }
@@ -121,7 +122,7 @@ void MrpSteering::updateState(const uint64_t callTime) {
         cArrayToEigenVector(guidCmdMsg.domega_RN_B),
     };
 
-    std::array<float, RW_EFF_CNT> wheelSpeeds{};
+    std::array<float, kMaxNumRw> wheelSpeeds{};
     if (this->rwParamsInMsg.isLinked()) {
         const RWSpeedMsgF32Payload wheelSpeedsMsg = this->rwSpeedsInMsg();
         std::copy(

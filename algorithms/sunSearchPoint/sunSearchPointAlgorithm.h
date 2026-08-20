@@ -11,7 +11,7 @@
 #include <array>
 #include <cstdint>
 
-inline constexpr uint32_t kNumRotations = SUN_SEARCH_POINT_NUM_ROTATIONS;
+inline constexpr uint32_t kNumSunSearchRotations = SUN_SEARCH_POINT_NUM_ROTATIONS;
 
 enum class RotationAxis { b1Hat_B = 0, b2Hat_B = 1, b3Hat_B = 2 };
 
@@ -40,7 +40,7 @@ struct SunSearchPointOutput {
 class SunSearchPointConfig final {
    public:
     // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
-    static SunSearchPointConfig create(const std::array<RotationProperties, kNumRotations>& rotations,
+    static SunSearchPointConfig create(const std::array<RotationProperties, kNumSunSearchRotations>& rotations,
                                        const Eigen::Vector3f& sHatBdyCmd,
                                        float sunAxisSpinRate,
                                        const Eigen::Vector3f& omega_RN_B,
@@ -80,7 +80,7 @@ class SunSearchPointConfig final {
         return fsw::is_finite(controlPeriod) && controlPeriod > 0.0F;
     }
 
-    const std::array<RotationProperties, kNumRotations>& getRotations() const { return rotations; }
+    const std::array<RotationProperties, kNumSunSearchRotations>& getRotations() const { return rotations; }
     const Eigen::Vector3f& getSHatBdyCmd() const { return sHatBdyCmd; }
     float getSunAxisSpinRate() const { return sunAxisSpinRate; }
     const Eigen::Vector3f& getOmega_RN_B() const { return omega_RN_B; }
@@ -89,7 +89,7 @@ class SunSearchPointConfig final {
 
    private:
     // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
-    SunSearchPointConfig(const std::array<RotationProperties, kNumRotations>& rotationsIn,
+    SunSearchPointConfig(const std::array<RotationProperties, kNumSunSearchRotations>& rotationsIn,
                          const Eigen::Vector3f& sHatBdyCmdIn,
                          float sunAxisSpinRateIn,
                          const Eigen::Vector3f& omega_RN_BIn,
@@ -102,7 +102,7 @@ class SunSearchPointConfig final {
           observationThreshold(observationThresholdIn),
           controlPeriod(controlPeriodIn) {}
 
-    std::array<RotationProperties, kNumRotations> rotations;
+    std::array<RotationProperties, kNumSunSearchRotations> rotations;
     Eigen::Vector3f sHatBdyCmd;
     float sunAxisSpinRate;
     Eigen::Vector3f omega_RN_B;
@@ -138,12 +138,12 @@ class SunSearchPointAlgorithm final {
     SunSearchPointOutput computePointing(const Eigen::Vector3f& rHat_SB_B, const Eigen::Vector3f& omega_BN_B) const;
     void precomputeEndTimes();
 
-    SunSearchPointConfig cfg;                                //!< validated configuration (rotations + pointing params)
-    std::array<uint64_t, kNumRotations> rotationEndTimes{};  //!< [ns] cumulative end time of each rotation
-    uint64_t controlPeriodNs{};                              //!< [ns] elapsed time added per update() call
-    uint64_t elapsedTimeNs{};                                //!< [ns] time elapsed in the search sequence so far
-    Phase phase{Phase::Searching};                           //!< [-] current guidance phase (Pointing is terminal)
-    bool searchFailed{false};  //!< [-] latched true if the sequence elapsed without acquiring the sun
+    SunSearchPointConfig cfg;  //!< validated configuration (rotations + pointing params)
+    std::array<uint64_t, kNumSunSearchRotations> rotationEndTimes{};  //!< [ns] cumulative end time of each rotation
+    uint64_t controlPeriodNs{};                                       //!< [ns] elapsed time added per update() call
+    uint64_t elapsedTimeNs{};       //!< [ns] time elapsed in the search sequence so far
+    Phase phase{Phase::Searching};  //!< [-] current guidance phase (Pointing is terminal)
+    bool searchFailed{false};       //!< [-] latched true if the sequence elapsed without acquiring the sun
 };
 
 #endif

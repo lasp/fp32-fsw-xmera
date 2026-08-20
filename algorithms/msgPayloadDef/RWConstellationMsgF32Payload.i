@@ -12,7 +12,7 @@
 
 %template(TimeVector) std::vector<unsigned long long, std::allocator<unsigned long long>>;
 
-%include <architecture/msgPayloadDef/definitions.h>
+%include <mission/parameters.h>
 STRUCTASLIST(RWConfigElementMsgF32Payload)
 
 %include <architecture/messaging/messaging.h>

@@ -1,24 +1,21 @@
 #ifndef F32XMERA_RW_MOTOR_TORQUE_ALGORITHM_H
 #define F32XMERA_RW_MOTOR_TORQUE_ALGORITHM_H
 
-#include "rwMotorTorqueTypes.h"
+#include "msgPayloadDef/definitions.h"
+#include "utilities/fsw/deviceAvailability.h"
 #include "utilities/fsw/freestandingInvalidArgument.h"
 #include "utilities/fsw/freestandingIsFinite.hpp"
-#include <fswAlgorithms/fswUtilities/fswDefinitions.h>
-#include <math.h>
 
+#include <math.h>
 #include <Eigen/Core>
 #include <array>
-#include <cstdint>
-
-inline constexpr uint32_t kMaxNumRw = RW_MOTOR_TORQUE_MAX_NUM_RW;
 
 /*! @brief Reaction-wheel spin-axis configuration in body-frame components. */
 struct RwMotorTorqueArrayConfiguration {
     uint32_t numRW{};  //!< [-] number of reaction wheels on the vehicle
     Eigen::Matrix<float, 3, kMaxNumRw> GsMatrix_B{
         Eigen::Matrix<float, 3, kMaxNumRw>::Zero()};  //!< [-] RW spin axes in body frame, one column per wheel
-    std::array<FSWdeviceAvailability, kMaxNumRw>
+    std::array<fsw::DeviceAvailability, kMaxNumRw>
         wheelAvailability{};  //!< [-] AVAILABLE / UNAVAILABLE state of each reaction wheel (fixed at reset)
 };
 

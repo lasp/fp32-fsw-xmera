@@ -81,5 +81,5 @@ void SunAvoidance::updateState(uint64_t callTime) {
     eigenVectorToCArray(out.domega_RN_N, attRef.domega_RN_N);
 
     /*! write output message */
-    this->attRefOutMsg.write(&attRef, this->moduleID, callTime);
+    this->attRefOutMsg.write(attRef, this->moduleID, callTime);
 }

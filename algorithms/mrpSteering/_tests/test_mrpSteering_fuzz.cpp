@@ -15,11 +15,11 @@ FUZZ_TEST(MrpSteeringAlgorithmFuzz, testMrpSteering)
                  xmera::fuzz::Vector3fInRange(-1e6F, 1e6F),                                     // omega_BR_B
                  xmera::fuzz::Vector3fInRange(-1e6F, 1e6F),                                     // omega_RN_B
                  xmera::fuzz::Vector3fInRange(-1e6F, 1e6F),                                     // domega_RN_B
-                 fuzztest::VectorOf(fuzztest::InRange(-1e6F, 1e6F)).WithSize(RW_EFF_CNT),       // wheelSpeeds
-                 fuzztest::VectorOf(fuzztest::Arbitrary<bool>()).WithSize(RW_EFF_CNT),          // wheelAvailabilityBool
-                 fuzztest::InRange(0, RW_EFF_CNT),                                              // numRW
-                 fuzztest::VectorOf(fuzztest::InRange(-1e6F, 1e6F)).WithSize(RW_EFF_CNT),       // JsList
-                 fuzztest::VectorOf(fuzztest::InRange(-1e6F, 1e6F)).WithSize(RW_EFF_CNT * 3U),  // GsMatrix_B
+                 fuzztest::VectorOf(fuzztest::InRange(-1e6F, 1e6F)).WithSize(kMaxNumRw),       // wheelSpeeds
+                 fuzztest::VectorOf(fuzztest::Arbitrary<bool>()).WithSize(kMaxNumRw),          // wheelAvailabilityBool
+                 fuzztest::InRange(0, static_cast<int>(kMaxNumRw)),                                              // numRW
+                 fuzztest::VectorOf(fuzztest::InRange(-1e6F, 1e6F)).WithSize(kMaxNumRw),       // JsList
+                 fuzztest::VectorOf(fuzztest::InRange(-1e6F, 1e6F)).WithSize(kMaxNumRw * 3U),  // GsMatrix_B
                  fuzztest::VectorOf(fuzztest::InRange(-1e6F, 1e6F)).WithSize(9U),               // ISCPntB_B
                  fuzztest::Arbitrary<bool>(),                                                   // rwIsLinked
                  fuzztest::InRange(1e-6F, 1e10F)                                                // dt

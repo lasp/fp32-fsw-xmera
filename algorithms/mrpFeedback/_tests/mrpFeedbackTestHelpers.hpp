@@ -2,15 +2,14 @@
 #define TEST_MRPFEEDBACK_H
 
 #include "mrpFeedbackAlgorithm.h"
-#include "mrpFeedbackTypes.h"
 #include "msgPayloadDef/AttGuidMsgF32Payload.h"
 #include "msgPayloadDef/CmdTorqueBodyMsgF32Payload.h"
 #include "msgPayloadDef/RWArrayConfigMsgF32Payload.h"
-#include "msgPayloadDef/RWAvailabilityMsgPayload.h"
 #include "msgPayloadDef/RWSpeedMsgF32Payload.h"
 #include "msgPayloadDef/VehicleConfigMsgF32Payload.h"
 #include "utilities/fsw/eigenSupport.h"
 #include "utilities/fsw/freestandingInvalidArgument.h"
+#include <architecture/msgPayloadDef/RWAvailabilityMsgPayload.h>
 #include <gtest/gtest.h>
 #include <Eigen/Core>
 #include <algorithm>
@@ -58,8 +57,8 @@ inline ReferenceOutput referenceUpdate(const MrpFeedbackConfig& cfg,
         z = int_sigma + ISCPntB_B * omega_BR_B;
     }
 
-    const Eigen::Matrix<float, 3, RW_EFF_CNT> G_s_B =
-        cArrayToEigenMatrix<float, 3, RW_EFF_CNT>(rwConfigParams.GsMatrix_B);
+    const Eigen::Matrix<float, 3, kMaxNumRw> G_s_B =
+        cArrayToEigenMatrix<float, 3, kMaxNumRw>(rwConfigParams.GsMatrix_B);
 
     Eigen::Vector3f H_B = ISCPntB_B * omega_BN_B;
     for (Eigen::Index i = 0; i < rwConfigParams.numRW; ++i) {
@@ -155,6 +154,14 @@ inline void testMrpFeedback(const Eigen::Vector3f& sigma,
                             std::vector<float> ISCPntB_B,
                             bool rwIsLinked,
                             float controlPeriod) {
+    // The payloads size their RW arrays from kMaxNumRw, so no caller can describe more wheels than the
+    // mission holds. Fail loudly instead of writing past those arrays, and treat a short input as an error
+    // rather than reading past its end.
+    constexpr auto maxRw = static_cast<size_t>(kMaxNumRw);
+    ASSERT_GE(numRW, 0);
+    ASSERT_LE(numRW, kMaxNumRw);
+    ASSERT_EQ(ISCPntB_B.size(), 9U);
+
     const ControlLawType controlLawTypeAlg =
         (controlLawType == 0) ? ControlLawType::NORMAL : ControlLawType::SIMPLE_INTEGRAL;
 
@@ -173,7 +180,7 @@ inline void testMrpFeedback(const Eigen::Vector3f& sigma,
     // Eigen::Map layout) so a short GsMatrix_B vector never reads out of bounds.
     MrpFeedbackInputRwData rwInputData{};
     if (rwIsLinked) {
-        const std::size_t numGs = std::min<std::size_t>(GsMatrix_B.size(), static_cast<std::size_t>(RW_EFF_CNT) * 3U);
+        const std::size_t numGs = std::min<std::size_t>(GsMatrix_B.size(), static_cast<std::size_t>(kMaxNumRw) * 3U);
         for (std::size_t k = 0; k < numGs; ++k) {
             rwInputData.GsMatrix_B(static_cast<Eigen::Index>(k % 3), static_cast<Eigen::Index>(k / 3)) = GsMatrix_B[k];
         }
@@ -181,7 +188,7 @@ inline void testMrpFeedback(const Eigen::Vector3f& sigma,
         rwInputData.numRW = static_cast<uint32_t>(numRW);
         for (uint32_t i = 0U; i < wheelAvailabilityBool.size(); ++i) {
             if (wheelAvailabilityBool[i]) {
-                rwInputData.wheelAvailability[i] = UNAVAILABLE;
+                rwInputData.wheelAvailability[i] = fsw::DeviceAvailability::Unavailable;
             }
         }
 
@@ -217,12 +224,12 @@ inline void testMrpFeedback(const Eigen::Vector3f& sigma,
     eigenVectorToCArray(domega_RN_B, guidCmdMsg.domega_RN_B);
 
     RWSpeedMsgF32Payload wheelSpeedsMsg{};
-    std::copy(wheelSpeeds.begin(), wheelSpeeds.end(), wheelSpeedsMsg.wheelSpeeds);
+    std::copy_n(wheelSpeeds.begin(), std::min(wheelSpeeds.size(), maxRw), wheelSpeedsMsg.wheelSpeeds);
 
     RWAvailabilityMsgPayload wheelsAvailabilityMsg{};
-    for (uint32_t i = 0U; i < wheelAvailabilityBool.size(); ++i) {
+    for (size_t i = 0U; i < wheelAvailabilityBool.size() && i < maxRw; ++i) {
         if (wheelAvailabilityBool[i]) {
-            wheelsAvailabilityMsg.wheelAvailability[i] = UNAVAILABLE;
+            wheelsAvailabilityMsg.wheelAvailability[i] = FSWdeviceAvailability::UNAVAILABLE;
         }
     }
 
@@ -239,7 +246,7 @@ inline void testMrpFeedback(const Eigen::Vector3f& sigma,
 
     // Algorithm input structs (payload-free interface).
     const MrpFeedbackInputGuidance attGuidInputData{sigma, omega_BR_B, omega_RN_B, domega_RN_B};
-    std::array<float, RW_EFF_CNT> wheelSpeedsArr{};
+    std::array<float, maxRw> wheelSpeedsArr{};
     std::copy(wheelSpeeds.begin(), wheelSpeeds.end(), wheelSpeedsArr.begin());
 
     Eigen::Vector3f int_sigma{Eigen::Vector3f::Zero()};

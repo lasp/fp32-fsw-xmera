@@ -2,7 +2,7 @@
 #define F32XMERA_MRP_FEEDBACK_ALGORITHM_H
 
 #include "../msgPayloadDef/definitions.h"
-#include "msgPayloadDef/RWAvailabilityMsgPayload.h"
+#include "utilities/fsw/deviceAvailability.h"
 #include "utilities/fsw/freestandingInvalidArgument.h"
 #include "utilities/fsw/freestandingIsFinite.hpp"
 #include "utilities/fsw/validInertiaCheck.h"
@@ -32,9 +32,9 @@ struct MrpFeedbackInputGuidance {
 
 /*! Struct containing the reaction wheel inputs needed by the algorithm. */
 struct MrpFeedbackInputRwData {
-    Eigen::Matrix<float, 3, RW_EFF_CNT> GsMatrix_B = Eigen::Matrix<float, 3, RW_EFF_CNT>::Zero();
-    std::array<float, RW_EFF_CNT> JsList{};
-    std::array<int32_t, RW_EFF_CNT> wheelAvailability{};  //!< per-wheel AVAILABLE/UNAVAILABLE (fixed at reset)
+    Eigen::Matrix<float, 3, kMaxNumRw> GsMatrix_B = Eigen::Matrix<float, 3, kMaxNumRw>::Zero();
+    std::array<float, kMaxNumRw> JsList{};
+    std::array<fsw::DeviceAvailability, kMaxNumRw> wheelAvailability{};  //!< per-wheel availability (fixed at reset)
     uint32_t numRW{};
 };
 
@@ -50,8 +50,6 @@ struct MrpFeedbackControlParameters {
 
 class MrpFeedbackConfig final {
    public:
-    static constexpr uint32_t kMaxNumRw = RW_EFF_CNT;  //!< [-] compile-time maximum number of reaction wheels
-
     static MrpFeedbackConfig create(const MrpFeedbackControlParameters& controlParameters,
                                     const Eigen::Vector3f& knownTorquePntB_B,
                                     const Eigen::Matrix3f& ISCPntB_B,
@@ -160,7 +158,7 @@ class MrpFeedbackAlgorithm final {
     void reInitialize();
 
     MrpFeedbackOutput update(const MrpFeedbackInputGuidance& attGuidInput,
-                             const std::array<float, RW_EFF_CNT>& wheelSpeeds);
+                             const std::array<float, kMaxNumRw>& wheelSpeeds);
 
    private:
     MrpFeedbackConfig cfg;

@@ -11,8 +11,6 @@
 #include <Eigen/Core>
 #include <numbers>
 
-inline constexpr int kMaxNumRw = THRUSTER_PLATFORM_REFERENCE_MAX_NUM_RW;  //!< [-] maximum number of reaction wheels
-
 /*! @brief Reaction-wheel spin-axis configuration used for momentum dumping. */
 struct ThrusterPlatformReferenceRwArrayConfiguration {
     uint32_t numRW{};  //!< [-] number of reaction wheels on the vehicle

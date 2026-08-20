@@ -49,7 +49,7 @@ typedef struct {
 } ForceTorqueThrForceMappingConfig_c;
 
 /**
- * @brief Plain-old-data mirror of the C++ Eigen::Vector<float, MAX_EFF_CNT> update output.
+ * @brief Plain-old-data mirror of the C++ Eigen::Vector<float, kMaxThrusterCount> update output.
  *
  * Entries 0..numThrusters-1 (as configured) carry the non-negative, min-shifted per-thruster force
  * commands; trailing slots are exactly zero.

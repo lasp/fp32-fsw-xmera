@@ -57,10 +57,10 @@ void InertialUKF::updateState(uint64_t callTime) {
     eigenVectorToCArray(output.navAtt.sigma_BN, navAttOut.sigma_BN);
     eigenVectorToCArray(output.navAtt.omega_BN_B, navAttOut.omega_BN_B);
     eigenVectorToCArray(output.navAtt.vehSunPntBdy, navAttOut.vehSunPntBdy);
-    this->navStateOutMsg.write(&navAttOut, this->moduleID, callTime);
+    this->navStateOutMsg.write(navAttOut, this->moduleID, callTime);
 
     InertialFilterMsgF32Payload filtOut{};
     filtOut.timeTag = output.filter.timeTag;
     filtOut.numObs = output.filter.numObs;
-    this->filtDataOutMsg.write(&filtOut, this->moduleID, callTime);
+    this->filtDataOutMsg.write(filtOut, this->moduleID, callTime);
 }

@@ -26,7 +26,7 @@ typedef struct {
 } SunSearchPointOutput_c;
 
 /**
- * @brief Get the SUN_SEARCH_POINT_NUM_ROTATIONS constant for Ada validation.
+ * @brief Get the sun-search rotation count for Ada validation.
  * @return The number of rotation slots in the sun-search sequence.
  */
 uint32_t SunSearchPointAlgorithm_getNumRotations(void);

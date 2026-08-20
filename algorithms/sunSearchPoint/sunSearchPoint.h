@@ -43,7 +43,7 @@ class SunSearchPoint final : public SysModel {
     SunSearchPointConfig toConfig() const;
 
     std::unique_ptr<SunSearchPointAlgorithm> algorithm = nullptr;
-    std::array<RotationProperties, kNumRotations> rotations{};
+    std::array<RotationProperties, kNumSunSearchRotations> rotations{};
 };
 
 #endif

@@ -12,7 +12,7 @@ RwMotorTorqueArrayConfiguration arrayConfigurationFromC(const RwMotorTorqueArray
     out.numRW = c.numRW;
     out.GsMatrix_B = cArrayToEigenMatrix<float, 3, kMaxNumRw>(c.GsMatrix_B);
     for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
-        out.wheelAvailability[i] = c.wheelAvailability[i];
+        out.wheelAvailability[i] = fsw::mapStatus(c.wheelAvailability[i]);
     }
     return out;
 }
@@ -24,7 +24,7 @@ RwMotorTorqueConfig configFromC(const RwMotorTorqueConfig_c& c) {
 }
 }  // namespace
 
-uint32_t RwMotorTorqueAlgorithm_getMaxNumRw(void) { return RW_MOTOR_TORQUE_MAX_NUM_RW; }
+uint32_t RwMotorTorqueAlgorithm_getMaxNumRw(void) { return kMaxNumRw; }
 
 RwMotorTorqueAlgorithmHandle* RwMotorTorqueAlgorithm_create(const RwMotorTorqueConfig_c* config) {
     return fsw::createHandle<::RwMotorTorqueAlgorithm, RwMotorTorqueAlgorithmHandle>(configFromC(*config));

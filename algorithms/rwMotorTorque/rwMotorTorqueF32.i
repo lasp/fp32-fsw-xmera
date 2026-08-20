@@ -31,4 +31,4 @@
 %include "msgPayloadDef/RWArrayConfigMsgF32Payload.h"
 %include "msgPayloadDef/RWSpeedMsgF32Payload.h"
 
-%include <fswAlgorithms/fswUtilities/fswDefinitions.h>
+%include "utilities/fsw/deviceAvailability.h"

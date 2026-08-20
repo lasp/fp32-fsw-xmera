@@ -6,8 +6,8 @@
 
 /*! @brief Message used to define an array of RW FSW configurations  */
 typedef struct {
-    int numRW;                                                //!< [-] number of RWs
-    RWConfigElementMsgF32Payload reactionWheels[RW_EFF_CNT];  //!< [-] array of the reaction wheels
+    int numRW;                                               //!< [-] number of RWs
+    RWConfigElementMsgF32Payload reactionWheels[kMaxNumRw];  //!< [-] array of the reaction wheels
 } RWConstellationMsgF32Payload;
 
 #endif

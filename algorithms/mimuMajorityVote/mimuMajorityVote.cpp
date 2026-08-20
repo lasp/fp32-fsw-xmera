@@ -31,8 +31,8 @@ void MimuMajorityVote::updateState(uint64_t const callTime) {
         faultPayload.omegaDifferencesMag[i] = output.omegaDifferencesMag.at(i);
     }
 
-    this->imuSensorBodyOutMsg.write(&imuOutPayload, this->moduleID, callTime);
-    this->mimuFaultMsg.write(&faultPayload, this->moduleID, callTime);
+    this->imuSensorBodyOutMsg.write(imuOutPayload, this->moduleID, callTime);
+    this->mimuFaultMsg.write(faultPayload, this->moduleID, callTime);
 }
 
 // Add imu to the majority vote module

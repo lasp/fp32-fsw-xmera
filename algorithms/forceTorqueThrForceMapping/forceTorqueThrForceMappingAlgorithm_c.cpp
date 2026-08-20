@@ -30,7 +30,7 @@ ForceTorqueThrForceMappingConfig configFromC(const ForceTorqueThrForceMappingCon
 
 }  // namespace
 
-uint32_t ForceTorqueThrForceMappingAlgorithm_getMaxEffCnt(void) { return MAX_EFF_CNT; }
+uint32_t ForceTorqueThrForceMappingAlgorithm_getMaxEffCnt(void) { return kMaxThrusterCount; }
 
 ForceTorqueThrForceMappingAlgorithmHandle* ForceTorqueThrForceMappingAlgorithm_create(
     const ForceTorqueThrForceMappingConfig_c* config) {
@@ -50,7 +50,7 @@ void ForceTorqueThrForceMappingAlgorithm_setConfig(ForceTorqueThrForceMappingAlg
 ThrForceArray_c ForceTorqueThrForceMappingAlgorithm_update(const ForceTorqueThrForceMappingAlgorithmHandle* self,
                                                            const Vector3f_c cmdTorque_B,
                                                            const Vector3f_c cmdForce_B) {
-    const Eigen::Vector<float, MAX_EFF_CNT> out =
+    const Eigen::Vector<float, kMaxThrusterCount> out =
         fsw::fromHandle<const ::ForceTorqueThrForceMappingAlgorithm>(self)->update(
             cArrayToEigenVector3<float>(cmdTorque_B.data), cArrayToEigenVector3<float>(cmdForce_B.data));
 

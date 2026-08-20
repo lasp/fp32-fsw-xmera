@@ -120,8 +120,12 @@ inline void testThrFiringSchmittRegression(float levelOn,
 
     constexpr float kOnTimeSaturationFactor = 1.0F;
 
+    // Every other read of a thruster slot goes through at(), which throws on an out of range count. This copy
+    // is the one unchecked write, so bound it by both the input length and the array the mission sizes.
     std::array<float, kMaxThrusterCount> maxThrust{};
-    std::copy_n(maxThrustVec.begin(), numThrusters, maxThrust.begin());
+    std::copy_n(maxThrustVec.begin(),
+                std::min(maxThrustVec.size(), static_cast<std::size_t>(kMaxThrusterCount)),
+                maxThrust.begin());
 
     ThrFiringSchmittAlgorithm alg = makeSchmittAlgorithm(levelOn,
                                                          levelOff,

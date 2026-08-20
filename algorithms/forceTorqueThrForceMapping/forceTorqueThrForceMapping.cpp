@@ -92,7 +92,7 @@ void ForceTorqueThrForceMapping::updateState(const uint64_t callTime) {
         cmdForce = cArrayToEigenVector(cmdForceIn.forceRequestBody);
     }
 
-    const Eigen::Vector<float, MAX_EFF_CNT> thrForce = this->algorithm->update(cmdTorque, cmdForce);
+    const Eigen::Vector<float, kMaxThrusterCount> thrForce = this->algorithm->update(cmdTorque, cmdForce);
 
     THRArrayCmdForceMsgF32Payload thrForceCmdOut{};
     eigenVectorToCArray(thrForce, thrForceCmdOut.thrForce);

@@ -16,7 +16,7 @@ extern "C" {
 typedef struct ThrusterPlatformReferenceAlgorithmHandle ThrusterPlatformReferenceAlgorithmHandle;
 
 /**
- * @brief Get the THRUSTER_PLATFORM_REFERENCE_MAX_NUM_RW constant for Ada validation.
+ * @brief Get the kMaxNumRw constant for Ada validation.
  * @return The maximum number of reaction wheels handled at the C boundary.
  */
 uint32_t ThrusterPlatformReferenceAlgorithm_getMaxNumRw(void);

@@ -25,7 +25,7 @@ ThrFiringRemainderThrusterArray BuildThrusterArray(const ThrusterConfigTuple& in
 
 ThrusterForceCmd BuildThrusterForceCmd(size_t numThrusters, const std::vector<float>& forces) {
     ThrusterForceCmd payload{};
-    const size_t copyCount = std::min(numThrusters, std::min(forces.size(), static_cast<size_t>(MAX_EFF_CNT)));
+    const size_t copyCount = std::min(numThrusters, std::min(forces.size(), static_cast<size_t>(kMaxThrusterCount)));
     for (size_t i = 0; i < copyCount; i++) {
         payload.thrForce[i] = forces[i];
     }
@@ -46,7 +46,7 @@ fuzztest::Domain<ThrusterConfigTuple> ThrusterConfigDomain() {
             return fuzztest::TupleOf(fuzztest::Just(numThrusters),
                                      fuzztest::VectorOf(fuzztest::InRange(1e-3F, 1e3F)).WithSize(numThrusters));
         },
-        fuzztest::InRange<std::size_t>(1, MAX_EFF_CNT));
+        fuzztest::InRange<std::size_t>(1, kMaxThrusterCount));
 }
 
 fuzztest::Domain<ThrustPulsingRegime> ThrustPulsingRegimeDomain() {
@@ -80,7 +80,7 @@ void OutputsAreWithinBounds(const ThrusterConfigTuple& configTuple,
 
 FUZZ_TEST(ThrFiringRemainderProperties, OutputsAreWithinBounds)
     .WithDomains(ThrusterConfigDomain(),
-                 fuzztest::VectorOf(fuzztest::InRange(-1e3F, 1e3F)).WithMaxSize(MAX_EFF_CNT),
+                 fuzztest::VectorOf(fuzztest::InRange(-1e3F, 1e3F)).WithMaxSize(kMaxThrusterCount),
                  fuzztest::InRange(1e-6F, 10.0F),
                  fuzztest::InRange(1e-6F, 10.0F),
                  ThrustPulsingRegimeDomain());
@@ -114,7 +114,7 @@ void NonZeroOutputsExceedMinFireTime(const ThrusterConfigTuple& configTuple,
 
 FUZZ_TEST(ThrFiringRemainderProperties, NonZeroOutputsExceedMinFireTime)
     .WithDomains(ThrusterConfigDomain(),
-                 fuzztest::VectorOf(fuzztest::InRange(-1e3F, 1e3F)).WithMaxSize(MAX_EFF_CNT),
+                 fuzztest::VectorOf(fuzztest::InRange(-1e3F, 1e3F)).WithMaxSize(kMaxThrusterCount),
                  fuzztest::InRange(1e-6F, 1.0F),
                  fuzztest::InRange(1e-6F, 10.0F),
                  ThrustPulsingRegimeDomain());
@@ -262,7 +262,7 @@ void ReInitializeClearsState(const ThrusterConfigTuple& configTuple,
 
 FUZZ_TEST(ThrFiringRemainderProperties, ReInitializeClearsState)
     .WithDomains(ThrusterConfigDomain(),
-                 fuzztest::VectorOf(fuzztest::InRange(-1e3F, 1e3F)).WithMaxSize(MAX_EFF_CNT),
+                 fuzztest::VectorOf(fuzztest::InRange(-1e3F, 1e3F)).WithMaxSize(kMaxThrusterCount),
                  fuzztest::InRange(1e-6F, 1.0F),
                  fuzztest::InRange(1e-6F, 10.0F),
                  ThrustPulsingRegimeDomain());

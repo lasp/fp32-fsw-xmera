@@ -5,13 +5,10 @@
 
 #include "rwMotorTorque.h"
 #include "utilities/fsw/eigenSupport.h"
+#include "utilities/xmera/deviceAvailability.h"
 #include "utilities/xmera/xmeraLifecycleException.h"
 
 #include <stdexcept>
-
-// The algorithm's C-boundary RW count must match the system-wide RW_EFF_CNT, otherwise the
-// payload GsMatrix_B / motorTorque arrays would not map onto the algorithm's fixed-size types.
-static_assert(kMaxNumRw == RW_EFF_CNT, "RW_MOTOR_TORQUE_MAX_NUM_RW must match RW_EFF_CNT");
 
 /*! This method performs a complete reset of the module.  Local module variables that retain
  time varying states between function calls are reset to their default values.
@@ -34,9 +31,9 @@ void RwMotorTorque::reset(const uint64_t callTime) {
     rwConfiguration.numRW = static_cast<uint32_t>(rwParams.numRW);
     rwConfiguration.GsMatrix_B = cArrayToEigenMatrix<float, 3, kMaxNumRw>(rwParams.GsMatrix_B);
     if (this->rwAvailInMsg.isLinked()) {
-        const RWAvailabilityMsgPayload wheelsAvailability = this->rwAvailInMsg();
+        const auto [wheelAvailability] = this->rwAvailInMsg();
         for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
-            rwConfiguration.wheelAvailability[i] = wheelsAvailability.wheelAvailability[i];
+            rwConfiguration.wheelAvailability[i] = fsw::mapStatus(wheelAvailability[i]);
         }
     }
 
@@ -55,7 +52,7 @@ RwMotorTorqueConfig RwMotorTorque::toConfig() {
     if (this->rwAvailInMsg.isLinked()) {
         const RWAvailabilityMsgPayload wheelsAvailability = this->rwAvailInMsg();
         for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
-            rwConfiguration.wheelAvailability[i] = wheelsAvailability.wheelAvailability[i];
+            rwConfiguration.wheelAvailability[i] = fsw::mapStatus(wheelsAvailability.wheelAvailability[i]);
         }
     }
 
@@ -101,7 +98,7 @@ void RwMotorTorque::updateState(const uint64_t callTime) {
 
     RwMotorTorqueMsgF32Payload rwMotorTorques{};
     eigenVectorToCArray(motorTorque, rwMotorTorques.motorTorque);
-    this->rwMotorTorqueOutMsg.write(&rwMotorTorques, this->moduleID, callTime);
+    this->rwMotorTorqueOutMsg.write(rwMotorTorques, this->moduleID, callTime);
 }
 
 /*! Setter for the desiredControlAxes_B body-axis controllability selection (which of body x, y, z to control). */

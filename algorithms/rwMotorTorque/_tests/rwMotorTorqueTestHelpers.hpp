@@ -29,13 +29,13 @@ inline std::array<bool, 3> makeControlAxes(uint32_t numControlAxes) {
 inline Eigen::Matrix<double, kMaxNumRw, kMaxNumRw> referenceTau(
     const Eigen::Matrix<double, 3, kMaxNumRw>& GsMatrix_B,
     uint32_t numRW,
-    const std::array<FSWdeviceAvailability, kMaxNumRw>& wheelsAvailability) {
+    const std::array<fsw::DeviceAvailability, kMaxNumRw>& wheelsAvailability) {
     Eigen::Matrix<double, kMaxNumRw, kMaxNumRw> tau{Eigen::Matrix<double, kMaxNumRw, kMaxNumRw>::Zero()};
 
     Eigen::Matrix<double, 3, kMaxNumRw> G_s_B{Eigen::Matrix<double, 3, kMaxNumRw>::Zero()};
     uint32_t numAvailRW = 0U;
     for (uint32_t i = 0U; i < numRW; ++i) {
-        if (wheelsAvailability[i] == AVAILABLE) {
+        if (wheelsAvailability[i] == fsw::DeviceAvailability::Available) {
             G_s_B.col(i) = GsMatrix_B.col(i).normalized();
             numAvailRW += 1U;
         }
@@ -56,7 +56,7 @@ inline Eigen::Matrix<double, kMaxNumRw, kMaxNumRw> referenceTau(
     tau = Eigen::Matrix<double, kMaxNumRw, kMaxNumRw>::Identity() - Vr * Vr.transpose();
 
     for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
-        if (i >= numRW || wheelsAvailability[i] != AVAILABLE) {
+        if (i >= numRW || wheelsAvailability[i] != fsw::DeviceAvailability::Available) {
             tau.row(i).setZero();
         }
     }
@@ -69,7 +69,7 @@ inline Eigen::Vector<double, kMaxNumRw> referenceUpdate(
     const std::array<bool, 3>& desiredControlAxes_B,
     const Eigen::Matrix<double, 3, kMaxNumRw>& GsMatrix_B,
     uint32_t numRW,
-    const std::array<FSWdeviceAvailability, kMaxNumRw>& wheelsAvailability,
+    const std::array<fsw::DeviceAvailability, kMaxNumRw>& wheelsAvailability,
     const Eigen::Vector3d& Lr_B,
     const Eigen::Vector<double, kMaxNumRw>& rwSpeeds,
     const Eigen::Vector<double, kMaxNumRw>& rwDesiredSpeeds,
@@ -87,7 +87,7 @@ inline Eigen::Vector<double, kMaxNumRw> referenceUpdate(
 
     Eigen::Matrix<double, 3, kMaxNumRw> G_s_B{Eigen::Matrix<double, 3, kMaxNumRw>::Zero()};
     for (uint32_t i = 0U; i < numRW; ++i) {
-        if (wheelsAvailability[i] == AVAILABLE) {
+        if (wheelsAvailability[i] == fsw::DeviceAvailability::Available) {
             G_s_B.col(i) = GsMatrix_B.col(i).normalized();
         }
     }
@@ -110,7 +110,7 @@ inline Eigen::Vector<double, kMaxNumRw> referenceUpdate(
                                                          svd.matrixU().transpose() *
                                                          (-controlAxes.topRows(numControlAxes));
     for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
-        if (i >= numRW || wheelsAvailability[i] != AVAILABLE) {
+        if (i >= numRW || wheelsAvailability[i] != fsw::DeviceAvailability::Available) {
             motorTorqueMap.row(i).setZero();
         }
     }
@@ -137,10 +137,10 @@ inline RwMotorTorqueSpeeds makeSpeeds(const std::vector<float>& rwSpeeds, const 
 // project an output torque vector back onto the body frame.
 inline Eigen::Matrix<float, 3, kMaxNumRw> availableGs(const RwMotorTorqueConfig& config) {
     const RwMotorTorqueArrayConfiguration& rwConfiguration = config.getRwConfiguration();
-    const std::array<FSWdeviceAvailability, kMaxNumRw>& wheelsAvailability = rwConfiguration.wheelAvailability;
+    const std::array<fsw::DeviceAvailability, kMaxNumRw>& wheelsAvailability = rwConfiguration.wheelAvailability;
     Eigen::Matrix<float, 3, kMaxNumRw> Gs{Eigen::Matrix<float, 3, kMaxNumRw>::Zero()};
     for (uint32_t i = 0U; i < rwConfiguration.numRW; ++i) {
-        if (wheelsAvailability[i] == AVAILABLE) {
+        if (wheelsAvailability[i] == fsw::DeviceAvailability::Available) {
             Gs.col(i) = rwConfiguration.GsMatrix_B.col(i);
         }
     }
@@ -149,24 +149,31 @@ inline Eigen::Matrix<float, 3, kMaxNumRw> availableGs(const RwMotorTorqueConfig&
 
 // Builds the test config from raw inputs: contiguous control axes, zero-padded + normalized spin axes, and
 // availability. Returns false (caller should skip the input) when the config would be invalid (no control
-// axes, a non-normalizable spin axis) or not realizable (uncontrollable / ill-conditioned mapping). Shared by
-// the regression and property helpers so the fuzz harness drops unusable samples silently.
+// axes, more wheels than the RW array holds, a non-normalizable spin axis) or not realizable
+// (uncontrollable / ill-conditioned mapping). Shared by the regression and property helpers so the fuzz
+// harness drops unusable samples silently. A longer GsMatrix_B than the array holds is truncated, so no
+// caller can read or write past the fixed-size RW arrays.
+// bugprone-easily-swappable-parameters: the two counts keep the order the callers list them in, and every
+// caller passes them from named locals of the same names.
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
 inline bool buildConfig(uint32_t numControlAxes,
-                        int numRW,
+                        uint32_t numRW,
                         const std::vector<float>& GsMatrix_B,
                         const std::vector<bool>& wheelAvailabilityBool,
                         bool rwAvailIsLinked,
                         std::array<bool, 3>& desiredControlAxes_B,
                         RwMotorTorqueArrayConfiguration& rwConfiguration) {
-    if (numControlAxes == 0U) {
+    if (numControlAxes == 0U || numRW > kMaxNumRw) {
         return false;
     }
     desiredControlAxes_B = makeControlAxes(numControlAxes);
 
     rwConfiguration = RwMotorTorqueArrayConfiguration{};
-    rwConfiguration.numRW = static_cast<uint32_t>(numRW);
+    rwConfiguration.numRW = numRW;
     std::vector<float> paddedGsMatrix_B(3U * static_cast<size_t>(kMaxNumRw), 0.0F);
-    std::copy(GsMatrix_B.begin(), GsMatrix_B.end(), paddedGsMatrix_B.begin());
+    for (size_t i = 0U; i < GsMatrix_B.size() && i < paddedGsMatrix_B.size(); ++i) {
+        paddedGsMatrix_B[i] = GsMatrix_B[i];
+    }
     rwConfiguration.GsMatrix_B = cArrayToEigenMatrix<float, 3, kMaxNumRw>(paddedGsMatrix_B.data());
 
     // The config requires unit spin axes; normalize the active columns. A zero column cannot be normalized.
@@ -180,7 +187,7 @@ inline bool buildConfig(uint32_t numControlAxes,
 
     if (rwAvailIsLinked) {
         for (uint32_t i = 0U; i < wheelAvailabilityBool.size() && i < kMaxNumRw; ++i) {
-            rwConfiguration.wheelAvailability[i] = wheelAvailabilityBool[i] ? UNAVAILABLE : AVAILABLE;
+            rwConfiguration.wheelAvailability[i] = wheelAvailabilityBool[i] ? fsw::DeviceAvailability::Unavailable : fsw::DeviceAvailability::Available;
         }
     }
 
@@ -198,7 +205,7 @@ inline void runRegressionCase(Eigen::Vector3f Lr1_B,
                               std::vector<bool> wheelAvailabilityBool,
                               bool cmdTorque2IsLinked,
                               bool rwAvailIsLinked,
-                              int numRW,
+                              uint32_t numRW,
                               std::vector<float> GsMatrix_B,
                               uint32_t numControlAxes,
                               std::vector<float> rwSpeeds,
@@ -275,7 +282,7 @@ inline void propertyOutputIsFinite(Eigen::Vector3f Lr1_B,
                                    std::vector<bool> wheelAvailabilityBool,
                                    bool cmdTorque2IsLinked,
                                    bool rwAvailIsLinked,
-                                   int numRW,
+                                   uint32_t numRW,
                                    std::vector<float> GsMatrix_B,
                                    uint32_t numControlAxes,
                                    std::vector<float> rwSpeeds,
@@ -311,7 +318,7 @@ inline void propertyExcludedWheelsZeroTorque(Eigen::Vector3f Lr1_B,
                                              std::vector<bool> wheelAvailabilityBool,
                                              bool cmdTorque2IsLinked,
                                              bool rwAvailIsLinked,
-                                             int numRW,
+                                             uint32_t numRW,
                                              std::vector<float> GsMatrix_B,
                                              uint32_t numControlAxes,
                                              std::vector<float> rwSpeeds,
@@ -337,7 +344,7 @@ inline void propertyExcludedWheelsZeroTorque(Eigen::Vector3f Lr1_B,
     const Eigen::Vector<float, kMaxNumRw> out = alg.update(Lr_B, makeSpeeds(rwSpeeds, rwDesiredSpeeds));
 
     for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
-        if (i >= rwConfiguration.numRW || rwConfiguration.wheelAvailability[i] != AVAILABLE) {
+        if (i >= rwConfiguration.numRW || rwConfiguration.wheelAvailability[i] != fsw::DeviceAvailability::Available) {
             EXPECT_FLOAT_EQ(out[i], 0.0F);
         }
     }
@@ -347,7 +354,7 @@ inline void propertyExcludedWheelsZeroTorque(Eigen::Vector3f Lr1_B,
 // round-off scaled by the null-space magnitude).
 inline void propertyNullSpaceAddsNoBodyTorque(std::vector<bool> wheelAvailabilityBool,
                                               bool rwAvailIsLinked,
-                                              int numRW,
+                                              uint32_t numRW,
                                               std::vector<float> GsMatrix_B,
                                               uint32_t numControlAxes,
                                               std::vector<float> rwSpeeds,
@@ -389,7 +396,7 @@ inline void propertyZeroGainDisablesNullSpace(Eigen::Vector3f Lr1_B,
                                               std::vector<bool> wheelAvailabilityBool,
                                               bool cmdTorque2IsLinked,
                                               bool rwAvailIsLinked,
-                                              int numRW,
+                                              uint32_t numRW,
                                               std::vector<float> GsMatrix_B,
                                               uint32_t numControlAxes,
                                               std::vector<float> rwSpeeds,
@@ -427,7 +434,7 @@ inline void propertyControlTorqueRealized(Eigen::Vector3f Lr1_B,
                                           std::vector<bool> wheelAvailabilityBool,
                                           bool cmdTorque2IsLinked,
                                           bool rwAvailIsLinked,
-                                          int numRW,
+                                          uint32_t numRW,
                                           std::vector<float> GsMatrix_B,
                                           uint32_t numControlAxes) {
     std::array<bool, 3> desiredControlAxes_B{};

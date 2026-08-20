@@ -6,6 +6,7 @@ add_executable(test_cssComm
 
 target_include_directories(test_cssComm PRIVATE "..")
 target_include_directories(test_cssComm PRIVATE "${CMAKE_SOURCE_DIR}")
+target_include_directories(test_cssComm PRIVATE "${XMERA_MISSION_PARAMETERS_DIR}")
 
 target_link_libraries(test_cssComm PRIVATE
     GTest::gtest_main
@@ -24,6 +25,7 @@ if(XMERA_ENABLE_FUZZTESTS)
 
   target_include_directories(test_cssComm_fuzz PRIVATE "..")
   target_include_directories(test_cssComm_fuzz PRIVATE "${CMAKE_SOURCE_DIR}")
+  target_include_directories(test_cssComm_fuzz PRIVATE "${XMERA_MISSION_PARAMETERS_DIR}")
 
   target_link_libraries(test_cssComm_fuzz PRIVATE
     fuzztest::fuzztest
