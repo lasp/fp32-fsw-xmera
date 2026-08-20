@@ -2,6 +2,7 @@
 #define F32XMERA_HILLPOINTALGORITHM_C_H
 
 #include "msgPayloadDef/AttRefMsgF32Payload.h"
+#include "utilities/fsw/plainCAlgorithmDataTypes.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -11,13 +12,6 @@ extern "C" {
  * @brief Opaque handle to the C++ HillPointAlgorithm instance.
  */
 typedef struct HillPointAlgorithmHandle HillPointAlgorithmHandle;
-
-/**
- * @brief POD representation of a 3-vector (Eigen::Vector3d).
- */
-typedef struct {
-    double data[3];
-} Vector3d_c;
 
 /**
  * @brief Construct a new HillPointAlgorithm instance.
