@@ -12,10 +12,10 @@ RateControlAlgorithmHandle* RateControlAlgorithm_create(void) {
 void RateControlAlgorithm_destroy(RateControlAlgorithmHandle* self) { fsw::deleteHandle<::RateControlAlgorithm>(self); }
 
 Vector3f_c RateControlAlgorithm_update(const RateControlAlgorithmHandle* self,
-                                       const Vector3f_c& omega_BR_B,
-                                       const Vector3f_c& domega_RN_B) {
-    const Eigen::Vector3f vec_omega_BR_B = cArrayToEigenVector3(omega_BR_B.data);
-    const Eigen::Vector3f vec_domega_RN_B = cArrayToEigenVector3(domega_RN_B.data);
+                                       const Vector3f_c* omega_BR_B,
+                                       const Vector3f_c* domega_RN_B) {
+    const Eigen::Vector3f vec_omega_BR_B = cArrayToEigenVector3(omega_BR_B->data);
+    const Eigen::Vector3f vec_domega_RN_B = cArrayToEigenVector3(domega_RN_B->data);
     const Eigen::Vector3f vec =
         fsw::fromHandle<const ::RateControlAlgorithm>(self)->update(vec_omega_BR_B, vec_domega_RN_B);
     Vector3f_c out{};
@@ -23,8 +23,9 @@ Vector3f_c RateControlAlgorithm_update(const RateControlAlgorithmHandle* self,
     return out;
 }
 
-void RateControlAlgorithm_setSpacecraftInertia(RateControlAlgorithmHandle* self, const Matrix3f_c& spacecraftInertia) {
-    fsw::fromHandle<::RateControlAlgorithm>(self)->setSpacecraftInertia(c2DArrayToEigenMatrix3(spacecraftInertia.data));
+void RateControlAlgorithm_setSpacecraftInertia(RateControlAlgorithmHandle* self, const Matrix3f_c* spacecraftInertia) {
+    fsw::fromHandle<::RateControlAlgorithm>(self)->setSpacecraftInertia(
+        c2DArrayToEigenMatrix3(spacecraftInertia->data));
 }
 
 void RateControlAlgorithm_setDerivativeGainP(RateControlAlgorithmHandle* self, const float P) {

@@ -27,20 +27,22 @@ void RateControlAlgorithm_destroy(RateControlAlgorithmHandle* self);
 /**
  * @brief Run the rate control update step.
  * @param self         Pointer to the instance.
- * @param omega_BR_B   Angular velocity of body relative to reference frame in body frame components [rad/s].
- * @param domega_RN_B  Time derivative of reference frame angular velocity in body frame components [rad/s^2].
- * @return Eigen::Vector3f Required control torque about point B [Nm].
+ * @param omega_BR_B   Pointer to the angular velocity of body relative to reference frame in body frame
+ *                     components [rad/s].
+ * @param domega_RN_B  Pointer to the time derivative of the reference frame angular velocity in body frame
+ *                     components [rad/s^2].
+ * @return Vector3f_c Required control torque about point B [Nm].
  */
 Vector3f_c RateControlAlgorithm_update(const RateControlAlgorithmHandle* self,
-                                       const Vector3f_c& omega_BR_B,
-                                       const Vector3f_c& domega_RN_B);
+                                       const Vector3f_c* omega_BR_B,
+                                       const Vector3f_c* domega_RN_B);
 
 /**
  * @brief Set the spacecraft inertia configuration.
  * @param self Pointer to the instance.
- * @param vehicleConfigIn Pointer to the vehicle configuration payload.
+ * @param spacecraftInertia Pointer to the spacecraft inertia matrix.
  */
-void RateControlAlgorithm_setSpacecraftInertia(RateControlAlgorithmHandle* self, const Matrix3f_c& spacecraftInertia);
+void RateControlAlgorithm_setSpacecraftInertia(RateControlAlgorithmHandle* self, const Matrix3f_c* spacecraftInertia);
 
 /**
  * @brief Set the derivative gain P.
