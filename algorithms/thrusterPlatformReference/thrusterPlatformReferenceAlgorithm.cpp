@@ -5,6 +5,7 @@
 
 #include "utilities/fsw/rigidBodyKinematics.hpp"
 #include "utilities/fsw/safeMath.h"
+#include <Eigen/Geometry>
 
 namespace {
 constexpr float kZeroTolerance = 1e-6F;  // module tolerance for treating a quantity as zero

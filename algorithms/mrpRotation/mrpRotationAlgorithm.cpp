@@ -1,5 +1,6 @@
 #include "mrpRotationAlgorithm.h"
 #include <utilities/fsw/eigenSupport.h>
+#include <Eigen/Geometry>
 #include <utilities/fsw/rigidBodyKinematics.hpp>
 
 /*! @brief Construct the algorithm with a validated configuration. Stores the configuration and seeds

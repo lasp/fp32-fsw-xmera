@@ -3,6 +3,7 @@
 #include "utilities/fsw/safeMath.h"
 #include <math.h>
 #include <Eigen/Core>
+#include <Eigen/Geometry>
 #include <utility>
 
 TriadAlgorithm::TriadAlgorithm(const TriadConfig& config) : cfg(config) { setConfig(config); }
