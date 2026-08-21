@@ -5,6 +5,7 @@
 #include "utilities/fsw/rigidBodyKinematics.hpp"
 #include <gtest/gtest.h>
 #include <Eigen/Core>
+#include <Eigen/Geometry>
 #include <cmath>
 
 // Build a validated configuration with momentum dumping disabled (pure center-of-mass alignment mode). The default

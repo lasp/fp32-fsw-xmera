@@ -7,6 +7,7 @@
 #include "utilities/fsw/timeConstants.h"
 #include <gtest/gtest.h>
 #include <Eigen/Core>
+#include <Eigen/Geometry>
 #include <algorithm>
 #include <cstdint>
 #include <limits>
