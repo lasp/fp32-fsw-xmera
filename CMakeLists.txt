@@ -28,6 +28,11 @@ macro(add_algorithm name)
 
   set_target_properties(${target_name} PROPERTIES ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib)
 
+  # EIGEN_FREESTANDING selects Eigen's freestanding code paths. It is deliberately
+  # not paired with -ffreestanding here: on host presets we want those code paths
+  # compiled against the host libc, so __STDC_HOSTED__ stays 1 and Eigen's
+  # freestanding shims (freestanding_math.h and friends) defer to <cmath> etc.
+  # Only riscv32-toolchain.cmake passes -ffreestanding, where the shims take over.
   target_compile_definitions(${target_name} PRIVATE EIGEN_FREESTANDING=1)
 
   message(STATUS "Added algorithms ${target_name}")
