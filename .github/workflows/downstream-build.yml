@@ -50,7 +50,7 @@ jobs:
           set-safe-directory: true
           repository: lasp/eigen
           path: eigen
-          ref: feature/freestanding
+          ref: 'fix/freestanding-packet-decl-macro-leak'
           persist-credentials: false
 
       - name: Run downstream unit tests and coverage

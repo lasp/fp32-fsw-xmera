@@ -37,7 +37,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           repository: lasp/eigen
-          ref: feature/freestanding
+          ref: 'fix/freestanding-packet-decl-macro-leak'
           path: eigen
           persist-credentials: false
 
