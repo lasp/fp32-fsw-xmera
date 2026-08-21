@@ -27,6 +27,6 @@ target_compile_features(filteringCore INTERFACE
   cxx_std_23
 )
 
-if(BUILD_TESTING)
+if(TARGET GTest::gtest_main)
   add_subdirectory(_tests)
 endif()
