@@ -8,12 +8,12 @@ constexpr float kAccuracy = 1e-4F;
 }  // namespace
 
 // ---------------------------------------------------------------------------
-// Regression tests (thruster aligned with the center of mass for K = 0)
+// Regression tests (thruster aligned with the center of mass when there is no wheel momentum to dump)
 // ---------------------------------------------------------------------------
 
 TEST(ThrusterPlatformReferenceTest, RegressionAxisAlignedThrust) {
     regressionTestThrusterPlatformReference({0.0F, 0.0F, 0.0F},      // sigma_MB
-                                            {0.0F, 0.1F, 1.4F},      // r_BM_M
+                                            {0.0F, -0.1F, -1.4F},    // r_MB_B
                                             {0.0F, 0.0F, -0.1F},     // r_FM_F
                                             {0.05F, 0.02F, 0.1F},    // r_CB_B
                                             {-0.01F, 0.03F, 0.02F},  // rThrust_F
@@ -25,7 +25,7 @@ TEST(ThrusterPlatformReferenceTest, RegressionAxisAlignedThrust) {
 TEST(ThrusterPlatformReferenceTest, RegressionTiltedMFrame) {
     const Eigen::Vector3f sigma_MB = dcmToMrp(eulerAngles123ToDcm(Eigen::Vector3f(0.087F, 0.175F, 0.0F)));
     regressionTestThrusterPlatformReference(sigma_MB,                // sigma_MB
-                                            {0.0F, 0.1F, 1.4F},      // r_BM_M
+                                            {0.0F, -0.1F, -1.4F},    // r_MB_B
                                             {0.0F, 0.0F, -0.1F},     // r_FM_F
                                             {0.2F, -0.1F, 0.15F},    // r_CB_B
                                             {-0.01F, 0.03F, 0.02F},  // rThrust_F
@@ -37,7 +37,7 @@ TEST(ThrusterPlatformReferenceTest, RegressionTiltedMFrame) {
 TEST(ThrusterPlatformReferenceTest, RegressionArbitraryGeometry) {
     const Eigen::Vector3f sigma_MB = dcmToMrp(eulerAngles123ToDcm(Eigen::Vector3f(-0.2F, 0.1F, 0.0F)));
     regressionTestThrusterPlatformReference(sigma_MB,                // sigma_MB
-                                            {0.1F, -0.2F, 0.9F},     // r_BM_M
+                                            {-0.1F, 0.2F, -0.9F},    // r_MB_B
                                             {0.02F, -0.05F, -0.2F},  // r_FM_F
                                             {0.3F, 0.25F, -0.1F},    // r_CB_B
                                             {0.04F, -0.02F, 0.05F},  // rThrust_F
@@ -55,41 +55,52 @@ TEST(ThrusterPlatformReferenceTest, SetupTest) {
     const ThrusterPlatformReferenceRwArrayConfiguration noRw{};
     constexpr float nan = std::numeric_limits<float>::quiet_NaN();
 
-    // A finite, non-negative-gain configuration with a valid cone half-angle is accepted.
-    EXPECT_NO_THROW(ThrusterPlatformReferenceConfig::create(zero, zero, zero, 0.0F, 0.0F, 1.0F, 1.0F, false, noRw));
+    // A finite configuration with a positive proportional gain and a valid cone half-angle is accepted.
+    EXPECT_NO_THROW(ThrusterPlatformReferenceConfig::create(zero, zero, zero, 1.0F, 0.0F, 0.0F, 1.0F, 1.0F, noRw));
 
     // Non-finite geometry is rejected.
     EXPECT_THROW(ThrusterPlatformReferenceConfig::create(
-                     Eigen::Vector3f(nan, 0.0F, 0.0F), zero, zero, 0.0F, 0.0F, 1.0F, 1.0F, false, noRw),
+                     Eigen::Vector3f(nan, 0.0F, 0.0F), zero, zero, 1.0F, 0.0F, 0.0F, 1.0F, 1.0F, noRw),
                  fsw::invalid_argument);
 
-    // Negative gains are rejected.
-    EXPECT_THROW(ThrusterPlatformReferenceConfig::create(zero, zero, zero, -1.0F, 0.0F, 1.0F, 1.0F, false, noRw),
+    // A non-positive proportional gain is rejected (momentum dumping is always active).
+    EXPECT_THROW(ThrusterPlatformReferenceConfig::create(zero, zero, zero, 0.0F, 0.0F, 0.0F, 1.0F, 1.0F, noRw),
                  fsw::invalid_argument);
-    EXPECT_THROW(ThrusterPlatformReferenceConfig::create(zero, zero, zero, 0.0F, -1.0F, 1.0F, 1.0F, false, noRw),
+    EXPECT_THROW(ThrusterPlatformReferenceConfig::create(zero, zero, zero, -1.0F, 0.0F, 0.0F, 1.0F, 1.0F, noRw),
                  fsw::invalid_argument);
+
+    // A negative integral gain is rejected.
+    EXPECT_THROW(ThrusterPlatformReferenceConfig::create(zero, zero, zero, 1.0F, -1.0F, 0.0F, 1.0F, 1.0F, noRw),
+                 fsw::invalid_argument);
+
+    // A negative momentum-integral limit is rejected, as is a zero limit while the integral term is active.
+    EXPECT_THROW(ThrusterPlatformReferenceConfig::create(zero, zero, zero, 1.0F, 0.0F, -1.0F, 1.0F, 1.0F, noRw),
+                 fsw::invalid_argument);
+    EXPECT_THROW(ThrusterPlatformReferenceConfig::create(zero, zero, zero, 1.0F, 1.0F, 0.0F, 1.0F, 1.0F, noRw),
+                 fsw::invalid_argument);
+    EXPECT_NO_THROW(ThrusterPlatformReferenceConfig::create(zero, zero, zero, 1.0F, 1.0F, 1.0F, 1.0F, 1.0F, noRw));
 
     // A non-positive control period is rejected.
-    EXPECT_THROW(ThrusterPlatformReferenceConfig::create(zero, zero, zero, 0.0F, 0.0F, 0.0F, 1.0F, false, noRw),
+    EXPECT_THROW(ThrusterPlatformReferenceConfig::create(zero, zero, zero, 1.0F, 0.0F, 0.0F, 0.0F, 1.0F, noRw),
                  fsw::invalid_argument);
 
     // A cone half-angle outside the open interval (0, pi) is rejected.
-    EXPECT_THROW(ThrusterPlatformReferenceConfig::create(zero, zero, zero, 0.0F, 0.0F, 1.0F, 0.0F, false, noRw),
+    EXPECT_THROW(ThrusterPlatformReferenceConfig::create(zero, zero, zero, 1.0F, 0.0F, 0.0F, 1.0F, 0.0F, noRw),
                  fsw::invalid_argument);
-    EXPECT_THROW(ThrusterPlatformReferenceConfig::create(zero, zero, zero, 0.0F, 0.0F, 1.0F, 4.0F, false, noRw),
+    EXPECT_THROW(ThrusterPlatformReferenceConfig::create(zero, zero, zero, 1.0F, 0.0F, 0.0F, 1.0F, 4.0F, noRw),
                  fsw::invalid_argument);
 
     // Too many reaction wheels is rejected.
     ThrusterPlatformReferenceRwArrayConfiguration tooManyRw{};
     tooManyRw.numRW = static_cast<uint32_t>(kMaxNumRw) + 1U;
-    EXPECT_THROW(ThrusterPlatformReferenceConfig::create(zero, zero, zero, 0.0F, 0.0F, 1.0F, 1.0F, true, tooManyRw),
+    EXPECT_THROW(ThrusterPlatformReferenceConfig::create(zero, zero, zero, 1.0F, 0.0F, 0.0F, 1.0F, 1.0F, tooManyRw),
                  fsw::invalid_argument);
 
     // A non-unit reaction-wheel spin axis is rejected.
     ThrusterPlatformReferenceRwArrayConfiguration nonUnitRw{};
     nonUnitRw.numRW = 1U;
     nonUnitRw.GsMatrix_B.col(0) = Eigen::Vector3f(2.0F, 0.0F, 0.0F);
-    EXPECT_THROW(ThrusterPlatformReferenceConfig::create(zero, zero, zero, 0.0F, 0.0F, 1.0F, 1.0F, true, nonUnitRw),
+    EXPECT_THROW(ThrusterPlatformReferenceConfig::create(zero, zero, zero, 1.0F, 0.0F, 0.0F, 1.0F, 1.0F, nonUnitRw),
                  fsw::invalid_argument);
 }
 
@@ -101,25 +112,25 @@ TEST(ThrusterPlatformReferenceTest, RwSpinAxisNormalized) {
     rw.GsMatrix_B.col(0) = Eigen::Vector3f(1.0005F, 0.0F, 0.0F);
     rw.JsList(0) = 0.01F;
     const ThrusterPlatformReferenceConfig cfg =
-        ThrusterPlatformReferenceConfig::create(zero, zero, zero, 1.0F, 0.0F, 1.0F, 1.0F, true, rw);
+        ThrusterPlatformReferenceConfig::create(zero, zero, zero, 1.0F, 0.0F, 0.0F, 1.0F, 1.0F, rw);
     EXPECT_NEAR(cfg.getRwConfig().GsMatrix_B.col(0).norm(), 1.0F, 1e-6F);
 }
 
 // The configuration getters return the values supplied to create().
 TEST(ThrusterPlatformReferenceTest, ConfigRoundTrip) {
     const Eigen::Vector3f sigma_MB(0.1F, -0.2F, 0.3F);
-    const Eigen::Vector3f r_BM_M(0.0F, 0.1F, 1.4F);
+    const Eigen::Vector3f r_MB_B(0.0F, 0.1F, 1.4F);
     const Eigen::Vector3f r_FM_F(0.0F, 0.0F, -0.1F);
     const ThrusterPlatformReferenceConfig cfg = ThrusterPlatformReferenceConfig::create(
-        sigma_MB, r_BM_M, r_FM_F, 5.0F, 0.5F, 2.0F, 0.7F, false, ThrusterPlatformReferenceRwArrayConfiguration{});
+        sigma_MB, r_MB_B, r_FM_F, 5.0F, 0.5F, 3.0F, 2.0F, 0.7F, ThrusterPlatformReferenceRwArrayConfiguration{});
     EXPECT_TRUE(cfg.getSigma_MB().isApprox(sigma_MB));
-    EXPECT_TRUE(cfg.getR_BM_M().isApprox(r_BM_M));
+    EXPECT_TRUE(cfg.getR_MB_B().isApprox(r_MB_B));
     EXPECT_TRUE(cfg.getR_FM_F().isApprox(r_FM_F));
     EXPECT_FLOAT_EQ(cfg.getK(), 5.0F);
     EXPECT_FLOAT_EQ(cfg.getKi(), 0.5F);
+    EXPECT_FLOAT_EQ(cfg.getIntegralLimit(), 3.0F);
     EXPECT_FLOAT_EQ(cfg.getControlPeriod(), 2.0F);
     EXPECT_FLOAT_EQ(cfg.getThetaMax(), 0.7F);
-    EXPECT_FALSE(cfg.getMomentumDumping());
 }
 
 // create() bounds sigma_MB to the principal MRP set: a value with norm > 1 is stored as its
@@ -130,7 +141,7 @@ TEST(ThrusterPlatformReferenceTest, SigmaMbSwitchedToShadowSetWhenNormExceedsOne
     ASSERT_GT(largeSigma.norm(), 1.0F) << "Test setup: sigma_MB must exceed the norm-1 boundary";
 
     const ThrusterPlatformReferenceConfig cfg = ThrusterPlatformReferenceConfig::create(
-        largeSigma, zero, zero, 0.0F, 0.0F, 1.0F, 1.0F, false, ThrusterPlatformReferenceRwArrayConfiguration{});
+        largeSigma, zero, zero, 1.0F, 0.0F, 0.0F, 1.0F, 1.0F, ThrusterPlatformReferenceRwArrayConfiguration{});
     const Eigen::Vector3f stored = cfg.getSigma_MB();
 
     EXPECT_LE(stored.norm(), 1.0F);
@@ -147,7 +158,7 @@ TEST(ThrusterPlatformReferenceTest, SigmaMbWithinBoundStoredUnchanged) {
     ASSERT_LE(sigma.norm(), 1.0F);
 
     const ThrusterPlatformReferenceConfig cfg = ThrusterPlatformReferenceConfig::create(
-        sigma, zero, zero, 0.0F, 0.0F, 1.0F, 1.0F, false, ThrusterPlatformReferenceRwArrayConfiguration{});
+        sigma, zero, zero, 1.0F, 0.0F, 0.0F, 1.0F, 1.0F, ThrusterPlatformReferenceRwArrayConfiguration{});
     const Eigen::Vector3f stored = cfg.getSigma_MB();
     for (int i = 0; i < 3; ++i) {
         EXPECT_FLOAT_EQ(stored(i), sigma(i));
@@ -161,11 +172,10 @@ TEST(ThrusterPlatformReferenceTest, SigmaMbWithinBoundStoredUnchanged) {
 // All outputs are finite for an arbitrary valid configuration and input.
 TEST(ThrusterPlatformReferenceTest, PropertyOutputsFinite) {
     ThrusterPlatformReferenceAlgorithm alg{
-        makeAlignmentConfig({0.1F, -0.2F, 0.3F}, {0.0F, 0.1F, 1.4F}, {0.0F, 0.0F, -0.1F})};
+        makeAlignmentConfig({0.1F, -0.2F, 0.3F}, {0.0F, -0.1F, -1.4F}, {0.0F, 0.0F, -0.1F})};
     const ThrusterPlatformReferenceOutput out =
         alg.update(makeInputs({0.2F, -0.1F, 0.15F}, {-0.01F, 0.03F, 0.02F}, {1.0F, 1.0F, 10.0F}, 10.0F));
 
-    EXPECT_TRUE(out.Lcomp_B.allFinite());
     EXPECT_TRUE(out.r_TB_B.allFinite());
     EXPECT_TRUE(out.tHat_B.allFinite());
     EXPECT_TRUE(std::isfinite(out.thrust));
@@ -174,7 +184,7 @@ TEST(ThrusterPlatformReferenceTest, PropertyOutputsFinite) {
 // The reported thrust headings are unit vectors and the reported thrust magnitude matches the input.
 TEST(ThrusterPlatformReferenceTest, PropertyHeadingsAreUnitAndThrustPreserved) {
     ThrusterPlatformReferenceAlgorithm alg{
-        makeAlignmentConfig({0.05F, 0.1F, -0.2F}, {0.0F, 0.1F, 1.4F}, {0.0F, 0.0F, -0.1F})};
+        makeAlignmentConfig({0.05F, 0.1F, -0.2F}, {0.0F, -0.1F, -1.4F}, {0.0F, 0.0F, -0.1F})};
     const ThrusterPlatformReferenceOutput out =
         alg.update(makeInputs({0.1F, 0.2F, -0.1F}, {-0.01F, 0.03F, 0.02F}, {2.0F, -1.0F, 8.0F}, 7.5F));
 
@@ -182,7 +192,7 @@ TEST(ThrusterPlatformReferenceTest, PropertyHeadingsAreUnitAndThrustPreserved) {
     EXPECT_NEAR(out.thrust, 7.5F, 1e-5F);
 }
 
-// The momentum-dumping path (K > 0 with a valid RW configuration) produces finite outputs.
+// The momentum-dumping path (non-zero wheel momentum) produces finite outputs.
 TEST(ThrusterPlatformReferenceTest, PropertyMomentumDumpingFinite) {
     ThrusterPlatformReferenceRwArrayConfiguration rw{};
     rw.numRW = 3U;
@@ -193,7 +203,7 @@ TEST(ThrusterPlatformReferenceTest, PropertyMomentumDumpingFinite) {
     rw.JsList(1) = 0.01F;
     rw.JsList(2) = 0.01F;
     ThrusterPlatformReferenceAlgorithm alg{ThrusterPlatformReferenceConfig::create(
-        {0.0F, 0.0F, 0.0F}, {0.0F, 0.1F, 1.4F}, {0.0F, 0.0F, -0.1F}, 5.0F, 1.0F, 1.0F, 3.0F, true, rw)};
+        {0.0F, 0.0F, 0.0F}, {0.0F, -0.1F, -1.4F}, {0.0F, 0.0F, -0.1F}, 5.0F, 1.0F, 10.0F, 1.0F, 3.0F, rw)};
 
     ThrusterPlatformReferenceInputs in =
         makeInputs({0.1F, 0.05F, 0.1F}, {-0.01F, 0.03F, 0.02F}, {1.0F, 1.0F, 10.0F}, 10.0F);
@@ -205,15 +215,13 @@ TEST(ThrusterPlatformReferenceTest, PropertyMomentumDumpingFinite) {
     alg.update(in);
     const ThrusterPlatformReferenceOutput out = alg.update(in);
 
-    EXPECT_TRUE(out.Lcomp_B.allFinite());
     EXPECT_TRUE(out.r_TB_B.allFinite());
     EXPECT_TRUE(out.tHat_B.allFinite());
     EXPECT_TRUE(std::isfinite(out.thrust));
 }
 
-// The momentum-dumping path points the thruster so it produces the desired thruster torque -(K*hs + Ki*hsInt); the
-// reported reaction-wheel torque (out.Lcomp_B) is its opposite, K*hs (Ki = 0 here), projected onto the component
-// achievable by the thrust.
+// The momentum-dumping path points the thruster so it produces the desired thruster torque -(K*hs + Ki*hsInt),
+// projected onto the component achievable by the thrust.
 TEST(ThrusterPlatformReferenceTest, MomentumDumpingAchievesRequestedTorque) {
     const Eigen::Vector3f zero = Eigen::Vector3f::Zero();  // sigma_MB == 0 -> M == B
     constexpr float K = 1.0F;
@@ -225,24 +233,73 @@ TEST(ThrusterPlatformReferenceTest, MomentumDumpingAchievesRequestedTorque) {
     rw.JsList(0) = 0.01F;
     rw.JsList(1) = 0.01F;
     rw.JsList(2) = 0.01F;
-    // Ki = 0 so the reported reaction-wheel torque is exactly K * hs (the thruster produces its opposite).
+    // Ki = 0 so the requested thruster torque is exactly -K * hs.
     ThrusterPlatformReferenceAlgorithm alg{ThrusterPlatformReferenceConfig::create(
-        zero, {0.0F, 0.1F, 1.4F}, {0.0F, 0.0F, -0.1F}, K, 0.0F, 1.0F, 3.0F, true, rw)};
+        zero, {0.0F, -0.1F, -1.4F}, {0.0F, 0.0F, -0.1F}, K, 0.0F, 0.0F, 1.0F, 3.0F, rw)};
 
-    ThrusterPlatformReferenceInputs in =
-        makeInputs({0.05F, 0.02F, 0.1F}, {-0.01F, 0.03F, 0.02F}, {1.0F, 1.0F, 10.0F}, 10.0F);
+    const Eigen::Vector3f r_CB_B(0.05F, 0.02F, 0.1F);
+    ThrusterPlatformReferenceInputs in = makeInputs(r_CB_B, {-0.01F, 0.03F, 0.02F}, {1.0F, 1.0F, 10.0F}, 10.0F);
     in.wheelSpeeds(0) = 10.0F;
     in.wheelSpeeds(1) = 10.0F;
     in.wheelSpeeds(2) = 10.0F;
     const ThrusterPlatformReferenceOutput out = alg.update(in);
 
-    // expected reported reaction-wheel torque about the CM (sigma_MB == 0, so B frame); only the component
-    // perpendicular to the thrust is achievable
+    // requested thruster torque about the CM (sigma_MB == 0, so B frame); only the component perpendicular to the
+    // thrust is achievable
     const Eigen::Vector3f hs_B(0.01F * 10.0F, 0.01F * 10.0F, 0.01F * 10.0F);
-    const Eigen::Vector3f Lcomp_B = K * hs_B;
+    const Eigen::Vector3f Lreq_B = -K * hs_B;
     const Eigen::Vector3f tHat_B = out.tHat_B;
-    const Eigen::Vector3f LcompPerp_B = Lcomp_B - (tHat_B * tHat_B.dot(Lcomp_B));
-    EXPECT_LT((out.Lcomp_B - LcompPerp_B).norm(), 1e-3F);
+    const Eigen::Vector3f LreqPerp_B = Lreq_B - (tHat_B * tHat_B.dot(Lreq_B));
+
+    const Eigen::Vector3f Lachieved_B = (out.r_TB_B - r_CB_B).cross(out.thrust * tHat_B);
+    EXPECT_LT((Lachieved_B - LreqPerp_B).norm(), 1e-3F);
+}
+
+// The momentum integral is clamped to integralLimit, so a sustained wheel momentum cannot wind the integral term up:
+// with a limit small enough to suppress it, the achieved torque still matches the proportional-only request after
+// many cycles, whereas an effectively unlimited integral drives the torque far away from it.
+TEST(ThrusterPlatformReferenceTest, IntegralLimitBoundsTheIntegralTerm) {
+    const Eigen::Vector3f zero = Eigen::Vector3f::Zero();  // sigma_MB == 0 -> M == B
+    constexpr float K = 1.0F;
+    constexpr float Ki = 0.1F;
+    constexpr int numSteps = 100;
+    ThrusterPlatformReferenceRwArrayConfiguration rw{};
+    rw.numRW = 3U;
+    rw.GsMatrix_B.col(0) = Eigen::Vector3f(1.0F, 0.0F, 0.0F);
+    rw.GsMatrix_B.col(1) = Eigen::Vector3f(0.0F, 1.0F, 0.0F);
+    rw.GsMatrix_B.col(2) = Eigen::Vector3f(0.0F, 0.0F, 1.0F);
+    rw.JsList(0) = 0.01F;
+    rw.JsList(1) = 0.01F;
+    rw.JsList(2) = 0.01F;
+
+    const Eigen::Vector3f r_CB_B(0.05F, 0.02F, 0.1F);
+    ThrusterPlatformReferenceInputs in = makeInputs(r_CB_B, {-0.01F, 0.03F, 0.02F}, {1.0F, 1.0F, 10.0F}, 10.0F);
+    in.wheelSpeeds(0) = 10.0F;
+    in.wheelSpeeds(1) = 10.0F;
+    in.wheelSpeeds(2) = 10.0F;
+
+    const auto runToTorque = [&in, &rw](float integralLimit) {
+        ThrusterPlatformReferenceAlgorithm alg{ThrusterPlatformReferenceConfig::create(
+            Eigen::Vector3f::Zero(), {0.0F, -0.1F, -1.4F}, {0.0F, 0.0F, -0.1F}, K, Ki, integralLimit, 1.0F, 3.0F, rw)};
+        ThrusterPlatformReferenceOutput out{};
+        for (int step = 0; step < numSteps; ++step) {
+            out = alg.update(in);
+        }
+        return out;
+    };
+
+    // proportional-only request (Ki * hsInt suppressed by the tight limit); only its perpendicular part is achievable
+    const Eigen::Vector3f hs_B(0.01F * 10.0F, 0.01F * 10.0F, 0.01F * 10.0F);
+    const ThrusterPlatformReferenceOutput clamped = runToTorque(1e-6F);
+    const Eigen::Vector3f LreqP_B = -K * hs_B;
+    const Eigen::Vector3f LreqPPerp_B = LreqP_B - (clamped.tHat_B * clamped.tHat_B.dot(LreqP_B));
+    const Eigen::Vector3f LclampedAchieved_B = (clamped.r_TB_B - r_CB_B).cross(clamped.thrust * clamped.tHat_B);
+    EXPECT_LT((LclampedAchieved_B - LreqPPerp_B).norm(), 1e-3F);
+
+    // an effectively unlimited integral winds up over the same run and lands far from the proportional-only torque
+    const ThrusterPlatformReferenceOutput unclamped = runToTorque(1e3F);
+    const Eigen::Vector3f LunclampedAchieved_B = (unclamped.r_TB_B - r_CB_B).cross(unclamped.thrust * unclamped.tHat_B);
+    EXPECT_GT((LunclampedAchieved_B - LclampedAchieved_B).norm(), 0.1F);
 }
 
 // A geometry that would require a large deflection is clamped so the thrust direction stays on the cone: the angle
@@ -270,10 +327,10 @@ TEST(ThrusterPlatformReferenceTest, ThrustDeflectionClampedToCone) {
 TEST(ThrusterPlatformReferenceTest, EdgeCenterOfMassOnThrustLine) {
     // M == B, thruster fires along +z from the F origin, CM placed straight ahead on that axis.
     ThrusterPlatformReferenceAlgorithm alg{
-        makeAlignmentConfig({0.0F, 0.0F, 0.0F}, {0.0F, 0.0F, 1.0F}, {0.0F, 0.0F, 0.0F})};
+        makeAlignmentConfig({0.0F, 0.0F, 0.0F}, {0.0F, 0.0F, -1.0F}, {0.0F, 0.0F, 0.0F})};
     const ThrusterPlatformReferenceOutput out =
         alg.update(makeInputs({0.0F, 0.0F, 0.0F}, {0.0F, 0.0F, 0.0F}, {0.0F, 0.0F, 1.0F}, 5.0F));
 
     EXPECT_LT((out.tHat_B - Eigen::Vector3f(0.0F, 0.0F, 1.0F)).norm(), 1e-5F);
-    EXPECT_LT(out.Lcomp_B.norm(), 1e-5F);
+    EXPECT_LT(out.r_TB_B.cross(out.thrust * out.tHat_B).norm(), 1e-5F);  // CM at the B origin, so r_TC_B == r_TB_B
 }

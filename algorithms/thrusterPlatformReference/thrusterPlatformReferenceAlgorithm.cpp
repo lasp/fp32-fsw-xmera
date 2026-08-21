@@ -90,6 +90,15 @@ Eigen::Vector3f ThrusterPlatformReferenceAlgorithm::computeDumpingTorque(const T
     this->hsInt_B += 0.5F * dt * (this->priorHs_B + hs_B);
     this->priorHs_B = hs_B;
 
+    // anti-windup: clamp each integral component to the configured limit, preserving its sign
+    const float integralLimit = this->cfg.getIntegralLimit();
+    for (int i = 0; i < 3; ++i) {
+        const float magnitude = fabsf(this->hsInt_B(i));
+        if (magnitude > integralLimit) {
+            this->hsInt_B(i) *= integralLimit / magnitude;
+        }
+    }
+
     // desired thruster torque about the center of mass: oppose the accumulated wheel momentum to dump it.
     const Eigen::Vector3f Lreq_B = -this->cfg.getK() * hs_B - this->cfg.getKi() * this->hsInt_B;
 
@@ -134,35 +143,26 @@ ThrusterPlatformReferenceOutput ThrusterPlatformReferenceAlgorithm::update(const
     ThrusterPlatformReferenceOutput out{};
 
     const Eigen::Matrix3f dcm_MB = mrpToDcm(this->cfg.getSigma_MB());  // B to M DCM
-    const Eigen::Vector3f r_CB_M = dcm_MB * in.r_CB_B;                 // position of C w.r.t. B in M-frame coordinates
-    const Eigen::Vector3f r_CM_M = r_CB_M + this->cfg.getR_BM_M();     // position of C w.r.t. M in M-frame coordinates
+    const Eigen::Vector3f r_CM_B = in.r_CB_B - this->cfg.getR_MB_B();  // position of C w.r.t. M, B coordinates
+    const Eigen::Vector3f r_CM_M = dcm_MB * r_CM_B;                    // position of C w.r.t. M, M coordinates
     const Eigen::Vector3f r_TM_F = this->cfg.getR_FM_F() + in.r_TF_F;  // position of T w.r.t. M, F coordinates
     const Eigen::Vector3f thrust_F = in.thrust * in.tHat_F;            // thrust vector in F-frame coordinates
-    const Eigen::Vector3f tHat_F = thrust_F.normalized();              // thrust unit direction, F frame
 
     // requested torque, platform frame (zero -> point through CM; non-zero when dumping reaction-wheel momentum)
-    Eigen::Vector3f Lreq_F = Eigen::Vector3f::Zero();
-    if (this->cfg.getMomentumDumping()) {
-        Lreq_F = this->computeDumpingTorque(in, r_CM_M, r_TM_F, thrust_F, dcm_MB);
-    }
+    const Eigen::Vector3f Lreq_F = this->computeDumpingTorque(in, r_CM_M, r_TM_F, thrust_F, dcm_MB);
 
     Eigen::Matrix3f dcm_FM = computeThrusterPointing(r_CM_M, r_TM_F, thrust_F, Lreq_F);
 
     // limit the thrust deflection to the configured cone about its neutral direction
-    dcm_FM = clampThrustDeflection(dcm_FM, tHat_F, this->cfg.getThetaMax());
+    dcm_FM = clampThrustDeflection(dcm_FM, in.tHat_F, this->cfg.getThetaMax());
     this->priorDcm_FM = dcm_FM;  // save for the next cycle's torque conversion
 
     // mapping between the final platform frame and the body frame
     const Eigen::Matrix3f dcm_FB = dcm_FM * dcm_MB;
 
-    // achieved thruster torque on the system in body frame coordinates (can be different from requested due to clamp)
+    // thruster configuration in body frame coordinates
     const Eigen::Vector3f r_CM_F = dcm_FM * r_CM_M;
     const Eigen::Vector3f r_TC_F = r_TM_F - r_CM_F;
-    const Eigen::Vector3f Lachieved_B = dcm_FB.transpose() * r_TC_F.cross(thrust_F);
-    // torque to be compensated by the wheels (opposite of achieved torque) as feed-forward
-    out.Lcomp_B = -Lachieved_B;
-
-    // thruster configuration in body frame coordinates
     const Eigen::Vector3f r_TC_B = dcm_FB.transpose() * r_TC_F;
     out.r_TB_B = in.r_CB_B + r_TC_B;
     out.tHat_B = (dcm_FB.transpose() * thrust_F).normalized();

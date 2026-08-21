@@ -8,29 +8,25 @@
 // GsMatrix_B / JsList / wheelSpeeds arrays would not map onto the algorithm's fixed-size types.
 static_assert(kMaxNumRw == RW_EFF_CNT, "THRUSTER_PLATFORM_REFERENCE_MAX_NUM_RW must match RW_EFF_CNT");
 
-/*! @brief Build the validated configuration from the public properties and the reaction-wheel input messages.
- Momentum dumping is enabled only when both the RW configuration and RW speed messages are linked.
+/*! @brief Build the validated configuration from the public properties and the reaction-wheel configuration message.
  @return ThrusterPlatformReferenceConfig validated configuration
 */
 ThrusterPlatformReferenceConfig ThrusterPlatformReference::toConfig() {
-    const bool momentumDumping = this->rwConfigDataInMsg.isLinked() && this->rwSpeedsInMsg.isLinked();
+    const RWArrayConfigMsgF32Payload rwConfigParams = this->rwConfigDataInMsg();
 
     ThrusterPlatformReferenceRwArrayConfiguration rwConfig{};
-    if (momentumDumping) {
-        const RWArrayConfigMsgF32Payload rwConfigParams = this->rwConfigDataInMsg();
-        rwConfig.numRW = static_cast<uint32_t>(rwConfigParams.numRW);
-        rwConfig.GsMatrix_B = cArrayToEigenMatrix<float, 3, kMaxNumRw>(rwConfigParams.GsMatrix_B);
-        rwConfig.JsList = cArrayToEigenVector(rwConfigParams.JsList);
-    }
+    rwConfig.numRW = static_cast<uint32_t>(rwConfigParams.numRW);
+    rwConfig.GsMatrix_B = cArrayToEigenMatrix<float, 3, kMaxNumRw>(rwConfigParams.GsMatrix_B);
+    rwConfig.JsList = cArrayToEigenVector(rwConfigParams.JsList);
 
     return ThrusterPlatformReferenceConfig::create(this->sigma_MB,
-                                                   this->r_BM_M,
+                                                   this->r_MB_B,
                                                    this->r_FM_F,
                                                    this->K,
                                                    this->Ki,
+                                                   this->integralLimit,
                                                    this->controlPeriod,
                                                    this->thetaMax,
-                                                   momentumDumping,
                                                    rwConfig);
 }
 
@@ -45,6 +41,12 @@ void ThrusterPlatformReference::reset(const uint64_t callTime) {
     }
     if (!this->thrusterConfigFInMsg.isLinked()) {
         throw std::invalid_argument("thrusterPlatformReference.thrusterConfigFInMsg wasn't connected.");
+    }
+    if (!this->rwConfigDataInMsg.isLinked()) {
+        throw std::invalid_argument("thrusterPlatformReference.rwConfigDataInMsg wasn't connected.");
+    }
+    if (!this->rwSpeedsInMsg.isLinked()) {
+        throw std::invalid_argument("thrusterPlatformReference.rwSpeedsInMsg wasn't connected.");
     }
 
     this->algorithm = std::make_unique<ThrusterPlatformReferenceAlgorithm>(this->toConfig());
@@ -71,8 +73,8 @@ void ThrusterPlatformReference::reInitialize() {
 }
 
 /*! This method computes the platform reference orientation that points the thruster line of action through the
- system center of mass (or produces a torque to dump reaction-wheel momentum) and writes the body-heading,
- thruster-torque and thruster-configuration output messages.
+ system center of mass (or produces a torque to dump reaction-wheel momentum) and writes the body-heading and
+ thruster-configuration output messages.
  @return void
  @param callTime The clock time at which the function was called (nanoseconds)
 */
@@ -89,10 +91,7 @@ void ThrusterPlatformReference::updateState(const uint64_t callTime) {
     inputs.r_TF_F = cArrayToEigenVector3<float>(thrusterConfigFIn.rThrust_B);
     inputs.tHat_F = cArrayToEigenVector3<float>(thrusterConfigFIn.tHatThrust_B);
     inputs.thrust = thrusterConfigFIn.maxThrust;
-    if (this->rwSpeedsInMsg.isLinked()) {
-        const RWSpeedMsgF32Payload rwSpeedMsgIn = this->rwSpeedsInMsg();
-        inputs.wheelSpeeds = cArrayToEigenVector(rwSpeedMsgIn.wheelSpeeds);
-    }
+    inputs.wheelSpeeds = cArrayToEigenVector(this->rwSpeedsInMsg().wheelSpeeds);
 
     const ThrusterPlatformReferenceOutput out = this->algorithm->update(inputs);
 
@@ -100,10 +99,6 @@ void ThrusterPlatformReference::updateState(const uint64_t callTime) {
     BodyHeadingMsgF32Payload bodyHeadingOut{};
     eigenVectorToCArray(out.tHat_B, bodyHeadingOut.rHat_XB_B);
     this->bodyHeadingOutMsg.write(&bodyHeadingOut, this->moduleID, callTime);
-
-    CmdTorqueBodyMsgF32Payload thrusterTorqueOut{};
-    eigenVectorToCArray(out.Lcomp_B, thrusterTorqueOut.torqueRequestBody);
-    this->thrusterTorqueOutMsg.write(&thrusterTorqueOut, this->moduleID, callTime);
 
     THRConfigMsgF32Payload thrusterConfigOut{};
     eigenVectorToCArray(out.r_TB_B, thrusterConfigOut.rThrust_B);
