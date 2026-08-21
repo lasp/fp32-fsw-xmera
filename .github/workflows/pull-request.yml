@@ -348,11 +348,21 @@ jobs:
           gcovr "${common_args[@]}" \
             --json \
             --output coverage/external-modules-coverage.json
+          # The xml and json reports already carry branch data; only the text
+          # report has to be asked for it explicitly.
+          gcovr "${common_args[@]}" \
+            --txt --txt-metric branch \
+            --output coverage/external-modules-branch-coverage.txt
           {
             echo '### External Modules Coverage (gcovr)';
             echo;
+            echo '#### Lines';
             echo '```text';
             cat coverage/external-modules-coverage.txt;
+            echo '```';
+            echo '#### Branches';
+            echo '```text';
+            cat coverage/external-modules-branch-coverage.txt;
             echo '```';
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -366,6 +376,7 @@ jobs:
             coverage/external-modules-coverage.html
             coverage/external-modules-coverage.txt
             coverage/external-modules-coverage.json
+            coverage/external-modules-branch-coverage.txt
           retention-days: 14
 
       - name: Upload pytest test results
