@@ -71,3 +71,14 @@ jobs:
           file "$ARCHIVE" >> "$GITHUB_STEP_SUMMARY"
           ar -t "$ARCHIVE" >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      # Compiles every freestanding header on its own, so a header that uses a
+      # declaration without including its definition fails here rather than in
+      # whichever consumer happens to include the right thing first. This job is
+      # the only one with both the freestanding Eigen checkout and g++-13, which
+      # the check needs; the pre-commit job has neither.
+      - name: Check header self-sufficiency
+        env:
+          EIGEN3_DIR: ${{ github.workspace }}/eigen
+          CXX: g++-13
+        run: ./.github/scripts/check_header_self_sufficiency.sh algorithms/
