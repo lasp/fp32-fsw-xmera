@@ -3,12 +3,12 @@
 #include "utilities/fsw/safeMath.h"
 #include <math.h>
 
-CelestialTwoBodyPointAlgorithm::CelestialTwoBodyPointAlgorithm(const CelestialTwoBodyPointConfig &config)
+CelestialTwoBodyPointAlgorithm::CelestialTwoBodyPointAlgorithm(const CelestialTwoBodyPointConfig& config)
     : cfg(config) {
     setConfig(config);
 }
 
-void CelestialTwoBodyPointAlgorithm::setConfig(const CelestialTwoBodyPointConfig &config) { this->cfg = config; }
+void CelestialTwoBodyPointAlgorithm::setConfig(const CelestialTwoBodyPointConfig& config) { this->cfg = config; }
 
 /*! This method computes the attitude reference that points the primary axis at the primary
  celestial body while aligning a second axis as close as possible toward the secondary
@@ -20,9 +20,9 @@ void CelestialTwoBodyPointAlgorithm::setConfig(const CelestialTwoBodyPointConfig
  @return attitude reference output
  */
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
-CelestialTwoBodyPointOutput CelestialTwoBodyPointAlgorithm::update(const InertialStateInput &primaryBodyState,
-                                                                   const InertialStateInput &secondaryBodyState,
-                                                                   const InertialStateInput &spacecraftState) const {
+CelestialTwoBodyPointOutput CelestialTwoBodyPointAlgorithm::update(const InertialStateInput& primaryBodyState,
+                                                                   const InertialStateInput& secondaryBodyState,
+                                                                   const InertialStateInput& spacecraftState) const {
     const Eigen::Vector3d r_PB_N = primaryBodyState.r_N - spacecraftState.r_N;
     const Eigen::Vector3d v_PB_N = primaryBodyState.v_N - spacecraftState.v_N;
     Eigen::Vector3d r_SB_N = secondaryBodyState.r_N - spacecraftState.r_N;
@@ -64,10 +64,10 @@ CelestialTwoBodyPointOutput CelestialTwoBodyPointAlgorithm::update(const Inertia
     return attRefOut;
 }
 
-CelestialTwoBodyPointOutput CelestialTwoBodyPointAlgorithm::rateAndAccelCalc(const Eigen::Vector3d &r_PB_N,
-                                                                             const Eigen::Vector3d &v_PB_N,
-                                                                             const Eigen::Vector3d &r_SB_N,
-                                                                             const Eigen::Vector3d &v_SB_N) {
+CelestialTwoBodyPointOutput CelestialTwoBodyPointAlgorithm::rateAndAccelCalc(const Eigen::Vector3d& r_PB_N,
+                                                                             const Eigen::Vector3d& v_PB_N,
+                                                                             const Eigen::Vector3d& r_SB_N,
+                                                                             const Eigen::Vector3d& v_SB_N) {
     /* Compute normal vector to plane of r_PB_N and r_SB_N. The rate/acceleration derivative chain is
        carried in double: it differences large position/velocity products and near-aligned/near-radial
        geometries, where float loses precision on the angular acceleration. Only the well-conditioned
