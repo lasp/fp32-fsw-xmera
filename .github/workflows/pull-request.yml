@@ -364,6 +364,7 @@ jobs:
             echo '```text';
             cat coverage/external-modules-branch-coverage.txt;
             echo '```';
+            echo 'See docs/COVERAGE.md for how to read these numbers.';
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Audit coverage completeness (Linux only)

@@ -85,3 +85,6 @@ ctest --output-on-failure -L fuzz          # all fuzz targets
   for a fixed duration. The `fuzz-coverage` job follows it with a GCC, instrumented,
   `fuzz-smoke-test` build that replays the grown corpus and runs the `exhaustive` scans to
   measure the coverage those executions reach.
+
+Both workflows publish coverage artifacts. See [`COVERAGE.md`](COVERAGE.md) for what the reports
+contain and how to read the line and branch numbers.
