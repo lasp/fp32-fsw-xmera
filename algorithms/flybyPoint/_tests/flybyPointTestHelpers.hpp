@@ -7,6 +7,7 @@
 #include "utilities/fsw/timeConstants.h"
 
 #include <gtest/gtest.h>
+#include <Eigen/Geometry>
 #include <numbers>
 
 struct ReferenceFlybyOutput {

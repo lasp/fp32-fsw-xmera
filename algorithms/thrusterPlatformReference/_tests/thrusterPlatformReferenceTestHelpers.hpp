@@ -5,6 +5,7 @@
 #include "utilities/fsw/rigidBodyKinematics.hpp"
 #include <gtest/gtest.h>
 #include <Eigen/Core>
+#include <Eigen/Geometry>
 #include <cmath>
 
 // Build a validated configuration with an empty reaction-wheel array, so the wheel momentum and the requested

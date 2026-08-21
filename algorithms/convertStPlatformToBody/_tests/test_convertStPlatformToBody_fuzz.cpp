@@ -4,6 +4,7 @@
 
 #include "test_convertStPlatformToBody_helpers.h"
 #include <fuzztest/fuzztest.h>
+#include <Eigen/Geometry>
 #include <cmath>
 
 /*!
