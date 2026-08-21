@@ -229,7 +229,6 @@ jobs:
           if [[ -f "$GITHUB_WORKSPACE/xmera/requirements.txt" ]]; then
             ./.venv/bin/python -m pip install -r "$GITHUB_WORKSPACE/xmera/requirements.txt"
           fi
-          ./.venv/bin/python -m pip install --upgrade gcovr
           ./.venv/bin/python -m pip list
 
       - name: Configure Xmera (with external modules)
