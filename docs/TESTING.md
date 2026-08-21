@@ -31,10 +31,10 @@ For fuzz-testing *methodology* (when and how to write fuzz targets), see
 |-----------------------|-------------------------------------------------------------------|-------------------|-------------------|
 | *(unlabeled)*         | Fast unit / validation tests — the common case                    | yes               | yes               |
 | `fuzz` + `fuzz-smoke` | FuzzTest targets (both labels applied together)                   | only when fuzzing is enabled | smoke subset only |
-| `exhaustive`          | Long brute-force scans (currently only `utilities/_tests`)        | yes               | yes               |
+| `exhaustive`          | Long brute-force scans (currently only `utilities/fsw/_tests`)    | yes               | no                |
 
 `fuzz`/`fuzz-smoke` are used across most algorithm `_tests/` directories. `exhaustive` is
-currently specific to `algorithms/utilities/_tests` — see that directory's `README.md`.
+currently specific to `algorithms/utilities/fsw/_tests` — see that directory's `README.md`.
 
 > CTest's `-L` (label include) and `-LE` (label exclude) take **regexes**, and a bare `ctest` runs
 > *everything configured in the build* — it does not skip `exhaustive`. Exclude long test groups
@@ -77,7 +77,11 @@ ctest --output-on-failure -L fuzz          # all fuzz targets
 ## 4. What CI runs
 
 - **Pull request** (`.github/workflows/pull-request.yml`): configures `fuzz-smoke-test`, then
-  `ctest --output-on-failure -LE fuzz`. This excludes fuzz but **not** `exhaustive`, so the
-  (cheap) brute-force scans run on every PR.
-- **Nightly** (`.github/workflows/nightly-long-tests.yml`): configures `fuzz-test`, then
-  `ctest --output-on-failure` (all suites), followed by a separate long fuzzing run.
+  `ctest --output-on-failure -LE exhaustive`. The fuzz targets therefore *do* run on every PR,
+  in unit-test mode; the brute-force scans do not, because under `--coverage` their hit counts
+  overflow gcov. The Linux leg builds instrumented and reports coverage.
+- **Daily fuzzing** (`.github/workflows/daily-fuzz.yml`): the `fuzz` job configures `fuzz-test`
+  with Clang, replays the whole corpus, runs the `exhaustive` scans, and then fuzzes each target
+  for a fixed duration. The `fuzz-coverage` job follows it with a GCC, instrumented,
+  `fuzz-smoke-test` build that replays the grown corpus and runs the `exhaustive` scans to
+  measure the coverage those executions reach.
