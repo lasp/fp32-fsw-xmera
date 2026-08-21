@@ -1,6 +1,6 @@
 #include "utilities/fsw/orbitalMotion.hpp"
 #include <gtest/gtest.h>
-#include <Eigen/Dense>
+#include <Eigen/Core>
 #include <cmath>
 
 using orbitalMotion::CartesianState;

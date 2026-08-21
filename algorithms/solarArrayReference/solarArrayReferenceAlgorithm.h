@@ -7,6 +7,7 @@
 #include <math.h>
 #include <stdint.h>
 #include <Eigen/Core>
+#include <Eigen/Geometry>
 #include <array>
 #include <numbers>
 
