@@ -80,3 +80,6 @@ ctest --output-on-failure -L fuzz          # all fuzz targets
 - **Daily fuzzing** (`.github/workflows/daily-fuzz.yml`): the `fuzz` job configures `fuzz-test`
   with Clang, runs the fuzz targets in unit-test mode and the `exhaustive` scans, and then fuzzes
   each target for a fixed duration.
+
+The pull request workflow publishes coverage artifacts. See [`COVERAGE.md`](COVERAGE.md) for what
+the reports contain and how to read the line and branch numbers.
