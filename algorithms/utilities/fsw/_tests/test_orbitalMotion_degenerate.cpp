@@ -13,7 +13,7 @@
 
 using orbitalMotion::CartesianState;
 using orbitalMotion::ClassicalElements;
-#include <Eigen/Geometry>
+#include <Eigen/Core>
 #include <cmath>
 
 constexpr double kMuEarth = 3.986004418e14;  // m^3/s^2

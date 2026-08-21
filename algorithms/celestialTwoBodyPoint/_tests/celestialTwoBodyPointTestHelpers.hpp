@@ -7,6 +7,7 @@
 #include <gtest/gtest.h>
 #include <math.h>
 #include <Eigen/Core>
+#include <Eigen/Geometry>
 #include <algorithm>
 #include <cmath>
 

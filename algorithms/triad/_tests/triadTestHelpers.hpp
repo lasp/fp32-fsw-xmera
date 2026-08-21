@@ -5,6 +5,7 @@
 #include "utilities/fsw/safeMath.h"
 #include <gtest/gtest.h>
 #include <Eigen/Core>
+#include <Eigen/Geometry>
 #include <architecture/utilities/rigidBodyKinematics.hpp>
 #include <cmath>
 
