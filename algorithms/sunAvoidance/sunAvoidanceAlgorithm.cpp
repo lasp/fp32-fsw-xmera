@@ -2,6 +2,7 @@
 #include "utilities/fsw/rigidBodyKinematics.hpp"
 #include "utilities/fsw/safeMath.h"
 #include "utilities/fsw/timeConstants.h"
+#include <Eigen/Geometry>
 #include <numbers>
 
 /*! Construct from a validated configuration and seed the runtime maneuver state. */

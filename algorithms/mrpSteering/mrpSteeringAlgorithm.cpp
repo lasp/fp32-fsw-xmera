@@ -4,6 +4,7 @@
 #include <fswAlgorithms/fswUtilities/fswDefinitions.h>
 #include <math.h>
 #include <Eigen/Core>
+#include <Eigen/Geometry>
 #include <numbers>
 #include <optional>
 

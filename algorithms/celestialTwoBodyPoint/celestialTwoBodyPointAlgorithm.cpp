@@ -2,6 +2,7 @@
 #include "utilities/fsw/rigidBodyKinematics.hpp"
 #include "utilities/fsw/safeMath.h"
 #include <math.h>
+#include <Eigen/Geometry>
 
 CelestialTwoBodyPointAlgorithm::CelestialTwoBodyPointAlgorithm(const CelestialTwoBodyPointConfig& config)
     : cfg(config) {
