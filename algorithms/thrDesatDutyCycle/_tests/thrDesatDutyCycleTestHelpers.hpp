@@ -163,4 +163,115 @@ inline void regressionTestThrDesatDutyCycle(const std::array<float, kMaxThruster
     }
 }
 
+// ---------------------------------------------------------------------------
+// Fuzz adapters: build a command and a cadence from generated values, then delegate to a core property above.
+// ---------------------------------------------------------------------------
+
+namespace detail {
+
+// Returns false when the generated values describe a cadence the config validation rejects, so the caller skips
+// the case. The domains below stay inside the valid region, so this is a guard against the domains and the
+// validators drifting apart rather than an expected outcome.
+inline bool makeFuzzCase(const std::vector<float>& forces,
+                         float watchedForce,
+                         uint32_t firingPeriods,
+                         uint32_t settlingPeriods,
+                         std::array<float, kMaxThrusterCount>& thrusterForceCmd) {
+    if (!ThrDesatDutyCycleConfig::isValidFiringPeriods(firingPeriods) ||
+        !ThrDesatDutyCycleConfig::isValidSettlingPeriods(settlingPeriods, firingPeriods)) {
+        return false;
+    }
+
+    thrusterForceCmd = makeForceCmd(forces);
+    // Entry 0 is held non-zero so the gate's state is observable in every case: wherever the input is zero a
+    // held-off output is indistinguishable from a passed-through one.
+    thrusterForceCmd.at(0) = watchedForce;
+    return true;
+}
+
+}  // namespace detail
+
+inline void propertyOutputIsInputOrZero(const std::vector<float>& forces,
+                                        float watchedForce,
+                                        uint32_t firingPeriods,
+                                        uint32_t settlingPeriods,
+                                        uint32_t numUpdates) {
+    std::array<float, kMaxThrusterCount> thrusterForceCmd{};
+    if (!detail::makeFuzzCase(forces, watchedForce, firingPeriods, settlingPeriods, thrusterForceCmd)) {
+        return;
+    }
+    testOutputIsInputOrZero(
+        thrusterForceCmd, ThrDesatDutyCycleConfig::create(firingPeriods, settlingPeriods), numUpdates);
+}
+
+inline void propertyGateActsOnTheWholeArray(const std::vector<float>& forces,
+                                            float watchedForce,
+                                            uint32_t firingPeriods,
+                                            uint32_t settlingPeriods,
+                                            uint32_t numUpdates) {
+    std::array<float, kMaxThrusterCount> thrusterForceCmd{};
+    if (!detail::makeFuzzCase(forces, watchedForce, firingPeriods, settlingPeriods, thrusterForceCmd)) {
+        return;
+    }
+    testGateActsOnTheWholeArray(
+        thrusterForceCmd, ThrDesatDutyCycleConfig::create(firingPeriods, settlingPeriods), numUpdates);
+}
+
+inline void propertyFiringCountMatchesDutyRatio(const std::vector<float>& forces,
+                                                float watchedForce,
+                                                uint32_t firingPeriods,
+                                                uint32_t settlingPeriods,
+                                                uint32_t numCycles) {
+    std::array<float, kMaxThrusterCount> thrusterForceCmd{};
+    if (!detail::makeFuzzCase(forces, watchedForce, firingPeriods, settlingPeriods, thrusterForceCmd)) {
+        return;
+    }
+    testFiringCountMatchesDutyRatio(
+        thrusterForceCmd, ThrDesatDutyCycleConfig::create(firingPeriods, settlingPeriods), numCycles);
+}
+
+inline void propertyCadenceIsIndependentOfCommand(const std::vector<float>& forces,
+                                                  float watchedForce,
+                                                  uint32_t firingPeriods,
+                                                  uint32_t settlingPeriods,
+                                                  uint32_t numUpdates) {
+    std::array<float, kMaxThrusterCount> thrusterForceCmd{};
+    if (!detail::makeFuzzCase(forces, watchedForce, firingPeriods, settlingPeriods, thrusterForceCmd)) {
+        return;
+    }
+    testCadenceIsIndependentOfCommand(
+        thrusterForceCmd, ThrDesatDutyCycleConfig::create(firingPeriods, settlingPeriods), numUpdates);
+}
+
+inline void propertyReInitializeRestartsCadence(const std::vector<float>& forces,
+                                                float watchedForce,
+                                                uint32_t firingPeriods,
+                                                uint32_t settlingPeriods,
+                                                uint32_t numUpdates,
+                                                uint32_t updatesBeforeRestart) {
+    std::array<float, kMaxThrusterCount> thrusterForceCmd{};
+    if (!detail::makeFuzzCase(forces, watchedForce, firingPeriods, settlingPeriods, thrusterForceCmd)) {
+        return;
+    }
+    testReInitializeRestartsCadence(thrusterForceCmd,
+                                    ThrDesatDutyCycleConfig::create(firingPeriods, settlingPeriods),
+                                    numUpdates,
+                                    updatesBeforeRestart);
+}
+
+inline void regressionFuzzThrDesatDutyCycle(const std::vector<float>& forces,
+                                            float watchedForce,
+                                            uint32_t firingPeriods,
+                                            uint32_t settlingPeriods,
+                                            uint32_t numUpdates) {
+    std::array<float, kMaxThrusterCount> thrusterForceCmd{};
+    if (!detail::makeFuzzCase(forces, watchedForce, firingPeriods, settlingPeriods, thrusterForceCmd)) {
+        return;
+    }
+    // The gate performs no arithmetic, so the reference match is bit-exact regardless of cadence or magnitude
+    // and needs no error budget.
+    regressionTestThrDesatDutyCycle(
+        thrusterForceCmd, ThrDesatDutyCycleConfig::create(firingPeriods, settlingPeriods), numUpdates);
+}
+
 #endif
