@@ -1,6 +1,8 @@
 #ifndef COBOPNAV_MESSAGE_F32_H
 #define COBOPNAV_MESSAGE_F32_H
 
+#include <stdint.h>
+
 //!@brief Center of brightness optical navigation measurement message
 /*! This message is output by the center of brightness module and contains the center of brightness of the image
  * that was input, as well as the validity of the image processing process, the camera ID, and the number of pixels
