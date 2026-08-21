@@ -144,6 +144,7 @@ set(algorithms
     "sunlineFilter"
     "sunAvoidance"
     "sunSearchPoint"
+    "thrDesatDutyCycle"
     "thrFiringRemainder"
     "thrFiringSchmitt"
     "thrustAxisToMotorAngles"
