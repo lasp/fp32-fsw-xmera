@@ -412,6 +412,13 @@ jobs:
           XMERA_FUZZTEST_REPLAY_FOR: inf
         run: ctest --output-on-failure -L fuzz
 
+      # These are excluded from the pull request job: under --coverage their
+      # ~4.3e9 iterations make gcov emit out-of-range hit counts (gcc bug
+      # 68080), which is what --gcov-ignore-parse-errors below absorbs.
+      - name: Run exhaustive equivalence scans under coverage (CTest)
+        working-directory: xmera/build/fp32-fsw-xmera/algorithms
+        run: ctest --output-on-failure -L exhaustive
+
       - name: Generate fuzz coverage
         run: |
           source .venv/bin/activate
@@ -426,6 +433,8 @@ jobs:
             --gcov-executable "${GCOV_BIN}"
             --gcov-ignore-errors no_working_dir_found
             --gcov-ignore-errors source_not_found
+            --gcov-ignore-parse-errors suspicious_hits.warn
+            --gcov-ignore-parse-errors negative_hits.warn
           )
           gcovr "${common_args[@]}" \
             --html-details \
