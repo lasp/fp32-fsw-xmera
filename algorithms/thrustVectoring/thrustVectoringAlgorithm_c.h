@@ -4,7 +4,6 @@
 #include "thrustVectoringTypes.h"
 
 #include <stdbool.h>
-#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -16,35 +15,18 @@ extern "C" {
 typedef struct ThrustVectoringAlgorithmHandle ThrustVectoringAlgorithmHandle;
 
 /**
- * @brief Get the THRUST_VECTORING_MAX_NUM_RW constant for Ada validation.
- * @return The maximum number of reaction wheels handled at the C boundary.
- */
-uint32_t ThrustVectoringAlgorithm_getMaxNumRw(void);
-
-/**
  * @brief Report whether a configuration would be accepted by create/setConfig.
- * @param sigma_MB        MRP of the M frame w.r.t. the B frame; must be finite.
- * @param r_MB_B          M frame origin w.r.t. B origin, B coordinates; must be finite.
- * @param r_FM_F          F frame origin w.r.t. M origin, F coordinates; must be finite.
- * @param K               [1/s] momentum-dumping proportional gain; must be finite and > 0.
- * @param Ki              [-]   momentum-dumping integral gain; must be finite and >= 0.
- * @param integralLimit   [Nms2] anti-windup clamp on each momentum-integral component; must be finite
- *                        and >= 0, and > 0 when Ki > 0.
- * @param controlPeriod   [s]   dumping-integral time step; must be finite and > 0.
- * @param thetaMax        [rad] thrust-deflection cone half-angle; must lie in the open interval (0, pi).
- * @param rwConfig        RW configuration; numRW <= max, finite inertias, near-unit spin axes.
+ * @param sigma_MB  MRP of the M frame w.r.t. the B frame; must be finite.
+ * @param r_MB_B    M frame origin w.r.t. B origin, B coordinates; must be finite.
+ * @param r_FM_F    F frame origin w.r.t. M origin, F coordinates; must be finite.
+ * @param thetaMax  [rad] thrust-deflection cone half-angle; must lie in the open interval (0, pi).
  * @return true when the configuration is valid. Never throws, so it can guard the throwing
  *         create/setConfig from an invalid configuration.
  */
 bool ThrustVectoringAlgorithm_validateConfig(const Vector3f_c* sigma_MB,
                                              const Vector3f_c* r_MB_B,
                                              const Vector3f_c* r_FM_F,
-                                             float K,
-                                             float Ki,
-                                             float integralLimit,
-                                             float controlPeriod,
-                                             float thetaMax,
-                                             const ThrustVectoringRwArrayConfiguration_c* rwConfig);
+                                             float thetaMax);
 
 /**
  * @brief Construct a new ThrustVectoringAlgorithm instance from the supplied configuration.
@@ -54,12 +36,7 @@ bool ThrustVectoringAlgorithm_validateConfig(const Vector3f_c* sigma_MB,
 ThrustVectoringAlgorithmHandle* ThrustVectoringAlgorithm_create(const Vector3f_c* sigma_MB,
                                                                 const Vector3f_c* r_MB_B,
                                                                 const Vector3f_c* r_FM_F,
-                                                                float K,
-                                                                float Ki,
-                                                                float integralLimit,
-                                                                float controlPeriod,
-                                                                float thetaMax,
-                                                                const ThrustVectoringRwArrayConfiguration_c* rwConfig);
+                                                                float thetaMax);
 
 /**
  * @brief Destroy a previously created ThrustVectoringAlgorithm.
@@ -76,15 +53,10 @@ void ThrustVectoringAlgorithm_setConfig(ThrustVectoringAlgorithmHandle* self,
                                         const Vector3f_c* sigma_MB,
                                         const Vector3f_c* r_MB_B,
                                         const Vector3f_c* r_FM_F,
-                                        float K,
-                                        float Ki,
-                                        float integralLimit,
-                                        float controlPeriod,
-                                        float thetaMax,
-                                        const ThrustVectoringRwArrayConfiguration_c* rwConfig);
+                                        float thetaMax);
 
 /**
- * @brief Re-seed the runtime integrator state (RW momentum integral, prior sample) to its initial values.
+ * @brief Re-seed the runtime state (the prior pointing DCM used for the torque conversion) to its initial value.
  * @param self Pointer to the instance.
  */
 void ThrustVectoringAlgorithm_reInitialize(ThrustVectoringAlgorithmHandle* self);

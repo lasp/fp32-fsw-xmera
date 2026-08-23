@@ -2,11 +2,15 @@ Executive Summary
 -----------------
 This module computes a reference orientation for a platform connected to the main hub, on which a thruster is
 mounted whose direction is known in platform-frame coordinates. The goal of this module is to compute a reference
-orientation for the platform which offsets the thrust direction with respect to the center of mass to produce a net
-torque that dumps the momentum accumulated on the reaction wheels. When there is no momentum to dump, this reduces to
-aligning the thruster line of action with the system's center of mass, zeroing the net torque produced by the thruster
-on the spacecraft. The module reports the resulting thruster direction in body-frame coordinates; a downstream module
-is responsible for computing the platform gimbal angles that realize it.
+orientation for the platform which offsets the thrust direction with respect to the center of mass so the thruster
+produces a **requested** torque on the vehicle, read from an input message. When the requested torque is zero, this
+reduces to aligning the thruster line of action with the system's center of mass, zeroing the net torque produced by
+the thruster on the spacecraft. The module reports the resulting thruster direction in body-frame coordinates; a
+downstream module is responsible for computing the platform gimbal angles that realize it.
+
+The requested torque is produced upstream by a control law: :ref:`momentumManagement` derives it from the momentum
+accumulated on the reaction wheels, so that the thruster offset dumps that momentum. This module solves only the
+pointing problem for whatever torque it is handed.
 
 All numeric computation is single-precision (``float`` / fp32). The module is a single algorithm
 (``ThrustVectoringAlgorithm``) with two interface adapters: a ``SysModel`` adapter that connects it to
@@ -15,14 +19,14 @@ the Xmera system via messages, and a C shim that connects it to the Adamant syst
 Module Architecture
 -------------------
 The **algorithm** (``ThrustVectoringAlgorithm``) is framework-free and Eigen-typed; it implements the
-mathematics below and holds the reaction-wheel momentum integrator state. It never sees a message payload: its
-inputs and outputs are the ``ThrustVectoringInputs`` and ``ThrustVectoringOutput`` structs. Two
-interface adapters wrap it.
+mathematics below and holds the previous cycle's reference pointing, used to convert the requested torque into the
+platform frame. It never sees a message payload: its inputs and outputs are the ``ThrustVectoringInputs`` and
+``ThrustVectoringOutput`` structs. Two interface adapters wrap it.
 
 The **Xmera adapter** (``ThrustVectoring``) inherits from ``SysModel`` and owns all messaging concerns.
 Configuration parameters are exposed as public member variables (two-phase initialization): the caller sets them,
 then calls ``reset()``, which validates that the required input messages are connected and builds a validated
-``ThrustVectoringConfig`` from the current property values and the reaction-wheel configuration message.
+``ThrustVectoringConfig`` from the current property values.
 ``updateState()`` reads the input messages, converts the payload ``float[3]`` arrays to Eigen types via
 ``eigenSupport.h``, invokes the algorithm, and packs the results back into the output payloads. ``reconfigure()``
 re-pushes the current properties into the running algorithm without disturbing its runtime state, and
@@ -53,13 +57,11 @@ information on what this message is used for.
         frame coordinates**. The entry ``rThrust_B`` here is the position of the thrust application point, with
         respect to the origin of the platform frame, in platform-frame coordinates
         (:math:`{}^\mathcal{F}\boldsymbol{r}_{T/F}`).
-    * - rwConfigDataInMsg
-      - :ref:`RWArrayConfigMsgPayload`
-      - Input message containing the number of reaction wheels, their spin-axis inertias and orientations with
-        respect to the body frame.
-    * - rwSpeedsInMsg
-      - :ref:`RWSpeedMsgPayload`
-      - Input message containing the speeds of the reaction wheels relative to the hub.
+    * - cmdTorqueInMsg
+      - :ref:`CmdTorqueBodyMsgPayload`
+      - Input message containing the torque [Nm] the thruster is requested to produce on the vehicle about the
+        system's center of mass, in body-frame coordinates. A zero request points the thruster line of action
+        through the center of mass. Typically produced by :ref:`momentumManagement`.
     * - bodyHeadingOutMsg
       - :ref:`BodyHeadingMsgPayload`
       - Output message containing the unit direction vector of the thruster in body-frame coordinates.
@@ -147,30 +149,27 @@ product is ill-defined and any axis orthogonal to :math:`\hat{\boldsymbol{r}}_{C
 :math:`180^\circ` rotation. When the center of mass coincides with the joint (:math:`b \approx 0`) the pointing is
 undefined and the identity rotation is returned.
 
-Momentum dumping
+Requested torque
 ^^^^^^^^^^^^^^^^
-The requested torque is set by a control law that makes the thruster dump the momentum accumulated on the wheels. The
-desired thruster torque opposes that momentum,
+The requested torque :math:`\boldsymbol{L}_\text{req}` is an input to this module, supplied in body-frame
+coordinates by ``cmdTorqueInMsg``, and is the torque the thruster is asked to produce on the vehicle about the
+system's center of mass. The module applies no control law of its own: it converts the request into the platform
+frame and hands it to the *Thruster pointing* solve above. Because that solve reaches the requested torque exactly,
+the thruster produces :math:`\boldsymbol{L}_\text{req}` (up to the component along the thrust, which no thruster
+force can produce, and subject to the cone limit below).
+
+Converting the torque to the platform frame,
 
 .. math::
-    \boldsymbol{L}_\text{req} = -\left( \kappa\, \boldsymbol{h}_w + \kappa_I\, \boldsymbol{H}_w \right), \qquad
-    \boldsymbol{H}_w = \int_{t_0}^t \boldsymbol{h}_w \,\text{d}t,
+    {}^\mathcal{F}\boldsymbol{L}_\text{req} = [\mathcal{FM}][\mathcal{MB}]\,
+        {}^\mathcal{B}\boldsymbol{L}_\text{req},
 
-where :math:`\boldsymbol{h}_w` is the net momentum on the wheels, :math:`\boldsymbol{H}_w` its integral over time,
-and :math:`\kappa` (``K``) / :math:`\kappa_I` (``Ki``) the proportional and integral gains. The integral is
-accumulated with a trapezoidal rule using the configured ``controlPeriod`` as the fixed time step (the module is
-expected to run at that rate). To keep a sustained momentum from winding the integral term up without bound, every
-component of :math:`\boldsymbol{H}_w` is clamped to :math:`\pm` ``integralLimit`` after each update, preserving its
-sign. The momentum and its integral are tracked in the body frame; the torque is converted
-to the platform frame (through the mount frame) and passed to the *Thruster pointing* solve above. Because that solve
-reaches the requested torque exactly, the thruster produces :math:`\boldsymbol{L}_\text{req}` (up to the component
-along the thrust, which no thruster force can produce).
-
-Converting the torque to the platform frame needs :math:`[\mathcal{FM}]`, which is the very quantity being solved
-for. The module breaks this circularity by reusing the **previous cycle's** reference DCM as the conversion estimate;
-on the first cycle, where no prior exists, it is seeded once with the nominal (zero-torque) pointing. The resulting
-one-cycle staleness is a small, bounded error that the momentum-dumping feedback loop absorbs, and it lets each cycle
-run a single pointing solve instead of two.
+needs :math:`[\mathcal{FM}]`, which is the very quantity being solved for. The module breaks this circularity by
+reusing the **previous cycle's** reference DCM as the conversion estimate; on the first cycle, where no prior
+exists, it is seeded once with the nominal (zero-torque) pointing. The resulting one-cycle staleness is a small,
+bounded error absorbed by the upstream feedback loop that generates the request, and it lets each cycle run a
+single pointing solve instead of two. ``reInitialize()`` discards the stored pointing, so the next cycle starts
+again from the seeded estimate.
 
 Deflection cone limit
 ^^^^^^^^^^^^^^^^^^^^^
@@ -238,29 +237,10 @@ raises ``fsw::invalid_argument``.
       - finite
       - relative position of point :math:`F` with respect to point :math:`M`, in :math:`\mathcal{F}`-frame
         coordinates
-    * - ``K``
-      - 0
-      - :math:`> 0`
-      - proportional gain of the momentum dumping control loop
-    * - ``Ki``
-      - 0
-      - :math:`\geq 0`
-      - integral gain of the momentum dumping control loop
-    * - ``integralLimit``
-      - 0
-      - :math:`\geq 0`, and :math:`> 0` when ``Ki`` :math:`> 0`
-      - anti-windup clamp [Nms\ :sup:`2`] on each body-frame component of the reaction-wheel momentum integral
-    * - ``controlPeriod``
-      - 0
-      - :math:`> 0`
-      - integration time step [s] for the momentum dumping integral (the module update rate)
     * - ``thetaMax``
       - 0
       - :math:`(0, \pi)`
       - half-angle [rad] of the cone limiting the thrust deflection from its neutral direction (mandatory)
-
-In addition, the reaction-wheel configuration read from ``rwConfigDataInMsg`` must have a wheel count not exceeding
-the compile-time maximum (``RW_EFF_CNT``) and unit-length spin axes (they are normalized on construction).
 
 User Guide
 ----------
@@ -272,16 +252,11 @@ then add the module to the simulation task (``reset()`` validates and builds the
     platformReference.sigma_MB = sigma_MB
     platformReference.r_MB_B = r_MB_B
     platformReference.r_FM_F = r_FM_F
-    platformReference.K = K
-    platformReference.Ki = Ki
-    platformReference.integralLimit = integralLimit
-    platformReference.controlPeriod = controlPeriod
     platformReference.thetaMax = thetaMax
 
     platformReference.vehConfigInMsg.subscribeTo(vehConfigMsg)
     platformReference.thrusterConfigFInMsg.subscribeTo(thrConfigFMsg)
-    platformReference.rwConfigDataInMsg.subscribeTo(rwConfigMsg)
-    platformReference.rwSpeedsInMsg.subscribeTo(rwSpeedsMsg)
+    platformReference.cmdTorqueInMsg.subscribeTo(cmdTorqueMsg)
 
     scSim.AddModelToTask(simTaskName, platformReference)
 
@@ -295,9 +270,8 @@ solution would require deflecting the thruster beyond the configured cone half-a
 reference is clamped to the cone (see *Deflection cone limit*); in that case the thruster does not produce the
 requested torque exactly.
 
-The module assumes it is run at a small, fixed control period so that the platform moves little between successive
-calls. Two parts of the momentum-dumping path rely on this: the reaction-wheel momentum is integrated with a
-trapezoidal rule at the fixed ``controlPeriod`` step, and the desired torque is converted into the platform frame
-using the *previous* cycle's pointing (see *Momentum dumping*). Larger inter-cycle motion does not break the pointing
-solve, but it degrades both approximations; the resulting residual is bounded and absorbed by the per-cycle
-momentum-dumping feedback loop.
+The module assumes it is run at a small control period so that the platform moves little between successive calls,
+because the requested torque is converted into the platform frame using the *previous* cycle's pointing (see
+*Requested torque*). Larger inter-cycle motion does not break the pointing solve, but it degrades that
+approximation; the resulting residual is bounded and absorbed by the upstream feedback loop that generates the
+request.

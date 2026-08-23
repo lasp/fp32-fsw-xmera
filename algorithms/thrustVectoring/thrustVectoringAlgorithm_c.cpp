@@ -7,32 +7,14 @@
 #include <Eigen/Core>
 
 namespace {
-ThrustVectoringRwArrayConfiguration rwArrayConfigFromC(const ThrustVectoringRwArrayConfiguration_c& c) {
-    ThrustVectoringRwArrayConfiguration out{};
-    out.numRW = c.numRW;
-    out.GsMatrix_B = cArrayToEigenMatrix<float, 3, kMaxNumRw>(c.GsMatrix_B);
-    out.JsList = cArrayToEigenVector(c.JsList);
-    return out;
-}
-
 ThrustVectoringConfig makeConfig(const Vector3f_c& sigma_MB,
                                  const Vector3f_c& r_MB_B,
                                  const Vector3f_c& r_FM_F,
-                                 float K,
-                                 float Ki,
-                                 float integralLimit,
-                                 float controlPeriod,
-                                 float thetaMax,
-                                 const ThrustVectoringRwArrayConfiguration_c& rwConfig) {
+                                 float thetaMax) {
     return ThrustVectoringConfig::create(cArrayToEigenVector3<float>(sigma_MB.data),
                                          cArrayToEigenVector3<float>(r_MB_B.data),
                                          cArrayToEigenVector3<float>(r_FM_F.data),
-                                         K,
-                                         Ki,
-                                         integralLimit,
-                                         controlPeriod,
-                                         thetaMax,
-                                         rwArrayConfigFromC(rwConfig));
+                                         thetaMax);
 }
 
 ThrustVectoringInputs inputsFromC(const ThrustVectoringInputs_c& c) {
@@ -41,24 +23,17 @@ ThrustVectoringInputs inputsFromC(const ThrustVectoringInputs_c& c) {
     out.r_TF_F = cArrayToEigenVector3<float>(c.r_TF_F.data);
     out.tHat_F = cArrayToEigenVector3<float>(c.tHat_F.data);
     out.thrust = c.thrust;
-    out.wheelSpeeds = cArrayToEigenVector(c.wheelSpeeds);
+    out.Lreq_B = cArrayToEigenVector3<float>(c.Lreq_B.data);
     return out;
 }
 }  // namespace
 
-uint32_t ThrustVectoringAlgorithm_getMaxNumRw(void) { return THRUST_VECTORING_MAX_NUM_RW; }
-
 bool ThrustVectoringAlgorithm_validateConfig(const Vector3f_c* sigma_MB,
                                              const Vector3f_c* r_MB_B,
                                              const Vector3f_c* r_FM_F,
-                                             float K,
-                                             float Ki,
-                                             float integralLimit,
-                                             float controlPeriod,
-                                             float thetaMax,
-                                             const ThrustVectoringRwArrayConfiguration_c* rwConfig) {
+                                             float thetaMax) {
     try {
-        (void)makeConfig(*sigma_MB, *r_MB_B, *r_FM_F, K, Ki, integralLimit, controlPeriod, thetaMax, *rwConfig);
+        (void)makeConfig(*sigma_MB, *r_MB_B, *r_FM_F, thetaMax);
         return true;
     } catch (const fsw::invalid_argument&) {
         return false;
@@ -68,14 +43,9 @@ bool ThrustVectoringAlgorithm_validateConfig(const Vector3f_c* sigma_MB,
 ThrustVectoringAlgorithmHandle* ThrustVectoringAlgorithm_create(const Vector3f_c* sigma_MB,
                                                                 const Vector3f_c* r_MB_B,
                                                                 const Vector3f_c* r_FM_F,
-                                                                float K,
-                                                                float Ki,
-                                                                float integralLimit,
-                                                                float controlPeriod,
-                                                                float thetaMax,
-                                                                const ThrustVectoringRwArrayConfiguration_c* rwConfig) {
-    return reinterpret_cast<ThrustVectoringAlgorithmHandle*>(new ::ThrustVectoringAlgorithm(
-        makeConfig(*sigma_MB, *r_MB_B, *r_FM_F, K, Ki, integralLimit, controlPeriod, thetaMax, *rwConfig)));
+                                                                float thetaMax) {
+    return reinterpret_cast<ThrustVectoringAlgorithmHandle*>(
+        new ::ThrustVectoringAlgorithm(makeConfig(*sigma_MB, *r_MB_B, *r_FM_F, thetaMax)));
 }
 
 void ThrustVectoringAlgorithm_destroy(ThrustVectoringAlgorithmHandle* self) {
@@ -86,14 +56,8 @@ void ThrustVectoringAlgorithm_setConfig(ThrustVectoringAlgorithmHandle* self,
                                         const Vector3f_c* sigma_MB,
                                         const Vector3f_c* r_MB_B,
                                         const Vector3f_c* r_FM_F,
-                                        float K,
-                                        float Ki,
-                                        float integralLimit,
-                                        float controlPeriod,
-                                        float thetaMax,
-                                        const ThrustVectoringRwArrayConfiguration_c* rwConfig) {
-    fsw::fromHandle<::ThrustVectoringAlgorithm>(self)->setConfig(
-        makeConfig(*sigma_MB, *r_MB_B, *r_FM_F, K, Ki, integralLimit, controlPeriod, thetaMax, *rwConfig));
+                                        float thetaMax) {
+    fsw::fromHandle<::ThrustVectoringAlgorithm>(self)->setConfig(makeConfig(*sigma_MB, *r_MB_B, *r_FM_F, thetaMax));
 }
 
 void ThrustVectoringAlgorithm_reInitialize(ThrustVectoringAlgorithmHandle* self) {

@@ -8,31 +8,32 @@
 #include <Eigen/Geometry>
 #include <cmath>
 
-// Build a validated configuration with an empty reaction-wheel array, so the wheel momentum and the requested
-// dumping torque both vanish (pure center-of-mass alignment mode). The default deflection cone is wide enough that
-// it does not clamp the geometries used by the alignment tests.
+// Build a validated configuration. The default deflection cone is wide enough that it does not clamp the
+// geometries used by the alignment tests.
 inline ThrustVectoringConfig makeAlignmentConfig(const Eigen::Vector3f& sigma_MB,
                                                  const Eigen::Vector3f& r_MB_B,
                                                  const Eigen::Vector3f& r_FM_F,
                                                  float thetaMax = 3.0F) {
-    return ThrustVectoringConfig::create(
-        sigma_MB, r_MB_B, r_FM_F, 1.0F, 0.0F, 0.0F, 1.0F, thetaMax, ThrustVectoringRwArrayConfiguration{});
+    return ThrustVectoringConfig::create(sigma_MB, r_MB_B, r_FM_F, thetaMax);
 }
 
-// Assemble the per-cycle inputs from the center-of-mass position and thruster geometry.
+// Assemble the per-cycle inputs from the center-of-mass position, thruster geometry and requested torque. A zero
+// requested torque puts the module in pure center-of-mass alignment mode.
 inline ThrustVectoringInputs makeInputs(const Eigen::Vector3f& r_CB_B,
                                         const Eigen::Vector3f& rThrust_F,
                                         const Eigen::Vector3f& tHatThrust_F,
-                                        float maxThrust) {
+                                        float maxThrust,
+                                        const Eigen::Vector3f& Lreq_B = Eigen::Vector3f::Zero()) {
     ThrustVectoringInputs in{};
     in.r_CB_B = r_CB_B;
     in.r_TF_F = rThrust_F;
     in.tHat_F = tHatThrust_F.normalized();
     in.thrust = maxThrust;
+    in.Lreq_B = Lreq_B;
     return in;
 }
 
-// Regression helper: with no wheel momentum to dump the platform aligns the thruster line of action with the
+// Regression helper: with a zero requested torque the platform aligns the thruster line of action with the
 // system center of mass, so the reported body-frame thrust direction is parallel to the
 // thruster-to-center-of-mass vector and the net thruster torque vanishes. The thruster-to-center-of-mass distance
 // is checked against the ray-sphere intersection computed independently from the raw configuration.
@@ -82,7 +83,8 @@ inline void propertyOutputsFinite(const Eigen::Vector3f& sigma_MB,
                                   const Eigen::Vector3f& r_CB_B,
                                   const Eigen::Vector3f& rThrust_F,
                                   const Eigen::Vector3f& tHatThrust_F,
-                                  float maxThrust) {
+                                  float maxThrust,
+                                  const Eigen::Vector3f& Lreq_B) {
     // Skip degenerate geometry: a zero thrust direction or center-of-mass position has no defined solution.
     constexpr float degenerateTol = 1e-3F;
     if (tHatThrust_F.norm() < degenerateTol || maxThrust < degenerateTol) {
@@ -92,8 +94,11 @@ inline void propertyOutputsFinite(const Eigen::Vector3f& sigma_MB,
         return;
     }
 
+    // Two cycles so the requested-torque conversion runs once on the seeded prior pointing and once on a real one.
     ThrustVectoringAlgorithm alg{makeAlignmentConfig(sigma_MB, r_MB_B, r_FM_F)};
-    const ThrustVectoringOutput out = alg.update(makeInputs(r_CB_B, rThrust_F, tHatThrust_F, maxThrust));
+    const ThrustVectoringInputs in = makeInputs(r_CB_B, rThrust_F, tHatThrust_F, maxThrust, Lreq_B);
+    alg.update(in);
+    const ThrustVectoringOutput out = alg.update(in);
 
     EXPECT_TRUE(out.r_TB_B.allFinite());
     EXPECT_TRUE(out.tHat_B.allFinite());

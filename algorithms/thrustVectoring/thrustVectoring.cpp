@@ -4,30 +4,11 @@
 
 #include <stdexcept>
 
-// The algorithm's C-boundary RW count must match the system-wide RW_EFF_CNT, otherwise the payload
-// GsMatrix_B / JsList / wheelSpeeds arrays would not map onto the algorithm's fixed-size types.
-static_assert(kMaxNumRw == RW_EFF_CNT, "THRUST_VECTORING_MAX_NUM_RW must match RW_EFF_CNT");
-
-/*! @brief Build the validated configuration from the public properties and the reaction-wheel configuration message.
+/*! @brief Build the validated configuration from the public properties.
  @return ThrustVectoringConfig validated configuration
 */
 ThrustVectoringConfig ThrustVectoring::toConfig() {
-    const RWArrayConfigMsgF32Payload rwConfigParams = this->rwConfigDataInMsg();
-
-    ThrustVectoringRwArrayConfiguration rwConfig{};
-    rwConfig.numRW = static_cast<uint32_t>(rwConfigParams.numRW);
-    rwConfig.GsMatrix_B = cArrayToEigenMatrix<float, 3, kMaxNumRw>(rwConfigParams.GsMatrix_B);
-    rwConfig.JsList = cArrayToEigenVector(rwConfigParams.JsList);
-
-    return ThrustVectoringConfig::create(this->sigma_MB,
-                                         this->r_MB_B,
-                                         this->r_FM_F,
-                                         this->K,
-                                         this->Ki,
-                                         this->integralLimit,
-                                         this->controlPeriod,
-                                         this->thetaMax,
-                                         rwConfig);
+    return ThrustVectoringConfig::create(this->sigma_MB, this->r_MB_B, this->r_FM_F, this->thetaMax);
 }
 
 /*! This method performs a complete reset of the module: it validates the required input messages and (re)creates
@@ -42,11 +23,8 @@ void ThrustVectoring::reset(const uint64_t callTime) {
     if (!this->thrusterConfigFInMsg.isLinked()) {
         throw std::invalid_argument("thrustVectoring.thrusterConfigFInMsg wasn't connected.");
     }
-    if (!this->rwConfigDataInMsg.isLinked()) {
-        throw std::invalid_argument("thrustVectoring.rwConfigDataInMsg wasn't connected.");
-    }
-    if (!this->rwSpeedsInMsg.isLinked()) {
-        throw std::invalid_argument("thrustVectoring.rwSpeedsInMsg wasn't connected.");
+    if (!this->cmdTorqueInMsg.isLinked()) {
+        throw std::invalid_argument("thrustVectoring.cmdTorqueInMsg wasn't connected.");
     }
 
     this->algorithm = std::make_unique<ThrustVectoringAlgorithm>(this->toConfig());
@@ -62,7 +40,7 @@ void ThrustVectoring::reconfigure() {
     this->algorithm->setConfig(this->toConfig());
 }
 
-/*! @brief Re-seed the running algorithm's runtime integrator state from its configured initial values.
+/*! @brief Re-seed the running algorithm's runtime state from its configured initial values.
  @return void
 */
 void ThrustVectoring::reInitialize() {
@@ -72,9 +50,9 @@ void ThrustVectoring::reInitialize() {
     this->algorithm->reInitialize();
 }
 
-/*! This method computes the platform reference orientation that points the thruster line of action through the
- system center of mass (or produces a torque to dump reaction-wheel momentum) and writes the body-heading and
- thruster-configuration output messages.
+/*! This method computes the platform reference orientation that points the thruster so it produces the requested
+ torque about the system center of mass (a zero request aligns the thruster line of action with the center of mass)
+ and writes the body-heading and thruster-configuration output messages.
  @return void
  @param callTime The clock time at which the function was called (nanoseconds)
 */
@@ -91,7 +69,7 @@ void ThrustVectoring::updateState(const uint64_t callTime) {
     inputs.r_TF_F = cArrayToEigenVector3<float>(thrusterConfigFIn.rThrust_B);
     inputs.tHat_F = cArrayToEigenVector3<float>(thrusterConfigFIn.tHatThrust_B);
     inputs.thrust = thrusterConfigFIn.maxThrust;
-    inputs.wheelSpeeds = cArrayToEigenVector(this->rwSpeedsInMsg().wheelSpeeds);
+    inputs.Lreq_B = cArrayToEigenVector3<float>(this->cmdTorqueInMsg().torqueRequestBody);
 
     const ThrustVectoringOutput out = this->algorithm->update(inputs);
 

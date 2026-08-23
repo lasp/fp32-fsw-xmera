@@ -2,8 +2,7 @@
 #define F32XMERA_THRUST_VECTORING_H
 
 #include "msgPayloadDef/BodyHeadingMsgF32Payload.h"
-#include "msgPayloadDef/RWArrayConfigMsgF32Payload.h"
-#include "msgPayloadDef/RWSpeedMsgF32Payload.h"
+#include "msgPayloadDef/CmdTorqueBodyMsgF32Payload.h"
 #include "msgPayloadDef/THRConfigMsgF32Payload.h"
 #include "msgPayloadDef/VehicleConfigMsgF32Payload.h"
 #include "thrustVectoringAlgorithm.h"
@@ -21,7 +20,7 @@ class ThrustVectoring final : public SysModel {
 
     /*! Re-push the current configuration properties into the running algorithm without re-seeding its state. */
     void reconfigure();
-    /*! Re-seed the running algorithm's runtime integrator state from its configured initial values. */
+    /*! Re-seed the running algorithm's runtime state from its configured initial values. */
     void reInitialize();
 
     /*! Phase 1: user-defined configuration properties, set before reset() */
@@ -30,18 +29,14 @@ class ThrustVectoring final : public SysModel {
         Eigen::Vector3f::Zero()};  //!< position of M frame origin w.r.t. B frame origin, in B frame coordinates
     Eigen::Vector3f r_FM_F{
         Eigen::Vector3f::Zero()};  //!< position of F frame origin w.r.t. M frame origin, in F frame coordinates
-    float K{};                     //!< momentum dumping proportional gain [1/s] (must be > 0)
-    float Ki{};                    //!< momentum dumping integral gain [1/s2]
-    float integralLimit{};         //!< [Nms2] anti-windup clamp on each hsInt_B component (must be > 0 if Ki > 0)
-    float controlPeriod{};         //!< integration step for the momentum dumping integral [s] (must be > 0)
     float thetaMax{};              //!< half-angle of the thrust-deflection cone [rad] (must be in (0, pi))
 
     /*! module IO interfaces */
     ReadFunctor<VehicleConfigMsgF32Payload>
         vehConfigInMsg;  //!< input msg vehicle configuration msg (needed for CM location)
-    ReadFunctor<THRConfigMsgF32Payload> thrusterConfigFInMsg;   //!< input thruster configuration msg
-    ReadFunctor<RWSpeedMsgF32Payload> rwSpeedsInMsg;            //!< input reaction wheel speeds message (required)
-    ReadFunctor<RWArrayConfigMsgF32Payload> rwConfigDataInMsg;  //!< input RWA configuration message (required)
+    ReadFunctor<THRConfigMsgF32Payload> thrusterConfigFInMsg;  //!< input thruster configuration msg
+    ReadFunctor<CmdTorqueBodyMsgF32Payload>
+        cmdTorqueInMsg;  //!< [Nm] input requested thruster torque about the center of mass, body frame
     Message<BodyHeadingMsgF32Payload>
         bodyHeadingOutMsg;  //!< output msg containing the thrust heading in body frame coordinates
     Message<THRConfigMsgF32Payload>
