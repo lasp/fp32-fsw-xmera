@@ -149,7 +149,7 @@ set(algorithms
     "thrDesatDutyCycle"
     "thrFiringRemainder"
     "thrFiringSchmitt"
-    "thrusterPlatformReference"
+    "thrustVectoring"
     "timeClosestApproach"
     "triad"
 )

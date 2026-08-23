@@ -1,7 +1,7 @@
-#ifndef F32XMERA_THRUSTER_PLATFORM_REFERENCE_ALGORITHM_H
-#define F32XMERA_THRUSTER_PLATFORM_REFERENCE_ALGORITHM_H
+#ifndef F32XMERA_THRUST_VECTORING_ALGORITHM_H
+#define F32XMERA_THRUST_VECTORING_ALGORITHM_H
 
-#include "thrusterPlatformReferenceTypes.h"
+#include "thrustVectoringTypes.h"
 #include "utilities/fsw/freestandingInvalidArgument.h"
 #include "utilities/fsw/freestandingIsFinite.hpp"
 #include "utilities/fsw/rigidBodyKinematics.hpp"
@@ -11,18 +11,18 @@
 #include <Eigen/Core>
 #include <numbers>
 
-inline constexpr int kMaxNumRw = THRUSTER_PLATFORM_REFERENCE_MAX_NUM_RW;  //!< [-] maximum number of reaction wheels
+inline constexpr int kMaxNumRw = THRUST_VECTORING_MAX_NUM_RW;  //!< [-] maximum number of reaction wheels
 
 /*! @brief Reaction-wheel spin-axis configuration used for momentum dumping. */
-struct ThrusterPlatformReferenceRwArrayConfiguration {
+struct ThrustVectoringRwArrayConfiguration {
     uint32_t numRW{};  //!< [-] number of reaction wheels on the vehicle
     Eigen::Matrix<float, 3, kMaxNumRw> GsMatrix_B{
         Eigen::Matrix<float, 3, kMaxNumRw>::Zero()};  //!< [-] RW spin axes in body frame, one column per wheel
     Eigen::Vector<float, kMaxNumRw> JsList{Eigen::Vector<float, kMaxNumRw>::Zero()};  //!< [kgm2] RW spin-axis inertias
 };
 
-/*! @brief Per-cycle inputs to the thruster platform reference algorithm. */
-struct ThrusterPlatformReferenceInputs {
+/*! @brief Per-cycle inputs to the thrust vectoring algorithm. */
+struct ThrustVectoringInputs {
     Eigen::Vector3f r_CB_B{Eigen::Vector3f::Zero()};  //!< [m] center of mass w.r.t. B origin, B frame
     Eigen::Vector3f r_TF_F{Eigen::Vector3f::Zero()};  //!< [m] thrust application point w.r.t. F origin, F frame
     Eigen::Vector3f tHat_F{Eigen::Vector3f::Zero()};  //!< [-] thrust unit direction, F frame
@@ -31,15 +31,15 @@ struct ThrusterPlatformReferenceInputs {
         Eigen::Vector<float, kMaxNumRw>::Zero()};  //!< [r/s] reaction-wheel speeds
 };
 
-/*! @brief Outputs of the thruster platform reference algorithm. */
-struct ThrusterPlatformReferenceOutput {
+/*! @brief Outputs of the thrust vectoring algorithm. */
+struct ThrustVectoringOutput {
     Eigen::Vector3f r_TB_B{Eigen::Vector3f::Zero()};  //!< [m] thrust application point w.r.t. B origin, B frame
     Eigen::Vector3f tHat_B{Eigen::Vector3f::Zero()};  //!< [-] thrust unit direction, B frame
     float thrust{};                                   //!< [N] thrust magnitude
 };
 
 /*!
- * @brief Validated configuration for the thruster platform reference algorithm.
+ * @brief Validated configuration for the thrust vectoring algorithm.
  *
  * Bundles the platform mounting geometry, the momentum-dumping gains, the thrust-deflection cone limit, and the
  * reaction-wheel configuration used for momentum dumping. An instance can only exist if the geometry vectors are
@@ -47,52 +47,52 @@ struct ThrusterPlatformReferenceOutput {
  * integral limit is finite and non-negative (and positive whenever the integral gain is), the control period is
  * finite and positive, the deflection cone half-angle lies in (0, pi), and the reaction-wheel configuration count
  * does not exceed the compile-time maximum with finite spin axes and inertias. Construct via
- * ThrusterPlatformReferenceConfig::create(...).
+ * ThrustVectoringConfig::create(...).
  */
-class ThrusterPlatformReferenceConfig final {
+class ThrustVectoringConfig final {
    public:
-    static ThrusterPlatformReferenceConfig create(const Eigen::Vector3f& sigma_MB,
-                                                  const Eigen::Vector3f& r_MB_B,
-                                                  const Eigen::Vector3f& r_FM_F,
-                                                  float K,
-                                                  float Ki,
-                                                  float integralLimit,
-                                                  float controlPeriod,
-                                                  float thetaMax,
-                                                  const ThrusterPlatformReferenceRwArrayConfiguration& rwConfig) {
+    static ThrustVectoringConfig create(const Eigen::Vector3f& sigma_MB,
+                                        const Eigen::Vector3f& r_MB_B,
+                                        const Eigen::Vector3f& r_FM_F,
+                                        float K,
+                                        float Ki,
+                                        float integralLimit,
+                                        float controlPeriod,
+                                        float thetaMax,
+                                        const ThrustVectoringRwArrayConfiguration& rwConfig) {
         if (!isValidSigma_MB(sigma_MB)) {
-            FSW_THROW_INVALID_ARGUMENT("thrusterPlatformReference: sigma_MB must be finite.");
+            FSW_THROW_INVALID_ARGUMENT("thrustVectoring: sigma_MB must be finite.");
         }
         if (!isValidR_MB_B(r_MB_B)) {
-            FSW_THROW_INVALID_ARGUMENT("thrusterPlatformReference: r_MB_B must be finite.");
+            FSW_THROW_INVALID_ARGUMENT("thrustVectoring: r_MB_B must be finite.");
         }
         if (!isValidR_FM_F(r_FM_F)) {
-            FSW_THROW_INVALID_ARGUMENT("thrusterPlatformReference: r_FM_F must be finite.");
+            FSW_THROW_INVALID_ARGUMENT("thrustVectoring: r_FM_F must be finite.");
         }
         if (!isValidK(K)) {
-            FSW_THROW_INVALID_ARGUMENT("thrusterPlatformReference: K must be finite and positive.");
+            FSW_THROW_INVALID_ARGUMENT("thrustVectoring: K must be finite and positive.");
         }
         if (!isValidKi(Ki)) {
-            FSW_THROW_INVALID_ARGUMENT("thrusterPlatformReference: Ki must be finite and non-negative.");
+            FSW_THROW_INVALID_ARGUMENT("thrustVectoring: Ki must be finite and non-negative.");
         }
         if (!isValidIntegralLimit(integralLimit, Ki)) {
             FSW_THROW_INVALID_ARGUMENT(
-                "thrusterPlatformReference: integralLimit must be finite and non-negative, and positive when Ki > 0.");
+                "thrustVectoring: integralLimit must be finite and non-negative, and positive when Ki > 0.");
         }
         if (!isValidControlPeriod(controlPeriod)) {
-            FSW_THROW_INVALID_ARGUMENT("thrusterPlatformReference: controlPeriod must be finite and positive.");
+            FSW_THROW_INVALID_ARGUMENT("thrustVectoring: controlPeriod must be finite and positive.");
         }
         if (!isValidThetaMax(thetaMax)) {
-            FSW_THROW_INVALID_ARGUMENT("thrusterPlatformReference: thetaMax must lie in the open interval (0, pi).");
+            FSW_THROW_INVALID_ARGUMENT("thrustVectoring: thetaMax must lie in the open interval (0, pi).");
         }
         if (!isValidRwConfig(rwConfig)) {
             FSW_THROW_INVALID_ARGUMENT(
-                "thrusterPlatformReference: rwConfig.numRW must not exceed the compile-time maximum, its inertias "
+                "thrustVectoring: rwConfig.numRW must not exceed the compile-time maximum, its inertias "
                 "must be finite, and each spin axis must be (close to) a unit vector.");
         }
 
         // Store unit-length spin axes so the momentum sum uses exact unit directions.
-        ThrusterPlatformReferenceRwArrayConfiguration normalizedRwConfig = rwConfig;
+        ThrustVectoringRwArrayConfiguration normalizedRwConfig = rwConfig;
         for (uint32_t i = 0U; i < normalizedRwConfig.numRW; ++i) {
             normalizedRwConfig.GsMatrix_B.col(i).normalize();
         }
@@ -117,7 +117,7 @@ class ThrusterPlatformReferenceConfig final {
     static bool isValidThetaMax(float thetaMax) {
         return fsw::is_finite(thetaMax) && thetaMax > 0.0F && thetaMax < std::numbers::pi_v<float>;
     }
-    static bool isValidRwConfig(const ThrusterPlatformReferenceRwArrayConfiguration& rwConfig) {
+    static bool isValidRwConfig(const ThrustVectoringRwArrayConfiguration& rwConfig) {
         if (rwConfig.numRW > static_cast<uint32_t>(kMaxNumRw) || !rwConfig.GsMatrix_B.allFinite() ||
             !rwConfig.JsList.allFinite()) {
             return false;
@@ -140,7 +140,7 @@ class ThrusterPlatformReferenceConfig final {
     float getIntegralLimit() const { return integralLimit; }
     float getControlPeriod() const { return controlPeriod; }
     float getThetaMax() const { return thetaMax; }
-    const ThrusterPlatformReferenceRwArrayConfiguration& getRwConfig() const { return rwConfig; }
+    const ThrustVectoringRwArrayConfiguration& getRwConfig() const { return rwConfig; }
 
    private:
     // NOLINTBEGIN(bugprone-easily-swappable-parameters, modernize-pass-by-value)
@@ -148,15 +148,15 @@ class ThrusterPlatformReferenceConfig final {
     //   configuration; reordering them would be a caller error caught by the field-specific validators.
     // modernize-pass-by-value: this is a private constructor invoked only from create() with already-validated
     //   arguments; the small Eigen vectors are stored by copy without a move for clarity.
-    ThrusterPlatformReferenceConfig(const Eigen::Vector3f& sigma_MB,
-                                    const Eigen::Vector3f& r_MB_B,
-                                    const Eigen::Vector3f& r_FM_F,
-                                    float K,
-                                    float Ki,
-                                    float integralLimit,
-                                    float controlPeriod,
-                                    float thetaMax,
-                                    const ThrusterPlatformReferenceRwArrayConfiguration& rwConfig)
+    ThrustVectoringConfig(const Eigen::Vector3f& sigma_MB,
+                          const Eigen::Vector3f& r_MB_B,
+                          const Eigen::Vector3f& r_FM_F,
+                          float K,
+                          float Ki,
+                          float integralLimit,
+                          float controlPeriod,
+                          float thetaMax,
+                          const ThrustVectoringRwArrayConfiguration& rwConfig)
         : sigma_MB(sigma_MB),
           r_MB_B(r_MB_B),
           r_FM_F(r_FM_F),
@@ -176,31 +176,31 @@ class ThrusterPlatformReferenceConfig final {
     float integralLimit;
     float controlPeriod;
     float thetaMax;
-    ThrusterPlatformReferenceRwArrayConfiguration rwConfig;
+    ThrustVectoringRwArrayConfiguration rwConfig;
 };
 
 /*! @brief Pure algorithm computing the reference orientation of a thruster platform. */
-class ThrusterPlatformReferenceAlgorithm final {
+class ThrustVectoringAlgorithm final {
    public:
-    explicit ThrusterPlatformReferenceAlgorithm(const ThrusterPlatformReferenceConfig& config);
-    void setConfig(const ThrusterPlatformReferenceConfig& config);
+    explicit ThrustVectoringAlgorithm(const ThrustVectoringConfig& config);
+    void setConfig(const ThrustVectoringConfig& config);
     void reInitialize();
-    ThrusterPlatformReferenceOutput update(const ThrusterPlatformReferenceInputs& in);
+    ThrustVectoringOutput update(const ThrustVectoringInputs& in);
 
    private:
     /*! Advance the RW momentum integrator and return the momentum-dumping torque request in the platform frame. */
     // NOLINTNEXTLINE(bugprone-easily-swappable-parameters) -- the vectors are distinct by frame and documented.
-    Eigen::Vector3f computeDumpingTorque(const ThrusterPlatformReferenceInputs& in,
+    Eigen::Vector3f computeDumpingTorque(const ThrustVectoringInputs& in,
                                          const Eigen::Vector3f& r_CM_M,
                                          const Eigen::Vector3f& r_TM_F,
                                          const Eigen::Vector3f& thrust_F,
                                          const Eigen::Matrix3f& dcm_MB);
 
-    ThrusterPlatformReferenceConfig cfg;                 //!< [-] validated configuration
+    ThrustVectoringConfig cfg;                           //!< [-] validated configuration
     Eigen::Vector3f hsInt_B{Eigen::Vector3f::Zero()};    //!< [Nms2] integral of RW momentum, B frame
     Eigen::Vector3f priorHs_B{Eigen::Vector3f::Zero()};  //!< [Nms] prior RW momentum, B frame
     Eigen::Matrix3f priorDcm_FM{
         Eigen::Matrix3f::Zero()};  //!< [-] previous cycle's reference DCM [FM] (torque-conversion seed; zero if unset)
 };
 
-#endif  // F32XMERA_THRUSTER_PLATFORM_REFERENCE_ALGORITHM_H
+#endif  // F32XMERA_THRUST_VECTORING_ALGORITHM_H

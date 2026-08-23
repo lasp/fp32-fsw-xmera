@@ -1,4 +1,4 @@
-#include "thrusterPlatformReferenceAlgorithm.h"
+#include "thrustVectoringAlgorithm.h"
 
 #include <math.h>
 #include <numbers>
@@ -73,12 +73,12 @@ Eigen::Matrix3f clampThrustDeflection(const Eigen::Matrix3f& dcm_FM, const Eigen
  @return requested thruster torque, platform-frame coordinates
 */
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters) -- the vectors are distinct by frame and documented.
-Eigen::Vector3f ThrusterPlatformReferenceAlgorithm::computeDumpingTorque(const ThrusterPlatformReferenceInputs& in,
-                                                                         const Eigen::Vector3f& r_CM_M,
-                                                                         const Eigen::Vector3f& r_TM_F,
-                                                                         const Eigen::Vector3f& thrust_F,
-                                                                         const Eigen::Matrix3f& dcm_MB) {
-    const ThrusterPlatformReferenceRwArrayConfiguration& rwConfig = this->cfg.getRwConfig();
+Eigen::Vector3f ThrustVectoringAlgorithm::computeDumpingTorque(const ThrustVectoringInputs& in,
+                                                               const Eigen::Vector3f& r_CM_M,
+                                                               const Eigen::Vector3f& r_TM_F,
+                                                               const Eigen::Vector3f& thrust_F,
+                                                               const Eigen::Matrix3f& dcm_MB) {
+    const ThrustVectoringRwArrayConfiguration& rwConfig = this->cfg.getRwConfig();
 
     // compute net RW momentum in body frame
     Eigen::Vector3f hs_B = Eigen::Vector3f::Zero();
@@ -114,8 +114,7 @@ Eigen::Vector3f ThrusterPlatformReferenceAlgorithm::computeDumpingTorque(const T
 /*! @brief Construct the algorithm with a validated configuration and seed the runtime integrator state.
  @param config Validated configuration (geometry, gains, angle bounds, RW configuration).
 */
-ThrusterPlatformReferenceAlgorithm::ThrusterPlatformReferenceAlgorithm(const ThrusterPlatformReferenceConfig& config)
-    : cfg(config) {
+ThrustVectoringAlgorithm::ThrustVectoringAlgorithm(const ThrustVectoringConfig& config) : cfg(config) {
     this->setConfig(config);
     this->reInitialize();
 }
@@ -123,12 +122,10 @@ ThrusterPlatformReferenceAlgorithm::ThrusterPlatformReferenceAlgorithm(const Thr
 /*! @brief Replace the stored configuration at runtime without disturbing the runtime integrator state.
  @param config New validated configuration to apply.
 */
-void ThrusterPlatformReferenceAlgorithm::setConfig(const ThrusterPlatformReferenceConfig& config) {
-    this->cfg = config;
-}
+void ThrustVectoringAlgorithm::setConfig(const ThrustVectoringConfig& config) { this->cfg = config; }
 
 /*! @brief Re-seed the runtime state (RW momentum integral, prior sample, prior pointing DCM) to its initial values. */
-void ThrusterPlatformReferenceAlgorithm::reInitialize() {
+void ThrustVectoringAlgorithm::reInitialize() {
     this->hsInt_B.setZero();
     this->priorHs_B.setZero();
     this->priorDcm_FM.setZero();
@@ -137,11 +134,11 @@ void ThrusterPlatformReferenceAlgorithm::reInitialize() {
 /*! This method computes the platform reference orientation that points the thruster line of action through the
  system center of mass (or produces a torque to dump reaction-wheel momentum) and the associated body-heading,
  thruster-torque and thruster-configuration quantities.
- @return ThrusterPlatformReferenceOutput derived body-frame thruster quantities
+ @return ThrustVectoringOutput derived body-frame thruster quantities
  @param in per-cycle inputs read from the input messages
 */
-ThrusterPlatformReferenceOutput ThrusterPlatformReferenceAlgorithm::update(const ThrusterPlatformReferenceInputs& in) {
-    ThrusterPlatformReferenceOutput out{};
+ThrustVectoringOutput ThrustVectoringAlgorithm::update(const ThrustVectoringInputs& in) {
+    ThrustVectoringOutput out{};
 
     const Eigen::Matrix3f dcm_MB = mrpToDcm(this->cfg.getSigma_MB());  // B to M DCM
     const Eigen::Vector3f r_CM_B = in.r_CB_B - this->cfg.getR_MB_B();  // position of C w.r.t. M, B coordinates

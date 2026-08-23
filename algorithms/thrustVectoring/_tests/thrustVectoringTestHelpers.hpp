@@ -1,7 +1,7 @@
-#ifndef TEST_THRUSTER_PLATFORM_REFERENCE_H
-#define TEST_THRUSTER_PLATFORM_REFERENCE_H
+#ifndef TEST_THRUST_VECTORING_H
+#define TEST_THRUST_VECTORING_H
 
-#include "thrusterPlatformReferenceAlgorithm.h"
+#include "thrustVectoringAlgorithm.h"
 #include "utilities/fsw/rigidBodyKinematics.hpp"
 #include <gtest/gtest.h>
 #include <Eigen/Core>
@@ -11,20 +11,20 @@
 // Build a validated configuration with an empty reaction-wheel array, so the wheel momentum and the requested
 // dumping torque both vanish (pure center-of-mass alignment mode). The default deflection cone is wide enough that
 // it does not clamp the geometries used by the alignment tests.
-inline ThrusterPlatformReferenceConfig makeAlignmentConfig(const Eigen::Vector3f& sigma_MB,
-                                                           const Eigen::Vector3f& r_MB_B,
-                                                           const Eigen::Vector3f& r_FM_F,
-                                                           float thetaMax = 3.0F) {
-    return ThrusterPlatformReferenceConfig::create(
-        sigma_MB, r_MB_B, r_FM_F, 1.0F, 0.0F, 0.0F, 1.0F, thetaMax, ThrusterPlatformReferenceRwArrayConfiguration{});
+inline ThrustVectoringConfig makeAlignmentConfig(const Eigen::Vector3f& sigma_MB,
+                                                 const Eigen::Vector3f& r_MB_B,
+                                                 const Eigen::Vector3f& r_FM_F,
+                                                 float thetaMax = 3.0F) {
+    return ThrustVectoringConfig::create(
+        sigma_MB, r_MB_B, r_FM_F, 1.0F, 0.0F, 0.0F, 1.0F, thetaMax, ThrustVectoringRwArrayConfiguration{});
 }
 
 // Assemble the per-cycle inputs from the center-of-mass position and thruster geometry.
-inline ThrusterPlatformReferenceInputs makeInputs(const Eigen::Vector3f& r_CB_B,
-                                                  const Eigen::Vector3f& rThrust_F,
-                                                  const Eigen::Vector3f& tHatThrust_F,
-                                                  float maxThrust) {
-    ThrusterPlatformReferenceInputs in{};
+inline ThrustVectoringInputs makeInputs(const Eigen::Vector3f& r_CB_B,
+                                        const Eigen::Vector3f& rThrust_F,
+                                        const Eigen::Vector3f& tHatThrust_F,
+                                        float maxThrust) {
+    ThrustVectoringInputs in{};
     in.r_CB_B = r_CB_B;
     in.r_TF_F = rThrust_F;
     in.tHat_F = tHatThrust_F.normalized();
@@ -36,17 +36,17 @@ inline ThrusterPlatformReferenceInputs makeInputs(const Eigen::Vector3f& r_CB_B,
 // system center of mass, so the reported body-frame thrust direction is parallel to the
 // thruster-to-center-of-mass vector and the net thruster torque vanishes. The thruster-to-center-of-mass distance
 // is checked against the ray-sphere intersection computed independently from the raw configuration.
-inline void regressionTestThrusterPlatformReference(const Eigen::Vector3f& sigma_MB,
-                                                    const Eigen::Vector3f& r_MB_B,
-                                                    const Eigen::Vector3f& r_FM_F,
-                                                    const Eigen::Vector3f& r_CB_B,
-                                                    const Eigen::Vector3f& rThrust_F,
-                                                    const Eigen::Vector3f& tHatThrust_F,
-                                                    float maxThrust,
-                                                    float accuracy) {
-    ThrusterPlatformReferenceAlgorithm alg{makeAlignmentConfig(sigma_MB, r_MB_B, r_FM_F)};
-    const ThrusterPlatformReferenceInputs in = makeInputs(r_CB_B, rThrust_F, tHatThrust_F, maxThrust);
-    const ThrusterPlatformReferenceOutput out = alg.update(in);
+inline void regressionTestThrustVectoring(const Eigen::Vector3f& sigma_MB,
+                                          const Eigen::Vector3f& r_MB_B,
+                                          const Eigen::Vector3f& r_FM_F,
+                                          const Eigen::Vector3f& r_CB_B,
+                                          const Eigen::Vector3f& rThrust_F,
+                                          const Eigen::Vector3f& tHatThrust_F,
+                                          float maxThrust,
+                                          float accuracy) {
+    ThrustVectoringAlgorithm alg{makeAlignmentConfig(sigma_MB, r_MB_B, r_FM_F)};
+    const ThrustVectoringInputs in = makeInputs(r_CB_B, rThrust_F, tHatThrust_F, maxThrust);
+    const ThrustVectoringOutput out = alg.update(in);
 
     // Thrust magnitude preserved and the reported heading is a unit vector.
     EXPECT_NEAR(out.thrust, maxThrust, accuracy);
@@ -92,8 +92,8 @@ inline void propertyOutputsFinite(const Eigen::Vector3f& sigma_MB,
         return;
     }
 
-    ThrusterPlatformReferenceAlgorithm alg{makeAlignmentConfig(sigma_MB, r_MB_B, r_FM_F)};
-    const ThrusterPlatformReferenceOutput out = alg.update(makeInputs(r_CB_B, rThrust_F, tHatThrust_F, maxThrust));
+    ThrustVectoringAlgorithm alg{makeAlignmentConfig(sigma_MB, r_MB_B, r_FM_F)};
+    const ThrustVectoringOutput out = alg.update(makeInputs(r_CB_B, rThrust_F, tHatThrust_F, maxThrust));
 
     EXPECT_TRUE(out.r_TB_B.allFinite());
     EXPECT_TRUE(out.tHat_B.allFinite());
@@ -101,4 +101,4 @@ inline void propertyOutputsFinite(const Eigen::Vector3f& sigma_MB,
     EXPECT_NEAR(out.tHat_B.norm(), 1.0F, 1e-3F);
 }
 
-#endif  // TEST_THRUSTER_PLATFORM_REFERENCE_H
+#endif  // TEST_THRUST_VECTORING_H

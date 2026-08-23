@@ -4,7 +4,7 @@ import numpy as np
 
 # Import all the modules that are going to be called in this simulation
 from xmera.utilities import SimulationBaseClass
-from xmera.fp32 import thrusterPlatformReferenceF32
+from xmera.fp32 import thrustVectoringF32
 from xmera.utilities import macros
 from xmera.utilities import RigidBodyKinematics as rbk
 from xmera.architecture import messaging
@@ -21,12 +21,12 @@ from xmera.architecture import sim_model
 @pytest.mark.parametrize("wheel_speed", [0.0, 100.0])
 @pytest.mark.parametrize("theta_max", [np.pi / 2, np.pi / 36])
 @pytest.mark.parametrize("accuracy", [1e-4])
-def test_thruster_platform_reference(show_plots, delta_cm, k, wheel_speed, theta_max, seed, accuracy):
+def test_thrust_vectoring(show_plots, delta_cm, k, wheel_speed, theta_max, seed, accuracy):
     r"""
     **Validation Test Description**
 
     This unit test script tests the correctness of the platform reference orientation computed by
-    :ref:`thrusterPlatformReference`. The correctness of the output is determined based on whether the thruster
+    :ref:`thrustVectoring`. The correctness of the output is determined based on whether the thruster
     line of action is aligned with the system's center of mass, when the reaction wheels carry no momentum to dump.
     Moreover, the other module output messages, ``bodyHeadingOutMsg`` and ``thrusterConfigBOutMsg``, are checked
     versus equivalent python code.
@@ -61,10 +61,10 @@ def test_thruster_platform_reference(show_plots, delta_cm, k, wheel_speed, theta
     The offset vectors provided as input parameters ensure that a solution exists, such that the Unit Test can
     correctly assess the alignment of the thruster. This is, in general, not guaranteed.
     """
-    thruster_platform_reference_test_function(show_plots, delta_cm, k, wheel_speed, theta_max, seed, accuracy)
+    thrust_vectoring_test_function(show_plots, delta_cm, k, wheel_speed, theta_max, seed, accuracy)
 
 
-def thruster_platform_reference_test_function(show_plots, delta_cm, k, wheel_speed, theta_max, seed, accuracy):
+def thrust_vectoring_test_function(show_plots, delta_cm, k, wheel_speed, theta_max, seed, accuracy):
 
     # seed numpy's generator (used for the random center-of-mass shift below) so the test is deterministic and
     # independent of execution order
@@ -93,7 +93,7 @@ def thruster_platform_reference_test_function(show_plots, delta_cm, k, wheel_spe
     test_proc.addTask(unit_test_sim.CreateNewTask(unit_task_name, test_process_rate))
 
     # Construct algorithm and associated C++ container
-    platform = thrusterPlatformReferenceF32.ThrusterPlatformReference()
+    platform = thrustVectoringF32.ThrustVectoring()
     platform.modelTag = "platformReference"
 
     # Add test module to runtime call list
@@ -191,7 +191,7 @@ def thruster_platform_reference_test_function(show_plots, delta_cm, k, wheel_spe
 # stand-along python script
 #
 if __name__ == "__main__":
-    test_thruster_platform_reference(
+    test_thrust_vectoring(
         False,                   # show_plots
         0.1,                     # delta_cm
         1,                       # k

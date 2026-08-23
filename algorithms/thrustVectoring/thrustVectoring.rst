@@ -9,26 +9,26 @@ on the spacecraft. The module reports the resulting thruster direction in body-f
 is responsible for computing the platform gimbal angles that realize it.
 
 All numeric computation is single-precision (``float`` / fp32). The module is a single algorithm
-(``ThrusterPlatformReferenceAlgorithm``) with two interface adapters: a ``SysModel`` adapter that connects it to
+(``ThrustVectoringAlgorithm``) with two interface adapters: a ``SysModel`` adapter that connects it to
 the Xmera system via messages, and a C shim that connects it to the Adamant system via the C/Ada FFI.
 
 Module Architecture
 -------------------
-The **algorithm** (``ThrusterPlatformReferenceAlgorithm``) is framework-free and Eigen-typed; it implements the
+The **algorithm** (``ThrustVectoringAlgorithm``) is framework-free and Eigen-typed; it implements the
 mathematics below and holds the reaction-wheel momentum integrator state. It never sees a message payload: its
-inputs and outputs are the ``ThrusterPlatformReferenceInputs`` and ``ThrusterPlatformReferenceOutput`` structs. Two
+inputs and outputs are the ``ThrustVectoringInputs`` and ``ThrustVectoringOutput`` structs. Two
 interface adapters wrap it.
 
-The **Xmera adapter** (``ThrusterPlatformReference``) inherits from ``SysModel`` and owns all messaging concerns.
+The **Xmera adapter** (``ThrustVectoring``) inherits from ``SysModel`` and owns all messaging concerns.
 Configuration parameters are exposed as public member variables (two-phase initialization): the caller sets them,
 then calls ``reset()``, which validates that the required input messages are connected and builds a validated
-``ThrusterPlatformReferenceConfig`` from the current property values and the reaction-wheel configuration message.
+``ThrustVectoringConfig`` from the current property values and the reaction-wheel configuration message.
 ``updateState()`` reads the input messages, converts the payload ``float[3]`` arrays to Eigen types via
 ``eigenSupport.h``, invokes the algorithm, and packs the results back into the output payloads. ``reconfigure()``
 re-pushes the current properties into the running algorithm without disturbing its runtime state, and
 ``reInitialize()`` re-seeds that runtime state.
 
-The **Adamant adapter** is a C shim (``thrusterPlatformReferenceAlgorithm_c.h`` / ``.cpp``) that exposes the
+The **Adamant adapter** is a C shim (``thrustVectoringAlgorithm_c.h`` / ``.cpp``) that exposes the
 algorithm through an ``extern "C"`` interface so Adamant components can call it via the C/Ada FFI bindings.
 
 Message Connection Descriptions
@@ -267,7 +267,7 @@ User Guide
 The module uses two-phase initialization: set the public configuration properties, connect the input messages,
 then add the module to the simulation task (``reset()`` validates and builds the configuration)::
 
-    platformReference = thrusterPlatformReferenceF32.ThrusterPlatformReference()
+    platformReference = thrustVectoringF32.ThrustVectoring()
     platformReference.modelTag = "platformReference"
     platformReference.sigma_MB = sigma_MB
     platformReference.r_MB_B = r_MB_B

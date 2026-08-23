@@ -1,20 +1,20 @@
-#ifndef F32XMERA_THRUSTER_PLATFORM_REFERENCE_H
-#define F32XMERA_THRUSTER_PLATFORM_REFERENCE_H
+#ifndef F32XMERA_THRUST_VECTORING_H
+#define F32XMERA_THRUST_VECTORING_H
 
 #include "msgPayloadDef/BodyHeadingMsgF32Payload.h"
 #include "msgPayloadDef/RWArrayConfigMsgF32Payload.h"
 #include "msgPayloadDef/RWSpeedMsgF32Payload.h"
 #include "msgPayloadDef/THRConfigMsgF32Payload.h"
 #include "msgPayloadDef/VehicleConfigMsgF32Payload.h"
-#include "thrusterPlatformReferenceAlgorithm.h"
+#include "thrustVectoringAlgorithm.h"
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
 #include <stdint.h>
 
 #include <memory>
 
-/*! @brief Adapter for the thruster platform reference algorithm. */
-class ThrusterPlatformReference final : public SysModel {
+/*! @brief Adapter for the thrust vectoring algorithm. */
+class ThrustVectoring final : public SysModel {
    public:
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
@@ -48,8 +48,8 @@ class ThrusterPlatformReference final : public SysModel {
         thrusterConfigBOutMsg;  //!< output msg containing the thruster configuration infor in B-frame
 
    private:
-    ThrusterPlatformReferenceConfig toConfig();
-    std::unique_ptr<ThrusterPlatformReferenceAlgorithm> algorithm = nullptr;  //!< algorithm instance
+    ThrustVectoringConfig toConfig();
+    std::unique_ptr<ThrustVectoringAlgorithm> algorithm = nullptr;  //!< algorithm instance
 };
 
-#endif  // F32XMERA_THRUSTER_PLATFORM_REFERENCE_H
+#endif  // F32XMERA_THRUST_VECTORING_H
