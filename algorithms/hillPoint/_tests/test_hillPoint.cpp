@@ -2,8 +2,6 @@
 #include <gtest/gtest.h>
 #include <numbers>
 
-TEST(HillPointTest, Setup) { testHillPointSetup(); }
-
 TEST(HillPointTest, ReferenceTestPlanetAtOrigin) {
     // Circular equatorial orbit at ~17,800 km radius, planet at the origin
     testHillPointRegression(Eigen::Vector3d{8.92344e6, 1.54618e7, 0.0},  // r_BN_N

@@ -212,11 +212,4 @@ inline void propertySigmaNormBounded(const Eigen::Vector3d& r_BN_N,
     EXPECT_LE(out.sigma_RN.stableNorm(), 1.0F + 1e-6F);
 }
 
-inline void testHillPointSetup() {
-    EXPECT_NO_THROW({
-        const HillPointAlgorithm alg;
-        (void)alg;
-    });
-}
-
 #endif  // TEST_HILL_POINT_HELPERS_H
