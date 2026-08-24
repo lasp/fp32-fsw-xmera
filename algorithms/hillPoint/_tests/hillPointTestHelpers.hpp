@@ -30,7 +30,7 @@ inline ReferenceHillPointOutput referenceHillPoint(const Eigen::Vector3d& r_BN_N
 
     ReferenceHillPointOutput out{Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero()};
 
-    if (r_norm > HillPointAlgorithm::minOrbitRadius_m) {
+    if (r_norm > HillPointAlgorithm::kMinOrbitRadius && v_BP_N.squaredNorm() > 0.0) {
         const double dotProduct = r_BP_N.stableNormalized().dot(v_BP_N.stableNormalized());
         const double posVelSeparationAngle = safeAcos(std::abs(dotProduct));
 
