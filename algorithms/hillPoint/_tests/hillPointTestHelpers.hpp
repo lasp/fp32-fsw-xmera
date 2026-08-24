@@ -4,6 +4,7 @@
 #include "hillPointAlgorithm.h"
 #include "hillPointTypes.h"
 #include "utilities/fsw/rigidBodyKinematics.hpp"
+#include "utilities/fsw/safeMath.h"
 
 #include <gtest/gtest.h>
 #include <Eigen/Core>
@@ -30,26 +31,31 @@ inline ReferenceHillPointOutput referenceHillPoint(const Eigen::Vector3d& r_BN_N
     ReferenceHillPointOutput out{Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero()};
 
     if (r_norm > HillPointAlgorithm::minOrbitRadius_m) {
-        const Eigen::Vector3d i_r = r_BP_N.normalized();
-        const Eigen::Vector3d i_h = h.normalized();
-        const Eigen::Vector3d i_theta = i_h.cross(i_r);
+        const double dotProduct = r_BP_N.stableNormalized().dot(v_BP_N.stableNormalized());
+        const double posVelSeparationAngle = safeAcos(std::abs(dotProduct));
 
-        Eigen::Matrix3d dcm_RN;
-        dcm_RN.row(0) = i_r;
-        dcm_RN.row(1) = i_theta;
-        dcm_RN.row(2) = i_h;
+        if (posVelSeparationAngle >= HillPointAlgorithm::kSmallAngleThreshold) {
+            const Eigen::Vector3d i_r = r_BP_N.stableNormalized();
+            const Eigen::Vector3d i_h = h.stableNormalized();
+            const Eigen::Vector3d i_theta = i_h.cross(i_r);
 
-        const double dfdt = h.norm() / (r_norm * r_norm);
-        const double ddfdt2 = -2.0 * v_BP_N.dot(i_r) / r_norm * dfdt;
+            Eigen::Matrix3d dcm_RN;
+            dcm_RN.row(0) = i_r;
+            dcm_RN.row(1) = i_theta;
+            dcm_RN.row(2) = i_h;
 
-        const Eigen::Vector3d omega_RN_R{0.0, 0.0, dfdt};
-        const Eigen::Vector3d domega_RN_R{0.0, 0.0, ddfdt2};
+            const double dfdt = h.stableNorm() / (r_norm * r_norm);
+            const double ddfdt2 = -2.0 * v_BP_N.dot(i_r) / r_norm * dfdt;
 
-        out = {
-            dcmToMrp(dcm_RN),
-            dcm_RN.transpose() * omega_RN_R,
-            dcm_RN.transpose() * domega_RN_R,
-        };
+            const Eigen::Vector3d omega_RN_R{0.0, 0.0, dfdt};
+            const Eigen::Vector3d domega_RN_R{0.0, 0.0, ddfdt2};
+
+            out = {
+                dcmToMrp(dcm_RN),
+                dcm_RN.transpose() * omega_RN_R,
+                dcm_RN.transpose() * domega_RN_R,
+            };
+        }
     }
     return out;
 }
