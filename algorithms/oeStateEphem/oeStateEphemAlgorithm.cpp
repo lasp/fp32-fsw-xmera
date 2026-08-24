@@ -4,9 +4,14 @@
 #include "utilities/fsw/timeConstants.h"
 #include <algorithm>
 
-OEStateEphemAlgorithm::OEStateEphemAlgorithm(const OEStateEphemConfig& config) : cfg(config) { setConfig(config); }
+OEStateEphemAlgorithm::OEStateEphemAlgorithm(const OEStateEphemConfig& config) : cfg(config) { this->cfg.validate(); }
 
-void OEStateEphemAlgorithm::setConfig(const OEStateEphemConfig& config) { this->cfg = config; }
+void OEStateEphemAlgorithm::setConfig(const OEStateEphemConfig& config) {
+    // Validate the incoming config before touching the active one, so a rejected
+    // config (e.g. an empty one) leaves the algorithm on its current configuration.
+    config.validate();
+    this->cfg = config;
+}
 
 /*! This method selects the Chebyshev fit arc whose middle time is closest to the supplied ephemeris time.
     @return ChebyshevFitArc The arc record with coefficients closest to the current time

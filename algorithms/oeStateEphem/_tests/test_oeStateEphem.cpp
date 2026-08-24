@@ -245,3 +245,210 @@ TEST(OEStateEphemUpdateTest, MeanAnomalyElliptic) {
 TEST(OEStateEphemUpdateTest, MeanAnomalyHighEccentricity) {
     EXPECT_NO_THROW(testOEStateEphemUpdate(EARTH_MU, 7000000.0, 0.7, 0.8, 0.3, 1.5, 2.8, AnomalyType::MEAN_ANOMALY));
 }
+
+// ============================================================================
+// INCREMENTAL (BUILDER) CONFIGURATION TESTS
+// ============================================================================
+
+namespace {
+
+// An arc with a distinct non-zero value in every scalar field and in every coefficient
+// slot of all six arrays, so any dropped, swapped, or truncated field in a copy shows
+// up as a value mismatch.
+ChebyshevFitArc makeDistinctValueArc(const double base = 0.0) {
+    ChebyshevFitArc arc{};
+    arc.numberChebCoefficients = static_cast<unsigned int>(kMaxOeCoeff);
+    arc.ephemerisTimeMiddle = base + 1234.5;
+    arc.ephemerisTimeRadius = base + 678.9;
+    arc.anomalyFlag = AnomalyType::MEAN_ANOMALY;
+    for (std::size_t i = 0U; i < kMaxOeCoeff; ++i) {
+        const auto offset = static_cast<double>(i);
+        arc.radiusPeriapsisCoefficients.at(i) = base + 1000.0 + offset;
+        arc.eccentricityCoefficients.at(i) = base + 2000.0 + offset;
+        arc.inclinationCoefficients.at(i) = base + 3000.0 + offset;
+        arc.argPeriapsisCoefficients.at(i) = base + 4000.0 + offset;
+        arc.raanCoefficients.at(i) = base + 5000.0 + offset;
+        arc.trueAnomalyCoefficients.at(i) = base + 6000.0 + offset;
+    }
+    return arc;
+}
+
+void expectArcsEqual(const ChebyshevFitArc& actual, const ChebyshevFitArc& expected) {
+    EXPECT_EQ(expected.numberChebCoefficients, actual.numberChebCoefficients);
+    EXPECT_EQ(expected.ephemerisTimeMiddle, actual.ephemerisTimeMiddle);
+    EXPECT_EQ(expected.ephemerisTimeRadius, actual.ephemerisTimeRadius);
+    EXPECT_EQ(expected.anomalyFlag, actual.anomalyFlag);
+    for (std::size_t i = 0U; i < kMaxOeCoeff; ++i) {
+        EXPECT_EQ(expected.radiusPeriapsisCoefficients.at(i), actual.radiusPeriapsisCoefficients.at(i));
+        EXPECT_EQ(expected.eccentricityCoefficients.at(i), actual.eccentricityCoefficients.at(i));
+        EXPECT_EQ(expected.inclinationCoefficients.at(i), actual.inclinationCoefficients.at(i));
+        EXPECT_EQ(expected.argPeriapsisCoefficients.at(i), actual.argPeriapsisCoefficients.at(i));
+        EXPECT_EQ(expected.raanCoefficients.at(i), actual.raanCoefficients.at(i));
+        EXPECT_EQ(expected.trueAnomalyCoefficients.at(i), actual.trueAnomalyCoefficients.at(i));
+    }
+}
+
+}  // namespace
+
+TEST(OEStateEphemConfigBuilderTest, DefaultConstructedIsEmptyAndFailsValidate) {
+    const OEStateEphemConfig config;
+    EXPECT_EQ(0U, config.getNumberOfArcs());
+    EXPECT_THROW(config.validate(), fsw::invalid_argument);
+}
+
+TEST(OEStateEphemConfigBuilderTest, SetScalarsStores) {
+    OEStateEphemConfig config;
+    config.setScalars(EARTH_MU, 1000.0, 500.0);
+    EXPECT_EQ(EARTH_MU, config.getCentralBodyGravitationalParameter());
+    EXPECT_EQ(1000.0, config.getEphemerisTimeJ2000());
+    EXPECT_EQ(500.0, config.getVehicleTimeOffset());
+}
+
+TEST(OEStateEphemConfigBuilderTest, SetScalarsThrowsWithoutModifying) {
+    OEStateEphemConfig config;
+    config.setScalars(EARTH_MU, 1000.0, 500.0);
+    EXPECT_THROW(config.setScalars(-1.0, 0.0, 0.0), fsw::invalid_argument);
+    EXPECT_THROW(config.setScalars(EARTH_MU, -1.0, 0.0), fsw::invalid_argument);
+    EXPECT_THROW(config.setScalars(EARTH_MU, 0.0, -1.0), fsw::invalid_argument);
+    EXPECT_EQ(EARTH_MU, config.getCentralBodyGravitationalParameter());
+    EXPECT_EQ(1000.0, config.getEphemerisTimeJ2000());
+    EXPECT_EQ(500.0, config.getVehicleTimeOffset());
+}
+
+TEST(OEStateEphemConfigBuilderTest, AddArcAppendsAndOwnsCount) {
+    OEStateEphemConfig config;
+    config.setScalars(EARTH_MU, 0.0, 0.0);
+    config.addArc(makeDistinctValueArc(100.0));
+    EXPECT_EQ(1U, config.getNumberOfArcs());
+    config.addArc(makeDistinctValueArc(200.0));
+    EXPECT_EQ(2U, config.getNumberOfArcs());
+    expectArcsEqual(config.getFitCoefficients().at(0), makeDistinctValueArc(100.0));
+    expectArcsEqual(config.getFitCoefficients().at(1), makeDistinctValueArc(200.0));
+    EXPECT_NO_THROW(config.validate());
+}
+
+TEST(OEStateEphemConfigBuilderTest, AddArcRejectsInvalidArcWithoutModifying) {
+    OEStateEphemConfig config;
+    config.setScalars(EARTH_MU, 0.0, 0.0);
+    config.addArc(makeDistinctValueArc());
+
+    ChebyshevFitArc zeroCount = makeDistinctValueArc();
+    zeroCount.numberChebCoefficients = 0;
+    EXPECT_THROW(config.addArc(zeroCount), fsw::invalid_argument);
+
+    ChebyshevFitArc zeroTime = makeDistinctValueArc();
+    zeroTime.ephemerisTimeMiddle = 0.0;
+    EXPECT_THROW(config.addArc(zeroTime), fsw::invalid_argument);
+
+    ChebyshevFitArc nanActive = makeDistinctValueArc();
+    nanActive.inclinationCoefficients[0] = std::numeric_limits<double>::quiet_NaN();
+    EXPECT_THROW(config.addArc(nanActive), fsw::invalid_argument);
+
+    EXPECT_EQ(1U, config.getNumberOfArcs());
+    EXPECT_NO_THROW(config.validate());
+}
+
+TEST(OEStateEphemConfigBuilderTest, AddArcRejectsOverflow) {
+    OEStateEphemConfig config;
+    config.setScalars(EARTH_MU, 0.0, 0.0);
+    for (std::size_t i = 0U; i < kMaxOeRecords; ++i) {
+        config.addArc(makeDistinctValueArc(static_cast<double>(i)));
+    }
+    EXPECT_EQ(static_cast<unsigned int>(kMaxOeRecords), config.getNumberOfArcs());
+    EXPECT_THROW(config.addArc(makeDistinctValueArc()), fsw::invalid_argument);
+    EXPECT_EQ(static_cast<unsigned int>(kMaxOeRecords), config.getNumberOfArcs());
+    EXPECT_NO_THROW(config.validate());
+}
+
+TEST(OEStateEphemConfigBuilderTest, IncrementalBuildMatchesCreate) {
+    std::array<ChebyshevFitArc, kMaxOeRecords> arcs{};
+    arcs[0] = makeDistinctValueArc(100.0);
+    arcs[1] = makeDistinctValueArc(200.0);
+    const auto fromCreate = OEStateEphemConfig::create(EARTH_MU, 2, 1000.0, 500.0, arcs);
+
+    OEStateEphemConfig built;
+    built.setScalars(EARTH_MU, 1000.0, 500.0);
+    built.addArc(arcs[0]);
+    built.addArc(arcs[1]);
+
+    EXPECT_EQ(fromCreate.getCentralBodyGravitationalParameter(), built.getCentralBodyGravitationalParameter());
+    EXPECT_EQ(fromCreate.getNumberOfArcs(), built.getNumberOfArcs());
+    EXPECT_EQ(fromCreate.getEphemerisTimeJ2000(), built.getEphemerisTimeJ2000());
+    EXPECT_EQ(fromCreate.getVehicleTimeOffset(), built.getVehicleTimeOffset());
+    for (std::size_t i = 0U; i < kMaxOeRecords; ++i) {
+        expectArcsEqual(built.getFitCoefficients().at(i), fromCreate.getFitCoefficients().at(i));
+    }
+}
+
+TEST(OEStateEphemConfigBuilderTest, ResetReturnsToEmptyAndZeroesStorage) {
+    OEStateEphemConfig config;
+    config.setScalars(EARTH_MU, 1000.0, 500.0);
+    config.addArc(makeDistinctValueArc());
+    config.reset();
+
+    EXPECT_EQ(0U, config.getNumberOfArcs());
+    EXPECT_EQ(0.0, config.getCentralBodyGravitationalParameter());
+    EXPECT_EQ(0.0, config.getEphemerisTimeJ2000());
+    EXPECT_EQ(0.0, config.getVehicleTimeOffset());
+    EXPECT_THROW(config.validate(), fsw::invalid_argument);
+    // The previously written slot must be zeroed, not left stale, so inactive slots
+    // are deterministic for configuration read-back.
+    expectArcsEqual(config.getFitCoefficients().at(0), ChebyshevFitArc{});
+}
+
+TEST(OEStateEphemAlgorithmAcceptTest, ConstructorRejectsEmptyConfig) {
+    const OEStateEphemConfig empty;
+    EXPECT_THROW(OEStateEphemAlgorithm{empty}, fsw::invalid_argument);
+}
+
+TEST(OEStateEphemAlgorithmAcceptTest, SetConfigRejectsEmptyWithoutModifying) {
+    OEStateEphemConfig built;
+    built.setScalars(EARTH_MU, 1000.0, 500.0);
+    built.addArc(makeDistinctValueArc());
+    OEStateEphemAlgorithm algorithm{built};
+
+    const OEStateEphemConfig empty;
+    EXPECT_THROW(algorithm.setConfig(empty), fsw::invalid_argument);
+    EXPECT_EQ(EARTH_MU, algorithm.getConfig().getCentralBodyGravitationalParameter());
+    EXPECT_EQ(1U, algorithm.getConfig().getNumberOfArcs());
+    expectArcsEqual(algorithm.getConfig().getFitCoefficients().at(0), makeDistinctValueArc());
+}
+
+TEST(OEStateEphemAlgorithmAcceptTest, SetConfigReplacesConfiguration) {
+    OEStateEphemConfig first;
+    first.setScalars(EARTH_MU, 0.0, 0.0);
+    first.addArc(makeDistinctValueArc(100.0));
+    OEStateEphemAlgorithm algorithm{first};
+
+    OEStateEphemConfig second;
+    second.setScalars(MOON_MU, 42.0, 7.0);
+    second.addArc(makeDistinctValueArc(200.0));
+    second.addArc(makeDistinctValueArc(300.0));
+    algorithm.setConfig(second);
+
+    const auto& config = algorithm.getConfig();
+    EXPECT_EQ(MOON_MU, config.getCentralBodyGravitationalParameter());
+    EXPECT_EQ(2U, config.getNumberOfArcs());
+    EXPECT_EQ(42.0, config.getEphemerisTimeJ2000());
+    EXPECT_EQ(7.0, config.getVehicleTimeOffset());
+    expectArcsEqual(config.getFitCoefficients().at(0), makeDistinctValueArc(200.0));
+    expectArcsEqual(config.getFitCoefficients().at(1), makeDistinctValueArc(300.0));
+}
+
+TEST(OEStateEphemAlgorithmAcceptTest, BuiltConfigProducesSameStateAsCreate) {
+    std::array<ChebyshevFitArc, kMaxOeRecords> arcs{};
+    arcs[0] = makeConstantArc(7000000.0, 0.1, 0.4, 0.7, 1.1, 0.3, AnomalyType::TRUE_ANOMALY, 1000.0, 500.0);
+    const OEStateEphemAlgorithm reference{OEStateEphemConfig::create(EARTH_MU, 1, 1000.0, 0.0, arcs)};
+
+    OEStateEphemConfig built;
+    built.setScalars(EARTH_MU, 1000.0, 0.0);
+    built.addArc(arcs[0]);
+    const OEStateEphemAlgorithm fromBuilt{built};
+
+    const CartesianState expected = reference.update(0);
+    const CartesianState actual = fromBuilt.update(0);
+    for (int axis = 0; axis < 3; ++axis) {
+        EXPECT_EQ(expected.position[axis], actual.position[axis]);
+        EXPECT_EQ(expected.velocity[axis], actual.velocity[axis]);
+    }
+}
