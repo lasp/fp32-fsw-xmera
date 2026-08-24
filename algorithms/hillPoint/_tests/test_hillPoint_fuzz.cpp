@@ -34,7 +34,7 @@ FUZZ_TEST(HillPointFuzz, fuzzHillPoint)
         xmera::fuzz::Vector3dInRange(-1e5, 1e5),
         // Relative spacecraft position [m], same scale as r_PN_N, with |r_BP_N| >= 10 km to
         // stay clear of the small-radius regime where dfdt blows up.
-        fuzztest::Filter([](const Eigen::Vector3d& v) { return v.norm() >= 1.0e4; },
+        fuzztest::Filter([](const Eigen::Vector3d& v) { return v.stableNorm() >= 1.0e4; },
                          xmera::fuzz::Vector3dInRange(-2e13, 2e13)),
         // Relative spacecraft velocity [m/s]
         xmera::fuzz::Vector3dInRange(-1e5, 1e5));
