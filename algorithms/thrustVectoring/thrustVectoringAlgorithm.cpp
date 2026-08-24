@@ -16,16 +16,15 @@ constexpr float kSmallAngle = 1e-3F;     // small angle tolerance [rad]
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters) -- the vectors are distinct by frame and documented.
 Eigen::Matrix3f computeThrusterPointing(const Eigen::Vector3f& r_CM_M,
                                         const Eigen::Vector3f& r_TM_F,
-                                        const Eigen::Vector3f& thrust_F,
+                                        const Eigen::Vector3f& tHat_F,
+                                        float thrust,
                                         const Eigen::Vector3f& Lreq_F) {
     Eigen::Vector3f prv_FM = Eigen::Vector3f::Zero();  // zero rotation when the center of mass coincides with the joint
 
     const float b = r_CM_M.norm();  // distance from the joint M to the center of mass (unchanged by any rotation)
     if (b >= kZeroTolerance) {
-        const Eigen::Vector3f tHat_F = thrust_F.normalized();
-
         // perpendicular arm (in F frame) of the requested-torque line: the CoM positions (in F frame) that give Lreq_F
-        const Eigen::Vector3f r_lineM_F = thrust_F.cross(r_TM_F.cross(thrust_F) - Lreq_F) / thrust_F.squaredNorm();
+        const Eigen::Vector3f r_lineM_F = tHat_F.cross(r_TM_F.cross(tHat_F)) - (tHat_F.cross(Lreq_F) / thrust);
         // r_CtM_F: intersect that line with the distance-b locus (arm r_lineM_F plus an offset along the thrust)
         const float distAlongThrust = safeSqrtf((b * b) - r_lineM_F.squaredNorm());
         const Eigen::Vector3f r_CtM_F = r_lineM_F + (distAlongThrust * tHat_F);
@@ -75,10 +74,11 @@ Eigen::Matrix3f clampThrustDeflection(const Eigen::Matrix3f& dcm_FM, const Eigen
 Eigen::Vector3f ThrustVectoringAlgorithm::torqueInPlatformFrame(const Eigen::Vector3f& Lreq_B,
                                                                 const Eigen::Vector3f& r_CM_M,
                                                                 const Eigen::Vector3f& r_TM_F,
-                                                                const Eigen::Vector3f& thrust_F,
+                                                                const Eigen::Vector3f& tHat_F,
+                                                                float thrust,
                                                                 const Eigen::Matrix3f& dcm_MB) {
     if (this->priorDcm_FM.isZero()) {
-        this->priorDcm_FM = computeThrusterPointing(r_CM_M, r_TM_F, thrust_F, Eigen::Vector3f::Zero());
+        this->priorDcm_FM = computeThrusterPointing(r_CM_M, r_TM_F, tHat_F, thrust, Eigen::Vector3f::Zero());
     }
     return this->priorDcm_FM * dcm_MB * Lreq_B;
 }
@@ -112,16 +112,16 @@ ThrustVectoringOutput ThrustVectoringAlgorithm::update(const Eigen::Vector3f& Lr
     const ThrustVectoringThrusterConfiguration& thruster = this->cfg.getThrusterConfiguration();
     const Eigen::Vector3f& r_CB_B = this->cfg.getR_CB_B();
 
-    const Eigen::Matrix3f dcm_MB = mrpToDcm(platform.sigma_MB);          // B to M DCM
-    const Eigen::Vector3f r_CM_B = r_CB_B - platform.r_MB_B;             // position of C w.r.t. M, B coordinates
-    const Eigen::Vector3f r_CM_M = dcm_MB * r_CM_B;                      // position of C w.r.t. M, M coordinates
-    const Eigen::Vector3f r_TM_F = platform.r_FM_F + thruster.r_TF_F;    // position of T w.r.t. M, F coordinates
-    const Eigen::Vector3f thrust_F = thruster.thrust * thruster.tHat_F;  // thrust vector in F-frame coordinates
+    const Eigen::Matrix3f dcm_MB = mrpToDcm(platform.sigma_MB);        // B to M DCM
+    const Eigen::Vector3f r_CM_B = r_CB_B - platform.r_MB_B;           // position of C w.r.t. M, B coordinates
+    const Eigen::Vector3f r_CM_M = dcm_MB * r_CM_B;                    // position of C w.r.t. M, M coordinates
+    const Eigen::Vector3f r_TM_F = platform.r_FM_F + thruster.r_TF_F;  // position of T w.r.t. M, F coordinates
 
     // requested torque, platform frame (zero -> point the thruster line of action through the center of mass)
-    const Eigen::Vector3f Lreq_F = this->torqueInPlatformFrame(Lreq_B, r_CM_M, r_TM_F, thrust_F, dcm_MB);
+    const Eigen::Vector3f Lreq_F =
+        this->torqueInPlatformFrame(Lreq_B, r_CM_M, r_TM_F, thruster.tHat_F, thruster.thrust, dcm_MB);
 
-    Eigen::Matrix3f dcm_FM = computeThrusterPointing(r_CM_M, r_TM_F, thrust_F, Lreq_F);
+    Eigen::Matrix3f dcm_FM = computeThrusterPointing(r_CM_M, r_TM_F, thruster.tHat_F, thruster.thrust, Lreq_F);
 
     // limit the thrust deflection to the configured cone about its neutral direction
     dcm_FM = clampThrustDeflection(dcm_FM, thruster.tHat_F, platform.thetaMax);
@@ -135,8 +135,8 @@ ThrustVectoringOutput ThrustVectoringAlgorithm::update(const Eigen::Vector3f& Lr
     const Eigen::Vector3f r_TC_F = r_TM_F - r_CM_F;
     const Eigen::Vector3f r_TC_B = dcm_FB.transpose() * r_TC_F;
     out.r_TB_B = r_CB_B + r_TC_B;
-    out.tHat_B = (dcm_FB.transpose() * thrust_F).normalized();
-    out.thrust = thrust_F.norm();
+    out.tHat_B = dcm_FB.transpose() * thruster.tHat_F;
+    out.thrust = thruster.thrust;
 
     return out;
 }

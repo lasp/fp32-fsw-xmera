@@ -144,14 +144,17 @@ through the center of mass and :math:`\|\boldsymbol{r}_\perp\|` is the thrust mo
 component of :math:`\boldsymbol{L}_\text{req}` perpendicular to the thrust is achievable (a force produces no torque
 about its own line of action); the parallel component is dropped by the construction.
 
-The reference rotation :math:`[\mathcal{FM}]` then carries :math:`\hat{\boldsymbol{r}}_{C/M}` onto
-:math:`\hat{\boldsymbol{r}}_{Ct/M}` through the separation angle
-:math:`\phi = \arccos\left(\hat{\boldsymbol{r}}_{C/M}\cdot\hat{\boldsymbol{r}}_{Ct/M}\right)` about the axis
-:math:`\hat{\boldsymbol{e}} = \hat{\boldsymbol{r}}_{Ct/M}\times\hat{\boldsymbol{r}}_{C/M}`, encoded as the principal
-rotation vector :math:`\phi\,\hat{\boldsymbol{e}}`. When the two directions are nearly antiparallel the cross
-product is ill-defined and any axis orthogonal to :math:`\hat{\boldsymbol{r}}_{C/M}` is used for the
-:math:`180^\circ` rotation. When the center of mass coincides with the joint (:math:`b \approx 0`) the pointing is
-undefined and the identity rotation is returned.
+The thrust enters this expression only as a unit direction :math:`\hat{\boldsymbol{t}}` and a magnitude
+:math:`F`, never as the product :math:`F\hat{\boldsymbol{t}}`. Written that way the magnitude cancels from the
+thruster's own moment arm and survives only where it physically belongs, in the arm the requested torque needs:
+
+.. math::
+    \boldsymbol{r}_\perp = \hat{\boldsymbol{t}} \times
+        \left( {}^\mathcal{F}\boldsymbol{r}_{T/M} \times \hat{\boldsymbol{t}} \right)
+        - \frac{\hat{\boldsymbol{t}} \times \boldsymbol{L}_\text{req}}{F}.
+
+For the same reason the body-frame outputs take the thrust direction and magnitude straight from the
+configuration rather than recovering them from a scaled vector.
 
 Requested torque
 ^^^^^^^^^^^^^^^^
@@ -251,6 +254,12 @@ of mass ``CoM_B`` and the thrust application point ``rThrust_B`` must be finite,
 ``tHatThrust_B`` must be a (close to) unit vector, and the thrust magnitude ``maxThrust`` must be finite and
 positive. A zero thrust magnitude leaves the thruster with no line of action to point and is rejected.
 
+The center of mass must also sit farther than ``kMinR_CM`` (:math:`10^{-3}` m) from the platform joint
+:math:`M`, i.e. :math:`\|\boldsymbol{r}_{C/M}\| > 10^{-3}`. The reference rotation turns the center of mass
+about :math:`M`, so a center of mass on the joint leaves the pointing undefined however the platform is oriented
+(see *Thruster pointing*). Rejecting it at ``reset()`` keeps that degenerate geometry out of the algorithm
+entirely rather than leaving it to produce a meaningless reference every cycle.
+
 User Guide
 ----------
 The module uses two-phase initialization: set the public configuration properties, connect the input messages,
@@ -276,6 +285,9 @@ re-read both messages and rebuild the configuration; the runtime state is preser
 
 Module Assumptions and Limitations
 ----------------------------------
+The center of mass must be clear of the platform joint (see *Module Parameters*); the configuration is rejected
+otherwise, so the pointing solve never has to deal with a vanishing moment arm.
+
 The vehicle and thruster configurations are assumed fixed for the life of the module: they are latched at
 ``reset()``. A center of mass that drifts as propellant depletes is not tracked automatically -- the pointing
 degrades in proportion to the drift -- so call ``reconfigure()`` when a new estimate is available.

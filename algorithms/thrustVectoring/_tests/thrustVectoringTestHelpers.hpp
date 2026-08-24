@@ -2,6 +2,7 @@
 #define TEST_THRUST_VECTORING_H
 
 #include "thrustVectoringAlgorithm.h"
+#include "utilities/fsw/freestandingInvalidArgument.h"
 #include "utilities/fsw/rigidBodyKinematics.hpp"
 #include <gtest/gtest.h>
 #include <Eigen/Core>
@@ -78,9 +79,10 @@ inline void regressionTestThrustVectoring(const Eigen::Vector3f& sigma_MB,
     EXPECT_NEAR(r_CT_B.norm(), std::fabs(ct), accuracy);
 }
 
-// Property helper: for finite, non-degenerate geometry the platform reference is well defined, so every output
-// is finite and the reported thrust headings are unit vectors. Perfect center-of-mass alignment is not asserted
-// because a solution is not guaranteed for arbitrary geometry.
+// Property helper: every input either describes a configuration the module rejects, or produces finite outputs
+// with a unit-norm thrust heading. Nothing is silently skipped: the degenerate geometry the module cannot solve
+// is asserted to be rejected at construction rather than filtered out of the test. Perfect center-of-mass
+// alignment is not asserted, because a solution is not guaranteed for arbitrary geometry.
 inline void propertyOutputsFinite(const Eigen::Vector3f& sigma_MB,
                                   const Eigen::Vector3f& r_MB_B,
                                   const Eigen::Vector3f& r_FM_F,
@@ -89,15 +91,22 @@ inline void propertyOutputsFinite(const Eigen::Vector3f& sigma_MB,
                                   const Eigen::Vector3f& tHatThrust_F,
                                   float maxThrust,
                                   const Eigen::Vector3f& Lreq_B) {
-    // Skip degenerate geometry the configuration cannot describe or the pointing cannot resolve: a zero thrust
-    // direction has no unit representation, and a center of mass sitting on the joint has no defined solution.
-    constexpr float degenerateTol = 1e-3F;
-    if (tHatThrust_F.norm() < degenerateTol || (r_CB_B - r_MB_B).norm() < degenerateTol) {
+    const ThrustVectoringPlatformConfiguration platformConfig = makePlatformConfig(sigma_MB, r_MB_B, r_FM_F);
+    const ThrustVectoringThrusterConfiguration thrusterConfig = makeThrusterConfig(rThrust_F, tHatThrust_F, maxThrust);
+
+    // An input the configuration cannot describe must be rejected, not quietly skipped: a (near-)zero thrust
+    // direction (whose normalization is non-finite), a non-positive thrust, or a center of mass too close to
+    // the platform joint for a pointing to exist.
+    if (!ThrustVectoringConfig::isValidTHat_F(thrusterConfig.tHat_F) ||
+        !ThrustVectoringConfig::isValidThrust(thrusterConfig.thrust) ||
+        !ThrustVectoringConfig::isValidR_CM(r_CB_B, platformConfig.r_MB_B)) {
+        EXPECT_THROW((void)ThrustVectoringConfig::create(platformConfig, thrusterConfig, r_CB_B),
+                     fsw::invalid_argument);
         return;
     }
 
     // Two cycles so the requested-torque conversion runs once on the seeded prior pointing and once on a real one.
-    ThrustVectoringAlgorithm alg{makeConfig(sigma_MB, r_MB_B, r_FM_F, r_CB_B, rThrust_F, tHatThrust_F, maxThrust)};
+    ThrustVectoringAlgorithm alg{ThrustVectoringConfig::create(platformConfig, thrusterConfig, r_CB_B)};
     alg.update(Lreq_B);
     const ThrustVectoringOutput out = alg.update(Lreq_B);
 

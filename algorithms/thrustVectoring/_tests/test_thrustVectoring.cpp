@@ -53,49 +53,71 @@ TEST(ThrustVectoringTest, RegressionArbitraryGeometry) {
 TEST(ThrustVectoringTest, SetupTest) {
     const Eigen::Vector3f zero = Eigen::Vector3f::Zero();
     const Eigen::Vector3f unitZ{0.0F, 0.0F, 1.0F};
+    const Eigen::Vector3f com{0.0F, 0.0F, 1.0F};  // clear of the joint at the origin, so the pointing is defined
     constexpr float nan = std::numeric_limits<float>::quiet_NaN();
     const auto platform = [&](float thetaMax) { return makePlatformConfig(zero, zero, zero, thetaMax); };
     const ThrustVectoringThrusterConfiguration thruster{.r_TF_F = zero, .tHat_F = unitZ, .thrust = 10.0F};
 
     // A finite geometry with a valid cone half-angle, unit thrust direction and positive thrust is accepted.
-    EXPECT_NO_THROW(ThrustVectoringConfig::create(platform(1.0F), thruster, zero));
+    EXPECT_NO_THROW(ThrustVectoringConfig::create(platform(1.0F), thruster, com));
 
     // Non-finite platform geometry is rejected.
-    EXPECT_THROW(ThrustVectoringConfig::create(makePlatformConfig({nan, 0.0F, 0.0F}, zero, zero, 1.0F), thruster, zero),
+    EXPECT_THROW(ThrustVectoringConfig::create(makePlatformConfig({nan, 0.0F, 0.0F}, zero, zero, 1.0F), thruster, com),
                  fsw::invalid_argument);
-    EXPECT_THROW(ThrustVectoringConfig::create(makePlatformConfig(zero, {0.0F, nan, 0.0F}, zero, 1.0F), thruster, zero),
+    EXPECT_THROW(ThrustVectoringConfig::create(makePlatformConfig(zero, {0.0F, nan, 0.0F}, zero, 1.0F), thruster, com),
                  fsw::invalid_argument);
-    EXPECT_THROW(ThrustVectoringConfig::create(makePlatformConfig(zero, zero, {0.0F, 0.0F, nan}, 1.0F), thruster, zero),
+    EXPECT_THROW(ThrustVectoringConfig::create(makePlatformConfig(zero, zero, {0.0F, 0.0F, nan}, 1.0F), thruster, com),
                  fsw::invalid_argument);
 
     // A cone half-angle outside the open interval (0, pi) is rejected.
-    EXPECT_THROW(ThrustVectoringConfig::create(platform(0.0F), thruster, zero), fsw::invalid_argument);
-    EXPECT_THROW(ThrustVectoringConfig::create(platform(4.0F), thruster, zero), fsw::invalid_argument);
-    EXPECT_THROW(ThrustVectoringConfig::create(platform(nan), thruster, zero), fsw::invalid_argument);
+    EXPECT_THROW(ThrustVectoringConfig::create(platform(0.0F), thruster, com), fsw::invalid_argument);
+    EXPECT_THROW(ThrustVectoringConfig::create(platform(4.0F), thruster, com), fsw::invalid_argument);
+    EXPECT_THROW(ThrustVectoringConfig::create(platform(nan), thruster, com), fsw::invalid_argument);
 
     // A non-finite thrust application point is rejected.
     EXPECT_THROW(ThrustVectoringConfig::create(
-                     platform(1.0F), {.r_TF_F = {nan, 0.0F, 0.0F}, .tHat_F = unitZ, .thrust = 10.0F}, zero),
+                     platform(1.0F), {.r_TF_F = {nan, 0.0F, 0.0F}, .tHat_F = unitZ, .thrust = 10.0F}, com),
                  fsw::invalid_argument);
 
     // A thrust direction that is not (close to) a unit vector is rejected, including the zero vector.
     EXPECT_THROW(ThrustVectoringConfig::create(
-                     platform(1.0F), {.r_TF_F = zero, .tHat_F = {0.0F, 0.0F, 2.0F}, .thrust = 10.0F}, zero),
+                     platform(1.0F), {.r_TF_F = zero, .tHat_F = {0.0F, 0.0F, 2.0F}, .thrust = 10.0F}, com),
                  fsw::invalid_argument);
-    EXPECT_THROW(ThrustVectoringConfig::create(platform(1.0F), {.r_TF_F = zero, .tHat_F = zero, .thrust = 10.0F}, zero),
+    EXPECT_THROW(ThrustVectoringConfig::create(platform(1.0F), {.r_TF_F = zero, .tHat_F = zero, .thrust = 10.0F}, com),
                  fsw::invalid_argument);
 
     // A non-positive or non-finite thrust magnitude is rejected: it leaves no line of action to point.
-    EXPECT_THROW(ThrustVectoringConfig::create(platform(1.0F), {.r_TF_F = zero, .tHat_F = unitZ, .thrust = 0.0F}, zero),
+    EXPECT_THROW(ThrustVectoringConfig::create(platform(1.0F), {.r_TF_F = zero, .tHat_F = unitZ, .thrust = 0.0F}, com),
                  fsw::invalid_argument);
-    EXPECT_THROW(
-        ThrustVectoringConfig::create(platform(1.0F), {.r_TF_F = zero, .tHat_F = unitZ, .thrust = -1.0F}, zero),
-        fsw::invalid_argument);
-    EXPECT_THROW(ThrustVectoringConfig::create(platform(1.0F), {.r_TF_F = zero, .tHat_F = unitZ, .thrust = nan}, zero),
+    EXPECT_THROW(ThrustVectoringConfig::create(platform(1.0F), {.r_TF_F = zero, .tHat_F = unitZ, .thrust = -1.0F}, com),
+                 fsw::invalid_argument);
+    EXPECT_THROW(ThrustVectoringConfig::create(platform(1.0F), {.r_TF_F = zero, .tHat_F = unitZ, .thrust = nan}, com),
                  fsw::invalid_argument);
 
     // A non-finite center of mass is rejected.
     EXPECT_THROW(ThrustVectoringConfig::create(platform(1.0F), thruster, {0.0F, nan, 0.0F}), fsw::invalid_argument);
+}
+
+// A center of mass on (or within kMinR_CM of) the platform joint leaves the reference pointing undefined, so the
+// configuration is rejected rather than left to produce a meaningless reference at run time.
+TEST(ThrustVectoringTest, SetupRejectsCenterOfMassOnTheJoint) {
+    const Eigen::Vector3f zero = Eigen::Vector3f::Zero();
+    const Eigen::Vector3f unitZ{0.0F, 0.0F, 1.0F};
+    const Eigen::Vector3f r_MB_B{0.0F, -0.1F, -1.4F};
+    const ThrustVectoringThrusterConfiguration thruster{.r_TF_F = zero, .tHat_F = unitZ, .thrust = 10.0F};
+    const auto create = [&](const Eigen::Vector3f& r_CB_B) {
+        return ThrustVectoringConfig::create(makePlatformConfig(zero, r_MB_B, zero, 1.0F), thruster, r_CB_B);
+    };
+
+    // Straddle the threshold: the offset is measured from the joint, not from the body origin.
+    EXPECT_THROW((void)create(r_MB_B), fsw::invalid_argument);  // exactly on it
+    EXPECT_THROW((void)create(r_MB_B + Eigen::Vector3f(0.5F * kMinR_CM, 0.0F, 0.0F)), fsw::invalid_argument);
+    EXPECT_THROW((void)create(r_MB_B + Eigen::Vector3f(kMinR_CM, 0.0F, 0.0F)), fsw::invalid_argument);
+    EXPECT_NO_THROW((void)create(r_MB_B + Eigen::Vector3f(2.0F * kMinR_CM, 0.0F, 0.0F)));
+    EXPECT_NO_THROW((void)create(r_MB_B + Eigen::Vector3f(0.0F, 0.0F, 1.0F)));
+
+    // The body origin itself is fine as long as it is clear of the joint.
+    EXPECT_NO_THROW((void)create(zero));
 }
 
 // The configuration getters return the values supplied to create().
@@ -125,7 +147,7 @@ TEST(ThrustVectoringTest, ThrustDirectionNormalized) {
     const ThrustVectoringConfig cfg =
         ThrustVectoringConfig::create(makePlatformConfig(zero, zero, zero, 1.0F),
                                       {.r_TF_F = zero, .tHat_F = {1.0005F, 0.0F, 0.0F}, .thrust = 10.0F},
-                                      zero);
+                                      Eigen::Vector3f(0.0F, 0.0F, 1.0F));
     EXPECT_NEAR(cfg.getThrusterConfiguration().tHat_F.norm(), 1.0F, 1e-6F);
 }
 
@@ -139,7 +161,7 @@ TEST(ThrustVectoringTest, SigmaMbSwitchedToShadowSetWhenNormExceedsOne) {
     const ThrustVectoringConfig cfg =
         ThrustVectoringConfig::create(makePlatformConfig(largeSigma, zero, zero, 1.0F),
                                       {.r_TF_F = zero, .tHat_F = {0.0F, 0.0F, 1.0F}, .thrust = 10.0F},
-                                      zero);
+                                      Eigen::Vector3f(0.0F, 0.0F, 1.0F));
     const Eigen::Vector3f stored = cfg.getPlatformConfiguration().sigma_MB;
 
     EXPECT_LE(stored.norm(), 1.0F);
@@ -158,7 +180,7 @@ TEST(ThrustVectoringTest, SigmaMbWithinBoundStoredUnchanged) {
     const ThrustVectoringConfig cfg =
         ThrustVectoringConfig::create(makePlatformConfig(sigma, zero, zero, 1.0F),
                                       {.r_TF_F = zero, .tHat_F = {0.0F, 0.0F, 1.0F}, .thrust = 10.0F},
-                                      zero);
+                                      Eigen::Vector3f(0.0F, 0.0F, 1.0F));
     const Eigen::Vector3f stored = cfg.getPlatformConfiguration().sigma_MB;
     for (int i = 0; i < 3; ++i) {
         EXPECT_FLOAT_EQ(stored(i), sigma(i));
