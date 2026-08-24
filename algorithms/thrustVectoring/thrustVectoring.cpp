@@ -4,11 +4,24 @@
 
 #include <stdexcept>
 
-/*! @brief Build the validated configuration from the public properties.
+/*! @brief Build the validated configuration from the public properties and the fixed input messages.
+ The vehicle and thruster configurations do not change while the module runs, so they are read once here rather
+ than on every update; call reconfigure() to pick up a new value.
  @return ThrustVectoringConfig validated configuration
 */
 ThrustVectoringConfig ThrustVectoring::toConfig() {
-    return ThrustVectoringConfig::create(this->sigma_MB, this->r_MB_B, this->r_FM_F, this->thetaMax);
+    const VehicleConfigMsgF32Payload vehConfigIn = this->vehConfigInMsg();
+    const THRConfigMsgF32Payload thrusterConfigFIn = this->thrusterConfigFInMsg();
+
+    const ThrustVectoringPlatformConfiguration platformConfig{
+        .sigma_MB = this->sigma_MB, .r_MB_B = this->r_MB_B, .r_FM_F = this->r_FM_F, .thetaMax = this->thetaMax};
+    const ThrustVectoringThrusterConfiguration thrusterConfig{
+        .r_TF_F = cArrayToEigenVector3<float>(thrusterConfigFIn.rThrust_B),
+        .tHat_F = cArrayToEigenVector3<float>(thrusterConfigFIn.tHatThrust_B),
+        .thrust = thrusterConfigFIn.maxThrust};
+
+    return ThrustVectoringConfig::create(
+        platformConfig, thrusterConfig, cArrayToEigenVector3<float>(vehConfigIn.CoM_B));
 }
 
 /*! This method performs a complete reset of the module: it validates the required input messages and (re)creates
@@ -61,17 +74,9 @@ void ThrustVectoring::updateState(const uint64_t callTime) {
         throw XmeraLifecycleException("ThrustVectoring reset() has not been called.");
     }
 
-    const VehicleConfigMsgF32Payload vehConfigMsgIn = this->vehConfigInMsg();
-    const THRConfigMsgF32Payload thrusterConfigFIn = this->thrusterConfigFInMsg();
+    const Eigen::Vector3f Lreq_B = cArrayToEigenVector3<float>(this->cmdTorqueInMsg().torqueRequestBody);
 
-    ThrustVectoringInputs inputs{};
-    inputs.r_CB_B = cArrayToEigenVector3<float>(vehConfigMsgIn.CoM_B);
-    inputs.r_TF_F = cArrayToEigenVector3<float>(thrusterConfigFIn.rThrust_B);
-    inputs.tHat_F = cArrayToEigenVector3<float>(thrusterConfigFIn.tHatThrust_B);
-    inputs.thrust = thrusterConfigFIn.maxThrust;
-    inputs.Lreq_B = cArrayToEigenVector3<float>(this->cmdTorqueInMsg().torqueRequestBody);
-
-    const ThrustVectoringOutput out = this->algorithm->update(inputs);
+    const ThrustVectoringOutput out = this->algorithm->update(Lreq_B);
 
     // the body-frame thrust heading equals the body-frame thrust unit direction
     BodyHeadingMsgF32Payload bodyHeadingOut{};

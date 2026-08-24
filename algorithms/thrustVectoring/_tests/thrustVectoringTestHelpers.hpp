@@ -8,29 +8,34 @@
 #include <Eigen/Geometry>
 #include <cmath>
 
-// Build a validated configuration. The default deflection cone is wide enough that it does not clamp the
-// geometries used by the alignment tests.
-inline ThrustVectoringConfig makeAlignmentConfig(const Eigen::Vector3f& sigma_MB,
-                                                 const Eigen::Vector3f& r_MB_B,
-                                                 const Eigen::Vector3f& r_FM_F,
-                                                 float thetaMax = 3.0F) {
-    return ThrustVectoringConfig::create(sigma_MB, r_MB_B, r_FM_F, thetaMax);
+// Assemble the platform mounting configuration. The default deflection cone is wide enough that it does not clamp
+// the geometries used by the alignment tests.
+inline ThrustVectoringPlatformConfiguration makePlatformConfig(const Eigen::Vector3f& sigma_MB,
+                                                               const Eigen::Vector3f& r_MB_B,
+                                                               const Eigen::Vector3f& r_FM_F,
+                                                               float thetaMax = 3.0F) {
+    return {.sigma_MB = sigma_MB, .r_MB_B = r_MB_B, .r_FM_F = r_FM_F, .thetaMax = thetaMax};
 }
 
-// Assemble the per-cycle inputs from the center-of-mass position, thruster geometry and requested torque. A zero
-// requested torque puts the module in pure center-of-mass alignment mode.
-inline ThrustVectoringInputs makeInputs(const Eigen::Vector3f& r_CB_B,
+// Assemble the thruster configuration, normalizing the supplied thrust direction so tests can pass a raw vector.
+inline ThrustVectoringThrusterConfiguration makeThrusterConfig(const Eigen::Vector3f& rThrust_F,
+                                                               const Eigen::Vector3f& tHatThrust_F,
+                                                               float maxThrust) {
+    return {.r_TF_F = rThrust_F, .tHat_F = tHatThrust_F.normalized(), .thrust = maxThrust};
+}
+
+// Assemble a complete validated configuration from the raw geometry the tests are written in terms of.
+inline ThrustVectoringConfig makeConfig(const Eigen::Vector3f& sigma_MB,
+                                        const Eigen::Vector3f& r_MB_B,
+                                        const Eigen::Vector3f& r_FM_F,
+                                        const Eigen::Vector3f& r_CB_B,
                                         const Eigen::Vector3f& rThrust_F,
                                         const Eigen::Vector3f& tHatThrust_F,
                                         float maxThrust,
-                                        const Eigen::Vector3f& Lreq_B = Eigen::Vector3f::Zero()) {
-    ThrustVectoringInputs in{};
-    in.r_CB_B = r_CB_B;
-    in.r_TF_F = rThrust_F;
-    in.tHat_F = tHatThrust_F.normalized();
-    in.thrust = maxThrust;
-    in.Lreq_B = Lreq_B;
-    return in;
+                                        float thetaMax = 3.0F) {
+    return ThrustVectoringConfig::create(makePlatformConfig(sigma_MB, r_MB_B, r_FM_F, thetaMax),
+                                         makeThrusterConfig(rThrust_F, tHatThrust_F, maxThrust),
+                                         r_CB_B);
 }
 
 // Regression helper: with a zero requested torque the platform aligns the thruster line of action with the
@@ -45,9 +50,8 @@ inline void regressionTestThrustVectoring(const Eigen::Vector3f& sigma_MB,
                                           const Eigen::Vector3f& tHatThrust_F,
                                           float maxThrust,
                                           float accuracy) {
-    ThrustVectoringAlgorithm alg{makeAlignmentConfig(sigma_MB, r_MB_B, r_FM_F)};
-    const ThrustVectoringInputs in = makeInputs(r_CB_B, rThrust_F, tHatThrust_F, maxThrust);
-    const ThrustVectoringOutput out = alg.update(in);
+    ThrustVectoringAlgorithm alg{makeConfig(sigma_MB, r_MB_B, r_FM_F, r_CB_B, rThrust_F, tHatThrust_F, maxThrust)};
+    const ThrustVectoringOutput out = alg.update(Eigen::Vector3f::Zero());
 
     // Thrust magnitude preserved and the reported heading is a unit vector.
     EXPECT_NEAR(out.thrust, maxThrust, accuracy);
@@ -85,20 +89,17 @@ inline void propertyOutputsFinite(const Eigen::Vector3f& sigma_MB,
                                   const Eigen::Vector3f& tHatThrust_F,
                                   float maxThrust,
                                   const Eigen::Vector3f& Lreq_B) {
-    // Skip degenerate geometry: a zero thrust direction or center-of-mass position has no defined solution.
+    // Skip degenerate geometry the configuration cannot describe or the pointing cannot resolve: a zero thrust
+    // direction has no unit representation, and a center of mass sitting on the joint has no defined solution.
     constexpr float degenerateTol = 1e-3F;
-    if (tHatThrust_F.norm() < degenerateTol || maxThrust < degenerateTol) {
-        return;
-    }
-    if ((r_CB_B - r_MB_B).norm() < degenerateTol) {
+    if (tHatThrust_F.norm() < degenerateTol || (r_CB_B - r_MB_B).norm() < degenerateTol) {
         return;
     }
 
     // Two cycles so the requested-torque conversion runs once on the seeded prior pointing and once on a real one.
-    ThrustVectoringAlgorithm alg{makeAlignmentConfig(sigma_MB, r_MB_B, r_FM_F)};
-    const ThrustVectoringInputs in = makeInputs(r_CB_B, rThrust_F, tHatThrust_F, maxThrust, Lreq_B);
-    alg.update(in);
-    const ThrustVectoringOutput out = alg.update(in);
+    ThrustVectoringAlgorithm alg{makeConfig(sigma_MB, r_MB_B, r_FM_F, r_CB_B, rThrust_F, tHatThrust_F, maxThrust)};
+    alg.update(Lreq_B);
+    const ThrustVectoringOutput out = alg.update(Lreq_B);
 
     EXPECT_TRUE(out.r_TB_B.allFinite());
     EXPECT_TRUE(out.tHat_B.allFinite());

@@ -20,17 +20,19 @@ Module Architecture
 -------------------
 The **algorithm** (``ThrustVectoringAlgorithm``) is framework-free and Eigen-typed; it implements the
 mathematics below and holds the previous cycle's reference pointing, used to convert the requested torque into the
-platform frame. It never sees a message payload: its inputs and outputs are the ``ThrustVectoringInputs`` and
-``ThrustVectoringOutput`` structs. Two interface adapters wrap it.
+platform frame. It never sees a message payload: ``update()`` takes the requested torque, the only quantity that
+changes from cycle to cycle, and returns a ``ThrustVectoringOutput`` struct. Everything else lives in the
+validated ``ThrustVectoringConfig``.
 
 The **Xmera adapter** (``ThrustVectoring``) inherits from ``SysModel`` and owns all messaging concerns.
 Configuration parameters are exposed as public member variables (two-phase initialization): the caller sets them,
 then calls ``reset()``, which validates that the required input messages are connected and builds a validated
-``ThrustVectoringConfig`` from the current property values.
-``updateState()`` reads the input messages, converts the payload ``float[3]`` arrays to Eigen types via
-``eigenSupport.h``, invokes the algorithm, and packs the results back into the output payloads. ``reconfigure()``
-re-pushes the current properties into the running algorithm without disturbing its runtime state, and
-``reInitialize()`` re-seeds that runtime state.
+``ThrustVectoringConfig`` from the current property values **and from the vehicle and thruster configuration
+messages**. Those two describe the spacecraft, not its state, so they are read once at ``reset()`` rather than on
+every cycle. ``updateState()`` therefore reads only ``cmdTorqueInMsg``, invokes the algorithm, and packs the
+results back into the output payloads. ``reconfigure()`` re-reads both configuration messages and re-pushes the
+current properties into the running algorithm without disturbing its runtime state -- the way to pick up a changed
+center of mass -- and ``reInitialize()`` re-seeds that runtime state.
 
 The **Adamant adapter** is a C shim (``thrustVectoringAlgorithm_c.h`` / ``.cpp``) that exposes the
 algorithm through an ``extern "C"`` interface so Adamant components can call it via the C/Ada FFI bindings.
@@ -50,18 +52,20 @@ information on what this message is used for.
       - Description
     * - vehConfigInMsg
       - :ref:`VehicleConfigMsgPayload`
-      - Input vehicle configuration message containing the position of the center of mass of the system.
+      - Input vehicle configuration message containing the position of the center of mass of the system. **Read
+        once at** ``reset()``.
     * - thrusterConfigFInMsg
       - :ref:`THRConfigMsgPayload`
       - Input thruster configuration message containing the thrust direction vector and magnitude in **platform
         frame coordinates**. The entry ``rThrust_B`` here is the position of the thrust application point, with
         respect to the origin of the platform frame, in platform-frame coordinates
-        (:math:`{}^\mathcal{F}\boldsymbol{r}_{T/F}`).
+        (:math:`{}^\mathcal{F}\boldsymbol{r}_{T/F}`). **Read once at** ``reset()``.
     * - cmdTorqueInMsg
       - :ref:`CmdTorqueBodyMsgPayload`
       - Input message containing the torque [Nm] the thruster is requested to produce on the vehicle about the
         system's center of mass, in body-frame coordinates. A zero request points the thruster line of action
-        through the center of mass. Typically produced by :ref:`momentumManagement`.
+        through the center of mass. Typically produced by :ref:`momentumManagement`. This is the only message read
+        on every update, and the only argument to the algorithm's ``update()``.
     * - bodyHeadingOutMsg
       - :ref:`BodyHeadingMsgPayload`
       - Output message containing the unit direction vector of the thruster in body-frame coordinates.
@@ -242,10 +246,17 @@ raises ``fsw::invalid_argument``.
       - :math:`(0, \pi)`
       - half-angle [rad] of the cone limiting the thrust deflection from its neutral direction (mandatory)
 
+The remaining configuration is read from the input messages at ``reset()`` and validated the same way: the center
+of mass ``CoM_B`` and the thrust application point ``rThrust_B`` must be finite, the thrust direction
+``tHatThrust_B`` must be a (close to) unit vector, and the thrust magnitude ``maxThrust`` must be finite and
+positive. A zero thrust magnitude leaves the thruster with no line of action to point and is rejected.
+
 User Guide
 ----------
 The module uses two-phase initialization: set the public configuration properties, connect the input messages,
-then add the module to the simulation task (``reset()`` validates and builds the configuration)::
+then add the module to the simulation task (``reset()`` validates and builds the configuration). The vehicle and
+thruster configuration messages must already hold their final values when ``reset()`` runs, because that is when
+they are read::
 
     platformReference = thrustVectoringF32.ThrustVectoring()
     platformReference.modelTag = "platformReference"
@@ -260,8 +271,15 @@ then add the module to the simulation task (``reset()`` validates and builds the
 
     scSim.AddModelToTask(simTaskName, platformReference)
 
+If the center of mass or the thruster configuration does change later in the mission, call ``reconfigure()`` to
+re-read both messages and rebuild the configuration; the runtime state is preserved.
+
 Module Assumptions and Limitations
 ----------------------------------
+The vehicle and thruster configurations are assumed fixed for the life of the module: they are latched at
+``reset()``. A center of mass that drifts as propellant depletes is not tracked automatically -- the pointing
+degrades in proportion to the drift -- so call ``reconfigure()`` when a new estimate is available.
+
 The requested torque is achievable only when the target center-of-mass line reaches the sphere of radius :math:`b`
 about the joint :math:`M`, i.e. when :math:`b \geq \|\boldsymbol{r}_\perp\|` (see *Thruster pointing*); for the
 zero-torque case this is just the requirement that the thruster line of action can reach the center of mass. When the
