@@ -72,6 +72,11 @@ constexpr double kTol = 1e-9;
 // Add some slack on the movement of the state towards the measurement
 constexpr double kMoveTowardRelTol = 1e-2;
 
+// The scaled sigma-point weights reach about 1e4 in magnitude at the alpha = 1e-2 floor of the
+// domain below, so the traces reconstructed from them lose several digits to cancellation. Scale
+// the slack on the trace with the trace itself rather than bounding it by an absolute kTol.
+constexpr double kTraceRelTol = 1e-6;
+
 // Apply one measurement and check the post-update invariants. The N-sigma outlier gate in
 // filteringCore/srukf.hpp rejects an innovation beyond outlierNSigma, so a false return is a
 // legitimate outcome over these domains, not a defect: the gate returns before the estimate is
@@ -98,7 +103,7 @@ void checkMeasurementUpdate(InertialFilterAlgorithm& algo,
     EXPECT_TRUE(finiteSymmetricPsd(posterior)) << "covariance after an applied update";
     EXPECT_LE(errorAgainstObservation(algo.getState()), errorPrior + kMoveTowardRelTol * std::sqrt(tracePrior) + kTol)
         << "state should move toward the measurement (within the UKF sigma-point bias)";
-    EXPECT_LE(blockTrace(posterior), tracePrior + kTol) << "covariance block should shrink";
+    EXPECT_LE(blockTrace(posterior), tracePrior * (1.0 + kTraceRelTol) + kTol) << "covariance block should shrink";
 }
 
 }  // namespace
