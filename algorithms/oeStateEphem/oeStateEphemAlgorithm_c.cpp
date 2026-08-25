@@ -4,6 +4,7 @@
 #include "utilities/fsw/opaqueHandle.h"
 
 #include <algorithm>
+#include <iterator>
 
 // These entry points run on Ada tasks with tight stack budgets, so none of them may
 // materialize the fit table or a config as a stack temporary. The config lives on the
@@ -14,10 +15,10 @@
 
 namespace {
 // Copied field by field on purpose. The POD and C++ arcs agree on field order and
-// anomalyFlag width, which makes them look castable -- but this copy is what keeps
+// anomalyFlag width, which makes them look castable -- but these copies are what keep
 // ChebyshevFitArc's layout out of the Ada ABI, and std::array<double, N> matching
-// double[N] is universal in practice rather than guaranteed. Do not replace it
-// with a memcpy or a cast.
+// double[N] is universal in practice rather than guaranteed. Do not replace either
+// direction with a memcpy or a cast.
 void arcFromC(ChebyshevFitArc& dst, const ChebyshevFitArc_c& src) {
     dst.numberChebCoefficients = src.numberChebCoefficients;
     dst.ephemerisTimeMiddle = src.ephemerisTimeMiddle;
@@ -29,6 +30,19 @@ void arcFromC(ChebyshevFitArc& dst, const ChebyshevFitArc_c& src) {
     std::ranges::copy(src.argPeriapsisCoefficients, dst.argPeriapsisCoefficients.begin());
     std::ranges::copy(src.raanCoefficients, dst.raanCoefficients.begin());
     std::ranges::copy(src.trueAnomalyCoefficients, dst.trueAnomalyCoefficients.begin());
+}
+
+void arcToC(ChebyshevFitArc_c& dst, const ChebyshevFitArc& src) {
+    dst.numberChebCoefficients = src.numberChebCoefficients;
+    dst.ephemerisTimeMiddle = src.ephemerisTimeMiddle;
+    dst.ephemerisTimeRadius = src.ephemerisTimeRadius;
+    dst.anomalyFlag = src.anomalyFlag;
+    std::ranges::copy(src.radiusPeriapsisCoefficients, std::begin(dst.radiusPeriapsisCoefficients));
+    std::ranges::copy(src.eccentricityCoefficients, std::begin(dst.eccentricityCoefficients));
+    std::ranges::copy(src.inclinationCoefficients, std::begin(dst.inclinationCoefficients));
+    std::ranges::copy(src.argPeriapsisCoefficients, std::begin(dst.argPeriapsisCoefficients));
+    std::ranges::copy(src.raanCoefficients, std::begin(dst.raanCoefficients));
+    std::ranges::copy(src.trueAnomalyCoefficients, std::begin(dst.trueAnomalyCoefficients));
 }
 }  // namespace
 
@@ -84,6 +98,25 @@ void OEStateEphemAlgorithm_destroy(OEStateEphemAlgorithmHandle* self) {
 
 void OEStateEphemAlgorithm_setConfig(OEStateEphemAlgorithmHandle* self, OEStateEphemConfigHandle* config) {
     fsw::fromHandle<::OEStateEphemAlgorithm>(self)->setConfig(*fsw::fromHandle<::OEStateEphemConfig>(config));
+}
+
+void OEStateEphemAlgorithm_getConfigScalars(OEStateEphemAlgorithmHandle* self,
+                                            double* centralBodyGravitationalParameter,
+                                            unsigned int* numberOfArcs,
+                                            double* ephemerisTimeJ2000,
+                                            double* vehicleTimeOffset) {
+    const OEStateEphemConfig& config = fsw::fromHandle<::OEStateEphemAlgorithm>(self)->getConfig();
+    *centralBodyGravitationalParameter = config.getCentralBodyGravitationalParameter();
+    *numberOfArcs = config.getNumberOfArcs();
+    *ephemerisTimeJ2000 = config.getEphemerisTimeJ2000();
+    *vehicleTimeOffset = config.getVehicleTimeOffset();
+}
+
+void OEStateEphemAlgorithm_getConfigArc(OEStateEphemAlgorithmHandle* self,
+                                        const unsigned int arcNumber,
+                                        ChebyshevFitArc_c* fitArc) {
+    const OEStateEphemConfig& config = fsw::fromHandle<::OEStateEphemAlgorithm>(self)->getConfig();
+    arcToC(*fitArc, config.getFitCoefficients().at(arcNumber));
 }
 
 CartesianState_c OEStateEphemAlgorithm_update(OEStateEphemAlgorithmHandle* self, const uint64_t callTime) {

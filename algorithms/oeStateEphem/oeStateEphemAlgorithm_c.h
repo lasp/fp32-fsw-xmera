@@ -100,6 +100,35 @@ void OEStateEphemAlgorithm_destroy(OEStateEphemAlgorithmHandle* self);
 void OEStateEphemAlgorithm_setConfig(OEStateEphemAlgorithmHandle* self, OEStateEphemConfigHandle* config);
 
 /**
+ * @brief Read back the scalar half of the algorithm's active configuration.
+ * @param self                              Pointer to the instance.
+ * @param centralBodyGravitationalParameter [m^3/s^2] central-body gravitational parameter (out).
+ * @param numberOfArcs                      [-] number of populated arcs (out).
+ * @param ephemerisTimeJ2000                [s] ephemeris time offset referenced to J2000 (out).
+ * @param vehicleTimeOffset                 [s] vehicle clock time offset (out).
+ * Together with getConfigArc this exposes the configuration the algorithm is actually using,
+ * so the Ada side can serve parameter dumps from real algorithm state.
+ */
+void OEStateEphemAlgorithm_getConfigScalars(OEStateEphemAlgorithmHandle* self,
+                                            double* centralBodyGravitationalParameter,
+                                            unsigned int* numberOfArcs,
+                                            double* ephemerisTimeJ2000,
+                                            double* vehicleTimeOffset);
+
+/**
+ * @brief Read back one Chebyshev fit arc of the algorithm's active configuration.
+ * @param self      Pointer to the instance.
+ * @param arcNumber [-] arc index; must be below MAX_OE_RECORDS. Slots at or above the active
+ *                  count read back zero-filled.
+ * @param fitArc    The arc's coefficients and time window (out).
+ * Per-arc granularity keeps the caller's transient storage at one arc: reading the full
+ * configuration back never requires a caller-side table-sized buffer.
+ */
+void OEStateEphemAlgorithm_getConfigArc(OEStateEphemAlgorithmHandle* self,
+                                        unsigned int arcNumber,
+                                        ChebyshevFitArc_c* fitArc);
+
+/**
  * @brief Run the update step to compute Cartesian state from ephemeris.
  * @param self     Pointer to the instance.
  * @param callTime Clock time in nanoseconds.
