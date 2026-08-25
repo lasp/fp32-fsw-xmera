@@ -1,6 +1,8 @@
 #ifndef COMOPNAV_MESSAGE_F32_H
 #define COMOPNAV_MESSAGE_F32_H
 
+#include <stdint.h>
+
 //!@brief Center of mass optical navigation measurement message
 /*! This message is output by the center of brightness converter module and contains the center of mass (COM) after
  * offsetting the center of brightness (COB) using the phase angle correction.

@@ -9,6 +9,7 @@
 
 #include <gtest/gtest.h>
 #include <Eigen/Core>
+#include <Eigen/Geometry>
 #include <cstdint>
 #include <numbers>
 

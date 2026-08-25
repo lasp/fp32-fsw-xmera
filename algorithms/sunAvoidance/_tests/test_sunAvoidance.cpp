@@ -1,6 +1,7 @@
 #include "sunAvoidanceTestHelpers.hpp"
 
 #include <Eigen/Core>
+#include <Eigen/Geometry>
 #include <array>
 #include <cmath>
 #include <limits>

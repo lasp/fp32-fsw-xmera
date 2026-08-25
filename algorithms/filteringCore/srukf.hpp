@@ -40,18 +40,14 @@ class SRuKF {
     template <int Rows, int Cols>
     static Eigen::Matrix<double, Rows, Rows> qrDecompositionJustR(Eigen::Matrix<double, Rows, Cols> const& input) {
         Eigen::Matrix<double, Cols, Rows> const inputT = input.transpose();
-        Eigen::HouseholderQR<Eigen::Matrix<double, Cols, Rows>> qr(inputT);
-        Eigen::Matrix<double, Cols, Cols> const Q = qr.householderQ();
-        Eigen::Matrix<double, Cols, Rows> const R = Q.transpose() * inputT;
-        Eigen::Matrix<double, Rows, Rows> RTilde = R.template block<Rows, Rows>(0, 0);
+        Eigen::HouseholderQR<Eigen::Matrix<double, Cols, Rows>> const qr(inputT);
+        // matrixQR() already holds R in its upper triangle. Materializing Q and
+        // forming Q^T * inputT to recover it costs a Cols x Cols temporary and
+        // pulls in Eigen's heap-allocating blocked product kernels.
+        Eigen::Matrix<double, Rows, Rows> const rTilde =
+            qr.matrixQR().template topLeftCorner<Rows, Rows>().template triangularView<Eigen::Upper>();
 
-        for (int i = 0; i < Rows; ++i) {
-            for (int j = 0; j < i; ++j) {
-                RTilde(i, j) = 0;
-            }
-        }
-
-        return RTilde.transpose();
+        return rTilde.transpose();
     }
 
     /*! Cholesky decomposition.

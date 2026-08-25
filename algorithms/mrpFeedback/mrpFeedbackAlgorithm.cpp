@@ -1,6 +1,7 @@
 #include "mrpFeedbackAlgorithm.h"
 
 #include <math.h>
+#include <Eigen/Geometry>
 #include <optional>
 
 MrpFeedbackAlgorithm::MrpFeedbackAlgorithm(const MrpFeedbackConfig& config) : cfg(config) {

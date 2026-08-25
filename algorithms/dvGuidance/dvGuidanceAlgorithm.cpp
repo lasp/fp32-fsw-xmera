@@ -2,6 +2,7 @@
 #include "utilities/fsw/rigidBodyKinematics.hpp"
 #include "utilities/fsw/timeConstants.h"
 #include <math.h>
+#include <Eigen/Geometry>
 
 // NOLINTBEGIN(bugprone-easily-swappable-parameters)
 // bugprone-easily-swappable-parameters: the Vector3f / float / uint64 inputs are documented in the

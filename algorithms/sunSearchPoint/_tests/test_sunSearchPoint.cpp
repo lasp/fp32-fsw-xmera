@@ -1,4 +1,5 @@
 #include "sunSearchPointTestHelpers.hpp"
+#include <Eigen/Geometry>
 
 // ---------------------------------------------------------------------------
 // Regression test

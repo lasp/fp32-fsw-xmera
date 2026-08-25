@@ -6,6 +6,7 @@
 #include <filteringCore/state.hpp>
 
 #include <Eigen/Core>
+#include <Eigen/Geometry>
 
 #include <variant>
 

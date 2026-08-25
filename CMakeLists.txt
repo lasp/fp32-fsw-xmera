@@ -28,6 +28,11 @@ macro(add_algorithm name)
 
   set_target_properties(${target_name} PROPERTIES ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib)
 
+  # EIGEN_FREESTANDING selects Eigen's freestanding code paths. It is deliberately
+  # not paired with -ffreestanding here: on host presets we want those code paths
+  # compiled against the host libc, so __STDC_HOSTED__ stays 1 and Eigen's
+  # freestanding shims (freestanding_math.h and friends) defer to <cmath> etc.
+  # Only riscv32-toolchain.cmake passes -ffreestanding, where the shims take over.
   target_compile_definitions(${target_name} PRIVATE EIGEN_FREESTANDING=1)
 
   message(STATUS "Added algorithms ${target_name}")
@@ -69,16 +74,19 @@ message(STATUS "Build type: ${BUILD_TYPE_UPPER}")
 
 # 3) Native Linux flags (only when not cross-compiling)
 if(NOT CMAKE_CROSSCOMPILING)
+  # Set these absolutely rather than appending. Appending to the cache variable
+  # and re-FORCE-ing it re-reads the value written by the previous configure, so
+  # every reconfigure grew the flags (they had reached "-g -O0 -g -O0 -g -O0 -g").
+  # Assigning the final value is idempotent and repairs caches already polluted
+  # by the old behaviour. Per-target flags belong on the target, not here.
   if(BUILD_TYPE_UPPER STREQUAL "DEBUG")
     message(STATUS "Configuring native Linux Debug flags")
-    set(CMAKE_C_FLAGS_DEBUG   "${CMAKE_C_FLAGS_DEBUG}   -O0 -g" CACHE STRING "" FORCE)
-    set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O0 -g"  CACHE STRING "" FORCE)
-    set(CMAKE_EXE_LINKER_FLAGS_DEBUG "${CMAKE_EXE_LINKER_FLAGS_DEBUG} " CACHE STRING "" FORCE)
+    set(CMAKE_C_FLAGS_DEBUG   "-O0 -g" CACHE STRING "" FORCE)
+    set(CMAKE_CXX_FLAGS_DEBUG "-O0 -g" CACHE STRING "" FORCE)
   else()
     message(STATUS "Configuring native Linux Release flags")
-    set(CMAKE_C_FLAGS_RELEASE   "${CMAKE_C_FLAGS_RELEASE}   -O3 -DNDEBUG" CACHE STRING "" FORCE)
-    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -DNDEBUG" CACHE STRING "" FORCE)
-    set(CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE} " CACHE STRING "" FORCE)
+    set(CMAKE_C_FLAGS_RELEASE   "-O3 -DNDEBUG" CACHE STRING "" FORCE)
+    set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG" CACHE STRING "" FORCE)
   endif()
 endif()
 

@@ -1,5 +1,6 @@
 #include "hillPointAlgorithm.h"
 #include "utilities/fsw/rigidBodyKinematics.hpp"
+#include <Eigen/Geometry>
 
 // NOLINTBEGIN(bugprone-easily-swappable-parameters)
 // bugprone-easily-swappable-parameters: the Vector3d position/velocity inputs are documented in

@@ -2,6 +2,7 @@
 #include "utilities/testUtilities/eigenFuzzDomains.hpp"
 
 #include <fuzztest/fuzztest.h>
+#include <Eigen/Geometry>
 
 namespace {
 
