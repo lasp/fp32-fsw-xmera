@@ -668,6 +668,24 @@ TEST(InertialFilterAlgorithmMeasurementUpdate, OutlierStAttMeasurementIsRejected
     EXPECT_FALSE(algo.getLastStAttResiduals().valid) << "no residual is recorded for a gated measurement";
 }
 
+TEST(InertialFilterAlgorithmMeasurementUpdate, StAttMeasurementInsideTheOutlierGateIsApplied) {
+    InertialFilterAlgorithm algo(
+        baseConfig(makeState(Eigen::Vector3d(0.0, 0.0, 0.05), Eigen::Vector3d::Zero()), diagCovariance(1E-3, 1E-3)));
+
+    Matrix6 const covar0 = algo.getCovariance();
+    EXPECT_TRUE(algo.timeUpdate(0.0));
+
+    StAttMeasurement m;
+    m.timeTag = 0.0;
+    m.sigma_BN = Eigen::Vector3d(0.012, 0.0, 0.05);  // 0.012 from the prior, about half the gate
+    m.covar = (kStMeasStd * kStMeasStd) * Eigen::Matrix3d::Identity();
+    m.valid = true;
+
+    EXPECT_TRUE(algo.measurementUpdate(m)) << "an innovation inside the gate must be applied";
+    EXPECT_LT(attitudeTrace(algo.getCovariance()), attitudeTrace(covar0)) << "attitude covariance should shrink";
+    EXPECT_TRUE(algo.getLastStAttResiduals().valid);
+}
+
 // Through the queue-driven update(), a bad star-tracker reading is rejected by
 // applySequential (which calls clear()) and the filter recovers: the residual is invalid
 // and the state stays finite.
