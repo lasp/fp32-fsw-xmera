@@ -686,6 +686,23 @@ TEST(InertialFilterAlgorithmMeasurementUpdate, StAttMeasurementInsideTheOutlierG
     EXPECT_TRUE(algo.getLastStAttResiduals().valid);
 }
 
+// The measurement the default gate rejects above, with the gate opened wide, is applied. This
+// pins that rejection on the gate rather than on any of the other paths that report false.
+TEST(InertialFilterAlgorithmMeasurementUpdate, LargeOutlierNSigmaAcceptsAnOtherwiseGatedMeasurement) {
+    InertialFilterAlgorithm algo(baseConfig(
+        makeState(Eigen::Vector3d(0.0, 0.0, 0.05), Eigen::Vector3d::Zero()), diagCovariance(1E-3, 1E-3), 1E6));
+    EXPECT_TRUE(algo.timeUpdate(0.0));
+
+    StAttMeasurement m;
+    m.timeTag = 0.0;
+    m.sigma_BN = Eigen::Vector3d(0.5, 0.0, 0.05);
+    m.covar = (kStMeasStd * kStMeasStd) * Eigen::Matrix3d::Identity();
+    m.valid = true;
+
+    EXPECT_TRUE(algo.measurementUpdate(m)) << "a wide gate must let the outlier through";
+    EXPECT_TRUE(algo.getLastStAttResiduals().valid);
+}
+
 // Through the queue-driven update(), a bad star-tracker reading is rejected by
 // applySequential (which calls clear()) and the filter recovers: the residual is invalid
 // and the state stays finite.
