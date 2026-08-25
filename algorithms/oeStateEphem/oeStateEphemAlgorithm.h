@@ -19,6 +19,7 @@ struct ChebyshevFitArc {
     unsigned int numberChebCoefficients{};  //!< [-] Number chebyshev coefficients loaded into record
     double ephemerisTimeMiddle{};           //!< [s] Ephemeris time (TDB) associated with the mid-point of the curve
     double ephemerisTimeRadius{};           //!< [s] "Radius" of time that curve is valid for (half of total range)
+    AnomalyType anomalyFlag{AnomalyType::TRUE_ANOMALY};  //!< [-] Flag indicating if the anomaly angle is true or mean
     std::array<double, kMaxOeCoeff>
         radiusPeriapsisCoefficients{};  //!< [-] Set of chebyshev coefficients for radius at periapses
     std::array<double, kMaxOeCoeff> eccentricityCoefficients{};  //!< [-] Set of chebyshev coefficients for eccentricity
@@ -28,8 +29,7 @@ struct ChebyshevFitArc {
     std::array<double, kMaxOeCoeff>
         raanCoefficients{};  //!< [-] Set of chebyshev coefficients for right ascention of the ascending node
     std::array<double, kMaxOeCoeff>
-        trueAnomalyCoefficients{};                       //!< [-] Set of chebyshev coefficients for true anomaly angle
-    AnomalyType anomalyFlag{AnomalyType::TRUE_ANOMALY};  //!< [-] Flag indicating if the anomaly angle is true or mean
+        trueAnomalyCoefficients{};  //!< [-] Set of chebyshev coefficients for true anomaly angle
 };
 
 /*!
