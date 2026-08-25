@@ -8,6 +8,7 @@
 //   * timeUpdate(): zero-rate / zero-dt / NaN invariants; covariance growth under Q.
 //   * Measurement packing + application (through update()) and residual recording.
 //   * measurementUpdate(): covariance shrink + symmetry + PSD; high-noise limit; bad-update rejection.
+//   * Outlier gating: an innovation past outlierNSigma is rejected and the estimate is untouched.
 //   * Regularization: MRP shadow-set switch on over-unity attitude.
 //   * State convergence (exact and seeded-noisy measurements).
 
@@ -636,6 +637,35 @@ TEST(InertialFilterAlgorithmMeasurementUpdate, BadMeasurementReturnsFalseAndLeav
 
     EXPECT_FALSE(algo.measurementUpdate(m)) << "a non-finite measurement update must report false";
     EXPECT_FALSE(algo.getLastStAttResiduals().valid) << "no residual is recorded for a bad update";
+}
+
+// ============================================================================
+// Outlier gating: measurementUpdate rejects an innovation beyond outlierNSigma sigma, where
+// sigma^2 is the trace of the innovation covariance P_yy + R, and leaves the estimate alone.
+// A zero-dt timeUpdate adds no process noise, so with diagCovariance(1E-3, 1E-3) and a
+// measurement noise std of 1E-3 the innovation covariance is exactly 2E-6 per axis and the
+// default 10-sigma gate sits at 10 * sqrt(3 * 2E-6) = 2.4E-2.
+// ============================================================================
+
+TEST(InertialFilterAlgorithmMeasurementUpdate, OutlierStAttMeasurementIsRejectedAndLeavesEstimateUntouched) {
+    InertialFilterAlgorithm algo(
+        baseConfig(makeState(Eigen::Vector3d(0.0, 0.0, 0.05), Eigen::Vector3d::Zero()), diagCovariance(1E-3, 1E-3)));
+    EXPECT_TRUE(algo.timeUpdate(0.0));
+
+    State const before = algo.getState();
+    Matrix6 const covarBefore = algo.getCovariance();
+
+    StAttMeasurement m;
+    m.timeTag = 0.0;
+    m.sigma_BN = Eigen::Vector3d(0.5, 0.0, 0.05);  // 0.499 from the prior, about 200 sigma
+    m.covar = (kStMeasStd * kStMeasStd) * Eigen::Matrix3d::Identity();
+    m.valid = true;
+
+    EXPECT_FALSE(algo.measurementUpdate(m)) << "an innovation past the gate must report false";
+    EXPECT_TRUE((algo.getState().raw() - before.raw()).isZero(0.0)) << "a gated measurement must not move the state";
+    EXPECT_TRUE((algo.getCovariance() - covarBefore).isZero(0.0))
+        << "a gated measurement must not change the covariance";
+    EXPECT_FALSE(algo.getLastStAttResiduals().valid) << "no residual is recorded for a gated measurement";
 }
 
 // Through the queue-driven update(), a bad star-tracker reading is rejected by
