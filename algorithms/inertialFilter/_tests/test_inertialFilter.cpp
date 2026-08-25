@@ -703,6 +703,27 @@ TEST(InertialFilterAlgorithmMeasurementUpdate, LargeOutlierNSigmaAcceptsAnOtherw
     EXPECT_TRUE(algo.getLastStAttResiduals().valid);
 }
 
+TEST(InertialFilterAlgorithmMeasurementUpdate, OutlierRateMeasurementIsRejectedAndLeavesEstimateUntouched) {
+    InertialFilterAlgorithm algo(
+        baseConfig(makeState(Eigen::Vector3d::Zero(), Eigen::Vector3d(0.01, 0.01, 0.01)), diagCovariance(1E-3, 1E-3)));
+    EXPECT_TRUE(algo.timeUpdate(0.0));
+
+    State const before = algo.getState();
+    Matrix6 const covarBefore = algo.getCovariance();
+
+    RateMeasurement r;
+    r.timeTag = 0.0;
+    r.omega_BN_B = Eigen::Vector3d(0.5, 0.01, 0.01);  // 0.49 rad/s from the prior, about 200 sigma
+    r.covar = (kGyroMeasStd * kGyroMeasStd) * Eigen::Matrix3d::Identity();
+    r.valid = true;
+
+    EXPECT_FALSE(algo.measurementUpdate(r)) << "an innovation past the gate must report false";
+    EXPECT_TRUE((algo.getState().raw() - before.raw()).isZero(0.0)) << "a gated measurement must not move the state";
+    EXPECT_TRUE((algo.getCovariance() - covarBefore).isZero(0.0))
+        << "a gated measurement must not change the covariance";
+    EXPECT_FALSE(algo.getLastRateResiduals().valid) << "no residual is recorded for a gated measurement";
+}
+
 // Through the queue-driven update(), a bad star-tracker reading is rejected by
 // applySequential (which calls clear()) and the filter recovers: the residual is invalid
 // and the state stays finite.
