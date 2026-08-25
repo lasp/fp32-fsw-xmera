@@ -55,17 +55,6 @@ typedef struct {
     double trueAnomalyCoefficients[MAX_OE_COEFF];     /*!< [-] anomaly-angle coefficients */
 } ChebyshevFitArc_c;
 
-/**
- * @brief POD representation of the full OE state ephemeris configuration for the C/Ada boundary.
- */
-typedef struct {
-    double centralBodyGravitationalParameter;          /*!< [m^3/s^2] central-body gravitational parameter */
-    unsigned int numberOfArcs;                         /*!< [-] number of populated arcs */
-    double ephemerisTimeJ2000;                         /*!< [s] ephemeris time offset referenced to J2000 */
-    double vehicleTimeOffset;                          /*!< [s] vehicle clock time offset */
-    ChebyshevFitArc_c fitCoefficients[MAX_OE_RECORDS]; /*!< [-] table of Chebyshev fit arcs */
-} OEStateEphemConfig_c;
-
 #ifdef __cplusplus
 }  // extern "C"
 #endif
