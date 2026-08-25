@@ -59,6 +59,17 @@ jobs:
       - name: Build
         run: cmake --build --preset linux-gcc-debug
 
+      - name: Verify no Eigen heap allocation
+        env:
+          EIGEN3_DIR: ${{ github.workspace }}/eigen
+          CXX: g++-13
+        run: |
+          ./tools/noHeapCheck/run.sh | tee /tmp/noHeapCheck.log
+          echo "### No Eigen Heap Allocation" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          cat /tmp/noHeapCheck.log >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
       - name: Verify archive
         run: |
           ARCHIVE="build/linux-gcc-debug/lib/libgncAlgorithms.a"
