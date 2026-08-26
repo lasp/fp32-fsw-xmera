@@ -445,36 +445,40 @@ void CobConverterAlgorithm::populateOutputMessages(
  * CobConverterOutput struct. Camera parameters are precomputed by setConfig() and are not
  * recomputed per cycle.
  *
- * @param input All input message payloads bundled as a CobConverterInput.
- * @return Populated CobConverterOutput (zeroed if input.cobValid is false or input.cobPixelsFound is zero).
+ * @param cob COB measurement payload.
+ * @param attitude Vehicle attitude knowledge (body orientation and sun direction).
+ * @param filter Filter position state and covariance.
+ * @return Populated CobConverterOutput (zeroed if cob.cobValid is false or cob.cobPixelsFound is zero).
  */
-CobConverterOutput CobConverterAlgorithm::updateState(const CobConverterInput& input) const {
+CobConverterOutput CobConverterAlgorithm::updateState(const CobMeasurement& cob,
+                                                      const VehicleAttitude& attitude,
+                                                      const FilterState& filter) const {
     CobConverterOutput output;
 
-    if (input.cobValid && input.cobPixelsFound != 0 &&
-        input.filterVehPosition.stableNorm() > static_cast<double>(this->cfg.getRadius())) {
-        const Rotations rotations = this->computeRotations(input.sigma_BN);
+    if (cob.cobValid && cob.cobPixelsFound != 0 &&
+        filter.filterVehPosition.stableNorm() > static_cast<double>(this->cfg.getRadius())) {
+        const Rotations rotations = this->computeRotations(attitude.sigma_BN);
 
         PhaseAngleCorrectionResult correction;
         if (this->cfg.getPhaseAngleCorrectionMethod() != PhaseAngleCorrectionMethodAlgorithm::NoCorrectionAlg) {
             correction =
-                this->computePhaseAngleCorrection(input.filterVehPosition, input.vehSunPntBdy, rotations.dcm_BN);
+                this->computePhaseAngleCorrection(filter.filterVehPosition, attitude.vehSunPntBdy, rotations.dcm_BN);
         }
         auto [centerOfBrightness, centerOfMass] = CobConverterAlgorithm::computeCentersOfInterest(
-            input.cobCenterOfBrightness, correction.gamma, correction.Rc, correction.phi);
+            cob.cobCenterOfBrightness, correction.gamma, correction.Rc, correction.phi);
         correction.validCom = centerOfMass.allFinite();
         auto [rhatCOB_C, rhatCOM_C] = this->computeRelevantVectors(centerOfBrightness, centerOfMass);
         const Eigen::Matrix3f covar_B =
-            this->computeCameraFrameUncertainty(input.cobPixelsFound, input.filterVehPositionCovariance, correction);
+            this->computeCameraFrameUncertainty(cob.cobPixelsFound, filter.filterVehPositionCovariance, correction);
 
         if (rhatCOB_C.allFinite() && rhatCOM_C.allFinite() && covar_B.allFinite()) {
             bool goodOutlierCheck = true;
             if (this->cfg.isOutlierDetectionEnabled()) {
                 goodOutlierCheck = this->cobOutlierDetection(
-                    input.filterVehPosition, input.filterVehPositionCovariance, covar_B, rhatCOB_C, rotations.dcm_NC);
+                    filter.filterVehPosition, filter.filterVehPositionCovariance, covar_B, rhatCOB_C, rotations.dcm_NC);
                 output.diagnostic.coberrorOutlierTrigger = !goodOutlierCheck;
             }
-            CobConverterAlgorithm::populateOutputMessages(input.cobTimeTag,
+            CobConverterAlgorithm::populateOutputMessages(cob.cobTimeTag,
                                                           centerOfMass,
                                                           centerOfBrightness,
                                                           rotations,

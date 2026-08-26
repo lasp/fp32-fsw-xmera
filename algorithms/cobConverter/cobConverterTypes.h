@@ -70,7 +70,7 @@ typedef struct {
 } CobConverterConfig_c;
 
 /**
- * @brief Plain-old-data mirror of the C++ CobConverterInput fields.
+ * @brief Plain-old-data mirror of the C++ CobMeasurement/VehicleAttitude/FilterState fields.
  */
 typedef struct {
     bool cobValid;                          /*!< [-] validity flag */

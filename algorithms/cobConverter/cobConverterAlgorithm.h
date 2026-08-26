@@ -24,26 +24,30 @@ struct CalibrationCoefficients {
  */
 enum class PhaseAngleCorrectionMethodAlgorithm : std::uint8_t { NoCorrectionAlg, BinaryAlg };
 
-/*! Structure containing all COB converter algorithm inputs. */
-struct CobConverterInput {
-    // COB measurement
+/*! COB measurement: bright-pixel detection payload. */
+struct CobMeasurement {
     bool cobValid{};                                                  //!< [--] validity flag
     int32_t cobPixelsFound{};                                         //!< [--] bright pixels
     Eigen::Vector2f cobCenterOfBrightness = Eigen::Vector2f::Zero();  //!< [px] COB pixel coords
     uint64_t cobTimeTag{};                                            //!< [ns] measurement time
-    // navigation attitude
-    Eigen::Vector3f sigma_BN = Eigen::Vector3f::Zero();  //!< [--] body-to-inertial MRP
-    // sun attitude
+};
+
+/*! Vehicle attitude knowledge: body orientation and sun direction, both body frame. */
+struct VehicleAttitude {
+    Eigen::Vector3f sigma_BN = Eigen::Vector3f::Zero();      //!< [--] body-to-inertial MRP
     Eigen::Vector3f vehSunPntBdy = Eigen::Vector3f::Zero();  //!< [--] sun direction, body frame
-    // filter state: only position (and its covariance) is consumed by this algorithm.
-    // The upstream filter state is a fixed 6-d [position (3), velocity (3)]; velocity is unused.
+};
+
+/*! Filter state: only position (and its covariance) is consumed by this algorithm.
+    The upstream filter state is a fixed 6-d [position (3), velocity (3)]; velocity is unused. */
+struct FilterState {
     Eigen::Vector3d filterVehPosition = Eigen::Vector3d::Zero();  //!< [m] spacecraft position, inertial frame
     Eigen::Matrix3d filterVehPositionCovariance =
         Eigen::Matrix3d::Zero();  //!< [m^2] spacecraft position covariance, inertial frame
 };
 
 /*! Heading measurement output: unit vector and its covariance (uncertainty) in multiple
-    frames. Maps 1:1 onto OpNavUnitVecMsgF32Payload. */
+    frames. */
 struct CobConverterUnitVecOutput {
     Eigen::Matrix3f covar_N = Eigen::Matrix3f::Zero();    //!< [--] COM covariance, inertial frame
     Eigen::Matrix3f covar_C = Eigen::Matrix3f::Zero();    //!< [--] COM covariance, camera frame
@@ -299,7 +303,9 @@ class CobConverterAlgorithm final {
     explicit CobConverterAlgorithm(const CobConverterConfig& config);
 
     void setConfig(const CobConverterConfig& config);
-    CobConverterOutput updateState(const CobConverterInput& input) const;
+    CobConverterOutput updateState(const CobMeasurement& cob,
+                                   const VehicleAttitude& attitude,
+                                   const FilterState& filter) const;
     int getCameraId() const { return this->cfg.getCameraId(); }
 
    private:

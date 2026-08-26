@@ -140,18 +140,21 @@ inline Eigen::Matrix3d mapComCovar(double pixels,
 }  // namespace cobConverterReference
 
 // Mirrors CobConverterAlgorithm::updateState field-for-field.
-inline CobConverterOutput referenceCobConverterUpdate(const CobConverterConfig& cfg, const CobConverterInput& input) {
+inline CobConverterOutput referenceCobConverterUpdate(const CobConverterConfig& cfg,
+                                                      const CobMeasurement& cob,
+                                                      const VehicleAttitude& attitude,
+                                                      const FilterState& filter) {
     CobConverterOutput output;
 
-    if (!input.cobValid || input.cobPixelsFound == 0 ||
-        input.filterVehPosition.norm() <= static_cast<double>(cfg.getRadius())) {
+    if (!cob.cobValid || cob.cobPixelsFound == 0 ||
+        filter.filterVehPosition.norm() <= static_cast<double>(cfg.getRadius())) {
         return output;
     }
 
     using namespace cobConverterReference;
 
     const Eigen::Vector3d bodyToCameraMrp = cfg.getBodyToCameraMrp().cast<double>();
-    const Eigen::Vector3d sigma_BN = input.sigma_BN.cast<double>();
+    const Eigen::Vector3d sigma_BN = attitude.sigma_BN.cast<double>();
     const Eigen::Matrix3d dcm_CB = mrpToDcm(bodyToCameraMrp);
     const Eigen::Matrix3d dcm_BN = mrpToDcm(sigma_BN);
     const Eigen::Matrix3d dcm_NC = (dcm_CB * dcm_BN).transpose();
@@ -176,9 +179,9 @@ inline CobConverterOutput referenceCobConverterUpdate(const CobConverterConfig& 
     const bool correctionRequested =
         cfg.getPhaseAngleCorrectionMethod() != PhaseAngleCorrectionMethodAlgorithm::NoCorrectionAlg;
     if (correctionRequested) {
-        const Eigen::Vector3d position = input.filterVehPosition;
+        const Eigen::Vector3d position = filter.filterVehPosition;
         const Eigen::Vector3d rHat_N = position.normalized();
-        const Eigen::Vector3d shat_B = input.vehSunPntBdy.cast<double>().normalized();
+        const Eigen::Vector3d shat_B = attitude.vehSunPntBdy.cast<double>().normalized();
         shat_N = dcm_BN.transpose() * shat_B;
         const Eigen::Vector3d shat_C = dcm_CB * shat_B;
 
@@ -191,7 +194,7 @@ inline CobConverterOutput referenceCobConverterUpdate(const CobConverterConfig& 
         objectRadiusPixels = static_cast<double>(cfg.getRadius()) * dX / position.norm();
     }
 
-    const Eigen::Vector2d cobPixels = input.cobCenterOfBrightness.cast<double>();
+    const Eigen::Vector2d cobPixels = cob.cobCenterOfBrightness.cast<double>();
     const Eigen::Vector2d comPixels(cobPixels(0) - (gamma * objectRadiusPixels * safeCos(phi)),
                                     cobPixels(1) - (gamma * objectRadiusPixels * safeSin(phi)));
     // Mirrors CobConverterAlgorithm::updateState: validCom means "the resulting COM pixel location
@@ -202,7 +205,7 @@ inline CobConverterOutput referenceCobConverterUpdate(const CobConverterConfig& 
     const Eigen::Vector3d rhatCOB_C = mapState(cobPixels, cameraCalibrationMatrix, coefficients);
     const Eigen::Vector3d rhatCOM_C = mapState(comPixels, cameraCalibrationMatrix, coefficients);
 
-    const double pixelsFound = static_cast<double>(input.cobPixelsFound);
+    const double pixelsFound = static_cast<double>(cob.cobPixelsFound);
     const Eigen::Matrix3d attitudeCovariance = cfg.getAttitudeCovariance().cast<double>();
     Eigen::Matrix3d covar_B;
     if (correctionRequested && cfg.getPhaseAngleCorrectionMethod() == PhaseAngleCorrectionMethodAlgorithm::BinaryAlg &&
@@ -214,13 +217,13 @@ inline CobConverterOutput referenceCobConverterUpdate(const CobConverterConfig& 
                                                        resolutionY,
                                                        dX,
                                                        dY,
-                                                       input.filterVehPosition,
+                                                       filter.filterVehPosition,
                                                        static_cast<double>(cfg.getRadius()),
                                                        alpha,
                                                        shat_N,
                                                        static_cast<double>(cfg.getRadiusUncertainty()),
                                                        phi,
-                                                       input.filterVehPositionCovariance);
+                                                       filter.filterVehPositionCovariance);
         const Eigen::Matrix3d covarCom_B = dcm_CB.transpose() * covarCom_C * dcm_CB;
         covar_B = covarCom_B + attitudeCovariance;
     } else {
@@ -231,9 +234,9 @@ inline CobConverterOutput referenceCobConverterUpdate(const CobConverterConfig& 
 
     bool coberrorOutlierTrigger = false;
     if (cfg.isOutlierDetectionEnabled()) {
-        const Eigen::Vector3d rNav_N = input.filterVehPosition;
+        const Eigen::Vector3d rNav_N = filter.filterVehPosition;
         const Eigen::Vector3d rHatNav_N = rNav_N.normalized();
-        const Eigen::Matrix3d covarNav_N = input.filterVehPositionCovariance / (rNav_N.norm() * rNav_N.norm());
+        const Eigen::Matrix3d covarNav_N = filter.filterVehPositionCovariance / (rNav_N.norm() * rNav_N.norm());
 
         Eigen::Vector3d rhatCOB_C_znorm = -rhatCOB_C;
         rhatCOB_C_znorm /= rhatCOB_C_znorm(2);
@@ -278,7 +281,7 @@ inline CobConverterOutput referenceCobConverterUpdate(const CobConverterConfig& 
     output.unitVec.rhat_BN_N = rhatCOM_N.cast<float>();
     output.unitVec.rhat_BN_C = rhatCOM_C.cast<float>();
     output.unitVec.rhat_BN_B = rhatCOM_B.cast<float>();
-    output.unitVec.unitVecTimeTag = static_cast<double>(input.cobTimeTag) * kNano2Sec;
+    output.unitVec.unitVecTimeTag = static_cast<double>(cob.cobTimeTag) * kNano2Sec;
     // Mirrors CobConverterAlgorithm::populateOutputMessages: valid when the COM pixel location is
     // finite (validCom) and outlier detection didn't flag this cycle.
     output.unitVec.unitVecValid = validCom && goodOutlierCheck;
@@ -289,7 +292,7 @@ inline CobConverterOutput referenceCobConverterUpdate(const CobConverterConfig& 
     output.com.objectPixelRadius = static_cast<int>(objectRadiusPixels);
     output.com.phaseAngle = static_cast<float>(alpha);
     output.com.sunDirection = static_cast<float>(phi);
-    output.com.comTimeTag = input.cobTimeTag;
+    output.com.comTimeTag = cob.cobTimeTag;
     output.com.comValid = validCom;
 
     output.diagnostic.coberrorOutlierTrigger = coberrorOutlierTrigger;
@@ -468,19 +471,18 @@ inline void testCobConverter(PhaseAngleCorrectionMethodAlgorithm phaseAngleCorre
         return;
     }
 
-    const CobConverterInput input{.cobValid = cobValid,
-                                  .cobPixelsFound = cobPixelsFound,
-                                  .cobCenterOfBrightness = cobCenterOfBrightness,
-                                  .cobTimeTag = cobTimeTag,
-                                  .sigma_BN = sigma_BN,
-                                  .vehSunPntBdy = vehSunPntBdy,
-                                  .filterVehPosition = filterVehPosition,
-                                  .filterVehPositionCovariance = filterVehPositionCovariance};
+    const CobMeasurement cob{.cobValid = cobValid,
+                             .cobPixelsFound = cobPixelsFound,
+                             .cobCenterOfBrightness = cobCenterOfBrightness,
+                             .cobTimeTag = cobTimeTag};
+    const VehicleAttitude attitude{.sigma_BN = sigma_BN, .vehSunPntBdy = vehSunPntBdy};
+    const FilterState filter{.filterVehPosition = filterVehPosition,
+                             .filterVehPositionCovariance = filterVehPositionCovariance};
 
     CobConverterAlgorithm alg(*cfg);
     CobConverterOutput out;
-    EXPECT_NO_THROW(out = alg.updateState(input));
-    const CobConverterOutput ref = referenceCobConverterUpdate(*cfg, input);
+    EXPECT_NO_THROW(out = alg.updateState(cob, attitude, filter));
+    const CobConverterOutput ref = referenceCobConverterUpdate(*cfg, cob, attitude, filter);
 
     // Always check validity agrees with the reference
     EXPECT_EQ(out.unitVec.unitVecValid, ref.unitVec.unitVecValid);

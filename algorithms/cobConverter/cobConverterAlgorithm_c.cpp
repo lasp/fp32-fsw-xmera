@@ -30,17 +30,27 @@ CobConverterConfig configFromC(const CobConverterConfig_c& c) {
                                       cArrayToEigenVector3<float>(c.bodyToCameraMrp.data));
 }
 
-CobConverterInput inputFromC(const CobConverterInput_c& c) {
-    CobConverterInput input;
-    input.cobValid = c.cobValid;
-    input.cobPixelsFound = c.cobPixelsFound;
-    input.cobCenterOfBrightness = cArrayToEigenVector(c.cobCenterOfBrightness.data);
-    input.cobTimeTag = c.cobTimeTag;
-    input.sigma_BN = cArrayToEigenVector3<float>(c.sigma_BN.data);
-    input.vehSunPntBdy = cArrayToEigenVector3<float>(c.vehSunPntBdy.data);
-    input.filterVehPosition = cArrayToEigenVector3<double>(c.filterVehPosition.data);
-    input.filterVehPositionCovariance = c2DArrayToEigenMatrix3<double>(c.filterVehPositionCovariance.data);
-    return input;
+CobMeasurement cobFromC(const CobConverterInput_c& c) {
+    CobMeasurement cob;
+    cob.cobValid = c.cobValid;
+    cob.cobPixelsFound = c.cobPixelsFound;
+    cob.cobCenterOfBrightness = cArrayToEigenVector(c.cobCenterOfBrightness.data);
+    cob.cobTimeTag = c.cobTimeTag;
+    return cob;
+}
+
+VehicleAttitude attitudeFromC(const CobConverterInput_c& c) {
+    VehicleAttitude attitude;
+    attitude.sigma_BN = cArrayToEigenVector3<float>(c.sigma_BN.data);
+    attitude.vehSunPntBdy = cArrayToEigenVector3<float>(c.vehSunPntBdy.data);
+    return attitude;
+}
+
+FilterState filterFromC(const CobConverterInput_c& c) {
+    FilterState filter;
+    filter.filterVehPosition = cArrayToEigenVector3<double>(c.filterVehPosition.data);
+    filter.filterVehPositionCovariance = c2DArrayToEigenMatrix3<double>(c.filterVehPositionCovariance.data);
+    return filter;
 }
 
 CobConverterOutput_c outputToC(const CobConverterOutput& out) {
@@ -81,6 +91,7 @@ void CobConverterAlgorithm_setConfig(CobConverterAlgorithmHandle* self, const Co
 
 CobConverterOutput_c CobConverterAlgorithm_updateState(CobConverterAlgorithmHandle* self,
                                                        const CobConverterInput_c* input) {
-    const CobConverterOutput out = reinterpret_cast<::CobConverterAlgorithm*>(self)->updateState(inputFromC(*input));
+    const CobConverterOutput out = reinterpret_cast<::CobConverterAlgorithm*>(self)->updateState(
+        cobFromC(*input), attitudeFromC(*input), filterFromC(*input));
     return outputToC(out);
 }

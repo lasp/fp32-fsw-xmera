@@ -90,20 +90,20 @@ TEST(CobConverterTest, PixelsFoundIncreaseIsSizeIncreaseTest) {
                                                               zeroMrp);
     const CobConverterAlgorithm alg(cfg);
 
-    // Same COB pixel location and geometry throughout -- only cobPixelsFound differs.
-    const auto makeInput = [](int32_t pixelsFound) {
-        return CobConverterInput{.cobValid = true,
-                                 .cobPixelsFound = pixelsFound,
-                                 .cobCenterOfBrightness = Eigen::Vector2f{152.0F, 251.0F},
-                                 .cobTimeTag = 12345U,
-                                 .sigma_BN = Eigen::Vector3f::Zero(),
-                                 .vehSunPntBdy = Eigen::Vector3f{1.0F, 0.0F, 0.0F},
-                                 .filterVehPosition = Eigen::Vector3d{-500.0e3, -300.0e3, 0.0},
-                                 .filterVehPositionCovariance = Eigen::Matrix3d::Identity() * 50.0e3};
+    // Same attitude/filter geometry throughout -- only cobPixelsFound differs.
+    const VehicleAttitude attitude{.sigma_BN = Eigen::Vector3f::Zero(),
+                                   .vehSunPntBdy = Eigen::Vector3f{1.0F, 0.0F, 0.0F}};
+    const FilterState filter{.filterVehPosition = Eigen::Vector3d{-500.0e3, -300.0e3, 0.0},
+                             .filterVehPositionCovariance = Eigen::Matrix3d::Identity() * 50.0e3};
+    const auto makeCob = [](int32_t pixelsFound) {
+        return CobMeasurement{.cobValid = true,
+                              .cobPixelsFound = pixelsFound,
+                              .cobCenterOfBrightness = Eigen::Vector2f{152.0F, 251.0F},
+                              .cobTimeTag = 12345U};
     };
 
-    const CobConverterOutput fewPixels = alg.updateState(makeInput(10));
-    const CobConverterOutput manyPixels = alg.updateState(makeInput(1000));
+    const CobConverterOutput fewPixels = alg.updateState(makeCob(10), attitude, filter);
+    const CobConverterOutput manyPixels = alg.updateState(makeCob(1000), attitude, filter);
 
     // A bigger detected blob (more pixels found) should widen, not shrink, the COM/COB position
     // uncertainty in every frame -- confirming this input feeds the algorithm as a size term.
