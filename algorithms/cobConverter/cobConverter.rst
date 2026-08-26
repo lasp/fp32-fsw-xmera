@@ -66,6 +66,36 @@ to compute all necessary optics values.
 The main relations used between all of the camera values can be found in `this paper by J. A. Christian
 <https://doi.org/10.1109/ACCESS.2021.3051914>`__.
 
+The camera calibration matrix :math:`[K]` maps normalized image-plane coordinates to pixel coordinates (Christian
+Eq. 6, 16, 18, 21). For a field of view :math:`\mathrm{fov}_x, \mathrm{fov}_y` and detector resolution
+:math:`\mathrm{res}_x, \mathrm{res}_y`, the normalized image-plane extents are
+
+.. math::
+
+    p_x = 2 \tan(\mathrm{fov}_x/2), \qquad p_y = 2 \tan(\mathrm{fov}_y/2)
+
+giving diagonal entries :math:`K_{11} = \mathrm{res}_x / p_x` and :math:`K_{22} = \mathrm{res}_y / p_y`. Assuming the
+principal point :math:`(u_p, v_p)` is at the image center, :math:`u_p = \mathrm{res}_x/2` and
+:math:`v_p = \mathrm{res}_y/2`, giving
+
+.. math::
+
+    [K] = \left[
+    \begin{array}{ccc}
+    K_{11} & 0 & u_p \\
+    0 & K_{22} & v_p \\
+    0 & 0 & 1
+    \end{array}
+    \right]
+
+:math:`d_x = 1/K_{11}` and :math:`d_y = 1/K_{22}` (used below) are the reciprocals of these diagonal entries -- the
+normalized image-plane extent of one pixel along each axis.
+
+The average angular field of view per pixel (iFOV) used elsewhere in this derivation is
+:math:`\psi_{i,x} = \mathrm{fov}_x / \mathrm{res}_x` and :math:`\psi_{i,y} = \mathrm{fov}_y / \mathrm{res}_y` -- an
+average-scale approximation, since Christian's exact tangent projection has a slightly position-dependent local
+angular scale.
+
 With this, the unit vector in the camera frame from focal point to center of brightness in the image plane is found by
 (equivalent to setting z=1):
 
@@ -93,8 +123,7 @@ The covariance of the COB error is found using the number of detected pixels and
     \right)
 
 
-where :math:`d_x = 1/K_{11}` and :math:`d_y = 1/K_{22}` are the reciprocals of the first and second diagonal elements
-of the camera calibration matrix :math:`[K]` (i.e. the normalized image-plane extent of one pixel along each axis).
+where :math:`d_x` and :math:`d_y` (defined above) are the normalized image-plane extent of one pixel along each axis.
 This covariance matrix is then transformed into the body frame and added to the covariance of the attitude error.
 
 
@@ -284,50 +313,46 @@ valid, the following condition must be fulfilled:
 where :math:`\mathbf{u}_{COB} = [\mathrm{cob}_x, \mathrm{cob}_y]^T` are the x-y coordinates of the COB coming from the
 image, :math:`\mathbf{u}_{COB, predicted}` are the x-y coordinates of the predicted COB, :math:`n_\sigma` are the number
 of standard deviations specified by the module input "numStandardDeviations". The standard deviation :math:`\sigma` is
-either set using the setStandardDeviation setter function, or automatically obtained by the module using the attitude
-covariance matrix (specified as parameter of the module) as well as the covariance of the COB estimation and the filter
-covariance (both of which are automatically computed).
+either fixed via the ``standardDeviation`` property (when ``specifiedStandardDeviation`` is true), or automatically
+obtained by the module using the attitude covariance matrix (specified as parameter of the module) as well as the
+covariance of the COB estimation and the filter covariance (both of which are automatically computed).
 
 User Guide
 ----------
-This section is to outline the steps needed to setup a center of brightness converter in Python.
+The module uses two-phase initialization: set the public configuration properties, connect the input messages, then
+add the module to the simulation task (``reset()`` validates the configuration and builds the algorithm)::
 
-#. Import the module:
+    from xmera.fp32 import cobConverterF32 as cobConverter
 
-.. code-block:: python
+    module = cobConverter.CobConverter()
+    module.phaseAngleCorrectionMethod = cobConverter.PhaseAngleCorrectionMethod_NoCorrection  # or _Binary
+    module.radius = R_obj
+    module.radiusUncertainty = R_obj_uncertainty
+    module.attitudeCovariance = covar_att_BN_B
+    module.fieldOfViewX = fovX
+    module.fieldOfViewY = fovY
+    module.resolutionX = resX
+    module.resolutionY = resY
+    module.bodyToCameraMrp = sigma_CB
+    module.cameraId = 0
 
-    from Xmera.fswAlgorithms import cobConverter
+    module.opnavCOBInMsg.subscribeTo(cobInMsg)
+    module.opnavFilterInMsg.subscribeTo(filterInMsg)
+    module.navAttInMsg.subscribeTo(attInMsg)
+    module.sunInMsg.subscribeTo(sunInMsg)
 
-#. Create an instantiation of converter class. The COM/COB correction method and object radius need to be specified:
+    sim.AddModelToTask(taskName, module)
 
-.. code-block:: python
+The COB outlier detection is disabled by default; enable it and configure the sigma-based gate by::
 
-    module = cobConverter.CobConverter(cobConverter.PhaseAngleCorrectionMethod_NoCorrection, R_obj)  # no correction
-    # module = cobConverter.CobConverter(cobConverter.PhaseAngleCorrectionMethod_Binary, R_obj)  # Binary method
+    module.outlierDetectionEnabled = True
+    module.numStandardDeviations = 3  # default 3
+    module.specifiedStandardDeviation = True
+    module.standardDeviation = 100  # only used when specifiedStandardDeviation is True; otherwise the standard
+                                     # deviation is dynamically computed by the module
 
-#. The attitude error covariance matrix is set by::
-
-    module.setAttitudeCovariance(covar_att_BN_B)
-
-#. The object radius in units of meters for the phase angle correction can be updated by::
-
-    module.setRadius(R_obj)
-
-#. The COB outlier detection is enabled by::
-
-    module.enableOutlierDetection()
-
-#. The number of acceptable standard deviations and the standard deviation itself for COB outlier detection are set by:
-
-.. code-block:: python
-
-    module.setNumStandardDeviations(3)  # default 3
-    module.setStandardDeviation(100)  # if not set, then the standard deviation is dynamically updated by the module
-
-#. The Brown-Conrady distortion coefficients are optional and default to zero. To apply a lens calibration,
-   populate a ``CalibrationCoefficients`` struct and pass it to the module:
-
-.. code-block:: python
+The Brown-Conrady distortion coefficients are optional and default to zero. To apply a lens calibration, populate a
+``CalibrationCoefficients`` struct and assign it to the module::
 
     coefficients = cobConverter.CalibrationCoefficients()
     coefficients.k1 = k1  # radial
@@ -335,15 +360,4 @@ This section is to outline the steps needed to setup a center of brightness conv
     coefficients.k3 = k3
     coefficients.p1 = p1  # tangential
     coefficients.p2 = p2
-    module.setBrownConradyCoefficients(coefficients)
-
-#. Subscribe to the messages::
-
-    module.opnavCOBInMsg.subscribeTo(cobInMsg)
-    module.opnavFilterInMsg.subscribeTo(filterInMsg)
-    module.navAttInMsg.subscribeTo(attInMsg)
-    module.sunInMsg.subscribeTo(sunInMsg)
-
-#. Add model to task::
-
-    sim.AddModelToTask(taskName, module)
+    module.calibrationCoefficients = coefficients

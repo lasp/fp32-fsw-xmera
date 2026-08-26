@@ -75,77 +75,26 @@ void CobConverterAlgorithm::computeCameraParameters() {
     const float resolutionX = this->cfg.getResolutionX();
     const float resolutionY = this->cfg.getResolutionY();
 
-    // Christian Eq. (6) defines the normalized image-plane coordinates as
-    //
-    //     x = tan(beta_H),    y = tan(beta_V).
-    //
-    // Therefore, the full normalized image-plane spans associated with
-    // symmetric angular intervals [-FOV/2, FOV/2] are
-    //
-    //     pX = x_max - x_min = 2 tan(fovX/2),
-    //     pY = y_max - y_min = 2 tan(fovY/2).
+    // Camera calibration matrix K (Christian Eqs. 6, 16, 18, 21) is derived in cobConverter.rst.
     const float pX = 2.0F * safeTanf(fieldOfViewX / 2.0F);
     const float pY = 2.0F * safeTanf(fieldOfViewY / 2.0F);
 
-    // Christian Eq. (16) maps normalized image-plane coordinates to pixels:
-    //
-    //     u = dX * x + up,
-    //     v = dY * y + vp.
-    //
-    // Let xLeft and xRight be the normalized coordinates of the horizontal
-    // image boundaries. Subtracting Eq. (16) at the two boundaries gives
-    //
-    //     uRight - uLeft = dX * (xRight - xLeft).
-    //
-    // Here, pX = xRight - xLeft is the full normalized image-plane width,
-    // and the corresponding pixel-space width is modeled as resolutionX.
-    // Therefore,
-    //
-    //     dX = resolutionX / pX.
-    //
-    // Applying the same argument vertically, with
-    //
-    //     pY = yBottom - yTop,
-    //     vBottom - vTop = resolutionY,
-    //
-    // gives
-    //
-    //     dY = resolutionY / pY.
-    //
-    // Thus, dX and dY are scale factors in pixels per unit normalized
-    // image-plane coordinate.
     this->dX = resolutionX / pX;
     const float dY = resolutionY / pY;
 
-    // Assume that the principal point (up, vp) is at the image center.
+    // Assume the principal point (up, vp) is at the image center.
     const float up = resolutionX / 2.0F;
     const float vp = resolutionY / 2.0F;
 
-    // From the inverse of Christian Eq. (16), one pixel corresponds to
-    // 1/dX and 1/dY in normalized image-plane coordinates.
     this->X = 1.0F / this->dX;
     this->Y = 1.0F / dY;
 
-    // Average angular field of view per pixel [rad/pixel].
-    //
-    // Since dX * pX = resolutionX and dY * pY = resolutionY,
-    //
-    //     ifov_x = fovX / resolutionX = fovX / (dX * pX),
-    //     ifov_y = fovY / resolutionY = fovY / (dY * pY).
-    //
-    // These are average angular pixel scales; Christian's exact tangent
-    // projection produces a slightly position-dependent local angular scale.
+    // Average angular field of view per pixel [rad/pixel]; an average-scale approximation (see rst).
     this->ifov_x = fieldOfViewX / resolutionX;
     this->ifov_y = fieldOfViewY / resolutionY;
 
-    // Construct the camera calibration matrix K from Christian Eq. (18):
-    //
-    //         [ dX  alpha  up ]
-    //     K = [  0   dY    vp ].
-    //         [  0    0     1 ]
     this->cameraCalibrationMatrix << this->dX, alpha, up, 0.0F, dY, vp, 0.0F, 0.0F, 1.0F;
 
-    // Construct K^{-1} using Christian Eq. (21).
     this->cameraCalibrationMatrixInverse << 1.0F / this->dX, -alpha / (this->dX * dY),
         ((alpha * vp) - (dY * up)) / (this->dX * dY), 0.0F, 1.0F / dY, -vp / dY, 0.0F, 0.0F, 1.0F;
 }
@@ -316,13 +265,9 @@ Eigen::Matrix3f CobConverterAlgorithm::computeCameraFrameUncertainty(
         const Eigen::RowVector3d sr = correction.shat_N.cast<double>() / correction.spacecraftRange;
         const Eigen::Matrix<double, 3, 3> rr =
             I - (correction.sc_position.stableNormalized() * correction.sc_position.stableNormalized().transpose());
-        // deltaAlpha_delta_R is d(alpha)/d(r). The full expression is -s_hat^T/(r*sin(alpha)) *
-        // (I - r_hat*r_hat^T) (see cobConverter.rst), but deltaBinary_deltaAlpha above is missing
-        // the matching sin(alpha) factor from d(betaG)/d(alpha) -- since the two are only ever
-        // used together as a product below, sin(alpha) cancels exactly, and the leading minus
-        // sign is the only piece that actually needs to be applied here. Folding in the full
-        // 1/sin(alpha) term instead would introduce a real division that blows up as alpha
-        // approaches 0 or pi, for no benefit once the cancellation is accounted for.
+        // deltaAlpha_delta_R omits the 1/sin(alpha) factor from the full d(alpha)/d(r) expression
+        // (see cobConverter.rst): it cancels against a matching missing factor in
+        // deltaBinary_deltaAlpha, avoiding a division that blows up near alpha = 0 or pi.
         const Eigen::RowVector3d deltaAlpha_delta_R = -(sr * rr);
 
         const Eigen::RowVector3d deltaBinary_r = deltaBinary_delta_r + (deltaBinary_deltaAlpha * deltaAlpha_delta_R);
@@ -332,28 +277,9 @@ Eigen::Matrix3f CobConverterAlgorithm::computeCameraFrameUncertainty(
         const float term2 = powf(deltaBinary_delta_R, 2.0F) * powf(this->cfg.getRadiusUncertainty(), 2.0F);
         const double sigma_beta_squared = total_deltaBinary_partials + static_cast<double>(term2);
 
-        // The phase-angle correction moves COM away from COB along the 1-D direction
-        // (cos(phi), sin(phi)) in the image plane, so sigma_beta_squared is the variance of a
-        // single scalar magnitude along that line (zero variance perpendicular to it). Turning
-        // that 1-D angular variance into a 2-D covariance aligned along phi is a similarity
-        // transform by the rotation matrix R(phi) = [cos(phi) -sin(phi); sin(phi) cos(phi)]:
-        //
-        //     Cov_angle = R(phi) * diag(sigma_beta_squared, 0) * R(phi)^T
-        //               = sigma_beta_squared * [cos(phi)^2         cos(phi)*sin(phi);
-        //                                       cos(phi)*sin(phi)  sin(phi)^2       ]
-        //
-        // which is PSD for any phi (a similarity transform of a non-negative diagonal matrix).
-        // Converting from angular units (rad^2) to normalized image-plane units takes two
-        // separate, anisotropic conversions the rest of this file already keeps distinct:
-        // angle -> pixels via ifov_x/ifov_y (rad/px, an average-scale approximation -- see the
-        // comment in computeCameraParameters), then pixels -> normalized image-plane coordinates
-        // via X/Y (the exact, tan-based per-axis pixel scale used for the baseline term below).
-        // These two conversions are NOT interchangeable in general -- X/ifov_x deviates from 1
-        // by ~26% at the wide end of the supported FOV range -- so both steps are needed, applied
-        // as the diagonal congruence transform D * Cov_angle * D with D = diag(X/ifov_x, Y/ifov_y).
-        // A congruence transform by a real matrix preserves PSD-ness, and adding the baseline COB
-        // pixel-noise diagonal diag(X^2, Y^2) keeps the sum PSD, since the sum of two PSD matrices
-        // is PSD.
+        // Rotates the 1-D phase-angle variance into a 2-D image-plane covariance and applies the
+        // angle->pixel/pixel->NIC scale conversion; see the "corrected equation" derivation in
+        // cobConverter.rst.
         const float cosPhi = safeCosf(correction.phi);
         const float sinPhi = safeSinf(correction.phi);
         const float directionX = this->X / this->ifov_x;
