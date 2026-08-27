@@ -1,71 +1,24 @@
-import pytest
 import numpy as np
+import pytest
 
-
-# Import all the modules that are going to be called in this simulation
-from xmera.utilities import SimulationBaseClass
-from xmera.fp32 import thrustVectoringF32
-from xmera.utilities import macros
-from xmera.utilities import RigidBodyKinematics as rbk
 from xmera.architecture import messaging
-from xmera.architecture import sim_model
+from xmera.fp32 import thrustVectoringF32
+from xmera.utilities import RigidBodyKinematics as rbk
+from xmera.utilities import SimulationBaseClass
+from xmera.utilities import macros
 
 
-# The following 'parametrize' function decorator provides the parameters and expected results for each
-# of the multiple test runs for this test.  Note that the order in that you add the parametrize method
-# matters for the documentation in that it impacts the order in which the test arguments are shown.
-# The first parametrize arguments are shown last in the pytest argument list
 @pytest.mark.parametrize("seed", list(np.linspace(1, 10, 10)))
 @pytest.mark.parametrize("delta_cm", [0.1, 0.2, 0.3])
 @pytest.mark.parametrize("torque_request", [0.0, 0.05])
 @pytest.mark.parametrize("theta_max", [np.pi / 2, np.pi / 36])
 @pytest.mark.parametrize("accuracy", [1e-4])
-def test_thrust_vectoring(show_plots, delta_cm, torque_request, theta_max, seed, accuracy):
-    r"""
-    **Validation Test Description**
-
-    This unit test script tests the correctness of the platform reference orientation computed by
-    :ref:`thrustVectoring`. The correctness of the output is determined based on whether the thruster
-    line of action is aligned with the system's center of mass, when no torque is requested. Moreover, the other
-    module output messages, ``bodyHeadingOutMsg`` and ``thrusterConfigBOutMsg``, are checked versus equivalent
-    python code.
-
-    **Test Parameters**
-
-    This test randomizes the position of the center of mass and runs the test 10 times for any other combination
-    of test parameters.
-
-    Args:
-        delta_cm (m): magnitude of the center of mass shift, whose direction is generated randomly
-        torque_request (Nm): magnitude of the requested body-frame torque read from ``cmdTorqueInMsg``
-        theta_max (rad): half-angle of the thrust-deflection cone
-        seed (-): seed is varied to randomly change the shift in the center of mass
-        accuracy (float): accuracy within which results are considered to match the truth values.
-
-    **Description of Variables Being Tested**
-
-    For a zero requested torque the correctness of the result is assessed based on the norm of the cross product
-    between the body-frame thrust direction and the relative position of the center of mass with respect to the
-    thruster application point :math:`T`, which must vanish when the thruster is aligned with the center of mass.
-    For a non-zero requested torque this alignment test is not performed, as the thruster is intentionally offset
-    from the center of mass; instead the torque the thruster delivers about the center of mass is compared against
-    the requested torque, projected onto the component perpendicular to the thrust that a thruster force can produce.
-
-    For all requests, the thruster configuration output message is checked to be self-consistent with the
-    body-frame thrust heading and magnitude, and the thrust deflection is checked to stay within the configured cone.
-
-    **General Documentation Comments**
-
-    The offset vectors provided as input parameters ensure that a solution exists, such that the Unit Test can
-    correctly assess the alignment of the thruster. This is, in general, not guaranteed.
-    """
-    thrust_vectoring_test_function(show_plots, delta_cm, torque_request, theta_max, seed, accuracy)
-
-
-def thrust_vectoring_test_function(show_plots, delta_cm, torque_request, theta_max, seed, accuracy):
-
-    # seed numpy's generator (used for the random center-of-mass shift below) so the test is deterministic and
-    # independent of execution order
+def test_thrust_vectoring(delta_cm, torque_request, theta_max, seed, accuracy):
+    """Module Unit Test: the platform points the thruster so it delivers the requested torque about the center of
+    mass, reducing to alignment through the center of mass when no torque is requested. The center-of-mass offset
+    is randomized over seed, so each parameter combination is exercised on ten geometries."""
+    # Seed numpy's generator, used for the random center-of-mass shift below, so the test is deterministic and
+    # independent of execution order.
     np.random.seed(int(seed))
 
     euler_angles_123 = np.array([5.0 * macros.D2R, 10.0 * macros.D2R, 0.0])
@@ -74,200 +27,158 @@ def thrust_vectoring_test_function(show_plots, delta_cm, torque_request, theta_m
     r_FM_F = np.array([0.0, 0.0, -0.1])
     r_TF_F = np.array([-0.01, 0.03, 0.02])
     T_F = np.array([1.0, 1.0, 10.0])
+    thrust = np.linalg.norm(T_F)
 
-    r_CB_B = np.array([0, 0, 0]) + np.random.rand(3)
+    r_CB_B = np.random.rand(3)
     r_CB_B = r_CB_B / np.linalg.norm(r_CB_B) * delta_cm
 
     L_req_B = np.array([1.0, -0.5, 0.8])
     L_req_B = L_req_B / np.linalg.norm(L_req_B) * torque_request
 
-    unit_task_name = "unitTask"          # arbitrary name (don't change)
-    unit_process_name = "TestProcess"    # arbitrary name (don't change)
-    sim_model.setDefaultLogLevel(sim_model.BSK_WARNING)
+    task_name = "unitTask"
+    process_name = "TestProcess"
 
-    # Create a sim module as an empty container
-    unit_test_sim = SimulationBaseClass.SimBaseClass()
+    sim = SimulationBaseClass.SimBaseClass()
 
-    # Create test thread
-    test_process_rate = macros.sec2nano(1)     # update process rate update time
-    test_proc = unit_test_sim.CreateNewProcess(unit_process_name)
-    test_proc.addTask(unit_test_sim.CreateNewTask(unit_task_name, test_process_rate))
+    test_process_rate = macros.sec2nano(1)
+    test_proc = sim.CreateNewProcess(process_name)
+    test_proc.addTask(sim.CreateNewTask(task_name, test_process_rate))
 
-    # Construct algorithm and associated C++ container
-    platform = thrustVectoringF32.ThrustVectoring()
-    platform.modelTag = "platformReference"
+    module = thrustVectoringF32.ThrustVectoring()
+    module.modelTag = "thrustVectoring"
+    sim.AddModelToTask(task_name, module)
 
-    # Add test module to runtime call list
-    unit_test_sim.AddModelToTask(unit_task_name, platform)
+    module.sigma_MB = sigma_MB
+    module.r_MB_B = r_MB_B
+    module.r_FM_F = r_FM_F
+    module.thetaMax = theta_max
 
-    # Initialize the test module configuration data
-    platform.sigma_MB = sigma_MB
-    platform.r_MB_B = r_MB_B
-    platform.r_FM_F = r_FM_F
-    platform.thetaMax = theta_max
+    veh_config_message = messaging.VehicleConfigMsgF32Payload()
+    veh_config_message.CoM_B = r_CB_B
+    veh_config_in_msg = messaging.VehicleConfigMsgF32().write(veh_config_message)
+    module.vehConfigInMsg.subscribeTo(veh_config_in_msg)
 
-    # Create input vehicle configuration msg
-    input_veh_config_msg_data = messaging.VehicleConfigMsgF32Payload()
-    input_veh_config_msg_data.CoM_B = r_CB_B
-    input_veh_config_msg = messaging.VehicleConfigMsgF32().write(input_veh_config_msg_data)
-    platform.vehConfigInMsg.subscribeTo(input_veh_config_msg)
+    thr_config_message = messaging.THRConfigMsgF32Payload()
+    thr_config_message.rThrust_B = r_TF_F
+    thr_config_message.maxThrust = thrust
+    thr_config_message.tHatThrust_B = T_F / thrust
+    thr_config_in_msg = messaging.THRConfigMsgF32().write(thr_config_message)
+    module.thrusterConfigFInMsg.subscribeTo(thr_config_in_msg)
 
-    # Create input THR Config Msg
-    thr_config = messaging.THRConfigMsgF32Payload()
-    thr_config.rThrust_B = r_TF_F
-    thr_config.maxThrust = np.linalg.norm(T_F)
-    thr_config.tHatThrust_B = T_F / thr_config.maxThrust
-    thr_config_f_msg = messaging.THRConfigMsgF32().write(thr_config)
-    platform.thrusterConfigFInMsg.subscribeTo(thr_config_f_msg)
+    cmd_torque_message = messaging.CmdTorqueBodyMsgF32Payload()
+    cmd_torque_message.torqueRequestBody = L_req_B
+    cmd_torque_in_msg = messaging.CmdTorqueBodyMsgF32().write(cmd_torque_message)
+    module.cmdTorqueInMsg.subscribeTo(cmd_torque_in_msg)
 
-    # Create input requested-torque msg
-    input_cmd_torque_msg_data = messaging.CmdTorqueBodyMsgF32Payload()
-    input_cmd_torque_msg_data.torqueRequestBody = L_req_B
-    input_cmd_torque_msg = messaging.CmdTorqueBodyMsgF32().write(input_cmd_torque_msg_data)
-    platform.cmdTorqueInMsg.subscribeTo(input_cmd_torque_msg)
+    body_heading_log = module.bodyHeadingOutMsg.recorder()
+    sim.AddModelToTask(task_name, body_heading_log)
+    thr_config_b_log = module.thrusterConfigBOutMsg.recorder()
+    sim.AddModelToTask(task_name, thr_config_b_log)
 
-    # Setup logging on the test module output messages so that we get all the writes to it
-    body_heading_log = platform.bodyHeadingOutMsg.recorder()
-    unit_test_sim.AddModelToTask(unit_task_name, body_heading_log)
-    thr_config_b_log = platform.thrusterConfigBOutMsg.recorder()
-    unit_test_sim.AddModelToTask(unit_task_name, thr_config_b_log)
-
-    # Need to call the self-init and cross-init methods
-    unit_test_sim.InitializeSimulation()
-
-    # Set the simulation time.
-    # NOTE: the total simulation time may be longer than this value. The
-    # simulation is stopped at the next logging event on or after the
-    # simulation end time.
+    sim.InitializeSimulation()
     # The requested torque is converted into the platform frame with the previous cycle's pointing, so run enough
     # cycles for that conversion to settle before checking the delivered torque.
-    unit_test_sim.ConfigureStopTime(macros.sec2nano(20))          # seconds to stop simulation
+    sim.ConfigureStopTime(macros.sec2nano(20))
+    sim.ExecuteSimulation()
 
-    # Begin the simulation time run set above
-    unit_test_sim.ExecuteSimulation()
+    tHat_B = body_heading_log.rHat_XB_B[-1]
+    rThrust_B = thr_config_b_log.rThrust_B[-1]
+    tHatThrust_B = thr_config_b_log.tHatThrust_B[-1]
+    maxThrust = thr_config_b_log.maxThrust[-1]
 
-    thrust = np.linalg.norm(T_F)
-    tHat_B_sim = body_heading_log.rHat_XB_B[-1]
-    r_TB_B_sim = thr_config_b_log.rThrust_B[-1]
-    tHat_B_cfg_sim = thr_config_b_log.tHatThrust_B[-1]
-    tMax_sim = thr_config_b_log.maxThrust[-1]
+    # The reported body-frame thrust heading is a unit vector and the thrust magnitude is preserved.
+    np.testing.assert_allclose(np.linalg.norm(tHat_B), 1.0, rtol=accuracy, atol=accuracy, verbose=True)
+    np.testing.assert_allclose(maxThrust, thrust, rtol=accuracy, atol=accuracy, verbose=True)
 
-    # the reported body-frame thrust heading is a unit vector and the thrust magnitude is preserved
-    np.testing.assert_allclose(np.linalg.norm(tHat_B_sim), 1.0, rtol=accuracy, atol=accuracy, verbose=True)
-    np.testing.assert_allclose(tMax_sim, thrust, rtol=accuracy, atol=accuracy, verbose=True)
+    # Both output messages report the same thrust direction.
+    np.testing.assert_allclose(tHatThrust_B, tHat_B, rtol=accuracy, atol=accuracy, verbose=True)
 
-    # the body-heading and thruster-configuration messages report the same thrust direction
-    np.testing.assert_allclose(tHat_B_cfg_sim, tHat_B_sim, rtol=accuracy, atol=accuracy, verbose=True)
-
-    # the thrust deflection from its neutral (un-rotated) direction stays within the configured cone
-    MB = rbk.MRP2C(sigma_MB)
-    tHat_F = T_F / thrust
-    neutral_B = np.matmul(MB.transpose(), tHat_F)
-    deflection = np.arccos(np.clip(np.dot(neutral_B, tHat_B_sim), -1.0, 1.0))
+    # The thrust deflection from its neutral, un-rotated direction stays within the configured cone.
+    dcm_MB = rbk.MRP2C(sigma_MB)
+    neutral_B = np.matmul(dcm_MB.transpose(), T_F / thrust)
+    deflection = np.arccos(np.clip(np.dot(neutral_B, tHat_B), -1.0, 1.0))
     np.testing.assert_array_less(deflection, theta_max + accuracy, verbose=True)
 
-    r_TC_B = np.array(r_TB_B_sim) - r_CB_B
-
-    # whenever the cone does not clamp the solution, the thruster delivers the requested torque about the center of
-    # mass, up to the component along the thrust that no thruster force can produce
+    # Whenever the cone does not clamp the solution, the thruster delivers the requested torque about the center
+    # of mass, up to the component along the thrust that no thruster force can produce.
     if deflection < theta_max - accuracy:
+        r_TC_B = np.array(rThrust_B) - r_CB_B
         if torque_request == 0.0:
-            # a zero request aligns the thruster through the center of mass, so the moment arm is parallel to the
-            # thrust direction (zero offset)
-            offset = np.linalg.norm(np.cross(tHat_B_sim, r_TC_B)) / np.linalg.norm(r_TC_B)
+            # A zero request aligns the thruster through the center of mass, so the moment arm is parallel to the
+            # thrust direction.
+            offset = np.linalg.norm(np.cross(tHat_B, r_TC_B)) / np.linalg.norm(r_TC_B)
             np.testing.assert_allclose(offset, 0.0, rtol=accuracy, atol=accuracy, verbose=True)
         else:
-            L_achieved_B = np.cross(r_TC_B, thrust * np.array(tHat_B_sim))
-            L_req_perp_B = L_req_B - np.dot(tHat_B_sim, L_req_B) * np.array(tHat_B_sim)
+            L_achieved_B = np.cross(r_TC_B, thrust * np.array(tHat_B))
+            L_req_perp_B = L_req_B - np.dot(tHat_B, L_req_B) * np.array(tHat_B)
             np.testing.assert_allclose(L_achieved_B, L_req_perp_B, rtol=1e-2, atol=accuracy, verbose=True)
-
-    return
 
 
 def test_thrust_vectoring_latches_configuration_at_reset():
-    r"""
-    **Validation Test Description**
+    """Module Unit Test: the vehicle and thruster configuration messages are read once, when reset() builds the
+    module configuration, and not on every update. The center of mass is rewritten after the simulation has
+    started, which must not change the output until reconfigure() re-reads it. The requested torque is held at
+    zero so the pointing does not drift between cycles on its own."""
+    task_name = "unitTask"
+    process_name = "TestProcess"
 
-    The vehicle and thruster configuration messages are read once, when ``reset()`` builds the module
-    configuration, and not on every update. This test rewrites the center of mass after the simulation has
-    started and checks that the module output is unchanged, then calls ``reconfigure()`` and checks that the new
-    value is picked up.
+    sim = SimulationBaseClass.SimBaseClass()
 
-    **Description of Variables Being Tested**
-
-    The body-frame thrust heading. The requested torque is held at zero so the pointing reaches its solution on
-    the first cycle and does not drift between cycles on its own, isolating the effect of the center-of-mass
-    change.
-    """
-    unit_task_name = "unitTask"
-    unit_process_name = "TestProcess"
-    sim_model.setDefaultLogLevel(sim_model.BSK_WARNING)
-
-    unit_test_sim = SimulationBaseClass.SimBaseClass()
     test_process_rate = macros.sec2nano(1)
-    test_proc = unit_test_sim.CreateNewProcess(unit_process_name)
-    test_proc.addTask(unit_test_sim.CreateNewTask(unit_task_name, test_process_rate))
+    test_proc = sim.CreateNewProcess(process_name)
+    test_proc.addTask(sim.CreateNewTask(task_name, test_process_rate))
 
-    platform = thrustVectoringF32.ThrustVectoring()
-    platform.modelTag = "platformReference"
-    unit_test_sim.AddModelToTask(unit_task_name, platform)
+    module = thrustVectoringF32.ThrustVectoring()
+    module.modelTag = "thrustVectoring"
+    sim.AddModelToTask(task_name, module)
 
-    platform.sigma_MB = np.array([0.0, 0.0, 0.0])
-    platform.r_MB_B = np.array([0.0, -0.1, -1.4])
-    platform.r_FM_F = np.array([0.0, 0.0, -0.1])
-    platform.thetaMax = np.pi / 2
+    module.sigma_MB = np.array([0.0, 0.0, 0.0])
+    module.r_MB_B = np.array([0.0, -0.1, -1.4])
+    module.r_FM_F = np.array([0.0, 0.0, -0.1])
+    module.thetaMax = np.pi / 2
 
-    veh_config_data = messaging.VehicleConfigMsgF32Payload()
-    veh_config_data.CoM_B = np.array([0.05, 0.02, 0.1])
-    veh_config_msg = messaging.VehicleConfigMsgF32().write(veh_config_data)
-    platform.vehConfigInMsg.subscribeTo(veh_config_msg)
+    veh_config_message = messaging.VehicleConfigMsgF32Payload()
+    veh_config_message.CoM_B = np.array([0.05, 0.02, 0.1])
+    veh_config_in_msg = messaging.VehicleConfigMsgF32().write(veh_config_message)
+    module.vehConfigInMsg.subscribeTo(veh_config_in_msg)
 
     T_F = np.array([1.0, 1.0, 10.0])
-    thr_config = messaging.THRConfigMsgF32Payload()
-    thr_config.rThrust_B = np.array([-0.01, 0.03, 0.02])
-    thr_config.maxThrust = np.linalg.norm(T_F)
-    thr_config.tHatThrust_B = T_F / thr_config.maxThrust
-    # keep a reference to every message: a temporary is garbage collected while the module still points at it
-    thr_config_msg = messaging.THRConfigMsgF32().write(thr_config)
-    platform.thrusterConfigFInMsg.subscribeTo(thr_config_msg)
+    thrust = np.linalg.norm(T_F)
+    thr_config_message = messaging.THRConfigMsgF32Payload()
+    thr_config_message.rThrust_B = np.array([-0.01, 0.03, 0.02])
+    thr_config_message.maxThrust = thrust
+    thr_config_message.tHatThrust_B = T_F / thrust
+    thr_config_in_msg = messaging.THRConfigMsgF32().write(thr_config_message)
+    module.thrusterConfigFInMsg.subscribeTo(thr_config_in_msg)
 
-    cmd_torque_data = messaging.CmdTorqueBodyMsgF32Payload()
-    cmd_torque_data.torqueRequestBody = np.array([0.0, 0.0, 0.0])
-    cmd_torque_msg = messaging.CmdTorqueBodyMsgF32().write(cmd_torque_data)
-    platform.cmdTorqueInMsg.subscribeTo(cmd_torque_msg)
+    cmd_torque_message = messaging.CmdTorqueBodyMsgF32Payload()
+    cmd_torque_message.torqueRequestBody = np.array([0.0, 0.0, 0.0])
+    cmd_torque_in_msg = messaging.CmdTorqueBodyMsgF32().write(cmd_torque_message)
+    module.cmdTorqueInMsg.subscribeTo(cmd_torque_in_msg)
 
-    body_heading_log = platform.bodyHeadingOutMsg.recorder()
-    unit_test_sim.AddModelToTask(unit_task_name, body_heading_log)
+    body_heading_log = module.bodyHeadingOutMsg.recorder()
+    sim.AddModelToTask(task_name, body_heading_log)
 
-    unit_test_sim.InitializeSimulation()
-    unit_test_sim.ConfigureStopTime(macros.sec2nano(1))
-    unit_test_sim.ExecuteSimulation()
+    sim.InitializeSimulation()
+    sim.ConfigureStopTime(macros.sec2nano(1))
+    sim.ExecuteSimulation()
     heading_at_reset = np.array(body_heading_log.rHat_XB_B[-1])
 
-    # move the center of mass after reset: the module must keep using the value it latched
-    veh_config_data.CoM_B = np.array([-0.05, 0.15, 0.1])
-    veh_config_msg.write(veh_config_data)
-    unit_test_sim.ConfigureStopTime(macros.sec2nano(2))
-    unit_test_sim.ExecuteSimulation()
-    np.testing.assert_allclose(body_heading_log.rHat_XB_B[-1], heading_at_reset, rtol=1e-6, atol=1e-6)
+    # Move the center of mass after reset: the module must keep using the value it latched.
+    veh_config_message.CoM_B = np.array([-0.05, 0.15, 0.1])
+    veh_config_in_msg.write(veh_config_message)
+    sim.ConfigureStopTime(macros.sec2nano(2))
+    sim.ExecuteSimulation()
+    np.testing.assert_allclose(body_heading_log.rHat_XB_B[-1], heading_at_reset, rtol=1e-6, atol=1e-6,
+                               verbose=True)
 
-    # reconfigure() re-reads the messages, so the new center of mass now takes effect
-    platform.reconfigure()
-    unit_test_sim.ConfigureStopTime(macros.sec2nano(3))
-    unit_test_sim.ExecuteSimulation()
+    # reconfigure() re-reads the messages, so the new center of mass now takes effect.
+    module.reconfigure()
+    sim.ConfigureStopTime(macros.sec2nano(3))
+    sim.ExecuteSimulation()
     assert np.linalg.norm(np.array(body_heading_log.rHat_XB_B[-1]) - heading_at_reset) > 1e-4
 
 
-#
-# This statement below ensures that the unitTestScript can be run as a
-# stand-along python script
-#
 if __name__ == "__main__":
-    test_thrust_vectoring(
-        False,                   # show_plots
-        0.1,                     # delta_cm
-        0.05,                    # torque_request
-        np.pi / 2,               # theta_max
-        np.random.rand(1)[0],    # seed
-        1e-4                     # accuracy
-    )
+    test_thrust_vectoring(0.1, 0.05, np.pi / 2, 1.0, 1e-4)
+    test_thrust_vectoring_latches_configuration_at_reset()
