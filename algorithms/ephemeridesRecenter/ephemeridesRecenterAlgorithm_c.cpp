@@ -1,25 +1,51 @@
 #include "ephemeridesRecenterAlgorithm_c.h"
 #include "ephemeridesRecenterAlgorithm.h"
+#include "utilities/fsw/freestandingInvalidArgument.h"
 #include "utilities/fsw/opaqueHandle.h"
 
 #include <array>
 #include <cstddef>
 
 namespace {
-EphemeridesRecenterConfig configFromC(const EphemeridesRecenterConfig_c& c) {
-    std::array<int, MAX_NUM_CHANGE_BODIES> bodyIds{};
-    std::array<int, MAX_NUM_CHANGE_BODIES> originalCentralBodyIds{};
+EphemeridesRecenterConfig configFromC(const int newCentralBodyId,
+                                      const int previousCentralBodyId,
+                                      const int bodyIds[MAX_NUM_CHANGE_BODIES],
+                                      const int originalCentralBodyIds[MAX_NUM_CHANGE_BODIES],
+                                      const uint32_t bodyCount) {
+    std::array<int, MAX_NUM_CHANGE_BODIES> bodyIdsArr{};
+    std::array<int, MAX_NUM_CHANGE_BODIES> originalCentralBodyIdsArr{};
     for (std::size_t i = 0U; i < MAX_NUM_CHANGE_BODIES; ++i) {
-        bodyIds.at(i) = c.bodyIds[i];
-        originalCentralBodyIds.at(i) = c.originalCentralBodyIds[i];
+        bodyIdsArr.at(i) = bodyIds[i];
+        originalCentralBodyIdsArr.at(i) = originalCentralBodyIds[i];
     }
     return EphemeridesRecenterConfig::create(
-        c.newCentralBodyId, c.previousCentralBodyId, bodyIds, originalCentralBodyIds, c.bodyCount);
+        newCentralBodyId, previousCentralBodyId, bodyIdsArr, originalCentralBodyIdsArr, bodyCount);
 }
 }  // namespace
 
-EphemeridesRecenterAlgorithmHandle* EphemeridesRecenterAlgorithm_create(const EphemeridesRecenterConfig_c* config) {
-    return fsw::createHandle<::EphemeridesRecenterAlgorithm, EphemeridesRecenterAlgorithmHandle>(configFromC(*config));
+bool EphemeridesRecenterAlgorithm_validateConfig(const int newCentralBodyId,
+                                                 const int previousCentralBodyId,
+                                                 int bodyIds[MAX_NUM_CHANGE_BODIES],
+                                                 int originalCentralBodyIds[MAX_NUM_CHANGE_BODIES],
+                                                 const uint32_t bodyCount) {
+    // Attempt to build the config through the real create path; success means valid,
+    // a throw means invalid. Reusing configFromC keeps validation from drifting.
+    try {
+        (void)configFromC(newCentralBodyId, previousCentralBodyId, bodyIds, originalCentralBodyIds, bodyCount);
+        return true;
+    } catch (const fsw::invalid_argument&) {
+        return false;
+    }
+}
+
+EphemeridesRecenterAlgorithmHandle* EphemeridesRecenterAlgorithm_create(
+    const int newCentralBodyId,
+    const int previousCentralBodyId,
+    int bodyIds[MAX_NUM_CHANGE_BODIES],
+    int originalCentralBodyIds[MAX_NUM_CHANGE_BODIES],
+    const uint32_t bodyCount) {
+    return fsw::createHandle<::EphemeridesRecenterAlgorithm, EphemeridesRecenterAlgorithmHandle>(
+        configFromC(newCentralBodyId, previousCentralBodyId, bodyIds, originalCentralBodyIds, bodyCount));
 }
 
 void EphemeridesRecenterAlgorithm_destroy(EphemeridesRecenterAlgorithmHandle* self) {
@@ -27,8 +53,13 @@ void EphemeridesRecenterAlgorithm_destroy(EphemeridesRecenterAlgorithmHandle* se
 }
 
 void EphemeridesRecenterAlgorithm_setConfig(EphemeridesRecenterAlgorithmHandle* self,
-                                            const EphemeridesRecenterConfig_c* config) {
-    fsw::fromHandle<::EphemeridesRecenterAlgorithm>(self)->setConfig(configFromC(*config));
+                                            const int newCentralBodyId,
+                                            const int previousCentralBodyId,
+                                            int bodyIds[MAX_NUM_CHANGE_BODIES],
+                                            int originalCentralBodyIds[MAX_NUM_CHANGE_BODIES],
+                                            const uint32_t bodyCount) {
+    fsw::fromHandle<::EphemeridesRecenterAlgorithm>(self)->setConfig(
+        configFromC(newCentralBodyId, previousCentralBodyId, bodyIds, originalCentralBodyIds, bodyCount));
 }
 
 BodyEphemerisPayloadArray20_c EphemeridesRecenterAlgorithm_updateState(EphemeridesRecenterAlgorithmHandle* self,
@@ -40,8 +71,8 @@ BodyEphemerisPayloadArray20_c EphemeridesRecenterAlgorithm_updateState(Ephemerid
         dst.bodySpiceId = src.bodySpiceId;
         dst.originalCentralBodyId = src.originalCentralBodyId;
         dst.isMoon = (src.isMoon != 0);
-        dst.position << src.position[0], src.position[1], src.position[2];
-        dst.velocity << src.velocity[0], src.velocity[1], src.velocity[2];
+        dst.position << src.input_r[0], src.input_r[1], src.input_r[2];
+        dst.velocity << src.input_v[0], src.input_v[1], src.input_v[2];
     }
 
     std::array<BodyEphemerisPayload, MAX_NUM_CHANGE_BODIES> result =
@@ -54,12 +85,12 @@ BodyEphemerisPayloadArray20_c EphemeridesRecenterAlgorithm_updateState(Ephemerid
         dst.bodySpiceId = src.bodySpiceId;
         dst.originalCentralBodyId = src.originalCentralBodyId;
         dst.isMoon = src.isMoon ? 1 : 0;
-        dst.position[0] = src.position[0];
-        dst.position[1] = src.position[1];
-        dst.position[2] = src.position[2];
-        dst.velocity[0] = src.velocity[0];
-        dst.velocity[1] = src.velocity[1];
-        dst.velocity[2] = src.velocity[2];
+        dst.output_r[0] = src.position[0];
+        dst.output_r[1] = src.position[1];
+        dst.output_r[2] = src.position[2];
+        dst.output_v[0] = src.velocity[0];
+        dst.output_v[1] = src.velocity[1];
+        dst.output_v[2] = src.velocity[2];
     }
     return out;
 }

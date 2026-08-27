@@ -96,7 +96,11 @@ follows a two-phase initialization pattern: the public configuration properties 
 validates the immutable ``StepperMotorControllerConfig`` and constructs the algorithm. An invalid parameter throws
 ``fsw::invalid_argument`` at ``reset()``. The adapter exposes no parameters of its own; the motor's absolute position is
 read each tick from ``stepperMotorInMsg.motorPosition``, so it needs no initial-angle configuration. A C shim
-(``stepperMotorControllerAlgorithm_c.h``) exposes the algorithm to Ada via ``extern "C"`` bindings.
+(``stepperMotorControllerAlgorithm_c.h``) exposes the algorithm to Ada via ``extern "C"`` bindings. The shim passes the
+configuration as flat scalar arguments to ``StepperMotorControllerAlgorithm_create`` and
+``StepperMotorControllerAlgorithm_setConfig``; both throw on invalid input, so callers that cannot handle an exception
+across the FFI boundary should first consult the non-throwing ``StepperMotorControllerAlgorithm_validateConfig``
+predicate, which reports whether the same values would be accepted.
 
 Algorithm Input/Output
 -------------------------------
@@ -156,8 +160,8 @@ controller never reasons in radians otherwise: both the current and desired posi
 
 Motor Angle Range
 ^^^^^^^^^^^^^^^^^
-The motor's mechanical travel is bounded by ``[minAngle, maxAngle]``, set together via
-``setMotorAngleRange`` (defaults: :math:`[0,\, 2\pi]`). For a **partial range**, any reference angle
+The motor's mechanical travel is bounded by ``[minAngle, maxAngle]``, supplied together as part of the
+immutable ``StepperMotorControllerConfig`` (defaults: :math:`[0,\, 2\pi]`). For a **partial range**, any reference angle
 outside ``[minAngle, maxAngle]`` is rejected: the controller leaves its internal ``desiredPosition``
 unchanged for that tick and the state machine emits no ``MOVE`` command. This keeps the motor
 quiescent on out-of-range commands rather than driving it across the forbidden seam.

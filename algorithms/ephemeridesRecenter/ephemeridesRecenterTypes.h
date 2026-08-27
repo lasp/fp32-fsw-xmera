@@ -10,22 +10,6 @@ extern "C" {
 #endif
 
 /**
- * @brief Plain-old-data mirror of the C++ EphemeridesRecenterConfig.
- *
- *  - bodyCount must not exceed MAX_NUM_CHANGE_BODIES
- *  - newCentralBodyId must be present in bodyIds[0 .. bodyCount-1]
- *  - the moon topology must be valid: every moon's parent is in the list and itself orbits the common
- *    center, with at most one moon per parent
- */
-typedef struct {
-    int newCentralBodyId;                              /*!< SPICE ID of the new central body */
-    int previousCentralBodyId;                         /*!< SPICE ID of the previous common central body */
-    int bodyIds[MAX_NUM_CHANGE_BODIES];                /*!< SPICE IDs of every configured body */
-    int originalCentralBodyIds[MAX_NUM_CHANGE_BODIES]; /*!< original central-body SPICE ID for each body */
-    uint32_t bodyCount;                                /*!< number of configured bodies */
-} EphemeridesRecenterConfig_c;
-
-/**
  * @brief POD representation of one body's ephemeris payload as used by the
  *        algorithm. The C++ side uses Eigen::Vector3d for position/velocity
  *        and a bool for the moon flag; both are converted in the shim.
@@ -34,10 +18,10 @@ typedef struct {
     int bodySpiceId;           /*!< SPICE ID of the body */
     int originalCentralBodyId; /*!< SPICE ID of original central body */
     int isMoon;                /*!< 1 if this body is a moon of another listed body, else 0 */
-    double position[3]; /*!< [m] position (input: relative to original central body; output: relative to new central
-                           body) */
-    double velocity[3]; /*!< [m/s] velocity (input: relative to original central body; output: relative to new central
-                           body) */
+    double input_r[3];         /*!< [m] input position in the original central body frame */
+    double input_v[3];         /*!< [m/s] input velocity in the original central body frame */
+    double output_r[3];        /*!< [m] output position in the new central body frame */
+    double output_v[3];        /*!< [m/s] output velocity in the new central body frame */
 } BodyEphemerisPayload_c;
 
 /**

@@ -2,6 +2,7 @@
 #define F32XMERA_NAVAGGREGATEALGORITHM_C_H
 
 #include "navAggregateTypes.h"
+#include <stdbool.h>
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -18,6 +19,16 @@ typedef struct NavAggregateAlgorithmHandle NavAggregateAlgorithmHandle;
  * @return The maximum message count (MAX_AGG_NAV_MSG).
  */
 uint32_t NavAggregateAlgorithm_getMaxAggNavMsg(void);
+
+/**
+ * @brief Report whether a configuration would be accepted by create/setConfig.
+ * @param config Pointer to the configuration to check.
+ * @return true if the configuration is valid. Never throws, so it can guard the
+ *         throwing create/setConfig from an invalid configuration.
+ * @note The accepted value ranges are defined by NavAggregateConfig::create; this predicate
+ *       reports whether a candidate set would be accepted, without throwing.
+ */
+bool NavAggregateAlgorithm_validateConfig(const NavAggregateConfig_c* config);
 
 /**
  * @brief Construct a new NavAggregateAlgorithm instance from the supplied configuration.

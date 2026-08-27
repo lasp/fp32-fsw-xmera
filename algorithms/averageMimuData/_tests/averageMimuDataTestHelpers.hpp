@@ -131,7 +131,7 @@ inline void regressionTestAverageMimuDataWindows(float gyroWindow, float accelWi
     EXPECT_EQ(out_alg.accel_B, out_ref.accel_B);
 }
 
-inline void regressionTestAverageMimuData(float window, InputPktsData const& in) {
+inline void regressionTestAverageMimuData(const float window, InputPktsData const& in) {
     regressionTestAverageMimuDataWindows(window, window, in);
 }
 
@@ -157,7 +157,7 @@ inline void sequencedRegressionTestAverageMimuDataWindows(float gyroWindow,
     }
 }
 
-inline void sequencedRegressionTestAverageMimuData(float window, std::vector<InputPktsData> const& frames) {
+inline void sequencedRegressionTestAverageMimuData(const float window, std::vector<InputPktsData> const& frames) {
     sequencedRegressionTestAverageMimuDataWindows(window, window, frames);
 }
 

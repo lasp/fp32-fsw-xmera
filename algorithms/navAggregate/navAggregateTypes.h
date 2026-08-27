@@ -38,8 +38,8 @@ typedef struct {
 /**
  * @brief Plain-old-data mirror of the C++ NavAggregateConfig.
  *
- * Every selection index must be less than MAX_AGG_NAV_MSG_C and each message count must not exceed it; the
- * C++ side validates this via NavAggregateConfig::create and throws on invalid input.
+ * The accepted index and count ranges are defined by NavAggregateConfig::create, which throws on
+ * invalid input; NavAggregateAlgorithm_validateConfig reports the same verdict without throwing.
  */
 typedef struct {
     NavAggregateAttSelection_c attSelection;     /*!< [-] attitude message selection indices */

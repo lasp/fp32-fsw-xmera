@@ -4,6 +4,9 @@
 #include "bodyRateMiscompareTypes.h"
 #include "utilities/fsw/plainCAlgorithmDataTypes.h"
 
+#include <stdbool.h>
+#include <stdint.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -14,11 +17,29 @@ extern "C" {
 typedef struct BodyRateMiscompareAlgorithmHandle BodyRateMiscompareAlgorithmHandle;
 
 /**
- * @brief Construct a new BodyRateMiscompareAlgorithm instance from the supplied configuration.
- * @param config Pointer to the configuration to apply (validated; throws on invalid input).
- * @return Pointer to a new BodyRateMiscompareAlgorithm (must be destroyed).
+ * @brief Report whether a configuration would be accepted by create()/setConfig().
+ * @param bodyRateThreshold     [rad/s] rate threshold to trigger a body rate miscompare fault.
+ * @param faultPersistenceLimit [-] consecutive update calls above threshold needed to trigger the fault.
+ * @param useImuRates           [-] force the IMU rate output even when the rates agree.
+ * @return true if the configuration is valid; false otherwise. Never throws, so it can be
+ *         used to guard the throwing create()/setConfig() from an invalid configuration.
+ * @note The accepted value ranges are defined by BodyRateMiscompareConfig::create; this predicate
+ *       reports whether a candidate set would be accepted, without throwing.
  */
-BodyRateMiscompareAlgorithmHandle* BodyRateMiscompareAlgorithm_create(const BodyRateMiscompareConfig_c* config);
+bool BodyRateMiscompareAlgorithm_validateConfig(float bodyRateThreshold,
+                                                uint32_t faultPersistenceLimit,
+                                                bool useImuRates);
+
+/**
+ * @brief Construct a new BodyRateMiscompareAlgorithm instance from the supplied configuration.
+ * @param bodyRateThreshold     [rad/s] rate threshold to trigger a body rate miscompare fault.
+ * @param faultPersistenceLimit [-] consecutive update calls above threshold needed to trigger the fault.
+ * @param useImuRates           [-] force the IMU rate output even when the rates agree.
+ * @return Pointer to a new BodyRateMiscompareAlgorithm (must be destroyed). Validated; throws on invalid input.
+ */
+BodyRateMiscompareAlgorithmHandle* BodyRateMiscompareAlgorithm_create(float bodyRateThreshold,
+                                                                      uint32_t faultPersistenceLimit,
+                                                                      bool useImuRates);
 
 /**
  * @brief Destroy a previously created BodyRateMiscompareAlgorithm.
@@ -27,12 +48,20 @@ BodyRateMiscompareAlgorithmHandle* BodyRateMiscompareAlgorithm_create(const Body
 void BodyRateMiscompareAlgorithm_destroy(BodyRateMiscompareAlgorithmHandle* self);
 
 /**
- * @brief Apply a new configuration, resetting the latched fault state.
- * @param self   Pointer to the instance.
- * @param config Pointer to the configuration to apply (validated; throws on invalid input).
+ * @brief Apply a new configuration. The latched fault state is left untouched.
+ * @param self                  Pointer to the instance.
+ * @param bodyRateThreshold     [rad/s] rate threshold to trigger a body rate miscompare fault.
+ * @param faultPersistenceLimit [-] consecutive update calls above threshold needed to trigger the fault.
+ * @param useImuRates           [-] force the IMU rate output even when the rates agree.
+ * Validated; throws on invalid input.
+ * @note This only swaps the configured values. The latched fault is re-seeded from
+ *       useImuRates by reInitialize, so a caller that needs the new useImuRates to take
+ *       effect on the latched state must call reInitialize afterwards.
  */
 void BodyRateMiscompareAlgorithm_setConfig(BodyRateMiscompareAlgorithmHandle* self,
-                                           const BodyRateMiscompareConfig_c* config);
+                                           float bodyRateThreshold,
+                                           uint32_t faultPersistenceLimit,
+                                           bool useImuRates);
 
 /**
  * @brief Clear the persistence counter only; a latched fault is preserved.

@@ -2,6 +2,9 @@
 #define F32XMERA_CONVERTSTPLATFORMTOBODYALGORITHM_C_H
 
 #include "convertStPlatformToBodyTypes.h"
+#include "utilities/fsw/plainCAlgorithmDataTypes.h"
+
+#include <stdbool.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -13,12 +16,21 @@ extern "C" {
 typedef struct ConvertStPlatformToBodyAlgorithmHandle ConvertStPlatformToBodyAlgorithmHandle;
 
 /**
- * @brief Construct a new ConvertStPlatformToBodyAlgorithm instance from the supplied configuration.
- * @param config Pointer to the configuration to apply (validated; throws on invalid input).
- * @return Pointer to a new instance (must be destroyed).
+ * @brief Report whether a configuration would be accepted by create/setConfig.
+ * @param dcm_CB Body-to-case mounting DCM, row-major 3x3.
+ * @return true if the configuration is valid. Never throws, so it can guard the
+ *         throwing create/setConfig from an invalid configuration.
+ * @note The accepted value ranges are defined by ConvertStPlatformToBodyConfig::create; this
+ *       predicate reports whether a candidate set would be accepted, without throwing.
  */
-ConvertStPlatformToBodyAlgorithmHandle* ConvertStPlatformToBodyAlgorithm_create(
-    const ConvertStPlatformToBodyConfig_c* config);
+bool ConvertStPlatformToBodyAlgorithm_validateConfig(Matrix3f_c dcm_CB);
+
+/**
+ * @brief Construct a new ConvertStPlatformToBodyAlgorithm instance from the supplied configuration.
+ * @param dcm_CB Body-to-case mounting DCM, row-major 3x3.
+ * @return Pointer to a new instance (must be destroyed). Validated; throws on invalid input.
+ */
+ConvertStPlatformToBodyAlgorithmHandle* ConvertStPlatformToBodyAlgorithm_create(Matrix3f_c dcm_CB);
 
 /**
  * @brief Destroy a previously created ConvertStPlatformToBodyAlgorithm.
@@ -29,21 +41,20 @@ void ConvertStPlatformToBodyAlgorithm_destroy(ConvertStPlatformToBodyAlgorithmHa
 /**
  * @brief Apply a new configuration.
  * @param self   Pointer to the instance.
- * @param config Pointer to the configuration to apply (validated; throws on invalid input).
+ * @param dcm_CB Body-to-case mounting DCM, row-major 3x3.
+ * Validated; throws on invalid input.
  */
-void ConvertStPlatformToBodyAlgorithm_setConfig(ConvertStPlatformToBodyAlgorithmHandle* self,
-                                                const ConvertStPlatformToBodyConfig_c* config);
+void ConvertStPlatformToBodyAlgorithm_setConfig(ConvertStPlatformToBodyAlgorithmHandle* self, Matrix3f_c dcm_CB);
 
 /**
  * @brief Run the update step.
- * @param self               Pointer to the instance.
- * @param platformAttitude   Pointer to the inertial-to-case attitude input.
- * @param platformAngularRate Pointer to the case-frame delta quaternion input.
+ * @param self        Pointer to the instance.
+ * @param measurement Pointer to the time-tagged inertial-to-case attitude quaternion and
+ *                    case-frame delta quaternion.
  * @return StAttitudeOutput_c  The computed star tracker attitude output.
  */
 StAttitudeOutput_c ConvertStPlatformToBodyAlgorithm_update(ConvertStPlatformToBodyAlgorithmHandle* self,
-                                                           const PlatformAttitude_c* platformAttitude,
-                                                           const PlatformAngularVelocity_c* platformAngularRate);
+                                                           const StPlatformMeasurement_c* measurement);
 
 #ifdef __cplusplus
 }  // extern "C"

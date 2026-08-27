@@ -66,8 +66,8 @@ constexpr std::size_t kRingCapacity =
  *         enforces the averaging-window bounds and DCM orthonormality before freezing the values. */
 class AverageMimuDataConfig final {
    public:
-    static AverageMimuDataConfig create(double gyroAveragingWindow,
-                                        double accelAveragingWindow,
+    static AverageMimuDataConfig create(float gyroAveragingWindow,
+                                        float accelAveragingWindow,
                                         const Eigen::Matrix3f& dcm_BC) {
         if (!isValidGyroAveragingWindow(gyroAveragingWindow)) {
             FSW_THROW_INVALID_ARGUMENT(
@@ -83,24 +83,24 @@ class AverageMimuDataConfig final {
         return {gyroAveragingWindow, accelAveragingWindow, dcm_BC};
     }
 
-    static bool isValidGyroAveragingWindow(double window) {
-        return window >= 0.0 && window <= average_mimu_detail::kMaxAveragingWindowSec;
+    static bool isValidGyroAveragingWindow(const float window) {
+        return window >= 0.0F && window <= average_mimu_detail::kMaxAveragingWindowSec;
     }
-    static bool isValidAccelAveragingWindow(double window) {
-        return window >= 0.0 && window <= average_mimu_detail::kMaxAveragingWindowSec;
+    static bool isValidAccelAveragingWindow(const float window) {
+        return window >= 0.0F && window <= average_mimu_detail::kMaxAveragingWindowSec;
     }
     static bool isValidDcmChuToBody(const Eigen::Matrix3f& dcm_BC) { return isValidDcm(dcm_BC); }
 
-    double getGyroAveragingWindow() const { return this->gyroAveragingWindow; }
-    double getAccelAveragingWindow() const { return this->accelAveragingWindow; }
+    float getGyroAveragingWindow() const { return this->gyroAveragingWindow; }
+    float getAccelAveragingWindow() const { return this->accelAveragingWindow; }
     const Eigen::Matrix3f& getDcmChuToBody() const { return this->dcm_BC; }
 
    private:
-    AverageMimuDataConfig(double gyroAveragingWindow, double accelAveragingWindow, const Eigen::Matrix3f& dcm_BC)
+    AverageMimuDataConfig(float gyroAveragingWindow, float accelAveragingWindow, const Eigen::Matrix3f& dcm_BC)
         : gyroAveragingWindow(gyroAveragingWindow), accelAveragingWindow(accelAveragingWindow), dcm_BC(dcm_BC) {}
 
-    double gyroAveragingWindow;
-    double accelAveragingWindow;
+    float gyroAveragingWindow;
+    float accelAveragingWindow;
     Eigen::Matrix3f dcm_BC;
 };
 

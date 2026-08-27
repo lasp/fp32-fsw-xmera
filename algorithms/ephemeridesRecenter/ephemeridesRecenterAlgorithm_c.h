@@ -2,6 +2,7 @@
 #define F32XMERA_EPHEMERIDES_RECENTER_ALGORITHM_C_H
 
 #include "ephemeridesRecenterTypes.h"
+#include <stdbool.h>
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -14,11 +15,38 @@ extern "C" {
 typedef struct EphemeridesRecenterAlgorithmHandle EphemeridesRecenterAlgorithmHandle;
 
 /**
- * @brief Construct a new EphemeridesRecenterAlgorithm instance from the supplied configuration.
- * @param config Pointer to the configuration to apply (validated; throws on invalid topology).
- * @return Pointer to a new EphemeridesRecenterAlgorithm (must be destroyed).
+ * @brief Report whether a configuration would be accepted by create/setConfig.
+ * @param newCentralBodyId       SPICE ID of the new central body.
+ * @param previousCentralBodyId  SPICE ID of the previous common central body.
+ * @param bodyIds                SPICE IDs of every configured body (first bodyCount entries used).
+ * @param originalCentralBodyIds Original central-body SPICE ID for each configured body.
+ * @param bodyCount              Number of configured bodies.
+ * @return true if the configuration is valid. Never throws, so it can guard the
+ *         throwing create/setConfig from an invalid configuration.
+ * @note The accepted body topology is defined by EphemeridesRecenterConfig::create; this predicate
+ *       reports whether a candidate set would be accepted, without throwing.
  */
-EphemeridesRecenterAlgorithmHandle* EphemeridesRecenterAlgorithm_create(const EphemeridesRecenterConfig_c* config);
+bool EphemeridesRecenterAlgorithm_validateConfig(int newCentralBodyId,
+                                                 int previousCentralBodyId,
+                                                 int bodyIds[MAX_NUM_CHANGE_BODIES],
+                                                 int originalCentralBodyIds[MAX_NUM_CHANGE_BODIES],
+                                                 uint32_t bodyCount);
+
+/**
+ * @brief Construct a new EphemeridesRecenterAlgorithm instance from the supplied configuration.
+ * @param newCentralBodyId       SPICE ID of the new central body.
+ * @param previousCentralBodyId  SPICE ID of the previous common central body.
+ * @param bodyIds                SPICE IDs of every configured body (first bodyCount entries used).
+ * @param originalCentralBodyIds Original central-body SPICE ID for each configured body.
+ * @param bodyCount              Number of configured bodies.
+ * @return Pointer to a new EphemeridesRecenterAlgorithm (must be destroyed). Validated; throws on invalid topology.
+ */
+EphemeridesRecenterAlgorithmHandle* EphemeridesRecenterAlgorithm_create(
+    int newCentralBodyId,
+    int previousCentralBodyId,
+    int bodyIds[MAX_NUM_CHANGE_BODIES],
+    int originalCentralBodyIds[MAX_NUM_CHANGE_BODIES],
+    uint32_t bodyCount);
 
 /**
  * @brief Destroy a previously created EphemeridesRecenterAlgorithm.
@@ -28,11 +56,20 @@ void EphemeridesRecenterAlgorithm_destroy(EphemeridesRecenterAlgorithmHandle* se
 
 /**
  * @brief Apply a new configuration and recompute the moon hierarchy.
- * @param self   Pointer to the instance.
- * @param config Pointer to the configuration to apply (validated; throws on invalid topology).
+ * @param self                   Pointer to the instance.
+ * @param newCentralBodyId       SPICE ID of the new central body.
+ * @param previousCentralBodyId  SPICE ID of the previous common central body.
+ * @param bodyIds                SPICE IDs of every configured body (first bodyCount entries used).
+ * @param originalCentralBodyIds Original central-body SPICE ID for each configured body.
+ * @param bodyCount              Number of configured bodies.
+ * Validated; throws on invalid topology.
  */
 void EphemeridesRecenterAlgorithm_setConfig(EphemeridesRecenterAlgorithmHandle* self,
-                                            const EphemeridesRecenterConfig_c* config);
+                                            int newCentralBodyId,
+                                            int previousCentralBodyId,
+                                            int bodyIds[MAX_NUM_CHANGE_BODIES],
+                                            int originalCentralBodyIds[MAX_NUM_CHANGE_BODIES],
+                                            uint32_t bodyCount);
 
 /**
  * @brief Run the recentering update.

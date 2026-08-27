@@ -18,19 +18,6 @@ typedef struct {
     double data[MAX_NUM_CSS_SENSORS];
 } CssSensorValues_c;
 
-/**
- * @brief Plain-old-data mirror of the C++ CssCommConfig.
- *
- *  - numSensors must be in [1, MAX_NUM_CSS_SENSORS]
- *  - each active maxSensorValues entry must be finite and > 0
- *  - chebyPolynomials coefficients must all be finite
- */
-typedef struct {
-    uint32_t numSensors;
-    double maxSensorValues[MAX_NUM_CSS_SENSORS];
-    double chebyPolynomials[MAX_NUM_CHEBY_POLYS];
-} CssCommConfig_c;
-
 #ifdef __cplusplus
 }  // extern "C"
 #endif

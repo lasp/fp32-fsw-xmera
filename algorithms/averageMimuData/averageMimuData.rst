@@ -57,12 +57,12 @@ public member variables set before ``reset()``; ``reset()`` freezes them into th
       - Default
       - Description / Validation
     * - gyroAveragingWindow
-      - double
+      - float
       - [s]
       - 0.0
       - Rolling time-window for angular rate. Must be in ``[0.0, kMaxAveragingWindowSec]``.
     * - accelAveragingWindow
-      - double
+      - float
       - [s]
       - 0.0
       - Rolling time-window for acceleration. Must be in ``[0.0, kMaxAveragingWindowSec]``.
@@ -195,15 +195,15 @@ The configuration and algorithm classes are::
     class AverageMimuDataConfig {
        public:
         // Validates the parameters and throws fsw::invalid_argument on a bad value.
-        static AverageMimuDataConfig create(double gyroAveragingWindow, double accelAveragingWindow,
+        static AverageMimuDataConfig create(float gyroAveragingWindow, float accelAveragingWindow,
                                             Eigen::Matrix3f const& dcm_BC);
 
-        static bool isValidGyroAveragingWindow(double window);
-        static bool isValidAccelAveragingWindow(double window);
+        static bool isValidGyroAveragingWindow(float window);
+        static bool isValidAccelAveragingWindow(float window);
         static bool isValidDcmChuToBody(Eigen::Matrix3f const& dcm_BC);
 
-        double getGyroAveragingWindow() const;
-        double getAccelAveragingWindow() const;
+        float getGyroAveragingWindow() const;
+        float getAccelAveragingWindow() const;
         Eigen::Matrix3f const& getDcmChuToBody() const;
     };
 
