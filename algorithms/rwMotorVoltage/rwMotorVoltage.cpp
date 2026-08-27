@@ -63,7 +63,7 @@ void RwMotorVoltage::updateState(uint64_t callTime) {
     RwMotorVoltageMsgF32Payload voltageOut{};
     std::ranges::copy(voltage, std::begin(voltageOut.voltage));
 
-    this->voltageOutMsg.write(&voltageOut, this->moduleID, callTime);
+    this->voltageOutMsg.write(voltageOut, this->moduleID, callTime);
 }
 
 /**

@@ -25,13 +25,13 @@ void FlybyPoint::updateState(uint64_t currentSimNanos) {
     eigenVectorToCArray(algo_output.sigma_RN, attMsgBuffer.sigma_RN);
     eigenVectorToCArray(algo_output.omega_RN_N, attMsgBuffer.omega_RN_N);
     eigenVectorToCArray(algo_output.domega_RN_N, attMsgBuffer.domega_RN_N);
-    this->attRefOutMsg.write(&attMsgBuffer, this->moduleID, currentSimNanos);
+    this->attRefOutMsg.write(attMsgBuffer, this->moduleID, currentSimNanos);
     FlybyDiagnosticMsgF32Payload flybyDiagnosticMsgBuffer{};
     flybyDiagnosticMsgBuffer.collinearityTrigger = algo_output.collinearityTrigger;
     flybyDiagnosticMsgBuffer.maxRateTrigger = algo_output.maxRateTrigger;
     flybyDiagnosticMsgBuffer.maxAccelerationTrigger = algo_output.maxAccelerationTrigger;
     flybyDiagnosticMsgBuffer.positionKnowledgeExceedTrigger = algo_output.positionKnowledgeExceedTrigger;
-    this->flybyDiagnosticOutMsg.write(&flybyDiagnosticMsgBuffer, this->moduleID, currentSimNanos);
+    this->flybyDiagnosticOutMsg.write(flybyDiagnosticMsgBuffer, this->moduleID, currentSimNanos);
 }
 
 std::tuple<Eigen::Vector3d, Eigen::Vector3d> FlybyPoint::readRelativeState() {

@@ -55,7 +55,7 @@ void MrpRotation::updateState(const uint64_t callTime) {
     eigenVectorToCArray(out.domega_RN_N, attRefOut.domega_RN_N);
 
     /*! - write attitude guidance reference output */
-    this->attRefOutMsg.write(&attRefOut, this->moduleID, callTime);
+    this->attRefOutMsg.write(attRefOut, this->moduleID, callTime);
 }
 
 /*! @brief Re-seed the algorithm's runtime integrator state from the configured initial values. */

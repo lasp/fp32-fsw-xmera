@@ -101,7 +101,7 @@ void RwMotorTorque::updateState(const uint64_t callTime) {
 
     RwMotorTorqueMsgF32Payload rwMotorTorques{};
     eigenVectorToCArray(motorTorque, rwMotorTorques.motorTorque);
-    this->rwMotorTorqueOutMsg.write(&rwMotorTorques, this->moduleID, callTime);
+    this->rwMotorTorqueOutMsg.write(rwMotorTorques, this->moduleID, callTime);
 }
 
 /*! Setter for the desiredControlAxes_B body-axis controllability selection (which of body x, y, z to control). */

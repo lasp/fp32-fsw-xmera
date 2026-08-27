@@ -36,7 +36,7 @@ void RateControl::updateState(uint64_t callTime) {
         eigenVectorToCArray(out, torqueCmdOut.torqueRequestBody);
     }
 
-    this->cmdTorqueOutMsg.write(&torqueCmdOut, moduleID, callTime);
+    this->cmdTorqueOutMsg.write(torqueCmdOut, moduleID, callTime);
 }
 
 /*! Setter method for the derivative gain P.
