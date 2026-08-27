@@ -60,7 +60,7 @@ jobs:
       # branch's CI runs (e.g. one-off DROP / integration testing without
       # touching Jenkins UI). workflow_dispatch inputs still win over a
       # PIN; revert (or comment back) before merging.
-      ADAMANT_XMERA_COMPONENTS_REF_PIN: 'feature/add-config-pattern-to-monitor'
+      # ADAMANT_XMERA_COMPONENTS_REF_PIN: 'feature/your-branch-here'
       # ADAMANT_REF_PIN: 'feature/your-branch-here'
       # ADAMANT_EXAMPLE_REF_PIN: 'feature/your-branch-here'
       # PROJECT_REF_PIN: 'feature/your-branch-here'
