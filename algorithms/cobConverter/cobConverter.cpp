@@ -46,7 +46,8 @@ CobConverterConfig CobConverter::toConfig() const {
                                       this->outlierDetectionEnabled,
                                       this->calibrationCoefficients,
                                       this->cameraId,
-                                      this->fieldOfView,
+                                      this->fieldOfViewX,
+                                      this->fieldOfViewY,
                                       this->resolutionX,
                                       this->resolutionY,
                                       this->bodyToCameraMrp);
@@ -81,17 +82,21 @@ void CobConverter::updateState(const uint64_t currentSimNanos) {
     const NavAttMsgF32Payload sunMsg = this->sunInMsg();
     const FilterMsgF32Payload filterMsg = this->opnavFilterInMsg();
 
-    CobConverterInput input;
-    input.cobValid = cobMsg.valid;
-    input.cobPixelsFound = cobMsg.pixelsFound;
-    input.cobCenterOfBrightness = Eigen::Map<const Eigen::Vector2f>(cobMsg.centerOfBrightness);
-    input.cobTimeTag = cobMsg.timeTag;
-    input.sigma_BN = cArrayToEigenVector(navAttMsg.sigma_BN);
-    input.vehSunPntBdy = cArrayToEigenVector(sunMsg.vehSunPntBdy);
-    input.filterVehPosition = cArrayToEigenVector3<double>(filterMsg.state);
-    input.filterVehPositionCovariance = cArrayToEigenMatrix<double, 6, 6>(filterMsg.covar).topLeftCorner<3, 3>();
+    CobMeasurement cob;
+    cob.cobValid = cobMsg.valid;
+    cob.cobPixelsFound = cobMsg.pixelsFound;
+    cob.cobCenterOfBrightness = Eigen::Map<const Eigen::Vector2f>(cobMsg.centerOfBrightness);
+    cob.cobTimeTag = cobMsg.timeTag;
 
-    const CobConverterOutput out = this->algorithm->updateState(input);
+    VehicleAttitude attitude;
+    attitude.sigma_BN = cArrayToEigenVector(navAttMsg.sigma_BN);
+    attitude.vehSunPntBdy = cArrayToEigenVector(sunMsg.vehSunPntBdy);
+
+    FilterState filter;
+    filter.filterVehPosition = cArrayToEigenVector3<double>(filterMsg.state);
+    filter.filterVehPositionCovariance = cArrayToEigenMatrix<double, 6, 6>(filterMsg.covar).topLeftCorner<3, 3>();
+
+    const CobConverterOutput out = this->algorithm->updateState(cob, attitude, filter);
 
     OpNavUnitVecMsgF32Payload uVecOutMsgBuffer{};
     eigenMatrixToCArray(out.unitVec.covar_N, uVecOutMsgBuffer.covar_N);

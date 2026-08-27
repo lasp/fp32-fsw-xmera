@@ -46,43 +46,6 @@ typedef struct {
 } CalibrationCoefficients_c;
 
 /**
- * @brief Plain-old-data mirror of the C++ CobConverterConfig fields.
- *
- * Caller fills this struct and passes it to CobConverterAlgorithm_create or _setConfig.
- * The C++ side validates the fields via CobConverterConfig::create and throws on invalid input.
- */
-typedef struct {
-    PhaseAngleCorrectionMethodAlgorithm_c phaseAngleCorrectionMethod; /*!< [-] phase-angle correction model */
-    float radius;                                                     /*!< [m] object radius (must be > 0) */
-    float radiusUncertainty;                           /*!< [m] object radius uncertainty (must be >= 0) */
-    Matrix3f_c attitudeCovariance;                     /*!< [-] attitude error covariance, body frame */
-    float numStandardDeviations;                       /*!< [-] number of sigmas for outlier gating (must be > 0) */
-    float standardDeviation;                           /*!< [-] explicit COB error standard deviation, if specified */
-    bool specifiedStandardDeviation;                   /*!< [-] true if standardDeviation should be used as-is */
-    bool outlierDetectionEnabled;                      /*!< [-] enable COB outlier detection */
-    CalibrationCoefficients_c calibrationCoefficients; /*!< [-] Brown-Conrady distortion coefficients */
-    int32_t cameraId;                                  /*!< [-] camera identifier */
-    float fieldOfView;                                 /*!< [rad] camera field of view */
-    float resolutionX;                                 /*!< [px] horizontal resolution */
-    float resolutionY;                                 /*!< [px] vertical resolution */
-    Vector3f_c bodyToCameraMrp;                        /*!< [-] MRP body-to-camera */
-} CobConverterConfig_c;
-
-/**
- * @brief Plain-old-data mirror of the C++ CobConverterInput fields.
- */
-typedef struct {
-    bool cobValid;                          /*!< [-] validity flag */
-    int32_t cobPixelsFound;                 /*!< [-] bright pixels */
-    Vector2f_c cobCenterOfBrightness;       /*!< [px] COB pixel coordinates */
-    uint64_t cobTimeTag;                    /*!< [ns] measurement time */
-    Vector3f_c sigma_BN;                    /*!< [-] body-to-inertial MRP */
-    Vector3f_c vehSunPntBdy;                /*!< [-] sun direction, body frame */
-    Vector3d_c filterVehPosition;           /*!< [m] spacecraft position, inertial frame */
-    Matrix3d_c filterVehPositionCovariance; /*!< [m^2] spacecraft position covariance, inertial frame */
-} CobConverterInput_c;
-
-/**
  * @brief Plain-old-data mirror of the C++ CobConverterOutput fields.
  */
 typedef struct {

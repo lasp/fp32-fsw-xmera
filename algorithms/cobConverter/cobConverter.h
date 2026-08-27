@@ -50,7 +50,8 @@ class CobConverter final : public SysModel {
     bool outlierDetectionEnabled = false;
     CalibrationCoefficients calibrationCoefficients{};
     int cameraId = 0;
-    float fieldOfView = 0.0F;
+    float fieldOfViewX = 0.0F;
+    float fieldOfViewY = 0.0F;
     float resolutionX = 0.0F;
     float resolutionY = 0.0F;
     Eigen::Vector3f bodyToCameraMrp = Eigen::Vector3f::Zero();

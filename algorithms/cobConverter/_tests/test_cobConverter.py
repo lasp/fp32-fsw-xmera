@@ -50,13 +50,13 @@ def mapComCovar(pixels, input_camera,norm_COB_vector, r_BdyZero_N, R_object, alp
     resX = input_camera.resolution[0]
     resY = input_camera.resolution[1]
     pX = 2. * np.tan(input_camera.fieldOfView[0] / 2.0)
-    pY = 2. * np.tan(input_camera.fieldOfView[0] * resY / resX / 2.0)
+    pY = 2. * np.tan(input_camera.fieldOfView[1] / 2.0)
     dX = resX / pX
     dY = resY / pY
     X = 1 / dX
     Y = 1 / dY
-    ifov_x = input_camera.fieldOfView[0]/ dX * pX
-    ifov_y = input_camera.fieldOfView[0]/ dY * pY
+    ifov_x = input_camera.fieldOfView[0]/ (dX * pX)
+    ifov_y = input_camera.fieldOfView[1]/ (dY * pY)
 
     scale_factor = np.sqrt(pixels / (4 * np.pi))
 
@@ -76,15 +76,45 @@ def mapComCovar(pixels, input_camera,norm_COB_vector, r_BdyZero_N, R_object, alp
                                     /((1 + (4*R_object/(3*np.pi*np.linalg.norm(position))
                                     *(1 - np.cos(alpha)))**2))))
 
-    deltaAlpha_delta_R = np.dot(vehSunPntN/ (np.linalg.norm(position)), np.eye(3) - np.outer(r_hat, r_hat))
+    # deltaAlpha_delta_R is d(alpha)/d(r). The full expression is -vehSunPntN.T/(r*sin(alpha)) @
+    # (I - r_hat @ r_hat.T) (see cobConverter.rst), but deltaBinary_deltaAlpha above is missing
+    # the matching sin(alpha) factor from d(betaG)/d(alpha) -- since the two are only ever used
+    # together as a product below, sin(alpha) cancels exactly, and the leading minus sign is the
+    # only piece that actually needs to be applied here. Folding in the full 1/sin(alpha) term
+    # instead would introduce a real division that blows up as alpha approaches 0 or pi, for no
+    # benefit once the cancellation is accounted for.
+    deltaAlpha_delta_R = -np.dot(vehSunPntN/ (np.linalg.norm(position)), np.eye(3) - np.outer(r_hat, r_hat))
 
     deltaBinary_r = deltaBinary_delta_r + np.dot(deltaBinary_deltaAlpha,deltaAlpha_delta_R)
     total_deltaBinary_partials = np.dot(np.dot(deltaBinary_r, position_covar), deltaBinary_r.T)
     sigma_beta_squared  = total_deltaBinary_partials + np.dot(deltaBinary_delta_R **2, R_object_uncer ** 2)
 
+    # Mirrors CobConverterAlgorithm::computeCameraFrameUncertainty: sigma_beta_squared is the
+    # variance of a 1-D scalar magnitude along the sun-direction (cos(phi), sin(phi)) in the
+    # image plane. Rotating that 1-D angular variance into image x/y axes via the similarity
+    # transform R(phi) @ diag(sigma_beta_squared, 0) @ R(phi).T gives cos(phi)**2/sin(phi)**2 on
+    # the diagonal plus a cos(phi)*sin(phi) off-diagonal cross term. Converting angular units
+    # (rad**2) to normalized image-plane units takes two separate conversions: angle -> pixels
+    # via ifov_x/ifov_y (rad/px, an average-scale approximation), then pixels -> normalized
+    # image-plane coordinates via X/Y (the exact, tan-based per-axis pixel scale used for the
+    # baseline term below) -- these are not interchangeable (X/ifov_x deviates from 1 by ~26% at
+    # the wide end of the supported FOV range), so both steps are applied via the diagonal
+    # congruence transform D @ (...) @ D with D = diag(X/ifov_x, Y/ifov_y). Both a similarity
+    # transform of a non-negative diagonal and a congruence transform preserve PSD-ness, and
+    # adding the baseline COB pixel-noise diagonal (X**2, Y**2) keeps the sum PSD.
+    cos_phi = np.cos(phi)
+    sin_phi = np.sin(phi)
+    direction_x = X / ifov_x
+    direction_y = Y / ifov_y
+    correction_xx = sigma_beta_squared * direction_x ** 2 * cos_phi ** 2
+    correction_yy = sigma_beta_squared * direction_y ** 2 * sin_phi ** 2
+    correction_xy = sigma_beta_squared * direction_x * direction_y * cos_phi * sin_phi
+
     covar_com = np.zeros([3, 3])
-    covar_com[0, 0] = X ** 2 + ((sigma_beta_squared/ifov_x**2) * np.cos(phi))
-    covar_com[1, 1] = Y ** 2 + ((sigma_beta_squared/ifov_y**2) * np.sin(phi))
+    covar_com[0, 0] = X ** 2 + correction_xx
+    covar_com[1, 1] = Y ** 2 + correction_yy
+    covar_com[0, 1] = correction_xy
+    covar_com[1, 0] = correction_xy
     covar_com[2, 2] = 1
 
     return scale_factor * covar_com
@@ -97,7 +127,7 @@ def compute_camera_calibration_matrix(input_camera):
     resX = input_camera.resolution[0]
     resY = input_camera.resolution[1]
     pX = 2. * np.tan(input_camera.fieldOfView[0] / 2.0)
-    pY = 2. * np.tan(input_camera.fieldOfView[0] * resY / resX / 2.0)
+    pY = 2. * np.tan(input_camera.fieldOfView[1] / 2.0)
     dX = resX / pX
     dY = resY / pY
     up = resX / 2.
@@ -156,7 +186,11 @@ def cob_converter_test_function(show_plots, cameraResolution, centerOfBrightness
     module.standardDeviation = 100
     module.specifiedStandardDeviation = True
     module.outlierDetectionEnabled = True
-    module.fieldOfView = np.deg2rad(20.0)
+    # Distinct X/Y values so this broad, heavily-parametrized regression test actually
+    # exercises independent fields of view, instead of masking a bug where X and Y are
+    # accidentally swapped or still coupled.
+    module.fieldOfViewX = np.deg2rad(20.0)
+    module.fieldOfViewY = np.deg2rad(15.0)
     module.resolutionX = cameraResolution[0]
     module.resolutionY = cameraResolution[1]
     unitTestSim.AddModelToTask(unitTaskName, module, module)
@@ -178,17 +212,18 @@ def cob_converter_test_function(show_plots, cameraResolution, centerOfBrightness
     module.bodyToCameraMrp = sigma_CB
 
     # inputCamera is a plain data holder for computing truth values below; the module now
-    # sources fieldOfView/resolution/bodyToCameraMrp from its own config properties, not a message.
-    # Read fieldOfView/bodyToCameraMrp back from the module (instead of using the raw Python
-    # values) so the truth calc uses the exact float32-rounded value the module stored, with
-    # no risk of the two independently drifting apart.
+    # sources fieldOfViewX/fieldOfViewY/resolution/bodyToCameraMrp from its own config
+    # properties, not a message.
+    # Read fieldOfViewX/fieldOfViewY/bodyToCameraMrp back from the module (instead of using
+    # the raw Python values) so the truth calc uses the exact float32-rounded value the module
+    # stored, with no risk of the two independently drifting apart.
     inputCamera = SimpleNamespace()
     inputCob = messaging.OpNavCOBMsgF32Payload()
     inputFilter = messaging.FilterMsgF32Payload()
     inputAtt = messaging.NavAttMsgF32Payload()
     inputSun = messaging.NavAttMsgF32Payload()
 
-    inputCamera.fieldOfView = [module.fieldOfView, module.fieldOfView]
+    inputCamera.fieldOfView = [module.fieldOfViewX, module.fieldOfViewY]
     inputCamera.resolution = cameraResolution
     inputCamera.bodyToCameraMrp = np.array(module.bodyToCameraMrp).flatten()
 
@@ -277,12 +312,13 @@ def cob_converter_test_function(show_plots, cameraResolution, centerOfBrightness
 
     covar_N_true = np.dot(dcm_BN.T, np.dot(covar_B_true, dcm_BN)).flatten() * goodPixels
 
-    # Center of Mass Message and Unit Vector
+    # Center of Mass Message and Unit Vector. comValid mirrors
+    # CobConverterAlgorithm::updateState: valid whenever the resulting COM pixel location is
+    # finite, regardless of phaseAngleCorrectionMethod (NoCorrection just means COM == COB).
+    valid_COM_true = bool(goodPixels)
     if goodPixels and method == binary:
-        valid_COM_true = True
         rhat_COM_N_true = np.dot(dcm_NC, rhat_COM_C_true)
     else:
-        valid_COM_true = False
         rhat_COM_N_true = rhat_COB_N_true
 
     # module output
@@ -358,7 +394,8 @@ def test_coberror_outlier(
     module.standardDeviation = 100
     module.specifiedStandardDeviation = True
     module.outlierDetectionEnabled = True
-    module.fieldOfView = np.deg2rad(20.0)
+    module.fieldOfViewX = np.deg2rad(20.0)
+    module.fieldOfViewY = np.deg2rad(20.0)
     module.resolutionX = cameraResolution[0]
     module.resolutionY = cameraResolution[1]
     unitTestSim.AddModelToTask(unitTaskName, module, module)
@@ -380,17 +417,18 @@ def test_coberror_outlier(
     module.bodyToCameraMrp = sigma_CB
 
     # inputCamera is a plain data holder for computing truth values below; the module now
-    # sources fieldOfView/resolution/bodyToCameraMrp from its own config properties, not a message.
-    # Read fieldOfView/bodyToCameraMrp back from the module (instead of using the raw Python
-    # values) so the truth calc uses the exact float32-rounded value the module stored, with
-    # no risk of the two independently drifting apart.
+    # sources fieldOfViewX/fieldOfViewY/resolution/bodyToCameraMrp from its own config
+    # properties, not a message.
+    # Read fieldOfViewX/fieldOfViewY/bodyToCameraMrp back from the module (instead of using
+    # the raw Python values) so the truth calc uses the exact float32-rounded value the module
+    # stored, with no risk of the two independently drifting apart.
     inputCamera = SimpleNamespace()
     inputCob = messaging.OpNavCOBMsgF32Payload()
     inputFilter = messaging.FilterMsgF32Payload()
     inputAtt = messaging.NavAttMsgF32Payload()
     inputSun = messaging.NavAttMsgF32Payload()
 
-    inputCamera.fieldOfView = [module.fieldOfView, module.fieldOfView]
+    inputCamera.fieldOfView = [module.fieldOfViewX, module.fieldOfViewY]
     inputCamera.resolution = cameraResolution
     inputCamera.bodyToCameraMrp = np.array(module.bodyToCameraMrp).flatten()
 
@@ -516,7 +554,8 @@ def test_brown_conrady_calibration(k1, k2, k3, p1, p2, label, centerOfBrightness
     module.phaseAngleCorrectionMethod = noCorr
     module.radius = R_object
     module.attitudeCovariance = np.zeros((3, 3))
-    module.fieldOfView = np.deg2rad(20.0)
+    module.fieldOfViewX = np.deg2rad(20.0)
+    module.fieldOfViewY = np.deg2rad(20.0)
     module.resolutionX = cameraResolution[0]
     module.resolutionY = cameraResolution[1]
 
@@ -545,17 +584,18 @@ def test_brown_conrady_calibration(k1, k2, k3, p1, p2, label, centerOfBrightness
     module.bodyToCameraMrp = sigma_CB
 
     # inputCamera is a plain data holder for computing truth values below; the module now
-    # sources fieldOfView/resolution/bodyToCameraMrp from its own config properties, not a message.
-    # Read fieldOfView/bodyToCameraMrp back from the module (instead of using the raw Python
-    # values) so the truth calc uses the exact float32-rounded value the module stored, with
-    # no risk of the two independently drifting apart.
+    # sources fieldOfViewX/fieldOfViewY/resolution/bodyToCameraMrp from its own config
+    # properties, not a message.
+    # Read fieldOfViewX/fieldOfViewY/bodyToCameraMrp back from the module (instead of using
+    # the raw Python values) so the truth calc uses the exact float32-rounded value the module
+    # stored, with no risk of the two independently drifting apart.
     inputCamera = SimpleNamespace()
     inputCob = messaging.OpNavCOBMsgF32Payload()
     inputFilter = messaging.FilterMsgF32Payload()
     inputAtt = messaging.NavAttMsgF32Payload()
     inputSun = messaging.NavAttMsgF32Payload()
 
-    inputCamera.fieldOfView = [module.fieldOfView, module.fieldOfView]
+    inputCamera.fieldOfView = [module.fieldOfViewX, module.fieldOfViewY]
     inputCamera.resolution = cameraResolution
     inputCamera.bodyToCameraMrp = np.array(module.bodyToCameraMrp).flatten()
 
