@@ -119,7 +119,7 @@ void CobConverter::updateState(const uint64_t currentSimNanos) {
     CobConverterDiagnosticMsgF32Payload diagnosticMsgBuffer{};
     diagnosticMsgBuffer.coberrorOutlierTrigger = out.diagnostic.coberrorOutlierTrigger;
 
-    this->opnavUnitVecOutMsg.write(&uVecOutMsgBuffer, this->moduleID, currentSimNanos);
-    this->comCorrectionOutMsg.write(&comMsgBuffer, this->moduleID, currentSimNanos);
-    this->cobConverterDiagnosticOutMsg.write(&diagnosticMsgBuffer, this->moduleID, currentSimNanos);
+    this->opnavUnitVecOutMsg.write(uVecOutMsgBuffer, this->moduleID, currentSimNanos);
+    this->comCorrectionOutMsg.write(comMsgBuffer, this->moduleID, currentSimNanos);
+    this->cobConverterDiagnosticOutMsg.write(diagnosticMsgBuffer, this->moduleID, currentSimNanos);
 }
