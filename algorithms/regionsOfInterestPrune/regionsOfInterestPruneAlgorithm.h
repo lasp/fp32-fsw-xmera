@@ -68,16 +68,14 @@ class RegionsOfInterestPruneConfig final {
  */
 class RegionsOfInterestPruneAlgorithm final {
    public:
+    explicit RegionsOfInterestPruneAlgorithm(const RegionsOfInterestPruneConfig& config);
+
+    void setConfig(const RegionsOfInterestPruneConfig& config);
+
     RoiCandidates update(const uint16_t* rowSums, uint32_t numRows, const uint16_t* colSums, uint32_t numCols) const;
 
-    void setMaxRowSpans(uint32_t n) { this->maxRowSpans = n; }
-    uint32_t getMaxRowSpans() const { return this->maxRowSpans; }
-    void setMaxColSpans(uint32_t n) { this->maxColSpans = n; }
-    uint32_t getMaxColSpans() const { return this->maxColSpans; }
-
    private:
-    uint32_t maxRowSpans{DEFAULT_MAX_ROW_SPANS};  //!< Pre-filter: keep this many top row spans before cross-product
-    uint32_t maxColSpans{DEFAULT_MAX_COL_SPANS};  //!< Pre-filter: keep this many top col spans before cross-product
+    RegionsOfInterestPruneConfig cfg;
 
     using Span = std::pair<uint32_t, uint32_t>;
     using SpanVec = std::vector<Span>;

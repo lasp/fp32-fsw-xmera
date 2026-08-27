@@ -28,10 +28,16 @@ class RegionsOfInterestPrune : public SysModel {
     void updateState(uint64_t callTime) override;
 
     // --- Pre-filter configuration (forwarded to algorithm) ---
-    void setMaxRowSpans(uint32_t n) { algorithm.setMaxRowSpans(n); }
-    uint32_t getMaxRowSpans() const { return algorithm.getMaxRowSpans(); }
-    void setMaxColSpans(uint32_t n) { algorithm.setMaxColSpans(n); }
-    uint32_t getMaxColSpans() const { return algorithm.getMaxColSpans(); }
+    void setMaxRowSpans(uint32_t n) {
+        this->maxRowSpans = n;
+        this->rebuildAlgorithmConfig();
+    }
+    uint32_t getMaxRowSpans() const { return this->maxRowSpans; }
+    void setMaxColSpans(uint32_t n) {
+        this->maxColSpans = n;
+        this->rebuildAlgorithmConfig();
+    }
+    uint32_t getMaxColSpans() const { return this->maxColSpans; }
 
     // --- Save configuration ---
     void setSaveImages(bool save) { saveImages = save; }
@@ -55,7 +61,13 @@ class RegionsOfInterestPrune : public SysModel {
                            const std::string& label);
     void saveVisualization(const FpgaRowColSumMsgF32Payload& rcMsg);
 
-    RegionsOfInterestPruneAlgorithm algorithm{};
+    // Rebuild the algorithm's Config from the stored maxRowSpans/maxColSpans and push it via setConfig().
+    void rebuildAlgorithmConfig();
+
+    uint32_t maxRowSpans{DEFAULT_MAX_ROW_SPANS};
+    uint32_t maxColSpans{DEFAULT_MAX_COL_SPANS};
+    RegionsOfInterestPruneAlgorithm algorithm{
+        RegionsOfInterestPruneConfig::create(DEFAULT_MAX_ROW_SPANS, DEFAULT_MAX_COL_SPANS)};
     uint32_t numPublished{};                             //!< Number of valid entries in lastRegionsOutput
     RegionsIdentifiedMsgF32Payload lastRegionsOutput{};  //!< Published center-coordinate form
     bool saveImages{false};

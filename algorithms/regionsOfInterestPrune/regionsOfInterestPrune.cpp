@@ -54,8 +54,14 @@ void RegionsOfInterestPrune::reset(uint64_t /*callTime*/) {
     if (!this->rowColSumInMsg.isLinked()) {
         throw std::invalid_argument("RegionsOfInterestPrune.rowColSumInMsg wasn't connected.");
     }
+    this->rebuildAlgorithmConfig();
     this->numPublished = 0;
     this->lastRegionsOutput = {};
+}
+
+void RegionsOfInterestPrune::rebuildAlgorithmConfig() {
+    const RegionsOfInterestPruneConfig cfg = RegionsOfInterestPruneConfig::create(this->maxRowSpans, this->maxColSpans);
+    this->algorithm.setConfig(cfg);
 }
 
 void RegionsOfInterestPrune::updateState(uint64_t callTime) {

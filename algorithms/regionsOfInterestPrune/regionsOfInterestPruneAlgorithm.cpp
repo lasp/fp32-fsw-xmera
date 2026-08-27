@@ -4,6 +4,13 @@
 #include <functional>
 #include <numeric>
 
+RegionsOfInterestPruneAlgorithm::RegionsOfInterestPruneAlgorithm(const RegionsOfInterestPruneConfig& config)
+    : cfg(config) {
+    setConfig(config);
+}
+
+void RegionsOfInterestPruneAlgorithm::setConfig(const RegionsOfInterestPruneConfig& config) { this->cfg = config; }
+
 /*! Update method for the regions-of-interest pruning algorithm.  Orchestrates
  *  the four pipeline steps and returns a fully populated RoiCandidates.
  @return RoiCandidates  Candidates sorted by estimated pixel count (descending).
@@ -21,8 +28,8 @@ RoiCandidates RegionsOfInterestPruneAlgorithm::update(const uint16_t* rowSums,
     const auto [colSpans, colAccum] = findSpans(colSums, numCols);
 
     // Step 2: keep only the highest-sum spans to bound the cross-product size.
-    const auto topRows = topIndices(rowAccum, this->maxRowSpans);
-    const auto topCols = topIndices(colAccum, this->maxColSpans);
+    const auto topRows = topIndices(rowAccum, this->cfg.getMaxRowSpans());
+    const auto topCols = topIndices(colAccum, this->cfg.getMaxColSpans());
 
     // Steps 3–4: form bounding boxes, sort by estimated pixel count, truncate.
     return packOutput(buildCandidates(rowSpans, rowAccum, topRows, colSpans, colAccum, topCols));
