@@ -18,17 +18,15 @@ class ThrustVectoring final : public SysModel {
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
 
-    /*! Re-push the current configuration properties into the running algorithm without re-seeding its state. */
+    /*! Re-read the configuration input messages and re-push the current properties into the running algorithm. */
     void reconfigure();
-    /*! Re-seed the running algorithm's runtime state from its configured initial values. */
-    void reInitialize();
 
     /*! Phase 1: user-defined configuration properties, set before reset() */
-    Eigen::Vector3f sigma_MB{Eigen::Vector3f::Zero()};  //!< orientation of the M frame w.r.t. the B frame
+    Eigen::Vector3f sigma_MB{
+        Eigen::Vector3f::Zero()};  //!< orientation of the M frame w.r.t. the B frame; M's -z axis is the thrust
     Eigen::Vector3f r_MB_B{
         Eigen::Vector3f::Zero()};  //!< position of M frame origin w.r.t. B frame origin, in B frame coordinates
-    Eigen::Vector3f r_FM_F{
-        Eigen::Vector3f::Zero()};  //!< position of F frame origin w.r.t. M frame origin, in F frame coordinates
+    float armLength{};             //!< distance from the joint M to the thruster along the thrust [m] (>= 0)
     float thetaMax{};              //!< half-angle of the thrust-deflection cone [rad] (must be in (0, pi))
 
     /*! module IO interfaces */
