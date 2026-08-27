@@ -3,6 +3,7 @@
 
 #include "regionsOfInterestPruneTypes.h"
 
+#include <stdbool.h>
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -21,9 +22,18 @@ typedef struct RegionsOfInterestPruneAlgorithmHandle RegionsOfInterestPruneAlgor
 uint32_t RegionsOfInterestPruneAlgorithm_getMaxCandidatesCount(void);
 
 /**
+ * @brief Report whether a configuration would be accepted by create/setConfig.
+ * @param config Pointer to the configuration to validate.
+ * @return true when the configuration is valid. Never throws, so it can guard the
+ *         throwing create/setConfig from an invalid configuration.
+ */
+bool RegionsOfInterestPruneAlgorithm_validateConfig(const RegionsOfInterestPruneConfig_c* config);
+
+/**
  * @brief Construct a new RegionsOfInterestPruneAlgorithm instance from the supplied configuration.
  * @param config Pointer to the configuration to apply (validated; throws on invalid input).
  * @return Pointer to a new RegionsOfInterestPruneAlgorithm (must be destroyed).
+ * Validate the config with validateConfig first; invalid input throws.
  */
 RegionsOfInterestPruneAlgorithmHandle* RegionsOfInterestPruneAlgorithm_create(
     const RegionsOfInterestPruneConfig_c* config);

@@ -26,6 +26,15 @@ RoiCandidates_c outputToC(const RoiCandidates& out) {
 
 uint32_t RegionsOfInterestPruneAlgorithm_getMaxCandidatesCount(void) { return ROI_CANDIDATES_MAX; }
 
+bool RegionsOfInterestPruneAlgorithm_validateConfig(const RegionsOfInterestPruneConfig_c* config) {
+    try {
+        (void)configFromC(*config);
+        return true;
+    } catch (const fsw::invalid_argument&) {
+        return false;
+    }
+}
+
 RegionsOfInterestPruneAlgorithmHandle* RegionsOfInterestPruneAlgorithm_create(
     const RegionsOfInterestPruneConfig_c* config) {
     return fsw::createHandle<::RegionsOfInterestPruneAlgorithm, RegionsOfInterestPruneAlgorithmHandle>(
