@@ -8,17 +8,13 @@ DvAccumulationAlgorithm::DvAccumulationAlgorithm(const DvAccumulationConfig& con
 void DvAccumulationAlgorithm::setConfig(const DvAccumulationConfig& config) { this->cfg = config; }
 
 void DvAccumulationAlgorithm::reInitialize() {
-    /*! - zero the accumulator and re-arm firstCall together: leaving firstCall set while zeroing the
-     *    accumulator would integrate a full step into a fresh window and put the accumulated
-     *    Delta-V one interval ahead of the elapsed time */
     this->vehAccumDV_B.setZero();
     this->firstCall = true;
 }
 
 Eigen::Vector3f DvAccumulationAlgorithm::update(const Eigen::Vector3f& rDDotNoGravity_BN_B,
                                                 const Eigen::Vector3f& accelBias_B) {
-    /*! - the first call starts the accumulation window; N samples bound N-1 intervals, so there is
-     *    no elapsed interval to integrate over yet */
+    /*! - the first call starts the accumulation window: there is no elapsed interval yet */
     if (this->firstCall) {
         this->firstCall = false;
     } else {

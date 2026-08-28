@@ -3,9 +3,7 @@ Module Name:        dvAccumulation
 
 Smoke / interface test for the fp32 dvAccumulation module. dvAccumulation integrates a single
 body-frame acceleration sample per update (an IMUSensorBodyMsgF32 input), using the configured
-control period as the integration step. This test exercises every interface end-to-end through the SysModel adapter
--- link the input message, run several steps, and confirm the module executes and produces a finite,
-correctly-signed accumulated Delta-V.
+control period as the integration step.
 """
 
 import numpy as np
