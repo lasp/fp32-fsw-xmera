@@ -1,13 +1,6 @@
 #include "hillPoint.h"
 #include "utilities/fsw/eigenSupport.h"
-#include <stdexcept>
-
-namespace {
-class XmeraLifecycleException : public std::runtime_error {
-   public:
-    using runtime_error::runtime_error;
-};
-}  // namespace
+#include "utilities/xmera/xmeraLifecycleException.h"
 
 void HillPoint::reset(const uint64_t currentSimNanos) {
     if (!this->transNavInMsg.isLinked()) {
@@ -27,15 +20,15 @@ void HillPoint::updateState(const uint64_t currentSimNanos) {
     const Eigen::Vector3d r_BN_N = cArrayToEigenVector3<double>(navData.r_BN_N);
     const Eigen::Vector3d v_BN_N = cArrayToEigenVector3<double>(navData.v_BN_N);
 
-    Eigen::Vector3d r_planet_N = Eigen::Vector3d::Zero();
-    Eigen::Vector3d v_planet_N = Eigen::Vector3d::Zero();
+    Eigen::Vector3d r_PN_N = Eigen::Vector3d::Zero();
+    Eigen::Vector3d v_PN_N = Eigen::Vector3d::Zero();
     if (this->planetMsgIsLinked) {
         const EphemerisMsgF32Payload primPlanet = this->celBodyInMsg();
-        r_planet_N = cArrayToEigenVector3<double>(primPlanet.r_BdyZero_N);
-        v_planet_N = cArrayToEigenVector3<double>(primPlanet.v_BdyZero_N);
+        r_PN_N = cArrayToEigenVector3<double>(primPlanet.r_BdyZero_N);
+        v_PN_N = cArrayToEigenVector3<double>(primPlanet.v_BdyZero_N);
     }
 
-    const HillPointOutput out = this->algorithm->update(r_BN_N, v_BN_N, r_planet_N, v_planet_N);
+    const HillPointOutput out = this->algorithm->update(r_BN_N, v_BN_N, r_PN_N, v_PN_N);
 
     AttRefMsgF32Payload attRefOut = AttRefMsgF32Payload();
     eigenVectorToCArray(out.sigma_RN, attRefOut.sigma_RN);

@@ -11,10 +11,13 @@ struct HillPointOutput {
 
 class HillPointAlgorithm final {
    public:
+    static constexpr double kMinOrbitRadius = 1.0;          // [m]
+    static constexpr double kSmallAngleThreshold = 1.0e-3;  // [rad]
+
     static HillPointOutput update(const Eigen::Vector3d& r_BN_N,
                                   const Eigen::Vector3d& v_BN_N,
-                                  const Eigen::Vector3d& r_planet_N,
-                                  const Eigen::Vector3d& v_planet_N);
+                                  const Eigen::Vector3d& r_PN_N,
+                                  const Eigen::Vector3d& v_PN_N);
 };
 
 #endif
