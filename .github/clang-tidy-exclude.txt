@@ -99,6 +99,10 @@ algorithms/sunlineFilter/sunlineFilter.h
 algorithms/sunlineFilter/sunlineFilter.cpp
 algorithms/sunlineFilter/sunlineFilterAlgorithm_c.h
 algorithms/sunlineFilter/sunlineFilterAlgorithm_c.cpp
+algorithms/thrDesatDutyCycle/thrDesatDutyCycle.h
+algorithms/thrDesatDutyCycle/thrDesatDutyCycle.cpp
+algorithms/thrDesatDutyCycle/thrDesatDutyCycleAlgorithm_c.h
+algorithms/thrDesatDutyCycle/thrDesatDutyCycleAlgorithm_c.cpp
 algorithms/thrFiringRemainder/thrFiringRemainder.h
 algorithms/thrFiringRemainder/thrFiringRemainder.cpp
 algorithms/thrFiringRemainder/thrFiringRemainderAlgorithm_c.h
