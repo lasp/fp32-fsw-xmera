@@ -8,19 +8,21 @@
 #include <cmath>
 #include <vector>
 
-/*! @brief Reference algorithm state, mirroring DvAccumulationAlgorithm's private members. */
+/*! @brief Reference algorithm state. It is the same as the private members of
+ *         DvAccumulationAlgorithm. */
 struct ReferenceState {
     Eigen::Vector3f vehAccumDV_B{Eigen::Vector3f::Zero()};
     bool firstCall{true};
 };
 
-/*! @brief Reference reInitialize: zero the accumulator and restart the accumulation window. */
+/*! @brief Reference reInitialize(). It sets the accumulator to zero and starts a new accumulation
+ *         window. */
 inline void referenceReInitialize(ReferenceState& s) {
     s.vehAccumDV_B = Eigen::Vector3f::Zero();
     s.firstCall = true;
 }
 
-/*! @brief Reference oracle for DvAccumulationAlgorithm::update(). Returns the accumulator. */
+/*! @brief Reference oracle for DvAccumulationAlgorithm::update(). It gives the accumulator. */
 inline Eigen::Vector3f referenceUpdate(ReferenceState& s,
                                        float controlPeriod,
                                        const Eigen::Vector3f& accel_B,
@@ -34,8 +36,8 @@ inline Eigen::Vector3f referenceUpdate(ReferenceState& s,
     return s.vehAccumDV_B;
 }
 
-/*! @brief Drive the algorithm through a sequence of acceleration samples at a fixed control period
- *         and compare to the reference at every step. */
+/*! @brief Uses the algorithm on a sequence of acceleration samples at a constant control period.
+ *         It compares each step to the reference. */
 inline void testDvAccumulation(float controlPeriod, const std::vector<Eigen::Vector3f>& accels) {
     DvAccumulationAlgorithm alg{DvAccumulationConfig::create(controlPeriod)};
 
@@ -54,13 +56,13 @@ inline void testDvAccumulation(float controlPeriod, const std::vector<Eigen::Vec
     }
 }
 
-/*! @brief Fuzz-friendly testDvAccumulation: skips a control period the validator rejects, subtracts
- *         a generated bias, and allows a looser tolerance. */
+/*! @brief testDvAccumulation for a fuzz test. It ignores a control period that the validator
+ *         rejects, it subtracts a generated bias, and it uses a larger tolerance. */
 inline void testDvAccumulationFuzz(float controlPeriod,
                                    const std::vector<Eigen::Vector3f>& accels,
                                    const Eigen::Vector3f& accelBias_B) {
     if (!DvAccumulationConfig::isValidControlPeriod(controlPeriod)) {
-        return;  // fuzz domain may produce a rejected control period; construction would throw
+        return;  // the fuzz domain can give a rejected control period. Construction throws on one
     }
 
     DvAccumulationAlgorithm alg{DvAccumulationConfig::create(controlPeriod)};
@@ -79,7 +81,7 @@ inline void testDvAccumulationFuzz(float controlPeriod,
     }
 }
 
-/*! @brief Construction exercise: a valid configuration constructs without throwing. */
+/*! @brief Construction test: a valid configuration constructs and does not throw. */
 inline void testDvAccumulationSetup() {
     EXPECT_NO_THROW({
         const DvAccumulationAlgorithm alg{DvAccumulationConfig::create(0.2F)};
