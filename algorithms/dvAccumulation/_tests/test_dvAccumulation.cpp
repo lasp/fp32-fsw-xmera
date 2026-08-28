@@ -11,8 +11,8 @@
 TEST(DvAccumulationTest, SetupTest) {
     testDvAccumulationSetup();
 
-    /*! - the configuration validator is the only guard on controlPeriod, so every rejected value is
-     *    checked here alongside the accepted one */
+    /*! - the configuration validator is the only limit on controlPeriod. Thus this test includes
+     *    each rejected value and the accepted value */
     EXPECT_THROW(DvAccumulationConfig::create(0.0F), fsw::invalid_argument);
     EXPECT_THROW(DvAccumulationConfig::create(-0.2F), fsw::invalid_argument);
     EXPECT_THROW(DvAccumulationConfig::create(std::numeric_limits<float>::quiet_NaN()), fsw::invalid_argument);
@@ -20,10 +20,10 @@ TEST(DvAccumulationTest, SetupTest) {
 }
 
 TEST(DvAccumulationTest, AccelBiasIsSubtractedNotAdded) {
-    /*! - drives an acceleration of exactly twice the bias so the sign is unambiguous: subtracting
-     *    leaves b, adding would leave 3b, and ignoring the bias entirely would leave 2b. The expected
-     *    value is hand-computed rather than taken from the reference oracle, since a hand-written
-     *    oracle can encode the same sign error as the implementation. */
+    /*! - the test uses an acceleration of two times the bias. Thus the sign is clear: a subtraction
+     *    gives b, an addition gives 3b, and no bias correction gives 2b. This test does not use the
+     *    reference oracle for the expected value, because a hand-written oracle can contain the same
+     *    sign error as the algorithm. The expected value is a hand calculation. */
     constexpr float kControlPeriod = 0.5F;
     const Eigen::Vector3f bias{0.02F, -0.05F, 0.01F};
     const Eigen::Vector3f accel = 2.0F * bias;
@@ -36,7 +36,7 @@ TEST(DvAccumulationTest, AccelBiasIsSubtractedNotAdded) {
         out = alg.update(accel, bias);
     }
 
-    /*! - N calls bound N-1 intervals, so the expected Delta-V is bias * (N-1) * controlPeriod */
+    /*! - N calls have N-1 intervals, so the expected Delta-V is bias * (N-1) * controlPeriod */
     const float elapsed = static_cast<float>(kTotalCalls - 1) * kControlPeriod;
     for (int i = 0; i < 3; ++i) {
         EXPECT_NEAR(out[i], bias[i] * elapsed, 1e-6F);
@@ -44,8 +44,8 @@ TEST(DvAccumulationTest, AccelBiasIsSubtractedNotAdded) {
 }
 
 TEST(DvAccumulationTest, BiasEqualToAccelerationYieldsZeroDeltaV) {
-    /*! - a bias equal to the acceleration must zero the accumulated Delta-V outright: the module is
-     *    measuring pure bias and no real thrust */
+    /*! - if the bias is equal to the acceleration, the accumulated Delta-V must be zero: the module
+     *    measures only bias and no thrust */
     const Eigen::Vector3f accel{0.004166F, -0.01F, 0.002F};
     DvAccumulationAlgorithm alg{DvAccumulationConfig::create(0.2F)};
 
@@ -60,8 +60,8 @@ TEST(DvAccumulationTest, BiasEqualToAccelerationYieldsZeroDeltaV) {
 }
 
 TEST(DvAccumulationTest, ReferenceTest) {
-    /*! - a sequence exercising the window-starting first call and integration over later calls,
-     *    compared to the reference at every step */
+    /*! - a sequence that includes the first call that starts the window, and the integration in
+     *    each later call. The test compares each step to the reference */
     testDvAccumulation(0.5F,
                        {
                            Eigen::Vector3f{0.1F, -0.2F, 0.3F},   // first call: starts the window
@@ -73,10 +73,10 @@ TEST(DvAccumulationTest, ReferenceTest) {
 }
 
 TEST(DvAccumulationTest, KnownAccelerationProducesExpectedDeltaV) {
-    /*! - checks the integration against a hand-computed expected value, then generalizes to N ticks:
-     *    the accumulated Delta-V must equal accel * elapsed time since the first call, where N
-     *    samples bound N-1 intervals. That invariant is what the window-starting first call exists to
-     *    satisfy, and it fails if the interval count drifts to N or N-2. */
+    /*! - the test compares the integration to a hand calculation, then to N calls: the accumulated
+     *    Delta-V must be equal to accel * elapsed time after the first call, and N calls have N-1
+     *    intervals. The first call starts the window to make this true. If the interval count changes
+     *    to N or to N-2, this test does not pass. */
     constexpr float kControlPeriod = 0.5F;
     DvAccumulationAlgorithm alg{DvAccumulationConfig::create(kControlPeriod)};
 
@@ -88,7 +88,7 @@ TEST(DvAccumulationTest, KnownAccelerationProducesExpectedDeltaV) {
     EXPECT_NEAR(out[1], -2.0F, 1e-5F);
     EXPECT_NEAR(out[2], 0.0F, 1e-5F);
 
-    /*! - continue to N total calls and re-check against accel * elapsed */
+    /*! - continue to N total calls and compare to accel * elapsed time again */
     constexpr int kTotalCalls = 20;
     for (int k = 2; k < kTotalCalls; ++k) {
         out = alg.update(accel, Eigen::Vector3f::Zero());
@@ -100,8 +100,9 @@ TEST(DvAccumulationTest, KnownAccelerationProducesExpectedDeltaV) {
 }
 
 TEST(DvAccumulationTest, FirstCallStartsTheAccumulationClock) {
-    /*! - the first update after construction never integrates, whatever acceleration it carries: it
-     *    starts the accumulation window. Sweep extreme magnitudes; every one must yield zero DV. */
+    /*! - the first update() after construction starts the accumulation window and never integrates.
+     *    This is true for each acceleration value. The test uses very large magnitudes. Each one must
+     *    give a Delta-V of zero. */
     const std::array<Eigen::Vector3f, 3> firstCallAccels{
         Eigen::Vector3f{1.0e6F, -1.0e6F, 1.0e6F}, Eigen::Vector3f{-1.0e9F, 1.0e9F, -1.0e9F}, Eigen::Vector3f::Zero()};
 
@@ -115,25 +116,26 @@ TEST(DvAccumulationTest, FirstCallStartsTheAccumulationClock) {
 }
 
 TEST(DvAccumulationTest, ReInitializeRestartsTheAccumulationClock) {
-    /*! - reInitialize re-arms firstCall as well as zeroing the accumulator, so the next update
-     *    restarts the window: zero DV, no integration. The [0,0,0] result rules out both failure
-     *    modes: [1,0,0] if the window had been left open, [2,0,0] if the accumulator hadn't reset.
-     *    setConfig, by contrast, installs parameters only and must not re-arm the window. */
+    /*! - reInitialize() sets the accumulator to zero and also sets firstCall to true. Thus the next
+     *    update() starts a new window: a Delta-V of zero and no integration. The [0,0,0] result
+     *    detects the two failure modes: [1,0,0] if the window stays open, [2,0,0] if the accumulator
+     *    keeps its value. But setConfig() installs the parameters only. It must not start a new
+     *    window. */
     DvAccumulationAlgorithm alg{DvAccumulationConfig::create(0.5F)};
 
     const Eigen::Vector3f accel{2.0F, 0.0F, 0.0F};
     alg.update(accel, Eigen::Vector3f::Zero());  // starts the window
     alg.update(accel, Eigen::Vector3f::Zero());  // dt=0.5 -> [1,0,0]
 
-    alg.reInitialize();  // accumulator->0 AND window restarted
+    alg.reInitialize();  // accumulator->0 AND a new window
 
     const Eigen::Vector3f after = alg.update(accel, Eigen::Vector3f::Zero());
     EXPECT_FLOAT_EQ(after[0], 0.0F);
     EXPECT_FLOAT_EQ(after[1], 0.0F);
     EXPECT_FLOAT_EQ(after[2], 0.0F);
 
-    /*! - setConfig swaps the step without re-arming the window, so the very next call integrates at
-     *    the new period rather than starting a fresh one */
+    /*! - setConfig() changes the step and does not start a new window. Thus the next call
+     *    integrates at the new period */
     alg.setConfig(DvAccumulationConfig::create(1.0F));
     const Eigen::Vector3f afterSetConfig = alg.update(accel, Eigen::Vector3f::Zero());
     EXPECT_NEAR(afterSetConfig[0], 2.0F, 1e-5F);  // 1.0 s * 2.0 m/s^2, not zero
