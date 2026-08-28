@@ -5,8 +5,7 @@
 #   sunAvoidance produces the Sun-avoidance maneuver-adjusted reference frame; attTrackingError is
 #   chained downstream to form the attitude tracking error. The combined algorithm behavior is covered
 #   by the C++ integrated regression test (test_sunAvoidance_integrated.cpp). This pytest covers the
-#   adapter layer: SWIG property round-trips, the message I/O boundary, and the optional-message-driven
-#   maneuver selection.
+#   adapter layer: SWIG property round-trips and the message I/O boundary.
 #
 
 import numpy as np
@@ -24,9 +23,11 @@ omega_RN_N = [0.018, -0.032, 0.015]
 domega_RN_N = [0.048, -0.022, 0.025]
 
 
-def _run_sim(sun_avoidance):
-    """Run the module through a short Xmera simulation. When sun_avoidance is True the optional
-    translational-navigation and ephemeris messages are connected, which engages the maneuver."""
+def _run_sim(sun_visible):
+    """Run the module through a short Xmera simulation. All four input messages are connected: Sun
+    avoidance is not optional, so the translational-navigation and ephemeris messages are required.
+    When sun_visible is False the ephemeris carries a zero Sun position, which leaves no usable Sun
+    direction and the module passes the input reference through."""
     unitTestSim = SimulationBaseClass.SimBaseClass()
     testProcessRate = macros.sec2nano(0.5)
     testProc = unitTestSim.CreateNewProcess("TestProcess")
@@ -50,17 +51,19 @@ def _run_sim(sun_avoidance):
     module.attNavInMsg.subscribeTo(navStateInMsg)
     module.attRefInMsg.subscribeTo(refInMsg)
 
-    if sun_avoidance:
-        module.angleRate = 1 * np.pi / 180.0
-        module.sensitiveHat_B = [0.0, -1.0, 0.0]
-        transNavData = messaging.NavTransMsgF32Payload()
-        transNavData.r_BN_N = [-30, 20, -50]
-        transNavMsg = messaging.NavTransMsgF32().write(transNavData)
-        module.transNavInMsg.subscribeTo(transNavMsg)
-        ephemerisData = messaging.EphemerisMsgF32Payload()
-        ephemerisData.r_BdyZero_N = np.array([1, 2, 3])
-        ephemerisMsg = messaging.EphemerisMsgF32().write(ephemerisData)
-        module.ephemerisInMsg.subscribeTo(ephemerisMsg)
+    # slewRate must be a valid (positive) rate whether or not there is a maneuver to feed forward.
+    module.slewRate = 1 * np.pi / 180.0
+    module.sensitiveHat_B = [0.0, -1.0, 0.0]
+
+    transNavData = messaging.NavTransMsgF32Payload()
+    transNavData.r_BN_N = [-30, 20, -50]
+    transNavMsg = messaging.NavTransMsgF32().write(transNavData)
+    module.transNavInMsg.subscribeTo(transNavMsg)
+
+    ephemerisData = messaging.EphemerisMsgF32Payload()
+    ephemerisData.r_BdyZero_N = np.array([1, 2, 3]) if sun_visible else np.zeros(3)
+    ephemerisMsg = messaging.EphemerisMsgF32().write(ephemerisData)
+    module.ephemerisInMsg.subscribeTo(ephemerisMsg)
 
     dataLog = module.attRefOutMsg.recorder()
     unitTestSim.AddModelToTask("unitTask", dataLog)
@@ -77,9 +80,9 @@ def test_sunAvoidance_config_roundtrip():
     module = sunAvoidanceF32.SunAvoidance()
     module.modelTag = "sunAvoidance"
 
-    angleRate = 0.0123
-    module.angleRate = angleRate
-    np.testing.assert_allclose(module.angleRate, angleRate, rtol=1e-6, atol=1e-6)
+    slewRate = 0.0123
+    module.slewRate = slewRate
+    np.testing.assert_allclose(module.slewRate, slewRate, rtol=1e-6, atol=1e-6)
 
     sensitiveHat_B = [0.1, -0.9, 0.2]
     module.sensitiveHat_B = sensitiveHat_B
@@ -88,10 +91,10 @@ def test_sunAvoidance_config_roundtrip():
     )
 
 
-def test_sunAvoidance_no_maneuver_passes_reference_through():
-    """Without the optional messages, computeAngleStart is false and no maneuver is applied, so the
-    output reference frame equals the input reference. Verifies the adapter message I/O end to end."""
-    dataLog = _run_sim(sun_avoidance=False)
+def test_sunAvoidance_no_sun_information_passes_reference_through():
+    """A zero Sun position leaves no usable Sun direction, so no maneuver is applied and the output
+    reference frame equals the input reference. Verifies the adapter message I/O end to end."""
+    dataLog = _run_sim(sun_visible=False)
 
     tol = 1e-6
     np.testing.assert_allclose(dataLog.sigma_RN[-1], sigma_RN, rtol=tol, atol=tol)
@@ -99,12 +102,11 @@ def test_sunAvoidance_no_maneuver_passes_reference_through():
     np.testing.assert_allclose(dataLog.domega_RN_N[-1], domega_RN_N, rtol=tol, atol=tol)
 
 
-def test_sunAvoidance_optional_messages_engage_maneuver():
-    """Subscribing the optional trans/ephemeris messages engages the Sun-avoidance maneuver
-    (computeAngleStart is derived from the link state), which rotates the output reference frame away
-    from the input reference. Exercises the optional-message wiring and the double[3]->float
+def test_sunAvoidance_engages_maneuver():
+    """A usable Sun direction engages the Sun-avoidance maneuver, which rotates the output reference
+    frame away from the input reference. Exercises the required-message wiring and the double[3]->float
     position/ephemeris conversion path."""
-    on = _run_sim(sun_avoidance=True)
+    on = _run_sim(sun_visible=True)
 
     assert np.all(np.isfinite(on.sigma_RN))
     assert np.all(np.isfinite(on.omega_RN_N))
@@ -119,5 +121,5 @@ def test_sunAvoidance_optional_messages_engage_maneuver():
 
 if __name__ == "__main__":
     test_sunAvoidance_config_roundtrip()
-    test_sunAvoidance_no_maneuver_passes_reference_through()
-    test_sunAvoidance_optional_messages_engage_maneuver()
+    test_sunAvoidance_no_sun_information_passes_reference_through()
+    test_sunAvoidance_engages_maneuver()

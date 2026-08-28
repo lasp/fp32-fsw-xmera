@@ -17,27 +17,23 @@ extern "C" {
 typedef struct SunAvoidanceAlgorithmHandle SunAvoidanceAlgorithmHandle;
 
 /**
- * @brief Plain-old-data mirror of the C++ SunAvoidanceConfig fields.
- *
- * Caller fills this struct and passes it to SunAvoidanceAlgorithm_create or _setConfig. The C++
- * side validates each field via SunAvoidanceConfig::create and throws on invalid input.
- *  - sensitiveHat_B must be finite (stored normalized)
- *  - angleRate [r/s] must be finite
- *  - computeAngleStart selects whether the initial maneuver angle is computed from the sun geometry
- *    (true when the trans/ephemeris messages are connected) or assumed to be 0
+ * @brief Report whether a configuration would be accepted by create/setConfig.
+ * @param sensitiveHat_B Body vector to keep off the Sun; must be finite and within 1e-3 of unit length.
+ * @param slewRate       [r/s] rate at which the maneuver slews toward the input reference; must be finite
+ *                       and greater than zero.
+ * @return true when the configuration is valid. Never throws, so it can guard the
+ *         throwing create/setConfig from an invalid configuration.
  */
-typedef struct {
-    Vector3f_c sensitiveHat_B;
-    float angleRate;
-    bool computeAngleStart;
-} SunAvoidanceConfig_c;
+bool SunAvoidanceAlgorithm_validateConfig(const Vector3f_c* sensitiveHat_B, float slewRate);
 
 /**
  * @brief Construct a new SunAvoidanceAlgorithm instance from the supplied configuration.
- * @param config Pointer to the configuration to apply (validated; throws on invalid input).
+ * @param sensitiveHat_B Body vector to keep off the Sun (stored normalized).
+ * @param slewRate       [r/s] rate at which the maneuver slews toward the input reference.
  * @return Pointer to a new SunAvoidanceAlgorithm (must be destroyed).
+ * Validate the configuration with validateConfig first; invalid input throws.
  */
-SunAvoidanceAlgorithmHandle* SunAvoidanceAlgorithm_create(const SunAvoidanceConfig_c* config);
+SunAvoidanceAlgorithmHandle* SunAvoidanceAlgorithm_create(const Vector3f_c* sensitiveHat_B, float slewRate);
 
 /**
  * @brief Destroy a previously created SunAvoidanceAlgorithm.
@@ -47,10 +43,14 @@ void SunAvoidanceAlgorithm_destroy(SunAvoidanceAlgorithmHandle* self);
 
 /**
  * @brief Replace the algorithm's configuration at runtime. The runtime maneuver state is preserved.
- * @param self   Pointer to the instance.
- * @param config Pointer to the configuration to apply (validated; throws on invalid input).
+ * @param self           Pointer to the instance.
+ * @param sensitiveHat_B Body vector to keep off the Sun (stored normalized).
+ * @param slewRate       [r/s] rate at which the maneuver slews toward the input reference.
+ * Validate the configuration with validateConfig first; invalid input throws.
  */
-void SunAvoidanceAlgorithm_setConfig(SunAvoidanceAlgorithmHandle* self, const SunAvoidanceConfig_c* config);
+void SunAvoidanceAlgorithm_setConfig(SunAvoidanceAlgorithmHandle* self,
+                                     const Vector3f_c* sensitiveHat_B,
+                                     float slewRate);
 
 /**
  * @brief Re-seed the runtime maneuver state so the maneuver reinitializes on the next update.

@@ -33,14 +33,12 @@ SunAvoidanceOutput SunAvoidanceAlgorithm::update(const Eigen::Vector3f& sigma_BN
                                                  const uint64_t callTime) {
     if (!this->maneuver.has_value()) {
         Maneuver m{};
-        if (this->cfg.getComputeAngleStart()) {
-            // Difference the large inertial positions in double precision, then reduce the unit direction to float.
-            const Eigen::Vector3f sHat_N = (r_SN_N - r_BN_N).stableNormalized().cast<float>();
-            // Skip the maneuver (pass-through) when no usable Sun information is available: a zero Sun
-            // position (no ephemeris) or a Sun direction coincident with the spacecraft.
-            if (r_SN_N.stableNorm() > 0.0 && sHat_N.stableNorm() > 0.0F) {
-                m = initializeManeuver(sigma_BN, ref, sHat_N);
-            }
+        // Difference the large inertial positions in double precision, then reduce the unit direction to float.
+        const Eigen::Vector3f sHat_N = (r_SN_N - r_BN_N).stableNormalized().cast<float>();
+        // Skip the maneuver (pass-through) when no usable Sun information is available: a zero Sun
+        // position (no ephemeris) or a Sun direction coincident with the spacecraft.
+        if (r_SN_N.stableNorm() > 0.0 && sHat_N.stableNorm() > 0.0F) {
+            m = initializeManeuver(sigma_BN, ref, sHat_N);
         }
         m.startTime = callTime;
         this->maneuver = m;
@@ -60,13 +58,14 @@ SunAvoidanceAlgorithm::Maneuver SunAvoidanceAlgorithm::initializeManeuver(const 
                                                                           const SunAvoidanceAttRefInputs& ref,
                                                                           const Eigen::Vector3f& sHat_N) const {
     // Phase 1: compute the maneuver -- the short-way principal rotation from the body to the reference.
+    // The rotation is taken from R to B so the stored axis points the way the slew travels.
     // stableNormalized/stableNorm keep a zero rotation (body already at the reference) finite, not NaN.
     const Eigen::Matrix3f dcm_BN = mrpToDcm(sigma_BN);
     const Eigen::Matrix3f dcm_RN = mrpToDcm(ref.sigma_RN);
-    const Eigen::Matrix3f dcm_BR = dcm_BN * dcm_RN.transpose();
-    const Eigen::Vector3f prv_BR = dcmToPrv(dcm_BR);
-    Maneuver maneuver{.axis_B = prv_BR.stableNormalized(),
-                      .angle = prv_BR.stableNorm()};  // magnitude = angle, direction = axis
+    const Eigen::Matrix3f dcm_RB = dcm_RN * dcm_BN.transpose();
+    const Eigen::Vector3f prv_RB = dcmToPrv(dcm_RB);
+    Maneuver maneuver{.slewAxis_B = prv_RB.stableNormalized(),
+                      .angle = prv_RB.stableNorm()};  // magnitude = angle, direction = axis
 
     // Phase 2: determine short vs long way -- reverse the maneuver if the short slew would sweep the
     // sensitive axis across the Sun.
@@ -88,18 +87,17 @@ SunAvoidanceAlgorithm::Maneuver SunAvoidanceAlgorithm::initializeManeuver(const 
                                           sunInSweepPlane_N.stableNorm() > 0.0F &&
                                           initialToSunAxis_N.stableNorm() > 0.0F;
 
-    // Sweep extent, the Sun's position along it, and whether the maneuver (initial -> reference) turns the
-    // sensitive axis toward the Sun. maneuver.axis_B is reference -> initial, so the maneuver is its reverse.
+    // Sweep extent, the Sun's position along it, and whether the slew turns the sensitive axis toward the Sun.
     const float sensitiveSweepAngle = safeAcosf(sensitiveInitial_N.dot(sensitiveFinal_N));
     const float initialToSunAngle = safeAcosf(sensitiveInitial_N.dot(sunInSweepPlane_N));
-    const Eigen::Vector3f initialToReferenceAxis_N = -(dcm_BN.transpose() * maneuver.axis_B);
-    const bool maneuverTowardSun = initialToSunAxis_N.dot(initialToReferenceAxis_N) > 0.0F;
+    const Eigen::Vector3f slewAxis_N = dcm_BN.transpose() * maneuver.slewAxis_B;
+    const bool maneuverTowardSun = initialToSunAxis_N.dot(slewAxis_N) > 0.0F;
 
     // Reverse to the long way when the maneuver turns the sensitive axis toward the Sun and the Sun lies
     // within the swept arc. Degenerate geometry leaves this decision ambiguous, so the short way is kept.
     if (avoidanceGeometryDefined && maneuverTowardSun && initialToSunAngle < sensitiveSweepAngle) {
         maneuver.angle = (2.0F * std::numbers::pi_v<float>)-maneuver.angle;
-        maneuver.axis_B = -maneuver.axis_B;
+        maneuver.slewAxis_B = -maneuver.slewAxis_B;
     }
 
     return maneuver;
@@ -123,13 +121,14 @@ SunAvoidanceOutput SunAvoidanceAlgorithm::computeAdjustedReference(const Eigen::
 
     // Residual maneuver angle, fed forward at the configured rate and clamped at zero.
     const float dtSeconds = static_cast<float>(callTime - maneuver.startTime) * kNano2SecF;
-    float remainingManeuverAngle = maneuver.angle - (this->cfg.getAngleRate() * dtSeconds);
+    float remainingManeuverAngle = maneuver.angle - (this->cfg.getSlewRate() * dtSeconds);
     remainingManeuverAngle = remainingManeuverAngle < 0.0F ? 0.0F : remainingManeuverAngle;
 
     SunAvoidanceOutput out{};
 
-    // Adjusted reference attitude: input reference rotated by the residual maneuver.
-    const Eigen::Vector3f prv_RcR = remainingManeuverAngle * maneuver.axis_B;
+    // Adjusted reference attitude: input reference rotated by the residual maneuver. The residual is
+    // measured against the slew direction, so the reference is rotated back along it.
+    const Eigen::Vector3f prv_RcR = -remainingManeuverAngle * maneuver.slewAxis_B;
     const Eigen::Matrix3f dcm_RcR = prvToDcm(prv_RcR);
     const Eigen::Matrix3f dcm_RcN = dcm_RcR * dcm_RN;
     out.sigma_RN = dcmToMrp(dcm_RcN);
@@ -138,7 +137,7 @@ SunAvoidanceOutput SunAvoidanceAlgorithm::computeAdjustedReference(const Eigen::
     Eigen::Vector3f omega_RcN_N = ref.omega_RN_N;
     if (remainingManeuverAngle > 0.0F) {
         const Eigen::Matrix3f dcm_BN = mrpToDcm(sigma_BN);
-        omega_RcN_N -= this->cfg.getAngleRate() * (dcm_BN.transpose() * maneuver.axis_B);
+        omega_RcN_N += this->cfg.getSlewRate() * (dcm_BN.transpose() * maneuver.slewAxis_B);
     }
     out.omega_RN_N = omega_RcN_N;
 

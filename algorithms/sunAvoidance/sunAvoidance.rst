@@ -12,9 +12,10 @@ sensitive body axis does not sweep across the Sun during the slew. The adjusted 
 reference message intended to feed :ref:`attTrackingError` downstream, which forms the attitude tracking error from it
 and the navigation attitude.
 
-The Sun-avoidance maneuver is only computed when both optional inputs -- the spacecraft translational state and the Sun
-ephemeris -- are connected and a valid Sun direction is available. Otherwise, and once the maneuver has decayed to zero,
-the input reference is passed through unchanged.
+Sun avoidance is not optional: every input message is required and the maneuver is computed on every ``reset()``. The
+only case in which no maneuver is performed is when the inputs carry no usable Sun direction at all -- a zero Sun
+position (no ephemeris) or a Sun coincident with the spacecraft. In that case, and once the maneuver has decayed to
+zero, the input reference is passed through unchanged.
 
 Message Connection Descriptions
 -------------------------------
@@ -37,16 +38,16 @@ what this message is used for.
       - input reference frame :math:`(\mathbf\sigma_{R/N},\ \mathbf\omega_{R/N},\ \dot{\mathbf\omega}_{R/N})`
     * - transNavInMsg
       - :ref:`NavTransMsgF32Payload`
-      - optional input with the spacecraft inertial position :math:`\mathbf r_{B/N}`
+      - input with the spacecraft inertial position :math:`\mathbf r_{B/N}`
     * - ephemerisInMsg
       - :ref:`EphemerisMsgF32Payload`
-      - optional input with the Sun inertial position :math:`\mathbf r_{S/N}`
+      - input with the Sun inertial position :math:`\mathbf r_{S/N}`
     * - attRefOutMsg
       - :ref:`AttRefMsgF32Payload`
       - output maneuver-adjusted reference frame
 
-The Sun-avoidance maneuver is enabled only when **both** ``transNavInMsg`` and ``ephemerisInMsg`` are connected. When
-either is left unconnected the module outputs the input reference unchanged.
+All four input messages are **required**; ``reset()`` throws if any of them is left unconnected. Sun avoidance is not a
+mode the caller can opt out of by omitting the Sun geometry.
 
 Module Parameters
 -----------------
@@ -62,24 +63,23 @@ The following table lists the module parameters that can be set. They must be co
       - Default
       - Description
       - Bounds
-    * - sensitiveHat_B
+    * - sensitiveHat_B (required)
       - Eigen::Vector3f
       - [-]
       - zero
       - Body-fixed sensitive axis :math:`\hat{\mathbf a}_B` to keep off the Sun
-      - Must be finite; renormalized on storage
-    * - angleRate
+      - Must be finite and within 1e-3 of unit length (validated at reset()); renormalized on storage
+    * - slewRate (required)
       - float
       - [rad/s]
       - 0
       - Rate :math:`\dot\Phi` at which the maneuver slews toward the input reference
-      - Must be finite
+      - Must be finite and greater than zero (validated at reset())
 
 Module Notes
 ------------
-- The Sun-avoidance maneuver is enabled only when both optional messages (``transNavInMsg`` and ``ephemerisInMsg``) are
-  connected. The module's behavior when they are absent, or when the geometry is degenerate, is described under Edge
-  Case Handling.
+- Sun avoidance always runs. The module's behavior when the Sun geometry carries no usable direction, or when the
+  geometry is degenerate, is described under Edge Case Handling.
 - The spacecraft and Sun positions are consumed in **double precision**: the large inertial vectors are differenced in
   double and only the resulting unit Sun direction is reduced to single precision, which avoids catastrophic
   cancellation. All other computation is single precision (fp32).
@@ -87,6 +87,19 @@ Module Notes
   calls; ``reInitialize()`` clears the state so the next update recomputes it.
 - The short-versus-long-way choice is a discrete decision. Near its boundary the choice is sensitive to rounding; both
   choices are valid maneuvers, but two independent implementations may select opposite ones.
+- The two choices are **not** interchangeable. They reach the same commanded attitude, but they sweep the two
+  complementary halves of the circle the sensitive axis traces, so only one of them may clear the Sun. Sun clearance is
+  a property of the *path*, not of the endpoint.
+- The reversal test judges the sweep by where the sensitive axis **starts and ends**
+  (:math:`\hat{\mathbf n} = \mathbf a_i \times \mathbf a_f`). This is an approximation: the axis actually traverses a
+  cone about the maneuver axis :math:`\hat{\mathbf e}`, and the two coincide only when the sensitive axis is
+  perpendicular to :math:`\hat{\mathbf e}`. The more the sensitive axis tilts away from that, the less the model
+  reflects the true path, and the more often the reversal decision selects the arc that passes closer to the Sun.
+- At a :math:`180^\circ` slew of the sensitive axis, :math:`\mathbf a_i` and :math:`\mathbf a_f` come out exactly
+  opposite, so :math:`\hat{\mathbf n}` vanishes and the reversal test is skipped entirely (see Edge Case Handling).
+  This is the one geometry in which the module can sweep the sensitive axis across the Sun without checking. It requires
+  the two directions to be *bitwise* antipodal, which in practice means exactly axis-aligned attitudes rather than real
+  navigation data.
 
 Initialization
 --------------
@@ -95,10 +108,10 @@ The module is configured by::
     module = sunAvoidanceF32.SunAvoidance()
     module.modelTag = "sunAvoidance"
     module.sensitiveHat_B = [0.0, -1.0, 0.0]
-    module.angleRate = 0.017453  # 1 deg/s
+    module.slewRate = 0.017453  # 1 deg/s
 
-    # connect attNavInMsg and attRefInMsg (always); connect transNavInMsg and
-    # ephemerisInMsg as well to enable the Sun-avoidance maneuver.
+    # connect all four input messages: attNavInMsg, attRefInMsg,
+    # transNavInMsg and ephemerisInMsg. All are required.
 
 Detailed Module Description
 ---------------------------
@@ -112,14 +125,19 @@ The maneuver is the principal rotation from the current body attitude :math:`\ma
 
 .. math::
 
-   [BR] = [BN]\,[RN]^\top, \qquad
-   \boldsymbol{\Phi}_{B/R} = \mathrm{PRV}([BR]), \qquad
-   \Phi = |\boldsymbol{\Phi}_{B/R}|, \qquad
-   \hat{\mathbf e} = \frac{\boldsymbol{\Phi}_{B/R}}{|\boldsymbol{\Phi}_{B/R}|}
+   [RB] = [RN]\,[BN]^\top, \qquad
+   \boldsymbol{\Phi}_{R/B} = \mathrm{PRV}([RB]), \qquad
+   \Phi = |\boldsymbol{\Phi}_{R/B}|, \qquad
+   \hat{\mathbf e} = \frac{\boldsymbol{\Phi}_{R/B}}{|\boldsymbol{\Phi}_{R/B}|}
 
-:math:`\Phi` is the maneuver angle and :math:`\hat{\mathbf e}` its axis. The normalization uses ``stableNormalized``,
-which returns the zero vector (not ``NaN``) when :math:`\boldsymbol{\Phi}_{B/R}\approx\mathbf 0`, i.e. when the body already
-coincides with the reference and no maneuver is needed.
+:math:`\Phi` is the maneuver angle and :math:`\hat{\mathbf e}` its axis. The rotation is taken from :math:`\mathcal R`
+to :math:`\mathcal B` so that :math:`\hat{\mathbf e}` points the way the slew travels -- the direction the body rotates
+to reach the reference. The normalization uses ``stableNormalized``, which returns the zero vector (not ``NaN``) when
+:math:`\boldsymbol{\Phi}_{R/B}\approx\mathbf 0`, i.e. when the body already coincides with the reference and no
+maneuver is needed.
+
+The principal rotation vector has the same components in :math:`\mathcal B`, :math:`\mathcal R` and the adjusted
+reference :math:`\mathcal R_c`, since the axis is invariant under the rotation that relates them.
 
 Phase 2 -- Short vs Long Way
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -150,21 +168,20 @@ The extent of the sweep and the Sun's angular position along it (from the initia
    \alpha = \arccos(\mathbf a_i \cdot \hat{\mathbf p})
 
 Let :math:`\hat{\mathbf a}_{i\times s}` be the axis that rotates the sensitive direction toward the Sun, and let
-:math:`\hat{\mathbf e}_{i\to r}` be the maneuver's initial-to-reference axis in inertial components -- the negative of
-the stored (reference-to-initial) axis :math:`\hat{\mathbf e}`:
+:math:`\hat{\mathbf e}_N` be the slew axis in inertial components:
 
 .. math::
 
    \hat{\mathbf a}_{i\times s} = \frac{\mathbf a_i \times \hat{\mathbf s}}{|\mathbf a_i \times \hat{\mathbf s}|}, \qquad
-   \hat{\mathbf e}_{i\to r} = -[BN]^\top \hat{\mathbf e}
+   \hat{\mathbf e}_N = [BN]^\top \hat{\mathbf e}
 
-The maneuver turns the sensitive axis toward the Sun when :math:`\hat{\mathbf a}_{i\times s}\cdot\hat{\mathbf e}_{i\to r}
+The maneuver turns the sensitive axis toward the Sun when :math:`\hat{\mathbf a}_{i\times s}\cdot\hat{\mathbf e}_N
 > 0`. The short-way maneuver is reversed to the long way when it turns toward the Sun **and** the Sun lies within the
 swept arc:
 
 .. math::
 
-   \big(\hat{\mathbf a}_{i\times s}\cdot\hat{\mathbf e}_{i\to r} > 0\big) \ \wedge\ (\alpha < \beta)
+   \big(\hat{\mathbf a}_{i\times s}\cdot\hat{\mathbf e}_N > 0\big) \ \wedge\ (\alpha < \beta)
    \quad\Longrightarrow\quad
    \Phi \leftarrow 2\pi - \Phi, \qquad \hat{\mathbf e} \leftarrow -\hat{\mathbf e}
 
@@ -182,32 +199,36 @@ On every update the residual maneuver angle is fed forward at the configured rat
 
    \Phi_r(t) = \max\!\big(0,\ \Phi - \dot\Phi\,(t - t_0)\big)
 
-where :math:`t_0` is the time the maneuver began. The adjusted reference attitude is the input reference rotated by the
-residual maneuver, and while the maneuver is active a feed-forward rate is added; the reference acceleration is passed
-through:
+where :math:`t_0` is the time the maneuver began. The adjusted reference attitude is the input reference rotated
+*back* along the slew axis by the residual angle, so that at :math:`t_0` it coincides with the body attitude and
+decays onto :math:`\mathcal R`. While the maneuver is active a feed-forward rate along the slew axis is added; the
+reference acceleration is passed through:
 
 .. math::
 
-   [R_cN] = \mathrm{dcm}(\Phi_r\,\hat{\mathbf e})\,[RN], \qquad
+   [R_cN] = \mathrm{dcm}(-\Phi_r\,\hat{\mathbf e})\,[RN], \qquad
    \mathbf\sigma_{R_c/N} = \mathrm{MRP}([R_cN])
 
 .. math::
 
    \mathbf\omega_{R_c/N} =
    \begin{cases}
-   \mathbf\omega_{R/N} - \dot\Phi\,[BN]^\top\hat{\mathbf e}, & \Phi_r > 0 \\
+   \mathbf\omega_{R/N} + \dot\Phi\,[BN]^\top\hat{\mathbf e}, & \Phi_r > 0 \\
    \mathbf\omega_{R/N}, & \Phi_r = 0
    \end{cases}
    \qquad
    \dot{\mathbf\omega}_{R_c/N} = \dot{\mathbf\omega}_{R/N}
 
-When the maneuver is disabled or has decayed (:math:`\Phi_r = 0`), the adjusted reference equals the input reference.
+When there is no maneuver to perform, or it has decayed (:math:`\Phi_r = 0`), the adjusted reference equals the input
+reference.
 
 Edge Case Handling
 ^^^^^^^^^^^^^^^^^^^
 Every degenerate geometry falls back to a well-defined maneuver rather than producing ``NaN``. All normalizations use
 ``stableNormalized``, which returns the zero vector (not ``NaN``) for a near-zero argument, so the output is always
-finite; the reversal test is evaluated only when its geometry is well defined.
+finite; the reversal test is evaluated only when its geometry is well defined. Note what this does and does not
+guarantee: the output is always finite and the maneuver always reaches the commanded attitude, but a fallback that
+skips the reversal test does not guarantee the swept path clears the Sun.
 
 .. list-table:: Edge Cases
     :widths: 45 55
@@ -215,12 +236,17 @@ finite; the reversal test is evaluated only when its geometry is well defined.
 
     * - Condition
       - Handling
-    * - Optional messages absent, zero Sun position, or Sun coincident with the spacecraft (no usable Sun direction)
-      - Maneuver disabled; the adjusted reference equals the input reference (pass-through).
+    * - Zero Sun position, or Sun coincident with the spacecraft (no usable Sun direction)
+      - No maneuver is performed; the adjusted reference equals the input reference (pass-through).
     * - Body already at the reference (:math:`\boldsymbol{\Phi}_{B/R} \approx \mathbf 0`)
       - Zero maneuver angle; the adjusted reference equals the input reference.
-    * - Initial and final sensitive axes parallel or anti-parallel (:math:`\hat{\mathbf n}` undefined)
-      - No well-defined sweep plane; keep the short way.
+    * - Initial and final sensitive axes **parallel** (:math:`\hat{\mathbf n}` undefined)
+      - The sensitive axis does not move during the slew, so there is nothing to avoid; keep the short way.
+    * - Initial and final sensitive axes **anti-parallel** (:math:`\hat{\mathbf n}` undefined)
+      - The sensitive axis sweeps a half circle -- the *widest* arc it ever traverses -- but
+        :math:`\mathbf a_i \times \mathbf a_f` is zero for a half turn just as it is for no motion at all, so the two
+        are indistinguishable to the guard and the reversal test is skipped. The short way is kept unchecked and may
+        sweep across the Sun. See Module Notes.
     * - Sun parallel to the sweep axis (:math:`\hat{\mathbf p}` undefined)
       - The sweep never approaches the Sun; keep the short way.
     * - Sun parallel to the initial sensitive axis (:math:`\hat{\mathbf a}_{i\times s}` undefined)
@@ -232,11 +258,15 @@ Test Description
 ----------------
 The algorithm is verified through regression tests against an independently coded reference implementation (compared
 via the reference-attitude DCM, which is invariant to the MRP shadow set), Config validation and getter setup tests,
-property tests (pass-through when the maneuver is disabled, bounded and finite output while maneuvering, return to the
-input reference after decay, and ``reInitialize`` restarting the maneuver), and edge-case tests for the degenerate
+property tests (pass-through when no Sun direction is available, bounded and finite output while maneuvering, return to
+the input reference after decay, and ``reInitialize`` restarting the maneuver), and edge-case tests for the degenerate
 geometries (missing Sun information, body at the reference, Sun along the sensitive axis, Sun perpendicular to the sweep
 plane, and anti-parallel sensitive axes). The maneuver path is additionally regression-fuzzed with realistic Sun
-geometry; the shared regression helper skips inputs near a degeneracy or near the discrete short/long-way decision
-boundary, where an independent fp32 reference can select the opposite (equally valid) maneuver. A separate integrated
+geometry; the shared regression helper skips inputs near a degeneracy, near the discrete short/long-way decision
+boundary, or near a :math:`180^\circ` slew. At those inputs the smallest rounding difference sends two independently
+coded implementations opposite ways around, and since both maneuvers are legitimate the comparison would only measure
+which way each happened to round. This gates the implementation comparison only -- the property tests assert what holds
+for either choice and run on every input. No test currently asserts that the swept sensitive axis clears the Sun.
+A separate integrated
 test pins the combined ``sunAvoidance`` :math:`\rightarrow` :ref:`attTrackingError` pipeline against a reference model
 of the combined behavior.

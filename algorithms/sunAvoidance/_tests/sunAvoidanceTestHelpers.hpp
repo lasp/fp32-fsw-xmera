@@ -19,8 +19,8 @@
 // ---------------------------------------------------------------------------
 class SunAvoidanceReference {
    public:
-    SunAvoidanceReference(const Eigen::Vector3f& sensitiveHat_B, float angleRate, bool computeAngleStart)
-        : sensitiveHat_B(sensitiveHat_B.normalized()), angleRate(angleRate), computeAngleStart(computeAngleStart) {}
+    SunAvoidanceReference(const Eigen::Vector3f& sensitiveHat_B, float slewRate)
+        : sensitiveHat_B(sensitiveHat_B.normalized()), slewRate(slewRate) {}
 
     SunAvoidanceOutput update(const Eigen::Vector3f& sigma_BN,
                               const Eigen::Vector3f& sigma_RN,
@@ -30,9 +30,12 @@ class SunAvoidanceReference {
                               const Eigen::Vector3d& r_SN_N,
                               uint64_t callTime) {
         if (!this->maneuverInitialized) {
-            if (this->computeAngleStart) {
+            // Sun avoidance always runs, but it needs a usable Sun direction: a zero Sun position (no
+            // ephemeris) or a Sun coincident with the spacecraft leaves no maneuver to perform.
+            const Eigen::Vector3d sunFromBody_N = r_SN_N - r_BN_N;
+            if (r_SN_N.norm() > 0.0 && sunFromBody_N.norm() > 0.0) {
                 const Eigen::Matrix3f dcm_BN = mrpToDcm(sigma_BN);
-                const Eigen::Vector3f sHat_N = (r_SN_N - r_BN_N).normalized().cast<float>();
+                const Eigen::Vector3f sHat_N = sunFromBody_N.normalized().cast<float>();
                 const Eigen::Vector3f sensInitial_N = dcm_BN.transpose() * this->sensitiveHat_B;
                 const Eigen::Matrix3f dcm_RN = mrpToDcm(sigma_RN);
                 const Eigen::Vector3f sensFinal_N = dcm_RN.transpose() * this->sensitiveHat_B;
@@ -54,8 +57,6 @@ class SunAvoidanceReference {
                     this->angleStart = (2.0F * std::numbers::pi_v<float>)-this->angleStart;
                     this->mnvrAxis_B = -this->mnvrAxis_B;
                 }
-            } else {
-                this->angleStart = 0.0F;
             }
             this->mnvrStartTime = callTime;
             this->maneuverInitialized = true;
@@ -65,7 +66,7 @@ class SunAvoidanceReference {
         const Eigen::Matrix3f dcm_RN = mrpToDcm(sigma_RN);
 
         const float dtSeconds = static_cast<float>(callTime - this->mnvrStartTime) * kNano2SecF;
-        float relativeAngleCurr = this->angleStart - (this->angleRate * dtSeconds);
+        float relativeAngleCurr = this->angleStart - (this->slewRate * dtSeconds);
         relativeAngleCurr = relativeAngleCurr < 0.0F ? 0.0F : relativeAngleCurr;
 
         SunAvoidanceOutput out{};
@@ -76,7 +77,7 @@ class SunAvoidanceReference {
 
         Eigen::Vector3f omega_RcN_N = omega_RN_N;
         if (relativeAngleCurr > 0.0F) {
-            omega_RcN_N += -this->angleRate * (dcm_BN.transpose() * this->mnvrAxis_B);
+            omega_RcN_N += -this->slewRate * (dcm_BN.transpose() * this->mnvrAxis_B);
         }
         out.omega_RN_N = omega_RcN_N;
         out.domega_RN_N = domega_RN_N;
@@ -85,8 +86,7 @@ class SunAvoidanceReference {
 
    private:
     Eigen::Vector3f sensitiveHat_B;
-    float angleRate;
-    bool computeAngleStart;
+    float slewRate;
 
     bool maneuverInitialized = false;
     float angleStart = 0.0F;
@@ -94,10 +94,27 @@ class SunAvoidanceReference {
     uint64_t mnvrStartTime = 0;
 };
 
-// Whether the maneuver-path geometry is near a degeneracy or near the discrete short/long-way decision
-// boundary. Near these, an independent fp32 reference can select the opposite (equally valid) maneuver, so
-// the regression helper skips such inputs rather than compare against an ambiguous branch. Mirrors the
-// quantities the algorithm's short/long-way decision turns on.
+// Whether the maneuver geometry sits near one of the algorithm's discrete decisions. The regression
+// comparison skips such inputs; nothing else does.
+//
+// The algorithm makes a yes/no choice: sweep the short way (Phi about e) or the long way (2*pi - Phi about
+// -e). Right at the tipping point between them the smallest rounding difference sends two independently
+// coded fp32 implementations opposite ways. Both maneuvers are legitimate, so neither output is the "right"
+// answer to hold the other to, and comparing them there would only measure which way each happened to
+// round. Note this is a limit of comparing two implementations, not fragility in the algorithm: away from
+// the tipping points the two agree to 1e-5.
+//
+// Both choices do reach the same commanded endpoint, but that is not enough to make them comparable,
+// because this test checks every time step. In between, the two commanded attitudes differ by twice the
+// maneuver progress -- 180 degrees apart at the halfway point -- and the feed-forward rate differs by
+// 2 * slewRate from the first step onward.
+//
+// Skipping is NOT a claim that the two choices are equivalent: they sweep complementary halves of the circle
+// the sensitive axis traces, so they can differ in whether they clear the Sun. The property helpers below
+// assert only what holds for either choice, so they run on every input, including these.
+//
+// Mirrors the quantities the decisions turn on: the three degenerate directions, the two comparisons in the
+// short/long-way branch, and the half-turn slew-direction tie.
 inline bool nearManeuverDecisionBoundary(const Eigen::Vector3f& sensitiveHat_B,
                                          const Eigen::Vector3f& sigma_BN,
                                          const Eigen::Vector3f& sigma_RN,
@@ -137,11 +154,18 @@ inline bool nearManeuverDecisionBoundary(const Eigen::Vector3f& sensitiveHat_B,
     if (std::fabs(initialToSunAngle - sensitiveSweepAngle) < kMargin) {
         return true;  // Sun near the edge of the swept arc
     }
-    const Eigen::Matrix3f dcm_BR = dcm_BN * dcm_RN.transpose();
-    const Eigen::Vector3f maneuverAxis_B = dcmToPrv(dcm_BR).stableNormalized();
-    const Eigen::Vector3f initialToReferenceAxis_N = -(dcm_BN.transpose() * maneuverAxis_B);
-    if (std::fabs(initialToSunAxisRaw.normalized().dot(initialToReferenceAxis_N)) < kMargin) {
+    const Eigen::Matrix3f dcm_RB = dcm_RN * dcm_BN.transpose();
+    const Eigen::Vector3f prv_RB = dcmToPrv(dcm_RB);
+    const Eigen::Vector3f slewAxis_N = dcm_BN.transpose() * prv_RB.stableNormalized();
+    if (std::fabs(initialToSunAxisRaw.normalized().dot(slewAxis_N)) < kMargin) {
         return true;  // maneuver near perpendicular to the Sun (toward / away tie)
+    }
+
+    // A 180-degree slew has no preferred direction of travel: a rotation by pi is its own inverse, so
+    // dcm_RB and dcm_BR are the same matrix and the two implementations derive the same principal axis
+    // rather than opposite ones. Both then slew opposite ways around -- equally valid, but not comparable.
+    if (std::fabs(prv_RB.stableNorm() - std::numbers::pi_v<float>) < kMargin) {
+        return true;  // slew direction tie at a half-turn
     }
 
     return false;
@@ -150,12 +174,11 @@ inline bool nearManeuverDecisionBoundary(const Eigen::Vector3f& sensitiveHat_B,
 // ---------------------------------------------------------------------------
 // Regression helper: drive the algorithm and the independent reference through a time sequence with
 // the given configuration, navigation attitude, reference frame and Sun geometry, and assert the
-// adjusted-reference output agrees at every step. On the maneuver path, inputs near a degeneracy or the
-// discrete short/long-way decision boundary are skipped (see nearManeuverDecisionBoundary).
+// adjusted-reference output agrees at every step. Inputs near a degeneracy or the discrete
+// short/long-way decision boundary are skipped (see nearManeuverDecisionBoundary).
 // ---------------------------------------------------------------------------
 inline void regressionTestSunAvoidance(const Eigen::Vector3f& sensitiveHat_B,
-                                       float angleRate,
-                                       bool computeAngleStart,
+                                       float slewRate,
                                        const Eigen::Vector3f& sigma_BN,
                                        const Eigen::Vector3f& sigma_RN,
                                        const Eigen::Vector3f& omega_RN_N,
@@ -164,13 +187,13 @@ inline void regressionTestSunAvoidance(const Eigen::Vector3f& sensitiveHat_B,
                                        const Eigen::Vector3d& r_SN_N,
                                        uint64_t stepNs,
                                        int numSteps) {
-    if (computeAngleStart && nearManeuverDecisionBoundary(sensitiveHat_B, sigma_BN, sigma_RN, r_BN_N, r_SN_N)) {
+    if (nearManeuverDecisionBoundary(sensitiveHat_B, sigma_BN, sigma_RN, r_BN_N, r_SN_N)) {
         return;  // ambiguous short/long-way branch: skip
     }
 
-    const auto config = SunAvoidanceConfig::create(sensitiveHat_B, angleRate, computeAngleStart);
+    const auto config = SunAvoidanceConfig::create(sensitiveHat_B, slewRate);
     SunAvoidanceAlgorithm alg{config};
-    SunAvoidanceReference ref{sensitiveHat_B, angleRate, computeAngleStart};
+    SunAvoidanceReference ref{sensitiveHat_B, slewRate};
 
     const SunAvoidanceAttRefInputs refIn{sigma_RN, omega_RN_N, domega_RN_N};
 
@@ -214,14 +237,14 @@ inline Eigen::Vector3d rBN_N() { return Eigen::Vector3d{-30.0, 20.0, -50.0}; }
 inline Eigen::Vector3d rSN_N() { return Eigen::Vector3d{1.0, 2.0, 3.0}; }
 }  // namespace detail
 
-// With the maneuver disabled (computeAngleStart == false), the adjusted reference equals the input
-// reference. The attitude is compared via its DCM so the check is independent of which MRP shadow-set
-// representative dcmToMrp returns for a non-principal input.
+// With no usable Sun information (zero spacecraft and Sun positions) there is no maneuver to perform,
+// so the adjusted reference equals the input reference. The attitude is compared via its DCM so the
+// check is independent of which MRP shadow-set representative dcmToMrp returns for a non-principal input.
 inline void propertyPassThroughEqualsInputRef(const Eigen::Vector3f& sigma_BN,
                                               const Eigen::Vector3f& sigma_RN,
                                               const Eigen::Vector3f& omega_RN_N,
                                               const Eigen::Vector3f& domega_RN_N) {
-    const auto config = SunAvoidanceConfig::create(Eigen::Vector3f::Zero(), 0.0F, false);
+    const auto config = SunAvoidanceConfig::create(detail::sensitiveHat_B(), detail::kManeuverRate);
     SunAvoidanceAlgorithm alg{config};
     const SunAvoidanceAttRefInputs refIn{sigma_RN, omega_RN_N, domega_RN_N};
     const Eigen::Matrix3f dcm_RN_in = mrpToDcm(sigma_RN);
@@ -253,7 +276,7 @@ inline void propertyManeuverOutputBoundedAndFinite(const Eigen::Vector3f& sigma_
                                                    const Eigen::Vector3f& sigma_RN,
                                                    const Eigen::Vector3f& omega_RN_N,
                                                    const Eigen::Vector3f& domega_RN_N) {
-    const auto config = SunAvoidanceConfig::create(detail::sensitiveHat_B(), detail::kManeuverRate, true);
+    const auto config = SunAvoidanceConfig::create(detail::sensitiveHat_B(), detail::kManeuverRate);
     SunAvoidanceAlgorithm alg{config};
     const SunAvoidanceAttRefInputs refIn{sigma_RN, omega_RN_N, domega_RN_N};
 
@@ -273,7 +296,7 @@ inline void propertyDecayedManeuverEqualsInputRef(const Eigen::Vector3f& sigma_B
                                                   const Eigen::Vector3f& sigma_RN,
                                                   const Eigen::Vector3f& omega_RN_N,
                                                   const Eigen::Vector3f& domega_RN_N) {
-    const auto config = SunAvoidanceConfig::create(detail::sensitiveHat_B(), detail::kManeuverRate, true);
+    const auto config = SunAvoidanceConfig::create(detail::sensitiveHat_B(), detail::kManeuverRate);
     SunAvoidanceAlgorithm alg{config};
     const SunAvoidanceAttRefInputs refIn{sigma_RN, omega_RN_N, domega_RN_N};
     const Eigen::Matrix3f dcm_RN_in = mrpToDcm(sigma_RN);
@@ -303,7 +326,7 @@ inline void propertyReInitializeRestartsManeuver(const Eigen::Vector3f& sigma_BN
                                                  const Eigen::Vector3f& sigma_RN,
                                                  const Eigen::Vector3f& omega_RN_N,
                                                  const Eigen::Vector3f& domega_RN_N) {
-    const auto config = SunAvoidanceConfig::create(detail::sensitiveHat_B(), detail::kManeuverRate, true);
+    const auto config = SunAvoidanceConfig::create(detail::sensitiveHat_B(), detail::kManeuverRate);
     SunAvoidanceAlgorithm alg{config};
     const SunAvoidanceAttRefInputs refIn{sigma_RN, omega_RN_N, domega_RN_N};
 
@@ -322,11 +345,11 @@ inline void propertyReInitializeRestartsManeuver(const Eigen::Vector3f& sigma_BN
     }
 }
 
-// Fuzz entry point: exercise the shared regressionTestSunAvoidance on the maneuver path (computeAngleStart
-// = true) for arbitrary attitudes and realistic Sun geometry. The helper skips inputs near a degeneracy or
-// near the discrete short/long-way decision boundary (see nearManeuverDecisionBoundary), where an
-// independent fp32 reference can select the opposite (equally valid) maneuver; away from those the algorithm
-// and reference agree, and the output is checked finite at every step.
+// Fuzz entry point: exercise the shared regressionTestSunAvoidance for arbitrary attitudes and realistic
+// Sun geometry. The helper skips inputs near a degeneracy or near the discrete short/long-way decision
+// boundary (see nearManeuverDecisionBoundary), where an independent fp32 reference can select the opposite
+// (equally valid) maneuver; away from those the algorithm and reference agree, and the output is checked
+// finite at every step.
 inline void fuzzRegressionSunAvoidance(const Eigen::Vector3f& sigma_BN,
                                        const Eigen::Vector3f& sigma_RN,
                                        const Eigen::Vector3f& omega_RN_N,
@@ -335,7 +358,6 @@ inline void fuzzRegressionSunAvoidance(const Eigen::Vector3f& sigma_BN,
                                        const Eigen::Vector3d& r_SN_N) {
     regressionTestSunAvoidance(detail::sensitiveHat_B(),
                                detail::kManeuverRate,
-                               true,
                                sigma_BN,
                                sigma_RN,
                                omega_RN_N,
