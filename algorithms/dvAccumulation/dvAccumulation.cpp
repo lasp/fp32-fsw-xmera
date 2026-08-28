@@ -37,7 +37,6 @@ void DvAccumulation::updateState(const uint64_t callTime) {
     const Eigen::Vector3f vehAccumDV_B = this->algorithm->update(rDDotNoGravity_BN_B, this->accelBias_B);
 
     NavTransMsgF32Payload outputData = NavTransMsgF32Payload();
-    /*! - the adapter owns time-tagging: the algorithm returns only the accumulator */
     outputData.timeTag = static_cast<double>(callTime) * kNano2Sec;
     eigenVectorToCArray(vehAccumDV_B, outputData.vehAccumDV);
 

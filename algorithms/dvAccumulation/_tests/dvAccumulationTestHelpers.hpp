@@ -20,8 +20,7 @@ inline void referenceReInitialize(ReferenceState& s) {
     s.firstCall = true;
 }
 
-/*! @brief Reference update: the first call starts the window; every later call integrates
- *         controlPeriod * accel. Returns the accumulator. */
+/*! @brief Reference oracle for DvAccumulationAlgorithm::update(). Returns the accumulator. */
 inline Eigen::Vector3f referenceUpdate(ReferenceState& s,
                                        float controlPeriod,
                                        const Eigen::Vector3f& accel_B,
@@ -55,10 +54,8 @@ inline void testDvAccumulation(float controlPeriod, const std::vector<Eigen::Vec
     }
 }
 
-/*! @brief Fuzz-friendly driver: drive the algorithm through a sequence of acceleration samples at a
- *         generated control period, subtracting a generated bias, and compare to the reference
- *         step-by-step. The bias is unvalidated, so the fuzzer covers it the same way it covers the
- *         acceleration. */
+/*! @brief Fuzz-friendly testDvAccumulation: skips a control period the validator rejects, subtracts
+ *         a generated bias, and allows a looser tolerance. */
 inline void testDvAccumulationFuzz(float controlPeriod,
                                    const std::vector<Eigen::Vector3f>& accels,
                                    const Eigen::Vector3f& accelBias_B) {

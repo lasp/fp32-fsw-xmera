@@ -42,8 +42,7 @@ class DvAccumulationConfig final {
  * responsible for driving it once per control period and for time-tagging the result.
  *
  * The first update() after construction or reInitialize() starts the accumulation window rather than
- * integrating: N samples bound N-1 intervals, so the accumulated Delta-V is the acceleration
- * integrated over the elapsed time since that first call.
+ * integrating.
  */
 class DvAccumulationAlgorithm final {
    public:

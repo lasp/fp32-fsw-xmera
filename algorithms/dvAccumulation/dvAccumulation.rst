@@ -94,13 +94,13 @@ Module Assumptions and Limitations
   installs edited parameters without re-arming the accumulation window.
 - The accumulator is float-precision (``Eigen::Vector3f``), as is ``controlPeriod``, so the whole
   integration is single precision. ``timeTag`` stays double in the output message.
-- Quadrature, not float32, is the real accuracy limit. The rectangle rule holds
-  :math:`\ddot{\mathbf{r}}_{B}` constant across each control period, so a changing acceleration
-  leaves an :math:`O(\Delta t \, \Delta\ddot{r})` residual per step, which dominates the rounding
-  bound below.
 
 Accumulation precision
 ~~~~~~~~~~~~~~~~~~~~~~
+
+Quadrature, not float32, is the real accuracy limit. The rectangle rule holds
+:math:`\ddot{\mathbf{r}}_{B}` constant across each control period, so a changing acceleration leaves
+an :math:`O(\Delta t \, \Delta\ddot{r})` residual per step, which dominates the rounding bound below.
 
 The accumulator is single precision. For an example small acceleration of 0.005 m/s^2 over a bounding
 1.5 hour burn with a 0.2 s ``controlPeriod`` -- 27,000 updates accumulating 27 m/s -- every ``+=``
