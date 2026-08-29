@@ -2,6 +2,7 @@
 #include "sunSearchPointAlgorithm.h"
 #include "sunSearchPointTypes.h"
 #include "utilities/fsw/eigenSupport.h"
+#include "utilities/fsw/freestandingInvalidArgument.h"
 #include "utilities/fsw/opaqueHandle.h"
 
 #include <Eigen/Core>
@@ -35,14 +36,30 @@ SunSearchPointConfig configFromC(const RotationPropertiesArray4_c& rotationsIn,
 
 uint32_t SunSearchPointAlgorithm_getNumRotations(void) { return SUN_SEARCH_POINT_NUM_ROTATIONS; }
 
+bool SunSearchPointAlgorithm_validateConfig(const RotationPropertiesArray4_c* rotations,
+                                            const Vector3f_c sHatBdyCmd,
+                                            const float sunAxisSpinRate,
+                                            const Vector3f_c omega_RN_B,
+                                            const uint32_t observationThreshold,
+                                            const float controlPeriod) {
+    // Build the config through the real create path; success means valid, a throw means invalid.
+    // Reusing configFromC keeps the validity rules from drifting away from create/setConfig.
+    try {
+        (void)configFromC(*rotations, sHatBdyCmd, sunAxisSpinRate, omega_RN_B, observationThreshold, controlPeriod);
+        return true;
+    } catch (const fsw::invalid_argument&) {
+        return false;
+    }
+}
+
 SunSearchPointAlgorithmHandle* SunSearchPointAlgorithm_create(const RotationPropertiesArray4_c* rotations,
                                                               const Vector3f_c sHatBdyCmd,
                                                               const float sunAxisSpinRate,
                                                               const Vector3f_c omega_RN_B,
                                                               const uint32_t observationThreshold,
                                                               const float controlPeriod) {
-    return fsw::createHandle<::SunSearchPointAlgorithm, SunSearchPointAlgorithmHandle>(configFromC(
-        *rotations, sHatBdyCmd, sunAxisSpinRate, omega_RN_B, observationThreshold, controlPeriod));
+    return fsw::createHandle<::SunSearchPointAlgorithm, SunSearchPointAlgorithmHandle>(
+        configFromC(*rotations, sHatBdyCmd, sunAxisSpinRate, omega_RN_B, observationThreshold, controlPeriod));
 }
 
 void SunSearchPointAlgorithm_destroy(SunSearchPointAlgorithmHandle* self) {
@@ -56,8 +73,8 @@ void SunSearchPointAlgorithm_setConfig(SunSearchPointAlgorithmHandle* self,
                                        const Vector3f_c omega_RN_B,
                                        const uint32_t observationThreshold,
                                        const float controlPeriod) {
-    fsw::fromHandle<::SunSearchPointAlgorithm>(self)->setConfig(configFromC(
-        *rotations, sHatBdyCmd, sunAxisSpinRate, omega_RN_B, observationThreshold, controlPeriod));
+    fsw::fromHandle<::SunSearchPointAlgorithm>(self)->setConfig(
+        configFromC(*rotations, sHatBdyCmd, sunAxisSpinRate, omega_RN_B, observationThreshold, controlPeriod));
 }
 
 void SunSearchPointAlgorithm_reInitialize(SunSearchPointAlgorithmHandle* self) {

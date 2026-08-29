@@ -40,6 +40,26 @@ typedef struct {
 uint32_t SunSearchPointAlgorithm_getNumRotations(void);
 
 /**
+ * @brief Report whether a configuration would be accepted by create/setConfig.
+ * @param rotations            [-] sun-search rotation sequence.
+ * @param sHatBdyCmd           [-] commanded body vector to point at the sun.
+ * @param sunAxisSpinRate      [rad/s] constant spin rate about the sun heading vector.
+ * @param omega_RN_B           [rad/s] fallback body rate when no sun direction is available.
+ * @param observationThreshold [-] CSS count at or above which to transition to pointing.
+ * @param controlPeriod        [s] per-update time step; advances the search timeline.
+ * @return true if the configuration is valid. Never throws, so it can guard the
+ *         throwing create/setConfig from an invalid configuration.
+ * @note The accepted value ranges are defined by SunSearchPointConfig::create; this predicate
+ *       reports whether a candidate set would be accepted, without throwing.
+ */
+bool SunSearchPointAlgorithm_validateConfig(const RotationPropertiesArray4_c* rotations,
+                                            Vector3f_c sHatBdyCmd,
+                                            float sunAxisSpinRate,
+                                            Vector3f_c omega_RN_B,
+                                            uint32_t observationThreshold,
+                                            float controlPeriod);
+
+/**
  * @brief Construct a new SunSearchPointAlgorithm instance from the supplied configuration.
  * Validate the values with validateConfig before calling; throws on invalid input.
  * @param rotations            [-] sun-search rotation sequence.
