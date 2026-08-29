@@ -52,20 +52,33 @@ void SunlineFilterAlgorithm_destroy(SunlineFilterAlgorithmHandle* self);
 void SunlineFilterAlgorithm_setConfig(SunlineFilterAlgorithmHandle* self, const SunlineFilterConfig_c* config);
 
 /**
- * @brief Advance the filter to currentSeconds using the supplied measurements.
+ * @brief Set the fixed time step applied on every update() call.
+ * @param self Pointer to the instance.
+ * @param dt   [s] filter time step.
+ */
+void SunlineFilterAlgorithm_setDt(SunlineFilterAlgorithmHandle* self, double dt);
+
+/**
+ * @brief Get the fixed time step applied on every update() call.
+ * @param self Pointer to the instance.
+ * @return [s] the filter time step.
+ */
+double SunlineFilterAlgorithm_getDt(const SunlineFilterAlgorithmHandle* self);
+
+/**
+ * @brief Step the filter forward by its configured dt using the supplied measurements.
  *
- * A measurement whose timeTag does not advance beyond the last consumed reading
- * is ignored by the filter; the caller signals "no new reading" by leaving the
- * corresponding struct's timeTag unchanged.
+ * The filter tracks no absolute time; it advances by the dt set via SunlineFilterAlgorithm_setDt and
+ * folds every supplied measurement in at that step. A measurement whose timeTag does not advance beyond
+ * the last consumed reading is ignored; the caller signals "no new reading" by leaving the corresponding
+ * struct's timeTag unchanged (<= 0).
  *
  * @param self           Pointer to the instance.
- * @param currentSeconds [s] time the filter is advancing to.
  * @param cssData        Pointer to the CSS array reading.
  * @param rateData       Pointer to the gyro rate reading.
  * @return SunlineFilterOutput_c  Post-update filter state and per-kind residuals.
  */
 SunlineFilterOutput_c SunlineFilterAlgorithm_update(SunlineFilterAlgorithmHandle* self,
-                                                    double currentSeconds,
                                                     const SunlineCssData_c* cssData,
                                                     const SunlineRateData_c* rateData);
 

@@ -55,6 +55,7 @@ def mrp_integration(t, x):
 
 
 def setup_filter_data(filter_object):
+    filter_object.dt = 1.0  # fixed filter time step, matches the 1 s task rate
     filter_object.alpha = 0.02
     filter_object.beta = 2.0
 
@@ -157,9 +158,14 @@ def state_propagation_flyby(show_plots=False):
 
     sim_time = 50
     time = np.linspace(0, sim_time, sim_time+1)
-    expected = np.zeros([len(time), 8])
-    expected[0, 1:] = initState
-    expected = rk4(sunline_dynamics, time, expected[0, 1:], normalizeState=True)
+    # The filter carries no absolute time and steps by dt on every call, so the sample logged at
+    # call i reflects the state one dt ahead. Build the truth one step longer and drop t=0 so that
+    # expected[i] is the state at t=(i+1)*dt, matching what the filter outputs at sample i.
+    truth_time = np.linspace(0, sim_time + 1, sim_time + 2)
+    truth = np.zeros([len(truth_time), 8])
+    truth[0, 1:] = initState
+    truth = rk4(sunline_dynamics, truth_time, truth[0, 1:], normalizeState=True)
+    expected = truth[1:]
 
     unit_test_sim.InitializeSimulation()
     unit_test_sim.ConfigureStopTime(macros.sec2nano(sim_time))

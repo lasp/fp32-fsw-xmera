@@ -29,8 +29,12 @@ class SunlineFilter : public SysModel {
     void reInitializeExceptPersistentStates();
     void reInitialize();
 
+    void setDt(double newDt);
+    double getDt() const;
+
     // Phase 1: public config properties -- set before reset(). The matrix/vector
     // properties are sized to their defaults (zero / identity) in the constructor.
+    double dt = 0.2;                       //!< [s] fixed filter time step applied every update (task period)
     double alpha = 0.0;                    //!< [-] sigma-point spread tunable
     double beta = 0.0;                     //!< [-] prior-knowledge tunable
     Eigen::MatrixXd processNoise;          //!< [-] N x N process noise Q (defaults to zero)

@@ -128,6 +128,9 @@ Configuration parameters
     * - Property
       - Description
       - Valid range
+    * - dt
+      - fixed filter time step applied on every update (typically the task period)
+      - > 0
     * - alpha
       - sigma-point spread tunable
       - any

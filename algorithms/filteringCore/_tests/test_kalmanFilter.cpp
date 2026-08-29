@@ -228,4 +228,113 @@ TEST(ApplySequentialRobust, FailedTimeUpdateShortCircuitsMeasurementAndClears) {
     EXPECT_DOUBLE_EQ(q.getTimeOfLastMeasurement(), 0.0);
 }
 
+// applyTimestepRobust tests: the filter steps by dt every call and folds every queued measurement in
+// at that step. The queue's timeOfLastMeasurement is repurposed as the elapsed span since the anchor.
+
+// Empty queue: one timeUpdate(dt), no measurement folded in, so the elapsed span accumulates by dt.
+TEST(ApplyTimestepRobust, EmptyQueueTimeUpdatesAndAccumulatesSpan) {
+    CallLog log;
+    RecordingFilter filter{&log};
+    measurement_queue<double, 4> q;
+
+    applyTimestepRobust(q, filter, 2.0);
+
+    ASSERT_EQ(log.entries.size(), 1u);
+    EXPECT_EQ(log.entries[0].first, CallLog::Kind::TimeUpdate);
+    EXPECT_DOUBLE_EQ(log.entries[0].second, 2.0);
+    EXPECT_EQ(count(log, CallLog::Kind::Clear), 0);
+    EXPECT_DOUBLE_EQ(q.getTimeOfLastMeasurement(), 2.0);  // nothing folded in → span kept
+}
+
+// One measurement: timeUpdate(dt) then measurementUpdate (no preceding timeUpdate(0) for the first),
+// and the anchor advances so the span resets to 0.
+TEST(ApplyTimestepRobust, SingleMeasurementFoldsInAndResetsSpan) {
+    CallLog log;
+    RecordingFilter filter{&log};
+    measurement_queue<double, 4> q;
+    q.enqueue(1.0, 0.5);
+
+    applyTimestepRobust(q, filter, 2.0);
+
+    ASSERT_EQ(log.entries.size(), 2u);
+    EXPECT_EQ(log.entries[0].first, CallLog::Kind::TimeUpdate);
+    EXPECT_DOUBLE_EQ(log.entries[0].second, 2.0);
+    EXPECT_EQ(log.entries[1].first, CallLog::Kind::MeasurementUpdate);
+    EXPECT_DOUBLE_EQ(log.entries[1].second, 0.5);
+    EXPECT_EQ(count(log, CallLog::Kind::Clear), 0);
+    EXPECT_DOUBLE_EQ(q.getTimeOfLastMeasurement(), 0.0);
+}
+
+// Two measurements at one step: the first folds into the propagated sigma points; each subsequent
+// one is preceded by a timeUpdate(0) re-anchor. Measurements drain earliest-first.
+TEST(ApplyTimestepRobust, MultipleMeasurementsReanchorWithZeroTimeUpdate) {
+    CallLog log;
+    RecordingFilter filter{&log};
+    measurement_queue<double, 4> q;
+    q.enqueue(2.0, 0.7);  // enqueued out of order
+    q.enqueue(1.0, 0.3);
+
+    applyTimestepRobust(q, filter, 2.0);
+
+    // Expected: timeUpdate(2), meas(0.3), timeUpdate(0), meas(0.7)
+    ASSERT_EQ(log.entries.size(), 4u);
+    EXPECT_EQ(log.entries[0].first, CallLog::Kind::TimeUpdate);
+    EXPECT_DOUBLE_EQ(log.entries[0].second, 2.0);
+    EXPECT_EQ(log.entries[1].first, CallLog::Kind::MeasurementUpdate);
+    EXPECT_DOUBLE_EQ(log.entries[1].second, 0.3);
+    EXPECT_EQ(log.entries[2].first, CallLog::Kind::TimeUpdate);
+    EXPECT_DOUBLE_EQ(log.entries[2].second, 0.0);
+    EXPECT_EQ(log.entries[3].first, CallLog::Kind::MeasurementUpdate);
+    EXPECT_DOUBLE_EQ(log.entries[3].second, 0.7);
+    EXPECT_DOUBLE_EQ(q.getTimeOfLastMeasurement(), 0.0);
+}
+
+// A failed timeUpdate clears and carries the elapsed span forward, so successive failures retry over a
+// longer interval (dt, 2dt, 3dt, …); a later good measurement resets the span to zero.
+TEST(ApplyTimestepRobust, FailedTimeUpdatesAccumulateSpanUntilSuccess) {
+    CallLog log;
+    RecordingFilter filter{&log};
+    measurement_queue<double, 4> q;
+    filter.timeUpdatesFail = true;
+
+    applyTimestepRobust(q, filter, 2.0);
+    EXPECT_DOUBLE_EQ(q.getTimeOfLastMeasurement(), 2.0);
+    applyTimestepRobust(q, filter, 2.0);
+    EXPECT_DOUBLE_EQ(q.getTimeOfLastMeasurement(), 4.0);
+    applyTimestepRobust(q, filter, 2.0);
+    EXPECT_DOUBLE_EQ(q.getTimeOfLastMeasurement(), 6.0);
+
+    // Every failed call cleared and attempted a timeUpdate over the growing span.
+    EXPECT_EQ(count(log, CallLog::Kind::Clear), 3);
+    EXPECT_DOUBLE_EQ(log.entries[0].second, 2.0);
+    EXPECT_DOUBLE_EQ(log.entries[2].second, 4.0);
+    EXPECT_DOUBLE_EQ(log.entries[4].second, 6.0);
+
+    // Recover: the next call propagates over the full accumulated span + dt and folds a measurement in.
+    filter.timeUpdatesFail = false;
+    q.enqueue(1.0, 0.5);
+    applyTimestepRobust(q, filter, 2.0);
+    EXPECT_DOUBLE_EQ(q.getTimeOfLastMeasurement(), 0.0);  // anchor advanced → span reset
+}
+
+// A failed measurementUpdate clears and, because nothing folded in, holds the anchor and carries the
+// span forward.
+TEST(ApplyTimestepRobust, FailedMeasurementClearsAndCarriesSpan) {
+    CallLog log;
+    RecordingFilter filter{&log};
+    filter.failOnNegativeMeasurement = true;
+    measurement_queue<double, 4> q;
+    q.enqueue(1.0, -1.0);  // bad: measurementUpdate reports invalid
+
+    applyTimestepRobust(q, filter, 2.0);
+
+    // timeUpdate(2) ok, meas(-1) fails → clear; nothing folded in → span carried forward at dt.
+    ASSERT_EQ(log.entries.size(), 3u);
+    EXPECT_EQ(log.entries[0].first, CallLog::Kind::TimeUpdate);
+    EXPECT_DOUBLE_EQ(log.entries[0].second, 2.0);
+    EXPECT_EQ(log.entries[1].first, CallLog::Kind::MeasurementUpdate);
+    EXPECT_EQ(log.entries[2].first, CallLog::Kind::Clear);
+    EXPECT_DOUBLE_EQ(q.getTimeOfLastMeasurement(), 2.0);
+}
+
 }  // namespace filtering

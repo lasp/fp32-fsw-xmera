@@ -132,14 +132,24 @@ which the parent ``algorithms/`` include path resolves.
      it to its last good state. On a failed update it calls ``clear()`` and
      leaves the anchor in place, so a bad measurement can neither corrupt the
      estimate nor advance the timeline.
+   - ``applyTimestepRobust(queue, filter, dt)`` — the robust *dt-stepping*
+     scheduler, for filters that carry no absolute time. Same method contract as
+     ``applySequentialRobust`` (bool-returning updates plus ``clear()``). Instead
+     of a call time it steps by ``dt`` and folds every queued measurement in at
+     that one step; it repurposes the queue's ``timeOfLastMeasurement`` as the
+     elapsed span since the anchor, so measurement-free or failed cycles keep
+     accumulating and ``timeUpdate`` always propagates the full interval from the
+     fixed anchor. The span resets to zero once a measurement advances the anchor.
+     The first queued measurement folds into the propagated sigma points; each
+     later one is preceded by a ``timeUpdate(0)`` re-anchor.
 
    The upshot: the concept keeps the core open — any two update methods satisfy
    it — while the chosen scheduler drives the design of those methods. Pick
-   ``applySequentialRobust`` and you are obliged to make your updates report
-   validity and to implement ``clear()``; pick ``applySequential`` and plain
-   ``void`` updates suffice. Other scheduling styles (batch, iterated, ...) drop
-   in as further ``apply_*`` free templates, each imposing its own method
-   contract, without touching the queue.
+   ``applySequentialRobust`` / ``applyTimestepRobust`` and you are obliged to make
+   your updates report validity and to implement ``clear()``; pick
+   ``applySequential`` and plain ``void`` updates suffice. Other scheduling styles
+   (batch, iterated, ...) drop in as further ``apply_*`` free templates, each
+   imposing its own method contract, without touching the queue.
 
 ``srukf.hpp``
    The square-root uKF (van der Merwe & Wan, ICASSP 2001) in two layers:
@@ -206,15 +216,18 @@ Each concept is an interface in the core; a concrete type connects to it by
 ``SRuKF`` and the retained configuration, installs the dynamics
 functor onto the estimator's ``dynamics`` member in ``reset()``, satisfies
 ``SequentialFilter`` via public ``timeUpdate`` / ``measurementUpdate``, owns
-the ``measurement_queue<Measurement, BatchSize>``, exposes the single-call
-``update(currentSeconds, CssData, RateData)`` (which enqueues whichever
-readings are present and runs
-``applySequential(measurements, *this, currentSeconds)``), and packages the
+the ``measurement_queue<Measurement, BatchSize>``, exposes a settable/gettable
+``dt`` and the single-call ``update(CssData, RateData)`` (which enqueues
+whichever readings are present and runs
+``applyTimestepRobust(measurements, *this, dt)``), and packages the
 filter's state and covariance into the plain-data ``FilterStateOutput`` /
-``CssResidualsOutput`` / ``RateResidualsOutput``. If the filter needs to keep
-the estimate physically meaningful, it post-processes after the queue drains —
-sunline's ``regularize()`` renormalizes the heading to a unit vector and clamps
-the CSS bias to its configured bounds; the SRUKF itself stays agnostic to that.
+``CssResidualsOutput`` / ``RateResidualsOutput``. Sunline carries no absolute
+time: it steps by ``dt`` every call, so the queue's ``timeOfLastMeasurement``
+acts as the elapsed span since the anchor rather than an absolute time (see
+``applyTimestepRobust`` above). If the filter needs to keep the estimate
+physically meaningful, it post-processes after the queue drains — sunline's
+``regularize()`` renormalizes the heading to a unit vector and clamps the CSS
+bias to its configured bounds; the SRUKF itself stays agnostic to that.
 
 
 Time bookkeeping: queue ↔ SRUKF
@@ -270,6 +283,13 @@ On the next call, if a new measurement arrives at t=10, the scheduler issues
 forward from its preserved t=4 anchor, not 3 s past the previously-output
 t=7 value. Because the anchor was never compromised, no drift accumulates from
 the output-only propagation.
+
+The walkthrough above is ``applySequential``, which reads absolute measurement
+times against ``callTime``. ``applyTimestepRobust`` (used by sunline) keeps the
+same anchor discipline but carries no absolute time: it steps by ``dt`` and
+stores the *elapsed span since the anchor* in ``getTimeOfLastMeasurement()``, so
+a measurement-free call propagates ``span + dt`` from the fixed anchor and the
+span keeps growing until a measurement advances the anchor and resets it to 0.
 
 Why the pattern is generic
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -330,8 +350,9 @@ P2407, ``__cpp_lib_freestanding_variant``). The filter that knows its kinds name
    void applyMeasurement(CssMeasurement const&);
    void applyMeasurement(RateMeasurement const&);
 
-Because every kind shares the one queue timeline, ``applySequential``
-interleaves them in time order. The variant is over the input structs; each
+Because every kind shares the one queue, the scheduler folds them in together —
+``applySequential`` interleaves them in time order, while ``applyTimestepRobust``
+(sunline) folds them all in at the one time step. The variant is over the input structs; each
 ``applyMeasurement`` overload builds that kind's model (the
 ``Measurement<M, State>`` object) and calls ``srukf.measurementUpdate`` — the
 same input-struct-vs-model split a single-kind filter would use. Each overload also
@@ -390,16 +411,17 @@ xmera):
 
    SunlineFilterAlgorithm algo(cfg);     // owns the SRUKF + measurement_queue; construction seeds the filter
 
-   // Queue-driven path: hand the raw readings to one drive call. update() packs
-   // whichever readings are present (timeTag > 0), enqueues them, and runs
-   // applySequential(measurements, *this, currentSeconds) under the hood, then
-   // regularizes the state and returns a single bundled snapshot.
+   // Queue-driven path: set the fixed step, then hand the raw readings to one
+   // drive call. update() packs whichever readings are present (timeTag > 0),
+   // enqueues them, and runs applyTimestepRobust(measurements, *this, dt) under
+   // the hood, then regularizes the state and returns a single bundled snapshot.
+   algo.setDt(dt);
    CssData  css;  css.timeTag  = t;  css.cosValues = cosValues;
    RateData rate; rate.timeTag = t;  rate.rate     = omegaMeas;
-   SunlineFilterOutput out = algo.update(currentSeconds, css, rate);
+   SunlineFilterOutput out = algo.update(css, rate);
 
    // Direct-stepping path: call the SequentialFilter pair yourself (this is
-   // what applySequential calls under the hood).
+   // what applyTimestepRobust calls under the hood).
    algo.timeUpdate(dt);                            // predict
    algo.measurementUpdate(RateMeasurement{...});   // fold a measurement in directly
 

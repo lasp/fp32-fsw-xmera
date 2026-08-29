@@ -289,14 +289,15 @@ TEST(SunlineFilterAlgorithmMeasurements, InformativeMeasurementReducesResidual) 
 TEST(SunlineFilterAlgorithmMeasurements, RateDataFiresResidualOnlyWhenFresh) {
     SunlineFilterAlgorithm algo(rateOnlyConfig(makeState(Eigen::Vector3d(0, 0, 1), Eigen::Vector3d::Zero(), 1.0),
                                                diagCovariance(1E-2, 1E-1, 1E-2)));
+    algo.setDt(1.0);
 
-    SunlineFilterOutput const stale = algo.update(1.0, CssData{}, RateData{});
+    SunlineFilterOutput const stale = algo.update(CssData{}, RateData{});
     EXPECT_FALSE(stale.rateResiduals.valid);
 
     RateData rate;
     rate.timeTag = 2.0;
     rate.rate = Eigen::Vector3d(0.02, -0.01, 0.015);
-    SunlineFilterOutput const fresh = algo.update(2.0, CssData{}, rate);
+    SunlineFilterOutput const fresh = algo.update(CssData{}, rate);
     EXPECT_TRUE(fresh.rateResiduals.valid);
     EXPECT_TRUE(fresh.rateResiduals.observation.isApprox(rate.rate, 1E-12));
 }
@@ -305,8 +306,9 @@ TEST(SunlineFilterAlgorithmMeasurements, RateDataFiresResidualOnlyWhenFresh) {
 TEST(SunlineFilterAlgorithmMeasurements, CssDataFiresResidualOnlyWhenFresh) {
     SunlineFilterAlgorithm algo(threeCssConfig(
         makeState(Eigen::Vector3d(0, 0, 1), Eigen::Vector3d::Zero(), 1.0), diagCovariance(1E-2, 1E-2, 1E-1), 0.0));
+    algo.setDt(1.0);
 
-    SunlineFilterOutput const stale = algo.update(1.0, CssData{}, RateData{});
+    SunlineFilterOutput const stale = algo.update(CssData{}, RateData{});
     EXPECT_FALSE(stale.cssResiduals.valid);
 
     CssData css;
@@ -314,7 +316,7 @@ TEST(SunlineFilterAlgorithmMeasurements, CssDataFiresResidualOnlyWhenFresh) {
     css.cosValues(0) = 0.5;
     css.cosValues(1) = 0.5;
     css.cosValues(2) = 0.707;
-    SunlineFilterOutput const fresh = algo.update(2.0, css, RateData{});
+    SunlineFilterOutput const fresh = algo.update(css, RateData{});
     EXPECT_TRUE(fresh.cssResiduals.valid);
     EXPECT_EQ(fresh.cssResiduals.numberOfActiveCss, 3);
 }
@@ -335,12 +337,14 @@ TEST(SunlineFilterAlgorithmMeasurements, LargerMeasurementNoiseStdShrinksCovaria
     ConfigInputs sharpIn = base;
     sharpIn.gyroStd = 1E-3;
     SunlineFilterAlgorithm sharp(buildConfig(sharpIn));
-    sharp.update(1.0, CssData{}, rate);
+    sharp.setDt(1.0);
+    sharp.update(CssData{}, rate);
 
     ConfigInputs looseIn = base;
     looseIn.gyroStd = 1E-1;
     SunlineFilterAlgorithm loose(buildConfig(looseIn));
-    loose.update(1.0, CssData{}, rate);
+    loose.setDt(1.0);
+    loose.update(CssData{}, rate);
 
     EXPECT_LT(rateBlockTrace(sharp.getCovariance()), rateBlockTrace(loose.getCovariance()));
     EXPECT_LT(rateBlockTrace(loose.getCovariance()), rateBlockTrace(base.initialCovariance));
@@ -353,6 +357,7 @@ TEST(SunlineFilterAlgorithmUpdate, UpdateWithRateAndCssExposesBothResiduals) {
     Eigen::Vector3d const sHat0 = Eigen::Vector3d(0.0, 0.0, 1.0);
     SunlineFilterAlgorithm algo(
         threeCssConfig(makeState(sHat0, Eigen::Vector3d(0.01, 0.0, 0.0), 1.0), diagCovariance(1E-2, 1E-2, 1E-1), 0.0));
+    algo.setDt(1.0);
 
     CssData css;
     css.timeTag = 1.0;
@@ -364,7 +369,7 @@ TEST(SunlineFilterAlgorithmUpdate, UpdateWithRateAndCssExposesBothResiduals) {
     rate.timeTag = 1.0;
     rate.rate = Eigen::Vector3d(0.01, 0.0, 0.0);
 
-    SunlineFilterOutput const out = algo.update(2.0, css, rate);
+    SunlineFilterOutput const out = algo.update(css, rate);
 
     EXPECT_EQ(out.cssResiduals.numberOfActiveCss, 3);
 }
@@ -375,6 +380,7 @@ TEST(SunlineFilterAlgorithmUpdate, UpdateWithRateAndCssExposesBothResiduals) {
 TEST(SunlineFilterAlgorithmUpdate, CssBelowThresholdNotProcessed) {
     SunlineFilterAlgorithm algo(threeCssConfig(
         makeState(Eigen::Vector3d(0, 0, 1), Eigen::Vector3d(0.01, 0, 0), 1.0), diagCovariance(1E-2, 1E-2, 1E-1), 0.5));
+    algo.setDt(1.0);
 
     CssData css;
     css.timeTag = 1.0;
@@ -386,17 +392,18 @@ TEST(SunlineFilterAlgorithmUpdate, CssBelowThresholdNotProcessed) {
     rate.timeTag = 1.0;
     rate.rate = Eigen::Vector3d(0.01, 0.0, 0.0);
 
-    SunlineFilterOutput const out = algo.update(2.0, css, rate);
+    SunlineFilterOutput const out = algo.update(css, rate);
 
     EXPECT_EQ(out.cssResiduals.numberOfActiveCss, 0);
 }
 
-// Through the queue-driven update(), a bad CSS reading is rejected by applySequentialRobust
+// Through the queue-driven update(), a bad CSS reading is rejected by applyTimestepRobust
 // (which calls clear()) and the filter recovers: the residual is invalid, the state stays finite,
 // and a normal update right after is processed cleanly.
 TEST(SunlineFilterAlgorithmUpdate, BadMeasurementIsRejectedAndFilterRecovers) {
     SunlineFilterAlgorithm algo(threeCssConfig(
         makeState(Eigen::Vector3d(0, 0, 1), Eigen::Vector3d(0.01, 0, 0), 1.0), diagCovariance(1E-1, 1E-2, 1E-1), 0.0));
+    algo.setDt(1.0);
 
     // A good update first, to establish a finite anchor.
     CssData good;
@@ -404,7 +411,7 @@ TEST(SunlineFilterAlgorithmUpdate, BadMeasurementIsRejectedAndFilterRecovers) {
     good.cosValues(0) = 0.5;
     good.cosValues(1) = 0.5;
     good.cosValues(2) = 0.707;
-    algo.update(1.0, good, RateData{});
+    algo.update(good, RateData{});
 
     // A NaN CSS reading must not corrupt the filter.
     CssData bad;
@@ -412,7 +419,7 @@ TEST(SunlineFilterAlgorithmUpdate, BadMeasurementIsRejectedAndFilterRecovers) {
     bad.cosValues(0) = std::numeric_limits<double>::quiet_NaN();
     bad.cosValues(1) = 0.5;
     bad.cosValues(2) = 0.707;
-    SunlineFilterOutput const out = algo.update(2.0, bad, RateData{});
+    SunlineFilterOutput const out = algo.update(bad, RateData{});
 
     EXPECT_FALSE(out.cssResiduals.valid) << "bad measurement must not produce a valid residual";
     EXPECT_TRUE(algo.getState().raw().allFinite()) << "filter state must stay finite after a bad update";
@@ -425,30 +432,31 @@ TEST(SunlineFilterAlgorithmUpdate, BadMeasurementIsRejectedAndFilterRecovers) {
     recover.cosValues(0) = 0.5;
     recover.cosValues(1) = 0.5;
     recover.cosValues(2) = 0.707;
-    SunlineFilterOutput const recovered = algo.update(3.0, recover, RateData{});
+    SunlineFilterOutput const recovered = algo.update(recover, RateData{});
 
     EXPECT_TRUE(recovered.cssResiduals.valid) << "the post-recovery measurement must be applied";
     EXPECT_TRUE(recovered.cssResiduals.postFit.allFinite()) << "residuals must be finite after recovery";
     EXPECT_TRUE(algo.getState().raw().allFinite()) << "state must be finite after recovery";
 }
 
-// Each update() with empty measurements re-propagates from the unchanged anchor to
-// currentSeconds, so with process noise the covariance trace grows with currentSeconds.
+// Each measurement-free update() accumulates the elapsed span and re-propagates from the unchanged
+// anchor over a growing interval, so with process noise the covariance trace grows every call.
 TEST(SunlineFilterAlgorithmUpdate, WithoutMeasurementsGrowsCovarianceMonotonically) {
     Matrix7 const P0 = diagCovariance(1E-2, 1E-3, 1E-2);
     SunlineFilterAlgorithm algo(rateOnlyConfigWithProcessNoise(
         makeState(Eigen::Vector3d(0, 0, 1), Eigen::Vector3d::Zero(), 1.0), P0, Matrix7::Identity() * 1E-3));
+    algo.setDt(1.0);
 
-    algo.update(1.0, CssData{}, RateData{});
+    algo.update(CssData{}, RateData{});
     double const trace1 = algo.getCovariance().trace();
-    algo.update(4.0, CssData{}, RateData{});
-    double const trace4 = algo.getCovariance().trace();
-    algo.update(9.0, CssData{}, RateData{});
-    double const trace9 = algo.getCovariance().trace();
+    algo.update(CssData{}, RateData{});
+    double const trace2 = algo.getCovariance().trace();
+    algo.update(CssData{}, RateData{});
+    double const trace3 = algo.getCovariance().trace();
 
     EXPECT_GT(trace1, P0.trace());
-    EXPECT_GT(trace4, trace1);
-    EXPECT_GT(trace9, trace4);
+    EXPECT_GT(trace2, trace1);
+    EXPECT_GT(trace3, trace2);
 }
 
 TEST(SunlineFilterAlgorithmReInit, ReInitializePreservesEstimateReInitializeAllResetsIt) {
@@ -466,7 +474,8 @@ TEST(SunlineFilterAlgorithmReInit, ReInitializePreservesEstimateReInitializeAllR
     RateData rate;
     rate.timeTag = 1.0;
     rate.rate = Eigen::Vector3d(0.01, 0.0, 0.0);
-    algo.update(2.0, css, rate);
+    algo.setDt(1.0);
+    algo.update(css, rate);
 
     State const movedState = algo.getState();
     Matrix7 const movedCovariance = algo.getCovariance();
@@ -530,11 +539,12 @@ TEST(SunlineFilterAlgorithmRegression, ConvergesToConstantSunDirection) {
     }
     RateData const noRate;  // timeTag 0 -> not enqueued; pure CSS updates
 
+    algo.setDt(1.0);
     double t = 0.0;
     for (int step = 0; step < 40; ++step) {
         t += 1.0;
         css.timeTag = t;
-        algo.update(t, css, noRate);
+        algo.update(css, noRate);
     }
 
     Eigen::Vector3d const sEst = algo.getState().get<filtering::Position<3>>();

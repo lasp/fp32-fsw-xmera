@@ -222,7 +222,10 @@ class SunlineFilterAlgorithm {
 
     void setConfig(SunlineFilterConfig const& config);
 
-    SunlineFilterOutput update(double currentSeconds, CssData const& cssData, RateData const& rateData);
+    void setDt(double newDt);
+    double getDt() const;
+
+    SunlineFilterOutput update(CssData const& cssData, RateData const& rateData);
 
     void reInitializeExceptPersistentStates();
     void reInitialize();
@@ -246,6 +249,7 @@ class SunlineFilterAlgorithm {
     State regularize(State const& state) const;
 
     SunlineFilterConfig cfg;  //!< validated configuration, supplied at construction / setConfig()
+    double dt = 0.2;          //!< [s] fixed time step applied on every update() call
     SRuKF<State, SunlineDynamics> srukf;
     filtering::measurement_queue<Measurement, BatchSize> measurements;
 

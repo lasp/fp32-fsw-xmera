@@ -120,8 +120,15 @@ void SunlineFilterAlgorithm_setConfig(SunlineFilterAlgorithmHandle* self, const 
     fsw::fromHandle<::SunlineFilterAlgorithm>(self)->setConfig(configFromC(*config));
 }
 
+void SunlineFilterAlgorithm_setDt(SunlineFilterAlgorithmHandle* self, const double dt) {
+    fsw::fromHandle<::SunlineFilterAlgorithm>(self)->setDt(dt);
+}
+
+double SunlineFilterAlgorithm_getDt(const SunlineFilterAlgorithmHandle* self) {
+    return fsw::fromHandle<const ::SunlineFilterAlgorithm>(self)->getDt();
+}
+
 SunlineFilterOutput_c SunlineFilterAlgorithm_update(SunlineFilterAlgorithmHandle* self,
-                                                    const double currentSeconds,
                                                     const SunlineCssData_c* cssData,
                                                     const SunlineRateData_c* rateData) {
     CssData cssDataCpp{};
@@ -134,8 +141,7 @@ SunlineFilterOutput_c SunlineFilterAlgorithm_update(SunlineFilterAlgorithmHandle
     rateDataCpp.timeTag = rateData->timeTag;
     rateDataCpp.rate << rateData->rate[0], rateData->rate[1], rateData->rate[2];
 
-    const SunlineFilterOutput out =
-        fsw::fromHandle<::SunlineFilterAlgorithm>(self)->update(currentSeconds, cssDataCpp, rateDataCpp);
+    const SunlineFilterOutput out = fsw::fromHandle<::SunlineFilterAlgorithm>(self)->update(cssDataCpp, rateDataCpp);
     return outputToC(out);
 }
 

@@ -176,7 +176,7 @@ inline std::optional<SunlineFilterConfig> tryFuzzConfig(Eigen::Vector3d const& s
 }
 
 // Drives one update() with the given (possibly non-finite) CSS cos-values and rate at a shared
-// measurement time, propagating dt to the output time.
+// measurement time, stepping the filter forward by dt.
 inline void driveUpdate(SunlineFilterAlgorithm& algo,
                         Eigen::Vector<double, MaxCss> const& cssCos,
                         Eigen::Vector3d const& rate,
@@ -187,7 +187,8 @@ inline void driveUpdate(SunlineFilterAlgorithm& algo,
     RateData r;
     r.timeTag = 1.0;
     r.rate = rate;
-    algo.update(1.0 + dt, css, r);
+    algo.setDt(dt);
+    algo.update(css, r);
 }
 
 // ---------------------------------------------------------------------------
