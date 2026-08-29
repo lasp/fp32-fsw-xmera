@@ -24,7 +24,7 @@ TEST(SunSearchPointTest, SetupTest) {
         defaultRotations(), Eigen::Vector3f{0.6F, 0.8F, 0.0F}, 1.5F, Eigen::Vector3f{0.1F, -0.2F, 0.3F}, 7);
 
     EXPECT_FLOAT_EQ(cfg.getSunAxisSpinRate(), 1.5F);
-    EXPECT_EQ(cfg.getObservationThreshold(), 7);
+    EXPECT_EQ(cfg.getObservationThreshold(), 7U);
 
     Eigen::Vector3f const expectedOmega{0.1F, -0.2F, 0.3F};
     Eigen::Vector3f retrieved_omega = cfg.getOmega_RN_B();

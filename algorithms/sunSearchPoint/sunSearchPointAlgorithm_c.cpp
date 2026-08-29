@@ -45,7 +45,7 @@ void SunSearchPointAlgorithm_reInitialize(SunSearchPointAlgorithmHandle* self) {
 SunSearchPointOutput_c SunSearchPointAlgorithm_update(SunSearchPointAlgorithmHandle* self,
                                                       const Vector3f_c rHat_SB_B,
                                                       const Vector3f_c omega_BN_B,
-                                                      const int numCssViewingSun) {
+                                                      const uint32_t numCssViewingSun) {
     const SunSearchPointOutput out = fsw::fromHandle<::SunSearchPointAlgorithm>(self)->update(
         cArrayToEigenVector3<float>(rHat_SB_B.data), cArrayToEigenVector3<float>(omega_BN_B.data), numCssViewingSun);
 

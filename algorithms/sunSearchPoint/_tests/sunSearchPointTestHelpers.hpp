@@ -33,7 +33,7 @@ inline SunSearchPointOutput observeAt(SunSearchPointAlgorithm& alg,
                                       uint64_t targetNs,
                                       const Eigen::Vector3f& sun,
                                       const Eigen::Vector3f& omega,
-                                      int css,
+                                      uint32_t css,
                                       uint64_t controlPeriodNs = kTestControlPeriodNs) {
     while (nextElapsedNs < targetNs) {
         (void)alg.update(Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(), 0);
@@ -49,7 +49,7 @@ inline SunSearchPointOutput advanceTo(SunSearchPointAlgorithm& alg,
                                       uint64_t targetNs,
                                       const Eigen::Vector3f& sun,
                                       const Eigen::Vector3f& omega,
-                                      int css,
+                                      uint32_t css,
                                       uint64_t controlPeriodNs = kTestControlPeriodNs) {
     uint64_t nextElapsedNs = 0U;
     return observeAt(alg, nextElapsedNs, targetNs, sun, omega, css, controlPeriodNs);
@@ -81,7 +81,7 @@ inline SunSearchPointConfig makeSearchConfig(const std::array<RotationProperties
                                              const Eigen::Vector3f& sHatBdyCmd = Eigen::Vector3f{0.0F, 0.0F, 1.0F},
                                              float sunAxisSpinRate = 0.0F,
                                              const Eigen::Vector3f& omega_RN_B = Eigen::Vector3f::Zero(),
-                                             int observationThreshold = 4,
+                                             uint32_t observationThreshold = 4U,
                                              float controlPeriod = kTestControlPeriodSec) {
     return SunSearchPointConfig::create(
         rotations, sHatBdyCmd, sunAxisSpinRate, omega_RN_B, observationThreshold, controlPeriod);

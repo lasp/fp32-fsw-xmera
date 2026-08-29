@@ -54,7 +54,7 @@ void SunSearchPointAlgorithm::reInitialize() {
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
 SunSearchPointOutput SunSearchPointAlgorithm::update(const Eigen::Vector3f& rHat_SB_B,
                                                      const Eigen::Vector3f& omega_BN_B,
-                                                     const int numCssViewingSun) {
+                                                     const uint32_t numCssViewingSun) {
     // Evaluate the one-way SEARCH -> POINT transition. The first rotation always runs to
     // completion; after that, a sufficient observation count transitions to pointing, and the
     // full sequence elapsing forces the transition regardless of observations.

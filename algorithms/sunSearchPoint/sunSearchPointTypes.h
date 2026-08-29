@@ -48,7 +48,7 @@ typedef struct {
     Vector3f_c sHatBdyCmd;    /*!< [-] commanded body vector to point at the sun */
     float sunAxisSpinRate;    /*!< [rad/s] constant spin rate about the sun heading vector */
     Vector3f_c omega_RN_B;    /*!< [rad/s] fallback body rate when no sun direction is available */
-    int observationThreshold; /*!< [-] CSS count at or above which to transition to pointing */
+    uint32_t observationThreshold; /*!< [-] CSS count at or above which to transition to pointing */
     float controlPeriod;      /*!< [s] per-update time step; advances the search timeline (> 0) */
 } SunSearchPointConfig_c;
 

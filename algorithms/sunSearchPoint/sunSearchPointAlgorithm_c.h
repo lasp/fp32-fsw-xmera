@@ -69,7 +69,7 @@ void SunSearchPointAlgorithm_reInitialize(SunSearchPointAlgorithmHandle* self);
 SunSearchPointOutput_c SunSearchPointAlgorithm_update(SunSearchPointAlgorithmHandle* self,
                                                       Vector3f_c rHat_SB_B,
                                                       Vector3f_c omega_BN_B,
-                                                      int numCssViewingSun);
+                                                      uint32_t numCssViewingSun);
 
 #ifdef __cplusplus
 }  // extern "C"

@@ -84,9 +84,10 @@ void SunSearchPoint::updateState(uint64_t callTime) {
     Eigen::Vector3f const vehSunPntBdy = cArrayToEigenVector(sunDirectionMsgPayload.vehSunPntBdy);
     Eigen::Vector3f const omega_BN_B = cArrayToEigenVector(rateMsgPayload.omega_BN_B);
 
-    // Call the algorithm update method
-    SunSearchPointOutput output =
-        this->algorithm->update(vehSunPntBdy, omega_BN_B, filterResidualsMsgPayload.sizeOfObservations);
+    // sizeOfObservations is signed in the filter residuals message; the filter cannot report a
+    // negative size, so the count is always in range for the algorithm's unsigned argument.
+    SunSearchPointOutput output = this->algorithm->update(
+        vehSunPntBdy, omega_BN_B, static_cast<uint32_t>(filterResidualsMsgPayload.sizeOfObservations));
 
     // Convert algorithm output to MsgPayload
     AttGuidMsgF32Payload attGuidanceOutBuffer{};

@@ -45,7 +45,7 @@ class SunSearchPointConfig final {
                                        const Eigen::Vector3f& sHatBdyCmd,
                                        float sunAxisSpinRate,
                                        const Eigen::Vector3f& omega_RN_B,
-                                       int observationThreshold,
+                                       uint32_t observationThreshold,
                                        float controlPeriod) {
         for (auto [rotationDuration, rotationRate, rotationAxis] : rotations) {
             if (!isValidRotationDuration(rotationDuration)) {
@@ -95,7 +95,7 @@ class SunSearchPointConfig final {
     const Eigen::Vector3f& getSHatBdyCmd() const { return sHatBdyCmd; }
     float getSunAxisSpinRate() const { return sunAxisSpinRate; }
     const Eigen::Vector3f& getOmega_RN_B() const { return omega_RN_B; }
-    int getObservationThreshold() const { return observationThreshold; }
+    uint32_t getObservationThreshold() const { return observationThreshold; }
     float getControlPeriod() const { return controlPeriod; }
 
    private:
@@ -104,7 +104,7 @@ class SunSearchPointConfig final {
                          const Eigen::Vector3f& sHatBdyCmdIn,
                          float sunAxisSpinRateIn,
                          const Eigen::Vector3f& omega_RN_BIn,
-                         int observationThresholdIn,
+                         uint32_t observationThresholdIn,
                          float controlPeriodIn)
         : rotations(rotationsIn),
           sHatBdyCmd(sHatBdyCmdIn),
@@ -117,7 +117,7 @@ class SunSearchPointConfig final {
     Eigen::Vector3f sHatBdyCmd;
     float sunAxisSpinRate;
     Eigen::Vector3f omega_RN_B;
-    int observationThreshold;
+    uint32_t observationThreshold;
     float controlPeriod;
 };
 
@@ -137,7 +137,7 @@ class SunSearchPointAlgorithm final {
 
     SunSearchPointOutput update(const Eigen::Vector3f& rHat_SB_B,
                                 const Eigen::Vector3f& omega_BN_B,
-                                int numCssViewingSun);
+                                uint32_t numCssViewingSun);
 
     void setConfig(const SunSearchPointConfig& config);
     void reInitialize();
