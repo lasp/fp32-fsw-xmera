@@ -7,35 +7,57 @@
 #include <Eigen/Core>
 #include <array>
 
+static_assert(SUN_SEARCH_POINT_NUM_ROTATIONS == kNumRotations,
+              "C-shim rotation count must match the algorithm's kNumRotations");
+
 namespace {
-SunSearchPointConfig configFromC(const SunSearchPointConfig_c& c) {
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
+SunSearchPointConfig configFromC(const RotationPropertiesArray4_c& rotationsIn,
+                                 const Vector3f_c sHatBdyCmd,
+                                 const float sunAxisSpinRate,
+                                 const Vector3f_c omega_RN_B,
+                                 const uint32_t observationThreshold,
+                                 const float controlPeriod) {
     std::array<RotationProperties, kNumRotations> rotations{};
     for (uint32_t i = 0U; i < kNumRotations; ++i) {
-        rotations[i].rotationDuration = c.rotations[i].rotationDuration;
-        rotations[i].rotationRate = c.rotations[i].rotationRate;
-        rotations[i].rotationAxis = static_cast<RotationAxis>(c.rotations[i].rotationAxis);
+        rotations[i].rotationDuration = rotationsIn.rotations[i].rotationDuration;
+        rotations[i].rotationRate = rotationsIn.rotations[i].rotationRate;
+        rotations[i].rotationAxis = static_cast<RotationAxis>(rotationsIn.rotations[i].rotationAxis);
     }
     return SunSearchPointConfig::create(rotations,
-                                        cArrayToEigenVector3<float>(c.sHatBdyCmd.data),
-                                        c.sunAxisSpinRate,
-                                        cArrayToEigenVector3<float>(c.omega_RN_B.data),
-                                        c.observationThreshold,
-                                        c.controlPeriod);
+                                        cArrayToEigenVector3<float>(sHatBdyCmd.data),
+                                        sunAxisSpinRate,
+                                        cArrayToEigenVector3<float>(omega_RN_B.data),
+                                        observationThreshold,
+                                        controlPeriod);
 }
 }  // namespace
 
 uint32_t SunSearchPointAlgorithm_getNumRotations(void) { return SUN_SEARCH_POINT_NUM_ROTATIONS; }
 
-SunSearchPointAlgorithmHandle* SunSearchPointAlgorithm_create(const SunSearchPointConfig_c* config) {
-    return fsw::createHandle<::SunSearchPointAlgorithm, SunSearchPointAlgorithmHandle>(configFromC(*config));
+SunSearchPointAlgorithmHandle* SunSearchPointAlgorithm_create(const RotationPropertiesArray4_c* rotations,
+                                                              const Vector3f_c sHatBdyCmd,
+                                                              const float sunAxisSpinRate,
+                                                              const Vector3f_c omega_RN_B,
+                                                              const uint32_t observationThreshold,
+                                                              const float controlPeriod) {
+    return fsw::createHandle<::SunSearchPointAlgorithm, SunSearchPointAlgorithmHandle>(configFromC(
+        *rotations, sHatBdyCmd, sunAxisSpinRate, omega_RN_B, observationThreshold, controlPeriod));
 }
 
 void SunSearchPointAlgorithm_destroy(SunSearchPointAlgorithmHandle* self) {
     fsw::deleteHandle<::SunSearchPointAlgorithm>(self);
 }
 
-void SunSearchPointAlgorithm_setConfig(SunSearchPointAlgorithmHandle* self, const SunSearchPointConfig_c* config) {
-    fsw::fromHandle<::SunSearchPointAlgorithm>(self)->setConfig(configFromC(*config));
+void SunSearchPointAlgorithm_setConfig(SunSearchPointAlgorithmHandle* self,
+                                       const RotationPropertiesArray4_c* rotations,
+                                       const Vector3f_c sHatBdyCmd,
+                                       const float sunAxisSpinRate,
+                                       const Vector3f_c omega_RN_B,
+                                       const uint32_t observationThreshold,
+                                       const float controlPeriod) {
+    fsw::fromHandle<::SunSearchPointAlgorithm>(self)->setConfig(configFromC(
+        *rotations, sHatBdyCmd, sunAxisSpinRate, omega_RN_B, observationThreshold, controlPeriod));
 }
 
 void SunSearchPointAlgorithm_reInitialize(SunSearchPointAlgorithmHandle* self) {

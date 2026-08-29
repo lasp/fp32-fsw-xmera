@@ -43,27 +43,6 @@ typedef struct {
     RotationAxis_c rotationAxis; /*!< [-]    axis about which to rotate */
 } RotationProperties_c;
 
-/**
- * @brief Plain-old-data mirror of the full C++ SunSearchPointConfig.
- *
- * Caller fills this struct and passes it to SunSearchPointAlgorithm_create / _setConfig. The C++ side
- * validates it via SunSearchPointConfig::create (rotations and sHatBdyCmd norm) and throws on invalid
- * input.
- *
- *  - sHatBdyCmd norm must be within 1e-3 of 1.0 (renormalized on storage)
- *  - sunAxisSpinRate and omega_RN_B are unconstrained
- *  - observationThreshold is the CSS count at or above which to transition to pointing
- *  - controlPeriod is the per-update time step [s] (must be finite and > 0)
- */
-typedef struct {
-    RotationProperties_c rotations[SUN_SEARCH_POINT_NUM_ROTATIONS]; /*!< [-] sun-search rotation sequence */
-    Vector3f_c sHatBdyCmd;    /*!< [-] commanded body vector to point at the sun */
-    float sunAxisSpinRate;    /*!< [rad/s] constant spin rate about the sun heading vector */
-    Vector3f_c omega_RN_B;    /*!< [rad/s] fallback body rate when no sun direction is available */
-    uint32_t observationThreshold; /*!< [-] CSS count at or above which to transition to pointing */
-    float controlPeriod;      /*!< [s] per-update time step; advances the search timeline (> 0) */
-} SunSearchPointConfig_c;
-
 #ifdef __cplusplus
 }  // extern "C"
 #endif
