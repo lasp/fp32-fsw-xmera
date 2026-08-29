@@ -34,8 +34,9 @@ struct SunSearchPointOutput {
  * @brief Validated configuration for the sun search point algorithm.
  *
  * Holds the sun-search rotation sequence and the pointing parameters. An instance can only exist if
- * every rotation has a finite, positive duration, a finite commanded rate, and a valid axis, and if
- * sHatBdyCmd has unit norm (within 1e-3). Construct via SunSearchPointConfig::create(...).
+ * every rotation has a finite, positive duration, a finite commanded rate, and a valid axis, if
+ * sHatBdyCmd has unit norm (within 1e-3), if sunAxisSpinRate and omega_RN_B are finite, and if
+ * controlPeriod is finite and positive. Construct via SunSearchPointConfig::create(...).
  */
 class SunSearchPointConfig final {
    public:
@@ -60,6 +61,12 @@ class SunSearchPointConfig final {
         if (!isValidSHatBdyCmd(sHatBdyCmd)) {
             FSW_THROW_INVALID_ARGUMENT("sunSearchPoint: sHatBdyCmd norm must be within 1e-3 of 1.0");
         }
+        if (!isValidSunAxisSpinRate(sunAxisSpinRate)) {
+            FSW_THROW_INVALID_ARGUMENT("sunSearchPoint: sunAxisSpinRate must be finite");
+        }
+        if (!isValidOmega_RN_B(omega_RN_B)) {
+            FSW_THROW_INVALID_ARGUMENT("sunSearchPoint: omega_RN_B must be finite");
+        }
         if (!isValidControlPeriod(controlPeriod)) {
             FSW_THROW_INVALID_ARGUMENT("sunSearchPoint: controlPeriod must be finite and > 0");
         }
@@ -76,9 +83,13 @@ class SunSearchPointConfig final {
         constexpr float kUnitNormTol = 1e-3F;
         return fabsf(sHatBdyCmd.norm() - 1.0F) <= kUnitNormTol;
     }
+    static bool isValidSunAxisSpinRate(float sunAxisSpinRate) { return fsw::is_finite(sunAxisSpinRate); }
+    static bool isValidOmega_RN_B(const Eigen::Vector3f& omega_RN_B) { return omega_RN_B.allFinite(); }
     static bool isValidControlPeriod(float controlPeriod) {
         return fsw::is_finite(controlPeriod) && controlPeriod > 0.0F;
     }
+    // No isValidObservationThreshold - every count is meaningful. Zero transitions to pointing as
+    // soon as the first rotation completes; a count the sensors cannot reach runs the full sequence.
 
     const std::array<RotationProperties, kNumRotations>& getRotations() const { return rotations; }
     const Eigen::Vector3f& getSHatBdyCmd() const { return sHatBdyCmd; }
