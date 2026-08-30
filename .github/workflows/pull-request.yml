@@ -281,6 +281,11 @@ jobs:
               "-DCMAKE_CXX_FLAGS=--coverage"
               "-DCMAKE_EXE_LINKER_FLAGS=--coverage"
               "-DCMAKE_SHARED_LINKER_FLAGS=--coverage"
+              # The SWIG python bindings are MODULE libraries, so they take
+              # their link flags from CMAKE_MODULE_LINKER_FLAGS. Without this
+              # they never link libgcov and the pytest run contributes no
+              # coverage of its own.
+              "-DCMAKE_MODULE_LINKER_FLAGS=--coverage"
             )
           fi
           cmake "${args[@]}"
@@ -343,11 +348,39 @@ jobs:
           gcovr "${common_args[@]}" \
             --json \
             --output coverage/external-modules-coverage.json
+          # The xml and json reports already carry branch data; only the text
+          # report has to be asked for it explicitly.
+          gcovr "${common_args[@]}" \
+            --txt --txt-metric branch \
+            --output coverage/external-modules-branch-coverage.txt
           {
             echo '### External Modules Coverage (gcovr)';
             echo;
+            echo '#### Lines';
             echo '```text';
             cat coverage/external-modules-coverage.txt;
+            echo '```';
+            echo '#### Branches';
+            echo '```text';
+            cat coverage/external-modules-branch-coverage.txt;
+            echo '```';
+            echo 'See docs/COVERAGE.md for how to read these numbers.';
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Audit coverage completeness (Linux only)
+        if: ${{ runner.os == 'Linux' }}
+        run: |
+          mkdir -p coverage
+          "${GITHUB_WORKSPACE}/.github/scripts/audit_coverage_completeness.sh" \
+            "${GITHUB_WORKSPACE}/algorithms" \
+            "${GITHUB_WORKSPACE}/xmera/build" \
+            coverage/external-modules-coverage.json \
+            | tee coverage/external-modules-completeness.txt
+          {
+            echo '### Coverage Completeness';
+            echo;
+            echo '```text';
+            cat coverage/external-modules-completeness.txt;
             echo '```';
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -361,6 +394,8 @@ jobs:
             coverage/external-modules-coverage.html
             coverage/external-modules-coverage.txt
             coverage/external-modules-coverage.json
+            coverage/external-modules-branch-coverage.txt
+            coverage/external-modules-completeness.txt
           retention-days: 14
 
       - name: Upload pytest test results

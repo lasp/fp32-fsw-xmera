@@ -1,6 +1,6 @@
-# `utilities/_tests`
+# `utilities/fsw/_tests`
 
-Host-side gtest (and FuzzTest) suites for the header-only helpers in `algorithms/utilities/`
+Host-side gtest (and FuzzTest) suites for the header-only helpers in `algorithms/utilities/fsw/`
 (`validDcm`, `validateInertia`, `chebyshevUtilities`, `safeMath`, `orbitalMotion`,
 `freestandingIsFinite`). `CMakeLists.txt` in this directory is the source of truth for what is built
 and how each suite is registered.
@@ -13,8 +13,9 @@ this directory.
 
 `test_freestandingIsFinite` is the one suite here that registers an `exhaustive`-labeled bucket: a
 brute-force equivalence proof against the standard-library oracle over **all 2³² float
-patterns** plus **50M random doubles**. It is cheap (~5 s total) and runs by default, but can
-be selected or skipped on its own:
+patterns** plus **50M random doubles**. It is cheap (~5 s total) and runs by default locally,
+but is skipped in the pull request job, where the build is instrumented and the iteration counts
+overflow gcov. The daily fuzz workflow runs it instead. It can be selected or skipped on its own:
 
 ```bash
 # from the algorithms build dir, e.g. build/fp32-fsw-xmera/algorithms

@@ -245,3 +245,246 @@ jobs:
         with:
           path: .fuzztest_corpus
           key: fuzz-corpus-${{ runner.os }}-${{ github.run_id }}
+
+  fuzz-coverage:
+    name: Fuzz coverage (ubuntu-24.04 / GCC 13)
+    needs: fuzz
+    if: ${{ always() }}
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+      actions: read
+    steps:
+      - name: Checkout fp32-fsw-xmera
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Checkout Xmera core
+        uses: actions/checkout@v7
+        with:
+          repository: lasp/xmera
+          path: xmera
+          persist-credentials: false
+
+      # Restore the corpus the extended fuzzing job just saved, so the replay
+      # below measures what the long sessions actually reached.
+      - name: Restore fuzz corpus cache
+        uses: actions/cache/restore@v6
+        with:
+          path: .fuzztest_corpus
+          key: fuzz-corpus-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: |
+            fuzz-corpus-${{ runner.os }}-
+
+      - name: Ensure fuzz corpus directory exists
+        run: mkdir -p .fuzztest_corpus
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            ninja-build build-essential \
+            pkg-config autoconf automake libtool \
+            zip unzip \
+            bison swig \
+            libdrm-dev \
+            libx11-dev libxkbcommon-x11-dev libx11-xcb-dev \
+            libxft-dev libxext-dev libgles2-mesa-dev \
+            libxi-dev libxtst-dev libxrandr-dev libltdl-dev \
+            libgtk2.0-dev \
+            python3-setuptools python3-jinja2 python3-tk \
+            mono-complete \
+            ccache \
+            gcc-13 g++-13
+
+      - name: Select GCC 13
+        run: |
+          echo "CC=gcc-13"  >> "$GITHUB_ENV"
+          echo "CXX=g++-13" >> "$GITHUB_ENV"
+          echo "CMAKE_C_COMPILER_LAUNCHER=ccache"   >> "$GITHUB_ENV"
+          echo "CMAKE_CXX_COMPILER_LAUNCHER=ccache" >> "$GITHUB_ENV"
+          echo "CMAKE_GENERATOR=Ninja"              >> "$GITHUB_ENV"
+          echo "CMAKE_MAKE_PROGRAM=/usr/bin/ninja"  >> "$GITHUB_ENV"
+
+      - name: Set up Python 3.11
+        id: setup-py
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: |
+            xmera/**/requirements.txt
+            xmera/**/pyproject.toml
+            **/requirements.txt
+            **/requirements*.txt
+
+      - name: Pin Python interpreter
+        run: |
+          PY="$(python -c 'import sys; print(sys.executable)')"
+          echo "PYTHON_EXE=$PY" >> "$GITHUB_ENV"
+
+      - name: Setup CMake 3.31.12
+        uses: jwlawson/actions-setup-cmake@v2
+        with:
+          cmake-version: '3.31.12'
+
+      - name: Install vcpkg
+        uses: lukka/run-vcpkg@v11
+        with:
+          vcpkgDirectory: ${{ github.workspace }}/b/vcpkg
+          vcpkgJsonGlob: "xmera/src/vcpkg.json"
+          vcpkgConfigurationJsonGlob: "xmera/src/vcpkg-configuration.json"
+        env:
+          VCPKG_KEEP_ENV_VARS: CC;CXX;CMAKE_GENERATOR;CMAKE_MAKE_PROGRAM
+          VCPKG_MAX_CONCURRENCY: "1"
+          CMAKE_GENERATOR: Ninja
+          CMAKE_MAKE_PROGRAM: /usr/bin/ninja
+          VCPKG_CMAKE_CONFIGURE_OPTIONS: "-DCMAKE_POLICY_VERSION_MINIMUM=3.5"
+
+      - name: Configure vcpkg binary cache
+        run: |
+          echo "VCPKG_BINARY_SOURCES=clear;nuget,${FEED_URL},readwrite" >> "$GITHUB_ENV"
+
+      - name: Add NuGet sources for vcpkg binary cache
+        env:
+          VCPKG_EXE: ${{ github.workspace }}/b/vcpkg/vcpkg
+        run: |
+          set -euo pipefail
+          NUGET="$("${VCPKG_EXE}" fetch nuget | awk 'NF{last=$0} END{print last}')"
+
+          declare -a NUGET_CMD=()
+          if [[ "$NUGET" == *.exe ]]; then
+            NUGET_CMD=(mono "$NUGET")
+          else
+            NUGET_CMD=("$NUGET")
+          fi
+
+          "${NUGET_CMD[@]}" sources add \
+            -Source "${FEED_URL}" \
+            -StorePasswordInClearText \
+            -Name GitHubPackages \
+            -UserName "${USERNAME}" \
+            -Password "${{ secrets.FP32_XMERA_GH_VCPKG_PACKAGES_TOKEN }}"
+
+          "${NUGET_CMD[@]}" setapikey "${{ secrets.FP32_XMERA_GH_VCPKG_PACKAGES_TOKEN }}" \
+            -Source "${FEED_URL}"
+
+      - name: Create virtual environment
+        run: |
+          "$PYTHON_EXE" -m venv .venv
+          source .venv/bin/activate
+          python -m pip install --upgrade pip
+
+      - name: Install Python deps
+        run: |
+          if [[ -f "$GITHUB_WORKSPACE/xmera/requirements.txt" ]]; then
+            ./.venv/bin/python -m pip install -r "$GITHUB_WORKSPACE/xmera/requirements.txt"
+          fi
+          ./.venv/bin/python -m pip install --upgrade gcovr
+
+      # Unit-test mode, not fuzzing mode: the fuzz binaries have to be gcov
+      # instrumented, and FUZZTEST_FUZZING_MODE needs Clang. Replaying the
+      # corpus is what turns the extended sessions into coverage.
+      - name: Configure (GCC 13 + fuzz-smoke-test preset, instrumented)
+        working-directory: xmera/src
+        run: |
+          ln -s "${GITHUB_WORKSPACE}" .
+          cmake --preset fuzz-smoke-test \
+            "-DXMERA_MODULE_ROOTS=${GITHUB_WORKSPACE}/xmera/src/fswAlgorithms/;${GITHUB_WORKSPACE}/xmera/src/simulation/;${GITHUB_WORKSPACE}/xmera/src/moduleTemplates/;${GITHUB_WORKSPACE}/xmera/src/fp32-fsw-xmera/algorithms" \
+            "-DXMERA_ENABLE_GROUPS=simulation;fswAlgorithms;moduleTemplates;fp32" \
+            "-DCMAKE_BUILD_TYPE=Debug" \
+            "-DCMAKE_C_FLAGS=--coverage" \
+            "-DCMAKE_CXX_FLAGS=--coverage" \
+            "-DCMAKE_EXE_LINKER_FLAGS=--coverage" \
+            "-DCMAKE_SHARED_LINKER_FLAGS=--coverage" \
+            "-DCMAKE_MODULE_LINKER_FLAGS=--coverage"
+
+      - name: Build
+        working-directory: xmera/src
+        run: cmake --build ../build --parallel
+
+      - name: Replay the fuzz corpus under coverage (CTest)
+        working-directory: xmera/build/fp32-fsw-xmera/algorithms
+        env:
+          XMERA_FUZZTEST_REPLAY_CORPUS: __ALL__
+          XMERA_FUZZTEST_REPLAY_FOR: inf
+        run: ctest --output-on-failure -L fuzz
+
+      # These are excluded from the pull request job: under --coverage their
+      # ~4.3e9 iterations make gcov emit out-of-range hit counts (gcc bug
+      # 68080), which is what --gcov-ignore-parse-errors below absorbs.
+      - name: Run exhaustive equivalence scans under coverage (CTest)
+        working-directory: xmera/build/fp32-fsw-xmera/algorithms
+        run: ctest --output-on-failure -L exhaustive
+
+      - name: Generate fuzz coverage
+        run: |
+          source .venv/bin/activate
+          mkdir -p coverage
+          GCOV_BIN="$(command -v gcov-13 || command -v gcov)"
+          echo "Using gcov executable: ${GCOV_BIN}"
+          common_args=(
+            --root "${GITHUB_WORKSPACE}"
+            --filter "${GITHUB_WORKSPACE}/algorithms"
+            --object-directory "${GITHUB_WORKSPACE}/xmera/build"
+            --exclude ".*_tests/.*"
+            --gcov-executable "${GCOV_BIN}"
+            --gcov-ignore-errors no_working_dir_found
+            --gcov-ignore-errors source_not_found
+            --gcov-ignore-parse-errors suspicious_hits.warn
+            --gcov-ignore-parse-errors negative_hits.warn
+          )
+          gcovr "${common_args[@]}" \
+            --html-details \
+            --output coverage/fuzz-coverage.html
+          gcovr "${common_args[@]}" \
+            --txt \
+            --output coverage/fuzz-coverage.txt
+          gcovr "${common_args[@]}" \
+            --json \
+            --output coverage/fuzz-coverage.json
+          gcovr "${common_args[@]}" \
+            --txt --txt-metric branch \
+            --output coverage/fuzz-branch-coverage.txt
+          {
+            echo '### Fuzz Corpus Coverage (gcovr)';
+            echo;
+            echo '#### Lines';
+            echo '```text';
+            cat coverage/fuzz-coverage.txt;
+            echo '```';
+            echo '#### Branches';
+            echo '```text';
+            cat coverage/fuzz-branch-coverage.txt;
+            echo '```';
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Audit coverage completeness
+        run: |
+          "${GITHUB_WORKSPACE}/.github/scripts/audit_coverage_completeness.sh" \
+            "${GITHUB_WORKSPACE}/algorithms" \
+            "${GITHUB_WORKSPACE}/xmera/build" \
+            coverage/fuzz-coverage.json \
+            | tee coverage/fuzz-completeness.txt
+          {
+            echo '### Coverage Completeness';
+            echo;
+            echo '```text';
+            cat coverage/fuzz-completeness.txt;
+            echo '```';
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload fuzz coverage artifacts
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: daily-fuzz-coverage
+          path: |
+            coverage/fuzz-coverage.html
+            coverage/fuzz-coverage.txt
+            coverage/fuzz-coverage.json
+            coverage/fuzz-branch-coverage.txt
+            coverage/fuzz-completeness.txt
+          retention-days: 14
