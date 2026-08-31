@@ -56,8 +56,12 @@ inline void testDvAccumulation(float controlPeriod, const std::vector<Eigen::Vec
 }
 
 /*! @brief Fuzz-friendly driver: drive the algorithm through a sequence of acceleration samples at a
- *         generated control period and compare to the reference step-by-step. */
-inline void testDvAccumulationFuzz(float controlPeriod, const std::vector<Eigen::Vector3f>& accels) {
+ *         generated control period, subtracting a generated bias, and compare to the reference
+ *         step-by-step. The bias is unvalidated, so the fuzzer covers it the same way it covers the
+ *         acceleration. */
+inline void testDvAccumulationFuzz(float controlPeriod,
+                                   const std::vector<Eigen::Vector3f>& accels,
+                                   const Eigen::Vector3f& accelBias_B) {
     if (!DvAccumulationConfig::isValidControlPeriod(controlPeriod)) {
         return;  // fuzz domain may produce a rejected control period; construction would throw
     }
@@ -68,8 +72,8 @@ inline void testDvAccumulationFuzz(float controlPeriod, const std::vector<Eigen:
 
     for (const Eigen::Vector3f& accel_B : accels) {
         Eigen::Vector3f algOut = Eigen::Vector3f::Zero();
-        EXPECT_NO_THROW(algOut = alg.update(accel_B, Eigen::Vector3f::Zero()));
-        const Eigen::Vector3f refOut = referenceUpdate(ref, controlPeriod, accel_B, Eigen::Vector3f::Zero());
+        EXPECT_NO_THROW(algOut = alg.update(accel_B, accelBias_B));
+        const Eigen::Vector3f refOut = referenceUpdate(ref, controlPeriod, accel_B, accelBias_B);
 
         for (int i = 0; i < 3; ++i) {
             EXPECT_NEAR(algOut[i], refOut[i], 1e-5F);
