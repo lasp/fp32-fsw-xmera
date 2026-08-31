@@ -2,10 +2,8 @@
 Module Name:        cssWlsEst()
 """
 
-import inspect
 import logging
 import math
-import os
 
 import matplotlib.pyplot as plt
 import numpy
@@ -16,9 +14,6 @@ from xmera.fp32 import cssWlsEstF32
 from xmera.utilities import SimulationBaseClass
 from xmera.utilities import macros
 from xmera.utilities import unitTestSupport  # general support file with common unit test functions
-
-filename = inspect.getframeinfo(inspect.currentframe()).filename
-path = os.path.dirname(os.path.abspath(filename))
 
 
 
@@ -173,25 +168,18 @@ def cssWlsEstTestFunction(show_plots):
     ]
     numCSS = len(CSSOrientationList)
 
-    # set the CSS unit vectors
-    cssConfigData = messaging.CSSConfigMsgPayload()
-    totalCSSList = []
-    for CSSHat in CSSOrientationList:
-        CSSConfigElement = messaging.CSSUnitConfigMsgPayload()
-        CSSConfigElement.CBias = 1.0
-        CSSConfigElement.nHat_B = CSSHat
-        totalCSSList.append(CSSConfigElement)
-    cssConfigData.nCSS = numCSS
-    cssConfigData.cssVals = totalCSSList
-    cssConfigDataInMsg = messaging.CSSConfigMsg().write(cssConfigData)
+    # set the CSS unit vectors and biases as module properties
+    CSSWlsEstFSW.numCss = numCSS
+    CSSWlsEstFSW.cssNHat = CSSOrientationList
+    CSSWlsEstFSW.cssBias = [1.0] * numCSS
 
     # Initialize CSS input message
-    cssDataMsg = messaging.CSSArraySensorMsgPayload()
-    cssDataInMsg = messaging.CSSArraySensorMsg().write(cssDataMsg)
+    cssDataMsg = messaging.CSSArraySensorMsgF32Payload()
+    cssDataInMsg = messaging.CSSArraySensorMsgF32().write(cssDataMsg)
 
     angleFailCriteria = 17.5 * math.pi / 180.0  # Get 95% effective charging in this case
     numActiveFailCriteria = 0.000001  # basically zero
-    residFailCriteria = 1.0E-12  # Essentially numerically "small"
+    residFailCriteria = 1.0E-5  # Essentially numerically "small" at FP32 precision
 
     # Log the output message as well as the internal numACtiveCss variables
     navData = CSSWlsEstFSW.navStateOutMsg.recorder()
@@ -203,7 +191,6 @@ def cssWlsEstTestFunction(show_plots):
 
     # connect the messages
     CSSWlsEstFSW.cssDataInMsg.subscribeTo(cssDataInMsg)
-    CSSWlsEstFSW.cssConfigInMsg.subscribeTo(cssConfigDataInMsg)
 
     # Initial test is all of the principal body axes
     TestVectors = [[-1.0, 0.0, 0.0],
@@ -434,30 +421,22 @@ def cssRateTestFunction(show_plots):
     ]
     numCSS = len(CSSOrientationList)
 
-    # set the CSS unit vectors
-    cssConfigData = messaging.CSSConfigMsgPayload()
-    totalCSSList = []
-    for CSSHat in CSSOrientationList:
-        CSSConfigElement = messaging.CSSUnitConfigMsgPayload()
-        CSSConfigElement.CBias = 1.0
-        CSSConfigElement.nHat_B = CSSHat
-        totalCSSList.append(CSSConfigElement)
-    cssConfigData.nCSS = numCSS
-    cssConfigData.cssVals = totalCSSList
-    cssConfigDataInMsg = messaging.CSSConfigMsg().write(cssConfigData)
+    # set the CSS unit vectors and biases as module properties
+    module.numCss = numCSS
+    module.cssNHat = CSSOrientationList
+    module.cssBias = [1.0] * numCSS
 
     # Log the output message as well as the internal numACtiveCss variables
     dataLog = module.navStateOutMsg.recorder()
     unitTestSim.AddModelToTask(unitTaskName, dataLog)
 
     # Get observation data based on sun pointing and CSS orientation data
-    cssDataMsg = messaging.CSSArraySensorMsgPayload()
+    cssDataMsg = messaging.CSSArraySensorMsgF32Payload()
     cssDataMsg.CosValue = createCosList([1.0, 0.0, 0.0], CSSOrientationList)
-    cssDataInMsg = messaging.CSSArraySensorMsg().write(cssDataMsg)
+    cssDataInMsg = messaging.CSSArraySensorMsgF32().write(cssDataMsg)
 
     # connect messages
     module.cssDataInMsg.subscribeTo(cssDataInMsg)
-    module.cssConfigInMsg.subscribeTo(cssConfigDataInMsg)
 
     # Initialize test and then step through all of the test vectors in a loop
     unitTestSim.InitializeSimulation()
@@ -481,7 +460,7 @@ def cssRateTestFunction(show_plots):
     unitTestSim.ConfigureStopTime(macros.sec2nano(3.0))
     unitTestSim.ExecuteSimulation()
 
-    accuracy = 1e-6
+    accuracy = 1e-5  # loosened from 1e-6 for FP32
     trueVector = [
         [0.0, 0.0, 0.0],
         [0.0, 0.0, 0.0],
@@ -496,16 +475,10 @@ def cssRateTestFunction(show_plots):
                                                                testFailCount, testMessages)
 
     #   print out success message if no error were found
-    snippentName = "passFailRate"
     if testFailCount == 0:
-        colorText = 'ForestGreen'
         print("PASSED: " + module.modelTag)
-        passedText = r'\textcolor{' + colorText + '}{' + "PASSED" + '}'
     else:
-        colorText = 'Red'
         print("Failed: " + module.modelTag)
-        passedText = r'\textcolor{' + colorText + '}{' + "Failed" + '}'
-    unitTestSupport.writeTeXSnippet(snippentName, passedText, path)
 
     # each test method requires a single assert method to be called
     # this check below just makes sure no sub-test failures were found
