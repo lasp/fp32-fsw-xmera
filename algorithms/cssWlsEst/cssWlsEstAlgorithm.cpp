@@ -6,6 +6,7 @@
 #include <math.h>
 #include <Eigen/Geometry>
 #include <Eigen/LU>
+#include <algorithm>
 
 /*! Upper limit of the arc-cosine domain. The dot product of two unit vectors can only exceed this
     through round-off, so the principal rotation angle argument is clamped here. */
@@ -125,9 +126,8 @@ CssWlsEstOutput CssWlsEstAlgorithm::update(const uint64_t callTime, const Eigen:
             const Eigen::Vector3f dHatOld = this->dOld.stableNormalized();
             out.omega_BN_B = dHatNew.cross(dHatOld).stableNormalized();
             /* compute principal rotation angle between sun heading measurements */
-            float dOldDotNew = dHatNew.dot(dHatOld);
-            if (dOldDotNew > kMaxPrincipalAngleCosine) dOldDotNew = kMaxPrincipalAngleCosine;
-            if (dOldDotNew < kMinPrincipalAngleCosine) dOldDotNew = kMinPrincipalAngleCosine;
+            const float dOldDotNew =
+                std::clamp(dHatNew.dot(dHatOld), kMinPrincipalAngleCosine, kMaxPrincipalAngleCosine);
             out.omega_BN_B *= safeAcosf(dOldDotNew) / dt;
         } else {
             this->priorSignalAvailable = 1;
