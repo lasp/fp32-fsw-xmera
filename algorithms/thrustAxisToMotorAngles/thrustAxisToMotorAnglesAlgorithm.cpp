@@ -29,9 +29,9 @@ ThrustAxisToMotorAnglesOutput ThrustAxisToMotorAnglesAlgorithm::update(const Eig
 
     if (isThrustHatResolved) {
         // Determine the required gimbal tip and tilt angles
-        const Eigen::Vector3f thrustDirHat_M = this->cfg.getDcmMB() * thrustHat_B;
-        const float gimbalTipAngle = safeAtan2f(-thrustDirHat_M[1], thrustDirHat_M[2]);
-        const float gimbalTiltAngle = safeAsinf(thrustDirHat_M[0]);
+        const Eigen::Vector3f thrustHat_M = (this->cfg.getDcmMB() * thrustHat_B).normalized();
+        const float gimbalTipAngle = safeAtan2f(-thrustHat_M[1], thrustHat_M[2]);
+        const float gimbalTiltAngle = safeAsinf(thrustHat_M[0]);
 
         // Determine the required motor angles
         const MotorAngles motorAngles = this->gimbalAnglesToMotorAngles(gimbalTipAngle, gimbalTiltAngle);
