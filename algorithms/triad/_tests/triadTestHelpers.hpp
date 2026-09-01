@@ -94,7 +94,11 @@ inline void testTriadRegression(const Eigen::Vector3f& rHat_SB_N,
     TriadAlgorithm alg(config);
 
     const Eigen::Vector3f result = alg.update(rHat_SB_N, thrustHat_B);
-    const Eigen::Vector3f expected = referenceTriad(rHat_SB_N, thrustHat_B, sadaHat_B, thrustReqHat_N, n3Axis);
+    // Feed the reference the config's own vectors. TriadConfig::create normalizes both, so passing
+    // the raw arguments would let the two sides reach the kParallelThresholdRad gate through
+    // different rounding and take different branches, differing by O(1) rather than by rounding.
+    const Eigen::Vector3f expected =
+        referenceTriad(rHat_SB_N, thrustHat_B, config.getSadaHat_B(), config.getThrustReqHat_N(), n3Axis);
 
     // Compare attitudes as DCMs rather than MRP components: dcmToMrp can return either MRP
     // shadow-set representative near |sigma| = 1 (the 180-deg boundary). The DCM is unique through 180 deg.
