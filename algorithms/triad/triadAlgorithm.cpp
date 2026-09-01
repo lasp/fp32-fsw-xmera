@@ -27,8 +27,11 @@ Eigen::Vector3f TriadAlgorithm::update(const Eigen::Vector3f& rHat_SB_N, const E
     if (isTriadResolved) {
         /*! Triad (D frame) basis vectors in hub reference frame */
         const Eigen::Vector3f d2Hat_B = thrustHat_B.normalized();
-        const Eigen::Vector3f d3Hat_B = sadaHat_B.cross(d2Hat_B).normalized();
+        Eigen::Vector3f d3Hat_B = sadaHat_B.cross(d2Hat_B).normalized();
         const Eigen::Vector3f d1Hat_B = d2Hat_B.cross(d3Hat_B).normalized();
+        /*! Rebuild the third axis from the two clean ones to remove the component the first cross
+         * product leaves along the axis it was crossed with. See triad.rst. */
+        d3Hat_B = d1Hat_B.cross(d2Hat_B).normalized();
         Eigen::Matrix3f dcm_BD;
         dcm_BD.col(0) = d1Hat_B;
         dcm_BD.col(1) = d2Hat_B;
@@ -55,6 +58,8 @@ Eigen::Vector3f TriadAlgorithm::update(const Eigen::Vector3f& rHat_SB_N, const E
             const float zToThrustRefAngle = safeAcosf(fabsf(n3Hat_N.dot(d2Hat_N)));
             isFallbackValid = zToThrustRefAngle >= kParallelThresholdRad;
             if (isFallbackValid) {
+                /*! No rebuild needed here: n3Hat_N is an exact axis vector, so this cross product
+                 * does not cancel and leaves no amplified error behind. */
                 d3Hat_N = n3Hat_N.cross(d2Hat_N).normalized();
                 d1Hat_N = d2Hat_N.cross(d3Hat_N).normalized();
             }
@@ -62,6 +67,9 @@ Eigen::Vector3f TriadAlgorithm::update(const Eigen::Vector3f& rHat_SB_N, const E
             // Normal triad otherwise
             d1Hat_N = rHat_SB_N.cross(d2Hat_N).normalized();
             d3Hat_N = d1Hat_N.cross(d2Hat_N).normalized();
+            /*! Rebuild the first axis from the two clean ones to remove the component the first
+             * cross product leaves along the axis it was crossed with. See triad.rst. */
+            d1Hat_N = d2Hat_N.cross(d3Hat_N).normalized();
         }
 
         if (isFallbackValid) {

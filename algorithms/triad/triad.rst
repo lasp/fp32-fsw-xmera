@@ -140,10 +140,14 @@ the body thrust direction and the solar array drive axis:
 .. math::
 
     {}^\mathcal{B}\hat{d}_2 &= {}^\mathcal{B}\hat{t} \\
-    {}^\mathcal{B}\hat{d}_3 &= \frac{ {}^\mathcal{B}\hat{a} \times {}^\mathcal{B}\hat{d}_2 } { \| {}^\mathcal{B}\hat{a} \times {}^\mathcal{B}\hat{d}_2 \| } \\
-    {}^\mathcal{B}\hat{d}_1 &= {}^\mathcal{B}\hat{d}_2 \times {}^\mathcal{B}\hat{d}_3
+    {}^\mathcal{B}\hat{d}_3' &= \frac{ {}^\mathcal{B}\hat{a} \times {}^\mathcal{B}\hat{d}_2 } { \| {}^\mathcal{B}\hat{a} \times {}^\mathcal{B}\hat{d}_2 \| } \\
+    {}^\mathcal{B}\hat{d}_1 &= {}^\mathcal{B}\hat{d}_2 \times {}^\mathcal{B}\hat{d}_3' \\
+    {}^\mathcal{B}\hat{d}_3 &= {}^\mathcal{B}\hat{d}_1 \times {}^\mathcal{B}\hat{d}_2
 
-Each axis is normalized. The matrix :math:`[\mathcal{BD}]` is constructed using the triad frame axes as columns:
+Each axis is normalized. The third axis is computed twice: the intermediate
+:math:`{}^\mathcal{B}\hat{d}_3'` is replaced by a value rebuilt from the two clean axes, for the reason given in
+:ref:`triad-reorthogonalization`. The matrix :math:`[\mathcal{BD}]` is constructed using the triad frame axes as
+columns:
 :math:`[\mathcal{BD}] = \big[\, {}^\mathcal{B}\hat{d}_1, \;\; {}^\mathcal{B}\hat{d}_2, \;\; {}^\mathcal{B}\hat{d}_3 \,\big]`.
 
 Triad Frame in Inertial Coordinates
@@ -155,10 +159,13 @@ reference inertial thrust direction and the inertial Sun direction:
 .. math::
 
     {}^\mathcal{N}\hat{d}_2 &= {}^\mathcal{N}\hat{t}_\text{ref} \\
-    {}^\mathcal{N}\hat{d}_1 &= \frac{ {}^\mathcal{N}\hat{r}_{S/B} \times {}^\mathcal{N}\hat{d}_2 } { \| {}^\mathcal{N}\hat{r}_{S/B} \times {}^\mathcal{N}\hat{d}_2 \| }\\
-    {}^\mathcal{N}\hat{d}_3 &= {}^\mathcal{N}\hat{d}_1 \times {}^\mathcal{N}\hat{d}_2
+    {}^\mathcal{N}\hat{d}_1' &= \frac{ {}^\mathcal{N}\hat{r}_{S/B} \times {}^\mathcal{N}\hat{d}_2 } { \| {}^\mathcal{N}\hat{r}_{S/B} \times {}^\mathcal{N}\hat{d}_2 \| }\\
+    {}^\mathcal{N}\hat{d}_3 &= {}^\mathcal{N}\hat{d}_1' \times {}^\mathcal{N}\hat{d}_2 \\
+    {}^\mathcal{N}\hat{d}_1 &= {}^\mathcal{N}\hat{d}_2 \times {}^\mathcal{N}\hat{d}_3
 
-Each axis is normalized. The matrix :math:`[\mathcal{ND}]` is constructed using the triad frame axes as columns:
+Each axis is normalized. As in the body frame, the intermediate :math:`{}^\mathcal{N}\hat{d}_1'` is replaced by a
+value rebuilt from the two clean axes; see :ref:`triad-reorthogonalization`. The matrix :math:`[\mathcal{ND}]` is
+constructed using the triad frame axes as columns:
 :math:`[\mathcal{ND}] = \big[\, {}^\mathcal{N}\hat{d}_1, \;\; {}^\mathcal{N}\hat{d}_2, \;\; {}^\mathcal{N}\hat{d}_3 \,\big]`.
 
 Edge Case Guard 2
@@ -188,6 +195,44 @@ align as close to the inertial Z-axis as possible.
     zero. However, in the case where the thrust reference and sun direction are both nearly parallel to the fallback
     Z-axis, the new cross products will be zero. The current spacecraft attitude is returned in this case because this
     is an impossible configuration.
+
+.. _triad-reorthogonalization:
+
+Triad Re-orthogonalization
+""
+
+Both triads are built by crossing the second axis with an external direction — the solar array drive axis in the body
+frame, the Sun direction in the inertial frame. That cross product has magnitude :math:`\sin	heta`, where
+:math:`	heta` is the angle between the two operands, but it carries the same absolute rounding error regardless of
+how small the result is. Normalizing therefore amplifies the error by :math:`1/\sin	heta`, and the amplified part
+lies along the very axis the vector was crossed with. The resulting triad is not orthonormal:
+
+.. math::
+
+    {}^\mathcal{B}\hat{d}_3' \cdot {}^\mathcal{B}\hat{d}_2 \;\sim\; rac{\epsilon}{\sin	heta}
+
+The second cross product is well conditioned, because by then the two operands are already near-orthogonal, so the
+leak stays in whichever axis the first cross product produced. Rebuilding that axis from the other two removes it.
+The rebuild is exactly Gram-Schmidt,
+
+.. math::
+
+    ({}^\mathcal{B}\hat{d}_2 	imes {}^\mathcal{B}\hat{d}_3') 	imes {}^\mathcal{B}\hat{d}_2
+        = {}^\mathcal{B}\hat{d}_3' - {}^\mathcal{B}\hat{d}_2 \,
+          ({}^\mathcal{B}\hat{d}_2 \cdot {}^\mathcal{B}\hat{d}_3')
+
+and it preserves the right-handed cycle :math:`\hat{d}_1 	imes \hat{d}_2 = \hat{d}_3`,
+:math:`\hat{d}_2 	imes \hat{d}_3 = \hat{d}_1`.
+
+This matters because :math:`	heta` is only bounded below by ``kParallelThresholdRad``. Measured over the full input
+range, the leak reaches :math:`2.9 	imes 10^{-6}` at the threshold and scales as :math:`1/\sin	heta`; after the
+rebuild it is flat at :math:`1.1 	imes 10^{-7}`, one unit in the last place. The leak is visible at the module output
+because ``dcmToMrp`` followed by ``mrpToDcm`` re-orthonormalizes the attitude, so a non-orthonormal
+:math:`[\mathcal{RN}]` does not survive the round trip unchanged.
+
+The fallback branch is exempt. There the second axis is crossed with :math:`\pm{}^\mathcal{N}\hat{n}_3`, an exact
+axis vector, so the cross product reduces to a component swap with no cancellation and no amplification. Its measured
+leak is :math:`1.9 	imes 10^{-9}`, three orders of magnitude below the other two branches.
 
 Commanded Attitude
 """"""""""""""""""
