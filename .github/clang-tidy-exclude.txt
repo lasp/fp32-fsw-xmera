@@ -5,6 +5,8 @@ algorithms/attTrackingError/attTrackingError.h
 algorithms/attTrackingError/attTrackingError.cpp
 algorithms/axisToGimbalAngles/axisToGimbalAngles.h
 algorithms/axisToGimbalAngles/axisToGimbalAngles.cpp
+algorithms/axisToGimbalAngles/axisToGimbalAnglesAlgorithm_c.h
+algorithms/axisToGimbalAngles/axisToGimbalAnglesAlgorithm_c.cpp
 algorithms/averageMimuData/averageMimuData.h
 algorithms/averageMimuData/averageMimuData.cpp
 algorithms/bodyRateMiscompare/bodyRateMiscompare.h
