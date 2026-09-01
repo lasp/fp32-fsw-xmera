@@ -2,6 +2,13 @@
 #include "utilities/testUtilities/eigenFuzzDomains.hpp"
 #include <fuzztest/fuzztest.h>
 
+// Branch-boundary margin for the kParallelThresholdRad filters below. These filters normalize with
+// stableNormalized, while update() reaches the same gate through the normalized copy TriadConfig
+// holds. The two paths disagree for inputs within about 4e-5 rad of the gate, which would let an
+// input pass the filter and still be rejected inside update(), failing the property by O(1) rather
+// than by rounding. Skip that band instead of asserting on it.
+constexpr float kGateMarginRad = 1e-4F;
+
 // ---------------------------------------------------------------------------
 // Regression fuzz: random configs and reference inputs must agree with the
 // independent reference implementation across multiple steps.
@@ -66,7 +73,7 @@ void fuzzPropertyThrustBodyHeadingAlignedToThrustInertialHeading(const Eigen::Ve
     const float sadaAxisToThrustAngle = safeAcosf(fabsf(sadaHatUnit_B.dot(thrustHatUnit_B)));
 
     // Skip edge cases where the algorithm returns identity attitude
-    if (sadaAxisToThrustAngle < kParallelThresholdRad || thrustHatUnit_B.stableNorm() == 0.0F ||
+    if (sadaAxisToThrustAngle < kParallelThresholdRad + kGateMarginRad || thrustHatUnit_B.stableNorm() == 0.0F ||
         rHatUnit_SB_N.stableNorm() == 0.0F || sadaHat_B.stableNorm() == 0.0F || thrustReqHat_N.stableNorm() == 0.0F) {
         return;
     }
@@ -79,7 +86,8 @@ void fuzzPropertyThrustBodyHeadingAlignedToThrustInertialHeading(const Eigen::Ve
     const float n3HatSign = (n3Axis == N3Axis::plusZHat_N) ? 1.0F : -1.0F;
     const Eigen::Vector3f n3Hat_N = (n3HatSign * Eigen::Vector3f::UnitZ()).normalized();
     const float zToThrustRefAngle = safeAcosf(fabsf(n3Hat_N.dot(thrustReqHatUnit_N)));
-    if (sunToThrustRefAngle < kParallelThresholdRad && zToThrustRefAngle < kParallelThresholdRad) {
+    if (sunToThrustRefAngle < kParallelThresholdRad + kGateMarginRad &&
+        zToThrustRefAngle < kParallelThresholdRad + kGateMarginRad) {
         return;
     }
 
@@ -134,8 +142,8 @@ void fuzzPropertySolarArraySunOffsetBoundedByBodyThrustOffset(const Eigen::Vecto
     const Eigen::Vector3f thrustHatUnit_B = thrustHat_B.stableNormalized();
     const Eigen::Vector3f sadaHatUnit_B = sadaHat_B.stableNormalized();
     const float sadaToThrustAngle = safeAcosf(fabsf(sadaHatUnit_B.dot(thrustHatUnit_B)));
-    if (sadaToThrustAngle < kParallelThresholdRad ||
-        sadaToThrustAngle > 0.5F * std::numbers::pi_v<float> - kParallelThresholdRad) {
+    if (sadaToThrustAngle < kParallelThresholdRad + kGateMarginRad ||
+        sadaToThrustAngle > 0.5F * std::numbers::pi_v<float> - kParallelThresholdRad - kGateMarginRad) {
         return;
     }
 
@@ -143,7 +151,7 @@ void fuzzPropertySolarArraySunOffsetBoundedByBodyThrustOffset(const Eigen::Vecto
     const Eigen::Vector3f rHatUnit_SB_N = rHat_SB_N.stableNormalized();
     const Eigen::Vector3f thrustReqHatUnit_N = thrustReqHat_N.stableNormalized();
     const float sunToThrustRefAngle = safeAcosf(fabsf(rHatUnit_SB_N.dot(thrustReqHatUnit_N)));
-    if (sunToThrustRefAngle < kParallelThresholdRad) {
+    if (sunToThrustRefAngle < kParallelThresholdRad + kGateMarginRad) {
         return;
     }
 
