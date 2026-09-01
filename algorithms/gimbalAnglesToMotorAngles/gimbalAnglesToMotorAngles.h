@@ -27,17 +27,16 @@ class GimbalAnglesToMotorAngles final : public SysModel {
     float minAngle{0.0F};                              //!< [rad] lower bound of the motor travel range
     float maxAngle{2.0F * std::numbers::pi_v<float>};  //!< [rad] upper bound of the motor travel range
     std::array<float, NUM_GIMBAL_TO_MOTOR_TABLE_ELEMENTS>
-        gimbalToMotor1AngleData{};  //!< [rad] Gimbal-to-motor 1 angle interpolation table
+        gimbalToMotor1AngleData;  //!< [rad] Gimbal-to-motor 1 angle interpolation table
     std::array<float, NUM_GIMBAL_TO_MOTOR_TABLE_ELEMENTS>
-        gimbalToMotor2AngleData{};  //!< [rad] Gimbal-to-motor 2 angle interpolation table
+        gimbalToMotor2AngleData;  //!< [rad] Gimbal-to-motor 2 angle interpolation table
     std::array<int, NUM_GIMBAL_TO_MOTOR_TABLE_ROWS>
-        rowStartStrideIndices{};  //!< [-] Stride indices for the starting location of the table rows
+        rowStartStrideIndices;  //!< [-] Stride indices for the starting location of the table rows
     std::array<int, NUM_GIMBAL_TO_MOTOR_TABLE_ROWS>
-        rowStartColIndices{};  //!< [-] Column indices for the starting location of the table rows
-    int tipColIdxOffset{37};
-    int tiltRowIdxOffset{54};
-    float tableStepAngle{0.5F * std::numbers::pi_v<float> /
-                         180.0F};  //!< [rad] Interpolation table motor discretization step
+        rowStartColIndices;  //!< [-] Column indices for the starting location of the table rows
+    int tipColIdxOffset;     //!< [-] Table column index corresponding to zero tip angle
+    int tiltRowIdxOffset;    //!< [-] Table row index corresponding to zero tilt angle
+    float tableStepAngle;    //!< [rad] Interpolation table motor discretization step
 
     ReadFunctor<TwoAxisGimbalMsgF32Payload>
         twoAxisGimbalInMsg;  //!< Input msg for the corresponding gimbal tip and tilt angles

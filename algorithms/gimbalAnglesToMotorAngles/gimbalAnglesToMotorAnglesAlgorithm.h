@@ -41,12 +41,13 @@ using GimbalToMotorAngleTable = std::array<float, NUM_GIMBAL_TO_MOTOR_TABLE_ELEM
 /*! @brief Type alias for table row layout information. */
 using GimbalToMotorAngleTableRowLayout = std::array<int, NUM_GIMBAL_TO_MOTOR_TABLE_ROWS>;
 struct GimbalToMotorAngleTableLayout {
-    GimbalToMotorAngleTableRowLayout rowStartStrideIndices;
-    GimbalToMotorAngleTableRowLayout rowStartColIndices;
-    int tipColIdxOffset{37};
-    int tiltRowIdxOffset{54};
-    float tableStepAngle{0.5F * std::numbers::pi_v<float> /
-                         180.0F};  //!< [rad] Interpolation table motor discretization step
+    GimbalToMotorAngleTableRowLayout
+        rowStartStrideIndices;  //!< [-] Stride indices for the starting location of the table rows
+    GimbalToMotorAngleTableRowLayout
+        rowStartColIndices;  //!< [-] Column indices for the starting location of the table rows
+    int tipColIdxOffset;     //!< [-] Table column index corresponding to zero tip angle
+    int tiltRowIdxOffset;    //!< [-] Table row index corresponding to zero tilt angle
+    float tableStepAngle;    //!< [rad] Interpolation table motor discretization step
 };
 
 /*! @brief Validated configuration for the gimbal angles to motor angles algorithm.
