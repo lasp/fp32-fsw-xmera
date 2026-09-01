@@ -16,7 +16,7 @@ Eigen::Vector3f TriadAlgorithm::update(const Eigen::Vector3f& rHat_SB_N, const E
     Eigen::Vector3f sigma_RN = Eigen::Vector3f::Zero();
 
     /*! Compute angle between solar array drive axis and thrust direction */
-    const Eigen::Vector3f sadaHat_B = this->cfg.getSadaHat_B().normalized();
+    const Eigen::Vector3f sadaHat_B = this->cfg.getSadaHat_B();
     const float sadaAxisToThrustAngle = safeAcosf(fabsf(sadaHat_B.dot(thrustHat_B)));
 
     /*! Triad is resolveable only if the solar array drive axis and thrust direction are not nearly parallel and
