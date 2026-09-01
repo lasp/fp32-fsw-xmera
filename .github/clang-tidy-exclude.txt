@@ -51,6 +51,8 @@ algorithms/inertial3D/inertial3DAlgorithm_c.h
 algorithms/inertial3D/inertial3DAlgorithm_c.cpp
 algorithms/mimuMajorityVote/mimuMajorityVote.h
 algorithms/mimuMajorityVote/mimuMajorityVote.cpp
+algorithms/mimuMajorityVote/mimuMajorityVoteAlgorithm_c.h
+algorithms/mimuMajorityVote/mimuMajorityVoteAlgorithm_c.cpp
 algorithms/mrpFeedback/mrpFeedback.h
 algorithms/mrpFeedback/mrpFeedback.cpp
 algorithms/mrpPD/mrpPD.h

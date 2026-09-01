@@ -1,29 +1,41 @@
 #include "mimuMajorityVoteTestHelpers.hpp"
 #include <gtest/gtest.h>
 
-TEST(MimuMajorityVoteTest, RegressionTest) {
-    regressionTestMimuMajorityVote(1.0F,
-                                   1U,
-                                   1U,
-                                   Eigen::Vector3f{-0.1F, 0.25F, 0.3F},
-                                   Eigen::Vector3f{-0.09F, 0.24F, 0.305F},
-                                   Eigen::Vector3f{-0.105F, 0.26F, 0.295F});
+TEST(MimuMajorityVoteTest, RegressionTestNominal) {
+    // Nominal: gyro and accel inputs both agree within their thresholds — no fault on either vote.
+    regressionTestMimuMajorityVote(/* omegaThreshold */ 1.0F,
+                                   /* gyroFaultPersistenceLimit */ 1U,
+                                   /* accelThreshold */ 1.0F,
+                                   /* accelFaultPersistenceLimit */ 1U,
+                                   /* algCallCount */ 1U,
+                                   /* angVel1 */ Eigen::Vector3f{-0.1F, 0.25F, 0.3F},
+                                   /* angVel2 */ Eigen::Vector3f{-0.09F, 0.24F, 0.305F},
+                                   /* angVel3 */ Eigen::Vector3f{-0.105F, 0.26F, 0.295F},
+                                   /* accel1 */ Eigen::Vector3f{0.0F, 0.0F, 9.8F},
+                                   /* accel2 */ Eigen::Vector3f{0.01F, -0.02F, 9.81F},
+                                   /* accel3 */ Eigen::Vector3f{-0.01F, 0.02F, 9.79F});
 }
 
 TEST(MimuMajorityVoteTest, RegressionTestOffNominal) {
-    regressionTestMimuMajorityVote(0.05F,
-                                   1U,
-                                   1U,
-                                   Eigen::Vector3f{-0.1F, 0.25F, 0.3F},
-                                   Eigen::Vector3f{1.9F, 2.25F, 2.3F},
-                                   Eigen::Vector3f{-0.1F, 0.25F, 0.3F});
+    // Off-nominal oracle cross-check: gyro IMU 1 and accel IMU 2 are outliers on different IMUs, so
+    // both votes fault independently — the regression helper verifies each vote against the reference.
+    regressionTestMimuMajorityVote(/* omegaThreshold */ 0.05F,
+                                   /* gyroFaultPersistenceLimit */ 1U,
+                                   /* accelThreshold */ 0.05F,
+                                   /* accelFaultPersistenceLimit */ 1U,
+                                   /* algCallCount */ 1U,
+                                   /* angVel1 */ Eigen::Vector3f{-0.1F, 0.25F, 0.3F},
+                                   /* angVel2 */ Eigen::Vector3f{1.9F, 2.25F, 2.3F},
+                                   /* angVel3 */ Eigen::Vector3f{-0.1F, 0.25F, 0.3F},
+                                   /* accel1 */ Eigen::Vector3f{0.0F, 0.0F, 9.8F},
+                                   /* accel2 */ Eigen::Vector3f{0.0F, 0.0F, 9.8F},
+                                   /* accel3 */ Eigen::Vector3f{2.0F, 2.0F, 11.8F});
 }
 
-TEST(MimuMajorityVoteTest, PropertyTestNominal) {
+TEST(MimuMajorityVoteTest, NoFaultAveragesAllImus) {
     // When all IMUs agree within threshold, output should be simple average with no fault
-    MimuMajorityVoteAlgorithm alg{};
-    float threshold = 1.0F;
-    alg.setOmegaThreshold(threshold);
+    const float threshold = 1.0F;
+    MimuMajorityVoteAlgorithm alg{MimuMajorityVoteConfig::create(threshold, 1U, threshold, 1U)};
 
     Eigen::Vector3f baseRate(-0.1F, 0.25F, 0.3F);
 
@@ -31,25 +43,25 @@ TEST(MimuMajorityVoteTest, PropertyTestNominal) {
     imuOmegas_BN_B.at(0) = baseRate;
     imuOmegas_BN_B.at(1) = baseRate + Eigen::Vector3f(0.01F, -0.01F, 0.005F);
     imuOmegas_BN_B.at(2) = baseRate + Eigen::Vector3f(-0.005F, 0.01F, -0.01F);
+    std::array<Eigen::Vector3f, kMimuCount> imuAccels_B{};  // all zero: no accel fault
 
     Eigen::Vector3f expectedAvg = (imuOmegas_BN_B.at(0) + imuOmegas_BN_B.at(1) + imuOmegas_BN_B.at(2)) / 3.0F;
 
-    auto out = alg.update(imuOmegas_BN_B);
+    auto out = alg.update(imuOmegas_BN_B, imuAccels_B);
 
     for (int i = 0; i < 3; ++i) {
-        EXPECT_NEAR(out.avgOmega_BN_B[i], expectedAvg[i], 1e-6);
+        EXPECT_NEAR(out.gyro.average[i], expectedAvg[i], 1e-6);
     }
-    EXPECT_FALSE(out.faultDetected);
+    EXPECT_FALSE(out.gyro.faultDetected);
     for (size_t i = 0U; i < 3U; ++i) {
-        EXPECT_TRUE(out.validImus.at(i));
+        EXPECT_TRUE(out.gyro.imuValid.at(i));
     }
 }
 
-TEST(MimuMajorityVoteTest, PropertyTestOffNominal) {
+TEST(MimuMajorityVoteTest, OutlierFaultedAndExcluded) {
     // When one IMU is far off, it should be detected as faulted and excluded from average
-    MimuMajorityVoteAlgorithm alg{};
-    float threshold = 0.05F;
-    alg.setOmegaThreshold(threshold);
+    const float threshold = 0.05F;
+    MimuMajorityVoteAlgorithm alg{MimuMajorityVoteConfig::create(threshold, 1U, threshold, 1U)};
 
     Eigen::Vector3f baseRate(-0.1F, 0.25F, 0.3F);
     Eigen::Vector3f outlierRate = baseRate + Eigen::Vector3f(2.0F, 2.0F, 2.0F);
@@ -58,25 +70,95 @@ TEST(MimuMajorityVoteTest, PropertyTestOffNominal) {
     imuOmegas_BN_B.at(0) = baseRate;
     imuOmegas_BN_B.at(1) = outlierRate;  // The outlier
     imuOmegas_BN_B.at(2) = baseRate;
+    std::array<Eigen::Vector3f, kMimuCount> imuAccels_B{};  // all zero: no accel fault
 
     // Expected: outlier excluded, average of remaining two
     Eigen::Vector3f expectedAvg = (imuOmegas_BN_B.at(0) + imuOmegas_BN_B.at(2)) / 2.0F;
 
-    auto out = alg.update(imuOmegas_BN_B);
+    auto out = alg.update(imuOmegas_BN_B, imuAccels_B);
 
     for (int i = 0; i < 3; ++i) {
-        EXPECT_NEAR(out.avgOmega_BN_B[i], expectedAvg[i], 1e-6);
+        EXPECT_NEAR(out.gyro.average[i], expectedAvg[i], 1e-6);
     }
-    EXPECT_TRUE(out.faultDetected);
-    EXPECT_TRUE(out.validImus.at(0));
-    EXPECT_FALSE(out.validImus.at(1));
-    EXPECT_TRUE(out.validImus.at(2));
+    EXPECT_TRUE(out.gyro.faultDetected);
+    EXPECT_TRUE(out.gyro.imuValid.at(0));
+    EXPECT_FALSE(out.gyro.imuValid.at(1));
+    EXPECT_TRUE(out.gyro.imuValid.at(2));
+}
+
+TEST(MimuMajorityVoteTest, IndependentVotesAccelFaultOnly) {
+    // The gyro and accel votes are independent: IMU 1 is a clean gyro but an accelerometer outlier,
+    // so it must be reported gyro-valid yet accel-faulted (and excluded only from the accel average).
+    MimuMajorityVoteAlgorithm alg{MimuMajorityVoteConfig::create(0.05F, 1U, 0.05F, 1U)};
+
+    const Eigen::Vector3f baseRate(-0.1F, 0.25F, 0.3F);
+    const Eigen::Vector3f baseAccel(0.0F, 0.0F, 9.8F);
+
+    // All three IMUs agree on angular velocity (no gyro fault).
+    std::array<Eigen::Vector3f, kMimuCount> imuOmegas_BN_B{baseRate, baseRate, baseRate};
+
+    // IMU 1 is a large acceleration outlier; IMUs 0 and 2 agree.
+    std::array<Eigen::Vector3f, kMimuCount> imuAccels_B{
+        baseAccel, baseAccel + Eigen::Vector3f(2.0F, 2.0F, 2.0F), baseAccel};
+
+    auto out = alg.update(imuOmegas_BN_B, imuAccels_B);
+
+    // Gyro vote: no fault, all IMUs valid, full average.
+    EXPECT_FALSE(out.gyro.faultDetected);
+    for (size_t i = 0U; i < kMimuCount; ++i) {
+        EXPECT_TRUE(out.gyro.imuValid.at(i));
+    }
+    for (int i = 0; i < 3; ++i) {
+        EXPECT_NEAR(out.gyro.average[i], baseRate[i], 1e-6);
+    }
+
+    // Accel vote: IMU 1 faulted/excluded, IMUs 0 and 2 valid; accel average excludes IMU 1.
+    EXPECT_TRUE(out.accel.faultDetected);
+    EXPECT_TRUE(out.accel.imuValid.at(0));
+    EXPECT_FALSE(out.accel.imuValid.at(1));
+    EXPECT_TRUE(out.accel.imuValid.at(2));
+    for (int i = 0; i < 3; ++i) {
+        EXPECT_NEAR(out.accel.average[i], baseAccel[i], 1e-6);
+    }
+}
+
+TEST(MimuMajorityVoteTest, IndependentVotesBothFault) {
+    // Both votes fault in a single update on different IMUs: IMU 1 is a gyro outlier and IMU 2 is an
+    // accel outlier. Each vote excludes only its own outlier, and the gyro-faulted IMU stays
+    // accel-valid while the accel-faulted IMU stays gyro-valid.
+    MimuMajorityVoteAlgorithm alg{MimuMajorityVoteConfig::create(0.05F, 1U, 0.05F, 1U)};
+
+    const Eigen::Vector3f baseRate(-0.1F, 0.25F, 0.3F);
+    const Eigen::Vector3f baseAccel(0.0F, 0.0F, 9.8F);
+    const Eigen::Vector3f offset(2.0F, 2.0F, 2.0F);
+
+    // IMU 1 is a gyro outlier; IMU 2 is an accel outlier (different IMUs).
+    std::array<Eigen::Vector3f, kMimuCount> imuOmegas_BN_B{baseRate, baseRate + offset, baseRate};
+    std::array<Eigen::Vector3f, kMimuCount> imuAccels_B{baseAccel, baseAccel, baseAccel + offset};
+
+    auto out = alg.update(imuOmegas_BN_B, imuAccels_B);
+
+    // Gyro vote: IMU 1 faulted/excluded; IMUs 0 and 2 valid (accel-faulted IMU 2 stays gyro-valid).
+    EXPECT_TRUE(out.gyro.faultDetected);
+    EXPECT_TRUE(out.gyro.imuValid.at(0));
+    EXPECT_FALSE(out.gyro.imuValid.at(1));
+    EXPECT_TRUE(out.gyro.imuValid.at(2));
+    for (int i = 0; i < 3; ++i) {
+        EXPECT_NEAR(out.gyro.average[i], baseRate[i], 1e-6);
+    }
+
+    // Accel vote: IMU 2 faulted/excluded; IMUs 0 and 1 valid (gyro-faulted IMU 1 stays accel-valid).
+    EXPECT_TRUE(out.accel.faultDetected);
+    EXPECT_TRUE(out.accel.imuValid.at(0));
+    EXPECT_TRUE(out.accel.imuValid.at(1));
+    EXPECT_FALSE(out.accel.imuValid.at(2));
+    for (int i = 0; i < 3; ++i) {
+        EXPECT_NEAR(out.accel.average[i], baseAccel[i], 1e-6);
+    }
 }
 
 TEST(MimuMajorityVoteTest, PersistenceFaultAndRecovery) {
-    MimuMajorityVoteAlgorithm alg{};
-    alg.setOmegaThreshold(0.05F);
-    alg.setFaultPersistenceLimit(3U);
+    MimuMajorityVoteAlgorithm alg{MimuMajorityVoteConfig::create(0.05F, 3U, 1.0F, 1U)};
 
     Eigen::Vector3f baseRate(-0.1F, 0.25F, 0.3F);
     Eigen::Vector3f outlierRate = baseRate + Eigen::Vector3f(2.0F, 2.0F, 2.0F);
@@ -86,30 +168,31 @@ TEST(MimuMajorityVoteTest, PersistenceFaultAndRecovery) {
     imuOmegas_BN_B.at(0) = baseRate;
     imuOmegas_BN_B.at(1) = outlierRate;
     imuOmegas_BN_B.at(2) = baseRate;
+    std::array<Eigen::Vector3f, kMimuCount> imuAccels_B{};  // all zero: no accel fault
 
     Eigen::Vector3f fullAvg = (imuOmegas_BN_B.at(0) + imuOmegas_BN_B.at(1) + imuOmegas_BN_B.at(2)) / 3.0F;
     Eigen::Vector3f faultedAvg = (imuOmegas_BN_B.at(0) + imuOmegas_BN_B.at(2)) / 2.0F;
 
     // Calls 1 and 2: counter building, no fault — full average returned
     for (uint32_t call = 0U; call < 2U; ++call) {
-        auto out = alg.update(imuOmegas_BN_B);
-        EXPECT_FALSE(out.faultDetected);
+        auto out = alg.update(imuOmegas_BN_B, imuAccels_B);
+        EXPECT_FALSE(out.gyro.faultDetected);
         for (size_t i = 0U; i < kMimuCount; ++i) {
-            EXPECT_TRUE(out.validImus.at(i));
+            EXPECT_TRUE(out.gyro.imuValid.at(i));
         }
         for (int i = 0; i < 3; ++i) {
-            EXPECT_NEAR(out.avgOmega_BN_B[i], fullAvg[i], 1e-6);
+            EXPECT_NEAR(out.gyro.average[i], fullAvg[i], 1e-6);
         }
     }
 
     // Call 3: persistence limit reached, fault triggers — outlier excluded
-    auto out = alg.update(imuOmegas_BN_B);
-    EXPECT_TRUE(out.faultDetected);
-    EXPECT_TRUE(out.validImus.at(0));
-    EXPECT_FALSE(out.validImus.at(1));
-    EXPECT_TRUE(out.validImus.at(2));
+    auto out = alg.update(imuOmegas_BN_B, imuAccels_B);
+    EXPECT_TRUE(out.gyro.faultDetected);
+    EXPECT_TRUE(out.gyro.imuValid.at(0));
+    EXPECT_FALSE(out.gyro.imuValid.at(1));
+    EXPECT_TRUE(out.gyro.imuValid.at(2));
     for (int i = 0; i < 3; ++i) {
-        EXPECT_NEAR(out.avgOmega_BN_B[i], faultedAvg[i], 1e-6);
+        EXPECT_NEAR(out.gyro.average[i], faultedAvg[i], 1e-6);
     }
 
     // Call 4: IMU 2 recovers to baseRate, IMU 3 becomes mild outlier —
@@ -120,42 +203,40 @@ TEST(MimuMajorityVoteTest, PersistenceFaultAndRecovery) {
 
     Eigen::Vector3f call4Avg = (imuOmegas_BN_B.at(0) + imuOmegas_BN_B.at(1) + imuOmegas_BN_B.at(2)) / 3.0F;
 
-    out = alg.update(imuOmegas_BN_B);
-    EXPECT_FALSE(out.faultDetected);
+    out = alg.update(imuOmegas_BN_B, imuAccels_B);
+    EXPECT_FALSE(out.gyro.faultDetected);
     for (size_t i = 0U; i < kMimuCount; ++i) {
-        EXPECT_TRUE(out.validImus.at(i));
+        EXPECT_TRUE(out.gyro.imuValid.at(i));
     }
     for (int i = 0; i < 3; ++i) {
-        EXPECT_NEAR(out.avgOmega_BN_B[i], call4Avg[i], 1e-6);
+        EXPECT_NEAR(out.gyro.average[i], call4Avg[i], 1e-6);
     }
 
     // Call 5: IMU 3 still the outlier, persistence count increments but no fault yet
-    out = alg.update(imuOmegas_BN_B);
-    EXPECT_FALSE(out.faultDetected);
+    out = alg.update(imuOmegas_BN_B, imuAccels_B);
+    EXPECT_FALSE(out.gyro.faultDetected);
     for (size_t i = 0U; i < kMimuCount; ++i) {
-        EXPECT_TRUE(out.validImus.at(i));
+        EXPECT_TRUE(out.gyro.imuValid.at(i));
     }
     for (int i = 0; i < 3; ++i) {
-        EXPECT_NEAR(out.avgOmega_BN_B[i], call4Avg[i], 1e-6);
+        EXPECT_NEAR(out.gyro.average[i], call4Avg[i], 1e-6);
     }
 
     // Call 6: IMU 3 persistence limit reached, fault triggers — IMU 3 excluded
     Eigen::Vector3f call6FaultedAvg = (imuOmegas_BN_B.at(0) + imuOmegas_BN_B.at(1)) / 2.0F;
 
-    out = alg.update(imuOmegas_BN_B);
-    EXPECT_TRUE(out.faultDetected);
-    EXPECT_TRUE(out.validImus.at(0));
-    EXPECT_TRUE(out.validImus.at(1));
-    EXPECT_FALSE(out.validImus.at(2));
+    out = alg.update(imuOmegas_BN_B, imuAccels_B);
+    EXPECT_TRUE(out.gyro.faultDetected);
+    EXPECT_TRUE(out.gyro.imuValid.at(0));
+    EXPECT_TRUE(out.gyro.imuValid.at(1));
+    EXPECT_FALSE(out.gyro.imuValid.at(2));
     for (int i = 0; i < 3; ++i) {
-        EXPECT_NEAR(out.avgOmega_BN_B[i], call6FaultedAvg[i], 1e-6);
+        EXPECT_NEAR(out.gyro.average[i], call6FaultedAvg[i], 1e-6);
     }
 }
 
-TEST(MimuMajorityVoteTest, ResetClearsPersistence) {
-    MimuMajorityVoteAlgorithm alg{};
-    alg.setOmegaThreshold(0.05F);
-    alg.setFaultPersistenceLimit(3U);
+TEST(MimuMajorityVoteTest, ReInitializeClearsPersistence) {
+    MimuMajorityVoteAlgorithm alg{MimuMajorityVoteConfig::create(0.05F, 3U, 1.0F, 1U)};
 
     Eigen::Vector3f baseRate(-0.1F, 0.25F, 0.3F);
     Eigen::Vector3f outlierRate = baseRate + Eigen::Vector3f(2.0F, 2.0F, 2.0F);
@@ -164,59 +245,65 @@ TEST(MimuMajorityVoteTest, ResetClearsPersistence) {
     imuOmegas_BN_B.at(0) = baseRate;
     imuOmegas_BN_B.at(1) = outlierRate;
     imuOmegas_BN_B.at(2) = baseRate;
+    std::array<Eigen::Vector3f, kMimuCount> imuAccels_B{};  // all zero: no accel fault
 
     Eigen::Vector3f fullAvg = (imuOmegas_BN_B.at(0) + imuOmegas_BN_B.at(1) + imuOmegas_BN_B.at(2)) / 3.0F;
     Eigen::Vector3f faultedAvg = (imuOmegas_BN_B.at(0) + imuOmegas_BN_B.at(2)) / 2.0F;
 
     // Call twice to build up persistence (limit is 3, so no fault yet)
     for (uint32_t call = 0U; call < 2U; ++call) {
-        auto out = alg.update(imuOmegas_BN_B);
-        EXPECT_FALSE(out.faultDetected);
+        auto out = alg.update(imuOmegas_BN_B, imuAccels_B);
+        EXPECT_FALSE(out.gyro.faultDetected);
         for (size_t i = 0U; i < kMimuCount; ++i) {
-            EXPECT_TRUE(out.validImus.at(i));
+            EXPECT_TRUE(out.gyro.imuValid.at(i));
         }
         for (int i = 0; i < 3; ++i) {
-            EXPECT_NEAR(out.avgOmega_BN_B[i], fullAvg[i], 1e-6);
+            EXPECT_NEAR(out.gyro.average[i], fullAvg[i], 1e-6);
         }
     }
 
-    // Reset clears persistence counters
-    alg.reset();
+    // reInitialize clears persistence counters
+    alg.reInitialize();
 
     // Same outlier inputs — counter starts from zero again, no fault
     for (uint32_t call = 0U; call < 2U; ++call) {
-        auto out = alg.update(imuOmegas_BN_B);
-        EXPECT_FALSE(out.faultDetected);
+        auto out = alg.update(imuOmegas_BN_B, imuAccels_B);
+        EXPECT_FALSE(out.gyro.faultDetected);
         for (size_t i = 0U; i < kMimuCount; ++i) {
-            EXPECT_TRUE(out.validImus.at(i));
+            EXPECT_TRUE(out.gyro.imuValid.at(i));
         }
         for (int i = 0; i < 3; ++i) {
-            EXPECT_NEAR(out.avgOmega_BN_B[i], fullAvg[i], 1e-6);
+            EXPECT_NEAR(out.gyro.average[i], fullAvg[i], 1e-6);
         }
     }
 
-    // Third call after reset — now fault triggers
-    auto out = alg.update(imuOmegas_BN_B);
-    EXPECT_TRUE(out.faultDetected);
-    EXPECT_TRUE(out.validImus.at(0));
-    EXPECT_FALSE(out.validImus.at(1));
-    EXPECT_TRUE(out.validImus.at(2));
+    // Third call after reInitialize — now fault triggers
+    auto out = alg.update(imuOmegas_BN_B, imuAccels_B);
+    EXPECT_TRUE(out.gyro.faultDetected);
+    EXPECT_TRUE(out.gyro.imuValid.at(0));
+    EXPECT_FALSE(out.gyro.imuValid.at(1));
+    EXPECT_TRUE(out.gyro.imuValid.at(2));
     for (int i = 0; i < 3; ++i) {
-        EXPECT_NEAR(out.avgOmega_BN_B[i], faultedAvg[i], 1e-6);
+        EXPECT_NEAR(out.gyro.average[i], faultedAvg[i], 1e-6);
     }
 }
 
-TEST(MimuMajorityVoteTest, SetupTest) {
-    MimuMajorityVoteAlgorithm alg{};
+TEST(MimuMajorityVoteTest, ConfigValidation) {
+    // Config validation rejects a zero/negative threshold and a zero persistence limit, for both
+    // the gyro and accel parameters.
+    EXPECT_THROW((void)MimuMajorityVoteConfig::create(0.0F, 1U, 1.0F, 1U), fsw::invalid_argument);
+    EXPECT_THROW((void)MimuMajorityVoteConfig::create(-0.1F, 1U, 1.0F, 1U), fsw::invalid_argument);
+    EXPECT_THROW((void)MimuMajorityVoteConfig::create(1.0F, 0U, 1.0F, 1U), fsw::invalid_argument);
+    EXPECT_THROW((void)MimuMajorityVoteConfig::create(1.0F, 1U, 0.0F, 1U), fsw::invalid_argument);
+    EXPECT_THROW((void)MimuMajorityVoteConfig::create(1.0F, 1U, -0.1F, 1U), fsw::invalid_argument);
+    EXPECT_THROW((void)MimuMajorityVoteConfig::create(1.0F, 1U, 1.0F, 0U), fsw::invalid_argument);
 
-    // --- Test expected exceptions for omegaThreshold ---
-
-    // Zero or negative omegaThreshold
-    EXPECT_THROW(alg.setOmegaThreshold(0.0F), fsw::invalid_argument);
-    EXPECT_THROW(alg.setOmegaThreshold(-0.1F), fsw::invalid_argument);
-
-    // Valid threshold
-    float threshold = 0.5F;
-    EXPECT_NO_THROW(alg.setOmegaThreshold(threshold));
-    EXPECT_NEAR(alg.getOmegaThreshold(), threshold, 1e-6);
+    // A valid config exposes exactly the supplied parameters.
+    const float omegaThreshold = 0.5F;
+    const float accelThreshold = 0.25F;
+    const MimuMajorityVoteConfig cfg = MimuMajorityVoteConfig::create(omegaThreshold, 2U, accelThreshold, 3U);
+    EXPECT_NEAR(cfg.getOmegaThreshold(), omegaThreshold, 1e-6);
+    EXPECT_EQ(cfg.getGyroFaultPersistenceLimit(), 2U);
+    EXPECT_NEAR(cfg.getAccelThreshold(), accelThreshold, 1e-6);
+    EXPECT_EQ(cfg.getAccelFaultPersistenceLimit(), 3U);
 }

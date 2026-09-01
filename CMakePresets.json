@@ -87,11 +87,11 @@
   ],
 
   "buildPresets": [
-    { "name": "linux-gcc-debug",     "configurePreset": "linux-gcc-debug",     "verbose": true },
-    { "name": "linux-gcc-release",   "configurePreset": "linux-gcc-release",   "verbose": true },
-    { "name": "macos-gcc-debug",     "configurePreset": "macos-gcc-debug",     "verbose": true },
-    { "name": "macos-gcc-release",   "configurePreset": "macos-gcc-release",   "verbose": true },
-    { "name": "riscv32-gcc-debug",   "configurePreset": "riscv32-gcc-debug",   "verbose": true },
-    { "name": "riscv32-gcc-release", "configurePreset": "riscv32-gcc-release", "verbose": true }
+    { "name": "linux-gcc-debug",     "configurePreset": "linux-gcc-debug",     "verbose": true , "jobs": 4},
+    { "name": "linux-gcc-release",   "configurePreset": "linux-gcc-release",   "verbose": true , "jobs": 4},
+    { "name": "macos-gcc-debug",     "configurePreset": "macos-gcc-debug",     "verbose": true , "jobs": 4},
+    { "name": "macos-gcc-release",   "configurePreset": "macos-gcc-release",   "verbose": true , "jobs": 4},
+    { "name": "riscv32-gcc-debug",   "configurePreset": "riscv32-gcc-debug",   "verbose": true , "jobs": 4},
+    { "name": "riscv32-gcc-release", "configurePreset": "riscv32-gcc-release", "verbose": true , "jobs": 4}
   ]
 }
