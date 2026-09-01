@@ -121,7 +121,7 @@ a zero MRP (identity :math:`[\mathcal{RN}]`) is returned.
 
 - Edge Case 3: Solar array drive axis :math:`{}^\mathcal{B}\hat{a}` and incoming thrust direction :math:`{}^\mathcal{B}\hat{t}` are nearly parallel.
 
-    Triggered when the angle between the solar array drive axis and the body thrust direction is less than a 5 degree threshold ``kParallelThresholdRad``.
+    Triggered when the angle between the solar array drive axis and the body thrust direction is less than a 0.5 degree threshold ``kParallelThresholdRad``.
 
     .. math::
 
@@ -172,7 +172,7 @@ Edge Case Guard 2
 """""""""""""""""
 
 Before constructing the second triad frame, the algorithm checks whether the Sun direction and the thrust inertial
-reference direction are nearly parallel using the same 5 degree threshold ``kParallelThresholdRad``.
+reference direction are nearly parallel using the same 0.5 degree threshold ``kParallelThresholdRad``.
 
 .. math::
 
