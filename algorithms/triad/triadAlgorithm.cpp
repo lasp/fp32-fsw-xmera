@@ -27,8 +27,9 @@ Eigen::Vector3f TriadAlgorithm::update(const Eigen::Vector3f& rHat_SB_N, const E
     if (isTriadResolved) {
         /*! Triad (D frame) basis vectors in hub reference frame */
         const Eigen::Vector3f d2Hat_B = thrustHat_B.stableNormalized();
-        const Eigen::Vector3f d3Hat_B = sadaHat_B.cross(d2Hat_B).stableNormalized();
+        Eigen::Vector3f d3Hat_B = sadaHat_B.cross(d2Hat_B).stableNormalized();
         const Eigen::Vector3f d1Hat_B = d2Hat_B.cross(d3Hat_B).stableNormalized();
+        d3Hat_B = d1Hat_B.cross(d2Hat_B).stableNormalized();
         Eigen::Matrix3f dcm_BD;
         dcm_BD.col(0) = d1Hat_B;
         dcm_BD.col(1) = d2Hat_B;
@@ -62,6 +63,7 @@ Eigen::Vector3f TriadAlgorithm::update(const Eigen::Vector3f& rHat_SB_N, const E
             // Normal triad otherwise
             d1Hat_N = rHat_SB_N.cross(d2Hat_N).stableNormalized();
             d3Hat_N = d1Hat_N.cross(d2Hat_N).stableNormalized();
+            d1Hat_N = d2Hat_N.cross(d3Hat_N).stableNormalized();
         }
 
         if (isFallbackValid) {

@@ -140,10 +140,14 @@ the body thrust direction and the solar array drive axis:
 .. math::
 
     {}^\mathcal{B}\hat{d}_2 &= {}^\mathcal{B}\hat{t} \\
-    {}^\mathcal{B}\hat{d}_3 &= \frac{ {}^\mathcal{B}\hat{a} \times {}^\mathcal{B}\hat{d}_2 } { \| {}^\mathcal{B}\hat{a} \times {}^\mathcal{B}\hat{d}_2 \| } \\
-    {}^\mathcal{B}\hat{d}_1 &= {}^\mathcal{B}\hat{d}_2 \times {}^\mathcal{B}\hat{d}_3
+    {}^\mathcal{B}\hat{d}_3' &= \frac{ {}^\mathcal{B}\hat{a} \times {}^\mathcal{B}\hat{d}_2 } { \| {}^\mathcal{B}\hat{a} \times {}^\mathcal{B}\hat{d}_2 \| } \\
+    {}^\mathcal{B}\hat{d}_1 &= {}^\mathcal{B}\hat{d}_2 \times {}^\mathcal{B}\hat{d}_3' \\
+    {}^\mathcal{B}\hat{d}_3 &= {}^\mathcal{B}\hat{d}_1 \times {}^\mathcal{B}\hat{d}_2
 
-Each axis is normalized. The matrix :math:`[\mathcal{BD}]` is constructed using the triad frame axes as columns:
+Each axis is normalized. The third axis is computed twice: the intermediate
+:math:`{}^\mathcal{B}\hat{d}_3'` is replaced by a value rebuilt from the two clean axes, for the reason given in
+:ref:`triad-reorthogonalization`. The matrix :math:`[\mathcal{BD}]` is constructed using the triad frame axes as
+columns:
 :math:`[\mathcal{BD}] = \big[\, {}^\mathcal{B}\hat{d}_1, \;\; {}^\mathcal{B}\hat{d}_2, \;\; {}^\mathcal{B}\hat{d}_3 \,\big]`.
 
 Triad Frame in Inertial Coordinates
@@ -155,10 +159,13 @@ reference inertial thrust direction and the inertial Sun direction:
 .. math::
 
     {}^\mathcal{N}\hat{d}_2 &= {}^\mathcal{N}\hat{t}_\text{ref} \\
-    {}^\mathcal{N}\hat{d}_1 &= \frac{ {}^\mathcal{N}\hat{r}_{S/B} \times {}^\mathcal{N}\hat{d}_2 } { \| {}^\mathcal{N}\hat{r}_{S/B} \times {}^\mathcal{N}\hat{d}_2 \| }\\
-    {}^\mathcal{N}\hat{d}_3 &= {}^\mathcal{N}\hat{d}_1 \times {}^\mathcal{N}\hat{d}_2
+    {}^\mathcal{N}\hat{d}_1' &= \frac{ {}^\mathcal{N}\hat{r}_{S/B} \times {}^\mathcal{N}\hat{d}_2 } { \| {}^\mathcal{N}\hat{r}_{S/B} \times {}^\mathcal{N}\hat{d}_2 \| }\\
+    {}^\mathcal{N}\hat{d}_3 &= {}^\mathcal{N}\hat{d}_1' \times {}^\mathcal{N}\hat{d}_2 \\
+    {}^\mathcal{N}\hat{d}_1 &= {}^\mathcal{N}\hat{d}_2 \times {}^\mathcal{N}\hat{d}_3
 
-Each axis is normalized. The matrix :math:`[\mathcal{ND}]` is constructed using the triad frame axes as columns:
+Each axis is normalized. As in the body frame, the intermediate :math:`{}^\mathcal{N}\hat{d}_1'` is replaced by a
+value rebuilt from the two clean axes; see :ref:`triad-reorthogonalization`. The matrix :math:`[\mathcal{ND}]` is
+constructed using the triad frame axes as columns:
 :math:`[\mathcal{ND}] = \big[\, {}^\mathcal{N}\hat{d}_1, \;\; {}^\mathcal{N}\hat{d}_2, \;\; {}^\mathcal{N}\hat{d}_3 \,\big]`.
 
 Edge Case Guard 2
@@ -188,6 +195,21 @@ align as close to the inertial Z-axis as possible.
     zero. However, in the case where the thrust reference and sun direction are both nearly parallel to the fallback
     Z-axis, the new cross products will be zero. The current spacecraft attitude is returned in this case because this
     is an impossible configuration.
+
+.. _triad-reorthogonalization:
+
+Triad Re-orthogonalization
+""""""""""""""""""""""""""
+
+Any time a frame is built from cross products whose inputs can be near-parallel, the axis from the first cross product
+is rebuilt from the two clean axes. This is the "twice is enough" rule for Gram-Schmidt: one pass with cancellation
+leaves an orthogonality error of about :math:`\epsilon/\sin\theta`, where :math:`\theta` is the angle between the
+inputs, and a second pass brings it back to about :math:`\epsilon`.
+
+Both triads need the rebuild, because :math:`\theta` is bounded below only by ``kParallelThresholdRad``: the body
+triad rebuilds :math:`{}^\mathcal{B}\hat{d}_3`, and the inertial triad rebuilds :math:`{}^\mathcal{N}\hat{d}_1`. The
+fallback in Edge Case Guard 2 does not need it, because its first cross product uses the exact axis vector
+:math:`\pm{}^\mathcal{N}\hat{n}_3` and has no cancellation.
 
 Commanded Attitude
 """"""""""""""""""
