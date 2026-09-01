@@ -8,7 +8,7 @@
 #include "architecture/_GeneralModuleFiles/sys_model.h"
 #include "architecture/messaging/messaging.h"
 #include "gimbalAnglesToMotorAnglesAlgorithm.h"
-#include "msgPayloadDef/HingedRigidBodyMsgF32Payload.h"
+#include "msgPayloadDef/MotorAngleRefMsgF32Payload.h"
 #include "msgPayloadDef/TwoAxisGimbalMsgF32Payload.h"
 
 /*! @brief Gimbal Angles-To-Motor Angles adapter. Reads the requested gimbal tip and tilt angle
@@ -40,8 +40,8 @@ class GimbalAnglesToMotorAngles final : public SysModel {
 
     ReadFunctor<TwoAxisGimbalMsgF32Payload>
         twoAxisGimbalInMsg;  //!< Input msg for the corresponding gimbal tip and tilt angles
-    Message<HingedRigidBodyMsgF32Payload> motor1AngleOutMsg;  //!< Output message for the motor 1 angle
-    Message<HingedRigidBodyMsgF32Payload> motor2AngleOutMsg;  //!< Output message for the motor 2 angle
+    Message<MotorAngleRefMsgF32Payload> motor1AngleOutMsg;  //!< Output message for the motor 1 angle
+    Message<MotorAngleRefMsgF32Payload> motor2AngleOutMsg;  //!< Output message for the motor 2 angle
 
    private:
     double previousWrittenTime{-1.0};  //!< [s] Time the previous input message was written

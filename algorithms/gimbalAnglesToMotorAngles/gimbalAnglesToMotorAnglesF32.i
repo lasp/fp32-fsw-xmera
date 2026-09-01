@@ -27,5 +27,5 @@
 %include "gimbalAnglesToMotorAnglesAlgorithm.h"
 %include "gimbalAnglesToMotorAngles.h"
 
-%include "msgPayloadDef/HingedRigidBodyMsgF32Payload.h"
+%include "msgPayloadDef/MotorAngleRefMsgF32Payload.h"
 %include "msgPayloadDef/TwoAxisGimbalMsgF32Payload.h"

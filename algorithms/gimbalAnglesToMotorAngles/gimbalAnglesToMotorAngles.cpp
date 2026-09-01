@@ -78,11 +78,11 @@ void GimbalAnglesToMotorAngles::updateState(uint64_t currentSimNanos) {
         const GimbalAnglesToMotorAnglesOutput motorAngles = this->algorithm->update(gimbalAngle1, gimbalAngle2);
 
         // Write the module output messages
-        auto motor1AngleOut = HingedRigidBodyMsgF32Payload();
+        auto motor1AngleOut = MotorAngleRefMsgF32Payload();
         motor1AngleOut.theta = motorAngles.motorAngle1;
         this->motor1AngleOutMsg.write(motor1AngleOut, moduleID, currentSimNanos);
 
-        auto motor2AngleOut = HingedRigidBodyMsgF32Payload();
+        auto motor2AngleOut = MotorAngleRefMsgF32Payload();
         motor2AngleOut.theta = motorAngles.motorAngle2;
         this->motor2AngleOutMsg.write(motor2AngleOut, moduleID, currentSimNanos);
     }

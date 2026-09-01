@@ -48,10 +48,10 @@ The adapter consumes the following messages and public configuration properties:
       - :ref:`TwoAxisGimbalMsgF32Payload`
       - Input for the two gimbal angles
     * - motor1AngleOutMsg
-      - :ref:`HingedRigidBodyMsgF32Payload`
+      - :ref:`MotorAngleRefMsgF32Payload`
       - Output for motor 1 angles
     * - motor2AngleOutMsg
-      - :ref:`HingedRigidBodyMsgF32Payload`
+      - :ref:`MotorAngleRefMsgF32Payload`
       - Output for motor 2 angles
 
 .. list-table:: Module Configuration Properties
