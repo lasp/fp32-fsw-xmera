@@ -36,7 +36,8 @@ provides information on what this message is used for.
       - Description
     * - thrConfInMsg
       - :ref:`THRArrayConfigMsgF32Payload`
-      - Read in ``reset()``. Contains ``numThrusters`` and per-thruster max thrust.
+      - Read in ``reset()`` and again in ``reconfigure()``. Contains ``numThrusters`` and per-thruster max
+        thrust.
     * - thrForceInMsg
       - :ref:`THRArrayCmdForceMsgF32Payload`
       - Read every ``updateState()``. Provides commanded forces :math:`F_i`. Values may be negative in
@@ -54,18 +55,24 @@ properties set before ``reset()``: ``levelOn``, ``levelOff``, ``thrMinFireTime``
 ``thrForceInMsg`` are connected (an unconnected input throws), reads the thruster configuration message into a
 ``ThrFiringSchmittThrusterArray`` (per-thruster ``maxThrust``), builds a validated ``ThrFiringSchmittConfig``, and
 constructs the owned algorithm instance — so the per-thruster ON/OFF history starts cleared on every reset. Calling
-``updateState()`` before ``reset()`` throws an ``XmeraLifecycleException``.
+``updateState()`` before ``reset()`` throws an ``XmeraLifecycleException``. ``reconfigure()`` re-reads the thruster
+configuration message and rebuilds the configuration without disturbing the ON/OFF history, so a changed thruster
+cluster takes effect there too.
 
 The validated ``ThrFiringSchmittConfig`` is immutable and is constructed via
 ``ThrFiringSchmittConfig::create(thrusterArray, controlParameters)``, which validates every field (see the bounds in
-the table below) and throws ``fsw::invalid_argument`` on any violation. The algorithm's
-``reInitialize()`` clears the per-thruster ON/OFF history without rebuilding the configuration (used by the C shim's
+the table below) and throws ``fsw::invalid_argument`` on any violation. The C shim takes the same values as a
+flattened argument list — Ada cannot see a C++ class — and reassembles the two structs before calling ``create``; it
+exposes the same rules without throwing, as ``ThrFiringSchmittAlgorithm_validateConfig``, so a caller that cannot
+handle an exception across the FFI boundary can test a candidate configuration before committing it. The algorithm's
+``reInitialize()`` clears the per-thruster ON/OFF history without touching the configuration (used by the C shim's
 reset entry point).
 
 Module Parameters
 -------------------------------
 The following table lists all the module parameters than can be set. The parameters are optional unless indicated
-(if not specified default is used). Bounds are enforced by ``ThrFiringSchmittConfig::create`` at ``reset()``.
+(if not specified default is used). Bounds are enforced by ``ThrFiringSchmittConfig::create`` at ``reset()`` and at
+``reconfigure()``.
 
 .. list-table:: Module Parameters
     :widths: 30 30 10 10 30 30
