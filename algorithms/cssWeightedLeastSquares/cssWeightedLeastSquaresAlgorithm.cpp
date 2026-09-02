@@ -1,4 +1,4 @@
-#include "cssWlsEstAlgorithm.h"
+#include "cssWeightedLeastSquaresAlgorithm.h"
 
 #include "utilities/fsw/safeMath.h"
 #include "utilities/fsw/timeConstants.h"
@@ -32,7 +32,8 @@ static constexpr uint32_t kMinMeasurementsForWeightedFit = 3;
 /*! Construct the estimator, installing the configuration and clearing all runtime state.
  @param config the validated configuration to install
  */
-CssWlsEstAlgorithm::CssWlsEstAlgorithm(const CssWlsEstConfig& config) : cfg(config) {
+CssWeightedLeastSquaresAlgorithm::CssWeightedLeastSquaresAlgorithm(const CssWeightedLeastSquaresConfig& config)
+    : cfg(config) {
     this->setConfig(config);
     this->reInitialize();
 }
@@ -42,13 +43,13 @@ CssWlsEstAlgorithm::CssWlsEstAlgorithm(const CssWlsEstConfig& config) : cfg(conf
  @return void
  @param config the validated configuration to install
  */
-void CssWlsEstAlgorithm::setConfig(const CssWlsEstConfig& config) { this->cfg = config; }
+void CssWeightedLeastSquaresAlgorithm::setConfig(const CssWeightedLeastSquaresConfig& config) { this->cfg = config; }
 
 /*! This method returns all runtime state to its post-construction condition. Local module variables
  that retain time varying states between function calls are reset to their default values.
  @return void
  */
-void CssWlsEstAlgorithm::reInitialize() {
+void CssWeightedLeastSquaresAlgorithm::reInitialize() {
     this->priorSignalAvailable = 0;
     this->dOld.setZero();
 
@@ -64,8 +65,10 @@ void CssWlsEstAlgorithm::reInitialize() {
  @param callTime The clock time at which the function was called (nanoseconds)
  @param cosValues [-] Per-sensor cosine readings, indexed by sensor
  */
-CssWlsEstOutput CssWlsEstAlgorithm::update(const uint64_t callTime, const Eigen::Vector<float, kMaxNumCss>& cosValues) {
-    CssWlsEstOutput out;
+CssWeightedLeastSquaresOutput CssWeightedLeastSquaresAlgorithm::update(
+    const uint64_t callTime,
+    const Eigen::Vector<float, kMaxNumCss>& cosValues) {
+    CssWeightedLeastSquaresOutput out;
 
     /* The predicted pointing vector for each measurement, compacted to the active sensors */
     Eigen::Matrix<float, kMaxNumCss, 3> H = Eigen::Matrix<float, kMaxNumCss, 3>::Zero();
@@ -157,7 +160,7 @@ CssWlsEstOutput CssWlsEstAlgorithm::update(const uint64_t callTime, const Eigen:
     @param cssMeas The measured values for the CSS sensors
     @param wlsEst The WLS estimate computed for the CSS measurements
 */
-Eigen::Vector<float, kMaxNumCss> CssWlsEstAlgorithm::computeWlsResiduals(
+Eigen::Vector<float, kMaxNumCss> CssWeightedLeastSquaresAlgorithm::computeWlsResiduals(
     const Eigen::Vector<float, kMaxNumCss>& cssMeas,
     const Eigen::Vector3f& wlsEst) const {
     Eigen::Vector<float, kMaxNumCss> cssResiduals = Eigen::Vector<float, kMaxNumCss>::Zero();
@@ -186,11 +189,11 @@ Eigen::Vector<float, kMaxNumCss> CssWlsEstAlgorithm::computeWlsResiduals(
  @param y the observation vector for the valid sensors
  @param x The output least squares fit for the observations
  */
-int CssWlsEstAlgorithm::computeWlsmn(const uint32_t numActiveCss,
-                                     const Eigen::Vector<float, kMaxNumCss>& weights,
-                                     const Eigen::Matrix<float, kMaxNumCss, 3>& H,
-                                     const Eigen::Vector<float, kMaxNumCss>& y,
-                                     Eigen::Vector3f& x) {
+int CssWeightedLeastSquaresAlgorithm::computeWlsmn(const uint32_t numActiveCss,
+                                                   const Eigen::Vector<float, kMaxNumCss>& weights,
+                                                   const Eigen::Matrix<float, kMaxNumCss, 3>& H,
+                                                   const Eigen::Vector<float, kMaxNumCss>& y,
+                                                   Eigen::Vector3f& x) {
     int status = 0;
 
     /*! - If we only have one sensor, output best guess (cone of possiblities)*/

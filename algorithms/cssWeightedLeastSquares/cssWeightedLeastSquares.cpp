@@ -1,4 +1,4 @@
-#include "cssWlsEst.h"
+#include "cssWeightedLeastSquares.h"
 
 #include "utilities/xmera/xmeraLifecycleException.h"
 #include <utilities/fsw/eigenSupport.h>
@@ -19,30 +19,31 @@ static constexpr Eigen::Index kBoresightComponents = 3;
  @return void
  @param callTime The clock time at which the function was called (nanoseconds)
  */
-void CssWlsEst::reset(const uint64_t callTime) {
+void CssWeightedLeastSquares::reset(const uint64_t callTime) {
     // check that required messages have been included
     if (!this->cssDataInMsg.isLinked()) {
-        throw std::invalid_argument("cssWlsEst.cssDataInMsg wasn't connected.");
+        throw std::invalid_argument("cssWeightedLeastSquares.cssDataInMsg wasn't connected.");
     }
 
-    this->algorithm = std::make_unique<CssWlsEstAlgorithm>(this->toConfig());
+    this->algorithm = std::make_unique<CssWeightedLeastSquaresAlgorithm>(this->toConfig());
     this->numActiveCss = 0;
 }
 
 /*! Build a validated algorithm configuration from the current module properties. The dynamically sized
  properties are checked here and packed into the algorithm's fixed-size types.
- @return CssWlsEstConfig validated configuration
+ @return CssWeightedLeastSquaresConfig validated configuration
  */
-CssWlsEstConfig CssWlsEst::toConfig() const {
+CssWeightedLeastSquaresConfig CssWeightedLeastSquares::toConfig() const {
     if (this->numCss > static_cast<uint32_t>(kMaxNumCss)) {
-        throw std::invalid_argument("cssWlsEst.numCss must not be greater than kMaxNumCss.");
+        throw std::invalid_argument("cssWeightedLeastSquares.numCss must not be greater than kMaxNumCss.");
     }
     const auto configuredSensors = static_cast<Eigen::Index>(this->numCss);
     if (this->cssNHat.rows() < configuredSensors || this->cssNHat.cols() != kBoresightComponents) {
-        throw std::invalid_argument("cssWlsEst.cssNHat must have at least numCss rows and exactly three columns.");
+        throw std::invalid_argument(
+            "cssWeightedLeastSquares.cssNHat must have at least numCss rows and exactly three columns.");
     }
     if (this->cssBias.size() < configuredSensors) {
-        throw std::invalid_argument("cssWlsEst.cssBias must have at least numCss entries.");
+        throw std::invalid_argument("cssWeightedLeastSquares.cssBias must have at least numCss entries.");
     }
 
     Eigen::Matrix<float, kMaxNumCss, 3> cssNHat_B = Eigen::Matrix<float, kMaxNumCss, 3>::Zero();
@@ -50,16 +51,17 @@ CssWlsEstConfig CssWlsEst::toConfig() const {
     cssNHat_B.topRows(configuredSensors) = this->cssNHat.topRows(configuredSensors);
     cssBiasPacked.head(configuredSensors) = this->cssBias.head(configuredSensors);
 
-    return CssWlsEstConfig::create(cssNHat_B, cssBiasPacked, this->numCss, this->useWeights, this->sensorUseThresh);
+    return CssWeightedLeastSquaresConfig::create(
+        cssNHat_B, cssBiasPacked, this->numCss, this->useWeights, this->sensorUseThresh);
 }
 
 /*! Re-validate the current module properties and push them onto the live algorithm, leaving the
  estimator's runtime state untouched.
  @return void
  */
-void CssWlsEst::reconfigure() {
+void CssWeightedLeastSquares::reconfigure() {
     if (!this->algorithm) {
-        throw XmeraLifecycleException("CssWlsEst reset() has not been called.");
+        throw XmeraLifecycleException("CssWeightedLeastSquares reset() has not been called.");
     }
     this->algorithm->setConfig(this->toConfig());
 }
@@ -69,9 +71,9 @@ void CssWlsEst::reconfigure() {
  no rate until two headings have been seen again.
  @return void
  */
-void CssWlsEst::reInitialize() {
+void CssWeightedLeastSquares::reInitialize() {
     if (!this->algorithm) {
-        throw XmeraLifecycleException("CssWlsEst reset() has not been called.");
+        throw XmeraLifecycleException("CssWeightedLeastSquares reset() has not been called.");
     }
     this->algorithm->reInitialize();
 }
@@ -81,15 +83,15 @@ void CssWlsEst::reInitialize() {
  @return void
  @param callTime The clock time at which the function was called (nanoseconds)
  */
-void CssWlsEst::updateState(const uint64_t callTime) {
+void CssWeightedLeastSquares::updateState(const uint64_t callTime) {
     if (!this->algorithm) {
-        throw XmeraLifecycleException("CssWlsEst reset() has not been called.");
+        throw XmeraLifecycleException("CssWeightedLeastSquares reset() has not been called.");
     }
 
     /*! - Read the input parsed CSS sensor data message*/
     const CSSArraySensorMsgF32Payload cssData = this->cssDataInMsg();
 
-    const CssWlsEstOutput out = this->algorithm->update(callTime, cArrayToEigenVector(cssData.CosValue));
+    const CssWeightedLeastSquaresOutput out = this->algorithm->update(callTime, cArrayToEigenVector(cssData.CosValue));
     this->numActiveCss = out.numActiveCss;
 
     /*! - If the residual fit output message is set, then store the residuals in the output message */

@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 
 from xmera.utilities import SimulationBaseClass
-from xmera.fp32 import cssWlsEstF32
+from xmera.fp32 import cssWeightedLeastSquaresF32
 from xmera.utilities import macros
 from xmera.architecture import messaging
 
@@ -43,7 +43,7 @@ def cos_values(sun_heading_B):
 
 
 @pytest.mark.parametrize("sun_heading_B", PRINCIPAL_AXES)
-def test_css_wls_est_nominal(sun_heading_B):
+def test_css_weighted_least_squares_nominal(sun_heading_B):
     """Nominal Unit Test: full coverage along each body axis"""
     cos_readings = cos_values(sun_heading_B)
 
@@ -58,7 +58,7 @@ def test_css_wls_est_nominal(sun_heading_B):
     run_test(cos_readings, sun_heading_B, expected_residuals=expected_residuals, use_weights=True)
 
 
-def test_css_wls_est_two_sensor_coverage():
+def test_css_weighted_least_squares_two_sensor_coverage():
     """Off Nominal Unit Test: two lit sensors, an exactly determined minimum norm fit"""
     cos_readings = cos_values(LOW_COVERAGE_HEADING)
 
@@ -71,7 +71,7 @@ def test_css_wls_est_two_sensor_coverage():
     run_test(cos_readings, expected_heading)
 
 
-def test_css_wls_est_single_sensor_coverage():
+def test_css_weighted_least_squares_single_sensor_coverage():
     """Off Nominal Unit Test: one lit sensor, so the fit can only report a guess"""
     cos_readings = cos_values(LOW_COVERAGE_HEADING)
     cos_readings[0] = 0.0  # blind sensor 0, leaving sensor 3 as the only reading above threshold
@@ -81,7 +81,7 @@ def test_css_wls_est_single_sensor_coverage():
     run_test(cos_readings, CSS_ORIENTATIONS[3])
 
 
-def test_css_wls_est_no_signal():
+def test_css_weighted_least_squares_no_signal():
     """Off Nominal Unit Test: no reading above threshold, so there is no sun to estimate"""
     cos_readings = [0.0] * len(CSS_ORIENTATIONS)
 
@@ -90,7 +90,7 @@ def test_css_wls_est_no_signal():
     run_test(cos_readings, np.zeros(3), expected_residuals=np.zeros(len(CSS_ORIENTATIONS)))
 
 
-def test_css_wls_est_rate_estimate():
+def test_css_weighted_least_squares_rate_estimate():
     """Module Unit Test: the rate from two successive headings, and its reset behavior"""
     unit_task_name = "unitTask"
     unit_process_name = "TestProcess"
@@ -101,8 +101,8 @@ def test_css_wls_est_rate_estimate():
     test_proc = unit_test_sim.CreateNewProcess(unit_process_name)
     test_proc.addTask(unit_test_sim.CreateNewTask(unit_task_name, test_process_rate))
 
-    module = cssWlsEstF32.CssWlsEst()
-    module.modelTag = "cssWlsEst"
+    module = cssWeightedLeastSquaresF32.CssWeightedLeastSquares()
+    module.modelTag = "cssWeightedLeastSquares"
 
     module.numCss = len(CSS_ORIENTATIONS)
     module.cssNHat = CSS_ORIENTATIONS
@@ -156,7 +156,7 @@ def test_css_wls_est_rate_estimate():
     np.testing.assert_allclose(data_log.omega_BN_B, expected_angular_velocity, rtol=1e-5, atol=1e-5, verbose=True)
 
 
-def test_css_wls_est_reinitialize():
+def test_css_weighted_least_squares_reinitialize():
     """Module Unit Test: reInitialize() drops the prior heading at a state transition"""
     unit_task_name = "unitTask"
     unit_process_name = "TestProcess"
@@ -167,8 +167,8 @@ def test_css_wls_est_reinitialize():
     test_proc = unit_test_sim.CreateNewProcess(unit_process_name)
     test_proc.addTask(unit_test_sim.CreateNewTask(unit_task_name, test_process_rate))
 
-    module = cssWlsEstF32.CssWlsEst()
-    module.modelTag = "cssWlsEst"
+    module = cssWeightedLeastSquaresF32.CssWeightedLeastSquares()
+    module.modelTag = "cssWeightedLeastSquares"
 
     module.numCss = len(CSS_ORIENTATIONS)
     module.cssNHat = CSS_ORIENTATIONS
@@ -202,7 +202,7 @@ def test_css_wls_est_reinitialize():
     np.testing.assert_allclose(data_log.omega_BN_B[-1], np.zeros(3), rtol=0, atol=0, verbose=True)
 
 
-def test_css_wls_est_reconfigure():
+def test_css_weighted_least_squares_reconfigure():
     """Module Unit Test: reconfigure() pushes an edited threshold onto the live algorithm"""
     unit_task_name = "unitTask"
     unit_process_name = "TestProcess"
@@ -213,8 +213,8 @@ def test_css_wls_est_reconfigure():
     test_proc = unit_test_sim.CreateNewProcess(unit_process_name)
     test_proc.addTask(unit_test_sim.CreateNewTask(unit_task_name, test_process_rate))
 
-    module = cssWlsEstF32.CssWlsEst()
-    module.modelTag = "cssWlsEst"
+    module = cssWeightedLeastSquaresF32.CssWeightedLeastSquares()
+    module.modelTag = "cssWeightedLeastSquares"
 
     module.numCss = len(CSS_ORIENTATIONS)
     module.cssNHat = CSS_ORIENTATIONS
@@ -266,8 +266,8 @@ def run_test(
     test_proc = unit_test_sim.CreateNewProcess(unit_process_name)
     test_proc.addTask(unit_test_sim.CreateNewTask(unit_task_name, test_process_rate))
 
-    module = cssWlsEstF32.CssWlsEst()
-    module.modelTag = "cssWlsEst"
+    module = cssWeightedLeastSquaresF32.CssWeightedLeastSquares()
+    module.modelTag = "cssWeightedLeastSquares"
 
     module.numCss = len(CSS_ORIENTATIONS)
     module.cssNHat = CSS_ORIENTATIONS
@@ -315,4 +315,4 @@ def run_test(
 
 
 if __name__ == "__main__":
-    test_css_wls_est_two_sensor_coverage()
+    test_css_weighted_least_squares_two_sensor_coverage()

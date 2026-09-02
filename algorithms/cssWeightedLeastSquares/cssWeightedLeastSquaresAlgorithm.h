@@ -1,5 +1,5 @@
-#ifndef F32XMERA_CSS_WLS_EST_ALGORITHM_H
-#define F32XMERA_CSS_WLS_EST_ALGORITHM_H
+#ifndef F32XMERA_CSS_WEIGHTED_LEAST_SQUARES_ALGORITHM_H
+#define F32XMERA_CSS_WEIGHTED_LEAST_SQUARES_ALGORITHM_H
 
 #include "msgPayloadDef/definitions.h"
 #include "utilities/fsw/freestandingInvalidArgument.h"
@@ -14,7 +14,7 @@
 inline constexpr int kMaxNumCss = MAX_NUM_CSS_SENSORS;
 
 /*! Estimator products for a single update cycle. */
-struct CssWlsEstOutput {
+struct CssWeightedLeastSquaresOutput {
     /*! [-] Estimated unit sun heading, body frame components. Zero when no fit was possible. */
     Eigen::Vector3f sunHeading_B = Eigen::Vector3f::Zero();
 
@@ -39,7 +39,7 @@ struct CssWlsEstOutput {
 
     Boresights are validated as near-unit and stored normalized, so the estimator can rely on exact
     unit vectors. */
-class CssWlsEstConfig final {
+class CssWeightedLeastSquaresConfig final {
    public:
     /*! Build a validated configuration.
         @return the validated configuration
@@ -49,22 +49,24 @@ class CssWlsEstConfig final {
         @param useWeights     [-] whether to weight the measurements in the least squares fit
         @param sensorUseThresh [-] cosine threshold at or below which a reading is discarded
      */
-    static CssWlsEstConfig create(const Eigen::Matrix<float, kMaxNumCss, 3>& cssNHat_B,
-                                  const Eigen::Vector<float, kMaxNumCss>& cssBias,
-                                  const uint32_t numCss,
-                                  const bool useWeights,
-                                  const float sensorUseThresh) {
+    static CssWeightedLeastSquaresConfig create(const Eigen::Matrix<float, kMaxNumCss, 3>& cssNHat_B,
+                                                const Eigen::Vector<float, kMaxNumCss>& cssBias,
+                                                const uint32_t numCss,
+                                                const bool useWeights,
+                                                const float sensorUseThresh) {
         if (!isValidNumCss(numCss)) {
-            FSW_THROW_INVALID_ARGUMENT("cssWlsEst: numCss must be in [1, kMaxNumCss]");
+            FSW_THROW_INVALID_ARGUMENT("cssWeightedLeastSquares: numCss must be in [1, kMaxNumCss]");
         }
         if (!isValidCssNHat_B(cssNHat_B, numCss)) {
-            FSW_THROW_INVALID_ARGUMENT("cssWlsEst: the first numCss cssNHat_B rows must be unit vectors within 1e-3");
+            FSW_THROW_INVALID_ARGUMENT(
+                "cssWeightedLeastSquares: the first numCss cssNHat_B rows must be unit vectors within 1e-3");
         }
         if (!isValidCssBias(cssBias, numCss)) {
-            FSW_THROW_INVALID_ARGUMENT("cssWlsEst: the first numCss cssBias entries must be finite and non-negative");
+            FSW_THROW_INVALID_ARGUMENT(
+                "cssWeightedLeastSquares: the first numCss cssBias entries must be finite and non-negative");
         }
         if (!isValidSensorUseThresh(sensorUseThresh)) {
-            FSW_THROW_INVALID_ARGUMENT("cssWlsEst: sensorUseThresh must be a cosine in [-1, 1]");
+            FSW_THROW_INVALID_ARGUMENT("cssWeightedLeastSquares: sensorUseThresh must be a cosine in [-1, 1]");
         }
         // Normalize the boresights so downstream code can rely on exact unit vectors. The rows are validated
         // (near-)unit, so this only removes rounding; rows beyond numCss are unused and stay zero.
@@ -119,11 +121,11 @@ class CssWlsEstConfig final {
     float getSensorUseThresh() const { return sensorUseThresh; }
 
    private:
-    CssWlsEstConfig(const Eigen::Matrix<float, kMaxNumCss, 3>& cssNHat_B,
-                    const Eigen::Vector<float, kMaxNumCss>& cssBias,
-                    const uint32_t numCss,
-                    const bool useWeights,
-                    const float sensorUseThresh)
+    CssWeightedLeastSquaresConfig(const Eigen::Matrix<float, kMaxNumCss, 3>& cssNHat_B,
+                                  const Eigen::Vector<float, kMaxNumCss>& cssBias,
+                                  const uint32_t numCss,
+                                  const bool useWeights,
+                                  const float sensorUseThresh)
         : cssNHat_B(cssNHat_B),
           cssBias(cssBias),
           numCss(numCss),
@@ -144,17 +146,17 @@ class CssWlsEstConfig final {
     norm solution; with one it is the scaled sensor boresight, which is only a guess on the cone of
     possibilities. Two successive heading estimates also yield the inertial angular velocity
     orthogonal to the sun heading. */
-class CssWlsEstAlgorithm final {
+class CssWeightedLeastSquaresAlgorithm final {
    public:
     /*! Construct the estimator from a validated configuration.
         @param config the validated configuration to install
      */
-    explicit CssWlsEstAlgorithm(const CssWlsEstConfig& config);
+    explicit CssWeightedLeastSquaresAlgorithm(const CssWeightedLeastSquaresConfig& config);
 
     /*! Install a configuration without disturbing runtime state.
         @param config the validated configuration to install
      */
-    void setConfig(const CssWlsEstConfig& config);
+    void setConfig(const CssWeightedLeastSquaresConfig& config);
 
     /*! Return all runtime state to its post-construction condition. */
     void reInitialize();
@@ -164,7 +166,7 @@ class CssWlsEstAlgorithm final {
         @param callTime  The clock time at which the function was called (nanoseconds)
         @param cosValues [-] Per-sensor cosine readings, indexed by sensor
      */
-    CssWlsEstOutput update(uint64_t callTime, const Eigen::Vector<float, kMaxNumCss>& cosValues);
+    CssWeightedLeastSquaresOutput update(uint64_t callTime, const Eigen::Vector<float, kMaxNumCss>& cosValues);
 
    private:
     /*! Solve the least squares fit for the sun heading.
@@ -192,7 +194,7 @@ class CssWlsEstAlgorithm final {
                                                          const Eigen::Vector3f& wlsEst) const;
 
     /*! The validated configuration in force. */
-    CssWlsEstConfig cfg;
+    CssWeightedLeastSquaresConfig cfg;
 
     /*! [-] Prior normalized sun heading estimate, body frame components. */
     Eigen::Vector3f dOld = Eigen::Vector3f::Zero();

@@ -18,13 +18,13 @@ Module Architecture
 
 The module is split into two layers:
 
-- The **adapter** (``cssWlsEst.h``/``.cpp``) is the Xmera ``SysModel``. It owns the message I/O, converts between the
+- The **adapter** (``cssWeightedLeastSquares.h``/``.cpp``) is the Xmera ``SysModel``. It owns the message I/O, converts between the
   message payloads' C arrays and Eigen types, and holds the public configuration properties.
-- The **algorithm** (``cssWlsEstAlgorithm.h``/``.cpp``) is the estimator proper. It has no framework or messaging
+- The **algorithm** (``cssWeightedLeastSquaresAlgorithm.h``/``.cpp``) is the estimator proper. It has no framework or messaging
   dependency, takes Eigen types, returns its own output struct, and never throws.
 
-A pure-C shim (``cssWlsEstAlgorithm_c.h``/``.cpp``) wraps the algorithm class for use by Ada/Adamant components via
-FFI, with the shared C data model in ``cssWlsEstTypes.h``.
+A pure-C shim (``cssWeightedLeastSquaresAlgorithm_c.h``/``.cpp``) wraps the algorithm class for use by Ada/Adamant components via
+FFI, with the shared C data model in ``cssWeightedLeastSquaresTypes.h``.
 
 Adapter Layer
 -------------
@@ -101,7 +101,7 @@ without disturbing the estimator's runtime state.
 
 .. code-block:: python
 
-    module = cssWlsEstF32.CssWlsEst()
+    module = cssWeightedLeastSquaresF32.CssWeightedLeastSquares()
     module.numCss = 8
     module.cssNHat = cssOrientationList
     module.cssBias = [1.0] * 8

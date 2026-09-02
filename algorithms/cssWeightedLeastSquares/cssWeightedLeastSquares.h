@@ -1,7 +1,7 @@
-#ifndef F32XMERA_CSS_WLS_EST_H
-#define F32XMERA_CSS_WLS_EST_H
+#ifndef F32XMERA_CSS_WEIGHTED_LEAST_SQUARES_H
+#define F32XMERA_CSS_WEIGHTED_LEAST_SQUARES_H
 
-#include "cssWlsEstAlgorithm.h"
+#include "cssWeightedLeastSquaresAlgorithm.h"
 
 #include "msgPayloadDef/CSSArraySensorMsgF32Payload.h"
 #include "msgPayloadDef/NavAttMsgF32Payload.h"
@@ -15,7 +15,7 @@
 #include <memory>
 
 /*! @brief Estimates the body-relative sun heading and rate from a coarse sun sensor array. */
-class CssWlsEst final : public SysModel {
+class CssWeightedLeastSquares final : public SysModel {
    public:
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
@@ -49,8 +49,8 @@ class CssWlsEst final : public SysModel {
         cssWLSFiltResOutMsg;  //!< Post-fit residual and observation count output message
 
    private:
-    CssWlsEstConfig toConfig() const;
-    std::unique_ptr<CssWlsEstAlgorithm> algorithm = nullptr;
+    CssWeightedLeastSquaresConfig toConfig() const;
+    std::unique_ptr<CssWeightedLeastSquaresAlgorithm> algorithm = nullptr;
 };
 
 #endif

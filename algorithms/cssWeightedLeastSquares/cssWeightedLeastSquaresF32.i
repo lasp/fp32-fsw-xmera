@@ -1,14 +1,14 @@
-%module cssWlsEstF32
+%module cssWeightedLeastSquaresF32
 %{
-   #include "cssWlsEst.h"
+   #include "cssWeightedLeastSquares.h"
 %}
 
 %include <architecture/_GeneralModuleFiles/sys_model.i>
 %include <architecture/_GeneralModuleFiles/swig_eigen.i>
 %include <architecture/_GeneralModuleFiles/swig_conly_data.i>
 
-%include "cssWlsEstAlgorithm.h"
-%include "cssWlsEst.h"
+%include "cssWeightedLeastSquaresAlgorithm.h"
+%include "cssWeightedLeastSquares.h"
 
 %include "msgPayloadDef/NavAttMsgF32Payload.h"
 %include "msgPayloadDef/SunlineFilterMsgF32Payload.h"
