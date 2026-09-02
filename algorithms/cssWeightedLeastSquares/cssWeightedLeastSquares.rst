@@ -79,6 +79,31 @@ built and can be edited between builds.
       - [-1, 1]
       - Cosine threshold at or below which a sensor reading is discarded
 
+The constellation geometry arrives on ``cssConfigInMsg``, which carries ``nCSS`` sensors and one ``cssVals`` entry
+per sensor. The module copies those entries into a fixed array of ``kMaxNumCss`` slots when it builds the
+configuration, so no configuration path allocates; slots at or beyond ``nCSS`` are never read. A count above
+``kMaxNumCss`` is rejected.
+
+.. list-table:: Per-Sensor Fields of cssConfigInMsg
+    :widths: 20 15 10 15 40
+    :header-rows: 1
+
+    * - Name
+      - Type
+      - Units
+      - Bounds
+      - Description
+    * - nHat_B
+      - float[3]
+      - \-
+      - unit within 1e-3
+      - Boresight unit vector in body frame components; normalized when the configuration is built
+    * - CBias
+      - float
+      - \-
+      - >= 0, finite
+      - Calibration scale factor applied to the boresight
+
 The module also publishes ``numActiveCss``, the number of sensors above the use threshold on the most recent cycle. It
 is written by ``updateState()`` for telemetry and logging and is not a configuration input.
 

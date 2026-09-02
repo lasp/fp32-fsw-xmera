@@ -7,6 +7,8 @@
 %include <architecture/_GeneralModuleFiles/swig_eigen.i>
 %include <architecture/_GeneralModuleFiles/swig_conly_data.i>
 
+STRUCTASLIST(CssConfiguration)
+
 %include "cssWeightedLeastSquaresAlgorithm.h"
 %include "cssWeightedLeastSquares.h"
 

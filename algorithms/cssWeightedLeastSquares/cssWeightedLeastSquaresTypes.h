@@ -11,12 +11,25 @@ extern "C" {
 #endif
 
 /**
- * @brief Plain-old-data mirror of the CSS constellation geometry held by CssWeightedLeastSquaresConfig.
+ * @brief Plain-old-data mirror of the C++ CssConfiguration fields.
+ *
+ *  - nHat_B norm must be within 1e-3 of 1.0 (normalized on storage)
+ *  - bias must be finite and non-negative
  */
 typedef struct {
-    uint32_t numCss;                         /*!< [-] number of configured sensors, in [1, MAX_NUM_CSS_SENSORS] */
-    float cssNHat_B[MAX_NUM_CSS_SENSORS][3]; /*!< [-] per-sensor boresight unit vectors, body frame */
-    float cssBias[MAX_NUM_CSS_SENSORS];      /*!< [-] per-sensor calibration scale factors, each >= 0 */
+    Vector3f_c nHat_B; /*!< [-] boresight unit vector, body frame components */
+    float bias;        /*!< [-] calibration scale factor applied to the boresight */
+} CssConfiguration_c;
+
+/**
+ * @brief Plain-old-data mirror of the CSS constellation geometry held by CssWeightedLeastSquaresConfig.
+ *
+ *  - numCss must be in [1, MAX_NUM_CSS_SENSORS]
+ *  - cssSensors[i] for i < numCss carries each sensor's geometry; trailing slots are ignored
+ */
+typedef struct {
+    uint32_t numCss;                                    /*!< [-] number of configured sensors */
+    CssConfiguration_c cssSensors[MAX_NUM_CSS_SENSORS]; /*!< [-] per-sensor configuration */
 } CssWeightedLeastSquaresConstellation_c;
 
 /**

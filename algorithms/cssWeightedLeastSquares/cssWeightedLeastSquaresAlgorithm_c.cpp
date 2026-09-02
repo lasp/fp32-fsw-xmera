@@ -7,6 +7,7 @@
 #include "utilities/fsw/opaqueHandle.h"
 
 #include <Eigen/Core>
+#include <array>
 
 namespace {
 
@@ -16,17 +17,14 @@ namespace {
 CssWeightedLeastSquaresConfig configFromC(const CssWeightedLeastSquaresConstellation_c& constellation,
                                           const bool useWeights,
                                           const float sensorUseThresh) {
-    Eigen::Matrix<float, kMaxNumCss, 3> cssNHat_B = Eigen::Matrix<float, kMaxNumCss, 3>::Zero();
-    Eigen::Vector<float, kMaxNumCss> cssBias = Eigen::Vector<float, kMaxNumCss>::Zero();
+    std::array<CssConfiguration, kMaxNumCss> cssSensors{};
 
-    for (int sensor = 0; sensor < kMaxNumCss; ++sensor) {
-        for (int component = 0; component < 3; ++component) {
-            cssNHat_B(sensor, component) = constellation.cssNHat_B[sensor][component];
-        }
-        cssBias(sensor) = constellation.cssBias[sensor];
+    for (size_t sensor = 0; sensor < static_cast<size_t>(kMaxNumCss); ++sensor) {
+        cssSensors.at(sensor).nHat_B = cArrayToEigenVector3<float>(constellation.cssSensors[sensor].nHat_B.data);
+        cssSensors.at(sensor).bias = constellation.cssSensors[sensor].bias;
     }
 
-    return CssWeightedLeastSquaresConfig::create(cssNHat_B, cssBias, constellation.numCss, useWeights, sensorUseThresh);
+    return CssWeightedLeastSquaresConfig::create(constellation.numCss, cssSensors, useWeights, sensorUseThresh);
 }
 
 /*! Convert the algorithm's output struct to its C mirror. */

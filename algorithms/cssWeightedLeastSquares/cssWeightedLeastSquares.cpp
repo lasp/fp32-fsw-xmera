@@ -37,7 +37,7 @@ void CssWeightedLeastSquares::reset(const uint64_t callTime) {
 
 /*! Build a validated algorithm configuration from the constellation geometry on cssConfigInMsg and the
  module's tuning properties. The message is the single source of the geometry, so the same constellation
- feeds every estimator that subscribes to it.
+ feeds every estimator that subscribes to it. Every other check lives in the config's validators.
  @return CssWeightedLeastSquaresConfig validated configuration
  */
 CssWeightedLeastSquaresConfig CssWeightedLeastSquares::toConfig() {
@@ -46,15 +46,12 @@ CssWeightedLeastSquaresConfig CssWeightedLeastSquares::toConfig() {
         throw std::invalid_argument("cssWeightedLeastSquares.cssConfigInMsg reported more sensors than kMaxNumCss.");
     }
 
-    Eigen::Matrix<float, kMaxNumCss, 3> cssNHat_B = Eigen::Matrix<float, kMaxNumCss, 3>::Zero();
-    Eigen::Vector<float, kMaxNumCss> cssBiasPacked = Eigen::Vector<float, kMaxNumCss>::Zero();
+    std::array<CssConfiguration, kMaxNumCss> cssSensors{};
     for (uint32_t i = 0; i < cssConfig.nCSS; ++i) {
-        cssNHat_B.row(i) = cArrayToEigenVector(cssConfig.cssVals[i].nHat_B).transpose();
-        cssBiasPacked(i) = cssConfig.cssVals[i].CBias;
+        cssSensors.at(i) =
+            CssConfiguration{cArrayToEigenVector(cssConfig.cssVals[i].nHat_B), cssConfig.cssVals[i].CBias};
     }
-
-    return CssWeightedLeastSquaresConfig::create(
-        cssNHat_B, cssBiasPacked, cssConfig.nCSS, this->useWeights, this->sensorUseThresh);
+    return CssWeightedLeastSquaresConfig::create(cssConfig.nCSS, cssSensors, this->useWeights, this->sensorUseThresh);
 }
 
 /*! Re-read the constellation message, re-validate it with the module properties and push the result onto
