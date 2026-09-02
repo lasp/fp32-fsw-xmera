@@ -15,24 +15,16 @@ inline constexpr int kMaxNumCss = MAX_NUM_CSS_SENSORS;
 
 /*! Estimator products for a single update cycle. */
 struct CssWeightedLeastSquaresOutput {
-    /*! [-] Estimated unit sun heading, body frame components. Zero when no fit was possible. */
-    Eigen::Vector3f sunHeading_B = Eigen::Vector3f::Zero();
-
-    /*! [r/s] Inertial angular velocity, body frame components. Only the component orthogonal to the
-        sun heading is observable; zero when no prior heading or no elapsed time is available. */
-    Eigen::Vector3f omega_BN_B = Eigen::Vector3f::Zero();
-
-    /*! [-] Sun heading as reported on the filter status output. Captured before the singular-fit
-        zeroing, so on a degenerate fit it retains the raw estimate for diagnostics while
-        sunHeading_B is zero. */
-    Eigen::Vector3f residualStateHeading = Eigen::Vector3f::Zero();
-
-    /*! [-] Post-fit measurement residuals, one entry per configured sensor. Entries beyond the
-        configured sensor count stay zero. */
-    Eigen::Vector<float, kMaxNumCss> postFitResiduals = Eigen::Vector<float, kMaxNumCss>::Zero();
-
-    /*! [-] Number of sensors whose reading exceeded the use threshold this cycle. */
-    uint32_t numActiveCss{};
+    Eigen::Vector3f sunHeading_B = Eigen::Vector3f::Zero();  //!< [-] estimated unit sun heading, body frame; zero
+                                                             //!< when no fit was possible
+    Eigen::Vector3f omega_BN_B = Eigen::Vector3f::Zero();    //!< [r/s] inertial angular velocity, body frame; only
+                                                             //!< the component orthogonal to the heading is
+                                                             //!< observable, zero without a prior heading or dt
+    Eigen::Vector3f residualStateHeading = Eigen::Vector3f::Zero();  //!< [-] heading on the filter status output,
+                                                                     //!< captured before the singular-fit zeroing
+    Eigen::Vector<float, kMaxNumCss> postFitResiduals =
+        Eigen::Vector<float, kMaxNumCss>::Zero();  //!< [-] post-fit residuals, one per configured sensor
+    uint32_t numActiveCss{};                       //!< [-] sensors whose reading exceeded the use threshold
 };
 
 /*! @brief Validated configuration for the CSS weighted least squares estimator.
@@ -193,17 +185,10 @@ class CssWeightedLeastSquaresAlgorithm final {
     Eigen::Vector<float, kMaxNumCss> computeWlsResiduals(const Eigen::Vector<float, kMaxNumCss>& cssMeas,
                                                          const Eigen::Vector3f& wlsEst) const;
 
-    /*! The validated configuration in force. */
-    CssWeightedLeastSquaresConfig cfg;
-
-    /*! [-] Prior normalized sun heading estimate, body frame components. */
-    Eigen::Vector3f dOld = Eigen::Vector3f::Zero();
-
-    /*! [-] Flag indicating a prior sun heading estimate is available for the rate difference. */
-    uint32_t priorSignalAvailable{};
-
-    /*! [ns] Time of the previous update; zero until the first call after a re-initialization. */
-    uint64_t priorTime{};
+    CssWeightedLeastSquaresConfig cfg;               //!< [-] the validated configuration in force
+    Eigen::Vector3f dOld = Eigen::Vector3f::Zero();  //!< [-] prior normalized sun heading, body frame
+    uint32_t priorSignalAvailable{};                 //!< [-] whether a prior heading is available for the rate
+    uint64_t priorTime{};                            //!< [ns] previous update time; zero until the first call
 };
 
 #endif

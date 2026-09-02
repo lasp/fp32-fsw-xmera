@@ -24,24 +24,15 @@ class CssWeightedLeastSquares final : public SysModel {
     void reInitialize();
 
     // Phase 1: public config properties -- set before reset()
-    /*! [-] Per-sensor boresight unit vectors in body frame components, numCss rows by three columns. */
-    Eigen::MatrixXf cssNHat;
+    Eigen::MatrixXf cssNHat;  //!< [-] per-sensor boresight unit vectors, numCss rows by three columns
+    Eigen::VectorXf cssBias;  //!< [-] per-sensor calibration scale factor, at least numCss entries
+    uint32_t numCss{};        //!< [-] number of configured coarse sun sensors, in [1, kMaxNumCss]
+    bool useWeights{};        //!< [-] flag selecting measurement weighting for the least squares fit
+    float sensorUseThresh{};  //!< [-] cosine threshold at or below which a CSS measurement is discarded
 
-    /*! [-] Per-sensor calibration scale factor, at least numCss entries. */
-    Eigen::VectorXf cssBias;
+    uint32_t numActiveCss{};  //!< [-] sensors above the use threshold on the most recent cycle (output)
 
-    /*! [-] Number of configured coarse sun sensors, in [0, kMaxNumCss]. */
-    uint32_t numCss{};
-
-    /*! [-] Flag selecting measurement weighting for the least squares fit. */
-    bool useWeights{};
-
-    /*! [-] Cosine threshold at or below which a CSS measurement is discarded. */
-    float sensorUseThresh{};
-
-    /*! [-] Number of CSS sensors above the use threshold on the most recent cycle. */
-    uint32_t numActiveCss{};
-
+    /* declare module IO interfaces */
     ReadFunctor<CSSArraySensorMsgF32Payload> cssDataInMsg;  //!< CSS array measurement input message
     Message<NavAttMsgF32Payload>
         navStateOutMsg;  //!< Navigation output message carrying the estimated sun heading and body rate
