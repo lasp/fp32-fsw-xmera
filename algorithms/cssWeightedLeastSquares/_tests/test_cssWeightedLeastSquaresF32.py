@@ -31,6 +31,11 @@ PRINCIPAL_AXES = [
     [0.0, 0.0, -1.0],
 ]
 
+# Headings for the decreasing-coverage test: the first lights five sensors and the second three, so both
+# stay in the weighted least squares branch while the active count drops between cycles.
+MANY_ACTIVE_HEADING = [0.3342, -0.6230, 0.7073]
+FEW_ACTIVE_HEADING = [0.3635, 0.8643, 0.3476]
+
 # A heading 40.68 degrees off the +z axis in the x-z plane, which lights only sensors 0 and 3.
 LOW_COVERAGE_LATITUDE = np.deg2rad(40.68)
 LOW_COVERAGE_HEADING = [np.sin(LOW_COVERAGE_LATITUDE), 0.0, np.cos(LOW_COVERAGE_LATITUDE)]
@@ -56,6 +61,16 @@ def css_config_msg():
     css_config_data.nCSS = len(CSS_ORIENTATIONS)
     css_config_data.cssVals = sensors
     return messaging.CSSConfigMsgF32().write(css_config_data)
+
+
+def weighted_fit(cos_readings):
+    """The weighted least squares heading over the lit sensors, solved in double precision."""
+    lit = [index for index, reading in enumerate(cos_readings) if reading > SENSOR_USE_THRESH]
+    observations = np.array([CSS_ORIENTATIONS[index] for index in lit], dtype=float)
+    measurements = np.array([cos_readings[index] for index in lit], dtype=float)
+    weights = np.diag(measurements)
+    heading = np.linalg.solve(observations.T @ weights @ observations, observations.T @ weights @ measurements)
+    return heading / np.linalg.norm(heading)
 
 
 @pytest.mark.parametrize("sun_heading_B", PRINCIPAL_AXES)
@@ -261,6 +276,64 @@ def test_css_weighted_least_squares_reconfigure():
 
     np.testing.assert_array_equal(data_log.numActiveCss[-1], 1)
     np.testing.assert_allclose(module.sensorUseThresh, 0.6, rtol=0, atol=1e-7, verbose=True)
+
+
+def test_css_weighted_least_squares_decreasing_coverage():
+    """Module Unit Test: a cycle whose lit sensor count is lower than the cycle before it"""
+    unit_task_name = "unitTask"
+    unit_process_name = "TestProcess"
+
+    unit_test_sim = SimulationBaseClass.SimBaseClass()
+
+    test_process_rate = macros.sec2nano(0.5)
+    test_proc = unit_test_sim.CreateNewProcess(unit_process_name)
+    test_proc.addTask(unit_test_sim.CreateNewTask(unit_task_name, test_process_rate))
+
+    module = cssWeightedLeastSquaresF32.CssWeightedLeastSquares()
+    module.modelTag = "cssWeightedLeastSquares"
+
+    config_in_msg = css_config_msg()
+    module.cssConfigInMsg.subscribeTo(config_in_msg)
+    module.useWeights = True
+    module.sensorUseThresh = SENSOR_USE_THRESH
+
+    unit_test_sim.AddModelToTask(unit_task_name, module)
+
+    many_readings = cos_values(MANY_ACTIVE_HEADING)
+    few_readings = cos_values(FEW_ACTIVE_HEADING)
+
+    input_message_data = messaging.CSSArraySensorMsgF32Payload()
+    input_message_data.CosValue = many_readings
+    in_msg = messaging.CSSArraySensorMsgF32().write(input_message_data)
+    module.cssDataInMsg.subscribeTo(in_msg)
+
+    data_log = module.navStateOutMsg.recorder()
+    num_active_log = module.logger("numActiveCss")
+    unit_test_sim.AddModelToTask(unit_task_name, data_log)
+    unit_test_sim.AddModelToTask(unit_task_name, num_active_log)
+
+    unit_test_sim.InitializeSimulation()
+    unit_test_sim.ConfigureStopTime(test_process_rate)
+    unit_test_sim.ExecuteSimulation()
+
+    input_message_data.CosValue = few_readings
+    in_msg.write(input_message_data)
+    unit_test_sim.ConfigureStopTime(macros.sec2nano(1.5))
+    unit_test_sim.ExecuteSimulation()
+
+    np.testing.assert_equal(num_active_log.numActiveCss[1], 5)
+    np.testing.assert_equal(num_active_log.numActiveCss[-1], 3)
+
+    # The fit is assembled in buffers sized for the full sensor complement, whose entries past the active
+    # count are zero. A row left behind by the five-sensor cycle would bias the three-sensor fit, so both
+    # cycles are checked against the double-precision solution over their own lit sensors. The tolerance is
+    # float32 round-off on a 3x3 solve over unit-norm data.
+    np.testing.assert_allclose(
+        data_log.vehSunPntBdy[1], weighted_fit(many_readings), atol=1e-6, rtol=1e-6, verbose=True
+    )
+    np.testing.assert_allclose(
+        data_log.vehSunPntBdy[-1], weighted_fit(few_readings), atol=1e-6, rtol=1e-6, verbose=True
+    )
 
 
 def run_test(
