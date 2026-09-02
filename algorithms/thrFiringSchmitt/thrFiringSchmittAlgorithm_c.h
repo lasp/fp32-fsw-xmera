@@ -3,6 +3,7 @@
 
 #include "thrFiringSchmittTypes.h"
 
+#include <stdbool.h>
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -17,6 +18,28 @@ typedef struct ThrFiringSchmittAlgorithmHandle ThrFiringSchmittAlgorithmHandle;
  * @return The maximum thruster count (THR_FIRING_SCHMITT_MAX_THRUSTER_COUNT).
  */
 uint32_t ThrFiringSchmittAlgorithm_getMaxThrusterCount(void);
+
+/**
+ * @brief Report whether a configuration would be accepted by create/setConfig.
+ * @param numThrusters           [-] Number of thrusters on the vehicle.
+ * @param maxThrust              [N] Per-thruster maximum thrust; the first numThrusters entries are used.
+ * @param levelOn                [-] ON duty cycle fraction threshold, in (0, 1].
+ * @param levelOff               [-] OFF duty cycle fraction threshold, in [0, 1).
+ * @param thrMinFireTime         [s] Minimum commandable thruster fire time.
+ * @param controlPeriod          [s] Control period over which the force command applies.
+ * @param onTimeSaturationFactor [-] Control-period multiplier applied when on-time saturates.
+ * @param pulsingRegime          [-] On-pulsing or off-pulsing.
+ * @return true if the configuration is valid. Never throws, so it can guard the
+ *         throwing create/setConfig from an invalid configuration.
+ */
+bool ThrFiringSchmittAlgorithm_validateConfig(uint32_t numThrusters,
+                                              float maxThrust[THR_FIRING_SCHMITT_MAX_THRUSTER_COUNT],
+                                              float levelOn,
+                                              float levelOff,
+                                              float thrMinFireTime,
+                                              float controlPeriod,
+                                              float onTimeSaturationFactor,
+                                              ThrFiringSchmittPulsingRegime pulsingRegime);
 
 /**
  * @brief Construct a new ThrFiringSchmittAlgorithm instance from the supplied configuration.

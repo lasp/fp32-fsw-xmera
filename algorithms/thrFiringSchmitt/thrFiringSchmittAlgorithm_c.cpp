@@ -1,5 +1,6 @@
 #include "thrFiringSchmittAlgorithm_c.h"
 #include "thrFiringSchmittAlgorithm.h"
+#include "utilities/fsw/freestandingInvalidArgument.h"
 #include "utilities/fsw/opaqueHandle.h"
 
 #include <algorithm>
@@ -38,6 +39,32 @@ ThrFiringSchmittConfig configFromC(const uint32_t numThrusters,
 }  // namespace
 
 uint32_t ThrFiringSchmittAlgorithm_getMaxThrusterCount(void) { return THR_FIRING_SCHMITT_MAX_THRUSTER_COUNT; }
+
+bool ThrFiringSchmittAlgorithm_validateConfig(const uint32_t numThrusters,
+                                              float maxThrust[THR_FIRING_SCHMITT_MAX_THRUSTER_COUNT],
+                                              const float levelOn,
+                                              const float levelOff,
+                                              const float thrMinFireTime,
+                                              const float controlPeriod,
+                                              const float onTimeSaturationFactor,
+                                              const ThrFiringSchmittPulsingRegime pulsingRegime) {
+    // Attempt to build the config through the real create path (configFromC ->
+    // ThrFiringSchmittConfig::create): success means valid, a throw means invalid.
+    // Reusing create means this validation can never drift from the rules it enforces.
+    try {
+        (void)configFromC(numThrusters,
+                          maxThrust,
+                          levelOn,
+                          levelOff,
+                          thrMinFireTime,
+                          controlPeriod,
+                          onTimeSaturationFactor,
+                          pulsingRegime);
+        return true;
+    } catch (const fsw::invalid_argument&) {
+        return false;
+    }
+}
 
 ThrFiringSchmittAlgorithmHandle* ThrFiringSchmittAlgorithm_create(
     const uint32_t numThrusters,
