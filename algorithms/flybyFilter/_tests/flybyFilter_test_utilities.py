@@ -82,3 +82,66 @@ def two_orbits(r_true, r_est, show_plots):
     ax.legend()
     plt.show()
     plt.close()
+
+
+def outlier_rejection(meas, truth, valid, testName, show_plots):
+    """Plot the measurement stream fed to the filter, coloured by whether the filter kept it.
+
+    meas  : [t_ns, m1, ... mN] the measurements actually written to the module
+    truth : [t_ns, x1, ... xN] the truth the clean measurements follow
+    valid : bool array aligned with the rows of meas; True where the filter applied the measurement
+
+    The y-limits are deliberately left to auto-scale: the outliers sitting far off the truth curve
+    is the point of the figure.
+    """
+    if not (_HAVE_MPL and show_plots):
+        return
+    numComponents = len(meas[0, :]) - 1
+    numColumns = 1 if numComponents <= 3 else 2
+    numRows = -(-numComponents // numColumns)
+    t = meas[:, 0] * 1E-9
+    tTruth = truth[:, 0] * 1E-9
+    accepted = np.asarray(valid, dtype=bool)
+    rejected = ~accepted
+
+    plt.figure(figsize=(10, 10))
+    for j in range(numComponents):
+        plt.subplot(numRows, numColumns, j + 1)
+        plt.plot(tTruth, truth[:, j + 1], 'k', label='Truth')
+        plt.plot(t[accepted], meas[accepted, j + 1], '.', color='dodgerblue', label='Used')
+        plt.plot(t[rejected], meas[rejected, j + 1], 'x', color='crimson', label='Rejected')
+        if j == 0:
+            plt.legend(loc='lower right')
+        plt.title('Meas comp ' + str(j + 1) + ' ' + testName)
+        plt.grid()
+    plt.tight_layout()
+    plt.show()
+    plt.close()
+
+
+def error_recovery(err, outlierSteps, ambient, testName, show_plots):
+    """Plot the estimate error against its ambient band, marking each injected outlier, so the
+    spike and the decay back are readable directly.
+
+    The tuning read is the height of each spike relative to the band (how much of the outlier the
+    Kalman gain let through) and its width (how long the estimate took to settle).
+    """
+    if not (_HAVE_MPL and show_plots):
+        return
+    t = err[:, 0] * 1E-9
+    steps = [k for k in outlierSteps if 0 <= k < len(err)]
+
+    plt.figure(figsize=(10, 6))
+    plt.semilogy(t, err[:, 1], color='dodgerblue', label='|error|')
+    plt.semilogy(t, np.full(len(t), ambient), 'k', label='ambient')
+    plt.semilogy(t, np.full(len(t), 2 * ambient), '--', color='grey', label='2x ambient')
+    for n, k in enumerate(steps):
+        plt.axvline(t[k], color='crimson', alpha=0.5, label='outlier injected' if n == 0 else None)
+    plt.legend(loc='upper right')
+    plt.xlabel('t(s)')
+    plt.ylabel('|error|')
+    plt.title(testName + ': perturbation and recovery')
+    plt.grid()
+    plt.tight_layout()
+    plt.show()
+    plt.close()
