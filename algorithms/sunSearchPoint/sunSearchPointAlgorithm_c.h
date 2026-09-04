@@ -2,6 +2,7 @@
 #define F32XMERA_SUNSEARCHPOINTALGORITHM_C_H
 
 #include "sunSearchPointTypes.h"
+#include "utilities/fsw/plainCAlgorithmDataTypes.h"
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -14,6 +15,13 @@ extern "C" {
  * @brief Opaque handle to the C++ SunSearchPointAlgorithm instance.
  */
 typedef struct SunSearchPointAlgorithmHandle SunSearchPointAlgorithmHandle;
+
+/**
+ * @brief The sun-search rotation sequence, sized so the bound crosses the boundary in the type.
+ */
+typedef struct {
+    RotationProperties_c rotations[SUN_SEARCH_POINT_NUM_ROTATIONS];
+} RotationPropertiesArray4_c;
 
 /**
  * @brief C-compatible sun search point attitude guidance output.
@@ -32,11 +40,42 @@ typedef struct {
 uint32_t SunSearchPointAlgorithm_getNumRotations(void);
 
 /**
+ * @brief Report whether a configuration would be accepted by create/setConfig.
+ * @param rotations            [-] sun-search rotation sequence.
+ * @param sHatBdyCmd           [-] commanded body vector to point at the sun.
+ * @param sunAxisSpinRate      [rad/s] constant spin rate about the sun heading vector.
+ * @param omega_RN_B           [rad/s] fallback body rate when no sun direction is available.
+ * @param observationThreshold [-] CSS count at or above which to transition to pointing.
+ * @param controlPeriod        [s] per-update time step; advances the search timeline.
+ * @return true if the configuration is valid. Never throws, so it can guard the
+ *         throwing create/setConfig from an invalid configuration.
+ * @note The accepted value ranges are defined by SunSearchPointConfig::create; this predicate
+ *       reports whether a candidate set would be accepted, without throwing.
+ */
+bool SunSearchPointAlgorithm_validateConfig(const RotationPropertiesArray4_c* rotations,
+                                            Vector3f_c sHatBdyCmd,
+                                            float sunAxisSpinRate,
+                                            Vector3f_c omega_RN_B,
+                                            uint32_t observationThreshold,
+                                            float controlPeriod);
+
+/**
  * @brief Construct a new SunSearchPointAlgorithm instance from the supplied configuration.
- * @param config Pointer to the rotation-sequence configuration (validated; throws on invalid input).
+ * Validate the values with validateConfig before calling; throws on invalid input.
+ * @param rotations            [-] sun-search rotation sequence.
+ * @param sHatBdyCmd           [-] commanded body vector to point at the sun.
+ * @param sunAxisSpinRate      [rad/s] constant spin rate about the sun heading vector.
+ * @param omega_RN_B           [rad/s] fallback body rate when no sun direction is available.
+ * @param observationThreshold [-] CSS count at or above which to transition to pointing.
+ * @param controlPeriod        [s] per-update time step; advances the search timeline.
  * @return Pointer to a new SunSearchPointAlgorithm (must be destroyed).
  */
-SunSearchPointAlgorithmHandle* SunSearchPointAlgorithm_create(const SunSearchPointConfig_c* config);
+SunSearchPointAlgorithmHandle* SunSearchPointAlgorithm_create(const RotationPropertiesArray4_c* rotations,
+                                                              Vector3f_c sHatBdyCmd,
+                                                              float sunAxisSpinRate,
+                                                              Vector3f_c omega_RN_B,
+                                                              uint32_t observationThreshold,
+                                                              float controlPeriod);
 
 /**
  * @brief Destroy a previously created SunSearchPointAlgorithm.
@@ -45,12 +84,23 @@ SunSearchPointAlgorithmHandle* SunSearchPointAlgorithm_create(const SunSearchPoi
 void SunSearchPointAlgorithm_destroy(SunSearchPointAlgorithmHandle* self);
 
 /**
- * @brief Install the sun-search rotation sequence configuration (parameters only; call _reInitialize
- *        to re-arm the search phase).
- * @param self   Pointer to the instance.
- * @param config Pointer to the configuration to apply (validated; throws on invalid input).
+ * @brief Install a new configuration (parameters only; call _reInitialize to re-arm the search
+ *        phase). Validate the values with validateConfig before calling; throws on invalid input.
+ * @param self                 Pointer to the instance.
+ * @param rotations            [-] sun-search rotation sequence.
+ * @param sHatBdyCmd           [-] commanded body vector to point at the sun.
+ * @param sunAxisSpinRate      [rad/s] constant spin rate about the sun heading vector.
+ * @param omega_RN_B           [rad/s] fallback body rate when no sun direction is available.
+ * @param observationThreshold [-] CSS count at or above which to transition to pointing.
+ * @param controlPeriod        [s] per-update time step; advances the search timeline.
  */
-void SunSearchPointAlgorithm_setConfig(SunSearchPointAlgorithmHandle* self, const SunSearchPointConfig_c* config);
+void SunSearchPointAlgorithm_setConfig(SunSearchPointAlgorithmHandle* self,
+                                       const RotationPropertiesArray4_c* rotations,
+                                       Vector3f_c sHatBdyCmd,
+                                       float sunAxisSpinRate,
+                                       Vector3f_c omega_RN_B,
+                                       uint32_t observationThreshold,
+                                       float controlPeriod);
 
 /**
  * @brief Re-arm the runtime state machine so the next update begins a fresh search sequence.
@@ -60,16 +110,16 @@ void SunSearchPointAlgorithm_reInitialize(SunSearchPointAlgorithmHandle* self);
 
 /**
  * @brief Run the update step.
- * @param self              Pointer to the instance.
- * @param rHat_SB_B      Sun direction vector in body frame.
- * @param omega_BN_B        Inertial body angular velocity in body frame.
+ * @param self             Pointer to the instance.
+ * @param rHat_SB_B        Sun direction vector in body frame.
+ * @param omega_BN_B       Inertial body angular velocity in body frame.
  * @param numCssViewingSun Number of valid coarse-sun-sensor observations this cycle.
  * @return SunSearchPointOutput_c  The computed guidance output.
  */
 SunSearchPointOutput_c SunSearchPointAlgorithm_update(SunSearchPointAlgorithmHandle* self,
                                                       Vector3f_c rHat_SB_B,
                                                       Vector3f_c omega_BN_B,
-                                                      int numCssViewingSun);
+                                                      uint32_t numCssViewingSun);
 
 #ifdef __cplusplus
 }  // extern "C"

@@ -83,7 +83,7 @@ Module Parameters
       - zero
       - Body-fixed fallback rate commanded in the pointing phase when no sun direction is available
     * - observationThreshold
-      - int
+      - uint32_t
       - [-]
       - 4
       - CSS observation count at or above which the sun is considered acquired

@@ -33,7 +33,7 @@ inline SunSearchPointOutput observeAt(SunSearchPointAlgorithm& alg,
                                       uint64_t targetNs,
                                       const Eigen::Vector3f& sun,
                                       const Eigen::Vector3f& omega,
-                                      int css,
+                                      uint32_t css,
                                       uint64_t controlPeriodNs = kTestControlPeriodNs) {
     while (nextElapsedNs < targetNs) {
         (void)alg.update(Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(), 0);
@@ -49,7 +49,7 @@ inline SunSearchPointOutput advanceTo(SunSearchPointAlgorithm& alg,
                                       uint64_t targetNs,
                                       const Eigen::Vector3f& sun,
                                       const Eigen::Vector3f& omega,
-                                      int css,
+                                      uint32_t css,
                                       uint64_t controlPeriodNs = kTestControlPeriodNs) {
     uint64_t nextElapsedNs = 0U;
     return observeAt(alg, nextElapsedNs, targetNs, sun, omega, css, controlPeriodNs);
@@ -81,7 +81,7 @@ inline SunSearchPointConfig makeSearchConfig(const std::array<RotationProperties
                                              const Eigen::Vector3f& sHatBdyCmd = Eigen::Vector3f{0.0F, 0.0F, 1.0F},
                                              float sunAxisSpinRate = 0.0F,
                                              const Eigen::Vector3f& omega_RN_B = Eigen::Vector3f::Zero(),
-                                             int observationThreshold = 4,
+                                             uint32_t observationThreshold = 4U,
                                              float controlPeriod = kTestControlPeriodSec) {
     return SunSearchPointConfig::create(
         rotations, sHatBdyCmd, sunAxisSpinRate, omega_RN_B, observationThreshold, controlPeriod);
@@ -357,8 +357,20 @@ inline void searchConfigValidationChecks() {
     EXPECT_ANY_THROW((void)makeSearchConfig(makeValidRotations(), Eigen::Vector3f{2.0F, 0.0F, 0.0F}));
     EXPECT_NO_THROW((void)makeSearchConfig(makeValidRotations(), Eigen::Vector3f{0.0F, 1.0F, 0.0F}));
 
-    // controlPeriod must be finite and > 0.
+    // sunAxisSpinRate must be finite (any sign is allowed).
     const Eigen::Vector3f validSHat{0.0F, 0.0F, 1.0F};
+    EXPECT_NO_THROW((void)makeSearchConfig(makeValidRotations(), validSHat, -2.5F));
+    EXPECT_ANY_THROW((void)makeSearchConfig(makeValidRotations(), validSHat, std::numeric_limits<float>::infinity()));
+    EXPECT_ANY_THROW((void)makeSearchConfig(makeValidRotations(), validSHat, std::numeric_limits<float>::quiet_NaN()));
+
+    // omega_RN_B must be finite in every component.
+    EXPECT_NO_THROW((void)makeSearchConfig(makeValidRotations(), validSHat, 0.0F, Eigen::Vector3f{0.1F, -0.2F, 0.3F}));
+    EXPECT_ANY_THROW((void)makeSearchConfig(
+        makeValidRotations(), validSHat, 0.0F, Eigen::Vector3f{0.0F, std::numeric_limits<float>::infinity(), 0.0F}));
+    EXPECT_ANY_THROW((void)makeSearchConfig(
+        makeValidRotations(), validSHat, 0.0F, Eigen::Vector3f{0.0F, 0.0F, std::numeric_limits<float>::quiet_NaN()}));
+
+    // controlPeriod must be finite and > 0.
     EXPECT_ANY_THROW((void)makeSearchConfig(makeValidRotations(), validSHat, 0.0F, Eigen::Vector3f::Zero(), 4, 0.0F));
     EXPECT_ANY_THROW((void)makeSearchConfig(makeValidRotations(), validSHat, 0.0F, Eigen::Vector3f::Zero(), 4, -0.5F));
     EXPECT_ANY_THROW((void)makeSearchConfig(

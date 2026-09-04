@@ -26,6 +26,7 @@ jobs:
           set-safe-directory: true
           repository: lasp/adamant-xmera-components
           path: adamant-xmera-components
+          ref: 'feature/EMAGNCFSW-1113-add-sun-search-component'
           persist-credentials: false
 
       - name: Check out fp32-fsw-xmera at PR head

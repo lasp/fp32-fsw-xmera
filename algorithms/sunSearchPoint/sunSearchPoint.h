@@ -30,7 +30,7 @@ class SunSearchPoint final : public SysModel {
     Eigen::Vector3f sHatBdyCmd{Eigen::Vector3f::Zero()};  //!< [-] commanded body vector to point at the sun
     float sunAxisSpinRate{};                              //!< [rad/s] constant spin rate about the sun heading vector
     Eigen::Vector3f omega_RN_B{Eigen::Vector3f::Zero()};  //!< [rad/s] fallback rate when no sun is available
-    int observationThreshold{4};                          //!< [-] CSS count at or above which to transition to pointing
+    uint32_t observationThreshold{4U};                    //!< [-] CSS count at or above which to transition to pointing
     float controlPeriod{};                                //!< [s] update period; advances the search timeline (> 0)
 
     ReadFunctor<NavAttMsgF32Payload> rateInMsg;                      //!< Body angular velocity input message

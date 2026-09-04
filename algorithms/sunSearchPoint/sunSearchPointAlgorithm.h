@@ -34,8 +34,9 @@ struct SunSearchPointOutput {
  * @brief Validated configuration for the sun search point algorithm.
  *
  * Holds the sun-search rotation sequence and the pointing parameters. An instance can only exist if
- * every rotation has a finite, positive duration, a finite commanded rate, and a valid axis, and if
- * sHatBdyCmd has unit norm (within 1e-3). Construct via SunSearchPointConfig::create(...).
+ * every rotation has a finite, positive duration, a finite commanded rate, and a valid axis, if
+ * sHatBdyCmd has unit norm (within 1e-3), if sunAxisSpinRate and omega_RN_B are finite, and if
+ * controlPeriod is finite and positive. Construct via SunSearchPointConfig::create(...).
  */
 class SunSearchPointConfig final {
    public:
@@ -44,7 +45,7 @@ class SunSearchPointConfig final {
                                        const Eigen::Vector3f& sHatBdyCmd,
                                        float sunAxisSpinRate,
                                        const Eigen::Vector3f& omega_RN_B,
-                                       int observationThreshold,
+                                       uint32_t observationThreshold,
                                        float controlPeriod) {
         for (auto [rotationDuration, rotationRate, rotationAxis] : rotations) {
             if (!isValidRotationDuration(rotationDuration)) {
@@ -59,6 +60,12 @@ class SunSearchPointConfig final {
         }
         if (!isValidSHatBdyCmd(sHatBdyCmd)) {
             FSW_THROW_INVALID_ARGUMENT("sunSearchPoint: sHatBdyCmd norm must be within 1e-3 of 1.0");
+        }
+        if (!isValidSunAxisSpinRate(sunAxisSpinRate)) {
+            FSW_THROW_INVALID_ARGUMENT("sunSearchPoint: sunAxisSpinRate must be finite");
+        }
+        if (!isValidOmega_RN_B(omega_RN_B)) {
+            FSW_THROW_INVALID_ARGUMENT("sunSearchPoint: omega_RN_B must be finite");
         }
         if (!isValidControlPeriod(controlPeriod)) {
             FSW_THROW_INVALID_ARGUMENT("sunSearchPoint: controlPeriod must be finite and > 0");
@@ -76,15 +83,19 @@ class SunSearchPointConfig final {
         constexpr float kUnitNormTol = 1e-3F;
         return fabsf(sHatBdyCmd.norm() - 1.0F) <= kUnitNormTol;
     }
+    static bool isValidSunAxisSpinRate(float sunAxisSpinRate) { return fsw::is_finite(sunAxisSpinRate); }
+    static bool isValidOmega_RN_B(const Eigen::Vector3f& omega_RN_B) { return omega_RN_B.allFinite(); }
     static bool isValidControlPeriod(float controlPeriod) {
         return fsw::is_finite(controlPeriod) && controlPeriod > 0.0F;
     }
+    // No isValidObservationThreshold - every count is meaningful. Zero transitions to pointing as
+    // soon as the first rotation completes; a count the sensors cannot reach runs the full sequence.
 
     const std::array<RotationProperties, kNumRotations>& getRotations() const { return rotations; }
     const Eigen::Vector3f& getSHatBdyCmd() const { return sHatBdyCmd; }
     float getSunAxisSpinRate() const { return sunAxisSpinRate; }
     const Eigen::Vector3f& getOmega_RN_B() const { return omega_RN_B; }
-    int getObservationThreshold() const { return observationThreshold; }
+    uint32_t getObservationThreshold() const { return observationThreshold; }
     float getControlPeriod() const { return controlPeriod; }
 
    private:
@@ -93,7 +104,7 @@ class SunSearchPointConfig final {
                          const Eigen::Vector3f& sHatBdyCmdIn,
                          float sunAxisSpinRateIn,
                          const Eigen::Vector3f& omega_RN_BIn,
-                         int observationThresholdIn,
+                         uint32_t observationThresholdIn,
                          float controlPeriodIn)
         : rotations(rotationsIn),
           sHatBdyCmd(sHatBdyCmdIn),
@@ -106,7 +117,7 @@ class SunSearchPointConfig final {
     Eigen::Vector3f sHatBdyCmd;
     float sunAxisSpinRate;
     Eigen::Vector3f omega_RN_B;
-    int observationThreshold;
+    uint32_t observationThreshold;
     float controlPeriod;
 };
 
@@ -126,7 +137,7 @@ class SunSearchPointAlgorithm final {
 
     SunSearchPointOutput update(const Eigen::Vector3f& rHat_SB_B,
                                 const Eigen::Vector3f& omega_BN_B,
-                                int numCssViewingSun);
+                                uint32_t numCssViewingSun);
 
     void setConfig(const SunSearchPointConfig& config);
     void reInitialize();
