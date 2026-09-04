@@ -114,6 +114,7 @@ add_subdirectory(algorithms/utilities/fsw)
 set(algorithms
     "cobConverter"
     "attTrackingError"
+    "axisToGimbalAngles"
     "averageMimuData"
     "bodyRateMiscompare"
     "celestialTwoBodyPoint"

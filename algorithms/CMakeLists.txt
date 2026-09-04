@@ -11,6 +11,7 @@ link_libraries(FswUtilities)
 
 add_subdirectory(cobConverter)
 add_subdirectory(attTrackingError)
+add_subdirectory(axisToGimbalAngles)
 add_subdirectory(averageMimuData)
 add_subdirectory(bodyRateMiscompare)
 add_subdirectory(celestialTwoBodyPoint)
