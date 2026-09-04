@@ -92,7 +92,7 @@ km/(km/s) internally), and drives the lifecycle.
 Configuration is immutable once built. ``FlybyFilterConfig::create(...)`` validates every constrained
 parameter and throws on invalid input; the algorithm trusts the config thereafter. The constant filter
 parameters (including the ``mu``-carrying dynamics functor) are pushed into the SRuKF by ``setConfig()``
-(which calls the SRuKF's ``reConfigure()`` to re-derive the sigma-point spread, weights, and process-noise
+(which calls the SRuKF's ``configure()`` to re-derive the sigma-point spread, weights, and process-noise
 Cholesky), so a configuration change takes effect immediately while preserving the current estimate.
 
 Relation to filteringCore
@@ -167,13 +167,17 @@ Configuration parameters
       - positive semi-definite
     * - initialState
       - N-element initial state seed [m, m/s]
-      - any
+      - finite
     * - initialCovariance
       - N x N initial covariance P0
       - positive semi-definite
     * - headingMeasurementNoiseStd
       - heading (unit-vector) measurement noise standard deviation
       - >= 0
+    * - outlierNSigma
+      - N-sigma gate rejecting a measurement whose innovation exceeds N sigma (sigma^2 = innovation
+        covariance trace)
+      - > 0
 
 
 User Guide

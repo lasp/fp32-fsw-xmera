@@ -57,7 +57,8 @@ SunlineFilterConfig configFromC(const SunlineFilterConfig_c& c) {
                                        c.numberOfCss,
                                        c.sensorThreshold,
                                        c.cssMeasurementNoiseStd,
-                                       c.gyroMeasurementNoiseStd);
+                                       c.gyroMeasurementNoiseStd,
+                                       c.outlierNSigma);
 }
 
 SunlineFilterStateOutput_c filterStateToC(const FilterStateOutput& in) {

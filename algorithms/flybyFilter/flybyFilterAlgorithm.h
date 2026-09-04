@@ -44,7 +44,8 @@ class FlybyFilterConfig final {
                                     StateMatrix const& processNoise,
                                     FlybyState const& initialState,
                                     StateMatrix const& initialCovariance,
-                                    double headingMeasurementNoiseStd) {
+                                    double headingMeasurementNoiseStd,
+                                    double outlierNSigma = 10.0) {
         if (!Srukf::alphaIsValid(alpha)) {
             FSW_THROW_INVALID_ARGUMENT("flybyFilter: alpha must be in (0, 1)");
         }
@@ -60,20 +61,29 @@ class FlybyFilterConfig final {
         if (!isValidInitialCovariance(initialCovariance)) {
             FSW_THROW_INVALID_ARGUMENT("flybyFilter: initial covariance must be positive semi-definite");
         }
+        if (!isValidInitialState(initialState)) {
+            FSW_THROW_INVALID_ARGUMENT("flybyFilter: initial state must be finite");
+        }
         if (!isValidHeadingMeasurementNoiseStd(headingMeasurementNoiseStd)) {
             FSW_THROW_INVALID_ARGUMENT("flybyFilter: heading measurement noise std must not be negative");
         }
-        return {alpha, beta, mu, processNoise, initialState, initialCovariance, headingMeasurementNoiseStd};
+        if (!isValidOutlierNSigma(outlierNSigma)) {
+            FSW_THROW_INVALID_ARGUMENT("flybyFilter: outlier N-sigma must be greater than 0");
+        }
+        return {
+            alpha, beta, mu, processNoise, initialState, initialCovariance, headingMeasurementNoiseStd, outlierNSigma};
     }
 
     static bool isValidMu(double mu) { return mu > 0.0; }
     static bool isValidProcessNoise(StateMatrix const& processNoise) {
         return isPositiveSemiDefinite<FlybyState::size>(processNoise);
     }
+    static bool isValidInitialState(FlybyState const& initialState) { return initialState.allFinite(); }
     static bool isValidInitialCovariance(StateMatrix const& covariance) {
-        return isPositiveSemiDefinite<FlybyState::size>(covariance);
+        return covariance.allFinite() && isPositiveSemiDefinite<FlybyState::size>(covariance);
     }
     static bool isValidHeadingMeasurementNoiseStd(double noiseStd) { return noiseStd >= 0.0; }
+    static bool isValidOutlierNSigma(double nSigma) { return nSigma > 0.0; }
 
     double getAlpha() const { return this->alpha; }
     double getBeta() const { return this->beta; }
@@ -82,6 +92,7 @@ class FlybyFilterConfig final {
     FlybyState const& getInitialState() const { return this->initialState; }
     StateMatrix const& getInitialCovariance() const { return this->initialCovariance; }
     double getHeadingMeasurementNoiseStd() const { return this->headingMeasNoiseStd; }
+    double getOutlierNSigma() const { return this->outlierNSigma; }
 
    private:
     FlybyFilterConfig(double alpha,
@@ -90,14 +101,16 @@ class FlybyFilterConfig final {
                       StateMatrix const& processNoise,
                       FlybyState const& initialState,
                       StateMatrix const& initialCovariance,
-                      double headingMeasurementNoiseStd)
+                      double headingMeasurementNoiseStd,
+                      double outlierNSigma)
         : alpha(alpha),
           beta(beta),
           mu(mu),
           processNoise(processNoise),
           initialState(initialState),
           initialCovariance(initialCovariance),
-          headingMeasNoiseStd(headingMeasurementNoiseStd) {}
+          headingMeasNoiseStd(headingMeasurementNoiseStd),
+          outlierNSigma(outlierNSigma) {}
 
     double alpha;
     double beta;
@@ -106,6 +119,7 @@ class FlybyFilterConfig final {
     FlybyState initialState;
     StateMatrix initialCovariance;
     double headingMeasNoiseStd;
+    double outlierNSigma;
 };
 
 /*! @brief Angles-only flyby navigation square-root UKF. Estimates the inertial spacecraft position

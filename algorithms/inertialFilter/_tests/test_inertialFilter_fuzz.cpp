@@ -3,14 +3,17 @@
 
 // Property-based fuzz tests for InertialFilterAlgorithm. Over reasonable, randomized
 // filter parameters / initial states / measurements, the filter must:
-//   * return valid results from time and measurement updates,
-//   * move the state toward each measurement and shrink the corresponding covariance
-//     block, keeping the covariance symmetric + PSD + finite (generic regression), and
+//   * return valid results from every time update,
+//   * either apply a measurement -- moving the state toward it and shrinking the
+//     corresponding covariance block -- or reject it as an N-sigma outlier and leave the
+//     estimate untouched, keeping the covariance symmetric + PSD + finite either way, and
 //   * exercise specific behaviors: time-update covariance growth, and MRP regularization
 //     keeping |sigma| <= 1.
 //
 // Domains keep attitudes moderate (inside the unit sphere) so the kinematic, linear-MRP
 // filter stays in scope; the regularization fuzzer deliberately ranges past |sigma| = 1.
+// Each observation is drawn independently of the state, so innovations of tens of sigma are
+// in domain and the outlier gate legitimately fires.
 
 #include "inertialFilterAlgorithm.h"
 #include "inertialFilterSpecs.h"
@@ -69,12 +72,46 @@ constexpr double kTol = 1e-9;
 // Add some slack on the movement of the state towards the measurement
 constexpr double kMoveTowardRelTol = 1e-2;
 
+// The scaled sigma-point weights reach about 1e4 in magnitude at the alpha = 1e-2 floor of the
+// domain below, so the traces reconstructed from them lose several digits to cancellation. Scale
+// the slack on the trace with the trace itself rather than bounding it by an absolute kTol.
+constexpr double kTraceRelTol = 1e-6;
+
+// Apply one measurement and check the post-update invariants. The N-sigma outlier gate in
+// filteringCore/srukf.hpp rejects an innovation beyond outlierNSigma, so a false return is a
+// legitimate outcome over these domains, not a defect: the gate returns before the estimate is
+// written, so the state and covariance must be exactly as they were.
+template <typename MeasurementT, typename ErrorFn, typename TraceFn>
+void checkMeasurementUpdate(InertialFilterAlgorithm& algo,
+                            MeasurementT const& measurement,
+                            ErrorFn errorAgainstObservation,
+                            TraceFn blockTrace) {
+    State const priorState = algo.getState();
+    Matrix6 const priorCovariance = algo.getCovariance();
+    double const errorPrior = errorAgainstObservation(priorState);
+    double const tracePrior = blockTrace(priorCovariance);
+
+    if (!algo.measurementUpdate(measurement)) {
+        EXPECT_TRUE((algo.getState().raw() - priorState.raw()).isZero(0.0))
+            << "a gated measurement must leave the state untouched";
+        EXPECT_TRUE((algo.getCovariance() - priorCovariance).isZero(0.0))
+            << "a gated measurement must leave the covariance untouched";
+        return;
+    }
+
+    Matrix6 const posterior = algo.getCovariance();
+    EXPECT_TRUE(finiteSymmetricPsd(posterior)) << "covariance after an applied update";
+    EXPECT_LE(errorAgainstObservation(algo.getState()), errorPrior + kMoveTowardRelTol * std::sqrt(tracePrior) + kTol)
+        << "state should move toward the measurement (within the UKF sigma-point bias)";
+    EXPECT_LE(blockTrace(posterior), tracePrior * (1.0 + kTraceRelTol) + kTol) << "covariance block should shrink";
+}
+
 }  // namespace
 
 // ============================================================================
-// Generic regression: time update + both measurement kinds. Each measurement update is
-// valid, moves the state toward the measurement, shrinks its covariance block, and keeps
-// the covariance symmetric + PSD + finite.
+// Generic regression: time update + both measurement kinds. Each measurement update either
+// moves the state toward the measurement and shrinks its covariance block, or is gated as an
+// outlier and changes nothing. The covariance stays symmetric + PSD + finite throughout.
 // ============================================================================
 void fuzzTimeAndMeasurementUpdates(double alpha,
                                    double beta,
@@ -107,43 +144,30 @@ void fuzzTimeAndMeasurementUpdates(double alpha,
     ASSERT_TRUE(finiteSymmetricPsd(algo.getCovariance())) << "covariance after timeUpdate";
 
     // ---- star-tracker attitude update ----
-    Eigen::Vector3d const attPrior = algo.getState().get<filtering::MrpAttitude<3>>();
-    double const attErrorPrior = subMrp(stObservation, attPrior).norm();
-    double const attTracePrior = attitudeTrace(algo.getCovariance());
-
     StAttMeasurement st;
     st.timeTag = 1.0;
     st.sigma_BN = stObservation;
     st.covar = (stStd * stStd) * Eigen::Matrix3d::Identity();
     st.valid = true;
-    ASSERT_TRUE(algo.measurementUpdate(st)) << "ST measurementUpdate should be valid";
-
-    Matrix6 const afterSt = algo.getCovariance();
-    EXPECT_TRUE(finiteSymmetricPsd(afterSt)) << "covariance after ST update";
-    EXPECT_LE(subMrp(stObservation, algo.getState().get<filtering::MrpAttitude<3>>()).norm(),
-              attErrorPrior + kMoveTowardRelTol * std::sqrt(attTracePrior) + kTol)
-        << "attitude should move toward the ST measurement (within the UKF MRP sigma-point bias)";
-    EXPECT_LE(attitudeTrace(afterSt), attTracePrior + kTol) << "attitude covariance should shrink";
+    checkMeasurementUpdate(
+        algo,
+        st,
+        [&](State const& s) { return subMrp(stObservation, s.get<filtering::MrpAttitude<3>>()).norm(); },
+        attitudeTrace);
 
     // ---- gyro rate update (re-populate sigma points around the ST posterior first) ----
     ASSERT_TRUE(algo.timeUpdate(0.0)) << "zero-dt timeUpdate should be valid";
-    Eigen::Vector3d const ratePrior = algo.getState().get<filtering::AngularRate<3>>();
-    double const rateErrorPrior = (rateObservation - ratePrior).norm();
-    double const rateTracePrior = rateTrace(algo.getCovariance());
 
     RateMeasurement r;
     r.timeTag = 1.0;
     r.omega_BN_B = rateObservation;
     r.covar = (gyroStd * gyroStd) * Eigen::Matrix3d::Identity();
     r.valid = true;
-    ASSERT_TRUE(algo.measurementUpdate(r)) << "rate measurementUpdate should be valid";
-
-    Matrix6 const afterRate = algo.getCovariance();
-    EXPECT_TRUE(finiteSymmetricPsd(afterRate)) << "covariance after rate update";
-    EXPECT_LE((rateObservation - algo.getState().get<filtering::AngularRate<3>>()).norm(),
-              rateErrorPrior + kMoveTowardRelTol * std::sqrt(rateTracePrior) + kTol)
-        << "rate should move toward the gyro measurement (within the UKF sigma-point bias)";
-    EXPECT_LE(rateTrace(afterRate), rateTracePrior + kTol) << "rate covariance should shrink";
+    checkMeasurementUpdate(
+        algo,
+        r,
+        [&](State const& s) { return (rateObservation - s.get<filtering::AngularRate<3>>()).norm(); },
+        rateTrace);
 }
 FUZZ_TEST(InertialFilterFuzz, fuzzTimeAndMeasurementUpdates)
     .WithDomains(fuzztest::InRange(1e-2, 1.0 - 1e-9),  // alpha in (0, 1)

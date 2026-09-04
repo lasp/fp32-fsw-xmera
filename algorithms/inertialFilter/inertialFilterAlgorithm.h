@@ -52,7 +52,8 @@ class InertialFilterConfig final {
                                        InertialState const& initialState,
                                        StateMatrix const& initialCovariance,
                                        double stMeasurementNoiseStd,
-                                       double gyroMeasurementNoiseStd) {
+                                       double gyroMeasurementNoiseStd,
+                                       double outlierNSigma = 10.0) {
         if (!Srukf::alphaIsValid(alpha)) {
             FSW_THROW_INVALID_ARGUMENT("inertialFilter: alpha must be in (0, 1)");
         }
@@ -65,24 +66,38 @@ class InertialFilterConfig final {
         if (!isValidInitialCovariance(initialCovariance)) {
             FSW_THROW_INVALID_ARGUMENT("inertialFilter: initial covariance must be positive semi-definite");
         }
+        if (!isValidInitialState(initialState)) {
+            FSW_THROW_INVALID_ARGUMENT("inertialFilter: initial state must be finite");
+        }
         if (!isValidStMeasurementNoiseStd(stMeasurementNoiseStd)) {
             FSW_THROW_INVALID_ARGUMENT("inertialFilter: ST measurement noise std must not be negative");
         }
         if (!isValidGyroMeasurementNoiseStd(gyroMeasurementNoiseStd)) {
             FSW_THROW_INVALID_ARGUMENT("inertialFilter: gyro measurement noise std must not be negative");
         }
-        return {
-            alpha, beta, processNoise, initialState, initialCovariance, stMeasurementNoiseStd, gyroMeasurementNoiseStd};
+        if (!isValidOutlierNSigma(outlierNSigma)) {
+            FSW_THROW_INVALID_ARGUMENT("inertialFilter: outlier N-sigma must be greater than 0");
+        }
+        return {alpha,
+                beta,
+                processNoise,
+                initialState,
+                initialCovariance,
+                stMeasurementNoiseStd,
+                gyroMeasurementNoiseStd,
+                outlierNSigma};
     }
 
     static bool isValidProcessNoise(StateMatrix const& processNoise) {
         return isPositiveSemiDefinite<InertialState::size>(processNoise);
     }
+    static bool isValidInitialState(InertialState const& initialState) { return initialState.allFinite(); }
     static bool isValidInitialCovariance(StateMatrix const& covariance) {
-        return isPositiveSemiDefinite<InertialState::size>(covariance);
+        return covariance.allFinite() && isPositiveSemiDefinite<InertialState::size>(covariance);
     }
     static bool isValidStMeasurementNoiseStd(double noiseStd) { return noiseStd >= 0.0; }
     static bool isValidGyroMeasurementNoiseStd(double noiseStd) { return noiseStd >= 0.0; }
+    static bool isValidOutlierNSigma(double nSigma) { return nSigma > 0.0; }
 
     double getAlpha() const { return this->alpha; }
     double getBeta() const { return this->beta; }
@@ -91,6 +106,7 @@ class InertialFilterConfig final {
     StateMatrix const& getInitialCovariance() const { return this->initialCovariance; }
     double getStMeasurementNoiseStd() const { return this->stMeasNoiseStd; }
     double getGyroMeasurementNoiseStd() const { return this->gyroMeasNoiseStd; }
+    double getOutlierNSigma() const { return this->outlierNSigma; }
 
    private:
     InertialFilterConfig(double alpha,
@@ -99,14 +115,16 @@ class InertialFilterConfig final {
                          InertialState const& initialState,
                          StateMatrix const& initialCovariance,
                          double stMeasurementNoiseStd,
-                         double gyroMeasurementNoiseStd)
+                         double gyroMeasurementNoiseStd,
+                         double outlierNSigma)
         : alpha(alpha),
           beta(beta),
           processNoise(processNoise),
           initialState(initialState),
           initialCovariance(initialCovariance),
           stMeasNoiseStd(stMeasurementNoiseStd),
-          gyroMeasNoiseStd(gyroMeasurementNoiseStd) {}
+          gyroMeasNoiseStd(gyroMeasurementNoiseStd),
+          outlierNSigma(outlierNSigma) {}
 
     double alpha;
     double beta;
@@ -115,6 +133,7 @@ class InertialFilterConfig final {
     StateMatrix initialCovariance;
     double stMeasNoiseStd;
     double gyroMeasNoiseStd;
+    double outlierNSigma;
 };
 
 /*! @brief Inertial attitude square-root UKF. Estimates the inertial-to-body MRP attitude and the body

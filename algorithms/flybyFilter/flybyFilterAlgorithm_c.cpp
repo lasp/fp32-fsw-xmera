@@ -33,7 +33,8 @@ FlybyFilterConfig configFromC(const FlybyFilterConfig_c& c) {
                                      processNoise,
                                      FlybyState(initialStateVec),
                                      initialCovariance,
-                                     c.headingMeasurementNoiseStd);
+                                     c.headingMeasurementNoiseStd,
+                                     c.outlierNSigma);
 }
 
 FlybyFilterOutput_c outputToC(const FlybyFilterOutput& out) {

@@ -38,6 +38,7 @@ class InertialFilter : public SysModel {
     Eigen::MatrixXd initialCovariance;     //!< [-] N x N initial covariance P0 (defaults to identity)
     double stMeasurementNoiseStd = 0.0;    //!< [-] star-tracker attitude measurement noise std (>= 0)
     double gyroMeasurementNoiseStd = 0.0;  //!< [rad/s] gyro measurement noise std (>= 0)
+    double outlierNSigma = 10.0;           //!< [-] N-sigma innovation gate for outlier rejection (> 0)
 
     ReadFunctor<STAttMsgPayload> stAttInMsg;      //!< star-tracker attitude input (required)
     ReadFunctor<AccDataMsgPayload> gyrBuffInMsg;  //!< gyro buffer input (optional)

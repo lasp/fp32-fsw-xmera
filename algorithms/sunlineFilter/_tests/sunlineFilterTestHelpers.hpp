@@ -69,7 +69,7 @@ inline Eigen::Matrix<double, MaxCss, 3> oneCssNHat() {
 }
 
 // Validated config with a single (unused) CSS sensor; for dynamics / timeUpdate / rate-only tests.
-inline SunlineFilterConfig rateOnlyConfig(TestState const& initial, Matrix7 const& P) {
+inline SunlineFilterConfig rateOnlyConfig(TestState const& initial, Matrix7 const& P, double outlierNSigma = 10.0) {
     return SunlineFilterConfig::create(kAlpha,
                                        kBeta,
                                        smallProcessNoise(),
@@ -82,7 +82,8 @@ inline SunlineFilterConfig rateOnlyConfig(TestState const& initial, Matrix7 cons
                                        1,
                                        0.0,
                                        1E-2,
-                                       1E-3);
+                                       1E-3,
+                                       outlierNSigma);
 }
 
 // rateOnlyConfig with an explicit process noise (for exercising process-noise-driven covariance growth).

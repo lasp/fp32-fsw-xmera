@@ -34,7 +34,8 @@ InertialFilterConfig configFromC(const InertialFilterConfig_c& c) {
                                         InertialState(initialStateVec),
                                         initialCovariance,
                                         c.stMeasurementNoiseStd,
-                                        c.gyroMeasurementNoiseStd);
+                                        c.gyroMeasurementNoiseStd,
+                                        c.outlierNSigma);
 }
 
 // StAttResidualsOutput and RateResidualsOutput are distinct C++ types with identical fields; one

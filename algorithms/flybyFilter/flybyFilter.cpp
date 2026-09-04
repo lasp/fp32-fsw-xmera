@@ -52,7 +52,8 @@ void FlybyFilter::reset(uint64_t /*currentSimNanos*/) {
                                                   internalProcessNoise,
                                                   internalState,
                                                   internalCovariance,
-                                                  this->headingMeasurementNoiseStd);
+                                                  this->headingMeasurementNoiseStd,
+                                                  this->outlierNSigma);
     this->algorithm = std::make_unique<FlybyFilterAlgorithm>(config);
     this->lastHeadingTimeTag = 0;
 }

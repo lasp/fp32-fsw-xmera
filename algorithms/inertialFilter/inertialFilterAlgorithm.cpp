@@ -71,8 +71,9 @@ void InertialFilterAlgorithm::setConfig(InertialFilterConfig const& config) {
     this->srukf.setProcessNoise(config.getProcessNoise());
     this->srukf.setInitialState(config.getInitialState());
     this->srukf.setInitialCovariance(config.getInitialCovariance());
+    this->srukf.setOutlierNSigma(config.getOutlierNSigma());
     this->srukf.dynamics = InertialDynamics{};
-    this->srukf.reConfigure();
+    this->srukf.configure();
 }
 
 /*! Clear the internal runtime state (pending measurements and residual snapshots); the filter state
@@ -88,7 +89,7 @@ void InertialFilterAlgorithm::reInitializeExceptPersistentStates() {
  *  @return void */
 void InertialFilterAlgorithm::reInitialize() {
     this->reInitializeExceptPersistentStates();
-    this->srukf.reset();
+    this->srukf.reInitialize();
 }
 
 /*! Main entrypoint. Enqueues whichever measurements are present, empties

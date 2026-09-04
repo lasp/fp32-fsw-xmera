@@ -37,6 +37,7 @@ typedef struct {
     double sensorThreshold;                        /*!< [-] minimum cosValue to count a sensor active (>= 0) */
     double cssMeasurementNoiseStd;                 /*!< [-] CSS measurement noise std (>= 0) */
     double gyroMeasurementNoiseStd;                /*!< [rad/s] gyro measurement noise std (>= 0) */
+    double outlierNSigma;                          /*!< [-] N-sigma innovation gate for outlier rejection (> 0) */
 } SunlineFilterConfig_c;
 
 /**

@@ -98,7 +98,7 @@ payloads to/from the algorithm's Eigen types, and drives the lifecycle.
 
 Configuration is immutable once built. ``SunlineFilterConfig::create(...)`` validates every constrained
 parameter and throws on invalid input; the algorithm trusts the config thereafter. The constant filter
-parameters are pushed into the SRuKF by ``setConfig()`` (which calls the SRuKF's ``reConfigure()`` to
+parameters are pushed into the SRuKF by ``setConfig()`` (which calls the SRuKF's ``configure()`` to
 re-derive the sigma-point spread, weights, and process-noise Cholesky), so a configuration change takes
 effect immediately while preserving the current estimate.
 
@@ -139,7 +139,7 @@ Configuration parameters
       - positive semi-definite
     * - initialState
       - N-element initial state seed
-      - any
+      - finite
     * - initialCovariance
       - N x N initial covariance P0
       - positive semi-definite
@@ -158,6 +158,10 @@ Configuration parameters
     * - gyroMeasurementNoiseStd
       - gyro measurement noise standard deviation
       - >= 0
+    * - outlierNSigma
+      - N-sigma gate rejecting a measurement whose innovation exceeds N sigma (sigma^2 = innovation
+        covariance trace)
+      - > 0
 
 The CSS geometry is not set directly: ``numberOfCss`` (:math:`1 \le n \le` ``MaxCss``), the per-sensor
 boresights (each of the first ``numberOfCss`` rows must be unit length within 1e-3), and the per-sensor

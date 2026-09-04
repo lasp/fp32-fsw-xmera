@@ -123,9 +123,11 @@ class SRuKF {
     void setInitialCovariance(Covariance const& newInitialCovariance) {
         this->covarianceInitial = newInitialCovariance;
     }
+    void setOutlierNSigma(double newOutlierNSigma) { this->outlierNSigma = newOutlierNSigma; }
 
     double getAlpha() const { return this->alpha; }
     double getBeta() const { return this->beta; }
+    double getOutlierNSigma() const { return this->outlierNSigma; }
 
     Dyn dynamics{};  //!< concrete dynamics functor; set by the owning algorithm
 
@@ -140,7 +142,7 @@ class SRuKF {
     /*! Derive the sigma-point spread (lambda, eta), the sigma weights, and the
      *  process-noise Cholesky from alpha, beta, and the process noise. The estimate
      *  (state and covariance) is left untouched. */
-    void reConfigure() {
+    void configure() {
         constexpr int N = State::size;
         constexpr int numSigmaPoints = 2 * N + 1;
         constexpr auto Ndouble = static_cast<double>(N);
@@ -159,8 +161,8 @@ class SRuKF {
     }
 
     /*! Seed the estimate from initial conditions and re-derive the filter parameters
-     *  (reConfigure() plus a state/covariance reset). */
-    void reset() {
+     *  (configure() plus a state/covariance seed). */
+    void reInitialize() {
         constexpr int N = State::size;
 
         this->state = this->stateInitial;
@@ -180,7 +182,7 @@ class SRuKF {
         this->covariance = this->covarianceLastMeasurement;
         this->sqrtCovar = this->sqrtCovarLastMeasurement;
 
-        this->reConfigure();
+        this->configure();
     }
 
     /*! Rewind to the last-measurement state and propagate by dt. If dt = 0
@@ -298,6 +300,12 @@ class SRuKF {
             Eigen::Vector<double, MSize> const yError0 = yMeasPre.col(0) - yBarPre;
             sy = choleskyUpDownDate<MSize>(sy, yError0, this->wC(0));
 
+            //! > Reject the measurement as an outlier if the innovation exceeds N sigma (sigma^2 = trace of the
+            //! > innovation covariance sy * sy^T = P_yy + R)
+            if (preFit.norm() > this->outlierNSigma * safeSqrt((sy * sy.transpose()).trace())) {
+                return residuals;
+            }
+
             //! > Covariance of prior prediction computation eq 26
             Eigen::Matrix<double, N, MSize> pXY = Eigen::Matrix<double, N, MSize>::Zero();
             for (int i = 0; i < numSigma; ++i) {
@@ -378,6 +386,7 @@ class SRuKF {
     double beta = 0;
     double lambda = 0;
     double eta = 0;
+    double outlierNSigma = 10.0;  //!< [-] N-sigma innovation gate for outlier rejection
 
     /*!  Sigma weights, latest propagated sigma points, and weighted mean. */
     SigmaWeights wM = SigmaWeights::Zero();
