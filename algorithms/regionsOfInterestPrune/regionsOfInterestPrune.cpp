@@ -1,0 +1,214 @@
+#include "regionsOfInterestPrune.h"
+
+#include "utilities/xmera/xmeraLifecycleException.h"
+
+#include <stdexcept>
+#include <string>
+
+// Bits packed per byte in the threshold image's 1-bit-per-pixel encoding
+static constexpr int kBitsPerByte = 8;
+// Grayscale value for an above-threshold ("on") pixel
+static constexpr uint32_t kMaxGrayscale = 255;
+// Visualization: filled center-dot radius [px]
+static constexpr int kCenterDotRadiusPx = 3;
+// Visualization: label vertical offset above the bounding box [px]
+static constexpr int kLabelOffsetPx = 6;
+// Visualization: minimum label y-coordinate, so it isn't clipped off the top of the image [px]
+static constexpr int kLabelMinY = 12;
+// Visualization: label font scale (cv::putText)
+static constexpr double kLabelFontScale = 0.5;
+// Visualization: label text stroke thickness [px]
+static constexpr int kLabelTextThicknessPx = 1;
+// Visualization: outline thickness for all published regions (context) [px]
+static constexpr int kAllRegionsThicknessPx = 1;
+// Visualization: outline thickness for the rank-1/rank-2 highlighted regions [px]
+static constexpr int kRankedThicknessPx = 2;
+// Visualization annotation colors (BGR)
+static const cv::Scalar kCyan(0, 255, 255);
+static const cv::Scalar kRed(0, 0, 255);
+static const cv::Scalar kBlue(255, 0, 0);
+
+// ---------------------------------------------------------------------------
+// Free helpers
+// ---------------------------------------------------------------------------
+
+// Converts a flat-array slot back to RegionOfInterestMsgF32Payload for visualization.
+static RegionOfInterestMsgF32Payload regionAt(const RegionsIdentifiedMsgF32Payload& msg, uint32_t k) {
+    return {.timeTag = msg.timeTag[k],
+            .centerX = msg.centerX[k],
+            .centerY = msg.centerY[k],
+            .width = msg.width[k],
+            .height = msg.height[k],
+            .numberOfPixels = msg.numberOfPixels[k],
+            .centerOfBrightnessX = msg.centerX[k],
+            .centerOfBrightnessY = msg.centerY[k]};
+}
+
+// ---------------------------------------------------------------------------
+// BSK adapter interface
+// ---------------------------------------------------------------------------
+
+/*! @brief Reset internal state, validate that rowColSumInMsg is connected, and construct the algorithm
+ *         from the currently-set config properties.
+ *  @param callTime Current simulation time in nanoseconds (unused).
+ *  @throws std::invalid_argument If rowColSumInMsg is not connected, or if a config property is invalid.
+ */
+void RegionsOfInterestPrune::reset(uint64_t /*callTime*/) {
+    if (!this->rowColSumInMsg.isLinked()) {
+        throw std::invalid_argument("RegionsOfInterestPrune.rowColSumInMsg wasn't connected.");
+    }
+    this->algorithm = std::make_unique<RegionsOfInterestPruneAlgorithm>(this->toConfig());
+    this->numPublished = 0;
+    this->lastRegionsOutput = {};
+}
+
+/*! @brief Build a validated RegionsOfInterestPruneConfig from the adapter's stored properties. */
+RegionsOfInterestPruneConfig RegionsOfInterestPrune::toConfig() const {
+    return RegionsOfInterestPruneConfig::create(this->maxRowSpans, this->maxColSpans);
+}
+
+/*! @brief Push a fresh configuration into the algorithm without reconstructing it.
+ *  @throws XmeraLifecycleException If reset() has not been called yet.
+ */
+void RegionsOfInterestPrune::reconfigure() const {
+    if (!this->algorithm) {
+        throw XmeraLifecycleException("RegionsOfInterestPrune reset() has not been called.");
+    }
+    this->algorithm->setConfig(this->toConfig());
+}
+
+void RegionsOfInterestPrune::updateState(uint64_t callTime) {
+    if (!this->algorithm) {
+        throw XmeraLifecycleException("RegionsOfInterestPrune reset() has not been called.");
+    }
+
+    const FpgaRowColSumMsgF32Payload rcMsg = this->rowColSumInMsg();
+    const auto* rowSums = static_cast<const uint16_t*>(rcMsg.rowSumPointer);
+    const auto* colSums = static_cast<const uint16_t*>(rcMsg.colSumPointer);
+
+    const RoiCandidates candidates = this->algorithm->update(rowSums, rcMsg.numRows, colSums, rcMsg.numCols);
+
+    this->lastRegionsOutput = {};
+    this->numPublished = std::min(candidates.numCandidates, static_cast<uint32_t>(MAX_NUMBER_REGIONS));
+    const double timeTagSec = static_cast<double>(callTime) * NANO2SEC;
+    for (uint32_t k = 0; k < this->numPublished; ++k) {
+        const auto& cand = candidates.candidates[k];
+        this->lastRegionsOutput.timeTag[k] = timeTagSec;
+        this->lastRegionsOutput.centerX[k] = static_cast<int>(cand.col + cand.width / 2);
+        this->lastRegionsOutput.centerY[k] = static_cast<int>(cand.row + cand.height / 2);
+        this->lastRegionsOutput.width[k] = static_cast<int>(cand.width);
+        this->lastRegionsOutput.height[k] = static_cast<int>(cand.height);
+        this->lastRegionsOutput.numberOfPixels[k] = static_cast<int>(cand.count);
+    }
+    this->regionsIdentifiedOutMsg.write(this->lastRegionsOutput, moduleID, callTime);
+
+    if (this->saveImages && !this->saveDir.empty()) saveVisualization(rcMsg);
+}
+
+// ---------------------------------------------------------------------------
+// Visualization helpers
+// ---------------------------------------------------------------------------
+
+/*! Builds a BGR background image for the current frame.
+ *  Prefers the packed 1-bit threshold image; falls back to a synthetic image
+ *  whose brightness at (r,c) is min(rowSum[r], colSum[c]).
+ @return BGR cv::Mat of size H×W, or an empty Mat on failure.
+ @param rcMsg  Row/col sum message (carries dimensions and fallback data).
+*/
+cv::Mat RegionsOfInterestPrune::buildBackground(const FpgaRowColSumMsgF32Payload& rcMsg) {
+    const auto H = static_cast<int>(rcMsg.numRows);
+    const auto W = static_cast<int>(rcMsg.numCols);
+
+    if (this->threshImageInMsg.isLinked()) {
+        const FpgaThreshImageMsgF32Payload thMsg = this->threshImageInMsg();
+        const auto* bits = reinterpret_cast<const uint8_t*>(thMsg.imagePointer);
+        if (bits && thMsg.width == static_cast<uint32_t>(W) && thMsg.height == static_cast<uint32_t>(H)) {
+            // Unpack 1-bit-per-pixel (MSB-first) → 8-bit grayscale → BGR.
+            cv::Mat gray(H, W, CV_8UC1);
+            const int nPix = H * W;
+            for (int i = 0; i < nPix; ++i)
+                gray.at<uint8_t>(i / W, i % W) = static_cast<uint8_t>(
+                    ((bits[i / kBitsPerByte] >> (kBitsPerByte - 1 - i % kBitsPerByte)) & 1) * kMaxGrayscale);
+            cv::Mat bgr;
+            cv::cvtColor(gray, bgr, cv::COLOR_GRAY2BGR);
+            return bgr;
+        }
+    }
+
+    // Fallback: synthesize from 1-D sums.
+    const auto* rowSums = static_cast<const uint16_t*>(rcMsg.rowSumPointer);
+    const auto* colSums = static_cast<const uint16_t*>(rcMsg.colSumPointer);
+    if (!rowSums || !colSums) return {};
+
+    uint32_t maxVal = 0;
+    for (int r = 0; r < H; ++r) maxVal = std::max(maxVal, static_cast<uint32_t>(rowSums[r]));
+    for (int c = 0; c < W; ++c) maxVal = std::max(maxVal, static_cast<uint32_t>(colSums[c]));
+
+    cv::Mat gray(H, W, CV_8UC1, cv::Scalar(0));
+    if (maxVal > 0) {
+        for (int r = 0; r < H; ++r)
+            for (int c = 0; c < W; ++c)
+                gray.at<uint8_t>(r, c) =
+                    static_cast<uint8_t>(std::min<uint32_t>(rowSums[r], colSums[c]) * kMaxGrayscale / maxVal);
+    }
+    cv::Mat bgr;
+    cv::cvtColor(gray, bgr, cv::COLOR_GRAY2BGR);
+    return bgr;
+}
+
+/*! Annotates one ranked region on vis: thick bounding box + filled center dot + label.
+ @param vis        BGR image to annotate in-place.
+ @param reg        Region in center-coordinate form.
+ @param color      BGR annotation color.
+ @param thickness  Bounding-box line thickness.
+ @param label      Text label drawn above the box.
+*/
+void RegionsOfInterestPrune::drawRegion(cv::Mat& vis,
+                                        const RegionOfInterestMsgF32Payload& reg,
+                                        const cv::Scalar& color,
+                                        int thickness,
+                                        const std::string& label) {
+    const int x = reg.centerX - reg.width / 2;
+    const int y = reg.centerY - reg.height / 2;
+    cv::rectangle(vis, cv::Point(x, y), cv::Point(x + reg.width, y + reg.height), color, thickness);
+    cv::circle(vis, cv::Point(reg.centerX, reg.centerY), kCenterDotRadiusPx, color, cv::FILLED);
+    cv::putText(vis,
+                label,
+                cv::Point(x, std::max(y - kLabelOffsetPx, kLabelMinY)),
+                cv::FONT_HERSHEY_SIMPLEX,
+                kLabelFontScale,
+                color,
+                kLabelTextThicknessPx,
+                cv::LINE_AA);
+}
+
+void RegionsOfInterestPrune::saveVisualization(const FpgaRowColSumMsgF32Payload& rcMsg) {
+    if (rcMsg.numRows == 0 || rcMsg.numCols == 0) return;
+
+    cv::Mat vis = buildBackground(rcMsg);
+    if (vis.empty()) return;
+
+    const uint32_t nDraw = this->numPublished;
+
+    // All published regions: thin cyan outline for context.
+    for (uint32_t k = 0; k < nDraw; ++k) {
+        const int x = this->lastRegionsOutput.centerX[k] - this->lastRegionsOutput.width[k] / 2;
+        const int y = this->lastRegionsOutput.centerY[k] - this->lastRegionsOutput.height[k] / 2;
+        cv::rectangle(vis,
+                      cv::Point(x, y),
+                      cv::Point(x + this->lastRegionsOutput.width[k], y + this->lastRegionsOutput.height[k]),
+                      kCyan,
+                      kAllRegionsThicknessPx);
+    }
+    // Rank-1 (red) and rank-2 (blue): thicker box + center dot + pixel-count label.
+    if (nDraw >= 1) {
+        const auto r1 = regionAt(this->lastRegionsOutput, 0);
+        drawRegion(vis, r1, kRed, kRankedThicknessPx, "R1 (" + std::to_string(r1.numberOfPixels) + ")");
+    }
+    if (nDraw >= 2) {
+        const auto r2 = regionAt(this->lastRegionsOutput, 1);
+        drawRegion(vis, r2, kBlue, kRankedThicknessPx, "R2 (" + std::to_string(r2.numberOfPixels) + ")");
+    }
+
+    cv::imwrite(this->saveDir + "/" + std::to_string(rcMsg.timeTag) + "_pruning_output.png", vis);
+}
