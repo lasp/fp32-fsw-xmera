@@ -16,7 +16,7 @@ struct AxisToGimbalAnglesOutput {
  * @brief Validated configuration for the axis to gimbal angles algorithm.
  *
  * Carries the only quantity the mapping needs: the orientation of the gimbal mount frame M on the hub. The M
- * frame is defined with its -z axis along the un-deflected thrust axis, so a neutral gimbal fires along -z_M.
+ * frame is defined with its +z axis along the un-deflected thrust axis, so a neutral gimbal fires along +z_M.
  * Construct via AxisToGimbalAnglesConfig::create(...).
  */
 class AxisToGimbalAnglesConfig final {

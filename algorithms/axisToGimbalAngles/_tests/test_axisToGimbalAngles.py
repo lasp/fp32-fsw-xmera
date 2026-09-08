@@ -12,11 +12,11 @@ accuracy = 1e-5
 
 def gimbal_axis_M(angle1, angle2):
     """The gimbal thrust axis in mount frame coordinates: T(alpha, beta), proportional to
-    [-tan(beta), tan(alpha), -1], scaled so it stays finite up to the 90 degree boundary. The mount frame's -z axis
-    is the un-deflected thrust, so a neutral gimbal gives [0, 0, -1]."""
-    axis = np.array([-np.sin(angle2) * np.cos(angle1),
-                     np.cos(angle2) * np.sin(angle1),
-                     -np.cos(angle2) * np.cos(angle1)])
+    [tan(beta), -tan(alpha), 1], scaled so it stays finite up to the 90 degree boundary. The mount frame's +z axis
+    is the un-deflected thrust, so a neutral gimbal gives [0, 0, 1]."""
+    axis = np.array([np.sin(angle2) * np.cos(angle1),
+                     -np.cos(angle2) * np.sin(angle1),
+                     np.cos(angle2) * np.cos(angle1)])
     return axis / np.linalg.norm(axis)
 
 
@@ -30,7 +30,7 @@ def test_axis_to_gimbal_angles(angle1, angle2, mount_euler_angles, request_scale
     containing the un-deflected axis. The request is built from a known pair of angles and rotated into the body
     frame, so the module must return that same pair whatever the mounting orientation and whatever the length of
     the request."""
-    # The mount frame is defined with its -z axis along the un-deflected gimbal thrust axis, so sigma_MB carries
+    # The mount frame is defined with its +z axis along the un-deflected gimbal thrust axis, so sigma_MB carries
     # the gimbal's mounting orientation on the hub.
     sigma_MB = np.array(rbk.euler1232MRP(mount_euler_angles))
     dcm_MB = rbk.MRP2C(sigma_MB)

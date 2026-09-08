@@ -72,13 +72,13 @@ TEST(AxisToGimbalAnglesTest, PropertyLengthHasNoEffect) {
 // The module gives two plane angles, not a sequential Euler pair. The two conventions agree when one angle is
 // zero. For all other directions they are different, thus this direction separates them.
 TEST(AxisToGimbalAnglesTest, PlaneAnglesAreNotSequentialEulerAngles) {
-    // Build a direction with a known reading in each convention. The -x component is sin(eulerAngle), thus an
+    // Build a direction with a known reading in each convention. The x component is sin(eulerAngle), thus an
     // arcsine gives eulerAngle. The remaining length is divided by planeAngle1 in the y-z plane.
     constexpr float eulerAngle = 27.0F * kDegToRad;
     constexpr float planeAngle1 = 18.5F * kDegToRad;
-    const Eigen::Vector3f request_M{-std::sin(eulerAngle),
-                                    std::cos(eulerAngle) * std::sin(planeAngle1),
-                                    -std::cos(eulerAngle) * std::cos(planeAngle1)};
+    const Eigen::Vector3f request_M{std::sin(eulerAngle),
+                                    -std::cos(eulerAngle) * std::sin(planeAngle1),
+                                    std::cos(eulerAngle) * std::cos(planeAngle1)};
 
     const AxisToGimbalAnglesAlgorithm alg{makeConfig(Eigen::Vector3f::Zero())};
     const AxisToGimbalAnglesOutput out = alg.update(request_M);
@@ -144,7 +144,7 @@ TEST(AxisToGimbalAnglesTest, NonFiniteDirectionGivesHomePosition) {
     constexpr float nan = std::numeric_limits<float>::quiet_NaN();
     const AxisToGimbalAnglesAlgorithm alg{makeConfig(Eigen::Vector3f::Zero())};
 
-    EXPECT_NEAR(alg.update({nan, 0.0F, -1.0F}).gimbalAngle1, 0.0F, kAccuracy);
+    EXPECT_NEAR(alg.update({nan, 0.0F, 1.0F}).gimbalAngle1, 0.0F, kAccuracy);
     EXPECT_NEAR(alg.update({0.0F, 0.0F, nan}).gimbalAngle2, 0.0F, kAccuracy);
 }
 
@@ -178,7 +178,7 @@ TEST(AxisToGimbalAnglesTest, SetConfigAppliesNewMounting) {
     const Eigen::Vector3f sigma_MB = dcmToMrp(eulerAngles123ToDcm(Eigen::Vector3f(0.0F, -angle2, 0.0F)));
     alg.setConfig(makeConfig(sigma_MB));
 
-    const AxisToGimbalAnglesOutput out = alg.update(-Eigen::Vector3f::UnitZ());
+    const AxisToGimbalAnglesOutput out = alg.update(Eigen::Vector3f::UnitZ());
     EXPECT_NEAR(out.gimbalAngle1, 0.0F, kAccuracy);
     EXPECT_NEAR(out.gimbalAngle2, angle2, kAccuracy);
 }

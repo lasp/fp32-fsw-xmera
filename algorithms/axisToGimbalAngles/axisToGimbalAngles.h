@@ -21,7 +21,7 @@ class AxisToGimbalAngles final : public SysModel {
     void reconfigure() const;
 
     /*! Phase 1: user-defined configuration properties, set before reset() */
-    Eigen::Vector3f sigma_MB{Eigen::Vector3f::Zero()};  //!< orientation of the M frame w.r.t. the B frame; M's -z axis
+    Eigen::Vector3f sigma_MB{Eigen::Vector3f::Zero()};  //!< orientation of the M frame w.r.t. the B frame; M's +z axis
                                                         //!< is the un-deflected gimbal thrust axis
 
     /*! module IO interfaces */

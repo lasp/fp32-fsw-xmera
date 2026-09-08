@@ -16,7 +16,7 @@ typedef struct AxisToGimbalAnglesAlgorithmHandle AxisToGimbalAnglesAlgorithmHand
 
 /**
  * @brief Report whether a configuration would be accepted by create/setConfig.
- * @param sigma_MB MRP of the mount frame M w.r.t. the body frame B; must be finite. The M frame's -z axis is
+ * @param sigma_MB MRP of the mount frame M w.r.t. the body frame B; must be finite. The M frame's +z axis is
  *                 the un-deflected gimbal thrust axis.
  * @return true when the configuration is valid. Never throws, so it can guard the throwing
  *         create/setConfig from an invalid configuration.

@@ -15,15 +15,15 @@ inline AxisToGimbalAnglesConfig makeConfig(const Eigen::Vector3f& sigma_MB) {
 }
 
 // The gimbal thrust axis for a pair of angles. This function does not use the algorithm, thus the tests can
-// examine the mapping and do not repeat it. T(angle1, angle2) is proportional to [-tan(angle2), tan(angle1), -1].
+// examine the mapping and do not repeat it. T(angle1, angle2) is proportional to [tan(angle2), -tan(angle1), 1].
 // The cos(angle1)cos(angle2) factor keeps the components small at a deflection of 90 degrees.
 inline Eigen::Vector3f gimbalAxis_M(const float angle1, const float angle2) {
     return Eigen::Vector3f{
-        -std::sin(angle2) * std::cos(angle1), std::cos(angle2) * std::sin(angle1), -std::cos(angle2) * std::cos(angle1)}
+        std::sin(angle2) * std::cos(angle1), -std::cos(angle2) * std::sin(angle1), std::cos(angle2) * std::cos(angle1)}
         .normalized();
 }
 
-// The input direction in mount-frame coordinates. The two angles are ratios against the mount -z axis. Thus this
+// The input direction in mount-frame coordinates. The two angles are ratios against the mount +z axis. Thus this
 // function does not change the length of the vector.
 inline Eigen::Vector3f thrustDir_M(const Eigen::Vector3f& sigma_MB, const Eigen::Vector3f& thrustDirection_B) {
     return mrpToDcm(mrpSwitch(sigma_MB)) * thrustDirection_B;
@@ -37,13 +37,13 @@ inline Eigen::Vector3f thrustHatUnit_M(const Eigen::Vector3f& sigma_MB, const Ei
 }
 
 // Shows if the module can give two angles for the input direction. The deflection from the neutral thrust axis
-// must be less than 90 degrees, which puts the direction on the -z side of the mount frame. Each component must
+// must be less than 90 degrees, which puts the direction on the +z side of the mount frame. Each component must
 // also be a number:
 // the safe arctangent gives zero for a component that is not a number, and a very large input can become
 // infinite in the rotation to mount-frame coordinates.
 inline bool isResolvable(const Eigen::Vector3f& sigma_MB, const Eigen::Vector3f& thrustDirection_B) {
     const Eigen::Vector3f unitDirection = thrustHatUnit_M(sigma_MB, thrustDirection_B);
-    return unitDirection.allFinite() && -unitDirection.z() > 0.0F;
+    return unitDirection.allFinite() && unitDirection.z() > 0.0F;
 }
 
 // Double-precision reference for the two gimbal angles. The regression tests compare the float algorithm with
@@ -55,12 +55,12 @@ struct GimbalAnglesDouble {
 
 inline GimbalAnglesDouble referenceUpdate(const Eigen::Vector3d& sigma_MB, const Eigen::Vector3d& thrustDirection_B) {
     const Eigen::Vector3d thrustDir = (mrpToDcm(mrpSwitch<double>(sigma_MB)) * thrustDirection_B).stableNormalized();
-    const double towardsThrust = -thrustDir.z();
+    const double towardsThrust = thrustDir.z();
     // The float algorithm uses safe arctangents, which give zero for an argument that is not a number.
     if (!thrustDir.allFinite() || !(towardsThrust > 0.0)) {
         return {0.0, 0.0};
     }
-    return {std::atan2(thrustDir.y(), towardsThrust), std::atan2(-thrustDir.x(), towardsThrust)};
+    return {std::atan2(-thrustDir.y(), towardsThrust), std::atan2(thrustDir.x(), towardsThrust)};
 }
 
 // Shows if the input direction is at a deflection of 90 degrees, where the mount-frame z component is zero.
@@ -75,14 +75,14 @@ inline bool isAtNinetyDegreeDeflection(const Eigen::Vector3f& unitDirection_M) {
 
 // The largest difference that is permitted between the float angles and the double reference angles.
 //
-// The two angles are the coordinates of the point where the thrust axis touches the plane z = -1. Thus they
+// The two angles are the coordinates of the point where the thrust axis touches the plane z = 1. Thus they
 // become very large as the deflection increases to 90 degrees. Near that limit the last bits of a float value
 // hold all of the remaining z component, and the accuracy decreases in proportion to 1 / |z|. This is a property
 // of the two angles and not a defect. The constant below includes margin above the measured behaviour. For the
 // small deflections that a gimbal can move to, this bound is approximately 1e-5.
 inline float angleTolerance(const Eigen::Vector3f& unitDirection_M) {
     constexpr float kScale = 2e-6F;
-    return 1e-5F + (kScale / std::fmax(-unitDirection_M.z(), kScale));
+    return 1e-5F + (kScale / std::fmax(unitDirection_M.z(), kScale));
 }
 
 // Below 90 degrees of deflection, both angles are arctangents of a ratio with a denominator of more than zero.
@@ -171,7 +171,7 @@ inline void propertyOutputIsUsable(const Eigen::Vector3f& sigma_MB, const Eigen:
     // those two conditions.
     const Eigen::Vector3f unitDirection_M = thrustHatUnit_M(sigma_MB, thrustDirection_B);
     const bool certainlyOutside =
-        unitDirection_M.allFinite() && -unitDirection_M.z() <= 0.0F && !isAtNinetyDegreeDeflection(unitDirection_M);
+        unitDirection_M.allFinite() && unitDirection_M.z() <= 0.0F && !isAtNinetyDegreeDeflection(unitDirection_M);
     if (certainlyOutside) {
         EXPECT_NEAR(out.gimbalAngle1, 0.0F, 1e-6F);
         EXPECT_NEAR(out.gimbalAngle2, 0.0F, 1e-6F);
@@ -193,7 +193,7 @@ inline void propertyDirectionRecovered(const Eigen::Vector3f& sigma_MB, const Ei
     EXPECT_LT((gimbalAxis_M(out.gimbalAngle1, out.gimbalAngle2) - expected_M).norm(), angleTolerance(expected_M));
 }
 
-// Both angles are ratios against the mount -z axis. Thus a change of the length of the input direction does not
+// Both angles are ratios against the mount +z axis. Thus a change of the length of the input direction does not
 // change the two angles.
 //
 // A very small or very large scale is the one exception, and it is a limit of the float type and not of the

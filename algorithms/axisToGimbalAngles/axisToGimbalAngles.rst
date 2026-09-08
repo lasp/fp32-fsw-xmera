@@ -71,7 +71,7 @@ An incorrect value causes an ``fsw::invalid_argument`` exception.
     * - ``sigma_MB``
       - [0, 0, 0]
       - finite
-      - MRP rotation between the body-fixed frames :math:`\mathcal{M}` and :math:`\mathcal{B}`. The :math:`-z`
+      - MRP rotation between the body-fixed frames :math:`\mathcal{M}` and :math:`\mathcal{B}`. The :math:`+z`
         axis of the :math:`\mathcal{M}` frame is the neutral gimbal thrust axis, thus this parameter gives the
         mounting orientation of the gimbal
 
@@ -83,8 +83,8 @@ Mathematical Formulation
 
 Frames and mounting
 ^^^^^^^^^^^^^^^^^^^
-The gimbal is on the hub-fixed mount frame :math:`\mathcal{M}`. The :math:`-z` axis of this frame is the neutral
-thrust direction. A gimbal at its home position thus fires along :math:`-z_\mathcal{M}`. The parameter
+The gimbal is on the hub-fixed mount frame :math:`\mathcal{M}`. The :math:`+z` axis of this frame is the neutral
+thrust direction. A gimbal at its home position thus fires along :math:`+z_\mathcal{M}`. The parameter
 ``sigma_MB`` gives the mounting orientation of the gimbal on the hub.
 
 The module first changes the input direction to mount-frame coordinates:
@@ -97,10 +97,10 @@ The module calculates :math:`[\mathcal{MB}]` one time, when the caller sets the 
 
 .. note::
 
-    The :math:`-z` direction is a convention. The module sets it, and the caller cannot change it, because the
+    The :math:`+z` direction is a convention. The module sets it, and the caller cannot change it, because the
     sign of each angle depends on it.
 
-    Two rotations give a frame whose :math:`+z` axis is along the thrust:
+    Two rotations give a frame whose :math:`-z` axis is along the thrust:
 
     - a rotation of :math:`180^\circ` about the mount :math:`x` axis, which changes the sign of :math:`\beta`,
     - a rotation of :math:`180^\circ` about the mount :math:`y` axis, which changes the sign of :math:`\alpha`.
@@ -124,11 +124,11 @@ in terms of the two angles is:
 
 .. math::
     {}^\mathcal{M}\boldsymbol{T}(\alpha, \beta) \;\propto\; \begin{bmatrix}
-        -\tan\beta \\ \tan\alpha \\ -1
+        \tan\beta \\ -\tan\alpha \\ 1
     \end{bmatrix}.
 
 The two angles are thus the coordinates of the point where the thrust axis touches the plane
-:math:`z_\mathcal{M} = -1`. Lines of constant :math:`\alpha` and constant :math:`\beta` make a square grid on
+:math:`z_\mathcal{M} = 1`. Lines of constant :math:`\alpha` and constant :math:`\beta` make a square grid on
 that plane.
 
 .. note::
@@ -149,20 +149,20 @@ Solving for the gimbal angles
 The module calculates the two angles directly from this relation, with two four-quadrant arctangents:
 
 .. math::
-    \alpha = \tan^{-1}\left( \frac{{}^{\mathcal{M}}t_2}{-\,{}^{\mathcal{M}}t_3} \right), \qquad
-    \beta  = \tan^{-1}\left( \frac{-\,{}^{\mathcal{M}}t_1}{-\,{}^{\mathcal{M}}t_3} \right).
+    \alpha = \tan^{-1}\left( \frac{-\,{}^{\mathcal{M}}t_2}{{}^{\mathcal{M}}t_3} \right), \qquad
+    \beta  = \tan^{-1}\left( \frac{{}^{\mathcal{M}}t_1}{{}^{\mathcal{M}}t_3} \right).
 
-Both angles are ratios against the mount :math:`-z` axis. This has two results. First, the length of the input
+Both angles are ratios against the mount :math:`+z` axis. This has two results. First, the length of the input
 direction has no effect, because it cancels in each ratio. The module also makes the direction a unit vector
 before it calculates the two ratios. This keeps the direction for a very short or a very long input. Second, the
 two angles are correct only where the denominator is more than zero. This is a deflection of less than
-:math:`90^\circ` from the neutral thrust axis, or :math:`{}^{\mathcal{M}}t_3 < 0`. The two angles become very
+:math:`90^\circ` from the neutral thrust axis, or :math:`{}^{\mathcal{M}}t_3 > 0`. The two angles become very
 large as the deflection increases to :math:`90^\circ`. Below that deflection both angles stay in the range
 :math:`(-\pi/2, \pi/2)`, and the mapping is correct in the two directions.
 
 Directions at a deflection of 90 degrees or more
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-The module examines :math:`{}^{\mathcal{M}}t_3` each cycle. If :math:`{}^{\mathcal{M}}t_3 < 0` is not true, the
+The module examines :math:`{}^{\mathcal{M}}t_3` each cycle. If :math:`{}^{\mathcal{M}}t_3 > 0` is not true, the
 module gives the gimbal home position :math:`(\alpha, \beta) = (0, 0)`. Three conditions fail this test:
 
 - a deflection of :math:`90^\circ` or more,

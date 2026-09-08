@@ -28,14 +28,14 @@ AxisToGimbalAnglesOutput AxisToGimbalAnglesAlgorithm::update(const Eigen::Vector
 
     // The two angles can only describe a deflection of less than 90 degrees from the neutral thrust axis.
     // A larger deflection, or a direction of zero length, leaves the gimbal angles zeroed.
-    const float towardsThrust = -thrustDir_M.z();
+    const float towardsThrust = thrustDir_M.z();
     if (!(towardsThrust > 0.0F)) {
         return AxisToGimbalAnglesOutput{};
     }
 
     AxisToGimbalAnglesOutput output{};
-    output.gimbalAngle1 = safeAtan2f(thrustDir_M.y(), towardsThrust);
-    output.gimbalAngle2 = safeAtan2f(-thrustDir_M.x(), towardsThrust);
+    output.gimbalAngle1 = safeAtan2f(-thrustDir_M.y(), towardsThrust);
+    output.gimbalAngle2 = safeAtan2f(thrustDir_M.x(), towardsThrust);
 
     return output;
 }
