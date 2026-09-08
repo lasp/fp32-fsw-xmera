@@ -1,7 +1,6 @@
 #ifndef F32XMERA_DV_GUIDANCE_ALGORITHM_H
 #define F32XMERA_DV_GUIDANCE_ALGORITHM_H
 
-#include "dvGuidanceTypes.h"
 #include <stdint.h>
 #include <Eigen/Core>
 

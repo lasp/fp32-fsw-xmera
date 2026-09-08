@@ -2,7 +2,6 @@
 #define TEST_DV_GUIDANCE_HELPERS_H
 
 #include "dvGuidanceAlgorithm.h"
-#include "dvGuidanceTypes.h"
 #include "utilities/fsw/rigidBodyKinematics.hpp"
 
 #include <gtest/gtest.h>
