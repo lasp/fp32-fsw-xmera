@@ -1,11 +1,11 @@
-#ifndef _IMAGE_PROC_COB_ALGORITHM_H_
-#define _IMAGE_PROC_COB_ALGORITHM_H_
+#ifndef F32XMERA_CENTER_OF_BRIGHTNESS_ALGORITHM_H
+#define F32XMERA_CENTER_OF_BRIGHTNESS_ALGORITHM_H
 
 #include <stdint.h>
 #include <Eigen/Core>
 #include <memory>
 
-#include "imageReader/imageReaderInterface.h"
+#include "imageReaderInterface.h"
 
 /**
  * @brief Result struct for the center of brightness algorithm
@@ -60,4 +60,4 @@ class CenterOfBrightnessAlgorithm {
     int32_t numberOfPointsBrightnessAverage{};  //!< [-] number of points to be used for rolling average of brightness
 };
 
-#endif
+#endif  // F32XMERA_CENTER_OF_BRIGHTNESS_ALGORITHM_H

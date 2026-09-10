@@ -1,4 +1,4 @@
-#include "../imageReader/imageReaderFromFile.h"
+#include "../_imageReader/imageReaderFromFile.h"
 
 #include <gtest/gtest.h>
 #include <opencv2/imgcodecs.hpp>

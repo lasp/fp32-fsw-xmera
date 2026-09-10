@@ -1,4 +1,4 @@
-set(module "fswAlgorithms.imageProcessing.centerOfBrightness")
+set(module "fp32.centerOfBrightnessF32")
 xmera_is_module_enabled("${module}" _is_enabled)
 if(NOT _is_enabled)
   return()
@@ -10,8 +10,8 @@ xmera_add_swig_module("${module}")
 target_sources("${module}" PRIVATE
   centerOfBrightnessAlgorithm.cpp
   centerOfBrightness.cpp
-  imageReader/imageReaderFromFile.cpp
-  imageReader/imageReaderFromMessage.cpp
+  _imageReader/imageReaderFromFile.cpp
+  _imageReader/imageReaderFromMessage.cpp
 )
 
 target_link_libraries("${module}" PRIVATE
@@ -25,4 +25,4 @@ target_link_options("${module}" PRIVATE
   "$<$<PLATFORM_ID:Darwin>:-Wl,-no_warn_duplicate_libraries>"
 )
 
-add_subdirectory(tests)
+add_subdirectory(_tests)

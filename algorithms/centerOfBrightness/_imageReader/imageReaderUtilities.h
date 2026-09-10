@@ -1,7 +1,7 @@
 #ifndef _IMAGE_READER_UTILITIES_H_
 #define _IMAGE_READER_UTILITIES_H_
 
-#include "imageReaderInterface.h"
+#include "../imageReaderInterface.h"
 #include <opencv2/core/mat.hpp>
 #include <opencv2/imgproc.hpp>
 #include <stdexcept>

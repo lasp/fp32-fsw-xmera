@@ -1,16 +1,15 @@
-#ifndef _IMAGE_READER_FROM_MESSAGE_H_
-#define _IMAGE_READER_FROM_MESSAGE_H_
+#ifndef _IMAGE_READER_FROM_FILE_H_
+#define _IMAGE_READER_FROM_FILE_H_
 
-#include "imageReaderInterface.h"
-#include <architecture/messaging/messaging.h>
+#include "../imageReaderInterface.h"
 #include <architecture/msgPayloadDef/CameraImageMsgPayload.h>
 #include <opencv2/core/mat.hpp>
 #include <opencv2/opencv.hpp>
 
-class ImageReaderFromMessage : public ImageReaderInterface {
+class ImageReaderFromFile : public ImageReaderInterface {
    public:
-    ImageReaderFromMessage() = default;
-    ~ImageReaderFromMessage() override = default;
+    ImageReaderFromFile() = default;
+    ~ImageReaderFromFile() override = default;
     Eigen::Vector2i getFullImageSize(int32_t cameraId) final;
     void getImageAsArray(const Eigen::Vector2i& center,
                          const Eigen::Vector2i& windowSize,
@@ -21,17 +20,22 @@ class ImageReaderFromMessage : public ImageReaderInterface {
     int getBlurSize() const;
     void setPixelThreshold(double threshold);
     double getPixelThreshold() const;
-
-    ReadFunctor<CameraImageMsgPayload> imageInMsg;
+    void setFileName(const std::string& fileName);
+    std::string getFileName() const;
+    void setSaveImages(bool save);
+    bool getSaveImages() const;
+    void setSaveDir(const std::string& directory);
+    std::string getSaveDir() const;
 
    private:
-    cv::Mat readImageFromMessage();
+    cv::Mat readImageFromFile();
 
-    CameraImageMsgPayload imagePayload{};
-    uint64_t imageTimeTag{};
+    std::string fileName{};       //!< Filename to read an image directly
     Eigen::Vector2i imageSize{};  //!< [ns] Current time tag of image
     double pixelThreshold{};      ////!< [-] minimum pixel brightness threshold used for detecting bright pixels
     int32_t blurSize{};           //!< [px] Size of the blurring box in pixels
+    bool saveImages{};            //!< [-] flag to save images on each getImageAsArray call
+    std::string saveDir{};        //!< [-] path to save the image to
 };
 
 #endif

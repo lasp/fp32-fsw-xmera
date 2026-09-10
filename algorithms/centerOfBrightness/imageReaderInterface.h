@@ -1,5 +1,5 @@
-#ifndef _IMAGE_READER_INTERFACE_H_
-#define _IMAGE_READER_INTERFACE_H_
+#ifndef F32XMERA_IMAGE_READER_INTERFACE_H
+#define F32XMERA_IMAGE_READER_INTERFACE_H
 
 #include <Eigen/Core>
 
@@ -15,4 +15,4 @@ class ImageReaderInterface {
                                  std::array<Eigen::Vector2i, kMaxWindowSize>& output) = 0;
 };
 
-#endif
+#endif  // F32XMERA_IMAGE_READER_INTERFACE_H

@@ -1,10 +1,10 @@
-%module centerOfBrightness
+%module centerOfBrightnessF32
 %{
    #include <memory>
    #include "centerOfBrightness.h"
-   #include "imageReader/imageReaderInterface.h"
-   #include "imageReader/imageReaderFromFile.h"
-   #include "imageReader/imageReaderFromMessage.h"
+   #include "imageReaderInterface.h"
+   #include "_imageReader/imageReaderFromFile.h"
+   #include "_imageReader/imageReaderFromMessage.h"
 %}
 
 %include <stdint.i>
@@ -19,9 +19,9 @@
 %shared_ptr(ImageReaderFromFile)
 %shared_ptr(ImageReaderFromMessage)
 
-%include "imageReader/imageReaderInterface.h"
-%include "imageReader/imageReaderFromFile.h"
-%include "imageReader/imageReaderFromMessage.h"
+%include "imageReaderInterface.h"
+%include "_imageReader/imageReaderFromFile.h"
+%include "_imageReader/imageReaderFromMessage.h"
 
 %include "centerOfBrightness.h"
 

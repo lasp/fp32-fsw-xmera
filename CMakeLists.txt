@@ -122,6 +122,7 @@ set(algorithms
     "bodyRateMiscompare"
     "celestialTwoBodyPoint"
     "stPlatformAttitude"
+    "centerOfBrightness"
     "cssComm"
     "cssWeightedLeastSquares"
     "dvAccumulation"

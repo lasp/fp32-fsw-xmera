@@ -23,6 +23,12 @@ algorithms/stPlatformAttitude/stPlatformAttitude.h
 algorithms/stPlatformAttitude/stPlatformAttitude.cpp
 algorithms/stPlatformAttitude/stPlatformAttitudeAlgorithm_c.h
 algorithms/stPlatformAttitude/stPlatformAttitudeAlgorithm_c.cpp
+algorithms/centerOfBrightness/centerOfBrightness.h
+algorithms/centerOfBrightness/centerOfBrightness.cpp
+algorithms/centerOfBrightness/_imageReader/imageReaderFromFile.h
+algorithms/centerOfBrightness/_imageReader/imageReaderFromFile.cpp
+algorithms/centerOfBrightness/_imageReader/imageReaderFromMessage.h
+algorithms/centerOfBrightness/_imageReader/imageReaderFromMessage.cpp
 algorithms/cssComm/cssComm.h
 algorithms/cssComm/cssComm.cpp
 algorithms/cssComm/cssCommAlgorithm_c.h
