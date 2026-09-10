@@ -33,7 +33,7 @@ struct CobRegionOfInterest {
  * Processes an image via an ImageReaderInterface to find the unweighted
  * center of brightness of non-zero pixels.
  */
-class CenterOfBrightnessAlgorithm {
+class CenterOfBrightnessAlgorithm final {
    public:
     CenterOfBrightnessAlgorithm();
     ~CenterOfBrightnessAlgorithm();
