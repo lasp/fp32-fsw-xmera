@@ -3,7 +3,7 @@
 
 #include <Eigen/Core>
 
-constexpr int kMaxWindowSize = 1024 * 1024;
+#include "centerOfBrightnessAlgorithm.h"
 
 /*! @brief Image acquisition used by CenterOfBrightnessAlgorithm to obtain pixel data,
  *  independent of how or where the underlying image is sourced.

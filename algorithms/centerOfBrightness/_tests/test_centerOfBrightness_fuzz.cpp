@@ -5,11 +5,7 @@ constexpr int32_t kMaxFuzzPixels = 100;
 constexpr int32_t kMaxCoord = 4096;
 
 FUZZ_TEST(CenterOfBrightnessFuzz, fuzzCenterOfBrightness)
-    .WithDomains(fuzztest::InRange(0, kMaxCoord),                                               // roiCenterX
-                 fuzztest::InRange(0, kMaxCoord),                                               // roiCenterY
-                 fuzztest::InRange(1, 1024),                                                    // roiSizeW
-                 fuzztest::InRange(1, 1024),                                                    // roiSizeH
-                 fuzztest::InRange(0, kMaxFuzzPixels),                                          // numPixels
+    .WithDomains(fuzztest::InRange(0, kMaxFuzzPixels),                                          // numPixels
                  fuzztest::VectorOf(fuzztest::InRange(1, kMaxCoord)).WithSize(kMaxFuzzPixels),  // pixelXs
                  fuzztest::VectorOf(fuzztest::InRange(1, kMaxCoord)).WithSize(kMaxFuzzPixels),  // pixelYs
                  fuzztest::InRange(0.0F, 10.0F),                                                // brightnessThreshold
