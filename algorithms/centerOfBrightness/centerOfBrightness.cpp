@@ -14,7 +14,7 @@ CenterOfBrightness::~CenterOfBrightness() = default;
  @return void
  @param currentSimNanos The clock time at which the function was called (nanoseconds)
  */
-void CenterOfBrightness::reset(uint64_t currentSimNanos) {
+void CenterOfBrightness::reset(const uint64_t currentSimNanos) {
     if (!this->roiInMsg.isLinked()) {
         throw std::invalid_argument("CenterOfBrightness.roiInMsg wasn't connected.");
     }
@@ -27,19 +27,18 @@ void CenterOfBrightness::reset(uint64_t currentSimNanos) {
  @return void
  @param currentSimNanos The clock time at which the function was called (nanoseconds)
  */
-void CenterOfBrightness::updateState(uint64_t currentSimNanos) {
-    auto roiPayload = this->roiInMsg();
+void CenterOfBrightness::updateState(const uint64_t currentSimNanos) {
+    const auto roiPayload = this->roiInMsg();
     OpNavCOBMsgPayload cobBuffer{};
     CenterOfBrightnessResult result{};
 
-    int64_t imageTimeTag =
+    const int64_t imageTimeTag =
         this->imageReader->getCurrentImageTimeTag(this->cameraID, static_cast<int64_t>(currentSimNanos * kNanoToSec));
     if (imageTimeTag > this->previousImageTimeTag) {
         this->previousImageTimeTag = imageTimeTag;
 
-        CobRegionOfInterest roi{};
-        roi.center = Eigen::Vector2i(roiPayload.centerX, roiPayload.centerY);
-        roi.size = Eigen::Vector2i(roiPayload.width, roiPayload.height);
+        const CobRegionOfInterest roi{Eigen::Vector2i(roiPayload.centerX, roiPayload.centerY),
+                                      Eigen::Vector2i(roiPayload.width, roiPayload.height)};
 
         result = this->algorithm.update(roi, *this->imageReader);
     }
@@ -54,8 +53,8 @@ void CenterOfBrightness::updateState(uint64_t currentSimNanos) {
         cobBuffer.cameraID = this->cameraID;
     }
 
-    CenterOfBrightnessDiagnosticMsgPayload diagnosticBuffer{result.noPixelTrigger,
-                                                            result.notExceedingBrightnessIncreaseTrigger};
+    const CenterOfBrightnessDiagnosticMsgPayload diagnosticBuffer{result.noPixelTrigger,
+                                                                  result.notExceedingBrightnessIncreaseTrigger};
 
     this->opnavCOBOutMsg.write(cobBuffer, this->moduleID, currentSimNanos);
     this->centerOfBrightnessDiagnosticOutMsg.write(diagnosticBuffer, this->moduleID, currentSimNanos);
@@ -63,7 +62,7 @@ void CenterOfBrightness::updateState(uint64_t currentSimNanos) {
 
 /*! Delegating setters/getters for algorithm parameters */
 
-void CenterOfBrightness::setRelativeBrightnessIncreaseThreshold(double increaseThreshold) {
+void CenterOfBrightness::setRelativeBrightnessIncreaseThreshold(const double increaseThreshold) {
     this->algorithm.setRelativeBrightnessIncreaseThreshold(increaseThreshold);
 }
 
@@ -71,7 +70,7 @@ double CenterOfBrightness::getRelativeBrightnessIncreaseThreshold() const {
     return this->algorithm.getRelativeBrightnessIncreaseThreshold();
 }
 
-void CenterOfBrightness::setNumberOfPointsBrightnessAverage(int32_t rollingAverage) {
+void CenterOfBrightness::setNumberOfPointsBrightnessAverage(const int32_t rollingAverage) {
     this->algorithm.setNumberOfPointsBrightnessAverage(rollingAverage);
 }
 
@@ -81,6 +80,6 @@ int32_t CenterOfBrightness::getNumberOfPointsBrightnessAverage() const {
 
 /*! Adapter-only setters/getters */
 
-void CenterOfBrightness::setCameraID(int32_t id) { this->cameraID = id; }
+void CenterOfBrightness::setCameraID(const int32_t id) { this->cameraID = id; }
 
 int32_t CenterOfBrightness::getCameraID() const { return this->cameraID; }
