@@ -29,8 +29,8 @@ class ImageReaderFromMessage : public ImageReaderInterface {
 
     CameraImageMsgPayload imagePayload{};
     uint64_t imageTimeTag{};
-    Eigen::Vector2i imageSize{};  //!< [ns] Current time tag of image
-    double pixelThreshold{};      ////!< [-] minimum pixel brightness threshold used for detecting bright pixels
+    Eigen::Vector2i imageSize{};  //!< [px] Full image dimensions (width, height)
+    double pixelThreshold{};      //!< [-] minimum pixel brightness threshold used for detecting bright pixels
     int32_t blurSize{};           //!< [px] Size of the blurring box in pixels
 };
 

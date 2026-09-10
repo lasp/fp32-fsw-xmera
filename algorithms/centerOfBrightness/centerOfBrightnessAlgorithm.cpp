@@ -7,7 +7,7 @@ CenterOfBrightnessAlgorithm::~CenterOfBrightnessAlgorithm() = default;
 /*! Reset algorithm state: clears brightness history */
 void CenterOfBrightnessAlgorithm::reset() { this->brightnessHistory.resize(0); }
 
-/*! Main entry point: delegates to findCob.
+/*! Main entry point: reads the windowed image via imageReader and computes the center of brightness.
  @return CenterOfBrightnessResult
  @param roi Region of interest for windowing
  @param imageReader Image reader providing pixel data
