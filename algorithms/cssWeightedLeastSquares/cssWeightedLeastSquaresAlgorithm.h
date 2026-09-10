@@ -189,7 +189,7 @@ class CssWeightedLeastSquaresAlgorithm final {
 
     CssWeightedLeastSquaresConfig cfg;               //!< [-] the validated configuration in force
     Eigen::Vector3f dOld = Eigen::Vector3f::Zero();  //!< [-] prior normalized sun heading, body frame
-    uint32_t priorSignalAvailable{};                 //!< [-] whether a prior heading is available for the rate
+    bool priorSignalAvailable{};                     //!< [-] whether a prior heading is available for the rate
     uint64_t priorTime{};                            //!< [ns] previous update time; zero until the first call
 };
 

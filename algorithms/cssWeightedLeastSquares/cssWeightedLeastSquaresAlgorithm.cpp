@@ -50,7 +50,7 @@ void CssWeightedLeastSquaresAlgorithm::setConfig(const CssWeightedLeastSquaresCo
  @return void
  */
 void CssWeightedLeastSquaresAlgorithm::reInitialize() {
-    this->priorSignalAvailable = 0;
+    this->priorSignalAvailable = false;
     this->dOld.setZero();
 
     /* Reset the prior time flag state.
@@ -108,9 +108,9 @@ CssWeightedLeastSquaresOutput CssWeightedLeastSquaresAlgorithm::update(
     if (out.numActiveCss == 0) /*! - If there is no sun, just quit*/
     {
         /*! + If no CSS got a strong enough signal.  Sun estimation is not possible.  Return the zero vector instead */
-        out.sunHeading_B.setZero();     /* zero the sun heading to indicate no CSS info is available */
-        out.omega_BN_B.setZero();       /* zero the rate measure */
-        this->priorSignalAvailable = 0; /* reset the prior heading estimate flag */
+        out.sunHeading_B.setZero();         /* zero the sun heading to indicate no CSS info is available */
+        out.omega_BN_B.setZero();           /* zero the rate measure */
+        this->priorSignalAvailable = false; /* reset the prior heading estimate flag */
         out.postFitResiduals = this->computeWlsResiduals(cosValues, out.sunHeading_B, activeSensors, out.numActiveCss);
     } else {
         /*! - If at least one CSS got a strong enough signal.  Proceed with the sun heading estimation */
@@ -127,7 +127,7 @@ CssWeightedLeastSquaresOutput CssWeightedLeastSquaresAlgorithm::update(
         out.sunHeading_B = out.sunHeading_B.stableNormalized();
 
         /*! -# Estimate the inertial angular velocity from the rate of the sun heading measurements */
-        if (this->priorSignalAvailable != 0U && dt > 0.0F) {
+        if (this->priorSignalAvailable && dt > 0.0F) {
             const Eigen::Vector3f dHatNew = out.sunHeading_B.stableNormalized();
             const Eigen::Vector3f dHatOld = this->dOld.stableNormalized();
             out.omega_BN_B = dHatNew.cross(dHatOld).stableNormalized();
@@ -136,7 +136,7 @@ CssWeightedLeastSquaresOutput CssWeightedLeastSquaresAlgorithm::update(
                 std::clamp(dHatNew.dot(dHatOld), kMinPrincipalAngleCosine, kMaxPrincipalAngleCosine);
             out.omega_BN_B *= safeAcosf(dOldDotNew) / dt;
         } else {
-            this->priorSignalAvailable = 1;
+            this->priorSignalAvailable = true;
         }
         /*! -# Store the sun heading estimate */
         this->dOld = out.sunHeading_B;
@@ -150,9 +150,9 @@ CssWeightedLeastSquaresOutput CssWeightedLeastSquaresAlgorithm::update(
     if (status > 0) /*! - If the status from the WLS computation is erroneous, populate the outputs with zeros*/
     {
         /* An error was detected while attempting to compute the sunline direction */
-        out.sunHeading_B.setZero();     /* zero the sun heading to indicate anomaly  */
-        out.omega_BN_B.setZero();       /* zero the rate measure */
-        this->priorSignalAvailable = 0; /* reset the prior heading estimate flag */
+        out.sunHeading_B.setZero();         /* zero the sun heading to indicate anomaly  */
+        out.omega_BN_B.setZero();           /* zero the rate measure */
+        this->priorSignalAvailable = false; /* reset the prior heading estimate flag */
     }
 
     return out;
