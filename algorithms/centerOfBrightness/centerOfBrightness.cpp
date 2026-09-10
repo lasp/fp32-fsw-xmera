@@ -19,6 +19,7 @@ void CenterOfBrightness::reset(const uint64_t currentSimNanos) {
     if (!this->roiInMsg.isLinked()) {
         throw std::invalid_argument("CenterOfBrightness.roiInMsg wasn't connected.");
     }
+    this->rebuildAlgorithmConfig();
     this->algorithm.reset();
     this->previousImageTimeTag = 0;
 }
@@ -63,27 +64,31 @@ void CenterOfBrightness::updateState(const uint64_t currentSimNanos) {
 /*! Delegating setters/getters for algorithm parameters */
 
 void CenterOfBrightness::setRelativeBrightnessIncreaseThreshold(const float increaseThreshold) {
-    // Note: +inf is a legitimate value here (an intentionally unreachable threshold); only reject
-    // NaN and negative values. NaN comparisons are always false, so this rejects NaN too.
-    if (!(increaseThreshold >= 0.0F)) {
+    if (!CenterOfBrightnessConfig::isValidRelativeBrightnessIncreaseThreshold(increaseThreshold)) {
         FSW_THROW_INVALID_ARGUMENT("centerOfBrightness: relativeBrightnessIncreaseThreshold must be non-negative.");
     }
-    this->algorithm.setRelativeBrightnessIncreaseThreshold(increaseThreshold);
+    this->relativeBrightnessIncreaseThreshold = increaseThreshold;
+    this->rebuildAlgorithmConfig();
 }
 
 float CenterOfBrightness::getRelativeBrightnessIncreaseThreshold() const {
-    return this->algorithm.getRelativeBrightnessIncreaseThreshold();
+    return this->relativeBrightnessIncreaseThreshold;
 }
 
 void CenterOfBrightness::setNumberOfPointsBrightnessAverage(const int32_t rollingAverage) {
-    if (rollingAverage <= 0) {
+    if (!CenterOfBrightnessConfig::isValidNumberOfPointsBrightnessAverage(rollingAverage)) {
         FSW_THROW_INVALID_ARGUMENT("centerOfBrightness: numberOfPointsBrightnessAverage must be positive.");
     }
-    this->algorithm.setNumberOfPointsBrightnessAverage(rollingAverage);
+    this->numberOfPointsBrightnessAverage = rollingAverage;
+    this->rebuildAlgorithmConfig();
 }
 
-int32_t CenterOfBrightness::getNumberOfPointsBrightnessAverage() const {
-    return this->algorithm.getNumberOfPointsBrightnessAverage();
+int32_t CenterOfBrightness::getNumberOfPointsBrightnessAverage() const { return this->numberOfPointsBrightnessAverage; }
+
+void CenterOfBrightness::rebuildAlgorithmConfig() {
+    const CenterOfBrightnessConfig config = CenterOfBrightnessConfig::create(this->relativeBrightnessIncreaseThreshold,
+                                                                             this->numberOfPointsBrightnessAverage);
+    this->algorithm.setConfig(config);
 }
 
 /*! Adapter-only setters/getters */

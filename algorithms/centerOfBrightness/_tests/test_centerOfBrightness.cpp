@@ -34,24 +34,22 @@ class MockImageReader : public ImageReaderInterface {
 
 class CenterOfBrightnessAlgorithmTest : public ::testing::Test {
    protected:
-    CenterOfBrightnessAlgorithm algorithm{};
+    CenterOfBrightnessAlgorithm algorithm{CenterOfBrightnessConfig::create(0.0F, kDefaultBrightnessAvgPoints)};
     MockImageReader mockReader{};
-
-    void SetUp() override { algorithm.setNumberOfPointsBrightnessAverage(kDefaultBrightnessAvgPoints); }
 };
 
 // ============================================================================
-// SETTER AND GETTER TESTS
+// CONFIG ROUND-TRIP TESTS
 // ============================================================================
 
-TEST_F(CenterOfBrightnessAlgorithmTest, SetAndGetRelativeBrightnessIncreaseThreshold) {
-    algorithm.setRelativeBrightnessIncreaseThreshold(0.25F);
-    EXPECT_NEAR(0.25F, algorithm.getRelativeBrightnessIncreaseThreshold(), kTestTolerance);
+TEST(CenterOfBrightnessConfigTest, RoundTripRelativeBrightnessIncreaseThreshold) {
+    const CenterOfBrightnessConfig config = CenterOfBrightnessConfig::create(0.25F, kDefaultBrightnessAvgPoints);
+    EXPECT_NEAR(0.25F, config.getRelativeBrightnessIncreaseThreshold(), kTestTolerance);
 }
 
-TEST_F(CenterOfBrightnessAlgorithmTest, SetAndGetNumberOfPointsBrightnessAverage) {
-    algorithm.setNumberOfPointsBrightnessAverage(10);
-    EXPECT_EQ(10, algorithm.getNumberOfPointsBrightnessAverage());
+TEST(CenterOfBrightnessConfigTest, RoundTripNumberOfPointsBrightnessAverage) {
+    const CenterOfBrightnessConfig config = CenterOfBrightnessConfig::create(0.0F, 10);
+    EXPECT_EQ(10, config.getNumberOfPointsBrightnessAverage());
 }
 
 // ============================================================================
@@ -125,8 +123,7 @@ TEST_F(CenterOfBrightnessAlgorithmTest, SymmetricPixelPatternCentroidAtCenter) {
 
 TEST_F(CenterOfBrightnessAlgorithmTest, BrightnessIncreaseThresholdInvalidatesResult) {
     // Set a high brightness increase threshold
-    algorithm.setRelativeBrightnessIncreaseThreshold(0.5F);
-    algorithm.setNumberOfPointsBrightnessAverage(2);
+    algorithm.setConfig(CenterOfBrightnessConfig::create(0.5F, 2));
 
     mockReader.pixelData[0] = Eigen::Vector2i(50, 50);
 
@@ -147,8 +144,7 @@ TEST_F(CenterOfBrightnessAlgorithmTest, BrightnessIncreaseThresholdInvalidatesRe
 }
 
 TEST_F(CenterOfBrightnessAlgorithmTest, BrightnessIncreaseAboveThresholdValidatesResult) {
-    algorithm.setRelativeBrightnessIncreaseThreshold(0.5F);
-    algorithm.setNumberOfPointsBrightnessAverage(2);
+    algorithm.setConfig(CenterOfBrightnessConfig::create(0.5F, 2));
 
     mockReader.pixelData[0] = Eigen::Vector2i(50, 50);
 
@@ -177,7 +173,7 @@ TEST_F(CenterOfBrightnessAlgorithmTest, BrightnessIncreaseAboveThresholdValidate
 // ============================================================================
 
 TEST_F(CenterOfBrightnessAlgorithmTest, RollingAverageBrightnessTracking) {
-    algorithm.setNumberOfPointsBrightnessAverage(3);
+    algorithm.setConfig(CenterOfBrightnessConfig::create(0.0F, 3));
 
     mockReader.pixelData[0] = Eigen::Vector2i(50, 50);
 
