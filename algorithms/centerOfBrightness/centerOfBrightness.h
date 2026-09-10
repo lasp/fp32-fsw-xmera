@@ -23,25 +23,18 @@ class CenterOfBrightness : public SysModel {
     void updateState(uint64_t currentSimNanos) override;
     void reset(uint64_t currentSimNanos) override;
 
-    void setRelativeBrightnessIncreaseThreshold(float increaseThreshold);
-    float getRelativeBrightnessIncreaseThreshold() const;
-    void setNumberOfPointsBrightnessAverage(int32_t rollingAverage);
-    int32_t getNumberOfPointsBrightnessAverage() const;
-    void setCameraID(int32_t id);
-    int32_t getCameraID() const;
+    // Phase 1: Public config properties — set before reset()
+    float relativeBrightnessIncreaseThreshold = 0.0F;  //!< [-] minimum relative brightness increase
+    int32_t numberOfPointsBrightnessAverage = 1;  //!< [-] number of points to be used for rolling average of brightness
+    int32_t cameraID = 0;
 
     Message<OpNavCOBMsgF32Payload> opnavCOBOutMsg;  //!< The name of the OpNav center of brightness output message
     Message<CenterOfBrightnessDiagnosticMsgF32Payload> centerOfBrightnessDiagnosticOutMsg;
     ReadFunctor<RegionOfInterestMsgF32Payload> roiInMsg;  //!< Region of interest input message
 
    private:
-    void rebuildAlgorithmConfig();
-
-    CenterOfBrightnessAlgorithm algorithm{CenterOfBrightnessConfig::create(0.0F, 1)};
     std::shared_ptr<ImageReaderInterface> imageReader;  //!< shared ownership with Python/SWIG
-    float relativeBrightnessIncreaseThreshold{0.0F};    //!< [-] minimum relative brightness increase
-    int32_t numberOfPointsBrightnessAverage{1};  //!< [-] number of points to be used for rolling average of brightness
-    int32_t cameraID{};
+    std::unique_ptr<CenterOfBrightnessAlgorithm> algorithm = nullptr;
     int64_t previousImageTimeTag{};
 };
 
