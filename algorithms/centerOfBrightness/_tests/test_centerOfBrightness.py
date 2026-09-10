@@ -48,9 +48,9 @@ def setup_cob_sim(image_path, blur, pixel_threshold, roi_center, roi_size,
 
     module = centerOfBrightnessF32.CenterOfBrightness(reader)
     module.modelTag = "cob_test"
-    module.setCameraID(camera_id)
-    module.setRelativeBrightnessIncreaseThreshold(brightness_increase_threshold)
-    module.setNumberOfPointsBrightnessAverage(brightness_avg_points)
+    module.cameraID = camera_id
+    module.relativeBrightnessIncreaseThreshold = brightness_increase_threshold
+    module.numberOfPointsBrightnessAverage = brightness_avg_points
 
     sim = SimulationBaseClass.SimBaseClass()
     process = sim.CreateNewProcess("test_process")
