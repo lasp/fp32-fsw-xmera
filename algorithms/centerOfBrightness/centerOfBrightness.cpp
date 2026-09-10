@@ -1,5 +1,5 @@
 #include "centerOfBrightness.h"
-#include "utilities/fsw/freestandingInvalidArgument.h"
+#include "utilities/xmera/xmeraLifecycleException.h"
 
 inline constexpr double kNanoToSec = 1.0e-9;
 
@@ -10,8 +10,8 @@ CenterOfBrightness::CenterOfBrightness(std::shared_ptr<ImageReaderInterface> ima
 /*! Module destructor */
 CenterOfBrightness::~CenterOfBrightness() = default;
 
-/*! This method performs a complete reset of the module.  Local module variables that retain time varying states
- * between function calls are reset to their default values.
+/*! This method builds the validated configuration and constructs the algorithm. Local module variables
+ * that retain time varying states between function calls are reset to their default values.
  @return void
  @param currentSimNanos The clock time at which the function was called (nanoseconds)
  */
@@ -19,8 +19,9 @@ void CenterOfBrightness::reset(const uint64_t currentSimNanos) {
     if (!this->roiInMsg.isLinked()) {
         throw std::invalid_argument("CenterOfBrightness.roiInMsg wasn't connected.");
     }
-    this->rebuildAlgorithmConfig();
-    this->algorithm.reset();
+    auto config = CenterOfBrightnessConfig::create(this->relativeBrightnessIncreaseThreshold,
+                                                   this->numberOfPointsBrightnessAverage);
+    this->algorithm = std::make_unique<CenterOfBrightnessAlgorithm>(config);
     this->previousImageTimeTag = 0;
 }
 
@@ -30,6 +31,10 @@ void CenterOfBrightness::reset(const uint64_t currentSimNanos) {
  @param currentSimNanos The clock time at which the function was called (nanoseconds)
  */
 void CenterOfBrightness::updateState(const uint64_t currentSimNanos) {
+    if (!this->algorithm) {
+        throw XmeraLifecycleException("CenterOfBrightness reset() has not been called.");
+    }
+
     const auto roiPayload = this->roiInMsg();
     OpNavCOBMsgF32Payload cobBuffer{};
     CenterOfBrightnessResult result{};
@@ -42,7 +47,7 @@ void CenterOfBrightness::updateState(const uint64_t currentSimNanos) {
         const CobRegionOfInterest roi{Eigen::Vector2i(roiPayload.centerX, roiPayload.centerY),
                                       Eigen::Vector2i(roiPayload.width, roiPayload.height)};
 
-        result = this->algorithm.update(roi, *this->imageReader);
+        result = this->algorithm->update(roi, *this->imageReader);
     }
 
     cobBuffer.valid = result.valid;
@@ -60,44 +65,3 @@ void CenterOfBrightness::updateState(const uint64_t currentSimNanos) {
     this->opnavCOBOutMsg.write(cobBuffer, this->moduleID, currentSimNanos);
     this->centerOfBrightnessDiagnosticOutMsg.write(diagnosticBuffer, this->moduleID, currentSimNanos);
 }
-
-/*! Delegating setters/getters for algorithm parameters */
-
-void CenterOfBrightness::setRelativeBrightnessIncreaseThreshold(const float increaseThreshold) {
-    if (!CenterOfBrightnessConfig::isValidRelativeBrightnessIncreaseThreshold(increaseThreshold)) {
-        FSW_THROW_INVALID_ARGUMENT("centerOfBrightness: relativeBrightnessIncreaseThreshold must be non-negative.");
-    }
-    this->relativeBrightnessIncreaseThreshold = increaseThreshold;
-    this->rebuildAlgorithmConfig();
-}
-
-float CenterOfBrightness::getRelativeBrightnessIncreaseThreshold() const {
-    return this->relativeBrightnessIncreaseThreshold;
-}
-
-void CenterOfBrightness::setNumberOfPointsBrightnessAverage(const int32_t rollingAverage) {
-    if (!CenterOfBrightnessConfig::isValidNumberOfPointsBrightnessAverage(rollingAverage)) {
-        FSW_THROW_INVALID_ARGUMENT("centerOfBrightness: numberOfPointsBrightnessAverage must be positive.");
-    }
-    this->numberOfPointsBrightnessAverage = rollingAverage;
-    this->rebuildAlgorithmConfig();
-}
-
-int32_t CenterOfBrightness::getNumberOfPointsBrightnessAverage() const { return this->numberOfPointsBrightnessAverage; }
-
-void CenterOfBrightness::rebuildAlgorithmConfig() {
-    const CenterOfBrightnessConfig config = CenterOfBrightnessConfig::create(this->relativeBrightnessIncreaseThreshold,
-                                                                             this->numberOfPointsBrightnessAverage);
-    this->algorithm.setConfig(config);
-}
-
-/*! Adapter-only setters/getters */
-
-void CenterOfBrightness::setCameraID(const int32_t id) {
-    if (id < 0) {
-        FSW_THROW_INVALID_ARGUMENT("centerOfBrightness: cameraID must be non-negative.");
-    }
-    this->cameraID = id;
-}
-
-int32_t CenterOfBrightness::getCameraID() const { return this->cameraID; }

@@ -15,13 +15,6 @@
 %include <architecture/_GeneralModuleFiles/swig_eigen.i>
 %include <std_shared_ptr.i>
 
-%include <attribute.i>
-%attribute(CenterOfBrightness, float, relativeBrightnessIncreaseThreshold, getRelativeBrightnessIncreaseThreshold,
-           setRelativeBrightnessIncreaseThreshold)
-%attribute(CenterOfBrightness, int32_t, numberOfPointsBrightnessAverage, getNumberOfPointsBrightnessAverage,
-           setNumberOfPointsBrightnessAverage)
-%attribute(CenterOfBrightness, int32_t, cameraID, getCameraID, setCameraID)
-
 %shared_ptr(ImageReaderInterface)
 %shared_ptr(ImageReaderFromFile)
 %shared_ptr(ImageReaderFromMessage)
