@@ -1,4 +1,5 @@
 #include "centerOfBrightness.h"
+#include "utilities/fsw/freestandingInvalidArgument.h"
 
 inline constexpr double kNanoToSec = 1.0e-9;
 
@@ -63,6 +64,11 @@ void CenterOfBrightness::updateState(const uint64_t currentSimNanos) {
 /*! Delegating setters/getters for algorithm parameters */
 
 void CenterOfBrightness::setRelativeBrightnessIncreaseThreshold(const double increaseThreshold) {
+    // Note: +inf is a legitimate value here (an intentionally unreachable threshold); only reject
+    // NaN and negative values. NaN comparisons are always false, so this rejects NaN too.
+    if (!(increaseThreshold >= 0.0)) {
+        FSW_THROW_INVALID_ARGUMENT("centerOfBrightness: relativeBrightnessIncreaseThreshold must be non-negative.");
+    }
     this->algorithm.setRelativeBrightnessIncreaseThreshold(increaseThreshold);
 }
 
@@ -71,6 +77,9 @@ double CenterOfBrightness::getRelativeBrightnessIncreaseThreshold() const {
 }
 
 void CenterOfBrightness::setNumberOfPointsBrightnessAverage(const int32_t rollingAverage) {
+    if (rollingAverage <= 0) {
+        FSW_THROW_INVALID_ARGUMENT("centerOfBrightness: numberOfPointsBrightnessAverage must be positive.");
+    }
     this->algorithm.setNumberOfPointsBrightnessAverage(rollingAverage);
 }
 
@@ -80,6 +89,11 @@ int32_t CenterOfBrightness::getNumberOfPointsBrightnessAverage() const {
 
 /*! Adapter-only setters/getters */
 
-void CenterOfBrightness::setCameraID(const int32_t id) { this->cameraID = id; }
+void CenterOfBrightness::setCameraID(const int32_t id) {
+    if (id < 0) {
+        FSW_THROW_INVALID_ARGUMENT("centerOfBrightness: cameraID must be non-negative.");
+    }
+    this->cameraID = id;
+}
 
 int32_t CenterOfBrightness::getCameraID() const { return this->cameraID; }
