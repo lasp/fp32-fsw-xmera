@@ -31,8 +31,8 @@ class ImageReaderFromFile : public ImageReaderInterface {
     cv::Mat readImageFromFile();
 
     std::string fileName{};       //!< Filename to read an image directly
-    Eigen::Vector2i imageSize{};  //!< [ns] Current time tag of image
-    double pixelThreshold{};      ////!< [-] minimum pixel brightness threshold used for detecting bright pixels
+    Eigen::Vector2i imageSize{};  //!< [px] Full image dimensions (width, height)
+    double pixelThreshold{};      //!< [-] minimum pixel brightness threshold used for detecting bright pixels
     int32_t blurSize{};           //!< [px] Size of the blurring box in pixels
     bool saveImages{};            //!< [-] flag to save images on each getImageAsArray call
     std::string saveDir{};        //!< [-] path to save the image to
