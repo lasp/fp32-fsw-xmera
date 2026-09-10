@@ -49,7 +49,7 @@ class CenterOfBrightnessAlgorithm {
    private:
     CenterOfBrightnessResult findCob(const CobRegionOfInterest& roi, ImageReaderInterface& imageReader);
     std::pair<Eigen::Vector2d, int32_t> computeCenterOfBrightness(
-        const std::array<Eigen::Vector2i, kMaxWindowSize>& pixels);
+        const std::array<Eigen::Vector2i, kMaxWindowSize>& pixels) const;
     double computeBrightnessIncrease(int32_t pixelsFound);
     void updateBrightnessHistory(double brightness);
 
