@@ -6,6 +6,7 @@
 #include <memory>
 
 #include "imageReaderInterface.h"
+#include "utilities/fsw/freestandingInvalidArgument.h"
 
 /**
  * @brief Result struct for the center of brightness algorithm
@@ -25,6 +26,43 @@ struct CenterOfBrightnessResult {
 struct CobRegionOfInterest {
     Eigen::Vector2i center = Eigen::Vector2i::Zero();
     Eigen::Vector2i size = Eigen::Vector2i::Zero();
+};
+
+/**
+ * @brief Validated configuration for the center of brightness algorithm
+ */
+class CenterOfBrightnessConfig final {
+   public:
+    static CenterOfBrightnessConfig create(float relativeBrightnessIncreaseThreshold,
+                                           int32_t numberOfPointsBrightnessAverage) {
+        if (!isValidRelativeBrightnessIncreaseThreshold(relativeBrightnessIncreaseThreshold)) {
+            FSW_THROW_INVALID_ARGUMENT("centerOfBrightness: relativeBrightnessIncreaseThreshold must be non-negative.");
+        }
+        if (!isValidNumberOfPointsBrightnessAverage(numberOfPointsBrightnessAverage)) {
+            FSW_THROW_INVALID_ARGUMENT("centerOfBrightness: numberOfPointsBrightnessAverage must be positive.");
+        }
+        return {relativeBrightnessIncreaseThreshold, numberOfPointsBrightnessAverage};
+    }
+
+    // +inf is a legitimate value (an intentionally unreachable threshold); only reject NaN and
+    // negative values. NaN comparisons are always false, so this rejects NaN too.
+    static bool isValidRelativeBrightnessIncreaseThreshold(float relativeBrightnessIncreaseThreshold) {
+        return relativeBrightnessIncreaseThreshold >= 0.0F;
+    }
+    static bool isValidNumberOfPointsBrightnessAverage(int32_t numberOfPointsBrightnessAverage) {
+        return numberOfPointsBrightnessAverage > 0;
+    }
+
+    float getRelativeBrightnessIncreaseThreshold() const { return relativeBrightnessIncreaseThreshold; }
+    int32_t getNumberOfPointsBrightnessAverage() const { return numberOfPointsBrightnessAverage; }
+
+   private:
+    CenterOfBrightnessConfig(float relativeBrightnessIncreaseThreshold, int32_t numberOfPointsBrightnessAverage)
+        : relativeBrightnessIncreaseThreshold(relativeBrightnessIncreaseThreshold),
+          numberOfPointsBrightnessAverage(numberOfPointsBrightnessAverage) {}
+
+    float relativeBrightnessIncreaseThreshold;
+    int32_t numberOfPointsBrightnessAverage;
 };
 
 /**
