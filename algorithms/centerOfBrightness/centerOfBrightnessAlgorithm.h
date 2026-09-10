@@ -3,10 +3,13 @@
 
 #include <stdint.h>
 #include <Eigen/Core>
-#include <memory>
+#include <array>
+#include <utility>
 
-#include "imageReaderInterface.h"
 #include "utilities/fsw/freestandingInvalidArgument.h"
+
+//!< [-] Maximum number of non-zero pixel coordinates the algorithm can consume per update()
+constexpr int kMaxWindowSize = 1024 * 1024;
 
 /**
  * @brief Result struct for the center of brightness algorithm
@@ -18,14 +21,6 @@ struct CenterOfBrightnessResult {
     bool valid{};
     bool noPixelTrigger{false};
     bool notExceedingBrightnessIncreaseTrigger{false};
-};
-
-/**
- * @brief Bespoke input struct for the algorithm — no msg payload dependency
- */
-struct CobRegionOfInterest {
-    Eigen::Vector2i center = Eigen::Vector2i::Zero();
-    Eigen::Vector2i size = Eigen::Vector2i::Zero();
 };
 
 /**
@@ -68,28 +63,26 @@ class CenterOfBrightnessConfig final {
 /**
  * @brief Center of brightness detection algorithm
  *
- * Processes an image via an ImageReaderInterface to find the unweighted
- * center of brightness of non-zero pixels.
+ * Computes the unweighted center of brightness from a caller-supplied array of non-zero
+ * pixel coordinates. Image acquisition is not this class's concern: the adapter reads the
+ * image via an ImageReaderInterface and passes the resulting pixel array to update().
  */
 class CenterOfBrightnessAlgorithm final {
    public:
     explicit CenterOfBrightnessAlgorithm(const CenterOfBrightnessConfig& config);
     ~CenterOfBrightnessAlgorithm();
 
-    CenterOfBrightnessResult update(const CobRegionOfInterest& roi, ImageReaderInterface& imageReader);
+    CenterOfBrightnessResult update(const std::array<Eigen::Vector2i, kMaxWindowSize>& pixels);
     void reset();
     void setConfig(const CenterOfBrightnessConfig& config);
 
    private:
-    CenterOfBrightnessResult findCob(const CobRegionOfInterest& roi, ImageReaderInterface& imageReader);
     std::pair<Eigen::Vector2f, int32_t> computeCenterOfBrightness(
         const std::array<Eigen::Vector2i, kMaxWindowSize>& pixels) const;
     float computeBrightnessIncrease(int32_t pixelsFound);
     void updateBrightnessHistory(float brightness);
 
     CenterOfBrightnessConfig cfg;
-    std::unique_ptr<std::array<Eigen::Vector2i, kMaxWindowSize>> pixelBuffer =
-        std::make_unique<std::array<Eigen::Vector2i, kMaxWindowSize>>();
     Eigen::VectorXf brightnessHistory{};  //!< [-] brightness history to be used for rolling average
 };
 

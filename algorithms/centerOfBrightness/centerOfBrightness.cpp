@@ -44,10 +44,11 @@ void CenterOfBrightness::updateState(const uint64_t currentSimNanos) {
     if (imageTimeTag > this->previousImageTimeTag) {
         this->previousImageTimeTag = imageTimeTag;
 
-        const CobRegionOfInterest roi{Eigen::Vector2i(roiPayload.centerX, roiPayload.centerY),
-                                      Eigen::Vector2i(roiPayload.width, roiPayload.height)};
+        const Eigen::Vector2i roiCenter(roiPayload.centerX, roiPayload.centerY);
+        const Eigen::Vector2i roiSize(roiPayload.width, roiPayload.height);
+        this->imageReader->getImageAsArray(roiCenter, roiSize, *this->pixelBuffer);
 
-        result = this->algorithm->update(roi, *this->imageReader);
+        result = this->algorithm->update(*this->pixelBuffer);
     }
 
     cobBuffer.valid = result.valid;

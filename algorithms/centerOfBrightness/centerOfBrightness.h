@@ -35,6 +35,8 @@ class CenterOfBrightness : public SysModel {
    private:
     std::shared_ptr<ImageReaderInterface> imageReader;  //!< shared ownership with Python/SWIG
     std::unique_ptr<CenterOfBrightnessAlgorithm> algorithm = nullptr;
+    std::unique_ptr<std::array<Eigen::Vector2i, kMaxWindowSize>> pixelBuffer =
+        std::make_unique<std::array<Eigen::Vector2i, kMaxWindowSize>>();
     int64_t previousImageTimeTag{};
 };
 

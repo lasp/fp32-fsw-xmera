@@ -9,16 +9,14 @@ void CenterOfBrightnessAlgorithm::setConfig(const CenterOfBrightnessConfig& conf
 /*! Reset algorithm state: clears brightness history */
 void CenterOfBrightnessAlgorithm::reset() { this->brightnessHistory.resize(0); }
 
-/*! Main entry point: reads the windowed image via imageReader and computes the center of brightness.
+/*! Main entry point: computes the center of brightness from a pre-populated pixel array.
  @return CenterOfBrightnessResult
- @param roi Region of interest for windowing
- @param imageReader Image reader providing pixel data
+ @param pixels Non-zero pixel coordinates within the windowed region (zero entries are sentinel/unused)
  */
-CenterOfBrightnessResult CenterOfBrightnessAlgorithm::update(const CobRegionOfInterest& roi,
-                                                             ImageReaderInterface& imageReader) {
+CenterOfBrightnessResult CenterOfBrightnessAlgorithm::update(
+    const std::array<Eigen::Vector2i, kMaxWindowSize>& pixels) {
     CenterOfBrightnessResult result{};
-    imageReader.getImageAsArray(roi.center, roi.size, *this->pixelBuffer);
-    const auto [coordinates, pixelsFound] = this->computeCenterOfBrightness(*this->pixelBuffer);
+    const auto [coordinates, pixelsFound] = this->computeCenterOfBrightness(pixels);
 
     if (pixelsFound > 0) {
         const float brightnessIncrease = this->computeBrightnessIncrease(pixelsFound);

@@ -4,31 +4,24 @@
 #include "../centerOfBrightnessAlgorithm.h"
 #include <gtest/gtest.h>
 #include <Eigen/Core>
+#include <array>
 #include <cmath>
 #include <deque>
 #include <vector>
 
 // ============================================================================
-// FUZZ IMAGE READER
+// PIXEL ARRAY HELPER
 // ============================================================================
 
-class FuzzImageReader : public ImageReaderInterface {
-   public:
-    std::vector<Eigen::Vector2i> pixels;
-
-    Eigen::Vector2i getFullImageSize(int32_t /*cameraId*/) override { return {4096, 4096}; }
-
-    int64_t getCurrentImageTimeTag(int32_t /*cameraId*/, int64_t /*previousImageTimeTag*/) override { return 1; }
-
-    void getImageAsArray(const Eigen::Vector2i& /*center*/,
-                         const Eigen::Vector2i& /*windowSize*/,
-                         std::array<Eigen::Vector2i, kMaxWindowSize>& output) override {
-        output.fill(Eigen::Vector2i::Zero());
-        for (size_t i = 0; i < pixels.size() && i < kMaxWindowSize; ++i) {
-            output[i] = pixels[i];
-        }
+/*! Copy pixels into a zero-filled, kMaxWindowSize-bounded array for CenterOfBrightnessAlgorithm::update(). */
+inline std::array<Eigen::Vector2i, kMaxWindowSize> pixelsToArray(const std::vector<Eigen::Vector2i>& pixels) {
+    std::array<Eigen::Vector2i, kMaxWindowSize> output;
+    output.fill(Eigen::Vector2i::Zero());
+    for (size_t i = 0; i < pixels.size() && i < kMaxWindowSize; ++i) {
+        output[i] = pixels[i];
     }
-};
+    return output;
+}
 
 // ============================================================================
 // REFERENCE STATE (brightness history for multi-step testing)
@@ -114,11 +107,7 @@ inline CenterOfBrightnessResult referenceUpdate(const std::vector<Eigen::Vector2
 // FUZZ TEST: single step
 // ============================================================================
 
-inline void fuzzCenterOfBrightness(int32_t roiCenterX,
-                                   int32_t roiCenterY,
-                                   int32_t roiSizeW,
-                                   int32_t roiSizeH,
-                                   int32_t numPixels,
+inline void fuzzCenterOfBrightness(int32_t numPixels,
                                    std::vector<int32_t> pixelXs,
                                    std::vector<int32_t> pixelYs,
                                    float brightnessThreshold,
@@ -136,17 +125,9 @@ inline void fuzzCenterOfBrightness(int32_t roiCenterX,
     // Set up algorithm
     CenterOfBrightnessAlgorithm alg{CenterOfBrightnessConfig::create(brightnessThreshold, avgWindowSize)};
 
-    // Set up fake image reader
-    FuzzImageReader reader;
-    reader.pixels = pixels;
-
-    // Set up ROI
-    CobRegionOfInterest roi;
-    roi.center = Eigen::Vector2i(roiCenterX, roiCenterY);
-    roi.size = Eigen::Vector2i(roiSizeW, roiSizeH);
-
     // Run algorithm
-    CenterOfBrightnessResult result = alg.update(roi, reader);
+    const std::array<Eigen::Vector2i, kMaxWindowSize> pixelArray = pixelsToArray(pixels);
+    CenterOfBrightnessResult result = alg.update(pixelArray);
 
     // Run reference
     ReferenceState refState;
@@ -203,20 +184,15 @@ inline void fuzzMultiStepBrightness(int32_t avgWindowSize,
     ReferenceState refState;
     refState.maxHistorySize = avgWindowSize;
 
-    FuzzImageReader reader;
-    CobRegionOfInterest roi;
-    roi.center = Eigen::Vector2i(500, 500);
-    roi.size = Eigen::Vector2i(100, 100);
-
     for (int32_t pixelCount : pixelCountsPerStep) {
         // Build pixel vector with deterministic coordinates but varying count
         std::vector<Eigen::Vector2i> pixels;
         for (int32_t i = 0; i < pixelCount; ++i) {
             pixels.emplace_back(100 + (i % 50), 200 + (i / 50));
         }
-        reader.pixels = pixels;
 
-        CenterOfBrightnessResult result = alg.update(roi, reader);
+        const std::array<Eigen::Vector2i, kMaxWindowSize> pixelArray = pixelsToArray(pixels);
+        CenterOfBrightnessResult result = alg.update(pixelArray);
         CenterOfBrightnessResult refResult = referenceUpdate(pixels, brightnessThreshold, refState);
 
         EXPECT_EQ(result.pixelsFound, refResult.pixelsFound);
