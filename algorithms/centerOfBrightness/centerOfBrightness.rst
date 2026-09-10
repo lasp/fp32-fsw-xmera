@@ -45,7 +45,7 @@ Architecture
 
 The module follows the Strategy pattern. At construction time it receives a ``std::shared_ptr`` to an
 ``ImageReaderInterface``, which provides a common API for reading and pre-processing images regardless of
-the source. See :doc:`imageReader/imageReader` for details on the interface and its implementations.
+the source. See :doc:`_imageReader/imageReader` for details on the interface and its implementations.
 
 On each ``updateState`` call the module reads the ROI from ``roiInMsg``, delegates image reading and
 pixel extraction to the injected reader, and passes the resulting pixel coordinates to the core

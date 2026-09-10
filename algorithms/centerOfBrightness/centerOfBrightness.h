@@ -1,5 +1,5 @@
-#ifndef _IMAGE_PROC_COB_H_
-#define _IMAGE_PROC_COB_H_
+#ifndef F32XMERA_CENTER_OF_BRIGHTNESS_H
+#define F32XMERA_CENTER_OF_BRIGHTNESS_H
 
 #include <architecture/messaging/messaging.h>
 #include <stdint.h>
@@ -13,7 +13,7 @@
 #include <architecture/utilities/bskLogging.h>
 
 #include "centerOfBrightnessAlgorithm.h"
-#include "imageReader/imageReaderInterface.h"
+#include "imageReaderInterface.h"
 
 /*! @brief visual object tracking using center of brightness detection */
 class CenterOfBrightness : public SysModel {
@@ -43,4 +43,4 @@ class CenterOfBrightness : public SysModel {
     int64_t previousImageTimeTag{};
 };
 
-#endif
+#endif  // F32XMERA_CENTER_OF_BRIGHTNESS_H

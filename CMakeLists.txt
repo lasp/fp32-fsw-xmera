@@ -120,6 +120,7 @@ set(algorithms
     "averageMimuData"
     "bodyRateMiscompare"
     "celestialTwoBodyPoint"
+    "centerOfBrightness"
     "convertStPlatformToBody"
     "cssComm"
     "cssWeightedLeastSquares"

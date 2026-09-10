@@ -10,7 +10,7 @@ from xmera.utilities import SimulationBaseClass, macros
 from xmera.architecture import messaging
 
 try:
-    from xmera.fswAlgorithms import centerOfBrightness
+    from xmera.fp32 import centerOfBrightnessF32
     HAS_COB = True
 except ImportError:
     HAS_COB = False
@@ -38,7 +38,7 @@ def setup_cob_sim(image_path, blur, pixel_threshold, roi_center, roi_size,
     Returns (sim, module, data_log, diag_log, roi_msg).
     Caller must keep roi_msg reference alive for the simulation's lifetime.
     """
-    reader = centerOfBrightness.ImageReaderFromFile()
+    reader = centerOfBrightnessF32.ImageReaderFromFile()
     reader.setBlurSize(blur)
     reader.setPixelThreshold(pixel_threshold)
     reader.setFileName(image_path)
@@ -46,7 +46,7 @@ def setup_cob_sim(image_path, blur, pixel_threshold, roi_center, roi_size,
         reader.setSaveImages(True)
         reader.setSaveDir(save_dir)
 
-    module = centerOfBrightness.CenterOfBrightness(reader)
+    module = centerOfBrightnessF32.CenterOfBrightness(reader)
     module.modelTag = "cob_test"
     module.setCameraID(camera_id)
     module.setRelativeBrightnessIncreaseThreshold(brightness_increase_threshold)
@@ -240,7 +240,7 @@ def test_image_freshness_check():
 
 def test_img_msg_setters_getters():
     """ImageReaderFromMessage setters/getters round-trip."""
-    reader = centerOfBrightness.ImageReaderFromMessage()
+    reader = centerOfBrightnessF32.ImageReaderFromMessage()
     reader.setBlurSize(7)
     assert reader.getBlurSize() == 7
     reader.setPixelThreshold(42.5)
@@ -249,7 +249,7 @@ def test_img_msg_setters_getters():
 
 def test_img_msg_check_for_new_image():
     """getCurrentImageTimeTag returns timeTag when new, 0 when not."""
-    reader = centerOfBrightness.ImageReaderFromMessage()
+    reader = centerOfBrightnessF32.ImageReaderFromMessage()
 
     payload = messaging.CameraImageMsgPayload()
     payload.timeTag = 5000
