@@ -12,7 +12,7 @@ FUZZ_TEST(CenterOfBrightnessFuzz, fuzzCenterOfBrightness)
                  fuzztest::InRange(0, kMaxFuzzPixels),                                          // numPixels
                  fuzztest::VectorOf(fuzztest::InRange(1, kMaxCoord)).WithSize(kMaxFuzzPixels),  // pixelXs
                  fuzztest::VectorOf(fuzztest::InRange(1, kMaxCoord)).WithSize(kMaxFuzzPixels),  // pixelYs
-                 fuzztest::InRange(-1.0F, 10.0F),                                               // brightnessThreshold
+                 fuzztest::InRange(0.0F, 10.0F),                                                // brightnessThreshold
                  fuzztest::InRange(1, 20)                                                       // avgWindowSize
     );
 
@@ -20,7 +20,7 @@ constexpr int32_t kMaxFuzzSteps = 10;
 constexpr int32_t kMaxStepPixels = 50;
 
 FUZZ_TEST(CenterOfBrightnessFuzz, fuzzMultiStepBrightness)
-    .WithDomains(fuzztest::InRange(1, 20),         // avgWindowSize
-                 fuzztest::InRange(-1.0F, 10.0F),  // brightnessThreshold
+    .WithDomains(fuzztest::InRange(1, 20),        // avgWindowSize
+                 fuzztest::InRange(0.0F, 10.0F),  // brightnessThreshold
                  fuzztest::VectorOf(fuzztest::InRange(0, kMaxStepPixels)).WithSize(kMaxFuzzSteps)  // pixelCountsPerStep
     );

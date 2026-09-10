@@ -1,8 +1,10 @@
 #include "centerOfBrightnessAlgorithm.h"
 
-CenterOfBrightnessAlgorithm::CenterOfBrightnessAlgorithm() = default;
+CenterOfBrightnessAlgorithm::CenterOfBrightnessAlgorithm(const CenterOfBrightnessConfig& config) : cfg(config) {}
 
 CenterOfBrightnessAlgorithm::~CenterOfBrightnessAlgorithm() = default;
+
+void CenterOfBrightnessAlgorithm::setConfig(const CenterOfBrightnessConfig& config) { this->cfg = config; }
 
 /*! Reset algorithm state: clears brightness history */
 void CenterOfBrightnessAlgorithm::reset() { this->brightnessHistory.resize(0); }
@@ -21,7 +23,7 @@ CenterOfBrightnessResult CenterOfBrightnessAlgorithm::update(const CobRegionOfIn
     if (pixelsFound > 0) {
         const float brightnessIncrease = this->computeBrightnessIncrease(pixelsFound);
         result.noPixelTrigger = false;
-        if (brightnessIncrease >= this->relativeBrightnessIncreaseThreshold) {
+        if (brightnessIncrease >= this->cfg.getRelativeBrightnessIncreaseThreshold()) {
             result.valid = true;
             result.centerOfBrightness = coordinates;
             result.pixelsFound = pixelsFound;
@@ -76,7 +78,7 @@ float CenterOfBrightnessAlgorithm::computeBrightnessIncrease(const int32_t pixel
     */
 void CenterOfBrightnessAlgorithm::updateBrightnessHistory(const float brightness) {
     // increase vector size if it is not at its full size yet
-    if (this->brightnessHistory.rows() < this->numberOfPointsBrightnessAverage) {
+    if (this->brightnessHistory.rows() < this->cfg.getNumberOfPointsBrightnessAverage()) {
         this->brightnessHistory.conservativeResize(this->brightnessHistory.rows() + 1, 1);
     }
     // shift previous brightness values back (only if number of data points for rolling average is greater than 1)
@@ -87,20 +89,4 @@ void CenterOfBrightnessAlgorithm::updateBrightnessHistory(const float brightness
     }
     // update most recent brightness value
     this->brightnessHistory[0] = brightness;
-}
-
-void CenterOfBrightnessAlgorithm::setRelativeBrightnessIncreaseThreshold(const float increaseThreshold) {
-    this->relativeBrightnessIncreaseThreshold = increaseThreshold;
-}
-
-float CenterOfBrightnessAlgorithm::getRelativeBrightnessIncreaseThreshold() const {
-    return this->relativeBrightnessIncreaseThreshold;
-}
-
-void CenterOfBrightnessAlgorithm::setNumberOfPointsBrightnessAverage(const int32_t rollingAverage) {
-    this->numberOfPointsBrightnessAverage = rollingAverage;
-}
-
-int32_t CenterOfBrightnessAlgorithm::getNumberOfPointsBrightnessAverage() const {
-    return this->numberOfPointsBrightnessAverage;
 }

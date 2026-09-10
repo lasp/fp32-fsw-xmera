@@ -35,8 +35,12 @@ class CenterOfBrightness : public SysModel {
     ReadFunctor<RegionOfInterestMsgF32Payload> roiInMsg;  //!< Region of interest input message
 
    private:
-    CenterOfBrightnessAlgorithm algorithm{};
+    void rebuildAlgorithmConfig();
+
+    CenterOfBrightnessAlgorithm algorithm{CenterOfBrightnessConfig::create(0.0F, 1)};
     std::shared_ptr<ImageReaderInterface> imageReader;  //!< shared ownership with Python/SWIG
+    float relativeBrightnessIncreaseThreshold{0.0F};    //!< [-] minimum relative brightness increase
+    int32_t numberOfPointsBrightnessAverage{1};  //!< [-] number of points to be used for rolling average of brightness
     int32_t cameraID{};
     int64_t previousImageTimeTag{};
 };

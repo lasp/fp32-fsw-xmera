@@ -134,9 +134,7 @@ inline void fuzzCenterOfBrightness(int32_t roiCenterX,
     }
 
     // Set up algorithm
-    CenterOfBrightnessAlgorithm alg;
-    alg.setRelativeBrightnessIncreaseThreshold(brightnessThreshold);
-    alg.setNumberOfPointsBrightnessAverage(avgWindowSize);
+    CenterOfBrightnessAlgorithm alg{CenterOfBrightnessConfig::create(brightnessThreshold, avgWindowSize)};
 
     // Set up fake image reader
     FuzzImageReader reader;
@@ -200,9 +198,7 @@ inline void fuzzCenterOfBrightness(int32_t roiCenterX,
 inline void fuzzMultiStepBrightness(int32_t avgWindowSize,
                                     float brightnessThreshold,
                                     std::vector<int32_t> pixelCountsPerStep) {
-    CenterOfBrightnessAlgorithm alg;
-    alg.setRelativeBrightnessIncreaseThreshold(brightnessThreshold);
-    alg.setNumberOfPointsBrightnessAverage(avgWindowSize);
+    CenterOfBrightnessAlgorithm alg{CenterOfBrightnessConfig::create(brightnessThreshold, avgWindowSize)};
 
     ReferenceState refState;
     refState.maxHistorySize = avgWindowSize;

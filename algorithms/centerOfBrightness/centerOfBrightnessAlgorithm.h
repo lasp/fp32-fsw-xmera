@@ -73,16 +73,12 @@ class CenterOfBrightnessConfig final {
  */
 class CenterOfBrightnessAlgorithm final {
    public:
-    CenterOfBrightnessAlgorithm();
+    explicit CenterOfBrightnessAlgorithm(const CenterOfBrightnessConfig& config);
     ~CenterOfBrightnessAlgorithm();
 
     CenterOfBrightnessResult update(const CobRegionOfInterest& roi, ImageReaderInterface& imageReader);
     void reset();
-
-    void setRelativeBrightnessIncreaseThreshold(float increaseThreshold);
-    float getRelativeBrightnessIncreaseThreshold() const;
-    void setNumberOfPointsBrightnessAverage(int32_t rollingAverage);
-    int32_t getNumberOfPointsBrightnessAverage() const;
+    void setConfig(const CenterOfBrightnessConfig& config);
 
    private:
     CenterOfBrightnessResult findCob(const CobRegionOfInterest& roi, ImageReaderInterface& imageReader);
@@ -91,11 +87,10 @@ class CenterOfBrightnessAlgorithm final {
     float computeBrightnessIncrease(int32_t pixelsFound);
     void updateBrightnessHistory(float brightness);
 
+    CenterOfBrightnessConfig cfg;
     std::unique_ptr<std::array<Eigen::Vector2i, kMaxWindowSize>> pixelBuffer =
         std::make_unique<std::array<Eigen::Vector2i, kMaxWindowSize>>();
-    Eigen::VectorXf brightnessHistory{};          //!< [-] brightness history to be used for rolling average
-    float relativeBrightnessIncreaseThreshold{};  //!< [-] minimum relative brightness increase (if less, invalidated)
-    int32_t numberOfPointsBrightnessAverage{};    //!< [-] number of points to be used for rolling average of brightness
+    Eigen::VectorXf brightnessHistory{};  //!< [-] brightness history to be used for rolling average
 };
 
 #endif  // F32XMERA_CENTER_OF_BRIGHTNESS_ALGORITHM_H
