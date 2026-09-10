@@ -14,6 +14,8 @@ target_sources("${module}" PRIVATE
   _imageReader/imageReaderFromMessage.cpp
 )
 
+target_include_directories("${module}" PUBLIC "..")
+
 target_link_libraries("${module}" PRIVATE
   opencv_imgcodecs
   Eigen3::Eigen

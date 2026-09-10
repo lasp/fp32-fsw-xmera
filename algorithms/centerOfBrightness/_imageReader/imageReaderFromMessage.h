@@ -2,8 +2,8 @@
 #define _IMAGE_READER_FROM_MESSAGE_H_
 
 #include "../imageReaderInterface.h"
+#include "msgPayloadDef/CameraImageMsgF32Payload.h"
 #include <architecture/messaging/messaging.h>
-#include <architecture/msgPayloadDef/CameraImageMsgPayload.h>
 #include <opencv2/core/mat.hpp>
 #include <opencv2/opencv.hpp>
 
@@ -19,18 +19,18 @@ class ImageReaderFromMessage : public ImageReaderInterface {
 
     void setBlurSize(int blur);
     int getBlurSize() const;
-    void setPixelThreshold(double threshold);
-    double getPixelThreshold() const;
+    void setPixelThreshold(float threshold);
+    float getPixelThreshold() const;
 
-    ReadFunctor<CameraImageMsgPayload> imageInMsg;
+    ReadFunctor<CameraImageMsgF32Payload> imageInMsg;
 
    private:
     cv::Mat readImageFromMessage();
 
-    CameraImageMsgPayload imagePayload{};
+    CameraImageMsgF32Payload imagePayload{};
     uint64_t imageTimeTag{};
     Eigen::Vector2i imageSize{};  //!< [px] Full image dimensions (width, height)
-    double pixelThreshold{};      //!< [-] minimum pixel brightness threshold used for detecting bright pixels
+    float pixelThreshold{};       //!< [-] minimum pixel brightness threshold used for detecting bright pixels
     int32_t blurSize{};           //!< [px] Size of the blurring box in pixels
 };
 

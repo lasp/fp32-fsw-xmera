@@ -30,7 +30,7 @@ void CenterOfBrightness::reset(const uint64_t currentSimNanos) {
  */
 void CenterOfBrightness::updateState(const uint64_t currentSimNanos) {
     const auto roiPayload = this->roiInMsg();
-    OpNavCOBMsgPayload cobBuffer{};
+    OpNavCOBMsgF32Payload cobBuffer{};
     CenterOfBrightnessResult result{};
 
     const int64_t imageTimeTag =
@@ -51,11 +51,10 @@ void CenterOfBrightness::updateState(const uint64_t currentSimNanos) {
     cobBuffer.rollingAverageBrightness = result.rollingAverageBrightness;
     if (result.valid) {
         cobBuffer.timeTag = static_cast<uint64_t>(imageTimeTag);
-        cobBuffer.cameraID = this->cameraID;
     }
 
-    const CenterOfBrightnessDiagnosticMsgPayload diagnosticBuffer{result.noPixelTrigger,
-                                                                  result.notExceedingBrightnessIncreaseTrigger};
+    const CenterOfBrightnessDiagnosticMsgF32Payload diagnosticBuffer{result.noPixelTrigger,
+                                                                     result.notExceedingBrightnessIncreaseTrigger};
 
     this->opnavCOBOutMsg.write(cobBuffer, this->moduleID, currentSimNanos);
     this->centerOfBrightnessDiagnosticOutMsg.write(diagnosticBuffer, this->moduleID, currentSimNanos);
@@ -63,16 +62,16 @@ void CenterOfBrightness::updateState(const uint64_t currentSimNanos) {
 
 /*! Delegating setters/getters for algorithm parameters */
 
-void CenterOfBrightness::setRelativeBrightnessIncreaseThreshold(const double increaseThreshold) {
+void CenterOfBrightness::setRelativeBrightnessIncreaseThreshold(const float increaseThreshold) {
     // Note: +inf is a legitimate value here (an intentionally unreachable threshold); only reject
     // NaN and negative values. NaN comparisons are always false, so this rejects NaN too.
-    if (!(increaseThreshold >= 0.0)) {
+    if (!(increaseThreshold >= 0.0F)) {
         FSW_THROW_INVALID_ARGUMENT("centerOfBrightness: relativeBrightnessIncreaseThreshold must be non-negative.");
     }
     this->algorithm.setRelativeBrightnessIncreaseThreshold(increaseThreshold);
 }
 
-double CenterOfBrightness::getRelativeBrightnessIncreaseThreshold() const {
+float CenterOfBrightness::getRelativeBrightnessIncreaseThreshold() const {
     return this->algorithm.getRelativeBrightnessIncreaseThreshold();
 }
 

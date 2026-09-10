@@ -52,5 +52,5 @@ void ImageReaderFromMessage::getImageAsArray(const Eigen::Vector2i& center,
 Eigen::Vector2i ImageReaderFromMessage::getFullImageSize(int32_t cameraId) { return this->imageSize; };
 void ImageReaderFromMessage::setBlurSize(int blur) { this->blurSize = blur; }
 int ImageReaderFromMessage::getBlurSize() const { return this->blurSize; }
-void ImageReaderFromMessage::setPixelThreshold(double threshold) { this->pixelThreshold = threshold; }
-double ImageReaderFromMessage::getPixelThreshold() const { return this->pixelThreshold; }
+void ImageReaderFromMessage::setPixelThreshold(float threshold) { this->pixelThreshold = threshold; }
+float ImageReaderFromMessage::getPixelThreshold() const { return this->pixelThreshold; }

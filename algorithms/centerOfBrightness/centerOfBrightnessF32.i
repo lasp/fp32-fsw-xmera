@@ -16,7 +16,7 @@
 %include <std_shared_ptr.i>
 
 %include <attribute.i>
-%attribute(CenterOfBrightness, double, relativeBrightnessIncreaseThreshold, getRelativeBrightnessIncreaseThreshold,
+%attribute(CenterOfBrightness, float, relativeBrightnessIncreaseThreshold, getRelativeBrightnessIncreaseThreshold,
            setRelativeBrightnessIncreaseThreshold)
 %attribute(CenterOfBrightness, int32_t, numberOfPointsBrightnessAverage, getNumberOfPointsBrightnessAverage,
            setNumberOfPointsBrightnessAverage)
@@ -32,7 +32,7 @@
 
 %include "centerOfBrightness.h"
 
-%include <architecture/msgPayloadDef/CameraImageMsgPayload.h>
-%include <architecture/msgPayloadDef/RegionOfInterestMsgPayload.h>
-%include <architecture/msgPayloadDef/OpNavCOBMsgPayload.h>
-%include <architecture/msgPayloadDef/CenterOfBrightnessDiagnosticMsgPayload.h>
+%include "msgPayloadDef/CameraImageMsgF32Payload.h"
+%include "msgPayloadDef/RegionOfInterestMsgF32Payload.h"
+%include "msgPayloadDef/OpNavCOBMsgF32Payload.h"
+%include "msgPayloadDef/CenterOfBrightnessDiagnosticMsgF32Payload.h"

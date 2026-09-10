@@ -57,13 +57,13 @@ def setup_cob_sim(image_path, blur, pixel_threshold, roi_center, roi_size,
     process.addTask(sim.CreateNewTask("test_task", PROCESS_RATE))
     sim.AddModelToTask("test_task", module)
 
-    roi_msg_data = messaging.RegionOfInterestMsgPayload()
+    roi_msg_data = messaging.RegionOfInterestMsgF32Payload()
     roi_msg_data.centerX = roi_center[0]
     roi_msg_data.centerY = roi_center[1]
     roi_msg_data.width = roi_size[0]
     roi_msg_data.height = roi_size[1]
     roi_msg_data.timeTag = 1e9
-    roi_msg = messaging.RegionOfInterestMsg().write(roi_msg_data)
+    roi_msg = messaging.RegionOfInterestMsgF32().write(roi_msg_data)
     module.roiInMsg.subscribeTo(roi_msg)
 
     data_log = module.opnavCOBOutMsg.recorder()
@@ -251,11 +251,11 @@ def test_img_msg_check_for_new_image():
     """getCurrentImageTimeTag returns timeTag when new, 0 when not."""
     reader = centerOfBrightnessF32.ImageReaderFromMessage()
 
-    payload = messaging.CameraImageMsgPayload()
+    payload = messaging.CameraImageMsgF32Payload()
     payload.timeTag = 5000
     payload.valid = 1
     payload.cameraID = 0
-    img_msg = messaging.CameraImageMsg().write(payload)
+    img_msg = messaging.CameraImageMsgF32().write(payload)
     reader.imageInMsg.subscribeTo(img_msg)
 
     # timeTag=5000 > previousTimeTag=1000 → returns 5000
