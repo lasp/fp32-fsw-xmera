@@ -80,8 +80,8 @@ TEST_F(ImageReaderFromFileTest, SettersGetters) {
     reader.setBlurSize(5);
     EXPECT_EQ(5, reader.getBlurSize());
 
-    reader.setPixelThreshold(128.0);
-    EXPECT_DOUBLE_EQ(128.0, reader.getPixelThreshold());
+    reader.setPixelThreshold(128.0F);
+    EXPECT_FLOAT_EQ(128.0F, reader.getPixelThreshold());
 
     reader.setFileName("/some/path.png");
     EXPECT_EQ("/some/path.png", reader.getFileName());

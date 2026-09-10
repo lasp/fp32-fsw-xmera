@@ -4,7 +4,7 @@
 
 // Test constants
 constexpr int32_t kDefaultBrightnessAvgPoints = 5;
-constexpr double kTestTolerance = 1e-6;
+constexpr float kTestTolerance = 1e-4F;
 
 // ============================================================================
 // MOCK IMAGE READER
@@ -45,8 +45,8 @@ class CenterOfBrightnessAlgorithmTest : public ::testing::Test {
 // ============================================================================
 
 TEST_F(CenterOfBrightnessAlgorithmTest, SetAndGetRelativeBrightnessIncreaseThreshold) {
-    algorithm.setRelativeBrightnessIncreaseThreshold(0.25);
-    EXPECT_NEAR(0.25, algorithm.getRelativeBrightnessIncreaseThreshold(), kTestTolerance);
+    algorithm.setRelativeBrightnessIncreaseThreshold(0.25F);
+    EXPECT_NEAR(0.25F, algorithm.getRelativeBrightnessIncreaseThreshold(), kTestTolerance);
 }
 
 TEST_F(CenterOfBrightnessAlgorithmTest, SetAndGetNumberOfPointsBrightnessAverage) {
@@ -68,9 +68,9 @@ TEST_F(CenterOfBrightnessAlgorithmTest, EmptyPixelArrayReturnsDefaultResult) {
 
     EXPECT_FALSE(result.valid);
     EXPECT_EQ(0, result.pixelsFound);
-    EXPECT_NEAR(0.0, result.centerOfBrightness[0], kTestTolerance);
-    EXPECT_NEAR(0.0, result.centerOfBrightness[1], kTestTolerance);
-    EXPECT_NEAR(0.0, result.rollingAverageBrightness, kTestTolerance);
+    EXPECT_NEAR(0.0F, result.centerOfBrightness[0], kTestTolerance);
+    EXPECT_NEAR(0.0F, result.centerOfBrightness[1], kTestTolerance);
+    EXPECT_NEAR(0.0F, result.rollingAverageBrightness, kTestTolerance);
     EXPECT_FALSE(result.noPixelTrigger);
     EXPECT_FALSE(result.notExceedingBrightnessIncreaseTrigger);
 }
@@ -90,8 +90,8 @@ TEST_F(CenterOfBrightnessAlgorithmTest, SingleNonZeroPixelCentroidAtPixel) {
 
     EXPECT_TRUE(result.valid);
     EXPECT_EQ(1, result.pixelsFound);
-    EXPECT_NEAR(50.0, result.centerOfBrightness[0], kTestTolerance);
-    EXPECT_NEAR(30.0, result.centerOfBrightness[1], kTestTolerance);
+    EXPECT_NEAR(50.0F, result.centerOfBrightness[0], kTestTolerance);
+    EXPECT_NEAR(30.0F, result.centerOfBrightness[1], kTestTolerance);
     EXPECT_FALSE(result.noPixelTrigger);
     EXPECT_FALSE(result.notExceedingBrightnessIncreaseTrigger);
 }
@@ -115,8 +115,8 @@ TEST_F(CenterOfBrightnessAlgorithmTest, SymmetricPixelPatternCentroidAtCenter) {
 
     EXPECT_TRUE(result.valid);
     EXPECT_EQ(4, result.pixelsFound);
-    EXPECT_NEAR(50.0, result.centerOfBrightness[0], kTestTolerance);
-    EXPECT_NEAR(50.0, result.centerOfBrightness[1], kTestTolerance);
+    EXPECT_NEAR(50.0F, result.centerOfBrightness[0], kTestTolerance);
+    EXPECT_NEAR(50.0F, result.centerOfBrightness[1], kTestTolerance);
 }
 
 // ============================================================================
@@ -125,7 +125,7 @@ TEST_F(CenterOfBrightnessAlgorithmTest, SymmetricPixelPatternCentroidAtCenter) {
 
 TEST_F(CenterOfBrightnessAlgorithmTest, BrightnessIncreaseThresholdInvalidatesResult) {
     // Set a high brightness increase threshold
-    algorithm.setRelativeBrightnessIncreaseThreshold(0.5);
+    algorithm.setRelativeBrightnessIncreaseThreshold(0.5F);
     algorithm.setNumberOfPointsBrightnessAverage(2);
 
     mockReader.pixelData[0] = Eigen::Vector2i(50, 50);
@@ -147,7 +147,7 @@ TEST_F(CenterOfBrightnessAlgorithmTest, BrightnessIncreaseThresholdInvalidatesRe
 }
 
 TEST_F(CenterOfBrightnessAlgorithmTest, BrightnessIncreaseAboveThresholdValidatesResult) {
-    algorithm.setRelativeBrightnessIncreaseThreshold(0.5);
+    algorithm.setRelativeBrightnessIncreaseThreshold(0.5F);
     algorithm.setNumberOfPointsBrightnessAverage(2);
 
     mockReader.pixelData[0] = Eigen::Vector2i(50, 50);
@@ -187,8 +187,8 @@ TEST_F(CenterOfBrightnessAlgorithmTest, RollingAverageBrightnessTracking) {
 
     // First update establishes initial brightness
     CenterOfBrightnessResult result1 = algorithm.update(roi, mockReader);
-    EXPECT_GT(result1.rollingAverageBrightness, 0.0);
-    double firstBrightness = result1.rollingAverageBrightness;
+    EXPECT_GT(result1.rollingAverageBrightness, 0.0F);
+    float firstBrightness = result1.rollingAverageBrightness;
 
     // Second update with same data should give similar brightness
     CenterOfBrightnessResult result2 = algorithm.update(roi, mockReader);

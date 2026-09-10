@@ -33,8 +33,8 @@ Eigen::Vector2i ImageReaderFromFile::getFullImageSize(int32_t cameraId) { return
 
 void ImageReaderFromFile::setBlurSize(int blur) { this->blurSize = blur; }
 int ImageReaderFromFile::getBlurSize() const { return this->blurSize; }
-void ImageReaderFromFile::setPixelThreshold(double threshold) { this->pixelThreshold = threshold; }
-double ImageReaderFromFile::getPixelThreshold() const { return this->pixelThreshold; }
+void ImageReaderFromFile::setPixelThreshold(float threshold) { this->pixelThreshold = threshold; }
+float ImageReaderFromFile::getPixelThreshold() const { return this->pixelThreshold; }
 void ImageReaderFromFile::setFileName(const std::string& fileNameInput) { this->fileName = fileNameInput; }
 std::string ImageReaderFromFile::getFileName() const { return this->fileName; }
 void ImageReaderFromFile::setSaveImages(bool save) { this->saveImages = save; }

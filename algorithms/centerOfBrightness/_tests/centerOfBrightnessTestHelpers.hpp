@@ -35,7 +35,7 @@ class FuzzImageReader : public ImageReaderInterface {
 // ============================================================================
 
 struct ReferenceState {
-    std::deque<double> brightnessHistory;
+    std::deque<float> brightnessHistory;
     int32_t maxHistorySize = 1;
 };
 
@@ -44,21 +44,21 @@ struct ReferenceState {
 // ============================================================================
 
 inline CenterOfBrightnessResult referenceUpdate(const std::vector<Eigen::Vector2i>& pixels,
-                                                double brightnessThreshold,
+                                                float brightnessThreshold,
                                                 ReferenceState& state) {
     // Compute centroid of non-zero pixels
-    Eigen::Vector2d centroid = Eigen::Vector2d::Zero();
+    Eigen::Vector2f centroid = Eigen::Vector2f::Zero();
     int32_t count = 0;
     for (const auto& p : pixels) {
         if (p.isZero()) {
             continue;
         }
-        centroid[0] += p[0];
-        centroid[1] += p[1];
+        centroid[0] += static_cast<float>(p[0]);
+        centroid[1] += static_cast<float>(p[1]);
         ++count;
     }
     if (count > 0) {
-        centroid /= count;
+        centroid /= static_cast<float>(count);
     }
 
     // Build result (matching defaults in CenterOfBrightnessResult)
@@ -66,34 +66,34 @@ inline CenterOfBrightnessResult referenceUpdate(const std::vector<Eigen::Vector2
 
     if (count > 0) {
         // Compute old brightness average
-        double avgOld = 0.0;
+        float avgOld = 0.0F;
         if (!state.brightnessHistory.empty()) {
-            double sum = 0.0;
-            for (double v : state.brightnessHistory) {
+            float sum = 0.0F;
+            for (float v : state.brightnessHistory) {
                 sum += v;
             }
-            avgOld = sum / static_cast<double>(state.brightnessHistory.size());
+            avgOld = sum / static_cast<float>(state.brightnessHistory.size());
         }
 
         // Update history: grow if not at full size, then shift and insert at front
         if (static_cast<int32_t>(state.brightnessHistory.size()) < state.maxHistorySize) {
-            state.brightnessHistory.push_back(0.0);
+            state.brightnessHistory.push_back(0.0F);
         }
         for (auto i = static_cast<int>(state.brightnessHistory.size()) - 1; i > 0; --i) {
             state.brightnessHistory[static_cast<size_t>(i)] = state.brightnessHistory[static_cast<size_t>(i - 1)];
         }
-        state.brightnessHistory[0] = static_cast<double>(count);
+        state.brightnessHistory[0] = static_cast<float>(count);
 
         // Compute new brightness average
-        double sumNew = 0.0;
-        for (double v : state.brightnessHistory) {
+        float sumNew = 0.0F;
+        for (float v : state.brightnessHistory) {
             sumNew += v;
         }
-        double avgNew = sumNew / static_cast<double>(state.brightnessHistory.size());
+        float avgNew = sumNew / static_cast<float>(state.brightnessHistory.size());
 
         // Compute relative increase
-        double brightnessIncrease = 0.0;
-        if (avgOld > 0.0) {
+        float brightnessIncrease = 0.0F;
+        if (avgOld > 0.0F) {
             brightnessIncrease = (avgNew - avgOld) / avgOld;
         }
 
@@ -121,7 +121,7 @@ inline void fuzzCenterOfBrightness(int32_t roiCenterX,
                                    int32_t numPixels,
                                    std::vector<int32_t> pixelXs,
                                    std::vector<int32_t> pixelYs,
-                                   double brightnessThreshold,
+                                   float brightnessThreshold,
                                    int32_t avgWindowSize) {
     numPixels = std::min(numPixels, static_cast<int32_t>(pixelXs.size()));
     numPixels = std::min(numPixels, static_cast<int32_t>(pixelYs.size()));
@@ -155,11 +155,11 @@ inline void fuzzCenterOfBrightness(int32_t roiCenterX,
     refState.maxHistorySize = avgWindowSize;
     CenterOfBrightnessResult refResult = referenceUpdate(pixels, brightnessThreshold, refState);
 
-    // Reference correctness
-    EXPECT_NEAR(result.centerOfBrightness[0], refResult.centerOfBrightness[0], 1e-9);
-    EXPECT_NEAR(result.centerOfBrightness[1], refResult.centerOfBrightness[1], 1e-9);
+    // Reference correctness (tolerance widened for FP32 precision)
+    EXPECT_NEAR(result.centerOfBrightness[0], refResult.centerOfBrightness[0], 1e-4F);
+    EXPECT_NEAR(result.centerOfBrightness[1], refResult.centerOfBrightness[1], 1e-4F);
     EXPECT_EQ(result.pixelsFound, refResult.pixelsFound);
-    EXPECT_NEAR(result.rollingAverageBrightness, refResult.rollingAverageBrightness, 1e-9);
+    EXPECT_NEAR(result.rollingAverageBrightness, refResult.rollingAverageBrightness, 1e-4F);
     EXPECT_EQ(result.valid, refResult.valid);
     EXPECT_EQ(result.noPixelTrigger, refResult.noPixelTrigger);
     EXPECT_EQ(result.notExceedingBrightnessIncreaseTrigger, refResult.notExceedingBrightnessIncreaseTrigger);
@@ -186,10 +186,10 @@ inline void fuzzCenterOfBrightness(int32_t roiCenterX,
             minY = std::min(minY, pixelYs[static_cast<size_t>(i)]);
             maxY = std::max(maxY, pixelYs[static_cast<size_t>(i)]);
         }
-        EXPECT_GE(result.centerOfBrightness[0], static_cast<double>(minX) - 1e-9);
-        EXPECT_LE(result.centerOfBrightness[0], static_cast<double>(maxX) + 1e-9);
-        EXPECT_GE(result.centerOfBrightness[1], static_cast<double>(minY) - 1e-9);
-        EXPECT_LE(result.centerOfBrightness[1], static_cast<double>(maxY) + 1e-9);
+        EXPECT_GE(result.centerOfBrightness[0], static_cast<float>(minX) - 1e-4F);
+        EXPECT_LE(result.centerOfBrightness[0], static_cast<float>(maxX) + 1e-4F);
+        EXPECT_GE(result.centerOfBrightness[1], static_cast<float>(minY) - 1e-4F);
+        EXPECT_LE(result.centerOfBrightness[1], static_cast<float>(maxY) + 1e-4F);
     }
 }
 
@@ -198,7 +198,7 @@ inline void fuzzCenterOfBrightness(int32_t roiCenterX,
 // ============================================================================
 
 inline void fuzzMultiStepBrightness(int32_t avgWindowSize,
-                                    double brightnessThreshold,
+                                    float brightnessThreshold,
                                     std::vector<int32_t> pixelCountsPerStep) {
     CenterOfBrightnessAlgorithm alg;
     alg.setRelativeBrightnessIncreaseThreshold(brightnessThreshold);
@@ -224,7 +224,7 @@ inline void fuzzMultiStepBrightness(int32_t avgWindowSize,
         CenterOfBrightnessResult refResult = referenceUpdate(pixels, brightnessThreshold, refState);
 
         EXPECT_EQ(result.pixelsFound, refResult.pixelsFound);
-        EXPECT_NEAR(result.rollingAverageBrightness, refResult.rollingAverageBrightness, 1e-9);
+        EXPECT_NEAR(result.rollingAverageBrightness, refResult.rollingAverageBrightness, 1e-4F);
         EXPECT_EQ(result.valid, refResult.valid);
         EXPECT_EQ(result.noPixelTrigger, refResult.noPixelTrigger);
         EXPECT_EQ(result.notExceedingBrightnessIncreaseTrigger, refResult.notExceedingBrightnessIncreaseTrigger);

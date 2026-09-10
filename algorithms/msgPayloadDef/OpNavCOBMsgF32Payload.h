@@ -5,7 +5,7 @@
 
 //!@brief Center of brightness optical navigation measurement message
 /*! This message is output by the center of brightness module and contains the center of brightness of the image
- * that was input, as well as the validity of the image processing process, the camera ID, and the number of pixels
+ * that was input, as well as the validity of the image processing process and the number of pixels
  * found during the computation.
  */
 typedef struct {

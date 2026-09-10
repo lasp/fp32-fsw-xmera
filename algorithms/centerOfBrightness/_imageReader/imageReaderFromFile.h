@@ -2,7 +2,7 @@
 #define _IMAGE_READER_FROM_FILE_H_
 
 #include "../imageReaderInterface.h"
-#include <architecture/msgPayloadDef/CameraImageMsgPayload.h>
+#include "msgPayloadDef/CameraImageMsgF32Payload.h"
 #include <opencv2/core/mat.hpp>
 #include <opencv2/opencv.hpp>
 
@@ -18,8 +18,8 @@ class ImageReaderFromFile : public ImageReaderInterface {
 
     void setBlurSize(int blur);
     int getBlurSize() const;
-    void setPixelThreshold(double threshold);
-    double getPixelThreshold() const;
+    void setPixelThreshold(float threshold);
+    float getPixelThreshold() const;
     void setFileName(const std::string& fileName);
     std::string getFileName() const;
     void setSaveImages(bool save);
@@ -32,7 +32,7 @@ class ImageReaderFromFile : public ImageReaderInterface {
 
     std::string fileName{};       //!< Filename to read an image directly
     Eigen::Vector2i imageSize{};  //!< [px] Full image dimensions (width, height)
-    double pixelThreshold{};      //!< [-] minimum pixel brightness threshold used for detecting bright pixels
+    float pixelThreshold{};       //!< [-] minimum pixel brightness threshold used for detecting bright pixels
     int32_t blurSize{};           //!< [px] Size of the blurring box in pixels
     bool saveImages{};            //!< [-] flag to save images on each getImageAsArray call
     std::string saveDir{};        //!< [-] path to save the image to

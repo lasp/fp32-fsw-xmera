@@ -5,9 +5,9 @@
 #include <stdint.h>
 #include <memory>
 
-#include <architecture/msgPayloadDef/CenterOfBrightnessDiagnosticMsgPayload.h>
-#include <architecture/msgPayloadDef/OpNavCOBMsgPayload.h>
-#include <architecture/msgPayloadDef/RegionOfInterestMsgPayload.h>
+#include "msgPayloadDef/CenterOfBrightnessDiagnosticMsgF32Payload.h"
+#include "msgPayloadDef/OpNavCOBMsgF32Payload.h"
+#include "msgPayloadDef/RegionOfInterestMsgF32Payload.h"
 
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 
@@ -23,16 +23,16 @@ class CenterOfBrightness : public SysModel {
     void updateState(uint64_t currentSimNanos) override;
     void reset(uint64_t currentSimNanos) override;
 
-    void setRelativeBrightnessIncreaseThreshold(double increaseThreshold);
-    double getRelativeBrightnessIncreaseThreshold() const;
+    void setRelativeBrightnessIncreaseThreshold(float increaseThreshold);
+    float getRelativeBrightnessIncreaseThreshold() const;
     void setNumberOfPointsBrightnessAverage(int32_t rollingAverage);
     int32_t getNumberOfPointsBrightnessAverage() const;
     void setCameraID(int32_t id);
     int32_t getCameraID() const;
 
-    Message<OpNavCOBMsgPayload> opnavCOBOutMsg;  //!< The name of the OpNav center of brightness output message
-    Message<CenterOfBrightnessDiagnosticMsgPayload> centerOfBrightnessDiagnosticOutMsg;
-    ReadFunctor<RegionOfInterestMsgPayload> roiInMsg;  //!< Region of interest input message
+    Message<OpNavCOBMsgF32Payload> opnavCOBOutMsg;  //!< The name of the OpNav center of brightness output message
+    Message<CenterOfBrightnessDiagnosticMsgF32Payload> centerOfBrightnessDiagnosticOutMsg;
+    ReadFunctor<RegionOfInterestMsgF32Payload> roiInMsg;  //!< Region of interest input message
 
    private:
     CenterOfBrightnessAlgorithm algorithm{};

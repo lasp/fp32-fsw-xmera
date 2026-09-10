@@ -19,7 +19,7 @@ CenterOfBrightnessResult CenterOfBrightnessAlgorithm::update(const CobRegionOfIn
     const auto [coordinates, pixelsFound] = this->computeCenterOfBrightness(*this->pixelBuffer);
 
     if (pixelsFound > 0) {
-        const double brightnessIncrease = this->computeBrightnessIncrease(pixelsFound);
+        const float brightnessIncrease = this->computeBrightnessIncrease(pixelsFound);
         result.noPixelTrigger = false;
         if (brightnessIncrease >= this->relativeBrightnessIncreaseThreshold) {
             result.valid = true;
@@ -36,9 +36,9 @@ CenterOfBrightnessResult CenterOfBrightnessAlgorithm::update(const CobRegionOfIn
  @return pair of centroid coordinates and count of valid pixels
  @param pixels Array of pixel coordinates from image reader
  */
-std::pair<Eigen::Vector2d, int32_t> CenterOfBrightnessAlgorithm::computeCenterOfBrightness(
+std::pair<Eigen::Vector2f, int32_t> CenterOfBrightnessAlgorithm::computeCenterOfBrightness(
     const std::array<Eigen::Vector2i, kMaxWindowSize>& pixels) const {
-    Eigen::Vector2d coordinates = Eigen::Vector2d::Zero();
+    Eigen::Vector2f coordinates = Eigen::Vector2f::Zero();
     int32_t count = 0;
     for (const auto& pixel : pixels) {
         if (pixel.isZero()) continue;
@@ -47,7 +47,7 @@ std::pair<Eigen::Vector2d, int32_t> CenterOfBrightnessAlgorithm::computeCenterOf
         ++count;
     }
     if (count > 0) {
-        coordinates /= count;
+        coordinates /= static_cast<float>(count);
     }
     return {coordinates, count};
 }
@@ -56,15 +56,15 @@ std::pair<Eigen::Vector2d, int32_t> CenterOfBrightnessAlgorithm::computeCenterOf
  @return relative brightness increase
  @param pixelsFound Number of bright pixels found this timestep
  */
-double CenterOfBrightnessAlgorithm::computeBrightnessIncrease(const int32_t pixelsFound) {
-    double averageBrightnessOld = 0.0;
+float CenterOfBrightnessAlgorithm::computeBrightnessIncrease(const int32_t pixelsFound) {
+    float averageBrightnessOld = 0.0F;
     if (this->brightnessHistory.rows() > 0) {
         averageBrightnessOld = this->brightnessHistory.mean();
     }
-    this->updateBrightnessHistory(static_cast<double>(pixelsFound));
-    const double averageBrightnessNew = this->brightnessHistory.mean();
-    double brightnessIncrease = 0.0;
-    if (averageBrightnessOld > 0.0) {
+    this->updateBrightnessHistory(static_cast<float>(pixelsFound));
+    const float averageBrightnessNew = this->brightnessHistory.mean();
+    float brightnessIncrease = 0.0F;
+    if (averageBrightnessOld > 0.0F) {
         brightnessIncrease = (averageBrightnessNew - averageBrightnessOld) / averageBrightnessOld;
     }
     return brightnessIncrease;
@@ -74,7 +74,7 @@ double CenterOfBrightnessAlgorithm::computeBrightnessIncrease(const int32_t pixe
     @return void
     @param brightness total brightness of current time step
     */
-void CenterOfBrightnessAlgorithm::updateBrightnessHistory(const double brightness) {
+void CenterOfBrightnessAlgorithm::updateBrightnessHistory(const float brightness) {
     // increase vector size if it is not at its full size yet
     if (this->brightnessHistory.rows() < this->numberOfPointsBrightnessAverage) {
         this->brightnessHistory.conservativeResize(this->brightnessHistory.rows() + 1, 1);
@@ -89,11 +89,11 @@ void CenterOfBrightnessAlgorithm::updateBrightnessHistory(const double brightnes
     this->brightnessHistory[0] = brightness;
 }
 
-void CenterOfBrightnessAlgorithm::setRelativeBrightnessIncreaseThreshold(const double increaseThreshold) {
+void CenterOfBrightnessAlgorithm::setRelativeBrightnessIncreaseThreshold(const float increaseThreshold) {
     this->relativeBrightnessIncreaseThreshold = increaseThreshold;
 }
 
-double CenterOfBrightnessAlgorithm::getRelativeBrightnessIncreaseThreshold() const {
+float CenterOfBrightnessAlgorithm::getRelativeBrightnessIncreaseThreshold() const {
     return this->relativeBrightnessIncreaseThreshold;
 }
 
