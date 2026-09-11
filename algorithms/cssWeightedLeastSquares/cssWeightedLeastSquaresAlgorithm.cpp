@@ -5,6 +5,7 @@
 #include <math.h>
 #include <Eigen/Geometry>
 #include <Eigen/LU>
+#include <optional>
 
 /*! Smallest physically meaningful CSS reading. A coarse sun sensor cannot report a negative cosine,
     so the predicted measurement is floored here before differencing against the observation. */
@@ -59,10 +60,8 @@ CssWeightedLeastSquaresOutput CssWeightedLeastSquaresAlgorithm::update(
     Eigen::Vector<float, kMaxNumCss> y = Eigen::Vector<float, kMaxNumCss>::Zero();
     /* The sensor index behind each observation, in observation order */
     std::array<Eigen::Index, kMaxNumCss> activeSensors{};
-    int status = 0; /* Quality of the module estimate */
-
     uint32_t numActiveCss = 0;
-    Eigen::Vector3f fit = Eigen::Vector3f::Zero(); /* the least squares solution, before normalization */
+    std::optional<Eigen::Vector3f> fit; /* the least squares solution; empty when there is none */
     Eigen::Vector3f sunHeading_B = Eigen::Vector3f::Zero();
     Eigen::Vector3f omega_BN_B = Eigen::Vector3f::Zero();
     Eigen::Vector<float, kMaxNumCss> postFitResiduals = Eigen::Vector<float, kMaxNumCss>::Zero();
@@ -92,9 +91,11 @@ CssWeightedLeastSquaresOutput CssWeightedLeastSquaresAlgorithm::update(
             weights = y;
         }
         /*! -# Get least squares fit for sun pointing vector*/
-        status = computeWlsmn(numActiveCss, weights, H, y, fit);
+        fit = computeWlsmn(numActiveCss, weights, H, y);
+    }
 
-        sunHeading_B = fit.stableNormalized();
+    if (fit) {
+        sunHeading_B = fit->stableNormalized();
 
         /*! -# Estimate the inertial angular velocity from the rate of the sun heading measurements */
         if (this->priorSignalAvailable) {
@@ -112,13 +113,14 @@ CssWeightedLeastSquaresOutput CssWeightedLeastSquaresAlgorithm::update(
     }
 
     /*! - Residuals are measured against the unnormalized fit, which is zero when there was no sun */
-    postFitResiduals = this->computeWlsResiduals(cosValues, fit, activeSensors, numActiveCss);
+    postFitResiduals =
+        this->computeWlsResiduals(cosValues, fit.value_or(Eigen::Vector3f::Zero()), activeSensors, numActiveCss);
 
     /*! - Capture the heading reported on the filter status output before any anomaly zeroing */
     const Eigen::Vector3f residualStateHeading = sunHeading_B;
 
     /*! - With no sun, or a singular fit, there is no heading to report and no prior to difference against */
-    if (numActiveCss == 0 || status > 0) {
+    if (!fit) {
         sunHeading_B.setZero();
         omega_BN_B.setZero();
         this->priorSignalAvailable = false;
@@ -163,25 +165,24 @@ Eigen::Vector<float, kMaxNumCss> CssWeightedLeastSquaresAlgorithm::computeWlsRes
 }
 
 /*! This method computes a least squares fit with the given parameters.
- @return success indicator (0 for good, 1 for fail)
+ @return the fit, or nothing when the normal matrix is singular
  @param numActiveCss The count on input measurements
  @param weights The diagonal of the measurement weighting matrix; only applied when more than two
         measurements are available, as the one- and two-measurement fits are exactly determined
  @param H The predicted pointing vector for each measurement, one per row
  @param y the observation vector for the valid sensors
- @param x The output least squares fit for the observations
  */
-int CssWeightedLeastSquaresAlgorithm::computeWlsmn(const uint32_t numActiveCss,
-                                                   const Eigen::Vector<float, kMaxNumCss>& weights,
-                                                   const Eigen::Matrix<float, kMaxNumCss, 3>& H,
-                                                   const Eigen::Vector<float, kMaxNumCss>& y,
-                                                   Eigen::Vector3f& x) {
-    int status = 0;
+std::optional<Eigen::Vector3f> CssWeightedLeastSquaresAlgorithm::computeWlsmn(
+    const uint32_t numActiveCss,
+    const Eigen::Vector<float, kMaxNumCss>& weights,
+    const Eigen::Matrix<float, kMaxNumCss, 3>& H,
+    const Eigen::Vector<float, kMaxNumCss>& y) {
+    std::optional<Eigen::Vector3f> fit;
 
     /*! - If we only have one sensor, output best guess (cone of possiblities)*/
     if (numActiveCss == 1) {
         /* Here's a guess.  Do with it what you will. */
-        x = H.row(0).transpose() * y(0);
+        fit = Eigen::Vector3f{H.row(0).transpose() * y(0)};
     } else if (numActiveCss == 2) { /*! - If we have two, then do a 2x2 fit */
         /*!   -# Find minimum norm solution */
         const Eigen::Matrix<float, 2, 3> h = H.topRows<2>();
@@ -193,12 +194,10 @@ int CssWeightedLeastSquaresAlgorithm::computeWlsmn(const uint32_t numActiveCss,
         const float hhtNorm = hht.stableNorm();
         const float hhtThreshold = kSingularDeterminantRelativeTolerance * hhtNorm * hhtNorm;
         hht.computeInverseAndDetWithCheck(hhtInverse, determinant, invertible, hhtThreshold);
-        if (!invertible) {
-            hhtInverse.setZero();
-            status = 1;
+        if (invertible) {
+            /*!   -# Multiply the Ht(HHt)^-1 by the observation vector to get fit*/
+            fit = Eigen::Vector3f{h.transpose() * hhtInverse * y.head<2>()};
         }
-        /*!   -# Multiply the Ht(HHt)^-1 by the observation vector to get fit*/
-        x = h.transpose() * hhtInverse * y.head<2>();
     } else if (numActiveCss >= kMinMeasurementsForWeightedFit) { /*! - If we have more than 2, do true LSQ fit*/
         /*!    -# Use the weights to compute (HtWH)^-1HtW. The rows of H and the entries of y past
            numActiveCss are zero, so the products over the full operands equal the products over the
@@ -214,13 +213,11 @@ int CssWeightedLeastSquaresAlgorithm::computeWlsmn(const uint32_t numActiveCss,
         const float htwhNorm = htwh.stableNorm();
         const float htwhThreshold = kSingularDeterminantRelativeTolerance * htwhNorm * htwhNorm * htwhNorm;
         htwh.computeInverseAndDetWithCheck(htwhInverse, determinant, invertible, htwhThreshold);
-        if (!invertible) {
-            htwhInverse.setZero();
-            status = 1;
+        if (invertible) {
+            /*!    -# Multiply the LSQ matrix by the obs vector for best fit*/
+            fit = Eigen::Vector3f{htwhInverse * (wh.transpose() * y)};
         }
-        /*!    -# Multiply the LSQ matrix by the obs vector for best fit*/
-        x = htwhInverse * (wh.transpose() * y);
     }
 
-    return status;
+    return fit;
 }
