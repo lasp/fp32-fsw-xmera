@@ -51,7 +51,8 @@ CssWeightedLeastSquaresConfig CssWeightedLeastSquares::toConfig() {
         cssSensors.at(i) =
             CssConfiguration{cArrayToEigenVector(cssConfig.cssVals[i].nHat_B), cssConfig.cssVals[i].CBias};
     }
-    return CssWeightedLeastSquaresConfig::create(cssConfig.nCSS, cssSensors, this->useWeights, this->sensorUseThresh);
+    return CssWeightedLeastSquaresConfig::create(
+        cssConfig.nCSS, cssSensors, this->useWeights, this->sensorUseThresh, this->controlPeriod);
 }
 
 /*! Re-read the constellation message, re-validate it with the module properties and push the result onto
@@ -90,7 +91,7 @@ void CssWeightedLeastSquares::updateState(const uint64_t callTime) {
     /*! - Read the input parsed CSS sensor data message*/
     const CSSArraySensorMsgF32Payload cssData = this->cssDataInMsg();
 
-    const CssWeightedLeastSquaresOutput out = this->algorithm->update(callTime, cArrayToEigenVector(cssData.CosValue));
+    const CssWeightedLeastSquaresOutput out = this->algorithm->update(cArrayToEigenVector(cssData.CosValue));
     this->numActiveCss = out.numActiveCss;
 
     const double timeTag = static_cast<double>(callTime) * kNano2Sec;

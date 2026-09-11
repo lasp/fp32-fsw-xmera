@@ -16,7 +16,8 @@ namespace {
     layout must not be reinterpreted. */
 CssWeightedLeastSquaresConfig configFromC(const CssWeightedLeastSquaresConstellation_c& constellation,
                                           const bool useWeights,
-                                          const float sensorUseThresh) {
+                                          const float sensorUseThresh,
+                                          const float controlPeriod) {
     std::array<CssConfiguration, kMaxNumCss> cssSensors{};
 
     for (size_t sensor = 0; sensor < static_cast<size_t>(kMaxNumCss); ++sensor) {
@@ -24,7 +25,8 @@ CssWeightedLeastSquaresConfig configFromC(const CssWeightedLeastSquaresConstella
         cssSensors.at(sensor).bias = constellation.cssSensors[sensor].bias;
     }
 
-    return CssWeightedLeastSquaresConfig::create(constellation.numCss, cssSensors, useWeights, sensorUseThresh);
+    return CssWeightedLeastSquaresConfig::create(
+        constellation.numCss, cssSensors, useWeights, sensorUseThresh, controlPeriod);
 }
 
 /*! Convert the algorithm's output struct to its C mirror. */
@@ -44,9 +46,10 @@ uint32_t CssWeightedLeastSquaresAlgorithm_getMaxNumCss(void) { return kMaxNumCss
 
 bool CssWeightedLeastSquaresAlgorithm_validateConfig(const CssWeightedLeastSquaresConstellation_c* constellation,
                                                      const bool useWeights,
-                                                     const float sensorUseThresh) {
+                                                     const float sensorUseThresh,
+                                                     const float controlPeriod) {
     try {
-        (void)configFromC(*constellation, useWeights, sensorUseThresh);
+        (void)configFromC(*constellation, useWeights, sensorUseThresh, controlPeriod);
         return true;
     } catch (const fsw::invalid_argument&) {
         return false;
@@ -56,9 +59,10 @@ bool CssWeightedLeastSquaresAlgorithm_validateConfig(const CssWeightedLeastSquar
 CssWeightedLeastSquaresAlgorithmHandle* CssWeightedLeastSquaresAlgorithm_create(
     const CssWeightedLeastSquaresConstellation_c* constellation,
     const bool useWeights,
-    const float sensorUseThresh) {
+    const float sensorUseThresh,
+    const float controlPeriod) {
     return fsw::createHandle<::CssWeightedLeastSquaresAlgorithm, CssWeightedLeastSquaresAlgorithmHandle>(
-        configFromC(*constellation, useWeights, sensorUseThresh));
+        configFromC(*constellation, useWeights, sensorUseThresh, controlPeriod));
 }
 
 void CssWeightedLeastSquaresAlgorithm_destroy(CssWeightedLeastSquaresAlgorithmHandle* self) {
@@ -68,9 +72,10 @@ void CssWeightedLeastSquaresAlgorithm_destroy(CssWeightedLeastSquaresAlgorithmHa
 void CssWeightedLeastSquaresAlgorithm_setConfig(CssWeightedLeastSquaresAlgorithmHandle* self,
                                                 const CssWeightedLeastSquaresConstellation_c* constellation,
                                                 const bool useWeights,
-                                                const float sensorUseThresh) {
+                                                const float sensorUseThresh,
+                                                const float controlPeriod) {
     fsw::fromHandle<::CssWeightedLeastSquaresAlgorithm>(self)->setConfig(
-        configFromC(*constellation, useWeights, sensorUseThresh));
+        configFromC(*constellation, useWeights, sensorUseThresh, controlPeriod));
 }
 
 void CssWeightedLeastSquaresAlgorithm_reInitialize(CssWeightedLeastSquaresAlgorithmHandle* self) {
@@ -78,9 +83,8 @@ void CssWeightedLeastSquaresAlgorithm_reInitialize(CssWeightedLeastSquaresAlgori
 }
 
 CssWeightedLeastSquaresOutput_c CssWeightedLeastSquaresAlgorithm_update(CssWeightedLeastSquaresAlgorithmHandle* self,
-                                                                        const uint64_t callTime,
                                                                         const CssWeightedLeastSquaresInputs_c* inputs) {
-    const CssWeightedLeastSquaresOutput out = fsw::fromHandle<::CssWeightedLeastSquaresAlgorithm>(self)->update(
-        callTime, cArrayToEigenVector(inputs->cosValues));
+    const CssWeightedLeastSquaresOutput out =
+        fsw::fromHandle<::CssWeightedLeastSquaresAlgorithm>(self)->update(cArrayToEigenVector(inputs->cosValues));
     return outputToC(out);
 }

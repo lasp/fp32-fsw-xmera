@@ -47,11 +47,13 @@ class CssWeightedLeastSquaresConfig final {
         @param cssSensors     [-] per-sensor boresight and bias; entries beyond numCss are unused
         @param useWeights     [-] whether to weight the measurements in the least squares fit
         @param sensorUseThresh [-] cosine threshold at or below which a reading is discarded
+        @param controlPeriod  [s] time between two update() calls, the rate estimate's time step
      */
     static CssWeightedLeastSquaresConfig create(const uint32_t numCss,
                                                 const std::array<CssConfiguration, kMaxNumCss>& cssSensors,
                                                 const bool useWeights,
-                                                const float sensorUseThresh) {
+                                                const float sensorUseThresh,
+                                                const float controlPeriod) {
         if (!isValidNumCss(numCss)) {
             FSW_THROW_INVALID_ARGUMENT("cssWeightedLeastSquares: numCss must be in [1, kMaxNumCss]");
         }
@@ -62,6 +64,9 @@ class CssWeightedLeastSquaresConfig final {
         }
         if (!isValidSensorUseThresh(sensorUseThresh)) {
             FSW_THROW_INVALID_ARGUMENT("cssWeightedLeastSquares: sensorUseThresh must be a cosine in [-1, 1]");
+        }
+        if (!isValidControlPeriod(controlPeriod)) {
+            FSW_THROW_INVALID_ARGUMENT("cssWeightedLeastSquares: controlPeriod must be finite and > 0");
         }
         // Pack the configured sensors into the Eigen types the fit works in, normalizing the boresights so
         // downstream code can rely on exact unit vectors. They are validated (near-)unit, so this only
@@ -74,7 +79,7 @@ class CssWeightedLeastSquaresConfig final {
             cssBias(sensor) = cssSensors.at(i).bias;
         }
 
-        return {cssNHat_B, cssBias, numCss, useWeights, sensorUseThresh};
+        return {cssNHat_B, cssBias, numCss, useWeights, sensorUseThresh, controlPeriod};
     }
 
     static bool isValidNumCss(const uint32_t numCss) {
@@ -98,6 +103,10 @@ class CssWeightedLeastSquaresConfig final {
         return true;
     }
 
+    static bool isValidControlPeriod(const float controlPeriod) {
+        return fsw::is_finite(controlPeriod) && controlPeriod > 0.0F;
+    }
+
     static bool isValidSensorUseThresh(const float sensorUseThresh) {
         return fsw::is_finite(sensorUseThresh) && sensorUseThresh >= -1.0F && sensorUseThresh <= 1.0F;
     }
@@ -109,24 +118,29 @@ class CssWeightedLeastSquaresConfig final {
     uint32_t getNumCss() const { return numCss; }
     bool getUseWeights() const { return useWeights; }
     float getSensorUseThresh() const { return sensorUseThresh; }
+    float getControlPeriod() const { return controlPeriod; }
 
    private:
     CssWeightedLeastSquaresConfig(const Eigen::Matrix<float, kMaxNumCss, 3>& cssNHat_B,
                                   const Eigen::Vector<float, kMaxNumCss>& cssBias,
                                   const uint32_t numCss,
                                   const bool useWeights,
-                                  const float sensorUseThresh)
+                                  // NOLINTNEXTLINE(bugprone-easily-swappable-parameters) -- create() validates by name.
+                                  const float sensorUseThresh,
+                                  const float controlPeriod)
         : cssNHat_B(cssNHat_B),
           cssBias(cssBias),
           numCss(numCss),
           useWeights(useWeights),
-          sensorUseThresh(sensorUseThresh) {}
+          sensorUseThresh(sensorUseThresh),
+          controlPeriod(controlPeriod) {}
 
     Eigen::Matrix<float, kMaxNumCss, 3> cssNHat_B = Eigen::Matrix<float, kMaxNumCss, 3>::Zero();
     Eigen::Vector<float, kMaxNumCss> cssBias = Eigen::Vector<float, kMaxNumCss>::Zero();
     uint32_t numCss{};
     bool useWeights{};
     float sensorUseThresh{};
+    float controlPeriod{};
 };
 
 /*! @brief Weighted least squares estimator for the body-relative sun heading.
@@ -153,10 +167,9 @@ class CssWeightedLeastSquaresAlgorithm final {
 
     /*! Estimate the sun heading and body rate from one set of CSS readings.
         @return the estimated heading, rate, residuals and active sensor count
-        @param callTime  The clock time at which the function was called (nanoseconds)
         @param cosValues [-] Per-sensor cosine readings, indexed by sensor
      */
-    CssWeightedLeastSquaresOutput update(uint64_t callTime, const Eigen::Vector<float, kMaxNumCss>& cosValues);
+    CssWeightedLeastSquaresOutput update(const Eigen::Vector<float, kMaxNumCss>& cosValues);
 
    private:
     /*! Solve the least squares fit for the sun heading.
@@ -190,7 +203,6 @@ class CssWeightedLeastSquaresAlgorithm final {
     CssWeightedLeastSquaresConfig cfg;               //!< [-] the validated configuration in force
     Eigen::Vector3f dOld = Eigen::Vector3f::Zero();  //!< [-] prior normalized sun heading, body frame
     bool priorSignalAvailable{};                     //!< [-] whether a prior heading is available for the rate
-    uint64_t priorTime{};                            //!< [ns] previous update time; zero until the first call
 };
 
 #endif

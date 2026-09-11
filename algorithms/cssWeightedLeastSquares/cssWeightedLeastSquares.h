@@ -26,6 +26,7 @@ class CssWeightedLeastSquares final : public SysModel {
     // Phase 1: public config properties -- set before reset()
     bool useWeights{};        //!< [-] flag selecting measurement weighting for the least squares fit
     float sensorUseThresh{};  //!< [-] cosine threshold at or below which a CSS measurement is discarded
+    float controlPeriod{};    //!< [s] time between two updateState() calls (must be > 0)
 
     uint32_t numActiveCss{};  //!< [-] sensors above the use threshold on the most recent cycle (output)
 

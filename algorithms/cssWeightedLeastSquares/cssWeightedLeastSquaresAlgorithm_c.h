@@ -27,12 +27,14 @@ uint32_t CssWeightedLeastSquaresAlgorithm_getMaxNumCss(void);
  * @param constellation    CSS geometry; numCss in [1, max], near-unit boresights, non-negative biases.
  * @param useWeights       [-] whether to weight the measurements in the least squares fit.
  * @param sensorUseThresh  [-] cosine threshold at or below which a reading is discarded; must lie in [-1, 1].
+ * @param controlPeriod    [s] time between two update calls; must be finite and > 0.
  * @return true when the configuration is valid. Never throws, so it can guard the throwing
  *         create/setConfig from an invalid configuration.
  */
 bool CssWeightedLeastSquaresAlgorithm_validateConfig(const CssWeightedLeastSquaresConstellation_c* constellation,
                                                      bool useWeights,
-                                                     float sensorUseThresh);
+                                                     float sensorUseThresh,
+                                                     float controlPeriod);
 
 /**
  * @brief Construct a new CssWeightedLeastSquaresAlgorithm instance from the supplied configuration.
@@ -40,12 +42,14 @@ bool CssWeightedLeastSquaresAlgorithm_validateConfig(const CssWeightedLeastSquar
  * @param constellation    CSS geometry to install.
  * @param useWeights       [-] whether to weight the measurements in the least squares fit.
  * @param sensorUseThresh  [-] cosine threshold at or below which a reading is discarded.
+ * @param controlPeriod    [s] time between two update calls; must be finite and > 0.
  * @return Pointer to a new CssWeightedLeastSquaresAlgorithm (must be destroyed).
  */
 CssWeightedLeastSquaresAlgorithmHandle* CssWeightedLeastSquaresAlgorithm_create(
     const CssWeightedLeastSquaresConstellation_c* constellation,
     bool useWeights,
-    float sensorUseThresh);
+    float sensorUseThresh,
+    float controlPeriod);
 
 /**
  * @brief Destroy a previously created CssWeightedLeastSquaresAlgorithm.
@@ -61,28 +65,28 @@ void CssWeightedLeastSquaresAlgorithm_destroy(CssWeightedLeastSquaresAlgorithmHa
  * @param constellation    CSS geometry to install.
  * @param useWeights       [-] whether to weight the measurements in the least squares fit.
  * @param sensorUseThresh  [-] cosine threshold at or below which a reading is discarded.
+ * @param controlPeriod    [s] time between two update calls; must be finite and > 0.
  */
 void CssWeightedLeastSquaresAlgorithm_setConfig(CssWeightedLeastSquaresAlgorithmHandle* self,
                                                 const CssWeightedLeastSquaresConstellation_c* constellation,
                                                 bool useWeights,
-                                                float sensorUseThresh);
+                                                float sensorUseThresh,
+                                                float controlPeriod);
 
 /**
- * @brief Clear the estimator's runtime state, discarding the prior heading and elapsed time so that
- *        no rate is produced until two headings have been observed again.
+ * @brief Clear the estimator's runtime state, discarding the prior heading so that no rate is
+ *        produced until two headings have been observed again.
  * @param self Pointer to the instance.
  */
 void CssWeightedLeastSquaresAlgorithm_reInitialize(CssWeightedLeastSquaresAlgorithmHandle* self);
 
 /**
  * @brief Estimate the sun heading and body rate from one set of CSS readings.
- * @param self     Pointer to the instance.
- * @param callTime Evaluation time [ns].
- * @param inputs   Pointer to the per-cycle measurement inputs.
+ * @param self   Pointer to the instance.
+ * @param inputs Pointer to the per-cycle measurement inputs.
  * @return CssWeightedLeastSquaresOutput_c  The estimated heading, rate, residuals and active sensor count.
  */
 CssWeightedLeastSquaresOutput_c CssWeightedLeastSquaresAlgorithm_update(CssWeightedLeastSquaresAlgorithmHandle* self,
-                                                                        uint64_t callTime,
                                                                         const CssWeightedLeastSquaresInputs_c* inputs);
 
 #ifdef __cplusplus

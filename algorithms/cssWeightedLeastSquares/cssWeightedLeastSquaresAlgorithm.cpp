@@ -1,7 +1,6 @@
 #include "cssWeightedLeastSquaresAlgorithm.h"
 
 #include "utilities/fsw/safeMath.h"
-#include "utilities/fsw/timeConstants.h"
 
 #include <math.h>
 #include <Eigen/Geometry>
@@ -52,21 +51,15 @@ void CssWeightedLeastSquaresAlgorithm::setConfig(const CssWeightedLeastSquaresCo
 void CssWeightedLeastSquaresAlgorithm::reInitialize() {
     this->priorSignalAvailable = false;
     this->dOld.setZero();
-
-    /* Reset the prior time flag state.
-     If zero, control time step not evaluated on the first function call */
-    this->priorTime = 0;
 }
 
 /*! This method takes the parsed CSS sensor data and outputs an estimate of the
  sun vector in the ADCS body frame, along with the inertial angular velocity
  derived from two successive sun heading estimates
  @return the estimator products for this cycle
- @param callTime The clock time at which the function was called (nanoseconds)
  @param cosValues [-] Per-sensor cosine readings, indexed by sensor
  */
 CssWeightedLeastSquaresOutput CssWeightedLeastSquaresAlgorithm::update(
-    const uint64_t callTime,
     const Eigen::Vector<float, kMaxNumCss>& cosValues) {
     CssWeightedLeastSquaresOutput out;
 
@@ -76,16 +69,7 @@ CssWeightedLeastSquaresOutput CssWeightedLeastSquaresAlgorithm::update(
     Eigen::Vector<float, kMaxNumCss> y = Eigen::Vector<float, kMaxNumCss>::Zero();
     /* The sensor index behind each observation, in observation order */
     std::array<Eigen::Index, kMaxNumCss> activeSensors{};
-    int status = 0;  /* Quality of the module estimate */
-    float dt = 0.0F; /* [s] Control update period */
-
-    /*! - Compute control update time */
-    if (this->priorTime == 0) {
-        dt = 0.0F;
-    } else {
-        dt = static_cast<float>(static_cast<double>(callTime - this->priorTime) * kNano2Sec);
-    }
-    this->priorTime = callTime;
+    int status = 0; /* Quality of the module estimate */
 
     /*! - Loop over the maximum number of sensors to check for good measurements */
     /*! -# Isolate if measurement is good */
@@ -127,14 +111,14 @@ CssWeightedLeastSquaresOutput CssWeightedLeastSquaresAlgorithm::update(
         out.sunHeading_B = out.sunHeading_B.stableNormalized();
 
         /*! -# Estimate the inertial angular velocity from the rate of the sun heading measurements */
-        if (this->priorSignalAvailable && dt > 0.0F) {
+        if (this->priorSignalAvailable) {
             const Eigen::Vector3f dHatNew = out.sunHeading_B.stableNormalized();
             const Eigen::Vector3f dHatOld = this->dOld.stableNormalized();
             out.omega_BN_B = dHatNew.cross(dHatOld).stableNormalized();
             /* compute principal rotation angle between sun heading measurements */
             const float dOldDotNew =
                 std::clamp(dHatNew.dot(dHatOld), kMinPrincipalAngleCosine, kMaxPrincipalAngleCosine);
-            out.omega_BN_B *= safeAcosf(dOldDotNew) / dt;
+            out.omega_BN_B *= safeAcosf(dOldDotNew) / this->cfg.getControlPeriod();
         } else {
             this->priorSignalAvailable = true;
         }

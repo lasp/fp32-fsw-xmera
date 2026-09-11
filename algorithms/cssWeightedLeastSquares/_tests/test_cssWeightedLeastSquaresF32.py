@@ -139,6 +139,7 @@ def test_css_weighted_least_squares_rate_estimate():
     module.cssConfigInMsg.subscribeTo(config_in_msg)
     module.useWeights = False
     module.sensorUseThresh = SENSOR_USE_THRESH
+    module.controlPeriod = macros.NANO2SEC * test_process_rate
 
     unit_test_sim.AddModelToTask(unit_task_name, module)
 
@@ -204,6 +205,7 @@ def test_css_weighted_least_squares_reinitialize():
     module.cssConfigInMsg.subscribeTo(config_in_msg)
     module.useWeights = False
     module.sensorUseThresh = SENSOR_USE_THRESH
+    module.controlPeriod = macros.NANO2SEC * test_process_rate
 
     unit_test_sim.AddModelToTask(unit_task_name, module)
 
@@ -249,6 +251,7 @@ def test_css_weighted_least_squares_reconfigure():
     module.cssConfigInMsg.subscribeTo(config_in_msg)
     module.useWeights = False
     module.sensorUseThresh = SENSOR_USE_THRESH
+    module.controlPeriod = macros.NANO2SEC * test_process_rate
 
     unit_test_sim.AddModelToTask(unit_task_name, module)
 
@@ -296,6 +299,7 @@ def test_css_weighted_least_squares_decreasing_coverage():
     module.cssConfigInMsg.subscribeTo(config_in_msg)
     module.useWeights = True
     module.sensorUseThresh = SENSOR_USE_THRESH
+    module.controlPeriod = macros.NANO2SEC * test_process_rate
 
     unit_test_sim.AddModelToTask(unit_task_name, module)
 
@@ -359,6 +363,7 @@ def run_test(
     module.cssConfigInMsg.subscribeTo(config_in_msg)
     module.useWeights = use_weights
     module.sensorUseThresh = SENSOR_USE_THRESH
+    module.controlPeriod = macros.NANO2SEC * test_process_rate
 
     unit_test_sim.AddModelToTask(unit_task_name, module)
 

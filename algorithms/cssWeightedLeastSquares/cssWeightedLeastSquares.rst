@@ -78,6 +78,11 @@ built and can be edited between builds.
       - \-
       - [-1, 1]
       - Cosine threshold at or below which a sensor reading is discarded
+    * - controlPeriod
+      - float
+      - s
+      - > 0, finite
+      - Time between two ``updateState()`` calls; the time step of the rate estimate
 
 The constellation geometry arrives on ``cssConfigInMsg``, which carries ``nCSS`` sensors and one ``cssVals`` entry
 per sensor. The module copies those entries into a fixed array of ``kMaxNumCss`` slots when it builds the
@@ -121,6 +126,7 @@ runtime state.
     module = cssWeightedLeastSquaresF32.CssWeightedLeastSquares()
     module.useWeights = True
     module.sensorUseThresh = 0.15
+    module.controlPeriod = 0.5
     module.cssDataInMsg.subscribeTo(cssDataInMsg)
     module.cssConfigInMsg.subscribeTo(cssConfigInMsg)
     module.reset(0)
@@ -178,7 +184,7 @@ Partial Angular Velocity Evaluation
 
 Two successive heading evaluations give a partial solution for the inertial angular velocity. Rates about the sun
 heading are unobservable; rates about the other two axes are recovered. With :math:`\mathbf{d}_n` the current heading,
-:math:`\mathbf{d}_{n-1}` the prior heading and :math:`\Delta t` the elapsed time:
+:math:`\mathbf{d}_{n-1}` the prior heading and :math:`\Delta t` the configured control period:
 
 .. math::
 
@@ -231,9 +237,8 @@ A zero rate is returned only when that cross product is essentially exactly zero
 on exact cancellation. Note that a 180 degree reversal within one control cycle corresponds to a body rate far
 outside the nominal envelope, so this is a fault-condition input rather than a nominal one.
 
-**First call and zero time step.** The prior time starts at zero and is only set at the end of an update, so no rate is
-produced on the first call after construction or re-initialization. A repeated timestamp likewise gives
-:math:`\Delta t = 0` and yields no rate rather than dividing by zero.
+**First call.** No prior heading exists on the first call after construction or re-initialization, so no rate is
+produced until a second heading has been seen.
 
 Algorithm Assumptions and Limitations
 -------------------------------------
