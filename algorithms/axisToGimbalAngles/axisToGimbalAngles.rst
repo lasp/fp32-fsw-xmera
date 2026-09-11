@@ -122,10 +122,8 @@ The module calculates :math:`[\mathcal{MB}]` one time, when the caller sets the 
     - a rotation of :math:`180^\circ` about the mount :math:`y` axis, which changes the sign of :math:`\alpha`.
 
     Both rotations are correct. Thus one thrust direction gives two different pairs of angles, and the equations
-    below cannot show which pair the mechanism uses. One frame for all modules removes this problem.
-
-    :ref:`thrustVectoring` uses the same :math:`\mathcal{M}` frame, thus one ``sigma_MB`` value is sufficient for
-    both modules.
+    below cannot show which pair the mechanism uses. This module therefore sets the convention, and ``sigma_MB``
+    must give the mounting orientation in the same convention.
 
 Gimbal kinematics
 ^^^^^^^^^^^^^^^^^

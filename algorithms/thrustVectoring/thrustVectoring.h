@@ -22,12 +22,9 @@ class ThrustVectoring final : public SysModel {
     void reconfigure();
 
     /*! Phase 1: user-defined configuration properties, set before reset() */
-    Eigen::Vector3f sigma_MB{
-        Eigen::Vector3f::Zero()};  //!< orientation of the M frame w.r.t. the B frame; M's -z axis is the thrust
     Eigen::Vector3f r_MB_B{
         Eigen::Vector3f::Zero()};  //!< position of M frame origin w.r.t. B frame origin, in B frame coordinates
     float armLength{};             //!< distance from the joint M to the thruster, against the thrust [m] (>= 0)
-    float thetaMax{};              //!< half-angle of the thrust-deflection cone [rad] (must be in (0, pi))
 
     /*! module IO interfaces */
     ReadFunctor<VehicleConfigMsgF32Payload>

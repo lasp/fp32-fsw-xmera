@@ -2,19 +2,16 @@
 
 #include <math.h>
 
-#include "utilities/fsw/rigidBodyKinematics.hpp"
 #include "utilities/fsw/safeMath.h"
 #include <Eigen/Geometry>
 
 namespace {
-constexpr float kSmallAngle = 1e-3F;  // small angle tolerance [rad]
-
-/*! Solve for the thrust direction that makes the thruster produce the requested torque Lreq about the system
- center of mass.
+/*! Solve for the thrust direction that produces the requested torque Lreq about the center of mass, for a thrust
+ of the given magnitude acting through the point M that r_MC is measured from.
  @return the thrust unit direction, in the frame the arguments were given in
 */
 Eigen::Vector3f solveThrustDirection(const Eigen::Vector3f& r_MC, float thrust, const Eigen::Vector3f& Lreq) {
-    const float b = r_MC.norm();  // moment arm about the joint; the configuration guarantees b > kMinR_CM
+    const float b = r_MC.norm();  // moment arm about M; the configuration guarantees b > kMinR_CM
     const Eigen::Vector3f rHat_MC = r_MC / b;
 
     // (1) Invert |L| = thrust * b * |tPerp| for the requested torque. The cross product also discards the
@@ -27,8 +24,8 @@ Eigen::Vector3f solveThrustDirection(const Eigen::Vector3f& r_MC, float thrust, 
     const Eigen::Vector3f tPerp = tPerpMagnitude * tPerpRequested.stableNormalized();
 
     // (3) Compute the component along r_MC, exactly zero once saturated. Both signs deliver the same torque, since
-    //     this component produces no torque. Take the one that fires the thrust from the joint towards the center
-    //     of mass, which puts the thruster outboard of the joint rather than inside the vehicle.
+    //     this component produces no torque. Take the one that fires the thrust from M towards the center of
+    //     mass, which keeps the thrust acting on the vehicle from outside it.
     const float tAlongMagnitude = safeSqrtf(1.0F - (tPerpMagnitude * tPerpMagnitude));
     const Eigen::Vector3f tAlong = -tAlongMagnitude * rHat_MC;
 
@@ -37,29 +34,10 @@ Eigen::Vector3f solveThrustDirection(const Eigen::Vector3f& r_MC, float thrust, 
     return tHat;
 }
 
-/*! Clamp the thrust direction so its deflection from the un-deflected direction stays within the cone of
- half-angle thetaMax.
- @return the thrust unit direction, deflected from tHatNeutral by at most thetaMax
-*/
-Eigen::Vector3f clampThrustDeflection(const Eigen::Vector3f& tHat, const Eigen::Vector3f& tHatNeutral, float thetaMax) {
-    Eigen::Vector3f clamped = tHat;  // left alone while the deflection is inside the cone
-
-    if (safeAcosf(tHat.dot(tHatNeutral)) > thetaMax) {
-        // Split the direction into its axial and perpendicular parts, then rebuild it at the cone half-angle. The
-        // rebuilt vector is renormalized: it is assembled from tHatNeutral, whose own rounding it would inherit.
-        const Eigen::Vector3f perp = tHat - (tHatNeutral * tHat.dot(tHatNeutral));
-        // nearly antiparallel: the rotation plane is ill-defined, so any perpendicular direction will do
-        const Eigen::Vector3f perpHat =
-            (perp.norm() < kSmallAngle) ? tHatNeutral.unitOrthogonal() : perp.stableNormalized();
-        clamped = ((cosf(thetaMax) * tHatNeutral) + (sinf(thetaMax) * perpHat)).stableNormalized();
-    }
-
-    return clamped;
-}
 }  // namespace
 
 /*! @brief Construct the algorithm with a validated configuration.
- @param config Validated configuration (platform mounting geometry, thruster geometry and center of mass).
+ @param config Validated configuration (thrust point, thrust magnitude and center of mass).
 */
 ThrustVectoringAlgorithm::ThrustVectoringAlgorithm(const ThrustVectoringConfig& config) : cfg(config) {
     this->setConfig(config);
@@ -68,23 +46,15 @@ ThrustVectoringAlgorithm::ThrustVectoringAlgorithm(const ThrustVectoringConfig& 
 /*! @brief Replace the stored configuration at runtime.
  @param config New validated configuration to apply.
 */
-void ThrustVectoringAlgorithm::setConfig(const ThrustVectoringConfig& config) {
-    this->cfg = config;
-    this->tHatNeutral_B = -mrpToDcm(this->cfg.getPlatformConfiguration().sigma_MB).row(2).transpose().normalized();
-}
+void ThrustVectoringAlgorithm::setConfig(const ThrustVectoringConfig& config) { this->cfg = config; }
 
-/*! This method computes the platform reference orientation that points the thruster so it produces the requested
- torque about the system center of mass (a zero request aligns the thruster line of action with the center of mass).
+/*! This method computes the thrust direction that produces the requested torque about the center of mass. A zero
+ request puts the line of action through the center of mass, which produces no torque.
  @return [-] thrust unit direction, body frame
- @param Lreq_B [Nm] requested thruster torque about the center of mass, body frame
+ @param Lreq_B [Nm] requested torque about the center of mass, body frame
 */
 Eigen::Vector3f ThrustVectoringAlgorithm::update(const Eigen::Vector3f& Lreq_B) const {
-    const ThrustVectoringPlatformConfiguration& platform = this->cfg.getPlatformConfiguration();
+    const Eigen::Vector3f r_MC_B = this->cfg.getR_MB_B() - this->cfg.getR_CB_B();
 
-    const Eigen::Vector3f r_MC_B = platform.r_MB_B - this->cfg.getR_CB_B();
-
-    // Requested thrust direction to achieve the reachable part of the requested torque
-    const Eigen::Vector3f tHatRequested_B = solveThrustDirection(r_MC_B, this->cfg.getThrust(), Lreq_B);
-    // Clamp the thrust direction to respect the deflection limits of the gimbal
-    return clampThrustDeflection(tHatRequested_B, this->tHatNeutral_B, platform.thetaMax);
+    return solveThrustDirection(r_MC_B, this->cfg.getThrust(), Lreq_B);
 }

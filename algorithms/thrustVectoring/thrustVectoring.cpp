@@ -6,7 +6,8 @@
 #include <stdexcept>
 
 namespace {
-//! The platform frame is defined with its -z axis along the thrust, so this is what the input message must report.
+//! The thruster fires along the platform frame's -z axis from the frame origin, so this is what the input message
+//! must report for the line of action to run through the joint.
 constexpr float kThrusterMountingTolerance = 1e-3F;
 }  // namespace
 
@@ -32,18 +33,15 @@ ThrustVectoringConfig ThrustVectoring::toConfig() {
     if (!tHat_F.allFinite() || (tHat_F + Eigen::Vector3f::UnitZ()).norm() > kThrusterMountingTolerance) {
         throw std::invalid_argument(
             "thrustVectoring.thrusterConfigFInMsg reports a thrust direction off the platform -z axis; this "
-            "module requires tHatThrust_B == [0, 0, -1] and carries the mounting orientation in sigma_MB.");
+            "module requires tHatThrust_B == [0, 0, -1].");
     }
 
     if (!std::isfinite(this->armLength) || this->armLength < 0.0F) {
         throw std::invalid_argument("thrustVectoring.armLength must be finite and non-negative.");
     }
 
-    const ThrustVectoringPlatformConfiguration platformConfig{
-        .sigma_MB = this->sigma_MB, .r_MB_B = this->r_MB_B, .thetaMax = this->thetaMax};
-
     return ThrustVectoringConfig::create(
-        platformConfig, thrusterConfigFIn.maxThrust, cArrayToEigenVector3<float>(vehConfigIn.CoM_B));
+        this->r_MB_B, thrusterConfigFIn.maxThrust, cArrayToEigenVector3<float>(vehConfigIn.CoM_B));
 }
 
 /*! This method performs a complete reset of the module: it validates the required input messages and (re)creates
