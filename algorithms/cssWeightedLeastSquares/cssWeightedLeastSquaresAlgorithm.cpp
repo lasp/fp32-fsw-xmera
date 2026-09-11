@@ -53,8 +53,6 @@ void CssWeightedLeastSquaresAlgorithm::reInitialize() {
  */
 CssWeightedLeastSquaresOutput CssWeightedLeastSquaresAlgorithm::update(
     const Eigen::Vector<float, kMaxNumCss>& cosValues) {
-    CssWeightedLeastSquaresOutput out;
-
     /* The predicted pointing vector for each measurement, compacted to the active sensors */
     Eigen::Matrix<float, kMaxNumCss, 3> H = Eigen::Matrix<float, kMaxNumCss, 3>::Zero();
     /* Measurements, compacted to the active sensors */
@@ -62,6 +60,11 @@ CssWeightedLeastSquaresOutput CssWeightedLeastSquaresAlgorithm::update(
     /* The sensor index behind each observation, in observation order */
     std::array<Eigen::Index, kMaxNumCss> activeSensors{};
     int status = 0; /* Quality of the module estimate */
+
+    uint32_t numActiveCss = 0;
+    Eigen::Vector3f sunHeading_B = Eigen::Vector3f::Zero();
+    Eigen::Vector3f omega_BN_B = Eigen::Vector3f::Zero();
+    Eigen::Vector<float, kMaxNumCss> postFitResiduals = Eigen::Vector<float, kMaxNumCss>::Zero();
 
     /*! - Loop over the maximum number of sensors to check for good measurements */
     /*! -# Isolate if measurement is good */
@@ -71,21 +74,19 @@ CssWeightedLeastSquaresOutput CssWeightedLeastSquaresAlgorithm::update(
     /*! -# Otherwise just continue */
     for (uint32_t i = 0; i < this->cfg.getNumCss(); i = i + 1) {
         if (cosValues(i) > this->cfg.getSensorUseThresh()) {
-            H.row(out.numActiveCss) = this->cfg.getCssBias()(i) * this->cfg.getCssNHat_B().row(i);
-            y(out.numActiveCss) = cosValues(i);
-            activeSensors.at(out.numActiveCss) = i;
-            out.numActiveCss = out.numActiveCss + 1;
+            H.row(numActiveCss) = this->cfg.getCssBias()(i) * this->cfg.getCssNHat_B().row(i);
+            y(numActiveCss) = cosValues(i);
+            activeSensors.at(numActiveCss) = i;
+            numActiveCss = numActiveCss + 1;
         }
     }
 
     /*! Estimation Steps*/
-    if (out.numActiveCss == 0) /*! - If there is no sun, just quit*/
+    if (numActiveCss == 0) /*! - If there is no sun, just quit*/
     {
         /*! + If no CSS got a strong enough signal.  Sun estimation is not possible.  Return the zero vector instead */
-        out.sunHeading_B.setZero();         /* zero the sun heading to indicate no CSS info is available */
-        out.omega_BN_B.setZero();           /* zero the rate measure */
         this->priorSignalAvailable = false; /* reset the prior heading estimate flag */
-        out.postFitResiduals = this->computeWlsResiduals(cosValues, out.sunHeading_B, activeSensors, out.numActiveCss);
+        postFitResiduals = this->computeWlsResiduals(cosValues, sunHeading_B, activeSensors, numActiveCss);
     } else {
         /*! - If at least one CSS got a strong enough signal.  Proceed with the sun heading estimation */
         /*! -# Configuration option to weight the measurements, otherwise set
@@ -95,40 +96,42 @@ CssWeightedLeastSquaresOutput CssWeightedLeastSquaresAlgorithm::update(
             weights = y;
         }
         /*! -# Get least squares fit for sun pointing vector*/
-        status = computeWlsmn(out.numActiveCss, weights, H, y, out.sunHeading_B);
-        out.postFitResiduals = this->computeWlsResiduals(cosValues, out.sunHeading_B, activeSensors, out.numActiveCss);
+        status = computeWlsmn(numActiveCss, weights, H, y, sunHeading_B);
+        postFitResiduals = this->computeWlsResiduals(cosValues, sunHeading_B, activeSensors, numActiveCss);
 
-        out.sunHeading_B = out.sunHeading_B.stableNormalized();
+        sunHeading_B = sunHeading_B.stableNormalized();
 
         /*! -# Estimate the inertial angular velocity from the rate of the sun heading measurements */
         if (this->priorSignalAvailable) {
-            const Eigen::Vector3f dHatNew = out.sunHeading_B.stableNormalized();
+            const Eigen::Vector3f dHatNew = sunHeading_B.stableNormalized();
             const Eigen::Vector3f dHatOld = this->dOld.stableNormalized();
-            out.omega_BN_B = dHatNew.cross(dHatOld).stableNormalized();
+            omega_BN_B = dHatNew.cross(dHatOld).stableNormalized();
             /* compute principal rotation angle between sun heading measurements */
             const float principalAngle = safeAcosf(dHatNew.dot(dHatOld));
-            out.omega_BN_B *= principalAngle / this->cfg.getControlPeriod();
+            omega_BN_B *= principalAngle / this->cfg.getControlPeriod();
         } else {
             this->priorSignalAvailable = true;
         }
         /*! -# Store the sun heading estimate */
-        this->dOld = out.sunHeading_B;
+        this->dOld = sunHeading_B;
     }
 
-    /*! Residual Computation */
     /*! - Capture the heading reported on the filter status output before any anomaly zeroing */
-    out.residualStateHeading = out.sunHeading_B;
+    const Eigen::Vector3f residualStateHeading = sunHeading_B;
 
-    /*! Writing Outputs */
     if (status > 0) /*! - If the status from the WLS computation is erroneous, populate the outputs with zeros*/
     {
         /* An error was detected while attempting to compute the sunline direction */
-        out.sunHeading_B.setZero();         /* zero the sun heading to indicate anomaly  */
-        out.omega_BN_B.setZero();           /* zero the rate measure */
+        sunHeading_B.setZero();             /* zero the sun heading to indicate anomaly  */
+        omega_BN_B.setZero();               /* zero the rate measure */
         this->priorSignalAvailable = false; /* reset the prior heading estimate flag */
     }
 
-    return out;
+    return {.sunHeading_B = sunHeading_B,
+            .omega_BN_B = omega_BN_B,
+            .residualStateHeading = residualStateHeading,
+            .postFitResiduals = postFitResiduals,
+            .numActiveCss = numActiveCss};
 }
 
 /*! This method computes the post-fit residuals for the WLS estimate. The residuals are indexed by
