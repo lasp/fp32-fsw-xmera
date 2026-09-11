@@ -80,6 +80,7 @@ class ThrustVectoringAlgorithm final {
 
    private:
     ThrustVectoringConfig cfg;  //!< [-] validated configuration
+    Eigen::Vector3f r_MC_B{Eigen::Vector3f::UnitZ()};
 };
 
 #endif  // F32XMERA_THRUST_VECTORING_ALGORITHM_H

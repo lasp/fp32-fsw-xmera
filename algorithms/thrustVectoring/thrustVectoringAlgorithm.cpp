@@ -46,7 +46,10 @@ ThrustVectoringAlgorithm::ThrustVectoringAlgorithm(const ThrustVectoringConfig& 
 /*! @brief Replace the stored configuration at runtime.
  @param config New validated configuration to apply.
 */
-void ThrustVectoringAlgorithm::setConfig(const ThrustVectoringConfig& config) { this->cfg = config; }
+void ThrustVectoringAlgorithm::setConfig(const ThrustVectoringConfig& config) {
+    this->cfg = config;
+    this->r_MC_B = config.getR_MB_B() - config.getR_CB_B();
+}
 
 /*! This method computes the thrust direction that produces the requested torque about the center of mass. A zero
  request puts the line of action through the center of mass, which produces no torque.
@@ -54,7 +57,5 @@ void ThrustVectoringAlgorithm::setConfig(const ThrustVectoringConfig& config) { 
  @param Lreq_B [Nm] requested torque about the center of mass, body frame
 */
 Eigen::Vector3f ThrustVectoringAlgorithm::update(const Eigen::Vector3f& Lreq_B) const {
-    const Eigen::Vector3f r_MC_B = this->cfg.getR_MB_B() - this->cfg.getR_CB_B();
-
-    return solveThrustDirection(r_MC_B, this->cfg.getThrust(), Lreq_B);
+    return solveThrustDirection(this->r_MC_B, this->cfg.getThrust(), Lreq_B);
 }
