@@ -201,7 +201,7 @@ int CssWeightedLeastSquaresAlgorithm::computeWlsmn(const uint32_t numActiveCss,
         Eigen::Matrix2f hhtInverse = Eigen::Matrix2f::Zero();
         float determinant = 0.0F;
         bool invertible = false;
-        const float hhtNorm = hht.norm();
+        const float hhtNorm = hht.stableNorm();
         const float hhtThreshold = kSingularDeterminantRelativeTolerance * hhtNorm * hhtNorm;
         hht.computeInverseAndDetWithCheck(hhtInverse, determinant, invertible, hhtThreshold);
         if (!invertible) {
@@ -222,7 +222,7 @@ int CssWeightedLeastSquaresAlgorithm::computeWlsmn(const uint32_t numActiveCss,
         Eigen::Matrix3f htwhInverse = Eigen::Matrix3f::Zero();
         float determinant = 0.0F;
         bool invertible = false;
-        const float htwhNorm = htwh.norm();
+        const float htwhNorm = htwh.stableNorm();
         const float htwhThreshold = kSingularDeterminantRelativeTolerance * htwhNorm * htwhNorm * htwhNorm;
         htwh.computeInverseAndDetWithCheck(htwhInverse, determinant, invertible, htwhThreshold);
         if (!invertible) {

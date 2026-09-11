@@ -75,7 +75,7 @@ class CssWeightedLeastSquaresConfig final {
         Eigen::Vector<float, kMaxNumCss> cssBias = Eigen::Vector<float, kMaxNumCss>::Zero();
         for (uint32_t i = 0U; i < numCss; ++i) {
             const auto sensor = static_cast<Eigen::Index>(i);
-            cssNHat_B.row(sensor) = cssSensors.at(i).nHat_B.normalized().transpose();
+            cssNHat_B.row(sensor) = cssSensors.at(i).nHat_B.stableNormalized().transpose();
             cssBias(sensor) = cssSensors.at(i).bias;
         }
 
