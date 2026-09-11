@@ -13,11 +13,7 @@ constexpr float kSmallAngle = 1e-3F;  // small angle tolerance [rad]
  center of mass.
  @return the thrust unit direction, in the frame the arguments were given in
 */
-// NOLINTNEXTLINE(bugprone-easily-swappable-parameters) -- the vectors are distinct quantities and documented.
-Eigen::Vector3f solveThrustDirection(const Eigen::Vector3f& r_MC,
-                                     const Eigen::Vector3f& tHatNeutral,
-                                     float thrust,
-                                     const Eigen::Vector3f& Lreq) {
+Eigen::Vector3f solveThrustDirection(const Eigen::Vector3f& r_MC, float thrust, const Eigen::Vector3f& Lreq) {
     const float b = r_MC.norm();  // moment arm about the joint; the configuration guarantees b > kMinR_CM
     const Eigen::Vector3f rHat_MC = r_MC / b;
 
@@ -31,10 +27,10 @@ Eigen::Vector3f solveThrustDirection(const Eigen::Vector3f& r_MC,
     const Eigen::Vector3f tPerp = tPerpMagnitude * tPerpRequested.stableNormalized();
 
     // (3) Compute the component along r_MC, exactly zero once saturated. Both signs deliver the same torque, since
-    //     this component produces no torque, so take the one leaving the thrust nearer its un-deflected direction.
-    const float alongSign = (rHat_MC.dot(tHatNeutral) >= 0.0F) ? 1.0F : -1.0F;
-    const float tAlongMagnitude = alongSign * safeSqrtf(1.0F - (tPerpMagnitude * tPerpMagnitude));
-    const Eigen::Vector3f tAlong = tAlongMagnitude * rHat_MC;
+    //     this component produces no torque. Take the one that fires the thrust from the joint towards the center
+    //     of mass, which puts the thruster outboard of the joint rather than inside the vehicle.
+    const float tAlongMagnitude = safeSqrtf(1.0F - (tPerpMagnitude * tPerpMagnitude));
+    const Eigen::Vector3f tAlong = -tAlongMagnitude * rHat_MC;
 
     const Eigen::Vector3f tHat = (tPerp + tAlong).stableNormalized();
 
@@ -88,8 +84,7 @@ Eigen::Vector3f ThrustVectoringAlgorithm::update(const Eigen::Vector3f& Lreq_B) 
     const Eigen::Vector3f r_MC_B = platform.r_MB_B - this->cfg.getR_CB_B();
 
     // Requested thrust direction to achieve the reachable part of the requested torque
-    const Eigen::Vector3f tHatRequested_B =
-        solveThrustDirection(r_MC_B, this->tHatNeutral_B, this->cfg.getThrust(), Lreq_B);
+    const Eigen::Vector3f tHatRequested_B = solveThrustDirection(r_MC_B, this->cfg.getThrust(), Lreq_B);
     // Clamp the thrust direction to respect the deflection limits of the gimbal
     return clampThrustDeflection(tHatRequested_B, this->tHatNeutral_B, platform.thetaMax);
 }
