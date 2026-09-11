@@ -62,6 +62,7 @@ CssWeightedLeastSquaresOutput CssWeightedLeastSquaresAlgorithm::update(
     int status = 0; /* Quality of the module estimate */
 
     uint32_t numActiveCss = 0;
+    Eigen::Vector3f fit = Eigen::Vector3f::Zero(); /* the least squares solution, before normalization */
     Eigen::Vector3f sunHeading_B = Eigen::Vector3f::Zero();
     Eigen::Vector3f omega_BN_B = Eigen::Vector3f::Zero();
     Eigen::Vector<float, kMaxNumCss> postFitResiduals = Eigen::Vector<float, kMaxNumCss>::Zero();
@@ -82,12 +83,7 @@ CssWeightedLeastSquaresOutput CssWeightedLeastSquaresAlgorithm::update(
     }
 
     /*! Estimation Steps*/
-    if (numActiveCss == 0) /*! - If there is no sun, just quit*/
-    {
-        /*! + If no CSS got a strong enough signal.  Sun estimation is not possible.  Return the zero vector instead */
-        this->priorSignalAvailable = false; /* reset the prior heading estimate flag */
-        postFitResiduals = this->computeWlsResiduals(cosValues, sunHeading_B, activeSensors, numActiveCss);
-    } else {
+    if (numActiveCss > 0) {
         /*! - If at least one CSS got a strong enough signal.  Proceed with the sun heading estimation */
         /*! -# Configuration option to weight the measurements, otherwise set
          weighting matrix to identity*/
@@ -96,10 +92,9 @@ CssWeightedLeastSquaresOutput CssWeightedLeastSquaresAlgorithm::update(
             weights = y;
         }
         /*! -# Get least squares fit for sun pointing vector*/
-        status = computeWlsmn(numActiveCss, weights, H, y, sunHeading_B);
-        postFitResiduals = this->computeWlsResiduals(cosValues, sunHeading_B, activeSensors, numActiveCss);
+        status = computeWlsmn(numActiveCss, weights, H, y, fit);
 
-        sunHeading_B = sunHeading_B.stableNormalized();
+        sunHeading_B = fit.stableNormalized();
 
         /*! -# Estimate the inertial angular velocity from the rate of the sun heading measurements */
         if (this->priorSignalAvailable) {
@@ -116,15 +111,17 @@ CssWeightedLeastSquaresOutput CssWeightedLeastSquaresAlgorithm::update(
         this->dOld = sunHeading_B;
     }
 
+    /*! - Residuals are measured against the unnormalized fit, which is zero when there was no sun */
+    postFitResiduals = this->computeWlsResiduals(cosValues, fit, activeSensors, numActiveCss);
+
     /*! - Capture the heading reported on the filter status output before any anomaly zeroing */
     const Eigen::Vector3f residualStateHeading = sunHeading_B;
 
-    if (status > 0) /*! - If the status from the WLS computation is erroneous, populate the outputs with zeros*/
-    {
-        /* An error was detected while attempting to compute the sunline direction */
-        sunHeading_B.setZero();             /* zero the sun heading to indicate anomaly  */
-        omega_BN_B.setZero();               /* zero the rate measure */
-        this->priorSignalAvailable = false; /* reset the prior heading estimate flag */
+    /*! - With no sun, or a singular fit, there is no heading to report and no prior to difference against */
+    if (numActiveCss == 0 || status > 0) {
+        sunHeading_B.setZero();
+        omega_BN_B.setZero();
+        this->priorSignalAvailable = false;
     }
 
     return {.sunHeading_B = sunHeading_B,
