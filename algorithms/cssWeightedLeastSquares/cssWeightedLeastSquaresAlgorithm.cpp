@@ -5,14 +5,6 @@
 #include <math.h>
 #include <Eigen/Geometry>
 #include <Eigen/LU>
-#include <algorithm>
-
-/*! Upper limit of the arc-cosine domain. The dot product of two unit vectors can only exceed this
-    through round-off, so the principal rotation angle argument is clamped here. */
-static constexpr float kMaxPrincipalAngleCosine = 1.0F;
-
-/*! Lower limit of the arc-cosine domain, the negative counterpart of kMaxPrincipalAngleCosine. */
-static constexpr float kMinPrincipalAngleCosine = -1.0F;
 
 /*! Smallest physically meaningful CSS reading. A coarse sun sensor cannot report a negative cosine,
     so the predicted measurement is floored here before differencing against the observation. */
@@ -116,9 +108,8 @@ CssWeightedLeastSquaresOutput CssWeightedLeastSquaresAlgorithm::update(
             const Eigen::Vector3f dHatOld = this->dOld.stableNormalized();
             out.omega_BN_B = dHatNew.cross(dHatOld).stableNormalized();
             /* compute principal rotation angle between sun heading measurements */
-            const float dOldDotNew =
-                std::clamp(dHatNew.dot(dHatOld), kMinPrincipalAngleCosine, kMaxPrincipalAngleCosine);
-            out.omega_BN_B *= safeAcosf(dOldDotNew) / this->cfg.getControlPeriod();
+            const float principalAngle = safeAcosf(dHatNew.dot(dHatOld));
+            out.omega_BN_B *= principalAngle / this->cfg.getControlPeriod();
         } else {
             this->priorSignalAvailable = true;
         }

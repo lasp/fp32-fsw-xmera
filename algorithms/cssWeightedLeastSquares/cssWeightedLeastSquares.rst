@@ -192,8 +192,8 @@ heading are unobservable; rates about the other two axes are recovered. With :ma
     \arccos\left( \frac{\mathbf{d}_n \cdot \mathbf{d}_{n-1}}{|\mathbf{d}_n| |\mathbf{d}_{n-1}|} \right)
     \frac{1}{\Delta t}
 
-All components are body frame. The arc-cosine argument is clamped to :math:`[-1, 1]` so that round-off cannot push it
-outside the domain.
+All components are body frame. The arc-cosine is evaluated safely, so round-off cannot push its argument outside
+the domain.
 
 Post-Fit Residuals
 ~~~~~~~~~~~~~~~~~~
