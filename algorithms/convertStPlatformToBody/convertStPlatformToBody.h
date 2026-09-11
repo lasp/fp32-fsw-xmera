@@ -2,11 +2,11 @@
 #define F32XIMERA_CONVERT_ST_PLATFORM_TO_BODY_H
 
 #include "convertStPlatformToBodyAlgorithm.h"
+#include "msgPayloadDef/STAttMsgF32Payload.h"
+#include "msgPayloadDef/STSensorMsgF32Payload.h"
 
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
-#include <architecture/msgPayloadDef/STAttMsgPayload.h>
-#include <architecture/msgPayloadDef/STSensorMsgPayload.h>
 
 #include <Eigen/Core>
 
@@ -14,7 +14,7 @@
 
 #include <memory>
 
-/*! @brief Convert STSensorMsgPayload to STAttMsgPayload Class */
+/*! @brief Convert STSensorMsgF32Payload to STAttMsgF32Payload Class */
 class ConvertStPlatformToBody : public SysModel {
    public:
     ConvertStPlatformToBody() = default;
@@ -27,8 +27,8 @@ class ConvertStPlatformToBody : public SysModel {
 
     Eigen::Matrix3f dcm_CB = Eigen::Matrix3f::Identity();  //!< [-] body-to-case mounting DCM (orthonormal, det +1)
 
-    ReadFunctor<STSensorMsgPayload> stSensorInMsg;  //!< Input msg
-    Message<STAttMsgPayload> stAttOutMsg;           //!< Output msg
+    ReadFunctor<STSensorMsgF32Payload> stSensorInMsg;  //!< Input msg
+    Message<STAttMsgF32Payload> stAttOutMsg;           //!< Output msg
 
    private:
     ConvertStPlatformToBodyConfig toConfig() const;

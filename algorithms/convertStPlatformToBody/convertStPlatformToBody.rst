@@ -10,7 +10,7 @@ The ``convertStPlatformToBody`` module converts a star tracker attitude measurem
 the spacecraft body frame. It takes the inertial-to-case attitude quaternion and case-frame delta quaternion produced
 by the star tracker and, using a configured body-to-case mounting DCM, outputs the inertial-to-body MRP and body-frame
 angular velocity suitable for downstream navigation and control modules. The adapter layer accepts the legacy
-angular-velocity field on ``STSensorMsgPayload`` and converts it to a delta quaternion before invoking the algorithm,
+angular-velocity field on ``STSensorMsgF32Payload`` and converts it to a delta quaternion before invoking the algorithm,
 so upstream producers may continue to publish angular velocity until the message layout is updated.
 
 
@@ -28,10 +28,10 @@ The following table lists all the module input and output messages:
       - Msg Type
       - Description
     * - stSensorInMsg
-      - :ref:`STSensorMsgPayload`
+      - :ref:`STSensorMsgF32Payload`
       - Star tracker sensor measurement input message (inertial-to-case attitude and case-frame rate)
     * - stAttOutMsg
-      - :ref:`STAttMsgPayload`
+      - :ref:`STAttMsgF32Payload`
       - Star tracker body-frame attitude output message (inertial-to-body MRP and body-frame rate)
 
 
