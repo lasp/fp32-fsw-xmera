@@ -30,10 +30,11 @@ inline ThrustVectoringConfig makeConfig(const Eigen::Vector3f& sigma_MB,
 
 // The torque the thruster delivers about the center of mass. The line of action runs through the joint, so the
 // moment arm is the joint-to-center-of-mass vector however far behind the joint the thruster itself sits.
-inline Eigen::Vector3f achievedTorque_B(const ThrustVectoringOutput& out,
+inline Eigen::Vector3f achievedTorque_B(const Eigen::Vector3f& tHat_B,
+                                        float thrust,
                                         const Eigen::Vector3f& r_MB_B,
                                         const Eigen::Vector3f& r_CB_B) {
-    return (r_MB_B - r_CB_B).cross(out.thrust * out.tHat_B);
+    return (r_MB_B - r_CB_B).cross(thrust * tHat_B);
 }
 
 // Regression helper: checks the module against truth computed here from the raw geometry, for any requested
@@ -47,15 +48,14 @@ inline void regressionTestThrustVectoring(const Eigen::Vector3f& sigma_MB,
                                           const Eigen::Vector3f& Lreq_B,
                                           float accuracy) {
     const ThrustVectoringAlgorithm alg{makeConfig(sigma_MB, r_MB_B, r_CB_B, thrust)};
-    const ThrustVectoringOutput out = alg.update(Lreq_B);
+    const Eigen::Vector3f tHat_B = alg.update(Lreq_B);
 
-    // Thrust magnitude preserved and the reported heading is a unit vector.
-    EXPECT_NEAR(out.thrust, thrust, accuracy);
-    EXPECT_NEAR(out.tHat_B.norm(), 1.0F, accuracy);
+    // The reported heading is a unit vector.
+    EXPECT_NEAR(tHat_B.norm(), 1.0F, accuracy);
 
     // The wide cone must not have clamped, which the torque expectation below relies on.
     const Eigen::Vector3f tHatNeutral_B = mrpToDcm(mrpSwitch(sigma_MB)).transpose() * -Eigen::Vector3f::UnitZ();
-    ASSERT_GT(tHatNeutral_B.dot(out.tHat_B), std::cos(kWideCone)) << "Test setup: the deflection cone must not clamp";
+    ASSERT_GT(tHatNeutral_B.dot(tHat_B), std::cos(kWideCone)) << "Test setup: the deflection cone must not clamp";
 
     // The delivered torque is the request projected onto the reachable disk: perpendicular to r_MC, and no larger
     // than thrust * |r_MC|.
@@ -65,7 +65,7 @@ inline void regressionTestThrustVectoring(const Eigen::Vector3f& sigma_MB,
     const float maxTorque = thrust * r_MC_B.norm();
     const Eigen::Vector3f Lexpected_B =
         (LreqPerp_B.norm() > maxTorque) ? (LreqPerp_B * (maxTorque / LreqPerp_B.norm())) : LreqPerp_B;
-    EXPECT_LT((achievedTorque_B(out, r_MB_B, r_CB_B) - Lexpected_B).norm(), accuracy);
+    EXPECT_LT((achievedTorque_B(tHat_B, thrust, r_MB_B, r_CB_B) - Lexpected_B).norm(), accuracy);
 
     // The un-deflected thrust must fire inboard, from the joint back towards the center of mass, which is what
     // puts the thruster itself outboard of the joint rather than inside the spacecraft. Assert the mounting the
@@ -75,7 +75,7 @@ inline void regressionTestThrustVectoring(const Eigen::Vector3f& sigma_MB,
     // A zero request aligns the line of action through the center of mass, so the thrust fires straight down the
     // joint-to-center-of-mass direction, which is the direction opposite r_MC.
     if (Lreq_B.isZero()) {
-        EXPECT_LT((out.tHat_B + rHat_MC_B).norm(), accuracy);
+        EXPECT_LT((tHat_B + rHat_MC_B).norm(), accuracy);
     }
 }
 
@@ -97,11 +97,10 @@ inline void propertyOutputsFinite(const Eigen::Vector3f& sigma_MB,
     }
 
     const ThrustVectoringAlgorithm alg{makeConfig(sigma_MB, r_MB_B, r_CB_B, thrust)};
-    const ThrustVectoringOutput out = alg.update(Lreq_B);
+    const Eigen::Vector3f tHat_B = alg.update(Lreq_B);
 
-    EXPECT_TRUE(out.tHat_B.allFinite());
-    EXPECT_TRUE(std::isfinite(out.thrust));
-    EXPECT_NEAR(out.tHat_B.norm(), 1.0F, 1e-3F);
+    EXPECT_TRUE(tHat_B.allFinite());
+    EXPECT_NEAR(tHat_B.norm(), 1.0F, 1e-3F);
 }
 
 #endif  // TEST_THRUST_VECTORING_H

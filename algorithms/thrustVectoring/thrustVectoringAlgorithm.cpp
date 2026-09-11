@@ -78,12 +78,11 @@ void ThrustVectoringAlgorithm::setConfig(const ThrustVectoringConfig& config) {
 }
 
 /*! This method computes the platform reference orientation that points the thruster so it produces the requested
- torque about the system center of mass (a zero request aligns the thruster line of action with the center of mass)
- and the associated body-heading and thruster-configuration quantities.
- @return ThrustVectoringOutput derived body-frame thruster quantities
+ torque about the system center of mass (a zero request aligns the thruster line of action with the center of mass).
+ @return [-] thrust unit direction, body frame
  @param Lreq_B [Nm] requested thruster torque about the center of mass, body frame
 */
-ThrustVectoringOutput ThrustVectoringAlgorithm::update(const Eigen::Vector3f& Lreq_B) const {
+Eigen::Vector3f ThrustVectoringAlgorithm::update(const Eigen::Vector3f& Lreq_B) const {
     const ThrustVectoringPlatformConfiguration& platform = this->cfg.getPlatformConfiguration();
 
     const Eigen::Vector3f r_MC_B = platform.r_MB_B - this->cfg.getR_CB_B();
@@ -92,11 +91,5 @@ ThrustVectoringOutput ThrustVectoringAlgorithm::update(const Eigen::Vector3f& Lr
     const Eigen::Vector3f tHatRequested_B =
         solveThrustDirection(r_MC_B, this->tHatNeutral_B, this->cfg.getThrust(), Lreq_B);
     // Clamp the thrust direction to respect the deflection limits of the gimbal
-    const Eigen::Vector3f tHat_B = clampThrustDeflection(tHatRequested_B, this->tHatNeutral_B, platform.thetaMax);
-
-    ThrustVectoringOutput out{};
-    out.tHat_B = tHat_B;
-    out.thrust = this->cfg.getThrust();
-
-    return out;
+    return clampThrustDeflection(tHatRequested_B, this->tHatNeutral_B, platform.thetaMax);
 }

@@ -22,12 +22,6 @@ struct ThrustVectoringPlatformConfiguration {
     float thetaMax{};                                   //!< [rad] half-angle of the thrust-deflection cone
 };
 
-/*! @brief Outputs of the thrust vectoring algorithm. */
-struct ThrustVectoringOutput {
-    Eigen::Vector3f tHat_B{Eigen::Vector3f::Zero()};  //!< [-] thrust unit direction, B frame
-    float thrust{};                                   //!< [N] thrust magnitude
-};
-
 /*!
  * @brief Validated configuration for the thrust vectoring algorithm.
  *
@@ -126,7 +120,9 @@ class ThrustVectoringAlgorithm final {
    public:
     explicit ThrustVectoringAlgorithm(const ThrustVectoringConfig& config);
     void setConfig(const ThrustVectoringConfig& config);
-    ThrustVectoringOutput update(const Eigen::Vector3f& Lreq_B) const;
+    const ThrustVectoringConfig& getConfig() const { return this->cfg; }
+    /*! @return [-] thrust unit direction, B frame */
+    Eigen::Vector3f update(const Eigen::Vector3f& Lreq_B) const;
 
    private:
     ThrustVectoringConfig cfg;  //!< [-] validated configuration

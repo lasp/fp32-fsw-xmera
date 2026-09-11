@@ -1,6 +1,5 @@
 #include "thrustVectoringAlgorithm_c.h"
 #include "thrustVectoringAlgorithm.h"
-#include "thrustVectoringTypes.h"
 #include "utilities/fsw/eigenSupport.h"
 #include "utilities/fsw/opaqueHandle.h"
 
@@ -55,13 +54,11 @@ void ThrustVectoringAlgorithm_setConfig(ThrustVectoringAlgorithmHandle* self,
         makeConfig(*sigma_MB, *r_MB_B, thetaMax, thrust, *r_CB_B));
 }
 
-ThrustVectoringOutput_c ThrustVectoringAlgorithm_update(const ThrustVectoringAlgorithmHandle* self,
-                                                        const Vector3f_c* Lreq_B) {
-    const ThrustVectoringOutput out =
+Vector3f_c ThrustVectoringAlgorithm_update(const ThrustVectoringAlgorithmHandle* self, const Vector3f_c* Lreq_B) {
+    const Eigen::Vector3f tHat_B =
         fsw::fromHandle<const ::ThrustVectoringAlgorithm>(self)->update(cArrayToEigenVector3<float>(Lreq_B->data));
 
-    ThrustVectoringOutput_c result{};
-    eigenVectorToCArray(out.tHat_B, result.tHat_B.data);
-    result.thrust = out.thrust;
+    Vector3f_c result{};
+    eigenVectorToCArray(tHat_B, result.data);
     return result;
 }

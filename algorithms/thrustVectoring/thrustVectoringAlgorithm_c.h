@@ -1,7 +1,7 @@
 #ifndef F32XMERA_THRUST_VECTORING_ALGORITHM_C_H
 #define F32XMERA_THRUST_VECTORING_ALGORITHM_C_H
 
-#include "thrustVectoringTypes.h"
+#include "utilities/fsw/plainCAlgorithmDataTypes.h"
 
 #include <stdbool.h>
 
@@ -62,13 +62,12 @@ void ThrustVectoringAlgorithm_setConfig(ThrustVectoringAlgorithmHandle* self,
                                         const Vector3f_c* r_CB_B);
 
 /**
- * @brief Compute the platform reference orientation and derived body-frame thruster quantities.
+ * @brief Compute the thrust direction that produces the requested torque.
  * @param self   Pointer to the instance.
  * @param Lreq_B [Nm] requested thruster torque about the center of mass, body-frame coordinates.
- * @return ThrustVectoringOutput_c derived body-frame thruster quantities.
+ * @return Vector3f_c [-] thrust unit direction, body-frame coordinates.
  */
-ThrustVectoringOutput_c ThrustVectoringAlgorithm_update(const ThrustVectoringAlgorithmHandle* self,
-                                                        const Vector3f_c* Lreq_B);
+Vector3f_c ThrustVectoringAlgorithm_update(const ThrustVectoringAlgorithmHandle* self, const Vector3f_c* Lreq_B);
 
 #ifdef __cplusplus
 }  // extern "C"

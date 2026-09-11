@@ -88,20 +88,20 @@ void ThrustVectoring::updateState(const uint64_t callTime) {
 
     const Eigen::Vector3f Lreq_B = cArrayToEigenVector3<float>(this->cmdTorqueInMsg().torqueRequestBody);
 
-    const ThrustVectoringOutput out = this->algorithm->update(Lreq_B);
+    const Eigen::Vector3f tHat_B = this->algorithm->update(Lreq_B);
 
     // the body-frame thrust heading equals the body-frame thrust unit direction
     BodyHeadingMsgF32Payload bodyHeadingOut{};
-    eigenVectorToCArray(out.tHat_B, bodyHeadingOut.rHat_XB_B);
+    eigenVectorToCArray(tHat_B, bodyHeadingOut.rHat_XB_B);
     this->bodyHeadingOutMsg.write(bodyHeadingOut, this->moduleID, callTime);
 
     // The thruster fires along the thrust from a point armLength behind the joint, so its line of action runs
     // through the joint whatever the platform orientation.
-    const Eigen::Vector3f r_TB_B = this->r_MB_B - (this->armLength * out.tHat_B);
+    const Eigen::Vector3f r_TB_B = this->r_MB_B - (this->armLength * tHat_B);
 
     THRConfigMsgF32Payload thrusterConfigOut{};
     eigenVectorToCArray(r_TB_B, thrusterConfigOut.rThrust_B);
-    eigenVectorToCArray(out.tHat_B, thrusterConfigOut.tHatThrust_B);
-    thrusterConfigOut.maxThrust = out.thrust;
+    eigenVectorToCArray(tHat_B, thrusterConfigOut.tHatThrust_B);
+    thrusterConfigOut.maxThrust = this->algorithm->getConfig().getThrust();
     this->thrusterConfigBOutMsg.write(thrusterConfigOut, this->moduleID, callTime);
 }
