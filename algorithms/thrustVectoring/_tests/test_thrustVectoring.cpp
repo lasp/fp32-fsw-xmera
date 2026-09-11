@@ -15,7 +15,6 @@ TEST(ThrustVectoringTest, RegressionAxisAlignedThrust) {
     regressionTestThrustVectoring({0.0F, 0.0F, 0.0F},       // sigma_MB
                                   {0.0F, 0.1F, 1.4F},       // r_MB_B
                                   {0.05F, 0.02F, 0.1F},     // r_CB_B
-                                  0.1F,                     // armLength
                                   10.0F,                    // thrust
                                   Eigen::Vector3f::Zero(),  // Lreq_B
                                   kAccuracy);
@@ -23,43 +22,37 @@ TEST(ThrustVectoringTest, RegressionAxisAlignedThrust) {
 
 TEST(ThrustVectoringTest, RegressionAxisAlignedThrustWithRequestedTorque) {
     regressionTestThrustVectoring(
-        {0.0F, 0.0F, 0.0F}, {0.0F, 0.1F, 1.4F}, {0.05F, 0.02F, 0.1F}, 0.1F, 10.0F, {0.4F, -0.2F, 0.3F}, kAccuracy);
+        {0.0F, 0.0F, 0.0F}, {0.0F, 0.1F, 1.4F}, {0.05F, 0.02F, 0.1F}, 10.0F, {0.4F, -0.2F, 0.3F}, kAccuracy);
 }
 
 TEST(ThrustVectoringTest, RegressionTiltedMFrame) {
     const Eigen::Vector3f sigma_MB = dcmToMrp(eulerAngles123ToDcm(Eigen::Vector3f(0.087F, 0.175F, 0.0F)));
     regressionTestThrustVectoring(
-        sigma_MB, {0.0F, 0.1F, 1.4F}, {0.2F, -0.1F, 0.15F}, 0.1F, 5.0F, Eigen::Vector3f::Zero(), kAccuracy);
+        sigma_MB, {0.0F, 0.1F, 1.4F}, {0.2F, -0.1F, 0.15F}, 5.0F, Eigen::Vector3f::Zero(), kAccuracy);
 }
 
 TEST(ThrustVectoringTest, RegressionTiltedMFrameWithRequestedTorque) {
     const Eigen::Vector3f sigma_MB = dcmToMrp(eulerAngles123ToDcm(Eigen::Vector3f(0.087F, 0.175F, 0.0F)));
     regressionTestThrustVectoring(
-        sigma_MB, {0.0F, 0.1F, 1.4F}, {0.2F, -0.1F, 0.15F}, 0.1F, 5.0F, {-0.3F, 0.15F, 0.25F}, kAccuracy);
+        sigma_MB, {0.0F, 0.1F, 1.4F}, {0.2F, -0.1F, 0.15F}, 5.0F, {-0.3F, 0.15F, 0.25F}, kAccuracy);
 }
 
 TEST(ThrustVectoringTest, RegressionArbitraryGeometry) {
     const Eigen::Vector3f sigma_MB = dcmToMrp(eulerAngles123ToDcm(Eigen::Vector3f(-0.2F, 0.1F, 0.0F)));
     regressionTestThrustVectoring(
-        sigma_MB, {0.1F, -0.2F, 0.9F}, {0.3F, 0.25F, -0.1F}, 0.25F, 12.0F, Eigen::Vector3f::Zero(), kAccuracy);
+        sigma_MB, {0.1F, -0.2F, 0.9F}, {0.3F, 0.25F, -0.1F}, 12.0F, Eigen::Vector3f::Zero(), kAccuracy);
 }
 
 TEST(ThrustVectoringTest, RegressionArbitraryGeometryWithRequestedTorque) {
     const Eigen::Vector3f sigma_MB = dcmToMrp(eulerAngles123ToDcm(Eigen::Vector3f(-0.2F, 0.1F, 0.0F)));
     regressionTestThrustVectoring(
-        sigma_MB, {0.1F, -0.2F, 0.9F}, {0.3F, 0.25F, -0.1F}, 0.25F, 12.0F, {0.5F, 0.6F, -0.4F}, kAccuracy);
-}
-
-// A zero arm length puts the thruster on the joint itself, which the pointing solve does not care about.
-TEST(ThrustVectoringTest, RegressionZeroArmLength) {
-    regressionTestThrustVectoring(
-        {0.0F, 0.0F, 0.0F}, {0.0F, 0.1F, 1.4F}, {0.05F, 0.02F, 0.1F}, 0.0F, 10.0F, Eigen::Vector3f::Zero(), kAccuracy);
+        sigma_MB, {0.1F, -0.2F, 0.9F}, {0.3F, 0.25F, -0.1F}, 12.0F, {0.5F, 0.6F, -0.4F}, kAccuracy);
 }
 
 // A request beyond thrust * |r_MC| is regression-checked too: the helper expects the saturated torque.
 TEST(ThrustVectoringTest, RegressionSaturatedRequest) {
     regressionTestThrustVectoring(
-        {0.0F, 0.0F, 0.0F}, {0.0F, 0.1F, 1.4F}, {0.05F, 0.02F, 0.1F}, 0.1F, 10.0F, {1e3F, -5e2F, 8e2F}, kAccuracy);
+        {0.0F, 0.0F, 0.0F}, {0.0F, 0.1F, 1.4F}, {0.05F, 0.02F, 0.1F}, 10.0F, {1e3F, -5e2F, 8e2F}, kAccuracy);
 }
 
 // ---------------------------------------------------------------------------
@@ -70,12 +63,11 @@ TEST(ThrustVectoringTest, SetupTest) {
     const Eigen::Vector3f zero = Eigen::Vector3f::Zero();
     const Eigen::Vector3f com{0.0F, 0.0F, -1.0F};  // clear of the joint at the origin, so the pointing is defined
     constexpr float nan = std::numeric_limits<float>::quiet_NaN();
-    const auto create = [&](const ThrustVectoringPlatformConfiguration& platform,
-                            const ThrustVectoringThrusterConfiguration& thruster,
-                            const Eigen::Vector3f& r_CB_B) {
-        return ThrustVectoringConfig::create(platform, thruster, r_CB_B);
-    };
-    const ThrustVectoringThrusterConfiguration thruster{.armLength = 0.1F, .thrust = 10.0F};
+    const auto create =
+        [&](const ThrustVectoringPlatformConfiguration& platform, float thrust, const Eigen::Vector3f& r_CB_B) {
+            return ThrustVectoringConfig::create(platform, thrust, r_CB_B);
+        };
+    constexpr float thruster = 10.0F;
 
     // A finite geometry with a valid cone half-angle and positive thrust is accepted.
     EXPECT_NO_THROW((void)create(makePlatformConfig(zero, zero, 1.0F), thruster, com));
@@ -89,20 +81,10 @@ TEST(ThrustVectoringTest, SetupTest) {
     EXPECT_THROW((void)create(makePlatformConfig(zero, zero, 4.0F), thruster, com), fsw::invalid_argument);
     EXPECT_THROW((void)create(makePlatformConfig(zero, zero, nan), thruster, com), fsw::invalid_argument);
 
-    // A negative or non-finite arm length is rejected; zero is allowed.
-    EXPECT_THROW((void)create(makePlatformConfig(zero, zero, 1.0F), {.armLength = -0.1F, .thrust = 10.0F}, com),
-                 fsw::invalid_argument);
-    EXPECT_THROW((void)create(makePlatformConfig(zero, zero, 1.0F), {.armLength = nan, .thrust = 10.0F}, com),
-                 fsw::invalid_argument);
-    EXPECT_NO_THROW((void)create(makePlatformConfig(zero, zero, 1.0F), {.armLength = 0.0F, .thrust = 10.0F}, com));
-
     // A non-positive or non-finite thrust magnitude is rejected: it leaves no line of action to point.
-    EXPECT_THROW((void)create(makePlatformConfig(zero, zero, 1.0F), {.armLength = 0.1F, .thrust = 0.0F}, com),
-                 fsw::invalid_argument);
-    EXPECT_THROW((void)create(makePlatformConfig(zero, zero, 1.0F), {.armLength = 0.1F, .thrust = -1.0F}, com),
-                 fsw::invalid_argument);
-    EXPECT_THROW((void)create(makePlatformConfig(zero, zero, 1.0F), {.armLength = 0.1F, .thrust = nan}, com),
-                 fsw::invalid_argument);
+    EXPECT_THROW((void)create(makePlatformConfig(zero, zero, 1.0F), 0.0F, com), fsw::invalid_argument);
+    EXPECT_THROW((void)create(makePlatformConfig(zero, zero, 1.0F), -1.0F, com), fsw::invalid_argument);
+    EXPECT_THROW((void)create(makePlatformConfig(zero, zero, 1.0F), nan, com), fsw::invalid_argument);
 
     // A non-finite center of mass is rejected.
     EXPECT_THROW((void)create(makePlatformConfig(zero, zero, 1.0F), thruster, {0.0F, nan, 0.0F}),
@@ -118,8 +100,7 @@ TEST(ThrustVectoringTest, SetupRejectsCenterOfMassOnTheJoint) {
     const Eigen::Vector3f sigma_MB = dcmToMrp(eulerAngles123ToDcm(Eigen::Vector3f(0.0F, -0.6F, 0.0F)));
     const Eigen::Vector3f r_MB_B{0.0F, 0.1F, 1.4F};
     const auto create = [&](const Eigen::Vector3f& r_CB_B) {
-        return ThrustVectoringConfig::create(
-            makePlatformConfig(sigma_MB, r_MB_B, 1.0F), {.armLength = 0.1F, .thrust = 10.0F}, r_CB_B);
+        return ThrustVectoringConfig::create(makePlatformConfig(sigma_MB, r_MB_B, 1.0F), 10.0F, r_CB_B);
     };
 
     // Straddle the threshold: the offset is measured from the joint, not from the body origin.
@@ -135,13 +116,12 @@ TEST(ThrustVectoringTest, ConfigRoundTrip) {
     const Eigen::Vector3f sigma_MB(0.1F, -0.2F, 0.3F);
     const Eigen::Vector3f r_MB_B(0.0F, 0.1F, 1.4F);
     const Eigen::Vector3f r_CB_B(0.05F, 0.02F, 0.1F);
-    const ThrustVectoringConfig cfg = ThrustVectoringConfig::create(
-        makePlatformConfig(sigma_MB, r_MB_B, 0.7F), {.armLength = 0.25F, .thrust = 12.0F}, r_CB_B);
+    const ThrustVectoringConfig cfg =
+        ThrustVectoringConfig::create(makePlatformConfig(sigma_MB, r_MB_B, 0.7F), 12.0F, r_CB_B);
     EXPECT_TRUE(cfg.getPlatformConfiguration().sigma_MB.isApprox(sigma_MB));
     EXPECT_TRUE(cfg.getPlatformConfiguration().r_MB_B.isApprox(r_MB_B));
     EXPECT_FLOAT_EQ(cfg.getPlatformConfiguration().thetaMax, 0.7F);
-    EXPECT_FLOAT_EQ(cfg.getThrusterConfiguration().armLength, 0.25F);
-    EXPECT_FLOAT_EQ(cfg.getThrusterConfiguration().thrust, 12.0F);
+    EXPECT_FLOAT_EQ(cfg.getThrust(), 12.0F);
     EXPECT_TRUE(cfg.getR_CB_B().isApprox(r_CB_B));
 }
 
@@ -151,7 +131,7 @@ TEST(ThrustVectoringTest, SigmaMbSwitchedToShadowSetWhenNormExceedsOne) {
     const Eigen::Vector3f largeSigma{0.8F, 0.6F, 0.6F};  // |sigma|^2 = 1.36 > 1
     ASSERT_GT(largeSigma.norm(), 1.0F) << "Test setup: sigma_MB must exceed the norm-1 boundary";
 
-    const ThrustVectoringConfig cfg = makeConfig(largeSigma, Eigen::Vector3f::Zero(), {0.0F, 0.0F, 1.0F}, 0.1F, 10.0F);
+    const ThrustVectoringConfig cfg = makeConfig(largeSigma, Eigen::Vector3f::Zero(), {0.0F, 0.0F, 1.0F}, 10.0F);
     const Eigen::Vector3f stored = cfg.getPlatformConfiguration().sigma_MB;
 
     EXPECT_LE(stored.norm(), 1.0F);
@@ -166,7 +146,7 @@ TEST(ThrustVectoringTest, SigmaMbWithinBoundStoredUnchanged) {
     const Eigen::Vector3f sigma{0.3F, -0.4F, 0.2F};  // norm < 1
     ASSERT_LE(sigma.norm(), 1.0F);
 
-    const ThrustVectoringConfig cfg = makeConfig(sigma, Eigen::Vector3f::Zero(), {0.0F, 0.0F, 1.0F}, 0.1F, 10.0F);
+    const ThrustVectoringConfig cfg = makeConfig(sigma, Eigen::Vector3f::Zero(), {0.0F, 0.0F, 1.0F}, 10.0F);
     const Eigen::Vector3f stored = cfg.getPlatformConfiguration().sigma_MB;
     for (int i = 0; i < 3; ++i) {
         EXPECT_FLOAT_EQ(stored(i), sigma(i));
@@ -179,8 +159,7 @@ TEST(ThrustVectoringTest, SigmaMbWithinBoundStoredUnchanged) {
 
 // The reported thrust heading is a unit vector and the magnitude is passed through exactly.
 TEST(ThrustVectoringTest, PropertyHeadingIsUnitAndThrustPreserved) {
-    const ThrustVectoringAlgorithm alg{
-        makeConfig({0.05F, 0.1F, -0.2F}, {0.0F, 0.1F, 1.4F}, {0.1F, 0.2F, -0.1F}, 0.1F, 7.5F)};
+    const ThrustVectoringAlgorithm alg{makeConfig({0.05F, 0.1F, -0.2F}, {0.0F, 0.1F, 1.4F}, {0.1F, 0.2F, -0.1F}, 7.5F)};
     const ThrustVectoringOutput out = alg.update({0.05F, -0.02F, 0.03F});
 
     EXPECT_NEAR(out.tHat_B.norm(), 1.0F, 1e-6F);
@@ -190,15 +169,13 @@ TEST(ThrustVectoringTest, PropertyHeadingIsUnitAndThrustPreserved) {
 // The solve is closed form, so a repeated call returns exactly the same reference: there is no state and no
 // dependence on the previous cycle.
 TEST(ThrustVectoringTest, PropertyRepeatedUpdateIsIdentical) {
-    const ThrustVectoringAlgorithm alg{
-        makeConfig({0.0F, 0.0F, 0.0F}, {0.0F, 0.1F, 1.4F}, {0.05F, 0.02F, 0.1F}, 0.1F, 10.0F)};
+    const ThrustVectoringAlgorithm alg{makeConfig({0.0F, 0.0F, 0.0F}, {0.0F, 0.1F, 1.4F}, {0.05F, 0.02F, 0.1F}, 10.0F)};
     const Eigen::Vector3f Lreq_B{0.1F, -0.05F, 0.08F};
 
     const ThrustVectoringOutput first = alg.update(Lreq_B);
     const ThrustVectoringOutput second = alg.update(Lreq_B);
 
     EXPECT_TRUE(second.tHat_B.isApprox(first.tHat_B));
-    EXPECT_TRUE(second.r_TB_B.isApprox(first.r_TB_B));
 
     // A different request moves the reference, so the previous check is not vacuous.
     EXPECT_GT((alg.update(-Lreq_B).tHat_B - first.tHat_B).norm(), kAccuracy);
@@ -210,13 +187,13 @@ TEST(ThrustVectoringTest, AchievesRequestedTorqueInOneCall) {
     const Eigen::Vector3f r_MB_B{0.0F, 0.1F, 1.4F};
     const Eigen::Vector3f r_CB_B{0.05F, 0.02F, 0.1F};
     const Eigen::Vector3f Lreq_B{0.1F, -0.05F, 0.08F};
-    const ThrustVectoringAlgorithm alg{makeConfig(Eigen::Vector3f::Zero(), r_MB_B, r_CB_B, 0.1F, 10.0F)};
+    const ThrustVectoringAlgorithm alg{makeConfig(Eigen::Vector3f::Zero(), r_MB_B, r_CB_B, 10.0F)};
 
     const ThrustVectoringOutput out = alg.update(Lreq_B);
 
     const Eigen::Vector3f rHat_CM_B = (r_CB_B - r_MB_B).normalized();
     const Eigen::Vector3f LreqReachable_B = Lreq_B - (rHat_CM_B * rHat_CM_B.dot(Lreq_B));
-    EXPECT_LT((achievedTorque_B(out, r_CB_B) - LreqReachable_B).norm(), kAccuracy);
+    EXPECT_LT((achievedTorque_B(out, r_MB_B, r_CB_B) - LreqReachable_B).norm(), kAccuracy);
 }
 
 // The request is interpreted in the body frame, so a tilted mount frame does not change the delivered torque.
@@ -225,13 +202,13 @@ TEST(ThrustVectoringTest, AchievesRequestedTorqueWithTiltedMountFrame) {
     const Eigen::Vector3f r_MB_B{0.0F, 0.1F, 1.4F};
     const Eigen::Vector3f r_CB_B{0.05F, 0.02F, 0.1F};
     const Eigen::Vector3f Lreq_B{0.1F, -0.05F, 0.08F};
-    const ThrustVectoringAlgorithm alg{makeConfig(sigma_MB, r_MB_B, r_CB_B, 0.1F, 10.0F)};
+    const ThrustVectoringAlgorithm alg{makeConfig(sigma_MB, r_MB_B, r_CB_B, 10.0F)};
 
     const ThrustVectoringOutput out = alg.update(Lreq_B);
 
     const Eigen::Vector3f rHat_CM_B = (r_CB_B - r_MB_B).normalized();
     const Eigen::Vector3f LreqReachable_B = Lreq_B - (rHat_CM_B * rHat_CM_B.dot(Lreq_B));
-    EXPECT_LT((achievedTorque_B(out, r_CB_B) - LreqReachable_B).norm(), kAccuracy);
+    EXPECT_LT((achievedTorque_B(out, r_MB_B, r_CB_B) - LreqReachable_B).norm(), kAccuracy);
 }
 
 // The component of the request along the center-of-mass offset can never be produced: the torque of a force whose
@@ -239,12 +216,12 @@ TEST(ThrustVectoringTest, AchievesRequestedTorqueWithTiltedMountFrame) {
 TEST(ThrustVectoringTest, TorqueAlongTheMomentArmIsUnreachable) {
     const Eigen::Vector3f r_MB_B{0.0F, 0.0F, 1.0F};
     const Eigen::Vector3f r_CB_B{0.0F, 0.0F, 0.0F};  // r_MC is +z, so a +z torque request is unreachable
-    const ThrustVectoringAlgorithm alg{makeConfig(Eigen::Vector3f::Zero(), r_MB_B, r_CB_B, 0.1F, 10.0F)};
+    const ThrustVectoringAlgorithm alg{makeConfig(Eigen::Vector3f::Zero(), r_MB_B, r_CB_B, 10.0F)};
 
     const ThrustVectoringOutput out = alg.update({0.0F, 0.0F, 0.5F});
 
     // The request is entirely unreachable, so the module falls back to the zero-torque alignment.
-    EXPECT_LT(achievedTorque_B(out, r_CB_B).norm(), kAccuracy);
+    EXPECT_LT(achievedTorque_B(out, r_MB_B, r_CB_B).norm(), kAccuracy);
 }
 
 // A request beyond thrust * |r_MC| saturates on the largest torque the geometry can deliver, in the requested
@@ -254,9 +231,9 @@ TEST(ThrustVectoringTest, SaturatesAtTheMaximumAchievableTorque) {
     const Eigen::Vector3f r_CB_B = Eigen::Vector3f::Zero();
     constexpr float thrust = 10.0F;
     const float maxTorque = thrust * (r_MB_B - r_CB_B).norm();  // thrust * |r_MC|
-    const ThrustVectoringAlgorithm alg{makeConfig(Eigen::Vector3f::Zero(), r_MB_B, r_CB_B, 0.1F, thrust)};
+    const ThrustVectoringAlgorithm alg{makeConfig(Eigen::Vector3f::Zero(), r_MB_B, r_CB_B, thrust)};
 
-    const Eigen::Vector3f achieved = achievedTorque_B(alg.update({1e3F, 0.0F, 0.0F}), r_CB_B);
+    const Eigen::Vector3f achieved = achievedTorque_B(alg.update({1e3F, 0.0F, 0.0F}), r_MB_B, r_CB_B);
 
     EXPECT_NEAR(achieved.norm(), maxTorque, 1e-3F);
     EXPECT_GT(achieved.normalized().dot(Eigen::Vector3f::UnitX()), 1.0F - kAccuracy);  // still along the request
@@ -268,10 +245,11 @@ TEST(ThrustVectoringTest, SaturatesAtTheMaximumAchievableTorque) {
 TEST(ThrustVectoringTest, PicksTheSolutionNearerTheUndeflectedDirection) {
     // M == B, so the neutral thrust direction is -z; r_MC points along +z.
     const ThrustVectoringAlgorithm alg{
-        makeConfig(Eigen::Vector3f::Zero(), {0.0F, 0.0F, 1.0F}, Eigen::Vector3f::Zero(), 0.1F, 10.0F)};
+        makeConfig(Eigen::Vector3f::Zero(), {0.0F, 0.0F, 1.0F}, Eigen::Vector3f::Zero(), 10.0F)};
     const ThrustVectoringOutput out = alg.update(Eigen::Vector3f::Zero());
 
-    ASSERT_LT(achievedTorque_B(out, Eigen::Vector3f::Zero()).norm(), kAccuracy) << "Test setup: torque must vanish";
+    ASSERT_LT(achievedTorque_B(out, {0.0F, 0.0F, 1.0F}, Eigen::Vector3f::Zero()).norm(), kAccuracy)
+        << "Test setup: torque must vanish";
     EXPECT_GT(out.tHat_B.dot(-Eigen::Vector3f::UnitZ()), 1.0F - kAccuracy);
 }
 
@@ -281,7 +259,7 @@ TEST(ThrustVectoringTest, ThrustDeflectionClampedToCone) {
     constexpr float thetaMax = 0.5F;
     // M == B, so the neutral thrust direction is -z; the center of mass sits far off that axis.
     const ThrustVectoringAlgorithm alg{
-        makeConfig(Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(), {1.0F, 0.0F, -0.1F}, 0.1F, 5.0F, thetaMax)};
+        makeConfig(Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(), {1.0F, 0.0F, -0.1F}, 5.0F, thetaMax)};
 
     const ThrustVectoringOutput out = alg.update(Eigen::Vector3f::Zero());
 
@@ -311,7 +289,7 @@ TEST(ThrustVectoringTest, NoClampWhenAlignedWithATiltedMountAxis) {
         << "Test setup: the mount axis must lie outside a cone about body -z";
 
     // Centre of mass along the mount axis: the zero-torque solution is the axis itself.
-    const ThrustVectoringAlgorithm alg{makeConfig(sigma_MB, Eigen::Vector3f::Zero(), neutral_B, 0.1F, 10.0F, thetaMax)};
+    const ThrustVectoringAlgorithm alg{makeConfig(sigma_MB, Eigen::Vector3f::Zero(), neutral_B, 10.0F, thetaMax)};
     const ThrustVectoringOutput out = alg.update(Eigen::Vector3f::Zero());
 
     // Compared as vectors rather than through acos: for near-parallel directions acos is ill-conditioned, and
@@ -329,7 +307,7 @@ TEST(ThrustVectoringTest, ThrustDeflectionClampedToConeWithTiltedMountFrame) {
     // Centre of mass very nearly perpendicular to the mount axis, tipped just far enough onto the thrust side
     // that the mounting is legal: the solution still wants close to 90 degrees of deflection.
     const Eigen::Vector3f r_CB_B = (neutral_B.unitOrthogonal() + (0.01F * neutral_B)).normalized();
-    const ThrustVectoringAlgorithm alg{makeConfig(sigma_MB, Eigen::Vector3f::Zero(), r_CB_B, 0.1F, 5.0F, thetaMax)};
+    const ThrustVectoringAlgorithm alg{makeConfig(sigma_MB, Eigen::Vector3f::Zero(), r_CB_B, 5.0F, thetaMax)};
     const ThrustVectoringOutput out = alg.update(Eigen::Vector3f::Zero());
 
     EXPECT_NEAR(std::acos(neutral_B.dot(out.tHat_B)), thetaMax, 1e-4F);
@@ -344,10 +322,11 @@ TEST(ThrustVectoringTest, PicksTheNearerSolutionWithTiltedMountFrame) {
 
     // Joint displaced opposite the mount axis, so the un-deflected thrust fires from it back towards the centre
     // of mass and the thruster lands outboard.
-    const ThrustVectoringAlgorithm alg{makeConfig(sigma_MB, -neutral_B, Eigen::Vector3f::Zero(), 0.1F, 10.0F)};
+    const ThrustVectoringAlgorithm alg{makeConfig(sigma_MB, -neutral_B, Eigen::Vector3f::Zero(), 10.0F)};
     const ThrustVectoringOutput out = alg.update(Eigen::Vector3f::Zero());
 
-    ASSERT_LT(achievedTorque_B(out, Eigen::Vector3f::Zero()).norm(), kAccuracy) << "Test setup: torque must vanish";
+    ASSERT_LT(achievedTorque_B(out, -neutral_B, Eigen::Vector3f::Zero()).norm(), kAccuracy)
+        << "Test setup: torque must vanish";
     EXPECT_GT(out.tHat_B.dot(neutral_B), 1.0F - kAccuracy);
 }
 
@@ -355,10 +334,10 @@ TEST(ThrustVectoringTest, PicksTheNearerSolutionWithTiltedMountFrame) {
 TEST(ThrustVectoringTest, SetConfigAppliesNewCenterOfMass) {
     const Eigen::Vector3f zero = Eigen::Vector3f::Zero();
     const Eigen::Vector3f r_MB_B{0.0F, 0.1F, 1.4F};
-    ThrustVectoringAlgorithm alg{makeConfig(zero, r_MB_B, {0.05F, 0.02F, 0.1F}, 0.1F, 10.0F)};
+    ThrustVectoringAlgorithm alg{makeConfig(zero, r_MB_B, {0.05F, 0.02F, 0.1F}, 10.0F)};
     const ThrustVectoringOutput before = alg.update(zero);
 
-    alg.setConfig(makeConfig(zero, r_MB_B, {-0.05F, 0.15F, 0.1F}, 0.1F, 10.0F));
+    alg.setConfig(makeConfig(zero, r_MB_B, {-0.05F, 0.15F, 0.1F}, 10.0F));
     const ThrustVectoringOutput after = alg.update(zero);
 
     EXPECT_GT((after.tHat_B - before.tHat_B).norm(), kAccuracy);

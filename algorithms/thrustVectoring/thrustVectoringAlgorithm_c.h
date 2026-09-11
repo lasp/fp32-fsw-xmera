@@ -20,7 +20,6 @@ typedef struct ThrustVectoringAlgorithmHandle ThrustVectoringAlgorithmHandle;
  *                  un-deflected thrust direction.
  * @param r_MB_B    M frame origin w.r.t. B origin, B coordinates; must be finite.
  * @param thetaMax  [rad] thrust-deflection cone half-angle; must lie in the open interval (0, pi).
- * @param armLength [m] joint-to-thruster distance along the thrust; must be finite and non-negative.
  * @param thrust    [N] thrust magnitude; must be finite and positive.
  * @param r_CB_B    [m] center of mass w.r.t. B origin, B coordinates; must be finite and farther than
  *                  kMinR_CM from the joint M.
@@ -30,7 +29,6 @@ typedef struct ThrustVectoringAlgorithmHandle ThrustVectoringAlgorithmHandle;
 bool ThrustVectoringAlgorithm_validateConfig(const Vector3f_c* sigma_MB,
                                              const Vector3f_c* r_MB_B,
                                              float thetaMax,
-                                             float armLength,
                                              float thrust,
                                              const Vector3f_c* r_CB_B);
 
@@ -42,7 +40,6 @@ bool ThrustVectoringAlgorithm_validateConfig(const Vector3f_c* sigma_MB,
 ThrustVectoringAlgorithmHandle* ThrustVectoringAlgorithm_create(const Vector3f_c* sigma_MB,
                                                                 const Vector3f_c* r_MB_B,
                                                                 float thetaMax,
-                                                                float armLength,
                                                                 float thrust,
                                                                 const Vector3f_c* r_CB_B);
 
@@ -61,7 +58,6 @@ void ThrustVectoringAlgorithm_setConfig(ThrustVectoringAlgorithmHandle* self,
                                         const Vector3f_c* sigma_MB,
                                         const Vector3f_c* r_MB_B,
                                         float thetaMax,
-                                        float armLength,
                                         float thrust,
                                         const Vector3f_c* r_CB_B);
 

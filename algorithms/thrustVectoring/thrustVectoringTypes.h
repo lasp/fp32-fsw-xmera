@@ -11,7 +11,6 @@ extern "C" {
  * @brief Plain-old-data mirror of the C++ ThrustVectoringOutput.
  */
 typedef struct {
-    Vector3f_c r_TB_B; /*!< [m]  thrust application point w.r.t. B origin, B frame */
     Vector3f_c tHat_B; /*!< [-]  thrust unit direction, B frame */
     float thrust;      /*!< [N]  thrust magnitude */
 } ThrustVectoringOutput_c;

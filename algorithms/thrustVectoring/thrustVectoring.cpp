@@ -2,6 +2,7 @@
 #include "utilities/fsw/eigenSupport.h"
 #include "utilities/xmera/xmeraLifecycleException.h"
 
+#include <cmath>
 #include <stdexcept>
 
 namespace {
@@ -34,13 +35,15 @@ ThrustVectoringConfig ThrustVectoring::toConfig() {
             "module requires tHatThrust_B == [0, 0, -1] and carries the mounting orientation in sigma_MB.");
     }
 
+    if (!std::isfinite(this->armLength) || this->armLength < 0.0F) {
+        throw std::invalid_argument("thrustVectoring.armLength must be finite and non-negative.");
+    }
+
     const ThrustVectoringPlatformConfiguration platformConfig{
         .sigma_MB = this->sigma_MB, .r_MB_B = this->r_MB_B, .thetaMax = this->thetaMax};
-    const ThrustVectoringThrusterConfiguration thrusterConfig{.armLength = this->armLength,
-                                                              .thrust = thrusterConfigFIn.maxThrust};
 
     return ThrustVectoringConfig::create(
-        platformConfig, thrusterConfig, cArrayToEigenVector3<float>(vehConfigIn.CoM_B));
+        platformConfig, thrusterConfigFIn.maxThrust, cArrayToEigenVector3<float>(vehConfigIn.CoM_B));
 }
 
 /*! This method performs a complete reset of the module: it validates the required input messages and (re)creates
@@ -92,8 +95,12 @@ void ThrustVectoring::updateState(const uint64_t callTime) {
     eigenVectorToCArray(out.tHat_B, bodyHeadingOut.rHat_XB_B);
     this->bodyHeadingOutMsg.write(bodyHeadingOut, this->moduleID, callTime);
 
+    // The thruster fires along the thrust from a point armLength behind the joint, so its line of action runs
+    // through the joint whatever the platform orientation.
+    const Eigen::Vector3f r_TB_B = this->r_MB_B - (this->armLength * out.tHat_B);
+
     THRConfigMsgF32Payload thrusterConfigOut{};
-    eigenVectorToCArray(out.r_TB_B, thrusterConfigOut.rThrust_B);
+    eigenVectorToCArray(r_TB_B, thrusterConfigOut.rThrust_B);
     eigenVectorToCArray(out.tHat_B, thrusterConfigOut.tHatThrust_B);
     thrusterConfigOut.maxThrust = out.thrust;
     this->thrusterConfigBOutMsg.write(thrusterConfigOut, this->moduleID, callTime);

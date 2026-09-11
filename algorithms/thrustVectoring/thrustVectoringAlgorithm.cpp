@@ -85,19 +85,18 @@ void ThrustVectoringAlgorithm::setConfig(const ThrustVectoringConfig& config) {
 */
 ThrustVectoringOutput ThrustVectoringAlgorithm::update(const Eigen::Vector3f& Lreq_B) const {
     const ThrustVectoringPlatformConfiguration& platform = this->cfg.getPlatformConfiguration();
-    const ThrustVectoringThrusterConfiguration& thruster = this->cfg.getThrusterConfiguration();
 
     const Eigen::Vector3f r_MC_B = platform.r_MB_B - this->cfg.getR_CB_B();
 
     // Requested thrust direction to achieve the reachable part of the requested torque
-    const Eigen::Vector3f tHatRequested_B = solveThrustDirection(r_MC_B, this->tHatNeutral_B, thruster.thrust, Lreq_B);
+    const Eigen::Vector3f tHatRequested_B =
+        solveThrustDirection(r_MC_B, this->tHatNeutral_B, this->cfg.getThrust(), Lreq_B);
     // Clamp the thrust direction to respect the deflection limits of the gimbal
     const Eigen::Vector3f tHat_B = clampThrustDeflection(tHatRequested_B, this->tHatNeutral_B, platform.thetaMax);
 
     ThrustVectoringOutput out{};
     out.tHat_B = tHat_B;
-    out.r_TB_B = platform.r_MB_B - thruster.armLength * tHat_B;
-    out.thrust = thruster.thrust;
+    out.thrust = this->cfg.getThrust();
 
     return out;
 }
