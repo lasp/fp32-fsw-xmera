@@ -70,12 +70,10 @@ CssWeightedLeastSquaresOutput CssWeightedLeastSquaresAlgorithm::update(
     /*! -# increase the number of valid observations */
     /*! -# Otherwise just continue */
     for (uint32_t i = 0; i < this->cfg.getNumCss(); i = i + 1) {
-        const auto sensor = static_cast<Eigen::Index>(i);
-        if (cosValues(sensor) > this->cfg.getSensorUseThresh()) {
-            const auto active = static_cast<Eigen::Index>(out.numActiveCss);
-            H.row(active) = this->cfg.getCssBias()(sensor) * this->cfg.getCssNHat_B().row(sensor);
-            y(active) = cosValues(sensor);
-            activeSensors.at(out.numActiveCss) = sensor;
+        if (cosValues(i) > this->cfg.getSensorUseThresh()) {
+            H.row(out.numActiveCss) = this->cfg.getCssBias()(i) * this->cfg.getCssNHat_B().row(i);
+            y(out.numActiveCss) = cosValues(i);
+            activeSensors.at(out.numActiveCss) = i;
             out.numActiveCss = out.numActiveCss + 1;
         }
     }
@@ -157,7 +155,7 @@ Eigen::Vector<float, kMaxNumCss> CssWeightedLeastSquaresAlgorithm::computeWlsRes
         /*CSS values can't be negative!*/
         const float cssDotProd = rawDotProd > kMinCssMeasurement ? rawDotProd : kMinCssMeasurement;
         /*! -# A subtraction between that post-fit measurement estimate and the actual measurement*/
-        cssResiduals(static_cast<Eigen::Index>(observation)) = cssMeas(sensor) - cssDotProd;
+        cssResiduals(observation) = cssMeas(sensor) - cssDotProd;
         /*! -# This populates the post-fit residuals*/
     }
 
