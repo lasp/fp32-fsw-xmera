@@ -2,11 +2,11 @@
 #define F32XMERA_BODY_RATE_MISCOMPARE
 
 #include "architecture/messaging/messaging.h"
-#include "architecture/msgPayloadDef/STAttMsgPayload.h"
 #include "bodyRateMiscompareAlgorithm.h"
 #include "msgPayloadDef/BodyRateFaultMsgPayload.h"
 #include "msgPayloadDef/IMUSensorBodyMsgF32Payload.h"
 #include "msgPayloadDef/NavAttMsgF32Payload.h"
+#include "msgPayloadDef/STAttMsgF32Payload.h"
 
 #include <cstdint>
 #include <memory>
@@ -29,7 +29,7 @@ class BodyRateMiscompare final : public SysModel {
     bool useImuRates{};  //!< [-] force the IMU rates even when the rates agree and no fault is triggered
 
     ReadFunctor<IMUSensorBodyMsgF32Payload> imuSensorBodyInMsg;  //!< imu input message
-    ReadFunctor<STAttMsgPayload> stBodyInMsg;                    //!< star tracker input message
+    ReadFunctor<STAttMsgF32Payload> stBodyInMsg;                 //!< star tracker input message
     Message<NavAttMsgF32Payload> navAttOutMsg;                   //!< The navAttMsg output that holds the body rate
     Message<BodyRateFaultMsgPayload> rateFaultOutMsg;            //!< The rate fault output message
 

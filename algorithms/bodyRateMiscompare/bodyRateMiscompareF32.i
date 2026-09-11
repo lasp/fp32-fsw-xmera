@@ -10,6 +10,6 @@
 %include <sys_model.i>
 %include "bodyRateMiscompare.h"
 
-%include <architecture/msgPayloadDef/STAttMsgPayload.h>
 %include "msgPayloadDef/BodyRateFaultMsgPayload.h"
 %include "msgPayloadDef/IMUSensorBodyMsgF32Payload.h"
+%include "msgPayloadDef/STAttMsgF32Payload.h"
