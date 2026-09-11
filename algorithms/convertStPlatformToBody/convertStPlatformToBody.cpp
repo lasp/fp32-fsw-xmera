@@ -1,7 +1,6 @@
 #include "convertStPlatformToBody.h"
 
 #include "utilities/fsw/eigenSupport.h"
-#include "utilities/fsw/timeConstants.h"
 #include "utilities/xmera/xmeraLifecycleException.h"
 
 void ConvertStPlatformToBody::reset(uint64_t callTime) {
@@ -30,10 +29,10 @@ void ConvertStPlatformToBody::updateState(const uint64_t callTime) {
 
     Eigen::Vector4f q_CN = Eigen::Vector4f::Zero();
     Eigen::Vector4f dq_CN = Eigen::Vector4f::Zero();
-    uint64_t timeTagNs = 0U;
+    double timeTagSeconds = 0.0;
     if (this->stSensorInMsg.isWritten()) {
         const auto [timeTag, qInrtl2Case, omega_CN_C] = this->stSensorInMsg();
-        timeTagNs = static_cast<uint64_t>(timeTag * kSec2Nano);
+        timeTagSeconds = timeTag;
 
         q_CN = cArrayToEigenVector(qInrtl2Case);
 
@@ -57,7 +56,7 @@ void ConvertStPlatformToBody::updateState(const uint64_t callTime) {
     const auto [sigma_BN, omega_BN_B] = this->algorithm->update(q_CN, dq_CN);
 
     STAttMsgF32Payload attOutMsg{};
-    attOutMsg.timeTag = static_cast<double>(timeTagNs);
+    attOutMsg.timeTag = timeTagSeconds;
     eigenVectorToCArray(sigma_BN, attOutMsg.MRP_BdyInrtl);
     eigenVectorToCArray(omega_BN_B, attOutMsg.omega_BN_B);
 

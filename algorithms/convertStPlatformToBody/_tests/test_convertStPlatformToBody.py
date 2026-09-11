@@ -49,6 +49,8 @@ def test_identity_dcm():
     omega_BN_B = att_log.omega_BN_B[0]
 
     accuracy = 1e-6
+    np.testing.assert_allclose(att_log.timeTag[0], 100.0, atol=accuracy,
+                               err_msg="timeTag must be passed through in seconds")
     np.testing.assert_allclose(sigma_BN, sigma_CN, atol=accuracy,
                                err_msg="MRP mismatch with identity DCM")
     np.testing.assert_allclose(omega_BN_B, omega_CN_C, atol=accuracy,
