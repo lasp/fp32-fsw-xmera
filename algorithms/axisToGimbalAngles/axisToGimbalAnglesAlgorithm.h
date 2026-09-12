@@ -12,6 +12,8 @@
 struct AxisToGimbalAnglesOutput {
     float gimbalAngle1{};  //!< [rad] alpha: inclination of the thrust axis projected into the mount y-z plane
     float gimbalAngle2{};  //!< [rad] beta: inclination of the thrust axis projected into the mount x-z plane
+    Eigen::Vector3f thrustHat_B{
+        Eigen::Vector3f::Zero()};  //!< [-] unit thrust direction the gimbal angles achieve, body frame
 };
 
 /*!

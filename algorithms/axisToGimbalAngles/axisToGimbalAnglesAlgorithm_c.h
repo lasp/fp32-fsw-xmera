@@ -54,7 +54,7 @@ void AxisToGimbalAnglesAlgorithm_setConfig(AxisToGimbalAnglesAlgorithmHandle* se
  * @brief Determine the gimbal angles that align the gimbal thrust axis with the commanded direction.
  * @param self        Pointer to the instance.
  * @param thrustHat_B [-] commanded thrust direction, body-frame coordinates.
- * @return AxisToGimbalAnglesOutput_c gimbal angles.
+ * @return AxisToGimbalAnglesOutput_c gimbal angles and the thrust direction they achieve.
  */
 AxisToGimbalAnglesOutput_c AxisToGimbalAnglesAlgorithm_update(const AxisToGimbalAnglesAlgorithmHandle* self,
                                                               const Vector3f_c* thrustHat_B);

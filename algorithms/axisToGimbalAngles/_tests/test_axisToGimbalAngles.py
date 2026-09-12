@@ -80,7 +80,7 @@ def test_axis_to_gimbal_angles(angle1, angle2, mount_euler_angles, request_scale
 
 
 def _run_single_request(request_B, theta_max):
-    """Run the module for one request and return the two gimbal angles."""
+    """Run the module for one request and return the two gimbal angles and the achieved direction."""
     task_name = "unitTask"
     process_name = "TestProcess"
 
@@ -101,23 +101,28 @@ def _run_single_request(request_B, theta_max):
     module.thrustDirectionInMsg.subscribeTo(thrust_direction_in_msg)
 
     gimbal_log = module.twoAxisGimbalOutMsg.recorder()
+    heading_log = module.bodyHeadingOutMsg.recorder()
     sim.AddModelToTask(task_name, gimbal_log)
+    sim.AddModelToTask(task_name, heading_log)
 
     sim.InitializeSimulation()
     sim.ConfigureStopTime(macros.sec2nano(1))
     sim.ExecuteSimulation()
 
-    return gimbal_log.theta1[-1], gimbal_log.theta2[-1]
+    return gimbal_log.theta1[-1], gimbal_log.theta2[-1], np.array(heading_log.rHat_XB_B[-1])
 
 
 def test_axis_to_gimbal_angles_request_without_direction():
     """A request of zero length carries no direction at all, so there is nothing to point at and nothing to
     limit. The gimbal stays at its neutral position."""
     accuracy = 1e-6
-    theta1, theta2 = _run_single_request(np.zeros(3), 60.0 * macros.D2R)
+    theta1, theta2, thrust_hat_B = _run_single_request(np.zeros(3), 60.0 * macros.D2R)
 
     np.testing.assert_allclose(theta1, 0.0, rtol=accuracy, atol=accuracy, verbose=True)
     np.testing.assert_allclose(theta2, 0.0, rtol=accuracy, atol=accuracy, verbose=True)
+
+    # The neutral gimbal still fires somewhere: the un-deflected axis, not a zero vector.
+    np.testing.assert_allclose(thrust_hat_B, np.array([0.0, 0.0, 1.0]), rtol=accuracy, atol=accuracy, verbose=True)
 
 
 @pytest.mark.parametrize("request_B", [np.array([1.0, 0.0, 0.0]),     # exactly 90 deg of deflection
@@ -129,7 +134,7 @@ def test_axis_to_gimbal_angles_limits_the_deflection(request_B, theta_max):
     """A request beyond the travel of the mechanism goes to the edge of the cone of half-angle thetaMax, rather
     than to a railed pair of angles or back to the neutral position."""
     accuracy = 1e-5
-    theta1, theta2 = _run_single_request(request_B, theta_max)
+    theta1, theta2, _ = _run_single_request(request_B, theta_max)
 
     # The two angles rebuild a direction at exactly the travel limit.
     deflection = np.arccos(np.clip(gimbal_axis_M(theta1, theta2)[2], -1.0, 1.0))
@@ -138,3 +143,27 @@ def test_axis_to_gimbal_angles_limits_the_deflection(request_B, theta_max):
     # Each angle also stays inside the travel.
     assert abs(theta1) <= theta_max + accuracy
     assert abs(theta2) <= theta_max + accuracy
+
+
+@pytest.mark.parametrize("deflection", [0.0, 5.0, 14.9, 15.0, 25.0, 60.0, 179.0])
+def test_axis_to_gimbal_angles_reports_the_achieved_direction(deflection):
+    """The published heading is what the mechanism will actually fire along: it follows the request inside the
+    travel and saturates at the cone beyond it, always agreeing with the angles the module commands."""
+    accuracy = 1e-5
+    theta_max = 15.0 * macros.D2R
+    angle = deflection * macros.D2R
+    request_B = np.array([np.sin(angle), 0.0, np.cos(angle)])
+
+    theta1, theta2, thrust_hat_B = _run_single_request(request_B, theta_max)
+
+    # It is a unit direction, and never outside the travel.
+    np.testing.assert_allclose(np.linalg.norm(thrust_hat_B), 1.0, rtol=accuracy, atol=accuracy, verbose=True)
+    achieved = np.arccos(np.clip(thrust_hat_B[2], -1.0, 1.0))
+    assert achieved <= theta_max + accuracy
+
+    # Inside the travel it is the request; beyond it, the cone edge.
+    np.testing.assert_allclose(achieved, min(angle, theta_max), rtol=accuracy, atol=accuracy, verbose=True)
+
+    # And it is the same direction the commanded angles produce.
+    np.testing.assert_allclose(thrust_hat_B, gimbal_axis_M(theta1, theta2), rtol=accuracy, atol=accuracy,
+                               verbose=True)

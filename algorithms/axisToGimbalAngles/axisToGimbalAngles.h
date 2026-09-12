@@ -3,6 +3,7 @@
 
 #include "axisToGimbalAnglesAlgorithm.h"
 #include "msgPayloadDef/BodyHeadingMsgF32Payload.h"
+
 #include "msgPayloadDef/TwoAxisGimbalMsgF32Payload.h"
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
@@ -29,6 +30,8 @@ class AxisToGimbalAngles final : public SysModel {
     ReadFunctor<BodyHeadingMsgF32Payload>
         thrustDirectionInMsg;  //!< input msg containing the commanded thrust direction, body frame
     Message<TwoAxisGimbalMsgF32Payload> twoAxisGimbalOutMsg;  //!< output msg containing the gimbal angles
+    Message<BodyHeadingMsgF32Payload>
+        bodyHeadingOutMsg;  //!< output msg containing the thrust direction those angles achieve, body frame
 
    private:
     AxisToGimbalAnglesConfig toConfig() const;

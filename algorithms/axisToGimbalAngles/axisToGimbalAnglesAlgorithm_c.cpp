@@ -46,5 +46,8 @@ AxisToGimbalAnglesOutput_c AxisToGimbalAnglesAlgorithm_update(const AxisToGimbal
     AxisToGimbalAnglesOutput_c result{};
     result.gimbalAngle1 = out.gimbalAngle1;
     result.gimbalAngle2 = out.gimbalAngle2;
+    for (int i = 0; i < 3; ++i) {
+        result.thrustHat_B[i] = out.thrustHat_B[i];
+    }
     return result;
 }

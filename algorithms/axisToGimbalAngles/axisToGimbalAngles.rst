@@ -4,6 +4,9 @@ This module calculates the two gimbal angles :math:`(\alpha, \beta)` that align 
 thrust direction from the input message. :ref:`thrustVectoring` gives that thrust direction.
 :ref:`gimbalAnglesToMotorAngles` receives the two gimbal angles and calculates the stepper motor angles.
 
+The module also gives the thrust direction that these two angles achieve. This direction is the request, if the
+request is inside the travel of the mechanism. If it is not, the direction is on the edge of the travel.
+
 The module calculates the two angles directly. It does no iteration, keeps no state, and does not use data from
 the previous cycle. The module needs only one configuration parameter, which is the orientation of the gimbal
 mount frame on the hub.
@@ -17,15 +20,16 @@ Module Architecture
 The algorithm (``AxisToGimbalAnglesAlgorithm``) has no framework dependencies and uses Eigen types. It contains
 the mathematics that follows and keeps no runtime state. The algorithm does not use message payloads.
 ``update()`` receives the thrust direction, which is the only quantity that changes each cycle. ``update()``
-returns an ``AxisToGimbalAnglesOutput`` structure. The ``AxisToGimbalAnglesConfig`` object holds the mounting
-orientation, and the algorithm calculates the DCM from it one time, when the caller sets the configuration.
+returns an ``AxisToGimbalAnglesOutput`` structure, which contains the two angles and the direction that they
+achieve. The ``AxisToGimbalAnglesConfig`` object holds the mounting orientation, and the algorithm calculates the
+DCM from it one time, when the caller sets the configuration.
 
 The Xmera adapter (``AxisToGimbalAngles``) uses ``SysModel`` as its base class and does all message operations.
 The configuration parameters are public member variables (two-phase initialization). The caller sets the
 parameters and then calls ``reset()``. ``reset()`` makes sure that the input message is connected, and builds
-the configuration from the current parameter values. ``updateState()`` reads the thrust direction,
-calls the algorithm, and writes the result to the output message. ``reconfigure()`` sends the current parameter
-values to the algorithm again.
+the configuration from the current parameter values. ``updateState()`` reads the thrust direction, calls the
+algorithm, and writes the two angles and the achieved direction to the two output messages. ``reconfigure()``
+sends the current parameter values to the algorithm again.
 
 The module has no ``reInitialize()`` function. The algorithm keeps no runtime state.
 
@@ -54,6 +58,11 @@ Python. The message type contains a link to the message structure definition.
       - Output message with the two gimbal angles. ``theta1`` is the angle :math:`\alpha`. ``theta2`` is the
         angle :math:`\beta`. :ref:`gimbalAnglesToMotorAngles` receives this message. The module does not write
         the step fields of the payload.
+    * - bodyHeadingOutMsg
+      - :ref:`BodyHeadingMsgPayload`
+      - Output message with the thrust direction that the two angles achieve, in body-frame coordinates
+        (:math:`{}^\mathcal{B}\hat{\boldsymbol{t}}'`, the field ``rHat_XB_B``). This is the direction after the
+        travel limit, and not the request.
 
 Module Parameters
 -----------------
@@ -192,6 +201,19 @@ gimbal moves as far as it can towards the request.
 :math:`{}^{\mathcal{M}}t_3 \geq \cos\theta_\text{max} > 0`. The two angles are therefore always well conditioned,
 and each one stays inside :math:`\theta_\text{max}`.
 
+The direction that the gimbal achieves
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The two angles come from the limited direction, thus the thrust goes along that direction and not along the
+request. The module changes the limited direction to body-frame coordinates and gives it in the second output
+message:
+
+.. math::
+    {}^\mathcal{B}\hat{\boldsymbol{t}}' = [\mathcal{MB}]^T\,{}^{\mathcal{M}}\hat{\boldsymbol{t}}'.
+
+The result is a unit vector, and it always agrees with the two angles that the module gives. A request inside the
+cone gives the request itself. A request outside the cone gives the direction on the edge of the cone. Another
+module can therefore use this direction to calculate the torque that the vehicle receives.
+
 Requests that carry no direction
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 A request of zero length, or one with a component that is not a number, carries no direction at all. There is
@@ -219,11 +241,19 @@ The module uses two-phase initialization. Do the steps that follow:
 
 If the mounting orientation changes during the mission, call ``reconfigure()`` to build the configuration again.
 
-To calculate the stepper motor angles, connect the output message to :ref:`gimbalAnglesToMotorAngles`:
+To calculate the stepper motor angles, connect the gimbal angle output message to
+:ref:`gimbalAnglesToMotorAngles`:
 
 ::
 
     motorAngles.twoAxisGimbalInMsg.subscribeTo(gimbalAngles.twoAxisGimbalOutMsg)
+
+A module that needs the direction of the thrust, such as :ref:`triad`, reads ``bodyHeadingOutMsg``. Use this
+message and not the request, because the two directions are different for a request outside the travel:
+
+::
+
+    triad.bodyHeadingInMsg.subscribeTo(gimbalAngles.bodyHeadingOutMsg)
 
 Module Assumptions and Limitations
 ----------------------------------
@@ -234,7 +264,9 @@ gives the size of the error.
 
 **Limitation.** The module gives the nearest direction that the mechanism can move to, and not the request
 itself. For a request outside the cone of half-angle :math:`\theta_\text{max}`, the thrust stays on the edge of
-that cone. The vehicle then receives a different torque from the one that the request asks for.
+that cone. The vehicle then receives a different torque from the one that the request asks for. The
+``bodyHeadingOutMsg`` message gives the direction that the module achieves, thus a user can calculate the
+difference.
 
 **Assumption.** One cone of half-angle :math:`\theta_\text{max}` gives the travel of the mechanism. A gimbal
 with a different limit on each axis, or with a limit that changes with the other angle, needs a different

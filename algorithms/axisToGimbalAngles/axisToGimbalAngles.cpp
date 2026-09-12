@@ -52,4 +52,8 @@ void AxisToGimbalAngles::updateState(const uint64_t callTime) {
     twoAxisGimbalOut.theta1 = out.gimbalAngle1;
     twoAxisGimbalOut.theta2 = out.gimbalAngle2;
     this->twoAxisGimbalOutMsg.write(twoAxisGimbalOut, this->moduleID, callTime);
+
+    BodyHeadingMsgF32Payload bodyHeadingOut{};
+    eigenVectorToCArray(out.thrustHat_B, bodyHeadingOut.rHat_XB_B);
+    this->bodyHeadingOutMsg.write(bodyHeadingOut, this->moduleID, callTime);
 }
