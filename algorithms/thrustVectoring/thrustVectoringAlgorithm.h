@@ -95,7 +95,11 @@ class ThrustVectoringAlgorithm final {
 
    private:
     ThrustVectoringConfig cfg;  //!< [-] validated configuration
-    Eigen::Vector3f r_MC_B{Eigen::Vector3f::UnitZ()};
+    //! The geometry enters the solve only through these two quantities, and both stay fixed while the module
+    //! runs, so they are resolved whenever the configuration is set rather than on every cycle. The only
+    //! constructor sets them, so the values below are never the ones a call to update() sees.
+    Eigen::Vector3f rHat_MC_B{Eigen::Vector3f::Zero()};  //!< [-] unit moment arm, center of mass to M, body frame
+    float maxAchievableTorque{};                         //!< [Nm] the whole thrust, acting perpendicular to r_MC_B
 };
 
 #endif  // F32XMERA_THRUST_VECTORING_ALGORITHM_H
