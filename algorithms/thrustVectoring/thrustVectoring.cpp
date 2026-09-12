@@ -6,7 +6,7 @@
 #include <stdexcept>
 
 namespace {
-//! The thruster fires along the platform frame's -z axis from the frame origin, so this is what the input message
+//! The thruster fires along the platform frame's +z axis from the frame origin, so this is what the input message
 //! must report for the line of action to run through the joint.
 constexpr float kThrusterMountingTolerance = 1e-3F;
 }  // namespace
@@ -21,7 +21,7 @@ ThrustVectoringConfig ThrustVectoring::toConfig() {
     const THRConfigMsgF32Payload thrusterConfigFIn = this->thrusterConfigFInMsg();
 
     // This module models a thruster whose line of action runs through the joint M: it fires along the platform
-    // frame's -z axis from a point on that axis. Check the incoming thruster description really says so, rather
+    // frame's +z axis from a point on that axis. Check the incoming thruster description really says so, rather
     // than silently pointing a thruster the spacecraft does not have.
     const Eigen::Vector3f r_TF_F = cArrayToEigenVector3<float>(thrusterConfigFIn.rThrust_B);
     const Eigen::Vector3f tHat_F = cArrayToEigenVector3<float>(thrusterConfigFIn.tHatThrust_B);
@@ -30,10 +30,10 @@ ThrustVectoringConfig ThrustVectoring::toConfig() {
             "thrustVectoring.thrusterConfigFInMsg reports a thrust application point away from the platform "
             "frame origin; this module requires rThrust_B == 0.");
     }
-    if (!tHat_F.allFinite() || (tHat_F + Eigen::Vector3f::UnitZ()).stableNorm() > kThrusterMountingTolerance) {
+    if (!tHat_F.allFinite() || (tHat_F - Eigen::Vector3f::UnitZ()).stableNorm() > kThrusterMountingTolerance) {
         throw std::invalid_argument(
-            "thrustVectoring.thrusterConfigFInMsg reports a thrust direction off the platform -z axis; this "
-            "module requires tHatThrust_B == [0, 0, -1].");
+            "thrustVectoring.thrusterConfigFInMsg reports a thrust direction off the platform +z axis; this "
+            "module requires tHatThrust_B == [0, 0, 1].");
     }
 
     if (!std::isfinite(this->armLength) || this->armLength < 0.0F) {

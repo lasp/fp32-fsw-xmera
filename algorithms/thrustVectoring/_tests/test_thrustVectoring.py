@@ -50,11 +50,11 @@ def test_thrust_vectoring(delta_cm, arm_length, torque_request, seed, accuracy):
     veh_config_in_msg = messaging.VehicleConfigMsgF32().write(veh_config_message)
     module.vehConfigInMsg.subscribeTo(veh_config_in_msg)
 
-    # The thruster fires along the platform -z axis from a point on that axis, so the module requires exactly
+    # The thruster fires along the platform +z axis from a point on that axis, so the module requires exactly
     # this description and takes only the magnitude from it.
     thr_config_message = messaging.THRConfigMsgF32Payload()
     thr_config_message.rThrust_B = np.array([0.0, 0.0, 0.0])
-    thr_config_message.tHatThrust_B = np.array([0.0, 0.0, -1.0])
+    thr_config_message.tHatThrust_B = np.array([0.0, 0.0, 1.0])
     thr_config_message.maxThrust = thrust
     thr_config_in_msg = messaging.THRConfigMsgF32().write(thr_config_message)
     module.thrusterConfigFInMsg.subscribeTo(thr_config_in_msg)
@@ -133,7 +133,7 @@ def test_thrust_vectoring_latches_configuration_at_reset():
 
     thr_config_message = messaging.THRConfigMsgF32Payload()
     thr_config_message.rThrust_B = np.array([0.0, 0.0, 0.0])
-    thr_config_message.tHatThrust_B = np.array([0.0, 0.0, -1.0])
+    thr_config_message.tHatThrust_B = np.array([0.0, 0.0, 1.0])
     thr_config_message.maxThrust = 10.0
     thr_config_in_msg = messaging.THRConfigMsgF32().write(thr_config_message)
     module.thrusterConfigFInMsg.subscribeTo(thr_config_in_msg)
