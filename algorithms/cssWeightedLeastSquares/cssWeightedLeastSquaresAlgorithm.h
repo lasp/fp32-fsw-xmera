@@ -28,8 +28,6 @@ struct CssWeightedLeastSquaresOutput {
     Eigen::Vector3f omega_BN_B = Eigen::Vector3f::Zero();    //!< [r/s] inertial angular velocity, body frame; only
                                                              //!< the component orthogonal to the heading is
                                                              //!< observable, zero without a prior heading or dt
-    Eigen::Vector3f residualStateHeading = Eigen::Vector3f::Zero();  //!< [-] heading on the filter status output,
-                                                                     //!< captured before the singular-fit zeroing
     Eigen::Vector<float, kMaxNumCss> postFitResiduals =
         Eigen::Vector<float, kMaxNumCss>::Zero();  //!< [-] post-fit residuals, one per active sensor, packed into
                                                    //!< the leading numActiveCss entries

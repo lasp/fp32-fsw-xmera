@@ -154,19 +154,13 @@ CssWeightedLeastSquaresOutput CssWeightedLeastSquaresAlgorithm::update(
     postFitResiduals =
         this->computeWlsResiduals(cosValues, fit.value_or(Eigen::Vector3f::Zero()), activeSensors, numActiveCss);
 
-    /*! - Capture the heading reported on the filter status output before any anomaly zeroing */
-    const Eigen::Vector3f residualStateHeading = sunHeading_B;
-
-    /*! - With no sun, or a singular fit, there is no heading to report and no prior to difference against */
+    /*! - With no sun, or a singular fit, there is no prior heading to difference against */
     if (!fit) {
-        sunHeading_B.setZero();
-        omega_BN_B.setZero();
         this->priorSignalAvailable = false;
     }
 
     return {.sunHeading_B = sunHeading_B,
             .omega_BN_B = omega_BN_B,
-            .residualStateHeading = residualStateHeading,
             .postFitResiduals = postFitResiduals,
             .numActiveCss = numActiveCss};
 }

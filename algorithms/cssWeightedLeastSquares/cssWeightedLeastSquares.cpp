@@ -102,7 +102,7 @@ void CssWeightedLeastSquares::updateState(const uint64_t callTime) {
         filterBuf.timeTag = timeTag;
         filterBuf.numberOfStates = kHeadingStates;
         Eigen::Vector<double, kFilterStates> state = Eigen::Vector<double, kFilterStates>::Zero();
-        state.head<kHeadingStates>() = out.residualStateHeading.cast<double>();
+        state.head<kHeadingStates>() = out.sunHeading_B.cast<double>();
         eigenVectorToCArray(state, filterBuf.state);
         this->filterOutMsg.write(filterBuf, this->moduleID, callTime);
     }

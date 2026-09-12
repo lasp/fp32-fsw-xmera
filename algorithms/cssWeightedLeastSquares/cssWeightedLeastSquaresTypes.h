@@ -45,7 +45,6 @@ typedef struct {
 typedef struct {
     Vector3f_c sunHeading_B;                     /*!< [-]   estimated unit sun heading, body frame; zero when no fit */
     Vector3f_c omega_BN_B;                       /*!< [r/s] inertial angular velocity, body frame; zero when no rate */
-    Vector3f_c residualStateHeading;             /*!< [-]   heading reported on the filter status output, pre-zeroing */
     float postFitResiduals[MAX_NUM_CSS_SENSORS]; /*!< [-] post-fit residuals, one per configured sensor */
     uint32_t numActiveCss;                       /*!< [-] sensors above the use threshold this cycle */
 } CssWeightedLeastSquaresOutput_c;
