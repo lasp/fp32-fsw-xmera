@@ -159,6 +159,28 @@ def test_css_weighted_least_squares_single_sensor_bias():
     run_test(cos_readings, CSS_ORIENTATIONS[3], expected_residuals=expected_residuals, biases=biases)
 
 
+def test_css_weighted_least_squares_residual_indexing():
+    """Module Unit Test: residuals are indexed by observation, not by sensor slot"""
+    # A sun along -x lights the second pyramid, sensors 4 through 7, so the sensors that contribute to
+    # the fit are not the first ones. Weakening one of those readings makes the four measurements
+    # disagree, so the fit cannot reproduce them all and every residual is non-zero. That separates the
+    # two indexings: by observation the residuals land in entries 0 to 3, by sensor slot in 4 to 7.
+    cos_readings = cos_values([-1.0, 0.0, 0.0])
+    cos_readings[4] *= 0.9
+
+    lit = [index for index, reading in enumerate(cos_readings) if reading > SENSOR_USE_THRESH]
+    observations = np.array([CSS_ORIENTATIONS[index] for index in lit], dtype=float)
+    measurements = np.array([cos_readings[index] for index in lit], dtype=float)
+    fit = np.linalg.solve(observations.T @ observations, observations.T @ measurements)
+
+    expected_residuals = np.zeros(len(CSS_ORIENTATIONS))
+    for observation, index in enumerate(lit):
+        prediction = max(0.0, float(np.dot(fit, CSS_ORIENTATIONS[index])))
+        expected_residuals[observation] = measurements[observation] - prediction
+
+    run_test(cos_readings, fit / np.linalg.norm(fit), expected_residuals=expected_residuals)
+
+
 def test_css_weighted_least_squares_no_signal():
     """Off Nominal Unit Test: no reading above threshold, so there is no sun to estimate"""
     cos_readings = [0.0] * len(CSS_ORIENTATIONS)
