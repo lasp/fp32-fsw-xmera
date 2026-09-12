@@ -23,6 +23,7 @@ class AxisToGimbalAngles final : public SysModel {
     /*! Phase 1: user-defined configuration properties, set before reset() */
     Eigen::Vector3f sigma_MB{Eigen::Vector3f::Zero()};  //!< orientation of the M frame w.r.t. the B frame; M's +z axis
                                                         //!< is the un-deflected gimbal thrust axis
+    float thetaMax{};  //!< largest deflection of the thrust axis from the neutral axis [rad] (must be in (0, pi/2))
 
     /*! module IO interfaces */
     ReadFunctor<BodyHeadingMsgF32Payload>

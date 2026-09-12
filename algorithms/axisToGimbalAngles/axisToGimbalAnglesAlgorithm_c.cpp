@@ -8,30 +8,34 @@
 
 namespace {
 /*! Build the validated C++ configuration from the flattened C parameters. */
-AxisToGimbalAnglesConfig makeConfig(const Vector3f_c& sigma_MB) {
-    return AxisToGimbalAnglesConfig::create(cArrayToEigenVector3<float>(sigma_MB.data));
+AxisToGimbalAnglesConfig makeConfig(const Vector3f_c& sigma_MB, const float thetaMax) {
+    return AxisToGimbalAnglesConfig::create(cArrayToEigenVector3<float>(sigma_MB.data), thetaMax);
 }
 }  // namespace
 
-bool AxisToGimbalAnglesAlgorithm_validateConfig(const Vector3f_c* sigma_MB) {
+bool AxisToGimbalAnglesAlgorithm_validateConfig(const Vector3f_c* sigma_MB, const float thetaMax) {
     try {
-        (void)makeConfig(*sigma_MB);
+        (void)makeConfig(*sigma_MB, thetaMax);
         return true;
     } catch (const fsw::invalid_argument&) {
         return false;
     }
 }
 
-AxisToGimbalAnglesAlgorithmHandle* AxisToGimbalAnglesAlgorithm_create(const Vector3f_c* sigma_MB) {
-    return fsw::createHandle<::AxisToGimbalAnglesAlgorithm, AxisToGimbalAnglesAlgorithmHandle>(makeConfig(*sigma_MB));
+AxisToGimbalAnglesAlgorithmHandle* AxisToGimbalAnglesAlgorithm_create(const Vector3f_c* sigma_MB,
+                                                                      const float thetaMax) {
+    return fsw::createHandle<::AxisToGimbalAnglesAlgorithm, AxisToGimbalAnglesAlgorithmHandle>(
+        makeConfig(*sigma_MB, thetaMax));
 }
 
 void AxisToGimbalAnglesAlgorithm_destroy(AxisToGimbalAnglesAlgorithmHandle* self) {
     fsw::deleteHandle<::AxisToGimbalAnglesAlgorithm>(self);
 }
 
-void AxisToGimbalAnglesAlgorithm_setConfig(AxisToGimbalAnglesAlgorithmHandle* self, const Vector3f_c* sigma_MB) {
-    fsw::fromHandle<::AxisToGimbalAnglesAlgorithm>(self)->setConfig(makeConfig(*sigma_MB));
+void AxisToGimbalAnglesAlgorithm_setConfig(AxisToGimbalAnglesAlgorithmHandle* self,
+                                           const Vector3f_c* sigma_MB,
+                                           const float thetaMax) {
+    fsw::fromHandle<::AxisToGimbalAnglesAlgorithm>(self)->setConfig(makeConfig(*sigma_MB, thetaMax));
 }
 
 AxisToGimbalAnglesOutput_c AxisToGimbalAnglesAlgorithm_update(const AxisToGimbalAnglesAlgorithmHandle* self,

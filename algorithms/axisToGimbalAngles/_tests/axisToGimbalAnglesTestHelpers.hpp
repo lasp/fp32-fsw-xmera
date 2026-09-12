@@ -9,14 +9,21 @@
 #include <cmath>
 #include <numbers>
 
-// Build a configuration from the mounting orientation that the tests use.
-inline AxisToGimbalAnglesConfig makeConfig(const Eigen::Vector3f& sigma_MB) {
-    return AxisToGimbalAnglesConfig::create(sigma_MB);
+//! [rad] travel that the tests use when a case does not name one. It is well inside the 90 degree limit, thus the
+//! two angles stay well conditioned for every request.
+inline constexpr float kDefaultThetaMax = 60.0F * (std::numbers::pi_v<float> / 180.0F);
+
+//! Must agree with kMinPerpendicular in the algorithm. Below this length the plane that holds the request and the
+//! neutral axis is not defined, and the algorithm takes an arbitrary perpendicular direction.
+inline constexpr double kMinPerpendicular = 1e-3;
+
+// Build a configuration from the mounting orientation and the travel that the tests use.
+inline AxisToGimbalAnglesConfig makeConfig(const Eigen::Vector3f& sigma_MB, const float thetaMax = kDefaultThetaMax) {
+    return AxisToGimbalAnglesConfig::create(sigma_MB, thetaMax);
 }
 
 // The gimbal thrust axis for a pair of angles. This function does not use the algorithm, thus the tests can
 // examine the mapping and do not repeat it. T(angle1, angle2) is proportional to [tan(angle2), -tan(angle1), 1].
-// The cos(angle1)cos(angle2) factor keeps the components small at a deflection of 90 degrees.
 inline Eigen::Vector3f gimbalAxis_M(const float angle1, const float angle2) {
     return Eigen::Vector3f{
         std::sin(angle2) * std::cos(angle1), -std::cos(angle2) * std::sin(angle1), std::cos(angle2) * std::cos(angle1)}
@@ -31,19 +38,38 @@ inline Eigen::Vector3f thrustDir_M(const Eigen::Vector3f& sigma_MB, const Eigen:
 
 // The input direction in mount-frame coordinates, with unit length. This function uses stableNormalized() and
 // not normalized(). normalized() calculates squaredNorm(), which is too small for a very short vector and too
-// large for a very long one. The module has neither problem, because it uses ratios.
+// large for a very long one.
 inline Eigen::Vector3f thrustHatUnit_M(const Eigen::Vector3f& sigma_MB, const Eigen::Vector3f& thrustDirection_B) {
     return thrustDir_M(sigma_MB, thrustDirection_B).stableNormalized();
 }
 
-// Shows if the module can give two angles for the input direction. The deflection from the neutral thrust axis
-// must be less than 90 degrees, which puts the direction on the +z side of the mount frame. Each component must
-// also be a number:
-// the safe arctangent gives zero for a component that is not a number, and a very large input can become
-// infinite in the rotation to mount-frame coordinates.
-inline bool isResolvable(const Eigen::Vector3f& sigma_MB, const Eigen::Vector3f& thrustDirection_B) {
+// Shows if the input carries a direction at all. A request of zero length, or one with a component that is not a
+// number, leaves the gimbal at its neutral position. Every other request gives two angles, because the algorithm
+// pulls a request outside the travel back onto the cone.
+inline bool hasDirection(const Eigen::Vector3f& sigma_MB, const Eigen::Vector3f& thrustDirection_B) {
     const Eigen::Vector3f unitDirection = thrustHatUnit_M(sigma_MB, thrustDirection_B);
-    return unitDirection.allFinite() && unitDirection.z() > 0.0F;
+    return unitDirection.allFinite() && !unitDirection.isZero();
+}
+
+// Shows if the request is nearly opposite the neutral axis. There the plane that holds the request and the
+// neutral axis is not defined, and the algorithm takes an arbitrary perpendicular direction. The float algorithm
+// and a double reference can take different directions, thus the tests make no claim about the two angles there.
+// The band is much larger than the error of the float rotation.
+inline bool isNearlyOppositeTheNeutralAxis(const Eigen::Vector3f& unitDirection_M) {
+    const float perpendicular = (unitDirection_M - (Eigen::Vector3f::UnitZ() * unitDirection_M.z())).stableNorm();
+    return unitDirection_M.z() < 0.0F && perpendicular < static_cast<float>(10.0 * kMinPerpendicular);
+}
+
+// The travel limit in double precision. It must agree with limitDeflection() in the algorithm.
+inline Eigen::Vector3d limitDeflectionDouble(const Eigen::Vector3d& direction, const double thetaMax) {
+    const double cosThetaMax = std::cos(thetaMax);
+    if (direction.z() >= cosThetaMax) {
+        return direction;
+    }
+    const Eigen::Vector3d perpendicular = direction - (Eigen::Vector3d::UnitZ() * direction.z());
+    const Eigen::Vector3d perpendicularHat =
+        (perpendicular.stableNorm() > kMinPerpendicular) ? perpendicular.stableNormalized() : Eigen::Vector3d::UnitX();
+    return (cosThetaMax * Eigen::Vector3d::UnitZ()) + (std::sin(thetaMax) * perpendicularHat);
 }
 
 // Double-precision reference for the two gimbal angles. The regression tests compare the float algorithm with
@@ -53,144 +79,131 @@ struct GimbalAnglesDouble {
     double angle2;
 };
 
-inline GimbalAnglesDouble referenceUpdate(const Eigen::Vector3d& sigma_MB, const Eigen::Vector3d& thrustDirection_B) {
-    const Eigen::Vector3d thrustDir = (mrpToDcm(mrpSwitch<double>(sigma_MB)) * thrustDirection_B).stableNormalized();
-    const double towardsThrust = thrustDir.z();
-    // The float algorithm uses safe arctangents, which give zero for an argument that is not a number.
-    if (!thrustDir.allFinite() || !(towardsThrust > 0.0)) {
+inline GimbalAnglesDouble referenceUpdate(const Eigen::Vector3d& sigma_MB,
+                                          const Eigen::Vector3d& thrustDirection_B,
+                                          const double thetaMax) {
+    const Eigen::Vector3d direction = (mrpToDcm(mrpSwitch<double>(sigma_MB)) * thrustDirection_B).stableNormalized();
+    if (!direction.allFinite() || direction.isZero()) {
         return {0.0, 0.0};
     }
-    return {std::atan2(-thrustDir.y(), towardsThrust), std::atan2(thrustDir.x(), towardsThrust)};
-}
-
-// Shows if the input direction is at a deflection of 90 degrees, where the mount-frame z component is zero.
-// There the two angles are at the edge of their range and hold no more
-// information about the direction. The error of the float rotation is also larger than the z component, thus the
-// float algorithm and a double reference can put the direction on different sides of the boundary. The band is
-// much larger than that error, which is approximately 4e-7 for a direction of unit length.
-inline bool isAtNinetyDegreeDeflection(const Eigen::Vector3f& unitDirection_M) {
-    constexpr float kBoundaryBand = 1e-5F;
-    return std::fabs(unitDirection_M.z()) < kBoundaryBand;
+    const Eigen::Vector3d limited = limitDeflectionDouble(direction, thetaMax);
+    return {std::atan2(-limited.y(), limited.z()), std::atan2(limited.x(), limited.z())};
 }
 
 // The largest difference that is permitted between the float angles and the double reference angles.
 //
-// The two angles are the coordinates of the point where the thrust axis touches the plane z = 1. Thus they
-// become very large as the deflection increases to 90 degrees. Near that limit the last bits of a float value
-// hold all of the remaining z component, and the accuracy decreases in proportion to 1 / |z|. This is a property
-// of the two angles and not a defect. The constant below includes margin above the measured behaviour. For the
-// small deflections that a gimbal can move to, this bound is approximately 1e-5.
-inline float angleTolerance(const Eigen::Vector3f& unitDirection_M) {
-    constexpr float kScale = 2e-6F;
-    return 1e-5F + (kScale / std::fmax(unitDirection_M.z(), kScale));
-}
+// The travel limit holds the mount-frame z component at or above cos(thetaMax), thus the two angles are always
+// well conditioned and one constant is sufficient. Two effects set its size. A request outside the travel keeps
+// only the direction of its perpendicular part, thus the error of the float rotation is divided by the length of
+// that part. The change to the shadow set is also a boundary: near a norm of one, the float and the double
+// mounting orientation can go to different sides of it, which gives the same rotation with different rounding.
+// The measured worst difference is 1.5e-5 for a request outside the travel and 1.2e-6 for one inside it. The
+// constant below includes margin above that.
+inline constexpr float kAngleTolerance = 5e-5F;
 
-// Below 90 degrees of deflection, both angles are arctangents of a ratio with a denominator of more than zero.
-// Thus both angles stay in the range -pi/2 to pi/2.
-inline void expectPrincipalBranches(const AxisToGimbalAnglesOutput& out, const float accuracy) {
-    constexpr float halfPi = std::numbers::pi_v<float> / 2.0F;
-    EXPECT_LE(std::fabs(out.gimbalAngle1), halfPi + accuracy);
-    EXPECT_LE(std::fabs(out.gimbalAngle2), halfPi + accuracy);
+// The travel limit holds both angles inside thetaMax. Each angle is an arctangent of a ratio whose numerator is
+// at most sin(thetaMax) and whose denominator is at least cos(thetaMax).
+inline void expectWithinTravel(const AxisToGimbalAnglesOutput& out,
+                               const float thetaMax,
+                               const float accuracy = kAngleTolerance) {
+    EXPECT_LE(std::fabs(out.gimbalAngle1), thetaMax + accuracy);
+    EXPECT_LE(std::fabs(out.gimbalAngle2), thetaMax + accuracy);
 }
 
 // ---------------------------------------------------------------------------
 // Regression tests
 // ---------------------------------------------------------------------------
 
-// The float algorithm must agree with the double reference. Below 90 degrees of deflection, the two angles must
-// also align the gimbal thrust axis with the input direction.
+// The float algorithm must agree with the double reference. The two angles must also align the gimbal thrust axis
+// with the request after the travel limit.
 inline void regressionTestAxisToGimbalAngles(const Eigen::Vector3f& sigma_MB,
-                                             const Eigen::Vector3f& thrustDirection_B) {
-    const AxisToGimbalAnglesAlgorithm alg{makeConfig(sigma_MB)};
+                                             const Eigen::Vector3f& thrustDirection_B,
+                                             const float thetaMax = kDefaultThetaMax) {
+    const AxisToGimbalAnglesAlgorithm alg{makeConfig(sigma_MB, thetaMax)};
     const AxisToGimbalAnglesOutput out = alg.update(thrustDirection_B);
 
-    const Eigen::Vector3f expected_M = thrustHatUnit_M(sigma_MB, thrustDirection_B);
-    const float accuracy = angleTolerance(expected_M);
+    EXPECT_TRUE(std::isfinite(out.gimbalAngle1));
+    EXPECT_TRUE(std::isfinite(out.gimbalAngle2));
 
-    // At a deflection of 90 degrees, neither the home position nor an angle at the edge of the range is more
-    // correct. Examine only that the two angles are usable.
-    if (isAtNinetyDegreeDeflection(expected_M)) {
-        EXPECT_TRUE(std::isfinite(out.gimbalAngle1));
-        EXPECT_TRUE(std::isfinite(out.gimbalAngle2));
-        expectPrincipalBranches(out, 1e-5F);
-        return;
-    }
-
-    const GimbalAnglesDouble reference = referenceUpdate(sigma_MB.cast<double>(), thrustDirection_B.cast<double>());
-    EXPECT_NEAR(out.gimbalAngle1, static_cast<float>(reference.angle1), accuracy);
-    EXPECT_NEAR(out.gimbalAngle2, static_cast<float>(reference.angle2), accuracy);
-
-    if (!isResolvable(sigma_MB, thrustDirection_B)) {
-        // The deflection is 90 degrees or more, thus the module gives the home position.
+    if (!hasDirection(sigma_MB, thrustDirection_B)) {
+        // The request carries no direction, thus the gimbal stays at its neutral position.
         EXPECT_NEAR(out.gimbalAngle1, 0.0F, 1e-6F);
         EXPECT_NEAR(out.gimbalAngle2, 0.0F, 1e-6F);
         return;
     }
 
-    expectPrincipalBranches(out, accuracy);
-    EXPECT_LT((gimbalAxis_M(out.gimbalAngle1, out.gimbalAngle2) - expected_M).norm(), accuracy);
+    expectWithinTravel(out, thetaMax);
+
+    const Eigen::Vector3f unitDirection_M = thrustHatUnit_M(sigma_MB, thrustDirection_B);
+    if (isNearlyOppositeTheNeutralAxis(unitDirection_M)) {
+        // The plane is not defined here, thus only the two conditions above hold.
+        return;
+    }
+
+    const GimbalAnglesDouble reference =
+        referenceUpdate(sigma_MB.cast<double>(), thrustDirection_B.cast<double>(), static_cast<double>(thetaMax));
+    EXPECT_NEAR(out.gimbalAngle1, static_cast<float>(reference.angle1), kAngleTolerance);
+    EXPECT_NEAR(out.gimbalAngle2, static_cast<float>(reference.angle2), kAngleTolerance);
+
+    // The two angles must rebuild the direction that the travel limit gives.
+    const Eigen::Vector3f limited_M =
+        limitDeflectionDouble(unitDirection_M.cast<double>(), static_cast<double>(thetaMax)).cast<float>();
+    EXPECT_LT((gimbalAxis_M(out.gimbalAngle1, out.gimbalAngle2) - limited_M).norm(), kAngleTolerance);
 }
 
 // Regression test for a case that a known pair of angles defines. The helper builds the direction from the two
 // angles, changes it to body-frame coordinates, and makes sure that the module gives the same two angles again.
-// The body-frame input also makes the module apply the mounting orientation.
+// The body-frame input also makes the module apply the mounting orientation. Both angles must be inside the
+// travel, otherwise the limit changes the direction and the module cannot give them again.
 inline void regressionTestAxisToGimbalAnglesFromAngles(const Eigen::Vector3f& sigma_MB,
                                                        const float angle1,
-                                                       const float angle2) {
+                                                       const float angle2,
+                                                       const float thetaMax = kDefaultThetaMax) {
     const Eigen::Vector3f thrustDirection_B = mrpToDcm(mrpSwitch(sigma_MB)).transpose() * gimbalAxis_M(angle1, angle2);
 
-    const AxisToGimbalAnglesAlgorithm alg{makeConfig(sigma_MB)};
+    const AxisToGimbalAnglesAlgorithm alg{makeConfig(sigma_MB, thetaMax)};
     const AxisToGimbalAnglesOutput out = alg.update(thrustDirection_B);
 
-    const float accuracy = angleTolerance(thrustHatUnit_M(sigma_MB, thrustDirection_B));
-    EXPECT_NEAR(out.gimbalAngle1, angle1, accuracy);
-    EXPECT_NEAR(out.gimbalAngle2, angle2, accuracy);
+    EXPECT_NEAR(out.gimbalAngle1, angle1, kAngleTolerance);
+    EXPECT_NEAR(out.gimbalAngle2, angle2, kAngleTolerance);
 
-    regressionTestAxisToGimbalAngles(sigma_MB, thrustDirection_B);
+    regressionTestAxisToGimbalAngles(sigma_MB, thrustDirection_B, thetaMax);
 }
 
 // ---------------------------------------------------------------------------
 // Property tests
 // ---------------------------------------------------------------------------
 
-// Every input gives two usable angles: each angle is finite and stays in the range -pi/2 to pi/2. For a
-// deflection of 90 degrees or more, the module gives the home position.
-inline void propertyOutputIsUsable(const Eigen::Vector3f& sigma_MB, const Eigen::Vector3f& thrustDirection_B) {
-    const AxisToGimbalAnglesAlgorithm alg{makeConfig(sigma_MB)};
+// Every input gives two usable angles: each angle is finite and stays inside the travel of the mechanism.
+inline void propertyOutputIsUsable(const Eigen::Vector3f& sigma_MB,
+                                   const Eigen::Vector3f& thrustDirection_B,
+                                   const float thetaMax = kDefaultThetaMax) {
+    const AxisToGimbalAnglesAlgorithm alg{makeConfig(sigma_MB, thetaMax)};
     const AxisToGimbalAnglesOutput out = alg.update(thrustDirection_B);
 
-    // The home position is zero, thus these two conditions are true for every input.
+    // The neutral position is zero, thus these conditions are true for every input.
     EXPECT_TRUE(std::isfinite(out.gimbalAngle1));
     EXPECT_TRUE(std::isfinite(out.gimbalAngle2));
-    expectPrincipalBranches(out, 1e-5F);
-
-    // The module gives the home position for a deflection that is certainly 90 degrees or more. Two
-    // conditions are not certain. On the boundary the module can give the home position or an angle at the edge
-    // of the range, and both answers are correct. For a direction with a component that is not a number, the
-    // safe arctangent gives zero for one angle and can give a value for the other. This test makes no claim for
-    // those two conditions.
-    const Eigen::Vector3f unitDirection_M = thrustHatUnit_M(sigma_MB, thrustDirection_B);
-    const bool certainlyOutside =
-        unitDirection_M.allFinite() && unitDirection_M.z() <= 0.0F && !isAtNinetyDegreeDeflection(unitDirection_M);
-    if (certainlyOutside) {
-        EXPECT_NEAR(out.gimbalAngle1, 0.0F, 1e-6F);
-        EXPECT_NEAR(out.gimbalAngle2, 0.0F, 1e-6F);
-    }
+    expectWithinTravel(out, thetaMax);
 }
 
-// Below 90 degrees of deflection, the two angles align the gimbal thrust axis with the input direction. The
-// helper skips no input. It examines a larger deflection with propertyOutputIsUsable.
-inline void propertyDirectionRecovered(const Eigen::Vector3f& sigma_MB, const Eigen::Vector3f& thrustDirection_B) {
-    const Eigen::Vector3f expected_M = thrustHatUnit_M(sigma_MB, thrustDirection_B);
-    if (!isResolvable(sigma_MB, thrustDirection_B) || isAtNinetyDegreeDeflection(expected_M)) {
-        propertyOutputIsUsable(sigma_MB, thrustDirection_B);
+// The two angles must rebuild the direction that the travel limit gives. A request inside the travel is left
+// alone, thus the two angles rebuild the request itself.
+inline void propertyDirectionRecovered(const Eigen::Vector3f& sigma_MB,
+                                       const Eigen::Vector3f& thrustDirection_B,
+                                       const float thetaMax = kDefaultThetaMax) {
+    const Eigen::Vector3f unitDirection_M = thrustHatUnit_M(sigma_MB, thrustDirection_B);
+    if (!hasDirection(sigma_MB, thrustDirection_B) || isNearlyOppositeTheNeutralAxis(unitDirection_M)) {
+        propertyOutputIsUsable(sigma_MB, thrustDirection_B, thetaMax);
         return;
     }
 
-    const AxisToGimbalAnglesAlgorithm alg{makeConfig(sigma_MB)};
+    const AxisToGimbalAnglesAlgorithm alg{makeConfig(sigma_MB, thetaMax)};
     const AxisToGimbalAnglesOutput out = alg.update(thrustDirection_B);
 
-    EXPECT_LT((gimbalAxis_M(out.gimbalAngle1, out.gimbalAngle2) - expected_M).norm(), angleTolerance(expected_M));
+    const Eigen::Vector3f limited_M =
+        limitDeflectionDouble(unitDirection_M.cast<double>(), static_cast<double>(thetaMax)).cast<float>();
+    EXPECT_LT((gimbalAxis_M(out.gimbalAngle1, out.gimbalAngle2) - limited_M).norm(), kAngleTolerance);
 }
 
 // Both angles are ratios against the mount +z axis. Thus a change of the length of the input direction does not
@@ -203,28 +216,28 @@ inline void propertyDirectionRecovered(const Eigen::Vector3f& sigma_MB, const Ei
 // propertyOutputIsUsable in that condition.
 inline void propertyLengthHasNoEffect(const Eigen::Vector3f& sigma_MB,
                                       const Eigen::Vector3f& thrustDirection_B,
-                                      const float scale) {
+                                      const float scale,
+                                      const float thetaMax = kDefaultThetaMax) {
     constexpr float kDirectionKept = 1e-6F;
 
     const Eigen::Vector3f scaledDirection_B = scale * thrustDirection_B;
     const bool scalingKeptTheDirection =
-        isResolvable(sigma_MB, thrustDirection_B) && isResolvable(sigma_MB, scaledDirection_B) &&
-        !isAtNinetyDegreeDeflection(thrustHatUnit_M(sigma_MB, thrustDirection_B)) &&
+        hasDirection(sigma_MB, thrustDirection_B) && hasDirection(sigma_MB, scaledDirection_B) &&
+        !isNearlyOppositeTheNeutralAxis(thrustHatUnit_M(sigma_MB, thrustDirection_B)) &&
         (thrustHatUnit_M(sigma_MB, scaledDirection_B) - thrustHatUnit_M(sigma_MB, thrustDirection_B)).norm() <
             kDirectionKept;
     if (!scalingKeptTheDirection) {
-        propertyOutputIsUsable(sigma_MB, thrustDirection_B);
-        propertyOutputIsUsable(sigma_MB, scaledDirection_B);
+        propertyOutputIsUsable(sigma_MB, thrustDirection_B, thetaMax);
+        propertyOutputIsUsable(sigma_MB, scaledDirection_B, thetaMax);
         return;
     }
 
-    const AxisToGimbalAnglesAlgorithm alg{makeConfig(sigma_MB)};
+    const AxisToGimbalAnglesAlgorithm alg{makeConfig(sigma_MB, thetaMax)};
     const AxisToGimbalAnglesOutput out = alg.update(thrustDirection_B);
     const AxisToGimbalAnglesOutput scaledOut = alg.update(scaledDirection_B);
 
-    const float accuracy = angleTolerance(thrustHatUnit_M(sigma_MB, thrustDirection_B));
-    EXPECT_NEAR(scaledOut.gimbalAngle1, out.gimbalAngle1, accuracy);
-    EXPECT_NEAR(scaledOut.gimbalAngle2, out.gimbalAngle2, accuracy);
+    EXPECT_NEAR(scaledOut.gimbalAngle1, out.gimbalAngle1, kAngleTolerance);
+    EXPECT_NEAR(scaledOut.gimbalAngle2, out.gimbalAngle2, kAngleTolerance);
 }
 
 #endif  // F32XMERA_AXIS_TO_GIMBAL_ANGLES_TEST_HELPERS_H

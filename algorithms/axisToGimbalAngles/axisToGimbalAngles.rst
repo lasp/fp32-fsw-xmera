@@ -74,9 +74,16 @@ An incorrect value causes an ``fsw::invalid_argument`` exception.
       - MRP rotation between the body-fixed frames :math:`\mathcal{M}` and :math:`\mathcal{B}`. The :math:`+z`
         axis of the :math:`\mathcal{M}` frame is the neutral gimbal thrust axis, thus this parameter gives the
         mounting orientation of the gimbal
+    * - ``thetaMax``
+      - 0
+      - :math:`(0, \pi/2)`
+      - largest deflection [rad] of the thrust axis from the neutral axis, thus the travel of the mechanism. Two
+        plane angles cannot describe a deflection of :math:`90^\circ` or more, thus the travel must stay below it
 
 An MRP with a norm of more than one gives the same rotation as its shadow set. The module changes such an MRP to
 the shadow set before it stores the value.
+
+``thetaMax`` has no usable default. The module rejects a travel of zero, thus a caller must always give one.
 
 Mathematical Formulation
 ------------------------
@@ -157,26 +164,39 @@ direction has no effect, because it cancels in each ratio. The module also makes
 before it calculates the two ratios. This keeps the direction for a very short or a very long input. Second, the
 two angles are correct only where the denominator is more than zero. This is a deflection of less than
 :math:`90^\circ` from the neutral thrust axis, or :math:`{}^{\mathcal{M}}t_3 > 0`. The two angles become very
-large as the deflection increases to :math:`90^\circ`. Below that deflection both angles stay in the range
-:math:`(-\pi/2, \pi/2)`, and the mapping is correct in the two directions.
+large as the deflection increases to :math:`90^\circ`. The travel limit below holds the deflection at or below
+:math:`\theta_\text{max}`, which is less than :math:`90^\circ`. Both angles therefore stay inside
+:math:`\theta_\text{max}`, and the mapping is correct in the two directions.
 
-Directions at a deflection of 90 degrees or more
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-The module examines :math:`{}^{\mathcal{M}}t_3` each cycle. If :math:`{}^{\mathcal{M}}t_3 > 0` is not true, the
-module gives the gimbal home position :math:`(\alpha, \beta) = (0, 0)`. Three conditions fail this test:
+The travel limit
+^^^^^^^^^^^^^^^^
+The mechanism can only move the thrust axis inside a cone of half-angle :math:`\theta_\text{max}` about the
+neutral axis. The module applies that limit before it calculates the two angles. A request inside the cone stays
+as it is. For a request outside the cone, the module keeps the plane that the request and the neutral axis span,
+and moves the direction to the edge of the cone in that plane:
 
-- a deflection of :math:`90^\circ` or more,
-- a zero direction vector,
-- a direction vector with a component that is not a number.
+.. math::
+    {}^{\mathcal{M}}\hat{\boldsymbol{t}}' = \cos\theta_\text{max}\,\hat{\boldsymbol{z}}_\mathcal{M}
+        + \sin\theta_\text{max}\,\hat{\boldsymbol{e}}_\perp, \qquad
+    \hat{\boldsymbol{e}}_\perp = \frac{{}^{\mathcal{M}}\hat{\boldsymbol{t}}
+        - \hat{\boldsymbol{z}}_\mathcal{M}\,{}^{\mathcal{M}}t_3}{\left\|\cdot\right\|}.
 
-The home position is the neutral thrust axis.
+The limit is continuous. A request exactly on the cone gives the same direction from both conditions, because the
+perpendicular part then has the length :math:`\sin\theta_\text{max}` before the division.
 
-.. note::
+A request exactly opposite the neutral axis leaves no plane, because its perpendicular part has zero length. The
+module takes an arbitrary perpendicular direction there. The result is still on the edge of the cone, thus the
+gimbal moves as far as it can towards the request.
 
-    This test prevents an incorrect result, not a numerical error. :math:`\operatorname{atan2}` does no
-    division, thus it always gives a value. Above that deflection the two angles leave the range
-    :math:`(-\pi/2, \pi/2)`, and the direction that they give is opposite to the input direction. If the module
-    does not do this test, it gives the angles for a direction :math:`180^\circ` from the input direction.
+:math:`\theta_\text{max}` is less than :math:`90^\circ`, thus the limited direction always has
+:math:`{}^{\mathcal{M}}t_3 \geq \cos\theta_\text{max} > 0`. The two angles are therefore always well conditioned,
+and each one stays inside :math:`\theta_\text{max}`.
+
+Requests that carry no direction
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+A request of zero length, or one with a component that is not a number, carries no direction at all. There is
+nothing to limit and nothing to point at, thus the module gives the gimbal home position
+:math:`(\alpha, \beta) = (0, 0)`. The home position is the neutral thrust axis.
 
 User Guide
 ----------
@@ -191,6 +211,7 @@ The module uses two-phase initialization. Do the steps that follow:
     gimbalAngles = axisToGimbalAnglesF32.AxisToGimbalAngles()
     gimbalAngles.modelTag = "gimbalAngles"
     gimbalAngles.sigma_MB = sigma_MB
+    gimbalAngles.thetaMax = thetaMax
 
     gimbalAngles.thrustDirectionInMsg.subscribeTo(thrustVectoring.bodyHeadingOutMsg)
 
@@ -211,6 +232,10 @@ examine the mechanism, thus it cannot identify a mechanism that does not agree w
 mechanism is a nested-ring gimbal, the angles from this module are incorrect. The note in *Gimbal kinematics*
 gives the size of the error.
 
-**Limitation.** The module applies no travel limits. It calculates the angles for every deflection of less than
-:math:`90^\circ`, and includes directions to which the gimbal cannot move. :ref:`gimbalAnglesToMotorAngles` applies
-the travel limits.
+**Limitation.** The module gives the nearest direction that the mechanism can move to, and not the request
+itself. For a request outside the cone of half-angle :math:`\theta_\text{max}`, the thrust stays on the edge of
+that cone. The vehicle then receives a different torque from the one that the request asks for.
+
+**Assumption.** One cone of half-angle :math:`\theta_\text{max}` gives the travel of the mechanism. A gimbal
+with a different limit on each axis, or with a limit that changes with the other angle, needs a different
+description. :ref:`gimbalAnglesToMotorAngles` applies the limits of the motors themselves.

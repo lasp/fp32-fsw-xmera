@@ -8,7 +8,7 @@
  @return AxisToGimbalAnglesConfig validated configuration
 */
 AxisToGimbalAnglesConfig AxisToGimbalAngles::toConfig() const {
-    return AxisToGimbalAnglesConfig::create(this->sigma_MB);
+    return AxisToGimbalAnglesConfig::create(this->sigma_MB, this->thetaMax);
 }
 
 /*! This method validates the required input message and builds the algorithm from the current configuration.

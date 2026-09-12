@@ -2,6 +2,7 @@
 #include "utilities/fsw/freestandingInvalidArgument.h"
 
 #include <limits>
+#include <numbers>
 
 namespace {
 constexpr float kAccuracy = 1e-5F;
@@ -42,7 +43,8 @@ TEST(AxisToGimbalAnglesTest, RegressionRotatedMount) {
 
 // A large deflection, which the mechanism cannot move to, still gives the correct two angles.
 TEST(AxisToGimbalAnglesTest, RegressionLargeDeflection) {
-    regressionTestAxisToGimbalAnglesFromAngles(Eigen::Vector3f::Zero(), 60.0F * kDegToRad, -55.0F * kDegToRad);
+    regressionTestAxisToGimbalAnglesFromAngles(
+        Eigen::Vector3f::Zero(), 60.0F * kDegToRad, -55.0F * kDegToRad, 80.0F * kDegToRad);
 }
 
 // ---------------------------------------------------------------------------
@@ -94,31 +96,33 @@ TEST(AxisToGimbalAnglesTest, PlaneAnglesAreNotSequentialEulerAngles) {
     EXPECT_GT(planeAngle2 - eulerAngle, 1.0F * kDegToRad);
 }
 
-// At a deflection of 90 degrees the two angles become very large. The module gives the home position and does
-// not give an angle at its limit.
-TEST(AxisToGimbalAnglesTest, NinetyDegreeDeflectionGivesHomePosition) {
-    const AxisToGimbalAnglesAlgorithm alg{makeConfig(Eigen::Vector3f::Zero())};
+// A request outside the travel goes to the edge of the cone, in the plane that the request and the neutral axis
+// span. A request at a deflection of 90 degrees along the mount x axis gives the second angle at thetaMax.
+TEST(AxisToGimbalAnglesTest, DeflectionBeyondTheTravelGoesToTheEdgeOfTheCone) {
+    constexpr float thetaMax = 30.0F * kDegToRad;
+    const AxisToGimbalAnglesAlgorithm alg{makeConfig(Eigen::Vector3f::Zero(), thetaMax)};
 
     for (const float sign : {1.0F, -1.0F}) {
         const AxisToGimbalAnglesOutput out = alg.update(sign * Eigen::Vector3f::UnitX());
         EXPECT_NEAR(out.gimbalAngle1, 0.0F, kAccuracy);
-        EXPECT_NEAR(out.gimbalAngle2, 0.0F, kAccuracy);
+        EXPECT_NEAR(out.gimbalAngle2, sign * thetaMax, kAccuracy);
     }
 }
 
-// The gimbal cannot move to a direction behind the mount. The module gives the home position.
-TEST(AxisToGimbalAnglesTest, DirectionBehindTheMountGivesHomePosition) {
-    const AxisToGimbalAnglesAlgorithm alg{makeConfig(Eigen::Vector3f::Zero())};
-    const AxisToGimbalAnglesOutput out = alg.update(Eigen::Vector3f::UnitZ());
+// A request exactly opposite the neutral axis leaves no plane to move in. The module takes an arbitrary
+// perpendicular direction and still gives a direction on the edge of the cone, not the neutral position.
+TEST(AxisToGimbalAnglesTest, DirectionOppositeTheNeutralAxisGoesToTheEdgeOfTheCone) {
+    constexpr float thetaMax = 25.0F * kDegToRad;
+    const AxisToGimbalAnglesAlgorithm alg{makeConfig(Eigen::Vector3f::Zero(), thetaMax)};
+    const AxisToGimbalAnglesOutput out = alg.update(-Eigen::Vector3f::UnitZ());
 
-    EXPECT_NEAR(out.gimbalAngle1, 0.0F, kAccuracy);
-    EXPECT_NEAR(out.gimbalAngle2, 0.0F, kAccuracy);
+    const float deflection = std::acos(gimbalAxis_M(out.gimbalAngle1, out.gimbalAngle2).z());
+    EXPECT_NEAR(deflection, thetaMax, kAccuracy);
 }
 
-// A direction at a deflection of exactly 90 degrees has a zero z component in mount-frame coordinates, and the
-// error of the float rotation is larger than that component. Thus the
-// module can give the home position or two angles at the edge of the range, and both answers are correct. A
-// fuzz test found this input.
+// A direction at a deflection of exactly 90 degrees has a zero z component in mount-frame coordinates. The
+// travel limit moves it onto the cone, where the two angles are well conditioned. A fuzz test found this input
+// when the module had no travel limit.
 TEST(AxisToGimbalAnglesTest, NinetyDegreeDeflectionGivesUsableAngles) {
     const Eigen::Vector3f sigma_MB{-1.0F, 1.0F, 1.0F};
     const Eigen::Vector3f direction_B{0.0F, -0.0482057929F, 1.0F};
@@ -130,7 +134,8 @@ TEST(AxisToGimbalAnglesTest, NinetyDegreeDeflectionGivesUsableAngles) {
     regressionTestAxisToGimbalAngles(sigma_MB, direction_B);
 }
 
-// A direction vector of zero length has a zero z component. Thus it fails the same test.
+// A direction vector of zero length carries no direction, thus there is nothing to limit and nothing to point
+// at. The gimbal stays at its neutral position.
 TEST(AxisToGimbalAnglesTest, ZeroDirectionGivesHomePosition) {
     const AxisToGimbalAnglesAlgorithm alg{makeConfig(Eigen::Vector3f::Zero())};
     const AxisToGimbalAnglesOutput out = alg.update(Eigen::Vector3f::Zero());
@@ -163,6 +168,20 @@ TEST(AxisToGimbalAnglesTest, SetupTest) {
     // The configuration rejects a mounting orientation that is not finite.
     EXPECT_THROW((void)makeConfig({nan, 0.0F, 0.0F}), fsw::invalid_argument);
     EXPECT_THROW((void)makeConfig({0.0F, inf, 0.0F}), fsw::invalid_argument);
+
+    // The configuration accepts a travel inside the open interval (0, pi/2).
+    EXPECT_NO_THROW((void)makeConfig(Eigen::Vector3f::Zero(), 1.0F * kDegToRad));
+    EXPECT_NO_THROW((void)makeConfig(Eigen::Vector3f::Zero(), 89.0F * kDegToRad));
+
+    // Two plane angles cannot describe a deflection of 90 degrees or more, thus the travel must stay below it.
+    // A travel of zero or less leaves the gimbal with no movement at all.
+    constexpr float halfPi = std::numbers::pi_v<float> / 2.0F;
+    EXPECT_THROW((void)makeConfig(Eigen::Vector3f::Zero(), halfPi), fsw::invalid_argument);
+    EXPECT_THROW((void)makeConfig(Eigen::Vector3f::Zero(), 2.0F), fsw::invalid_argument);
+    EXPECT_THROW((void)makeConfig(Eigen::Vector3f::Zero(), 0.0F), fsw::invalid_argument);
+    EXPECT_THROW((void)makeConfig(Eigen::Vector3f::Zero(), -0.1F), fsw::invalid_argument);
+    EXPECT_THROW((void)makeConfig(Eigen::Vector3f::Zero(), nan), fsw::invalid_argument);
+    EXPECT_THROW((void)makeConfig(Eigen::Vector3f::Zero(), inf), fsw::invalid_argument);
 
     // An MRP with a norm of more than one gives the same rotation. The module stores the shadow set.
     const Eigen::Vector3f shadow{0.0F, 0.0F, 2.0F};
