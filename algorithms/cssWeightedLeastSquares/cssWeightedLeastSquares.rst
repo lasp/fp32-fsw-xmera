@@ -41,6 +41,9 @@ The adapter consumes the following messages and public configuration properties.
     * - cssDataInMsg
       - :ref:`CSSArraySensorMsgF32Payload`
       - CSS array measurement input, one cosine reading per sensor
+    * - cssConfigInMsg
+      - :ref:`CSSConfigMsgF32Payload`
+      - constellation geometry input, read when the configuration is built
     * - navStateOutMsg
       - :ref:`NavAttMsgF32Payload`
       - navigation output carrying the estimated sun heading and body rate
@@ -51,9 +54,10 @@ The adapter consumes the following messages and public configuration properties.
       - :ref:`FilterResidualsMsgF32Payload`
       - post-fit residuals and observation count; written only when the message is connected
 
-The CSS constellation geometry is supplied as adapter properties rather than through a configuration message, so the
-configuration is a pure function of the module's public state, readable and editable at any time rather than latched
-from a message inside ``reset()``.
+The CSS constellation geometry comes from ``cssConfigInMsg``, the same message the other estimators of the sun
+heading subscribe to. One publisher then describes the sensor array once, and every module that uses it reads the same
+boresights and biases. The module's own tuning stays in adapter properties, which are read when the configuration is
+built and can be edited between builds.
 
 .. list-table:: Module Configuration Properties
     :widths: 20 15 10 15 40
@@ -64,22 +68,6 @@ from a message inside ``reset()``.
       - Units
       - Bounds
       - Description
-    * - numCss
-      - uint32_t
-      - \-
-      - [1, 32]
-      - Number of configured coarse sun sensors
-    * - cssNHat
-      - Eigen::MatrixXf
-      - \-
-      - unit rows within 1e-3
-      - Per-sensor boresight unit vectors in body frame, ``numCss`` rows by three columns; normalized when the
-        configuration is built
-    * - cssBias
-      - Eigen::VectorXf
-      - \-
-      - >= 0, finite
-      - Per-sensor calibration scale factor applied to the boresight
     * - useWeights
       - bool
       - \-
@@ -97,20 +85,19 @@ is written by ``updateState()`` for telemetry and logging and is not a configura
 Two-phase initialization
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-The module is constructed once. Set the public properties, then call ``reset()`` at startup; it validates the message
-links, builds the validated configuration, and constructs the algorithm. On a state transition the flight software
-calls ``reInitialize()`` rather than ``reset()``. ``reconfigure()`` rebuilds the configuration from edited properties
-without disturbing the estimator's runtime state.
+The module is constructed once. Set the public properties and connect the messages, then call ``reset()`` at startup;
+it validates the message links, reads the constellation geometry, builds the validated configuration, and constructs
+the algorithm. On a state transition the flight software calls ``reInitialize()`` rather than ``reset()``.
+``reconfigure()`` re-reads the constellation message and rebuilds the configuration without disturbing the estimator's
+runtime state.
 
 .. code-block:: python
 
     module = cssWeightedLeastSquaresF32.CssWeightedLeastSquares()
-    module.numCss = 8
-    module.cssNHat = cssOrientationList
-    module.cssBias = [1.0] * 8
     module.useWeights = True
     module.sensorUseThresh = 0.15
     module.cssDataInMsg.subscribeTo(cssDataInMsg)
+    module.cssConfigInMsg.subscribeTo(cssConfigInMsg)
     module.reset(0)
 
 Calling ``updateState()`` before ``reset()`` raises ``XmeraLifecycleException``.

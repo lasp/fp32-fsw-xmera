@@ -17,9 +17,6 @@ static constexpr int kFilterStates = MAX_STATES_VECTOR;
 /*! Width of each residual vector on the filter residuals message. */
 static constexpr int kResidualSlots = static_cast<int>(kMaxMeasurementVector * kMaxMeasurementNumber);
 
-/*! Number of columns expected in the cssNHat property, one per body frame component. */
-static constexpr Eigen::Index kBoresightComponents = 3;
-
 /*! Validate the message connections and construct the algorithm from the public properties. Startup
  only; on a state transition the flight software calls reInitialize() instead.
  @return void
@@ -30,39 +27,38 @@ void CssWeightedLeastSquares::reset(const uint64_t callTime) {
     if (!this->cssDataInMsg.isLinked()) {
         throw std::invalid_argument("cssWeightedLeastSquares.cssDataInMsg wasn't connected.");
     }
+    if (!this->cssConfigInMsg.isLinked()) {
+        throw std::invalid_argument("cssWeightedLeastSquares.cssConfigInMsg wasn't connected.");
+    }
 
     this->algorithm = std::make_unique<CssWeightedLeastSquaresAlgorithm>(this->toConfig());
     this->numActiveCss = 0;
 }
 
-/*! Build a validated algorithm configuration from the current module properties. The dynamically sized
- properties are checked here and packed into the algorithm's fixed-size types.
+/*! Build a validated algorithm configuration from the constellation geometry on cssConfigInMsg and the
+ module's tuning properties. The message is the single source of the geometry, so the same constellation
+ feeds every estimator that subscribes to it.
  @return CssWeightedLeastSquaresConfig validated configuration
  */
-CssWeightedLeastSquaresConfig CssWeightedLeastSquares::toConfig() const {
-    if (this->numCss > static_cast<uint32_t>(kMaxNumCss)) {
-        throw std::invalid_argument("cssWeightedLeastSquares.numCss must not be greater than kMaxNumCss.");
-    }
-    const auto configuredSensors = static_cast<Eigen::Index>(this->numCss);
-    if (this->cssNHat.rows() < configuredSensors || this->cssNHat.cols() != kBoresightComponents) {
-        throw std::invalid_argument(
-            "cssWeightedLeastSquares.cssNHat must have at least numCss rows and exactly three columns.");
-    }
-    if (this->cssBias.size() < configuredSensors) {
-        throw std::invalid_argument("cssWeightedLeastSquares.cssBias must have at least numCss entries.");
+CssWeightedLeastSquaresConfig CssWeightedLeastSquares::toConfig() {
+    const CSSConfigMsgF32Payload cssConfig = this->cssConfigInMsg();
+    if (cssConfig.nCSS > static_cast<uint32_t>(kMaxNumCss)) {
+        throw std::invalid_argument("cssWeightedLeastSquares.cssConfigInMsg reported more sensors than kMaxNumCss.");
     }
 
     Eigen::Matrix<float, kMaxNumCss, 3> cssNHat_B = Eigen::Matrix<float, kMaxNumCss, 3>::Zero();
     Eigen::Vector<float, kMaxNumCss> cssBiasPacked = Eigen::Vector<float, kMaxNumCss>::Zero();
-    cssNHat_B.topRows(configuredSensors) = this->cssNHat.topRows(configuredSensors);
-    cssBiasPacked.head(configuredSensors) = this->cssBias.head(configuredSensors);
+    for (uint32_t i = 0; i < cssConfig.nCSS; ++i) {
+        cssNHat_B.row(i) = cArrayToEigenVector(cssConfig.cssVals[i].nHat_B).transpose();
+        cssBiasPacked(i) = cssConfig.cssVals[i].CBias;
+    }
 
     return CssWeightedLeastSquaresConfig::create(
-        cssNHat_B, cssBiasPacked, this->numCss, this->useWeights, this->sensorUseThresh);
+        cssNHat_B, cssBiasPacked, cssConfig.nCSS, this->useWeights, this->sensorUseThresh);
 }
 
-/*! Re-validate the current module properties and push them onto the live algorithm, leaving the
- estimator's runtime state untouched.
+/*! Re-read the constellation message, re-validate it with the module properties and push the result onto
+ the live algorithm, leaving the estimator's runtime state untouched.
  @return void
  */
 void CssWeightedLeastSquares::reconfigure() {

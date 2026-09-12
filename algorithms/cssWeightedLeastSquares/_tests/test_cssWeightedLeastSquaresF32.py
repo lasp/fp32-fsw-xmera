@@ -42,6 +42,22 @@ def cos_values(sun_heading_B):
     return [max(float(np.dot(sun_heading_B, n_hat_B)), 0.0) for n_hat_B in CSS_ORIENTATIONS]
 
 
+
+def css_config_msg():
+    """The constellation geometry message. The module reads the sensor layout from here rather than
+    from properties, so one message can configure every estimator that shares the array."""
+    css_config_data = messaging.CSSConfigMsgF32Payload()
+    sensors = []
+    for n_hat_B in CSS_ORIENTATIONS:
+        sensor = messaging.CSSUnitConfigMsgF32Payload()
+        sensor.nHat_B = n_hat_B
+        sensor.CBias = 1.0
+        sensors.append(sensor)
+    css_config_data.nCSS = len(CSS_ORIENTATIONS)
+    css_config_data.cssVals = sensors
+    return messaging.CSSConfigMsgF32().write(css_config_data)
+
+
 @pytest.mark.parametrize("sun_heading_B", PRINCIPAL_AXES)
 def test_css_weighted_least_squares_nominal(sun_heading_B):
     """Nominal Unit Test: full coverage along each body axis"""
@@ -104,9 +120,8 @@ def test_css_weighted_least_squares_rate_estimate():
     module = cssWeightedLeastSquaresF32.CssWeightedLeastSquares()
     module.modelTag = "cssWeightedLeastSquares"
 
-    module.numCss = len(CSS_ORIENTATIONS)
-    module.cssNHat = CSS_ORIENTATIONS
-    module.cssBias = [1.0] * len(CSS_ORIENTATIONS)
+    config_in_msg = css_config_msg()
+    module.cssConfigInMsg.subscribeTo(config_in_msg)
     module.useWeights = False
     module.sensorUseThresh = SENSOR_USE_THRESH
 
@@ -170,9 +185,8 @@ def test_css_weighted_least_squares_reinitialize():
     module = cssWeightedLeastSquaresF32.CssWeightedLeastSquares()
     module.modelTag = "cssWeightedLeastSquares"
 
-    module.numCss = len(CSS_ORIENTATIONS)
-    module.cssNHat = CSS_ORIENTATIONS
-    module.cssBias = [1.0] * len(CSS_ORIENTATIONS)
+    config_in_msg = css_config_msg()
+    module.cssConfigInMsg.subscribeTo(config_in_msg)
     module.useWeights = False
     module.sensorUseThresh = SENSOR_USE_THRESH
 
@@ -216,9 +230,8 @@ def test_css_weighted_least_squares_reconfigure():
     module = cssWeightedLeastSquaresF32.CssWeightedLeastSquares()
     module.modelTag = "cssWeightedLeastSquares"
 
-    module.numCss = len(CSS_ORIENTATIONS)
-    module.cssNHat = CSS_ORIENTATIONS
-    module.cssBias = [1.0] * len(CSS_ORIENTATIONS)
+    config_in_msg = css_config_msg()
+    module.cssConfigInMsg.subscribeTo(config_in_msg)
     module.useWeights = False
     module.sensorUseThresh = SENSOR_USE_THRESH
 
@@ -269,9 +282,8 @@ def run_test(
     module = cssWeightedLeastSquaresF32.CssWeightedLeastSquares()
     module.modelTag = "cssWeightedLeastSquares"
 
-    module.numCss = len(CSS_ORIENTATIONS)
-    module.cssNHat = CSS_ORIENTATIONS
-    module.cssBias = [1.0] * len(CSS_ORIENTATIONS)
+    config_in_msg = css_config_msg()
+    module.cssConfigInMsg.subscribeTo(config_in_msg)
     module.useWeights = use_weights
     module.sensorUseThresh = SENSOR_USE_THRESH
 
@@ -309,7 +321,6 @@ def run_test(
         np.testing.assert_allclose(
             module_output_residuals[-1][: len(CSS_ORIENTATIONS)], expected_residuals, rtol=0, atol=1e-6, verbose=True
         )
-    np.testing.assert_array_equal(module.numCss, len(CSS_ORIENTATIONS))
     np.testing.assert_array_equal(module.useWeights, use_weights)
     np.testing.assert_allclose(module.sensorUseThresh, SENSOR_USE_THRESH, rtol=0, atol=1e-7, verbose=True)
 
