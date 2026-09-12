@@ -66,9 +66,11 @@ inline void propertyOutputsFinite(const Eigen::Vector3f& r_MB_B,
                                   const Eigen::Vector3f& r_CB_B,
                                   float thrust,
                                   const Eigen::Vector3f& Lreq_B) {
-    // An input the configuration cannot describe must be rejected, not quietly skipped: a non-positive thrust, or
-    // a center of mass too close to M for a direction to exist.
-    if (!ThrustVectoringConfig::isValidThrust(thrust) || !ThrustVectoringConfig::isValidR_CM(r_CB_B, r_MB_B)) {
+    // An input the configuration cannot describe must be rejected, not quietly skipped: a non-positive thrust, a
+    // center of mass too close to M for a direction to exist, or a thrust and moment arm whose product is not a
+    // representable torque.
+    if (!ThrustVectoringConfig::isValidThrust(thrust) || !ThrustVectoringConfig::isValidR_CM(r_CB_B, r_MB_B) ||
+        !ThrustVectoringConfig::isValidMaxAchievableTorque(thrust, r_CB_B, r_MB_B)) {
         EXPECT_THROW((void)makeConfig(r_MB_B, r_CB_B, thrust), fsw::invalid_argument);
         return;
     }

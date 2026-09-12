@@ -89,6 +89,34 @@ TEST(ThrustVectoringTest, SetupRejectsCenterOfMassOnTheThrustPoint) {
     EXPECT_NO_THROW((void)create(Eigen::Vector3f::Zero()));
 }
 
+// Both endpoints can be finite while their difference is not, which would leave the moment arm infinite and its
+// direction undefined. The finiteness of the difference is checked, not just of each endpoint.
+TEST(ThrustVectoringTest, SetupRejectsAnUnrepresentableMomentArm) {
+    const Eigen::Vector3f farOut{3e38F, 0.0F, 0.0F};
+    ASSERT_TRUE(farOut.allFinite()) << "Test setup: each endpoint must be finite on its own";
+    ASSERT_FALSE((farOut - -farOut).allFinite()) << "Test setup: their difference must overflow";
+
+    EXPECT_THROW((void)ThrustVectoringConfig::create(farOut, 10.0F, -farOut), fsw::invalid_argument);
+}
+
+// The solve divides by thrust * |r_MC|. Each factor can pass its own check while the product flushes to zero,
+// which would leave no torque scale to work against.
+TEST(ThrustVectoringTest, SetupRejectsAnUnrepresentableMaximumTorque) {
+    const Eigen::Vector3f r_MB_B{1e-2F, 0.0F, 0.0F};  // a moment arm above kMinR_CM
+    constexpr float tinyThrust = 1e-44F;              // positive and finite, but denormal
+    ASSERT_TRUE(ThrustVectoringConfig::isValidThrust(tinyThrust)) << "Test setup: the thrust alone must pass";
+    ASSERT_TRUE(ThrustVectoringConfig::isValidR_CM(Eigen::Vector3f::Zero(), r_MB_B))
+        << "Test setup: the moment arm alone must pass";
+    ASSERT_EQ(tinyThrust * r_MB_B.stableNorm(), 0.0F) << "Test setup: their product must flush to zero";
+
+    EXPECT_THROW((void)ThrustVectoringConfig::create(r_MB_B, tinyThrust, Eigen::Vector3f::Zero()),
+                 fsw::invalid_argument);
+
+    // An overflowing product is rejected for the same reason.
+    EXPECT_THROW((void)ThrustVectoringConfig::create({1e30F, 0.0F, 0.0F}, 1e30F, Eigen::Vector3f::Zero()),
+                 fsw::invalid_argument);
+}
+
 // The configuration getters return the values supplied to create().
 TEST(ThrustVectoringTest, ConfigRoundTrip) {
     const Eigen::Vector3f r_MB_B(0.0F, 0.1F, 1.4F);

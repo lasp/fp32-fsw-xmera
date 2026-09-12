@@ -34,6 +34,11 @@ class ThrustVectoringConfig final {
                 "thrustVectoring: the center of mass must be farther than kMinR_CM from the thrust point M, "
                 "otherwise no thrust direction is defined.");
         }
+        if (!isValidMaxAchievableTorque(thrust, r_CB_B, r_MB_B)) {
+            FSW_THROW_INVALID_ARGUMENT(
+                "thrustVectoring: the thrust times the moment arm must be finite and positive, otherwise the "
+                "largest torque the geometry can deliver is not representable.");
+        }
 
         return {r_MB_B, thrust, r_CB_B};
     }
@@ -42,8 +47,18 @@ class ThrustVectoringConfig final {
     /*! A zero thrust produces no torque about any point, so no direction solves the request. */
     static bool isValidThrust(float thrust) { return fsw::is_finite(thrust) && thrust > 0.0F; }
     static bool isValidR_CB_B(const Eigen::Vector3f& r_CB_B) { return r_CB_B.allFinite(); }
+    /*! Both endpoints can be finite and still lie far enough apart that their difference is not representable,
+     * which would leave the moment arm infinite and its direction undefined. */
     static bool isValidR_CM(const Eigen::Vector3f& r_CB_B, const Eigen::Vector3f& r_MB_B) {
-        return (r_CB_B - r_MB_B).stableNorm() > kMinR_CM;
+        const Eigen::Vector3f r_MC_B = r_MB_B - r_CB_B;
+        return r_MC_B.allFinite() && r_MC_B.stableNorm() > kMinR_CM;
+    }
+    /*! The solve divides by the largest torque the geometry can deliver. The thrust and the moment arm can each
+     * pass their own check and still multiply to zero or to infinity in single precision. Call only for a
+     * geometry isValidR_CM has already accepted. */
+    static bool isValidMaxAchievableTorque(float thrust, const Eigen::Vector3f& r_CB_B, const Eigen::Vector3f& r_MB_B) {
+        const float maxAchievableTorque = thrust * (r_MB_B - r_CB_B).stableNorm();
+        return fsw::is_finite(maxAchievableTorque) && maxAchievableTorque > 0.0F;
     }
 
     const Eigen::Vector3f& getR_MB_B() const { return this->r_MB_B; }
