@@ -227,15 +227,16 @@ an exactly-zero determinant and lets near-singular geometry produce an unguarded
 a well-scaled constellation.
 
 **Indeterminate rotation axis.** The rate axis is :math:`(\mathbf{d}_n \times \mathbf{d}_{n-1})` normalized, and
-that cross product vanishes when successive headings are collinear or antipodal. Because normalization is
-discontinuous about its zero guard, arbitrarily small rounding noise flips the reported axis between zero and a full
-unit vector, and the reported rate between zero and :math:`\pi / \Delta t`.
+that cross product vanishes when successive headings are collinear or antipodal. Two opposed headings lie on
+infinitely many great circles, so they fix a rotation angle but no axis to apply it about, and the direction the
+cross product reports there is rounding noise.
 
-A zero rate is returned only when that cross product is essentially exactly zero, not when the headings are merely
-*nearly* collinear, so a 180 degree heading reversal reports the correct rate magnitude about an arbitrary axis.
-**The algorithm should be changed in future** to detect an indeterminate rotation axis explicitly instead of relying
-on exact cancellation. Note that a 180 degree reversal within one control cycle corresponds to a body rate far
-outside the nominal envelope, so this is a fault-condition input rather than a nominal one.
+The module compares the magnitude of the cross product, which is the sine of the angle between the two headings,
+against a tolerance of :math:`10^{-6}`. At or below that the headings are parallel or antiparallel to within the
+working precision, and the module reports a zero rate instead of a full rate about a direction it cannot determine.
+The tolerance is far below the sine of any angle a slow slew produces, so it does not reach a rate the module can
+measure. Note that a 180 degree reversal within one control cycle corresponds to a body rate far outside the nominal
+envelope, so this is a fault-condition input rather than a nominal one.
 
 **First call.** No prior heading exists on the first call after construction or re-initialization, so no rate is
 produced until a second heading has been seen.

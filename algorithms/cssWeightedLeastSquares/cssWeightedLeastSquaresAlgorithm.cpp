@@ -21,6 +21,12 @@ static constexpr float kSingularDeterminantRelativeTolerance = 1e-6F;
     weights carry no information. */
 static constexpr uint32_t kMinMeasurementsForWeightedFit = 3;
 
+/*! Smallest cross product magnitude between two successive headings that still fixes a rotation axis.
+    The magnitude is the sine of the angle between them, so below this the headings are parallel or
+    antiparallel to within the working precision and the direction the cross product reports is
+    round-off rather than rotation. */
+static constexpr float kMinRotationAxisMagnitude = 1e-6F;
+
 namespace {
 
 /*! Invert a normal matrix, rejecting it when its determinant is singular at the matrix's own scale.
@@ -128,11 +134,15 @@ CssWeightedLeastSquaresOutput CssWeightedLeastSquaresAlgorithm::update(
         /*! -# Estimate the inertial angular velocity from the rate of the sun heading measurements */
         if (this->priorSignalAvailable) {
             const Eigen::Vector3f rotationAxis = sunHeading_B.cross(this->dOld);
-            /* compute principal rotation angle between sun heading measurements. Taking it from the
-               cross product as well as the dot product keeps the significant digits of a small angle,
-               which the dot product alone loses because its cosine rounds to one. */
-            const float principalAngle = safeAtan2f(rotationAxis.stableNorm(), sunHeading_B.dot(this->dOld));
-            omega_BN_B = rotationAxis.stableNormalized() * (principalAngle / this->cfg.getControlPeriod());
+            const float rotationAxisMagnitude = rotationAxis.stableNorm();
+            /*! -# Leave the rate at zero when the two headings fix no axis to rotate about */
+            if (rotationAxisMagnitude > kMinRotationAxisMagnitude) {
+                /* compute principal rotation angle between sun heading measurements. Taking it from the
+                   cross product as well as the dot product keeps the significant digits of a small angle,
+                   which the dot product alone loses because its cosine rounds to one. */
+                const float principalAngle = safeAtan2f(rotationAxisMagnitude, sunHeading_B.dot(this->dOld));
+                omega_BN_B = rotationAxis * (principalAngle / (rotationAxisMagnitude * this->cfg.getControlPeriod()));
+            }
         } else {
             this->priorSignalAvailable = true;
         }

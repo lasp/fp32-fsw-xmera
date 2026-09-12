@@ -238,6 +238,51 @@ def test_css_weighted_least_squares_slow_rate():
     )
 
 
+def test_css_weighted_least_squares_heading_reversal():
+    """Off Nominal Unit Test: a heading reversal, where the two headings fix no rotation axis"""
+    unit_task_name = "unitTask"
+    unit_process_name = "TestProcess"
+
+    unit_test_sim = SimulationBaseClass.SimBaseClass()
+
+    test_process_rate = macros.sec2nano(0.5)
+    test_proc = unit_test_sim.CreateNewProcess(unit_process_name)
+    test_proc.addTask(unit_test_sim.CreateNewTask(unit_task_name, test_process_rate))
+
+    module = cssWeightedLeastSquaresF32.CssWeightedLeastSquares()
+    module.modelTag = "cssWeightedLeastSquares"
+
+    config_in_msg = css_config_msg()
+    module.cssConfigInMsg.subscribeTo(config_in_msg)
+    module.useWeights = False
+    module.sensorUseThresh = SENSOR_USE_THRESH
+    module.controlPeriod = macros.NANO2SEC * test_process_rate
+
+    unit_test_sim.AddModelToTask(unit_task_name, module)
+
+    input_message_data = messaging.CSSArraySensorMsgF32Payload()
+    input_message_data.CosValue = cos_values([1.0, 0.0, 0.0])
+    in_msg = messaging.CSSArraySensorMsgF32().write(input_message_data)
+    module.cssDataInMsg.subscribeTo(in_msg)
+
+    data_log = module.navStateOutMsg.recorder()
+    unit_test_sim.AddModelToTask(unit_task_name, data_log)
+
+    unit_test_sim.InitializeSimulation()
+    unit_test_sim.ConfigureStopTime(macros.sec2nano(0.5))
+    unit_test_sim.ExecuteSimulation()
+
+    # Reverse the sun within one control period. Two opposed headings lie on infinitely many great
+    # circles, so they fix a rotation angle but no axis to apply it about, and the cross product that
+    # would carry the axis is round-off. The module reports no rate rather than a confident direction.
+    input_message_data.CosValue = cos_values([-1.0, 0.0, 0.0])
+    in_msg.write(input_message_data)
+    unit_test_sim.ConfigureStopTime(macros.sec2nano(1.0))
+    unit_test_sim.ExecuteSimulation()
+
+    np.testing.assert_allclose(data_log.omega_BN_B[-1], np.zeros(3), rtol=0, atol=1e-6, verbose=True)
+
+
 def test_css_weighted_least_squares_reinitialize():
     """Module Unit Test: reInitialize() drops the prior heading at a state transition"""
     unit_task_name = "unitTask"
