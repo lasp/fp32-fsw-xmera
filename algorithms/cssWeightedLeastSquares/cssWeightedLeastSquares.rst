@@ -141,12 +141,19 @@ Algorithm Layer
 Mathematical Formulation
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-Each cycle the algorithm selects the active sensors, those that are enabled and whose reading exceeds
-``sensorUseThresh``. A sensor whose bias is zero has no gain and therefore measures nothing, so it is disabled:
-leaving it in the fit would add an observation that no heading can explain, and it would be counted among the
-sensors viewing the sun. For each active
-sensor :math:`i` it forms a row of the observation matrix from the calibrated boresight, and the corresponding entry of
-the observation vector from the measurement:
+Each cycle, the algorithm selects the active sensors. A sensor is active when it is enabled and its reading is
+more than ``sensorUseThresh`` and not more than 1.1. A sensor with a bias of zero has no gain. It measures
+nothing, and the algorithm disables it. A disabled sensor adds an observation that no heading can explain. It also
+increases the count of the sensors that point at the sun.
+
+A cosine cannot be more than one. The upper bound is more than one, because the calibration and the noise on a
+sensor that points at the sun can increase its reading. The algorithm must keep that reading. A reading that is
+more than the bound is not a measurement. The algorithm rejects it, because its magnitude makes the values in the
+normal equations too large. The same bound rejects a reading that is not a number, because all comparisons with
+such a reading are false.
+
+For each active sensor :math:`i`, the algorithm makes a row of the observation matrix from the calibrated
+boresight. It makes the entry of the observation vector from the measurement:
 
 .. math::
 

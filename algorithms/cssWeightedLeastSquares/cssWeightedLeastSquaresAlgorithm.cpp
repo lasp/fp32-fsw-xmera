@@ -11,6 +11,10 @@
     so the predicted measurement is floored here before differencing against the observation. */
 static constexpr float kMinCssMeasurement = 0.0F;
 
+/*! Largest CSS reading the estimator uses. A cosine cannot exceed one; the margin allows for the
+    calibration and the noise on a sensor that points at the sun. */
+static constexpr float kMaxCssMeasurement = 1.1F;
+
 /*! Relative tolerance for treating a normal matrix as singular, sized at a few multiples of the
     working precision's machine epsilon. The determinant of an n-by-n matrix scales as the n-th power
     of the matrix norm, so the absolute threshold handed to Eigen is this factor times the norm
@@ -107,10 +111,12 @@ CssWeightedLeastSquaresOutput CssWeightedLeastSquaresAlgorithm::update(
     /*! -# increase the number of valid observations */
     /*! -# Otherwise just continue */
     for (uint32_t i = 0; i < this->cfg.getNumCss(); i = i + 1) {
-        /* A sensor with no gain measures nothing, so a zero bias disables it for the whole cycle
-           rather than contributing an observation the fit cannot use. */
+        /* The upper bound also removes a reading that is not a number, because every comparison with
+           one is false. */
         const bool sensorEnabled = this->cfg.getCssBias()(i) > 0.0F;
-        if (sensorEnabled && cosValues(i) > this->cfg.getSensorUseThresh()) {
+        const bool readingIsMeasurable =
+            cosValues(i) > this->cfg.getSensorUseThresh() && cosValues(i) <= kMaxCssMeasurement;
+        if (sensorEnabled && readingIsMeasurable) {
             H.row(numActiveCss) = this->cfg.getCssBias()(i) * this->cfg.getCssNHat_B().row(i);
             y(numActiveCss) = cosValues(i);
             activeSensors.at(numActiveCss) = i;
