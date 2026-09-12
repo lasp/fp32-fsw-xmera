@@ -11,7 +11,7 @@ namespace {
  @return the thrust unit direction, in the frame the arguments were given in
 */
 Eigen::Vector3f solveThrustDirection(const Eigen::Vector3f& r_MC, float thrust, const Eigen::Vector3f& Lreq) {
-    const float b = r_MC.norm();  // moment arm about M; the configuration guarantees b > kMinR_CM
+    const float b = r_MC.stableNorm();  // moment arm about M; the configuration guarantees b > kMinR_CM
     const Eigen::Vector3f rHat_MC = r_MC / b;
 
     // The largest torque this geometry can deliver: the whole thrust, acting perpendicular to r_MC.

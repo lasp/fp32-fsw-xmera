@@ -43,7 +43,7 @@ class ThrustVectoringConfig final {
     static bool isValidThrust(float thrust) { return fsw::is_finite(thrust) && thrust > 0.0F; }
     static bool isValidR_CB_B(const Eigen::Vector3f& r_CB_B) { return r_CB_B.allFinite(); }
     static bool isValidR_CM(const Eigen::Vector3f& r_CB_B, const Eigen::Vector3f& r_MB_B) {
-        return (r_CB_B - r_MB_B).norm() > kMinR_CM;
+        return (r_CB_B - r_MB_B).stableNorm() > kMinR_CM;
     }
 
     const Eigen::Vector3f& getR_MB_B() const { return this->r_MB_B; }

@@ -25,12 +25,12 @@ ThrustVectoringConfig ThrustVectoring::toConfig() {
     // than silently pointing a thruster the spacecraft does not have.
     const Eigen::Vector3f r_TF_F = cArrayToEigenVector3<float>(thrusterConfigFIn.rThrust_B);
     const Eigen::Vector3f tHat_F = cArrayToEigenVector3<float>(thrusterConfigFIn.tHatThrust_B);
-    if (!r_TF_F.allFinite() || r_TF_F.norm() > kThrusterMountingTolerance) {
+    if (!r_TF_F.allFinite() || r_TF_F.stableNorm() > kThrusterMountingTolerance) {
         throw std::invalid_argument(
             "thrustVectoring.thrusterConfigFInMsg reports a thrust application point away from the platform "
             "frame origin; this module requires rThrust_B == 0.");
     }
-    if (!tHat_F.allFinite() || (tHat_F + Eigen::Vector3f::UnitZ()).norm() > kThrusterMountingTolerance) {
+    if (!tHat_F.allFinite() || (tHat_F + Eigen::Vector3f::UnitZ()).stableNorm() > kThrusterMountingTolerance) {
         throw std::invalid_argument(
             "thrustVectoring.thrusterConfigFInMsg reports a thrust direction off the platform -z axis; this "
             "module requires tHatThrust_B == [0, 0, -1].");
