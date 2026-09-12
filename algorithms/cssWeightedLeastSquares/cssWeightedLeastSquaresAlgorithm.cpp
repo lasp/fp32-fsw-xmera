@@ -21,6 +21,34 @@ static constexpr float kSingularDeterminantRelativeTolerance = 1e-6F;
     weights carry no information. */
 static constexpr uint32_t kMinMeasurementsForWeightedFit = 3;
 
+namespace {
+
+/*! Invert a normal matrix, rejecting it when its determinant is singular at the matrix's own scale.
+    @return the inverse, or nothing when the matrix is singular
+    @param matrix the normal matrix to invert
+ */
+template <typename MatrixT>
+std::optional<MatrixT> invertNormalMatrix(const MatrixT& matrix) {
+    const float norm = matrix.stableNorm();
+    float threshold = kSingularDeterminantRelativeTolerance;
+    for (int dimension = 0; dimension < MatrixT::RowsAtCompileTime; ++dimension) {
+        threshold *= norm;
+    }
+
+    MatrixT inverse = MatrixT::Zero();
+    float determinant = 0.0F;
+    bool invertible = false;
+    matrix.computeInverseAndDetWithCheck(inverse, determinant, invertible, threshold);
+
+    std::optional<MatrixT> result;
+    if (invertible) {
+        result = inverse;
+    }
+    return result;
+}
+
+}  // namespace
+
 /*! Construct the estimator, installing the configuration and clearing all runtime state.
  @param config the validated configuration to install
  */
@@ -186,17 +214,10 @@ std::optional<Eigen::Vector3f> CssWeightedLeastSquaresAlgorithm::computeWlsmn(
     } else if (numActiveCss == 2) { /*! - If we have two, then do a 2x2 fit */
         /*!   -# Find minimum norm solution */
         const Eigen::Matrix<float, 2, 3> h = H.topRows<2>();
-        const Eigen::Matrix2f hht = h * h.transpose();
-
-        Eigen::Matrix2f hhtInverse = Eigen::Matrix2f::Zero();
-        float determinant = 0.0F;
-        bool invertible = false;
-        const float hhtNorm = hht.stableNorm();
-        const float hhtThreshold = kSingularDeterminantRelativeTolerance * hhtNorm * hhtNorm;
-        hht.computeInverseAndDetWithCheck(hhtInverse, determinant, invertible, hhtThreshold);
-        if (invertible) {
+        const std::optional<Eigen::Matrix2f> hhtInverse = invertNormalMatrix(Eigen::Matrix2f{h * h.transpose()});
+        if (hhtInverse) {
             /*!   -# Multiply the Ht(HHt)^-1 by the observation vector to get fit*/
-            fit = Eigen::Vector3f{h.transpose() * hhtInverse * y.head<2>()};
+            fit = Eigen::Vector3f{h.transpose() * *hhtInverse * y.head<2>()};
         }
     } else if (numActiveCss >= kMinMeasurementsForWeightedFit) { /*! - If we have more than 2, do true LSQ fit*/
         /*!    -# Use the weights to compute (HtWH)^-1HtW. The rows of H and the entries of y past
@@ -205,17 +226,10 @@ std::optional<Eigen::Vector3f> CssWeightedLeastSquaresAlgorithm::computeWlsmn(
            fixed-size Eigen type; a dynamically sized one would allocate, and this build forbids
            heap allocation. */
         const Eigen::Matrix<float, kMaxNumCss, 3> wh = weights.asDiagonal() * H;
-        const Eigen::Matrix3f htwh = H.transpose() * wh;
-
-        Eigen::Matrix3f htwhInverse = Eigen::Matrix3f::Zero();
-        float determinant = 0.0F;
-        bool invertible = false;
-        const float htwhNorm = htwh.stableNorm();
-        const float htwhThreshold = kSingularDeterminantRelativeTolerance * htwhNorm * htwhNorm * htwhNorm;
-        htwh.computeInverseAndDetWithCheck(htwhInverse, determinant, invertible, htwhThreshold);
-        if (invertible) {
+        const std::optional<Eigen::Matrix3f> htwhInverse = invertNormalMatrix(Eigen::Matrix3f{H.transpose() * wh});
+        if (htwhInverse) {
             /*!    -# Multiply the LSQ matrix by the obs vector for best fit*/
-            fit = Eigen::Vector3f{htwhInverse * (wh.transpose() * y)};
+            fit = Eigen::Vector3f{*htwhInverse * (wh.transpose() * y)};
         }
     }
 
