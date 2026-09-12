@@ -187,6 +187,57 @@ def test_css_weighted_least_squares_rate_estimate():
     np.testing.assert_allclose(data_log.omega_BN_B, expected_angular_velocity, rtol=1e-5, atol=1e-5, verbose=True)
 
 
+def test_css_weighted_least_squares_slow_rate():
+    """Module Unit Test: a slew slow enough that the two headings are nearly parallel"""
+    unit_task_name = "unitTask"
+    unit_process_name = "TestProcess"
+
+    unit_test_sim = SimulationBaseClass.SimBaseClass()
+
+    test_process_rate = macros.sec2nano(0.5)
+    test_proc = unit_test_sim.CreateNewProcess(unit_process_name)
+    test_proc.addTask(unit_test_sim.CreateNewTask(unit_task_name, test_process_rate))
+
+    module = cssWeightedLeastSquaresF32.CssWeightedLeastSquares()
+    module.modelTag = "cssWeightedLeastSquares"
+
+    config_in_msg = css_config_msg()
+    module.cssConfigInMsg.subscribeTo(config_in_msg)
+    module.useWeights = False
+    module.sensorUseThresh = SENSOR_USE_THRESH
+    module.controlPeriod = macros.NANO2SEC * test_process_rate
+
+    unit_test_sim.AddModelToTask(unit_task_name, module)
+
+    input_message_data = messaging.CSSArraySensorMsgF32Payload()
+    input_message_data.CosValue = cos_values([1.0, 0.0, 0.0])
+    in_msg = messaging.CSSArraySensorMsgF32().write(input_message_data)
+    module.cssDataInMsg.subscribeTo(in_msg)
+
+    data_log = module.navStateOutMsg.recorder()
+    unit_test_sim.AddModelToTask(unit_task_name, data_log)
+
+    unit_test_sim.InitializeSimulation()
+    unit_test_sim.ConfigureStopTime(macros.sec2nano(0.5))
+    unit_test_sim.ExecuteSimulation()
+
+    # Sweep the sun through a milliradian about +z in one control period, a rate of 2 mrad/s about -z.
+    # The cosine of that angle is one to within four parts in ten million, so recovering the angle from
+    # the dot product alone would lose most of its significant digits in single precision.
+    slew_angle = 1.0e-3  # [r] heading change across one control period
+    input_message_data.CosValue = cos_values([np.cos(slew_angle), np.sin(slew_angle), 0.0])
+    in_msg.write(input_message_data)
+    unit_test_sim.ConfigureStopTime(macros.sec2nano(1.0))
+    unit_test_sim.ExecuteSimulation()
+
+    control_period = macros.NANO2SEC * test_process_rate
+    expected_angular_velocity = [0.0, 0.0, -slew_angle / control_period]
+
+    np.testing.assert_allclose(
+        data_log.omega_BN_B[-1], expected_angular_velocity, rtol=1e-3, atol=1e-6, verbose=True
+    )
+
+
 def test_css_weighted_least_squares_reinitialize():
     """Module Unit Test: reInitialize() drops the prior heading at a state transition"""
     unit_task_name = "unitTask"

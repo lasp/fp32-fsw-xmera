@@ -127,10 +127,12 @@ CssWeightedLeastSquaresOutput CssWeightedLeastSquaresAlgorithm::update(
 
         /*! -# Estimate the inertial angular velocity from the rate of the sun heading measurements */
         if (this->priorSignalAvailable) {
-            omega_BN_B = sunHeading_B.cross(this->dOld).stableNormalized();
-            /* compute principal rotation angle between sun heading measurements */
-            const float principalAngle = safeAcosf(sunHeading_B.dot(this->dOld));
-            omega_BN_B *= principalAngle / this->cfg.getControlPeriod();
+            const Eigen::Vector3f rotationAxis = sunHeading_B.cross(this->dOld);
+            /* compute principal rotation angle between sun heading measurements. Taking it from the
+               cross product as well as the dot product keeps the significant digits of a small angle,
+               which the dot product alone loses because its cosine rounds to one. */
+            const float principalAngle = safeAtan2f(rotationAxis.stableNorm(), sunHeading_B.dot(this->dOld));
+            omega_BN_B = rotationAxis.stableNormalized() * (principalAngle / this->cfg.getControlPeriod());
         } else {
             this->priorSignalAvailable = true;
         }
