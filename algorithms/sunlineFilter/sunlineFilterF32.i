@@ -9,9 +9,9 @@
 
 %include "sunlineFilter.h"
 
-%include <architecture/msgPayloadDef/NavAttMsgPayload.h>
-%include <architecture/msgPayloadDef/CSSConfigMsgPayload.h>
-%include <architecture/msgPayloadDef/CSSUnitConfigMsgPayload.h>
-%include <architecture/msgPayloadDef/CSSArraySensorMsgPayload.h>
-%include <architecture/msgPayloadDef/FilterMsgPayload.h>
-%include <architecture/msgPayloadDef/FilterResidualsMsgPayload.h>
+%include "msgPayloadDef/NavAttMsgF32Payload.h"
+%include "msgPayloadDef/CSSConfigMsgF32Payload.h"
+%include "msgPayloadDef/CSSUnitConfigMsgF32Payload.h"
+%include "msgPayloadDef/CSSArraySensorMsgF32Payload.h"
+%include "msgPayloadDef/FilterMsgF32Payload.h"
+%include "msgPayloadDef/FilterResidualsMsgF32Payload.h"
