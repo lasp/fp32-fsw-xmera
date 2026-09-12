@@ -287,7 +287,7 @@ class SRuKF {
             //! > Symmetrically to the time update, populate the A matrix for a qr decomposition (eq 24)
             Eigen::Matrix<double, MSize, 2 * N + MSize> A;
             for (int i = 1; i < numSigma; ++i) {
-                A.col(i - 1) = sqrt(this->wC(1)) * (yMeasPre.col(i) - yBarPre);
+                A.col(i - 1) = sqrt(this->wC(1)) * measurement.subtract(yMeasPre.col(i), yBarPre);
             }
             A.template block<MSize, MSize>(0, numSigma - 1) = cholMeasNoise;
 
@@ -295,14 +295,14 @@ class SRuKF {
             Eigen::Matrix<double, MSize, MSize> sy = qrDecompositionJustR<MSize, 2 * N + MSize>(A);
 
             //! > Cholesky-downDate the covariance and the measurement error
-            Eigen::Vector<double, MSize> const yError0 = yMeasPre.col(0) - yBarPre;
+            Eigen::Vector<double, MSize> const yError0 = measurement.subtract(yMeasPre.col(0), yBarPre);
             sy = choleskyUpDownDate<MSize>(sy, yError0, this->wC(0));
 
             //! > Covariance of prior prediction computation eq 26
             Eigen::Matrix<double, N, MSize> pXY = Eigen::Matrix<double, N, MSize>::Zero();
             for (int i = 0; i < numSigma; ++i) {
                 Eigen::Vector<double, N> const xError = this->sigmaPoints[i].raw() - this->xBar.raw();
-                Eigen::Vector<double, MSize> const yError = yMeasPre.col(i) - yBarPre;
+                Eigen::Vector<double, MSize> const yError = measurement.subtract(yMeasPre.col(i), yBarPre);
                 pXY += this->wC(i) * xError * yError.transpose();
             }
 
