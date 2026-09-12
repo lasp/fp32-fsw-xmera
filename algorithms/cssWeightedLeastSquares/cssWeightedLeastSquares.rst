@@ -44,8 +44,11 @@ The adapter consumes the following messages and public configuration properties.
     * - navStateOutMsg
       - :ref:`NavAttMsgF32Payload`
       - navigation output carrying the estimated sun heading and body rate
-    * - cssWLSFiltResOutMsg
-      - :ref:`SunlineFilterMsgF32Payload`
+    * - filterOutMsg
+      - :ref:`FilterMsgF32Payload`
+      - estimator state, the three sun heading components; written only when the message is connected
+    * - filterCssResOutMsg
+      - :ref:`FilterResidualsMsgF32Payload`
       - post-fit residuals and observation count; written only when the message is connected
 
 The CSS constellation geometry is supplied as adapter properties rather than through a configuration message, so the
@@ -177,15 +180,20 @@ outside the domain.
 Post-Fit Residuals
 ~~~~~~~~~~~~~~~~~~
 
-Residuals measure how well the estimate explains the measurements. For each configured sensor the estimate is projected
+Residuals measure how well the estimate explains the measurements. For each active sensor the estimate is projected
 onto the raw boresight, without the bias, and differenced against the observation:
 
 .. math::
 
     r_i = \cos\theta_i - \max\left(0, \hat{\mathbf{d}} \cdot \hat{\mathbf{n}}_i\right)
 
-The predicted value is floored at zero because a coarse sun sensor cannot report a negative cosine. Residuals are
-computed for every configured sensor, not only the active ones; entries beyond ``numCss`` remain zero.
+The predicted value is floored at zero because a coarse sun sensor cannot report a negative cosine.
+
+Residuals are indexed by observation, not by sensor slot: the leading ``numActiveCss`` entries carry the sensors that
+contributed to the fit, in sensor order, and the remaining entries stay zero. The module reports them on
+``filterCssResOutMsg``, which treats the CSS array as a single observation vector whose dimension is the active sensor
+count. The ``observation`` and ``preFits`` fields of that message stay zero: the raw readings are available on
+``cssDataInMsg``, and a least squares fit has no prior state to form a pre-fit residual against.
 
 Edge Case Guards
 ~~~~~~~~~~~~~~~~

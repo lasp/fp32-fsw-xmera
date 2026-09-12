@@ -11,5 +11,6 @@
 %include "cssWeightedLeastSquares.h"
 
 %include "msgPayloadDef/NavAttMsgF32Payload.h"
-%include "msgPayloadDef/SunlineFilterMsgF32Payload.h"
+%include "msgPayloadDef/FilterMsgF32Payload.h"
+%include "msgPayloadDef/FilterResidualsMsgF32Payload.h"
 %include "msgPayloadDef/CSSArraySensorMsgF32Payload.h"

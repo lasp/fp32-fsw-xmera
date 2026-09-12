@@ -8,8 +8,14 @@
 #include <memory>
 #include <stdexcept>
 
-/*! Index in the filter status state vector at which the sun heading is written. */
-static constexpr std::size_t kHeadingStateOffset = 0U;
+/*! Number of scalar states the estimator reports, the three sun heading components. */
+static constexpr int kHeadingStates = 3;
+
+/*! Width of the state vector on the filter output message. */
+static constexpr int kFilterStates = MAX_STATES_VECTOR;
+
+/*! Width of each residual vector on the filter residuals message. */
+static constexpr int kResidualSlots = static_cast<int>(kMaxMeasurementVector * kMaxMeasurementNumber);
 
 /*! Number of columns expected in the cssNHat property, one per body frame component. */
 static constexpr Eigen::Index kBoresightComponents = 3;
@@ -94,14 +100,31 @@ void CssWeightedLeastSquares::updateState(const uint64_t callTime) {
     const CssWeightedLeastSquaresOutput out = this->algorithm->update(callTime, cArrayToEigenVector(cssData.CosValue));
     this->numActiveCss = out.numActiveCss;
 
-    /*! - If the residual fit output message is set, then store the residuals in the output message */
-    if (this->cssWLSFiltResOutMsg.isLinked()) {
-        SunlineFilterMsgF32Payload filtStatus = {};
-        filtStatus.numObs = static_cast<int>(out.numActiveCss);
-        filtStatus.timeTag = static_cast<double>(callTime) * kNano2Sec;
-        eigenMatrixXInsertCArray(out.residualStateHeading, filtStatus.state, kHeadingStateOffset);
-        eigenVectorToCArray(out.postFitResiduals, filtStatus.postFitRes);
-        this->cssWLSFiltResOutMsg.write(filtStatus, this->moduleID, callTime);
+    const double timeTag = static_cast<double>(callTime) * kNano2Sec;
+
+    /*! - If the estimator state output message is set, then store the sun heading in it */
+    if (this->filterOutMsg.isLinked()) {
+        FilterMsgF32Payload filterBuf = {};
+        filterBuf.timeTag = timeTag;
+        filterBuf.numberOfStates = kHeadingStates;
+        Eigen::Vector<double, kFilterStates> state = Eigen::Vector<double, kFilterStates>::Zero();
+        state.head<kHeadingStates>() = out.residualStateHeading.cast<double>();
+        eigenVectorToCArray(state, filterBuf.state);
+        this->filterOutMsg.write(filterBuf, this->moduleID, callTime);
+    }
+
+    /*! - If the residual output message is set, then store the residuals in it. The CSS array is one
+     observation vector whose dimension is the number of sensors that contributed to the fit. */
+    if (this->filterCssResOutMsg.isLinked()) {
+        FilterResidualsMsgF32Payload cssResBuf = {};
+        cssResBuf.timeTag = timeTag;
+        cssResBuf.valid = out.numActiveCss > 0U;
+        cssResBuf.numberOfObservations = 1;
+        cssResBuf.sizeOfObservations = static_cast<int>(out.numActiveCss);
+        Eigen::Vector<double, kResidualSlots> postFits = Eigen::Vector<double, kResidualSlots>::Zero();
+        postFits.head<kMaxNumCss>() = out.postFitResiduals.cast<double>();
+        eigenVectorToCArray(postFits, cssResBuf.postFits);
+        this->filterCssResOutMsg.write(cssResBuf, this->moduleID, callTime);
     }
 
     /*! - Populate the navigation output message with the estimated sun state */

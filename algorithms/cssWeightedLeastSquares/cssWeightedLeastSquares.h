@@ -4,8 +4,9 @@
 #include "cssWeightedLeastSquaresAlgorithm.h"
 
 #include "msgPayloadDef/CSSArraySensorMsgF32Payload.h"
+#include "msgPayloadDef/FilterMsgF32Payload.h"
+#include "msgPayloadDef/FilterResidualsMsgF32Payload.h"
 #include "msgPayloadDef/NavAttMsgF32Payload.h"
-#include "msgPayloadDef/SunlineFilterMsgF32Payload.h"
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
 
@@ -36,8 +37,9 @@ class CssWeightedLeastSquares final : public SysModel {
     ReadFunctor<CSSArraySensorMsgF32Payload> cssDataInMsg;  //!< CSS array measurement input message
     Message<NavAttMsgF32Payload>
         navStateOutMsg;  //!< Navigation output message carrying the estimated sun heading and body rate
-    Message<SunlineFilterMsgF32Payload>
-        cssWLSFiltResOutMsg;  //!< Post-fit residual and observation count output message
+    Message<FilterMsgF32Payload> filterOutMsg;  //!< Estimator state output message
+    Message<FilterResidualsMsgF32Payload>
+        filterCssResOutMsg;  //!< Post-fit residual and observation count output message
 
    private:
     CssWeightedLeastSquaresConfig toConfig() const;

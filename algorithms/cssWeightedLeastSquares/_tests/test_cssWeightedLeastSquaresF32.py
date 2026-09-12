@@ -284,7 +284,7 @@ def run_test(
 
     nav_data_log = module.navStateOutMsg.recorder()
     unit_test_sim.AddModelToTask(unit_task_name, nav_data_log)
-    filter_data_log = module.cssWLSFiltResOutMsg.recorder()
+    filter_data_log = module.filterCssResOutMsg.recorder()
     unit_test_sim.AddModelToTask(unit_task_name, filter_data_log)
     num_active_data_log = module.logger("numActiveCss")
     unit_test_sim.AddModelToTask(unit_task_name, num_active_data_log)
@@ -296,7 +296,7 @@ def run_test(
     unit_test_sim.ExecuteSimulation()
 
     module_output_heading = nav_data_log.vehSunPntBdy
-    module_output_residuals = filter_data_log.postFitRes
+    module_output_residuals = filter_data_log.postFits
     module_output_num_active = num_active_data_log.numActiveCss
 
     # The estimator drops every reading at or below the threshold, so this is the count it must report.
@@ -304,7 +304,7 @@ def run_test(
 
     np.testing.assert_allclose(module_output_heading[-1], expected_heading, rtol=1e-6, atol=1e-6, verbose=True)
     np.testing.assert_array_equal(module_output_num_active[-1], expected_num_active)
-    np.testing.assert_array_equal(filter_data_log.numObs[-1], expected_num_active)
+    np.testing.assert_array_equal(filter_data_log.sizeOfObservations[-1], expected_num_active)
     if expected_residuals is not None:
         np.testing.assert_allclose(
             module_output_residuals[-1][: len(CSS_ORIENTATIONS)], expected_residuals, rtol=0, atol=1e-6, verbose=True
