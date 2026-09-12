@@ -8,6 +8,7 @@
 #include <math.h>
 #include <stdint.h>
 #include <Eigen/Core>
+#include <array>
 
 /*! Maximum number of coarse sun sensors the estimator can process in one cycle, fixed by the bound on
     the CSS array measurement message. */
@@ -23,7 +24,8 @@ struct CssWeightedLeastSquaresOutput {
     Eigen::Vector3f residualStateHeading = Eigen::Vector3f::Zero();  //!< [-] heading on the filter status output,
                                                                      //!< captured before the singular-fit zeroing
     Eigen::Vector<float, kMaxNumCss> postFitResiduals =
-        Eigen::Vector<float, kMaxNumCss>::Zero();  //!< [-] post-fit residuals, one per configured sensor
+        Eigen::Vector<float, kMaxNumCss>::Zero();  //!< [-] post-fit residuals, one per active sensor, packed into
+                                                   //!< the leading numActiveCss entries
     uint32_t numActiveCss{};                       //!< [-] sensors whose reading exceeded the use threshold
 };
 
@@ -178,12 +180,16 @@ class CssWeightedLeastSquaresAlgorithm final {
                             Eigen::Vector3f& x);
 
     /*! Compute the post-fit residuals for the WLS estimate.
-        @return the per-sensor residuals, zero beyond the configured sensor count
-        @param cssMeas The measured values for the CSS sensors
-        @param wlsEst  The WLS estimate computed for the CSS measurements
+        @return the residuals of the active sensors, packed into the leading numActiveCss entries
+        @param cssMeas      The measured values for the CSS sensors
+        @param wlsEst       The WLS estimate computed for the CSS measurements
+        @param activeSensors The sensor index behind each observation, in observation order
+        @param numActiveCss The count on input measurements
      */
     Eigen::Vector<float, kMaxNumCss> computeWlsResiduals(const Eigen::Vector<float, kMaxNumCss>& cssMeas,
-                                                         const Eigen::Vector3f& wlsEst) const;
+                                                         const Eigen::Vector3f& wlsEst,
+                                                         const std::array<Eigen::Index, kMaxNumCss>& activeSensors,
+                                                         uint32_t numActiveCss) const;
 
     CssWeightedLeastSquaresConfig cfg;               //!< [-] the validated configuration in force
     Eigen::Vector3f dOld = Eigen::Vector3f::Zero();  //!< [-] prior normalized sun heading, body frame

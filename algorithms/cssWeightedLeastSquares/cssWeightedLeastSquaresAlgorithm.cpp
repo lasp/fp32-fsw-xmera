@@ -74,6 +74,8 @@ CssWeightedLeastSquaresOutput CssWeightedLeastSquaresAlgorithm::update(
     Eigen::Matrix<float, kMaxNumCss, 3> H = Eigen::Matrix<float, kMaxNumCss, 3>::Zero();
     /* Measurements, compacted to the active sensors */
     Eigen::Vector<float, kMaxNumCss> y = Eigen::Vector<float, kMaxNumCss>::Zero();
+    /* The sensor index behind each observation, in observation order */
+    std::array<Eigen::Index, kMaxNumCss> activeSensors{};
     int status = 0;  /* Quality of the module estimate */
     float dt = 0.0F; /* [s] Control update period */
 
@@ -97,6 +99,7 @@ CssWeightedLeastSquaresOutput CssWeightedLeastSquaresAlgorithm::update(
             const auto active = static_cast<Eigen::Index>(out.numActiveCss);
             H.row(active) = this->cfg.getCssBias()(sensor) * this->cfg.getCssNHat_B().row(sensor);
             y(active) = cosValues(sensor);
+            activeSensors.at(out.numActiveCss) = sensor;
             out.numActiveCss = out.numActiveCss + 1;
         }
     }
@@ -108,7 +111,7 @@ CssWeightedLeastSquaresOutput CssWeightedLeastSquaresAlgorithm::update(
         out.sunHeading_B.setZero();     /* zero the sun heading to indicate no CSS info is available */
         out.omega_BN_B.setZero();       /* zero the rate measure */
         this->priorSignalAvailable = 0; /* reset the prior heading estimate flag */
-        out.postFitResiduals = this->computeWlsResiduals(cosValues, out.sunHeading_B);
+        out.postFitResiduals = this->computeWlsResiduals(cosValues, out.sunHeading_B, activeSensors, out.numActiveCss);
     } else {
         /*! - If at least one CSS got a strong enough signal.  Proceed with the sun heading estimation */
         /*! -# Configuration option to weight the measurements, otherwise set
@@ -119,7 +122,7 @@ CssWeightedLeastSquaresOutput CssWeightedLeastSquaresAlgorithm::update(
         }
         /*! -# Get least squares fit for sun pointing vector*/
         status = computeWlsmn(out.numActiveCss, weights, H, y, out.sunHeading_B);
-        out.postFitResiduals = this->computeWlsResiduals(cosValues, out.sunHeading_B);
+        out.postFitResiduals = this->computeWlsResiduals(cosValues, out.sunHeading_B, activeSensors, out.numActiveCss);
 
         out.sunHeading_B = out.sunHeading_B.stableNormalized();
 
@@ -155,25 +158,31 @@ CssWeightedLeastSquaresOutput CssWeightedLeastSquaresAlgorithm::update(
     return out;
 }
 
-/*! This method computes the post-fit residuals for the WLS estimate.
-    @return the per-sensor residuals, zero beyond the configured sensor count
+/*! This method computes the post-fit residuals for the WLS estimate. The residuals are indexed by
+    observation rather than by sensor slot, so the leading numActiveCss entries carry the sensors that
+    contributed to the fit and the remainder stay zero.
+    @return the residuals of the active sensors, packed into the leading numActiveCss entries
     @param cssMeas The measured values for the CSS sensors
     @param wlsEst The WLS estimate computed for the CSS measurements
+    @param activeSensors The sensor index behind each observation, in observation order
+    @param numActiveCss The count on input measurements
 */
 Eigen::Vector<float, kMaxNumCss> CssWeightedLeastSquaresAlgorithm::computeWlsResiduals(
     const Eigen::Vector<float, kMaxNumCss>& cssMeas,
-    const Eigen::Vector3f& wlsEst) const {
+    const Eigen::Vector3f& wlsEst,
+    const std::array<Eigen::Index, kMaxNumCss>& activeSensors,
+    const uint32_t numActiveCss) const {
     Eigen::Vector<float, kMaxNumCss> cssResiduals = Eigen::Vector<float, kMaxNumCss>::Zero();
 
-    /*! The method loops through the sensors and performs: */
-    for (uint32_t i = 0; i < this->cfg.getNumCss(); i++) {
-        const auto sensor = static_cast<Eigen::Index>(i);
+    /*! The method loops through the observations and performs: */
+    for (uint32_t observation = 0; observation < numActiveCss; observation++) {
+        const Eigen::Index sensor = activeSensors.at(observation);
         /*! -# A dot product between the computed estimate with each sensor normal */
         const float rawDotProd = wlsEst.dot(this->cfg.getCssNHat_B().row(sensor).transpose());
         /*CSS values can't be negative!*/
         const float cssDotProd = rawDotProd > kMinCssMeasurement ? rawDotProd : kMinCssMeasurement;
         /*! -# A subtraction between that post-fit measurement estimate and the actual measurement*/
-        cssResiduals(sensor) = cssMeas(sensor) - cssDotProd;
+        cssResiduals(static_cast<Eigen::Index>(observation)) = cssMeas(sensor) - cssDotProd;
         /*! -# This populates the post-fit residuals*/
     }
 

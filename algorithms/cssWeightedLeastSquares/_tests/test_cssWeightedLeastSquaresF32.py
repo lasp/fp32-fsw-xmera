@@ -85,8 +85,8 @@ def test_css_weighted_least_squares_no_signal():
     """Off Nominal Unit Test: no reading above threshold, so there is no sun to estimate"""
     cos_readings = [0.0] * len(CSS_ORIENTATIONS)
 
-    # With no sun the module reports the zero vector rather than a stale or invented heading, and the
-    # residuals are the raw measurements differenced against a zero prediction.
+    # With no sun the module reports the zero vector rather than a stale or invented heading, and no
+    # sensor contributed an observation, so no residual is reported either.
     run_test(cos_readings, np.zeros(3), expected_residuals=np.zeros(len(CSS_ORIENTATIONS)))
 
 
