@@ -48,8 +48,8 @@ CssWeightedLeastSquaresConfig CssWeightedLeastSquares::toConfig() {
 
     std::array<CssConfiguration, kMaxNumCss> cssSensors{};
     for (uint32_t i = 0; i < cssConfig.nCSS; ++i) {
-        cssSensors.at(i) =
-            CssConfiguration{cArrayToEigenVector(cssConfig.cssVals[i].nHat_B), cssConfig.cssVals[i].CBias};
+        cssSensors.at(i) = CssConfiguration{.nHat_B = cArrayToEigenVector(cssConfig.cssVals[i].nHat_B),
+                                            .bias = cssConfig.cssVals[i].CBias};
     }
     return CssWeightedLeastSquaresConfig::create(
         cssConfig.nCSS, cssSensors, this->useWeights, this->sensorUseThresh, this->controlPeriod);
