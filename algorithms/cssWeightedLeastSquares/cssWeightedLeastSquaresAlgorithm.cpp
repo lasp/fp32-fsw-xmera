@@ -104,12 +104,6 @@ CssWeightedLeastSquaresOutput CssWeightedLeastSquaresAlgorithm::update(
     Eigen::Vector3f omega_BN_B = Eigen::Vector3f::Zero();
     Eigen::Vector<float, kMaxNumCss> postFitResiduals = Eigen::Vector<float, kMaxNumCss>::Zero();
 
-    /*! - Loop over the maximum number of sensors to check for good measurements */
-    /*! -# Isolate if measurement is good */
-    /*! -# Set body vector for this measurement */
-    /*! -# Get measurement value into observation vector */
-    /*! -# increase the number of valid observations */
-    /*! -# Otherwise just continue */
     for (uint32_t i = 0; i < this->cfg.getNumCss(); i = i + 1) {
         /* The upper bound also removes a reading that is not a number, because every comparison with
            one is false. */
@@ -124,46 +118,38 @@ CssWeightedLeastSquaresOutput CssWeightedLeastSquaresAlgorithm::update(
         }
     }
 
-    /*! Estimation Steps*/
     if (numActiveCss > 0) {
-        /*! - If at least one CSS got a strong enough signal.  Proceed with the sun heading estimation */
-        /*! -# Configuration option to weight the measurements, otherwise set
-         weighting matrix to identity*/
         Eigen::Vector<float, kMaxNumCss> weights = Eigen::Vector<float, kMaxNumCss>::Ones();
         if (this->cfg.getUseWeights()) {
             weights = y;
         }
-        /*! -# Get least squares fit for sun pointing vector*/
         fit = computeWlsmn(numActiveCss, weights, H, y);
     }
 
     if (fit) {
         sunHeading_B = fit->stableNormalized();
 
-        /*! -# Estimate the inertial angular velocity from the rate of the sun heading measurements */
         if (this->priorSignalAvailable) {
             const Eigen::Vector3f rotationAxis = sunHeading_B.cross(this->dOld);
             const float rotationAxisMagnitude = rotationAxis.stableNorm();
-            /*! -# Leave the rate at zero when the two headings fix no axis to rotate about */
+            /* Leave the rate at zero when the two headings fix no axis to rotate about. Taking the
+               angle from the cross product as well as the dot product keeps the significant digits of a
+               small angle, which the dot product alone loses because its cosine rounds to one. */
             if (rotationAxisMagnitude > kMinRotationAxisMagnitude) {
-                /* compute principal rotation angle between sun heading measurements. Taking it from the
-                   cross product as well as the dot product keeps the significant digits of a small angle,
-                   which the dot product alone loses because its cosine rounds to one. */
                 const float principalAngle = safeAtan2f(rotationAxisMagnitude, sunHeading_B.dot(this->dOld));
                 omega_BN_B = rotationAxis * (principalAngle / (rotationAxisMagnitude * this->cfg.getControlPeriod()));
             }
         } else {
             this->priorSignalAvailable = true;
         }
-        /*! -# Store the sun heading estimate */
         this->dOld = sunHeading_B;
     }
 
-    /*! - Residuals are measured against the unnormalized fit, which is zero when there was no sun */
+    /* Residuals are measured against the unnormalized fit, which is zero when there was no sun */
     postFitResiduals =
         this->computeWlsResiduals(cosValues, fit.value_or(Eigen::Vector3f::Zero()), activeSensors, numActiveCss);
 
-    /*! - With no sun, or a singular fit, there is no prior heading to difference against */
+    /* With no sun, or a singular fit, there is no prior heading to difference against */
     if (!fit) {
         this->priorSignalAvailable = false;
     }
@@ -190,16 +176,12 @@ Eigen::Vector<float, kMaxNumCss> CssWeightedLeastSquaresAlgorithm::computeWlsRes
     const uint32_t numActiveCss) const {
     Eigen::Vector<float, kMaxNumCss> cssResiduals = Eigen::Vector<float, kMaxNumCss>::Zero();
 
-    /*! The method loops through the observations and performs: */
     for (uint32_t observation = 0; observation < numActiveCss; observation++) {
         const Eigen::Index sensor = activeSensors.at(observation);
-        /*! -# A dot product between the computed estimate with each sensor normal */
         const float rawDotProd = wlsEst.dot(this->cfg.getCssNHat_B().row(sensor).transpose());
-        /*CSS values can't be negative!*/
+        /* A coarse sun sensor cannot report a negative cosine, so floor the prediction */
         const float cssDotProd = rawDotProd > kMinCssMeasurement ? rawDotProd : kMinCssMeasurement;
-        /*! -# A subtraction between that post-fit measurement estimate and the actual measurement*/
         cssResiduals(observation) = cssMeas(sensor) - cssDotProd;
-        /*! -# This populates the post-fit residuals*/
     }
 
     return cssResiduals;
@@ -220,22 +202,20 @@ std::optional<Eigen::Vector3f> CssWeightedLeastSquaresAlgorithm::computeWlsmn(
     const Eigen::Vector<float, kMaxNumCss>& y) {
     std::optional<Eigen::Vector3f> fit;
 
-    /*! - If we only have one sensor, output best guess (cone of possiblities)*/
     if (numActiveCss == 1) {
         /* The minimum norm solution of the single observation equation, which is the one-measurement
            case of the two-measurement branch below. A disabled sensor never becomes an observation, so
            the squared norm of the row is positive. */
         fit = Eigen::Vector3f{H.row(0).transpose() * (y(0) / H.row(0).squaredNorm())};
-    } else if (numActiveCss == 2) { /*! - If we have two, then do a 2x2 fit */
-        /*!   -# Find minimum norm solution */
+    } else if (numActiveCss == 2) {
+        /* Two measurements leave the system underdetermined, so take the minimum norm solution */
         const Eigen::Matrix<float, 2, 3> h = H.topRows<2>();
         const std::optional<Eigen::Matrix2f> hhtInverse = invertNormalMatrix(Eigen::Matrix2f{h * h.transpose()});
         if (hhtInverse) {
-            /*!   -# Multiply the Ht(HHt)^-1 by the observation vector to get fit*/
             fit = Eigen::Vector3f{h.transpose() * *hhtInverse * y.head<2>()};
         }
-    } else if (numActiveCss >= kMinMeasurementsForWeightedFit) { /*! - If we have more than 2, do true LSQ fit*/
-        /*!    -# Use the weights to compute (HtWH)^-1HtW. The rows of H and the entries of y past
+    } else if (numActiveCss >= kMinMeasurementsForWeightedFit) {
+        /* The rows of H and the entries of y past
            numActiveCss are zero, so the products over the full operands equal the products over the
            active measurements alone. Forming them at full size keeps every intermediate a
            fixed-size Eigen type; a dynamically sized one would allocate, and this build forbids
@@ -243,7 +223,6 @@ std::optional<Eigen::Vector3f> CssWeightedLeastSquaresAlgorithm::computeWlsmn(
         const Eigen::Matrix<float, kMaxNumCss, 3> wh = weights.asDiagonal() * H;
         const std::optional<Eigen::Matrix3f> htwhInverse = invertNormalMatrix(Eigen::Matrix3f{H.transpose() * wh});
         if (htwhInverse) {
-            /*!    -# Multiply the LSQ matrix by the obs vector for best fit*/
             fit = Eigen::Vector3f{*htwhInverse * (wh.transpose() * y)};
         }
     }
