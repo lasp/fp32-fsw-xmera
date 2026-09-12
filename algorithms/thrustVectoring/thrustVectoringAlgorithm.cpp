@@ -14,21 +14,27 @@ Eigen::Vector3f solveThrustDirection(const Eigen::Vector3f& r_MC, float thrust, 
     const float b = r_MC.norm();  // moment arm about M; the configuration guarantees b > kMinR_CM
     const Eigen::Vector3f rHat_MC = r_MC / b;
 
-    // (1) Invert |L| = thrust * b * |tPerp| for the requested torque. The cross product also discards the
-    //     component of the request along r_MC, which no orientation can produce.
-    const Eigen::Vector3f tPerpRequested = (Lreq / (thrust * b)).cross(rHat_MC);
+    // The largest torque this geometry can deliver: the whole thrust, acting perpendicular to r_MC.
+    const float maxTorque = thrust * b;
 
-    // (2) Its length is the delivered torque as a fraction of the largest available, so a magnitude above one asks
-    //     for more than thrust * b; limiting it there saturates at the maximum in the requested direction.
-    const float tPerpMagnitude = fminf(tPerpRequested.stableNorm(), 1.0F);
+    // (1) Only the component of the thrust perpendicular to r_MC produces torque. Crossing the request with
+    //     rHat_MC turns it into that component, and discards the part of the request along r_MC, which no
+    //     direction can produce.
+    const Eigen::Vector3f tPerpRequested = Lreq.cross(rHat_MC);
+
+    // (2) Taken as a fraction of maxTorque, so a value above one asks for more torque than the geometry can
+    //     deliver; limiting it there saturates at the maximum in the requested direction.
+    const float tPerpMagnitude = fminf(tPerpRequested.stableNorm() / maxTorque, 1.0F);
     const Eigen::Vector3f tPerp = tPerpMagnitude * tPerpRequested.stableNormalized();
 
-    // (3) Compute the component along r_MC, exactly zero once saturated. Both signs deliver the same torque, since
-    //     this component produces no torque. Take the one that fires the thrust from M towards the center of
-    //     mass, which keeps the thrust acting on the vehicle from outside it.
+    // (3) The rest of the unit direction goes along r_MC, and is exactly zero once saturated. Both signs deliver
+    //     the same torque, since this component produces none. Take the one that fires the thrust from M towards
+    //     the center of mass, which keeps the thrust acting on the vehicle from outside it.
     const float tAlongMagnitude = safeSqrtf(1.0F - (tPerpMagnitude * tPerpMagnitude));
     const Eigen::Vector3f tAlong = -tAlongMagnitude * rHat_MC;
 
+    // The two components are perpendicular and their lengths square to one, so the sum is already a unit vector.
+    // Normalizing only removes the rounding the two components carry.
     const Eigen::Vector3f tHat = (tPerp + tAlong).stableNormalized();
 
     return tHat;
