@@ -6,34 +6,35 @@
 #include <stdexcept>
 
 namespace {
-//! The thruster fires along the platform frame's +z axis from the frame origin, so this is what the input message
-//! must report for the line of action to run through the joint.
+//! How far the incoming thruster description may stray from the one mounting this module can represent.
 constexpr float kThrusterMountingTolerance = 1e-3F;
 }  // namespace
 
 /*! @brief Build the validated configuration from the public properties and the fixed input messages.
  The vehicle and thruster configurations do not change while the module runs, so they are read once here rather
- than on every update; call reconfigure() to pick up a new value.
+ than on every update; call reconfigure() to pick up a new value. The module works entirely in the body frame:
+ the platform frame appears only in the contract the thruster description must satisfy.
  @return ThrustVectoringConfig validated configuration
 */
 ThrustVectoringConfig ThrustVectoring::toConfig() {
     const VehicleConfigMsgF32Payload vehConfigIn = this->vehConfigInMsg();
     const THRConfigMsgF32Payload thrusterConfigFIn = this->thrusterConfigFInMsg();
 
-    // This module models a thruster whose line of action runs through the joint M: it fires along the platform
-    // frame's +z axis from a point on that axis. Check the incoming thruster description really says so, rather
-    // than silently pointing a thruster the spacecraft does not have.
+    // Only maxThrust is taken from this message. The other two fields are a contract: the whole solve assumes
+    // the line of action runs through the joint M, which holds only for a thruster sitting at the platform frame
+    // origin and firing along that frame's +z axis. Reject any other description rather than reporting a
+    // confidently wrong thruster for one the spacecraft does not have.
     const Eigen::Vector3f r_TF_F = cArrayToEigenVector3<float>(thrusterConfigFIn.rThrust_B);
     const Eigen::Vector3f tHat_F = cArrayToEigenVector3<float>(thrusterConfigFIn.tHatThrust_B);
     if (!r_TF_F.allFinite() || r_TF_F.stableNorm() > kThrusterMountingTolerance) {
         throw std::invalid_argument(
             "thrustVectoring.thrusterConfigFInMsg reports a thrust application point away from the platform "
-            "frame origin; this module requires rThrust_B == 0.");
+            "frame origin; this module represents only a thruster with rThrust_B == 0.");
     }
     if (!tHat_F.allFinite() || (tHat_F - Eigen::Vector3f::UnitZ()).stableNorm() > kThrusterMountingTolerance) {
         throw std::invalid_argument(
             "thrustVectoring.thrusterConfigFInMsg reports a thrust direction off the platform +z axis; this "
-            "module requires tHatThrust_B == [0, 0, 1].");
+            "module represents only a thruster with tHatThrust_B == [0, 0, 1].");
     }
 
     if (!std::isfinite(this->armLength) || this->armLength < 0.0F) {

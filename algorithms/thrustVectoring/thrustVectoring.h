@@ -23,7 +23,7 @@ class ThrustVectoring final : public SysModel {
 
     /*! Phase 1: user-defined configuration properties, set before reset() */
     Eigen::Vector3f r_MB_B{
-        Eigen::Vector3f::Zero()};  //!< position of M frame origin w.r.t. B frame origin, in B frame coordinates
+        Eigen::Vector3f::Zero()};  //!< position of the joint M w.r.t. B frame origin, in B frame coordinates
     float armLength{};             //!< distance from the joint M to the thruster, against the thrust [m] (>= 0)
 
     /*! module IO interfaces */
