@@ -222,8 +222,10 @@ std::optional<Eigen::Vector3f> CssWeightedLeastSquaresAlgorithm::computeWlsmn(
 
     /*! - If we only have one sensor, output best guess (cone of possiblities)*/
     if (numActiveCss == 1) {
-        /* Here's a guess.  Do with it what you will. */
-        fit = Eigen::Vector3f{H.row(0).transpose() * y(0)};
+        /* The minimum norm solution of the single observation equation, which is the one-measurement
+           case of the two-measurement branch below. A disabled sensor never becomes an observation, so
+           the squared norm of the row is positive. */
+        fit = Eigen::Vector3f{H.row(0).transpose() * (y(0) / H.row(0).squaredNorm())};
     } else if (numActiveCss == 2) { /*! - If we have two, then do a 2x2 fit */
         /*!   -# Find minimum norm solution */
         const Eigen::Matrix<float, 2, 3> h = H.topRows<2>();

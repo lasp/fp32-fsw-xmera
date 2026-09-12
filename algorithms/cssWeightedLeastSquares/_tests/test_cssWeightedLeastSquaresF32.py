@@ -140,6 +140,25 @@ def test_css_weighted_least_squares_disabled_sensor():
     run_test(disabled_and_healthy, CSS_ORIENTATIONS[1], biases=biases)
 
 
+def test_css_weighted_least_squares_single_sensor_bias():
+    """Off Nominal Unit Test: one lit sensor whose calibration bias is not unity"""
+    cos_readings = cos_values(LOW_COVERAGE_HEADING)
+    cos_readings[0] = 0.0  # blind sensor 0, leaving sensor 3 as the only reading above threshold
+
+    bias = 2.0
+    biases = [1.0] * len(CSS_ORIENTATIONS)
+    biases[3] = bias
+
+    # One reading fixes only the cone about the boresight, so the heading is the boresight whatever the
+    # bias is. The unnormalized fit is the minimum norm solution of the single observation equation
+    # y = c (n_hat . d), which is (y / c) n_hat, and the residual measures it against the raw boresight.
+    reading = cos_readings[3]
+    expected_residuals = np.zeros(len(CSS_ORIENTATIONS))
+    expected_residuals[0] = reading - reading / bias
+
+    run_test(cos_readings, CSS_ORIENTATIONS[3], expected_residuals=expected_residuals, biases=biases)
+
+
 def test_css_weighted_least_squares_no_signal():
     """Off Nominal Unit Test: no reading above threshold, so there is no sun to estimate"""
     cos_readings = [0.0] * len(CSS_ORIENTATIONS)

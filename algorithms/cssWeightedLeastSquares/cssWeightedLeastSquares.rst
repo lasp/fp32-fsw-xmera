@@ -184,7 +184,15 @@ The fit depends on how many sensors are active, because the problem is over-dete
       \mathbf{d} = \mathbf{H}^T \left( \mathbf{H} \mathbf{H}^T \right)^{-1} \mathbf{y}
 
 - **One active sensor.** No fit is possible; the heading is only known to lie on a cone about the boresight. The
-  algorithm returns the scaled boresight :math:`\mathbf{d} = y_0 \mathbf{H}_0` as a best guess.
+  algorithm returns the minimum norm solution of the single observation equation as a best guess, which is the
+  one-measurement case of the two-sensor formula above:
+
+  .. math::
+
+      \mathbf{d} = \frac{y_0}{c_0} \hat{\mathbf{n}}_0
+
+  The heading is the boresight whatever the bias is, because the fit is normalized; the bias only scales the
+  unnormalized fit the residuals are measured against.
 
 - **No active sensors.** The sun cannot be estimated and the zero vector is returned.
 
