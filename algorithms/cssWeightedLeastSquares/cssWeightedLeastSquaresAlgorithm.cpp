@@ -81,7 +81,7 @@ void CssWeightedLeastSquaresAlgorithm::setConfig(const CssWeightedLeastSquaresCo
  */
 void CssWeightedLeastSquaresAlgorithm::reInitialize() {
     this->priorSignalAvailable = false;
-    this->dOld.setZero();
+    this->priorSunHeading_B.setZero();
 }
 
 /*! This method takes the parsed CSS sensor data and outputs an estimate of the
@@ -130,19 +130,20 @@ CssWeightedLeastSquaresOutput CssWeightedLeastSquaresAlgorithm::update(
         sunHeading_B = fit->stableNormalized();
 
         if (this->priorSignalAvailable) {
-            const Eigen::Vector3f rotationAxis = sunHeading_B.cross(this->dOld);
+            const Eigen::Vector3f rotationAxis = sunHeading_B.cross(this->priorSunHeading_B);
             const float rotationAxisMagnitude = rotationAxis.stableNorm();
             /* Leave the rate at zero when the two headings fix no axis to rotate about. Taking the
                angle from the cross product as well as the dot product keeps the significant digits of a
                small angle, which the dot product alone loses because its cosine rounds to one. */
             if (rotationAxisMagnitude > kMinRotationAxisMagnitude) {
-                const float principalAngle = safeAtan2f(rotationAxisMagnitude, sunHeading_B.dot(this->dOld));
+                const float principalAngle =
+                    safeAtan2f(rotationAxisMagnitude, sunHeading_B.dot(this->priorSunHeading_B));
                 omega_BN_B = rotationAxis * (principalAngle / (rotationAxisMagnitude * this->cfg.getControlPeriod()));
             }
         } else {
             this->priorSignalAvailable = true;
         }
-        this->dOld = sunHeading_B;
+        this->priorSunHeading_B = sunHeading_B;
     }
 
     /* Residuals are measured against the unnormalized fit, which is zero when there was no sun */
@@ -178,10 +179,10 @@ Eigen::Vector<float, kMaxNumCss> CssWeightedLeastSquaresAlgorithm::computeWlsRes
 
     for (uint32_t observation = 0; observation < numActiveCss; observation++) {
         const Eigen::Index sensor = activeSensors.at(observation);
-        const float rawDotProd = wlsEst.dot(this->cfg.getCssNHat_B().row(sensor).transpose());
+        const float rawDotProduct = wlsEst.dot(this->cfg.getCssNHat_B().row(sensor).transpose());
         /* A coarse sun sensor cannot report a negative cosine, so floor the prediction */
-        const float cssDotProd = rawDotProd > kMinCssMeasurement ? rawDotProd : kMinCssMeasurement;
-        cssResiduals(observation) = cssMeas(sensor) - cssDotProd;
+        const float cssDotProduct = rawDotProduct > kMinCssMeasurement ? rawDotProduct : kMinCssMeasurement;
+        cssResiduals(observation) = cssMeas(sensor) - cssDotProduct;
     }
 
     return cssResiduals;

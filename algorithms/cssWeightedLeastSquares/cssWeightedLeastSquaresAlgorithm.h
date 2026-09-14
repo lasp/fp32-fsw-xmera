@@ -199,9 +199,9 @@ class CssWeightedLeastSquaresAlgorithm final {
                                                          const std::array<Eigen::Index, kMaxNumCss>& activeSensors,
                                                          uint32_t numActiveCss) const;
 
-    CssWeightedLeastSquaresConfig cfg;               //!< [-] the validated configuration in force
-    Eigen::Vector3f dOld = Eigen::Vector3f::Zero();  //!< [-] prior normalized sun heading, body frame
-    bool priorSignalAvailable{};                     //!< [-] whether a prior heading is available for the rate
+    CssWeightedLeastSquaresConfig cfg;                            //!< [-] the validated configuration in force
+    Eigen::Vector3f priorSunHeading_B = Eigen::Vector3f::Zero();  //!< [-] prior normalized sun heading, body frame
+    bool priorSignalAvailable{};  //!< [-] whether a prior heading is available for the rate
 };
 
 #endif
