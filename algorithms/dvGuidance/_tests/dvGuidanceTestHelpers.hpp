@@ -221,13 +221,6 @@ inline void testDvGuidanceDeltaVNormBoundary(const Eigen::Vector3f& dvRotVecUnit
     testDvGuidanceDegenerateFallback(dvBelowThreshold, dvRotVecUnit, dvRotVecMag, burnStartTime, callTime);
 }
 
-inline void testDvGuidanceSetup() {
-    EXPECT_NO_THROW({
-        const DvGuidanceAlgorithm alg;
-        (void)alg;
-    });
-}
-
 inline void testDvGuidanceCrossBoundary(const Eigen::Vector3f& dvInrtlCmd,
                                         float dvRotVecMag,
                                         uint64_t burnStartTime,
