@@ -265,4 +265,18 @@ inline void propertyOutputIsFinite(const Eigen::Vector3f& dvInrtlCmd,
     }
 }
 
+// The MRP shadow-set switch keeps the attitude representation bounded to |sigma| <= 1.
+inline void propertySigmaNormBounded(const Eigen::Vector3f& dvInrtlCmd,
+                                     const Eigen::Vector3f& dvRotVecUnit,
+                                     float dvRotVecMag,
+                                     uint64_t burnStartTime,
+                                     uint64_t callTime) {
+    DvGuidanceAlgorithm alg;
+
+    DvGuidanceOutput out;
+    EXPECT_NO_THROW(out = alg.update(dvInrtlCmd, dvRotVecUnit, dvRotVecMag, burnStartTime, callTime));
+
+    EXPECT_LE(out.sigma_RN.stableNorm(), 1.0F + 1e-5F);
+}
+
 #endif

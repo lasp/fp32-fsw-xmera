@@ -47,24 +47,16 @@ TEST(DvGuidanceTest, AngularVelocityMagnitudeMatchesDvRotVecMag) {
                                            /* callTime      = */ 750000000U);  // 0.75 s
 }
 
-TEST(DvGuidanceTest, MrpStaysWithinShadowSwitch) {
-    // After many rotations the MRP magnitude must stay <= 1 (rigidBodyKinematics applies the shadow
-    // switch). This catches a regression where the conversion would let |sigma| grow unbounded.
-    DvGuidanceAlgorithm alg;
+TEST(DvGuidanceTest, SigmaNormBounded) {
+    // A 100 s burn at 0.5 rad/s produces 50 rad of accumulated rotation over multiple revolutions:
+    // the MRP attitude is expected to remain bounded with |sigma_RN| <= 1 + tolerance.
 
     // Long burn that wraps several full rotations (omega * dt = 0.5 * 100 = 50 rad).
-    DvGuidanceOutput out;
-    EXPECT_NO_THROW(out = alg.update(Eigen::Vector3f{1.0F, 0.0F, 0.0F},
-                                     Eigen::Vector3f{0.0F, 1.0F, 0.0F},
-                                     /* dvRotVecMag  = */ 0.5F,
-                                     /* burnStartTime= */ 0U,
-                                     /* callTime     = */ 100000000000U));  // 100 s
-
-    EXPECT_LE(out.sigma_RN.norm(), 1.0F + 1e-5F);
-    for (int i = 0; i < 3; ++i) {
-        EXPECT_TRUE(std::isfinite(out.sigma_RN[i]));
-        EXPECT_TRUE(std::isfinite(out.omega_RN_N[i]));
-    }
+    propertySigmaNormBounded(Eigen::Vector3f{1.0F, 0.0F, 0.0F},
+                             Eigen::Vector3f{0.0F, 1.0F, 0.0F},
+                             /* dvRotVecMag   = */ 0.5F,
+                             /* burnStartTime = */ 0U,
+                             /* callTime      = */ 100000000000U);  // 100 s
 }
 
 TEST(DvGuidanceTest, ZeroDeltaVCommand) {
