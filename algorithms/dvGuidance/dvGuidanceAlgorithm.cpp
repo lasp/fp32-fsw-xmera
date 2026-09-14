@@ -1,4 +1,5 @@
 #include "dvGuidanceAlgorithm.h"
+#include "utilities/fsw/freestandingIsFinite.hpp"
 #include "utilities/fsw/rigidBodyKinematics.hpp"
 #include "utilities/fsw/timeConstants.h"
 #include <math.h>
@@ -27,9 +28,12 @@ DvGuidanceOutput DvGuidanceAlgorithm::update(const Eigen::Vector3f& dvInrtlCmd,
     const Eigen::Vector3f cross = dvRotVecUnit.stableNormalized().cross(dvHat_N);
     const bool isCrossValid = dvRotVecUnit.allFinite() && cross.squaredNorm() >= kMinCrossSq;
 
+    // Guard: a non-finite rotation rate has no defined burn-frame rotation.
+    const bool isDvRotVecMagFinite = fsw::is_finite(dvRotVecMag);
+
     DvGuidanceOutput out{};
 
-    if (isDvInrtlCmdValid && isCrossValid) {
+    if (isDvRotVecMagFinite && isDvInrtlCmdValid && isCrossValid) {
         Eigen::Matrix3f dcm_BubN;
         dcm_BubN.row(0) = dvHat_N;
         dcm_BubN.row(1) = cross.normalized();
