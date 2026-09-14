@@ -141,6 +141,15 @@ TEST(DvGuidanceTest, InfiniteDvInrtlCmdReturnsDefault) {
                                      /* callTime      = */ 1000000000U);
 }
 
+TEST(DvGuidanceTest, InfiniteDvRotVecUnitReturnsDefault) {
+    // Check that the allFinite() guard rejects a non-finite rotation-axis input.
+    testDvGuidanceDegenerateFallback(Eigen::Vector3f{1.0F, 1.0F, 1.0F},
+                                     Eigen::Vector3f{std::numeric_limits<float>::infinity(), 0.0F, 0.0F},
+                                     /* dvRotVecMag   = */ 0.5F,
+                                     /* burnStartTime = */ 0U,
+                                     /* callTime      = */ 1000000000U);
+}
+
 TEST(DvGuidanceTest, InfiniteRotationRateReturnsDefault) {
     // Check that the is_finite() guard rejects a non-finite rotation rate.
     testDvGuidanceDegenerateFallback(Eigen::Vector3f{1.0F, 0.0F, 0.0F},
