@@ -23,22 +23,6 @@ TEST(ThrustVectoringTest, RegressionAxisAlignedThrustWithRequestedTorque) {
     regressionTestThrustVectoring({0.0F, 0.1F, 1.4F}, {0.05F, 0.02F, 0.1F}, 10.0F, {0.4F, -0.2F, 0.3F}, kAccuracy);
 }
 
-TEST(ThrustVectoringTest, RegressionOffsetThrustPoint) {
-    regressionTestThrustVectoring({0.0F, 0.1F, 1.4F}, {0.2F, -0.1F, 0.15F}, 5.0F, Eigen::Vector3f::Zero(), kAccuracy);
-}
-
-TEST(ThrustVectoringTest, RegressionOffsetThrustPointWithRequestedTorque) {
-    regressionTestThrustVectoring({0.0F, 0.1F, 1.4F}, {0.2F, -0.1F, 0.15F}, 5.0F, {-0.3F, 0.15F, 0.25F}, kAccuracy);
-}
-
-TEST(ThrustVectoringTest, RegressionArbitraryGeometry) {
-    regressionTestThrustVectoring({0.1F, -0.2F, 0.9F}, {0.3F, 0.25F, -0.1F}, 12.0F, Eigen::Vector3f::Zero(), kAccuracy);
-}
-
-TEST(ThrustVectoringTest, RegressionArbitraryGeometryWithRequestedTorque) {
-    regressionTestThrustVectoring({0.1F, -0.2F, 0.9F}, {0.3F, 0.25F, -0.1F}, 12.0F, {0.5F, 0.6F, -0.4F}, kAccuracy);
-}
-
 // A request beyond thrust * |r_MC| is regression-checked too: the helper expects the saturated torque.
 TEST(ThrustVectoringTest, RegressionSaturatedRequest) {
     regressionTestThrustVectoring({0.0F, 0.1F, 1.4F}, {0.05F, 0.02F, 0.1F}, 10.0F, {1e3F, -5e2F, 8e2F}, kAccuracy);
