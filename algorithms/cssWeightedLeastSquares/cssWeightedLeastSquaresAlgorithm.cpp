@@ -107,7 +107,10 @@ CssWeightedLeastSquaresOutput CssWeightedLeastSquaresAlgorithm::update(
     /*! -# increase the number of valid observations */
     /*! -# Otherwise just continue */
     for (uint32_t i = 0; i < this->cfg.getNumCss(); i = i + 1) {
-        if (cosValues(i) > this->cfg.getSensorUseThresh()) {
+        /* A sensor with no gain measures nothing, so a zero bias disables it for the whole cycle
+           rather than contributing an observation the fit cannot use. */
+        const bool sensorEnabled = this->cfg.getCssBias()(i) > 0.0F;
+        if (sensorEnabled && cosValues(i) > this->cfg.getSensorUseThresh()) {
             H.row(numActiveCss) = this->cfg.getCssBias()(i) * this->cfg.getCssNHat_B().row(i);
             y(numActiveCss) = cosValues(i);
             activeSensors.at(numActiveCss) = i;

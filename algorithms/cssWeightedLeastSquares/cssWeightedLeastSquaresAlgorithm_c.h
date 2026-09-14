@@ -24,7 +24,7 @@ uint32_t CssWeightedLeastSquaresAlgorithm_getMaxNumCss(void);
 
 /**
  * @brief Report whether a configuration would be accepted by create/setConfig.
- * @param constellation    CSS geometry; numCss in [1, max], near-unit boresights, non-negative biases.
+ * @param constellation    CSS geometry; numCss in [1, max], near-unit boresights, biases >= 0 (zero disables a sensor).
  * @param useWeights       [-] whether to weight the measurements in the least squares fit.
  * @param sensorUseThresh  [-] cosine threshold at or below which a reading is discarded; must lie in [-1, 1].
  * @param controlPeriod    [s] time between two update calls; must be finite and > 0.

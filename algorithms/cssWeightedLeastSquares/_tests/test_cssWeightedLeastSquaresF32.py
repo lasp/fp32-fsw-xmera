@@ -48,15 +48,17 @@ def cos_values(sun_heading_B):
 
 
 
-def css_config_msg():
+def css_config_msg(biases=None):
     """The constellation geometry message. The module reads the sensor layout from here rather than
     from properties, so one message can configure every estimator that shares the array."""
     css_config_data = messaging.CSSConfigMsgF32Payload()
+    if biases is None:
+        biases = [1.0] * len(CSS_ORIENTATIONS)
     sensors = []
-    for n_hat_B in CSS_ORIENTATIONS:
+    for n_hat_B, bias in zip(CSS_ORIENTATIONS, biases):
         sensor = messaging.CSSUnitConfigMsgF32Payload()
         sensor.nHat_B = n_hat_B
-        sensor.CBias = 1.0
+        sensor.CBias = bias
         sensors.append(sensor)
     css_config_data.nCSS = len(CSS_ORIENTATIONS)
     css_config_data.cssVals = sensors
@@ -110,6 +112,29 @@ def test_css_weighted_least_squares_single_sensor_coverage():
     # One reading fixes only the cone of headings about that sensor's boresight, so the estimator
     # returns the boresight itself. That is a guess on the cone, not an estimate of the heading.
     run_test(cos_readings, CSS_ORIENTATIONS[3])
+
+
+def test_css_weighted_least_squares_disabled_sensor():
+    """Off Nominal Unit Test: a zero bias disables a sensor for the cycle"""
+    biases = [1.0] * len(CSS_ORIENTATIONS)
+    biases[0] = 0.0  # sensor 0 has no gain, so it measures nothing
+
+    # A sun along +x lights sensors 0 to 3. Disabling sensor 0 leaves the remaining three to fit the same
+    # heading, and the disabled sensor is not counted among the sensors viewing the sun.
+    run_test(cos_values([1.0, 0.0, 0.0]), [1.0, 0.0, 0.0], biases=biases)
+
+    # With only the disabled sensor lit there is no measurement at all, so there is no heading rather
+    # than a fit built from a sensor with no gain.
+    only_disabled = [0.0] * len(CSS_ORIENTATIONS)
+    only_disabled[0] = 0.7071
+    run_test(only_disabled, np.zeros(3), biases=biases)
+
+    # A disabled sensor must not take a healthy one down with it: the remaining reading still fixes the
+    # cone about its own boresight.
+    disabled_and_healthy = [0.0] * len(CSS_ORIENTATIONS)
+    disabled_and_healthy[0] = 0.7071
+    disabled_and_healthy[1] = 0.7071
+    run_test(disabled_and_healthy, CSS_ORIENTATIONS[1], biases=biases)
 
 
 def test_css_weighted_least_squares_no_signal():
@@ -441,6 +466,7 @@ def run_test(
     expected_heading,
     expected_residuals=None,
     use_weights=False,
+    biases=None,
 ):
     unit_task_name = "unitTask"
     unit_process_name = "TestProcess"
@@ -455,7 +481,7 @@ def run_test(
     module = cssWeightedLeastSquaresF32.CssWeightedLeastSquares()
     module.modelTag = "cssWeightedLeastSquares"
 
-    config_in_msg = css_config_msg()
+    config_in_msg = css_config_msg(biases)
     module.cssConfigInMsg.subscribeTo(config_in_msg)
     module.useWeights = use_weights
     module.sensorUseThresh = SENSOR_USE_THRESH
@@ -485,8 +511,12 @@ def run_test(
     module_output_residuals = filter_data_log.postFits
     module_output_num_active = num_active_data_log.numActiveCss
 
-    # The estimator drops every reading at or below the threshold, so this is the count it must report.
-    expected_num_active = sum(1 for reading in cos_readings if reading > SENSOR_USE_THRESH)
+    # The estimator drops every reading at or below the threshold and every sensor disabled by a zero
+    # bias, so this is the count it must report.
+    sensor_biases = [1.0] * len(CSS_ORIENTATIONS) if biases is None else biases
+    expected_num_active = sum(
+        1 for reading, bias in zip(cos_readings, sensor_biases) if bias > 0.0 and reading > SENSOR_USE_THRESH
+    )
 
     np.testing.assert_allclose(module_output_heading[-1], expected_heading, rtol=1e-6, atol=1e-6, verbose=True)
     np.testing.assert_array_equal(module_output_num_active[-1], expected_num_active)

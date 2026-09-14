@@ -107,7 +107,8 @@ configuration, so no configuration path allocates; slots at or beyond ``nCSS`` a
       - float
       - \-
       - >= 0, finite
-      - Calibration scale factor applied to the boresight
+      - Calibration scale factor applied to the boresight. Zero disables the sensor: it measures nothing, so the
+        module ignores its reading and does not count it among the sensors viewing the sun
 
 The module also publishes ``numActiveCss``, the number of sensors above the use threshold on the most recent cycle. It
 is written by ``updateState()`` for telemetry and logging and is not a configuration input.
@@ -139,7 +140,10 @@ Algorithm Layer
 Mathematical Formulation
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-Each cycle the algorithm selects the active sensors, those whose reading exceeds ``sensorUseThresh``. For each active
+Each cycle the algorithm selects the active sensors, those that are enabled and whose reading exceeds
+``sensorUseThresh``. A sensor whose bias is zero has no gain and therefore measures nothing, so it is disabled:
+leaving it in the fit would add an observation that no heading can explain, and it would be counted among the
+sensors viewing the sun. For each active
 sensor :math:`i` it forms a row of the observation matrix from the calibrated boresight, and the corresponding entry of
 the observation vector from the measurement:
 

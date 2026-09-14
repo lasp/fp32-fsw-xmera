@@ -14,7 +14,7 @@ extern "C" {
  * @brief Plain-old-data mirror of the C++ CssConfiguration fields.
  *
  *  - nHat_B norm must be within 1e-3 of 1.0 (normalized on storage)
- *  - bias must be finite and non-negative
+ *  - bias must be finite and not negative; zero disables the sensor
  */
 typedef struct {
     Vector3f_c nHat_B; /*!< [-] boresight unit vector, body frame components */
