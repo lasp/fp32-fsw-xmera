@@ -65,11 +65,11 @@ inline ReferenceDvGuidanceOutput referenceDvGuidance(const Eigen::Vector3d& dvIn
     };
 }
 
-inline void testDvGuidance(const Eigen::Vector3f& dvInrtlCmd,
-                           const Eigen::Vector3f& dvRotVecUnit,
-                           float dvRotVecMag,
-                           uint64_t burnStartTime,
-                           uint64_t callTime) {
+inline void testDvGuidanceRegression(const Eigen::Vector3f& dvInrtlCmd,
+                                     const Eigen::Vector3f& dvRotVecUnit,
+                                     float dvRotVecMag,
+                                     uint64_t burnStartTime,
+                                     uint64_t callTime) {
     DvGuidanceAlgorithm alg;
 
     DvGuidanceOutput out;

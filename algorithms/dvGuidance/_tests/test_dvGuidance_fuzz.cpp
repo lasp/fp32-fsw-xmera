@@ -7,7 +7,7 @@ namespace {
 
 /// Fuzzes the burn-command inputs and the (callTime - burnStartTime) elapsed-time delta across the
 /// full domain, including the degenerate cases the algorithm now guards (zero-norm dvInrtlCmd and
-/// dvRotVecUnit (anti)parallel to it). testDvGuidance asserts the output is always finite and
+/// dvRotVecUnit (anti)parallel to it). testDvGuidanceRegression asserts the output is always finite and
 /// reference-matches at 1e-5 only where the inputs are non-degenerate by margin. See dvGuidance.rst
 /// ("Numerical conditioning") for why the guard thresholds bound the FP32 reference error.
 void fuzzDvGuidance(const Eigen::Vector3f& dvInrtlCmd,
@@ -16,7 +16,7 @@ void fuzzDvGuidance(const Eigen::Vector3f& dvInrtlCmd,
                     int64_t burnTime_ns) {
     constexpr uint64_t burnStartTime = 1'000'000'000ULL;  // arbitrary 1 s anchor
     const uint64_t callTime = static_cast<uint64_t>(static_cast<int64_t>(burnStartTime) + burnTime_ns);
-    testDvGuidance(dvInrtlCmd, dvRotVecUnit, dvRotVecMag, burnStartTime, callTime);
+    testDvGuidanceRegression(dvInrtlCmd, dvRotVecUnit, dvRotVecMag, burnStartTime, callTime);
 }
 
 }  // namespace
