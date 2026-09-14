@@ -20,12 +20,12 @@ DvGuidanceOutput DvGuidanceAlgorithm::update(const Eigen::Vector3f& dvInrtlCmd,
     // 3rd axis completes the right-handed triad. The DCM rows are the Bub axes in N coordinates.
     const Eigen::Vector3f dvHat_N = dvInrtlCmd.stableNormalized();
 
-    // Guard: when dvRotVecUnit is (anti)parallel to dvHat_N (or itself near-zero) the cross product
-    // collapses, so the base frame is ill-defined and FP32-noise-dominated. Hold attitude rather
-    // than emit noise/NaN. The negated form also rejects the NaN a zero-axis stableNormalized()
-    // produces (NaN >= kMinCrossSq is false).
+    // Guard: when dvRotVecUnit is non-finite, (anti)parallel to dvHat_N, or itself near-zero, the
+    // cross product is undefined or collapses, so the base frame is ill-defined and FP32-noise-
+    // dominated. Hold attitude rather than emit noise/NaN. The negated form also rejects the NaN a
+    // zero-axis stableNormalized() produces (NaN >= kMinCrossSq is false).
     const Eigen::Vector3f cross = dvRotVecUnit.stableNormalized().cross(dvHat_N);
-    const bool isCrossValid = cross.squaredNorm() >= kMinCrossSq;
+    const bool isCrossValid = dvRotVecUnit.allFinite() && cross.squaredNorm() >= kMinCrossSq;
 
     DvGuidanceOutput out{};
 
