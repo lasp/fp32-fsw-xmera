@@ -33,24 +33,10 @@ TEST(DvGuidanceTest, ReferenceTestPrelaunch) {
 
 TEST(DvGuidanceTest, ZeroRotationRate) {
     // dvRotVecMag = 0: the burn frame is fixed; omega_RN_N must be exactly zero regardless of time.
-    DvGuidanceAlgorithm alg;
-
-    DvGuidanceOutput out;
-    EXPECT_NO_THROW(out = alg.update(Eigen::Vector3f{1.0F, 0.0F, 0.0F},
-                                     Eigen::Vector3f{0.0F, 1.0F, 0.0F},
-                                     /* dvRotVecMag  = */ 0.0F,
-                                     /* burnStartTime= */ 0U,
-                                     /* callTime     = */ 5000000000U));  // 5.0 s
-
-    EXPECT_FLOAT_EQ(out.omega_RN_N[0], 0.0F);
-    EXPECT_FLOAT_EQ(out.omega_RN_N[1], 0.0F);
-    EXPECT_FLOAT_EQ(out.omega_RN_N[2], 0.0F);
-    EXPECT_FLOAT_EQ(out.domega_RN_N[0], 0.0F);
-    EXPECT_FLOAT_EQ(out.domega_RN_N[1], 0.0F);
-    EXPECT_FLOAT_EQ(out.domega_RN_N[2], 0.0F);
-    for (int i = 0; i < 3; ++i) {
-        EXPECT_TRUE(std::isfinite(out.sigma_RN[i]));
-    }
+    testDvGuidanceZeroRotationRate(Eigen::Vector3f{1.0F, 0.0F, 0.0F},
+                                   Eigen::Vector3f{0.0F, 1.0F, 0.0F},
+                                   /* burnStartTime = */ 0U,
+                                   /* callTime      = */ 5000000000U);
 }
 
 TEST(DvGuidanceTest, AngularVelocityMagnitudeMatchesDvRotVecMag) {
