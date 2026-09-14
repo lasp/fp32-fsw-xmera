@@ -111,6 +111,27 @@ inline void testDvGuidance(const Eigen::Vector3f& dvInrtlCmd,
     }
 }
 
+inline void testDvGuidanceZeroRotationRate(const Eigen::Vector3f& dvInrtlCmd,
+                                           const Eigen::Vector3f& dvRotVecUnit,
+                                           uint64_t burnStartTime,
+                                           uint64_t callTime) {
+    DvGuidanceAlgorithm alg;
+
+    DvGuidanceOutput out;
+    EXPECT_NO_THROW(out = alg.update(dvInrtlCmd, dvRotVecUnit, 0.0F, burnStartTime, callTime));
+
+    EXPECT_FLOAT_EQ(out.omega_RN_N[0], 0.0F);
+    EXPECT_FLOAT_EQ(out.omega_RN_N[1], 0.0F);
+    EXPECT_FLOAT_EQ(out.omega_RN_N[2], 0.0F);
+    EXPECT_FLOAT_EQ(out.domega_RN_N[0], 0.0F);
+    EXPECT_FLOAT_EQ(out.domega_RN_N[1], 0.0F);
+    EXPECT_FLOAT_EQ(out.domega_RN_N[2], 0.0F);
+
+    for (int i = 0; i < 3; ++i) {
+        EXPECT_TRUE(std::isfinite(out.sigma_RN[i]));
+    }
+}
+
 // Inputs to this helper must exercise a degenerate case that returns the safe default.
 inline void testDvGuidanceDegenerateFallback(const Eigen::Vector3f& dvInrtlCmd,
                                              const Eigen::Vector3f& dvRotVecUnit,
