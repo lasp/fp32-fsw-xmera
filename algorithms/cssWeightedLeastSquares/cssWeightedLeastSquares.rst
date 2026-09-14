@@ -76,8 +76,9 @@ built and can be edited between builds.
     * - sensorUseThresh
       - float
       - \-
-      - [-1, 1]
-      - Cosine threshold at or below which a sensor reading is discarded
+      - [0, 1]
+      - Cosine threshold at or below which a sensor reading is discarded. A sensor cannot report a negative
+        cosine, so a negative threshold would only admit the sensors that see no sun
     * - controlPeriod
       - float
       - s

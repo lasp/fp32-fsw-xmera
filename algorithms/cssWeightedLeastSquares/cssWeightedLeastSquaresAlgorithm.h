@@ -62,7 +62,7 @@ class CssWeightedLeastSquaresConfig final {
                 "vector within 1e-3 and a bias that is finite and non-negative");
         }
         if (!isValidSensorUseThresh(sensorUseThresh)) {
-            FSW_THROW_INVALID_ARGUMENT("cssWeightedLeastSquares: sensorUseThresh must be a cosine in [-1, 1]");
+            FSW_THROW_INVALID_ARGUMENT("cssWeightedLeastSquares: sensorUseThresh must be a cosine in [0, 1]");
         }
         if (!isValidControlPeriod(controlPeriod)) {
             FSW_THROW_INVALID_ARGUMENT("cssWeightedLeastSquares: controlPeriod must be finite and > 0");
@@ -105,8 +105,11 @@ class CssWeightedLeastSquaresConfig final {
         return fsw::is_finite(controlPeriod) && controlPeriod > 0.0F;
     }
 
+    /*! A coarse sun sensor cannot report a negative cosine, so a negative threshold cannot exclude any
+        reading that zero would not. All it does is admit the sensors that see no sun at all, whose
+        readings then constrain the fit as though the heading were square to their boresights. */
     static bool isValidSensorUseThresh(const float sensorUseThresh) {
-        return fsw::is_finite(sensorUseThresh) && sensorUseThresh >= -1.0F && sensorUseThresh <= 1.0F;
+        return fsw::is_finite(sensorUseThresh) && sensorUseThresh >= 0.0F && sensorUseThresh <= 1.0F;
     }
 
     // No isValidUseWeights -- a bool with no semantic constraint, the validator would be vacuous.
