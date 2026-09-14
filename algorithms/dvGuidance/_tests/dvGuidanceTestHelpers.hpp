@@ -29,7 +29,7 @@ inline ReferenceDvGuidanceOutput referenceDvGuidance(const Eigen::Vector3d& dvIn
     const ReferenceDvGuidanceOutput safeDefault = {
         Eigen::Matrix3d::Identity(), Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero()};
 
-    if (dvInrtlCmd.squaredNorm() < static_cast<double>(DvGuidanceAlgorithm::kMinNormSq)) {
+    if (!dvInrtlCmd.allFinite() || dvInrtlCmd.squaredNorm() < static_cast<double>(DvGuidanceAlgorithm::kMinNormSq)) {
         return safeDefault;
     }
     const Eigen::Vector3d dvHat_N = dvInrtlCmd.normalized();
