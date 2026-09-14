@@ -113,3 +113,12 @@ TEST(DvGuidanceTest, BelowSmallAngleThresholdUsesBaseAttitude) {
                                            /* burnStartTime = */ 0U,
                                            /* callTime      = */ 10000000U);  // 0.01 s
 }
+
+TEST(DvGuidanceTest, DeltaVNormBoundary) {
+    // dvInrtlCmd squared norm is tested at kMinNormSq and immediately below it:
+    // equality is expected to be accepted, while the value below returns the safe default.
+    testDvGuidanceDeltaVNormBoundary(Eigen::Vector3f{0.0F, 1.0F, 0.0F},
+                                     /* dvRotVecMag   = */ 0.3F,
+                                     /* burnStartTime = */ 0U,
+                                     /* callTime      = */ 1000000000U);  // 1.0 s
+}
