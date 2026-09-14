@@ -150,3 +150,12 @@ TEST(DvGuidanceTest, DeltaVNormBoundary) {
                                      /* burnStartTime = */ 0U,
                                      /* callTime      = */ 1000000000U);  // 1.0 s
 }
+
+TEST(DvGuidanceTest, CrossBoundary) {
+    // cross squared norm is tested at kMinCrossSq and immediately below it:
+    // equality is expected to be accepted, while the value below returns the safe default.
+    testDvGuidanceCrossBoundary(Eigen::Vector3f{1.0F, 0.0F, 0.0F},
+                                /* dvRotVecMag   = */ 0.3F,
+                                /* burnStartTime = */ 0U,
+                                /* callTime      = */ 1000000000U);  // 1.0 s
+}
