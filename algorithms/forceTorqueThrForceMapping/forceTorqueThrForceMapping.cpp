@@ -22,8 +22,7 @@ void ForceTorqueThrForceMapping::reset(const uint64_t callTime) {
     THRArrayConfigMsgF32Payload thrConfigIn = this->thrConfigInMsg();
 
     ThrusterArrayConfiguration thrusterConfiguration{};
-    thrusterConfiguration.numThrusters = thrConfigIn.numThrusters;
-    for (uint32_t i = 0; i < thrConfigIn.numThrusters; ++i) {
+    for (uint32_t i = 0; i < kMaxThrusterCount; ++i) {
         if (thrConfigIn.thrusters[i].maxThrust <= 0.0F) {
             throw std::invalid_argument(
                 "forceTorqueThrForceMapping: A configured thruster has a non-sensible "
@@ -44,8 +43,7 @@ ForceTorqueThrForceMappingConfig ForceTorqueThrForceMapping::toConfig() {
     THRArrayConfigMsgF32Payload thrConfigIn = this->thrConfigInMsg();
 
     ThrusterArrayConfiguration thrusterConfiguration{};
-    thrusterConfiguration.numThrusters = thrConfigIn.numThrusters;
-    for (uint32_t i = 0; i < thrConfigIn.numThrusters; ++i) {
+    for (uint32_t i = 0; i < kMaxThrusterCount; ++i) {
         if (thrConfigIn.thrusters[i].maxThrust <= 0.0F) {
             throw std::invalid_argument(
                 "forceTorqueThrForceMapping: A configured thruster has a non-sensible "

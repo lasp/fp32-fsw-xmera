@@ -50,8 +50,7 @@ void ForceTorqueThrForceMappingAlgorithm_setConfig(ForceTorqueThrForceMappingAlg
 /**
  * @brief Compute thruster force commands from the requested torque and force vectors.
  *
- * Entries 0..numThrusters-1 carry the non-negative, min-shifted per-thruster commands; trailing
- * slots are exactly zero. update() does not throw.
+ * Every entry carries a non-negative, min-shifted per-thruster command. update() does not throw.
  *
  * @param self        Pointer to the instance.
  * @param cmdTorque_B [Nm] requested control torque in body frame

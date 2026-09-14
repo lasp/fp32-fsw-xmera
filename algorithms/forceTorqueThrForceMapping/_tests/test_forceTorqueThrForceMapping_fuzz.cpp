@@ -3,8 +3,7 @@
 #include <fuzztest/fuzztest.h>
 
 FUZZ_TEST(ForceTorqueThrForceMappingFuzz, runRegressionCase)
-    .WithDomains(fuzztest::InRange<std::uint32_t>(1U, kMaxThrusterCount),
-                 fuzztest::VectorOf(xmera::fuzz::Vector3fInRange(-5.0F, 5.0F)).WithSize(kMaxThrusterCount),
+    .WithDomains(fuzztest::VectorOf(xmera::fuzz::Vector3fInRange(-5.0F, 5.0F)).WithSize(kMaxThrusterCount),
                  fuzztest::VectorOf(xmera::fuzz::Vector3fInRange(-1.0F, 1.0F)).WithSize(kMaxThrusterCount),
                  xmera::fuzz::Vector3fInRange(-2.0F, 2.0F),
                  xmera::fuzz::Vector3fInRange(-10.0F, 10.0F),
@@ -15,24 +14,14 @@ FUZZ_TEST(ForceTorqueThrForceMappingFuzz, runRegressionCase)
 // ---------------------------------------------------------------------------
 
 FUZZ_TEST(ForceTorqueThrForceMappingPropertyFuzz, propertyNonNegativeForces)
-    .WithDomains(fuzztest::InRange<std::uint32_t>(1U, kMaxThrusterCount),
-                 fuzztest::VectorOf(xmera::fuzz::Vector3fInRange(-5.0F, 5.0F)).WithSize(kMaxThrusterCount),
+    .WithDomains(fuzztest::VectorOf(xmera::fuzz::Vector3fInRange(-5.0F, 5.0F)).WithSize(kMaxThrusterCount),
                  fuzztest::VectorOf(xmera::fuzz::Vector3fInRange(-1.0F, 1.0F)).WithSize(kMaxThrusterCount),
                  xmera::fuzz::Vector3fInRange(-2.0F, 2.0F),
                  xmera::fuzz::Vector3fInRange(-10.0F, 10.0F),
                  xmera::fuzz::Vector3fInRange(-1e3F, 1e3F));
 
 FUZZ_TEST(ForceTorqueThrForceMappingPropertyFuzz, propertyMinimumIsZero)
-    .WithDomains(fuzztest::InRange<std::uint32_t>(1U, kMaxThrusterCount),
-                 fuzztest::VectorOf(xmera::fuzz::Vector3fInRange(-5.0F, 5.0F)).WithSize(kMaxThrusterCount),
-                 fuzztest::VectorOf(xmera::fuzz::Vector3fInRange(-1.0F, 1.0F)).WithSize(kMaxThrusterCount),
-                 xmera::fuzz::Vector3fInRange(-2.0F, 2.0F),
-                 xmera::fuzz::Vector3fInRange(-10.0F, 10.0F),
-                 xmera::fuzz::Vector3fInRange(-1e3F, 1e3F));
-
-FUZZ_TEST(ForceTorqueThrForceMappingPropertyFuzz, propertyPaddingIsZero)
-    .WithDomains(fuzztest::InRange<std::uint32_t>(1U, kMaxThrusterCount),
-                 fuzztest::VectorOf(xmera::fuzz::Vector3fInRange(-5.0F, 5.0F)).WithSize(kMaxThrusterCount),
+    .WithDomains(fuzztest::VectorOf(xmera::fuzz::Vector3fInRange(-5.0F, 5.0F)).WithSize(kMaxThrusterCount),
                  fuzztest::VectorOf(xmera::fuzz::Vector3fInRange(-1.0F, 1.0F)).WithSize(kMaxThrusterCount),
                  xmera::fuzz::Vector3fInRange(-2.0F, 2.0F),
                  xmera::fuzz::Vector3fInRange(-10.0F, 10.0F),
@@ -41,14 +30,13 @@ FUZZ_TEST(ForceTorqueThrForceMappingPropertyFuzz, propertyPaddingIsZero)
 // Scale-invariance is mathematically exact for any rank, but fp32 noise scales with ||pinv|| * ||ft||.
 // Truncated-SVD bounds ||pinv|| <= 1/(sigma_max * eps * max(m,n)) ~ 2.5e5/sigma_max, so the noise
 // floor is finite — but inputs near the truncation threshold (where sigma_min_kept barely exceeds
-// the cutoff) still drive ||pinv|| toward that bound. Empirically, numThrusters >= 6 keeps the
-// kept singular values comfortably above the truncation tol for almost all fuzz inputs in the
+// the cutoff) still drive ||pinv|| toward that bound. The full eight thrusters keep the kept
+// singular values comfortably above the truncation tol for almost all fuzz inputs in the
 // configured ranges. Command magnitude and scale factor stay capped so that min-shift cancellation
 // (subtraction of two values each with eps*||pinv||*||ft|| absolute precision) stays inside the
 // test's atol=1e-4 budget.
 FUZZ_TEST(ForceTorqueThrForceMappingPropertyFuzz, propertyScaleInvariance)
-    .WithDomains(fuzztest::InRange<std::uint32_t>(6U, kMaxThrusterCount),
-                 fuzztest::VectorOf(xmera::fuzz::Vector3fInRange(-5.0F, 5.0F)).WithSize(kMaxThrusterCount),
+    .WithDomains(fuzztest::VectorOf(xmera::fuzz::Vector3fInRange(-5.0F, 5.0F)).WithSize(kMaxThrusterCount),
                  fuzztest::VectorOf(xmera::fuzz::Vector3fInRange(-1.0F, 1.0F)).WithSize(kMaxThrusterCount),
                  xmera::fuzz::Vector3fInRange(-2.0F, 2.0F),
                  xmera::fuzz::Vector3fInRange(-10.0F, 10.0F),
@@ -56,16 +44,14 @@ FUZZ_TEST(ForceTorqueThrForceMappingPropertyFuzz, propertyScaleInvariance)
                  fuzztest::InRange(0.1F, 10.0F));
 
 FUZZ_TEST(ForceTorqueThrForceMappingPropertyFuzz, propertyStateless)
-    .WithDomains(fuzztest::InRange<std::uint32_t>(1U, kMaxThrusterCount),
-                 fuzztest::VectorOf(xmera::fuzz::Vector3fInRange(-5.0F, 5.0F)).WithSize(kMaxThrusterCount),
+    .WithDomains(fuzztest::VectorOf(xmera::fuzz::Vector3fInRange(-5.0F, 5.0F)).WithSize(kMaxThrusterCount),
                  fuzztest::VectorOf(xmera::fuzz::Vector3fInRange(-1.0F, 1.0F)).WithSize(kMaxThrusterCount),
                  xmera::fuzz::Vector3fInRange(-2.0F, 2.0F),
                  xmera::fuzz::Vector3fInRange(-10.0F, 10.0F),
                  xmera::fuzz::Vector3fInRange(-1e3F, 1e3F));
 
 FUZZ_TEST(ForceTorqueThrForceMappingPropertyFuzz, propertyFiniteOutput)
-    .WithDomains(fuzztest::InRange<std::uint32_t>(1U, kMaxThrusterCount),
-                 fuzztest::VectorOf(xmera::fuzz::Vector3fInRange(-5.0F, 5.0F)).WithSize(kMaxThrusterCount),
+    .WithDomains(fuzztest::VectorOf(xmera::fuzz::Vector3fInRange(-5.0F, 5.0F)).WithSize(kMaxThrusterCount),
                  fuzztest::VectorOf(xmera::fuzz::Vector3fInRange(-1.0F, 1.0F)).WithSize(kMaxThrusterCount),
                  xmera::fuzz::Vector3fInRange(-2.0F, 2.0F),
                  xmera::fuzz::Vector3fInRange(-10.0F, 10.0F),
@@ -81,8 +67,7 @@ FUZZ_TEST(ForceTorqueThrForceMappingPropertyFuzz, propertyAchievesCommandForBala
                  xmera::fuzz::EigenVectorOf<float, 8>(fuzztest::InRange(0.0F, 10.0F)));
 
 FUZZ_TEST(ForceTorqueThrForceMappingPropertyFuzz, propertyOutputMagnitudeBounded)
-    .WithDomains(fuzztest::InRange<std::uint32_t>(1U, kMaxThrusterCount),
-                 fuzztest::VectorOf(xmera::fuzz::Vector3fInRange(-5.0F, 5.0F)).WithSize(kMaxThrusterCount),
+    .WithDomains(fuzztest::VectorOf(xmera::fuzz::Vector3fInRange(-5.0F, 5.0F)).WithSize(kMaxThrusterCount),
                  fuzztest::VectorOf(xmera::fuzz::Vector3fInRange(-1.0F, 1.0F)).WithSize(kMaxThrusterCount),
                  xmera::fuzz::Vector3fInRange(-2.0F, 2.0F),
                  xmera::fuzz::Vector3fInRange(-10.0F, 10.0F),

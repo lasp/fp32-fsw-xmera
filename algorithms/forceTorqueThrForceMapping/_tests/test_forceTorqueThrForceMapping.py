@@ -47,7 +47,7 @@ rcs_direction_data_2 = [[0.0, 1.0, 0.0],
 
 np.random.seed(42)
 
-num_thr_rand = np.random.randint(1, messaging.MAX_EFF_CNT)
+num_thr_rand = messaging.MAX_EFF_CNT
 rcs_location_data_rand = np.round(np.random.randn(num_thr_rand, 3), 3).tolist()
 randomized_directions = np.round(np.random.randn(num_thr_rand, 3), 3)
 rcs_direction_data_rand = (randomized_directions / np.linalg.norm(randomized_directions, axis=1)[:, None]).tolist()
@@ -143,7 +143,7 @@ def test_force_torque_thr_force_mapping(rcs_location, rcs_direction, requested_t
     truth = compute_thrust_mapping_truth(rcs_location, rcs_direction, requested_torque, requested_force, CoM_B)
 
     accuracy = 1e-5
-    np.testing.assert_allclose(np.array([module.thrForceCmdOutMsg.read().thrForce[0:len(rcs_location)]]).flatten(), truth,
+    np.testing.assert_allclose(np.array(module.thrForceCmdOutMsg.read().thrForce), truth,
                                atol=accuracy, rtol=accuracy, verbose=True)
 
 
@@ -151,20 +151,19 @@ def compute_thrust_mapping_truth(rcs_location, rcs_direction, requested_torque, 
     """Independent fp64 truth that mirrors the algorithm's truncated-SVD pseudo-inverse exactly.
 
     Two details must match the algorithm so the only remaining disagreement is fp32 round-off:
-      1. DG has the same shape (6 x MAX_EFF_CNT, trailing zero columns) as the algorithm's matrix,
-         so the SVD operates on the same operator.
+      1. DG has the same shape (6 x MAX_EFF_CNT) as the algorithm's matrix, so the SVD operates
+         on the same operator.
       2. The truncation cutoff uses fp32 epsilon scaled by max(6, MAX_EFF_CNT) — the algorithm's
          noise floor — instead of fp64 epsilon. Otherwise the truth would keep singular values in
          the [eps_d, eps_f] gap that the algorithm correctly drops as fp32 noise, and 1/sv would
          blow up.
     """
-    num_thrusters = len(rcs_location)
     max_eff_cnt = messaging.MAX_EFF_CNT
     ft = np.concatenate([requested_torque, requested_force]).astype(np.float64)
     CoM_B = np.array(CoM_B, dtype=np.float64)
 
     DG = np.zeros((6, max_eff_cnt), dtype=np.float64)
-    for i in range(num_thrusters):
+    for i in range(max_eff_cnt):
         r = np.array(rcs_location[i], dtype=np.float64)
         g = np.array(rcs_direction[i], dtype=np.float64)
         DG[0:3, i] = np.cross(r - CoM_B, g)
@@ -176,9 +175,9 @@ def compute_thrust_mapping_truth(rcs_location, rcs_direction, requested_torque, 
     inv_sv = np.divide(1.0, sv, out=np.zeros_like(sv), where=sv > tol)
     thr_forces = Vt.T @ np.diag(inv_sv) @ U.T @ ft
 
-    # min-shift over the active head only, matching the algorithm.
-    thr_forces[0:num_thrusters] -= thr_forces[0:num_thrusters].min()
-    return thr_forces[0:num_thrusters]
+    # min-shift over every thruster, matching the algorithm.
+    thr_forces -= thr_forces.min()
+    return thr_forces
 
 
 if __name__ == "__main__":

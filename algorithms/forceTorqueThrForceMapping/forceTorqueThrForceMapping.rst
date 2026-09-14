@@ -71,9 +71,9 @@ Adapter layer (``forceTorqueThrForceMapping.h/.cpp``)
 Algorithm layer (``forceTorqueThrForceMappingAlgorithm.h/.cpp``)
     The pure FP32 algorithm with no framework dependencies. The immutable
     ``ForceTorqueThrForceMappingConfig`` (created via the static ``::create`` factory) carries the thruster
-    geometry, center of mass, and controllability assertions. Validators are: ``numThrusters`` :math:`\in
-    [1, \text{MAX\_EFF\_CNT}]`, each active direction :math:`\hat{\mathbf{t}}_{i}` within 1e-3 of unit norm,
-    and ``centerOfMass_B`` finite (``Eigen::Vector3f::allFinite()``). The static ``::create`` factory is the only
+    geometry, center of mass, and controllability assertions. Every one of the ``MAX_EFF_CNT`` thruster
+    slots is configured. Validators are: each direction :math:`\hat{\mathbf{t}}_{i}` within 1e-3 of unit
+    norm, and ``centerOfMass_B`` finite (``Eigen::Vector3f::allFinite()``). The static ``::create`` factory is the only
     place that throws ``fsw::invalid_argument``: on an invalid thruster array or center of mass, on an asserted
     ``desiredControlAxes_B`` axis that is uncontrollable, or on an ill-conditioned thruster geometry (condition
     number above 100). The constructor and ``setConfig`` then cache the pseudo-inverse from the validated config;
@@ -121,7 +121,7 @@ The ``cmdForceInMsg`` and ``cmdTorqueInMsg`` are optional; if not connected the 
 treated as zero. The ``thrConfigInMsg`` and ``vehConfigInMsg`` are required::
 
     fswSetupThrusters.clearSetup()
-    for i in range(numThrusters):
+    for i in range(MAX_EFF_CNT):
         fswSetupThrusters.create(rcsLocationData[i], rcsDirectionData[i], maxThrust)
     thrConfigInMsg = fswSetupThrusters.writeConfigMessage()
 

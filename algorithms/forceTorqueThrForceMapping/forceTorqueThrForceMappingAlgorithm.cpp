@@ -16,27 +16,24 @@ std::optional<Eigen::Matrix<float, kMaxThrusterCount, 6>> computeThrusterMapping
     const ThrusterArrayConfiguration& thrusters,
     const Eigen::Vector3f& centerOfMass_B,
     const std::array<bool, 6>& desiredControlAxes_B) {
-    const uint32_t numThrusters = thrusters.numThrusters;
-
     // Column-major moment arms (r - CoM) and unit thrust directions.
     Eigen::Matrix<float, 3, kMaxThrusterCount> r_TB_B{Eigen::Matrix<float, 3, kMaxThrusterCount>::Zero()};
     Eigen::Matrix<float, 3, kMaxThrusterCount> tHat_B{Eigen::Matrix<float, 3, kMaxThrusterCount>::Zero()};
-    for (uint32_t i = 0; i < numThrusters; ++i) {
+    for (uint32_t i = 0; i < kMaxThrusterCount; ++i) {
         r_TB_B.col(i) = Eigen::Vector3f(thrusters.thrusters.at(i).r_TB_B.data());
         tHat_B.col(i) = Eigen::Vector3f(thrusters.thrusters.at(i).tHat_B.data()).normalized();
     }
-    Eigen::Matrix<float, 3, kMaxThrusterCount> r_TC_B{Eigen::Matrix<float, 3, kMaxThrusterCount>::Zero()};
-    r_TC_B.leftCols(numThrusters) = r_TB_B.leftCols(numThrusters).colwise() - centerOfMass_B;
+    const Eigen::Matrix<float, 3, kMaxThrusterCount> r_TC_B = r_TB_B.colwise() - centerOfMass_B;
 
     // DG: moment arms (rows 0-2), thrust directions (rows 3-5).
     Eigen::Matrix<float, 3, kMaxThrusterCount> torquePntC_B{Eigen::Matrix<float, 3, kMaxThrusterCount>::Zero()};
-    for (uint32_t i = 0; i < numThrusters; ++i) {
+    for (uint32_t i = 0; i < kMaxThrusterCount; ++i) {
         torquePntC_B.col(i) = r_TC_B.col(i).cross(tHat_B.col(i));
     }
-    Eigen::Matrix<float, 6, kMaxThrusterCount> DGwithZeros{};
-    DGwithZeros << torquePntC_B, tHat_B;
+    Eigen::Matrix<float, 6, kMaxThrusterCount> DG{};
+    DG << torquePntC_B, tHat_B;
 
-    const Eigen::JacobiSVD<Eigen::Matrix<float, 6, kMaxThrusterCount>> svd(DGwithZeros,
+    const Eigen::JacobiSVD<Eigen::Matrix<float, 6, kMaxThrusterCount>> svd(DG,
                                                                            Eigen::ComputeFullU | Eigen::ComputeFullV);
     const Eigen::Vector<float, 6>& sv = svd.singularValues();
     constexpr int kMaxDim = (6 > kMaxThrusterCount) ? 6 : kMaxThrusterCount;
@@ -84,11 +81,6 @@ std::optional<Eigen::Matrix<float, kMaxThrusterCount, 6>> computeThrusterMapping
     Eigen::Matrix<float, kMaxThrusterCount, 6> pseudoInverseDG{Eigen::Matrix<float, kMaxThrusterCount, 6>::Zero()};
     pseudoInverseDG.noalias() = svd.matrixV().leftCols<6>() * invSv.asDiagonal() * svd.matrixU().transpose();
 
-    // Clear trailing rows (zero in exact arithmetic) so the padding-is-zero contract holds bitwise.
-    if (numThrusters < kMaxThrusterCount) {
-        pseudoInverseDG.bottomRows(kMaxThrusterCount - numThrusters).setZero();
-    }
-
     return pseudoInverseDG;
 }
 
@@ -130,10 +122,8 @@ Eigen::Vector<float, kMaxThrusterCount> ForceTorqueThrForceMappingAlgorithm::upd
     Eigen::Vector<float, 6> forceTorque_B{};
     forceTorque_B << cmdTorque_B, cmdForce_B;
 
-    const uint32_t numThrusters = this->cfg.getThrusters().numThrusters;
     Eigen::Vector<float, kMaxThrusterCount> thrusterForces = this->pseudoInverseDG * forceTorque_B;
-    const float minForce = thrusterForces.head(numThrusters).minCoeff();
-    thrusterForces.head(numThrusters).array() -= minForce;
+    thrusterForces.array() -= thrusterForces.minCoeff();
 
     return thrusterForces;
 }

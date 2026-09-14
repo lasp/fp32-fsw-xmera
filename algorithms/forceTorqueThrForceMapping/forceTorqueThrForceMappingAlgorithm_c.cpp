@@ -13,8 +13,7 @@ namespace {
 
 ForceTorqueThrForceMappingConfig configFromC(const ForceTorqueThrForceMappingConfig_c& c) {
     ThrusterArrayConfiguration cppThrusters{};
-    cppThrusters.numThrusters = c.thrusters.numThrusters;
-    for (uint32_t i = 0; i < c.thrusters.numThrusters; ++i) {
+    for (uint32_t i = 0; i < kMaxThrusterCount; ++i) {
         for (uint32_t j = 0; j < 3; ++j) {
             cppThrusters.thrusters.at(i).r_TB_B.at(j) = c.thrusters.thrusters[i].r_TB_B.data[j];
             cppThrusters.thrusters.at(i).tHat_B.at(j) = c.thrusters.thrusters[i].tHat_B.data[j];

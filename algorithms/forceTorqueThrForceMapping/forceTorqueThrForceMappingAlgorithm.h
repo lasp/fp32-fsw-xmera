@@ -19,14 +19,13 @@ struct ThrusterConfiguration {
 
 /*! @brief Thruster array configuration */
 struct ThrusterArrayConfiguration {
-    std::uint32_t numThrusters{};  //!< [-] number of thrusters
     std::array<ThrusterConfiguration, kMaxThrusterCount>
         thrusters{};  //!< [-] array of thruster configuration information
 };
 
 /*! @brief Validated configuration for the force/torque-to-thruster-force mapping algorithm.
  *
- * Construct via create(), which rejects an invalid thruster array (bad count or non-unit direction), a
+ * Construct via create(), which rejects an invalid thruster array (a non-unit direction), a
  * non-finite center of mass, or an unrealizable mapping (an asserted desiredControlAxes_B axis is
  * uncontrollable, or the geometry is ill-conditioned with condition number above 100). desiredControlAxes_B
  * are per-axis controllability assertions (torque xyz then force xyz, body frame B).
@@ -37,9 +36,7 @@ class ForceTorqueThrForceMappingConfig final {
                                                    const Eigen::Vector3f& centerOfMass_B,
                                                    const std::array<bool, 6>& desiredControlAxes_B) {
         if (!isValidThrusters(thrusters)) {
-            FSW_THROW_INVALID_ARGUMENT(
-                "forceTorqueThrForceMapping: numThrusters must be in [1, kMaxThrusterCount] and each thruster "
-                "direction must be a unit vector");
+            FSW_THROW_INVALID_ARGUMENT("forceTorqueThrForceMapping: each thruster direction must be a unit vector");
         }
         if (!isValidCenterOfMass_B(centerOfMass_B)) {
             FSW_THROW_INVALID_ARGUMENT("forceTorqueThrForceMapping: centerOfMass_B must be finite");
@@ -54,11 +51,8 @@ class ForceTorqueThrForceMappingConfig final {
     }
 
     static bool isValidThrusters(const ThrusterArrayConfiguration& thrusters) {
-        if (thrusters.numThrusters == 0 || thrusters.numThrusters > kMaxThrusterCount) {
-            return false;
-        }
         constexpr float normTolerance = 1e-3F;
-        for (std::uint32_t i = 0; i < thrusters.numThrusters; ++i) {
+        for (std::uint32_t i = 0; i < kMaxThrusterCount; ++i) {
             const Eigen::Vector3f direction(thrusters.thrusters.at(i).tHat_B.data());
             if (fabsf(direction.stableNorm() - 1.0F) > normTolerance) {
                 return false;

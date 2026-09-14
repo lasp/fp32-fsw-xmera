@@ -22,11 +22,9 @@ typedef struct {
 
 /**
  * @brief Plain-old-data mirror of the C++ ThrusterArrayConfiguration fields.
- *  - numThrusters must be in [1, MAX_EFF_CNT]
- *  - thrusters[i] for i < numThrusters carries each thruster's geometry; trailing slots are ignored
+ *  - thrusters[i] carries each thruster's geometry; every slot is configured
  */
 typedef struct {
-    uint32_t numThrusters;
     ThrusterConfiguration_c thrusters[MAX_EFF_CNT];
 } ThrusterArrayConfiguration_c;
 
@@ -36,7 +34,7 @@ typedef struct {
  * Caller fills this struct and passes it to ForceTorqueThrForceMappingAlgorithm_create or
  * _setConfig. The C++ side validates each field via ForceTorqueThrForceMappingConfig::create and
  * throws on invalid input.
- *  - thrusters:          count + per-thruster geometry, each direction ~unit within 1e-3
+ *  - thrusters:          per-thruster geometry, each direction ~unit within 1e-3
  *  - centerOfMass_B:     [m] center of mass in body frame, must be finite
  *  - desiredControlAxes: per-axis controllability assertions (torque xyz then force xyz, all in
  *                        body frame B). A non-zero entry asserts that axis must lie in the column
@@ -51,8 +49,7 @@ typedef struct {
 /**
  * @brief Plain-old-data mirror of the C++ Eigen::Vector<float, kMaxThrusterCount> update output.
  *
- * Entries 0..numThrusters-1 (as configured) carry the non-negative, min-shifted per-thruster force
- * commands; trailing slots are exactly zero.
+ * Every entry carries a non-negative, min-shifted per-thruster force command.
  */
 typedef struct {
     float thrForce[MAX_EFF_CNT];

@@ -39,13 +39,13 @@ inline ForceTorqueThrForceMappingAlgorithm makeMappingAlgorithm(const ThrusterAr
 inline float combinedTolerance(float expected, float atol, float rtol) { return atol + rtol * std::fabs(expected); }
 
 // Build the DG matrix (6 x kMaxThrusterCount) from a configured thruster array and CoM. Rows 0-2 are
-// moment arms (r-CoM)×g, rows 3-5 are thrust directions g. Trailing columns beyond numThrusters
-// are zero. Used by property helpers that need to compute the achieved force/torque from the
-// algorithm's output independently of the algorithm's internal storage.
+// moment arms (r-CoM)×g, rows 3-5 are thrust directions g. Used by property helpers that need to
+// compute the achieved force/torque from the algorithm's output independently of the algorithm's
+// internal storage.
 inline Eigen::Matrix<float, 6, kMaxThrusterCount> buildDG(const ThrusterArrayConfiguration& config,
                                                           const Eigen::Vector3f& CoM) {
     Eigen::Matrix<float, 6, kMaxThrusterCount> DG = Eigen::Matrix<float, 6, kMaxThrusterCount>::Zero();
-    for (std::uint32_t i = 0; i < config.numThrusters; ++i) {
+    for (std::uint32_t i = 0; i < kMaxThrusterCount; ++i) {
         const Eigen::Vector3f r(
             config.thrusters.at(i).r_TB_B[0], config.thrusters.at(i).r_TB_B[1], config.thrusters.at(i).r_TB_B[2]);
         const Eigen::Vector3f g(
@@ -58,23 +58,19 @@ inline Eigen::Matrix<float, 6, kMaxThrusterCount> buildDG(const ThrusterArrayCon
 }
 
 // Build a ThrusterArrayConfiguration from raw per-thruster vectors. `directions` are normalized here so the
-// resulting config is always valid for `setThrusters`. Returns false if the inputs cannot produce a
-// valid configuration (wrong count, size mismatch, or near-zero direction vector), in which case the
-// caller should skip the test input. This is used by both gtest and fuzz harnesses.
-inline bool buildThrusterConfig(std::uint32_t numThrusters,
-                                const std::vector<Eigen::Vector3f>& positions,
+// resulting config is always valid. Every slot is configured, so the caller must supply at least
+// kMaxThrusterCount entries. Returns false if the inputs cannot produce a valid configuration (size
+// mismatch or near-zero direction vector), in which case the caller should skip the test input. This
+// is used by both gtest and fuzz harnesses.
+inline bool buildThrusterConfig(const std::vector<Eigen::Vector3f>& positions,
                                 const std::vector<Eigen::Vector3f>& directions,
                                 ThrusterArrayConfiguration& config) {
-    if (numThrusters < 1U || numThrusters > kMaxThrusterCount) {
-        return false;
-    }
-    if (positions.size() < numThrusters || directions.size() < numThrusters) {
+    if (positions.size() < kMaxThrusterCount || directions.size() < kMaxThrusterCount) {
         return false;
     }
 
     config = ThrusterArrayConfiguration{};
-    config.numThrusters = numThrusters;
-    for (std::uint32_t i = 0; i < numThrusters; ++i) {
+    for (std::uint32_t i = 0; i < kMaxThrusterCount; ++i) {
         config.thrusters.at(i).r_TB_B = {positions[i].x(), positions[i].y(), positions[i].z()};
 
         Eigen::Vector3f dir = directions[i];
@@ -91,26 +87,22 @@ inline bool buildThrusterConfig(std::uint32_t numThrusters,
 // Independent truth implementation of update(). Mirrors the algorithm's truncated-SVD pseudo-inverse
 // in fp64 so numeric disagreement reflects real fp32 round-off rather than algorithmic divergence.
 // Two details must match the algorithm exactly:
-//   1. DG has the same shape (6 × kMaxThrusterCount with trailing zero columns), so the SVD's left
-//      singular vectors and the kept singular values are computed on an identical operator.
+//   1. DG has the same shape (6 × kMaxThrusterCount), so the SVD's left singular vectors and the
+//      kept singular values are computed on an identical operator.
 //   2. The truncation cutoff uses fp32 epsilon scaled by max(6, kMaxThrusterCount) — the algorithm's
 //      noise floor — instead of fp64 epsilon. Otherwise the reference keeps singular values in the
 //      gap [eps_d, eps_f] that the algorithm correctly drops as fp32 noise, and 1/sv blows up.
 // Assumes `directions` are already unit vectors (call buildThrusterConfig first if needed).
-inline Eigen::Vector<float, kMaxThrusterCount> referenceUpdate(std::uint32_t numThrusters,
-                                                               const std::vector<Eigen::Vector3f>& positions,
+inline Eigen::Vector<float, kMaxThrusterCount> referenceUpdate(const std::vector<Eigen::Vector3f>& positions,
                                                                const std::vector<Eigen::Vector3f>& directions,
                                                                const Eigen::Vector3f& CoM_B,
                                                                const Eigen::Vector3f& cmdTorque_B,
                                                                const Eigen::Vector3f& cmdForce_B,
                                                                float* absErrorScale = nullptr) {
     Eigen::Vector<float, kMaxThrusterCount> result = Eigen::Vector<float, kMaxThrusterCount>::Zero();
-    if (numThrusters < 1U || numThrusters > kMaxThrusterCount) {
-        return result;
-    }
 
     Eigen::Matrix<double, 6, kMaxThrusterCount> DG = Eigen::Matrix<double, 6, kMaxThrusterCount>::Zero();
-    for (std::uint32_t i = 0; i < numThrusters; ++i) {
+    for (std::uint32_t i = 0; i < kMaxThrusterCount; ++i) {
         const Eigen::Vector3d r = positions[i].cast<double>();
         const Eigen::Vector3d g = directions[i].cast<double>();
         const Eigen::Vector3d arm = r - CoM_B.cast<double>();
@@ -143,27 +135,26 @@ inline Eigen::Vector<float, kMaxThrusterCount> referenceUpdate(std::uint32_t num
     // error ~eps*cond makes the absolute per-entry error ~eps*cond*||F_pre||_inf.
     if (absErrorScale != nullptr) {
         const double cond = sv(0) / minKeptSv;
-        const double preShiftMaxAbs = thrForces.head(numThrusters).cwiseAbs().maxCoeff();
+        const double preShiftMaxAbs = thrForces.cwiseAbs().maxCoeff();
         *absErrorScale = static_cast<float>(cond * preShiftMaxAbs);
     }
 
-    // min-shift over the active head only, matching the algorithm.
-    const double minForce = thrForces.head(numThrusters).minCoeff();
-    for (std::uint32_t i = 0; i < numThrusters; ++i) {
+    // min-shift over every thruster, matching the algorithm.
+    const double minForce = thrForces.minCoeff();
+    for (std::uint32_t i = 0; i < kMaxThrusterCount; ++i) {
         result[static_cast<int>(i)] = static_cast<float>(thrForces(i) - minForce);
     }
     return result;
 }
 
 // Configures the algorithm, runs update(), and compares against the SVD reference.
-inline void runRegressionCase(std::uint32_t numThrusters,
-                              std::vector<Eigen::Vector3f> positions,
+inline void runRegressionCase(std::vector<Eigen::Vector3f> positions,
                               std::vector<Eigen::Vector3f> directions,
                               const Eigen::Vector3f& CoM,
                               const Eigen::Vector3f& cmdTorque,
                               const Eigen::Vector3f& cmdForce) {
     ThrusterArrayConfiguration config{};
-    if (!buildThrusterConfig(numThrusters, positions, directions, config)) {
+    if (!buildThrusterConfig(positions, directions, config)) {
         return;
     }
     // create() rejects ill-conditioned or uncontrollable configs; skip the inputs it would reject.
@@ -177,14 +168,14 @@ inline void runRegressionCase(std::uint32_t numThrusters,
 
     // The reference uses the post-normalization directions stored in the config so that both
     // implementations start from identical unit-norm inputs.
-    std::vector<Eigen::Vector3f> unitDirs(numThrusters);
-    for (std::uint32_t i = 0; i < numThrusters; ++i) {
+    std::vector<Eigen::Vector3f> unitDirs(kMaxThrusterCount);
+    for (std::uint32_t i = 0; i < kMaxThrusterCount; ++i) {
         unitDirs[i] = Eigen::Vector3f(
             config.thrusters.at(i).tHat_B[0], config.thrusters.at(i).tHat_B[1], config.thrusters.at(i).tHat_B[2]);
     }
     float absErrorScale = 0.0F;
     const Eigen::Vector<float, kMaxThrusterCount> ref =
-        referenceUpdate(numThrusters, positions, unitDirs, CoM, cmdTorque, cmdForce, &absErrorScale);
+        referenceUpdate(positions, unitDirs, CoM, cmdTorque, cmdForce, &absErrorScale);
 
     // Flat 1e-3 budget plus the fp32 algorithm error floor sqrt(n)*eps*absErrorScale: absolute error is
     // ~eps*cond*||F_pre||_inf (= absErrorScale), and sqrt(n) is the inf<-2 norm conversion bounding
@@ -192,14 +183,11 @@ inline void runRegressionCase(std::uint32_t numThrusters,
     constexpr float kAtol = 1e-3F;
     constexpr float kRtol = 1e-3F;
     const float fpErrorTol =
-        std::sqrt(static_cast<float>(numThrusters)) * std::numeric_limits<float>::epsilon() * absErrorScale;
-    for (std::uint32_t i = 0; i < numThrusters; ++i) {
+        std::sqrt(static_cast<float>(kMaxThrusterCount)) * std::numeric_limits<float>::epsilon() * absErrorScale;
+    for (std::uint32_t i = 0; i < kMaxThrusterCount; ++i) {
         const int idx = static_cast<int>(i);
         EXPECT_TRUE(std::isfinite(out[idx]));
         EXPECT_NEAR(out[idx], ref[idx], combinedTolerance(ref[idx], kAtol, kRtol) + fpErrorTol);
-    }
-    for (int i = static_cast<int>(numThrusters); i < kMaxThrusterCount; ++i) {
-        EXPECT_FLOAT_EQ(out[i], 0.0F);
     }
 }
 
@@ -210,15 +198,14 @@ inline void runRegressionCase(std::uint32_t numThrusters,
 // drop unusable samples silently.
 // ---------------------------------------------------------------------------
 
-// Every active thruster force is non-negative (min-shift guarantees this).
-inline void propertyNonNegativeForces(std::uint32_t numThrusters,
-                                      std::vector<Eigen::Vector3f> positions,
+// Every thruster force is non-negative (min-shift guarantees this).
+inline void propertyNonNegativeForces(std::vector<Eigen::Vector3f> positions,
                                       std::vector<Eigen::Vector3f> directions,
                                       const Eigen::Vector3f& CoM,
                                       const Eigen::Vector3f& cmdTorque,
                                       const Eigen::Vector3f& cmdForce) {
     ThrusterArrayConfiguration config{};
-    if (!buildThrusterConfig(numThrusters, positions, directions, config)) {
+    if (!buildThrusterConfig(positions, directions, config)) {
         return;
     }
     // create() rejects ill-conditioned or uncontrollable configs; skip the inputs it would reject.
@@ -230,21 +217,20 @@ inline void propertyNonNegativeForces(std::uint32_t numThrusters,
 
     const Eigen::Vector<float, kMaxThrusterCount> out = alg.update(cmdTorque, cmdForce);
 
-    for (std::uint32_t i = 0; i < numThrusters; ++i) {
+    for (std::uint32_t i = 0; i < kMaxThrusterCount; ++i) {
         EXPECT_GE(out[static_cast<int>(i)], -1e-5F);  // small slack for fp32 round-off
     }
 }
 
-// The minimum active thruster force is zero (post-shift property — the min element must be exactly
+// The minimum thruster force is zero (post-shift property — the min element must be exactly
 // the subtracted value, leaving a zero).
-inline void propertyMinimumIsZero(std::uint32_t numThrusters,
-                                  std::vector<Eigen::Vector3f> positions,
+inline void propertyMinimumIsZero(std::vector<Eigen::Vector3f> positions,
                                   std::vector<Eigen::Vector3f> directions,
                                   const Eigen::Vector3f& CoM,
                                   const Eigen::Vector3f& cmdTorque,
                                   const Eigen::Vector3f& cmdForce) {
     ThrusterArrayConfiguration config{};
-    if (!buildThrusterConfig(numThrusters, positions, directions, config)) {
+    if (!buildThrusterConfig(positions, directions, config)) {
         return;
     }
     // create() rejects ill-conditioned or uncontrollable configs; skip the inputs it would reject.
@@ -257,35 +243,10 @@ inline void propertyMinimumIsZero(std::uint32_t numThrusters,
     const Eigen::Vector<float, kMaxThrusterCount> out = alg.update(cmdTorque, cmdForce);
 
     float minVal = out[0];
-    for (std::uint32_t i = 1; i < numThrusters; ++i) {
+    for (std::uint32_t i = 1; i < kMaxThrusterCount; ++i) {
         minVal = std::min(minVal, out[static_cast<int>(i)]);
     }
     EXPECT_NEAR(minVal, 0.0F, 1e-5F);
-}
-
-// Output entries beyond numThrusters are exactly zero — the algorithm must not touch unused slots.
-inline void propertyPaddingIsZero(std::uint32_t numThrusters,
-                                  std::vector<Eigen::Vector3f> positions,
-                                  std::vector<Eigen::Vector3f> directions,
-                                  const Eigen::Vector3f& CoM,
-                                  const Eigen::Vector3f& cmdTorque,
-                                  const Eigen::Vector3f& cmdForce) {
-    ThrusterArrayConfiguration config{};
-    if (!buildThrusterConfig(numThrusters, positions, directions, config)) {
-        return;
-    }
-    // create() rejects ill-conditioned or uncontrollable configs; skip the inputs it would reject.
-    if (!ForceTorqueThrForceMappingConfig::isValidMapping(config, CoM, kNoAxisAssertion)) {
-        return;
-    }
-
-    ForceTorqueThrForceMappingAlgorithm alg = makeMappingAlgorithm(config, CoM);
-
-    const Eigen::Vector<float, kMaxThrusterCount> out = alg.update(cmdTorque, cmdForce);
-
-    for (int i = static_cast<int>(numThrusters); i < kMaxThrusterCount; ++i) {
-        EXPECT_FLOAT_EQ(out[i], 0.0F);
-    }
 }
 
 // Raw direction norms must be large enough that normalization doesn't turn fp32 noise into an
@@ -293,8 +254,8 @@ inline void propertyPaddingIsZero(std::uint32_t numThrusters,
 // to near-identical unit vectors, making DG near-rank-deficient and pseudo-inverse entries grow
 // to ~1e5 — at which point any fp32 noise in the arm computation swamps the invariance under test.
 // Used by the numerically-sensitive property helpers (scale, CoM translation).
-inline bool rawDirectionsWellScaled(std::uint32_t numThrusters, const std::vector<Eigen::Vector3f>& directions) {
-    for (std::uint32_t i = 0; i < numThrusters; ++i) {
+inline bool rawDirectionsWellScaled(const std::vector<Eigen::Vector3f>& directions) {
+    for (std::uint32_t i = 0; i < kMaxThrusterCount; ++i) {
         if (directions[i].stableNorm() < 0.5F) {
             return false;
         }
@@ -306,8 +267,7 @@ inline bool rawDirectionsWellScaled(std::uint32_t numThrusters, const std::vecto
 // Rationale: pseudoInverseDG * (k * v) = k * (pseudoInverseDG * v); for k > 0 the min-shift is also
 // scaled by k, so the post-shift output scales linearly. create() rejects ill-conditioned layouts, so the
 // kept singular subspace has condition number <= 100 and the linear-scaling residual stays within tolerance.
-inline void propertyScaleInvariance(std::uint32_t numThrusters,
-                                    std::vector<Eigen::Vector3f> positions,
+inline void propertyScaleInvariance(std::vector<Eigen::Vector3f> positions,
                                     std::vector<Eigen::Vector3f> directions,
                                     const Eigen::Vector3f& CoM,
                                     const Eigen::Vector3f& cmdTorque,
@@ -316,11 +276,11 @@ inline void propertyScaleInvariance(std::uint32_t numThrusters,
     if (!(scale > 0.0F) || !std::isfinite(scale)) {
         return;
     }
-    if (!rawDirectionsWellScaled(numThrusters, directions)) {
+    if (!rawDirectionsWellScaled(directions)) {
         return;
     }
     ThrusterArrayConfiguration config{};
-    if (!buildThrusterConfig(numThrusters, positions, directions, config)) {
+    if (!buildThrusterConfig(positions, directions, config)) {
         return;
     }
     // create() rejects ill-conditioned or uncontrollable configs; skip the inputs it would reject.
@@ -333,7 +293,7 @@ inline void propertyScaleInvariance(std::uint32_t numThrusters,
     const Eigen::Vector<float, kMaxThrusterCount> baseOut = alg.update(cmdTorque, cmdForce);
     const Eigen::Vector<float, kMaxThrusterCount> scaledOut = alg.update(scale * cmdTorque, scale * cmdForce);
 
-    for (std::uint32_t i = 0; i < numThrusters; ++i) {
+    for (std::uint32_t i = 0; i < kMaxThrusterCount; ++i) {
         const int idx = static_cast<int>(i);
         const float expected = scale * baseOut[idx];
         EXPECT_NEAR(scaledOut[idx], expected, combinedTolerance(expected, 1e-4F, 1e-4F));
@@ -341,14 +301,13 @@ inline void propertyScaleInvariance(std::uint32_t numThrusters,
 }
 
 // update() is const — repeated calls with the same inputs must return bitwise-identical output.
-inline void propertyStateless(std::uint32_t numThrusters,
-                              std::vector<Eigen::Vector3f> positions,
+inline void propertyStateless(std::vector<Eigen::Vector3f> positions,
                               std::vector<Eigen::Vector3f> directions,
                               const Eigen::Vector3f& CoM,
                               const Eigen::Vector3f& cmdTorque,
                               const Eigen::Vector3f& cmdForce) {
     ThrusterArrayConfiguration config{};
-    if (!buildThrusterConfig(numThrusters, positions, directions, config)) {
+    if (!buildThrusterConfig(positions, directions, config)) {
         return;
     }
     // create() rejects ill-conditioned or uncontrollable configs; skip the inputs it would reject.
@@ -368,14 +327,13 @@ inline void propertyStateless(std::uint32_t numThrusters,
 }
 
 // All output components are finite for finite inputs — no NaN/Inf leakage even for rank-deficient D.
-inline void propertyFiniteOutput(std::uint32_t numThrusters,
-                                 std::vector<Eigen::Vector3f> positions,
+inline void propertyFiniteOutput(std::vector<Eigen::Vector3f> positions,
                                  std::vector<Eigen::Vector3f> directions,
                                  const Eigen::Vector3f& CoM,
                                  const Eigen::Vector3f& cmdTorque,
                                  const Eigen::Vector3f& cmdForce) {
     ThrusterArrayConfiguration config{};
-    if (!buildThrusterConfig(numThrusters, positions, directions, config)) {
+    if (!buildThrusterConfig(positions, directions, config)) {
         return;
     }
     // create() rejects ill-conditioned or uncontrollable configs; skip the inputs it would reject.
@@ -399,9 +357,8 @@ inline void propertyFiniteOutput(std::uint32_t numThrusters,
 // forces fuzz; the layout stays fixed.
 inline void propertyAchievesCommandForBalancedLayout(const Eigen::Vector3f& CoM,
                                                      const Eigen::Matrix<float, 8, 1>& testForces) {
-    constexpr std::uint32_t numThrusters = 8U;
     ThrusterArrayConfiguration config{};
-    if (!buildThrusterConfig(numThrusters, rcsPositions1(), rcsDirections1(), config)) {
+    if (!buildThrusterConfig(rcsPositions1(), rcsDirections1(), config)) {
         return;
     }
 
@@ -411,7 +368,7 @@ inline void propertyAchievesCommandForBalancedLayout(const Eigen::Vector3f& CoM,
 
     // Build a non-negative test force vector — cmd = DG·x_test is then in the row space of DG.
     Eigen::Vector<float, kMaxThrusterCount> x_test = Eigen::Vector<float, kMaxThrusterCount>::Zero();
-    for (std::uint32_t i = 0; i < numThrusters; ++i) {
+    for (std::uint32_t i = 0; i < kMaxThrusterCount; ++i) {
         x_test[static_cast<int>(i)] = std::fabs(testForces[static_cast<int>(i)]);
     }
     const Eigen::Vector<float, 6> cmd = DG * x_test;
@@ -432,14 +389,13 @@ inline void propertyAchievesCommandForBalancedLayout(const Eigen::Vector3f& CoM,
 // bounded above. The threshold below is loose enough to absorb worst-case ill-conditioning within
 // the configured fuzz ranges, but tight enough to catch a genuine numerical regression in the
 // truncation logic (e.g. a removed eps · max(m,n) factor would let ‖pinv‖ blow up by ~1e6).
-inline void propertyOutputMagnitudeBounded(std::uint32_t numThrusters,
-                                           std::vector<Eigen::Vector3f> positions,
+inline void propertyOutputMagnitudeBounded(std::vector<Eigen::Vector3f> positions,
                                            std::vector<Eigen::Vector3f> directions,
                                            const Eigen::Vector3f& CoM,
                                            const Eigen::Vector3f& cmdTorque,
                                            const Eigen::Vector3f& cmdForce) {
     ThrusterArrayConfiguration config{};
-    if (!buildThrusterConfig(numThrusters, positions, directions, config)) {
+    if (!buildThrusterConfig(positions, directions, config)) {
         return;
     }
     // create() rejects ill-conditioned or uncontrollable configs; skip the inputs it would reject.
@@ -452,7 +408,7 @@ inline void propertyOutputMagnitudeBounded(std::uint32_t numThrusters,
     const Eigen::Vector<float, kMaxThrusterCount> out = alg.update(cmdTorque, cmdForce);
 
     constexpr float kMagnitudeBound = 1e7F;
-    const float maxAbs = out.head(numThrusters).cwiseAbs().maxCoeff();
+    const float maxAbs = out.cwiseAbs().maxCoeff();
     EXPECT_LT(maxAbs, kMagnitudeBound);
 }
 
