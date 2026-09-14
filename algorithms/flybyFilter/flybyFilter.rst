@@ -28,17 +28,17 @@ The following table lists all the module input and output messages.
       - Msg Type
       - Description
     * - opNavHeadingMsg
-      - :ref:`OpNavUnitVecMsgPayload`
+      - :ref:`OpNavUnitVecMsgF32Payload`
       - Input optical-navigation heading: unit vector ``rhat_BN_N`` from the spacecraft to the central
         body, inertial frame; required
     * - navTransOutMsg
-      - :ref:`NavTransMsgPayload`
+      - :ref:`NavTransMsgF32Payload`
       - Output message containing the estimated inertial position and velocity
     * - filterOutMsg
-      - :ref:`FilterMsgPayload`
+      - :ref:`FilterMsgF32Payload`
       - Output message with the filter estimated state and covariance
     * - filterResOutMsg
-      - :ref:`FilterResidualsMsgPayload`
+      - :ref:`FilterResidualsMsgF32Payload`
       - Output message containing pre- and post-fit residuals for the heading measurements
 
 
@@ -51,6 +51,12 @@ relative to the central body. It is composed from filteringCore state tags as
 .. math::
     \boldsymbol{x} = \left\{ \begin{matrix} \boldsymbol{r}_{B/N} \\
     \boldsymbol{v}_{B/N} \end{matrix} \right\}.
+
+The measurement queue holds a single entry (``BatchSize = 1``), so the filter processes at most one
+heading per cycle. A reading whose time tag is not newer than the last accepted one, or whose
+``valid`` flag is clear, is ignored by the adapter; a reading older than the filter's measurement
+anchor is dropped by the scheduler. A reading stamped in the past but still newer than the anchor is
+applied **at its own time tag**, and the estimate is then propagated forward to the call time.
 
 Dynamics model
 ++++++++++++++
@@ -141,6 +147,23 @@ Two runtime reset entry points are exposed on both the algorithm and the adapter
 - ``reInitialize()`` performs ``reInitializeExceptPersistentStates()`` and additionally re-seeds the filter state and
   covariance from the configured initial values.
 
+``setConfig()`` re-derives the filter parameters (sigma-point weights, process noise, the
+:math:`\mu`-carrying dynamics functor) **without** disturbing the running estimate; only
+``reInitialize()`` re-seeds it.
+
+Error behaviour
++++++++++++++++
+``reset()`` throws ``std::invalid_argument`` when ``opNavHeadingMsg`` is not connected or
+``unitConversion`` is not finite and positive, and the ``FlybyFilterConfig`` factory throws
+``fsw::invalid_argument`` for any parameter outside the ranges tabulated below. Calling
+``updateState()``, ``reInitialize()`` or ``reInitializeExceptPersistentStates()`` before ``reset()``
+throws ``XmeraLifecycleException``.
+
+.. note::
+    These exceptions are not catchable from Python. No fp32 SWIG module declares exception
+    translation, so a throw crossing the binding boundary calls ``std::terminate``. Treat a
+    configuration error as a startup abort, not a recoverable condition.
+
 Configuration parameters
 +++++++++++++++++++++++++
 .. list-table:: Configuration parameters and valid ranges
@@ -170,7 +193,7 @@ Configuration parameters
       - finite
     * - initialCovariance
       - N x N initial covariance P0
-      - positive semi-definite
+      - finite, positive semi-definite
     * - headingMeasurementNoiseStd
       - heading (unit-vector) measurement noise standard deviation
       - >= 0

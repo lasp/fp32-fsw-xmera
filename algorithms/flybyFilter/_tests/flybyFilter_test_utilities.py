@@ -1,7 +1,11 @@
 # SPDX-License-Identifier: ISC
 # Copyright (c) 2026, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
 #
-# Plotting helpers for the flybyFilter Python integration test (only used when show_plots=True).
+# Plotting helpers for the flybyFilter Python integration tests (only used when show_plots=True).
+#
+# Unlike the inertialFilter and sunlineFilter equivalents, every entry point takes show_plots and
+# guards on it internally, so the callers stay free of `if show_plots:` blocks. Matplotlib is
+# imported lazily-ish: a missing backend disables plotting rather than failing the test run.
 
 import numpy as np
 
@@ -13,72 +17,140 @@ except Exception:  # pragma: no cover - plotting is optional
 
 m2km = 1.0 / 1000.0
 
+STATE_LABELS = ['pos x (m)', 'pos y (m)', 'pos z (m)', 'vel x (m/s)', 'vel y (m/s)', 'vel z (m/s)']
+
+
+def _enabled(show_plots):
+    return _HAVE_MPL and show_plots
+
+
+def _seconds(nanos):
+    return np.asarray(nanos) * 1E-9
+
+
+def states(x, testName, show_plots):
+    """Per-component state (or state-error) traces. `x` is [time_ns, s0..s5] per row."""
+    if not _enabled(show_plots):
+        return
+    t = _seconds(x[:, 0])
+    num_states = x.shape[1] - 1
+
+    plt.figure(figsize=(10, 10))
+    for k in range(num_states):
+        plt.subplot(3, 2, k + 1)
+        plt.plot(t, x[:, k + 1], "b")
+        plt.xlabel('t (s)')
+        plt.title(STATE_LABELS[k] + ' ' + testName)
+        plt.grid()
+    plt.tight_layout()
+    plt.show()
+    plt.close()
+
 
 def energy(t, energy_series, testName, show_plots):
-    if not (_HAVE_MPL and show_plots):
+    """Relative drift of the two-body specific orbital energy; a flat trace means the propagation
+    conserved energy."""
+    if not _enabled(show_plots):
         return
     conserved = (energy_series - energy_series[0]) / energy_series[0]
     plt.figure(figsize=(10, 10))
     plt.plot(t, conserved, "b", label='Energy')
     plt.legend(loc='lower right')
-    plt.title('Energy ' + testName)
+    plt.xlabel('t (s)')
+    plt.title('Relative energy drift ' + testName)
     plt.grid()
     plt.show()
     plt.close()
 
 
 def state_covar(x, Pflat, testName, show_plots):
-    if not (_HAVE_MPL and show_plots):
+    """State traces with +/-3 sigma envelopes taken from the flattened covariance rows."""
+    if not _enabled(show_plots):
         return
-    numStates = len(x[0, :]) - 1
-    P = np.zeros([len(Pflat[:, 0]), numStates, numStates])
-    t = np.zeros(len(Pflat[:, 0]))
-    for i in range(len(Pflat[:, 0])):
-        t[i] = x[i, 0] * 1E-9
-        P[i, :, :] = Pflat[i, 1:(numStates * numStates + 1)].reshape([numStates, numStates])
+    num_states = x.shape[1] - 1
+    t = _seconds(Pflat[:, 0])
+    P = np.zeros([Pflat.shape[0], num_states, num_states])
+    for i in range(Pflat.shape[0]):
+        P[i, :, :] = Pflat[i, 1:(num_states * num_states + 1)].reshape([num_states, num_states])
 
-    labels = ['pos x (m)', 'pos y (m)', 'pos z (m)', 'vel x (m/s)', 'vel y (m/s)', 'vel z (m/s)']
     plt.figure(figsize=(10, 10))
-    for k in range(numStates):
+    for k in range(num_states):
+        sigma = np.sqrt(np.abs(P[:, k, k]))
         plt.subplot(3, 2, k + 1)
         plt.plot(t, x[:, k + 1], "b")
-        plt.plot(t, x[:, k + 1] + 3 * np.sqrt(P[:, k, k]), 'r--')
-        plt.plot(t, x[:, k + 1] - 3 * np.sqrt(P[:, k, k]), 'r--')
-        plt.title(labels[k] + ' ' + testName)
+        plt.plot(t, x[:, k + 1] + 3 * sigma, 'r--')
+        plt.plot(t, x[:, k + 1] - 3 * sigma, 'r--')
+        plt.xlabel('t (s)')
+        plt.title(STATE_LABELS[k] + ' ' + testName)
         plt.grid()
+    plt.tight_layout()
+    plt.show()
+    plt.close()
+
+
+def covar_trace(Pflat, num_states, testName, show_plots):
+    """Total uncertainty over time -- the quantity the covariance assertions actually check."""
+    if not _enabled(show_plots):
+        return
+    t = _seconds(Pflat[:, 0])
+    trace = np.array([
+        np.trace(Pflat[i, 1:(num_states * num_states + 1)].reshape([num_states, num_states]))
+        for i in range(Pflat.shape[0])
+    ])
+
+    plt.figure(figsize=(10, 6))
+    plt.semilogy(t, np.abs(trace), "b")
+    plt.xlabel('t (s)')
+    plt.ylabel('trace(P)')
+    plt.title('Covariance trace ' + testName)
+    plt.grid()
     plt.show()
     plt.close()
 
 
 def post_fit_residuals(Res, noise, testName, show_plots):
-    if not (_HAVE_MPL and show_plots):
+    """Residual scatter against a +/-3 sigma band.
+
+    Rows where the filter took no measurement are written as exact zeros by the adapter; they are
+    replaced with NaN so the gaps are left blank instead of drawing a spurious line at zero.
+    """
+    if not _enabled(show_plots):
         return
-    t = Res[:, 0] * 1E-9
+    residuals = np.array(Res, dtype=float, copy=True)
+    t = _seconds(residuals[:, 0])
+    blank = np.abs(residuals[:, 1:]) < 1E-10
+    residuals[:, 1:][blank] = np.nan
+
     plt.figure(figsize=(10, 10))
-    for j in range(3):
+    for j in range(residuals.shape[1] - 1):
         plt.subplot(3, 1, j + 1)
-        plt.plot(t, Res[:, j + 1], "b.", label='Residual')
-        plt.plot(t, 3 * noise * np.ones_like(t), 'r--')
+        plt.plot(t, residuals[:, j + 1], "b.", label='Residual')
+        plt.plot(t, 3 * noise * np.ones_like(t), 'r--', label='3 sigma')
         plt.plot(t, -3 * noise * np.ones_like(t), 'r--')
+        if j == 0:
+            plt.legend(loc='lower right')
         plt.ylim([-10 * noise, 10 * noise])
-        plt.title('Meas comp ' + str(j + 1) + ' ' + testName)
+        plt.xlabel('t (s)')
+        plt.title('Heading component ' + str(j + 1) + ' ' + testName)
         plt.grid()
+    plt.tight_layout()
     plt.show()
     plt.close()
 
 
 def two_orbits(r_true, r_est, show_plots):
-    if not (_HAVE_MPL and show_plots):
+    """Truth and estimated trajectories in the inertial frame, with the central body at the origin."""
+    if not _enabled(show_plots):
         return
     fig = plt.figure()
     ax = fig.add_subplot(projection='3d')
     ax.set_xlabel('$R_x$, km')
     ax.set_ylabel('$R_y$, km')
     ax.set_zlabel('$R_z$, km')
+    ax.set_title('Spacecraft Orbits')
     ax.plot(r_true[:, 1] * m2km, r_true[:, 2] * m2km, r_true[:, 3] * m2km, 'dodgerblue', label="True orbit")
     ax.plot(r_est[:, 1] * m2km, r_est[:, 2] * m2km, r_est[:, 3] * m2km, 'salmon', label="Estimated orbit")
     ax.scatter(0, 0, 0, color='r')
-    ax.set_title('Spacecraft Orbits')
     ax.legend()
     plt.show()
     plt.close()

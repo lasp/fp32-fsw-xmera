@@ -25,9 +25,12 @@ struct FlybyDynamics {
         Eigen::Vector3d const r = state.get<filtering::Position<3>>();
         Eigen::Vector3d const v = state.get<filtering::Velocity<3>>();
 
+        double const range = r.norm();
+        double const rangeCubed = range * range * range;
+
         FlybyState xDot;
         xDot.set<filtering::Position<3>>(v);
-        xDot.set<filtering::Velocity<3>>(-this->mu / std::pow(r.norm(), 3) * r);
+        xDot.set<filtering::Velocity<3>>(-this->mu / rangeCubed * r);
         return xDot;
     }
 };

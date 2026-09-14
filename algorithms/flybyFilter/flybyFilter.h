@@ -3,12 +3,13 @@
 
 #include "flybyFilterAlgorithm.h"
 
+#include "msgPayloadDef/FilterMsgF32Payload.h"
+#include "msgPayloadDef/FilterResidualsMsgF32Payload.h"
+#include "msgPayloadDef/NavTransMsgF32Payload.h"
+#include "msgPayloadDef/OpNavUnitVecMsgF32Payload.h"
+
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
-#include <architecture/msgPayloadDef/FilterMsgPayload.h>
-#include <architecture/msgPayloadDef/FilterResidualsMsgPayload.h>
-#include <architecture/msgPayloadDef/NavTransMsgPayload.h>
-#include <architecture/msgPayloadDef/OpNavUnitVecMsgPayload.h>
 
 #include <Eigen/Core>
 
@@ -21,7 +22,7 @@
 class FlybyFilter : public SysModel {
    public:
     FlybyFilter();
-    ~FlybyFilter();
+    ~FlybyFilter() override;
 
     void reset(uint64_t currentSimNanos) override;
     void updateState(uint64_t currentSimNanos) override;
@@ -40,10 +41,10 @@ class FlybyFilter : public SysModel {
     Eigen::MatrixXd initialCovariance;        //!< [m^2, (m/s)^2] N x N initial covariance P0 (SI)
 
     // ---- Message ports ----
-    ReadFunctor<OpNavUnitVecMsgPayload> opNavHeadingMsg;  //!< optical-nav heading input (required)
-    Message<NavTransMsgPayload> navTransOutMsg;           //!< estimated position + velocity output
-    Message<FilterMsgPayload> filterOutMsg;               //!< full filter state + covariance output
-    Message<FilterResidualsMsgPayload> filterResOutMsg;   //!< heading pre/post-fit residuals output
+    ReadFunctor<OpNavUnitVecMsgF32Payload> opNavHeadingMsg;  //!< optical-nav heading input (required)
+    Message<NavTransMsgF32Payload> navTransOutMsg;           //!< estimated position + velocity output
+    Message<FilterMsgF32Payload> filterOutMsg;               //!< full filter state + covariance output
+    Message<FilterResidualsMsgF32Payload> filterResOutMsg;   //!< heading pre/post-fit residuals output
 
    private:
     void writeOutputMessages(uint64_t currentSimNanos, filtering::flybyFilter::FlybyFilterOutput const& filterOutput);

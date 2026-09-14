@@ -9,7 +9,7 @@
 
 %include "flybyFilter.h"
 
-%include <architecture/msgPayloadDef/OpNavUnitVecMsgPayload.h>
-%include <architecture/msgPayloadDef/NavTransMsgPayload.h>
-%include <architecture/msgPayloadDef/FilterMsgPayload.h>
-%include <architecture/msgPayloadDef/FilterResidualsMsgPayload.h>
+%include "msgPayloadDef/OpNavUnitVecMsgF32Payload.h"
+%include "msgPayloadDef/NavTransMsgF32Payload.h"
+%include "msgPayloadDef/FilterMsgF32Payload.h"
+%include "msgPayloadDef/FilterResidualsMsgF32Payload.h"
