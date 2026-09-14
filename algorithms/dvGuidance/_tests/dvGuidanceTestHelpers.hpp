@@ -111,6 +111,24 @@ inline void testDvGuidance(const Eigen::Vector3f& dvInrtlCmd,
     }
 }
 
+// Inputs to this helper must exercise a degenerate case that returns the safe default.
+inline void testDvGuidanceDegenerateFallback(const Eigen::Vector3f& dvInrtlCmd,
+                                             const Eigen::Vector3f& dvRotVecUnit,
+                                             float dvRotVecMag,
+                                             uint64_t burnStartTime,
+                                             uint64_t callTime) {
+    DvGuidanceAlgorithm alg;
+
+    DvGuidanceOutput out;
+    EXPECT_NO_THROW(out = alg.update(dvInrtlCmd, dvRotVecUnit, dvRotVecMag, burnStartTime, callTime));
+
+    for (int i = 0; i < 3; ++i) {
+        EXPECT_FLOAT_EQ(out.sigma_RN[i], 0.0F);
+        EXPECT_FLOAT_EQ(out.omega_RN_N[i], 0.0F);
+        EXPECT_FLOAT_EQ(out.domega_RN_N[i], 0.0F);
+    }
+}
+
 inline void testDvGuidanceSetup() {
     EXPECT_NO_THROW({
         const DvGuidanceAlgorithm alg;
