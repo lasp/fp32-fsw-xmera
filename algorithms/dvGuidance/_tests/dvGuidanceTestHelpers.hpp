@@ -160,6 +160,30 @@ inline void testDvGuidanceAngularVelocityMagnitude(const Eigen::Vector3f& dvInrt
     EXPECT_FLOAT_EQ(out.domega_RN_N[2], 0.0F);
 }
 
+// A rotation below kSmallAngle is treated as zero, so the reference attitude
+// remains at the base burn-frame attitude.
+inline void testDvGuidanceBelowSmallAngleThreshold(const Eigen::Vector3f& dvInrtlCmd,
+                                                   const Eigen::Vector3f& dvRotVecUnit,
+                                                   float dvRotVecMag,
+                                                   uint64_t burnStartTime,
+                                                   uint64_t callTime) {
+    DvGuidanceAlgorithm alg;
+
+    DvGuidanceOutput outZeroAngle;
+    DvGuidanceOutput outTinyAngle;
+
+    EXPECT_NO_THROW(outZeroAngle = alg.update(dvInrtlCmd, dvRotVecUnit, dvRotVecMag, burnStartTime, burnStartTime));
+
+    EXPECT_NO_THROW(outTinyAngle = alg.update(dvInrtlCmd, dvRotVecUnit, dvRotVecMag, burnStartTime, callTime));
+
+    for (int i = 0; i < 3; ++i) {
+        EXPECT_FLOAT_EQ(outTinyAngle.sigma_RN[i], outZeroAngle.sigma_RN[i]);
+        EXPECT_FLOAT_EQ(outTinyAngle.omega_RN_N[i], outZeroAngle.omega_RN_N[i]);
+        EXPECT_TRUE(std::isfinite(outTinyAngle.sigma_RN[i]));
+        EXPECT_TRUE(std::isfinite(outTinyAngle.omega_RN_N[i]));
+    }
+}
+
 inline void testDvGuidanceDegenerateFallback(const Eigen::Vector3f& dvInrtlCmd,
                                              const Eigen::Vector3f& dvRotVecUnit,
                                              float dvRotVecMag,
