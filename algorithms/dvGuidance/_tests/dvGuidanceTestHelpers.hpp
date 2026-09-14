@@ -201,6 +201,30 @@ inline void testDvGuidanceDegenerateFallback(const Eigen::Vector3f& dvInrtlCmd,
     }
 }
 
+inline void testDvGuidanceDeltaVNormBoundary(const Eigen::Vector3f& dvRotVecUnit,
+                                             float dvRotVecMag,
+                                             uint64_t burnStartTime,
+                                             uint64_t callTime) {
+    DvGuidanceAlgorithm alg;
+
+    // Verify that an input exactly at kMinNormSq is accepted.
+    const float dvMagAtThreshold = std::sqrt(DvGuidanceAlgorithm::kMinNormSq);
+    const Eigen::Vector3f dvAtThreshold{dvMagAtThreshold, 0.0F, 0.0F};
+    ASSERT_FLOAT_EQ(dvAtThreshold.squaredNorm(), DvGuidanceAlgorithm::kMinNormSq);
+
+    DvGuidanceOutput out;
+    EXPECT_NO_THROW(out = alg.update(dvAtThreshold, dvRotVecUnit, dvRotVecMag, burnStartTime, callTime));
+
+    EXPECT_NEAR(out.omega_RN_N.stableNorm(), std::abs(dvRotVecMag), 1e-5F);
+
+    // Verify that the next representable magnitude below the threshold is rejected.
+    const float dvMagBelowThreshold = std::nextafter(dvMagAtThreshold, 0.0F);
+    const Eigen::Vector3f dvBelowThreshold{dvMagBelowThreshold, 0.0F, 0.0F};
+    ASSERT_LT(dvBelowThreshold.squaredNorm(), DvGuidanceAlgorithm::kMinNormSq);
+
+    testDvGuidanceDegenerateFallback(dvBelowThreshold, dvRotVecUnit, dvRotVecMag, burnStartTime, callTime);
+}
+
 inline void testDvGuidanceSetup() {
     EXPECT_NO_THROW({
         const DvGuidanceAlgorithm alg;
