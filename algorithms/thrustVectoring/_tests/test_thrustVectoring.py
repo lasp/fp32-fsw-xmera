@@ -162,5 +162,5 @@ def test_thrust_vectoring_latches_configuration_at_reset():
 
 
 if __name__ == "__main__":
-    test_thrust_vectoring(0.1, 0.4, 0.05, np.pi / 2, 1.0, 1e-4)
+    test_thrust_vectoring(0.1, 0.4, 0.05, 1.0, 1e-4)
     test_thrust_vectoring_latches_configuration_at_reset()
