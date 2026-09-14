@@ -29,13 +29,14 @@ class ThrustVectoring final : public SysModel {
     /*! module IO interfaces */
     ReadFunctor<VehicleConfigMsgF32Payload>
         vehConfigInMsg;  //!< input msg vehicle configuration msg (needed for CM location)
-    ReadFunctor<THRConfigMsgF32Payload> thrusterConfigFInMsg;  //!< input thruster configuration msg
+    ReadFunctor<THRConfigMsgF32Payload>
+        thrusterConfigInMsg;  //!< input thruster configuration msg; only maxThrust is used
     ReadFunctor<CmdTorqueBodyMsgF32Payload>
         cmdTorqueInMsg;  //!< [Nm] input requested thruster torque about the center of mass, body frame
     Message<BodyHeadingMsgF32Payload>
         bodyHeadingOutMsg;  //!< output msg containing the thrust heading in body frame coordinates
     Message<THRConfigMsgF32Payload>
-        thrusterConfigBOutMsg;  //!< output msg containing the thruster configuration infor in B-frame
+        thrusterConfigOutMsg;  //!< output msg containing the thruster configuration, body frame coordinates
 
    private:
     ThrustVectoringConfig toConfig();

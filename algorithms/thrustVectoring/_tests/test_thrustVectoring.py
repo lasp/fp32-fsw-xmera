@@ -13,7 +13,7 @@ from xmera.utilities import macros
 @pytest.mark.parametrize("arm_length", [0.0, 0.4])
 @pytest.mark.parametrize("accuracy", [1e-4])
 def test_thrust_vectoring(delta_cm, arm_length, torque_request, seed, accuracy):
-    """Module Unit Test: the platform points the thruster so it delivers the requested torque about the center of
+    """Module Unit Test: the module points the thrust so it delivers the requested torque about the center of
     mass, reducing to alignment through the center of mass when no torque is requested. The center-of-mass offset
     is randomized over seed, so each parameter combination is exercised on ten geometries."""
     # Seed numpy's generator, used for the random center-of-mass shift below, so the test is deterministic and
@@ -50,14 +50,11 @@ def test_thrust_vectoring(delta_cm, arm_length, torque_request, seed, accuracy):
     veh_config_in_msg = messaging.VehicleConfigMsgF32().write(veh_config_message)
     module.vehConfigInMsg.subscribeTo(veh_config_in_msg)
 
-    # The thruster fires along the platform +z axis from a point on that axis, so the module requires exactly
-    # this description and takes only the magnitude from it.
+    # The module takes only the magnitude from this message.
     thr_config_message = messaging.THRConfigMsgF32Payload()
-    thr_config_message.rThrust_B = np.array([0.0, 0.0, 0.0])
-    thr_config_message.tHatThrust_B = np.array([0.0, 0.0, 1.0])
     thr_config_message.maxThrust = thrust
     thr_config_in_msg = messaging.THRConfigMsgF32().write(thr_config_message)
-    module.thrusterConfigFInMsg.subscribeTo(thr_config_in_msg)
+    module.thrusterConfigInMsg.subscribeTo(thr_config_in_msg)
 
     cmd_torque_message = messaging.CmdTorqueBodyMsgF32Payload()
     cmd_torque_message.torqueRequestBody = L_req_B
@@ -66,17 +63,17 @@ def test_thrust_vectoring(delta_cm, arm_length, torque_request, seed, accuracy):
 
     body_heading_log = module.bodyHeadingOutMsg.recorder()
     sim.AddModelToTask(task_name, body_heading_log)
-    thr_config_b_log = module.thrusterConfigBOutMsg.recorder()
-    sim.AddModelToTask(task_name, thr_config_b_log)
+    thr_config_log = module.thrusterConfigOutMsg.recorder()
+    sim.AddModelToTask(task_name, thr_config_log)
 
     sim.InitializeSimulation()
     sim.ConfigureStopTime(macros.sec2nano(1))
     sim.ExecuteSimulation()
 
     tHat_B = body_heading_log.rHat_XB_B[-1]
-    rThrust_B = thr_config_b_log.rThrust_B[-1]
-    tHatThrust_B = thr_config_b_log.tHatThrust_B[-1]
-    maxThrust = thr_config_b_log.maxThrust[-1]
+    rThrust_B = thr_config_log.rThrust_B[-1]
+    tHatThrust_B = thr_config_log.tHatThrust_B[-1]
+    maxThrust = thr_config_log.maxThrust[-1]
 
     # The reported body-frame thrust heading is a unit vector and the thrust magnitude is preserved.
     np.testing.assert_allclose(np.linalg.norm(tHat_B), 1.0, rtol=accuracy, atol=accuracy, verbose=True)
@@ -132,11 +129,9 @@ def test_thrust_vectoring_latches_configuration_at_reset():
     module.vehConfigInMsg.subscribeTo(veh_config_in_msg)
 
     thr_config_message = messaging.THRConfigMsgF32Payload()
-    thr_config_message.rThrust_B = np.array([0.0, 0.0, 0.0])
-    thr_config_message.tHatThrust_B = np.array([0.0, 0.0, 1.0])
     thr_config_message.maxThrust = 10.0
     thr_config_in_msg = messaging.THRConfigMsgF32().write(thr_config_message)
-    module.thrusterConfigFInMsg.subscribeTo(thr_config_in_msg)
+    module.thrusterConfigInMsg.subscribeTo(thr_config_in_msg)
 
     cmd_torque_message = messaging.CmdTorqueBodyMsgF32Payload()
     cmd_torque_message.torqueRequestBody = np.array([0.0, 0.0, 0.0])
