@@ -1,5 +1,6 @@
 #include "dvGuidanceTestHelpers.hpp"
 #include <gtest/gtest.h>
+#include <limits>
 
 TEST(DvGuidanceTest, Setup) { testDvGuidanceSetup(); }
 
@@ -127,6 +128,15 @@ TEST(DvGuidanceTest, RotAxisAntiParallelToDeltaV) {
     testDvGuidanceDegenerateFallback(Eigen::Vector3f{1.0F, 2.0F, -3.0F},
                                      Eigen::Vector3f{-1.0F, -2.0F, 3.0F},
                                      /* dvRotVecMag   = */ 0.3F,
+                                     /* burnStartTime = */ 0U,
+                                     /* callTime      = */ 1000000000U);
+}
+
+TEST(DvGuidanceTest, InfiniteDvInrtlCmdReturnsDefault) {
+    // Check that the allFinite() guard rejects a non-finite delta-V command.
+    testDvGuidanceDegenerateFallback(Eigen::Vector3f{std::numeric_limits<float>::infinity(), 0.0F, 0.0F},
+                                     Eigen::Vector3f{1.0F, 1.0F, 1.0F},
+                                     /* dvRotVecMag   = */ 0.5F,
                                      /* burnStartTime = */ 0U,
                                      /* callTime      = */ 1000000000U);
 }
