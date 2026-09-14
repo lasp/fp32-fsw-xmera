@@ -209,11 +209,14 @@ heading are unobservable; rates about the other two axes are recovered. With :ma
 .. math::
 
     \boldsymbol{\omega}_{B/N} = \frac{\mathbf{d}_n \times \mathbf{d}_{n-1}}{|\mathbf{d}_n \times \mathbf{d}_{n-1}|}
-    \arccos\left( \frac{\mathbf{d}_n \cdot \mathbf{d}_{n-1}}{|\mathbf{d}_n| |\mathbf{d}_{n-1}|} \right)
-    \frac{1}{\Delta t}
+    \; \frac{1}{\Delta t} \;
+    \operatorname{atan2}\left( |\mathbf{d}_n \times \mathbf{d}_{n-1}| , \; \mathbf{d}_n \cdot \mathbf{d}_{n-1} \right)
 
-All components are body frame. The arc-cosine is evaluated safely, so round-off cannot push its argument outside
-the domain.
+All components are in the body frame. The two headings are unit vectors, so the magnitude of their cross product
+is the sine of the angle between them. Their dot product is the cosine of that angle. The algorithm calculates the
+angle from both products, because the cosine alone does not keep the significant digits of a small angle. A slew of
+one milliradian changes the cosine by five parts in ten million, and single precision cannot hold that change. The
+sine keeps those digits, and the rate of a slow slew stays accurate.
 
 Post-Fit Residuals
 ~~~~~~~~~~~~~~~~~~
@@ -269,5 +272,7 @@ Algorithm Assumptions and Limitations
   as a quality indicator.
 - Rates about the sun heading are structurally unobservable. The reported angular velocity is only the component
   orthogonal to the heading.
+- The rate divides by the configured control period rather than by a measured elapsed time, so it assumes the
+  module runs on its nominal schedule. A cycle that arrives late scales the reported rate by the same amount.
 - Sensor biases are applied to the observation matrix but not to the residual projection, so a biased sensor's
   residual is measured against the raw boresight.
