@@ -35,7 +35,7 @@ inline ReferenceDvGuidanceOutput referenceDvGuidance(const Eigen::Vector3d& dvIn
     const Eigen::Vector3d dvHat_N = dvInrtlCmd.normalized();
 
     const Eigen::Vector3d cross = dvRotVecUnit.normalized().cross(dvHat_N);
-    if (!(cross.squaredNorm() >= static_cast<double>(DvGuidanceAlgorithm::kMinCrossSq))) {
+    if (!dvRotVecUnit.allFinite() || !(cross.squaredNorm() >= static_cast<double>(DvGuidanceAlgorithm::kMinCrossSq))) {
         return safeDefault;
     }
     Eigen::Matrix3d dcm_BubN;
