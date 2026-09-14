@@ -4,7 +4,7 @@
 TEST(DvGuidanceTest, ReferenceTestAtBurnStart) {
     // Sampled at the burn start time so the rotation about the 3rd burn-frame axis is zero.
     testDvGuidanceRegression(Eigen::Vector3f{5.0F, 5.0F, 5.0F},  // dvInrtlCmd
-                             Eigen::Vector3f{1.0F, 0.0F, 0.0F},  // dvRotVecUnit (orthogonal seed)
+                             Eigen::Vector3f{1.0F, 0.0F, 0.0F},  // dvRotVecUnit (non-orthogonal seed)
                              0.5F,                               // dvRotVecMag
                              /* burnStartTime = */ 500000000U,   // 0.5 s
                              /* callTime      = */ 500000000U);  // 0.5 s
