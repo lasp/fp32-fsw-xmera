@@ -3,6 +3,7 @@
 #include "forceTorqueThrForceMappingAlgorithm.h"
 #include "forceTorqueThrForceMappingTypes.h"
 #include "utilities/fsw/eigenSupport.h"
+#include "utilities/fsw/freestandingInvalidArgument.h"
 #include "utilities/fsw/opaqueHandle.h"
 
 #include <Eigen/Core>
@@ -39,6 +40,21 @@ ForceTorqueThrForceMappingConfig configFromC(const float rThruster_B[MAX_EFF_CNT
 }  // namespace
 
 uint32_t ForceTorqueThrForceMappingAlgorithm_getMaxThrusterCount(void) { return kMaxThrusterCount; }
+
+bool ForceTorqueThrForceMappingAlgorithm_validateConfig(float rThruster_B[MAX_EFF_CNT * 3],
+                                                        float tHatThruster_B[MAX_EFF_CNT * 3],
+                                                        float centerOfMass_B[3],
+                                                        const ForceTorqueControlAxes_c* desiredControlAxes_B) {
+    // Attempt to build the config through the real create path (configFromC ->
+    // ForceTorqueThrForceMappingConfig::create): success means valid, a throw means invalid.
+    // Reusing create means this validation can never drift from the rules it enforces.
+    try {
+        (void)configFromC(rThruster_B, tHatThruster_B, centerOfMass_B, *desiredControlAxes_B);
+        return true;
+    } catch (const fsw::invalid_argument&) {
+        return false;
+    }
+}
 
 ForceTorqueThrForceMappingAlgorithmHandle* ForceTorqueThrForceMappingAlgorithm_create(
     float rThruster_B[MAX_EFF_CNT * 3],

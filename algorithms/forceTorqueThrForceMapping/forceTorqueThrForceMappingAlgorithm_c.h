@@ -3,6 +3,7 @@
 
 #include "forceTorqueThrForceMappingTypes.h"
 
+#include <stdbool.h>
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -21,10 +22,26 @@ typedef struct ForceTorqueThrForceMappingAlgorithmHandle ForceTorqueThrForceMapp
 uint32_t ForceTorqueThrForceMappingAlgorithm_getMaxThrusterCount(void);
 
 /**
+ * @brief Report whether a configuration would be accepted by create/setConfig.
+ * @param rThruster_B          [m] Thruster locations in the body frame, three components per thruster
+ *                             in row major order.
+ * @param tHatThruster_B       [-] Thrust directions in the body frame, three components per thruster in
+ *                             row major order; each must be a unit vector to within 1e-3.
+ * @param centerOfMass_B       [m] Center of mass in the body frame; must be finite.
+ * @param desiredControlAxes_B [-] Per-axis controllability assertions.
+ * @return true when the configuration is valid. Never throws, so it can guard the throwing
+ *         create/setConfig from an invalid configuration.
+ */
+bool ForceTorqueThrForceMappingAlgorithm_validateConfig(float rThruster_B[MAX_EFF_CNT * 3],
+                                                        float tHatThruster_B[MAX_EFF_CNT * 3],
+                                                        float centerOfMass_B[3],
+                                                        const ForceTorqueControlAxes_c* desiredControlAxes_B);
+
+/**
  * @brief Construct a new ForceTorqueThrForceMappingAlgorithm from the supplied configuration.
  *
- * Validates the configuration and immediately computes the thruster mapping matrix. Throws on
- * invalid input.
+ * Validates the configuration and immediately computes the thruster mapping matrix. Validate the
+ * values with validateConfig first; invalid input throws.
  * @param rThruster_B          [m] Thruster locations in the body frame, three components per thruster
  *                             in row major order.
  * @param tHatThruster_B       [-] Thrust directions in the body frame, three components per thruster in
@@ -48,7 +65,7 @@ void ForceTorqueThrForceMappingAlgorithm_destroy(ForceTorqueThrForceMappingAlgor
 /**
  * @brief Replace the configuration at runtime and recompute the thruster mapping matrix.
  *
- * Throws on invalid input.
+ * Validate the values with validateConfig first; invalid input throws.
  * @param self                 Pointer to the instance.
  * @param rThruster_B          [m] Thruster locations in the body frame, three components per thruster
  *                             in row major order.
