@@ -39,26 +39,13 @@ TEST(DvGuidanceTest, ZeroRotationRate) {
 }
 
 TEST(DvGuidanceTest, AngularVelocityMagnitudeMatchesDvRotVecMag) {
-    // |omega_RN_N| must equal |dvRotVecMag| since omega lies along a unit axis of dcm_ButN.
-    DvGuidanceAlgorithm alg;
-    constexpr float dvRotVecMag = 0.7F;
-
-    DvGuidanceOutput out;
-    EXPECT_NO_THROW(out = alg.update(Eigen::Vector3f{2.0F, -1.0F, 4.0F},
-                                     Eigen::Vector3f{0.0F, 0.0F, 1.0F},
-                                     dvRotVecMag,
-                                     /* burnStartTime = */ 0U,
-                                     /* callTime      = */ 750000000U));  // 0.75 s
-
-    EXPECT_NEAR(out.omega_RN_N.norm(), dvRotVecMag, 1e-5F);
-    for (int i = 0; i < 3; ++i) {
-        EXPECT_TRUE(std::isfinite(out.sigma_RN[i]));
-        EXPECT_TRUE(std::isfinite(out.omega_RN_N[i]));
-    }
-    // Reference acceleration is always zero by construction.
-    EXPECT_FLOAT_EQ(out.domega_RN_N[0], 0.0F);
-    EXPECT_FLOAT_EQ(out.domega_RN_N[1], 0.0F);
-    EXPECT_FLOAT_EQ(out.domega_RN_N[2], 0.0F);
+    // dvRotVecMag = 0.7 rad/s: the reference frame rotates at the commanded rate,
+    // so the magnitude of omega_RN_N is expected to be 0.7 rad/s and domega_RN_N remains zero.
+    testDvGuidanceAngularVelocityMagnitude(Eigen::Vector3f{2.0F, -1.0F, 4.0F},
+                                           Eigen::Vector3f{0.0F, 0.0F, 1.0F},
+                                           /* dvRotVecMag   = */ 0.7F,
+                                           /* burnStartTime = */ 0U,
+                                           /* callTime      = */ 750000000U);  // 0.75 s
 }
 
 TEST(DvGuidanceTest, MrpStaysWithinShadowSwitch) {
