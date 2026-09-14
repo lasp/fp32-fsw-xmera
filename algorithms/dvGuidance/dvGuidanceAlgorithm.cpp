@@ -12,9 +12,9 @@ DvGuidanceOutput DvGuidanceAlgorithm::update(const Eigen::Vector3f& dvInrtlCmd,
                                              const float dvRotVecMag,
                                              const uint64_t burnStartTime,
                                              const uint64_t callTime) {
-    // Guard: a near-zero delta-V has no defined direction. Hold attitude (identity, zero rates)
-    // when the commanded delta-V is below the minimum norm threshold.
-    const bool isDvInrtlCmdValid = dvInrtlCmd.squaredNorm() >= kMinNormSq;
+    // Guard: a near-zero or non-finite delta-V has no defined direction. Hold attitude (identity,
+    // zero rates) when the commanded delta-V is non-finite or below the minimum norm threshold.
+    const bool isDvInrtlCmdValid = dvInrtlCmd.allFinite() && dvInrtlCmd.squaredNorm() >= kMinNormSq;
 
     // base burn frame Bub: 1st axis along dvHat_N, 2nd axis perpendicular to {dvHat_N, dvRotVecUnit},
     // 3rd axis completes the right-handed triad. The DCM rows are the Bub axes in N coordinates.
