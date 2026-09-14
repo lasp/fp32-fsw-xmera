@@ -141,6 +141,15 @@ TEST(DvGuidanceTest, InfiniteDvInrtlCmdReturnsDefault) {
                                      /* callTime      = */ 1000000000U);
 }
 
+TEST(DvGuidanceTest, InfiniteRotationRateReturnsDefault) {
+    // Check that the is_finite() guard rejects a non-finite rotation rate.
+    testDvGuidanceDegenerateFallback(Eigen::Vector3f{1.0F, 0.0F, 0.0F},
+                                     Eigen::Vector3f{0.0F, 1.0F, 0.0F},
+                                     std::numeric_limits<float>::infinity(),
+                                     /* burnStartTime = */ 0U,
+                                     /* callTime      = */ 5000000000U);
+}
+
 TEST(DvGuidanceTest, SubThresholdRotationSnapsToIdentity) {
     // A rotation below kSmallAngle (here dvRotVecMag * dt = 1e-4 * 0.01 s = 1e-6 rad < 1e-5) is
     // reported as identity, so the attitude matches the zero-elapsed-time result exactly rather
