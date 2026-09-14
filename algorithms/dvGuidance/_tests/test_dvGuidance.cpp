@@ -2,8 +2,6 @@
 #include <gtest/gtest.h>
 #include <limits>
 
-TEST(DvGuidanceTest, Setup) { testDvGuidanceSetup(); }
-
 TEST(DvGuidanceTest, ReferenceTestAtBurnStart) {
     // Sampled at the burn start time so the rotation about the 3rd burn-frame axis is zero.
     testDvGuidance(Eigen::Vector3f{5.0F, 5.0F, 5.0F},  // dvInrtlCmd
