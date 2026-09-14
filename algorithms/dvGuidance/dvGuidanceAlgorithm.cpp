@@ -13,27 +13,22 @@ DvGuidanceOutput DvGuidanceAlgorithm::update(const Eigen::Vector3f& dvInrtlCmd,
                                              const float dvRotVecMag,
                                              const uint64_t burnStartTime,
                                              const uint64_t callTime) {
-    // Guard: a near-zero or non-finite delta-V has no defined direction. Hold attitude (identity,
-    // zero rates) when the commanded delta-V is non-finite or below the minimum norm threshold.
-    const bool isDvInrtlCmdValid = dvInrtlCmd.allFinite() && dvInrtlCmd.squaredNorm() >= kMinNormSq;
-
-    // base burn frame Bub: 1st axis along dvHat_N, 2nd axis perpendicular to {dvHat_N, dvRotVecUnit},
-    // 3rd axis completes the right-handed triad. The DCM rows are the Bub axes in N coordinates.
+    // dvHat_N: unit vector along the commanded delta-V direction (the burn frame's 1st axis).
     const Eigen::Vector3f dvHat_N = dvInrtlCmd.stableNormalized();
 
-    // Guard: when dvRotVecUnit is non-finite, (anti)parallel to dvHat_N, or itself near-zero, the
-    // cross product is undefined or collapses, so the base frame is ill-defined and FP32-noise-
-    // dominated. Hold attitude rather than emit noise/NaN. The negated form also rejects the NaN a
-    // zero-axis stableNormalized() produces (NaN >= kMinCrossSq is false).
+    // Construct the cross product used to detect degenerate or poorly conditioned
+    // burn-frame geometry when the rotation-axis seed is near parallel or antiparallel to dvHat_N.
     const Eigen::Vector3f cross = dvRotVecUnit.stableNormalized().cross(dvHat_N);
-    const bool isCrossValid = dvRotVecUnit.allFinite() && cross.squaredNorm() >= kMinCrossSq;
 
-    // Guard: a non-finite rotation rate has no defined burn-frame rotation.
+    const bool isDvInrtlCmdValid = dvInrtlCmd.allFinite() && dvInrtlCmd.squaredNorm() >= kMinNormSq;
+    const bool isCrossValid = dvRotVecUnit.allFinite() && cross.squaredNorm() >= kMinCrossSq;
     const bool isDvRotVecMagFinite = fsw::is_finite(dvRotVecMag);
 
     DvGuidanceOutput out{};
 
     if (isDvRotVecMagFinite && isDvInrtlCmdValid && isCrossValid) {
+        // Base burn frame Bub: 1st axis along dvHat_N, 2nd axis perpendicular to {dvHat_N, dvRotVecUnit},
+        // 3rd axis completes the right-handed triad. The DCM rows are the Bub axes in N coordinates.
         Eigen::Matrix3f dcm_BubN;
         dcm_BubN.row(0) = dvHat_N;
         dcm_BubN.row(1) = cross.normalized();
@@ -42,9 +37,8 @@ DvGuidanceOutput DvGuidanceAlgorithm::update(const Eigen::Vector3f& dvInrtlCmd,
         const float burnTime =
             static_cast<float>(static_cast<int64_t>(callTime) - static_cast<int64_t>(burnStartTime)) * kNano2SecF;
 
-        // current burn frame Bu = base burn frame rotated about its 3rd axis by (dvRotVecMag * burnTime).
-        // Below kSmallAngle the rotation is reported as identity: the FP32 noise on prvToDcm * dcm_BubN
-        // would otherwise dominate the sub-threshold deviation.
+        // Current burn frame = base burn frame rotated about its 3rd axis by
+        // dvRotVecMag * burnTime. Rotations below kSmallAngle are treated as zero.
         const float angle = dvRotVecMag * burnTime;
         Eigen::Matrix3f dcm_ButBub = Eigen::Matrix3f::Identity();
         if (fabsf(angle) >= kSmallAngle) {
@@ -53,7 +47,7 @@ DvGuidanceOutput DvGuidanceAlgorithm::update(const Eigen::Vector3f& dvInrtlCmd,
         const Eigen::Matrix3f dcm_ButN = dcm_ButBub * dcm_BubN;
 
         out.sigma_RN = dcmToMrp(dcm_ButN);
-        // angular velocity is dvRotVecMag along the 3rd Bu axis, expressed in N
+        // Angular velocity is dvRotVecMag along the 3rd Bu axis, expressed in N
         out.omega_RN_N = dvRotVecMag * dcm_ButN.row(2).transpose();
         out.domega_RN_N = Eigen::Vector3f::Zero();
     }
