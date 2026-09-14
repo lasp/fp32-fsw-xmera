@@ -129,3 +129,13 @@ TEST(DvGuidanceTest, CrossBoundary) {
                                 /* burnStartTime = */ 0U,
                                 /* callTime      = */ 1000000000U);  // 1.0 s
 }
+
+TEST(DvGuidanceTest, OutputIsFinite) {
+    // Valid burn inputs are provided with a nonzero rotation rate and elapsed burn time:
+    // all sigma_RN, omega_RN_N, and domega_RN_N components are expected to remain finite.
+    propertyOutputIsFinite(Eigen::Vector3f{2.0F, -1.0F, 4.0F},
+                           Eigen::Vector3f{0.0F, 0.0F, 1.0F},
+                           /* dvRotVecMag   = */ 0.7F,
+                           /* burnStartTime = */ 0U,
+                           /* callTime      = */ 750000000U);  // 0.75 s
+}

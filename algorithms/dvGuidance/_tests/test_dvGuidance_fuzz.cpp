@@ -7,9 +7,8 @@ namespace {
 
 /// Fuzzes the burn-command inputs and the (callTime - burnStartTime) elapsed-time delta across the
 /// full domain, including the degenerate cases the algorithm now guards (zero-norm dvInrtlCmd and
-/// dvRotVecUnit (anti)parallel to it). testDvGuidanceRegression asserts the output is always finite and
-/// reference-matches at 1e-5 only where the inputs are non-degenerate by margin. See dvGuidance.rst
-/// ("Numerical conditioning") for why the guard thresholds bound the FP32 reference error.
+/// dvRotVecUnit (anti)parallel to it). testDvGuidanceRegression compares against the double-precision
+/// reference at 1e-5 tolerance for inputs sufficiently far from the guard boundaries.
 void fuzzDvGuidance(const Eigen::Vector3f& dvInrtlCmd,
                     const Eigen::Vector3f& dvRotVecUnit,
                     float dvRotVecMag,
@@ -19,7 +18,23 @@ void fuzzDvGuidance(const Eigen::Vector3f& dvInrtlCmd,
     testDvGuidanceRegression(dvInrtlCmd, dvRotVecUnit, dvRotVecMag, burnStartTime, callTime);
 }
 
+void fuzzPropertyOutputIsFinite(const Eigen::Vector3f& dvInrtlCmd,
+                                const Eigen::Vector3f& dvRotVecUnit,
+                                float dvRotVecMag,
+                                int64_t burnTime_ns) {
+    constexpr uint64_t burnStartTime = 1'000'000'000ULL;
+    const uint64_t callTime = static_cast<uint64_t>(static_cast<int64_t>(burnStartTime) + burnTime_ns);
+
+    propertyOutputIsFinite(dvInrtlCmd, dvRotVecUnit, dvRotVecMag, burnStartTime, callTime);
+}
+
 }  // namespace
+
+FUZZ_TEST(DvGuidancePropertyFuzz, fuzzPropertyOutputIsFinite)
+    .WithDomains(xmera::fuzz::Vector3fInRange(-1.0e4F, 1.0e4F),
+                 xmera::fuzz::Vector3fInRange(-1.0F, 1.0F),
+                 fuzztest::InRange(-1.0F, 1.0F),
+                 fuzztest::InRange<int64_t>(-30'000'000'000LL, 30'000'000'000LL));
 
 FUZZ_TEST(DvGuidanceFuzz, fuzzDvGuidance)
     .WithDomains(

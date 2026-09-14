@@ -70,14 +70,6 @@ inline void testDvGuidanceRegression(const Eigen::Vector3f& dvInrtlCmd,
     DvGuidanceOutput out;
     EXPECT_NO_THROW(out = alg.update(dvInrtlCmd, dvRotVecUnit, dvRotVecMag, burnStartTime, callTime));
 
-    // Robustness: the output is finite for any input in the domain (the degenerate-input guards
-    // return a safe default instead of propagating NaN).
-    for (int i = 0; i < 3; ++i) {
-        EXPECT_TRUE(std::isfinite(out.sigma_RN[i]));
-        EXPECT_TRUE(std::isfinite(out.omega_RN_N[i]));
-        EXPECT_TRUE(std::isfinite(out.domega_RN_N[i]));
-    }
-
     // Accuracy: only compare against the double reference where the inputs are unambiguously on one
     // side of every guard (evaluated in double, with margin) so a FP32-vs-double boundary
     // disagreement can't pit a guarded path against an unguarded one. The guard regions and the
@@ -248,6 +240,25 @@ inline void testDvGuidanceCrossBoundary(const Eigen::Vector3f& dvInrtlCmd,
     ASSERT_LT(crossSqBelowThreshold, DvGuidanceAlgorithm::kMinCrossSq);
 
     testDvGuidanceDegenerateFallback(dvInrtlCmd, dvRotVecUnitBelowThreshold, dvRotVecMag, burnStartTime, callTime);
+}
+
+// Robustness: the output is finite for any input in the domain (the degenerate-input guards
+// return a safe default instead of propagating NaN).
+inline void propertyOutputIsFinite(const Eigen::Vector3f& dvInrtlCmd,
+                                   const Eigen::Vector3f& dvRotVecUnit,
+                                   float dvRotVecMag,
+                                   uint64_t burnStartTime,
+                                   uint64_t callTime) {
+    DvGuidanceAlgorithm alg;
+
+    DvGuidanceOutput out;
+    EXPECT_NO_THROW(out = alg.update(dvInrtlCmd, dvRotVecUnit, dvRotVecMag, burnStartTime, callTime));
+
+    for (int i = 0; i < 3; ++i) {
+        EXPECT_TRUE(std::isfinite(out.sigma_RN[i]));
+        EXPECT_TRUE(std::isfinite(out.omega_RN_N[i]));
+        EXPECT_TRUE(std::isfinite(out.domega_RN_N[i]));
+    }
 }
 
 #endif
