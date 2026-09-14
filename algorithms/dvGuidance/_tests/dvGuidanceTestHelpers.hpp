@@ -228,4 +228,33 @@ inline void testDvGuidanceSetup() {
     });
 }
 
+inline void testDvGuidanceCrossBoundary(const Eigen::Vector3f& dvInrtlCmd,
+                                        float dvRotVecMag,
+                                        uint64_t burnStartTime,
+                                        uint64_t callTime) {
+    DvGuidanceAlgorithm alg;
+
+    // Verify a seed that lands exactly at kMinCrossSq is accepted.
+    const Eigen::Vector3f dvRotVecUnitAtThreshold{1.0F, 0.030013511F, 0.0F};
+    const float crossSqAtThreshold =
+        dvRotVecUnitAtThreshold.stableNormalized().cross(dvInrtlCmd.stableNormalized()).squaredNorm();
+
+    ASSERT_FLOAT_EQ(crossSqAtThreshold, DvGuidanceAlgorithm::kMinCrossSq);
+
+    DvGuidanceOutput out;
+    EXPECT_NO_THROW(out = alg.update(dvInrtlCmd, dvRotVecUnitAtThreshold, dvRotVecMag, burnStartTime, callTime));
+
+    EXPECT_NEAR(out.omega_RN_N.stableNorm(), std::abs(dvRotVecMag), 1e-5F);
+
+    // Verify the next representable seed component below the threshold is rejected.
+    const Eigen::Vector3f dvRotVecUnitBelowThreshold{1.0F, std::nextafter(0.030013511F, 0.0F), 0.0F};
+
+    const float crossSqBelowThreshold =
+        dvRotVecUnitBelowThreshold.stableNormalized().cross(dvInrtlCmd.stableNormalized()).squaredNorm();
+
+    ASSERT_LT(crossSqBelowThreshold, DvGuidanceAlgorithm::kMinCrossSq);
+
+    testDvGuidanceDegenerateFallback(dvInrtlCmd, dvRotVecUnitBelowThreshold, dvRotVecMag, burnStartTime, callTime);
+}
+
 #endif
