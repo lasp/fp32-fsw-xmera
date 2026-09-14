@@ -5,6 +5,7 @@
 #include <memory>
 #include <stdexcept>
 
+/*! Validates that burnDataInMsg is connected and constructs the algorithm. */
 void DvGuidance::reset(const uint64_t callTime) {
     if (!this->burnDataInMsg.isLinked()) {
         throw std::invalid_argument("dvGuidance.burnDataInMsg wasn't connected.");
@@ -12,6 +13,7 @@ void DvGuidance::reset(const uint64_t callTime) {
     this->algorithm = std::make_unique<DvGuidanceAlgorithm>();
 }
 
+/*! Computes the burn-frame attitude reference from the commanded delta-V burn data */
 void DvGuidance::updateState(const uint64_t callTime) {
     if (!this->algorithm) {
         throw XmeraLifecycleException("DvGuidance reset() has not been called.");
