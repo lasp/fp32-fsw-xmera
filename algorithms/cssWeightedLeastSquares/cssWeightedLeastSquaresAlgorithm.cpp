@@ -39,7 +39,7 @@ namespace {
  */
 template <typename MatrixT>
 std::optional<MatrixT> invertNormalMatrix(const MatrixT& matrix) {
-    const float norm = matrix.stableNorm();
+    const float norm = matrix.reshaped().stableNorm();
     float threshold = kSingularDeterminantRelativeTolerance;
     for (int dimension = 0; dimension < MatrixT::RowsAtCompileTime; ++dimension) {
         threshold *= norm;
