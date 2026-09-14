@@ -29,8 +29,8 @@ DvGuidanceOutput DvGuidanceAlgorithm::update(const Eigen::Vector3f& dvInrtlCmd,
         // 3rd axis completes the right-handed triad. The DCM rows are the Bub axes in N coordinates.
         Eigen::Matrix3f dcm_BubN;
         dcm_BubN.row(0) = dvHat_N;
-        dcm_BubN.row(1) = cross.normalized();
-        dcm_BubN.row(2) = dcm_BubN.row(0).cross(dcm_BubN.row(1)).normalized();
+        dcm_BubN.row(1) = cross.stableNormalized();
+        dcm_BubN.row(2) = dcm_BubN.row(0).cross(dcm_BubN.row(1)).stableNormalized();
 
         const float burnTime =
             static_cast<float>(static_cast<int64_t>(callTime) - static_cast<int64_t>(burnStartTime)) * kNano2SecF;

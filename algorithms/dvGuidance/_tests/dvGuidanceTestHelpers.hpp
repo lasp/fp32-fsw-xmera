@@ -32,16 +32,16 @@ inline ReferenceDvGuidanceOutput referenceDvGuidance(const Eigen::Vector3d& dvIn
     if (dvInrtlCmd.squaredNorm() < static_cast<double>(DvGuidanceAlgorithm::kMinNormSq)) {
         return safeDefault;
     }
-    const Eigen::Vector3d dvHat_N = dvInrtlCmd.normalized();
+    const Eigen::Vector3d dvHat_N = dvInrtlCmd.stableNormalized();
 
-    const Eigen::Vector3d cross = dvRotVecUnit.normalized().cross(dvHat_N);
+    const Eigen::Vector3d cross = dvRotVecUnit.stableNormalized().cross(dvHat_N);
     if (!(cross.squaredNorm() >= static_cast<double>(DvGuidanceAlgorithm::kMinCrossSq))) {
         return safeDefault;
     }
     Eigen::Matrix3d dcm_BubN;
     dcm_BubN.row(0) = dvHat_N;
-    dcm_BubN.row(1) = cross.normalized();
-    dcm_BubN.row(2) = dcm_BubN.row(0).cross(dcm_BubN.row(1)).normalized();
+    dcm_BubN.row(1) = cross.stableNormalized();
+    dcm_BubN.row(2) = dcm_BubN.row(0).cross(dcm_BubN.row(1)).stableNormalized();
 
     const double burnTime =
         static_cast<double>(static_cast<int64_t>(callTime) - static_cast<int64_t>(burnStartTime)) * 1e-9;
@@ -84,7 +84,7 @@ inline void testDvGuidance(const Eigen::Vector3f& dvInrtlCmd,
     // snap boundary themselves are covered by explicit edge tests.
     const Eigen::Vector3d cmd_d = dvInrtlCmd.cast<double>();
     const Eigen::Vector3d rot_d = dvRotVecUnit.cast<double>();
-    const double sinSq = rot_d.normalized().cross(cmd_d.normalized()).squaredNorm();
+    const double sinSq = rot_d.stableNormalized().cross(cmd_d.stableNormalized()).squaredNorm();
     const double burnTime =
         static_cast<double>(static_cast<int64_t>(callTime) - static_cast<int64_t>(burnStartTime)) * 1e-9;
     const double absAngle = std::abs(static_cast<double>(dvRotVecMag) * burnTime);
