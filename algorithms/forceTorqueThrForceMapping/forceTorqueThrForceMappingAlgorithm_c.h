@@ -24,8 +24,9 @@ uint32_t ForceTorqueThrForceMappingAlgorithm_getMaxEffCnt(void);
  * @brief Construct a new ForceTorqueThrForceMappingAlgorithm instance from the supplied
  *        configuration.
  *
- * Validates the configuration and immediately computes the thruster mapping matrix. Throws if any
- * axis flagged in desiredControlAxes is not controllable by the configured thruster array.
+ * Validates the configuration and immediately computes the thruster mapping matrix. Throws if
+ * desiredControlAxes selects no axis, or if a selected axis is not controllable by the configured
+ * thruster array.
  *
  * @param config Pointer to the configuration to apply (validated; throws on invalid input).
  * @return Pointer to a new ForceTorqueThrForceMappingAlgorithm (must be destroyed).
@@ -50,8 +51,8 @@ void ForceTorqueThrForceMappingAlgorithm_setConfig(ForceTorqueThrForceMappingAlg
 /**
  * @brief Compute thruster force commands from the requested torque and force vectors.
  *
- * Entries 0..numThrusters-1 carry the non-negative, min-shifted per-thruster commands; trailing
- * slots are exactly zero. update() does not throw.
+ * Entries 0..numThrusters-1 carry the non-negative per-thruster commands; trailing slots are exactly
+ * zero. update() does not throw.
  *
  * @param self        Pointer to the instance.
  * @param cmdTorque_B [Nm] requested control torque in body frame

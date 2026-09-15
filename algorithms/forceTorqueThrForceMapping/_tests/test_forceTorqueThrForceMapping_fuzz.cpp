@@ -22,11 +22,10 @@ FUZZ_TEST(ForceTorqueThrForceMappingPropertyFuzz, propertyNonNegativeForces)
                  xmera::fuzz::Vector3fInRange(-10.0F, 10.0F),
                  xmera::fuzz::Vector3fInRange(-1e3F, 1e3F));
 
-FUZZ_TEST(ForceTorqueThrForceMappingPropertyFuzz, propertyMinimumIsZero)
-    .WithDomains(fuzztest::InRange<std::uint32_t>(1U, kMaxThrusterCount),
-                 fuzztest::VectorOf(xmera::fuzz::Vector3fInRange(-5.0F, 5.0F)).WithSize(kMaxThrusterCount),
-                 fuzztest::VectorOf(xmera::fuzz::Vector3fInRange(-1.0F, 1.0F)).WithSize(kMaxThrusterCount),
-                 xmera::fuzz::Vector3fInRange(-2.0F, 2.0F),
+// A zero minimum holds only on a balanced layout, so the layout stays fixed at layout 1; the CoM and
+// the commands fuzz.
+FUZZ_TEST(ForceTorqueThrForceMappingPropertyFuzz, propertyMinimumIsZeroForBalancedLayout)
+    .WithDomains(xmera::fuzz::Vector3fInRange(-2.0F, 2.0F),
                  xmera::fuzz::Vector3fInRange(-10.0F, 10.0F),
                  xmera::fuzz::Vector3fInRange(-1e3F, 1e3F));
 

@@ -3,6 +3,7 @@
 
 #include "axisToGimbalAnglesAlgorithm.h"
 #include "msgPayloadDef/BodyHeadingMsgF32Payload.h"
+
 #include "msgPayloadDef/TwoAxisGimbalMsgF32Payload.h"
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
@@ -21,13 +22,16 @@ class AxisToGimbalAngles final : public SysModel {
     void reconfigure() const;
 
     /*! Phase 1: user-defined configuration properties, set before reset() */
-    Eigen::Vector3f sigma_MB{Eigen::Vector3f::Zero()};  //!< orientation of the M frame w.r.t. the B frame; M's -z axis
+    Eigen::Vector3f sigma_MB{Eigen::Vector3f::Zero()};  //!< orientation of the M frame w.r.t. the B frame; M's +z axis
                                                         //!< is the un-deflected gimbal thrust axis
+    float thetaMax{};  //!< largest deflection of the thrust axis from the neutral axis [rad] (must be in (0, pi/2))
 
     /*! module IO interfaces */
     ReadFunctor<BodyHeadingMsgF32Payload>
         thrustDirectionInMsg;  //!< input msg containing the commanded thrust direction, body frame
     Message<TwoAxisGimbalMsgF32Payload> twoAxisGimbalOutMsg;  //!< output msg containing the gimbal angles
+    Message<BodyHeadingMsgF32Payload>
+        bodyHeadingOutMsg;  //!< output msg containing the thrust direction those angles achieve, body frame
 
    private:
     AxisToGimbalAnglesConfig toConfig() const;

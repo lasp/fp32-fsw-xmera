@@ -65,13 +65,13 @@ Test 4: Ensures that the forceTorqueThrForce module can compute a valid solution
         each direction.
 """
 
-# Per-layout controllability assertions for desiredControlAxes_B. Layout 1's directions all lie in
-# the body x-y plane, so torque xyz + force xy are controllable but force_z is not. Layout 2 is
-# full-rank. The random layout is left unasserted (all False) so the assertion stays decoupled from
-# the rng seed.
+# Per-layout axis selections for desiredControlAxes_B. Only the selected rows of DG enter the solve,
+# and each selected axis must be controllable. Layout 1's directions all lie in the body x-y plane, so
+# torque xyz + force xy are controllable but force_z is not. Layout 2 and the random layout are
+# full-rank, so they select every axis.
 desired_control_axes_layout_1 = [True, True, True, True, True, False]
 desired_control_axes_layout_2 = [True, True, True, True, True, True]
-desired_control_axes_unasserted = [False, False, False, False, False, False]
+desired_control_axes_all = [True, True, True, True, True, True]
 
 
 @pytest.mark.parametrize("rcs_location, rcs_direction, requested_torque, requested_force, "
@@ -85,7 +85,7 @@ desired_control_axes_unasserted = [False, False, False, False, False, False]
                           (rcs_location_data_2, rcs_direction_data_2, [0.0, 0.0, 0.0], [0.9, 1.1, 1.], True,
                            desired_control_axes_layout_2),
                           (rcs_location_data_rand, rcs_direction_data_rand, torque_rand, force_rand, True,
-                           desired_control_axes_unasserted)])
+                           desired_control_axes_all)])
 
 def test_force_torque_thr_force_mapping(rcs_location, rcs_direction, requested_torque, requested_force,
                                         torque_in_msg_flag, desired_control_axes):
@@ -140,23 +140,29 @@ def test_force_torque_thr_force_mapping(rcs_location, rcs_direction, requested_t
     unit_test_sim.ConfigureStopTime(macros.sec2nano(0.5))
     unit_test_sim.ExecuteSimulation()
 
-    truth = compute_thrust_mapping_truth(rcs_location, rcs_direction, requested_torque, requested_force, CoM_B)
+    truth = compute_thrust_mapping_truth(rcs_location, rcs_direction, requested_torque, requested_force, CoM_B,
+                                         desired_control_axes)
 
     accuracy = 1e-5
     np.testing.assert_allclose(np.array([module.thrForceCmdOutMsg.read().thrForce[0:len(rcs_location)]]).flatten(), truth,
                                atol=accuracy, rtol=accuracy, verbose=True)
 
 
-def compute_thrust_mapping_truth(rcs_location, rcs_direction, requested_torque, requested_force, CoM_B):
+def compute_thrust_mapping_truth(rcs_location, rcs_direction, requested_torque, requested_force, CoM_B,
+                                 desired_control_axes):
     """Independent fp64 truth that mirrors the algorithm's truncated-SVD pseudo-inverse exactly.
 
-    Two details must match the algorithm so the only remaining disagreement is fp32 round-off:
+    Three details must match the algorithm so the only remaining disagreement is fp32 round-off:
       1. DG has the same shape (6 x MAX_EFF_CNT, trailing zero columns) as the algorithm's matrix,
          so the SVD operates on the same operator.
       2. The truncation cutoff uses fp32 epsilon scaled by max(6, MAX_EFF_CNT) — the algorithm's
          noise floor — instead of fp64 epsilon. Otherwise the truth would keep singular values in
          the [eps_d, eps_f] gap that the algorithm correctly drops as fp32 noise, and 1/sv would
          blow up.
+      3. The rows of the axes outside desired_control_axes are zeroed, as the algorithm zeroes them,
+         so both solve the same reduced problem.
+      4. Negative entries are removed by a null-space shift, as the algorithm does, not by
+         subtracting the minimum.
     """
     num_thrusters = len(rcs_location)
     max_eff_cnt = messaging.MAX_EFF_CNT
@@ -169,6 +175,9 @@ def compute_thrust_mapping_truth(rcs_location, rcs_direction, requested_torque, 
         g = np.array(rcs_direction[i], dtype=np.float64)
         DG[0:3, i] = np.cross(r - CoM_B, g)
         DG[3:6, i] = g
+    for axis, selected in enumerate(desired_control_axes):
+        if not selected:
+            DG[axis, :] = 0.0
 
     U, sv, Vt = np.linalg.svd(DG, full_matrices=False)
     eps_f = np.finfo(np.float32).eps
@@ -176,9 +185,28 @@ def compute_thrust_mapping_truth(rcs_location, rcs_direction, requested_torque, 
     inv_sv = np.divide(1.0, sv, out=np.zeros_like(sv), where=sv > tol)
     thr_forces = Vt.T @ np.diag(inv_sv) @ U.T @ ft
 
-    # min-shift over the active head only, matching the algorithm.
-    thr_forces[0:num_thrusters] -= thr_forces[0:num_thrusters].min()
-    return thr_forces[0:num_thrusters]
+    # Shift direction: the part of the all-ones vector lying in the null space of the kept row space.
+    rank = int(np.count_nonzero(sv > tol))
+    ones = np.zeros(max_eff_cnt, dtype=np.float64)
+    ones[0:num_thrusters] = 1.0
+    null_shift = ones.copy()
+    if rank > 0:
+        row_space = Vt.T[:, 0:rank]
+        null_shift -= row_space @ (row_space.T @ ones)
+    null_shift[num_thrusters:] = 0.0
+
+    # Largest per-entry step, which lifts every reachable entry to zero at once.
+    shift_tol = 1e-6
+    shift_scale = np.abs(null_shift[0:num_thrusters]).max()
+    if shift_scale > shift_tol:
+        step = 0.0
+        for j in range(num_thrusters):
+            if null_shift[j] <= shift_tol * shift_scale:
+                continue
+            step = max(step, -thr_forces[j] / null_shift[j])
+        thr_forces[0:num_thrusters] += step * null_shift[0:num_thrusters]
+
+    return np.maximum(thr_forces[0:num_thrusters], 0.0)
 
 
 if __name__ == "__main__":

@@ -105,7 +105,8 @@ void checkForceTorqueThrForceMapping() {
             thr.thrusters[i].r_TB_B[k] = pos[i][k];
         }
     }
-    std::array<bool, 6> const axes{};
+    // The layout spans all six axes (rank 6, condition number 4.1), so every axis can be selected.
+    std::array<bool, 6> const axes{true, true, true, true, true, true};
     Eigen::Vector3f const com(0.0F, 0.0F, 0.0F);
 
     begin();

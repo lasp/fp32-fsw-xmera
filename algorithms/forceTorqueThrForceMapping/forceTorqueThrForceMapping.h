@@ -38,7 +38,7 @@ class ForceTorqueThrForceMapping final : public SysModel {
    private:
     ForceTorqueThrForceMappingConfig toConfig();
     std::unique_ptr<ForceTorqueThrForceMappingAlgorithm> algorithm = nullptr;
-    //! per-axis controllability assertions (torque xyz then force xyz, all in body frame B)
+    //! the axes the mapping controls (torque xyz then force xyz, all in body frame B)
     std::array<bool, 6> desiredControlAxes_B{true, true, true, true, true, true};
 };
 

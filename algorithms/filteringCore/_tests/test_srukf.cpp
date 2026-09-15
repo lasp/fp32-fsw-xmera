@@ -15,6 +15,7 @@
 #include <utilities/fsw/validPSDCheck.h>
 #include <filteringCore/srukf.hpp>
 #include <filteringCore/state.hpp>
+#include <utilities/fsw/rigidBodyKinematics.hpp>
 
 #include <gtest/gtest.h>
 
@@ -43,6 +44,25 @@ struct PositionMeasurement {
     Eigen::Vector3d subtract(Eigen::Vector3d const& a, Eigen::Vector3d const& b) const { return a - b; }
 };
 static_assert(Measurement<PositionMeasurement, TestState>);
+
+// MRP-attitude fixture. Unlike PositionMeasurement, subtract() composes rotations rather than
+// differencing coordinates, and the two stop agreeing as |sigma| grows.
+using MrpState = StateVector<MrpAttitude<3>>;
+struct MrpZeroDynamics {
+    MrpState operator()(double, MrpState const& s) const { return s.scale(0.0); }
+};
+using MrpSRuKF = SRuKF<MrpState, MrpZeroDynamics>;
+
+struct MrpMeasurement {
+    static constexpr int size = 3;
+    Eigen::Vector3d observed = Eigen::Vector3d::Zero();
+    Eigen::Matrix3d noiseCov = Eigen::Matrix3d::Identity();
+    Eigen::Vector3d observation() const { return observed; }
+    Eigen::Vector3d model(MrpState const& s) const { return s.get<MrpAttitude<3>>(); }
+    Eigen::Matrix3d noise() const { return noiseCov; }
+    Eigen::Vector3d subtract(Eigen::Vector3d const& a, Eigen::Vector3d const& b) const { return subMrp(a, b); }
+};
+static_assert(Measurement<MrpMeasurement, MrpState>);
 
 }  // namespace
 
@@ -304,6 +324,39 @@ TEST(SrukfMeasurementUpdate, NaNMeasurementReturnsNoValue) {
 
     EXPECT_FALSE(filter.measurementUpdate(m).has_value())
         << "measurementUpdate should not return a value for a bad (NaN) update";
+}
+
+// An MRP measurement must still pull the state onto the observation when |sigma| is large.
+// The residuals that build the gain have to use the measurement's own subtract(); differencing
+// the MRP coordinates instead mis-scales the correction by roughly (1 + |sigma|^2), which leaves
+// the filter unable to converge at large attitudes while remaining perfectly well behaved near
+// the origin.
+TEST(SrukfMeasurementUpdate, MrpMeasurementConvergesAtLargeAttitude) {
+    for (double const magnitude : {0.1, 0.5, 0.85}) {
+        Eigen::Vector3d const truth = magnitude * Eigen::Vector3d(1.0, 0.0, 0.0);
+        Eigen::Vector3d const start = truth + Eigen::Vector3d(0.0, 0.02, 0.0);
+
+        MrpSRuKF filter;
+        filter.setAlpha(0.02);
+        filter.setBeta(2.0);
+        filter.setInitialState(MrpState(start));
+        filter.setInitialCovariance(1e-2 * Eigen::Matrix3d::Identity());
+        filter.setProcessNoise(1e-8 * Eigen::Matrix3d::Identity());
+        filter.reInitialize();
+        filter.configure();
+
+        MrpMeasurement m;
+        m.observed = truth;
+        m.noiseCov = 1e-8 * Eigen::Matrix3d::Identity();
+
+        for (int k = 0; k < 5; ++k) {
+            filter.timeUpdate(0.0);
+            ASSERT_TRUE(filter.measurementUpdate(m).has_value()) << "update should be valid at |sigma| = " << magnitude;
+        }
+
+        double const residual = subMrp(Eigen::Vector3d(filter.getState().raw()), truth).norm();
+        EXPECT_LT(residual, 1e-4) << "filter failed to converge onto the observation at |sigma| = " << magnitude;
+    }
 }
 
 }  // namespace filtering

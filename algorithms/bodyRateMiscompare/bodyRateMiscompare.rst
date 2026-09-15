@@ -21,7 +21,7 @@ user from Python.
       - :ref:`IMUSensorBodyMsgF32Payload`
       - IMU body rate input message (angular rate in body frame)
     * - stBodyInMsg
-      - :ref:`STAttMsgPayload`
+      - :ref:`STAttMsgF32Payload`
       - star tracker attitude input message (uses omega_BN_B)
     * - navAttOutMsg
       - :ref:`NavAttMsgF32Payload`

@@ -4,6 +4,9 @@ This module calculates the two gimbal angles :math:`(\alpha, \beta)` that align 
 thrust direction from the input message. :ref:`thrustVectoring` gives that thrust direction.
 :ref:`gimbalAnglesToMotorAngles` receives the two gimbal angles and calculates the stepper motor angles.
 
+The module also gives the thrust direction that these two angles achieve. This direction is the request, if the
+request is inside the travel of the mechanism. If it is not, the direction is on the edge of the travel.
+
 The module calculates the two angles directly. It does no iteration, keeps no state, and does not use data from
 the previous cycle. The module needs only one configuration parameter, which is the orientation of the gimbal
 mount frame on the hub.
@@ -17,15 +20,16 @@ Module Architecture
 The algorithm (``AxisToGimbalAnglesAlgorithm``) has no framework dependencies and uses Eigen types. It contains
 the mathematics that follows and keeps no runtime state. The algorithm does not use message payloads.
 ``update()`` receives the thrust direction, which is the only quantity that changes each cycle. ``update()``
-returns an ``AxisToGimbalAnglesOutput`` structure. The ``AxisToGimbalAnglesConfig`` object holds the mounting
-orientation, and the algorithm calculates the DCM from it one time, when the caller sets the configuration.
+returns an ``AxisToGimbalAnglesOutput`` structure, which contains the two angles and the direction that they
+achieve. The ``AxisToGimbalAnglesConfig`` object holds the mounting orientation, and the algorithm calculates the
+DCM from it one time, when the caller sets the configuration.
 
 The Xmera adapter (``AxisToGimbalAngles``) uses ``SysModel`` as its base class and does all message operations.
 The configuration parameters are public member variables (two-phase initialization). The caller sets the
 parameters and then calls ``reset()``. ``reset()`` makes sure that the input message is connected, and builds
-the configuration from the current parameter values. ``updateState()`` reads the thrust direction,
-calls the algorithm, and writes the result to the output message. ``reconfigure()`` sends the current parameter
-values to the algorithm again.
+the configuration from the current parameter values. ``updateState()`` reads the thrust direction, calls the
+algorithm, and writes the two angles and the achieved direction to the two output messages. ``reconfigure()``
+sends the current parameter values to the algorithm again.
 
 The module has no ``reInitialize()`` function. The algorithm keeps no runtime state.
 
@@ -54,6 +58,11 @@ Python. The message type contains a link to the message structure definition.
       - Output message with the two gimbal angles. ``theta1`` is the angle :math:`\alpha`. ``theta2`` is the
         angle :math:`\beta`. :ref:`gimbalAnglesToMotorAngles` receives this message. The module does not write
         the step fields of the payload.
+    * - bodyHeadingOutMsg
+      - :ref:`BodyHeadingMsgPayload`
+      - Output message with the thrust direction that the two angles achieve, in body-frame coordinates
+        (:math:`{}^\mathcal{B}\hat{\boldsymbol{t}}'`, the field ``rHat_XB_B``). This is the direction after the
+        travel limit, and not the request.
 
 Module Parameters
 -----------------
@@ -71,20 +80,27 @@ An incorrect value causes an ``fsw::invalid_argument`` exception.
     * - ``sigma_MB``
       - [0, 0, 0]
       - finite
-      - MRP rotation between the body-fixed frames :math:`\mathcal{M}` and :math:`\mathcal{B}`. The :math:`-z`
+      - MRP rotation between the body-fixed frames :math:`\mathcal{M}` and :math:`\mathcal{B}`. The :math:`+z`
         axis of the :math:`\mathcal{M}` frame is the neutral gimbal thrust axis, thus this parameter gives the
         mounting orientation of the gimbal
+    * - ``thetaMax``
+      - 0
+      - :math:`(0, \pi/2)`
+      - largest deflection [rad] of the thrust axis from the neutral axis, thus the travel of the mechanism. Two
+        plane angles cannot describe a deflection of :math:`90^\circ` or more, thus the travel must stay below it
 
 An MRP with a norm of more than one gives the same rotation as its shadow set. The module changes such an MRP to
 the shadow set before it stores the value.
+
+``thetaMax`` has no usable default. The module rejects a travel of zero, thus a caller must always give one.
 
 Mathematical Formulation
 ------------------------
 
 Frames and mounting
 ^^^^^^^^^^^^^^^^^^^
-The gimbal is on the hub-fixed mount frame :math:`\mathcal{M}`. The :math:`-z` axis of this frame is the neutral
-thrust direction. A gimbal at its home position thus fires along :math:`-z_\mathcal{M}`. The parameter
+The gimbal is on the hub-fixed mount frame :math:`\mathcal{M}`. The :math:`+z` axis of this frame is the neutral
+thrust direction. A gimbal at its home position thus fires along :math:`+z_\mathcal{M}`. The parameter
 ``sigma_MB`` gives the mounting orientation of the gimbal on the hub.
 
 The module first changes the input direction to mount-frame coordinates:
@@ -97,19 +113,17 @@ The module calculates :math:`[\mathcal{MB}]` one time, when the caller sets the 
 
 .. note::
 
-    The :math:`-z` direction is a convention. The module sets it, and the caller cannot change it, because the
+    The :math:`+z` direction is a convention. The module sets it, and the caller cannot change it, because the
     sign of each angle depends on it.
 
-    Two rotations give a frame whose :math:`+z` axis is along the thrust:
+    Two rotations give a frame whose :math:`-z` axis is along the thrust:
 
     - a rotation of :math:`180^\circ` about the mount :math:`x` axis, which changes the sign of :math:`\beta`,
     - a rotation of :math:`180^\circ` about the mount :math:`y` axis, which changes the sign of :math:`\alpha`.
 
     Both rotations are correct. Thus one thrust direction gives two different pairs of angles, and the equations
-    below cannot show which pair the mechanism uses. One frame for all modules removes this problem.
-
-    :ref:`thrustVectoring` uses the same :math:`\mathcal{M}` frame, thus one ``sigma_MB`` value is sufficient for
-    both modules.
+    below cannot show which pair the mechanism uses. This module therefore sets the convention, and ``sigma_MB``
+    must give the mounting orientation in the same convention.
 
 Gimbal kinematics
 ^^^^^^^^^^^^^^^^^
@@ -124,11 +138,11 @@ in terms of the two angles is:
 
 .. math::
     {}^\mathcal{M}\boldsymbol{T}(\alpha, \beta) \;\propto\; \begin{bmatrix}
-        -\tan\beta \\ \tan\alpha \\ -1
+        \tan\beta \\ -\tan\alpha \\ 1
     \end{bmatrix}.
 
 The two angles are thus the coordinates of the point where the thrust axis touches the plane
-:math:`z_\mathcal{M} = -1`. Lines of constant :math:`\alpha` and constant :math:`\beta` make a square grid on
+:math:`z_\mathcal{M} = 1`. Lines of constant :math:`\alpha` and constant :math:`\beta` make a square grid on
 that plane.
 
 .. note::
@@ -149,34 +163,60 @@ Solving for the gimbal angles
 The module calculates the two angles directly from this relation, with two four-quadrant arctangents:
 
 .. math::
-    \alpha = \tan^{-1}\left( \frac{{}^{\mathcal{M}}t_2}{-\,{}^{\mathcal{M}}t_3} \right), \qquad
-    \beta  = \tan^{-1}\left( \frac{-\,{}^{\mathcal{M}}t_1}{-\,{}^{\mathcal{M}}t_3} \right).
+    \alpha = \tan^{-1}\left( \frac{-\,{}^{\mathcal{M}}t_2}{{}^{\mathcal{M}}t_3} \right), \qquad
+    \beta  = \tan^{-1}\left( \frac{{}^{\mathcal{M}}t_1}{{}^{\mathcal{M}}t_3} \right).
 
-Both angles are ratios against the mount :math:`-z` axis. This has two results. First, the length of the input
+Both angles are ratios against the mount :math:`+z` axis. This has two results. First, the length of the input
 direction has no effect, because it cancels in each ratio. The module also makes the direction a unit vector
 before it calculates the two ratios. This keeps the direction for a very short or a very long input. Second, the
 two angles are correct only where the denominator is more than zero. This is a deflection of less than
-:math:`90^\circ` from the neutral thrust axis, or :math:`{}^{\mathcal{M}}t_3 < 0`. The two angles become very
-large as the deflection increases to :math:`90^\circ`. Below that deflection both angles stay in the range
-:math:`(-\pi/2, \pi/2)`, and the mapping is correct in the two directions.
+:math:`90^\circ` from the neutral thrust axis, or :math:`{}^{\mathcal{M}}t_3 > 0`. The two angles become very
+large as the deflection increases to :math:`90^\circ`. The travel limit below holds the deflection at or below
+:math:`\theta_\text{max}`, which is less than :math:`90^\circ`. Both angles therefore stay inside
+:math:`\theta_\text{max}`, and the mapping is correct in the two directions.
 
-Directions at a deflection of 90 degrees or more
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-The module examines :math:`{}^{\mathcal{M}}t_3` each cycle. If :math:`{}^{\mathcal{M}}t_3 < 0` is not true, the
-module gives the gimbal home position :math:`(\alpha, \beta) = (0, 0)`. Three conditions fail this test:
+The travel limit
+^^^^^^^^^^^^^^^^
+The mechanism can only move the thrust axis inside a cone of half-angle :math:`\theta_\text{max}` about the
+neutral axis. The module applies that limit before it calculates the two angles. A request inside the cone stays
+as it is. For a request outside the cone, the module keeps the plane that the request and the neutral axis span,
+and moves the direction to the edge of the cone in that plane:
 
-- a deflection of :math:`90^\circ` or more,
-- a zero direction vector,
-- a direction vector with a component that is not a number.
+.. math::
+    {}^{\mathcal{M}}\hat{\boldsymbol{t}}' = \cos\theta_\text{max}\,\hat{\boldsymbol{z}}_\mathcal{M}
+        + \sin\theta_\text{max}\,\hat{\boldsymbol{e}}_\perp, \qquad
+    \hat{\boldsymbol{e}}_\perp = \frac{{}^{\mathcal{M}}\hat{\boldsymbol{t}}
+        - \hat{\boldsymbol{z}}_\mathcal{M}\,{}^{\mathcal{M}}t_3}{\left\|\cdot\right\|}.
 
-The home position is the neutral thrust axis.
+The limit is continuous. A request exactly on the cone gives the same direction from both conditions, because the
+perpendicular part then has the length :math:`\sin\theta_\text{max}` before the division.
 
-.. note::
+A request exactly opposite the neutral axis leaves no plane, because its perpendicular part has zero length. The
+module takes an arbitrary perpendicular direction there. The result is still on the edge of the cone, thus the
+gimbal moves as far as it can towards the request.
 
-    This test prevents an incorrect result, not a numerical error. :math:`\operatorname{atan2}` does no
-    division, thus it always gives a value. Above that deflection the two angles leave the range
-    :math:`(-\pi/2, \pi/2)`, and the direction that they give is opposite to the input direction. If the module
-    does not do this test, it gives the angles for a direction :math:`180^\circ` from the input direction.
+:math:`\theta_\text{max}` is less than :math:`90^\circ`, thus the limited direction always has
+:math:`{}^{\mathcal{M}}t_3 \geq \cos\theta_\text{max} > 0`. The two angles are therefore always well conditioned,
+and each one stays inside :math:`\theta_\text{max}`.
+
+The direction that the gimbal achieves
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The two angles come from the limited direction, thus the thrust goes along that direction and not along the
+request. The module changes the limited direction to body-frame coordinates and gives it in the second output
+message:
+
+.. math::
+    {}^\mathcal{B}\hat{\boldsymbol{t}}' = [\mathcal{MB}]^T\,{}^{\mathcal{M}}\hat{\boldsymbol{t}}'.
+
+The result is a unit vector, and it always agrees with the two angles that the module gives. A request inside the
+cone gives the request itself. A request outside the cone gives the direction on the edge of the cone. Another
+module can therefore use this direction to calculate the torque that the vehicle receives.
+
+Requests that carry no direction
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+A request of zero length, or one with a component that is not a number, carries no direction at all. There is
+nothing to limit and nothing to point at, thus the module gives the gimbal home position
+:math:`(\alpha, \beta) = (0, 0)`. The home position is the neutral thrust axis.
 
 User Guide
 ----------
@@ -191,6 +231,7 @@ The module uses two-phase initialization. Do the steps that follow:
     gimbalAngles = axisToGimbalAnglesF32.AxisToGimbalAngles()
     gimbalAngles.modelTag = "gimbalAngles"
     gimbalAngles.sigma_MB = sigma_MB
+    gimbalAngles.thetaMax = thetaMax
 
     gimbalAngles.thrustDirectionInMsg.subscribeTo(thrustVectoring.bodyHeadingOutMsg)
 
@@ -198,11 +239,19 @@ The module uses two-phase initialization. Do the steps that follow:
 
 If the mounting orientation changes during the mission, call ``reconfigure()`` to build the configuration again.
 
-To calculate the stepper motor angles, connect the output message to :ref:`gimbalAnglesToMotorAngles`:
+To calculate the stepper motor angles, connect the gimbal angle output message to
+:ref:`gimbalAnglesToMotorAngles`:
 
 ::
 
     motorAngles.twoAxisGimbalInMsg.subscribeTo(gimbalAngles.twoAxisGimbalOutMsg)
+
+A module that needs the direction of the thrust, such as :ref:`triad`, reads ``bodyHeadingOutMsg``. Use this
+message and not the request, because the two directions are different for a request outside the travel:
+
+::
+
+    triad.bodyHeadingInMsg.subscribeTo(gimbalAngles.bodyHeadingOutMsg)
 
 Module Assumptions and Limitations
 ----------------------------------
@@ -211,6 +260,12 @@ examine the mechanism, thus it cannot identify a mechanism that does not agree w
 mechanism is a nested-ring gimbal, the angles from this module are incorrect. The note in *Gimbal kinematics*
 gives the size of the error.
 
-**Limitation.** The module applies no travel limits. It calculates the angles for every deflection of less than
-:math:`90^\circ`, and includes directions to which the gimbal cannot move. :ref:`gimbalAnglesToMotorAngles` applies
-the travel limits.
+**Limitation.** The module gives the nearest direction that the mechanism can move to, and not the request
+itself. For a request outside the cone of half-angle :math:`\theta_\text{max}`, the thrust stays on the edge of
+that cone. The vehicle then receives a different torque from the one that the request asks for. The
+``bodyHeadingOutMsg`` message gives the direction that the module achieves, thus a user can calculate the
+difference.
+
+**Assumption.** One cone of half-angle :math:`\theta_\text{max}` gives the travel of the mechanism. A gimbal
+with a different limit on each axis, or with a limit that changes with the other angle, needs a different
+description. :ref:`gimbalAnglesToMotorAngles` applies the limits of the motors themselves.
