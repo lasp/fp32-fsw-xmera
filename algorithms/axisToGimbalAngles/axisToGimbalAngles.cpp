@@ -8,7 +8,7 @@
  @return AxisToGimbalAnglesConfig validated configuration
 */
 AxisToGimbalAnglesConfig AxisToGimbalAngles::toConfig() const {
-    return AxisToGimbalAnglesConfig::create(this->sigma_MB);
+    return AxisToGimbalAnglesConfig::create(this->sigma_MB, this->thetaMax);
 }
 
 /*! This method validates the required input message and builds the algorithm from the current configuration.
@@ -52,4 +52,8 @@ void AxisToGimbalAngles::updateState(const uint64_t callTime) {
     twoAxisGimbalOut.theta1 = out.gimbalAngle1;
     twoAxisGimbalOut.theta2 = out.gimbalAngle2;
     this->twoAxisGimbalOutMsg.write(twoAxisGimbalOut, this->moduleID, callTime);
+
+    BodyHeadingMsgF32Payload bodyHeadingOut{};
+    eigenVectorToCArray(out.thrustHat_B, bodyHeadingOut.rHat_XB_B);
+    this->bodyHeadingOutMsg.write(bodyHeadingOut, this->moduleID, callTime);
 }

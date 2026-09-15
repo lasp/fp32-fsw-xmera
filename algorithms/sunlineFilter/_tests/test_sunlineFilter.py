@@ -84,10 +84,10 @@ def setup_css_config_msg(CSSOrientationList, cssConfigDataInMsg):
     numCSS = len(CSSOrientationList)
 
     # set the CSS unit vectors
-    cssConfigData = messaging.CSSConfigMsgPayload()
+    cssConfigData = messaging.CSSConfigMsgF32Payload()
     totalCSSList = []
     for CSSHat in CSSOrientationList:
-        CSSConfigElement = messaging.CSSUnitConfigMsgPayload()
+        CSSConfigElement = messaging.CSSUnitConfigMsgF32Payload()
         CSSConfigElement.CBias = 1.0
         CSSConfigElement.nHat_B = CSSHat
         totalCSSList.append(CSSConfigElement)
@@ -126,11 +126,11 @@ def state_propagation_flyby(show_plots=False):
     sun_heading_data_log = sunHeadingFilter.filterOutMsg.recorder()
     unit_test_sim.AddModelToTask(unit_task_name, sun_heading_data_log)
 
-    simpleNavMsgData = messaging.NavAttMsgPayload()
+    simpleNavMsgData = messaging.NavAttMsgF32Payload()
     initState = np.array(sunHeadingFilter.initialState).reshape(7)
     simpleNavMsgData.timeTag = -1
     simpleNavMsgData.omega_BN_B = initState[3:6]
-    simpleNavMsg = messaging.NavAttMsg().write(simpleNavMsgData)
+    simpleNavMsg = messaging.NavAttMsgF32().write(simpleNavMsgData)
     sunHeadingFilter.navAttInMsg.subscribeTo(simpleNavMsg)
 
     CSSOrientationList = [
@@ -144,15 +144,15 @@ def state_propagation_flyby(show_plots=False):
         [-0.70710678118654746, -0.70710678118654757, 0.0],
     ]
 
-    cssConfigMsg = messaging.CSSConfigMsg()
+    cssConfigMsg = messaging.CSSConfigMsgF32()
     setup_css_config_msg(CSSOrientationList, cssConfigMsg)
     sunHeadingFilter.cssConfigInMsg.subscribeTo(cssConfigMsg)
 
-    cssDataMsg = messaging.CSSArraySensorMsgPayload()
+    cssDataMsg = messaging.CSSArraySensorMsgF32Payload()
     cssDataMsg.timeTag = -1
     for i in range(8):
         cssDataMsg.CosValue[i] = 0.0
-    cssMsg = messaging.CSSArraySensorMsg().write(cssDataMsg)
+    cssMsg = messaging.CSSArraySensorMsgF32().write(cssDataMsg)
     sunHeadingFilter.cssDataInMsg.subscribeTo(cssMsg)
 
     sim_time = 50
@@ -215,11 +215,11 @@ def state_update_flyby(initial_error, show_plots=False):
     nav_att_data_log = sunHeadingFilter.navAttOutMsg.recorder()
     unit_test_sim.AddModelToTask(unit_task_name, nav_att_data_log)
 
-    simpleNavMsgData = messaging.NavAttMsgPayload()
+    simpleNavMsgData = messaging.NavAttMsgF32Payload()
     initState = np.array(sunHeadingFilter.initialState).reshape(7)
     simpleNavMsgData.timeTag = -1
     simpleNavMsgData.omega_BN_B = initState[3:6]
-    simpleNavMsg = messaging.NavAttMsg().write(simpleNavMsgData)
+    simpleNavMsg = messaging.NavAttMsgF32().write(simpleNavMsgData)
     sunHeadingFilter.navAttInMsg.subscribeTo(simpleNavMsg)
 
     CSSOrientationList = [
@@ -233,7 +233,7 @@ def state_update_flyby(initial_error, show_plots=False):
         [-0.70710678118654746, -0.70710678118654757, 0.0],
     ]
 
-    cssConfigMsg = messaging.CSSConfigMsg()
+    cssConfigMsg = messaging.CSSConfigMsgF32()
     setup_css_config_msg(CSSOrientationList, cssConfigMsg)
     sunHeadingFilter.cssConfigInMsg.subscribeTo(cssConfigMsg)
 
@@ -258,8 +258,8 @@ def state_update_flyby(initial_error, show_plots=False):
                                               [0.0, 0.0, 0.0, 0.0, 0.0, 0.001, 0.0],
                                               [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.5]]
 
-    cssDataMsg = messaging.CSSArraySensorMsgPayload()
-    cssMsg = messaging.CSSArraySensorMsg()
+    cssDataMsg = messaging.CSSArraySensorMsgF32Payload()
+    cssMsg = messaging.CSSArraySensorMsgF32()
     sunHeadingFilter.cssDataInMsg.subscribeTo(cssMsg)
 
     cssSigma = sunHeadingFilter.cssMeasurementNoiseStd
@@ -397,11 +397,11 @@ def state_update_outlier_recovery(show_plots=False):
     css_residual_data_log = sunHeadingFilter.filterCssResOutMsg.recorder()
     unit_test_sim.AddModelToTask(unit_task_name, css_residual_data_log)
 
-    simpleNavMsgData = messaging.NavAttMsgPayload()
+    simpleNavMsgData = messaging.NavAttMsgF32Payload()
     initState = np.array(sunHeadingFilter.initialState).reshape(7)
     simpleNavMsgData.timeTag = -1
     simpleNavMsgData.omega_BN_B = initState[3:6]
-    simpleNavMsg = messaging.NavAttMsg().write(simpleNavMsgData)
+    simpleNavMsg = messaging.NavAttMsgF32().write(simpleNavMsgData)
     sunHeadingFilter.navAttInMsg.subscribeTo(simpleNavMsg)
 
     CSSOrientationList = [
@@ -416,7 +416,7 @@ def state_update_outlier_recovery(show_plots=False):
     ]
     num_css = len(CSSOrientationList)
 
-    cssConfigMsg = messaging.CSSConfigMsg()
+    cssConfigMsg = messaging.CSSConfigMsgF32()
     setup_css_config_msg(CSSOrientationList, cssConfigMsg)
     sunHeadingFilter.cssConfigInMsg.subscribeTo(cssConfigMsg)
 
@@ -431,8 +431,8 @@ def state_update_outlier_recovery(show_plots=False):
     bodyFrame[0, 1:] = np.array([0.0, 0.0, 0.0, expected[0, 4], expected[0, 5], expected[0, 6], expected[0, 7]])
     bodyFrame = rk4(mrp_integration, time, bodyFrame[0, 1:], mrpShadow=True)
 
-    cssDataMsg = messaging.CSSArraySensorMsgPayload()
-    cssMsg = messaging.CSSArraySensorMsg()
+    cssDataMsg = messaging.CSSArraySensorMsgF32Payload()
+    cssMsg = messaging.CSSArraySensorMsgF32()
     sunHeadingFilter.cssDataInMsg.subscribeTo(cssMsg)
 
     cssSigma = sunHeadingFilter.cssMeasurementNoiseStd

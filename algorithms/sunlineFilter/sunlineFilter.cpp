@@ -109,7 +109,7 @@ void SunlineFilter::updateState(uint64_t currentSimNanos) {
 
     if (auto const navMsgPayload = this->navAttInMsg(); navMsgPayload.timeTag > this->lastNavAttTimeTag) {
         rateData.timeTag = navMsgPayload.timeTag;
-        rateData.rate = cArrayToEigenVector(navMsgPayload.omega_BN_B);
+        rateData.rate = cArrayToEigenVector(navMsgPayload.omega_BN_B).cast<double>();
         this->lastNavAttTimeTag = navMsgPayload.timeTag;
     }
 
@@ -132,14 +132,14 @@ void SunlineFilter::updateState(uint64_t currentSimNanos) {
  *  @param currentSimNanos [ns] sim time provided to the outgoing messages
  *  @param filterOutput    [-]  filter data returned by algorithm */
 void SunlineFilter::writeOutputMessages(uint64_t currentSimNanos, SunlineFilterOutput const& filterOutput) {
-    NavAttMsgPayload navAttBuf{};
-    FilterMsgPayload filterBuf{};
-    FilterResidualsMsgPayload gyroResBuf{};
-    FilterResidualsMsgPayload cssResBuf{};
+    NavAttMsgF32Payload navAttBuf{};
+    FilterMsgF32Payload filterBuf{};
+    FilterResidualsMsgF32Payload gyroResBuf{};
+    FilterResidualsMsgF32Payload cssResBuf{};
 
     double const timeTag = static_cast<double>(currentSimNanos) * NANO2SEC;
 
-    eigenMatrixXToCArray(filterOutput.filterState.state.head<3>().eval(), navAttBuf.vehSunPntBdy);
+    eigenVectorToCArray(filterOutput.filterState.state.head<3>().cast<float>().eval(), navAttBuf.vehSunPntBdy);
 
     filterBuf.timeTag = timeTag;
     filterBuf.numberOfStates = SunlineFilterAlgorithm::N;

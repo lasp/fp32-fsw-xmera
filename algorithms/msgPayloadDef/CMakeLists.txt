@@ -12,6 +12,10 @@ xmera_add_swig_message(CmdForceBodyMsgF32Payload)
 xmera_add_swig_message(CmdTorqueBodyMsgF32Payload)
 xmera_add_swig_message(CobConverterDiagnosticMsgF32Payload)
 xmera_add_swig_message(CSSArraySensorMsgF32Payload)
+xmera_add_swig_message(CSSConfigMsgF32Payload
+                       TEMPLATE
+                       "${CMAKE_CURRENT_SOURCE_DIR}/CSSConfigMsgF32Payload.i")
+xmera_add_swig_message(CSSUnitConfigMsgF32Payload)
 xmera_add_swig_message(DvBurnCmdMsgF32Payload)
 xmera_add_swig_message(DvExecutionDataMsgF32Payload)
 xmera_add_swig_message(EphemerisMsgF32Payload)

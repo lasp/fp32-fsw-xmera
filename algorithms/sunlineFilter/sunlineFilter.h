@@ -3,14 +3,14 @@
 
 #include "sunlineFilterAlgorithm.h"
 
+#include "msgPayloadDef/CSSArraySensorMsgF32Payload.h"
+#include "msgPayloadDef/CSSConfigMsgF32Payload.h"
+#include "msgPayloadDef/CSSUnitConfigMsgF32Payload.h"
+#include "msgPayloadDef/FilterMsgF32Payload.h"
+#include "msgPayloadDef/FilterResidualsMsgF32Payload.h"
+#include "msgPayloadDef/NavAttMsgF32Payload.h"
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
-#include <architecture/msgPayloadDef/CSSArraySensorMsgPayload.h>
-#include <architecture/msgPayloadDef/CSSConfigMsgPayload.h>
-#include <architecture/msgPayloadDef/CSSUnitConfigMsgPayload.h>
-#include <architecture/msgPayloadDef/FilterMsgPayload.h>
-#include <architecture/msgPayloadDef/FilterResidualsMsgPayload.h>
-#include <architecture/msgPayloadDef/NavAttMsgPayload.h>
 
 #include <Eigen/Core>
 
@@ -42,14 +42,14 @@ class SunlineFilter : public SysModel {
     double cssMeasurementNoiseStd = 0.0;   //!< [-] CSS measurement noise std (>= 0)
     double gyroMeasurementNoiseStd = 0.0;  //!< [rad/s] gyro measurement noise std (>= 0)
 
-    ReadFunctor<NavAttMsgPayload> navAttInMsg;           //!< gyro rate input
-    ReadFunctor<CSSArraySensorMsgPayload> cssDataInMsg;  //!< CSS array reading input
-    ReadFunctor<CSSConfigMsgPayload> cssConfigInMsg;     //!< CSS geometry config input (read at reset)
+    ReadFunctor<NavAttMsgF32Payload> navAttInMsg;           //!< gyro rate input
+    ReadFunctor<CSSArraySensorMsgF32Payload> cssDataInMsg;  //!< CSS array reading input
+    ReadFunctor<CSSConfigMsgF32Payload> cssConfigInMsg;     //!< CSS geometry config input (read at reset)
 
-    Message<NavAttMsgPayload> navAttOutMsg;                  //!< sun-pointing vector output
-    Message<FilterMsgPayload> filterOutMsg;                  //!< full filter state + covariance output
-    Message<FilterResidualsMsgPayload> filterGyroResOutMsg;  //!< gyro residuals output
-    Message<FilterResidualsMsgPayload> filterCssResOutMsg;   //!< CSS residuals output
+    Message<NavAttMsgF32Payload> navAttOutMsg;                  //!< sun-pointing vector output
+    Message<FilterMsgF32Payload> filterOutMsg;                  //!< full filter state + covariance output
+    Message<FilterResidualsMsgF32Payload> filterGyroResOutMsg;  //!< gyro residuals output
+    Message<FilterResidualsMsgF32Payload> filterCssResOutMsg;   //!< CSS residuals output
 
    private:
     void writeOutputMessages(uint64_t currentSimNanos,

@@ -11,8 +11,9 @@ extern "C" {
  * @brief Plain-old-data mirror of the C++ AxisToGimbalAnglesOutput.
  */
 typedef struct {
-    float gimbalAngle1; /*!< [rad] inclination of the thrust axis projected into the mount y-z plane */
-    float gimbalAngle2; /*!< [rad] inclination of the thrust axis projected into the mount x-z plane */
+    float gimbalAngle1;   /*!< [rad] inclination of the thrust axis projected into the mount y-z plane */
+    float gimbalAngle2;   /*!< [rad] inclination of the thrust axis projected into the mount x-z plane */
+    float thrustHat_B[3]; /*!< [-] unit thrust direction the gimbal angles achieve, body frame */
 } AxisToGimbalAnglesOutput_c;
 
 #ifdef __cplusplus

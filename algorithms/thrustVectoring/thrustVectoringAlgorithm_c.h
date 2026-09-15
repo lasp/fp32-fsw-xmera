@@ -1,7 +1,7 @@
 #ifndef F32XMERA_THRUST_VECTORING_ALGORITHM_C_H
 #define F32XMERA_THRUST_VECTORING_ALGORITHM_C_H
 
-#include "thrustVectoringTypes.h"
+#include "utilities/fsw/plainCAlgorithmDataTypes.h"
 
 #include <stdbool.h>
 
@@ -16,33 +16,21 @@ typedef struct ThrustVectoringAlgorithmHandle ThrustVectoringAlgorithmHandle;
 
 /**
  * @brief Report whether a configuration would be accepted by create/setConfig.
- * @param sigma_MB  MRP of the M frame w.r.t. the B frame; must be finite. The M frame's -z axis is the
- *                  un-deflected thrust direction.
- * @param r_MB_B    M frame origin w.r.t. B origin, B coordinates; must be finite.
- * @param thetaMax  [rad] thrust-deflection cone half-angle; must lie in the open interval (0, pi).
- * @param armLength [m] joint-to-thruster distance along the thrust; must be finite and non-negative.
+ * @param r_MB_B    thrust point M w.r.t. B origin, B coordinates; must be finite.
  * @param thrust    [N] thrust magnitude; must be finite and positive.
  * @param r_CB_B    [m] center of mass w.r.t. B origin, B coordinates; must be finite and farther than
- *                  kMinR_CM from the joint M.
+ *                  kMinR_CM from the thrust point M.
  * @return true when the configuration is valid. Never throws, so it can guard the throwing
  *         create/setConfig from an invalid configuration.
  */
-bool ThrustVectoringAlgorithm_validateConfig(const Vector3f_c* sigma_MB,
-                                             const Vector3f_c* r_MB_B,
-                                             float thetaMax,
-                                             float armLength,
-                                             float thrust,
-                                             const Vector3f_c* r_CB_B);
+bool ThrustVectoringAlgorithm_validateConfig(const Vector3f_c* r_MB_B, float thrust, const Vector3f_c* r_CB_B);
 
 /**
  * @brief Construct a new ThrustVectoringAlgorithm instance from the supplied configuration.
  * Validate the values with validateConfig first; invalid input throws.
  * @return Pointer to a new ThrustVectoringAlgorithm (must be destroyed).
  */
-ThrustVectoringAlgorithmHandle* ThrustVectoringAlgorithm_create(const Vector3f_c* sigma_MB,
-                                                                const Vector3f_c* r_MB_B,
-                                                                float thetaMax,
-                                                                float armLength,
+ThrustVectoringAlgorithmHandle* ThrustVectoringAlgorithm_create(const Vector3f_c* r_MB_B,
                                                                 float thrust,
                                                                 const Vector3f_c* r_CB_B);
 
@@ -58,21 +46,17 @@ void ThrustVectoringAlgorithm_destroy(ThrustVectoringAlgorithmHandle* self);
  * @param self Pointer to the instance.
  */
 void ThrustVectoringAlgorithm_setConfig(ThrustVectoringAlgorithmHandle* self,
-                                        const Vector3f_c* sigma_MB,
                                         const Vector3f_c* r_MB_B,
-                                        float thetaMax,
-                                        float armLength,
                                         float thrust,
                                         const Vector3f_c* r_CB_B);
 
 /**
- * @brief Compute the platform reference orientation and derived body-frame thruster quantities.
+ * @brief Compute the thrust direction that produces the requested torque.
  * @param self   Pointer to the instance.
  * @param Lreq_B [Nm] requested thruster torque about the center of mass, body-frame coordinates.
- * @return ThrustVectoringOutput_c derived body-frame thruster quantities.
+ * @return Vector3f_c [-] thrust unit direction, body-frame coordinates.
  */
-ThrustVectoringOutput_c ThrustVectoringAlgorithm_update(const ThrustVectoringAlgorithmHandle* self,
-                                                        const Vector3f_c* Lreq_B);
+Vector3f_c ThrustVectoringAlgorithm_update(const ThrustVectoringAlgorithmHandle* self, const Vector3f_c* Lreq_B);
 
 #ifdef __cplusplus
 }  // extern "C"

@@ -28,11 +28,11 @@ def test_identity_dcm():
     ep_CN = np.array([np.cos(angle/2), 0, 0, np.sin(angle/2)])
     omega_CN_C = np.array([0.01, -0.02, 0.03])
 
-    sensor_data = messaging.STSensorMsgPayload()
+    sensor_data = messaging.STSensorMsgF32Payload()
     sensor_data.timeTag = 100.0
     sensor_data.qInrtl2Case = ep_CN.tolist()
     sensor_data.omega_CN_C = omega_CN_C.tolist()
-    sensor_in_msg = messaging.STSensorMsg().write(sensor_data)
+    sensor_in_msg = messaging.STSensorMsgF32().write(sensor_data)
 
     module.stSensorInMsg.subscribeTo(sensor_in_msg)
 
@@ -49,6 +49,8 @@ def test_identity_dcm():
     omega_BN_B = att_log.omega_BN_B[0]
 
     accuracy = 1e-6
+    np.testing.assert_allclose(att_log.timeTag[0], 100.0, atol=accuracy,
+                               err_msg="timeTag must be passed through in seconds")
     np.testing.assert_allclose(sigma_BN, sigma_CN, atol=accuracy,
                                err_msg="MRP mismatch with identity DCM")
     np.testing.assert_allclose(omega_BN_B, omega_CN_C, atol=accuracy,
@@ -80,11 +82,11 @@ def test_rotated_dcm():
     ep_CN = np.array([np.cos(st_angle/2), np.sin(st_angle/2), 0, 0])
     omega_CN_C = np.array([-0.015, 0.008, 0.022])
 
-    sensor_data = messaging.STSensorMsgPayload()
+    sensor_data = messaging.STSensorMsgF32Payload()
     sensor_data.timeTag = 200.0
     sensor_data.qInrtl2Case = ep_CN.tolist()
     sensor_data.omega_CN_C = omega_CN_C.tolist()
-    sensor_in_msg = messaging.STSensorMsg().write(sensor_data)
+    sensor_in_msg = messaging.STSensorMsgF32().write(sensor_data)
 
     module.stSensorInMsg.subscribeTo(sensor_in_msg)
 
@@ -126,8 +128,8 @@ def test_zero_input():
     module.modelTag = "convertStPlatformToBody"
     sim.AddModelToTask(task_name, module)
 
-    sensor_data = messaging.STSensorMsgPayload()
-    sensor_in_msg = messaging.STSensorMsg().write(sensor_data)
+    sensor_data = messaging.STSensorMsgF32Payload()
+    sensor_in_msg = messaging.STSensorMsgF32().write(sensor_data)
     module.stSensorInMsg.subscribeTo(sensor_in_msg)
 
     att_log = module.stAttOutMsg.recorder()
