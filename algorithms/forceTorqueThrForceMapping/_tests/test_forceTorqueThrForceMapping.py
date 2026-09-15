@@ -161,6 +161,8 @@ def compute_thrust_mapping_truth(rcs_location, rcs_direction, requested_torque, 
          blow up.
       3. The rows of the axes outside desired_control_axes are zeroed, as the algorithm zeroes them,
          so both solve the same reduced problem.
+      4. Negative entries are removed by a null-space shift, as the algorithm does, not by
+         subtracting the minimum.
     """
     num_thrusters = len(rcs_location)
     max_eff_cnt = messaging.MAX_EFF_CNT
@@ -183,9 +185,28 @@ def compute_thrust_mapping_truth(rcs_location, rcs_direction, requested_torque, 
     inv_sv = np.divide(1.0, sv, out=np.zeros_like(sv), where=sv > tol)
     thr_forces = Vt.T @ np.diag(inv_sv) @ U.T @ ft
 
-    # min-shift over the active head only, matching the algorithm.
-    thr_forces[0:num_thrusters] -= thr_forces[0:num_thrusters].min()
-    return thr_forces[0:num_thrusters]
+    # Shift direction: the part of the all-ones vector lying in the null space of the kept row space.
+    rank = int(np.count_nonzero(sv > tol))
+    ones = np.zeros(max_eff_cnt, dtype=np.float64)
+    ones[0:num_thrusters] = 1.0
+    null_shift = ones.copy()
+    if rank > 0:
+        row_space = Vt.T[:, 0:rank]
+        null_shift -= row_space @ (row_space.T @ ones)
+    null_shift[num_thrusters:] = 0.0
+
+    # Largest per-entry step, which lifts every reachable entry to zero at once.
+    shift_tol = 1e-6
+    shift_scale = np.abs(null_shift[0:num_thrusters]).max()
+    if shift_scale > shift_tol:
+        step = 0.0
+        for j in range(num_thrusters):
+            if null_shift[j] <= shift_tol * shift_scale:
+                continue
+            step = max(step, -thr_forces[j] / null_shift[j])
+        thr_forces[0:num_thrusters] += step * null_shift[0:num_thrusters]
+
+    return np.maximum(thr_forces[0:num_thrusters], 0.0)
 
 
 if __name__ == "__main__":

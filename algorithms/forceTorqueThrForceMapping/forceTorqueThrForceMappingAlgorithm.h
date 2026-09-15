@@ -119,6 +119,8 @@ class ForceTorqueThrForceMappingAlgorithm final {
     ForceTorqueThrForceMappingConfig cfg;  //!< validated configuration (thrusters, CoM, control-axis selection)
     Eigen::Matrix<float, kMaxThrusterCount, 6> pseudoInverseDG{
         Eigen::Matrix<float, kMaxThrusterCount, 6>::Zero()};  //!< truncated-SVD pseudo-inverse of the selected DG rows
+    Eigen::Vector<float, kMaxThrusterCount> nullSpaceShift{
+        Eigen::Vector<float, kMaxThrusterCount>::Zero()};  //!< [-] shift direction in the null space of selected DG
 };
 
 #endif

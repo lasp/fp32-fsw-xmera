@@ -120,9 +120,8 @@ TEST(ForceTorqueThrForceMappingTest, PropertyNonNegativeForces) {
         8U, rcsPositions1(), rcsDirections1(), {0.1F, 0.1F, 0.1F}, {0.4F, 0.2F, 0.4F}, {0.0F, 0.9F, 1.1F});
 }
 
-TEST(ForceTorqueThrForceMappingTest, PropertyMinimumIsZero) {
-    propertyMinimumIsZero(
-        8U, rcsPositions2(), rcsDirections2(), {0.0F, 0.0F, 0.0F}, {0.3F, -0.2F, 0.1F}, {0.9F, 1.1F, 1.0F});
+TEST(ForceTorqueThrForceMappingTest, PropertyMinimumIsZeroForBalancedLayout) {
+    propertyMinimumIsZeroForBalancedLayout({0.1F, 0.1F, 0.1F}, {0.4F, 0.2F, 0.4F}, {0.0F, 0.9F, 1.1F});
 }
 
 // Six of layout 1's eight thrusters, so two slots sit past numThrusters and the padding assertion has
@@ -157,20 +156,13 @@ TEST(ForceTorqueThrForceMappingTest, PropertyOutputMagnitudeBounded) {
         8U, rcsPositions1(), rcsDirections1(), {0.1F, 0.1F, 0.1F}, {0.4F, 0.2F, 0.4F}, {0.0F, 0.9F, 1.1F});
 }
 
-// Documents a known limitation: for an unbalanced layout (DG·1 ≠ 0), the min-shift step perturbs
-// the achieved FT by min_shift·(DG·1) whenever pinv·cmd has a negative entry. The test pins a
-// fully-controllable but unbalanced 6-thruster layout — three positions each carrying two
-// orthogonal thrusters, so rank(DG) = 6 (any FT command is reachable in principle) but
-// DG·1 = (−1, −1, −1, 2, 2, 2) is nonzero on every axis. Commanding a pure τ_x forces a negative
-// entry in pinv·cmd, which the min-shift then translates into an FT offset along DG·1.
-//
-// This is a behavioral test, not a property test — it freezes the algorithm's documented behavior
-// so a future refactor (e.g. a null-space-projected min-shift) would intentionally break it and
-// force a deliberate update of the behavior.
-TEST(ForceTorqueThrForceMappingTest, UnbalancedLayoutAchievedFTDiffersFromCommand) {
+// The one remaining way the achieved force and torque can leave the command: the clamp. This layout is
+// rank 6 with 6 thrusters, so there is no null space to shift along and a pure tau_x command keeps a
+// negative entry that only the clamp can remove. Behavioral, not a property -- it freezes the
+// documented limitation so a change to the non-negativity handling has to update it deliberately.
+TEST(ForceTorqueThrForceMappingTest, ClampedSolutionAchievedFTDiffersFromCommand) {
     // Three positions, each carrying two orthogonal thrusters. Pairs (thr 0, 5), (thr 1, 3),
-    // (thr 2, 4) share a position but point along different axes — gives rank-6 DG with
-    // DG·1 = (−1, −1, −1, 2, 2, 2).
+    // (thr 2, 4) share a position but point along different axes -- gives rank-6 DG.
     const std::vector<Eigen::Vector3f> positions = {{1.0F, 0.0F, 0.0F},
                                                     {0.0F, 1.0F, 0.0F},
                                                     {0.0F, 0.0F, 1.0F},
@@ -188,22 +180,65 @@ TEST(ForceTorqueThrForceMappingTest, UnbalancedLayoutAchievedFTDiffersFromComman
     ASSERT_TRUE(buildThrusterConfig(6U, positions, directions, config));
     ForceTorqueThrForceMappingAlgorithm alg = makeMappingAlgorithm(config, Eigen::Vector3f::Zero(), kAllControlAxes);
 
-    // Pure τ_x = 1. pinv·cmd = (0, 1, 0, 0, −1, 0) — the −1 at thr 4 forces min_shift = −1, so
-    // achieved = cmd − min_shift·(DG·1) = cmd + DG·1 = (0, −1, −1, 2, 2, 2). Far from the
-    // commanded (1, 0, 0, 0, 0, 0) on every component.
+    // Minimum-norm solution (0, 1, 0, 0, -1, 0); the -1 clamps away, leaving a pure F_y.
     const Eigen::Vector3f cmdTorque{1.0F, 0.0F, 0.0F};
     const Eigen::Vector3f cmdForce = Eigen::Vector3f::Zero();
     const Eigen::Vector<float, kMaxThrusterCount> out = alg.update(cmdTorque, cmdForce);
+
+    for (int i = 0; i < 6; ++i) {
+        EXPECT_GE(out[i], 0.0F);
+    }
 
     const Eigen::Matrix<float, 6, kMaxThrusterCount> DG = buildDG(config, Eigen::Vector3f::Zero());
     const Eigen::Vector<float, 6> achieved = DG * out;
     Eigen::Vector<float, 6> cmd;
     cmd << cmdTorque, cmdForce;
 
-    // Achieved differs from cmd by ~DG·1, whose largest component is 2. Assert the discrepancy is
-    // at least 1 unit on the largest axis — a clear, layout-balance-driven mismatch, not fp32 noise.
     const Eigen::Vector<float, 6> diff = cmd - achieved;
-    EXPECT_GT(diff.cwiseAbs().maxCoeff(), 1.0F);
+    EXPECT_GT(diff.cwiseAbs().maxCoeff(), 0.5F);
+}
+
+// Two parallel +z thrusters split a commanded +z force evenly, at any center of mass: there is no
+// shift direction to cancel the pair, and the parasitic torque falls on an unselected axis.
+TEST(ForceTorqueThrForceMappingTest, DvPairSplitsCommandedForceEvenly) {
+    const std::vector<Eigen::Vector3f> positions = {{-1.0F, 0.0F, 0.0F}, {1.0F, 0.0F, 0.0F}};
+    const std::vector<Eigen::Vector3f> directions = {{0.0F, 0.0F, 1.0F}, {0.0F, 0.0F, 1.0F}};
+    constexpr std::array<bool, 6> kForceZOnly{false, false, false, false, false, true};
+
+    ThrusterArrayConfiguration config{};
+    ASSERT_TRUE(buildThrusterConfig(2U, positions, directions, config));
+
+    for (const Eigen::Vector3f& CoM :
+         {Eigen::Vector3f{0.0F, 0.0F, 0.0F}, Eigen::Vector3f{0.0F, 0.0F, 0.5F}, Eigen::Vector3f{0.2F, -0.1F, 0.5F}}) {
+        const ForceTorqueThrForceMappingAlgorithm alg = makeMappingAlgorithm(config, CoM, kForceZOnly);
+        const Eigen::Vector<float, kMaxThrusterCount> out = alg.update(Eigen::Vector3f::Zero(), {0.0F, 0.0F, 10.0F});
+
+        EXPECT_NEAR(out[0], 5.0F, 1e-4F);
+        EXPECT_NEAR(out[1], 5.0F, 1e-4F);
+        for (int i = 2; i < kMaxThrusterCount; ++i) {
+            EXPECT_FLOAT_EQ(out[i], 0.0F);
+        }
+
+        const Eigen::Matrix<float, 6, kMaxThrusterCount> DG = buildDG(config, CoM);
+        EXPECT_NEAR((DG * out)[5], 10.0F, 1e-3F);
+    }
+}
+
+// A retro request on a +z-only pair has no non-negative solution, so the clamp takes the output to
+// zero rather than commanding a pull.
+TEST(ForceTorqueThrForceMappingTest, DvPairRejectsRetroThrust) {
+    const std::vector<Eigen::Vector3f> positions = {{-1.0F, 0.0F, 0.0F}, {1.0F, 0.0F, 0.0F}};
+    const std::vector<Eigen::Vector3f> directions = {{0.0F, 0.0F, 1.0F}, {0.0F, 0.0F, 1.0F}};
+
+    ThrusterArrayConfiguration config{};
+    ASSERT_TRUE(buildThrusterConfig(2U, positions, directions, config));
+    const ForceTorqueThrForceMappingAlgorithm alg =
+        makeMappingAlgorithm(config, {0.2F, -0.1F, 0.5F}, {false, false, false, false, false, true});
+
+    const Eigen::Vector<float, kMaxThrusterCount> out = alg.update(Eigen::Vector3f::Zero(), {0.0F, 0.0F, -10.0F});
+    for (int i = 0; i < kMaxThrusterCount; ++i) {
+        EXPECT_FLOAT_EQ(out[i], 0.0F);
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -226,11 +261,9 @@ TEST(ForceTorqueThrForceMappingTest, ZeroCommandProducesZeroOutput) {
     }
 }
 
-// All thrusters parallel: only force_x and torque_z rows of DG are nonzero (selector drops the
-// other four). With 4 symmetric +X thrusters about origin and a pure force_x = 1 command, the
-// min-norm LS solution is x = [0.25, 0.25, 0.25, 0.25]; the min-shift then zeros all four
-// outputs. Verifies the algorithm handles rank-deficient DG without NaN or crash and matches the
-// analytic solution.
+// All thrusters parallel: only the force_x and torque_z rows of DG are nonzero, and those are the
+// selected axes. A pure force_x = 1 command gives x = [0.25, 0.25, 0.25, 0.25]; there is no shift
+// direction here, so the common thrust survives and the array delivers the commanded 1 N.
 TEST(ForceTorqueThrForceMappingTest, AllThrustersParallel) {
     const std::vector<Eigen::Vector3f> positions = {
         {0.5F, 0.0F, 0.0F}, {-0.5F, 0.0F, 0.0F}, {0.0F, 0.5F, 0.0F}, {0.0F, -0.5F, 0.0F}};
@@ -243,8 +276,11 @@ TEST(ForceTorqueThrForceMappingTest, AllThrustersParallel) {
         makeMappingAlgorithm(config, Eigen::Vector3f::Zero(), {false, false, true, true, false, false});
 
     const Eigen::Vector<float, kMaxThrusterCount> out = alg.update(Eigen::Vector3f::Zero(), {1.0F, 0.0F, 0.0F});
-    for (int i = 0; i < kMaxThrusterCount; ++i) {
-        EXPECT_NEAR(out[i], 0.0F, 1e-6F);
+    for (int i = 0; i < 4; ++i) {
+        EXPECT_NEAR(out[i], 0.25F, 1e-6F);
+    }
+    for (int i = 4; i < kMaxThrusterCount; ++i) {
+        EXPECT_FLOAT_EQ(out[i], 0.0F);
     }
 }
 
@@ -406,7 +442,7 @@ TEST(ForceTorqueThrForceMappingTest, DesiredControlAxesAllTrueThrowsOnUncontroll
 // torque-free +z force unreachable. Selecting force_z alone must therefore configure at any center of
 // mass — the torque rows the array cannot null are left out of the solve.
 TEST(ForceTorqueThrForceMappingTest, DesiredControlAxesForceZOnlyOnDvPair) {
-    const std::vector<Eigen::Vector3f> positions = {{-0.86995F, -0.81915F, 0.522859F}, {0.86995F, 0.81915F, 0.522859F}};
+    const std::vector<Eigen::Vector3f> positions = {{-1.0F, 0.0F, 0.0F}, {1.0F, 0.0F, 0.0F}};
     const std::vector<Eigen::Vector3f> directions = {{0.0F, 0.0F, 1.0F}, {0.0F, 0.0F, 1.0F}};
     constexpr std::array<bool, 6> kForceZOnly{false, false, false, false, false, true};
 
@@ -415,17 +451,17 @@ TEST(ForceTorqueThrForceMappingTest, DesiredControlAxesForceZOnlyOnDvPair) {
 
     EXPECT_NO_THROW(makeMappingAlgorithm(config, Eigen::Vector3f::Zero(), kForceZOnly));
     EXPECT_NO_THROW(makeMappingAlgorithm(config, {0.0F, 0.0F, 0.5F}, kForceZOnly));
-    EXPECT_NO_THROW(makeMappingAlgorithm(config, {0.05F, -0.03F, 0.4F}, kForceZOnly));
+    EXPECT_NO_THROW(makeMappingAlgorithm(config, {0.2F, -0.1F, 0.5F}, kForceZOnly));
 
     // Selecting a torque axis the pair cannot reach is still rejected.
-    EXPECT_THROW(makeMappingAlgorithm(config, {0.05F, -0.03F, 0.4F}, kAllControlAxes), fsw::invalid_argument);
+    EXPECT_THROW(makeMappingAlgorithm(config, {0.2F, -0.1F, 0.5F}, kAllControlAxes), fsw::invalid_argument);
 
     // Both thrust directions are parallel to the body z axis, so every moment arm crosses into the
     // body x-y plane and the torque_z row of DG is identically zero. The array has no authority about
     // torque_z at any center of mass, and selecting it must throw.
     constexpr std::array<bool, 6> kTorqueZOnly{false, false, true, false, false, false};
     EXPECT_THROW(makeMappingAlgorithm(config, Eigen::Vector3f::Zero(), kTorqueZOnly), fsw::invalid_argument);
-    EXPECT_THROW(makeMappingAlgorithm(config, {0.05F, -0.03F, 0.4F}, kTorqueZOnly), fsw::invalid_argument);
+    EXPECT_THROW(makeMappingAlgorithm(config, {0.2F, -0.1F, 0.5F}, kTorqueZOnly), fsw::invalid_argument);
 }
 
 // An axis is controllable only when it can be commanded independently of the other selected axes.
