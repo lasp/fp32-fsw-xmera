@@ -1,0 +1,129 @@
+#include "cssWeightedLeastSquares.h"
+
+#include "utilities/xmera/xmeraLifecycleException.h"
+#include <utilities/fsw/eigenSupport.h>
+
+#include "utilities/fsw/timeConstants.h"
+
+#include <memory>
+#include <stdexcept>
+
+/*! Number of scalar states the estimator reports, the three sun heading components. */
+static constexpr int kHeadingStates = 3;
+
+/*! Width of the state vector on the filter output message. */
+static constexpr int kFilterStates = MAX_STATES_VECTOR;
+
+/*! Width of each residual vector on the filter residuals message. */
+static constexpr int kResidualSlots = static_cast<int>(kMaxMeasurementVector * kMaxMeasurementNumber);
+
+/*! Validate the message connections and construct the algorithm from the public properties. Startup
+ only; on a state transition the flight software calls reInitialize() instead.
+ @return void
+ @param callTime The clock time at which the function was called (nanoseconds)
+ */
+void CssWeightedLeastSquares::reset(const uint64_t callTime) {
+    // check that required messages have been included
+    if (!this->cssDataInMsg.isLinked()) {
+        throw std::invalid_argument("cssWeightedLeastSquares.cssDataInMsg wasn't connected.");
+    }
+    if (!this->cssConfigInMsg.isLinked()) {
+        throw std::invalid_argument("cssWeightedLeastSquares.cssConfigInMsg wasn't connected.");
+    }
+
+    this->algorithm = std::make_unique<CssWeightedLeastSquaresAlgorithm>(this->toConfig());
+    this->numActiveCss = 0;
+}
+
+/*! Build a validated algorithm configuration from the constellation geometry on cssConfigInMsg and the
+ module's tuning properties. The message is the single source of the geometry, so the same constellation
+ feeds every estimator that subscribes to it. Every other check lives in the config's validators.
+ @return CssWeightedLeastSquaresConfig validated configuration
+ */
+CssWeightedLeastSquaresConfig CssWeightedLeastSquares::toConfig() {
+    const CSSConfigMsgF32Payload cssConfig = this->cssConfigInMsg();
+    if (cssConfig.nCSS > static_cast<uint32_t>(kMaxNumCss)) {
+        throw std::invalid_argument("cssWeightedLeastSquares.cssConfigInMsg reported more sensors than kMaxNumCss.");
+    }
+
+    std::array<CssConfiguration, kMaxNumCss> cssSensors{};
+    for (uint32_t i = 0; i < cssConfig.nCSS; ++i) {
+        cssSensors.at(i) = CssConfiguration{.nHat_B = cArrayToEigenVector(cssConfig.cssVals[i].nHat_B),
+                                            .bias = cssConfig.cssVals[i].CBias};
+    }
+    return CssWeightedLeastSquaresConfig::create(
+        cssConfig.nCSS, cssSensors, this->useWeights, this->sensorUseThresh, this->controlPeriod);
+}
+
+/*! Re-read the constellation message, re-validate it with the module properties and push the result onto
+ the live algorithm, leaving the estimator's runtime state untouched.
+ @return void
+ */
+void CssWeightedLeastSquares::reconfigure() {
+    if (!this->algorithm) {
+        throw XmeraLifecycleException("CssWeightedLeastSquares reset() has not been called.");
+    }
+    this->algorithm->setConfig(this->toConfig());
+}
+
+/*! Clear the estimator's runtime state; a pass-through to the algorithm's reInitialize(). The prior
+ heading, the prior-signal flag and the prior time are all non-persistent, so a mode transition produces
+ no rate until two headings have been seen again.
+ @return void
+ */
+void CssWeightedLeastSquares::reInitialize() {
+    if (!this->algorithm) {
+        throw XmeraLifecycleException("CssWeightedLeastSquares reset() has not been called.");
+    }
+    this->algorithm->reInitialize();
+}
+
+/*! This method reads the CSS array measurements, runs the estimator, and writes the estimated sun
+ state along with the post-fit residuals.
+ @return void
+ @param callTime The clock time at which the function was called (nanoseconds)
+ */
+void CssWeightedLeastSquares::updateState(const uint64_t callTime) {
+    if (!this->algorithm) {
+        throw XmeraLifecycleException("CssWeightedLeastSquares reset() has not been called.");
+    }
+
+    /*! - Read the input parsed CSS sensor data message*/
+    const CSSArraySensorMsgF32Payload cssData = this->cssDataInMsg();
+
+    const CssWeightedLeastSquaresOutput out = this->algorithm->update(cArrayToEigenVector(cssData.CosValue));
+    this->numActiveCss = out.numActiveCss;
+
+    const double timeTag = static_cast<double>(callTime) * kNano2Sec;
+
+    /*! - If the estimator state output message is set, then store the sun heading in it */
+    if (this->filterOutMsg.isLinked()) {
+        FilterMsgF32Payload filterBuf = {};
+        filterBuf.timeTag = timeTag;
+        filterBuf.numberOfStates = kHeadingStates;
+        Eigen::Vector<double, kFilterStates> state = Eigen::Vector<double, kFilterStates>::Zero();
+        state.head<kHeadingStates>() = out.sunHeading_B.cast<double>();
+        eigenVectorToCArray(state, filterBuf.state);
+        this->filterOutMsg.write(filterBuf, this->moduleID, callTime);
+    }
+
+    /*! - If the residual output message is set, then store the residuals in it. The CSS array is one
+     observation vector whose dimension is the number of sensors that contributed to the fit. */
+    if (this->filterCssResOutMsg.isLinked()) {
+        FilterResidualsMsgF32Payload cssResBuf = {};
+        cssResBuf.timeTag = timeTag;
+        cssResBuf.valid = out.numActiveCss > 0U;
+        cssResBuf.numberOfObservations = 1;
+        cssResBuf.sizeOfObservations = static_cast<int>(out.numActiveCss);
+        Eigen::Vector<double, kResidualSlots> postFits = Eigen::Vector<double, kResidualSlots>::Zero();
+        postFits.head<kMaxNumCss>() = out.postFitResiduals.cast<double>();
+        eigenVectorToCArray(postFits, cssResBuf.postFits);
+        this->filterCssResOutMsg.write(cssResBuf, this->moduleID, callTime);
+    }
+
+    /*! - Populate the navigation output message with the estimated sun state */
+    NavAttMsgF32Payload sunlineOutBuffer = {};
+    eigenVectorToCArray(out.sunHeading_B, sunlineOutBuffer.vehSunPntBdy);
+    eigenVectorToCArray(out.omega_BN_B, sunlineOutBuffer.omega_BN_B);
+    this->navStateOutMsg.write(sunlineOutBuffer, this->moduleID, callTime);
+}

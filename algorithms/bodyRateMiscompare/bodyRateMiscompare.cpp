@@ -1,23 +1,8 @@
 #include "bodyRateMiscompare.h"
 
-#include "msgPayloadDef/STAttMsgF32Payload.h"
 #include "utilities/fsw/eigenSupport.h"
 #include "utilities/fsw/timeConstants.h"
 #include "utilities/xmera/xmeraLifecycleException.h"
-
-template <size_t N>
-static void convertArray(const double (&src)[N], float (&dst)[N]) {
-    for (size_t i = 0; i < N; ++i) {
-        dst[i] = static_cast<float>(src[i]);
-    }
-}
-
-inline void convert(const STAttMsgPayload& src, STAttMsgF32Payload& dst) {
-    dst.timeTag = src.timeTag;
-    convertArray(src.MRP_BdyInrtl, dst.MRP_BdyInrtl);
-    convertArray(src.omega_BN_B, dst.omega_BN_B);
-    convertArray(src.dcm_CB, dst.dcm_CB);
-}
 
 /*! This method performs a complete reset of the module. Validates that input messages are linked and resets the
  algorithm state.
@@ -29,7 +14,7 @@ void BodyRateMiscompare::reset(uint64_t const callTime) {
         throw std::invalid_argument("The imuSensorBodyInMsg was not linked and is required for execution");
     }
     if (!this->stBodyInMsg.isLinked()) {
-        throw std::invalid_argument("The stSensInMsg was not linked and is required for execution");
+        throw std::invalid_argument("The stBodyInMsg was not linked and is required for execution");
     }
 
     auto config =
@@ -61,12 +46,11 @@ void BodyRateMiscompare::updateState(uint64_t const callTime) {
     // Retrieve the updated messages from the imuPayload and star tracker
     IMUSensorBodyMsgF32Payload imuPayload = this->imuSensorBodyInMsg();
 
-    STAttMsgF32Payload stAttMsgF32Payload{};
-    convert(this->stBodyInMsg(), stAttMsgF32Payload);
+    STAttMsgF32Payload stPayload = this->stBodyInMsg();
 
     // Call the algorithm to get the measured body rates
-    auto [omega_BN_B, bodyRateFaultDetected] = this->algorithm->update(
-        cArrayToEigenVector(imuPayload.AngVelBody), cArrayToEigenVector(stAttMsgF32Payload.omega_BN_B));
+    auto [omega_BN_B, bodyRateFaultDetected] =
+        this->algorithm->update(cArrayToEigenVector(imuPayload.AngVelBody), cArrayToEigenVector(stPayload.omega_BN_B));
 
     NavAttMsgF32Payload navAttMsgPayload{};
     eigenVectorToCArray(omega_BN_B, navAttMsgPayload.omega_BN_B);

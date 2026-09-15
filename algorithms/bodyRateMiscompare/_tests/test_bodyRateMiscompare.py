@@ -145,9 +145,9 @@ def run_test(
     in_msg = messaging.IMUSensorBodyMsgF32().write(input_message_data, time=0)
 
     # Initialize star tracker rate from star tracker output
-    star_tracker_message_data = messaging.STAttMsgPayload()
+    star_tracker_message_data = messaging.STAttMsgF32Payload()
     star_tracker_message_data.omega_BN_B = angular_velocity_star_tracker.tolist()
-    st_msg = messaging.STAttMsg().write(star_tracker_message_data, time=0)
+    st_msg = messaging.STAttMsgF32().write(star_tracker_message_data, time=0)
 
     unit_test_sim.AddModelToTask(unit_task_name, module)
 
