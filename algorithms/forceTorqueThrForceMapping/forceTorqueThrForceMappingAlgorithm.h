@@ -27,9 +27,13 @@ struct ThrusterArrayConfiguration {
 /*! @brief Validated configuration for the force/torque-to-thruster-force mapping algorithm.
  *
  * Construct via create(), which rejects an invalid thruster array (bad count or non-unit direction), a
- * non-finite center of mass, or an unrealizable mapping (an asserted desiredControlAxes_B axis is
- * uncontrollable, or the geometry is ill-conditioned with condition number above 100). desiredControlAxes_B
- * are per-axis controllability assertions (torque xyz then force xyz, body frame B).
+ * non-finite center of mass, an empty axis selection, or an unrealizable mapping (a desiredControlAxes_B
+ * axis is uncontrollable, or the geometry is ill-conditioned with condition number above 100).
+ *
+ * desiredControlAxes_B selects the axes that the mapping controls (torque xyz then force xyz, body frame B).
+ * Only the selected rows of the control mapping matrix DG enter the solve. The solve thus applies no
+ * condition to an unselected axis, and does not balance such an axis against the selected ones. The
+ * selection must contain a minimum of one axis.
  */
 class ForceTorqueThrForceMappingConfig final {
    public:
@@ -44,10 +48,14 @@ class ForceTorqueThrForceMappingConfig final {
         if (!isValidCenterOfMass_B(centerOfMass_B)) {
             FSW_THROW_INVALID_ARGUMENT("forceTorqueThrForceMapping: centerOfMass_B must be finite");
         }
+        if (!isValidDesiredControlAxes_B(desiredControlAxes_B)) {
+            FSW_THROW_INVALID_ARGUMENT(
+                "forceTorqueThrForceMapping: desiredControlAxes_B must select at least one control axis.");
+        }
         if (!isValidMapping(thrusters, centerOfMass_B, desiredControlAxes_B)) {
             FSW_THROW_INVALID_ARGUMENT(
                 "forceTorqueThrForceMapping: the configuration does not yield a valid thruster mapping -- an "
-                "axis marked in desiredControlAxes_B is not controllable by the thruster array, or the thruster "
+                "axis selected in desiredControlAxes_B is not controllable by the thruster array, or the thruster "
                 "geometry is ill-conditioned (condition number above 100).");
         }
         return {thrusters, centerOfMass_B, desiredControlAxes_B};
@@ -67,11 +75,15 @@ class ForceTorqueThrForceMappingConfig final {
         return true;
     }
     static bool isValidCenterOfMass_B(const Eigen::Vector3f& centerOfMass_B) { return centerOfMass_B.allFinite(); }
-    // No isValidDesiredControlAxes — any bool combination is valid; controllability is checked against control mapping
-    // matrix DG.
+    // The selection names the axes the mapping controls, so it must name at least one. Which of the selected
+    // axes are reachable is a property of the geometry and is checked against DG by isValidMapping.
+    static bool isValidDesiredControlAxes_B(const std::array<bool, 6>& desiredControlAxes_B) {
+        return desiredControlAxes_B.at(0) || desiredControlAxes_B.at(1) || desiredControlAxes_B.at(2) ||
+               desiredControlAxes_B.at(3) || desiredControlAxes_B.at(4) || desiredControlAxes_B.at(5);
+    }
 
-    // True if the mapping is realizable: every asserted axis is controllable and the control mapping
-    // matrix DG is well-conditioned (condition number below 100).
+    // True if the mapping is realizable: every selected axis is controllable and the selected rows of the
+    // control mapping matrix DG are well-conditioned (condition number below 100).
     // In the .cpp because it shares the mapping computation with the algorithm.
     static bool isValidMapping(const ThrusterArrayConfiguration& thrusters,
                                const Eigen::Vector3f& centerOfMass_B,
@@ -104,9 +116,9 @@ class ForceTorqueThrForceMappingAlgorithm final {
                                                    const Eigen::Vector3f& cmdForce_B) const;
 
    private:
-    ForceTorqueThrForceMappingConfig cfg;  //!< validated configuration (thrusters, CoM, controllability assertions)
+    ForceTorqueThrForceMappingConfig cfg;  //!< validated configuration (thrusters, CoM, control-axis selection)
     Eigen::Matrix<float, kMaxThrusterCount, 6> pseudoInverseDG{
-        Eigen::Matrix<float, kMaxThrusterCount, 6>::Zero()};  //!< truncated-SVD pseudo-inverse of DG
+        Eigen::Matrix<float, kMaxThrusterCount, 6>::Zero()};  //!< truncated-SVD pseudo-inverse of the selected DG rows
 };
 
 #endif

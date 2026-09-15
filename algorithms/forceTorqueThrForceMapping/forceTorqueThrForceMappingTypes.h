@@ -38,9 +38,11 @@ typedef struct {
  * throws on invalid input.
  *  - thrusters:          count + per-thruster geometry, each direction ~unit within 1e-3
  *  - centerOfMass_B:     [m] center of mass in body frame, must be finite
- *  - desiredControlAxes: per-axis controllability assertions (torque xyz then force xyz, all in
- *                        body frame B). A non-zero entry asserts that axis must lie in the column
- *                        space of DG; checked against the SVD when the mapping is computed.
+ *  - desiredControlAxes: the axes the mapping controls (torque xyz then force xyz, all in body
+ *                        frame B). Only the rows of DG for the selected axes enter the solve. A
+ *                        non-zero entry selects that axis, which must then lie in the column space
+ *                        of DG; checked against the SVD when the mapping is computed. A minimum of
+ *                        one entry must be non-zero.
  */
 typedef struct {
     ThrusterArrayConfiguration_c thrusters;

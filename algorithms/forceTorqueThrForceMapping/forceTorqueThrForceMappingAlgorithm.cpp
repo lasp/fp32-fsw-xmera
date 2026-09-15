@@ -9,8 +9,10 @@
 namespace {
 
 /*! Truncated-SVD pseudo-inverse of the control mapping matrix DG (singular values below
- *  sigma_max * eps * max(m,n) are dropped). Returns nullopt when a desiredControlAxes_B axis is
- *  uncontrollable or the kept subspace is ill-conditioned (condition number > 100).
+ *  sigma_max * eps * max(m,n) are dropped). Only the rows selected by desiredControlAxes_B take part:
+ *  the others are zeroed, which removes them from the solve without changing the fixed matrix shape.
+ *  Returns nullopt when a selected axis is uncontrollable or the kept subspace is ill-conditioned
+ *  (condition number > 100).
  */
 std::optional<Eigen::Matrix<float, kMaxThrusterCount, 6>> computeThrusterMapping(
     const ThrusterArrayConfiguration& thrusters,
@@ -36,6 +38,16 @@ std::optional<Eigen::Matrix<float, kMaxThrusterCount, 6>> computeThrusterMapping
     Eigen::Matrix<float, 6, kMaxThrusterCount> DGwithZeros{};
     DGwithZeros << torquePntC_B, tHat_B;
 
+    // Remove the axes that the caller does not select. Zeroing a row is equivalent to deleting it: the
+    // pseudo-inverse of the reduced matrix reappears as the corresponding columns of the padded one, with
+    // zero columns where the rows were dropped. The solve thus applies no condition to an unselected axis,
+    // and does not balance such an axis against the selected ones.
+    for (int axis = 0; axis < 6; ++axis) {
+        if (!desiredControlAxes_B.at(static_cast<std::size_t>(axis))) {
+            DGwithZeros.row(axis).setZero();
+        }
+    }
+
     const Eigen::JacobiSVD<Eigen::Matrix<float, 6, kMaxThrusterCount>> svd(DGwithZeros,
                                                                            Eigen::ComputeFullU | Eigen::ComputeFullV);
     const Eigen::Vector<float, 6>& sv = svd.singularValues();
@@ -49,8 +61,9 @@ std::optional<Eigen::Matrix<float, kMaxThrusterCount, 6>> computeThrusterMapping
         }
     }
 
-    // Controllability: an asserted axis projecting onto the truncated (uncontrollable) left singular vectors
-    // is not reachable.
+    // Controllability: a selected axis projecting onto the truncated (uncontrollable) left singular vectors
+    // is not reachable. Across the selected axes this is exactly the statement that the selected rows of DG
+    // have full row rank, so each one can be commanded independently of the others.
     constexpr float kControllabilityResidualSqTol = 1e-6F;
     const Eigen::Matrix<float, 6, 6>& U = svd.matrixU();
     for (int axis = 0; axis < 6; ++axis) {
@@ -68,8 +81,8 @@ std::optional<Eigen::Matrix<float, kMaxThrusterCount, 6>> computeThrusterMapping
         }
     }
 
-    // Conditioning: reject when the smallest kept singular value (the last above tol, sorted descending)
-    // drops below kConditioningTol of the largest, i.e. condition number > 100.
+    // Conditioning: over the selected rows, reject when the smallest kept singular value (the last above tol,
+    // sorted descending) drops below kConditioningTol of the largest, i.e. condition number > 100.
     constexpr float kConditioningTol = 1e-2F;
     float minKept = sv(0);
     for (int i = 0; i < 6; ++i) {

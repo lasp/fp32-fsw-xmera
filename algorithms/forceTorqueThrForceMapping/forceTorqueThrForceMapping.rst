@@ -44,8 +44,9 @@ on what this message is used for. Both the ``cmdTorqueInMsg`` and ``cmdForceInMs
 
 Module Assumptions and Limitations
 ----------------------------------
-This module assumes that each thruster only produces positive thrust (on-pulsing only). The pseudo-inverse of the
-stacked force/torque mapping matrix :math:`[D]` is computed via a truncated SVD: singular values below the relative
+This module assumes that each thruster only produces positive thrust (on-pulsing only). Only the rows of the
+stacked force/torque mapping matrix :math:`[D]` for the axes in ``desiredControlAxes_B`` enter the solve; the
+module sets the other rows to zero. The pseudo-inverse of :math:`[D]` is computed via a truncated SVD: singular values below the relative
 cutoff :math:`\sigma_{\max} \cdot \varepsilon_{f32} \cdot \max(6, N_{\max})` (the fp32 noise floor) are treated as
 zero, which projects uncontrollable directions in the 6-D command space out of the result. A thruster geometry whose
 kept singular subspace is ill-conditioned (condition number above 100) is rejected when the configuration is created,
@@ -71,13 +72,14 @@ Adapter layer (``forceTorqueThrForceMapping.h/.cpp``)
 Algorithm layer (``forceTorqueThrForceMappingAlgorithm.h/.cpp``)
     The pure FP32 algorithm with no framework dependencies. The immutable
     ``ForceTorqueThrForceMappingConfig`` (created via the static ``::create`` factory) carries the thruster
-    geometry, center of mass, and controllability assertions. Validators are: ``numThrusters`` :math:`\in
+    geometry, center of mass, and axis selection. Validators are: ``numThrusters`` :math:`\in
     [1, \text{MAX\_EFF\_CNT}]`, each active direction :math:`\hat{\mathbf{t}}_{i}` within 1e-3 of unit norm,
-    and ``centerOfMass_B`` finite (``Eigen::Vector3f::allFinite()``). The static ``::create`` factory is the only
-    place that throws ``fsw::invalid_argument``: on an invalid thruster array or center of mass, on an asserted
-    ``desiredControlAxes_B`` axis that is uncontrollable, or on an ill-conditioned thruster geometry (condition
-    number above 100). The constructor and ``setConfig`` then cache the pseudo-inverse from the validated config;
-    ``update()`` is ``const`` and never throws.
+    ``centerOfMass_B`` finite (``Eigen::Vector3f::allFinite()``), and ``desiredControlAxes_B`` with a minimum of
+    one selected axis. The static ``::create`` factory is the only place that throws ``fsw::invalid_argument``:
+    on an invalid thruster array, center of mass, or axis selection, on a selected ``desiredControlAxes_B`` axis
+    that is uncontrollable, or on an ill-conditioned thruster geometry (condition number above 100). The
+    constructor and ``setConfig`` then cache the pseudo-inverse from the validated config; ``update()`` is
+    ``const`` and never throws.
 
 C shim (``forceTorqueThrForceMappingAlgorithm_c.h/.cpp``)
     Pure-C ``extern "C"`` wrapper around the algorithm for Ada (Adamant) FFI. The opaque
@@ -97,15 +99,16 @@ Module Parameters
       - Description
     * - desiredControlAxes_B
       - ``std::array<bool, 6>``
-      - Per-axis controllability assertion in body frame :math:`B`. Entries ``[0..2]`` correspond to
-        torque components :math:`\tau_x, \tau_y, \tau_z` and entries ``[3..5]`` correspond to force
-        components :math:`F_x, F_y, F_z`. A ``true`` entry asserts that the corresponding axis must
-        be controllable by the configured thruster array; the assertion is cross-checked against the
-        SVD of :math:`[D]` in ``create()`` (invoked during ``reset()``). If any flagged axis
-        lies outside the column space of :math:`[D]`, the module throws ``fsw::invalid_argument``
-        (which surfaces in Python as ``RuntimeError``). Default is all-true (full controllability
-        asserted); set entries to ``False`` to opt out per axis when the thruster array is
-        intentionally rank-deficient.
+      - The axes that the mapping controls, in body frame :math:`B`. Entries ``[0..2]`` are the
+        torque components :math:`\tau_x, \tau_y, \tau_z`. Entries ``[3..5]`` are the force
+        components :math:`F_x, F_y, F_z`. Only the rows of :math:`[D]` for the selected axes enter
+        the solve. The solve thus applies no condition to an unselected axis, and does not balance
+        such an axis against the selected ones. Each selected axis must be controllable. ``create()``
+        (which ``reset()`` calls) compares the selection with the SVD of :math:`[D]`. If a selected
+        axis is outside the column space of :math:`[D]`, the module throws ``fsw::invalid_argument``.
+        Python shows this as ``RuntimeError``. The selection must contain a minimum of one axis.
+        ``create()`` rejects an all-false selection, because such a mapping commands zero thrust for
+        every input. The default selects all six axes.
 
 Initialization
 --------------
@@ -114,7 +117,7 @@ The module is configured by::
     module = forceTorqueThrForceMapping.ForceTorqueThrForceMapping()
     module.modelTag = "forceTorqueThrForceMappingTag"
     # Phase 1 (set before InitializeSimulation -> reset() builds the validated config):
-    # optional per-axis controllability assertion (torque xyz, force xyz in body frame B).
+    # the axes the mapping controls (torque xyz, force xyz in body frame B).
     module.desiredControlAxes_B = [True, True, True, True, True, False]
 
 The ``cmdForceInMsg`` and ``cmdTorqueInMsg`` are optional; if not connected the corresponding commanded vector is
@@ -188,6 +191,17 @@ The total force and torque on the spacecraft may be represented as
     \end{bmatrix}
     = [D] \, \mathbf{F}
 
+Axis Selection
+^^^^^^^^^^^^^^
+``desiredControlAxes_B`` names the axes that the mapping controls. The module sets the rows of :math:`[D]` for
+the unselected axes to zero before it computes the pseudo-inverse. To set a row to zero is equivalent to the
+removal of that row: the pseudo-inverse of the reduced matrix reappears as the related columns of the padded
+matrix, with zero columns where the rows were removed. The solve thus applies no condition to an unselected
+axis, and does not balance such an axis against the selected ones.
+
+A selected axis must be controllable. Across the selected axes, this condition is equivalent to full row rank
+of the selected rows of :math:`[D]`. Each selected axis is thus commandable independently of the others.
+
 The force required by each thruster is computed via the Moore-Penrose pseudo-inverse of :math:`[D]`, formed from
 its truncated singular value decomposition :math:`[D] = U \Sigma V^{T}`:
 
@@ -251,10 +265,14 @@ On **unbalanced** layouts (:math:`[D]\mathbf{1} \neq 0`), the min-shift perturbs
 
 Additional Information
 ----------------------
-For rank-deficient :math:`[D]` the minimum-norm solution is returned; uncontrollable directions in the 6-D command
-space are silently dropped by the SVD truncation. The optional ``desiredControlAxes_B`` parameter converts that silent
-drop into a fail-fast assertion at configuration time: if any axis flagged ``True`` in ``desiredControlAxes_B`` lies
-outside the column space of :math:`[D]`, ``create()`` (invoked from the adapter's ``reset()``) throws
-``fsw::invalid_argument`` rather than returning a solution that ignores the request. ``create()`` likewise rejects an
-ill-conditioned thruster geometry (kept condition number above 100), where the pseudo-inverse would amplify the
-command and fp32 round-off.
+For rank-deficient :math:`[D]` the minimum-norm solution is returned. The SVD truncation drops uncontrollable
+directions in the 6-D command space without a message. ``desiredControlAxes_B`` makes this a fail-fast rejection
+at configuration time: if a selected axis lies outside the column space of :math:`[D]`, ``create()`` (which the
+adapter's ``reset()`` calls) throws ``fsw::invalid_argument``. The module thus does not return a solution that
+ignores the request. ``create()`` also rejects an ill-conditioned thruster geometry (kept condition number above
+100), where the pseudo-inverse would amplify the command and the fp32 round-off.
+
+A thruster array that cannot produce a torque-free response on an axis can still control that axis. A pair of
+parallel thrusters, for example, controls the force along the thrust direction, but produces a torque about a
+center of mass that is off the symmetry line of the pair. Selection of the force axis alone keeps the torque rows
+out of the solve, and the module accepts such an array at any center of mass.
