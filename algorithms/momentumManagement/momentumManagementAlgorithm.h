@@ -89,7 +89,7 @@ class MomentumManagementConfig final {
         // Each spin axis must be (close to) a unit vector; they are normalized exactly on construction.
         constexpr float kUnitNormTol = 1e-3F;
         for (uint32_t i = 0U; i < rwArrayConfig.numRW; ++i) {
-            if (fabsf(rwArrayConfig.GsMatrix_B.col(i).norm() - 1.0F) > kUnitNormTol) {
+            if (fabsf(rwArrayConfig.GsMatrix_B.col(i).stableNorm() - 1.0F) > kUnitNormTol) {
                 return false;
             }
         }
