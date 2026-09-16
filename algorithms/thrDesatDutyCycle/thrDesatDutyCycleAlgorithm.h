@@ -41,9 +41,6 @@ class ThrDesatDutyCycleConfig final {
     /*! @return [-] control periods for which the gate commands zero force, letting the RWs re-settle. */
     uint32_t getSettlingPeriods() const { return this->settlingPeriods; }
 
-    /*! @return [-] length of one full duty cycle, whose first getFiringPeriods() slots are the firing window. */
-    uint32_t getCycleLength() const { return this->firingPeriods + this->settlingPeriods; }
-
    private:
     // Both counts are uint32_t control periods, so they read as swappable. create() is the only caller and
     // validates each by name before forwarding them in declaration order.
@@ -69,7 +66,7 @@ class ThrDesatDutyCycleAlgorithm final {
    public:
     explicit ThrDesatDutyCycleAlgorithm(const ThrDesatDutyCycleConfig& config);
 
-    //! Install the validated configuration; does not touch runtime state.
+    //! Install the validated configuration and derive the cycle length; does not touch runtime state.
     void setConfig(const ThrDesatDutyCycleConfig& config);
 
     //! Restart the duty cycle at the beginning of its firing window.
@@ -80,6 +77,7 @@ class ThrDesatDutyCycleAlgorithm final {
 
    private:
     ThrDesatDutyCycleConfig cfg;  //!< [-] validated configuration (duty-cycle cadence)
+    uint32_t cycleLength{};       //!< [-] control periods in one full duty cycle, derived from the configuration
     uint32_t phaseCounter{};      //!< [-] control periods elapsed since the start of the current duty cycle
 };
 

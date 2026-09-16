@@ -20,8 +20,12 @@ inline std::array<float, kMaxThrusterCount> makeForceCmd(const std::vector<float
 // Independent reference for the cadence, written from the module description rather than from the algorithm:
 // a cycle is firingPeriods + settlingPeriods control periods long and fires during its leading slots, so the
 // nth update since the last restart fires exactly when n modulo the cycle length is inside the firing window.
+inline uint32_t referenceCycleLength(const ThrDesatDutyCycleConfig& cfg) {
+    return cfg.getFiringPeriods() + cfg.getSettlingPeriods();
+}
+
 inline bool referenceIsFiring(uint32_t updateIndex, const ThrDesatDutyCycleConfig& cfg) {
-    return (updateIndex % (cfg.getFiringPeriods() + cfg.getSettlingPeriods())) < cfg.getFiringPeriods();
+    return (updateIndex % referenceCycleLength(cfg)) < cfg.getFiringPeriods();
 }
 
 // Index of the first non-zero entry of a command, or kMaxThrusterCount when the command is all zero. A gated
@@ -87,7 +91,7 @@ inline void testFiringCountMatchesDutyRatio(const std::array<float, kMaxThruster
     ThrDesatDutyCycleAlgorithm alg{cfg};
 
     uint32_t firingUpdates = 0U;
-    for (uint32_t update = 0U; update < numCycles * cfg.getCycleLength(); ++update) {
+    for (uint32_t update = 0U; update < numCycles * referenceCycleLength(cfg); ++update) {
         if (alg.update(thrusterForceCmd).at(watched) != 0.0F) {
             ++firingUpdates;
         }
