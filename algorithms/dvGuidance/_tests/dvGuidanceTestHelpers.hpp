@@ -2,7 +2,6 @@
 #define TEST_DV_GUIDANCE_HELPERS_H
 
 #include "dvGuidanceAlgorithm.h"
-#include "dvGuidanceTypes.h"
 #include "utilities/fsw/rigidBodyKinematics.hpp"
 
 #include <gtest/gtest.h>
@@ -30,19 +29,24 @@ inline ReferenceDvGuidanceOutput referenceDvGuidance(const Eigen::Vector3d& dvIn
     const ReferenceDvGuidanceOutput safeDefault = {
         Eigen::Matrix3d::Identity(), Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero()};
 
-    if (dvInrtlCmd.squaredNorm() < static_cast<double>(DvGuidanceAlgorithm::kMinNormSq)) {
+    if (!dvInrtlCmd.allFinite() || dvInrtlCmd.squaredNorm() < static_cast<double>(DvGuidanceAlgorithm::kMinNormSq)) {
         return safeDefault;
     }
-    const Eigen::Vector3d dvHat_N = dvInrtlCmd.normalized();
+    const Eigen::Vector3d dvHat_N = dvInrtlCmd.stableNormalized();
 
-    const Eigen::Vector3d cross = dvRotVecUnit.normalized().cross(dvHat_N);
-    if (!(cross.squaredNorm() >= static_cast<double>(DvGuidanceAlgorithm::kMinCrossSq))) {
+    const Eigen::Vector3d cross = dvRotVecUnit.stableNormalized().cross(dvHat_N);
+    if (!dvRotVecUnit.allFinite() || !(cross.squaredNorm() >= static_cast<double>(DvGuidanceAlgorithm::kMinCrossSq))) {
         return safeDefault;
     }
+
+    if (!std::isfinite(dvRotVecMag)) {
+        return safeDefault;
+    }
+
     Eigen::Matrix3d dcm_BubN;
     dcm_BubN.row(0) = dvHat_N;
-    dcm_BubN.row(1) = cross.normalized();
-    dcm_BubN.row(2) = dcm_BubN.row(0).cross(dcm_BubN.row(1)).normalized();
+    dcm_BubN.row(1) = cross.stableNormalized();
+    dcm_BubN.row(2) = dcm_BubN.row(0).cross(dcm_BubN.row(1)).stableNormalized();
 
     const double burnTime =
         static_cast<double>(static_cast<int64_t>(callTime) - static_cast<int64_t>(burnStartTime)) * 1e-9;
@@ -61,23 +65,15 @@ inline ReferenceDvGuidanceOutput referenceDvGuidance(const Eigen::Vector3d& dvIn
     };
 }
 
-inline void testDvGuidance(const Eigen::Vector3f& dvInrtlCmd,
-                           const Eigen::Vector3f& dvRotVecUnit,
-                           float dvRotVecMag,
-                           uint64_t burnStartTime,
-                           uint64_t callTime) {
+inline void testDvGuidanceRegression(const Eigen::Vector3f& dvInrtlCmd,
+                                     const Eigen::Vector3f& dvRotVecUnit,
+                                     float dvRotVecMag,
+                                     uint64_t burnStartTime,
+                                     uint64_t callTime) {
     DvGuidanceAlgorithm alg;
 
     DvGuidanceOutput out;
     EXPECT_NO_THROW(out = alg.update(dvInrtlCmd, dvRotVecUnit, dvRotVecMag, burnStartTime, callTime));
-
-    // Robustness: the output is finite for any input in the domain (the degenerate-input guards
-    // return a safe default instead of propagating NaN).
-    for (int i = 0; i < 3; ++i) {
-        EXPECT_TRUE(std::isfinite(out.sigma_RN[i]));
-        EXPECT_TRUE(std::isfinite(out.omega_RN_N[i]));
-        EXPECT_TRUE(std::isfinite(out.domega_RN_N[i]));
-    }
 
     // Accuracy: only compare against the double reference where the inputs are unambiguously on one
     // side of every guard (evaluated in double, with margin) so a FP32-vs-double boundary
@@ -85,7 +81,7 @@ inline void testDvGuidance(const Eigen::Vector3f& dvInrtlCmd,
     // snap boundary themselves are covered by explicit edge tests.
     const Eigen::Vector3d cmd_d = dvInrtlCmd.cast<double>();
     const Eigen::Vector3d rot_d = dvRotVecUnit.cast<double>();
-    const double sinSq = rot_d.normalized().cross(cmd_d.normalized()).squaredNorm();
+    const double sinSq = rot_d.stableNormalized().cross(cmd_d.stableNormalized()).squaredNorm();
     const double burnTime =
         static_cast<double>(static_cast<int64_t>(callTime) - static_cast<int64_t>(burnStartTime)) * 1e-9;
     const double absAngle = std::abs(static_cast<double>(dvRotVecMag) * burnTime);
@@ -112,11 +108,175 @@ inline void testDvGuidance(const Eigen::Vector3f& dvInrtlCmd,
     }
 }
 
-inline void testDvGuidanceSetup() {
-    EXPECT_NO_THROW({
-        const DvGuidanceAlgorithm alg;
-        (void)alg;
-    });
+inline void testDvGuidanceZeroRotationRate(const Eigen::Vector3f& dvInrtlCmd,
+                                           const Eigen::Vector3f& dvRotVecUnit,
+                                           uint64_t burnStartTime,
+                                           uint64_t callTime) {
+    DvGuidanceAlgorithm alg;
+
+    DvGuidanceOutput out;
+    EXPECT_NO_THROW(out = alg.update(dvInrtlCmd, dvRotVecUnit, 0.0F, burnStartTime, callTime));
+
+    EXPECT_FLOAT_EQ(out.omega_RN_N[0], 0.0F);
+    EXPECT_FLOAT_EQ(out.omega_RN_N[1], 0.0F);
+    EXPECT_FLOAT_EQ(out.omega_RN_N[2], 0.0F);
+    EXPECT_FLOAT_EQ(out.domega_RN_N[0], 0.0F);
+    EXPECT_FLOAT_EQ(out.domega_RN_N[1], 0.0F);
+    EXPECT_FLOAT_EQ(out.domega_RN_N[2], 0.0F);
+
+    for (int i = 0; i < 3; ++i) {
+        EXPECT_TRUE(std::isfinite(out.sigma_RN[i]));
+    }
+}
+
+// The magnitude of the reference angular velocity must match the commanded
+// rotation-rate magnitude because omega_RN_N lies along a unit burn-frame axis.
+inline void testDvGuidanceAngularVelocityMagnitude(const Eigen::Vector3f& dvInrtlCmd,
+                                                   const Eigen::Vector3f& dvRotVecUnit,
+                                                   float dvRotVecMag,
+                                                   uint64_t burnStartTime,
+                                                   uint64_t callTime) {
+    DvGuidanceAlgorithm alg;
+
+    DvGuidanceOutput out;
+    EXPECT_NO_THROW(out = alg.update(dvInrtlCmd, dvRotVecUnit, dvRotVecMag, burnStartTime, callTime));
+
+    EXPECT_NEAR(out.omega_RN_N.norm(), dvRotVecMag, 1e-5F);
+    for (int i = 0; i < 3; ++i) {
+        EXPECT_TRUE(std::isfinite(out.sigma_RN[i]));
+        EXPECT_TRUE(std::isfinite(out.omega_RN_N[i]));
+    }
+
+    EXPECT_FLOAT_EQ(out.domega_RN_N[0], 0.0F);
+    EXPECT_FLOAT_EQ(out.domega_RN_N[1], 0.0F);
+    EXPECT_FLOAT_EQ(out.domega_RN_N[2], 0.0F);
+}
+
+// A rotation below kSmallAngle is treated as zero, so the reference attitude
+// remains at the base burn-frame attitude.
+inline void testDvGuidanceBelowSmallAngleThreshold(const Eigen::Vector3f& dvInrtlCmd,
+                                                   const Eigen::Vector3f& dvRotVecUnit,
+                                                   float dvRotVecMag,
+                                                   uint64_t burnStartTime,
+                                                   uint64_t callTime) {
+    DvGuidanceAlgorithm alg;
+
+    DvGuidanceOutput outZeroAngle;
+    DvGuidanceOutput outTinyAngle;
+
+    EXPECT_NO_THROW(outZeroAngle = alg.update(dvInrtlCmd, dvRotVecUnit, dvRotVecMag, burnStartTime, burnStartTime));
+
+    EXPECT_NO_THROW(outTinyAngle = alg.update(dvInrtlCmd, dvRotVecUnit, dvRotVecMag, burnStartTime, callTime));
+
+    for (int i = 0; i < 3; ++i) {
+        EXPECT_FLOAT_EQ(outTinyAngle.sigma_RN[i], outZeroAngle.sigma_RN[i]);
+        EXPECT_FLOAT_EQ(outTinyAngle.omega_RN_N[i], outZeroAngle.omega_RN_N[i]);
+        EXPECT_TRUE(std::isfinite(outTinyAngle.sigma_RN[i]));
+        EXPECT_TRUE(std::isfinite(outTinyAngle.omega_RN_N[i]));
+    }
+}
+
+inline void testDvGuidanceDegenerateFallback(const Eigen::Vector3f& dvInrtlCmd,
+                                             const Eigen::Vector3f& dvRotVecUnit,
+                                             float dvRotVecMag,
+                                             uint64_t burnStartTime,
+                                             uint64_t callTime) {
+    DvGuidanceAlgorithm alg;
+
+    DvGuidanceOutput out;
+    EXPECT_NO_THROW(out = alg.update(dvInrtlCmd, dvRotVecUnit, dvRotVecMag, burnStartTime, callTime));
+
+    for (int i = 0; i < 3; ++i) {
+        EXPECT_FLOAT_EQ(out.sigma_RN[i], 0.0F);
+        EXPECT_FLOAT_EQ(out.omega_RN_N[i], 0.0F);
+        EXPECT_FLOAT_EQ(out.domega_RN_N[i], 0.0F);
+    }
+}
+
+inline void testDvGuidanceDeltaVNormBoundary(const Eigen::Vector3f& dvRotVecUnit,
+                                             float dvRotVecMag,
+                                             uint64_t burnStartTime,
+                                             uint64_t callTime) {
+    DvGuidanceAlgorithm alg;
+
+    // Verify that an input exactly at kMinNormSq is accepted.
+    const float dvMagAtThreshold = std::sqrt(DvGuidanceAlgorithm::kMinNormSq);
+    const Eigen::Vector3f dvAtThreshold{dvMagAtThreshold, 0.0F, 0.0F};
+    ASSERT_FLOAT_EQ(dvAtThreshold.squaredNorm(), DvGuidanceAlgorithm::kMinNormSq);
+
+    DvGuidanceOutput out;
+    EXPECT_NO_THROW(out = alg.update(dvAtThreshold, dvRotVecUnit, dvRotVecMag, burnStartTime, callTime));
+
+    EXPECT_NEAR(out.omega_RN_N.stableNorm(), std::abs(dvRotVecMag), 1e-5F);
+
+    // Verify that the next representable magnitude below the threshold is rejected.
+    const float dvMagBelowThreshold = std::nextafter(dvMagAtThreshold, 0.0F);
+    const Eigen::Vector3f dvBelowThreshold{dvMagBelowThreshold, 0.0F, 0.0F};
+    ASSERT_LT(dvBelowThreshold.squaredNorm(), DvGuidanceAlgorithm::kMinNormSq);
+
+    testDvGuidanceDegenerateFallback(dvBelowThreshold, dvRotVecUnit, dvRotVecMag, burnStartTime, callTime);
+}
+
+inline void testDvGuidanceCrossBoundary(const Eigen::Vector3f& dvInrtlCmd,
+                                        float dvRotVecMag,
+                                        uint64_t burnStartTime,
+                                        uint64_t callTime) {
+    DvGuidanceAlgorithm alg;
+
+    // Verify a seed that lands exactly at kMinCrossSq is accepted.
+    const Eigen::Vector3f dvRotVecUnitAtThreshold{1.0F, 0.030013511F, 0.0F};
+    const float crossSqAtThreshold =
+        dvRotVecUnitAtThreshold.stableNormalized().cross(dvInrtlCmd.stableNormalized()).squaredNorm();
+
+    ASSERT_FLOAT_EQ(crossSqAtThreshold, DvGuidanceAlgorithm::kMinCrossSq);
+
+    DvGuidanceOutput out;
+    EXPECT_NO_THROW(out = alg.update(dvInrtlCmd, dvRotVecUnitAtThreshold, dvRotVecMag, burnStartTime, callTime));
+
+    EXPECT_NEAR(out.omega_RN_N.stableNorm(), std::abs(dvRotVecMag), 1e-5F);
+
+    // Verify the next representable seed component below the threshold is rejected.
+    const Eigen::Vector3f dvRotVecUnitBelowThreshold{1.0F, std::nextafter(0.030013511F, 0.0F), 0.0F};
+
+    const float crossSqBelowThreshold =
+        dvRotVecUnitBelowThreshold.stableNormalized().cross(dvInrtlCmd.stableNormalized()).squaredNorm();
+
+    ASSERT_LT(crossSqBelowThreshold, DvGuidanceAlgorithm::kMinCrossSq);
+
+    testDvGuidanceDegenerateFallback(dvInrtlCmd, dvRotVecUnitBelowThreshold, dvRotVecMag, burnStartTime, callTime);
+}
+
+// Robustness: the output is finite for any input in the domain (the degenerate-input guards
+// return a safe default instead of propagating NaN).
+inline void propertyOutputIsFinite(const Eigen::Vector3f& dvInrtlCmd,
+                                   const Eigen::Vector3f& dvRotVecUnit,
+                                   float dvRotVecMag,
+                                   uint64_t burnStartTime,
+                                   uint64_t callTime) {
+    DvGuidanceAlgorithm alg;
+
+    DvGuidanceOutput out;
+    EXPECT_NO_THROW(out = alg.update(dvInrtlCmd, dvRotVecUnit, dvRotVecMag, burnStartTime, callTime));
+
+    for (int i = 0; i < 3; ++i) {
+        EXPECT_TRUE(std::isfinite(out.sigma_RN[i]));
+        EXPECT_TRUE(std::isfinite(out.omega_RN_N[i]));
+        EXPECT_TRUE(std::isfinite(out.domega_RN_N[i]));
+    }
+}
+
+// The MRP shadow-set switch keeps the attitude representation bounded to |sigma| <= 1.
+inline void propertySigmaNormBounded(const Eigen::Vector3f& dvInrtlCmd,
+                                     const Eigen::Vector3f& dvRotVecUnit,
+                                     float dvRotVecMag,
+                                     uint64_t burnStartTime,
+                                     uint64_t callTime) {
+    DvGuidanceAlgorithm alg;
+
+    DvGuidanceOutput out;
+    EXPECT_NO_THROW(out = alg.update(dvInrtlCmd, dvRotVecUnit, dvRotVecMag, burnStartTime, callTime));
+
+    EXPECT_LE(out.sigma_RN.stableNorm(), 1.0F + 1e-5F);
 }
 
 #endif
