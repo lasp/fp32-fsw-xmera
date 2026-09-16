@@ -39,7 +39,7 @@ Eigen::Vector3f MomentumManagementAlgorithm::update(const Eigen::Vector<float, k
     /*! - compute net RW momentum magnitude */
     const MomentumManagementRwArrayConfiguration& rwArrayConfig = this->cfg.getRwArrayConfiguration();
     Eigen::Vector3f hs_B = Eigen::Vector3f::Zero(); /* RW angular momentum */
-    for (uint32_t i = 0; i < rwArrayConfig.numRW; i++) {
+    for (uint32_t i = 0; i < rwArrayConfig.numRW; ++i) {
         hs_B += rwArrayConfig.JsList(i) * wheelSpeeds(i) * rwArrayConfig.GsMatrix_B.col(i);
     }
     const float hs = hs_B.norm(); /* net RW cluster angular momentum magnitude */
