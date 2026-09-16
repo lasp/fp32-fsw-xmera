@@ -42,14 +42,14 @@ Eigen::Vector3f MomentumManagementAlgorithm::update(const Eigen::Vector<float, k
     for (uint32_t i = 0; i < rwArrayConfig.numRW; ++i) {
         hs_B += rwArrayConfig.JsList(i) * wheelSpeeds(i) * rwArrayConfig.GsMatrix_B.col(i);
     }
-    const float hs = hs_B.stableNorm(); /* net RW cluster angular momentum magnitude */
+    const float hsNorm = hs_B.stableNorm(); /* net RW cluster angular momentum magnitude */
 
     /*! - the momentum held above the threshold, along the cluster momentum. It stays zero inside the deadband,
      which also avoids a 0/0 division when there is no momentum at all */
     const MomentumManagementControlParameters& params = this->cfg.getControlParameters();
     Eigen::Vector3f hsExcess_B = Eigen::Vector3f::Zero(); /* [Nms] excess RW cluster momentum */
-    if (hs >= params.hsMin && hs >= kZeroMomentumTolerance) {
-        hsExcess_B = (hs - params.hsMin) * hs_B / hs;
+    if (hsNorm >= params.hsMin && hsNorm >= kZeroMomentumTolerance) {
+        hsExcess_B = (hsNorm - params.hsMin) * hs_B / hsNorm;
     }
 
     /*! - advance the trapezoidal integral of the excess momentum, using the fixed control period as the step.
