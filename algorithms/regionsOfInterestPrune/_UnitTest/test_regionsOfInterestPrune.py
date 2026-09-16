@@ -371,6 +371,13 @@ def test_pruning(test_image_path, row_col_span, threshold=None):
     and label "R1 (<numberOfPixels>)", rank-2 in blue (if present). The background is
     the same source image used to drive this test, since there is no fpgaImagePipeline
     threshold-image message to draw over in this repo.
+
+    TODO: this whole test is currently skipped (importErr=True) because
+    xmera.fp32.fpgaImagePipelineF32 does not exist in this repo. Until that module is ported here,
+    this test cannot actually run. See diagnostics/example_run.py in this directory
+    for a workaround that drives RegionsOfInterestPruneAlgorithm directly (bypassing
+    both fpgaImagePipeline and the RegionsOfInterestPrune adapter) to exercise the
+    real algorithm + visualization without it.
     """
     if not os.path.isfile(test_image_path):
         pytest.skip(f"Test image not found: {test_image_path}")
