@@ -16,10 +16,14 @@ void ThrDesatDutyCycleAlgorithm::setConfig(const ThrDesatDutyCycleConfig& config
     this->cycleLength = config.getFiringPeriods() + config.getSettlingPeriods();
 }
 
-/*! Restart the duty cycle, so the next update falls on the first slot of a firing window.
+/*! Restart the duty cycle, so the next update falls at the start of a firing window.
  @return void
  */
-void ThrDesatDutyCycleAlgorithm::reInitialize() { this->phaseCounter = 0U; }
+void ThrDesatDutyCycleAlgorithm::reInitialize() {
+    /*! - sit on the final position of the cycle, so the next update advances onto position zero, where the
+     firing window starts */
+    this->previousPositionInCycle = this->cycleLength - 1U;
+}
 
 /*! This method gates the commanded thruster force on and off in a fixed duty cycle. The force is passed through
  unchanged during the firing window and replaced by zero during the settling window, which leaves the reaction
@@ -30,16 +34,17 @@ void ThrDesatDutyCycleAlgorithm::reInitialize() { this->phaseCounter = 0U; }
  */
 std::array<float, kMaxThrusterCount> ThrDesatDutyCycleAlgorithm::update(
     const std::array<float, kMaxThrusterCount>& thrusterForceCmd) {
-    /*! - setConfig() can shorten the cycle under a counter that has already run past the new length, so put the
-     counter back into range before reading it rather than assuming it is already in range */
-    const uint32_t phase = this->phaseCounter % this->cycleLength;
-    this->phaseCounter = (phase + 1U) % this->cycleLength;
+    /*! - advance one position, wrapping at the end of the cycle; the wrap also puts the position back in range
+     when setConfig() has shortened the cycle below the position already reached */
+    const uint32_t positionInCycle = (this->previousPositionInCycle + 1U) % this->cycleLength;
 
-    /*! - the firing window occupies the leading slots of the cycle; the rest of the cycle commands zero force */
+    /*! - the firing window occupies the leading positions of the cycle; the rest commands zero force */
     std::array<float, kMaxThrusterCount> thrForceOut{};
-    if (phase < this->cfg.getFiringPeriods()) {
+    if (positionInCycle < this->cfg.getFiringPeriods()) {
         thrForceOut = thrusterForceCmd;
     }
+
+    this->previousPositionInCycle = positionInCycle;
 
     return thrForceOut;
 }
