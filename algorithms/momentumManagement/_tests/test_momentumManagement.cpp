@@ -200,33 +200,29 @@ TEST(MomentumManagement, ZeroKiDisablesTheIntegral) {
     EXPECT_GT(lastWith.norm(), firstWith.norm());
 }
 
-// Inside the deadband no momentum enters the integral: a cluster parked below the threshold never accumulates,
-// and an integral built up above the threshold holds its value instead of growing.
-TEST(MomentumManagement, IntegralDoesNotAccumulateInsideTheDeadband) {
+// A momentum below the threshold ends the dump: the module requests nothing, however much the integral had
+// accumulated, and the next dump starts from a cleared integrator.
+TEST(MomentumManagement, DeadbandEndsTheDumpAndClearsTheIntegral) {
     const auto rwArrayConfig = makeStandardRwArrayConfig();
     const auto wheelSpeeds = makeWheelSpeeds({10.0F, -25.0F, 50.0F, 100.0F});
+    const auto dumpingParams = nominalParams(kNominalHsMin, kNominalK, kNominalKi);
     const auto insideParams = nominalParams(kHighHsMin, kNominalK, kNominalKi);
 
-    MomentumManagementAlgorithm insideDeadband{MomentumManagementConfig::create(insideParams, rwArrayConfig)};
-    for (uint32_t cycle = 0U; cycle < 10U; ++cycle) {
-        EXPECT_TRUE(insideDeadband.update(wheelSpeeds).isZero(kAccuracy)) << "cycle " << cycle;
-    }
-
-    // Accumulate above the threshold, then raise the threshold past the cluster momentum. The integral keeps
-    // what it holds, so the request settles on the integral term and stays there.
-    MomentumManagementAlgorithm alg{
-        MomentumManagementConfig::create(nominalParams(kNominalHsMin, kNominalK, kNominalKi), rwArrayConfig)};
+    MomentumManagementAlgorithm alg{MomentumManagementConfig::create(dumpingParams, rwArrayConfig)};
+    const Eigen::Vector3f firstDumpRequest = alg.update(wheelSpeeds);
     for (uint32_t cycle = 0U; cycle < 10U; ++cycle) {
         (void)alg.update(wheelSpeeds);
     }
 
+    // Raise the threshold past the cluster momentum: the accumulated integral must not leak into the request.
     alg.setConfig(MomentumManagementConfig::create(insideParams, rwArrayConfig));
-    const Eigen::Vector3f held = alg.update(wheelSpeeds);
-
-    ASSERT_FALSE(held.isZero(kAccuracy));
     for (uint32_t cycle = 0U; cycle < 10U; ++cycle) {
-        EXPECT_TRUE(alg.update(wheelSpeeds).isApprox(held)) << "cycle " << cycle;
+        EXPECT_TRUE(alg.update(wheelSpeeds).isZero(kAccuracy)) << "cycle " << cycle;
     }
+
+    // Dropping the threshold back starts a fresh dump, identical to the very first one.
+    alg.setConfig(MomentumManagementConfig::create(dumpingParams, rwArrayConfig));
+    EXPECT_TRUE(alg.update(wheelSpeeds).isApprox(firstDumpRequest));
 }
 
 // The anti-windup clamp bounds how far the integral term can move the request, however long the momentum is
