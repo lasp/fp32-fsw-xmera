@@ -61,7 +61,8 @@ class ThrDesatDutyCycleConfig final {
  * which to re-stabilize the attitude between desaturation pulses. The cadence is free-running: the counter
  * advances on every update regardless of what is commanded, so the firing windows sit at a fixed phase.
  *
- * The counter is the algorithm's only runtime state; reInitialize() restarts the cycle at its firing window.
+ * The position in the cycle is the algorithm's only runtime state; reInitialize() restarts the cycle at its
+ * firing window.
  */
 class ThrDesatDutyCycleAlgorithm final {
    public:
@@ -77,9 +78,9 @@ class ThrDesatDutyCycleAlgorithm final {
     std::array<float, kMaxThrusterCount> update(const std::array<float, kMaxThrusterCount>& thrusterForceCmd);
 
    private:
-    ThrDesatDutyCycleConfig cfg;  //!< [-] validated configuration (duty-cycle cadence)
-    uint32_t cycleLength{};       //!< [-] control periods in one full duty cycle, derived from the configuration
-    uint32_t phaseCounter{};      //!< [-] control periods elapsed since the start of the current duty cycle
+    ThrDesatDutyCycleConfig cfg;         //!< [-] validated configuration (duty-cycle cadence)
+    uint32_t cycleLength{};              //!< [-] control periods in one full duty cycle
+    uint32_t previousPositionInCycle{};  //!< [-] position in the duty cycle that the previous update gated
 };
 
 #endif

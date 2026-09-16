@@ -67,7 +67,7 @@ void ThrDesatDutyCycleAlgorithm_reInitialize(ThrDesatDutyCycleAlgorithmHandle* s
 
 /**
  * @brief Gate the commanded thruster force through one control period of the duty cycle.
- * Advances the cadence counter, so the handle is non-const.
+ * Advances the position in the duty cycle, so the handle is non-const.
  * @param self            Pointer to the instance.
  * @param thrusterForceCmd Pointer to the commanded per-thruster forces [N].
  * @return ThrDesatDutyCycleForceCmd_c [N] the commanded force while firing, zero while settling.
