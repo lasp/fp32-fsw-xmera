@@ -12,7 +12,7 @@
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
 
-/*! @brief Assesses the net reaction wheel momentum and requests the torque needed to dump its excess. */
+/*! @brief Assesses the net reaction wheel momentum and requests the torque needed to dump it. */
 class MomentumManagement : public SysModel {
    public:
     void reset(uint64_t callTime) override;
@@ -26,8 +26,8 @@ class MomentumManagement : public SysModel {
 
     /* declare module public variables */
     float hsMin{};          //!< [Nms]  minimum RW cluster momentum for dumping
-    float K{};              //!< [1/s]  proportional gain on the excess momentum (0 disables it)
-    float Ki{};             //!< [1/s2] integral gain on the accumulated excess momentum (0 disables it)
+    float K{};              //!< [1/s]  proportional gain on the stored momentum (0 disables it)
+    float Ki{};             //!< [1/s2] integral gain on the accumulated stored momentum (0 disables it)
     float integralLimit{};  //!< [Nms2] anti-windup clamp on each integral component (must be > 0 if Ki > 0)
     float controlPeriod{};  //!< [s]    integration step between updates (must be > 0 if Ki > 0)
 

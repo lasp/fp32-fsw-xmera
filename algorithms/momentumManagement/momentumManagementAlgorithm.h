@@ -22,9 +22,9 @@ struct MomentumManagementRwArrayConfiguration {
 /*! @brief Dumping threshold, feedback gains and integration step of the momentum management control law. */
 struct MomentumManagementControlParameters {
     float hsMin{};          //!< [Nms] RW cluster momentum below which no dumping is requested
-    float K{};              //!< [1/s] proportional gain mapping the excess wheel momentum onto the requested torque
-    float Ki{};             //!< [1/s2] integral gain on the accumulated excess momentum (0 disables the integral)
-    float integralLimit{};  //!< [Nms2] anti-windup clamp on each component of the excess-momentum integral
+    float K{};              //!< [1/s] proportional gain mapping the stored wheel momentum onto the requested torque
+    float Ki{};             //!< [1/s2] integral gain on the accumulated stored momentum (0 disables the integral)
+    float integralLimit{};  //!< [Nms2] anti-windup clamp on each component of the momentum integral
     float controlPeriod{};  //!< [s] time between two update() calls, the integration step (only used when Ki > 0)
 };
 
@@ -109,10 +109,10 @@ class MomentumManagementConfig final {
 };
 
 /*!
- * @brief Assesses the net reaction wheel momentum and computes the torque needed to dump its excess.
+ * @brief Assesses the net reaction wheel momentum and computes the torque needed to dump it.
  *
- * The control law is proportional-integral on the momentum held above the dumping threshold, so the algorithm
- * carries the integrator state between updates. Call reInitialize() to re-seed it.
+ * The control law is proportional-integral on the stored momentum, gated by the dumping threshold, so the
+ * algorithm carries the integrator state between updates. Call reInitialize() to re-seed it.
  */
 class MomentumManagementAlgorithm final {
    public:
@@ -124,14 +124,13 @@ class MomentumManagementAlgorithm final {
     //! Re-seed the runtime integrator state to its initial values.
     void reInitialize();
 
-    //! [Nm] Requested body-frame torque that dumps the excess wheel momentum for the supplied wheel speeds.
+    //! [Nm] Requested body-frame torque that dumps the stored wheel momentum for the supplied wheel speeds.
     Eigen::Vector3f update(const Eigen::Vector<float, kMaxNumRw>& wheelSpeeds);
 
    private:
     MomentumManagementConfig cfg;  //!< [-] validated configuration (control parameters, RW array config)
-    Eigen::Vector3f hsInt_B{Eigen::Vector3f::Zero()};  //!< [Nms2] integral of the excess RW momentum, B frame
-    Eigen::Vector3f priorHsExcess_B{
-        Eigen::Vector3f::Zero()};  //!< [Nms] excess RW momentum from the previous update, B frame
+    Eigen::Vector3f hsInt_B{Eigen::Vector3f::Zero()};    //!< [Nms2] integral of the RW cluster momentum, B frame
+    Eigen::Vector3f priorHs_B{Eigen::Vector3f::Zero()};  //!< [Nms] RW cluster momentum from the previous update
 };
 
 #endif

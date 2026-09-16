@@ -5,9 +5,6 @@
 
 #include "momentumManagementAlgorithm.h"
 
-// [Nms] net RW momentum below this magnitude is treated as zero.
-constexpr float kZeroMomentumTolerance = 1e-6F;
-
 /*! Construct the algorithm from a validated configuration and seed the integrator state.
  @param config the validated configuration
  */
@@ -22,21 +19,21 @@ MomentumManagementAlgorithm::MomentumManagementAlgorithm(const MomentumManagemen
  */
 void MomentumManagementAlgorithm::setConfig(const MomentumManagementConfig& config) { this->cfg = config; }
 
-/*! Re-seed the runtime integrator state (the excess-momentum integral and its previous sample).
+/*! Re-seed the runtime integrator state (the momentum integral and its previous sample).
  @return void
  */
 void MomentumManagementAlgorithm::reInitialize() {
     this->hsInt_B.setZero();
-    this->priorHsExcess_B.setZero();
+    this->priorHs_B.setZero();
 }
 
-/*! The RW momentum level is assessed on every call to determine the torque that dumps the momentum held above
- the hsMin threshold. The integral term accumulates across calls, so this advances the integrator state.
+/*! The RW momentum level is assessed on every call to determine the torque that dumps it. The integral term
+ accumulates across calls, so this advances the integrator state.
  @return Eigen::Vector3f [Nm] the requested body-frame torque
  @param wheelSpeeds [r/s] current reaction wheel speeds
  */
 Eigen::Vector3f MomentumManagementAlgorithm::update(const Eigen::Vector<float, kMaxNumRw>& wheelSpeeds) {
-    /*! - compute net RW momentum magnitude */
+    /*! - compute the net RW momentum and its magnitude */
     const MomentumManagementRwArrayConfiguration& rwArrayConfig = this->cfg.getRwArrayConfiguration();
     Eigen::Vector3f hs_B = Eigen::Vector3f::Zero(); /* RW angular momentum */
     for (uint32_t i = 0; i < rwArrayConfig.numRW; ++i) {
@@ -44,27 +41,33 @@ Eigen::Vector3f MomentumManagementAlgorithm::update(const Eigen::Vector<float, k
     }
     const float hsNorm = hs_B.stableNorm(); /* net RW cluster angular momentum magnitude */
 
-    /*! - the momentum held above the threshold, along the cluster momentum. It stays zero inside the deadband,
-     which also avoids a 0/0 division when there is no momentum at all */
     const MomentumManagementControlParameters& params = this->cfg.getControlParameters();
-    Eigen::Vector3f hsExcess_B = Eigen::Vector3f::Zero(); /* [Nms] excess RW cluster momentum */
-    if (hsNorm >= params.hsMin && hsNorm >= kZeroMomentumTolerance) {
-        hsExcess_B = (hsNorm - params.hsMin) * hs_B / hsNorm;
-    }
+    Eigen::Vector3f Lr_B = Eigen::Vector3f::Zero(); /* [Nm] requested body-frame torque */
 
-    /*! - advance the trapezoidal integral of the excess momentum, using the fixed control period as the step.
-     Integrating the excess rather than the raw momentum keeps the integral from winding up inside the deadband */
-    this->hsInt_B += 0.5F * params.controlPeriod * (this->priorHsExcess_B + hsExcess_B);
-    this->priorHsExcess_B = hsExcess_B;
+    /*! - the threshold is a deadband on the momentum the law acts on: at or above it the whole cluster momentum
+     is dumped, below it nothing is dumped and nothing enters the integral */
+    if (hsNorm >= params.hsMin) {
+        /*! - advance the trapezoidal integral of the cluster momentum, using the fixed control period as the
+         step */
+        this->hsInt_B += 0.5F * params.controlPeriod * (this->priorHs_B + hs_B);
 
-    /*! - anti-windup: clamp each integral component to the configured limit, preserving its sign */
-    for (Eigen::Index i = 0; i < 3; ++i) {
-        const float magnitude = fabsf(this->hsInt_B(i));
-        if (magnitude > params.integralLimit) {
-            this->hsInt_B(i) *= params.integralLimit / magnitude;
+        /*! - anti-windup: clamp each integral component to the configured limit, preserving its sign */
+        for (Eigen::Index i = 0; i < 3; ++i) {
+            const float magnitude = fabsf(this->hsInt_B(i));
+            if (magnitude > params.integralLimit) {
+                this->hsInt_B(i) *= params.integralLimit / magnitude;
+            }
         }
+
+        this->priorHs_B = hs_B;
+
+        /*! - the requested torque opposes the stored momentum and its accumulation */
+        Lr_B = -params.K * hs_B - params.Ki * this->hsInt_B;
+    } else {
+        /*! - inside the deadband the integral holds what it already carries, and goes on driving the request */
+        this->priorHs_B.setZero();
+        Lr_B = -params.Ki * this->hsInt_B;
     }
 
-    /*! - the requested torque opposes the excess momentum and its accumulation */
-    return -params.K * hsExcess_B - params.Ki * this->hsInt_B;
+    return Lr_B;
 }
