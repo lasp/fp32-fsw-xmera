@@ -7,7 +7,7 @@
 // reaches down to zero because the config accepts a zero gain, and that is what proves the tolerance is
 // scale-free.
 
-FUZZ_TEST(MomentumManagementPropertyFuzz, propertyProportionalTorqueOpposesExcessMomentum)
+FUZZ_TEST(MomentumManagementPropertyFuzz, propertyProportionalTorqueOpposesStoredMomentum)
     .WithDomains(xmera::fuzz::Vector3fInRange(-1.0F, 1.0F),      // spin axis 0 (normalized in helper)
                  xmera::fuzz::Vector3fInRange(-1.0F, 1.0F),      // spin axis 1 (normalized in helper)
                  xmera::fuzz::Vector3fInRange(-1.0F, 1.0F),      // spin axis 2 (normalized in helper)
@@ -42,8 +42,8 @@ FUZZ_TEST(MomentumManagementPropertyFuzz, propertyIntegralTermStaysBounded)
                  fuzztest::InRange(0.0F, 10.0F));                // [s] control period
 
 // Deliberately unphysical: wheels and speeds orders of magnitude past anything real. The ceiling is not
-// arbitrary -- hsExcess forms (hs - hsMin) * hs_B before dividing by hs, so the intermediate overflows once the
-// cluster momentum nears sqrt(FLT_MAX) ~ 1.8e19 Nms. These domains cap it near 3e9.
+// arbitrary -- the request is K times the cluster momentum, so it overflows once that product nears FLT_MAX
+// ~ 3.4e38. These domains cap the momentum near 3e9 and the gain at 1e3.
 FUZZ_TEST(MomentumManagementPropertyFuzz, propertyTorqueStaysFinite)
     .WithDomains(xmera::fuzz::Vector3fInRange(-1.0F, 1.0F),  // spin axis 0 (normalized in helper)
                  xmera::fuzz::Vector3fInRange(-1.0F, 1.0F),  // spin axis 1 (normalized in helper)

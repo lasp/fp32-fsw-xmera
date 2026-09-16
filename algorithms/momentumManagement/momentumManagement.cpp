@@ -72,8 +72,8 @@ void MomentumManagement::reInitialize() {
     this->algorithm->reInitialize();
 }
 
-/*! The RW momentum level is assessed on every update to determine the torque required to dump the momentum
- held above the threshold.
+/*! The RW momentum level is assessed on every update to determine the torque required to dump it once the
+ threshold is exceeded.
  @return void
  @param callTime The clock time at which the function was called (nanoseconds)
  */

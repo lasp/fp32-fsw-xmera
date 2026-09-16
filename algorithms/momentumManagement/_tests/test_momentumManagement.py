@@ -29,7 +29,7 @@ def test_momentum_management(hs_min_check):
     else:
         module.hsMin = 100.0 / 6000.0 * 100.0  # Nms
 
-    # [1/s] feedback gain mapping the excess momentum onto the requested torque. Sized so the ~10 Nms
+    # [1/s] feedback gain mapping the stored momentum onto the requested torque. Sized so the ~13 Nms
     # cluster momentum is dumped over a few hundred seconds, i.e. a torque of order 0.5 Nm.
     k_gain = 0.05
     module.K = k_gain
@@ -70,16 +70,17 @@ def test_momentum_management(hs_min_check):
     sim.ConfigureStopTime(macros.sec2nano(0.5))
     sim.ExecuteSimulation()
 
-    # Truth values carried over from the double-precision Xmera unit test, which computed the excess
-    # momentum itself; the requested torque is that excess scaled by the gain K. The module writes the
-    # request every update; the wheel speeds are constant, so both logged steps carry the same value.
+    # The threshold gates the law: above it the whole stored momentum is dumped, below it nothing is. The
+    # cluster momentum below is computed in double precision from the wheel speeds and the spin axes, and the
+    # requested torque is that momentum scaled by -K. The module writes the request every update; the wheel
+    # speeds are constant, so both logged steps carry the same value.
     if hs_min_check == 1:
         true_vector = [0.0, 0.0, 0.0]
     else:
-        excess_momentum = [-5.914369484146579, -2.858300248464629, -9.407020039211664]
-        true_vector = [k_gain * component for component in excess_momentum]
+        cluster_momentum = [6.773502691896258, 3.273502691896258, 10.773502691896258]
+        true_vector = [-k_gain * component for component in cluster_momentum]
 
-    # FP32 tolerance: the observed error against the double truth is ~4e-7 on excess momenta of order 10,
+    # FP32 tolerance: the observed error against the double truth is ~4e-7 on cluster momenta of order 10,
     # i.e. at float epsilon. The absolute error scales with the gain; the relative error does not, and must
     # stay above float32 epsilon (~1.2e-7).
     atol = k_gain * 1e-6

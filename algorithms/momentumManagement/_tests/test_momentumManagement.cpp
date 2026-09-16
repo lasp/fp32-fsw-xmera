@@ -85,16 +85,16 @@ TEST(MomentumManagement, SingleWheelDumpsAlongItsSpinAxis) {
     const auto rwArrayConfig = makeRwArrayConfig({{0.0F, 0.0F, 1.0F}}, 0.2F);
     MomentumManagementAlgorithm alg{MomentumManagementConfig::create(nominalParams(1.0F), rwArrayConfig)};
 
-    // hs = 0.2 * 50 = 10 Nms about +z; the excess above hsMin = 1 is 9 Nms, so the torque is -K * 9.
+    // hs = 0.2 * 50 = 10 Nms about +z, above hsMin = 1, so the whole 10 Nms is dumped.
     const auto Lr_B = alg.update(makeWheelSpeeds({50.0F}));
 
     EXPECT_NEAR(Lr_B[0], 0.0F, kAccuracy);
     EXPECT_NEAR(Lr_B[1], 0.0F, kAccuracy);
-    EXPECT_NEAR(Lr_B[2], -kNominalK * 9.0F, kAccuracy);
+    EXPECT_NEAR(Lr_B[2], -kNominalK * 10.0F, kAccuracy);
 }
 
-// The torque opposes the stored momentum and acts on exactly the momentum held above the threshold.
-TEST(MomentumManagement, TorqueMagnitudeIsGainTimesExcessMomentum) {
+// Above the threshold the torque opposes the whole stored momentum.
+TEST(MomentumManagement, TorqueMagnitudeIsGainTimesStoredMomentum) {
     const auto rwArrayConfig = makeStandardRwArrayConfig();
     const auto wheelSpeeds = makeWheelSpeeds({10.0F, -25.0F, 50.0F, 100.0F});
 
@@ -103,7 +103,7 @@ TEST(MomentumManagement, TorqueMagnitudeIsGainTimesExcessMomentum) {
 
     const Eigen::Vector3f hs_B = clusterMomentum(rwArrayConfig, wheelSpeeds);
 
-    EXPECT_NEAR(Lr_B.norm(), kNominalK * (hs_B.norm() - kNominalHsMin), kAccuracy);
+    EXPECT_NEAR(Lr_B.norm(), kNominalK * hs_B.norm(), kAccuracy);
     EXPECT_LT(Lr_B.normalized().dot(hs_B.normalized()), -1.0F + kAccuracy);
 }
 
@@ -163,7 +163,7 @@ TEST(MomentumManagement, ConfigRoundTrips) {
 // Integral path
 // ---------------------------------------------------------------------------------------------------
 
-// A sustained excess momentum accumulates, so the request grows on every cycle.
+// A sustained momentum above the threshold accumulates, so the request grows on every cycle.
 TEST(MomentumManagement, IntegralAccumulatesAcrossCycles) {
     MomentumManagementAlgorithm alg{MomentumManagementConfig::create(
         nominalParams(kNominalHsMin, kNominalK, kNominalKi), makeStandardRwArrayConfig())};
@@ -198,6 +198,35 @@ TEST(MomentumManagement, ZeroKiDisablesTheIntegral) {
 
     EXPECT_TRUE(lastWithout.isApprox(firstWithout));
     EXPECT_GT(lastWith.norm(), firstWith.norm());
+}
+
+// Inside the deadband no momentum enters the integral: a cluster parked below the threshold never accumulates,
+// and an integral built up above the threshold holds its value instead of growing.
+TEST(MomentumManagement, IntegralDoesNotAccumulateInsideTheDeadband) {
+    const auto rwArrayConfig = makeStandardRwArrayConfig();
+    const auto wheelSpeeds = makeWheelSpeeds({10.0F, -25.0F, 50.0F, 100.0F});
+    const auto insideParams = nominalParams(kHighHsMin, kNominalK, kNominalKi);
+
+    MomentumManagementAlgorithm insideDeadband{MomentumManagementConfig::create(insideParams, rwArrayConfig)};
+    for (uint32_t cycle = 0U; cycle < 10U; ++cycle) {
+        EXPECT_TRUE(insideDeadband.update(wheelSpeeds).isZero(kAccuracy)) << "cycle " << cycle;
+    }
+
+    // Accumulate above the threshold, then raise the threshold past the cluster momentum. The integral keeps
+    // what it holds, so the request settles on the integral term and stays there.
+    MomentumManagementAlgorithm alg{
+        MomentumManagementConfig::create(nominalParams(kNominalHsMin, kNominalK, kNominalKi), rwArrayConfig)};
+    for (uint32_t cycle = 0U; cycle < 10U; ++cycle) {
+        (void)alg.update(wheelSpeeds);
+    }
+
+    alg.setConfig(MomentumManagementConfig::create(insideParams, rwArrayConfig));
+    const Eigen::Vector3f held = alg.update(wheelSpeeds);
+
+    ASSERT_FALSE(held.isZero(kAccuracy));
+    for (uint32_t cycle = 0U; cycle < 10U; ++cycle) {
+        EXPECT_TRUE(alg.update(wheelSpeeds).isApprox(held)) << "cycle " << cycle;
+    }
 }
 
 // The anti-windup clamp bounds how far the integral term can move the request, however long the momentum is
@@ -411,8 +440,8 @@ TEST(MomentumManagementConfigValidation, AcceptsZeroControlPeriodWhenKiIsZero) {
     const Eigen::Vector3f first = alg.update(wheelSpeeds);
     EXPECT_TRUE(alg.update(wheelSpeeds).isApprox(first));
 
-    const float hs = clusterMomentum(makeStandardRwArrayConfig(), wheelSpeeds).norm();
-    EXPECT_NEAR(first.norm(), kNominalK * (hs - kNominalHsMin), kAccuracy);
+    const float hsNorm = clusterMomentum(makeStandardRwArrayConfig(), wheelSpeeds).norm();
+    EXPECT_NEAR(first.norm(), kNominalK * hsNorm, kAccuracy);
 }
 
 TEST(MomentumManagementConfigValidation, RejectsTooManyWheels) {
@@ -482,8 +511,8 @@ TEST(MomentumManagementConfigValidation, IgnoresColumnsBeyondNumRw) {
 // Edge cases
 // ---------------------------------------------------------------------------------------------------
 
-// Regression guard: with hsMin == 0 and zero momentum the dumping law divides 0/0. The algorithm must
-// return zero rather than NaN.
+// With hsMin == 0 a motionless cluster sits exactly on the threshold, so the law runs on a zero momentum.
+// The algorithm must return zero rather than NaN.
 TEST(MomentumManagementEdgeCases, ZeroMomentumWithZeroThresholdIsFinite) {
     MomentumManagementAlgorithm alg{MomentumManagementConfig::create(nominalParams(0.0F), makeStandardRwArrayConfig())};
 
@@ -493,7 +522,7 @@ TEST(MomentumManagementEdgeCases, ZeroMomentumWithZeroThresholdIsFinite) {
     EXPECT_TRUE(Lr_B.isZero(kAccuracy));
 }
 
-// Momentum below the zero tolerance is treated as zero even when the threshold is zero.
+// A negligible momentum produces a request too small to see, and no NaN.
 TEST(MomentumManagementEdgeCases, NegligibleMomentumIsFinite) {
     MomentumManagementAlgorithm alg{MomentumManagementConfig::create(nominalParams(0.0F), makeStandardRwArrayConfig())};
 
@@ -518,15 +547,15 @@ TEST(MomentumManagementEdgeCases, ZeroThresholdDumpsEverything) {
     }
 }
 
-// Exactly at the threshold the excess vanishes, so no torque is requested.
-TEST(MomentumManagementEdgeCases, MomentumExactlyAtThresholdDoesNotDump) {
+// The threshold comparison is inclusive, so a momentum sitting exactly on it is dumped.
+TEST(MomentumManagementEdgeCases, MomentumExactlyAtThresholdDumps) {
     const auto rwArrayConfig = makeRwArrayConfig({{0.0F, 0.0F, 1.0F}}, 0.2F);
     // hs = 0.2 * 50 = 10 Nms exactly.
     MomentumManagementAlgorithm alg{MomentumManagementConfig::create(nominalParams(10.0F), rwArrayConfig)};
 
     const auto Lr_B = alg.update(makeWheelSpeeds({50.0F}));
 
-    EXPECT_TRUE(Lr_B.isZero(kAccuracy));
+    EXPECT_NEAR(Lr_B[2], -kNominalK * 10.0F, kAccuracy);
 }
 
 // With no wheels configured there is no momentum to dump.
@@ -558,8 +587,8 @@ TEST(MomentumManagementEdgeCases, SpeedsBeyondNumRwAreIgnored) {
 
 // Each property is implemented in the helpers and also registered as a fuzz target.
 
-// The proportional request acts on exactly the momentum held above the threshold.
-TEST(MomentumManagementProperties, TorqueActsOnExcessMomentumOnly) {
+// The proportional request acts on the whole stored momentum, and only once the threshold is passed.
+TEST(MomentumManagementProperties, TorqueActsOnStoredMomentumAboveTheThreshold) {
     const auto rwArrayConfig = makeStandardRwArrayConfig();
     // Momenta spanning a negligible cluster up to a fully loaded one (~55 Nms), all realizable.
     const std::vector<std::vector<float>> speedCases = {
@@ -571,7 +600,7 @@ TEST(MomentumManagementProperties, TorqueActsOnExcessMomentumOnly) {
 
     for (float hsMin : {0.0F, 0.5F, 5.0F, 50.0F}) {
         for (const auto& speeds : speedCases) {
-            testProportionalTorqueOpposesExcessMomentum(rwArrayConfig, makeWheelSpeeds(speeds), nominalParams(hsMin));
+            testProportionalTorqueOpposesStoredMomentum(rwArrayConfig, makeWheelSpeeds(speeds), nominalParams(hsMin));
         }
     }
 }
