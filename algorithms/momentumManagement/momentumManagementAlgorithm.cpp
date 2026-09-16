@@ -42,7 +42,7 @@ Eigen::Vector3f MomentumManagementAlgorithm::update(const Eigen::Vector<float, k
     for (uint32_t i = 0; i < rwArrayConfig.numRW; ++i) {
         hs_B += rwArrayConfig.JsList(i) * wheelSpeeds(i) * rwArrayConfig.GsMatrix_B.col(i);
     }
-    const float hs = hs_B.norm(); /* net RW cluster angular momentum magnitude */
+    const float hs = hs_B.stableNorm(); /* net RW cluster angular momentum magnitude */
 
     /*! - the momentum held above the threshold, along the cluster momentum. It stays zero inside the deadband,
      which also avoids a 0/0 division when there is no momentum at all */
