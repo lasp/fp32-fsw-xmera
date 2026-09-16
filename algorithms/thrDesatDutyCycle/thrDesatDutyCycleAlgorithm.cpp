@@ -9,7 +9,12 @@ ThrDesatDutyCycleAlgorithm::ThrDesatDutyCycleAlgorithm(const ThrDesatDutyCycleCo
 /*! @brief Replace the stored configuration at runtime. The cadence counter is preserved.
  @param config The validated configuration to install
  */
-void ThrDesatDutyCycleAlgorithm::setConfig(const ThrDesatDutyCycleConfig& config) { this->cfg = config; }
+void ThrDesatDutyCycleAlgorithm::setConfig(const ThrDesatDutyCycleConfig& config) {
+    this->cfg = config;
+    /*! - the sum is at least one and cannot wrap, since the configuration requires at least one firing period
+     and a full cycle length that fits in a uint32_t */
+    this->cycleLength = config.getFiringPeriods() + config.getSettlingPeriods();
+}
 
 /*! Restart the duty cycle, so the next update falls on the first slot of a firing window.
  @return void
@@ -25,13 +30,10 @@ void ThrDesatDutyCycleAlgorithm::reInitialize() { this->phaseCounter = 0U; }
  */
 std::array<float, kMaxThrusterCount> ThrDesatDutyCycleAlgorithm::update(
     const std::array<float, kMaxThrusterCount>& thrusterForceCmd) {
-    /*! - the cycle length is at least one, since the configuration requires at least one firing period */
-    const uint32_t cycleLength = this->cfg.getCycleLength();
-
     /*! - setConfig() can shorten the cycle under a counter that has already run past the new length, so put the
      counter back into range before reading it rather than assuming it is already in range */
-    const uint32_t phase = this->phaseCounter % cycleLength;
-    this->phaseCounter = (phase + 1U) % cycleLength;
+    const uint32_t phase = this->phaseCounter % this->cycleLength;
+    this->phaseCounter = (phase + 1U) % this->cycleLength;
 
     /*! - the firing window occupies the leading slots of the cycle; the rest of the cycle commands zero force */
     std::array<float, kMaxThrusterCount> thrForceOut{};
