@@ -30,9 +30,10 @@ class ThrDesatDutyCycleConfig final {
     static bool isValidFiringPeriods(uint32_t firingPeriods) { return firingPeriods >= 1U; }
 
     /*! Any hold-off length is admissible, including none, provided the full cycle length does not wrap around:
-     a wrapped length would come out shorter than the firing window and corrupt the cadence. */
+     a wrapped length would come out shorter than the firing window and corrupt the cadence. The sum is taken
+     in a wider type, so the check itself cannot wrap. */
     static bool isValidSettlingPeriods(uint32_t settlingPeriods, uint32_t firingPeriods) {
-        return settlingPeriods <= UINT32_MAX - firingPeriods;
+        return static_cast<uint64_t>(firingPeriods) + static_cast<uint64_t>(settlingPeriods) <= UINT32_MAX;
     }
 
     /*! @return [-] control periods, at the start of each cycle, for which the force command is passed through. */
