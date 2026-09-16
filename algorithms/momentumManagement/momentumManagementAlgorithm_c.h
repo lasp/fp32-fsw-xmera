@@ -25,7 +25,7 @@ uint32_t MomentumManagementAlgorithm_getMaxNumRw(void);
 /**
  * @brief Report whether a configuration would be accepted by create/setConfig.
  * @param hsMin         [Nms]  minimum RW cluster momentum for dumping; must be finite and non-negative.
- * @param K             [1/s]  proportional gain on the excess momentum; must be finite and positive.
+ * @param K             [1/s]  proportional gain on the excess momentum; must be finite and non-negative.
  * @param Ki            [1/s2] integral gain on the accumulated excess momentum; must be finite and non-negative.
  * @param integralLimit [Nms2] anti-windup clamp on each integral component; must be finite and non-negative,
  *                             and positive when Ki > 0.
@@ -45,7 +45,7 @@ bool MomentumManagementAlgorithm_validateConfig(float hsMin,
 /**
  * @brief Construct a new MomentumManagementAlgorithm instance from the supplied configuration.
  * @param hsMin         [Nms]  minimum RW cluster momentum for dumping; must be finite and non-negative.
- * @param K             [1/s]  proportional gain on the excess momentum; must be finite and positive.
+ * @param K             [1/s]  proportional gain on the excess momentum; must be finite and non-negative.
  * @param Ki            [1/s2] integral gain on the accumulated excess momentum; must be finite and non-negative.
  * @param integralLimit [Nms2] anti-windup clamp on each integral component; must be finite and non-negative,
  *                             and positive when Ki > 0.
@@ -73,7 +73,7 @@ void MomentumManagementAlgorithm_destroy(MomentumManagementAlgorithmHandle* self
  * @brief Replace the algorithm's configuration at runtime without disturbing its runtime state.
  * @param self          Pointer to the instance.
  * @param hsMin         [Nms]  minimum RW cluster momentum for dumping; must be finite and non-negative.
- * @param K             [1/s]  proportional gain on the excess momentum; must be finite and positive.
+ * @param K             [1/s]  proportional gain on the excess momentum; must be finite and non-negative.
  * @param Ki            [1/s2] integral gain on the accumulated excess momentum; must be finite and non-negative.
  * @param integralLimit [Nms2] anti-windup clamp on each integral component; must be finite and non-negative,
  *                             and positive when Ki > 0.
