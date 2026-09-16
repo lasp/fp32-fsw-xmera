@@ -140,8 +140,8 @@ inline void testProportionalTorqueOpposesExcessMomentum(const MomentumManagement
     EXPECT_NEAR(Lr_B.norm(), params.K * std::max(0.0F, hs - params.hsMin), tol);
     EXPECT_LE(Lr_B.norm(), params.K * hs + tol);
 
-    // Above the deadband the torque must point against the stored momentum.
-    if (hs > params.hsMin + (1e-3F * std::max(1.0F, hs))) {
+    // Above the deadband a non-zero gain must point the torque against the stored momentum.
+    if (params.K > 0.0F && hs > params.hsMin + (1e-3F * std::max(1.0F, hs))) {
         EXPECT_LT(Lr_B.normalized().dot(hs_B.normalized()), 0.0F);
     }
 }

@@ -39,7 +39,7 @@ class MomentumManagementConfig final {
                 "non-negative.");
         }
         if (!isValidK(controlParameters.K)) {
-            FSW_THROW_INVALID_ARGUMENT("momentumManagement: K must be finite and positive.");
+            FSW_THROW_INVALID_ARGUMENT("momentumManagement: K must be finite and non-negative.");
         }
         if (!isValidKi(controlParameters.Ki)) {
             FSW_THROW_INVALID_ARGUMENT("momentumManagement: Ki must be finite and non-negative.");
@@ -69,7 +69,7 @@ class MomentumManagementConfig final {
     }
 
     static bool isValidHsMin(float hsMin) { return fsw::is_finite(hsMin) && hsMin >= 0.0F; }
-    static bool isValidK(float K) { return fsw::is_finite(K) && K > 0.0F; }
+    static bool isValidK(float K) { return fsw::is_finite(K) && K >= 0.0F; }
     static bool isValidKi(float Ki) { return fsw::is_finite(Ki) && Ki >= 0.0F; }
     /*! A zero limit is only allowed when the integral term is switched off (Ki == 0). */
     static bool isValidIntegralLimit(float integralLimit, float Ki) {

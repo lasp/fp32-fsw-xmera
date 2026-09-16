@@ -290,18 +290,14 @@ TEST(MomentumManagementConfigValidation, AcceptsZeroHsMin) {
     EXPECT_NO_THROW((void)MomentumManagementConfig::create(nominalParams(0.0F), makeStandardRwArrayConfig()));
 }
 
-// The gain must be strictly positive: zero would disable dumping entirely and a negative gain would drive the
-// wheels away from the threshold instead of towards it.
+// A negative gain would drive the wheels away from the threshold instead of towards it.
 TEST(MomentumManagementConfigValidation, RejectsInvalidK) {
     const auto rwArrayConfig = makeStandardRwArrayConfig();
 
-    EXPECT_FALSE(MomentumManagementConfig::isValidK(0.0F));
     EXPECT_FALSE(MomentumManagementConfig::isValidK(-1.0F));
     EXPECT_FALSE(MomentumManagementConfig::isValidK(std::numeric_limits<float>::quiet_NaN()));
     EXPECT_FALSE(MomentumManagementConfig::isValidK(std::numeric_limits<float>::infinity()));
 
-    EXPECT_THROW((void)MomentumManagementConfig::create(nominalParams(kNominalHsMin, 0.0F), rwArrayConfig),
-                 fsw::invalid_argument);
     EXPECT_THROW((void)MomentumManagementConfig::create(nominalParams(kNominalHsMin, -1.0F), rwArrayConfig),
                  fsw::invalid_argument);
     EXPECT_THROW((void)MomentumManagementConfig::create(
@@ -313,6 +309,18 @@ TEST(MomentumManagementConfigValidation, AcceptsSmallPositiveK) {
     EXPECT_TRUE(MomentumManagementConfig::isValidK(1e-6F));
     EXPECT_NO_THROW(
         (void)MomentumManagementConfig::create(nominalParams(kNominalHsMin, 1e-6F), makeStandardRwArrayConfig()));
+}
+
+// A zero proportional gain switches the proportional term off and is a legitimate setting: the integral term
+// can carry the dump on its own.
+TEST(MomentumManagementConfigValidation, AcceptsZeroK) {
+    const auto rwArrayConfig = makeStandardRwArrayConfig();
+    EXPECT_TRUE(MomentumManagementConfig::isValidK(0.0F));
+    EXPECT_NO_THROW((void)MomentumManagementConfig::create(nominalParams(kNominalHsMin, 0.0F), rwArrayConfig));
+
+    MomentumManagementAlgorithm alg{
+        MomentumManagementConfig::create(nominalParams(kNominalHsMin, 0.0F), rwArrayConfig)};
+    EXPECT_TRUE(alg.update(makeWheelSpeeds({10.0F, -25.0F, 50.0F, 100.0F})).isZero(kAccuracy));
 }
 
 TEST(MomentumManagementConfigValidation, RejectsInvalidKi) {
