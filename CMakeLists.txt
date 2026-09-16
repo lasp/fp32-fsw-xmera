@@ -138,6 +138,7 @@ set(algorithms
     "mimuMajorityVote"
     "momentumManagement"
     "mrpFeedback"
+    "mrpPD"
     "mrpRotation"
     "navAggregate"
     "oeStateEphem"
