@@ -112,7 +112,8 @@ class MomentumManagementConfig final {
  * @brief Assesses the net reaction wheel momentum and computes the torque needed to dump it.
  *
  * The control law is proportional-integral on the stored momentum, gated by the dumping threshold, so the
- * algorithm carries the integrator state between updates. Call reInitialize() to re-seed it.
+ * algorithm carries the integrator state between updates. A momentum below the threshold ends the dump and
+ * clears that state. Call reInitialize() to re-seed it directly.
  */
 class MomentumManagementAlgorithm final {
    public:

@@ -44,8 +44,8 @@ Eigen::Vector3f MomentumManagementAlgorithm::update(const Eigen::Vector<float, k
     const MomentumManagementControlParameters& params = this->cfg.getControlParameters();
     Eigen::Vector3f Lr_B = Eigen::Vector3f::Zero(); /* [Nm] requested body-frame torque */
 
-    /*! - the threshold is a deadband on the momentum the law acts on: at or above it the whole cluster momentum
-     is dumped, below it nothing is dumped and nothing enters the integral */
+    /*! - the threshold gates the whole law: at or above it the entire cluster momentum is dumped, below it
+     the module requests nothing */
     if (hsNorm >= params.hsMin) {
         /*! - advance the trapezoidal integral of the cluster momentum, using the fixed control period as the
          step */
@@ -64,9 +64,10 @@ Eigen::Vector3f MomentumManagementAlgorithm::update(const Eigen::Vector<float, k
         /*! - the requested torque opposes the stored momentum and its accumulation */
         Lr_B = -params.K * hs_B - params.Ki * this->hsInt_B;
     } else {
-        /*! - inside the deadband the integral holds what it already carries, and goes on driving the request */
+        /*! - below the threshold the dump is over: request no torque and clear the integrator, so the next
+         dump starts from zero instead of carrying an impulse deficit that no longer applies */
+        this->hsInt_B.setZero();
         this->priorHs_B.setZero();
-        Lr_B = -params.Ki * this->hsInt_B;
     }
 
     return Lr_B;
