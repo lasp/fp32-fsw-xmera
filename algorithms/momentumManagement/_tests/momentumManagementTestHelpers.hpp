@@ -35,6 +35,17 @@ inline MomentumManagementRwArrayConfiguration makeStandardRwArrayConfig(float js
     return makeRwArrayConfig(standardSpinAxes(), js);
 }
 
+// Orthogonal projector onto the plane perpendicular to `undumpableAxis`, i.e. what a single gimbaled thruster
+// can dump about. A degenerate axis names no direction, so it yields the identity: everything is dumpable.
+inline Eigen::Matrix3f makeDumpableProjection(const Eigen::Vector3f& undumpableAxis) {
+    constexpr float kDegenerateTol = 1e-3F;
+    if (undumpableAxis.stableNorm() < kDegenerateTol) {
+        return Eigen::Matrix3f::Identity();
+    }
+    const Eigen::Vector3f axis = undumpableAxis.stableNormalized();
+    return Eigen::Matrix3f{Eigen::Matrix3f::Identity() - (axis * axis.transpose())};
+}
+
 // Pack per-wheel speeds into the algorithm's fixed-size speed vector; unused entries stay zero.
 inline Eigen::Vector<float, kMaxNumRw> makeWheelSpeeds(const std::vector<float>& speeds) {
     Eigen::Vector<float, kMaxNumRw> wheelSpeeds = Eigen::Vector<float, kMaxNumRw>::Zero();
@@ -45,8 +56,9 @@ inline Eigen::Vector<float, kMaxNumRw> makeWheelSpeeds(const std::vector<float>&
 }
 
 // Independent reference implementation of the momentum dumping law, written directly from the module
-// description rather than from the algorithm source: accumulate the net RW momentum, drop it when it sits
-// below the threshold, and oppose what is left with the proportional and integral gains.
+// description rather than from the algorithm source: accumulate the net RW momentum, keep only the part the
+// effectors can dump, drop that when it sits below the threshold, and oppose what is left with the
+// proportional and integral gains.
 //
 // The integral is evaluated in closed form rather than by replaying the algorithm's recurrence. For a wheel
 // speed set held constant the momentum to dump d is constant, so the trapezoidal integral after numCycles
@@ -61,9 +73,10 @@ inline Eigen::Vector3f referenceTorque(const MomentumManagementRwArrayConfigurat
     for (uint32_t i = 0U; i < rwArrayConfig.numRW; ++i) {
         hs_B += rwArrayConfig.JsList[i] * wheelSpeeds[i] * rwArrayConfig.GsMatrix_B.col(i);
     }
-    const float hsNorm = hs_B.norm();
+    const Eigen::Vector3f hsDumpable_B = params.dumpableProjection_B * hs_B;
+    const float hsDumpableNorm = hsDumpable_B.norm();
 
-    const Eigen::Vector3f hsToDump_B = (hsNorm >= params.hsMin) ? hs_B : Eigen::Vector3f::Zero();
+    const Eigen::Vector3f hsToDump_B = (hsDumpableNorm >= params.hsMin) ? hsDumpable_B : Eigen::Vector3f::Zero();
 
     const float elapsed = (static_cast<float>(numCycles) - 0.5F) * params.controlPeriod;
     Eigen::Vector3f hsInt_B = elapsed * hsToDump_B;
@@ -123,7 +136,7 @@ inline void testProportionalTorqueOpposesStoredMomentum(const MomentumManagement
     const Eigen::Vector3f Lr_B = alg.update(wheelSpeeds);
     ASSERT_TRUE(Lr_B.allFinite());
 
-    const Eigen::Vector3f hs_B = clusterMomentum(rwArrayConfig, wheelSpeeds);
+    const Eigen::Vector3f hs_B = params.dumpableProjection_B * clusterMomentum(rwArrayConfig, wheelSpeeds);
     const float hsNorm = hs_B.norm();
 
     // The zero-momentum carve-out is pinned by the edge-case unit tests instead.
@@ -195,7 +208,7 @@ inline void testIntegralTermStaysBounded(const MomentumManagementRwArrayConfigur
                                          uint32_t numCycles = 50U) {
     MomentumManagementAlgorithm alg{MomentumManagementConfig::create(params, rwArrayConfig)};
 
-    const Eigen::Vector3f hs_B = clusterMomentum(rwArrayConfig, wheelSpeeds);
+    const Eigen::Vector3f hs_B = params.dumpableProjection_B * clusterMomentum(rwArrayConfig, wheelSpeeds);
     const float hsNorm = hs_B.norm();
     const Eigen::Vector3f hsToDump_B = (hsNorm >= params.hsMin) ? hs_B : Eigen::Vector3f::Zero();
 
@@ -264,11 +277,16 @@ inline void propertyProportionalTorqueOpposesStoredMomentum(const Eigen::Vector3
                                                             const Eigen::Vector3f& axis1,
                                                             const Eigen::Vector3f& axis2,
                                                             const Eigen::Vector3f& speeds,
+                                                            const Eigen::Vector3f& undumpableAxis,
                                                             float js,
                                                             float hsMin,
                                                             float K) {
-    const MomentumManagementControlParameters params{
-        .hsMin = hsMin, .K = K, .Ki = 0.0F, .integralLimit = 0.0F, .controlPeriod = 0.0F};
+    const MomentumManagementControlParameters params{.hsMin = hsMin,
+                                                     .K = K,
+                                                     .Ki = 0.0F,
+                                                     .integralLimit = 0.0F,
+                                                     .controlPeriod = 0.0F,
+                                                     .dumpableProjection_B = makeDumpableProjection(undumpableAxis)};
     MomentumManagementRwArrayConfiguration rwArrayConfig;
     Eigen::Vector<float, kMaxNumRw> wheelSpeeds;
     if (!detail::makeFuzzCase(axis0, axis1, axis2, speeds, js, params, rwArrayConfig, wheelSpeeds)) {
@@ -281,6 +299,7 @@ inline void propertyTorqueIsOddInWheelSpeeds(const Eigen::Vector3f& axis0,
                                              const Eigen::Vector3f& axis1,
                                              const Eigen::Vector3f& axis2,
                                              const Eigen::Vector3f& speeds,
+                                             const Eigen::Vector3f& undumpableAxis,
                                              float js,
                                              float hsMin,
                                              float K,
@@ -288,8 +307,12 @@ inline void propertyTorqueIsOddInWheelSpeeds(const Eigen::Vector3f& axis0,
                                              float integralLimit,
                                              float controlPeriod,
                                              uint32_t numCycles) {
-    const MomentumManagementControlParameters params{
-        .hsMin = hsMin, .K = K, .Ki = Ki, .integralLimit = integralLimit, .controlPeriod = controlPeriod};
+    const MomentumManagementControlParameters params{.hsMin = hsMin,
+                                                     .K = K,
+                                                     .Ki = Ki,
+                                                     .integralLimit = integralLimit,
+                                                     .controlPeriod = controlPeriod,
+                                                     .dumpableProjection_B = makeDumpableProjection(undumpableAxis)};
     MomentumManagementRwArrayConfiguration rwArrayConfig;
     Eigen::Vector<float, kMaxNumRw> wheelSpeeds;
     if (!detail::makeFuzzCase(axis0, axis1, axis2, speeds, js, params, rwArrayConfig, wheelSpeeds)) {
@@ -302,6 +325,7 @@ inline void propertyTorqueStaysFinite(const Eigen::Vector3f& axis0,
                                       const Eigen::Vector3f& axis1,
                                       const Eigen::Vector3f& axis2,
                                       const Eigen::Vector3f& speeds,
+                                      const Eigen::Vector3f& undumpableAxis,
                                       float js,
                                       float hsMin,
                                       float K,
@@ -309,8 +333,12 @@ inline void propertyTorqueStaysFinite(const Eigen::Vector3f& axis0,
                                       float integralLimit,
                                       float controlPeriod,
                                       uint32_t numCycles) {
-    const MomentumManagementControlParameters params{
-        .hsMin = hsMin, .K = K, .Ki = Ki, .integralLimit = integralLimit, .controlPeriod = controlPeriod};
+    const MomentumManagementControlParameters params{.hsMin = hsMin,
+                                                     .K = K,
+                                                     .Ki = Ki,
+                                                     .integralLimit = integralLimit,
+                                                     .controlPeriod = controlPeriod,
+                                                     .dumpableProjection_B = makeDumpableProjection(undumpableAxis)};
     MomentumManagementRwArrayConfiguration rwArrayConfig;
     Eigen::Vector<float, kMaxNumRw> wheelSpeeds;
     if (!detail::makeFuzzCase(axis0, axis1, axis2, speeds, js, params, rwArrayConfig, wheelSpeeds)) {
@@ -323,14 +351,19 @@ inline void propertyIntegralTermStaysBounded(const Eigen::Vector3f& axis0,
                                              const Eigen::Vector3f& axis1,
                                              const Eigen::Vector3f& axis2,
                                              const Eigen::Vector3f& speeds,
+                                             const Eigen::Vector3f& undumpableAxis,
                                              float js,
                                              float hsMin,
                                              float K,
                                              float Ki,
                                              float integralLimit,
                                              float controlPeriod) {
-    const MomentumManagementControlParameters params{
-        .hsMin = hsMin, .K = K, .Ki = Ki, .integralLimit = integralLimit, .controlPeriod = controlPeriod};
+    const MomentumManagementControlParameters params{.hsMin = hsMin,
+                                                     .K = K,
+                                                     .Ki = Ki,
+                                                     .integralLimit = integralLimit,
+                                                     .controlPeriod = controlPeriod,
+                                                     .dumpableProjection_B = makeDumpableProjection(undumpableAxis)};
     MomentumManagementRwArrayConfiguration rwArrayConfig;
     Eigen::Vector<float, kMaxNumRw> wheelSpeeds;
     if (!detail::makeFuzzCase(axis0, axis1, axis2, speeds, js, params, rwArrayConfig, wheelSpeeds)) {
@@ -343,6 +376,7 @@ inline void regressionFuzzMomentumManagement(const Eigen::Vector3f& axis0,
                                              const Eigen::Vector3f& axis1,
                                              const Eigen::Vector3f& axis2,
                                              const Eigen::Vector3f& speeds,
+                                             const Eigen::Vector3f& undumpableAxis,
                                              float js,
                                              float hsMin,
                                              float K,
@@ -350,16 +384,20 @@ inline void regressionFuzzMomentumManagement(const Eigen::Vector3f& axis0,
                                              float integralLimit,
                                              float controlPeriod,
                                              uint32_t numCycles) {
-    const MomentumManagementControlParameters params{
-        .hsMin = hsMin, .K = K, .Ki = Ki, .integralLimit = integralLimit, .controlPeriod = controlPeriod};
+    const MomentumManagementControlParameters params{.hsMin = hsMin,
+                                                     .K = K,
+                                                     .Ki = Ki,
+                                                     .integralLimit = integralLimit,
+                                                     .controlPeriod = controlPeriod,
+                                                     .dumpableProjection_B = makeDumpableProjection(undumpableAxis)};
     MomentumManagementRwArrayConfiguration rwArrayConfig;
     Eigen::Vector<float, kMaxNumRw> wheelSpeeds;
     if (!detail::makeFuzzCase(axis0, axis1, axis2, speeds, js, params, rwArrayConfig, wheelSpeeds)) {
         return;
     }
     // The integral accumulates rounding once per cycle, so allow the error to grow with the cycle count.
-    const float hsNorm = clusterMomentum(rwArrayConfig, wheelSpeeds).norm();
-    const float scale = K * std::max(1.0F, hsNorm) + Ki * integralLimit;
+    const float hsDumpableNorm = (params.dumpableProjection_B * clusterMomentum(rwArrayConfig, wheelSpeeds)).norm();
+    const float scale = K * std::max(1.0F, hsDumpableNorm) + Ki * integralLimit;
     const float tol = 1e-4F * static_cast<float>(numCycles) * std::max(1.0F, scale);
 
     regressionTestMomentumManagement(rwArrayConfig, wheelSpeeds, params, tol, numCycles);

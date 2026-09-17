@@ -31,6 +31,9 @@ uint32_t MomentumManagementAlgorithm_getMaxNumRw(void);
  *                             and positive when Ki > 0.
  * @param controlPeriod [s]    integration step between update() calls; must be finite and non-negative,
  *                             and positive when Ki > 0 (only the integral term uses it).
+ * @param dumpableProjection_B [-] projector onto the directions the effectors can dump about; must be a
+ *                             finite, symmetric and idempotent orthogonal projector. Pass the identity when
+ *                             every direction can be dumped.
  * @param rwArrayConfig Pointer to the reaction-wheel spin-axis configuration.
  * @return true when the configuration is valid. Never throws, so it can guard the
  *         throwing create/setConfig from an invalid configuration.
@@ -40,6 +43,7 @@ bool MomentumManagementAlgorithm_validateConfig(float hsMin,
                                                 float Ki,
                                                 float integralLimit,
                                                 float controlPeriod,
+                                                const Matrix3f_c* dumpableProjection_B,
                                                 const MomentumManagementRwArrayConfiguration_c* rwArrayConfig);
 
 /**
@@ -51,6 +55,9 @@ bool MomentumManagementAlgorithm_validateConfig(float hsMin,
  *                             and positive when Ki > 0.
  * @param controlPeriod [s]    integration step between update() calls; must be finite and non-negative,
  *                             and positive when Ki > 0 (only the integral term uses it).
+ * @param dumpableProjection_B [-] projector onto the directions the effectors can dump about; must be a
+ *                             finite, symmetric and idempotent orthogonal projector. Pass the identity when
+ *                             every direction can be dumped.
  * @param rwArrayConfig Pointer to the reaction-wheel spin-axis configuration.
  * @return Pointer to a new MomentumManagementAlgorithm (must be destroyed).
  * Validate the configuration with validateConfig first; invalid input throws.
@@ -61,6 +68,7 @@ MomentumManagementAlgorithmHandle* MomentumManagementAlgorithm_create(
     float Ki,
     float integralLimit,
     float controlPeriod,
+    const Matrix3f_c* dumpableProjection_B,
     const MomentumManagementRwArrayConfiguration_c* rwArrayConfig);
 
 /**
@@ -79,6 +87,9 @@ void MomentumManagementAlgorithm_destroy(MomentumManagementAlgorithmHandle* self
  *                             and positive when Ki > 0.
  * @param controlPeriod [s]    integration step between update() calls; must be finite and non-negative,
  *                             and positive when Ki > 0 (only the integral term uses it).
+ * @param dumpableProjection_B [-] projector onto the directions the effectors can dump about; must be a
+ *                             finite, symmetric and idempotent orthogonal projector. Pass the identity when
+ *                             every direction can be dumped.
  * @param rwArrayConfig Pointer to the reaction-wheel spin-axis configuration.
  * Validate the configuration with validateConfig first; invalid input throws.
  */
@@ -88,6 +99,7 @@ void MomentumManagementAlgorithm_setConfig(MomentumManagementAlgorithmHandle* se
                                            float Ki,
                                            float integralLimit,
                                            float controlPeriod,
+                                           const Matrix3f_c* dumpableProjection_B,
                                            const MomentumManagementRwArrayConfiguration_c* rwArrayConfig);
 
 /**

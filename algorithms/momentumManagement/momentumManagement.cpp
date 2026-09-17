@@ -45,7 +45,8 @@ MomentumManagementConfig MomentumManagement::toConfig() {
                                                                 .K = this->K,
                                                                 .Ki = this->Ki,
                                                                 .integralLimit = this->integralLimit,
-                                                                .controlPeriod = this->controlPeriod};
+                                                                .controlPeriod = this->controlPeriod,
+                                                                .dumpableProjection_B = this->dumpableProjection_B};
 
     return MomentumManagementConfig::create(controlParameters, rwArrayConfig);
 }
