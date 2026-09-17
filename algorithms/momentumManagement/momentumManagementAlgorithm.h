@@ -26,6 +26,8 @@ struct MomentumManagementControlParameters {
     float Ki{};             //!< [1/s2] integral gain on the accumulated stored momentum (0 disables the integral)
     float integralLimit{};  //!< [Nms2] anti-windup clamp on each component of the momentum integral
     float controlPeriod{};  //!< [s] time between two update() calls, the integration step (only used when Ki > 0)
+    Eigen::Matrix3f dumpableProjection_B{
+        Eigen::Matrix3f::Identity()};  //!< [-] projector onto the directions the effectors can dump about
 };
 
 /*! @brief Validated configuration for the RW momentum management algorithm. */
@@ -51,6 +53,12 @@ class MomentumManagementConfig final {
         if (!isValidControlPeriod(controlParameters.controlPeriod, controlParameters.Ki)) {
             FSW_THROW_INVALID_ARGUMENT(
                 "momentumManagement: controlPeriod must be finite and non-negative, and positive when Ki > 0.");
+        }
+        if (!isValidDumpableProjection(controlParameters.dumpableProjection_B)) {
+            FSW_THROW_INVALID_ARGUMENT(
+                "momentumManagement: dumpableProjection_B must be a finite, symmetric and idempotent orthogonal "
+                "projector that leaves at least one direction dumpable; use the identity when the effectors can "
+                "dump about every direction.");
         }
         if (!isValidRwArrayConfiguration(rwArrayConfig)) {
             FSW_THROW_INVALID_ARGUMENT(
@@ -79,6 +87,27 @@ class MomentumManagementConfig final {
      finite regardless: a non-finite step would poison the integral, and Ki * NaN is NaN even for Ki == 0. */
     static bool isValidControlPeriod(float controlPeriod, float Ki) {
         return fsw::is_finite(controlPeriod) && controlPeriod >= 0.0F && (Ki == 0.0F || controlPeriod > 0.0F);
+    }
+    /*! The projector names the directions the effectors can dump about, so it must be a genuine orthogonal
+     projector: finite, symmetric and idempotent. The identity says every direction can be dumped, and a plane
+     projector I - n*n^T says the single direction n cannot. It must also leave at least one direction
+     dumpable: a rank-zero projector is a valid projector but would make the module request nothing, for ever,
+     without reporting anything. A zero-filled matrix from a caller that never set this is exactly that. */
+    static bool isValidDumpableProjection(const Eigen::Matrix3f& dumpableProjection_B) {
+        constexpr float kProjectionTol = 1e-4F;
+        constexpr float kMinRank = 0.5F;  // an orthogonal projector's trace is its rank, so this rejects rank 0
+        if (!dumpableProjection_B.allFinite()) {
+            return false;
+        }
+        const Eigen::Matrix3f asymmetry = dumpableProjection_B - dumpableProjection_B.transpose();
+        if (asymmetry.reshaped().stableNorm() > kProjectionTol) {
+            return false;
+        }
+        const Eigen::Matrix3f idempotencyError = (dumpableProjection_B * dumpableProjection_B) - dumpableProjection_B;
+        if (idempotencyError.reshaped().stableNorm() > kProjectionTol) {
+            return false;
+        }
+        return dumpableProjection_B.trace() >= kMinRank;
     }
 
     static bool isValidRwArrayConfiguration(const MomentumManagementRwArrayConfiguration& rwArrayConfig) {
@@ -113,7 +142,8 @@ class MomentumManagementConfig final {
  *
  * The control law is proportional-integral on the stored momentum, gated by the dumping threshold, so the
  * algorithm carries the integrator state between updates. A momentum below the threshold ends the dump and
- * clears that state. Call reInitialize() to re-seed it directly.
+ * clears that state. Call reInitialize() to re-seed it directly. Only the momentum the effectors can dump
+ * reaches the law; dumpableProjection_B says which directions those are.
  */
 class MomentumManagementAlgorithm final {
    public:
@@ -130,8 +160,9 @@ class MomentumManagementAlgorithm final {
 
    private:
     MomentumManagementConfig cfg;  //!< [-] validated configuration (control parameters, RW array config)
-    Eigen::Vector3f hsInt_B{Eigen::Vector3f::Zero()};    //!< [Nms2] integral of the RW cluster momentum, B frame
-    Eigen::Vector3f priorHs_B{Eigen::Vector3f::Zero()};  //!< [Nms] RW cluster momentum from the previous update
+    Eigen::Vector3f hsInt_B{Eigen::Vector3f::Zero()};  //!< [Nms2] integral of the dumpable RW momentum, B frame
+    Eigen::Vector3f priorHsDumpable_B{
+        Eigen::Vector3f::Zero()};  //!< [Nms] dumpable RW cluster momentum from the previous update
 };
 
 #endif

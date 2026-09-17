@@ -36,12 +36,19 @@ constexpr float kLargeIntegralLimit = 1000.0F;
 constexpr float kTightIntegralLimit = 5.0F;
 
 // The integral is switched off by default so the proportional-law expectations below stand on their own.
-MomentumManagementControlParameters nominalParams(float hsMin = kNominalHsMin,
-                                                  float K = kNominalK,
-                                                  float Ki = 0.0F,
-                                                  float integralLimit = kLargeIntegralLimit,
-                                                  float controlPeriod = kControlPeriod) {
-    return {.hsMin = hsMin, .K = K, .Ki = Ki, .integralLimit = integralLimit, .controlPeriod = controlPeriod};
+MomentumManagementControlParameters nominalParams(
+    float hsMin = kNominalHsMin,
+    float K = kNominalK,
+    float Ki = 0.0F,
+    float integralLimit = kLargeIntegralLimit,
+    float controlPeriod = kControlPeriod,
+    const Eigen::Matrix3f& dumpableProjection_B = Eigen::Matrix3f::Identity()) {
+    return {.hsMin = hsMin,
+            .K = K,
+            .Ki = Ki,
+            .integralLimit = integralLimit,
+            .controlPeriod = controlPeriod,
+            .dumpableProjection_B = dumpableProjection_B};
 }
 
 }  // namespace
@@ -76,6 +83,17 @@ TEST(MomentumManagement, MatchesReferenceAcrossCases) {
     regressionTestMomentumManagement(rwArrayConfig,
                                      nominalSpeeds,
                                      nominalParams(kNominalHsMin, kNominalK, kNominalKi, kTightIntegralLimit),
+                                     kAccuracy,
+                                     20U);
+    // The same, with one direction the effectors cannot dump about.
+    regressionTestMomentumManagement(rwArrayConfig,
+                                     nominalSpeeds,
+                                     nominalParams(kNominalHsMin,
+                                                   kNominalK,
+                                                   kNominalKi,
+                                                   kLargeIntegralLimit,
+                                                   kControlPeriod,
+                                                   makeDumpableProjection(Eigen::Vector3f{0.0F, 0.2716F, -0.9624F})),
                                      kAccuracy,
                                      20U);
 }
@@ -223,6 +241,45 @@ TEST(MomentumManagement, DeadbandEndsTheDumpAndClearsTheIntegral) {
     // Dropping the threshold back starts a fresh dump, identical to the very first one.
     alg.setConfig(MomentumManagementConfig::create(dumpingParams, rwArrayConfig));
     EXPECT_TRUE(alg.update(wheelSpeeds).isApprox(firstDumpRequest));
+}
+
+// A single gimbaled thruster produces torque only perpendicular to its moment arm, so momentum along that arm
+// cannot be dumped. The law must not act on it: the request is the same as if that momentum were absent.
+TEST(MomentumManagement, UndumpableMomentumIsIgnored) {
+    const auto rwArrayConfig = makeRwArrayConfig({{0.0F, 0.0F, 1.0F}, {0.0F, 1.0F, 0.0F}}, 0.2F);
+    // hs = (0, 4, 10) Nms; the projector removes the z component, leaving 4 Nms about +y.
+    const Eigen::Matrix3f projection = makeDumpableProjection(Eigen::Vector3f::UnitZ());
+    MomentumManagementAlgorithm alg{MomentumManagementConfig::create(
+        nominalParams(1.0F, kNominalK, 0.0F, kLargeIntegralLimit, kControlPeriod, projection), rwArrayConfig)};
+
+    const auto Lr_B = alg.update(makeWheelSpeeds({50.0F, 20.0F}));
+
+    EXPECT_NEAR(Lr_B[0], 0.0F, kAccuracy);
+    EXPECT_NEAR(Lr_B[1], -kNominalK * 4.0F, kAccuracy);
+    EXPECT_NEAR(Lr_B[2], 0.0F, kAccuracy);
+}
+
+// Regression guard for integrator windup along an undumpable direction: however long a cluster holds momentum
+// there, the module must never request torque about it, even with the deadband wide open (hsMin = 0). Without
+// the projector the integral accumulates that momentum and commands exactly what cannot be delivered.
+TEST(MomentumManagement, UndumpableMomentumDoesNotWindTheIntegral) {
+    const auto rwArrayConfig = makeRwArrayConfig({{0.0F, 0.0F, 1.0F}}, 0.2F);
+    // Deliberately off a body axis, as a gimbaled thruster's moment arm is.
+    const Eigen::Vector3f undumpableAxis = Eigen::Vector3f{0.0F, 0.2716F, -0.9624F}.stableNormalized();
+    const auto params = nominalParams(
+        0.0F, kNominalK, kNominalKi, kLargeIntegralLimit, kControlPeriod, makeDumpableProjection(undumpableAxis));
+    MomentumManagementAlgorithm alg{MomentumManagementConfig::create(params, rwArrayConfig)};
+
+    const float wheelSpeed = 50.0F;
+    const auto wheelSpeeds = makeWheelSpeeds({wheelSpeed});
+    ASSERT_GT(std::fabs(clusterMomentum(rwArrayConfig, wheelSpeeds).dot(undumpableAxis)), 1.0F)
+        << "the test needs real momentum on the undumpable axis";
+
+    for (uint32_t cycle = 0U; cycle < 200U; ++cycle) {
+        const Eigen::Vector3f Lr_B = alg.update(wheelSpeeds);
+        ASSERT_TRUE(Lr_B.allFinite()) << "cycle " << cycle;
+        EXPECT_NEAR(Lr_B.dot(undumpableAxis), 0.0F, kAccuracy) << "cycle " << cycle;
+    }
 }
 
 // The anti-windup clamp bounds how far the integral term can move the request, however long the momentum is
@@ -438,6 +495,56 @@ TEST(MomentumManagementConfigValidation, AcceptsZeroControlPeriodWhenKiIsZero) {
 
     const float hsNorm = clusterMomentum(makeStandardRwArrayConfig(), wheelSpeeds).norm();
     EXPECT_NEAR(first.norm(), kNominalK * hsNorm, kAccuracy);
+}
+
+// The projector must be a genuine orthogonal projector; anything else does not describe a subspace.
+TEST(MomentumManagementConfigValidation, RejectsInvalidDumpableProjection) {
+    const auto rwArrayConfig = makeStandardRwArrayConfig();
+
+    Eigen::Matrix3f nonFinite = Eigen::Matrix3f::Identity();
+    nonFinite(0, 0) = std::numeric_limits<float>::quiet_NaN();
+    EXPECT_FALSE(MomentumManagementConfig::isValidDumpableProjection(nonFinite));
+
+    Eigen::Matrix3f asymmetric = Eigen::Matrix3f::Identity();
+    asymmetric(0, 1) = 0.5F;
+    EXPECT_FALSE(MomentumManagementConfig::isValidDumpableProjection(asymmetric));
+
+    // Symmetric but not idempotent: scaling is not projecting.
+    const Eigen::Matrix3f scaled = 2.0F * Eigen::Matrix3f::Identity();
+    EXPECT_FALSE(MomentumManagementConfig::isValidDumpableProjection(scaled));
+
+    // A genuine projector, but onto nothing: the module would request nothing for ever without saying so. A
+    // caller that zero-fills the parameter rather than setting it lands here.
+    EXPECT_FALSE(MomentumManagementConfig::isValidDumpableProjection(Eigen::Matrix3f::Zero()));
+    EXPECT_THROW(
+        (void)MomentumManagementConfig::create(
+            nominalParams(kNominalHsMin, kNominalK, 0.0F, kLargeIntegralLimit, kControlPeriod, Eigen::Matrix3f::Zero()),
+            rwArrayConfig),
+        fsw::invalid_argument);
+
+    EXPECT_THROW(
+        (void)MomentumManagementConfig::create(
+            nominalParams(kNominalHsMin, kNominalK, 0.0F, kLargeIntegralLimit, kControlPeriod, scaled), rwArrayConfig),
+        fsw::invalid_argument);
+}
+
+// The identity (dump about anything), a plane projector (one undumpable axis) and a line projector (only one
+// dumpable direction) all leave something to dump.
+TEST(MomentumManagementConfigValidation, AcceptsProjections) {
+    EXPECT_TRUE(MomentumManagementConfig::isValidDumpableProjection(Eigen::Matrix3f::Identity()));
+    const Eigen::Vector3f lineAxis = Eigen::Vector3f{1.0F, 2.0F, -0.5F}.stableNormalized();
+    EXPECT_TRUE(MomentumManagementConfig::isValidDumpableProjection(Eigen::Matrix3f{lineAxis * lineAxis.transpose()}));
+    EXPECT_TRUE(MomentumManagementConfig::isValidDumpableProjection(
+        makeDumpableProjection(Eigen::Vector3f{0.0F, 0.2716F, -0.9624F})));
+
+    EXPECT_NO_THROW(
+        (void)MomentumManagementConfig::create(nominalParams(kNominalHsMin,
+                                                             kNominalK,
+                                                             0.0F,
+                                                             kLargeIntegralLimit,
+                                                             kControlPeriod,
+                                                             makeDumpableProjection(Eigen::Vector3f::UnitX())),
+                                               makeStandardRwArrayConfig()));
 }
 
 TEST(MomentumManagementConfigValidation, RejectsTooManyWheels) {

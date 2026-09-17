@@ -7,8 +7,14 @@ from xmera.utilities import SimulationBaseClass
 from xmera.utilities import macros
 
 
-@pytest.mark.parametrize("hs_min_check", [0, 1])
-def test_momentum_management(hs_min_check):
+@pytest.mark.parametrize("hs_min_check, undumpable_axis", [
+    (0, None),
+    (1, None),
+    # A direction the effectors cannot dump about, off a body axis as a gimbaled thruster's moment arm is.
+    # The whole cluster momentum lies in that direction, so nothing is left to dump.
+    (0, [0.515479924649808, 0.24912146605897753, 0.819889591610757]),
+])
+def test_momentum_management(hs_min_check, undumpable_axis):
     """Module Unit Test"""
     task_name = "unitTask"
     process_name = "TestProcess"
@@ -42,6 +48,13 @@ def test_momentum_management(hs_min_check):
     module.integralLimit = 0.0
     module.controlPeriod = macros.NANO2SEC * test_process_rate
 
+    # The projector keeps only the momentum the effectors can dump; the identity keeps all of it.
+    if undumpable_axis is None:
+        module.dumpableProjection_B = np.identity(3)
+    else:
+        axis = np.array(undumpable_axis) / np.linalg.norm(undumpable_axis)
+        module.dumpableProjection_B = np.identity(3) - np.outer(axis, axis)
+
     # wheelSpeeds message
     rw_speed_message = messaging.RWSpeedMsgF32Payload()
     rw_speed_message.wheelSpeeds = [10.0, -25.0, 50.0, 100.0]
@@ -74,7 +87,7 @@ def test_momentum_management(hs_min_check):
     # cluster momentum below is computed in double precision from the wheel speeds and the spin axes, and the
     # requested torque is that momentum scaled by -K. The module writes the request every update; the wheel
     # speeds are constant, so both logged steps carry the same value.
-    if hs_min_check == 1:
+    if hs_min_check == 1 or undumpable_axis is not None:
         true_vector = [0.0, 0.0, 0.0]
     else:
         cluster_momentum = [6.773502691896258, 3.273502691896258, 10.773502691896258]

@@ -13,6 +13,7 @@ MomentumManagementConfig makeConfig(float hsMin,
                                     float Ki,
                                     float integralLimit,
                                     float controlPeriod,
+                                    const Matrix3f_c* dumpableProjection_B,
                                     const MomentumManagementRwArrayConfiguration_c* rwArrayConfig) {
     MomentumManagementRwArrayConfiguration rwArrayConfigCpp;
     rwArrayConfigCpp.numRW = rwArrayConfig->numRW;
@@ -20,7 +21,12 @@ MomentumManagementConfig makeConfig(float hsMin,
     rwArrayConfigCpp.JsList = cArrayToEigenVector(rwArrayConfig->JsList);
 
     const MomentumManagementControlParameters controlParameters{
-        .hsMin = hsMin, .K = K, .Ki = Ki, .integralLimit = integralLimit, .controlPeriod = controlPeriod};
+        .hsMin = hsMin,
+        .K = K,
+        .Ki = Ki,
+        .integralLimit = integralLimit,
+        .controlPeriod = controlPeriod,
+        .dumpableProjection_B = c2DArrayToEigenMatrix3(dumpableProjection_B->data)};
 
     return MomentumManagementConfig::create(controlParameters, rwArrayConfigCpp);
 }
@@ -34,9 +40,10 @@ bool MomentumManagementAlgorithm_validateConfig(float hsMin,
                                                 float Ki,
                                                 float integralLimit,
                                                 float controlPeriod,
+                                                const Matrix3f_c* dumpableProjection_B,
                                                 const MomentumManagementRwArrayConfiguration_c* rwArrayConfig) {
     try {
-        (void)makeConfig(hsMin, K, Ki, integralLimit, controlPeriod, rwArrayConfig);
+        (void)makeConfig(hsMin, K, Ki, integralLimit, controlPeriod, dumpableProjection_B, rwArrayConfig);
         return true;
     } catch (const fsw::invalid_argument&) {
         return false;
@@ -49,9 +56,10 @@ MomentumManagementAlgorithmHandle* MomentumManagementAlgorithm_create(
     float Ki,
     float integralLimit,
     float controlPeriod,
+    const Matrix3f_c* dumpableProjection_B,
     const MomentumManagementRwArrayConfiguration_c* rwArrayConfig) {
     return fsw::createHandle<::MomentumManagementAlgorithm, MomentumManagementAlgorithmHandle>(
-        makeConfig(hsMin, K, Ki, integralLimit, controlPeriod, rwArrayConfig));
+        makeConfig(hsMin, K, Ki, integralLimit, controlPeriod, dumpableProjection_B, rwArrayConfig));
 }
 
 void MomentumManagementAlgorithm_destroy(MomentumManagementAlgorithmHandle* self) {
@@ -64,9 +72,10 @@ void MomentumManagementAlgorithm_setConfig(MomentumManagementAlgorithmHandle* se
                                            float Ki,
                                            float integralLimit,
                                            float controlPeriod,
+                                           const Matrix3f_c* dumpableProjection_B,
                                            const MomentumManagementRwArrayConfiguration_c* rwArrayConfig) {
     fsw::fromHandle<::MomentumManagementAlgorithm>(self)->setConfig(
-        makeConfig(hsMin, K, Ki, integralLimit, controlPeriod, rwArrayConfig));
+        makeConfig(hsMin, K, Ki, integralLimit, controlPeriod, dumpableProjection_B, rwArrayConfig));
 }
 
 void MomentumManagementAlgorithm_reInitialize(MomentumManagementAlgorithmHandle* self) {
