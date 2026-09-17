@@ -2,8 +2,8 @@ Executive Summary
 -----------------
 
 This module reads in the Reaction Wheel (RW) speeds, determines the net RW angular momentum, and requests the
-torque that dumps whatever momentum is held above a configured threshold. The output is a commanded torque
-:math:`{}^{B}\bm{L}_r` expressed in body frame components.
+torque that dumps it. A configured threshold sets the momentum at which a dump starts and ends. The output is
+a commanded torque :math:`{}^{B}\bm{L}_r` expressed in body frame components.
 
 The momentum check runs on **every** update, so the requested torque tracks the RW speeds as they evolve.
 
@@ -17,8 +17,8 @@ Module Architecture
 
 The **algorithm** (``MomentumManagementAlgorithm``) is framework-free and Eigen-typed. It holds a validated
 ``MomentumManagementConfig`` and implements the dumping law described under `Mathematical Formulation`_. Its
-``update()`` never throws, returns the requested torque as an ``Eigen::Vector3f``, and advances the
-excess-momentum integrator, which is the module's only runtime state; ``reInitialize()`` re-seeds it.
+``update()`` never throws, returns the requested torque as an ``Eigen::Vector3f``, and advances the momentum
+integrator, which is the module's only runtime state; ``reInitialize()`` re-seeds it.
 
 The **Xmera adapter** (``MomentumManagement``) inherits from ``SysModel`` and owns all messaging concerns. It
 converts between the message payloads' C arrays and the algorithm's Eigen types, and writes the output message on
@@ -75,41 +75,73 @@ angular momentum rate can be approximated as
     \dot{\bm{h}}_{s} = \frac{{}^{B}\text{d}\bm{h}_{s}}{\text{d}t} + \bm{\omega}_{B/N} \times \bm{h}_{s}
                      \approx \frac{{}^{B}\text{d}\bm{h}_{s}}{\text{d}t}
 
-Let :math:`h_{s,\text{min}}` be the lower bound the momentum dumping strategy should achieve. The part of the
-cluster momentum held above that threshold is
+The effectors cannot always produce torque about every direction. A single gimbaled thruster, for example,
+produces the torque :math:`\bm{r}_{M/C} \times \bm{F}`, which is always perpendicular to the moment arm
+:math:`\bm{r}_{M/C}` from the center of mass to the thrust point. Cluster momentum along that arm can never be
+dumped. Let :math:`[P]` be the orthogonal projector onto the directions the effectors can dump about. The law
+acts on that part of the cluster momentum alone,
 
 .. math::
 
-    {}^{B}\bm{h}_{s,\text{exc}} = {}^{B}\bm{h}_{s} \, \frac{|\bm{h}_{s}| - h_{s,\text{min}}}{|\bm{h}_{s}|},
+    {}^{B}\bm{h}_{s,\text{dmp}} = [P] \, {}^{B}\bm{h}_{s} .
 
-a vector along :math:`\bm{h}_{s}` of magnitude :math:`|\bm{h}_{s}| - h_{s,\text{min}}`. It is zero whenever
-:math:`|\bm{h}_{s}| < h_{s,\text{min}}`, so the threshold acts as a deadband. The commanded torque opposes it,
+For that thruster the undumpable direction is the unit moment arm, and the projector removes it:
 
 .. math::
 
-    {}^{B}\bm{L}_r = -K \, {}^{B}\bm{h}_{s,\text{exc}} - K_i \, {}^{B}\bm{H}_{s,\text{exc}},
+    \hat{\bm{n}} = \frac{\bm{r}_{M/C}}{|\bm{r}_{M/C}|},
+    \qquad
+    [P] = [I] - \hat{\bm{n}} \hat{\bm{n}}^{T} .
+
+This projector removes the component along :math:`\hat{\bm{n}}`. It does not change the plane that is
+perpendicular to :math:`\hat{\bm{n}}`. Effectors that can produce torque about every direction give
+:math:`[P] = [I]`. If the effectors cannot dump about more than one direction, :math:`[N]` holds those
+directions as its orthonormal columns. The projector is then :math:`[P] = [I] - [N][N]^{T}`.
+
+Let :math:`h_{s,\text{min}}` be the momentum at which a dump starts. This threshold gates the whole control
+law. At or above it the commanded torque opposes the dumpable momentum,
+
+.. math::
+
+    {}^{B}\bm{L}_r = -K \, {}^{B}\bm{h}_{s,\text{dmp}} - K_i \, {}^{B}\bm{H}_{s,\text{dmp}}
+    \qquad |\bm{h}_{s,\text{dmp}}| \ge h_{s,\text{min}},
 
 with :math:`K` the proportional gain of the dumping loop and :math:`K_i` the integral gain acting on
 
 .. math::
 
-    {}^{B}\bm{H}_{s,\text{exc}} = \int_{t_0}^{t} {}^{B}\bm{h}_{s,\text{exc}} \,\text{d}t,
+    {}^{B}\bm{H}_{s,\text{dmp}} = \int_{t_0}^{t} {}^{B}\bm{h}_{s,\text{dmp}} \,\text{d}t,
 
-the accumulated excess momentum. The integral is advanced with a trapezoidal rule using the configured
+the accumulated dumpable momentum. The integral is advanced with a trapezoidal rule using the configured
 ``controlPeriod`` as a fixed step (the module is expected to run at that rate), and every component of
-:math:`\bm{H}_{s,\text{exc}}` is then clamped to :math:`\pm` ``integralLimit``, preserving its sign, so a
-sustained momentum cannot wind the integral term up without bound. Note that it is the *excess* momentum that is
-integrated, not the raw :math:`\bm{h}_{s}`: were the raw momentum accumulated, the integral would keep growing
-while the cluster sat inside the deadband and would eventually command a dump below the threshold, defeating it.
+:math:`\bm{H}_{s,\text{dmp}}` is then clamped to :math:`\pm` ``integralLimit``, preserving its sign, so a
+sustained momentum cannot wind the integral term up without bound.
 
-Because the deadband is applied to the momentum *vector* rather than gating the output, a threshold of
-:math:`h_{s,\text{min}} = 0` reduces the law to
-:math:`{}^{B}\bm{L}_r = -K\, {}^{B}\bm{h}_{s} - K_i\, {}^{B}\bm{H}_{s}`, acting on the full stored momentum.
+Below the threshold the dump is over. The module then requests no torque and clears the integral,
 
-The magnitude :math:`|\bm{h}_{s}|` appears in the denominator, so the implementation additionally treats a cluster
-momentum below :math:`10^{-6}` Nms as zero. That branch is only reachable when :math:`h_{s,\text{min}}` is itself
-zero — for any positive threshold the :math:`|\bm{h}_{s}| < h_{s,\text{min}}` comparison short-circuits first — and
-it prevents a :math:`0/0` division from producing NaN.
+.. math::
+
+    {}^{B}\bm{L}_r = \bm{0}, \quad {}^{B}\bm{H}_{s,\text{dmp}} = \bm{0}
+    \qquad |\bm{h}_{s,\text{dmp}}| < h_{s,\text{min}} .
+
+The integral is cleared rather than held for two reasons. A held integral is the only term left inside the
+deadband, so it would go on commanding a constant torque with no proportional term to oppose it. That torque
+drives the cluster momentum through zero and out of the deadband on the opposite side, where the law engages
+again, which makes the module limit-cycle across the threshold and waste propellant. A held integral also
+outlives its own dump: it measures the impulse the effectors failed to deliver during that dump, which says
+nothing about a dump that starts hours later.
+
+Momentum outside the dumpable subspace must not reach the law, which is why :math:`[P]` is applied before
+everything else. The effectors cannot remove that momentum, so it would hold the deadband open and make the
+integral grow along a direction no torque can act on. The anti-windup clamp bounds each body component of the
+integral separately, and a clamp in body components does not preserve the direction of the vector it clamps.
+It therefore turns that growth into a request the effectors *can* deliver, and the module commands a dump of
+momentum that is not there. Projecting first removes the cause: the integral only ever holds momentum the
+effectors can remove.
+
+The law drives the dumpable momentum to zero, not to the threshold. The threshold only sets the momentum at
+which a dump starts and ends. A threshold of :math:`h_{s,\text{min}} = 0` holds the gate open at all times,
+because the momentum magnitude is never negative.
 
 Module Parameters
 -----------------
@@ -128,23 +160,25 @@ raises ``fsw::invalid_argument`` and the module is not constructed.
     * - hsMin
       - float
       - finite, :math:`\ge 0`
-      - [Nms] Minimum RW cluster momentum for dumping. Zero is permitted and means "dump all stored momentum".
+      - [Nms] RW cluster momentum at which a dump starts, and below which it ends. Zero is permitted and makes
+        the module dump at all times.
     * - K
       - float
-      - finite, :math:`> 0`
-      - [1/s] Proportional gain :math:`K` mapping the excess momentum onto the requested torque. Zero is
-        rejected because it would disable dumping entirely, and a negative gain would drive the wheels away from
-        the threshold. Its reciprocal is the time constant of the dump, so :math:`K` should be sized from
-        the torque the effectors can actually deliver: an excess of 10 Nms with :math:`K = 0.05`
-        :math:`\text{s}^{-1}` asks for 0.5 Nm.
+      - finite, :math:`\ge 0`
+      - [1/s] Proportional gain :math:`K` mapping the stored momentum onto the requested torque. Zero switches
+        the proportional term off and leaves the dump to the integral term. A negative gain is rejected,
+        because it would drive the wheels away from the threshold. The reciprocal of :math:`K` is the time
+        constant of the dump, so size :math:`K` from the torque the effectors can deliver: a stored momentum of
+        10 Nms with :math:`K = 0.05` :math:`\text{s}^{-1}` asks for 0.5 Nm.
     * - Ki
       - float
       - finite, :math:`\ge 0`
-      - [1/s2] Integral gain :math:`K_i` on the accumulated excess momentum. Zero switches the integral term off.
+      - [1/s2] Integral gain :math:`K_i` on the accumulated stored momentum. Zero switches the integral term
+        off.
     * - integralLimit
       - float
       - finite, :math:`\ge 0`, and :math:`> 0` when ``Ki`` :math:`> 0`
-      - [Nms2] Anti-windup clamp applied to each body-frame component of the excess-momentum integral. A zero
+      - [Nms2] Anti-windup clamp applied to each body-frame component of the momentum integral. A zero
         limit is rejected while the integral is active, because it would silently pin the integral term to zero
         instead of disabling it -- set ``Ki`` to zero for that.
     * - controlPeriod
@@ -154,6 +188,16 @@ raises ``fsw::invalid_argument`` and the module is not constructed.
         integral term consumes it, so a purely proportional configuration (``Ki`` = 0) may leave it at zero. It
         must stay finite either way, since a non-finite step would make the request non-finite even with the
         integral switched off.
+    * - dumpableProjection_B
+      - 3x3 matrix
+      - finite, symmetric, idempotent, rank :math:`\ge 1`
+      - [-] Orthogonal projector :math:`[P]` onto the directions the effectors can dump about. The identity,
+        the default, says that every direction can be dumped, which is correct for a thruster array with full
+        torque authority about all three body axes. For a single gimbaled thruster use
+        :math:`[I] - \hat{\bm{n}} \hat{\bm{n}}^{T}`, where :math:`\hat{\bm{n}}` is the unit moment arm from
+        the center of mass to the thrust point. The zero matrix is rejected: it is a valid projector, but it
+        would make the module request nothing for ever without reporting anything, and it is what a caller that
+        zero-fills this parameter rather than setting it would supply.
     * - rwConfigDataInMsg payload
       - message
       - see below
@@ -179,11 +223,19 @@ The module uses two-phase initialization: set the public configuration propertie
     module.modelTag = "momentumManagement"
 
     # Phase 1: configuration properties, set before reset()
-    module.hsMin = 100.0 / 6000.0 * 100.0  # [Nms] lower ceiling of the RW cluster momentum
-    module.K = 0.05                        # [1/s] dumping loop proportional gain
+    module.hsMin = 100.0 / 6000.0 * 100.0  # [Nms] RW cluster momentum at which a dump starts
+    module.K = 0.05                        # [1/s] dumping loop proportional gain (0 disables it)
     module.Ki = 0.01                       # [1/s2] integral gain (0 disables the integral term)
     module.integralLimit = 1000.0          # [Nms2] anti-windup clamp per integral component
     module.controlPeriod = 0.5             # [s] task rate; only needed when Ki > 0
+
+    # The directions the effectors can dump about. The identity keeps the whole cluster momentum.
+    module.dumpableProjection_B = np.identity(3)
+
+    # For a single gimbaled thruster, remove the moment arm direction, about which it makes no torque:
+    #     arm = r_MB_B - CoM_B
+    #     axis = arm / np.linalg.norm(arm)
+    #     module.dumpableProjection_B = np.identity(3) - np.outer(axis, axis)
 
     # Connect the required input messages
     module.rwSpeedsInMsg.subscribeTo(rw_speed_in_msg)
@@ -195,7 +247,8 @@ The module uses two-phase initialization: set the public configuration propertie
 Both input messages are required; ``reset()`` raises if either is unconnected.
 
 To push edited configuration properties onto a running algorithm without disturbing the integrator, call
-``reconfigure()``. To re-seed the integrator itself, call ``reInitialize()``. Both raise
+``reconfigure()``. To re-seed the integrator itself, call ``reInitialize()``. The module also clears the
+integrator on its own whenever the cluster momentum falls below ``hsMin``. Both methods raise
 ``XmeraLifecycleException`` if called before ``reset()``.
 
 Module Assumptions and Limitations
@@ -205,10 +258,21 @@ Module Assumptions and Limitations
   what justifies neglecting the :math:`\bm{\omega}_{B/N} \times \bm{h}_{s}` transport term.
 - The integral is advanced with a fixed ``controlPeriod`` step rather than a measured elapsed time, so the
   module must actually be scheduled at that rate; a mismatch scales the integral term proportionally.
-- :math:`{}^{B}\bm{L}_r` carries no memory of how much momentum has already been dumped -- only of how long an
-  excess has persisted -- so the downstream firing logic is responsible for tracking delivery.
+- :math:`{}^{B}\bm{L}_r` carries no memory of how much momentum has already been dumped -- only of how long the
+  momentum has stayed above the threshold -- so the downstream firing logic is responsible for tracking delivery.
+- The request is discontinuous at the threshold. It steps between zero and :math:`K \, h_{s,\text{min}}` as the
+  cluster momentum crosses :math:`h_{s,\text{min}}`, so a cluster that hovers on the threshold makes the module
+  switch its request on and off. There is no hysteresis on the threshold.
+- The integral carries no state across a dump, because falling below the threshold clears it. A dump that ends
+  and restarts therefore rebuilds its integral term from zero.
 - The RW configuration is sampled at ``reset()`` / ``reconfigure()``, not per update, so it is treated as static
   for the life of the configuration.
-- Single-precision arithmetic limits the achievable accuracy to roughly seven significant figures. Against the
-  original double-precision implementation the observed error is at float epsilon (~4e-7 absolute on excess
-  momenta of order 10 Nms), scaled by the gain :math:`K`.
+- ``dumpableProjection_B`` is a configuration parameter, so the module cannot tell whether it still matches the
+  effectors. Refresh it through ``reconfigure()`` whenever the geometry it came from changes -- a center-of-mass
+  update, or a switch to a different thruster -- and call ``reInitialize()`` with it, because the accumulated
+  integral belongs to the previous dumpable subspace. A stale projector mis-dumps silently.
+- Momentum outside the dumpable subspace is left to the reaction wheels. The module does not report it, so it
+  can grow to wheel saturation without any indication from this module.
+- Single-precision arithmetic limits the achievable accuracy to roughly seven significant figures. Against a
+  double-precision reference the observed error is at float epsilon (~4e-7 absolute on cluster momenta of order
+  10 Nms), scaled by the gain :math:`K`.
