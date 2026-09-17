@@ -24,7 +24,7 @@ void MomentumManagementAlgorithm::setConfig(const MomentumManagementConfig& conf
  */
 void MomentumManagementAlgorithm::reInitialize() {
     this->hsInt_B.setZero();
-    this->priorHs_B.setZero();
+    this->priorHsDumpable_B.setZero();
 }
 
 /*! The RW momentum level is assessed on every call to determine the torque that dumps it. The integral term
@@ -33,23 +33,27 @@ void MomentumManagementAlgorithm::reInitialize() {
  @param wheelSpeeds [r/s] current reaction wheel speeds
  */
 Eigen::Vector3f MomentumManagementAlgorithm::update(const Eigen::Vector<float, kMaxNumRw>& wheelSpeeds) {
-    /*! - compute the net RW momentum and its magnitude */
+    /*! - compute the net RW momentum */
     const MomentumManagementRwArrayConfiguration& rwArrayConfig = this->cfg.getRwArrayConfiguration();
     Eigen::Vector3f hs_B = Eigen::Vector3f::Zero(); /* RW angular momentum */
     for (uint32_t i = 0; i < rwArrayConfig.numRW; ++i) {
         hs_B += rwArrayConfig.JsList(i) * wheelSpeeds(i) * rwArrayConfig.GsMatrix_B.col(i);
     }
-    const float hsNorm = hs_B.stableNorm(); /* net RW cluster angular momentum magnitude */
 
+    /*! - keep only the momentum the effectors can dump. Momentum they cannot remove must not reach the law: it
+     would hold the deadband open and wind the integral up along a direction no torque can act on */
     const MomentumManagementControlParameters& params = this->cfg.getControlParameters();
+    const Eigen::Vector3f hsDumpable_B = params.dumpableProjection_B * hs_B; /* [Nms] dumpable RW momentum */
+    const float hsNorm = hsDumpable_B.stableNorm();                          /* dumpable momentum magnitude */
+
     Eigen::Vector3f Lr_B = Eigen::Vector3f::Zero(); /* [Nm] requested body-frame torque */
 
-    /*! - the threshold gates the whole law: at or above it the entire cluster momentum is dumped, below it
+    /*! - the threshold gates the whole law: at or above it the entire dumpable momentum is dumped, below it
      the module requests nothing */
     if (hsNorm >= params.hsMin) {
-        /*! - advance the trapezoidal integral of the cluster momentum, using the fixed control period as the
+        /*! - advance the trapezoidal integral of the dumpable momentum, using the fixed control period as the
          step */
-        this->hsInt_B += 0.5F * params.controlPeriod * (this->priorHs_B + hs_B);
+        this->hsInt_B += 0.5F * params.controlPeriod * (this->priorHsDumpable_B + hsDumpable_B);
 
         /*! - anti-windup: clamp each integral component to the configured limit, preserving its sign */
         for (Eigen::Index i = 0; i < 3; ++i) {
@@ -59,15 +63,15 @@ Eigen::Vector3f MomentumManagementAlgorithm::update(const Eigen::Vector<float, k
             }
         }
 
-        this->priorHs_B = hs_B;
+        this->priorHsDumpable_B = hsDumpable_B;
 
-        /*! - the requested torque opposes the stored momentum and its accumulation */
-        Lr_B = -params.K * hs_B - params.Ki * this->hsInt_B;
+        /*! - the requested torque opposes the dumpable momentum and its accumulation */
+        Lr_B = -params.K * hsDumpable_B - params.Ki * this->hsInt_B;
     } else {
         /*! - below the threshold the dump is over: request no torque and clear the integrator, so the next
          dump starts from zero instead of carrying an impulse deficit that no longer applies */
         this->hsInt_B.setZero();
-        this->priorHs_B.setZero();
+        this->priorHsDumpable_B.setZero();
     }
 
     return Lr_B;

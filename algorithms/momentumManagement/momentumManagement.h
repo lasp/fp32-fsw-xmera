@@ -30,6 +30,8 @@ class MomentumManagement : public SysModel {
     float Ki{};             //!< [1/s2] integral gain on the accumulated stored momentum (0 disables it)
     float integralLimit{};  //!< [Nms2] anti-windup clamp on each integral component (must be > 0 if Ki > 0)
     float controlPeriod{};  //!< [s]    integration step between updates (must be > 0 if Ki > 0)
+    Eigen::Matrix3f dumpableProjection_B{
+        Eigen::Matrix3f::Identity()};  //!< [-] projector onto the directions the effectors can dump about
 
     /* declare module IO interfaces */
     Message<CmdTorqueBodyMsgF32Payload> cmdTorqueOutMsg;        //!< [Nm] requested body-frame dumping torque
