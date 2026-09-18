@@ -24,11 +24,9 @@ typedef struct {
 /**
  * @brief Plain-old-data mirror of the CSS constellation geometry held by CssWeightedLeastSquaresConfig.
  *
- *  - numCss must be in [1, MAX_NUM_CSS_SENSORS]
- *  - cssSensors[i] for i < numCss carries each sensor's geometry; trailing slots are ignored
+ *  - cssSensors carries the geometry of every sensor slot
  */
 typedef struct {
-    uint32_t numCss;                                    /*!< [-] number of configured sensors */
     CssConfiguration_c cssSensors[MAX_NUM_CSS_SENSORS]; /*!< [-] per-sensor configuration */
 } CssWeightedLeastSquaresConstellation_c;
 

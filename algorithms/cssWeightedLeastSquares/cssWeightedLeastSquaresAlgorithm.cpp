@@ -104,7 +104,7 @@ CssWeightedLeastSquaresOutput CssWeightedLeastSquaresAlgorithm::update(
     Eigen::Vector3f omega_BN_B = Eigen::Vector3f::Zero();
     Eigen::Vector<float, kMaxNumCssSensors> postFitResiduals = Eigen::Vector<float, kMaxNumCssSensors>::Zero();
 
-    for (uint32_t i = 0; i < this->cfg.getNumCss(); i = i + 1) {
+    for (uint32_t i = 0; i < kMaxNumCssSensors; i = i + 1) {
         /* The upper bound also removes a reading that is not a number, because every comparison with
            one is false. */
         const bool sensorEnabled = this->cfg.getCssBias()(i) > 0.0F;

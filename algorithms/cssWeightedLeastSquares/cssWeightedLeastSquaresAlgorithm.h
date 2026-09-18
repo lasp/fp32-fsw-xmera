@@ -38,24 +38,19 @@ class CssWeightedLeastSquaresConfig final {
    public:
     /*! Build a validated configuration.
         @return the validated configuration
-        @param numCss         [-] number of configured sensors
-        @param cssSensors     [-] per-sensor boresight and bias; entries beyond numCss are unused
+        @param cssSensors     [-] boresight and bias of every sensor slot
         @param useWeights     [-] whether to weight the measurements in the least squares fit
         @param sensorUseThresh [-] cosine threshold at or below which a reading is discarded
         @param controlPeriod  [s] time between two update() calls, the rate estimate's time step
      */
-    static CssWeightedLeastSquaresConfig create(const uint32_t numCss,
-                                                const std::array<CssConfiguration, kMaxNumCssSensors>& cssSensors,
+    static CssWeightedLeastSquaresConfig create(const std::array<CssConfiguration, kMaxNumCssSensors>& cssSensors,
                                                 const bool useWeights,
                                                 const float sensorUseThresh,
                                                 const float controlPeriod) {
-        if (!isValidNumCss(numCss)) {
-            FSW_THROW_INVALID_ARGUMENT("cssWeightedLeastSquares: numCss must be in [1, kMaxNumCssSensors]");
-        }
-        if (!isValidCssSensors(cssSensors, numCss)) {
+        if (!isValidCssSensors(cssSensors)) {
             FSW_THROW_INVALID_ARGUMENT(
-                "cssWeightedLeastSquares: each of the first numCss sensors must have a boresight that is a unit "
-                "vector within 1e-3 and a bias that is finite and non-negative");
+                "cssWeightedLeastSquares: every sensor must have a boresight that is a unit vector within 1e-3 "
+                "and a bias that is finite and non-negative");
         }
         if (!isValidSensorUseThresh(sensorUseThresh)) {
             FSW_THROW_INVALID_ARGUMENT("cssWeightedLeastSquares: sensorUseThresh must be a cosine in [0, 1]");
@@ -65,27 +60,19 @@ class CssWeightedLeastSquaresConfig final {
         }
         // Pack the configured sensors into the Eigen types the fit works in, normalizing the boresights so
         // downstream code can rely on exact unit vectors. They are validated (near-)unit, so this only
-        // removes rounding; entries beyond numCss are unused and stay zero.
+        // removes rounding.
         Eigen::Matrix<float, kMaxNumCssSensors, 3> cssNHat_B = Eigen::Matrix<float, kMaxNumCssSensors, 3>::Zero();
         Eigen::Vector<float, kMaxNumCssSensors> cssBias = Eigen::Vector<float, kMaxNumCssSensors>::Zero();
-        for (uint32_t i = 0U; i < numCss; ++i) {
+        for (uint32_t i = 0U; i < kMaxNumCssSensors; ++i) {
             cssNHat_B.row(i) = cssSensors.at(i).nHat_B.stableNormalized().transpose();
             cssBias(i) = cssSensors.at(i).bias;
         }
 
-        return {cssNHat_B, cssBias, numCss, useWeights, sensorUseThresh, controlPeriod};
+        return {cssNHat_B, cssBias, useWeights, sensorUseThresh, controlPeriod};
     }
 
-    static bool isValidNumCss(const uint32_t numCss) {
-        return numCss >= 1U && numCss <= static_cast<uint32_t>(kMaxNumCssSensors);
-    }
-
-    static bool isValidCssSensors(const std::array<CssConfiguration, kMaxNumCssSensors>& cssSensors,
-                                  const uint32_t numCss) {
-        if (!isValidNumCss(numCss)) {
-            return false;
-        }
-        for (uint32_t i = 0; i < numCss; ++i) {
+    static bool isValidCssSensors(const std::array<CssConfiguration, kMaxNumCssSensors>& cssSensors) {
+        for (uint32_t i = 0; i < kMaxNumCssSensors; ++i) {
             const Eigen::Vector3f& nHat_B = cssSensors.at(i).nHat_B;
             const float bias = cssSensors.at(i).bias;
             if (!nHat_B.allFinite() || fabsf(nHat_B.stableNorm() - 1.0F) >= 1e-3F) {
@@ -113,7 +100,6 @@ class CssWeightedLeastSquaresConfig final {
 
     const Eigen::Matrix<float, kMaxNumCssSensors, 3>& getCssNHat_B() const { return cssNHat_B; }
     const Eigen::Vector<float, kMaxNumCssSensors>& getCssBias() const { return cssBias; }
-    uint32_t getNumCss() const { return numCss; }
     bool getUseWeights() const { return useWeights; }
     float getSensorUseThresh() const { return sensorUseThresh; }
     float getControlPeriod() const { return controlPeriod; }
@@ -121,21 +107,18 @@ class CssWeightedLeastSquaresConfig final {
    private:
     CssWeightedLeastSquaresConfig(const Eigen::Matrix<float, kMaxNumCssSensors, 3>& cssNHat_B,
                                   const Eigen::Vector<float, kMaxNumCssSensors>& cssBias,
-                                  const uint32_t numCss,
                                   const bool useWeights,
                                   // NOLINTNEXTLINE(bugprone-easily-swappable-parameters) -- create() validates by name.
                                   const float sensorUseThresh,
                                   const float controlPeriod)
         : cssNHat_B(cssNHat_B),
           cssBias(cssBias),
-          numCss(numCss),
           useWeights(useWeights),
           sensorUseThresh(sensorUseThresh),
           controlPeriod(controlPeriod) {}
 
     Eigen::Matrix<float, kMaxNumCssSensors, 3> cssNHat_B = Eigen::Matrix<float, kMaxNumCssSensors, 3>::Zero();
     Eigen::Vector<float, kMaxNumCssSensors> cssBias = Eigen::Vector<float, kMaxNumCssSensors>::Zero();
-    uint32_t numCss{};
     bool useWeights{};
     float sensorUseThresh{};
     float controlPeriod{};

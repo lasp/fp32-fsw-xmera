@@ -40,7 +40,6 @@ TEST(CssWeightedLeastSquaresTest, ConfigAcceptsTheReferenceSetup) {
     ASSERT_TRUE(buildConfig(inputs, built));
 
     const CssWeightedLeastSquaresConfig config = makeConfig(inputs, built);
-    EXPECT_EQ(config.getNumCss(), static_cast<uint32_t>(kMaxNumCssSensors));
     EXPECT_FALSE(config.getUseWeights());
     EXPECT_FLOAT_EQ(config.getSensorUseThresh(), kSensorUseThresh);
     EXPECT_FLOAT_EQ(config.getControlPeriod(), kControlPeriod);
@@ -49,20 +48,6 @@ TEST(CssWeightedLeastSquaresTest, ConfigAcceptsTheReferenceSetup) {
     for (int i = 0; i < kMaxNumCssSensors; ++i) {
         EXPECT_NEAR(config.getCssNHat_B().row(i).norm(), 1.0F, 1e-6F) << "boresight " << i;
     }
-}
-
-TEST(CssWeightedLeastSquaresTest, ConfigRejectsSensorCountOutOfRange) {
-    const ConstellationInputs inputs = referenceInputs();
-    BuiltConfig built{};
-    ASSERT_TRUE(buildConfig(inputs, built));
-
-    EXPECT_THROW(
-        (void)CssWeightedLeastSquaresConfig::create(0U, built.cssSensors, false, kSensorUseThresh, kControlPeriod),
-        fsw::invalid_argument);
-    EXPECT_THROW(
-        (void)CssWeightedLeastSquaresConfig::create(
-            static_cast<uint32_t>(kMaxNumCssSensors) + 1U, built.cssSensors, false, kSensorUseThresh, kControlPeriod),
-        fsw::invalid_argument);
 }
 
 TEST(CssWeightedLeastSquaresTest, ConfigRejectsBoresightThatIsNotUnit) {
@@ -239,7 +224,6 @@ TEST(CssWeightedLeastSquaresTest, TwoSensorsGiveTheMinimumNormSolution) {
 // report. The estimator returns no heading rather than an arbitrary one.
 TEST(CssWeightedLeastSquaresTest, CollinearBoresightsGiveNoHeading) {
     ConstellationInputs inputs = referenceInputs();
-    inputs.numCss = 3U;
     inputs.boresights = {1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F,
                          1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F};
     BuiltConfig built{};
@@ -288,28 +272,6 @@ TEST(CssWeightedLeastSquaresTest, ReadingAboveTheCosineRangeIsDropped) {
     EXPECT_LT((out.sunHeading_B.cast<double>() - Eigen::Vector3d{1.0, 0.0, 0.0}).norm(), 1e-5);
 }
 
-TEST(CssWeightedLeastSquaresTest, ReadingsBeyondTheSensorCountAreIgnored) {
-    ConstellationInputs inputs = referenceInputs();
-    inputs.numCss = 4U;
-    BuiltConfig built{};
-    ASSERT_TRUE(buildConfig(inputs, built));
-    CssWeightedLeastSquaresAlgorithm algorithm{makeConfig(inputs, built)};
-
-    std::vector<float> readings = readingsFor(Eigen::Vector3d{1.0, 0.0, 0.0});
-    const CssWeightedLeastSquaresOutput clean = algorithm.update(makeReadings(readings));
-
-    // Slots past numCss describe sensors the configuration does not have, so whatever they hold must not
-    // reach the fit.
-    for (size_t i = 4U; i < readings.size(); ++i) {
-        readings[i] = 0.99F;
-    }
-    CssWeightedLeastSquaresAlgorithm second{makeConfig(inputs, built)};
-    const CssWeightedLeastSquaresOutput noisy = second.update(makeReadings(readings));
-
-    EXPECT_EQ(noisy.numActiveCss, clean.numActiveCss);
-    EXPECT_TRUE(noisy.sunHeading_B.isApprox(clean.sunHeading_B));
-}
-
 // The fit forms its products over the full-width operands, which is only correct while the entries past the
 // active count stay zero. A cycle with fewer lit sensors than the one before it is what would expose a
 // stale tail, so run the busy cycle first and check the lean one that follows.
@@ -339,8 +301,7 @@ TEST(CssWeightedLeastSquaresTest, CoverageDroppingBetweenCyclesLeavesNoStaleTail
     // Hold the lean cycle to the conditions that define its fit rather than to a second run of the
     // estimator. A tail hoisted out of update() would be shared by every instance, so two runs of the same
     // code would agree with each other and hide the fault.
-    const ActiveSystem system = activeSystem(inputs.numCss,
-                                             built.boresights,
+    const ActiveSystem system = activeSystem(built.boresights,
                                              built.biases,
                                              inputs.useWeights,
                                              static_cast<double>(inputs.sensorUseThresh),

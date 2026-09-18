@@ -25,8 +25,7 @@ CssWeightedLeastSquaresConfig configFromC(const CssWeightedLeastSquaresConstella
         cssSensors.at(sensor).bias = constellation.cssSensors[sensor].bias;
     }
 
-    return CssWeightedLeastSquaresConfig::create(
-        constellation.numCss, cssSensors, useWeights, sensorUseThresh, controlPeriod);
+    return CssWeightedLeastSquaresConfig::create(cssSensors, useWeights, sensorUseThresh, controlPeriod);
 }
 
 /*! Convert the algorithm's output struct to its C mirror. */

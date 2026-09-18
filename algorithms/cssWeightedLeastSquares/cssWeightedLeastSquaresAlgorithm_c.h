@@ -24,7 +24,8 @@ uint32_t CssWeightedLeastSquaresAlgorithm_getMaxNumCss(void);
 
 /**
  * @brief Report whether a configuration would be accepted by create/setConfig.
- * @param constellation    CSS geometry; numCss in [1, max], near-unit boresights, biases >= 0 (zero disables a sensor).
+ * @param constellation    CSS geometry of every sensor slot; near-unit boresights, biases >= 0 (zero disables a
+ * sensor).
  * @param useWeights       [-] whether to weight the measurements in the least squares fit.
  * @param sensorUseThresh  [-] cosine threshold at or below which a reading is discarded; must lie in [0, 1].
  * @param controlPeriod    [s] time between two update calls; must be finite and > 0.
@@ -39,7 +40,7 @@ bool CssWeightedLeastSquaresAlgorithm_validateConfig(const CssWeightedLeastSquar
 /**
  * @brief Construct a new CssWeightedLeastSquaresAlgorithm instance from the supplied configuration.
  * Validate the values with validateConfig first; invalid input throws.
- * @param constellation    CSS geometry to install; numCss in [1, max], near-unit boresights, biases >= 0.
+ * @param constellation    CSS geometry of every sensor slot to install; near-unit boresights, biases >= 0.
  * @param useWeights       [-] whether to weight the measurements in the least squares fit.
  * @param sensorUseThresh  [-] cosine threshold at or below which a reading is discarded; must lie in [0, 1].
  * @param controlPeriod    [s] time between two update calls; must be finite and > 0.
@@ -62,7 +63,7 @@ void CssWeightedLeastSquaresAlgorithm_destroy(CssWeightedLeastSquaresAlgorithmHa
  *        clear the estimator's runtime state).
  * Validate the values with validateConfig first; invalid input throws.
  * @param self             Pointer to the instance.
- * @param constellation    CSS geometry to install; numCss in [1, max], near-unit boresights, biases >= 0.
+ * @param constellation    CSS geometry of every sensor slot to install; near-unit boresights, biases >= 0.
  * @param useWeights       [-] whether to weight the measurements in the least squares fit.
  * @param sensorUseThresh  [-] cosine threshold at or below which a reading is discarded; must lie in [0, 1].
  * @param controlPeriod    [s] time between two update calls; must be finite and > 0.

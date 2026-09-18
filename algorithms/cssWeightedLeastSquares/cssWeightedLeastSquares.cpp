@@ -42,18 +42,14 @@ void CssWeightedLeastSquares::reset(const uint64_t callTime) {
  */
 CssWeightedLeastSquaresConfig CssWeightedLeastSquares::toConfig() {
     const CSSConfigMsgF32Payload cssConfig = this->cssConfigInMsg();
-    if (cssConfig.nCSS > static_cast<uint32_t>(kMaxNumCssSensors)) {
-        throw std::invalid_argument(
-            "cssWeightedLeastSquares.cssConfigInMsg reported more sensors than kMaxNumCssSensors.");
-    }
 
     std::array<CssConfiguration, kMaxNumCssSensors> cssSensors{};
-    for (uint32_t i = 0; i < cssConfig.nCSS; ++i) {
+    for (uint32_t i = 0; i < kMaxNumCssSensors; ++i) {
         cssSensors.at(i) = CssConfiguration{.nHat_B = cArrayToEigenVector(cssConfig.cssVals[i].nHat_B),
                                             .bias = cssConfig.cssVals[i].CBias};
     }
     return CssWeightedLeastSquaresConfig::create(
-        cssConfig.nCSS, cssSensors, this->useWeights, this->sensorUseThresh, this->controlPeriod);
+        cssSensors, this->useWeights, this->sensorUseThresh, this->controlPeriod);
 }
 
 /*! Re-read the constellation message, re-validate it with the module properties and push the result onto
