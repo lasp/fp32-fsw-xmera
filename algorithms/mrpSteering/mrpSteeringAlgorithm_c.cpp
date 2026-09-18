@@ -18,40 +18,91 @@ InputRwData rwConfigFromC(const MrpSteeringRwConfig_c& c) {
     return out;
 }
 
-MrpSteeringConfig configFromC(const MrpSteeringConfig_c& c) {
+MrpSteeringConfig configFromC(const float K1,
+                              const float K3,
+                              const float omegaMax,
+                              const bool ignoreOuterLoopFeedforward,
+                              const float P,
+                              const float Ki,
+                              const float integralLimit,
+                              const float controlPeriod,
+                              const Vector3f_c& knownTorquePntB_B,
+                              const Matrix3f_c& ISCPntB_B,
+                              const MrpSteeringRwConfig_c* rwConfigurationC) {
     const MrpSteeringControlParameters controlParameters{
-        .K1 = c.controlParameters.K1,
-        .K3 = c.controlParameters.K3,
-        .omegaMax = c.controlParameters.omegaMax,
-        .ignoreOuterLoopFeedforward = c.controlParameters.ignoreOuterLoopFeedforward,
-        .P = c.controlParameters.P,
-        .Ki = c.controlParameters.Ki,
-        .integralLimit = c.controlParameters.integralLimit,
-        .controlPeriod = c.controlParameters.controlPeriod,
+        .K1 = K1,
+        .K3 = K3,
+        .omegaMax = omegaMax,
+        .ignoreOuterLoopFeedforward = ignoreOuterLoopFeedforward,
+        .P = P,
+        .Ki = Ki,
+        .integralLimit = integralLimit,
+        .controlPeriod = controlPeriod,
     };
 
     std::optional<InputRwData> rwConfiguration;
-    if (c.hasRwConfiguration) {
-        rwConfiguration = rwConfigFromC(c.rwConfiguration);
+    if (rwConfigurationC != nullptr) {
+        rwConfiguration = rwConfigFromC(*rwConfigurationC);
     }
 
     return MrpSteeringConfig::create(controlParameters,
-                                     cArrayToEigenVector3<float>(c.knownTorquePntB_B.data),
-                                     c2DArrayToEigenMatrix3(c.ISCPntB_B.data),
+                                     cArrayToEigenVector3<float>(knownTorquePntB_B.data),
+                                     c2DArrayToEigenMatrix3(ISCPntB_B.data),
                                      rwConfiguration);
 }
 }  // namespace
 
 uint32_t MrpSteeringAlgorithm_getMaxNumRw(void) { return kMaxNumRw; }
 
-MrpSteeringAlgorithmHandle* MrpSteeringAlgorithm_create(const MrpSteeringConfig_c* config) {
-    return fsw::createHandle<::MrpSteeringAlgorithm, MrpSteeringAlgorithmHandle>(configFromC(*config));
+MrpSteeringAlgorithmHandle* MrpSteeringAlgorithm_create(float K1,
+                                                        float K3,
+                                                        float omegaMax,
+                                                        bool ignoreOuterLoopFeedforward,
+                                                        float P,
+                                                        float Ki,
+                                                        float integralLimit,
+                                                        float controlPeriod,
+                                                        const Vector3f_c* knownTorquePntB_B,
+                                                        const Matrix3f_c* ISCPntB_B,
+                                                        const MrpSteeringRwConfig_c* rwConfiguration) {
+    return fsw::createHandle<::MrpSteeringAlgorithm, MrpSteeringAlgorithmHandle>(configFromC(K1,
+                                                                                             K3,
+                                                                                             omegaMax,
+                                                                                             ignoreOuterLoopFeedforward,
+                                                                                             P,
+                                                                                             Ki,
+                                                                                             integralLimit,
+                                                                                             controlPeriod,
+                                                                                             *knownTorquePntB_B,
+                                                                                             *ISCPntB_B,
+                                                                                             rwConfiguration));
 }
 
 void MrpSteeringAlgorithm_destroy(MrpSteeringAlgorithmHandle* self) { fsw::deleteHandle<::MrpSteeringAlgorithm>(self); }
 
-void MrpSteeringAlgorithm_setConfig(MrpSteeringAlgorithmHandle* self, const MrpSteeringConfig_c* config) {
-    fsw::fromHandle<::MrpSteeringAlgorithm>(self)->setConfig(configFromC(*config));
+void MrpSteeringAlgorithm_setConfig(MrpSteeringAlgorithmHandle* self,
+                                    float K1,
+                                    float K3,
+                                    float omegaMax,
+                                    bool ignoreOuterLoopFeedforward,
+                                    float P,
+                                    float Ki,
+                                    float integralLimit,
+                                    float controlPeriod,
+                                    const Vector3f_c* knownTorquePntB_B,
+                                    const Matrix3f_c* ISCPntB_B,
+                                    const MrpSteeringRwConfig_c* rwConfiguration) {
+    fsw::fromHandle<::MrpSteeringAlgorithm>(self)->setConfig(configFromC(K1,
+                                                                         K3,
+                                                                         omegaMax,
+                                                                         ignoreOuterLoopFeedforward,
+                                                                         P,
+                                                                         Ki,
+                                                                         integralLimit,
+                                                                         controlPeriod,
+                                                                         *knownTorquePntB_B,
+                                                                         *ISCPntB_B,
+                                                                         rwConfiguration));
 }
 
 void MrpSteeringAlgorithm_reInitialize(MrpSteeringAlgorithmHandle* self) {
