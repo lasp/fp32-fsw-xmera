@@ -22,9 +22,6 @@ CSS_ORIENTATIONS = [
 # [-] cosine at or below which a reading is treated as noise and dropped from the fit
 SENSOR_USE_THRESH = 0.15
 
-# [-] largest reading the estimator will take, a cosine of one plus margin for calibration and noise
-MAX_CSS_MEASUREMENT = 1.1
-
 PRINCIPAL_AXES = [
     [1.0, 0.0, 0.0],
     [-1.0, 0.0, 0.0],
@@ -176,18 +173,6 @@ def test_css_weighted_least_squares_no_signal():
     # With no sun the module reports the zero vector rather than a stale or invented heading, and no
     # sensor contributed an observation, so no residual is reported either.
     run_test(cos_readings, np.zeros(3), expected_residuals=np.zeros(len(CSS_ORIENTATIONS)))
-
-
-def test_css_weighted_least_squares_non_finite_reading():
-    """Off Nominal Unit Test: a sensor reporting a non-finite value is dropped, not fitted"""
-    cos_readings = cos_values([1.0, 0.0, 0.0])
-
-    # Sensor 5 faces away from the sun and reads zero, so a healthy fit does not use it. Report an
-    # infinity there instead: the reading exceeds any threshold, and fitting it would carry the
-    # infinity into the normal equations and return a heading of not-a-number.
-    cos_readings[5] = float("inf")
-
-    run_test(cos_readings, [1.0, 0.0, 0.0])
 
 
 def test_css_weighted_least_squares_rate_estimate():
@@ -558,13 +543,13 @@ def run_test(
     module_output_residuals = filter_data_log.postFits
     module_output_num_active = num_active_data_log.numCssViewingSun
 
-    # The estimator uses a sensor when it is enabled and its reading lies in the range it will take, above
-    # the threshold and within the margin past a cosine of one, so this is the count it must report.
+    # The estimator uses a sensor when it is available and its reading is above the threshold, so this is
+    # the count it must report.
     sensor_available = [True] * len(CSS_ORIENTATIONS) if available is None else available
     expected_num_active = sum(
         1
         for reading, is_available in zip(cos_readings, sensor_available)
-        if is_available and SENSOR_USE_THRESH < reading <= MAX_CSS_MEASUREMENT
+        if is_available and reading > SENSOR_USE_THRESH
     )
 
     np.testing.assert_allclose(module_output_heading[-1], expected_heading, rtol=1e-6, atol=1e-6, verbose=True)

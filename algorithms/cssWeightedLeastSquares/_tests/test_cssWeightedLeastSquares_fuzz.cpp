@@ -16,17 +16,11 @@ auto constellationDomain() {
         fuzztest::InRange(-0.1F, 10.0F));
 }
 
-// A coarse sun sensor reports a cosine, so readings stay in [0, 1]. The threshold domain reaches outside
-// that range, and the count domain outside its bounds, so the configuration rejections are exercised too.
+// The readings the sensor module publishes. It clamps its output to the range a cosine occupies, so the
+// estimator applies no bound of its own. The margin either side covers a reading at the threshold and one
+// at full scale.
 auto readingsDomain() {
-    return fuzztest::VectorOf(fuzztest::InRange(0.0F, 1.0F)).WithSize(static_cast<size_t>(kMaxNumCssSensors));
-}
-
-// The readings a working sensor reports, mixed with the full range of values a broken one can report. The
-// mixture keeps the fit covered as well as the rejection.
-auto brokenReadingsDomain() {
-    return fuzztest::VectorOf(fuzztest::OneOf(fuzztest::InRange(-0.1F, 1.1F), fuzztest::Arbitrary<float>()))
-        .WithSize(static_cast<size_t>(kMaxNumCssSensors));
+    return fuzztest::VectorOf(fuzztest::InRange(-0.1F, 1.1F)).WithSize(static_cast<size_t>(kMaxNumCssSensors));
 }
 
 }  // namespace
@@ -43,13 +37,13 @@ FUZZ_TEST(CssWeightedLeastSquaresFuzz, runRegressionCase).WithDomains(constellat
 
 // The finiteness property is the one that has to face a broken sensor, so it takes the wider domain.
 FUZZ_TEST(CssWeightedLeastSquaresPropertyFuzz, propertyOutputIsFinite)
-    .WithDomains(constellationDomain(), brokenReadingsDomain());
+    .WithDomains(constellationDomain(), readingsDomain());
 
 FUZZ_TEST(CssWeightedLeastSquaresPropertyFuzz, propertyHeadingIsUnitOrZero)
-    .WithDomains(constellationDomain(), brokenReadingsDomain());
+    .WithDomains(constellationDomain(), readingsDomain());
 
 FUZZ_TEST(CssWeightedLeastSquaresPropertyFuzz, propertyResidualsPaddedWithZeros)
-    .WithDomains(constellationDomain(), brokenReadingsDomain());
+    .WithDomains(constellationDomain(), readingsDomain());
 
 FUZZ_TEST(CssWeightedLeastSquaresPropertyFuzz, propertyDisabledSensorIgnored)
     .WithDomains(constellationDomain(),

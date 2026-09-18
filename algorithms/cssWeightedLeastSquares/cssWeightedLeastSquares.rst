@@ -144,15 +144,12 @@ Mathematical Formulation
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
 Each cycle, the algorithm selects the active sensors. A sensor is active when it is available and its reading
-is more than ``sensorUseThresh`` and not more than 1.1. ``cssAvailInMsg`` gives the availability of each sensor.
+is more than ``sensorUseThresh``. ``cssAvailInMsg`` gives the availability of each sensor.
 Every sensor is available when that message is not connected. An unavailable sensor adds an observation that no
 heading can explain. It also increases the count of the sensors that point at the sun.
 
-A cosine cannot be more than one. The upper bound is more than one, because the calibration and the noise on a
-sensor that points at the sun can increase its reading. The algorithm must keep that reading. A reading that is
-more than the bound is not a measurement. The algorithm rejects it, because its magnitude makes the values in the
-normal equations too large. The same bound rejects a reading that is not a number, because all comparisons with
-such a reading are false.
+The sensor module clamps its output to the range a cosine occupies, so the estimator applies no bound of its
+own and takes each reading as it arrives.
 
 For each active sensor :math:`i`, the algorithm makes a row of the observation matrix from the boresight. It
 makes the entry of the observation vector from the measurement:

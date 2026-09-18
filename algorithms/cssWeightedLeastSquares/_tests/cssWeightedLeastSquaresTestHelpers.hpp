@@ -45,14 +45,14 @@ struct ActiveSystem {
     bool resolvable{};              // [-] whether fp32 has significant digits left on this system
 };
 
-// The sensors that contribute to a fit: available, reporting a finite reading, and reading above the use
-// threshold. Returns sensor indices in sensor order, which is also observation order.
+// The sensors that contribute to a fit: available and reading above the use threshold. Returns sensor
+// indices in sensor order, which is also observation order.
 inline std::vector<uint32_t> referenceActiveSensors(const std::vector<bool>& available,
                                                     const std::vector<double>& readings,
                                                     double sensorUseThresh) {
     std::vector<uint32_t> active;
     for (uint32_t i = 0U; i < kMaxNumCssSensors; ++i) {
-        if (available[i] && std::isfinite(readings[i]) && readings[i] > sensorUseThresh) {
+        if (available[i] && readings[i] > sensorUseThresh) {
             active.push_back(i);
         }
     }

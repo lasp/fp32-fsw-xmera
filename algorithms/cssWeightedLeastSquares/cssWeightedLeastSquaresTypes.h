@@ -35,9 +35,9 @@ typedef struct {
  * @brief Plain-old-data mirror of the estimator's per-cycle measurement inputs.
  */
 typedef struct {
-    float cosValues[MAX_NUM_CSS_SENSORS]; /*!< [-] per-sensor cosine readings, indexed by sensor. A reading
-                                               outside the range the estimator takes, one above 1.1 or not
-                                               a number, is dropped with the ones below the threshold */
+    float cosValues[MAX_NUM_CSS_SENSORS]; /*!< [-] per-sensor cosine readings, indexed by sensor. The sensor
+                                               module bounds them; a reading at or below the threshold is
+                                               dropped */
 } CssWeightedLeastSquaresInputs_c;
 
 /**

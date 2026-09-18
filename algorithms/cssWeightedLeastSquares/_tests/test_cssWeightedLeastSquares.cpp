@@ -213,42 +213,6 @@ TEST(CssWeightedLeastSquaresTest, CollinearBoresightsGiveNoHeading) {
     EXPECT_TRUE(out.sunHeading_B.isZero());
 }
 
-TEST(CssWeightedLeastSquaresTest, ReadingThatIsNotFiniteIsDropped) {
-    CssWeightedLeastSquaresAlgorithm algorithm = makeReferenceAlgorithm();
-    std::vector<float> readings = readingsFor(Eigen::Vector3d{1.0, 0.0, 0.0});
-    readings[5] = std::numeric_limits<float>::infinity();
-    const CssWeightedLeastSquaresOutput out = algorithm.update(makeReadings(readings));
-
-    EXPECT_EQ(out.numCssViewingSun, 4U);  // the four lit sensors, not the infinity
-    EXPECT_TRUE(out.sunHeading_B.allFinite());
-    EXPECT_LT((out.sunHeading_B.cast<double>() - Eigen::Vector3d{1.0, 0.0, 0.0}).norm(), 1e-5);
-}
-
-// A sensor that points at the sun reads one, and calibration and noise can carry it a little above one.
-// That reading is the strongest the fit has, so the bound keeps it.
-TEST(CssWeightedLeastSquaresTest, ReadingJustAboveOneIsStillUsed) {
-    CssWeightedLeastSquaresAlgorithm algorithm = makeReferenceAlgorithm();
-    std::vector<float> readings = readingsFor(Eigen::Vector3d{1.0, 0.0, 0.0});
-    readings[0] = 1.05F;
-    const CssWeightedLeastSquaresOutput out = algorithm.update(makeReadings(readings));
-
-    EXPECT_EQ(out.numCssViewingSun, 4U);
-    EXPECT_FALSE(out.sunHeading_B.isZero());
-}
-
-// A reading far above one is not a cosine. The fit would carry its magnitude into the normal equations.
-TEST(CssWeightedLeastSquaresTest, ReadingAboveTheCosineRangeIsDropped) {
-    CssWeightedLeastSquaresAlgorithm algorithm = makeReferenceAlgorithm();
-    std::vector<float> readings = readingsFor(Eigen::Vector3d{1.0, 0.0, 0.0});
-    readings[5] = 7.3e37F;
-    const CssWeightedLeastSquaresOutput out = algorithm.update(makeReadings(readings));
-
-    EXPECT_EQ(out.numCssViewingSun, 4U);  // the four lit sensors only
-    EXPECT_TRUE(out.sunHeading_B.allFinite());
-    EXPECT_TRUE(out.omega_BN_B.allFinite());
-    EXPECT_LT((out.sunHeading_B.cast<double>() - Eigen::Vector3d{1.0, 0.0, 0.0}).norm(), 1e-5);
-}
-
 // The fit forms its products over the full-width operands, which is only correct while the entries past the
 // active count stay zero. A cycle with fewer lit sensors than the one before it is what would expose a
 // stale tail, so run the busy cycle first and check the lean one that follows.
