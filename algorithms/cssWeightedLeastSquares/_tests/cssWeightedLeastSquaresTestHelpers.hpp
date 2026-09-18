@@ -63,7 +63,7 @@ inline std::vector<uint32_t> referenceActiveSensors(const std::vector<bool>& ava
 
 inline ActiveSystem activeSystem(const std::vector<Eigen::Vector3d>& boresights,
                                  const std::vector<bool>& available,
-                                 bool useWeights,
+                                 bool useMeasurementsAsWeights,
                                  double sensorUseThresh,
                                  const std::vector<double>& readings) {
     ActiveSystem system{};
@@ -78,7 +78,7 @@ inline ActiveSystem activeSystem(const std::vector<Eigen::Vector3d>& boresights,
         system.y(observation) = readings[sensor];
         // With one or two observations the fit reproduces the measurements exactly, so the weighting drops
         // out of the optimality condition and the same expression covers every branch.
-        system.weights(observation) = useWeights ? readings[sensor] : 1.0;
+        system.weights(observation) = useMeasurementsAsWeights ? readings[sensor] : 1.0;
     }
 
     const Eigen::Matrix3d normalMatrix = system.H.transpose() * system.weights.asDiagonal() * system.H;
@@ -151,7 +151,7 @@ inline void expectFitIsOptimal(const ActiveSystem& system,
 struct ConstellationInputs {
     std::vector<float> boresights;  // kMaxNumCssSensors * 3 components, normalized on the way in
     std::vector<bool> available;    // kMaxNumCssSensors entries, false excludes a sensor
-    bool useWeights{};
+    bool useMeasurementsAsWeights{};
     float sensorUseThresh{};
     float controlPeriod{};
 };
@@ -200,7 +200,7 @@ inline bool buildConfig(const ConstellationInputs& inputs, BuiltConfig& built) {
 
 inline CssWeightedLeastSquaresConfig makeConfig(const ConstellationInputs& inputs, const BuiltConfig& built) {
     return CssWeightedLeastSquaresConfig::create(
-        built.cssSensors, inputs.useWeights, inputs.sensorUseThresh, inputs.controlPeriod);
+        built.cssSensors, inputs.useMeasurementsAsWeights, inputs.sensorUseThresh, inputs.controlPeriod);
 }
 
 // Pads a reading vector out to the full sensor array.
@@ -263,7 +263,7 @@ inline void runRegressionCase(ConstellationInputs inputs, std::vector<float> rea
 
     const ActiveSystem system = activeSystem(built.boresights,
                                              built.available,
-                                             inputs.useWeights,
+                                             inputs.useMeasurementsAsWeights,
                                              static_cast<double>(inputs.sensorUseThresh),
                                              toDouble(readings));
 
@@ -400,7 +400,7 @@ inline void propertyRotationEquivariance(ConstellationInputs inputs,
     // regression does.
     const ActiveSystem system = activeSystem(built.boresights,
                                              built.available,
-                                             inputs.useWeights,
+                                             inputs.useMeasurementsAsWeights,
                                              static_cast<double>(inputs.sensorUseThresh),
                                              toDouble(readings));
     const auto epsilon = static_cast<float>(std::numeric_limits<float>::epsilon());

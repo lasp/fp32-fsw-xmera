@@ -26,14 +26,14 @@ uint32_t CssWeightedLeastSquaresAlgorithm_getMaxNumCss(void);
  * @brief Report whether a configuration would be accepted by create/setConfig.
  * @param constellation    CSS geometry of every sensor slot; near-unit boresights, biases >= 0 (zero disables a
  * sensor).
- * @param useWeights       [-] whether to weight the measurements in the least squares fit.
+ * @param useMeasurementsAsWeights       [-] whether to weight the measurements in the least squares fit.
  * @param sensorUseThresh  [-] cosine threshold at or below which a reading is discarded; must lie in [0, 1].
  * @param controlPeriod    [s] time between two update calls; must be finite and > 0.
  * @return true when the configuration is valid. Never throws, so it can guard the throwing
  *         create/setConfig from an invalid configuration.
  */
 bool CssWeightedLeastSquaresAlgorithm_validateConfig(const CssWeightedLeastSquaresConstellation_c* constellation,
-                                                     bool useWeights,
+                                                     bool useMeasurementsAsWeights,
                                                      float sensorUseThresh,
                                                      float controlPeriod);
 
@@ -42,14 +42,14 @@ bool CssWeightedLeastSquaresAlgorithm_validateConfig(const CssWeightedLeastSquar
  * Validate the values with validateConfig first; invalid input throws.
  * @param constellation    CSS geometry of every sensor slot to install; an available sensor needs a near-unit
  * boresight.
- * @param useWeights       [-] whether to weight the measurements in the least squares fit.
+ * @param useMeasurementsAsWeights       [-] whether to weight the measurements in the least squares fit.
  * @param sensorUseThresh  [-] cosine threshold at or below which a reading is discarded; must lie in [0, 1].
  * @param controlPeriod    [s] time between two update calls; must be finite and > 0.
  * @return Pointer to a new CssWeightedLeastSquaresAlgorithm (must be destroyed).
  */
 CssWeightedLeastSquaresAlgorithmHandle* CssWeightedLeastSquaresAlgorithm_create(
     const CssWeightedLeastSquaresConstellation_c* constellation,
-    bool useWeights,
+    bool useMeasurementsAsWeights,
     float sensorUseThresh,
     float controlPeriod);
 
@@ -66,13 +66,13 @@ void CssWeightedLeastSquaresAlgorithm_destroy(CssWeightedLeastSquaresAlgorithmHa
  * @param self             Pointer to the instance.
  * @param constellation    CSS geometry of every sensor slot to install; an available sensor needs a near-unit
  * boresight.
- * @param useWeights       [-] whether to weight the measurements in the least squares fit.
+ * @param useMeasurementsAsWeights       [-] whether to weight the measurements in the least squares fit.
  * @param sensorUseThresh  [-] cosine threshold at or below which a reading is discarded; must lie in [0, 1].
  * @param controlPeriod    [s] time between two update calls; must be finite and > 0.
  */
 void CssWeightedLeastSquaresAlgorithm_setConfig(CssWeightedLeastSquaresAlgorithmHandle* self,
                                                 const CssWeightedLeastSquaresConstellation_c* constellation,
-                                                bool useWeights,
+                                                bool useMeasurementsAsWeights,
                                                 float sensorUseThresh,
                                                 float controlPeriod);
 

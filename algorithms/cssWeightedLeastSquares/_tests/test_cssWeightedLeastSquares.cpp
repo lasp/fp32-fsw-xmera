@@ -13,7 +13,7 @@ TEST(CssWeightedLeastSquaresTest, RegressionOverDeterminedFit) {
 
 TEST(CssWeightedLeastSquaresTest, RegressionWeightedFit) {
     ConstellationInputs inputs = referenceInputs();
-    inputs.useWeights = true;
+    inputs.useMeasurementsAsWeights = true;
     runRegressionCase(inputs, readingsFor(Eigen::Vector3d{0.0, 1.0, 0.0}));
 }
 
@@ -34,7 +34,7 @@ TEST(CssWeightedLeastSquaresTest, ConfigAcceptsTheReferenceSetup) {
     ASSERT_TRUE(buildConfig(inputs, built));
 
     const CssWeightedLeastSquaresConfig config = makeConfig(inputs, built);
-    EXPECT_FALSE(config.getUseWeights());
+    EXPECT_FALSE(config.getUseMeasurementsAsWeights());
     EXPECT_FLOAT_EQ(config.getSensorUseThresh(), kSensorUseThresh);
     EXPECT_FLOAT_EQ(config.getControlPeriod(), kControlPeriod);
 
@@ -148,10 +148,10 @@ TEST(CssWeightedLeastSquaresTest, PropertyRateOrthogonalToHeading) {
 namespace {
 
 // Builds the estimator over the reference constellation with the given tuning.
-CssWeightedLeastSquaresAlgorithm makeReferenceAlgorithm(bool useWeights = false,
+CssWeightedLeastSquaresAlgorithm makeReferenceAlgorithm(bool useMeasurementsAsWeights = false,
                                                         const std::vector<bool>& available = allAvailable()) {
     ConstellationInputs inputs = referenceInputs();
-    inputs.useWeights = useWeights;
+    inputs.useMeasurementsAsWeights = useMeasurementsAsWeights;
     inputs.available = available;
     BuiltConfig built{};
     EXPECT_TRUE(buildConfig(inputs, built));
@@ -242,7 +242,7 @@ TEST(CssWeightedLeastSquaresTest, CollinearBoresightsGiveNoHeading) {
 // what would expose a weight left behind, so run the busy cycle first and check the lean one that follows.
 TEST(CssWeightedLeastSquaresTest, CoverageDroppingBetweenCyclesLeavesNoStaleTail) {
     ConstellationInputs inputs = referenceInputs();
-    inputs.useWeights = true;
+    inputs.useMeasurementsAsWeights = true;
     BuiltConfig built{};
     ASSERT_TRUE(buildConfig(inputs, built));
     CssWeightedLeastSquaresAlgorithm algorithm{makeConfig(inputs, built)};
@@ -268,7 +268,7 @@ TEST(CssWeightedLeastSquaresTest, CoverageDroppingBetweenCyclesLeavesNoStaleTail
     // code would agree with each other and hide the fault.
     const ActiveSystem system = activeSystem(built.boresights,
                                              built.available,
-                                             inputs.useWeights,
+                                             inputs.useMeasurementsAsWeights,
                                              static_cast<double>(inputs.sensorUseThresh),
                                              toDouble(fewLit));
     ASSERT_TRUE(system.resolvable);

@@ -41,12 +41,12 @@ class CssWeightedLeastSquaresConfig final {
     /*! Build a validated configuration.
         @return the validated configuration
         @param cssSensors     [-] boresight and availability of every sensor slot
-        @param useWeights     [-] whether to weight the measurements in the least squares fit
+        @param useMeasurementsAsWeights [-] whether the reading of each sensor becomes its own weight
         @param sensorUseThresh [-] cosine threshold at or below which a reading is discarded
         @param controlPeriod  [s] time between two update() calls, the rate estimate's time step
      */
     static CssWeightedLeastSquaresConfig create(const std::array<CssConfiguration, kMaxNumCssSensors>& cssSensors,
-                                                const bool useWeights,
+                                                const bool useMeasurementsAsWeights,
                                                 const float sensorUseThresh,
                                                 const float controlPeriod) {
         if (!isValidCssSensors(cssSensors)) {
@@ -72,7 +72,7 @@ class CssWeightedLeastSquaresConfig final {
             }
         }
 
-        return {cssNHat_B, cssAvailability, useWeights, sensorUseThresh, controlPeriod};
+        return {cssNHat_B, cssAvailability, useMeasurementsAsWeights, sensorUseThresh, controlPeriod};
     }
 
     static bool isValidCssSensors(const std::array<CssConfiguration, kMaxNumCssSensors>& cssSensors) {
@@ -105,26 +105,26 @@ class CssWeightedLeastSquaresConfig final {
 
     const Eigen::Matrix<float, kMaxNumCssSensors, 3>& getCssNHat_B() const { return cssNHat_B; }
     const std::array<fsw::DeviceAvailability, kMaxNumCssSensors>& getCssAvailability() const { return cssAvailability; }
-    bool getUseWeights() const { return useWeights; }
+    bool getUseMeasurementsAsWeights() const { return useMeasurementsAsWeights; }
     float getSensorUseThresh() const { return sensorUseThresh; }
     float getControlPeriod() const { return controlPeriod; }
 
    private:
     CssWeightedLeastSquaresConfig(const Eigen::Matrix<float, kMaxNumCssSensors, 3>& cssNHat_B,
                                   const std::array<fsw::DeviceAvailability, kMaxNumCssSensors>& cssAvailability,
-                                  const bool useWeights,
+                                  const bool useMeasurementsAsWeights,
                                   // NOLINTNEXTLINE(bugprone-easily-swappable-parameters) -- create() validates by name.
                                   const float sensorUseThresh,
                                   const float controlPeriod)
         : cssNHat_B(cssNHat_B),
           cssAvailability(cssAvailability),
-          useWeights(useWeights),
+          useMeasurementsAsWeights(useMeasurementsAsWeights),
           sensorUseThresh(sensorUseThresh),
           controlPeriod(controlPeriod) {}
 
     Eigen::Matrix<float, kMaxNumCssSensors, 3> cssNHat_B = Eigen::Matrix<float, kMaxNumCssSensors, 3>::Zero();
     std::array<fsw::DeviceAvailability, kMaxNumCssSensors> cssAvailability{};
-    bool useWeights{};
+    bool useMeasurementsAsWeights{};
     float sensorUseThresh{};
     float controlPeriod{};
 };
@@ -161,9 +161,10 @@ class CssWeightedLeastSquaresAlgorithm final {
     /*! Solve the least squares fit for the sun heading.
         @return the fit, or nothing when the normal matrix is singular
         @param numCssViewingSun The count on input measurements
-        @param weights      The diagonal of the measurement weighting matrix; only applied when more
-                            than two measurements are available, as the one- and two-measurement
-                            fits are exactly determined
+        @param weights      The diagonal of the weighting matrix, indexed by sensor. A sensor that takes
+                            no part this cycle carries a weight of zero. The values reach the fit only when
+                            more than two sensors see the sun, because the one- and two-measurement fits
+                            are exactly determined
         @param H            The predicted pointing vector for each measurement, one per row
         @param y            The reading of each sensor, indexed by sensor
      */

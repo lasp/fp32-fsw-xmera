@@ -71,11 +71,11 @@ built and can be edited between builds.
       - Units
       - Bounds
       - Description
-    * - useWeights
+    * - useMeasurementsAsWeights
       - bool
       - \-
       - \-
-      - Whether to weight the measurements in the least squares fit
+      - Whether the reading of each sensor becomes its own weight in the least squares fit
     * - sensorUseThresh
       - float
       - \-
@@ -128,7 +128,7 @@ runtime state.
 .. code-block:: python
 
     module = cssWeightedLeastSquaresF32.CssWeightedLeastSquares()
-    module.useWeights = True
+    module.useMeasurementsAsWeights = True
     module.sensorUseThresh = 0.15
     module.controlPeriod = 0.5
     module.cssDataInMsg.subscribeTo(cssDataInMsg)
@@ -166,14 +166,15 @@ Sun Heading Evaluation
 
 The fit depends on how many sensors are active, because the problem is over-determined only from three measurements up:
 
-- **Three or more active sensors.** A true weighted least squares fit, where the weights are the measurements
-  themselves so that the best-illuminated sensors are trusted most:
+- **Three or more active sensors.** A weighted least squares fit:
 
   .. math::
 
       \mathbf{d} = \left( \mathbf{H}^T \mathbf{W} \mathbf{H} \right)^{-1} \mathbf{H}^T \mathbf{W} \mathbf{y}
 
-  With ``useWeights`` false, :math:`\mathbf{W}` is the identity.
+  With ``useMeasurementsAsWeights`` set, the weight of each measurement is the reading of its own sensor.
+  With the flag clear, :math:`\mathbf{W}` is the identity. The paragraphs below give the effect of the
+  flag.
 
 - **Two active sensors.** The system is underdetermined, so the minimum-norm solution is taken. The weights carry no
   information in this case and are not applied:
@@ -194,6 +195,14 @@ The fit depends on how many sensors are active, because the problem is over-dete
 
 The fit is then normalized to give the reported heading. The post-fit residuals are computed against the
 **unnormalized** fit, before normalization.
+
+Effect of the Measurement Weights
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The weights decrease the effect of a reading from a sensor at a large angle to the sun. ``sensorUseThresh``
+removes such a reading completely, and the weights decrease it smoothly. The two controls thus do the same
+work. The weights help most when the threshold is low, because the threshold then keeps readings that give
+little information. At the default threshold the weighted fit and the unweighted fit agree closely.
 
 Partial Angular Velocity Evaluation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

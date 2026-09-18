@@ -55,7 +55,7 @@ CssWeightedLeastSquaresConfig CssWeightedLeastSquares::toConfig() {
         }
     }
     return CssWeightedLeastSquaresConfig::create(
-        cssSensors, this->useWeights, this->sensorUseThresh, this->controlPeriod);
+        cssSensors, this->useMeasurementsAsWeights, this->sensorUseThresh, this->controlPeriod);
 }
 
 /*! Re-read the constellation message, re-validate it with the module properties and push the result onto

@@ -15,7 +15,7 @@ namespace {
     element rather than mapped, because the C POD stores them as a two-dimensional array whose row
     layout must not be reinterpreted. */
 CssWeightedLeastSquaresConfig configFromC(const CssWeightedLeastSquaresConstellation_c& constellation,
-                                          const bool useWeights,
+                                          const bool useMeasurementsAsWeights,
                                           const float sensorUseThresh,
                                           const float controlPeriod) {
     std::array<CssConfiguration, kMaxNumCssSensors> cssSensors{};
@@ -25,7 +25,7 @@ CssWeightedLeastSquaresConfig configFromC(const CssWeightedLeastSquaresConstella
         cssSensors.at(sensor).availability = fsw::toDeviceAvailability(constellation.cssSensors[sensor].availability);
     }
 
-    return CssWeightedLeastSquaresConfig::create(cssSensors, useWeights, sensorUseThresh, controlPeriod);
+    return CssWeightedLeastSquaresConfig::create(cssSensors, useMeasurementsAsWeights, sensorUseThresh, controlPeriod);
 }
 
 /*! Convert the algorithm's output struct to its C mirror. */
@@ -43,11 +43,11 @@ CssWeightedLeastSquaresOutput_c outputToC(const CssWeightedLeastSquaresOutput& o
 uint32_t CssWeightedLeastSquaresAlgorithm_getMaxNumCss(void) { return kMaxNumCssSensors; }
 
 bool CssWeightedLeastSquaresAlgorithm_validateConfig(const CssWeightedLeastSquaresConstellation_c* constellation,
-                                                     const bool useWeights,
+                                                     const bool useMeasurementsAsWeights,
                                                      const float sensorUseThresh,
                                                      const float controlPeriod) {
     try {
-        (void)configFromC(*constellation, useWeights, sensorUseThresh, controlPeriod);
+        (void)configFromC(*constellation, useMeasurementsAsWeights, sensorUseThresh, controlPeriod);
         return true;
     } catch (const fsw::invalid_argument&) {
         return false;
@@ -56,11 +56,11 @@ bool CssWeightedLeastSquaresAlgorithm_validateConfig(const CssWeightedLeastSquar
 
 CssWeightedLeastSquaresAlgorithmHandle* CssWeightedLeastSquaresAlgorithm_create(
     const CssWeightedLeastSquaresConstellation_c* constellation,
-    const bool useWeights,
+    const bool useMeasurementsAsWeights,
     const float sensorUseThresh,
     const float controlPeriod) {
     return fsw::createHandle<::CssWeightedLeastSquaresAlgorithm, CssWeightedLeastSquaresAlgorithmHandle>(
-        configFromC(*constellation, useWeights, sensorUseThresh, controlPeriod));
+        configFromC(*constellation, useMeasurementsAsWeights, sensorUseThresh, controlPeriod));
 }
 
 void CssWeightedLeastSquaresAlgorithm_destroy(CssWeightedLeastSquaresAlgorithmHandle* self) {
@@ -69,11 +69,11 @@ void CssWeightedLeastSquaresAlgorithm_destroy(CssWeightedLeastSquaresAlgorithmHa
 
 void CssWeightedLeastSquaresAlgorithm_setConfig(CssWeightedLeastSquaresAlgorithmHandle* self,
                                                 const CssWeightedLeastSquaresConstellation_c* constellation,
-                                                const bool useWeights,
+                                                const bool useMeasurementsAsWeights,
                                                 const float sensorUseThresh,
                                                 const float controlPeriod) {
     fsw::fromHandle<::CssWeightedLeastSquaresAlgorithm>(self)->setConfig(
-        configFromC(*constellation, useWeights, sensorUseThresh, controlPeriod));
+        configFromC(*constellation, useMeasurementsAsWeights, sensorUseThresh, controlPeriod));
 }
 
 void CssWeightedLeastSquaresAlgorithm_reInitialize(CssWeightedLeastSquaresAlgorithmHandle* self) {

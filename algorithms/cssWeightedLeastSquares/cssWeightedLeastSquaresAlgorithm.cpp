@@ -109,7 +109,7 @@ CssWeightedLeastSquaresOutput CssWeightedLeastSquaresAlgorithm::update(
     for (uint32_t i = 0; i < kMaxNumCssSensors; i = i + 1) {
         if (this->cfg.getCssAvailability().at(i) == fsw::DeviceAvailability::Available &&
             cosValues(i) > this->cfg.getSensorUseThresh()) {
-            weights(i) = this->cfg.getUseWeights() ? cosValues(i) : 1.0F;
+            weights(i) = this->cfg.getUseMeasurementsAsWeights() ? cosValues(i) : 1.0F;
             activeSensors.at(numCssViewingSun) = i;
             numCssViewingSun = numCssViewingSun + 1;
         }
@@ -184,8 +184,9 @@ Eigen::Vector<float, kMaxNumCssSensors> CssWeightedLeastSquaresAlgorithm::comput
 /*! This method computes a least squares fit with the given parameters.
  @return the fit, or nothing when the normal matrix is singular
  @param numCssViewingSun The count on input measurements
- @param weights The diagonal of the measurement weighting matrix; only applied when more than two
-        measurements are available, as the one- and two-measurement fits are exactly determined
+ @param weights The diagonal of the weighting matrix, indexed by sensor. A sensor that takes no part this
+        cycle carries a weight of zero. The values reach the fit only when more than two sensors see the sun,
+        because the one- and two-measurement fits are exactly determined
  @param H The predicted pointing vector for each measurement, one per row
  @param y the reading of each sensor, indexed by sensor
  */

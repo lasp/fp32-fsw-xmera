@@ -95,7 +95,7 @@ def test_css_weighted_least_squares_nominal(sun_heading_B):
     # That symmetry also makes the weights drop out of the normal equations, so the weighted and
     # unweighted fits agree and both paths can be checked against the same truth.
     run_test(cos_readings, sun_heading_B, expected_residuals=expected_residuals)
-    run_test(cos_readings, sun_heading_B, expected_residuals=expected_residuals, use_weights=True)
+    run_test(cos_readings, sun_heading_B, expected_residuals=expected_residuals, use_measurements_as_weights=True)
 
 
 def test_css_weighted_least_squares_two_sensor_coverage():
@@ -191,7 +191,7 @@ def test_css_weighted_least_squares_rate_estimate():
 
     config_in_msg = css_config_msg()
     module.cssConfigInMsg.subscribeTo(config_in_msg)
-    module.useWeights = False
+    module.useMeasurementsAsWeights = False
     module.sensorUseThresh = SENSOR_USE_THRESH
     module.controlPeriod = macros.NANO2SEC * test_process_rate
 
@@ -257,7 +257,7 @@ def test_css_weighted_least_squares_slow_rate():
 
     config_in_msg = css_config_msg()
     module.cssConfigInMsg.subscribeTo(config_in_msg)
-    module.useWeights = False
+    module.useMeasurementsAsWeights = False
     module.sensorUseThresh = SENSOR_USE_THRESH
     module.controlPeriod = macros.NANO2SEC * test_process_rate
 
@@ -308,7 +308,7 @@ def test_css_weighted_least_squares_heading_reversal():
 
     config_in_msg = css_config_msg()
     module.cssConfigInMsg.subscribeTo(config_in_msg)
-    module.useWeights = False
+    module.useMeasurementsAsWeights = False
     module.sensorUseThresh = SENSOR_USE_THRESH
     module.controlPeriod = macros.NANO2SEC * test_process_rate
 
@@ -353,7 +353,7 @@ def test_css_weighted_least_squares_reinitialize():
 
     config_in_msg = css_config_msg()
     module.cssConfigInMsg.subscribeTo(config_in_msg)
-    module.useWeights = False
+    module.useMeasurementsAsWeights = False
     module.sensorUseThresh = SENSOR_USE_THRESH
     module.controlPeriod = macros.NANO2SEC * test_process_rate
 
@@ -399,7 +399,7 @@ def test_css_weighted_least_squares_reconfigure():
 
     config_in_msg = css_config_msg()
     module.cssConfigInMsg.subscribeTo(config_in_msg)
-    module.useWeights = False
+    module.useMeasurementsAsWeights = False
     module.sensorUseThresh = SENSOR_USE_THRESH
     module.controlPeriod = macros.NANO2SEC * test_process_rate
 
@@ -447,7 +447,7 @@ def test_css_weighted_least_squares_decreasing_coverage():
 
     config_in_msg = css_config_msg()
     module.cssConfigInMsg.subscribeTo(config_in_msg)
-    module.useWeights = True
+    module.useMeasurementsAsWeights = True
     module.sensorUseThresh = SENSOR_USE_THRESH
     module.controlPeriod = macros.NANO2SEC * test_process_rate
 
@@ -494,7 +494,7 @@ def run_test(
     cos_readings,
     expected_heading,
     expected_residuals=None,
-    use_weights=False,
+    use_measurements_as_weights=False,
     available=None,
 ):
     unit_task_name = "unitTask"
@@ -515,7 +515,7 @@ def run_test(
     if available is not None:
         availability_in_msg = css_availability_msg(available)
         module.cssAvailInMsg.subscribeTo(availability_in_msg)
-    module.useWeights = use_weights
+    module.useMeasurementsAsWeights = use_measurements_as_weights
     module.sensorUseThresh = SENSOR_USE_THRESH
     module.controlPeriod = macros.NANO2SEC * test_process_rate
 
@@ -559,7 +559,7 @@ def run_test(
         np.testing.assert_allclose(
             module_output_residuals[-1][: len(CSS_ORIENTATIONS)], expected_residuals, rtol=0, atol=1e-6, verbose=True
         )
-    np.testing.assert_array_equal(module.useWeights, use_weights)
+    np.testing.assert_array_equal(module.useMeasurementsAsWeights, use_measurements_as_weights)
     np.testing.assert_allclose(module.sensorUseThresh, SENSOR_USE_THRESH, rtol=0, atol=1e-7, verbose=True)
 
 
