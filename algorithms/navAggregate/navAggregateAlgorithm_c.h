@@ -28,14 +28,41 @@ uint32_t NavAggregateAlgorithm_getMaxAggNavMsg(void);
  * @note The accepted value ranges are defined by NavAggregateConfig::create; this predicate
  *       reports whether a candidate set would be accepted, without throwing.
  */
-bool NavAggregateAlgorithm_validateConfig(const NavAggregateConfig_c* config);
+bool NavAggregateAlgorithm_validateConfig(uint32_t attTimeIdx,
+                                          uint32_t attIdx,
+                                          uint32_t rateIdx,
+                                          uint32_t sunIdx,
+                                          uint32_t attMsgCount,
+                                          uint32_t transTimeIdx,
+                                          uint32_t posIdx,
+                                          uint32_t velIdx,
+                                          uint32_t dvIdx,
+                                          uint32_t transMsgCount);
 
 /**
  * @brief Construct a new NavAggregateAlgorithm instance from the supplied configuration.
- * @param config Pointer to the configuration to apply (validated; throws on invalid input).
+ * @param attTimeIdx    [-] index of the message providing the attitude message time.
+ * @param attIdx        [-] index of the message providing the inertial MRP.
+ * @param rateIdx       [-] index of the message providing the attitude rate.
+ * @param sunIdx        [-] index of the message providing the sun-pointing vector.
+ * @param attMsgCount   [-] number of attitude messages available as inputs.
+ * @param transTimeIdx  [-] index of the message providing the translation message time.
+ * @param posIdx        [-] index of the message providing the inertial position.
+ * @param velIdx        [-] index of the message providing the inertial velocity.
+ * @param dvIdx         [-] index of the message providing the accumulated delta-v.
+ * @param transMsgCount [-] number of translation messages available as inputs.
  * @return Pointer to a new NavAggregateAlgorithm (must be destroyed).
  */
-NavAggregateAlgorithmHandle* NavAggregateAlgorithm_create(const NavAggregateConfig_c* config);
+NavAggregateAlgorithmHandle* NavAggregateAlgorithm_create(uint32_t attTimeIdx,
+                                                          uint32_t attIdx,
+                                                          uint32_t rateIdx,
+                                                          uint32_t sunIdx,
+                                                          uint32_t attMsgCount,
+                                                          uint32_t transTimeIdx,
+                                                          uint32_t posIdx,
+                                                          uint32_t velIdx,
+                                                          uint32_t dvIdx,
+                                                          uint32_t transMsgCount);
 
 /**
  * @brief Destroy a previously created NavAggregateAlgorithm.
@@ -46,9 +73,28 @@ void NavAggregateAlgorithm_destroy(NavAggregateAlgorithmHandle* self);
 /**
  * @brief Replace the algorithm's configuration at runtime.
  * @param self   Pointer to the instance.
- * @param config Pointer to the configuration to apply (validated; throws on invalid input).
+ * @param attTimeIdx    [-] index of the message providing the attitude message time.
+ * @param attIdx        [-] index of the message providing the inertial MRP.
+ * @param rateIdx       [-] index of the message providing the attitude rate.
+ * @param sunIdx        [-] index of the message providing the sun-pointing vector.
+ * @param attMsgCount   [-] number of attitude messages available as inputs.
+ * @param transTimeIdx  [-] index of the message providing the translation message time.
+ * @param posIdx        [-] index of the message providing the inertial position.
+ * @param velIdx        [-] index of the message providing the inertial velocity.
+ * @param dvIdx         [-] index of the message providing the accumulated delta-v.
+ * @param transMsgCount [-] number of translation messages available as inputs.
  */
-void NavAggregateAlgorithm_setConfig(NavAggregateAlgorithmHandle* self, const NavAggregateConfig_c* config);
+void NavAggregateAlgorithm_setConfig(NavAggregateAlgorithmHandle* self,
+                                     uint32_t attTimeIdx,
+                                     uint32_t attIdx,
+                                     uint32_t rateIdx,
+                                     uint32_t sunIdx,
+                                     uint32_t attMsgCount,
+                                     uint32_t transTimeIdx,
+                                     uint32_t posIdx,
+                                     uint32_t velIdx,
+                                     uint32_t dvIdx,
+                                     uint32_t transMsgCount);
 
 /**
  * @brief Run the update step.

@@ -14,39 +14,6 @@ extern "C" {
 #define MAX_AGG_NAV_MSG_C 10
 
 /**
- * @brief Plain-old-data mirror of the C++ NavAggregateAttSelection.
- */
-typedef struct {
-    uint32_t attTimeIdx;  /*!< [-] index of the message providing the attitude message time */
-    uint32_t attIdx;      /*!< [-] index of the message providing the inertial MRP */
-    uint32_t rateIdx;     /*!< [-] index of the message providing the attitude rate */
-    uint32_t sunIdx;      /*!< [-] index of the message providing the sun-pointing vector */
-    uint32_t attMsgCount; /*!< [-] number of attitude messages available as inputs */
-} NavAggregateAttSelection_c;
-
-/**
- * @brief Plain-old-data mirror of the C++ NavAggregateTransSelection.
- */
-typedef struct {
-    uint32_t transTimeIdx;  /*!< [-] index of the message providing the translation message time */
-    uint32_t posIdx;        /*!< [-] index of the message providing the inertial position */
-    uint32_t velIdx;        /*!< [-] index of the message providing the inertial velocity */
-    uint32_t dvIdx;         /*!< [-] index of the message providing the accumulated DV */
-    uint32_t transMsgCount; /*!< [-] number of translation messages available as inputs */
-} NavAggregateTransSelection_c;
-
-/**
- * @brief Plain-old-data mirror of the C++ NavAggregateConfig.
- *
- * The accepted index and count ranges are defined by NavAggregateConfig::create, which throws on
- * invalid input; NavAggregateAlgorithm_validateConfig reports the same verdict without throwing.
- */
-typedef struct {
-    NavAggregateAttSelection_c attSelection;     /*!< [-] attitude message selection indices */
-    NavAggregateTransSelection_c transSelection; /*!< [-] translation message selection indices */
-} NavAggregateConfig_c;
-
-/**
  * @brief Sized array of attitude navigation message payloads.
  */
 typedef struct {
