@@ -15,10 +15,6 @@ static constexpr float kMinCssMeasurement = 0.0F;
     working precision's machine epsilon. Scaling it by the matrix norm keeps the test scale invariant. */
 static constexpr float kSingularDeterminantRelativeTolerance = 1e-6F;
 
-/*! Number of active measurements below which the fit is exactly determined and the measurement
-    weights carry no information. */
-static constexpr uint32_t kMinMeasurementsForWeightedFit = 3;
-
 /*! Smallest squared sine of the angle between two boresights that still fixes a plane to fit in. Below
     this the two point the same way and the pair fixes no plane.
 
@@ -220,7 +216,7 @@ std::optional<Eigen::Vector3f> CssWeightedLeastSquaresAlgorithm::computeWlsmn(
                                    (secondBoresight * (secondReading - (boresightAlignment * firstReading)))) /
                                   sineSquared};
         }
-    } else if (numCssViewingSun >= kMinMeasurementsForWeightedFit) {
+    } else {
         /* A sensor that takes no part this cycle carries a weight of zero, so the products over the full
            operands equal the products over the active measurements alone. Forming them at full size keeps
            every intermediate a fixed-size Eigen type and the timing independent of how many sensors see
