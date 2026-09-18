@@ -237,9 +237,9 @@ TEST(CssWeightedLeastSquaresTest, CollinearBoresightsGiveNoHeading) {
     EXPECT_TRUE(out.sunHeading_B.isZero());
 }
 
-// The fit forms its products over the full-width operands, which is only correct while the entries past the
-// active count stay zero. A cycle with fewer lit sensors than the one before it is what would expose a
-// stale tail, so run the busy cycle first and check the lean one that follows.
+// The fit forms its products over the full-width operands, which is only correct while a sensor that takes
+// no part this cycle carries a weight of zero. A cycle with fewer lit sensors than the one before it is
+// what would expose a weight left behind, so run the busy cycle first and check the lean one that follows.
 TEST(CssWeightedLeastSquaresTest, CoverageDroppingBetweenCyclesLeavesNoStaleTail) {
     ConstellationInputs inputs = referenceInputs();
     inputs.useWeights = true;

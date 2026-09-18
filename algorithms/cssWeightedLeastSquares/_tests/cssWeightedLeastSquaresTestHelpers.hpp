@@ -312,8 +312,8 @@ inline void propertyHeadingIsUnitOrZero(ConstellationInputs inputs, std::vector<
     EXPECT_NEAR(out.sunHeading_B.norm(), 1.0F, 1e-5F);
 }
 
-// The residuals are indexed by observation, so entries at and beyond the count stay zero. The fit
-// forms its products over the full-width operands and depends on that padding.
+// The residuals are indexed by observation, so entries at and beyond the count stay zero. A consumer reads
+// only the leading count of them, and the rest must not carry a value from an earlier cycle.
 inline void propertyResidualsPaddedWithZeros(ConstellationInputs inputs, std::vector<float> readings) {
     BuiltConfig built{};
     if (!buildConfig(inputs, built) || readings.size() < static_cast<size_t>(kMaxNumCssSensors)) {

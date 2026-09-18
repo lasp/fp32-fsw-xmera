@@ -165,9 +165,10 @@ class CssWeightedLeastSquaresAlgorithm final {
                             than two measurements are available, as the one- and two-measurement
                             fits are exactly determined
         @param H            The predicted pointing vector for each measurement, one per row
-        @param y            The observation vector for the valid sensors
+        @param y            The reading of each sensor, indexed by sensor
      */
     static std::optional<Eigen::Vector3f> computeWlsmn(uint32_t numCssViewingSun,
+                                                       const std::array<uint32_t, kMaxNumCssSensors>& activeSensors,
                                                        const Eigen::Vector<float, kMaxNumCssSensors>& weights,
                                                        const Eigen::Matrix<float, kMaxNumCssSensors, 3>& H,
                                                        const Eigen::Vector<float, kMaxNumCssSensors>& y);

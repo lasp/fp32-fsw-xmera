@@ -93,11 +93,12 @@ void CssWeightedLeastSquaresAlgorithm::reInitialize() {
  */
 CssWeightedLeastSquaresOutput CssWeightedLeastSquaresAlgorithm::update(
     const Eigen::Vector<float, kMaxNumCssSensors>& cosValues) {
-    /* The predicted pointing vector for each measurement, compacted to the active sensors */
-    Eigen::Matrix<float, kMaxNumCssSensors, 3> H = Eigen::Matrix<float, kMaxNumCssSensors, 3>::Zero();
-    /* Measurements, compacted to the active sensors */
-    Eigen::Vector<float, kMaxNumCssSensors> y = Eigen::Vector<float, kMaxNumCssSensors>::Zero();
-    /* The sensor index behind each observation, in observation order */
+    /* The observation matrix is the configured boresights themselves, indexed by sensor, and the
+       observation vector is the readings as they arrive. The weights below carry the selection: a sensor
+       that takes no part this cycle gets a weight of zero, so it drops out of every product. */
+    const Eigen::Matrix<float, kMaxNumCssSensors, 3>& H = this->cfg.getCssNHat_B();
+    Eigen::Vector<float, kMaxNumCssSensors> weights = Eigen::Vector<float, kMaxNumCssSensors>::Zero();
+    /* The sensor behind each observation, in observation order */
     std::array<uint32_t, kMaxNumCssSensors> activeSensors{};
     uint32_t numCssViewingSun = 0;
     std::optional<Eigen::Vector3f> fit; /* the least squares solution; empty when there is none */
@@ -108,19 +109,14 @@ CssWeightedLeastSquaresOutput CssWeightedLeastSquaresAlgorithm::update(
     for (uint32_t i = 0; i < kMaxNumCssSensors; i = i + 1) {
         if (this->cfg.getCssAvailability().at(i) == fsw::DeviceAvailability::Available &&
             cosValues(i) > this->cfg.getSensorUseThresh()) {
-            H.row(numCssViewingSun) = this->cfg.getCssNHat_B().row(i);
-            y(numCssViewingSun) = cosValues(i);
+            weights(i) = this->cfg.getUseWeights() ? cosValues(i) : 1.0F;
             activeSensors.at(numCssViewingSun) = i;
             numCssViewingSun = numCssViewingSun + 1;
         }
     }
 
     if (numCssViewingSun > 0) {
-        Eigen::Vector<float, kMaxNumCssSensors> weights = Eigen::Vector<float, kMaxNumCssSensors>::Ones();
-        if (this->cfg.getUseWeights()) {
-            weights = y;
-        }
-        fit = computeWlsmn(numCssViewingSun, weights, H, y);
+        fit = computeWlsmn(numCssViewingSun, activeSensors, weights, H, cosValues);
     }
 
     if (fit) {
@@ -191,10 +187,11 @@ Eigen::Vector<float, kMaxNumCssSensors> CssWeightedLeastSquaresAlgorithm::comput
  @param weights The diagonal of the measurement weighting matrix; only applied when more than two
         measurements are available, as the one- and two-measurement fits are exactly determined
  @param H The predicted pointing vector for each measurement, one per row
- @param y the observation vector for the valid sensors
+ @param y the reading of each sensor, indexed by sensor
  */
 std::optional<Eigen::Vector3f> CssWeightedLeastSquaresAlgorithm::computeWlsmn(
     const uint32_t numCssViewingSun,
+    const std::array<uint32_t, kMaxNumCssSensors>& activeSensors,
     const Eigen::Vector<float, kMaxNumCssSensors>& weights,
     const Eigen::Matrix<float, kMaxNumCssSensors, 3>& H,
     const Eigen::Vector<float, kMaxNumCssSensors>& y) {
@@ -203,26 +200,30 @@ std::optional<Eigen::Vector3f> CssWeightedLeastSquaresAlgorithm::computeWlsmn(
     if (numCssViewingSun == 1) {
         /* The minimum norm solution of the single observation equation, which is the one-measurement
            case of the two-measurement branch below. The row is a unit boresight, so it needs no scaling. */
-        fit = Eigen::Vector3f{H.row(0).transpose() * y(0)};
+        const uint32_t sensor = activeSensors.at(0);
+        fit = Eigen::Vector3f{H.row(sensor).transpose() * y(sensor)};
     } else if (numCssViewingSun == 2) {
         /* Two measurements leave the system underdetermined, so take the minimum norm solution. Both rows
            are unit boresights, so the inverse of the two-by-two normal matrix has a closed form: with c
            their dot product, its determinant is 1 - c^2 and the solution below follows. */
-        const Eigen::Vector3f firstBoresight = H.row(0).transpose();
-        const Eigen::Vector3f secondBoresight = H.row(1).transpose();
+        const uint32_t firstSensor = activeSensors.at(0);
+        const uint32_t secondSensor = activeSensors.at(1);
+        const Eigen::Vector3f firstBoresight = H.row(firstSensor).transpose();
+        const Eigen::Vector3f secondBoresight = H.row(secondSensor).transpose();
+        const float firstReading = y(firstSensor);
+        const float secondReading = y(secondSensor);
         const float boresightAlignment = firstBoresight.dot(secondBoresight);
         const float sineSquared = 1.0F - (boresightAlignment * boresightAlignment);
         if (sineSquared > kMinTwoSensorSineSquared) {
-            fit = Eigen::Vector3f{((firstBoresight * (y(0) - (boresightAlignment * y(1)))) +
-                                   (secondBoresight * (y(1) - (boresightAlignment * y(0))))) /
+            fit = Eigen::Vector3f{((firstBoresight * (firstReading - (boresightAlignment * secondReading))) +
+                                   (secondBoresight * (secondReading - (boresightAlignment * firstReading)))) /
                                   sineSquared};
         }
     } else if (numCssViewingSun >= kMinMeasurementsForWeightedFit) {
-        /* The rows of H and the entries of y past
-           numCssViewingSun are zero, so the products over the full operands equal the products over the
-           active measurements alone. Forming them at full size keeps every intermediate a
-           fixed-size Eigen type; a dynamically sized one would allocate, and this build forbids
-           heap allocation. */
+        /* A sensor that takes no part this cycle carries a weight of zero, so the products over the full
+           operands equal the products over the active measurements alone. Forming them at full size keeps
+           every intermediate a fixed-size Eigen type and the timing independent of how many sensors see
+           the sun; a dynamically sized one would allocate, and this build forbids heap allocation. */
         const Eigen::Matrix<float, kMaxNumCssSensors, 3> wh = weights.asDiagonal() * H;
         const std::optional<Eigen::Matrix3f> htwhInverse = invertNormalMatrix(Eigen::Matrix3f{H.transpose() * wh});
         if (htwhInverse) {

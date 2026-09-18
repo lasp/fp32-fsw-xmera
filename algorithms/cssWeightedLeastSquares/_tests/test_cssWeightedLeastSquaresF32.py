@@ -478,10 +478,10 @@ def test_css_weighted_least_squares_decreasing_coverage():
     np.testing.assert_equal(num_active_log.numCssViewingSun[1], 5)
     np.testing.assert_equal(num_active_log.numCssViewingSun[-1], 3)
 
-    # The fit is assembled in buffers sized for the full sensor complement, whose entries past the active
-    # count are zero. A row left behind by the five-sensor cycle would bias the three-sensor fit, so both
-    # cycles are checked against the double-precision solution over their own lit sensors. The tolerance is
-    # float32 round-off on a 3x3 solve over unit-norm data.
+    # The fit is assembled over the full sensor complement, and a sensor that takes no part in a cycle
+    # carries a weight of zero. A weight left behind by the five-sensor cycle would bias the three-sensor
+    # fit, so both cycles are checked against the double-precision solution over their own lit sensors. The
+    # tolerance is float32 round-off on a 3x3 solve over unit-norm data.
     np.testing.assert_allclose(
         data_log.vehSunPntBdy[1], weighted_fit(many_readings), atol=1e-6, rtol=1e-6, verbose=True
     )
