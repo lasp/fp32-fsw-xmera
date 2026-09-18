@@ -2,6 +2,7 @@
 #include "triadAlgorithm.h"
 #include "triadTypes.h"
 #include "utilities/fsw/eigenSupport.h"
+#include "utilities/fsw/freestandingInvalidArgument.h"
 
 #include <Eigen/Core>
 
@@ -12,6 +13,19 @@ TriadConfig configFromC(const Vector3f_c& sadaHat_B, const Vector3f_c& thrustReq
                                static_cast<N3Axis>(n3Axis));
 }
 }  // namespace
+
+bool TriadAlgorithm_validateConfig(const Vector3f_c* sadaHat_B,
+                                   const Vector3f_c* thrustReqHat_N,
+                                   const N3Axis_c n3Axis) {
+    // Build the config through the same path create() uses: success means valid, a throw means
+    // invalid. Sharing configFromC keeps the predicate from drifting from what create() accepts.
+    try {
+        (void)configFromC(*sadaHat_B, *thrustReqHat_N, n3Axis);
+        return true;
+    } catch (const fsw::invalid_argument&) {
+        return false;
+    }
+}
 
 TriadAlgorithmHandle* TriadAlgorithm_create(const Vector3f_c* sadaHat_B,
                                             const Vector3f_c* thrustReqHat_N,

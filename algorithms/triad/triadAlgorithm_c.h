@@ -4,6 +4,8 @@
 #include "triadTypes.h"
 #include "utilities/fsw/plainCAlgorithmDataTypes.h"
 
+#include <stdbool.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -12,6 +14,16 @@ extern "C" {
  * @brief Opaque handle to the C++ TriadAlgorithm instance.
  */
 typedef struct TriadAlgorithmHandle TriadAlgorithmHandle;
+
+/**
+ * @brief Report whether a configuration would be accepted by create/setConfig.
+ * @param sadaHat_B      [-] solar array drive axis; must be a unit vector.
+ * @param thrustReqHat_N [-] requested thrust direction; must be a unit vector.
+ * @param n3Axis         [-] must be N3_AXIS_PLUS_Z_HAT_N_C or N3_AXIS_MINUS_Z_HAT_N_C.
+ * @return true when the configuration is valid. Never throws, so it can guard the throwing
+ *         create/setConfig from an invalid configuration.
+ */
+bool TriadAlgorithm_validateConfig(const Vector3f_c* sadaHat_B, const Vector3f_c* thrustReqHat_N, N3Axis_c n3Axis);
 
 /**
  * @brief Construct a new TriadAlgorithm instance from the supplied configuration.
