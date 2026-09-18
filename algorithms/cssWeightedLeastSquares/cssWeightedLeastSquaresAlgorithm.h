@@ -26,8 +26,8 @@ struct CssWeightedLeastSquaresOutput {
                                                              //!< observable, zero without a prior heading or dt
     Eigen::Vector<float, kMaxNumCssSensors> postFitResiduals =
         Eigen::Vector<float, kMaxNumCssSensors>::Zero();  //!< [-] post-fit residuals, one per active sensor, packed
-                                                          //!< into the leading numActiveCss entries
-    uint32_t numActiveCss{};                              //!< [-] sensors whose reading exceeded the use threshold
+                                                          //!< into the leading numCssViewingSun entries
+    uint32_t numCssViewingSun{};                          //!< [-] sensors whose reading exceeded the use threshold
 };
 
 /*! @brief Validated configuration for the CSS weighted least squares estimator.
@@ -147,7 +147,7 @@ class CssWeightedLeastSquaresAlgorithm final {
     void reInitialize();
 
     /*! Estimate the sun heading and body rate from one set of CSS readings.
-        @return the estimated heading, rate, residuals and active sensor count
+        @return the estimated heading, rate, residuals and the count of sensors viewing the sun
         @param cosValues [-] Per-sensor cosine readings, indexed by sensor
      */
     CssWeightedLeastSquaresOutput update(const Eigen::Vector<float, kMaxNumCssSensors>& cosValues);
@@ -155,30 +155,30 @@ class CssWeightedLeastSquaresAlgorithm final {
    private:
     /*! Solve the least squares fit for the sun heading.
         @return the fit, or nothing when the normal matrix is singular
-        @param numActiveCss The count on input measurements
+        @param numCssViewingSun The count on input measurements
         @param weights      The diagonal of the measurement weighting matrix; only applied when more
                             than two measurements are available, as the one- and two-measurement
                             fits are exactly determined
         @param H            The predicted pointing vector for each measurement, one per row
         @param y            The observation vector for the valid sensors
      */
-    static std::optional<Eigen::Vector3f> computeWlsmn(uint32_t numActiveCss,
+    static std::optional<Eigen::Vector3f> computeWlsmn(uint32_t numCssViewingSun,
                                                        const Eigen::Vector<float, kMaxNumCssSensors>& weights,
                                                        const Eigen::Matrix<float, kMaxNumCssSensors, 3>& H,
                                                        const Eigen::Vector<float, kMaxNumCssSensors>& y);
 
     /*! Compute the post-fit residuals for the WLS estimate.
-        @return the residuals of the active sensors, packed into the leading numActiveCss entries
+        @return the residuals of the active sensors, packed into the leading numCssViewingSun entries
         @param cssMeas      The measured values for the CSS sensors
         @param wlsEst       The WLS estimate computed for the CSS measurements
         @param activeSensors The sensor index behind each observation, in observation order
-        @param numActiveCss The count on input measurements
+        @param numCssViewingSun The count on input measurements
      */
     Eigen::Vector<float, kMaxNumCssSensors> computeWlsResiduals(
         const Eigen::Vector<float, kMaxNumCssSensors>& cssMeas,
         const Eigen::Vector3f& wlsEst,
         const std::array<Eigen::Index, kMaxNumCssSensors>& activeSensors,
-        uint32_t numActiveCss) const;
+        uint32_t numCssViewingSun) const;
 
     CssWeightedLeastSquaresConfig cfg;                            //!< [-] the validated configuration in force
     Eigen::Vector3f priorSunHeading_B = Eigen::Vector3f::Zero();  //!< [-] prior normalized sun heading, body frame

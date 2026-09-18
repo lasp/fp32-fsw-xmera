@@ -28,7 +28,7 @@ class CssWeightedLeastSquares final : public SysModel {
     float sensorUseThresh{};  //!< [-] cosine threshold at or below which a CSS measurement is discarded
     float controlPeriod{};    //!< [s] time between two updateState() calls (must be > 0)
 
-    uint32_t numActiveCss{};  //!< [-] sensors above the use threshold on the most recent cycle (output)
+    uint32_t numCssViewingSun{};  //!< [-] sensors above the use threshold on the most recent cycle (output)
 
     /* declare module IO interfaces */
     ReadFunctor<CSSArraySensorMsgF32Payload> cssDataInMsg;  //!< CSS array measurement input message

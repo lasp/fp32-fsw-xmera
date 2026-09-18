@@ -439,14 +439,14 @@ def test_css_weighted_least_squares_reconfigure():
     in_msg = messaging.CSSArraySensorMsgF32().write(input_message_data)
     module.cssDataInMsg.subscribeTo(in_msg)
 
-    data_log = module.logger("numActiveCss")
+    data_log = module.logger("numCssViewingSun")
     unit_test_sim.AddModelToTask(unit_task_name, data_log)
 
     unit_test_sim.InitializeSimulation()
     unit_test_sim.ConfigureStopTime(test_process_rate)
     unit_test_sim.ExecuteSimulation()
 
-    np.testing.assert_array_equal(data_log.numActiveCss[-1], 3)
+    np.testing.assert_array_equal(data_log.numCssViewingSun[-1], 3)
 
     module.sensorUseThresh = 0.6
     module.reconfigure()
@@ -454,7 +454,7 @@ def test_css_weighted_least_squares_reconfigure():
     unit_test_sim.ConfigureStopTime(macros.sec2nano(1.0))
     unit_test_sim.ExecuteSimulation()
 
-    np.testing.assert_array_equal(data_log.numActiveCss[-1], 1)
+    np.testing.assert_array_equal(data_log.numCssViewingSun[-1], 1)
     np.testing.assert_allclose(module.sensorUseThresh, 0.6, rtol=0, atol=1e-7, verbose=True)
 
 
@@ -489,7 +489,7 @@ def test_css_weighted_least_squares_decreasing_coverage():
     module.cssDataInMsg.subscribeTo(in_msg)
 
     data_log = module.navStateOutMsg.recorder()
-    num_active_log = module.logger("numActiveCss")
+    num_active_log = module.logger("numCssViewingSun")
     unit_test_sim.AddModelToTask(unit_task_name, data_log)
     unit_test_sim.AddModelToTask(unit_task_name, num_active_log)
 
@@ -502,8 +502,8 @@ def test_css_weighted_least_squares_decreasing_coverage():
     unit_test_sim.ConfigureStopTime(macros.sec2nano(1.5))
     unit_test_sim.ExecuteSimulation()
 
-    np.testing.assert_equal(num_active_log.numActiveCss[1], 5)
-    np.testing.assert_equal(num_active_log.numActiveCss[-1], 3)
+    np.testing.assert_equal(num_active_log.numCssViewingSun[1], 5)
+    np.testing.assert_equal(num_active_log.numCssViewingSun[-1], 3)
 
     # The fit is assembled in buffers sized for the full sensor complement, whose entries past the active
     # count are zero. A row left behind by the five-sensor cycle would bias the three-sensor fit, so both
@@ -554,7 +554,7 @@ def run_test(
     unit_test_sim.AddModelToTask(unit_task_name, nav_data_log)
     filter_data_log = module.filterCssResOutMsg.recorder()
     unit_test_sim.AddModelToTask(unit_task_name, filter_data_log)
-    num_active_data_log = module.logger("numActiveCss")
+    num_active_data_log = module.logger("numCssViewingSun")
     unit_test_sim.AddModelToTask(unit_task_name, num_active_data_log)
 
     unit_test_sim.InitializeSimulation()
@@ -565,7 +565,7 @@ def run_test(
 
     module_output_heading = nav_data_log.vehSunPntBdy
     module_output_residuals = filter_data_log.postFits
-    module_output_num_active = num_active_data_log.numActiveCss
+    module_output_num_active = num_active_data_log.numCssViewingSun
 
     # The estimator uses a sensor when it is enabled and its reading lies in the range it will take, above
     # the threshold and within the margin past a cosine of one, so this is the count it must report.

@@ -111,7 +111,7 @@ configuration, so no configuration path allocates; slots at or beyond ``nCSS`` a
       - Calibration scale factor applied to the boresight. Zero disables the sensor: it measures nothing, so the
         module ignores its reading and does not count it among the sensors viewing the sun
 
-The module also publishes ``numActiveCss``, the number of sensors above the use threshold on the most recent cycle. It
+The module also publishes ``numCssViewingSun``, the number of sensors above the use threshold on the most recent cycle. It
 is written by ``updateState()`` for telemetry and logging and is not a configuration input.
 
 Two-phase initialization
@@ -230,7 +230,7 @@ onto the raw boresight, without the bias, and differenced against the observatio
 
 The predicted value is floored at zero because a coarse sun sensor cannot report a negative cosine.
 
-Residuals are indexed by observation, not by sensor slot: the leading ``numActiveCss`` entries carry the sensors that
+Residuals are indexed by observation, not by sensor slot: the leading ``numCssViewingSun`` entries carry the sensors that
 contributed to the fit, in sensor order, and the remaining entries stay zero. The module reports them on
 ``filterCssResOutMsg``, which treats the CSS array as a single observation vector whose dimension is the active sensor
 count. The ``observation`` and ``preFits`` fields of that message stay zero: the raw readings are available on
@@ -268,7 +268,7 @@ Algorithm Assumptions and Limitations
 -------------------------------------
 
 - At least three active sensors are required for a unique heading. With two the result is the minimum-norm solution,
-  and with one it is a point on a cone, which can be far from the true heading. Callers should treat ``numActiveCss``
+  and with one it is a point on a cone, which can be far from the true heading. Callers should treat ``numCssViewingSun``
   as a quality indicator.
 - Rates about the sun heading are structurally unobservable. The reported angular velocity is only the component
   orthogonal to the heading.

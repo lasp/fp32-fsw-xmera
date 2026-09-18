@@ -172,7 +172,7 @@ TEST(CssWeightedLeastSquaresTest, NoReadingAboveThresholdGivesNoHeading) {
     const CssWeightedLeastSquaresOutput out =
         algorithm.update(makeReadings(std::vector<float>(kMaxNumCssSensors, 0.0F)));
 
-    EXPECT_EQ(out.numActiveCss, 0U);
+    EXPECT_EQ(out.numCssViewingSun, 0U);
     EXPECT_TRUE(out.sunHeading_B.isZero());
     EXPECT_TRUE(out.omega_BN_B.isZero());
     EXPECT_TRUE(out.postFitResiduals.isZero());
@@ -185,7 +185,7 @@ TEST(CssWeightedLeastSquaresTest, SingleSensorReturnsItsBoresight) {
     readings[3] = 0.84F;
     const CssWeightedLeastSquaresOutput out = algorithm.update(makeReadings(readings));
 
-    ASSERT_EQ(out.numActiveCss, 1U);
+    ASSERT_EQ(out.numCssViewingSun, 1U);
     const Eigen::Vector3d boresight = referenceConstellation()[3];
     EXPECT_LT((out.sunHeading_B.cast<double>() - boresight).norm(), 1e-5);
 }
@@ -202,7 +202,7 @@ TEST(CssWeightedLeastSquaresTest, SingleSensorFitDividesByTheBias) {
     readings[3] = reading;
     const CssWeightedLeastSquaresOutput out = algorithm.update(makeReadings(readings));
 
-    ASSERT_EQ(out.numActiveCss, 1U);
+    ASSERT_EQ(out.numCssViewingSun, 1U);
     EXPECT_NEAR(out.postFitResiduals(0), reading - (reading / 2.0F), 1e-6F);
 }
 
@@ -215,7 +215,7 @@ TEST(CssWeightedLeastSquaresTest, TwoSensorsGiveTheMinimumNormSolution) {
     readings[3] = 0.5F;
     const CssWeightedLeastSquaresOutput out = algorithm.update(makeReadings(readings));
 
-    ASSERT_EQ(out.numActiveCss, 2U);
+    ASSERT_EQ(out.numCssViewingSun, 2U);
     const Eigen::Vector3d bisector = (referenceConstellation()[0] + referenceConstellation()[3]).normalized();
     EXPECT_LT((out.sunHeading_B.cast<double>() - bisector).norm(), 1e-5);
 }
@@ -232,7 +232,7 @@ TEST(CssWeightedLeastSquaresTest, CollinearBoresightsGiveNoHeading) {
     CssWeightedLeastSquaresAlgorithm algorithm{makeConfig(inputs, built)};
     const CssWeightedLeastSquaresOutput out = algorithm.update(makeReadings({0.9F, 0.9F, 0.9F}));
 
-    EXPECT_EQ(out.numActiveCss, 3U);
+    EXPECT_EQ(out.numCssViewingSun, 3U);
     EXPECT_TRUE(out.sunHeading_B.isZero());
 }
 
@@ -242,7 +242,7 @@ TEST(CssWeightedLeastSquaresTest, ReadingThatIsNotFiniteIsDropped) {
     readings[5] = std::numeric_limits<float>::infinity();
     const CssWeightedLeastSquaresOutput out = algorithm.update(makeReadings(readings));
 
-    EXPECT_EQ(out.numActiveCss, 4U);  // the four lit sensors, not the infinity
+    EXPECT_EQ(out.numCssViewingSun, 4U);  // the four lit sensors, not the infinity
     EXPECT_TRUE(out.sunHeading_B.allFinite());
     EXPECT_LT((out.sunHeading_B.cast<double>() - Eigen::Vector3d{1.0, 0.0, 0.0}).norm(), 1e-5);
 }
@@ -255,7 +255,7 @@ TEST(CssWeightedLeastSquaresTest, ReadingJustAboveOneIsStillUsed) {
     readings[0] = 1.05F;
     const CssWeightedLeastSquaresOutput out = algorithm.update(makeReadings(readings));
 
-    EXPECT_EQ(out.numActiveCss, 4U);
+    EXPECT_EQ(out.numCssViewingSun, 4U);
     EXPECT_FALSE(out.sunHeading_B.isZero());
 }
 
@@ -266,7 +266,7 @@ TEST(CssWeightedLeastSquaresTest, ReadingAboveTheCosineRangeIsDropped) {
     readings[5] = 7.3e37F;
     const CssWeightedLeastSquaresOutput out = algorithm.update(makeReadings(readings));
 
-    EXPECT_EQ(out.numActiveCss, 4U);  // the four lit sensors only
+    EXPECT_EQ(out.numCssViewingSun, 4U);  // the four lit sensors only
     EXPECT_TRUE(out.sunHeading_B.allFinite());
     EXPECT_TRUE(out.omega_BN_B.allFinite());
     EXPECT_LT((out.sunHeading_B.cast<double>() - Eigen::Vector3d{1.0, 0.0, 0.0}).norm(), 1e-5);
@@ -289,14 +289,14 @@ TEST(CssWeightedLeastSquaresTest, CoverageDroppingBetweenCyclesLeavesNoStaleTail
         manyLit[i] = 0.6F;
     }
     const CssWeightedLeastSquaresOutput busy = algorithm.update(makeReadings(manyLit));
-    ASSERT_EQ(busy.numActiveCss, 5U);
+    ASSERT_EQ(busy.numCssViewingSun, 5U);
 
     std::vector<float> fewLit(kMaxNumCssSensors, 0.0F);
     for (size_t i = 0U; i < 3U; ++i) {
         fewLit[i] = 0.6F;
     }
     const CssWeightedLeastSquaresOutput lean = algorithm.update(makeReadings(fewLit));
-    ASSERT_EQ(lean.numActiveCss, 3U);
+    ASSERT_EQ(lean.numCssViewingSun, 3U);
 
     // Hold the lean cycle to the conditions that define its fit rather than to a second run of the
     // estimator. A tail hoisted out of update() would be shared by every instance, so two runs of the same
@@ -309,7 +309,7 @@ TEST(CssWeightedLeastSquaresTest, CoverageDroppingBetweenCyclesLeavesNoStaleTail
     ASSERT_TRUE(system.resolvable);
     expectFitIsOptimal(system, lean.sunHeading_B, lean.postFitResiduals);
 
-    for (uint32_t k = lean.numActiveCss; k < static_cast<uint32_t>(kMaxNumCssSensors); ++k) {
+    for (uint32_t k = lean.numCssViewingSun; k < static_cast<uint32_t>(kMaxNumCssSensors); ++k) {
         EXPECT_EQ(lean.postFitResiduals(static_cast<Eigen::Index>(k)), 0.0F) << "residual slot " << k;
     }
 }

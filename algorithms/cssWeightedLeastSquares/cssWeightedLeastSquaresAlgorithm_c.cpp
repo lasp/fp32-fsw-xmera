@@ -34,7 +34,7 @@ CssWeightedLeastSquaresOutput_c outputToC(const CssWeightedLeastSquaresOutput& o
     eigenVectorToCArray(out.sunHeading_B, result.sunHeading_B.data);
     eigenVectorToCArray(out.omega_BN_B, result.omega_BN_B.data);
     eigenVectorToCArray(out.postFitResiduals, result.postFitResiduals);
-    result.numActiveCss = out.numActiveCss;
+    result.numCssViewingSun = out.numCssViewingSun;
     return result;
 }
 

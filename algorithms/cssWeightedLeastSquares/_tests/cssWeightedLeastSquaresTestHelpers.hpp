@@ -271,7 +271,7 @@ inline void runRegressionCase(ConstellationInputs inputs, std::vector<float> rea
                                              toDouble(readings));
 
     // Selecting the active sensors is pure logic, so the counts must agree exactly.
-    EXPECT_EQ(out.numActiveCss, static_cast<uint32_t>(system.sensors.size()));
+    EXPECT_EQ(out.numCssViewingSun, static_cast<uint32_t>(system.sensors.size()));
 
     expectFitIsOptimal(system, out.sunHeading_B, out.postFitResiduals);
 }
@@ -294,7 +294,7 @@ inline void propertyOutputIsFinite(ConstellationInputs inputs, std::vector<float
         EXPECT_TRUE(out.sunHeading_B.allFinite());
         EXPECT_TRUE(out.omega_BN_B.allFinite());
         EXPECT_TRUE(out.postFitResiduals.allFinite());
-        EXPECT_LE(out.numActiveCss, kMaxNumCssSensors);
+        EXPECT_LE(out.numCssViewingSun, kMaxNumCssSensors);
     }
 }
 
@@ -315,7 +315,7 @@ inline void propertyHeadingIsUnitOrZero(ConstellationInputs inputs, std::vector<
     EXPECT_NEAR(out.sunHeading_B.norm(), 1.0F, 1e-5F);
 }
 
-// The residuals are indexed by observation, so entries at and beyond the active count stay zero. The fit
+// The residuals are indexed by observation, so entries at and beyond the count stay zero. The fit
 // forms its products over the full-width operands and depends on that padding.
 inline void propertyResidualsPaddedWithZeros(ConstellationInputs inputs, std::vector<float> readings) {
     BuiltConfig built{};
@@ -326,7 +326,7 @@ inline void propertyResidualsPaddedWithZeros(ConstellationInputs inputs, std::ve
     CssWeightedLeastSquaresAlgorithm algorithm{makeConfig(inputs, built)};
     const CssWeightedLeastSquaresOutput out = algorithm.update(makeReadings(readings));
 
-    for (uint32_t k = out.numActiveCss; k < static_cast<uint32_t>(kMaxNumCssSensors); ++k) {
+    for (uint32_t k = out.numCssViewingSun; k < static_cast<uint32_t>(kMaxNumCssSensors); ++k) {
         EXPECT_EQ(out.postFitResiduals(static_cast<Eigen::Index>(k)), 0.0F) << "residual slot " << k;
     }
 }
@@ -355,7 +355,7 @@ inline void propertyDisabledSensorIgnored(ConstellationInputs inputs,
     const CssWeightedLeastSquaresOutput silencedOut = enabled.update(makeReadings(silenced));
     const CssWeightedLeastSquaresOutput disabledOut = disabled.update(makeReadings(readings));
 
-    EXPECT_EQ(disabledOut.numActiveCss, silencedOut.numActiveCss);
+    EXPECT_EQ(disabledOut.numCssViewingSun, silencedOut.numCssViewingSun);
     EXPECT_LT((disabledOut.sunHeading_B - silencedOut.sunHeading_B).norm(), 1e-5F);
 }
 
@@ -387,7 +387,7 @@ inline void propertyRotationEquivariance(ConstellationInputs inputs,
     const CssWeightedLeastSquaresOutput plainOut = plain.update(cosValues);
     const CssWeightedLeastSquaresOutput rotatedOut = rotated.update(cosValues);
 
-    EXPECT_EQ(rotatedOut.numActiveCss, plainOut.numActiveCss);
+    EXPECT_EQ(rotatedOut.numCssViewingSun, plainOut.numCssViewingSun);
     if (plainOut.sunHeading_B.isZero() || rotatedOut.sunHeading_B.isZero()) {
         return;
     }

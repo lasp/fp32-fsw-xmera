@@ -32,7 +32,7 @@ void CssWeightedLeastSquares::reset(const uint64_t callTime) {
     }
 
     this->algorithm = std::make_unique<CssWeightedLeastSquaresAlgorithm>(this->toConfig());
-    this->numActiveCss = 0;
+    this->numCssViewingSun = 0;
 }
 
 /*! Build a validated algorithm configuration from the constellation geometry on cssConfigInMsg and the
@@ -89,7 +89,7 @@ void CssWeightedLeastSquares::updateState(const uint64_t callTime) {
     const CSSArraySensorMsgF32Payload cssData = this->cssDataInMsg();
 
     const CssWeightedLeastSquaresOutput out = this->algorithm->update(cArrayToEigenVector(cssData.CosValue));
-    this->numActiveCss = out.numActiveCss;
+    this->numCssViewingSun = out.numCssViewingSun;
 
     const double timeTag = static_cast<double>(callTime) * kNano2Sec;
 
@@ -109,9 +109,9 @@ void CssWeightedLeastSquares::updateState(const uint64_t callTime) {
     if (this->filterCssResOutMsg.isLinked()) {
         FilterResidualsMsgF32Payload cssResBuf = {};
         cssResBuf.timeTag = timeTag;
-        cssResBuf.valid = out.numActiveCss > 0U;
+        cssResBuf.valid = out.numCssViewingSun > 0U;
         cssResBuf.numberOfObservations = 1;
-        cssResBuf.sizeOfObservations = static_cast<int>(out.numActiveCss);
+        cssResBuf.sizeOfObservations = static_cast<int>(out.numCssViewingSun);
         Eigen::Vector<double, kResidualSlots> postFits = Eigen::Vector<double, kResidualSlots>::Zero();
         postFits.head<kMaxNumCssSensors>() = out.postFitResiduals.cast<double>();
         eigenVectorToCArray(postFits, cssResBuf.postFits);

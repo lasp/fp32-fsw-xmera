@@ -85,7 +85,8 @@ void CssWeightedLeastSquaresAlgorithm_reInitialize(CssWeightedLeastSquaresAlgori
  * @brief Estimate the sun heading and body rate from one set of CSS readings.
  * @param self   Pointer to the instance.
  * @param inputs Pointer to the per-cycle measurement inputs.
- * @return CssWeightedLeastSquaresOutput_c  The estimated heading, rate, residuals and active sensor count.
+ * @return CssWeightedLeastSquaresOutput_c  The estimated heading, rate, residuals and the count of
+ *         sensors viewing the sun.
  *         The residuals are indexed by observation, not by sensor slot.
  */
 CssWeightedLeastSquaresOutput_c CssWeightedLeastSquaresAlgorithm_update(CssWeightedLeastSquaresAlgorithmHandle* self,
