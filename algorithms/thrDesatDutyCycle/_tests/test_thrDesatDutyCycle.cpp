@@ -28,7 +28,6 @@ void expectCadenceRoundTrips(uint32_t firingPeriods, uint32_t settlingPeriods) {
 
     EXPECT_EQ(cfg.getFiringPeriods(), firingPeriods);
     EXPECT_EQ(cfg.getSettlingPeriods(), settlingPeriods);
-    EXPECT_EQ(cfg.getCycleLength(), firingPeriods + settlingPeriods);
 }
 
 }  // namespace
@@ -190,14 +189,14 @@ TEST(ThrDesatDutyCycleConfigTest, AcceptsValidInputs) {
     EXPECT_NO_THROW((void)ThrDesatDutyCycleConfig::create(UINT32_MAX, 0U));
 }
 
-// Whatever cadence is configured must come back unchanged from the getters, and the derived cycle length must
-// agree with it. The config stores the counts verbatim, so these are exact comparisons.
+// Whatever cadence is configured must come back unchanged from the getters. The config stores the counts
+// verbatim, so these are exact comparisons.
 TEST(ThrDesatDutyCycleConfigTest, GettersRoundTrip) {
     expectCadenceRoundTrips(1U, 0U);
     expectCadenceRoundTrips(1U, 4U);
     expectCadenceRoundTrips(3U, 2U);
     expectCadenceRoundTrips(100U, 10000U);
-    // The derived cycle length must stay exact at the top of the range, where a wrap would be silent.
+    // Both counts must stay exact at the top of the range, where a wrap would be silent.
     expectCadenceRoundTrips(1U, UINT32_MAX - 1U);
     expectCadenceRoundTrips(UINT32_MAX, 0U);
 }

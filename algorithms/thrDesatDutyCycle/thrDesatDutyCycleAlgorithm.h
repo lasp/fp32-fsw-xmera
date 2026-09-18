@@ -30,9 +30,10 @@ class ThrDesatDutyCycleConfig final {
     static bool isValidFiringPeriods(uint32_t firingPeriods) { return firingPeriods >= 1U; }
 
     /*! Any hold-off length is admissible, including none, provided the full cycle length does not wrap around:
-     a wrapped length would come out shorter than the firing window and corrupt the cadence. */
+     a wrapped length would come out shorter than the firing window and corrupt the cadence. The sum is taken
+     in a wider type, so the check itself cannot wrap. */
     static bool isValidSettlingPeriods(uint32_t settlingPeriods, uint32_t firingPeriods) {
-        return settlingPeriods <= UINT32_MAX - firingPeriods;
+        return static_cast<uint64_t>(firingPeriods) + static_cast<uint64_t>(settlingPeriods) <= UINT32_MAX;
     }
 
     /*! @return [-] control periods, at the start of each cycle, for which the force command is passed through. */
@@ -40,9 +41,6 @@ class ThrDesatDutyCycleConfig final {
 
     /*! @return [-] control periods for which the gate commands zero force, letting the RWs re-settle. */
     uint32_t getSettlingPeriods() const { return this->settlingPeriods; }
-
-    /*! @return [-] length of one full duty cycle, whose first getFiringPeriods() slots are the firing window. */
-    uint32_t getCycleLength() const { return this->firingPeriods + this->settlingPeriods; }
 
    private:
     // Both counts are uint32_t control periods, so they read as swappable. create() is the only caller and
@@ -63,13 +61,14 @@ class ThrDesatDutyCycleConfig final {
  * which to re-stabilize the attitude between desaturation pulses. The cadence is free-running: the counter
  * advances on every update regardless of what is commanded, so the firing windows sit at a fixed phase.
  *
- * The counter is the algorithm's only runtime state; reInitialize() restarts the cycle at its firing window.
+ * The position in the cycle is the algorithm's only runtime state; reInitialize() restarts the cycle at its
+ * firing window.
  */
 class ThrDesatDutyCycleAlgorithm final {
    public:
     explicit ThrDesatDutyCycleAlgorithm(const ThrDesatDutyCycleConfig& config);
 
-    //! Install the validated configuration; does not touch runtime state.
+    //! Install the validated configuration and derive the cycle length; does not touch runtime state.
     void setConfig(const ThrDesatDutyCycleConfig& config);
 
     //! Restart the duty cycle at the beginning of its firing window.
@@ -79,8 +78,9 @@ class ThrDesatDutyCycleAlgorithm final {
     std::array<float, kMaxThrusterCount> update(const std::array<float, kMaxThrusterCount>& thrusterForceCmd);
 
    private:
-    ThrDesatDutyCycleConfig cfg;  //!< [-] validated configuration (duty-cycle cadence)
-    uint32_t phaseCounter{};      //!< [-] control periods elapsed since the start of the current duty cycle
+    ThrDesatDutyCycleConfig cfg;         //!< [-] validated configuration (duty-cycle cadence)
+    uint32_t cycleLength{};              //!< [-] control periods in one full duty cycle
+    uint32_t previousPositionInCycle{};  //!< [-] position in the duty cycle that the previous update gated
 };
 
 #endif
