@@ -46,7 +46,13 @@ CssWeightedLeastSquaresConfig CssWeightedLeastSquares::toConfig() {
     std::array<CssConfiguration, kMaxNumCssSensors> cssSensors{};
     for (uint32_t i = 0; i < kMaxNumCssSensors; ++i) {
         cssSensors.at(i) = CssConfiguration{.nHat_B = cArrayToEigenVector(cssConfig.cssVals[i].nHat_B),
-                                            .bias = cssConfig.cssVals[i].CBias};
+                                            .availability = fsw::DeviceAvailability::Available};
+    }
+    if (this->cssAvailInMsg.isLinked()) {
+        const CSSArrayAvailabilityMsgF32Payload availability = this->cssAvailInMsg();
+        for (uint32_t i = 0; i < kMaxNumCssSensors; ++i) {
+            cssSensors.at(i).availability = fsw::toDeviceAvailability(availability.cssAvailability[i]);
+        }
     }
     return CssWeightedLeastSquaresConfig::create(
         cssSensors, this->useWeights, this->sensorUseThresh, this->controlPeriod);

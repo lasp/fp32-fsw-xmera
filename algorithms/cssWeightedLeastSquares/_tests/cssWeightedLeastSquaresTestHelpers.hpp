@@ -45,14 +45,14 @@ struct ActiveSystem {
     bool resolvable{};              // [-] whether fp32 has significant digits left on this system
 };
 
-// The sensors that contribute to a fit: enabled by a positive bias, reporting a finite reading, and reading
-// above the use threshold. Returns sensor indices in sensor order, which is also observation order.
-inline std::vector<uint32_t> referenceActiveSensors(const std::vector<double>& biases,
+// The sensors that contribute to a fit: available, reporting a finite reading, and reading above the use
+// threshold. Returns sensor indices in sensor order, which is also observation order.
+inline std::vector<uint32_t> referenceActiveSensors(const std::vector<bool>& available,
                                                     const std::vector<double>& readings,
                                                     double sensorUseThresh) {
     std::vector<uint32_t> active;
     for (uint32_t i = 0U; i < kMaxNumCssSensors; ++i) {
-        if (biases[i] > 0.0 && std::isfinite(readings[i]) && readings[i] > sensorUseThresh) {
+        if (available[i] && std::isfinite(readings[i]) && readings[i] > sensorUseThresh) {
             active.push_back(i);
         }
     }
@@ -60,12 +60,12 @@ inline std::vector<uint32_t> referenceActiveSensors(const std::vector<double>& b
 }
 
 inline ActiveSystem activeSystem(const std::vector<Eigen::Vector3d>& boresights,
-                                 const std::vector<double>& biases,
+                                 const std::vector<bool>& available,
                                  bool useWeights,
                                  double sensorUseThresh,
                                  const std::vector<double>& readings) {
     ActiveSystem system{};
-    system.sensors = referenceActiveSensors(biases, readings, sensorUseThresh);
+    system.sensors = referenceActiveSensors(available, readings, sensorUseThresh);
     const auto n = static_cast<Eigen::Index>(system.sensors.size());
     if (n == 0) {
         return system;
@@ -75,7 +75,7 @@ inline ActiveSystem activeSystem(const std::vector<Eigen::Vector3d>& boresights,
     system.y.resize(n);
     for (Eigen::Index k = 0; k < n; ++k) {
         const uint32_t sensor = system.sensors[static_cast<size_t>(k)];
-        system.H.row(k) = biases[sensor] * boresights[sensor].transpose();
+        system.H.row(k) = boresights[sensor].transpose();
         system.y(k) = readings[sensor];
     }
     // With one or two observations the fit reproduces the measurements exactly, so the weighting drops out
@@ -152,7 +152,7 @@ inline void expectFitIsOptimal(const ActiveSystem& system,
 // Inputs the tests and the fuzz domains share, kept together so a helper signature stays readable.
 struct ConstellationInputs {
     std::vector<float> boresights;  // kMaxNumCssSensors * 3 components, normalized on the way in
-    std::vector<float> biases;      // kMaxNumCssSensors entries, zero disables a sensor
+    std::vector<bool> available;    // kMaxNumCssSensors entries, false excludes a sensor
     bool useWeights{};
     float sensorUseThresh{};
     float controlPeriod{};
@@ -162,7 +162,7 @@ struct ConstellationInputs {
 struct BuiltConfig {
     std::array<CssConfiguration, kMaxNumCssSensors> cssSensors{};
     std::vector<Eigen::Vector3d> boresights;
-    std::vector<double> biases;
+    std::vector<bool> available;
 };
 
 // Turns raw fuzzable inputs into a validated configuration. Returns false when the inputs cannot describe
@@ -173,13 +173,13 @@ inline bool buildConfig(const ConstellationInputs& inputs, BuiltConfig& built) {
         return false;
     }
     if (inputs.boresights.size() < static_cast<size_t>(kMaxNumCssSensors) * 3U ||
-        inputs.biases.size() < static_cast<size_t>(kMaxNumCssSensors)) {
+        inputs.available.size() < static_cast<size_t>(kMaxNumCssSensors)) {
         return false;
     }
 
     built = BuiltConfig{};
     built.boresights.assign(static_cast<size_t>(kMaxNumCssSensors), Eigen::Vector3d::Zero());
-    built.biases.assign(static_cast<size_t>(kMaxNumCssSensors), 0.0);
+    built.available.assign(static_cast<size_t>(kMaxNumCssSensors), false);
 
     for (uint32_t i = 0U; i < kMaxNumCssSensors; ++i) {
         const Eigen::Vector3f raw{
@@ -188,14 +188,13 @@ inline bool buildConfig(const ConstellationInputs& inputs, BuiltConfig& built) {
         if (!std::isfinite(rawNorm) || rawNorm < 1e-3F) {
             return false;  // a boresight too small to normalize cannot describe a sensor
         }
-        if (!std::isfinite(inputs.biases[i]) || inputs.biases[i] < 0.0F) {
-            return false;
-        }
+
         built.cssSensors.at(i).nHat_B = raw / rawNorm;
-        built.cssSensors.at(i).bias = inputs.biases[i];
+        built.cssSensors.at(i).availability =
+            inputs.available[i] ? fsw::DeviceAvailability::Available : fsw::DeviceAvailability::Unavailable;
         // The configuration normalizes the boresights, so the reference uses the normalized ones too.
         built.boresights[i] = built.cssSensors.at(i).nHat_B.stableNormalized().cast<double>();
-        built.biases[i] = static_cast<double>(inputs.biases[i]);
+        built.available[i] = inputs.available[i];
     }
 
     return CssWeightedLeastSquaresConfig::isValidCssSensors(built.cssSensors);
@@ -243,11 +242,11 @@ inline std::vector<float> referenceBoresightVector() {
     return flat;
 }
 
-inline std::vector<float> unitBiases() { return std::vector<float>(static_cast<size_t>(kMaxNumCssSensors), 1.0F); }
+inline std::vector<bool> allAvailable() { return std::vector<bool>(static_cast<size_t>(kMaxNumCssSensors), true); }
 
 // The reference eight-sensor setup, which most fixed-input tests start from.
 inline ConstellationInputs referenceInputs() {
-    return ConstellationInputs{referenceBoresightVector(), unitBiases(), false, kSensorUseThresh, kControlPeriod};
+    return ConstellationInputs{referenceBoresightVector(), allAvailable(), false, kSensorUseThresh, kControlPeriod};
 }
 
 // ---------------------------------------------------------------------------
@@ -265,7 +264,7 @@ inline void runRegressionCase(ConstellationInputs inputs, std::vector<float> rea
     const CssWeightedLeastSquaresOutput out = algorithm.update(makeReadings(readings));
 
     const ActiveSystem system = activeSystem(built.boresights,
-                                             built.biases,
+                                             built.available,
                                              inputs.useWeights,
                                              static_cast<double>(inputs.sensorUseThresh),
                                              toDouble(readings));
@@ -331,8 +330,8 @@ inline void propertyResidualsPaddedWithZeros(ConstellationInputs inputs, std::ve
     }
 }
 
-// A sensor disabled by a zero bias produces the same cycle as one whose reading the threshold rejects: it
-// contributes nothing to the fit and is not counted among the sensors viewing the sun.
+// An unavailable sensor produces the same cycle as one whose reading the threshold rejects: it contributes
+// nothing to the fit and is not counted among the sensors viewing the sun.
 inline void propertyDisabledSensorIgnored(ConstellationInputs inputs,
                                           std::vector<float> readings,
                                           uint32_t disabledIndex) {
@@ -342,12 +341,18 @@ inline void propertyDisabledSensorIgnored(ConstellationInputs inputs,
         return;
     }
 
+    // Disabling the last available sensor leaves a constellation with none, which the configuration
+    // rejects. That is a different case from the one this property compares.
+    if (built.available[disabledIndex] && std::count(built.available.begin(), built.available.end(), true) == 1) {
+        return;
+    }
+
     // Disabling a sensor must match silencing it, so its own reading has to be one the threshold rejects.
     std::vector<float> silenced = readings;
     silenced[disabledIndex] = 0.0F;
 
     BuiltConfig disabledBuilt = built;
-    disabledBuilt.cssSensors.at(disabledIndex).bias = 0.0F;
+    disabledBuilt.cssSensors.at(disabledIndex).availability = fsw::DeviceAvailability::Unavailable;
 
     CssWeightedLeastSquaresAlgorithm enabled{makeConfig(inputs, built)};
     CssWeightedLeastSquaresAlgorithm disabled{makeConfig(inputs, disabledBuilt)};
@@ -396,7 +401,7 @@ inline void propertyRotationEquivariance(ConstellationInputs inputs,
     // normal matrix amplifies that difference, so the tolerance carries its conditioning the way the
     // regression does.
     const ActiveSystem system = activeSystem(built.boresights,
-                                             built.biases,
+                                             built.available,
                                              inputs.useWeights,
                                              static_cast<double>(inputs.sensorUseThresh),
                                              toDouble(readings));

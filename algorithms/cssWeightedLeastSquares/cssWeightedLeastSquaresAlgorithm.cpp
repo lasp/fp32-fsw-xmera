@@ -107,11 +107,9 @@ CssWeightedLeastSquaresOutput CssWeightedLeastSquaresAlgorithm::update(
     for (uint32_t i = 0; i < kMaxNumCssSensors; i = i + 1) {
         /* The upper bound also removes a reading that is not a number, because every comparison with
            one is false. */
-        const bool sensorEnabled = this->cfg.getCssBias()(i) > 0.0F;
-        const bool readingIsMeasurable =
-            cosValues(i) > this->cfg.getSensorUseThresh() && cosValues(i) <= kMaxCssMeasurement;
-        if (sensorEnabled && readingIsMeasurable) {
-            H.row(numCssViewingSun) = this->cfg.getCssBias()(i) * this->cfg.getCssNHat_B().row(i);
+        if (this->cfg.getCssAvailability().at(i) == fsw::DeviceAvailability::Available &&
+            cosValues(i) > this->cfg.getSensorUseThresh() && cosValues(i) <= kMaxCssMeasurement) {
+            H.row(numCssViewingSun) = this->cfg.getCssNHat_B().row(i);
             y(numCssViewingSun) = cosValues(i);
             activeSensors.at(numCssViewingSun) = i;
             numCssViewingSun = numCssViewingSun + 1;
@@ -205,9 +203,8 @@ std::optional<Eigen::Vector3f> CssWeightedLeastSquaresAlgorithm::computeWlsmn(
 
     if (numCssViewingSun == 1) {
         /* The minimum norm solution of the single observation equation, which is the one-measurement
-           case of the two-measurement branch below. A disabled sensor never becomes an observation, so
-           the squared norm of the row is positive. */
-        fit = Eigen::Vector3f{H.row(0).transpose() * (y(0) / H.row(0).squaredNorm())};
+           case of the two-measurement branch below. The row is a unit boresight, so it needs no scaling. */
+        fit = Eigen::Vector3f{H.row(0).transpose() * y(0)};
     } else if (numCssViewingSun == 2) {
         /* Two measurements leave the system underdetermined, so take the minimum norm solution */
         const Eigen::Matrix<float, 2, 3> h = H.topRows<2>();

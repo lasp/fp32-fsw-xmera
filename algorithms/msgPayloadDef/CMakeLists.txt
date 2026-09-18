@@ -11,6 +11,9 @@ xmera_add_swig_message(BodyRateFaultMsgPayload)
 xmera_add_swig_message(CmdForceBodyMsgF32Payload)
 xmera_add_swig_message(CmdTorqueBodyMsgF32Payload)
 xmera_add_swig_message(CobConverterDiagnosticMsgF32Payload)
+xmera_add_swig_message(CSSArrayAvailabilityMsgF32Payload
+                       TEMPLATE
+                       "${CMAKE_CURRENT_SOURCE_DIR}/CSSArrayAvailabilityMsgF32Payload.i")
 xmera_add_swig_message(CSSArraySensorMsgF32Payload)
 xmera_add_swig_message(CSSConfigMsgF32Payload
                        TEMPLATE

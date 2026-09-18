@@ -2,6 +2,7 @@
 #define F32XMERA_CSS_WEIGHTED_LEAST_SQUARES_TYPES_H
 
 #include "msgPayloadDef/definitions.h"
+#include "utilities/fsw/deviceAvailability.h"
 #include "utilities/fsw/plainCAlgorithmDataTypes.h"
 
 #include <stdint.h>
@@ -13,12 +14,12 @@ extern "C" {
 /**
  * @brief Plain-old-data mirror of the C++ CssConfiguration fields.
  *
- *  - nHat_B norm must be within 1e-3 of 1.0 (normalized on storage)
- *  - bias must be finite and not negative; zero disables the sensor
+ *  - nHat_B norm must be within 1e-3 of 1.0 (normalized on storage), for an available sensor
+ *  - an unavailable sensor takes no part in the fit, and its boresight is never used
  */
 typedef struct {
-    Vector3f_c nHat_B; /*!< [-] boresight unit vector, body frame components */
-    float bias;        /*!< [-] calibration scale factor applied to the boresight */
+    Vector3f_c nHat_B;                 /*!< [-] boresight unit vector, body frame components */
+    DeviceAvailability_c availability; /*!< [-] state of the sensor */
 } CssConfiguration_c;
 
 /**

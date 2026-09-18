@@ -24,12 +24,6 @@ TEST(CssWeightedLeastSquaresTest, RegressionMinimumNormFit) {
     runRegressionCase(referenceInputs(), readingsFor(Eigen::Vector3d{std::sin(latitude), 0.0, std::cos(latitude)}));
 }
 
-TEST(CssWeightedLeastSquaresTest, RegressionWithNonUnitBiases) {
-    ConstellationInputs inputs = referenceInputs();
-    inputs.biases = {1.2F, 0.8F, 1.0F, 1.5F, 0.9F, 1.1F, 1.0F, 0.7F};
-    runRegressionCase(inputs, readingsFor(Eigen::Vector3d{1.0, 0.0, 0.0}));
-}
-
 // ---------------------------------------------------------------------------
 // Configuration tests — what the factory accepts and what it rejects.
 // ---------------------------------------------------------------------------
@@ -62,29 +56,28 @@ TEST(CssWeightedLeastSquaresTest, ConfigRejectsBoresightThatIsNotUnit) {
     EXPECT_THROW((void)makeConfig(inputs, built), fsw::invalid_argument);
 }
 
-TEST(CssWeightedLeastSquaresTest, ConfigRejectsBiasThatIsNegativeOrNotFinite) {
+TEST(CssWeightedLeastSquaresTest, ConfigAcceptsAnUnavailableSensor) {
     const ConstellationInputs inputs = referenceInputs();
     BuiltConfig built{};
     ASSERT_TRUE(buildConfig(inputs, built));
 
-    built.cssSensors.at(1).bias = -0.5F;
-    EXPECT_THROW((void)makeConfig(inputs, built), fsw::invalid_argument);
+    built.cssSensors.at(1).availability = fsw::DeviceAvailability::Unavailable;
+    EXPECT_NO_THROW((void)makeConfig(inputs, built));
 
-    built.cssSensors.at(1).bias = std::numeric_limits<float>::quiet_NaN();
-    EXPECT_THROW((void)makeConfig(inputs, built), fsw::invalid_argument);
-
-    built.cssSensors.at(1).bias = std::numeric_limits<float>::infinity();
-    EXPECT_THROW((void)makeConfig(inputs, built), fsw::invalid_argument);
+    // An unavailable sensor never reaches the fit, so its boresight is not held to the unit rule.
+    built.cssSensors.at(1).nHat_B.setZero();
+    EXPECT_NO_THROW((void)makeConfig(inputs, built));
 }
 
-// Zero is not an error: it is how a sensor is disabled.
-TEST(CssWeightedLeastSquaresTest, ConfigAcceptsZeroBias) {
+TEST(CssWeightedLeastSquaresTest, ConfigRejectsEverySensorUnavailable) {
     const ConstellationInputs inputs = referenceInputs();
     BuiltConfig built{};
     ASSERT_TRUE(buildConfig(inputs, built));
 
-    built.cssSensors.at(1).bias = 0.0F;
-    EXPECT_NO_THROW((void)makeConfig(inputs, built));
+    for (auto& sensor : built.cssSensors) {
+        sensor.availability = fsw::DeviceAvailability::Unavailable;
+    }
+    EXPECT_THROW((void)makeConfig(inputs, built), fsw::invalid_argument);
 }
 
 TEST(CssWeightedLeastSquaresTest, ConfigRejectsUseThresholdOutOfRange) {
@@ -156,10 +149,10 @@ namespace {
 
 // Builds the estimator over the reference constellation with the given tuning.
 CssWeightedLeastSquaresAlgorithm makeReferenceAlgorithm(bool useWeights = false,
-                                                        const std::vector<float>& biases = unitBiases()) {
+                                                        const std::vector<bool>& available = allAvailable()) {
     ConstellationInputs inputs = referenceInputs();
     inputs.useWeights = useWeights;
-    inputs.biases = biases;
+    inputs.available = available;
     BuiltConfig built{};
     EXPECT_TRUE(buildConfig(inputs, built));
     return CssWeightedLeastSquaresAlgorithm{makeConfig(inputs, built)};
@@ -188,22 +181,6 @@ TEST(CssWeightedLeastSquaresTest, SingleSensorReturnsItsBoresight) {
     ASSERT_EQ(out.numCssViewingSun, 1U);
     const Eigen::Vector3d boresight = referenceConstellation()[3];
     EXPECT_LT((out.sunHeading_B.cast<double>() - boresight).norm(), 1e-5);
-}
-
-// The single-observation fit is the minimum norm solution of y = c (n_hat . d), so the bias divides rather
-// than multiplies. The heading is the boresight either way; the residual is what shows the difference.
-TEST(CssWeightedLeastSquaresTest, SingleSensorFitDividesByTheBias) {
-    std::vector<float> biases = unitBiases();
-    biases[3] = 2.0F;
-    CssWeightedLeastSquaresAlgorithm algorithm = makeReferenceAlgorithm(false, biases);
-
-    std::vector<float> readings(kMaxNumCssSensors, 0.0F);
-    const float reading = 0.84F;
-    readings[3] = reading;
-    const CssWeightedLeastSquaresOutput out = algorithm.update(makeReadings(readings));
-
-    ASSERT_EQ(out.numCssViewingSun, 1U);
-    EXPECT_NEAR(out.postFitResiduals(0), reading - (reading / 2.0F), 1e-6F);
 }
 
 // Two readings leave the system underdetermined, so the minimum norm solution bisects the two boresights
@@ -302,7 +279,7 @@ TEST(CssWeightedLeastSquaresTest, CoverageDroppingBetweenCyclesLeavesNoStaleTail
     // estimator. A tail hoisted out of update() would be shared by every instance, so two runs of the same
     // code would agree with each other and hide the fault.
     const ActiveSystem system = activeSystem(built.boresights,
-                                             built.biases,
+                                             built.available,
                                              inputs.useWeights,
                                              static_cast<double>(inputs.sensorUseThresh),
                                              toDouble(fewLit));

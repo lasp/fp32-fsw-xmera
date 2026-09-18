@@ -2,6 +2,7 @@
 #define F32XMERA_CSS_WEIGHTED_LEAST_SQUARES_ALGORITHM_H
 
 #include "msgPayloadDef/definitions.h"
+#include "utilities/fsw/deviceAvailability.h"
 #include "utilities/fsw/freestandingInvalidArgument.h"
 #include "utilities/fsw/freestandingIsFinite.hpp"
 
@@ -14,7 +15,8 @@
 /*! Configuration of a single coarse sun sensor. */
 struct CssConfiguration {
     Eigen::Vector3f nHat_B{Eigen::Vector3f::Zero()};  //!< [-] boresight unit vector, body frame components
-    float bias{};                                     //!< [-] calibration scale factor applied to the boresight
+    //!< [-] state of the sensor; an unavailable sensor takes no part in the fit
+    fsw::DeviceAvailability availability{fsw::DeviceAvailability::Available};
 };
 
 /*! Estimator products for a single update cycle. */
@@ -38,7 +40,7 @@ class CssWeightedLeastSquaresConfig final {
    public:
     /*! Build a validated configuration.
         @return the validated configuration
-        @param cssSensors     [-] boresight and bias of every sensor slot
+        @param cssSensors     [-] boresight and availability of every sensor slot
         @param useWeights     [-] whether to weight the measurements in the least squares fit
         @param sensorUseThresh [-] cosine threshold at or below which a reading is discarded
         @param controlPeriod  [s] time between two update() calls, the rate estimate's time step
@@ -49,8 +51,8 @@ class CssWeightedLeastSquaresConfig final {
                                                 const float controlPeriod) {
         if (!isValidCssSensors(cssSensors)) {
             FSW_THROW_INVALID_ARGUMENT(
-                "cssWeightedLeastSquares: every sensor must have a boresight that is a unit vector within 1e-3 "
-                "and a bias that is finite and non-negative");
+                "cssWeightedLeastSquares: a minimum of one sensor must be available, and every available "
+                "sensor must have a boresight that is a unit vector within 1e-3");
         }
         if (!isValidSensorUseThresh(sensorUseThresh)) {
             FSW_THROW_INVALID_ARGUMENT("cssWeightedLeastSquares: sensorUseThresh must be a cosine in [0, 1]");
@@ -62,27 +64,30 @@ class CssWeightedLeastSquaresConfig final {
         // downstream code can rely on exact unit vectors. They are validated (near-)unit, so this only
         // removes rounding.
         Eigen::Matrix<float, kMaxNumCssSensors, 3> cssNHat_B = Eigen::Matrix<float, kMaxNumCssSensors, 3>::Zero();
-        Eigen::Vector<float, kMaxNumCssSensors> cssBias = Eigen::Vector<float, kMaxNumCssSensors>::Zero();
+        std::array<fsw::DeviceAvailability, kMaxNumCssSensors> cssAvailability{};
         for (uint32_t i = 0U; i < kMaxNumCssSensors; ++i) {
-            cssNHat_B.row(i) = cssSensors.at(i).nHat_B.stableNormalized().transpose();
-            cssBias(i) = cssSensors.at(i).bias;
+            cssAvailability.at(i) = cssSensors.at(i).availability;
+            if (cssSensors.at(i).availability == fsw::DeviceAvailability::Available) {
+                cssNHat_B.row(i) = cssSensors.at(i).nHat_B.stableNormalized().transpose();
+            }
         }
 
-        return {cssNHat_B, cssBias, useWeights, sensorUseThresh, controlPeriod};
+        return {cssNHat_B, cssAvailability, useWeights, sensorUseThresh, controlPeriod};
     }
 
     static bool isValidCssSensors(const std::array<CssConfiguration, kMaxNumCssSensors>& cssSensors) {
+        bool anyAvailable = false;
         for (uint32_t i = 0; i < kMaxNumCssSensors; ++i) {
+            if (cssSensors.at(i).availability != fsw::DeviceAvailability::Available) {
+                continue;  // an unavailable sensor never reaches the fit, so its boresight is never used
+            }
+            anyAvailable = true;
             const Eigen::Vector3f& nHat_B = cssSensors.at(i).nHat_B;
-            const float bias = cssSensors.at(i).bias;
             if (!nHat_B.allFinite() || fabsf(nHat_B.stableNorm() - 1.0F) >= 1e-3F) {
                 return false;
             }
-            if (!fsw::is_finite(bias) || bias < 0.0F) {
-                return false;
-            }
         }
-        return true;
+        return anyAvailable;
     }
 
     static bool isValidControlPeriod(const float controlPeriod) {
@@ -99,26 +104,26 @@ class CssWeightedLeastSquaresConfig final {
     // No isValidUseWeights -- a bool with no semantic constraint, the validator would be vacuous.
 
     const Eigen::Matrix<float, kMaxNumCssSensors, 3>& getCssNHat_B() const { return cssNHat_B; }
-    const Eigen::Vector<float, kMaxNumCssSensors>& getCssBias() const { return cssBias; }
+    const std::array<fsw::DeviceAvailability, kMaxNumCssSensors>& getCssAvailability() const { return cssAvailability; }
     bool getUseWeights() const { return useWeights; }
     float getSensorUseThresh() const { return sensorUseThresh; }
     float getControlPeriod() const { return controlPeriod; }
 
    private:
     CssWeightedLeastSquaresConfig(const Eigen::Matrix<float, kMaxNumCssSensors, 3>& cssNHat_B,
-                                  const Eigen::Vector<float, kMaxNumCssSensors>& cssBias,
+                                  const std::array<fsw::DeviceAvailability, kMaxNumCssSensors>& cssAvailability,
                                   const bool useWeights,
                                   // NOLINTNEXTLINE(bugprone-easily-swappable-parameters) -- create() validates by name.
                                   const float sensorUseThresh,
                                   const float controlPeriod)
         : cssNHat_B(cssNHat_B),
-          cssBias(cssBias),
+          cssAvailability(cssAvailability),
           useWeights(useWeights),
           sensorUseThresh(sensorUseThresh),
           controlPeriod(controlPeriod) {}
 
     Eigen::Matrix<float, kMaxNumCssSensors, 3> cssNHat_B = Eigen::Matrix<float, kMaxNumCssSensors, 3>::Zero();
-    Eigen::Vector<float, kMaxNumCssSensors> cssBias = Eigen::Vector<float, kMaxNumCssSensors>::Zero();
+    std::array<fsw::DeviceAvailability, kMaxNumCssSensors> cssAvailability{};
     bool useWeights{};
     float sensorUseThresh{};
     float controlPeriod{};

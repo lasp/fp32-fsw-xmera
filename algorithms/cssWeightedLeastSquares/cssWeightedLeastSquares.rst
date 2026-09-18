@@ -44,6 +44,9 @@ The adapter consumes the following messages and public configuration properties.
     * - cssConfigInMsg
       - :ref:`CSSConfigMsgF32Payload`
       - constellation geometry input, read when the configuration is built
+    * - cssAvailInMsg
+      - :ref:`CSSArrayAvailabilityMsgF32Payload`
+      - (optional) sensor availability input; every sensor is available when it is not connected
     * - navStateOutMsg
       - :ref:`NavAttMsgF32Payload`
       - navigation output carrying the estimated sun heading and body rate
@@ -56,7 +59,7 @@ The adapter consumes the following messages and public configuration properties.
 
 The CSS constellation geometry comes from ``cssConfigInMsg``, the same message the other estimators of the sun
 heading subscribe to. One publisher then describes the sensor array once, and every module that uses it reads the same
-boresights and biases. The module's own tuning stays in adapter properties, which are read when the configuration is
+boresights. The module's own tuning stays in adapter properties, which are read when the configuration is
 built and can be edited between builds.
 
 .. list-table:: Module Configuration Properties
@@ -107,9 +110,8 @@ configuration, so no configuration path allocates; slots at or beyond ``nCSS`` a
     * - CBias
       - float
       - \-
-      - >= 0, finite
-      - Calibration scale factor applied to the boresight. Zero disables the sensor: it measures nothing, so the
-        module ignores its reading and does not count it among the sensors viewing the sun
+      - \-
+      - Not read. The sensor module applies the calibration, so the estimate needs no second scale factor
 
 The module also publishes ``numCssViewingSun``, the number of sensors above the use threshold on the most recent cycle. It
 is written by ``updateState()`` for telemetry and logging and is not a configuration input.
@@ -141,10 +143,10 @@ Algorithm Layer
 Mathematical Formulation
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-Each cycle, the algorithm selects the active sensors. A sensor is active when it is enabled and its reading is
-more than ``sensorUseThresh`` and not more than 1.1. A sensor with a bias of zero has no gain. It measures
-nothing, and the algorithm disables it. A disabled sensor adds an observation that no heading can explain. It also
-increases the count of the sensors that point at the sun.
+Each cycle, the algorithm selects the active sensors. A sensor is active when it is available and its reading
+is more than ``sensorUseThresh`` and not more than 1.1. ``cssAvailInMsg`` gives the availability of each sensor.
+Every sensor is available when that message is not connected. An unavailable sensor adds an observation that no
+heading can explain. It also increases the count of the sensors that point at the sun.
 
 A cosine cannot be more than one. The upper bound is more than one, because the calibration and the noise on a
 sensor that points at the sun can increase its reading. The algorithm must keep that reading. A reading that is
@@ -152,15 +154,15 @@ more than the bound is not a measurement. The algorithm rejects it, because its 
 normal equations too large. The same bound rejects a reading that is not a number, because all comparisons with
 such a reading are false.
 
-For each active sensor :math:`i`, the algorithm makes a row of the observation matrix from the calibrated
-boresight. It makes the entry of the observation vector from the measurement:
+For each active sensor :math:`i`, the algorithm makes a row of the observation matrix from the boresight. It
+makes the entry of the observation vector from the measurement:
 
 .. math::
 
-    \mathbf{H}_i = c_i \hat{\mathbf{n}}_i, \qquad y_i = \cos\theta_i
+    \mathbf{H}_i = \hat{\mathbf{n}}_i, \qquad y_i = \cos\theta_i
 
-where :math:`c_i` is the sensor bias and :math:`\hat{\mathbf{n}}_i` its body-frame boresight. The active measurements
-are compacted, so the row index counts active sensors rather than sensor slots.
+where :math:`\hat{\mathbf{n}}_i` is the body-frame boresight of the sensor. The active measurements are compacted,
+so the row index counts active sensors rather than sensor slots.
 
 Sun Heading Evaluation
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -189,10 +191,7 @@ The fit depends on how many sensors are active, because the problem is over-dete
 
   .. math::
 
-      \mathbf{d} = \frac{y_0}{c_0} \hat{\mathbf{n}}_0
-
-  The heading is the boresight whatever the bias is, because the fit is normalized; the bias only scales the
-  unnormalized fit the residuals are measured against.
+      \mathbf{d} = y_0 \hat{\mathbf{n}}_0
 
 - **No active sensors.** The sun cannot be estimated and the zero vector is returned.
 
@@ -221,8 +220,8 @@ sine keeps those digits, and the rate of a slow slew stays accurate.
 Post-Fit Residuals
 ~~~~~~~~~~~~~~~~~~
 
-Residuals measure how well the estimate explains the measurements. For each active sensor the estimate is projected
-onto the raw boresight, without the bias, and differenced against the observation:
+Residuals measure how well the estimate explains the measurements. For each active sensor the estimate is
+projected onto the boresight and differenced against the observation:
 
 .. math::
 
@@ -274,5 +273,3 @@ Algorithm Assumptions and Limitations
   orthogonal to the heading.
 - The rate divides by the configured control period rather than by a measured elapsed time, so it assumes the
   module runs on its nominal schedule. A cycle that arrives late scales the reported rate by the same amount.
-- Sensor biases are applied to the observation matrix but not to the residual projection, so a biased sensor's
-  residual is measured against the raw boresight.

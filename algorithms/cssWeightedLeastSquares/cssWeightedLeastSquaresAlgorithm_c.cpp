@@ -22,7 +22,7 @@ CssWeightedLeastSquaresConfig configFromC(const CssWeightedLeastSquaresConstella
 
     for (size_t sensor = 0; sensor < static_cast<size_t>(kMaxNumCssSensors); ++sensor) {
         cssSensors.at(sensor).nHat_B = cArrayToEigenVector3<float>(constellation.cssSensors[sensor].nHat_B.data);
-        cssSensors.at(sensor).bias = constellation.cssSensors[sensor].bias;
+        cssSensors.at(sensor).availability = fsw::toDeviceAvailability(constellation.cssSensors[sensor].availability);
     }
 
     return CssWeightedLeastSquaresConfig::create(cssSensors, useWeights, sensorUseThresh, controlPeriod);

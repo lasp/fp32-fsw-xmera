@@ -5,13 +5,12 @@
 namespace {
 
 // Boresights are drawn over the unit cube and normalized by the helper, which rejects the ones too short to
-// point anywhere. Biases reach past one so a miscalibrated sensor is covered, and zero is included because
-// that is how a sensor is disabled.
+// point anywhere. Every combination of available and unavailable sensors is covered, the all-unavailable
+// one included, which the configuration must reject.
 auto constellationDomain() {
     return fuzztest::StructOf<ConstellationInputs>(
-        fuzztest::InRange(0U, static_cast<uint32_t>(kMaxNumCssSensors) + 1U),
         fuzztest::VectorOf(fuzztest::InRange(-1.0F, 1.0F)).WithSize(static_cast<size_t>(kMaxNumCssSensors) * 3U),
-        fuzztest::VectorOf(fuzztest::InRange(0.0F, 2.0F)).WithSize(static_cast<size_t>(kMaxNumCssSensors)),
+        fuzztest::VectorOf(fuzztest::Arbitrary<bool>()).WithSize(static_cast<size_t>(kMaxNumCssSensors)),
         fuzztest::Arbitrary<bool>(),
         fuzztest::InRange(-0.1F, 1.1F),
         fuzztest::InRange(-0.1F, 10.0F));
