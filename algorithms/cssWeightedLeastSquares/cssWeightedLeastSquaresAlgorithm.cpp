@@ -127,7 +127,7 @@ CssWeightedLeastSquaresOutput CssWeightedLeastSquaresAlgorithm::update(
             if (rotationAxisMagnitude > kMinRotationAxisMagnitude) {
                 const float principalAngle =
                     safeAtan2f(rotationAxisMagnitude, sunHeading_B.dot(this->priorSunHeading_B));
-                omega_BN_B = rotationAxis * (principalAngle / (rotationAxisMagnitude * this->cfg.getControlPeriod()));
+                omega_BN_B = principalAngle * (rotationAxis / rotationAxisMagnitude) / this->cfg.getControlPeriod();
             }
         } else {
             this->priorSignalAvailable = true;
