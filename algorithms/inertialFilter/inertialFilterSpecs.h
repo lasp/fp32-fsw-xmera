@@ -1,6 +1,7 @@
 #ifndef F32XMERA_INERTIALFILTERSPECS_H
 #define F32XMERA_INERTIALFILTERSPECS_H
 
+#include "inertialFilterTypes.h"
 #include "utilities/fsw/rigidBodyKinematics.hpp"
 
 #include <filteringCore/state.hpp>

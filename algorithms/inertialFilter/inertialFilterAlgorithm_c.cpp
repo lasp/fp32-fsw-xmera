@@ -15,26 +15,32 @@ using StAttData = ::filtering::inertialFilter::StAttData;
 
 namespace {
 
-InertialFilterConfig configFromC(const InertialFilterConfig_c& c) {
+InertialFilterConfig configFromC(const double alpha,
+                                 const double beta,
+                                 const InertialFilterStateMatrix_c& processNoiseC,
+                                 const InertialFilterStateVector_c& initialStateC,
+                                 const InertialFilterStateMatrix_c& initialCovarianceC,
+                                 const double stMeasurementNoiseStd,
+                                 const double gyroMeasurementNoiseStd) {
     Eigen::Matrix<double, INERTIAL_FILTER_NUM_STATES, 1> initialStateVec;
     for (int i = 0; i < INERTIAL_FILTER_NUM_STATES; ++i) {
-        initialStateVec(i) = c.initialState[i];
+        initialStateVec(i) = initialStateC.data[i];
     }
     StateMatrix processNoise;
     StateMatrix initialCovariance;
     for (int i = 0; i < INERTIAL_FILTER_NUM_STATES; ++i) {
         for (int j = 0; j < INERTIAL_FILTER_NUM_STATES; ++j) {
-            processNoise(i, j) = c.processNoise[i][j];
-            initialCovariance(i, j) = c.initialCovariance[i][j];
+            processNoise(i, j) = processNoiseC.data[(i * INERTIAL_FILTER_NUM_STATES) + j];
+            initialCovariance(i, j) = initialCovarianceC.data[(i * INERTIAL_FILTER_NUM_STATES) + j];
         }
     }
-    return InertialFilterConfig::create(c.alpha,
-                                        c.beta,
+    return InertialFilterConfig::create(alpha,
+                                        beta,
                                         processNoise,
                                         InertialState(initialStateVec),
                                         initialCovariance,
-                                        c.stMeasurementNoiseStd,
-                                        c.gyroMeasurementNoiseStd);
+                                        stMeasurementNoiseStd,
+                                        gyroMeasurementNoiseStd);
 }
 
 // StAttResidualsOutput and RateResidualsOutput are distinct C++ types with identical fields; one
@@ -68,8 +74,15 @@ InertialFilterOutput_c outputToC(const InertialFilterOutput& out) {
 
 uint32_t InertialFilterAlgorithm_getNumStates(void) { return INERTIAL_FILTER_NUM_STATES; }
 
-InertialFilterAlgorithmHandle* InertialFilterAlgorithm_create(const InertialFilterConfig_c* config) {
-    return fsw::createHandle<InertialFilterAlgorithm, InertialFilterAlgorithmHandle>(configFromC(*config));
+InertialFilterAlgorithmHandle* InertialFilterAlgorithm_create(double alpha,
+                                                              double beta,
+                                                              const InertialFilterStateMatrix_c* processNoise,
+                                                              const InertialFilterStateVector_c* initialState,
+                                                              const InertialFilterStateMatrix_c* initialCovariance,
+                                                              double stMeasurementNoiseStd,
+                                                              double gyroMeasurementNoiseStd) {
+    return fsw::createHandle<InertialFilterAlgorithm, InertialFilterAlgorithmHandle>(configFromC(
+        alpha, beta, *processNoise, *initialState, *initialCovariance, stMeasurementNoiseStd, gyroMeasurementNoiseStd));
 }
 
 void InertialFilterAlgorithm_destroy(InertialFilterAlgorithmHandle* self) {
