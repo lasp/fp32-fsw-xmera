@@ -94,6 +94,26 @@ TEST(CssCommTest, SaturationClampingToOne) {
 }
 
 // For any valid configuration and inputs, every output is in [0.0, 1.0].
+// A sensor that reports a value which is not finite has measured nothing. Passing it on would carry the
+// value into every estimate downstream, and an infinity would arrive as a sensor that points straight at
+// the sun, so the module reports no signal instead.
+TEST(CssCommTest, NonFiniteReadingReportsNoSignal) {
+    std::array<double, kMaxNumChebyPolys> polys{};
+    CssCommAlgorithm alg{CssCommConfig::create(4, uniformMaxValues(1.0), polys)};
+
+    std::array<double, MAX_NUM_CSS_SENSORS> input{};
+    input[0] = std::numeric_limits<double>::quiet_NaN();
+    input[1] = std::numeric_limits<double>::infinity();
+    input[2] = -std::numeric_limits<double>::infinity();
+    input[3] = 0.5;
+    auto output = alg.update(input);
+
+    EXPECT_DOUBLE_EQ(output[0], 0.0);
+    EXPECT_DOUBLE_EQ(output[1], 0.0);
+    EXPECT_DOUBLE_EQ(output[2], 0.0);
+    EXPECT_DOUBLE_EQ(output[3], 0.5);  // a healthy sensor alongside them is untouched
+}
+
 TEST(CssCommTest, OutputAlwaysInUnitRange) {
     std::array<double, kMaxNumChebyPolys> polys{};
     polys[0] = 1e4;

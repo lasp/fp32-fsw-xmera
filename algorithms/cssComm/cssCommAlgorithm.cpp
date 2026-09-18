@@ -1,6 +1,8 @@
 #include "cssCommAlgorithm.h"
 #include "utilities/fsw/chebyshevUtilities.h"
 
+#include <algorithm>
+
 CssCommAlgorithm::CssCommAlgorithm(const CssCommConfig& config) : cfg(config) { setConfig(config); }
 
 void CssCommAlgorithm::setConfig(const CssCommConfig& config) { this->cfg = config; }
@@ -21,14 +23,11 @@ std::array<double, kMaxNumCssSensors> CssCommAlgorithm::update(
         double const correction = calculateChebyValue(
             this->cfg.getChebyPolynomials(), static_cast<unsigned int>(kMaxNumChebyPolys), measuredValue);
 
-        double correctedValue = measuredValue + correction;
+        const double correctedValue = measuredValue + correction;
 
-        if (correctedValue > 1.0) {
-            correctedValue = 1.0;
-        } else if (correctedValue < 0.0) {
-            correctedValue = 0.0;
-        }
-        outputValues.at(i) = correctedValue;
+        /* A coarse sun sensor reports a cosine, so the corrected value cannot leave [0, 1]. A value that
+           is not finite carries no measurement at all, so report no signal rather than pass it on. */
+        outputValues.at(i) = fsw::is_finite(correctedValue) ? std::clamp(correctedValue, 0.0, 1.0) : 0.0;
     }
 
     return outputValues;
