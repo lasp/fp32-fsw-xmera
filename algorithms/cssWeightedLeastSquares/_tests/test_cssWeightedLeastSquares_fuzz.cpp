@@ -9,9 +9,9 @@ namespace {
 // that is how a sensor is disabled.
 auto constellationDomain() {
     return fuzztest::StructOf<ConstellationInputs>(
-        fuzztest::InRange(0U, static_cast<uint32_t>(kMaxNumCss) + 1U),
-        fuzztest::VectorOf(fuzztest::InRange(-1.0F, 1.0F)).WithSize(static_cast<size_t>(kMaxNumCss) * 3U),
-        fuzztest::VectorOf(fuzztest::InRange(0.0F, 2.0F)).WithSize(static_cast<size_t>(kMaxNumCss)),
+        fuzztest::InRange(0U, static_cast<uint32_t>(kMaxNumCssSensors) + 1U),
+        fuzztest::VectorOf(fuzztest::InRange(-1.0F, 1.0F)).WithSize(static_cast<size_t>(kMaxNumCssSensors) * 3U),
+        fuzztest::VectorOf(fuzztest::InRange(0.0F, 2.0F)).WithSize(static_cast<size_t>(kMaxNumCssSensors)),
         fuzztest::Arbitrary<bool>(),
         fuzztest::InRange(-0.1F, 1.1F),
         fuzztest::InRange(-0.1F, 10.0F));
@@ -20,14 +20,14 @@ auto constellationDomain() {
 // A coarse sun sensor reports a cosine, so readings stay in [0, 1]. The threshold domain reaches outside
 // that range, and the count domain outside its bounds, so the configuration rejections are exercised too.
 auto readingsDomain() {
-    return fuzztest::VectorOf(fuzztest::InRange(0.0F, 1.0F)).WithSize(static_cast<size_t>(kMaxNumCss));
+    return fuzztest::VectorOf(fuzztest::InRange(0.0F, 1.0F)).WithSize(static_cast<size_t>(kMaxNumCssSensors));
 }
 
 // The readings a working sensor reports, mixed with the full range of values a broken one can report. The
 // mixture keeps the fit covered as well as the rejection.
 auto brokenReadingsDomain() {
     return fuzztest::VectorOf(fuzztest::OneOf(fuzztest::InRange(-0.1F, 1.1F), fuzztest::Arbitrary<float>()))
-        .WithSize(static_cast<size_t>(kMaxNumCss));
+        .WithSize(static_cast<size_t>(kMaxNumCssSensors));
 }
 
 }  // namespace
@@ -55,7 +55,7 @@ FUZZ_TEST(CssWeightedLeastSquaresPropertyFuzz, propertyResidualsPaddedWithZeros)
 FUZZ_TEST(CssWeightedLeastSquaresPropertyFuzz, propertyDisabledSensorIgnored)
     .WithDomains(constellationDomain(),
                  readingsDomain(),
-                 fuzztest::InRange(0U, static_cast<uint32_t>(kMaxNumCss) - 1U));
+                 fuzztest::InRange(0U, static_cast<uint32_t>(kMaxNumCssSensors) - 1U));
 
 FUZZ_TEST(CssWeightedLeastSquaresPropertyFuzz, propertyRotationEquivariance)
     .WithDomains(constellationDomain(), readingsDomain(), xmera::fuzz::Vector3fInRange(-3.2F, 3.2F));

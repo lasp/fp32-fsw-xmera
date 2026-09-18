@@ -18,9 +18,9 @@ CssWeightedLeastSquaresConfig configFromC(const CssWeightedLeastSquaresConstella
                                           const bool useWeights,
                                           const float sensorUseThresh,
                                           const float controlPeriod) {
-    std::array<CssConfiguration, kMaxNumCss> cssSensors{};
+    std::array<CssConfiguration, kMaxNumCssSensors> cssSensors{};
 
-    for (size_t sensor = 0; sensor < static_cast<size_t>(kMaxNumCss); ++sensor) {
+    for (size_t sensor = 0; sensor < static_cast<size_t>(kMaxNumCssSensors); ++sensor) {
         cssSensors.at(sensor).nHat_B = cArrayToEigenVector3<float>(constellation.cssSensors[sensor].nHat_B.data);
         cssSensors.at(sensor).bias = constellation.cssSensors[sensor].bias;
     }
@@ -41,7 +41,7 @@ CssWeightedLeastSquaresOutput_c outputToC(const CssWeightedLeastSquaresOutput& o
 
 }  // namespace
 
-uint32_t CssWeightedLeastSquaresAlgorithm_getMaxNumCss(void) { return kMaxNumCss; }
+uint32_t CssWeightedLeastSquaresAlgorithm_getMaxNumCss(void) { return kMaxNumCssSensors; }
 
 bool CssWeightedLeastSquaresAlgorithm_validateConfig(const CssWeightedLeastSquaresConstellation_c* constellation,
                                                      const bool useWeights,

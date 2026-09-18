@@ -86,9 +86,9 @@ built and can be edited between builds.
       - Time between two ``updateState()`` calls; the time step of the rate estimate
 
 The constellation geometry arrives on ``cssConfigInMsg``, which carries ``nCSS`` sensors and one ``cssVals`` entry
-per sensor. The module copies those entries into a fixed array of ``kMaxNumCss`` slots when it builds the
+per sensor. The module copies those entries into a fixed array of ``kMaxNumCssSensors`` slots when it builds the
 configuration, so no configuration path allocates; slots at or beyond ``nCSS`` are never read. A count above
-``kMaxNumCss`` is rejected.
+``kMaxNumCssSensors`` is rejected.
 
 .. list-table:: Per-Sensor Fields of cssConfigInMsg
     :widths: 20 15 10 15 40

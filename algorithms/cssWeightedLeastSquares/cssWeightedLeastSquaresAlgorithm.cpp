@@ -91,18 +91,18 @@ void CssWeightedLeastSquaresAlgorithm::reInitialize() {
  @param cosValues [-] Per-sensor cosine readings, indexed by sensor
  */
 CssWeightedLeastSquaresOutput CssWeightedLeastSquaresAlgorithm::update(
-    const Eigen::Vector<float, kMaxNumCss>& cosValues) {
+    const Eigen::Vector<float, kMaxNumCssSensors>& cosValues) {
     /* The predicted pointing vector for each measurement, compacted to the active sensors */
-    Eigen::Matrix<float, kMaxNumCss, 3> H = Eigen::Matrix<float, kMaxNumCss, 3>::Zero();
+    Eigen::Matrix<float, kMaxNumCssSensors, 3> H = Eigen::Matrix<float, kMaxNumCssSensors, 3>::Zero();
     /* Measurements, compacted to the active sensors */
-    Eigen::Vector<float, kMaxNumCss> y = Eigen::Vector<float, kMaxNumCss>::Zero();
+    Eigen::Vector<float, kMaxNumCssSensors> y = Eigen::Vector<float, kMaxNumCssSensors>::Zero();
     /* The sensor index behind each observation, in observation order */
-    std::array<Eigen::Index, kMaxNumCss> activeSensors{};
+    std::array<Eigen::Index, kMaxNumCssSensors> activeSensors{};
     uint32_t numActiveCss = 0;
     std::optional<Eigen::Vector3f> fit; /* the least squares solution; empty when there is none */
     Eigen::Vector3f sunHeading_B = Eigen::Vector3f::Zero();
     Eigen::Vector3f omega_BN_B = Eigen::Vector3f::Zero();
-    Eigen::Vector<float, kMaxNumCss> postFitResiduals = Eigen::Vector<float, kMaxNumCss>::Zero();
+    Eigen::Vector<float, kMaxNumCssSensors> postFitResiduals = Eigen::Vector<float, kMaxNumCssSensors>::Zero();
 
     for (uint32_t i = 0; i < this->cfg.getNumCss(); i = i + 1) {
         /* The upper bound also removes a reading that is not a number, because every comparison with
@@ -119,7 +119,7 @@ CssWeightedLeastSquaresOutput CssWeightedLeastSquaresAlgorithm::update(
     }
 
     if (numActiveCss > 0) {
-        Eigen::Vector<float, kMaxNumCss> weights = Eigen::Vector<float, kMaxNumCss>::Ones();
+        Eigen::Vector<float, kMaxNumCssSensors> weights = Eigen::Vector<float, kMaxNumCssSensors>::Ones();
         if (this->cfg.getUseWeights()) {
             weights = y;
         }
@@ -170,12 +170,12 @@ CssWeightedLeastSquaresOutput CssWeightedLeastSquaresAlgorithm::update(
     @param activeSensors The sensor index behind each observation, in observation order
     @param numActiveCss The count on input measurements
 */
-Eigen::Vector<float, kMaxNumCss> CssWeightedLeastSquaresAlgorithm::computeWlsResiduals(
-    const Eigen::Vector<float, kMaxNumCss>& cssMeas,
+Eigen::Vector<float, kMaxNumCssSensors> CssWeightedLeastSquaresAlgorithm::computeWlsResiduals(
+    const Eigen::Vector<float, kMaxNumCssSensors>& cssMeas,
     const Eigen::Vector3f& wlsEst,
-    const std::array<Eigen::Index, kMaxNumCss>& activeSensors,
+    const std::array<Eigen::Index, kMaxNumCssSensors>& activeSensors,
     const uint32_t numActiveCss) const {
-    Eigen::Vector<float, kMaxNumCss> cssResiduals = Eigen::Vector<float, kMaxNumCss>::Zero();
+    Eigen::Vector<float, kMaxNumCssSensors> cssResiduals = Eigen::Vector<float, kMaxNumCssSensors>::Zero();
 
     for (uint32_t observation = 0; observation < numActiveCss; observation++) {
         const Eigen::Index sensor = activeSensors.at(observation);
@@ -198,9 +198,9 @@ Eigen::Vector<float, kMaxNumCss> CssWeightedLeastSquaresAlgorithm::computeWlsRes
  */
 std::optional<Eigen::Vector3f> CssWeightedLeastSquaresAlgorithm::computeWlsmn(
     const uint32_t numActiveCss,
-    const Eigen::Vector<float, kMaxNumCss>& weights,
-    const Eigen::Matrix<float, kMaxNumCss, 3>& H,
-    const Eigen::Vector<float, kMaxNumCss>& y) {
+    const Eigen::Vector<float, kMaxNumCssSensors>& weights,
+    const Eigen::Matrix<float, kMaxNumCssSensors, 3>& H,
+    const Eigen::Vector<float, kMaxNumCssSensors>& y) {
     std::optional<Eigen::Vector3f> fit;
 
     if (numActiveCss == 1) {
@@ -221,7 +221,7 @@ std::optional<Eigen::Vector3f> CssWeightedLeastSquaresAlgorithm::computeWlsmn(
            active measurements alone. Forming them at full size keeps every intermediate a
            fixed-size Eigen type; a dynamically sized one would allocate, and this build forbids
            heap allocation. */
-        const Eigen::Matrix<float, kMaxNumCss, 3> wh = weights.asDiagonal() * H;
+        const Eigen::Matrix<float, kMaxNumCssSensors, 3> wh = weights.asDiagonal() * H;
         const std::optional<Eigen::Matrix3f> htwhInverse = invertNormalMatrix(Eigen::Matrix3f{H.transpose() * wh});
         if (htwhInverse) {
             fit = Eigen::Vector3f{*htwhInverse * (wh.transpose() * y)};

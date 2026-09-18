@@ -42,11 +42,12 @@ void CssWeightedLeastSquares::reset(const uint64_t callTime) {
  */
 CssWeightedLeastSquaresConfig CssWeightedLeastSquares::toConfig() {
     const CSSConfigMsgF32Payload cssConfig = this->cssConfigInMsg();
-    if (cssConfig.nCSS > static_cast<uint32_t>(kMaxNumCss)) {
-        throw std::invalid_argument("cssWeightedLeastSquares.cssConfigInMsg reported more sensors than kMaxNumCss.");
+    if (cssConfig.nCSS > static_cast<uint32_t>(kMaxNumCssSensors)) {
+        throw std::invalid_argument(
+            "cssWeightedLeastSquares.cssConfigInMsg reported more sensors than kMaxNumCssSensors.");
     }
 
-    std::array<CssConfiguration, kMaxNumCss> cssSensors{};
+    std::array<CssConfiguration, kMaxNumCssSensors> cssSensors{};
     for (uint32_t i = 0; i < cssConfig.nCSS; ++i) {
         cssSensors.at(i) = CssConfiguration{.nHat_B = cArrayToEigenVector(cssConfig.cssVals[i].nHat_B),
                                             .bias = cssConfig.cssVals[i].CBias};
@@ -116,7 +117,7 @@ void CssWeightedLeastSquares::updateState(const uint64_t callTime) {
         cssResBuf.numberOfObservations = 1;
         cssResBuf.sizeOfObservations = static_cast<int>(out.numActiveCss);
         Eigen::Vector<double, kResidualSlots> postFits = Eigen::Vector<double, kResidualSlots>::Zero();
-        postFits.head<kMaxNumCss>() = out.postFitResiduals.cast<double>();
+        postFits.head<kMaxNumCssSensors>() = out.postFitResiduals.cast<double>();
         eigenVectorToCArray(postFits, cssResBuf.postFits);
         this->filterCssResOutMsg.write(cssResBuf, this->moduleID, callTime);
     }
