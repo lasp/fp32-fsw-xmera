@@ -3,6 +3,7 @@
 
 #include "inertialFilterTypes.h"
 
+#include <stdbool.h>
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -33,6 +34,26 @@ typedef struct {
  * @return INERTIAL_FILTER_NUM_STATES.
  */
 uint32_t InertialFilterAlgorithm_getNumStates(void);
+
+/**
+ * @brief Report whether a configuration would be accepted by create.
+ * @param alpha                   [-] sigma-point spread.
+ * @param beta                    [-] prior-knowledge tunable.
+ * @param processNoise            [-] N x N process noise Q; must be positive semi-definite.
+ * @param initialState            [-] N-element initial state seed.
+ * @param initialCovariance       [-] N x N initial covariance P0; must be positive semi-definite.
+ * @param stMeasurementNoiseStd   [-] star-tracker attitude measurement noise std; must be >= 0.
+ * @param gyroMeasurementNoiseStd [rad/s] gyro rate measurement noise std; must be >= 0.
+ * @return true when the configuration is valid. Never throws, so it can guard the throwing
+ *         create from an invalid configuration.
+ */
+bool InertialFilterAlgorithm_validateConfig(double alpha,
+                                            double beta,
+                                            const InertialFilterStateMatrix_c* processNoise,
+                                            const InertialFilterStateVector_c* initialState,
+                                            const InertialFilterStateMatrix_c* initialCovariance,
+                                            double stMeasurementNoiseStd,
+                                            double gyroMeasurementNoiseStd);
 
 /**
  * @brief Construct a filter from a validated configuration and seed its state/covariance.

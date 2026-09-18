@@ -1,6 +1,7 @@
 #include "inertialFilterAlgorithm_c.h"
 
 #include "inertialFilterAlgorithm.h"
+#include "utilities/fsw/freestandingInvalidArgument.h"
 #include "utilities/fsw/opaqueHandle.h"
 
 #include <Eigen/Core>
@@ -73,6 +74,29 @@ InertialFilterOutput_c outputToC(const InertialFilterOutput& out) {
 }  // namespace
 
 uint32_t InertialFilterAlgorithm_getNumStates(void) { return INERTIAL_FILTER_NUM_STATES; }
+
+bool InertialFilterAlgorithm_validateConfig(double alpha,
+                                            double beta,
+                                            const InertialFilterStateMatrix_c* processNoise,
+                                            const InertialFilterStateVector_c* initialState,
+                                            const InertialFilterStateMatrix_c* initialCovariance,
+                                            double stMeasurementNoiseStd,
+                                            double gyroMeasurementNoiseStd) {
+    // Build the config through the same path create() uses: success means valid, a throw means
+    // invalid. Sharing configFromC keeps the predicate from drifting from what create() accepts.
+    try {
+        (void)configFromC(alpha,
+                          beta,
+                          *processNoise,
+                          *initialState,
+                          *initialCovariance,
+                          stMeasurementNoiseStd,
+                          gyroMeasurementNoiseStd);
+        return true;
+    } catch (const fsw::invalid_argument&) {
+        return false;
+    }
+}
 
 InertialFilterAlgorithmHandle* InertialFilterAlgorithm_create(double alpha,
                                                               double beta,
