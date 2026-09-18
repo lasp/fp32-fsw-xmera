@@ -6,11 +6,13 @@ Unit tests for regionsOfInterestPrune.
     test_step2_*             — verify bounding-box identification and the center-coordinate
                                conversion published to regionsIdentifiedOutMsg.
     test_pruning             — end-to-end integration on a real image; writes an annotated
-                               PNG using center coordinates (matching saveVisualization).
+                               diagnostic PNG (see diagnostics/diagnostics.py in this directory)
+                               and verifies published regions are in-bounds.
 """
 
 import inspect
 import os
+import sys
 import tempfile
 import types
 
@@ -22,12 +24,19 @@ path = os.path.dirname(os.path.abspath(filename))
 
 IMAGE_PATH = os.path.join(path, "pia_958_830.tiff")
 
+# diagnostics.py lives in the diagnostics/ subfolder next to this test file;
+# it's a standalone script, not part of the xmera package, so it needs its
+# directory on sys.path.
+sys.path.insert(0, os.path.join(path, "diagnostics"))
+
 importErr = False
 reasonErr = ""
 try:
     import cv2
     from xmera.fp32 import fpgaImagePipelineF32 as fpgaImagePipeline
     from xmera.fp32 import regionsOfInterestPruneF32 as regionsOfInterestPrune
+
+    import diagnostics
 except ImportError as e:
     importErr = True
     reasonErr = f"Required module not built: {e}"
@@ -349,18 +358,26 @@ def _auto_threshold(image_path, kernel_size, percentile=95.0):
     # os.path.join(path, "jupiter_3000_3000.tiff"),
 ])
 @pytest.mark.parametrize("row_col_span", [2, 3, 4])
-def test_pruning(test_image_path, row_col_span, tmp_path, threshold=None):
+def test_pruning(test_image_path, row_col_span, threshold=None):
     """End-to-end integration test: real pia_ image through the full
     fpgaImagePipeline → regionsOfInterestPrune chain.
 
     Checks at least one candidate is identified and verifies the published
     regionsIdentifiedOutMsg contains valid center-coordinate regions.
 
-    The module writes a diagnostic PNG ("<timeTag>_pruning_output.png") to the
-    per-test temp directory: all published regions (up to MAX_NUMBER_REGIONS)
-    drawn in thin yellow from centre coordinates, matching the production
-    saveVisualization style. Rank-1 in RED with filled centre dot and label
-    "R1 (<numberOfPixels>)"; Rank-2 in BLUE with filled centre dot (if present).
+    Also writes a diagnostic PNG ("<row_col_span>_<image>_pruning_output.png") to this
+    same directory via diagnostics/diagnostics.py: all published regions
+    drawn in thin cyan from center coordinates, rank-1 in red with filled center dot
+    and label "R1 (<numberOfPixels>)", rank-2 in blue (if present). The background is
+    the same source image used to drive this test, since there is no fpgaImagePipeline
+    threshold-image message to draw over in this repo.
+
+    TODO: this whole test is currently skipped (importErr=True) because
+    xmera.fp32.fpgaImagePipelineF32 does not exist in this repo. Until that module is ported here,
+    this test cannot actually run. See diagnostics/example_run.py in this directory
+    for a workaround that drives RegionsOfInterestPruneAlgorithm directly (bypassing
+    both fpgaImagePipeline and the RegionsOfInterestPrune adapter) to exercise the
+    real algorithm + visualization without it.
     """
     if not os.path.isfile(test_image_path):
         pytest.skip(f"Test image not found: {test_image_path}")
@@ -381,13 +398,8 @@ def test_pruning(test_image_path, row_col_span, tmp_path, threshold=None):
     pruner = regionsOfInterestPrune.RegionsOfInterestPrune()
     pruner.ModelTag = "pruner"
     pruner.rowColSumInMsg.subscribeTo(pipeline.rowColSumOutMsg)
-    pruner.threshImageInMsg.subscribeTo(pipeline.threshImageOutMsg)
-    pruner.setMaxRowSpans(row_col_span)
-    pruner.setMaxColSpans(row_col_span)
-    pruner.setSaveImages(True)
-    # Write diagnostic images to a unique per-test temp dir
-    save_dir = str(tmp_path)
-    pruner.setSaveDir(save_dir)
+    pruner.maxRowSpans = row_col_span
+    pruner.maxColSpans = row_col_span
 
     roi_log = pruner.regionsIdentifiedOutMsg.recorder()
     _run_once(_make_sim(pipeline, pruner, roi_log))
@@ -405,4 +417,8 @@ def test_pruning(test_image_path, row_col_span, tmp_path, threshold=None):
     if len(regions) >= 2:
         count_str += f"  |  R2 pixel count (approx): {regions[1].numberOfPixels}"
     print(count_str)
-    print(f"test_pruning: {len(regions)} candidate(s); visualisation saved by module to {save_dir}")
+
+    background = cv2.imread(test_image_path, cv2.IMREAD_ANYDEPTH | cv2.IMREAD_GRAYSCALE)
+    time_tag = f"{row_col_span}_{os.path.splitext(os.path.basename(test_image_path))[0]}"
+    out_path = diagnostics.save_visualization(regions, background, time_tag, save_dir=path)
+    print(f"test_pruning: {len(regions)} candidate(s) identified; diagnostic visualization written to {out_path}")
