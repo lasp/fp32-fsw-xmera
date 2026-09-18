@@ -16,6 +16,9 @@ inline constexpr int BatchSize = 2;
 // State: [sigma_BN (3), omega_BN_B (3)].
 using InertialState = filtering::StateVector<filtering::MrpAttitude<3>, filtering::AngularRate<3>>;
 
+static_assert(InertialState::size == INERTIAL_FILTER_NUM_STATES,
+              "INERTIAL_FILTER_NUM_STATES must match the InertialState dimension");
+
 // N x N filter matrix (process noise, covariance) where N = InertialState::size.
 using StateMatrix = Eigen::Matrix<double, InertialState::size, InertialState::size>;
 

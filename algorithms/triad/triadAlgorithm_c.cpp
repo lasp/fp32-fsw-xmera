@@ -6,16 +6,18 @@
 #include <Eigen/Core>
 
 namespace {
-TriadConfig configFromC(const TriadConfig_c& c) {
-    return TriadConfig::create(cArrayToEigenVector3<float>(c.sadaHat_B.data),
-                               cArrayToEigenVector3<float>(c.thrustReqHat_N.data),
-                               static_cast<N3Axis>(c.n3Axis));
+TriadConfig configFromC(const Vector3f_c& sadaHat_B, const Vector3f_c& thrustReqHat_N, const N3Axis_c n3Axis) {
+    return TriadConfig::create(cArrayToEigenVector3<float>(sadaHat_B.data),
+                               cArrayToEigenVector3<float>(thrustReqHat_N.data),
+                               static_cast<N3Axis>(n3Axis));
 }
 }  // namespace
 
-TriadAlgorithmHandle* TriadAlgorithm_create(const TriadConfig_c* config) {
+TriadAlgorithmHandle* TriadAlgorithm_create(const Vector3f_c* sadaHat_B,
+                                            const Vector3f_c* thrustReqHat_N,
+                                            const N3Axis_c n3Axis) {
     // clang-format off
-    return reinterpret_cast<TriadAlgorithmHandle*>(new ::TriadAlgorithm(configFromC(*config)));  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast, cppcoreguidelines-owning-memory)
+    return reinterpret_cast<TriadAlgorithmHandle*>(new ::TriadAlgorithm(configFromC(*sadaHat_B, *thrustReqHat_N, n3Axis)));  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast, cppcoreguidelines-owning-memory)
     // clang-format on
 }
 
@@ -25,9 +27,12 @@ void TriadAlgorithm_destroy(TriadAlgorithmHandle* self) {
     // clang-format on
 }
 
-void TriadAlgorithm_setConfig(TriadAlgorithmHandle* self, const TriadConfig_c* config) {
+void TriadAlgorithm_setConfig(TriadAlgorithmHandle* self,
+                              const Vector3f_c* sadaHat_B,
+                              const Vector3f_c* thrustReqHat_N,
+                              const N3Axis_c n3Axis) {
     // clang-format off
-    reinterpret_cast<::TriadAlgorithm*>(self)->setConfig(configFromC(*config));  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+    reinterpret_cast<::TriadAlgorithm*>(self)->setConfig(configFromC(*sadaHat_B, *thrustReqHat_N, n3Axis));  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
     // clang-format on
 }
 
