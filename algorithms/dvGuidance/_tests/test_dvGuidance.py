@@ -31,13 +31,16 @@ def test_dv_guidance():
     data_log = module.attRefOutMsg.recorder()
     sim.AddModelToTask(task_name, data_log)
 
+    # Run at t = 0.0, 0.5, and 1.0 s. With burnStartTime = 0.5 s,
+    # these samples exercise negative, zero, and positive burn time.
     sim.InitializeSimulation()
     sim.ConfigureStopTime(macros.sec2nano(1.0))
     sim.ExecuteSimulation()
 
-    # FP32 tolerance: ~7 sig fig => 1e-6 absolute is comfortable for these magnitudes.
+    # Absolute tolerance for FP32 guidance outputs.
     accuracy = 1e-6
 
+    # Expected outputs from the original double-precision DvGuidance implementation.
     true_sigma = [
         [5.69822629e-01, 1.99143700e-01, 2.72649472e-01],
         [6.12361487e-01, 1.31298090e-01, 3.16981631e-01],

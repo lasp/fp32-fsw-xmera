@@ -1,16 +1,16 @@
 Executive Summary
 -----------------
 
-The dvGuidance module produces a time-varying attitude reference frame for an orbit-correction delta-V burn whose
-direction rotates at a constant rate about a designated body axis. The output is the MRP attitude
+The dvGuidance module produces a time-varying attitude reference frame for an orbit-correction delta-V burn. The
+reference is constructed from the commanded delta-V direction and a rotation-axis seed, then rotated at a constant
+rate about the resulting 3rd burn-frame axis. The output is the MRP attitude
 :math:`\boldsymbol{\sigma}_{R/N}`, the angular rate :math:`\boldsymbol{\omega}_{R/N}`, and the angular acceleration
 :math:`\dot{\boldsymbol{\omega}}_{R/N}` of the reference frame :math:`\mathcal{R}` with respect to the inertial frame
 :math:`\mathcal{N}`, all in inertial-frame components.
 
 The reference frame is constructed in two stages: first a base burn frame :math:`\mathcal{B}_{u,b}` aligned with the
 commanded delta-V direction, then a current burn frame :math:`\mathcal{B}_{u,t}` obtained by rotating
-:math:`\mathcal{B}_{u,b}` about its 3rd axis at a constant rate. The resulting reference attitude makes the spacecraft
-1st body axis track the rotating delta-V direction while the rest of the body precesses about it.
+:math:`\mathcal{B}_{u,b}` about its 3rd axis at a constant rate.
 
 This is the FP32 port of the Xmera ``dvAttGuidance`` module. Inputs and outputs are single-precision (FP32); the
 algorithm is single-precision throughout.
@@ -98,19 +98,18 @@ The first base axis aligns with the commanded delta-V direction:
 
    \hat{\boldsymbol{b}}_{u_b,1} = \frac{\Delta\boldsymbol{v}}{\| \Delta\boldsymbol{v} \|}.
 
-A seed unit vector :math:`\hat{\boldsymbol{r}}` (``dvRotVecUnit``) is supplied to define the rotation axis. The
-remaining base axes are
+A seed vector :math:`\boldsymbol{r}` (``dvRotVecUnit``) is normalized to
+:math:`\hat{\boldsymbol{r}}` and used to construct the remaining burn-frame axes.
+The resulting 3rd burn-frame axis is the component of the seed direction orthogonal to the
+commanded delta-V direction. When the seed is already orthogonal to
+:math:`\Delta\boldsymbol{v}`, :math:`\hat{\boldsymbol{b}}_{u_b,3} = \hat{\boldsymbol{r}}`.
 
 .. math::
 
-   \hat{\boldsymbol{b}}_{u_b,2} = \frac{\hat{\boldsymbol{r}} \times \Delta\boldsymbol{v}}
-                                       {\| \hat{\boldsymbol{r}} \times \Delta\boldsymbol{v} \|}, \qquad
+   \hat{\boldsymbol{b}}_{u_b,2} = \frac{\hat{\boldsymbol{r}} \times \hat{\boldsymbol{b}}_{u_b,1}}{\| \hat{\boldsymbol{r}}
+   \times \hat{\boldsymbol{b}}_{u_b,1} \|}, \qquad
    \hat{\boldsymbol{b}}_{u_b,3} = \frac{\hat{\boldsymbol{b}}_{u_b,1} \times \hat{\boldsymbol{b}}_{u_b,2}}
                                        {\| \hat{\boldsymbol{b}}_{u_b,1} \times \hat{\boldsymbol{b}}_{u_b,2} \|}.
-
-When :math:`\hat{\boldsymbol{r}}` is already orthogonal to :math:`\Delta\boldsymbol{v}`, the construction above
-yields :math:`\hat{\boldsymbol{b}}_{u_b,3} = \hat{\boldsymbol{r}}` -- i.e., :math:`\hat{\boldsymbol{r}}` is the axis
-about which :math:`\Delta\boldsymbol{v}` rotates during the burn.
 
 Burn Time
 ~~~~~~~~~
@@ -185,37 +184,103 @@ acceleration is identically zero:
 
    \dot{\boldsymbol{\omega}}_{R/N} = \boldsymbol{0}.
 
+Robustness
+~~~~~~~~~~
+
+Two degenerate-geometry cases are guarded against, each leaving the attitude, rate, and
+acceleration outputs at the safe default (identity attitude with zero rates):
+
+* A near-zero :math:`\Delta\boldsymbol{v}` does not define a valid burn direction. The algorithm
+  returns the safe default when :math:`\lVert\Delta\boldsymbol{v}\rVert^2` falls below ``kMinNormSq``.
+
+* A degenerate rotation-axis seed cannot be used to complete the burn frame. If the seed is zero, or
+  its direction is sufficiently close to parallel or antiparallel with
+  :math:`\hat{\boldsymbol{b}}_{u_b,1}`, the cross product used to construct
+  :math:`\hat{\boldsymbol{b}}_{u_b,2}` collapses. The algorithm returns the safe default when the squared magnitude
+  of this cross product falls below ``kMinCrossSq``.
+
+For otherwise valid inputs, rotation magnitudes below ``kSmallAngle`` are handled separately. When
+:math:`\lvert\dot\theta\,\Delta t\rvert <` ``kSmallAngle``, the incremental rotation is not applied and the
+base burn-frame attitude is returned, while :math:`\boldsymbol{\omega}_{R/N}` still reflects the commanded rate.
+This introduces a bounded kinematic inconsistency between the reported attitude and angular rate while the
+incremental rotation remains below ``kSmallAngle``.
+
 Assumptions and Limitations
 ---------------------------
 
-* The commanded delta-V direction is assumed to drive the spacecraft's downstream body 1 axis. Pair this module with
-  :ref:`attTrackingError` (or analogous) when a different body axis must align with :math:`\mathcal{R}`.
-* :math:`\hat{\boldsymbol{r}}` (``dvRotVecUnit``) (anti)parallel to :math:`\Delta\boldsymbol{v}` (or itself
-  near-zero) makes :math:`\hat{\boldsymbol{r}} \times \Delta\boldsymbol{v}` collapse, leaving the base burn frame
-  undefined. The module **guards** this case: when :math:`\sin^2(\text{angle})` falls below ``kMinCrossSq`` (or the
-  cross product is otherwise degenerate) it returns a safe default output
-  (:math:`\boldsymbol{\sigma}_{R/N}=\boldsymbol{0}`, i.e. the identity :math:`\mathcal{R}/\mathcal{N}` attitude, with
-  zero rates) instead of propagating ``NaN``.
-* :math:`\Delta\boldsymbol{v}` near-zero norm leaves the burn direction undefined. The module **guards** this case:
-  when :math:`\lVert\Delta\boldsymbol{v}\rVert^2` falls below ``kMinNormSq`` it returns the same safe default
-  instead of propagating ``NaN`` through the first normalize step.
-* :math:`\dot\theta` is constant for the entire burn; the module does not support time-varying rotation rates.
-* All math is single-precision (FP32). For burns with very small :math:`\dot\theta\,\Delta t` rotations, numerical
-  noise on :math:`[B_{u,t}B_{u,b}]` would dominate the small-angle deviation, so the module **guards** this case
-  too: a rotation magnitude :math:`\lvert\dot\theta\,\Delta t\rvert` below ``kSmallAngle`` is reported as the
-  identity rotation (the clean base burn frame :math:`[B_{u,b}\mathcal{N}]`) rather than the noise.
+* ``dvRotVecMag`` is constant over the burn interval; time-varying rotation rates are not supported.
+* ``dvRotVecUnit`` is used as a seed to construct the burn frame rather than as an independently enforced rotation
+  axis. Its component parallel to the commanded delta-V direction does not affect the resulting 3rd burn-frame axis.
+* The algorithm operates in single precision (FP32).
 
 Numerical conditioning
 ----------------------
 
-The guard thresholds bound the FP32 reference error rather than being arbitrary cutoffs. The base-frame
-construction normalizes :math:`\hat{\boldsymbol{r}} \times \hat{\boldsymbol{v}}`, whose magnitude is
+``kMinCrossSq`` bounds the FP32 reference error rather than being an arbitrary cutoff. The base-frame
+construction normalizes :math:`\hat{\boldsymbol{r}} \times \hat{\boldsymbol{b}}_{u_b,1}`, whose magnitude is
 :math:`\sin(\text{angle})`; this amplifies the relative round-off by :math:`\sim 1/\sin(\text{angle})`. With a
 float epsilon of :math:`\sim 1.2\times10^{-7}` and the additional amplification of the second Gram-Schmidt
 normalization, the matrix product, and the DCM\ :math:`\leftrightarrow`\ MRP round-trip, the per-element DCM error
 reaches :math:`\sim 10^{-5}` near :math:`\sin(\text{angle}) \approx 1.7\times10^{-2}`. ``kMinCrossSq`` =
 :math:`9\times10^{-4}` (i.e. :math:`\sin(\text{angle}) \approx 3\times10^{-2}`, about :math:`1.7^\circ`) is the
 boundary below which the frame is no longer trusted to FP32 reference accuracy; the unit tests verify the algorithm
-matches a double-precision reference to :math:`10^{-5}` only outside this guard region. ``kSmallAngle`` =
-:math:`10^{-5}` rad is the corresponding rotation-magnitude floor (at the module's FP32 precision), and
-``kMinNormSq`` = :math:`10^{-12}` (\ :math:`\sim 10^{-6}` m/s) flags an effectively zero commanded delta-V.
+matches a double-precision reference to :math:`10^{-5}` only outside this guard region.
+
+``kMinNormSq`` = :math:`10^{-12}` (\ :math:`\sim 10^{-6}` m/s) is not a derived round-off bound -- it is a floor
+below which the commanded delta-V is treated as effectively zero and the burn direction as undefined.
+
+``kSmallAngle`` = :math:`10^{-5}` rad is the threshold below which the incremental burn-frame rotation is not applied.
+
+Test Description
+-----------------
+
+The module is verified through regression tests that compare the algorithm results against a double-precision
+reference implementation, property tests, and edge-case tests covering degenerate inputs. Fuzz
+tests are added for the regression and property tests, randomizing the burn-command inputs and elapsed burn
+time over physically reasonable ranges.
+
+Regression Tests
+^^^^^^^^^^^^^^^^^
+
+- ReferenceTestAtBurnStart
+    - Checks the algorithm output against the double-precision reference implementation sampled at the burn
+      start time, where the incremental rotation is zero.
+- ReferenceTestMidBurn
+    - Checks the algorithm output against the reference implementation partway through the burn, where the
+      incremental rotation is positive.
+- ReferenceTestPrelaunch
+    - Checks the algorithm output against the reference implementation before the burn start time, where the
+      incremental rotation is negative.
+
+Guidance Behavior Tests
+^^^^^^^^^^^^^^^^^^^^^^^
+
+- ZeroRotationRate
+    - Checks that a zero commanded rotation rate leaves the reference attitude fixed and the reported rate and
+      acceleration at zero, regardless of elapsed time.
+- AngularVelocityMagnitudeMatchesDvRotVecMag
+    - Checks that the magnitude of the reported angular rate equals the commanded rotation rate.
+- BelowSmallAngleThresholdUsesBaseAttitude
+    - Checks that a rotation magnitude below ``kSmallAngle`` leaves the reported attitude at the base burn-frame
+      attitude rather than advancing it.
+
+Property Tests
+^^^^^^^^^^^^^^
+
+- OutputIsFinite
+    - Checks that all output components are finite for valid inputs.
+- SigmaNormBounded
+    - Checks that the output MRP norm remains bounded by 1 (inner MRP set).
+
+Input Validation Tests
+^^^^^^^^^^^^^^^^^^^^^^
+
+- ZeroDeltaVCommand, RotAxisParallelToDeltaV, ZeroRotationAxis, RotAxisAntiParallelToDeltaV
+    - Check that the safe default (identity attitude, zero rates) is returned for a zero delta-V command, and
+      for a rotation-axis seed that is parallel, zero, or antiparallel to the commanded delta-V direction.
+- DeltaVNormBoundary
+    - Checks that a delta-V command exactly at the ``kMinNormSq`` threshold is accepted, while the next
+      representable magnitude below it returns the safe default.
+- CrossBoundary
+    - Checks that a rotation-axis seed exactly at the ``kMinCrossSq`` threshold is accepted, while the next
+      representable seed below it returns the safe default.

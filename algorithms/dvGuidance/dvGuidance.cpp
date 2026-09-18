@@ -5,6 +5,7 @@
 #include <memory>
 #include <stdexcept>
 
+/*! Validates that burnDataInMsg is connected and constructs the algorithm. */
 void DvGuidance::reset(const uint64_t callTime) {
     if (!this->burnDataInMsg.isLinked()) {
         throw std::invalid_argument("dvGuidance.burnDataInMsg wasn't connected.");
@@ -12,23 +13,23 @@ void DvGuidance::reset(const uint64_t callTime) {
     this->algorithm = std::make_unique<DvGuidanceAlgorithm>();
 }
 
+/*! Computes the burn-frame attitude reference from the commanded delta-V burn data */
 void DvGuidance::updateState(const uint64_t callTime) {
     if (!this->algorithm) {
         throw XmeraLifecycleException("DvGuidance reset() has not been called.");
     }
 
-    const DvBurnCmdMsgF32Payload localBurnData = this->burnDataInMsg();
+    const DvBurnCmdMsgF32Payload burnData = this->burnDataInMsg();
+    const Eigen::Vector3f dvInrtlCmd = cArrayToEigenVector3<float>(burnData.dvInrtlCmd);
+    const Eigen::Vector3f dvRotVecUnit = cArrayToEigenVector3<float>(burnData.dvRotVecUnit);
 
-    const Eigen::Vector3f dvInrtlCmd = cArrayToEigenVector3<float>(localBurnData.dvInrtlCmd);
-    const Eigen::Vector3f dvRotVecUnit = cArrayToEigenVector3<float>(localBurnData.dvRotVecUnit);
+    const DvGuidanceOutput out =
+        this->algorithm->update(dvInrtlCmd, dvRotVecUnit, burnData.dvRotVecMag, burnData.burnStartTime, callTime);
 
-    const DvGuidanceOutput out = this->algorithm->update(
-        dvInrtlCmd, dvRotVecUnit, localBurnData.dvRotVecMag, localBurnData.burnStartTime, callTime);
+    AttRefMsgF32Payload attRefOut = AttRefMsgF32Payload();
+    eigenVectorToCArray(out.sigma_RN, attRefOut.sigma_RN);
+    eigenVectorToCArray(out.omega_RN_N, attRefOut.omega_RN_N);
+    eigenVectorToCArray(out.domega_RN_N, attRefOut.domega_RN_N);
 
-    AttRefMsgF32Payload attCmd = {};
-    eigenVectorToCArray(out.sigma_RN, attCmd.sigma_RN);
-    eigenVectorToCArray(out.omega_RN_N, attCmd.omega_RN_N);
-    eigenVectorToCArray(out.domega_RN_N, attCmd.domega_RN_N);
-
-    this->attRefOutMsg.write(attCmd, this->moduleID, callTime);
+    this->attRefOutMsg.write(attRefOut, this->moduleID, callTime);
 }
