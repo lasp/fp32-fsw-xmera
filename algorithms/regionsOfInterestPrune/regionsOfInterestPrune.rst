@@ -128,7 +128,7 @@ User Guide
 Unit Tests
 ----------
 
-All tests reside in ``_UnitTest/test_regionsOfInterestPrune.py``.
+All tests reside in ``_tests/test_regionsOfInterestPruneF32.py``.
 
 .. list-table::
     :widths: 30 70
