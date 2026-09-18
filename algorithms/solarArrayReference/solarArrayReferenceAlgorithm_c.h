@@ -2,7 +2,9 @@
 #define F32XMERA_SOLARARRAYREFERENCEALGORITHM_C_H
 
 #include "solarArrayReferenceTypes.h"
+
 #include "utilities/fsw/plainCAlgorithmDataTypes.h"
+#include <stdbool.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -12,6 +14,26 @@ extern "C" {
  * @brief Opaque handle to the C++ SolarArrayReferenceAlgorithm instance.
  */
 typedef struct SolarArrayReferenceAlgorithmHandle SolarArrayReferenceAlgorithmHandle;
+
+/**
+ * @brief Report whether a configuration would be accepted by create/setConfig.
+ * @param driveAxis           [-] solar array drive axis in body frame; finite, (near-)unit, orthogonal to
+ *                            surfaceNormal.
+ * @param surfaceNormal       [-] solar array surface normal at zero rotation; finite, (near-)unit, orthogonal
+ *                            to driveAxis.
+ * @param alignmentThreshold  [rad] alignment threshold between sun direction and drive axis; in [1e-3, pi/2].
+ * @param trackingMode        [-] array tracking mode; must be a valid enumerator.
+ * @param specifiedArrayAngle [rad] reference array angle used in SPECIFIED_ANGLE mode; in [-pi, pi].
+ * @param offsetAngle         [rad] offset added to the determined reference angle; in [-pi, pi].
+ * @return true when the configuration is valid. Never throws, so it can guard the throwing
+ *         create/setConfig from an invalid configuration.
+ */
+bool SolarArrayReferenceAlgorithm_validateConfig(const Vector3f_c* driveAxis,
+                                                 const Vector3f_c* surfaceNormal,
+                                                 float alignmentThreshold,
+                                                 TrackingMode trackingMode,
+                                                 float specifiedArrayAngle,
+                                                 float offsetAngle);
 
 /**
  * @brief Construct a new SolarArrayReferenceAlgorithm instance from the supplied configuration.

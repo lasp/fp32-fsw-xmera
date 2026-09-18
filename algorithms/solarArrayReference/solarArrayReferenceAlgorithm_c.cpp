@@ -2,6 +2,7 @@
 #include "solarArrayReferenceAlgorithm.h"
 #include "solarArrayReferenceTypes.h"
 #include "utilities/fsw/eigenSupport.h"
+#include "utilities/fsw/freestandingInvalidArgument.h"
 #include "utilities/fsw/opaqueHandle.h"
 
 #include <Eigen/Core>
@@ -21,6 +22,23 @@ SolarArrayReferenceConfig configFromC(const Vector3f_c& driveAxis,
         offsetAngle);
 }
 }  // namespace
+
+bool SolarArrayReferenceAlgorithm_validateConfig(const Vector3f_c* driveAxis,
+                                                 const Vector3f_c* surfaceNormal,
+                                                 const float alignmentThreshold,
+                                                 const TrackingMode trackingMode,
+                                                 const float specifiedArrayAngle,
+                                                 const float offsetAngle) {
+    // Build the config through the same path create() uses: success means valid, a throw means
+    // invalid. Sharing configFromC keeps the predicate from drifting from what create() accepts.
+    try {
+        (void)configFromC(
+            *driveAxis, *surfaceNormal, alignmentThreshold, trackingMode, specifiedArrayAngle, offsetAngle);
+        return true;
+    } catch (const fsw::invalid_argument&) {
+        return false;
+    }
+}
 
 SolarArrayReferenceAlgorithmHandle* SolarArrayReferenceAlgorithm_create(const Vector3f_c* driveAxis,
                                                                         const Vector3f_c* surfaceNormal,
