@@ -2,6 +2,7 @@
 #include "mrpSteeringAlgorithm.h"
 #include "mrpSteeringTypes.h"
 #include "utilities/fsw/eigenSupport.h"
+#include "utilities/fsw/freestandingInvalidArgument.h"
 #include "utilities/fsw/opaqueHandle.h"
 
 #include <Eigen/Core>
@@ -53,6 +54,37 @@ MrpSteeringConfig configFromC(const float K1,
 }  // namespace
 
 uint32_t MrpSteeringAlgorithm_getMaxNumRw(void) { return kMaxNumRw; }
+
+bool MrpSteeringAlgorithm_validateConfig(float K1,
+                                         float K3,
+                                         float omegaMax,
+                                         bool ignoreOuterLoopFeedforward,
+                                         float P,
+                                         float Ki,
+                                         float integralLimit,
+                                         float controlPeriod,
+                                         const Vector3f_c* knownTorquePntB_B,
+                                         const Matrix3f_c* ISCPntB_B,
+                                         const MrpSteeringRwConfig_c* rwConfiguration) {
+    // Build the config through the same path create() uses: success means valid, a throw means
+    // invalid. Sharing configFromC keeps the predicate from drifting from what create() accepts.
+    try {
+        (void)configFromC(K1,
+                          K3,
+                          omegaMax,
+                          ignoreOuterLoopFeedforward,
+                          P,
+                          Ki,
+                          integralLimit,
+                          controlPeriod,
+                          *knownTorquePntB_B,
+                          *ISCPntB_B,
+                          rwConfiguration);
+        return true;
+    } catch (const fsw::invalid_argument&) {
+        return false;
+    }
+}
 
 MrpSteeringAlgorithmHandle* MrpSteeringAlgorithm_create(float K1,
                                                         float K3,

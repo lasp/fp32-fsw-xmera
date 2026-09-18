@@ -24,6 +24,34 @@ typedef struct MrpSteeringAlgorithmHandle MrpSteeringAlgorithmHandle;
 uint32_t MrpSteeringAlgorithm_getMaxNumRw(void);
 
 /**
+ * @brief Report whether a configuration would be accepted by create/setConfig.
+ * @param K1                         [rad/s] proportional gain on MRP errors; must be >= 0.
+ * @param K3                         [rad/s] cubic gain in the steering saturation function; must be >= 0.
+ * @param omegaMax                   [rad/s] maximum rate command of the steering law; must be > 0.
+ * @param ignoreOuterLoopFeedforward [-]     whether the outer-loop feedforward term is excluded.
+ * @param P                          [N*m*s] rate error feedback gain; must be >= 0.
+ * @param Ki                         [N*m]   integral feedback gain on the rate error; must be >= 0.
+ * @param integralLimit              [N*m]   integral limit that avoids wind-up; must be >= 0.
+ * @param controlPeriod              [s]     time between two update calls; must be > 0.
+ * @param knownTorquePntB_B          [N*m]   known external torque in body-frame components.
+ * @param ISCPntB_B                  [kg*m^2] spacecraft inertia about point B; must be a valid inertia matrix.
+ * @param rwConfiguration            [-]     reaction-wheel configuration, or NULL to omit the reaction-wheel
+ * @return true when the configuration is valid. Never throws, so it can guard the throwing
+ *         create/setConfig from an invalid configuration.
+ */
+bool MrpSteeringAlgorithm_validateConfig(float K1,
+                                         float K3,
+                                         float omegaMax,
+                                         bool ignoreOuterLoopFeedforward,
+                                         float P,
+                                         float Ki,
+                                         float integralLimit,
+                                         float controlPeriod,
+                                         const Vector3f_c* knownTorquePntB_B,
+                                         const Matrix3f_c* ISCPntB_B,
+                                         const MrpSteeringRwConfig_c* rwConfiguration);
+
+/**
  * @brief Construct a new MrpSteeringAlgorithm instance from the supplied configuration.
  * @param K1                         [rad/s] proportional gain on MRP errors; must be >= 0.
  * @param K3                         [rad/s] cubic gain in the steering saturation function; must be >= 0.
