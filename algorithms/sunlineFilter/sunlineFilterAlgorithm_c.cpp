@@ -1,6 +1,7 @@
 #include "sunlineFilterAlgorithm_c.h"
 #include "sunlineFilterAlgorithm.h"
 #include "sunlineFilterTypes.h"
+#include "utilities/fsw/freestandingInvalidArgument.h"
 #include "utilities/fsw/opaqueHandle.h"
 
 #include <Eigen/Core>
@@ -119,6 +120,41 @@ SunlineFilterOutput_c outputToC(const SunlineFilterOutput& out) {
 uint32_t SunlineFilterAlgorithm_getMaxCss(void) { return SUNLINE_FILTER_MAX_CSS; }
 
 uint32_t SunlineFilterAlgorithm_getNumStates(void) { return SUNLINE_FILTER_NUM_STATES; }
+
+bool SunlineFilterAlgorithm_validateConfig(double alpha,
+                                           double beta,
+                                           const SunlineFilterStateMatrix_c* processNoise,
+                                           const SunlineFilterStateVector_c* initialState,
+                                           const SunlineFilterStateMatrix_c* initialCovariance,
+                                           double biasLowerBound,
+                                           double biasUpperBound,
+                                           const SunlineFilterCssMatrix_c* cssNHat,
+                                           const SunlineFilterCssVector_c* cssScaleFactor,
+                                           uint32_t numberOfCss,
+                                           double sensorThreshold,
+                                           double cssMeasurementNoiseStd,
+                                           double gyroMeasurementNoiseStd) {
+    // Build the config through the same path create() uses: success means valid, a throw means
+    // invalid. Sharing configFromC keeps the predicate from drifting from what create() accepts.
+    try {
+        (void)configFromC(alpha,
+                          beta,
+                          *processNoise,
+                          *initialState,
+                          *initialCovariance,
+                          biasLowerBound,
+                          biasUpperBound,
+                          *cssNHat,
+                          *cssScaleFactor,
+                          numberOfCss,
+                          sensorThreshold,
+                          cssMeasurementNoiseStd,
+                          gyroMeasurementNoiseStd);
+        return true;
+    } catch (const fsw::invalid_argument&) {
+        return false;
+    }
+}
 
 SunlineFilterAlgorithmHandle* SunlineFilterAlgorithm_create(double alpha,
                                                             double beta,

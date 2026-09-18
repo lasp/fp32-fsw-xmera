@@ -3,6 +3,7 @@
 
 #include "sunlineFilterTypes.h"
 
+#include <stdbool.h>
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -53,6 +54,26 @@ uint32_t SunlineFilterAlgorithm_getMaxCss(void);
  * @return The filter state dimension.
  */
 uint32_t SunlineFilterAlgorithm_getNumStates(void);
+
+/**
+ * @brief Report whether a configuration would be accepted by create/setConfig.
+ * @param config Pointer to the configuration to apply (validated).
+ * @return true when the configuration is valid. Never throws, so it can guard the throwing
+ *         create/setConfig from an invalid configuration.
+ */
+bool SunlineFilterAlgorithm_validateConfig(double alpha,
+                                           double beta,
+                                           const SunlineFilterStateMatrix_c* processNoise,
+                                           const SunlineFilterStateVector_c* initialState,
+                                           const SunlineFilterStateMatrix_c* initialCovariance,
+                                           double biasLowerBound,
+                                           double biasUpperBound,
+                                           const SunlineFilterCssMatrix_c* cssNHat,
+                                           const SunlineFilterCssVector_c* cssScaleFactor,
+                                           uint32_t numberOfCss,
+                                           double sensorThreshold,
+                                           double cssMeasurementNoiseStd,
+                                           double gyroMeasurementNoiseStd);
 
 /**
  * @brief Construct a new SunlineFilterAlgorithm from the supplied configuration.
