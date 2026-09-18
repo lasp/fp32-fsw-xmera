@@ -174,7 +174,7 @@ class CssWeightedLeastSquaresAlgorithm final {
 
     /*! Compute the post-fit residuals for the WLS estimate.
         @return the residuals of the active sensors, packed into the leading numCssViewingSun entries
-        @param cssMeas      The measured values for the CSS sensors
+        @param cssMeas      The measured values for the CSS sensors, indexed by sensor
         @param wlsEst       The WLS estimate computed for the CSS measurements
         @param activeSensors The sensor index behind each observation, in observation order
         @param numCssViewingSun The count on input measurements
@@ -182,7 +182,7 @@ class CssWeightedLeastSquaresAlgorithm final {
     Eigen::Vector<float, kMaxNumCssSensors> computeWlsResiduals(
         const Eigen::Vector<float, kMaxNumCssSensors>& cssMeas,
         const Eigen::Vector3f& wlsEst,
-        const std::array<Eigen::Index, kMaxNumCssSensors>& activeSensors,
+        const std::array<uint32_t, kMaxNumCssSensors>& activeSensors,
         uint32_t numCssViewingSun) const;
 
     CssWeightedLeastSquaresConfig cfg;                            //!< [-] the validated configuration in force

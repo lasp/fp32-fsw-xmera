@@ -93,7 +93,7 @@ CssWeightedLeastSquaresOutput CssWeightedLeastSquaresAlgorithm::update(
     /* Measurements, compacted to the active sensors */
     Eigen::Vector<float, kMaxNumCssSensors> y = Eigen::Vector<float, kMaxNumCssSensors>::Zero();
     /* The sensor index behind each observation, in observation order */
-    std::array<Eigen::Index, kMaxNumCssSensors> activeSensors{};
+    std::array<uint32_t, kMaxNumCssSensors> activeSensors{};
     uint32_t numCssViewingSun = 0;
     std::optional<Eigen::Vector3f> fit; /* the least squares solution; empty when there is none */
     Eigen::Vector3f sunHeading_B = Eigen::Vector3f::Zero();
@@ -165,12 +165,12 @@ CssWeightedLeastSquaresOutput CssWeightedLeastSquaresAlgorithm::update(
 Eigen::Vector<float, kMaxNumCssSensors> CssWeightedLeastSquaresAlgorithm::computeWlsResiduals(
     const Eigen::Vector<float, kMaxNumCssSensors>& cssMeas,
     const Eigen::Vector3f& wlsEst,
-    const std::array<Eigen::Index, kMaxNumCssSensors>& activeSensors,
+    const std::array<uint32_t, kMaxNumCssSensors>& activeSensors,
     const uint32_t numCssViewingSun) const {
     Eigen::Vector<float, kMaxNumCssSensors> cssResiduals = Eigen::Vector<float, kMaxNumCssSensors>::Zero();
 
     for (uint32_t observation = 0; observation < numCssViewingSun; observation++) {
-        const Eigen::Index sensor = activeSensors.at(observation);
+        const uint32_t sensor = activeSensors.at(observation);
         const float rawDotProduct = wlsEst.dot(this->cfg.getCssNHat_B().row(sensor).transpose());
         /* A coarse sun sensor cannot report a negative cosine, so floor the prediction */
         const float cssDotProduct = rawDotProduct > kMinCssMeasurement ? rawDotProduct : kMinCssMeasurement;
