@@ -37,9 +37,11 @@ inline std::vector<Eigen::Vector3d> referenceConstellation() {
 // observation, with the weights the fit would apply. Built from the documented selection rule, not from the
 // implementation.
 struct ActiveSystem {
-    Eigen::MatrixXd H;              // [-] one row per observation, the calibrated boresight
-    Eigen::VectorXd y;              // [-] the reading behind each observation
-    Eigen::VectorXd weights;        // [-] the diagonal of the weighting matrix
+    // One row or entry per observation, in the leading sensors.size() places; the rest stay zero, which
+    // contributes nothing to any product below.
+    Eigen::Matrix<double, kMaxNumCssSensors, 3> H{Eigen::Matrix<double, kMaxNumCssSensors, 3>::Zero()};
+    Eigen::Vector<double, kMaxNumCssSensors> y{Eigen::Vector<double, kMaxNumCssSensors>::Zero()};
+    Eigen::Vector<double, kMaxNumCssSensors> weights{Eigen::Vector<double, kMaxNumCssSensors>::Zero()};
     std::vector<uint32_t> sensors;  // [-] the sensor behind each observation
     double condition{1.0};          // [-] conditioning of the weighted normal matrix
     bool resolvable{};              // [-] whether fp32 has significant digits left on this system
@@ -66,21 +68,18 @@ inline ActiveSystem activeSystem(const std::vector<Eigen::Vector3d>& boresights,
                                  const std::vector<double>& readings) {
     ActiveSystem system{};
     system.sensors = referenceActiveSensors(available, readings, sensorUseThresh);
-    const auto n = static_cast<Eigen::Index>(system.sensors.size());
-    if (n == 0) {
+    if (system.sensors.empty()) {
         return system;
     }
 
-    system.H.resize(n, 3);
-    system.y.resize(n);
-    for (Eigen::Index k = 0; k < n; ++k) {
-        const uint32_t sensor = system.sensors[static_cast<size_t>(k)];
-        system.H.row(k) = boresights[sensor].transpose();
-        system.y(k) = readings[sensor];
+    for (uint32_t observation = 0U; observation < system.sensors.size(); ++observation) {
+        const uint32_t sensor = system.sensors[observation];
+        system.H.row(observation) = boresights[sensor].transpose();
+        system.y(observation) = readings[sensor];
+        // With one or two observations the fit reproduces the measurements exactly, so the weighting drops
+        // out of the optimality condition and the same expression covers every branch.
+        system.weights(observation) = useWeights ? readings[sensor] : 1.0;
     }
-    // With one or two observations the fit reproduces the measurements exactly, so the weighting drops out
-    // of the optimality condition and the same expression covers every branch.
-    system.weights = useWeights ? system.y : Eigen::VectorXd::Ones(n);
 
     const Eigen::Matrix3d normalMatrix = system.H.transpose() * system.weights.asDiagonal() * system.H;
     const Eigen::JacobiSVD<Eigen::Matrix3d> svd(normalMatrix);
@@ -125,7 +124,7 @@ inline void expectFitIsOptimal(const ActiveSystem& system,
         << "normal equations, condition " << system.condition;
 
     // 2. The heading lies in the row space of H, so the underdetermined fits are the minimum norm ones.
-    const Eigen::JacobiSVD<Eigen::MatrixXd> svd(system.H, Eigen::ComputeThinV);
+    const Eigen::JacobiSVD<Eigen::Matrix<double, kMaxNumCssSensors, 3>> svd(system.H, Eigen::ComputeFullV);
     const double largestSingularValue = svd.singularValues()(0);
     Eigen::Vector3d inRowSpace = Eigen::Vector3d::Zero();
     for (Eigen::Index i = 0; i < svd.singularValues().size(); ++i) {
