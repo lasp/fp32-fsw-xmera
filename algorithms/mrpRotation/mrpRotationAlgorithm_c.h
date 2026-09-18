@@ -4,6 +4,8 @@
 #include "mrpRotationTypes.h"
 #include "utilities/fsw/plainCAlgorithmDataTypes.h"
 
+#include <stdbool.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -12,6 +14,18 @@ extern "C" {
  * @brief Opaque handle to the C++ MrpRotationAlgorithm instance.
  */
 typedef struct MrpRotationAlgorithmHandle MrpRotationAlgorithmHandle;
+
+/**
+ * @brief Report whether a configuration would be accepted by create/setConfig.
+ * @param initialSigmaRR0 [-] seed MRP of the rotating frame R wrt R0; must be finite.
+ * @param omegaRR0R        [rad/s] constant angular velocity of R wrt R0 in R components; must be finite.
+ * @param controlPeriod    [s] forward-Euler integration step used every update; must be finite and > 0.
+ * @return true when the configuration is valid. Never throws, so it can guard the throwing
+ *         create/setConfig from an invalid configuration.
+ */
+bool MrpRotationAlgorithm_validateConfig(const Vector3f_c* initialSigmaRR0,
+                                         const Vector3f_c* omegaRR0R,
+                                         float controlPeriod);
 
 /**
  * @brief Construct a new MrpRotationAlgorithm instance from the supplied configuration.

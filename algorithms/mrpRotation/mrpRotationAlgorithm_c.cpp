@@ -2,6 +2,7 @@
 #include "mrpRotationAlgorithm.h"
 #include "mrpRotationTypes.h"
 #include "utilities/fsw/eigenSupport.h"
+#include "utilities/fsw/freestandingInvalidArgument.h"
 #include "utilities/fsw/opaqueHandle.h"
 
 #include <Eigen/Core>
@@ -30,6 +31,19 @@ MrpRotationOutput_c outputToC(const MrpRotationOutput& out) {
     return result;
 }
 }  // namespace
+
+bool MrpRotationAlgorithm_validateConfig(const Vector3f_c* initialSigmaRR0,
+                                         const Vector3f_c* omegaRR0R,
+                                         const float controlPeriod) {
+    // Build the config through the same path create() uses: success means valid, a throw means
+    // invalid. Sharing configFromC keeps the predicate from drifting from what create() accepts.
+    try {
+        (void)configFromC(*initialSigmaRR0, *omegaRR0R, controlPeriod);
+        return true;
+    } catch (const fsw::invalid_argument&) {
+        return false;
+    }
+}
 
 MrpRotationAlgorithmHandle* MrpRotationAlgorithm_create(const Vector3f_c* initialSigmaRR0,
                                                         const Vector3f_c* omegaRR0R,
