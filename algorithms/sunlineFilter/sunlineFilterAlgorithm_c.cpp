@@ -21,43 +21,55 @@ namespace {
 
 constexpr int N = SunlineFilterAlgorithm::N;
 
-SunlineFilterConfig configFromC(const SunlineFilterConfig_c& c) {
+SunlineFilterConfig configFromC(const double alpha,
+                                const double beta,
+                                const SunlineFilterStateMatrix_c& processNoiseC,
+                                const SunlineFilterStateVector_c& initialStateC,
+                                const SunlineFilterStateMatrix_c& initialCovarianceC,
+                                const double biasLowerBound,
+                                const double biasUpperBound,
+                                const SunlineFilterCssMatrix_c& cssNHatC,
+                                const SunlineFilterCssVector_c& cssScaleFactorC,
+                                const uint32_t numberOfCss,
+                                const double sensorThreshold,
+                                const double cssMeasurementNoiseStd,
+                                const double gyroMeasurementNoiseStd) {
     StateMatrix processNoise;
     StateMatrix initialCovariance;
     for (int i = 0; i < N; ++i) {
         for (int j = 0; j < N; ++j) {
-            processNoise(i, j) = c.processNoise[i][j];
-            initialCovariance(i, j) = c.initialCovariance[i][j];
+            processNoise(i, j) = processNoiseC.data[(i * SUNLINE_FILTER_NUM_STATES) + j];
+            initialCovariance(i, j) = initialCovarianceC.data[(i * SUNLINE_FILTER_NUM_STATES) + j];
         }
     }
 
     Eigen::Vector<double, N> stateSeed;
     for (int i = 0; i < N; ++i) {
-        stateSeed(i) = c.initialState[i];
+        stateSeed(i) = initialStateC.data[i];
     }
 
     Eigen::Matrix<double, MaxCss, 3> cssNHat;
     Eigen::Vector<double, MaxCss> cssScaleFactor;
     for (int i = 0; i < MaxCss; ++i) {
-        cssScaleFactor(i) = c.cssScaleFactor[i];
+        cssScaleFactor(i) = cssScaleFactorC.data[i];
         for (int j = 0; j < 3; ++j) {
-            cssNHat(i, j) = c.cssNHat[i][j];
+            cssNHat(i, j) = cssNHatC.data[(i * 3U) + j];
         }
     }
 
-    return SunlineFilterConfig::create(c.alpha,
-                                       c.beta,
+    return SunlineFilterConfig::create(alpha,
+                                       beta,
                                        processNoise,
                                        SunlineState{stateSeed},
                                        initialCovariance,
-                                       c.biasLowerBound,
-                                       c.biasUpperBound,
+                                       biasLowerBound,
+                                       biasUpperBound,
                                        cssNHat,
                                        cssScaleFactor,
-                                       c.numberOfCss,
-                                       c.sensorThreshold,
-                                       c.cssMeasurementNoiseStd,
-                                       c.gyroMeasurementNoiseStd);
+                                       numberOfCss,
+                                       sensorThreshold,
+                                       cssMeasurementNoiseStd,
+                                       gyroMeasurementNoiseStd);
 }
 
 SunlineFilterStateOutput_c filterStateToC(const FilterStateOutput& in) {
@@ -108,16 +120,66 @@ uint32_t SunlineFilterAlgorithm_getMaxCss(void) { return SUNLINE_FILTER_MAX_CSS;
 
 uint32_t SunlineFilterAlgorithm_getNumStates(void) { return SUNLINE_FILTER_NUM_STATES; }
 
-SunlineFilterAlgorithmHandle* SunlineFilterAlgorithm_create(const SunlineFilterConfig_c* config) {
-    return fsw::createHandle<::SunlineFilterAlgorithm, SunlineFilterAlgorithmHandle>(configFromC(*config));
+SunlineFilterAlgorithmHandle* SunlineFilterAlgorithm_create(double alpha,
+                                                            double beta,
+                                                            const SunlineFilterStateMatrix_c* processNoise,
+                                                            const SunlineFilterStateVector_c* initialState,
+                                                            const SunlineFilterStateMatrix_c* initialCovariance,
+                                                            double biasLowerBound,
+                                                            double biasUpperBound,
+                                                            const SunlineFilterCssMatrix_c* cssNHat,
+                                                            const SunlineFilterCssVector_c* cssScaleFactor,
+                                                            uint32_t numberOfCss,
+                                                            double sensorThreshold,
+                                                            double cssMeasurementNoiseStd,
+                                                            double gyroMeasurementNoiseStd) {
+    return fsw::createHandle<::SunlineFilterAlgorithm, SunlineFilterAlgorithmHandle>(
+        configFromC(alpha,
+                    beta,
+                    *processNoise,
+                    *initialState,
+                    *initialCovariance,
+                    biasLowerBound,
+                    biasUpperBound,
+                    *cssNHat,
+                    *cssScaleFactor,
+                    numberOfCss,
+                    sensorThreshold,
+                    cssMeasurementNoiseStd,
+                    gyroMeasurementNoiseStd));
 }
 
 void SunlineFilterAlgorithm_destroy(SunlineFilterAlgorithmHandle* self) {
     fsw::deleteHandle<::SunlineFilterAlgorithm>(self);
 }
 
-void SunlineFilterAlgorithm_setConfig(SunlineFilterAlgorithmHandle* self, const SunlineFilterConfig_c* config) {
-    fsw::fromHandle<::SunlineFilterAlgorithm>(self)->setConfig(configFromC(*config));
+void SunlineFilterAlgorithm_setConfig(SunlineFilterAlgorithmHandle* self,
+                                      double alpha,
+                                      double beta,
+                                      const SunlineFilterStateMatrix_c* processNoise,
+                                      const SunlineFilterStateVector_c* initialState,
+                                      const SunlineFilterStateMatrix_c* initialCovariance,
+                                      double biasLowerBound,
+                                      double biasUpperBound,
+                                      const SunlineFilterCssMatrix_c* cssNHat,
+                                      const SunlineFilterCssVector_c* cssScaleFactor,
+                                      uint32_t numberOfCss,
+                                      double sensorThreshold,
+                                      double cssMeasurementNoiseStd,
+                                      double gyroMeasurementNoiseStd) {
+    fsw::fromHandle<::SunlineFilterAlgorithm>(self)->setConfig(configFromC(alpha,
+                                                                           beta,
+                                                                           *processNoise,
+                                                                           *initialState,
+                                                                           *initialCovariance,
+                                                                           biasLowerBound,
+                                                                           biasUpperBound,
+                                                                           *cssNHat,
+                                                                           *cssScaleFactor,
+                                                                           numberOfCss,
+                                                                           sensorThreshold,
+                                                                           cssMeasurementNoiseStd,
+                                                                           gyroMeasurementNoiseStd));
 }
 
 SunlineFilterOutput_c SunlineFilterAlgorithm_update(SunlineFilterAlgorithmHandle* self,
