@@ -7,18 +7,29 @@
 #include <Eigen/Core>
 
 namespace {
-SolarArrayReferenceConfig configFromC(const SolarArrayReferenceConfig_c& c) {
-    return SolarArrayReferenceConfig::create(SolarArrayAxes{cArrayToEigenVector3<float>(c.driveAxis.data),
-                                                            cArrayToEigenVector3<float>(c.surfaceNormal.data)},
-                                             c.alignmentThreshold,
-                                             c.trackingMode,
-                                             c.specifiedArrayAngle,
-                                             c.offsetAngle);
+SolarArrayReferenceConfig configFromC(const Vector3f_c& driveAxis,
+                                      const Vector3f_c& surfaceNormal,
+                                      const float alignmentThreshold,
+                                      const TrackingMode trackingMode,
+                                      const float specifiedArrayAngle,
+                                      const float offsetAngle) {
+    return SolarArrayReferenceConfig::create(
+        SolarArrayAxes{cArrayToEigenVector3<float>(driveAxis.data), cArrayToEigenVector3<float>(surfaceNormal.data)},
+        alignmentThreshold,
+        trackingMode,
+        specifiedArrayAngle,
+        offsetAngle);
 }
 }  // namespace
 
-SolarArrayReferenceAlgorithmHandle* SolarArrayReferenceAlgorithm_create(const SolarArrayReferenceConfig_c* config) {
-    return fsw::createHandle<::SolarArrayReferenceAlgorithm, SolarArrayReferenceAlgorithmHandle>(configFromC(*config));
+SolarArrayReferenceAlgorithmHandle* SolarArrayReferenceAlgorithm_create(const Vector3f_c* driveAxis,
+                                                                        const Vector3f_c* surfaceNormal,
+                                                                        const float alignmentThreshold,
+                                                                        const TrackingMode trackingMode,
+                                                                        const float specifiedArrayAngle,
+                                                                        const float offsetAngle) {
+    return fsw::createHandle<::SolarArrayReferenceAlgorithm, SolarArrayReferenceAlgorithmHandle>(
+        configFromC(*driveAxis, *surfaceNormal, alignmentThreshold, trackingMode, specifiedArrayAngle, offsetAngle));
 }
 
 void SolarArrayReferenceAlgorithm_destroy(SolarArrayReferenceAlgorithmHandle* self) {
@@ -26,8 +37,14 @@ void SolarArrayReferenceAlgorithm_destroy(SolarArrayReferenceAlgorithmHandle* se
 }
 
 void SolarArrayReferenceAlgorithm_setConfig(SolarArrayReferenceAlgorithmHandle* self,
-                                            const SolarArrayReferenceConfig_c* config) {
-    fsw::fromHandle<::SolarArrayReferenceAlgorithm>(self)->setConfig(configFromC(*config));
+                                            const Vector3f_c* driveAxis,
+                                            const Vector3f_c* surfaceNormal,
+                                            const float alignmentThreshold,
+                                            const TrackingMode trackingMode,
+                                            const float specifiedArrayAngle,
+                                            const float offsetAngle) {
+    fsw::fromHandle<::SolarArrayReferenceAlgorithm>(self)->setConfig(
+        configFromC(*driveAxis, *surfaceNormal, alignmentThreshold, trackingMode, specifiedArrayAngle, offsetAngle));
 }
 
 float SolarArrayReferenceAlgorithm_update(const SolarArrayReferenceAlgorithmHandle* self,
