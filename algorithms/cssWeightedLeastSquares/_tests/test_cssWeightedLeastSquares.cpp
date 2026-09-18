@@ -197,6 +197,30 @@ TEST(CssWeightedLeastSquaresTest, TwoSensorsGiveTheMinimumNormSolution) {
     EXPECT_LT((out.sunHeading_B.cast<double>() - bisector).norm(), 1e-5);
 }
 
+// Two boresights that point the same way fix no plane for the minimum norm solution to lie in, so there is
+// no heading to report.
+TEST(CssWeightedLeastSquaresTest, TwoParallelBoresightsGiveNoHeading) {
+    ConstellationInputs inputs = referenceInputs();
+    inputs.boresights = referenceBoresightVector();
+    // Point sensor 3 a milliradian off sensor 0. The separation is small enough that the pair fixes no
+    // plane, and large enough that single precision still tells the two boresights apart, so the rule is
+    // what rejects the pair rather than the arithmetic collapsing on its own.
+    inputs.boresights[9] = inputs.boresights[0];
+    inputs.boresights[10] = inputs.boresights[1] + 1e-3F;
+    inputs.boresights[11] = inputs.boresights[2];
+    BuiltConfig built{};
+    ASSERT_TRUE(buildConfig(inputs, built));
+
+    CssWeightedLeastSquaresAlgorithm algorithm{makeConfig(inputs, built)};
+    std::vector<float> readings(kMaxNumCssSensors, 0.0F);
+    readings[0] = 0.8F;
+    readings[3] = 0.8F;
+    const CssWeightedLeastSquaresOutput out = algorithm.update(makeReadings(readings));
+
+    EXPECT_EQ(out.numCssViewingSun, 2U);
+    EXPECT_TRUE(out.sunHeading_B.isZero());
+}
+
 // Three collinear boresights span one direction, so the normal matrix is singular and there is no fit to
 // report. The estimator returns no heading rather than an arbitrary one.
 TEST(CssWeightedLeastSquaresTest, CollinearBoresightsGiveNoHeading) {

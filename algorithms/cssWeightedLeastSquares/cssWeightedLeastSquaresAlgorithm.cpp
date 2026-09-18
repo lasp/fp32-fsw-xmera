@@ -12,14 +12,22 @@
 static constexpr float kMinCssMeasurement = 0.0F;
 
 /*! Relative tolerance for treating a normal matrix as singular, sized at a few multiples of the
-    working precision's machine epsilon. The determinant of an n-by-n matrix scales as the n-th power
-    of the matrix norm, so the absolute threshold handed to Eigen is this factor times the norm
-    raised to the matrix dimension, which keeps the test scale invariant. */
+    working precision's machine epsilon. Scaling it by the matrix norm keeps the test scale invariant. */
 static constexpr float kSingularDeterminantRelativeTolerance = 1e-6F;
 
 /*! Number of active measurements below which the fit is exactly determined and the measurement
     weights carry no information. */
 static constexpr uint32_t kMinMeasurementsForWeightedFit = 3;
+
+/*! Smallest squared sine of the angle between two boresights that still fixes a plane to fit in. Below
+    this the two point the same way and the pair fixes no plane.
+
+    This is the two-by-two case of the relative determinant rule the three-or-more branch still applies.
+    For two unit boresights the normal matrix is [[1, c], [c, 1]], whose determinant is the squared sine
+    below and whose norm is sqrt(2 + 2c^2), so that rule reads (1 - c^2) > tolerance * (2 + 2c^2). The two
+    agree wherever the rule can fire, which is where the boresights align and the norm reaches two. The
+    value is four times the tolerance, and rejects a separation below about two milliradians. */
+static constexpr float kMinTwoSensorSineSquared = 4.0F * kSingularDeterminantRelativeTolerance;
 
 /*! Smallest cross product magnitude between two successive headings that still fixes a rotation axis.
     The magnitude is the sine of the angle between them, so below this the headings are parallel or
@@ -29,24 +37,21 @@ static constexpr float kMinRotationAxisMagnitude = 1e-6F;
 
 namespace {
 
-/*! Invert a normal matrix, rejecting it when its determinant is singular at the matrix's own scale.
+/*! Invert a normal matrix, rejecting it when its determinant is singular at the matrix's own scale. The
+    determinant of a three-by-three matrix scales as the cube of its norm, so the threshold does too.
     @return the inverse, or nothing when the matrix is singular
     @param matrix the normal matrix to invert
  */
-template <typename MatrixT>
-std::optional<MatrixT> invertNormalMatrix(const MatrixT& matrix) {
+std::optional<Eigen::Matrix3f> invertNormalMatrix(const Eigen::Matrix3f& matrix) {
     const float norm = matrix.reshaped().stableNorm();
-    float threshold = kSingularDeterminantRelativeTolerance;
-    for (int dimension = 0; dimension < MatrixT::RowsAtCompileTime; ++dimension) {
-        threshold *= norm;
-    }
+    const float threshold = kSingularDeterminantRelativeTolerance * norm * norm * norm;
 
-    MatrixT inverse = MatrixT::Zero();
+    Eigen::Matrix3f inverse = Eigen::Matrix3f::Zero();
     float determinant = 0.0F;
     bool invertible = false;
     matrix.computeInverseAndDetWithCheck(inverse, determinant, invertible, threshold);
 
-    std::optional<MatrixT> result;
+    std::optional<Eigen::Matrix3f> result;
     if (invertible) {
         result = inverse;
     }
@@ -200,11 +205,17 @@ std::optional<Eigen::Vector3f> CssWeightedLeastSquaresAlgorithm::computeWlsmn(
            case of the two-measurement branch below. The row is a unit boresight, so it needs no scaling. */
         fit = Eigen::Vector3f{H.row(0).transpose() * y(0)};
     } else if (numCssViewingSun == 2) {
-        /* Two measurements leave the system underdetermined, so take the minimum norm solution */
-        const Eigen::Matrix<float, 2, 3> h = H.topRows<2>();
-        const std::optional<Eigen::Matrix2f> hhtInverse = invertNormalMatrix(Eigen::Matrix2f{h * h.transpose()});
-        if (hhtInverse) {
-            fit = Eigen::Vector3f{h.transpose() * *hhtInverse * y.head<2>()};
+        /* Two measurements leave the system underdetermined, so take the minimum norm solution. Both rows
+           are unit boresights, so the inverse of the two-by-two normal matrix has a closed form: with c
+           their dot product, its determinant is 1 - c^2 and the solution below follows. */
+        const Eigen::Vector3f firstBoresight = H.row(0).transpose();
+        const Eigen::Vector3f secondBoresight = H.row(1).transpose();
+        const float boresightAlignment = firstBoresight.dot(secondBoresight);
+        const float sineSquared = 1.0F - (boresightAlignment * boresightAlignment);
+        if (sineSquared > kMinTwoSensorSineSquared) {
+            fit = Eigen::Vector3f{((firstBoresight * (y(0) - (boresightAlignment * y(1)))) +
+                                   (secondBoresight * (y(1) - (boresightAlignment * y(0))))) /
+                                  sineSquared};
         }
     } else if (numCssViewingSun >= kMinMeasurementsForWeightedFit) {
         /* The rows of H and the entries of y past
