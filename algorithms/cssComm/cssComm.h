@@ -20,7 +20,6 @@ class CssComm : public SysModel {
     void reconfigure() const;
     void reset(uint64_t callTime) override;
 
-    uint32_t numSensors{};  //!< [-] number of CSS sensors to process
     std::array<double, kMaxNumCssSensors>
         maxSensorValues{};  //!< [-] per-sensor scale factor from sensor value to cosine
     std::array<double, kMaxNumChebyPolys> chebyPolynomials{};  //!< [-] Chebyshev polynomials fitting output to cosine

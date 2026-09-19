@@ -3,15 +3,14 @@
 #include <algorithm>
 
 TEST(CssCommTest, RegressionTest) {
-    uint32_t numSensors = 4;
-    std::vector<double> maxSensorValues = {500e-6, 400e-6, 600e-6, 550e-6};
+    std::vector<double> maxSensorValues = {500e-6, 400e-6, 600e-6, 550e-6, 500e-6, 400e-6, 600e-6, 550e-6};
 
     std::vector chebyCoeffs = {0.1, -0.2, 0.05};
 
     // Ratios relative to each sensor's own maxSensorValue: -0.2, 0.4, 1.2, 0.6
-    std::vector sensorInputRatios = {-0.2, 0.4, 1.2, 0.6};
+    std::vector sensorInputRatios = {-0.2, 0.4, 1.2, 0.6, 0.3, -0.5, 0.8, 1.1};
 
-    regressionTestCssComm(numSensors, maxSensorValues, chebyCoeffs, sensorInputRatios);
+    regressionTestCssComm(maxSensorValues, chebyCoeffs, sensorInputRatios);
 }
 
 TEST(CssCommTest, SetupTest) {
@@ -20,37 +19,29 @@ TEST(CssCommTest, SetupTest) {
     polys[1] = -0.2;
 
     // A valid configuration round-trips its values
-    const auto config = CssCommConfig::create(4, uniformMaxValues(500e-6), polys);
-    EXPECT_EQ(config.getNumSensors(), 4u);
-    for (uint32_t i = 0; i < 4u; ++i) {
+    const auto config = CssCommConfig::create(uniformMaxValues(500e-6), polys);
+    for (uint32_t i = 0; i < MAX_NUM_CSS_SENSORS; ++i) {
         EXPECT_DOUBLE_EQ(config.getMaxSensorValues()[i], 500e-6);
     }
     for (std::size_t i = 0; i < kMaxNumChebyPolys; ++i) {
         EXPECT_DOUBLE_EQ(config.getChebyPolynomials()[i], polys[i]);
     }
 
-    // numSensors: 0 and above-max are rejected
-    EXPECT_THROW(CssCommConfig::create(0, uniformMaxValues(500e-6), polys), fsw::invalid_argument);
-    EXPECT_THROW(CssCommConfig::create(MAX_NUM_CSS_SENSORS + 1, uniformMaxValues(500e-6), polys),
-                 fsw::invalid_argument);
+    // maxSensorValues: 0 and negative are rejected
+    EXPECT_THROW(CssCommConfig::create(uniformMaxValues(0.0), polys), fsw::invalid_argument);
+    EXPECT_THROW(CssCommConfig::create(uniformMaxValues(-1.0), polys), fsw::invalid_argument);
 
-    // maxSensorValues: 0 and negative on an active sensor are rejected
-    EXPECT_THROW(CssCommConfig::create(4, uniformMaxValues(0.0), polys), fsw::invalid_argument);
-    EXPECT_THROW(CssCommConfig::create(4, uniformMaxValues(-1.0), polys), fsw::invalid_argument);
-
-    EXPECT_TRUE(CssCommConfig::isValidNumSensors(4));
-    EXPECT_FALSE(CssCommConfig::isValidNumSensors(0));
-    EXPECT_TRUE(CssCommConfig::isValidMaxSensorValues(uniformMaxValues(500e-6), 4));
-    EXPECT_FALSE(CssCommConfig::isValidMaxSensorValues(uniformMaxValues(0.0), 4));
+    EXPECT_TRUE(CssCommConfig::isValidMaxSensorValues(uniformMaxValues(500e-6)));
+    EXPECT_FALSE(CssCommConfig::isValidMaxSensorValues(uniformMaxValues(0.0)));
 }
 
 // Different sensors use their own max value; scaling is per-sensor.
 TEST(CssCommTest, PerSensorMaxValues) {
     std::array<double, kMaxNumChebyPolys> polys{};  // all-zero coefficients -> no correction
-    std::array<double, kMaxNumCssSensors> maxValues{};
-    maxValues[0] = 100.0;
+    // Every slot is configured; slots 0 and 1 differ so the per-sensor scaling is visible.
+    auto maxValues = uniformMaxValues(100.0);
     maxValues[1] = 200.0;
-    CssCommAlgorithm alg{CssCommConfig::create(2, maxValues, polys)};
+    CssCommAlgorithm alg{CssCommConfig::create(maxValues, polys)};
 
     std::array<double, MAX_NUM_CSS_SENSORS> input{};
     input[0] = 50.0;  // 50 / 100 = 0.50
@@ -61,19 +52,20 @@ TEST(CssCommTest, PerSensorMaxValues) {
     EXPECT_NEAR(output[1], 0.25, 1e-14);
 }
 
-// A non-positive max on an active sensor is rejected; on an unused slot (>= numSensors) it is ignored.
-TEST(CssCommTest, PerSensorMaxValidationIsActiveOnly) {
+// Every sensor slot is configured, so a non-positive max is rejected wherever it sits.
+TEST(CssCommTest, PerSensorMaxValidationCoversEverySlot) {
     std::array<double, kMaxNumChebyPolys> polys{};
     polys[0] = 0.1;
-    auto maxValues = uniformMaxValues(100.0);
+    const auto maxValues = uniformMaxValues(100.0);
+    EXPECT_NO_THROW(CssCommConfig::create(maxValues, polys));
 
-    auto badInactive = maxValues;
-    badInactive[5] = 0.0;  // slot 5 is unused when numSensors == 2
-    EXPECT_NO_THROW(CssCommConfig::create(2, badInactive, polys));
+    auto badFirst = maxValues;
+    badFirst[0] = 0.0;
+    EXPECT_THROW(CssCommConfig::create(badFirst, polys), fsw::invalid_argument);
 
-    auto badActive = maxValues;
-    badActive[1] = 0.0;  // slot 1 is active when numSensors == 2
-    EXPECT_THROW(CssCommConfig::create(2, badActive, polys), fsw::invalid_argument);
+    auto badLast = maxValues;
+    badLast[MAX_NUM_CSS_SENSORS - 1] = 0.0;
+    EXPECT_THROW(CssCommConfig::create(badLast, polys), fsw::invalid_argument);
 }
 
 // ---------------------------------------------------------------------------
@@ -84,7 +76,7 @@ TEST(CssCommTest, PerSensorMaxValidationIsActiveOnly) {
 TEST(CssCommTest, SaturationClampingToOne) {
     std::array<double, kMaxNumChebyPolys> polys{};
     polys[0] = 2.0;
-    CssCommAlgorithm alg{CssCommConfig::create(1, uniformMaxValues(1.0), polys)};
+    CssCommAlgorithm alg{CssCommConfig::create(uniformMaxValues(1.0), polys)};
 
     std::array<double, MAX_NUM_CSS_SENSORS> input{};
     input[0] = 1.0;
@@ -94,13 +86,33 @@ TEST(CssCommTest, SaturationClampingToOne) {
 }
 
 // For any valid configuration and inputs, every output is in [0.0, 1.0].
+// A sensor that reports a value which is not finite has measured nothing. Passing it on would carry the
+// value into every estimate downstream, and an infinity would arrive as a sensor that points straight at
+// the sun, so the module reports no signal instead.
+TEST(CssCommTest, NonFiniteReadingReportsNoSignal) {
+    std::array<double, kMaxNumChebyPolys> polys{};
+    CssCommAlgorithm alg{CssCommConfig::create(uniformMaxValues(1.0), polys)};
+
+    std::array<double, MAX_NUM_CSS_SENSORS> input{};
+    input[0] = std::numeric_limits<double>::quiet_NaN();
+    input[1] = std::numeric_limits<double>::infinity();
+    input[2] = -std::numeric_limits<double>::infinity();
+    input[3] = 0.5;
+    auto output = alg.update(input);
+
+    EXPECT_DOUBLE_EQ(output[0], 0.0);
+    EXPECT_DOUBLE_EQ(output[1], 0.0);
+    EXPECT_DOUBLE_EQ(output[2], 0.0);
+    EXPECT_DOUBLE_EQ(output[3], 0.5);  // a healthy sensor alongside them is untouched
+}
+
 TEST(CssCommTest, OutputAlwaysInUnitRange) {
     std::array<double, kMaxNumChebyPolys> polys{};
     polys[0] = 1e4;
     polys[1] = -5e3;
     polys[2] = 2e3;
     polys[3] = -1e3;
-    CssCommAlgorithm alg{CssCommConfig::create(MAX_NUM_CSS_SENSORS, uniformMaxValues(100.0), polys)};
+    CssCommAlgorithm alg{CssCommConfig::create(uniformMaxValues(100.0), polys)};
 
     std::array<double, MAX_NUM_CSS_SENSORS> input{};
     for (uint32_t i = 0; i < MAX_NUM_CSS_SENSORS; ++i) {
@@ -115,23 +127,21 @@ TEST(CssCommTest, OutputAlwaysInUnitRange) {
     }
 }
 
-// Output elements beyond numSensors are always 0.0.
-TEST(CssCommTest, UnusedSensorsRemainZero) {
+// Every sensor slot is processed, so an identical reading gives an identical output on every slot.
+TEST(CssCommTest, EverySensorSlotIsProcessed) {
     std::array<double, kMaxNumChebyPolys> polys{};
     polys[0] = 0.5;
-    CssCommAlgorithm alg{CssCommConfig::create(2, uniformMaxValues(1.0), polys)};
+    CssCommAlgorithm alg{CssCommConfig::create(uniformMaxValues(1.0), polys)};
 
     std::array<double, MAX_NUM_CSS_SENSORS> input{};
     for (auto& v : input) {
         v = 0.5;  // fill all entries
     }
-    auto output = alg.update(input);
+    const auto output = alg.update(input);
 
-    EXPECT_GT(output[0], 0.0);
-    EXPECT_GT(output[1], 0.0);
-
-    for (uint32_t i = 2; i < MAX_NUM_CSS_SENSORS; ++i) {
-        EXPECT_DOUBLE_EQ(output[i], 0.0);
+    for (uint32_t i = 0; i < MAX_NUM_CSS_SENSORS; ++i) {
+        EXPECT_GT(output[i], 0.0);
+        EXPECT_DOUBLE_EQ(output[i], output[0]);
     }
 }
 
@@ -142,7 +152,7 @@ TEST(CssCommTest, ZeroInputIsChebyCorrection) {
     polys[0] = 0.3;
     polys[1] = 0.1;
     polys[2] = 0.05;
-    CssCommAlgorithm alg{CssCommConfig::create(4, uniformMaxValues(1.0), polys)};
+    CssCommAlgorithm alg{CssCommConfig::create(uniformMaxValues(1.0), polys)};
 
     std::array<double, MAX_NUM_CSS_SENSORS> input{};  // all zeros
     auto output = alg.update(input);
@@ -159,7 +169,7 @@ TEST(CssCommTest, ZeroInputIsChebyCorrection) {
 // clamped to [0, 1].
 TEST(CssCommTest, ZeroChebyIsIdentity) {
     std::array<double, kMaxNumChebyPolys> polys{};  // all zeros
-    CssCommAlgorithm alg{CssCommConfig::create(5, uniformMaxValues(100.0), polys)};
+    CssCommAlgorithm alg{CssCommConfig::create(uniformMaxValues(100.0), polys)};
 
     std::array<double, MAX_NUM_CSS_SENSORS> input{};
     input[0] = 50.0;   // scaled = 0.5
@@ -185,7 +195,7 @@ TEST(CssCommTest, ZeroChebyIsIdentity) {
 TEST(CssCommTest, SingleChebyCoefficient) {
     std::array<double, kMaxNumChebyPolys> polys{};
     polys[0] = 0.2;
-    CssCommAlgorithm alg{CssCommConfig::create(3, uniformMaxValues(1.0), polys)};
+    CssCommAlgorithm alg{CssCommConfig::create(uniformMaxValues(1.0), polys)};
 
     std::array<double, MAX_NUM_CSS_SENSORS> input{};
     input[0] = 0.0;
@@ -203,7 +213,7 @@ TEST(CssCommTest, InputEqualsMaxSensorValue) {
     std::array<double, kMaxNumChebyPolys> polys{};
     polys[0] = -0.1;
     polys[1] = 0.05;
-    CssCommAlgorithm alg{CssCommConfig::create(1, uniformMaxValues(500e-6), polys)};
+    CssCommAlgorithm alg{CssCommConfig::create(uniformMaxValues(500e-6), polys)};
 
     std::array<double, MAX_NUM_CSS_SENSORS> input{};
     input[0] = 500e-6;  // scaled = 1.0 exactly
@@ -220,7 +230,7 @@ TEST(CssCommTest, IdenticalSensorsIdenticalOutput) {
     polys[0] = 0.1;
     polys[1] = -0.05;
     polys[2] = 0.02;
-    CssCommAlgorithm alg{CssCommConfig::create(MAX_NUM_CSS_SENSORS, uniformMaxValues(1.0), polys)};
+    CssCommAlgorithm alg{CssCommConfig::create(uniformMaxValues(1.0), polys)};
 
     std::array<double, MAX_NUM_CSS_SENSORS> input{};
     for (auto& v : input) {

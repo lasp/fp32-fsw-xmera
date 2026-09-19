@@ -14,13 +14,14 @@ path = os.path.dirname(os.path.abspath(filename))
 # Mission-configurable CSS count, from algorithms/mission/parameters.h via the SWIG payload module.
 _MAX_CSS = messaging.MAX_NUM_CSS_SENSORS
 
-@pytest.mark.parametrize("num_sensors, sensor_data", [
-    (4, [-100e-6, 200e-6, 600e-6, 300e-6]),  # Subset of sensors; verifies trailing entries are zeroed.
-    (_MAX_CSS, [200e-6]*_MAX_CSS),  # Configure the maximum allowed number of sensors.
+@pytest.mark.parametrize("sensor_data", [
+    # Every sensor slot is configured, so both cases cover the full array.
+    [-100e-6, 200e-6, 600e-6, 300e-6, 100e-6, 450e-6, -50e-6, 250e-6],
+    [200e-6] * _MAX_CSS,
 ])
 
 
-def test_css_comm(num_sensors, sensor_data):
+def test_css_comm(sensor_data):
     """Exercise the Python/SWIG interface for CssComm.
 
     Verifies that the module can be configured, connected, and run
@@ -41,7 +42,6 @@ def test_css_comm(num_sensors, sensor_data):
     # Construct the cssComm module
     module = cssCommF32.CssComm()
     module.modelTag = "cssComm"
-    module.numSensors = num_sensors
     module.maxSensorValues = cssCommF32.DoubleArrayCss([500e-6] * _MAX_CSS)
 
     # 10 active coefficients + trailing zero so the list length matches
@@ -95,15 +95,11 @@ def test_css_comm(num_sensors, sensor_data):
     # All output values must be finite
     assert np.all(np.isfinite(output_data))
 
-    # Sensors beyond numSensors must be zero
-    assert np.all(output_data[:, num_sensors:] == 0.0)
-
     assert np.all(data_log.timeTag == input_time_tag)
 
     accuracy = 1e-6
 
     # Getter/setter round-trips
-    np.testing.assert_allclose(module.numSensors, num_sensors, atol=accuracy, rtol=accuracy)
     np.testing.assert_allclose(module.maxSensorValues, [500e-6] * _MAX_CSS, atol=accuracy, rtol=accuracy)
     np.testing.assert_allclose(module.chebyPolynomials, cheby_list, atol=accuracy, rtol=accuracy)
 

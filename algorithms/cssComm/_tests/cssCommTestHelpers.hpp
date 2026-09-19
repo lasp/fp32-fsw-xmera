@@ -17,7 +17,6 @@ inline std::array<double, MAX_NUM_CSS_SENSORS> uniformMaxValues(double value) {
 
 // Reference computation that independently reimplements the cssComm algorithm
 inline std::array<double, MAX_NUM_CSS_SENSORS> referenceUpdate(
-    uint32_t numSensors,
     const std::array<double, MAX_NUM_CSS_SENSORS>& maxSensorValues,
     const std::array<double, kMaxNumChebyPolys>& chebyPolynomials,
     const std::array<double, MAX_NUM_CSS_SENSORS>& inputValues) {
@@ -27,7 +26,7 @@ inline std::array<double, MAX_NUM_CSS_SENSORS> referenceUpdate(
 
     std::array<double, MAX_NUM_CSS_SENSORS> output{};
 
-    for (i = 0; i < numSensors; i++) {
+    for (i = 0; i < MAX_NUM_CSS_SENSORS; i++) {
         output[i] = inputValues[i] / maxSensorValues[i]; /* Scale Sensor Data */
 
         /* Seed the polynomial computations */
@@ -57,8 +56,7 @@ inline std::array<double, MAX_NUM_CSS_SENSORS> referenceUpdate(
     return output;
 }
 
-inline void regressionTestCssComm(uint32_t numSensors,
-                                  std::vector<double> maxSensorValues,
+inline void regressionTestCssComm(std::vector<double> maxSensorValues,
                                   std::vector<double> chebyCoeffs,
                                   std::vector<double> sensorInputRatios) {
     std::array<double, kMaxNumChebyPolys> polynomials{};
@@ -71,7 +69,7 @@ inline void regressionTestCssComm(uint32_t numSensors,
         maxValues[i] = maxSensorValues[i];
     }
 
-    CssCommAlgorithm alg{CssCommConfig::create(numSensors, maxValues, polynomials)};
+    CssCommAlgorithm alg{CssCommConfig::create(maxValues, polynomials)};
 
     std::array<double, MAX_NUM_CSS_SENSORS> inputValues{};
     for (std::size_t i = 0; i < sensorInputRatios.size() && i < MAX_NUM_CSS_SENSORS; ++i) {
@@ -81,7 +79,7 @@ inline void regressionTestCssComm(uint32_t numSensors,
     std::array<double, MAX_NUM_CSS_SENSORS> output{};
     EXPECT_NO_THROW(output = alg.update(inputValues));
 
-    auto reference = referenceUpdate(numSensors, maxValues, polynomials, inputValues);
+    auto reference = referenceUpdate(maxValues, polynomials, inputValues);
 
     for (uint32_t i = 0; i < MAX_NUM_CSS_SENSORS; ++i) {
         EXPECT_NEAR(output[i], reference[i], 1e-12);

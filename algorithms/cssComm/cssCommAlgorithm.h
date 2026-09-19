@@ -21,25 +21,19 @@ inline constexpr std::size_t kMaxNumChebyPolys = MAX_NUM_CHEBY_POLYS;
  */
 class CssCommConfig final {
    public:
-    static CssCommConfig create(uint32_t numSensors,
-                                const std::array<double, kMaxNumCssSensors>& maxSensorValues,
+    static CssCommConfig create(const std::array<double, kMaxNumCssSensors>& maxSensorValues,
                                 const std::array<double, kMaxNumChebyPolys>& chebyPolynomials) {
-        if (!isValidNumSensors(numSensors)) {
-            FSW_THROW_INVALID_ARGUMENT("cssComm: numSensors must be in [1, kMaxNumCssSensors]");
-        }
-        if (!isValidMaxSensorValues(maxSensorValues, numSensors)) {
-            FSW_THROW_INVALID_ARGUMENT("cssComm: each active sensor's maxSensorValue must be finite and > 0");
+        if (!isValidMaxSensorValues(maxSensorValues)) {
+            FSW_THROW_INVALID_ARGUMENT("cssComm: every sensor's maxSensorValue must be finite and > 0");
         }
         if (!isValidChebyPolynomials(chebyPolynomials)) {
             FSW_THROW_INVALID_ARGUMENT("cssComm: chebyPolynomials must all be finite");
         }
-        return {numSensors, maxSensorValues, chebyPolynomials};
+        return {maxSensorValues, chebyPolynomials};
     }
 
-    static bool isValidNumSensors(uint32_t numSensors) { return numSensors >= 1U && numSensors <= kMaxNumCssSensors; }
-    static bool isValidMaxSensorValues(const std::array<double, kMaxNumCssSensors>& maxSensorValues,
-                                       uint32_t numSensors) {
-        for (uint32_t i = 0U; i < numSensors && i < maxSensorValues.size(); ++i) {
+    static bool isValidMaxSensorValues(const std::array<double, kMaxNumCssSensors>& maxSensorValues) {
+        for (uint32_t i = 0U; i < kMaxNumCssSensors; ++i) {
             if (!fsw::is_finite(maxSensorValues.at(i)) || maxSensorValues.at(i) <= 0.0) {
                 return false;
             }
@@ -50,17 +44,14 @@ class CssCommConfig final {
         return std::ranges::all_of(chebyPolynomials, [](double coeff) { return fsw::is_finite(coeff); });
     }
 
-    uint32_t getNumSensors() const { return numSensors; }
     const std::array<double, kMaxNumCssSensors>& getMaxSensorValues() const { return maxSensorValues; }
     const std::array<double, kMaxNumChebyPolys>& getChebyPolynomials() const { return chebyPolynomials; }
 
    private:
-    CssCommConfig(uint32_t numSensors,
-                  const std::array<double, kMaxNumCssSensors>& maxSensorValues,
+    CssCommConfig(const std::array<double, kMaxNumCssSensors>& maxSensorValues,
                   const std::array<double, kMaxNumChebyPolys>& chebyPolynomials)
-        : numSensors(numSensors), maxSensorValues(maxSensorValues), chebyPolynomials(chebyPolynomials) {}
+        : maxSensorValues(maxSensorValues), chebyPolynomials(chebyPolynomials) {}
 
-    uint32_t numSensors;
     std::array<double, kMaxNumCssSensors> maxSensorValues;
     std::array<double, kMaxNumChebyPolys> chebyPolynomials;
 };

@@ -16,7 +16,6 @@ typedef struct CssCommAlgorithmHandle CssCommAlgorithmHandle;
 
 /**
  * @brief Report whether a configuration would be accepted by create/setConfig.
- * @param numSensors       Number of active CSS sensors.
  * @param maxSensorValues  Per-sensor scale factors.
  * @param chebyPolynomials Chebyshev polynomial coefficients.
  * @return true if the configuration is valid. Never throws, so it can guard the
@@ -24,19 +23,16 @@ typedef struct CssCommAlgorithmHandle CssCommAlgorithmHandle;
  * @note The accepted value ranges are defined by CssCommConfig::create; this predicate
  *       reports whether a candidate set would be accepted, without throwing.
  */
-bool CssCommAlgorithm_validateConfig(uint32_t numSensors,
-                                     double maxSensorValues[MAX_NUM_CSS_SENSORS],
+bool CssCommAlgorithm_validateConfig(double maxSensorValues[MAX_NUM_CSS_SENSORS],
                                      double chebyPolynomials[MAX_NUM_CHEBY_POLYS]);
 
 /**
  * @brief Construct a new CssCommAlgorithm instance from the supplied configuration.
- * @param numSensors       Number of active CSS sensors.
  * @param maxSensorValues  Per-sensor scale factors.
  * @param chebyPolynomials Chebyshev polynomial coefficients.
  * @return Pointer to a new CssCommAlgorithm (must be destroyed). Validated; throws on invalid input.
  */
-CssCommAlgorithmHandle* CssCommAlgorithm_create(uint32_t numSensors,
-                                                double maxSensorValues[MAX_NUM_CSS_SENSORS],
+CssCommAlgorithmHandle* CssCommAlgorithm_create(double maxSensorValues[MAX_NUM_CSS_SENSORS],
                                                 double chebyPolynomials[MAX_NUM_CHEBY_POLYS]);
 
 /**
@@ -48,13 +44,11 @@ void CssCommAlgorithm_destroy(CssCommAlgorithmHandle* self);
 /**
  * @brief Apply a new configuration.
  * @param self             Pointer to the instance.
- * @param numSensors       Number of active CSS sensors.
  * @param maxSensorValues  Per-sensor scale factors.
  * @param chebyPolynomials Chebyshev polynomial coefficients.
  * Validated; throws on invalid input.
  */
 void CssCommAlgorithm_setConfig(CssCommAlgorithmHandle* self,
-                                uint32_t numSensors,
                                 double maxSensorValues[MAX_NUM_CSS_SENSORS],
                                 double chebyPolynomials[MAX_NUM_CHEBY_POLYS]);
 
