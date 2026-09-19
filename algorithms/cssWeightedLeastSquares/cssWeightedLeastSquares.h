@@ -3,6 +3,7 @@
 
 #include "cssWeightedLeastSquaresAlgorithm.h"
 
+#include "msgPayloadDef/CSSArrayAvailabilityMsgF32Payload.h"
 #include "msgPayloadDef/CSSArraySensorMsgF32Payload.h"
 #include "msgPayloadDef/CSSConfigMsgF32Payload.h"
 #include "msgPayloadDef/FilterMsgF32Payload.h"
@@ -24,15 +25,18 @@ class CssWeightedLeastSquares final : public SysModel {
     void reInitialize();
 
     // Phase 1: public config properties -- set before reset()
-    bool useWeights{};        //!< [-] flag selecting measurement weighting for the least squares fit
+    //!< [-] whether the reading of each sensor becomes its own weight in the least squares fit
+    bool useMeasurementsAsWeights{};
     float sensorUseThresh{};  //!< [-] cosine threshold at or below which a CSS measurement is discarded
     float controlPeriod{};    //!< [s] time between two updateState() calls (must be > 0)
 
-    uint32_t numActiveCss{};  //!< [-] sensors above the use threshold on the most recent cycle (output)
+    uint32_t numCssViewingSun{};  //!< [-] sensors above the use threshold on the most recent cycle (output)
 
     /* declare module IO interfaces */
     ReadFunctor<CSSArraySensorMsgF32Payload> cssDataInMsg;  //!< CSS array measurement input message
     ReadFunctor<CSSConfigMsgF32Payload> cssConfigInMsg;     //!< CSS geometry config input, read at reset()
+    //! (optional) CSS availability input message; every sensor is available when it is not connected
+    ReadFunctor<CSSArrayAvailabilityMsgF32Payload> cssAvailInMsg;
     Message<NavAttMsgF32Payload>
         navStateOutMsg;  //!< Navigation output message carrying the estimated sun heading and body rate
     Message<FilterMsgF32Payload> filterOutMsg;  //!< Estimator state output message

@@ -13,7 +13,7 @@ TEST(CssWeightedLeastSquaresTest, RegressionOverDeterminedFit) {
 
 TEST(CssWeightedLeastSquaresTest, RegressionWeightedFit) {
     ConstellationInputs inputs = referenceInputs();
-    inputs.useWeights = true;
+    inputs.useMeasurementsAsWeights = true;
     runRegressionCase(inputs, readingsFor(Eigen::Vector3d{0.0, 1.0, 0.0}));
 }
 
@@ -22,12 +22,6 @@ TEST(CssWeightedLeastSquaresTest, RegressionWeightedFit) {
 TEST(CssWeightedLeastSquaresTest, RegressionMinimumNormFit) {
     const double latitude = 40.68 * M_PI / 180.0;
     runRegressionCase(referenceInputs(), readingsFor(Eigen::Vector3d{std::sin(latitude), 0.0, std::cos(latitude)}));
-}
-
-TEST(CssWeightedLeastSquaresTest, RegressionWithNonUnitBiases) {
-    ConstellationInputs inputs = referenceInputs();
-    inputs.biases = {1.2F, 0.8F, 1.0F, 1.5F, 0.9F, 1.1F, 1.0F, 0.7F};
-    runRegressionCase(inputs, readingsFor(Eigen::Vector3d{1.0, 0.0, 0.0}));
 }
 
 // ---------------------------------------------------------------------------
@@ -40,28 +34,14 @@ TEST(CssWeightedLeastSquaresTest, ConfigAcceptsTheReferenceSetup) {
     ASSERT_TRUE(buildConfig(inputs, built));
 
     const CssWeightedLeastSquaresConfig config = makeConfig(inputs, built);
-    EXPECT_EQ(config.getNumCss(), static_cast<uint32_t>(kMaxNumCss));
-    EXPECT_FALSE(config.getUseWeights());
+    EXPECT_FALSE(config.getUseMeasurementsAsWeights());
     EXPECT_FLOAT_EQ(config.getSensorUseThresh(), kSensorUseThresh);
     EXPECT_FLOAT_EQ(config.getControlPeriod(), kControlPeriod);
 
     // The factory normalizes the boresights so the estimator can rely on exact unit vectors.
-    for (int i = 0; i < kMaxNumCss; ++i) {
+    for (int i = 0; i < kMaxNumCssSensors; ++i) {
         EXPECT_NEAR(config.getCssNHat_B().row(i).norm(), 1.0F, 1e-6F) << "boresight " << i;
     }
-}
-
-TEST(CssWeightedLeastSquaresTest, ConfigRejectsSensorCountOutOfRange) {
-    const ConstellationInputs inputs = referenceInputs();
-    BuiltConfig built{};
-    ASSERT_TRUE(buildConfig(inputs, built));
-
-    EXPECT_THROW(
-        (void)CssWeightedLeastSquaresConfig::create(0U, built.cssSensors, false, kSensorUseThresh, kControlPeriod),
-        fsw::invalid_argument);
-    EXPECT_THROW((void)CssWeightedLeastSquaresConfig::create(
-                     static_cast<uint32_t>(kMaxNumCss) + 1U, built.cssSensors, false, kSensorUseThresh, kControlPeriod),
-                 fsw::invalid_argument);
 }
 
 TEST(CssWeightedLeastSquaresTest, ConfigRejectsBoresightThatIsNotUnit) {
@@ -76,29 +56,28 @@ TEST(CssWeightedLeastSquaresTest, ConfigRejectsBoresightThatIsNotUnit) {
     EXPECT_THROW((void)makeConfig(inputs, built), fsw::invalid_argument);
 }
 
-TEST(CssWeightedLeastSquaresTest, ConfigRejectsBiasThatIsNegativeOrNotFinite) {
+TEST(CssWeightedLeastSquaresTest, ConfigAcceptsAnUnavailableSensor) {
     const ConstellationInputs inputs = referenceInputs();
     BuiltConfig built{};
     ASSERT_TRUE(buildConfig(inputs, built));
 
-    built.cssSensors.at(1).bias = -0.5F;
-    EXPECT_THROW((void)makeConfig(inputs, built), fsw::invalid_argument);
+    built.cssSensors.at(1).availability = fsw::DeviceAvailability::Unavailable;
+    EXPECT_NO_THROW((void)makeConfig(inputs, built));
 
-    built.cssSensors.at(1).bias = std::numeric_limits<float>::quiet_NaN();
-    EXPECT_THROW((void)makeConfig(inputs, built), fsw::invalid_argument);
-
-    built.cssSensors.at(1).bias = std::numeric_limits<float>::infinity();
-    EXPECT_THROW((void)makeConfig(inputs, built), fsw::invalid_argument);
+    // An unavailable sensor never reaches the fit, so its boresight is not held to the unit rule.
+    built.cssSensors.at(1).nHat_B.setZero();
+    EXPECT_NO_THROW((void)makeConfig(inputs, built));
 }
 
-// Zero is not an error: it is how a sensor is disabled.
-TEST(CssWeightedLeastSquaresTest, ConfigAcceptsZeroBias) {
+TEST(CssWeightedLeastSquaresTest, ConfigRejectsEverySensorUnavailable) {
     const ConstellationInputs inputs = referenceInputs();
     BuiltConfig built{};
     ASSERT_TRUE(buildConfig(inputs, built));
 
-    built.cssSensors.at(1).bias = 0.0F;
-    EXPECT_NO_THROW((void)makeConfig(inputs, built));
+    for (auto& sensor : built.cssSensors) {
+        sensor.availability = fsw::DeviceAvailability::Unavailable;
+    }
+    EXPECT_THROW((void)makeConfig(inputs, built), fsw::invalid_argument);
 }
 
 TEST(CssWeightedLeastSquaresTest, ConfigRejectsUseThresholdOutOfRange) {
@@ -169,11 +148,11 @@ TEST(CssWeightedLeastSquaresTest, PropertyRateOrthogonalToHeading) {
 namespace {
 
 // Builds the estimator over the reference constellation with the given tuning.
-CssWeightedLeastSquaresAlgorithm makeReferenceAlgorithm(bool useWeights = false,
-                                                        const std::vector<float>& biases = unitBiases()) {
+CssWeightedLeastSquaresAlgorithm makeReferenceAlgorithm(bool useMeasurementsAsWeights = false,
+                                                        const std::vector<bool>& available = allAvailable()) {
     ConstellationInputs inputs = referenceInputs();
-    inputs.useWeights = useWeights;
-    inputs.biases = biases;
+    inputs.useMeasurementsAsWeights = useMeasurementsAsWeights;
+    inputs.available = available;
     BuiltConfig built{};
     EXPECT_TRUE(buildConfig(inputs, built));
     return CssWeightedLeastSquaresAlgorithm{makeConfig(inputs, built)};
@@ -183,9 +162,10 @@ CssWeightedLeastSquaresAlgorithm makeReferenceAlgorithm(bool useWeights = false,
 
 TEST(CssWeightedLeastSquaresTest, NoReadingAboveThresholdGivesNoHeading) {
     CssWeightedLeastSquaresAlgorithm algorithm = makeReferenceAlgorithm();
-    const CssWeightedLeastSquaresOutput out = algorithm.update(makeReadings(std::vector<float>(kMaxNumCss, 0.0F)));
+    const CssWeightedLeastSquaresOutput out =
+        algorithm.update(makeReadings(std::vector<float>(kMaxNumCssSensors, 0.0F)));
 
-    EXPECT_EQ(out.numActiveCss, 0U);
+    EXPECT_EQ(out.numCssViewingSun, 0U);
     EXPECT_TRUE(out.sunHeading_B.isZero());
     EXPECT_TRUE(out.omega_BN_B.isZero());
     EXPECT_TRUE(out.postFitResiduals.isZero());
@@ -194,50 +174,57 @@ TEST(CssWeightedLeastSquaresTest, NoReadingAboveThresholdGivesNoHeading) {
 // One reading fixes only the cone about that boresight, so the estimator reports the boresight itself.
 TEST(CssWeightedLeastSquaresTest, SingleSensorReturnsItsBoresight) {
     CssWeightedLeastSquaresAlgorithm algorithm = makeReferenceAlgorithm();
-    std::vector<float> readings(kMaxNumCss, 0.0F);
+    std::vector<float> readings(kMaxNumCssSensors, 0.0F);
     readings[3] = 0.84F;
     const CssWeightedLeastSquaresOutput out = algorithm.update(makeReadings(readings));
 
-    ASSERT_EQ(out.numActiveCss, 1U);
+    ASSERT_EQ(out.numCssViewingSun, 1U);
     const Eigen::Vector3d boresight = referenceConstellation()[3];
     EXPECT_LT((out.sunHeading_B.cast<double>() - boresight).norm(), 1e-5);
-}
-
-// The single-observation fit is the minimum norm solution of y = c (n_hat . d), so the bias divides rather
-// than multiplies. The heading is the boresight either way; the residual is what shows the difference.
-TEST(CssWeightedLeastSquaresTest, SingleSensorFitDividesByTheBias) {
-    std::vector<float> biases = unitBiases();
-    biases[3] = 2.0F;
-    CssWeightedLeastSquaresAlgorithm algorithm = makeReferenceAlgorithm(false, biases);
-
-    std::vector<float> readings(kMaxNumCss, 0.0F);
-    const float reading = 0.84F;
-    readings[3] = reading;
-    const CssWeightedLeastSquaresOutput out = algorithm.update(makeReadings(readings));
-
-    ASSERT_EQ(out.numActiveCss, 1U);
-    EXPECT_NEAR(out.postFitResiduals(0), reading - (reading / 2.0F), 1e-6F);
 }
 
 // Two readings leave the system underdetermined, so the minimum norm solution bisects the two boresights
 // when both read the same cosine.
 TEST(CssWeightedLeastSquaresTest, TwoSensorsGiveTheMinimumNormSolution) {
     CssWeightedLeastSquaresAlgorithm algorithm = makeReferenceAlgorithm();
-    std::vector<float> readings(kMaxNumCss, 0.0F);
+    std::vector<float> readings(kMaxNumCssSensors, 0.0F);
     readings[0] = 0.5F;
     readings[3] = 0.5F;
     const CssWeightedLeastSquaresOutput out = algorithm.update(makeReadings(readings));
 
-    ASSERT_EQ(out.numActiveCss, 2U);
+    ASSERT_EQ(out.numCssViewingSun, 2U);
     const Eigen::Vector3d bisector = (referenceConstellation()[0] + referenceConstellation()[3]).normalized();
     EXPECT_LT((out.sunHeading_B.cast<double>() - bisector).norm(), 1e-5);
+}
+
+// Two boresights that point the same way fix no plane for the minimum norm solution to lie in, so there is
+// no heading to report.
+TEST(CssWeightedLeastSquaresTest, TwoParallelBoresightsGiveNoHeading) {
+    ConstellationInputs inputs = referenceInputs();
+    inputs.boresights = referenceBoresightVector();
+    // Point sensor 3 a milliradian off sensor 0. The separation is small enough that the pair fixes no
+    // plane, and large enough that single precision still tells the two boresights apart, so the rule is
+    // what rejects the pair rather than the arithmetic collapsing on its own.
+    inputs.boresights[9] = inputs.boresights[0];
+    inputs.boresights[10] = inputs.boresights[1] + 1e-3F;
+    inputs.boresights[11] = inputs.boresights[2];
+    BuiltConfig built{};
+    ASSERT_TRUE(buildConfig(inputs, built));
+
+    CssWeightedLeastSquaresAlgorithm algorithm{makeConfig(inputs, built)};
+    std::vector<float> readings(kMaxNumCssSensors, 0.0F);
+    readings[0] = 0.8F;
+    readings[3] = 0.8F;
+    const CssWeightedLeastSquaresOutput out = algorithm.update(makeReadings(readings));
+
+    EXPECT_EQ(out.numCssViewingSun, 2U);
+    EXPECT_TRUE(out.sunHeading_B.isZero());
 }
 
 // Three collinear boresights span one direction, so the normal matrix is singular and there is no fit to
 // report. The estimator returns no heading rather than an arbitrary one.
 TEST(CssWeightedLeastSquaresTest, CollinearBoresightsGiveNoHeading) {
     ConstellationInputs inputs = referenceInputs();
-    inputs.numCss = 3U;
     inputs.boresights = {1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F,
                          1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F};
     BuiltConfig built{};
@@ -246,107 +233,48 @@ TEST(CssWeightedLeastSquaresTest, CollinearBoresightsGiveNoHeading) {
     CssWeightedLeastSquaresAlgorithm algorithm{makeConfig(inputs, built)};
     const CssWeightedLeastSquaresOutput out = algorithm.update(makeReadings({0.9F, 0.9F, 0.9F}));
 
-    EXPECT_EQ(out.numActiveCss, 3U);
+    EXPECT_EQ(out.numCssViewingSun, 3U);
     EXPECT_TRUE(out.sunHeading_B.isZero());
 }
 
-TEST(CssWeightedLeastSquaresTest, ReadingThatIsNotFiniteIsDropped) {
-    CssWeightedLeastSquaresAlgorithm algorithm = makeReferenceAlgorithm();
-    std::vector<float> readings = readingsFor(Eigen::Vector3d{1.0, 0.0, 0.0});
-    readings[5] = std::numeric_limits<float>::infinity();
-    const CssWeightedLeastSquaresOutput out = algorithm.update(makeReadings(readings));
-
-    EXPECT_EQ(out.numActiveCss, 4U);  // the four lit sensors, not the infinity
-    EXPECT_TRUE(out.sunHeading_B.allFinite());
-    EXPECT_LT((out.sunHeading_B.cast<double>() - Eigen::Vector3d{1.0, 0.0, 0.0}).norm(), 1e-5);
-}
-
-// A sensor that points at the sun reads one, and calibration and noise can carry it a little above one.
-// That reading is the strongest the fit has, so the bound keeps it.
-TEST(CssWeightedLeastSquaresTest, ReadingJustAboveOneIsStillUsed) {
-    CssWeightedLeastSquaresAlgorithm algorithm = makeReferenceAlgorithm();
-    std::vector<float> readings = readingsFor(Eigen::Vector3d{1.0, 0.0, 0.0});
-    readings[0] = 1.05F;
-    const CssWeightedLeastSquaresOutput out = algorithm.update(makeReadings(readings));
-
-    EXPECT_EQ(out.numActiveCss, 4U);
-    EXPECT_FALSE(out.sunHeading_B.isZero());
-}
-
-// A reading far above one is not a cosine. The fit would carry its magnitude into the normal equations.
-TEST(CssWeightedLeastSquaresTest, ReadingAboveTheCosineRangeIsDropped) {
-    CssWeightedLeastSquaresAlgorithm algorithm = makeReferenceAlgorithm();
-    std::vector<float> readings = readingsFor(Eigen::Vector3d{1.0, 0.0, 0.0});
-    readings[5] = 7.3e37F;
-    const CssWeightedLeastSquaresOutput out = algorithm.update(makeReadings(readings));
-
-    EXPECT_EQ(out.numActiveCss, 4U);  // the four lit sensors only
-    EXPECT_TRUE(out.sunHeading_B.allFinite());
-    EXPECT_TRUE(out.omega_BN_B.allFinite());
-    EXPECT_LT((out.sunHeading_B.cast<double>() - Eigen::Vector3d{1.0, 0.0, 0.0}).norm(), 1e-5);
-}
-
-TEST(CssWeightedLeastSquaresTest, ReadingsBeyondTheSensorCountAreIgnored) {
-    ConstellationInputs inputs = referenceInputs();
-    inputs.numCss = 4U;
-    BuiltConfig built{};
-    ASSERT_TRUE(buildConfig(inputs, built));
-    CssWeightedLeastSquaresAlgorithm algorithm{makeConfig(inputs, built)};
-
-    std::vector<float> readings = readingsFor(Eigen::Vector3d{1.0, 0.0, 0.0});
-    const CssWeightedLeastSquaresOutput clean = algorithm.update(makeReadings(readings));
-
-    // Slots past numCss describe sensors the configuration does not have, so whatever they hold must not
-    // reach the fit.
-    for (size_t i = 4U; i < readings.size(); ++i) {
-        readings[i] = 0.99F;
-    }
-    CssWeightedLeastSquaresAlgorithm second{makeConfig(inputs, built)};
-    const CssWeightedLeastSquaresOutput noisy = second.update(makeReadings(readings));
-
-    EXPECT_EQ(noisy.numActiveCss, clean.numActiveCss);
-    EXPECT_TRUE(noisy.sunHeading_B.isApprox(clean.sunHeading_B));
-}
-
-// The fit forms its products over the full-width operands, which is only correct while the entries past the
-// active count stay zero. A cycle with fewer lit sensors than the one before it is what would expose a
-// stale tail, so run the busy cycle first and check the lean one that follows.
+// The fit forms its products over the full-width operands, which is only correct while a sensor that takes
+// no part this cycle carries a weight of zero. A cycle with fewer lit sensors than the one before it is
+// what would expose a weight left behind, so run the busy cycle first and check the lean one that follows.
 TEST(CssWeightedLeastSquaresTest, CoverageDroppingBetweenCyclesLeavesNoStaleTail) {
     ConstellationInputs inputs = referenceInputs();
-    inputs.useWeights = true;
+    inputs.useMeasurementsAsWeights = true;
     BuiltConfig built{};
     ASSERT_TRUE(buildConfig(inputs, built));
     CssWeightedLeastSquaresAlgorithm algorithm{makeConfig(inputs, built)};
 
     // Both cycles must stay on the three-or-more branch, which is the one that forms its products over the
     // full-width operands. The two-sensor branch reads only the rows it fills, so it could not show a tail.
-    std::vector<float> manyLit(kMaxNumCss, 0.0F);
+    std::vector<float> manyLit(kMaxNumCssSensors, 0.0F);
     for (size_t i = 0U; i < 5U; ++i) {
         manyLit[i] = 0.6F;
     }
     const CssWeightedLeastSquaresOutput busy = algorithm.update(makeReadings(manyLit));
-    ASSERT_EQ(busy.numActiveCss, 5U);
+    ASSERT_EQ(busy.numCssViewingSun, 5U);
 
-    std::vector<float> fewLit(kMaxNumCss, 0.0F);
+    std::vector<float> fewLit(kMaxNumCssSensors, 0.0F);
     for (size_t i = 0U; i < 3U; ++i) {
         fewLit[i] = 0.6F;
     }
     const CssWeightedLeastSquaresOutput lean = algorithm.update(makeReadings(fewLit));
-    ASSERT_EQ(lean.numActiveCss, 3U);
+    ASSERT_EQ(lean.numCssViewingSun, 3U);
 
     // Hold the lean cycle to the conditions that define its fit rather than to a second run of the
     // estimator. A tail hoisted out of update() would be shared by every instance, so two runs of the same
     // code would agree with each other and hide the fault.
-    const ActiveSystem system = activeSystem(inputs.numCss,
-                                             built.boresights,
-                                             built.biases,
-                                             inputs.useWeights,
+    const ActiveSystem system = activeSystem(built.boresights,
+                                             built.available,
+                                             inputs.useMeasurementsAsWeights,
                                              static_cast<double>(inputs.sensorUseThresh),
                                              toDouble(fewLit));
     ASSERT_TRUE(system.resolvable);
     expectFitIsOptimal(system, lean.sunHeading_B, lean.postFitResiduals);
 
-    for (uint32_t k = lean.numActiveCss; k < static_cast<uint32_t>(kMaxNumCss); ++k) {
+    for (uint32_t k = lean.numCssViewingSun; k < static_cast<uint32_t>(kMaxNumCssSensors); ++k) {
         EXPECT_EQ(lean.postFitResiduals(static_cast<Eigen::Index>(k)), 0.0F) << "residual slot " << k;
     }
 }
@@ -417,7 +345,7 @@ TEST(CssWeightedLeastSquaresTest, ReInitializeDropsThePriorHeading) {
 TEST(CssWeightedLeastSquaresTest, LosingTheSunDropsThePriorHeading) {
     CssWeightedLeastSquaresAlgorithm algorithm = makeReferenceAlgorithm();
     algorithm.update(makeReadings(readingsFor({1.0, 0.0, 0.0})));
-    algorithm.update(makeReadings(std::vector<float>(kMaxNumCss, 0.0F)));
+    algorithm.update(makeReadings(std::vector<float>(kMaxNumCssSensors, 0.0F)));
 
     const CssWeightedLeastSquaresOutput out = algorithm.update(makeReadings(readingsFor({0.0, 1.0, 0.0})));
     EXPECT_TRUE(out.omega_BN_B.isZero());

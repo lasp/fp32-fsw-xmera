@@ -32,7 +32,7 @@ void CssWeightedLeastSquares::reset(const uint64_t callTime) {
     }
 
     this->algorithm = std::make_unique<CssWeightedLeastSquaresAlgorithm>(this->toConfig());
-    this->numActiveCss = 0;
+    this->numCssViewingSun = 0;
 }
 
 /*! Build a validated algorithm configuration from the constellation geometry on cssConfigInMsg and the
@@ -42,17 +42,20 @@ void CssWeightedLeastSquares::reset(const uint64_t callTime) {
  */
 CssWeightedLeastSquaresConfig CssWeightedLeastSquares::toConfig() {
     const CSSConfigMsgF32Payload cssConfig = this->cssConfigInMsg();
-    if (cssConfig.nCSS > static_cast<uint32_t>(kMaxNumCss)) {
-        throw std::invalid_argument("cssWeightedLeastSquares.cssConfigInMsg reported more sensors than kMaxNumCss.");
-    }
 
-    std::array<CssConfiguration, kMaxNumCss> cssSensors{};
-    for (uint32_t i = 0; i < cssConfig.nCSS; ++i) {
+    std::array<CssConfiguration, kMaxNumCssSensors> cssSensors{};
+    for (uint32_t i = 0; i < kMaxNumCssSensors; ++i) {
         cssSensors.at(i) = CssConfiguration{.nHat_B = cArrayToEigenVector(cssConfig.cssVals[i].nHat_B),
-                                            .bias = cssConfig.cssVals[i].CBias};
+                                            .availability = fsw::DeviceAvailability::Available};
+    }
+    if (this->cssAvailInMsg.isLinked()) {
+        const CSSArrayAvailabilityMsgF32Payload availability = this->cssAvailInMsg();
+        for (uint32_t i = 0; i < kMaxNumCssSensors; ++i) {
+            cssSensors.at(i).availability = fsw::toDeviceAvailability(availability.cssAvailability[i]);
+        }
     }
     return CssWeightedLeastSquaresConfig::create(
-        cssConfig.nCSS, cssSensors, this->useWeights, this->sensorUseThresh, this->controlPeriod);
+        cssSensors, this->useMeasurementsAsWeights, this->sensorUseThresh, this->controlPeriod);
 }
 
 /*! Re-read the constellation message, re-validate it with the module properties and push the result onto
@@ -92,7 +95,7 @@ void CssWeightedLeastSquares::updateState(const uint64_t callTime) {
     const CSSArraySensorMsgF32Payload cssData = this->cssDataInMsg();
 
     const CssWeightedLeastSquaresOutput out = this->algorithm->update(cArrayToEigenVector(cssData.CosValue));
-    this->numActiveCss = out.numActiveCss;
+    this->numCssViewingSun = out.numCssViewingSun;
 
     const double timeTag = static_cast<double>(callTime) * kNano2Sec;
 
@@ -112,11 +115,11 @@ void CssWeightedLeastSquares::updateState(const uint64_t callTime) {
     if (this->filterCssResOutMsg.isLinked()) {
         FilterResidualsMsgF32Payload cssResBuf = {};
         cssResBuf.timeTag = timeTag;
-        cssResBuf.valid = out.numActiveCss > 0U;
+        cssResBuf.valid = out.numCssViewingSun > 0U;
         cssResBuf.numberOfObservations = 1;
-        cssResBuf.sizeOfObservations = static_cast<int>(out.numActiveCss);
+        cssResBuf.sizeOfObservations = static_cast<int>(out.numCssViewingSun);
         Eigen::Vector<double, kResidualSlots> postFits = Eigen::Vector<double, kResidualSlots>::Zero();
-        postFits.head<kMaxNumCss>() = out.postFitResiduals.cast<double>();
+        postFits.head<kMaxNumCssSensors>() = out.postFitResiduals.cast<double>();
         eigenVectorToCArray(postFits, cssResBuf.postFits);
         this->filterCssResOutMsg.write(cssResBuf, this->moduleID, callTime);
     }

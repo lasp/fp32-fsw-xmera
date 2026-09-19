@@ -37,52 +37,49 @@ inline std::vector<Eigen::Vector3d> referenceConstellation() {
 // observation, with the weights the fit would apply. Built from the documented selection rule, not from the
 // implementation.
 struct ActiveSystem {
-    Eigen::MatrixXd H;              // [-] one row per observation, the calibrated boresight
-    Eigen::VectorXd y;              // [-] the reading behind each observation
-    Eigen::VectorXd weights;        // [-] the diagonal of the weighting matrix
+    // One row or entry per observation, in the leading sensors.size() places; the rest stay zero, which
+    // contributes nothing to any product below.
+    Eigen::Matrix<double, kMaxNumCssSensors, 3> H{Eigen::Matrix<double, kMaxNumCssSensors, 3>::Zero()};
+    Eigen::Vector<double, kMaxNumCssSensors> y{Eigen::Vector<double, kMaxNumCssSensors>::Zero()};
+    Eigen::Vector<double, kMaxNumCssSensors> weights{Eigen::Vector<double, kMaxNumCssSensors>::Zero()};
     std::vector<uint32_t> sensors;  // [-] the sensor behind each observation
     double condition{1.0};          // [-] conditioning of the weighted normal matrix
     bool resolvable{};              // [-] whether fp32 has significant digits left on this system
 };
 
-// The sensors that contribute to a fit: enabled by a positive bias, reporting a finite reading, and reading
-// above the use threshold. Returns sensor indices in sensor order, which is also observation order.
-inline std::vector<uint32_t> referenceActiveSensors(uint32_t numCss,
-                                                    const std::vector<double>& biases,
+// The sensors that contribute to a fit: available and reading above the use threshold. Returns sensor
+// indices in sensor order, which is also observation order.
+inline std::vector<uint32_t> referenceActiveSensors(const std::vector<bool>& available,
                                                     const std::vector<double>& readings,
                                                     double sensorUseThresh) {
     std::vector<uint32_t> active;
-    for (uint32_t i = 0U; i < numCss; ++i) {
-        if (biases[i] > 0.0 && std::isfinite(readings[i]) && readings[i] > sensorUseThresh) {
+    for (uint32_t i = 0U; i < kMaxNumCssSensors; ++i) {
+        if (available[i] && readings[i] > sensorUseThresh) {
             active.push_back(i);
         }
     }
     return active;
 }
 
-inline ActiveSystem activeSystem(uint32_t numCss,
-                                 const std::vector<Eigen::Vector3d>& boresights,
-                                 const std::vector<double>& biases,
-                                 bool useWeights,
+inline ActiveSystem activeSystem(const std::vector<Eigen::Vector3d>& boresights,
+                                 const std::vector<bool>& available,
+                                 bool useMeasurementsAsWeights,
                                  double sensorUseThresh,
                                  const std::vector<double>& readings) {
     ActiveSystem system{};
-    system.sensors = referenceActiveSensors(numCss, biases, readings, sensorUseThresh);
-    const auto n = static_cast<Eigen::Index>(system.sensors.size());
-    if (n == 0) {
+    system.sensors = referenceActiveSensors(available, readings, sensorUseThresh);
+    if (system.sensors.empty()) {
         return system;
     }
 
-    system.H.resize(n, 3);
-    system.y.resize(n);
-    for (Eigen::Index k = 0; k < n; ++k) {
-        const uint32_t sensor = system.sensors[static_cast<size_t>(k)];
-        system.H.row(k) = biases[sensor] * boresights[sensor].transpose();
-        system.y(k) = readings[sensor];
+    for (uint32_t observation = 0U; observation < system.sensors.size(); ++observation) {
+        const uint32_t sensor = system.sensors[observation];
+        system.H.row(observation) = boresights[sensor].transpose();
+        system.y(observation) = readings[sensor];
+        // With one or two observations the fit reproduces the measurements exactly, so the weighting drops
+        // out of the optimality condition and the same expression covers every branch.
+        system.weights(observation) = useMeasurementsAsWeights ? readings[sensor] : 1.0;
     }
-    // With one or two observations the fit reproduces the measurements exactly, so the weighting drops out
-    // of the optimality condition and the same expression covers every branch.
-    system.weights = useWeights ? system.y : Eigen::VectorXd::Ones(n);
 
     const Eigen::Matrix3d normalMatrix = system.H.transpose() * system.weights.asDiagonal() * system.H;
     const Eigen::JacobiSVD<Eigen::Matrix3d> svd(normalMatrix);
@@ -103,7 +100,7 @@ inline ActiveSystem activeSystem(uint32_t numCss,
 // projecting the measurements onto the reported direction.
 inline void expectFitIsOptimal(const ActiveSystem& system,
                                const Eigen::Vector3f& sunHeading_B,
-                               const Eigen::Vector<float, kMaxNumCss>& postFitResiduals) {
+                               const Eigen::Vector<float, kMaxNumCssSensors>& postFitResiduals) {
     if (!system.resolvable || sunHeading_B.isZero()) {
         return;
     }
@@ -127,7 +124,7 @@ inline void expectFitIsOptimal(const ActiveSystem& system,
         << "normal equations, condition " << system.condition;
 
     // 2. The heading lies in the row space of H, so the underdetermined fits are the minimum norm ones.
-    const Eigen::JacobiSVD<Eigen::MatrixXd> svd(system.H, Eigen::ComputeThinV);
+    const Eigen::JacobiSVD<Eigen::Matrix<double, kMaxNumCssSensors, 3>> svd(system.H, Eigen::ComputeFullV);
     const double largestSingularValue = svd.singularValues()(0);
     Eigen::Vector3d inRowSpace = Eigen::Vector3d::Zero();
     for (Eigen::Index i = 0; i < svd.singularValues().size(); ++i) {
@@ -139,81 +136,77 @@ inline void expectFitIsOptimal(const ActiveSystem& system,
 
     // The residuals follow from the fit by their own definition, so they are checked directly.
     for (size_t k = 0U; k < system.sensors.size(); ++k) {
+        const auto observation = static_cast<Eigen::Index>(k);
         const uint32_t sensor = system.sensors[k];
-        const Eigen::Vector3d boresight = system.H.row(static_cast<Eigen::Index>(k)).transpose().normalized();
+        const Eigen::Vector3d boresight = system.H.row(observation).transpose().normalized();
         const double prediction = std::max(0.0, fit.dot(boresight));
-        const double expected = system.y(static_cast<Eigen::Index>(k)) - prediction;
+        const double expected = system.y(observation) - prediction;
         const double residualScale = std::max(1.0, std::abs(expected));
-        EXPECT_NEAR(static_cast<double>(postFitResiduals(static_cast<Eigen::Index>(k))),
-                    expected,
-                    4.0 * tolerance * residualScale)
+        EXPECT_NEAR(static_cast<double>(postFitResiduals(observation)), expected, 4.0 * tolerance * residualScale)
             << "residual " << k << " of sensor " << sensor;
     }
 }
 
 // Inputs the tests and the fuzz domains share, kept together so a helper signature stays readable.
 struct ConstellationInputs {
-    uint32_t numCss{};
-    std::vector<float> boresights;  // kMaxNumCss * 3 components, normalized on the way in
-    std::vector<float> biases;      // kMaxNumCss entries, zero disables a sensor
-    bool useWeights{};
+    std::vector<float> boresights;  // kMaxNumCssSensors * 3 components, normalized on the way in
+    std::vector<bool> available;    // kMaxNumCssSensors entries, false excludes a sensor
+    bool useMeasurementsAsWeights{};
     float sensorUseThresh{};
     float controlPeriod{};
 };
 
 // Everything a helper needs once the raw inputs are known to describe an acceptable configuration.
 struct BuiltConfig {
-    std::array<CssConfiguration, kMaxNumCss> cssSensors{};
+    std::array<CssConfiguration, kMaxNumCssSensors> cssSensors{};
     std::vector<Eigen::Vector3d> boresights;
-    std::vector<double> biases;
+    std::vector<bool> available;
 };
 
 // Turns raw fuzzable inputs into a validated configuration. Returns false when the inputs cannot describe
 // one the factory would accept, so the caller skips the case rather than expecting a throw.
 inline bool buildConfig(const ConstellationInputs& inputs, BuiltConfig& built) {
-    if (!CssWeightedLeastSquaresConfig::isValidNumCss(inputs.numCss) ||
-        !CssWeightedLeastSquaresConfig::isValidSensorUseThresh(inputs.sensorUseThresh) ||
+    if (!CssWeightedLeastSquaresConfig::isValidSensorUseThresh(inputs.sensorUseThresh) ||
         !CssWeightedLeastSquaresConfig::isValidControlPeriod(inputs.controlPeriod)) {
         return false;
     }
-    if (inputs.boresights.size() < static_cast<size_t>(kMaxNumCss) * 3U ||
-        inputs.biases.size() < static_cast<size_t>(kMaxNumCss)) {
+    if (inputs.boresights.size() < static_cast<size_t>(kMaxNumCssSensors) * 3U ||
+        inputs.available.size() < static_cast<size_t>(kMaxNumCssSensors)) {
         return false;
     }
 
     built = BuiltConfig{};
-    built.boresights.assign(static_cast<size_t>(kMaxNumCss), Eigen::Vector3d::Zero());
-    built.biases.assign(static_cast<size_t>(kMaxNumCss), 0.0);
+    built.boresights.assign(static_cast<size_t>(kMaxNumCssSensors), Eigen::Vector3d::Zero());
+    built.available.assign(static_cast<size_t>(kMaxNumCssSensors), false);
 
-    for (uint32_t i = 0U; i < inputs.numCss; ++i) {
+    for (uint32_t i = 0U; i < kMaxNumCssSensors; ++i) {
         const Eigen::Vector3f raw{
             inputs.boresights[3U * i], inputs.boresights[(3U * i) + 1U], inputs.boresights[(3U * i) + 2U]};
         const float rawNorm = raw.stableNorm();
         if (!std::isfinite(rawNorm) || rawNorm < 1e-3F) {
             return false;  // a boresight too small to normalize cannot describe a sensor
         }
-        if (!std::isfinite(inputs.biases[i]) || inputs.biases[i] < 0.0F) {
-            return false;
-        }
+
         built.cssSensors.at(i).nHat_B = raw / rawNorm;
-        built.cssSensors.at(i).bias = inputs.biases[i];
+        built.cssSensors.at(i).availability =
+            inputs.available[i] ? fsw::DeviceAvailability::Available : fsw::DeviceAvailability::Unavailable;
         // The configuration normalizes the boresights, so the reference uses the normalized ones too.
         built.boresights[i] = built.cssSensors.at(i).nHat_B.stableNormalized().cast<double>();
-        built.biases[i] = static_cast<double>(inputs.biases[i]);
+        built.available[i] = inputs.available[i];
     }
 
-    return CssWeightedLeastSquaresConfig::isValidCssSensors(built.cssSensors, inputs.numCss);
+    return CssWeightedLeastSquaresConfig::isValidCssSensors(built.cssSensors);
 }
 
 inline CssWeightedLeastSquaresConfig makeConfig(const ConstellationInputs& inputs, const BuiltConfig& built) {
     return CssWeightedLeastSquaresConfig::create(
-        inputs.numCss, built.cssSensors, inputs.useWeights, inputs.sensorUseThresh, inputs.controlPeriod);
+        built.cssSensors, inputs.useMeasurementsAsWeights, inputs.sensorUseThresh, inputs.controlPeriod);
 }
 
 // Pads a reading vector out to the full sensor array.
-inline Eigen::Vector<float, kMaxNumCss> makeReadings(const std::vector<float>& readings) {
-    Eigen::Vector<float, kMaxNumCss> cosValues = Eigen::Vector<float, kMaxNumCss>::Zero();
-    for (size_t i = 0U; i < readings.size() && i < static_cast<size_t>(kMaxNumCss); ++i) {
+inline Eigen::Vector<float, kMaxNumCssSensors> makeReadings(const std::vector<float>& readings) {
+    Eigen::Vector<float, kMaxNumCssSensors> cosValues = Eigen::Vector<float, kMaxNumCssSensors>::Zero();
+    for (size_t i = 0U; i < readings.size() && i < static_cast<size_t>(kMaxNumCssSensors); ++i) {
         cosValues(static_cast<Eigen::Index>(i)) = readings[i];
     }
     return cosValues;
@@ -247,16 +240,11 @@ inline std::vector<float> referenceBoresightVector() {
     return flat;
 }
 
-inline std::vector<float> unitBiases() { return std::vector<float>(static_cast<size_t>(kMaxNumCss), 1.0F); }
+inline std::vector<bool> allAvailable() { return std::vector<bool>(static_cast<size_t>(kMaxNumCssSensors), true); }
 
 // The reference eight-sensor setup, which most fixed-input tests start from.
 inline ConstellationInputs referenceInputs() {
-    return ConstellationInputs{static_cast<uint32_t>(kMaxNumCss),
-                               referenceBoresightVector(),
-                               unitBiases(),
-                               false,
-                               kSensorUseThresh,
-                               kControlPeriod};
+    return ConstellationInputs{referenceBoresightVector(), allAvailable(), false, kSensorUseThresh, kControlPeriod};
 }
 
 // ---------------------------------------------------------------------------
@@ -266,22 +254,21 @@ inline ConstellationInputs referenceInputs() {
 
 inline void runRegressionCase(ConstellationInputs inputs, std::vector<float> readings) {
     BuiltConfig built{};
-    if (!buildConfig(inputs, built) || readings.size() < static_cast<size_t>(kMaxNumCss)) {
+    if (!buildConfig(inputs, built) || readings.size() < static_cast<size_t>(kMaxNumCssSensors)) {
         return;
     }
 
     CssWeightedLeastSquaresAlgorithm algorithm{makeConfig(inputs, built)};
     const CssWeightedLeastSquaresOutput out = algorithm.update(makeReadings(readings));
 
-    const ActiveSystem system = activeSystem(inputs.numCss,
-                                             built.boresights,
-                                             built.biases,
-                                             inputs.useWeights,
+    const ActiveSystem system = activeSystem(built.boresights,
+                                             built.available,
+                                             inputs.useMeasurementsAsWeights,
                                              static_cast<double>(inputs.sensorUseThresh),
                                              toDouble(readings));
 
     // Selecting the active sensors is pure logic, so the counts must agree exactly.
-    EXPECT_EQ(out.numActiveCss, static_cast<uint32_t>(system.sensors.size()));
+    EXPECT_EQ(out.numCssViewingSun, static_cast<uint32_t>(system.sensors.size()));
 
     expectFitIsOptimal(system, out.sunHeading_B, out.postFitResiduals);
 }
@@ -293,7 +280,7 @@ inline void runRegressionCase(ConstellationInputs inputs, std::vector<float> rea
 // Every published product is a finite number, whatever the readings.
 inline void propertyOutputIsFinite(ConstellationInputs inputs, std::vector<float> readings) {
     BuiltConfig built{};
-    if (!buildConfig(inputs, built) || readings.size() < static_cast<size_t>(kMaxNumCss)) {
+    if (!buildConfig(inputs, built) || readings.size() < static_cast<size_t>(kMaxNumCssSensors)) {
         return;
     }
 
@@ -304,14 +291,14 @@ inline void propertyOutputIsFinite(ConstellationInputs inputs, std::vector<float
         EXPECT_TRUE(out.sunHeading_B.allFinite());
         EXPECT_TRUE(out.omega_BN_B.allFinite());
         EXPECT_TRUE(out.postFitResiduals.allFinite());
-        EXPECT_LE(out.numActiveCss, inputs.numCss);
+        EXPECT_LE(out.numCssViewingSun, kMaxNumCssSensors);
     }
 }
 
 // The reported heading is either a unit vector or exactly zero; there is no third state.
 inline void propertyHeadingIsUnitOrZero(ConstellationInputs inputs, std::vector<float> readings) {
     BuiltConfig built{};
-    if (!buildConfig(inputs, built) || readings.size() < static_cast<size_t>(kMaxNumCss)) {
+    if (!buildConfig(inputs, built) || readings.size() < static_cast<size_t>(kMaxNumCssSensors)) {
         return;
     }
 
@@ -325,30 +312,36 @@ inline void propertyHeadingIsUnitOrZero(ConstellationInputs inputs, std::vector<
     EXPECT_NEAR(out.sunHeading_B.norm(), 1.0F, 1e-5F);
 }
 
-// The residuals are indexed by observation, so entries at and beyond the active count stay zero. The fit
-// forms its products over the full-width operands and depends on that padding.
+// The residuals are indexed by observation, so entries at and beyond the count stay zero. A consumer reads
+// only the leading count of them, and the rest must not carry a value from an earlier cycle.
 inline void propertyResidualsPaddedWithZeros(ConstellationInputs inputs, std::vector<float> readings) {
     BuiltConfig built{};
-    if (!buildConfig(inputs, built) || readings.size() < static_cast<size_t>(kMaxNumCss)) {
+    if (!buildConfig(inputs, built) || readings.size() < static_cast<size_t>(kMaxNumCssSensors)) {
         return;
     }
 
     CssWeightedLeastSquaresAlgorithm algorithm{makeConfig(inputs, built)};
     const CssWeightedLeastSquaresOutput out = algorithm.update(makeReadings(readings));
 
-    for (uint32_t k = out.numActiveCss; k < static_cast<uint32_t>(kMaxNumCss); ++k) {
+    for (uint32_t k = out.numCssViewingSun; k < static_cast<uint32_t>(kMaxNumCssSensors); ++k) {
         EXPECT_EQ(out.postFitResiduals(static_cast<Eigen::Index>(k)), 0.0F) << "residual slot " << k;
     }
 }
 
-// A sensor disabled by a zero bias produces the same cycle as one whose reading the threshold rejects: it
-// contributes nothing to the fit and is not counted among the sensors viewing the sun.
+// An unavailable sensor produces the same cycle as one whose reading the threshold rejects: it contributes
+// nothing to the fit and is not counted among the sensors viewing the sun.
 inline void propertyDisabledSensorIgnored(ConstellationInputs inputs,
                                           std::vector<float> readings,
                                           uint32_t disabledIndex) {
     BuiltConfig built{};
-    if (!buildConfig(inputs, built) || readings.size() < static_cast<size_t>(kMaxNumCss) ||
-        disabledIndex >= inputs.numCss) {
+    if (!buildConfig(inputs, built) || readings.size() < static_cast<size_t>(kMaxNumCssSensors) ||
+        disabledIndex >= kMaxNumCssSensors) {
+        return;
+    }
+
+    // Disabling the last available sensor leaves a constellation with none, which the configuration
+    // rejects. That is a different case from the one this property compares.
+    if (built.available[disabledIndex] && std::count(built.available.begin(), built.available.end(), true) == 1) {
         return;
     }
 
@@ -357,7 +350,7 @@ inline void propertyDisabledSensorIgnored(ConstellationInputs inputs,
     silenced[disabledIndex] = 0.0F;
 
     BuiltConfig disabledBuilt = built;
-    disabledBuilt.cssSensors.at(disabledIndex).bias = 0.0F;
+    disabledBuilt.cssSensors.at(disabledIndex).availability = fsw::DeviceAvailability::Unavailable;
 
     CssWeightedLeastSquaresAlgorithm enabled{makeConfig(inputs, built)};
     CssWeightedLeastSquaresAlgorithm disabled{makeConfig(inputs, disabledBuilt)};
@@ -365,7 +358,7 @@ inline void propertyDisabledSensorIgnored(ConstellationInputs inputs,
     const CssWeightedLeastSquaresOutput silencedOut = enabled.update(makeReadings(silenced));
     const CssWeightedLeastSquaresOutput disabledOut = disabled.update(makeReadings(readings));
 
-    EXPECT_EQ(disabledOut.numActiveCss, silencedOut.numActiveCss);
+    EXPECT_EQ(disabledOut.numCssViewingSun, silencedOut.numCssViewingSun);
     EXPECT_LT((disabledOut.sunHeading_B - silencedOut.sunHeading_B).norm(), 1e-5F);
 }
 
@@ -375,7 +368,7 @@ inline void propertyRotationEquivariance(ConstellationInputs inputs,
                                          std::vector<float> readings,
                                          Eigen::Vector3f rotationVector) {
     BuiltConfig built{};
-    if (!buildConfig(inputs, built) || readings.size() < static_cast<size_t>(kMaxNumCss)) {
+    if (!buildConfig(inputs, built) || readings.size() < static_cast<size_t>(kMaxNumCssSensors)) {
         return;
     }
     if (!rotationVector.allFinite() || rotationVector.stableNorm() < 1e-3F) {
@@ -386,18 +379,18 @@ inline void propertyRotationEquivariance(ConstellationInputs inputs,
     const Eigen::Matrix3f dcm = rotation.toRotationMatrix();
 
     BuiltConfig rotatedBuilt = built;
-    for (uint32_t i = 0U; i < inputs.numCss; ++i) {
+    for (uint32_t i = 0U; i < kMaxNumCssSensors; ++i) {
         rotatedBuilt.cssSensors.at(i).nHat_B = (dcm * built.cssSensors.at(i).nHat_B).stableNormalized();
     }
 
     CssWeightedLeastSquaresAlgorithm plain{makeConfig(inputs, built)};
     CssWeightedLeastSquaresAlgorithm rotated{makeConfig(inputs, rotatedBuilt)};
 
-    const Eigen::Vector<float, kMaxNumCss> cosValues = makeReadings(readings);
+    const Eigen::Vector<float, kMaxNumCssSensors> cosValues = makeReadings(readings);
     const CssWeightedLeastSquaresOutput plainOut = plain.update(cosValues);
     const CssWeightedLeastSquaresOutput rotatedOut = rotated.update(cosValues);
 
-    EXPECT_EQ(rotatedOut.numActiveCss, plainOut.numActiveCss);
+    EXPECT_EQ(rotatedOut.numCssViewingSun, plainOut.numCssViewingSun);
     if (plainOut.sunHeading_B.isZero() || rotatedOut.sunHeading_B.isZero()) {
         return;
     }
@@ -405,10 +398,9 @@ inline void propertyRotationEquivariance(ConstellationInputs inputs,
     // Rotating the boresights changes the rounding of every product in the solve, and an ill-conditioned
     // normal matrix amplifies that difference, so the tolerance carries its conditioning the way the
     // regression does.
-    const ActiveSystem system = activeSystem(inputs.numCss,
-                                             built.boresights,
-                                             built.biases,
-                                             inputs.useWeights,
+    const ActiveSystem system = activeSystem(built.boresights,
+                                             built.available,
+                                             inputs.useMeasurementsAsWeights,
                                              static_cast<double>(inputs.sensorUseThresh),
                                              toDouble(readings));
     const auto epsilon = static_cast<float>(std::numeric_limits<float>::epsilon());
@@ -424,8 +416,8 @@ inline void propertyRateOrthogonalToHeading(ConstellationInputs inputs,
                                             std::vector<float> firstReadings,
                                             std::vector<float> secondReadings) {
     BuiltConfig built{};
-    if (!buildConfig(inputs, built) || firstReadings.size() < static_cast<size_t>(kMaxNumCss) ||
-        secondReadings.size() < static_cast<size_t>(kMaxNumCss)) {
+    if (!buildConfig(inputs, built) || firstReadings.size() < static_cast<size_t>(kMaxNumCssSensors) ||
+        secondReadings.size() < static_cast<size_t>(kMaxNumCssSensors)) {
         return;
     }
 

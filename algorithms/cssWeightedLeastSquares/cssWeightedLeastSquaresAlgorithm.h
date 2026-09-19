@@ -2,6 +2,7 @@
 #define F32XMERA_CSS_WEIGHTED_LEAST_SQUARES_ALGORITHM_H
 
 #include "msgPayloadDef/definitions.h"
+#include "utilities/fsw/deviceAvailability.h"
 #include "utilities/fsw/freestandingInvalidArgument.h"
 #include "utilities/fsw/freestandingIsFinite.hpp"
 
@@ -11,14 +12,11 @@
 #include <array>
 #include <optional>
 
-/*! Maximum number of coarse sun sensors the estimator can process in one cycle, fixed by the bound on
-    the CSS array measurement message. */
-inline constexpr int kMaxNumCss = MAX_NUM_CSS_SENSORS;
-
 /*! Configuration of a single coarse sun sensor. */
 struct CssConfiguration {
     Eigen::Vector3f nHat_B{Eigen::Vector3f::Zero()};  //!< [-] boresight unit vector, body frame components
-    float bias{};                                     //!< [-] calibration scale factor applied to the boresight
+    //!< [-] state of the sensor; an unavailable sensor takes no part in the fit
+    fsw::DeviceAvailability availability{fsw::DeviceAvailability::Available};
 };
 
 /*! Estimator products for a single update cycle. */
@@ -28,10 +26,10 @@ struct CssWeightedLeastSquaresOutput {
     Eigen::Vector3f omega_BN_B = Eigen::Vector3f::Zero();    //!< [r/s] inertial angular velocity, body frame; only
                                                              //!< the component orthogonal to the heading is
                                                              //!< observable, zero without a prior heading or dt
-    Eigen::Vector<float, kMaxNumCss> postFitResiduals =
-        Eigen::Vector<float, kMaxNumCss>::Zero();  //!< [-] post-fit residuals, one per active sensor, packed into
-                                                   //!< the leading numActiveCss entries
-    uint32_t numActiveCss{};                       //!< [-] sensors whose reading exceeded the use threshold
+    Eigen::Vector<float, kMaxNumCssSensors> postFitResiduals =
+        Eigen::Vector<float, kMaxNumCssSensors>::Zero();  //!< [-] post-fit residuals, one per active sensor, packed
+                                                          //!< into the leading numCssViewingSun entries
+    uint32_t numCssViewingSun{};                          //!< [-] sensors whose reading exceeded the use threshold
 };
 
 /*! @brief Validated configuration for the CSS weighted least squares estimator.
@@ -42,24 +40,19 @@ class CssWeightedLeastSquaresConfig final {
    public:
     /*! Build a validated configuration.
         @return the validated configuration
-        @param numCss         [-] number of configured sensors
-        @param cssSensors     [-] per-sensor boresight and bias; entries beyond numCss are unused
-        @param useWeights     [-] whether to weight the measurements in the least squares fit
+        @param cssSensors     [-] boresight and availability of every sensor slot
+        @param useMeasurementsAsWeights [-] whether the reading of each sensor becomes its own weight
         @param sensorUseThresh [-] cosine threshold at or below which a reading is discarded
         @param controlPeriod  [s] time between two update() calls, the rate estimate's time step
      */
-    static CssWeightedLeastSquaresConfig create(const uint32_t numCss,
-                                                const std::array<CssConfiguration, kMaxNumCss>& cssSensors,
-                                                const bool useWeights,
+    static CssWeightedLeastSquaresConfig create(const std::array<CssConfiguration, kMaxNumCssSensors>& cssSensors,
+                                                const bool useMeasurementsAsWeights,
                                                 const float sensorUseThresh,
                                                 const float controlPeriod) {
-        if (!isValidNumCss(numCss)) {
-            FSW_THROW_INVALID_ARGUMENT("cssWeightedLeastSquares: numCss must be in [1, kMaxNumCss]");
-        }
-        if (!isValidCssSensors(cssSensors, numCss)) {
+        if (!isValidCssSensors(cssSensors)) {
             FSW_THROW_INVALID_ARGUMENT(
-                "cssWeightedLeastSquares: each of the first numCss sensors must have a boresight that is a unit "
-                "vector within 1e-3 and a bias that is finite and non-negative");
+                "cssWeightedLeastSquares: a minimum of one sensor must be available, and every available "
+                "sensor must have a boresight that is a unit vector within 1e-3");
         }
         if (!isValidSensorUseThresh(sensorUseThresh)) {
             FSW_THROW_INVALID_ARGUMENT("cssWeightedLeastSquares: sensorUseThresh must be a cosine in [0, 1]");
@@ -69,36 +62,32 @@ class CssWeightedLeastSquaresConfig final {
         }
         // Pack the configured sensors into the Eigen types the fit works in, normalizing the boresights so
         // downstream code can rely on exact unit vectors. They are validated (near-)unit, so this only
-        // removes rounding; entries beyond numCss are unused and stay zero.
-        Eigen::Matrix<float, kMaxNumCss, 3> cssNHat_B = Eigen::Matrix<float, kMaxNumCss, 3>::Zero();
-        Eigen::Vector<float, kMaxNumCss> cssBias = Eigen::Vector<float, kMaxNumCss>::Zero();
-        for (uint32_t i = 0U; i < numCss; ++i) {
-            cssNHat_B.row(i) = cssSensors.at(i).nHat_B.stableNormalized().transpose();
-            cssBias(i) = cssSensors.at(i).bias;
+        // removes rounding.
+        Eigen::Matrix<float, kMaxNumCssSensors, 3> cssNHat_B = Eigen::Matrix<float, kMaxNumCssSensors, 3>::Zero();
+        std::array<fsw::DeviceAvailability, kMaxNumCssSensors> cssAvailability{};
+        for (uint32_t i = 0U; i < kMaxNumCssSensors; ++i) {
+            cssAvailability.at(i) = cssSensors.at(i).availability;
+            if (cssSensors.at(i).availability == fsw::DeviceAvailability::Available) {
+                cssNHat_B.row(i) = cssSensors.at(i).nHat_B.stableNormalized().transpose();
+            }
         }
 
-        return {cssNHat_B, cssBias, numCss, useWeights, sensorUseThresh, controlPeriod};
+        return {cssNHat_B, cssAvailability, useMeasurementsAsWeights, sensorUseThresh, controlPeriod};
     }
 
-    static bool isValidNumCss(const uint32_t numCss) {
-        return numCss >= 1U && numCss <= static_cast<uint32_t>(kMaxNumCss);
-    }
-
-    static bool isValidCssSensors(const std::array<CssConfiguration, kMaxNumCss>& cssSensors, const uint32_t numCss) {
-        if (!isValidNumCss(numCss)) {
-            return false;
-        }
-        for (uint32_t i = 0; i < numCss; ++i) {
+    static bool isValidCssSensors(const std::array<CssConfiguration, kMaxNumCssSensors>& cssSensors) {
+        bool anyAvailable = false;
+        for (uint32_t i = 0; i < kMaxNumCssSensors; ++i) {
+            if (cssSensors.at(i).availability != fsw::DeviceAvailability::Available) {
+                continue;  // an unavailable sensor never reaches the fit, so its boresight is never used
+            }
+            anyAvailable = true;
             const Eigen::Vector3f& nHat_B = cssSensors.at(i).nHat_B;
-            const float bias = cssSensors.at(i).bias;
             if (!nHat_B.allFinite() || fabsf(nHat_B.stableNorm() - 1.0F) >= 1e-3F) {
                 return false;
             }
-            if (!fsw::is_finite(bias) || bias < 0.0F) {
-                return false;
-            }
         }
-        return true;
+        return anyAvailable;
     }
 
     static bool isValidControlPeriod(const float controlPeriod) {
@@ -114,32 +103,28 @@ class CssWeightedLeastSquaresConfig final {
 
     // No isValidUseWeights -- a bool with no semantic constraint, the validator would be vacuous.
 
-    const Eigen::Matrix<float, kMaxNumCss, 3>& getCssNHat_B() const { return cssNHat_B; }
-    const Eigen::Vector<float, kMaxNumCss>& getCssBias() const { return cssBias; }
-    uint32_t getNumCss() const { return numCss; }
-    bool getUseWeights() const { return useWeights; }
+    const Eigen::Matrix<float, kMaxNumCssSensors, 3>& getCssNHat_B() const { return cssNHat_B; }
+    const std::array<fsw::DeviceAvailability, kMaxNumCssSensors>& getCssAvailability() const { return cssAvailability; }
+    bool getUseMeasurementsAsWeights() const { return useMeasurementsAsWeights; }
     float getSensorUseThresh() const { return sensorUseThresh; }
     float getControlPeriod() const { return controlPeriod; }
 
    private:
-    CssWeightedLeastSquaresConfig(const Eigen::Matrix<float, kMaxNumCss, 3>& cssNHat_B,
-                                  const Eigen::Vector<float, kMaxNumCss>& cssBias,
-                                  const uint32_t numCss,
-                                  const bool useWeights,
+    CssWeightedLeastSquaresConfig(const Eigen::Matrix<float, kMaxNumCssSensors, 3>& cssNHat_B,
+                                  const std::array<fsw::DeviceAvailability, kMaxNumCssSensors>& cssAvailability,
+                                  const bool useMeasurementsAsWeights,
                                   // NOLINTNEXTLINE(bugprone-easily-swappable-parameters) -- create() validates by name.
                                   const float sensorUseThresh,
                                   const float controlPeriod)
         : cssNHat_B(cssNHat_B),
-          cssBias(cssBias),
-          numCss(numCss),
-          useWeights(useWeights),
+          cssAvailability(cssAvailability),
+          useMeasurementsAsWeights(useMeasurementsAsWeights),
           sensorUseThresh(sensorUseThresh),
           controlPeriod(controlPeriod) {}
 
-    Eigen::Matrix<float, kMaxNumCss, 3> cssNHat_B = Eigen::Matrix<float, kMaxNumCss, 3>::Zero();
-    Eigen::Vector<float, kMaxNumCss> cssBias = Eigen::Vector<float, kMaxNumCss>::Zero();
-    uint32_t numCss{};
-    bool useWeights{};
+    Eigen::Matrix<float, kMaxNumCssSensors, 3> cssNHat_B = Eigen::Matrix<float, kMaxNumCssSensors, 3>::Zero();
+    std::array<fsw::DeviceAvailability, kMaxNumCssSensors> cssAvailability{};
+    bool useMeasurementsAsWeights{};
     float sensorUseThresh{};
     float controlPeriod{};
 };
@@ -167,37 +152,40 @@ class CssWeightedLeastSquaresAlgorithm final {
     void reInitialize();
 
     /*! Estimate the sun heading and body rate from one set of CSS readings.
-        @return the estimated heading, rate, residuals and active sensor count
+        @return the estimated heading, rate, residuals and the count of sensors viewing the sun
         @param cosValues [-] Per-sensor cosine readings, indexed by sensor
      */
-    CssWeightedLeastSquaresOutput update(const Eigen::Vector<float, kMaxNumCss>& cosValues);
+    CssWeightedLeastSquaresOutput update(const Eigen::Vector<float, kMaxNumCssSensors>& cosValues);
 
    private:
     /*! Solve the least squares fit for the sun heading.
         @return the fit, or nothing when the normal matrix is singular
-        @param numActiveCss The count on input measurements
-        @param weights      The diagonal of the measurement weighting matrix; only applied when more
-                            than two measurements are available, as the one- and two-measurement
-                            fits are exactly determined
+        @param numCssViewingSun The count on input measurements
+        @param weights      The diagonal of the weighting matrix, indexed by sensor. A sensor that takes
+                            no part this cycle carries a weight of zero. The values reach the fit only when
+                            more than two sensors see the sun, because the one- and two-measurement fits
+                            are exactly determined
         @param H            The predicted pointing vector for each measurement, one per row
-        @param y            The observation vector for the valid sensors
+        @param y            The reading of each sensor, indexed by sensor
      */
-    static std::optional<Eigen::Vector3f> computeWlsmn(uint32_t numActiveCss,
-                                                       const Eigen::Vector<float, kMaxNumCss>& weights,
-                                                       const Eigen::Matrix<float, kMaxNumCss, 3>& H,
-                                                       const Eigen::Vector<float, kMaxNumCss>& y);
+    static std::optional<Eigen::Vector3f> computeWlsmn(uint32_t numCssViewingSun,
+                                                       const std::array<uint32_t, kMaxNumCssSensors>& activeSensors,
+                                                       const Eigen::Vector<float, kMaxNumCssSensors>& weights,
+                                                       const Eigen::Matrix<float, kMaxNumCssSensors, 3>& H,
+                                                       const Eigen::Vector<float, kMaxNumCssSensors>& y);
 
     /*! Compute the post-fit residuals for the WLS estimate.
-        @return the residuals of the active sensors, packed into the leading numActiveCss entries
-        @param cssMeas      The measured values for the CSS sensors
+        @return the residuals of the active sensors, packed into the leading numCssViewingSun entries
+        @param cssMeas      The measured values for the CSS sensors, indexed by sensor
         @param wlsEst       The WLS estimate computed for the CSS measurements
         @param activeSensors The sensor index behind each observation, in observation order
-        @param numActiveCss The count on input measurements
+        @param numCssViewingSun The count on input measurements
      */
-    Eigen::Vector<float, kMaxNumCss> computeWlsResiduals(const Eigen::Vector<float, kMaxNumCss>& cssMeas,
-                                                         const Eigen::Vector3f& wlsEst,
-                                                         const std::array<Eigen::Index, kMaxNumCss>& activeSensors,
-                                                         uint32_t numActiveCss) const;
+    Eigen::Vector<float, kMaxNumCssSensors> computeWlsResiduals(
+        const Eigen::Vector<float, kMaxNumCssSensors>& cssMeas,
+        const Eigen::Vector3f& wlsEst,
+        const std::array<uint32_t, kMaxNumCssSensors>& activeSensors,
+        uint32_t numCssViewingSun) const;
 
     CssWeightedLeastSquaresConfig cfg;                            //!< [-] the validated configuration in force
     Eigen::Vector3f priorSunHeading_B = Eigen::Vector3f::Zero();  //!< [-] prior normalized sun heading, body frame
