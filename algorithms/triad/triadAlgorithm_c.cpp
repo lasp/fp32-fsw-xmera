@@ -43,10 +43,9 @@ void TriadAlgorithm_setConfig(TriadAlgorithmHandle* self,
     fsw::fromHandle<::TriadAlgorithm>(self)->setConfig(configFromC(*sadaHat_B, *thrustReqHat_N, n3Axis));
 }
 
-Vector3f_c TriadAlgorithm_update(TriadAlgorithmHandle* self,
+Vector3f_c TriadAlgorithm_update(const TriadAlgorithmHandle* self,
                                  const Vector3f_c* rHat_SB_N,
                                  const Vector3f_c* thrustHat_B) {
-    // update() is const, so the instance is reached as const even though the C handle is not.
     const Eigen::Vector3f sigma_RN = fsw::fromHandle<const ::TriadAlgorithm>(self)->update(
         cArrayToEigenVector3<float>(rHat_SB_N->data), cArrayToEigenVector3<float>(thrustHat_B->data));
     Vector3f_c result{};

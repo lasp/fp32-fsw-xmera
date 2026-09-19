@@ -67,7 +67,7 @@ void TriadAlgorithm_setConfig(TriadAlgorithmHandle* self,
  * @param thrustHat_B Unit thrust direction in body-frame components.
  * @return Vector3f_c  Reference attitude MRP sigma_RN wrt inertial N.
  */
-Vector3f_c TriadAlgorithm_update(TriadAlgorithmHandle* self,
+Vector3f_c TriadAlgorithm_update(const TriadAlgorithmHandle* self,
                                  const Vector3f_c* rHat_SB_N,
                                  const Vector3f_c* thrustHat_B);
 
