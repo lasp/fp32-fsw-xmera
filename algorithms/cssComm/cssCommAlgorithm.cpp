@@ -16,7 +16,7 @@ std::array<double, kMaxNumCssSensors> CssCommAlgorithm::update(
     const std::array<double, kMaxNumCssSensors>& inputValues) const {
     std::array<double, kMaxNumCssSensors> outputValues{};
 
-    for (uint32_t i = 0; i < this->cfg.getNumSensors(); ++i) {
+    for (uint32_t i = 0; i < kMaxNumCssSensors; ++i) {
         double const measuredValue = inputValues.at(i) / this->cfg.getMaxSensorValues().at(i); /* Scale Sensor Data */
 
         /* Calculate correction using Chebyshev polynomial */
