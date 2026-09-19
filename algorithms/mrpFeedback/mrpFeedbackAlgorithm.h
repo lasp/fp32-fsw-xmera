@@ -35,7 +35,6 @@ struct MrpFeedbackInputRwData {
     Eigen::Matrix<float, 3, kMaxNumRw> GsMatrix_B = Eigen::Matrix<float, 3, kMaxNumRw>::Zero();
     std::array<float, kMaxNumRw> JsList{};
     std::array<fsw::DeviceAvailability, kMaxNumRw> wheelAvailability{};  //!< per-wheel availability (fixed at reset)
-    uint32_t numRW{};
 };
 
 /*! Feedback control gains, control-law variant, and update period. */
@@ -80,15 +79,15 @@ class MrpFeedbackConfig final {
         }
         if (rwConfiguration.has_value() && !isValidRwConfiguration(*rwConfiguration)) {
             FSW_THROW_INVALID_ARGUMENT(
-                "mrpFeedback: rwConfiguration.numRW must not exceed the compile-time maximum, the spin-axis matrix "
-                "and wheel inertias must be finite, and each active spin axis must be a unit vector");
+                "mrpFeedback: the spin-axis matrix and wheel inertias must be finite, and every spin axis must "
+                "be a unit vector");
         }
 
         // Normalize the validated (near-)unit spin axes so downstream code can rely on exact unit vectors; this
-        // only removes rounding. Inactive columns (index >= numRW) are left untouched.
+        // only removes rounding. Every wheel slot is configured, so every column is normalized.
         std::optional<MrpFeedbackInputRwData> normalizedRwConfiguration = rwConfiguration;
         if (normalizedRwConfiguration.has_value()) {
-            for (uint32_t i = 0U; i < normalizedRwConfiguration->numRW; ++i) {
+            for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
                 normalizedRwConfiguration->GsMatrix_B.col(static_cast<int>(i)).normalize();
             }
         }
@@ -110,15 +109,16 @@ class MrpFeedbackConfig final {
     static bool isValidKnownTorque(const Eigen::Vector3f& knownTorquePntB_B) { return knownTorquePntB_B.allFinite(); }
     static bool isValidInertia(const Eigen::Matrix3f& ISCPntB_B) { return inertiaIsValid(ISCPntB_B); }
     static bool isValidRwConfiguration(const MrpFeedbackInputRwData& rwConfiguration) {
-        if (rwConfiguration.numRW > kMaxNumRw || !rwConfiguration.GsMatrix_B.allFinite()) {
+        if (!rwConfiguration.GsMatrix_B.allFinite()) {
             return false;
         }
         if (!std::ranges::all_of(rwConfiguration.JsList, [](float Js) { return fsw::is_finite(Js); })) {
             return false;
         }
-        // Each active spin axis must be (close to) a unit vector.
+        // Every wheel slot describes a wheel, so every spin axis must be (close to) a unit vector. An
+        // unused slot is marked Unavailable rather than left out of a count.
         constexpr float kUnitNormTol = 1e-3F;
-        for (uint32_t i = 0U; i < rwConfiguration.numRW; ++i) {
+        for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
             if (fabsf(rwConfiguration.GsMatrix_B.col(static_cast<int>(i)).stableNorm() - 1.0F) > kUnitNormTol) {
                 return false;
             }

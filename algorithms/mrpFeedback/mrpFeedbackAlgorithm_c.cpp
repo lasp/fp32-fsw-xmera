@@ -9,7 +9,6 @@
 namespace {
 MrpFeedbackInputRwData rwConfigFromC(const MrpFeedbackRwConfig_c& c) {
     MrpFeedbackInputRwData out{};
-    out.numRW = c.numRW;
     out.GsMatrix_B = cArrayToEigenMatrix<float, 3, kMaxNumRw>(c.GsMatrix_B);
     for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
         out.JsList[i] = c.JsList[i];
