@@ -133,13 +133,22 @@ inline RwMotorTorqueSpeeds makeSpeeds(const std::vector<float>& rwSpeeds, const 
     return speeds;
 }
 
+// Give every wheel slot the test does not use a valid unit spin axis and mark it unavailable, so the
+// configuration describes all kMaxNumRw slots while the fit still sees only the wheels the test set up.
+inline void parkUnusedWheels(RwMotorTorqueArrayConfiguration& rwConfiguration, const uint32_t numUsed) {
+    for (uint32_t i = numUsed; i < kMaxNumRw; ++i) {
+        rwConfiguration.GsMatrix_B.col(static_cast<int>(i)) = Eigen::Vector3f::UnitX();
+        rwConfiguration.wheelAvailability.at(i) = fsw::DeviceAvailability::Unavailable;
+    }
+}
+
 // The available-wheel spin-axis matrix [Gs] in original columns (matching the stored config), used to
 // project an output torque vector back onto the body frame.
 inline Eigen::Matrix<float, 3, kMaxNumRw> availableGs(const RwMotorTorqueConfig& config) {
     const RwMotorTorqueArrayConfiguration& rwConfiguration = config.getRwConfiguration();
     const std::array<fsw::DeviceAvailability, kMaxNumRw>& wheelsAvailability = rwConfiguration.wheelAvailability;
     Eigen::Matrix<float, 3, kMaxNumRw> Gs{Eigen::Matrix<float, 3, kMaxNumRw>::Zero()};
-    for (uint32_t i = 0U; i < rwConfiguration.numRW; ++i) {
+    for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
         if (wheelsAvailability[i] == fsw::DeviceAvailability::Available) {
             Gs.col(i) = rwConfiguration.GsMatrix_B.col(i);
         }
@@ -167,15 +176,15 @@ inline bool buildConfig(uint32_t numControlAxes,
     desiredControlAxes_B = makeControlAxes(numControlAxes);
 
     rwConfiguration = RwMotorTorqueArrayConfiguration{};
-    rwConfiguration.numRW = numRW;
     std::vector<float> paddedGsMatrix_B(3U * static_cast<size_t>(kMaxNumRw), 0.0F);
     for (size_t i = 0U; i < GsMatrix_B.size() && i < paddedGsMatrix_B.size(); ++i) {
         paddedGsMatrix_B[i] = GsMatrix_B[i];
     }
     rwConfiguration.GsMatrix_B = cArrayToEigenMatrix<float, 3, kMaxNumRw>(paddedGsMatrix_B.data());
 
-    // The config requires unit spin axes; normalize the active columns. A zero column cannot be normalized.
-    for (uint32_t i = 0U; i < rwConfiguration.numRW; ++i) {
+    // The config requires unit spin axes; normalize the columns the caller supplied. A zero column cannot
+    // be normalized.
+    for (uint32_t i = 0U; i < numRW; ++i) {
         const float colNorm = rwConfiguration.GsMatrix_B.col(i).norm();
         if (colNorm <= 0.0F) {
             return false;
@@ -189,6 +198,10 @@ inline bool buildConfig(uint32_t numControlAxes,
                 wheelAvailabilityBool[i] ? fsw::DeviceAvailability::Unavailable : fsw::DeviceAvailability::Available;
         }
     }
+
+    // Park the slots this input does not describe. They stay unavailable, which is how the reference
+    // excludes them too, so the fit sees exactly the wheels the input set up.
+    parkUnusedWheels(rwConfiguration, numRW);
 
     // Use the algorithm's own validity check (controllable control mapping + well-conditioned null-space
     // geometry) so the harness skips exactly the configs the config factory rejects.
@@ -241,7 +254,7 @@ inline void runRegressionCase(Eigen::Vector3f Lr1_B,
     const Eigen::Vector<double, kMaxNumRw> zeroSpeeds = Eigen::Vector<double, kMaxNumRw>::Zero();
     const Eigen::Vector<double, kMaxNumRw> controlRef = referenceUpdate(desiredControlAxes_B,
                                                                         rwConfiguration.GsMatrix_B.cast<double>(),
-                                                                        rwConfiguration.numRW,
+                                                                        kMaxNumRw,
                                                                         rwConfiguration.wheelAvailability,
                                                                         Lr_B.cast<double>(),
                                                                         zeroSpeeds,
@@ -249,7 +262,7 @@ inline void runRegressionCase(Eigen::Vector3f Lr1_B,
                                                                         static_cast<double>(omegaGain));
     const Eigen::Vector<double, kMaxNumRw> nullSpaceRef = referenceUpdate(desiredControlAxes_B,
                                                                           rwConfiguration.GsMatrix_B.cast<double>(),
-                                                                          rwConfiguration.numRW,
+                                                                          kMaxNumRw,
                                                                           rwConfiguration.wheelAvailability,
                                                                           Eigen::Vector3d::Zero(),
                                                                           speeds.rwSpeeds.cast<double>(),
@@ -343,7 +356,7 @@ inline void propertyExcludedWheelsZeroTorque(Eigen::Vector3f Lr1_B,
     const Eigen::Vector<float, kMaxNumRw> out = alg.update(Lr_B, makeSpeeds(rwSpeeds, rwDesiredSpeeds));
 
     for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
-        if (i >= rwConfiguration.numRW || rwConfiguration.wheelAvailability[i] != fsw::DeviceAvailability::Available) {
+        if (rwConfiguration.wheelAvailability[i] != fsw::DeviceAvailability::Available) {
             EXPECT_FLOAT_EQ(out[i], 0.0F);
         }
     }

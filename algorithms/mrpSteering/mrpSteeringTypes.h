@@ -13,47 +13,6 @@ extern "C" {
 #endif
 
 /**
- * @brief Plain-old-data mirror of the C++ MrpSteeringControlParameters.
- */
-typedef struct {
-    float K1;                        /*!< [rad/s] proportional gain applied to MRP errors (>= 0) */
-    float K3;                        /*!< [rad/s] cubic gain in the steering saturation function (>= 0) */
-    float omegaMax;                  /*!< [rad/s] maximum rate command of steering control (> 0) */
-    bool ignoreOuterLoopFeedforward; /*!< [-] whether the outer-loop feedforward term is excluded */
-    float P;                         /*!< [N*m*s] rate error feedback gain (>= 0) */
-    float Ki;                        /*!< [N*m] integral feedback gain on the rate error (>= 0) */
-    float integralLimit;             /*!< [N*m] integral limit to avoid wind-up (>= 0) */
-    float controlPeriod;             /*!< [s] time between two algorithm update calls (> 0) */
-} MrpSteeringControlParameters_c;
-
-/**
- * @brief Plain-old-data mirror of the C++ InputRwData (reaction-wheel configuration).
- *
- * numRW must not exceed RW_EFF_CNT, and each active spin axis (column of GsMatrix_B) must be a
- * unit vector; the spin axes are normalized when the configuration is built.
- */
-typedef struct {
-    uint32_t numRW;                                     /*!< [-] number of reaction wheels on the vehicle */
-    float GsMatrix_B[3 * RW_EFF_CNT];                   /*!< [-] RW spin axes in body frame, three per wheel */
-    float JsList[RW_EFF_CNT];                           /*!< [kg*m^2] per-wheel spin-axis inertia */
-    DeviceAvailability_c wheelAvailability[RW_EFF_CNT]; /*!< [-] AVAILABLE / UNAVAILABLE state of each wheel */
-} MrpSteeringRwConfig_c;
-
-/**
- * @brief Plain-old-data mirror of the C++ MrpSteeringConfig.
- *
- * hasRwConfiguration selects whether rwConfiguration is used, mirroring the C++ std::optional: when false the
- * reaction-wheel momentum term is omitted and rwConfiguration is ignored.
- */
-typedef struct {
-    MrpSteeringControlParameters_c controlParameters; /*!< [-] steering-law gains and feedforward toggle */
-    Vector3f_c knownTorquePntB_B;                     /*!< [N*m] known external torque in body-frame components */
-    Matrix3f_c ISCPntB_B;                             /*!< [kg*m^2] spacecraft inertia about point B */
-    bool hasRwConfiguration;                          /*!< [-] true when rwConfiguration is provided */
-    MrpSteeringRwConfig_c rwConfiguration;            /*!< [-] reaction-wheel configuration (used iff above is true) */
-} MrpSteeringConfig_c;
-
-/**
  * @brief Plain-old-data mirror of the C++ algorithm guidance input.
  */
 typedef struct {

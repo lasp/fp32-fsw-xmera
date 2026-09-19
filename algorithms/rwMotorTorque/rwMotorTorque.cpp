@@ -28,7 +28,6 @@ void RwMotorTorque::reset(const uint64_t callTime) {
      defaults to all wheels AVAILABLE; if the optional message is linked, copy its flags into the config. */
     const RWArrayConfigMsgF32Payload rwParams = this->rwParamsInMsg();
     RwMotorTorqueArrayConfiguration rwConfiguration{};
-    rwConfiguration.numRW = static_cast<uint32_t>(rwParams.numRW);
     rwConfiguration.GsMatrix_B = cArrayToEigenMatrix<float, 3, kMaxNumRw>(rwParams.GsMatrix_B);
     if (this->rwAvailInMsg.isLinked()) {
         const auto [wheelAvailability] = this->rwAvailInMsg();
@@ -46,7 +45,6 @@ void RwMotorTorque::reset(const uint64_t callTime) {
 RwMotorTorqueConfig RwMotorTorque::toConfig() {
     const RWArrayConfigMsgF32Payload rwParams = this->rwParamsInMsg();
     RwMotorTorqueArrayConfiguration rwConfiguration{};
-    rwConfiguration.numRW = static_cast<uint32_t>(rwParams.numRW);
     rwConfiguration.GsMatrix_B = cArrayToEigenMatrix<float, 3, kMaxNumRw>(rwParams.GsMatrix_B);
 
     if (this->rwAvailInMsg.isLinked()) {

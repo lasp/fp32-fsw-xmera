@@ -7,13 +7,17 @@
 #include <optional>
 
 namespace {
-MrpFeedbackInputRwData rwConfigFromC(const MrpFeedbackRwConfig_c& c) {
+MrpFeedbackInputRwData rwConfigFromC(const MrpFeedbackRwSpinAxes_c& GsMatrix_B,
+                                     const MrpFeedbackRwInertias_c& JsList,
+                                     const MrpFeedbackRwAvailability_c& wheelAvailability) {
     MrpFeedbackInputRwData out{};
-    out.numRW = c.numRW;
-    out.GsMatrix_B = cArrayToEigenMatrix<float, 3, kMaxNumRw>(c.GsMatrix_B);
+    out.GsMatrix_B = cArrayToEigenMatrix<float, 3, kMaxNumRw>(GsMatrix_B.data);
     for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
-        out.JsList[i] = c.JsList[i];
-        out.wheelAvailability[i] = fsw::toDeviceAvailability(c.wheelAvailability[i]);
+        out.JsList[i] = JsList.data[i];
+        // DEVICE_AVAILABLE is 0 and DEVICE_UNAVAILABLE is 1, so the byte is an enumerator value and not a
+        // boolean flag. Converting through toDeviceAvailability keeps any other value out.
+        out.wheelAvailability[i] =
+            fsw::toDeviceAvailability(static_cast<DeviceAvailability_c>(wheelAvailability.availability[i]));
     }
     return out;
 }
@@ -26,7 +30,9 @@ MrpFeedbackConfig makeConfig(float K,
                              float controlPeriod,
                              const Vector3f_c& knownTorquePntB_B,
                              const Matrix3f_c& ISCPntB_B,
-                             const MrpFeedbackRwConfig_c* rwConfiguration) {
+                             const MrpFeedbackRwSpinAxes_c* GsMatrix_B,
+                             const MrpFeedbackRwInertias_c* JsList,
+                             const MrpFeedbackRwAvailability_c* wheelAvailability) {
     const MrpFeedbackControlParameters controlParameters{
         .K = K,
         .P = P,
@@ -36,9 +42,10 @@ MrpFeedbackConfig makeConfig(float K,
         .controlPeriod = controlPeriod,
     };
 
+    // A null spin-axis array omits the reaction-wheel momentum term; the other two are then unused.
     std::optional<MrpFeedbackInputRwData> rwConfigurationData;
-    if (rwConfiguration != nullptr) {
-        rwConfigurationData = rwConfigFromC(*rwConfiguration);
+    if (GsMatrix_B != nullptr) {
+        rwConfigurationData = rwConfigFromC(*GsMatrix_B, *JsList, *wheelAvailability);
     }
 
     return MrpFeedbackConfig::create(controlParameters,
@@ -58,10 +65,21 @@ bool MrpFeedbackAlgorithm_validateConfig(float K,
                                          float controlPeriod,
                                          const Vector3f_c* knownTorquePntB_B,
                                          const Matrix3f_c* ISCPntB_B,
-                                         const MrpFeedbackRwConfig_c* rwConfiguration) {
+                                         const MrpFeedbackRwSpinAxes_c* GsMatrix_B,
+                                         const MrpFeedbackRwInertias_c* JsList,
+                                         const MrpFeedbackRwAvailability_c* wheelAvailability) {
     try {
-        (void)makeConfig(
-            K, P, Ki, integralLimit, controlLawType, controlPeriod, *knownTorquePntB_B, *ISCPntB_B, rwConfiguration);
+        (void)makeConfig(K,
+                         P,
+                         Ki,
+                         integralLimit,
+                         controlLawType,
+                         controlPeriod,
+                         *knownTorquePntB_B,
+                         *ISCPntB_B,
+                         GsMatrix_B,
+                         JsList,
+                         wheelAvailability);
         return true;
     } catch (const fsw::invalid_argument&) {
         return false;
@@ -76,9 +94,20 @@ MrpFeedbackAlgorithmHandle* MrpFeedbackAlgorithm_create(float K,
                                                         float controlPeriod,
                                                         const Vector3f_c* knownTorquePntB_B,
                                                         const Matrix3f_c* ISCPntB_B,
-                                                        const MrpFeedbackRwConfig_c* rwConfiguration) {
-    return fsw::createHandle<::MrpFeedbackAlgorithm, MrpFeedbackAlgorithmHandle>(makeConfig(
-        K, P, Ki, integralLimit, controlLawType, controlPeriod, *knownTorquePntB_B, *ISCPntB_B, rwConfiguration));
+                                                        const MrpFeedbackRwSpinAxes_c* GsMatrix_B,
+                                                        const MrpFeedbackRwInertias_c* JsList,
+                                                        const MrpFeedbackRwAvailability_c* wheelAvailability) {
+    return fsw::createHandle<::MrpFeedbackAlgorithm, MrpFeedbackAlgorithmHandle>(makeConfig(K,
+                                                                                            P,
+                                                                                            Ki,
+                                                                                            integralLimit,
+                                                                                            controlLawType,
+                                                                                            controlPeriod,
+                                                                                            *knownTorquePntB_B,
+                                                                                            *ISCPntB_B,
+                                                                                            GsMatrix_B,
+                                                                                            JsList,
+                                                                                            wheelAvailability));
 }
 
 void MrpFeedbackAlgorithm_destroy(MrpFeedbackAlgorithmHandle* self) { fsw::deleteHandle<::MrpFeedbackAlgorithm>(self); }
@@ -92,9 +121,20 @@ void MrpFeedbackAlgorithm_setConfig(MrpFeedbackAlgorithmHandle* self,
                                     float controlPeriod,
                                     const Vector3f_c* knownTorquePntB_B,
                                     const Matrix3f_c* ISCPntB_B,
-                                    const MrpFeedbackRwConfig_c* rwConfiguration) {
-    fsw::fromHandle<::MrpFeedbackAlgorithm>(self)->setConfig(makeConfig(
-        K, P, Ki, integralLimit, controlLawType, controlPeriod, *knownTorquePntB_B, *ISCPntB_B, rwConfiguration));
+                                    const MrpFeedbackRwSpinAxes_c* GsMatrix_B,
+                                    const MrpFeedbackRwInertias_c* JsList,
+                                    const MrpFeedbackRwAvailability_c* wheelAvailability) {
+    fsw::fromHandle<::MrpFeedbackAlgorithm>(self)->setConfig(makeConfig(K,
+                                                                        P,
+                                                                        Ki,
+                                                                        integralLimit,
+                                                                        controlLawType,
+                                                                        controlPeriod,
+                                                                        *knownTorquePntB_B,
+                                                                        *ISCPntB_B,
+                                                                        GsMatrix_B,
+                                                                        JsList,
+                                                                        wheelAvailability));
 }
 
 void MrpFeedbackAlgorithm_reInitialize(MrpFeedbackAlgorithmHandle* self) {

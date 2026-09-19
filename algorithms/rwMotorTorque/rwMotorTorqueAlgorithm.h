@@ -12,7 +12,6 @@
 
 /*! @brief Reaction-wheel spin-axis configuration in body-frame components. */
 struct RwMotorTorqueArrayConfiguration {
-    uint32_t numRW{};  //!< [-] number of reaction wheels on the vehicle
     Eigen::Matrix<float, 3, kMaxNumRw> GsMatrix_B{
         Eigen::Matrix<float, 3, kMaxNumRw>::Zero()};  //!< [-] RW spin axes in body frame, one column per wheel
     std::array<fsw::DeviceAvailability, kMaxNumRw>
@@ -46,8 +45,8 @@ class RwMotorTorqueConfig final {
         }
         if (!isValidRwConfiguration(rwConfiguration)) {
             FSW_THROW_INVALID_ARGUMENT(
-                "rwMotorTorque: rwConfiguration.numRW must not exceed the compile-time maximum, the spin axis "
-                "matrix must be finite, and each spin axis must be a unit vector.");
+                "rwMotorTorque: the spin axis matrix must be finite, and every spin axis must be a unit "
+                "vector.");
         }
         if (!isValidOmegaGain(omegaGain)) {
             FSW_THROW_INVALID_ARGUMENT(
@@ -57,7 +56,7 @@ class RwMotorTorqueConfig final {
         // Normalize the RW spin axes so downstream code can rely on exact unit vectors. The inputs are validated
         // (near-)unit, so this only removes rounding.
         RwMotorTorqueArrayConfiguration normalizedRwConfiguration = rwConfiguration;
-        for (uint32_t i = 0U; i < normalizedRwConfiguration.numRW; ++i) {
+        for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
             normalizedRwConfiguration.GsMatrix_B.col(i).normalize();
         }
 
@@ -81,12 +80,13 @@ class RwMotorTorqueConfig final {
     }
 
     static bool isValidRwConfiguration(const RwMotorTorqueArrayConfiguration& rwConfiguration) {
-        if (rwConfiguration.numRW > kMaxNumRw || !rwConfiguration.GsMatrix_B.allFinite()) {
+        if (!rwConfiguration.GsMatrix_B.allFinite()) {
             return false;
         }
-        // Each spin axis must be (close to) a unit vector.
+        // Every wheel slot describes a wheel, so every spin axis must be (close to) a unit vector. An unused
+        // slot is marked Unavailable rather than left out of a count.
         constexpr float kUnitNormTol = 1e-3F;
-        for (uint32_t i = 0U; i < rwConfiguration.numRW; ++i) {
+        for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
             if (fabsf(rwConfiguration.GsMatrix_B.col(i).norm() - 1.0F) > kUnitNormTol) {
                 return false;
             }

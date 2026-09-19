@@ -4,6 +4,8 @@
 #include "mrpRotationTypes.h"
 #include "utilities/fsw/plainCAlgorithmDataTypes.h"
 
+#include <stdbool.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -14,26 +16,28 @@ extern "C" {
 typedef struct MrpRotationAlgorithmHandle MrpRotationAlgorithmHandle;
 
 /**
- * @brief Plain-old-data mirror of the C++ MrpRotationConfig fields.
- *
- * Caller fills this struct and passes it to MrpRotationAlgorithm_create or _setConfig. The C++
- * side validates each field via MrpRotationConfig::create and throws on invalid input.
- *  - initialSigmaRR0 must be finite
- *  - omegaRR0R must be finite
- *  - controlPeriod [s] must be > 0; used as the forward-Euler integration step every update
+ * @brief Report whether a configuration would be accepted by create/setConfig.
+ * @param initialSigmaRR0 [-] seed MRP of the rotating frame R wrt R0; must be finite.
+ * @param omegaRR0R        [rad/s] constant angular velocity of R wrt R0 in R components; must be finite.
+ * @param controlPeriod    [s] forward-Euler integration step used every update; must be finite and > 0.
+ * @return true when the configuration is valid. Never throws, so it can guard the throwing
+ *         create/setConfig from an invalid configuration.
  */
-typedef struct {
-    Vector3f_c initialSigmaRR0;
-    Vector3f_c omegaRR0R;
-    float controlPeriod;
-} MrpRotationConfig_c;
+bool MrpRotationAlgorithm_validateConfig(const Vector3f_c* initialSigmaRR0,
+                                         const Vector3f_c* omegaRR0R,
+                                         float controlPeriod);
 
 /**
  * @brief Construct a new MrpRotationAlgorithm instance from the supplied configuration.
- * @param config Pointer to the configuration to apply (validated; throws on invalid input).
+ * @param initialSigmaRR0 [-] seed MRP of the rotating frame R wrt R0; must be finite.
+ * @param omegaRR0R        [rad/s] constant angular velocity of R wrt R0 in R components; must be finite.
+ * @param controlPeriod    [s] forward-Euler integration step used every update; must be finite and > 0.
  * @return Pointer to a new MrpRotationAlgorithm (must be destroyed).
+ * Validate the configuration with validateConfig first; invalid input throws.
  */
-MrpRotationAlgorithmHandle* MrpRotationAlgorithm_create(const MrpRotationConfig_c* config);
+MrpRotationAlgorithmHandle* MrpRotationAlgorithm_create(const Vector3f_c* initialSigmaRR0,
+                                                        const Vector3f_c* omegaRR0R,
+                                                        float controlPeriod);
 
 /**
  * @brief Destroy a previously created MrpRotationAlgorithm.
@@ -45,10 +49,16 @@ void MrpRotationAlgorithm_destroy(MrpRotationAlgorithmHandle* self);
  * @brief Replace the algorithm's configuration at runtime. Re-seeds the rotating MRP set and angular
  *        velocity from the new configuration's initial values, so every reconfiguration restarts the
  *        rotating reference from its configured seed.
- * @param self   Pointer to the instance.
- * @param config Pointer to the configuration to apply (validated; throws on invalid input).
+ * @param self             Pointer to the instance.
+ * @param initialSigmaRR0 [-] seed MRP of the rotating frame R wrt R0; must be finite.
+ * @param omegaRR0R        [rad/s] constant angular velocity of R wrt R0 in R components; must be finite.
+ * @param controlPeriod    [s] forward-Euler integration step used every update; must be finite and > 0.
+ * Validate the configuration with validateConfig first; invalid input throws.
  */
-void MrpRotationAlgorithm_setConfig(MrpRotationAlgorithmHandle* self, const MrpRotationConfig_c* config);
+void MrpRotationAlgorithm_setConfig(MrpRotationAlgorithmHandle* self,
+                                    const Vector3f_c* initialSigmaRR0,
+                                    const Vector3f_c* omegaRR0R,
+                                    float controlPeriod);
 
 /**
  * @brief Advance the rotating reference frame one integration step (dt = configured controlPeriod)

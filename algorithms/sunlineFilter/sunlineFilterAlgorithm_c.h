@@ -3,6 +3,7 @@
 
 #include "sunlineFilterTypes.h"
 
+#include <stdbool.h>
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -13,6 +14,34 @@ extern "C" {
  * @brief Opaque handle to the C++ SunlineFilterAlgorithm instance.
  */
 typedef struct SunlineFilterAlgorithmHandle SunlineFilterAlgorithmHandle;
+
+/**
+ * @brief Sized N-element state vector, so the bound is part of the type at the C boundary.
+ */
+typedef struct {
+    double data[SUNLINE_FILTER_NUM_STATES]; /*!< [-] one entry per filter state */
+} SunlineFilterStateVector_c;
+
+/**
+ * @brief Sized N x N state matrix, so the bound is part of the type at the C boundary.
+ */
+typedef struct {
+    double data[SUNLINE_FILTER_NUM_STATES * SUNLINE_FILTER_NUM_STATES]; /*!< [-] row-major N x N */
+} SunlineFilterStateMatrix_c;
+
+/**
+ * @brief Sized per-CSS scalar array, so the bound is part of the type at the C boundary.
+ */
+typedef struct {
+    double data[SUNLINE_FILTER_MAX_CSS]; /*!< [-] one entry per CSS */
+} SunlineFilterCssVector_c;
+
+/**
+ * @brief Sized per-CSS three-vector array, so the bound is part of the type at the C boundary.
+ */
+typedef struct {
+    double data[SUNLINE_FILTER_MAX_CSS * 3]; /*!< [-] one body-frame three-vector per CSS */
+} SunlineFilterCssMatrix_c;
 
 /**
  * @brief Get the SUNLINE_FILTER_MAX_CSS constant for Ada validation.
@@ -27,6 +56,26 @@ uint32_t SunlineFilterAlgorithm_getMaxCss(void);
 uint32_t SunlineFilterAlgorithm_getNumStates(void);
 
 /**
+ * @brief Report whether a configuration would be accepted by create/setConfig.
+ * @param config Pointer to the configuration to apply (validated).
+ * @return true when the configuration is valid. Never throws, so it can guard the throwing
+ *         create/setConfig from an invalid configuration.
+ */
+bool SunlineFilterAlgorithm_validateConfig(double alpha,
+                                           double beta,
+                                           const SunlineFilterStateMatrix_c* processNoise,
+                                           const SunlineFilterStateVector_c* initialState,
+                                           const SunlineFilterStateMatrix_c* initialCovariance,
+                                           double biasLowerBound,
+                                           double biasUpperBound,
+                                           const SunlineFilterCssMatrix_c* cssNHat,
+                                           const SunlineFilterCssVector_c* cssScaleFactor,
+                                           uint32_t numberOfCss,
+                                           double sensorThreshold,
+                                           double cssMeasurementNoiseStd,
+                                           double gyroMeasurementNoiseStd);
+
+/**
  * @brief Construct a new SunlineFilterAlgorithm from the supplied configuration.
  *
  * The configuration is validated (SunlineFilterConfig::create); an invalid
@@ -36,7 +85,19 @@ uint32_t SunlineFilterAlgorithm_getNumStates(void);
  * @param config Pointer to the configuration to apply (validated).
  * @return Pointer to a new SunlineFilterAlgorithm (must be destroyed).
  */
-SunlineFilterAlgorithmHandle* SunlineFilterAlgorithm_create(const SunlineFilterConfig_c* config);
+SunlineFilterAlgorithmHandle* SunlineFilterAlgorithm_create(double alpha,
+                                                            double beta,
+                                                            const SunlineFilterStateMatrix_c* processNoise,
+                                                            const SunlineFilterStateVector_c* initialState,
+                                                            const SunlineFilterStateMatrix_c* initialCovariance,
+                                                            double biasLowerBound,
+                                                            double biasUpperBound,
+                                                            const SunlineFilterCssMatrix_c* cssNHat,
+                                                            const SunlineFilterCssVector_c* cssScaleFactor,
+                                                            uint32_t numberOfCss,
+                                                            double sensorThreshold,
+                                                            double cssMeasurementNoiseStd,
+                                                            double gyroMeasurementNoiseStd);
 
 /**
  * @brief Destroy a previously created SunlineFilterAlgorithm.
@@ -47,9 +108,34 @@ void SunlineFilterAlgorithm_destroy(SunlineFilterAlgorithmHandle* self);
 /**
  * @brief Replace the algorithm's configuration and re-derive filter parameters.
  * @param self   Pointer to the instance.
- * @param config Pointer to the configuration to apply (validated; throws on invalid input).
+ * @param alpha                   [-] sigma-point spread tunable.
+ * @param beta                    [-] prior-knowledge tunable.
+ * @param processNoise            [-] N x N process noise Q; must be positive semi-definite.
+ * @param initialState            [-] N-element initial state seed.
+ * @param initialCovariance       [-] N x N initial covariance P0; must be positive semi-definite.
+ * @param biasLowerBound          [-] lower clamp on the CSS bias state; must be > 0.
+ * @param biasUpperBound          [-] upper clamp on the CSS bias state; must be > 0.
+ * @param cssNHat                 [-] per-CSS boresight unit vectors in body frame.
+ * @param cssScaleFactor          [-] per-CSS calibration scale factor; each must be >= 0.
+ * @param numberOfCss             [-] number of active CSS, in [1, SUNLINE_FILTER_MAX_CSS].
+ * @param sensorThreshold         [-] minimum cosValue that counts a sensor as active; must be >= 0.
+ * @param cssMeasurementNoiseStd  [-] CSS measurement noise std; must be >= 0.
+ * @param gyroMeasurementNoiseStd [rad/s] gyro measurement noise std; must be >= 0.
  */
-void SunlineFilterAlgorithm_setConfig(SunlineFilterAlgorithmHandle* self, const SunlineFilterConfig_c* config);
+void SunlineFilterAlgorithm_setConfig(SunlineFilterAlgorithmHandle* self,
+                                      double alpha,
+                                      double beta,
+                                      const SunlineFilterStateMatrix_c* processNoise,
+                                      const SunlineFilterStateVector_c* initialState,
+                                      const SunlineFilterStateMatrix_c* initialCovariance,
+                                      double biasLowerBound,
+                                      double biasUpperBound,
+                                      const SunlineFilterCssMatrix_c* cssNHat,
+                                      const SunlineFilterCssVector_c* cssScaleFactor,
+                                      uint32_t numberOfCss,
+                                      double sensorThreshold,
+                                      double cssMeasurementNoiseStd,
+                                      double gyroMeasurementNoiseStd);
 
 /**
  * @brief Advance the filter to currentSeconds using the supplied measurements.

@@ -31,7 +31,6 @@ MrpFeedbackConfig MrpFeedback::toConfig() {
         MrpFeedbackInputRwData rwData{};
         rwData.GsMatrix_B = cArrayToEigenMatrix<float, 3, kMaxNumRw>(rwConfigParams.GsMatrix_B);
         std::copy(std::begin(rwConfigParams.JsList), std::end(rwConfigParams.JsList), std::begin(rwData.JsList));
-        rwData.numRW = static_cast<uint32_t>(rwConfigParams.numRW);
         if (this->rwAvailInMsg.isLinked()) {
             const RWAvailabilityMsgPayload availabilityMsg = this->rwAvailInMsg();
             std::ranges::transform(availabilityMsg.wheelAvailability,

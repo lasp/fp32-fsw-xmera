@@ -12,34 +12,6 @@ extern "C" {
 #define SUNLINE_FILTER_NUM_STATES 7 /* Filter state dimension: s_hat(3) + omega(3) + bias(1) */
 
 /**
- * @brief Plain-old-data mirror of the C++ SunlineFilterConfig create() parameters.
- *
- * The caller fills this struct and passes it to SunlineFilterAlgorithm_create or
- * _setConfig. The C++ side validates every constrained parameter via
- * SunlineFilterConfig::create and throws on invalid input. Matrices are stored
- * row-major (out[row][col]); processNoise and initialCovariance are symmetric.
- * Only the first numberOfCss rows of cssNHat and entries of cssScaleFactor are
- * meaningful.
- */
-typedef struct {
-    double alpha; /*!< [-] sigma-point spread tunable */
-    double beta;  /*!< [-] prior-knowledge tunable */
-    double processNoise[SUNLINE_FILTER_NUM_STATES]
-                       [SUNLINE_FILTER_NUM_STATES]; /*!< [-] N x N process noise Q (positive semi-definite) */
-    double initialState[SUNLINE_FILTER_NUM_STATES]; /*!< [-] N-element initial state seed */
-    double initialCovariance[SUNLINE_FILTER_NUM_STATES][SUNLINE_FILTER_NUM_STATES]; /*!< [-] N x N initial covariance P0
-                                                                                       (positive semi-definite) */
-    double biasLowerBound;                         /*!< [-] lower clamp on the CSS bias state (> 0) */
-    double biasUpperBound;                         /*!< [-] upper clamp on the CSS bias state (> 0) */
-    double cssNHat[SUNLINE_FILTER_MAX_CSS][3];     /*!< [-] per-CSS boresight unit vectors in body frame */
-    double cssScaleFactor[SUNLINE_FILTER_MAX_CSS]; /*!< [-] per-CSS calibration scale factor (>= 0) */
-    uint32_t numberOfCss;                          /*!< [-] number of active CSS in [1, SUNLINE_FILTER_MAX_CSS] */
-    double sensorThreshold;                        /*!< [-] minimum cosValue to count a sensor active (>= 0) */
-    double cssMeasurementNoiseStd;                 /*!< [-] CSS measurement noise std (>= 0) */
-    double gyroMeasurementNoiseStd;                /*!< [rad/s] gyro measurement noise std (>= 0) */
-} SunlineFilterConfig_c;
-
-/**
  * @brief Plain-old-data mirror of the C++ CssData update input.
  *
  * Only the first numberOfCss entries of cosValues are meaningful.

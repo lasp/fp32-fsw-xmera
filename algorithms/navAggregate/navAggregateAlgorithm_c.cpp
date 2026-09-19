@@ -12,20 +12,29 @@
 static_assert(MAX_AGG_NAV_MSG_C == MAX_AGG_NAV_MSG, "MAX_AGG_NAV_MSG_C must match MAX_AGG_NAV_MSG");
 
 namespace {
-f32::NavAggregateConfig configFromC(const NavAggregateConfig_c& c) {
+f32::NavAggregateConfig configFromC(uint32_t attTimeIdx,
+                                    uint32_t attIdx,
+                                    uint32_t rateIdx,
+                                    uint32_t sunIdx,
+                                    uint32_t attMsgCount,
+                                    uint32_t transTimeIdx,
+                                    uint32_t posIdx,
+                                    uint32_t velIdx,
+                                    uint32_t dvIdx,
+                                    uint32_t transMsgCount) {
     const f32::NavAggregateAttSelection attSelection{
-        .attTimeIdx = c.attSelection.attTimeIdx,
-        .attIdx = c.attSelection.attIdx,
-        .rateIdx = c.attSelection.rateIdx,
-        .sunIdx = c.attSelection.sunIdx,
-        .attMsgCount = c.attSelection.attMsgCount,
+        .attTimeIdx = attTimeIdx,
+        .attIdx = attIdx,
+        .rateIdx = rateIdx,
+        .sunIdx = sunIdx,
+        .attMsgCount = attMsgCount,
     };
     const f32::NavAggregateTransSelection transSelection{
-        .transTimeIdx = c.transSelection.transTimeIdx,
-        .posIdx = c.transSelection.posIdx,
-        .velIdx = c.transSelection.velIdx,
-        .dvIdx = c.transSelection.dvIdx,
-        .transMsgCount = c.transSelection.transMsgCount,
+        .transTimeIdx = transTimeIdx,
+        .posIdx = posIdx,
+        .velIdx = velIdx,
+        .dvIdx = dvIdx,
+        .transMsgCount = transMsgCount,
     };
     return f32::NavAggregateConfig::create(attSelection, transSelection);
 }
@@ -33,27 +42,58 @@ f32::NavAggregateConfig configFromC(const NavAggregateConfig_c& c) {
 
 uint32_t NavAggregateAlgorithm_getMaxAggNavMsg(void) { return MAX_AGG_NAV_MSG; }
 
-bool NavAggregateAlgorithm_validateConfig(const NavAggregateConfig_c* config) {
+bool NavAggregateAlgorithm_validateConfig(uint32_t attTimeIdx,
+                                          uint32_t attIdx,
+                                          uint32_t rateIdx,
+                                          uint32_t sunIdx,
+                                          uint32_t attMsgCount,
+                                          uint32_t transTimeIdx,
+                                          uint32_t posIdx,
+                                          uint32_t velIdx,
+                                          uint32_t dvIdx,
+                                          uint32_t transMsgCount) {
     // Attempt to build the config through the real create path; success means valid,
     // a throw means invalid. Reusing configFromC keeps validation from drifting.
     try {
-        (void)configFromC(*config);
+        (void)configFromC(
+            attTimeIdx, attIdx, rateIdx, sunIdx, attMsgCount, transTimeIdx, posIdx, velIdx, dvIdx, transMsgCount);
         return true;
     } catch (const fsw::invalid_argument&) {
         return false;
     }
 }
 
-NavAggregateAlgorithmHandle* NavAggregateAlgorithm_create(const NavAggregateConfig_c* config) {
-    return fsw::createHandle<::f32::NavAggregateAlgorithm, NavAggregateAlgorithmHandle>(configFromC(*config));
+NavAggregateAlgorithmHandle* NavAggregateAlgorithm_create(uint32_t attTimeIdx,
+                                                          uint32_t attIdx,
+                                                          uint32_t rateIdx,
+                                                          uint32_t sunIdx,
+                                                          uint32_t attMsgCount,
+                                                          uint32_t transTimeIdx,
+                                                          uint32_t posIdx,
+                                                          uint32_t velIdx,
+                                                          uint32_t dvIdx,
+                                                          uint32_t transMsgCount) {
+    return fsw::createHandle<::f32::NavAggregateAlgorithm, NavAggregateAlgorithmHandle>(configFromC(
+        attTimeIdx, attIdx, rateIdx, sunIdx, attMsgCount, transTimeIdx, posIdx, velIdx, dvIdx, transMsgCount));
 }
 
 void NavAggregateAlgorithm_destroy(NavAggregateAlgorithmHandle* self) {
     fsw::deleteHandle<::f32::NavAggregateAlgorithm>(self);
 }
 
-void NavAggregateAlgorithm_setConfig(NavAggregateAlgorithmHandle* self, const NavAggregateConfig_c* config) {
-    fsw::fromHandle<::f32::NavAggregateAlgorithm>(self)->setConfig(configFromC(*config));
+void NavAggregateAlgorithm_setConfig(NavAggregateAlgorithmHandle* self,
+                                     uint32_t attTimeIdx,
+                                     uint32_t attIdx,
+                                     uint32_t rateIdx,
+                                     uint32_t sunIdx,
+                                     uint32_t attMsgCount,
+                                     uint32_t transTimeIdx,
+                                     uint32_t posIdx,
+                                     uint32_t velIdx,
+                                     uint32_t dvIdx,
+                                     uint32_t transMsgCount) {
+    fsw::fromHandle<::f32::NavAggregateAlgorithm>(self)->setConfig(configFromC(
+        attTimeIdx, attIdx, rateIdx, sunIdx, attMsgCount, transTimeIdx, posIdx, velIdx, dvIdx, transMsgCount));
 }
 
 AggregateOutput_c NavAggregateAlgorithm_update(const NavAggregateAlgorithmHandle* self,

@@ -95,8 +95,8 @@ def test_rw_motor_torque(show_plots, num_control_axes, num_wheels, num_input_cmd
         # Spread the spin axes evenly over the unit sphere (Fibonacci sphere) to keep [Gs] well-conditioned.
         golden_angle = np.pi * (3.0 - np.sqrt(5.0))
         G_s_B = []
-        for rw in range(num_wheels):
-            z = 1.0 - 2.0 * (rw + 0.5) / num_wheels
+        for rw in range(RW_EFF_CNT):
+            z = 1.0 - 2.0 * (rw + 0.5) / RW_EFF_CNT
             radius = np.sqrt(max(0.0, 1.0 - z * z))
             phi = golden_angle * rw
             axis = np.array([radius * np.cos(phi), radius * np.sin(phi), z])
@@ -104,13 +104,13 @@ def test_rw_motor_torque(show_plots, num_control_axes, num_wheels, num_input_cmd
 
         rw_config_params.GsMatrix_B = np.array(G_s_B).flatten()
 
-    rw_config_params.JsList = [0.1] * num_wheels
-    rw_config_params.numRW = num_wheels
+    rw_config_params.JsList = [0.1] * RW_EFF_CNT
+    rw_config_params.numRW = RW_EFF_CNT
     rw_config_in_msg = messaging.RWArrayConfigMsgF32().write(rw_config_params)
 
     # Current RW speeds driving the null-space term; desired speeds default to zero (unlinked).
-    rw_speeds = [10.0 * (i + 1) for i in range(num_wheels)]
-    desired_omega = [0.0] * num_wheels
+    rw_speeds = [10.0 * (i + 1) for i in range(RW_EFF_CNT)]
+    desired_omega = [0.0] * RW_EFF_CNT
     input_speed_msg = messaging.RWSpeedMsgF32Payload()
     input_speed_msg.wheelSpeeds = rw_speeds
     rw_speed_in_msg = messaging.RWSpeedMsgF32().write(input_speed_msg)
@@ -124,13 +124,16 @@ def test_rw_motor_torque(show_plots, num_control_axes, num_wheels, num_input_cmd
         else:
             avail_alternating = [messaging.AVAILABLE, messaging.AVAILABLE, messaging.UNAVAILABLE] * RW_EFF_CNT
             avail = avail_alternating[:num_wheels]
+        avail += [messaging.UNAVAILABLE] * (RW_EFF_CNT - num_wheels)
 
         rw_availability_message.wheelAvailability = avail
 
         rw_avail_in_msg = messaging.RWAvailabilityMsg().write(rw_availability_message)
         module.rwAvailInMsg.subscribeTo(rw_avail_in_msg)
     else:
-        avail = [messaging.AVAILABLE] * num_wheels  # this is used purely for the python level solution
+        # With no availability message the module treats every slot as available, so the unused slots
+        # take part in the fit as well.
+        avail = [messaging.AVAILABLE] * RW_EFF_CNT  # this is used purely for the python level solution
 
     # Setup logging on the test module output message so that we get all the writes to it
     data_log = module.rwMotorTorqueOutMsg.recorder()
@@ -153,7 +156,7 @@ def test_rw_motor_torque(show_plots, num_control_axes, num_wheels, num_input_cmd
     # Add the null-space term (built from the available wheels, matching the algorithm).
     u_s = u_s + compute_null_space_torque(
         np.array(rw_config_params.GsMatrix_B).reshape((3, RW_EFF_CNT), order='F'),
-        num_wheels, rw_speeds, desired_omega, omega_gain, avail)
+        RW_EFF_CNT, rw_speeds, desired_omega, omega_gain, avail)
 
     true_motor_torque = [u_s] * 2
 

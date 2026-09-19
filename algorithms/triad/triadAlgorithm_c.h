@@ -4,6 +4,8 @@
 #include "triadTypes.h"
 #include "utilities/fsw/plainCAlgorithmDataTypes.h"
 
+#include <stdbool.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -14,11 +16,27 @@ extern "C" {
 typedef struct TriadAlgorithmHandle TriadAlgorithmHandle;
 
 /**
- * @brief Construct a new TriadAlgorithm instance from the supplied configuration.
- * @param config Pointer to the configuration to apply (validated; throws on invalid input).
- * @return Pointer to a new TriadAlgorithm (must be destroyed).
+ * @brief Report whether a configuration would be accepted by create/setConfig.
+ * @param sadaHat_B      [-] solar array drive axis; must be a unit vector.
+ * @param thrustReqHat_N [-] requested thrust direction; must be a unit vector.
+ * @param n3Axis         [-] must be N3_AXIS_PLUS_Z_HAT_N_C or N3_AXIS_MINUS_Z_HAT_N_C.
+ * @return true when the configuration is valid. Never throws, so it can guard the throwing
+ *         create/setConfig from an invalid configuration.
  */
-TriadAlgorithmHandle* TriadAlgorithm_create(const TriadConfig_c* config);
+bool TriadAlgorithm_validateConfig(const Vector3f_c* sadaHat_B, const Vector3f_c* thrustReqHat_N, N3Axis_c n3Axis);
+
+/**
+ * @brief Construct a new TriadAlgorithm instance from the supplied configuration.
+ * @param sadaHat_B      [-] solar array drive axis, unit vector in body-frame components.
+ * @param thrustReqHat_N [-] requested thrust direction, unit vector in inertial-frame components.
+ * @param n3Axis         [-] inertial z-axis direction (+Z or -Z) used as the fallback constraint axis
+ *                           when the sun and thrust reference are aligned.
+ * @return Pointer to a new TriadAlgorithm (must be destroyed).
+ * Validate the configuration with validateConfig first; invalid input throws.
+ */
+TriadAlgorithmHandle* TriadAlgorithm_create(const Vector3f_c* sadaHat_B,
+                                            const Vector3f_c* thrustReqHat_N,
+                                            N3Axis_c n3Axis);
 
 /**
  * @brief Destroy a previously created TriadAlgorithm.
@@ -27,11 +45,19 @@ TriadAlgorithmHandle* TriadAlgorithm_create(const TriadConfig_c* config);
 void TriadAlgorithm_destroy(TriadAlgorithmHandle* self);
 
 /**
- * @brief Replace the algorithm's configuration at runtime (validated; throws on invalid input).
- * @param self   Pointer to the instance.
- * @param config Pointer to the configuration to apply.
+ * @brief Replace the algorithm's configuration at runtime. The algorithm holds no runtime state, so
+ *        nothing is carried across the swap.
+ * @param self           Pointer to the instance.
+ * @param sadaHat_B      [-] solar array drive axis, unit vector in body-frame components.
+ * @param thrustReqHat_N [-] requested thrust direction, unit vector in inertial-frame components.
+ * @param n3Axis         [-] inertial z-axis direction (+Z or -Z) used as the fallback constraint axis
+ *                           when the sun and thrust reference are aligned.
+ * Validate the configuration with validateConfig first; invalid input throws.
  */
-void TriadAlgorithm_setConfig(TriadAlgorithmHandle* self, const TriadConfig_c* config);
+void TriadAlgorithm_setConfig(TriadAlgorithmHandle* self,
+                              const Vector3f_c* sadaHat_B,
+                              const Vector3f_c* thrustReqHat_N,
+                              N3Axis_c n3Axis);
 
 /**
  * @brief Compute the reference attitude that aligns the thrust axis with the requested inertial
@@ -41,7 +67,7 @@ void TriadAlgorithm_setConfig(TriadAlgorithmHandle* self, const TriadConfig_c* c
  * @param thrustHat_B Unit thrust direction in body-frame components.
  * @return Vector3f_c  Reference attitude MRP sigma_RN wrt inertial N.
  */
-Vector3f_c TriadAlgorithm_update(TriadAlgorithmHandle* self,
+Vector3f_c TriadAlgorithm_update(const TriadAlgorithmHandle* self,
                                  const Vector3f_c* rHat_SB_N,
                                  const Vector3f_c* thrustHat_B);
 

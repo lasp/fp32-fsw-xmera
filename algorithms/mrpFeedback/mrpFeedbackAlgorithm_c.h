@@ -17,6 +17,27 @@ extern "C" {
 typedef struct MrpFeedbackAlgorithmHandle MrpFeedbackAlgorithmHandle;
 
 /**
+ * @brief RW spin axes in body frame, three components per wheel in row major order.
+ */
+typedef struct {
+    float data[3 * RW_EFF_CNT]; /*!< [-] three components per wheel */
+} MrpFeedbackRwSpinAxes_c;
+
+/**
+ * @brief Per-wheel spin-axis inertia, one entry per wheel slot.
+ */
+typedef struct {
+    float data[RW_EFF_CNT]; /*!< [kg*m^2] one entry per wheel */
+} MrpFeedbackRwInertias_c;
+
+/**
+ * @brief Availability of each wheel slot, one byte per slot: 0 available, 1 unavailable.
+ */
+typedef struct {
+    uint8_t availability[RW_EFF_CNT]; /*!< [-] one entry per wheel */
+} MrpFeedbackRwAvailability_c;
+
+/**
  * @brief Get the kMaxNumRw constant for Ada validation.
  * @return The maximum number of reaction wheels handled at the C boundary.
  */
@@ -32,8 +53,10 @@ uint32_t MrpFeedbackAlgorithm_getMaxNumRw(void);
  * @param controlPeriod     [s]     time between two algorithm update calls; must be finite and > 0.
  * @param knownTorquePntB_B [N*m]   known external torque, body-frame components; must be finite.
  * @param ISCPntB_B      [kg*m^2]   spacecraft inertia about point B; must be a valid inertia matrix.
- * @param rwConfiguration   [-]     reaction-wheel configuration, or NULL to omit the reaction-wheel momentum
- *                                  term; when supplied, numRW <= max, finite inertias, near-unit spin axes.
+ * @param GsMatrix_B        [-]     RW spin axes, three per wheel in row major order, or NULL to omit the
+ *                                  reaction-wheel momentum term. JsList and wheelAvailability are then ignored.
+ * @param JsList            [kg*m^2] per-wheel spin-axis inertia.
+ * @param wheelAvailability [-]     availability of each wheel, one byte per slot: 0 available, 1 unavailable.
  * @return true when the configuration is valid. Never throws, so it can guard the throwing
  *         create/setConfig from an invalid configuration.
  */
@@ -45,7 +68,9 @@ bool MrpFeedbackAlgorithm_validateConfig(float K,
                                          float controlPeriod,
                                          const Vector3f_c* knownTorquePntB_B,
                                          const Matrix3f_c* ISCPntB_B,
-                                         const MrpFeedbackRwConfig_c* rwConfiguration);
+                                         const MrpFeedbackRwSpinAxes_c* GsMatrix_B,
+                                         const MrpFeedbackRwInertias_c* JsList,
+                                         const MrpFeedbackRwAvailability_c* wheelAvailability);
 
 /**
  * @brief Construct a new MrpFeedbackAlgorithm instance from the supplied configuration.
@@ -60,7 +85,9 @@ MrpFeedbackAlgorithmHandle* MrpFeedbackAlgorithm_create(float K,
                                                         float controlPeriod,
                                                         const Vector3f_c* knownTorquePntB_B,
                                                         const Matrix3f_c* ISCPntB_B,
-                                                        const MrpFeedbackRwConfig_c* rwConfiguration);
+                                                        const MrpFeedbackRwSpinAxes_c* GsMatrix_B,
+                                                        const MrpFeedbackRwInertias_c* JsList,
+                                                        const MrpFeedbackRwAvailability_c* wheelAvailability);
 
 /**
  * @brief Destroy a previously created MrpFeedbackAlgorithm.
@@ -82,7 +109,9 @@ void MrpFeedbackAlgorithm_setConfig(MrpFeedbackAlgorithmHandle* self,
                                     float controlPeriod,
                                     const Vector3f_c* knownTorquePntB_B,
                                     const Matrix3f_c* ISCPntB_B,
-                                    const MrpFeedbackRwConfig_c* rwConfiguration);
+                                    const MrpFeedbackRwSpinAxes_c* GsMatrix_B,
+                                    const MrpFeedbackRwInertias_c* JsList,
+                                    const MrpFeedbackRwAvailability_c* wheelAvailability);
 
 /**
  * @brief Reset the integrating runtime state (zero the integral of the MRP tracking error).

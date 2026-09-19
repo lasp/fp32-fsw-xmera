@@ -11,23 +11,6 @@ extern "C" {
 #endif
 
 /**
- * @brief C mirror of the validated InertialFilterConfig inputs.
- *
- * The fields correspond one-to-one to InertialFilterConfig::create(...); the shim converts this POD
- * and calls create(), which validates and throws on invalid input. Matrices are row-major.
- */
-typedef struct {
-    double alpha;                                                                /*!< sigma-point spread */
-    double beta;                                                                 /*!< prior-knowledge tunable */
-    double processNoise[INERTIAL_FILTER_NUM_STATES][INERTIAL_FILTER_NUM_STATES]; /*!< N x N process noise Q (PSD) */
-    double initialState[INERTIAL_FILTER_NUM_STATES];                             /*!< initial state seed */
-    double initialCovariance[INERTIAL_FILTER_NUM_STATES]
-                            [INERTIAL_FILTER_NUM_STATES]; /*!< N x N initial covariance P0 (PSD) */
-    double stMeasurementNoiseStd;                         /*!< star-tracker attitude meas. noise std, >=0 */
-    double gyroMeasurementNoiseStd;                       /*!< gyro rate meas. noise std, >=0 */
-} InertialFilterConfig_c;
-
-/**
  * @brief C mirror of a raw star-tracker attitude reading. timeTag > 0 flags a fresh reading.
  */
 typedef struct {

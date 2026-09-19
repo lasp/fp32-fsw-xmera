@@ -70,7 +70,7 @@ std::optional<RwMotorTorqueMapping> computeRwMapping(const std::array<bool, 3>& 
     // stores unit spin axes, so no normalization is needed here.
     Eigen::Matrix<float, 3, kMaxNumRw> G_s_B{Eigen::Matrix<float, 3, kMaxNumRw>::Zero()};
     uint32_t numAvailRW = 0U;
-    for (uint32_t i = 0U; i < rwConfiguration.numRW; ++i) {
+    for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
         if (wheelsAvailability[i] == fsw::DeviceAvailability::Available) {
             G_s_B.col(i) = rwConfiguration.GsMatrix_B.col(i);
             numAvailRW += 1U;
@@ -128,10 +128,10 @@ std::optional<RwMotorTorqueMapping> computeRwMapping(const std::array<bool, 3>& 
     }
     mapping.tau = *tau;
 
-    // Zero the rows of excluded wheels (beyond numRW or unavailable). Their [CGs]/[Gs] columns are zero, so
-    // these rows are zero in exact arithmetic; mask them so an excluded wheel is commanded exactly zero torque.
+    // Zero the rows of unavailable wheels. Their [CGs]/[Gs] columns are zero, so these rows are zero in
+    // exact arithmetic; mask them so an excluded wheel is commanded exactly zero torque.
     for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
-        if (i >= rwConfiguration.numRW || wheelsAvailability[i] != fsw::DeviceAvailability::Available) {
+        if (wheelsAvailability[i] != fsw::DeviceAvailability::Available) {
             mapping.motorTorqueMap.row(i).setZero();
             mapping.tau.row(i).setZero();
         }

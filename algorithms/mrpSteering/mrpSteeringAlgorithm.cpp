@@ -96,7 +96,7 @@ Eigen::Vector3f MrpSteeringAlgorithm::update(const InputGuidanceData& attGuidInp
     const std::optional<InputRwData>& rwConfiguration = this->cfg.getRwConfiguration();
     if (rwConfiguration.has_value()) {
         const InputRwData& rwConfigParams = *rwConfiguration;
-        for (uint32_t i = 0U; i < rwConfigParams.numRW; ++i) {
+        for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
             if (rwConfigParams.wheelAvailability.at(i) ==
                 fsw::DeviceAvailability::Available) { /* check if wheel is available */
                 const Eigen::Vector3f G_s_B_i = rwConfigParams.GsMatrix_B.col(static_cast<int>(i));
