@@ -13,7 +13,6 @@
 
 /*! @brief Reaction-wheel spin-axis configuration used to compute the net cluster momentum. */
 struct MomentumManagementRwArrayConfiguration {
-    uint32_t numRW{};  //!< [-] number of reaction wheels on the vehicle
     Eigen::Matrix<float, 3, kMaxNumRw> GsMatrix_B{
         Eigen::Matrix<float, 3, kMaxNumRw>::Zero()};  //!< [-] RW spin axes in body frame, one column per wheel
     Eigen::Vector<float, kMaxNumRw> JsList{Eigen::Vector<float, kMaxNumRw>::Zero()};  //!< [kgm2] RW spin-axis inertias
@@ -62,14 +61,14 @@ class MomentumManagementConfig final {
         }
         if (!isValidRwArrayConfiguration(rwArrayConfig)) {
             FSW_THROW_INVALID_ARGUMENT(
-                "momentumManagement: rwArrayConfig.numRW must not exceed the compile-time maximum, the spin "
-                "axis matrix and spin-axis inertias must be finite, and each spin axis must be a unit vector.");
+                "momentumManagement: the spin axis matrix and spin-axis inertias must be finite, and every "
+                "spin axis must be a unit vector.");
         }
 
         // Normalize the RW spin axes so the momentum sum can rely on exact unit vectors. The inputs are
         // validated (near-)unit, so this only removes rounding.
         MomentumManagementRwArrayConfiguration normalizedRwArrayConfig = rwArrayConfig;
-        for (uint32_t i = 0U; i < normalizedRwArrayConfig.numRW; ++i) {
+        for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
             normalizedRwArrayConfig.GsMatrix_B.col(i).normalize();
         }
 
@@ -111,13 +110,13 @@ class MomentumManagementConfig final {
     }
 
     static bool isValidRwArrayConfiguration(const MomentumManagementRwArrayConfiguration& rwArrayConfig) {
-        if (rwArrayConfig.numRW > kMaxNumRw || !rwArrayConfig.GsMatrix_B.allFinite() ||
-            !rwArrayConfig.JsList.allFinite()) {
+        if (!rwArrayConfig.GsMatrix_B.allFinite() || !rwArrayConfig.JsList.allFinite()) {
             return false;
         }
-        // Each spin axis must be (close to) a unit vector; they are normalized exactly on construction.
+        // Every wheel slot describes a wheel, so every spin axis must be (close to) a unit vector; they are
+        // normalized exactly on construction.
         constexpr float kUnitNormTol = 1e-3F;
-        for (uint32_t i = 0U; i < rwArrayConfig.numRW; ++i) {
+        for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
             if (fabsf(rwArrayConfig.GsMatrix_B.col(i).stableNorm() - 1.0F) > kUnitNormTol) {
                 return false;
             }

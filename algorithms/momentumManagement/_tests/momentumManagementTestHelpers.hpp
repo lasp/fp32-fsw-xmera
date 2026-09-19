@@ -11,14 +11,16 @@
 #include <vector>
 
 // Build a reaction-wheel array configuration from a list of spin axes and a common spin-axis inertia.
-// The axes are normalized here so callers can pass convenient non-unit directions.
+// The axes are normalized here so callers can pass convenient non-unit directions. Every slot is
+// configured, so a caller that names fewer axes than the array is wide gets the rest filled with a unit
+// axis and a zero spin-axis inertia, which contributes no momentum.
 inline MomentumManagementRwArrayConfiguration makeRwArrayConfig(const std::vector<Eigen::Vector3f>& spinAxes,
                                                                 float js) {
     MomentumManagementRwArrayConfiguration rwArrayConfig;
-    rwArrayConfig.numRW = static_cast<uint32_t>(spinAxes.size());
-    for (uint32_t i = 0U; i < rwArrayConfig.numRW; ++i) {
-        rwArrayConfig.GsMatrix_B.col(i) = spinAxes[i].normalized();
-        rwArrayConfig.JsList[i] = js;
+    for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
+        const bool named = i < spinAxes.size();
+        rwArrayConfig.GsMatrix_B.col(i) = named ? spinAxes[i].normalized() : Eigen::Vector3f::UnitX();
+        rwArrayConfig.JsList[i] = named ? js : 0.0F;
     }
     return rwArrayConfig;
 }
@@ -70,7 +72,7 @@ inline Eigen::Vector3f referenceTorque(const MomentumManagementRwArrayConfigurat
                                        const MomentumManagementControlParameters& params,
                                        uint32_t numCycles = 1U) {
     Eigen::Vector3f hs_B = Eigen::Vector3f::Zero();
-    for (uint32_t i = 0U; i < rwArrayConfig.numRW; ++i) {
+    for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
         hs_B += rwArrayConfig.JsList[i] * wheelSpeeds[i] * rwArrayConfig.GsMatrix_B.col(i);
     }
     const Eigen::Vector3f hsDumpable_B = params.dumpableProjection_B * hs_B;
@@ -98,8 +100,7 @@ inline void testMomentumManagementSetup(const MomentumManagementControlParameter
     EXPECT_NEAR(cfg.getControlParameters().Ki, params.Ki, accuracy);
     EXPECT_NEAR(cfg.getControlParameters().integralLimit, params.integralLimit, accuracy);
     EXPECT_NEAR(cfg.getControlParameters().controlPeriod, params.controlPeriod, accuracy);
-    EXPECT_EQ(cfg.getRwArrayConfiguration().numRW, rwArrayConfig.numRW);
-    for (uint32_t i = 0U; i < rwArrayConfig.numRW; ++i) {
+    for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
         EXPECT_NEAR(cfg.getRwArrayConfiguration().JsList[i], rwArrayConfig.JsList[i], accuracy) << "wheel " << i;
         // Spin axes are normalized on construction, so the stored axis is the unit direction of the input.
         const Eigen::Vector3f expectedAxis = rwArrayConfig.GsMatrix_B.col(i).normalized();
@@ -114,7 +115,7 @@ inline void testMomentumManagementSetup(const MomentumManagementControlParameter
 inline Eigen::Vector3f clusterMomentum(const MomentumManagementRwArrayConfiguration& rwArrayConfig,
                                        const Eigen::Vector<float, kMaxNumRw>& wheelSpeeds) {
     Eigen::Vector3f hs_B = Eigen::Vector3f::Zero();
-    for (uint32_t i = 0U; i < rwArrayConfig.numRW; ++i) {
+    for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
         hs_B += rwArrayConfig.JsList[i] * wheelSpeeds[i] * rwArrayConfig.GsMatrix_B.col(i);
     }
     return hs_B;

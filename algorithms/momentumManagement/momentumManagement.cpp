@@ -37,7 +37,6 @@ MomentumManagementConfig MomentumManagement::toConfig() {
     /*! - read in the RW configuration message and convert it to the algorithm's own types */
     const RWArrayConfigMsgF32Payload rwConfigParams = this->rwConfigDataInMsg();
     MomentumManagementRwArrayConfiguration rwArrayConfig;
-    rwArrayConfig.numRW = static_cast<uint32_t>(rwConfigParams.numRW);
     rwArrayConfig.GsMatrix_B = cArrayToEigenMatrix<float, 3, kMaxNumRw>(rwConfigParams.GsMatrix_B);
     rwArrayConfig.JsList = cArrayToEigenVector(rwConfigParams.JsList);
 

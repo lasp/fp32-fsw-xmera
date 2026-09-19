@@ -16,7 +16,6 @@ MomentumManagementConfig makeConfig(float hsMin,
                                     const Matrix3f_c* dumpableProjection_B,
                                     const MomentumManagementRwArrayConfiguration_c* rwArrayConfig) {
     MomentumManagementRwArrayConfiguration rwArrayConfigCpp;
-    rwArrayConfigCpp.numRW = rwArrayConfig->numRW;
     rwArrayConfigCpp.GsMatrix_B = cArrayToEigenMatrix<float, 3, kMaxNumRw>(rwArrayConfig->GsMatrix_B);
     rwArrayConfigCpp.JsList = cArrayToEigenVector(rwArrayConfig->JsList);
 
