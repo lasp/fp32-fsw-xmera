@@ -3,6 +3,7 @@
 #include "triadTypes.h"
 #include "utilities/fsw/eigenSupport.h"
 #include "utilities/fsw/freestandingInvalidArgument.h"
+#include "utilities/fsw/opaqueHandle.h"
 
 #include <Eigen/Core>
 
@@ -30,34 +31,24 @@ bool TriadAlgorithm_validateConfig(const Vector3f_c* sadaHat_B,
 TriadAlgorithmHandle* TriadAlgorithm_create(const Vector3f_c* sadaHat_B,
                                             const Vector3f_c* thrustReqHat_N,
                                             const N3Axis_c n3Axis) {
-    // clang-format off
-    return reinterpret_cast<TriadAlgorithmHandle*>(new ::TriadAlgorithm(configFromC(*sadaHat_B, *thrustReqHat_N, n3Axis)));  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast, cppcoreguidelines-owning-memory)
-    // clang-format on
+    return fsw::createHandle<::TriadAlgorithm, TriadAlgorithmHandle>(configFromC(*sadaHat_B, *thrustReqHat_N, n3Axis));
 }
 
-void TriadAlgorithm_destroy(TriadAlgorithmHandle* self) {
-    // clang-format off
-    delete reinterpret_cast<::TriadAlgorithm*>(self);  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast, cppcoreguidelines-owning-memory)
-    // clang-format on
-}
+void TriadAlgorithm_destroy(TriadAlgorithmHandle* self) { fsw::deleteHandle<::TriadAlgorithm>(self); }
 
 void TriadAlgorithm_setConfig(TriadAlgorithmHandle* self,
                               const Vector3f_c* sadaHat_B,
                               const Vector3f_c* thrustReqHat_N,
                               const N3Axis_c n3Axis) {
-    // clang-format off
-    reinterpret_cast<::TriadAlgorithm*>(self)->setConfig(configFromC(*sadaHat_B, *thrustReqHat_N, n3Axis));  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
-    // clang-format on
+    fsw::fromHandle<::TriadAlgorithm>(self)->setConfig(configFromC(*sadaHat_B, *thrustReqHat_N, n3Axis));
 }
 
 Vector3f_c TriadAlgorithm_update(TriadAlgorithmHandle* self,
                                  const Vector3f_c* rHat_SB_N,
                                  const Vector3f_c* thrustHat_B) {
-    // clang-format off
-    const Eigen::Vector3f sigma_RN = reinterpret_cast<::TriadAlgorithm*>(self)->update(  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
-        cArrayToEigenVector3<float>(rHat_SB_N->data),
-        cArrayToEigenVector3<float>(thrustHat_B->data));
-    // clang-format on
+    // update() is const, so the instance is reached as const even though the C handle is not.
+    const Eigen::Vector3f sigma_RN = fsw::fromHandle<const ::TriadAlgorithm>(self)->update(
+        cArrayToEigenVector3<float>(rHat_SB_N->data), cArrayToEigenVector3<float>(thrustHat_B->data));
     Vector3f_c result{};
     eigenVectorToCArray(sigma_RN, result.data);
     return result;
