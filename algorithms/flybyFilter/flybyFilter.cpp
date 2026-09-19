@@ -5,6 +5,7 @@
 
 #include <architecture/utilities/eigenSupport.h>
 #include <utilities/fsw/timeConstants.h>
+#include <utilities/fsw/freestandingIsFinite.hpp>
 
 #include <Eigen/Core>
 
@@ -33,6 +34,12 @@ FlybyFilter::~FlybyFilter() = default;
 void FlybyFilter::reset(uint64_t /*currentSimNanos*/) {
     if (!this->opNavHeadingMsg.isLinked()) {
         throw std::invalid_argument("flybyFilter.opNavHeadingMsg wasn't connected.");
+    }
+    // Guarded here rather than in the Config: unitConversion never reaches the algorithm, but
+    // writeOutputMessages() divides by it, so a zero or negative scale would silently publish
+    // infinities instead of failing at reset().
+    if (!fsw::is_finite(this->unitConversion) || this->unitConversion <= 0.0) {
+        throw std::invalid_argument("flybyFilter.unitConversion must be positive.");
     }
 
     constexpr int n = FlybyFilterAlgorithm::N;
@@ -89,7 +96,7 @@ void FlybyFilter::updateState(uint64_t currentSimNanos) {
     HeadingData headingData{};
     if (auto const payload = this->opNavHeadingMsg(); payload.valid && payload.timeTag > this->lastHeadingTimeTag) {
         headingData.timeTag = payload.timeTag;
-        headingData.rhat_BN_N = cArrayToEigenVector(payload.rhat_BN_N);
+        headingData.rhat_BN_N = cArrayToEigenVector(payload.rhat_BN_N).cast<double>();
         this->lastHeadingTimeTag = payload.timeTag;
     }
 
@@ -103,9 +110,9 @@ void FlybyFilter::updateState(uint64_t currentSimNanos) {
  *  @param currentSimNanos [ns] sim time provided to the outgoing messages
  *  @param filterOutput    [-]  filter data returned by the algorithm */
 void FlybyFilter::writeOutputMessages(uint64_t currentSimNanos, FlybyFilterOutput const& filterOutput) {
-    NavTransMsgPayload navTransBuf{};
-    FilterMsgPayload filterBuf{};
-    FilterResidualsMsgPayload resBuf{};
+    NavTransMsgF32Payload navTransBuf{};
+    FilterMsgF32Payload filterBuf{};
+    FilterResidualsMsgF32Payload resBuf{};
 
     double const timeTag = static_cast<double>(currentSimNanos) * kNano2Sec;
     double const invUc = 1.0 / this->unitConversion;

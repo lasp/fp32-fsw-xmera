@@ -16,8 +16,11 @@ using FlybyState = filtering::StateVector<filtering::Position<3>, filtering::Vel
 // N x N filter matrix (process noise, covariance) where N = FlybyState::size.
 using StateMatrix = Eigen::Matrix<double, FlybyState::size, FlybyState::size>;
 
-// Two-body point-mass gravity: r_dot = v; v_dot = -mu/|r|^3 r. The gravitational parameter mu is
-// carried by the functor (internal units km^3/s^2) and set from the configuration.
+inline constexpr double MinGravityRange = 1e-3;
+// Two-body point-mass gravity: r_dot = v; v_dot = -mu/max(|r|, MinGravityRange)^3 r. The
+// gravitational parameter mu is carried by the functor (internal units km^3/s^2) and set from the
+// configuration. The denominator (range) is clamped to keep the acceleration
+// continuous and bounded.
 struct FlybyDynamics {
     double mu = 0.0;
 
@@ -25,9 +28,13 @@ struct FlybyDynamics {
         Eigen::Vector3d const r = state.get<filtering::Position<3>>();
         Eigen::Vector3d const v = state.get<filtering::Velocity<3>>();
 
+        double const norm = r.norm();
+        double const range = norm < MinGravityRange ? MinGravityRange : norm;
+        double const rangeCubed = range * range * range;
+
         FlybyState xDot;
         xDot.set<filtering::Position<3>>(v);
-        xDot.set<filtering::Velocity<3>>(-this->mu / std::pow(r.norm(), 3) * r);
+        xDot.set<filtering::Velocity<3>>(-this->mu / rangeCubed * r);
         return xDot;
     }
 };

@@ -28,17 +28,17 @@ The following table lists all the module input and output messages.
       - Msg Type
       - Description
     * - opNavHeadingMsg
-      - :ref:`OpNavUnitVecMsgPayload`
+      - :ref:`OpNavUnitVecMsgF32Payload`
       - Input optical-navigation heading: unit vector ``rhat_BN_N`` from the spacecraft to the central
         body, inertial frame; required
     * - navTransOutMsg
-      - :ref:`NavTransMsgPayload`
+      - :ref:`NavTransMsgF32Payload`
       - Output message containing the estimated inertial position and velocity
     * - filterOutMsg
-      - :ref:`FilterMsgPayload`
+      - :ref:`FilterMsgF32Payload`
       - Output message with the filter estimated state and covariance
     * - filterResOutMsg
-      - :ref:`FilterResidualsMsgPayload`
+      - :ref:`FilterResidualsMsgF32Payload`
       - Output message containing pre- and post-fit residuals for the heading measurements
 
 
@@ -52,17 +52,40 @@ relative to the central body. It is composed from filteringCore state tags as
     \boldsymbol{x} = \left\{ \begin{matrix} \boldsymbol{r}_{B/N} \\
     \boldsymbol{v}_{B/N} \end{matrix} \right\}.
 
+The measurement queue holds a single entry (``BatchSize = 1``), so the filter processes at most one
+heading per cycle. A reading whose time tag is not newer than the last accepted one, or whose
+``valid`` flag is clear, is ignored by the adapter; a reading older than the filter's measurement
+anchor is dropped by the scheduler. A reading stamped in the past but still newer than the anchor is
+applied **at its own time tag**, and the estimate is then propagated forward to the call time.
+
 Dynamics model
 ++++++++++++++
 The state evolves under two-body point-mass gravity, with :math:`\mu` the central-body gravitational
-parameter:
+parameter and :math:`r_\text{min}` a floor on the range entering the denominator:
 
 .. math::
     \boldsymbol{\dot{x}} = \left\{ \begin{matrix} \boldsymbol{v}_{B/N} \\
-    -\dfrac{\mu}{\lVert \boldsymbol{r}_{B/N} \rVert^3}\, \boldsymbol{r}_{B/N} \end{matrix} \right\}.
+    -\dfrac{\mu}{\max\left(\lVert \boldsymbol{r}_{B/N} \rVert,\, r_\text{min}\right)^3}\,
+    \boldsymbol{r}_{B/N} \end{matrix} \right\}.
 
 The dynamics functor carries :math:`\mu` (in internal units) and is set from the configuration; the SRuKF
 propagates the sigma points with the shared RK4 integrator.
+
+The floor (``MinGravityRange``, 1e-3 km) guards the :math:`1/r^3` singularity at the central body. It is
+purely defensive: no trajectory this filter estimates passes within a metre of the body centre, so for
+every physically meaningful state the dynamics are bit-for-bit the unguarded two-body model. Its purpose
+is numerical -- the SRuKF spreads sigma points about the mean, and a single sigma point landing on the
+origin would otherwise make its derivative non-finite and poison the entire propagated covariance.
+
+Clamping the denominator (rather than the whole acceleration term) keeps the model well behaved through
+the floor: the acceleration is continuous at :math:`r_\text{min}`, and below it becomes linear in
+:math:`\boldsymbol{r}_{B/N}`, tending to zero at the origin. That is exactly the interior field of a
+uniform-density sphere, so the guarded acceleration is bounded everywhere by :math:`\mu / r_\text{min}^2`.
+
+.. note::
+    Inside :math:`r_\text{min}` the dynamics are no longer physical. A filter that reaches the central
+    body still propagates to a finite estimate rather than reporting failure, so a state that lands there
+    is recovered through subsequent measurements, not flagged by the scheduler.
 
 Measurement model
 +++++++++++++++++
@@ -141,6 +164,23 @@ Two runtime reset entry points are exposed on both the algorithm and the adapter
 - ``reInitialize()`` performs ``reInitializeExceptPersistentStates()`` and additionally re-seeds the filter state and
   covariance from the configured initial values.
 
+``setConfig()`` re-derives the filter parameters (sigma-point weights, process noise, the
+:math:`\mu`-carrying dynamics functor) **without** disturbing the running estimate; only
+``reInitialize()`` re-seeds it.
+
+Error behaviour
++++++++++++++++
+``reset()`` throws ``std::invalid_argument`` when ``opNavHeadingMsg`` is not connected or
+``unitConversion`` is not finite and positive, and the ``FlybyFilterConfig`` factory throws
+``fsw::invalid_argument`` for any parameter outside the ranges tabulated below. Calling
+``updateState()``, ``reInitialize()`` or ``reInitializeExceptPersistentStates()`` before ``reset()``
+throws ``XmeraLifecycleException``.
+
+.. note::
+    These exceptions are not catchable from Python. No fp32 SWIG module declares exception
+    translation, so a throw crossing the binding boundary calls ``std::terminate``. Treat a
+    configuration error as a startup abort, not a recoverable condition.
+
 Configuration parameters
 +++++++++++++++++++++++++
 .. list-table:: Configuration parameters and valid ranges
@@ -170,7 +210,7 @@ Configuration parameters
       - finite
     * - initialCovariance
       - N x N initial covariance P0
-      - positive semi-definite
+      - finite, positive semi-definite
     * - headingMeasurementNoiseStd
       - heading (unit-vector) measurement noise standard deviation
       - >= 0

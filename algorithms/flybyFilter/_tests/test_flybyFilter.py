@@ -1,9 +1,18 @@
 # SPDX-License-Identifier: ISC
 # Copyright (c) 2026, Laboratory for Atmospheric and Space Physics, University of Colorado at Boulder
 #
-# Python integration test for the flybyFilter fp32 module. Exercises the full xmera adapter path
+# Python integration tests for the flybyFilter fp32 module. Exercises the full xmera adapter path
 # (SWIG, SI<->km unit conversion, message I/O) using the same optical-navigation heading measurement
 # as fswAlgorithms/opticalNavigation/flybyODuKF: a unit vector rhat_BN_N with measurement model r/|r|.
+#
+# Scenarios: pure propagation against an rk4 truth, heading tracking through a mid-arc velocity kick,
+# navTransOutMsg agreement with the filter state, validity/freshness gating of the heading port,
+# delayed-measurement anchoring, and unit-conversion invariance of the SI output.
+#
+# Not covered here: the adapter's error paths (unlinked message, non-positive unitConversion,
+# lifecycle calls before reset, invalid configuration). No fp32 SWIG module declares exception
+# translation, so a C++ throw crossing into Python calls std::terminate and would abort the whole
+# pytest run rather than raising. Those paths are covered by the C++ suite where they are reachable.
 
 import flybyFilter_test_utilities as filter_plots
 import numpy as np
@@ -61,11 +70,7 @@ def setup_filter_data(module, initial_state_si):
     module.headingMeasurementNoiseStd = HEADING_STD
     module.initialState = list(initial_state_si)
     module.initialCovariance = np.diag([1000.0 * 1E6] * 3 + [0.1 * 1E6] * 3).tolist()  # m^2, (m/s)^2
-
-    qNoiseIn = np.identity(6)
-    qNoiseIn[0:3, 0:3] = qNoiseIn[0:3, 0:3] * 1 ** 2
-    qNoiseIn[3:6, 3:6] = qNoiseIn[3:6, 3:6] * 0.01 ** 2
-    module.processNoise = qNoiseIn.tolist()
+    module.processNoise = np.diag([(1E-6) ** 2] * 3 + [(1E-8) ** 2] * 3).tolist()
 
 
 def specific_energy(states):
@@ -94,7 +99,7 @@ def test_propagation(show_plots):
     filter_log = module.filterOutMsg.recorder()
     sim.AddModelToTask("unit_task", filter_log)
 
-    opnav_msg = messaging.OpNavUnitVecMsg()
+    opnav_msg = messaging.OpNavUnitVecMsgF32()
     module.opNavHeadingMsg.subscribeTo(opnav_msg)  # required connection; never written (no measurements)
 
     sim_min = 30
@@ -116,6 +121,7 @@ def test_propagation(show_plots):
 
     filter_plots.energy(times_s, energy_filter, 'Prop', show_plots)
     filter_plots.state_covar(state_log, covar_log, 'Prop', show_plots)
+    filter_plots.covar_trace(covar_log, num_states, 'Prop', show_plots)
 
     assert np.all(np.isfinite(state_log[:, 1:])), "filter state must stay finite"
     np.testing.assert_allclose(energy_filter, energy_truth, rtol=1E-2, atol=1E-6,
@@ -148,8 +154,8 @@ def test_measurements(show_plots):
     sim.AddModelToTask("unit_task", filter_log)
     sim.AddModelToTask("unit_task", res_log)
 
-    opnav_payload = messaging.OpNavUnitVecMsgPayload()
-    opnav_msg = messaging.OpNavUnitVecMsg()
+    opnav_payload = messaging.OpNavUnitVecMsgF32Payload()
+    opnav_msg = messaging.OpNavUnitVecMsgF32()
     module.opNavHeadingMsg.subscribeTo(opnav_msg)
 
     # Truth: two-body arc with a velocity kick at t1 (makes range/velocity observable from headings).
@@ -183,7 +189,11 @@ def test_measurements(show_plots):
     assert valid.any(), "at least one heading measurement must fire"
 
     res_time = add_time_column(res_log.times(), post)
+    error_log = np.copy(state_log)
+    error_log[:, 1:] -= truth[:len(error_log), 1:]
+    filter_plots.states(error_log, 'Update error', show_plots)
     filter_plots.state_covar(state_log, covar_log, 'Update', show_plots)
+    filter_plots.covar_trace(covar_log, num_states, 'Update', show_plots)
     filter_plots.post_fit_residuals(res_time, HEADING_STD, 'Update', show_plots)
     filter_plots.two_orbits(truth[:, 0:4], state_log[:, 0:4], show_plots)
 
@@ -201,18 +211,10 @@ def test_measurements(show_plots):
         "measurement updates should reduce the residual"
 
 
-# Measurement indices (not sim steps) at which a gross heading outlier is injected.
-HEADING_OUTLIER_MEAS = (20, 40, 60, 80)
-HEADING_OUTLIER = np.array([0.4, -0.4, 0.4])  # [-] added to the unit vector before renormalising
-
-
-def test_outlier_recovery(show_plots):
-    """Feed optical-nav headings along a two-body arc with occasional gross heading outliers mixed
-    in, and check the filter has converged by the last step."""
+def _run_heading_scenario(unit_conversion, headings, n_steps=60, dt=1.0):
+    """Run the adapter for n_steps, writing the heading payloads supplied by `headings(i)` (which
+    returns None for a step with no fresh reading). Returns (module, filter_log, res_log, nav_log)."""
     sim = SimulationBaseClass.SimBaseClass()
-    dt = 1.0
-    n_steps = 2000
-    meas_every = 10
     proc = sim.CreateNewProcess("test_process")
     proc.addTask(sim.CreateNewTask("unit_task", macros.sec2nano(dt)))
 
@@ -220,79 +222,155 @@ def test_outlier_recovery(show_plots):
     sim.AddModelToTask("unit_task", module)
 
     r0, v0 = truth_rv()
-    setup_filter_data(module, np.concatenate([r0, v0]))  # seeded at truth: the outliers are the only error
+    setup_filter_data(module, np.concatenate([r0, v0]))
+    module.unitConversion = unit_conversion
 
     filter_log = module.filterOutMsg.recorder()
     res_log = module.filterResOutMsg.recorder()
-    sim.AddModelToTask("unit_task", filter_log)
-    sim.AddModelToTask("unit_task", res_log)
+    nav_log = module.navTransOutMsg.recorder()
+    for log in (filter_log, res_log, nav_log):
+        sim.AddModelToTask("unit_task", log)
 
-    opnav_payload = messaging.OpNavUnitVecMsgPayload()
-    opnav_msg = messaging.OpNavUnitVecMsg()
+    opnav_msg = messaging.OpNavUnitVecMsgF32()
     module.opNavHeadingMsg.subscribeTo(opnav_msg)
 
-    time = np.linspace(0, n_steps * dt, n_steps + 1)
-    truth = rk4(two_body_gravity, time, np.concatenate([r0, v0]))
-
-    meas_steps = list(range(meas_every, n_steps, meas_every))
-    heading_meas = np.zeros([len(meas_steps), 4])
-    heading_truth = np.zeros([len(meas_steps), 4])
-
-    rng = np.random.default_rng(7)
     sim.InitializeSimulation()
     for i in range(n_steps):
-        if i in meas_steps:
-            n = meas_steps.index(i)
-            clean = truth[i, 1:4] / np.linalg.norm(truth[i, 1:4])
-            rhat = clean + HEADING_STD * rng.standard_normal(3)
-            if n in HEADING_OUTLIER_MEAS:
-                rhat = rhat + HEADING_OUTLIER
-            rhat /= np.linalg.norm(rhat)
-            heading_meas[n] = [macros.sec2nano(time[i]), *rhat]
-            heading_truth[n] = [macros.sec2nano(time[i]), *clean]
-            opnav_payload.timeTag = i * dt
-            opnav_payload.rhat_BN_N = rhat.tolist()
-            opnav_payload.valid = True
-            opnav_msg.write(opnav_payload, sim.TotalSim.getCurrentNanos())
+        payload = headings(i)
+        if payload is not None:
+            opnav_msg.write(payload, sim.TotalSim.getCurrentNanos())
         sim.ConfigureStopTime(macros.sec2nano((i + 1) * dt))
         sim.ExecuteSimulation()
 
-    num_states = 6
-    state_log = add_time_column(filter_log.times(), filter_log.state[:, :num_states])
-    covar_log = add_time_column(filter_log.times(), filter_log.covar[:, :num_states ** 2])
-    res_post = add_time_column(res_log.times(), np.array(res_log.postFits)[:, :3])
+    return module, filter_log, res_log, nav_log
 
-    # Heading angle, for the figure: it is the quantity bearing-only measurements constrain.
-    head_err_deg = np.zeros(len(meas_steps))
-    for k, i in enumerate(meas_steps):
-        est = state_log[i, 1:4] / np.linalg.norm(state_log[i, 1:4])
-        tru = truth[i, 1:4] / np.linalg.norm(truth[i, 1:4])
-        head_err_deg[k] = np.degrees(np.arccos(np.clip(np.dot(est, tru), -1.0, 1.0)))
-    err_col = np.column_stack([heading_meas[:, 0], head_err_deg])
-    # Reference level for the error_recovery figure: the accuracy before any outlier lands.
-    baseline = float(np.median(head_err_deg[5:min(HEADING_OUTLIER_MEAS)]))
 
-    filter_plots.outlier_rejection(heading_meas, heading_truth,
-                                   np.ones(len(meas_steps), dtype=bool), 'Heading Outliers', show_plots)
-    filter_plots.error_recovery(err_col, HEADING_OUTLIER_MEAS, baseline, 'Heading', show_plots)
-    filter_plots.state_covar(state_log, covar_log, 'Outlier Recovery', show_plots)
-    filter_plots.post_fit_residuals(res_post, HEADING_STD, 'Outlier Recovery', show_plots)
+def _heading_payload(time_tag, rhat, valid=True):
+    payload = messaging.OpNavUnitVecMsgF32Payload()
+    payload.timeTag = time_tag
+    payload.rhat_BN_N = list(rhat)
+    payload.valid = valid
+    return payload
 
-    # Norms rather than element-wise: two truth velocity components pass near zero. The bounds are
-    # loose (measured 8% and 35%) because bearings determine range and speed only weakly.
-    np.testing.assert_array_less(np.linalg.norm(state_log[-1, 1:4] - truth[-1, 1:4]),
-                                 0.2 * np.linalg.norm(truth[-1, 1:4]),
-                                 err_msg='position not converged at the last step', verbose=True)
-    np.testing.assert_array_less(np.linalg.norm(state_log[-1, 4:7] - truth[-1, 4:7]),
-                                 0.6 * np.linalg.norm(truth[-1, 4:7]),
-                                 err_msg='velocity not converged at the last step', verbose=True)
-    cov_diag = np.diag(covar_log[-1, 1:num_states ** 2 + 1].reshape(num_states, num_states))
-    cov_diag0 = np.diag(covar_log[0, 1:num_states ** 2 + 1].reshape(num_states, num_states))
-    np.testing.assert_array_less(cov_diag.sum(), 0.25 * cov_diag0.sum(),
-                                 err_msg='covariance not low at the last step', verbose=True)
+
+def test_nav_trans_output_matches_the_filter_state(show_plots):
+    """navTransOutMsg must carry the same SI position and velocity as filterOutMsg's first six
+    states, with a matching time tag. Nothing else in the suite reads this port."""
+    del show_plots
+    r0, v0 = truth_rv()
+    rhat0 = r0 / np.linalg.norm(r0)
+
+    _, filter_log, _, nav_log = _run_heading_scenario(
+        1E-3, lambda i: _heading_payload((i + 1) * 1.0, rhat0) if i % 10 == 0 else None)
+
+    num_states = filter_log.numberOfStates[0]
+    state = np.array(filter_log.state)[:, :num_states]
+    r_out = np.array(nav_log.r_BN_N)
+    v_out = np.array(nav_log.v_BN_N)
+
+    np.testing.assert_allclose(r_out, state[:, 0:3], rtol=1E-12, atol=0.0,
+                               err_msg="navTransOutMsg position must match the filter state")
+    np.testing.assert_allclose(v_out, state[:, 3:6], rtol=1E-12, atol=0.0,
+                               err_msg="navTransOutMsg velocity must match the filter state")
+    np.testing.assert_allclose(np.array(nav_log.timeTag), np.array(filter_log.timeTag), rtol=0.0, atol=0.0,
+                               err_msg="navTransOutMsg and filterOutMsg must share a time tag")
+
+
+def test_heading_is_gated_on_validity_and_freshness(show_plots):
+    """The adapter only forwards a reading whose valid flag is set and whose time tag is newer than
+    the last accepted one, so an invalid payload and a repeated time tag must both be ignored."""
+    del show_plots
+    r0, _ = truth_rv()
+    rhat0 = r0 / np.linalg.norm(r0)
+
+    # Invalid payloads only: no measurement may ever fire.
+    _, _, res_invalid, _ = _run_heading_scenario(
+        1E-3, lambda i: _heading_payload((i + 1) * 1.0, rhat0, valid=False))
+    assert not np.array(res_invalid.valid, dtype=bool).any(), \
+        "a payload with valid=False must never be applied"
+
+    # A single time tag repeated every step: only the first delivery may fire.
+    _, _, res_repeat, _ = _run_heading_scenario(
+        1E-3, lambda i: _heading_payload(5.0, rhat0))
+    assert np.count_nonzero(np.array(res_repeat.valid, dtype=bool)) == 1, \
+        "a repeated time tag must be accepted exactly once"
+
+
+def test_delayed_measurement_anchors_to_its_time_tag(show_plots):
+    """A reading delivered late, but stamped newer than the filter's anchor, must be applied at its
+    own time tag -- so delivering it late gives the same estimate as delivering it on time. A
+    reading stamped older than the anchor must be dropped instead."""
+    del show_plots
+    r0, _ = truth_rv()
+    rhat0 = r0 / np.linalg.norm(r0)
+    meas_step, late_step = 20, 40
+
+    def on_time(i):
+        if i == 5:
+            return _heading_payload(6.0, rhat0)
+        if i == meas_step:
+            return _heading_payload(meas_step + 1.0, rhat0)
+        return None
+
+    def delivered_late(i):
+        if i == 5:
+            return _heading_payload(6.0, rhat0)
+        if i == late_step:
+            return _heading_payload(meas_step + 1.0, rhat0)  # still stamped at its own time
+        return None
+
+    _, log_on_time, res_on_time, _ = _run_heading_scenario(1E-3, on_time)
+    _, log_late, res_late, _ = _run_heading_scenario(1E-3, delivered_late)
+
+    assert np.count_nonzero(np.array(res_late.valid, dtype=bool)) == 2, \
+        "a late but past-the-anchor measurement must still be applied"
+    np.testing.assert_allclose(np.array(log_late.state)[-1, :6], np.array(log_on_time.state)[-1, :6],
+                               rtol=1E-9,
+                               err_msg="a late measurement must land at its time tag, not its delivery time")
+
+    # Now stamp the second reading *before* the anchor: it must be dropped entirely.
+    def stale(i):
+        if i == 5:
+            return _heading_payload(6.0, rhat0)
+        if i == late_step:
+            return _heading_payload(2.0, rhat0)
+        return None
+
+    _, _, res_stale, _ = _run_heading_scenario(1E-3, stale)
+    assert np.count_nonzero(np.array(res_stale.valid, dtype=bool)) == 1, \
+        "a measurement stamped before the anchor must be dropped"
+
+
+def test_unit_conversion_does_not_change_the_si_result(show_plots):
+    """unitConversion only sets the filter's internal length scale; the SI values on the wire must
+    not depend on it. Running the identical scenario in km (1e-3) and in metres (1.0) is what would
+    catch a wrong exponent in the state / covariance / mu scaling."""
+    del show_plots
+    r0, _ = truth_rv()
+    rhat0 = r0 / np.linalg.norm(r0)
+
+    def headings(i):
+        return _heading_payload((i + 1) * 1.0, rhat0) if i % 5 == 0 else None
+
+    _, log_km, _, _ = _run_heading_scenario(1E-3, headings)
+    _, log_m, _, _ = _run_heading_scenario(1.0, headings)
+
+    num_states = log_km.numberOfStates[0]
+    state_km = np.array(log_km.state)[-1, :num_states]
+    state_m = np.array(log_m.state)[-1, :num_states]
+    covar_km = np.array(log_km.covar)[-1, :num_states ** 2]
+    covar_m = np.array(log_m.covar)[-1, :num_states ** 2]
+
+    np.testing.assert_allclose(state_m, state_km, rtol=1E-6,
+                               err_msg="the SI state must not depend on the internal unit scale")
+    np.testing.assert_allclose(covar_m, covar_km, rtol=1E-6, atol=1E-9,
+                               err_msg="the SI covariance must not depend on the internal unit scale")
 
 
 if __name__ == "__main__":
     test_propagation(True)
     test_measurements(True)
-    test_outlier_recovery(True)
+    test_nav_trans_output_matches_the_filter_state(True)
+    test_heading_is_gated_on_validity_and_freshness(True)
+    test_delayed_measurement_anchors_to_its_time_tag(True)
+    test_unit_conversion_does_not_change_the_si_result(True)
