@@ -9,7 +9,6 @@
 namespace {
 RwMotorTorqueArrayConfiguration arrayConfigurationFromC(const RwMotorTorqueArrayConfiguration_c& c) {
     RwMotorTorqueArrayConfiguration out{};
-    out.numRW = c.numRW;
     out.GsMatrix_B = cArrayToEigenMatrix<float, 3, kMaxNumRw>(c.GsMatrix_B);
     for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
         out.wheelAvailability[i] = fsw::toDeviceAvailability(c.wheelAvailability[i]);

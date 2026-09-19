@@ -48,7 +48,7 @@ TEST(RwMotorTorqueTest, SetupTest) {
 
     // A non-unit RW spin axis is rejected.
     RwMotorTorqueArrayConfiguration nonUnitRw{};
-    nonUnitRw.numRW = 1U;
+    parkUnusedWheels(nonUnitRw, 1);
     nonUnitRw.GsMatrix_B.col(0) = Eigen::Vector3f{2.0F, 0.0F, 0.0F};
     EXPECT_THROW(RwMotorTorqueConfig::create(makeControlAxes(1U), nonUnitRw), fsw::invalid_argument);
 
@@ -79,8 +79,8 @@ TEST(RwMotorTorqueTest, PropertyOutputIsFinite) {
                            0.5F);
 }
 
-// Two control axes (x, y) driven by wheels 0 and 1, so both exclusion paths are covered: wheel 2 is marked
-// unavailable and wheel 3 sits beyond numRW.
+// Two control axes (x, y) driven by wheels 0 and 1, so the exclusion path is covered: wheels 2 and 3 are
+// marked unavailable.
 TEST(RwMotorTorqueTest, PropertyExcludedWheelsZeroTorque) {
     propertyExcludedWheelsZeroTorque(
         Eigen::Vector3f{0.3F, -0.5F, 0.8F},
@@ -141,7 +141,7 @@ TEST(RwMotorTorqueTest, PropertyControlTorqueRealized) {
 // Three spanning wheels leave no null space, so the null-space term is zero even with a non-zero gain.
 TEST(RwMotorTorqueTest, ThreeSpanningWheelsHaveNoNullSpace) {
     RwMotorTorqueArrayConfiguration rwConfiguration{};
-    rwConfiguration.numRW = 3U;
+    parkUnusedWheels(rwConfiguration, 3);
     rwConfiguration.GsMatrix_B.col(0) = Eigen::Vector3f{1.0F, 0.0F, 0.0F};
     rwConfiguration.GsMatrix_B.col(1) = Eigen::Vector3f{0.0F, 1.0F, 0.0F};
     rwConfiguration.GsMatrix_B.col(2) = Eigen::Vector3f{0.0F, 0.0F, 1.0F};
@@ -164,7 +164,7 @@ TEST(RwMotorTorqueTest, ThreeSpanningWheelsHaveNoNullSpace) {
 // reachable) is rejected by create(): cond([CGs]) exceeds the limit even though the mapping is full rank.
 TEST(RwMotorTorqueTest, IllConditionedControlMappingRejected) {
     RwMotorTorqueArrayConfiguration rwConfiguration{};
-    rwConfiguration.numRW = 2U;
+    parkUnusedWheels(rwConfiguration, 2);
     rwConfiguration.GsMatrix_B.col(0) = Eigen::Vector3f{1.0F, 0.0F, 0.0F};
     rwConfiguration.GsMatrix_B.col(1) = Eigen::Vector3f{1.0F, 5e-3F, 0.0F}.normalized();  // ~0.3 deg off wheel 0
 
@@ -177,7 +177,7 @@ TEST(RwMotorTorqueTest, IllConditionedControlMappingRejected) {
 TEST(RwMotorTorqueTest, IllConditionedNullSpaceGeometryRejected) {
     constexpr float kOutOfPlane = 1e-3F;  // tiny z component -> [Gs] barely spans the third dimension
     RwMotorTorqueArrayConfiguration rwConfiguration{};
-    rwConfiguration.numRW = 4U;
+    parkUnusedWheels(rwConfiguration, 4);
     rwConfiguration.GsMatrix_B.col(0) = Eigen::Vector3f{1.0F, 0.0F, kOutOfPlane}.normalized();
     rwConfiguration.GsMatrix_B.col(1) = Eigen::Vector3f{0.0F, 1.0F, kOutOfPlane}.normalized();
     rwConfiguration.GsMatrix_B.col(2) = Eigen::Vector3f{-1.0F, 0.0F, kOutOfPlane}.normalized();
@@ -190,7 +190,7 @@ TEST(RwMotorTorqueTest, IllConditionedNullSpaceGeometryRejected) {
 // is uncontrollable and create() rejects it.
 TEST(RwMotorTorqueTest, AllWheelsUnavailableRejected) {
     RwMotorTorqueArrayConfiguration rwConfiguration{};
-    rwConfiguration.numRW = 3U;
+    parkUnusedWheels(rwConfiguration, 3);
     rwConfiguration.GsMatrix_B.col(0) = Eigen::Vector3f{1.0F, 0.0F, 0.0F};
     rwConfiguration.GsMatrix_B.col(1) = Eigen::Vector3f{0.0F, 1.0F, 0.0F};
     rwConfiguration.GsMatrix_B.col(2) = Eigen::Vector3f{0.0F, 0.0F, 1.0F};
@@ -206,7 +206,7 @@ TEST(RwMotorTorqueTest, AllWheelsUnavailableRejected) {
 // the motor torques are the exact unique solution (each wheel negates the commanded torque on its own axis).
 TEST(RwMotorTorqueTest, SquareMappingIsExact) {
     RwMotorTorqueArrayConfiguration rwConfiguration{};
-    rwConfiguration.numRW = 3U;
+    parkUnusedWheels(rwConfiguration, 3);
     rwConfiguration.GsMatrix_B.col(0) = Eigen::Vector3f{1.0F, 0.0F, 0.0F};
     rwConfiguration.GsMatrix_B.col(1) = Eigen::Vector3f{0.0F, 1.0F, 0.0F};
     rwConfiguration.GsMatrix_B.col(2) = Eigen::Vector3f{0.0F, 0.0F, 1.0F};
@@ -229,7 +229,7 @@ TEST(RwMotorTorqueTest, SquareMappingIsExact) {
 // controlled x and y instead would fail the z assertion.
 TEST(RwMotorTorqueTest, NonConsecutiveControlAxes) {
     RwMotorTorqueArrayConfiguration rwConfiguration{};
-    rwConfiguration.numRW = 3U;
+    parkUnusedWheels(rwConfiguration, 3);
     rwConfiguration.GsMatrix_B.col(0) = Eigen::Vector3f{1.0F, 0.0F, 0.0F};
     rwConfiguration.GsMatrix_B.col(1) = Eigen::Vector3f{0.0F, 1.0F, 0.0F};
     rwConfiguration.GsMatrix_B.col(2) = Eigen::Vector3f{0.0F, 0.0F, 1.0F};
@@ -251,14 +251,14 @@ TEST(RwMotorTorqueTest, NonConsecutiveControlAxes) {
 // configuration's reference (here switching from three wheels to four with an active null-space).
 TEST(RwMotorTorqueTest, SetConfigSwitchesConfiguration) {
     RwMotorTorqueArrayConfiguration rwA{};
-    rwA.numRW = 3U;
+    parkUnusedWheels(rwA, 3);
     rwA.GsMatrix_B.col(0) = Eigen::Vector3f{1.0F, 0.0F, 0.0F};
     rwA.GsMatrix_B.col(1) = Eigen::Vector3f{0.0F, 1.0F, 0.0F};
     rwA.GsMatrix_B.col(2) = Eigen::Vector3f{0.0F, 0.0F, 1.0F};
     RwMotorTorqueAlgorithm alg{RwMotorTorqueConfig::create(makeControlAxes(3U), rwA)};
 
     RwMotorTorqueArrayConfiguration rwB{};
-    rwB.numRW = 4U;
+    parkUnusedWheels(rwB, 4);
     rwB.GsMatrix_B.col(0) = Eigen::Vector3f{1.0F, 0.0F, 0.0F};
     rwB.GsMatrix_B.col(1) = Eigen::Vector3f{0.0F, 1.0F, 0.0F};
     rwB.GsMatrix_B.col(2) = Eigen::Vector3f{0.0F, 0.0F, 1.0F};
@@ -273,7 +273,7 @@ TEST(RwMotorTorqueTest, SetConfigSwitchesConfiguration) {
     const Eigen::Vector<float, kMaxNumRw> out = alg.update(Lr_B, speeds);
     const Eigen::Vector<double, kMaxNumRw> ref = referenceUpdate(makeControlAxes(3U),
                                                                  rwB.GsMatrix_B.cast<double>(),
-                                                                 rwB.numRW,
+                                                                 kMaxNumRw,
                                                                  rwB.wheelAvailability,
                                                                  Lr_B.cast<double>(),
                                                                  speeds.rwSpeeds.cast<double>(),
@@ -290,7 +290,7 @@ TEST(RwMotorTorqueTest, SetConfigSwitchesConfiguration) {
 // with a non-zero gain and a non-trivial null space: the output equals the control-only update.
 TEST(RwMotorTorqueTest, NullSpaceZeroAtDesiredSpeed) {
     RwMotorTorqueArrayConfiguration rwConfiguration{};
-    rwConfiguration.numRW = 4U;
+    parkUnusedWheels(rwConfiguration, 4);
     rwConfiguration.GsMatrix_B.col(0) = Eigen::Vector3f{1.0F, 0.0F, 0.0F};
     rwConfiguration.GsMatrix_B.col(1) = Eigen::Vector3f{0.0F, 1.0F, 0.0F};
     rwConfiguration.GsMatrix_B.col(2) = Eigen::Vector3f{0.0F, 0.0F, 1.0F};

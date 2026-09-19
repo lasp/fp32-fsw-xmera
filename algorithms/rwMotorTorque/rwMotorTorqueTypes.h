@@ -15,7 +15,6 @@ extern "C" {
  * @brief Plain-old-data mirror of the C++ RwMotorTorqueArrayConfiguration.
  */
 typedef struct {
-    uint32_t numRW;                                     /*!< [-]   number of reaction wheels on the vehicle */
     float GsMatrix_B[3 * RW_EFF_CNT];                   /*!< [-]   RW spin axes in body frame, three per wheel */
     DeviceAvailability_c wheelAvailability[RW_EFF_CNT]; /*!< [-]   AVAILABLE / UNAVAILABLE state of each wheel */
 } RwMotorTorqueArrayConfiguration_c;
@@ -24,7 +23,6 @@ typedef struct {
  * @brief Plain-old-data mirror of the C++ RwMotorTorqueConfig.
  *
  *  - desiredControlAxes selects which body axes (x, y, z) to control; at least one must be nonzero.
- *  - rwConfiguration.numRW must not exceed RW_EFF_CNT.
  */
 typedef struct {
     uint8_t desiredControlAxes[3];                     /*!< [-] control body axis (x, y, z); nonzero = controlled */
