@@ -3,6 +3,7 @@
 
 #include "rwMotorTorqueTypes.h"
 
+#include <stdbool.h>
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -26,6 +27,19 @@ typedef struct {
  * @return The maximum number of reaction wheels handled at the C boundary.
  */
 uint32_t RwMotorTorqueAlgorithm_getMaxNumRw(void);
+
+/**
+ * @brief Report whether a configuration would be accepted by create/setConfig.
+ * @param desiredControlAxes_B [-] control body axis selection (x, y, z); nonzero selects the axis, and a
+ * @param rwConfiguration      [-] reaction-wheel spin axes and per-wheel availability. Every slot is
+ * @param omegaGain            [-] RW null-space feedback gain; must be finite and non-negative.
+ * @return true when the configuration is valid. Never throws, so it can guard the throwing
+ *         create/setConfig from an invalid configuration, including a control mapping matrix that is
+ *         not full rank.
+ */
+bool RwMotorTorqueAlgorithm_validateConfig(const RwMotorTorqueControlAxes_c* desiredControlAxes_B,
+                                           const RwMotorTorqueArrayConfiguration_c* rwConfiguration,
+                                           float omegaGain);
 
 /**
  * @brief Construct a new RwMotorTorqueAlgorithm instance from the supplied configuration.

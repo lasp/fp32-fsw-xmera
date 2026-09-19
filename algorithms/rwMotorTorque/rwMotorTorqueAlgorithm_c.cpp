@@ -2,6 +2,7 @@
 #include "rwMotorTorqueAlgorithm.h"
 #include "rwMotorTorqueTypes.h"
 #include "utilities/fsw/eigenSupport.h"
+#include "utilities/fsw/freestandingInvalidArgument.h"
 #include "utilities/fsw/opaqueHandle.h"
 
 #include <Eigen/Core>
@@ -28,6 +29,19 @@ RwMotorTorqueConfig configFromC(const RwMotorTorqueControlAxes_c& desiredControl
 }  // namespace
 
 uint32_t RwMotorTorqueAlgorithm_getMaxNumRw(void) { return kMaxNumRw; }
+
+bool RwMotorTorqueAlgorithm_validateConfig(const RwMotorTorqueControlAxes_c* desiredControlAxes_B,
+                                           const RwMotorTorqueArrayConfiguration_c* rwConfiguration,
+                                           float omegaGain) {
+    // Build the config through the same path create() uses: success means valid, a throw means invalid.
+    // Sharing configFromC keeps the predicate from drifting from what create() accepts.
+    try {
+        (void)configFromC(*desiredControlAxes_B, *rwConfiguration, omegaGain);
+        return true;
+    } catch (const fsw::invalid_argument&) {
+        return false;
+    }
+}
 
 RwMotorTorqueAlgorithmHandle* RwMotorTorqueAlgorithm_create(const RwMotorTorqueControlAxes_c* desiredControlAxes_B,
                                                             const RwMotorTorqueArrayConfiguration_c* rwConfiguration,
