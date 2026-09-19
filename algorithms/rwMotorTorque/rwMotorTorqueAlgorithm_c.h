@@ -15,6 +15,13 @@ extern "C" {
 typedef struct RwMotorTorqueAlgorithmHandle RwMotorTorqueAlgorithmHandle;
 
 /**
+ * @brief Control body axis selection, so the bound is part of the type at the C boundary.
+ */
+typedef struct {
+    uint8_t axis[3]; /*!< [-] x, y, z; nonzero selects the axis */
+} RwMotorTorqueControlAxes_c;
+
+/**
  * @brief Get the kMaxNumRw constant for Ada validation.
  * @return The maximum number of reaction wheels handled at the C boundary.
  */
@@ -23,15 +30,20 @@ uint32_t RwMotorTorqueAlgorithm_getMaxNumRw(void);
 /**
  * @brief Construct a new RwMotorTorqueAlgorithm instance from the supplied configuration.
  *
- * The configuration carries the control axes, the reaction-wheel spin-axis configuration, the
- * per-wheel availability, and the null-space gain; the RW motor torque mapping and the
- * null-space projection are computed during construction.
- *
- * @param config Pointer to the configuration to apply (validated; throws on invalid input or if the
- *               resulting control mapping matrix is not full rank).
+ * The RW motor torque mapping and the null-space projection are computed during construction.
+ * Validate the values with validateConfig first; invalid input throws, as does a control mapping
+ * matrix that is not full rank.
+ * @param desiredControlAxes_B [-] control body axis selection (x, y, z); nonzero selects the axis, and a
+ *                             minimum of one must be selected.
+ * @param rwConfiguration      [-] reaction-wheel spin axes and per-wheel availability. Every slot is
+ *                             configured: each spin axis must be a unit vector, and a slot carrying no wheel
+ *                             is marked UNAVAILABLE.
+ * @param omegaGain            [-] RW null-space feedback gain; must be finite and non-negative.
  * @return Pointer to a new RwMotorTorqueAlgorithm (must be destroyed).
  */
-RwMotorTorqueAlgorithmHandle* RwMotorTorqueAlgorithm_create(const RwMotorTorqueConfig_c* config);
+RwMotorTorqueAlgorithmHandle* RwMotorTorqueAlgorithm_create(const RwMotorTorqueControlAxes_c* desiredControlAxes_B,
+                                                            const RwMotorTorqueArrayConfiguration_c* rwConfiguration,
+                                                            float omegaGain);
 
 /**
  * @brief Destroy a previously created RwMotorTorqueAlgorithm.
@@ -40,11 +52,21 @@ RwMotorTorqueAlgorithmHandle* RwMotorTorqueAlgorithm_create(const RwMotorTorqueC
 void RwMotorTorqueAlgorithm_destroy(RwMotorTorqueAlgorithmHandle* self);
 
 /**
- * @brief Replace the algorithm's configuration at runtime.
- * @param self   Pointer to the instance.
- * @param config Pointer to the configuration to apply (validated; throws on invalid input).
+ * @brief Replace the algorithm's configuration at runtime and recompute the mapping.
+ *
+ * Validate the values with validateConfig first; invalid input throws.
+ * @param self                 Pointer to the instance.
+ * @param desiredControlAxes_B [-] control body axis selection (x, y, z); nonzero selects the axis, and a
+ *                             minimum of one must be selected.
+ * @param rwConfiguration      [-] reaction-wheel spin axes and per-wheel availability. Every slot is
+ *                             configured: each spin axis must be a unit vector, and a slot carrying no wheel
+ *                             is marked UNAVAILABLE.
+ * @param omegaGain            [-] RW null-space feedback gain; must be finite and non-negative.
  */
-void RwMotorTorqueAlgorithm_setConfig(RwMotorTorqueAlgorithmHandle* self, const RwMotorTorqueConfig_c* config);
+void RwMotorTorqueAlgorithm_setConfig(RwMotorTorqueAlgorithmHandle* self,
+                                      const RwMotorTorqueControlAxes_c* desiredControlAxes_B,
+                                      const RwMotorTorqueArrayConfiguration_c* rwConfiguration,
+                                      float omegaGain);
 
 /**
  * @brief Compute the per-wheel motor torques (control mapping + null-space) for a body torque.

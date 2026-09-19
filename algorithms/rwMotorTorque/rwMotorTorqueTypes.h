@@ -20,17 +20,6 @@ typedef struct {
 } RwMotorTorqueArrayConfiguration_c;
 
 /**
- * @brief Plain-old-data mirror of the C++ RwMotorTorqueConfig.
- *
- *  - desiredControlAxes selects which body axes (x, y, z) to control; at least one must be nonzero.
- */
-typedef struct {
-    uint8_t desiredControlAxes[3];                     /*!< [-] control body axis (x, y, z); nonzero = controlled */
-    RwMotorTorqueArrayConfiguration_c rwConfiguration; /*!< [-] reaction-wheel spin-axis configuration */
-    float omegaGain;                                   /*!< [-] RW null-space feedback gain (>= 0) */
-} RwMotorTorqueConfig_c;
-
-/**
  * @brief Plain-old-data carrier for a per-wheel RW speed vector (current or desired).
  */
 typedef struct {

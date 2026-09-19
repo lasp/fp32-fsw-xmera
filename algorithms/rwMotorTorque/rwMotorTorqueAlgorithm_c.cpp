@@ -16,25 +16,36 @@ RwMotorTorqueArrayConfiguration arrayConfigurationFromC(const RwMotorTorqueArray
     return out;
 }
 
-RwMotorTorqueConfig configFromC(const RwMotorTorqueConfig_c& c) {
-    const std::array<bool, 3> desiredControlAxes_B{
-        c.desiredControlAxes[0] != 0, c.desiredControlAxes[1] != 0, c.desiredControlAxes[2] != 0};
-    return RwMotorTorqueConfig::create(desiredControlAxes_B, arrayConfigurationFromC(c.rwConfiguration), c.omegaGain);
+// Reassemble the flattened C arguments into the C++ configuration structs. The flat argument list is the
+// shape of the extern "C" boundary only; RwMotorTorqueConfig::create remains the single validation authority.
+RwMotorTorqueConfig configFromC(const RwMotorTorqueControlAxes_c& desiredControlAxes_B,
+                                const RwMotorTorqueArrayConfiguration_c& rwConfiguration,
+                                const float omegaGain) {
+    const std::array<bool, 3> axes{
+        desiredControlAxes_B.axis[0] != 0, desiredControlAxes_B.axis[1] != 0, desiredControlAxes_B.axis[2] != 0};
+    return RwMotorTorqueConfig::create(axes, arrayConfigurationFromC(rwConfiguration), omegaGain);
 }
 }  // namespace
 
 uint32_t RwMotorTorqueAlgorithm_getMaxNumRw(void) { return kMaxNumRw; }
 
-RwMotorTorqueAlgorithmHandle* RwMotorTorqueAlgorithm_create(const RwMotorTorqueConfig_c* config) {
-    return fsw::createHandle<::RwMotorTorqueAlgorithm, RwMotorTorqueAlgorithmHandle>(configFromC(*config));
+RwMotorTorqueAlgorithmHandle* RwMotorTorqueAlgorithm_create(const RwMotorTorqueControlAxes_c* desiredControlAxes_B,
+                                                            const RwMotorTorqueArrayConfiguration_c* rwConfiguration,
+                                                            const float omegaGain) {
+    return fsw::createHandle<::RwMotorTorqueAlgorithm, RwMotorTorqueAlgorithmHandle>(
+        configFromC(*desiredControlAxes_B, *rwConfiguration, omegaGain));
 }
 
 void RwMotorTorqueAlgorithm_destroy(RwMotorTorqueAlgorithmHandle* self) {
     fsw::deleteHandle<::RwMotorTorqueAlgorithm>(self);
 }
 
-void RwMotorTorqueAlgorithm_setConfig(RwMotorTorqueAlgorithmHandle* self, const RwMotorTorqueConfig_c* config) {
-    fsw::fromHandle<::RwMotorTorqueAlgorithm>(self)->setConfig(configFromC(*config));
+void RwMotorTorqueAlgorithm_setConfig(RwMotorTorqueAlgorithmHandle* self,
+                                      const RwMotorTorqueControlAxes_c* desiredControlAxes_B,
+                                      const RwMotorTorqueArrayConfiguration_c* rwConfiguration,
+                                      const float omegaGain) {
+    fsw::fromHandle<::RwMotorTorqueAlgorithm>(self)->setConfig(
+        configFromC(*desiredControlAxes_B, *rwConfiguration, omegaGain));
 }
 
 RwMotorTorqueOutput_c RwMotorTorqueAlgorithm_update(const RwMotorTorqueAlgorithmHandle* self,
