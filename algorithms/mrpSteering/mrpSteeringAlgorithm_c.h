@@ -18,6 +18,27 @@ extern "C" {
 typedef struct MrpSteeringAlgorithmHandle MrpSteeringAlgorithmHandle;
 
 /**
+ * @brief RW spin axes in body frame, three components per wheel in row major order.
+ */
+typedef struct {
+    float data[3 * RW_EFF_CNT]; /*!< [-] three components per wheel */
+} MrpSteeringRwSpinAxes_c;
+
+/**
+ * @brief Per-wheel spin-axis inertia, one entry per wheel slot.
+ */
+typedef struct {
+    float data[RW_EFF_CNT]; /*!< [kg*m^2] one entry per wheel */
+} MrpSteeringRwInertias_c;
+
+/**
+ * @brief Availability of each wheel slot, one byte per slot: 0 available, 1 unavailable.
+ */
+typedef struct {
+    uint8_t availability[RW_EFF_CNT]; /*!< [-] one entry per wheel */
+} MrpSteeringRwAvailability_c;
+
+/**
  * @brief Get the kMaxNumRw constant for Ada validation.
  * @return The maximum number of reaction wheels handled at the C boundary.
  */
@@ -49,7 +70,9 @@ bool MrpSteeringAlgorithm_validateConfig(float K1,
                                          float controlPeriod,
                                          const Vector3f_c* knownTorquePntB_B,
                                          const Matrix3f_c* ISCPntB_B,
-                                         const MrpSteeringRwConfig_c* rwConfiguration);
+                                         const MrpSteeringRwSpinAxes_c* GsMatrix_B,
+                                         const MrpSteeringRwInertias_c* JsList,
+                                         const MrpSteeringRwAvailability_c* wheelAvailability);
 
 /**
  * @brief Construct a new MrpSteeringAlgorithm instance from the supplied configuration.
@@ -63,8 +86,10 @@ bool MrpSteeringAlgorithm_validateConfig(float K1,
  * @param controlPeriod              [s]     time between two update calls; must be > 0.
  * @param knownTorquePntB_B          [N*m]   known external torque in body-frame components.
  * @param ISCPntB_B                  [kg*m^2] spacecraft inertia about point B; must be a valid inertia matrix.
- * @param rwConfiguration            [-]     reaction-wheel configuration, or NULL to omit the reaction-wheel
- *                                           terms.
+ * @param GsMatrix_B                 [-]     RW spin axes, three per wheel in row major order, or NULL to omit
+ *                                           the reaction-wheel terms. The other two are then ignored.
+ * @param JsList                     [kg*m^2] per-wheel spin-axis inertia.
+ * @param wheelAvailability          [-]     availability of each wheel: 0 available, 1 unavailable.
  * @return Pointer to a new MrpSteeringAlgorithm (must be destroyed).
  */
 MrpSteeringAlgorithmHandle* MrpSteeringAlgorithm_create(float K1,
@@ -77,7 +102,9 @@ MrpSteeringAlgorithmHandle* MrpSteeringAlgorithm_create(float K1,
                                                         float controlPeriod,
                                                         const Vector3f_c* knownTorquePntB_B,
                                                         const Matrix3f_c* ISCPntB_B,
-                                                        const MrpSteeringRwConfig_c* rwConfiguration);
+                                                        const MrpSteeringRwSpinAxes_c* GsMatrix_B,
+                                                        const MrpSteeringRwInertias_c* JsList,
+                                                        const MrpSteeringRwAvailability_c* wheelAvailability);
 
 /**
  * @brief Destroy a previously created MrpSteeringAlgorithm.
@@ -98,8 +125,10 @@ void MrpSteeringAlgorithm_destroy(MrpSteeringAlgorithmHandle* self);
  * @param controlPeriod              [s]     time between two update calls; must be > 0.
  * @param knownTorquePntB_B          [N*m]   known external torque in body-frame components.
  * @param ISCPntB_B                  [kg*m^2] spacecraft inertia about point B; must be a valid inertia matrix.
- * @param rwConfiguration            [-]     reaction-wheel configuration, or NULL to omit the reaction-wheel
- *                                           terms.
+ * @param GsMatrix_B                 [-]     RW spin axes, three per wheel in row major order, or NULL to omit
+ *                                           the reaction-wheel terms. The other two are then ignored.
+ * @param JsList                     [kg*m^2] per-wheel spin-axis inertia.
+ * @param wheelAvailability          [-]     availability of each wheel: 0 available, 1 unavailable.
  */
 void MrpSteeringAlgorithm_setConfig(MrpSteeringAlgorithmHandle* self,
                                     float K1,
@@ -112,7 +141,9 @@ void MrpSteeringAlgorithm_setConfig(MrpSteeringAlgorithmHandle* self,
                                     float controlPeriod,
                                     const Vector3f_c* knownTorquePntB_B,
                                     const Matrix3f_c* ISCPntB_B,
-                                    const MrpSteeringRwConfig_c* rwConfiguration);
+                                    const MrpSteeringRwSpinAxes_c* GsMatrix_B,
+                                    const MrpSteeringRwInertias_c* JsList,
+                                    const MrpSteeringRwAvailability_c* wheelAvailability);
 
 /**
  * @brief Reset the integrating runtime state (zero the integral of the rate tracking error).

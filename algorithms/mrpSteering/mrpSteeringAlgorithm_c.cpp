@@ -9,12 +9,17 @@
 #include <optional>
 
 namespace {
-InputRwData rwConfigFromC(const MrpSteeringRwConfig_c& c) {
+InputRwData rwConfigFromC(const MrpSteeringRwSpinAxes_c& GsMatrix_B,
+                          const MrpSteeringRwInertias_c& JsList,
+                          const MrpSteeringRwAvailability_c& wheelAvailability) {
     InputRwData out{};
-    out.GsMatrix_B = cArrayToEigenMatrix<float, 3, kMaxNumRw>(c.GsMatrix_B);
+    out.GsMatrix_B = cArrayToEigenMatrix<float, 3, kMaxNumRw>(GsMatrix_B.data);
     for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
-        out.JsList[i] = c.JsList[i];
-        out.wheelAvailability[i] = fsw::toDeviceAvailability(c.wheelAvailability[i]);
+        out.JsList[i] = JsList.data[i];
+        // DEVICE_AVAILABLE is 0 and DEVICE_UNAVAILABLE is 1, so the byte is an enumerator value and not a
+        // boolean flag. Converting through toDeviceAvailability keeps any other value out.
+        out.wheelAvailability[i] =
+            fsw::toDeviceAvailability(static_cast<DeviceAvailability_c>(wheelAvailability.availability[i]));
     }
     return out;
 }
@@ -29,7 +34,9 @@ MrpSteeringConfig configFromC(const float K1,
                               const float controlPeriod,
                               const Vector3f_c& knownTorquePntB_B,
                               const Matrix3f_c& ISCPntB_B,
-                              const MrpSteeringRwConfig_c* rwConfigurationC) {
+                              const MrpSteeringRwSpinAxes_c* GsMatrix_BC,
+                              const MrpSteeringRwInertias_c* JsListC,
+                              const MrpSteeringRwAvailability_c* wheelAvailabilityC) {
     const MrpSteeringControlParameters controlParameters{
         .K1 = K1,
         .K3 = K3,
@@ -42,8 +49,9 @@ MrpSteeringConfig configFromC(const float K1,
     };
 
     std::optional<InputRwData> rwConfiguration;
-    if (rwConfigurationC != nullptr) {
-        rwConfiguration = rwConfigFromC(*rwConfigurationC);
+    // A null spin-axis array omits the reaction-wheel terms; the other two are then unused.
+    if (GsMatrix_BC != nullptr) {
+        rwConfiguration = rwConfigFromC(*GsMatrix_BC, *JsListC, *wheelAvailabilityC);
     }
 
     return MrpSteeringConfig::create(controlParameters,
@@ -65,7 +73,9 @@ bool MrpSteeringAlgorithm_validateConfig(float K1,
                                          float controlPeriod,
                                          const Vector3f_c* knownTorquePntB_B,
                                          const Matrix3f_c* ISCPntB_B,
-                                         const MrpSteeringRwConfig_c* rwConfiguration) {
+                                         const MrpSteeringRwSpinAxes_c* GsMatrix_B,
+                                         const MrpSteeringRwInertias_c* JsList,
+                                         const MrpSteeringRwAvailability_c* wheelAvailability) {
     // Build the config through the same path create() uses: success means valid, a throw means
     // invalid. Sharing configFromC keeps the predicate from drifting from what create() accepts.
     try {
@@ -79,7 +89,9 @@ bool MrpSteeringAlgorithm_validateConfig(float K1,
                           controlPeriod,
                           *knownTorquePntB_B,
                           *ISCPntB_B,
-                          rwConfiguration);
+                          GsMatrix_B,
+                          JsList,
+                          wheelAvailability);
         return true;
     } catch (const fsw::invalid_argument&) {
         return false;
@@ -96,7 +108,9 @@ MrpSteeringAlgorithmHandle* MrpSteeringAlgorithm_create(float K1,
                                                         float controlPeriod,
                                                         const Vector3f_c* knownTorquePntB_B,
                                                         const Matrix3f_c* ISCPntB_B,
-                                                        const MrpSteeringRwConfig_c* rwConfiguration) {
+                                                        const MrpSteeringRwSpinAxes_c* GsMatrix_B,
+                                                        const MrpSteeringRwInertias_c* JsList,
+                                                        const MrpSteeringRwAvailability_c* wheelAvailability) {
     return fsw::createHandle<::MrpSteeringAlgorithm, MrpSteeringAlgorithmHandle>(configFromC(K1,
                                                                                              K3,
                                                                                              omegaMax,
@@ -107,7 +121,9 @@ MrpSteeringAlgorithmHandle* MrpSteeringAlgorithm_create(float K1,
                                                                                              controlPeriod,
                                                                                              *knownTorquePntB_B,
                                                                                              *ISCPntB_B,
-                                                                                             rwConfiguration));
+                                                                                             GsMatrix_B,
+                                                                                             JsList,
+                                                                                             wheelAvailability));
 }
 
 void MrpSteeringAlgorithm_destroy(MrpSteeringAlgorithmHandle* self) { fsw::deleteHandle<::MrpSteeringAlgorithm>(self); }
@@ -123,7 +139,9 @@ void MrpSteeringAlgorithm_setConfig(MrpSteeringAlgorithmHandle* self,
                                     float controlPeriod,
                                     const Vector3f_c* knownTorquePntB_B,
                                     const Matrix3f_c* ISCPntB_B,
-                                    const MrpSteeringRwConfig_c* rwConfiguration) {
+                                    const MrpSteeringRwSpinAxes_c* GsMatrix_B,
+                                    const MrpSteeringRwInertias_c* JsList,
+                                    const MrpSteeringRwAvailability_c* wheelAvailability) {
     fsw::fromHandle<::MrpSteeringAlgorithm>(self)->setConfig(configFromC(K1,
                                                                          K3,
                                                                          omegaMax,
@@ -134,7 +152,9 @@ void MrpSteeringAlgorithm_setConfig(MrpSteeringAlgorithmHandle* self,
                                                                          controlPeriod,
                                                                          *knownTorquePntB_B,
                                                                          *ISCPntB_B,
-                                                                         rwConfiguration));
+                                                                         GsMatrix_B,
+                                                                         JsList,
+                                                                         wheelAvailability));
 }
 
 void MrpSteeringAlgorithm_reInitialize(MrpSteeringAlgorithmHandle* self) {
