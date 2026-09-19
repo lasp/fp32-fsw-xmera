@@ -93,7 +93,7 @@ inline ReferenceOutput referenceUpdate(const MrpSteeringControlParameters& param
         cArrayToEigenMatrix<float, 3, kMaxNumRw>(rwConfigParams.GsMatrix_B);
 
     Eigen::Vector3f H_B = ISCPntB_B * omega_BN_B;
-    for (Eigen::Index i = 0; i < rwConfigParams.numRW; ++i) {
+    for (Eigen::Index i = 0; i < kMaxNumRw; ++i) {
         if (wheelsAvailability.wheelAvailability[i] == AVAILABLE) { /* check if wheel is available */
             const Eigen::Vector3f G_s_B_i = G_s_B.col(i).normalized();
             const Eigen::Vector3f h_s_i =
@@ -190,7 +190,6 @@ inline void testMrpSteering(const Eigen::Vector3f& sigma,
                             const Eigen::Vector3f& domega_RN_B,
                             std::vector<float> wheelSpeedsVec,
                             std::vector<bool> wheelAvailabilityBool,
-                            int numRW,
                             std::vector<float> JsList,
                             std::vector<float> GsMatrix_B,
                             std::vector<float> ISCPntB_B,
@@ -200,8 +199,6 @@ inline void testMrpSteering(const Eigen::Vector3f& sigma,
     // mission holds. Fail loudly instead of writing past those arrays, and treat a short inertia input as an
     // error rather than reading past its end.
     constexpr auto maxRw = static_cast<std::size_t>(kMaxNumRw);
-    ASSERT_GE(numRW, 0);
-    ASSERT_LE(numRW, kMaxNumRw);
     ASSERT_EQ(ISCPntB_B.size(), 9U);
 
     const Eigen::Matrix3f ISC_B = cArrayToEigenMatrix3(ISCPntB_B.data());
@@ -216,7 +213,6 @@ inline void testMrpSteering(const Eigen::Vector3f& sigma,
             rwInputData.GsMatrix_B(static_cast<Eigen::Index>(k % 3), static_cast<Eigen::Index>(k / 3)) = GsMatrix_B[k];
         }
         std::copy_n(JsList.begin(), std::min(JsList.size(), maxRw), rwInputData.JsList.begin());
-        rwInputData.numRW = static_cast<uint32_t>(numRW);
         for (std::size_t i = 0U; i < wheelAvailabilityBool.size() && i < maxRw; ++i) {
             if (wheelAvailabilityBool[i]) {
                 rwInputData.wheelAvailability[i] = fsw::DeviceAvailability::Unavailable;
@@ -225,7 +221,7 @@ inline void testMrpSteering(const Eigen::Vector3f& sigma,
 
         // The config requires (near-)unit spin axes; normalize the active columns before constructing it. Skip
         // inputs with a degenerate (near-zero) spin axis that cannot be normalized.
-        for (uint32_t i = 0U; i < rwInputData.numRW; ++i) {
+        for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
             const float colNorm = rwInputData.GsMatrix_B.col(static_cast<int>(i)).norm();
             if (colNorm < 1e-6F) {
                 return;
@@ -274,7 +270,7 @@ inline void testMrpSteering(const Eigen::Vector3f& sigma,
 
     RWArrayConfigMsgF32Payload rwConfigMsg{};
     if (rwIsLinked) {
-        rwConfigMsg.numRW = numRW;
+        rwConfigMsg.numRW = static_cast<int>(kMaxNumRw);
         std::copy_n(JsList.begin(), std::min(JsList.size(), maxRw), rwConfigMsg.JsList);
         // Feed the reference the same pre-normalized spin axes the algorithm uses (column-major), so its
         // normalization matches the config's and the reaction-wheel momentum term stays bit-identical.

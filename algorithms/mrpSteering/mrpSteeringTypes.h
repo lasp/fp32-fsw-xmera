@@ -29,11 +29,11 @@ typedef struct {
 /**
  * @brief Plain-old-data mirror of the C++ InputRwData (reaction-wheel configuration).
  *
- * numRW must not exceed RW_EFF_CNT, and each active spin axis (column of GsMatrix_B) must be a
- * unit vector; the spin axes are normalized when the configuration is built.
+ * Every wheel slot is configured: each spin axis (column of GsMatrix_B) must be a unit vector, and
+ * the spin axes are normalized when the configuration is built. A slot that carries no wheel is
+ * marked UNAVAILABLE in wheelAvailability.
  */
 typedef struct {
-    uint32_t numRW;                                     /*!< [-] number of reaction wheels on the vehicle */
     float GsMatrix_B[3 * RW_EFF_CNT];                   /*!< [-] RW spin axes in body frame, three per wheel */
     float JsList[RW_EFF_CNT];                           /*!< [kg*m^2] per-wheel spin-axis inertia */
     DeviceAvailability_c wheelAvailability[RW_EFF_CNT]; /*!< [-] AVAILABLE / UNAVAILABLE state of each wheel */

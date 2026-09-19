@@ -32,7 +32,6 @@ void MrpSteering::reset(const uint64_t callTime) {
         InputRwData rwData{};
         rwData.GsMatrix_B = cArrayToEigenMatrix<float, 3, kMaxNumRw>(rwConfigParams.GsMatrix_B);
         std::copy(std::begin(rwConfigParams.JsList), std::end(rwConfigParams.JsList), std::begin(rwData.JsList));
-        rwData.numRW = static_cast<uint32_t>(rwConfigParams.numRW);
         if (this->rwAvailInMsg.isLinked()) {
             const RWAvailabilityMsgPayload wheelAvailabilityMsg = this->rwAvailInMsg();
             std::ranges::transform(wheelAvailabilityMsg.wheelAvailability,
@@ -67,7 +66,6 @@ MrpSteeringConfig MrpSteering::toConfig() {
         InputRwData rwData{};
         rwData.GsMatrix_B = cArrayToEigenMatrix<float, 3, kMaxNumRw>(rwConfigParams.GsMatrix_B);
         std::copy(std::begin(rwConfigParams.JsList), std::end(rwConfigParams.JsList), std::begin(rwData.JsList));
-        rwData.numRW = static_cast<uint32_t>(rwConfigParams.numRW);
         if (this->rwAvailInMsg.isLinked()) {
             const RWAvailabilityMsgPayload wheelAvailabilityMsg = this->rwAvailInMsg();
             std::ranges::transform(wheelAvailabilityMsg.wheelAvailability,
