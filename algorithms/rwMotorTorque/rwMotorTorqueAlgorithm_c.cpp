@@ -8,11 +8,15 @@
 #include <Eigen/Core>
 
 namespace {
-RwMotorTorqueArrayConfiguration arrayConfigurationFromC(const RwMotorTorqueArrayConfiguration_c& c) {
+RwMotorTorqueArrayConfiguration arrayConfigurationFromC(const RwMotorTorqueRwSpinAxes_c& GsMatrix_B,
+                                                        const RwMotorTorqueRwAvailability_c& wheelAvailability) {
     RwMotorTorqueArrayConfiguration out{};
-    out.GsMatrix_B = cArrayToEigenMatrix<float, 3, kMaxNumRw>(c.GsMatrix_B);
+    out.GsMatrix_B = cArrayToEigenMatrix<float, 3, kMaxNumRw>(GsMatrix_B.data);
     for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
-        out.wheelAvailability[i] = fsw::toDeviceAvailability(c.wheelAvailability[i]);
+        // DEVICE_AVAILABLE is 0 and DEVICE_UNAVAILABLE is 1, so the byte is an enumerator value and not a
+        // boolean flag. Converting through toDeviceAvailability keeps any other value out.
+        out.wheelAvailability[i] =
+            fsw::toDeviceAvailability(static_cast<DeviceAvailability_c>(wheelAvailability.availability[i]));
     }
     return out;
 }
@@ -20,23 +24,25 @@ RwMotorTorqueArrayConfiguration arrayConfigurationFromC(const RwMotorTorqueArray
 // Reassemble the flattened C arguments into the C++ configuration structs. The flat argument list is the
 // shape of the extern "C" boundary only; RwMotorTorqueConfig::create remains the single validation authority.
 RwMotorTorqueConfig configFromC(const RwMotorTorqueControlAxes_c& desiredControlAxes_B,
-                                const RwMotorTorqueArrayConfiguration_c& rwConfiguration,
+                                const RwMotorTorqueRwSpinAxes_c& GsMatrix_B,
+                                const RwMotorTorqueRwAvailability_c& wheelAvailability,
                                 const float omegaGain) {
     const std::array<bool, 3> axes{
         desiredControlAxes_B.axis[0] != 0, desiredControlAxes_B.axis[1] != 0, desiredControlAxes_B.axis[2] != 0};
-    return RwMotorTorqueConfig::create(axes, arrayConfigurationFromC(rwConfiguration), omegaGain);
+    return RwMotorTorqueConfig::create(axes, arrayConfigurationFromC(GsMatrix_B, wheelAvailability), omegaGain);
 }
 }  // namespace
 
 uint32_t RwMotorTorqueAlgorithm_getMaxNumRw(void) { return kMaxNumRw; }
 
 bool RwMotorTorqueAlgorithm_validateConfig(const RwMotorTorqueControlAxes_c* desiredControlAxes_B,
-                                           const RwMotorTorqueArrayConfiguration_c* rwConfiguration,
+                                           const RwMotorTorqueRwSpinAxes_c* GsMatrix_B,
+                                           const RwMotorTorqueRwAvailability_c* wheelAvailability,
                                            float omegaGain) {
     // Build the config through the same path create() uses: success means valid, a throw means invalid.
     // Sharing configFromC keeps the predicate from drifting from what create() accepts.
     try {
-        (void)configFromC(*desiredControlAxes_B, *rwConfiguration, omegaGain);
+        (void)configFromC(*desiredControlAxes_B, *GsMatrix_B, *wheelAvailability, omegaGain);
         return true;
     } catch (const fsw::invalid_argument&) {
         return false;
@@ -44,10 +50,11 @@ bool RwMotorTorqueAlgorithm_validateConfig(const RwMotorTorqueControlAxes_c* des
 }
 
 RwMotorTorqueAlgorithmHandle* RwMotorTorqueAlgorithm_create(const RwMotorTorqueControlAxes_c* desiredControlAxes_B,
-                                                            const RwMotorTorqueArrayConfiguration_c* rwConfiguration,
+                                                            const RwMotorTorqueRwSpinAxes_c* GsMatrix_B,
+                                                            const RwMotorTorqueRwAvailability_c* wheelAvailability,
                                                             const float omegaGain) {
     return fsw::createHandle<::RwMotorTorqueAlgorithm, RwMotorTorqueAlgorithmHandle>(
-        configFromC(*desiredControlAxes_B, *rwConfiguration, omegaGain));
+        configFromC(*desiredControlAxes_B, *GsMatrix_B, *wheelAvailability, omegaGain));
 }
 
 void RwMotorTorqueAlgorithm_destroy(RwMotorTorqueAlgorithmHandle* self) {
@@ -56,10 +63,11 @@ void RwMotorTorqueAlgorithm_destroy(RwMotorTorqueAlgorithmHandle* self) {
 
 void RwMotorTorqueAlgorithm_setConfig(RwMotorTorqueAlgorithmHandle* self,
                                       const RwMotorTorqueControlAxes_c* desiredControlAxes_B,
-                                      const RwMotorTorqueArrayConfiguration_c* rwConfiguration,
+                                      const RwMotorTorqueRwSpinAxes_c* GsMatrix_B,
+                                      const RwMotorTorqueRwAvailability_c* wheelAvailability,
                                       const float omegaGain) {
     fsw::fromHandle<::RwMotorTorqueAlgorithm>(self)->setConfig(
-        configFromC(*desiredControlAxes_B, *rwConfiguration, omegaGain));
+        configFromC(*desiredControlAxes_B, *GsMatrix_B, *wheelAvailability, omegaGain));
 }
 
 RwMotorTorqueOutput_c RwMotorTorqueAlgorithm_update(const RwMotorTorqueAlgorithmHandle* self,

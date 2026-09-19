@@ -12,14 +12,6 @@ extern "C" {
 #endif
 
 /**
- * @brief Plain-old-data mirror of the C++ RwMotorTorqueArrayConfiguration.
- */
-typedef struct {
-    float GsMatrix_B[3 * RW_EFF_CNT];                   /*!< [-]   RW spin axes in body frame, three per wheel */
-    DeviceAvailability_c wheelAvailability[RW_EFF_CNT]; /*!< [-]   AVAILABLE / UNAVAILABLE state of each wheel */
-} RwMotorTorqueArrayConfiguration_c;
-
-/**
  * @brief Plain-old-data carrier for a per-wheel RW speed vector (current or desired).
  */
 typedef struct {

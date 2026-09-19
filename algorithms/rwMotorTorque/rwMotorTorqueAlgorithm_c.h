@@ -23,6 +23,20 @@ typedef struct {
 } RwMotorTorqueControlAxes_c;
 
 /**
+ * @brief RW spin axes in body frame, three components per wheel in row major order.
+ */
+typedef struct {
+    float data[3 * RW_EFF_CNT]; /*!< [-] three components per wheel */
+} RwMotorTorqueRwSpinAxes_c;
+
+/**
+ * @brief Availability of each wheel slot, one byte per slot: 0 available, 1 unavailable.
+ */
+typedef struct {
+    uint8_t availability[RW_EFF_CNT]; /*!< [-] one entry per wheel */
+} RwMotorTorqueRwAvailability_c;
+
+/**
  * @brief Get the kMaxNumRw constant for Ada validation.
  * @return The maximum number of reaction wheels handled at the C boundary.
  */
@@ -38,7 +52,8 @@ uint32_t RwMotorTorqueAlgorithm_getMaxNumRw(void);
  *         not full rank.
  */
 bool RwMotorTorqueAlgorithm_validateConfig(const RwMotorTorqueControlAxes_c* desiredControlAxes_B,
-                                           const RwMotorTorqueArrayConfiguration_c* rwConfiguration,
+                                           const RwMotorTorqueRwSpinAxes_c* GsMatrix_B,
+                                           const RwMotorTorqueRwAvailability_c* wheelAvailability,
                                            float omegaGain);
 
 /**
@@ -49,14 +64,16 @@ bool RwMotorTorqueAlgorithm_validateConfig(const RwMotorTorqueControlAxes_c* des
  * matrix that is not full rank.
  * @param desiredControlAxes_B [-] control body axis selection (x, y, z); nonzero selects the axis, and a
  *                             minimum of one must be selected.
- * @param rwConfiguration      [-] reaction-wheel spin axes and per-wheel availability. Every slot is
- *                             configured: each spin axis must be a unit vector, and a slot carrying no wheel
- *                             is marked UNAVAILABLE.
+ * @param GsMatrix_B           [-] RW spin axes, three per wheel in row major order. Every slot is
+ *                             configured, and each spin axis must be a unit vector.
+ * @param wheelAvailability    [-] availability of each wheel, one byte per slot: 0 available, 1 unavailable.
+ *                             A slot carrying no wheel is marked unavailable.
  * @param omegaGain            [-] RW null-space feedback gain; must be finite and non-negative.
  * @return Pointer to a new RwMotorTorqueAlgorithm (must be destroyed).
  */
 RwMotorTorqueAlgorithmHandle* RwMotorTorqueAlgorithm_create(const RwMotorTorqueControlAxes_c* desiredControlAxes_B,
-                                                            const RwMotorTorqueArrayConfiguration_c* rwConfiguration,
+                                                            const RwMotorTorqueRwSpinAxes_c* GsMatrix_B,
+                                                            const RwMotorTorqueRwAvailability_c* wheelAvailability,
                                                             float omegaGain);
 
 /**
@@ -72,14 +89,16 @@ void RwMotorTorqueAlgorithm_destroy(RwMotorTorqueAlgorithmHandle* self);
  * @param self                 Pointer to the instance.
  * @param desiredControlAxes_B [-] control body axis selection (x, y, z); nonzero selects the axis, and a
  *                             minimum of one must be selected.
- * @param rwConfiguration      [-] reaction-wheel spin axes and per-wheel availability. Every slot is
- *                             configured: each spin axis must be a unit vector, and a slot carrying no wheel
- *                             is marked UNAVAILABLE.
+ * @param GsMatrix_B           [-] RW spin axes, three per wheel in row major order. Every slot is
+ *                             configured, and each spin axis must be a unit vector.
+ * @param wheelAvailability    [-] availability of each wheel, one byte per slot: 0 available, 1 unavailable.
+ *                             A slot carrying no wheel is marked unavailable.
  * @param omegaGain            [-] RW null-space feedback gain; must be finite and non-negative.
  */
 void RwMotorTorqueAlgorithm_setConfig(RwMotorTorqueAlgorithmHandle* self,
                                       const RwMotorTorqueControlAxes_c* desiredControlAxes_B,
-                                      const RwMotorTorqueArrayConfiguration_c* rwConfiguration,
+                                      const RwMotorTorqueRwSpinAxes_c* GsMatrix_B,
+                                      const RwMotorTorqueRwAvailability_c* wheelAvailability,
                                       float omegaGain);
 
 /**
