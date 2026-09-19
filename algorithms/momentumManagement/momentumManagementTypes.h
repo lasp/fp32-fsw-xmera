@@ -14,10 +14,13 @@ extern "C" {
  *
  *  - GsMatrix_B holds the RW spin axes, three components per wheel; every axis must be a unit
  *    vector.
+ *  - wheelAvailability marks each wheel AVAILABLE or UNAVAILABLE; an unavailable wheel contributes
+ *    no momentum.
  */
 typedef struct {
-    float GsMatrix_B[3 * RW_EFF_CNT]; /*!< [-]    RW spin axes, three per wheel */
-    float JsList[RW_EFF_CNT];         /*!< [kgm2] RW spin-axis inertias */
+    float GsMatrix_B[3 * RW_EFF_CNT];                   /*!< [-]    RW spin axes, three per wheel */
+    float JsList[RW_EFF_CNT];                           /*!< [kgm2] RW spin-axis inertias */
+    DeviceAvailability_c wheelAvailability[RW_EFF_CNT]; /*!< [-] AVAILABLE / UNAVAILABLE state of each wheel */
 } MomentumManagementRwArrayConfiguration_c;
 
 /**

@@ -37,7 +37,10 @@ Eigen::Vector3f MomentumManagementAlgorithm::update(const Eigen::Vector<float, k
     const MomentumManagementRwArrayConfiguration& rwArrayConfig = this->cfg.getRwArrayConfiguration();
     Eigen::Vector3f hs_B = Eigen::Vector3f::Zero(); /* RW angular momentum */
     for (uint32_t i = 0; i < kMaxNumRw; ++i) {
-        hs_B += rwArrayConfig.JsList(i) * wheelSpeeds(i) * rwArrayConfig.GsMatrix_B.col(i);
+        /*! - an unavailable wheel reports no usable speed, so it contributes no momentum */
+        if (rwArrayConfig.wheelAvailability.at(i) == fsw::DeviceAvailability::Available) {
+            hs_B += rwArrayConfig.JsList(i) * wheelSpeeds(i) * rwArrayConfig.GsMatrix_B.col(i);
+        }
     }
 
     /*! - keep only the momentum the effectors can dump. Momentum they cannot remove must not reach the law: it
