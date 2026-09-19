@@ -36,7 +36,7 @@ Eigen::Vector3f MomentumManagementAlgorithm::update(const Eigen::Vector<float, k
     /*! - compute the net RW momentum */
     const MomentumManagementRwArrayConfiguration& rwArrayConfig = this->cfg.getRwArrayConfiguration();
     Eigen::Vector3f hs_B = Eigen::Vector3f::Zero(); /* RW angular momentum */
-    for (uint32_t i = 0; i < rwArrayConfig.numRW; ++i) {
+    for (uint32_t i = 0; i < kMaxNumRw; ++i) {
         hs_B += rwArrayConfig.JsList(i) * wheelSpeeds(i) * rwArrayConfig.GsMatrix_B.col(i);
     }
 

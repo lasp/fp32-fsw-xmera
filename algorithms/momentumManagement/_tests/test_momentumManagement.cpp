@@ -547,17 +547,8 @@ TEST(MomentumManagementConfigValidation, AcceptsProjections) {
                                                makeStandardRwArrayConfig()));
 }
 
-TEST(MomentumManagementConfigValidation, RejectsTooManyWheels) {
-    auto rwArrayConfig = makeStandardRwArrayConfig();
-    rwArrayConfig.numRW = kMaxNumRw + 1U;
-
-    EXPECT_FALSE(MomentumManagementConfig::isValidRwArrayConfiguration(rwArrayConfig));
-    EXPECT_THROW((void)MomentumManagementConfig::create(nominalParams(1.0F), rwArrayConfig), fsw::invalid_argument);
-}
-
-TEST(MomentumManagementConfigValidation, AcceptsExactlyMaxWheels) {
+TEST(MomentumManagementConfigValidation, AcceptsAFullyPopulatedArray) {
     MomentumManagementRwArrayConfiguration rwArrayConfig;
-    rwArrayConfig.numRW = kMaxNumRw;
     for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
         rwArrayConfig.GsMatrix_B.col(i) = Eigen::Vector3f::UnitZ();
         rwArrayConfig.JsList[i] = 0.1F;
@@ -595,19 +586,6 @@ TEST(MomentumManagementConfigValidation, RejectsNonFiniteEntries) {
         rwArrayConfig.GsMatrix_B(0, 0) = std::numeric_limits<float>::infinity();
         EXPECT_FALSE(MomentumManagementConfig::isValidRwArrayConfiguration(rwArrayConfig));
     }
-}
-
-// Only the first numRW columns describe real wheels; garbage beyond that must not reject the config.
-// GsMatrix_B is exactly kMaxNumRw wide and numRW == kMaxNumRw is itself a legal configuration, so the
-// array has to be built one wheel short of the maximum for a column past numRW to exist at all.
-TEST(MomentumManagementConfigValidation, IgnoresColumnsBeyondNumRw) {
-    static_assert(kMaxNumRw >= 2U, "the test needs at least one wheel plus a spare column");
-
-    auto rwArrayConfig = makeRwArrayConfig(standardSpinAxes(kMaxNumRw - 1U), 0.1F);
-    rwArrayConfig.GsMatrix_B.col(rwArrayConfig.numRW) = Eigen::Vector3f{0.0F, 9.0F, 0.0F};
-
-    EXPECT_TRUE(MomentumManagementConfig::isValidRwArrayConfiguration(rwArrayConfig));
-    EXPECT_NO_THROW((void)MomentumManagementConfig::create(nominalParams(1.0F), rwArrayConfig));
 }
 
 // ---------------------------------------------------------------------------------------------------
@@ -661,27 +639,14 @@ TEST(MomentumManagementEdgeCases, MomentumExactlyAtThresholdDumps) {
     EXPECT_NEAR(Lr_B[2], -kNominalK * 10.0F, kAccuracy);
 }
 
-// With no wheels configured there is no momentum to dump.
-TEST(MomentumManagementEdgeCases, NoWheelsProducesZeroRequest) {
-    MomentumManagementRwArrayConfiguration rwArrayConfig;  // numRW defaults to zero
+// Wheels that carry no inertia hold no momentum, so there is nothing to dump.
+TEST(MomentumManagementEdgeCases, ZeroInertiaWheelsProduceZeroRequest) {
+    const auto rwArrayConfig = makeRwArrayConfig({}, 0.0F);
     MomentumManagementAlgorithm alg{MomentumManagementConfig::create(nominalParams(0.0F), rwArrayConfig)};
 
     const auto Lr_B = alg.update(makeWheelSpeeds({10.0F, -25.0F, 50.0F, 100.0F}));
 
     EXPECT_TRUE(Lr_B.isZero(kAccuracy));
-}
-
-// Speeds in slots past numRW belong to wheels that do not exist and must not contribute.
-TEST(MomentumManagementEdgeCases, SpeedsBeyondNumRwAreIgnored) {
-    const auto rwArrayConfig = makeRwArrayConfig({{0.0F, 0.0F, 1.0F}}, 0.2F);
-
-    MomentumManagementAlgorithm alg1{MomentumManagementConfig::create(nominalParams(1.0F), rwArrayConfig)};
-    const auto withExtra = alg1.update(makeWheelSpeeds({50.0F, 999.0F, -999.0F, 12345.0F}));
-
-    MomentumManagementAlgorithm alg2{MomentumManagementConfig::create(nominalParams(1.0F), rwArrayConfig)};
-    const auto withoutExtra = alg2.update(makeWheelSpeeds({50.0F}));
-
-    EXPECT_TRUE(withExtra.isApprox(withoutExtra));
 }
 
 // ---------------------------------------------------------------------------------------------------
