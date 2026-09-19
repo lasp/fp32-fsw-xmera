@@ -3,12 +3,14 @@
 
 #include "momentumManagementTypes.h"
 #include "msgPayloadDef/definitions.h"
+#include "utilities/fsw/deviceAvailability.h"
 #include "utilities/fsw/freestandingInvalidArgument.h"
 #include "utilities/fsw/freestandingIsFinite.hpp"
 #include <math.h>
 #include <stdint.h>
 
 #include <Eigen/Core>
+#include <array>
 #include <utility>
 
 /*! @brief Reaction-wheel spin-axis configuration used to compute the net cluster momentum. */
@@ -16,6 +18,8 @@ struct MomentumManagementRwArrayConfiguration {
     Eigen::Matrix<float, 3, kMaxNumRw> GsMatrix_B{
         Eigen::Matrix<float, 3, kMaxNumRw>::Zero()};  //!< [-] RW spin axes in body frame, one column per wheel
     Eigen::Vector<float, kMaxNumRw> JsList{Eigen::Vector<float, kMaxNumRw>::Zero()};  //!< [kgm2] RW spin-axis inertias
+    std::array<fsw::DeviceAvailability, kMaxNumRw>
+        wheelAvailability{};  //!< [-] AVAILABLE / UNAVAILABLE state of each wheel (fixed at reset)
 };
 
 /*! @brief Dumping threshold, feedback gains and integration step of the momentum management control law. */

@@ -639,6 +639,21 @@ TEST(MomentumManagementEdgeCases, MomentumExactlyAtThresholdDumps) {
     EXPECT_NEAR(Lr_B[2], -kNominalK * 10.0F, kAccuracy);
 }
 
+// An unavailable wheel reports no usable speed, so its momentum is invisible to the dumping law: the
+// request matches a cluster in which that wheel is not spinning at all.
+TEST(MomentumManagementEdgeCases, UnavailableWheelContributesNoMomentum) {
+    auto rwArrayConfig = makeStandardRwArrayConfig();
+    rwArrayConfig.wheelAvailability.at(1) = fsw::DeviceAvailability::Unavailable;
+    MomentumManagementAlgorithm alg{MomentumManagementConfig::create(nominalParams(0.0F), rwArrayConfig)};
+    const Eigen::Vector3f withUnavailable = alg.update(makeWheelSpeeds({10.0F, -25.0F, 50.0F, 100.0F}));
+
+    MomentumManagementAlgorithm reference{
+        MomentumManagementConfig::create(nominalParams(0.0F), makeStandardRwArrayConfig())};
+    const Eigen::Vector3f withWheelStopped = reference.update(makeWheelSpeeds({10.0F, 0.0F, 50.0F, 100.0F}));
+
+    EXPECT_TRUE(withUnavailable.isApprox(withWheelStopped));
+}
+
 // Wheels that carry no inertia hold no momentum, so there is nothing to dump.
 TEST(MomentumManagementEdgeCases, ZeroInertiaWheelsProduceZeroRequest) {
     const auto rwArrayConfig = makeRwArrayConfig({}, 0.0F);

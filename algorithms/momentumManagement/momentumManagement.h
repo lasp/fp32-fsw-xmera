@@ -11,6 +11,7 @@
 #include "msgPayloadDef/RWSpeedMsgF32Payload.h"
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
+#include <architecture/msgPayloadDef/RWAvailabilityMsgPayload.h>
 
 /*! @brief Assesses the net reaction wheel momentum and requests the torque needed to dump it. */
 class MomentumManagement : public SysModel {
@@ -37,6 +38,7 @@ class MomentumManagement : public SysModel {
     Message<CmdTorqueBodyMsgF32Payload> cmdTorqueOutMsg;        //!< [Nm] requested body-frame dumping torque
     ReadFunctor<RWSpeedMsgF32Payload> rwSpeedsInMsg;            //!< [r/s] reaction wheel speeds input message
     ReadFunctor<RWArrayConfigMsgF32Payload> rwConfigDataInMsg;  //!< [-] RW array configuration input message
+    ReadFunctor<RWAvailabilityMsgPayload> rwAvailInMsg;         //!< [-] RW availability input message (optional)
 
    private:
     MomentumManagementConfig toConfig();

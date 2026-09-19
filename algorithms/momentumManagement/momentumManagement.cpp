@@ -5,8 +5,10 @@
 
 #include "momentumManagement.h"
 #include "utilities/fsw/eigenSupport.h"
+#include "utilities/xmera/deviceAvailability.h"
 #include "utilities/xmera/xmeraLifecycleException.h"
 
+#include <algorithm>
 #include <memory>
 #include <stdexcept>
 
@@ -39,6 +41,13 @@ MomentumManagementConfig MomentumManagement::toConfig() {
     MomentumManagementRwArrayConfiguration rwArrayConfig;
     rwArrayConfig.GsMatrix_B = cArrayToEigenMatrix<float, 3, kMaxNumRw>(rwConfigParams.GsMatrix_B);
     rwArrayConfig.JsList = cArrayToEigenVector(rwConfigParams.JsList);
+    /*! - the availability message is optional; without it every wheel counts as available */
+    if (this->rwAvailInMsg.isLinked()) {
+        const RWAvailabilityMsgPayload availabilityMsg = this->rwAvailInMsg();
+        std::ranges::transform(availabilityMsg.wheelAvailability,
+                               std::begin(rwArrayConfig.wheelAvailability),
+                               [](const auto& sourceElement) { return fsw::toDeviceAvailability(sourceElement); });
+    }
 
     const MomentumManagementControlParameters controlParameters{.hsMin = this->hsMin,
                                                                 .K = this->K,

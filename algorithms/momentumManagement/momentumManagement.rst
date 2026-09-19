@@ -54,6 +54,10 @@ information on what this message is used for.
     * - rwConfigDataInMsg
       - :ref:`RWArrayConfigMsgF32Payload`
       - RW array configuration input message, read during ``reset()`` and ``reconfigure()``.
+    * - rwAvailInMsg
+      - :ref:`RWAvailabilityMsgPayload`
+      - Optional per-wheel availability input message, read during ``reset()`` and ``reconfigure()``. Without
+        it every wheel counts as available.
 
 Mathematical Formulation
 ------------------------
@@ -209,6 +213,10 @@ inertias finite, and every spin axis a unit vector to within :math:`10^{-3}`. Va
 on construction, so the momentum sum can rely on unit vectors. A slot that carries no wheel takes a zero
 spin-axis inertia, which contributes no momentum.
 
+An unavailable wheel reports no usable speed, so the module leaves it out of the momentum sum. The dumping
+law then sees the cluster as if that wheel were not spinning. Mark a slot UNAVAILABLE through
+``rwAvailInMsg`` when its wheel carries no usable speed.
+
 User Guide
 ----------
 
@@ -241,10 +249,14 @@ The module uses two-phase initialization: set the public configuration propertie
     module.rwSpeedsInMsg.subscribeTo(rw_speed_in_msg)
     module.rwConfigDataInMsg.subscribeTo(rw_config_in_msg)
 
+    # Optional: mark a wheel unavailable so its momentum is left out of the sum
+    module.rwAvailInMsg.subscribeTo(rw_avail_in_msg)
+
     # Phase 2: reset() validates the links and builds the config
     sim.AddModelToTask(task_name, module)
 
-Both input messages are required; ``reset()`` raises if either is unconnected.
+``rwSpeedsInMsg`` and ``rwConfigDataInMsg`` are required; ``reset()`` raises if either is unconnected.
+``rwAvailInMsg`` is optional.
 
 To push edited configuration properties onto a running algorithm without disturbing the integrator, call
 ``reconfigure()``. To re-seed the integrator itself, call ``reInitialize()``. The module also clears the
