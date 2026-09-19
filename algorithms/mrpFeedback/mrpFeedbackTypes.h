@@ -19,19 +19,6 @@ extern "C" {
 typedef enum { CONTROL_LAW_TYPE_NORMAL_C = 0, CONTROL_LAW_TYPE_SIMPLE_INTEGRAL_C = 1 } ControlLawType_c;
 
 /**
- * @brief Plain-old-data mirror of the C++ MrpFeedbackInputRwData (reaction-wheel configuration).
- *
- * Every wheel slot is configured: each spin axis (column of GsMatrix_B) must be a unit vector, and
- * the spin axes are normalized when the configuration is built. A slot that carries no wheel is
- * marked UNAVAILABLE in wheelAvailability.
- */
-typedef struct {
-    float GsMatrix_B[3 * RW_EFF_CNT];                   /*!< [-] RW spin axes in body frame, three per wheel */
-    float JsList[RW_EFF_CNT];                           /*!< [kg*m^2] per-wheel spin-axis inertia */
-    DeviceAvailability_c wheelAvailability[RW_EFF_CNT]; /*!< [-] AVAILABLE / UNAVAILABLE state of each wheel */
-} MrpFeedbackRwConfig_c;
-
-/**
  * @brief Plain-old-data mirror of the C++ algorithm guidance input.
  */
 typedef struct {
