@@ -1,5 +1,6 @@
 #include "momentumManagementAlgorithm_c.h"
 #include "momentumManagementAlgorithm.h"
+#include "utilities/fsw/deviceAvailability.h"
 #include "utilities/fsw/eigenSupport.h"
 #include "utilities/fsw/opaqueHandle.h"
 
@@ -18,6 +19,9 @@ MomentumManagementConfig makeConfig(float hsMin,
     MomentumManagementRwArrayConfiguration rwArrayConfigCpp;
     rwArrayConfigCpp.GsMatrix_B = cArrayToEigenMatrix<float, 3, kMaxNumRw>(rwArrayConfig->GsMatrix_B);
     rwArrayConfigCpp.JsList = cArrayToEigenVector(rwArrayConfig->JsList);
+    for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
+        rwArrayConfigCpp.wheelAvailability.at(i) = fsw::toDeviceAvailability(rwArrayConfig->wheelAvailability[i]);
+    }
 
     const MomentumManagementControlParameters controlParameters{
         .hsMin = hsMin,
