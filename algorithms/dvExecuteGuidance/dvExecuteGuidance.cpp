@@ -25,15 +25,17 @@ void DvExecuteGuidance::reset(const uint64_t callTime) {
 }
 
 void DvExecuteGuidance::reconfigure() {
-    if (this->algorithm) {
-        this->algorithm->setConfig(this->toConfig());
+    if (!this->algorithm) {
+        throw XmeraLifecycleException("DvExecuteGuidance reset() has not been called.");
     }
+    this->algorithm->setConfig(this->toConfig());
 }
 
 void DvExecuteGuidance::reInitialize() {
-    if (this->algorithm) {
-        this->algorithm->reInitialize();
+    if (!this->algorithm) {
+        throw XmeraLifecycleException("DvExecuteGuidance reset() has not been called.");
     }
+    this->algorithm->reInitialize();
 }
 
 /*! This method compares the accumulated Delta-V against the commanded Delta-V and, once the burn is complete,
