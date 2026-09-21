@@ -9,12 +9,8 @@ DvExecuteGuidanceConfig DvExecuteGuidance::toConfig() const {
     return DvExecuteGuidanceConfig::create(this->minTime, this->maxTime, this->controlPeriod);
 }
 
-/*! @brief This resets the module.
- @return void
- @param callTime The clock time at which the function was called (nanoseconds)
- */
+/*! Validates that the required input messages are connected and constructs the algorithm. */
 void DvExecuteGuidance::reset(const uint64_t callTime) {
-    // check if the required input messages are included
     if (!this->navDataInMsg.isLinked()) {
         throw std::invalid_argument("dvExecuteGuidance.navDataInMsg wasn't connected.");
     }
@@ -38,18 +34,14 @@ void DvExecuteGuidance::reInitialize() {
     this->algorithm->reInitialize();
 }
 
-/*! This method compares the accumulated Delta-V against the commanded Delta-V and, once the burn is complete,
-    writes a zeroed thruster on-time command to turn the thrusters off. It also flags whether the burn is
-    executing and whether it has completed.
- @return void
- @param callTime The clock time at which the function was called (nanoseconds)
- */
+/*! Compares the accumulated Delta-V against the commanded Delta-V and, once the burn is complete, writes a
+    zeroed thruster on-time command to turn the thrusters off. Also flags whether the burn is executing and
+    whether it has completed. */
 void DvExecuteGuidance::updateState(const uint64_t callTime) {
     if (!this->algorithm) {
         throw XmeraLifecycleException("DvExecuteGuidance reset() has not been called.");
     }
 
-    // read in messages
     const NavTransMsgF32Payload navData = this->navDataInMsg();
     const DvBurnCmdMsgF32Payload localBurnData = this->burnDataInMsg();
 
