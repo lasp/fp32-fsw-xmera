@@ -58,8 +58,8 @@ void DvExecuteGuidance::updateState(const uint64_t callTime) {
         this->algorithm->update(callTime, vehAccumDV, dvInrtlCmd, localBurnData.burnStartTime);
 
     if (out.commandThrustersOff) {
-        const THRArrayOnTimeCmdMsgF32Payload effCmd = {};
-        this->thrCmdOutMsg.write(effCmd, this->moduleID, callTime);
+        const THRArrayOnTimeCmdMsgF32Payload onTimeMsgOut = {};
+        this->thrCmdOutMsg.write(onTimeMsgOut, this->moduleID, callTime);
     }
 
     DvExecutionDataMsgF32Payload localExeData = {};
