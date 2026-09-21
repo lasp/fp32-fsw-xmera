@@ -15,6 +15,9 @@
 /*! @brief Top level structure for the execution of a Delta-V maneuver */
 class DvExecuteGuidance final : public SysModel {
    public:
+    DvExecuteGuidance() = default;
+    ~DvExecuteGuidance() override = default;
+
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
     void reconfigure();   //!< push edited properties into the algorithm
