@@ -9,7 +9,6 @@
 #include "msgPayloadDef/FilterMsgF32Payload.h"
 #include "msgPayloadDef/NavAttMsgF32Payload.h"
 #include "msgPayloadDef/OpNavCOBMsgF32Payload.h"
-#include "msgPayloadDef/OpNavCOMMsgF32Payload.h"
 #include "msgPayloadDef/OpNavUnitVecMsgF32Payload.h"
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 
@@ -58,7 +57,6 @@ class CobConverter final : public SysModel {
 
     // Output messages
     Message<OpNavUnitVecMsgF32Payload> opnavUnitVecOutMsg;
-    Message<OpNavCOMMsgF32Payload> comCorrectionOutMsg;
     Message<CobConverterDiagnosticMsgF32Payload> cobConverterDiagnosticOutMsg;
 
     // Input messages

@@ -253,7 +253,7 @@ def cob_converter_test_function(show_plots, cameraResolution, centerOfBrightness
 
     dataLogUnitVec = module.opnavUnitVecOutMsg.recorder()
     unitTestSim.AddModelToTask(unitTaskName, dataLogUnitVec)
-    dataLogCOM = module.comCorrectionOutMsg.recorder()
+    dataLogCOM = module.cobConverterDiagnosticOutMsg.recorder()
     unitTestSim.AddModelToTask(unitTaskName, dataLogCOM)
 
     unitTestSim.InitializeSimulation()
@@ -320,8 +320,8 @@ def cob_converter_test_function(show_plots, cameraResolution, centerOfBrightness
 
     # module output
     com = dataLogCOM.centerOfMass[0]
-    time_COM = dataLogCOM.timeTag[0]
-    valid_COM = dataLogCOM.valid[0]
+    time_COM = dataLogCOM.comTimeTag[0]
+    valid_COM = dataLogCOM.comValid[0]
     rhat_COM_N = dataLogUnitVec.rhat_BN_N[0]
     covar_N = dataLogUnitVec.covar_N[0]
 
@@ -454,8 +454,6 @@ def test_coberror_outlier(
 
     dataLogUnitVec = module.opnavUnitVecOutMsg.recorder()
     unitTestSim.AddModelToTask(unitTaskName, dataLogUnitVec)
-    dataLogCOM = module.comCorrectionOutMsg.recorder()
-    unitTestSim.AddModelToTask(unitTaskName, dataLogCOM)
     dataDiagnostic = module.cobConverterDiagnosticOutMsg.recorder()
     unitTestSim.AddModelToTask(unitTaskName, dataDiagnostic)
 
@@ -614,6 +612,8 @@ def test_brown_conrady_calibration(k1, k2, k3, p1, p2, label, centerOfBrightness
 
     dataLogUnitVec = module.opnavUnitVecOutMsg.recorder()
     unitTestSim.AddModelToTask(unitTaskName, dataLogUnitVec)
+    dataDiagnostic = module.cobConverterDiagnosticOutMsg.recorder()
+    unitTestSim.AddModelToTask(unitTaskName, dataDiagnostic)
 
     unitTestSim.InitializeSimulation()
     unitTestSim.ConfigureStopTime(testProcessRate)
@@ -623,7 +623,8 @@ def test_brown_conrady_calibration(k1, k2, k3, p1, p2, label, centerOfBrightness
     dcm_NC = dcm_BN.T @ dcm_CB.T
     rhat_COB_N_true = dcm_NC @ rhat_COB_C_true
 
-    rhat_COM_C_out = dataLogUnitVec.rhat_BN_C[0]
+    # The camera-frame heading is diagnostic now; only the inertial frame is on the output message.
+    rhat_COM_C_out = dataDiagnostic.rhat_BN_C[0]
     rhat_COM_N_out = dataLogUnitVec.rhat_BN_N[0]
 
     tolerance = 1e-6
