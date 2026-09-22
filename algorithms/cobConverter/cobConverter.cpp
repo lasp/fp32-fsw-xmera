@@ -33,8 +33,7 @@ void CobConverter::reset(uint64_t currentSimNanos) {
  * @return CobConverterConfig validated configuration.
  */
 CobConverterConfig CobConverter::toConfig() const {
-    return CobConverterConfig::create(enumMap.at(this->phaseAngleCorrectionMethod),
-                                      this->radius,
+    return CobConverterConfig::create(this->radius,
                                       this->radiusUncertainty,
                                       this->attitudeCovariance,
                                       this->numStandardDeviations,

@@ -11,8 +11,6 @@ from xmera.utilities import SimulationBaseClass, macros
 filename = inspect.getframeinfo(inspect.currentframe()).filename
 path = os.path.dirname(os.path.abspath(filename))
 
-noCorr = cobConverter.PhaseAngleCorrectionMethod_NoCorrection
-binary = cobConverter.PhaseAngleCorrectionMethod_Binary
 
 
 def mapState(state, input_camera):
@@ -138,17 +136,11 @@ def compute_camera_calibration_matrix(input_camera):
     return K
 
 
-def phase_angle_correction(alpha, method):
+def phase_angle_correction(alpha):
     """Secondary method to compute the phase angle correction for COB/COM offset"""
-    if method == binary:
-        gamma = 4 / (3 * np.pi) * (1 - np.cos(alpha))
-    else:
-        gamma = 0.0
-
-    return gamma
+    return 4 / (3 * np.pi) * (1 - np.cos(alpha))
 
 
-@pytest.mark.parametrize("method", [noCorr, binary])
 @pytest.mark.parametrize("distance", [500e3, 5000e3, 50000e3])
 @pytest.mark.parametrize("cameraResolution, centerOfBrightness, numberOfPixels, sunDirection",
                          [([512, 512], [152, 251], 75, [-1., -1., 0.]),
@@ -159,13 +151,13 @@ def phase_angle_correction(alpha, method):
                           ([875, 987], [321, 191], 375, [1., 0.5, 0.3])
                           ])
 def test_cob_converter(show_plots, cameraResolution, centerOfBrightness, numberOfPixels,
-                       sunDirection, distance,  method):
+                       sunDirection, distance):
     cob_converter_test_function(show_plots, cameraResolution, centerOfBrightness, numberOfPixels,
-                                sunDirection, distance, method)
+                                sunDirection, distance)
 
 
 def cob_converter_test_function(show_plots, cameraResolution, centerOfBrightness, numberOfPixels,
-                                sunDirection, distance, method):
+                                sunDirection, distance):
     unitTaskName = "unitTask"
     unitProcessName = "TestProcess"
     unitTestSim = SimulationBaseClass.SimBaseClass()
@@ -178,7 +170,6 @@ def cob_converter_test_function(show_plots, cameraResolution, centerOfBrightness
     att_sigma = 0.001
     covar_att_B = np.diag([att_sigma**2, (0.9*att_sigma)**2, (0.95*att_sigma)**2])
     module = cobConverter.CobConverter()
-    module.phaseAngleCorrectionMethod = method
     module.radius = R_object
     module.radiusUncertainty = R_object_uncer
     module.attitudeCovariance = covar_att_B
@@ -280,7 +271,7 @@ def cob_converter_test_function(show_plots, cameraResolution, centerOfBrightness
 
     # Center of Mass Message and Unit Vector
     alpha = np.arccos(np.dot(r_BdyZero_N.T / np.linalg.norm(r_BdyZero_N), vehSunPntN))  # phase angle
-    gamma = phase_angle_correction(alpha, method)  # COB/COM offset factor
+    gamma = phase_angle_correction(alpha)  # COB/COM offset factor
     shat_C = dcm_NC.T @ vehSunPntN
     phi = np.arctan2(shat_C[1], shat_C[0])  # sun direction in image plane
     K = compute_camera_calibration_matrix(inputCamera)
@@ -302,18 +293,14 @@ def cob_converter_test_function(show_plots, cameraResolution, centerOfBrightness
     covar_COB_B_true = np.dot(dcm_CB.T, np.dot(covar_COB_C_true, dcm_CB))
     covar_COM_B_true = np.dot(dcm_CB.T, np.dot(covar_COM_C_true, dcm_CB))
 
-    if method == binary:
-        covar_B_true = covar_att_B + covar_COM_B_true
-    else:
-        covar_B_true = covar_att_B + covar_COB_B_true
+    covar_B_true = covar_att_B + covar_COM_B_true
 
     covar_N_true = np.dot(dcm_BN.T, np.dot(covar_B_true, dcm_BN)).flatten() * goodPixels
 
     # Center of Mass Message and Unit Vector. comValid mirrors
-    # CobConverterAlgorithm::updateState: valid whenever the resulting COM pixel location is
-    # finite, regardless of phaseAngleCorrectionMethod (NoCorrection just means COM == COB).
+    # CobConverterAlgorithm::updateState: valid whenever the resulting COM pixel location is finite.
     valid_COM_true = bool(goodPixels)
-    if goodPixels and method == binary:
+    if goodPixels:
         rhat_COM_N_true = np.dot(dcm_NC, rhat_COM_C_true)
     else:
         rhat_COM_N_true = rhat_COB_N_true
@@ -369,8 +356,7 @@ def test_coberror_outlier(
         centerOfBrightness=[152, 251],
         numberOfPixels=75,
         sunDirection=[-1.0, -1.0, 0.0],
-        distance=36e6,
-        method=binary):
+        distance=36e6):
     unitTaskName = "unitTask"
     unitProcessName = "TestProcess"
     unitTestSim = SimulationBaseClass.SimBaseClass()
@@ -383,7 +369,6 @@ def test_coberror_outlier(
     att_sigma = 0.001
     covar_att_B = np.diag([att_sigma**2, (0.9*att_sigma)**2, (0.95*att_sigma)**2])
     module = cobConverter.CobConverter()
-    module.phaseAngleCorrectionMethod = method
     module.radius = R_object
     module.radiusUncertainty = R_object_uncer
     module.attitudeCovariance = covar_att_B
@@ -526,8 +511,7 @@ def test_brown_conrady_polynomial_monotonicity(k1, k2, k3, label):
 @pytest.mark.parametrize("centerOfBrightness", [[152, 251], [400, 350], [256, 256]])
 def test_brown_conrady_calibration(k1, k2, k3, p1, p2, label, centerOfBrightness):
     """Verify that the Brown-Conrady coefficients are wired into the COB unit-vector pipeline.
-    Uses the no-correction phase-angle method so COM == COB and the unit-vector output is
-    purely the distortion-corrected, normalized image-plane vector."""
+    Asserts on the diagnostic COB heading, which is unaffected by the phase-angle correction."""
     cameraResolution = [512, 512]
     numberOfPixels = 75
     sunDirection = [-1.0, -1.0, 0.0]
@@ -543,7 +527,6 @@ def test_brown_conrady_calibration(k1, k2, k3, p1, p2, label, centerOfBrightness
 
     R_object = 25.0 * 1e3
     module = cobConverter.CobConverter()
-    module.phaseAngleCorrectionMethod = noCorr
     module.radius = R_object
     module.attitudeCovariance = np.zeros((3, 3))
     module.fieldOfViewX = np.deg2rad(20.0)
@@ -623,15 +606,15 @@ def test_brown_conrady_calibration(k1, k2, k3, p1, p2, label, centerOfBrightness
     dcm_NC = dcm_BN.T @ dcm_CB.T
     rhat_COB_N_true = dcm_NC @ rhat_COB_C_true
 
-    # The camera-frame heading is diagnostic now; only the inertial frame is on the output message.
-    rhat_COM_C_out = dataDiagnostic.rhat_BN_C[0]
-    rhat_COM_N_out = dataLogUnitVec.rhat_BN_N[0]
+    # The output message carries the phase-angle-corrected COM, which is offset from the COB.
+    rhat_COB_C_out = dataDiagnostic.rhat_COB_C[0]
+    rhat_COB_N_out = dataDiagnostic.rhat_COB_N[0]
 
     tolerance = 1e-6
-    np.testing.assert_allclose(rhat_COM_C_out, rhat_COB_C_true, rtol=0, atol=tolerance,
-                               err_msg=f"rhat_BN_C ({label})")
-    np.testing.assert_allclose(rhat_COM_N_out, rhat_COB_N_true, rtol=0, atol=tolerance,
-                               err_msg=f"rhat_BN_N ({label})")
+    np.testing.assert_allclose(rhat_COB_C_out, rhat_COB_C_true, rtol=0, atol=tolerance,
+                               err_msg=f"rhat_COB_C ({label})")
+    np.testing.assert_allclose(rhat_COB_N_out, rhat_COB_N_true, rtol=0, atol=tolerance,
+                               err_msg=f"rhat_COB_N ({label})")
 
     # For a non-centered COB, barrel and pincushion should push the calibrated radius in opposite
     # directions relative to the identity case. Skip this check when the COB happens to land at
@@ -641,7 +624,7 @@ def test_brown_conrady_calibration(k1, k2, k3, p1, p2, label, centerOfBrightness
         rhat_identity = map_state_with_calibration(centerOfBrightness, inputCamera, 0, 0, 0, 0, 0)
         # In the camera frame, +z is the boresight; bigger radial distortion -> larger |x|, |y|.
         radial_identity = np.hypot(rhat_identity[0], rhat_identity[1])
-        radial_distorted = np.hypot(rhat_COM_C_out[0], rhat_COM_C_out[1])
+        radial_distorted = np.hypot(rhat_COB_C_out[0], rhat_COB_C_out[1])
         if label == "barrel":
             assert radial_distorted < radial_identity, (
                 f"Barrel distortion should reduce the off-axis component "
@@ -653,4 +636,4 @@ def test_brown_conrady_calibration(k1, k2, k3, p1, p2, label, centerOfBrightness
 
 
 if __name__ == '__main__':
-    test_cob_converter(False, [512, 512], [152, 251], 75, [-1.0, -1.0, 0.0], 36e6, binary)
+    test_cob_converter(False, [512, 512], [152, 251], 75, [-1.0, -1.0, 0.0], 36e6)

@@ -18,12 +18,6 @@ struct CalibrationCoefficients {
     float p2 = 0.0F;
 };
 
-/**
- * @enum PhaseAngleCorrectionMethodAlgorithm
- * @brief Phase-angle correction models for converting COB to COM.
- */
-enum class PhaseAngleCorrectionMethodAlgorithm : std::uint8_t { NoCorrectionAlg, BinaryAlg };
-
 /*! COB measurement: bright-pixel detection payload. */
 struct CobMeasurement {
     bool cobValid{};                                                  //!< [--] validity flag
@@ -47,8 +41,7 @@ struct FilterState {
 };
 
 /*! Essential heading measurement output: the COM unit vector and its covariance, inertial
-    frame only. Maps 1:1 onto OpNavUnitVecMsgF32Payload. COM is always computed; with no
-    phase-angle correction it degenerates to the COB. */
+    frame only. Maps 1:1 onto OpNavUnitVecMsgF32Payload. */
 struct CobConverterOutput {
     Eigen::Matrix3f covar_N = Eigen::Matrix3f::Zero();    //!< [--] COM covariance, inertial frame
     Eigen::Vector3f rhat_BN_N = Eigen::Vector3f::Zero();  //!< [--] COM unit vector, inertial frame
@@ -59,21 +52,21 @@ struct CobConverterOutput {
 /*! Diagnostic output: the non-inertial frames, the COB quantities and the phase-angle
     correction metadata. Maps 1:1 onto CobConverterDiagnosticMsgF32Payload. */
 struct CobConverterDiagnosticOutput {
-    Eigen::Matrix3f covar_C = Eigen::Matrix3f::Zero();              //!< [--] COM covariance, camera frame
-    Eigen::Matrix3f covar_B = Eigen::Matrix3f::Zero();              //!< [--] COM covariance, body frame
-    Eigen::Vector3f rhat_BN_C = Eigen::Vector3f::Zero();            //!< [--] COM unit vector, camera frame
-    Eigen::Vector3f rhat_BN_B = Eigen::Vector3f::Zero();            //!< [--] COM unit vector, body frame
-    Eigen::Vector3f rhat_COB_C = Eigen::Vector3f::Zero();           //!< [--] COB unit vector, camera frame
-    Eigen::Vector3f rhat_COB_N = Eigen::Vector3f::Zero();           //!< [--] COB unit vector, inertial frame
-    Eigen::Vector2f centerOfBrightness = Eigen::Vector2f::Zero();   //!< [px] COB pixel coordinates
-    Eigen::Vector2f centerOfMass = Eigen::Vector2f::Zero();         //!< [px] COM pixel coordinates
-    float offsetFactor{};                                           //!< [--] phase-angle offset factor (gamma)
-    int objectPixelRadius{};                                        //!< [px] object radius in pixels
-    float phaseAngle{};                                             //!< [rad] phase angle alpha_PA
-    float sunDirection{};                                           //!< [rad] sun direction phi in image plane
-    uint64_t comTimeTag{};                                          //!< [ns] measurement timestamp
-    bool comValid{};                                                //!< [--] COM validity flag
-    bool coberrorOutlierTrigger{};                                  //!< [--] true if COB error exceeded threshold
+    Eigen::Matrix3f covar_C = Eigen::Matrix3f::Zero();             //!< [--] COM covariance, camera frame
+    Eigen::Matrix3f covar_B = Eigen::Matrix3f::Zero();             //!< [--] COM covariance, body frame
+    Eigen::Vector3f rhat_BN_C = Eigen::Vector3f::Zero();           //!< [--] COM unit vector, camera frame
+    Eigen::Vector3f rhat_BN_B = Eigen::Vector3f::Zero();           //!< [--] COM unit vector, body frame
+    Eigen::Vector3f rhat_COB_C = Eigen::Vector3f::Zero();          //!< [--] COB unit vector, camera frame
+    Eigen::Vector3f rhat_COB_N = Eigen::Vector3f::Zero();          //!< [--] COB unit vector, inertial frame
+    Eigen::Vector2f centerOfBrightness = Eigen::Vector2f::Zero();  //!< [px] COB pixel coordinates
+    Eigen::Vector2f centerOfMass = Eigen::Vector2f::Zero();        //!< [px] COM pixel coordinates
+    float offsetFactor{};                                          //!< [--] phase-angle offset factor (gamma)
+    int objectPixelRadius{};                                       //!< [px] object radius in pixels
+    float phaseAngle{};                                            //!< [rad] phase angle alpha_PA
+    float sunDirection{};                                          //!< [rad] sun direction phi in image plane
+    uint64_t comTimeTag{};                                         //!< [ns] measurement timestamp
+    bool comValid{};                                               //!< [--] COM validity flag
+    bool coberrorOutlierTrigger{};                                 //!< [--] true if COB error exceeded threshold
 };
 
 /*! Pair returned by updateState: the essential output plus the diagnostic snapshot, so the
@@ -89,8 +82,7 @@ struct CobConverterUpdateResult {
  */
 class CobConverterConfig final {
    public:
-    static CobConverterConfig create(PhaseAngleCorrectionMethodAlgorithm phaseAngleCorrectionMethod,
-                                     float radius,
+    static CobConverterConfig create(float radius,
                                      float radiusUncertainty,
                                      const Eigen::Matrix3f& attitudeCovariance,
                                      float numStandardDeviations,
@@ -104,9 +96,6 @@ class CobConverterConfig final {
                                      float resolutionX,
                                      float resolutionY,
                                      const Eigen::Vector3f& bodyToCameraMrp) {
-        if (!isValidPhaseAngleCorrectionMethod(phaseAngleCorrectionMethod)) {
-            FSW_THROW_INVALID_ARGUMENT("cobConverter: phaseAngleCorrectionMethod must be NoCorrectionAlg or BinaryAlg");
-        }
         if (!isValidRadius(radius)) {
             FSW_THROW_INVALID_ARGUMENT("cobConverter: radius must be > 0");
         }
@@ -145,8 +134,7 @@ class CobConverterConfig final {
         if (!isValidBodyToCameraMrp(bodyToCameraMrp)) {
             FSW_THROW_INVALID_ARGUMENT("cobConverter: bodyToCameraMrp must be finite");
         }
-        return {phaseAngleCorrectionMethod,
-                radius,
+        return {radius,
                 radiusUncertainty,
                 attitudeCovariance,
                 numStandardDeviations,
@@ -162,10 +150,6 @@ class CobConverterConfig final {
                 bodyToCameraMrp};
     }
 
-    static bool isValidPhaseAngleCorrectionMethod(PhaseAngleCorrectionMethodAlgorithm method) {
-        return method == PhaseAngleCorrectionMethodAlgorithm::NoCorrectionAlg ||
-               method == PhaseAngleCorrectionMethodAlgorithm::BinaryAlg;
-    }
     static bool isValidRadius(float radius) { return fsw::is_finite(radius) && radius > 0.0F; }
     static bool isValidRadiusUncertainty(float radiusUncertainty) {
         return fsw::is_finite(radiusUncertainty) && radiusUncertainty >= 0.0F;
@@ -205,7 +189,6 @@ class CobConverterConfig final {
         return argTanY >= -halfPi + kMinPoleDistance && argTanY <= halfPi - kMinPoleDistance;
     }
 
-    PhaseAngleCorrectionMethodAlgorithm getPhaseAngleCorrectionMethod() const { return phaseAngleCorrectionMethod; }
     float getRadius() const { return radius; }
     float getRadiusUncertainty() const { return radiusUncertainty; }
     Eigen::Matrix3f getAttitudeCovariance() const { return attitudeCovariance; }
@@ -222,8 +205,7 @@ class CobConverterConfig final {
     Eigen::Vector3f getBodyToCameraMrp() const { return bodyToCameraMrp; }
 
    private:
-    CobConverterConfig(PhaseAngleCorrectionMethodAlgorithm phaseAngleCorrectionMethod,
-                       float radius,
+    CobConverterConfig(float radius,
                        float radiusUncertainty,
                        const Eigen::Matrix3f& attitudeCovariance,
                        float numStandardDeviations,
@@ -237,8 +219,7 @@ class CobConverterConfig final {
                        float resolutionX,
                        float resolutionY,
                        const Eigen::Vector3f& bodyToCameraMrp)
-        : phaseAngleCorrectionMethod(phaseAngleCorrectionMethod),
-          radius(radius),
+        : radius(radius),
           radiusUncertainty(radiusUncertainty),
           attitudeCovariance(attitudeCovariance),
           numStandardDeviations(numStandardDeviations),
@@ -253,7 +234,6 @@ class CobConverterConfig final {
           resolutionY(resolutionY),
           bodyToCameraMrp(bodyToCameraMrp) {}
 
-    PhaseAngleCorrectionMethodAlgorithm phaseAngleCorrectionMethod;
     float radius;
     float radiusUncertainty;
     Eigen::Matrix3f attitudeCovariance;
@@ -278,8 +258,7 @@ struct Rotations {
     Eigen::Matrix3f dcm_NC = Eigen::Matrix3f::Zero();
 };
 
-/*! Phase-angle correction terms for the current cycle. Default-constructed (all zero/false) when
-    phaseAngleCorrectionMethod is NoCorrectionAlg, so no correction is applied to COM. */
+/*! Phase-angle correction terms, computed every cycle by computePhaseAngleCorrection. */
 struct PhaseAngleCorrectionResult {
     Eigen::Vector3d sc_position = Eigen::Vector3d::Zero();
     double spacecraftRange = 0.0;
@@ -288,7 +267,7 @@ struct PhaseAngleCorrectionResult {
     float phi = 0.0F;
     float gamma = 0.0F;
     float Rc = 0.0F;
-    bool validCom = false;
+    bool validCom = false;  //!< [--] set by updateState, not by computePhaseAngleCorrection
 };
 
 /**

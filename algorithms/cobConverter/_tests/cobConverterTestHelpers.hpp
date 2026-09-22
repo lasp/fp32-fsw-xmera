@@ -60,17 +60,6 @@ inline Eigen::Vector3d mapState(const Eigen::Vector2d& pixel,
     return -calibrated.normalized();
 }
 
-inline Eigen::Matrix3d mapCobCovar(double pixels, double dX, double dY) {
-    const double X = 1.0 / dX;
-    const double Y = 1.0 / dY;
-    const double scaleFactor = safeSqrt(pixels / (4.0 * std::numbers::pi));
-    Eigen::Matrix3d covar = Eigen::Matrix3d::Zero();
-    covar(0, 0) = X * X;
-    covar(1, 1) = Y * Y;
-    covar(2, 2) = 1.0;
-    return scaleFactor * covar;
-}
-
 inline Eigen::Matrix3d mapComCovar(double pixels,
                                    double fieldOfViewX,
                                    double fieldOfViewY,
@@ -168,31 +157,17 @@ inline CobConverterUpdateResult referenceCobConverterUpdate(const CobConverterCo
     const double dX = cameraCalibrationMatrix(0, 0);
     const double dY = cameraCalibrationMatrix(1, 1);
 
-    // alpha/phi/Rc/gamma (and validCOM) are only computed for a configured correction method; for
-    // NoCorrectionAlg they stay zero, and gamma == 0 collapses COM onto COB regardless of Rc/phi.
-    double gamma = 0.0;
-    double phi = 0.0;
-    double alpha = 0.0;
-    double objectRadiusPixels = 0.0;
-    Eigen::Vector3d shat_N = Eigen::Vector3d::Zero();
+    // The Binary correction is unconditional, so alpha/phi/Rc/gamma always compute.
+    const Eigen::Vector3d position = filter.filterVehPosition;
+    const Eigen::Vector3d rHat_N = position.normalized();
+    const Eigen::Vector3d shat_B = attitude.vehSunPntBdy.cast<double>().normalized();
+    const Eigen::Vector3d shat_N = dcm_BN.transpose() * shat_B;
+    const Eigen::Vector3d shat_C = dcm_CB * shat_B;
 
-    const bool correctionRequested =
-        cfg.getPhaseAngleCorrectionMethod() != PhaseAngleCorrectionMethodAlgorithm::NoCorrectionAlg;
-    if (correctionRequested) {
-        const Eigen::Vector3d position = filter.filterVehPosition;
-        const Eigen::Vector3d rHat_N = position.normalized();
-        const Eigen::Vector3d shat_B = attitude.vehSunPntBdy.cast<double>().normalized();
-        shat_N = dcm_BN.transpose() * shat_B;
-        const Eigen::Vector3d shat_C = dcm_CB * shat_B;
-
-        alpha = safeAcos(rHat_N.dot(shat_N));
-        phi = safeAtan2(shat_C(1), shat_C(0));
-
-        if (cfg.getPhaseAngleCorrectionMethod() == PhaseAngleCorrectionMethodAlgorithm::BinaryAlg) {
-            gamma = (4.0 / (3.0 * std::numbers::pi)) * (1.0 - safeCos(alpha));
-        }
-        objectRadiusPixels = static_cast<double>(cfg.getRadius()) * dX / position.norm();
-    }
+    const double alpha = safeAcos(rHat_N.dot(shat_N));
+    const double phi = safeAtan2(shat_C(1), shat_C(0));
+    const double gamma = (4.0 / (3.0 * std::numbers::pi)) * (1.0 - safeCos(alpha));
+    const double objectRadiusPixels = static_cast<double>(cfg.getRadius()) * dX / position.norm();
 
     const Eigen::Vector2d cobPixels = cob.cobCenterOfBrightness.cast<double>();
     const Eigen::Vector2d comPixels(cobPixels(0) - (gamma * objectRadiusPixels * safeCos(phi)),
@@ -207,30 +182,23 @@ inline CobConverterUpdateResult referenceCobConverterUpdate(const CobConverterCo
 
     const double pixelsFound = static_cast<double>(cob.cobPixelsFound);
     const Eigen::Matrix3d attitudeCovariance = cfg.getAttitudeCovariance().cast<double>();
-    Eigen::Matrix3d covar_B;
-    if (correctionRequested && cfg.getPhaseAngleCorrectionMethod() == PhaseAngleCorrectionMethodAlgorithm::BinaryAlg &&
-        cfg.getRadiusUncertainty() > 0.0F) {
-        const Eigen::Matrix3d covarCom_C = mapComCovar(pixelsFound,
-                                                       fieldOfViewX,
-                                                       fieldOfViewY,
-                                                       resolutionX,
-                                                       resolutionY,
-                                                       dX,
-                                                       dY,
-                                                       filter.filterVehPosition,
-                                                       static_cast<double>(cfg.getRadius()),
-                                                       alpha,
-                                                       shat_N,
-                                                       static_cast<double>(cfg.getRadiusUncertainty()),
-                                                       phi,
-                                                       filter.filterVehPositionCovariance);
-        const Eigen::Matrix3d covarCom_B = dcm_CB.transpose() * covarCom_C * dcm_CB;
-        covar_B = covarCom_B + attitudeCovariance;
-    } else {
-        const Eigen::Matrix3d covarCob_C = mapCobCovar(pixelsFound, dX, dY);
-        const Eigen::Matrix3d covarCob_B = dcm_CB.transpose() * covarCob_C * dcm_CB;
-        covar_B = covarCob_B + attitudeCovariance;
-    }
+    // Mirrors computeCameraFrameUncertainty: the propagation is unconditional, and a zero
+    // radiusUncertainty only zeroes its own term.
+    const Eigen::Matrix3d covarCom_C = mapComCovar(pixelsFound,
+                                                   fieldOfViewX,
+                                                   fieldOfViewY,
+                                                   resolutionX,
+                                                   resolutionY,
+                                                   dX,
+                                                   dY,
+                                                   filter.filterVehPosition,
+                                                   static_cast<double>(cfg.getRadius()),
+                                                   alpha,
+                                                   shat_N,
+                                                   static_cast<double>(cfg.getRadiusUncertainty()),
+                                                   phi,
+                                                   filter.filterVehPositionCovariance);
+    const Eigen::Matrix3d covar_B = (dcm_CB.transpose() * covarCom_C * dcm_CB) + attitudeCovariance;
 
     bool coberrorOutlierTrigger = false;
     if (cfg.isOutlierDetectionEnabled()) {
@@ -314,7 +282,7 @@ inline CobConverterUpdateResult referenceCobConverterUpdate(const CobConverterCo
 // 1e-3F. The other fields (~150-250 ops each: DCM builds, calibration, Brown-Conrady) only need
 // ~2.4e-5 and share this bound with margin to spare.
 //
-// covar_N/C/B scale with radius * dX / range and (BinaryAlg) radiusUncertainty^2, from O(1) to
+// covar_N/C/B scale with radius * dX / range and radiusUncertainty^2, from O(1) to
 // O(1e6)+, where a single ULP exceeds 1e-3. Use atol + rtol*max(|reference|, noiseScale) instead:
 //   - covarRtol = 1e-4F, covarAtol = 1e-3F: both sized off the pipeline's ~2.4e-5 baseline
 //     (~150-250 ops). A prior radius>>range + anisotropic-covariance case pushed the observed error
@@ -434,8 +402,7 @@ inline void expectOutputsNear(const CobConverterUpdateResult& out, const CobConv
 // CobConverterConfig can only be obtained through the validating create()). A field combination
 // that create() rejects isn't an algorithm bug, so it's skipped rather than failing the test;
 // testCobConverterSetup() already covers validation itself.
-inline void testCobConverter(PhaseAngleCorrectionMethodAlgorithm phaseAngleCorrectionMethod,
-                             float radius,
+inline void testCobConverter(float radius,
                              float radiusUncertainty,
                              const Eigen::Matrix3f& attitudeCovariance,
                              float numStandardDeviations,
@@ -459,8 +426,7 @@ inline void testCobConverter(PhaseAngleCorrectionMethodAlgorithm phaseAngleCorre
                              const Eigen::Matrix3d& filterVehPositionCovariance) {
     std::optional<CobConverterConfig> cfg;
     try {
-        cfg = CobConverterConfig::create(phaseAngleCorrectionMethod,
-                                         radius,
+        cfg = CobConverterConfig::create(radius,
                                          radiusUncertainty,
                                          attitudeCovariance,
                                          numStandardDeviations,
