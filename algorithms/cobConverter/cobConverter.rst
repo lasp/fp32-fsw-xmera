@@ -36,10 +36,7 @@ provides information on what this message is used for:
       - Input filter message (used for outlier detection and COM phase-angle uncertainty)
     * - navAttInMsg
       - :ref:`NavAttMsgPayload`
-      - Input navigation message containing the spacecraft attitude in the inertial frame
-    * - sunInMsg
-      - :ref:`NavAttMsgPayload`
-      - Input Sun-pointing message containing the Sun direction in the body frame
+      - Input navigation message containing the spacecraft attitude in the inertial frame and the Sun direction in the body frame (e.g. the aggregated output of :ref:`navAggregate`)
     * - opnavUnitVecOutMsg
       - :ref:`OpNavUnitVecMsgPayload`
       - Output heading vector and covariance in multiple frames; carries the COM heading when a phase-angle correction is active, otherwise the COB heading
@@ -339,7 +336,6 @@ add the module to the simulation task (``reset()`` validates the configuration a
     module.opnavCOBInMsg.subscribeTo(cobInMsg)
     module.opnavFilterInMsg.subscribeTo(filterInMsg)
     module.navAttInMsg.subscribeTo(attInMsg)
-    module.sunInMsg.subscribeTo(sunInMsg)
 
     sim.AddModelToTask(taskName, module)
 

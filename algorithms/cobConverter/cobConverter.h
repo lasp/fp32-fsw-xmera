@@ -64,8 +64,7 @@ class CobConverter final : public SysModel {
     // Input messages
     ReadFunctor<OpNavCOBMsgF32Payload> opnavCOBInMsg;
     ReadFunctor<FilterMsgF32Payload> opnavFilterInMsg;
-    ReadFunctor<NavAttMsgF32Payload> navAttInMsg;
-    ReadFunctor<NavAttMsgF32Payload> sunInMsg;
+    ReadFunctor<NavAttMsgF32Payload> navAttInMsg;  //!< attitude and sun direction (e.g. navAggregate.navAttOutMsg)
 
    private:
     CobConverterConfig toConfig() const;
