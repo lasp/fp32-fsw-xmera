@@ -119,17 +119,13 @@ Rotations CobConverterAlgorithm::computeRotations(const Eigen::Vector3f& sigma_B
 /**
  * @brief Compute phase-angle correction term and related angles.
  *
- * Depending on the configured method, computes a brightness offset factor @c gamma
- * (Binary) and the sun direction angle @c phi in the image plane.
- * Also sets @c validCom in the returned result, since a correction is always applied when this
- * function is called.
+ * Computes the Binary offset factor @c gamma and the sun direction @c phi in the image plane.
  *
  * @param filterVehPosition Spacecraft position
  * @param vehSunPntBdy Sun-pointing direction
  * @param dcm_BN Body-to-inertial DCM for the current cycle (from computeRotations).
- * @return Phase-angle correction terms (alphaPA, phi, gamma, spacecraftRange, Rc, validCom) for the
- *         current cycle. Only called when a correction method is configured, so validCom is always
- *         true in the result.
+ * @return alphaPA, phi, gamma, spacecraftRange and Rc. @c validCom is left at its default;
+ *         updateState sets it.
  */
 PhaseAngleCorrectionResult CobConverterAlgorithm::computePhaseAngleCorrection(const Eigen::Vector3d& filterVehPosition,
                                                                               const Eigen::Vector3f& vehSunPntBdy,
@@ -154,9 +150,9 @@ PhaseAngleCorrectionResult CobConverterAlgorithm::computePhaseAngleCorrection(co
 /**
  * @brief Compute centers of brightness and mass in pixel coordinates.
  * @param cobCenterOfBrightness pixel-based center of brightness.
- * @param gamma Phase-angle offset factor (0 when no correction is configured).
- * @param Rc Object radius in pixels (0 when no correction is configured).
- * @param phi Sun direction in the image plane (0 when no correction is configured).
+ * @param gamma Phase-angle offset factor.
+ * @param Rc Object radius in pixels.
+ * @param phi Sun direction in the image plane.
  * @return Tuple of (centerOfBrightness, centerOfMass) as 3-vectors in homogeneous pixel coords.
  */
 std::tuple<Eigen::Vector3f, Eigen::Vector3f> CobConverterAlgorithm::computeCentersOfInterest(
@@ -226,10 +222,8 @@ std::tuple<Eigen::Vector3f, Eigen::Vector3f> CobConverterAlgorithm::computeRelev
 /**
  * @brief Compute the measurement uncertainty in the camera frame.
  *
- * If Binary phase-angle correction is used and a nonzero object radius uncertainty
- * is provided, incorporates the propagated uncertainty of the phase-angle correction.
- * Otherwise, uses a diagonal COB covariance scaled by the number of pixels found,
- * then rotates it into the body frame and adds attitude covariance.
+ * Propagates the phase-angle uncertainty from the filter position covariance and the object
+ * radius uncertainty, rotates it into the body frame and adds the attitude covariance.
  *
  * @param cobPixelsFound detected-pixel count
  * @param filterVehPositionCovariance Filter position covariance
@@ -243,77 +237,61 @@ Eigen::Matrix3f CobConverterAlgorithm::computeCameraFrameUncertainty(
     const PhaseAngleCorrectionResult& correction) const {
     // Compute partials of the phase angle and Geometric model correction
     const float scaleFactor = safeSqrtf(static_cast<float>(cobPixelsFound) / kSphereSolidAngle);
-    Eigen::Matrix3f covar_B = Eigen::Matrix3f::Zero();
     const float radius = this->cfg.getRadius();
-    if (this->cfg.getPhaseAngleCorrectionMethod() == PhaseAngleCorrectionMethodAlgorithm::BinaryAlg &&
-        this->cfg.getRadiusUncertainty() > 0) {
-        const float oneMinusCosAlpha = 2.0F * powf(safeSinf(correction.alphaPA / 2.0F), 2.0F);
-        const auto constants_deltaR = static_cast<float>(
-            kBinaryPhaseCoeff * radius / correction.spacecraftRange * oneMinusCosAlpha /
-            (1.0 + pow(kBinaryPhaseCoeff * radius / correction.spacecraftRange * oneMinusCosAlpha, 2.0)));
 
-        const Eigen::RowVector3d deltaBinary_delta_r =
-            (-correction.sc_position.stableNormalized() / correction.spacecraftRange * constants_deltaR);
+    const float oneMinusCosAlpha = 2.0F * powf(safeSinf(correction.alphaPA / 2.0F), 2.0F);
+    const auto constants_deltaR = static_cast<float>(
+        kBinaryPhaseCoeff * radius / correction.spacecraftRange * oneMinusCosAlpha /
+        (1.0 + pow(kBinaryPhaseCoeff * radius / correction.spacecraftRange * oneMinusCosAlpha, 2.0)));
 
-        const float deltaBinary_delta_R = (constants_deltaR / radius);
+    const Eigen::RowVector3d deltaBinary_delta_r =
+        (-correction.sc_position.stableNormalized() / correction.spacecraftRange * constants_deltaR);
 
-        const auto deltaBinary_deltaAlpha = static_cast<float>(
-            kBinaryPhaseCoeff * radius / correction.spacecraftRange /
-            (1.0 + pow(kBinaryPhaseCoeff * radius / correction.spacecraftRange * oneMinusCosAlpha, 2.0)));
+    const float deltaBinary_delta_R = (constants_deltaR / radius);
 
-        const Eigen::Matrix<double, 3, 3> I = Eigen::Matrix3d::Identity();
-        const Eigen::RowVector3d sr = correction.shat_N.cast<double>() / correction.spacecraftRange;
-        const Eigen::Matrix<double, 3, 3> rr =
-            I - (correction.sc_position.stableNormalized() * correction.sc_position.stableNormalized().transpose());
-        // deltaAlpha_delta_R omits the 1/sin(alpha) factor from the full d(alpha)/d(r) expression
-        // (see cobConverter.rst): it cancels against a matching missing factor in
-        // deltaBinary_deltaAlpha, avoiding a division that blows up near alpha = 0 or pi.
-        const Eigen::RowVector3d deltaAlpha_delta_R = -(sr * rr);
+    const auto deltaBinary_deltaAlpha = static_cast<float>(
+        kBinaryPhaseCoeff * radius / correction.spacecraftRange /
+        (1.0 + pow(kBinaryPhaseCoeff * radius / correction.spacecraftRange * oneMinusCosAlpha, 2.0)));
 
-        const Eigen::RowVector3d deltaBinary_r = deltaBinary_delta_r + (deltaBinary_deltaAlpha * deltaAlpha_delta_R);
+    const Eigen::Matrix<double, 3, 3> I = Eigen::Matrix3d::Identity();
+    const Eigen::RowVector3d sr = correction.shat_N.cast<double>() / correction.spacecraftRange;
+    const Eigen::Matrix<double, 3, 3> rr =
+        I - (correction.sc_position.stableNormalized() * correction.sc_position.stableNormalized().transpose());
+    // deltaAlpha_delta_R omits the 1/sin(alpha) factor from the full d(alpha)/d(r) expression
+    // (see cobConverter.rst): it cancels against a matching missing factor in
+    // deltaBinary_deltaAlpha, avoiding a division that blows up near alpha = 0 or pi.
+    const Eigen::RowVector3d deltaAlpha_delta_R = -(sr * rr);
 
-        const double total_deltaBinary_partials =
-            deltaBinary_r * filterVehPositionCovariance * deltaBinary_r.transpose();
-        const float term2 = powf(deltaBinary_delta_R, 2.0F) * powf(this->cfg.getRadiusUncertainty(), 2.0F);
-        const double sigma_beta_squared = total_deltaBinary_partials + static_cast<double>(term2);
+    const Eigen::RowVector3d deltaBinary_r = deltaBinary_delta_r + (deltaBinary_deltaAlpha * deltaAlpha_delta_R);
 
-        // Rotates the 1-D phase-angle variance into a 2-D image-plane covariance and applies the
-        // angle->pixel/pixel->NIC scale conversion; see the "corrected equation" derivation in
-        // cobConverter.rst.
-        const float cosPhi = safeCosf(correction.phi);
-        const float sinPhi = safeSinf(correction.phi);
-        const float directionX = this->X / this->ifov_x;
-        const float directionY = this->Y / this->ifov_y;
-        const double correctionXX = sigma_beta_squared * static_cast<double>(directionX * directionX * cosPhi * cosPhi);
-        const double correctionYY = sigma_beta_squared * static_cast<double>(directionY * directionY * sinPhi * sinPhi);
-        const double correctionXY = sigma_beta_squared * static_cast<double>(directionX * directionY * cosPhi * sinPhi);
+    const double total_deltaBinary_partials = deltaBinary_r * filterVehPositionCovariance * deltaBinary_r.transpose();
+    // Vanishes for a perfectly known radius; the nav-position partials above still propagate.
+    const float term2 = powf(deltaBinary_delta_R, 2.0F) * powf(this->cfg.getRadiusUncertainty(), 2.0F);
+    const double sigma_beta_squared = total_deltaBinary_partials + static_cast<double>(term2);
 
-        // Define COM covariance in C (now with the off-diagonal cross term) and rotate to B
-        Eigen::Matrix3f covarCom_C = Eigen::Matrix3f::Zero();
-        covarCom_C(0, 0) = powf(this->X, 2) + static_cast<float>(correctionXX);
-        covarCom_C(1, 1) = powf(this->Y, 2) + static_cast<float>(correctionYY);
-        covarCom_C(0, 1) = static_cast<float>(correctionXY);
-        covarCom_C(1, 0) = static_cast<float>(correctionXY);
-        covarCom_C(2, 2) = 1.0F;
-        covarCom_C *= scaleFactor;
-        const Eigen::Matrix3f covarCom_B = this->dcm_CB.transpose() * covarCom_C * this->dcm_CB;
+    // Rotates the 1-D phase-angle variance into a 2-D image-plane covariance and applies the
+    // angle->pixel/pixel->NIC scale conversion; see the "corrected equation" derivation in
+    // cobConverter.rst.
+    const float cosPhi = safeCosf(correction.phi);
+    const float sinPhi = safeSinf(correction.phi);
+    const float directionX = this->X / this->ifov_x;
+    const float directionY = this->Y / this->ifov_y;
+    const double correctionXX = sigma_beta_squared * static_cast<double>(directionX * directionX * cosPhi * cosPhi);
+    const double correctionYY = sigma_beta_squared * static_cast<double>(directionY * directionY * sinPhi * sinPhi);
+    const double correctionXY = sigma_beta_squared * static_cast<double>(directionX * directionY * cosPhi * sinPhi);
 
-        // Add COM covariance in B frame to get total covariance
-        covar_B = covarCom_B + this->cfg.getAttitudeCovariance();
+    // Define COM covariance in C (with the off-diagonal cross term) and rotate to B
+    Eigen::Matrix3f covarCom_C = Eigen::Matrix3f::Zero();
+    covarCom_C(0, 0) = powf(this->X, 2) + static_cast<float>(correctionXX);
+    covarCom_C(1, 1) = powf(this->Y, 2) + static_cast<float>(correctionYY);
+    covarCom_C(0, 1) = static_cast<float>(correctionXY);
+    covarCom_C(1, 0) = static_cast<float>(correctionXY);
+    covarCom_C(2, 2) = 1.0F;
+    covarCom_C *= scaleFactor;
+    const Eigen::Matrix3f covarCom_B = this->dcm_CB.transpose() * covarCom_C * this->dcm_CB;
 
-    } else {
-        // Define diagonal COB covariance
-        Eigen::Matrix3f covarCob_C;
-        covarCob_C.setZero();
-        covarCob_C(0, 0) = powf(this->X, 2);
-        covarCob_C(1, 1) = powf(this->Y, 2);
-        covarCob_C(2, 2) = 1.0F;
-        // Scale by number of pixels and rotate to B
-        covarCob_C *= scaleFactor;
-        const Eigen::Matrix3f covarCom_B = this->dcm_CB.transpose() * covarCob_C * this->dcm_CB;
-        covar_B = covarCom_B + this->cfg.getAttitudeCovariance();
-    }
-    return covar_B;
+    // Add COM covariance in B frame to get total covariance
+    return covarCom_B + this->cfg.getAttitudeCovariance();
 }
 
 /**
@@ -371,9 +349,8 @@ void CobConverterAlgorithm::populateOutputMessages(
 /**
  * @brief Update step: convert pixel-based COB into unit vectors and return all outputs.
  *
- * Computes rotations, optional phase-angle correction, outlier detection, and populates the
- * essential output alongside its diagnostic snapshot. Camera parameters are precomputed by
- * setConfig() and are not recomputed per cycle.
+ * Computes rotations, the phase-angle correction and outlier detection, then populates the
+ * essential output and its diagnostic snapshot. Camera parameters are precomputed by setConfig().
  *
  * @param cob COB measurement payload.
  * @param attitude Vehicle attitude knowledge (body orientation and sun direction).
@@ -389,11 +366,8 @@ CobConverterUpdateResult CobConverterAlgorithm::updateState(const CobMeasurement
         filter.filterVehPosition.stableNorm() > static_cast<double>(this->cfg.getRadius())) {
         const Rotations rotations = this->computeRotations(attitude.sigma_BN);
 
-        PhaseAngleCorrectionResult correction;
-        if (this->cfg.getPhaseAngleCorrectionMethod() != PhaseAngleCorrectionMethodAlgorithm::NoCorrectionAlg) {
-            correction =
-                this->computePhaseAngleCorrection(filter.filterVehPosition, attitude.vehSunPntBdy, rotations.dcm_BN);
-        }
+        PhaseAngleCorrectionResult correction =
+            this->computePhaseAngleCorrection(filter.filterVehPosition, attitude.vehSunPntBdy, rotations.dcm_BN);
         auto [centerOfBrightness, centerOfMass] = CobConverterAlgorithm::computeCentersOfInterest(
             cob.cobCenterOfBrightness, correction.gamma, correction.Rc, correction.phi);
         correction.validCom = centerOfMass.allFinite();

@@ -100,13 +100,12 @@ auto filterVehPositionCovarianceDomain() {
 
 FUZZ_TEST(CobConverterFuzz, testCobConverter)
     .WithDomains(
-        fuzztest::OneOf(fuzztest::Just(PhaseAngleCorrectionMethodAlgorithm::NoCorrectionAlg),
-                        fuzztest::Just(PhaseAngleCorrectionMethodAlgorithm::BinaryAlg)),  // phaseAngleCorrectionMethod
-        fuzztest::InRange(1.0F, 1.0e6F),                                                  // radius [m]
-        fuzztest::InRange(0.0F, 1.0e6F),                                                  // radiusUncertainty [m]
-        attitudeCovarianceDomain(),                                                       // attitudeCovariance
-        numStandardDeviationsDomain(),                                                    // numStandardDeviations
-        StandardDeviationsDomain(),                                                       // standardDeviation
+        fuzztest::InRange(1.0F, 1.0e6F),  // radius [m]
+        // Keep 0: it no longer gates the covariance propagation, it only zeroes its own term.
+        fuzztest::InRange(0.0F, 1.0e6F),  // radiusUncertainty [m]
+        attitudeCovarianceDomain(),       // attitudeCovariance
+        numStandardDeviationsDomain(),    // numStandardDeviations
+        StandardDeviationsDomain(),       // standardDeviation
         fuzztest::OneOf(fuzztest::Just(true),
                         fuzztest::Just(false)),  // specifiedStandardDeviation
         fuzztest::OneOf(fuzztest::Just(true),

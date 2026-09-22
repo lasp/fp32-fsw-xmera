@@ -17,7 +17,6 @@ typedef struct CobConverterAlgorithmHandle CobConverterAlgorithmHandle;
 
 /**
  * @brief Report whether a configuration would be accepted by create/setConfig.
- * @param phaseAngleCorrectionMethod [-]   phase-angle correction model; must be NoCorrectionAlg or BinaryAlg.
  * @param radius                     [m]   object radius; must be > 0.
  * @param radiusUncertainty          [m]   object radius uncertainty; must be >= 0.
  * @param attitudeCovariance         [-]   attitude error covariance, body frame; must be finite.
@@ -37,8 +36,7 @@ typedef struct CobConverterAlgorithmHandle CobConverterAlgorithmHandle;
  * @return true when the configuration is valid. Never throws, so it can guard the throwing
  *         create/setConfig from an invalid configuration.
  */
-bool CobConverterAlgorithm_validateConfig(PhaseAngleCorrectionMethodAlgorithm_c phaseAngleCorrectionMethod,
-                                          float radius,
+bool CobConverterAlgorithm_validateConfig(float radius,
                                           float radiusUncertainty,
                                           Matrix3f_c attitudeCovariance,
                                           float numStandardDeviations,
@@ -60,7 +58,6 @@ bool CobConverterAlgorithm_validateConfig(PhaseAngleCorrectionMethodAlgorithm_c 
  * See validateConfig for parameter constraints.
  */
 CobConverterAlgorithmHandle* CobConverterAlgorithm_create(
-    PhaseAngleCorrectionMethodAlgorithm_c phaseAngleCorrectionMethod,
     float radius,
     float radiusUncertainty,
     Matrix3f_c attitudeCovariance,
@@ -89,7 +86,6 @@ void CobConverterAlgorithm_destroy(CobConverterAlgorithmHandle* self);
  * See validateConfig for the remaining parameter constraints.
  */
 void CobConverterAlgorithm_setConfig(CobConverterAlgorithmHandle* self,
-                                     PhaseAngleCorrectionMethodAlgorithm_c phaseAngleCorrectionMethod,
                                      float radius,
                                      float radiusUncertainty,
                                      Matrix3f_c attitudeCovariance,

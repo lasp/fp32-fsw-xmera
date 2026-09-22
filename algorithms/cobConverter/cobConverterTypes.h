@@ -25,16 +25,6 @@ typedef struct {
 } Matrix3d_c;
 
 /**
- * @brief C-compatible enumeration mirroring PhaseAngleCorrectionMethodAlgorithm.
- *
- * Numeric values must stay in lockstep with the C++ enum class in cobConverterAlgorithm.h.
- */
-typedef enum {
-    PHASE_ANGLE_CORRECTION_METHOD_NO_CORRECTION_ALG_C = 0,
-    PHASE_ANGLE_CORRECTION_METHOD_BINARY_ALG_C = 1
-} PhaseAngleCorrectionMethodAlgorithm_c;
-
-/**
  * @brief Plain-old-data mirror of the C++ CalibrationCoefficients fields.
  */
 typedef struct {
