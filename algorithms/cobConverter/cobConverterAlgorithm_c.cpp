@@ -9,8 +9,7 @@
 namespace {
 
 //! Build the validated C++ configuration from the flattened C parameters.
-CobConverterConfig makeConfig(PhaseAngleCorrectionMethodAlgorithm_c phaseAngleCorrectionMethod,
-                              float radius,
+CobConverterConfig makeConfig(float radius,
                               float radiusUncertainty,
                               Matrix3f_c attitudeCovariance,
                               float numStandardDeviations,
@@ -29,8 +28,7 @@ CobConverterConfig makeConfig(PhaseAngleCorrectionMethodAlgorithm_c phaseAngleCo
                                                .k3 = calibrationCoefficients.k3,
                                                .p1 = calibrationCoefficients.p1,
                                                .p2 = calibrationCoefficients.p2};
-    return CobConverterConfig::create(static_cast<PhaseAngleCorrectionMethodAlgorithm>(phaseAngleCorrectionMethod),
-                                      radius,
+    return CobConverterConfig::create(radius,
                                       radiusUncertainty,
                                       c2DArrayToEigenMatrix3(attitudeCovariance.data),
                                       numStandardDeviations,
@@ -72,8 +70,7 @@ CobConverterOutput_c outputToC(const CobConverterOutput& out, const CobConverter
 
 }  // namespace
 
-bool CobConverterAlgorithm_validateConfig(PhaseAngleCorrectionMethodAlgorithm_c phaseAngleCorrectionMethod,
-                                          float radius,
+bool CobConverterAlgorithm_validateConfig(float radius,
                                           float radiusUncertainty,
                                           Matrix3f_c attitudeCovariance,
                                           float numStandardDeviations,
@@ -88,8 +85,7 @@ bool CobConverterAlgorithm_validateConfig(PhaseAngleCorrectionMethodAlgorithm_c 
                                           float resolutionY,
                                           Vector3f_c bodyToCameraMrp) {
     try {
-        (void)makeConfig(phaseAngleCorrectionMethod,
-                         radius,
+        (void)makeConfig(radius,
                          radiusUncertainty,
                          attitudeCovariance,
                          numStandardDeviations,
@@ -109,25 +105,22 @@ bool CobConverterAlgorithm_validateConfig(PhaseAngleCorrectionMethodAlgorithm_c 
     }
 }
 
-CobConverterAlgorithmHandle* CobConverterAlgorithm_create(
-    PhaseAngleCorrectionMethodAlgorithm_c phaseAngleCorrectionMethod,
-    float radius,
-    float radiusUncertainty,
-    Matrix3f_c attitudeCovariance,
-    float numStandardDeviations,
-    float standardDeviation,
-    bool specifiedStandardDeviation,
-    bool outlierDetectionEnabled,
-    CalibrationCoefficients_c calibrationCoefficients,
-    int32_t cameraId,
-    float fieldOfViewX,
-    float fieldOfViewY,
-    float resolutionX,
-    float resolutionY,
-    Vector3f_c bodyToCameraMrp) {
+CobConverterAlgorithmHandle* CobConverterAlgorithm_create(float radius,
+                                                          float radiusUncertainty,
+                                                          Matrix3f_c attitudeCovariance,
+                                                          float numStandardDeviations,
+                                                          float standardDeviation,
+                                                          bool specifiedStandardDeviation,
+                                                          bool outlierDetectionEnabled,
+                                                          CalibrationCoefficients_c calibrationCoefficients,
+                                                          int32_t cameraId,
+                                                          float fieldOfViewX,
+                                                          float fieldOfViewY,
+                                                          float resolutionX,
+                                                          float resolutionY,
+                                                          Vector3f_c bodyToCameraMrp) {
     return fsw::createHandle<::CobConverterAlgorithm, CobConverterAlgorithmHandle>(
-        makeConfig(phaseAngleCorrectionMethod,
-                   radius,
+        makeConfig(radius,
                    radiusUncertainty,
                    attitudeCovariance,
                    numStandardDeviations,
@@ -148,7 +141,6 @@ void CobConverterAlgorithm_destroy(CobConverterAlgorithmHandle* self) {
 }
 
 void CobConverterAlgorithm_setConfig(CobConverterAlgorithmHandle* self,
-                                     PhaseAngleCorrectionMethodAlgorithm_c phaseAngleCorrectionMethod,
                                      float radius,
                                      float radiusUncertainty,
                                      Matrix3f_c attitudeCovariance,
@@ -163,8 +155,7 @@ void CobConverterAlgorithm_setConfig(CobConverterAlgorithmHandle* self,
                                      float resolutionX,
                                      float resolutionY,
                                      Vector3f_c bodyToCameraMrp) {
-    fsw::fromHandle<::CobConverterAlgorithm>(self)->setConfig(makeConfig(phaseAngleCorrectionMethod,
-                                                                         radius,
+    fsw::fromHandle<::CobConverterAlgorithm>(self)->setConfig(makeConfig(radius,
                                                                          radiusUncertainty,
                                                                          attitudeCovariance,
                                                                          numStandardDeviations,

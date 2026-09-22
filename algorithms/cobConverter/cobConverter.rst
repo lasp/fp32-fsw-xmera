@@ -5,12 +5,10 @@ Module reads in a message containing the pixel data extracted from the center of
 transforms into a position measurement. The written message contains a heading (unit vector) and a covariance
 (measurement noise).
 
-Additionally, the center of mass (COM) can be estimated using a Sun phase angle correction. In this case, another unit
-vector message is written containing the heading and covariance for the COM, as well as a message containing information
-about the COM offset.
-
-The center of mass correction can be applied using the "Binary" method, which assumes a brightness of either 1 or 0
-in the image of the body. If no correction should be performed, the method needs to be "NoCorrection".
+The published heading is the center of mass (COM), estimated from the COB using a Sun phase angle correction. The
+correction uses the "Binary" method, which assumes a brightness of either 1 or 0 in the image of the body, and is
+applied on every cycle. The COM offset itself, along with the uncorrected COB heading, is reported on the diagnostic
+message.
 
 Optionally, Brown-Conrady distortion coefficients can be provided to correct the normalized image-plane coordinate
 for lens distortion before the heading vector is computed.
@@ -121,14 +119,15 @@ where :math:`d_x` and :math:`d_y` (defined above) are the normalized image-plane
 This covariance matrix is then transformed into the body frame and added to the covariance of the attitude error.
 
 
-If a COM correction is to be performed, the offset factor :math:`\gamma` due to the Sun phase angle correction is
-obtained for a phase angle :math:`\alpha` using
+The offset factor :math:`\gamma` due to the Sun phase angle correction is obtained for a phase angle
+:math:`\alpha` using
 
 .. math::
 
     \gamma = \frac{4}{3 \pi} (1 - \cos\alpha)
 
-for the Binary method. If no correction is to be performed, then :math:`\gamma = 0`. The correction for the COM
+for the Binary method. Note that :math:`\gamma = 0` when :math:`\alpha = 0`, in which case the COM coincides with
+the COB. The correction for the COM
 location is performed according to `this paper by S. Bhaskaran <https://doi.org/10.1109/AERO.1998.687921>`__. First, the
 object radius :math:`R` in meters is converted to the object radius in pixel units :math:`R_c` by
 
@@ -319,7 +318,6 @@ add the module to the simulation task (``reset()`` validates the configuration a
     from xmera.fp32 import cobConverterF32 as cobConverter
 
     module = cobConverter.CobConverter()
-    module.phaseAngleCorrectionMethod = cobConverter.PhaseAngleCorrectionMethod_NoCorrection  # or _Binary
     module.radius = R_obj
     module.radiusUncertainty = R_obj_uncertainty
     module.attitudeCovariance = covar_att_BN_B
