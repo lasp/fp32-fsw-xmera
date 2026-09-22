@@ -46,25 +46,27 @@ CobConverterConfig makeConfig(PhaseAngleCorrectionMethodAlgorithm_c phaseAngleCo
                                       cArrayToEigenVector3<float>(bodyToCameraMrp.data));
 }
 
-CobConverterOutput_c outputToC(const CobConverterOutput& out) {
+CobConverterOutput_c outputToC(const CobConverterOutput& out, const CobConverterDiagnosticOutput& diag) {
     CobConverterOutput_c result{};
-    eigenMatrixToCArray2D(out.unitVec.covar_N, result.covar_N.data);
-    eigenMatrixToCArray2D(out.unitVec.covar_C, result.covar_C.data);
-    eigenMatrixToCArray2D(out.unitVec.covar_B, result.covar_B.data);
-    eigenVectorToCArray(out.unitVec.rhat_BN_N, result.rhat_BN_N.data);
-    eigenVectorToCArray(out.unitVec.rhat_BN_C, result.rhat_BN_C.data);
-    eigenVectorToCArray(out.unitVec.rhat_BN_B, result.rhat_BN_B.data);
-    result.unitVecTimeTag = out.unitVec.unitVecTimeTag;
-    result.unitVecValid = out.unitVec.unitVecValid;
-    eigenVectorToCArray(out.com.centerOfBrightness, result.centerOfBrightness.data);
-    eigenVectorToCArray(out.com.centerOfMass, result.centerOfMass.data);
-    result.offsetFactor = out.com.offsetFactor;
-    result.objectPixelRadius = out.com.objectPixelRadius;
-    result.phaseAngle = out.com.phaseAngle;
-    result.sunDirection = out.com.sunDirection;
-    result.comTimeTag = out.com.comTimeTag;
-    result.comValid = out.com.comValid;
-    result.coberrorOutlierTrigger = out.diagnostic.coberrorOutlierTrigger;
+    eigenMatrixToCArray2D(out.covar_N, result.covar_N.data);
+    eigenVectorToCArray(out.rhat_BN_N, result.rhat_BN_N.data);
+    result.unitVecTimeTag = out.unitVecTimeTag;
+    result.unitVecValid = out.unitVecValid;
+    eigenMatrixToCArray2D(diag.covar_C, result.covar_C.data);
+    eigenMatrixToCArray2D(diag.covar_B, result.covar_B.data);
+    eigenVectorToCArray(diag.rhat_BN_C, result.rhat_BN_C.data);
+    eigenVectorToCArray(diag.rhat_BN_B, result.rhat_BN_B.data);
+    eigenVectorToCArray(diag.rhat_COB_C, result.rhat_COB_C.data);
+    eigenVectorToCArray(diag.rhat_COB_N, result.rhat_COB_N.data);
+    eigenVectorToCArray(diag.centerOfBrightness, result.centerOfBrightness.data);
+    eigenVectorToCArray(diag.centerOfMass, result.centerOfMass.data);
+    result.offsetFactor = diag.offsetFactor;
+    result.objectPixelRadius = diag.objectPixelRadius;
+    result.phaseAngle = diag.phaseAngle;
+    result.sunDirection = diag.sunDirection;
+    result.comTimeTag = diag.comTimeTag;
+    result.comValid = diag.comValid;
+    result.coberrorOutlierTrigger = diag.coberrorOutlierTrigger;
     return result;
 }
 
@@ -202,6 +204,6 @@ CobConverterOutput_c CobConverterAlgorithm_updateState(CobConverterAlgorithmHand
         .filterVehPositionCovariance = c2DArrayToEigenMatrix3<double>(filterVehPositionCovariance.data),
     };
 
-    const CobConverterOutput out = fsw::fromHandle<::CobConverterAlgorithm>(self)->updateState(cob, attitude, filter);
-    return outputToC(out);
+    const auto [out, diag] = fsw::fromHandle<::CobConverterAlgorithm>(self)->updateState(cob, attitude, filter);
+    return outputToC(out, diag);
 }

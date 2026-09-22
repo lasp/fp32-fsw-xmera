@@ -140,11 +140,11 @@ inline Eigen::Matrix3d mapComCovar(double pixels,
 }  // namespace cobConverterReference
 
 // Mirrors CobConverterAlgorithm::updateState field-for-field.
-inline CobConverterOutput referenceCobConverterUpdate(const CobConverterConfig& cfg,
-                                                      const CobMeasurement& cob,
-                                                      const VehicleAttitude& attitude,
-                                                      const FilterState& filter) {
-    CobConverterOutput output;
+inline CobConverterUpdateResult referenceCobConverterUpdate(const CobConverterConfig& cfg,
+                                                            const CobMeasurement& cob,
+                                                            const VehicleAttitude& attitude,
+                                                            const FilterState& filter) {
+    CobConverterUpdateResult output;
 
     if (!cob.cobValid || cob.cobPixelsFound == 0 ||
         filter.filterVehPosition.norm() <= static_cast<double>(cfg.getRadius())) {
@@ -275,26 +275,27 @@ inline CobConverterOutput referenceCobConverterUpdate(const CobConverterConfig& 
     const Eigen::Matrix3d covar_N = dcm_BN.transpose() * covar_B * dcm_BN;
     const Eigen::Matrix3d covar_C = dcm_NC.transpose() * covar_N * dcm_NC;
 
-    output.unitVec.covar_N = covar_N.cast<float>();
-    output.unitVec.covar_C = covar_C.cast<float>();
-    output.unitVec.covar_B = covar_B.cast<float>();
-    output.unitVec.rhat_BN_N = rhatCOM_N.cast<float>();
-    output.unitVec.rhat_BN_C = rhatCOM_C.cast<float>();
-    output.unitVec.rhat_BN_B = rhatCOM_B.cast<float>();
-    output.unitVec.unitVecTimeTag = static_cast<double>(cob.cobTimeTag) * kNano2Sec;
+    output.output.covar_N = covar_N.cast<float>();
+    output.output.rhat_BN_N = rhatCOM_N.cast<float>();
+    output.output.unitVecTimeTag = static_cast<double>(cob.cobTimeTag) * kNano2Sec;
     // Mirrors CobConverterAlgorithm::populateOutputMessages: valid when the COM pixel location is
     // finite (validCom) and outlier detection didn't flag this cycle.
-    output.unitVec.unitVecValid = validCom && goodOutlierCheck;
+    output.output.unitVecValid = validCom && goodOutlierCheck;
 
-    output.com.centerOfBrightness = cobPixels.cast<float>();
-    output.com.centerOfMass = comPixels.cast<float>();
-    output.com.offsetFactor = static_cast<float>(gamma);
-    output.com.objectPixelRadius = static_cast<int>(objectRadiusPixels);
-    output.com.phaseAngle = static_cast<float>(alpha);
-    output.com.sunDirection = static_cast<float>(phi);
-    output.com.comTimeTag = cob.cobTimeTag;
-    output.com.comValid = validCom;
-
+    output.diagnostic.covar_C = covar_C.cast<float>();
+    output.diagnostic.covar_B = covar_B.cast<float>();
+    output.diagnostic.rhat_BN_C = rhatCOM_C.cast<float>();
+    output.diagnostic.rhat_BN_B = rhatCOM_B.cast<float>();
+    output.diagnostic.rhat_COB_C = rhatCOB_C.cast<float>();
+    output.diagnostic.rhat_COB_N = (dcm_NC * rhatCOB_C).cast<float>();
+    output.diagnostic.centerOfBrightness = cobPixels.cast<float>();
+    output.diagnostic.centerOfMass = comPixels.cast<float>();
+    output.diagnostic.offsetFactor = static_cast<float>(gamma);
+    output.diagnostic.objectPixelRadius = static_cast<int>(objectRadiusPixels);
+    output.diagnostic.phaseAngle = static_cast<float>(alpha);
+    output.diagnostic.sunDirection = static_cast<float>(phi);
+    output.diagnostic.comTimeTag = cob.cobTimeTag;
+    output.diagnostic.comValid = validCom;
     output.diagnostic.coberrorOutlierTrigger = coberrorOutlierTrigger;
 
     return output;
@@ -304,7 +305,8 @@ inline CobConverterOutput referenceCobConverterUpdate(const CobConverterConfig& 
 // below are derived from operation count * float epsilon (1.19e-7) * margin, not picked by trial
 // and error -- a wrong sign or dropped term is orders of magnitude bigger than any bound here.
 //
-// `tol` (1e-3F) covers rhat_BN_N/C/B, offsetFactor, phaseAngle, sunDirection. phaseAngle sets it:
+// `tol` (1e-3F) covers rhat_BN_N/C/B, rhat_COB_C/N, offsetFactor, phaseAngle, sunDirection.
+// phaseAngle sets it:
 // its acos(dot(rHat_N, shat_N)) is ill-conditioned as alpha -> 0 or pi (d(acos)/dx = -1/sin(alpha)),
 // giving a floor of ~sqrt(2*n*epsilon) ~= 1.5e-3 for n ~ 5-10 upstream ops -- not a bug, since
 // alpha ~= 0 (sun nearly behind the spacecraft) is a valid but ill-conditioned geometry. Confirmed
@@ -369,56 +371,61 @@ inline float covarNoiseScale(const Eigen::Matrix3f& actual, const Eigen::Matrix3
                      std::abs(reference(2, 2))});
 }
 
-inline void expectOutputsNear(const CobConverterOutput& out, const CobConverterOutput& ref, float tol) {
+inline void expectOutputsNear(const CobConverterUpdateResult& out, const CobConverterUpdateResult& ref, float tol) {
     constexpr float covarAtol = 1e-3F;
     constexpr float covarRtol = 1e-4F;
-    const float covarNScale = covarNoiseScale(out.unitVec.covar_N, ref.unitVec.covar_N);
-    const float covarCScale = covarNoiseScale(out.unitVec.covar_C, ref.unitVec.covar_C);
-    const float covarBScale = covarNoiseScale(out.unitVec.covar_B, ref.unitVec.covar_B);
+    const float covarNScale = covarNoiseScale(out.output.covar_N, ref.output.covar_N);
+    const float covarCScale = covarNoiseScale(out.diagnostic.covar_C, ref.diagnostic.covar_C);
+    const float covarBScale = covarNoiseScale(out.diagnostic.covar_B, ref.diagnostic.covar_B);
     for (int i = 0; i < 3; ++i) {
-        EXPECT_NEAR(out.unitVec.rhat_BN_N(i), ref.unitVec.rhat_BN_N(i), tol);
-        EXPECT_NEAR(out.unitVec.rhat_BN_C(i), ref.unitVec.rhat_BN_C(i), tol);
-        EXPECT_NEAR(out.unitVec.rhat_BN_B(i), ref.unitVec.rhat_BN_B(i), tol);
+        EXPECT_NEAR(out.output.rhat_BN_N(i), ref.output.rhat_BN_N(i), tol);
+        EXPECT_NEAR(out.diagnostic.rhat_BN_C(i), ref.diagnostic.rhat_BN_C(i), tol);
+        EXPECT_NEAR(out.diagnostic.rhat_BN_B(i), ref.diagnostic.rhat_BN_B(i), tol);
+        EXPECT_NEAR(out.diagnostic.rhat_COB_C(i), ref.diagnostic.rhat_COB_C(i), tol);
+        EXPECT_NEAR(out.diagnostic.rhat_COB_N(i), ref.diagnostic.rhat_COB_N(i), tol);
         for (int j = 0; j < 3; ++j) {
-            expectNear(out.unitVec.covar_N(i, j), ref.unitVec.covar_N(i, j), covarAtol, covarRtol, covarNScale);
-            expectNear(out.unitVec.covar_C(i, j), ref.unitVec.covar_C(i, j), covarAtol, covarRtol, covarCScale);
-            expectNear(out.unitVec.covar_B(i, j), ref.unitVec.covar_B(i, j), covarAtol, covarRtol, covarBScale);
+            expectNear(out.output.covar_N(i, j), ref.output.covar_N(i, j), covarAtol, covarRtol, covarNScale);
+            expectNear(out.diagnostic.covar_C(i, j), ref.diagnostic.covar_C(i, j), covarAtol, covarRtol, covarCScale);
+            expectNear(out.diagnostic.covar_B(i, j), ref.diagnostic.covar_B(i, j), covarAtol, covarRtol, covarBScale);
         }
     }
     // finiteness
-    EXPECT_TRUE(out.unitVec.rhat_BN_N.allFinite());
-    EXPECT_TRUE(out.unitVec.rhat_BN_C.allFinite());
-    EXPECT_TRUE(out.unitVec.rhat_BN_B.allFinite());
-    EXPECT_TRUE(out.unitVec.covar_N.allFinite());
-    EXPECT_TRUE(out.unitVec.covar_C.allFinite());
-    EXPECT_TRUE(out.unitVec.covar_B.allFinite());
+    EXPECT_TRUE(out.output.rhat_BN_N.allFinite());
+    EXPECT_TRUE(out.diagnostic.rhat_BN_C.allFinite());
+    EXPECT_TRUE(out.diagnostic.rhat_BN_B.allFinite());
+    EXPECT_TRUE(out.diagnostic.rhat_COB_C.allFinite());
+    EXPECT_TRUE(out.diagnostic.rhat_COB_N.allFinite());
+    EXPECT_TRUE(out.output.covar_N.allFinite());
+    EXPECT_TRUE(out.diagnostic.covar_C.allFinite());
+    EXPECT_TRUE(out.diagnostic.covar_B.allFinite());
 
-    EXPECT_NEAR(out.unitVec.unitVecTimeTag, ref.unitVec.unitVecTimeTag, 1e-9);
-    EXPECT_EQ(out.unitVec.unitVecValid, ref.unitVec.unitVecValid);
+    EXPECT_NEAR(out.output.unitVecTimeTag, ref.output.unitVecTimeTag, 1e-9);
+    EXPECT_EQ(out.output.unitVecValid, ref.output.unitVecValid);
 
-    const float pixelNoiseScale =
-        static_cast<float>(std::max(std::abs(out.com.objectPixelRadius), std::abs(ref.com.objectPixelRadius)));
-    expectPixelNear(out.com.centerOfBrightness(0), ref.com.centerOfBrightness(0), pixelNoiseScale);
-    expectPixelNear(out.com.centerOfBrightness(1), ref.com.centerOfBrightness(1), pixelNoiseScale);
-    expectPixelNear(out.com.centerOfMass(0), ref.com.centerOfMass(0), pixelNoiseScale);
-    expectPixelNear(out.com.centerOfMass(1), ref.com.centerOfMass(1), pixelNoiseScale);
+    const float pixelNoiseScale = static_cast<float>(
+        std::max(std::abs(out.diagnostic.objectPixelRadius), std::abs(ref.diagnostic.objectPixelRadius)));
+    expectPixelNear(out.diagnostic.centerOfBrightness(0), ref.diagnostic.centerOfBrightness(0), pixelNoiseScale);
+    expectPixelNear(out.diagnostic.centerOfBrightness(1), ref.diagnostic.centerOfBrightness(1), pixelNoiseScale);
+    expectPixelNear(out.diagnostic.centerOfMass(0), ref.diagnostic.centerOfMass(0), pixelNoiseScale);
+    expectPixelNear(out.diagnostic.centerOfMass(1), ref.diagnostic.centerOfMass(1), pixelNoiseScale);
     // finiteness
-    EXPECT_TRUE(out.com.centerOfBrightness.allFinite());
-    EXPECT_TRUE(out.com.centerOfMass.allFinite());
+    EXPECT_TRUE(out.diagnostic.centerOfBrightness.allFinite());
+    EXPECT_TRUE(out.diagnostic.centerOfMass.allFinite());
 
-    expectPixelNear(
-        static_cast<float>(out.com.objectPixelRadius), static_cast<float>(ref.com.objectPixelRadius), pixelNoiseScale);
-    EXPECT_NEAR(out.com.offsetFactor, ref.com.offsetFactor, tol);
-    expectAngleNear(out.com.phaseAngle, ref.com.phaseAngle, tol);
-    expectAngleNear(out.com.sunDirection, ref.com.sunDirection, tol);
+    expectPixelNear(static_cast<float>(out.diagnostic.objectPixelRadius),
+                    static_cast<float>(ref.diagnostic.objectPixelRadius),
+                    pixelNoiseScale);
+    EXPECT_NEAR(out.diagnostic.offsetFactor, ref.diagnostic.offsetFactor, tol);
+    expectAngleNear(out.diagnostic.phaseAngle, ref.diagnostic.phaseAngle, tol);
+    expectAngleNear(out.diagnostic.sunDirection, ref.diagnostic.sunDirection, tol);
     // finiteness
-    EXPECT_TRUE(std::isfinite(out.com.objectPixelRadius));
-    EXPECT_TRUE(std::isfinite(out.com.offsetFactor));
-    EXPECT_TRUE(std::isfinite(out.com.phaseAngle));
-    EXPECT_TRUE(std::isfinite(out.com.sunDirection));
+    EXPECT_TRUE(std::isfinite(out.diagnostic.objectPixelRadius));
+    EXPECT_TRUE(std::isfinite(out.diagnostic.offsetFactor));
+    EXPECT_TRUE(std::isfinite(out.diagnostic.phaseAngle));
+    EXPECT_TRUE(std::isfinite(out.diagnostic.sunDirection));
 
-    EXPECT_EQ(out.com.comTimeTag, ref.com.comTimeTag);
-    EXPECT_EQ(out.com.comValid, ref.com.comValid);
+    EXPECT_EQ(out.diagnostic.comTimeTag, ref.diagnostic.comTimeTag);
+    EXPECT_EQ(out.diagnostic.comValid, ref.diagnostic.comValid);
     EXPECT_EQ(out.diagnostic.coberrorOutlierTrigger, ref.diagnostic.coberrorOutlierTrigger);
 }
 
@@ -480,15 +487,15 @@ inline void testCobConverter(PhaseAngleCorrectionMethodAlgorithm phaseAngleCorre
                              .filterVehPositionCovariance = filterVehPositionCovariance};
 
     CobConverterAlgorithm alg(*cfg);
-    CobConverterOutput out;
+    CobConverterUpdateResult out;
     EXPECT_NO_THROW(out = alg.updateState(cob, attitude, filter));
-    const CobConverterOutput ref = referenceCobConverterUpdate(*cfg, cob, attitude, filter);
+    const CobConverterUpdateResult ref = referenceCobConverterUpdate(*cfg, cob, attitude, filter);
 
     // Always check validity agrees with the reference
-    EXPECT_EQ(out.unitVec.unitVecValid, ref.unitVec.unitVecValid);
-    EXPECT_EQ(out.com.comValid, ref.com.comValid);
+    EXPECT_EQ(out.output.unitVecValid, ref.output.unitVecValid);
+    EXPECT_EQ(out.diagnostic.comValid, ref.diagnostic.comValid);
 
-    if (out.unitVec.unitVecValid && ref.unitVec.unitVecValid) {
+    if (out.output.unitVecValid && ref.output.unitVecValid) {
         // See the tolerance comment above expectNear/expectOutputsNear.
         constexpr float fixedRangeTol = 1e-3F;
         expectOutputsNear(out, ref, fixedRangeTol);

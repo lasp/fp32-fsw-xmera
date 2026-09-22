@@ -39,13 +39,10 @@ provides information on what this message is used for:
       - Input navigation message containing the spacecraft attitude in the inertial frame and the Sun direction in the body frame (e.g. the aggregated output of :ref:`navAggregate`)
     * - opnavUnitVecOutMsg
       - :ref:`OpNavUnitVecMsgPayload`
-      - Output heading vector and covariance in multiple frames; carries the COM heading when a phase-angle correction is active, otherwise the COB heading
-    * - comCorrectionOutMsg
-      - :ref:`OpNavCOMMsgPayload`
-      - Output message containing information about the COM offset due to the phase angle correction
+      - Output COM heading vector and covariance, inertial frame only. The COM is always computed; with no phase-angle correction it degenerates to the COB
     * - cobConverterDiagnosticOutMsg
       - :ref:`CobConverterDiagnosticMsgPayload`
-      - Output diagnostic message reporting whether the COB outlier check was triggered
+      - Output diagnostic message: the COM heading and covariance in the camera and body frames, the uncorrected COB heading, the pixel-space centers, the phase-angle correction metadata, and whether the COB outlier check was triggered
 
 Detailed Module Description
 ---------------------------
