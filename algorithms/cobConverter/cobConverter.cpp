@@ -21,9 +21,6 @@ void CobConverter::reset(uint64_t currentSimNanos) {
     if (!this->navAttInMsg.isLinked()) {
         throw std::invalid_argument("CobConverter.navAttInMsg wasn't connected.");
     }
-    if (!this->sunInMsg.isLinked()) {
-        throw std::invalid_argument("CobConverter.sunInMsg wasn't connected.");
-    }
     if (this->opnavFilterInMsg.isLinked() && this->opnavFilterInMsg().numberOfStates != 6) {
         throw std::invalid_argument("CobConverter.opnavFilterInMsg: numberOfStates must be 6.");
     }
@@ -79,7 +76,6 @@ void CobConverter::updateState(const uint64_t currentSimNanos) {
 
     const OpNavCOBMsgF32Payload cobMsg = this->opnavCOBInMsg();
     const NavAttMsgF32Payload navAttMsg = this->navAttInMsg();
-    const NavAttMsgF32Payload sunMsg = this->sunInMsg();
     const FilterMsgF32Payload filterMsg = this->opnavFilterInMsg();
 
     CobMeasurement cob;
@@ -90,7 +86,7 @@ void CobConverter::updateState(const uint64_t currentSimNanos) {
 
     VehicleAttitude attitude;
     attitude.sigma_BN = cArrayToEigenVector(navAttMsg.sigma_BN);
-    attitude.vehSunPntBdy = cArrayToEigenVector(sunMsg.vehSunPntBdy);
+    attitude.vehSunPntBdy = cArrayToEigenVector(navAttMsg.vehSunPntBdy);
 
     FilterState filter;
     filter.filterVehPosition = cArrayToEigenVector3<double>(filterMsg.state);

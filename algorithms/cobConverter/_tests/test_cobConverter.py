@@ -221,7 +221,6 @@ def cob_converter_test_function(show_plots, cameraResolution, centerOfBrightness
     inputCob = messaging.OpNavCOBMsgF32Payload()
     inputFilter = messaging.FilterMsgF32Payload()
     inputAtt = messaging.NavAttMsgF32Payload()
-    inputSun = messaging.NavAttMsgF32Payload()
 
     inputCamera.fieldOfView = [module.fieldOfViewX, module.fieldOfViewY]
     inputCamera.resolution = cameraResolution
@@ -245,14 +244,12 @@ def cob_converter_test_function(show_plots, cameraResolution, centerOfBrightness
     module.opnavFilterInMsg.subscribeTo(filterInMsg)
     vehSunPntN = np.array(sunDirection) / np.linalg.norm(np.array(sunDirection))  # unit vector from SC to Sun
 
-    # Set body attitude relative to inertial
+    # Set body attitude relative to inertial and the Sun direction in the body frame; both travel in
+    # the same nav message, as navAggregate publishes them.
     inputAtt.sigma_BN = sigma_BN
+    inputAtt.vehSunPntBdy = dcm_BN @ vehSunPntN
     attInMsg = messaging.NavAttMsgF32().write(inputAtt)
     module.navAttInMsg.subscribeTo(attInMsg)
-
-    inputSun.vehSunPntBdy = dcm_BN @ vehSunPntN
-    sunInMsg = messaging.NavAttMsgF32().write(inputSun)
-    module.sunInMsg.subscribeTo(sunInMsg)
 
     dataLogUnitVec = module.opnavUnitVecOutMsg.recorder()
     unitTestSim.AddModelToTask(unitTaskName, dataLogUnitVec)
@@ -426,7 +423,6 @@ def test_coberror_outlier(
     inputCob = messaging.OpNavCOBMsgF32Payload()
     inputFilter = messaging.FilterMsgF32Payload()
     inputAtt = messaging.NavAttMsgF32Payload()
-    inputSun = messaging.NavAttMsgF32Payload()
 
     inputCamera.fieldOfView = [module.fieldOfViewX, module.fieldOfViewY]
     inputCamera.resolution = cameraResolution
@@ -449,14 +445,12 @@ def test_coberror_outlier(
     module.opnavFilterInMsg.subscribeTo(filterInMsg)
     vehSunPntN = np.array(sunDirection) / np.linalg.norm(np.array(sunDirection))  # unit vector from SC to Sun
 
-    # Set body attitude relative to inertial
+    # Set body attitude relative to inertial and the Sun direction in the body frame; both travel in
+    # the same nav message, as navAggregate publishes them.
     inputAtt.sigma_BN = sigma_BN
+    inputAtt.vehSunPntBdy = dcm_BN @ vehSunPntN
     attInMsg = messaging.NavAttMsgF32().write(inputAtt)
     module.navAttInMsg.subscribeTo(attInMsg)
-
-    inputSun.vehSunPntBdy = dcm_BN @ vehSunPntN
-    sunInMsg = messaging.NavAttMsgF32().write(inputSun)
-    module.sunInMsg.subscribeTo(sunInMsg)
 
     dataLogUnitVec = module.opnavUnitVecOutMsg.recorder()
     unitTestSim.AddModelToTask(unitTaskName, dataLogUnitVec)
@@ -593,7 +587,6 @@ def test_brown_conrady_calibration(k1, k2, k3, p1, p2, label, centerOfBrightness
     inputCob = messaging.OpNavCOBMsgF32Payload()
     inputFilter = messaging.FilterMsgF32Payload()
     inputAtt = messaging.NavAttMsgF32Payload()
-    inputSun = messaging.NavAttMsgF32Payload()
 
     inputCamera.fieldOfView = [module.fieldOfViewX, module.fieldOfViewY]
     inputCamera.resolution = cameraResolution
@@ -615,12 +608,9 @@ def test_brown_conrady_calibration(k1, k2, k3, p1, p2, label, centerOfBrightness
 
     vehSunPntN = np.array(sunDirection) / np.linalg.norm(np.array(sunDirection))
     inputAtt.sigma_BN = sigma_BN
+    inputAtt.vehSunPntBdy = dcm_BN @ vehSunPntN
     attInMsg = messaging.NavAttMsgF32().write(inputAtt)
     module.navAttInMsg.subscribeTo(attInMsg)
-
-    inputSun.vehSunPntBdy = dcm_BN @ vehSunPntN
-    sunInMsg = messaging.NavAttMsgF32().write(inputSun)
-    module.sunInMsg.subscribeTo(sunInMsg)
 
     dataLogUnitVec = module.opnavUnitVecOutMsg.recorder()
     unitTestSim.AddModelToTask(unitTaskName, dataLogUnitVec)
