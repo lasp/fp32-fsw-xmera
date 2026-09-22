@@ -162,15 +162,16 @@ TEST(CobConverterTest, PixelsFoundIncreaseIsSizeIncreaseTest) {
                               .cobTimeTag = 12345U};
     };
 
-    const CobConverterOutput fewPixels = alg.updateState(makeCob(10), attitude, filter);
-    const CobConverterOutput manyPixels = alg.updateState(makeCob(1000), attitude, filter);
+    const CobConverterUpdateResult fewPixels = alg.updateState(makeCob(10), attitude, filter);
+    const CobConverterUpdateResult manyPixels = alg.updateState(makeCob(1000), attitude, filter);
 
     // A bigger detected blob (more pixels found) should widen, not shrink, the COM/COB position
-    // uncertainty in every frame -- confirming this input feeds the algorithm as a size term.
-    EXPECT_GT(manyPixels.unitVec.covar_B(0, 0), fewPixels.unitVec.covar_B(0, 0));
-    EXPECT_GT(manyPixels.unitVec.covar_B(1, 1), fewPixels.unitVec.covar_B(1, 1));
-    EXPECT_GT(manyPixels.unitVec.covar_N(0, 0), fewPixels.unitVec.covar_N(0, 0));
-    EXPECT_GT(manyPixels.unitVec.covar_C(0, 0), fewPixels.unitVec.covar_C(0, 0));
+    // uncertainty in every frame -- confirming this input feeds the algorithm as a size term. Only
+    // the inertial frame is on the essential output; the body/camera frames are diagnostic.
+    EXPECT_GT(manyPixels.diagnostic.covar_B(0, 0), fewPixels.diagnostic.covar_B(0, 0));
+    EXPECT_GT(manyPixels.diagnostic.covar_B(1, 1), fewPixels.diagnostic.covar_B(1, 1));
+    EXPECT_GT(manyPixels.output.covar_N(0, 0), fewPixels.output.covar_N(0, 0));
+    EXPECT_GT(manyPixels.diagnostic.covar_C(0, 0), fewPixels.diagnostic.covar_C(0, 0));
 }
 
 TEST(CobConverterTest, SetupTest) {

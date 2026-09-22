@@ -325,10 +325,11 @@ Eigen::Matrix3f CobConverterAlgorithm::computeCameraFrameUncertainty(
  * @param rotations dcm_BN/dcm_NC for the current cycle.
  * @param correction Phase-angle correction terms for the current cycle.
  * @param rhatCOM_C COM unit vector in the camera frame.
+ * @param rhatCOB_C COB unit vector in the camera frame.
  * @param covar_B Total COM/COB covariance in the body frame.
  * @param goodOutlierCheck True unless outlier detection is enabled and flagged this cycle.
- * @param unitVecOutput Unit-vector output to fill.
- * @param comOutput COM output to fill.
+ * @param output Essential (inertial-frame) output to fill.
+ * @param diagnostic Diagnostic output to fill.
  */
 void CobConverterAlgorithm::populateOutputMessages(
     const uint64_t timeTag,
@@ -337,49 +338,52 @@ void CobConverterAlgorithm::populateOutputMessages(
     const Rotations& rotations,
     const PhaseAngleCorrectionResult& correction,
     const Eigen::Vector3f& rhatCOM_C,
+    const Eigen::Vector3f& rhatCOB_C,
     const Eigen::Matrix3f& covar_B,
     const bool goodOutlierCheck,
-    CobConverterUnitVecOutput& unitVecOutput,
-    CobConverterComOutput& comOutput) {
+    CobConverterOutput& output,
+    CobConverterDiagnosticOutput& diagnostic) {
     const Eigen::Vector3f rhatCOM_N = rotations.dcm_NC * rhatCOM_C;
-    const Eigen::Vector3f rhatCOM_B = rotations.dcm_BN * rhatCOM_N;
-    unitVecOutput.covar_N = rotations.dcm_BN.transpose() * covar_B * rotations.dcm_BN;
-    unitVecOutput.covar_C = rotations.dcm_NC.transpose() * unitVecOutput.covar_N * rotations.dcm_NC;
-    unitVecOutput.covar_B = covar_B;
-    unitVecOutput.rhat_BN_N = rhatCOM_N;
-    unitVecOutput.rhat_BN_C = rhatCOM_C;
-    unitVecOutput.rhat_BN_B = rhatCOM_B;
-    unitVecOutput.unitVecTimeTag = static_cast<double>(timeTag) * kNano2Sec;
-    unitVecOutput.unitVecValid = correction.validCom && goodOutlierCheck;
+    output.covar_N = rotations.dcm_BN.transpose() * covar_B * rotations.dcm_BN;
+    output.rhat_BN_N = rhatCOM_N;
+    output.unitVecTimeTag = static_cast<double>(timeTag) * kNano2Sec;
+    output.unitVecValid = correction.validCom && goodOutlierCheck;
+
+    diagnostic.covar_C = rotations.dcm_NC.transpose() * output.covar_N * rotations.dcm_NC;
+    diagnostic.covar_B = covar_B;
+    diagnostic.rhat_BN_C = rhatCOM_C;
+    diagnostic.rhat_BN_B = rotations.dcm_BN * rhatCOM_N;
+    diagnostic.rhat_COB_C = rhatCOB_C;
+    diagnostic.rhat_COB_N = rotations.dcm_NC * rhatCOB_C;
 
     const Eigen::Vector2f centerOfBrightnessXY(centerOfBrightness(0), centerOfBrightness(1));
-    comOutput.centerOfBrightness = centerOfBrightnessXY;
+    diagnostic.centerOfBrightness = centerOfBrightnessXY;
     const Eigen::Vector2f centerOfMassXY(centerOfMass(0), centerOfMass(1));
-    comOutput.centerOfMass = centerOfMassXY;
-    comOutput.offsetFactor = correction.gamma;
-    comOutput.objectPixelRadius = static_cast<int>(correction.Rc);
-    comOutput.phaseAngle = correction.alphaPA;
-    comOutput.sunDirection = correction.phi;
-    comOutput.comTimeTag = timeTag;
-    comOutput.comValid = correction.validCom;
+    diagnostic.centerOfMass = centerOfMassXY;
+    diagnostic.offsetFactor = correction.gamma;
+    diagnostic.objectPixelRadius = static_cast<int>(correction.Rc);
+    diagnostic.phaseAngle = correction.alphaPA;
+    diagnostic.sunDirection = correction.phi;
+    diagnostic.comTimeTag = timeTag;
+    diagnostic.comValid = correction.validCom;
 }
 
 /**
  * @brief Update step: convert pixel-based COB into unit vectors and return all outputs.
  *
- * Computes rotations, optional phase-angle correction, outlier detection, and populates a
- * CobConverterOutput struct. Camera parameters are precomputed by setConfig() and are not
- * recomputed per cycle.
+ * Computes rotations, optional phase-angle correction, outlier detection, and populates the
+ * essential output alongside its diagnostic snapshot. Camera parameters are precomputed by
+ * setConfig() and are not recomputed per cycle.
  *
  * @param cob COB measurement payload.
  * @param attitude Vehicle attitude knowledge (body orientation and sun direction).
  * @param filter Filter position state and covariance.
- * @return Populated CobConverterOutput (zeroed if cob.cobValid is false or cob.cobPixelsFound is zero).
+ * @return Populated CobConverterUpdateResult (zeroed if cob.cobValid is false or cob.cobPixelsFound is zero).
  */
-CobConverterOutput CobConverterAlgorithm::updateState(const CobMeasurement& cob,
-                                                      const VehicleAttitude& attitude,
-                                                      const FilterState& filter) const {
-    CobConverterOutput output;
+CobConverterUpdateResult CobConverterAlgorithm::updateState(const CobMeasurement& cob,
+                                                            const VehicleAttitude& attitude,
+                                                            const FilterState& filter) const {
+    CobConverterUpdateResult result;
 
     if (cob.cobValid && cob.cobPixelsFound != 0 &&
         filter.filterVehPosition.stableNorm() > static_cast<double>(this->cfg.getRadius())) {
@@ -402,7 +406,7 @@ CobConverterOutput CobConverterAlgorithm::updateState(const CobMeasurement& cob,
             if (this->cfg.isOutlierDetectionEnabled()) {
                 goodOutlierCheck = this->cobOutlierDetection(
                     filter.filterVehPosition, filter.filterVehPositionCovariance, covar_B, rhatCOB_C, rotations.dcm_NC);
-                output.diagnostic.coberrorOutlierTrigger = !goodOutlierCheck;
+                result.diagnostic.coberrorOutlierTrigger = !goodOutlierCheck;
             }
             CobConverterAlgorithm::populateOutputMessages(cob.cobTimeTag,
                                                           centerOfMass,
@@ -410,13 +414,14 @@ CobConverterOutput CobConverterAlgorithm::updateState(const CobMeasurement& cob,
                                                           rotations,
                                                           correction,
                                                           rhatCOM_C,
+                                                          rhatCOB_C,
                                                           covar_B,
                                                           goodOutlierCheck,
-                                                          output.unitVec,
-                                                          output.com);
+                                                          result.output,
+                                                          result.diagnostic);
         }
     }
-    return output;
+    return result;
 }
 
 /**
