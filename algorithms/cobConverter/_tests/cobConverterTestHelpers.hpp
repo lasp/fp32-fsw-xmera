@@ -168,10 +168,11 @@ inline CobConverterUpdateResult referenceCobConverterUpdate(const CobConverterCo
     const double phi = safeAtan2(shat_C(1), shat_C(0));
     const double gamma = (4.0 / (3.0 * std::numbers::pi)) * (1.0 - safeCos(alpha));
     const double objectRadiusPixels = static_cast<double>(cfg.getRadius()) * dX / position.norm();
+    const double tanBeta = static_cast<double>(cfg.getRadius()) * gamma / position.norm();
 
     const Eigen::Vector2d cobPixels = cob.cobCenterOfBrightness.cast<double>();
-    const Eigen::Vector2d comPixels(cobPixels(0) - (gamma * objectRadiusPixels * safeCos(phi)),
-                                    cobPixels(1) - (gamma * objectRadiusPixels * safeSin(phi)));
+    const Eigen::Vector2d comPixels(cobPixels(0) - (tanBeta * dX * safeCos(phi)),
+                                    cobPixels(1) - (tanBeta * dY * safeSin(phi)));
     // Mirrors CobConverterAlgorithm::updateState: validCom means "the resulting COM pixel location
     // is finite," applied the same way whether or not a correction was requested.
     const bool validCom = comPixels.allFinite();
@@ -310,7 +311,9 @@ inline void expectNear(float actual, float reference, float atol, float rtol, fl
 // when it nearly cancels cobCenterOfBrightness, landing the *reference* near zero -- scaling rtol by
 // |reference| alone would collapse back to the bare 1px bound despite real rounding noise set by
 // objectRadiusPixels' magnitude, not the cancelled result. Pass objectRadiusPixels in explicitly as
-// a noise-scale floor alongside actual/reference.
+// a noise-scale floor alongside actual/reference. objectRadiusPixels is dX-based, while the COM
+// y offset scales with dY, so the y floor is rescaled by dY/dX (which grows large when a narrow
+// fieldOfViewY is paired with a wide fieldOfViewX).
 constexpr float kPixelRtol = 1e-4F;
 inline void expectPixelNear(float actual, float reference, float noiseScale) {
     EXPECT_LE(std::abs(actual - reference),
@@ -339,7 +342,10 @@ inline float covarNoiseScale(const Eigen::Matrix3f& actual, const Eigen::Matrix3
                      std::abs(reference(2, 2))});
 }
 
-inline void expectOutputsNear(const CobConverterUpdateResult& out, const CobConverterUpdateResult& ref, float tol) {
+inline void expectOutputsNear(const CobConverterUpdateResult& out,
+                              const CobConverterUpdateResult& ref,
+                              float tol,
+                              float pixelScaleRatioY) {
     constexpr float covarAtol = 1e-3F;
     constexpr float covarRtol = 1e-4F;
     const float covarNScale = covarNoiseScale(out.output.covar_N, ref.output.covar_N);
@@ -375,7 +381,8 @@ inline void expectOutputsNear(const CobConverterUpdateResult& out, const CobConv
     expectPixelNear(out.diagnostic.centerOfBrightness(0), ref.diagnostic.centerOfBrightness(0), pixelNoiseScale);
     expectPixelNear(out.diagnostic.centerOfBrightness(1), ref.diagnostic.centerOfBrightness(1), pixelNoiseScale);
     expectPixelNear(out.diagnostic.centerOfMass(0), ref.diagnostic.centerOfMass(0), pixelNoiseScale);
-    expectPixelNear(out.diagnostic.centerOfMass(1), ref.diagnostic.centerOfMass(1), pixelNoiseScale);
+    const float pixelNoiseScaleY = pixelNoiseScale * pixelScaleRatioY;
+    expectPixelNear(out.diagnostic.centerOfMass(1), ref.diagnostic.centerOfMass(1), pixelNoiseScaleY);
     // finiteness
     EXPECT_TRUE(out.diagnostic.centerOfBrightness.allFinite());
     EXPECT_TRUE(out.diagnostic.centerOfMass.allFinite());
@@ -464,7 +471,13 @@ inline void testCobConverter(float radius,
     if (out.output.unitVecValid && ref.output.unitVecValid) {
         // See the tolerance comment above expectNear/expectOutputsNear.
         constexpr float fixedRangeTol = 1e-3F;
-        expectOutputsNear(out, ref, fixedRangeTol);
+        const Eigen::Matrix3d cameraCalibrationMatrix =
+            cobConverterReference::computeCameraCalibrationMatrix(static_cast<double>(cfg->getFieldOfViewX()),
+                                                                  static_cast<double>(cfg->getFieldOfViewY()),
+                                                                  static_cast<double>(cfg->getResolutionX()),
+                                                                  static_cast<double>(cfg->getResolutionY()));
+        const auto pixelScaleRatioY = static_cast<float>(cameraCalibrationMatrix(1, 1) / cameraCalibrationMatrix(0, 0));
+        expectOutputsNear(out, ref, fixedRangeTol, pixelScaleRatioY);
     }
 }
 
