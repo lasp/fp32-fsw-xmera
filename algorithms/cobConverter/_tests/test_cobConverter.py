@@ -276,10 +276,11 @@ def cob_converter_test_function(show_plots, cameraResolution, centerOfBrightness
     phi = np.arctan2(shat_C[1], shat_C[0])  # sun direction in image plane
     K = compute_camera_calibration_matrix(inputCamera)
     dX = K[0, 0]
-    Rc = R_object * dX / np.linalg.norm(r_BdyZero_N)  # object radius in pixels
+    dY = K[1, 1]
+    tanBeta = R_object * gamma / np.linalg.norm(r_BdyZero_N)  # COB/COM angular offset
     com_true = [None] * 2  # COM location in image
-    com_true[0] = cob_true[0] - gamma * Rc * np.cos(phi) * goodPixels
-    com_true[1] = cob_true[1] - gamma * Rc * np.sin(phi) * goodPixels
+    com_true[0] = cob_true[0] - tanBeta * dX * np.cos(phi) * goodPixels
+    com_true[1] = cob_true[1] - tanBeta * dY * np.sin(phi) * goodPixels
     [rhat_COM_C_true, norm_COM_vector] = mapState(com_true, inputCamera)
 
 # Center of Brightness Unit Vector

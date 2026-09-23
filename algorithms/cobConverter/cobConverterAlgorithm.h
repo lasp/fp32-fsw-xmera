@@ -3,6 +3,7 @@
 
 #include <Eigen/Dense>
 #include <numbers>
+#include <utility>
 
 #include "utilities/fsw/freestandingInvalidArgument.h"
 #include "utilities/fsw/freestandingIsFinite.hpp"
@@ -297,10 +298,6 @@ class CobConverterAlgorithm final {
     PhaseAngleCorrectionResult computePhaseAngleCorrection(const Eigen::Vector3d& filterVehPosition,
                                                            const Eigen::Vector3f& vehSunPntBdy,
                                                            const Eigen::Matrix3f& dcm_BN) const;
-    static std::tuple<Eigen::Vector3f, Eigen::Vector3f>
-    computeCentersOfInterest(const Eigen::Vector2f& cobCenterOfBrightness, float gamma, float Rc, float phi);
-    std::tuple<Eigen::Vector3f, Eigen::Vector3f> computeRelevantVectors(const Eigen::Vector3f& centerOfBrightness,
-                                                                        const Eigen::Vector3f& centerOfMass) const;
     Eigen::Matrix3f computeCameraFrameUncertainty(const int32_t& cobPixelsFound,
                                                   const Eigen::Matrix3d& filterVehPositionCovariance,
                                                   const PhaseAngleCorrectionResult& correction) const;
@@ -322,6 +319,7 @@ class CobConverterAlgorithm final {
     Eigen::Matrix3f cameraCalibrationMatrix = Eigen::Matrix3f::Zero();
     Eigen::Matrix3f cameraCalibrationMatrixInverse = Eigen::Matrix3f::Zero();
     float dX{};
+    float dY{};
     float X{};
     float Y{};
     float ifov_x{};

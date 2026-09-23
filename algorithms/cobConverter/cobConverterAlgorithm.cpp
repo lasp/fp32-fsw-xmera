@@ -80,23 +80,24 @@ void CobConverterAlgorithm::computeCameraParameters() {
     const float pY = 2.0F * safeTanf(fieldOfViewY / 2.0F);
 
     this->dX = resolutionX / pX;
-    const float dY = resolutionY / pY;
+    this->dY = resolutionY / pY;
 
     // Assume the principal point (up, vp) is at the image center.
     const float up = resolutionX / 2.0F;
     const float vp = resolutionY / 2.0F;
 
     this->X = 1.0F / this->dX;
-    this->Y = 1.0F / dY;
+    this->Y = 1.0F / this->dY;
 
     // Average angular field of view per pixel [rad/pixel]; an average-scale approximation (see rst).
     this->ifov_x = fieldOfViewX / resolutionX;
     this->ifov_y = fieldOfViewY / resolutionY;
 
-    this->cameraCalibrationMatrix << this->dX, alpha, up, 0.0F, dY, vp, 0.0F, 0.0F, 1.0F;
+    this->cameraCalibrationMatrix << this->dX, alpha, up, 0.0F, this->dY, vp, 0.0F, 0.0F, 1.0F;
 
-    this->cameraCalibrationMatrixInverse << 1.0F / this->dX, -alpha / (this->dX * dY),
-        ((alpha * vp) - (dY * up)) / (this->dX * dY), 0.0F, 1.0F / dY, -vp / dY, 0.0F, 0.0F, 1.0F;
+    this->cameraCalibrationMatrixInverse << 1.0F / this->dX, -alpha / (this->dX * this->dY),
+        ((alpha * vp) - (this->dY * up)) / (this->dX * this->dY), 0.0F, 1.0F / this->dY, -vp / this->dY, 0.0F, 0.0F,
+        1.0F;
 }
 
 /**
@@ -148,29 +149,6 @@ PhaseAngleCorrectionResult CobConverterAlgorithm::computePhaseAngleCorrection(co
 }
 
 /**
- * @brief Compute centers of brightness and mass in pixel coordinates.
- * @param cobCenterOfBrightness pixel-based center of brightness.
- * @param gamma Phase-angle offset factor.
- * @param Rc Object radius in pixels.
- * @param phi Sun direction in the image plane.
- * @return Tuple of (centerOfBrightness, centerOfMass) as 3-vectors in homogeneous pixel coords.
- */
-std::tuple<Eigen::Vector3f, Eigen::Vector3f> CobConverterAlgorithm::computeCentersOfInterest(
-    const Eigen::Vector2f& cobCenterOfBrightness,
-    const float gamma,
-    const float Rc,
-    const float phi) {
-    // Center of Brightness in pixel space
-    Eigen::Vector3f centerOfBrightness{cobCenterOfBrightness(0), cobCenterOfBrightness(1), 1.0F};
-
-    // Center of Mass in pixel space (offset by phase-angle correction)
-    Eigen::Vector3f const centerOfMass{centerOfBrightness(0) - (gamma * Rc * safeCosf(phi)),
-                                       centerOfBrightness(1) - (gamma * Rc * safeSinf(phi)),
-                                       1.0F};
-    return {centerOfBrightness, centerOfMass};
-}
-
-/**
  * @brief Apply the Brown-Conrady distortion model to a normalized image-plane coordinate.
  *
  * Uses the stored radial (k1, k2, k3) and tangential (p1, p2) coefficients. With all
@@ -199,24 +177,6 @@ Eigen::Vector3f CobConverterAlgorithm::calibrateDistortions(const Eigen::Vector3
     calibratedVector(1) = (y * kPolynomial) + (2 * p2 * x * y) + (p1 * (r2 + (2 * y * y)));
 
     return calibratedVector;
-}
-
-/**
- * @brief Compute unit vectors in the camera frame from pixel coordinates.
- * @param centerOfBrightness 3-vector (homogeneous) pixel coordinates of COB.
- * @param centerOfMass 3-vector (homogeneous) pixel coordinates of COM.
- * @return Tuple of (rhatCOB_C, rhatCOM_C).
- */
-std::tuple<Eigen::Vector3f, Eigen::Vector3f> CobConverterAlgorithm::computeRelevantVectors(
-    const Eigen::Vector3f& centerOfBrightness,
-    const Eigen::Vector3f& centerOfMass) const {
-    // Retrieve the vector from target to camera and normalize. When all coefficients
-    // are zero calibrateDistortions is a no-op, so we always call it.
-    Eigen::Vector3f rhatCOB_C = -this->calibrateDistortions(this->cameraCalibrationMatrixInverse * centerOfBrightness);
-    Eigen::Vector3f rhatCOM_C = -this->calibrateDistortions(this->cameraCalibrationMatrixInverse * centerOfMass);
-    rhatCOB_C.stableNormalize();
-    rhatCOM_C.stableNormalize();
-    return {rhatCOB_C, rhatCOM_C};
 }
 
 /**
@@ -309,18 +269,17 @@ Eigen::Matrix3f CobConverterAlgorithm::computeCameraFrameUncertainty(
  * @param output Essential (inertial-frame) output to fill.
  * @param diagnostic Diagnostic output to fill.
  */
-void CobConverterAlgorithm::populateOutputMessages(
-    const uint64_t timeTag,
-    const Eigen::Vector3f& centerOfMass,  // NOLINT(bugprone-easily-swappable-parameters)
-    const Eigen::Vector3f& centerOfBrightness,
-    const Rotations& rotations,
-    const PhaseAngleCorrectionResult& correction,
-    const Eigen::Vector3f& rhatCOM_C,
-    const Eigen::Vector3f& rhatCOB_C,
-    const Eigen::Matrix3f& covar_B,
-    const bool goodOutlierCheck,
-    CobConverterOutput& output,
-    CobConverterDiagnosticOutput& diagnostic) {
+void CobConverterAlgorithm::populateOutputMessages(const uint64_t timeTag,
+                                                   const Eigen::Vector3f& centerOfMass,
+                                                   const Eigen::Vector3f& centerOfBrightness,
+                                                   const Rotations& rotations,
+                                                   const PhaseAngleCorrectionResult& correction,
+                                                   const Eigen::Vector3f& rhatCOM_C,
+                                                   const Eigen::Vector3f& rhatCOB_C,
+                                                   const Eigen::Matrix3f& covar_B,
+                                                   const bool goodOutlierCheck,
+                                                   CobConverterOutput& output,
+                                                   CobConverterDiagnosticOutput& diagnostic) {
     const Eigen::Vector3f rhatCOM_N = rotations.dcm_NC * rhatCOM_C;
     output.covar_N = rotations.dcm_BN.transpose() * covar_B * rotations.dcm_BN;
     output.rhat_BN_N = rhatCOM_N;
@@ -368,18 +327,37 @@ CobConverterUpdateResult CobConverterAlgorithm::updateState(const CobMeasurement
 
         PhaseAngleCorrectionResult correction =
             this->computePhaseAngleCorrection(filter.filterVehPosition, attitude.vehSunPntBdy, rotations.dcm_BN);
-        auto [centerOfBrightness, centerOfMass] = CobConverterAlgorithm::computeCentersOfInterest(
-            cob.cobCenterOfBrightness, correction.gamma, correction.Rc, correction.phi);
+
+        Eigen::Vector3f rhatCOM_SC_C_Buffer = Eigen::Vector3f::Zero();
+        Eigen::Vector3f rhatCOB_SC_C_Buffer = Eigen::Vector3f::Zero();
+        const float uCOB = cob.cobCenterOfBrightness(0);
+        const float vCOB = cob.cobCenterOfBrightness(1);
+        const float tanBeta = static_cast<float>(this->cfg.getRadius() * correction.gamma / correction.spacecraftRange);
+        const float uCOM = uCOB - (tanBeta) * this->dX * safeCosf(correction.phi);
+        const float vCOM = vCOB - (tanBeta) * this->dY * safeSinf(correction.phi);
+        const Eigen::Vector3f centerOfMass{uCOM, vCOM, 1};
+        const Eigen::Vector3f xy1COM = this->cameraCalibrationMatrixInverse * centerOfMass;
+        const Eigen::Vector3f xy1COMCorrected = this->calibrateDistortions(xy1COM);
+        rhatCOM_SC_C_Buffer = -xy1COMCorrected.stableNormalized();
+
+        const Eigen::Vector3f centerOfBrightness{uCOB, vCOB, 1};
+        const Eigen::Vector3f xy1COB = this->cameraCalibrationMatrixInverse * centerOfBrightness;
+        const Eigen::Vector3f xy1COBCorrected = this->calibrateDistortions(xy1COB);
+        rhatCOB_SC_C_Buffer = -xy1COBCorrected.stableNormalized();
+
         correction.validCom = centerOfMass.allFinite();
-        auto [rhatCOB_C, rhatCOM_C] = this->computeRelevantVectors(centerOfBrightness, centerOfMass);
+
         const Eigen::Matrix3f covar_B =
             this->computeCameraFrameUncertainty(cob.cobPixelsFound, filter.filterVehPositionCovariance, correction);
 
-        if (rhatCOB_C.allFinite() && rhatCOM_C.allFinite() && covar_B.allFinite()) {
+        if (rhatCOB_SC_C_Buffer.allFinite() && rhatCOM_SC_C_Buffer.allFinite() && covar_B.allFinite()) {
             bool goodOutlierCheck = true;
             if (this->cfg.isOutlierDetectionEnabled()) {
-                goodOutlierCheck = this->cobOutlierDetection(
-                    filter.filterVehPosition, filter.filterVehPositionCovariance, covar_B, rhatCOB_C, rotations.dcm_NC);
+                goodOutlierCheck = this->cobOutlierDetection(filter.filterVehPosition,
+                                                             filter.filterVehPositionCovariance,
+                                                             covar_B,
+                                                             rhatCOB_SC_C_Buffer,
+                                                             rotations.dcm_NC);
                 result.diagnostic.coberrorOutlierTrigger = !goodOutlierCheck;
             }
             CobConverterAlgorithm::populateOutputMessages(cob.cobTimeTag,
@@ -387,8 +365,8 @@ CobConverterUpdateResult CobConverterAlgorithm::updateState(const CobMeasurement
                                                           centerOfBrightness,
                                                           rotations,
                                                           correction,
-                                                          rhatCOM_C,
-                                                          rhatCOB_C,
+                                                          rhatCOM_SC_C_Buffer,
+                                                          rhatCOB_SC_C_Buffer,
                                                           covar_B,
                                                           goodOutlierCheck,
                                                           result.output,
