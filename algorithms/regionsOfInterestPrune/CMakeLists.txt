@@ -11,3 +11,5 @@ target_sources("${module}" PRIVATE
 )
 
 target_include_directories("${module}" PUBLIC "..")
+
+add_subdirectory(_tests)
