@@ -31,11 +31,17 @@ class DvExecuteGuidanceConfig final {
         if (!isValidControlPeriod(controlPeriod)) {
             FSW_THROW_INVALID_ARGUMENT("dvExecuteGuidance: controlPeriod must be positive and finite.");
         }
+        if (!isValidMaxTimeRelativeToMinTime(minTime, maxTime)) {
+            FSW_THROW_INVALID_ARGUMENT("dvExecuteGuidance: maxTime must be 0 (disabled) or greater than minTime.");
+        }
         return {minTime, maxTime, controlPeriod};
     }
 
     static bool isValidMinTime(float minTime) { return minTime >= 0.0F && fsw::is_finite(minTime); }
     static bool isValidMaxTime(float maxTime) { return maxTime >= 0.0F && fsw::is_finite(maxTime); }
+    static bool isValidMaxTimeRelativeToMinTime(float minTime, float maxTime) {
+        return maxTime == 0.0F || maxTime > minTime;
+    }
     static bool isValidControlPeriod(float controlPeriod) {
         return controlPeriod > 0.0F && fsw::is_finite(controlPeriod);
     }

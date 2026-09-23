@@ -11,12 +11,14 @@ from xmera.utilities import macros
 # parameters
 dv_magnitude = [4.3, 5.0, 10.0]
 min_time = [0.0, 4.0]
-max_time = [0.0, 3.0]
+max_time = [0.0, 3.0, 5.0]
 start_time = [0.0, 1.0]
 
 param_array = [dv_magnitude, min_time, max_time, start_time]
-# create list with all combinations of parameters
-param_list = list(itertools.product(*param_array))
+# exclude invalid min/max time configurations (nonzero maxTime must be greater than minTime;
+# maxTime = 0 always disables the criterion)
+param_list = [p for p in itertools.product(*param_array) if p[2] == 0.0 or p[2] > p[1]]
+
 
 
 @pytest.mark.parametrize("p1_dv, p2_tmin, p3_tmax, p4_tstart", param_list)
@@ -100,7 +102,7 @@ def test_dv_execute_guidance(show_plots, p1_dv, p2_tmin, p3_tmax, p4_tstart):
     sim.InitializeSimulation()
 
     # compute true values
-    num_time_steps = 10
+    num_time_steps = 16
     on_time_true = np.zeros([num_time_steps, num_thrusters])
     burn_executing_true = np.zeros([num_time_steps])
     burn_complete_true = np.zeros([num_time_steps])
