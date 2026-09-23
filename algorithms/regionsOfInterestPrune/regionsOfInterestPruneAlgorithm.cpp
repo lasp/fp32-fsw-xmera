@@ -14,7 +14,8 @@ void RegionsOfInterestPruneAlgorithm::setConfig(const RegionsOfInterestPruneConf
 
 /*! Update method for the regions-of-interest pruning algorithm.  Orchestrates
  *  the four pipeline steps and returns a fully populated RoiCandidates.
- @return RoiCandidates  Candidates sorted by estimated pixel count (descending).
+ @return RoiCandidates  Candidates sorted by estimated pixel count (descending), ties broken by
+                        distance to image center (ascending) then window area (ascending).
  @param rowSums   Pointer to the per-row above-threshold pixel sums.
  @param numRows   Number of rows in the sum array.
  @param colSums   Pointer to the per-column above-threshold pixel sums.
@@ -33,8 +34,25 @@ RoiCandidates RegionsOfInterestPruneAlgorithm::update(const uint16_t* rowSums,
     const auto topCols = topIndices(colAccum, this->cfg.getMaxColSpans());
 
     // Steps 3–4: form bounding boxes, sort by estimated pixel count, truncate.
-    return packOutput(buildCandidates(rowSpans, rowAccum, topRows, colSpans, colAccum, topCols));
+    return packOutput(buildCandidates(rowSpans, rowAccum, topRows, colSpans, colAccum, topCols), numRows, numCols);
 }
+
+namespace {
+/*! Squared Euclidean distance from a candidate box's center to a reference center point.  Squared
+ *  (rather than true) distance preserves the same ordering while avoiding a sqrt per comparison.
+ @return Squared distance from the candidate's box center to (centerRow, centerCol).
+ @param e         Candidate box.
+ @param centerRow Reference point row coordinate.
+ @param centerCol Reference point column coordinate.
+*/
+float squaredDistanceToCenter(const RoiCandidateEntry& e, float centerRow, float centerCol) {
+    const float rowCenter = static_cast<float>(e.row) + (static_cast<float>(e.height) / 2.0F);
+    const float colCenter = static_cast<float>(e.col) + (static_cast<float>(e.width) / 2.0F);
+    const float dRow = rowCenter - centerRow;
+    const float dCol = colCenter - centerCol;
+    return (dRow * dRow) + (dCol * dCol);
+}
+}  // namespace
 
 /*! Scans a 1-D sum array and returns all contiguous non-zero spans together
  *  with the accumulated sum for each span.  A single forward pass produces both.
@@ -132,17 +150,31 @@ RegionsOfInterestPruneAlgorithm::CandidateArray RegionsOfInterestPruneAlgorithm:
 }
 // NOLINTEND(bugprone-easily-swappable-parameters)
 
-/*! Sorts candidates by estimated pixel count (descending), uses window area for tie break, truncates
- *  to ROI_CANDIDATES_MAX, and packs the result into a RoiCandidates ready for publication.
+/*! Sorts candidates by estimated pixel count (descending); ties are broken first by squared distance
+ *  from the candidate's box center to the image center (ascending — closer wins), then by window area
+ *  (ascending — smaller wins). Truncates to ROI_CANDIDATES_MAX and packs the result into a
+ *  RoiCandidates ready for publication.
  @return RoiCandidates with numCandidates set and candidates[0] = rank-1.
  @param candidates  Unsorted candidate list (taken by value; sorted in-place).
+ @param numRows     Number of rows in the image (defines the image center's row coordinate).
+ @param numCols     Number of columns in the image (defines the image center's column coordinate).
 */
-RoiCandidates RegionsOfInterestPruneAlgorithm::packOutput(CandidateArray candidates) {
+RoiCandidates RegionsOfInterestPruneAlgorithm::packOutput(CandidateArray candidates,
+                                                          uint32_t numRows,
+                                                          uint32_t numCols) {
+    const float centerRow = static_cast<float>(numRows) / 2.0F;
+    const float centerCol = static_cast<float>(numCols) / 2.0F;
+
     std::ranges::sort(candidates.data.begin(),
                       std::next(candidates.data.begin(), candidates.count),
-                      [](const RoiCandidateEntry& a, const RoiCandidateEntry& b) {
+                      [centerRow, centerCol](const RoiCandidateEntry& a, const RoiCandidateEntry& b) {
                           if (a.count != b.count) {
                               return a.count > b.count;
+                          }
+                          const float distA = squaredDistanceToCenter(a, centerRow, centerCol);
+                          const float distB = squaredDistanceToCenter(b, centerRow, centerCol);
+                          if (distA != distB) {
+                              return distA < distB;
                           }
                           return a.height * a.width < b.height * b.width;
                       });
