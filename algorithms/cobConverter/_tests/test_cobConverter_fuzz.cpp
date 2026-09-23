@@ -99,30 +99,31 @@ auto filterVehPositionCovarianceDomain() {
 }  // namespace
 
 FUZZ_TEST(CobConverterFuzz, testCobConverter)
-    .WithDomains(
-        fuzztest::InRange(1.0F, 1.0e6F),  // radius [m]
-        // Keep 0: it no longer gates the covariance propagation, it only zeroes its own term.
-        fuzztest::InRange(0.0F, 1.0e6F),  // radiusUncertainty [m]
-        attitudeCovarianceDomain(),       // attitudeCovariance
-        numStandardDeviationsDomain(),    // numStandardDeviations
-        StandardDeviationsDomain(),       // standardDeviation
-        fuzztest::OneOf(fuzztest::Just(true),
-                        fuzztest::Just(false)),  // specifiedStandardDeviation
-        fuzztest::OneOf(fuzztest::Just(true),
-                        fuzztest::Just(false)),  // outlierDetectionEnabled
-        calibrationCoefficientsDomain(),         // calibrationCoefficients
-        fuzztest::Arbitrary<int>(),              // cameraId (unconstrained: no isValidCameraId check)
-        fuzztest::InRange(0.175F, 2.967F),       // fieldOfViewX [rad]: ~10 deg (narrow) to ~170 deg (wide-angle)
-        fuzztest::InRange(0.175F, 2.967F),       // fieldOfViewY [rad]: independent of fieldOfViewX
-        fuzztest::InRange(32.0F, 8192.0F),       // resolutionX [px]: small nav camera to large science imager
-        fuzztest::InRange(32.0F, 8192.0F),       // resolutionY [px]: independent of resolutionX (see below)
-        arbitraryMrpDomain(),                    // bodyToCameraMrp
-        fuzztest::OneOf(fuzztest::Just(true),
-                        fuzztest::Just(false)),  // cobValid
-        cobPixelsFoundDomain(),                  // cobPixelsFound
-        cobCenterOfBrightnessDomain(),           // cobCenterOfBrightness
-        fuzztest::Arbitrary<uint64_t>(),         // cobTimeTag
-        arbitraryMrpDomain(),                    // sigma_BN
-        arbitraryUnitVectorDomain(),             // vehSunPntBdy
-        filterVehPositionDomain(),               // filterVehPosition
-        filterVehPositionCovarianceDomain());    // filterVehPositionCovariance
+    .WithDomains(fuzztest::InRange(
+                     1.0F,
+                     1.0e6F),  // radius [m]
+                               // Keep 0: it no longer gates the covariance propagation, it only zeroes its own term.
+                 fuzztest::InRange(0.0F, 1.0e6F),  // radiusUncertainty [m]
+                 attitudeCovarianceDomain(),       // attitudeCovariance
+                 numStandardDeviationsDomain(),    // numStandardDeviations
+                 StandardDeviationsDomain(),       // standardDeviation
+                 fuzztest::OneOf(fuzztest::Just(true),
+                                 fuzztest::Just(false)),  // specifiedStandardDeviation
+                 fuzztest::OneOf(fuzztest::Just(true),
+                                 fuzztest::Just(false)),  // outlierDetectionEnabled
+                 calibrationCoefficientsDomain(),         // calibrationCoefficients
+                 fuzztest::Arbitrary<int>(),              // cameraId (unconstrained: no isValidCameraId check)
+                 fuzztest::InRange(0.175F, 2.967F),  // fieldOfViewX [rad]: ~10 deg (narrow) to ~170 deg (wide-angle)
+                 fuzztest::InRange(0.175F, 2.967F),  // fieldOfViewY [rad]: independent of fieldOfViewX
+                 fuzztest::InRange(32.0F, 8192.0F),  // resolutionX [px]: small nav camera to large science imager
+                 fuzztest::InRange(32.0F, 8192.0F),  // resolutionY [px]: independent of resolutionX (see below)
+                 arbitraryMrpDomain(),               // bodyToCameraMrp
+                 fuzztest::OneOf(fuzztest::Just(true),
+                                 fuzztest::Just(false)),  // cobValid
+                 cobPixelsFoundDomain(),                  // cobPixelsFound
+                 cobCenterOfBrightnessDomain(),           // cobCenterOfBrightness
+                 fuzztest::Arbitrary<uint64_t>(),         // cobTimeTag
+                 arbitraryMrpDomain(),                    // sigma_BN
+                 arbitraryUnitVectorDomain(),             // vehSunPntBdy
+                 filterVehPositionDomain(),               // filterVehPosition
+                 filterVehPositionCovarianceDomain());    // filterVehPositionCovariance

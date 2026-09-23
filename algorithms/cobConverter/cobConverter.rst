@@ -141,8 +141,12 @@ pixel space is then computed using
 
 .. math::
 
-    \mathrm{com}_x = \mathrm{cob}_x - \gamma R_c \cos\phi \\
-    \mathrm{com}_y = \mathrm{cob}_y - \gamma R_c \sin\phi
+    \mathrm{com}_x = \mathrm{cob}_x - \gamma \frac{R d_x}{\rho} \cos\phi \\
+    \mathrm{com}_y = \mathrm{cob}_y - \gamma \frac{R d_y}{\rho} \sin\phi
+
+where the per-axis pixel scales :math:`d_x` and :math:`d_y` convert the angular offset
+:math:`\tan\beta = \gamma R / \rho` into pixels along each image axis (with :math:`d_x = d_y` this reduces to
+:math:`\gamma R_c`).
 
 Finally, similar to the COB unit vector, the COM unit vector is obtained by
 

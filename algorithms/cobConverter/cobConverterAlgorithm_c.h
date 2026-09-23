@@ -57,21 +57,20 @@ bool CobConverterAlgorithm_validateConfig(float radius,
  * @return Pointer to a new CobConverterAlgorithm instance (must be destroyed).
  * See validateConfig for parameter constraints.
  */
-CobConverterAlgorithmHandle* CobConverterAlgorithm_create(
-    float radius,
-    float radiusUncertainty,
-    Matrix3f_c attitudeCovariance,
-    float numStandardDeviations,
-    float standardDeviation,
-    bool specifiedStandardDeviation,
-    bool outlierDetectionEnabled,
-    CalibrationCoefficients_c calibrationCoefficients,
-    int32_t cameraId,
-    float fieldOfViewX,
-    float fieldOfViewY,
-    float resolutionX,
-    float resolutionY,
-    Vector3f_c bodyToCameraMrp);
+CobConverterAlgorithmHandle* CobConverterAlgorithm_create(float radius,
+                                                          float radiusUncertainty,
+                                                          Matrix3f_c attitudeCovariance,
+                                                          float numStandardDeviations,
+                                                          float standardDeviation,
+                                                          bool specifiedStandardDeviation,
+                                                          bool outlierDetectionEnabled,
+                                                          CalibrationCoefficients_c calibrationCoefficients,
+                                                          int32_t cameraId,
+                                                          float fieldOfViewX,
+                                                          float fieldOfViewY,
+                                                          float resolutionX,
+                                                          float resolutionY,
+                                                          Vector3f_c bodyToCameraMrp);
 
 /**
  * @brief Destroy a previously created CobConverterAlgorithm.
