@@ -25,7 +25,7 @@ typedef struct {
     int32_t objectPixelRadius;    //!< -- [-] radius of object in pixels
     float phaseAngle;             //!< -- [rad] angle between Sun-Object-Camera
     float sunDirection;           //!< -- [rad] Sun direction in the image
-    bool coberrorOutlierTrigger;  //!< -- true if the predicted COB error >= numStandardDeviations * standard deviations
+    bool comErrorOutlierTrigger;  //!< -- true if the COM heading error exceeded the outlier gate
 } CobConverterDiagnosticMsgF32Payload;
 
 #endif

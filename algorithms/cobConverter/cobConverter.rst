@@ -40,7 +40,7 @@ provides information on what this message is used for:
       - Output COM heading vector and its covariance, inertial frame only
     * - cobConverterDiagnosticOutMsg
       - :ref:`CobConverterDiagnosticMsgPayload`
-      - Output diagnostic message: the COM heading and covariance in the camera and body frames, the uncorrected COB heading, the pixel-space centers, the phase-angle correction metadata, and whether the COB outlier check was triggered
+      - Output diagnostic message: the COM heading and covariance in the camera and body frames, the uncorrected COB heading, the pixel-space centers, the phase-angle correction metadata, and whether the COM outlier check was triggered
 
 Detailed Module Description
 ---------------------------
@@ -212,20 +212,34 @@ stopping when :math:`\max(|x_d - x_u L - \Delta x_t|, |y_d - y_u L - \Delta y_t|
 of the field of view may not converge; this is flagged but does not invalidate the heading. With all coefficients
 zero (the default) the module is an ideal pinhole camera.
 
-An outlier detection may be performed for the COB. In this case, the filter message :ref:`FilterMsgPayload` is used to
-predict the location of the COB. If the location of the COB coming from the image is significantly different from the
-predicted COB, it is considered an outlier and the output unit vector is invalidated. For the output message to be
-valid, the following condition must be fulfilled:
+COM outlier detection
+^^^^^^^^^^^^^^^^^^^^^
+
+When ``outlierDetectionEnabled`` is true, the measured COM heading :math:`\hat{\mathbf{r}}^N` is compared with the
+heading predicted by the filter position :math:`\mathbf{r}^N` (spacecraft relative to the body, from
+:ref:`FilterMsgPayload`). Both point from the COM to the spacecraft:
 
 .. math::
 
-    e_{COB} = | \mathbf{u}_{COB} - \mathbf{u}_{COB, predicted} | \le n_\sigma \cdot \sigma
+    \hat{\mathbf{r}}_{nav}^N = \frac{\mathbf{r}^N}{|\mathbf{r}^N|}, \qquad
+    e = | \hat{\mathbf{r}}^N - \hat{\mathbf{r}}_{nav}^N | \approx \theta
 
-where :math:`\mathbf{u}_{COB} = [\mathrm{cob}_x, \mathrm{cob}_y]^T` are the x-y coordinates of the COB coming from the
-image, :math:`\mathbf{u}_{COB, predicted}` are the x-y coordinates of the predicted COB, :math:`n_\sigma` are the number
-of standard deviations specified by the module input "numStandardDeviations". The standard deviation :math:`\sigma` is
-either fixed via the ``standardDeviation`` property (when ``specifiedStandardDeviation`` is true), or automatically
-obtained by the module from the attitude covariance, the heading covariance :math:`P^N` and the filter covariance.
+where :math:`\theta` is the angle between them. Unless :math:`e < n_\sigma \sigma`, with :math:`n_\sigma` =
+``numStandardDeviations``, the output unit vector is invalidated and ``comErrorOutlierTrigger`` is set.
+
+:math:`\sigma` is the RMS of :math:`e`. If ``specifiedStandardDeviation`` is true, ``standardDeviation`` :math:`s` is the
+per-axis 1-sigma of the COM pixel error [px], and :math:`\sigma = s \sqrt{1/d_x^2 + 1/d_y^2}` (pixel scale at
+boresight). Otherwise, treating the measurement and filter errors as independent,
+
+.. math::
+
+    P_{nav}^N = \frac{(I - \hat{\mathbf{r}}_{nav}\hat{\mathbf{r}}_{nav}^T) [P] (I - \hat{\mathbf{r}}_{nav}\hat{\mathbf{r}}_{nav}^T)}
+    {|\mathbf{r}^N|^2}, \qquad \sigma = \sqrt{\operatorname{tr}\left(P^N + P_{nav}^N\right)}
+
+where :math:`[P]` is the filter position covariance and :math:`P_{nav}^N` is its linearized effect on the predicted
+heading; the projection removes the range error. For an isotropic in-plane error, :math:`e` is Rayleigh distributed, and
+a valid measurement is rejected with probability :math:`\exp(-n_\sigma^2)`, about :math:`10^{-4}` for
+:math:`n_\sigma = 3`. The filter state is used as received, without propagation to the image time.
 
 User Guide
 ----------
@@ -253,12 +267,12 @@ add the module to the simulation task (``reset()`` validates the configuration a
 
 ``attitudeCovariance`` is the covariance of the attitude error MRP, in the body frame.
 
-The COB outlier detection is disabled by default; enable it and configure the sigma-based gate by::
+The outlier detection is disabled by default; enable it and configure the sigma-based gate by::
 
     module.outlierDetectionEnabled = True
     module.numStandardDeviations = 3  # default 3
     module.specifiedStandardDeviation = True
-    module.standardDeviation = 100  # only used when specifiedStandardDeviation is True; otherwise the standard
+    module.standardDeviation = 100  # [px]; only used when specifiedStandardDeviation is True; otherwise the standard
                                      # deviation is dynamically computed by the module
 
 The Brown-Conrady distortion coefficients are optional and default to zero. To apply a lens calibration, populate a

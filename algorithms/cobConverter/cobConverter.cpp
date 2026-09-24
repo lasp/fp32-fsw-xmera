@@ -117,7 +117,7 @@ void CobConverter::updateState(const uint64_t currentSimNanos) {
     diagnosticMsgBuffer.cameraID = this->algorithm->getCameraId();
     diagnosticMsgBuffer.comTimeTag = diag.comTimeTag;
     diagnosticMsgBuffer.comValid = diag.comValid;
-    diagnosticMsgBuffer.coberrorOutlierTrigger = diag.coberrorOutlierTrigger;
+    diagnosticMsgBuffer.comErrorOutlierTrigger = diag.comErrorOutlierTrigger;
 
     this->opnavUnitVecOutMsg.write(uVecOutMsgBuffer, this->moduleID, currentSimNanos);
     this->cobConverterDiagnosticOutMsg.write(diagnosticMsgBuffer, this->moduleID, currentSimNanos);

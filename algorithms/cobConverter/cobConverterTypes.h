@@ -61,7 +61,7 @@ typedef struct {
     float sunDirection;            /*!< [rad] sun direction phi in image plane */
     uint64_t comTimeTag;           /*!< [ns] measurement timestamp */
     bool comValid;                 /*!< [-] COM validity flag */
-    bool coberrorOutlierTrigger;   /*!< [-] true if COB error exceeded outlier threshold */
+    bool comErrorOutlierTrigger;   /*!< [-] true if the COM heading error exceeded the gate */
 } CobConverterOutput_c;
 
 #ifdef __cplusplus

@@ -75,8 +75,8 @@ struct CobConverterDiagnosticOutput {
     float sunDirection{};                                          //!< [rad] sun direction phi in image plane
     uint64_t comTimeTag{};                                         //!< [ns] measurement timestamp
     bool comValid{};                                               //!< [--] COM validity flag
-    bool coberrorOutlierTrigger{};                                 //!< [--] true if COB error exceeded threshold
-    bool brownConradyValid{};                                      //!< [--] true if both undistortions converged
+    bool comErrorOutlierTrigger{};  //!< [--] true if the COM heading error exceeded the gate
+    bool brownConradyValid{};       //!< [--] true if both undistortions converged
 };
 
 /*! Pair returned by updateState: the essential output plus the diagnostic snapshot, so the
@@ -300,11 +300,10 @@ class CobConverterAlgorithm final {
                                                                const CalibrationCoefficients& coefficients);
 
    private:
-    bool cobOutlierDetection(const Eigen::Vector3d& filterVehPosition,
+    bool comOutlierDetection(const Eigen::Vector3d& filterVehPosition,
                              const Eigen::Matrix3d& filterVehPositionCovariance,
-                             const Eigen::Matrix3f& covar_B,
-                             const Eigen::Vector3f& rhatCOB_C,
-                             const Eigen::Matrix3f& dcm_NC) const;
+                             const Eigen::Matrix3f& covar_N,
+                             const Eigen::Vector3f& rhatCOM_N) const;
     void computeCameraParameters();
     Rotations computeRotations(const Eigen::Vector3f& sigma_BN) const;
     PhaseAngleCorrectionResult computePhaseAngleCorrection(const Eigen::Vector3d& filterVehPosition,
@@ -319,7 +318,6 @@ class CobConverterAlgorithm final {
                                        const PhaseAngleCorrectionResult& correction,
                                        const Eigen::Vector3f& rhatCOM_C,
                                        const Eigen::Vector3f& rhatCOB_C,
-                                       bool goodOutlierCheck,
                                        CobConverterOutput& output,
                                        CobConverterDiagnosticOutput& diagnostic);
 

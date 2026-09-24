@@ -329,7 +329,6 @@ def cob_converter_test_function(show_plots, cameraResolution, centerOfBrightness
                                verbose=True)
 
 
-@pytest.mark.skip(reason="cobOutlierDetection call is commented out in CobConverterAlgorithm::updateState")
 def test_coberror_outlier(
         cameraResolution=[512, 512],
         centerOfBrightness=[152, 251],
@@ -425,13 +424,13 @@ def test_coberror_outlier(
     unitTestSim.InitializeSimulation()
     unitTestSim.ConfigureStopTime(testProcessRate)
     unitTestSim.ExecuteSimulation()
-    np.testing.assert_equal(dataDiagnostic.coberrorOutlierTrigger, False, err_msg='coberrorOutlierTrigger should be False')
+    np.testing.assert_equal(dataDiagnostic.comErrorOutlierTrigger, False, err_msg='comErrorOutlierTrigger should be False')
 
     module.numStandardDeviations = 0.01
     unitTestSim.InitializeSimulation()
     unitTestSim.ConfigureStopTime(testProcessRate)
     unitTestSim.ExecuteSimulation()
-    np.testing.assert_equal(dataDiagnostic.coberrorOutlierTrigger, True, err_msg='coberrorOutlierTrigger should be True')
+    np.testing.assert_equal(dataDiagnostic.comErrorOutlierTrigger, True, err_msg='comErrorOutlierTrigger should be True')
 
 
 def apply_brown_conrady(uncalibrated, k1, k2, k3, p1, p2):
