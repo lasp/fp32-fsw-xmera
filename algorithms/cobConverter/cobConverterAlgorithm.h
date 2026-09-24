@@ -19,6 +19,14 @@ struct CalibrationCoefficients {
     float p2 = 0.0F;
 };
 
+/*! Brown-Conrady inverse result: undistorted normalized coordinate, solver validity and iterations used. */
+struct UndistortedCoordinate {
+    float xUndistorted{};  //!< [-] undistorted normalized x
+    float yUndistorted{};  //!< [-] undistorted normalized y
+    bool valid{};          //!< [--] true if the solver converged to a finite solution
+    int iterations{};      //!< [--] Newton iterations taken before returning
+};
+
 /*! COB measurement: bright-pixel detection payload. */
 struct CobMeasurement {
     bool cobValid{};                                                  //!< [--] validity flag
@@ -68,6 +76,7 @@ struct CobConverterDiagnosticOutput {
     uint64_t comTimeTag{};                                         //!< [ns] measurement timestamp
     bool comValid{};                                               //!< [--] COM validity flag
     bool coberrorOutlierTrigger{};                                 //!< [--] true if COB error exceeded threshold
+    bool brownConradyValid{};
 };
 
 /*! Pair returned by updateState: the essential output plus the diagnostic snapshot, so the
@@ -286,6 +295,9 @@ class CobConverterAlgorithm final {
                                          const VehicleAttitude& attitude,
                                          const FilterState& filter) const;
     int getCameraId() const { return this->cfg.getCameraId(); }
+    static UndistortedCoordinate undistortNormalizedCoordinate(float xDistorted,
+                                                               float yDistorted,
+                                                               const CalibrationCoefficients& coefficients);
 
    private:
     bool cobOutlierDetection(const Eigen::Vector3d& filterVehPosition,

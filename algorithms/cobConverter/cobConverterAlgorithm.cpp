@@ -3,6 +3,7 @@
 #include "utilities/fsw/safeMath.h"
 #include "utilities/fsw/timeConstants.h"
 #include <math.h>
+#include <limits>
 #include <numbers>
 
 // Binary phase-angle correction factor (binarized image model)
@@ -180,6 +181,76 @@ Eigen::Vector3f CobConverterAlgorithm::calibrateDistortions(const Eigen::Vector3
 }
 
 /**
+ * @brief Invert the Brown-Conrady model by fixed-point iteration.
+ *
+ * Starting from x_u = x_d, iterates x_u <- (x_d - dx_t) / L (same for y), with
+ * L = 1 + k1 r^2 + k2 r^4 + k3 r^6 and tangential terms dx_t, dy_t at the current iterate,
+ * until the forward model D(x_u) = x_u * L + d_t reproduces x_d within a tolerance relative to
+ * its magnitude, or the iteration limit is reached.
+ *
+ * @param xDistorted Distorted normalized x.
+ * @param yDistorted Distorted normalized y.
+ * @param coefficients Brown-Conrady coefficients.
+ * @return Undistorted coordinate and fixed-point updates taken; valid is false (with the last
+ *         finite iterate) if not converged.
+ */
+UndistortedCoordinate CobConverterAlgorithm::undistortNormalizedCoordinate(
+    const float xDistorted,
+    const float yDistorted,
+    const CalibrationCoefficients& coefficients) {
+    constexpr int kMaxIterations = 50;
+    constexpr float kResidualTolerance = 1e-6F;  // [-] relative to the forward-model magnitude
+
+    float const k1 = coefficients.k1;
+    float const k2 = coefficients.k2;
+    float const k3 = coefficients.k3;
+    float const p1 = coefficients.p1;
+    float const p2 = coefficients.p2;
+
+    if (!fsw::is_finite(xDistorted) || !fsw::is_finite(yDistorted)) {
+        return {xDistorted, yDistorted, false, 0};
+    }
+
+    float xUndistorted = xDistorted;
+    float yUndistorted = yDistorted;
+    for (int iteration = 0; iteration <= kMaxIterations; ++iteration) {
+        float const r2 = (xUndistorted * xUndistorted) + (yUndistorted * yUndistorted);
+        float const r4 = r2 * r2;
+        float const r6 = r2 * r4;
+        float const kPolynomial = 1.0F + (k1 * r2) + (k2 * r4) + (k3 * r6);
+        float const deltaXt =
+            (2.0F * p1 * xUndistorted * yUndistorted) + (p2 * (r2 + (2.0F * xUndistorted * xUndistorted)));
+        float const deltaYt =
+            (p1 * (r2 + (2.0F * yUndistorted * yUndistorted))) + (2.0F * p2 * xUndistorted * yUndistorted);
+
+        // Converged when the forward model reproduces x_d, relative to the magnitude of its terms
+        // (the scale must be finite, or any residual would pass).
+        float const residualX = (xUndistorted * kPolynomial) + deltaXt - xDistorted;
+        float const residualY = (yUndistorted * kPolynomial) + deltaYt - yDistorted;
+        float const residualScale = fmaxf(fmaxf(1.0F, fmaxf(fabsf(xDistorted), fabsf(yDistorted))),
+                                          fmaxf(fabsf(xUndistorted * kPolynomial), fabsf(yUndistorted * kPolynomial)));
+        if (fsw::is_finite(residualScale) &&
+            fmaxf(fabsf(residualX), fabsf(residualY)) <= kResidualTolerance * residualScale) {
+            return {xUndistorted, yUndistorted, true, iteration};
+        }
+        // Iteration limit, or not invertible at L = 0.
+        if (iteration == kMaxIterations || fabsf(kPolynomial) < std::numeric_limits<float>::epsilon()) {
+            break;
+        }
+
+        float const xNext = (xDistorted - deltaXt) / kPolynomial;
+        float const yNext = (yDistorted - deltaYt) / kPolynomial;
+        if (!fsw::is_finite(xNext) || !fsw::is_finite(yNext)) {
+            break;
+        }
+        xUndistorted = xNext;
+        yUndistorted = yNext;
+    }
+    // Not converged: return the last finite iterate, flagged.
+    return {xUndistorted, yUndistorted, false, kMaxIterations};
+}
+
+/**
  * @brief Compute the measurement uncertainty in the camera frame.
  *
  * Propagates the phase-angle uncertainty from the filter position covariance and the object
@@ -335,14 +406,20 @@ CobConverterUpdateResult CobConverterAlgorithm::updateState(const CobMeasurement
         const float tanBeta = static_cast<float>(this->cfg.getRadius() * correction.gamma / correction.spacecraftRange);
         const float uCOM = uCOB - (tanBeta) * this->dX * safeCosf(correction.phi);
         const float vCOM = vCOB - (tanBeta) * this->dY * safeSinf(correction.phi);
-        const Eigen::Vector3f centerOfMass{uCOM, vCOM, 1};
+        const Eigen::Vector3f centerOfMass{uCOM, vCOM, 1.0F};
         const Eigen::Vector3f xy1COM = this->cameraCalibrationMatrixInverse * centerOfMass;
-        const Eigen::Vector3f xy1COMCorrected = this->calibrateDistortions(xy1COM);
+        const auto [xCOMCorrected, yCOMCorrected, brownConradyCOMValid, brownConradyCOMIterations] =
+            this->undistortNormalizedCoordinate(xy1COM(0), xy1COM(1), this->cfg.getCalibrationCoefficients());
+        const Eigen::Vector3f xy1COMCorrected{xCOMCorrected, yCOMCorrected, 1.0F};
+        // const Eigen::Vector3f xy1COMCorrected = this->calibrateDistortions(xy1COM);
         rhatCOM_SC_C_Buffer = -xy1COMCorrected.stableNormalized();
 
-        const Eigen::Vector3f centerOfBrightness{uCOB, vCOB, 1};
+        const Eigen::Vector3f centerOfBrightness{uCOB, vCOB, 1.0F};
         const Eigen::Vector3f xy1COB = this->cameraCalibrationMatrixInverse * centerOfBrightness;
-        const Eigen::Vector3f xy1COBCorrected = this->calibrateDistortions(xy1COB);
+        const auto [xCOBCorrected, yCOBCorrected, brownConradyCOBValid, brownConradyCOBIterations] =
+            this->undistortNormalizedCoordinate(xy1COB(0), xy1COB(1), this->cfg.getCalibrationCoefficients());
+        const Eigen::Vector3f xy1COBCorrected{xCOBCorrected, yCOBCorrected, 1.0F};
+        // const Eigen::Vector3f xy1COBCorrected = this->calibrateDistortions(xy1COB);
         rhatCOB_SC_C_Buffer = -xy1COBCorrected.stableNormalized();
 
         correction.validCom = centerOfMass.allFinite();
@@ -371,6 +448,7 @@ CobConverterUpdateResult CobConverterAlgorithm::updateState(const CobMeasurement
                                                           goodOutlierCheck,
                                                           result.output,
                                                           result.diagnostic);
+            result.diagnostic.brownConradyValid = brownConradyCOMValid;
         }
     }
     return result;
