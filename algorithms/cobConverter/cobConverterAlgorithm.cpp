@@ -12,30 +12,6 @@ static constexpr float kBinaryPhaseCoeff = 4.0F / (3.0F * std::numbers::pi_v<flo
 static constexpr float kSphereSolidAngle = 4.0F * std::numbers::pi_v<float>;
 
 /**
- * @brief Compute total COB covariance in image space given unit-vector covariances.
- *
- * The covariance contributions include navigation, attitude, and COB measurement terms.
- * They are rotated into the camera frame and mapped to pixel space via the camera
- * calibration matrix K.
- *
- * @param covarNav_N Navigation covariance (inertial frame)
- * @param covarAtt_B Attitude covariance (body frame)
- * @param covarCob_C COB covariance (camera frame)
- * @param dcm_CN DCM from camera to inertial (C->N)
- * @param dcm_CB DCM from camera to body (C->B)
- * @param cameraCalibrationMatrix Camera calibration matrix K
- * @return Image-space covariance matrix in pixel units
- */
-namespace {
-Eigen::Matrix3f computeTotalCobCovariance(const Eigen::Matrix3f& covarNav_N,
-                                          const Eigen::Matrix3f& covarAtt_B,
-                                          const Eigen::Matrix3f& covarCob_C,
-                                          const Eigen::Matrix3f& dcm_CN,
-                                          const Eigen::Matrix3f& dcm_CB,
-                                          const Eigen::Matrix3f& cameraCalibrationMatrix);
-}  // namespace
-
-/**
  * @brief Construct a CobConverterAlgorithm.
  * @param config Validated configuration parameters.
  */
@@ -274,8 +250,6 @@ float CobConverterAlgorithm::computeBetaVar(const Eigen::Matrix3d& filterVehPosi
  * @param correction Phase-angle correction terms for the current cycle.
  * @param rhatCOM_C COM unit vector in the camera frame.
  * @param rhatCOB_C COB unit vector in the camera frame.
- * @param covar_B Total COM/COB covariance in the body frame.
- * @param goodOutlierCheck True unless outlier detection is enabled and flagged this cycle.
  * @param output Essential (inertial-frame) output to fill.
  * @param diagnostic Diagnostic output to fill.
  */
@@ -286,12 +260,10 @@ void CobConverterAlgorithm::populateOutputMessages(const uint64_t timeTag,
                                                    const PhaseAngleCorrectionResult& correction,
                                                    const Eigen::Vector3f& rhatCOM_C,
                                                    const Eigen::Vector3f& rhatCOB_C,
-                                                   const bool goodOutlierCheck,
                                                    CobConverterOutput& output,
                                                    CobConverterDiagnosticOutput& diagnostic) {
     const Eigen::Vector3f rhatCOM_N = rotations.dcm_NC * rhatCOM_C;
     output.unitVecTimeTag = static_cast<double>(timeTag) * kNano2Sec;
-    output.unitVecValid = correction.validCom && goodOutlierCheck;
 
     diagnostic.rhat_BN_C = rhatCOM_C;
     diagnostic.rhat_BN_B = rotations.dcm_BN * rhatCOM_N;
@@ -396,14 +368,13 @@ CobConverterUpdateResult CobConverterAlgorithm::updateState(const CobMeasurement
         const Eigen::Matrix3f covarRHat_N_Buffer = covarImageN + covarAttitudeN;
 
         if (rhatCOM_SC_C_Buffer.allFinite() && covarRHat_N_Buffer.allFinite()) {
-            bool goodOutlierCheck = true;
+            bool goodOutlierCheck = true;  // passes when outlier detection is disabled
             if (this->cfg.isOutlierDetectionEnabled()) {
-                // goodOutlierCheck = this->cobOutlierDetection(filter.filterVehPosition,
-                //                                              filter.filterVehPositionCovariance,
-                //                                              covarRHat_B,
-                //                                              -xy1COBCorrected.stableNormalized(),
-                //                                              rotations.dcm_NC);
-                result.diagnostic.coberrorOutlierTrigger = !goodOutlierCheck;
+                goodOutlierCheck = this->comOutlierDetection(filter.filterVehPosition,
+                                                             filter.filterVehPositionCovariance,
+                                                             covarRHat_N_Buffer,
+                                                             rhatCOM_SC_N_Buffer);
+                result.diagnostic.comErrorOutlierTrigger = !goodOutlierCheck;
             }
             CobConverterAlgorithm::populateOutputMessages(cob.cobTimeTag,
                                                           centerOfMass,
@@ -412,11 +383,11 @@ CobConverterUpdateResult CobConverterAlgorithm::updateState(const CobMeasurement
                                                           correction,
                                                           rhatCOM_SC_C_Buffer,
                                                           -xy1COBCorrected.stableNormalized(),
-                                                          goodOutlierCheck,
                                                           result.output,
                                                           result.diagnostic);
             result.output.rhat_BN_N = rhatCOM_SC_N_Buffer;
             result.output.covar_N = covarRHat_N_Buffer;
+            result.output.unitVecValid = correction.validCom && goodOutlierCheck;
 
             result.diagnostic.covar_C = rotations.dcm_NC.transpose() * covarRHat_N_Buffer * rotations.dcm_NC;
             result.diagnostic.covar_B = rotations.dcm_BN * covarRHat_N_Buffer * rotations.dcm_BN.transpose();
@@ -426,79 +397,34 @@ CobConverterUpdateResult CobConverterAlgorithm::updateState(const CobMeasurement
 }
 
 /**
- * @brief Helper to combine nav, attitude, and COB covariances and map to image space.
+ * @brief Outlier gate: measured COM heading vs filter-predicted heading (both COM->SC, inertial frame).
  *
- * @param covarNav_N Navigation covariance (inertial frame).
- * @param covarAtt_B Attitude covariance (body frame).
- * @param covarCob_C COB covariance (camera frame).
- * @param dcm_CN DCM camera-to-inertial.
- * @param dcm_CB DCM camera-to-body.
- * @param cameraCalibrationMatrix Camera calibration matrix K.
- * @return Image-space covariance (pixels).
+ * Passes when |rhatCOM_N - rhatNav_N| < numStandardDeviations * sigma, sigma the RMS of that error:
+ * standardDeviation * sqrt(1/dX^2 + 1/dY^2) if specified, else sqrt(tr(covar_N + P_nav)), P_nav the filter
+ * position covariance projected normal to rhatNav_N over |r|^2.
+ *
+ * @param filterVehPosition [m] filter spacecraft position relative to the body, inertial frame.
+ * @param filterVehPositionCovariance [m^2] filter position covariance, inertial frame.
+ * @param covar_N COM heading covariance, inertial frame.
+ * @param rhatCOM_N COM->SC unit vector, inertial frame.
+ * @return True unless the error exceeds the gate.
  */
-namespace {
-Eigen::Matrix3f computeTotalCobCovariance(
-    const Eigen::Matrix3f& covarNav_N,
-    const Eigen::Matrix3f& covarAtt_B,  // NOLINT(bugprone-easily-swappable-parameters)
-    const Eigen::Matrix3f& covarCob_C,
-    const Eigen::Matrix3f& dcm_CN,
-    const Eigen::Matrix3f& dcm_CB,
-    const Eigen::Matrix3f& cameraCalibrationMatrix) {
-    const Eigen::Matrix3f covarAtt_C = dcm_CB * covarAtt_B * dcm_CB.transpose();
-    const Eigen::Matrix3f covarNav_C = dcm_CN * covarNav_N * dcm_CN.transpose();
-    const Eigen::Matrix3f covarTotal_C = covarCob_C + covarAtt_C + covarNav_C;
-    Eigen::Matrix3f covarImage = cameraCalibrationMatrix * covarTotal_C * cameraCalibrationMatrix.transpose();
-
-    return covarImage;
-}
-}  // namespace
-
-/**
- * @brief Perform outlier detection on the COB measurement.
- *
- * Projects the filter's expected unit vector to pixel space and compares against the
- * measured COB. Uses either a specified standard deviation or one derived from the
- * combined image covariance to perform a sigma-based gate.
- *
- * @param filterVehPosition Filter position
- * @param filterVehPositionCovariance Filter position covariance
- * @param covar_B Total COM/COB covariance in the body frame for the current cycle.
- * @param rhatCOB_C COB unit vector in the camera frame for the current cycle.
- * @param dcm_NC Inertial-to-camera DCM for the current cycle.
- * @return True unless the COB error prediction exceeds the sigma-based gate.
- */
-bool CobConverterAlgorithm::cobOutlierDetection(const Eigen::Vector3d& filterVehPosition,
+bool CobConverterAlgorithm::comOutlierDetection(const Eigen::Vector3d& filterVehPosition,
                                                 const Eigen::Matrix3d& filterVehPositionCovariance,
-                                                const Eigen::Matrix3f& covar_B,
-                                                const Eigen::Vector3f& rhatCOB_C,
-                                                const Eigen::Matrix3f& dcm_NC) const {
-    const Eigen::Vector3d& rNav_BN_N = filterVehPosition;
-    const Eigen::Vector3f rhatNav_N = rNav_BN_N.stableNormalized().cast<float>();
-    const Eigen::Matrix3f covarNav_N = (filterVehPositionCovariance / pow(rNav_BN_N.stableNorm(), 2)).cast<float>();
+                                                const Eigen::Matrix3f& covar_N,
+                                                const Eigen::Vector3f& rhatCOM_N) const {
+    const Eigen::Vector3d rhatNav_N = filterVehPosition.stableNormalized();
+    const float error = (rhatCOM_N - rhatNav_N.cast<float>()).stableNorm();
 
-    Eigen::Vector3f rhatCOB_C_znorm =
-        -rhatCOB_C;  // turn unit vector from asteroid to camera into unit vector from camera to asteroid
-    rhatCOB_C_znorm /= rhatCOB_C_znorm(2);  // make z-component 1 for image plane
-    const Eigen::Vector3f cob = this->cameraCalibrationMatrix * rhatCOB_C_znorm;
-
-    // assume that the time of the last filter update corresponds to the current timestep (so no propagation required)
-    Eigen::Vector3f rhatNav_C = dcm_NC.transpose() * (-rhatNav_N);
-    rhatNav_C /= rhatNav_C(2);
-    const Eigen::Vector3f cobNav = this->cameraCalibrationMatrix * rhatNav_C;
-
-    const float cobErrorPrediction = (cob - cobNav).stableNorm();
     float sigma = 0.0F;
     if (this->cfg.isStandardDeviationSpecified()) {
-        sigma = this->cfg.getStandardDeviation();
+        sigma = this->cfg.getStandardDeviation() *
+                safeSqrtf((1.0F / (this->dX * this->dX)) + (1.0F / (this->dY * this->dY)));
     } else {
-        Eigen::Matrix3f covarImage =
-            computeTotalCobCovariance(covarNav_N,
-                                      this->cfg.getAttitudeCovariance(),
-                                      this->dcm_CB.transpose() * covar_B * this->dcm_CB.transpose(),
-                                      dcm_NC.transpose(),
-                                      this->dcm_CB,
-                                      this->cameraCalibrationMatrix);
-        sigma = safeSqrtf(std::max(covarImage(0, 0), covarImage(1, 1)));
+        const Eigen::Matrix3d projection = Eigen::Matrix3d::Identity() - (rhatNav_N * rhatNav_N.transpose());
+        const Eigen::Matrix3d covarNav_N =
+            projection * filterVehPositionCovariance * projection.transpose() / filterVehPosition.squaredNorm();
+        sigma = safeSqrtf((covar_N + covarNav_N.cast<float>()).trace());
     }
-    return cobErrorPrediction < this->cfg.getNumStandardDeviations() * sigma;
+    return error < this->cfg.getNumStandardDeviations() * sigma;
 }
