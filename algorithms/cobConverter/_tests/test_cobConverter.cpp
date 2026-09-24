@@ -1,6 +1,9 @@
 #include "cobConverterTestHelpers.hpp"
 #include <gtest/gtest.h>
 
+#include <array>
+#include <string>
+
 TEST(CobConverterTest, RegressionTest) {
     // create a config
     constexpr float attSigma = 0.001F;
@@ -59,6 +62,82 @@ TEST(CobConverterTest, RegressionTest) {
                      vehSunPntBdy,
                      /*filterVehPosition=*/r_BdyZero_N,
                      /*filterVehPositionCovariance=*/Eigen::Matrix3d::Identity() * 50.0e3);
+}
+
+// Same geometry as RegressionTest, but with non-zero Brown-Conrady coefficients: with zero
+// coefficients the forward and inverse models are both the identity, so only this test can tell
+// whether the reference mirrors the algorithm's undistortion.
+TEST(CobConverterTest, BrownConradyCalibrationTest) {
+    constexpr float attSigma = 0.001F;
+    Eigen::Matrix3f attitudeCovariance = Eigen::Matrix3f::Zero();
+    attitudeCovariance(0, 0) = attSigma * attSigma;
+    attitudeCovariance(1, 1) = (0.9F * attSigma) * (0.9F * attSigma);
+    attitudeCovariance(2, 2) = (0.95F * attSigma) * (0.95F * attSigma);
+
+    const float fieldOfViewX = static_cast<float>(20.0 * std::numbers::pi / 180.0);
+    const float fieldOfViewY = static_cast<float>(15.0 * std::numbers::pi / 180.0);
+
+    Eigen::Matrix3d dcm_CB;
+    dcm_CB << 0.0, 1.0, 0.0, 0.0, 0.0, -1.0, -1.0, 0.0, 0.0;
+    const Eigen::Vector3f bodyToCameraMrp = dcmToMrp(dcm_CB).cast<float>();
+
+    const Eigen::Vector3d r_BdyZero_N{-500.0e3, -300.0e3, 0.0};
+    const Eigen::Vector3d v_BdyZero_N{8.0e3, 0.0, 0.0};
+    const Eigen::Vector3d h1 = r_BdyZero_N.normalized();
+    Eigen::Vector3d h3 = h1.cross(v_BdyZero_N.normalized());
+    h3.normalize();
+    const Eigen::Vector3d h2 = h3.cross(h1).normalized();
+    Eigen::Matrix3d dcm_BN;
+    dcm_BN.row(0) = h1.transpose();
+    dcm_BN.row(1) = h2.transpose();
+    dcm_BN.row(2) = h3.transpose();
+    const Eigen::Vector3f sigma_BN = dcmToMrp(dcm_BN).cast<float>();
+
+    const Eigen::Vector3d sunUnit_N = Eigen::Vector3d{-1.0, -1.0, 0.0}.normalized();
+    const Eigen::Vector3f vehSunPntBdy = (dcm_BN * sunUnit_N).cast<float>();
+
+    // (k1, k2, k3, p1, p2), matching test_cobConverter.py::test_brown_conrady_calibration.
+    struct CoefficientCase {
+        const char* label;
+        CalibrationCoefficients coefficients;
+    };
+    const std::array<CoefficientCase, 4> coefficientSets{{
+        {"barrel", {.k1 = -1.0F, .k2 = -2.0F, .k3 = -5.0F, .p1 = 0.0F, .p2 = 0.0F}},
+        {"pincushion", {.k1 = 1.0F, .k2 = 2.0F, .k3 = 5.0F, .p1 = 0.0F, .p2 = 0.0F}},
+        {"tangential", {.k1 = 0.0F, .k2 = 0.0F, .k3 = 0.0F, .p1 = 0.5F, .p2 = 0.3F}},
+        {"combined", {.k1 = -0.5F, .k2 = -1.0F, .k3 = -2.0F, .p1 = 0.2F, .p2 = -0.1F}},
+    }};
+    // Off-center COB points, both inside the 3 * 100 px outlier gate around the image center.
+    const std::array<Eigen::Vector2f, 2> cobCenters{Eigen::Vector2f{152.0F, 251.0F}, Eigen::Vector2f{400.0F, 350.0F}};
+
+    for (const auto& [label, coefficients] : coefficientSets) {
+        for (const Eigen::Vector2f& cobCenterOfBrightness : cobCenters) {
+            SCOPED_TRACE(std::string(label) + " at COB (" + std::to_string(cobCenterOfBrightness(0)) + ", " +
+                         std::to_string(cobCenterOfBrightness(1)) + ")");
+            testCobConverter(/*radius=*/25.0e3F,
+                             /*radiusUncertainty=*/8.0e3F,
+                             attitudeCovariance,
+                             /*numStandardDeviations=*/3.0F,
+                             /*standardDeviation=*/100.0F,
+                             /*specifiedStandardDeviation=*/true,
+                             /*outlierDetectionEnabled=*/true,
+                             coefficients,
+                             /*cameraId=*/0,
+                             fieldOfViewX,
+                             fieldOfViewY,
+                             /*resolutionX=*/512.0F,
+                             /*resolutionY=*/512.0F,
+                             bodyToCameraMrp,
+                             /*cobValid=*/true,
+                             /*cobPixelsFound=*/75,
+                             cobCenterOfBrightness,
+                             /*cobTimeTag=*/12345U,
+                             sigma_BN,
+                             vehSunPntBdy,
+                             /*filterVehPosition=*/r_BdyZero_N,
+                             /*filterVehPositionCovariance=*/Eigen::Matrix3d::Identity() * 50.0e3);
+        }
+    }
 }
 
 // Same geometry as RegressionTest, but with specifiedStandardDeviation=false so
