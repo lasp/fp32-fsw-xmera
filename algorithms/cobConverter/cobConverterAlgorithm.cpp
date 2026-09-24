@@ -11,6 +11,23 @@ static constexpr float kBinaryPhaseCoeff = 4.0F / (3.0F * std::numbers::pi_v<flo
 // Full solid angle of a sphere [sr], used in pixel uncertainty scale factor
 static constexpr float kSphereSolidAngle = 4.0F * std::numbers::pi_v<float>;
 
+bool CobConverterConfig::isValidFocalScale(float fieldOfViewX,
+                                           float fieldOfViewY,
+                                           float resolutionX,
+                                           float resolutionY) {
+    const auto isNormalPositive = [](float value) {
+        return fsw::is_finite(value) && value >= std::numeric_limits<float>::min();
+    };
+    const float pX = 2.0F * safeTanf(fieldOfViewX / 2.0F);
+    const float pY = 2.0F * safeTanf(fieldOfViewY / 2.0F);
+    if (!isNormalPositive(pX) || !isNormalPositive(pY)) {
+        return false;
+    }
+    const float dX = resolutionX / pX;
+    const float dY = resolutionY / pY;
+    return isNormalPositive(dX * dX) && isNormalPositive(dY * dY) && isNormalPositive(dX * dY);
+}
+
 /**
  * @brief Construct a CobConverterAlgorithm.
  * @param config Validated configuration parameters.
@@ -62,13 +79,6 @@ void CobConverterAlgorithm::computeCameraParameters() {
     // Assume the principal point (up, vp) is at the image center.
     const float up = resolutionX / 2.0F;
     const float vp = resolutionY / 2.0F;
-
-    this->X = 1.0F / this->dX;
-    this->Y = 1.0F / this->dY;
-
-    // Average angular field of view per pixel [rad/pixel]; an average-scale approximation (see rst).
-    this->ifov_x = fieldOfViewX / resolutionX;
-    this->ifov_y = fieldOfViewY / resolutionY;
 
     this->cameraCalibrationMatrix << this->dX, alpha, up, 0.0F, this->dY, vp, 0.0F, 0.0F, 1.0F;
 
@@ -299,14 +309,14 @@ CobConverterUpdateResult CobConverterAlgorithm::updateState(const CobMeasurement
     CobConverterUpdateResult result;
 
     if (cob.cobValid && cob.cobPixelsFound != 0 &&
-        filter.filterVehPosition.stableNorm() > static_cast<double>(this->cfg.getRadius())) {
+        filter.filterVehPosition.stableNorm() > static_cast<double>(this->cfg.getRadius()) &&
+        attitude.vehSunPntBdy.allFinite() && attitude.vehSunPntBdy.stableNorm() > 0.0F) {
         const Rotations rotations = this->computeRotations(attitude.sigma_BN);
 
         PhaseAngleCorrectionResult correction =
             this->computePhaseAngleCorrection(filter.filterVehPosition, attitude.vehSunPntBdy, rotations.dcm_BN);
 
         Eigen::Vector3f rhatCOM_SC_C_Buffer = Eigen::Vector3f::Zero();
-        // Eigen::Vector3f rhatCOB_SC_C_Buffer = Eigen::Vector3f::Zero();
         const float uCOB = cob.cobCenterOfBrightness(0);
         const float vCOB = cob.cobCenterOfBrightness(1);
         const float tanBeta = static_cast<float>(this->cfg.getRadius() * correction.gamma / correction.spacecraftRange);
