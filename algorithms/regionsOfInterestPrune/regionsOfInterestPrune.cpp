@@ -14,8 +14,6 @@ void RegionsOfInterestPrune::reset(uint64_t /*callTime*/) {
         throw std::invalid_argument("RegionsOfInterestPrune.rowColSumInMsg wasn't connected.");
     }
     this->algorithm = std::make_unique<RegionsOfInterestPruneAlgorithm>(this->toConfig());
-    this->numPublished = 0;
-    this->lastRegionsOutput = {};
 }
 
 /*! @brief Build a validated RegionsOfInterestPruneConfig from the adapter's stored properties. */
@@ -44,17 +42,17 @@ void RegionsOfInterestPrune::updateState(uint64_t callTime) {
 
     const RoiCandidates candidates = this->algorithm->update(rowSums, rcMsg.numRows, colSums, rcMsg.numCols);
 
-    this->lastRegionsOutput = {};
-    this->numPublished = std::min(candidates.numCandidates, static_cast<uint32_t>(MAX_NUMBER_REGIONS));
+    RegionsIdentifiedMsgF32Payload output{};
+    const uint32_t numPublished = std::min(candidates.numCandidates, static_cast<uint32_t>(MAX_NUMBER_REGIONS));
     const double timeTagSec = static_cast<double>(callTime) * NANO2SEC;
-    for (uint32_t k = 0; k < this->numPublished; ++k) {
+    for (uint32_t k = 0; k < numPublished; ++k) {
         const auto& cand = candidates.candidates[k];
-        this->lastRegionsOutput.timeTag[k] = timeTagSec;
-        this->lastRegionsOutput.centerX[k] = static_cast<int>(cand.col + cand.width / 2);
-        this->lastRegionsOutput.centerY[k] = static_cast<int>(cand.row + cand.height / 2);
-        this->lastRegionsOutput.width[k] = static_cast<int>(cand.width);
-        this->lastRegionsOutput.height[k] = static_cast<int>(cand.height);
-        this->lastRegionsOutput.numberOfPixels[k] = static_cast<int>(cand.count);
+        output.timeTag[k] = timeTagSec;
+        output.centerX[k] = static_cast<int>(cand.col + cand.width / 2);
+        output.centerY[k] = static_cast<int>(cand.row + cand.height / 2);
+        output.width[k] = static_cast<int>(cand.width);
+        output.height[k] = static_cast<int>(cand.height);
+        output.numberOfPixels[k] = static_cast<int>(cand.count);
     }
-    this->regionsIdentifiedOutMsg.write(this->lastRegionsOutput, moduleID, callTime);
+    this->regionsIdentifiedOutMsg.write(output, moduleID, callTime);
 }

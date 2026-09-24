@@ -35,9 +35,6 @@ class RegionsOfInterestPrune : public SysModel {
    private:
     RegionsOfInterestPruneConfig toConfig() const;  //!< Single source of truth for reset() + reconfigure()
     std::unique_ptr<RegionsOfInterestPruneAlgorithm> algorithm = nullptr;
-
-    uint32_t numPublished{};                             //!< Number of valid entries in lastRegionsOutput
-    RegionsIdentifiedMsgF32Payload lastRegionsOutput{};  //!< Published center-coordinate form
 };
 
 #endif
