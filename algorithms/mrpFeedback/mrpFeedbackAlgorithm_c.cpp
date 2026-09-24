@@ -14,10 +14,9 @@ MrpFeedbackInputRwData rwConfigFromC(const MrpFeedbackRwSpinAxes_c& GsMatrix_B,
     out.GsMatrix_B = cArrayToEigenMatrix<float, 3, kMaxNumRw>(GsMatrix_B.data);
     for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
         out.JsList[i] = JsList.data[i];
-        // DEVICE_AVAILABLE is 0 and DEVICE_UNAVAILABLE is 1, so the byte is an enumerator value and not a
-        // boolean flag. Converting through toDeviceAvailability keeps any other value out.
-        out.wheelAvailability[i] =
-            fsw::toDeviceAvailability(static_cast<DeviceAvailability_c>(wheelAvailability.availability[i]));
+        // An unscoped C enum can carry a value outside its enumerators. Converting through
+        // toDeviceAvailability keeps any such value out.
+        out.wheelAvailability[i] = fsw::toDeviceAvailability(wheelAvailability.availability[i]);
     }
     return out;
 }

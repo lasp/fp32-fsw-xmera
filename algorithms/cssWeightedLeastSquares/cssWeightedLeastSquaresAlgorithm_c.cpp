@@ -27,8 +27,7 @@ CssWeightedLeastSquaresConfig configFromC(const CssBoresightArray_c& cssNHat_B,
         for (uint32_t axis = 0; axis < 3U; ++axis) {
             cssSensors.at(sensor).nHat_B(static_cast<Eigen::Index>(axis)) = cssNHat_B.data[(sensor * 3U) + axis];
         }
-        cssSensors.at(sensor).availability =
-            fsw::toDeviceAvailability(static_cast<DeviceAvailability_c>(cssAvailability.availability[sensor]));
+        cssSensors.at(sensor).availability = fsw::toDeviceAvailability(cssAvailability.availability[sensor]);
     }
 
     return CssWeightedLeastSquaresConfig::create(cssSensors, useMeasurementsAsWeights, sensorUseThresh, controlPeriod);

@@ -2,6 +2,7 @@
 #define F32XMERA_RW_MOTOR_TORQUE_ALGORITHM_C_H
 
 #include "rwMotorTorqueTypes.h"
+#include "utilities/fsw/deviceAvailability.h"
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -30,10 +31,10 @@ typedef struct {
 } RwMotorTorqueRwSpinAxes_c;
 
 /**
- * @brief Availability of each wheel slot, one byte per slot: 0 available, 1 unavailable.
+ * @brief Availability of each wheel slot, one entry per slot: 0 available, 1 unavailable.
  */
 typedef struct {
-    uint8_t availability[RW_EFF_CNT]; /*!< [-] one entry per wheel */
+    DeviceAvailability_c availability[RW_EFF_CNT]; /*!< [-] one entry per wheel */
 } RwMotorTorqueRwAvailability_c;
 
 /**
@@ -66,7 +67,7 @@ bool RwMotorTorqueAlgorithm_validateConfig(const RwMotorTorqueControlAxes_c* des
  *                             minimum of one must be selected.
  * @param GsMatrix_B           [-] RW spin axes, three per wheel in row major order. Every slot is
  *                             configured, and each spin axis must be a unit vector.
- * @param wheelAvailability    [-] availability of each wheel, one byte per slot: 0 available, 1 unavailable.
+ * @param wheelAvailability    [-] availability of each wheel, one entry per slot: 0 available, 1 unavailable.
  *                             A slot carrying no wheel is marked unavailable.
  * @param omegaGain            [-] RW null-space feedback gain; must be finite and non-negative.
  * @return Pointer to a new RwMotorTorqueAlgorithm (must be destroyed).
@@ -91,7 +92,7 @@ void RwMotorTorqueAlgorithm_destroy(RwMotorTorqueAlgorithmHandle* self);
  *                             minimum of one must be selected.
  * @param GsMatrix_B           [-] RW spin axes, three per wheel in row major order. Every slot is
  *                             configured, and each spin axis must be a unit vector.
- * @param wheelAvailability    [-] availability of each wheel, one byte per slot: 0 available, 1 unavailable.
+ * @param wheelAvailability    [-] availability of each wheel, one entry per slot: 0 available, 1 unavailable.
  *                             A slot carrying no wheel is marked unavailable.
  * @param omegaGain            [-] RW null-space feedback gain; must be finite and non-negative.
  */

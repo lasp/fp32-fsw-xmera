@@ -31,10 +31,9 @@ ForceTorqueThrForceMappingConfig configFromC(uint32_t numThrusters,
             thrusters.thrusters.at(i).r_TB_B.at(j) = rThruster_B.data[(i * 3U) + j];
             thrusters.thrusters.at(i).tHat_B.at(j) = tHatThruster_B.data[(i * 3U) + j];
         }
-        // DEVICE_AVAILABLE is 0 and DEVICE_UNAVAILABLE is 1, so the byte is an enumerator value and
-        // not a boolean flag. Converting through toDeviceAvailability keeps any other value out.
-        thrusters.thrusterAvailability.at(i) =
-            fsw::toDeviceAvailability(static_cast<DeviceAvailability_c>(thrusterAvailability.availability[i]));
+        // An unscoped C enum can carry a value outside its enumerators. Converting through
+        // toDeviceAvailability keeps any such value out.
+        thrusters.thrusterAvailability.at(i) = fsw::toDeviceAvailability(thrusterAvailability.availability[i]);
     }
 
     const std::array<bool, 6> axes{desiredControlAxes_B.torqueX,

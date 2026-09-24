@@ -2,6 +2,7 @@
 #define F32XMERA_CSS_WEIGHTED_LEAST_SQUARES_ALGORITHM_C_H
 
 #include "cssWeightedLeastSquaresTypes.h"
+#include "utilities/fsw/deviceAvailability.h"
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -26,10 +27,10 @@ typedef struct {
 } CssBoresightArray_c;
 
 /**
- * @brief Availability of each sensor slot, one byte per slot: 0 available, 1 unavailable.
+ * @brief Availability of each sensor slot, one entry per slot: 0 available, 1 unavailable.
  */
 typedef struct {
-    uint8_t availability[MAX_NUM_CSS_SENSORS];
+    DeviceAvailability_c availability[MAX_NUM_CSS_SENSORS];
 } CssAvailabilityArray_c;
 
 /**
@@ -42,7 +43,7 @@ uint32_t CssWeightedLeastSquaresAlgorithm_getMaxNumCss(void);
  * @brief Report whether a configuration would be accepted by create/setConfig.
  * @param cssNHat_B                [-] Sensor boresights in the body frame, three components per sensor in
  *                                 row major order; an available sensor needs a unit vector to within 1e-3.
- * @param cssAvailability          [-] Availability of each sensor, one byte per slot: 0 available,
+ * @param cssAvailability          [-] Availability of each sensor, one entry per slot: 0 available,
  *                                 1 unavailable. An unavailable sensor takes no part in the fit and its
  *                                 boresight is never read.
  * @param useMeasurementsAsWeights [-] whether to weight the measurements in the least squares fit.
@@ -63,7 +64,7 @@ bool CssWeightedLeastSquaresAlgorithm_validateConfig(const CssBoresightArray_c* 
  * Validate the values with validateConfig first; invalid input throws.
  * @param cssNHat_B                [-] Sensor boresights in the body frame, three components per sensor in
  *                                 row major order; an available sensor needs a unit vector to within 1e-3.
- * @param cssAvailability          [-] Availability of each sensor, one byte per slot: 0 available,
+ * @param cssAvailability          [-] Availability of each sensor, one entry per slot: 0 available,
  *                                 1 unavailable. An unavailable sensor takes no part in the fit and its
  *                                 boresight is never read.
  * @param useMeasurementsAsWeights [-] whether to weight the measurements in the least squares fit.
@@ -92,7 +93,7 @@ void CssWeightedLeastSquaresAlgorithm_destroy(CssWeightedLeastSquaresAlgorithmHa
  * @param self                     Pointer to the instance.
  * @param cssNHat_B                [-] Sensor boresights in the body frame, three components per sensor in
  *                                 row major order; an available sensor needs a unit vector to within 1e-3.
- * @param cssAvailability          [-] Availability of each sensor, one byte per slot: 0 available,
+ * @param cssAvailability          [-] Availability of each sensor, one entry per slot: 0 available,
  *                                 1 unavailable. An unavailable sensor takes no part in the fit and its
  *                                 boresight is never read.
  * @param useMeasurementsAsWeights [-] whether to weight the measurements in the least squares fit.

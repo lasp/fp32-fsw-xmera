@@ -2,6 +2,7 @@
 #define F32XMERA_FORCE_TORQUE_THR_FORCE_MAPPING_ALGORITHM_C_H
 
 #include "forceTorqueThrForceMappingTypes.h"
+#include "utilities/fsw/deviceAvailability.h"
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -23,10 +24,10 @@ typedef struct {
 } ThrusterGeometryArray_c;
 
 /**
- * @brief Availability of each thruster slot, one byte per slot: 0 available, 1 unavailable.
+ * @brief Availability of each thruster slot, one entry per slot: 0 available, 1 unavailable.
  */
 typedef struct {
-    uint8_t availability[MAX_EFF_CNT];
+    DeviceAvailability_c availability[MAX_EFF_CNT];
 } ThrusterAvailabilityArray_c;
 
 /**
@@ -45,7 +46,7 @@ uint32_t ForceTorqueThrForceMappingAlgorithm_getMaxThrusterCount(void);
  *                             row major order; each must be a unit vector to within 1e-3.
  * @param centerOfMass_B       [m] Center of mass in the body frame; must be finite.
  * @param desiredControlAxes_B [-] Per-axis controllability assertions.
- * @param thrusterAvailability [-] Availability of each thruster, one byte per slot: 0 available,
+ * @param thrusterAvailability [-] Availability of each thruster, one entry per slot: 0 available,
  *                             1 unavailable. An unavailable thruster is left out of the mapping
  *                             and always receives a zero command; a minimum of one must be available.
  * @return true when the configuration is valid. Never throws, so it can guard the throwing
@@ -72,7 +73,7 @@ bool ForceTorqueThrForceMappingAlgorithm_validateConfig(uint32_t numThrusters,
  *                             row major order; each must be a unit vector to within 1e-3.
  * @param centerOfMass_B       [m] Center of mass in the body frame; must be finite.
  * @param desiredControlAxes_B [-] The axes the mapping controls; a minimum of one must be selected.
- * @param thrusterAvailability [-] Availability of each thruster, one byte per slot: 0 available,
+ * @param thrusterAvailability [-] Availability of each thruster, one entry per slot: 0 available,
  *                             1 unavailable. An unavailable thruster is left out of the mapping
  *                             and always receives a zero command; a minimum of one must be available.
  * @return Pointer to a new ForceTorqueThrForceMappingAlgorithm (must be destroyed).
@@ -104,7 +105,7 @@ void ForceTorqueThrForceMappingAlgorithm_destroy(ForceTorqueThrForceMappingAlgor
  *                             row major order; each must be a unit vector to within 1e-3.
  * @param centerOfMass_B       [m] Center of mass in the body frame; must be finite.
  * @param desiredControlAxes_B [-] Per-axis controllability assertions.
- * @param thrusterAvailability [-] Availability of each thruster, one byte per slot: 0 available,
+ * @param thrusterAvailability [-] Availability of each thruster, one entry per slot: 0 available,
  *                             1 unavailable. An unavailable thruster is left out of the mapping
  *                             and always receives a zero command; a minimum of one must be available.
  */

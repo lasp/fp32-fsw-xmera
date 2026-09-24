@@ -3,6 +3,7 @@
 
 #include "mrpSteeringTypes.h"
 
+#include "utilities/fsw/deviceAvailability.h"
 #include "utilities/fsw/plainCAlgorithmDataTypes.h"
 #include <stdbool.h>
 
@@ -32,10 +33,10 @@ typedef struct {
 } MrpSteeringRwInertias_c;
 
 /**
- * @brief Availability of each wheel slot, one byte per slot: 0 available, 1 unavailable.
+ * @brief Availability of each wheel slot, one entry per slot: 0 available, 1 unavailable.
  */
 typedef struct {
-    uint8_t availability[RW_EFF_CNT]; /*!< [-] one entry per wheel */
+    DeviceAvailability_c availability[RW_EFF_CNT]; /*!< [-] one entry per wheel */
 } MrpSteeringRwAvailability_c;
 
 /**

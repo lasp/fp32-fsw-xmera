@@ -2,6 +2,7 @@
 #define F32XMERA_MRP_FEEDBACK_ALGORITHM_C_H
 
 #include "mrpFeedbackTypes.h"
+#include "utilities/fsw/deviceAvailability.h"
 #include "utilities/fsw/plainCAlgorithmDataTypes.h"
 
 #include <stdbool.h>
@@ -31,10 +32,10 @@ typedef struct {
 } MrpFeedbackRwInertias_c;
 
 /**
- * @brief Availability of each wheel slot, one byte per slot: 0 available, 1 unavailable.
+ * @brief Availability of each wheel slot, one entry per slot: 0 available, 1 unavailable.
  */
 typedef struct {
-    uint8_t availability[RW_EFF_CNT]; /*!< [-] one entry per wheel */
+    DeviceAvailability_c availability[RW_EFF_CNT]; /*!< [-] one entry per wheel */
 } MrpFeedbackRwAvailability_c;
 
 /**
@@ -56,7 +57,7 @@ uint32_t MrpFeedbackAlgorithm_getMaxNumRw(void);
  * @param GsMatrix_B        [-]     RW spin axes, three per wheel in row major order, or NULL to omit the
  *                                  reaction-wheel momentum term. JsList and wheelAvailability are then ignored.
  * @param JsList            [kg*m^2] per-wheel spin-axis inertia.
- * @param wheelAvailability [-]     availability of each wheel, one byte per slot: 0 available, 1 unavailable.
+ * @param wheelAvailability [-]     availability of each wheel, one entry per slot: 0 available, 1 unavailable.
  * @return true when the configuration is valid. Never throws, so it can guard the throwing
  *         create/setConfig from an invalid configuration.
  */
