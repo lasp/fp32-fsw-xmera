@@ -140,11 +140,8 @@ TEST(CobConverterTest, BrownConradyCalibrationTest) {
     }
 }
 
-// Same geometry as RegressionTest, but with specifiedStandardDeviation=false so
-// cobOutlierDetection() derives its sigma from the propagated nav/attitude/COB covariance
-// (computeTotalCobCovariance) instead of using a fixed value. RegressionTest always specifies a
-// standard deviation and PixelsFoundIncreaseIsSizeIncreaseTest disables outlier detection
-// entirely, so neither exercises this branch.
+// RegressionTest geometry with specifiedStandardDeviation=false, so comOutlierDetection() derives sigma from the
+// heading and filter covariances (the only test covering this branch).
 TEST(CobConverterTest, OutlierDetectionDerivedSigmaTest) {
     constexpr float attSigma = 0.001F;
     Eigen::Matrix3f attitudeCovariance = Eigen::Matrix3f::Zero();

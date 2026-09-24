@@ -64,7 +64,7 @@ CobConverterOutput_c outputToC(const CobConverterOutput& out, const CobConverter
     result.sunDirection = diag.sunDirection;
     result.comTimeTag = diag.comTimeTag;
     result.comValid = diag.comValid;
-    result.coberrorOutlierTrigger = diag.coberrorOutlierTrigger;
+    result.comErrorOutlierTrigger = diag.comErrorOutlierTrigger;
     return result;
 }
 
