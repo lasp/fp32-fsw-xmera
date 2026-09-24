@@ -19,7 +19,7 @@ typedef struct CobConverterAlgorithmHandle CobConverterAlgorithmHandle;
  * @brief Report whether a configuration would be accepted by create/setConfig.
  * @param radius                     [m]   object radius; must be > 0.
  * @param radiusUncertainty          [m]   object radius uncertainty; must be >= 0.
- * @param attitudeCovariance         [-]   attitude error covariance, body frame; must be finite.
+ * @param attitudeCovariance         [-]   attitude error-MRP covariance, body frame; must be finite.
  * @param numStandardDeviations      [-]   number of sigmas for outlier gating; must be > 0.
  * @param standardDeviation          [-]   explicit COB error standard deviation, used only when
  *                                         specifiedStandardDeviation is true; must be > 0 when specified.
